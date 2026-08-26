@@ -3,6 +3,10 @@ RewriteEngine On
 RewriteCond %{HTTP:Authorization} .
 RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+# گزارش ثبت‌های ایستگاه: سازگاری با کلاینت‌های قدیمی که capture-report را صدا می‌زنند
+RewriteCond %{QUERY_STRING} (^|&)op=capture-report(&|$) [NC]
+RewriteRule ^line-station-api\.php$ station-capture-report.php [QSA,L]
+
 # API ثبت موقعیت ایستگاه: موتور جدید، با همگام‌سازی قطعی Geofence حضور
 RewriteRule ^line-station-api\.php$ line-station-api-v2.php [QSA,L]
 
