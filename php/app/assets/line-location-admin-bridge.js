@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 const TITLE='📍 موقعیت و ایستگاه‌های خط';
-const API='/line-location-api.php';
+const API='https://app.yousefipour.ir/api/line-location-api.php';
 const token=()=>localStorage.getItem('token')||localStorage.getItem('access')||localStorage.getItem('access_token')||'';
 const auth=()=>({Authorization:'Bearer '+token()});
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
