@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, useWindowDimensions } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { C, FONT } from './theme';
 import ActivityIndicator from './components/PulseLoadingIndicator';
@@ -9,7 +9,7 @@ let ImageManipulator = null;
 try { ImageManipulator = require('expo-image-manipulator'); } catch (_error) { ImageManipulator = null; }
 
 // دوربین سلفی مشترک برای تغییر عکس پروفایل و صحت‌سنجی حضور.
-// هیچ کادر چهره، ماسک، برش اجباری یا انتخاب از گالری در این صفحه وجود ندارد.
+// انتخاب از گالری عمداً در این مسیر وجود ندارد؛ تصویر فقط از CameraView گرفته می‌شود.
 export default function PersonalPhotoCapture({
   onCapture,
   onCancel,
@@ -88,24 +88,32 @@ export default function PersonalPhotoCapture({
 
   if (preview) {
     const previewWidth = Math.min(width - 28, 460);
+    const previewMaxHeight = Math.max(180, Math.min(height * 0.58, 520));
     return (
       <View style={styles.previewPage}>
-        <Text style={styles.previewTitle}>{title}</Text>
-        <View style={[styles.previewFrame, { width: previewWidth }]}>
-          <Image source={{ uri: preview.uri }} style={styles.previewImage} resizeMode="contain" />
-        </View>
-        <Text style={styles.previewNote}>از واضح‌بودن صورت و نور مناسب تصویر مطمئن شوید.</Text>
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.secondaryButton]}
-            onPress={() => { setPreview(null); setReady(false); setMessage(instruction); }}
-          >
-            <Text style={styles.secondaryButtonText}>گرفتن دوباره</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionButton, styles.primaryButton]} onPress={() => onCapture(preview.dataUrl)}>
-            <Text style={styles.primaryButtonText}>تأیید تصویر</Text>
-          </TouchableOpacity>
-        </View>
+        <ScrollView
+          style={styles.previewScroll}
+          contentContainerStyle={styles.previewContent}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <Text style={styles.previewTitle}>{title}</Text>
+          <View style={[styles.previewFrame, { width: previewWidth, maxHeight: previewMaxHeight }]}>
+            <Image source={{ uri: preview.uri }} style={styles.previewImage} resizeMode="contain" />
+          </View>
+          <Text style={styles.previewNote}>از واضح‌بودن صورت و نور مناسب تصویر مطمئن شوید.</Text>
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.secondaryButton]}
+              onPress={() => { setPreview(null); setReady(false); setMessage(instruction); }}
+            >
+              <Text style={styles.secondaryButtonText}>گرفتن دوباره</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionButton, styles.primaryButton]} onPress={() => onCapture(preview.dataUrl)}>
+              <Text style={styles.primaryButtonText}>تأیید تصویر</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -142,7 +150,7 @@ export default function PersonalPhotoCapture({
           {busy ? <ActivityIndicator color="#fff" /> : <View style={styles.shutterInner} />}
         </TouchableOpacity>
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={styles.cancelText}>انصراف</Text></TouchableOpacity> : null}
-        <Text style={styles.cameraOnly}>ثبت تصویر فقط با دوربین جلوی گوشی انجام می‌شود.</Text>
+        <Text style={styles.cameraOnly}>ثبت تصویر فقط با دوربین گوشی انجام می‌شود و انتخاب از گالری در این مرحله غیرفعال است.</Text>
       </View>
     </View>
   );
@@ -162,14 +170,14 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.55 },
   cancelText: { color: '#fff', fontFamily: FONT.regular, fontSize: 13, marginTop: 12 },
   cameraOnly: { color: 'rgba(255,255,255,0.72)', fontFamily: FONT.regular, fontSize: 11, textAlign: 'center', marginTop: 8 },
-  previewPage: { flex: 1, backgroundColor: C.paper, alignItems: 'center', paddingHorizontal: 14, paddingTop: 14, paddingBottom: 22 },
-  previewTitle: { fontFamily: FONT.bold, fontSize: 18, color: C.ink, marginBottom: 10 },
-  // با flex:1 کادر تأیید تصویر همهٔ فضای عمودی باقی‌مانده (بین عنوان و دکمه‌ها) را پر می‌کند
-  // نه فقط بخشی از صفحه؛ در نتیجه دیگر «نصف صفحه» دیده نمی‌شود.
-  previewFrame: { width: '100%', maxWidth: '100%', flex: 1, alignSelf: 'stretch', borderRadius: 16, overflow: 'hidden', backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
+  previewPage: { flex: 1, backgroundColor: C.paper },
+  previewScroll: { flex: 1 },
+  previewContent: { alignItems: 'center', paddingHorizontal: 14, paddingTop: 14, paddingBottom: 24 },
+  previewTitle: { fontFamily: FONT.bold, fontSize: 18, color: C.ink, marginBottom: 10, textAlign: 'center' },
+  previewFrame: { width: '100%', alignSelf: 'stretch', minHeight: 180, borderRadius: 16, overflow: 'hidden', backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
   previewImage: { width: '100%', height: '100%' },
   previewNote: { fontFamily: FONT.regular, color: C.muted, fontSize: 13, textAlign: 'center', lineHeight: 21, marginTop: 10 },
-  actions: { width: '100%', flexDirection: 'row-reverse', gap: 10, justifyContent: 'center', marginTop: 14, marginBottom: 4 },
+  actions: { width: '100%', flexDirection: 'row-reverse', gap: 10, justifyContent: 'center', marginTop: 14 },
   actionButton: { flex: 1, maxWidth: 220, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
   primaryButton: { backgroundColor: C.brand, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 22, alignItems: 'center' },
   primaryButtonText: { color: '#fff', fontFamily: FONT.bold, fontSize: 14 },
