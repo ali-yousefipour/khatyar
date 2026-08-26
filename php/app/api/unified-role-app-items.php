@@ -1,19 +1,119 @@
 <?php
-/** Unified Role App Items source of truth. */
-require_once __DIR__ . '/../auth.php';
+/**
+ * Unified Role App Items source of truth.
+ * This endpoint is intentionally standalone because the admin panel calls it directly.
+ */
+require_once __DIR__ . '/../../lib/Db.php';
+require_once __DIR__ . '/../../lib/Jwt.php';
+require_once __DIR__ . '/../../lib/Http.php';
+$CONFIG = require __DIR__ . '/../../config.php';
 header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: no-store, max-age=0');
-$user = require_auth();
-$pdo = $GLOBALS['pdo'] ?? null;
-if (!$pdo) { http_response_code(500); echo json_encode(['error'=>'DB unavailable'], JSON_UNESCAPED_UNICODE); exit; }
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
+function kh_auth_user() {
+    global $CONFIG;
+    $token = Http::bearer();
+    $payload = $token ? Jwt::verify($token, $CONFIG['jwt_secret']) : null;
+    if (!$payload || empty($payload['sub'])) Http::error('توکن منقضی یا نامعتبر است', 401);
+    Http::$currentToken = $token;
+    $user = Db::one(
+        "SELECT u.id,u.username,u.first_name,u.last_name,u.role_id,r.title AS role_title,r.level,r.is_admin,u.is_active,u.email,u.photo,u.photo_path
+         FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",
+        [$payload['sub']]
+    );
+    if (!$user || !(int)$user['is_active']) Http::error('کاربر نامعتبر', 401);
+    $dt = $payload['dt'] ?? 'web';
+    if (_kh_table_exists('user_sessions')) {
+        $sess = Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? ORDER BY id DESC LIMIT 1", [$user['id'], $dt]);
+        $unlimited = in_array((string)$user['role_title'], ['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد','admin','superadmin'], true) || !empty($user['is_admin']);
+        if (!$sess || $sess['revoked_at'] || (!$unlimited && (string)$sess['device_id'] !== (string)($payload['device_id'] ?? ''))) Http::error('نشست منقضی یا باطل شده است', 401);
+    }
+    $user['device_id'] = $payload['device_id'] ?? null;
+    $user['device_type'] = $dt;
+    return $user;
+}
+function _kh_table_exists($table) {
+    static $cache = [];
+    if (isset($cache[$table])) return $cache[$table];
+    try {
+        $r = Db::one("SELECT COUNT(*) c FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", [$table]);
+        return $cache[$table] = ((int)($r['c'] ?? 0) > 0);
+    } catch (Throwable $e) { return $cache[$table] = false; }
+}
+function kh_is_admin($u) {
+    return !empty($u['is_admin']) || in_array((string)($u['role_title'] ?? ''), ['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد','admin','superadmin'], true);
+}
 const KH_STATION_CAPTURE = 'StationCapture';
 const KH_MY_STATIONS = 'MyStations';
+/* The list is the single canonical list. Existing items are preserved verbatim. */
 $allItems = ['Search','PresentList','Reports','CheckIn','Requests','RequestInbox','WorkSummary','SalarySlips','CompanyRequests','Subscription','Sms','BotMessages','MySms','Forms','Cultural','Welfare','OfficialPresence','Inventory','MyDailyMission','LineVisitProgram',KH_STATION_CAPTURE,KH_MY_STATIONS,'RoleDashboard','Leaderboard','ActivityReport','ExpInsurance','ExpTaxi','ExpOplic','TeamReport','TempDrivers','Outage'];
-function kh_is_admin($u){return !empty($u['is_admin'])||in_array((string)($u['role_title']??$u['role']??''),['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد','admin','superadmin'],true);}
-function kh_read_config($pdo){try{$row=$pdo->query("SELECT value FROM app_settings WHERE `key`='role_app_items' LIMIT 1")->fetch(PDO::FETCH_ASSOC);$cfg=$row?json_decode((string)$row['value'],true):[];return is_array($cfg)?$cfg:[];}catch(Throwable $e){return [];}}
-function kh_roles($pdo){$roles=[];try{foreach($pdo->query("SELECT id,title FROM roles ORDER BY id") as $r)$roles[]=['id'=>(string)$r['id'],'title'=>(string)$r['title']];}catch(Throwable $e){}return $roles;}
-function kh_normalize_config($cfg,$roles,$allItems){$out=[];foreach($roles as $r){$rid=(string)$r['id'];if(!array_key_exists($rid,$cfg))continue;$v=$cfg[$rid];if(!is_array($v)){$out[$rid]=$allItems;continue;}$seen=[];$items=[];foreach($v as $x){$x=(string)$x;if($x===''||isset($seen[$x]))continue;$seen[$x]=true;$items[]=$x;}$items=array_values(array_filter($items,fn($x)=>$x!=='LineLocation'));$out[$rid]=$items;}return $out;}
-$method=$_SERVER['REQUEST_METHOD']??'GET';
-if($method==='GET'){$cfg=kh_read_config($pdo);$roles=kh_roles($pdo);if(kh_is_admin($user)){echo json_encode(['roles'=>$roles,'config'=>$cfg,'items'=>$allItems,'source'=>'role_app_items'],JSON_UNESCAPED_UNICODE);exit;}$rid=(string)($user['role_id']??$user['role']??'');$explicit=array_key_exists($rid,$cfg)&&is_array($cfg[$rid]);$items=$explicit?array_values(array_filter($cfg[$rid],fn($x)=>(string)$x!=='LineLocation')):$allItems;$items=array_values(array_unique(array_map('strval',$items)));echo json_encode(['items'=>$items,'source'=>'role_app_items'],JSON_UNESCAPED_UNICODE);exit;}
-if($method==='POST'){if(!kh_is_admin($user)){http_response_code(403);echo json_encode(['error'=>'دسترسی غیرمجاز'],JSON_UNESCAPED_UNICODE);exit;}$in=json_decode(file_get_contents('php://input'),true)?:[];$cfg=$in['config']??null;if(!is_array($cfg)){http_response_code(422);echo json_encode(['error'=>'تنظیمات آیتم‌های اپ نامعتبر است'],JSON_UNESCAPED_UNICODE);exit;}$roles=kh_roles($pdo);$cfg=kh_normalize_config($cfg,$roles,$allItems);$js=json_encode($cfg,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$st=$pdo->prepare("INSERT INTO app_settings(`key`,`value`) VALUES('role_app_items',?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`)");$st->execute([$js]);echo json_encode(['ok'=>true,'config'=>$cfg,'items'=>$allItems,'source'=>'role_app_items'],JSON_UNESCAPED_UNICODE);exit;}
-http_response_code(405);echo json_encode(['error'=>'Method not allowed'],JSON_UNESCAPED_UNICODE);
+function kh_read_config($pdo) {
+    try {
+        $row = $pdo->query("SELECT value FROM app_settings WHERE `key`='role_app_items' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        if (!$row) return [];
+        $cfg = json_decode((string)$row['value'], true);
+        return is_array($cfg) ? $cfg : [];
+    } catch (Throwable $e) { return []; }
+}
+function kh_roles($pdo) {
+    $roles = [];
+    try {
+        $rows = $pdo->query("SELECT id,title FROM roles ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $r) $roles[] = ['id'=>(string)$r['id'],'title'=>(string)$r['title']];
+    } catch (Throwable $e) {
+        // Do not silently turn a DB/schema error into an empty role selector.
+        error_log('unified-role-app-items roles: '.$e->getMessage());
+    }
+    return $roles;
+}
+function kh_normalize_config($cfg,$roles,$allItems) {
+    $out=[];
+    foreach ($roles as $r) {
+        $rid=(string)$r['id'];
+        if (!array_key_exists($rid,$cfg)) continue;
+        $v=$cfg[$rid];
+        if (!is_array($v)) { $out[$rid]=$allItems; continue; }
+        $seen=[];$items=[];
+        foreach($v as $x){$x=(string)$x;if($x===''||isset($seen[$x]))continue;$seen[$x]=true;$items[]=$x;}
+        $items=array_values(array_filter($items,fn($x)=>$x!=='LineLocation'));
+        $out[$rid]=$items;
+    }
+    return $out;
+}
+
+try {
+    $user = kh_auth_user();
+    $pdo = Db::pdo();
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $cfg = kh_read_config($pdo);
+    $roles = kh_roles($pdo);
+    if ($method === 'GET') {
+        if (kh_is_admin($user)) {
+            echo json_encode(['success'=>true,'roles'=>$roles,'config'=>$cfg,'items'=>$allItems,'source'=>'role_app_items'], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+            exit;
+        }
+        $rid=(string)($user['role_id'] ?? '');
+        $explicit=array_key_exists($rid,$cfg)&&is_array($cfg[$rid]);
+        $items=$explicit?$cfg[$rid]:$allItems;
+        $items=array_values(array_unique(array_filter(array_map('strval',$items),fn($x)=>$x!=='LineLocation')));
+        echo json_encode(['success'=>true,'items'=>$items,'source'=>'role_app_items'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+    if ($method === 'POST') {
+        if (!kh_is_admin($user)) Http::error('دسترسی غیرمجاز',403);
+        $in=Http::body();
+        $newCfg=$in['config']??null;
+        if(!is_array($newCfg)) Http::error('تنظیمات آیتم‌های اپ نامعتبر است',422);
+        $newCfg=kh_normalize_config($newCfg,$roles,$allItems);
+        $js=json_encode($newCfg,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+        $st=$pdo->prepare("INSERT INTO app_settings(`key`,`value`) VALUES('role_app_items',?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`)");
+        $st->execute([$js]);
+        echo json_encode(['success'=>true,'ok'=>true,'config'=>$newCfg,'items'=>$allItems,'roles'=>$roles,'source'=>'role_app_items'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+    Http::error('Method not allowed',405);
+} catch (Throwable $e) {
+    error_log('unified-role-app-items fatal: '.$e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success'=>false,'error'=>'خطای داخلی در بارگذاری تنظیمات سمت‌ها و آیتم‌های اپ'],JSON_UNESCAPED_UNICODE);
+}
