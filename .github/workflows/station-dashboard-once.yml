@@ -1,0 +1,37 @@
+name: station-dashboard-once
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: "!contains(github.event.head_commit.message, '[station-dashboard-once]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch dashboard station shortcuts
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('mobile/src/screens/DashboardScreen.js')
+          s=p.read_text(encoding='utf-8')
+          old="{ icon3d: ICON3D.activity, t: 'ثبت مشخصات ایستگاه', r: 'LineLocation', bg: '#e8f3ff' },"
+          new=old+"\n    { icon3d: ICON3D.activity, t: 'ایستگاه‌های ثبت‌شده من', r: 'LineLocation', params: { mode: 'mine' }, bg: '#eafaf3' },"
+          if "ایستگاه‌های ثبت‌شده من" not in s and old in s:
+              s=s.replace(old,new,1)
+          old2="onPress={() => navigation.navigate(m.r)}"
+          new2="onPress={() => navigation.navigate(m.r, m.params || undefined)}"
+          s=s.replace(old2,new2)
+          p.write_text(s,encoding='utf-8')
+      - name: Commit dashboard patch and remove workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/station-dashboard-once.yml
+          git add mobile/src/screens/DashboardScreen.js .github/workflows/station-dashboard-once.yml
+          git diff --cached --quiet || git commit -m 'feat(android): add separate my stations dashboard item [station-dashboard-once]'
+          git push
