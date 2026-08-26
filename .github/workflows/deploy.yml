@@ -1,0 +1,25 @@
+name: Deploy Only khatyar/php Folder
+
+on:
+  push:
+    branches: [ main ]       # اگر شاخه شما master است، آن را به master تغییر دهید
+    paths:
+      - 'khatyar/php/**'     # فقط در صورتی اجرا شود که تغییری در این مسیر خاص رخ دهد
+
+jobs:
+  deploy:
+    name: Upload to Hosting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: دریافت آخرین کدها
+        uses: actions/checkout@v4
+
+      - name: آپلود فقط پوشه khatyar/php به هاست
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_TARGET_DIR }}
+          source-dir: ./khatyar/php/   # مسیر دقیق پوشه مدنظر شما
