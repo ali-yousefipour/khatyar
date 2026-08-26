@@ -1,0 +1,35 @@
+-- Khatyar / MySQL-MariaDB / idempotent
+CREATE TABLE IF NOT EXISTS line_location_permissions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  role_id INT NOT NULL,
+  can_capture TINYINT(1) NOT NULL DEFAULT 0,
+  can_view TINYINT(1) NOT NULL DEFAULT 0,
+  can_manage TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_llp_role(role_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS line_station_locations (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  line_id INT NOT NULL,
+  station_name VARCHAR(190) NULL,
+  latitude DECIMAL(10,7) NOT NULL,
+  longitude DECIMAL(10,7) NOT NULL,
+  accuracy_m DECIMAL(10,2) NULL,
+  location_photo_path VARCHAR(500) NULL,
+  sign_photo_path VARCHAR(500) NULL,
+  captured_by INT NOT NULL,
+  captured_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_lsl_line(line_id),
+  INDEX idx_lsl_captured(captured_by,captured_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `lines` ADD COLUMN IF NOT EXISTS latitude DECIMAL(10,7) NULL;
+ALTER TABLE `lines` ADD COLUMN IF NOT EXISTS longitude DECIMAL(10,7) NULL;
+ALTER TABLE `lines` ADD COLUMN IF NOT EXISTS location_accuracy_m DECIMAL(10,2) NULL;
+ALTER TABLE `lines` ADD COLUMN IF NOT EXISTS location_photo_path VARCHAR(500) NULL;
+ALTER TABLE `lines` ADD COLUMN IF NOT EXISTS station_sign_photo_path VARCHAR(500) NULL;
+ALTER TABLE `lines` ADD COLUMN IF NOT EXISTS location_updated_by INT NULL;
+ALTER TABLE `lines` ADD COLUMN IF NOT EXISTS location_updated_at DATETIME NULL;
