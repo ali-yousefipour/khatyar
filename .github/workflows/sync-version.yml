@@ -46,6 +46,8 @@ jobs:
           from pathlib import Path
           import re
           version=Path('release-version.txt').read_text(encoding='utf-8').strip()
+          code=int(version.split('.')[0])*10000+int(version.split('.')[1])*100+int(version.split('.')[2])
+
           routes=Path('php/lib/routes.php')
           text=routes.read_text(encoding='utf-8')
           text=re.sub(r"const\s+SITE_VERSION\s*=\s*['\"][^'\"]+['\"]\s*;",f"const SITE_VERSION = '{version}';",text,count=1)
@@ -54,11 +56,17 @@ jobs:
 
           app=Path('mobile/app.config.js')
           text=app.read_text(encoding='utf-8')
-          code=int(version.split('.')[0])*10000+int(version.split('.')[1])*100+int(version.split('.')[2])
           text=re.sub(r"version:\s*process\.env\.ANDROID_VERSION_NAME\s*\|\|\s*['\"][^'\"]+['\"]",f"version: process.env.ANDROID_VERSION_NAME || '{version}'",text,count=1)
           text=re.sub(r"versionCode:\s*Number\(process\.env\.ANDROID_VERSION_CODE\s*\|\|\s*\d+\)",f"versionCode: Number(process.env.ANDROID_VERSION_CODE || {code})",text,count=1)
           text=re.sub(r"app_version:\s*process\.env\.ANDROID_VERSION_NAME\s*\|\|\s*['\"][^'\"]+['\"]",f"app_version: process.env.ANDROID_VERSION_NAME || '{version}'",text,count=1)
           app.write_text(text,encoding='utf-8')
+
+          env=Path('mobile/.env')
+          if env.exists():
+              text=env.read_text(encoding='utf-8')
+              text=re.sub(r'^ANDROID_VERSION_NAME=.*$',f'ANDROID_VERSION_NAME={version}',text,flags=re.M)
+              text=re.sub(r'^ANDROID_VERSION_CODE=.*$',f'ANDROID_VERSION_CODE={code}',text,flags=re.M)
+              env.write_text(text,encoding='utf-8')
 
           panel=Path('php/app/panel.html')
           if panel.exists():
@@ -91,16 +99,24 @@ jobs:
           import json
           from pathlib import Path
           v=json.loads(Path('mobile/package.json').read_text(encoding='utf-8'))['version']
+          code=int(v.split('.')[0])*10000+int(v.split('.')[1])*100+int(v.split('.')[2])
           routes=Path('php/lib/routes.php').read_text(encoding='utf-8')
           panel=Path('php/app/panel.html').read_text(encoding='utf-8')
           badge=Path('php/app/assets/version-badge.js').read_text(encoding='utf-8')
           api=Path('php/app/api/version.php').read_text(encoding='utf-8')
+          app=Path('mobile/app.config.js').read_text(encoding='utf-8')
+          env=Path('mobile/.env').read_text(encoding='utf-8') if Path('mobile/.env').exists() else ''
           assert f"const SITE_VERSION = '{v}';" in routes
           assert f"const APP_VERSION = '{v}';" in routes
           assert f'panel.bundle.js?v={v}' in panel
           assert f"const V='{v}'" in badge
           assert f"KHATYAR_VERSION = '{v}'" in api
-          print(f'Version consistency OK: {v}')
+          assert f"version: process.env.ANDROID_VERSION_NAME || '{v}'" in app
+          assert f"versionCode: Number(process.env.ANDROID_VERSION_CODE || {code})" in app
+          if env:
+              assert f'ANDROID_VERSION_NAME={v}' in env
+              assert f'ANDROID_VERSION_CODE={code}' in env
+          print(f'Version consistency OK: {v} / versionCode {code}')
 
       - name: Commit synchronized version
         shell: bash
@@ -109,6 +125,6 @@ jobs:
           VERSION=$(cat release-version.txt)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add mobile/package.json mobile/app.config.js php/lib/routes.php php/app/panel.html php/app/assets/version-badge.js php/app/assets/panel.bundle.js php/app/api/version.php
+          git add mobile/package.json mobile/app.config.js mobile/.env php/lib/routes.php php/app/panel.html php/app/assets/version-badge.js php/app/assets/panel.bundle.js php/app/api/version.php
           git commit -m "chore: synchronize Khatyar version to ${VERSION} [version-synchronized]"
           git push
