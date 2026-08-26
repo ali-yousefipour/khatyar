@@ -1,21 +1,92 @@
 <?php
-ini_set('display_errors','0'); error_reporting(E_ALL);
-require __DIR__.'/../../lib/Db.php'; require __DIR__.'/../../lib/Jwt.php';
+ini_set('display_errors','0');
+error_reporting(E_ALL);
+require __DIR__.'/../../lib/Db.php';
+require __DIR__.'/../../lib/Jwt.php';
 $CONFIG=require __DIR__.'/../../config.php';
+
 function failx($m,$s=400){http_response_code($s);header('Content-Type: application/json; charset=utf-8');echo json_encode(['error'=>$m],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
-function userx(){global $CONFIG;$h=$_SERVER['HTTP_AUTHORIZATION']??'';if(!preg_match('/Bearer\s+(.+)/i',$h,$m))failx('توکن نامعتبر است',401);$p=Jwt::verify(trim($m[1]),$CONFIG['jwt_secret']);if(!$p)failx('توکن منقضی یا نامعتبر است',401);$u=Db::one("SELECT u.id,u.is_active,r.level,r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?",[$p['sub']]);if(!$u||!$u['is_active'])failx('کاربر نامعتبر است',401);return $u;}
+function userx(){
+  global $CONFIG;
+  $h=$_SERVER['HTTP_AUTHORIZATION']??'';
+  if(!preg_match('/Bearer\s+(.+)/i',$h,$m))failx('توکن نامعتبر است',401);
+  $p=Jwt::verify(trim($m[1]),$CONFIG['jwt_secret']);
+  if(!$p)failx('توکن منقضی یا نامعتبر است',401);
+  $u=Db::one("SELECT u.id,u.is_active,r.level,r.is_admin,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?",[$p['sub']]);
+  if(!$u||!$u['is_active'])failx('کاربر نامعتبر است',401);
+  return $u;
+}
 function xe($v){return htmlspecialchars((string)($v??''),ENT_XML1|ENT_QUOTES,'UTF-8');}
 function col($n){$s='';do{$s=chr(65+$n%26).$s;$n=intdiv($n,26)-1;}while($n>=0);return $s;}
-function c($r,$v,$style=0){return '<c r="'.$r.'" t="inlineStr" s="'.$style.'"><is><t>'.xe($v).'</t></is></c>';}
-function cn($r,$v){return '<c r="'.$r.'" t="n"><v>'.xe($v).'</v></c>';}
-$u=userx(); if(!class_exists('ZipArchive'))failx('ZipArchive روی سرور فعال نیست',500);
+function cell($ref,$value,$style=0){return '<c r="'.$ref.'" t="inlineStr" s="'.$style.'"><is><t>'.xe($value).'</t></is></c>';}
+function numcell($ref,$value,$style=0){return '<c r="'.$ref.'" t="n" s="'.$style.'"><v>'.xe($value).'</v></c>';}
+
+$u=userx();
+if(!class_exists('ZipArchive'))failx('ZipArchive روی سرور فعال نیست',500);
 $admin=!empty($u['is_admin'])||(int)$u['level']<=4;
-if($admin){$rows=Db::all("SELECT l.*,CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) updated_by FROM `lines` l LEFT JOIN users u ON u.id=l.location_updated_by ORDER BY l.code");}
-else{$rows=Db::all("SELECT DISTINCT l.*,CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) updated_by FROM `lines` l JOIN user_lines ul ON ul.line_id=l.id LEFT JOIN users u ON u.id=l.location_updated_by WHERE ul.user_id=? ORDER BY l.code",[$u['id']]);}
-$tmp=tempnam(sys_get_temp_dir(),'kx');$z=new ZipArchive();if($z->open($tmp,ZipArchive::CREATE|ZipArchive::OVERWRITE)!==true)failx('ساخت Excel ناموفق بود',500);
-$heads=['شماره خط','مبدا','مقصد','وضعیت','نام ایستگاه','عرض جغرافیایی','طول جغرافیایی','دقت GPS (متر)','آخرین ثبت','ثبت‌کننده','لینک نقشه','تصویر محل','تصویر تابلو'];$sd='<row r="1">';foreach($heads as $i=>$h)$sd.=c(col($i).'1',$h,1);$sd.='</row>';$dr=[];$rr=[];$mi=0;
-foreach($rows as $i=>$r){$rn=$i+2;$sd.='<row r="'.$rn.'">';$v=[$r['code']??'',$r['origin']??'',$r['destination']??'',$r['status']??'',$r['station_name']??'',$r['latitude']??'',$r['longitude']??'',$r['location_accuracy_m']??'',$r['location_updated_at']??'',$r['updated_by']??''];foreach($v as $j=>$x)$sd.=in_array($j,[5,6,7],true)&&is_numeric($x)?cn(col($j).$rn,$x):c(col($j).$rn,$x);$lat=$r['latitude']??null;$lng=$r['longitude']??null;$map=($lat!==null&&$lng!==null)?'https://www.google.com/maps/search/?api=1&query='.rawurlencode($lat.','.$lng):'';$sd.=c('K'.$rn,$map,3).c('L'.$rn,$r['location_photo_path']?'تصویر':'').c('M'.$rn,$r['station_sign_photo_path']?'تصویر':'').'</row>';
- foreach([['location_photo_path','L'],['station_sign_photo_path','M']] as [$f,$cc]){$p=$r[$f]??'';if(!$p)continue;$file=__DIR__.'/../'.ltrim($p,'/');if(!is_file($file))continue;$mi++;$mn='image'.$mi.'.jpg';$z->addFile($file,'xl/media/'.$mn);$rid='rIdImg'.$mi;$dr[]='<Relationship Id="'.$rid.'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/'.$mn.'"/>';$ci=ord($cc)-65;$rr[]='<xdr:twoCellAnchor><xdr:from><xdr:col>'.$ci.'</xdr:col><xdr:colOff>80000</xdr:colOff><xdr:row>'.$i+1 .'</xdr:row><xdr:rowOff>80000</xdr:rowOff></xdr:from><xdr:to><xdr:col>'.($ci+1).'</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>'.($i+4).'</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="'.$mi.'" name="'.$mn.'"/><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="'.$rid.'"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>';}}
+
+try{
+  if($admin){
+    $rows=Db::all("SELECT s.id,s.line_id,s.station_code,s.station_status,s.station_name,s.latitude,s.longitude,s.accuracy_m,s.captured_at,
+      l.code line_code,l.origin,l.destination,
+      CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) captured_by,
+      GROUP_CONCAT(DISTINCT t.title ORDER BY t.sort_order,t.title SEPARATOR '، ') sign_types,
+      GROUP_CONCAT(DISTINCT sg.photo_path ORDER BY sg.id SEPARATOR ' | ') sign_photos
+      FROM line_station_locations s
+      JOIN `lines` l ON l.id=s.line_id
+      LEFT JOIN users u ON u.id=s.captured_by
+      LEFT JOIN line_station_signs sg ON sg.station_location_id=s.id
+      LEFT JOIN station_sign_types t ON t.id=sg.sign_type_id
+      GROUP BY s.id ORDER BY l.code,s.captured_at DESC,s.id DESC");
+  }else{
+    $rows=Db::all("SELECT s.id,s.line_id,s.station_code,s.station_status,s.station_name,s.latitude,s.longitude,s.accuracy_m,s.captured_at,
+      l.code line_code,l.origin,l.destination,
+      CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) captured_by,
+      GROUP_CONCAT(DISTINCT t.title ORDER BY t.sort_order,t.title SEPARATOR '، ') sign_types,
+      GROUP_CONCAT(DISTINCT sg.photo_path ORDER BY sg.id SEPARATOR ' | ') sign_photos
+      FROM line_station_locations s
+      JOIN `lines` l ON l.id=s.line_id
+      JOIN user_lines ul ON ul.line_id=l.id AND ul.user_id=?
+      LEFT JOIN users u ON u.id=s.captured_by
+      LEFT JOIN line_station_signs sg ON sg.station_location_id=s.id
+      LEFT JOIN station_sign_types t ON t.id=sg.sign_type_id
+      GROUP BY s.id ORDER BY l.code,s.captured_at DESC,s.id DESC",[$u['id']]);
+  }
+}catch(Throwable $e){failx('خواندن اطلاعات ایستگاه‌ها ناموفق بود: '.$e->getMessage(),500);}
+
+$tmp=tempnam(sys_get_temp_dir(),'khs');
+$z=new ZipArchive();
+if($z->open($tmp,ZipArchive::CREATE|ZipArchive::OVERWRITE)!==true)failx('ساخت Excel ناموفق بود',500);
+
+$heads=['ردیف','شناسه ثبت','شماره خط','مبدأ','مقصد','شماره ایستگاه','وضعیت','نام ایستگاه','عرض جغرافیایی','طول جغرافیایی','دقت GPS (متر)','تاریخ ثبت','ثبت‌کننده','نوع تابلوها','تصاویر تابلو'];
+$sheetData='<row r="1">';foreach($heads as $i=>$h)$sheetData.=cell(col($i).'1',$h,1);$sheetData.='</row>';
+foreach($rows as $i=>$r){
+  $rn=$i+2;$sheetData.='<row r="'.$rn.'">';
+  $values=[
+    $i+1,$r['id']??'', $r['line_code']??'', $r['origin']??'', $r['destination']??'', $r['station_code']??'',
+    (($r['station_status']??'')==='missing'?'ناموجود':'ثبت‌شده'), $r['station_name']??'', $r['latitude']??'', $r['longitude']??'',
+    $r['accuracy_m']??'', $r['captured_at']??'', trim($r['captured_by']??''), $r['sign_types']??'', $r['sign_photos']??''
+  ];
+  foreach($values as $j=>$v){
+    if(in_array($j,[0,1],true))$sheetData.=numcell(col($j).$rn,$v);
+    elseif(in_array($j,[8,9,10],true)&&$v!==''&&is_numeric($v))$sheetData.=numcell(col($j).$rn,$v);
+    else $sheetData.=cell(col($j).$rn,$v);
+  }
+  $sheetData.='</row>';
 }
-$sheet='<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView rightToLeft="1" workbookViewId="0"/></sheetViews><cols><col min="1" max="5" width="22"/><col min="6" max="8" width="18"/><col min="9" max="10" width="24"/><col min="11" max="11" width="42"/><col min="12" max="13" width="24"/></cols><sheetData>'.$sd.'</sheetData><autoFilter ref="A1:M'.max(1,count($rows)+1).'"/><drawing r:id="rIdDrawing"/></worksheet>';
-$xml=['[Content_Types].xml'=>'<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>','_rels/.rels'=>'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>','xl/workbook.xml'=>'<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="خطوط تاکسیرانی" sheetId="1" r:id="rId1"/></sheets></workbook>','xl/_rels/workbook.xml.rels'=>'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>','xl/styles.xml'=>'<?xml version="1.0"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF6C324"/></patternFill></fill></fills><borders count="1"><border/></borders><cellXfs count="4"><xf/><xf fontId="1" fillId="1"/><xf numFmtId="2"/><xf fontId="0"/></cellXfs></styleSheet>','xl/worksheets/sheet1.xml'=>$sheet,'xl/worksheets/_rels/sheet1.xml.rels'=>'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdDrawing" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>','xl/drawings/drawing1.xml'=>'<?xml version="1.0"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'.implode('',$rr).'</xdr:wsDr>','xl/drawings/_rels/drawing1.xml.rels'=>'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'.implode('',$dr).'</Relationships>'];foreach($xml as $p=>$x)$z->addFromString($p,$x);$z->close();$name='khatyar-line-stations-'.date('Ymd-His').'.xlsx';header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');header('Content-Disposition: attachment; filename="'.$name.'"');header('Cache-Control: no-store');readfile($tmp);@unlink($tmp);
+$lastRow=max(1,count($rows)+1);
+$sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView rightToLeft="1" workbookViewId="0"/></sheetViews><cols><col min="1" max="2" width="12"/><col min="3" max="7" width="20"/><col min="8" max="8" width="24"/><col min="9" max="11" width="18"/><col min="12" max="13" width="24"/><col min="14" max="15" width="32"/></cols><sheetData>'.$sheetData.'</sheetData><autoFilter ref="A1:O'.$lastRow.'"/></worksheet>';
+
+$z->addFromString('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
+$z->addFromString('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+$z->addFromString('xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="ایستگاه‌های کامل" sheetId="1" r:id="rId1"/></sheets></workbook>');
+$z->addFromString('xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+$z->addFromString('xl/styles.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF6C324"/></patternFill></fill></fills><borders count="1"><border/></borders><cellXfs count="2"><xf/><xf fontId="1" fillId="1"/></cellXfs></styleSheet>');
+$z->addFromString('xl/worksheets/sheet1.xml',$sheet);
+$z->close();
+$name='khatyar-stations-full-'.date('Ymd-His').'.xlsx';
+header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+header('Content-Disposition: attachment; filename="'.$name.'"');
+header('Cache-Control: no-store, no-cache, must-revalidate');
+header('Content-Length: '.filesize($tmp));
+readfile($tmp);@unlink($tmp);
