@@ -66,7 +66,7 @@ export default function DashboardScreen({ navigation }) {
     { icon3d: ICON3D.requests, t: 'اقلام تحویلی', r: 'Inventory', bg: '#f0ecff' },
     { icon3d: ICON3D.activity, t: 'مأموریت روزانه من', r: 'MyDailyMission', bg: '#fff4d8', always: true },
     { icon3d: ICON3D.activity, t: 'برنامه بازدید و پوشش خط', r: 'LineVisitProgram', bg: '#e8f3ff', always: true },
-    { icon3d: ICON3D.activity, t: 'ثبت موقعیت و تصویر خطوط', r: 'LineLocation', bg: '#e8f3ff', always: true },
+    { icon3d: ICON3D.activity, t: 'ثبت ایستگاه‌ها', r: 'LineLocation', bg: '#e8f3ff' },
     { icon3d: ICON3D.activity, t: 'داشبورد و امتیاز من', r: 'RoleDashboard', bg: '#eafaf3', always: true },
     { icon3d: ICON3D.activity, t: 'رتبه‌بندی و نشان‌ها', r: 'Leaderboard', bg: '#fff4d8', always: true },
     { icon3d: ICON3D.activity, t: 'پرکار/کم‌کار هر خط', r: 'ActivityReport', bg: '#eef4ff' },
