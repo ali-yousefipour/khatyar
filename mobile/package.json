@@ -49,7 +49,6 @@
     "expo-local-authentication": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "expo-task-manager": "~57.0.4",
-    "react-native-webview": "13.16.1",
     "react": "19.2.3",
     "react-native": "0.86.0",
     "react-native-gesture-handler": "~2.32.0",
