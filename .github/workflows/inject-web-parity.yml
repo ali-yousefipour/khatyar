@@ -34,17 +34,33 @@ jobs:
           if tags:
               text = text[:pos] + '\n' + '\n'.join(tags) + '\n' + text[pos:]
               p.write_text(text, encoding='utf-8')
+      - name: Remove legacy station permission dependency from Android Dashboard
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('mobile/src/screens/DashboardScreen.js')
+          s=p.read_text(encoding='utf-8')
+          old="const isAdmin=!!(user.is_admin||(user.level||0)>=3);Promise.all([request('/my/app-config'),request('/station-wizard-v2-api.php?op=permission',{noStore:true})]).then(([c,sp])=>setAccess({welfare:isAdmin||!!c.can_welfare,cultural:isAdmin||!!c.can_cultural,temp:isAdmin||!!c.can_manage_temp_drivers,station:isAdmin||!!sp?.allowed})).catch(()=>setAccess({welfare:isAdmin,cultural:isAdmin,temp:isAdmin,station:isAdmin}))"
+          new="const isAdmin=!!(user.is_admin||(user.level||0)>=3);request('/my/app-config').then(c=>setAccess({welfare:isAdmin||!!c.can_welfare,cultural:isAdmin||!!c.can_cultural,temp:isAdmin||!!c.can_manage_temp_drivers})).catch(()=>setAccess({welfare:isAdmin,cultural:isAdmin,temp:isAdmin}))"
+          if old in s:s=s.replace(old,new,1)
+          old="const load=()=>{swr('/my/dashboard',setStats);swr('/my/stats',setMyStats);swr('/my/leaderboard',setLead);Promise.all([request('/my/app-items',{noStore:true}),request('/station-wizard-v2-api.php?op=permission',{noStore:true})]).then(([r,sp])=>{const base=Array.isArray(r?.items)?r.items:[];const stationAllowed=!!sp?.allowed;if(stationAllowed){if(!base.includes('StationCapture'))base.push('StationCapture');if(!base.includes('MyStations'))base.push('MyStations')}else{const i=base.indexOf('StationCapture');if(i>=0)base.splice(i,1);const j=base.indexOf('MyStations');if(j>=0)base.splice(j,1)}setAllowed(base)}).catch(()=>swr('/my/app-items',r=>setAllowed(Array.isArray(r?.items)?r.items:[])));request('/subscription/status',{noStore:true}).then(r=>setSubscription(r?.subscription||null)).catch(()=>{})}"
+          new="const load=()=>{swr('/my/dashboard',setStats);swr('/my/stats',setMyStats);swr('/my/leaderboard',setLead);swr('/my/app-items',r=>setAllowed(Array.isArray(r?.items)?r.items:[]));request('/subscription/status',{noStore:true}).then(r=>setSubscription(r?.subscription||null)).catch(()=>{})}"
+          if old in s:s=s.replace(old,new,1)
+          old="if(m.r==='StationCapture'||m.r==='MyStations')return access.station&&allowed!==null&&allowed.includes(m.r);"
+          new="if(m.r==='StationCapture'||m.r==='MyStations')return allowed!==null&&allowed.includes(m.r);"
+          if old in s:s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
       - name: Validate station and role-item PHP
         shell: bash
         run: |
           php -l php/app/line-location-api.php
           php -l php/app/api/unified-role-app-items.php
-      - name: Commit web parity changes only
+      - name: Commit web parity and Android permission cleanup
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add php/app/app.html
+          git add php/app/app.html mobile/src/screens/DashboardScreen.js
           git diff --cached --quiet && exit 0
-          git commit -m 'fix(web): refresh parity runtime [web-parity-injected]'
+          git commit -m 'fix: use unified Role App Items for station dashboard access [web-parity-injected]'
           git push
