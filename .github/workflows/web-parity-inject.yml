@@ -32,10 +32,11 @@ jobs:
                   raise SystemExit('</body> not found in app.html')
               text = text[:pos] + tag + text[pos:]
           p.write_text(text, encoding='utf-8')
-      - name: Ensure station app item navigation in Web App
+      - name: Ensure station app item navigation and API cleanup
         shell: python
         run: |
           from pathlib import Path
+          import re
           p=Path('php/app/app-parity.js')
           s=p.read_text(encoding='utf-8')
           marker="if(r&&typeof nav==='function')nav(r.dataset.route);"
@@ -43,15 +44,20 @@ jobs:
           if marker in s and "r.dataset.route==='lineLocation'" not in s:
               s=s.replace(marker,repl,1)
               p.write_text(s,encoding='utf-8')
+          p=Path('php/app/line-location-api.php')
+          s=p.read_text(encoding='utf-8')
+          s=re.sub(r"if\(\$op==='roles'\)\{ll_fail\('این تنظیمات حذف شده است',404\);if\(false\)\{.*?\}\nif\(\$op==='save-role'\)","if($op==='roles')ll_fail('این تنظیمات حذف شده است',404);\nif($op==='save-role')",s,count=1,flags=re.S)
+          s=re.sub(r"if\(\$op==='save-role'\)\{ll_fail\('این تنظیمات حذف شده است',404\);if\(false\)\{.*?\}\nif\(\$op==='capture'\)","if($op==='save-role')ll_fail('این تنظیمات حذف شده است',404);\nif($op==='capture')",s,count=1,flags=re.S)
+          p.write_text(s,encoding='utf-8')
       - name: Validate station API PHP syntax
         shell: bash
         run: php -l php/app/line-location-api.php
-      - name: Commit injected script reference and station navigation fix
+      - name: Commit injected script reference and station fixes
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add php/app/app.html php/app/app-parity.js
+          git add php/app/app.html php/app/app-parity.js php/app/line-location-api.php
           git diff --cached --quiet && exit 0
-          git commit -m 'fix(web): route station app item to station capture [web-parity-injected]'
+          git commit -m 'fix(web): finalize station app item routing and API cleanup [web-parity-injected]'
           git push
