@@ -1,0 +1,15 @@
+const fs = require('fs');
+const pkg = JSON.parse(fs.readFileSync('mobile/package.json','utf8'));
+const version = String(pkg.version || '').trim();
+if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error(`Invalid mobile/package.json version: ${version}`);
+const routesPath = 'php/lib/routes.php';
+let routes = fs.readFileSync(routesPath,'utf8');
+routes = routes.replace(/const\s+SITE_VERSION\s*=\s*['"][^'"]+['"];?/, `const SITE_VERSION = '${version}';`);
+routes = routes.replace(/const\s+APP_VERSION\s*=\s*['"][^'"]+['"];?/, `const APP_VERSION = '${version}';`);
+fs.writeFileSync(routesPath, routes);
+const appConfigPath = 'mobile/app.config.js';
+let appConfig = fs.readFileSync(appConfigPath,'utf8');
+appConfig = appConfig.replace(/version:\s*process\.env\.ANDROID_VERSION_NAME\s*\|\|\s*['"][^'"]+['"]/, `version: process.env.ANDROID_VERSION_NAME || '${version}'`);
+appConfig = appConfig.replace(/app_version:\s*process\.env\.ANDROID_VERSION_NAME\s*\|\|\s*['"][^'"]+['"]/, `app_version: process.env.ANDROID_VERSION_NAME || '${version}'`);
+fs.writeFileSync(appConfigPath, appConfig);
+console.log(`Synchronized project version: ${version}`);
