@@ -3,6 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView,
 import { ImagePicker, launchCamera, launchLibrary } from '../cameraLock';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { compressToDataUri } from '../img';
 import { postOrQueue, request } from '../api';
 import { C, FONT } from '../theme';
@@ -33,6 +35,8 @@ export default function ReportsScreen({ navigation }) {
   const [ccRole, setCcRole] = useState('');
   const [ccQuery, setCcQuery] = useState('');
   const [ccUserId, setCcUserId] = useState(null);
+  const [sortNewest, setSortNewest] = useState(true);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const load = useCallback(() => {
     const suffix = sentQuery.trim() ? `?q=${encodeURIComponent(sentQuery.trim())}` : '';
@@ -58,6 +62,12 @@ export default function ReportsScreen({ navigation }) {
     return () => clearTimeout(timer);
   }, [tab, load]);
 
+  const sortedMine = useMemo(() => [...mine].sort((a, b) => {
+    const aa = new Date(a.created_at || 0).getTime();
+    const bb = new Date(b.created_at || 0).getTime();
+    return sortNewest ? bb - aa : aa - bb;
+  }), [mine, sortNewest]);
+
   const roles = useMemo(() => {
     const map = new Map();
     allTargets.forEach((t) => {
@@ -77,7 +87,6 @@ export default function ReportsScreen({ navigation }) {
     }).slice(0, 50);
   }, [allTargets, selectedRole, targetQuery]);
 
-  // «سمت → شخص» برای انتخاب گیرندهٔ رونوشت — دقیقاً همان الگوی انتخاب گیرندهٔ اصلی
   const ccTargets = useMemo(() => {
     if (!ccRole) return [];
     const q = ccQuery.trim();
@@ -109,13 +118,28 @@ export default function ReportsScreen({ navigation }) {
       try {
         const b64 = await FileSystem.readAsStringAsync(a.uri, { encoding: FileSystem.EncodingType.Base64 });
         picked.push({ name: a.name || 'file.pdf', mime_type: 'application/pdf', data: `data:application/pdf;base64,${b64}` });
-      } catch (e) {}
+      } catch (_) {}
     }
     setAttachments((prev) => [...prev, ...picked].slice(0, 5));
   }
 
-  function removeAttachment(idx) {
-    setAttachments((prev) => prev.filter((_, i) => i !== idx));
+  function removeAttachment(idx) { setAttachments((prev) => prev.filter((_, i) => i !== idx)); }
+
+  async function exportPdf() {
+    if (pdfBusy) return;
+    if (!sortedMine.length) return Alert.alert('خروجی PDF', 'گزارشی برای خروجی وجود ندارد.');
+    setPdfBusy(true);
+    try {
+      const rows = sortedMine.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.subject)}</td><td>${esc(r.body)}</td><td>${esc(r.sender_name || r.sender || '')}</td><td>${esc(STATUS[r.status] || r.status || '')}</td><td>${esc(fj(r.created_at))}</td></tr>`).join('');
+      let template = null;
+      try { const p = await request('/reports/print-data'); template = p?.template || null; } catch (_) {}
+      const fallback = `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><style>@page{size:A4;margin:12mm}body{font-family:Tahoma,Arial,sans-serif;color:#172033;font-size:11px}h1{font-size:18px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #cbd5e1;padding:6px;vertical-align:top;text-align:right}th{background:#f1f5f9}.meta{text-align:center;color:#64748b;font-size:10px}</style></head><body><h1>گردش گزارشات</h1><div class="meta">تعداد: ${sortedMine.length} · مرتب‌سازی: ${sortNewest ? 'جدیدترین' : 'قدیمی‌ترین'}</div><table><thead><tr><th>#</th><th>موضوع</th><th>متن</th><th>فرستنده</th><th>وضعیت</th><th>تاریخ</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+      const html = template ? applyTemplate(template, sortedMine) : fallback;
+      const result = await Print.printToFileAsync({ html, base64: false, margins: { top: 12, bottom: 12, left: 12, right: 12 } });
+      if (result?.uri && await Sharing.isAvailableAsync()) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', dialogTitle: 'خروجی PDF گردش گزارشات' });
+      else if (result?.uri) Alert.alert('PDF آماده شد', result.uri);
+    } catch (e) { Alert.alert('خطای PDF', e?.message || 'ساخت PDF ناموفق بود.'); }
+    finally { setPdfBusy(false); }
   }
 
   async function send() {
@@ -136,12 +160,9 @@ export default function ReportsScreen({ navigation }) {
       if (!r.queued) playSound('reportSentSuccess').catch(() => {});
       Alert.alert(r.queued ? 'آفلاین' : 'ارسال شد', r.queued ? 'گزارش ذخیره شد و بعداً ارسال می‌شود.' : `گزارش به ${toName} ارسال شد.`);
       setBody(''); setAttachments([]); setPriority('normal'); if(reportSubjects.length){setSubjectMode(String(reportSubjects[0].id));setSubject(reportSubjects[0].title||'');}else{setSubjectMode('other');setSubject('');}
-      setTargetQuery(''); setSelectedRole('');
-      setCcEnabled(false); setCcRole(''); setCcQuery(''); setCcUserId(null);
-      setTab('sent'); setSentQuery('');
-    } catch (e) {
-      Alert.alert('خطا در ارسال', e?.message || 'ارسال گزارش ناموفق بود. دوباره تلاش کنید.');
-    } finally { setSending(false); }
+      setTargetQuery(''); setSelectedRole(''); setCcEnabled(false); setCcRole(''); setCcQuery(''); setCcUserId(null); setTab('sent'); setSentQuery('');
+    } catch (e) { Alert.alert('خطا در ارسال', e?.message || 'ارسال گزارش ناموفق بود. دوباره تلاش کنید.'); }
+    finally { setSending(false); }
   }
 
   return (
@@ -150,7 +171,6 @@ export default function ReportsScreen({ navigation }) {
         <TouchableOpacity style={[s.tab, tab === 'send' && s.tabOn]} onPress={() => setTab('send')}><Text style={[s.tabTxt, tab === 'send' && s.tabTxtOn]}>ارسال گزارش</Text></TouchableOpacity>
         <TouchableOpacity style={[s.tab, tab === 'sent' && s.tabOn]} onPress={() => setTab('sent')}><Text style={[s.tabTxt, tab === 'sent' && s.tabTxtOn]}>گزارشات ارسال‌شده</Text></TouchableOpacity>
       </View>
-
       {tab === 'send' ? (
         <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
           <Text style={s.label}>موضوع گزارش</Text>
@@ -158,41 +178,36 @@ export default function ReportsScreen({ navigation }) {
           {subjectMode==='other'?<TextInput style={s.input} value={subject} onChangeText={setSubject} placeholder="موضوع دلخواه را وارد کنید…" placeholderTextColor={C.muted}/>:null}
           <Text style={s.label}>اولویت گزارش</Text>
           <View style={s.priorityWrap}>{Object.entries(PRIORITY).map(([k, v]) => <TouchableOpacity key={k} style={[s.priorityChip, priority === k && s.priorityOn]} onPress={() => setPriority(k)}><Text style={[s.priorityTxt, priority === k && s.white]}>{v}</Text></TouchableOpacity>)}</View>
-          <Text style={s.label}>متن گزارش</Text>
-          <TextInput style={[s.input, s.bodyInput]} value={body} onChangeText={setBody} multiline placeholder="شرح گزارش…" placeholderTextColor={C.muted} />
+          <Text style={s.label}>متن گزارش</Text><TextInput style={[s.input, s.bodyInput]} value={body} onChangeText={setBody} multiline placeholder="شرح گزارش…" placeholderTextColor={C.muted} />
           <Text style={s.label}>پیوست‌ها (حداکثر ۵ تصویر یا PDF)</Text>
           <View style={s.attachRow}><TouchableOpacity style={s.attach} onPress={pickImage}><Text style={s.attachTxt}>+ تصویر</Text></TouchableOpacity><TouchableOpacity style={s.attach} onPress={pickPdf}><Text style={s.attachTxt}>+ PDF</Text></TouchableOpacity></View>
           {attachments.map((a, idx) => <View key={`${a.name}-${idx}`} style={s.attItem}>{String(a.mime_type || '').startsWith('image') ? <Image source={{ uri: a.data }} style={s.thumb} /> : null}<Text style={s.attName}>{a.name}</Text><TouchableOpacity onPress={() => removeAttachment(idx)}><Text style={s.attDel}>حذف</Text></TouchableOpacity></View>)}
-
           <Text style={[s.label, { marginTop: 14 }]}>گیرنده گزارش</Text>
-          <View style={s.mgrWrap}>
-            <TouchableOpacity style={[s.mgrChip, targetMode === 'manager' && s.mgrChipOn]} onPress={() => { setTargetMode('manager'); setSelectedRole(''); setTargetQuery(''); setToUserId(managers.length === 1 ? managers[0].id : null); }}><Text style={[s.mgrChipTxt, targetMode === 'manager' && s.white]}>مقام بالادست</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.mgrChip, targetMode === 'specific' && s.mgrChipOn]} onPress={() => { setTargetMode('specific'); setToUserId(null); setSelectedRole(''); setTargetQuery(''); }}><Text style={[s.mgrChipTxt, targetMode === 'specific' && s.white]}>شخص خاص</Text></TouchableOpacity>
-          </View>
-          {targetMode === 'manager' ? <View style={s.mgrWrap}>{managers.map((m) => <TouchableOpacity key={m.id} style={[s.mgrChip, String(toUserId) === String(m.id) && s.mgrChipOn]} onPress={() => setToUserId(m.id)}><Text style={[s.mgrChipTxt, String(toUserId) === String(m.id) && s.white]}>{m.is_chief ? '★ ' : ''}{m.name}{m.role_title ? ` (${m.role_title})` : ''}</Text></TouchableOpacity>)}</View> : <>
-            <Text style={s.stepTitle}>۱. انتخاب سمت</Text>
-            <View style={s.mgrWrap}>{roles.map((r) => <TouchableOpacity key={r.key} style={[s.mgrChip, selectedRole === r.key && s.mgrChipOn]} onPress={() => { setSelectedRole(r.key); setToUserId(null); setTargetQuery(''); }}><Text style={[s.mgrChipTxt, selectedRole === r.key && s.white]}>{r.title}</Text></TouchableOpacity>)}</View>
-            {selectedRole ? <><Text style={s.stepTitle}>۲. انتخاب شخص</Text><TextInput style={s.input} value={targetQuery} onChangeText={setTargetQuery} placeholder="جستجوی نام شخص…" placeholderTextColor={C.muted} /><View style={s.mgrWrap}>{roleTargets.map((t) => <TouchableOpacity key={t.id} style={[s.mgrChip, String(toUserId) === String(t.id) && s.mgrChipOn]} onPress={() => setToUserId(t.id)}><Text style={[s.mgrChipTxt, String(toUserId) === String(t.id) && s.white]}>{t.first_name} {t.last_name}</Text></TouchableOpacity>)}</View>{roleTargets.length === 0 ? <Text style={s.empty}>شخصی با این مشخصات یافت نشد.</Text> : null}</> : null}
-          </>}
-          <TouchableOpacity style={s.ccToggle} onPress={() => { setCcEnabled((v) => !v); setCcRole(''); setCcQuery(''); setCcUserId(null); }}>
-            <Text style={s.ccToggleTxt}>{ccEnabled ? '✓ ' : ''}📋 ارسال رونوشت به فرد دیگر</Text>
-          </TouchableOpacity>
-          {ccEnabled && <>
-            <Text style={s.stepTitle}>۱. انتخاب سمت گیرندهٔ رونوشت</Text>
-            <View style={s.mgrWrap}>{roles.map((r) => <TouchableOpacity key={r.key} style={[s.mgrChip, ccRole === r.key && s.mgrChipOn]} onPress={() => { setCcRole(r.key); setCcUserId(null); setCcQuery(''); }}><Text style={[s.mgrChipTxt, ccRole === r.key && s.white]}>{r.title}</Text></TouchableOpacity>)}</View>
-            {ccRole ? <><Text style={s.stepTitle}>۲. انتخاب شخص</Text><TextInput style={s.input} value={ccQuery} onChangeText={setCcQuery} placeholder="جستجوی نام شخص…" placeholderTextColor={C.muted} /><View style={s.mgrWrap}>{ccTargets.map((t) => <TouchableOpacity key={t.id} style={[s.mgrChip, String(ccUserId) === String(t.id) && s.mgrChipOn]} onPress={() => setCcUserId(t.id)}><Text style={[s.mgrChipTxt, String(ccUserId) === String(t.id) && s.white]}>{t.first_name} {t.last_name}</Text></TouchableOpacity>)}</View>{ccTargets.length === 0 ? <Text style={s.empty}>شخصی با این مشخصات یافت نشد.</Text> : null}</> : null}
-          </>}
+          <View style={s.mgrWrap}><TouchableOpacity style={[s.mgrChip, targetMode === 'manager' && s.mgrChipOn]} onPress={() => { setTargetMode('manager'); setSelectedRole(''); setTargetQuery(''); setToUserId(managers.length === 1 ? managers[0].id : null); }}><Text style={[s.mgrChipTxt, targetMode === 'manager' && s.white]}>مقام بالادست</Text></TouchableOpacity><TouchableOpacity style={[s.mgrChip, targetMode === 'specific' && s.mgrChipOn]} onPress={() => { setTargetMode('specific'); setToUserId(null); setSelectedRole(''); setTargetQuery(''); }}><Text style={[s.mgrChipTxt, targetMode === 'specific' && s.white]}>شخص خاص</Text></TouchableOpacity></View>
+          {targetMode === 'manager' ? <View style={s.mgrWrap}>{managers.map((m) => <TouchableOpacity key={m.id} style={[s.mgrChip, String(toUserId) === String(m.id) && s.mgrChipOn]} onPress={() => setToUserId(m.id)}><Text style={[s.mgrChipTxt, String(toUserId) === String(m.id) && s.white]}>{m.is_chief ? '★ ' : ''}{m.name}{m.role_title ? ` (${m.role_title})` : ''}</Text></TouchableOpacity>)}</View> : <><Text style={s.stepTitle}>۱. انتخاب سمت</Text><View style={s.mgrWrap}>{roles.map((r) => <TouchableOpacity key={r.key} style={[s.mgrChip, selectedRole === r.key && s.mgrChipOn]} onPress={() => { setSelectedRole(r.key); setToUserId(null); setTargetQuery(''); }}><Text style={[s.mgrChipTxt, selectedRole === r.key && s.white]}>{r.title}</Text></TouchableOpacity>)}</View>{selectedRole ? <><Text style={s.stepTitle}>۲. انتخاب شخص</Text><TextInput style={s.input} value={targetQuery} onChangeText={setTargetQuery} placeholder="جستجوی نام شخص…" placeholderTextColor={C.muted} /><View style={s.mgrWrap}>{roleTargets.map((t) => <TouchableOpacity key={t.id} style={[s.mgrChip, String(toUserId) === String(t.id) && s.mgrChipOn]} onPress={() => setToUserId(t.id)}><Text style={[s.mgrChipTxt, String(toUserId) === String(t.id) && s.white]}>{t.first_name} {t.last_name}</Text></TouchableOpacity>)}</View>{roleTargets.length === 0 ? <Text style={s.empty}>شخصی با این مشخصات یافت نشد.</Text> : null}</> : null}</>}
+          <TouchableOpacity style={s.ccToggle} onPress={() => { setCcEnabled((v) => !v); setCcRole(''); setCcQuery(''); setCcUserId(null); }}><Text style={s.ccToggleTxt}>{ccEnabled ? '✓ ' : ''}📋 ارسال رونوشت به فرد دیگر</Text></TouchableOpacity>
+          {ccEnabled && <><Text style={s.stepTitle}>۱. انتخاب سمت گیرندهٔ رونوشت</Text><View style={s.mgrWrap}>{roles.map((r) => <TouchableOpacity key={r.key} style={[s.mgrChip, ccRole === r.key && s.mgrChipOn]} onPress={() => { setCcRole(r.key); setCcUserId(null); setCcQuery(''); }}><Text style={[s.mgrChipTxt, ccRole === r.key && s.white]}>{r.title}</Text></TouchableOpacity>)}</View>{ccRole ? <><Text style={s.stepTitle}>۲. انتخاب شخص</Text><TextInput style={s.input} value={ccQuery} onChangeText={setCcQuery} placeholder="جستجوی نام شخص…" placeholderTextColor={C.muted} /><View style={s.mgrWrap}>{ccTargets.map((t) => <TouchableOpacity key={t.id} style={[s.mgrChip, String(ccUserId) === String(t.id) && s.mgrChipOn]} onPress={() => setCcUserId(t.id)}><Text style={[s.mgrChipTxt, String(ccUserId) === String(t.id) && s.white]}>{t.first_name} {t.last_name}</Text></TouchableOpacity>)}</View></> : null}</>}
           <TouchableOpacity style={[s.btn, sending && { opacity: 0.6 }]} onPress={send} disabled={sending}><Text style={s.btnTxt}>{sending ? 'در حال ارسال…' : 'ارسال گزارش'}</Text></TouchableOpacity>
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
           <TextInput style={s.input} value={sentQuery} onChangeText={setSentQuery} placeholder="جستجو بر اساس موضوع یا بخشی از متن گزارش…" placeholderTextColor={C.muted} />
-          {mine.length === 0 && <Text style={s.empty}>گزارشی مطابق جستجو یافت نشد.</Text>}
-          {mine.map((r) => <TouchableOpacity key={r.id} style={s.card} onPress={() => navigation.navigate('ReportDetail', { id: r.id, mine: true })}><View style={s.cardHead}><Text style={s.cardTitle}>{r.subject}</Text><Text style={s.status}>{PRIORITY[r.priority] ? `${PRIORITY[r.priority]} · ` : ''}{STATUS[r.status] || r.status}</Text></View><Text numberOfLines={2} style={s.preview}>{r.body}</Text><Text style={s.date}>{fj(r.created_at)}</Text>{Number(r.confidential_history) === 1 ? <Text style={s.confBadge}>محرمانه · سابقه برای ارسال‌کننده مخفی است</Text> : null}<Text style={s.tapHint}>برای دیدن متن کامل و پیوست‌ها ضربه بزنید ›</Text></TouchableOpacity>)}
+          <View style={s.sortBar}><TouchableOpacity style={[s.sortBtn, sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(true)}><Text style={[s.sortTxt, sortNewest && s.white]}>جدیدترین</Text></TouchableOpacity><TouchableOpacity style={[s.sortBtn, !sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(false)}><Text style={[s.sortTxt, !sortNewest && s.white]}>قدیمی‌ترین</Text></TouchableOpacity><TouchableOpacity style={[s.pdfBtn, pdfBusy && { opacity: .6 }]} disabled={pdfBusy} onPress={exportPdf}><Text style={s.pdfTxt}>{pdfBusy ? 'در حال ساخت PDF…' : 'خروجی PDF'}</Text></TouchableOpacity></View>
+          {sortedMine.length === 0 && <Text style={s.empty}>گزارشی مطابق جستجو یافت نشد.</Text>}
+          {sortedMine.map((r) => <TouchableOpacity key={r.id} style={s.card} onPress={() => navigation.navigate('ReportDetail', { id: r.id, mine: true })}><View style={s.cardHead}><Text style={s.cardTitle}>{r.subject}</Text><Text style={s.status}>{PRIORITY[r.priority] ? `${PRIORITY[r.priority]} · ` : ''}{STATUS[r.status] || r.status}</Text></View><Text numberOfLines={2} style={s.preview}>{r.body}</Text><Text style={s.date}>{fj(r.created_at)}</Text>{Number(r.confidential_history) === 1 ? <Text style={s.confBadge}>محرمانه · سابقه برای ارسال‌کننده مخفی است</Text> : null}<Text style={s.tapHint}>برای دیدن متن کامل و پیوست‌ها ضربه بزنید ›</Text></TouchableOpacity>)}
         </ScrollView>
       )}
     </View>
   );
+}
+
+function esc(v) { return String(v ?? '').replace(/[&<>\"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+function applyTemplate(template, reports) {
+  const data = reports.map((r, i) => ({ index: i + 1, subject: r.subject || '', body: r.body || '', sender: r.sender_name || r.sender || '', status: STATUS[r.status] || r.status || '', date: fj(r.created_at) }));
+  let html = String(template);
+  html = html.replace(/\{\{REPORTS_JSON\}\}/g, esc(JSON.stringify(data)));
+  if (html.includes('{{REPORT_ROWS}}')) html = html.replace(/\{\{REPORT_ROWS\}\}/g, data.map(r => `<tr><td>${r.index}</td><td>${esc(r.subject)}</td><td>${esc(r.body)}</td><td>${esc(r.sender)}</td><td>${esc(r.status)}</td><td>${esc(r.date)}</td></tr>`).join(''));
+  return html.replace(/\{\{TITLE\}\}/g, 'گردش گزارشات').replace(/\{\{COUNT\}\}/g, String(reports.length));
 }
 
 const s = StyleSheet.create({
@@ -206,8 +221,8 @@ const s = StyleSheet.create({
   attItem: { alignItems: 'center', backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 10, padding: 10, marginTop: 7, flexDirection: 'row-reverse' }, thumb: { width: 44, height: 44, borderRadius: 8, marginEnd: 8 }, attName: { fontFamily: FONT.regular, color: C.ink, fontSize: 12, flex: 1, textAlign: 'right' }, attDel: { fontFamily: FONT.bold, color: C.danger, fontSize: 12, paddingHorizontal: 8 },
   priorityWrap: { flexDirection: 'row-reverse', gap: 8, marginBottom: 8 }, priorityChip: { flex: 1, backgroundColor: '#eef1f7', borderRadius: 12, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: C.line }, priorityOn: { backgroundColor: C.brand, borderColor: C.brand }, priorityTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 12 },
   mgrWrap: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 6 }, mgrChip: { backgroundColor: '#eef2f8', borderWidth: 1, borderColor: C.line, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 14 }, mgrChipOn: { backgroundColor: C.brand, borderColor: C.brand }, mgrChipTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 13 }, stepTitle: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right', marginTop: 14, marginBottom: 3 },
-  confCard: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12, backgroundColor: '#fff8e8', borderColor: '#f0c36a', borderWidth: 1, borderRadius: 14, padding: 13, marginTop: 16 }, confTitle: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right' }, confHelp: { fontFamily: FONT.regular, color: C.muted, fontSize: 11.5, lineHeight: 19, textAlign: 'right', marginTop: 4 },
   ccToggle: { backgroundColor: '#f0ecff', borderWidth: 1, borderColor: '#6a4fd6', borderRadius: 12, paddingVertical: 11, alignItems: 'center', marginTop: 14 }, ccToggleTxt: { fontFamily: FONT.bold, color: '#6a4fd6', fontSize: 13 },
   btn: { backgroundColor: C.brand, borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 16 }, btnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 15 }, empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 16 },
+  sortBar: { flexDirection: 'row-reverse', gap: 6, marginTop: 9, marginBottom: 4 }, sortBtn: { flex: 1, backgroundColor: '#eef1f7', borderRadius: 10, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: C.line }, sortBtnOn: { backgroundColor: C.brand, borderColor: C.brand }, sortTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 11.5 }, pdfBtn: { flex: 1.25, backgroundColor: '#5b3bb8', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }, pdfTxt: { fontFamily: FONT.bold, color: '#fff', fontSize: 11.5 },
   card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 13, padding: 13, marginTop: 10 }, cardHead: { flexDirection: 'row-reverse', justifyContent: 'space-between' }, cardTitle: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right', flex: 1 }, status: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, marginRight: 8 }, preview: { fontFamily: FONT.regular, color: C.ink, fontSize: 12.5, textAlign: 'right', marginTop: 8, lineHeight: 20 }, date: { fontFamily: FONT.regular, color: C.muted, fontSize: 11, textAlign: 'right', marginTop: 5 }, confBadge: { fontFamily: FONT.bold, color: '#9a5b00', fontSize: 11.5, textAlign: 'right', marginTop: 6 }, tapHint: { fontFamily: FONT.regular, color: C.brand, fontSize: 11.5, textAlign: 'right', marginTop: 6 },
 });
