@@ -62,3 +62,5 @@ Document Root هاست باید روی `php/app` باشد.
 - هر قابلیت مرتبط باید Android، Web App و Site/Admin را از نظر UI، Permission، API، DB، امنیت، خطا و Offline بررسی کند.
 
 برای جزئیات کامل به `PROJECT_DOCUMENTATION.md` مراجعه کنید.
+
+<!-- CI trigger: 2026-08-26 -->
