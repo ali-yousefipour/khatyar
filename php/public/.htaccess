@@ -28,21 +28,18 @@ ServerSignature Off
   Header always set X-Frame-Options "SAMEORIGIN"
   Header always set Content-Security-Policy "frame-ancestors 'self'"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
-  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
+  Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=(self)"
   Header always set Cross-Origin-Resource-Policy "same-origin"
   Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" "expr=%{HTTPS} == 'on'"
 </IfModule>
 
-
 # ---------- بهبود سرعت بارگذاری ----------
-# فشرده‌سازی gzip برای کاهش حجم انتقال (کتابخانه‌ها و صفحات)
 <IfModule mod_deflate.c>
   AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/xml \
     application/javascript application/x-javascript application/json image/svg+xml \
     application/font-woff application/font-woff2 font/woff font/woff2
 </IfModule>
 
-# کش طولانی برای فایل‌های ثابت (نسخه‌دار) و عدم‌کش برای HTML تا نسخهٔ جدید دیده شود
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresByType application/javascript "access plus 1 year"
