@@ -4,7 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - '**/*.php'
+      - 'php/**/*.php'
+      - '.github/workflows/php-syntax-lint.yml'
+  pull_request:
+    paths:
+      - 'php/**/*.php'
       - '.github/workflows/php-syntax-lint.yml'
   workflow_dispatch:
 
@@ -22,14 +26,24 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: mbstring, curl, json, pdo, pdo_mysql
-      - name: PHP syntax check
+      - name: Lint every PHP file
         shell: bash
         run: |
           set -euo pipefail
-          failed=0
+          count=0
           while IFS= read -r -d '' file; do
-            if ! php -l "$file"; then
-              failed=1
-            fi
-          done < <(find . -type f -name '*.php' -not -path './.git/*' -print0)
-          exit "$failed"
+            count=$((count + 1))
+            php -l "$file"
+          done < <(find php -type f -name '*.php' -print0)
+          test "$count" -gt 0
+          echo "PHP syntax check completed: $count files"
+      - name: Verify API bootstrap dependency chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f php/app/index.php
+          test -f php/lib/routes.php
+          grep -Fq "require \"\$ROOT/lib/routes.php\"" php/app/index.php
+          grep -Fq "const SITE_VERSION = '1.3.69'" php/lib/routes.php
+          grep -Fq "const APP_VERSION = '1.3.69'" php/lib/routes.php
+          echo "API bootstrap dependency chain verified"

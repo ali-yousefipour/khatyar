@@ -20,7 +20,6 @@ require "$ROOT/lib/ShiftCalc.php"; require "$ROOT/lib/Media.php"; require "$ROOT
 if (is_file("$ROOT/lib/DeliveryQueue.php")) require "$ROOT/lib/DeliveryQueue.php";
 $CONFIG = require "$ROOT/config.php";
 header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: SAMEORIGIN'); header("Content-Security-Policy: frame-ancestors 'self'"); header('Referrer-Policy: strict-origin-when-cross-origin');
-// دوربین برای وب‌اپ باید از همان مبدأ مجاز باشد؛ در نسخهٔ قبلی camera=() باعث جلوگیری از دسترسی دوربین مرورگر می‌شد.
 header('Permissions-Policy: camera=(self), microphone=(), geolocation=(self)'); header('Cross-Origin-Resource-Policy: same-origin');
 if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
 if (strpos($_SERVER['REQUEST_URI'] ?? '', '/api') === 0) header('Cache-Control: no-store, max-age=0');
@@ -32,8 +31,7 @@ if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
   $siteV = null; $appV = null; $rp = @file_get_contents("$ROOT/lib/routes.php");
   if ($rp) { if (preg_match("/const\s+SITE_VERSION\s*=\s*['\"]([^'\"]+)['\"]/, $rp, $m)) $siteV = $m[1]; if (preg_match("/const\s+APP_VERSION\s*=\s*'([^']+)'/, $rp, $m)) $appV = $m[1]; }
-  // نسخهٔ واحد فعلی؛ تا زمانی که routes.php روی سرور deploy شود، health نیز نسخهٔ درست را اعلام می‌کند.
-  $siteV = $siteV ?: '1.3.68'; $appV = $appV ?: '1.3.68';
+  $siteV = $siteV ?: '1.3.69'; $appV = $appV ?: '1.3.69';
   Http::json(['ok' => true, 'installed' => is_file("$ROOT/.installed"), 'db' => $db_ok, 'site_version' => $siteV, 'app_version' => $appV]);
 }
 if (strpos($path, '/api') !== 0) {
