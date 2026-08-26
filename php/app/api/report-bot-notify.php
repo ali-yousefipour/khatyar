@@ -71,8 +71,9 @@ try{
   if($chat){
     $out['bale']=['message'=>BaleBot::sendMessage($chat,$text,['target_type'=>'report','target_id'=>$b['report_id']??null])];
     foreach($attachments as $f){
-      $method=str_starts_with($f['mime'],'image/')?'sendPhoto':'sendDocument';
-      $payload=['chat_id'=>$chat,str_starts_with($f['mime'],'image/')?'photo':'document'=>$f['url'],'caption'=>($f['name']??'پیوست گزارش')];
+      $isImage=(strpos($f['mime'],'image/')===0);
+      $method=$isImage?'sendPhoto':'sendDocument';
+      $payload=['chat_id'=>$chat,$isImage?'photo':'document'=>$f['url'],'caption'=>($f['name']??'پیوست گزارش')];
       $out['bale']['attachments'][]=BaleBot::request($method,$payload);
     }
   } else $out['bale']=['error'=>'not_connected'];
@@ -84,8 +85,9 @@ foreach(['telegram','eitaa'] as $platform){
     if(!$sub){$out[$platform]=['error'=>'not_connected'];continue;}
     $out[$platform]=['message'=>MessengerBot::sendMessage($platform,$sub['chat_id'],$text,['target_type'=>'report','target_id'=>$b['report_id']??null])];
     foreach($attachments as $f){
-      $method=str_starts_with($f['mime'],'image/')?'sendPhoto':'sendDocument';
-      $payload=['chat_id'=>$sub['chat_id'],str_starts_with($f['mime'],'image/')?'photo':'document'=>$f['url'],'caption'=>($f['name']??'پیوست گزارش')];
+      $isImage=(strpos($f['mime'],'image/')===0);
+      $method=$isImage?'sendPhoto':'sendDocument';
+      $payload=['chat_id'=>$sub['chat_id'],$isImage?'photo':'document'=>$f['url'],'caption'=>($f['name']??'پیوست گزارش')];
       $out[$platform]['attachments'][]=MessengerBot::request($platform,$method,$payload);
     }
   }catch(Throwable $e){$out[$platform]=['error'=>'delivery_exception','detail'=>$e->getMessage()];}
