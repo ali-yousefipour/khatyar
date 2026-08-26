@@ -1,0 +1,108 @@
+name: Khatyar fixup
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fixup:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch project
+        shell: python
+        run: |
+          from pathlib import Path
+          import re, json
+          root=Path('.')
+          def rd(p): return (root/p).read_text(encoding='utf-8-sig')
+          def wr(p,s): (root/p).write_text(s,encoding='utf-8')
+
+          # Cron: prevent overlapping executions.
+          p='php/app/cron.php'; s=rd(p)
+          if 'KH_CRON_LOCK_V2' not in s:
+            n="$task = isset($GLOBALS['CRON_TASK']) ? $GLOBALS['CRON_TASK'] : ($isCli ? ($argv[1] ?? 'all') : ($_GET['task'] ?? 'all'));\n$log = [];"
+            r=n+'''\n\n// KH_CRON_LOCK_V2: جلوگیری از اجرای هم‌زمان Cron در هاست اشتراکی.\n$cronLockPath=rtrim((string)sys_get_temp_dir(),DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'khatyar-cron-'.preg_replace('/[^a-z0-9_-]+/i','-',(string)$task).'.lock';\n$cronLockFp=@fopen($cronLockPath,'c');\nif($cronLockFp && !@flock($cronLockFp,LOCK_EX|LOCK_NB)){\n  $payload=['ok'=>true,'skipped'=>'already_running','task'=>$task,'at'=>date('c')];\n  if(!$isCli) echo json_encode($payload,JSON_UNESCAPED_UNICODE);\n  exit(0);\n}\nregister_shutdown_function(function() use (&$cronLockFp){if($cronLockFp){@flock($cronLockFp,LOCK_UN);@fclose($cronLockFp);}});\n$log['started_at']=date('Y-m-d H:i:s');\n$log['task']=$task;'''
+            if n in s: wr(p,s.replace(n,r,1))
+
+          # Bale: add latest referred report to the keyboard and handler.
+          p='php/lib/Bale.php'; s=rd(p)
+          if 'KH_LAST_REPORT_V1' not in s:
+            old="return ['keyboard'=>$rows, 'resize_keyboard'=>true, 'one_time_keyboard'=>false];\n  }\n  public static function sendMenu"
+            new="""return ['keyboard'=>$rows, 'resize_keyboard'=>true, 'one_time_keyboard'=>false];\n  }\n\n  // KH_LAST_REPORT_V1: آخرین گزارشی که به کاربر بله ارجاع شده است.\n  public static function sendLastReferredReport($chatId) {\n    $sub=self::subscriber($chatId);\n    if(!$sub || empty($sub['user_id'])) return self::sendMessage($chatId,'حساب بله شما هنوز به کاربر سامانه متصل نشده است. ابتدا شماره همراه یا کد ملی ثبت‌شده را ارسال کنید.',['target_type'=>'bale_last_report']);\n    $r=Db::one(\"SELECT r.id,r.subject,r.body,r.status,COALESCE(r.priority,'normal') priority,r.created_at,us.first_name sender_first_name,us.last_name sender_last_name,COALESCE(ro.title,'') sender_role,rr.created_at forwarded_at,rr.note forwarded_note FROM report_routes rr JOIN reports r ON r.id=rr.report_id JOIN users us ON us.id=r.sender_id LEFT JOIN roles ro ON ro.id=us.role_id WHERE rr.to_user_id=? AND rr.action='forward' AND r.deleted_at IS NULL ORDER BY rr.id DESC LIMIT 1\",[(int)$sub['user_id']]);\n    if(!$r) return self::sendMessage($chatId,'برای شما هنوز گزارشی ارجاع نشده است.',['target_type'=>'bale_last_report'],self::mainKeyboard());\n    $status=['sent'=>'جدید','seen'=>'دیده‌شده','answered'=>'پاسخ‌داده‌شده','forwarded'=>'ارجاع‌شده','rejected'=>'رد شده'][$r['status']??'']??($r['status']??'—');\n    $sender=trim(($r['sender_first_name']??'').' '.($r['sender_last_name']??''));\n    $text=\"📄 آخرین گزارش ارجاع‌شده\\n\\nشماره گزارش: {$r['id']}\\nموضوع: {$r['subject']}\\nفرستنده: \".($sender?:'—').(($r['sender_role']??'')?\" ({$r['sender_role']})\":'').\"\\nوضعیت: {$status}\\nتاریخ ثبت: {$r['created_at']}\\nتاریخ ارجاع: {$r['forwarded_at']}\";\n    if(!empty($r['body'])) $text.=\"\\n\\nمتن گزارش:\\n\".mb_substr(strip_tags((string)$r['body']),0,5000);\n    if(!empty($r['forwarded_note'])) $text.=\"\\n\\nیادداشت ارجاع:\\n\".mb_substr(strip_tags((string)$r['forwarded_note']),0,1500);\n    return self::sendMessage($chatId,$text,['target_type'=>'report','target_id'=>$r['id'],'item'=>'last_report'],self::mainKeyboard());\n  }\n\n  public static function sendMenu"""
+            if old in s: s=s.replace(old,new,1)
+            old2="if ($text === 'اطلاعات من') { self::sendMessage($chatId, self::profileText(self::subscriber($chatId)), ['target_type'=>'bale_profile'], self::mainKeyboard()); return ['ok'=>true,'action'=>'profile']; }"
+            if old2 in s: s=s.replace(old2,old2+"\n    if (in_array($text,['آخرین گزارش دریافتی','دریافت آخرین گزارش دریافتی','آخرین گزارش'],true)) { self::sendLastReferredReport($chatId); return ['ok'=>true,'action'=>'last_report']; }",1)
+            old3="$rows = [['ثبت‌نام','اطلاعات من'], ['راهنما','قطع اتصال']];"
+            if old3 in s: s=s.replace(old3,"$rows = [['ثبت‌نام','اطلاعات من'], ['آخرین گزارش دریافتی','راهنما'], ['قطع اتصال']];",1)
+            wr(p,s)
+
+          # Backend endpoint used by the mobile PDF generator.
+          p='php/lib/routes.php'; s=rd(p)
+          if '/api/reports/{id}/pdf-data' not in s:
+            marker="route('GET', '/api/reports/{id}', function($p,$b,$u){"
+            code=r'''// Mobile/Web PDF data: same report data, attachments, signatures and configurable print settings.
+route('GET','/api/reports/{id}/pdf-data',function($p,$b,$u){
+  _ensure_reports_index(); $id=(int)$p['id'];
+  $r=Db::one("SELECT r.*,us.first_name,us.last_name,us.signature_data sender_signature,COALESCE(ro.title,'') sender_role_title FROM reports r JOIN users us ON us.id=r.sender_id LEFT JOIN roles ro ON ro.id=us.role_id WHERE r.id=? AND r.deleted_at IS NULL",[$id]);
+  if(!$r) Http::error('گزارش یافت نشد',404);
+  $routes=Db::all("SELECT rr.id,rr.action,rr.note,rr.created_at,rr.actor_id,rr.to_user_id,af.first_name af_fn,af.last_name af_ln,af.signature_data af_signature,COALESCE(ar.title,'') af_role,tu.first_name tu_fn,tu.last_name tu_ln,tu.signature_data tu_signature,COALESCE(tr.title,'') tu_role FROM report_routes rr LEFT JOIN users af ON af.id=rr.actor_id LEFT JOIN roles ar ON ar.id=af.role_id LEFT JOIN users tu ON tu.id=rr.to_user_id LEFT JOIN roles tr ON tr.id=tu.role_id WHERE rr.report_id=? ORDER BY rr.id",[$id]);
+  $atts=[]; try{foreach(Db::all("SELECT id,file_name,file_path,thumbnail_path,mime_type,created_at FROM report_attachments WHERE report_id=? ORDER BY id",[$id]) as $a){$a['url']=!empty($a['file_path'])?'/api/media?path='.urlencode($a['file_path']):null;$a['thumbnail_url']=!empty($a['thumbnail_path'])?'/api/media?path='.urlencode($a['thumbnail_path']):$a['url'];$atts[]=$a;}}catch(Throwable $e){}
+  if(!empty($r['attachment_data']) && !$atts)$atts[]=['id'=>0,'file_name'=>$r['attachment_name']??'پیوست گزارش','mime_type'=>'image/*','url'=>$r['attachment_data'],'thumbnail_url'=>$r['attachment_data']];
+  $settings=[]; try{foreach(Db::all("SELECT `key`,value FROM app_settings WHERE (`key` LIKE '%report%' OR `key` LIKE '%print%' OR `key` LIKE '%pdf%') AND (`key` LIKE '%template%' OR `key` LIKE '%print%' OR `key` LIKE '%pdf%' OR `key` IN ('org_title','org_name','site_title','site_logo'))") as $x){$v=json_decode($x['value'],true);$settings[$x['key']]=$v===null?$x['value']:$v;}}catch(Throwable $e){}
+  return ['report'=>$r,'flow'=>$routes,'attachments'=>$atts,'print_settings'=>$settings];
+});
+
+'''
+            if marker in s: wr(p,s.replace(marker,code+marker,1))
+
+          # Android station item: use the canonical role item and accept legacy aliases.
+          p='mobile/src/screens/DashboardScreen.js'; s=rd(p).replace("t: 'ثبت ایستگاه‌ها'","t: 'ثبت مشخصات ایستگاه'")
+          old=".filter((m) => m.always || allowed === null || allowed.includes(m.r))"
+          new=".filter((m) => m.always || allowed === null || allowed.includes(m.r) || (m.r === 'LineLocation' && (allowed.includes('StationCapture') || allowed.includes('LineStationCapture'))))"
+          if old in s: s=s.replace(old,new,1)
+          wr(p,s)
+
+          # Inbox PDF action for all received/forwarded/cc/archive tabs.
+          p='mobile/src/screens/InboxScreen.js'; s=rd(p)
+          if "from '../reportPdf'" not in s:
+            s=s.replace("import ActivityIndicator from '../components/PulseLoadingIndicator';","import ActivityIndicator from '../components/PulseLoadingIndicator';\nimport { saveReportPdf } from '../reportPdf';",1)
+          if 'KH_REPORT_PDF_INBOX_V1' not in s:
+            s=s.replace("export function InboxReportsScreen({ navigation }) {","export function InboxReportsScreen({ navigation }) {\n  // KH_REPORT_PDF_INBOX_V1\n  const pdfReport = async (id) => { try { await saveReportPdf(id); } catch(e) { Alert.alert('خطای PDF', e.message || 'ساخت فایل PDF ناموفق بود.'); } };",1)
+            needle="{tab !== 'forwarded' && tab !== 'cc' ? <TouchableOpacity style={s.archBtn} onPress={() => toggleArchive(item)}>"
+            if needle in s: s=s.replace(needle,"<TouchableOpacity style={[s.archBtn,{backgroundColor:'#eef7ff'}]} onPress={() => pdfReport(item.id)}><Text style={[s.archTxt,{color:'#1756a9'}]}>📄 ذخیره PDF</Text></TouchableOpacity>\n            "+needle,1)
+          wr(p,s)
+
+          # Sent reports: Jalali from/to filter, in addition to newest/oldest.
+          p='mobile/src/screens/ReportsScreen.js'; s=rd(p)
+          if 'KH_SENT_REPORT_DATE_FILTER_V1' not in s:
+            s=s.replace("import { fj } from '../jdate';","import { fj, inJRange, jLabel } from '../jdate';\nimport JDatePicker from '../components/JDatePicker';",1)
+            s=s.replace("const [sentQuery, setSentQuery] = useState('');","const [sentQuery, setSentQuery] = useState('');\n  // KH_SENT_REPORT_DATE_FILTER_V1\n  const [sentFrom,setSentFrom]=useState(null); const [sentTo,setSentTo]=useState(null); const [sentPick,setSentPick]=useState(null);",1)
+            old="""const sortedMine = useMemo(() => [...mine].sort((a, b) => {\n    const aa = new Date(a.created_at || 0).getTime();\n    const bb = new Date(b.created_at || 0).getTime();\n    return sortNewest ? bb - aa : aa - bb;\n  }), [mine, sortNewest]);"""
+            new="""const sortedMine = useMemo(() => {\n    let rows=[...mine];\n    if(sentFrom||sentTo){const f=sentFrom?[sentFrom.jy,sentFrom.jm,sentFrom.jd]:null;const t=sentTo?[sentTo.jy,sentTo.jm,sentTo.jd]:null;rows=rows.filter(x=>inJRange(x.created_at,f,t));}\n    return rows.sort((a,b)=>{const aa=new Date(a.created_at||0).getTime(),bb=new Date(b.created_at||0).getTime();return sortNewest?bb-aa:aa-bb;});\n  },[mine,sortNewest,sentFrom,sentTo]);"""
+            if old in s: s=s.replace(old,new,1)
+            pat=r"(<TextInput[\s\S]{0,1200}?value=\{sentQuery\}[\s\S]{0,1200}?/>)"
+            m=re.search(pat,s)
+            if m:
+              extra="""\n          {tab==='sent' && <><View style={{flexDirection:'row-reverse',gap:8,alignItems:'center',marginTop:8,flexWrap:'wrap'}}><TouchableOpacity style={{borderWidth:1,borderColor:C.line,borderRadius:10,padding:8}} onPress={()=>setSentPick('from')}><Text style={{fontFamily:FONT.regular}}>{sentFrom?jLabel(sentFrom.jy,sentFrom.jm,sentFrom.jd):'از تاریخ'}</Text></TouchableOpacity><TouchableOpacity style={{borderWidth:1,borderColor:C.line,borderRadius:10,padding:8}} onPress={()=>setSentPick('to')}><Text style={{fontFamily:FONT.regular}}>{sentTo?jLabel(sentTo.jy,sentTo.jm,sentTo.jd):'تا تاریخ'}</Text></TouchableOpacity>{(sentFrom||sentTo)&&<TouchableOpacity onPress={()=>{setSentFrom(null);setSentTo(null)}}><Text style={{fontFamily:FONT.bold,color:C.danger}}>پاک</Text></TouchableOpacity>}</View><JDatePicker visible={!!sentPick} onClose={()=>setSentPick(null)} initial={null} onSelect={d=>{const v={jy:d.jy,jm:d.jm,jd:d.jd};if(sentPick==='from')setSentFrom(v);else setSentTo(v);}}/></>}\n"""
+              s=s[:m.end()]+extra+s[m.end():]
+          wr(p,s)
+
+          # Version alignment.
+          p='mobile/package.json'
+          if Path(p).exists():
+            data=json.loads(rd(p)); data['version']='1.3.70'; wr(p,json.dumps(data,ensure_ascii=False,indent=2)+'\n')
+
+      - name: Commit patched source
+        shell: bash
+        run: |
+          git config user.name "khatyar-bot"
+          git config user.email "khatyar-bot@users.noreply.github.com"
+          git add php/app/cron.php php/lib/Bale.php php/lib/routes.php mobile/src/screens/DashboardScreen.js mobile/src/screens/InboxScreen.js mobile/src/screens/ReportsScreen.js mobile/package.json
+          if git diff --cached --quiet; then echo 'No source changes'; exit 0; fi
+          git commit -m "fix: cron bot station item and mobile report filters [skip ci]"
+          git push origin HEAD:main
