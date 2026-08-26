@@ -28,7 +28,7 @@ module.exports = ({ config }) => ({
     'expo-camera',
     ['expo-notifications', { icon: './assets/notification-icon.png', color: '#0d7a5f', sounds: ['./assets/sounds/presence_validation_alert.mp3','./assets/sounds/notification_new.mp3','./assets/sounds/message_new.mp3','./assets/sounds/report_received.mp3','./assets/sounds/report_sent_success.mp3','./assets/sounds/presence_success.mp3','./assets/sounds/presence_selfie.mp3','./assets/sounds/presence_station_photo.mp3'] }],
     ['expo-build-properties', { android: { minSdkVersion: 24, compileSdkVersion: 36, targetSdkVersion: 36, buildToolsVersion: '36.0.0', enableProguardInReleaseBuilds: false, enableShrinkResourcesInReleaseBuilds: false, ndkVersion: process.env.ANDROID_NDK_VERSION || '27.3.13750724' } }],
-    './plugins/withMyketMirror','./plugins/withUtf8GradleEncoding','./plugins/withReleaseHardening','./plugins/withLocationJobCrashGuard','./plugins/withProguardKeep','./plugins/withReactNativeArchitectures','./plugins/withAbiSplits',
+    './plugins/withGradle9Syntax','./plugins/withMyketMirror','./plugins/withUtf8GradleEncoding','./plugins/withReleaseHardening','./plugins/withLocationJobCrashGuard','./plugins/withProguardKeep','./plugins/withReactNativeArchitectures','./plugins/withAbiSplits',
   ],
   extra: { defaultApiBase: process.env.API_BASE || 'https://app.yousefipour.ir/api', enableBgTracking: (process.env.ENABLE_BG_TRACKING || 'true') === 'true', app_version: process.env.ANDROID_VERSION_NAME || '1.3.73', eas: { projectId: process.env.EAS_PROJECT_ID || '' } },
 });
