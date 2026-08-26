@@ -1,1 +1,1 @@
-export { default } from './StationCaptureScreenV2';
+import React from 'react';import StationCaptureV3Screen from './StationCaptureV3Screen';import MyStationsScreen from './MyStationsScreen';export default function LineLocationScreen({route,navigation}){return route?.params?.mode==='mine'?<MyStationsScreen route={route} navigation={navigation}/>:<StationCaptureV3Screen route={route} navigation={navigation}/>;}
