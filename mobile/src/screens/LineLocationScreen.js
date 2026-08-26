@@ -1,1 +1,1 @@
-export { default } from './StationCaptureScreen';
+export { default } from './StationCaptureScreenV2';
