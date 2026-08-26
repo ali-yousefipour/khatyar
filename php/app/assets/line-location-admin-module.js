@@ -1,18 +1,22 @@
-/* خطیار — مجوزهای ثبت موقعیت خطوط فقط در تنظیمات پنل مدیریت */
+/* خطیار — ماژول قدیمی «مجوز ثبت موقعیت و تصویر خطوط» بازنشسته شد.
+ * تنظیم نمایش قابلیت فقط از App Items / آیتم‌های اپ هر سمت انجام می‌شود.
+ * این فایل عمداً هیچ API تنظیم مجوز قدیمی را فراخوانی نمی‌کند.
+ */
 (function(){
-'use strict';
-const API='/line-location-api.php';
-const token=()=>localStorage.getItem('token')||localStorage.getItem('access')||localStorage.getItem('access_token')||'';
-const auth=()=>({Authorization:'Bearer '+token(),Accept:'application/json'});
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function api(op,opt={}){const r=await fetch(API+'?op='+encodeURIComponent(op),{cache:'no-store',...opt,headers:{...auth(),...(opt.headers||{})}});const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(e){throw Error('پاسخ JSON معتبر از سرور دریافت نشد')};if(!r.ok)throw Error(d.error||'خطای سرور');return d}
-function css(){if(document.getElementById('kh-ll-native-css'))return;const s=document.createElement('style');s.id='kh-ll-native-css';s.textContent=`#kh-ll-native{direction:rtl;margin:12px 0;padding:16px;border:1px solid var(--line,#e4e9f2);border-radius:16px;background:#fff;box-shadow:0 2px 8px #1720330a}#kh-ll-native h3{margin:0 0 5px;font-size:15px}#kh-ll-native .note{font-size:11px;color:#667085;margin-bottom:12px;line-height:1.8}.kh-ll-native-row{display:grid;grid-template-columns:minmax(170px,1fr) repeat(3,minmax(90px,120px));gap:8px;align-items:center;padding:9px 0;border-top:1px solid #eef1f5}.kh-ll-native-role{font-weight:800;font-size:12px}.kh-ll-native-toggle{border:1px solid #d8dee8;border-radius:10px;background:#fff;padding:8px 6px;font:inherit;font-size:11px;font-weight:800;cursor:pointer}.kh-ll-native-toggle.on{background:#e9f7f0;border-color:#8ad1ae;color:#176b3a}.kh-ll-native-toggle.busy{opacity:.55;pointer-events:none}@media(max-width:650px){.kh-ll-native-row{grid-template-columns:1fr 1fr}.kh-ll-native-role{grid-column:1/-1}}`;document.head.appendChild(s)}
-function settingsHost(){
- const selectors=['[data-page="settings"]','.settings-page','.settings-page-content','.settings-content','#settings','.settings'];
- for(const q of selectors){const n=document.querySelector(q);if(n)return n}
- const all=[...document.querySelectorAll('main,section,.content,.panel-content')];
- return all.find(n=>{const t=(n.innerText||'').trim();return t.length<9000 && /(^|\n)تنظیمات( سامانه)?(\n|$)/.test(t)})||null;
-}
-async function render(){const t=token();if(!t)return;const host=settingsHost();if(!host)return;if(document.getElementById('kh-ll-native'))return;css();let p;try{p=await api('permission')}catch(e){return}if(!p.can_manage)return;let roles;try{roles=await api('roles')}catch(e){return}const box=document.createElement('section');box.id='kh-ll-native';box.innerHTML='<h3>مجوز ثبت موقعیت و تصویر خطوط</h3><div class="note">این بخش فقط برای تنظیم مجوزهای ثبت موقعیت است و خود قابلیت ثبت موقعیت در پنل مدیریت نمایش داده نمی‌شود. ثبت موقعیت فقط در Web App و Android انجام می‌شود.</div><div id="kh-ll-native-rows"></div>';host.prepend(box);const rows=box.querySelector('#kh-ll-native-rows');const draw=()=>{rows.innerHTML=(roles||[]).map(r=>`<div class="kh-ll-native-row" data-role="${r.id}"><div class="kh-ll-native-role">${esc(r.title||'سمت بدون عنوان')}</div>${[['can_capture','ثبت'],['can_view','مشاهده'],['can_manage','مدیریت']].map(([k,l])=>`<button type="button" class="kh-ll-native-toggle ${Number(r[k])?'on':''}" data-k="${k}">${l}: ${Number(r[k])?'فعال':'خاموش'}</button>`).join('')}</div>`).join('')};draw();rows.addEventListener('click',async e=>{const b=e.target.closest('[data-k]');if(!b)return;const row=b.closest('[data-role]'),r=roles.find(x=>String(x.id)===String(row.dataset.role));if(!r)return;const k=b.dataset.k;r[k]=Number(r[k])?0:1;b.classList.add('busy');try{await api('save-role',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(r)});draw()}catch(err){r[k]=Number(r[k])?0:1;alert(err.message||'ذخیره مجوز ناموفق بود.');draw()}})}
-const scan=()=>setTimeout(render,150);new MutationObserver(scan).observe(document.documentElement,{subtree:true,childList:true});document.addEventListener('DOMContentLoaded',render);[500,1500,3000].forEach(x=>setTimeout(render,x));
+  'use strict';
+  const re=/مجوز\s*ثبت\s*موقعیت\s*و\s*تصویر\s*خطوط|مجوز\s*ثبت\s*موقعیت\s*خطوط/;
+  function hide(){
+    document.querySelectorAll('h1,h2,h3,h4,h5,h6,section,article,.card,div').forEach(function(el){
+      const t=(el.innerText||el.textContent||'').replace(/\s+/g,' ').trim();
+      if(!t||!re.test(t)||/ثبت\s*ایستگاه‌ها/.test(t))return;
+      let x=el;
+      for(let i=0;i<5&&x.parentElement;i++){
+        if(x.matches('section,article,.card,[class*=card]'))break;
+        x=x.parentElement;
+      }
+      if(x&&x!==document.body)x.style.display='none';
+    });
+  }
+  new MutationObserver(hide).observe(document.documentElement,{childList:true,subtree:true});
+  [0,500,1500,3000].forEach(function(t){setTimeout(hide,t)});
 })();
