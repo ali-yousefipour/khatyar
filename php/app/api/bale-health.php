@@ -1,5 +1,6 @@
 <?php
 // Khatyar — Bale diagnostics/setup. فقط برای مدیر سامانه.
+// Trigger marker: report-bot-e2e integration.
 ini_set('display_errors','0'); error_reporting(E_ALL);
 header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store');
 $APP=dirname(__DIR__); $PHP=dirname($APP);
