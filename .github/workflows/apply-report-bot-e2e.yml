@@ -1,0 +1,49 @@
+name: Apply report bot E2E integration
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'chore: apply report bot e2e') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Patch Android and Web report delivery
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Android: every online report is followed by a best-effort bot delivery.
+          p=Path('mobile/src/screens/ReportsScreen.js')
+          s=p.read_text(encoding='utf-8')
+          old="""      const r = await postOrQueue('/reports', {\n        subject: subject.trim(), body: body.trim(), priority,\n        attachments, to_user_id: toUserId || undefined,\n        cc_user_id: ccEnabled && ccUserId ? ccUserId : undefined,\n      });"""
+          new="""      const r = await postOrQueue('/reports', {\n        subject: subject.trim(), body: body.trim(), priority,\n        attachments, to_user_id: toUserId || undefined,\n        cc_user_id: ccEnabled && ccUserId ? ccUserId : undefined,\n      });\n      let botDelivery = null;\n      if (!r?.queued) {\n        try {\n          botDelivery = await request('/report-bot-notify.php', {\n            method: 'POST',\n            body: { subject: subject.trim(), body: body.trim(), report_id: r?.id || r?.report_id || null, attachments },\n            timeoutMs: 45000,\n          });\n        } catch (botError) {\n          botDelivery = { ok: false, error: botError?.message || 'ارسال به ربات‌ها ناموفق بود.' };\n        }\n      }"""
+          if old not in s: raise SystemExit('Android insertion point not found')
+          s=s.replace(old,new,1)
+          old2="""      if (!r.queued) playSound('reportSentSuccess').catch(() => {});\n      Alert.alert(r.queued ? 'آفلاین' : 'ارسال شد', r.queued ? 'گزارش ذخیره شد و بعداً ارسال می‌شود.' : `گزارش به ${toName} ارسال شد.`);"""
+          new2="""      if (!r.queued) playSound('reportSentSuccess').catch(() => {});\n      const botFailed = !r.queued && botDelivery && botDelivery.ok === false;\n      const botText = botFailed ? '\\nارسال به ربات‌های پیام‌رسان انجام نشد؛ گزارش اصلی ثبت شده است.' : '';\n      Alert.alert(r.queued ? 'آفلاین' : 'ارسال شد', r.queued ? 'گزارش ذخیره شد و بعداً ارسال می‌شود.' : `گزارش به ${toName} ارسال شد.${botText}`);"""
+          if old2 not in s: raise SystemExit('Android alert insertion point not found')
+          s=s.replace(old2,new2,1)
+          p.write_text(s,encoding='utf-8')
+
+          # Web: intercept the existing /reports POST without rewriting the large app.html bundle.
+          p=Path('php/app/web-android-parity-v2.js')
+          s=p.read_text(encoding='utf-8')
+          marker="""function scan(){cleanLegacy();if(auth())dash();camera();previews();if(auth())document.getElementById('body')?.classList.add('kh-v31-page')}"""
+          inject="""function reportBotE2E(){\n  if(window.__KH_REPORT_BOT_E2E__)return;window.__KH_REPORT_BOT_E2E__=true;\n  const originalFetch=window.fetch.bind(window);\n  window.fetch=async function(input,init){\n    const method=String((init&&init.method)||'GET').toUpperCase();\n    const url=typeof input==='string'?input:(input&&input.url)||'';\n    const isReport=method==='POST' && /\\/reports(?:[/?#]|$)/.test(url) && !/report-bot-notify\\.php/.test(url);\n    let payload=null;\n    if(isReport && init&&typeof init.body==='string'){try{payload=JSON.parse(init.body)}catch(_){}}\n    const res=await originalFetch(input,init);\n    if(isReport&&payload&&res.ok){\n      try{const clone=res.clone();const data=await clone.json().catch(()=>({}));\n        const token=localStorage.getItem('token')||localStorage.getItem('access')||localStorage.getItem('access_token')||'';\n        originalFetch('/api/report-bot-notify.php',{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify({subject:payload.subject||'',body:payload.body||'',report_id:data.id||data.report_id||null,attachments:Array.isArray(payload.attachments)?payload.attachments:[]})}).catch(()=>{});\n      }catch(_){}\n    }\n    return res;\n  };\n}\nfunction scan(){reportBotE2E();cleanLegacy();if(auth())dash();camera();previews();if(auth())document.getElementById('body')?.classList.add('kh-v31-page')}"""
+          if marker not in s: raise SystemExit('Web insertion point not found')
+          s=s.replace(marker,inject,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit E2E integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile/src/screens/ReportsScreen.js php/app/web-android-parity-v2.js
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: apply report bot e2e"
+          git push
