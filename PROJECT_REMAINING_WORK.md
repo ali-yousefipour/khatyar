@@ -1,7 +1,7 @@
 # خطیار — کارهای باقی‌مانده و در دست اقدام
 
 > مرجع زنده برنامه توسعه پروژه. این فایل باید با هر تغییر واقعی بروزرسانی شود.
-> آخرین به‌روزرسانی: 2026-08-26 — نسخه 1.3.68
+> آخرین بررسی: 2026-08-26 — مبنا `eb453cce38f1cd812d0727e860a4511287921cf3` — نسخه 1.3.68
 
 ## وضعیت‌ها
 - 🔴 باقی‌مانده / نیازمند اقدام
@@ -31,6 +31,7 @@
 - 🟢 ظاهر کارت‌ها، فاصله‌ها، RTL و responsive behavior همسان‌سازی شده است.
 - 🟢 دسترسی API ثبت موقعیت بر اساس Permission کنترل می‌شود.
 - 🟢 نسخه Web App برابر 1.3.68 نمایش داده می‌شود.
+- 🟢 Camera flow وب فقط دوربین را فعال می‌کند و Gallery UI برای این جریان ارائه نمی‌شود.
 - 🟡 انتقال نهایی اطلاعات ایستگاه به جزئیات native همان رکورد «خطوط تاکسیرانی» بدون overlay موازی.
 - 🟡 تست GPS/Camera در Chrome Android و مرورگرهای واقعی Production.
 - 🟡 حذف Mock/Placeholder باقی‌مانده در صفحات عملیاتی.
@@ -46,16 +47,19 @@
 - 🟢 اطلاعات آخرین موقعیت و تاریخچه در Web موجود است.
 - 🟢 اتصال اطلاعات ایستگاه به جدول `lines` و بروزرسانی آخرین مختصات/تصاویر انجام می‌شود.
 - 🟢 در پنل اصلی برای هر خط امکان مشاهده موقعیت، دقت، تصاویر و تاریخچه اضافه شده است.
-- 🟡 enforce نهایی حداقل دقت GPS در Backend و تطبیق با تنظیم Production.
+- 🟢 حداقل دقت GPS برابر ۲۰ متر در Backend enforce شده است.
+- 🟢 Migration ستون `station_name` و سایر ستون‌های لازم `lines` را نیز تضمین می‌کند.
+- 🟢 Migration جدید با INFORMATION_SCHEMA برای اجرای مجدد روی MySQL/MariaDB قدیمی‌تر مقاوم شده است.
 - 🟡 تست End-to-End Android → API → MySQL/MariaDB → Lines.
 - 🟡 تست دو تصویر دوربین واقعی و ذخیره مسیر فایل‌ها.
 - 🟡 انتقال native کارت ایستگاه به جزئیات خود «خطوط تاکسیرانی».
 
 ## 4. Backend / Database
-- 🟡 اجرای Migrationهای نهایی روی DB تستی MySQL/MariaDB.
-- 🟡 بررسی idempotent بودن تمام Migrationهای جدید.
+- 🟢 Migration نهایی خط/ایستگاه بازبینی و idempotent شد.
+- 🟢 ارجاع ستون `station_name` در Backend با Migration همسان شد.
+- 🟡 اجرای Migration روی DB تستی MySQL/MariaDB واقعی.
 - 🟡 ممیزی همه endpointها برای Content-Type و JSON معتبر.
-- 🟡 بررسی HTTP 500 باقی‌مانده.
+- 🟡 بررسی HTTP 500 باقی‌مانده در Production.
 - 🟡 بررسی CORS، Cache و Security Headers در Production.
 - 🟡 بررسی حجم و فشرده‌سازی تصاویر عملیاتی.
 - 🟡 ممیزی کامل ارجاعات مسیر پس از تغییر `php/public` به `php/app`.
@@ -72,24 +76,26 @@
 ## 6. Site / Admin
 - 🟢 دو دکمه مستقل ثبت موقعیت/مجوز از صفحه ورود حذف شدند.
 - 🟢 قابلیت فقط پس از Login از طریق لایهٔ پنل قابل دسترسی است.
-- 🟢 لایه `line-location-admin-bridge.js` به پنل اصلی متصل شد.
+- 🟢 لایه `line-location-admin-bridge.js` به پنل اصلی متصل است.
 - 🟢 در جدول خطوط، اطلاعات موقعیت و تاریخچه برای همان خط قابل مشاهده است.
 - 🟢 Permissionهای ثبت/مشاهده/مدیریت به API مرکزی قابلیت متصل هستند.
-- 🟡 انتقال UI تنظیم Permission به صفحهٔ تنظیمات اصلی پنل بدون bridge.
-- 🟡 ادغام کامل نمایش اطلاعات ایستگاه در جزئیات native «خطوط تاکسیرانی».
+- 🟢 ماژول `line-location-admin-module.js` برای نمایش و ویرایش Permissionها داخل بخش تنظیمات پنل اضافه شد.
+- 🟢 خروجی Excel خطوط در UI پنل متصل شده است.
 - 🟡 تست نقش‌های مختلف در محیط واقعی.
+- 🟡 انتقال کامل جزئیات ایستگاه از overlay به جزئیات native خطوط، پس از مشخص شدن API/DOM رسمی پنل.
 
 ## 7. Versioning
 - 🟢 نسخه مرجع این تغییر: `1.3.68`.
 - 🟢 `mobile/package.json` = 1.3.68.
 - 🟢 `mobile/app.config.js` = 1.3.68 / versionCode 10368.
 - 🟢 Web App/Admin badge = 1.3.68.
-- 🟡 `SITE_VERSION` و `APP_VERSION` داخل `php/lib/routes.php` باید هنگام deploy روی سرور نیز به 1.3.68 برسند.
+- 🟢 `SITE_VERSION` و `APP_VERSION` داخل `php/lib/routes.php` = 1.3.68.
+- 🟡 بررسی نسخه در Production پس از deploy.
 
 ## 8. Production
-- 🟡 تست `https://app.yousefipour.ir/`، `/app` و APIها پس از آخرین تغییرات.
-- 🟡 تست Login واقعی با چند نقش.
-- 🟡 تست Token نامعتبر/منقضی.
+- ⚪ تست `https://app.yousefipour.ir/`، `/app` و APIها پس از آخرین تغییرات.
+- ⚪ تست Login واقعی با چند نقش.
+- ⚪ تست Token نامعتبر/منقضی.
 - ⚪ تست HTTPS/Camera/Geolocation Permission در دامنه Production.
 - ⚪ Backup قبل از Migration Production.
 
