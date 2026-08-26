@@ -3,6 +3,10 @@ RewriteEngine On
 RewriteCond %{HTTP:Authorization} .
 RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+# منبع واحد آیتم‌های اپ: Role App Items
+RewriteRule ^api/admin/role-app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
+RewriteRule ^api/my/app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
+
 # گزارش ثبت‌های ایستگاه: سازگاری با کلاینت‌های قدیمی که capture-report را صدا می‌زنند
 RewriteCond %{QUERY_STRING} (^|&)op=capture-report(&|$) [NC]
 RewriteRule ^line-station-api\.php$ station-capture-report.php [QSA,L]
