@@ -44,6 +44,6 @@ jobs:
           test -f php/app/index.php
           test -f php/lib/routes.php
           grep -Fq "require \"\$ROOT/lib/routes.php\"" php/app/index.php
-          grep -Fq "const SITE_VERSION = '1.3.69'" php/lib/routes.php
-          grep -Fq "const APP_VERSION = '1.3.69'" php/lib/routes.php
+          grep -Fq "const SITE_VERSION = '1.3.70'" php/lib/routes.php
+          grep -Fq "const APP_VERSION = '1.3.70'" php/lib/routes.php
           echo "API bootstrap dependency chain verified"
