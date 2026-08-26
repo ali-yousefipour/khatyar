@@ -6,20 +6,17 @@ RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 # گزارش ثبت‌های ایستگاه: سازگاری با کلاینت‌های قدیمی که capture-report را صدا می‌زنند
 RewriteCond %{QUERY_STRING} (^|&)op=capture-report(&|$) [NC]
 RewriteRule ^line-station-api\.php$ station-capture-report.php [QSA,L]
-
-# API ثبت موقعیت ایستگاه: موتور جدید، با همگام‌سازی قطعی Geofence حضور
 RewriteRule ^line-station-api\.php$ line-station-api-v2.php [QSA,L]
 
-# فایل‌های واقعی مستقیم سرو شوند (panel.html, vendor/*, setup-libs.php, ...)
+# فایل‌های آپلودی ایستگاه هرگز مستقیماً عمومی نباشند؛ از endpoint احراز هویت‌شده استفاده شود.
+RewriteRule ^uploads/line-locations(?:/|$) - [F,L,NC]
+
+# فایل‌های واقعی مستقیم سرو شوند
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^ - [L]
-
-# بقیه به فرانت‌کنترلر
 RewriteRule ^ index.php [QSA,L]
-
 DirectoryIndex index.php
 
-# ---------- قواعد امنیتی ----------
 Options -Indexes
 ServerSignature Off
 <FilesMatch "(^\.env|\.ini$|\.log$|\.sql$|composer\.(json|lock)$|package(-lock)?\.json$|config\.php$)">
@@ -40,20 +37,16 @@ ServerSignature Off
   Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" "expr=%{HTTPS} == 'on'"
 </IfModule>
 
-# ---------- بهبود سرعت بارگذاری ----------
 <IfModule mod_deflate.c>
-  AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/xml \
-    application/javascript application/x-javascript application/json image/svg+xml \
-    application/font-woff application/font-woff2 font/woff font/woff2
+  AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/xml application/javascript application/x-javascript application/json image/svg+xml application/font-woff application/font-woff2 font/woff font/woff2
 </IfModule>
-
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresByType application/javascript "access plus 1 year"
-  ExpiresByType text/css              "access plus 1 year"
-  ExpiresByType image/png             "access plus 1 year"
-  ExpiresByType image/svg+xml         "access plus 1 year"
-  ExpiresByType font/woff2            "access plus 1 year"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
   ExpiresByType application/font-woff2 "access plus 1 year"
 </IfModule>
 <IfModule mod_headers.c>
