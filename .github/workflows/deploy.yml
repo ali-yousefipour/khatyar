@@ -2,20 +2,24 @@ name: Deploy PHP backend to shared hosting
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
     paths:
       - 'php/**'
       - '.github/workflows/deploy.yml'
+  workflow_dispatch:
 
 jobs:
   deploy:
-    name: Upload php folder
+    name: Upload changed PHP files to shared hosting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Upload php to shared hosting
+      - name: Upload PHP folder to shared hosting
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
