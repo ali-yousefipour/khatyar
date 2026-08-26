@@ -3,6 +3,9 @@ RewriteEngine On
 RewriteCond %{HTTP:Authorization} .
 RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+# API ثبت موقعیت ایستگاه: موتور جدید، با همگام‌سازی قطعی Geofence حضور
+RewriteRule ^line-station-api\.php$ line-station-api-v2.php [QSA,L]
+
 # فایل‌های واقعی مستقیم سرو شوند (panel.html, vendor/*, setup-libs.php, ...)
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^ - [L]
