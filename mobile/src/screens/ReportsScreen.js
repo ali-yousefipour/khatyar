@@ -155,10 +155,18 @@ export default function ReportsScreen({ navigation }) {
         attachments, to_user_id: toUserId || undefined,
         cc_user_id: ccEnabled && ccUserId ? ccUserId : undefined,
       });
+      let botDelivery = null;
+      if (!r?.queued) {
+        try {
+          botDelivery = await request('/report-bot-notify.php', { method: 'POST', body: { subject: subject.trim(), body: body.trim(), report_id: r?.id || r?.report_id || null, attachments }, timeoutMs: 45000 });
+        } catch (botError) { botDelivery = { ok: false, error: botError?.message || 'ارسال به ربات‌ها ناموفق بود.' }; }
+      }
       const chosen = [...managers, ...allTargets].find((m) => String(m.id) === String(toUserId));
       const toName = toUserId ? (chosen?.name || `${chosen?.first_name || ''} ${chosen?.last_name || ''}`.trim() || 'گیرنده') : 'مقام بالادست شما';
       if (!r.queued) playSound('reportSentSuccess').catch(() => {});
-      Alert.alert(r.queued ? 'آفلاین' : 'ارسال شد', r.queued ? 'گزارش ذخیره شد و بعداً ارسال می‌شود.' : `گزارش به ${toName} ارسال شد.`);
+      const botFailed = !r.queued && botDelivery && botDelivery.ok === false;
+      const botText = botFailed ? '\nارسال به ربات‌های پیام‌رسان انجام نشد؛ گزارش اصلی ثبت شده است.' : '';
+      Alert.alert(r.queued ? 'آفلاین' : 'ارسال شد', r.queued ? 'گزارش ذخیره شد و بعداً ارسال می‌شود.' : `گزارش به ${toName} ارسال شد.${botText}`);
       setBody(''); setAttachments([]); setPriority('normal'); if(reportSubjects.length){setSubjectMode(String(reportSubjects[0].id));setSubject(reportSubjects[0].title||'');}else{setSubjectMode('other');setSubject('');}
       setTargetQuery(''); setSelectedRole(''); setCcEnabled(false); setCcRole(''); setCcQuery(''); setCcUserId(null); setTab('sent'); setSentQuery('');
     } catch (e) { Alert.alert('خطا در ارسال', e?.message || 'ارسال گزارش ناموفق بود. دوباره تلاش کنید.'); }
