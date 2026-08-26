@@ -1,0 +1,52 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+group = 'expo.modules.securitycheck'
+version = '1.0.1'
+
+def expoModulesCorePlugin = new File(
+    project(':expo-modules-core').projectDir.absolutePath,
+    'ExpoModulesCorePlugin.gradle'
+)
+apply from: expoModulesCorePlugin
+
+applyKotlinExpoModulesCorePlugin()
+useCoreDependencies()
+
+// This is a local application module and is not published as a Maven artifact.
+// Enabling Expo publishing here can request a release SoftwareComponent before
+// Android configuration has completed and produce:
+// "SoftwareComponent with name 'release' not found".
+
+// Expo projects expose these SDK values on rootProject.ext. The fallbacks make
+// the module independently configurable and compatible with compileSdk 36.
+def resolvedCompileSdk = rootProject.ext.has('compileSdkVersion')
+    ? rootProject.ext.compileSdkVersion
+    : 36
+
+def resolvedMinSdk = rootProject.ext.has('minSdkVersion')
+    ? rootProject.ext.minSdkVersion
+    : 24
+
+def resolvedTargetSdk = rootProject.ext.has('targetSdkVersion')
+    ? rootProject.ext.targetSdkVersion
+    : 36
+
+android {
+    namespace 'expo.modules.securitycheck'
+    compileSdk resolvedCompileSdk
+
+    defaultConfig {
+        minSdk resolvedMinSdk
+        targetSdk resolvedTargetSdk
+        versionCode 1
+        versionName '1.0.1'
+
+        consumerProguardFiles 'consumer-rules.pro'
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}

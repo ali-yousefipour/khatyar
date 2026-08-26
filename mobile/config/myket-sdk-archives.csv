@@ -1,0 +1,763 @@
+package_path,package_display_name,package_revision,archive_url,archive_size,archive_checksum
+platforms;android-Baklava,Android SDK Platform Baklava-ext19,1,https://maven.myket.ir/android-sdk/platform-36.0-Baklava-ext19_r01.zip,66332697,7842268e95c0538a9d59ab813f39a5ee69bdbb86
+platforms;android-36,Android SDK Platform 36-ext19,1,https://maven.myket.ir/android-sdk/platform-36-ext19_r01.zip,66057671,52e240c229cf2ad561ee262ebdfff266e180c585
+platforms;android-36,Android SDK Platform 36-ext18,1,https://maven.myket.ir/android-sdk/platform-36-ext18_r01.zip,66044874,33a7af9f531f6ce67b3ec357f619e69aa0a95c8a
+platforms;android-35,Android SDK Platform 35-ext15,1,https://maven.myket.ir/android-sdk/platform-35-ext15_r01.zip,64492044,ce757091f933b7ac646bf197ce8957cc73b95614
+platforms;android-36,Android SDK Platform 36,2,https://maven.myket.ir/android-sdk/platform-36_r02.zip,65878410,2c1a80dd4d9f7d0e6dd336ec603d9b5c55a6f576
+platforms;android-35,Android SDK Platform 35-ext14,1,https://maven.myket.ir/android-sdk/platform-35-ext14_r01.zip,64330898,c0e5b5511562fc8b8a61b3b3f17f6ffa811e4971
+platforms;android-35,Android SDK Platform 35,2,https://maven.myket.ir/android-sdk/platform-35_r02.zip,64273788,0bb560a90a7a2cbd0dd8348224d518b638fe7949
+platforms;android-34,Android SDK Platform 34-ext12,1,https://maven.myket.ir/android-sdk/platform-34-ext12_r01.zip,63559957,ba80ccbcc29b29f25ac926a08c0b2777f0bce842
+platforms;android-34,Android SDK Platform 34-ext11,1,https://maven.myket.ir/android-sdk/platform-34-ext11_r01.zip,63446827,dfb498e3d0d97769aef5e1eb9ddff5b001e65829
+platforms;android-34,Android SDK Platform 34-ext10,1,https://maven.myket.ir/android-sdk/platform-34-ext10_r01.zip,63393972,068496419fb4f4987374fdb2989d4f13acc62377
+platforms;android-34,Android SDK Platform 34-ext8,1,https://maven.myket.ir/android-sdk/platform-34-ext8_r01.zip,63201407,71877402d579127b19158f9f170f05bcd805f686
+platforms;android-34,Android SDK Platform 34,3,https://maven.myket.ir/android-sdk/platform-34-ext7_r03.zip,63180081,1f2e9478d6a7601425ceaa553311dc43191f103d
+platforms;android-34,Android SDK Platform 34,2,https://maven.myket.ir/android-sdk/platform-34-ext7_r02.zip,63180079,f09b07da8aea238a81b71d6fedb815e13aa13e58
+platforms;android-UpsideDownCake,Android SDK Platform UpsideDownCake,4,https://maven.myket.ir/android-sdk/platform-UpsideDownCake_r04.zip,63483782,a0fe6b17b8ea26c72f4a1feb0234aab6b20fd4be
+platforms;android-33,Android SDK Platform 33-ext5,1,https://maven.myket.ir/android-sdk/platform-33-ext5_r01.zip,67581187,a6499e158fdd7140e3e466314b273016281fefcc
+platforms;android-33,Android SDK Platform 33-ext4,1,https://maven.myket.ir/android-sdk/platform-33-ext4_r01.zip,67564453,422f50033523c5f934f38df520699080b59bbc7e
+platforms;android-33,Android SDK Platform 33,3,https://maven.myket.ir/android-sdk/platform-33-ext3_r03.zip,67334237,394bc86d8d3452aa4d419b67743025a6fb2cd9d0
+platforms;android-32,Android SDK Platform 32,1,https://maven.myket.ir/android-sdk/platform-32_r01.zip,66108299,afae86ed55d29733d50996ffed832f2d1bd75b9a
+platforms;android-31,Android SDK Platform 31,1,https://maven.myket.ir/android-sdk/platform-31_r01.zip,56475526,ca5bcaa565cb37e9d287051d6dd0e49a5426ec29
+platforms;android-30,Android SDK Platform 30,3,https://maven.myket.ir/android-sdk/platform-30_r03.zip,52328361,e7c6280901dcfa511af098d67dd88c4dfcbc6ea2
+platforms;android-29,Android SDK Platform 29,5,https://maven.myket.ir/android-sdk/platform-29_r05.zip,78293913,9d8a7e0ffa5168dbca6c60355b9129c6c7572aff
+platforms;android-28,Android SDK Platform 28,6,https://maven.myket.ir/android-sdk/platform-28_r06.zip,75565084,9a4e52b1d55bd2e24216b150aafae2503d3efba6
+platforms;android-27,Android SDK Platform 27,3,https://maven.myket.ir/android-sdk/platform-27_r03.zip,65635348,35f747e7e70b2d16e0e4246876be28d15ea1c353
+platforms;android-26,Android SDK Platform 26,2,https://maven.myket.ir/android-sdk/platform-26_r02.zip,63623734,e4ae5d7aa557a3c827135838ee400da8443ac4ef
+platforms;android-25,Android SDK Platform 25,3,https://maven.myket.ir/android-sdk/platform-25_r03.zip,85424763,00c2c5765e8988504be10a1eb66ed71fcdbd7fe8
+platforms;android-24,Android SDK Platform 24,2,https://maven.myket.ir/android-sdk/platform-24_r02.zip,82648154,8912da3d4bfe7a9f28f0e5ce92d3a8dc96342aee
+platforms;android-23,Android SDK Platform 23,3,https://maven.myket.ir/android-sdk/platform-23_r03.zip,70433421,027fede3de6aa1649115bbd0bffff30ccd51c9a0
+platforms;android-22,Android SDK Platform 22,2,https://maven.myket.ir/android-sdk/android-22_r02.zip,66852371,5d1bd10fea962b216a0dece1247070164760a9fc
+platforms;android-21,Android SDK Platform 21,2,https://maven.myket.ir/android-sdk/android-21_r02.zip,65897960,53536556059bb29ae82f414fd2e14bc335a4eb4c
+platforms;android-20,Android SDK Platform 20,2,https://maven.myket.ir/android-sdk/android-20_r02.zip,63567784,a9251f8a3f313ab05834a07a963000927637e01d
+platforms;android-19,Android SDK Platform 19,4,https://maven.myket.ir/android-sdk/android-19_r04.zip,63871092,2ff20d89e68f2f5390981342e009db5a2d456aaa
+platforms;android-18,Android SDK Platform 18,3,https://maven.myket.ir/android-sdk/android-18_r03.zip,57771739,e6b09b3505754cbbeb4a5622008b907262ee91cb
+platforms;android-17,Android SDK Platform 17,3,https://maven.myket.ir/android-sdk/android-17_r03.zip,57030216,dbe14101c06e6cdb34e300393e64e64f8c92168a
+platforms;android-16,Android SDK Platform 16,5,https://maven.myket.ir/android-sdk/android-16_r05.zip,48128695,12a5ce6235a76bc30f62c26bda1b680e336abd07
+platforms;android-15,Android SDK Platform 15,5,https://maven.myket.ir/android-sdk/android-15_r05.zip,44533475,69ab4c443b37184b2883af1fd38cc20cbeffd0f3
+platforms;android-14,Android SDK Platform 14,4,https://maven.myket.ir/android-sdk/android-14_r04.zip,46038082,d4f1d8fbca25225b5f0e7a0adf0d39c3d6e60b3c
+platforms;android-13,Android SDK Platform 13,1,https://maven.myket.ir/android-sdk/android-3.2_r01.zip,108426536,6189a500a8c44ae73a439604363de93591163cd9
+platforms;android-12,Android SDK Platform 12,3,https://maven.myket.ir/android-sdk/android-3.1_r03.zip,106472351,4a50a6679cd95bb68bb5fc032e754cd7c5e2b1bf
+platforms;android-11,Android SDK Platform 11,2,https://maven.myket.ir/android-sdk/android-3.0_r02.zip,104513908,2c7d4bd13f276e76f6bbd87315fe27aba351dd37
+platforms;android-10,Android SDK Platform 10,2,https://maven.myket.ir/android-sdk/android-2.3.3_r02.zip,85470907,887e37783ec32f541ea33c2c649dda648e8e6fb3
+platforms;android-9,Android SDK Platform 9,2,https://maven.myket.ir/android-sdk/android-2.3.1_r02.zip,78732563,209f8a7a8b2cb093fce858b8b55fed3ba5206773
+platforms;android-8,Android SDK Platform 8,3,https://maven.myket.ir/android-sdk/android-2.2_r03.zip,74652366,231262c63eefdff8fd0386e9ccfefeb27a8f9202
+platforms;android-7,Android SDK Platform 7,3,https://maven.myket.ir/android-sdk/android-2.1_r03.zip,70142829,5ce51b023ac19f8738500b1007a1da5de2349a1e
+platforms;android-6,Android SDK Platform 6,1,https://maven.myket.ir/android-sdk/android-2.0.1_r01-linux.zip,79192618,ce2c971dce352aa28af06bda92a070116aa5ae1a
+platforms;android-6,Android SDK Platform 6,1,https://maven.myket.ir/android-sdk/android-2.0.1_r01-macosx.zip,79035527,c3096f80d75a6fc8cb38ef8a18aec920e53d42c0
+platforms;android-6,Android SDK Platform 6,1,https://maven.myket.ir/android-sdk/android-2.0.1_r01-windows.zip,80385601,255781ebe4509d9707d0e77edda2815e2bc216e6
+platforms;android-5,Android SDK Platform 5,1,https://maven.myket.ir/android-sdk/android-2.0_r01-linux.zip,75095268,be9be6a99ca32875c96ec7f91160ca9fce7e3c7d
+platforms;android-5,Android SDK Platform 5,1,https://maven.myket.ir/android-sdk/android-2.0_r01-macosx.zip,74956356,2a866d0870dbba18e0503cd41e5fae988a21b314
+platforms;android-5,Android SDK Platform 5,1,https://maven.myket.ir/android-sdk/android-2.0_r01-windows.zip,76288040,aeb623217ff88b87216d6eb7dbc846ed53f68f57
+platforms;android-4,Android SDK Platform 4,3,https://maven.myket.ir/android-sdk/android-1.6_r03-linux.zip,63454485,483ed088e45bbdf3444baaf9250c8b02e5383cb0
+platforms;android-4,Android SDK Platform 4,3,https://maven.myket.ir/android-sdk/android-1.6_r03-macosx.zip,62418496,bdafad44f5df9f127979bdb21a1fdd87ee3cd625
+platforms;android-4,Android SDK Platform 4,3,https://maven.myket.ir/android-sdk/android-1.6_r03-windows.zip,64654625,ce0b5e4ffaf12ca4fd07c2da71a8a1ab4a03dc22
+platforms;android-3,Android SDK Platform 3,4,https://maven.myket.ir/android-sdk/android-1.5_r04-linux.zip,53348669,5c134b7df5f4b8bd5b61ba93bdaebada8fa3468c
+platforms;android-3,Android SDK Platform 3,4,https://maven.myket.ir/android-sdk/android-1.5_r04-macosx.zip,52440607,d3a67c2369afa48b6c3c7624de5031c262018d1e
+platforms;android-3,Android SDK Platform 3,4,https://maven.myket.ir/android-sdk/android-1.5_r04-windows.zip,54624370,5bb106d2e40d481edd337b0833093843e15fe49a
+platforms;android-2,Android SDK Platform 2,1,https://maven.myket.ir/android-sdk/android-1.1_r1-linux.zip,45476658,c054d25c9b4c6251fa49c2f9c54336998679d3fe
+platforms;android-2,Android SDK Platform 2,1,https://maven.myket.ir/android-sdk/android-1.1_r1-macosx.zip,45584305,e21dbcff45b7356657449ebb3c7e941be2bb5ebe
+platforms;android-2,Android SDK Platform 2,1,https://maven.myket.ir/android-sdk/android-1.1_r1-windows.zip,46828615,a4060f29ed39fc929c302836d488998c53c3002e
+sources;android-36,Sources for Android 36,1,https://maven.myket.ir/android-sdk/source-36_r01.zip,51654722,cbd2cf0e67abf996c4ad6cf6955c3a781d75852a
+sources;android-35,Sources for Android 35,1,https://maven.myket.ir/android-sdk/source-35_r01.zip,48616636,c2770115a5f5ad787c8b298b93687a27eebb85b9
+sources;android-34,Sources for Android 34,2,https://maven.myket.ir/android-sdk/sources-34_r01.zip,45502712,0d2dcece3bbfc032f98986ce7f665b6b97d26bbf
+sources;android-33,Sources for Android 33,1,https://maven.myket.ir/android-sdk/sources-33_r01.zip,49205616,dd9819363bb213e378bb9d84b4c5fe8d8091c219
+sources;android-32,Sources for Android 32,1,https://maven.myket.ir/android-sdk/sources-32_r01.zip,46933291,d7195c6de611b99d7ec3565eabe2fd21268b7f98
+sources;android-31,Sources for Android 31,1,https://maven.myket.ir/android-sdk/sources-31_r01.zip,46383726,2934d1b2975a8bf9fff112bd45a04f6d90db743e
+sources;android-30,Sources for Android 30,1,https://maven.myket.ir/android-sdk/sources-30_r01.zip,43263073,e4c000fb3afb32380609ddcad91f5d6495eeccb1
+sources;android-29,Sources for Android 29,1,https://maven.myket.ir/android-sdk/sources-29_r01.zip,39477018,d0ad249e152b3a8fe3cb7c4a329453a048be29e4
+sources;android-28,Sources for Android 28,1,https://maven.myket.ir/android-sdk/sources-28_r01.zip,42552241,5610e0c24235ee3fa343c899ddd551be30315255
+sources;android-27,Sources for Android 27,1,https://maven.myket.ir/android-sdk/sources-27_r01.zip,36997618,7b714670561d08f54751af42aca929867b806596
+sources;android-26,Sources for Android 26,1,https://maven.myket.ir/android-sdk/sources-26_r01.zip,35138547,2af701ee3223d580409288540b1d06932fd8f9b9
+sources;android-25,Sources for Android 25,1,https://maven.myket.ir/android-sdk/sources-25_r01.zip,30822685,bbc72efd1a9bad87cc507e308f0d29aad438c52c
+sources;android-24,Sources for Android 24,1,https://maven.myket.ir/android-sdk/sources-24_r01.zip,30270410,6b96115830a83d654479f32ce4b724ca9011148b
+sources;android-23,Sources for Android 23,1,https://maven.myket.ir/android-sdk/sources-23_r01.zip,31771965,b0f15da2762b42f543c5e364c2b15b198cc99cc2
+sources;android-22,Sources for Android 22,1,https://maven.myket.ir/android-sdk/sources-22_r01.zip,28861236,98320e13976d11597a4a730a8d203ac9a03ed5a6
+sources;android-21,Sources for Android 21,1,https://maven.myket.ir/android-sdk/sources-21_r01.zip,28274751,137a5044915d32bea297a8c1552684802bbc2e25
+sources;android-20,Sources for Android 20,1,https://maven.myket.ir/android-sdk/sources-20_r01.zip,23367603,8da3e40f2625f9f7ef38b7e403f49f67226c0d76
+sources;android-19,Sources for Android 19,2,https://maven.myket.ir/android-sdk/sources-19_r02.zip,21819439,433a1d043ef77561571250e94cb7a0ef24a202e7
+sources;android-18,Sources for Android 18,1,https://maven.myket.ir/android-sdk/sources-18_r01.zip,20226735,8b49fdf7433f4881a2bfb559b5dd05d8ec65fb78
+sources;android-17,Sources for Android 17,1,https://maven.myket.ir/android-sdk/sources-17_r01.zip,18976816,6f1f18cd2d2b1852d7f6892df9cee3823349d43a
+sources;android-16,Sources for Android 16,2,https://maven.myket.ir/android-sdk/sources-16_r02.zip,17876720,0f83c14ed333c45d962279ab5d6bc98a0269ef84
+sources;android-15,Sources for Android 15,2,https://maven.myket.ir/android-sdk/sources-15_r02.zip,16468746,e5992a5747c9590783fbbdd700337bf0c9f6b1fa
+sources;android-14,Sources for Android 14,1,https://maven.myket.ir/android-sdk/sources-14_r01.zip,16152383,eaf4ed7dcac46e68516a1b4aa5b0d9e5a39a7555
+ndk;30.0.14904198,NDK (Side by side) 30.0.14904198,30.0.14904198,https://maven.myket.ir/android-sdk/android-ndk-r30-beta1-linux.zip,713550176,26b746e5a1e7ac3371f2a862a2f52a7c0740aa8a
+ndk;30.0.14904198,NDK (Side by side) 30.0.14904198,30.0.14904198,https://maven.myket.ir/android-sdk/android-ndk-r30-beta1-darwin.zip,946331314,61f0ae7b4b6fdb732a642560b19e7fd5680fb257
+ndk;30.0.14904198,NDK (Side by side) 30.0.14904198,30.0.14904198,https://maven.myket.ir/android-sdk/android-ndk-r30-beta1-windows.zip,714361038,ec410335aac74d182b369a62c18079187b191149
+ndk;29.0.14206865,NDK (Side by side) 29.0.14206865,29.0.14206865,https://maven.myket.ir/android-sdk/android-ndk-r29-linux.zip,783549481,87e2bb7e9be5d6a1c6cdf5ec40dd4e0c6d07c30b
+ndk;29.0.14206865,NDK (Side by side) 29.0.14206865,29.0.14206865,https://maven.myket.ir/android-sdk/android-ndk-r29-darwin.zip,1049519838,03d29fbb57e3c05a7d53597dd011d856c1456a4f
+ndk;29.0.14206865,NDK (Side by side) 29.0.14206865,29.0.14206865,https://maven.myket.ir/android-sdk/android-ndk-r29-windows.zip,833850862,ab3bb30fbb9e6903666d60c55d11e78b04e07472
+ndk;29.0.14033849,NDK (Side by side) 29.0.14033849,29.0.14033849,https://maven.myket.ir/android-sdk/android-ndk-r29-beta4-linux.zip,783674133,ecba553458e222a7c9b24945a3690e80a4730104
+ndk;29.0.14033849,NDK (Side by side) 29.0.14033849,29.0.14033849,https://maven.myket.ir/android-sdk/android-ndk-r29-beta4-darwin.zip,1049644109,7e9dce149b885efa43760830edd52f347d2e954c
+ndk;29.0.14033849,NDK (Side by side) 29.0.14033849,29.0.14033849,https://maven.myket.ir/android-sdk/android-ndk-r29-beta4-windows.zip,833962952,c99b0f02915cd47ba1b64f4ab3f0daf02281a9c7
+ndk;29.0.13846066,NDK (Side by side) 29.0.13846066,29.0.13846066,https://maven.myket.ir/android-sdk/android-ndk-r29-beta3-linux.zip,784944032,277ccc0f9c56b05dd88e0af39446cd9402b13b0c
+ndk;29.0.13846066,NDK (Side by side) 29.0.13846066,29.0.13846066,https://maven.myket.ir/android-sdk/android-ndk-r29-beta3-darwin.zip,1049515449,f1a4894f0ae115827539c0da251e78df565d9abd
+ndk;29.0.13846066,NDK (Side by side) 29.0.13846066,29.0.13846066,https://maven.myket.ir/android-sdk/android-ndk-r29-beta3-windows.zip,833874261,51b40aa57d8058d901e70357734651ecc69d705a
+ndk;27.3.13750724,NDK (Side by side) 27.3.13750724,27.3.13750724,https://maven.myket.ir/android-sdk/android-ndk-r27d-linux.zip,663956036,22105e410cf29afcf163760cc95522b9fb981121
+ndk;27.3.13750724,NDK (Side by side) 27.3.13750724,27.3.13750724,https://maven.myket.ir/android-sdk/android-ndk-r27d-darwin.zip,839006233,2970926d705988f79baa9b04c51b4f7914dd8c56
+ndk;27.3.13750724,NDK (Side by side) 27.3.13750724,27.3.13750724,https://maven.myket.ir/android-sdk/android-ndk-r27d-windows.zip,781506724,56607cbccd3642d4a1991f6bb3114a00f884f426
+ndk;28.2.13676358,NDK (Side by side) 28.2.13676358,28.2.13676358,https://maven.myket.ir/android-sdk/android-ndk-r28c-linux.zip,722261334,a7b54a5de87fecd125a17d54f73c446199e72a64
+ndk;28.2.13676358,NDK (Side by side) 28.2.13676358,28.2.13676358,https://maven.myket.ir/android-sdk/android-ndk-r28c-darwin.zip,952495160,fc20a6bf15a30fb3428c9b60a7308793a362dc6d
+ndk;28.2.13676358,NDK (Side by side) 28.2.13676358,28.2.13676358,https://maven.myket.ir/android-sdk/android-ndk-r28c-windows.zip,748118221,086bba43ff2f5eb0e387b15c8278bb4e0d89ba1d
+ndk;29.0.13599879,NDK (Side by side) 29.0.13599879,29.0.13599879,https://maven.myket.ir/android-sdk/android-ndk-r29-beta2-linux.zip,773244047,06c29d6764526fb51407d08fcead41247ddd3b70
+ndk;29.0.13599879,NDK (Side by side) 29.0.13599879,29.0.13599879,https://maven.myket.ir/android-sdk/android-ndk-r29-beta2-darwin.zip,1027864991,09be4f8fb626a9c93415198ea8e75d8d82f528fa
+ndk;29.0.13599879,NDK (Side by side) 29.0.13599879,29.0.13599879,https://maven.myket.ir/android-sdk/android-ndk-r29-beta2-windows.zip,821169899,59b665f7506f1079771393f2c90f3cb29817ecfb
+ndk;28.1.13356709,NDK (Side by side) 28.1.13356709,28.1.13356709,https://maven.myket.ir/android-sdk/android-ndk-r28b-linux.zip,722264879,f574d3165405bd59ffc5edaadac02689075a729f
+ndk;28.1.13356709,NDK (Side by side) 28.1.13356709,28.1.13356709,https://maven.myket.ir/android-sdk/android-ndk-r28b-darwin.zip,949590256,6dec1444aceeadd46cf5e1438c28bcc521fc6668
+ndk;28.1.13356709,NDK (Side by side) 28.1.13356709,28.1.13356709,https://maven.myket.ir/android-sdk/android-ndk-r28b-windows.zip,748117965,c7d82072807fcabbd6ee356476761d8729307185
+ndk;29.0.13113456,NDK (Side by side) 29.0.13113456,29.0.13113456,https://maven.myket.ir/android-sdk/android-ndk-r29-beta1-linux.zip,773995428,ec2d8801e42009edf66be853c1bab9ba216378f9
+ndk;29.0.13113456,NDK (Side by side) 29.0.13113456,29.0.13113456,https://maven.myket.ir/android-sdk/android-ndk-r29-beta1-darwin.zip,1027792565,485c42ff6a04ef0ec9612420b3226de443f46e7a
+ndk;29.0.13113456,NDK (Side by side) 29.0.13113456,29.0.13113456,https://maven.myket.ir/android-sdk/android-ndk-r29-beta1-windows.zip,821548547,90347ffa01dd1833b9ff116865958976fd66c264
+ndk;28.0.13004108,NDK (Side by side) 28.0.13004108,28.0.13004108,https://maven.myket.ir/android-sdk/android-ndk-r28-linux.zip,723148067,894f469c5192a116d21f412de27966140a530ebc
+ndk;28.0.13004108,NDK (Side by side) 28.0.13004108,28.0.13004108,https://maven.myket.ir/android-sdk/android-ndk-r28-darwin.zip,950413046,da6bbb3d007095658ae61d9d85da8fcc5c0dfb66
+ndk;28.0.13004108,NDK (Side by side) 28.0.13004108,28.0.13004108,https://maven.myket.ir/android-sdk/android-ndk-r28-windows.zip,748943210,f79a00c721dc5c15b2bf093d7bb2af96496a42b2
+ndk;28.0.12916984,NDK (Side by side) 28.0.12916984,28.0.12916984,https://maven.myket.ir/android-sdk/android-ndk-r28-beta3-linux.zip,723256962,69348e24577122339b3996d2ef1ac4e6f7f5d627
+ndk;28.0.12916984,NDK (Side by side) 28.0.12916984,28.0.12916984,https://maven.myket.ir/android-sdk/android-ndk-r28-beta3-darwin.zip,950521645,cd2f13196082923d2568c9e43f08bc1cbd2f1c76
+ndk;28.0.12916984,NDK (Side by side) 28.0.12916984,28.0.12916984,https://maven.myket.ir/android-sdk/android-ndk-r28-beta3-windows.zip,749041370,72e641edd8ef24b7b3c4935ac0b0340d87251450
+ndk;28.0.12674087,NDK (Side by side) 28.0.12674087,28.0.12674087,https://maven.myket.ir/android-sdk/android-ndk-r28-beta2-linux.zip,721452166,4b901eeb50a76ba521e4eb1e611cb43658b54440
+ndk;28.0.12674087,NDK (Side by side) 28.0.12674087,28.0.12674087,https://maven.myket.ir/android-sdk/android-ndk-r28-beta2-darwin.zip,946868930,1b702451e4cae82eb1d5449bc03875b248a47dc6
+ndk;28.0.12674087,NDK (Side by side) 28.0.12674087,28.0.12674087,https://maven.myket.ir/android-sdk/android-ndk-r28-beta2-windows.zip,746919470,410a9863a8c2559bd4bb1f29517ea525c41859ab
+ndk;27.2.12479018,NDK (Side by side) 27.2.12479018,27.2.12479018,https://maven.myket.ir/android-sdk/android-ndk-r27c-linux.zip,663987688,090e8083a715fdb1a3e402d0763c388abb03fb4e
+ndk;27.2.12479018,NDK (Side by side) 27.2.12479018,27.2.12479018,https://maven.myket.ir/android-sdk/android-ndk-r27c-darwin.zip,836128272,0217c10ffbec496bb9fbfbb3c6fc2477c6b77297
+ndk;27.2.12479018,NDK (Side by side) 27.2.12479018,27.2.12479018,https://maven.myket.ir/android-sdk/android-ndk-r27c-windows.zip,781511249,ac5f7762764b1f15341094e148ad4f847d050c38
+ndk;28.0.12433566,NDK (Side by side) 28.0.12433566,28.0.12433566,https://maven.myket.ir/android-sdk/android-ndk-r28-beta1-linux.zip,626833250,92dd6d941340624c4fc702ebc7e7cbd6faeb703d
+ndk;28.0.12433566,NDK (Side by side) 28.0.12433566,28.0.12433566,https://maven.myket.ir/android-sdk/android-ndk-r28-beta1-darwin.zip,810429167,768dde1389e3245ca5a8a8151161b6d1ee60c78d
+ndk;28.0.12433566,NDK (Side by side) 28.0.12433566,28.0.12433566,https://maven.myket.ir/android-sdk/android-ndk-r28-beta1-windows.zip,746848976,97328457d44dceae79f1cf488684419e0fec851a
+ndk;27.1.12297006,NDK (Side by side) 27.1.12297006,27.1.12297006,https://maven.myket.ir/android-sdk/android-ndk-r27b-linux.zip,663976775,6fc476b2e57d7c01ac0c95817746b927035b9749
+ndk;27.1.12297006,NDK (Side by side) 27.1.12297006,27.1.12297006,https://maven.myket.ir/android-sdk/android-ndk-r27b-darwin.zip,836151734,c70c9791b0d258858678f6df31c4319140e2926e
+ndk;27.1.12297006,NDK (Side by side) 27.1.12297006,27.1.12297006,https://maven.myket.ir/android-sdk/android-ndk-r27b-windows.zip,781495902,3bb7efc850cd0af7707854b7e0d5c3b6a7153703
+ndk;27.0.12077973,NDK (Side by side) 27.0.12077973,27.0.12077973,https://maven.myket.ir/android-sdk/android-ndk-r27-linux.zip,663957918,5e5cd517bdb98d7e0faf2c494a3041291e71bdcc
+ndk;27.0.12077973,NDK (Side by side) 27.0.12077973,27.0.12077973,https://maven.myket.ir/android-sdk/android-ndk-r27-darwin.zip,836135405,1a4a8c39c018430ff170657fc1673d895f5e4570
+ndk;27.0.12077973,NDK (Side by side) 27.0.12077973,27.0.12077973,https://maven.myket.ir/android-sdk/android-ndk-r27-windows.zip,781482169,0ea2756e6815356831bda3af358cce4cdb6a981e
+ndk;27.0.11902837,NDK (Side by side) 27.0.11902837,27.0.11902837,https://maven.myket.ir/android-sdk/android-ndk-r27-beta2-linux.zip,662398163,93103e182405b9d7757231a1d9dad58937a6374b
+ndk;27.0.11902837,NDK (Side by side) 27.0.11902837,27.0.11902837,https://maven.myket.ir/android-sdk/android-ndk-r27-beta2-darwin.zip,836162827,48af6bb62dbfff2f68b39cf118494ebd5ba3b8ad
+ndk;27.0.11902837,NDK (Side by side) 27.0.11902837,27.0.11902837,https://maven.myket.ir/android-sdk/android-ndk-r27-beta2-windows.zip,781461627,30f4103bc32fd28a5b93bb610db0130cfe9ff125
+ndk;27.0.11718014,NDK (Side by side) 27.0.11718014,27.0.11718014,https://maven.myket.ir/android-sdk/android-ndk-r27-beta1-linux.zip,658958615,35a78f7544ccc72d8438d8ea2feb7f252a062abe
+ndk;27.0.11718014,NDK (Side by side) 27.0.11718014,27.0.11718014,https://maven.myket.ir/android-sdk/android-ndk-r27-beta1-darwin.zip,841636299,0206d7e1c4255c40acc691fad8bf943f055e627e
+ndk;27.0.11718014,NDK (Side by side) 27.0.11718014,27.0.11718014,https://maven.myket.ir/android-sdk/android-ndk-r27-beta1-windows.zip,785017110,147b5b333cc57875e34b88ccd29efbe58963264d
+ndk;26.3.11579264,NDK (Side by side) 26.3.11579264,26.3.11579264,https://maven.myket.ir/android-sdk/android-ndk-r26d-linux.zip,668556491,fcdad75a765a46a9cf6560353f480db251d14765
+ndk;26.3.11579264,NDK (Side by side) 26.3.11579264,26.3.11579264,https://maven.myket.ir/android-sdk/android-ndk-r26d-darwin.zip,990809031,cebe7af9bdadc67b8f919d549e9ab269831fd2c9
+ndk;26.3.11579264,NDK (Side by side) 26.3.11579264,26.3.11579264,https://maven.myket.ir/android-sdk/android-ndk-r26d-windows.zip,665022840,c7ea35ffe916082876611da1a6d5618d15430c29
+ndk;23.0.7344513,NDK (Side by side) 23.0.7344513,23.0.7344513,https://maven.myket.ir/android-sdk/android-ndk-r23-beta4-darwin-x86_64.zip,694920487,a8fedcf0dd3b3a340e68684a5a2308154a952039
+ndk;23.0.7344513,NDK (Side by side) 23.0.7344513,23.0.7344513,https://maven.myket.ir/android-sdk/android-ndk-r23-beta4-linux-x86_64.zip,724510864,5f44bc1789042358a73c15e0ef732ea729cf47cc
+ndk;23.0.7344513,NDK (Side by side) 23.0.7344513,23.0.7344513,https://maven.myket.ir/android-sdk/android-ndk-r23-beta4-windows-x86_64.zip,785615074,4492af1296d07c0c65ce42f10ecac06c3c307b94
+ndk;23.0.7272597,NDK (Side by side) 23.0.7272597,23.0.7272597,https://maven.myket.ir/android-sdk/android-ndk-r23-beta3-darwin-x86_64.zip,695243724,3b977f0f8e0fa2d6777fae6b1d37aebfc075ab56
+ndk;23.0.7272597,NDK (Side by side) 23.0.7272597,23.0.7272597,https://maven.myket.ir/android-sdk/android-ndk-r23-beta3-linux-x86_64.zip,724828157,2298465ef13dab0c527b9cf6ef892b1ec6461fb4
+ndk;23.0.7272597,NDK (Side by side) 23.0.7272597,23.0.7272597,https://maven.myket.ir/android-sdk/android-ndk-r23-beta3-windows-x86_64.zip,785932724,8c10a51f50f4f12ccc839dcb4bd8107133024c2f
+ndk;23.0.7196353,NDK (Side by side) 23.0.7196353,23.0.7196353,https://maven.myket.ir/android-sdk/android-ndk-r23-beta2-darwin-x86_64.zip,674507658,454fd0c1e8385896ad465d7cfd653e28fbf3523f
+ndk;23.0.7196353,NDK (Side by side) 23.0.7196353,23.0.7196353,https://maven.myket.ir/android-sdk/android-ndk-r23-beta2-linux-x86_64.zip,705747711,290e8c39bb9732ac8784855e1f22342eb488228e
+ndk;23.0.7196353,NDK (Side by side) 23.0.7196353,23.0.7196353,https://maven.myket.ir/android-sdk/android-ndk-r23-beta2-windows-x86_64.zip,747953762,00194ae44ce90f2052ab8e42f1a11a0db8d50c2a
+ndk;23.0.7123448,NDK (Side by side) 23.0.7123448,23.0.7123448,https://maven.myket.ir/android-sdk/android-ndk-r23-beta1-darwin-x86_64.zip,721278316,708ebbceb719c43a3165503ea82fb107d823ad54
+ndk;23.0.7123448,NDK (Side by side) 23.0.7123448,23.0.7123448,https://maven.myket.ir/android-sdk/android-ndk-r23-beta1-linux-x86_64.zip,804392699,1340ed20f27fcb184ea814ae63e0f3cd75890342
+ndk;23.0.7123448,NDK (Side by side) 23.0.7123448,23.0.7123448,https://maven.myket.ir/android-sdk/android-ndk-r23-beta1-windows-x86_64.zip,749304589,c056900896129d3dd4eb953a53a8961d9853aa20
+ndk;22.1.7171670,NDK (Side by side) 22.1.7171670,22.1.7171670,https://maven.myket.ir/android-sdk/android-ndk-r22b-darwin-x86_64.zip,1049337733,dc80e8a2cfcb28db74c1931d42c652e9d17ff2c3
+ndk;22.1.7171670,NDK (Side by side) 22.1.7171670,22.1.7171670,https://maven.myket.ir/android-sdk/android-ndk-r22b-linux-x86_64.zip,1148198368,9ece64c7f19763dd67320d512794969930fce9dc
+ndk;22.1.7171670,NDK (Side by side) 22.1.7171670,22.1.7171670,https://maven.myket.ir/android-sdk/android-ndk-r22b-windows-x86_64.zip,1082301775,96ba1a049303cf6bf3ee84cfd64d6bcd43486a50
+ndk;22.0.7026061,NDK (Side by side) 22.0.7026061,22.0.7026061,https://maven.myket.ir/android-sdk/android-ndk-r22-darwin-x86_64.zip,1047577432,9cf3816ed3e4308ff03bd5f69100b373bad12f13
+ndk;22.0.7026061,NDK (Side by side) 22.0.7026061,22.0.7026061,https://maven.myket.ir/android-sdk/android-ndk-r22-linux-x86_64.zip,1146450986,82274313aba10da6177fd41868f56a0f9651dd81
+ndk;22.0.7026061,NDK (Side by side) 22.0.7026061,22.0.7026061,https://maven.myket.ir/android-sdk/android-ndk-r22-windows-x86_64.zip,1080471370,c03f761caf1c6f5efbeb5ccfa573ea922cb955b3
+ndk;22.0.6917172,NDK (Side by side) 22.0.6917172,22.0.6917172,https://maven.myket.ir/android-sdk/android-ndk-r22-beta1-darwin-x86_64.zip,1047697781,0ff242f820663fe45773bca7a2df036004fc7c69
+ndk;22.0.6917172,NDK (Side by side) 22.0.6917172,22.0.6917172,https://maven.myket.ir/android-sdk/android-ndk-r22-beta1-linux-x86_64.zip,1146575022,687f696f43b23e2623e7f7073bbd575d254f66f6
+ndk;22.0.6917172,NDK (Side by side) 22.0.6917172,22.0.6917172,https://maven.myket.ir/android-sdk/android-ndk-r22-beta1-windows-x86_64.zip,1080588810,ef38999c0e3c96124acffab6971ad2054a433b91
+ndk;21.4.7075529,NDK (Side by side) 21.4.7075529,21.4.7075529,https://maven.myket.ir/android-sdk/android-ndk-r21e-darwin-x86_64.zip,1042617180,3f15c23a1c247ad17c7c271806848dbd40434738
+ndk;21.4.7075529,NDK (Side by side) 21.4.7075529,21.4.7075529,https://maven.myket.ir/android-sdk/android-ndk-r21e-linux-x86_64.zip,1190670072,c3ebc83c96a4d7f539bd72c241b2be9dcd29bda9
+ndk;21.4.7075529,NDK (Side by side) 21.4.7075529,21.4.7075529,https://maven.myket.ir/android-sdk/android-ndk-r21e-windows-x86_64.zip,1109665123,fc44fea8bb3f5a6789821f40f41dce2d2cd5dc30
+ndk;21.3.6528147,NDK (Side by side) 21.3.6528147,21.3.6528147,https://maven.myket.ir/android-sdk/android-ndk-r21d-darwin-x86_64.zip,1042615469,ef06c9f9d7efd6f243eb3c05ac440562ae29ae12
+ndk;21.3.6528147,NDK (Side by side) 21.3.6528147,21.3.6528147,https://maven.myket.ir/android-sdk/android-ndk-r21d-linux-x86_64.zip,1190667841,bcf4023eb8cb6976a4c7cff0a8a8f145f162bf4d
+ndk;21.3.6528147,NDK (Side by side) 21.3.6528147,21.3.6528147,https://maven.myket.ir/android-sdk/android-ndk-r21d-windows-x86_64.zip,1109536102,99175ce1210258f2280568cd340e0666c69955c7
+ndk;21.2.6472646,NDK (Side by side) 21.2.6472646,21.2.6472646,https://maven.myket.ir/android-sdk/android-ndk-r21c-darwin-x86_64.zip,1014322452,c42a836f6697a4ef8b927813d5f7dd12e974cfba
+ndk;21.2.6472646,NDK (Side by side) 21.2.6472646,21.2.6472646,https://maven.myket.ir/android-sdk/android-ndk-r21c-linux-x86_64.zip,1162375023,c81a5bcb4672a18d3647bf6898cd4dbcb978d0e8
+ndk;21.2.6472646,NDK (Side by side) 21.2.6472646,21.2.6472646,https://maven.myket.ir/android-sdk/android-ndk-r21c-windows-x86_64.zip,1079490351,93563a1297a60b5da49a48f62340dbf0c878a5f3
+ndk;21.1.6352462,NDK (Side by side) 21.1.6352462,21.1.6352462,https://maven.myket.ir/android-sdk/android-ndk-r21b-darwin-x86_64.zip,1014473187,e1de2f749c5c32ae991c3ccaabfcdf7688ee221f
+ndk;21.1.6352462,NDK (Side by side) 21.1.6352462,21.1.6352462,https://maven.myket.ir/android-sdk/android-ndk-r21b-linux-x86_64.zip,1162377080,50250fcba479de477b45801e2699cca47f7e1267
+ndk;21.1.6352462,NDK (Side by side) 21.1.6352462,21.1.6352462,https://maven.myket.ir/android-sdk/android-ndk-r21b-windows-x86_64.zip,1079474640,6809fac4a6e829f4bac64628fa9835d57bbd61a8
+ndk;21.1.6363665,NDK (Side by side) 21.1.6363665,21.1.6363665,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta3-darwin-x86_64.zip,1042902819,767f722c14dd27a22b17903e09b768407131129e
+ndk;21.1.6363665,NDK (Side by side) 21.1.6363665,21.1.6363665,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta3-linux-x86_64.zip,1190809917,29139085aa402d6b27d4394c30e797f814876d1e
+ndk;21.1.6363665,NDK (Side by side) 21.1.6363665,21.1.6363665,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta3-windows-x86_64.zip,1109667800,8ecb03c728b8dc814db30c8152c4436cb1536c8d
+ndk;21.1.6273396,NDK (Side by side) 21.1.6273396,21.1.6273396,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta2-darwin-x86_64.zip,987112894,41110daad93e6a9a3662d7dd2fb233b21be3d27e
+ndk;21.1.6273396,NDK (Side by side) 21.1.6273396,21.1.6273396,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta2-linux-x86_64.zip,1071784976,b9a6463ab72ad183c89e5316f0c5493f64b54966
+ndk;21.1.6273396,NDK (Side by side) 21.1.6273396,21.1.6273396,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta2-windows-x86_64.zip,1087508597,dc6dc614cbd94b345b66f85d3f867638593fb199
+ndk;21.1.6210238,NDK (Side by side) 21.1.6210238,21.1.6210238,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta1-darwin-x86_64.zip,987084422,971609f9a579ebbcb8d121a5d5aa0cba716b2d1f
+ndk;21.1.6210238,NDK (Side by side) 21.1.6210238,21.1.6210238,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta1-linux-x86_64.zip,1071756532,cf06ed408663c11c8f4824f9370c7a900ec074dd
+ndk;21.1.6210238,NDK (Side by side) 21.1.6210238,21.1.6210238,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta1-windows-x86_64.zip,1087478202,a920ca1ab75733b510180cef23f3797ded40dbb7
+ndk;21.0.6113669,NDK (Side by side) 21.0.6113669,21.0.6113669,https://maven.myket.ir/android-sdk/android-ndk-r21-darwin-x86_64.zip,958656601,0d50636cc0e34ed3ba540d6d5818ea0cf10f16aa
+ndk;21.0.6113669,NDK (Side by side) 21.0.6113669,21.0.6113669,https://maven.myket.ir/android-sdk/android-ndk-r21-linux-x86_64.zip,1043332542,afc9c0b9faad222898ac8168c78ad4ccac8a1b5c
+ndk;21.0.6113669,NDK (Side by side) 21.0.6113669,21.0.6113669,https://maven.myket.ir/android-sdk/android-ndk-r21-windows-x86_64.zip,1057294207,c61631eacbd40c30273b716a4e589c6877b85419
+ndk;21.0.6011959,NDK (Side by side) 21.0.6011959,21.0.6011959,https://maven.myket.ir/android-sdk/android-ndk-r21-beta2-darwin-x86_64.zip,958791657,34a46c3867c9d87a80895c0b8a098256052536d2
+ndk;21.0.6011959,NDK (Side by side) 21.0.6011959,21.0.6011959,https://maven.myket.ir/android-sdk/android-ndk-r21-beta2-linux-x86_64.zip,1043467643,335f30302bee700a9a5fdfe3ae533a4963499c44
+ndk;21.0.6011959,NDK (Side by side) 21.0.6011959,21.0.6011959,https://maven.myket.ir/android-sdk/android-ndk-r21-beta2-windows-x86_64.zip,1057424857,e5902e4f6c5b6f0354a2572a85f42f19c1a7b9d8
+ndk;20.1.5948944,NDK (Side by side) 20.1.5948944,20.1.5948944,https://maven.myket.ir/android-sdk/android-ndk-r20b-darwin-x86_64.zip,843201217,b51290ab69cb89de1f0ba108702277bc333b38be
+ndk;20.1.5948944,NDK (Side by side) 20.1.5948944,20.1.5948944,https://maven.myket.ir/android-sdk/android-ndk-r20b-linux-x86_64.zip,859780564,d903fdf077039ad9331fb6c3bee78aa46d45527b
+ndk;20.1.5948944,NDK (Side by side) 20.1.5948944,20.1.5948944,https://maven.myket.ir/android-sdk/android-ndk-r20b-windows-x86.zip,814464692,71a1ba20475da1d83b0f1a1826813008f628d59b
+ndk;20.1.5948944,NDK (Side by side) 20.1.5948944,20.1.5948944,https://maven.myket.ir/android-sdk/android-ndk-r20b-windows-x86_64.zip,832473103,ead0846608040b8344ad2bc9bc721b88cf13fb8d
+ndk;20.0.5594570,NDK (Side by side) 20.0.5594570,20.0.5594570,https://maven.myket.ir/android-sdk/android-ndk-r20-darwin-x86_64.zip,843152912,96d5f1c50452596912d1982439c514194b5751e6
+ndk;20.0.5594570,NDK (Side by side) 20.0.5594570,20.0.5594570,https://maven.myket.ir/android-sdk/android-ndk-r20-linux-x86_64.zip,859737910,8665fc84a1b1f0d6ab3b5fdd1e30200cc7b9adff
+ndk;20.0.5594570,NDK (Side by side) 20.0.5594570,20.0.5594570,https://maven.myket.ir/android-sdk/android-ndk-r20-windows-x86.zip,814417431,b605f7e2e7585af2fc9d59fe9ddad86b64b2bf03
+ndk;20.0.5594570,NDK (Side by side) 20.0.5594570,20.0.5594570,https://maven.myket.ir/android-sdk/android-ndk-r20-windows-x86_64.zip,832429986,36e1dc77fad08ad2498fb94b13ad8caf26bbd9df
+ndk;20.0.5471264,NDK (Side by side) 20.0.5471264,20.0.5471264,https://maven.myket.ir/android-sdk/android-ndk-r20-beta3-darwin-x86_64.zip,843617071,665a035cadb0dd03e6502ba25c18643f6e4ede24
+ndk;20.0.5471264,NDK (Side by side) 20.0.5471264,20.0.5471264,https://maven.myket.ir/android-sdk/android-ndk-r20-beta3-linux-x86_64.zip,860198768,674d8fb0e0df8e8be1c31fa321eb176548a19ba3
+ndk;20.0.5471264,NDK (Side by side) 20.0.5471264,20.0.5471264,https://maven.myket.ir/android-sdk/android-ndk-r20-beta3-windows-x86.zip,814872365,f9d1c5366ee5bf4927ac1c18f06143550b492e92
+ndk;20.0.5471264,NDK (Side by side) 20.0.5471264,20.0.5471264,https://maven.myket.ir/android-sdk/android-ndk-r20-beta3-windows-x86_64.zip,832889871,9375dc82cf576f4a255bf908dfc628d8ddee0d89
+ndk;20.0.5392854,NDK (Side by side) 20.0.5392854,20.0.5392854,https://maven.myket.ir/android-sdk/android-ndk-r20-beta2-darwin-x86_64.zip,840834121,cd94191ace6b31ec9af1cc370173e16934e1cb8b
+ndk;20.0.5392854,NDK (Side by side) 20.0.5392854,20.0.5392854,https://maven.myket.ir/android-sdk/android-ndk-r20-beta2-linux-x86_64.zip,857406412,8285ae2e24a7232fd0cbfb55e955c8586ef2ee02
+ndk;20.0.5392854,NDK (Side by side) 20.0.5392854,20.0.5392854,https://maven.myket.ir/android-sdk/android-ndk-r20-beta2-windows-x86.zip,812086484,15a8085b8ce5ecf0705ded2335513055693bddaa
+ndk;20.0.5392854,NDK (Side by side) 20.0.5392854,20.0.5392854,https://maven.myket.ir/android-sdk/android-ndk-r20-beta2-windows-x86_64.zip,830099430,c89022bd9a2c32b42a1b94e98bbd88ab4c4e350e
+ndk;19.2.5345600,NDK (Side by side) 19.2.5345600,19.2.5345600,https://maven.myket.ir/android-sdk/android-ndk-r19c-darwin-x86_64.zip,807630656,f46b8193109bba8a58e0461c1a48f4534051fb25
+ndk;19.2.5345600,NDK (Side by side) 19.2.5345600,19.2.5345600,https://maven.myket.ir/android-sdk/android-ndk-r19c-linux-x86_64.zip,823376982,fd94d0be6017c6acbd193eb95e09cf4b6f61b834
+ndk;19.2.5345600,NDK (Side by side) 19.2.5345600,19.2.5345600,https://maven.myket.ir/android-sdk/android-ndk-r19c-windows-x86.zip,778598286,132cc0c9e31b9e58ad6505b0816ff9e524422ed2
+ndk;19.2.5345600,NDK (Side by side) 19.2.5345600,19.2.5345600,https://maven.myket.ir/android-sdk/android-ndk-r19c-windows-x86_64.zip,796051997,c4cd8c0b6e7618ca0a871a5f24102e40c239f6a3
+ndk;19.0.5232133,NDK (Side by side) 19.0.5232133,19.0.5232133,https://maven.myket.ir/android-sdk/android-ndk-r19-darwin-x86_64.zip,807592927,86c1a962601b23b8a6d3d535c93b4b0bc4f29249
+ndk;19.0.5232133,NDK (Side by side) 19.0.5232133,19.0.5232133,https://maven.myket.ir/android-sdk/android-ndk-r19-linux-x86_64.zip,823337344,f02ad84cb5b6e1ff3eea9e6168037c823408c8ac
+ndk;19.0.5232133,NDK (Side by side) 19.0.5232133,19.0.5232133,https://maven.myket.ir/android-sdk/android-ndk-r19-windows-x86.zip,778544468,281175a42b312d630f864a02a31c5806ada5663b
+ndk;19.0.5232133,NDK (Side by side) 19.0.5232133,19.0.5232133,https://maven.myket.ir/android-sdk/android-ndk-r19-windows-x86_64.zip,795986424,37906e8e79a9dddf6805325f706a072055e4136c
+ndk;18.1.5063045,NDK (Side by side) 18.1.5063045,18.1.5063045,https://maven.myket.ir/android-sdk/android-ndk-r18b-darwin-x86_64.zip,542911996,98cb9909aa8c2dab32db188bbdc3ac6207e09440
+ndk;18.1.5063045,NDK (Side by side) 18.1.5063045,18.1.5063045,https://maven.myket.ir/android-sdk/android-ndk-r18b-linux-x86_64.zip,557038702,500679655da3a86aecf67007e8ab230ea9b4dd7b
+ndk;18.1.5063045,NDK (Side by side) 18.1.5063045,18.1.5063045,https://maven.myket.ir/android-sdk/android-ndk-r18b-windows-x86.zip,504605336,4b8b6a4edc0fa967b429c1d6d25adf69acc28803
+ndk;18.1.5063045,NDK (Side by side) 18.1.5063045,18.1.5063045,https://maven.myket.ir/android-sdk/android-ndk-r18b-windows-x86_64.zip,522489470,6b6d4138aaaad7166679fdfa4780e177f95cee6f
+ndk;17.2.4988734,NDK (Side by side) 17.2.4988734,17.2.4988734,https://maven.myket.ir/android-sdk/android-ndk-r17c-darwin-x86_64.zip,675091485,f97e3d7711497e3b4faf9e7b3fa0f0da90bb649c
+ndk;17.2.4988734,NDK (Side by side) 17.2.4988734,17.2.4988734,https://maven.myket.ir/android-sdk/android-ndk-r17c-linux-x86_64.zip,709387703,12cacc70c3fd2f40574015631c00f41fb8a39048
+ndk;17.2.4988734,NDK (Side by side) 17.2.4988734,17.2.4988734,https://maven.myket.ir/android-sdk/android-ndk-r17c-windows-x86.zip,608358310,5bb25bf13fa494ee6c3433474c7aa90009f9f6a9
+ndk;17.2.4988734,NDK (Side by side) 17.2.4988734,17.2.4988734,https://maven.myket.ir/android-sdk/android-ndk-r17c-windows-x86_64.zip,650626501,3e3b8d1650f9d297d130be2b342db956003f5992
+ndk;16.1.4479499,NDK (Side by side) 16.1.4479499,16.1.4479499,https://maven.myket.ir/android-sdk/android-ndk-r16b-darwin-x86_64.zip,839630771,e51e615449b98c716cf912057e2682e75d55e2de
+ndk;16.1.4479499,NDK (Side by side) 16.1.4479499,16.1.4479499,https://maven.myket.ir/android-sdk/android-ndk-r16b-linux-x86_64.zip,852525873,42aa43aae89a50d1c66c3f9fdecd676936da6128
+ndk;16.1.4479499,NDK (Side by side) 16.1.4479499,16.1.4479499,https://maven.myket.ir/android-sdk/android-ndk-r16b-windows-x86.zip,656720029,becaf3d445a4877ca1a9300a62f0934a4838c7fa
+ndk;16.1.4479499,NDK (Side by side) 16.1.4479499,16.1.4479499,https://maven.myket.ir/android-sdk/android-ndk-r16b-windows-x86_64.zip,723301086,f3f1909ed1052e98dda2c79d11c22f3da28daf25
+ndk;26.2.11394342,NDK (Side by side) 26.2.11394342,26.2.11394342,https://maven.myket.ir/android-sdk/android-ndk-r26c-darwin.zip,983592055,ceb609baf514614015279b5eee7dffc859426952
+ndk;26.2.11394342,NDK (Side by side) 26.2.11394342,26.2.11394342,https://maven.myket.ir/android-sdk/android-ndk-r26c-linux.zip,668556021,7faebe2ebd3590518f326c82992603170f07c96e
+ndk;26.2.11394342,NDK (Side by side) 26.2.11394342,26.2.11394342,https://maven.myket.ir/android-sdk/android-ndk-r26c-windows.zip,660158794,f8c8aa6135241954461b2e3629cada4722e13ee7
+ndk;26.1.10909125,NDK (Side by side) 26.1.10909125,26.1.10909125,https://maven.myket.ir/android-sdk/android-ndk-r26b-darwin.zip,985051981,44df0485bbd565b89585b687bb748521a98f65a8
+ndk;26.1.10909125,NDK (Side by side) 26.1.10909125,26.1.10909125,https://maven.myket.ir/android-sdk/android-ndk-r26b-linux.zip,669320864,fdf33d9f6c1b3f16e5459d53a82c7d2201edbcc4
+ndk;26.1.10909125,NDK (Side by side) 26.1.10909125,26.1.10909125,https://maven.myket.ir/android-sdk/android-ndk-r26b-windows.zip,661624075,17453c61a59e848cffb8634f2c7b322417f1732e
+ndk;26.0.10792818,NDK (Side by side) 26.0.10792818,26.0.10792818,https://maven.myket.ir/android-sdk/android-ndk-r26-darwin.zip,983623748,5c74249e80549db0f2feddc58e1838d3d2cc6d42
+ndk;26.0.10792818,NDK (Side by side) 26.0.10792818,26.0.10792818,https://maven.myket.ir/android-sdk/android-ndk-r26-linux.zip,668596633,d3bef08e0e43acd9e7815538df31818692d548bb
+ndk;26.0.10792818,NDK (Side by side) 26.0.10792818,26.0.10792818,https://maven.myket.ir/android-sdk/android-ndk-r26-windows.zip,664790510,7fcf5789bc248c130af675720353819f72b02b94
+ndk;26.0.10636728,NDK (Side by side) 26.0.10636728,26.0.10636728,https://maven.myket.ir/android-sdk/android-ndk-r26-rc1-darwin.zip,983731026,295be7e8514eff8dae7aa01dc7e9978fa85fa64e
+ndk;26.0.10636728,NDK (Side by side) 26.0.10636728,26.0.10636728,https://maven.myket.ir/android-sdk/android-ndk-r26-rc1-linux.zip,668698776,6ec8c08204409fea4853bf0317660caadabfc8b0
+ndk;26.0.10636728,NDK (Side by side) 26.0.10636728,26.0.10636728,https://maven.myket.ir/android-sdk/android-ndk-r26-rc1-windows.zip,664889050,d4f4aa8a863e6e7cc0c433f1ecd8a304da4848a7
+ndk;26.0.10404224,NDK (Side by side) 26.0.10404224,26.0.10404224,https://maven.myket.ir/android-sdk/android-ndk-r26-beta1-darwin.zip,983730774,d6dbb122cf3fc52a64ae0d19d120a01ce0052f3b
+ndk;26.0.10404224,NDK (Side by side) 26.0.10404224,26.0.10404224,https://maven.myket.ir/android-sdk/android-ndk-r26-beta1-linux.zip,668699088,fb5e34313766764d9654b04603e69af813b18799
+ndk;26.0.10404224,NDK (Side by side) 26.0.10404224,26.0.10404224,https://maven.myket.ir/android-sdk/android-ndk-r26-beta1-windows.zip,664889266,bcdc60cf0149fc862cbb5514e7879d8c46c6e1e0
+ndk;25.2.9519653,NDK (Side by side) 25.2.9519653,25.2.9519653,https://maven.myket.ir/android-sdk/android-ndk-r25c-darwin.zip,717255580,75717f3473973c3630e772ec916de380157a593a
+ndk;25.2.9519653,NDK (Side by side) 25.2.9519653,25.2.9519653,https://maven.myket.ir/android-sdk/android-ndk-r25c-linux.zip,531118193,53af80a1cce9144025b81c78c8cd556bff42bd0e
+ndk;25.2.9519653,NDK (Side by side) 25.2.9519653,25.2.9519653,https://maven.myket.ir/android-sdk/android-ndk-r25c-windows.zip,467520926,18c4a3cd108916f553b1bedad2672f2c6cd85a10
+ndk;25.1.8937393,NDK (Side by side) 25.1.8937393,25.1.8937393,https://maven.myket.ir/android-sdk/android-ndk-r25b-darwin.zip,716592117,248f96de6713cbec8707ee2262d3cf08d14d9fde
+ndk;25.1.8937393,NDK (Side by side) 25.1.8937393,25.1.8937393,https://maven.myket.ir/android-sdk/android-ndk-r25b-linux.zip,530975885,e27dcb9c8bcaa77b78ff68c3f23abcf6867959eb
+ndk;25.1.8937393,NDK (Side by side) 25.1.8937393,25.1.8937393,https://maven.myket.ir/android-sdk/android-ndk-r25b-windows.zip,467422601,b2e9b5ab2e1434a65ffd85780891878cf5c6fd92
+ndk;25.0.8775105,NDK (Side by side) 25.0.8775105,25.0.8775105,https://maven.myket.ir/android-sdk/android-ndk-r25-darwin.zip,716557039,8c54514c62f635dbbc161e30e21f16bcd22526df
+ndk;25.0.8775105,NDK (Side by side) 25.0.8775105,25.0.8775105,https://maven.myket.ir/android-sdk/android-ndk-r25-linux.zip,530938532,9fce956edb6abd5aca42acf6bbfb21a90a67f75b
+ndk;25.0.8775105,NDK (Side by side) 25.0.8775105,25.0.8775105,https://maven.myket.ir/android-sdk/android-ndk-r25-windows.zip,467387858,1da93e7da5803dd8ef47e9283ec2c7b98d34b8da
+ndk;25.0.8528842,NDK (Side by side) 25.0.8528842,25.0.8528842,https://maven.myket.ir/android-sdk/android-ndk-r25-beta4-darwin.zip,716633626,d7f344ecc68518a8178d15b1b80e27bc5c69f00d
+ndk;25.0.8528842,NDK (Side by side) 25.0.8528842,25.0.8528842,https://maven.myket.ir/android-sdk/android-ndk-r25-beta4-linux.zip,531018178,d13f688fd286709f0d950c75119ec9fcad8a47ff
+ndk;25.0.8528842,NDK (Side by side) 25.0.8528842,25.0.8528842,https://maven.myket.ir/android-sdk/android-ndk-r25-beta4-windows.zip,464031742,668b063c7c535c4f8be52c84acebb5779935203b
+ndk;25.0.8355429,NDK (Side by side) 25.0.8355429,25.0.8355429,https://maven.myket.ir/android-sdk/android-ndk-r25-beta3-darwin.zip,748047157,224594abb41357c20cb4a9f4a732c484b2e743ba
+ndk;25.0.8355429,NDK (Side by side) 25.0.8355429,25.0.8355429,https://maven.myket.ir/android-sdk/android-ndk-r25-beta3-linux.zip,510520692,79c8db05e20edde0cbb02d2326e7b8405f7eb977
+ndk;25.0.8355429,NDK (Side by side) 25.0.8355429,25.0.8355429,https://maven.myket.ir/android-sdk/android-ndk-r25-beta3-windows.zip,506142216,7d2c398045f6bbad03f6fb2f2ba419a2a48ab1e7
+ndk;25.0.8221429,NDK (Side by side) 25.0.8221429,25.0.8221429,https://maven.myket.ir/android-sdk/android-ndk-r25-beta2-darwin.zip,915502522,51961d41ffe63ac664edf26b51906ec07213e088
+ndk;25.0.8221429,NDK (Side by side) 25.0.8221429,25.0.8221429,https://maven.myket.ir/android-sdk/android-ndk-r25-beta2-linux.zip,677975159,3b7435a1a851a4b2dadeafa466f323db9235dd9a
+ndk;25.0.8221429,NDK (Side by side) 25.0.8221429,25.0.8221429,https://maven.myket.ir/android-sdk/android-ndk-r25-beta2-windows.zip,673597865,4fd188fdba7413c397bcaa342039d07266c954b6
+ndk;25.0.8151533,NDK (Side by side) 25.0.8151533,25.0.8151533,https://maven.myket.ir/android-sdk/android-ndk-r25-beta1-darwin.zip,918358459,32024b773d65dd445cf8cf52156a331c544ee7e0
+ndk;25.0.8151533,NDK (Side by side) 25.0.8151533,25.0.8151533,https://maven.myket.ir/android-sdk/android-ndk-r25-beta1-linux.zip,680831029,0acca5e8faa47a6c961c358d724a93e33f8d6caf
+ndk;25.0.8151533,NDK (Side by side) 25.0.8151533,25.0.8151533,https://maven.myket.ir/android-sdk/android-ndk-r25-beta1-windows.zip,676453790,a5486182f79696794eb1a216c11f5e29652e72d1
+ndk;24.0.8079956,NDK (Side by side) 24.0.8079956,24.0.8079956,https://maven.myket.ir/android-sdk/android-ndk-r24-rc1-darwin.zip,901524232,c7f3552e5bd6a76ea7fd460fe49afb4c7bdc5e39
+ndk;24.0.8079956,NDK (Side by side) 24.0.8079956,24.0.8079956,https://maven.myket.ir/android-sdk/android-ndk-r24-rc1-linux.zip,667835859,de2a02e65c1c720336fe991dc708875539df85bf
+ndk;24.0.8079956,NDK (Side by side) 24.0.8079956,24.0.8079956,https://maven.myket.ir/android-sdk/android-ndk-r24-rc1-windows.zip,663173050,dbc9f19cc758285192c26238b4b87be207464bf2
+ndk;24.0.8215888,NDK (Side by side) 24.0.8215888,24.0.8215888,https://maven.myket.ir/android-sdk/android-ndk-r24-darwin.zip,901417197,fc4d0d86e3c802e8c4a6865d99cff58b336e2d5a
+ndk;24.0.8215888,NDK (Side by side) 24.0.8215888,24.0.8215888,https://maven.myket.ir/android-sdk/android-ndk-r24-linux.zip,667731974,eceb18f147282eb93615eff1ad84a9d3962fbb31
+ndk;24.0.8215888,NDK (Side by side) 24.0.8215888,24.0.8215888,https://maven.myket.ir/android-sdk/android-ndk-r24-windows.zip,663076813,75f9c281c64762d18c84da465f486c60def47829
+ndk;24.0.7956693,NDK (Side by side) 24.0.7956693,24.0.7956693,https://maven.myket.ir/android-sdk/android-ndk-r24-beta2-darwin.zip,948103952,9f95216133c78e871a31b35278dce524956579bd
+ndk;24.0.7956693,NDK (Side by side) 24.0.7956693,24.0.7956693,https://maven.myket.ir/android-sdk/android-ndk-r24-beta2-linux.zip,695411089,78f3006243c0bc051c7c7bfb939689032e7c41ba
+ndk;24.0.7956693,NDK (Side by side) 24.0.7956693,24.0.7956693,https://maven.myket.ir/android-sdk/android-ndk-r24-beta2-windows.zip,661623688,d4eb40c03259094ae3ea05134ee17af717f48d6d
+ndk;24.0.7856742,NDK (Side by side) 24.0.7856742,24.0.7856742,https://maven.myket.ir/android-sdk/android-ndk-r24-beta1-darwin.zip,950494966,de560fe3bc8b760d598a08bc329030cf36f6a490
+ndk;24.0.7856742,NDK (Side by side) 24.0.7856742,24.0.7856742,https://maven.myket.ir/android-sdk/android-ndk-r24-beta1-linux.zip,684615573,4e43e498699b00cab8b07d431b65a0c1aa022313
+ndk;24.0.7856742,NDK (Side by side) 24.0.7856742,24.0.7856742,https://maven.myket.ir/android-sdk/android-ndk-r24-beta1-windows.zip,690364848,ade5412e9ac0dd206824e9249a5fbc11c9c248bf
+ndk;23.2.8568313,NDK (Side by side) 23.2.8568313,23.2.8568313,https://maven.myket.ir/android-sdk/android-ndk-r23c-darwin.zip,982917530,1fc65d8f6083f3f5cd01e0cf97c6adc10f4f076f
+ndk;23.2.8568313,NDK (Side by side) 23.2.8568313,23.2.8568313,https://maven.myket.ir/android-sdk/android-ndk-r23c-linux.zip,724733960,e5053c126a47e84726d9f7173a04686a71f9a67a
+ndk;23.2.8568313,NDK (Side by side) 23.2.8568313,23.2.8568313,https://maven.myket.ir/android-sdk/android-ndk-r23c-windows.zip,788336993,f2c5def76a9de371f27d028864fe301ab4fe0cf8
+ndk;23.1.7779620,NDK (Side by side) 23.1.7779620,23.1.7779620,https://maven.myket.ir/android-sdk/android-ndk-r23b-darwin.zip,978956151,4f54966e733f92964f097887bedfdd0faa0f7042
+ndk;23.1.7779620,NDK (Side by side) 23.1.7779620,23.1.7779620,https://maven.myket.ir/android-sdk/android-ndk-r23b-linux.zip,725122099,f47ec4c4badd11e9f593a8450180884a927c330d
+ndk;23.1.7779620,NDK (Side by side) 23.1.7779620,23.1.7779620,https://maven.myket.ir/android-sdk/android-ndk-r23b-windows.zip,788638042,6e3fb50022c611a2b13d02f5de5c21cc7206a298
+ndk;23.0.7599858,NDK (Side by side) 23.0.7599858,23.0.7599858,https://maven.myket.ir/android-sdk/android-ndk-r23-darwin.zip,691981924,c19f4a29e03689ea31bebe77f2d0a256d8e16925
+ndk;23.0.7599858,NDK (Side by side) 23.0.7599858,23.0.7599858,https://maven.myket.ir/android-sdk/android-ndk-r23-linux.zip,721667870,9bad35f442caeda747780ba1dd92f2d98609d9cd
+ndk;23.0.7599858,NDK (Side by side) 23.0.7599858,23.0.7599858,https://maven.myket.ir/android-sdk/android-ndk-r23-windows.zip,782684423,14af52e23af9f7a9e7576a17e1814701192745be
+ndk;23.0.7530507,NDK (Side by side) 23.0.7530507,23.0.7530507,https://maven.myket.ir/android-sdk/android-ndk-r23-beta6-darwin.zip,695336572,af299c3e4f6fd3e6f05b1699a0181d84a95068c4
+ndk;23.0.7530507,NDK (Side by side) 23.0.7530507,23.0.7530507,https://maven.myket.ir/android-sdk/android-ndk-r23-beta6-linux.zip,725026229,b3118a9daeff8ad1801c4dbaeda1e5e5fb33b8a5
+ndk;23.0.7530507,NDK (Side by side) 23.0.7530507,23.0.7530507,https://maven.myket.ir/android-sdk/android-ndk-r23-beta6-windows.zip,786033634,386f5c80217f6f33d6420f7de4f935eaff831868
+ndk;23.0.7421159,NDK (Side by side) 23.0.7421159,23.0.7421159,https://maven.myket.ir/android-sdk/android-ndk-r23-beta5-darwin.zip,694850942,9ef60fcc7a4bb0477d4189c711853cbc12b24efe
+ndk;23.0.7421159,NDK (Side by side) 23.0.7421159,23.0.7421159,https://maven.myket.ir/android-sdk/android-ndk-r23-beta5-linux.zip,724438684,453ba0ca124e43337318f8a40d26cab114e7092c
+ndk;23.0.7421159,NDK (Side by side) 23.0.7421159,23.0.7421159,https://maven.myket.ir/android-sdk/android-ndk-r23-beta5-windows.zip,785543078,ace75623181ce86bc70df312155c04b9d8ff3e46
+ndk-bundle,NDK,23.0.7344513,https://maven.myket.ir/android-sdk/android-ndk-r23-beta4-darwin-x86_64.zip,694920487,a8fedcf0dd3b3a340e68684a5a2308154a952039
+ndk-bundle,NDK,23.0.7344513,https://maven.myket.ir/android-sdk/android-ndk-r23-beta4-linux-x86_64.zip,724510864,5f44bc1789042358a73c15e0ef732ea729cf47cc
+ndk-bundle,NDK,23.0.7344513,https://maven.myket.ir/android-sdk/android-ndk-r23-beta4-windows-x86_64.zip,785615074,4492af1296d07c0c65ce42f10ecac06c3c307b94
+ndk-bundle,NDK,23.0.7272597,https://maven.myket.ir/android-sdk/android-ndk-r23-beta3-darwin-x86_64.zip,695243724,3b977f0f8e0fa2d6777fae6b1d37aebfc075ab56
+ndk-bundle,NDK,23.0.7272597,https://maven.myket.ir/android-sdk/android-ndk-r23-beta3-linux-x86_64.zip,724828157,2298465ef13dab0c527b9cf6ef892b1ec6461fb4
+ndk-bundle,NDK,23.0.7272597,https://maven.myket.ir/android-sdk/android-ndk-r23-beta3-windows-x86_64.zip,785932724,8c10a51f50f4f12ccc839dcb4bd8107133024c2f
+ndk-bundle,NDK,23.0.7196353,https://maven.myket.ir/android-sdk/android-ndk-r23-beta2-darwin-x86_64.zip,674507658,454fd0c1e8385896ad465d7cfd653e28fbf3523f
+ndk-bundle,NDK,23.0.7196353,https://maven.myket.ir/android-sdk/android-ndk-r23-beta2-linux-x86_64.zip,705747711,290e8c39bb9732ac8784855e1f22342eb488228e
+ndk-bundle,NDK,23.0.7196353,https://maven.myket.ir/android-sdk/android-ndk-r23-beta2-windows-x86_64.zip,747953762,00194ae44ce90f2052ab8e42f1a11a0db8d50c2a
+ndk-bundle,NDK,23.0.7123448,https://maven.myket.ir/android-sdk/android-ndk-r23-beta1-darwin-x86_64.zip,721278316,708ebbceb719c43a3165503ea82fb107d823ad54
+ndk-bundle,NDK,23.0.7123448,https://maven.myket.ir/android-sdk/android-ndk-r23-beta1-linux-x86_64.zip,804392699,1340ed20f27fcb184ea814ae63e0f3cd75890342
+ndk-bundle,NDK,23.0.7123448,https://maven.myket.ir/android-sdk/android-ndk-r23-beta1-windows-x86_64.zip,749304589,c056900896129d3dd4eb953a53a8961d9853aa20
+ndk-bundle,NDK,22.1.7171670,https://maven.myket.ir/android-sdk/android-ndk-r22b-darwin-x86_64.zip,1049337733,dc80e8a2cfcb28db74c1931d42c652e9d17ff2c3
+ndk-bundle,NDK,22.1.7171670,https://maven.myket.ir/android-sdk/android-ndk-r22b-linux-x86_64.zip,1148198368,9ece64c7f19763dd67320d512794969930fce9dc
+ndk-bundle,NDK,22.1.7171670,https://maven.myket.ir/android-sdk/android-ndk-r22b-windows-x86_64.zip,1082301775,96ba1a049303cf6bf3ee84cfd64d6bcd43486a50
+ndk-bundle,NDK,22.0.7026061,https://maven.myket.ir/android-sdk/android-ndk-r22-darwin-x86_64.zip,1047577432,9cf3816ed3e4308ff03bd5f69100b373bad12f13
+ndk-bundle,NDK,22.0.7026061,https://maven.myket.ir/android-sdk/android-ndk-r22-linux-x86_64.zip,1146450986,82274313aba10da6177fd41868f56a0f9651dd81
+ndk-bundle,NDK,22.0.7026061,https://maven.myket.ir/android-sdk/android-ndk-r22-windows-x86_64.zip,1080471370,c03f761caf1c6f5efbeb5ccfa573ea922cb955b3
+ndk-bundle,NDK,22.0.6917172,https://maven.myket.ir/android-sdk/android-ndk-r22-beta1-darwin-x86_64.zip,1047697781,0ff242f820663fe45773bca7a2df036004fc7c69
+ndk-bundle,NDK,22.0.6917172,https://maven.myket.ir/android-sdk/android-ndk-r22-beta1-linux-x86_64.zip,1146575022,687f696f43b23e2623e7f7073bbd575d254f66f6
+ndk-bundle,NDK,22.0.6917172,https://maven.myket.ir/android-sdk/android-ndk-r22-beta1-windows-x86_64.zip,1080588810,ef38999c0e3c96124acffab6971ad2054a433b91
+ndk-bundle,NDK,21.4.7075529,https://maven.myket.ir/android-sdk/android-ndk-r21e-darwin-x86_64.zip,1042617180,3f15c23a1c247ad17c7c271806848dbd40434738
+ndk-bundle,NDK,21.4.7075529,https://maven.myket.ir/android-sdk/android-ndk-r21e-linux-x86_64.zip,1190670072,c3ebc83c96a4d7f539bd72c241b2be9dcd29bda9
+ndk-bundle,NDK,21.4.7075529,https://maven.myket.ir/android-sdk/android-ndk-r21e-windows-x86_64.zip,1109665123,fc44fea8bb3f5a6789821f40f41dce2d2cd5dc30
+ndk-bundle,NDK,21.3.6528147,https://maven.myket.ir/android-sdk/android-ndk-r21d-darwin-x86_64.zip,1042615469,ef06c9f9d7efd6f243eb3c05ac440562ae29ae12
+ndk-bundle,NDK,21.3.6528147,https://maven.myket.ir/android-sdk/android-ndk-r21d-linux-x86_64.zip,1190667841,bcf4023eb8cb6976a4c7cff0a8a8f145f162bf4d
+ndk-bundle,NDK,21.3.6528147,https://maven.myket.ir/android-sdk/android-ndk-r21d-windows-x86_64.zip,1109536102,99175ce1210258f2280568cd340e0666c69955c7
+ndk-bundle,NDK,21.2.6472646,https://maven.myket.ir/android-sdk/android-ndk-r21c-darwin-x86_64.zip,1014322452,c42a836f6697a4ef8b927813d5f7dd12e974cfba
+ndk-bundle,NDK,21.2.6472646,https://maven.myket.ir/android-sdk/android-ndk-r21c-linux-x86_64.zip,1162375023,c81a5bcb4672a18d3647bf6898cd4dbcb978d0e8
+ndk-bundle,NDK,21.2.6472646,https://maven.myket.ir/android-sdk/android-ndk-r21c-windows-x86_64.zip,1079490351,93563a1297a60b5da49a48f62340dbf0c878a5f3
+ndk-bundle,NDK,21.1.6352462,https://maven.myket.ir/android-sdk/android-ndk-r21b-darwin-x86_64.zip,1014473187,e1de2f749c5c32ae991c3ccaabfcdf7688ee221f
+ndk-bundle,NDK,21.1.6352462,https://maven.myket.ir/android-sdk/android-ndk-r21b-linux-x86_64.zip,1162377080,50250fcba479de477b45801e2699cca47f7e1267
+ndk-bundle,NDK,21.1.6352462,https://maven.myket.ir/android-sdk/android-ndk-r21b-windows-x86_64.zip,1079474640,6809fac4a6e829f4bac64628fa9835d57bbd61a8
+ndk-bundle,NDK,21.1.6363665,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta3-darwin-x86_64.zip,1042902819,767f722c14dd27a22b17903e09b768407131129e
+ndk-bundle,NDK,21.1.6363665,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta3-linux-x86_64.zip,1190809917,29139085aa402d6b27d4394c30e797f814876d1e
+ndk-bundle,NDK,21.1.6363665,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta3-windows-x86_64.zip,1109667800,8ecb03c728b8dc814db30c8152c4436cb1536c8d
+ndk-bundle,NDK,21.1.6273396,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta2-darwin-x86_64.zip,987112894,41110daad93e6a9a3662d7dd2fb233b21be3d27e
+ndk-bundle,NDK,21.1.6273396,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta2-linux-x86_64.zip,1071784976,b9a6463ab72ad183c89e5316f0c5493f64b54966
+ndk-bundle,NDK,21.1.6273396,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta2-windows-x86_64.zip,1087508597,dc6dc614cbd94b345b66f85d3f867638593fb199
+ndk-bundle,NDK,21.1.6210238,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta1-darwin-x86_64.zip,987084422,971609f9a579ebbcb8d121a5d5aa0cba716b2d1f
+ndk-bundle,NDK,21.1.6210238,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta1-linux-x86_64.zip,1071756532,cf06ed408663c11c8f4824f9370c7a900ec074dd
+ndk-bundle,NDK,21.1.6210238,https://maven.myket.ir/android-sdk/android-ndk-r21b-beta1-windows-x86_64.zip,1087478202,a920ca1ab75733b510180cef23f3797ded40dbb7
+ndk-bundle,NDK,21.0.6113669,https://maven.myket.ir/android-sdk/android-ndk-r21-darwin-x86_64.zip,958656601,0d50636cc0e34ed3ba540d6d5818ea0cf10f16aa
+ndk-bundle,NDK,21.0.6113669,https://maven.myket.ir/android-sdk/android-ndk-r21-linux-x86_64.zip,1043332542,afc9c0b9faad222898ac8168c78ad4ccac8a1b5c
+ndk-bundle,NDK,21.0.6113669,https://maven.myket.ir/android-sdk/android-ndk-r21-windows-x86_64.zip,1057294207,c61631eacbd40c30273b716a4e589c6877b85419
+ndk-bundle,NDK,21.0.6011959,https://maven.myket.ir/android-sdk/android-ndk-r21-beta2-darwin-x86_64.zip,958791657,34a46c3867c9d87a80895c0b8a098256052536d2
+ndk-bundle,NDK,21.0.6011959,https://maven.myket.ir/android-sdk/android-ndk-r21-beta2-linux-x86_64.zip,1043467643,335f30302bee700a9a5fdfe3ae533a4963499c44
+ndk-bundle,NDK,21.0.6011959,https://maven.myket.ir/android-sdk/android-ndk-r21-beta2-windows-x86_64.zip,1057424857,e5902e4f6c5b6f0354a2572a85f42f19c1a7b9d8
+ndk-bundle,NDK,20.1.5948944,https://maven.myket.ir/android-sdk/android-ndk-r20b-darwin-x86_64.zip,843201217,b51290ab69cb89de1f0ba108702277bc333b38be
+ndk-bundle,NDK,20.1.5948944,https://maven.myket.ir/android-sdk/android-ndk-r20b-linux-x86_64.zip,859780564,d903fdf077039ad9331fb6c3bee78aa46d45527b
+ndk-bundle,NDK,20.1.5948944,https://maven.myket.ir/android-sdk/android-ndk-r20b-windows-x86.zip,814464692,71a1ba20475da1d83b0f1a1826813008f628d59b
+ndk-bundle,NDK,20.1.5948944,https://maven.myket.ir/android-sdk/android-ndk-r20b-windows-x86_64.zip,832473103,ead0846608040b8344ad2bc9bc721b88cf13fb8d
+ndk-bundle,NDK,20.0.5594570,https://maven.myket.ir/android-sdk/android-ndk-r20-darwin-x86_64.zip,843152912,96d5f1c50452596912d1982439c514194b5751e6
+ndk-bundle,NDK,20.0.5594570,https://maven.myket.ir/android-sdk/android-ndk-r20-linux-x86_64.zip,859737910,8665fc84a1b1f0d6ab3b5fdd1e30200cc7b9adff
+ndk-bundle,NDK,20.0.5594570,https://maven.myket.ir/android-sdk/android-ndk-r20-windows-x86.zip,814417431,b605f7e2e7585af2fc9d59fe9ddad86b64b2bf03
+ndk-bundle,NDK,20.0.5594570,https://maven.myket.ir/android-sdk/android-ndk-r20-windows-x86_64.zip,832429986,36e1dc77fad08ad2498fb94b13ad8caf26bbd9df
+ndk-bundle,NDK,20.0.5471264,https://maven.myket.ir/android-sdk/android-ndk-r20-beta3-darwin-x86_64.zip,843617071,665a035cadb0dd03e6502ba25c18643f6e4ede24
+ndk-bundle,NDK,20.0.5471264,https://maven.myket.ir/android-sdk/android-ndk-r20-beta3-linux-x86_64.zip,860198768,674d8fb0e0df8e8be1c31fa321eb176548a19ba3
+ndk-bundle,NDK,20.0.5471264,https://maven.myket.ir/android-sdk/android-ndk-r20-beta3-windows-x86.zip,814872365,f9d1c5366ee5bf4927ac1c18f06143550b492e92
+ndk-bundle,NDK,20.0.5471264,https://maven.myket.ir/android-sdk/android-ndk-r20-beta3-windows-x86_64.zip,832889871,9375dc82cf576f4a255bf908dfc628d8ddee0d89
+ndk-bundle,NDK,20.0.5392854,https://maven.myket.ir/android-sdk/android-ndk-r20-beta2-darwin-x86_64.zip,840834121,cd94191ace6b31ec9af1cc370173e16934e1cb8b
+ndk-bundle,NDK,20.0.5392854,https://maven.myket.ir/android-sdk/android-ndk-r20-beta2-linux-x86_64.zip,857406412,8285ae2e24a7232fd0cbfb55e955c8586ef2ee02
+ndk-bundle,NDK,20.0.5392854,https://maven.myket.ir/android-sdk/android-ndk-r20-beta2-windows-x86.zip,812086484,15a8085b8ce5ecf0705ded2335513055693bddaa
+ndk-bundle,NDK,20.0.5392854,https://maven.myket.ir/android-sdk/android-ndk-r20-beta2-windows-x86_64.zip,830099430,c89022bd9a2c32b42a1b94e98bbd88ab4c4e350e
+ndk-bundle,NDK,19.2.5345600,https://maven.myket.ir/android-sdk/android-ndk-r19c-darwin-x86_64.zip,807630656,f46b8193109bba8a58e0461c1a48f4534051fb25
+ndk-bundle,NDK,19.2.5345600,https://maven.myket.ir/android-sdk/android-ndk-r19c-linux-x86_64.zip,823376982,fd94d0be6017c6acbd193eb95e09cf4b6f61b834
+ndk-bundle,NDK,19.2.5345600,https://maven.myket.ir/android-sdk/android-ndk-r19c-windows-x86.zip,778598286,132cc0c9e31b9e58ad6505b0816ff9e524422ed2
+ndk-bundle,NDK,19.2.5345600,https://maven.myket.ir/android-sdk/android-ndk-r19c-windows-x86_64.zip,796051997,c4cd8c0b6e7618ca0a871a5f24102e40c239f6a3
+ndk-bundle,NDK,19.0.5232133,https://maven.myket.ir/android-sdk/android-ndk-r19-darwin-x86_64.zip,807592927,86c1a962601b23b8a6d3d535c93b4b0bc4f29249
+ndk-bundle,NDK,19.0.5232133,https://maven.myket.ir/android-sdk/android-ndk-r19-linux-x86_64.zip,823337344,f02ad84cb5b6e1ff3eea9e6168037c823408c8ac
+ndk-bundle,NDK,19.0.5232133,https://maven.myket.ir/android-sdk/android-ndk-r19-windows-x86.zip,778544468,281175a42b312d630f864a02a31c5806ada5663b
+ndk-bundle,NDK,19.0.5232133,https://maven.myket.ir/android-sdk/android-ndk-r19-windows-x86_64.zip,795986424,37906e8e79a9dddf6805325f706a072055e4136c
+ndk-bundle,NDK,18.1.5063045,https://maven.myket.ir/android-sdk/android-ndk-r18b-darwin-x86_64.zip,542911996,98cb9909aa8c2dab32db188bbdc3ac6207e09440
+ndk-bundle,NDK,18.1.5063045,https://maven.myket.ir/android-sdk/android-ndk-r18b-linux-x86_64.zip,557038702,500679655da3a86aecf67007e8ab230ea9b4dd7b
+ndk-bundle,NDK,18.1.5063045,https://maven.myket.ir/android-sdk/android-ndk-r18b-windows-x86.zip,504605336,4b8b6a4edc0fa967b429c1d6d25adf69acc28803
+ndk-bundle,NDK,18.1.5063045,https://maven.myket.ir/android-sdk/android-ndk-r18b-windows-x86_64.zip,522489470,6b6d4138aaaad7166679fdfa4780e177f95cee6f
+ndk-bundle,NDK,17.2.4988734,https://maven.myket.ir/android-sdk/android-ndk-r17c-darwin-x86_64.zip,675091485,f97e3d7711497e3b4faf9e7b3fa0f0da90bb649c
+ndk-bundle,NDK,17.2.4988734,https://maven.myket.ir/android-sdk/android-ndk-r17c-linux-x86_64.zip,709387703,12cacc70c3fd2f40574015631c00f41fb8a39048
+ndk-bundle,NDK,17.2.4988734,https://maven.myket.ir/android-sdk/android-ndk-r17c-windows-x86.zip,608358310,5bb25bf13fa494ee6c3433474c7aa90009f9f6a9
+ndk-bundle,NDK,17.2.4988734,https://maven.myket.ir/android-sdk/android-ndk-r17c-windows-x86_64.zip,650626501,3e3b8d1650f9d297d130be2b342db956003f5992
+ndk-bundle,NDK,16.1.4479499,https://maven.myket.ir/android-sdk/android-ndk-r16b-darwin-x86_64.zip,839630771,e51e615449b98c716cf912057e2682e75d55e2de
+ndk-bundle,NDK,16.1.4479499,https://maven.myket.ir/android-sdk/android-ndk-r16b-linux-x86_64.zip,852525873,42aa43aae89a50d1c66c3f9fdecd676936da6128
+ndk-bundle,NDK,16.1.4479499,https://maven.myket.ir/android-sdk/android-ndk-r16b-windows-x86.zip,656720029,becaf3d445a4877ca1a9300a62f0934a4838c7fa
+ndk-bundle,NDK,16.1.4479499,https://maven.myket.ir/android-sdk/android-ndk-r16b-windows-x86_64.zip,723301086,f3f1909ed1052e98dda2c79d11c22f3da28daf25
+build-tools;37.0.0,Android SDK Build-Tools 37,37.0.0,https://maven.myket.ir/android-sdk/build-tools_r37_linux.zip,66135704,70954e99f4c3d9d46ee70fa32624672fe7cd6ebe
+build-tools;37.0.0,Android SDK Build-Tools 37,37.0.0,https://maven.myket.ir/android-sdk/build-tools_r37_windows.zip,61077164,e9c97e26b5b5678002e9d3fed632c841ae62d99f
+build-tools;37.0.0,Android SDK Build-Tools 37,37.0.0,https://maven.myket.ir/android-sdk/build-tools_r37_macosx.zip,81933386,eb080751b2b2028eb3604f571027d6f7b3c46321
+build-tools;37.0.0-rc2,Android SDK Build-Tools 37-rc2,37.0.0,https://maven.myket.ir/android-sdk/build-tools_r37-rc2_linux.zip,64585510,3ffc47b1aefa6b7c457e0d84958a804ba5b8fc83
+build-tools;37.0.0-rc2,Android SDK Build-Tools 37-rc2,37.0.0,https://maven.myket.ir/android-sdk/build-tools_r37-rc2_windows.zip,59571314,c76a22fee5b2f04b355ecd13e84abd594f83841f
+build-tools;37.0.0-rc2,Android SDK Build-Tools 37-rc2,37.0.0,https://maven.myket.ir/android-sdk/build-tools_r37-rc2_macosx.zip,80361572,88c354b73d57df160d59b5935e2716bbb570c60e
+build-tools;37.0.0-rc1,Android SDK Build-Tools 37-rc1,37.0.0,https://maven.myket.ir/android-sdk/build-tools_r37-rc1_linux.zip,64355745,c036221340ef6d39ad7adae6befc260beaa54085
+build-tools;37.0.0-rc1,Android SDK Build-Tools 37-rc1,37.0.0,https://maven.myket.ir/android-sdk/build-tools_r37-rc1_windows.zip,59343079,70447369a17f8b4687e7237733d024dfb8c5a797
+build-tools;37.0.0-rc1,Android SDK Build-Tools 37-rc1,37.0.0,https://maven.myket.ir/android-sdk/build-tools_r37-rc1_macosx.zip,80130907,0e6aad38e1ad4d4c6ac24332942a2007f4b50779
+build-tools;36.1.0,Android SDK Build-Tools 36.1,36.1.0,https://maven.myket.ir/android-sdk/build-tools_r36.1_linux.zip,64195204,936a0d6bd5ae3e2118a7567dddbc95ff67ed46e9
+build-tools;36.1.0,Android SDK Build-Tools 36.1,36.1.0,https://maven.myket.ir/android-sdk/build-tools_r36.1_windows.zip,59366211,95f048ae758dad90617975fe3f787f038b03338c
+build-tools;36.1.0,Android SDK Build-Tools 36.1,36.1.0,https://maven.myket.ir/android-sdk/build-tools_r36.1_macosx.zip,80527175,d365b05ca1810ca92b428b92717865ad4188b5e1
+build-tools;36.1.0-rc1,Android SDK Build-Tools 36.1-rc1,36.1.0,https://maven.myket.ir/android-sdk/build-tools_r36.1-rc1_linux.zip,63756747,63a81b0689c2358da5462b4f2b00eef622420f4a
+build-tools;36.1.0-rc1,Android SDK Build-Tools 36.1-rc1,36.1.0,https://maven.myket.ir/android-sdk/build-tools_r36.1-rc1_windows.zip,59047572,db361020bc9545dec77379d44dcc0b15be1de1ba
+build-tools;36.1.0-rc1,Android SDK Build-Tools 36.1-rc1,36.1.0,https://maven.myket.ir/android-sdk/build-tools_r36.1-rc1_macosx.zip,79856260,bb4e1a9c3ac77300ae00138fb8fb16da79ff32c0
+build-tools;36.0.0,Android SDK Build-Tools 36,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36_linux.zip,63737259,b0b6376977657e8ad9b969bacf4093601da2c6fb
+build-tools;36.0.0,Android SDK Build-Tools 36,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36_windows.zip,58699878,f16ccffd34de8790dede813a6c7d8e2c11a27b50
+build-tools;36.0.0,Android SDK Build-Tools 36,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36_macosx.zip,79121749,199ae0047ee61e842f8ee0c6d3918e44fb9a1f83
+build-tools;36.0.0-rc5,Android SDK Build-Tools 36-rc5,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36-rc5_linux.zip,61709567,68e91b122664fead061c7963643de494a0dbb73e
+build-tools;36.0.0-rc5,Android SDK Build-Tools 36-rc5,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36-rc5_windows.zip,58459079,9d1f6fbf7ff15be61a9b122a055221b5e0a0edf7
+build-tools;36.0.0-rc5,Android SDK Build-Tools 36-rc5,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36-rc5_macosx.zip,78724827,76aab21b11691d27c7012cd2288cb31f6e02e3b9
+build-tools;36.0.0-rc4,Android SDK Build-Tools 36-rc4,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36-rc4_linux.zip,62785278,2ebea22941d2c8d661b9bf3c20193677ffd50334
+build-tools;36.0.0-rc4,Android SDK Build-Tools 36-rc4,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36-rc4_windows.zip,58085095,66abc0f7c3efcd82b5e418d9613e97efd16ff370
+build-tools;36.0.0-rc4,Android SDK Build-Tools 36-rc4,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36-rc4_macosx.zip,78583529,e5917875bb11fe08e69e6539bae079ddbe840586
+build-tools;35.0.1,Android SDK Build-Tools 35.0.1,35.0.1,https://maven.myket.ir/android-sdk/build-tools_r35.0.1_linux.zip,61959297,e009a9b188cfeb1d2b4c318ab5cb4f1ddc368861
+build-tools;35.0.1,Android SDK Build-Tools 35.0.1,35.0.1,https://maven.myket.ir/android-sdk/build-tools_r35.0.1_windows.zip,59876477,1cbfa5564b62504a1111352edda35914cf723a20
+build-tools;35.0.1,Android SDK Build-Tools 35.0.1,35.0.1,https://maven.myket.ir/android-sdk/build-tools_r35.0.1_macosx.zip,76857925,f4dda6855ddf1ea1a51ee3ab6587104bd0c1d727
+build-tools;36.0.0-rc3,Android SDK Build-Tools 36-rc3,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36-rc3_linux.zip,62577193,af37c3b9c58d62b885c80c5f3968106a22c37495
+build-tools;36.0.0-rc3,Android SDK Build-Tools 36-rc3,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36-rc3_windows.zip,57872335,acac220c05062b6ea56ab4c9561a544d15223150
+build-tools;36.0.0-rc3,Android SDK Build-Tools 36-rc3,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36-rc3_macosx.zip,78345346,ae832d578f78dceca3c536479a58ca69c109dbaf
+build-tools;36.0.0-rc1,Android SDK Build-Tools 36-rc1,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36-rc1_linux.zip,62558889,b0a48cef38ee02e2170e6eeb769956c46b8a294b
+build-tools;36.0.0-rc1,Android SDK Build-Tools 36-rc1,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36-rc1_windows.zip,57851822,dfa48ceb8bd185891a11cd8babcc3782abca35e3
+build-tools;36.0.0-rc1,Android SDK Build-Tools 36-rc1,36.0.0,https://maven.myket.ir/android-sdk/build-tools_r36-rc1_macosx.zip,78312030,7a1149c9a0603a831396b7f522505b4357d80744
+build-tools;35.0.0,Android SDK Build-Tools 35,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35_linux.zip,61958799,2cfaa0bbb2336e9ec18ed3ecea84fa2e2af607bc
+build-tools;35.0.0,Android SDK Build-Tools 35,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35_windows.zip,59878107,af059bb67cf7786f45ee0db85e2d24985df1b4b6
+build-tools;35.0.0,Android SDK Build-Tools 35,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35_macosx.zip,76857898,93ab8ce91230e067b5add4bfa79919c52b27f072
+build-tools;35.0.0-rc4,Android SDK Build-Tools 35-rc4,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35-rc4_linux.zip,61882448,08049ed693a2ba9bf6b9fa0edec897abac9f85ed
+build-tools;35.0.0-rc4,Android SDK Build-Tools 35-rc4,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35-rc4_windows.zip,59901374,e08195bf5ce51105aca15f9eba758fceeb7b4b5d
+build-tools;35.0.0-rc4,Android SDK Build-Tools 35-rc4,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35-rc4_macosx.zip,76832786,d9ce6ae1b0d720d7c2abd6510843c881f9d65188
+build-tools;35.0.0-rc3,Android SDK Build-Tools 35-rc3,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35-rc3_linux.zip,62746687,25a13fd75a525385d77864f5470db9c1c48b5a40
+build-tools;35.0.0-rc3,Android SDK Build-Tools 35-rc3,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35-rc3_windows.zip,59812048,f04f402d7d92edc14502e7b94034d1a1695ac12e
+build-tools;35.0.0-rc3,Android SDK Build-Tools 35-rc3,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35-rc3_macosx.zip,78263822,f0d2a565d3634d2fd7a22838eafad792e8538c0a
+build-tools;35.0.0-rc2,Android SDK Build-Tools 35-rc2,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35-rc2_linux.zip,60633658,c36ffb3f3238590f23c263cdd8e8c18d9ef10dc0
+build-tools;35.0.0-rc2,Android SDK Build-Tools 35-rc2,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35-rc2_windows.zip,59875696,9b13029b6160e32cd6ca4f9c2e3c49fa4e86996b
+build-tools;35.0.0-rc2,Android SDK Build-Tools 35-rc2,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35-rc2_macosx.zip,78321548,01630418469f2b7d4772777db2b4b40d836add34
+build-tools;35.0.0-rc1,Android SDK Build-Tools 35-rc1,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35-rc1-linux.zip,62860992,340cf69a732e880a8544f8b32dac8d9c88730b4e
+build-tools;35.0.0-rc1,Android SDK Build-Tools 35-rc1,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35-rc1-macosx.zip,78408675,dcd4b6d358eccc05ef7dfdead1e029581bb5e60f
+build-tools;35.0.0-rc1,Android SDK Build-Tools 35-rc1,35.0.0,https://maven.myket.ir/android-sdk/build-tools_r35-rc1-windows.zip,59996484,432068f39066d3c529be98e331e81c1f1d7c218c
+build-tools;34.0.0,Android SDK Build-Tools 34,34.0.0,https://maven.myket.ir/android-sdk/build-tools_r34-linux.zip,61224257,d6d58e0c6925a9e4d9a541e84cd1f405c2f9d2a9
+build-tools;34.0.0,Android SDK Build-Tools 34,34.0.0,https://maven.myket.ir/android-sdk/build-tools_r34-macosx.zip,76559180,00e1301387028f33753e38274401694e1a27c62f
+build-tools;34.0.0,Android SDK Build-Tools 34,34.0.0,https://maven.myket.ir/android-sdk/build-tools_r34-windows.zip,58253258,62cfde1b6fcc3ad12a4d2ba1b537e752768bfd47
+build-tools;34.0.0-rc3,Android SDK Build-Tools 34-rc3,34.0.0,https://maven.myket.ir/android-sdk/build-tools_r34-rc3-linux.zip,61165322,0bcb893e8b009f1da3d538be47c6ae5907884bf6
+build-tools;34.0.0-rc3,Android SDK Build-Tools 34-rc3,34.0.0,https://maven.myket.ir/android-sdk/build-tools_r34-rc3-macosx.zip,76497941,97db9e5009971021ca18bb62043764b68f756ede
+build-tools;34.0.0-rc3,Android SDK Build-Tools 34-rc3,34.0.0,https://maven.myket.ir/android-sdk/build-tools_r34-rc3-windows.zip,58326432,78fa4ca752017c3217786af16c513f44a5042433
+build-tools;34.0.0-rc2,Android SDK Build-Tools 34-rc2,34.0.0,https://maven.myket.ir/android-sdk/build-tools_r34-rc2-linux.zip,60835777,bce35f1524d2ea5f6326809dc7accff0ee2fe370
+build-tools;34.0.0-rc2,Android SDK Build-Tools 34-rc2,34.0.0,https://maven.myket.ir/android-sdk/build-tools_r34-rc2-macosx.zip,63005203,c47d9c9d040567b1b62eefc1a6306b5acebe3a76
+build-tools;34.0.0-rc2,Android SDK Build-Tools 34-rc2,34.0.0,https://maven.myket.ir/android-sdk/build-tools_r34-rc2-windows.zip,58246192,60c51d073ac760fdec647b9fecf086d1a35f7841
+build-tools;34.0.0-rc1,Android SDK Build-Tools 34-rc1,34.0.0,https://maven.myket.ir/android-sdk/build-tools_r34-rc1-linux.zip,60468599,fec0a16d0c2fab6576fd58f6aa2e69a561ab1128
+build-tools;34.0.0-rc1,Android SDK Build-Tools 34-rc1,34.0.0,https://maven.myket.ir/android-sdk/build-tools_r34-rc1-macosx.zip,62640488,1e3847d449ce6124ffbf528db601f3dfab25e77e
+build-tools;34.0.0-rc1,Android SDK Build-Tools 34-rc1,34.0.0,https://maven.myket.ir/android-sdk/build-tools_r34-rc1-windows.zip,57791540,73dca92f84827749882bd0ac501c4befdf3ab878
+build-tools;33.0.3,Android SDK Build-Tools 33.0.3,33.0.3,https://maven.myket.ir/android-sdk/build-tools_r33.0.3-linux.zip,56003317,83d08ea1cdad9733cae08e33c84758835987a508
+build-tools;33.0.3,Android SDK Build-Tools 33.0.3,33.0.3,https://maven.myket.ir/android-sdk/build-tools_r33.0.3-macosx.zip,60015916,daaeee4fb70ae54fe03bb64e414ea88a16e66ba8
+build-tools;33.0.3,Android SDK Build-Tools 33.0.3,33.0.3,https://maven.myket.ir/android-sdk/build-tools_r33.0.3-windows.zip,55630525,9d93a3b5ff0497fca16739160327ec7ef44b3eff
+build-tools;33.0.2,Android SDK Build-Tools 33.0.2,33.0.2,https://maven.myket.ir/android-sdk/build-tools_r33.0.2-linux.zip,56003588,9def17c815f46ac09024ebb674466d39d039255c
+build-tools;33.0.2,Android SDK Build-Tools 33.0.2,33.0.2,https://maven.myket.ir/android-sdk/build-tools_r33.0.2-macosx.zip,60013768,482fd9244332cb3e7435f229a22552459b68b3ff
+build-tools;33.0.2,Android SDK Build-Tools 33.0.2,33.0.2,https://maven.myket.ir/android-sdk/build-tools_r33.0.2-windows.zip,55630250,1f33813c884a039f242b386e9127d3a96915066f
+build-tools;33.0.1,Android SDK Build-Tools 33.0.1,33.0.1,https://maven.myket.ir/android-sdk/build-tools_r33.0.1-linux.zip,56003178,fefb393b82814feb94f88147827cbc918cf992b0
+build-tools;33.0.1,Android SDK Build-Tools 33.0.1,33.0.1,https://maven.myket.ir/android-sdk/build-tools_r33.0.1-macosx.zip,60027237,d091bee94295480891ca679e7b2004fe6198d05f
+build-tools;33.0.1,Android SDK Build-Tools 33.0.1,33.0.1,https://maven.myket.ir/android-sdk/build-tools_r33.0.1-windows.zip,55631116,710918f38f8fa7595320f4d29db5910770993f63
+build-tools;33.0.0,Android SDK Build-Tools 33,33.0.0,https://maven.myket.ir/android-sdk/build-tools_r33-linux.zip,56000182,c561971600d4ce682b128b0bd5d4ab71c5f2ad35
+build-tools;33.0.0,Android SDK Build-Tools 33,33.0.0,https://maven.myket.ir/android-sdk/build-tools_r33-macosx.zip,60023096,3693851532ba9640710d2dd360d85aa5b04c5151
+build-tools;33.0.0,Android SDK Build-Tools 33,33.0.0,https://maven.myket.ir/android-sdk/build-tools_r33-windows.zip,55610532,f4ef853e5e755ea5ffc50de73a9e420fc76c662e
+build-tools;32.1.0-rc1,Android SDK Build-Tools 32.1-rc1,32.1.0,https://maven.myket.ir/android-sdk/21014bc1a76d38d0dcb79b3b3f49f40ea5a53c10.build-tools_r32.1-rc1-windows.zip,54636210,af2abccfe48f9109ca0bddbec023234a4a68446b
+build-tools;32.1.0-rc1,Android SDK Build-Tools 32.1-rc1,32.1.0,https://maven.myket.ir/android-sdk/build-tools_r32.1-rc1-linux.zip,57403070,4af23395f3a7cb4a5c01623347622f881a4772fd
+build-tools;32.1.0-rc1,Android SDK Build-Tools 32.1-rc1,32.1.0,https://maven.myket.ir/android-sdk/c165e9b235479731f416c7aea22d065819c7ce23.build-tools_r32.1-rc1-macosx.zip,59462877,38c166a60de3cb799ff1ad5b855234579d05e7b6
+build-tools;32.0.0,Android SDK Build-Tools 32,32.0.0,https://maven.myket.ir/android-sdk/210b77e4bc623bd4cdda4dae790048f227972bd2.build-tools_r32-windows.zip,56720035,2134fdd4a00b3501b87597d100182e169eaa8c6a
+build-tools;32.0.0,Android SDK Build-Tools 32,32.0.0,https://maven.myket.ir/android-sdk/5219cc671e844de73762e969ace287c29d2e14cd.build-tools_r32-macosx.zip,52875135,27b56ee9a313f0f34f009dea343f3887d3f72b17
+build-tools;32.0.0,Android SDK Build-Tools 32,32.0.0,https://maven.myket.ir/android-sdk/build-tools_r32-linux.zip,54940436,c7f2c700aafd9f7a2da187d80901481b80156719
+build-tools;31.0.0,Android SDK Build-Tools 31,31.0.0,https://maven.myket.ir/android-sdk/09489e417c0a266f2862ddd82b4ac29a1b7af55e.build-tools_r31-windows.zip,56688233,032da328482814e6ef7fe918665c07e8f8f806ca
+build-tools;31.0.0,Android SDK Build-Tools 31,31.0.0,https://maven.myket.ir/android-sdk/build-tools_r31-linux.zip,54931191,9dbebfdb9ff4c0dbc4ef00677986bf571ddcf99c
+build-tools;31.0.0,Android SDK Build-Tools 31,31.0.0,https://maven.myket.ir/android-sdk/d32e21a8aa8492ef8b86a489f601da425842b5da.build-tools_r31-macosx.zip,52867497,c9b4215affd183974b1b2d1c5745911203f56de5
+build-tools;30.0.3,Android SDK Build-Tools 30.0.3,30.0.3,https://maven.myket.ir/android-sdk/91936d4ee3ccc839f0addd53c9ebf087b1e39251.build-tools_r30.0.3-windows.zip,54254759,fc165c721b8d2da55e6fede467526c81f562be7b
+build-tools;30.0.3,Android SDK Build-Tools 30.0.3,30.0.3,https://maven.myket.ir/android-sdk/build-tools_r30.0.3-linux.zip,53134793,2076ea81b5a2fc298ef7bf85d666f496b928c7f1
+build-tools;30.0.3,Android SDK Build-Tools 30.0.3,30.0.3,https://maven.myket.ir/android-sdk/f6d24b187cc6bd534c6c37604205171784ac5621.build-tools_r30.0.3-macosx.zip,51698282,0807cd3f0dbc33c8be7f3d6faa263f6b14b502b7
+build-tools;30.0.2,Android SDK Build-Tools 30.0.2,30.0.2,https://maven.myket.ir/android-sdk/5a6ceea22103d8dec989aefcef309949c0c42f1d.build-tools_r30.0.2-macosx.zip,51227855,6b0166d1f4b0b3d496c0dde660145dfa7898095f
+build-tools;30.0.2,Android SDK Build-Tools 30.0.2,30.0.2,https://maven.myket.ir/android-sdk/build-tools_r30.0.2-linux.zip,52664453,363632ff8f7a198bf9fa94e3b9e0db6927bf373d
+build-tools;30.0.2,Android SDK Build-Tools 30.0.2,30.0.2,https://maven.myket.ir/android-sdk/efbaa277338195608aa4e3dbd43927e97f60218c.build-tools_r30.0.2-windows.zip,53783318,b42b77e02b82f242432cd7ffff5cbb92f6888ca7
+build-tools;30.0.1,Android SDK Build-Tools 30.0.1,30.0.1,https://maven.myket.ir/android-sdk/build-tools_r30.0.1-linux.zip,52664463,dae27b63a53f3c71a23a2e9517d435f79ce7975b
+build-tools;30.0.1,Android SDK Build-Tools 30.0.1,30.0.1,https://maven.myket.ir/android-sdk/build-tools_r30.0.1-macosx.zip,51227882,b62ccd6d6468a374b7c8e641c3751bc929a89397
+build-tools;30.0.1,Android SDK Build-Tools 30.0.1,30.0.1,https://maven.myket.ir/android-sdk/build-tools_r30.0.1-windows.zip,53783332,76197fec228ca9b69086d6dd8a16e4589982bdc6
+build-tools;30.0.0,Android SDK Build-Tools 30,30.0.0,https://maven.myket.ir/android-sdk/build-tools_r30-linux.zip,68819159,5bdda303b7aba4073dd2aeb8003b6b0b57098021
+build-tools;30.0.0,Android SDK Build-Tools 30,30.0.0,https://maven.myket.ir/android-sdk/build-tools_r30-macosx.zip,67373109,80b06ce5fa4af2ed14db343a8131af658dda79a8
+build-tools;30.0.0,Android SDK Build-Tools 30,30.0.0,https://maven.myket.ir/android-sdk/build-tools_r30-windows.zip,70027538,5276f337e4eb4d8e5fb82f846045610f8b8e3650
+build-tools;29.0.3,Android SDK Build-Tools 29.0.3,29.0.3,https://maven.myket.ir/android-sdk/build-tools_r29.0.3-linux.zip,53797376,64efff52165cda5e31848acafa46a05e3f3b4651
+build-tools;29.0.3,Android SDK Build-Tools 29.0.3,29.0.3,https://maven.myket.ir/android-sdk/build-tools_r29.0.3-macosx.zip,52432183,76520eb7712fb0bb4c023b55c6f65588ee268289
+build-tools;29.0.3,Android SDK Build-Tools 29.0.3,29.0.3,https://maven.myket.ir/android-sdk/build-tools_r29.0.3-windows.zip,55201638,813f8c35f016cef83e5b2b742229a3634d4658d3
+build-tools;29.0.2,Android SDK Build-Tools 29.0.2,29.0.2,https://maven.myket.ir/android-sdk/build-tools_r29.0.2-linux.zip,41678888,c0fc7e5c37ac96bfd0c611802e8ab36d0e71b398
+build-tools;29.0.2,Android SDK Build-Tools 29.0.2,29.0.2,https://maven.myket.ir/android-sdk/build-tools_r29.0.2-macosx.zip,40848529,f781d9e03d5c2debcf51fed3792ee7a9d066723f
+build-tools;29.0.2,Android SDK Build-Tools 29.0.2,29.0.2,https://maven.myket.ir/android-sdk/build-tools_r29.0.2-windows.zip,40159970,595dc1730c844d892516d5f0e7894e992d19f63d
+build-tools;29.0.1,Android SDK Build-Tools 29.0.1,29.0.1,https://maven.myket.ir/android-sdk/build-tools_r29.0.1-linux.zip,41682816,fc209e5d91ab2daeac24345a5cb17261940547e4
+build-tools;29.0.1,Android SDK Build-Tools 29.0.1,29.0.1,https://maven.myket.ir/android-sdk/build-tools_r29.0.1-macosx.zip,40852521,46ae9b1d1e2a67241d7da9c2cd8eae42f24cc6cd
+build-tools;29.0.1,Android SDK Build-Tools 29.0.1,29.0.1,https://maven.myket.ir/android-sdk/build-tools_r29.0.1-windows.zip,40163897,1c44e10d5f74e58c3e05bfc6f1631a59616059bc
+build-tools;29.0.0,Android SDK Build-Tools 29,29.0.0,https://maven.myket.ir/android-sdk/build-tools_r29-linux.zip,58650449,ad314caf1802209c4b00a5f3517af5ceb0d48eae
+build-tools;29.0.0,Android SDK Build-Tools 29,29.0.0,https://maven.myket.ir/android-sdk/build-tools_r29-macosx.zip,57820193,35dc6bc7a53bd9d206847e72f02cab21cfdaa869
+build-tools;29.0.0,Android SDK Build-Tools 29,29.0.0,https://maven.myket.ir/android-sdk/build-tools_r29-windows.zip,57098799,1799f7f975416098e5a5bf280eb97c8f77cf7f79
+build-tools;29.0.0-rc3,Android SDK Build-Tools 29-rc3,29.0.0,https://maven.myket.ir/android-sdk/build-tools_r29-rc3-linux.zip,58639871,8b7177f198e8b92da8f9537aaf859f6edf222b01
+build-tools;29.0.0-rc3,Android SDK Build-Tools 29-rc3,29.0.0,https://maven.myket.ir/android-sdk/build-tools_r29-rc3-macosx.zip,57810162,643e8d76625f6e2cfcd5494e50bae5e14725ec0c
+build-tools;29.0.0-rc3,Android SDK Build-Tools 29-rc3,29.0.0,https://maven.myket.ir/android-sdk/build-tools_r29-rc3-windows.zip,57092256,6abce2ebfecf3580afd3129520999f95691a03df
+build-tools;29.0.0-rc2,Android SDK Build-Tools 29-rc2,29.0.0,https://maven.myket.ir/android-sdk/build-tools_r29-rc2-linux.zip,58602830,b4b41d429c35b42db07b6c65d4aa998ba8c4093c
+build-tools;29.0.0-rc2,Android SDK Build-Tools 29-rc2,29.0.0,https://maven.myket.ir/android-sdk/build-tools_r29-rc2-macosx.zip,57785717,7a960367999169ccac5dbc60817e5f1725c4c738
+build-tools;29.0.0-rc2,Android SDK Build-Tools 29-rc2,29.0.0,https://maven.myket.ir/android-sdk/build-tools_r29-rc2-windows.zip,57000706,2de2a3e290cae4ce35e82c8a5abed49b1cdd24e3
+build-tools;29.0.0-rc1,Android SDK Build-Tools 29-rc1,29.0.0,https://maven.myket.ir/android-sdk/build-tools_r29-rc1-linux.zip,58516671,1c897f5885ac5468613e40e1ea598c21c05d345d
+build-tools;29.0.0-rc1,Android SDK Build-Tools 29-rc1,29.0.0,https://maven.myket.ir/android-sdk/build-tools_r29-rc1-macosx.zip,57704927,f066c0d9ea2f0d8a0a9cc7b2ca0a467a570ab034
+build-tools;29.0.0-rc1,Android SDK Build-Tools 29-rc1,29.0.0,https://maven.myket.ir/android-sdk/build-tools_r29-rc1-windows.zip,56933956,8887ee791a143f92694a0908130354142a903b17
+build-tools;28.0.3,Android SDK Build-Tools 28.0.3,28.0.3,https://maven.myket.ir/android-sdk/build-tools_r28.0.3-linux.zip,57830695,ea6f2f7103cd9da9ff0bdf6e37fbbba548fa4165
+build-tools;28.0.3,Android SDK Build-Tools 28.0.3,28.0.3,https://maven.myket.ir/android-sdk/build-tools_r28.0.3-macosx.zip,57133581,f8c333a2991b1ab05a671bc6248b78e00edcd83a
+build-tools;28.0.3,Android SDK Build-Tools 28.0.3,28.0.3,https://maven.myket.ir/android-sdk/build-tools_r28.0.3-windows.zip,58393729,05bd35bb48d11c848da2b393c6f864eb609aacba
+build-tools;28.0.2,Android SDK Build-Tools 28.0.2,28.0.2,https://maven.myket.ir/android-sdk/build-tools_r28.0.2-linux.zip,57754663,b4492209810a3fd48deaa982f9852fef12433d55
+build-tools;28.0.2,Android SDK Build-Tools 28.0.2,28.0.2,https://maven.myket.ir/android-sdk/build-tools_r28.0.2-macosx.zip,57057554,c10dd5a7825578622fb362a8a34f76eb3ba0c0a9
+build-tools;28.0.2,Android SDK Build-Tools 28.0.2,28.0.2,https://maven.myket.ir/android-sdk/build-tools_r28.0.2-windows.zip,58317692,e9c570c568a0c2a32e88ee3204279019ebefd949
+build-tools;28.0.1,Android SDK Build-Tools 28.0.1,28.0.1,https://maven.myket.ir/android-sdk/build-tools_r28.0.1-linux.zip,57610954,ee70dfa1fccb58b37cebc9544830511f36a137a0
+build-tools;28.0.1,Android SDK Build-Tools 28.0.1,28.0.1,https://maven.myket.ir/android-sdk/build-tools_r28.0.1-macosx.zip,56913869,aeef42ad953f1630dd6f5d71eefdc0b825211462
+build-tools;28.0.1,Android SDK Build-Tools 28.0.1,28.0.1,https://maven.myket.ir/android-sdk/build-tools_r28.0.1-windows.zip,58173989,29c6342835734be25b9e458ab3fad5750ad6a355
+build-tools;28.0.0,Android SDK Build-Tools 28,28.0.0,https://maven.myket.ir/android-sdk/build-tools_r28-linux.zip,37157769,d9f8a754d833ccd334f56fcc6089c5925cd82abb
+build-tools;28.0.0,Android SDK Build-Tools 28,28.0.0,https://maven.myket.ir/android-sdk/build-tools_r28-macosx.zip,36458977,72088d32d1d82cc3c2cf7cf6618b6130c0c84ade
+build-tools;28.0.0,Android SDK Build-Tools 28,28.0.0,https://maven.myket.ir/android-sdk/build-tools_r28-windows.zip,37718995,d4b0638a877ed570e07876264e69fdbd86409610
+build-tools;28.0.0-rc2,Android SDK Build-Tools 28-rc2,28.0.0,https://maven.myket.ir/android-sdk/build-tools_r28-rc2-linux.zip,37151124,efe9c0dde0646a07544c864276390ca6e96b24dc
+build-tools;28.0.0-rc2,Android SDK Build-Tools 28-rc2,28.0.0,https://maven.myket.ir/android-sdk/build-tools_r28-rc2-macosx.zip,36449480,0d0314b353589feb10e528b44c5a685b6658d797
+build-tools;28.0.0-rc2,Android SDK Build-Tools 28-rc2,28.0.0,https://maven.myket.ir/android-sdk/build-tools_r28-rc2-windows.zip,37716459,a94bfb52b4ec74b95c116236c3e382e923cad6c4
+build-tools;28.0.0-rc1,Android SDK Build-Tools 28-rc1,28.0.0,https://maven.myket.ir/android-sdk/build-tools_r28-rc1-linux.zip,38703535,1601977fae25fd478bcfaa0481ca5ea3c609d840
+build-tools;28.0.0-rc1,Android SDK Build-Tools 28-rc1,28.0.0,https://maven.myket.ir/android-sdk/build-tools_r28-rc1-macosx.zip,38004795,2c77821967a2330b7b227072d0b1c02ef19fe2fc
+build-tools;28.0.0-rc1,Android SDK Build-Tools 28-rc1,28.0.0,https://maven.myket.ir/android-sdk/build-tools_r28-rc1-windows.zip,39273232,fbf46c33d1268f6532911707b2a05033fd5c5b41
+build-tools;27.0.3,Android SDK Build-Tools 27.0.3,27.0.3,https://maven.myket.ir/android-sdk/build-tools_r27.0.3-linux.zip,54478554,d85e7a6320eddffe7eeace3437605079dac938ca
+build-tools;27.0.3,Android SDK Build-Tools 27.0.3,27.0.3,https://maven.myket.ir/android-sdk/build-tools_r27.0.3-macosx.zip,53867966,61d9fb18790c68d66ff73bf1e7ad56bc1f1eef2d
+build-tools;27.0.3,Android SDK Build-Tools 27.0.3,27.0.3,https://maven.myket.ir/android-sdk/build-tools_r27.0.3-windows.zip,55194255,0df61e11713a2838d2cc9a911219dddf5e6a2749
+build-tools;27.0.2,Android SDK Build-Tools 27.0.2,27.0.2,https://maven.myket.ir/android-sdk/build-tools_r27.0.2-linux.zip,54458153,b687ddf6be84f11607871138aad32cf857d0b837
+build-tools;27.0.2,Android SDK Build-Tools 27.0.2,27.0.2,https://maven.myket.ir/android-sdk/build-tools_r27.0.2-macosx.zip,53846615,6d5d9cf2a47877f273f4b742b19e712a051a31be
+build-tools;27.0.2,Android SDK Build-Tools 27.0.2,27.0.2,https://maven.myket.ir/android-sdk/build-tools_r27.0.2-windows.zip,55173070,b80466c13b75e3ebf3c546964f40775db5898b2a
+build-tools;27.0.1,Android SDK Build-Tools 27.0.1,27.0.1,https://maven.myket.ir/android-sdk/build-tools_r27.0.1-linux.zip,54450260,7f4eedb1077ef948b848040dcd15de9e8a759f4a
+build-tools;27.0.1,Android SDK Build-Tools 27.0.1,27.0.1,https://maven.myket.ir/android-sdk/build-tools_r27.0.1-macosx.zip,53838762,1edd07bfdbadd95652d093040e16d858f7489594
+build-tools;27.0.1,Android SDK Build-Tools 27.0.1,27.0.1,https://maven.myket.ir/android-sdk/build-tools_r27.0.1-windows.zip,55171114,18109db020c6d088d0157d1df201d31bc6970875
+build-tools;27.0.0,Android SDK Build-Tools 27,27.0.0,https://maven.myket.ir/android-sdk/build-tools_r27-linux.zip,54441725,28542332ba97cf4a08c3eddfcf5edd70e3cf1260
+build-tools;27.0.0,Android SDK Build-Tools 27,27.0.0,https://maven.myket.ir/android-sdk/build-tools_r27-macosx.zip,53831513,fb4e8d7e6b8d29a77090e34024077a80458d5ae1
+build-tools;27.0.0,Android SDK Build-Tools 27,27.0.0,https://maven.myket.ir/android-sdk/build-tools_r27-windows.zip,55163097,4f1df22a6d99261d2160d624b81445da0a027dbe
+build-tools;26.0.3,Android SDK Build-Tools 26.0.3,26.0.3,https://maven.myket.ir/android-sdk/build-tools_r26.0.3-linux.zip,54449983,8a2e6c1bcd845844523a68aa17e5442f0dce328c
+build-tools;26.0.3,Android SDK Build-Tools 26.0.3,26.0.3,https://maven.myket.ir/android-sdk/build-tools_r26.0.3-macosx.zip,53839758,5bb90ed935d99e5bc90686f43b852e68c5ad40df
+build-tools;26.0.3,Android SDK Build-Tools 26.0.3,26.0.3,https://maven.myket.ir/android-sdk/build-tools_r26.0.3-windows.zip,55170919,460e511a9616b4661cc8dba0102d9d990ae60160
+build-tools;26.0.2,Android SDK Build-Tools 26.0.2,26.0.2,https://maven.myket.ir/android-sdk/build-tools_r26.0.2-linux.zip,54440678,5b2b7b66c7bf2151f2af183b5b50a17808850592
+build-tools;26.0.2,Android SDK Build-Tools 26.0.2,26.0.2,https://maven.myket.ir/android-sdk/build-tools_r26.0.2-macosx.zip,53830573,d9ed7c7f149ce38be5dc08979aea8acec1459ca0
+build-tools;26.0.2,Android SDK Build-Tools 26.0.2,26.0.2,https://maven.myket.ir/android-sdk/build-tools_r26.0.2-windows.zip,55161474,39ca02d3faa49859cd9d1bc0adc2f331017b699b
+build-tools;26.0.1,Android SDK Build-Tools 26.0.1,26.0.1,https://maven.myket.ir/android-sdk/build-tools_r26.0.1-linux.zip,54113329,5378c2c78091b414d0eac40a6bd37f2faa31a365
+build-tools;26.0.1,Android SDK Build-Tools 26.0.1,26.0.1,https://maven.myket.ir/android-sdk/build-tools_r26.0.1-macosx.zip,53266653,cbde59de198916b390777dd0227921bfa2120832
+build-tools;26.0.1,Android SDK Build-Tools 26.0.1,26.0.1,https://maven.myket.ir/android-sdk/build-tools_r26.0.1-windows.zip,54936185,02494c80ffbe65bfff0aaa7463c9692693327b7d
+build-tools;26.0.0,Android SDK Build-Tools 26,26.0.0,https://maven.myket.ir/android-sdk/build-tools_r26-linux.zip,53854197,1cbe72929876f8a872ab1f1b1040a9f720261f59
+build-tools;26.0.0,Android SDK Build-Tools 26,26.0.0,https://maven.myket.ir/android-sdk/build-tools_r26-macosx.zip,53010814,d01a1aeca03747245f1f5936b3cb01759c66d086
+build-tools;26.0.0,Android SDK Build-Tools 26,26.0.0,https://maven.myket.ir/android-sdk/build-tools_r26-windows.zip,54681641,896ebd31117c09db220f7a3116cc0e5121c78b9d
+build-tools;25.0.3,Android SDK Build-Tools 25.0.3,25.0.3,https://maven.myket.ir/android-sdk/build-tools_r25.0.3-linux.zip,50757258,db95f3a0ae376534d4d69f4cdb6fad20649f3509
+build-tools;25.0.3,Android SDK Build-Tools 25.0.3,25.0.3,https://maven.myket.ir/android-sdk/build-tools_r25.0.3-macosx.zip,50545085,160d2fefb5ce68e443427fc30a793a703b63e26e
+build-tools;25.0.3,Android SDK Build-Tools 25.0.3,25.0.3,https://maven.myket.ir/android-sdk/build-tools_r25.0.3-windows.zip,51337442,1edcb109ae5133aebfed573cf0bc84e0c353c28d
+build-tools;25.0.2,Android SDK Build-Tools 25.0.2,25.0.2,https://maven.myket.ir/android-sdk/build-tools_r25.0.2-linux.zip,49880329,ff953c0177e317618fda40516f3e9d95fd43c7ae
+build-tools;25.0.2,Android SDK Build-Tools 25.0.2,25.0.2,https://maven.myket.ir/android-sdk/build-tools_r25.0.2-macosx.zip,49667185,12a5204bb3b6e39437535469fde7ddf42da46b16
+build-tools;25.0.2,Android SDK Build-Tools 25.0.2,25.0.2,https://maven.myket.ir/android-sdk/build-tools_r25.0.2-windows.zip,50458908,2fee3c0704d6ecc480570450d8b8069b2c4a2dd4
+build-tools;25.0.1,Android SDK Build-Tools 25.0.1,25.0.1,https://maven.myket.ir/android-sdk/build-tools_r25.0.1-linux.zip,49880178,ff063d252ab750d339f5947d06ff782836f22bac
+build-tools;25.0.1,Android SDK Build-Tools 25.0.1,25.0.1,https://maven.myket.ir/android-sdk/build-tools_r25.0.1-macosx.zip,49667353,7bf7f22d7d48ef20b6ab0e3d7a2912e5c088340f
+build-tools;25.0.1,Android SDK Build-Tools 25.0.1,25.0.1,https://maven.myket.ir/android-sdk/build-tools_r25.0.1-windows.zip,50458759,c6c61393565ccf46349e7f44511e5db7c1c6169d
+build-tools;25.0.0,Android SDK Build-Tools 25,25.0.0,https://maven.myket.ir/android-sdk/build-tools_r25-linux.zip,49872921,f2bbda60403e75cabd0f238598c3b4dfca56ea44
+build-tools;25.0.0,Android SDK Build-Tools 25,25.0.0,https://maven.myket.ir/android-sdk/build-tools_r25-macosx.zip,49659466,273c5c29a65cbed00e44f3aa470bbd7dce556606
+build-tools;25.0.0,Android SDK Build-Tools 25,25.0.0,https://maven.myket.ir/android-sdk/build-tools_r25-windows.zip,50451378,f9258f2308ff8b62cfc4513d40cb961612d07b6a
+build-tools;24.0.3,Android SDK Build-Tools 24.0.3,24.0.3,https://maven.myket.ir/android-sdk/build-tools_r24.0.3-linux.zip,49779151,9e8cc49d66e03fa1a8ecc1ac3e58f1324f5da304
+build-tools;24.0.3,Android SDK Build-Tools 24.0.3,24.0.3,https://maven.myket.ir/android-sdk/build-tools_r24.0.3-macosx.zip,49568967,a01c15f1b105c34595681075e1895d58b3fff48c
+build-tools;24.0.3,Android SDK Build-Tools 24.0.3,24.0.3,https://maven.myket.ir/android-sdk/build-tools_r24.0.3-windows.zip,50354788,8b960d693fd4163caeb8dc5f5f5f80b10987089c
+build-tools;24.0.2,Android SDK Build-Tools 24.0.2,24.0.2,https://maven.myket.ir/android-sdk/build-tools_r24.0.2-linux.zip,48936295,f199a7a788c3fefbed102eea34d6007737b803cf
+build-tools;24.0.2,Android SDK Build-Tools 24.0.2,24.0.2,https://maven.myket.ir/android-sdk/build-tools_r24.0.2-macosx.zip,48726190,8bb8fc575477491d5957de743089df412de55cda
+build-tools;24.0.2,Android SDK Build-Tools 24.0.2,24.0.2,https://maven.myket.ir/android-sdk/build-tools_r24.0.2-windows.zip,49512513,09586a1f1c39bcfa7db5205c9a07837247deb67e
+build-tools;24.0.1,Android SDK Build-Tools 24.0.1,24.0.1,https://maven.myket.ir/android-sdk/build-tools_r24.0.1-linux.zip,48936286,84f18c392919a074fcbb9b1d967984e6b2fef8b4
+build-tools;24.0.1,Android SDK Build-Tools 24.0.1,24.0.1,https://maven.myket.ir/android-sdk/build-tools_r24.0.1-macosx.zip,48726085,5c6457fcdfa07724fb086d8ff4e8316fc0742848
+build-tools;24.0.1,Android SDK Build-Tools 24.0.1,24.0.1,https://maven.myket.ir/android-sdk/build-tools_r24.0.1-windows.zip,49511883,ac4a7cea42c3ef74d7fbf1b992fad311c550034e
+build-tools;24.0.0,Android SDK Build-Tools 24,24.0.0,https://maven.myket.ir/android-sdk/build-tools_r24-linux.zip,48960919,c6271c4d78a5612ea6c7150688bcd5b7313de8d1
+build-tools;24.0.0,Android SDK Build-Tools 24,24.0.0,https://maven.myket.ir/android-sdk/build-tools_r24-macosx.zip,48747930,97fc4ed442f23989cc488d02c1d1de9bdde241de
+build-tools;24.0.0,Android SDK Build-Tools 24,24.0.0,https://maven.myket.ir/android-sdk/build-tools_r24-windows.zip,49535326,dc61b9e5b451a0c3ec42ae2b1ce27c4d3c8da9f7
+build-tools;23.0.2,Android SDK Build-Tools 23.0.2,23.0.2,https://maven.myket.ir/android-sdk/build-tools_r23.0.2-linux.zip,39071201,8a9f2b37f6fcf7a9fa784dc21aeaeb41bbb9f2c3
+build-tools;23.0.2,Android SDK Build-Tools 23.0.2,23.0.2,https://maven.myket.ir/android-sdk/build-tools_r23.0.2-macosx.zip,38060914,482c4cbceef8ff58aefd92d8155a38610158fdaf
+build-tools;23.0.2,Android SDK Build-Tools 23.0.2,23.0.2,https://maven.myket.ir/android-sdk/build-tools_r23.0.2-windows.zip,38217626,fc3a92c744d3ba0a16ccb5d2b41eea5974ce0a96
+build-tools;23.0.3,Android SDK Build-Tools 23.0.3,23.0.3,https://maven.myket.ir/android-sdk/build-tools_r23.0.3-linux.zip,40733174,368f2600feac7e9b511b82f53d1f2240ae4a91a3
+build-tools;23.0.3,Android SDK Build-Tools 23.0.3,23.0.3,https://maven.myket.ir/android-sdk/build-tools_r23.0.3-macosx.zip,39679533,fbc98cd303fd15a31d472de6c03bd707829f00b0
+build-tools;23.0.3,Android SDK Build-Tools 23.0.3,23.0.3,https://maven.myket.ir/android-sdk/build-tools_r23.0.3-windows.zip,39869945,c6d8266c6a3243c8f1e41b786c0e3cee4c781263
+build-tools;23.0.1,Android SDK Build-Tools 23.0.1,23.0.1,https://maven.myket.ir/android-sdk/build-tools_r23.0.1-linux.zip,39069295,b6ba7c399d5fa487d95289d8832e4ad943aed556
+build-tools;23.0.1,Android SDK Build-Tools 23.0.1,23.0.1,https://maven.myket.ir/android-sdk/build-tools_r23.0.1-macosx.zip,38059328,d96ec1522721e9a179ae2c591c99f75d31d39718
+build-tools;23.0.1,Android SDK Build-Tools 23.0.1,23.0.1,https://maven.myket.ir/android-sdk/build-tools_r23.0.1-windows.zip,38558889,cc1d37231d228f7a6f130e1f8d8c940052f0f8ab
+build-tools;23.0.0,Android SDK Build-Tools 23,23.0.0,https://maven.myket.ir/android-sdk/build-tools_r23-linux.zip,39080519,c1d6209212b01469f80fa804e0c1d39a06bc9060
+build-tools;23.0.0,Android SDK Build-Tools 23,23.0.0,https://maven.myket.ir/android-sdk/build-tools_r23-macosx.zip,38070540,90ba6e716f7703a236cd44b2e71c5ff430855a03
+build-tools;23.0.0,Android SDK Build-Tools 23,23.0.0,https://maven.myket.ir/android-sdk/build-tools_r23-windows.zip,38570715,3874948f35f2f8946597679cc6e9151449f23b5d
+build-tools;22.0.1,Android SDK Build-Tools 22.0.1,22.0.1,https://maven.myket.ir/android-sdk/build-tools_r22.0.1-linux.zip,33104577,da8b9c5c3ede39298e6cf0283c000c2ee9029646
+build-tools;22.0.1,Android SDK Build-Tools 22.0.1,22.0.1,https://maven.myket.ir/android-sdk/build-tools_r22.0.1-macosx.zip,33646102,53dad7f608e01d53b17176ba11165acbfccc5bbf
+build-tools;22.0.1,Android SDK Build-Tools 22.0.1,22.0.1,https://maven.myket.ir/android-sdk/build-tools_r22.0.1-windows.zip,33254137,61d8cbe069d9e0a57872a83e5e5abe164b7d52cf
+build-tools;22.0.0,Android SDK Build-Tools 22,22.0.0,https://maven.myket.ir/android-sdk/build-tools_r22-linux.zip,33104280,a8a1619dd090e44fac957bce6842e62abf87965b
+build-tools;22.0.0,Android SDK Build-Tools 22,22.0.0,https://maven.myket.ir/android-sdk/build-tools_r22-macosx.zip,33646090,af95429b24088d704bc5db9bd606e34ac1b82c0d
+build-tools;22.0.0,Android SDK Build-Tools 22,22.0.0,https://maven.myket.ir/android-sdk/build-tools_r22-windows.zip,33254114,08fcca41e81b172bd9f570963b90d3a84929e043
+build-tools;21.1.2,Android SDK Build-Tools 21.1.2,21.1.2,https://maven.myket.ir/android-sdk/build-tools_r21.1.2-linux.zip,32637678,5e35259843bf2926113a38368b08458735479658
+build-tools;21.1.2,Android SDK Build-Tools 21.1.2,21.1.2,https://maven.myket.ir/android-sdk/build-tools_r21.1.2-macosx.zip,33152878,e7c906b4ba0eea93b32ba36c610dbd6b204bff48
+build-tools;21.1.2,Android SDK Build-Tools 21.1.2,21.1.2,https://maven.myket.ir/android-sdk/build-tools_r21.1.2-windows.zip,32792587,1d944759c47f60e634d2b8a1f3a4259be2f8d652
+build-tools;21.1.1,Android SDK Build-Tools 21.1.1,21.1.1,https://maven.myket.ir/android-sdk/build-tools_r21.1.1-linux.zip,32642454,1c712ee3a1ba5a8b0548f9c32f17d4a0ddfd727d
+build-tools;21.1.1,Android SDK Build-Tools 21.1.1,21.1.1,https://maven.myket.ir/android-sdk/build-tools_r21.1.1-macosx.zip,33157676,836a146eab0504aa9387a5132e986fe7c7381571
+build-tools;21.1.1,Android SDK Build-Tools 21.1.1,21.1.1,https://maven.myket.ir/android-sdk/build-tools_r21.1.1-windows.zip,32797356,53fc4201237f899d5cd92f0b76ad41fb89da188b
+build-tools;21.1.0,Android SDK Build-Tools 21.1,21.1.0,https://maven.myket.ir/android-sdk/build-tools_r21.1-linux.zip,32642820,b7455e543784d52a8925f960bc880493ed1478cb
+build-tools;21.1.0,Android SDK Build-Tools 21.1,21.1.0,https://maven.myket.ir/android-sdk/build-tools_r21.1-macosx.zip,33158159,df619356c2359aa5eacdd48699d15b335d9bd246
+build-tools;21.1.0,Android SDK Build-Tools 21.1,21.1.0,https://maven.myket.ir/android-sdk/build-tools_r21.1-windows.zip,32797810,c79d63ac6b713a1e326ad4dae43f2ee76708a2f4
+build-tools;21.0.2,Android SDK Build-Tools 21.0.2,21.0.2,https://maven.myket.ir/android-sdk/build-tools_r21.0.2-linux.zip,22153122,e1236ab8897b62b57414adcf04c132567b2612a5
+build-tools;21.0.2,Android SDK Build-Tools 21.0.2,21.0.2,https://maven.myket.ir/android-sdk/build-tools_r21.0.2-macosx.zip,22668597,f17471c154058f3734729ef3cc363399b1cd3de1
+build-tools;21.0.2,Android SDK Build-Tools 21.0.2,21.0.2,https://maven.myket.ir/android-sdk/build-tools_r21.0.2-windows.zip,22306371,37496141b23cbe633167927b7abe6e22d9f1a1c1
+build-tools;21.0.1,Android SDK Build-Tools 21.0.1,21.0.1,https://maven.myket.ir/android-sdk/build-tools_r21.0.1-linux.zip,22153013,e573069eea3e5255e7a65bedeb767f4fd0a5f49a
+build-tools;21.0.1,Android SDK Build-Tools 21.0.1,21.0.1,https://maven.myket.ir/android-sdk/build-tools_r21.0.1-macosx.zip,22668616,b60c8f9b810c980abafa04896706f3911be1ade7
+build-tools;21.0.1,Android SDK Build-Tools 21.0.1,21.0.1,https://maven.myket.ir/android-sdk/build-tools_r21.0.1-windows.zip,22306243,d68e7e6fd7a48c8759aa41d713c9d4f0e4c1c1df
+build-tools;21.0.0,Android SDK Build-Tools 21,21.0.0,https://maven.myket.ir/android-sdk/build-tools_r21-linux.zip,22153145,4933328fdeecbd554a29528f254f4993468e1cf4
+build-tools;21.0.0,Android SDK Build-Tools 21,21.0.0,https://maven.myket.ir/android-sdk/build-tools_r21-macosx.zip,22668456,9bef7989b51436bd4e5114d8a0330359f077cbfa
+build-tools;21.0.0,Android SDK Build-Tools 21,21.0.0,https://maven.myket.ir/android-sdk/build-tools_r21-windows.zip,22306371,5bc8fd399bc0135a9bc91eec78ddc5af4f54bf32
+build-tools;20.0.0,Android SDK Build-Tools 20,20.0.0,https://maven.myket.ir/android-sdk/build-tools_r20-linux.zip,21445463,b688905526a5584d1327a662d871a635ff502758
+build-tools;20.0.0,Android SDK Build-Tools 20,20.0.0,https://maven.myket.ir/android-sdk/build-tools_r20-macosx.zip,21650508,1240f629411c108a714c4ddd756937c7fab93f83
+build-tools;20.0.0,Android SDK Build-Tools 20,20.0.0,https://maven.myket.ir/android-sdk/build-tools_r20-windows.zip,20828006,cf20720e452b642d5eb59dabe05c0c729b36ec75
+build-tools;19.1.0,Android SDK Build-Tools 19.1,19.1.0,https://maven.myket.ir/android-sdk/build-tools_r19.1-linux.zip,21490972,1ff20ac15fa47a75d00346ec12f180d531b3ca89
+build-tools;19.1.0,Android SDK Build-Tools 19.1,19.1.0,https://maven.myket.ir/android-sdk/build-tools_r19.1-macosx.zip,21590160,0d11aae3417de1efb4b9a0e0a7855904a61bcec1
+build-tools;19.1.0,Android SDK Build-Tools 19.1,19.1.0,https://maven.myket.ir/android-sdk/build-tools_r19.1-windows.zip,20812533,13b367fbdbff8132cb4356f716e8dc8a8df745c5
+build-tools;19.0.3,Android SDK Build-Tools 19.0.3,19.0.3,https://maven.myket.ir/android-sdk/build-tools_r19.0.3-linux.zip,21462150,c2d6055478e9d2d4fba476ee85f99181ddd1160c
+build-tools;19.0.3,Android SDK Build-Tools 19.0.3,19.0.3,https://maven.myket.ir/android-sdk/build-tools_r19.0.3-macosx.zip,21563992,651cf8754373b2d52e7f6aab2c52eabffe4e9ea4
+build-tools;19.0.3,Android SDK Build-Tools 19.0.3,19.0.3,https://maven.myket.ir/android-sdk/build-tools_r19.0.3-windows.zip,20730715,cb46b433b67a0a6910ff00db84be8b527ea3102f
+build-tools;19.0.2,Android SDK Build-Tools 19.0.2,19.0.2,https://maven.myket.ir/android-sdk/build-tools_r19.0.2-linux.zip,21352552,a03a6bdea0091aea32e1b35b90a7294c9f04e3dd
+build-tools;19.0.2,Android SDK Build-Tools 19.0.2,19.0.2,https://maven.myket.ir/android-sdk/build-tools_r19.0.2-macosx.zip,21453726,145bc43065d45f756d99d87329d899052b9a9288
+build-tools;19.0.2,Android SDK Build-Tools 19.0.2,19.0.2,https://maven.myket.ir/android-sdk/build-tools_r19.0.2-windows.zip,20621117,af664672d0d709c9ae30937b1062317d3ade7f95
+build-tools;19.0.1,Android SDK Build-Tools 19.0.1,19.0.1,https://maven.myket.ir/android-sdk/build-tools_r19.0.1-linux.zip,21229048,18d2312dc4368858914213087f4e61445aca4517
+build-tools;19.0.1,Android SDK Build-Tools 19.0.1,19.0.1,https://maven.myket.ir/android-sdk/build-tools_r19.0.1-macosx.zip,21450597,efaf50fb19a3edb8d03efbff76f89a249ad2920b
+build-tools;19.0.1,Android SDK Build-Tools 19.0.1,19.0.1,https://maven.myket.ir/android-sdk/build-tools_r19.0.1-windows.zip,20500648,5ef422bac5b28f4ced108319ed4a6bc7050a6234
+build-tools;19.0.0,Android SDK Build-Tools 19,19.0.0,https://maven.myket.ir/android-sdk/build-tools_r19-linux.zip,21339943,55c1a6cf632e7d346f0002b275ec41fd3137fd83
+build-tools;19.0.0,Android SDK Build-Tools 19,19.0.0,https://maven.myket.ir/android-sdk/build-tools_r19-macosx.zip,21441270,86ec1c12db1bc446b7bcaefc5cc14eb361044e90
+build-tools;19.0.0,Android SDK Build-Tools 19,19.0.0,https://maven.myket.ir/android-sdk/build-tools_r19-windows.zip,20611447,6edf505c20f5ece9c48fa0aff9a90488f9654d52
+build-tools;18.1.1,Android SDK Build-Tools 18.1.1,18.1.1,https://maven.myket.ir/android-sdk/build-tools_r18.1.1-linux.zip,20229760,68c9acbfc0cec2d51b19efaed39831a17055d998
+build-tools;18.1.1,Android SDK Build-Tools 18.1.1,18.1.1,https://maven.myket.ir/android-sdk/build-tools_r18.1.1-macosx.zip,20452157,a9d9d37f6ddf859e57abc78802a77aaa166e48d4
+build-tools;18.1.1,Android SDK Build-Tools 18.1.1,18.1.1,https://maven.myket.ir/android-sdk/build-tools_r18.1.1-windows.zip,19660000,c4605066e2f851387ea70bc1442b1968bd7b4a15
+build-tools;18.1.0,Android SDK Build-Tools 18.1,18.1.0,https://maven.myket.ir/android-sdk/build-tools_r18.1-linux.zip,20229298,f314a0599e51397f0886fe888b50dd98f2f050d8
+build-tools;18.1.0,Android SDK Build-Tools 18.1,18.1.0,https://maven.myket.ir/android-sdk/build-tools_r18.1-macosx.zip,20451524,16ddb299b8b43063e5bb3387ec17147c5053dfd8
+build-tools;18.1.0,Android SDK Build-Tools 18.1,18.1.0,https://maven.myket.ir/android-sdk/build-tools_r18.1-windows.zip,19659547,3a9810fc8559ab03c09378f07531e8cae2f1db30
+build-tools;18.0.1,Android SDK Build-Tools 18.0.1,18.0.1,https://maven.myket.ir/android-sdk/build-tools_r18.0.1-linux.zip,16627330,f11618492b0d2270c332325d45d752d3656a9640
+build-tools;18.0.1,Android SDK Build-Tools 18.0.1,18.0.1,https://maven.myket.ir/android-sdk/build-tools_r18.0.1-macosx.zip,16633121,d84f5692fb44d60fc53e5b2507cebf9f24626902
+build-tools;18.0.1,Android SDK Build-Tools 18.0.1,18.0.1,https://maven.myket.ir/android-sdk/build-tools_r18.0.1-windows.zip,15413527,a6c2afd0b6289d589351956d2f5212b37014ca7d
+build-tools;17.0.0,Android SDK Build-Tools 17,17.0.0,https://maven.myket.ir/android-sdk/build-tools_r17-linux.zip,11696007,2c2872bc3806aabf16a12e3959c2183ddc866e6d
+build-tools;17.0.0,Android SDK Build-Tools 17,17.0.0,https://maven.myket.ir/android-sdk/build-tools_r17-macosx.zip,12208114,602ee709be9dbb8f179b1e4075148a57f9419930
+build-tools;17.0.0,Android SDK Build-Tools 17,17.0.0,https://maven.myket.ir/android-sdk/build-tools_r17-windows.zip,11004914,899897d327b0bad492d3a40d3db4d96119c15bc0
+cmdline-tools;20.0,Android SDK Command-line Tools,20,https://maven.myket.ir/android-sdk/commandlinetools-linux-14742923_latest.zip,172789259,48833c34b761c10cb20bcd16582129395d121b27
+cmdline-tools;20.0,Android SDK Command-line Tools,20,https://maven.myket.ir/android-sdk/commandlinetools-mac-14742923_latest.zip,150703968,cc27cca4b84bfdbc7df17e3d0a01d0c640d8ee71
+cmdline-tools;20.0,Android SDK Command-line Tools,20,https://maven.myket.ir/android-sdk/commandlinetools-win-14742923_latest.zip,150532528,16b3f45ddb3d85ea6bbe6a1c0b47146daf0db450
+cmdline-tools;19.0,Android SDK Command-line Tools,19,https://maven.myket.ir/android-sdk/commandlinetools-linux-13114758_latest.zip,164760899,5fdcc763663eefb86a5b8879697aa6088b041e70
+cmdline-tools;19.0,Android SDK Command-line Tools,19,https://maven.myket.ir/android-sdk/commandlinetools-mac-13114758_latest.zip,143250852,c3e06a1959762e89167d1cbaa988605f6f7c1d24
+cmdline-tools;19.0,Android SDK Command-line Tools,19,https://maven.myket.ir/android-sdk/commandlinetools-win-13114758_latest.zip,143040480,54a582f3bf73e04253602f2d1c80bd5868aac115
+cmdline-tools;19.0-alpha01,Android SDK Command-line Tools,19,https://maven.myket.ir/android-sdk/commandlinetools-linux-12996373_latest.zip,164759933,f25edbe00eccf74e940abb8d9872b7120c3942a3
+cmdline-tools;19.0-alpha01,Android SDK Command-line Tools,19,https://maven.myket.ir/android-sdk/commandlinetools-mac-12996373_latest.zip,143250486,de2df8ad8705f3be6de366c953e4cb3e3a0b9f6c
+cmdline-tools;19.0-alpha01,Android SDK Command-line Tools,19,https://maven.myket.ir/android-sdk/commandlinetools-win-12996373_latest.zip,143039915,26805d62669b20af583074f67926e31600e43185
+cmdline-tools;17.0,Android SDK Command-line Tools,17,https://maven.myket.ir/android-sdk/commandlinetools-linux-12700392_latest.zip,163426701,da3424ea38b72d85258174a76aa286b7d4e0b700
+cmdline-tools;17.0,Android SDK Command-line Tools,17,https://maven.myket.ir/android-sdk/commandlinetools-mac-12700392_latest.zip,142285185,625e146cf61d6b4fbdfdd9ad34105af23b0486c2
+cmdline-tools;17.0,Android SDK Command-line Tools,17,https://maven.myket.ir/android-sdk/commandlinetools-win-12700392_latest.zip,141848100,4a0902fb473afb7ce90a0ff6181d997138a15d9c
+cmdline-tools;16.0,Android SDK Command-line Tools,16,https://maven.myket.ir/android-sdk/commandlinetools-linux-12266719_latest.zip,165618711,47e61d3bb57b5e907a74f225a767a767a8b4d7a5
+cmdline-tools;16.0,Android SDK Command-line Tools,16,https://maven.myket.ir/android-sdk/commandlinetools-mac-12266719_latest.zip,143967391,b2fb3e403104bf342be7abf0631c23e30559d222
+cmdline-tools;16.0,Android SDK Command-line Tools,16,https://maven.myket.ir/android-sdk/commandlinetools-win-12266719_latest.zip,143481958,32787c10f55911fd109848906b1275723e79f659
+cmdline-tools;16.0-alpha01,Android SDK Command-line Tools,16,https://maven.myket.ir/android-sdk/commandlinetools-linux-12172612_latest.zip,165618743,818d632f1d727edaecd4ff94aa5f86b5a8a129a6
+cmdline-tools;16.0-alpha01,Android SDK Command-line Tools,16,https://maven.myket.ir/android-sdk/commandlinetools-mac-12172612_latest.zip,143967294,8c7e4cc8fa9b2594ab8b56343bf56618ebdf04b9
+cmdline-tools;16.0-alpha01,Android SDK Command-line Tools,16,https://maven.myket.ir/android-sdk/commandlinetools-win-12172612_latest.zip,143481957,b2ae4d96dca0f10358a041adc9b79eedf399779b
+cmdline-tools;13.0,Android SDK Command-line Tools,13,https://maven.myket.ir/android-sdk/commandlinetools-linux-11479570_latest.zip,157033049,2e1a11866ce7146dee1456152ff64d6c8158b2c0
+cmdline-tools;13.0,Android SDK Command-line Tools,13,https://maven.myket.ir/android-sdk/commandlinetools-mac-11479570_latest.zip,136810605,4fe82efec2b7c33f373988f86d353d733698a0a3
+cmdline-tools;13.0,Android SDK Command-line Tools,13,https://maven.myket.ir/android-sdk/commandlinetools-win-11479570_latest.zip,136324801,938b82035c25633e822bd4e048033a6b7816d3a8
+cmdline-tools;14.0-alpha01,Android SDK Command-line Tools,14,https://maven.myket.ir/android-sdk/commandlinetools-linux-11391160_latest.zip,160503024,46a5d7efd0db68c737c9f7f3a79aa915363f8ced
+cmdline-tools;14.0-alpha01,Android SDK Command-line Tools,14,https://maven.myket.ir/android-sdk/commandlinetools-mac-11391160_latest.zip,160503004,2b9006f2755f97f27473a079f973252f012a8301
+cmdline-tools;14.0-alpha01,Android SDK Command-line Tools,14,https://maven.myket.ir/android-sdk/commandlinetools-win-11391160_latest.zip,160472813,1e7c4acead6a4aabd9b753ffd98e116d59f7547e
+cmdline-tools;13.0-rc01,Android SDK Command-line Tools,13,https://maven.myket.ir/android-sdk/commandlinetools-linux-11379558_latest.zip,157028144,8d8f5c9ccc8746afed262b39c419be3d4e856124
+cmdline-tools;13.0-rc01,Android SDK Command-line Tools,13,https://maven.myket.ir/android-sdk/commandlinetools-mac-11379558_latest.zip,157028128,c7f71dd662115aa2d370508f190e2df6e83884cc
+cmdline-tools;13.0-rc01,Android SDK Command-line Tools,13,https://maven.myket.ir/android-sdk/commandlinetools-win-11379558_latest.zip,157003999,87247876f2c9a7dcf8885e6feb1e5481adccd0e5
+cmdline-tools;12.0,Android SDK Command-line Tools,12,https://maven.myket.ir/android-sdk/commandlinetools-linux-11076708_latest.zip,153607504,d313adb7aedccf6cf0cfca51ec180f0059f5f8f8
+cmdline-tools;12.0,Android SDK Command-line Tools,12,https://maven.myket.ir/android-sdk/commandlinetools-mac-11076708_latest.zip,153607488,37fb7dd41005b3b4ca6ea48ac27074b6fc4e3236
+cmdline-tools;12.0,Android SDK Command-line Tools,12,https://maven.myket.ir/android-sdk/commandlinetools-win-11076708_latest.zip,153583359,3d2917302740f476999a091bc5558837c7a863c5
+cmdline-tools;11.0,Android SDK Command-line Tools,11,https://maven.myket.ir/android-sdk/commandlinetools-linux-10406996_latest.zip,148832188,87b485c7283cba69e41c10f05bf832d2fd691552
+cmdline-tools;11.0,Android SDK Command-line Tools,11,https://maven.myket.ir/android-sdk/commandlinetools-mac-10406996_latest.zip,148832172,4b831e6a978ce9170fc49a8010e2ece4be790c73
+cmdline-tools;11.0,Android SDK Command-line Tools,11,https://maven.myket.ir/android-sdk/commandlinetools-win-10406996_latest.zip,148808043,9b0082db87cf1738866f80160f497b8a53e149a3
+cmdline-tools;10.0,Android SDK Command-line Tools,10,https://maven.myket.ir/android-sdk/commandlinetools-linux-9862592_latest.zip,138733165,a787f0c35d3970f2ad634f7d91a2e7bc49e2c7f5
+cmdline-tools;10.0,Android SDK Command-line Tools,10,https://maven.myket.ir/android-sdk/commandlinetools-mac-9862592_latest.zip,138733149,2a0c97c8d9b11f9a64be0a7058bcdbf1aaab9910
+cmdline-tools;10.0,Android SDK Command-line Tools,10,https://maven.myket.ir/android-sdk/commandlinetools-win-9862592_latest.zip,138709020,5a03c5ce16f4c99ffe7bded82798b01b07a79bc0
+cmdline-tools;9.0,Android SDK Command-line Tools,9,https://maven.myket.ir/android-sdk/commandlinetools-linux-9477386_latest.zip,133507477,7f92d6e0783a6d73ade5396fe4cfcb58544ef14b
+cmdline-tools;9.0,Android SDK Command-line Tools,9,https://maven.myket.ir/android-sdk/commandlinetools-mac-9477386_latest.zip,133507463,587441bc37d957857c1f654726eb7e04ee9ca3e0
+cmdline-tools;9.0,Android SDK Command-line Tools,9,https://maven.myket.ir/android-sdk/commandlinetools-win-9477386_latest.zip,133486337,f8cd24223fee3b4cff857c9435caa72be0d08b70
+cmdline-tools;8.0,Android SDK Command-line Tools,8,https://maven.myket.ir/android-sdk/commandlinetools-linux-9123335_latest.zip,120916547,09b65ebc5aa9c5011fec9416d22711ce7ffc2260
+cmdline-tools;8.0,Android SDK Command-line Tools,8,https://maven.myket.ir/android-sdk/commandlinetools-mac-9123335_latest.zip,120916533,089eedfc62371040f9e027835d5114178fc0e658
+cmdline-tools;8.0,Android SDK Command-line Tools,8,https://maven.myket.ir/android-sdk/commandlinetools-win-9123335_latest.zip,120895407,d1511ce5b61e5988b3de4b83062f0a570671074f
+cmdline-tools;7.0,Android SDK Command-line Tools,7,https://maven.myket.ir/android-sdk/commandlinetools-linux-8512546_latest.zip,114168525,5e7bf2dd563d34917d32f3c5920a85562a795c93
+cmdline-tools;7.0,Android SDK Command-line Tools,7,https://maven.myket.ir/android-sdk/commandlinetools-mac-8512546_latest.zip,114168511,9a663c49dbd3709fc2b7d49db2814b383d811b4a
+cmdline-tools;7.0,Android SDK Command-line Tools,7,https://maven.myket.ir/android-sdk/commandlinetools-win-8512546_latest.zip,114147385,1bdd32ac4b9fffea04f5bc341108e8b4fea6f32c
+cmdline-tools;6.0,Android SDK Command-line Tools,6,https://maven.myket.ir/android-sdk/commandlinetools-linux-8092744_latest.zip,119650630,8d47ab9a90caa60ce8a95d7e384ec64633bc13b4
+cmdline-tools;6.0,Android SDK Command-line Tools,6,https://maven.myket.ir/android-sdk/commandlinetools-mac-8092744_latest.zip,119650616,bbd306940256ccb698edae47a56fb8da36d63e0b
+cmdline-tools;6.0,Android SDK Command-line Tools,6,https://maven.myket.ir/android-sdk/commandlinetools-win-8092744_latest.zip,119629490,3098050fb2bdc7cc8a07bdef4dd13035f9f78d2a
+cmdline-tools;5.0,Android SDK Command-line Tools,5,https://maven.myket.ir/android-sdk/commandlinetools-linux-7583922_latest.zip,109673042,0885385de11983c020ff0d47039987fe372160d2
+cmdline-tools;5.0,Android SDK Command-line Tools,5,https://maven.myket.ir/android-sdk/commandlinetools-mac-7583922_latest.zip,109673028,49538fa064c077b188bdb51f3aa57bb2882b0abd
+cmdline-tools;5.0,Android SDK Command-line Tools,5,https://maven.myket.ir/android-sdk/commandlinetools-win-7583922_latest.zip,109651902,a2f359fb8b075acebcb3e3e48b4170cfe4071882
+cmdline-tools;4.0,Android SDK Command-line Tools,4,https://maven.myket.ir/android-sdk/commandlinetools-linux-7302050_latest.zip,103957858,87e7cd8879ed469117f20090dc4d454a24e30170
+cmdline-tools;4.0,Android SDK Command-line Tools,4,https://maven.myket.ir/android-sdk/commandlinetools-mac-7302050_latest.zip,103957846,8fcf59d208cb5d48e1233979aa5187e7dfb98cf3
+cmdline-tools;4.0,Android SDK Command-line Tools,4,https://maven.myket.ir/android-sdk/commandlinetools-win-7302050_latest.zip,103939737,ede5b054c06a7fea51bfd27041a100bae5521803
+cmdline-tools;3.0,Android SDK Command-line Tools,3,https://maven.myket.ir/android-sdk/commandlinetools-linux-6858069_latest.zip,87259900,4f4417d53923c34891f1c05f302be2ed197d6844
+cmdline-tools;3.0,Android SDK Command-line Tools,3,https://maven.myket.ir/android-sdk/commandlinetools-mac-6858069_latest.zip,87259890,4846d2aede9db06361a5f0885d03997a6199229a
+cmdline-tools;3.0,Android SDK Command-line Tools,3,https://maven.myket.ir/android-sdk/commandlinetools-win-6858069_latest.zip,87244802,f0bf21e0a13dfcc48e7b0166f44dcff49912d2ee
+cmdline-tools;2.1,Android SDK Command-line Tools,2.1,https://maven.myket.ir/android-sdk/commandlinetools-linux-6609375_latest.zip,86532348,9172381ff070ee2a416723c1989770cf4b0d1076
+cmdline-tools;2.1,Android SDK Command-line Tools,2.1,https://maven.myket.ir/android-sdk/commandlinetools-mac-6609375_latest.zip,86532338,c0c6bb9f1970bfadeaac623dfabf22c3e56baaec
+cmdline-tools;2.1,Android SDK Command-line Tools,2.1,https://maven.myket.ir/android-sdk/commandlinetools-win-6609375_latest.zip,86517250,e2e19c2ff584efa87ef0cfdd1987f92881323208
+cmdline-tools;latest,Android SDK Command-line Tools (latest),20,https://maven.myket.ir/android-sdk/commandlinetools-linux-14742923_latest.zip,172789259,48833c34b761c10cb20bcd16582129395d121b27
+cmdline-tools;latest,Android SDK Command-line Tools (latest),20,https://maven.myket.ir/android-sdk/commandlinetools-mac-14742923_latest.zip,150703968,cc27cca4b84bfdbc7df17e3d0a01d0c640d8ee71
+cmdline-tools;latest,Android SDK Command-line Tools (latest),20,https://maven.myket.ir/android-sdk/commandlinetools-win-14742923_latest.zip,150532528,16b3f45ddb3d85ea6bbe6a1c0b47146daf0db450
+cmdline-tools;2.0,Android SDK Command-line Tools,2,https://maven.myket.ir/android-sdk/commandlinetools-linux-6514223_latest.zip,86521858,14b2114c6eae9e10686a18138d2bb468c46f8e0c
+cmdline-tools;2.0,Android SDK Command-line Tools,2,https://maven.myket.ir/android-sdk/commandlinetools-mac-6514223_latest.zip,86521848,d45816955198c4dfd652584f4c0f1b0e86efb1b7
+cmdline-tools;2.0,Android SDK Command-line Tools,2,https://maven.myket.ir/android-sdk/commandlinetools-win-6514223_latest.zip,86506760,e11b418c1d2d28589e9194915be2561f1e1e7a95
+cmdline-tools;1.0,Android SDK Command-line Tools,1,https://maven.myket.ir/android-sdk/commandlinetools-linux-6200805_latest.zip,81680508,6ffc5bd72db2c755f9b374ed829202262a6d8aaf
+cmdline-tools;1.0,Android SDK Command-line Tools,1,https://maven.myket.ir/android-sdk/commandlinetools-mac-6200805_latest.zip,81680498,23f803c07e392bb769507c88b23c2c7868cc7a6f
+cmdline-tools;1.0,Android SDK Command-line Tools,1,https://maven.myket.ir/android-sdk/commandlinetools-win-6200805_latest.zip,81665410,a863da8763de2febeb7429e7894fb65a092609db
+skiaparser;1,Layout Inspector image server for API 29-30,6,https://maven.myket.ir/android-sdk/skiaparser-7083912-linux.zip,6323164,78af2cd3e4168af80c16d7686536baa318e10cc4
+skiaparser;1,Layout Inspector image server for API 29-30,6,https://maven.myket.ir/android-sdk/skiaparser-7083912-mac.zip,6561072,73aa4e3b52177cf7d4cf956a74311e0097987bb4
+skiaparser;1,Layout Inspector image server for API 29-30,6,https://maven.myket.ir/android-sdk/skiaparser-7083912-win.zip,6059180,28dde025a70a0f4819cf195c1cb6e0e2b4bf4514
+skiaparser;2,Layout Inspector image server for API S,3,https://maven.myket.ir/android-sdk/skiaparser-7478287-linux.zip,6767192,36e2c30f7745f4c062129a0fd549d29ab991db41
+skiaparser;2,Layout Inspector image server for API S,3,https://maven.myket.ir/android-sdk/skiaparser-7478287-mac.zip,7401688,04a834a8ab3efd4612300da7cef7f43a6b257468
+skiaparser;2,Layout Inspector image server for API S,3,https://maven.myket.ir/android-sdk/skiaparser-7478287-win.zip,6532776,567f24512f9d9487a3b948032a136261f5d59c92
+skiaparser;3,Layout Inspector image server for API 31-36,8,https://maven.myket.ir/android-sdk/skiaparser-14118104-linux-x64.zip,15894999,044c943903d6e29b27e0c39bf6b11caa40969e82
+skiaparser;3,Layout Inspector image server for API 31-36,8,https://maven.myket.ir/android-sdk/skiaparser-14118104-darwin-x64.zip,4883789,03c288712f84edc0fd2d81d519fda950d0ed7247
+skiaparser;3,Layout Inspector image server for API 31-36,8,https://maven.myket.ir/android-sdk/skiaparser-14118104-win-x64.zip,4598454,b9f9b7bbf0a6483d897db6b857be043238c7cb0f
+cmake;4.1.2,CMake 4.1.2,4.1.2,https://maven.myket.ir/android-sdk/cmake-4.1.2-linux.zip,31275750,c8c4f1c19b75c56f28b9dcf1af928d25cf1a1471
+cmake;4.1.2,CMake 4.1.2,4.1.2,https://maven.myket.ir/android-sdk/cmake-4.1.2-darwin.zip,43690978,a0578a0543942c7eb35822c88a516b87e5b9867a
+cmake;4.1.2,CMake 4.1.2,4.1.2,https://maven.myket.ir/android-sdk/cmake-4.1.2-windows.zip,21045753,06bc3fe29aa49297dcc11a2ffe3a999445df05ae
+cmake;4.1.1,CMake 4.1.1,4.1.1,https://maven.myket.ir/android-sdk/cmake-4.1.1-linux.zip,31269415,33a36c403071cdd43bd5d611552fe5e8955626c2
+cmake;4.1.1,CMake 4.1.1,4.1.1,https://maven.myket.ir/android-sdk/cmake-4.1.1-darwin.zip,43666138,9b670a019b956eba9c1d908aae0ec1a341d0ac06
+cmake;4.1.1,CMake 4.1.1,4.1.1,https://maven.myket.ir/android-sdk/cmake-4.1.1-windows.zip,20951734,5b66ca33b43b0d526dad95bac20ca9f79ba8490d
+cmake;4.1.0,CMake 4.1.0,4.1.0,https://maven.myket.ir/android-sdk/cmake-4.1.0-linux.zip,31268624,c7df7c5094f58d61a53f615cd68e6e7fd0c41a76
+cmake;4.1.0,CMake 4.1.0,4.1.0,https://maven.myket.ir/android-sdk/cmake-4.1.0-darwin.zip,43658753,11ba32eb864c31fcf383456e21d9ab8e13c8d22c
+cmake;4.1.0,CMake 4.1.0,4.1.0,https://maven.myket.ir/android-sdk/cmake-4.1.0-windows.zip,20951280,3bc560fd2b487841fb0bad2f3585cff8aaf40cd5
+cmake;4.0.3,CMake 4.0.3,4.0.3,https://maven.myket.ir/android-sdk/cmake-4.0.3-linux.zip,30911219,595002f48fca924c9dcf7b3274277026024b7887
+cmake;4.0.3,CMake 4.0.3,4.0.3,https://maven.myket.ir/android-sdk/cmake-4.0.3-darwin.zip,43161272,11cd1bd2b921d5bc262b7d502403f185dd6001a4
+cmake;4.0.3,CMake 4.0.3,4.0.3,https://maven.myket.ir/android-sdk/cmake-4.0.3-windows.zip,20622355,edaff2f1c48e57f28c9a03945165b6a54b60aa15
+cmake;4.0.2,CMake 4.0.2,4.0.2,https://maven.myket.ir/android-sdk/cmake-4.0.2-linux.zip,30909648,83295132168f6a41d6461746e1e9844583adac00
+cmake;4.0.2,CMake 4.0.2,4.0.2,https://maven.myket.ir/android-sdk/cmake-4.0.2-darwin.zip,43157416,82f5dfe96433d1085f49697f7f985266ebece998
+cmake;4.0.2,CMake 4.0.2,4.0.2,https://maven.myket.ir/android-sdk/cmake-4.0.2-windows.zip,20621162,337378ae8fb6b7c88b8c439dbe2714cc17a3ab04
+cmake;3.31.6,CMake 3.31.6,3.31.6,https://maven.myket.ir/android-sdk/cmake-3.31.6-linux.zip,30771638,a54551dabd5daf8cc99f7f51769fd00ca759be0a
+cmake;3.31.6,CMake 3.31.6,3.31.6,https://maven.myket.ir/android-sdk/cmake-3.31.6-darwin.zip,42861179,78c3bf819d7bf6144783aeef06c5f9cbd3f8f5a9
+cmake;3.31.6,CMake 3.31.6,3.31.6,https://maven.myket.ir/android-sdk/cmake-3.31.6-windows.zip,20491843,1efbef168291afc5d6ae449b1a016f8bf034b0fc
+cmake;3.31.5,CMake 3.31.5,3.31.5,https://maven.myket.ir/android-sdk/cmake-3.31.5-linux.zip,30482790,823156dfed8f1e4bf1a82bbc9c41a5415546b8ac
+cmake;3.31.5,CMake 3.31.5,3.31.5,https://maven.myket.ir/android-sdk/cmake-3.31.5-darwin.zip,42792306,4c28c635f08638494ce563ffa7d26d1c43a50190
+cmake;3.31.5,CMake 3.31.5,3.31.5,https://maven.myket.ir/android-sdk/cmake-3.31.5-windows.zip,20465729,6a51cf2d1f300edecbf04603087a31b07a0fcdec
+cmake;3.31.4,CMake 3.31.4,3.31.4,https://maven.myket.ir/android-sdk/cmake-3.31.4-linux.zip,30482338,329d5d23600fc7cff8ebff8136a0fd0e7994c069
+cmake;3.31.4,CMake 3.31.4,3.31.4,https://maven.myket.ir/android-sdk/cmake-3.31.4-darwin.zip,42791670,4094e82ed72c994bf9c0244d71db555a7c97e693
+cmake;3.31.4,CMake 3.31.4,3.31.4,https://maven.myket.ir/android-sdk/cmake-3.31.4-windows.zip,20465800,7012f994ba691ca888b0733e95ab62c3f300d7dc
+cmake;3.31.1,CMake 3.31.1,3.31.1,https://maven.myket.ir/android-sdk/cmake-3.31.1-linux.zip,30474570,477e6cd2d8094d2653464a60869aa15e0d79a24f
+cmake;3.31.1,CMake 3.31.1,3.31.1,https://maven.myket.ir/android-sdk/cmake-3.31.1-darwin.zip,42781652,11b79b8908377bdd038aac0625e7d8aa32aed503
+cmake;3.31.1,CMake 3.31.1,3.31.1,https://maven.myket.ir/android-sdk/cmake-3.31.1-windows.zip,20462685,3a8f1f1b33e0ed2a639b6e709ab15806648979c9
+cmake;3.31.0,CMake 3.31.0,3.31.0,https://maven.myket.ir/android-sdk/cmake-3.31.0-linux.zip,30452943,13b9505857aa3bbfc1d80ec6b587e3ba2d2929f3
+cmake;3.31.0,CMake 3.31.0,3.31.0,https://maven.myket.ir/android-sdk/cmake-3.31.0-darwin.zip,42747441,d20697c5eb256dff2d29d52440e9cfe0f973538f
+cmake;3.31.0,CMake 3.31.0,3.31.0,https://maven.myket.ir/android-sdk/cmake-3.31.0-windows.zip,20441934,39fa0e1898861bdef2da13f7b19ad0d0be5dac83
+cmake;3.30.5,CMake 3.30.5,3.30.5,https://maven.myket.ir/android-sdk/cmake-3.30.5-linux.zip,29566687,c999a37fa18cb3e24dc003386cffe1d86add91b5
+cmake;3.30.5,CMake 3.30.5,3.30.5,https://maven.myket.ir/android-sdk/cmake-3.30.5-darwin.zip,41485176,3a7d78b52bdb455d9f041b1e521fc3e0dcbaef29
+cmake;3.30.5,CMake 3.30.5,3.30.5,https://maven.myket.ir/android-sdk/cmake-3.30.5-windows.zip,19898983,308c94365edb2760f38eef8f745e313e36908a18
+cmake;3.30.4,CMake 3.30.4,3.30.4,https://maven.myket.ir/android-sdk/cmake-3.30.4-linux.zip,29566348,b7d4287a46737718d88611655608d567fcc07c1e
+cmake;3.30.4,CMake 3.30.4,3.30.4,https://maven.myket.ir/android-sdk/cmake-3.30.4-darwin.zip,41484902,73e4d81d4ee1917e9b56ea6f35764c1861a52c45
+cmake;3.30.4,CMake 3.30.4,3.30.4,https://maven.myket.ir/android-sdk/cmake-3.30.4-windows.zip,19898645,c4ed0e13447b94ddf548f67c6faac7e5ac878fb8
+cmake;3.30.3,CMake 3.30.3,3.30.3,https://maven.myket.ir/android-sdk/cmake-3.30.3-linux.zip,29565700,dc0d803d79b66eb7aa4b12b3056db5734ec1841f
+cmake;3.30.3,CMake 3.30.3,3.30.3,https://maven.myket.ir/android-sdk/cmake-3.30.3-darwin.zip,41486046,99ee0e31ad78ca5d50fa68fa203543adbe49f412
+cmake;3.30.3,CMake 3.30.3,3.30.3,https://maven.myket.ir/android-sdk/cmake-3.30.3-windows.zip,19897608,e25190d483d169ca8522ca4e15412188183b1d02
+cmake;3.22.1,CMake 3.22.1,3.22.1,https://maven.myket.ir/android-sdk/cmake-3.22.1-darwin.zip,38223266,8604eeef9adadb626dbb70a7ff58a87e6a7b967a
+cmake;3.22.1,CMake 3.22.1,3.22.1,https://maven.myket.ir/android-sdk/cmake-3.22.1-linux.zip,22308647,fd0a48b4a758310df8c7aa51f59840ed48fe7ed8
+cmake;3.22.1,CMake 3.22.1,3.22.1,https://maven.myket.ir/android-sdk/cmake-3.22.1-windows.zip,16116742,292778f32a7d5183e1c49c7897b870653f2d2c1b
+cmake;3.18.1,CMake 3.18.1,3.18.1,https://maven.myket.ir/android-sdk/7c386a739f915f5bd60051f2572c24782388e807.cmake-3.18.1-windows.zip,14676950,63723e9657a3ce1fc3ae078229c6199af80b76bd
+cmake;3.18.1,CMake 3.18.1,3.18.1,https://maven.myket.ir/android-sdk/ba34c321f92f6e6fd696c8354c262c122f56abf8.cmake-3.18.1-darwin.zip,18505220,809fdc8e14c745c6df4e506cc2157910f50b9cd9
+cmake;3.18.1,CMake 3.18.1,3.18.1,https://maven.myket.ir/android-sdk/cmake-3.18.1-linux.zip,21005945,9435bbe2120763871c75c37a365451b48c007fed
+cmake;3.6.4111459,CMake 3.6.4111459,3.6.4111459,https://maven.myket.ir/android-sdk/cmake-3.6.4111459-darwin-x86_64.zip,12295830,c9b02d630079783c6d67cb91488b622cfcd9765c
+cmake;3.6.4111459,CMake 3.6.4111459,3.6.4111459,https://maven.myket.ir/android-sdk/cmake-3.6.4111459-linux-x86_64.zip,13980243,71c539b9c33f0943e9ad6251fea0b161c0b70782
+cmake;3.6.4111459,CMake 3.6.4111459,3.6.4111459,https://maven.myket.ir/android-sdk/cmake-3.6.4111459-windows-x86_64.zip,10428915,4c4730dc3f399b2fa9ab701112d2c439368a59a5
+cmake;3.10.2.4988404,CMake 3.10.2.4988404,3.10.2,https://maven.myket.ir/android-sdk/cmake-3.10.2-darwin-x86_64.zip,13447295,f227a85cb53dcb927ac52a5a717f647c4a29bf3b
+cmake;3.10.2.4988404,CMake 3.10.2.4988404,3.10.2,https://maven.myket.ir/android-sdk/cmake-3.10.2-linux-x86_64.zip,14275684,439e8799bf59f724f104bf62784b2985f1bfe561
+cmake;3.10.2.4988404,CMake 3.10.2.4988404,3.10.2,https://maven.myket.ir/android-sdk/cmake-3.10.2-windows-x86_64.zip,11899659,0a75b9c5bf558dc31caad7241a44515064656486
+extras;google;auto,Android Auto Desktop Head Unit Emulator,2,https://maven.myket.ir/android-sdk/desktop-head-unit-darwin-x64_r02.0.zip,8030009,d4d12a2173fef608ad62b94fed3a112bfa146759
+extras;google;auto,Android Auto Desktop Head Unit Emulator,2,https://maven.myket.ir/android-sdk/desktop-head-unit-linux-x64_r02.0.zip,6895443,77e3f80c2834e1fad33f56539ceb0215da408fab
+extras;google;auto,Android Auto Desktop Head Unit Emulator,2,https://maven.myket.ir/android-sdk/desktop-head-unit-windows-x64_r02.0.zip,6801703,680418d5aca256cce151eb7f9527294e95b6bb8a
+extras;google;auto,Android Auto Desktop Head Unit Emulator,2.1,https://maven.myket.ir/android-sdk/desktop-head-unit-darwin-x64_r02.1.zip,7797329,4f8a3d3e32b27de1fc190d149039842e76a55bdd
+extras;google;auto,Android Auto Desktop Head Unit Emulator,2.1,https://maven.myket.ir/android-sdk/desktop-head-unit-linux-x64_r02.1.zip,6927985,5d87eb87a1421e59d528eac1f5cdd406c0b39f51
+extras;google;auto,Android Auto Desktop Head Unit Emulator,2.1,https://maven.myket.ir/android-sdk/desktop-head-unit-windows-x64_r02.1.zip,7012059,c27bf84e59dda7b79315b6ca2a314063feffd6ac
+platform-tools,Android SDK Platform-Tools,37.0.0,https://maven.myket.ir/android-sdk/platform-tools_r37.0.0-linux.zip,9167924,bcf323933980a59dccc3f14c339aed5fb2171163
+platform-tools,Android SDK Platform-Tools,37.0.0,https://maven.myket.ir/android-sdk/platform-tools_r37.0.0-darwin.zip,16442198,ff8facde137e57994112672a0d0f411a3ca7b201
+platform-tools,Android SDK Platform-Tools,37.0.0,https://maven.myket.ir/android-sdk/platform-tools_r37.0.0-win.zip,8092184,8a8351438a9bde81726129214940e0275f7949c7
+emulator,Android Emulator,36.6.3,https://maven.myket.ir/android-sdk/emulator-linux_x64-15142779.zip,347008218,4d1ddbbcc6d708fd933b08931163182e0e205ad0
+emulator,Android Emulator,36.6.3,https://maven.myket.ir/android-sdk/emulator-darwin_x64-15142779.zip,462646251,a3718deefc7d16ef3376626807cebcadb73ca5f4
+emulator,Android Emulator,36.6.3,https://maven.myket.ir/android-sdk/emulator-windows_x64-15142779.zip,428894868,8f5ff31b854cf4f9eaf15c1b571148240edfcaf4
+emulator,Android Emulator,36.5.10,https://maven.myket.ir/android-sdk/emulator-linux_x64-15081367.zip,331543272,9f03296214df837c608d0d101e5e03ebcebb4343
+emulator,Android Emulator,36.5.10,https://maven.myket.ir/android-sdk/emulator-darwin_x64-15081367.zip,449808912,3ad9f81115436aed6b4feb76f8e5d3e356f2f6e0
+emulator,Android Emulator,36.5.10,https://maven.myket.ir/android-sdk/emulator-windows_x64-15081367.zip,418622111,1d5cc76415b9717cec08694d171ceb526b1dedb7
+tools,Android SDK Tools,26.1.1,https://maven.myket.ir/android-sdk/sdk-tools-darwin-4333796.zip,103022432,ed85ea7b59bc3483ce0af4c198523ba044e083ad
+tools,Android SDK Tools,26.1.1,https://maven.myket.ir/android-sdk/sdk-tools-linux-4333796.zip,154582459,8c7c28554a32318461802c1291d76fccfafde054
+tools,Android SDK Tools,26.1.1,https://maven.myket.ir/android-sdk/sdk-tools-windows-4333796.zip,156136858,aa298b5346ee0d63940d13609fe6bec621384510

@@ -1,0 +1,111 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, BackHandler } from 'react-native';
+import { request } from './api';
+import { C, FONT } from './theme';
+import PersonalPhotoCapture from './PersonalPhotoCapture';
+import VehiclesPhotoCapture from './VehiclesPhotoCapture';
+import { playSound } from './soundFx';
+
+// جریان صحت‌سنجی حضور: شمارش معکوس → سلفی (دوربین جلو) → عکس خودروها (دوربین پشت) → ارسال
+export default function PresenceCheckModal({ slot, windowMinutes, onDone, onExpire, onStart }) {
+  const [step, setStep] = useState('intro'); // intro | selfie | vehicles | submitting | done | expired
+  const [selfie, setSelfie] = useState(null);
+  const [secs, setSecs] = useState((windowMinutes || 1) * 60);
+  const coordsRef = useRef(null);
+  const timer = useRef(null);
+
+
+
+  // به محض شروع فرآیند صحت‌سنجی، آلارم صوتی و لرزش باید قطع شود؛
+  // کاربر دیگر هشدار را دیده و وارد فرآیند شده است.
+  useEffect(() => {
+    if (step === 'selfie' || step === 'vehicles' || step === 'submitting' || step === 'done') {
+      onStart && onStart();
+    }
+    if (step === 'selfie') playSound('presenceSelfie').catch(() => {});
+    if (step === 'vehicles') playSound('presenceStationPhoto').catch(() => {});
+    if (step === 'done') playSound('presenceSuccess').catch(() => {});
+  }, [step]);
+
+  // شمارش معکوس مهلت (در مراحل پیش از ارسال)
+  useEffect(() => {
+    if (step === 'submitting' || step === 'done' || step === 'expired') return;
+    timer.current = setInterval(() => {
+      setSecs((x) => {
+        if (x <= 1) { clearInterval(timer.current); setStep('expired'); onExpire && onExpire(); return 0; }
+        return x - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer.current);
+  }, [step]);
+
+  // جلوگیری از بستن با دکمهٔ بازگشت
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => sub.remove();
+  }, []);
+
+  async function submit(vehiclesUrl, coords) {
+    setStep('submitting');
+    try {
+      await request('/my/presence-check', { method: 'POST', body: {
+        slot, selfie, vehicles_photo: vehiclesUrl,
+        lat: coords?.lat ?? coordsRef.current?.lat ?? null,
+        lng: coords?.lng ?? coordsRef.current?.lng ?? null,
+      } });
+      setStep('done');
+      setTimeout(() => onDone && onDone(), 1500);
+    } catch (e) {
+      setStep('vehicles'); // اجازهٔ تلاش مجدد
+    }
+  }
+
+  const mm = String(Math.floor(secs / 60)).padStart(2, '0');
+  const ss = String(secs % 60).padStart(2, '0');
+
+  if (step === 'selfie') {
+    return <PersonalPhotoCapture onCapture={(d) => { setSelfie(d); setStep('vehicles'); }} />;
+  }
+  if (step === 'vehicles') {
+    return <VehiclesPhotoCapture onCapture={(url, coords) => { coordsRef.current = coords; submit(url, coords); }} />;
+  }
+
+  return (
+    <View style={s.wrap}>
+      {step === 'intro' && (<>
+        <Text style={s.icon}>📸</Text>
+        <Text style={s.title}>صحت‌سنجی حضور</Text>
+        <Text style={s.timer}>{mm}:{ss}</Text>
+        <Text style={s.body}>برای تأیید حضور در محل کار، باید ظرف این مدت یک «عکس سلفی» و سپس یک «عکس از خودروهای حاضر در خط» ارسال کنید.</Text>
+        <Text style={s.note}>۱) سلفی با دوربین جلو (با لباس فرم){'\n'}۲) عکس خودروها با دوربین پشت (تاریخ، ساعت و موقعیت خودکار درج می‌شود)</Text>
+        <TouchableOpacity style={s.btn} onPress={() => { onStart && onStart(); setStep('selfie'); }}><Text style={s.btnTxt}>شروع — گرفتن سلفی</Text></TouchableOpacity>
+      </>)}
+      {step === 'submitting' && (<>
+        <Text style={s.icon}>⏳</Text>
+        <Text style={s.title}>در حال ارسال…</Text>
+      </>)}
+      {step === 'done' && (<>
+        <Text style={s.icon}>✅</Text>
+        <Text style={s.title}>ثبت شد</Text>
+        <Text style={s.body}>حضور شما با موفقیت تأیید شد.</Text>
+      </>)}
+      {step === 'expired' && (<>
+        <Text style={s.icon}>⛔</Text>
+        <Text style={[s.title, { color: C.danger }]}>مهلت به پایان رسید</Text>
+        <Text style={s.body}>عکس‌ها در مهلت مقرر ارسال نشد و این مورد به‌عنوان «عدم حضور» ثبت خواهد شد.</Text>
+        <TouchableOpacity style={[s.btn, { backgroundColor: C.muted }]} onPress={() => onDone && onDone()}><Text style={s.btnTxt}>بستن</Text></TouchableOpacity>
+      </>)}
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  wrap: { flex: 1, backgroundColor: C.paper, alignItems: 'center', justifyContent: 'center', padding: 26 },
+  icon: { fontSize: 54, marginBottom: 10 },
+  title: { fontFamily: FONT.bold, fontSize: 21, color: C.ink, marginBottom: 8 },
+  timer: { fontFamily: FONT.bold, fontSize: 40, color: C.brand, marginVertical: 8 },
+  body: { fontFamily: FONT.regular, fontSize: 14, color: C.muted, textAlign: 'center', lineHeight: 24, marginBottom: 12 },
+  note: { fontFamily: FONT.regular, fontSize: 13, color: C.ink, textAlign: 'right', lineHeight: 24, backgroundColor: '#fff', padding: 12, borderRadius: 12, marginBottom: 18, alignSelf: 'stretch' },
+  btn: { backgroundColor: C.brand, borderRadius: 13, paddingVertical: 14, paddingHorizontal: 30, alignItems: 'center' },
+  btnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 15 },
+});

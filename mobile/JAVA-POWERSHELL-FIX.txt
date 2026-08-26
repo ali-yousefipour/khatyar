@@ -1,0 +1,13 @@
+Khatyar build fix v4
+
+Fixed Windows PowerShell 5.1 NativeCommandError during Java version detection.
+
+Cause:
+java.exe -version writes its normal version output to stderr. With
+$ErrorActionPreference='Stop', Windows PowerShell treated that normal output as
+NativeCommandError, even though Java 17 was installed and working.
+
+Fix:
+BUILD-ONE-CLICK.ps1 now launches java.exe through System.Diagnostics.Process,
+captures stdout/stderr explicitly, checks the real process exit code, and then
+validates JDK major version 17.

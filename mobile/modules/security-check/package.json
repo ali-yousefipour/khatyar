@@ -1,0 +1,14 @@
+{
+  "name": "security-check",
+  "version": "1.0.1",
+  "description": "Local native module: detects Android Developer Options state.",
+  "main": "index.ts",
+  "source": "index.ts",
+  "platforms": [
+    "android"
+  ],
+  "license": "UNLICENSED",
+  "peerDependencies": {
+    "expo-modules-core": "*"
+  }
+}

@@ -1,0 +1,24 @@
+Khatyar Android build - Windows EBUSY lock recovery (v5)
+========================================================
+
+Problem fixed:
+Expo prebuild previously used --clean. On Windows, if any process held the
+android directory, Expo aborted with:
+  EBUSY: resource busy or locked, rmdir '<project>\\android'
+
+Changes:
+1. Existing Gradle daemon is stopped before native generation.
+2. Project-scoped Node/Java processes are stopped when detected.
+3. Android removal is retried five times.
+4. When Windows still holds the directory, the build no longer aborts.
+   Expo prebuild runs safely in-place without --clean.
+5. If Android was removed successfully, prebuild still creates a fully fresh
+   native project because the directory no longer exists.
+6. The release build runs assembleRelease directly without an unnecessary
+   gradlew clean stage.
+
+Run:
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\\build-myket-release.ps1 -Fresh
+
+Output:
+  android\\app\\build\\outputs\\apk\\release\\app-release.apk

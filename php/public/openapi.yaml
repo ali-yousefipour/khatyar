@@ -1,0 +1,156 @@
+openapi: 3.0.3
+info:
+  title: API سامانه کنترل خطوط تاکسیرانی مشهد
+  version: 0.5.0
+  description: مستندات وب‌سرویس سامانه (احراز هویت، عملیات میدانی، مدیریت و گزارش‌گیری)
+servers:
+  - url: /api
+tags:
+  - name: auth
+  - name: field        # عملیات میدانی اپ موبایل
+  - name: officials    # حضور مسئولین در خط
+  - name: admin        # مدیریت و گزارش‌گیری
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: ورود با کد ملی و رمز + اتصال تک‌دستگاهی
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, device_id]
+              properties:
+                username: { type: string, description: کد ملی }
+                password: { type: string }
+                device_id: { type: string }
+                vpn_on: { type: boolean }
+                dev_options_on: { type: boolean }
+                gps_on: { type: boolean }
+      responses:
+        '200': { description: موفق (access/refresh/user) }
+        '401': { description: نام کاربری یا رمز اشتباه }
+        '403': { description: مسدود (VPN/Developer Options/GPS) }
+        '409': { description: حساب به دستگاه دیگری متصل است }
+  /auth/refresh:
+    post: { tags: [auth], summary: تمدید توکن, security: [], responses: { '200': { description: ok } } }
+  /search:
+    get:
+      tags: [field]
+      summary: جستجوی راننده (national_id) یا خودرو (plate)
+      parameters:
+        - { name: national_id, in: query, schema: { type: string } }
+        - { name: plate, in: query, schema: { type: string } }
+      responses: { '200': { description: راننده/خودرو + هشدار انقضای پروانه }, '404': { description: یافت نشد } }
+  /attendance:
+    post:
+      tags: [field]
+      summary: ثبت حضور راننده (هر ۵ دقیقه یک‌بار)
+      responses: { '201': { description: ثبت شد }, '429': { description: زودتر از فاصلهٔ مجاز } }
+  /debt/{nationalId}:
+    get:
+      tags: [field]
+      summary: فهرست فیش‌ها و بدهی + لینک درگاه پرداخت
+      parameters: [{ name: nationalId, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: bills + total_unpaid } }
+  /notices:
+    post: { tags: [field], summary: ثبت تذکر, responses: { '201': { description: ثبت شد } } }
+  /checklist:
+    post: { tags: [field], summary: ثبت چک‌لیست خودرو, responses: { '201': { description: ثبت شد } } }
+  /locations:
+    post: { tags: [field], summary: ارسال دسته‌ای موقعیت (پشتیبانی آفلاین), responses: { '200': { description: saved } } }
+  /officials:
+    get: { tags: [officials], summary: فهرست مسئولین قابل ثبت, responses: { '200': { description: لیست } } }
+  /official-visits:
+    post:
+      tags: [officials]
+      summary: ثبت حضور یک مسئول در خط
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [official_id]
+              properties:
+                official_id: { type: integer }
+                line_id: { type: integer }
+                note: { type: string }
+                lat: { type: number }
+                lng: { type: number }
+      responses: { '201': { description: ثبت شد } }
+  /official-visits/summary:
+    get: { tags: [officials], summary: خلاصهٔ حضور مسئولین (نمودار اپ), responses: { '200': { description: لیست name/n } } }
+  /my/dashboard:
+    get: { tags: [field], summary: آمار داشبورد کاربر, responses: { '200': { description: today/checklists/notices/reports/unread } } }
+  /my/notifications:
+    get: { tags: [field], summary: اعلان‌های کاربر, responses: { '200': { description: unread + items } } }
+  /devices/push-token:
+    post: { tags: [field], summary: ثبت توکن Push, responses: { '200': { description: ok } } }
+  /admin/stats:
+    get: { tags: [admin], summary: آمار داشبورد (هفتگی + به‌تفکیک خط), responses: { '200': { description: stats } } }
+  /admin/users:
+    get: { tags: [admin], summary: فهرست کاربران, responses: { '200': { description: لیست } } }
+    post: { tags: [admin], summary: ساخت کاربر, responses: { '201': { description: ساخته شد } } }
+  /admin/users/{id}:
+    put: { tags: [admin], summary: ویرایش کاربر, parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: ok } } }
+  /admin/users/{id}/lines:
+    get: { tags: [admin], summary: خطوط مجاز کاربر, parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: لیست } } }
+    put: { tags: [admin], summary: تخصیص خطوط مجاز, parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: ok } } }
+  /admin/users/{id}/org:
+    put: { tags: [admin], summary: تعیین سرپرست/منطقه (چارت), parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: ok } } }
+  /admin/users/{id}/revoke-device:
+    post: { tags: [admin], summary: حذف دستگاه کاربر (تعویض موبایل), parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: ok } } }
+  /admin/zones:
+    get: { tags: [admin], summary: مناطق, responses: { '200': { description: لیست } } }
+    post: { tags: [admin], summary: ساخت منطقه, responses: { '201': { description: ساخته شد } } }
+  /admin/bills:
+    get: { tags: [admin], summary: فهرست فیش‌ها (فیلتر/صفحه‌بندی), responses: { '200': { description: لیست } } }
+  /admin/report:
+    get:
+      tags: [admin]
+      summary: گزارش‌گیری تجمیعی (خروجی ستون/سطر)
+      parameters:
+        - { name: type, in: query, schema: { type: string, enum: [attendance, notices, checklists, bills] } }
+        - { name: from, in: query, schema: { type: string } }
+        - { name: to, in: query, schema: { type: string } }
+      responses: { '200': { description: cols + rows } }
+  /admin/official-visits:
+    get: { tags: [admin], summary: گزارش حضور مسئولین در خط, responses: { '200': { description: لیست } } }
+  /admin/official-visits/chart:
+    get: { tags: [admin], summary: داده نمودار حضور مسئولین, responses: { '200': { description: labels + data } } }
+  /admin/logs:
+    get: { tags: [admin], summary: لاگ فعالیت‌ها و رویدادهای امنیتی, responses: { '200': { description: لیست } } }
+  /admin/settings:
+    get: { tags: [admin], summary: تنظیمات سامانه, responses: { '200': { description: object } } }
+    put: { tags: [admin], summary: ذخیرهٔ تنظیمات, responses: { '200': { description: ok } } }
+  /reports:
+    get: { tags: [admin], summary: فهرست گزارش‌ها (فیلتر), responses: { '200': { description: لیست } } }
+    post: { tags: [field], summary: ارسال گزارش, responses: { '201': { description: ارسال شد } } }
+  /reports/{id}:
+    get: { tags: [admin], summary: گزارش با گردش کامل, parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: report + trail } } }
+  /reports/{id}/action:
+    post: { tags: [admin], summary: ارجاع/نظر/پاسخ, parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: ok } } }
+  /geofences:
+    get: { tags: [field], summary: محدوده‌های خطوط (ایستگاه‌ها) برای نقشه, responses: { '200': { description: لیست } } }
+  /admin/geofences:
+    post: { tags: [admin], summary: ساخت محدوده (چندضلعی/دایره), responses: { '201': { description: ساخته شد } } }
+  /admin/geofences/{id}:
+    put: { tags: [admin], summary: ویرایش محدوده, parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: ok } } }
+    delete: { tags: [admin], summary: حذف محدوده, parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: ok } } }
+  /admin/messages:
+    get: { tags: [admin], summary: پیام‌های ارسالی + شمارش خوانده‌شده, responses: { '200': { description: لیست } } }
+    post: { tags: [admin], summary: ارسال پیام به همه/منطقه/منتخب, responses: { '201': { description: ارسال شد } } }
+  /admin/messages/{id}/receipts:
+    get: { tags: [admin], summary: رسید خواندن (چه کسانی خواندند/نخواندند), parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: لیست } } }
+  /my/messages:
+    get: { tags: [field], summary: پیام‌های دریافتی کاربر, responses: { '200': { description: لیست } } }
+  /my/messages/{id}/read:
+    post: { tags: [field], summary: علامت خواندن پیام, parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: ok } } }

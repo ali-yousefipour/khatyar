@@ -1,0 +1,20 @@
+SecurityCheck module build fix - version 1.0.1
+
+Changes:
+1. Added compileSdk, minSdk and targetSdk configuration.
+2. Uses Expo rootProject.ext SDK values when available.
+3. Added safe fallbacks: compileSdk 36, targetSdk 36, minSdk 24.
+4. Removed useExpoPublishing() because this is an internal local module and
+   does not need Maven publication. This prevents the secondary
+   "SoftwareComponent with name 'release' not found" error.
+5. Replaced deprecated lintOptions with the modern lint block.
+6. Removed deprecated package attribute from AndroidManifest.xml; namespace is
+   defined in build.gradle.
+7. Added consumer ProGuard/R8 rules.
+8. Added expo-modules-core as a peer dependency.
+
+Installation:
+Replace this directory:
+  F:\taxi-system\mobile\modules\security-check
+with the fixed security-check directory, then run:
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\build-myket-release.ps1 -Fresh

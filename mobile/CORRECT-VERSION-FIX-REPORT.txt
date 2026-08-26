@@ -1,0 +1,35 @@
+Correct source package used:
+  mobile-fixed-gradle-clean-fixed.zip
+
+Observed from the supplied build report:
+  - npm install succeeded
+  - Expo dependency checks succeeded
+  - Expo prebuild succeeded
+  - Gradle failed during project configuration, while the report retained only the secondary Expo applyPublishing stack
+
+Corrections applied to this exact version:
+  - Disabled the custom ABI split/Variant API plugin from app.config.js
+  - Disabled the optional Myket Maven mutation plugin from app.config.js
+  - Disabled duplicate NDK Gradle mutation; expo-build-properties remains the single NDK source
+  - Switched local config-plugin imports to expo/config-plugins
+  - Added deterministic package-lock.json
+  - Pinned react-native-worklets 0.10.0 with Reanimated 4.5.0
+  - Restored the official Expo Babel configuration (babel-preset-expo only)
+  - Removed expo install --fix from the release pipeline
+  - Removed the redundant gradlew clean after expo prebuild --clean
+  - Added global Gradle init-script isolation
+  - Added JDK 17 validation
+  - Added full Gradle error context and exact log paths to reports
+
+Validation completed in the repair environment:
+  - npm ci: successful (554 packages)
+  - Expo 57.0.7 / React Native 0.86.0: validated
+  - Reanimated 4.5.0 / Worklets 0.10.0: validated
+  - Babel transformer validation: successful
+  - Expo Android prebuild: successful
+  - Generated android project contains no ABI split, androidComponents,
+    applicationVariants, or maven.myket modifications
+
+A complete Gradle APK build could not be executed in the repair container because
+services.gradle.org was unreachable from that environment. The Windows build script
+retains the full error logs if another environment-specific issue remains.

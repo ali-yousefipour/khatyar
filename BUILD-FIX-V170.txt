@@ -1,0 +1,20 @@
+Build fix v170
+
+Resolved failures:
+1) Missing static dashboard icons (clock.png and other absent 3D asset names).
+   DashboardScreen now references existing local PNG assets only.
+2) Missing Vazirmatn TTF files referenced by App.js.
+   Removed unresolved static requires and switched theme to Android system sans-serif fallback.
+3) Windows Ninja/CMake 260-character path failure in react-native-screens.
+   build-release.ps1 now always uses a short drive-root Gradle home (for example F:\g),
+   and clears stale .cxx native caches before assembleRelease.
+4) Added scripts/validate-static-assets.js and wired it into the release pipeline,
+   so missing PNG/font/audio requires stop before Gradle starts.
+
+Validated:
+- all static require() assets exist
+- App.js, DashboardScreen.js, theme.js and validator JavaScript syntax
+- archive integrity
+
+Version: 1.3.38
+Version code: 10338

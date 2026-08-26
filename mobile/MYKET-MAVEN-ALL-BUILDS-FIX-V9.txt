@@ -1,0 +1,5 @@
+Khatyar v9
+- Gradle Wrapper: 8.7 from F:\gradle-cache, fallback Myket distribution URL.
+- Myket Maven injected into pluginManagement, dependency repositories, buildscript repositories, and included Expo/RN builds.
+- All active build commands pass --init-script ../myket.init.gradle.
+- Official Google/Maven Central remain fallback; Expo local Maven repository mode is not overridden.

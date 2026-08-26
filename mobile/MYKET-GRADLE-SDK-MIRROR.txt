@@ -1,0 +1,19 @@
+Khatyar Myket Gradle/SDK mirror configuration
+
+1. Gradle Wrapper
+   After Expo prebuild, BUILD-ONE-CLICK.ps1 reads the generated Gradle version.
+   It first checks F:\gradle-cache for the exact ZIP filename.
+   Example for this project: F:\gradle-cache\gradle-8.7-bin.zip
+   If the exact file is absent, it uses:
+   https://maven.myket.ir/gradle/distributions/<exact-gradle-file>.zip
+
+2. Maven dependencies
+   myket.init.gradle is passed with --init-script. It places
+   https://maven.myket.ir/ first for the main build and Expo/React Native included builds.
+   Google, Maven Central, and Gradle Plugin Portal remain as fallback repositories.
+
+3. Android SDK archives
+   config\myket-sdk-archives.csv contains the complete Myket SDK catalog.
+   config\myket-sdk-required-windows.csv contains the Windows entries used by this project.
+   To print the required links:
+   powershell -ExecutionPolicy Bypass -File .\scripts\show-myket-sdk-links.ps1
