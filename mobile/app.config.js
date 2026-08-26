@@ -7,7 +7,7 @@ module.exports = ({ config }) => ({
   ...config,
   name: process.env.APP_NAME || 'خطیار',
   slug: 'khatyar-mobile',
-  version: process.env.ANDROID_VERSION_NAME || '1.3.69',
+  version: process.env.ANDROID_VERSION_NAME || '1.3.70',
   orientation: 'portrait',
   newArchEnabled: true,
   icon: './assets/icon.png',
@@ -15,7 +15,7 @@ module.exports = ({ config }) => ({
   assetBundlePatterns: ['**/*'],
   android: {
     package: process.env.ANDROID_PACKAGE || 'ir.mashhad.taxicontrol',
-    versionCode: Number(process.env.ANDROID_VERSION_CODE || 10369),
+    versionCode: Number(process.env.ANDROID_VERSION_CODE || 10370),
     softwareKeyboardLayoutMode: 'resize',
     adaptiveIcon: { foregroundImage: './assets/adaptive-icon.png', backgroundColor: '#0d7a5f' },
     permissions: ['ACCESS_FINE_LOCATION','ACCESS_COARSE_LOCATION','ACCESS_BACKGROUND_LOCATION','CAMERA','INTERNET','ACCESS_NETWORK_STATE','FOREGROUND_SERVICE','FOREGROUND_SERVICE_LOCATION','RECEIVE_BOOT_COMPLETED','VIBRATE','WAKE_LOCK','REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'],
@@ -30,5 +30,5 @@ module.exports = ({ config }) => ({
     ['expo-build-properties', { android: { minSdkVersion: 24, compileSdkVersion: 36, targetSdkVersion: 36, buildToolsVersion: '36.0.0', enableProguardInReleaseBuilds: false, enableShrinkResourcesInReleaseBuilds: false, ndkVersion: process.env.ANDROID_NDK_VERSION || '27.3.13750724' } }],
     './plugins/withMyketMirror','./plugins/withUtf8GradleEncoding','./plugins/withReleaseHardening','./plugins/withLocationJobCrashGuard','./plugins/withProguardKeep','./plugins/withReactNativeArchitectures','./plugins/withAbiSplits',
   ],
-  extra: { defaultApiBase: process.env.API_BASE || 'https://app.yousefipour.ir/api', enableBgTracking: (process.env.ENABLE_BG_TRACKING || 'true') === 'true', app_version: process.env.ANDROID_VERSION_NAME || '1.3.69', eas: { projectId: process.env.EAS_PROJECT_ID || '' } },
+  extra: { defaultApiBase: process.env.API_BASE || 'https://app.yousefipour.ir/api', enableBgTracking: (process.env.ENABLE_BG_TRACKING || 'true') === 'true', app_version: process.env.ANDROID_VERSION_NAME || '1.3.70', eas: { projectId: process.env.EAS_PROJECT_ID || '' } },
 });
