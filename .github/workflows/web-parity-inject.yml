@@ -13,17 +13,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inject runtime into web app
+      - name: Inject Android parity runtime into web app
         shell: python
         run: |
           from pathlib import Path
           p = Path('php/app/app.html')
-          marker = '<!-- KHATYAR_WEB_PARITY_V2 -->'
           if not p.exists():
               raise SystemExit('php/app/app.html not found')
           text = p.read_text(encoding='utf-8')
+          marker = '<!-- KHATYAR_WEB_ANDROID_PARITY_V32 -->'
+          tag = f'\n{marker}\n<script src="web-android-parity-v32.js?v=1" defer></script>\n'
           if marker not in text:
-              tag = f'\n{marker}\n<script src="web-android-parity-v2.js" defer></script>\n'
               pos = text.lower().rfind('</body>')
               if pos < 0:
                   raise SystemExit('</body> not found in app.html')
@@ -36,5 +36,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add php/app/app.html
           git diff --cached --quiet && exit 0
-          git commit -m 'fix(web): load Android parity runtime [web-parity-injected]'
+          git commit -m 'fix(web): load Android parity v3.2 [web-parity-injected]'
           git push
