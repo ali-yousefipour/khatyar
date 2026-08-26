@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { faNum } from './num';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, useWindowDimensions } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { captureRef } from 'react-native-view-shot';
@@ -9,18 +9,18 @@ import { fjDateTime } from './jdate';
 import ActivityIndicator from './components/PulseLoadingIndicator';
 import { getImageConfig } from './img';
 
-// گرفتن عکس از خودروهای خط با دوربین پشت + درج خودکار تاریخ شمسی، ساعت تهران و موقعیت GPS روی عکس
+// گرفتن عکس از خودروهای خط فقط با دوربین پشت + درج خودکار تاریخ شمسی، ساعت تهران و موقعیت GPS روی عکس
 export default function VehiclesPhotoCapture({ onCapture, onCancel, station = null }) {
   const [perm, requestPerm] = useCameraPermissions();
   const camRef = useRef(null);
   const shotRef = useRef(null);
   const [busy, setBusy] = useState(false);
-  const [shot, setShot] = useState(null); // uri عکس خام
+  const [shot, setShot] = useState(null);
   const [stamp, setStamp] = useState({ date: '', coords: '', street: '', dist: '' });
   const [coords, setCoords] = useState(null);
-  const [finalUrl, setFinalUrl] = useState(null);
+  const { height } = useWindowDimensions();
 
-  useEffect(() => { if (perm && !perm.granted) requestPerm(); }, [perm]);
+  useEffect(() => { if (perm && !perm.granted) requestPerm(); }, [perm?.granted]);
 
   if (!perm) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
   if (!perm.granted) return (
@@ -30,7 +30,6 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
     </View>
   );
 
-  // فاصلهٔ هاورساین بین دو نقطه (متر)
   function haversine(la1, lo1, la2, lo2) {
     const R = 6371000, t = Math.PI / 180;
     const dLa = (la2 - la1) * t, dLo = (lo2 - lo1) * t;
@@ -42,17 +41,15 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
     if (!camRef.current || busy) return;
     setBusy(true);
     try {
-      // موقعیت GPS دقیق
       let lat = null, lng = null;
       try {
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
         lat = pos.coords.latitude; lng = pos.coords.longitude;
       } catch (e) {}
       const now = new Date();
-      const dateStr = fjDateTime(now); // تاریخ شمسی + ساعت تهران
+      const dateStr = fjDateTime(now);
       setCoords({ lat, lng });
 
-      // نام خیابان با reverse geocode
       let street = '';
       if (lat != null) {
         try {
@@ -64,7 +61,6 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         } catch (e) {}
       }
 
-      // فاصله تا ایستگاه (در صورت تعریف محدودهٔ ایستگاه)
       let dist = '';
       if (lat != null && station) {
         try {
@@ -82,55 +78,67 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         street: street ? ('خیابان: ' + street) : '',
         dist,
       });
-      const photo = await camRef.current.takePictureAsync({ quality: getImageConfig().quality / 100 });
+      const photo = await camRef.current.takePictureAsync({
+        quality: getImageConfig().quality / 100,
+        exif: false,
+        skipProcessing: false,
+      });
+      if (!photo?.uri) throw new Error('camera_empty_result');
       setShot(photo.uri);
     } catch (e) {
-      // ignore
+      // خطای دوربین فقط در پیام رابط کاربری نمایش داده می‌شود.
     } finally { setBusy(false); }
   }
 
-  // پس از نمایش عکس + لایهٔ متن، با view-shot تصویر نهایی را می‌سازیم
   async function confirm() {
     setBusy(true);
     try {
       const uri = await captureRef(shotRef, { format: 'jpg', quality: getImageConfig().quality / 100, result: 'base64' });
-      const dataUrl = 'data:image/jpeg;base64,' + uri;
-      onCapture(dataUrl, coords);
+      onCapture('data:image/jpeg;base64,' + uri, coords);
     } catch (e) {
-      // اگر view-shot کار نکرد، عکس خام را می‌فرستیم
       onCapture(shot, coords);
     } finally { setBusy(false); }
   }
 
   if (shot) {
+    const maxImageHeight = Math.max(190, Math.min(height * 0.52, 500));
     return (
       <View style={s.previewWrap}>
-        <Text style={s.title}>تأیید عکس خودروهای خط</Text>
-        <View ref={shotRef} collapsable={false} style={s.shotBox}>
-          <Image source={{ uri: shot }} style={s.shotImg} resizeMode="cover" />
-          <View style={s.stampBox}>
-            <Text style={s.stampTxt}>{stamp.date}</Text>
-            <Text style={s.stampTxt}>📍 {stamp.coords}</Text>
-            {stamp.street ? <Text style={s.stampTxt}>{stamp.street}</Text> : null}
-            {stamp.dist ? <Text style={s.stampTxt}>{stamp.dist}</Text> : null}
-            <Text style={s.stampBrand}>سامانه خطیار</Text>
+        <ScrollView
+          style={s.previewScroll}
+          contentContainerStyle={s.previewContent}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <Text style={s.title}>تأیید عکس خودروهای خط</Text>
+          <View ref={shotRef} collapsable={false} style={[s.shotBox, { maxHeight: maxImageHeight }]}>
+            <Image source={{ uri: shot }} style={s.shotImg} resizeMode="contain" />
+            <View style={s.stampBox}>
+              <Text style={s.stampTxt}>{stamp.date}</Text>
+              <Text style={s.stampTxt}>📍 {stamp.coords}</Text>
+              {stamp.street ? <Text style={s.stampTxt}>{stamp.street}</Text> : null}
+              {stamp.dist ? <Text style={s.stampTxt}>{stamp.dist}</Text> : null}
+              <Text style={s.stampBrand}>سامانه خطیار</Text>
+            </View>
           </View>
-        </View>
-        <View style={s.rowBtns}>
-          <TouchableOpacity style={[s.btn, s.outline]} onPress={() => setShot(null)}><Text style={[s.btnTxt, { color: C.brand }]}>دوباره</Text></TouchableOpacity>
-          <TouchableOpacity style={s.btn} onPress={confirm} disabled={busy}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>تأیید و ارسال</Text>}</TouchableOpacity>
-        </View>
+          <Text style={s.previewNote}>تصویر و اطلاعات موقعیت را بررسی کنید و سپس تأیید و ارسال را بزنید.</Text>
+          <View style={s.rowBtns}>
+            <TouchableOpacity style={[s.btn, s.outline]} onPress={() => setShot(null)}><Text style={[s.btnTxt, { color: C.brand }]}>دوباره</Text></TouchableOpacity>
+            <TouchableOpacity style={s.btn} onPress={confirm} disabled={busy}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>تأیید و ارسال</Text>}</TouchableOpacity>
+          </View>
+        </ScrollView>
       </View>
     );
   }
 
   return (
     <View style={s.camWrap}>
-      <CameraView ref={camRef} style={s.cam} facing="back" />
+      <CameraView ref={camRef} style={s.cam} facing="back" mode="picture" active />
       <View style={s.bottom}>
         <Text style={s.hint}>با دوربین پشت، از خودروهای حاضر در خط عکس بگیرید. تاریخ، ساعت و موقعیت به‌صورت خودکار روی عکس درج می‌شود.</Text>
         <TouchableOpacity style={s.shutter} onPress={snap} disabled={busy}>{busy ? <ActivityIndicator color="#fff" /> : <View style={s.shutterInner} />}</TouchableOpacity>
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={s.cancel}>انصراف</Text></TouchableOpacity> : null}
+        <Text style={s.cameraOnly}>ثبت تصویر فقط با دوربین پشت گوشی انجام می‌شود و انتخاب از گالری در این مرحله وجود ندارد.</Text>
       </View>
     </View>
   );
@@ -145,15 +153,19 @@ const s = StyleSheet.create({
   shutter: { width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   shutterInner: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#fff' },
   cancel: { color: '#fff', marginTop: 12, fontFamily: FONT.regular, fontSize: 13 },
-  previewWrap: { flex: 1, backgroundColor: C.paper, alignItems: 'center', padding: 16 },
-  title: { fontFamily: FONT.bold, fontSize: 18, color: C.ink, marginVertical: 12 },
-  shotBox: { width: '100%', aspectRatio: 3 / 4, borderRadius: 14, overflow: 'hidden', backgroundColor: '#000' },
+  cameraOnly: { color: 'rgba(255,255,255,0.72)', fontFamily: FONT.regular, fontSize: 11, textAlign: 'center', marginTop: 8 },
+  previewWrap: { flex: 1, backgroundColor: C.paper },
+  previewScroll: { flex: 1 },
+  previewContent: { alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 },
+  title: { fontFamily: FONT.bold, fontSize: 18, color: C.ink, marginVertical: 10, textAlign: 'center' },
+  shotBox: { width: '100%', minHeight: 190, borderRadius: 14, overflow: 'hidden', backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
   shotImg: { width: '100%', height: '100%' },
   stampBox: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.5)', padding: 8 },
   stampTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right' },
   stampBrand: { color: C.taxi, fontFamily: FONT.bold, fontSize: 10, textAlign: 'right', marginTop: 2 },
-  rowBtns: { flexDirection: 'row-reverse', gap: 12, marginTop: 16, width: '100%', justifyContent: 'center' },
-  btn: { backgroundColor: C.brand, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 26, alignItems: 'center' },
+  previewNote: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'center', lineHeight: 20, marginTop: 10 },
+  rowBtns: { flexDirection: 'row-reverse', gap: 12, marginTop: 14, width: '100%', justifyContent: 'center' },
+  btn: { flex: 1, backgroundColor: C.brand, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
   outline: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.brand },
   btnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 14 },
 });
