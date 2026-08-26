@@ -1,0 +1,37 @@
+name: Sync Khatyar version
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/package.json'
+      - 'mobile/app.config.js'
+      - 'php/lib/routes.php'
+      - 'scripts/sync-version.js'
+
+permissions:
+  contents: write
+
+jobs:
+  sync-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync shared version
+        run: node scripts/sync-version.js
+
+      - name: Commit synchronized version
+        run: |
+          if git diff --quiet; then
+            echo "Version already synchronized."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile/app.config.js php/lib/routes.php
+          git commit -m "chore: synchronize shared Khatyar version"
+          git push
