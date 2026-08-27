@@ -1,165 +1,80 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking, AppState, ScrollView } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Location from 'expo-location';
-import * as Notifications from 'expo-notifications';
-import { C, FONT } from './theme';
-import { useAuth } from './auth';
+import React,{useEffect,useState,useCallback}from'react';
+import{View,Text,TouchableOpacity,StyleSheet,Linking,AppState,ScrollView}from'react-native';
+import AsyncStorage from'@react-native-async-storage/async-storage';
+import*as Location from'expo-location';import*as Notifications from'expo-notifications';import*as Network from'expo-network';
+import{C,FONT}from'./theme';import{useAuth}from'./auth';
 
-const CHECK_INTERVAL_MS = 60 * 60 * 1000;
-const BATTERY_KEY = 'battery_opt_confirmed_v1';
-const AUTOSTART_KEY = 'autostart_confirmed_v1';
+const WAIT_MS=5000;
+const CHECK_INTERVAL_MS=60*60*1000;
+const BATTERY_KEY='battery_opt_confirmed_v1';
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
-// باز کردن صفحهٔ «اجرای خودکار / Autostart» سازندهٔ گوشی (شیائومی، هواوی، اوپو، ویوو و…)
-async function openAutostartSettings() {
-  const IntentLauncher = require('expo-intent-launcher');
-  // لیست intentهای رایج سازندگان برای صفحهٔ Autostart
-  const candidates = [
-    { p: 'com.miui.securitycenter', c: 'com.miui.permcenter.autostart.AutoStartManagementActivity' }, // شیائومی
-    { p: 'com.huawei.systemmanager', c: 'com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity' }, // هواوی
-    { p: 'com.huawei.systemmanager', c: 'com.huawei.systemmanager.optimize.process.ProtectActivity' }, // هواوی قدیمی
-    { p: 'com.coloros.safecenter', c: 'com.coloros.safecenter.permission.startup.StartupAppListActivity' }, // اوپو
-    { p: 'com.coloros.safecenter', c: 'com.coloros.safecenter.startupapp.StartupAppListActivity' }, // اوپو
-    { p: 'com.vivo.permissionmanager', c: 'com.vivo.permissionmanager.activity.BgStartUpManagerActivity' }, // ویوو
-    { p: 'com.iqoo.secure', c: 'com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity' }, // ویوو/iQOO
-    { p: 'com.letv.android.letvsafe', c: 'com.letv.android.letvsafe.AutobootManageActivity' }, // letv
-    { p: 'com.samsung.android.lool', c: 'com.samsung.android.sm.ui.battery.BatteryActivity' }, // سامسونگ
-  ];
-  for (const cand of candidates) {
-    try {
-      await IntentLauncher.startActivityAsync('android.intent.action.MAIN', {
-        packageName: cand.p, className: cand.c,
-      });
-      return true;
-    } catch (e) { /* سازندهٔ بعدی */ }
-  }
-  // اگر هیچ‌کدام نبود، تنظیمات اپ را باز کن
-  try { const { Linking } = require('react-native'); await Linking.openSettings(); } catch (e) {}
+async function checkDeveloperOptions(){
+  try{
+    const{NativeModules}=require('react-native');
+    if(NativeModules?.KhatyarSecurity?.isDeveloperOptionsEnabled){
+      return!!(await NativeModules.KhatyarSecurity.isDeveloperOptionsEnabled());
+    }
+  }catch{}
+  // Expo 57 does not expose Settings.Secure/ADB_ENABLED directly. Do not falsely block the user.
   return false;
 }
-
-async function checkPermissions(skipLocation = false) {
-  const issues = [];
-  if (!skipLocation) try {
-    const fg = await Location.getForegroundPermissionsAsync();
-    if (fg.status !== 'granted')
-      issues.push({ key: 'location', title: 'موقعیت‌یابی (GPS)', action: () => Location.requestForegroundPermissionsAsync() });
-  } catch {}
-  try {
-    const cam = require('expo-camera');
-    const p = await cam.getCameraPermissionsAsync();
-    if (!p.granted)
-      issues.push({ key: 'camera', title: 'دوربین', action: () => cam.requestCameraPermissionsAsync() });
-  } catch {}
-  try {
-    const n = await Notifications.getPermissionsAsync();
-    if (n.status !== 'granted')
-      issues.push({ key: 'notifications', title: 'اعلان‌ها', action: () => Notifications.requestPermissionsAsync() });
-  } catch {}
-  // بررسی اجرای خودکار (Autostart) — چون قابل‌خواندن نیست، با تأیید کاربر مدیریت می‌شود
-  try {
-    const auto = await AsyncStorage.getItem(AUTOSTART_KEY);
-    if (auto !== '1')
-      issues.push({ key: 'autostart', title: 'اجازهٔ شروع خودکار برنامه (Autostart)',
-        action: async () => { await openAutostartSettings(); await AsyncStorage.setItem(AUTOSTART_KEY, '1'); } });
-  } catch {}
+async function checkVpn(){
+  try{const state=await Network.getNetworkStateAsync();return String(state?.type||'').toUpperCase().includes('VPN')}catch{return false}
+}
+async function checkMockLocation(){
+  try{const p=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.Low,maximumAge:15000});return!!p?.mocked}catch{return false}
+}
+async function checkPermissions(){
+  const issues=[];
+  try{if((await Location.getForegroundPermissionsAsync()).status!=='granted')issues.push({key:'locationPermission',title:'اجازه موقعیت مکانی',action:()=>Location.requestForegroundPermissionsAsync()})}catch{}
+  try{const Camera=require('expo-camera');if(!(await Camera.getCameraPermissionsAsync()).granted)issues.push({key:'camera',title:'اجازه دوربین',action:()=>Camera.requestCameraPermissionsAsync()})}catch{}
+  try{if((await Notifications.getPermissionsAsync()).status!=='granted')issues.push({key:'notifications',title:'اجازه اعلان‌ها',action:()=>Notifications.requestPermissionsAsync()})}catch{}
   return issues;
 }
 
-export default function PermissionGuard({ children }) {
-  const { user } = useAuth();
-  const exempt = Number(user?.security_exempt || 0) === 1 || user?.security_exempt === true;
-  const [issues, setIssues] = useState([]);
-  const [batteryConfirmed, setBatteryConfirmed] = useState(true); // پیش‌فرض true تا load بشود
-  const [ready, setReady] = useState(false);
+export default function PermissionGuard({children}){
+  const{user}=useAuth();
+  const exempt=Number(user?.security_exempt||0)===1||user?.security_exempt===true;
+  const[stage,setStage]=useState('در حال آماده‌سازی');
+  const[issues,setIssues]=useState([]);
+  const[ready,setReady]=useState(false);
+  const[batteryConfirmed,setBatteryConfirmed]=useState(true);
 
-  const runCheck = useCallback(async () => {
-    const found = await checkPermissions(exempt);
-    setIssues(found);
-    // بررسی آیا کاربر قبلاً تأیید کرده
-    const stored = await AsyncStorage.getItem(BATTERY_KEY).catch(() => null);
-    setBatteryConfirmed(!!stored);
-    setReady(true);
-  }, [exempt]);
+  const runCheck=useCallback(async()=>{
+    if(exempt){setReady(true);return;}
+    setReady(false);setIssues([]);
+    setStage('بررسی خاموش بودن Developer Options');
+    if(await checkDeveloperOptions())setIssues(x=>[...x,{key:'developer',title:'Developer Options فعال است',detail:'گزینه‌های توسعه‌دهنده را خاموش کنید.'}]);
+    await delay(WAIT_MS);
+    setStage('بررسی روشن بودن GPS');
+    if(!(await Location.hasServicesEnabledAsync().catch(()=>true)))setIssues(x=>[...x,{key:'gps',title:'GPS / موقعیت‌یابی خاموش است',detail:'موقعیت‌یابی دستگاه را روشن کنید.'}]);
+    await delay(WAIT_MS);
+    setStage('بررسی خاموش بودن VPN');
+    if(await checkVpn())setIssues(x=>[...x,{key:'vpn',title:'VPN فعال است',detail:'VPN را خاموش کنید و سپس بررسی مجدد را بزنید.'}]);
+    await delay(WAIT_MS);
+    setStage('بررسی غیرفعال بودن موقعیت جعلی');
+    if(await checkMockLocation())setIssues(x=>[...x,{key:'mock',title:'موقعیت جعلی فعال است',detail:'Mock/Fake Location را غیرفعال کنید.'}]);
+    const permissionIssues=await checkPermissions();
+    if(permissionIssues.length)setIssues(x=>[...x,...permissionIssues]);
+    setBatteryConfirmed(!!(await AsyncStorage.getItem(BATTERY_KEY).catch(()=>null)));
+    setStage('بررسی کامل شد');setReady(true);
+  },[exempt]);
 
-  useEffect(() => {
+  useEffect(()=>{
     runCheck();
-    const iv = setInterval(runCheck, CHECK_INTERVAL_MS);
-    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') runCheck(); });
-    return () => { clearInterval(iv); sub.remove(); };
-  }, [runCheck]);
+    const interval=setInterval(runCheck,CHECK_INTERVAL_MS);
+    const sub=AppState.addEventListener('change',state=>{if(state==='active')runCheck()});
+    return()=>{clearInterval(interval);sub.remove()};
+  },[runCheck]);
 
-  const confirmBattery = async () => {
-    await AsyncStorage.setItem(BATTERY_KEY, '1').catch(() => {});
-    setBatteryConfirmed(true);
-  };
+  if(!ready)return <View style={s.overlay}><Text style={s.title}>{stage}</Text><Text style={s.sub}>هر مرحله با فاصله ۵ ثانیه انجام می‌شود تا فشار پردازشی دستگاه کاهش یابد.</Text></View>;
 
-  if (!ready) return null;
+  if(issues.length)return <View style={s.overlay}><ScrollView contentContainerStyle={s.box}><Text style={s.icon}>⚠</Text><Text style={s.title}>بررسی امنیتی نیاز به اقدام دارد</Text>{issues.map(item=><View key={item.key} style={s.row}><View style={{flex:1}}><Text style={s.rowTxt}>{item.title}</Text><Text style={s.detail}>{item.detail||''}</Text></View>{item.action?<TouchableOpacity style={s.btn} onPress={async()=>{try{await item.action()}catch{}runCheck()}}><Text style={s.btnTxt}>فعال‌سازی</Text></TouchableOpacity>:null}</View>)}<TouchableOpacity style={s.recheck} onPress={runCheck}><Text style={s.btnTxt}>بررسی مجدد</Text></TouchableOpacity></ScrollView></View>;
 
-  // مرحلهٔ ۱: دسترسی‌ها
-  if (issues.length > 0) {
-    return (
-      <View style={s.overlay}>
-        <ScrollView contentContainerStyle={s.box}>
-          <Text style={s.icon}>⚠</Text>
-          <Text style={s.title}>دسترسی‌های لازم فعال نیستند</Text>
-          {issues.map((it) => (
-            <View key={it.key} style={s.row}>
-              <Text style={s.rowTxt}>{it.title}</Text>
-              <TouchableOpacity style={s.btn} onPress={async () => { try { await it.action(); } catch {} runCheck(); }}>
-                <Text style={s.btnTxt}>فعال‌سازی</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-          <TouchableOpacity style={s.recheck} onPress={runCheck}>
-            <Text style={s.recheckTxt}>🔄 بررسی مجدد</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-    );
-  }
+  if(!batteryConfirmed)return <View style={s.overlay}><ScrollView contentContainerStyle={s.box}><Text style={s.icon}>🔋</Text><Text style={s.title}>بهینه‌سازی باتری</Text><Text style={s.sub}>برای اجرای پایدار در پس‌زمینه، محدودیت باتری را برای برنامه بردارید.</Text><TouchableOpacity style={s.btn2} onPress={()=>Linking.openSettings()}><Text style={s.btnTxt}>رفتن به تنظیمات</Text></TouchableOpacity><TouchableOpacity style={[s.btn2,{backgroundColor:C.brand}]} onPress={async()=>{await AsyncStorage.setItem(BATTERY_KEY,'1');setBatteryConfirmed(true)}}><Text style={s.btnTxt}>تأیید و ادامه</Text></TouchableOpacity></ScrollView></View>;
 
-  // مرحلهٔ ۲: battery optimizer — فقط یک‌بار پرسیده می‌شود و ذخیره می‌شود
-  if (!batteryConfirmed) {
-    return (
-      <View style={s.overlay}>
-        <ScrollView contentContainerStyle={s.box}>
-          <Text style={s.icon}>🔋</Text>
-          <Text style={s.title}>تنظیم بهینه‌سازی باتری</Text>
-          <Text style={s.sub}>برای عملکرد صحیح در پس‌زمینه، این برنامه باید از محدودیت باتری معاف باشد.</Text>
-          <View style={s.card}>
-            <Text style={s.cardTxt}>مسیر: تنظیمات ← برنامه‌ها ← این برنامه ← باتری ← بدون محدودیت</Text>
-          </View>
-          <TouchableOpacity style={s.btn2} onPress={() => Linking.openSettings()}>
-            <Text style={s.btnTxt}>رفتن به تنظیمات</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[s.btn2, { backgroundColor: '#0d7a5f', marginTop: 10 }]} onPress={confirmBattery}>
-            <Text style={s.btnTxt}>تأیید می‌کنم و ادامه می‌دهم</Text>
-          </TouchableOpacity>
-          <Text style={{ color: '#666', fontSize: 11, textAlign: 'center', marginTop: 12 }}>
-            این پیام دیگر تکرار نخواهد شد.
-          </Text>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  return <>{children}</>;
+  return<>{children}</>;
 }
 
-const s = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: '#0e141f' },
-  box: { padding: 22, paddingTop: 56, alignItems: 'center' },
-  icon: { fontSize: 50, marginBottom: 10 },
-  title: { fontFamily: FONT.bold, color: '#fff', fontSize: 17, textAlign: 'center', marginBottom: 6 },
-  sub: { fontFamily: FONT.regular, color: '#8b97ad', fontSize: 13, textAlign: 'center', marginBottom: 18 },
-  row: { backgroundColor: '#18202e', borderRadius: 14, padding: 15, width: '100%', marginBottom: 10, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
-  rowTxt: { fontFamily: FONT.bold, color: '#fff', fontSize: 14 },
-  card: { backgroundColor: '#18202e', borderRadius: 12, padding: 14, width: '100%', marginBottom: 16 },
-  cardTxt: { fontFamily: FONT.regular, color: '#c8d0df', fontSize: 13, textAlign: 'right', lineHeight: 22 },
-  btn: { backgroundColor: '#0d7a5f', borderRadius: 9, paddingVertical: 8, paddingHorizontal: 16 },
-  btn2: { backgroundColor: '#2a3445', borderRadius: 10, paddingVertical: 13, paddingHorizontal: 24, width: '100%', alignItems: 'center' },
-  btnTxt: { fontFamily: FONT.bold, color: '#fff', fontSize: 13 },
-  recheck: { marginTop: 14, backgroundColor: '#2a3445', borderRadius: 10, paddingVertical: 11, paddingHorizontal: 28 },
-  recheckTxt: { fontFamily: FONT.bold, color: '#fff', fontSize: 14 },
-});
+const s=StyleSheet.create({overlay:{flex:1,backgroundColor:'#0e141f'},box:{padding:22,paddingTop:56,alignItems:'center'},icon:{fontSize:50,marginBottom:10},title:{fontFamily:FONT.bold,color:'#fff',fontSize:17,textAlign:'center',marginBottom:8},sub:{fontFamily:FONT.regular,color:'#aab4c5',fontSize:13,textAlign:'center',lineHeight:23,marginBottom:18},row:{backgroundColor:'#18202e',borderRadius:14,padding:14,width:'100%',marginBottom:10,flexDirection:'row-reverse',alignItems:'center',gap:10},rowTxt:{fontFamily:FONT.bold,color:'#fff',fontSize:13},detail:{fontFamily:FONT.regular,color:'#aab4c5',fontSize:11,marginTop:4,textAlign:'right'},btn:{backgroundColor:C.brand,borderRadius:9,paddingVertical:8,paddingHorizontal:13},btn2:{backgroundColor:'#2a3445',borderRadius:10,paddingVertical:13,paddingHorizontal:24,width:'100%',alignItems:'center',marginTop:10},btnTxt:{fontFamily:FONT.bold,color:'#fff',fontSize:13},recheck:{marginTop:14,backgroundColor:'#2a3445',borderRadius:10,paddingVertical:11,paddingHorizontal:28}});
