@@ -1,0 +1,71 @@
+name: Apply KhatYar radio integration
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/src/radio/**'
+      - 'mobile/src/screens/RadioScreen.js'
+      - 'mobile/App.js'
+      - 'mobile/src/screens/DashboardScreen.js'
+      - 'mobile/app.config.js'
+      - 'php/app/radio-api.php'
+      - 'php/app/.htaccess'
+      - 'php/migrations/2026_08_27_radio.sql'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: khatyar-radio-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch Android radio integration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('mobile/App.js'); s=p.read_text(encoding='utf-8')
+          if "from './src/radio/RadioContext'" not in s:
+              s=s.replace("import PresenceGate from './src/PresenceGate';", "import PresenceGate from './src/PresenceGate';import {RadioProvider} from './src/radio/RadioContext';import RadioScreen from './src/screens/RadioScreen';import HelpScreen from './src/screens/HelpScreen';")
+          if 'name="Radio" component={RadioScreen}' not in s:
+              s=s.replace("<Stack.Screen name=\"Help\" component={HelpScreen} options={{title:'راهنمای استفاده'}}/>", "<Stack.Screen name=\"Help\" component={HelpScreen} options={{title:'راهنمای استفاده'}}/><Stack.Screen name=\"Radio\" component={RadioScreen} options={{title:'بی‌سیم خطیار'}}/>")
+          s=s.replace("<AuthProvider><StatusBar", "<AuthProvider><RadioProvider><StatusBar")
+          s=s.replace("</AppLock></PermissionGuard>", "</AppLock></PermissionGuard></RadioProvider>")
+          p.write_text(s,encoding='utf-8')
+
+          p=Path('mobile/src/screens/DashboardScreen.js'); s=p.read_text(encoding='utf-8')
+          if "from'../radio/RadioContext'" not in s:
+              s=s.replace("import FieldStatusBanner from'../components/FieldStatusBanner';", "import FieldStatusBanner from'../components/FieldStatusBanner';import{useRadio}from'../radio/RadioContext';function RadioHeaderToggle({navigation}){const{enabled,busy}=useRadio();return <TouchableOpacity onPress={()=>navigation.navigate('Radio')}><Text style={{color:'#fff',fontSize:18}}>{enabled?(busy?'📻':'📡'):'📻̸'}</Text></TouchableOpacity>}")
+          if "t:'بی‌سیم',r:'Radio'" not in s:
+              s=s.replace("const MENU=[{icon3d:ICON3D.activity,t:'راهنمای استفاده',r:'Help',bg:'#e8f3ff',always:true}", "const MENU=[{glyph:'📻',t:'بی‌سیم',r:'Radio',bg:'#e8f6f0',always:true},{icon3d:ICON3D.activity,t:'راهنمای استفاده',r:'Help',bg:'#e8f3ff',always:true}")
+          marker="<TouchableOpacity onPress={manualSync} disabled={syncing}><Text style={{color:'#fff',fontSize:18}}>{syncing?'⏳':'🔄'}</Text></TouchableOpacity>"
+          if "<RadioHeaderToggle navigation={navigation}" not in s and marker in s:
+              s=s.replace(marker,marker+"<RadioHeaderToggle navigation={navigation}/>")
+          p.write_text(s,encoding='utf-8')
+
+          p=Path('mobile/app.config.js'); s=p.read_text(encoding='utf-8')
+          if "'RECORD_AUDIO'" not in s:
+              s=s.replace("'CAMERA','INTERNET'", "'CAMERA','RECORD_AUDIO','INTERNET'")
+          if "['expo-audio'" not in s:
+              s=s.replace("'expo-camera',", "['expo-audio',{microphonePermission:'برای استفاده از بی‌سیم خطیار، دسترسی میکروفون لازم است.',recordAudioAndroid:true,enableBackgroundPlayback:true,enableBackgroundRecording:false}],\n    'expo-camera',")
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validate source
+        run: |
+          node --check mobile/src/screens/RadioScreen.js
+          node --check mobile/src/radio/RadioContext.js
+          node --check mobile/src/screens/DashboardScreen.js
+          node --check mobile/App.js
+          node --check mobile/app.config.js
+          php -l php/app/radio-api.php
+      - name: Commit integration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if git diff --quiet; then echo 'No integration changes needed'; exit 0; fi
+          git add mobile/App.js mobile/src/screens/DashboardScreen.js mobile/app.config.js
+          git commit -m 'feat(radio): integrate global PTT radio into Android app [skip ci]'
+          git push
