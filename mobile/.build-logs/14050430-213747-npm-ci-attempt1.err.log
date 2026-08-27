@@ -1,7 +1,0 @@
-﻿npm error code ENOTEMPTY
-npm error syscall rmdir
-npm error path F:\taxi-system\mobile\node_modules\ansi-escapes
-npm error errno -4051
-npm error ENOTEMPTY: directory not empty, rmdir 'F:\taxi-system\mobile\node_modules\ansi-escapes'
-npm error A complete log of this run can be found in: C:\Users\Administrator\AppData\Local\npm-cache\_logs\2026-07-21T18_07_48_561Z-debug-0.log
-

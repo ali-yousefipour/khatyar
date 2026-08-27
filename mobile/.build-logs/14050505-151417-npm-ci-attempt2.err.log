@@ -1,7 +1,0 @@
-﻿npm error code EBUSY
-npm error syscall unlink
-npm error path F:\taxi-system\mobile\node_modules\@react-native\gradle-plugin\.gradle\buildOutputCleanup\buildOutputCleanup.lock
-npm error errno -4082
-npm error EBUSY: resource busy or locked, unlink 'F:\taxi-system\mobile\node_modules\@react-native\gradle-plugin\.gradle\buildOutputCleanup\buildOutputCleanup.lock'
-npm error A complete log of this run can be found in: C:\Users\Administrator\AppData\Local\npm-cache\_logs\2026-07-27T11_44_17_665Z-debug-0.log
-
