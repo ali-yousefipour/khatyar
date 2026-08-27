@@ -47,20 +47,28 @@ ServerSignature Off
 <IfModule mod_deflate.c>
   AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/xml application/javascript application/x-javascript application/json image/svg+xml application/font-woff application/font-woff2 font/woff font/woff2
 </IfModule>
+
+# Development assets: HTML/JS/CSS change frequently and must not be held in a long browser cache.
 <IfModule mod_expires.c>
   ExpiresActive On
-  ExpiresByType application/javascript "access plus 1 year"
-  ExpiresByType text/css "access plus 1 year"
-  ExpiresByType image/png "access plus 1 year"
-  ExpiresByType image/svg+xml "access plus 1 year"
-  ExpiresByType font/woff2 "access plus 1 year"
-  ExpiresByType application/font-woff2 "access plus 1 year"
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType application/javascript "access plus 0 seconds"
+  ExpiresByType text/javascript "access plus 0 seconds"
+  ExpiresByType text/css "access plus 0 seconds"
+  ExpiresByType application/json "access plus 0 seconds"
 </IfModule>
 <IfModule mod_headers.c>
-  <FilesMatch "\.(js|css|png|jpg|jpeg|gif|svg|woff2?|ttf|eot)$">
-    Header set Cache-Control "public, max-age=31536000, immutable"
+  <FilesMatch "\.(html|js|mjs|css|json)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
   </FilesMatch>
-  <FilesMatch "\.html$">
-    Header set Cache-Control "no-cache, must-revalidate"
+
+  # Heavy/static assets and map resources may be cached. Their URLs should be versioned when replaced.
+  <FilesMatch "\.(png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|eot|mp3|wav|ogg|mp4|webm|pdf|zip)$">
+    Header set Cache-Control "public, max-age=2592000, immutable"
   </FilesMatch>
+  <If "%{REQUEST_URI} =~ m#/(vendor/leaflet|vendor/leaflet-draw|tiles|map-tiles|maps)(/|$)#">
+    Header set Cache-Control "public, max-age=2592000, immutable"
+  </If>
 </IfModule>
