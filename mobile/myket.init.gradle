@@ -73,6 +73,9 @@ beforeSettings { settings ->
     } catch (ignored) { }
 }
 
+// Only buildscript repositories are added at project level. Normal dependencies
+// are intentionally resolved from settings repositories to respect Gradle's
+// repositoriesMode=PREFER_SETTINGS and avoid duplicate repository warnings.
 beforeProject { project ->
     def settingsDir = project.rootProject.projectDir
     project.buildscript.repositories {
@@ -80,11 +83,5 @@ beforeProject { project ->
         addLocalExpoRepos(delegate, settingsDir)
         addMyket(delegate)
         addStandardRepos(delegate, true)
-    }
-    project.repositories {
-        mavenLocal()
-        addLocalExpoRepos(delegate, settingsDir)
-        addMyket(delegate)
-        addStandardRepos(delegate, false)
     }
 }
