@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, Switch, Animated, Easing, useWindowDimensions, PanResponder } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, Switch, Animated, Easing, useWindowDimensions, PanResponder, Modal } from 'react-native';
 import * as Application from 'expo-application';
 import { request, imageSource } from '../api';
 import { useAuth } from '../auth';
@@ -105,6 +105,7 @@ export function ChangePasswordScreen({ navigation }) {
 
 
 function SignaturePad({ value, onChange }) {
+  const [signatureFullscreen,setSignatureFullscreen]=useState(false);
   const padRef = useRef(null);
   const [points, setPoints] = useState([]);
   const last = useRef(null);
@@ -134,9 +135,10 @@ function SignaturePad({ value, onChange }) {
     <Text style={s.zoneTitle}>امضای پرسنلی</Text>
     <Text style={s.zoneHint}>امضای خود را با انگشت داخل کادر رسم کنید. این امضا در چاپ گزارش‌ها درج می‌شود.</Text>
     {value && !points.length ? <Image source={{uri:value}} style={s.signaturePreview} resizeMode="contain"/> : null}
-    <View ref={padRef} collapsable={false} style={s.signaturePad} {...pan.panHandlers}>
+    <TouchableOpacity style={s.signatureFullscreenBtn} onPress={()=>setSignatureFullscreen(true)}><Text style={s.signatureFullscreenTxt}>تمام‌صفحه کردن محل درج امضا</Text></TouchableOpacity><View ref={padRef} collapsable={false} style={s.signaturePad} {...pan.panHandlers}>
       {points.map((p,i)=><View key={i} pointerEvents="none" style={[s.signatureDot,{left:p.x-2,top:p.y-2}]}/>) }
     </View>
+    <Modal visible={signatureFullscreen} animationType="slide" onRequestClose={()=>setSignatureFullscreen(false)}><View style={s.signatureModal}><Text style={s.zoneTitle}>ثبت امضا در حالت تمام‌صفحه</Text><View ref={padRef} collapsable={false} style={s.signaturePadFull} {...pan.panHandlers}>{points.map((p,i)=><View key={'f'+i} pointerEvents="none" style={[s.signatureDot,{left:p.x-2,top:p.y-2}]}/>)}</View><View style={{flexDirection:'row-reverse',gap:8}}><TouchableOpacity style={[s.btn,{flex:1,marginTop:10}]} onPress={save}><Text style={s.btnTxt}>ثبت امضا</Text></TouchableOpacity><TouchableOpacity style={[s.btn,{flex:1,marginTop:10,backgroundColor:'#6b7280'}]} onPress={()=>setSignatureFullscreen(false)}><Text style={s.btnTxt}>بازگشت</Text></TouchableOpacity></View></View></Modal>
     <View style={{flexDirection:'row-reverse',gap:8}}>
       <TouchableOpacity style={[s.btn,{flex:1,marginTop:10}]} onPress={save}><Text style={s.btnTxt}>ثبت امضا</Text></TouchableOpacity>
       <TouchableOpacity style={[s.btn,{flex:1,marginTop:10,backgroundColor:'#6b7280'}]} onPress={()=>{setPoints([]);onChange(null);}}><Text style={s.btnTxt}>پاک کردن</Text></TouchableOpacity>

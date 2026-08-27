@@ -7,8 +7,10 @@ import { clearAppConfigCache, getAppConfig } from './appconfig';
 import { refreshSearchCache } from './linecache';
 import { FONT } from './theme';
 import { faNum } from './num';
+import * as Application from 'expo-application';
 
 const MAINTENANCE_CACHE_KEY = 'startup_maintenance_status_v1';
+const startupVersion = Application.nativeApplicationVersion || '1.3.74';
 
 async function readMaintenanceStatus() {
   try {
@@ -133,7 +135,7 @@ export default function StartupGate({ children }) {
         <Image source={require('../assets/khatyar-startup.png')} style={s.image} resizeMode="cover" />
         <View style={s.loadingPanel}>
           <ProgressBar percent={progress} />
-          <Text style={s.progressLabel}>{faNum(Math.round(progress))}٪</Text>
+          <Text style={s.progressLabel}>{faNum(Math.round(progress))}٪</Text><Text style={s.version}>نسخه برنامه: {faNum(startupVersion)}</Text>
           <Text style={s.phase}>{phase}</Text>
         </View>
       </View>
@@ -174,6 +176,7 @@ const s = StyleSheet.create({
   phase: { marginTop: 10, color: '#fff', fontFamily: FONT.bold, fontSize: 14, textAlign: 'center' },
   progressTrack: { width: '100%', height: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 999, backgroundColor: '#ffffff' },
+  version: { marginTop: 5, color: 'rgba(255,255,255,.88)', fontFamily: FONT.regular, fontSize: 11 },
   progressLabel: { marginTop: 8, color: '#fff', fontFamily: FONT.bold, fontSize: 13 },
   maintenanceWrap: { flex: 1, backgroundColor: '#063f33', alignItems: 'center', justifyContent: 'center' },
   maintenanceBg: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
