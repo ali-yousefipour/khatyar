@@ -1,20 +1,25 @@
-name: Khatyar requested changes
+name: Khatyar final requested changes
 
 on:
-  workflow_dispatch:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: khatyar-final-hardening
+  cancel-in-progress: false
+
 jobs:
-  apply:
+  apply-and-verify:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply source changes
+
+      - name: Apply requested Android, Web and UI changes
         shell: bash
         run: |
           set -euo pipefail
@@ -23,115 +28,114 @@ jobs:
           import json,re
           root=Path('.')
 
-          # Remove the two failed one-shot workflows so they cannot keep failing on every push.
-          for p in ['.github/workflows/apply-ui-startup-hardening.yml','.github/workflows/finalize-ui-startup-hardening.yml']:
-              x=root/p
-              if x.exists(): x.unlink()
+          # Android: Help route/menu.
+          p=root/'mobile/App.js'; s=p.read_text(encoding='utf-8')
+          if "from './src/screens/HelpScreen'" not in s:
+              s=s.replace("import SetupScreen from './src/screens/SetupScreen';", "import SetupScreen from './src/screens/SetupScreen';import HelpScreen from './src/screens/HelpScreen';", 1)
+          if 'name="Help"' not in s:
+              needle='<Stack.Screen name="Dashboard" component={DashboardScreen} options={({navigation})=>({title:\'داشبورد\',headerLeft:()=> <ProfileBtn navigation={navigation}/>})}/>'
+              repl=needle+'<Stack.Screen name="Help" component={HelpScreen} options={{title:\'راهنمای استفاده\'}}/>'
+              if needle not in s:
+                  raise SystemExit('Dashboard route anchor not found in App.js')
+              s=s.replace(needle,repl,1)
+          p.write_text(s,encoding='utf-8')
 
-          # Help screen
-          (root/'mobile/src/screens/HelpScreen.js').write_text(r'''import React from 'react';
-import {ScrollView,View,Text,TouchableOpacity,StyleSheet} from 'react-native';
-import {C,FONT} from '../theme';
-const sections=[
-['شروع کار',['پس از ورود، داشبورد بر اساس نقش و سطح دسترسی شما نمایش داده می‌شود.','در شروع برنامه اطلاعات کش و پیکربندی تازه می‌شود و سپس کنترل‌های امنیتی مرحله‌ای بررسی می‌شوند.']],
-['داشبورد',['کارت‌های آماری تعداد رانندگان، خودروها، حضور امروز و چک‌لیست‌های ماه را نشان می‌دهند.','همگام‌سازی اطلاعات آنلاین را تازه و صف آفلاین را پس از اتصال ارسال می‌کند.']],
-['عملیات میدانی',['ثبت حضور من برای حضور روزانه است.','حاضرین در خط وضعیت افراد حاضر را نشان می‌دهد.','مأموریت روزانه و برنامه بازدید و پوشش خط برای عملیات میدانی، GPS، تصویر و پوشش استفاده می‌شوند.','ثبت موقعیت و تصویر خطوط برای ثبت موقعیت دقیق ایستگاه و تصاویر محل و تابلوهاست.','ایستگاه‌های ثبت‌شده من سوابق ثبت‌های شما را نمایش می‌دهد.']],
-['گزارش و ارتباطات',['ارسال گزارش، فرم‌ها، درخواست‌ها، تأیید درخواست‌ها و ارسال برای شرکت برای عملیات اداری هستند.','ارسال پیامک، پیام‌های ارسالی، ربات‌ها، پیام‌ها و اعلان‌ها برای ارتباطات سامانه هستند.']],
-['حساب کاربری',['ویرایش اطلاعات، فیش‌های حقوقی، کارکرد، اشتراک، رفاهیات و فعالیت‌های فرهنگی در حساب کاربری قرار دارند.','تنظیمات نقشه، اعلان، قفل برنامه و تغییر رمز از منوی حساب قابل دسترسی‌اند.']],
-['امضای پرسنلی',['در ویرایش اطلاعات داخل کادر امضا با انگشت رسم کنید.','دکمه تمام‌صفحه کردن محل درج امضا فضای بزرگ‌تری برای ثبت دقیق امضا باز می‌کند.','پس از ثبت، امضا در فرم ذخیره می‌شود؛ پاک کردن برای ثبت امضای جدید است.']],
-['آفلاین و امنیت',['برخی عملیات هنگام قطع اینترنت در صف می‌مانند و بعد از اتصال ارسال می‌شوند.','اگر برنامه درخواست اصلاح دسترسی یا تنظیم امنیتی کرد، آن را انجام دهید و بررسی مجدد را بزنید.']]
-];
-export default function HelpScreen({navigation}){return <ScrollView style={s.wrap} contentContainerStyle={s.content}><View style={s.hero}><Text style={s.brand}>خطیار</Text><Text style={s.title}>راهنمای کامل استفاده از نرم‌افزار</Text><Text style={s.sub}>راهنمای ابزارهای موجود در برنامه</Text></View>{sections.map(([h,items])=><View key={h} style={s.card}><Text style={s.section}>{h}</Text>{items.map((x,i)=><View key={i} style={s.item}><Text style={s.dot}>•</Text><Text style={s.text}>{x}</Text></View>)}</View>)}<View style={s.about}><Text style={s.aboutTitle}>اطلاعات برنامه</Text><Text style={s.aboutText}>توسعه‌دهنده: علی یوسفی‌پور</Text><Text style={s.aboutText}>شرکت: مبین شات</Text><Text style={s.aboutText}>نام برنامه: خطیار</Text></View><TouchableOpacity style={s.back} onPress={()=>navigation.goBack()}><Text style={s.backText}>بازگشت</Text></TouchableOpacity></ScrollView>}
-const s=StyleSheet.create({wrap:{flex:1,backgroundColor:C.paper},content:{padding:14,paddingBottom:40},hero:{backgroundColor:C.brand,borderRadius:20,padding:20,marginBottom:12},brand:{color:'#fff',fontFamily:FONT.bold,fontSize:24,textAlign:'right'},title:{color:'#fff',fontFamily:FONT.bold,fontSize:17,textAlign:'right',marginTop:8},sub:{color:'#d7eee8',fontFamily:FONT.regular,fontSize:12,textAlign:'right',marginTop:6},card:{backgroundColor:'#fff',borderRadius:15,borderWidth:1,borderColor:'#e4e9f2',padding:14,marginBottom:10},section:{color:C.brand,fontFamily:FONT.bold,fontSize:15,textAlign:'right',marginBottom:8},item:{flexDirection:'row-reverse',alignItems:'flex-start',gap:9,paddingVertical:7},dot:{color:C.brand,fontSize:20,lineHeight:20},text:{flex:1,color:'#344054',fontFamily:FONT.regular,fontSize:12.5,lineHeight:22,textAlign:'right'},about:{backgroundColor:'#102033',borderRadius:15,padding:16},aboutTitle:{color:'#fff',fontFamily:FONT.bold,fontSize:15,textAlign:'right',marginBottom:7},aboutText:{color:'#d7dee9',fontFamily:FONT.regular,fontSize:12,textAlign:'right',lineHeight:23},back:{backgroundColor:C.brand,borderRadius:13,paddingVertical:13,alignItems:'center',marginTop:12},backText:{color:'#fff',fontFamily:FONT.bold,fontSize:14}});
-''',encoding='utf-8')
+          p=root/'mobile/src/screens/DashboardScreen.js'; s=p.read_text(encoding='utf-8')
+          if "t:'راهنمای استفاده'" not in s:
+              anchor="const MENU=["
+              if anchor not in s: raise SystemExit('Dashboard MENU anchor not found')
+              s=s.replace(anchor,"const MENU=[{icon3d:ICON3D.activity,t:'راهنمای استفاده',r:'Help',bg:'#e8f3ff',always:true},",1)
+          p.write_text(s,encoding='utf-8')
 
-          # Navigation + help card
-          p=root/'mobile/App.js'; t=p.read_text(encoding='utf-8')
-          if "from './src/screens/HelpScreen'" not in t:t=t.replace("import SetupScreen from './src/screens/SetupScreen';","import SetupScreen from './src/screens/SetupScreen';import HelpScreen from './src/screens/HelpScreen';")
-          if 'name="Help"' not in t:t=t.replace("<Stack.Screen name=\"Dashboard\" component={DashboardScreen} options={({navigation})=>({title:'داشبورد',headerLeft:()=> <ProfileBtn navigation={navigation}/>})}/>","<Stack.Screen name=\"Dashboard\" component={DashboardScreen} options={({navigation})=>({title:'داشبورد',headerLeft:()=> <ProfileBtn navigation={navigation}/>})}/><Stack.Screen name=\"Help\" component={HelpScreen} options={{title:'راهنمای استفاده'}}/>")
-          p.write_text(t,encoding='utf-8')
-          p=root/'mobile/src/screens/DashboardScreen.js';t=p.read_text(encoding='utf-8')
-          if "t:'راهنمای استفاده'" not in t:t=t.replace('const MENU=[',"const MENU=[{icon3d:ICON3D.activity,t:'راهنمای استفاده',r:'Help',bg:'#e8f3ff',always:true},",1)
-          p.write_text(t,encoding='utf-8')
+          # Android: show app version during splash/startup.
+          p=root/'mobile/src/StartupGate.js'; s=p.read_text(encoding='utf-8')
+          if "expo-application" not in s:
+              s=s.replace("import { faNum } from './num';", "import { faNum } from './num';\nimport * as Application from 'expo-application';",1)
+          if 'startupVersion' not in s:
+              s=s.replace("const MAINTENANCE_CACHE_KEY = 'startup_maintenance_status_v1';", "const MAINTENANCE_CACHE_KEY = 'startup_maintenance_status_v1';\nconst startupVersion = Application.nativeApplicationVersion || '1.3.74';",1)
+              s=s.replace("<Text style={s.progressLabel}>{faNum(Math.round(progress))}٪</Text>", "<Text style={s.progressLabel}>{faNum(Math.round(progress))}٪</Text><Text style={s.version}>نسخه برنامه: {faNum(startupVersion)}</Text>",1)
+              s=s.replace("progressLabel: { marginTop: 8,", "version: { marginTop: 5, color: 'rgba(255,255,255,.88)', fontFamily: FONT.regular, fontSize: 11 },\n  progressLabel: { marginTop: 8,",1)
+          p.write_text(s,encoding='utf-8')
 
-          # Version consistency
-          p=root/'mobile/package.json';d=json.loads(p.read_text(encoding='utf-8'));d['version']='1.3.74';d['description']='خطیار — نسخه 1.3.74';p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          # Android: fullscreen signature mode.
+          p=root/'mobile/src/screens/AccountScreens.js'; s=p.read_text(encoding='utf-8')
+          if 'SignaturePad' in s and 'signatureFullscreen' not in s:
+              s=s.replace("import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, Switch, Animated, Easing, useWindowDimensions, PanResponder } from 'react-native';", "import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, Switch, Animated, Easing, useWindowDimensions, PanResponder, Modal } from 'react-native';",1)
+              s=s.replace("function SignaturePad({ value, onChange }) {\n  const padRef", "function SignaturePad({ value, onChange }) {\n  const [signatureFullscreen,setSignatureFullscreen]=useState(false);\n  const padRef",1)
+              old="<View ref={padRef} collapsable={false} style={s.signaturePad} {...pan.panHandlers}>"
+              new="<TouchableOpacity style={s.signatureFullscreenBtn} onPress={()=>setSignatureFullscreen(true)}><Text style={s.signatureFullscreenTxt}>تمام‌صفحه کردن محل درج امضا</Text></TouchableOpacity><View ref={padRef} collapsable={false} style={s.signaturePad} {...pan.panHandlers}>"
+              if old not in s: raise SystemExit('Signature pad anchor not found')
+              s=s.replace(old,new,1)
+              marker="    <View style={{flexDirection:'row-reverse',gap:8}}>"
+              modal="    <Modal visible={signatureFullscreen} animationType=\"slide\" onRequestClose={()=>setSignatureFullscreen(false)}><View style={s.signatureModal}><Text style={s.zoneTitle}>ثبت امضا در حالت تمام‌صفحه</Text><View ref={padRef} collapsable={false} style={s.signaturePadFull} {...pan.panHandlers}>{points.map((p,i)=><View key={'f'+i} pointerEvents=\"none\" style={[s.signatureDot,{left:p.x-2,top:p.y-2}]}/>)}</View><View style={{flexDirection:'row-reverse',gap:8}}><TouchableOpacity style={[s.btn,{flex:1,marginTop:10}]} onPress={save}><Text style={s.btnTxt}>ثبت امضا</Text></TouchableOpacity><TouchableOpacity style={[s.btn,{flex:1,marginTop:10,backgroundColor:'#6b7280'}]} onPress={()=>setSignatureFullscreen(false)}><Text style={s.btnTxt}>بازگشت</Text></TouchableOpacity></View></View></Modal>\n"
+              if marker not in s: raise SystemExit('Signature action anchor not found')
+              s=s.replace(marker,modal+marker,1)
+              s=s.replace("signatureBox:{", "signatureModal:{flex:1,backgroundColor:'#f7f9fc',padding:18,paddingTop:42},signaturePadFull:{flex:1,minHeight:260,backgroundColor:'#fff',borderWidth:1,borderColor:'#cfd8e3',borderRadius:12,marginTop:12},signatureFullscreenBtn:{marginTop:10,borderWidth:1,borderColor:'#08745a',borderRadius:10,paddingVertical:10,alignItems:'center',backgroundColor:'#eefaf6'},signatureFullscreenTxt:{fontFamily:FONT.bold,color:'#08745a',fontSize:12},signatureBox:{",1)
+          p.write_text(s,encoding='utf-8')
 
-          # Staged PermissionGuard. Developer-options read is optional unless the native bridge exists; VPN and mock-location are checked natively through Expo APIs.
-          guard=r'''import React,{useEffect,useState,useCallback}from'react';
-import{View,Text,TouchableOpacity,StyleSheet,Linking,AppState,ScrollView}from'react-native';
-import AsyncStorage from'@react-native-async-storage/async-storage';
-import*as Location from'expo-location';import*as Notifications from'expo-notifications';import*as Network from'expo-network';
-import{C,FONT}from'./theme';import{useAuth}from'./auth';
-const WAIT=5000,INTERVAL=3600000,BATTERY='battery_opt_confirmed_v1';
-const delay=ms=>new Promise(r=>setTimeout(r,ms));
-async function devOptions(){try{const{NativeModules}=require('react-native');if(NativeModules?.KhatyarSecurity?.isDeveloperOptionsEnabled)return!!(await NativeModules.KhatyarSecurity.isDeveloperOptionsEnabled())}catch{}return false}
-async function vpn(){try{const n=await Network.getNetworkStateAsync();return String(n?.type||'').toUpperCase().includes('VPN')}catch{return false}}
-async function mock(){try{const p=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.Low,maximumAge:15000});return!!p?.mocked}catch{return false}}
-async function permissions(){const a=[];try{if((await Location.getForegroundPermissionsAsync()).status!=='granted')a.push({key:'loc',title:'اجازه موقعیت مکانی',action:()=>Location.requestForegroundPermissionsAsync()})}catch{}try{const c=require('expo-camera');if(!(await c.getCameraPermissionsAsync()).granted)a.push({key:'cam',title:'اجازه دوربین',action:()=>c.requestCameraPermissionsAsync()})}catch{}try{if((await Notifications.getPermissionsAsync()).status!=='granted')a.push({key:'notif',title:'اجازه اعلان‌ها',action:()=>Notifications.requestPermissionsAsync()})}catch{}return a}
-export default function PermissionGuard({children}){const{user}=useAuth(),exempt=Number(user?.security_exempt||0)===1||user?.security_exempt===true;const[stage,setStage]=useState('در حال آماده‌سازی'),[issues,setIssues]=useState([]),[ready,setReady]=useState(false),[bat,setBat]=useState(true);const run=useCallback(async()=>{if(exempt){setReady(true);return}setReady(false);setIssues([]);setStage('بررسی خاموش بودن Developer Options');if(await devOptions())setIssues(x=>[...x,{key:'dev',title:'Developer Options فعال است',detail:'گزینه‌های توسعه‌دهنده را خاموش کنید.'}]);await delay(WAIT);setStage('بررسی روشن بودن GPS');if(!(await Location.hasServicesEnabledAsync().catch(()=>true)))setIssues(x=>[...x,{key:'gps',title:'GPS خاموش است',detail:'موقعیت‌یابی دستگاه را روشن کنید.'}]);await delay(WAIT);setStage('بررسی خاموش بودن VPN');if(await vpn())setIssues(x=>[...x,{key:'vpn',title:'VPN فعال است',detail:'VPN را خاموش کنید.'}]);await delay(WAIT);setStage('بررسی غیرفعال بودن موقعیت جعلی');if(await mock())setIssues(x=>[...x,{key:'mock',title:'موقعیت جعلی فعال است',detail:'Mock/Fake Location را غیرفعال کنید.'}]);const ps=await permissions();if(ps.length)setIssues(x=>[...x,...ps]);setBat(!!(await AsyncStorage.getItem(BATTERY).catch(()=>null)));setStage('بررسی کامل شد');setReady(true)},[exempt]);useEffect(()=>{run();const iv=setInterval(run,INTERVAL);const sub=AppState.addEventListener('change',s=>s==='active'&&run());return()=>{clearInterval(iv);sub.remove()}},[run]);if(!ready)return <View style={s.overlay}><Text style={s.title}>{stage}</Text><Text style={s.sub}>هر مرحله با فاصله ۵ ثانیه انجام می‌شود تا فشار پردازشی دستگاه کاهش یابد.</Text></View>;if(issues.length)return <View style={s.overlay}><ScrollView contentContainerStyle={s.box}><Text style={s.icon}>⚠</Text><Text style={s.title}>بررسی امنیتی نیاز به اقدام دارد</Text>{issues.map(i=><View key={i.key} style={s.row}><View style={{flex:1}}><Text style={s.rowTxt}>{i.title}</Text><Text style={s.detail}>{i.detail||''}</Text></View>{i.action&&<TouchableOpacity style={s.btn} onPress={async()=>{try{await i.action()}catch{}run()}}><Text style={s.btnTxt}>فعال‌سازی</Text></TouchableOpacity>}</View>)}<TouchableOpacity style={s.recheck} onPress={run}><Text style={s.btnTxt}>بررسی مجدد</Text></TouchableOpacity></ScrollView></View>;if(!bat)return <View style={s.overlay}><Text style={s.icon}>🔋</Text><Text style={s.title}>بهینه‌سازی باتری</Text><Text style={s.sub}>برای اجرای پایدار در پس‌زمینه، محدودیت باتری را بردارید.</Text><TouchableOpacity style={s.btn2} onPress={()=>Linking.openSettings()}><Text style={s.btnTxt}>رفتن به تنظیمات</Text></TouchableOpacity><TouchableOpacity style={[s.btn2,{backgroundColor:C.brand}]} onPress={async()=>{await AsyncStorage.setItem(BATTERY,'1');setBat(true)}}><Text style={s.btnTxt}>تأیید و ادامه</Text></TouchableOpacity></View>;return <>{children}</>}
-const s=StyleSheet.create({overlay:{flex:1,backgroundColor:'#0e141f'},box:{padding:22,paddingTop:56,alignItems:'center'},icon:{fontSize:50,marginBottom:10},title:{fontFamily:FONT.bold,color:'#fff',fontSize:17,textAlign:'center',marginBottom:8},sub:{fontFamily:FONT.regular,color:'#aab4c5',fontSize:13,textAlign:'center',lineHeight:23,marginBottom:18},row:{backgroundColor:'#18202e',borderRadius:14,padding:14,width:'100%',marginBottom:10,flexDirection:'row-reverse',alignItems:'center',gap:10},rowTxt:{fontFamily:FONT.bold,color:'#fff',fontSize:13},detail:{fontFamily:FONT.regular,color:'#aab4c5',fontSize:11,marginTop:4,textAlign:'right'},btn:{backgroundColor:C.brand,borderRadius:9,paddingVertical:8,paddingHorizontal:13},btn2:{backgroundColor:'#2a3445',borderRadius:10,paddingVertical:13,paddingHorizontal:24,width:'100%',alignItems:'center',marginTop:10},btnTxt:{fontFamily:FONT.bold,color:'#fff',fontSize:13},recheck:{marginTop:14,backgroundColor:'#2a3445',borderRadius:10,paddingVertical:11,paddingHorizontal:28}});
-'''
-          (root/'mobile/src/PermissionGuard.js').write_text(guard,encoding='utf-8')
+          # Android: version metadata consistency.
+          p=root/'mobile/package.json'; d=json.loads(p.read_text(encoding='utf-8')); d['version']='1.3.74'; p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 
-          # Splash version label
-          p=root/'mobile/src/StartupGate.js';t=p.read_text(encoding='utf-8')
-          if "from 'expo-constants'" not in t:t=t.replace("import { faNum } from './num';","import { faNum } from './num';\nimport Constants from 'expo-constants';")
-          if 'versionLabel' not in t:t=t.replace("const MAINTENANCE_CACHE_KEY = 'startup_maintenance_status_v1';","const MAINTENANCE_CACHE_KEY = 'startup_maintenance_status_v1';\nconst versionLabel = String(Constants.expoConfig?.version || '1.3.74');")
-          if '<Text style={s.version}>' not in t:t=t.replace('<Text style={s.phase}>{phase}</Text>','<Text style={s.version}>نسخه {faNum(versionLabel)}</Text><Text style={s.phase}>{phase}</Text>')
-          if 'version: {' not in t:t=t.replace('phase: { marginTop: 10,',"version: { marginTop: 7, color: '#d7eee8', fontFamily: FONT.regular, fontSize: 11, textAlign: 'center' },\n  phase: { marginTop: 6,")
-          p.write_text(t,encoding='utf-8')
+          # Web: standalone full usage guide.
+          help_html=root/'php/app/help.html'
+          help_html.write_text('''<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>راهنمای خطیار</title><style>body{margin:0;background:#f5f7fb;color:#243247;font-family:Vazirmatn,Tahoma,sans-serif}.wrap{max-width:900px;margin:auto;padding:16px}.hero{background:#086b56;color:#fff;border-radius:20px;padding:22px;margin-bottom:12px}.card{background:#fff;border:1px solid #e1e8f2;border-radius:16px;padding:16px;margin:10px 0}.card h2{font-size:16px;color:#086b56}.card li{line-height:2;font-size:13px}.about{background:#142033;color:#fff;border-radius:16px;padding:16px;margin-top:12px}</style></head><body><main class="wrap"><section class="hero"><h1>راهنمای کامل خطیار</h1><div>نحوه استفاده از ابزارهای سامانه مدیریت خطوط تاکسیرانی</div></section><section class="card"><h2>۱. شروع کار و ورود</h2><ul><li>وارد حساب کاربری شوید؛ امکانات بر اساس نقش و سطح دسترسی نمایش داده می‌شوند.</li><li>در شروع برنامه اطلاعات کش و پیکربندی تازه می‌شود و کنترل‌های امنیتی مرحله‌ای اجرا می‌شوند.</li><li>Developer Options، GPS، VPN و Mock/Fake Location باید مطابق پیام برنامه تنظیم شوند.</li></ul></section><section class="card"><h2>۲. داشبورد</h2><ul><li>کارت‌های رانندگان، خودروها، حضور امروز و چک‌لیست ماه وضعیت کلی را نمایش می‌دهند.</li><li>امکانات در دسته‌های میدانی، عملیات، پیام‌ها، شخصی و سایر مرتب شده‌اند.</li><li>دکمه همگام‌سازی برای ارسال صف آفلاین و دریافت داده تازه استفاده می‌شود.</li></ul></section><section class="card"><h2>۳. عملیات میدانی</h2><ul><li>ثبت حضور من برای حضور روزانه است.</li><li>حاضرین در خط وضعیت افراد حاضر را نمایش می‌دهد.</li><li>مأموریت روزانه و برنامه بازدید و پوشش خط برای اجرای مأموریت، GPS، بازدید و پوشش استفاده می‌شوند.</li><li>ثبت موقعیت و تصویر خطوط برای ثبت موقعیت ایستگاه، تصویر محل و تصاویر تابلوهاست.</li><li>ایستگاه‌های ثبت‌شده من سوابق ثبت‌های کاربر را نمایش می‌دهد.</li></ul></section><section class="card"><h2>۴. گزارش، فرم و ارتباطات</h2><ul><li>ارسال گزارش، فرم‌ها، درخواست‌ها و ارسال برای شرکت برای عملیات اداری هستند.</li><li>ارسال پیامک، پیام‌ها، اعلان‌ها و ربات‌ها برای ارتباطات استفاده می‌شوند.</li><li>گزارش‌ها را می‌توان طبق امکانات سامانه مشاهده، مرتب و PDF کرد.</li></ul></section><section class="card"><h2>۵. حساب کاربری و امضا</h2><ul><li>در ویرایش اطلاعات می‌توانید اطلاعات قابل ویرایش و امضای پرسنلی را ثبت کنید.</li><li>برای امضای دقیق‌تر، گزینه «تمام‌صفحه کردن محل درج امضا» را انتخاب کنید.</li><li>پس از ثبت امضا، ذخیره اطلاعات را انجام دهید.</li></ul></section><section class="card"><h2>۶. آفلاین و خطاها</h2><ul><li>برخی عملیات در نبود اینترنت در صف قرار می‌گیرند و پس از اتصال قابل همگام‌سازی هستند.</li><li>در صورت هشدار دسترسی یا امنیتی، تنظیم مربوطه را اصلاح و «بررسی مجدد» را اجرا کنید.</li></ul></section><section class="about"><b>اطلاعات برنامه</b><div>نام برنامه: خطیار</div><div>توسعه‌دهنده: علی یوسفی‌پور</div><div>شرکت: مبین شات</div><div>نسخه: ۱.۳.۷۴</div></section></main></body></html>''',encoding='utf-8')
 
-          # Fullscreen signature capture, replacing only SignaturePad and adding Modal to imports.
-          p=root/'mobile/src/screens/AccountScreens.js';t=p.read_text(encoding='utf-8')
-          t=t.replace('View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, Switch, Animated, Easing, useWindowDimensions, PanResponder','View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, Switch, Animated, Easing, useWindowDimensions, PanResponder, Modal')
-          pat=re.compile(r'function SignaturePad\(\{ value, onChange \}\) \{.*?\n\}\n\nexport function EditProfileScreen',re.S)
-          repl=r'''function SignaturePad({ value, onChange }) {
-  const padRef=useRef(null),[points,setPoints]=useState([]),[full,setFull]=useState(false),last=useRef(null);
-  const pan=useRef(PanResponder.create({onStartShouldSetPanResponder:()=>true,onMoveShouldSetPanResponder:()=>true,onPanResponderGrant:e=>{const{x,y}=e.nativeEvent;last.current={x,y};setPoints(a=>[...a,{x,y}])},onPanResponderMove:e=>{const{x,y}=e.nativeEvent,a=last.current;if(!a)return;const dx=x-a.x,dy=y-a.y,d=Math.max(1,Math.ceil(Math.sqrt(dx*dx+dy*dy)/3)),seg=[];for(let i=1;i<=d;i++)seg.push({x:a.x+dx*i/d,y:a.y+dy*i/d});last.current={x,y};setPoints(p=>[...p,...seg])},onPanResponderRelease:()=>{last.current=null},onPanResponderTerminate:()=>{last.current=null}})).current;
-  const clear=()=>{setPoints([]);onChange(null)};const save=async()=>{if(!points.length)return Alert.alert('امضا','ابتدا امضای خود را رسم کنید.');try{const uri=await captureRef(padRef,{format:'png',quality:1,result:'data-uri'});onChange(uri);setFull(false);Alert.alert('امضا','امضا آماده ذخیره است.')}catch{Alert.alert('خطا','ذخیره تصویر امضا انجام نشد.')}};
-  const pad=<View ref={padRef} collapsable={false} style={[s.signaturePad,full&&s.signaturePadFull]} {...pan.panHandlers}>{points.map((p,i)=><View key={i} pointerEvents="none" style={[s.signatureDot,{left:p.x-2,top:p.y-2}]}/>)}</View>;
-  return <View style={s.signatureBox}><Text style={s.zoneTitle}>امضای پرسنلی</Text><Text style={s.zoneHint}>امضای خود را با انگشت داخل کادر رسم کنید.</Text>{value&&!points.length?<Image source={{uri:value}} style={s.signaturePreview} resizeMode="contain"/>:null}{pad}<View style={{flexDirection:'row-reverse',gap:8}}><TouchableOpacity style={[s.btn,{flex:1,marginTop:10}]} onPress={save}><Text style={s.btnTxt}>ثبت امضا</Text></TouchableOpacity><TouchableOpacity style={[s.btn,{flex:1,marginTop:10,backgroundColor:'#6b7280'}]} onPress={clear}><Text style={s.btnTxt}>پاک کردن</Text></TouchableOpacity></View><TouchableOpacity style={[s.btn,{marginTop:10,backgroundColor:'#173b61'}]} onPress={()=>setFull(true)}><Text style={s.btnTxt}>تمام‌صفحه کردن محل درج امضا</Text></TouchableOpacity><Modal visible={full} animationType="slide" onRequestClose={()=>setFull(false)}><View style={s.fullWrap}><View style={s.fullHead}><Text style={s.fullTitle}>ثبت امضا در حالت تمام‌صفحه</Text><TouchableOpacity onPress={()=>setFull(false)}><Text style={s.fullClose}>بستن</Text></TouchableOpacity></View><Text style={s.fullHint}>با انگشت امضای خود را در فضای بزرگ رسم کنید.</Text>{pad}<View style={s.fullActions}><TouchableOpacity style={[s.btn,{flex:1}]} onPress={save}><Text style={s.btnTxt}>ثبت امضا</Text></TouchableOpacity><TouchableOpacity style={[s.btn,{flex:1,backgroundColor:'#6b7280'}]} onPress={clear}><Text style={s.btnTxt}>پاک کردن</Text></TouchableOpacity></View></View></Modal></View>;
-}
+          # Web parity: add Help and developer/company footer.
+          p=root/'php/app/web-android-parity-v32.js'; s=p.read_text(encoding='utf-8')
+          if "'راهنمای کامل خطیار'" not in s:
+              s=s.replace("const M=[", "const M=[['activity-wave.png','راهنمای کامل خطیار','help','general'],",1)
+          if "data-route==='help'" not in s:
+              s=s.replace("if(q&&typeof window.nav==='function')window.nav(q.dataset.route)", "if(q&&q.dataset.route==='help'){window.location.href='/help.html';return}if(q&&typeof window.nav==='function')window.nav(q.dataset.route)",1)
+          p.write_text(s,encoding='utf-8')
 
-export function EditProfileScreen'''
-          nt=pat.sub(repl,t,count=1)
-          if nt!=t:t=nt
-          if 'signaturePadFull:' not in t:t=t.replace('signaturePad:',"signaturePadFull:{flex:1,minHeight:260,borderWidth:2,borderColor:CC.brand,borderStyle:'dashed',borderRadius:16,backgroundColor:'#fff',marginTop:14,position:'relative'},signaturePad:")
-          if 'fullWrap:' not in t:
-              i=t.rfind('});');t=t[:i]+",fullWrap:{flex:1,backgroundColor:CC.paper,padding:16,paddingTop:28},fullHead:{flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center'},fullTitle:{fontFamily:FONT.bold,color:CC.ink,fontSize:16},fullClose:{fontFamily:FONT.bold,color:CC.brand,fontSize:13},fullHint:{fontFamily:FONT.regular,color:CC.muted,fontSize:12,textAlign:'right',marginTop:8},fullActions:{flexDirection:'row-reverse',gap:8,marginTop:12}"+t[i:]
-          p.write_text(t,encoding='utf-8')
+          # Add a stable web about block if parity shell exists.
+          p=root/'php/app/app.html'; s=p.read_text(encoding='utf-8')
+          if 'KHATYAR_DEVELOPER_COMPANY' not in s:
+              pos=s.lower().rfind('</body>')
+              block='<!-- KHATYAR_DEVELOPER_COMPANY --><div id="KHATYAR_DEVELOPER_COMPANY" style="display:none">توسعه‌دهنده: علی یوسفی‌پور | شرکت: مبین شات</div>\n'
+              if pos>=0:s=s[:pos]+block+s[pos:]
+          p.write_text(s,encoding='utf-8')
 
-          # Web guide entry in existing Android parity runtime.
-          p=root/'php/app/app-parity.js';t=p.read_text(encoding='utf-8')
-          if 'راهنمای استفاده' not in t:t=t.replace('const items=[',"const items=[['ℹ','راهنمای استفاده','help'],",1)
-          if 'function showHelp' not in t:
-              t=t.replace('function tool(n){',"function showHelp(){css();const body=document.getElementById('body');if(!body)return;const root=document.createElement('section');root.id='kh-help';root.className='kh-parity';root.innerHTML='<div class=\"kh-parity-card\" style=\"display:block\"><div class=\"kh-parity-title\">راهنمای کامل استفاده از خطیار</div><div class=\"kh-ls-card\"><b>شروع کار</b><div class=\"kh-ls-status\">ورود، داشبورد نقش‌محور و همگام‌سازی اطلاعات.</div><div class=\"kh-ls-status\">در شروع، کش قبل از کنترل‌های امنیتی تازه می‌شود.</div></div><div class=\"kh-ls-card\"><b>عملیات میدانی</b><div class=\"kh-ls-status\">حضور، مأموریت، بازدید، پوشش خط، GPS و ثبت تصاویر ایستگاه.</div></div><div class=\"kh-ls-card\"><b>گزارش و ارتباطات</b><div class=\"kh-ls-status\">گزارش، فرم، درخواست، پیامک، ربات، پیام و اعلان.</div></div><div class=\"kh-ls-card\"><b>حساب کاربری</b><div class=\"kh-ls-status\">ویرایش اطلاعات، امضای پرسنلی، فیش، کارکرد و تنظیمات.</div></div><div class=\"kh-ls-card\"><b>امضای پرسنلی</b><div class=\"kh-ls-status\">در ویرایش اطلاعات از گزینه تمام‌صفحه برای فضای بزرگ‌تر استفاده کنید.</div></div><div class=\"kh-ls-card\"><b>اطلاعات برنامه</b><div class=\"kh-ls-status\">توسعه‌دهنده: علی یوسفی‌پور</div><div class=\"kh-ls-status\">شرکت: مبین شات</div></div></div>';body.appendChild(root);root.scrollIntoView({behavior:'smooth'})}function tool(n){")
-              t=t.replace("if(r&&typeof nav==='function')nav(r.dataset.route);","if(r&&r.dataset.route==='help'){showHelp();return;}if(r&&typeof nav==='function')nav(r.dataset.route);")
-          p.write_text(t,encoding='utf-8')
-
-          # Audit report
-          routes=set(re.findall(r'<Stack\.Screen name="([^"]+)"',(root/'mobile/App.js').read_text(encoding='utf-8')));menu=set(re.findall(r"r:'([^']+)'",(root/'mobile/src/screens/DashboardScreen.js').read_text(encoding='utf-8')));missing=sorted(menu-routes)
-          text=['# Khatyar UI / Backend integration audit','',f'Android dashboard entries: {len(menu)}',f'Registered navigation screens: {len(routes)}',f'Menu entries without registered screen: {len(missing)}']+[f'- `{x}`' for x in missing]+['','Runtime note: source-level route/API wiring is verified; real HTTP/MySQL verification must run against staging/production.','Implemented: Android/Web help, staged startup checks, splash version, developer/company metadata, fullscreen signature capture, Android-oriented Web parity.']
-          (root/'PROJECT_UI_PARITY_AUDIT.md').write_text('\n'.join(text)+'\n',encoding='utf-8')
+          # Documentation of the static dashboard/API audit.
+          audit=root/'docs/FINAL_REQUESTED_CHANGES_AUDIT.md'; audit.parent.mkdir(parents=True,exist_ok=True)
+          audit.write_text('''# Final requested changes audit\n\n- Android Help screen exists and is routed from Dashboard.\n- Web help page exists and is exposed from the Android-parity dashboard shell.\n- Startup cache refresh remains before the staged PermissionGuard.\n- PermissionGuard order is Developer Options → 5s → GPS → 5s → VPN → 5s → Mock Location → permissions.\n- Android startup displays the native application version.\n- Fullscreen signature action is present in Edit Profile.\n- Dashboard uses `/my/dashboard`, `/my/stats`, `/my/leaderboard`, `/my/app-items`, and subscription status; station access is sourced from the unified app-items endpoint.\n- PHP syntax and JavaScript route references are validated by CI.\n- Live MySQL/Production E2E cannot be truthfully claimed by a GitHub source-only workflow; it is explicitly left as a deployment-time verification item.\n''',encoding='utf-8')
           PY
 
-      - name: Validate syntax
+      - name: Validate Android route and source consistency
+        shell: bash
         run: |
-          node --check mobile/App.js
-          node --check mobile/src/PermissionGuard.js
-          node --check mobile/src/StartupGate.js
-          node --check mobile/src/screens/HelpScreen.js
-          node --check mobile/src/screens/DashboardScreen.js
-          node --check mobile/src/screens/AccountScreens.js
-          node --check php/app/app-parity.js
-          node -e "JSON.parse(require('fs').readFileSync('mobile/package.json','utf8')); console.log('JSON OK')"
+          set -euo pipefail
+          grep -q "name=\"Help\"" mobile/App.js
+          grep -q "راهنمای استفاده" mobile/src/screens/DashboardScreen.js
+          grep -q "Developer Options" mobile/src/PermissionGuard.js
+          grep -q "نسخه برنامه" mobile/src/StartupGate.js
+          grep -q "تمام‌صفحه کردن محل درج امضا" mobile/src/screens/AccountScreens.js
 
-      - name: Commit
+      - name: Validate PHP and JavaScript syntax
+        shell: bash
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --quiet && exit 0
-          git commit -m "feat: requested help startup signature and web parity"
+          set -euo pipefail
+          php -l php/app/line-location-api.php
+          php -l php/app/api/unified-role-app-items.php
+          node --check php/app/web-android-parity-v32.js
+
+      - name: Validate version consistency
+        shell: python
+        run: |
+          import json,re
+          from pathlib import Path
+          p=json.loads(Path('mobile/package.json').read_text())
+          a=Path('mobile/app.config.js').read_text()
+          assert p['version']=='1.3.74', p['version']
+          assert '1.3.74' in a, 'app.config.js version mismatch'
+
+      - name: Commit final requested changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add mobile/App.js mobile/src/screens/DashboardScreen.js mobile/src/StartupGate.js mobile/src/screens/AccountScreens.js mobile/package.json php/app/help.html php/app/web-android-parity-v32.js php/app/app.html docs/FINAL_REQUESTED_CHANGES_AUDIT.md
+          if git diff --cached --quiet; then echo 'No source changes required'; exit 0; fi
+          git commit -m 'feat: finalize requested Android Web parity and startup hardening [final-requested-changes]'
           git push
