@@ -9,6 +9,8 @@ RewriteRule ^api/my/app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
 
 # بیسیم واکی‌تاکی: endpoint احراز هویت‌شده روی هاست اشتراکی
 RewriteRule ^api/radio-api\.php$ radio-api.php [QSA,L,NC]
+RewriteRule ^api/radio-api-v2\.php$ radio-api-v2.php [QSA,L,NC]
+RewriteRule ^api/radio-admin-api\.php$ radio-admin-api.php [QSA,L,NC]
 
 # گزارش ثبت‌های ایستگاه: سازگاری با کلاینت‌های قدیمی که capture-report را صدا می‌زنند
 RewriteCond %{QUERY_STRING} (^|&)op=capture-report(&|$) [NC]
