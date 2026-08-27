@@ -1,36 +1,34 @@
 // Khatyar global Myket/local Maven init for the main build and all included builds.
-//
-// The Android build must remain usable in Iran where direct access to some
-// upstream services is unreliable. Expo SDK packages intentionally ship a
-// local-maven-repo directory; use those artifacts before any network repository.
-// Myket is the preferred network mirror, followed by Google/Maven Central as
-// fallbacks. The build script sets KHATYAR_NODE_MODULES to mobile/node_modules.
+// Expo SDK packages ship local-maven-repo artifacts. They must be searched before
+// network repositories so Android builds remain usable under Iranian network limits.
+// build-release.ps1 sets KHATYAR_NODE_MODULES to mobile/node_modules.
 
 final String myketUrl = 'https://maven.myket.ir/'
 final String nodeModules = System.getenv('KHATYAR_NODE_MODULES') ?: ''
 
-String normalizePath(String value) {
-    value.replace('\\', '/')
+List<File> findLocalMavenRepos() {
+    if (!nodeModules) return []
+    def root = new File(nodeModules)
+    if (!root.isDirectory()) return []
+    def result = []
+    root.eachFileRecurse { file ->
+        if (file.isDirectory() && file.name == 'local-maven-repo') result << file
+    }
+    return result
 }
 
 def addLocalExpoRepos = { repos ->
-    if (!nodeModules) return
-    def root = new File(nodeModules)
-    if (!root.exists()) return
-
-    // Expo packages publish their Android Maven artifacts inside the npm
-    // package. This is the critical offline/IR-safe source for
-    // host.exp.exponent:expo.modules.* artifacts.
-    root.eachDir { dir ->
-        def localRepo = new File(dir, 'local-maven-repo')
-        if (localRepo.isDirectory()) {
-            def repoName = 'ExpoLocal_' + dir.name.replaceAll('[^A-Za-z0-9_]', '_')
-            if (repos.findByName(repoName) == null) {
-                repos.maven {
-                    name = repoName
-                    url = localRepo.toURI()
-                    metadataSources { gradleMetadata(); mavenPom(); artifact() }
-                }
+    findLocalMavenRepos().eachWithIndex { localRepo, index ->
+        def relative = localRepo.absolutePath
+            .replace(new File(nodeModules).absolutePath, '')
+            .replaceAll('^[\\/]+', '')
+            .replaceAll('[^A-Za-z0-9_]+', '_')
+        def repoName = 'ExpoLocal_' + index + '_' + relative
+        if (repos.findByName(repoName) == null) {
+            repos.maven {
+                name = repoName
+                url = localRepo.toURI()
+                metadataSources { gradleMetadata(); mavenPom(); artifact() }
             }
         }
     }
@@ -52,7 +50,6 @@ def addStandardRepos = { repos, includePluginPortal = false ->
     if (includePluginPortal && repos.findByName('GradlePluginPortal') == null) repos.gradlePluginPortal()
 }
 
-// Root settings and every included build (Expo/RN Gradle plugins).
 beforeSettings { settings ->
     settings.pluginManagement.repositories {
         mavenLocal()
@@ -60,7 +57,6 @@ beforeSettings { settings ->
         addMyket(delegate)
         addStandardRepos(delegate, true)
     }
-
     try {
         settings.dependencyResolutionManagement.repositories {
             mavenLocal()
@@ -71,7 +67,6 @@ beforeSettings { settings ->
     } catch (ignored) { }
 }
 
-// Main project and included builds which still declare repositories at project level.
 beforeProject { project ->
     project.buildscript.repositories {
         mavenLocal()
