@@ -10,6 +10,7 @@ try { ImageManipulator = require('expo-image-manipulator'); } catch (_error) { I
 
 // دوربین سلفی مشترک برای تغییر عکس پروفایل و صحت‌سنجی حضور.
 // انتخاب از گالری عمداً در این مسیر وجود ندارد؛ تصویر فقط از CameraView گرفته می‌شود.
+// Keep this component syntactically self-contained so release Babel/Metro cannot consume a partial JSX edit.
 export default function PersonalPhotoCapture({
   onCapture,
   onCancel,
