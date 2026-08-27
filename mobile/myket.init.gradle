@@ -1,12 +1,21 @@
 // Khatyar Gradle repository policy for the main Android build and all included builds.
-// Expo SDK packages ship local-maven-repo artifacts. They are searched first so
-// builds remain usable when upstream Maven services are restricted in Iran.
+// Primary/official sources are kept for compatibility, while accessible mirrors are
+// placed before them so Android/Gradle dependencies can be resolved in restricted
+// network environments such as Iran.
 
 final String myketUrl = 'https://maven.myket.ir/'
+final String aliyunGoogleUrl = 'https://maven.aliyun.com/repository/google'
+final String aliyunPublicUrl = 'https://maven.aliyun.com/repository/public'
+final String aliyunGradlePluginUrl = 'https://maven.aliyun.com/repository/gradle-plugin'
+
+// Huawei Cloud maintains a public Maven mirror and is used only as an additional
+// fallback. It is deliberately after Myket/Aliyun and before the official hosts.
+final String huaweiPublicUrl = 'https://repo.huaweicloud.com/repository/maven/'
+final String huaweiGoogleUrl = 'https://repo.huaweicloud.com/repository/maven-google/'
 
 def findNodeModules = { settingsDir ->
     File current = settingsDir
-    for (int i = 0; i < 6 && current != null; i++) {
+    for (int i = 0; i < 8 && current != null; i++) {
         File candidate = new File(current, 'node_modules')
         if (candidate.isDirectory()) return candidate
         current = current.parentFile
@@ -22,6 +31,16 @@ def findLocalMavenRepos = { settingsDir ->
         if (file.isDirectory() && file.name == 'local-maven-repo') result << file
     }
     return result
+}
+
+def addMaven = { repos, name, urlString ->
+    if (repos.findByName(name) == null) {
+        repos.maven {
+            name = name
+            url = uri(urlString)
+            metadataSources { gradleMetadata(); mavenPom(); artifact() }
+        }
+    }
 }
 
 def addLocalExpoRepos = { repos, settingsDir ->
@@ -40,14 +59,19 @@ def addLocalExpoRepos = { repos, settingsDir ->
     }
 }
 
-def addMyket = { repos ->
-    if (repos.findByName('MyketMirror') == null) {
-        repos.maven {
-            name = 'MyketMirror'
-            url = uri(myketUrl)
-            metadataSources { gradleMetadata(); mavenPom(); artifact() }
-        }
-    }
+def addMirrors = { repos, includePluginPortal = false ->
+    // Myket is the project's primary mirror.
+    addMaven(repos, 'MyketMirror', myketUrl)
+
+    // Aliyun mirrors Google's Android Maven, Maven Central/public artifacts and
+    // the Gradle Plugin Portal. This is important when dl.google.com is blocked.
+    addMaven(repos, 'AliyunGoogleMirror', aliyunGoogleUrl)
+    addMaven(repos, 'AliyunPublicMirror', aliyunPublicUrl)
+    if (includePluginPortal) addMaven(repos, 'AliyunGradlePluginMirror', aliyunGradlePluginUrl)
+
+    // Secondary public fallback.
+    addMaven(repos, 'HuaweiGoogleMirror', huaweiGoogleUrl)
+    addMaven(repos, 'HuaweiPublicMirror', huaweiPublicUrl)
 }
 
 def addStandardRepos = { repos, includePluginPortal = false ->
@@ -60,28 +84,36 @@ beforeSettings { settings ->
     settings.pluginManagement.repositories {
         mavenLocal()
         addLocalExpoRepos(delegate, settings.settingsDir)
-        addMyket(delegate)
+        addMirrors(delegate, true)
         addStandardRepos(delegate, true)
     }
     try {
         settings.dependencyResolutionManagement.repositories {
             mavenLocal()
             addLocalExpoRepos(delegate, settings.settingsDir)
-            addMyket(delegate)
+            addMirrors(delegate, false)
             addStandardRepos(delegate, false)
         }
     } catch (ignored) { }
 }
 
-// Only buildscript repositories are added at project level. Normal dependencies
-// are intentionally resolved from settings repositories to respect Gradle's
-// repositoriesMode=PREFER_SETTINGS and avoid duplicate repository warnings.
 beforeProject { project ->
     def settingsDir = project.rootProject.projectDir
     project.buildscript.repositories {
         mavenLocal()
         addLocalExpoRepos(delegate, settingsDir)
-        addMyket(delegate)
+        addMirrors(delegate, true)
         addStandardRepos(delegate, true)
     }
+
+    // Some Expo/RN included builds declare repositories at project level. Add the
+    // same mirrors there as well, otherwise Gradle can resolve from Google/Central
+    // only and fail on com.android.tools.build:gradle when those hosts are blocked.
+    try {
+        project.repositories {
+            addLocalExpoRepos(delegate, settingsDir)
+            addMirrors(delegate, false)
+            addStandardRepos(delegate, false)
+        }
+    } catch (ignored) { }
 }
