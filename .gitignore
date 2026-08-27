@@ -7,7 +7,7 @@ project_structure.txt
 project_structure_clean.txt
 
 # ========== موبایل (Expo / React Native) ==========
-mobile/.build-logs/
+
 mobile/.expo/
 mobile/.expo-shared/
 mobile/.build-state.json
