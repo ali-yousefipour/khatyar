@@ -6,7 +6,7 @@
 final String myketUrl = 'https://maven.myket.ir/'
 final String nodeModules = System.getenv('KHATYAR_NODE_MODULES') ?: ''
 
-List<File> findLocalMavenRepos() {
+def findLocalMavenRepos = {
     if (!nodeModules) return []
     def root = new File(nodeModules)
     if (!root.isDirectory()) return []
