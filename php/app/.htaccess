@@ -7,13 +7,17 @@ RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 RewriteRule ^api/admin/role-app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
 RewriteRule ^api/my/app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
 
+# بیسیم واکی‌تاکی: endpoint احراز هویت‌شده روی هاست اشتراکی
+RewriteRule ^api/radio-api\.php$ radio-api.php [QSA,L,NC]
+
 # گزارش ثبت‌های ایستگاه: سازگاری با کلاینت‌های قدیمی که capture-report را صدا می‌زنند
 RewriteCond %{QUERY_STRING} (^|&)op=capture-report(&|$) [NC]
 RewriteRule ^line-station-api\.php$ station-capture-report.php [QSA,L]
 RewriteRule ^line-station-api\.php$ line-station-api-v2.php [QSA,L]
 
-# فایل‌های آپلودی ایستگاه هرگز مستقیماً عمومی نباشند؛ از endpoint احراز هویت‌شده استفاده شود.
+# فایل‌های آپلودی ایستگاه و بیسیم هرگز مستقیماً عمومی نباشند؛ از endpoint احراز هویت‌شده استفاده شود.
 RewriteRule ^uploads/line-locations(?:/|$) - [F,L,NC]
+RewriteRule ^uploads/radio(?:/|$) - [F,L,NC]
 
 # فایل‌های واقعی مستقیم سرو شوند
 RewriteCond %{REQUEST_FILENAME} -f
@@ -36,7 +40,7 @@ ServerSignature Off
   Header always set X-Frame-Options "SAMEORIGIN"
   Header always set Content-Security-Policy "frame-ancestors 'self'"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
-  Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=(self)"
+  Header always set Permissions-Policy "camera=(self), microphone=(self), geolocation=(self)"
   Header always set Cross-Origin-Resource-Policy "same-origin"
   Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" "expr=%{HTTPS} == 'on'"
 </IfModule>
