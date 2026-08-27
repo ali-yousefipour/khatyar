@@ -1,0 +1,21 @@
+﻿Final status: success
+Started: 2026-07-20T02:07:34
+Ended: 2026-07-20T02:29:46
+Elapsed seconds: 1331.6
+APK: F:\taxi-system\mobile\android\app\build\outputs\apk\release\app-arm64-v8a-release.apk
+AAB: 
+
+[success] preflight | registry= | exit=0 | 0s | Node=v22.23.1; Java=17
+[success] npm-ci | registry= | exit=0 | 27.3s | Completed
+[success] version-compatibility | registry= | exit=0 | 0.1s | Completed
+[success] babel-validation | registry= | exit=0 | 1.7s | Completed
+[success] prebuild-process-stop | registry= | exit=0 | 0s | No project-scoped Java or Node process required termination.
+[success] android-cleanup | registry= | exit=0 | 0s | Android directory removed; running fresh native generation.
+[success] expo-prebuild | registry= | exit=0 | 7.2s | Completed
+[success] expo-local-maven-validation | registry= | exit=0 | 0.1s | Completed
+[success] gradle-wrapper-source | registry= | exit=0 | 0.1s | Completed
+[success] android-sdk-catalog | registry= | exit=0 | 0s | Android SDK catalog ready: F:\taxi-system\mobile\config\myket-sdk-required-windows.csv; platforms;android-36=https://maven.myket.ir/android-sdk/platform-36_r02.zip; build-tools;36.0.0=https://maven.myket.ir/android-sdk/build-tools_r36_windows.zip; platform-tools=https://maven.myket.ir/android-sdk/platform-tools_r37.0.0-win.zip; cmdline-tools;20.0=https://maven.myket.ir/android-sdk/commandlinetools-win-14742923_latest.zip; cmake;3.22.1=https://maven.myket.ir/android-sdk/cmake-3.22.1-windows.zip
+[success] myket-repository | registry= | exit=0 | 0s | Myket Maven will be used first for the main build and all included builds: F:\taxi-system\mobile\myket.init.gradle
+[warning] gradle-init-isolation | registry= | exit=0 | 0s | Bypassed global Gradle init scripts: C:\Users\Administrator\.gradle\init.d\myket.init.gradle
+[success] gradle-assemble-release | registry= | exit=0 | 1287.4s | Completed
+[success] collect-artifacts | registry= | exit=0 | 0s | APKs=F:\taxi-system\mobile\android\app\build\outputs\apk\release\app-arm64-v8a-release.apk; F:\taxi-system\mobile\android\app\build\outputs\apk\release\app-armeabi-v7a-release.apk; F:\taxi-system\mobile\android\app\build\outputs\apk\release\app-universal-release.apk

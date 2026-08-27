@@ -1,0 +1,19 @@
+{
+  "brand": "#0e8a6a",
+  "brandDark": "#0a6e54",
+  "accent": "#f7c531",
+  "ink": "#0f1d33",
+  "paper": "#eef2f8",
+  "line": "#e6ecf4",
+  "muted": "#6c7a93",
+  "menuItemHeight": 54,
+  "menuIconSize": 24,
+  "spacing": [
+    8,
+    12,
+    16,
+    24
+  ],
+  "accordionDurationMs": 230,
+  "fontFamily": "Vazirmatn"
+}

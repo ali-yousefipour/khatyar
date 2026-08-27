@@ -1,0 +1,27 @@
+# v140 — نمایش مستقیم و کنترل‌شده مدارک درخواست شرکت
+Options -Indexes -ExecCGI
+RemoveHandler .php .phtml .phar .cgi .pl .py .sh
+RemoveType .php .phtml .phar .cgi .pl .py .sh
+
+<IfModule mod_authz_core.c>
+  <FilesMatch "\.(?:jpe?g|png|webp|gif|pdf)$">
+    Require all granted
+  </FilesMatch>
+  <FilesMatch "\.(?:php\d*|phtml|phar|cgi|pl|py|sh|htaccess|ini|log|sql)$">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+
+<IfModule !mod_authz_core.c>
+  Order Deny,Allow
+  Deny from all
+  <FilesMatch "\.(?:jpe?g|png|webp|gif|pdf)$">
+    Allow from all
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'none'; sandbox"
+  Header set Cache-Control "private, max-age=300"
+</IfModule>

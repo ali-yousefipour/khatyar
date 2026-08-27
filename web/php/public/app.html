@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0d7a5f">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>مدیریت خطوط تاکسیرانی</title>
+<link href="vendor/vazirmatn/Vazirmatn-font-face.css" rel="stylesheet" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css'">
+<script>
+(function(){ try{
+  fetch('vendor/vazirmatn/Vazirmatn-font-face.css', {method:'HEAD', cache:'no-store'})
+    .then(function(r){ if(!r.ok){ fetch('setup-libs.php?auto=1').catch(function(){}); } })
+    .catch(function(){});
+}catch(e){} })();
+</script><style>
+  :root{--ink:#0f1b2d;--paper:#f4f6fb;--line:#e4e9f2;--muted:#6b7890;--brand:#0d7a5f;--brand2:#0a5f4a;--taxi:#f6c324;--taxiInk:#5a4500;--danger:#e23b54;--ok:#16a06a;--win:#b4e1eb}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:Vazirmatn,system-ui,sans-serif;background:var(--paper);color:var(--ink);max-width:480px;margin:0 auto;min-height:100vh}
+  .app{display:flex;flex-direction:column;min-height:100vh}
+  .offline{background:var(--danger);color:#fff;font-size:12px;font-weight:700;text-align:center;padding:6px;display:none}
+  .offline.on{display:block}
+  .hdr{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;padding:15px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
+  .hdr .ic{font-size:21px;cursor:pointer;width:26px;background:none;border:0;color:#fff}
+  .hdr .ttl{font-weight:800;font-size:15px;flex:1}
+  .hdr .bell{font-size:18px;cursor:pointer;position:relative;background:none;border:0;color:#fff}
+  .hdr .bell .dot{position:absolute;top:-5px;left:-7px;background:var(--taxi);color:var(--taxiInk);font-size:9px;font-weight:800;border-radius:99px;padding:0 4px;display:none}
+  .body{flex:1;overflow:auto;padding:16px;padding-bottom:80px}
+  .label{color:var(--muted);font-size:12.5px;margin:10px 2px 6px;text-align:right;display:block}
+  .inp{background:#fff;border:1px solid var(--line);border-radius:13px;padding:12px;font:inherit;font-size:14px;width:100%;text-align:right;color:var(--ink)}
+  .btn{background:var(--brand);color:#fff;border:0;border-radius:14px;padding:14px;font:inherit;font-weight:800;font-size:15px;width:100%;cursor:pointer;margin-top:14px}
+  .btn.taxi{background:var(--taxi);color:var(--taxiInk)} .btn.ghost{background:#eef1f7;color:var(--ink)}
+  .btn:disabled{opacity:.6}
+  .card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:14px;margin-bottom:11px}
+  .row{display:flex;align-items:center;gap:10px}.between{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .pf{width:46px;height:46px;border-radius:13px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800;font-size:18px;flex:0 0 auto}
+  .muted{color:var(--muted);font-size:12px}
+  .chip{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 8px 8px;cursor:pointer;font-size:12.5px}
+  .chip.on{background:var(--brand);color:#fff;border-color:var(--brand)} .chip small{display:block;font-size:10px;opacity:.7}
+  .chip.taxi.on{background:var(--taxi);color:var(--taxiInk);border-color:var(--taxi)}
+  .badge{font-size:11px;padding:2px 9px;border-radius:99px;font-weight:700}
+  .b-ok{background:#e3f6ec;color:var(--ok)}.b-no{background:#fde6ea;color:var(--danger)}
+  .hero{background:linear-gradient(135deg,var(--brand),var(--brand2));margin:-16px -16px 14px;padding:18px 16px 20px;color:#fff}
+  .hero .nm{font-size:17px;font-weight:800}.hero .hi{font-size:12px;opacity:.85}
+  .start{background:var(--taxi);color:var(--taxiInk);border:0;border-radius:14px;padding:12px;font:inherit;font-weight:800;width:100%;margin-top:14px;cursor:pointer}
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}
+  .kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px}.kpi .n{font-size:21px;font-weight:800}.kpi .l{font-size:11px;color:var(--muted)}
+  .item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:9px;font-weight:700;font-size:13.5px;cursor:pointer;display:flex;gap:10px;align-items:center}
+  .item:active{border-color:var(--brand)} .item.dis{opacity:.45}
+  .warn{background:#fde6ea;color:var(--danger);border-radius:11px;padding:9px 11px;font-size:12.5px;font-weight:700;margin-top:11px}
+  .acts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+  .act{border:1px solid var(--line);background:#fff;border-radius:14px;padding:14px;text-align:center;font-size:12.5px;font-weight:700;cursor:pointer}
+  .act .em{font-size:20px;display:block;margin-bottom:5px}.act.primary{background:var(--brand);color:#fff;border-color:var(--brand)}.act.taxi{background:var(--taxi);color:var(--taxiInk);border-color:var(--taxi)}
+  .opt{border:1px solid var(--line);border-radius:10px;padding:9px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;flex:1}
+  .opt.on{background:var(--ok);color:#fff;border-color:var(--ok)}.opt.bad.on{background:var(--danger);border-color:var(--danger)}
+  .redcount{background:var(--danger);color:#fff;border-radius:11px;padding:10px;font-size:12.5px;font-weight:800;text-align:center;margin-bottom:11px}
+  .pay{background:var(--brand);color:#fff;border:0;border-radius:10px;padding:8px 14px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .bar{display:flex;align-items:center;gap:8px;margin-bottom:9px}.bar .nm{width:100px;font-size:11.5px;text-align:right}
+  .bar .track{flex:1;height:13px;background:#eef1f7;border-radius:7px;overflow:hidden}.bar .fill{height:13px;background:var(--brand);border-radius:7px}.bar .v{width:26px;font-size:11px;font-weight:800;color:var(--muted)}
+  .notif{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;border-right:4px solid var(--danger)}
+  .footer{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;border-top:1px solid var(--line);background:#fff;display:flex;justify-content:space-around;padding:8px 0;z-index:6}
+  .footer button{background:0;border:0;font:inherit;font-size:11px;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+  .footer button.on{color:var(--brand);font-weight:800}.footer .fi{font-size:17px}
+  .drawer{position:fixed;inset:0;max-width:480px;margin:0 auto;background:rgba(15,27,45,.45);display:none;z-index:9}
+  .drawer.on{display:block}.drawer .panel{position:absolute;top:0;right:0;bottom:0;width:78%;background:#fff;padding:18px;overflow:auto}
+  .drawer .uhead{background:var(--brand);color:#fff;border-radius:14px;padding:14px;margin-bottom:14px}
+  .ditem{padding:12px 8px;border-bottom:1px solid var(--line);font-size:13.5px;cursor:pointer;display:flex;gap:10px}
+  .toast{position:fixed;bottom:78px;left:16px;right:16px;max-width:448px;margin:0 auto;background:#0f1b2d;color:#fff;padding:13px;border-radius:12px;text-align:center;font-size:13px;z-index:30;opacity:0;transition:.2s;pointer-events:none}
+  .toast.on{opacity:1}
+  .center{display:grid;place-items:center;min-height:60vh;text-align:center;padding:20px}
+  .lg{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--brand),var(--brand2));display:grid;place-items:center;font-weight:800;font-size:26px;color:#fff;margin:0 auto}
+  .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:s 1s linear infinite;margin:30px auto}@keyframes s{to{transform:rotate(360deg)}}
+
+
+/* اصلاحات واکنش‌گرایی و خوانایی افزوده‌شده */
+*{box-sizing:border-box}
+html,body,#app{max-width:100%;overflow-x:hidden}
+img,svg,canvas,video{max-width:100%;height:auto}
+input,select,textarea,button{font-family:inherit;max-width:100%}
+.card,.item,.kpi,.panel{max-width:100%;overflow-wrap:anywhere}
+.table-wrap,table{max-width:100%}
+@media(max-width:560px){
+  .body{padding-left:12px!important;padding-right:12px!important}
+  .hdr{padding-left:10px!important;padding-right:10px!important}
+  .kpis{grid-template-columns:1fr 1fr!important;gap:8px!important}
+  .kpi{padding:12px!important}
+  .row{flex-wrap:wrap!important}
+  .btn,.inp,input,select,textarea{min-height:42px!important;font-size:14px!important}
+  table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+}
+@media(max-width:380px){.kpis{grid-template-columns:1fr!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="offline" id="offline">حالت آفلاین — موارد در صف ارسال</div>
+  <div class="hdr" id="hdr" style="display:none">
+    <button class="ic" id="hdrIc" onclick="hdrAction()">☰</button>
+    <span class="ttl" id="hdrTtl">داشبورد</span>
+    <button class="bell" onclick="nav('messages')">✉<span class="dot" id="msgDot">۰</span></button>
+    <button class="bell" onclick="nav('notifications')">🔔<span class="dot" id="bellDot">۰</span></button>
+  </div>
+  <div class="body" id="body"><div class="spin"></div></div>
+  <div class="footer" id="footer" style="display:none"></div>
+  <div class="drawer" id="drawer" onclick="if(event.target.id==='drawer')closeDrawer()"><div class="panel" id="drawerPanel"></div></div>
+  <div class="toast" id="toast"></div>
+</div>
+<script>
+const API='/api';
+const _apiCache={};
+const _apiTTL={'/settings/public':300000,'/my/dashboard':30000,'/my/stats':60000,'/my/lines':180000,'/notice-reasons':300000,'/officials':180000};
+function _ttlFor(p){ for(const k in _apiTTL){ if(p===k || p.startsWith(k+'?')) return _apiTTL[k]; } return 0; }
+function _clearApiCache(){ for(const k in _apiCache) delete _apiCache[k]; }
+const store={get:k=>localStorage.getItem(k),set:(k,v)=>localStorage.setItem(k,v),del:k=>localStorage.removeItem(k)};
+if(!store.get('device_id')) store.set('device_id','web-'+Math.random().toString(36).slice(2)+Date.now().toString(36));
+let USER=null, current='dashboard', tmp={}, BRAND={title:'مدیریت خطوط تاکسیرانی',logo:''};
+function starsForUser(u){ const custom=(u&&u.rank_stars!==null&&u.rank_stars!==undefined)?Number(u.rank_stars):null; if(custom!==null&&!Number.isNaN(custom))return '★'.repeat(Math.max(0,Math.min(5,custom))); const r=String((u&&u.role)||''); if(r.includes('سربازرس'))return '★★★★'; if(r.includes('بازرس'))return '★★'; if(r.includes('ناظر خط')||r.includes('اپراتور'))return '★'; return ''; }
+async function loadBrand(){ try{ const b=await GET('/settings/public'); BRAND={title:b.site_title||b.org_title||BRAND.title,logo:b.site_logo||b.org_logo||''}; document.title=BRAND.title; }catch(e){} }
+
+// ---- API helpers ----
+async function api(path,opt={}){
+  const r=await fetch(API+path,{...opt,headers:{'Content-Type':'application/json',...(store.get('token')?{Authorization:'Bearer '+store.get('token')}:{}),...(opt.headers||{})}});
+  if(r.status===401){ logout(); throw new Error('نشست منقضی شد'); }
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||'خطای سرور');
+  return d;
+}
+async function GET(p){
+  const ttl=_ttlFor(p);
+  if(ttl && _apiCache[p] && Date.now()-_apiCache[p].t<ttl) return _apiCache[p].v;
+  const v=await api(p);
+  if(ttl) _apiCache[p]={t:Date.now(),v};
+  return v;
+}
+const POST=async(p,b)=>{ const r=await api(p,{method:'POST',body:JSON.stringify(b||{})}); _clearApiCache(); return r; };
+// ارسال یا صف آفلاین
+async function postOrQueue(p,b){
+  try{ return await POST(p,b); }
+  catch(e){ if(!navigator.onLine){ const q=JSON.parse(store.get('queue')||'[]'); q.push({p,b}); store.set('queue',JSON.stringify(q)); refreshOffline(); return {queued:true}; } throw e; }
+}
+async function flushQueue(){
+  let q=JSON.parse(store.get('queue')||'[]'); if(!q.length) return;
+  const keep=[]; for(const it of q){ try{ await POST(it.p,it.b); }catch{ keep.push(it); } }
+  store.set('queue',JSON.stringify(keep)); refreshOffline();
+}
+function refreshOffline(){ const q=JSON.parse(store.get('queue')||'[]'); const el=document.getElementById('offline');
+  el.classList.toggle('on', !navigator.onLine || q.length>0); el.textContent=`حالت آفلاین — ${toFa(q.length)} مورد در صف ارسال`; }
+window.addEventListener('online',()=>{refreshOffline();flushQueue();});
+window.addEventListener('offline',refreshOffline);
+
+function toFa(n){return String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);}
+function applyFont(){ const sc=parseFloat(store.get('fontScale')||'1')||1; document.documentElement.style.fontSize=(16*sc)+'px'; }
+function setFont(dir){ let sc=parseFloat(store.get('fontScale')||'1')||1; if(dir===0)sc=1; else sc=Math.min(1.5,Math.max(0.85,sc+dir*0.1)); store.set('fontScale',String(sc)); applyFont(); toast('اندازهٔ فونت تغییر کرد'); }
+function _g2j(gy,gm,gd){
+  const gdm=[0,31,59,90,120,151,181,212,243,273,304,334], gy2=gm>2?gy+1:gy;
+  let days=355666+365*gy+Math.floor((gy2+3)/4)-Math.floor((gy2+99)/100)+Math.floor((gy2+399)/400)+gd+gdm[gm-1];
+  let jy=-1595+33*Math.floor(days/12053); days%=12053; jy+=4*Math.floor(days/1461); days%=1461;
+  if(days>365){jy+=Math.floor((days-1)/365);days=(days-1)%365;}
+  let jm,jd; if(days<186){jm=1+Math.floor(days/31);jd=1+days%31;}else{jm=7+Math.floor((days-186)/30);jd=1+(days-186)%30;}
+  return [jy,jm,jd];
+}
+function _p2(n){return String(n).padStart(2,'0');}
+function fj(s){
+  if(!s)return '';
+  try{
+    const raw=String(s).trim(), m=raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2}))?/);
+    let Y,M,D,h=0,mi=0;
+    const hasZone=/(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+    if(m&&!hasZone){Y=+m[1];M=+m[2];D=+m[3];h=+(m[4]||0);mi=+(m[5]||0);}
+    else{const d=new Date(raw.replace(' ','T'));if(isNaN(d))return raw;const t=new Date(d.getTime()+210*60000);Y=t.getUTCFullYear();M=t.getUTCMonth()+1;D=t.getUTCDate();h=t.getUTCHours();mi=t.getUTCMinutes();}
+    const j=_g2j(Y,M,D); return toFa(`${j[0]}/${_p2(j[1])}/${_p2(j[2])} ${_p2(h)}:${_p2(mi)}`);
+  }catch(e){return String(s);}
+}
+
+function geo(){return new Promise(res=>{ if(!navigator.geolocation)return res({}); navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude}),()=>res({}),{timeout:6000}); });}
+function gpsAvailable(){return new Promise(res=>{ if(!navigator.geolocation)return res(false); navigator.geolocation.getCurrentPosition(()=>res(true),()=>res(false),{timeout:6000}); });}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1800);}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+// ---- auth ----
+async function doLogin(){
+  const u=document.getElementById('u').value.trim(), p=document.getElementById('p').value, e=document.getElementById('err');
+  e.textContent='در حال بررسی موقعیت…';
+  const gps=await gpsAvailable();
+  if(!gps){ e.textContent='برای ورود باید دسترسی موقعیت (GPS) را اجازه دهید.'; return; }
+  e.textContent='در حال ورود…';
+  try{
+    const d=await POST('/auth/login',{username:u,password:p,device_id:store.get('device_id'),gps_on:true,vpn_on:false,dev_options_on:false,device_type:'web',device_model:'WebApp '+navigator.platform});
+    store.set('token',d.access); store.set('refresh',d.refresh); store.set('user',JSON.stringify(d.user)); USER=d.user;
+    nav('dashboard');
+  }catch(err){ e.textContent=err.message; }
+}
+let _resetUser='';
+async function doForgot(){ const v=document.getElementById('fu').value.trim(); const e=document.getElementById('ferr'); if(!v){e.textContent='نام کاربری را وارد کنید';return;} e.textContent='در حال ارسال…'; try{ await POST('/auth/forgot-password',{username:v}); _resetUser=v; e.textContent='کد بازیابی پیامک شد.'; nav('reset'); }catch(err){ e.textContent=err.message; } }
+async function doReset(){ const c=document.getElementById('rc').value.trim(); const p=document.getElementById('rp').value; const e=document.getElementById('rerr'); if(!c||p.length<6){e.textContent='کد و رمز جدید (حداقل ۶ کاراکتر) را وارد کنید';return;} e.textContent='در حال ثبت…'; try{ await POST('/auth/reset-password',{username:_resetUser,code:c,password:p}); toast('رمز تغییر کرد؛ وارد شوید'); nav('login'); }catch(err){ e.textContent=err.message; } }
+function logout(){ store.del('token');store.del('refresh');store.del('user');USER=null;current='login';render(); }
+
+// ---- screens ----
+const screens={
+  forgot:async()=>{ chrome(false); return `<div class="center"><div><div class="lg">ت</div><h3 style="margin-top:14px">بازیابی رمز عبور</h3><p class="muted">نام کاربری (کد ملی) خود را وارد کنید؛ کد بازیابی به موبایل ثبت‌شده پیامک می‌شود.</p></div></div>
+    <label class="label">نام کاربری (کد ملی)</label><input class="inp" id="fu" inputmode="numeric">
+    <div id="ferr" style="color:var(--muted);font-size:12.5px;margin-top:8px;text-align:center"></div>
+    <button class="btn" onclick="doForgot()">ارسال کد بازیابی</button>
+    <button class="btn ghost" onclick="nav('login')">بازگشت به ورود</button>`; },
+  reset:async()=>{ chrome(false); return `<div class="center"><div><div class="lg">ت</div><h3 style="margin-top:14px">تغییر رمز عبور</h3><p class="muted">کد پیامک‌شده و رمز جدید را وارد کنید.</p></div></div>
+    <label class="label">کد بازیابی</label><input class="inp" id="rc" inputmode="numeric">
+    <label class="label">رمز عبور جدید</label><input class="inp" id="rp" type="password">
+    <div id="rerr" style="color:var(--muted);font-size:12.5px;margin-top:8px;text-align:center"></div>
+    <button class="btn" onclick="doReset()">تغییر رمز</button>
+    <button class="btn ghost" onclick="nav('login')">بازگشت به ورود</button>`; },
+
+  login:async()=>{ chrome(false); return `<div class="center"><div>${BRAND.logo?`<img src="${esc(BRAND.logo)}" style="width:64px;height:64px;object-fit:contain;border-radius:16px;background:#fff;padding:5px;border:1px solid var(--line)">`:`<div class="lg">ت</div>`}
+    <h3 style="margin-top:14px">${esc(BRAND.title||'مدیریت خطوط تاکسیرانی')}</h3><p class="muted">مشهد — نسخهٔ وب</p></div></div>
+    <label class="label">نام کاربری (کد ملی)</label><input class="inp" id="u" inputmode="numeric">
+    <label class="label">رمز عبور</label><input class="inp" id="p" type="password">
+    <div id="err" style="color:var(--danger);font-size:12.5px;margin-top:8px;text-align:center"></div>
+    <button class="btn" onclick="doLogin()">ورود</button>
+    <button class="btn ghost" onclick="nav('forgot')" style="margin-top:8px">رمز عبور را فراموش کرده‌ام</button>
+    <p class="muted" style="text-align:center;margin-top:14px">ورود نیازمند روشن‌بودن موقعیت (GPS) است.</p>`; },
+
+  dashboard:async()=>{ chrome(true,'داشبورد','menu');
+    const [s,st]=await Promise.all([GET('/my/dashboard').catch(()=>({today:0,checklists:0,notices:0,reports:0,unread:0})),GET('/my/stats').catch(()=>({drivers:0,vehicles:0}))]);
+    bell(s.unread); msgBadge(s.unread_messages); INBOX_N=s.inbox_reports||0;
+    const K=[['رانندگان خطوط شما',st.drivers],['خودروهای خطوط شما',st.vehicles],['حضور امروز',s.today],['چک‌لیست این ماه',s.checklists]];
+    return `<div class="hero"><div class="hi">روز بخیر،</div><div class="nm">${starsForUser(USER)?`<span style="color:#b7791f">${starsForUser(USER)}</span> `:''}${esc(USER.name)} — ${esc(USER.role)}${starsForUser(USER)?` <span style="color:#b7791f">${starsForUser(USER)}</span>`:''}</div></div>
+      <div class="kpis">${K.map(([l,n])=>`<div class="kpi"><div class="n">${toFa(n)}</div><div class="l">${l}</div></div>`).join('')}</div>
+      <div class="item" onclick="nav('search')">🔍 جستجوی تاکسی و تاکسیران</div>
+      <div class="item" onclick="nav('present')">🧍 حاضرین در خط</div>
+      <div class="item" onclick="nav('official')">👤 ثبت حضور مسئولین در خط</div>
+      <div class="item" onclick="nav('forms')">▤ تکمیل فرم‌ها</div>
+      <div class="item" onclick="nav('reports')">✉ ارسال گزارش</div>
+      <div class="item" onclick="nav('inbox')">📥 گزارشات دریافتی${INBOX_N>0?` <span class="badge taxi">${toFa(INBOX_N)}</span>`:''}</div>
+      <div class="label" style="margin-top:6px">گزارش‌های خط‌محور</div>
+      <div class="item" onclick="nav('activity')">📊 پرکارترین و کم‌کارترین راننده هر خط</div>
+      <div class="item" onclick="nav('expInsurance')">🛡 وضعیت بیمه و معاینه خودروها</div>
+      <div class="item" onclick="nav('expTaxi')">⛔ افراد فاقد اعتبار (پروانه تاکسیرانی)</div>
+      <div class="item" onclick="nav('expOplic')">🚖 خودروهای فاقد بهره‌برداری معتبر</div>
+      ${canSeeTeam()?`<div class="item" onclick="nav('team')">👥 زیرمجموعهٔ من (بازرسین/ناظران/اپراتورها)</div>`:''}`; },
+
+  team:async()=>{ chrome(true,'زیرمجموعهٔ من','back'); const d=await GET('/my/team').catch(()=>({groups:{},counts:{},busiest:null,idlest:null}));
+    const groups=Object.entries(d.groups||{});
+    let html='';
+    if(d.busiest||d.idlest){ html+=`<div class="card"><b>کارایی زیرمجموعه</b>`;
+      if(d.busiest)html+=`<div class="between" style="margin-top:6px"><span style="color:var(--ok)">پرکارترین: ${esc(d.busiest.name)}</span><span>${toFa(d.busiest.total)}</span></div>`;
+      if(d.idlest)html+=`<div class="between"><span style="color:var(--danger)">کم‌کارترین: ${esc(d.idlest.name)}</span><span>${toFa(d.idlest.total)}</span></div>`;
+      html+=`</div>`; }
+    html+= groups.length? groups.map(([role,list])=>`<div class="card"><b>${esc(role)} (${toFa(list.length)})</b>${list.map(m=>`<div style="font-size:13px;padding:4px 0;border-bottom:1px solid var(--line)">${esc(m.name)}</div>`).join('')}</div>`).join('') : '<p class="muted" style="text-align:center;margin-top:30px">زیرمجموعه‌ای ندارید.</p>';
+    return html; },
+
+  activity:async()=>{ chrome(true,'فعالیت رانندگان هر خط','back'); const rows=await GET('/my/driver-activity').catch(()=>[]);
+    return rows.length?rows.map(r=>`<div class="card"><b>خط ${esc(r.line)}</b>
+      <div class="between" style="margin-top:6px"><span style="color:var(--ok)">پرکارترین: ${esc(r.busiest.name)}</span><span>${toFa(r.busiest.n)} حضور</span></div>
+      <div class="between"><span style="color:var(--danger)">کم‌کارترین: ${esc(r.idlest.name)}</span><span>${toFa(r.idlest.n)} حضور</span></div></div>`).join(''):'<p class="muted" style="text-align:center;margin-top:30px">داده‌ای نیست.</p>'; },
+
+  expInsurance:async()=>{ chrome(true,'وضعیت بیمه و معاینه','back');
+    const [ins,insp]=await Promise.all([GET('/my/expiring?type=insurance').catch(()=>[]),GET('/my/expiring?type=inspection').catch(()=>[])]);
+    tmp.expIns=ins.map(r=>({...r,_k:'بیمه'})); tmp.expInsp=insp.map(r=>({...r,_k:'معاینه فنی'})); tmp.expFilter='all'; tmp._after=renderExpIns;
+    return `<input class="inp" id="expq" placeholder="جستجو: پلاک، مدل، خط…" oninput="renderExpIns()">
+      <div class="row" style="gap:6px;margin:8px 0">
+        <button class="chip on" id="ef_all" onclick="setExpFilter('all')">همه</button>
+        <button class="chip" id="ef_ins" onclick="setExpFilter('ins')">بیمه</button>
+        <button class="chip" id="ef_insp" onclick="setExpFilter('insp')">معاینه فنی</button></div>
+      <div id="explist"></div>`; },
+
+  expTaxi:async()=>{ chrome(true,'افراد فاقد اعتبار','back'); tmp.expTaxi=await GET('/my/expiring?type=taxi').catch(()=>[]); tmp._after=renderExpTaxi;
+    return `<input class="inp" id="expq" placeholder="جستجو: نام، کد ملی، خط…" oninput="renderExpTaxi()"><div id="explist"></div>`; },
+
+  expOplic:async()=>{ chrome(true,'خودروهای فاقد بهره‌برداری معتبر','back'); tmp.expOplic=await GET('/my/expiring?type=oplic').catch(()=>[]); tmp._after=renderExpOplic;
+    return `<input class="inp" id="expq" placeholder="جستجو: پلاک، بهره‌بردار، خط…" oninput="renderExpOplic()"><div id="explist"></div>`; },
+
+  search:async()=>{ chrome(true,'جستجوی تاکسی و تاکسیران','back'); tmp.searchMode=tmp.searchMode||'nid';
+    const nid=`<label class="label">کد ملی راننده</label><input class="inp" id="q" inputmode="numeric" placeholder="مثلاً ۰۰۱۲۸۳۳۰۰۲">`;
+    const plate=`<label class="label">شماره پلاک خودرو</label>
+      <div class="row" style="gap:6px;direction:ltr;justify-content:center;align-items:center">
+        <input class="inp plt" id="p1" inputmode="numeric" maxlength="2" placeholder="۱۲" style="width:60px;text-align:center" oninput="if(this.value.length>=2){document.getElementById('p3').focus();}">
+        <span style="font-weight:800;padding:0 4px">ت</span>
+        <input class="inp plt" id="p3" inputmode="numeric" maxlength="3" placeholder="۸۷۹" style="width:72px;text-align:center">
+        <span style="font-weight:800">ایران ۱۲</span>
+      </div>
+      <p class="muted" style="font-size:11px;text-align:center;margin-top:6px">حرف «ت» و کد منطقهٔ «۱۲» ثابت‌اند و نیازی به ورود ندارند.</p>`;
+    return `<div class="row" style="gap:8px;margin-bottom:10px">
+        <button class="chip ${tmp.searchMode==='nid'?'on':''}" style="flex:1;text-align:center" onclick="setSearchMode('nid')">کد ملی</button>
+        <button class="chip ${tmp.searchMode==='plate'?'on':''}" style="flex:1;text-align:center" onclick="setSearchMode('plate')">پلاک خودرو</button></div>
+      ${tmp.searchMode==='nid'?nid:plate}
+      <button class="btn" onclick="search()">جستجو</button>
+      <div id="sr"></div>`; },
+
+  driver:async()=>{ chrome(true,'اطلاعات راننده','back'); const d=tmp.driver, w=tmp.warnings||[], v=tmp.vehicle||{};
+    const row=(l,val)=>val?`<div class="between" style="padding:5px 0;border-bottom:1px solid var(--line)"><span class="muted">${l}</span><b style="font-size:13px">${esc(val)}</b></div>`:'';
+    return `<div class="card"><div class="row"><div class="pf">${esc((d.first_name||'؟')[0])}</div>
+      <div><b style="font-size:15px">${esc(d.first_name)} ${esc(d.last_name)}</b><div class="muted">کد ملی ${esc(d.national_id)}</div></div></div>
+      ${w.map(x=>`<div class="warn">⚠ ${esc(x)}</div>`).join('')}
+      <div style="margin-top:10px">
+        ${row('نوع فعالیت راننده', v.activity_type || d.driver_type)}
+        ${row('شیفت کاری', v.shift_fa)}
+        ${v.beneficiary_name ? row('بهره‌بردار خودرو', v.beneficiary_name) : ''}
+        ${row('وضعیت پروانه بهره‌برداری', d.op_lic_status)}
+        ${row('اعتبار پروانه بهره‌برداری', d.op_lic_expire)}
+        ${row('وضعیت پروانه تاکسیرانی', d.taxi_lic_status)}
+        ${row('اعتبار پروانه تاکسیرانی', d.taxi_lic_expire)}
+        ${row('خط محل فعالیت', v.line_code? (v.line_code+(v.line_origin?(' — '+v.line_origin):'')) : '')}
+        ${row('کد در خط', v.line_code_in_line)}
+        ${row('پلاک خودرو', v.plate)}
+        ${row('مدل خودرو', v.model_name)}
+        ${row('اعتبار معاینه فنی', v.tech_inspection_expire)}
+        ${v.inspection_status?`<div class="between" style="padding:5px 0;border-bottom:1px solid var(--line)"><span class="muted">وضعیت معاینه فنی</span><b style="font-size:13px;color:${v.inspection_status==='معتبر'?'var(--ok)':'var(--danger)'}">${esc(v.inspection_status)}</b></div>`:''}
+        ${row('اعتبار بیمه شخص ثالث', v.insurance_expire)}
+        ${v.insurance_status?`<div class="between" style="padding:5px 0;border-bottom:1px solid var(--line)"><span class="muted">وضعیت بیمه شخص ثالث</span><b style="font-size:13px;color:${v.insurance_status==='معتبر'?'var(--ok)':'var(--danger)'}">${esc(v.insurance_status)}</b></div>`:''}
+      </div></div>
+      <div class="acts">
+        <div class="act primary" onclick="regAttendance()"><span class="em">✓</span>ثبت حضور</div>
+        <div class="act" onclick="nav('debt')"><span class="em">₪</span>بدهی تاکسیران</div>
+        <div class="act" onclick="nav('checklist')"><span class="em">☑</span>چک‌لیست خودرو</div>
+        <div class="act taxi" onclick="nav('notice')"><span class="em">✎</span>ثبت تذکر</div>
+        <div class="act" onclick="nav('attendance')"><span class="em">📅</span>گزارش حضور</div>
+        <div class="act" onclick="nav('pastNotices')"><span class="em">🗂</span>تذکرات قبلی</div>
+      </div>`; },
+
+  debt:async()=>{ chrome(true,'بدهی آبونمان','back'); const d=await GET('/debt/'+tmp.driver.national_id);
+    return `<div class="redcount">${toFa(d.unpaid_count)} فیش پرداخت‌نشده · مجموع ${toFa(Number(d.total_unpaid).toLocaleString('en-US'))} ریال</div>
+      ${d.bills.map(b=>`<div class="card between"><div><b>${toFa(Number(b.amount).toLocaleString('en-US'))} ریال</b><div class="muted">${esc(b.pay_date||'')}</div></div>
+        ${b.pay_url?`<a class="pay" href="${b.pay_url}" target="_blank">پرداخت</a>`:`<span style="color:var(--ok)">✓ پرداخت‌شده</span>`}</div>`).join('')}
+      <button class="btn taxi" onclick="nav('notice')">✎ ثبت تذکر پرداخت آبونمان</button>`; },
+
+  checklist:async()=>{ chrome(true,'چک‌لیست خودرو','back'); const t=await GET('/checklist/template'); tmp.tpl=t;
+    if(!t) return '<p class="muted">قالب چک‌لیستی تعریف نشده است.</p>';
+    return `<h3 style="margin-bottom:12px">${esc(t.title)}</h3>${t.items.map((it,i)=>{ const at=it.answer_type||'single'; const opts=(it.options&&it.options.length)?it.options:['سالم','ایراد','ندارد'];
+      let inner;
+      if(at==='text'){ inner=`<textarea class="inp citem" data-i="${i}" data-at="text" rows="2"></textarea>`; }
+      else { inner=`<div class="row" style="flex-wrap:wrap">${opts.map(o=>`<div class="opt" data-i="${i}" data-v="${esc(o)}" data-at="${at}" onclick="pickOpt(this)">${esc(o)}</div>`).join('')}</div>`; }
+      return `<div class="card"><div class="label" style="margin:0 0 9px">${esc(it.label)}${at==='multi'?' <span class="muted">(چندگزینه‌ای)</span>':''}</div>${inner}</div>`; }).join('')}
+      <button class="btn" onclick="submitChecklist()">ثبت چک‌لیست</button>`; },
+
+  notice:async()=>{ chrome(true,'ثبت تذکر','back'); const reasons=await GET('/notice-reasons'); tmp.reason=reasons[0]?.id; tmp.prio='medium';
+    return `<label class="label">دلیل تذکر</label><div id="reasons">${reasons.map((r,i)=>`<span class="chip ${i===0?'on':''}" data-id="${r.id}" onclick="pickReason(this)">${esc(r.title)}</span>`).join('')}</div>
+      <label class="label">متن تذکر</label><textarea class="inp" id="ntext" rows="3"></textarea>
+      <label class="label">پیوست تصویر (اختیاری)</label><input type="file" accept="image/*" onchange="pickNoticeImg(this)"><div id="nimg" class="muted" style="font-size:12px"></div>
+      <label class="label">اولویت</label><div id="prio">${[['low','کم'],['medium','متوسط'],['high','زیاد']].map(([v,t],i)=>`<span class="chip taxi ${i===1?'on':''}" data-v="${v}" onclick="pickPrio(this)" style="flex:1;text-align:center">${t}</span>`).join('')}</div>
+      <button class="btn" onclick="submitNotice()">ثبت تذکر</button>`; },
+
+  official:async()=>{ chrome(true,'ثبت حضور مسئولین در خط','back');
+    const [offs,lines,hist]=await Promise.all([GET('/officials'),GET('/my/lines').catch(()=>[]),GET('/my/official-visits').catch(()=>[])]);
+    tmp.official=null;tmp.line=null; tmp.offs=offs; tmp.mylines=lines;
+    const roles=[...new Set(offs.map(o=>o.role_title).filter(Boolean))];
+    return `<label class="label">سمت مسئول</label>
+      <select class="inp" id="orole" onchange="renderOfficials()"><option value="">— انتخاب سمت —</option>${roles.map(r=>`<option>${esc(r)}</option>`).join('')}</select>
+      <label class="label">یا جستجوی نام</label><input class="inp" id="oname" placeholder="بخشی از نام/نام خانوادگی" oninput="renderOfficials()">
+      <div id="offs" style="margin-top:8px"></div>
+      <label class="label" style="margin-top:6px">خط (الزامی)</label>
+      ${lines.length?`${lines.length>8?'<input class="inp" placeholder="جستجوی خط…" oninput="filterLines(this.value)" style="margin-bottom:6px">':''}<div id="lns" style="max-height:160px;overflow:auto">${lines.map(l=>`<span class="chip taxi" data-id="${l.id}" data-code="${esc(l.code)}" onclick="pickOne(this,'lns','line')">خط ${esc(l.code)}</span>`).join('')}</div>`:'<p class="muted">خطی به شما اختصاص نیافته است؛ برای ثبت حضور باید خط مجاز داشته باشید.</p>'}
+      <label class="label">توضیحات</label><input class="inp" id="onote" placeholder="مثلاً بازدید میدانی">
+      <button class="btn" onclick="submitOfficial()">ثبت حضور مسئول</button>
+      <label class="label" style="margin-top:14px">آخرین ثبت‌های شما</label>${hist.map(h=>`<div class="card"><b>${esc(h.official)}${h.line?` — خط ${esc(h.line)}`:''}</b>${h.note?`<div class="muted">${esc(h.note)}</div>`:''}<div class="muted">${fj(h.created_at)}</div></div>`).join('')||'<p class="muted">—</p>'}`; },
+
+  forms:async()=>{ chrome(true,'تکمیل فرم‌ها','back'); const forms=await GET('/admin/forms').catch(()=>[]);
+    if(tmp.form){ const f=tmp.form; tmp._after=initForm; return `<h3 style="margin-bottom:12px">${esc(f.title)}</h3>${(f.schema||[]).map(fl=>fieldHtml(fl)).join('')}
+      <button class="btn" onclick="submitForm()">ثبت فرم</button><button class="btn ghost" onclick="tmp.form=null;render()">بازگشت</button>`; }
+    return forms.length?forms.map(f=>`<div class="card" onclick='openForm(${JSON.stringify(f).replace(/'/g,"&#39;")})'><b>${esc(f.title)}</b><div class="muted">${(f.schema||[]).length} فیلد</div></div>`).join(''):'<p class="muted">فرمی تعریف نشده است.</p>'; },
+
+  reports:async()=>{ chrome(true,'ارسال گزارش','back'); let mine=[]; try{ mine=await GET('/my/reports'); }catch(e){}
+    const st={sent:'ارسال‌شده',seen:'دیده‌شده',answered:'پاسخ‌داده‌شده',forwarded:'ارجاع‌شده'};
+    return `<label class="label">موضوع گزارش</label><input class="inp" id="rsub">
+      <label class="label">متن گزارش</label><textarea class="inp" id="rbody" rows="4"></textarea>
+      <label class="label">پیوست تصویر (اختیاری)</label><input type="file" accept="image/*" onchange="pickReportImg(this)"><div id="rimg" class="muted" style="font-size:12px"></div>
+      <button class="btn" onclick="submitReport()">ارسال گزارش</button>
+      <label class="label" style="margin-top:18px">گزارش‌های ارسالی من و وضعیت گردش</label>
+      ${mine.length?mine.map(r=>`<div class="card"><div class="between"><b>${esc(r.subject)}</b><span class="muted">${st[r.status]||r.status}</span></div><div class="muted" style="margin-top:4px">${fj(r.created_at)}</div></div>`).join(''):'<p class="muted">گزارشی ارسال نکرده‌اید.</p>'}`; },
+
+  inbox:async()=>{ chrome(true,'گزارشات دریافتی','back'); const rows=await GET('/my/inbox-reports').catch(()=>[]);
+    const st={sent:'جدید',seen:'دیده‌شده',answered:'پاسخ‌داده‌شده',forwarded:'ارجاع‌شده'};
+    return rows.length?rows.map(r=>`<div class="card" onclick="openReport(${r.id})" style="cursor:pointer">
+      <div class="between"><b>${esc(r.subject)}</b><span class="muted">${st[r.status]||r.status}</span></div>
+      <div class="muted" style="margin-top:4px">از ${esc(r.first_name)} ${esc(r.last_name)} · ${fj(r.created_at)}</div>
+      <div style="font-size:13px;margin-top:6px;color:var(--ink)">${esc((r.body||'').slice(0,90))}${(r.body||'').length>90?'…':''}</div></div>`).join(''):'<p class="muted" style="text-align:center;margin-top:30px">گزارش دریافتی ندارید.</p>'; },
+
+  reportDetail:async()=>{ chrome(true,'گزارش دریافتی','back'); const r=tmp.report; if(!r)return '<p class="muted">یافت نشد.</p>';
+    const actLabel={view:'مشاهده',seen:'مشاهده',note:'یادداشت',reply:'پاسخ',forward:'ارجاع به بالادست'};
+    const trail=(r.trail||[]).map(x=>`<div class="card" style="background:#f7f9fc"><div class="between"><b style="font-size:13px">${actLabel[x.action]||x.action}</b><span class="muted">${fj(x.created_at)}</span></div><div class="muted">${esc((x.a_first||'')+' '+(x.a_last||''))}</div>${x.note?`<div style="font-size:13px;margin-top:4px">${esc(x.note)}</div>`:''}</div>`).join('');
+    return `<div class="card"><b style="font-size:15px">${esc(r.subject)}</b>
+      <div class="muted" style="margin-top:4px">از ${esc(r.first_name)} ${esc(r.last_name)} · ${fj(r.created_at)}</div>
+      <div style="margin-top:10px;white-space:pre-wrap">${esc(r.body)}</div>
+      ${r.attachment_data?`<a href="${r.attachment_data}" download="${esc(r.attachment_name||'file')}" class="btn ghost" style="margin-top:8px;display:inline-block;width:auto;padding:8px 12px">دریافت پیوست</a>`:''}</div>
+      <label class="label">یادداشت / پاسخ</label><textarea class="inp" id="ranote" rows="3" placeholder="متن یادداشت یا پاسخ…"></textarea>
+      <div class="row" style="gap:8px;margin-top:8px">
+        <button class="btn ghost" style="flex:1" onclick="reportAct('note')">ثبت یادداشت</button>
+        <button class="btn ghost" style="flex:1" onclick="reportAct('reply')">پاسخ به فرستنده</button></div>
+      <button class="btn" style="margin-top:8px" onclick="reportAct('forward')">ارجاع به مسئول بالادستی</button>
+      ${trail?`<label class="label" style="margin-top:16px">روند گردش</label>${trail}`:''}`; },
+
+  notifications:async()=>{ chrome(true,'اعلان‌ها و هشدارها','back'); const d=await GET('/my/notifications'); bell(0);
+    POST('/my/notifications/read').catch(()=>{});
+    return d.items.length?d.items.map(n=>{ const alert=n.type==='alert';
+      return `<div class="notif" style="border-right-color:${alert?'var(--taxi)':(n.is_read?'var(--line)':'var(--danger)')}"><b>${alert?'⚠ ':''}${esc(n.title)}</b><div style="font-size:13px;margin-top:3px">${esc(n.body)}</div>${n.created_at?`<div class="muted" style="margin-top:5px">${fj(n.created_at)}</div>`:''}</div>`; }).join(''):'<p class="muted" style="text-align:center;margin-top:30px">اعلانی وجود ندارد.</p>'; },
+
+  messages:async()=>{ chrome(true,'پیام‌ها','back'); const rows=await GET('/my/messages');
+    rows.filter(m=>!m.read_at).forEach(m=>POST('/my/messages/'+m.id+'/read').catch(()=>{}));
+    return rows.length?rows.map(m=>`<div class="card"><b>${esc(m.title||'پیام')}</b><div style="font-size:13px;margin-top:3px">${esc(m.body)}</div>${m.attachment_data?`<a href="${m.attachment_data}" download="${esc(m.attachment_name||'file')}" class="btn ghost" style="margin-top:8px;display:inline-block;width:auto;padding:8px 12px">دریافت پیوست</a>`:''}<div class="muted" style="margin-top:5px">از ${esc(m.sender)} · ${fj(m.created_at)}</div></div>`).join(''):'<p class="muted" style="text-align:center;margin-top:30px">پیامی ندارید.</p>'; },
+
+  attendance:async()=>{ chrome(true,'گزارش حضور راننده','back'); const rows=await GET('/attendance/'+tmp.driver.id);
+    return `<h3 style="margin-bottom:10px">${esc(tmp.driver.first_name)} ${esc(tmp.driver.last_name)}</h3>${rows.length?rows.map(r=>`<div class="card">${fj(r.created_at)}${r.exit_at?` <span class="muted">— خروج: ${fj(r.exit_at)}</span>`:' <span class="badge taxi">در خط</span>'}</div>`).join(''):'<p class="muted">حضوری ثبت نشده است.</p>'}`; },
+
+  present:async()=>{ chrome(true,'حاضرین در خط','back');
+    const rows=await GET('/attendance/present');
+    return `<p class="muted" style="margin-bottom:8px">تاکسیرانان حاضر در خط: ${toFa(rows.length)} — برای ثبت خروج روی نام راننده بزنید.</p>
+      ${rows.length?rows.map(r=>`<div class="card" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="exitDriver(${r.driver_id},this)">
+        <div><b>${esc(r.first_name)} ${esc(r.last_name)}</b><div class="muted" style="font-size:12px">${r.line_code?'خط '+esc(r.line_code):'بدون خط'}${r.line_origin?' — '+esc(r.line_origin):''} · ${toFa(r.mins_in||0)} دقیقه در خط</div></div>
+        <span class="badge" style="background:#fdecec;color:#e3403e">ثبت خروج</span></div>`).join(''):'<p class="muted" style="text-align:center;margin-top:30px">هیچ راننده‌ای در خط حاضر نیست.</p>'}`; },
+
+  pastNotices:async()=>{ chrome(true,'تذکرات قبلی','back'); const rows=await GET('/notices/'+tmp.driver.id);
+    const P={low:'کم',medium:'متوسط',high:'زیاد'};
+    return rows.length?rows.map(n=>`<div class="card"><b>${esc(n.reason||'تذکر')} — اولویت ${P[n.priority]||n.priority}</b>${n.body?`<div style="font-size:13px;margin-top:3px">${esc(n.body)}</div>`:''}<div class="muted" style="margin-top:4px">${fj(n.created_at)}</div></div>`).join(''):'<p class="muted">تذکری ثبت نشده است.</p>'; },
+
+  profile:async()=>{ chrome(true,'حساب کاربری','back'); tmp._after=loadMyLines;
+    return `<div class="card" style="background:var(--brand);color:#fff;border:0;display:flex;align-items:center;gap:12px">
+        ${USER.photo?`<img src="${USER.photo}" style="width:54px;height:54px;border-radius:13px;object-fit:cover">`:`<div style="width:54px;height:54px;border-radius:13px;background:rgba(255,255,255,.25);display:grid;place-items:center;font-weight:800;font-size:22px">${esc((USER.name||'؟')[0])}</div>`}
+        <div><b style="font-size:16px">${esc(USER.name)}</b><div style="opacity:.85;font-size:13px">${esc(USER.role)}</div></div></div>
+      <label class="label">خطوط زیر نظر شما</label><div id="mylines" class="card" style="padding:10px"><span class="muted">در حال بارگذاری…</span></div>
+      <label class="label">عکس پروفایل</label><input type="file" accept="image/*" onchange="uploadPhoto(this)">
+      <label class="label">ایمیل (برای بازیابی رمز)</label><input class="inp" id="em" dir="ltr" value="${esc(USER.email||'')}">
+      <button class="btn ghost" onclick="saveEmail()">ذخیرهٔ ایمیل</button>
+      <label class="label">اندازهٔ فونت برنامه</label>
+      <div class="row" style="gap:8px">
+        <button class="btn ghost" style="flex:1" onclick="setFont(-1)">کوچک‌تر −</button>
+        <button class="btn ghost" style="flex:1" onclick="setFont(0)">پیش‌فرض</button>
+        <button class="btn ghost" style="flex:1" onclick="setFont(1)">بزرگ‌تر +</button>
+      </div>
+      <label class="label">رمز فعلی</label><input class="inp" id="cp" type="password">
+      <label class="label">رمز جدید</label><input class="inp" id="np" type="password">
+      <button class="btn" onclick="changePass()">تغییر رمز</button>
+      <button class="btn ghost" onclick="logout()" style="color:var(--danger)">خروج از حساب</button>`; },
+};
+
+function fieldHtml(f){
+  const cond=f.showIfKey?`data-showif-key="${f.showIfKey}" data-showif-val="${esc(f.showIfVal||'')}"`:'';
+  const pf=f.prefill?`data-prefill="${f.prefill}"`:''; const id='ff_'+f.key; let inner;
+  switch(f.type){
+    case 'national_id': inner=`<div class="row" style="gap:8px"><input class="inp" id="${id}" data-key="${f.key}" inputmode="numeric"><button type="button" class="btn" style="width:auto;margin:0;padding:0 14px" onclick="formAutofill('${f.key}')">فراخوان</button></div>`; break;
+    case 'textarea': inner=`<textarea class="inp" id="${id}" data-key="${f.key}" ${pf} rows="3"></textarea>`; break;
+    case 'number': inner=`<input class="inp" id="${id}" data-key="${f.key}" ${pf} inputmode="numeric">`; break;
+    case 'select': inner=`<select class="inp" id="${id}" data-key="${f.key}" ${pf}><option value=""></option>${(f.options||[]).map(o=>`<option>${esc(o)}</option>`).join('')}</select>`; break;
+    case 'combobox': inner=`<input class="inp" id="${id}" data-key="${f.key}" ${pf} list="dl_${f.key}"><datalist id="dl_${f.key}">${(f.options||[]).map(o=>`<option value="${esc(o)}"></option>`).join('')}</datalist>`; break;
+    case 'checkbox': inner=`<select class="inp" id="${id}" data-key="${f.key}" ${pf}><option value=""></option><option>بله</option><option>خیر</option></select>`; break;
+    case 'signature': inner=`<canvas id="${id}" data-key="${f.key}" data-type="signature" width="320" height="140" style="border:1px solid var(--line);border-radius:10px;width:100%;touch-action:none;background:#fff"></canvas><button type="button" class="btn ghost" style="margin-top:6px" onclick="clearSig('${f.key}')">پاک کردن امضا</button>`; break;
+    default: inner=`<input class="inp" id="${id}" data-key="${f.key}" ${pf}>`;
+  }
+  return `<div class="ffield" data-wrap="${f.key}" ${cond}><label class="label">${esc(f.label)}${f.required?' *':''}</label>${inner}</div>`;
+}
+function initForm(){
+  document.querySelectorAll('canvas[data-type="signature"]').forEach(cv=>{
+    const ctx=cv.getContext('2d'); ctx.strokeStyle='#0f1b2d'; ctx.lineWidth=2; ctx.lineCap='round'; let drawing=false,last=null;
+    const pos=e=>{const r=cv.getBoundingClientRect(); const tt=e.touches?e.touches[0]:e; return {x:(tt.clientX-r.left)*(cv.width/r.width), y:(tt.clientY-r.top)*(cv.height/r.height)};};
+    const start=e=>{drawing=true; last=pos(e); cv.dataset.drawn='1'; e.preventDefault();};
+    const move=e=>{ if(!drawing)return; const pnt=pos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(pnt.x,pnt.y); ctx.stroke(); last=pnt; e.preventDefault();};
+    const end=()=>{drawing=false;};
+    cv.addEventListener('mousedown',start); cv.addEventListener('mousemove',move); window.addEventListener('mouseup',end);
+    cv.addEventListener('touchstart',start,{passive:false}); cv.addEventListener('touchmove',move,{passive:false}); cv.addEventListener('touchend',end);
+  });
+  document.querySelectorAll('.ffield [data-key]').forEach(el=>{ el.addEventListener('input',applyFormConditions); el.addEventListener('change',applyFormConditions); });
+  applyFormConditions();
+}
+function applyFormConditions(){
+  document.querySelectorAll('.ffield[data-showif-key]').forEach(w=>{ const ctrl=document.getElementById('ff_'+w.dataset.showifKey); const val=ctrl?(ctrl.value||''):''; w.style.display=(val===w.dataset.showifVal)?'':'none'; });
+}
+function clearSig(key){ const cv=document.getElementById('ff_'+key); const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height); cv.dataset.drawn=''; }
+async function formAutofill(key){
+  const nid=document.getElementById('ff_'+key).value.replace(/\D/g,''); if(nid.length<8)return toast('کد ملی معتبر وارد کنید');
+  try{ const res=await GET('/search?national_id='+nid); if(res.type!=='driver')return toast('راننده یافت نشد'); tmp.driver=res.driver;
+    document.querySelectorAll('.ffield [data-prefill]').forEach(el=>{ const attr=el.dataset.prefill; if(res.driver[attr]!=null) el.value=res.driver[attr]; });
+    applyFormConditions(); toast('اطلاعات راننده فراخوانی شد');
+  }catch(e){ toast(e.message); }
+}
+
+// ---- actions ----
+function canSeeTeam(){ const r=USER&&USER.role||''; return r.indexOf('سربازرس')>=0 || (r.indexOf('بازرس')>=0 && r.indexOf('رییس')<0) || r.indexOf('مسئول پروژه')>=0; }
+function canSeeOfficialChart(){ const r=USER&&USER.role||''; return !!(USER&&(USER.is_admin || r.indexOf('سربازرس ارشد')>=0)); }
+function filterLines(q){ document.querySelectorAll('#lns .chip').forEach(c=>{ c.style.display=(!q||c.dataset.code.indexOf(q)>=0)?'':'none'; }); }
+function matchq(obj,q){ if(!q)return true; q=q.trim(); return Object.values(obj).some(v=>String(v||'').indexOf(q)>=0); }
+function setExpFilter(f){ tmp.expFilter=f; ['all','ins','insp'].forEach(x=>{const el=document.getElementById('ef_'+x); if(el)el.classList.toggle('on',x===f);}); renderExpIns(); }
+function renderExpIns(){ const q=(document.getElementById('expq')||{}).value||''; const f=tmp.expFilter||'all';
+  let list=[]; if(f==='all'||f==='ins')list=list.concat(tmp.expIns||[]); if(f==='all'||f==='insp')list=list.concat(tmp.expInsp||[]);
+  list=list.filter(r=>matchq({plate:r.plate,model:r.model_name,line:r.line,k:r._k},q));
+  document.getElementById('explist').innerHTML = `<p class="muted">${toFa(list.length)} مورد</p>`+(list.map(r=>`<div class="card"><b>پلاک ${esc(r.plate)}</b> ${r.model_name?`<span class="muted">${esc(r.model_name)}</span>`:''}<div class="muted">خط ${esc(r.line||'—')} · ${esc(r._k)}: ${esc(r.expire)}</div></div>`).join('')||'<p class="muted" style="text-align:center;margin-top:20px">موردی نیست.</p>'); }
+function renderExpTaxi(){ const q=(document.getElementById('expq')||{}).value||''; const list=(tmp.expTaxi||[]).filter(r=>matchq({n:r.first_name,l:r.last_name,nid:r.national_id,line:r.line},q));
+  document.getElementById('explist').innerHTML = `<p class="muted">${toFa(list.length)} نفر</p>`+(list.map(r=>`<div class="card"><b>${esc(r.first_name)} ${esc(r.last_name)}</b><div class="muted">کد ملی ${esc(r.national_id)} · خط ${esc(r.line||'—')} · انقضا: ${esc(r.expire)}</div><button class="btn ghost" style="margin-top:8px;width:auto;padding:7px 12px" onclick="noticeFor('${esc(r.national_id)}')">ثبت تذکر</button></div>`).join('')||'<p class="muted" style="text-align:center;margin-top:20px">موردی نیست.</p>'); }
+function renderExpOplic(){ const q=(document.getElementById('expq')||{}).value||''; const list=(tmp.expOplic||[]).filter(r=>matchq({plate:r.plate,ben:r.beneficiary,line:r.line},q));
+  document.getElementById('explist').innerHTML = `<p class="muted">${toFa(list.length)} مورد</p>`+(list.map(r=>`<div class="card"><b>پلاک ${esc(r.plate)}</b><div class="muted">خط ${esc(r.line||'—')} · بهره‌بردار: ${esc(r.beneficiary||'—')} · انقضا: ${esc(r.expire)}</div></div>`).join('')||'<p class="muted" style="text-align:center;margin-top:20px">موردی نیست.</p>'); }
+async function openReport(id){ try{ tmp.report=await GET('/reports/'+id); nav('reportDetail'); }catch(e){ toast(e.message); } }
+async function reportAct(action){ const note=(document.getElementById('ranote')||{}).value||'';
+  if((action==='note'||action==='reply')&&!note.trim()){ toast('متن را وارد کنید'); return; }
+  try{ await POST('/reports/'+tmp.report.id+'/action',{action,note});
+    toast(action==='forward'?'به مسئول بالادستی ارجاع شد':action==='reply'?'پاسخ ثبت شد':'یادداشت ثبت شد');
+    if(action==='forward'){ nav('inbox'); } else { tmp.report=await GET('/reports/'+tmp.report.id); render(); }
+  }catch(e){ toast(e.message); } }
+async function noticeFor(nid){ try{ const res=await GET('/search?national_id='+nid); if(res.type==='driver'){ tmp.driver=res.driver; tmp.warnings=res.warnings; tmp.vehicle=res.vehicle; nav('notice'); } }catch(e){ toast(e.message); } }
+function setSearchMode(m){ tmp.searchMode=m; render(); }
+function faToEn(s){ return String(s||'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)); }
+async function search(){ const sr=document.getElementById('sr'); let qs;
+  if(tmp.searchMode==='plate'){ const p1=faToEn(document.getElementById('p1').value), p3=faToEn(document.getElementById('p3').value);
+    if(!p1||!p3)return toast('دو بخش عددی پلاک را وارد کنید'); const plate=`${p1}ت${p3}-12`; qs='plate='+encodeURIComponent(plate);
+  } else { const v=faToEn(document.getElementById('q').value.trim()).replace(/\D/g,''); if(!v)return; qs='national_id='+v; }
+  sr.innerHTML='<div class="spin"></div>';
+  try{ const res=await GET('/search?'+qs);
+    if(res.type==='driver'){ tmp.driver=res.driver; tmp.vehicle=res.vehicle; tmp.warnings=res.warnings; nav('driver'); }
+    else { tmp.vehicle=res.vehicle; tmp.vdrivers=res.drivers||[];
+      if(tmp.vdrivers.length===0){ sr.innerHTML='<p class="muted">راننده‌ای به این خودرو متصل نیست.</p>'; return; }
+      sr.innerHTML=`<p class="label">سرنشینان خودرو ${esc(res.vehicle.plate||'')} — یکی را انتخاب کنید:</p>`+
+        tmp.vdrivers.map((d,i)=>`<div class="card" onclick="pickVehicleDriver(${i})" style="cursor:pointer"><b>${esc(d.first_name)} ${esc(d.last_name)}</b><div class="muted">${esc(d.role_fa||'')}${d.shift?(' · شیفت '+esc(d.shift)):''}</div></div>`).join('');
+    }
+  }catch(e){ sr.innerHTML=`<p class="warn">${esc(e.message)}</p>`; } }
+function pickVehicleDriver(i){ const d=tmp.vdrivers[i]; tmp.driver=d; tmp.warnings=[];
+  tmp.vehicle=Object.assign({}, tmp.vehicle, {activity_type:d.role_fa, shift_fa:d.shift, line_code_in_line:d.line_code_in_line});
+  nav('driver'); }
+async function regAttendance(){ const g=await geo(); const r=await postOrQueue('/attendance',{driver_id:tmp.driver.id,...g}); toast(r.queued?'ذخیره شد (آفلاین)':'حضور راننده ثبت شد'); }
+async function exitDriver(did,el){ if(!confirm('خروج این راننده از خط ثبت شود؟'))return; try{ await POST('/attendance/exit',{driver_id:did}); toast('خروج ثبت شد'); if(el)el.remove(); }catch(e){ toast(e.message||'خطا'); } }
+function pickOpt(el){ if(el.dataset.at==='multi'){ el.classList.toggle('on'); } else { document.querySelectorAll(`.opt[data-i="${el.dataset.i}"]`).forEach(x=>x.classList.remove('on')); el.classList.add('on'); } }
+async function submitChecklist(){ const ans={}; tmp.tpl.items.forEach((it,i)=>{ const at=it.answer_type||'single';
+    if(at==='text'){ const ta=document.querySelector(`.citem[data-i="${i}"]`); ans[it.label]=ta?ta.value:''; }
+    else if(at==='multi'){ ans[it.label]=[...document.querySelectorAll(`.opt[data-i="${i}"].on`)].map(x=>x.dataset.v).join('، '); }
+    else { const s=document.querySelector(`.opt[data-i="${i}"].on`); ans[it.label]=s?s.dataset.v:''; }
+  });
+  const r=await postOrQueue('/checklist',{template_id:tmp.tpl.id,driver_id:tmp.driver.id,answers:ans}); toast(r.queued?'ذخیره شد (آفلاین)':'چک‌لیست ثبت شد'); nav('driver'); }
+function pickReason(el){ document.querySelectorAll('#reasons .chip').forEach(x=>x.classList.remove('on')); el.classList.add('on'); tmp.reason=+el.dataset.id; }
+function pickPrio(el){ document.querySelectorAll('#prio .chip').forEach(x=>x.classList.remove('on')); el.classList.add('on'); tmp.prio=el.dataset.v; }
+async function pickNoticeImg(inp){ const f=inp.files[0]; if(!f)return; await loadLimits(); if(!checkFile('notices',f)) {inp.value='';return;} tmp.noticeImg={name:f.name,data:await compressImg(f)}; document.getElementById('nimg').textContent='پیوست: '+f.name; }
+async function submitNotice(){ const r=await postOrQueue('/notices',{driver_id:tmp.driver.id,reason_id:tmp.reason,priority:tmp.prio,body:document.getElementById('ntext').value,attachment_name:tmp.noticeImg?.name,attachment_data:tmp.noticeImg?.data}); tmp.noticeImg=null; toast(r.queued?'ذخیره شد (آفلاین)':'تذکر ثبت شد'); nav('driver'); }
+function pickOne(el,grp,key){ document.querySelectorAll('#'+grp+' .chip').forEach(x=>x.classList.remove('on')); el.classList.add('on'); tmp[key]=+el.dataset.id; }
+function renderOfficials(){ const role=document.getElementById('orole').value, nm=(document.getElementById('oname').value||'').trim();
+  let list=tmp.offs||[]; if(role)list=list.filter(o=>o.role_title===role);
+  if(nm)list=list.filter(o=>((o.first_name||'')+' '+(o.last_name||'')).indexOf(nm)>=0);
+  tmp.official=null;
+  document.getElementById('offs').innerHTML=list.length?list.map(o=>`<span class="chip" data-id="${o.id}" onclick="pickOne(this,'offs','official')">${esc(o.first_name)} ${esc(o.last_name)}<small>${esc(o.role_title)}</small></span>`).join(''):'<p class="muted">موردی یافت نشد.</p>'; }
+async function submitOfficial(){ if(!tmp.official)return toast('یک مسئول را انتخاب کنید'); if(!tmp.line)return toast('انتخاب خط الزامی است'); const g=await geo();
+  const r=await postOrQueue('/official-visits',{official_id:tmp.official,line_id:tmp.line,note:document.getElementById('onote').value,...g}); toast(r.queued?'ذخیره شد (آفلاین)':'حضور مسئول ثبت شد'); render(); }
+function openForm(f){ tmp.form=f; tmp.formVals={}; render(); }
+async function submitForm(){
+  const ans={}; let nid=null;
+  for(const f of (tmp.form.schema||[])){
+    const el=document.getElementById('ff_'+f.key); let v='';
+    if(f.type==='signature'){ v=(el&&el.dataset.drawn)?el.toDataURL('image/jpeg',((_limits?.image_quality||45)/100)):''; }
+    else if(el){ v=el.value||''; }
+    if(f.type==='national_id') nid=v.replace(/\D/g,'');
+    const wrap=document.querySelector('.ffield[data-wrap="'+f.key+'"]'); const hidden=wrap&&wrap.style.display==='none';
+    if(f.required&&!hidden&&!v) return toast('فیلد «'+f.label+'» الزامی است');
+    ans[f.label]=v;
+  }
+  const r=await postOrQueue('/admin/form-submit',{form_id:tmp.form.id,driver_id:tmp.driver?.id,answers:ans});
+  toast(r.queued?'ذخیره شد (آفلاین)':'فرم ثبت شد'); tmp.form=null; render();
+}
+async function pickReportImg(inp){ const f=inp.files[0]; if(!f)return; await loadLimits(); if(!checkFile('reports',f)){inp.value='';return;} tmp.reportImg={name:f.name,data:await compressImg(f)}; document.getElementById('rimg').textContent='پیوست: '+f.name; }
+async function submitReport(){ const sub=document.getElementById('rsub').value, body=document.getElementById('rbody').value; if(!sub||!body)return toast('موضوع و متن لازم است');
+  try{ await POST('/reports',{subject:sub,body,attachment_name:tmp.reportImg?.name,attachment_data:tmp.reportImg?.data}); tmp.reportImg=null; toast('گزارش ارسال شد'); nav('dashboard'); }catch(e){ toast(e.message); } }
+async function saveEmail(){ try{ await api('/me/profile',{method:'PUT',body:JSON.stringify({email:document.getElementById('em').value})}); USER.email=document.getElementById('em').value; store.set('user',JSON.stringify(USER)); toast('ایمیل ذخیره شد'); }catch(e){ toast(e.message);} }
+let _limits=null;
+async function loadLimits(){ if(_limits)return _limits; try{ _limits=await GET('/settings/public'); }catch(e){ _limits={}; } return _limits; }
+function checkFile(section,file){ const c=(_limits||{})['upload_'+section]||{}; if(c.max_mb && file.size>c.max_mb*1048576){ toast('حجم فایل بیش از حد مجاز ('+c.max_mb+' مگابایت) است'); return false; }
+  if(c.types){ const ext=(file.name.split('.').pop()||'').toLowerCase(); const ok=c.types.toLowerCase().split(/[,،]/).map(s=>s.trim()).filter(Boolean); if(ok.length && !ok.includes(ext)){ toast('نوع فایل مجاز نیست'); return false; } } return true; }
+async function compressImg(file,maxDim=null,q=null){ await loadLimits(); maxDim=Number(maxDim||_limits?.image_max_width||1024); q=Number(q||((_limits?.image_quality||45)/100)); const url=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);}); if(!file.type||file.type.indexOf('image/')!==0)return url;
+  return await new Promise(res=>{const img=new Image();img.onload=()=>{let w=img.width,h=img.height; if(w>h&&w>maxDim){h=Math.round(h*maxDim/w);w=maxDim;}else if(h>maxDim){w=Math.round(w*maxDim/h);h=maxDim;} const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);res(cv.toDataURL('image/jpeg',q));};img.onerror=()=>res(url);img.src=url;}); }
+async function uploadPhoto(inp){ const file=inp.files[0]; if(!file)return; const data=await compressImg(file); try{ await POST('/me/photo',{photo:data}); USER.photo=data; store.set('user',JSON.stringify(USER)); toast('عکس ذخیره شد'); render(); }catch(e){ toast(e.message);} }
+async function loadMyLines(){ const el=document.getElementById('mylines'); if(!el)return; try{ const ls=await GET('/my/lines'); el.innerHTML = ls.length? ls.map(l=>`<div style="padding:4px 0;border-bottom:1px solid var(--line)"><b>${esc(l.code)}</b> — ${esc(l.origin||'')} ${l.destination?('→ '+esc(l.destination)):''}</div>`).join('') : '<span class="muted">خطی به شما اختصاص نیافته است.</span>'; }catch(e){ el.innerHTML='<span class="muted">قابل بارگذاری نبود.</span>'; } }
+async function changePass(){ const cp=document.getElementById('cp').value, np=document.getElementById('np').value;
+  if(!cp && !np){ toast('تغییری در رمز اعمال نشد'); return; }
+  if(np.length<6){ toast('رمز جدید حداقل ۶ کاراکتر باشد'); return; }
+  try{ await POST('/admin/change-password',{current:cp,next:np}); toast('رمز تغییر کرد'); document.getElementById('cp').value='';document.getElementById('np').value=''; }catch(e){ toast(e.message); } }
+
+// ---- chrome / nav ----
+function chrome(show,title,icon){ document.getElementById('hdr').style.display=show?'flex':'none'; document.getElementById('footer').style.display=show?'flex':'none';
+  if(title)document.getElementById('hdrTtl').textContent=title; document.getElementById('hdrIc').textContent=icon==='back'?'→':'☰'; tmp._icon=icon; }
+function bell(n){ const d=document.getElementById('bellDot'); if(d){ if(n>0){d.style.display='block';d.textContent=toFa(n);}else d.style.display='none'; } }
+function msgBadge(n){ const d=document.getElementById('msgDot'); if(d){ if(n>0){d.style.display='block';d.textContent=toFa(n);}else d.style.display='none'; } }
+let INBOX_N=0;
+function hdrAction(){ if(tmp._icon==='back') nav('dashboard'); else openDrawer(); }
+function openDrawer(){ document.getElementById('drawerPanel').innerHTML=`<div class="uhead"><b>${esc(USER.name)}</b><div style="opacity:.85;font-size:12px">${esc(USER.role)}</div></div>
+  ${[['search','🔍','جستجو'],['official','👤','حضور مسئولین'],['forms','▤','فرم‌ها'],['reports','✉','ارسال گزارش'],['profile','⚙','حساب کاربری']].map(([k,e,t])=>`<div class="ditem" onclick="nav('${k}')"><span style="width:22px">${e}</span>${t}</div>`).join('')}
+  <div class="ditem" style="color:var(--danger)" onclick="logout()"><span style="width:22px">⎋</span>خروج</div>`;
+  document.getElementById('drawer').classList.add('on'); }
+function closeDrawer(){ document.getElementById('drawer').classList.remove('on'); }
+function nav(k){ current=k; closeDrawer(); render(); }
+async function render(){
+  const body=document.getElementById('body'); body.innerHTML='<div class="spin"></div>';
+  try{ body.innerHTML=await screens[current](); }catch(e){ body.innerHTML=`<p class="warn">${esc(e.message)}</p>`; }
+  body.scrollTop=0;
+  if(tmp._after){ const fn=tmp._after; tmp._after=null; setTimeout(fn,0); }
+  if(USER){ const tabs=[['dashboard','🏠','خانه'],['search','🔍','جستجو'],['official','👤','مسئولین'],['notifications','🔔','اعلان'],['profile','⚙','حساب']];
+    document.getElementById('footer').innerHTML=tabs.map(([k,i,l])=>`<button class="${current===k?'on':''}" onclick="nav('${k}')"><span class="fi">${i}</span>${l}</button>`).join(''); }
+}
+
+// ---- boot ----
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+USER = store.get('user')?JSON.parse(store.get('user')):null;
+current = USER?'dashboard':'login';
+refreshOffline(); if(navigator.onLine) flushQueue();
+try{applyFont();}catch(e){}
+loadBrand().finally(render);
+</script>
+</body>
+</html>

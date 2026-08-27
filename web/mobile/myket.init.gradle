@@ -1,0 +1,42 @@
+// Khatyar global Myket mirror for the main build and all included builds (Expo/RN).
+final String myketUrl = 'https://maven.myket.ir/'
+
+def addMyketFirst = { repos ->
+    if (repos.findByName('MyketMirror') == null) {
+        repos.maven {
+            name = 'MyketMirror'
+            url = uri(myketUrl)
+            metadataSources { gradleMetadata(); mavenPom(); artifact() }
+        }
+    }
+}
+
+// Runs for the root settings and every included build before their settings scripts.
+beforeSettings { settings ->
+    settings.pluginManagement.repositories {
+        mavenLocal()
+        addMyketFirst(delegate)
+        google(); mavenCentral(); gradlePluginPortal()
+    }
+    // Do not change repositoriesMode: Expo SDK 57 needs package-local Maven repositories.
+    try {
+        settings.dependencyResolutionManagement.repositories {
+            mavenLocal()
+            addMyketFirst(delegate)
+        }
+    } catch (ignored) { }
+}
+
+// Runs for projects in the main build and included builds, including Expo Gradle plugins.
+beforeProject { project ->
+    project.buildscript.repositories {
+        mavenLocal()
+        addMyketFirst(delegate)
+        google(); mavenCentral(); gradlePluginPortal()
+    }
+    project.repositories {
+        mavenLocal()
+        addMyketFirst(delegate)
+        google(); mavenCentral()
+    }
+}

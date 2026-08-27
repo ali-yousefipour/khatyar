@@ -1,0 +1,141 @@
+##############################
+# اختصاصی پروژه (بر اساس ساختار شما) #
+##############################
+
+# فایل‌های حاصل از اجرای دستور tree
+project_structure.txt
+project_structure_clean.txt
+
+# ========== موبایل (Expo / React Native) ==========
+mobile/.build-logs/
+mobile/.expo/
+mobile/.expo-shared/
+mobile/.build-state.json
+mobile/*.txt
+mobile/*.log
+mobile/npm-debug.log*
+mobile/yarn-debug.log*
+mobile/yarn-error.log*
+mobile/node_modules/
+mobile/android/
+mobile/ios/
+mobile/web-build/
+mobile/.env
+mobile/.env.local
+mobile/.env.*.local
+mobile/.env.release.example
+mobile/package-lock.json
+mobile/yarn.lock
+mobile/build-*.ps1
+mobile/prepare-iran-build.ps1
+mobile/*-FIX-*.txt
+mobile/*-FIX-*.md
+mobile/*-V*.txt
+mobile/*-README.txt
+mobile/REGISTRY-SELECTION-README.txt
+mobile/WINDOWS-ANDROID-LOCK-FIX-V5.txt
+mobile/Γò¬*.ps1
+mobile/Γò¬*.md
+mobile/╪│╪º╪«╪¬-╪º┘å╪»╪▒┘ê█î╪».ps1
+
+# ========== بک‌اند ==========
+backend/.env
+backend/.env.local
+backend/.env.*.local
+backend/.env.production
+backend/node_modules/
+backend/package-lock.json
+backend/yarn.lock
+backend/logs/
+
+# ========== Gradle / Android ==========
+.gradle/
+.gradle-user-home/
+mobile/android/.gradle/
+mobile/android/build/
+*.hprof
+*.jks
+*.keystore
+
+# ========== IDE ==========
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.swp
+*.swo
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/gradle.xml
+.idea/assetWizardSettings.xml
+.idea/dictionaries
+.idea/libraries
+.idea/caches
+
+# ========== پوشه‌های بیلد عمومی ==========
+build/
+target/
+dist/
+out/
+bin/
+obj/
+
+# ========== فایل‌های سیستمی ==========
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ========== فایل‌های لاگ ==========
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ========== فایل‌های موقت جاوا ==========
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# ========== Credentials (امنیتی) ==========
+credentials/*.keystore
+credentials/*.jks
+credentials/*.p12
+credentials/*.pem
+credentials/*.md  # اگر اطلاعات حساس در آن‌هاست
+
+# ========== پایتون (در صورت استفاده) ==========
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ========== داکر (اختیاری) ==========
+# docker-compose.override.yml
+
+# ========== فایل‌های موقت و غیرضروری دیگر ==========
+*.tmp
+*.temp
+*.swp
+*.swo
+*.orig
+*.bak
+*.rej
+*.patch
+*.diff

@@ -1,0 +1,8 @@
+version,filename,local_path,myket_url,selected
+# این فایل دیگر توسط scripts/configure-gradle-wrapper.js خوانده نمی‌شود.
+# نسخهٔ Gradle حالا به‌صورت خودکار از روی چیزی که خودِ expo prebuild در
+# android/gradle/wrapper/gradle-wrapper.properties می‌نویسد استخراج می‌شود
+# (چون این نسخه دقیقاً همان چیزی است که AGP نصب‌شده در پروژه به آن نیاز دارد).
+# اگر می‌خواهید یک نسخهٔ خاص را از قبل کش کنید تا نیازی به دانلود نباشد،
+# فقط فایل zip آن نسخه را با همین نام‌گذاری (gradle-<version>-bin.zip) در
+# پوشهٔ F:\gradle-cache بگذارید؛ اسکریپت خودش پیدایش می‌کند.

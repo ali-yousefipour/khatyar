@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سامانه مدیریت و نظارت بر خطوط و نیروهای اجرایی تاکسیرانی</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIyIiBmaWxsPSIjMGQ3YTVmIi8+PHBhdGggZD0iTTUwIDE4aDEydjhINTB6IiBmaWxsPSIjMGYxYjJkIi8+PHBhdGggZD0iTTMwIDUwbDgtMTZoMjRsOCAxNnoiIGZpbGw9IiNmNmMzMjQiLz48cmVjdCB4PSIxMiIgeT0iNTAiIHdpZHRoPSI3NiIgaGVpZ2h0PSIyNiIgcng9IjciIGZpbGw9IiNmNmMzMjQiLz48cGF0aCBkPSJNNDAgNDlsNC0xMWgxMHYxMXoiIGZpbGw9IiNiNGUxZWIiLz48cGF0aCBkPSJNNTggNDlWMzhoOGw1IDExeiIgZmlsbD0iI2I0ZTFlYiIvPjxnIGZpbGw9IiMwZjFiMmQiPjxyZWN0IHg9IjE0IiB5PSI2MCIgd2lkdGg9IjUiIGhlaWdodD0iNSIvPjxyZWN0IHg9IjI0IiB5PSI2MCIgd2lkdGg9IjUiIGhlaWdodD0iNSIvPjxyZWN0IHg9IjM0IiB5PSI2MCIgd2lkdGg9IjUiIGhlaWdodD0iNSIvPjxyZWN0IHg9IjQ0IiB5PSI2MCIgd2lkdGg9IjUiIGhlaWdodD0iNSIvPjxyZWN0IHg9IjU0IiB5PSI2MCIgd2lkdGg9IjUiIGhlaWdodD0iNSIvPjxyZWN0IHg9IjY0IiB5PSI2MCIgd2lkdGg9IjUiIGhlaWdodD0iNSIvPjxyZWN0IHg9Ijc0IiB5PSI2MCIgd2lkdGg9IjUiIGhlaWdodD0iNSIvPjwvZz48Y2lyY2xlIGN4PSIzMCIgY3k9Ijc4IiByPSIxMCIgZmlsbD0iIzFjMjgzOCIvPjxjaXJjbGUgY3g9IjcwIiBjeT0iNzgiIHI9IjEwIiBmaWxsPSIjMWMyODM4Ii8+PGNpcmNsZSBjeD0iMzAiIGN5PSI3OCIgcj0iNCIgZmlsbD0iIzhlOThhYSIvPjxjaXJjbGUgY3g9IjcwIiBjeT0iNzgiIHI9IjQiIGZpbGw9IiM4ZTk4YWEiLz48L3N2Zz4=">
+<link href="vendor/vazirmatn/Vazirmatn-font-face.css" rel="stylesheet" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css'">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css" onerror="this.onerror=null;this.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'"/>
+<script src="vendor/leaflet/leaflet.js" onerror="this.onerror=null;this.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'"></script>
+<link rel="stylesheet" href="vendor/leaflet-draw/leaflet.draw.css" onerror="this.onerror=null;this.href='https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css'"/>
+<script src="vendor/leaflet-draw/leaflet.draw.js" onerror="this.onerror=null;this.src='https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js'"></script>
+
+<script src="vendor/chartjs/chart.umd.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'"></script>
+<script src="vendor/xlsx/xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'"></script>
+<script src="vendor/react/react.production.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/react@18/umd/react.production.min.js'"></script>
+<script src="vendor/react/react-dom.production.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/react-dom@18/umd/react-dom.production.min.js'"></script>
+<script>
+/* خوداتکایی آفلاین: اگر فایل‌های کتابخانه روی هاست نبودند و اینترنت وصل بود،
+   یک‌بار در پس‌زمینه از CDN روی هاست ذخیره می‌شوند تا دفعهٔ بعد حتی با قطع اینترنت جهانی،
+   پنل از روی خود هاست بارگذاری شود. */
+(function(){ try{
+  fetch('vendor/react/react.production.min.js', {method:'HEAD', cache:'no-store'})
+    .then(function(r){ if(!r.ok){ fetch('setup-libs.php?auto=1').catch(function(){}); } })
+    .catch(function(){});
+}catch(e){} })();
+</script>
+<link rel="stylesheet" href="assets/web_panel.bundle.css?v=105">
+
+</head>
+<body>
+<div id="root"></div>
+<div id="print-area"></div>
+<script defer src="assets/web_panel.bundle.js?v=178"></script>

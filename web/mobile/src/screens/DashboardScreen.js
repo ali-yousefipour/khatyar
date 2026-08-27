@@ -1,0 +1,364 @@
+import React, { useState, useEffect } from 'react';
+import { faNum } from '../num';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, useWindowDimensions, Image, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../auth';
+import { request, postOrQueue, swr, imageSource, flushQueuedRequests } from '../api';
+import { registerPush } from '../push';
+import { C, FONT } from '../theme';
+import { todayFaLong } from '../jdate';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+import FieldStatusBanner from '../components/FieldStatusBanner';
+
+export default function DashboardScreen({ navigation }) {
+  const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  // تعداد ستون بر اساس عرض صفحه: گوشی=۲، فبلت=۳، تبلت=۴
+  const cols = width >= 760 ? 4 : width >= 540 ? 3 : 2;
+  const gap = 10;
+  const cardW = `${(100 / cols) - 2}%`;
+  const [stats, setStats] = useState({ today: 0, checklists: 0, notices: 0, reports: 0, unread: 0, unread_messages: 0 });
+  const [myStats, setMyStats] = useState({ drivers: 0, vehicles: 0 });
+  const [lead, setLead] = useState(null);
+  const [pop, setPop] = useState(null);
+  const [allowed, setAllowed] = useState(null); // null = همه مجاز، آرایه = فقط این‌ها
+  const [access, setAccess] = useState({ welfare: false, cultural: false });
+  const [subscription, setSubscription] = useState(null);
+
+  // درجهٔ ستاره بر اساس سمت: ناظر خط/اپراتور=۱، بازرس=۲، سربازرس/سربازرس ارشد=۴
+  const starsFor = (role) => {
+    if (!role) return '';
+    const r = String(role);
+    if (r.indexOf('سربازرس') >= 0) return '★★★★';
+    if (r.indexOf('بازرس') >= 0) return '★★';
+    if (r.indexOf('ناظر خط') >= 0 || r.indexOf('اپراتور') >= 0) return '★';
+    return '';
+  };
+  const stars = (user?.rank_stars !== null && user?.rank_stars !== undefined) ? '★'.repeat(Math.max(0, Math.min(5, Number(user.rank_stars) || 0))) : starsFor(user?.role);
+
+  // گرفتن عکس پروفایل از سرور (چون user از login فقط اطلاعات پایه دارد)
+  const [myPhoto, setMyPhoto] = useState(user?.photo || null);
+  useEffect(() => {
+    if (!user) return;
+    request('/me/full-profile').then((p) => { if (p?.photo) setMyPhoto(p.photo); if (p?.rank_stars !== undefined && user) user.rank_stars = p.rank_stars; }).catch(() => {});
+    // دسترسی رفاهیات/فرهنگی: مقدار تازه از سرور (force) تا کش قدیمی مانع نمایش نشود
+    const isAdmin = !!(user.is_admin || (user.level || 0) >= 3);
+    request('/my/app-config').then((c) => setAccess({
+      welfare: isAdmin || !!c.can_welfare,
+      cultural: isAdmin || !!c.can_cultural,
+      temp: isAdmin || !!c.can_manage_temp_drivers,
+    })).catch(() => setAccess({ welfare: isAdmin, cultural: isAdmin, temp: isAdmin }));
+  }, [user?.id]);
+
+  // گزارش خودکار نوع گوشی و نسخهٔ اندروید (یک‌بار)
+  useEffect(() => {
+    if (!user) return;
+    const info = {
+      device_model: [Device.manufacturer, Device.modelName].filter(Boolean).join(' ') || Device.deviceName || '',
+      android_version: Platform.OS === 'android' ? `Android ${Device.osVersion || ''}` : (Device.osVersion || ''),
+      app_version: (require('expo-constants').default?.expoConfig?.version) || '',
+    };
+    request('/my/device-info', { method: 'POST', body: info }).catch(() => {});
+  }, [user?.id]);
+
+  const load = () => {
+    swr('/my/dashboard', setStats);
+    swr('/my/stats', setMyStats);
+    swr('/my/leaderboard', setLead);
+    swr('/my/app-items', (r) => setAllowed(r.items));
+    request('/subscription/status', { noStore: true }).then((r) => setSubscription(r?.subscription || null)).catch(() => {});
+  };
+
+  // دانلود نقشهٔ آفلاین فقط با درخواست صریح کاربر از صفحهٔ تنظیمات نقشه انجام می‌شود.
+
+  // بروزرسانی دستی: ارسال داده‌های آفلاینِ در صف + تازه‌سازی اطلاعات
+  const [syncing, setSyncing] = useState(false);
+  const DATA_CACHE_KEY = 'full_data_cache_date';
+  const [syncDetail, setSyncDetail] = useState('');
+
+  const manualSync = async () => {
+    setSyncing(true); setSyncDetail('');
+    try {
+      // ۱) ارسال داده‌های آفلاین
+      setSyncDetail('ارسال داده‌های آفلاین…');
+      const n = await flushQueuedRequests().catch(() => 0);
+      // ۲) بررسی آیا امروز اول بار است که sync می‌زند
+      const today = new Date().toISOString().slice(0, 10);
+      const lastSync = await AsyncStorage.getItem(DATA_CACHE_KEY).catch(() => null);
+      if (lastSync !== today) {
+        // دانلود کامل اطلاعات
+        setSyncDetail('دانلود اطلاعات رانندگان و خودروها…');
+        const cache = await request('/my/search-cache').catch(() => null);
+        if (cache) {
+          await AsyncStorage.setItem('search_cache_drivers', JSON.stringify(cache.drivers || []));
+          await AsyncStorage.setItem('search_cache_lines', JSON.stringify(cache.lines || []));
+        }
+        setSyncDetail('دانلود فیش‌ها و اطلاعات کاربر…');
+        const dashboard = await request('/my/dashboard').catch(() => null);
+        if (dashboard) await AsyncStorage.setItem('cached_dashboard', JSON.stringify(dashboard));
+        await AsyncStorage.setItem(DATA_CACHE_KEY, today);
+      }
+      load();
+      setSyncDetail('');
+      Alert.alert('بروزرسانی شد', lastSync !== today
+        ? `اطلاعات کامل بروزرسانی شد${n > 0 ? ` (${n} مورد آفلاین ارسال شد)` : ''}.`
+        : (n > 0 ? `${n} مورد آفلاین ارسال شد.` : 'اطلاعات بروزرسانی شد.'));
+    } catch (e) { setSyncDetail(''); Alert.alert('خطا', 'بروزرسانی ناموفق بود. اتصال اینترنت را بررسی کنید.'); }
+    finally { setSyncing(false); }
+  };
+
+  useEffect(() => {
+    flushQueuedRequests();
+    registerPush();
+    load();
+    const unsub = navigation.addListener('focus', load);
+    return unsub;
+  }, [navigation]);
+
+  // نشان زنگوله در هدر با تعداد خوانده‌نشده
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={{ flexDirection: 'row-reverse', gap: 14, paddingHorizontal: 4 }}>
+          <TouchableOpacity onPress={manualSync} disabled={syncing}>
+            <Text style={{ color: '#fff', fontSize: 18 }}>{syncing ? '⏳' : '🔄'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Notifications')}>
+            <Text style={{ color: '#fff', fontSize: 18 }}>🔔{stats.unread > 0 ? ` ${stats.unread > 99 ? '+۹۹' : faNum(Number(stats.unread))}` : ''}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('InboxReports')}>
+            <Text style={{ color: '#fff', fontSize: 18 }}>📥{stats.inbox_reports > 0 ? ` ${faNum(Number(stats.inbox_reports))}` : ''}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Messages')}>
+            <Text style={{ color: '#fff', fontSize: 18 }}>💬{stats.unread_messages > 0 ? ` ${stats.unread_messages > 99 ? '+۹۹' : faNum(Number(stats.unread_messages))}` : ''}</Text>
+          </TouchableOpacity>
+          {stats.field_alerts_total > 0 && (
+            <TouchableOpacity onPress={() => navigation.navigate('FieldAlerts')} style={{ marginStart: -6 }}>
+              <Text style={{ color: '#fff', fontSize: 13 }}>⚠️{stats.field_alerts_unread > 0 ? ` ${stats.field_alerts_unread > 99 ? '+۹۹' : faNum(Number(stats.field_alerts_unread))}` : ''}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      ),
+    });
+  }, [navigation, stats.unread, stats.unread_messages, stats.inbox_reports, stats.field_alerts_total, stats.field_alerts_unread, syncing]);
+
+  const KPIS = [
+    ['رانندگان خطوط شما', myStats.drivers], ['خودروهای خطوط شما', myStats.vehicles],
+    ['حضور امروز', stats.today], ['چک‌لیست این ماه', stats.checklists],
+  ];
+  const [menuTab,setMenuTab]=useState('all');
+  const ICON3D = {
+    search: require('../../assets/icons3d/search-taxi.png'),
+    present: require('../../assets/icons3d/present-people.png'),
+    sendReport: require('../../assets/icons3d/send-report-plane.png'),
+    checkin: require('../../assets/icons3d/checkin-fingerprint.png'),
+    requests: require('../../assets/icons3d/request-box.png'),
+    approvals: require('../../assets/icons3d/approve-stamp.png'),
+    performance: require('../../assets/icons3d/my-performance.png'),
+    salary: require('../../assets/icons3d/salary-money.png'),
+    company: require('../../assets/icons3d/company-send.png'),
+    subscription: require('../../assets/icons3d/subscription-card.png'),
+    sms: require('../../assets/icons3d/sms-bubble.png'),
+    bot: require('../../assets/icons3d/bot-message.png'),
+    sent: require('../../assets/icons3d/sent-folder.png'),
+    forms: require('../../assets/icons3d/form-document.png'),
+    cultural: require('../../assets/icons3d/cultural-lamp.png'),
+    welfare: require('../../assets/icons3d/welfare-heart.png'),
+    official: require('../../assets/icons3d/official-presence.png'),
+    activity: require('../../assets/icons3d/activity-wave.png'),
+    insurance: require('../../assets/icons3d/insurance-shield.png'),
+    invalid: require('../../assets/icons3d/invalid-warning.png'),
+    operation: require('../../assets/icons3d/operation-tools.png'),
+    team: require('../../assets/icons3d/team-people.png'),
+    temporary: require('../../assets/icons3d/temp-driver.png'),
+    outage: require('../../assets/icons3d/outage-bolt.png'),
+  };
+
+  const MENU = [
+    { icon3d: ICON3D.search, t: 'جستجوی تاکسی و تاکسیران', r: 'Search', bg: '#e8f3ff' },
+    { icon3d: ICON3D.present, t: 'حاضرین در خط', r: 'PresentList', bg: '#e9f7f0' },
+    { icon3d: ICON3D.sendReport, t: 'ارسال گزارش', r: 'Reports', bg: '#fff3e6' },
+    { icon3d: ICON3D.checkin, t: 'ثبت حضور من', r: 'CheckIn', bg: '#e7f3ee' },
+    { icon3d: ICON3D.requests, t: 'درخواست‌ها', r: 'Requests', bg: '#eef2fb' },
+    { icon3d: ICON3D.approvals, t: 'تأیید درخواست‌ها', r: 'RequestInbox', bg: '#fff3e6' },
+    { icon3d: ICON3D.performance, t: 'کارکرد من', r: 'WorkSummary', bg: '#f0eefb' },
+    { icon3d: ICON3D.salary, t: 'فیش حقوقی', r: 'SalarySlips', bg: '#fff7e6' },
+    { icon3d: ICON3D.company, t: 'ارسال برای شرکت', r: 'CompanyRequests', bg: '#e8f7f4', always: true },
+    { icon3d: ICON3D.subscription, t: subscription?.label ? `${subscription.label}${subscription.enabled && subscription.days_left !== null ? ` • ${faNum(Number(subscription.days_left || 0))} روز` : ''}` : 'اشتراک برنامه', r: 'Subscription', bg: '#fff4d6', always: true },
+    { icon3d: ICON3D.sms, t: 'ارسال پیامک', r: 'Sms', bg: '#e7f3ee' },
+    { icon3d: ICON3D.bot, t: 'ارسال پیام در ربات‌ها', r: 'BotMessages', bg: '#eef7ff' },
+    { icon3d: ICON3D.sent, t: 'پیامک‌های ارسالی من', r: 'MySms', bg: '#eef4ff' },
+    { icon3d: ICON3D.forms, t: 'تکمیل فرم‌ها', r: 'Forms', bg: '#f0ecff' },
+    { icon3d: ICON3D.cultural, t: 'فعالیت‌های فرهنگی', r: 'Cultural', bg: '#fdeef7', needs: 'cultural' },
+    { icon3d: ICON3D.welfare, t: 'ثبت رفاهیات', r: 'Welfare', bg: '#fef3f8', needs: 'welfare' },
+    { icon3d: ICON3D.official, t: 'حضور مسئولین در خط', r: 'OfficialPresence', bg: '#eafaf3' },
+    { icon3d: ICON3D.requests, t: 'اقلام تحویلی', r: 'Inventory', bg: '#f0ecff' },
+    { icon3d: ICON3D.activity, t: 'مأموریت روزانه من', r: 'MyDailyMission', bg: '#fff4d8', always: true },
+    { icon3d: ICON3D.activity, t: 'برنامه بازدید و پوشش خط', r: 'LineVisitProgram', bg: '#e8f3ff', always: true },
+    { icon3d: ICON3D.activity, t: 'داشبورد و امتیاز من', r: 'RoleDashboard', bg: '#eafaf3', always: true },
+    { icon3d: ICON3D.activity, t: 'رتبه‌بندی و نشان‌ها', r: 'Leaderboard', bg: '#fff4d8', always: true },
+    { icon3d: ICON3D.activity, t: 'پرکار/کم‌کار هر خط', r: 'ActivityReport', bg: '#eef4ff' },
+    { icon3d: ICON3D.insurance, t: 'بیمه و معاینه خودروها', r: 'ExpInsurance', bg: '#e9f7f0' },
+    { icon3d: ICON3D.invalid, t: 'افراد فاقد اعتبار', r: 'ExpTaxi', bg: '#fdeef0' },
+    { icon3d: ICON3D.operation, t: 'خودرو فاقد بهره‌برداری', r: 'ExpOplic', bg: '#fff7e6' },
+    { icon3d: ICON3D.team, t: 'زیرمجموعهٔ من', r: 'TeamReport', bg: '#f0ecff' },
+    { icon3d: ICON3D.temporary, t: 'رانندگان موقت خطوط ویژه', r: 'TempDrivers', bg: '#eef7ff', needs: 'temp' },
+    { icon3d: ICON3D.outage, t: 'اعلام قطع سیستم نوبت‌دهی', r: 'Outage', bg: '#fdeef0' },
+  ];
+  const categoryOf=(r)=>['CheckIn','OfficialPresence','LineVisitProgram','RoleDashboard','Leaderboard','PresentList','ActivityReport','ExpInsurance','ExpTaxi','ExpOplic'].includes(r)?'field':['Reports','Requests','RequestInbox','Forms','CompanyRequests','Outage'].includes(r)?'work':['Sms','BotMessages','MySms','Messages','Notifications'].includes(r)?'messages':['WorkSummary','SalarySlips','Subscription','Welfare','Cultural'].includes(r)?'personal':'general';
+  const menuTabs=[['all','همه'],['field','میدانی'],['work','عملیات'],['messages','پیام‌ها'],['personal','شخصی'],['general','سایر']];
+
+  return (
+    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ paddingBottom: 24 }}>
+      {syncing && syncDetail ? (
+        <View style={{ backgroundColor: '#1b3a6b', padding: 10, alignItems: 'center' }}>
+          <Text style={{ color: '#fff', fontFamily: FONT.regular, fontSize: 12 }}>{syncDetail}</Text>
+        </View>
+      ) : null}
+      <View style={s.top}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.hi}>روز بخیر،</Text>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {stars ? <Text style={s.stars}>{stars}</Text> : null}
+            <Text style={s.nm}>{user?.name || '—'}</Text>
+            {stars ? <Text style={s.stars}>{stars}</Text> : null}
+          </View>
+          <Text style={s.todayTxt}>{todayFaLong()}</Text>
+          {user?.role ? <View style={s.roleChip}><Text style={s.roleTxt}>{user.role}</Text></View> : null}
+        </View>
+        {myPhoto
+          ? <Image source={imageSource(myPhoto)} style={s.avatar} />
+          : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}
+      </View>
+
+      <View style={s.kpis}>
+        {KPIS.map(([l, n], i) => (
+          <View style={[s.kpi, { width: cardW }]} key={i}>
+            <Text style={s.kpiN}>{faNum(Number(n))}</Text>
+            <Text style={s.kpiL}>{l}</Text>
+          </View>
+        ))}
+      </View>
+
+      <FieldStatusBanner />
+
+      {lead && lead.groups && lead.groups.some(g => (g.top || []).length > 0) ? (
+        <View>
+          <Text style={s.sectionTitle}>پرکارترین و کم‌کارترین نیروها{lead.zone_scope === 'own' ? ' (منطقهٔ شما)' : ''}</Text>
+          <View style={s.leadRow}>
+            <View style={[s.leadBox, { borderColor: '#16a06a' }]}>
+              <Text style={[s.leadTitle, { color: '#16a06a' }]}>پرکارترین</Text>
+              {lead.groups.map((g) => <LeadList key={g.key} items={g.top} label={g.title} onPick={setPop} />)}
+            </View>
+            <View style={[s.leadBox, { borderColor: '#e23b54' }]}>
+              <Text style={[s.leadTitle, { color: '#e23b54' }]}>کم‌کارترین</Text>
+              {lead.groups.map((g) => <LeadList key={g.key} items={g.bottom} label={g.title} onPick={setPop} />)}
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      <Text style={s.sectionTitle}>دسترسی سریع</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.menuTabs}>{menuTabs.map(([k,l])=><TouchableOpacity key={k} style={[s.menuTab,menuTab===k&&s.menuTabOn]} onPress={()=>setMenuTab(k)}><Text style={[s.menuTabTxt,menuTab===k&&s.menuTabTxtOn]}>{l}</Text></TouchableOpacity>)}</ScrollView>
+      <View style={s.grid}>
+        {MENU.filter((m) => (m.r !== 'Sms' && m.r !== 'MySms' && m.r !== 'BotMessages') || user?.can_send_sms || m.r === 'BotMessages')
+              .filter((m) => !m.needs || access[m.needs])
+              .filter((m) => m.always || allowed === null || allowed.includes(m.r)).filter(m=>menuTab==='all'||categoryOf(m.r)===menuTab).map((m, i) => (
+          <TouchableOpacity key={i} style={[s.card, { width: cardW }]} activeOpacity={0.85} onPress={() => navigation.navigate(m.r)}>
+            <View style={[s.iconWrap, { backgroundColor: m.bg }]}>
+              {m.icon3d ? <Image source={m.icon3d} style={{width:46,height:46}} resizeMode="contain" onError={()=>{}} /> : <Text style={s.iconTxt}>{m.ic}</Text>}
+              {m.badge ? <View style={s.badge}><Text style={s.badgeTxt}>{m.badge > 99 ? '+۹۹' : faNum(Number(m.badge))}</Text></View> : null}
+            </View>
+            <Text style={s.cardTxt} numberOfLines={2}>{m.t}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Modal visible={!!pop} transparent animationType="fade" onRequestClose={() => setPop(null)}>
+        <TouchableOpacity style={s.popBg} activeOpacity={1} onPress={() => setPop(null)}>
+          <View style={s.popCard}>
+            {pop ? (<>
+              <View style={s.popHead}>
+                <Text style={s.popName}>{pop.name}</Text>
+                <Text style={s.popTotal}>مجموع: {faNum(Number(pop.total || 0))}</Text>
+              </View>
+              <Text style={s.popRole}>{pop.role}</Text>
+              {[['ثبت حضور رانندگان', pop.attendances], ['چک‌لیست انجام‌شده', pop.checklists], ['تذکر داده‌شده', pop.notices], ['تکمیل فرم', pop.forms], ['حضور مسئولین', pop.visits], ['گزارش ارسالی', pop.reports]].map(([l, n], i) => (
+                <View style={s.popLine} key={i}><Text style={s.popLabel}>{l}</Text><Text style={s.popVal}>{faNum(Number(n || 0))}</Text></View>
+              ))}
+              <TouchableOpacity style={s.popBtn} onPress={() => setPop(null)}><Text style={s.popBtnTxt}>بستن</Text></TouchableOpacity>
+            </>) : null}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </ScrollView>
+  );
+}
+
+function LeadList({ items, label, onPick }) {
+  const list = items || [];
+  if (!list.length) return null;
+  return (
+    <View style={{ marginTop: 6 }}>
+      <Text style={ls.cat}>{label}</Text>
+      {list.map((x, i) => (
+        <TouchableOpacity key={x.id} style={ls.row} onPress={() => onPick(x)}>
+          <Text style={ls.nm} numberOfLines={1}>{i + 1}. {x.name}</Text>
+          <Text style={ls.tot}>{faNum(Number(x.total || 0))}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+const ls = StyleSheet.create({
+  cat: { fontFamily: FONT.bold, color: C.muted, fontSize: 11, textAlign: 'right', marginBottom: 2 },
+  row: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  nm: { fontFamily: FONT.regular, color: C.brand, fontSize: 12, flex: 1, textAlign: 'right' },
+  tot: { fontFamily: FONT.bold, color: C.ink, fontSize: 12, marginRight: 6 },
+});
+
+const s = StyleSheet.create({
+  top: { backgroundColor: C.brand, padding: 20, paddingTop: 28, paddingBottom: 22, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
+  hi: { color: '#fff', opacity: 0.85, fontFamily: FONT.regular, textAlign: 'right', fontSize: 13 },
+  nm: { color: '#fff', fontFamily: FONT.bold, fontSize: 19, textAlign: 'right', marginTop: 3 },
+  stars: { color: '#ffd24a', fontSize: 15, marginTop: 3 },
+  todayTxt: { color: '#fff', opacity: 0.9, fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', marginTop: 4 },
+  avatar: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: 'rgba(255,255,255,0.6)' },
+  avatarPh: { width: 74, height: 74, borderRadius: 37, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
+  avatarTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 28 },
+  roleChip: { alignSelf: 'flex-end', backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 8, paddingVertical: 3, paddingHorizontal: 10, marginTop: 8 },
+  roleTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 12 },
+  kpis: { flexDirection: 'row-reverse', flexWrap: 'wrap', paddingHorizontal: 12, paddingTop: 14, gap: 10 },
+  kpi: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, padding: 14 },
+  kpiN: { fontFamily: FONT.bold, fontSize: 22, color: C.brand, textAlign: 'right' },
+  kpiL: { fontFamily: FONT.regular, fontSize: 12, color: C.muted, textAlign: 'right', marginTop: 2 },
+  sectionTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 15, textAlign: 'right', marginHorizontal: 16, marginTop: 18, marginBottom: 8 },
+  leadRow: { flexDirection: 'row-reverse', gap: 10, paddingHorizontal: 12 },
+  leadBox: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderRadius: 16, padding: 12 },
+  leadTitle: { fontFamily: FONT.bold, fontSize: 13, textAlign: 'center', marginBottom: 6 },
+  popBg: { flex: 1, backgroundColor: 'rgba(11,27,46,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  popCard: { backgroundColor: '#fff', borderRadius: 18, padding: 20, width: '100%', maxWidth: 360 },
+  popHead: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
+  popName: { fontFamily: FONT.bold, color: C.ink, fontSize: 16 },
+  popTotal: { fontFamily: FONT.bold, color: C.brand, fontSize: 14 },
+  popRole: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', marginBottom: 10 },
+  popLine: { flexDirection: 'row-reverse', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: C.line },
+  popLabel: { fontFamily: FONT.regular, color: C.ink, fontSize: 13 },
+  popVal: { fontFamily: FONT.bold, color: C.ink, fontSize: 13 },
+  popBtn: { backgroundColor: C.brand, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 16 },
+  popBtnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 14 },
+  menuTabs:{paddingHorizontal:12,gap:8,paddingBottom:10,flexDirection:'row-reverse'},
+  menuTab:{paddingVertical:8,paddingHorizontal:14,borderRadius:18,backgroundColor:'#fff',borderWidth:1,borderColor:C.line},
+  menuTabOn:{backgroundColor:C.brand,borderColor:C.brand},
+  menuTabTxt:{fontFamily:FONT.bold,color:C.muted,fontSize:12},
+  menuTabTxtOn:{color:'#fff'},
+  grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', paddingHorizontal: 12, gap: 10, justifyContent: 'flex-start' },
+  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, padding: 14, alignItems: 'flex-end' },
+  iconWrap: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  iconTxt: { fontSize: 22 },
+  badge: { position: 'absolute', top: -5, left: -5, backgroundColor: '#d63b54', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  badgeTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 11 },
+  cardTxt: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right', fontSize: 13, lineHeight: 20 },
+});

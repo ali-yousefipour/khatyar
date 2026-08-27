@@ -1,0 +1,15 @@
+Khatyar Gradle 8.7 / Myket wrapper fix - V8
+
+Required Gradle: 8.7
+Preferred local file: F:\gradle-cache\gradle-8.7-bin.zip
+Fallback URL: https://maven.myket.ir/gradle/distributions/gradle-8.7-bin.zip
+
+Behavior:
+1. After every Expo prebuild, scripts/configure-gradle-wrapper.js overwrites distributionUrl.
+2. A valid local ZIP (PK signature and size above 1 MB) is used first.
+3. Missing or incomplete local ZIP causes automatic fallback to Myket.
+4. Gradle 9.3.1 is no longer selected by any active Windows build script.
+5. networkTimeout is 600000 ms and validateDistributionUrl is enabled.
+
+Build:
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build-myket-release.ps1 -Fresh

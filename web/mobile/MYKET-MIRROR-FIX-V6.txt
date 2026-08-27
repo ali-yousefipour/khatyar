@@ -1,0 +1,33 @@
+Khatyar Android build - Myket mirror/local Gradle cache fix v6
+
+Current generated Gradle version: 8.7
+Priority:
+1) Exact local ZIP in F:\gradle-cache
+2) Myket Gradle distribution mirror
+
+Examples supported by the script:
+F:\gradle-cache\gradle-8.10.2-bin.zip
+F:\gradle-cache\gradle-8.13-bin.zip
+F:\gradle-cache\gradle-8.7-bin.zip
+
+For this Expo SDK 57 / React Native 0.86 build, Expo currently generates:
+gradle-8.7-bin.zip
+Therefore the build will select:
+F:\gradle-cache\gradle-8.7-bin.zip
+
+Maven repository priority:
+1) https://maven.myket.ir/
+2) Google Maven
+3) Maven Central
+4) Gradle Plugin Portal (plugin resolution)
+
+The explicit myket.init.gradle is passed to Gradle so the mirror also applies to
+Expo and React Native included builds, including expo-autolinking-settings-plugin.
+
+CSV files:
+config\gradle-distributions.csv
+config\myket-sdk-archives.csv
+config\myket-sdk-required-windows.csv
+
+Build command:
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build-myket-release.ps1 -Fresh

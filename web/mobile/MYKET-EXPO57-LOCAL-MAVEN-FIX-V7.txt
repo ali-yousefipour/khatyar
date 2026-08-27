@@ -1,0 +1,19 @@
+KHATYAR / EXPO SDK 57 / MYKET BUILD FIX V7
+
+Root cause fixed:
+The previous Gradle init script forced dependencyResolutionManagement to PREFER_SETTINGS.
+Expo SDK 57 supplies many Android modules as prebuilt AAR files under:
+  node_modules/<expo-package>/local-maven-repo
+Forcing repository mode caused those package-local repositories to be ignored. Gradle then
+searched Myket, Google, and Maven Central for expo.modules.* artifacts that are not hosted there.
+
+Changes:
+1. myket.init.gradle now configures pluginManagement/buildscript repositories only.
+2. It no longer changes dependencyResolutionManagement or repositoriesMode.
+3. Expo autolinking retains full control of all package-local Maven repositories.
+4. Added scripts/validate-expo-local-maven.js and a build stage that checks AAR availability.
+5. Integrated security-check v1.0.1 with compileSdk/minSdk/targetSdk compatibility.
+6. Myket remains first for Gradle plugin/buildscript downloads; official repositories remain fallback.
+
+Build command:
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\build-myket-release.ps1 -Fresh

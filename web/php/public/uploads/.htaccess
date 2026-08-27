@@ -1,0 +1,3 @@
+# جلوگیری از دسترسی مستقیم به فایل‌ها؛ تصاویر فقط از طریق /api/media سرو می‌شوند
+Order Deny,Allow
+Deny from all
