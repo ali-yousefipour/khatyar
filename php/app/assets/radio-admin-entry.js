@@ -1,1 +1,21 @@
-(function(){'use strict';function ready(){const token=localStorage.token||'';if(!token)return;fetch('/api/radio-admin-api.php?op=bootstrap',{headers:{Authorization:'Bearer '+token},cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json()}).then(()=>{const href='radio-admin.html';if(document.querySelector('[data-khatyar-radio-admin]'))return;const a=document.createElement('a');a.href=href;a.target='_self';a.dataset.khatyarRadioAdmin='1';a.textContent='📻 مدیریت کانال‌های بی‌سیم';a.style.cssText='display:block;margin:8px 12px;padding:10px 12px;border-radius:10px;background:#e8f6f0;color:#0d7a5f;font:700 12px Vazirmatn,Tahoma;text-decoration:none;text-align:right;position:relative;z-index:20';const candidates=[...document.querySelectorAll('aside,nav,[role="navigation"],.sidebar,.side-bar,.drawer')];const host=candidates.find(x=>x.offsetParent!==null&&x.clientHeight>100);(host||document.body).appendChild(a)}).catch(()=>{});}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(ready,1200));else setTimeout(ready,1200);})();
+(function(){'use strict';
+function ready(){
+ const token=localStorage.token||''; if(!token)return;
+ const headers={Authorization:'Bearer '+token};
+ /* Permission is resolved by the same role/app-item settings used by the rest of the panel. */
+ fetch('/api/radio-admin-api.php?op=access',{headers,cache:'no-store'})
+ .then(r=>{if(!r.ok)throw Error();return r.json()})
+ .then(d=>{
+   if(!d||!d.ok||!d.allowed)return;
+   const href='radio-admin.html';
+   if(document.querySelector('[data-khatyar-radio-admin]'))return;
+   const a=document.createElement('a');
+   a.href=href;a.target='_self';a.dataset.khatyarRadioAdmin='1';
+   a.textContent='📻 تنظیمات بی‌سیم';
+   a.style.cssText='display:block;margin:8px 12px;padding:10px 12px;border-radius:10px;background:#e8f6f0;color:#0d7a5f;font:700 12px Vazirmatn,Tahoma;text-decoration:none;text-align:right;position:relative;z-index:20';
+   const candidates=[...document.querySelectorAll('aside,nav,[role="navigation"],.sidebar,.side-bar,.drawer')];
+   const host=candidates.find(x=>x.offsetParent!==null&&x.clientHeight>100);(host||document.body).appendChild(a);
+ }).catch(()=>{});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(ready,1200));else setTimeout(ready,1200);
+})();
