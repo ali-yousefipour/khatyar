@@ -1,7 +1,42 @@
-// Khatyar global Myket mirror for the main build and all included builds (Expo/RN).
-final String myketUrl = 'https://maven.myket.ir/'
+// Khatyar global Myket/local Maven init for the main build and all included builds.
+//
+// The Android build must remain usable in Iran where direct access to some
+// upstream services is unreliable. Expo SDK packages intentionally ship a
+// local-maven-repo directory; use those artifacts before any network repository.
+// Myket is the preferred network mirror, followed by Google/Maven Central as
+// fallbacks. The build script sets KHATYAR_NODE_MODULES to mobile/node_modules.
 
-def addMyketFirst = { repos ->
+final String myketUrl = 'https://maven.myket.ir/'
+final String nodeModules = System.getenv('KHATYAR_NODE_MODULES') ?: ''
+
+String normalizePath(String value) {
+    value.replace('\\', '/')
+}
+
+def addLocalExpoRepos = { repos ->
+    if (!nodeModules) return
+    def root = new File(nodeModules)
+    if (!root.exists()) return
+
+    // Expo packages publish their Android Maven artifacts inside the npm
+    // package. This is the critical offline/IR-safe source for
+    // host.exp.exponent:expo.modules.* artifacts.
+    root.eachDir { dir ->
+        def localRepo = new File(dir, 'local-maven-repo')
+        if (localRepo.isDirectory()) {
+            def repoName = 'ExpoLocal_' + dir.name.replaceAll('[^A-Za-z0-9_]', '_')
+            if (repos.findByName(repoName) == null) {
+                repos.maven {
+                    name = repoName
+                    url = localRepo.toURI()
+                    metadataSources { gradleMetadata(); mavenPom(); artifact() }
+                }
+            }
+        }
+    }
+}
+
+def addMyket = { repos ->
     if (repos.findByName('MyketMirror') == null) {
         repos.maven {
             name = 'MyketMirror'
@@ -11,32 +46,43 @@ def addMyketFirst = { repos ->
     }
 }
 
-// Runs for the root settings and every included build before their settings scripts.
+def addStandardRepos = { repos, includePluginPortal = false ->
+    if (repos.findByName('Google') == null) repos.google()
+    if (repos.findByName('MavenCentral') == null) repos.mavenCentral()
+    if (includePluginPortal && repos.findByName('GradlePluginPortal') == null) repos.gradlePluginPortal()
+}
+
+// Root settings and every included build (Expo/RN Gradle plugins).
 beforeSettings { settings ->
     settings.pluginManagement.repositories {
         mavenLocal()
-        addMyketFirst(delegate)
-        google(); mavenCentral(); gradlePluginPortal()
+        addLocalExpoRepos(delegate)
+        addMyket(delegate)
+        addStandardRepos(delegate, true)
     }
-    // Do not change repositoriesMode: Expo SDK 57 needs package-local Maven repositories.
+
     try {
         settings.dependencyResolutionManagement.repositories {
             mavenLocal()
-            addMyketFirst(delegate)
+            addLocalExpoRepos(delegate)
+            addMyket(delegate)
+            addStandardRepos(delegate, false)
         }
     } catch (ignored) { }
 }
 
-// Runs for projects in the main build and included builds, including Expo Gradle plugins.
+// Main project and included builds which still declare repositories at project level.
 beforeProject { project ->
     project.buildscript.repositories {
         mavenLocal()
-        addMyketFirst(delegate)
-        google(); mavenCentral(); gradlePluginPortal()
+        addLocalExpoRepos(delegate)
+        addMyket(delegate)
+        addStandardRepos(delegate, true)
     }
     project.repositories {
         mavenLocal()
-        addMyketFirst(delegate)
-        google(); mavenCentral()
+        addLocalExpoRepos(delegate)
+        addMyket(delegate)
+        addStandardRepos(delegate, false)
     }
 }
