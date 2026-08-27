@@ -6825,14 +6825,314 @@ function LineMethods({ line, onClose }) {
             React.createElement("button", { className: "btn p", disabled: busy, onClick: save }, busy ? "در حال ذخیره…" : "ذخیره"),
             React.createElement("button", { className: "btn g", onClick: onClose }, "\u0627\u0646\u0635\u0631\u0627\u0641"))));
 }
+// --- ابزارهای مشترک بخش «خطوط تاکسیرانی»: نقشه، موقعیت ایستگاه‌ها، نوع تابلوها، خروجی اکسل و جزئیات خط ---
+// نکته: این endpoint (station-admin-v4.php) در ریشهٔ اپ PHP است، نه زیر /api، پس از GET/SEND ماژول استفاده نمی‌کند.
+async function sa4(op, opts) {
+    opts = opts || {};
+    const headers = Object.assign({}, tok(), { Accept: 'application/json' }, opts.headers || {});
+    const r = await fetch('/station-admin-v4.php?op=' + encodeURIComponent(op), Object.assign({}, opts, { headers, cache: 'no-store' }));
+    const d = await _readJsonResponse(r);
+    if (!r.ok)
+        throw new Error(d.error || d.message || 'خطای سرور');
+    return d;
+}
+// تصاویر ایستگاه/تابلو از یک endpoint احرازهویت‌شده سرو می‌شوند؛ برای نمایش مستقیم در <img>
+// (که نمی‌تواند هدر Authorization بفرستد) توکن به‌صورت پارامتر access_token اضافه می‌شود.
+function authImg(url) {
+    if (!url)
+        return '';
+    const t = localStorage.token || '';
+    if (!t)
+        return url;
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'access_token=' + encodeURIComponent(t);
+}
+function validCoord(lat, lon) { lat = Number(lat); lon = Number(lon); return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180; }
+function LineStationDetailModal({ line, onClose }) {
+    const [data, setData] = useState(null);
+    const [err, setErr] = useState('');
+    const [history, setHistory] = useState(null);
+    const [histBusy, setHistBusy] = useState(false);
+    useEffect(() => {
+        let active = true;
+        sa4('map').then(d => {
+            if (!active)
+                return;
+            const x = (d.lines || []).find(z => String(z.id) === String(line.id));
+            if (!x) {
+                setErr('اطلاعات این خط پیدا نشد.');
+                return;
+            }
+            setData(x);
+        }).catch(e => { if (active)
+            setErr(e.message || 'خطا در دریافت اطلاعات'); });
+        return () => { active = false; };
+    }, [line.id]);
+    const loadHistory = async () => {
+        if (!(data === null || data === void 0 ? void 0 : data.station_id))
+            return;
+        setHistBusy(true);
+        try {
+            const r = await fetch('/station-history-details.php?station_id=' + encodeURIComponent(data.station_id), { headers: tok(), cache: 'no-store' });
+            const q = await _readJsonResponse(r);
+            if (!r.ok)
+                throw new Error(q.error || 'خطا در دریافت سوابق');
+            setHistory(q.history || []);
+        }
+        catch (e) {
+            setHistory([]);
+            alert(e.message || 'خطا در دریافت سوابق');
+        }
+        finally {
+            setHistBusy(false);
+        }
+    };
+    return (React.createElement(Modal, { title: "جزئیات خط " + (line.code || ''), onClose: onClose },
+        err && React.createElement("p", { className: "muted", style: { color: '#b42318' } }, err),
+        !err && !data && React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062C\u0632\u0626\u06CC\u0627\u062A\u2026"),
+        data && React.createElement("div", null,
+            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: 'wrap', marginBottom: 14 } },
+                React.createElement("div", { className: "card-p" },
+                    React.createElement("b", null, "\u06A9\u062F \u062E\u0637"),
+                    React.createElement("div", null, fa(data.code))),
+                React.createElement("div", { className: "card-p" },
+                    React.createElement("b", null, "\u0645\u0628\u062F\u0623"),
+                    React.createElement("div", null, data.origin || '—')),
+                React.createElement("div", { className: "card-p" },
+                    React.createElement("b", null, "\u0645\u0642\u0635\u062F"),
+                    React.createElement("div", null, data.destination || '—')),
+                React.createElement("div", { className: "card-p" },
+                    React.createElement("b", null, "\u0648\u0636\u0639\u06CC\u062A \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647"),
+                    React.createElement("div", null, data.registered ? 'ثبت شده' : 'ثبت نشده')),
+                React.createElement("div", { className: "card-p" },
+                    React.createElement("b", null, "\u0645\u062E\u062A\u0635\u0627\u062A"),
+                    React.createElement("div", null, validCoord(data.latitude, data.longitude) ? (data.latitude + '، ' + data.longitude) : 'ثبت نشده')),
+                React.createElement("div", { className: "card-p" },
+                    React.createElement("b", null, "\u062F\u0642\u062A GPS"),
+                    React.createElement("div", null, data.accuracy_m ? fa(data.accuracy_m) + ' متر' : '—')),
+                React.createElement("div", { className: "card-p" },
+                    React.createElement("b", null, "\u0622\u062F\u0631\u0633 \u0641\u06CC\u0632\u06CC\u06A9\u06CC"),
+                    React.createElement("div", null, data.physical_address || '—')),
+                React.createElement("div", { className: "card-p" },
+                    React.createElement("b", null, "\u062A\u0627\u0631\u06CC\u062E \u062B\u0628\u062A"),
+                    React.createElement("div", null, data.captured_at || '—')),
+                React.createElement("div", { className: "card-p" },
+                    React.createElement("b", null, "\u062B\u0628\u062A\u200C\u06A9\u0646\u0646\u062F\u0647"),
+                    React.createElement("div", null, data.captured_by_name || '—')),
+                React.createElement("div", { className: "card-p" },
+                    React.createElement("b", null, "\u0622\u062E\u0631\u06CC\u0646 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u062E\u0637"),
+                    React.createElement("div", null, data.location_updated_at || '—'))),
+            validCoord(data.latitude, data.longitude) && React.createElement("button", { className: "btn g", style: { marginBottom: 12 }, onClick: () => window.open('https://www.openstreetmap.org/?mlat=' + encodeURIComponent(data.latitude) + '&mlon=' + encodeURIComponent(data.longitude) + '#map=19/' + encodeURIComponent(data.latitude) + '/' + encodeURIComponent(data.longitude), '_blank', 'noopener') }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u0645\u0648\u0642\u0639\u06CC\u062A \u0631\u0648\u06CC \u0646\u0642\u0634\u0647"),
+            React.createElement("h4", { style: { margin: '10px 0' } }, "\u062A\u0635\u0648\u06CC\u0631 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647"),
+            data.location_photo_url ? React.createElement("a", { href: authImg(data.location_photo_url), target: "_blank", rel: "noopener" },
+                React.createElement("img", { src: authImg(data.location_photo_url), style: { width: 220, maxHeight: 170, objectFit: 'cover', borderRadius: 10, marginBottom: 14 } })) : React.createElement("p", { className: "muted" }, "\u062A\u0635\u0648\u06CC\u0631 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
+            React.createElement("h4", { style: { margin: '10px 0' } },
+                "\u062A\u0627\u0628\u0644\u0648\u0647\u0627 (",
+                fa((data.signs || []).length),
+                ")"),
+            React.createElement("div", { className: "row", style: { gap: 10, flexWrap: 'wrap', marginBottom: 12 } }, (data.signs || []).length ? data.signs.map(z => React.createElement("a", { key: z.id, href: authImg(z.photo_url), target: "_blank", rel: "noopener", style: { display: 'block', width: 150 } },
+                React.createElement("img", { src: authImg(z.photo_url), style: { width: 150, height: 110, objectFit: 'cover', borderRadius: 8 } }),
+                React.createElement("div", { className: "muted", style: { fontSize: 11, marginTop: 4 } }, z.title || z.code || 'تابلو'))) : React.createElement("p", { className: "muted" }, "\u062A\u0627\u0628\u0644\u0648\u06CC\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")),
+            data.station_id ? React.createElement("div", null,
+                !history && React.createElement("button", { className: "btn g", onClick: loadHistory, disabled: histBusy }, histBusy ? 'در حال دریافت…' : 'نمایش لاگ ثبت و ویرایش ایستگاه'),
+                history && history.length > 0 && React.createElement("table", { style: { marginTop: 10 } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E \u062B\u0628\u062A"),
+                            React.createElement("th", null, "\u06A9\u062F \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647"),
+                            React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
+                            React.createElement("th", null, "\u0645\u062E\u062A\u0635\u0627\u062A"),
+                            React.createElement("th", null, "\u062F\u0642\u062A"),
+                            React.createElement("th", null, "\u062A\u0639\u062F\u0627\u062F \u062A\u0627\u0628\u0644\u0648"),
+                            React.createElement("th", null, "\u062B\u0628\u062A\u200C\u06A9\u0646\u0646\u062F\u0647"))),
+                    React.createElement("tbody", null, history.map((r, i) => React.createElement("tr", { key: i },
+                        React.createElement("td", null, r.captured_at),
+                        React.createElement("td", null, r.station_code),
+                        React.createElement("td", null, r.station_status),
+                        React.createElement("td", null, r.latitude && r.longitude ? (r.latitude + '، ' + r.longitude) : '—'),
+                        React.createElement("td", null, r.accuracy_m || '—'),
+                        React.createElement("td", null, fa(r.sign_count || 0)),
+                        React.createElement("td", null, r.captured_by_name || r.captured_by || '—'))))),
+                history && history.length === 0 && React.createElement("p", { className: "muted", style: { marginTop: 8 } }, "\u0633\u0627\u0628\u0642\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")) : null)));
+}
+function LineMapPanel() {
+    const ref = useRef();
+    const [stats, setStats] = useState(null);
+    const [err, setErr] = useState('');
+    useEffect(() => {
+        let active = true;
+        const map = L.map(ref.current, { minZoom: 10, maxZoom: 19 }).setView([36.297, 59.606], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { minZoom: 10, maxZoom: 19, maxNativeZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+        sa4('map').then(d => {
+            if (!active)
+                return;
+            setStats(d.stats);
+            const bounds = [];
+            (d.lines || []).forEach(x => {
+                if (!validCoord(x.latitude, x.longitude))
+                    return;
+                const lat = Number(x.latitude), lon = Number(x.longitude);
+                const marker = L.circleMarker([lat, lon], { radius: 8, weight: 2, fillOpacity: .9, fillColor: x.registered ? '#168a58' : '#d92d20' }).addTo(map);
+                let html = '<div dir="rtl" style="font-family:Vazirmatn,Tahoma"><b>خط ' + (x.code || 'بدون شماره') + '</b><br>' + [x.origin, x.destination].filter(Boolean).join(' تا ') + '<br>وضعیت: ' + (x.registered ? 'ایستگاه ثبت شده' : 'ایستگاه ثبت نشده');
+                if (x.registered) {
+                    if (x.physical_address)
+                        html += '<br>آدرس: ' + x.physical_address;
+                    if (x.accuracy_m != null)
+                        html += '<br>دقت GPS: ' + x.accuracy_m + ' متر';
+                    if (x.location_photo_url)
+                        html += '<br><img src="' + authImg(x.location_photo_url) + '" style="width:180px;max-height:140px;object-fit:cover;border-radius:8px;margin-top:6px">';
+                }
+                html += '</div>';
+                marker.bindPopup(html, { maxWidth: 310 });
+                bounds.push([lat, lon]);
+            });
+            if (bounds.length)
+                map.fitBounds(bounds, { padding: [20, 20], maxZoom: 18 });
+        }).catch(e => active && setErr(e.message || 'خطا در دریافت اطلاعات نقشه'));
+        setTimeout(() => map.invalidateSize(), 250);
+        return () => { active = false; map.remove(); };
+    }, []);
+    return (React.createElement("div", null,
+        stats && React.createElement("div", { className: "row", style: { gap: 10, flexWrap: 'wrap', marginBottom: 10 } },
+            React.createElement("div", { className: "card-p" },
+                "\u06A9\u0644 \u062E\u0637\u0648\u0637: ",
+                React.createElement("b", null, fa(stats.total))),
+            React.createElement("div", { className: "card-p" },
+                "\u062B\u0628\u062A\u200C\u0634\u062F\u0647: ",
+                React.createElement("b", null, fa(stats.registered))),
+            React.createElement("div", { className: "card-p" },
+                "\u062B\u0628\u062A\u200C\u0646\u0634\u062F\u0647: ",
+                React.createElement("b", null, fa(stats.unregistered)))),
+        err && React.createElement("p", { className: "muted", style: { color: '#b42318' } }, err),
+        React.createElement("div", { ref: ref, style: { height: 470, borderRadius: 13, overflow: 'hidden', border: '1px solid var(--line)' } })));
+}
+function LineLocationsPanel() {
+    const [rows, setRows] = useState(null);
+    const [err, setErr] = useState('');
+    useEffect(() => { let active = true; sa4('map').then(d => { if (active)
+        setRows(d.lines || []); }).catch(e => active && setErr(e.message || 'خطا در دریافت اطلاعات')); return () => { active = false; }; }, []);
+    if (err)
+        return React.createElement("p", { className: "muted", style: { color: '#b42318' } }, err);
+    if (!rows)
+        return React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026");
+    return (React.createElement("div", { style: { overflow: 'auto' } },
+        React.createElement("table", null,
+            React.createElement("thead", null,
+                React.createElement("tr", null,
+                    React.createElement("th", null, "\u062E\u0637"),
+                    React.createElement("th", null, "\u0645\u0628\u062F\u0623 \u0648 \u0645\u0642\u0635\u062F"),
+                    React.createElement("th", null, "\u0645\u062E\u062A\u0635\u0627\u062A"),
+                    React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647"),
+                    React.createElement("th", null, "\u0622\u062F\u0631\u0633"),
+                    React.createElement("th", null, "\u062A\u0627\u0628\u0644\u0648\u0647\u0627 / \u0646\u0648\u0639"),
+                    React.createElement("th", null, "\u062A\u0635\u0648\u06CC\u0631 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647"))),
+            React.createElement("tbody", null, rows.map(x => {
+                const signs = x.signs || [];
+                const types = signs.map(z => z.title || z.code).filter(Boolean).join('، ');
+                return (React.createElement("tr", { key: x.id },
+                    React.createElement("td", null, x.code),
+                    React.createElement("td", null, [x.origin, x.destination].filter(Boolean).join(' تا ')),
+                    React.createElement("td", null, validCoord(x.latitude, x.longitude) ? x.latitude + '، ' + x.longitude : 'بدون مختصات'),
+                    React.createElement("td", null, x.registered ? 'ثبت شده' : 'ثبت نشده'),
+                    React.createElement("td", null, x.physical_address || '—'),
+                    React.createElement("td", null,
+                        fa(signs.length),
+                        types ? React.createElement(React.Fragment, null,
+                            React.createElement("br", null),
+                            React.createElement("small", null, types)) : null),
+                    React.createElement("td", null, x.location_photo_url ? React.createElement("img", { src: authImg(x.location_photo_url), style: { width: 72, height: 54, objectFit: 'cover', borderRadius: 7 } }) : '—')));
+            })))));
+}
+function LineSignTypesPanel() {
+    var _a;
+    const [types, setTypes] = useState(null);
+    const [edit, setEdit] = useState(null); // null=بسته، آبجکت=در حال ویرایش/افزودن
+    const load = () => sa4('types').then(d => setTypes(d.types || [])).catch(() => setTypes([]));
+    useEffect(() => { load(); }, []);
+    const save = async () => {
+        if (!edit.title || !edit.title.trim())
+            return alert('عنوان نوع تابلو الزامی است.');
+        await sa4('save-type', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: edit.id || 0, title: edit.title.trim(), code: edit.code || '', sort_order: Number(edit.sort_order) || 0, is_active: !!edit.is_active }) });
+        setEdit(null);
+        load();
+    };
+    const del = async (id) => {
+        if (!confirm('این نوع تابلو حذف/غیرفعال شود؟'))
+            return;
+        const fd = new URLSearchParams({ id });
+        await sa4('delete-type', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: fd });
+        load();
+    };
+    if (!types)
+        return React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026");
+    return (React.createElement("div", null,
+        React.createElement("button", { className: "btn p", style: { marginBottom: 10 }, onClick: () => setEdit({ title: '', code: '', sort_order: types.length, is_active: true }) }, "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0646\u0648\u0639 \u062A\u0627\u0628\u0644\u0648"),
+        React.createElement("table", null,
+            React.createElement("thead", null,
+                React.createElement("tr", null,
+                    React.createElement("th", null, "\u062A\u0631\u062A\u06CC\u0628"),
+                    React.createElement("th", null, "\u0639\u0646\u0648\u0627\u0646"),
+                    React.createElement("th", null, "\u06A9\u062F"),
+                    React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
+                    React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
+            React.createElement("tbody", null, types.map(x => React.createElement("tr", { key: x.id },
+                React.createElement("td", null, fa(x.sort_order)),
+                React.createElement("td", null, x.title),
+                React.createElement("td", null, x.code || '—'),
+                React.createElement("td", null, Number(x.is_active) ? 'فعال' : 'غیرفعال'),
+                React.createElement("td", null,
+                    React.createElement("button", { className: "btn g", onClick: () => setEdit({ ...x }) }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
+                    " ",
+                    React.createElement("button", { className: "btn g", onClick: () => del(x.id) }, "\u062D\u0630\u0641")))))),
+        edit && React.createElement(Modal, { title: edit.id ? 'ویرایش نوع تابلو' : 'نوع تابلوی جدید', onClose: () => setEdit(null) },
+            React.createElement("div", { style: { display: 'grid', gap: 10 } },
+                React.createElement("div", null,
+                    React.createElement("label", { className: "label" }, "\u0639\u0646\u0648\u0627\u0646"),
+                    React.createElement("input", { className: "input", value: edit.title, onChange: e => setEdit({ ...edit, title: e.target.value }) })),
+                React.createElement("div", null,
+                    React.createElement("label", { className: "label" }, "\u06A9\u062F (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)"),
+                    React.createElement("input", { className: "input", value: edit.code || '', onChange: e => setEdit({ ...edit, code: e.target.value }) })),
+                React.createElement("div", null,
+                    React.createElement("label", { className: "label" }, "\u062A\u0631\u062A\u06CC\u0628 \u0646\u0645\u0627\u06CC\u0634"),
+                    React.createElement("input", { className: "input", type: "number", value: (_a = edit.sort_order) !== null && _a !== void 0 ? _a : 0, onChange: e => setEdit({ ...edit, sort_order: e.target.value }) })),
+                React.createElement("label", { className: "row", style: { gap: 6 } },
+                    React.createElement("input", { type: "checkbox", checked: !!edit.is_active, onChange: e => setEdit({ ...edit, is_active: e.target.checked }) }),
+                    " \u0641\u0639\u0627\u0644"),
+                React.createElement("button", { className: "btn p", onClick: save }, "\u0630\u062E\u06CC\u0631\u0647")))));
+}
+function LineExcelPanel() {
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState('');
+    const run = async () => {
+        setBusy(true);
+        setMsg('در حال تولید فایل...');
+        try {
+            await downloadProtectedFile('/line-location-export-v4.php', 'گزارش-خطوط-و-ایستگاه‌ها.xlsx');
+            setMsg('✓ فایل تولید و دانلود شد');
+        }
+        catch (e) {
+            setMsg(e.message || 'خطا در تولید فایل');
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    return (React.createElement("div", null,
+        React.createElement("p", { className: "muted", style: { marginBottom: 10 } }, "\u062E\u0631\u0648\u062C\u06CC \u0634\u0627\u0645\u0644 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062E\u0637\u0648\u0637\u060C \u0645\u0648\u0642\u0639\u06CC\u062A \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647\u060C \u062A\u0639\u062F\u0627\u062F \u0648 \u0646\u0648\u0639 \u062A\u0627\u0628\u0644\u0648\u0647\u0627\u060C \u062A\u0635\u0627\u0648\u06CC\u0631 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647 \u0648 \u062A\u0627\u0628\u0644\u0648\u0647\u0627 \u0648 \u0644\u06CC\u0646\u06A9 \u0645\u0634\u0627\u0647\u062F\u0647 \u0645\u0648\u0642\u0639\u06CC\u062A \u0631\u0648\u06CC \u0646\u0642\u0634\u0647 \u0627\u0633\u062A."),
+        React.createElement("button", { className: "btn p", onClick: run, disabled: busy }, busy ? 'در حال تولید…' : 'تولید و دانلود Excel'),
+        msg && React.createElement("span", { className: "muted", style: { marginRight: 8 } }, msg)));
+}
 function Lines() {
     const [list, setList] = useState([]);
     const [editLine, setEditLine] = useState(null);
     const [counts, setCounts] = useState({});
     const [identLine, setIdentLine] = useState(null);
     const [methodLine, setMethodLine] = useState(null);
+    const [detailLine, setDetailLine] = useState(null);
     const [adding, setAdding] = useState(false);
     const [nl, setNl] = useState({ code: "", origin: "", destination: "" });
+    // چهار زیربخش «نقشه/موقعیت‌ها/نوع تابلو/خروجی اکسل» به‌صورت تب‌های همین صفحه (نه آیتم جدا در سایدبار) نمایش داده می‌شوند.
+    const [tab, setTab] = useState('list');
+    const TABS = [['list', 'فهرست خطوط'], ['map', 'نقشه خطوط'], ['locations', 'موقعیت خطوط و ایستگاه‌ها'], ['types', 'تنظیمات نوع تابلوها'], ['excel', 'خروجی Excel']];
     const addLine = async () => { if (!nl.code)
         return alert("کد خط لازم است"); await db.createLine(nl); setNl({ code: "", origin: "", destination: "" }); setAdding(false); load(); };
     const load = () => db.lines().then(setList).catch(() => { });
@@ -6846,43 +7146,52 @@ function Lines() {
     return (React.createElement("div", { className: "panel" },
         React.createElement("h3", null,
             "\u062E\u0637\u0648\u0637 \u062A\u0627\u06A9\u0633\u06CC\u0631\u0627\u0646\u06CC ",
-            React.createElement("button", { className: "btn p", onClick: () => setAdding(a => !a) }, "+ \u062A\u0639\u0631\u06CC\u0641 \u062E\u0637 \u062C\u062F\u06CC\u062F")),
-        adding && React.createElement("div", { className: "card-p", style: { display: "block", marginBottom: 12 } },
-            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
-                React.createElement("input", { className: "input", style: { maxWidth: 110 }, placeholder: "\u06A9\u062F \u062E\u0637", value: nl.code, onChange: e => setNl({ ...nl, code: e.target.value }) }),
-                React.createElement("input", { className: "input", style: { maxWidth: 180 }, placeholder: "\u0645\u0628\u062F\u0623", value: nl.origin, onChange: e => setNl({ ...nl, origin: e.target.value }) }),
-                React.createElement("input", { className: "input", style: { maxWidth: 180 }, placeholder: "\u0645\u0642\u0635\u062F", value: nl.destination, onChange: e => setNl({ ...nl, destination: e.target.value }) }),
-                React.createElement("button", { className: "btn p", onClick: addLine }, "\u0630\u062E\u06CC\u0631\u0647 \u062E\u0637"))),
-        React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 10 } },
-            React.createElement("input", { className: "input", style: { maxWidth: 260 }, placeholder: "\u062C\u0633\u062A\u062C\u0648 \u0628\u0631 \u0627\u0633\u0627\u0633 \u06A9\u062F\u060C \u0645\u0628\u062F\u0623 \u06CC\u0627 \u0645\u0642\u0635\u062F \u062E\u0637", value: q, onChange: e => { setQ(e.target.value); pg.setPage(1); } })),
-        React.createElement("p", { className: "muted", style: { marginBottom: 10 } }, "\u0628\u0631\u0627\u06CC \u0647\u0631 \u062E\u0637 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u00AB\u0645\u062D\u062F\u0648\u062F\u0647\u0654 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647\u00BB \u0631\u0627 \u0631\u0648\u06CC \u0646\u0642\u0634\u0647 (\u0686\u0646\u062F\u0636\u0644\u0639\u06CC \u06CC\u0627 \u062F\u0627\u06CC\u0631\u0647) \u062A\u0639\u0631\u06CC\u0641 \u06A9\u0646\u06CC\u062F\u061B \u0627\u06CC\u0646 \u0645\u062D\u062F\u0648\u062F\u0647\u200C\u0647\u0627 \u062F\u0631 \u0646\u0642\u0634\u0647\u0654 \u0632\u0646\u062F\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627 \u0628\u0627 \u0631\u0646\u06AF \u062F\u06CC\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
-        React.createElement("table", null,
-            React.createElement("thead", null,
-                React.createElement("tr", null,
-                    React.createElement("th", null, "\u06A9\u062F"),
-                    React.createElement("th", null, "\u0645\u0628\u062F\u0623"),
-                    React.createElement("th", null, "\u0645\u0642\u0635\u062F"),
-                    React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
-                    React.createElement("th", null, "\u0645\u062D\u062F\u0648\u062F\u0647\u200C\u0647\u0627"),
-                    React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645\u0627\u062A"))),
-            React.createElement("tbody", null, pg.slice.map(l => React.createElement("tr", { key: l.id },
-                React.createElement("td", null, l.code),
-                React.createElement("td", null, l.origin),
-                React.createElement("td", null, l.destination),
-                React.createElement("td", null,
-                    React.createElement("span", { className: "badge " + (l.status === "فعال" ? "b-ok" : "b-no") }, l.status || "—")),
-                React.createElement("td", null, counts[l.id] ? fa(counts[l.id]) + " ایستگاه" : "—"),
-                React.createElement("td", null,
-                    React.createElement("button", { className: "btn p", onClick: () => setEditLine(l) }, "\u062A\u0639\u0631\u06CC\u0641 \u0645\u062D\u062F\u0648\u062F\u0647\u0654 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647"),
-                    " ",
-                    React.createElement("button", { className: "btn g", onClick: () => setIdentLine(l) }, "\u0634\u0646\u0627\u0633\u0647\u200C\u0647\u0627\u06CC \u062D\u0636\u0648\u0631"),
-                    " ",
-                    React.createElement("button", { className: "btn g", onClick: () => setMethodLine(l) }, "\u0631\u0648\u0634\u200C\u0647\u0627\u06CC \u062B\u0628\u062A \u062D\u0636\u0648\u0631")))))),
-        list.length === 0 && React.createElement("p", { className: "muted", style: { textAlign: "center", padding: 12 } }, "\u062E\u0637\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F. \u0627\u0632 \u00AB\u0648\u0631\u0648\u062F \u0627\u0637\u0644\u0627\u0639\u0627\u062A (\u0627\u06A9\u0633\u0644)\u00BB \u0641\u0627\u06CC\u0644 \u062E\u0637\u0648\u0637 \u0631\u0627 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u06A9\u0646\u06CC\u062F."),
-        pg.Pager(),
+            tab === 'list' && React.createElement("button", { className: "btn p", onClick: () => setAdding(a => !a) }, "+ \u062A\u0639\u0631\u06CC\u0641 \u062E\u0637 \u062C\u062F\u06CC\u062F")),
+        React.createElement("div", { className: "row", style: { gap: 6, flexWrap: 'wrap', marginBottom: 14, borderBottom: '1px solid var(--line)', paddingBottom: 10 } }, TABS.map(([key, label]) => React.createElement("button", { key: key, className: "btn " + (tab === key ? 'p' : 'g'), onClick: () => setTab(key) }, label))),
+        tab === 'list' && React.createElement("div", null,
+            adding && React.createElement("div", { className: "card-p", style: { display: "block", marginBottom: 12 } },
+                React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
+                    React.createElement("input", { className: "input", style: { maxWidth: 110 }, placeholder: "\u06A9\u062F \u062E\u0637", value: nl.code, onChange: e => setNl({ ...nl, code: e.target.value }) }),
+                    React.createElement("input", { className: "input", style: { maxWidth: 180 }, placeholder: "\u0645\u0628\u062F\u0623", value: nl.origin, onChange: e => setNl({ ...nl, origin: e.target.value }) }),
+                    React.createElement("input", { className: "input", style: { maxWidth: 180 }, placeholder: "\u0645\u0642\u0635\u062F", value: nl.destination, onChange: e => setNl({ ...nl, destination: e.target.value }) }),
+                    React.createElement("button", { className: "btn p", onClick: addLine }, "\u0630\u062E\u06CC\u0631\u0647 \u062E\u0637"))),
+            React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 10 } },
+                React.createElement("input", { className: "input", style: { maxWidth: 260 }, placeholder: "\u062C\u0633\u062A\u062C\u0648 \u0628\u0631 \u0627\u0633\u0627\u0633 \u06A9\u062F\u060C \u0645\u0628\u062F\u0623 \u06CC\u0627 \u0645\u0642\u0635\u062F \u062E\u0637", value: q, onChange: e => { setQ(e.target.value); pg.setPage(1); } })),
+            React.createElement("p", { className: "muted", style: { marginBottom: 10 } }, "\u0628\u0631\u0627\u06CC \u0647\u0631 \u062E\u0637 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u00AB\u0645\u062D\u062F\u0648\u062F\u0647\u0654 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647\u00BB \u0631\u0627 \u0631\u0648\u06CC \u0646\u0642\u0634\u0647 (\u0686\u0646\u062F\u0636\u0644\u0639\u06CC \u06CC\u0627 \u062F\u0627\u06CC\u0631\u0647) \u062A\u0639\u0631\u06CC\u0641 \u06A9\u0646\u06CC\u062F\u061B \u0627\u06CC\u0646 \u0645\u062D\u062F\u0648\u062F\u0647\u200C\u0647\u0627 \u062F\u0631 \u0646\u0642\u0634\u0647\u0654 \u0632\u0646\u062F\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627 \u0628\u0627 \u0631\u0646\u06AF \u062F\u06CC\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
+            React.createElement("table", null,
+                React.createElement("thead", null,
+                    React.createElement("tr", null,
+                        React.createElement("th", null, "\u06A9\u062F"),
+                        React.createElement("th", null, "\u0645\u0628\u062F\u0623"),
+                        React.createElement("th", null, "\u0645\u0642\u0635\u062F"),
+                        React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
+                        React.createElement("th", null, "\u0645\u062D\u062F\u0648\u062F\u0647\u200C\u0647\u0627"),
+                        React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645\u0627\u062A"))),
+                React.createElement("tbody", null, pg.slice.map(l => React.createElement("tr", { key: l.id },
+                    React.createElement("td", null, l.code),
+                    React.createElement("td", null, l.origin),
+                    React.createElement("td", null, l.destination),
+                    React.createElement("td", null,
+                        React.createElement("span", { className: "badge " + (l.status === "فعال" ? "b-ok" : "b-no") }, l.status || "—")),
+                    React.createElement("td", null, counts[l.id] ? fa(counts[l.id]) + " ایستگاه" : "—"),
+                    React.createElement("td", null,
+                        React.createElement("button", { className: "btn p", onClick: () => setDetailLine(l) }, "\u062C\u0632\u0626\u06CC\u0627\u062A"),
+                        " ",
+                        React.createElement("button", { className: "btn p", onClick: () => setEditLine(l) }, "\u062A\u0639\u0631\u06CC\u0641 \u0645\u062D\u062F\u0648\u062F\u0647\u0654 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647"),
+                        " ",
+                        React.createElement("button", { className: "btn g", onClick: () => setIdentLine(l) }, "\u0634\u0646\u0627\u0633\u0647\u200C\u0647\u0627\u06CC \u062D\u0636\u0648\u0631"),
+                        " ",
+                        React.createElement("button", { className: "btn g", onClick: () => setMethodLine(l) }, "\u0631\u0648\u0634\u200C\u0647\u0627\u06CC \u062B\u0628\u062A \u062D\u0636\u0648\u0631")))))),
+            list.length === 0 && React.createElement("p", { className: "muted", style: { textAlign: "center", padding: 12 } }, "\u062E\u0637\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F. \u0627\u0632 \u00AB\u0648\u0631\u0648\u062F \u0627\u0637\u0644\u0627\u0639\u0627\u062A (\u0627\u06A9\u0633\u0644)\u00BB \u0641\u0627\u06CC\u0644 \u062E\u0637\u0648\u0637 \u0631\u0627 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u06A9\u0646\u06CC\u062F."),
+            pg.Pager()),
+        tab === 'map' && React.createElement(LineMapPanel, null),
+        tab === 'locations' && React.createElement(LineLocationsPanel, null),
+        tab === 'types' && React.createElement(LineSignTypesPanel, null),
+        tab === 'excel' && React.createElement(LineExcelPanel, null),
         editLine && React.createElement(LineGeofence, { line: editLine, onClose: () => { setEditLine(null); loadCounts(); } }),
         identLine && React.createElement(LineIdents, { line: identLine, onClose: () => setIdentLine(null) }),
-        methodLine && React.createElement(LineMethods, { line: methodLine, onClose: () => { setMethodLine(null); load(); } })));
+        methodLine && React.createElement(LineMethods, { line: methodLine, onClose: () => { setMethodLine(null); load(); } }),
+        detailLine && React.createElement(LineStationDetailModal, { line: detailLine, onClose: () => setDetailLine(null) })));
 }
 // مدیریت شناسه‌های جایگزین GPS برای یک خط
 function LineIdents({ line, onClose }) {

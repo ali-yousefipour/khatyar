@@ -1,0 +1,9 @@
+﻿env: load .env
+env: export ANDROID_NDK_VERSION ANDROID_PACKAGE ANDROID_VERSION_CODE ANDROID_VERSION_NAME API_BASE APP_NAME EAS_PROJECT_ID ENABLE_BG_TRACKING ENABLE_OCR MYKET_KEY_ALIAS MYKET_KEY_PASSWORD MYKET_STORE_FILE MYKET_STORE_PASSWORD
+- Creating native directory (./android)
+Γ£ö Created native directory
+- Updating package.json
+Γ£ö Updated package.json | no changes
+- Running prebuild
+Γ£ö Finished prebuild
+

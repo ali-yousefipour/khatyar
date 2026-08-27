@@ -4111,9 +4111,192 @@ function LineMethods({line,onClose}){
   </Modal>);
 }
 
+// --- ابزارهای مشترک بخش «خطوط تاکسیرانی»: نقشه، موقعیت ایستگاه‌ها، نوع تابلوها، خروجی اکسل و جزئیات خط ---
+// نکته: این endpoint (station-admin-v4.php) در ریشهٔ اپ PHP است، نه زیر /api، پس از GET/SEND ماژول استفاده نمی‌کند.
+async function sa4(op, opts){
+  opts = opts || {};
+  const headers = Object.assign({}, tok(), {Accept:'application/json'}, opts.headers||{});
+  const r = await fetch('/station-admin-v4.php?op='+encodeURIComponent(op), Object.assign({}, opts, {headers, cache:'no-store'}));
+  const d = await _readJsonResponse(r);
+  if(!r.ok) throw new Error(d.error||d.message||'خطای سرور');
+  return d;
+}
+// تصاویر ایستگاه/تابلو از یک endpoint احرازهویت‌شده سرو می‌شوند؛ برای نمایش مستقیم در <img>
+// (که نمی‌تواند هدر Authorization بفرستد) توکن به‌صورت پارامتر access_token اضافه می‌شود.
+function authImg(url){
+  if(!url) return '';
+  const t = localStorage.token||''; if(!t) return url;
+  return url + (url.indexOf('?')>=0?'&':'?') + 'access_token=' + encodeURIComponent(t);
+}
+function validCoord(lat,lon){ lat=Number(lat); lon=Number(lon); return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=-90&&lat<=90&&lon>=-180&&lon<=180; }
+
+function LineStationDetailModal({line,onClose}){
+  const [data,setData]=useState(null); const [err,setErr]=useState(''); const [history,setHistory]=useState(null); const [histBusy,setHistBusy]=useState(false);
+  useEffect(()=>{
+    let active=true;
+    sa4('map').then(d=>{
+      if(!active)return;
+      const x=(d.lines||[]).find(z=>String(z.id)===String(line.id));
+      if(!x){ setErr('اطلاعات این خط پیدا نشد.'); return; }
+      setData(x);
+    }).catch(e=>{ if(active) setErr(e.message||'خطا در دریافت اطلاعات'); });
+    return ()=>{active=false};
+  },[line.id]);
+  const loadHistory=async()=>{
+    if(!data?.station_id) return;
+    setHistBusy(true);
+    try{
+      const r=await fetch('/station-history-details.php?station_id='+encodeURIComponent(data.station_id),{headers:tok(),cache:'no-store'});
+      const q=await _readJsonResponse(r);
+      if(!r.ok) throw new Error(q.error||'خطا در دریافت سوابق');
+      setHistory(q.history||[]);
+    }catch(e){ setHistory([]); alert(e.message||'خطا در دریافت سوابق'); }
+    finally{ setHistBusy(false); }
+  };
+  return(<Modal title={"جزئیات خط "+(line.code||'')} onClose={onClose}>
+    {err&&<p className="muted" style={{color:'#b42318'}}>{err}</p>}
+    {!err&&!data&&<p className="muted">در حال دریافت جزئیات…</p>}
+    {data&&<div>
+      <div className="row" style={{gap:8,flexWrap:'wrap',marginBottom:14}}>
+        <div className="card-p"><b>کد خط</b><div>{fa(data.code)}</div></div>
+        <div className="card-p"><b>مبدأ</b><div>{data.origin||'—'}</div></div>
+        <div className="card-p"><b>مقصد</b><div>{data.destination||'—'}</div></div>
+        <div className="card-p"><b>وضعیت ایستگاه</b><div>{data.registered?'ثبت شده':'ثبت نشده'}</div></div>
+        <div className="card-p"><b>مختصات</b><div>{validCoord(data.latitude,data.longitude)?(data.latitude+'، '+data.longitude):'ثبت نشده'}</div></div>
+        <div className="card-p"><b>دقت GPS</b><div>{data.accuracy_m?fa(data.accuracy_m)+' متر':'—'}</div></div>
+        <div className="card-p"><b>آدرس فیزیکی</b><div>{data.physical_address||'—'}</div></div>
+        <div className="card-p"><b>تاریخ ثبت</b><div>{data.captured_at||'—'}</div></div>
+        <div className="card-p"><b>ثبت‌کننده</b><div>{data.captured_by_name||'—'}</div></div>
+        <div className="card-p"><b>آخرین ویرایش خط</b><div>{data.location_updated_at||'—'}</div></div>
+      </div>
+      {validCoord(data.latitude,data.longitude)&&<button className="btn g" style={{marginBottom:12}} onClick={()=>window.open('https://www.openstreetmap.org/?mlat='+encodeURIComponent(data.latitude)+'&mlon='+encodeURIComponent(data.longitude)+'#map=19/'+encodeURIComponent(data.latitude)+'/'+encodeURIComponent(data.longitude),'_blank','noopener')}>مشاهده موقعیت روی نقشه</button>}
+      <h4 style={{margin:'10px 0'}}>تصویر ایستگاه</h4>
+      {data.location_photo_url?<a href={authImg(data.location_photo_url)} target="_blank" rel="noopener"><img src={authImg(data.location_photo_url)} style={{width:220,maxHeight:170,objectFit:'cover',borderRadius:10,marginBottom:14}}/></a>:<p className="muted">تصویر ایستگاه ثبت نشده است.</p>}
+      <h4 style={{margin:'10px 0'}}>تابلوها ({fa((data.signs||[]).length)})</h4>
+      <div className="row" style={{gap:10,flexWrap:'wrap',marginBottom:12}}>
+        {(data.signs||[]).length?data.signs.map(z=><a key={z.id} href={authImg(z.photo_url)} target="_blank" rel="noopener" style={{display:'block',width:150}}>
+          <img src={authImg(z.photo_url)} style={{width:150,height:110,objectFit:'cover',borderRadius:8}}/>
+          <div className="muted" style={{fontSize:11,marginTop:4}}>{z.title||z.code||'تابلو'}</div>
+        </a>):<p className="muted">تابلویی ثبت نشده است.</p>}
+      </div>
+      {data.station_id?<div>
+        {!history&&<button className="btn g" onClick={loadHistory} disabled={histBusy}>{histBusy?'در حال دریافت…':'نمایش لاگ ثبت و ویرایش ایستگاه'}</button>}
+        {history&&history.length>0&&<table style={{marginTop:10}}><thead><tr><th>تاریخ ثبت</th><th>کد ایستگاه</th><th>وضعیت</th><th>مختصات</th><th>دقت</th><th>تعداد تابلو</th><th>ثبت‌کننده</th></tr></thead>
+          <tbody>{history.map((r,i)=><tr key={i}><td>{r.captured_at}</td><td>{r.station_code}</td><td>{r.station_status}</td><td>{r.latitude&&r.longitude?(r.latitude+'، '+r.longitude):'—'}</td><td>{r.accuracy_m||'—'}</td><td>{fa(r.sign_count||0)}</td><td>{r.captured_by_name||r.captured_by||'—'}</td></tr>)}</tbody>
+        </table>}
+        {history&&history.length===0&&<p className="muted" style={{marginTop:8}}>سابقه‌ای برای این ایستگاه ثبت نشده است.</p>}
+      </div>:null}
+    </div>}
+  </Modal>);
+}
+
+function LineMapPanel(){
+  const ref=useRef(); const [stats,setStats]=useState(null); const [err,setErr]=useState('');
+  useEffect(()=>{
+    let active=true;
+    const map=L.map(ref.current,{minZoom:10,maxZoom:19}).setView([36.297,59.606],12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{minZoom:10,maxZoom:19,maxNativeZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+    sa4('map').then(d=>{
+      if(!active)return;
+      setStats(d.stats);
+      const bounds=[];
+      (d.lines||[]).forEach(x=>{
+        if(!validCoord(x.latitude,x.longitude))return;
+        const lat=Number(x.latitude), lon=Number(x.longitude);
+        const marker=L.circleMarker([lat,lon],{radius:8,weight:2,fillOpacity:.9,fillColor:x.registered?'#168a58':'#d92d20'}).addTo(map);
+        let html='<div dir="rtl" style="font-family:Vazirmatn,Tahoma"><b>خط '+(x.code||'بدون شماره')+'</b><br>'+[x.origin,x.destination].filter(Boolean).join(' تا ')+'<br>وضعیت: '+(x.registered?'ایستگاه ثبت شده':'ایستگاه ثبت نشده');
+        if(x.registered){
+          if(x.physical_address)html+='<br>آدرس: '+x.physical_address;
+          if(x.accuracy_m!=null)html+='<br>دقت GPS: '+x.accuracy_m+' متر';
+          if(x.location_photo_url)html+='<br><img src="'+authImg(x.location_photo_url)+'" style="width:180px;max-height:140px;object-fit:cover;border-radius:8px;margin-top:6px">';
+        }
+        html+='</div>';
+        marker.bindPopup(html,{maxWidth:310});
+        bounds.push([lat,lon]);
+      });
+      if(bounds.length)map.fitBounds(bounds,{padding:[20,20],maxZoom:18});
+    }).catch(e=>active&&setErr(e.message||'خطا در دریافت اطلاعات نقشه'));
+    setTimeout(()=>map.invalidateSize(),250);
+    return ()=>{active=false; map.remove();};
+  },[]);
+  return(<div>
+    {stats&&<div className="row" style={{gap:10,flexWrap:'wrap',marginBottom:10}}>
+      <div className="card-p">کل خطوط: <b>{fa(stats.total)}</b></div>
+      <div className="card-p">ثبت‌شده: <b>{fa(stats.registered)}</b></div>
+      <div className="card-p">ثبت‌نشده: <b>{fa(stats.unregistered)}</b></div>
+    </div>}
+    {err&&<p className="muted" style={{color:'#b42318'}}>{err}</p>}
+    <div ref={ref} style={{height:470,borderRadius:13,overflow:'hidden',border:'1px solid var(--line)'}}></div>
+  </div>);
+}
+
+function LineLocationsPanel(){
+  const [rows,setRows]=useState(null); const [err,setErr]=useState('');
+  useEffect(()=>{ let active=true; sa4('map').then(d=>{if(active)setRows(d.lines||[])}).catch(e=>active&&setErr(e.message||'خطا در دریافت اطلاعات')); return ()=>{active=false}; },[]);
+  if(err) return <p className="muted" style={{color:'#b42318'}}>{err}</p>;
+  if(!rows) return <p className="muted">در حال بارگذاری…</p>;
+  return(<div style={{overflow:'auto'}}><table><thead><tr><th>خط</th><th>مبدأ و مقصد</th><th>مختصات</th><th>وضعیت ایستگاه</th><th>آدرس</th><th>تابلوها / نوع</th><th>تصویر ایستگاه</th></tr></thead>
+  <tbody>{rows.map(x=>{ const signs=x.signs||[]; const types=signs.map(z=>z.title||z.code).filter(Boolean).join('، ');
+    return(<tr key={x.id}><td>{x.code}</td><td>{[x.origin,x.destination].filter(Boolean).join(' تا ')}</td>
+      <td>{validCoord(x.latitude,x.longitude)?x.latitude+'، '+x.longitude:'بدون مختصات'}</td>
+      <td>{x.registered?'ثبت شده':'ثبت نشده'}</td><td>{x.physical_address||'—'}</td>
+      <td>{fa(signs.length)}{types?<><br/><small>{types}</small></>:null}</td>
+      <td>{x.location_photo_url?<img src={authImg(x.location_photo_url)} style={{width:72,height:54,objectFit:'cover',borderRadius:7}}/>:'—'}</td>
+    </tr>); })}</tbody></table></div>);
+}
+
+function LineSignTypesPanel(){
+  const [types,setTypes]=useState(null); const [edit,setEdit]=useState(null); // null=بسته، آبجکت=در حال ویرایش/افزودن
+  const load=()=>sa4('types').then(d=>setTypes(d.types||[])).catch(()=>setTypes([]));
+  useEffect(()=>{load()},[]);
+  const save=async()=>{
+    if(!edit.title||!edit.title.trim()) return alert('عنوان نوع تابلو الزامی است.');
+    await sa4('save-type',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:edit.id||0,title:edit.title.trim(),code:edit.code||'',sort_order:Number(edit.sort_order)||0,is_active:!!edit.is_active})});
+    setEdit(null); load();
+  };
+  const del=async id=>{
+    if(!confirm('این نوع تابلو حذف/غیرفعال شود؟')) return;
+    const fd=new URLSearchParams({id}); await sa4('delete-type',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:fd}); load();
+  };
+  if(!types) return <p className="muted">در حال بارگذاری…</p>;
+  return(<div>
+    <button className="btn p" style={{marginBottom:10}} onClick={()=>setEdit({title:'',code:'',sort_order:types.length,is_active:true})}>+ افزودن نوع تابلو</button>
+    <table><thead><tr><th>ترتیب</th><th>عنوان</th><th>کد</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+    <tbody>{types.map(x=><tr key={x.id}><td>{fa(x.sort_order)}</td><td>{x.title}</td><td>{x.code||'—'}</td><td>{Number(x.is_active)?'فعال':'غیرفعال'}</td>
+      <td><button className="btn g" onClick={()=>setEdit({...x})}>ویرایش</button> <button className="btn g" onClick={()=>del(x.id)}>حذف</button></td></tr>)}</tbody></table>
+    {edit&&<Modal title={edit.id?'ویرایش نوع تابلو':'نوع تابلوی جدید'} onClose={()=>setEdit(null)}>
+      <div style={{display:'grid',gap:10}}>
+        <div><label className="label">عنوان</label><input className="input" value={edit.title} onChange={e=>setEdit({...edit,title:e.target.value})}/></div>
+        <div><label className="label">کد (اختیاری)</label><input className="input" value={edit.code||''} onChange={e=>setEdit({...edit,code:e.target.value})}/></div>
+        <div><label className="label">ترتیب نمایش</label><input className="input" type="number" value={edit.sort_order??0} onChange={e=>setEdit({...edit,sort_order:e.target.value})}/></div>
+        <label className="row" style={{gap:6}}><input type="checkbox" checked={!!edit.is_active} onChange={e=>setEdit({...edit,is_active:e.target.checked})}/> فعال</label>
+        <button className="btn p" onClick={save}>ذخیره</button>
+      </div>
+    </Modal>}
+  </div>);
+}
+
+function LineExcelPanel(){
+  const [busy,setBusy]=useState(false); const [msg,setMsg]=useState('');
+  const run=async()=>{
+    setBusy(true); setMsg('در حال تولید فایل...');
+    try{ await downloadProtectedFile('/line-location-export-v4.php','گزارش-خطوط-و-ایستگاه‌ها.xlsx'); setMsg('✓ فایل تولید و دانلود شد'); }
+    catch(e){ setMsg(e.message||'خطا در تولید فایل'); }
+    finally{ setBusy(false); }
+  };
+  return(<div>
+    <p className="muted" style={{marginBottom:10}}>خروجی شامل اطلاعات خطوط، موقعیت ایستگاه، تعداد و نوع تابلوها، تصاویر ایستگاه و تابلوها و لینک مشاهده موقعیت روی نقشه است.</p>
+    <button className="btn p" onClick={run} disabled={busy}>{busy?'در حال تولید…':'تولید و دانلود Excel'}</button>
+    {msg&&<span className="muted" style={{marginRight:8}}>{msg}</span>}
+  </div>);
+}
+
 function Lines(){
-  const [list,setList]=useState([]); const [editLine,setEditLine]=useState(null); const [counts,setCounts]=useState({}); const [identLine,setIdentLine]=useState(null); const [methodLine,setMethodLine]=useState(null);
+  const [list,setList]=useState([]); const [editLine,setEditLine]=useState(null); const [counts,setCounts]=useState({}); const [identLine,setIdentLine]=useState(null); const [methodLine,setMethodLine]=useState(null); const [detailLine,setDetailLine]=useState(null);
   const [adding,setAdding]=useState(false); const [nl,setNl]=useState({code:"",origin:"",destination:""});
+  // چهار زیربخش «نقشه/موقعیت‌ها/نوع تابلو/خروجی اکسل» به‌صورت تب‌های همین صفحه (نه آیتم جدا در سایدبار) نمایش داده می‌شوند.
+  const [tab,setTab]=useState('list');
+  const TABS=[['list','فهرست خطوط'],['map','نقشه خطوط'],['locations','موقعیت خطوط و ایستگاه‌ها'],['types','تنظیمات نوع تابلوها'],['excel','خروجی Excel']];
   const addLine=async()=>{ if(!nl.code)return alert("کد خط لازم است"); await db.createLine(nl); setNl({code:"",origin:"",destination:""}); setAdding(false); load(); };
   const load=()=>db.lines().then(setList).catch(()=>{});
   const loadCounts=()=>db.geofences().then(all=>{ const c={}; (all||[]).forEach(g=>{ if(g.line_id) c[g.line_id]=(c[g.line_id]||0)+1; }); setCounts(c); }).catch(()=>{});
@@ -4121,26 +4304,36 @@ function Lines(){
   const [q,setQ]=useState(""); const term=q.trim();
   const filtered=list.filter(l=>!term || (l.code&&String(l.code).includes(term)) || (l.origin&&l.origin.includes(term)) || (l.destination&&l.destination.includes(term)));
   const pg=usePager(filtered,10);
-  return(<div className="panel"><h3>خطوط تاکسیرانی <button className="btn p" onClick={()=>setAdding(a=>!a)}>+ تعریف خط جدید</button></h3>
-    {adding&&<div className="card-p" style={{display:"block",marginBottom:12}}>
-      <div className="row" style={{gap:8,flexWrap:"wrap"}}>
-        <input className="input" style={{maxWidth:110}} placeholder="کد خط" value={nl.code} onChange={e=>setNl({...nl,code:e.target.value})}/>
-        <input className="input" style={{maxWidth:180}} placeholder="مبدأ" value={nl.origin} onChange={e=>setNl({...nl,origin:e.target.value})}/>
-        <input className="input" style={{maxWidth:180}} placeholder="مقصد" value={nl.destination} onChange={e=>setNl({...nl,destination:e.target.value})}/>
-        <button className="btn p" onClick={addLine}>ذخیره خط</button></div></div>}
-    <div className="row" style={{gap:8,marginBottom:10}}>
-      <input className="input" style={{maxWidth:260}} placeholder="جستجو بر اساس کد، مبدأ یا مقصد خط" value={q} onChange={e=>{setQ(e.target.value);pg.setPage(1);}}/></div>
-    <p className="muted" style={{marginBottom:10}}>برای هر خط می‌توانید «محدودهٔ ایستگاه» را روی نقشه (چندضلعی یا دایره) تعریف کنید؛ این محدوده‌ها در نقشهٔ زندهٔ نیروها با رنگ دیده می‌شوند.</p>
-    <table><thead><tr><th>کد</th><th>مبدأ</th><th>مقصد</th><th>وضعیت</th><th>محدوده‌ها</th><th>اقدامات</th></tr></thead>
-    <tbody>{pg.slice.map(l=><tr key={l.id}><td>{l.code}</td><td>{l.origin}</td><td>{l.destination}</td>
-      <td><span className={"badge "+(l.status==="فعال"?"b-ok":"b-no")}>{l.status||"—"}</span></td>
-      <td>{counts[l.id]?fa(counts[l.id])+" ایستگاه":"—"}</td>
-      <td><button className="btn p" onClick={()=>setEditLine(l)}>تعریف محدودهٔ ایستگاه</button> <button className="btn g" onClick={()=>setIdentLine(l)}>شناسه‌های حضور</button> <button className="btn g" onClick={()=>setMethodLine(l)}>روش‌های ثبت حضور</button></td></tr>)}</tbody></table>
-    {list.length===0&&<p className="muted" style={{textAlign:"center",padding:12}}>خطی یافت نشد. از «ورود اطلاعات (اکسل)» فایل خطوط را بارگذاری کنید.</p>}
-    {pg.Pager()}
+  return(<div className="panel"><h3>خطوط تاکسیرانی {tab==='list'&&<button className="btn p" onClick={()=>setAdding(a=>!a)}>+ تعریف خط جدید</button>}</h3>
+    <div className="row" style={{gap:6,flexWrap:'wrap',marginBottom:14,borderBottom:'1px solid var(--line)',paddingBottom:10}}>
+      {TABS.map(([key,label])=><button key={key} className={"btn "+(tab===key?'p':'g')} onClick={()=>setTab(key)}>{label}</button>)}
+    </div>
+    {tab==='list'&&<div>
+      {adding&&<div className="card-p" style={{display:"block",marginBottom:12}}>
+        <div className="row" style={{gap:8,flexWrap:"wrap"}}>
+          <input className="input" style={{maxWidth:110}} placeholder="کد خط" value={nl.code} onChange={e=>setNl({...nl,code:e.target.value})}/>
+          <input className="input" style={{maxWidth:180}} placeholder="مبدأ" value={nl.origin} onChange={e=>setNl({...nl,origin:e.target.value})}/>
+          <input className="input" style={{maxWidth:180}} placeholder="مقصد" value={nl.destination} onChange={e=>setNl({...nl,destination:e.target.value})}/>
+          <button className="btn p" onClick={addLine}>ذخیره خط</button></div></div>}
+      <div className="row" style={{gap:8,marginBottom:10}}>
+        <input className="input" style={{maxWidth:260}} placeholder="جستجو بر اساس کد، مبدأ یا مقصد خط" value={q} onChange={e=>{setQ(e.target.value);pg.setPage(1);}}/></div>
+      <p className="muted" style={{marginBottom:10}}>برای هر خط می‌توانید «محدودهٔ ایستگاه» را روی نقشه (چندضلعی یا دایره) تعریف کنید؛ این محدوده‌ها در نقشهٔ زندهٔ نیروها با رنگ دیده می‌شوند.</p>
+      <table><thead><tr><th>کد</th><th>مبدأ</th><th>مقصد</th><th>وضعیت</th><th>محدوده‌ها</th><th>اقدامات</th></tr></thead>
+      <tbody>{pg.slice.map(l=><tr key={l.id}><td>{l.code}</td><td>{l.origin}</td><td>{l.destination}</td>
+        <td><span className={"badge "+(l.status==="فعال"?"b-ok":"b-no")}>{l.status||"—"}</span></td>
+        <td>{counts[l.id]?fa(counts[l.id])+" ایستگاه":"—"}</td>
+        <td><button className="btn p" onClick={()=>setDetailLine(l)}>جزئیات</button> <button className="btn p" onClick={()=>setEditLine(l)}>تعریف محدودهٔ ایستگاه</button> <button className="btn g" onClick={()=>setIdentLine(l)}>شناسه‌های حضور</button> <button className="btn g" onClick={()=>setMethodLine(l)}>روش‌های ثبت حضور</button></td></tr>)}</tbody></table>
+      {list.length===0&&<p className="muted" style={{textAlign:"center",padding:12}}>خطی یافت نشد. از «ورود اطلاعات (اکسل)» فایل خطوط را بارگذاری کنید.</p>}
+      {pg.Pager()}
+    </div>}
+    {tab==='map'&&<LineMapPanel/>}
+    {tab==='locations'&&<LineLocationsPanel/>}
+    {tab==='types'&&<LineSignTypesPanel/>}
+    {tab==='excel'&&<LineExcelPanel/>}
     {editLine&&<LineGeofence line={editLine} onClose={()=>{setEditLine(null);loadCounts();}}/>}
     {identLine&&<LineIdents line={identLine} onClose={()=>setIdentLine(null)}/>}
     {methodLine&&<LineMethods line={methodLine} onClose={()=>{setMethodLine(null);load();}}/>}
+    {detailLine&&<LineStationDetailModal line={detailLine} onClose={()=>setDetailLine(null)}/>}
   </div>);
 }
 

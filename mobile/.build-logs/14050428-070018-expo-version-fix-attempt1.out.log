@@ -1,0 +1,17 @@
+﻿env: load .env
+env: export ANDROID_NDK_VERSION ANDROID_PACKAGE ANDROID_VERSION_CODE ANDROID_VERSION_NAME API_BASE APP_NAME EAS_PROJECT_ID ENABLE_BG_TRACKING ENABLE_OCR MYKET_KEY_ALIAS MYKET_KEY_PASSWORD MYKET_STORE_FILE MYKET_STORE_PASSWORD
+ΓÇ║ Installing 1 SDK 57.0.0 compatible native module using npm
+> npm install
+
+added 11 packages, changed 1 package, and audited 565 packages in 15s
+
+47 packages are looking for funding
+  run `npm fund` for details
+
+11 moderate severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+

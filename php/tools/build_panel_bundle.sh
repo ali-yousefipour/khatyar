@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PUBLIC="$ROOT/public"
+# توجه: Document Root هاست روی php/app است (نه php/public — که فقط bale-webhook.php را دارد)،
+# و panel.html نیز از همان مسیر assets/panel.bundle.js را بارگذاری می‌کند. قبلاً این اسکریپت
+# خروجی را در php/public/assets می‌نوشت که هرگز توسط مرورگر بارگذاری نمی‌شد.
+APP="$ROOT/app"
 SRC="$ROOT/tools/panel_source.jsx"
-OUT="$PUBLIC/assets/panel.bundle.js"
-mkdir -p "$PUBLIC/assets"
+OUT="$APP/assets/panel.bundle.js"
+mkdir -p "$APP/assets"
 if ! command -v npx >/dev/null 2>&1; then
   echo "npx not found. Install Node.js and TypeScript to rebuild panel bundle." >&2
   exit 1

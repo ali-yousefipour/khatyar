@@ -7,7 +7,7 @@ module.exports = ({ config }) => ({
   ...config,
   name: process.env.APP_NAME || 'خطیار',
   slug: 'khatyar-mobile',
-  version: process.env.ANDROID_VERSION_NAME || '1.3.73',
+  version: process.env.ANDROID_VERSION_NAME || '1.3.74',
   orientation: 'portrait',
   newArchEnabled: true,
   icon: './assets/icon.png',
@@ -15,7 +15,7 @@ module.exports = ({ config }) => ({
   assetBundlePatterns: ['**/*'],
   android: {
     package: process.env.ANDROID_PACKAGE || 'ir.mashhad.taxicontrol',
-    versionCode: Number(process.env.ANDROID_VERSION_CODE || 10373),
+    versionCode: Number(process.env.ANDROID_VERSION_CODE || 10374),
     softwareKeyboardLayoutMode: 'resize',
     adaptiveIcon: { foregroundImage: './assets/adaptive-icon.png', backgroundColor: '#0d7a5f' },
     permissions: ['ACCESS_FINE_LOCATION','ACCESS_COARSE_LOCATION','ACCESS_BACKGROUND_LOCATION','CAMERA','INTERNET','ACCESS_NETWORK_STATE','FOREGROUND_SERVICE','FOREGROUND_SERVICE_LOCATION','RECEIVE_BOOT_COMPLETED','VIBRATE','WAKE_LOCK','REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'],
@@ -28,7 +28,14 @@ module.exports = ({ config }) => ({
     'expo-camera',
     ['expo-notifications', { icon: './assets/notification-icon.png', color: '#0d7a5f', sounds: ['./assets/sounds/presence_validation_alert.mp3','./assets/sounds/notification_new.mp3','./assets/sounds/message_new.mp3','./assets/sounds/report_received.mp3','./assets/sounds/report_sent_success.mp3','./assets/sounds/presence_success.mp3','./assets/sounds/presence_selfie.mp3','./assets/sounds/presence_station_photo.mp3'] }],
     ['expo-build-properties', { android: { minSdkVersion: 24, compileSdkVersion: 36, targetSdkVersion: 36, buildToolsVersion: '36.0.0', enableProguardInReleaseBuilds: false, enableShrinkResourcesInReleaseBuilds: false, ndkVersion: process.env.ANDROID_NDK_VERSION || '27.3.13750724' } }],
-    './plugins/withGradle9Syntax','./plugins/withMyketMirror','./plugins/withUtf8GradleEncoding','./plugins/withReleaseHardening','./plugins/withLocationJobCrashGuard','./plugins/withProguardKeep','./plugins/withReactNativeArchitectures','./plugins/withAbiSplits',
+    // توجه: پلاگین withAbiSplits عمداً از لیست پلاگین‌ها حذف شده است. طبق
+    // mobile/BUILD-FIX-NOTES.txt این پلاگین به‌عنوان «ریسکی» شناخته و باید غیرفعال
+    // می‌شد (تزریق خام رشته‌ای بلوک splits/abi در build.gradle منبع تاریخی خطاهای
+    // بیلد بوده)، اما در نسخهٔ قبلی فایل هنوز در این آرایه فعال مانده بود.
+    // محدودسازی معماری‌های کامپایل‌شده (armeabi-v7a/arm64-v8a) همچنان توسط
+    // withReactNativeArchitectures انجام می‌شود؛ فقط خروجی چندAPKی حذف شده و
+    // به‌جایش یک APK/AAB واحد (universal) تولید می‌شود.
+    './plugins/withGradle9Syntax','./plugins/withMyketMirror','./plugins/withUtf8GradleEncoding','./plugins/withReleaseHardening','./plugins/withLocationJobCrashGuard','./plugins/withProguardKeep','./plugins/withReactNativeArchitectures',
   ],
-  extra: { defaultApiBase: process.env.API_BASE || 'https://app.yousefipour.ir/api', enableBgTracking: (process.env.ENABLE_BG_TRACKING || 'true') === 'true', app_version: process.env.ANDROID_VERSION_NAME || '1.3.73', eas: { projectId: process.env.EAS_PROJECT_ID || '' } },
+  extra: { defaultApiBase: process.env.API_BASE || 'https://app.yousefipour.ir/api', enableBgTracking: (process.env.ENABLE_BG_TRACKING || 'true') === 'true', app_version: process.env.ANDROID_VERSION_NAME || '1.3.74', eas: { projectId: process.env.EAS_PROJECT_ID || '' } },
 });

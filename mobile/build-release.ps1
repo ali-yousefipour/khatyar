@@ -664,7 +664,17 @@ if (Test-Path $appBuildDir) {
   Remove-DirectoryWithRetry -Path $appBuildDir -Attempts 5 -DelaySeconds 2 | Out-Null
 }
 
-$gradleArgs = @('--init-script', $myketInitScript, '--no-daemon', '--stacktrace', '--console=plain', '--warning-mode=all')
+# نکته مهم: صرفِ تنظیم متغیر محیطی GRADLE_USER_HOME در $gradleEnv (بالاتر) برای
+# ایزوله‌سازی کافی نیست. اگر به هر دلیلی (مثلاً override نشدنِ کامل محیط پردازش
+# فرزند در Invoke-ManagedProcess) آن متغیر به گریدل نرسد، گریدل به‌صورت خودکار
+# هر اسکریپت داخل %GRADLE_USER_HOME% پیش‌فرض (٪USERPROFILE٪\.gradle\init.d\) را هم
+# اجرا می‌کند؛ دقیقاً همین اتفاق باعث شد اسکریپت قدیمی و ناسازگار
+# C:\Users\...\.gradle\init.d\myket.init.gradle (با syntax منسوخ Groovy) در گزارش
+# Configuration Cache دیده شود، چون این پروژه دیگر با آن اسکریپت سروکار ندارد.
+# برای ایمنی، مسیر ایزوله را علاوه بر متغیر محیطی، به‌صورت صریح با پرچم خط فرمان
+# --gradle-user-home هم می‌دهیم؛ این پرچم توسط خودِ Gradle تضمین‌شده و به هیچ
+# رفتار وراثت متغیر محیطی وابسته نیست.
+$gradleArgs = @('--gradle-user-home', $shortGradleHome, '--init-script', $myketInitScript, '--no-daemon', '--stacktrace', '--console=plain', '--warning-mode=all')
 
 # Native generation has already synchronized the Android project. A separate `gradlew clean`
 # is redundant and can introduce another lock/configuration failure, so build directly.
