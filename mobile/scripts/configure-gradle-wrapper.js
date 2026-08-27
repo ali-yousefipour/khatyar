@@ -6,6 +6,11 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 
 const MIN_VALID_ZIP_SIZE = 1024 * 1024;
+// Expo SDK 57 in this project resolves the Expo autolinking included build with
+// Android Gradle Plugin 8.5.0. AGP 8.5.x is intended to run with Gradle 8.7;
+// allowing Expo's generated Gradle 9.x wrapper here creates a mixed toolchain
+// which can fail before the application project is even configured.
+const REQUIRED_GRADLE_VERSION = '8.7';
 
 function fail(message) {
   console.error(`[gradle-wrapper] ${message}`);
@@ -36,16 +41,9 @@ const originalUrlMatch = contents.match(/^distributionUrl=([^\r\n]+)$/m);
 if (!originalUrlMatch) fail(`distributionUrl was not found in ${propertiesPath}`);
 const originalUrl = originalUrlMatch[1];
 
-// Expo prebuild is the single source of truth for the Gradle version. We do not
-// force an arbitrary Gradle version because the generated AGP/RN/Expo combination
-// must remain internally compatible.
-const versionMatch = originalUrl.match(/gradle-([0-9]+(?:\.[0-9]+){1,2})-(bin|all)\.zip/);
-if (!versionMatch) {
-  fail(`Could not parse a Gradle version out of the distributionUrl Expo generated: ${originalUrl}`);
-}
-
-const requiredVersion = versionMatch[1];
-const distributionFile = `gradle-${requiredVersion}-bin.zip`;
+const generatedVersionMatch = originalUrl.match(/gradle-([0-9]+(?:\.[0-9]+){1,2})-(?:bin|all)\.zip/);
+const generatedVersion = generatedVersionMatch ? generatedVersionMatch[1] : 'unknown';
+const distributionFile = `gradle-${REQUIRED_GRADLE_VERSION}-bin.zip`;
 const myketDistributionUrl = `https://maven.myket.ir/gradle/distributions/${distributionFile}`;
 const localFile = path.resolve(path.join(cacheDirectory, distributionFile));
 
@@ -56,17 +54,14 @@ if (isUsableZip(localFile)) {
   distributionUrl = pathToFileURL(localFile).href;
   source = `local:${localFile}`;
 } else {
-  // Do not silently fall back to services that may be unreachable from Iran.
-  // Myket is the project's configured mirror. If a version is not mirrored yet,
-  // the build should fail explicitly rather than hanging on a blocked service.
+  // Keep Myket as the primary distribution source. The project must not depend
+  // on dl.google.com/services which can be unavailable from Iran.
   distributionUrl = myketDistributionUrl;
   source = `myket:${myketDistributionUrl}`;
   console.warn(`[gradle-wrapper] No valid local Gradle ZIP: ${localFile}`);
   console.warn(`[gradle-wrapper] Using Myket Gradle distribution: ${myketDistributionUrl}`);
 }
 
-// gradle-wrapper.properties is a Java Properties file; ':' must be escaped when
-// writing a generated URI. file:// and https:// therefore both become valid values.
 distributionUrl = distributionUrl.replace(/:/g, '\\:');
 
 contents = contents.replace(/^distributionUrl=[^\r\n]+$/m, `distributionUrl=${distributionUrl}`);
@@ -90,7 +85,8 @@ contents = /^validateDistributionUrl=/m.test(contents)
   : `${contents.replace(/[\r\n]+$/, '')}\r\nvalidateDistributionUrl=true\r\n`;
 
 fs.writeFileSync(propertiesPath, contents, 'utf8');
-console.log(`[gradle-wrapper] required-version=${requiredVersion}`);
+console.log(`[gradle-wrapper] generated-version=${generatedVersion}`);
+console.log(`[gradle-wrapper] required-version=${REQUIRED_GRADLE_VERSION}`);
 console.log(`[gradle-wrapper] version-file=${distributionFile}`);
 console.log(`[gradle-wrapper] local-candidate=${localFile}`);
 console.log(`[gradle-wrapper] source=${source}`);
