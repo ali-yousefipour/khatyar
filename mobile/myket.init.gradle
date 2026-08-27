@@ -1,15 +1,22 @@
-// Khatyar global Myket/local Maven init for the main build and all included builds.
-// Expo SDK packages ship local-maven-repo artifacts. They must be searched before
-// network repositories so Android builds remain usable under Iranian network limits.
-// build-release.ps1 sets KHATYAR_NODE_MODULES to mobile/node_modules.
+// Khatyar Gradle repository policy for the main Android build and all included builds.
+// Expo SDK packages ship local-maven-repo artifacts. They are searched first so
+// builds remain usable when upstream Maven services are restricted in Iran.
 
 final String myketUrl = 'https://maven.myket.ir/'
-final String nodeModules = System.getenv('KHATYAR_NODE_MODULES') ?: ''
 
-def findLocalMavenRepos = {
-    if (!nodeModules) return []
-    def root = new File(nodeModules)
-    if (!root.isDirectory()) return []
+def findNodeModules = { settingsDir ->
+    File current = settingsDir
+    for (int i = 0; i < 6 && current != null; i++) {
+        File candidate = new File(current, 'node_modules')
+        if (candidate.isDirectory()) return candidate
+        current = current.parentFile
+    }
+    return null
+}
+
+def findLocalMavenRepos = { settingsDir ->
+    File root = findNodeModules(settingsDir)
+    if (root == null) return []
     def result = []
     root.eachFileRecurse { file ->
         if (file.isDirectory() && file.name == 'local-maven-repo') result << file
@@ -17,10 +24,9 @@ def findLocalMavenRepos = {
     return result
 }
 
-def addLocalExpoRepos = { repos ->
-    findLocalMavenRepos().eachWithIndex { localRepo, index ->
+def addLocalExpoRepos = { repos, settingsDir ->
+    findLocalMavenRepos(settingsDir).eachWithIndex { localRepo, index ->
         def relative = localRepo.absolutePath
-            .replace(new File(nodeModules).absolutePath, '')
             .replaceAll('^[\\/]+', '')
             .replaceAll('[^A-Za-z0-9_]+', '_')
         def repoName = 'ExpoLocal_' + index + '_' + relative
@@ -53,14 +59,14 @@ def addStandardRepos = { repos, includePluginPortal = false ->
 beforeSettings { settings ->
     settings.pluginManagement.repositories {
         mavenLocal()
-        addLocalExpoRepos(delegate)
+        addLocalExpoRepos(delegate, settings.settingsDir)
         addMyket(delegate)
         addStandardRepos(delegate, true)
     }
     try {
         settings.dependencyResolutionManagement.repositories {
             mavenLocal()
-            addLocalExpoRepos(delegate)
+            addLocalExpoRepos(delegate, settings.settingsDir)
             addMyket(delegate)
             addStandardRepos(delegate, false)
         }
@@ -68,15 +74,16 @@ beforeSettings { settings ->
 }
 
 beforeProject { project ->
+    def settingsDir = project.rootProject.projectDir
     project.buildscript.repositories {
         mavenLocal()
-        addLocalExpoRepos(delegate)
+        addLocalExpoRepos(delegate, settingsDir)
         addMyket(delegate)
         addStandardRepos(delegate, true)
     }
     project.repositories {
         mavenLocal()
-        addLocalExpoRepos(delegate)
+        addLocalExpoRepos(delegate, settingsDir)
         addMyket(delegate)
         addStandardRepos(delegate, false)
     }
