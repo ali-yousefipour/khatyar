@@ -68,9 +68,8 @@ function ensureRepositories(source, parentName) {
 
 function ensureTopLevelRepositories(source) {
   if (source.includes(MARKER)) return source;
-  const match = /^repositories\\s*\\{/m.exec(source);
+  const match = /^repositories\s*\{/m.exec(source);
   if (match) {
-    const open = source.indexOf('{', match.index);
     const block = findBlock(source, 'repositories', match.index);
     if (block && block.start === match.index) return injectRepositories(source, block);
   }
