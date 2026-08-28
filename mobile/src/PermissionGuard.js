@@ -54,39 +54,40 @@ export default function PermissionGuard({children}){
     try{
       if(exempt){setRuntimeIssue(null);setCameraExplanation(false);return;}
 
-      // 1) اعلان‌ها؛ در پس‌زمینه و بدون متن مرحله‌ای بررسی می‌شوند.
+      // PermissionGuard must not block the unauthenticated startup/login screen.
+      // Permissions are enforced only after authentication, so granting camera
+      // permission can never prevent the app from reaching Login.
+      if(!user){setRuntimeIssue(null);setCameraExplanation(false);return;}
+
       const notification=await callModuleAsync(Notifications,'getPermissionsAsync',{status:'denied'});
       if(notification?.status!=='granted'){
         if(notification?.status==='undetermined'){
           const requested=await callModuleAsync(Notifications,'requestPermissionsAsync',null);
-          if(requested?.status==='granted'){setRuntimeIssue(null);return;}
+          if(requested?.status==='granted'){return check();}
         }
         setRuntimeIssue({type:'notifications'});setCameraExplanation(false);return;
       }
 
-      // 2) VPN؛ تا زمان خاموش شدن ورود مسدود است.
       if(await checkVpn()){setCameraExplanation(false);setRuntimeIssue({type:'vpn'});return;}
       setRuntimeIssue(null);
 
-      // 3) دوربین؛ قبل از درخواست، یک‌بار توضیح داده می‌شود.
       const cam=await callModuleAsync(Camera,'getCameraPermissionsAsync',{granted:false,status:'denied'});
       if(!cam?.granted){
         const explained=await AsyncStorage.getItem(CAMERA_EXPLANATION_KEY).catch(()=>null);
         if(!explained){setCameraExplanation(true);return;}
         if(cam?.status==='undetermined'){
           const requested=await callModuleAsync(Camera,'requestCameraPermissionsAsync',null);
-          if(requested?.granted){setCameraExplanation(false);setRuntimeIssue(null);return;}
+          if(requested?.granted){setCameraExplanation(false);setRuntimeIssue(null);return check();}
         }
         setRuntimeIssue({type:'camera'});setCameraExplanation(false);return;
       }
       setCameraExplanation(false);
 
-      // 4) مجوز موقعیت و سپس روشن بودن سرویس GPS.
       const locationPerm=await callModuleAsync(Location,'getForegroundPermissionsAsync',{granted:false,status:'denied'});
       if(!locationPerm?.granted){
         if(locationPerm?.status==='undetermined'){
           const requested=await callModuleAsync(Location,'requestForegroundPermissionsAsync',null);
-          if(requested?.granted){setRuntimeIssue(null);return;}
+          if(requested?.granted){setRuntimeIssue(null);return check();}
         }
         setRuntimeIssue({type:'locationPermission'});return;
       }
@@ -94,10 +95,10 @@ export default function PermissionGuard({children}){
       if(!services){setRuntimeIssue({type:'gps'});return;}
       setRuntimeIssue(null);
     }finally{inFlight.current=false;if(mounted.current)setChecking(false)}
-  },[exempt]);
+  },[exempt,user]);
 
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[]);
-  useEffect(()=>{check();if(exempt)return undefined;const iv=setInterval(check,CHECK_INTERVAL_MS);const sub=AppState.addEventListener('change',state=>{if(state==='active')check()});return()=>{clearInterval(iv);sub.remove()};},[check,exempt]);
+  useEffect(()=>{check();if(exempt||!user)return undefined;const iv=setInterval(check,CHECK_INTERVAL_MS);const sub=AppState.addEventListener('change',state=>{if(state==='active')check()});return()=>{clearInterval(iv);sub.remove()};},[check,exempt,user]);
 
   const handleCameraExplanation=async()=>{
     await AsyncStorage.setItem(CAMERA_EXPLANATION_KEY,'1').catch(()=>{});
