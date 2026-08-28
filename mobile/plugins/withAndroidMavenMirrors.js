@@ -5,14 +5,14 @@ const path = require('path');
 // KhatYar dependency resolution policy:
 // 1) local Maven repository
 // 2) Myket Maven mirror (primary Iranian mirror)
-// 3) Runflare Maven mirrors
+// 3) Runflare Maven mirrors (POM/artifact metadata only)
 // 4) official Google / Maven Central / Gradle Plugin Portal fallbacks
 const MARKER = 'KHATYAR_ANDROID_MAVEN_MIRRORS';
 const REPOS = [
-  { name: 'MyketMaven', url: 'https://maven.myket.ir/' },
-  { name: 'RunflareGoogle', url: 'https://mirror-maven.runflare.com/android/maven2/' },
-  { name: 'RunflareMaven', url: 'https://mirror-maven.runflare.com/maven2/' },
-  { name: 'RunflareGradlePlugins', url: 'https://mirror-maven.runflare.com/gradle-plugins/' },
+  { name: 'MyketMaven', url: 'https://maven.myket.ir/', allowGradleMetadata: true },
+  { name: 'RunflareGoogle', url: 'https://mirror-maven.runflare.com/android/maven2/', allowGradleMetadata: false },
+  { name: 'RunflareMaven', url: 'https://mirror-maven.runflare.com/maven2/', allowGradleMetadata: false },
+  { name: 'RunflareGradlePlugins', url: 'https://mirror-maven.runflare.com/gradle-plugins/', allowGradleMetadata: false },
 ];
 
 function repoSnippetGroovy(indent) {
@@ -21,7 +21,13 @@ function repoSnippetGroovy(indent) {
     lines.push(`${indent}maven {`);
     lines.push(`${indent}    name = "${repo.name}"`);
     lines.push(`${indent}    url = uri("${repo.url}")`);
-    lines.push(`${indent}    metadataSources { gradleMetadata(); mavenPom(); artifact() }`);
+    if (repo.allowGradleMetadata) {
+      lines.push(`${indent}    metadataSources { gradleMetadata(); mavenPom(); artifact() }`);
+    } else {
+      // Runflare currently returns HTTP 500 for some .module requests (notably
+      // Expo modules). POM/artifact metadata remains usable as a fallback.
+      lines.push(`${indent}    metadataSources { mavenPom(); artifact() }`);
+    }
     lines.push(`${indent}}`);
   }
   return lines.join('\n') + '\n';
@@ -34,7 +40,7 @@ function repoSnippetKotlin(indent) {
     lines.push(`${indent}    name = "${repo.name}"`);
     lines.push(`${indent}    url = uri("${repo.url}")`);
     lines.push(`${indent}    metadataSources {`);
-    lines.push(`${indent}        gradleMetadata()`);
+    if (repo.allowGradleMetadata) lines.push(`${indent}        gradleMetadata()`);
     lines.push(`${indent}        mavenPom()`);
     lines.push(`${indent}        artifact()`);
     lines.push(`${indent}    }`);
@@ -73,7 +79,7 @@ function findBlock(source, name, startAt = 0) {
 function injectRepositories(source, block, language) {
   const body = source.slice(block.open + 1, block.end - 1);
   if (body.includes(MARKER)) return source;
-  const indent = language === 'kotlin' ? '    ' : '    ';
+  const indent = '    ';
   const snippet = language === 'kotlin' ? repoSnippetKotlin(indent) : repoSnippetGroovy(indent);
   const insertion = `\n    // ${MARKER}: local -> Myket -> Runflare -> official repositories.\n${snippet}`;
   return source.slice(0, block.open + 1) + insertion + source.slice(block.open + 1);
@@ -188,7 +194,7 @@ module.exports = function withAndroidMavenMirrors(config) {
       patchTree(path.join(mainAndroid, 'expo-gradle-plugin')),
       patchTree(path.join(mainAndroid, 'gradle-plugin')),
     ].reduce((sum, value) => sum + value, 0);
-    console.log(`[withAndroidMavenMirrors] patched ${changed} generated Gradle file(s): local -> Myket -> Runflare -> official.`);
+    console.log(`[withAndroidMavenMirrors] patched ${changed} generated Gradle file(s): local -> Myket -> Runflare(POM/artifact) -> official.`);
     return cfg;
   }]);
 
