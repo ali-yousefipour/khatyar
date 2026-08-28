@@ -1,15 +1,28 @@
-Khatyar Gradle 8.7 / Myket wrapper fix - V8
+KhatYar Expo SDK 57 / React Native 0.86 Gradle wrapper policy
 
-Required Gradle: 8.7
-Preferred local file: F:\gradle-cache\gradle-8.7-bin.zip
-Fallback URL: https://maven.myket.ir/gradle/distributions/gradle-8.7-bin.zip
+Required Gradle: 8.14.3
+Preferred local file: F:\gradle-cache\gradle-8.14.3-bin.zip
+Primary remote URL: https://maven.myket.ir/gradle/distributions/gradle-8.14.3-bin.zip
+
+Why:
+Expo SDK 57 targets React Native 0.86. The repository's native build configuration and
+wrapper preparation script are standardized on Gradle 8.14.3. Gradle 8.7 must not be
+selected by an active Windows build script.
 
 Behavior:
-1. After every Expo prebuild, scripts/configure-gradle-wrapper.js overwrites distributionUrl.
-2. A valid local ZIP (PK signature and size above 1 MB) is used first.
-3. Missing or incomplete local ZIP causes automatic fallback to Myket.
-4. Gradle 9.3.1 is no longer selected by any active Windows build script.
-5. networkTimeout is 600000 ms and validateDistributionUrl is enabled.
+1. Every release build runs a clean Expo Android prebuild.
+2. scripts/configure-gradle-wrapper.js then overwrites distributionUrl deterministically.
+3. A valid local ZIP (PK signature and size above 1 MB) is preferred.
+4. If the local ZIP is absent or invalid, Myket is used as the primary remote source.
+5. myket.init.gradle configures Myket/mirror/official repositories for buildscript and
+   plugin resolution without taking control away from Expo package-local Maven repos.
+6. Generated settings.gradle/build.gradle files are structurally validated before Gradle.
+7. JDK 17 is required by the Windows release build policy.
+8. Android compileSdk/targetSdk 36, minSdk 24, buildTools 36.0.0 and NDK 27.3.13750724
+   remain controlled by app.config.js and are not mutated by the build script.
 
-Build:
-powershell -NoProfile -ExecutionPolicy Bypass -File .\build-myket-release.ps1 -Fresh
+Recommended Windows build:
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -NoPause
+
+Myket build directly:
+  npm run build:myket:windows
