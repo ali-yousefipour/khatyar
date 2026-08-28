@@ -21,9 +21,17 @@ $StashMessage = "khatyar-build-autostash-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 
 function Invoke-Git {
   param([Parameter(Mandatory=$true)][string[]]$Arguments)
-  $output = & git @Arguments 2>&1
-  $code = $LASTEXITCODE
-  return [pscustomobject]@{ Output=@($output); ExitCode=$code }
+  # Native git writes normal progress messages such as "From https://..." to stderr.
+  # Do not let PowerShell's ErrorActionPreference=Stop interpret that normal output as a terminating error.
+  $previousErrorActionPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = 'Continue'
+    $output = @(& git.exe @Arguments 2>&1)
+    $code = $LASTEXITCODE
+    return [pscustomobject]@{ Output=$output; ExitCode=$code }
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
 }
 
 function Fail-Sync {
@@ -92,7 +100,7 @@ if ($answer -eq 'Y') {
   $remoteSha = Get-RefSha "$Remote/$Branch"
   $base = Invoke-Git @('merge-base','HEAD',"$Remote/$Branch")
   if ($base.ExitCode -ne 0) {
-    if ($StashCreated) { & git stash pop 2>&1 | Out-Null }
+    if ($StashCreated) { & git.exe stash pop 2>&1 | Out-Null }
     Fail-Sync 'Unable to compare the local branch with GitHub.'
   }
   $mergeBase = ((@($base.Output) -join '').Trim())
@@ -102,14 +110,14 @@ if ($answer -eq 'Y') {
       Write-Host 'Local branch is behind GitHub. Pulling latest files with fast-forward only...' -ForegroundColor Cyan
       $pull = Invoke-Git @('pull','--ff-only',$Remote,$Branch)
       if ($pull.ExitCode -ne 0) {
-        if ($StashCreated) { & git stash pop 2>&1 | Out-Null }
+        if ($StashCreated) { & git.exe stash pop 2>&1 | Out-Null }
         Fail-Sync ('GitHub pull failed: ' + ($pull.Output -join ' '))
       }
     } elseif ($mergeBase -eq $remoteSha) {
-      if ($StashCreated) { & git stash pop 2>&1 | Out-Null }
+      if ($StashCreated) { & git.exe stash pop 2>&1 | Out-Null }
       Fail-Sync 'Local branch contains commits that are not on GitHub. Push or reconcile the local commits before building.'
     } else {
-      if ($StashCreated) { & git stash pop 2>&1 | Out-Null }
+      if ($StashCreated) { & git.exe stash pop 2>&1 | Out-Null }
       Fail-Sync 'Local branch and GitHub have diverged. Reconcile the branches before building.'
     }
   }
@@ -117,7 +125,7 @@ if ($answer -eq 'Y') {
   $localSha = Get-RefSha 'HEAD'
   $remoteSha = Get-RefSha "$Remote/$Branch"
   if ($localSha -ne $remoteSha) {
-    if ($StashCreated) { & git stash pop 2>&1 | Out-Null }
+    if ($StashCreated) { & git.exe stash pop 2>&1 | Out-Null }
     Fail-Sync "Synchronization verification failed. Local=$localSha GitHub=$remoteSha"
   }
 
