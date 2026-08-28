@@ -6,16 +6,18 @@
 
 به‌دلیل محدودیت دسترسی به برخی سرویس‌ها و مخازن خارجی از داخل ایران، فرآیند Build باید تا حد ممکن از کش محلی و Mirrorهای داخلی استفاده کند و فقط در صورت نبودن/عدم دسترسی، به سرویس‌های عمومی fallback کند.
 
+## اصل مهم fallback
+
+ترتیب repositoryها به‌تنهایی به معنی fallback مطمئن نیست. اگر یک Mirror برای یک coordinate پاسخ HTTP 5xx بدهد، Gradle ممکن است همان repository را در resolution آن dependency شکست‌خورده تلقی کند و Build متوقف شود. بنابراین Mirrorهای ناپایدار باید با **content filtering** از گروه‌های مشکل‌دار کنار گذاشته شوند، نه اینکه فقط ترتیب آن‌ها تغییر کند.
+
 ## ترتیب کلی
 
 برای dependencyهای Maven/Gradle:
 
 1. کش/مخزن محلی
 2. Maven Repository مایکت
-3. Mirrorهای رانفلر
+3. Mirrorهای رانفلر، فقط برای گروه‌های قابل اتکا
 4. مخازن رسمی Google / Maven Central / Gradle Plugin Portal
-
-Gradle ترتیب repositoryها را هنگام resolution رعایت می‌کند؛ بنابراین ترتیب declaration عمداً به همین شکل نگه داشته می‌شود.
 
 ## Maven Repository — مایکت
 
@@ -51,7 +53,7 @@ dependencyResolutionManagement {
 }
 ```
 
-در پروژه خط‌یار، این تنظیمات نباید با یک `init.gradle` سراسری روی Settings یا Included Buildهای Expo/React Native اعمال شوند؛ زیرا Expo SDK 57 و React Native 0.86 دارای Included Build مستقل هستند.
+در پروژه خط‌یار، تنظیمات بالا باید در پروژه تولیدشده Expo و Included Buildهای واقعی آن اعمال شوند. استفاده از `C:\Users\<user>\.gradle\init.d\myket.init.gradle` ممنوع است؛ policy پروژه فقط از init script داخل repository و اجرای صریح `--init-script` استفاده می‌کند.
 
 ## Mirrorهای Runflare
 
@@ -63,22 +65,32 @@ https://mirror-maven.runflare.com/maven2/
 https://mirror-maven.runflare.com/gradle-plugins/
 ```
 
-این‌ها بعد از مایکت و قبل از Google/Maven Central به‌عنوان fallback عمومی داخلی استفاده می‌شوند.
+این‌ها بعد از مایکت به‌عنوان fallback داخلی استفاده می‌شوند، اما **برای گروه‌های Expo و React Native نباید استفاده شوند** چون در آزمایش واقعی پروژه، Runflare برای dependency معتبر Expo با HTTP 500 پاسخ داده است.
 
-### نکته مهم درباره Gradle Module Metadata
+گروه‌های مستثنی از Runflare:
 
-برخی endpointهای Runflare ممکن است برای فایل‌های Gradle Module Metadata با پسوند `.module` پاسخ HTTP 500 برگردانند، درحالی‌که POM و artifact همان dependency قابل دریافت است. به همین دلیل در کانفیگ خط‌یار:
+```text
+expo.modules.*
+host.exp.exponent
+com.facebook.react.*
+com.facebook.fbjni.*
+```
 
-- مایکت با `gradleMetadata()`, `mavenPom()` و `artifact()` استفاده می‌شود.
-- Runflare فقط با `mavenPom()` و `artifact()` استفاده می‌شود.
+این استثناها باید هم در `gradle-mirror.init.gradle` و هم در plugin تولیدکننده تنظیمات Gradle حفظ شوند.
 
-این محدودسازی فقط نحوه metadata lookup در Runflare را تغییر می‌دهد و ترتیب fallback را عوض نمی‌کند: `local -> Myket -> Runflare -> official`.
+### Gradle Module Metadata
 
-منبع راهنمای Mirrorهای Runflare: https://runflare.com/mirrors/mirror-gradle/
+Runflare فقط با:
+
+```gradle
+metadataSources { mavenPom(); artifact() }
+```
+
+استفاده می‌شود و `gradleMetadata()` برای Runflare فعال نیست. این کار جلوی درخواست `.module` را می‌گیرد، اما **جلوگیری از HTTP 500 برای POM نیز به content filtering نیاز دارد**؛ بنابراین حذف `gradleMetadata()` به‌تنهایی کافی نیست.
 
 ## Gradle Wrapper
 
-نسخه Gradle پروژه باید از نسخه‌ای که توسط سیاست فعلی Expo/React Native پروژه تعیین شده پیروی کند. برای وضعیت فعلی KhatYar:
+وضعیت فعلی:
 
 ```text
 Expo SDK       57
@@ -96,13 +108,13 @@ JDK            17
 https://maven.myket.ir/gradle/distributions/gradle-8.13-bin.zip
 ```
 
-3. در صورت عدم دسترسی، Mirror رانفلر:
+3. Runflare:
 
 ```text
 https://mirror-maven.runflare.com/distributions/gradle-8.13-bin.zip
 ```
 
-4. در نهایت سرویس رسمی Gradle:
+4. سرویس رسمی Gradle:
 
 ```text
 https://services.gradle.org/distributions/gradle-8.13-bin.zip
@@ -112,19 +124,17 @@ https://services.gradle.org/distributions/gradle-8.13-bin.zip
 
 ## Android SDK
 
-برای دریافت/بررسی آرشیوهای Android SDK از فهرست مایکت استفاده شود:
+مرجع archiveهای Android SDK مایکت:
 
 ```text
 https://maven.myket.ir/sdk-archives.csv
 ```
 
-این CSV مرجع دانلود archiveهای SDK برای محیط‌های محدودشده است. در Windows ابتدا SDK موجود در `ANDROID_HOME`/`ANDROID_SDK_ROOT` و cacheهای محلی بررسی شود و فقط اجزای مفقود از mirror داخلی دریافت شوند.
+در Windows ابتدا `ANDROID_HOME`/`ANDROID_SDK_ROOT` و cache محلی بررسی شود و فقط اجزای مفقود از mirror داخلی دریافت شوند.
 
 ## Flutter mirror
 
-این پروژه React Native/Expo است و Flutter در Build فعلی دخالتی ندارد؛ بااین‌حال برای توسعه‌های جانبی Flutter، Mirror مایکت به شکل زیر است:
-
-Environment Variables:
+این پروژه React Native/Expo است و Flutter در Build فعلی دخالتی ندارد؛ برای توسعه‌های جانبی Flutter:
 
 ```powershell
 $env:PUB_HOSTED_URL="https://pub.myket.ir"
@@ -138,27 +148,18 @@ Windows دائمی:
 [Environment]::SetEnvironmentVariable("FLUTTER_STORAGE_BASE_URL","https://pub.myket.ir","User")
 ```
 
-نمونه SDK Windows:
-
-```text
-https://pub.myket.ir/flutter_infra_release/releases/stable/windows/flutter_windows_3.44.0-stable.zip
-```
-
-نمونه Linux:
-
-```text
-https://pub.myket.ir/flutter_infra_release/releases/stable/linux/flutter_linux_3.44.0-stable.tar.xz
-```
-
 ## قوانین مهم برای Build خط‌یار
 
 - Build استاندارد APK/AAB برای انتشار غیررسمی است و نباید به انتشار Myket وابسته باشد.
-- استفاده از `C:\Users\<user>\.gradle\init.d\myket.init.gradle` ممنوع است؛ init script سراسری می‌تواند Included Buildهای Expo/RN را خراب کند.
-- repositoryها باید در پروژه تولیدشده Expo و Included Buildهای واقعی آن تنظیم شوند، نه با hook سراسری روی تمام buildها.
-- قبل از تغییر نسخه‌های Expo، React Native، Gradle، AGP، Kotlin، compileSdk یا NDK، سازگاری نسخه‌ها باید بررسی شود.
-- هر تغییر در Build script باید idempotent باشد؛ اجرای دوباره Build نباید repositoryها یا blockهای Gradle تو در تو ایجاد کند.
-- فایل‌های generated داخل `android/` نباید جایگزین source-of-truth پروژه شوند مگر اینکه صریحاً در repository commit شده باشند.
-- خطاهای HTTP سرویس‌های Mirror باید تا حد ممکن با محدودکردن metadataهای ناسازگار مدیریت شوند، نه با حذف fallback داخلی یا تغییر بی‌دلیل نسخه‌های toolchain.
+- استفاده از init script سراسری در `~/.gradle/init.d` ممنوع است.
+- repository policy باید Included Buildهای Expo/RN را نیز پوشش دهد.
+- Runflare برای گروه‌های مستعد HTTP 500 نباید query شود.
+- در صورت مشاهده HTTP 5xx از یک Mirror، اول content filtering و مسیر resolution بررسی شود؛ تغییر نسخه toolchain راه‌حل پیش‌فرض نیست.
+- repository declaration نباید با blockهای تو‌در‌تو یا syntax ناسازگار Kotlin/Groovy تولید شود.
+- هر تغییر Build script باید idempotent باشد.
+- `android/` تولیدشده توسط Expo باید source-of-truth خود را در `app.config.js` و pluginهای Config Plugins داشته باشد.
+- قبل از تغییر Expo، React Native، Gradle، AGP، Kotlin، compileSdk یا NDK، ماتریس سازگاری بررسی شود.
+- Build script باید timeout سخت و idle timeout داشته باشد و در failure، علت واقعی آخرین مرحله را در log چاپ کند.
 
 ## وضعیت فعلی پروژه
 
@@ -175,4 +176,4 @@ buildTools       36.0.0
 NDK              27.1.12297006
 ```
 
-این فایل مرجع سیاست Build است؛ هنگام رفع خطاهای آینده ابتدا این سند و سپس فایل‌های `scripts/prepare-android-release.js`، `scripts/configure-gradle-wrapper.js`، `plugins/withAndroidMavenMirrors.js` و `build-release.ps1` بررسی شوند.
+این فایل مرجع سیاست Build است؛ در رفع خطاهای آینده ابتدا این سند و سپس فایل‌های `scripts/prepare-android-release.js`، `scripts/configure-gradle-wrapper.js`، `plugins/withAndroidMavenMirrors.js`، `gradle-mirror.init.gradle` و `build-release.ps1` بررسی شوند.
