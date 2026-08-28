@@ -6,10 +6,8 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 
 const MIN_VALID_ZIP_SIZE = 1024 * 1024;
-// Expo SDK 57 is based on React Native 0.86. The RN 0.86 native template
-// uses Gradle 8.14.3. Gradle 8.7 is too old for the Gradle APIs used by
-// expo-modules-autolinking and causes unresolved logger/extensions/extra
-// references during :expo-gradle-plugin compilation.
+// Expo SDK 57 targets React Native 0.86. Keep the wrapper version explicit and
+// centralized so every clean prebuild receives the same compatible Gradle.
 const REQUIRED_GRADLE_VERSION = '8.14.3';
 
 function fail(message) {
@@ -40,8 +38,6 @@ let contents = fs.readFileSync(propertiesPath, 'utf8');
 const originalUrlMatch = contents.match(/^distributionUrl=([^\r\n]+)$/m);
 if (!originalUrlMatch) fail(`distributionUrl was not found in ${propertiesPath}`);
 const originalUrl = originalUrlMatch[1];
-const generatedVersionMatch = originalUrl.match(/gradle-([0-9]+(?:\.[0-9]+){1,2})-(?:bin|all)\.zip/);
-const generatedVersion = generatedVersionMatch ? generatedVersionMatch[1] : 'unknown';
 
 const distributionFile = `gradle-${REQUIRED_GRADLE_VERSION}-bin.zip`;
 const myketDistributionUrl = `https://maven.myket.ir/gradle/distributions/${distributionFile}`;
@@ -51,10 +47,9 @@ const localFile = path.resolve(path.join(cacheDirectory, distributionFile));
 let distributionUrl;
 let source;
 
-// Resolution order: local cache first, then Myket. Runflare is retained as a
-// documented non-Iranian fallback for environments that need it; the wrapper
-// itself cannot express multiple URLs, so the build script must select it if
-// Myket is unavailable.
+// Resolution order: local cache first, then Myket. A Gradle wrapper supports
+// only one distributionUrl, so Runflare is exposed as a documented secondary
+// source rather than pretending that the wrapper can fail over by itself.
 if (isUsableZip(localFile)) {
   distributionUrl = pathToFileURL(localFile).href;
   source = `local:${localFile}`;
@@ -63,7 +58,7 @@ if (isUsableZip(localFile)) {
   source = `myket:${myketDistributionUrl}`;
   console.warn(`[gradle-wrapper] No valid local Gradle ZIP: ${localFile}`);
   console.warn(`[gradle-wrapper] Primary remote source: ${myketDistributionUrl}`);
-  console.warn(`[gradle-wrapper] Non-Iranian fallback: ${runflareDistributionUrl}`);
+  console.warn(`[gradle-wrapper] Secondary manual fallback: ${runflareDistributionUrl}`);
 }
 
 distributionUrl = distributionUrl.replace(/:/g, '\\:');
@@ -88,7 +83,6 @@ contents = /^validateDistributionUrl=/m.test(contents)
   : `${contents.replace(/[\r\n]+$/, '')}\r\nvalidateDistributionUrl=true\r\n`;
 
 fs.writeFileSync(propertiesPath, contents, 'utf8');
-console.log(`[gradle-wrapper] generated-version=${generatedVersion}`);
 console.log(`[gradle-wrapper] required-version=${REQUIRED_GRADLE_VERSION}`);
 console.log(`[gradle-wrapper] version-file=${distributionFile}`);
 console.log(`[gradle-wrapper] local-candidate=${localFile}`);
