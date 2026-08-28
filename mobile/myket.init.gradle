@@ -69,7 +69,11 @@ def addLocalExpoRepos = { repos, settingsDir ->
 }
 
 def addDependencyRepositories = { repos, settingsDir, includePluginPortal = false ->
-    mavenLocal()
+    // Always invoke repository methods on the supplied RepositoryHandler.
+    // Calling mavenLocal()/google() unqualified here resolves against the
+    // init-script Gradle object for included builds and causes:
+    // "Could not find method mavenLocal() ... on build 'gradle-plugin'".
+    repos.mavenLocal()
     addLocalExpoRepos(repos, settingsDir)
     addMaven(repos, 'MyketIran', myketUrl)
     addMaven(repos, 'JamkoIran', jamkoUrl)
@@ -96,6 +100,11 @@ gradle.settingsEvaluated { settings ->
 }
 
 beforeProject { project ->
+    // The init script is applied to the main build AND every included build.
+    // Included builds such as @react-native/gradle-plugin do not need KhatYar's
+    // project repository policy and must not be modified by this script.
+    if (project.rootDir.name != 'android') return
+
     def settingsDir = project.rootProject.projectDir
     project.buildscript.repositories {
         addDependencyRepositories(delegate, settingsDir, true)
