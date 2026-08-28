@@ -47,14 +47,13 @@ function Invoke-Checked {
     $psi.RedirectStandardOutput = $false
     $psi.RedirectStandardError = $false
 
-    if ([System.IO.Path]::GetExtension($File).ToLowerInvariant() -eq '.bat') {
+    $extension = [System.IO.Path]::GetExtension($File).ToLowerInvariant()
+    if ($extension -eq '.bat' -or $extension -eq '.cmd') {
         $psi.FileName = 'cmd.exe'
-        $quoted = '"' + $File + '"'
-        $command = $quoted
+        $command = '"' + $File + '"'
         foreach ($arg in $Arguments) {
             $a = [string]$arg
-            if ($a -match '[\s"]') { $command += ' "' + ($a -replace '"','\"') + '"' }
-            else { $command += ' ' + $a }
+            $command += ' "' + ($a -replace '"','\"') + '"'
         }
         $psi.Arguments = '/d /c "' + $command + '"'
     } else {
@@ -240,6 +239,6 @@ finally {
     Write-Host ('Final stage: ' + $FinalStage)
     Write-Host ('Exit code  : ' + $FinalExitCode)
     Write-Host '============================================================' -ForegroundColor Cyan
-    if (-not $NoPause) { [void](Read-Host 'Press ENTER to close this window') }
+    if (-not $NoPause) { [void](Read-Host 'Press ENTER to close the window') }
 }
 exit $FinalExitCode
