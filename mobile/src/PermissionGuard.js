@@ -1,80 +1,104 @@
-import React,{useEffect,useState,useCallback}from'react';
-import{View,Text,TouchableOpacity,StyleSheet,Linking,AppState,ScrollView}from'react-native';
+import React,{useCallback,useEffect,useRef,useState}from'react';
+import{AppState,Linking,ScrollView,StyleSheet,Text,TouchableOpacity,View}from'react-native';
+import*as Notifications from'expo-notifications';
+import*as Location from'expo-location';
+import*as Network from'expo-network';
+import*as Camera from'expo-camera';
+import*as IntentLauncher from'expo-intent-launcher';
 import AsyncStorage from'@react-native-async-storage/async-storage';
-import*as Location from'expo-location';import*as Notifications from'expo-notifications';import*as Network from'expo-network';
-import{C,FONT}from'./theme';import{useAuth}from'./auth';
+import{C,FONT}from'./theme';
+import{useAuth}from'./auth';
 
-const WAIT_MS=5000;
-const CHECK_INTERVAL_MS=60*60*1000;
-const BATTERY_KEY='battery_opt_confirmed_v1';
-const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const CHECK_INTERVAL_MS=5000;
+const CAMERA_EXPLANATION_KEY='khatyar_camera_permission_explained_v2';
 
-async function checkDeveloperOptions(){
-  try{
-    const{NativeModules}=require('react-native');
-    if(NativeModules?.KhatyarSecurity?.isDeveloperOptionsEnabled){
-      return!!(await NativeModules.KhatyarSecurity.isDeveloperOptionsEnabled());
-    }
-  }catch{}
-  // Expo 57 does not expose Settings.Secure/ADB_ENABLED directly. Do not falsely block the user.
-  return false;
-}
 async function checkVpn(){
-  try{const state=await Network.getNetworkStateAsync();return String(state?.type||'').toUpperCase().includes('VPN')}catch{return false}
+  try{const st=await Network.getNetworkStateAsync();if(st?.type===Network.NetworkStateType.VPN)return true;}catch{}
+  try{const SecurityCheck=require('../modules/security-check').default||require('../modules/security-check');const info=await SecurityCheck?.getVpnNetworkInfoAsync?.();return info?.transportVpn===true||!!(Array.isArray(info?.activeTunnelInterfaces)&&info.activeTunnelInterfaces.length);}catch{return false}
 }
-async function checkMockLocation(){
-  try{const p=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.Low,maximumAge:15000});return!!p?.mocked}catch{return false}
-}
-async function checkPermissions(){
-  const issues=[];
-  try{if((await Location.getForegroundPermissionsAsync()).status!=='granted')issues.push({key:'locationPermission',title:'اجازه موقعیت مکانی',action:()=>Location.requestForegroundPermissionsAsync()})}catch{}
-  try{const Camera=require('expo-camera');if(!(await Camera.getCameraPermissionsAsync()).granted)issues.push({key:'camera',title:'اجازه دوربین',action:()=>Camera.requestCameraPermissionsAsync()})}catch{}
-  try{if((await Notifications.getPermissionsAsync()).status!=='granted')issues.push({key:'notifications',title:'اجازه اعلان‌ها',action:()=>Notifications.requestPermissionsAsync()})}catch{}
-  return issues;
-}
+async function openLocationSettings(){try{await IntentLauncher.startActivityAsync('android.settings.LOCATION_SOURCE_SETTINGS');}catch{try{await Linking.openSettings();}catch{}}}
+async function openVpnSettings(){try{await IntentLauncher.startActivityAsync('android.settings.VPN_SETTINGS');}catch{try{await Linking.openSettings();}catch{}}}
 
 export default function PermissionGuard({children}){
   const{user}=useAuth();
-  const exempt=Number(user?.security_exempt||0)===1||user?.security_exempt===true;
-  const[stage,setStage]=useState('در حال آماده‌سازی');
-  const[issues,setIssues]=useState([]);
-  const[ready,setReady]=useState(false);
-  const[batteryConfirmed,setBatteryConfirmed]=useState(true);
+  const exempt=!!user&&(Number(user.security_exempt||0)===1||user.security_exempt===true);
+  const[runtimeIssue,setRuntimeIssue]=useState(null);
+  const[cameraExplanation,setCameraExplanation]=useState(false);
+  const[checking,setChecking]=useState(false);
+  const inFlight=useRef(false);
+  const mounted=useRef(true);
 
-  const runCheck=useCallback(async()=>{
-    if(exempt){setReady(true);return;}
-    setReady(false);setIssues([]);
-    setStage('بررسی خاموش بودن Developer Options');
-    if(await checkDeveloperOptions())setIssues(x=>[...x,{key:'developer',title:'Developer Options فعال است',detail:'گزینه‌های توسعه‌دهنده را خاموش کنید.'}]);
-    await delay(WAIT_MS);
-    setStage('بررسی روشن بودن GPS');
-    if(!(await Location.hasServicesEnabledAsync().catch(()=>true)))setIssues(x=>[...x,{key:'gps',title:'GPS / موقعیت‌یابی خاموش است',detail:'موقعیت‌یابی دستگاه را روشن کنید.'}]);
-    await delay(WAIT_MS);
-    setStage('بررسی خاموش بودن VPN');
-    if(await checkVpn())setIssues(x=>[...x,{key:'vpn',title:'VPN فعال است',detail:'VPN را خاموش کنید و سپس بررسی مجدد را بزنید.'}]);
-    await delay(WAIT_MS);
-    setStage('بررسی غیرفعال بودن موقعیت جعلی');
-    if(await checkMockLocation())setIssues(x=>[...x,{key:'mock',title:'موقعیت جعلی فعال است',detail:'Mock/Fake Location را غیرفعال کنید.'}]);
-    const permissionIssues=await checkPermissions();
-    if(permissionIssues.length)setIssues(x=>[...x,...permissionIssues]);
-    setBatteryConfirmed(!!(await AsyncStorage.getItem(BATTERY_KEY).catch(()=>null)));
-    setStage('بررسی کامل شد');setReady(true);
+  const check=useCallback(async()=>{
+    if(inFlight.current||!mounted.current)return;
+    inFlight.current=true;setChecking(true);
+    try{
+      if(exempt){setRuntimeIssue(null);setCameraExplanation(false);return;}
+
+      // 1) اعلان‌ها؛ هنگام ورود به Login به‌صورت بی‌صدا بررسی می‌شوند.
+      const notification=await Notifications.getPermissionsAsync().catch(()=>({status:'denied'}));
+      if(notification.status!=='granted'){
+        if(notification.status==='undetermined'){
+          const requested=await Notifications.requestPermissionsAsync().catch(()=>null);
+          if(requested?.status==='granted'){setRuntimeIssue(null);return;}
+        }
+        setRuntimeIssue({type:'notifications'});setCameraExplanation(false);return;
+      }
+
+      // 2) VPN؛ تا زمان خاموش شدن اجازه ورود داده نمی‌شود.
+      if(await checkVpn()){setCameraExplanation(false);setRuntimeIssue({type:'vpn'});return;}
+      setRuntimeIssue(null);
+
+      // 3) دوربین؛ ابتدا یک‌بار توضیح داده می‌شود سپس مجوز خواسته می‌شود.
+      const cam=await Camera.getCameraPermissionsAsync().catch(()=>({granted:false,status:'denied'}));
+      if(!cam.granted){
+        const explained=await AsyncStorage.getItem(CAMERA_EXPLANATION_KEY).catch(()=>null);
+        if(!explained){setCameraExplanation(true);return;}
+        if(cam.status==='undetermined'){
+          const requested=await Camera.requestCameraPermissionsAsync().catch(()=>null);
+          if(requested?.granted){setCameraExplanation(false);setRuntimeIssue(null);return;}
+        }
+        setRuntimeIssue({type:'camera'});setCameraExplanation(false);return;
+      }
+      setCameraExplanation(false);
+
+      // 4) مجوز موقعیت و سپس روشن بودن سرویس GPS.
+      const locationPerm=await Location.getForegroundPermissionsAsync().catch(()=>({granted:false,status:'denied'}));
+      if(!locationPerm.granted){
+        if(locationPerm.status==='undetermined'){
+          const requested=await Location.requestForegroundPermissionsAsync().catch(()=>null);
+          if(requested?.granted){setRuntimeIssue(null);return;}
+        }
+        setRuntimeIssue({type:'locationPermission'});return;
+      }
+      const services=await Location.hasServicesEnabledAsync().catch(()=>false);
+      if(!services){setRuntimeIssue({type:'gps'});return;}
+      setRuntimeIssue(null);
+    }finally{inFlight.current=false;if(mounted.current)setChecking(false)}
   },[exempt]);
 
-  useEffect(()=>{
-    runCheck();
-    const interval=setInterval(runCheck,CHECK_INTERVAL_MS);
-    const sub=AppState.addEventListener('change',state=>{if(state==='active')runCheck()});
-    return()=>{clearInterval(interval);sub.remove()};
-  },[runCheck]);
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[]);
+  useEffect(()=>{check();if(exempt)return undefined;const iv=setInterval(check,CHECK_INTERVAL_MS);const sub=AppState.addEventListener('change',state=>{if(state==='active')check()});return()=>{clearInterval(iv);sub.remove()};},[check,exempt]);
 
-  if(!ready)return <View style={s.overlay}><Text style={s.title}>{stage}</Text><Text style={s.sub}>هر مرحله با فاصله ۵ ثانیه انجام می‌شود تا فشار پردازشی دستگاه کاهش یابد.</Text></View>;
+  const handleCameraExplanation=async()=>{
+    await AsyncStorage.setItem(CAMERA_EXPLANATION_KEY,'1').catch(()=>{});
+    setCameraExplanation(false);
+    const requested=await Camera.requestCameraPermissionsAsync().catch(()=>null);
+    if(requested?.granted)check();else setRuntimeIssue({type:'camera'});
+  };
 
-  if(issues.length)return <View style={s.overlay}><ScrollView contentContainerStyle={s.box}><Text style={s.icon}>⚠</Text><Text style={s.title}>بررسی امنیتی نیاز به اقدام دارد</Text>{issues.map(item=><View key={item.key} style={s.row}><View style={{flex:1}}><Text style={s.rowTxt}>{item.title}</Text><Text style={s.detail}>{item.detail||''}</Text></View>{item.action?<TouchableOpacity style={s.btn} onPress={async()=>{try{await item.action()}catch{}runCheck()}}><Text style={s.btnTxt}>فعال‌سازی</Text></TouchableOpacity>:null}</View>)}<TouchableOpacity style={s.recheck} onPress={runCheck}><Text style={s.btnTxt}>بررسی مجدد</Text></TouchableOpacity></ScrollView></View>;
+  const issueContent={
+    notifications:{icon:'🔔',title:'دسترسی اعلان‌ها لازم است',text:'برای دریافت اعلان‌های کاری و هشدارهای سامانه، دسترسی اعلان‌ها را فعال کنید.',button:'فعال‌سازی اعلان‌ها'},
+    vpn:{icon:'🛡️',title:'VPN روشن است',text:'برای ورود به برنامه باید VPN یا فیلترشکن خاموش باشد. پس از خاموش کردن، برنامه به‌صورت خودکار وضعیت را بررسی می‌کند.',button:'باز کردن تنظیمات VPN'},
+    camera:{icon:'📷',title:'دسترسی دوربین لازم است',text:'دوربین فقط در هنگام صحت‌سنجی حضور و پس از شروع همان فرایند استفاده می‌شود و خارج از آن فرایند، برنامه از دوربین استفاده نمی‌کند.',button:'رفتن به تنظیمات دوربین'},
+    locationPermission:{icon:'📍',title:'دسترسی موقعیت مکانی لازم است',text:'برای ثبت حضور و کنترل موقعیت کاری، اجازه دسترسی به موقعیت مکانی لازم است.',button:'فعال‌سازی موقعیت مکانی'},
+    gps:{icon:'📍',title:'موقعیت‌یابی دستگاه خاموش است',text:'برای ادامه ورود، Location/GPS دستگاه را روشن کنید. پس از برگشت، برنامه به‌صورت خودکار دوباره بررسی می‌کند.',button:'روشن کردن موقعیت‌یابی'}
+  };
+  const blocking=runtimeIssue?issueContent[runtimeIssue.type]:null;
 
-  if(!batteryConfirmed)return <View style={s.overlay}><ScrollView contentContainerStyle={s.box}><Text style={s.icon}>🔋</Text><Text style={s.title}>بهینه‌سازی باتری</Text><Text style={s.sub}>برای اجرای پایدار در پس‌زمینه، محدودیت باتری را برای برنامه بردارید.</Text><TouchableOpacity style={s.btn2} onPress={()=>Linking.openSettings()}><Text style={s.btnTxt}>رفتن به تنظیمات</Text></TouchableOpacity><TouchableOpacity style={[s.btn2,{backgroundColor:C.brand}]} onPress={async()=>{await AsyncStorage.setItem(BATTERY_KEY,'1');setBatteryConfirmed(true)}}><Text style={s.btnTxt}>تأیید و ادامه</Text></TouchableOpacity></ScrollView></View>;
-
-  return<>{children}</>;
+  return <View style={{flex:1}}>{children}
+    {cameraExplanation&&<View style={s.overlay}><ScrollView contentContainerStyle={s.box}><Text style={s.icon}>📷</Text><Text style={s.title}>مجوز استفاده از دوربین</Text><Text style={s.sub}>دوربین فقط برای صحت‌سنجی حضور و فقط پس از شروع فرایند صحت‌سنجی استفاده می‌شود. خارج از آن فرایند، برنامه از دوربین استفاده نمی‌کند.</Text><TouchableOpacity style={s.btn} onPress={handleCameraExplanation}><Text style={s.btnTxt}>تأیید و درخواست دسترسی</Text></TouchableOpacity></ScrollView></View>}
+    {blocking&&<View style={s.overlay}><ScrollView contentContainerStyle={s.box}><Text style={s.icon}>{blocking.icon}</Text><Text style={s.title}>{blocking.title}</Text><Text style={s.sub}>{blocking.text}</Text><TouchableOpacity style={s.btn} disabled={checking} onPress={async()=>{if(runtimeIssue.type==='notifications'){const r=await Notifications.requestPermissionsAsync().catch(()=>null);if(r?.status==='granted'){check();return}}else if(runtimeIssue.type==='vpn'){await openVpnSettings()}else if(runtimeIssue.type==='gps'){await openLocationSettings()}else{await Linking.openSettings()}check()}}><Text style={s.btnTxt}>{blocking.button}</Text></TouchableOpacity></ScrollView></View>}
+  </View>;
 }
 
-const s=StyleSheet.create({overlay:{flex:1,backgroundColor:'#0e141f'},box:{padding:22,paddingTop:56,alignItems:'center'},icon:{fontSize:50,marginBottom:10},title:{fontFamily:FONT.bold,color:'#fff',fontSize:17,textAlign:'center',marginBottom:8},sub:{fontFamily:FONT.regular,color:'#aab4c5',fontSize:13,textAlign:'center',lineHeight:23,marginBottom:18},row:{backgroundColor:'#18202e',borderRadius:14,padding:14,width:'100%',marginBottom:10,flexDirection:'row-reverse',alignItems:'center',gap:10},rowTxt:{fontFamily:FONT.bold,color:'#fff',fontSize:13},detail:{fontFamily:FONT.regular,color:'#aab4c5',fontSize:11,marginTop:4,textAlign:'right'},btn:{backgroundColor:C.brand,borderRadius:9,paddingVertical:8,paddingHorizontal:13},btn2:{backgroundColor:'#2a3445',borderRadius:10,paddingVertical:13,paddingHorizontal:24,width:'100%',alignItems:'center',marginTop:10},btnTxt:{fontFamily:FONT.bold,color:'#fff',fontSize:13},recheck:{marginTop:14,backgroundColor:'#2a3445',borderRadius:10,paddingVertical:11,paddingHorizontal:28}});
+const s=StyleSheet.create({overlay:{position:'absolute',inset:0,backgroundColor:'#0e141f',zIndex:99999},box:{flexGrow:1,padding:24,paddingTop:70,alignItems:'center',justifyContent:'center'},icon:{fontSize:52,marginBottom:14},title:{fontFamily:FONT.bold,color:'#fff',fontSize:19,textAlign:'center',marginBottom:12},sub:{fontFamily:FONT.regular,color:'#aab4c5',fontSize:14,textAlign:'center',lineHeight:25,marginBottom:22},btn:{backgroundColor:C.brand,borderRadius:12,paddingVertical:14,paddingHorizontal:24,minWidth:'82%',alignItems:'center'},btnTxt:{fontFamily:FONT.bold,color:'#fff',fontSize:14}});
