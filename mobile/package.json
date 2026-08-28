@@ -13,7 +13,7 @@
     "build:dependencies": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-dependencies-fallback.ps1",
     "build:myket": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\build-release.ps1 -NoPause",
     "build:myket:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\build-release.ps1 -NoPause",
-    "build:aab": "node scripts/build-aab-release.js",
+    "build:aab": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\build-release.ps1 -ArtifactType AAB -NoPause",
     "doctor": "npx expo-doctor",
     "prebuild:android": "node scripts/prepare-android-release.js",
     "build:android:release": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\build-release.ps1 -NoPause",
