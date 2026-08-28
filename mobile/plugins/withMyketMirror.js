@@ -49,6 +49,10 @@ function repoSnippet(indent = '    ', kotlinStyle = false) {
     `${indent}}\n`;
 }
 
+function markerLine(indent = 4) {
+  return `${' '.repeat(indent)}// ${MARKER}: local cache first, then Myket mirror; official repositories remain as fallback.\n`;
+}
+
 function ensureRepositoriesInside(source, parentName, kotlinStyle = false) {
   const parent = findBlock(source, parentName);
   if (!parent) return source;
@@ -67,30 +71,50 @@ function ensureRepositoriesInside(source, parentName, kotlinStyle = false) {
   return source.slice(0, parent.open + 1) + block + source.slice(parent.open + 1);
 }
 
-function markerLine(indent = 4) {
-  return `${' '.repeat(indent)}// ${MARKER}: local cache first, then Myket mirror; official repositories remain as fallback.\n`;
+function patchSettingsFile(file) {
+  let source = fs.readFileSync(file, 'utf8');
+  if (source.includes(MARKER) || source.includes('maven.myket.ir')) return false;
+  const kotlinStyle = file.toLowerCase().endsWith('.kts');
+  const pluginManagement = findBlock(source, 'pluginManagement');
+  if (pluginManagement) {
+    source = ensureRepositoriesInside(source, 'pluginManagement', kotlinStyle);
+  } else {
+    const prefix = kotlinStyle ?
+      `pluginManagement {\n${repoSnippet('    ', true)}    google()\n    mavenCentral()\n    gradlePluginPortal()\n}\n\n` :
+      `pluginManagement {\n${repoSnippet('    ', false)}    google()\n    mavenCentral()\n    gradlePluginPortal()\n}\n\n`;
+    source = prefix + source;
+  }
+  fs.writeFileSync(file, source.replace(/\r\n/g, '\n'), 'utf8');
+  return true;
 }
 
-function patchFile(file) {
+function patchBuildFile(file) {
   let source = fs.readFileSync(file, 'utf8');
-  if (source.includes(MARKER)) return false;
+  if (source.includes(MARKER) || source.includes('maven.myket.ir')) return false;
 
   const kotlinStyle = file.toLowerCase().endsWith('.kts');
   const repositories = findBlock(source, 'repositories');
   if (repositories) {
-    const insertionIndent = kotlinStyle ? '    ' : '    ';
-    const insertion = `\n${markerLine(2)}${repoSnippet(insertionIndent, kotlinStyle)}`;
+    const insertion = `\n${markerLine(2)}${repoSnippet('    ', kotlinStyle)}`;
     source = source.slice(0, repositories.open + 1) + insertion + source.slice(repositories.open + 1);
   } else {
-    source = `${markerLine(0)}repositories {\n${repoSnippet('    ', kotlinStyle)}    google()\n    mavenCentral()\n}\n\n${source}`;
+    const plugins = findBlock(source, 'plugins');
+    const block = `\nrepositories {\n${repoSnippet('    ', kotlinStyle)}    google()\n    mavenCentral()\n}\n`;
+    // Kotlin/Groovy DSL requires the plugins {} block to remain ahead of other
+    // script statements. Insert repositories after plugins when one exists.
+    if (plugins) {
+      source = source.slice(0, plugins.end) + block + source.slice(plugins.end);
+    } else {
+      source = block + '\n' + source;
+    }
   }
 
   fs.writeFileSync(file, source.replace(/\r\n/g, '\n'), 'utf8');
   return true;
 }
 
-function patchTree(dir) {
-  if (!fs.existsSync(dir)) return 0;
+function patchIncludedTree(dir) {
+  if (!fs.existsSync(dir)) return { changed: 0, files: [] };
   const files = [];
   const stack = [dir];
   while (stack.length) {
@@ -98,14 +122,18 @@ function patchTree(dir) {
     for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) stack.push(full);
-      else if (/^build\.gradle(?:\.kts)?$/i.test(entry.name) || /^settings\.gradle(?:\.kts)?$/i.test(entry.name)) {
-        files.push(full);
-      }
+      else if (/^settings\.gradle(?:\.kts)?$/i.test(entry.name) || /^build\.gradle(?:\.kts)?$/i.test(entry.name)) files.push(full);
     }
   }
+
   let changed = 0;
-  for (const file of files) if (patchFile(file)) changed += 1;
-  return changed;
+  for (const file of files) {
+    const isSettings = /^settings\.gradle(?:\.kts)?$/i.test(path.basename(file));
+    if (isSettings ? patchSettingsFile(file) : patchBuildFile(file)) {
+      changed += 1;
+    }
+  }
+  return { changed, files };
 }
 
 function resolvePackageAndroidDir(packageName, rootDir) {
@@ -139,19 +167,21 @@ module.exports = function withMyketMirror(config) {
   config = withDangerousMod(config, ['android', async (cfg) => {
     const projectRoot = cfg.modRequest.projectRoot;
 
-    // Expo SDK 57 includes the autolinking Gradle build directly from the
-    // expo-modules-autolinking package. Patch that actual source tree rather
-    // than assuming Expo copied it under android/.
     const expoAutolinkingAndroid = resolvePackageAndroidDir('expo-modules-autolinking', projectRoot);
-    patchTree(expoAutolinkingAndroid ? path.join(expoAutolinkingAndroid, 'expo-gradle-plugin') : '');
+    if (expoAutolinkingAndroid) {
+      const result = patchIncludedTree(path.join(expoAutolinkingAndroid, 'expo-gradle-plugin'));
+      console.log(`[withMyketMirror] Expo included build mirror patch: ${result.changed} file(s).`);
+    }
 
-    // React Native's Gradle plugin is also an included build in SDK 57.
-    const reactNativeGradlePlugin = resolvePackageAndroidDir('@react-native/gradle-plugin', projectRoot);
-    if (reactNativeGradlePlugin) patchTree(reactNativeGradlePlugin);
+    const reactNativeGradlePluginAndroid = resolvePackageAndroidDir('@react-native/gradle-plugin', projectRoot);
+    if (reactNativeGradlePluginAndroid) {
+      const result = patchIncludedTree(reactNativeGradlePluginAndroid);
+      console.log(`[withMyketMirror] React Native included build mirror patch: ${result.changed} file(s).`);
+    }
 
     // Keep compatibility with any generated/cached included-build copies.
-    patchTree(path.join(cfg.modRequest.platformProjectRoot, 'expo-gradle-plugin'));
-    patchTree(path.join(cfg.modRequest.platformProjectRoot, 'gradle-plugin'));
+    patchIncludedTree(path.join(cfg.modRequest.platformProjectRoot, 'expo-gradle-plugin'));
+    patchIncludedTree(path.join(cfg.modRequest.platformProjectRoot, 'gradle-plugin'));
     return cfg;
   }]);
 
