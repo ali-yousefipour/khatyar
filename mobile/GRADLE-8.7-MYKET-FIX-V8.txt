@@ -1,25 +1,31 @@
-KhatYar Expo SDK 57 / React Native 0.86 Gradle wrapper policy
+KhatYar Expo SDK 57 / React Native 0.86 Android toolchain policy
 
-Required Gradle: 8.14.3
-Preferred local file: F:\gradle-cache\gradle-8.14.3-bin.zip
-Primary remote URL: https://maven.myket.ir/gradle/distributions/gradle-8.14.3-bin.zip
+Canonical versions:
+- Android Gradle Plugin: 8.12.x (React Native 0.86 version catalog uses 8.12.0)
+- Gradle: 8.13
+- JDK: 17
+- compileSdk: 36
+- targetSdk: 36
+- minSdk: 24
+- buildTools: 36.0.0
+- NDK: 27.1.12297006
+- React: 19.2.3
+- React Native: 0.86.0
+- Expo SDK: 57.x
 
-Why:
-Expo SDK 57 targets React Native 0.86. The repository's native build configuration and
-wrapper preparation script are standardized on Gradle 8.14.3. Gradle 8.7 must not be
-selected by an active Windows build script.
+Android Gradle Plugin 8.12 requires Gradle 8.13 and JDK 17 and supports API 36.
+The project must not select Gradle 8.7 or Gradle 9.x for this build profile.
 
 Behavior:
 1. Every release build runs a clean Expo Android prebuild.
-2. scripts/configure-gradle-wrapper.js then overwrites distributionUrl deterministically.
+2. scripts/configure-gradle-wrapper.js overwrites distributionUrl deterministically.
 3. A valid local ZIP (PK signature and size above 1 MB) is preferred.
 4. If the local ZIP is absent or invalid, Myket is used as the primary remote source.
 5. myket.init.gradle configures Myket/mirror/official repositories for buildscript and
    plugin resolution without taking control away from Expo package-local Maven repos.
 6. Generated settings.gradle/build.gradle files are structurally validated before Gradle.
-7. JDK 17 is required by the Windows release build policy.
-8. Android compileSdk/targetSdk 36, minSdk 24, buildTools 36.0.0 and NDK 27.3.13750724
-   remain controlled by app.config.js and are not mutated by the build script.
+7. JDK 17 is validated without triggering the Windows PowerShell 5.1 java.exe stderr bug.
+8. compileSdk/targetSdk/minSdk/buildTools/NDK remain controlled by app.config.js.
 
 Recommended Windows build:
   powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -NoPause
