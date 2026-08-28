@@ -114,11 +114,7 @@ function Invoke-CommandWithCapture {
         $stdout = $p.StandardOutput.ReadToEnd()
         $stderr = $p.StandardError.ReadToEnd()
         $p.WaitForExit()
-        return [pscustomobject]@{
-            ExitCode = $p.ExitCode
-            Output = $stdout
-            Error = $stderr
-        }
+        return [pscustomobject]@{ ExitCode = $p.ExitCode; Output = $stdout; Error = $stderr }
     } finally { $p.Dispose() }
 }
 
@@ -129,6 +125,28 @@ function Get-JavaMajorVersion {
     $m = [regex]::Match($text, 'version\s+"([0-9]+)(?:\.([0-9]+))?')
     if (-not $m.Success) { throw 'Unable to determine Java major version.' }
     return [int]$m.Groups[1].Value
+}
+
+function Get-WrapperDistributionVersion {
+    param([string]$PropertiesPath)
+    $text = Get-Content -LiteralPath $PropertiesPath -Raw -ErrorAction Stop
+    $m = [regex]::Match($text, 'distributionUrl=.*gradle-([0-9.]+)-bin\.zip')
+    if (-not $m.Success) { throw 'Unable to determine Gradle wrapper distribution version.' }
+    return $m.Groups[1].Value
+}
+
+function Show-GradleFailureLog {
+    param([string]$LogPath, [int]$Lines = 100)
+    if (-not (Test-Path -LiteralPath $LogPath)) {
+        Write-Host 'Gradle log file was not created.' -ForegroundColor Red
+        return
+    }
+    Write-Host ''
+    Write-Host ('---------------- Last ' + $Lines + ' Gradle log lines ----------------') -ForegroundColor Red
+    @(Get-Content -LiteralPath $LogPath -Tail $Lines -ErrorAction SilentlyContinue) | ForEach-Object {
+        if ($_.Trim()) { Write-Host $_ }
+    }
+    Write-Host '--------------------------------------------------------------' -ForegroundColor Red
 }
 
 function Invoke-GradleRelease {
@@ -156,7 +174,6 @@ function Invoke-GradleRelease {
     $lastLength = 0
     $lastActivity = Get-Date
     $lastDisplay = Get-Date
-
     try {
         while (-not $p.HasExited) {
             Start-Sleep -Seconds 2
@@ -171,7 +188,7 @@ function Invoke-GradleRelease {
                 $lastDisplay = Get-Date
                 Write-Host ('    Gradle running | task ' + $GradleTask + ' | elapsed ' + (New-TimeSpan -Seconds ([int]$totalSeconds)).ToString('hh\:mm\:ss')) -ForegroundColor Cyan
                 if (Test-Path -LiteralPath $LogPath) {
-                    @(Get-Content -LiteralPath $LogPath -Tail 2 -ErrorAction SilentlyContinue) | ForEach-Object {
+                    @(Get-Content -LiteralPath $LogPath -Tail 4 -ErrorAction SilentlyContinue) | ForEach-Object {
                         if ($_.Trim()) { Write-Host ('    ' + $_.Trim()) -ForegroundColor DarkGray }
                     }
                 }
@@ -186,7 +203,10 @@ function Invoke-GradleRelease {
             }
         }
         $exitCode = $p.ExitCode
-        if ($exitCode -ne 0) { throw ('Gradle exited with code ' + $exitCode + '.') }
+        if ($exitCode -ne 0) {
+            Show-GradleFailureLog -LogPath $LogPath -Lines 120
+            throw ('Gradle exited with code ' + $exitCode + '.')
+        }
     } finally { $p.Dispose() }
 }
 
@@ -208,18 +228,13 @@ try {
     Write-Stage 20 'Checking project dependency manifest'
     $packageJson = Join-Path $ScriptRoot 'package.json'
     if (-not (Test-Path -LiteralPath $packageJson)) { throw 'mobile/package.json was not found.' }
-    if (-not (Test-Path -LiteralPath (Join-Path $ScriptRoot 'node_modules'))) {
-        throw 'node_modules is missing. Run the dependency build step first.'
-    }
+    if (-not (Test-Path -LiteralPath (Join-Path $ScriptRoot 'node_modules'))) { throw 'node_modules is missing. Run the dependency build step first.' }
 
     if ($Fresh) {
         Write-Stage 28 'Refreshing npm dependencies'
         $lock = Join-Path $ScriptRoot 'package-lock.json'
-        if (Test-Path -LiteralPath $lock) {
-            Invoke-Checked -File 'npm.cmd' -Arguments @('ci','--no-audit','--no-fund','--legacy-peer-deps')
-        } else {
-            Invoke-Checked -File 'npm.cmd' -Arguments @('install','--no-audit','--no-fund','--legacy-peer-deps')
-        }
+        if (Test-Path -LiteralPath $lock) { Invoke-Checked -File 'npm.cmd' -Arguments @('ci','--no-audit','--no-fund','--legacy-peer-deps') }
+        else { Invoke-Checked -File 'npm.cmd' -Arguments @('install','--no-audit','--no-fund','--legacy-peer-deps') }
     }
 
     Write-Stage 38 'Generating a clean Expo Android project'
@@ -228,14 +243,22 @@ try {
     $AndroidRoot = Join-Path $ScriptRoot 'android'
     $Gradlew = Join-Path $AndroidRoot 'gradlew.bat'
     $InitScript = Join-Path $ScriptRoot 'myket.init.gradle'
-    if (-not (Test-Path -LiteralPath $Gradlew)) { throw 'Generated Gradle wrapper was not found.' }
-    if (-not (Test-Path -LiteralPath $InitScript)) { throw 'myket.init.gradle was not found.' }
+    $WrapperProperties = Join-Path $AndroidRoot 'gradle\wrapper\gradle-wrapper.properties'
+    foreach ($required in @($Gradlew,$InitScript,$WrapperProperties)) { if (-not (Test-Path -LiteralPath $required)) { throw ('Required generated file is missing: ' + $required) } }
+
+    $wrapperVersion = Get-WrapperDistributionVersion $WrapperProperties
+    Write-Host ('Gradle wrapper distribution: ' + $wrapperVersion)
+    if ($wrapperVersion -ne '8.13') { throw ('Generated Gradle wrapper is ' + $wrapperVersion + '; expected 8.13 for this project.') }
 
     Write-Stage 55 'Validating Java 17 and Gradle wrapper'
     $javaMajor = Get-JavaMajorVersion
     Write-Host ('Java major version: ' + $javaMajor)
     if ($javaMajor -ne 17) { throw ('This project build policy requires JDK 17. Detected Java ' + $javaMajor + '.') }
-    Invoke-Checked -File $Gradlew -Arguments @('--version') -WorkingDirectory $AndroidRoot
+    $gradleVersionCheck = Invoke-CommandWithCapture -File $Gradlew -Arguments @('--version') -WorkingDirectory $AndroidRoot
+    if ($gradleVersionCheck.Output.Trim()) { Write-Host $gradleVersionCheck.Output.Trim() -ForegroundColor DarkGray }
+    if ($gradleVersionCheck.Error.Trim()) { Write-Host $gradleVersionCheck.Error.Trim() -ForegroundColor DarkGray }
+    if ($gradleVersionCheck.ExitCode -ne 0) { throw 'Gradle wrapper --version failed.' }
+    if ($gradleVersionCheck.Output -notmatch 'Gradle 8\.13') { throw 'Gradle wrapper did not launch Gradle 8.13.' }
 
     if (-not $SkipDoctor) {
         Write-Stage 63 'Running Expo dependency diagnostics'
@@ -243,12 +266,10 @@ try {
         if ($doctor.Output.Trim()) { Write-Host $doctor.Output.Trim() -ForegroundColor DarkGray }
         if ($doctor.Error.Trim()) { Write-Host $doctor.Error.Trim() -ForegroundColor DarkGray }
         if ($doctor.ExitCode -ne 0) {
-            $message = 'expo-doctor exited with code ' + $doctor.ExitCode + '. Diagnostics are recorded above and are non-blocking by default.'
+            $message = 'expo-doctor exited with code ' + $doctor.ExitCode + '. Diagnostics are non-blocking by default.'
             if ($StrictDoctor) { throw $message }
             Write-Host $message -ForegroundColor Yellow
-        } else {
-            Write-Host 'expo-doctor completed successfully.' -ForegroundColor Green
-        }
+        } else { Write-Host 'expo-doctor completed successfully.' -ForegroundColor Green }
     }
 
     $gradleTask = if ($ArtifactType -eq 'AAB') { 'bundleRelease' } else { 'assembleRelease' }
@@ -260,13 +281,10 @@ try {
     Invoke-GradleRelease -Gradlew $Gradlew -WorkingDirectory $AndroidRoot -InitScript $InitScript -LogPath $logPath -GradleTask $gradleTask
 
     Write-Stage 95 'Verifying release artifact'
-    if ($ArtifactType -eq 'AAB') {
-        $artifact = Join-Path $AndroidRoot 'app\build\outputs\bundle\release\app-release.aab'
-    } else {
+    if ($ArtifactType -eq 'AAB') { $artifact = Join-Path $AndroidRoot 'app\build\outputs\bundle\release\app-release.aab' }
+    else {
         $artifact = Join-Path $AndroidRoot 'app\build\outputs\apk\release\app-release.apk'
-        if (-not (Test-Path -LiteralPath $artifact)) {
-            $artifact = Join-Path $AndroidRoot 'app\build\outputs\apk\release\app-release-unsigned.apk'
-        }
+        if (-not (Test-Path -LiteralPath $artifact)) { $artifact = Join-Path $AndroidRoot 'app\build\outputs\apk\release\app-release-unsigned.apk' }
     }
     if (-not (Test-Path -LiteralPath $artifact)) { throw ('Gradle succeeded but no release ' + $ArtifactType + ' was produced.') }
     $size = (Get-Item -LiteralPath $artifact).Length
