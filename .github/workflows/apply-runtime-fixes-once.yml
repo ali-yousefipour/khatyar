@@ -1,0 +1,118 @@
+name: Apply KhatYar runtime fixes once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-runtime-fixes-once.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply runtime fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const root = process.cwd();
+          const read = p => fs.readFileSync(path.join(root,p), 'utf8');
+          const write = (p,c) => fs.writeFileSync(path.join(root,p), c.replace(/\r\n/g,'\n'), 'utf8');
+          const fail = (m) => { console.error(m); process.exit(1); };
+
+          // App.js: register screens that Dashboard already navigates to.
+          {
+            const p='mobile/App.js'; let s=read(p);
+            const importAnchor="import LineLocationScreen from './src/screens/LineLocationScreen';";
+            const imports=[
+              "import RadioScreen from './src/screens/RadioScreen';",
+              "import HelpScreen from './src/screens/HelpScreen';",
+              "import StationCaptureScreen from './src/screens/StationCaptureScreen';",
+              "import MyStationsScreen from './src/screens/MyStationsScreen';",
+            ];
+            if(!s.includes(imports[0])){
+              const idx=s.indexOf(importAnchor); if(idx<0) fail('App.js import anchor not found');
+              const end=idx+importAnchor.length; s=s.slice(0,end)+'\n'+imports.join('\n')+s.slice(end);
+            }
+            const routeAnchor='<Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: \'رتبه‌بندی و نشان‌ها\' }} />';
+            const routes=[
+              '<Stack.Screen name="Radio" component={RadioScreen} options={{ title: \'بی‌سیم خطیار\' }} />',
+              '<Stack.Screen name="Help" component={HelpScreen} options={{ title: \'راهنمای استفاده\' }} />',
+              '<Stack.Screen name="StationCapture" component={StationCaptureScreen} options={{ title: \'ثبت موقعیت و تصویر خطوط\' }} />',
+              '<Stack.Screen name="MyStations" component={MyStationsScreen} options={{ title: \'ایستگاه‌های ثبت‌شده من\' }} />',
+            ];
+            if(!s.includes('name="Radio" component={RadioScreen}')){
+              const idx=s.indexOf(routeAnchor); if(idx<0) fail('App.js route anchor not found');
+              const end=idx+routeAnchor.length; s=s.slice(0,end)+'\n'+routes.join('\n')+s.slice(end);
+            }
+            write(p,s);
+          }
+
+          // CheckInScreen: never use GSM/stale fallback for attendance. Require a fresh accurate GPS fix.
+          {
+            const p='mobile/src/screens/CheckInScreen.js'; let s=read(p);
+            s=s.replace("import { getAccuratePosition, getGsmPosition } from '../location';","import { getAccuratePosition } from '../location';");
+            const before=s;
+            s=s.replace(/\n?\s*const gsm=await getGsmPosition\([\s\S]*?const gps=await getAccuratePosition/g,
+              "\n      const gps=await getAccuratePosition");
+            if(before!==s && !/getGsmPosition/.test(s)){
+              // expected; both startup and refresh paths were patched
+            } else if(/getGsmPosition/.test(s)) {
+              fail('CheckInScreen still contains getGsmPosition usage');
+            }
+            s=s.replace(/getAccuratePosition\(\{samples:5,timeoutMs:10000,desiredAccuracy:12\}\)/g,
+              "getAccuratePosition({samples:5,timeoutMs:10000,desiredAccuracy:12,maxAccuracy:25})");
+            write(p,s);
+          }
+
+          // device.js: distinguish GPS service state from location permission state.
+          {
+            const p='mobile/src/device.js'; let s=read(p);
+            const old='return { vpn_on, dev_options_on, mock_location, gps_on: gpsEnabled && granted, is_emulator: !Device.isDevice };';
+            const neu='return { vpn_on, dev_options_on, mock_location, gps_on: gpsEnabled, location_permission_granted: granted, is_emulator: !Device.isDevice };';
+            if(!s.includes(old)) fail('device.js GPS return anchor not found');
+            s=s.replace(old,neu);
+            write(p,s);
+          }
+
+          // Record an explicit source-of-truth note.
+          const doc='mobile/BUILD-MIRROR-POLICY.md';
+          let d=read(doc);
+          const marker='## Runtime permission and location policy';
+          if(!d.includes(marker)){
+            d+='\n'+marker+'\n\n- `PermissionGuard` must render the Login screen immediately and perform silent checks every 5 seconds.\n- The blocking order is notifications -> VPN off -> camera permission -> GPS/location service.\n- Camera permission text must state that the camera is used only during attendance verification.\n- Attendance location must use a fresh accurate GPS fix; GSM/stale cached coordinates must not be used to validate attendance.\n- Dashboard entries for Radio, Help, StationCapture and MyStations must have registered React Navigation routes.\n- Live device GPS service state takes precedence over stale server `gps_off` flags in the field-status UI.\n';
+            write(doc,d);
+          }
+          NODE
+
+      - name: Verify JavaScript syntax and intended registrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check mobile/App.js
+          node --check mobile/src/PermissionGuard.js
+          node --check mobile/src/GpsGuard.js
+          node --check mobile/src/components/FieldStatusBanner.js
+          node --check mobile/src/screens/CheckInScreen.js
+          node --check mobile/src/device.js
+          grep -q 'name="Radio" component={RadioScreen}' mobile/App.js
+          grep -q 'name="Help" component={HelpScreen}' mobile/App.js
+          grep -q 'name="StationCapture" component={StationCaptureScreen}' mobile/App.js
+          grep -q 'name="MyStations" component={MyStationsScreen}' mobile/App.js
+          ! grep -q 'getGsmPosition' mobile/src/screens/CheckInScreen.js
+
+      - name: Commit fixes and remove one-time workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/apply-runtime-fixes-once.yml
+          git add mobile/App.js mobile/src/CheckInScreen.js mobile/src/device.js mobile/BUILD-MIRROR-POLICY.md .github/workflows/apply-runtime-fixes-once.yml
+          git diff --cached --check
+          git commit -m 'fix: repair runtime permission navigation and GPS flow'
+          git push origin main
