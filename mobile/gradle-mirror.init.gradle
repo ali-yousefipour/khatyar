@@ -1,11 +1,27 @@
 // KhatYar Gradle repository policy for Iran-network constrained environments.
 // This file is passed explicitly to the project's Gradle wrapper; it is NOT a
 // global ~/.gradle/init.d script.
-// Priority for Maven repositories:
-//   1) local Maven repository (~/.m2/repository)
-//   2) Myket
-//   3) Runflare mirrors (POM/artifact metadata only; no Gradle Module Metadata)
+//
+// Resolution policy:
+//   1) local Maven (~/.m2/repository)
+//   2) Myket Maven
+//   3) Runflare mirrors for groups known to be mirrored reliably
 //   4) official repositories
+//
+// IMPORTANT:
+// Runflare is deliberately excluded for Expo and React Native coordinates.
+// The mirror has returned HTTP 500 for valid Expo POMs/artifacts. Repository
+// order alone is NOT a reliable fallback when a repository responds with 5xx;
+// excluding affected groups prevents Gradle from querying the unreliable mirror.
+
+ext.khatyarRunflareContentGroovy = { repository ->
+    repository.content {
+        excludeGroupByRegex 'expo\\.modules(\\..*)?'
+        excludeGroup 'host.exp.exponent'
+        excludeGroupByRegex 'com\\.facebook\\.react(\\..*)?'
+        excludeGroupByRegex 'com\\.facebook\\.fbjni(\\..*)?'
+    }
+}
 
 ext.khatyarMirrorRepos = {
     mavenLocal()
@@ -14,24 +30,23 @@ ext.khatyarMirrorRepos = {
         url = uri('https://maven.myket.ir/')
         metadataSources { gradleMetadata(); mavenPom(); artifact() }
     }
-    // Runflare may return HTTP 500 for Gradle Module Metadata (.module) on
-    // otherwise valid artifacts. Restricting it to POM/artifact metadata keeps
-    // it as a reliable fallback without allowing a non-essential .module request
-    // to terminate dependency resolution.
     maven {
         name = 'KhatYarRunflareGoogle'
         url = uri('https://mirror-maven.runflare.com/android/maven2/')
         metadataSources { mavenPom(); artifact() }
+        khatyarRunflareContentGroovy(delegate)
     }
     maven {
         name = 'KhatYarRunflareMaven'
         url = uri('https://mirror-maven.runflare.com/maven2/')
         metadataSources { mavenPom(); artifact() }
+        khatyarRunflareContentGroovy(delegate)
     }
     maven {
         name = 'KhatYarRunflareGradlePlugins'
         url = uri('https://mirror-maven.runflare.com/gradle-plugins/')
         metadataSources { mavenPom(); artifact() }
+        khatyarRunflareContentGroovy(delegate)
     }
     google()
     mavenCentral()
@@ -62,4 +77,5 @@ gradle.settingsEvaluated { settings ->
     }
 }
 
-println '[khatyar-init] Maven policy active: local -> Myket -> Runflare(POM/artifact) -> official (all Gradle builds, including included builds).'
+println '[khatyar-init] Maven policy active: local -> Myket -> Runflare(filtered) -> official.'
+println '[khatyar-init] Runflare excluded for Expo/React Native groups because those coordinates may return HTTP 500.'
