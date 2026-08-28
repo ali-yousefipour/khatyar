@@ -1,17 +1,13 @@
-// KhatYar Gradle repository policy.
+// KhatYar Gradle repository policy for the main Android build only.
 //
-// IMPORTANT: Expo SDK 57 / React Native 0.86 owns settings.gradle plugin management
-// and the included React Native / Expo Gradle plugin builds. This init script must
-// not replace or mutate Settings.pluginManagement before those included builds are
-// registered, otherwise com.facebook.react.settings cannot be resolved.
+// IMPORTANT: Expo SDK 57 / React Native 0.86 owns settings.gradle plugin
+// management and all included Gradle plugin builds. This init script must not
+// mutate Settings.pluginManagement or dependencyResolutionManagement and must
+// never configure included builds such as @react-native/gradle-plugin.
 //
-// Resolution policy for project/buildscript dependencies:
-//   1) Gradle local cache + local Maven/Expo repos
-//   2) Iranian Maven mirrors
-//   3) non-Iranian mirrors
-//   4) official repositories
-//
-// Do not use --refresh-dependencies from the build script.
+// The withMyketMirror Expo config plugin configures the generated Android
+// settings.gradle/project repositories. This init script is only an additional
+// fallback for the main Android project's buildscript/project repositories.
 
 final String myketUrl = 'https://maven.myket.ir/'
 final String jamkoUrl = 'https://jamko.ir/'
@@ -32,87 +28,31 @@ def addMaven = { repos, repoName, urlString ->
     }
 }
 
-def findNodeModules = { settingsDir ->
-    File current = settingsDir
-    for (int i = 0; i < 8 && current != null; i++) {
-        File candidate = new File(current, 'node_modules')
-        if (candidate.isDirectory()) return candidate
-        current = current.parentFile
-    }
-    return null
-}
-
-def findLocalMavenRepos = { settingsDir ->
-    File root = findNodeModules(settingsDir)
-    if (root == null) return []
-    def result = []
-    root.eachFileRecurse { file ->
-        if (file.isDirectory() && file.name == 'local-maven-repo') result << file
-    }
-    return result
-}
-
-def addLocalExpoRepos = { repos, settingsDir ->
-    findLocalMavenRepos(settingsDir).eachWithIndex { localRepo, index ->
-        def relative = localRepo.absolutePath
-            .replaceAll('^[\\/]+', '')
-            .replaceAll('[^A-Za-z0-9_]+', '_')
-        def repoName = 'ExpoLocal_' + index + '_' + relative
-        if (repos.findByName(repoName) == null) {
-            repos.maven {
-                name = repoName
-                url = localRepo.toURI()
-                metadataSources { gradleMetadata(); mavenPom(); artifact() }
-            }
-        }
-    }
-}
-
-def addDependencyRepositories = { repos, settingsDir, includePluginPortal = false ->
-    // Always invoke repository methods on the supplied RepositoryHandler.
-    // Calling mavenLocal()/google() unqualified here resolves against the
-    // init-script Gradle object for included builds and causes:
-    // "Could not find method mavenLocal() ... on build 'gradle-plugin'".
+def addFallbackRepositories = { repos ->
     repos.mavenLocal()
-    addLocalExpoRepos(repos, settingsDir)
     addMaven(repos, 'MyketIran', myketUrl)
     addMaven(repos, 'JamkoIran', jamkoUrl)
     addMaven(repos, 'ITOMirrorIran', itoUrl)
     addMaven(repos, 'AliyunGoogleMirror', aliyunGoogleUrl)
     addMaven(repos, 'AliyunPublicMirror', aliyunPublicUrl)
-    if (includePluginPortal) addMaven(repos, 'AliyunGradlePluginMirror', aliyunGradlePluginUrl)
+    addMaven(repos, 'AliyunGradlePluginMirror', aliyunGradlePluginUrl)
     addMaven(repos, 'HuaweiGoogleMirror', huaweiGoogleUrl)
     addMaven(repos, 'HuaweiPublicMirror', huaweiPublicUrl)
     if (repos.findByName('Google') == null) repos.google()
     if (repos.findByName('MavenCentral') == null) repos.mavenCentral()
-    if (includePluginPortal && repos.findByName('GradlePluginPortal') == null) repos.gradlePluginPortal()
+    if (repos.findByName('GradlePluginPortal') == null) repos.gradlePluginPortal()
 }
 
-// Do not touch settings.pluginManagement here.
-// The generated Expo settings.gradle already contains the React Native and Expo
-// included builds and the withMyketMirror config plugin injects the Myket mirror.
-gradle.settingsEvaluated { settings ->
-    try {
-        settings.dependencyResolutionManagement.repositories {
-            addDependencyRepositories(delegate, settings.settingsDir, false)
-        }
-    } catch (ignored) { }
-}
-
+// beforeProject runs for the main build and its included builds. Restrict the
+// policy to the generated Expo Android build by checking the exact root name.
 beforeProject { project ->
-    // The init script is applied to the main build AND every included build.
-    // Included builds such as @react-native/gradle-plugin do not need KhatYar's
-    // project repository policy and must not be modified by this script.
-    if (project.rootDir.name != 'android') return
+    if (project.rootProject.projectDir.name != 'android') return
 
-    def settingsDir = project.rootProject.projectDir
     project.buildscript.repositories {
-        addDependencyRepositories(delegate, settingsDir, true)
+        addFallbackRepositories(delegate)
     }
 
-    try {
-        project.repositories {
-            addDependencyRepositories(delegate, settingsDir, false)
-        }
-    } catch (ignored) { }
+    project.repositories {
+        addFallbackRepositories(delegate)
+    }
 }
