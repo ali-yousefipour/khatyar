@@ -41,17 +41,31 @@ function Invoke-Checked {
     )
     Write-Host ('> ' + $File + ' ' + ($Arguments -join ' ')) -ForegroundColor DarkGray
     $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $File
     $psi.WorkingDirectory = $WorkingDirectory
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $false
     $psi.RedirectStandardError = $false
-    foreach ($arg in $Arguments) {
-        $a = [string]$arg
-        if ($a -match '[\s"]') { $psi.Arguments += ' "' + ($a -replace '"','\"') + '"' }
-        else { $psi.Arguments += ' ' + $a }
+
+    if ([System.IO.Path]::GetExtension($File).ToLowerInvariant() -eq '.bat') {
+        $psi.FileName = 'cmd.exe'
+        $quoted = '"' + $File + '"'
+        $command = $quoted
+        foreach ($arg in $Arguments) {
+            $a = [string]$arg
+            if ($a -match '[\s"]') { $command += ' "' + ($a -replace '"','\"') + '"' }
+            else { $command += ' ' + $a }
+        }
+        $psi.Arguments = '/d /c "' + $command + '"'
+    } else {
+        $psi.FileName = $File
+        foreach ($arg in $Arguments) {
+            $a = [string]$arg
+            if ($a -match '[\s"]') { $psi.Arguments += ' "' + ($a -replace '"','\"') + '"' }
+            else { $psi.Arguments += ' ' + $a }
+        }
     }
+
     $p = New-Object System.Diagnostics.Process
     $p.StartInfo = $psi
     try {
@@ -116,10 +130,10 @@ function Invoke-GradleRelease {
                 $length = (Get-Item -LiteralPath $LogPath).Length
                 if ($length -gt $lastLength) { $lastLength = $length; $lastActivity = Get-Date }
             }
-            $elapsedSeconds = ((Get-Date) - $lastDisplay).TotalSeconds
+            $displaySeconds = ((Get-Date) - $lastDisplay).TotalSeconds
             $totalSeconds = ((Get-Date) - $BuildStart).TotalSeconds
             $idleSeconds = ((Get-Date) - $lastActivity).TotalSeconds
-            if ($elapsedSeconds -ge 5) {
+            if ($displaySeconds -ge 5) {
                 $lastDisplay = Get-Date
                 Write-Host ('    Gradle running | elapsed ' + (New-TimeSpan -Seconds ([int]$totalSeconds)).ToString('hh\:mm\:ss')) -ForegroundColor Cyan
                 if (Test-Path -LiteralPath $LogPath) {
