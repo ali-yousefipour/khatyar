@@ -107,15 +107,18 @@ try {
     if(-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)){ throw 'npm was not found in PATH.' }
     if(-not (Get-Command java.exe -ErrorAction SilentlyContinue)){ throw 'Java was not found in PATH.' }
     if(-not (Get-Command git.exe -ErrorAction SilentlyContinue)){ throw 'Git was not found in PATH.' }
-    Write-Host ('node: ' + ((& node.exe --version) | Out-String).Trim()) -ForegroundColor DarkGray
-    if($LASTEXITCODE -ne 0){ throw 'node.exe --version failed.' }
-    Write-Host ('npm : ' + ((& npm.cmd --version) | Out-String).Trim()) -ForegroundColor DarkGray
-    if($LASTEXITCODE -ne 0){ throw 'npm.cmd --version failed.' }
-    $javaText = ((& java.exe -version 2>&1) | Out-String).Trim()
-    Write-Host $javaText -ForegroundColor DarkGray
-    if($LASTEXITCODE -ne 0){ throw 'java.exe -version failed.' }
-    Write-Host ('git : ' + ((& git.exe --version) | Out-String).Trim()) -ForegroundColor DarkGray
-    if($LASTEXITCODE -ne 0){ throw 'git.exe --version failed.' }
+    $node = Get-Captured 'node.exe' @('--version')
+    $npm = Get-Captured 'npm.cmd' @('--version')
+    $java = Get-Captured 'java.exe' @('-version')
+    $git = Get-Captured 'git.exe' @('--version')
+    if($node.ExitCode -ne 0){ throw 'node.exe --version failed.' }
+    if($npm.ExitCode -ne 0){ throw 'npm.cmd --version failed.' }
+    if($java.ExitCode -ne 0){ throw 'java.exe -version failed.' }
+    if($git.ExitCode -ne 0){ throw 'git.exe --version failed.' }
+    Write-Host ('node: ' + $node.Text.Trim()) -ForegroundColor DarkGray
+    Write-Host ('npm : ' + $npm.Text.Trim()) -ForegroundColor DarkGray
+    Write-Host ('java: ' + $java.Text.Trim()) -ForegroundColor DarkGray
+    Write-Host ('git : ' + $git.Text.Trim()) -ForegroundColor DarkGray
     if(-not (Test-Path -LiteralPath $InitScript)){ throw 'gradle-mirror.init.gradle is missing.' }
 
     Stage 20 'Checking project dependency manifest'
@@ -143,7 +146,7 @@ try {
     if($wrapperText -notmatch 'gradle-8\.13-bin\.zip'){ throw 'Gradle wrapper must use Gradle 8.13.' }
 
     Stage 55 'Validating Java 17 and Gradle wrapper'
-    if($javaText -notmatch 'version\s+"17(?:\.|"|$)'){ throw 'JDK 17 is required.' }
+    if($java.Text -notmatch 'version\s+"17(?:\.|"|$)'){ throw 'JDK 17 is required.' }
     $gv = Get-Captured $gradlew @('--version') $android
     if($gv.ExitCode -ne 0){ throw 'Gradle wrapper --version failed.' }
     Write-Host $gv.Text.Trim() -ForegroundColor DarkGray
