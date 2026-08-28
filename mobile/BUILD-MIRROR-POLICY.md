@@ -55,7 +55,7 @@ dependencyResolutionManagement {
 
 ## Mirrorهای Runflare
 
-Mirrorهای Runflare طبق راهنمای فعلی آن:
+Mirrorهای Runflare:
 
 ```text
 https://mirror-maven.runflare.com/android/maven2/
@@ -65,7 +65,16 @@ https://mirror-maven.runflare.com/gradle-plugins/
 
 این‌ها بعد از مایکت و قبل از Google/Maven Central به‌عنوان fallback عمومی داخلی استفاده می‌شوند.
 
-منبع راهنما: https://runflare.com/mirrors/mirror-gradle/
+### نکته مهم درباره Gradle Module Metadata
+
+برخی endpointهای Runflare ممکن است برای فایل‌های Gradle Module Metadata با پسوند `.module` پاسخ HTTP 500 برگردانند، درحالی‌که POM و artifact همان dependency قابل دریافت است. به همین دلیل در کانفیگ خط‌یار:
+
+- مایکت با `gradleMetadata()`, `mavenPom()` و `artifact()` استفاده می‌شود.
+- Runflare فقط با `mavenPom()` و `artifact()` استفاده می‌شود.
+
+این محدودسازی فقط نحوه metadata lookup در Runflare را تغییر می‌دهد و ترتیب fallback را عوض نمی‌کند: `local -> Myket -> Runflare -> official`.
+
+منبع راهنمای Mirrorهای Runflare: https://runflare.com/mirrors/mirror-gradle/
 
 ## Gradle Wrapper
 
@@ -149,6 +158,7 @@ https://pub.myket.ir/flutter_infra_release/releases/stable/linux/flutter_linux_3
 - قبل از تغییر نسخه‌های Expo، React Native، Gradle، AGP، Kotlin، compileSdk یا NDK، سازگاری نسخه‌ها باید بررسی شود.
 - هر تغییر در Build script باید idempotent باشد؛ اجرای دوباره Build نباید repositoryها یا blockهای Gradle تو در تو ایجاد کند.
 - فایل‌های generated داخل `android/` نباید جایگزین source-of-truth پروژه شوند مگر اینکه صریحاً در repository commit شده باشند.
+- خطاهای HTTP سرویس‌های Mirror باید تا حد ممکن با محدودکردن metadataهای ناسازگار مدیریت شوند، نه با حذف fallback داخلی یا تغییر بی‌دلیل نسخه‌های toolchain.
 
 ## وضعیت فعلی پروژه
 
