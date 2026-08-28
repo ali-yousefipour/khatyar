@@ -18,9 +18,37 @@ $StashMessage = 'khatyar-build-autostash-' + (Get-Date -Format 'yyyyMMdd-HHmmss'
 $BackupBranch = $null
 $BuildStart = Get-Date
 $CurrentStage = 'Initializing'
-$TotalStages = 8
+$TotalStages = 9
 $StageIndex = 0
 $GitRepoRoot = $null
+
+function Format-Duration([TimeSpan]$Duration) {
+  if ($Duration.TotalHours -ge 1) { return $Duration.ToString('hh\:mm\:ss') }
+  return $Duration.ToString('mm\:ss')
+}
+
+function Write-Stage {
+  param([string]$Name, [int]$Index)
+  $script:CurrentStage = $Name
+  $script:StageIndex = $Index
+  $pct = [math]::Min(100, [math]::Round(($Index / $TotalStages) * 100))
+  $elapsed = (Get-Date) - $BuildStart
+  Write-Host ''
+  Write-Host ('[' + $pct.ToString('000') + '%] ' + $Name) -ForegroundColor Cyan
+  Write-Host ('    Elapsed: ' + (Format-Duration $elapsed)) -ForegroundColor DarkGray
+}
+
+function Write-ProgressLine {
+  param([int]$Percent, [string]$Activity, [string]$Status, [int]$SecondsRemaining = 0)
+  $elapsed = (Get-Date) - $BuildStart
+  $safePercent = [math]::Min(100,[math]::Max(0,$Percent))
+  $barWidth = 40
+  $filled = [int][math]::Floor($barWidth * $safePercent / 100)
+  $bar = ('#' * $filled) + ('-' * ($barWidth - $filled))
+  $eta = if ($SecondsRemaining -gt 0) { Format-Duration ([TimeSpan]::FromSeconds($SecondsRemaining)) } else { '--:--' }
+  Write-Progress -Id 1 -Activity $Activity -Status $Status -PercentComplete $safePercent -SecondsRemaining ([math]::Max(0,$SecondsRemaining))
+  Write-Host ("`r{0,3}% [{1}] {2} | Elapsed {3} | ETA {4}" -f $safePercent,$bar,$Status,(Format-Duration $elapsed),$eta) -NoNewline
+}
 
 function Invoke-Git {
   param([Parameter(Mandatory=$true)][string[]]$Arguments)
@@ -53,32 +81,44 @@ function Invoke-Git {
   }
 }
 
-function Format-Duration([TimeSpan]$Duration) {
-  if ($Duration.TotalHours -ge 1) { return $Duration.ToString('hh\:mm\:ss') }
-  return $Duration.ToString('mm\:ss')
-}
-
-function Write-Stage {
-  param([string]$Name, [int]$Index)
-  $script:CurrentStage = $Name
-  $script:StageIndex = $Index
-  $pct = [math]::Min(100, [math]::Round(($Index / $TotalStages) * 100))
-  $elapsed = (Get-Date) - $BuildStart
-  Write-Host ''
-  Write-Host ('[' + $pct.ToString('000') + '%] ' + $Name) -ForegroundColor Cyan
-  Write-Host ('    Elapsed: ' + (Format-Duration $elapsed)) -ForegroundColor DarkGray
-}
-
-function Write-ProgressLine {
-  param([int]$Percent, [string]$Activity, [string]$Status, [int]$SecondsRemaining = 0)
-  $elapsed = (Get-Date) - $BuildStart
-  $safePercent = [math]::Min(100,[math]::Max(0,$Percent))
-  Write-Progress -Id 1 -Activity $Activity -Status $Status -PercentComplete $safePercent -SecondsRemaining ([math]::Max(0,$SecondsRemaining))
-  $barWidth = 40
-  $filled = [int][math]::Floor($barWidth * $safePercent / 100)
-  $bar = ('#' * $filled) + ('-' * ($barWidth - $filled))
-  $eta = if ($SecondsRemaining -gt 0) { Format-Duration ([TimeSpan]::FromSeconds($SecondsRemaining)) } else { '--:--' }
-  Write-Host ("`r{0,3}% [{1}] {2} | Elapsed {3} | ETA {4}" -f $safePercent,$bar,$Status,(Format-Duration $elapsed),$eta) -NoNewline
+function Invoke-Native {
+  param(
+    [Parameter(Mandatory=$true)][string]$FilePath,
+    [Parameter(Mandatory=$true)][string[]]$Arguments,
+    [string]$WorkingDirectory = $ScriptRoot
+  )
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = $FilePath
+  $psi.WorkingDirectory = $WorkingDirectory
+  $psi.UseShellExecute = $false
+  $psi.CreateNoWindow = $false
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError = $true
+  foreach ($arg in $Arguments) {
+    $escaped = $arg -replace '(\\*)"', '$1$1\\"'
+    $escaped = $escaped -replace '(\\+)$', '$1$1'
+    $psi.Arguments += ' "' + $escaped + '"'
+  }
+  $p = New-Object System.Diagnostics.Process
+  $p.StartInfo = $psi
+  try {
+    [void]$p.Start()
+    while (-not $p.HasExited) {
+      $line = $p.StandardOutput.ReadLine()
+      if ($null -ne $line -and $line -ne '') { Write-Host $line }
+      Start-Sleep -Milliseconds 100
+    }
+    while (-not $p.StandardOutput.EndOfStream) {
+      $line = $p.StandardOutput.ReadLine()
+      if ($line) { Write-Host $line }
+    }
+    $stderr = $p.StandardError.ReadToEnd()
+    $p.WaitForExit()
+    if ($stderr) { Write-Host $stderr -ForegroundColor DarkYellow }
+    return $p.ExitCode
+  } finally {
+    $p.Dispose()
+  }
 }
 
 function Fail-Sync([string]$Message) {
@@ -115,11 +155,12 @@ function Restore-WorkSafely {
   return $true
 }
 
-if (-not (Get-Command git.exe -ErrorAction SilentlyContinue)) { Fail-Sync 'Git is not installed or is not available in PATH.' }
+function Test-CommandAvailable([string]$Name) {
+  return $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
+}
 
-# Resolve the actual Git repository root instead of assuming that the script
-# directory itself is the repository root. In this project the script lives in
-# mobile\ while the .git directory can be one level above it.
+if (-not (Test-CommandAvailable 'git.exe')) { Fail-Sync 'Git is not installed or is not available in PATH.' }
+
 $repoCheck = Invoke-Git @('rev-parse','--show-toplevel')
 if ($repoCheck.ExitCode -ne 0 -or @($repoCheck.Output).Count -eq 0) {
   $candidate = $ScriptRoot
@@ -132,9 +173,7 @@ if ($repoCheck.ExitCode -ne 0 -or @($repoCheck.Output).Count -eq 0) {
     if ([string]::IsNullOrWhiteSpace($parent) -or $parent -eq $candidate) { break }
     $candidate = $parent
   }
-  if ($GitRepoRoot) {
-    $repoCheck = Invoke-Git @('-C',$GitRepoRoot,'rev-parse','--show-toplevel')
-  }
+  if ($GitRepoRoot) { $repoCheck = Invoke-Git @('-C',$GitRepoRoot,'rev-parse','--show-toplevel') }
 }
 if ($repoCheck.ExitCode -ne 0 -or @($repoCheck.Output).Count -eq 0) {
   Fail-Sync ('This build directory is not inside a Git repository. Build path: ' + $ScriptRoot)
@@ -193,48 +232,112 @@ if ($answer -eq 'Y') {
   Write-Host ('Local version matches GitHub. Source commit: ' + $localSha) -ForegroundColor Green
 }
 
-Write-Stage 'Checking Android build environment' 3
-$gradlew = Join-Path $ScriptRoot 'android\gradlew.bat'
-if (-not (Test-Path -LiteralPath $gradlew)) { Fail-Sync 'android\gradlew.bat was not found.' }
+Write-Stage 'Checking Node.js and npm environment' 3
+if (-not (Test-CommandAvailable 'node.exe')) { Fail-Sync 'Node.js is required for the Android build but was not found in PATH.' }
+if (-not (Test-CommandAvailable 'npm.cmd')) { Fail-Sync 'npm is required for the Android build but was not found in PATH.' }
 
-Write-Stage 'Starting Gradle assembleRelease' 4
+$packageJson = Join-Path $ScriptRoot 'package.json'
+$packageLock = Join-Path $ScriptRoot 'package-lock.json'
+if (-not (Test-Path -LiteralPath $packageJson)) { Fail-Sync 'mobile/package.json was not found.' }
+if (-not (Test-Path -LiteralPath $packageLock)) { Fail-Sync 'mobile/package-lock.json was not found. Cannot perform a reproducible dependency installation.' }
+
+$nodeModules = Join-Path $ScriptRoot 'node_modules'
+$reactNativeGradlePlugin = Join-Path $nodeModules '@react-native\gradle-plugin'
+$expoCli = Join-Path $nodeModules 'expo\bin\cli'
+
+if (-not (Test-Path -LiteralPath $reactNativeGradlePlugin)) {
+  Write-Host 'React Native Gradle plugin is missing. Installing locked npm dependencies...' -ForegroundColor Yellow
+  $npmExit = Invoke-Native 'npm.cmd' @('ci','--no-audit','--no-fund') $ScriptRoot
+  if ($npmExit -ne 0) { Fail-Sync ('npm ci failed with exit code ' + $npmExit + '.') }
+}
+
+if (-not (Test-Path -LiteralPath $reactNativeGradlePlugin)) {
+  Fail-Sync 'React Native Gradle plugin is still missing after npm ci. The dependency tree is incomplete.'
+}
+
+Write-Stage 'Validating and preparing Android Gradle project' 4
+$androidDir = Join-Path $ScriptRoot 'android'
+$gradlew = Join-Path $androidDir 'gradlew.bat'
+$settingsGradle = Join-Path $androidDir 'settings.gradle'
+
+if (-not (Test-Path -LiteralPath $gradlew)) {
+  Write-Host 'Android project is missing. Generating it with Expo prebuild...' -ForegroundColor Yellow
+  $prebuildExit = Invoke-Native 'npx.cmd' @('expo','prebuild','--platform','android') $ScriptRoot
+  if ($prebuildExit -ne 0) { Fail-Sync ('Expo prebuild failed with exit code ' + $prebuildExit + '.') }
+}
+
+if (-not (Test-Path -LiteralPath $settingsGradle)) { Fail-Sync 'android/settings.gradle was not found after Android project preparation.' }
+
+# The reported failure "Plugin [id: com.facebook.react.settings] was not found"
+# occurs when the generated React Native Gradle plugin is not included by the
+# Android settings file. Repair only the missing includeBuild line; do not
+# replace the complete settings file because this project may contain local
+# Myket/Gradle configuration.
+$settingsText = Get-Content -LiteralPath $settingsGradle -Raw -Encoding UTF8
+$requiredInclude = "includeBuild('../node_modules/@react-native/gradle-plugin')"
+if (($settingsText -notmatch [regex]::Escape($requiredInclude)) -and ($settingsText -match "com\.facebook\.react\.settings")) {
+  Write-Host 'React Native Gradle plugin includeBuild is missing from settings.gradle. Repairing it...' -ForegroundColor Yellow
+  $settingsText = $requiredInclude + "`r`n" + $settingsText
+  [System.IO.File]::WriteAllText($settingsGradle, $settingsText, (New-Object System.Text.UTF8Encoding($false)))
+}
+
+if ($settingsText -match "com\.facebook\.react\.settings" -and $settingsText -notmatch [regex]::Escape($requiredInclude)) {
+  Fail-Sync 'settings.gradle still does not include the React Native Gradle plugin.'
+}
+
+Write-Stage 'Checking Java and Gradle toolchain' 5
+if (-not (Test-CommandAvailable 'java.exe')) { Fail-Sync 'Java was not found in PATH.' }
+$javaVersion = Invoke-Native 'java.exe' @('-version') $ScriptRoot
+if ($javaVersion -ne 0) { Fail-Sync 'Java could not be executed.' }
+
+Write-Stage 'Starting Gradle assembleRelease' 6
 $buildExitCode = 0
 $proc = $null
 try {
   $processInfo = New-Object System.Diagnostics.ProcessStartInfo
   $processInfo.FileName = $gradlew
-  $processInfo.WorkingDirectory = (Join-Path $ScriptRoot 'android')
+  $processInfo.WorkingDirectory = $androidDir
   $processInfo.UseShellExecute = $false
   $processInfo.CreateNoWindow = $false
   $processInfo.RedirectStandardOutput = $true
   $processInfo.RedirectStandardError = $true
-  $processInfo.Arguments = 'assembleRelease --console=plain'
+  $processInfo.Arguments = 'assembleRelease --console=plain --stacktrace'
   $proc = New-Object System.Diagnostics.Process
   $proc.StartInfo = $processInfo
   [void]$proc.Start()
-  $lastPercent = 45
+  $lastPercent = 50
   $lastTick = Get-Date
+  $seenStages = @{}
   while (-not $proc.HasExited) {
-    Start-Sleep -Milliseconds 500
     while (-not $proc.StandardOutput.EndOfStream) {
       $line = $proc.StandardOutput.ReadLine()
       if ($line) {
         Write-Host $line
-        if ($line -match 'createBundleReleaseJsAndAssets|bundleReleaseJsAndAssets') { Write-Stage 'Bundling JavaScript and Hermes assets' 5 }
-        elseif ($line -match ':app:mergeReleaseResources') { Write-Stage 'Merging Android release resources' 6 }
-        elseif ($line -match ':app:packageRelease|:app:createReleaseApkListing') { Write-Stage 'Packaging release APK' 7 }
+        if ($line -match ':app:compileReleaseJavaWithJavac|compileReleaseKotlin') { $lastPercent = 58; $script:CurrentStage = 'Compiling Android source code' }
+        elseif ($line -match 'createBundleReleaseJsAndAssets|bundleReleaseJsAndAssets') { $lastPercent = 65; $script:CurrentStage = 'Bundling JavaScript and Hermes assets' }
+        elseif ($line -match 'mergeReleaseResources') { $lastPercent = 75; $script:CurrentStage = 'Merging Android release resources' }
+        elseif ($line -match 'mergeReleaseNativeLibs') { $lastPercent = 82; $script:CurrentStage = 'Merging native libraries' }
+        elseif ($line -match ':app:packageRelease') { $lastPercent = 92; $script:CurrentStage = 'Packaging release APK' }
+        elseif ($line -match ':app:createReleaseApkListing') { $lastPercent = 97; $script:CurrentStage = 'Creating APK listing' }
       }
     }
-    $elapsed = ((Get-Date) - $BuildStart).TotalSeconds
-    $estimated = if ($elapsed -gt 0 -and $lastPercent -gt 0) { [int]([math]::Max(1,(100-$lastPercent)/$lastPercent*$elapsed)) } else { 0 }
+    $elapsedSeconds = ((Get-Date) - $BuildStart).TotalSeconds
+    # A conservative ETA based on the current percentage. It is deliberately
+    # approximate because Gradle task durations vary significantly by cache state.
+    $etaSeconds = if ($lastPercent -gt 5 -and $elapsedSeconds -gt 10) {
+      [int][math]::Max(1, (($elapsedSeconds / $lastPercent) * (100 - $lastPercent)))
+    } else { 0 }
     if (((Get-Date)-$lastTick).TotalSeconds -ge 2) {
-      Write-ProgressLine $lastPercent 'Khatyar Android Release Build' $CurrentStage $estimated
+      Write-ProgressLine $lastPercent 'Khatyar Android Release Build' $CurrentStage $etaSeconds
       $lastTick = Get-Date
     }
+    Start-Sleep -Milliseconds 150
+  }
+  while (-not $proc.StandardOutput.EndOfStream) {
+    $line = $proc.StandardOutput.ReadLine()
+    if ($line) { Write-Host $line }
   }
   $stderr = $proc.StandardError.ReadToEnd()
-  $stdoutTail = $proc.StandardOutput.ReadToEnd()
-  if ($stdoutTail) { Write-Host $stdoutTail }
   if ($stderr) { Write-Host $stderr -ForegroundColor DarkYellow }
   $proc.WaitForExit()
   $buildExitCode = $proc.ExitCode
@@ -249,7 +352,7 @@ if ($buildExitCode -eq 0) {
   Write-ProgressLine 100 'Khatyar Android Release Build' 'Build completed' 0
   Write-Progress -Id 1 -Activity 'Khatyar Android Release Build' -Completed -ErrorAction SilentlyContinue
   Write-Host ''
-  Write-Stage 'Release build completed successfully' 8
+  Write-Host 'ANDROID RELEASE BUILD COMPLETED SUCCESSFULLY.' -ForegroundColor Green
 } else {
   Write-Progress -Id 1 -Activity 'Khatyar Android Release Build' -Completed -ErrorAction SilentlyContinue
   Write-Host ''
