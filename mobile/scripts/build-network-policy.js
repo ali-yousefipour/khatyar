@@ -4,7 +4,7 @@
 /**
  * KhatYar Android build network policy.
  *
- * Dependency resolution order is deliberate:
+ * Dependency resolution order:
  *   1) local npm cache / existing local dependency state
  *   2) Iranian npm mirrors
  *   3) international npm registry as the final fallback
@@ -61,13 +61,12 @@ function run(args, env, label) {
 }
 
 const installArgs = ['ci', '--no-audit', '--no-fund', '--legacy-peer-deps', '--include=dev'];
-let selectedRegistry = externalRegistry;
+let selectedRegistry = iranMirrors[0] || externalRegistry;
 let installed = false;
 
 // Strict local-cache attempt. npm --offline guarantees no network access.
-if (run([...installArgs, '--offline'], npmEnv(externalRegistry, true), '1/3 local npm cache (offline)') === 0) {
+if (run([...installArgs, '--offline'], npmEnv(selectedRegistry, true), '1/3 local npm cache (offline)') === 0) {
   installed = true;
-  selectedRegistry = externalRegistry;
 }
 
 // Iranian mirrors are attempted only if the local cache is insufficient.
