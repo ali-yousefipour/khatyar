@@ -11,7 +11,7 @@ const REPOS = [
   { name: 'HuaweiPublicMirror', url: 'https://repo.huaweicloud.com/repository/maven/' },
 ];
 
-function repoSnippet(indent, kotlinStyle) {
+function repoSnippet(indent) {
   const lines = [`${indent}mavenLocal()`];
   for (const repo of REPOS) {
     lines.push(`${indent}maven {`);
@@ -24,11 +24,11 @@ function repoSnippet(indent, kotlinStyle) {
 }
 
 function findBlock(source, name, startAt = 0) {
-  const match = new RegExp(`\\b${name}\\s*\\{`, 'g');
-  match.lastIndex = startAt;
-  const hit = match.exec(source);
-  if (!hit) return null;
-  const open = source.indexOf('{', hit.index);
+  const re = new RegExp(`\\b${name}\\s*\\{`, 'g');
+  re.lastIndex = startAt;
+  const match = re.exec(source);
+  if (!match) return null;
+  const open = source.indexOf('{', match.index);
   let depth = 0;
   let quote = null;
   let escaped = false;
@@ -44,43 +44,36 @@ function findBlock(source, name, startAt = 0) {
     if (ch === '{') depth += 1;
     else if (ch === '}') {
       depth -= 1;
-      if (depth === 0) return { start: hit.index, open, end: i + 1 };
+      if (depth === 0) return { start: match.index, open, end: i + 1 };
     }
   }
   return null;
 }
 
-function injectIntoRepositories(source, repositoriesBlock, kotlinStyle) {
-  const body = source.slice(repositoriesBlock.open + 1, repositoriesBlock.end - 1);
+function injectRepositories(source, block) {
+  const body = source.slice(block.open + 1, block.end - 1);
   if (body.includes(MARKER)) return source;
-  const prefix = `\n    // ${MARKER}: generic public mirrors first, official repositories remain as fallback.\n`;
-  return source.slice(0, repositoriesBlock.open + 1) + prefix + repoSnippet('    ', kotlinStyle) + source.slice(repositoriesBlock.open + 1);
+  const insertion = `\n    // ${MARKER}: generic public mirrors first; official repositories remain as fallback.\n${repoSnippet('    ')}`;
+  return source.slice(0, block.open + 1) + insertion + source.slice(block.open + 1);
 }
 
-function ensureRepositories(source, parentName, kotlinStyle) {
+function ensureRepositories(source, parentName) {
   const parent = findBlock(source, parentName);
   if (!parent) return source;
-  const existing = findBlock(source, 'repositories', parent.open + 1);
-  if (existing && existing.start < parent.end) return injectIntoRepositories(source, existing, kotlinStyle);
-
-  const block = `\n  repositories {\n    // ${MARKER}: generic public mirrors first, official repositories remain as fallback.\n${repoSnippet('    ', kotlinStyle)}    google()\n    mavenCentral()\n${parentName === 'pluginManagement' ? '    gradlePluginPortal()\n' : ''}  }\n`;
+  const repositories = findBlock(source, 'repositories', parent.open + 1);
+  if (repositories && repositories.start < parent.end) return injectRepositories(source, repositories);
+  const block = `\n  repositories {\n    // ${MARKER}: generic public mirrors first; official repositories remain as fallback.\n${repoSnippet('    ')}    google()\n    mavenCentral()\n${parentName === 'pluginManagement' ? '    gradlePluginPortal()\n' : ''}  }\n`;
   return source.slice(0, parent.open + 1) + block + source.slice(parent.open + 1);
 }
 
 function patchGradleFile(file) {
   let source = fs.readFileSync(file, 'utf8');
   if (source.includes(MARKER)) return false;
-  const kotlinStyle = file.toLowerCase().endsWith('.kts');
   const name = path.basename(file).toLowerCase();
-  if (name.startsWith('settings.gradle')) {
-    source = ensureRepositories(source, 'pluginManagement', kotlinStyle);
-    if (!findBlock(source, 'pluginManagement')) {
-      source = `pluginManagement {\n    // ${MARKER}: generic public mirrors first, official repositories remain as fallback.\n${repoSnippet('    ', kotlinStyle)}    google()\n    mavenCentral()\n    gradlePluginPortal()\n}\n\n` + source;
-    }
-  } else {
-    source = ensureRepositories(source, 'buildscript', kotlinStyle);
-    source = ensureRepositories(source, 'allprojects', kotlinStyle);
-    source = ensureRepositories(source, 'repositories', kotlinStyle);
+  if (name.startsWith('settings.gradle')) source = ensureRepositories(source, 'pluginManagement');
+  else {
+    source = ensureRepositories(source, 'buildscript');
+    source = ensureRepositories(source, 'allprojects');
   }
   fs.writeFileSync(file, source.replace(/\r\n/g, '\n'), 'utf8');
   return true;
@@ -115,30 +108,30 @@ function resolveAndroidDir(packageName, rootDir) {
 
 module.exports = function withAndroidMavenMirrors(config) {
   config = withSettingsGradle(config, (cfg) => {
-    cfg.modResults.contents = ensureRepositories(cfg.modResults.contents, 'pluginManagement', true);
+    cfg.modResults.contents = ensureRepositories(cfg.modResults.contents, 'pluginManagement');
     return cfg;
   });
 
   config = withProjectBuildGradle(config, (cfg) => {
     if (cfg.modResults.language !== 'groovy') return cfg;
     let contents = cfg.modResults.contents;
-    contents = ensureRepositories(contents, 'buildscript', false);
-    contents = ensureRepositories(contents, 'allprojects', false);
+    contents = ensureRepositories(contents, 'buildscript');
+    contents = ensureRepositories(contents, 'allprojects');
     cfg.modResults.contents = contents;
     return cfg;
   });
 
   config = withDangerousMod(config, ['android', async (cfg) => {
     const rootDir = cfg.modRequest.projectRoot;
+    const mainAndroid = cfg.modRequest.platformProjectRoot;
     const expoAndroid = resolveAndroidDir('expo-modules-autolinking', rootDir);
     const rnAndroid = resolveAndroidDir('@react-native/gradle-plugin', rootDir);
-    const mainAndroid = cfg.modRequest.platformProjectRoot;
     const changed = [
       patchTree(expoAndroid && path.join(expoAndroid, 'expo-gradle-plugin')),
       patchTree(rnAndroid),
       patchTree(path.join(mainAndroid, 'expo-gradle-plugin')),
       patchTree(path.join(mainAndroid, 'gradle-plugin')),
-    ].reduce((a, b) => a + b, 0);
+    ].reduce((sum, value) => sum + value, 0);
     console.log(`[withAndroidMavenMirrors] patched ${changed} generated Gradle file(s).`);
     return cfg;
   }]);
