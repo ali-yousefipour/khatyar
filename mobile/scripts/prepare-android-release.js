@@ -12,6 +12,7 @@ const configureWrapper = path.join(__dirname, 'configure-gradle-wrapper.js');
 const REQUIRED_GRADLE = '8.13';
 const REQUIRED_RN = '0.86.0';
 const REQUIRED_REACT = '19.2.3';
+const PUBLIC_MAVEN_MARKER = 'KHATYAR_ANDROID_PUBLIC_MAVEN_MIRRORS';
 
 function fail(message) {
   console.error(`[android-prebuild] ERROR: ${message}`);
@@ -57,6 +58,15 @@ function readUtf8(file) {
 
 function assertContains(text, file, pattern, description) {
   if (!pattern.test(text)) fail(`${path.relative(root, file)} is missing ${description}.`);
+}
+
+function resolvePackageAndroidDir(packageName) {
+  try {
+    const pkg = require.resolve(`${packageName}/package.json`, { paths: [root] });
+    return path.join(path.dirname(pkg), 'android');
+  } catch (_) {
+    return null;
+  }
 }
 
 const packageJson = readJson(path.join(root, 'package.json'));
@@ -114,10 +124,42 @@ assertContains(appBuild, appBuildFile, /apply plugin:\s*["']com\.facebook\.react
 assertContains(properties, gradleProperties, /org\.gradle\.jvmargs=.*-Dfile\.encoding=UTF-8/, 'UTF-8 Gradle JVM encoding');
 assertContains(wrapper, wrapperProperties, new RegExp(`gradle-${REQUIRED_GRADLE.replace(/\./g, '\\.')}-bin\\.zip`), `Gradle ${REQUIRED_GRADLE}`);
 
+// Verify that the generic public Maven mirror plugin actually patched the
+// real Expo included build used by settings.gradle. This prevents a false
+// sense of success where only the main Android project was patched.
+const expoAndroid = resolvePackageAndroidDir('expo-modules-autolinking');
+const expoIncludedBuild = expoAndroid && path.join(expoAndroid, 'expo-gradle-plugin');
+const expoIncludedSettings = expoIncludedBuild && [
+  path.join(expoIncludedBuild, 'settings.gradle'),
+  path.join(expoIncludedBuild, 'settings.gradle.kts'),
+].find(fs.existsSync);
+const expoIncludedBuildFiles = [];
+if (expoIncludedBuild && fs.existsSync(expoIncludedBuild)) {
+  const stack = [expoIncludedBuild];
+  while (stack.length) {
+    const current = stack.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        if (!['.gradle', 'build'].includes(entry.name)) stack.push(full);
+      } else if (/^build\.gradle(?:\.kts)?$/i.test(entry.name)) {
+        expoIncludedBuildFiles.push(full);
+      }
+    }
+  }
+}
+const mirrorPatchedFiles = [expoIncludedSettings, ...expoIncludedBuildFiles]
+  .filter(Boolean)
+  .filter((file) => fs.readFileSync(file, 'utf8').includes(PUBLIC_MAVEN_MARKER));
+if (mirrorPatchedFiles.length === 0) {
+  fail('The real expo-modules-autolinking included build was not patched with the generic public Maven mirrors.');
+}
+
+console.log(`[android-prebuild] Public Maven mirror validation: ${mirrorPatchedFiles.length} generated Expo/RN file(s) patched.`);
 console.log('[android-prebuild] Generated Android project passed structural compatibility checks.');
 console.log(`[android-prebuild] Expo SDK: ${expo}`);
 console.log(`[android-prebuild] React Native: ${reactNative}`);
 console.log(`[android-prebuild] React: ${react}`);
 console.log(`[android-prebuild] Gradle wrapper: ${REQUIRED_GRADLE}`);
-console.log('[android-prebuild] Standard Android release build: Myket-specific repository configuration is disabled.');
+console.log('[android-prebuild] Standard Android release build: Myket-specific configuration is disabled.');
 console.log('[android-prebuild] Expected Android toolchain: AGP 8.12.x / Gradle 8.13 / JDK 17 / compileSdk 36 / NDK 27.1.12297006.');
