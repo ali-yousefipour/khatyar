@@ -20,7 +20,13 @@ function fail(message) {
 
 function run(command, args, options = {}) {
   console.log(`[android-prebuild] ${command} ${args.join(' ')}`);
-  const result = spawnSync(command, args, {
+  let executable = command;
+  let finalArgs = args;
+  if (process.platform === 'win32' && /\.cmd$/i.test(command)) {
+    executable = 'cmd.exe';
+    finalArgs = ['/d', '/c', command, ...args];
+  }
+  const result = spawnSync(executable, finalArgs, {
     cwd: root,
     stdio: 'inherit',
     shell: false,
@@ -28,7 +34,7 @@ function run(command, args, options = {}) {
     ...options,
   });
   if (result.error) fail(`${command} could not be started: ${result.error.message}`);
-  if (result.status !== 0) fail(`${command} exited with code ${result.status}.`);
+  if (result.status === null || result.status !== 0) fail(`${command} exited with code ${result.status ?? 1}.`);
 }
 
 function readJson(file) {
@@ -39,7 +45,7 @@ function readJson(file) {
   }
 }
 
-function assertUtf8Text(file) {
+function readUtf8(file) {
   const buffer = fs.readFileSync(file);
   if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
     fail(`${path.relative(root, file)} contains an UTF-8 BOM.`);
@@ -58,20 +64,17 @@ const expo = String(packageJson.dependencies?.expo || '');
 const reactNative = String(packageJson.dependencies?.['react-native'] || '');
 const react = String(packageJson.dependencies?.react || '');
 
-if (!/^~?57\./.test(expo)) fail(`Expo dependency is ${expo}; this build policy requires Expo SDK 57.`);
+if (!/^~?57\./.test(expo)) fail(`Expo dependency is ${expo}; expected Expo SDK 57.`);
 if (reactNative !== REQUIRED_RN) fail(`React Native is ${reactNative}; expected ${REQUIRED_RN}.`);
 if (react !== REQUIRED_REACT) fail(`React is ${react}; expected ${REQUIRED_REACT}.`);
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-if (!fs.existsSync(path.join(root, 'node_modules'))) {
-  fail('node_modules is missing. Install dependencies before the Android prebuild.');
-}
+if (!fs.existsSync(path.join(root, 'node_modules'))) fail('node_modules is missing. Install dependencies before the Android prebuild.');
 
 run(npm, ['exec', '--', 'expo', 'prebuild', '--platform', 'android', '--clean']);
 
 if (!fs.existsSync(android)) fail('Expo prebuild did not create the android directory.');
 if (!fs.existsSync(wrapperProperties)) fail('Expo prebuild did not create gradle-wrapper.properties.');
-
 run(process.execPath, [configureWrapper, wrapperProperties]);
 
 const settingsFile = fs.existsSync(path.join(android, 'settings.gradle'))
@@ -85,18 +88,18 @@ for (const file of [settingsFile, buildFile, appBuildFile, gradleProperties, wra
   if (!fs.existsSync(file)) fail(`Required generated file is missing: ${path.relative(root, file)}`);
 }
 
-const settings = assertUtf8Text(settingsFile);
-const build = assertUtf8Text(buildFile);
-const appBuild = assertUtf8Text(appBuildFile);
-const properties = assertUtf8Text(gradleProperties);
-const wrapper = assertUtf8Text(wrapperProperties);
+const settings = readUtf8(settingsFile);
+const build = readUtf8(buildFile);
+const appBuild = readUtf8(appBuildFile);
+const properties = readUtf8(gradleProperties);
+const wrapper = readUtf8(wrapperProperties);
 
 if (settings.startsWith('?')) fail(`${path.relative(root, settingsFile)} starts with an unexpected '?' character.`);
-assertContains(settings, settingsFile, /id\(["']com\.facebook\.react\.settings["']\)/, 'the React Native settings plugin');
-assertContains(settings, settingsFile, /id\(["']expo-autolinking-settings["']\)/, 'the Expo autolinking settings plugin');
+assertContains(settings, settingsFile, /id\(["']com\.facebook\.react\.settings["']\)/, 'React Native settings plugin');
+assertContains(settings, settingsFile, /id\(["']expo-autolinking-settings["']\)/, 'Expo autolinking settings plugin');
 assertContains(settings, settingsFile, /expoAutolinking\.useExpoModules\(\)/, 'Expo module autolinking');
 assertContains(settings, settingsFile, /expoAutolinking\.useExpoVersionCatalog\(\)/, 'Expo version catalog');
-assertContains(settings, settingsFile, /includeBuild\(expoAutolinking\.reactNativeGradlePlugin\)/, 'the React Native Gradle plugin include build');
+assertContains(settings, settingsFile, /includeBuild\(expoAutolinking\.reactNativeGradlePlugin\)/, 'React Native Gradle plugin include');
 
 assertContains(build, buildFile, /com\.android\.tools\.build:gradle/, 'Android Gradle Plugin classpath');
 assertContains(build, buildFile, /com\.facebook\.react:react-native-gradle-plugin/, 'React Native Gradle Plugin classpath');
