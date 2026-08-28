@@ -9,8 +9,7 @@ const root = path.resolve(__dirname, '..');
 const android = path.join(root, 'android');
 const wrapperProperties = path.join(android, 'gradle', 'wrapper', 'gradle-wrapper.properties');
 const configureWrapper = path.join(__dirname, 'configure-gradle-wrapper.js');
-const REQUIRED_GRADLE = '8.14.3';
-const REQUIRED_EXPO_MAJOR = '57';
+const REQUIRED_GRADLE = '8.13';
 const REQUIRED_RN = '0.86.0';
 const REQUIRED_REACT = '19.2.3';
 
@@ -43,7 +42,7 @@ function readJson(file) {
 function assertUtf8Text(file) {
   const buffer = fs.readFileSync(file);
   if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
-    fail(`${path.relative(root, file)} contains an UTF-8 BOM. Remove the BOM before Gradle parsing.`);
+    fail(`${path.relative(root, file)} contains an UTF-8 BOM.`);
   }
   const text = buffer.toString('utf8');
   if (text.includes('\ufffd')) fail(`${path.relative(root, file)} contains invalid UTF-8 replacement characters.`);
@@ -117,3 +116,4 @@ console.log(`[android-prebuild] Expo SDK: ${expo}`);
 console.log(`[android-prebuild] React Native: ${reactNative}`);
 console.log(`[android-prebuild] React: ${react}`);
 console.log(`[android-prebuild] Gradle wrapper: ${REQUIRED_GRADLE}`);
+console.log('[android-prebuild] Expected Android toolchain: AGP 8.12.x / Gradle 8.13 / JDK 17 / compileSdk 36 / NDK 27.1.12297006.');
