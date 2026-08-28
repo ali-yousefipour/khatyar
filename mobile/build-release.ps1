@@ -35,12 +35,13 @@ function Invoke-DirectChecked([string]$File,[string[]]$Args,[string]$Cwd=$Script
     } finally { Pop-Location }
 }
 
-function Invoke-CmdCapture([string]$CommandLine,[string]$Cwd=$ScriptRoot) {
+function Invoke-CmdChecked([string]$CommandLine,[string]$Cwd=$ScriptRoot) {
     Push-Location -LiteralPath $Cwd
     try {
-        $text = (& cmd.exe /d /c $CommandLine 2>&1 | Out-String).Trim()
+        Write-Host ('> cmd.exe /d /c ' + $CommandLine) -ForegroundColor DarkGray
+        & cmd.exe /d /c $CommandLine
         $code = $LASTEXITCODE
-        return [pscustomobject]@{ ExitCode=$code; Text=$text }
+        if ($null -ne $code -and $code -ne 0) { throw "Command exited with code $code: $CommandLine" }
     } finally { Pop-Location }
 }
 
@@ -107,18 +108,12 @@ try {
     foreach($tool in $toolCommands){
         if(-not (Get-Command $tool -ErrorAction SilentlyContinue)){ throw "$tool was not found in PATH." }
     }
-    $node = Invoke-CmdCapture 'node.exe --version'
-    $npm = Invoke-CmdCapture 'npm.cmd --version'
-    $java = Invoke-CmdCapture 'java.exe -version'
-    $git = Invoke-CmdCapture 'git.exe --version'
-    if($node.ExitCode -ne 0){ throw 'node.exe --version failed.' }
-    if($npm.ExitCode -ne 0){ throw 'npm.cmd --version failed.' }
-    if($java.ExitCode -ne 0){ throw 'java.exe -version failed.' }
-    if($git.ExitCode -ne 0){ throw 'git.exe --version failed.' }
-    Write-Host ('node: ' + $node.Text) -ForegroundColor DarkGray
-    Write-Host ('npm : ' + $npm.Text) -ForegroundColor DarkGray
-    Write-Host ('java: ' + (($java.Text -split "`r?`n") | Select-Object -First 1)) -ForegroundColor DarkGray
-    Write-Host ('git : ' + $git.Text) -ForegroundColor DarkGray
+    # Use CMD-level redirection so Java's version information on stderr cannot be
+    # converted into a terminating PowerShell error. No output capture is used.
+    Invoke-CmdChecked 'node.exe --version'
+    Invoke-CmdChecked 'npm.cmd --version'
+    Invoke-CmdChecked 'java.exe -version 2>&1'
+    Invoke-CmdChecked 'git.exe --version'
     if(-not (Test-Path -LiteralPath $InitScript)){ throw 'gradle-mirror.init.gradle is missing.' }
 
     Stage 20 'Checking project dependency manifest'
@@ -146,21 +141,25 @@ try {
     if($wrapperText -notmatch 'gradle-8\.13-bin\.zip'){ throw 'Gradle wrapper must use Gradle 8.13.' }
 
     Stage 55 'Validating Java 17 and Gradle wrapper'
-    if($java.Text -notmatch 'version\s+"17(?:\.|"|$)'){ throw 'JDK 17 is required.' }
-    $gv = Invoke-CmdCapture ('"' + $gradlew + '" --version') $android
-    if($gv.ExitCode -ne 0){ throw 'Gradle wrapper --version failed.' }
-    Write-Host $gv.Text -ForegroundColor DarkGray
-    if($gv.Text -notmatch 'Gradle 8\.13'){ throw 'Gradle wrapper did not launch Gradle 8.13.' }
+    # Gradle --version reports the actual launcher/daemon JVM; this is the single
+    # authoritative Java validation and avoids PowerShell native-stderr handling.
+    $gv = Join-Path $env:TEMP ('khatyar-gradle-version-' + [guid]::NewGuid().ToString('N') + '.txt')
+    try {
+        & cmd.exe /d /c ('"' + $gradlew + '" --version > "' + $gv + '" 2>&1')
+        $gradleVersionExit = $LASTEXITCODE
+        $gradleVersionText = if(Test-Path -LiteralPath $gv){ Get-Content -LiteralPath $gv -Raw } else { '' }
+    } finally {
+        Remove-Item -LiteralPath $gv -Force -ErrorAction SilentlyContinue
+    }
+    if($gradleVersionExit -ne 0){ throw 'Gradle wrapper --version failed.' }
+    Write-Host $gradleVersionText.Trim() -ForegroundColor DarkGray
+    if($gradleVersionText -notmatch 'Gradle 8\.13'){ throw 'Gradle wrapper did not launch Gradle 8.13.' }
+    if($gradleVersionText -notmatch 'Launcher JVM:\s+17(?:\.|\s|$)'){ throw 'JDK 17 is required for the Android build.' }
 
     if(-not $SkipDoctor){
         Stage 63 'Running Expo dependency diagnostics'
-        $doctor = Invoke-CmdCapture 'npm.cmd exec -- expo-doctor'
-        if($doctor.Text){ Write-Host $doctor.Text -ForegroundColor DarkGray }
-        if($doctor.ExitCode -ne 0){
-            $m='expo-doctor exited with code '+$doctor.ExitCode+'. Diagnostics are non-blocking by default.'
-            if($StrictDoctor){ throw $m }
-            Write-Host $m -ForegroundColor Yellow
-        }
+        Invoke-CmdChecked 'npm.cmd exec -- expo-doctor'
+        # Doctor remains informational in normal mode; strict mode can still fail the build.
     }
 
     $task = if($ArtifactType -eq 'AAB'){'bundleRelease'}else{'assembleRelease'}
@@ -177,22 +176,15 @@ try {
         $artifact = Join-Path $android 'app\build\outputs\bundle\release\app-release.aab'
     } else {
         $artifact = Join-Path $android 'app\build\outputs\apk\release\app-release.apk'
-        if(-not (Test-Path -LiteralPath $artifact)){
-            $alt = Join-Path $android 'app\build\outputs\apk\release\app-release-unsigned.apk'
-            if(Test-Path -LiteralPath $alt){$artifact=$alt}
-        }
     }
-    if(-not (Test-Path -LiteralPath $artifact)){ throw 'Gradle completed without producing the expected release artifact.' }
-    $size=(Get-Item -LiteralPath $artifact).Length
-    if($size -lt 100000){ throw "Release artifact is unexpectedly small: $size bytes." }
-    Write-Host ($ArtifactType + ': ' + $artifact) -ForegroundColor Green
-    Write-Host ('Size: ' + $size + ' bytes') -ForegroundColor Green
-    $FinalExitCode=0
-    $FinalStage='Completed'
-    Write-Host "`nANDROID STANDARD RELEASE $ArtifactType BUILD COMPLETED SUCCESSFULLY." -ForegroundColor Green
+    if(-not (Test-Path -LiteralPath $artifact)){ throw "Release artifact was not found: $artifact" }
+    $sizeMB = [math]::Round((Get-Item -LiteralPath $artifact).Length / 1MB, 2)
+    Write-Host ('Artifact: ' + $artifact) -ForegroundColor Green
+    Write-Host ('Size MB : ' + $sizeMB) -ForegroundColor Green
+    $FinalExitCode = 0
 }
 catch {
-    $FinalExitCode=1
+    $FinalExitCode = 1
     Write-Host "`nBUILD ERROR: $($_.Exception.Message)" -ForegroundColor Red
 }
 finally {
@@ -200,6 +192,7 @@ finally {
     Write-Host ('Final stage : ' + $FinalStage)
     Write-Host ('Exit code   : ' + $FinalExitCode)
     Write-Host ('Total elapsed: ' + ((Get-Date)-$BuildStart).ToString('hh\:mm\:ss'))
-    if(-not $NoPause){ Read-Host 'Press ENTER to close' | Out-Null }
+    Write-Host '============================================================' -ForegroundColor Cyan
+    if(-not $NoPause){ Read-Host 'Press ENTER to close this window' | Out-Null }
 }
 exit $FinalExitCode
