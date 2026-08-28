@@ -2,13 +2,17 @@ const { withProjectBuildGradle, withSettingsGradle, withDangerousMod } = require
 const fs = require('fs');
 const path = require('path');
 
-const MARKER = 'KHATYAR_ANDROID_PUBLIC_MAVEN_MIRRORS';
+// KhatYar dependency resolution policy:
+// 1) local Maven repository/cache
+// 2) Myket Maven mirror (primary Iranian mirror)
+// 3) Runflare Maven mirrors
+// 4) official Google / Maven Central / Gradle Plugin Portal fallbacks
+const MARKER = 'KHATYAR_ANDROID_MAVEN_MIRRORS';
 const REPOS = [
-  { name: 'AliyunGoogleMirror', url: 'https://maven.aliyun.com/repository/google' },
-  { name: 'AliyunPublicMirror', url: 'https://maven.aliyun.com/repository/public' },
-  { name: 'AliyunGradlePluginMirror', url: 'https://maven.aliyun.com/repository/gradle-plugin' },
-  { name: 'HuaweiGoogleMirror', url: 'https://repo.huaweicloud.com/repository/maven-google/' },
-  { name: 'HuaweiPublicMirror', url: 'https://repo.huaweicloud.com/repository/maven/' },
+  { name: 'MyketMaven', url: 'https://maven.myket.ir/' },
+  { name: 'RunflareGoogle', url: 'https://mirror-maven.runflare.com/android/maven2/' },
+  { name: 'RunflareMaven', url: 'https://mirror-maven.runflare.com/maven2/' },
+  { name: 'RunflareGradlePlugins', url: 'https://mirror-maven.runflare.com/gradle-plugins/' },
 ];
 
 function repoSnippet(indent) {
@@ -53,7 +57,7 @@ function findBlock(source, name, startAt = 0) {
 function injectRepositories(source, block) {
   const body = source.slice(block.open + 1, block.end - 1);
   if (body.includes(MARKER)) return source;
-  const insertion = `\n    // ${MARKER}: public mirrors first; official repositories remain as fallback.\n${repoSnippet('    ')}`;
+  const insertion = `\n    // ${MARKER}: local -> Myket -> Runflare -> official repositories.\n${repoSnippet('    ')}`;
   return source.slice(0, block.open + 1) + insertion + source.slice(block.open + 1);
 }
 
@@ -62,7 +66,7 @@ function ensureRepositories(source, parentName) {
   if (!parent) return source;
   const repositories = findBlock(source, 'repositories', parent.open + 1);
   if (repositories && repositories.start < parent.end) return injectRepositories(source, repositories);
-  const block = `\n  repositories {\n    // ${MARKER}: public mirrors first; official repositories remain as fallback.\n${repoSnippet('    ')}    google()\n    mavenCentral()\n${parentName === 'pluginManagement' ? '    gradlePluginPortal()\n' : ''}  }\n`;
+  const block = `\n  repositories {\n    // ${MARKER}: local -> Myket -> Runflare -> official repositories.\n${repoSnippet('    ')}    google()\n    mavenCentral()\n${parentName === 'pluginManagement' ? '    gradlePluginPortal()\n' : ''}  }\n`;
   return source.slice(0, parent.open + 1) + block + source.slice(parent.open + 1);
 }
 
@@ -73,7 +77,7 @@ function ensureTopLevelRepositories(source) {
     const block = findBlock(source, 'repositories', match.index);
     if (block && block.start === match.index) return injectRepositories(source, block);
   }
-  const insertion = `// ${MARKER}: public mirrors first; official repositories remain as fallback.\nrepositories {\n${repoSnippet('  ')}  google()\n  mavenCentral()\n}\n\n`;
+  const insertion = `// ${MARKER}: local -> Myket -> Runflare -> official repositories.\nrepositories {\n${repoSnippet('  ')}  google()\n  mavenCentral()\n}\n\n`;
   return insertion + source;
 }
 
@@ -81,9 +85,8 @@ function patchGradleFile(file) {
   let source = fs.readFileSync(file, 'utf8');
   if (source.includes(MARKER)) return false;
   const name = path.basename(file).toLowerCase();
-  if (name.startsWith('settings.gradle')) {
-    source = ensureRepositories(source, 'pluginManagement');
-  } else {
+  if (name.startsWith('settings.gradle')) source = ensureRepositories(source, 'pluginManagement');
+  else {
     source = ensureRepositories(source, 'buildscript');
     source = ensureRepositories(source, 'allprojects');
     source = ensureTopLevelRepositories(source);
@@ -146,7 +149,7 @@ module.exports = function withAndroidMavenMirrors(config) {
       patchTree(path.join(mainAndroid, 'expo-gradle-plugin')),
       patchTree(path.join(mainAndroid, 'gradle-plugin')),
     ].reduce((sum, value) => sum + value, 0);
-    console.log(`[withAndroidMavenMirrors] patched ${changed} generated Gradle file(s) with public Maven mirrors.`);
+    console.log(`[withAndroidMavenMirrors] patched ${changed} generated Gradle file(s): local -> Myket -> Runflare -> official.`);
     return cfg;
   }]);
 
