@@ -5,6 +5,7 @@ param(
     [switch]$SkipCleanup,
     [switch]$SkipDoctor,
     [switch]$StrictDoctor,
+    [ValidateSet('APK','AAB')][string]$ArtifactType = 'APK',
     [int]$GradleTimeoutMinutes = 180,
     [int]$GradleIdleTimeoutMinutes = 30,
     [switch]$NoPause
@@ -135,7 +136,8 @@ function Invoke-GradleRelease {
         [string]$Gradlew,
         [string]$WorkingDirectory,
         [string]$InitScript,
-        [string]$LogPath
+        [string]$LogPath,
+        [ValidateSet('assembleRelease','bundleRelease')][string]$GradleTask
     )
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -145,7 +147,7 @@ function Invoke-GradleRelease {
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $false
     $psi.RedirectStandardError = $false
-    $command = '"' + $Gradlew + '" --init-script "' + $InitScript + '" assembleRelease --console=plain --stacktrace --warning-mode=all'
+    $command = '"' + $Gradlew + '" --init-script "' + $InitScript + '" ' + $GradleTask + ' --console=plain --stacktrace --warning-mode=all'
     $psi.Arguments = '/d /c "' + $command + ' > "' + $LogPath + '" 2>&1"'
 
     $p = New-Object System.Diagnostics.Process
@@ -167,7 +169,7 @@ function Invoke-GradleRelease {
             $idleSeconds = ((Get-Date) - $lastActivity).TotalSeconds
             if ($displaySeconds -ge 5) {
                 $lastDisplay = Get-Date
-                Write-Host ('    Gradle running | elapsed ' + (New-TimeSpan -Seconds ([int]$totalSeconds)).ToString('hh\:mm\:ss')) -ForegroundColor Cyan
+                Write-Host ('    Gradle running | task ' + $GradleTask + ' | elapsed ' + (New-TimeSpan -Seconds ([int]$totalSeconds)).ToString('hh\:mm\:ss')) -ForegroundColor Cyan
                 if (Test-Path -LiteralPath $LogPath) {
                     @(Get-Content -LiteralPath $LogPath -Tail 2 -ErrorAction SilentlyContinue) | ForEach-Object {
                         if ($_.Trim()) { Write-Host ('    ' + $_.Trim()) -ForegroundColor DarkGray }
@@ -193,6 +195,7 @@ try {
     Write-Host '       KHATYAR - ANDROID RELEASE BUILD' -ForegroundColor Cyan
     Write-Host '============================================================' -ForegroundColor Cyan
     Write-Host ('Project: ' + $ScriptRoot)
+    Write-Host ('Artifact: ' + $ArtifactType)
 
     Write-Stage 10 'Checking required tools'
     if (-not (Get-Command node.exe -ErrorAction SilentlyContinue)) { throw 'Node.js was not found in PATH.' }
@@ -248,28 +251,33 @@ try {
         }
     }
 
-    Write-Stage 72 'Building release APK with Myket repository policy'
+    $gradleTask = if ($ArtifactType -eq 'AAB') { 'bundleRelease' } else { 'assembleRelease' }
+    Write-Stage 72 ('Building release ' + $ArtifactType + ' with Myket repository policy')
     $logDir = Join-Path $AndroidRoot 'build\khatyar-build-logs'
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-    $logPath = Join-Path $logDir ('assembleRelease-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
+    $logPath = Join-Path $logDir ($gradleTask + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
     Write-Host ('Gradle log: ' + $logPath) -ForegroundColor DarkGray
-    Invoke-GradleRelease -Gradlew $Gradlew -WorkingDirectory $AndroidRoot -InitScript $InitScript -LogPath $logPath
+    Invoke-GradleRelease -Gradlew $Gradlew -WorkingDirectory $AndroidRoot -InitScript $InitScript -LogPath $logPath -GradleTask $gradleTask
 
     Write-Stage 95 'Verifying release artifact'
-    $apk = Join-Path $AndroidRoot 'app\build\outputs\apk\release\app-release.apk'
-    if (-not (Test-Path -LiteralPath $apk)) {
-        $apk = Join-Path $AndroidRoot 'app\build\outputs\apk\release\app-release-unsigned.apk'
+    if ($ArtifactType -eq 'AAB') {
+        $artifact = Join-Path $AndroidRoot 'app\build\outputs\bundle\release\app-release.aab'
+    } else {
+        $artifact = Join-Path $AndroidRoot 'app\build\outputs\apk\release\app-release.apk'
+        if (-not (Test-Path -LiteralPath $artifact)) {
+            $artifact = Join-Path $AndroidRoot 'app\build\outputs\apk\release\app-release-unsigned.apk'
+        }
     }
-    if (-not (Test-Path -LiteralPath $apk)) { throw 'Gradle succeeded but no release APK was produced.' }
-    $size = (Get-Item -LiteralPath $apk).Length
-    if ($size -lt 100000) { throw ('Release APK is unexpectedly small: ' + $size + ' bytes.') }
-    Write-Host ('APK: ' + $apk) -ForegroundColor Green
-    Write-Host ('APK size: ' + $size + ' bytes') -ForegroundColor Green
+    if (-not (Test-Path -LiteralPath $artifact)) { throw ('Gradle succeeded but no release ' + $ArtifactType + ' was produced.') }
+    $size = (Get-Item -LiteralPath $artifact).Length
+    if ($size -lt 100000) { throw ('Release ' + $ArtifactType + ' is unexpectedly small: ' + $size + ' bytes.') }
+    Write-Host ($ArtifactType + ': ' + $artifact) -ForegroundColor Green
+    Write-Host ($ArtifactType + ' size: ' + $size + ' bytes') -ForegroundColor Green
 
     $FinalExitCode = 0
     $FinalStage = 'Completed'
     Write-Host ''
-    Write-Host 'ANDROID RELEASE BUILD COMPLETED SUCCESSFULLY.' -ForegroundColor Green
+    Write-Host ('ANDROID RELEASE ' + $ArtifactType + ' BUILD COMPLETED SUCCESSFULLY.') -ForegroundColor Green
 }
 catch {
     $FinalExitCode = 1
