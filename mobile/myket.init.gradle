@@ -1,12 +1,17 @@
 // KhatYar Gradle repository policy.
-// Resolution policy:
-//   1) Gradle's own local dependency cache (automatic) + local Maven/Expo repos
-//   2) Iranian Maven/Gradle mirrors
-//   3) non-Iranian mirrors
-//   4) official repositories as the final fallback
 //
-// Gradle checks its dependency cache before remote resolution, so this script
-// must not use --refresh-dependencies or otherwise defeat the local cache.
+// IMPORTANT: Expo SDK 57 / React Native 0.86 owns settings.gradle plugin management
+// and the included React Native / Expo Gradle plugin builds. This init script must
+// not replace or mutate Settings.pluginManagement before those included builds are
+// registered, otherwise com.facebook.react.settings cannot be resolved.
+//
+// Resolution policy for project/buildscript dependencies:
+//   1) Gradle local cache + local Maven/Expo repos
+//   2) Iranian Maven mirrors
+//   3) non-Iranian mirrors
+//   4) official repositories
+//
+// Do not use --refresh-dependencies from the build script.
 
 final String myketUrl = 'https://maven.myket.ir/'
 final String jamkoUrl = 'https://jamko.ir/'
@@ -17,11 +22,10 @@ final String aliyunGradlePluginUrl = 'https://maven.aliyun.com/repository/gradle
 final String huaweiPublicUrl = 'https://repo.huaweicloud.com/repository/maven/'
 final String huaweiGoogleUrl = 'https://repo.huaweicloud.com/repository/maven-google/'
 
-// Optional local Maven repository supplied by the build machine.
-def addMaven = { repos, name, urlString ->
-    if (repos.findByName(name) == null) {
+def addMaven = { repos, repoName, urlString ->
+    if (repos.findByName(repoName) == null) {
         repos.maven {
-            name = name
+            name = repoName
             url = uri(urlString)
             metadataSources { gradleMetadata(); mavenPom(); artifact() }
         }
@@ -64,57 +68,29 @@ def addLocalExpoRepos = { repos, settingsDir ->
     }
 }
 
-def addIranianRepos = { repos, includePluginPortal = false ->
+def addDependencyRepositories = { repos, settingsDir, includePluginPortal = false ->
+    mavenLocal()
+    addLocalExpoRepos(repos, settingsDir)
     addMaven(repos, 'MyketIran', myketUrl)
     addMaven(repos, 'JamkoIran', jamkoUrl)
     addMaven(repos, 'ITOMirrorIran', itoUrl)
-}
-
-def addNonIranianMirrors = { repos, includePluginPortal = false ->
     addMaven(repos, 'AliyunGoogleMirror', aliyunGoogleUrl)
     addMaven(repos, 'AliyunPublicMirror', aliyunPublicUrl)
     if (includePluginPortal) addMaven(repos, 'AliyunGradlePluginMirror', aliyunGradlePluginUrl)
     addMaven(repos, 'HuaweiGoogleMirror', huaweiGoogleUrl)
     addMaven(repos, 'HuaweiPublicMirror', huaweiPublicUrl)
-}
-
-def addOfficialRepos = { repos, includePluginPortal = false ->
     if (repos.findByName('Google') == null) repos.google()
     if (repos.findByName('MavenCentral') == null) repos.mavenCentral()
     if (includePluginPortal && repos.findByName('GradlePluginPortal') == null) repos.gradlePluginPortal()
 }
 
-def configureSettingsRepositories = { settings ->
+// Do not touch settings.pluginManagement here.
+// The generated Expo settings.gradle already contains the React Native and Expo
+// included builds and the withMyketMirror config plugin injects the Myket mirror.
+gradle.settingsEvaluated { settings ->
     try {
         settings.dependencyResolutionManagement.repositories {
-            mavenLocal()
-            addLocalExpoRepos(delegate, settings.settingsDir)
-            addIranianRepos(delegate, false)
-            addNonIranianMirrors(delegate, false)
-            addOfficialRepos(delegate, false)
-        }
-    } catch (ignored) { }
-}
-
-beforeSettings { settings ->
-    settings.pluginManagement.repositories {
-        mavenLocal()
-        addLocalExpoRepos(delegate, settings.settingsDir)
-        addIranianRepos(delegate, true)
-        addNonIranianMirrors(delegate, true)
-        addOfficialRepos(delegate, true)
-    }
-    configureSettingsRepositories(settings)
-}
-
-gradle.settingsEvaluated { settings ->
-    configureSettingsRepositories(settings)
-    try {
-        settings.pluginManagement.repositories {
-            addLocalExpoRepos(delegate, settings.settingsDir)
-            addIranianRepos(delegate, true)
-            addNonIranianMirrors(delegate, true)
-            addOfficialRepos(delegate, true)
+            addDependencyRepositories(delegate, settings.settingsDir, false)
         }
     } catch (ignored) { }
 }
@@ -122,19 +98,12 @@ gradle.settingsEvaluated { settings ->
 beforeProject { project ->
     def settingsDir = project.rootProject.projectDir
     project.buildscript.repositories {
-        mavenLocal()
-        addLocalExpoRepos(delegate, settingsDir)
-        addIranianRepos(delegate, true)
-        addNonIranianMirrors(delegate, true)
-        addOfficialRepos(delegate, true)
+        addDependencyRepositories(delegate, settingsDir, true)
     }
 
     try {
         project.repositories {
-            addLocalExpoRepos(delegate, settingsDir)
-            addIranianRepos(delegate, false)
-            addNonIranianMirrors(delegate, false)
-            addOfficialRepos(delegate, false)
+            addDependencyRepositories(delegate, settingsDir, false)
         }
     } catch (ignored) { }
 }
