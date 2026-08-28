@@ -71,14 +71,15 @@ function markerLine(indent = 4) {
   return `${' '.repeat(indent)}// ${MARKER}: local cache first, then Myket mirror; official repositories remain as fallback.\n`;
 }
 
-function patchIncludedBuildFile(file) {
+function patchFile(file) {
   let source = fs.readFileSync(file, 'utf8');
   if (source.includes(MARKER)) return false;
 
   const kotlinStyle = file.toLowerCase().endsWith('.kts');
   const repositories = findBlock(source, 'repositories');
   if (repositories) {
-    const insertion = `\n${markerLine(2)}${repoSnippet('    ', kotlinStyle)}`;
+    const insertionIndent = kotlinStyle ? '    ' : '    ';
+    const insertion = `\n${markerLine(2)}${repoSnippet(insertionIndent, kotlinStyle)}`;
     source = source.slice(0, repositories.open + 1) + insertion + source.slice(repositories.open + 1);
   } else {
     source = `${markerLine(0)}repositories {\n${repoSnippet('    ', kotlinStyle)}    google()\n    mavenCentral()\n}\n\n${source}`;
@@ -88,24 +89,31 @@ function patchIncludedBuildFile(file) {
   return true;
 }
 
-function patchIncludedBuilds(androidRoot) {
-  const candidates = [
-    path.join(androidRoot, 'expo-gradle-plugin'),
-    path.join(androidRoot, 'gradle-plugin'),
-  ];
-  for (const dir of candidates) {
-    if (!fs.existsSync(dir)) continue;
-    const files = [];
-    const stack = [dir];
-    while (stack.length) {
-      const current = stack.pop();
-      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-        const full = path.join(current, entry.name);
-        if (entry.isDirectory()) stack.push(full);
-        else if (/^build\.gradle(?:\.kts)?$/i.test(entry.name)) files.push(full);
+function patchTree(dir) {
+  if (!fs.existsSync(dir)) return 0;
+  const files = [];
+  const stack = [dir];
+  while (stack.length) {
+    const current = stack.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (/^build\.gradle(?:\.kts)?$/i.test(entry.name) || /^settings\.gradle(?:\.kts)?$/i.test(entry.name)) {
+        files.push(full);
       }
     }
-    for (const file of files) patchIncludedBuildFile(file);
+  }
+  let changed = 0;
+  for (const file of files) if (patchFile(file)) changed += 1;
+  return changed;
+}
+
+function resolvePackageAndroidDir(packageName, rootDir) {
+  try {
+    const pkgJson = require.resolve(`${packageName}/package.json`, { paths: [rootDir] });
+    return path.join(path.dirname(pkgJson), 'android');
+  } catch (_) {
+    return null;
   }
 }
 
@@ -129,7 +137,21 @@ module.exports = function withMyketMirror(config) {
   });
 
   config = withDangerousMod(config, ['android', async (cfg) => {
-    patchIncludedBuilds(cfg.modRequest.platformProjectRoot);
+    const projectRoot = cfg.modRequest.projectRoot;
+
+    // Expo SDK 57 includes the autolinking Gradle build directly from the
+    // expo-modules-autolinking package. Patch that actual source tree rather
+    // than assuming Expo copied it under android/.
+    const expoAutolinkingAndroid = resolvePackageAndroidDir('expo-modules-autolinking', projectRoot);
+    patchTree(expoAutolinkingAndroid ? path.join(expoAutolinkingAndroid, 'expo-gradle-plugin') : '');
+
+    // React Native's Gradle plugin is also an included build in SDK 57.
+    const reactNativeGradlePlugin = resolvePackageAndroidDir('@react-native/gradle-plugin', projectRoot);
+    if (reactNativeGradlePlugin) patchTree(reactNativeGradlePlugin);
+
+    // Keep compatibility with any generated/cached included-build copies.
+    patchTree(path.join(cfg.modRequest.platformProjectRoot, 'expo-gradle-plugin'));
+    patchTree(path.join(cfg.modRequest.platformProjectRoot, 'gradle-plugin'));
     return cfg;
   }]);
 
