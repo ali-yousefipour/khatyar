@@ -31,7 +31,7 @@ function Invoke-DirectChecked([string]$File,[string[]]$Args,[string]$Cwd=$Script
         Write-Host ('> ' + $File + ' ' + ($Args -join ' ')) -ForegroundColor DarkGray
         & $File @Args
         $code = $LASTEXITCODE
-        if ($null -ne $code -and $code -ne 0) { throw "$File exited with code $code." }
+        if ($null -ne $code -and $code -ne 0) { throw ("$File exited with code {0}." -f $code) }
     } finally { Pop-Location }
 }
 
@@ -41,7 +41,7 @@ function Invoke-CmdChecked([string]$CommandLine,[string]$Cwd=$ScriptRoot) {
         Write-Host ('> cmd.exe /d /c ' + $CommandLine) -ForegroundColor DarkGray
         & cmd.exe /d /c $CommandLine
         $code = $LASTEXITCODE
-        if ($null -ne $code -and $code -ne 0) { throw "Command exited with code $code: $CommandLine" }
+        if ($null -ne $code -and $code -ne 0) { throw ("Command exited with code {0}: {1}" -f $code, $CommandLine) }
     } finally { Pop-Location }
 }
 
@@ -84,14 +84,14 @@ function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task
                     }
                 }
             }
-            if($total -ge ($GradleTimeoutMinutes*60)){ Stop-Tree $p.Id; throw "Gradle exceeded $GradleTimeoutMinutes minutes." }
-            if($idle -ge ($GradleIdleTimeoutMinutes*60)){ Stop-Tree $p.Id; throw "Gradle produced no new log output for $GradleIdleTimeoutMinutes minutes." }
+            if($total -ge ($GradleTimeoutMinutes*60)){ Stop-Tree $p.Id; throw ("Gradle exceeded {0} minutes." -f $GradleTimeoutMinutes) }
+            if($idle -ge ($GradleIdleTimeoutMinutes*60)){ Stop-Tree $p.Id; throw ("Gradle produced no new log output for {0} minutes." -f $GradleIdleTimeoutMinutes) }
         }
         if($p.ExitCode -ne 0){
             Write-Host "`n---------------- Last 200 Gradle log lines ----------------" -ForegroundColor Red
             if(Test-Path -LiteralPath $LogPath){ Get-Content -LiteralPath $LogPath -Tail 200 }
             Write-Host '--------------------------------------------------------------' -ForegroundColor Red
-            throw "Gradle exited with code $($p.ExitCode)."
+            throw ("Gradle exited with code {0}." -f $p.ExitCode)
         }
     } finally { $p.Dispose() }
 }
