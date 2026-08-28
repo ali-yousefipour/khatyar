@@ -12,7 +12,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$ScriptRoot = $PSScriptRoot
+$ScriptRoot = [System.IO.Path]::GetFullPath($PSScriptRoot)
 Set-Location -LiteralPath $ScriptRoot
 
 $Remote = 'origin'
@@ -44,10 +44,9 @@ function Write-Header {
 function Write-Stage {
     param([int]$Percent, [string]$Stage)
     $script:FinalStage = $Stage
-    $elapsed = Format-Elapsed ((Get-Date) - $BuildStart)
     Write-Host ''
     Write-Host ('[' + $Percent.ToString('000') + '%] ' + $Stage) -ForegroundColor Yellow
-    Write-Host ('    Elapsed: ' + $elapsed)
+    Write-Host ('    Elapsed: ' + (Format-Elapsed ((Get-Date) - $BuildStart)))
 }
 
 function Fail-Build {
@@ -63,28 +62,37 @@ function Invoke-Git {
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = 'git.exe'
+    # IMPORTANT: PowerShell's current location is not relied upon here.
+    # Every Git child process is explicitly started from the mobile project
+    # directory, which is inside the parent repository.
+    $psi.WorkingDirectory = $ScriptRoot
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
 
     foreach ($arg in $Arguments) {
-        $escaped = $arg -replace '(\\*)"', '$1$1\\"'
+        $escaped = [string]$arg -replace '(\\*)"', '$1$1\\"'
         $escaped = $escaped -replace '(\\+)$', '$1$1'
         $psi.Arguments += ' "' + $escaped + '"'
     }
 
     $p = New-Object System.Diagnostics.Process
     $p.StartInfo = $psi
-    [void]$p.Start()
-    $stdout = $p.StandardOutput.ReadToEnd()
-    $stderr = $p.StandardError.ReadToEnd()
-    $p.WaitForExit()
+    try {
+        [void]$p.Start()
+        $stdout = $p.StandardOutput.ReadToEnd()
+        $stderr = $p.StandardError.ReadToEnd()
+        $p.WaitForExit()
 
-    return [pscustomobject]@{
-        Output = @($stdout -split "`r?`n" | Where-Object { $_ -ne '' })
-        Error = @($stderr -split "`r?`n" | Where-Object { $_ -ne '' })
-        ExitCode = $p.ExitCode
+        return [pscustomobject]@{
+            Output = @($stdout -split "`r?`n" | Where-Object { $_ -ne '' })
+            Error = @($stderr -split "`r?`n" | Where-Object { $_ -ne '' })
+            ExitCode = $p.ExitCode
+        }
+    }
+    finally {
+        $p.Dispose()
     }
 }
 
@@ -97,7 +105,9 @@ function Get-GitValue {
 
 function Get-GitClean {
     $r = Invoke-Git @('status','--porcelain')
-    if ($r.ExitCode -ne 0) { Fail-Build 'Unable to read Git status.' }
+    if ($r.ExitCode -ne 0) {
+        Fail-Build ('Unable to read Git status: ' + (($r.Output + $r.Error) -join ' '))
+    }
     return (@($r.Output).Count -eq 0)
 }
 
@@ -221,9 +231,15 @@ try {
         Fail-Build 'Git is not installed or is not available in PATH.'
     }
 
+    # Explicit WorkingDirectory in Invoke-Git makes this check deterministic.
     $repoCheck = Invoke-Git @('rev-parse','--show-toplevel')
-    if ($repoCheck.ExitCode -ne 0) { Fail-Build 'This build directory is not inside a Git repository.' }
+    if ($repoCheck.ExitCode -ne 0) {
+        Fail-Build ('This build directory is not inside a Git repository. Git said: ' + (($repoCheck.Error) -join ' '))
+    }
     $RepoRoot = ($repoCheck.Output -join '').Trim()
+    if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+        Fail-Build 'Git returned an empty repository root.'
+    }
     Write-Header
 
     Write-Host 'Do you want to download the latest files from GitHub before building? (Y/N)' -ForegroundColor Yellow
@@ -236,7 +252,9 @@ try {
 
     $localSha = Get-GitValue @('rev-parse','HEAD')
     $remoteSha = Get-GitValue @('rev-parse',($Remote + '/' + $Branch))
-    if ([string]::IsNullOrWhiteSpace($localSha) -or [string]::IsNullOrWhiteSpace($remoteSha)) { Fail-Build 'Unable to determine local or GitHub commit SHA.' }
+    if ([string]::IsNullOrWhiteSpace($localSha) -or [string]::IsNullOrWhiteSpace($remoteSha)) {
+        Fail-Build 'Unable to determine local or GitHub commit SHA.'
+    }
 
     Write-Stage 29 'Preparing local workspace'
     if ($answer -eq 'Y') {
@@ -248,8 +266,6 @@ try {
             Write-Host 'Local changes safely stashed.' -ForegroundColor Green
         }
 
-        $localSha = Get-GitValue @('rev-parse','HEAD')
-        $remoteSha = Get-GitValue @('rev-parse',($Remote + '/' + $Branch))
         if ($localSha -ne $remoteSha) {
             $BackupBranch = 'build-backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
             $backup = Invoke-Git @('branch',$BackupBranch,'HEAD')
@@ -318,7 +334,10 @@ try {
         (Join-Path $AndroidRoot 'app\build\outputs\apk\release\app-release-unsigned.apk')
     )
     $apk = $apkCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-    if ($apk) { Write-Host ('APK: ' + $apk) -ForegroundColor Green }
+    if (-not $apk) {
+        Fail-Build 'Gradle completed successfully but no release APK was found.'
+    }
+    Write-Host ('APK: ' + $apk) -ForegroundColor Green
     Write-Host ''
     Write-Host 'ANDROID RELEASE BUILD COMPLETED SUCCESSFULLY.' -ForegroundColor Green
 }
