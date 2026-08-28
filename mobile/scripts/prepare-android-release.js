@@ -12,6 +12,7 @@ const configureWrapper = path.join(__dirname, 'configure-gradle-wrapper.js');
 const REQUIRED_GRADLE = '8.13';
 const REQUIRED_RN = '0.86.0';
 const REQUIRED_REACT = '19.2.3';
+const MYKET_MARKER = 'KHATYAR_MYKET_MIRROR';
 
 function fail(message) {
   console.error(`[android-prebuild] ERROR: ${message}`);
@@ -57,6 +58,62 @@ function readUtf8(file) {
 
 function assertContains(text, file, pattern, description) {
   if (!pattern.test(text)) fail(`${path.relative(root, file)} is missing ${description}.`);
+}
+
+function resolvePackageAndroidDir(packageName) {
+  try {
+    const pkgJson = require.resolve(`${packageName}/package.json`, { paths: [root] });
+    return path.join(path.dirname(pkgJson), 'android');
+  } catch (_) {
+    return null;
+  }
+}
+
+function collectGradleFiles(dir) {
+  if (!dir || !fs.existsSync(dir)) return [];
+  const result = [];
+  const stack = [dir];
+  while (stack.length) {
+    const current = stack.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (/^(?:build|settings)\.gradle(?:\.kts)?$/i.test(entry.name)) result.push(full);
+    }
+  }
+  return result;
+}
+
+function assertMyketMirrorApplied() {
+  const mainSettings = fs.existsSync(path.join(android, 'settings.gradle'))
+    ? path.join(android, 'settings.gradle')
+    : path.join(android, 'settings.gradle.kts');
+  const checked = [];
+
+  if (fs.existsSync(mainSettings)) {
+    checked.push(mainSettings);
+    const mainText = readUtf8(mainSettings);
+    assertContains(mainText, mainSettings, /maven\.myket\.ir/, 'Myket Maven repository in main Android settings');
+  }
+
+  const expoAndroid = resolvePackageAndroidDir('expo-modules-autolinking');
+  const expoIncluded = expoAndroid ? path.join(expoAndroid, 'expo-gradle-plugin') : null;
+  const expoFiles = collectGradleFiles(expoIncluded);
+  if (expoFiles.length === 0) {
+    fail('Unable to locate Expo expo-gradle-plugin included build under node_modules.');
+  }
+
+  const expoPatched = expoFiles.filter((file) => fs.readFileSync(file, 'utf8').includes(MYKET_MARKER));
+  checked.push(...expoFiles);
+  if (expoPatched.length === 0) {
+    fail('Myket mirror was not applied to the actual Expo expo-gradle-plugin included build.');
+  }
+
+  const rnAndroid = resolvePackageAndroidDir('@react-native/gradle-plugin');
+  const rnFiles = collectGradleFiles(rnAndroid);
+  if (rnFiles.length > 0) checked.push(...rnFiles);
+
+  console.log(`[android-prebuild] Myket mirror validation passed. Checked ${checked.length} Gradle file(s); Expo included build patched: ${expoPatched.length}.`);
 }
 
 const packageJson = readJson(path.join(root, 'package.json'));
@@ -113,6 +170,7 @@ assertContains(appBuild, appBuildFile, /apply plugin:\s*["']com\.android\.applic
 assertContains(appBuild, appBuildFile, /apply plugin:\s*["']com\.facebook\.react["']/, 'React Native application plugin');
 assertContains(properties, gradleProperties, /org\.gradle\.jvmargs=.*-Dfile\.encoding=UTF-8/, 'UTF-8 Gradle JVM encoding');
 assertContains(wrapper, wrapperProperties, new RegExp(`gradle-${REQUIRED_GRADLE.replace(/\./g, '\\.')}-bin\\.zip`), `Gradle ${REQUIRED_GRADLE}`);
+assertMyketMirrorApplied();
 
 console.log('[android-prebuild] Generated Android project passed structural compatibility checks.');
 console.log(`[android-prebuild] Expo SDK: ${expo}`);
