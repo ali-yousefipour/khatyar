@@ -35,12 +35,12 @@ function Invoke-DirectChecked([string]$File,[string[]]$Args,[string]$Cwd=$Script
     } finally { Pop-Location }
 }
 
-function Get-Captured([string]$File,[string[]]$Args,[string]$Cwd=$ScriptRoot) {
+function Invoke-CmdCapture([string]$CommandLine,[string]$Cwd=$ScriptRoot) {
     Push-Location -LiteralPath $Cwd
     try {
-        $o = & $File @Args 2>&1 | Out-String
+        $text = (& cmd.exe /d /c $CommandLine 2>&1 | Out-String).Trim()
         $code = $LASTEXITCODE
-        return [pscustomobject]@{ ExitCode=$code; Text=$o }
+        return [pscustomobject]@{ ExitCode=$code; Text=$text }
     } finally { Pop-Location }
 }
 
@@ -103,22 +103,22 @@ try {
     Write-Host ('Artifact: ' + $ArtifactType)
 
     Stage 10 'Checking required tools'
-    if(-not (Get-Command node.exe -ErrorAction SilentlyContinue)){ throw 'Node.js was not found in PATH.' }
-    if(-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)){ throw 'npm was not found in PATH.' }
-    if(-not (Get-Command java.exe -ErrorAction SilentlyContinue)){ throw 'Java was not found in PATH.' }
-    if(-not (Get-Command git.exe -ErrorAction SilentlyContinue)){ throw 'Git was not found in PATH.' }
-    $node = Get-Captured 'node.exe' @('--version')
-    $npm = Get-Captured 'npm.cmd' @('--version')
-    $java = Get-Captured 'java.exe' @('-version')
-    $git = Get-Captured 'git.exe' @('--version')
+    $toolCommands = @('node.exe','npm.cmd','java.exe','git.exe')
+    foreach($tool in $toolCommands){
+        if(-not (Get-Command $tool -ErrorAction SilentlyContinue)){ throw "$tool was not found in PATH." }
+    }
+    $node = Invoke-CmdCapture 'node.exe --version'
+    $npm = Invoke-CmdCapture 'npm.cmd --version'
+    $java = Invoke-CmdCapture 'java.exe -version'
+    $git = Invoke-CmdCapture 'git.exe --version'
     if($node.ExitCode -ne 0){ throw 'node.exe --version failed.' }
     if($npm.ExitCode -ne 0){ throw 'npm.cmd --version failed.' }
     if($java.ExitCode -ne 0){ throw 'java.exe -version failed.' }
     if($git.ExitCode -ne 0){ throw 'git.exe --version failed.' }
-    Write-Host ('node: ' + $node.Text.Trim()) -ForegroundColor DarkGray
-    Write-Host ('npm : ' + $npm.Text.Trim()) -ForegroundColor DarkGray
-    Write-Host ('java: ' + $java.Text.Trim()) -ForegroundColor DarkGray
-    Write-Host ('git : ' + $git.Text.Trim()) -ForegroundColor DarkGray
+    Write-Host ('node: ' + $node.Text) -ForegroundColor DarkGray
+    Write-Host ('npm : ' + $npm.Text) -ForegroundColor DarkGray
+    Write-Host ('java: ' + (($java.Text -split "`r?`n") | Select-Object -First 1)) -ForegroundColor DarkGray
+    Write-Host ('git : ' + $git.Text) -ForegroundColor DarkGray
     if(-not (Test-Path -LiteralPath $InitScript)){ throw 'gradle-mirror.init.gradle is missing.' }
 
     Stage 20 'Checking project dependency manifest'
@@ -147,15 +147,15 @@ try {
 
     Stage 55 'Validating Java 17 and Gradle wrapper'
     if($java.Text -notmatch 'version\s+"17(?:\.|"|$)'){ throw 'JDK 17 is required.' }
-    $gv = Get-Captured $gradlew @('--version') $android
+    $gv = Invoke-CmdCapture ('"' + $gradlew + '" --version') $android
     if($gv.ExitCode -ne 0){ throw 'Gradle wrapper --version failed.' }
-    Write-Host $gv.Text.Trim() -ForegroundColor DarkGray
+    Write-Host $gv.Text -ForegroundColor DarkGray
     if($gv.Text -notmatch 'Gradle 8\.13'){ throw 'Gradle wrapper did not launch Gradle 8.13.' }
 
     if(-not $SkipDoctor){
         Stage 63 'Running Expo dependency diagnostics'
-        $doctor = Get-Captured 'npm.cmd' @('exec','--','expo-doctor')
-        if($doctor.Text.Trim()){ Write-Host $doctor.Text.Trim() -ForegroundColor DarkGray }
+        $doctor = Invoke-CmdCapture 'npm.cmd exec -- expo-doctor'
+        if($doctor.Text){ Write-Host $doctor.Text -ForegroundColor DarkGray }
         if($doctor.ExitCode -ne 0){
             $m='expo-doctor exited with code '+$doctor.ExitCode+'. Diagnostics are non-blocking by default.'
             if($StrictDoctor){ throw $m }
