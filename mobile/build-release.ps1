@@ -25,11 +25,11 @@ function Stage([int]$Percent,[string]$Name) {
     Write-Host ('    Elapsed: ' + ((Get-Date)-$BuildStart).ToString('hh\:mm\:ss'))
 }
 
-function Invoke-DirectChecked([string]$File,[string[]]$Args,[string]$Cwd=$ScriptRoot) {
+function Invoke-DirectChecked([string]$File,[string[]]$Arguments,[string]$Cwd=$ScriptRoot) {
     Push-Location -LiteralPath $Cwd
     try {
-        Write-Host ('> ' + $File + ' ' + ($Args -join ' ')) -ForegroundColor DarkGray
-        & $File @Args
+        Write-Host ('> ' + $File + ' ' + ($Arguments -join ' ')) -ForegroundColor DarkGray
+        & $File @Arguments
         $code = $LASTEXITCODE
         if ($null -ne $code -and $code -ne 0) { throw ("$File exited with code {0}." -f $code) }
     } finally { Pop-Location }
@@ -108,8 +108,6 @@ try {
     foreach($tool in $toolCommands){
         if(-not (Get-Command $tool -ErrorAction SilentlyContinue)){ throw "$tool was not found in PATH." }
     }
-    # Use CMD-level redirection so Java's version information on stderr cannot be
-    # converted into a terminating PowerShell error. No output capture is used.
     Invoke-CmdChecked 'node.exe --version'
     Invoke-CmdChecked 'npm.cmd --version'
     Invoke-CmdChecked 'java.exe -version 2>&1'
@@ -141,8 +139,6 @@ try {
     if($wrapperText -notmatch 'gradle-8\.13-bin\.zip'){ throw 'Gradle wrapper must use Gradle 8.13.' }
 
     Stage 55 'Validating Java 17 and Gradle wrapper'
-    # Gradle --version reports the actual launcher/daemon JVM; this is the single
-    # authoritative Java validation and avoids PowerShell native-stderr handling.
     $gv = Join-Path $env:TEMP ('khatyar-gradle-version-' + [guid]::NewGuid().ToString('N') + '.txt')
     try {
         & cmd.exe /d /c ('"' + $gradlew + '" --version > "' + $gv + '" 2>&1')
@@ -159,7 +155,6 @@ try {
     if(-not $SkipDoctor){
         Stage 63 'Running Expo dependency diagnostics'
         Invoke-CmdChecked 'npm.cmd exec -- expo-doctor'
-        # Doctor remains informational in normal mode; strict mode can still fail the build.
     }
 
     $task = if($ArtifactType -eq 'AAB'){'bundleRelease'}else{'assembleRelease'}
