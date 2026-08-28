@@ -1,0 +1,66 @@
+// KhatYar Gradle repository policy for Iran-network constrained environments.
+// This file is passed explicitly to the project's Gradle wrapper; it is NOT a
+// global ~/.gradle/init.d script.
+// Priority for Maven repositories:
+//   1) local Maven repository (~/.m2/repository)
+//   2) Myket
+//   3) Runflare mirrors
+//   4) official repositories
+
+import org.gradle.api.artifacts.repositories.MavenArtifactRepository
+
+ext.khatyarMirrorRepos = {
+    mavenLocal()
+    maven {
+        name = 'KhatYarMyket'
+        url = uri('https://maven.myket.ir/')
+        metadataSources { gradleMetadata(); mavenPom(); artifact() }
+    }
+    maven {
+        name = 'KhatYarRunflareGoogle'
+        url = uri('https://mirror-maven.runflare.com/android/maven2/')
+        metadataSources { gradleMetadata(); mavenPom(); artifact() }
+    }
+    maven {
+        name = 'KhatYarRunflareMaven'
+        url = uri('https://mirror-maven.runflare.com/maven2/')
+        metadataSources { gradleMetadata(); mavenPom(); artifact() }
+    }
+    maven {
+        name = 'KhatYarRunflareGradlePlugins'
+        url = uri('https://mirror-maven.runflare.com/gradle-plugins/')
+        metadataSources { gradleMetadata(); mavenPom(); artifact() }
+    }
+    google()
+    mavenCentral()
+}
+
+// Every Gradle invocation, including composite/included builds, gets this init
+// script independently. This is the key difference from a root-project-only
+// Expo config plugin: Expo's included builds are separate Gradle instances.
+gradle.allprojects { project ->
+    project.buildscript.repositories {
+        khatyarMirrorRepos.delegate = delegate
+        khatyarMirrorRepos()
+    }
+    project.repositories {
+        khatyarMirrorRepos.delegate = delegate
+        khatyarMirrorRepos()
+    }
+}
+
+gradle.settingsEvaluated { settings ->
+    settings.pluginManagement.repositories {
+        khatyarMirrorRepos.delegate = delegate
+        khatyarMirrorRepos()
+        gradlePluginPortal()
+    }
+    if (settings.hasProperty('dependencyResolutionManagement')) {
+        settings.dependencyResolutionManagement.repositories {
+            khatyarMirrorRepos.delegate = delegate
+            khatyarMirrorRepos()
+        }
+    }
+}
+
+println '[khatyar-init] Maven policy active: local -> Myket -> Runflare -> official (all Gradle builds, including included builds).'
