@@ -6,9 +6,10 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 
 const MIN_VALID_ZIP_SIZE = 1024 * 1024;
-// Expo SDK 57 targets React Native 0.86. Keep the wrapper version explicit and
-// centralized so every clean prebuild receives the same compatible Gradle.
-const REQUIRED_GRADLE_VERSION = '8.14.3';
+// React Native 0.86 uses AGP 8.12.0. Android's compatibility matrix for
+// AGP 8.12 requires Gradle 8.13 and JDK 17. Keep this version centralized so
+// every clean Expo prebuild receives the same wrapper.
+const REQUIRED_GRADLE_VERSION = '8.13';
 
 function fail(message) {
   console.error(`[gradle-wrapper] ${message}`);
@@ -37,7 +38,6 @@ if (!fs.existsSync(propertiesPath)) fail(`File not found: ${propertiesPath}`);
 let contents = fs.readFileSync(propertiesPath, 'utf8');
 const originalUrlMatch = contents.match(/^distributionUrl=([^\r\n]+)$/m);
 if (!originalUrlMatch) fail(`distributionUrl was not found in ${propertiesPath}`);
-const originalUrl = originalUrlMatch[1];
 
 const distributionFile = `gradle-${REQUIRED_GRADLE_VERSION}-bin.zip`;
 const myketDistributionUrl = `https://maven.myket.ir/gradle/distributions/${distributionFile}`;
@@ -46,10 +46,6 @@ const localFile = path.resolve(path.join(cacheDirectory, distributionFile));
 
 let distributionUrl;
 let source;
-
-// Resolution order: local cache first, then Myket. A Gradle wrapper supports
-// only one distributionUrl, so Runflare is exposed as a documented secondary
-// source rather than pretending that the wrapper can fail over by itself.
 if (isUsableZip(localFile)) {
   distributionUrl = pathToFileURL(localFile).href;
   source = `local:${localFile}`;
