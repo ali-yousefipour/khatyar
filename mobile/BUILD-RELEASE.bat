@@ -6,5 +6,5 @@ set "NPM_CONFIG_PREFER_OFFLINE=true"
 set "NPM_CONFIG_AUDIT=false"
 set "NPM_CONFIG_FUND=false"
 cd /d "%~dp0"
-node scripts\build-network-policy.js
+node scripts\build-network-policy-v2.js
 exit /b %ERRORLEVEL%
