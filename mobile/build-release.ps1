@@ -19,19 +19,49 @@ $BackupBranch = $null
 
 function Invoke-Git {
   param([Parameter(Mandatory=$true)][string[]]$Arguments)
-  # Do NOT merge stderr into stdout. On Windows PowerShell, native stderr can be
-  # converted into NativeCommandError when $ErrorActionPreference=Stop, even when
-  # git exits successfully. Capture stdout/stderr separately and trust ExitCode.
+
+  # Start-Process is used deliberately. Windows PowerShell 5.1 can turn native
+  # stderr output into NativeCommandError records even when the native process
+  # exits with code 0. Git routinely writes normal progress messages to stderr.
   $outFile = [System.IO.Path]::GetTempFileName()
   $errFile = [System.IO.Path]::GetTempFileName()
   try {
-    & git @Arguments 1> $outFile 2> $errFile
-    $code = $LASTEXITCODE
-    $stdout = @(Get-Content -LiteralPath $outFile -ErrorAction SilentlyContinue)
-    $stderr = @(Get-Content -LiteralPath $errFile -ErrorAction SilentlyContinue)
-    return [pscustomobject]@{ Output=$stdout; Error=$stderr; ExitCode=$code }
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'git.exe'
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+
+    foreach ($arg in $Arguments) {
+      if ($psi.ArgumentList) {
+        [void]$psi.ArgumentList.Add($arg)
+      } else {
+        # Windows PowerShell 5.1 has no ArgumentList property. Quote arguments
+        # using ProcessStartInfo.Arguments with Windows command-line escaping.
+        $escaped = $arg -replace '(\\*)"', '$1$1\\"'
+        $escaped = $escaped -replace '(\\+)$', '$1$1'
+        $psi.Arguments += ' "' + $escaped + '"'
+      }
+    }
+
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $psi
+    [void]$p.Start()
+    $stdout = $p.StandardOutput.ReadToEnd()
+    $stderr = $p.StandardError.ReadToEnd()
+    $p.WaitForExit()
+    $code = $p.ExitCode
+
+    if ($stdout) { [System.IO.File]::WriteAllText($outFile, $stdout, [System.Text.Encoding]::UTF8) }
+    if ($stderr) { [System.IO.File]::WriteAllText($errFile, $stderr, [System.Text.Encoding]::UTF8) }
+
+    $outLines = if ($stdout) { @($stdout -split "`r?`n" | Where-Object { $_ -ne '' }) } else { @() }
+    $errLines = if ($stderr) { @($stderr -split "`r?`n" | Where-Object { $_ -ne '' }) } else { @() }
+    return [pscustomobject]@{ Output=$outLines; Error=$errLines; ExitCode=$code }
   }
   finally {
+    if ($p) { $p.Dispose() }
     Remove-Item -LiteralPath $outFile,$errFile -Force -ErrorAction SilentlyContinue
   }
 }
@@ -155,8 +185,6 @@ if ($answer -eq 'Y') {
   Write-Host "Local version matches GitHub. Build source commit: $localSha" -ForegroundColor Green
 }
 
-# Keep the existing build body below this synchronization section.
-# The repository's normal release-build commands are intentionally not replaced here.
 Write-Host ''
 Write-Host 'Starting Android release build...' -ForegroundColor Cyan
 $buildExitCode = 0
