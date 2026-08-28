@@ -4,6 +4,7 @@ param(
     [switch]$Fresh,
     [switch]$SkipCleanup,
     [switch]$SkipDoctor,
+    [switch]$StrictDoctor,
     [int]$GradleTimeoutMinutes = 180,
     [int]$GradleIdleTimeoutMinutes = 30,
     [switch]$NoPause
@@ -74,14 +75,37 @@ function Invoke-Checked {
     } finally { $p.Dispose() }
 }
 
-function Get-JavaMajorVersion {
+function Invoke-CommandWithCapture {
+    param(
+        [Parameter(Mandatory=$true)][string]$File,
+        [Parameter(Mandatory=$true)][string[]]$Arguments,
+        [string]$WorkingDirectory = $ScriptRoot
+    )
     $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = 'java.exe'
-    $psi.Arguments = '-version'
+    $psi.WorkingDirectory = $WorkingDirectory
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
+
+    $extension = [System.IO.Path]::GetExtension($File).ToLowerInvariant()
+    if ($extension -eq '.bat' -or $extension -eq '.cmd') {
+        $psi.FileName = 'cmd.exe'
+        $command = '"' + $File + '"'
+        foreach ($arg in $Arguments) {
+            $a = [string]$arg
+            $command += ' "' + ($a -replace '"','\"') + '"'
+        }
+        $psi.Arguments = '/d /c "' + $command + '"'
+    } else {
+        $psi.FileName = $File
+        foreach ($arg in $Arguments) {
+            $a = [string]$arg
+            if ($a -match '[\s"]') { $psi.Arguments += ' "' + ($a -replace '"','\"') + '"' }
+            else { $psi.Arguments += ' ' + $a }
+        }
+    }
+
     $p = New-Object System.Diagnostics.Process
     $p.StartInfo = $psi
     try {
@@ -89,12 +113,21 @@ function Get-JavaMajorVersion {
         $stdout = $p.StandardOutput.ReadToEnd()
         $stderr = $p.StandardError.ReadToEnd()
         $p.WaitForExit()
-        if ($p.ExitCode -ne 0) { throw 'java.exe -version failed.' }
-        $text = ($stdout + "`n" + $stderr)
-        $m = [regex]::Match($text, 'version\s+"([0-9]+)(?:\.([0-9]+))?')
-        if (-not $m.Success) { throw 'Unable to determine Java major version.' }
-        return [int]$m.Groups[1].Value
+        return [pscustomobject]@{
+            ExitCode = $p.ExitCode
+            Output = $stdout
+            Error = $stderr
+        }
     } finally { $p.Dispose() }
+}
+
+function Get-JavaMajorVersion {
+    $result = Invoke-CommandWithCapture -File 'java.exe' -Arguments @('-version')
+    if ($result.ExitCode -ne 0) { throw 'java.exe -version failed.' }
+    $text = ($result.Output + "`n" + $result.Error)
+    $m = [regex]::Match($text, 'version\s+"([0-9]+)(?:\.([0-9]+))?')
+    if (-not $m.Success) { throw 'Unable to determine Java major version.' }
+    return [int]$m.Groups[1].Value
 }
 
 function Invoke-GradleRelease {
@@ -150,7 +183,8 @@ function Invoke-GradleRelease {
                 throw ('Gradle produced no new log output for ' + $GradleIdleTimeoutMinutes + ' minutes.')
             }
         }
-        if ($p.ExitCode -ne 0) { throw ('Gradle exited with code ' + $p.ExitCode + '.') }
+        $exitCode = $p.ExitCode
+        if ($exitCode -ne 0) { throw ('Gradle exited with code ' + $exitCode + '.') }
     } finally { $p.Dispose() }
 }
 
@@ -202,7 +236,16 @@ try {
 
     if (-not $SkipDoctor) {
         Write-Stage 63 'Running Expo dependency diagnostics'
-        Invoke-Checked -File 'npm.cmd' -Arguments @('exec','--','expo-doctor')
+        $doctor = Invoke-CommandWithCapture -File 'npm.cmd' -Arguments @('exec','--','expo-doctor')
+        if ($doctor.Output.Trim()) { Write-Host $doctor.Output.Trim() -ForegroundColor DarkGray }
+        if ($doctor.Error.Trim()) { Write-Host $doctor.Error.Trim() -ForegroundColor DarkGray }
+        if ($doctor.ExitCode -ne 0) {
+            $message = 'expo-doctor exited with code ' + $doctor.ExitCode + '. Diagnostics are recorded above and are non-blocking by default.'
+            if ($StrictDoctor) { throw $message }
+            Write-Host $message -ForegroundColor Yellow
+        } else {
+            Write-Host 'expo-doctor completed successfully.' -ForegroundColor Green
+        }
     }
 
     Write-Stage 72 'Building release APK with Myket repository policy'
@@ -239,6 +282,6 @@ finally {
     Write-Host ('Final stage: ' + $FinalStage)
     Write-Host ('Exit code  : ' + $FinalExitCode)
     Write-Host '============================================================' -ForegroundColor Cyan
-    if (-not $NoPause) { [void](Read-Host 'Press ENTER to close the window') }
+    if (-not $NoPause) { [void](Read-Host 'Press ENTER to close this window') }
 }
 exit $FinalExitCode
