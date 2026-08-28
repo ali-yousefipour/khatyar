@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 [CmdletBinding()]
 param(
   [switch]$Fresh,
@@ -13,25 +13,15 @@ Set-Location $PSScriptRoot
 $RepoRoot = $PSScriptRoot
 $Remote = 'origin'
 $Branch = 'main'
-$CoreCommit = '8579240a157240b7a327ef0599682114db72a419'
-$CoreUrl = "https://raw.githubusercontent.com/ali-yousefipour/khatyar/$CoreCommit/mobile/build-release.ps1"
-$CorePath = Join-Path $RepoRoot '.build-runtime-build-release.ps1'
 $StashCreated = $false
 $StashMessage = "khatyar-build-autostash-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+$BackupBranch = $null
 
 function Invoke-Git {
   param([Parameter(Mandatory=$true)][string[]]$Arguments)
-  # Native git writes normal progress messages such as "From https://..." to stderr.
-  # Do not let PowerShell's ErrorActionPreference=Stop interpret that normal output as a terminating error.
-  $previousErrorActionPreference = $ErrorActionPreference
-  try {
-    $ErrorActionPreference = 'Continue'
-    $output = @(& git.exe @Arguments 2>&1)
-    $code = $LASTEXITCODE
-    return [pscustomobject]@{ Output=$output; ExitCode=$code }
-  } finally {
-    $ErrorActionPreference = $previousErrorActionPreference
-  }
+  $output = & git @Arguments 2>&1
+  $code = $LASTEXITCODE
+  return [pscustomobject]@{ Output=@($output); ExitCode=$code }
 }
 
 function Fail-Sync {
@@ -51,6 +41,21 @@ function Get-RefSha {
   $r = Invoke-Git @('rev-parse',$Ref)
   if ($r.ExitCode -ne 0) { return $null }
   return ((@($r.Output) -join '').Trim())
+}
+
+function Restore-WorkSafely {
+  if ($StashCreated) {
+    Write-Host ''
+    Write-Host 'Restoring local uncommitted changes...' -ForegroundColor Yellow
+    $pop = Invoke-Git @('stash','pop')
+    if ($pop.ExitCode -ne 0) {
+      Write-Host 'WARNING: Local changes could not be automatically restored. The stash was preserved by Git; run "git stash list" to recover them.' -ForegroundColor Red
+      return $false
+    }
+    Write-Host 'Local changes restored successfully.' -ForegroundColor Green
+    $script:StashCreated = $false
+  }
+  return $true
 }
 
 if (-not (Get-Command git.exe -ErrorAction SilentlyContinue)) {
@@ -85,51 +90,51 @@ if ([string]::IsNullOrWhiteSpace($localSha) -or [string]::IsNullOrWhiteSpace($re
 }
 
 if ($answer -eq 'Y') {
-  $cleanBefore = Get-GitStatusClean
-  if (-not $cleanBefore) {
-    Write-Host 'Local uncommitted changes detected. Stashing them temporarily before GitHub synchronization...' -ForegroundColor Yellow
+  # Preserve ALL local work before making GitHub the exact build source.
+  if (-not (Get-GitStatusClean)) {
+    Write-Host 'Local uncommitted changes detected. Stashing them temporarily...' -ForegroundColor Yellow
     $stash = Invoke-Git @('stash','push','-u','-m',$StashMessage)
     if ($stash.ExitCode -ne 0) {
       Fail-Sync ('Unable to safely stash local changes: ' + ($stash.Output -join ' '))
     }
     $StashCreated = $true
-    Write-Host 'Local changes were safely stashed.' -ForegroundColor Green
+    Write-Host 'Local uncommitted changes were safely stashed.' -ForegroundColor Green
   }
 
+  # Preserve local-only commits on a temporary backup branch before aligning with GitHub.
   $localSha = Get-RefSha 'HEAD'
   $remoteSha = Get-RefSha "$Remote/$Branch"
-  $base = Invoke-Git @('merge-base','HEAD',"$Remote/$Branch")
-  if ($base.ExitCode -ne 0) {
-    if ($StashCreated) { & git.exe stash pop 2>&1 | Out-Null }
-    Fail-Sync 'Unable to compare the local branch with GitHub.'
-  }
-  $mergeBase = ((@($base.Output) -join '').Trim())
-
   if ($localSha -ne $remoteSha) {
-    if ($mergeBase -eq $localSha) {
-      Write-Host 'Local branch is behind GitHub. Pulling latest files with fast-forward only...' -ForegroundColor Cyan
-      $pull = Invoke-Git @('pull','--ff-only',$Remote,$Branch)
-      if ($pull.ExitCode -ne 0) {
-        if ($StashCreated) { & git.exe stash pop 2>&1 | Out-Null }
-        Fail-Sync ('GitHub pull failed: ' + ($pull.Output -join ' '))
-      }
-    } elseif ($mergeBase -eq $remoteSha) {
-      if ($StashCreated) { & git.exe stash pop 2>&1 | Out-Null }
-      Fail-Sync 'Local branch contains commits that are not on GitHub. Push or reconcile the local commits before building.'
-    } else {
-      if ($StashCreated) { & git.exe stash pop 2>&1 | Out-Null }
-      Fail-Sync 'Local branch and GitHub have diverged. Reconcile the branches before building.'
+    $backupName = "build-backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    $backup = Invoke-Git @('branch',$backupName,'HEAD')
+    if ($backup.ExitCode -ne 0) {
+      if ($StashCreated) { [void](Restore-WorkSafely) }
+      Fail-Sync ('Unable to create a backup branch for local commits: ' + ($backup.Output -join ' '))
+    }
+    $BackupBranch = $backupName
+    Write-Host "Local commits preserved on backup branch: $BackupBranch" -ForegroundColor Yellow
+
+    # GitHub is the source of truth when Y is selected.
+    $reset = Invoke-Git @('reset','--hard',"$Remote/$Branch")
+    if ($reset.ExitCode -ne 0) {
+      [void](Restore-WorkSafely)
+      Fail-Sync ('Unable to synchronize local files to GitHub: ' + ($reset.Output -join ' '))
     }
   }
 
   $localSha = Get-RefSha 'HEAD'
   $remoteSha = Get-RefSha "$Remote/$Branch"
   if ($localSha -ne $remoteSha) {
-    if ($StashCreated) { & git.exe stash pop 2>&1 | Out-Null }
+    [void](Restore-WorkSafely)
     Fail-Sync "Synchronization verification failed. Local=$localSha GitHub=$remoteSha"
   }
 
-  Write-Host "GitHub synchronization verified. Commit: $localSha" -ForegroundColor Green
+  if (-not (Get-GitStatusClean)) {
+    [void](Restore-WorkSafely)
+    Fail-Sync 'Working tree is not clean after GitHub synchronization.'
+  }
+
+  Write-Host "GitHub synchronization verified. Build source commit: $localSha" -ForegroundColor Green
 } else {
   if ($localSha -ne $remoteSha) {
     Fail-Sync "Local version is not equal to GitHub. Local=$localSha GitHub=$remoteSha. Choose Y to download the latest files before building."
@@ -137,11 +142,22 @@ if ($answer -eq 'Y') {
   if (-not (Get-GitStatusClean)) {
     Fail-Sync 'Local uncommitted changes are present. Choose Y so they can be safely stashed while the GitHub version is built.'
   }
-  Write-Host "Local version matches GitHub. Commit: $localSha" -ForegroundColor Green
+  Write-Host "Local version matches GitHub. Build source commit: $localSha" -ForegroundColor Green
 }
 
+$buildExitCode = 1
 try {
-  Write-Host 'Preparing the release build script...' -ForegroundColor Cyan
+  # The rest of the release build remains delegated to the repository's existing
+  # release implementation, while this wrapper owns synchronization and safety.
+  $CoreCommit = '423c392ace62a7a1eccfe7ff75c7ad96f8139496'
+  $CoreUrl = "https://raw.githubusercontent.com/ali-yousefipour/khatyar/$CoreCommit/mobile/build-release-core.ps1"
+  $CorePath = Join-Path $RepoRoot '.build-runtime-build-release-core.ps1'
+
+  if (Test-Path -LiteralPath $CorePath) {
+    Remove-Item -LiteralPath $CorePath -Force -ErrorAction SilentlyContinue
+  }
+
+  Write-Host 'Preparing the release build...' -ForegroundColor Cyan
   $ProgressPreference = 'SilentlyContinue'
   Invoke-WebRequest -Uri $CoreUrl -OutFile $CorePath -UseBasicParsing
   if (-not (Test-Path -LiteralPath $CorePath)) {
@@ -159,17 +175,11 @@ try {
   Write-Host "BUILD ERROR: $($_.Exception.Message)" -ForegroundColor Red
   $buildExitCode = 1
 } finally {
-  Remove-Item -LiteralPath $CorePath -Force -ErrorAction SilentlyContinue
-  if ($StashCreated) {
-    Write-Host ''
-    Write-Host 'Restoring local changes that were temporarily stashed before the build...' -ForegroundColor Yellow
-    $pop = Invoke-Git @('stash','pop')
-    if ($pop.ExitCode -ne 0) {
-      Write-Host 'WARNING: Local changes could not be automatically restored. The stash was preserved by Git; run "git stash list" to recover it.' -ForegroundColor Red
-      $buildExitCode = 1
-    } else {
-      Write-Host 'Local changes restored successfully.' -ForegroundColor Green
-    }
+  if ($CorePath -and (Test-Path -LiteralPath $CorePath)) {
+    Remove-Item -LiteralPath $CorePath -Force -ErrorAction SilentlyContinue
+  }
+  if (-not (Restore-WorkSafely)) {
+    $buildExitCode = 1
   }
 }
 
