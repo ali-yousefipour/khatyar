@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 // KhatYar dependency resolution policy:
-// 1) local Maven repository/cache
+// 1) local Maven repository
 // 2) Myket Maven mirror (primary Iranian mirror)
 // 3) Runflare Maven mirrors
 // 4) official Google / Maven Central / Gradle Plugin Portal fallbacks
@@ -15,13 +15,29 @@ const REPOS = [
   { name: 'RunflareGradlePlugins', url: 'https://mirror-maven.runflare.com/gradle-plugins/' },
 ];
 
-function repoSnippet(indent) {
+function repoSnippetGroovy(indent) {
   const lines = [`${indent}mavenLocal()`];
   for (const repo of REPOS) {
     lines.push(`${indent}maven {`);
     lines.push(`${indent}    name = "${repo.name}"`);
     lines.push(`${indent}    url = uri("${repo.url}")`);
     lines.push(`${indent}    metadataSources { gradleMetadata(); mavenPom(); artifact() }`);
+    lines.push(`${indent}}`);
+  }
+  return lines.join('\n') + '\n';
+}
+
+function repoSnippetKotlin(indent) {
+  const lines = [`${indent}mavenLocal()`];
+  for (const repo of REPOS) {
+    lines.push(`${indent}maven {`);
+    lines.push(`${indent}    name = "${repo.name}"`);
+    lines.push(`${indent}    url = uri("${repo.url}")`);
+    lines.push(`${indent}    metadataSources {`);
+    lines.push(`${indent}        gradleMetadata()`);
+    lines.push(`${indent}        mavenPom()`);
+    lines.push(`${indent}        artifact()`);
+    lines.push(`${indent}    }`);
     lines.push(`${indent}}`);
   }
   return lines.join('\n') + '\n';
@@ -54,43 +70,62 @@ function findBlock(source, name, startAt = 0) {
   return null;
 }
 
-function injectRepositories(source, block) {
+function injectRepositories(source, block, language) {
   const body = source.slice(block.open + 1, block.end - 1);
   if (body.includes(MARKER)) return source;
-  const insertion = `\n    // ${MARKER}: local -> Myket -> Runflare -> official repositories.\n${repoSnippet('    ')}`;
+  const indent = language === 'kotlin' ? '    ' : '    ';
+  const snippet = language === 'kotlin' ? repoSnippetKotlin(indent) : repoSnippetGroovy(indent);
+  const insertion = `\n    // ${MARKER}: local -> Myket -> Runflare -> official repositories.\n${snippet}`;
   return source.slice(0, block.open + 1) + insertion + source.slice(block.open + 1);
 }
 
-function ensureRepositories(source, parentName) {
+function ensureRepositories(source, parentName, language) {
   const parent = findBlock(source, parentName);
   if (!parent) return source;
   const repositories = findBlock(source, 'repositories', parent.open + 1);
-  if (repositories && repositories.start < parent.end) return injectRepositories(source, repositories);
-  const block = `\n  repositories {\n    // ${MARKER}: local -> Myket -> Runflare -> official repositories.\n${repoSnippet('    ')}    google()\n    mavenCentral()\n${parentName === 'pluginManagement' ? '    gradlePluginPortal()\n' : ''}  }\n`;
+  if (repositories && repositories.start < parent.end) return injectRepositories(source, repositories, language);
+  const snippet = language === 'kotlin' ? repoSnippetKotlin('    ') : repoSnippetGroovy('    ');
+  const block = `\n  repositories {\n    // ${MARKER}: local -> Myket -> Runflare -> official repositories.\n${snippet}    google()\n    mavenCentral()\n${parentName === 'pluginManagement' ? '    gradlePluginPortal()\n' : ''}  }\n`;
   return source.slice(0, parent.open + 1) + block + source.slice(parent.open + 1);
 }
 
-function ensureTopLevelRepositories(source) {
+function ensureTopLevelRepositories(source, language) {
   if (source.includes(MARKER)) return source;
   const match = /^repositories\s*\{/m.exec(source);
   if (match) {
     const block = findBlock(source, 'repositories', match.index);
-    if (block && block.start === match.index) return injectRepositories(source, block);
+    if (block && block.start === match.index) return injectRepositories(source, block, language);
   }
-  const insertion = `// ${MARKER}: local -> Myket -> Runflare -> official repositories.\nrepositories {\n${repoSnippet('  ')}  google()\n  mavenCentral()\n}\n\n`;
+  const snippet = language === 'kotlin' ? repoSnippetKotlin('  ') : repoSnippetGroovy('  ');
+  const insertion = `// ${MARKER}: local -> Myket -> Runflare -> official repositories.\nrepositories {\n${snippet}  google()\n  mavenCentral()\n}\n\n`;
   return insertion + source;
+}
+
+function ensureDependencyResolutionManagement(source, language) {
+  const parent = findBlock(source, 'dependencyResolutionManagement');
+  if (!parent) return source;
+  const repositories = findBlock(source, 'repositories', parent.open + 1);
+  if (repositories && repositories.start < parent.end) return injectRepositories(source, repositories, language);
+  const snippet = language === 'kotlin' ? repoSnippetKotlin('    ') : repoSnippetGroovy('    ');
+  const block = `\n  repositories {\n    // ${MARKER}: local -> Myket -> Runflare -> official repositories.\n${snippet}    google()\n    mavenCentral()\n  }\n`;
+  return source.slice(0, parent.open + 1) + block + source.slice(parent.open + 1);
 }
 
 function patchGradleFile(file) {
   let source = fs.readFileSync(file, 'utf8');
   if (source.includes(MARKER)) return false;
   const name = path.basename(file).toLowerCase();
-  if (name.startsWith('settings.gradle')) source = ensureRepositories(source, 'pluginManagement');
-  else {
-    source = ensureRepositories(source, 'buildscript');
-    source = ensureRepositories(source, 'allprojects');
-    source = ensureTopLevelRepositories(source);
+  const language = name.endsWith('.kts') ? 'kotlin' : 'groovy';
+
+  if (name.startsWith('settings.gradle')) {
+    source = ensureRepositories(source, 'pluginManagement', language);
+    source = ensureDependencyResolutionManagement(source, language);
+  } else {
+    source = ensureRepositories(source, 'buildscript', language);
+    source = ensureRepositories(source, 'allprojects', language);
+    source = ensureTopLevelRepositories(source, language);
   }
+
   fs.writeFileSync(file, source.replace(/\r\n/g, '\n'), 'utf8');
   return true;
 }
@@ -124,16 +159,20 @@ function resolveAndroidDir(packageName, rootDir) {
 
 module.exports = function withAndroidMavenMirrors(config) {
   config = withSettingsGradle(config, (cfg) => {
-    cfg.modResults.contents = ensureRepositories(cfg.modResults.contents, 'pluginManagement');
+    let contents = cfg.modResults.contents;
+    const language = cfg.modResults.language === 'kotlin' ? 'kotlin' : 'groovy';
+    contents = ensureRepositories(contents, 'pluginManagement', language);
+    contents = ensureDependencyResolutionManagement(contents, language);
+    cfg.modResults.contents = contents;
     return cfg;
   });
 
   config = withProjectBuildGradle(config, (cfg) => {
-    if (cfg.modResults.language !== 'groovy') return cfg;
+    const language = cfg.modResults.language === 'kotlin' ? 'kotlin' : 'groovy';
     let contents = cfg.modResults.contents;
-    contents = ensureRepositories(contents, 'buildscript');
-    contents = ensureRepositories(contents, 'allprojects');
-    contents = ensureTopLevelRepositories(contents);
+    contents = ensureRepositories(contents, 'buildscript', language);
+    contents = ensureRepositories(contents, 'allprojects', language);
+    contents = ensureTopLevelRepositories(contents, language);
     cfg.modResults.contents = contents;
     return cfg;
   });
