@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 Set-Location $PSScriptRoot
 
-$RepoRoot = $PSScriptRoot
+$ScriptRoot = $PSScriptRoot
 $Remote = 'origin'
 $Branch = 'main'
 $StashCreated = $false
@@ -20,6 +20,7 @@ $BuildStart = Get-Date
 $CurrentStage = 'Initializing'
 $TotalStages = 8
 $StageIndex = 0
+$GitRepoRoot = $null
 
 function Invoke-Git {
   param([Parameter(Mandatory=$true)][string[]]$Arguments)
@@ -29,6 +30,7 @@ function Invoke-Git {
   $psi.CreateNoWindow = $true
   $psi.RedirectStandardOutput = $true
   $psi.RedirectStandardError = $true
+  $psi.WorkingDirectory = $ScriptRoot
   foreach ($arg in $Arguments) {
     $escaped = $arg -replace '(\\*)"', '$1$1\\"'
     $escaped = $escaped -replace '(\\+)$', '$1$1'
@@ -70,16 +72,17 @@ function Write-Stage {
 function Write-ProgressLine {
   param([int]$Percent, [string]$Activity, [string]$Status, [int]$SecondsRemaining = 0)
   $elapsed = (Get-Date) - $BuildStart
-  Write-Progress -Id 1 -Activity $Activity -Status $Status -PercentComplete ([math]::Min(100,[math]::Max(0,$Percent))) -SecondsRemaining ([math]::Max(0,$SecondsRemaining))
+  $safePercent = [math]::Min(100,[math]::Max(0,$Percent))
+  Write-Progress -Id 1 -Activity $Activity -Status $Status -PercentComplete $safePercent -SecondsRemaining ([math]::Max(0,$SecondsRemaining))
   $barWidth = 40
-  $filled = [math]::Floor($barWidth * $Percent / 100)
+  $filled = [int][math]::Floor($barWidth * $safePercent / 100)
   $bar = ('#' * $filled) + ('-' * ($barWidth - $filled))
   $eta = if ($SecondsRemaining -gt 0) { Format-Duration ([TimeSpan]::FromSeconds($SecondsRemaining)) } else { '--:--' }
-  Write-Host ("`r{0,3}% [{1}] {2} | Elapsed {3} | ETA {4}" -f $Percent,$bar,$Status,(Format-Duration $elapsed),$eta) -NoNewline
+  Write-Host ("`r{0,3}% [{1}] {2} | Elapsed {3} | ETA {4}" -f $safePercent,$bar,$Status,(Format-Duration $elapsed),$eta) -NoNewline
 }
 
 function Fail-Sync([string]$Message) {
-  Write-Progress -Id 1 -Activity 'Khatyar Android Release Build' -Completed
+  Write-Progress -Id 1 -Activity 'Khatyar Android Release Build' -Completed -ErrorAction SilentlyContinue
   Write-Host ''
   Write-Host ('BUILD STOPPED: ' + $Message) -ForegroundColor Red
   exit 1
@@ -114,13 +117,37 @@ function Restore-WorkSafely {
 
 if (-not (Get-Command git.exe -ErrorAction SilentlyContinue)) { Fail-Sync 'Git is not installed or is not available in PATH.' }
 
+# Resolve the actual Git repository root instead of assuming that the script
+# directory itself is the repository root. In this project the script lives in
+# mobile\ while the .git directory can be one level above it.
 $repoCheck = Invoke-Git @('rev-parse','--show-toplevel')
-if ($repoCheck.ExitCode -ne 0) { Fail-Sync 'This build directory is not inside a Git repository.' }
+if ($repoCheck.ExitCode -ne 0 -or @($repoCheck.Output).Count -eq 0) {
+  $candidate = $ScriptRoot
+  while ($candidate) {
+    if (Test-Path -LiteralPath (Join-Path $candidate '.git')) {
+      $GitRepoRoot = $candidate
+      break
+    }
+    $parent = Split-Path -Parent $candidate
+    if ([string]::IsNullOrWhiteSpace($parent) -or $parent -eq $candidate) { break }
+    $candidate = $parent
+  }
+  if ($GitRepoRoot) {
+    $repoCheck = Invoke-Git @('-C',$GitRepoRoot,'rev-parse','--show-toplevel')
+  }
+}
+if ($repoCheck.ExitCode -ne 0 -or @($repoCheck.Output).Count -eq 0) {
+  Fail-Sync ('This build directory is not inside a Git repository. Build path: ' + $ScriptRoot)
+}
+$GitRepoRoot = ((@($repoCheck.Output) -join '').Trim())
 
 Write-Host ''
 Write-Host '============================================================' -ForegroundColor Cyan
 Write-Host '       KHATYAR - ANDROID RELEASE BUILD' -ForegroundColor Cyan
 Write-Host '============================================================' -ForegroundColor Cyan
+Write-Host ''
+Write-Host ('Git repository: ' + $GitRepoRoot) -ForegroundColor DarkGray
+Write-Host ('Build directory: ' + $ScriptRoot) -ForegroundColor DarkGray
 Write-Host ''
 Write-Host 'Do you want to download the latest files from GitHub before building? (Y/N)' -ForegroundColor Yellow
 $answer = (Read-Host 'Download from GitHub').Trim().ToUpperInvariant()
@@ -151,6 +178,7 @@ if ($answer -eq 'Y') {
     if ($backup.ExitCode -ne 0) { [void](Restore-WorkSafely); Fail-Sync ('Unable to create backup branch: ' + (($backup.Output + $backup.Error) -join ' ')) }
     $script:BackupBranch = $backupName
     Write-Host ('Local commits preserved on backup branch: ' + $backupName) -ForegroundColor Yellow
+    Write-Host 'Synchronizing local branch with GitHub main...' -ForegroundColor Cyan
     $reset = Invoke-Git @('reset','--hard',($Remote + '/' + $Branch))
     if ($reset.ExitCode -ne 0) { [void](Restore-WorkSafely); Fail-Sync ('Unable to synchronize local files: ' + (($reset.Output + $reset.Error) -join ' ')) }
   }
@@ -166,15 +194,16 @@ if ($answer -eq 'Y') {
 }
 
 Write-Stage 'Checking Android build environment' 3
-$gradlew = Join-Path $RepoRoot 'android\gradlew.bat'
+$gradlew = Join-Path $ScriptRoot 'android\gradlew.bat'
 if (-not (Test-Path -LiteralPath $gradlew)) { Fail-Sync 'android\gradlew.bat was not found.' }
 
 Write-Stage 'Starting Gradle assembleRelease' 4
 $buildExitCode = 0
+$proc = $null
 try {
   $processInfo = New-Object System.Diagnostics.ProcessStartInfo
   $processInfo.FileName = $gradlew
-  $processInfo.WorkingDirectory = (Join-Path $RepoRoot 'android')
+  $processInfo.WorkingDirectory = (Join-Path $ScriptRoot 'android')
   $processInfo.UseShellExecute = $false
   $processInfo.CreateNoWindow = $false
   $processInfo.RedirectStandardOutput = $true
@@ -209,19 +238,20 @@ try {
   if ($stderr) { Write-Host $stderr -ForegroundColor DarkYellow }
   $proc.WaitForExit()
   $buildExitCode = $proc.ExitCode
-  $proc.Dispose()
 } catch {
   Write-Host ('BUILD ERROR: ' + $_.Exception.Message) -ForegroundColor Red
   $buildExitCode = 1
+} finally {
+  if ($proc) { $proc.Dispose() }
 }
 
 if ($buildExitCode -eq 0) {
   Write-ProgressLine 100 'Khatyar Android Release Build' 'Build completed' 0
-  Write-Progress -Id 1 -Activity 'Khatyar Android Release Build' -Completed
+  Write-Progress -Id 1 -Activity 'Khatyar Android Release Build' -Completed -ErrorAction SilentlyContinue
   Write-Host ''
   Write-Stage 'Release build completed successfully' 8
 } else {
-  Write-Progress -Id 1 -Activity 'Khatyar Android Release Build' -Completed
+  Write-Progress -Id 1 -Activity 'Khatyar Android Release Build' -Completed -ErrorAction SilentlyContinue
   Write-Host ''
   Write-Host 'ANDROID RELEASE BUILD FAILED.' -ForegroundColor Red
 }
