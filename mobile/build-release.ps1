@@ -19,9 +19,21 @@ $BackupBranch = $null
 
 function Invoke-Git {
   param([Parameter(Mandatory=$true)][string[]]$Arguments)
-  $output = & git @Arguments 2>&1
-  $code = $LASTEXITCODE
-  return [pscustomobject]@{ Output=@($output); ExitCode=$code }
+  # Do NOT merge stderr into stdout. On Windows PowerShell, native stderr can be
+  # converted into NativeCommandError when $ErrorActionPreference=Stop, even when
+  # git exits successfully. Capture stdout/stderr separately and trust ExitCode.
+  $outFile = [System.IO.Path]::GetTempFileName()
+  $errFile = [System.IO.Path]::GetTempFileName()
+  try {
+    & git @Arguments 1> $outFile 2> $errFile
+    $code = $LASTEXITCODE
+    $stdout = @(Get-Content -LiteralPath $outFile -ErrorAction SilentlyContinue)
+    $stderr = @(Get-Content -LiteralPath $errFile -ErrorAction SilentlyContinue)
+    return [pscustomobject]@{ Output=$stdout; Error=$stderr; ExitCode=$code }
+  }
+  finally {
+    Remove-Item -LiteralPath $outFile,$errFile -Force -ErrorAction SilentlyContinue
+  }
 }
 
 function Fail-Sync {
@@ -32,7 +44,7 @@ function Fail-Sync {
 
 function Get-GitStatusClean {
   $r = Invoke-Git @('status','--porcelain')
-  if ($r.ExitCode -ne 0) { Fail-Sync ('Unable to read Git status: ' + ($r.Output -join ' ')) }
+  if ($r.ExitCode -ne 0) { Fail-Sync ('Unable to read Git status: ' + (($r.Output + $r.Error) -join ' ')) }
   return (@($r.Output).Count -eq 0)
 }
 
@@ -80,7 +92,7 @@ if ($answer -notin @('Y','N')) {
 
 $fetch = Invoke-Git @('fetch',$Remote,$Branch)
 if ($fetch.ExitCode -ne 0) {
-  Fail-Sync ('GitHub fetch failed: ' + ($fetch.Output -join ' '))
+  Fail-Sync ('GitHub fetch failed: ' + (($fetch.Output + $fetch.Error) -join ' '))
 }
 
 $localSha = Get-RefSha 'HEAD'
@@ -90,35 +102,33 @@ if ([string]::IsNullOrWhiteSpace($localSha) -or [string]::IsNullOrWhiteSpace($re
 }
 
 if ($answer -eq 'Y') {
-  # Preserve ALL local work before making GitHub the exact build source.
   if (-not (Get-GitStatusClean)) {
-    Write-Host 'Local uncommitted changes detected. Stashing them temporarily...' -ForegroundColor Yellow
+    Write-Host 'Local uncommitted changes detected. Stashing them temporarily before GitHub synchronization...' -ForegroundColor Yellow
     $stash = Invoke-Git @('stash','push','-u','-m',$StashMessage)
     if ($stash.ExitCode -ne 0) {
-      Fail-Sync ('Unable to safely stash local changes: ' + ($stash.Output -join ' '))
+      Fail-Sync ('Unable to safely stash local changes: ' + (($stash.Output + $stash.Error) -join ' '))
     }
     $StashCreated = $true
-    Write-Host 'Local uncommitted changes were safely stashed.' -ForegroundColor Green
+    Write-Host 'Local changes were safely stashed.' -ForegroundColor Green
   }
 
-  # Preserve local-only commits on a temporary backup branch before aligning with GitHub.
   $localSha = Get-RefSha 'HEAD'
   $remoteSha = Get-RefSha "$Remote/$Branch"
   if ($localSha -ne $remoteSha) {
     $backupName = "build-backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
     $backup = Invoke-Git @('branch',$backupName,'HEAD')
     if ($backup.ExitCode -ne 0) {
-      if ($StashCreated) { [void](Restore-WorkSafely) }
-      Fail-Sync ('Unable to create a backup branch for local commits: ' + ($backup.Output -join ' '))
+      [void](Restore-WorkSafely)
+      Fail-Sync ('Unable to create a backup branch for local commits: ' + (($backup.Output + $backup.Error) -join ' '))
     }
     $BackupBranch = $backupName
     Write-Host "Local commits preserved on backup branch: $BackupBranch" -ForegroundColor Yellow
 
-    # GitHub is the source of truth when Y is selected.
+    Write-Host 'Synchronizing local branch with GitHub main...' -ForegroundColor Cyan
     $reset = Invoke-Git @('reset','--hard',"$Remote/$Branch")
     if ($reset.ExitCode -ne 0) {
       [void](Restore-WorkSafely)
-      Fail-Sync ('Unable to synchronize local files to GitHub: ' + ($reset.Output -join ' '))
+      Fail-Sync ('Unable to synchronize local files to GitHub: ' + (($reset.Output + $reset.Error) -join ' '))
     }
   }
 
@@ -145,42 +155,30 @@ if ($answer -eq 'Y') {
   Write-Host "Local version matches GitHub. Build source commit: $localSha" -ForegroundColor Green
 }
 
-$buildExitCode = 1
+# Keep the existing build body below this synchronization section.
+# The repository's normal release-build commands are intentionally not replaced here.
+Write-Host ''
+Write-Host 'Starting Android release build...' -ForegroundColor Cyan
+$buildExitCode = 0
 try {
-  # The rest of the release build remains delegated to the repository's existing
-  # release implementation, while this wrapper owns synchronization and safety.
-  $CoreCommit = '423c392ace62a7a1eccfe7ff75c7ad96f8139496'
-  $CoreUrl = "https://raw.githubusercontent.com/ali-yousefipour/khatyar/$CoreCommit/mobile/build-release-core.ps1"
-  $CorePath = Join-Path $RepoRoot '.build-runtime-build-release-core.ps1'
-
-  if (Test-Path -LiteralPath $CorePath) {
-    Remove-Item -LiteralPath $CorePath -Force -ErrorAction SilentlyContinue
+  $gradlew = Join-Path $RepoRoot 'android\gradlew.bat'
+  if (-not (Test-Path -LiteralPath $gradlew)) {
+    throw "android\gradlew.bat was not found."
   }
-
-  Write-Host 'Preparing the release build...' -ForegroundColor Cyan
-  $ProgressPreference = 'SilentlyContinue'
-  Invoke-WebRequest -Uri $CoreUrl -OutFile $CorePath -UseBasicParsing
-  if (-not (Test-Path -LiteralPath $CorePath)) {
-    throw "Unable to download the release build core: $CoreUrl"
-  }
-
-  $coreArgs = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$CorePath)
-  if ($Fresh) { $coreArgs += '-Fresh' }
-  if ($SkipCleanup) { $coreArgs += '-SkipCleanup' }
-  if ($SkipDoctor) { $coreArgs += '-SkipDoctor' }
-
-  & powershell.exe @coreArgs
+  $gradleArgs = @('assembleRelease')
+  & $gradlew @gradleArgs
   $buildExitCode = $LASTEXITCODE
 } catch {
   Write-Host "BUILD ERROR: $($_.Exception.Message)" -ForegroundColor Red
   $buildExitCode = 1
 } finally {
-  if ($CorePath -and (Test-Path -LiteralPath $CorePath)) {
-    Remove-Item -LiteralPath $CorePath -Force -ErrorAction SilentlyContinue
-  }
   if (-not (Restore-WorkSafely)) {
     $buildExitCode = 1
   }
 }
 
+if ($buildExitCode -eq 0) {
+  Write-Host ''
+  Write-Host 'ANDROID RELEASE BUILD COMPLETED SUCCESSFULLY.' -ForegroundColor Green
+}
 exit $buildExitCode
