@@ -2,11 +2,15 @@ const { withProjectBuildGradle, withSettingsGradle, withDangerousMod } = require
 const fs = require('fs');
 const path = require('path');
 
-// KhatYar dependency resolution policy:
+// KhatYar dependency-resolution policy:
 // 1) local Maven repository
-// 2) Myket Maven mirror (primary Iranian mirror)
-// 3) Runflare Maven mirrors (POM/artifact metadata only)
-// 4) official Google / Maven Central / Gradle Plugin Portal fallbacks
+// 2) Myket Maven mirror
+// 3) Runflare mirrors for groups that are safe to query
+// 4) official repositories
+//
+// Runflare is intentionally excluded for Expo/React Native coordinates because
+// the service has returned HTTP 500 for valid Expo POMs/artifacts. Repository
+// declaration order is not sufficient protection against a 5xx response.
 const MARKER = 'KHATYAR_ANDROID_MAVEN_MIRRORS';
 const REPOS = [
   { name: 'MyketMaven', url: 'https://maven.myket.ir/', allowGradleMetadata: true },
@@ -14,6 +18,24 @@ const REPOS = [
   { name: 'RunflareMaven', url: 'https://mirror-maven.runflare.com/maven2/', allowGradleMetadata: false },
   { name: 'RunflareGradlePlugins', url: 'https://mirror-maven.runflare.com/gradle-plugins/', allowGradleMetadata: false },
 ];
+
+function addRunflareContentGroovy(lines, indent) {
+  lines.push(`${indent}content {`);
+  lines.push(`${indent}    excludeGroupByRegex "expo\\\\.modules(\\\\..*)?"`);
+  lines.push(`${indent}    excludeGroup "host.exp.exponent"`);
+  lines.push(`${indent}    excludeGroupByRegex "com\\\\.facebook\\\\.react(\\\\..*)?"`);
+  lines.push(`${indent}    excludeGroupByRegex "com\\\\.facebook\\\\.fbjni(\\\\..*)?"`);
+  lines.push(`${indent}}`);
+}
+
+function addRunflareContentKotlin(lines, indent) {
+  lines.push(`${indent}content {`);
+  lines.push(`${indent}    excludeGroupByRegex("expo\\\\.modules(\\\\..*)?")`);
+  lines.push(`${indent}    excludeGroup("host.exp.exponent")`);
+  lines.push(`${indent}    excludeGroupByRegex("com\\\\.facebook\\\\.react(\\\\..*)?")`);
+  lines.push(`${indent}    excludeGroupByRegex("com\\\\.facebook\\\\.fbjni(\\\\..*)?")`);
+  lines.push(`${indent}}`);
+}
 
 function repoSnippetGroovy(indent) {
   const lines = [`${indent}mavenLocal()`];
@@ -24,9 +46,8 @@ function repoSnippetGroovy(indent) {
     if (repo.allowGradleMetadata) {
       lines.push(`${indent}    metadataSources { gradleMetadata(); mavenPom(); artifact() }`);
     } else {
-      // Runflare currently returns HTTP 500 for some .module requests (notably
-      // Expo modules). POM/artifact metadata remains usable as a fallback.
       lines.push(`${indent}    metadataSources { mavenPom(); artifact() }`);
+      addRunflareContentGroovy(lines, `${indent}    `);
     }
     lines.push(`${indent}}`);
   }
@@ -44,6 +65,7 @@ function repoSnippetKotlin(indent) {
     lines.push(`${indent}        mavenPom()`);
     lines.push(`${indent}        artifact()`);
     lines.push(`${indent}    }`);
+    if (!repo.allowGradleMetadata) addRunflareContentKotlin(lines, `${indent}    `);
     lines.push(`${indent}}`);
   }
   return lines.join('\n') + '\n';
@@ -81,7 +103,7 @@ function injectRepositories(source, block, language) {
   if (body.includes(MARKER)) return source;
   const indent = '    ';
   const snippet = language === 'kotlin' ? repoSnippetKotlin(indent) : repoSnippetGroovy(indent);
-  const insertion = `\n    // ${MARKER}: local -> Myket -> Runflare -> official repositories.\n${snippet}`;
+  const insertion = `\n    // ${MARKER}: local -> Myket -> filtered Runflare -> official repositories.\n${snippet}`;
   return source.slice(0, block.open + 1) + insertion + source.slice(block.open + 1);
 }
 
@@ -91,7 +113,7 @@ function ensureRepositories(source, parentName, language) {
   const repositories = findBlock(source, 'repositories', parent.open + 1);
   if (repositories && repositories.start < parent.end) return injectRepositories(source, repositories, language);
   const snippet = language === 'kotlin' ? repoSnippetKotlin('    ') : repoSnippetGroovy('    ');
-  const block = `\n  repositories {\n    // ${MARKER}: local -> Myket -> Runflare -> official repositories.\n${snippet}    google()\n    mavenCentral()\n${parentName === 'pluginManagement' ? '    gradlePluginPortal()\n' : ''}  }\n`;
+  const block = `\n  repositories {\n    // ${MARKER}: local -> Myket -> filtered Runflare -> official repositories.\n${snippet}    google()\n    mavenCentral()\n${parentName === 'pluginManagement' ? '    gradlePluginPortal()\n' : ''}  }\n`;
   return source.slice(0, parent.open + 1) + block + source.slice(parent.open + 1);
 }
 
@@ -103,7 +125,7 @@ function ensureTopLevelRepositories(source, language) {
     if (block && block.start === match.index) return injectRepositories(source, block, language);
   }
   const snippet = language === 'kotlin' ? repoSnippetKotlin('  ') : repoSnippetGroovy('  ');
-  const insertion = `// ${MARKER}: local -> Myket -> Runflare -> official repositories.\nrepositories {\n${snippet}  google()\n  mavenCentral()\n}\n\n`;
+  const insertion = `// ${MARKER}: local -> Myket -> filtered Runflare -> official repositories.\nrepositories {\n${snippet}  google()\n  mavenCentral()\n}\n\n`;
   return insertion + source;
 }
 
@@ -113,7 +135,7 @@ function ensureDependencyResolutionManagement(source, language) {
   const repositories = findBlock(source, 'repositories', parent.open + 1);
   if (repositories && repositories.start < parent.end) return injectRepositories(source, repositories, language);
   const snippet = language === 'kotlin' ? repoSnippetKotlin('    ') : repoSnippetGroovy('    ');
-  const block = `\n  repositories {\n    // ${MARKER}: local -> Myket -> Runflare -> official repositories.\n${snippet}    google()\n    mavenCentral()\n  }\n`;
+  const block = `\n  repositories {\n    // ${MARKER}: local -> Myket -> filtered Runflare -> official repositories.\n${snippet}    google()\n    mavenCentral()\n  }\n`;
   return source.slice(0, parent.open + 1) + block + source.slice(parent.open + 1);
 }
 
@@ -194,7 +216,7 @@ module.exports = function withAndroidMavenMirrors(config) {
       patchTree(path.join(mainAndroid, 'expo-gradle-plugin')),
       patchTree(path.join(mainAndroid, 'gradle-plugin')),
     ].reduce((sum, value) => sum + value, 0);
-    console.log(`[withAndroidMavenMirrors] patched ${changed} generated Gradle file(s): local -> Myket -> Runflare(POM/artifact) -> official.`);
+    console.log(`[withAndroidMavenMirrors] patched ${changed} generated Gradle file(s): local -> Myket -> filtered Runflare(POM/artifact) -> official.`);
     return cfg;
   }]);
 
