@@ -19,7 +19,7 @@ $StashMessage = 'khatyar-build-autostash-' + (Get-Date -Format 'yyyyMMdd-HHmmss'
 $BackupBranch = $null
 $BuildStart = Get-Date
 $CurrentStage = 'Initializing'
-$TotalStages = 9
+$TotalStages = 7
 $StageIndex = 0
 $GitRepoRoot = $null
 
@@ -53,101 +53,366 @@ function Write-BuildProgress {
 function Invoke-Git {
   param([Parameter(Mandatory=$true)][string[]]$Arguments)
   $psi = New-Object System.Diagnostics.ProcessStartInfo
-  $psi.FileName = 'git.exe'; $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true
-  $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.WorkingDirectory = $ScriptRoot
+  $psi.FileName = 'git.exe'
+  $psi.UseShellExecute = $false
+  $psi.CreateNoWindow = $true
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError = $true
+  $psi.WorkingDirectory = $ScriptRoot
   foreach ($arg in $Arguments) {
     $escaped = $arg -replace '(\\*)"', '$1$1\\"'
     $escaped = $escaped -replace '(\\+)$', '$1$1'
     $psi.Arguments += ' "' + $escaped + '"'
   }
-  $p = New-Object System.Diagnostics.Process; $p.StartInfo = $psi
-  try {
-    [void]$p.Start(); $stdout = $p.StandardOutput.ReadToEnd(); $stderr = $p.StandardError.ReadToEnd(); $p.WaitForExit()
-    return [pscustomobject]@{ Output=@($stdout -split "`r?`n" | Where-Object { $_ -ne '' }); Error=@($stderr -split "`r?`n" | Where-Object { $_ -ne '' }); ExitCode=$p.ExitCode }
-  } finally { $p.Dispose() }
-}
-
-function Invoke-Native {
-  param([Parameter(Mandatory=$true)][string]$FilePath,[Parameter(Mandatory=$true)][string[]]$Arguments,[string]$WorkingDirectory=$ScriptRoot)
-  $psi = New-Object System.Diagnostics.ProcessStartInfo
-  $psi.FileName=$FilePath; $psi.WorkingDirectory=$WorkingDirectory; $psi.UseShellExecute=$false; $psi.CreateNoWindow=$false
-  $psi.RedirectStandardOutput=$true; $psi.RedirectStandardError=$true
-  foreach ($arg in $Arguments) {
-    $escaped=$arg -replace '(\\*)"','$1$1\\"'; $escaped=$escaped -replace '(\\+)$','$1$1'; $psi.Arguments += ' "'+$escaped+'"'
-  }
-  $p=New-Object System.Diagnostics.Process; $p.StartInfo=$psi
+  $p = New-Object System.Diagnostics.Process
+  $p.StartInfo = $psi
   try {
     [void]$p.Start()
-    while(-not $p.HasExited){ if(-not $p.StandardOutput.EndOfStream){$line=$p.StandardOutput.ReadLine();if($line){Write-Host $line}}else{Start-Sleep -Milliseconds 100} }
-    while(-not $p.StandardOutput.EndOfStream){$line=$p.StandardOutput.ReadLine();if($line){Write-Host $line}}
-    $stderr=$p.StandardError.ReadToEnd();if($stderr){Write-Host $stderr -ForegroundColor DarkYellow};return $p.ExitCode
-  } finally {$p.Dispose()}
+    $stdout = $p.StandardOutput.ReadToEnd()
+    $stderr = $p.StandardError.ReadToEnd()
+    $p.WaitForExit()
+    return [pscustomobject]@{
+      Output = @($stdout -split "`r?`n" | Where-Object { $_ -ne '' })
+      Error = @($stderr -split "`r?`n" | Where-Object { $_ -ne '' })
+      ExitCode = $p.ExitCode
+    }
+  } finally {
+    $p.Dispose()
+  }
+}
+
+# Native commands used before Gradle are kept simple. Gradle itself uses the
+# asynchronous runner below because reading stdout then stderr synchronously
+# can deadlock when one redirected pipe becomes full on Windows.
+function Invoke-Native {
+  param(
+    [Parameter(Mandatory=$true)][string]$FilePath,
+    [Parameter(Mandatory=$true)][string[]]$Arguments,
+    [string]$WorkingDirectory = $ScriptRoot
+  )
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = $FilePath
+  $psi.WorkingDirectory = $WorkingDirectory
+  $psi.UseShellExecute = $false
+  $psi.CreateNoWindow = $false
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError = $true
+  foreach ($arg in $Arguments) {
+    $escaped = $arg -replace '(\\*)"','$1$1\\"'
+    $escaped = $escaped -replace '(\\+)$','$1$1'
+    $psi.Arguments += ' "' + $escaped + '"'
+  }
+  $p = New-Object System.Diagnostics.Process
+  $p.StartInfo = $psi
+  try {
+    [void]$p.Start()
+    while (-not $p.HasExited) {
+      while (-not $p.StandardOutput.EndOfStream) {
+        $line = $p.StandardOutput.ReadLine()
+        if ($line) { Write-Host $line }
+      }
+      while (-not $p.StandardError.EndOfStream) {
+        $line = $p.StandardError.ReadLine()
+        if ($line) { Write-Host $line -ForegroundColor DarkYellow }
+      }
+      Start-Sleep -Milliseconds 100
+    }
+    while (-not $p.StandardOutput.EndOfStream) { $line=$p.StandardOutput.ReadLine(); if($line){Write-Host $line} }
+    while (-not $p.StandardError.EndOfStream) { $line=$p.StandardError.ReadLine(); if($line){Write-Host $line -ForegroundColor DarkYellow} }
+    return $p.ExitCode
+  } finally {
+    $p.Dispose()
+  }
 }
 
 function Fail-Sync([string]$Message) {
   Write-Progress -Id 1 -Activity 'Khatyar Android Release Build' -Completed -ErrorAction SilentlyContinue
-  Write-Host ''; Write-Host ('BUILD STOPPED: '+$Message) -ForegroundColor Red; exit 1
+  Write-Host ''
+  Write-Host ('BUILD STOPPED: ' + $Message) -ForegroundColor Red
+  exit 1
 }
-function Get-GitStatusClean { $r=Invoke-Git @('status','--porcelain');if($r.ExitCode -ne 0){Fail-Sync ('Unable to read Git status: '+(($r.Output+$r.Error)-join ' '))};return (@($r.Output).Count -eq 0) }
-function Get-RefSha([string]$Ref) { $r=Invoke-Git @('rev-parse',$Ref);if($r.ExitCode -ne 0){return $null};return ((@($r.Output)-join '').Trim()) }
+
+function Get-GitStatusClean {
+  $r = Invoke-Git @('status','--porcelain')
+  if ($r.ExitCode -ne 0) { Fail-Sync ('Unable to read Git status: ' + (($r.Output + $r.Error) -join ' ')) }
+  return (@($r.Output).Count -eq 0)
+}
+
+function Get-RefSha([string]$Ref) {
+  $r = Invoke-Git @('rev-parse',$Ref)
+  if ($r.ExitCode -ne 0) { return $null }
+  return ((@($r.Output) -join '').Trim())
+}
+
 function Restore-WorkSafely {
-  if($script:StashCreated){Write-Host '';Write-Host 'Restoring local uncommitted changes...' -ForegroundColor Yellow;$pop=Invoke-Git @('stash','pop');if($pop.ExitCode -ne 0){Write-Host 'WARNING: The stash was preserved. Run git stash list to recover it.' -ForegroundColor Red;return $false};Write-Host 'Local changes restored successfully.' -ForegroundColor Green;$script:StashCreated=$false};return $true
+  if ($script:StashCreated) {
+    Write-Host ''
+    Write-Host 'Restoring local uncommitted changes...' -ForegroundColor Yellow
+    $pop = Invoke-Git @('stash','pop')
+    if ($pop.ExitCode -ne 0) {
+      Write-Host 'WARNING: The stash was preserved. Run git stash list to recover it.' -ForegroundColor Red
+      return $false
+    }
+    Write-Host 'Local changes restored successfully.' -ForegroundColor Green
+    $script:StashCreated = $false
+  }
+  return $true
 }
-function Test-CommandAvailable([string]$Name){return $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)}
 
-if(-not(Test-CommandAvailable 'git.exe')){Fail-Sync 'Git is not installed or is not available in PATH.'}
-$repoCheck=Invoke-Git @('rev-parse','--show-toplevel')
-if($repoCheck.ExitCode -ne 0 -or @($repoCheck.Output).Count -eq 0){$candidate=$ScriptRoot;while($candidate){if(Test-Path -LiteralPath (Join-Path $candidate '.git')){$GitRepoRoot=$candidate;break};$parent=Split-Path -Parent $candidate;if([string]::IsNullOrWhiteSpace($parent)-or $parent -eq $candidate){break};$candidate=$parent};if($GitRepoRoot){$repoCheck=Invoke-Git @('-C',$GitRepoRoot,'rev-parse','--show-toplevel')}}
-if($repoCheck.ExitCode -ne 0 -or @($repoCheck.Output).Count -eq 0){Fail-Sync ('This build directory is not inside a Git repository. Build path: '+$ScriptRoot)}
-$GitRepoRoot=((@($repoCheck.Output)-join '').Trim())
+function Test-CommandAvailable([string]$Name) {
+  return $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
+}
 
-Write-Host '';Write-Host '============================================================' -ForegroundColor Cyan;Write-Host '       KHATYAR - ANDROID RELEASE BUILD' -ForegroundColor Cyan;Write-Host '============================================================' -ForegroundColor Cyan;Write-Host '';Write-Host ('Git repository: '+$GitRepoRoot) -ForegroundColor DarkGray;Write-Host ('Build directory: '+$ScriptRoot) -ForegroundColor DarkGray;Write-Host '';Write-Host 'Do you want to download the latest files from GitHub before building? (Y/N)' -ForegroundColor Yellow
-$answer=(Read-Host 'Download from GitHub').Trim().ToUpperInvariant();if($answer -notin @('Y','N')){Fail-Sync 'Please answer Y or N.'}
+function Invoke-GradleRelease {
+  param(
+    [Parameter(Mandatory=$true)][string]$GradlewPath,
+    [Parameter(Mandatory=$true)][string]$WorkingDirectory,
+    [int]$IdleTimeoutMinutes = 10
+  )
+
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = $GradlewPath
+  $psi.WorkingDirectory = $WorkingDirectory
+  $psi.UseShellExecute = $false
+  $psi.CreateNoWindow = $false
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError = $true
+  $psi.Arguments = 'assembleRelease --console=plain --stacktrace --no-daemon'
+
+  $proc = New-Object System.Diagnostics.Process
+  $proc.StartInfo = $psi
+
+  # Concurrent queues prevent the classic Windows redirected stdout/stderr
+  # deadlock. Both streams are drained independently and continuously.
+  $stdoutQueue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[string]'
+  $stderrQueue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[string]'
+
+  $outHandler = [System.Diagnostics.DataReceivedEventHandler]{
+    param($sender,$e)
+    if ($null -ne $e.Data) { $stdoutQueue.Enqueue($e.Data) }
+  }
+  $errHandler = [System.Diagnostics.DataReceivedEventHandler]{
+    param($sender,$e)
+    if ($null -ne $e.Data) { $stderrQueue.Enqueue($e.Data) }
+  }
+
+  $proc.add_OutputDataReceived($outHandler)
+  $proc.add_ErrorDataReceived($errHandler)
+
+  $lastOutput = Get-Date
+  $lastTask = 'Gradle is initializing...'
+  $gradleStart = Get-Date
+  $expectedSeconds = 240
+  $exitCode = 1
+  $stalled = $false
+
+  try {
+    [void]$proc.Start()
+    $proc.BeginOutputReadLine()
+    $proc.BeginErrorReadLine()
+
+    while (-not $proc.HasExited) {
+      $hadOutput = $false
+      $line = $null
+      while ($stdoutQueue.TryDequeue([ref]$line)) {
+        $hadOutput = $true
+        $lastOutput = Get-Date
+        $text = $line.Trim()
+        if ($text) {
+          if ($text -match '^> Task\\s+(.+)$') { $lastTask = $Matches[1] }
+          elseif ($text -match '^> Configure project (.+)$') { $lastTask = 'Configure project ' + $Matches[1] }
+          elseif ($text -match '^> Configure project') { $lastTask = $text }
+          Write-Host ("`n    Gradle: " + $text) -ForegroundColor DarkGray
+        }
+      }
+      while ($stderrQueue.TryDequeue([ref]$line)) {
+        $hadOutput = $true
+        $lastOutput = Get-Date
+        $text = $line.Trim()
+        if ($text) { Write-Host ("`n    Gradle: " + $text) -ForegroundColor DarkYellow }
+      }
+
+      $elapsedSeconds = ((Get-Date) - $gradleStart).TotalSeconds
+      if ($elapsedSeconds -gt $expectedSeconds) {
+        $expectedSeconds = [math]::Max($expectedSeconds,[int]($elapsedSeconds * 1.20))
+      }
+      $percent = [math]::Min(99,[math]::Max(67,[int](67 + (($elapsedSeconds / $expectedSeconds) * 32))))
+      $eta = [math]::Max(0,[int]($expectedSeconds - $elapsedSeconds))
+      Write-BuildProgress $percent $lastTask $eta
+
+      $idleSeconds = ((Get-Date) - $lastOutput).TotalSeconds
+      if ($idleSeconds -ge ($IdleTimeoutMinutes * 60)) {
+        $stalled = $true
+        Write-Host ''
+        Write-Host ('Gradle produced no output for ' + [int]($idleSeconds / 60) + ' minute(s).') -ForegroundColor Red
+        Write-Host ('Last Gradle activity: ' + $lastTask) -ForegroundColor Yellow
+        Write-Host 'The build appears stalled. Gradle will be stopped safely.' -ForegroundColor Red
+        try { $proc.Kill() } catch {}
+        break
+      }
+      Start-Sleep -Milliseconds 250
+    }
+
+    # Wait briefly for asynchronous callbacks after process exit.
+    Start-Sleep -Milliseconds 300
+    $line = $null
+    while ($stdoutQueue.TryDequeue([ref]$line)) { if ($line) { Write-Host ("`n    Gradle: " + $line.Trim()) -ForegroundColor DarkGray } }
+    while ($stderrQueue.TryDequeue([ref]$line)) { if ($line) { Write-Host ("`n    Gradle: " + $line.Trim()) -ForegroundColor DarkYellow } }
+
+    if ($stalled) {
+      $exitCode = 124
+    } else {
+      $exitCode = $proc.ExitCode
+    }
+  } catch {
+    Write-Host ''
+    Write-Host ('Gradle process error: ' + $_.Exception.Message) -ForegroundColor Red
+    try { if (-not $proc.HasExited) { $proc.Kill() } } catch {}
+    $exitCode = 1
+  } finally {
+    try { $proc.CancelOutputRead() } catch {}
+    try { $proc.CancelErrorRead() } catch {}
+    $proc.remove_OutputDataReceived($outHandler)
+    $proc.remove_ErrorDataReceived($errHandler)
+    $proc.Dispose()
+  }
+
+  if ($stalled) {
+    Write-Host ''
+    Write-Host 'BUILD STOPPED: Gradle was idle beyond the configured timeout.' -ForegroundColor Red
+  }
+  return $exitCode
+}
+
+if (-not (Test-CommandAvailable 'git.exe')) { Fail-Sync 'Git is not installed or is not available in PATH.' }
+
+$repoCheck = Invoke-Git @('rev-parse','--show-toplevel')
+if ($repoCheck.ExitCode -ne 0 -or @($repoCheck.Output).Count -eq 0) {
+  $candidate = $ScriptRoot
+  while ($candidate) {
+    if (Test-Path -LiteralPath (Join-Path $candidate '.git')) { $GitRepoRoot = $candidate; break }
+    $parent = Split-Path -Parent $candidate
+    if ([string]::IsNullOrWhiteSpace($parent) -or $parent -eq $candidate) { break }
+    $candidate = $parent
+  }
+  if ($GitRepoRoot) { $repoCheck = Invoke-Git @('-C',$GitRepoRoot,'rev-parse','--show-toplevel') }
+}
+if ($repoCheck.ExitCode -ne 0 -or @($repoCheck.Output).Count -eq 0) {
+  Fail-Sync ('This build directory is not inside a Git repository. Build path: ' + $ScriptRoot)
+}
+$GitRepoRoot = ((@($repoCheck.Output) -join '').Trim())
+
+Write-Host ''
+Write-Host '============================================================' -ForegroundColor Cyan
+Write-Host '       KHATYAR - ANDROID RELEASE BUILD' -ForegroundColor Cyan
+Write-Host '============================================================' -ForegroundColor Cyan
+Write-Host ''
+Write-Host ('Git repository: ' + $GitRepoRoot) -ForegroundColor DarkGray
+Write-Host ('Build directory: ' + $ScriptRoot) -ForegroundColor DarkGray
+Write-Host ''
+Write-Host 'Do you want to download the latest files from GitHub before building? (Y/N)' -ForegroundColor Yellow
+$answer = (Read-Host 'Download from GitHub').Trim().ToUpperInvariant()
+if ($answer -notin @('Y','N')) { Fail-Sync 'Please answer Y or N.' }
 
 Write-Stage 'Fetching GitHub main branch' 1
-$fetch=Invoke-Git @('fetch',$Remote,$Branch);if($fetch.ExitCode -ne 0){Fail-Sync ('GitHub fetch failed: '+(($fetch.Output+$fetch.Error)-join ' '))}
-$localSha=Get-RefSha 'HEAD';$remoteSha=Get-RefSha ($Remote+'/'+$Branch);if([string]::IsNullOrWhiteSpace($localSha)-or[string]::IsNullOrWhiteSpace($remoteSha)){Fail-Sync 'Unable to determine local or GitHub commit SHA.'}
-if($answer -eq 'Y'){
+$fetch = Invoke-Git @('fetch',$Remote,$Branch)
+if ($fetch.ExitCode -ne 0) { Fail-Sync ('GitHub fetch failed: ' + (($fetch.Output + $fetch.Error) -join ' ')) }
+$localSha = Get-RefSha 'HEAD'
+$remoteSha = Get-RefSha ($Remote + '/' + $Branch)
+if ([string]::IsNullOrWhiteSpace($localSha) -or [string]::IsNullOrWhiteSpace($remoteSha)) { Fail-Sync 'Unable to determine local or GitHub commit SHA.' }
+
+if ($answer -eq 'Y') {
   Write-Stage 'Preparing local workspace' 2
-  if(-not(Get-GitStatusClean)){Write-Host 'Local uncommitted changes detected. Stashing temporarily...' -ForegroundColor Yellow;$stash=Invoke-Git @('stash','push','-u','-m',$StashMessage);if($stash.ExitCode -ne 0){Fail-Sync ('Unable to safely stash local changes: '+(($stash.Output+$stash.Error)-join ' '))};$script:StashCreated=$true;Write-Host 'Local changes safely stashed.' -ForegroundColor Green}
-  $localSha=Get-RefSha 'HEAD';$remoteSha=Get-RefSha ($Remote+'/'+$Branch)
-  if($localSha -ne $remoteSha){$backupName='build-backup-'+(Get-Date -Format 'yyyyMMdd-HHmmss');$backup=Invoke-Git @('branch',$backupName,'HEAD');if($backup.ExitCode -ne 0){[void](Restore-WorkSafely);Fail-Sync ('Unable to create backup branch: '+(($backup.Output+$backup.Error)-join ' '))};$script:BackupBranch=$backupName;Write-Host ('Local commits preserved on backup branch: '+$backupName) -ForegroundColor Yellow;Write-Host 'Synchronizing local branch with GitHub main...' -ForegroundColor Cyan;$reset=Invoke-Git @('reset','--hard',($Remote+'/'+$Branch));if($reset.ExitCode -ne 0){[void](Restore-WorkSafely);Fail-Sync ('Unable to synchronize local files: '+(($reset.Output+$reset.Error)-join ' '))}}
-  $localSha=Get-RefSha 'HEAD';$remoteSha=Get-RefSha ($Remote+'/'+$Branch);if($localSha -ne $remoteSha){[void](Restore-WorkSafely);Fail-Sync ('Synchronization verification failed. Local='+$localSha+' GitHub='+$remoteSha)};if(-not(Get-GitStatusClean)){[void](Restore-WorkSafely);Fail-Sync 'Working tree is not clean after synchronization.'};Write-Host ('GitHub synchronization verified. Source commit: '+$localSha) -ForegroundColor Green
-}else{if($localSha -ne $remoteSha){Fail-Sync ('Local version is not equal to GitHub. Local='+$localSha+' GitHub='+$remoteSha+'. Choose Y to download the latest files.')};if(-not(Get-GitStatusClean)){Fail-Sync 'Local uncommitted changes are present. Choose Y to safely stash them while building.'};Write-Host ('Local version matches GitHub. Source commit: '+$localSha) -ForegroundColor Green}
+  if (-not (Get-GitStatusClean)) {
+    Write-Host 'Local uncommitted changes detected. Stashing temporarily...' -ForegroundColor Yellow
+    $stash = Invoke-Git @('stash','push','-u','-m',$StashMessage)
+    if ($stash.ExitCode -ne 0) { Fail-Sync ('Unable to safely stash local changes: ' + (($stash.Output + $stash.Error) -join ' ')) }
+    $script:StashCreated = $true
+    Write-Host 'Local changes safely stashed.' -ForegroundColor Green
+  }
+  $localSha = Get-RefSha 'HEAD'
+  $remoteSha = Get-RefSha ($Remote + '/' + $Branch)
+  if ($localSha -ne $remoteSha) {
+    $backupName = 'build-backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
+    $backup = Invoke-Git @('branch',$backupName,'HEAD')
+    if ($backup.ExitCode -ne 0) { [void](Restore-WorkSafely); Fail-Sync ('Unable to create backup branch: ' + (($backup.Output + $backup.Error) -join ' ')) }
+    $script:BackupBranch = $backupName
+    Write-Host ('Local commits preserved on backup branch: ' + $backupName) -ForegroundColor Yellow
+    Write-Host 'Synchronizing local branch with GitHub main...' -ForegroundColor Cyan
+    $reset = Invoke-Git @('reset','--hard',($Remote + '/' + $Branch))
+    if ($reset.ExitCode -ne 0) { [void](Restore-WorkSafely); Fail-Sync ('Unable to synchronize local files: ' + (($reset.Output + $reset.Error) -join ' ')) }
+  }
+  $localSha = Get-RefSha 'HEAD'
+  $remoteSha = Get-RefSha ($Remote + '/' + $Branch)
+  if ($localSha -ne $remoteSha) { [void](Restore-WorkSafely); Fail-Sync ('Synchronization verification failed. Local=' + $localSha + ' GitHub=' + $remoteSha) }
+  if (-not (Get-GitStatusClean)) { [void](Restore-WorkSafely); Fail-Sync 'Working tree is not clean after synchronization.' }
+  Write-Host ('GitHub synchronization verified. Source commit: ' + $localSha) -ForegroundColor Green
+} else {
+  if ($localSha -ne $remoteSha) { Fail-Sync ('Local version is not equal to GitHub. Local=' + $localSha + ' GitHub=' + $remoteSha + '. Choose Y to download the latest files.') }
+  if (-not (Get-GitStatusClean)) { Fail-Sync 'Local uncommitted changes are present. Choose Y to safely stash them while building.' }
+  Write-Host ('Local version matches GitHub. Source commit: ' + $localSha) -ForegroundColor Green
+}
 
 Write-Stage 'Checking Node.js and npm environment' 3
-if(-not(Test-CommandAvailable 'node.exe')){Fail-Sync 'Node.js was not found in PATH.'};if(-not(Test-CommandAvailable 'npm.cmd')){Fail-Sync 'npm was not found in PATH.'}
-$packageJson=Join-Path $ScriptRoot 'package.json';$packageLock=Join-Path $ScriptRoot 'package-lock.json';if(-not(Test-Path -LiteralPath $packageJson)){Fail-Sync 'mobile/package.json was not found.'};if(-not(Test-Path -LiteralPath $packageLock)){Fail-Sync 'mobile/package-lock.json was not found.'}
-$nodeModules=Join-Path $ScriptRoot 'node_modules';$reactNativeGradlePlugin=Join-Path $nodeModules '@react-native\gradle-plugin';if(-not(Test-Path -LiteralPath $reactNativeGradlePlugin)){Write-Host 'React Native Gradle plugin is missing. Installing locked npm dependencies...' -ForegroundColor Yellow;$npmExit=Invoke-Native 'npm.cmd' @('ci','--no-audit','--no-fund') $ScriptRoot;if($npmExit -ne 0){Fail-Sync ('npm ci failed with exit code '+$npmExit+'.')}};if(-not(Test-Path -LiteralPath $reactNativeGradlePlugin)){Fail-Sync 'React Native Gradle plugin is still missing after npm ci.'}
+if (-not (Test-CommandAvailable 'node.exe')) { Fail-Sync 'Node.js was not found in PATH.' }
+if (-not (Test-CommandAvailable 'npm.cmd')) { Fail-Sync 'npm was not found in PATH.' }
+$packageJson = Join-Path $ScriptRoot 'package.json'
+$packageLock = Join-Path $ScriptRoot 'package-lock.json'
+if (-not (Test-Path -LiteralPath $packageJson)) { Fail-Sync 'mobile/package.json was not found.' }
+if (-not (Test-Path -LiteralPath $packageLock)) { Fail-Sync 'mobile/package-lock.json was not found.' }
+$nodeModules = Join-Path $ScriptRoot 'node_modules'
+$reactNativeGradlePlugin = Join-Path $nodeModules '@react-native\gradle-plugin'
+if (-not (Test-Path -LiteralPath $reactNativeGradlePlugin)) {
+  Write-Host 'React Native Gradle plugin is missing. Installing locked npm dependencies...' -ForegroundColor Yellow
+  $npmExit = Invoke-Native 'npm.cmd' @('ci','--no-audit','--no-fund') $ScriptRoot
+  if ($npmExit -ne 0) { Fail-Sync ('npm ci failed with exit code ' + $npmExit + '.') }
+}
+if (-not (Test-Path -LiteralPath $reactNativeGradlePlugin)) { Fail-Sync 'React Native Gradle plugin is still missing after npm ci.' }
 
 Write-Stage 'Validating and preparing Android Gradle project' 4
-$androidDir=Join-Path $ScriptRoot 'android';$gradlew=Join-Path $androidDir 'gradlew.bat';$settingsGradle=Join-Path $androidDir 'settings.gradle';if(-not(Test-Path -LiteralPath $gradlew)){Write-Host 'Android project is missing. Generating it with Expo prebuild...' -ForegroundColor Yellow;$prebuildExit=Invoke-Native 'npx.cmd' @('expo','prebuild','--platform','android') $ScriptRoot;if($prebuildExit -ne 0){Fail-Sync ('Expo prebuild failed with exit code '+$prebuildExit+'.')}};if(-not(Test-Path -LiteralPath $settingsGradle)){Fail-Sync 'android/settings.gradle was not found.'}
-$settingsText=Get-Content -LiteralPath $settingsGradle -Raw -Encoding UTF8;$requiredInclude="includeBuild('../node_modules/@react-native/gradle-plugin')";if(($settingsText -notmatch [regex]::Escape($requiredInclude))-and($settingsText -match 'com\.facebook\.react\.settings')){Write-Host 'React Native Gradle plugin includeBuild is missing from settings.gradle. Repairing it...' -ForegroundColor Yellow;$settingsText=$requiredInclude+"`r`n"+$settingsText;[System.IO.File]::WriteAllText($settingsGradle,$settingsText,(New-Object System.Text.UTF8Encoding($false)))};if($settingsText -match 'com\.facebook\.react\.settings' -and $settingsText -notmatch [regex]::Escape($requiredInclude)){Fail-Sync 'settings.gradle does not include the React Native Gradle plugin.'}
+$androidDir = Join-Path $ScriptRoot 'android'
+$gradlew = Join-Path $androidDir 'gradlew.bat'
+$settingsGradle = Join-Path $androidDir 'settings.gradle'
+if (-not (Test-Path -LiteralPath $gradlew)) {
+  Write-Host 'Android project is missing. Generating it with Expo prebuild...' -ForegroundColor Yellow
+  $prebuildExit = Invoke-Native 'npx.cmd' @('expo','prebuild','--platform','android') $ScriptRoot
+  if ($prebuildExit -ne 0) { Fail-Sync ('Expo prebuild failed with exit code ' + $prebuildExit + '.') }
+}
+if (-not (Test-Path -LiteralPath $settingsGradle)) { Fail-Sync 'android/settings.gradle was not found.' }
+$settingsText = Get-Content -LiteralPath $settingsGradle -Raw -Encoding UTF8
+$requiredInclude = "includeBuild('../node_modules/@react-native/gradle-plugin')"
+if (($settingsText -notmatch [regex]::Escape($requiredInclude)) -and ($settingsText -match 'com\.facebook\.react\.settings')) {
+  Write-Host 'React Native Gradle plugin includeBuild is missing from settings.gradle. Repairing it...' -ForegroundColor Yellow
+  $settingsText = $requiredInclude + "`r`n" + $settingsText
+  [System.IO.File]::WriteAllText($settingsGradle,$settingsText,(New-Object System.Text.UTF8Encoding($false)))
+}
 
 Write-Stage 'Checking Java and Gradle toolchain' 5
-if(-not(Test-CommandAvailable 'java.exe')){Fail-Sync 'Java was not found in PATH.'};$javaExit=Invoke-Native 'java.exe' @('-version') $ScriptRoot;if($javaExit -ne 0){Fail-Sync 'Java could not be executed.'}
+if (-not (Test-CommandAvailable 'java.exe')) { Fail-Sync 'Java was not found in PATH.' }
+$javaExit = Invoke-Native 'java.exe' @('-version') $ScriptRoot
+if ($javaExit -ne 0) { Fail-Sync 'Java could not be executed.' }
+if (-not (Test-Path -LiteralPath $gradlew)) { Fail-Sync 'android/gradlew.bat was not found.' }
 
 Write-Stage 'Starting Gradle assembleRelease' 6
-$buildExitCode=1;$gradleProc=$null;$lastOutput=Get-Date;$lastReportedTask='';$buildStart=Get-Date;$expectedSeconds=180;$stalled=$false
-try{
-  $psi=New-Object System.Diagnostics.ProcessStartInfo;$psi.FileName=$gradlew;$psi.WorkingDirectory=$androidDir;$psi.UseShellExecute=$false;$psi.CreateNoWindow=$false;$psi.RedirectStandardOutput=$true;$psi.RedirectStandardError=$true;$psi.Arguments='assembleRelease --console=plain --stacktrace'
-  $gradleProc=New-Object System.Diagnostics.Process;$gradleProc.StartInfo=$psi;[void]$gradleProc.Start()
-  while(-not $gradleProc.HasExited){
-    $readAny=$false
-    while(-not $gradleProc.StandardOutput.EndOfStream){$line=$gradleProc.StandardOutput.ReadLine();if($line){$readAny=$true;$lastOutput=Get-Date;$trim=$line.Trim();if($trim -match '^> Task\s+(.+)$'){$lastReportedTask=$Matches[1]};Write-Host ("`n    Gradle: "+$trim) -ForegroundColor DarkGray}}
-    while(-not $gradleProc.StandardError.EndOfStream){$err=$gradleProc.StandardError.ReadLine();if($err){$readAny=$true;$lastOutput=Get-Date;Write-Host ("`n    "+$err) -ForegroundColor DarkYellow}}
-    $elapsedSeconds=((Get-Date)-$buildStart).TotalSeconds
-    if($elapsedSeconds -gt $expectedSeconds){$expectedSeconds=[math]::Max($expectedSeconds,[int]($elapsedSeconds*1.25))}
-    $percent=[math]::Min(99,[math]::Max(67,[int](67+(($elapsedSeconds/$expectedSeconds)*32))))
-    $eta=[math]::Max(0,[int]($expectedSeconds-$elapsedSeconds));$status=if($lastReportedTask){$lastReportedTask}else{'Gradle is working...'};Write-BuildProgress $percent $status $eta
-    $silentMinutes=((Get-Date)-$lastOutput).TotalMinutes
-    if($silentMinutes -ge $GradleIdleTimeoutMinutes){$stalled=$true;Write-Host '';Write-Host ('Gradle produced no output for '+[int]$silentMinutes+' minutes.') -ForegroundColor Red;Write-Host ('Last Gradle task: '+$(if($lastReportedTask){$lastReportedTask}else{'unknown'})) -ForegroundColor Yellow;Write-Host 'The build appears stalled. Stopping Gradle to avoid an indefinite build.' -ForegroundColor Red;try{$gradleProc.Kill()}catch{};break}
-    Start-Sleep -Milliseconds 250
-  }
-  while(-not $gradleProc.StandardOutput.EndOfStream){$line=$gradleProc.StandardOutput.ReadLine();if($line){Write-Host $line}}
-  while(-not $gradleProc.StandardError.EndOfStream){$line=$gradleProc.StandardError.ReadLine();if($line){Write-Host $line -ForegroundColor DarkYellow}}
-  $gradleProc.WaitForExit();if(-not $stalled){$buildExitCode=$gradleProc.ExitCode}else{$buildExitCode=1}
-}catch{Write-Host ('BUILD ERROR: '+$_.Exception.Message) -ForegroundColor Red;$buildExitCode=1
-}finally{if($gradleProc){$gradleProc.Dispose()};[void](Restore-WorkSafely)}
+$buildExitCode = Invoke-GradleRelease -GradlewPath $gradlew -WorkingDirectory $androidDir -IdleTimeoutMinutes $GradleIdleTimeoutMinutes
 
-Write-Host '';Write-Host '============================================================' -ForegroundColor Cyan;if($buildExitCode -eq 0){Write-Host ' ANDROID RELEASE BUILD COMPLETED SUCCESSFULLY' -ForegroundColor Green}else{Write-Host ' ANDROID RELEASE BUILD FAILED' -ForegroundColor Red};Write-Host '============================================================' -ForegroundColor Cyan;Write-Host ('Total elapsed time : '+(Format-Duration ((Get-Date)-$BuildStart)));Write-Host ('Final stage        : '+$CurrentStage);Write-Host ('Source commit      : '+$localSha);if($BackupBranch){Write-Host ('Backup branch      : '+$BackupBranch)};Write-Host '============================================================' -ForegroundColor Cyan;exit $buildExitCode
+Write-Stage 'Finalizing build' 7
+if ($buildExitCode -eq 0) {
+  Write-Host ''
+  Write-Host 'ANDROID RELEASE BUILD COMPLETED SUCCESSFULLY.' -ForegroundColor Green
+} else {
+  Write-Host ''
+  Write-Host 'ANDROID RELEASE BUILD FAILED.' -ForegroundColor Red
+}
+
+$restoreOk = Restore-WorkSafely
+if (-not $restoreOk) { $buildExitCode = 1 }
+
+Write-Host ''
+Write-Host '============================================================' -ForegroundColor Cyan
+Write-Host (' Total elapsed time : ' + (Format-Duration ((Get-Date) - $BuildStart))) -ForegroundColor DarkGray
+Write-Host (' Final stage        : ' + $CurrentStage) -ForegroundColor DarkGray
+Write-Host (' Source commit      : ' + $localSha) -ForegroundColor DarkGray
+if ($BackupBranch) { Write-Host (' Backup branch      : ' + $BackupBranch) -ForegroundColor DarkGray }
+Write-Host '============================================================' -ForegroundColor Cyan
+exit $buildExitCode
