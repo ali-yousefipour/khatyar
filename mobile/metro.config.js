@@ -10,4 +10,7 @@ if (!config.resolver.assetExts.includes('wav')) {
   config.resolver.assetExts.push('wav');
 }
 
+// Use the Expo transformer, with the KhatYar source-safety guard for App.js.
+config.transformer.babelTransformerPath = require.resolve('./khatyar-metro-transformer');
+
 module.exports = config;
