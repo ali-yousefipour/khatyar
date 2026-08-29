@@ -194,8 +194,8 @@ try {
     Write-Host '============================================================' -ForegroundColor Cyan
     Write-Host ('Project: ' + $ScriptRoot)
 
-    # Today-only addition: validate/install the machine prerequisites first.
-    # The proven release pipeline below remains unchanged from bb71c7a.
+    # Added today: machine prerequisite preparation. The release pipeline below
+    # is the stable pipeline from bb71c7a and remains otherwise unchanged.
     Write-Stage 5 'Preparing and validating the complete build environment'
     $EnvironmentScript = Join-Path $ScriptRoot 'scripts\ensure-build-environment.ps1'
     if (-not (Test-Path -LiteralPath $EnvironmentScript)) { throw 'scripts\ensure-build-environment.ps1 is missing.' }
@@ -248,6 +248,7 @@ try {
     Invoke-Checked -File $Gradlew -Arguments @('--version') -WorkingDirectory $AndroidRoot
 
     if (-not $SkipDoctor) {
+        Write-Stage 63 'Running Expo dependency diagnostics'
         $doctor = Invoke-CommandWithCapture -File 'npm.cmd' -Arguments @('exec','--','expo-doctor')
         if ($doctor.Output.Trim()) { Write-Host $doctor.Output.Trim() -ForegroundColor DarkGray }
         if ($doctor.Error.Trim()) { Write-Host $doctor.Error.Trim() -ForegroundColor DarkGray }
@@ -255,6 +256,8 @@ try {
             $message = 'expo-doctor exited with code ' + $doctor.ExitCode + '. Diagnostics are recorded above and are non-blocking by default.'
             if ($StrictDoctor) { throw $message }
             Write-Host $message -ForegroundColor Yellow
+        } else {
+            Write-Host 'expo-doctor completed successfully.' -ForegroundColor Green
         }
     }
 
