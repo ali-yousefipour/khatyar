@@ -60,6 +60,43 @@ function assertContains(text, file, pattern, description) {
   if (!pattern.test(text)) fail(`${path.relative(root, file)} is missing ${description}.`);
 }
 
+/**
+ * React Native 0.86 includes an independent Gradle build under
+ * node_modules/@react-native/gradle-plugin. Its settings.gradle.kts asks
+ * Gradle to resolve the Foojay toolchain resolver from the Plugin Portal.
+ * KhatYar already supplies and validates JDK 17, so that auto-provisioning
+ * plugin is unnecessary for this release build.
+ *
+ * This patch is deliberately narrow: it removes only the Foojay plugin
+ * request from the generated RN included build. It does not change Expo,
+ * React Native, Gradle, AGP, Kotlin, or the main project's repositories.
+ */
+function patchReactNativeFoojayResolver() {
+  const file = path.join(root, 'node_modules', '@react-native', 'gradle-plugin', 'settings.gradle.kts');
+  if (!fs.existsSync(file)) {
+    fail('React Native Gradle plugin settings.gradle.kts was not found after Expo prebuild.');
+  }
+
+  const original = readUtf8(file);
+  const exact = /(^|\r?\n)([ \t]*)id\(["']org\.gradle\.toolchains\.foojay-resolver-convention["']\)\.version\(["']1\.0\.0["']\)[ \t]*(?=\r?$)/m;
+
+  if (exact.test(original)) {
+    const patched = original.replace(
+      exact,
+      '$1$2// KhatYar: JDK 17 is supplied by the build environment; Foojay auto-provisioning is disabled.\n'
+    );
+    fs.writeFileSync(file, patched, 'utf8');
+    console.log('[android-prebuild] Disabled React Native Foojay toolchain auto-provisioning (local JDK 17 is already configured).');
+    return;
+  }
+
+  if (/org\.gradle\.toolchains\.foojay-resolver-convention/.test(original)) {
+    fail('React Native Foojay resolver was found, but its expected version 1.0.0 declaration could not be patched safely.');
+  }
+
+  console.log('[android-prebuild] React Native Foojay toolchain resolver is already absent.');
+}
+
 const packageJson = readJson(path.join(root, 'package.json'));
 const expo = String(packageJson.dependencies?.expo || '');
 const reactNative = String(packageJson.dependencies?.['react-native'] || '');
@@ -73,6 +110,11 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 if (!fs.existsSync(path.join(root, 'node_modules'))) fail('node_modules is missing. Install dependencies before the Android prebuild.');
 
 run(npm, ['exec', '--', 'expo', 'prebuild', '--platform', 'android', '--clean']);
+
+// Expo --clean regenerates Android but leaves node_modules intact. Patch the
+// RN included build immediately after prebuild so every subsequent Gradle
+// invocation sees the deterministic local-JDK configuration.
+patchReactNativeFoojayResolver();
 
 if (!fs.existsSync(android)) fail('Expo prebuild did not create the android directory.');
 if (!fs.existsSync(wrapperProperties)) fail('Expo prebuild did not create gradle-wrapper.properties.');
@@ -111,13 +153,14 @@ if (/react-native-gradle-plugin:\s*['"]?\s*['"]/.test(build)) fail('React Native
 if (/kotlin-gradle-plugin:\s*['"]?\s*['"]/.test(build)) fail('Kotlin Gradle Plugin dependency has an empty version literal.');
 
 // Mirror policy is intentionally validated on the main generated Android
-// project only. Expo/RN included builds retain their upstream settings so their
-// composite plugin resolution cannot be broken by repository injection.
+// project only. Expo/RN included-build repositories remain upstream and are
+// not rewritten by the main-project mirror policy.
 if (!build.includes(MAVEN_MARKER) && !settings.includes(MAVEN_MARKER)) {
   fail('The generated Android project was not patched with the local/Myket/Runflare Maven mirror policy.');
 }
 
-console.log('[android-prebuild] Main Android project mirror policy validated. Expo/RN included-build plugin settings left untouched.');
+console.log('[android-prebuild] Main Android project mirror policy validated.');
+console.log('[android-prebuild] Expo/RN included-build repositories remain upstream; Foojay auto-provisioning disabled for local JDK 17.');
 console.log('[android-prebuild] Generated Android project passed structural compatibility checks.');
 console.log(`[android-prebuild] Expo SDK: ${expo}`);
 console.log(`[android-prebuild] React Native: ${reactNative}`);
