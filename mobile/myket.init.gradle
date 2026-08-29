@@ -1,0 +1,139 @@
+// KhatYar Gradle repository policy.
+// Resolution policy:
+//   1) Gradle's own local dependency cache (automatic) + local Maven/Expo repos
+//   2) Iranian Maven/Gradle mirrors
+//   3) non-Iranian mirrors
+//   4) official repositories as the final fallback
+//
+// Gradle checks its dependency cache before remote resolution, so this script
+// must not use --refresh-dependencies or otherwise defeat the local cache.
+
+final String myketUrl = 'https://maven.myket.ir/'
+final String jamkoUrl = 'https://jamko.ir/'
+final String itoUrl = 'https://repo-portal.ito.gov.ir/repo/'
+final String aliyunGoogleUrl = 'https://maven.aliyun.com/repository/google'
+final String aliyunPublicUrl = 'https://maven.aliyun.com/repository/public'
+final String aliyunGradlePluginUrl = 'https://maven.aliyun.com/repository/gradle-plugin'
+final String huaweiPublicUrl = 'https://repo.huaweicloud.com/repository/maven/'
+final String huaweiGoogleUrl = 'https://repo.huaweicloud.com/repository/maven-google/'
+
+def addMaven = { repos, name, urlString ->
+    if (repos.findByName(name) == null) {
+        repos.maven {
+            name = name
+            url = uri(urlString)
+            metadataSources { gradleMetadata(); mavenPom(); artifact() }
+        }
+    }
+}
+
+def findNodeModules = { settingsDir ->
+    File current = settingsDir
+    for (int i = 0; i < 8 && current != null; i++) {
+        File candidate = new File(current, 'node_modules')
+        if (candidate.isDirectory()) return candidate
+        current = current.parentFile
+    }
+    return null
+}
+
+def findLocalMavenRepos = { settingsDir ->
+    File root = findNodeModules(settingsDir)
+    if (root == null) return []
+    def result = []
+    root.eachFileRecurse { file ->
+        if (file.isDirectory() && file.name == 'local-maven-repo') result << file
+    }
+    return result
+}
+
+def addLocalExpoRepos = { repos, settingsDir ->
+    findLocalMavenRepos(settingsDir).eachWithIndex { localRepo, index ->
+        def relative = localRepo.absolutePath
+            .replaceAll('^[\\/]+', '')
+            .replaceAll('[^A-Za-z0-9_]+', '_')
+        def repoName = 'ExpoLocal_' + index + '_' + relative
+        if (repos.findByName(repoName) == null) {
+            repos.maven {
+                name = repoName
+                url = localRepo.toURI()
+                metadataSources { gradleMetadata(); mavenPom(); artifact() }
+            }
+        }
+    }
+}
+
+def addIranianRepos = { repos, includePluginPortal = false ->
+    addMaven(repos, 'MyketIran', myketUrl)
+    addMaven(repos, 'JamkoIran', jamkoUrl)
+    addMaven(repos, 'ITOMirrorIran', itoUrl)
+}
+
+def addNonIranianMirrors = { repos, includePluginPortal = false ->
+    addMaven(repos, 'AliyunGoogleMirror', aliyunGoogleUrl)
+    addMaven(repos, 'AliyunPublicMirror', aliyunPublicUrl)
+    if (includePluginPortal) addMaven(repos, 'AliyunGradlePluginMirror', aliyunGradlePluginUrl)
+    addMaven(repos, 'HuaweiGoogleMirror', huaweiGoogleUrl)
+    addMaven(repos, 'HuaweiPublicMirror', huaweiPublicUrl)
+}
+
+def addOfficialRepos = { repos, includePluginPortal = false ->
+    if (repos.findByName('Google') == null) repos.google()
+    if (repos.findByName('MavenCentral') == null) repos.mavenCentral()
+    if (includePluginPortal && repos.findByName('GradlePluginPortal') == null) repos.gradlePluginPortal()
+}
+
+def configureSettingsRepositories = { settings ->
+    try {
+        settings.dependencyResolutionManagement.repositories {
+            mavenLocal()
+            addLocalExpoRepos(delegate, settings.settingsDir)
+            addIranianRepos(delegate, false)
+            addNonIranianMirrors(delegate, false)
+            addOfficialRepos(delegate, false)
+        }
+    } catch (ignored) { }
+}
+
+beforeSettings { settings ->
+    settings.pluginManagement.repositories {
+        mavenLocal()
+        addLocalExpoRepos(delegate, settings.settingsDir)
+        addIranianRepos(delegate, true)
+        addNonIranianMirrors(delegate, true)
+        addOfficialRepos(delegate, true)
+    }
+    configureSettingsRepositories(settings)
+}
+
+gradle.settingsEvaluated { settings ->
+    configureSettingsRepositories(settings)
+    try {
+        settings.pluginManagement.repositories {
+            addLocalExpoRepos(delegate, settings.settingsDir)
+            addIranianRepos(delegate, true)
+            addNonIranianMirrors(delegate, true)
+            addOfficialRepos(delegate, true)
+        }
+    } catch (ignored) { }
+}
+
+beforeProject { project ->
+    def settingsDir = project.rootProject.projectDir
+    project.buildscript.repositories {
+        mavenLocal()
+        addLocalExpoRepos(delegate, settingsDir)
+        addIranianRepos(delegate, true)
+        addNonIranianMirrors(delegate, true)
+        addOfficialRepos(delegate, true)
+    }
+
+    try {
+        project.repositories {
+            addLocalExpoRepos(delegate, settingsDir)
+            addIranianRepos(delegate, false)
+            addNonIranianMirrors(delegate, false)
+            addOfficialRepos(delegate, false)
+        }
+    } catch (ignored) { }
+}
