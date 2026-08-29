@@ -1,7 +1,7 @@
 // KhatYar Gradle repository policy for Iran-network constrained environments.
-// Resolution order: local Maven -> Myket -> filtered Runflare -> official.
-// Expo/RN groups are excluded from Runflare because the mirror may return HTTP 500
-// for valid Expo/RN POM requests. Gradle can then continue to official repositories.
+// Critical rule: never route Expo/RN Gradle-plugin artifacts through Runflare's
+// gradle-plugins endpoint; it has returned HTTP 500 for valid Expo POMs.
+// Resolution order: local Maven -> Myket -> official Google/Maven Central -> filtered Runflare.
 
 ext.khatyarMirrorRepos = {
     mavenLocal()
@@ -10,6 +10,8 @@ ext.khatyarMirrorRepos = {
         url = uri('https://maven.myket.ir/')
         metadataSources { gradleMetadata(); mavenPom(); artifact() }
     }
+    google()
+    mavenCentral()
     maven {
         name = 'KhatYarRunflareGoogle'
         url = uri('https://mirror-maven.runflare.com/android/maven2/')
@@ -32,19 +34,6 @@ ext.khatyarMirrorRepos = {
             excludeGroupByRegex('com\\.facebook\\.fbjni(\\..*)?')
         }
     }
-    maven {
-        name = 'KhatYarRunflareGradlePlugins'
-        url = uri('https://mirror-maven.runflare.com/gradle-plugins/')
-        metadataSources { mavenPom(); artifact() }
-        content {
-            excludeGroupByRegex('expo\\.modules(\\..*)?')
-            excludeGroup('host.exp.exponent')
-            excludeGroupByRegex('com\\.facebook\\.react(\\..*)?')
-            excludeGroupByRegex('com\\.facebook\\.fbjni(\\..*)?')
-        }
-    }
-    google()
-    mavenCentral()
 }
 
 gradle.allprojects { project ->
@@ -72,4 +61,4 @@ gradle.settingsEvaluated { settings ->
     }
 }
 
-println '[khatyar-fast-init] local -> Myket -> filtered Runflare -> official; Expo/RN excluded from Runflare.'
+println '[khatyar-fast-init] local -> Myket -> Google/MavenCentral -> filtered Runflare; no Runflare gradle-plugins endpoint.'
