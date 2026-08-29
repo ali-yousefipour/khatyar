@@ -58,7 +58,7 @@ function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $false
     $psi.RedirectStandardError = $false
-    $command = '\"' + $Gradlew + '\" --init-script \"' + $InitScript + '\" ' + $Task + ' --console=plain --stacktrace --warning-mode=all'
+    $command = '"' + $Gradlew + '" --init-script "' + $InitScript + '" ' + $Task + ' --console=plain --stacktrace --warning-mode=all'
     $psi.Arguments = '/d /c "' + $command + ' > "' + $LogPath + '" 2>&1"'
     Write-Host ('> ' + $Gradlew + ' --init-script ' + $InitScript + ' ' + $Task) -ForegroundColor DarkGray
     $p = New-Object Diagnostics.Process
@@ -149,7 +149,7 @@ try {
     Stage 55 'Validating Java 17 and Gradle wrapper'
     $gv = Join-Path $env:TEMP ('khatyar-gradle-version-' + [guid]::NewGuid().ToString('N') + '.txt')
     try {
-        & cmd.exe /d /c ('\"' + $gradlew + '\" --version > \"' + $gv + '\" 2>&1')
+        & cmd.exe /d /c ('"' + $gradlew + '" --version > "' + $gv + '" 2>&1')
         $gradleVersionExit = $LASTEXITCODE
         $gradleVersionText = if(Test-Path -LiteralPath $gv){ Get-Content -LiteralPath $gv -Raw } else { '' }
     } finally {
@@ -168,7 +168,7 @@ try {
     $task = if($ArtifactType -eq 'AAB'){'bundleRelease'}else{'assembleRelease'}
     Stage 72 ('Building standard Android release ' + $ArtifactType)
     Write-Host '[khatyar-build] Maven: local Maven -> Myket -> Runflare -> official.' -ForegroundColor DarkGray
-    Write-Host '[khatyar-build] Gradle Wrapper: F:\\gradle-cache -> Myket -> Runflare -> official.' -ForegroundColor DarkGray
+    Write-Host '[khatyar-build] Gradle Wrapper: F:\gradle-cache -> Myket -> Runflare -> official.' -ForegroundColor DarkGray
     $logDir = Join-Path $android 'build\khatyar-build-logs'
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
     $logPath = Join-Path $logDir ($task + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
