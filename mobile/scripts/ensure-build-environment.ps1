@@ -16,7 +16,7 @@ $RequiredCompileSdk = 'android-36'
 $RequiredBuildTools = '36.0.0'
 $RequiredNdk = '27.1.12297006'
 $AndroidCmdlineZip = 'commandlinetools-win-15859902_latest.zip'
-$AndroidCmdlineSha256 = '90ae805d20434428bffcb699c290860f19bb5f66a67e3de801fb04a'
+$AndroidCmdlineSha256 = '90ae805d20434428bffcb699c290860f19bb5f66a67e6b330067e3de801fb04a'
 
 function Write-Stage([string]$Name) { Write-Host "`n[environment] $Name" -ForegroundColor Yellow }
 function Write-Ok([string]$Text) { Write-Host "[environment] $Text" -ForegroundColor Green }
