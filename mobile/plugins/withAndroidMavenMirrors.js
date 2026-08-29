@@ -12,19 +12,19 @@ const REPOS = [
 
 function addRunflareContentGroovy(lines, indent) {
   lines.push(`${indent}content {`);
-  lines.push(`${indent}    excludeGroupByRegex "expo\\\\.modules(\\\\..*)?"`);
+  lines.push(`${indent}    excludeGroupByRegex "expo\\.modules(\\..*)?"`);
   lines.push(`${indent}    excludeGroup "host.exp.exponent"`);
-  lines.push(`${indent}    excludeGroupByRegex "com\\\\.facebook\\\\.react(\\\\..*)?"`);
-  lines.push(`${indent}    excludeGroupByRegex "com\\\\.facebook\\\\.fbjni(\\\\..*)?"`);
+  lines.push(`${indent}    excludeGroupByRegex "com\\.facebook\\.react(\\..*)?"`);
+  lines.push(`${indent}    excludeGroupByRegex "com\\.facebook\\.fbjni(\\..*)?"`);
   lines.push(`${indent}}`);
 }
 
 function addRunflareContentKotlin(lines, indent) {
   lines.push(`${indent}content {`);
-  lines.push(`${indent}    excludeGroupByRegex("expo\\\\.modules(\\\\..*)?")`);
+  lines.push(`${indent}    excludeGroupByRegex("expo\\.modules(\\..*)?")`);
   lines.push(`${indent}    excludeGroup("host.exp.exponent")`);
-  lines.push(`${indent}    excludeGroupByRegex("com\\\\.facebook\\\\.react(\\\\..*)?")`);
-  lines.push(`${indent}    excludeGroupByRegex("com\\\\.facebook\\\\.fbjni(\\\\..*)?")`);
+  lines.push(`${indent}    excludeGroupByRegex("com\\.facebook\\.react(\\..*)?")`);
+  lines.push(`${indent}    excludeGroupByRegex("com\\.facebook\\.fbjni(\\..*)?")`);
   lines.push(`${indent}}`);
 }
 
