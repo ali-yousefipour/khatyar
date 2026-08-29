@@ -22,6 +22,7 @@ $AndroidMirrorCandidates = @(
   'https://mirrors.cloud.tencent.com/AndroidSDK/',
   'https://mirrors.huaweicloud.com/repository/toolkit/android/repository/'
 )
+$script:ActiveAndroidMirror = $null
 
 function Write-Stage([string]$Name) { Write-Host "`n[environment] $Name" -ForegroundColor Yellow }
 function Write-Ok([string]$Text) { Write-Host "[environment] $Text" -ForegroundColor Green }
@@ -262,7 +263,8 @@ function Bootstrap-AndroidCommandLineTools([string]$SdkRoot) {
 
 function Ensure-AndroidSdk {
   $sdk = Find-AndroidSdk
-  if (-not $sdk) { $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'; Bootstrap-AndroidCommandLineTools $sdk }
+  if (-not $sdk) { $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
+  New-Item -ItemType Directory -Force -Path $sdk | Out-Null
   $sdkManager = Find-SdkManager $sdk
   if (-not $sdkManager) { Bootstrap-AndroidCommandLineTools $sdk; $sdkManager = Find-SdkManager $sdk }
   if (-not $sdkManager) { throw "sdkmanager.bat was not found under $sdk." }
@@ -310,7 +312,7 @@ Write-Host '============================================================' -Foreg
 Write-Host '       KHATYAR - BUILD ENVIRONMENT PREPARATION' -ForegroundColor Cyan
 Write-Host '============================================================' -ForegroundColor Cyan
 Write-Host '[environment] Direct Google Android SDK access disabled; non-Google mirrors are preferred.' -ForegroundColor Cyan
-if (-not (Test-Winget)) { Write-Warn 'winget is not available. Direct Node/Android downloads will still work; missing JDK/Git cannot be installed automatically.' }
+if (-not (Test-Winget)) { Write-Warn 'winget is not available. Direct Node/Android downloads still work; missing JDK/Git cannot be installed automatically.' }
 $CiMode = $true
 Ensure-Node; Ensure-Jdk; Ensure-Git; Ensure-AndroidSdk; Ensure-NpmDependencies
 
