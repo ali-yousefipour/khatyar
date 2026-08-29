@@ -63,7 +63,7 @@ function Install-Node22Direct {
   Invoke-WebRequest -Uri ($base + 'SHASUMS256.txt') -OutFile $shaPath -UseBasicParsing -TimeoutSec 180
   $expected = $null
   foreach ($line in Get-Content -LiteralPath $shaPath) {
-    if ($line -match "^([0-9a-fA-F]{64})\s+\*?$([regex]::Escape($msi))$") { $expected = $Matches[1].ToLowerInvariant(); break }
+    if ($line -match "^([0-9a-fA-F]{64})\s+\*?$( [regex]::Escape($msi) )$".Replace('$( ','').Replace(' )','')) { $expected = $Matches[1].ToLowerInvariant(); break }
   }
   if (-not $expected) { throw "Could not find SHA-256 for $msi." }
   $actual = (Get-FileHash -LiteralPath $msiPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -84,10 +84,7 @@ function Ensure-Node {
   if ($cmd) {
     $raw = (& node.exe --version 2>$null).Trim()
     $m = [regex]::Match($raw, '^v(\d+)\.(\d+)\.(\d+)$')
-    if ($m.Success -and [int]$m.Groups[1].Value -eq $RequiredNodeMajor) {
-      Write-Ok "Node.js $raw detected."
-      return
-    }
+    if ($m.Success -and [int]$m.Groups[1].Value -eq $RequiredNodeMajor) { Write-Ok "Node.js $raw detected."; return }
     Write-Warn "Node.js $raw detected; Node.js 22.x is required."
   } else { Write-Warn 'Node.js is not installed.' }
   Install-Node22Direct
@@ -103,15 +100,8 @@ function Ensure-Jdk {
     if ($m.Success -and [int]$m.Groups[1].Value -eq $RequiredJdkMajor) { $ok = $true }
     if ($ok) { Write-Ok 'JDK 17 detected.' } else { Write-Warn 'Installed Java is not JDK 17.' }
   } else { Write-Warn 'Java is not installed.' }
-  if (-not $ok) {
-    Install-WingetPackage 'EclipseAdoptium.Temurin.17.JDK' 'Eclipse Temurin JDK 17'
-    Refresh-ProcessPath
-  }
-  $candidates = @(
-    $env:JAVA_HOME,
-    'C:\Program Files\Eclipse Adoptium\jdk-17*',
-    'C:\Program Files\Eclipse Adoptium\jre-17*'
-  ) | Where-Object { $_ }
+  if (-not $ok) { Install-WingetPackage 'EclipseAdoptium.Temurin.17.JDK' 'Eclipse Temurin JDK 17'; Refresh-ProcessPath }
+  $candidates = @($env:JAVA_HOME,'C:\Program Files\Eclipse Adoptium\jdk-17*','C:\Program Files\Eclipse Adoptium\jre-17*') | Where-Object { $_ }
   $home = $null
   foreach ($candidate in $candidates) {
     if ($candidate -like '*\*') {
@@ -124,8 +114,7 @@ function Ensure-Jdk {
     if ($javaCmd) { $home = Split-Path (Split-Path $javaCmd.Source -Parent) -Parent }
   }
   if (-not $home -or -not (Test-Path (Join-Path $home 'bin\java.exe'))) { throw 'JDK 17 was installed but JAVA_HOME could not be determined.' }
-  $env:JAVA_HOME = $home
-  $env:Path = "$(Join-Path $home 'bin');$env:Path"
+  $env:JAVA_HOME = $home; $env:Path = "$(Join-Path $home 'bin');$env:Path"
   [Environment]::SetEnvironmentVariable('JAVA_HOME',$home,'User')
   $check = (& java.exe -version 2>&1 | Out-String)
   if ($check -notmatch 'version\s+"17(?:\.|"|\s)') { throw 'JAVA_HOME does not point to JDK 17.' }
@@ -135,35 +124,22 @@ function Ensure-Jdk {
 function Ensure-Git {
   Refresh-ProcessPath
   if (Get-Command git.exe -ErrorAction SilentlyContinue) { Write-Ok 'Git detected.'; return }
-  Install-WingetPackage 'Git.Git' 'Git for Windows'
-  Refresh-ProcessPath
+  Install-WingetPackage 'Git.Git' 'Git for Windows'; Refresh-ProcessPath
   if (-not (Get-Command git.exe -ErrorAction SilentlyContinue)) { throw 'Git installation could not be verified.' }
   Write-Ok 'Git ready.'
 }
 
 function Find-AndroidSdk {
-  $candidates = @(
-    $env:ANDROID_SDK_ROOT,
-    $env:ANDROID_HOME,
-    (Join-Path $env:LOCALAPPDATA 'Android\Sdk'),
-    'C:\Android\Sdk'
-  ) | Where-Object { $_ } | Select-Object -Unique
-  foreach ($p in $candidates) {
-    if (Test-Path (Join-Path $p 'platform-tools\adb.exe')) { return (Resolve-Path $p).Path }
-  }
+  $candidates = @($env:ANDROID_SDK_ROOT,$env:ANDROID_HOME,(Join-Path $env:LOCALAPPDATA 'Android\Sdk'),'C:\Android\Sdk') | Where-Object { $_ } | Select-Object -Unique
+  foreach ($p in $candidates) { if (Test-Path (Join-Path $p 'platform-tools\adb.exe')) { return (Resolve-Path $p).Path } }
   return $null
 }
 
 function Find-SdkManager([string]$SdkRoot) {
-  $paths = @(
-    (Join-Path $SdkRoot 'cmdline-tools\latest\bin\sdkmanager.bat'),
-    (Join-Path $SdkRoot 'cmdline-tools\bin\sdkmanager.bat'),
-    (Join-Path $SdkRoot 'tools\bin\sdkmanager.bat')
-  )
+  $paths = @((Join-Path $SdkRoot 'cmdline-tools\latest\bin\sdkmanager.bat'),(Join-Path $SdkRoot 'cmdline-tools\bin\sdkmanager.bat'),(Join-Path $SdkRoot 'tools\bin\sdkmanager.bat'))
   foreach ($p in $paths) { if (Test-Path $p) { return $p } }
   $found = Get-ChildItem -Path (Join-Path $SdkRoot 'cmdline-tools') -Filter sdkmanager.bat -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-  if ($found) { return $found.FullName }
-  return $null
+  if ($found) { return $found.FullName }; return $null
 }
 
 function Bootstrap-AndroidCommandLineTools([string]$SdkRoot) {
@@ -178,51 +154,36 @@ function Bootstrap-AndroidCommandLineTools([string]$SdkRoot) {
   $stage = Join-Path $env:TEMP ('khatyar-cmdline-' + [guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Force -Path $stage | Out-Null
   Expand-Archive -LiteralPath $zip -DestinationPath $stage -Force
-  $source = Join-Path $stage 'cmdline-tools'
-  $target = Join-Path $SdkRoot 'cmdline-tools\latest'
+  $source = Join-Path $stage 'cmdline-tools'; $target = Join-Path $SdkRoot 'cmdline-tools\latest'
   New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
   if (Test-Path $target) { Remove-Item $target -Recurse -Force }
   Move-Item -LiteralPath $source -Destination $target
-  Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
-  Remove-Item $zip -Force -ErrorAction SilentlyContinue
+  Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item $zip -Force -ErrorAction SilentlyContinue
 }
 
 function Ensure-AndroidSdk {
   $sdk = Find-AndroidSdk
-  if (-not $sdk) {
-    $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
-    Bootstrap-AndroidCommandLineTools $sdk
-  }
+  if (-not $sdk) { $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'; Bootstrap-AndroidCommandLineTools $sdk }
   $sdkManager = Find-SdkManager $sdk
-  if (-not $sdkManager) {
-    Bootstrap-AndroidCommandLineTools $sdk
-    $sdkManager = Find-SdkManager $sdk
-  }
+  if (-not $sdkManager) { Bootstrap-AndroidCommandLineTools $sdk; $sdkManager = Find-SdkManager $sdk }
   if (-not $sdkManager) { throw "sdkmanager.bat was not found under $sdk." }
-  $env:ANDROID_SDK_ROOT = $sdk
-  $env:ANDROID_HOME = $sdk
-  [Environment]::SetEnvironmentVariable('ANDROID_SDK_ROOT',$sdk,'User')
-  [Environment]::SetEnvironmentVariable('ANDROID_HOME',$sdk,'User')
+  $env:ANDROID_SDK_ROOT = $sdk; $env:ANDROID_HOME = $sdk
+  [Environment]::SetEnvironmentVariable('ANDROID_SDK_ROOT',$sdk,'User'); [Environment]::SetEnvironmentVariable('ANDROID_HOME',$sdk,'User')
   $env:Path = "$(Join-Path $sdk 'platform-tools');$(Split-Path $sdkManager -Parent);$env:Path"
   Write-Stage 'Accepting Android SDK licenses'
   1..20 | ForEach-Object { 'y' } | & $sdkManager --licenses | Out-Null
-  if ($LASTEXITCODE -ne 0) { Write-Warn 'License command returned a non-zero code; continuing to package verification.' }
   Write-Stage 'Installing required Android SDK packages'
   & $sdkManager 'platform-tools' "platforms;$RequiredCompileSdk" "build-tools;$RequiredBuildTools" "ndk;$RequiredNdk"
   if ($LASTEXITCODE -ne 0) { throw "sdkmanager failed to install required Android packages (exit code $LASTEXITCODE)." }
-  foreach ($requiredPath in @(
-    (Join-Path $sdk 'platform-tools\adb.exe'),
-    (Join-Path $sdk "platforms\$RequiredCompileSdk\android.jar"),
-    (Join-Path $sdk "build-tools\$RequiredBuildTools\aapt2.exe"),
-    (Join-Path $sdk "ndk\$RequiredNdk\source.properties")
-  )) { if (-not (Test-Path $requiredPath)) { throw "Required Android SDK component is missing: $requiredPath" } }
+  foreach ($requiredPath in @((Join-Path $sdk 'platform-tools\adb.exe'),(Join-Path $sdk "platforms\$RequiredCompileSdk\android.jar"),(Join-Path $sdk "build-tools\$RequiredBuildTools\aapt2.exe"),(Join-Path $sdk "ndk\$RequiredNdk\source.properties"))) {
+    if (-not (Test-Path $requiredPath)) { throw "Required Android SDK component is missing: $requiredPath" }
+  }
   Write-Ok "Android SDK ready: $sdk"
 }
 
 function Ensure-NpmDependencies {
   if ($SkipNpm) { return }
-  $manifest = Join-Path $Root 'package.json'
-  $installer = Join-Path $Root 'scripts\install-dependencies-fallback.ps1'
+  $manifest = Join-Path $Root 'package.json'; $installer = Join-Path $Root 'scripts\install-dependencies-fallback.ps1'
   if (-not (Test-Path $manifest)) { throw 'package.json not found.' }
   if (-not (Test-Path $installer)) { throw 'Dependency fallback installer not found.' }
   $needs = $Fresh -or -not (Test-Path (Join-Path $Root 'node_modules\expo\package.json'))
@@ -238,11 +199,7 @@ Write-Host '============================================================' -Foreg
 Write-Host '       KHATYAR - BUILD ENVIRONMENT PREPARATION' -ForegroundColor Cyan
 Write-Host '============================================================' -ForegroundColor Cyan
 if (-not (Test-Winget)) { Write-Warn 'winget is not available. Direct Node/Android downloads will still work; missing JDK/Git cannot be installed automatically.' }
-Ensure-Node
-Ensure-Jdk
-Ensure-Git
-Ensure-AndroidSdk
-Ensure-NpmDependencies
+Ensure-Node; Ensure-Jdk; Ensure-Git; Ensure-AndroidSdk; Ensure-NpmDependencies
 
 Write-Host '`n[environment] Required toolchain:' -ForegroundColor Cyan
 Invoke-Checked 'node.exe' @('--version')
