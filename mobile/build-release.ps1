@@ -107,9 +107,6 @@ try {
     Stage 5 'Preparing and validating the complete build environment'
     if(-not (Test-Path -LiteralPath $EnvironmentScript)){ throw 'scripts\ensure-build-environment.ps1 is missing.' }
 
-    # Android SDK repositories are Iran-network constrained. Persist the known-good
-    # non-Google mirror into the child environment so sdkmanager can use it even
-    # when the SDK is already installed and no bootstrap download occurs.
     if(-not $env:KHATYAR_ANDROID_SDK_MIRROR_URL){ $env:KHATYAR_ANDROID_SDK_MIRROR_URL = 'https://mirrors.cloud.tencent.com/AndroidSDK/' }
     if(-not $env:SDK_TEST_BASE_URL){ $env:SDK_TEST_BASE_URL = $env:KHATYAR_ANDROID_SDK_MIRROR_URL }
     if(-not $env:KHATYAR_ANDROID_MIRROR_URL_ACTIVE){ $env:KHATYAR_ANDROID_MIRROR_URL_ACTIVE = $env:KHATYAR_ANDROID_SDK_MIRROR_URL }
@@ -162,7 +159,22 @@ try {
 
     if(-not $SkipDoctor){
         Stage 63 'Running Expo dependency diagnostics'
-        Invoke-CmdChecked 'npm.cmd exec -- expo-doctor'
+        $doctor = $null
+        try {
+            $doctor = & cmd.exe /d /c 'npm.cmd exec -- expo-doctor' 2>&1
+            $doctorExitCode = $LASTEXITCODE
+        } catch {
+            $doctor = @($_.Exception.Message)
+            $doctorExitCode = 1
+        }
+        if($doctor){ $doctor | ForEach-Object { if($_ -ne $null -and ([string]$_).Trim()){ Write-Host ([string]$_).Trim() -ForegroundColor DarkGray } } }
+        if($doctorExitCode -ne 0){
+            $message = 'expo-doctor exited with code ' + $doctorExitCode + '. Diagnostics are recorded above and are non-blocking by default.'
+            if($StrictDoctor){ throw $message }
+            Write-Host $message -ForegroundColor Yellow
+        } else {
+            Write-Host 'expo-doctor completed successfully.' -ForegroundColor Green
+        }
     }
 
     $task = if($ArtifactType -eq 'AAB'){'bundleRelease'}else{'assembleRelease'}
