@@ -102,24 +102,24 @@ function Ensure-Jdk {
     if ($ok) { Write-Ok 'JDK 17 detected.' } else { Write-Warn 'Installed Java is not JDK 17.' }
   } else { Write-Warn 'Java is not installed.' }
   if (-not $ok) { Install-WingetPackage 'EclipseAdoptium.Temurin.17.JDK' 'Eclipse Temurin JDK 17'; Refresh-ProcessPath }
-  $candidates = @($env:JAVA_HOME,'C:\Program Files\Eclipse Adoptium\jdk-17*','C:\Program Files\Eclipse Adoptium\jre-17*') | Where-Object { $_ }
-  $home = $null
-  foreach ($candidate in $candidates) {
+  $jdkCandidates = @($env:JAVA_HOME,'C:\Program Files\Eclipse Adoptium\jdk-17*','C:\Program Files\Eclipse Adoptium\jre-17*') | Where-Object { $_ }
+  $jdkHome = $null
+  foreach ($candidate in $jdkCandidates) {
     if ($candidate -like '*\*') {
       $found = Get-ChildItem -Path $candidate -Directory -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
-      if ($found) { $home = $found.FullName; break }
-    } elseif (Test-Path (Join-Path $candidate 'bin\java.exe')) { $home = $candidate; break }
+      if ($found) { $jdkHome = $found.FullName; break }
+    } elseif (Test-Path (Join-Path $candidate 'bin\java.exe')) { $jdkHome = $candidate; break }
   }
-  if (-not $home) {
+  if (-not $jdkHome) {
     $javaCmd = Get-Command java.exe -ErrorAction SilentlyContinue
-    if ($javaCmd) { $home = Split-Path (Split-Path $javaCmd.Source -Parent) -Parent }
+    if ($javaCmd) { $jdkHome = Split-Path (Split-Path $javaCmd.Source -Parent) -Parent }
   }
-  if (-not $home -or -not (Test-Path (Join-Path $home 'bin\java.exe'))) { throw 'JDK 17 was installed but JAVA_HOME could not be determined.' }
-  $env:JAVA_HOME = $home; $env:Path = "$(Join-Path $home 'bin');$env:Path"
-  [Environment]::SetEnvironmentVariable('JAVA_HOME',$home,'User')
+  if (-not $jdkHome -or -not (Test-Path (Join-Path $jdkHome 'bin\java.exe'))) { throw 'JDK 17 was installed but JAVA_HOME could not be determined.' }
+  $env:JAVA_HOME = $jdkHome; $env:Path = "$(Join-Path $jdkHome 'bin');$env:Path"
+  [Environment]::SetEnvironmentVariable('JAVA_HOME',$jdkHome,'User')
   $check = & cmd.exe /d /c 'java.exe -version 2>&1' | Out-String
   if ($check -notmatch 'version\s+"17(?:\.|"|\s)') { throw 'JAVA_HOME does not point to JDK 17.' }
-  Write-Ok "JAVA_HOME=$home"
+  Write-Ok "JAVA_HOME=$jdkHome"
 }
 
 function Ensure-Git {
