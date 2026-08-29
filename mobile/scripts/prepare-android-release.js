@@ -60,41 +60,13 @@ function assertContains(text, file, pattern, description) {
   if (!pattern.test(text)) fail(`${path.relative(root, file)} is missing ${description}.`);
 }
 
-/**
- * React Native 0.86 includes an independent Gradle build under
- * node_modules/@react-native/gradle-plugin. Its settings.gradle.kts asks
- * Gradle to resolve the Foojay toolchain resolver from the Plugin Portal.
- * KhatYar already supplies and validates JDK 17, so that auto-provisioning
- * plugin is unnecessary for this release build.
- *
- * This patch is deliberately narrow: it removes only the Foojay plugin
- * request from the generated RN included build. It does not change Expo,
- * React Native, Gradle, AGP, Kotlin, or the main project's repositories.
- */
-function patchReactNativeFoojayResolver() {
-  const file = path.join(root, 'node_modules', '@react-native', 'gradle-plugin', 'settings.gradle.kts');
-  if (!fs.existsSync(file)) {
-    fail('React Native Gradle plugin settings.gradle.kts was not found after Expo prebuild.');
+function resolvePackageAndroidDir(packageName) {
+  try {
+    const pkg = require.resolve(`${packageName}/package.json`, { paths: [root] });
+    return path.join(path.dirname(pkg), 'android');
+  } catch (_) {
+    return null;
   }
-
-  const original = readUtf8(file);
-  const exact = /(^|\r?\n)([ \t]*)id\(["']org\.gradle\.toolchains\.foojay-resolver-convention["']\)\.version\(["']1\.0\.0["']\)[ \t]*(?=\r?$)/m;
-
-  if (exact.test(original)) {
-    const patched = original.replace(
-      exact,
-      '$1$2// KhatYar: JDK 17 is supplied by the build environment; Foojay auto-provisioning is disabled.\n'
-    );
-    fs.writeFileSync(file, patched, 'utf8');
-    console.log('[android-prebuild] Disabled React Native Foojay toolchain auto-provisioning (local JDK 17 is already configured).');
-    return;
-  }
-
-  if (/org\.gradle\.toolchains\.foojay-resolver-convention/.test(original)) {
-    fail('React Native Foojay resolver was found, but its expected version 1.0.0 declaration could not be patched safely.');
-  }
-
-  console.log('[android-prebuild] React Native Foojay toolchain resolver is already absent.');
 }
 
 const packageJson = readJson(path.join(root, 'package.json'));
@@ -110,11 +82,6 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 if (!fs.existsSync(path.join(root, 'node_modules'))) fail('node_modules is missing. Install dependencies before the Android prebuild.');
 
 run(npm, ['exec', '--', 'expo', 'prebuild', '--platform', 'android', '--clean']);
-
-// Expo --clean regenerates Android but leaves node_modules intact. Patch the
-// RN included build immediately after prebuild so every subsequent Gradle
-// invocation sees the deterministic local-JDK configuration.
-patchReactNativeFoojayResolver();
 
 if (!fs.existsSync(android)) fail('Expo prebuild did not create the android directory.');
 if (!fs.existsSync(wrapperProperties)) fail('Expo prebuild did not create gradle-wrapper.properties.');
@@ -152,21 +119,38 @@ if (/com\.android\.tools\.build:gradle:\s*['"]?\s*['"]/.test(build)) fail('Andro
 if (/react-native-gradle-plugin:\s*['"]?\s*['"]/.test(build)) fail('React Native Gradle Plugin dependency has an empty version literal.');
 if (/kotlin-gradle-plugin:\s*['"]?\s*['"]/.test(build)) fail('Kotlin Gradle Plugin dependency has an empty version literal.');
 
-// Mirror policy is intentionally validated on the main generated Android
-// project only. Expo/RN included-build repositories remain upstream and are
-// not rewritten by the main-project mirror policy.
-if (!build.includes(MAVEN_MARKER) && !settings.includes(MAVEN_MARKER)) {
-  fail('The generated Android project was not patched with the local/Myket/Runflare Maven mirror policy.');
+// Verify the generic Iranian mirror plugin patched the real generated Expo
+// included build, not just the main Android project.
+const expoAndroid = resolvePackageAndroidDir('expo-modules-autolinking');
+const expoIncludedBuild = expoAndroid && path.join(expoAndroid, 'expo-gradle-plugin');
+const expoIncludedFiles = [];
+if (expoIncludedBuild && fs.existsSync(expoIncludedBuild)) {
+  const stack = [expoIncludedBuild];
+  while (stack.length) {
+    const current = stack.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        if (!['.gradle', 'build'].includes(entry.name)) stack.push(full);
+      } else if (/^(settings|build)\.gradle(?:\.kts)?$/i.test(entry.name)) {
+        expoIncludedFiles.push(full);
+      }
+    }
+  }
+}
+const mirrorPatchedFiles = expoIncludedFiles
+  .filter((file) => fs.readFileSync(file, 'utf8').includes(MAVEN_MARKER));
+if (mirrorPatchedFiles.length === 0) {
+  fail('The real expo-modules-autolinking included build was not patched with the local/Myket/Runflare Maven mirror policy.');
 }
 
-console.log('[android-prebuild] Main Android project mirror policy validated.');
-console.log('[android-prebuild] Expo/RN included-build repositories remain upstream; Foojay auto-provisioning disabled for local JDK 17.');
+console.log(`[android-prebuild] Maven mirror validation: ${mirrorPatchedFiles.length} generated Expo included-build file(s) patched.`);
 console.log('[android-prebuild] Generated Android project passed structural compatibility checks.');
 console.log(`[android-prebuild] Expo SDK: ${expo}`);
 console.log(`[android-prebuild] React Native: ${reactNative}`);
 console.log(`[android-prebuild] React: ${react}`);
 console.log(`[android-prebuild] Gradle wrapper: ${REQUIRED_GRADLE}`);
 console.log('[android-prebuild] Standard Android release build: no Myket store/signing integration.');
-console.log('[android-prebuild] Maven policy: main project local -> Myket -> Runflare -> official.');
-console.log('[android-prebuild] Gradle wrapper policy: local F:\\gradle-cache -> configured fallback.');
+console.log('[android-prebuild] Maven policy: local -> Myket -> Runflare -> official.');
+console.log('[android-prebuild] Gradle wrapper policy: local F:\\gradle-cache -> Myket -> Runflare -> official.');
 console.log('[android-prebuild] Expected Android toolchain: AGP 8.12.x / Gradle 8.13 / JDK 17 / compileSdk 36 / NDK 27.1.12297006.');
