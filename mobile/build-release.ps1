@@ -17,6 +17,7 @@ Set-Location -LiteralPath $ScriptRoot
 $BuildStart = Get-Date
 $FinalExitCode = 1
 $FinalStage = 'Starting'
+$InitScript = Join-Path $ScriptRoot 'gradle-mirror.init.gradle'
 
 function Stage([int]$Percent,[string]$Name) {
     $script:FinalStage = $Name
@@ -48,10 +49,6 @@ function Stop-Tree([int]$ProcessId) {
     if($ProcessId -gt 0){ try{ taskkill.exe /PID $ProcessId /T /F 2>$null | Out-Null }catch{} }
 }
 
-# Standard release build deliberately does NOT pass a project Gradle init script.
-# Expo/RN included builds must keep their own plugin-management resolution path.
-# Repository mirrors for generated Android projects are handled by the project
-# configuration/plugin layer prepared by prepare-android-release.js.
 function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task) {
     $psi = New-Object Diagnostics.ProcessStartInfo
     $psi.FileName = 'cmd.exe'
@@ -60,9 +57,9 @@ function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $false
     $psi.RedirectStandardError = $false
-    $command = '"' + $Gradlew + '" ' + $Task + ' --console=plain --stacktrace --warning-mode=all'
+    $command = '"' + $Gradlew + '" --init-script "' + $InitScript + '" ' + $Task + ' --console=plain --stacktrace --warning-mode=all'
     $psi.Arguments = '/d /c "' + $command + ' > "' + $LogPath + '" 2>&1"'
-    Write-Host ('> ' + $Gradlew + ' ' + $Task) -ForegroundColor DarkGray
+    Write-Host ('> ' + $Gradlew + ' --init-script ' + $InitScript + ' ' + $Task) -ForegroundColor DarkGray
     $p = New-Object Diagnostics.Process
     $p.StartInfo = $psi
     [void]$p.Start()
@@ -99,30 +96,6 @@ function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task
     } finally { $p.Dispose() }
 }
 
-function Invoke-OptionalDoctor {
-    if ($SkipDoctor) {
-        Write-Host '[khatyar-build] expo-doctor explicitly skipped.' -ForegroundColor DarkGray
-        return
-    }
-
-    if (-not $StrictDoctor) {
-        Write-Host '[khatyar-build] expo-doctor disabled for standard release builds (use -StrictDoctor to enable).' -ForegroundColor DarkGray
-        return
-    }
-
-    Stage 63 'Running Expo dependency diagnostics (strict mode)'
-    $doctorLines = @()
-    & cmd.exe /d /c 'npm.cmd exec -- expo-doctor' 2>&1 | ForEach-Object {
-        $doctorLines += [string]$_
-        Write-Host $_ -ForegroundColor DarkGray
-    }
-    $doctorExit = $LASTEXITCODE
-    if ($doctorExit -ne 0) {
-        throw ('expo-doctor exited with code ' + $doctorExit + '.')
-    }
-    Write-Host 'expo-doctor completed successfully.' -ForegroundColor Green
-}
-
 try {
     Write-Host '============================================================' -ForegroundColor Cyan
     Write-Host '       KHATYAR - ANDROID STANDARD RELEASE BUILD' -ForegroundColor Cyan
@@ -130,15 +103,15 @@ try {
     Write-Host ('Project: ' + $ScriptRoot)
     Write-Host ('Artifact: ' + $ArtifactType)
 
+    # Added today only: prepare the machine before the proven release pipeline.
+    # The release-build stages below intentionally retain the last-night logic.
     Stage 5 'Preparing and validating the complete build environment'
     $EnvironmentScript = Join-Path $ScriptRoot 'scripts\ensure-build-environment.ps1'
     if(-not (Test-Path -LiteralPath $EnvironmentScript)){ throw 'scripts\ensure-build-environment.ps1 is missing.' }
-
     if(-not $env:KHATYAR_ANDROID_SDK_MIRROR_URL){ $env:KHATYAR_ANDROID_SDK_MIRROR_URL = 'https://mirrors.cloud.tencent.com/AndroidSDK/' }
     if(-not $env:SDK_TEST_BASE_URL){ $env:SDK_TEST_BASE_URL = $env:KHATYAR_ANDROID_SDK_MIRROR_URL }
     if(-not $env:KHATYAR_ANDROID_MIRROR_URL_ACTIVE){ $env:KHATYAR_ANDROID_MIRROR_URL_ACTIVE = $env:KHATYAR_ANDROID_SDK_MIRROR_URL }
     Write-Host ('[khatyar-build] Android SDK mirror: ' + $env:KHATYAR_ANDROID_SDK_MIRROR_URL) -ForegroundColor DarkGray
-
     $envArgs = @()
     if($Fresh){ $envArgs += '-Fresh' }
     Invoke-DirectChecked 'powershell.exe' (@('-NoProfile','-ExecutionPolicy','Bypass','-File',$EnvironmentScript) + $envArgs)
@@ -152,11 +125,20 @@ try {
     Invoke-CmdChecked 'npm.cmd --version'
     Invoke-CmdChecked 'java.exe -version 2>&1'
     Invoke-CmdChecked 'git.exe --version'
+    if(-not (Test-Path -LiteralPath $InitScript)){ throw 'gradle-mirror.init.gradle is missing.' }
 
     Stage 20 'Checking project dependency manifest'
     if(-not (Test-Path -LiteralPath (Join-Path $ScriptRoot 'package.json'))){ throw 'package.json was not found.' }
-    if(-not (Test-Path -LiteralPath (Join-Path $ScriptRoot 'node_modules'))){ throw 'node_modules is missing after environment preparation.' }
-    if(-not (Test-Path -LiteralPath (Join-Path $ScriptRoot 'node_modules\expo\package.json'))){ throw 'Expo dependency is missing after environment preparation.' }
+    if(-not (Test-Path -LiteralPath (Join-Path $ScriptRoot 'node_modules'))){ throw 'node_modules is missing.' }
+
+    if($Fresh){
+        Stage 28 'Refreshing npm dependencies'
+        if(Test-Path -LiteralPath (Join-Path $ScriptRoot 'package-lock.json')){
+            Invoke-DirectChecked 'npm.cmd' @('ci','--no-audit','--no-fund','--legacy-peer-deps')
+        } else {
+            Invoke-DirectChecked 'npm.cmd' @('install','--no-audit','--no-fund','--legacy-peer-deps')
+        }
+    }
 
     Stage 38 'Generating a clean Expo Android project'
     Invoke-DirectChecked 'node.exe' @((Join-Path $ScriptRoot 'scripts\prepare-android-release.js'))
@@ -175,18 +157,32 @@ try {
         & cmd.exe /d /c ('"' + $gradlew + '" --version > "' + $gv + '" 2>&1')
         $gradleVersionExit = $LASTEXITCODE
         $gradleVersionText = if(Test-Path -LiteralPath $gv){ Get-Content -LiteralPath $gv -Raw } else { '' }
-    } finally { Remove-Item -LiteralPath $gv -Force -ErrorAction SilentlyContinue }
+    } finally {
+        Remove-Item -LiteralPath $gv -Force -ErrorAction SilentlyContinue
+    }
     if($gradleVersionExit -ne 0){ throw 'Gradle wrapper --version failed.' }
     Write-Host $gradleVersionText.Trim() -ForegroundColor DarkGray
     if($gradleVersionText -notmatch 'Gradle 8\.13'){ throw 'Gradle wrapper did not launch Gradle 8.13.' }
     if($gradleVersionText -notmatch 'Launcher JVM:\s+17(?:\.|\s|$)'){ throw 'JDK 17 is required for the Android build.' }
 
-    Invoke-OptionalDoctor
+    if(-not $SkipDoctor){
+        Stage 63 'Running Expo dependency diagnostics'
+        $doctor = Invoke-CommandWithCapture -File 'npm.cmd' -Arguments @('exec','--','expo-doctor')
+        if($doctor.Output.Trim()){ Write-Host $doctor.Output.Trim() -ForegroundColor DarkGray }
+        if($doctor.Error.Trim()){ Write-Host $doctor.Error.Trim() -ForegroundColor DarkGray }
+        if($doctor.ExitCode -ne 0){
+            $message = 'expo-doctor exited with code ' + $doctor.ExitCode + '. Diagnostics are recorded above and are non-blocking by default.'
+            if($StrictDoctor){ throw $message }
+            Write-Host $message -ForegroundColor Yellow
+        } else {
+            Write-Host 'expo-doctor completed successfully.' -ForegroundColor Green
+        }
+    }
 
     $task = if($ArtifactType -eq 'AAB'){'bundleRelease'}else{'assembleRelease'}
     Stage 72 ('Building standard Android release ' + $ArtifactType)
-    Write-Host '[khatyar-build] Maven: project-local generated configuration -> Myket/Runflare/official as prepared by Expo build plugins.' -ForegroundColor DarkGray
-    Write-Host '[khatyar-build] Gradle Wrapper: local F:\gradle-cache -> configured fallback.' -ForegroundColor DarkGray
+    Write-Host '[khatyar-build] Maven: local Maven -> Myket -> Runflare -> official.' -ForegroundColor DarkGray
+    Write-Host '[khatyar-build] Gradle Wrapper: F:\gradle-cache -> Myket -> Runflare -> official.' -ForegroundColor DarkGray
     $logDir = Join-Path $android 'build\khatyar-build-logs'
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
     $logPath = Join-Path $logDir ($task + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
@@ -197,11 +193,6 @@ try {
         $artifact = Join-Path $android 'app\build\outputs\bundle\release\app-release.aab'
     } else {
         $artifact = Join-Path $android 'app\build\outputs\apk\release\app-release.apk'
-    }
-    if(-not (Test-Path -LiteralPath $artifact)){
-        if($ArtifactType -eq 'APK'){
-            $artifact = Join-Path $android 'app\build\outputs\apk\release\app-release-unsigned.apk'
-        }
     }
     if(-not (Test-Path -LiteralPath $artifact)){ throw "Release artifact was not found: $artifact" }
     $sizeMB = [math]::Round((Get-Item -LiteralPath $artifact).Length / 1MB, 2)
