@@ -6,8 +6,8 @@ param(
     [switch]$StrictDoctor,
     [switch]$ForcePrebuild,
     [ValidateSet('APK','AAB')][string]$ArtifactType = 'APK',
-    [int]$GradleTimeoutMinutes = 180,
-    [int]$GradleIdleTimeoutMinutes = 30,
+    [int]$GradleTimeoutMinutes = 120,
+    [int]$GradleIdleTimeoutMinutes = 15,
     [switch]$NoPause
 )
 
@@ -63,15 +63,15 @@ function Save-PrebuildMarker([string]$PackageHash) {
     $obj | ConvertTo-Json | Set-Content -LiteralPath $PrebuildMarker -Encoding UTF8
 }
 function Configure-GradlePerformance([string]$Android) {
-    # Tuned for the target build machine: 24 GB RAM / Intel Core i3-6100 (4 logical processors).
-    # Keep enough RAM for Windows, Node/Metro and Android tooling while giving Gradle a large heap.
+    # Tuned for 24 GB RAM / Intel Core i3-6100 (4 logical processors).
+    # Do not over-allocate RAM: Windows, Node and Android tooling also need memory.
     $cpu = [Environment]::ProcessorCount
     $workers = [Math]::Max(2, [Math]::Min($cpu, 4))
     $propsPath = Join-Path $Android 'gradle.properties'
     $props = @()
     if (Test-Path -LiteralPath $propsPath) { $props = @(Get-Content -LiteralPath $propsPath) }
     $keys = [ordered]@{
-        'org.gradle.jvmargs' = '-Xmx14g -XX:MaxMetaspaceSize=3g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8'
+        'org.gradle.jvmargs' = '-Xmx12g -XX:MaxMetaspaceSize=3g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8'
         'org.gradle.daemon' = 'true'
         'org.gradle.parallel' = 'true'
         'org.gradle.workers.max' = [string]$workers
@@ -90,13 +90,13 @@ function Configure-GradlePerformance([string]$Android) {
         $props = @($next)
     }
     Set-Content -LiteralPath $propsPath -Value $props -Encoding UTF8
-    Write-Host "    Gradle memory: 14 GiB heap / 3 GiB metaspace / $workers workers" -ForegroundColor Green
+    Write-Host "    Gradle memory: 12 GiB heap / 3 GiB metaspace / $workers workers" -ForegroundColor Green
 }
 function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task,[hashtable]$Environment) {
     $psi = New-Object Diagnostics.ProcessStartInfo
     $psi.FileName = 'cmd.exe'; $psi.WorkingDirectory = $Cwd; $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true; $psi.RedirectStandardOutput = $false; $psi.RedirectStandardError = $false
-    $command = '"' + $Gradlew + '" --init-script "' + $InitScript + '" ' + $Task + ' --parallel --build-cache --console=plain --stacktrace --warning-mode=all'
+    $command = '"' + $Gradlew + '" --init-script "' + $InitScript + '" ' + $Task + ' --parallel --build-cache --console=plain --stacktrace'
     $psi.Arguments = '/d /c "' + $command + ' > "' + $LogPath + '" 2>&1"'
     foreach ($key in $Environment.Keys) { $psi.EnvironmentVariables[$key] = [string]$Environment[$key] }
     Write-Host ('> ' + $Gradlew + ' --init-script ' + $InitScript + ' ' + $Task + ' --parallel --build-cache') -ForegroundColor DarkGray
@@ -199,14 +199,14 @@ try {
     $logPath = Join-Path $logDir (($ArtifactType.ToLowerInvariant()) + '-release-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
     $gradleEnv = @{
         GRADLE_USER_HOME = $PersistentGradleHome
-        GRADLE_OPTS = '-Dorg.gradle.internal.http.connectionTimeout=60000 -Dorg.gradle.internal.http.socketTimeout=180000 -Dfile.encoding=UTF-8'
+        GRADLE_OPTS = '-Dorg.gradle.internal.http.connectionTimeout=20000 -Dorg.gradle.internal.http.socketTimeout=60000 -Dfile.encoding=UTF-8'
         JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8'
         NODE_OPTIONS = '--dns-result-order=ipv4first'
         CI = '1'
     }
 
     Stage 75 ('Building cached Android release ' + $ArtifactType)
-    Write-Host '[khatyar-fast] No configuration-cache flag: Expo/RN node-based configuration is supported.' -ForegroundColor DarkGray
+    Write-Host '[khatyar-fast] Configuration cache intentionally disabled for Expo/RN compatibility.' -ForegroundColor DarkGray
     Write-Host '[khatyar-fast] Parallel + build cache enabled; persistent cache retained.' -ForegroundColor DarkGray
     Run-Gradle $gradlew $android $logPath $task $gradleEnv
 
