@@ -99,6 +99,30 @@ function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task
     } finally { $p.Dispose() }
 }
 
+function Invoke-OptionalDoctor {
+    if ($SkipDoctor) {
+        Write-Host '[khatyar-build] expo-doctor explicitly skipped.' -ForegroundColor DarkGray
+        return
+    }
+
+    if (-not $StrictDoctor) {
+        Write-Host '[khatyar-build] expo-doctor disabled for standard release builds (use -StrictDoctor to enable).' -ForegroundColor DarkGray
+        return
+    }
+
+    Stage 63 'Running Expo dependency diagnostics (strict mode)'
+    $doctorLines = @()
+    & cmd.exe /d /c 'npm.cmd exec -- expo-doctor' 2>&1 | ForEach-Object {
+        $doctorLines += [string]$_
+        Write-Host $_ -ForegroundColor DarkGray
+    }
+    $doctorExit = $LASTEXITCODE
+    if ($doctorExit -ne 0) {
+        throw ('expo-doctor exited with code ' + $doctorExit + '.')
+    }
+    Write-Host 'expo-doctor completed successfully.' -ForegroundColor Green
+}
+
 try {
     Write-Host '============================================================' -ForegroundColor Cyan
     Write-Host '       KHATYAR - ANDROID STANDARD RELEASE BUILD' -ForegroundColor Cyan
@@ -157,19 +181,7 @@ try {
     if($gradleVersionText -notmatch 'Gradle 8\.13'){ throw 'Gradle wrapper did not launch Gradle 8.13.' }
     if($gradleVersionText -notmatch 'Launcher JVM:\s+17(?:\.|\s|$)'){ throw 'JDK 17 is required for the Android build.' }
 
-    if(-not $SkipDoctor){
-        Stage 63 'Running Expo dependency diagnostics'
-        $doctor = & cmd.exe /d /c 'npm.cmd exec -- expo-doctor' 2>&1
-        $doctorExit = $LASTEXITCODE
-        if($doctor){ $doctor | ForEach-Object { Write-Host $_ -ForegroundColor DarkGray } }
-        if($doctorExit -ne 0){
-            $message = 'expo-doctor exited with code ' + $doctorExit + '. Diagnostics are recorded above and are non-blocking by default.'
-            if($StrictDoctor){ throw $message }
-            Write-Host $message -ForegroundColor Yellow
-        } else {
-            Write-Host 'expo-doctor completed successfully.' -ForegroundColor Green
-        }
-    }
+    Invoke-OptionalDoctor
 
     $task = if($ArtifactType -eq 'AAB'){'bundleRelease'}else{'assembleRelease'}
     Stage 72 ('Building standard Android release ' + $ArtifactType)
