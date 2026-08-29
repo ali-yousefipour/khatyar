@@ -132,7 +132,7 @@
   }
 
   // Dashboard birthday filter: keep only birthdays on today or later in the current Jalali month.
-  // The backend also returns `passed`; filtering here avoids changing the birthday cron behavior.
+  // Recommitted for deployment verification; the backend still returns `passed` unchanged.
   (function installBirthdayDashboardFilter(){
     const originalFetch=window.fetch;
     if(typeof originalFetch!=='function')return;
