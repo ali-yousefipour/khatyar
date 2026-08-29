@@ -32,7 +32,6 @@ jobs:
           sparse-checkout-cone-mode: true
 
       - name: Verify PHP deployment payload
-        shell: bash
         run: |
           test -d ./php
           echo "PHP deployment directory is ready: ./php"
@@ -41,7 +40,7 @@ jobs:
       - name: Deploy php directory by FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_HOST }}
+          server: ftp.yousefipour.ir
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
