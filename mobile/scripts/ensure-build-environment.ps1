@@ -16,7 +16,7 @@ $RequiredCompileSdk = 'android-36'
 $RequiredBuildTools = '36.0.0'
 $RequiredNdk = '27.1.12297006'
 $AndroidCmdlineZip = 'commandlinetools-win-15859902_latest.zip'
-$AndroidCmdlineSha256 = '90ae805d20434428bffcb699c290860f19bb5f66a67e6b330067e3de801fb04a'
+$AndroidCmdlineSha256 = '90ae805d20434428bffcb699c290860f19bb5f66a67e3de801fb04a'
 
 function Write-Stage([string]$Name) { Write-Host "`n[environment] $Name" -ForegroundColor Yellow }
 function Write-Ok([string]$Text) { Write-Host "[environment] $Text" -ForegroundColor Green }
@@ -91,33 +91,98 @@ function Ensure-Node {
   Install-Node22Direct
 }
 
+function Get-JavaVersionText {
+  return (& cmd.exe /d /c 'java.exe -version 2>&1' | Out-String)
+}
+
+function Find-JdkHome {
+  $candidates = New-Object System.Collections.Generic.List[string]
+  if ($env:JAVA_HOME) { [void]$candidates.Add($env:JAVA_HOME) }
+
+  $registryPaths = @(
+    'HKLM:\SOFTWARE\JavaSoft\JDK',
+    'HKLM:\SOFTWARE\JavaSoft\Java Development Kit',
+    'HKLM:\SOFTWARE\WOW6432Node\JavaSoft\JDK',
+    'HKLM:\SOFTWARE\WOW6432Node\JavaSoft\Java Development Kit',
+    'HKCU:\SOFTWARE\JavaSoft\JDK',
+    'HKCU:\SOFTWARE\JavaSoft\Java Development Kit'
+  )
+  foreach ($base in $registryPaths) {
+    try {
+      if (Test-Path $base) {
+        $current = (Get-ItemProperty -LiteralPath $base -Name CurrentVersion -ErrorAction SilentlyContinue).CurrentVersion
+        if ($current) {
+          $props = Get-ItemProperty -LiteralPath (Join-Path $base $current) -Name JavaHome -ErrorAction SilentlyContinue
+          if ($props.JavaHome) { [void]$candidates.Add([string]$props.JavaHome) }
+        }
+        $children = Get-ChildItem -LiteralPath $base -ErrorAction SilentlyContinue
+        foreach ($child in $children) {
+          $props = Get-ItemProperty -LiteralPath $child.PSPath -Name JavaHome -ErrorAction SilentlyContinue
+          if ($props.JavaHome) { [void]$candidates.Add([string]$props.JavaHome) }
+        }
+      }
+    } catch { }
+  }
+
+  $knownRoots = @(
+    'C:\Program Files\Eclipse Adoptium',
+    'C:\Program Files\Java',
+    'C:\Program Files\Microsoft',
+    'C:\Program Files\Zulu',
+    'C:\Program Files\Amazon Corretto'
+  )
+  foreach ($root in $knownRoots) {
+    if (Test-Path $root) {
+      $dirs = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '(?i)(jdk|java|temurin|corretto|zulu).*17' }
+      foreach ($dir in $dirs) { [void]$candidates.Add($dir.FullName) }
+    }
+  }
+
+  $javaCmd = Get-Command java.exe -ErrorAction SilentlyContinue
+  if ($javaCmd) {
+    $javaPath = $javaCmd.Source
+    if ($javaPath -and (Test-Path $javaPath)) {
+      $resolved = (Resolve-Path $javaPath).Path
+      $parent = Split-Path $resolved -Parent
+      if ((Split-Path $parent -Leaf) -ieq 'bin') { [void]$candidates.Add((Split-Path $parent -Parent)) }
+    }
+  }
+
+  foreach ($candidate in ($candidates | Where-Object { $_ } | Select-Object -Unique)) {
+    try {
+      $full = [IO.Path]::GetFullPath($candidate)
+      $javaExe = Join-Path $full 'bin\java.exe'
+      if (-not (Test-Path $javaExe)) { continue }
+      $txt = & cmd.exe /d /c ('"' + $javaExe + '" -version 2>&1') | Out-String
+      if ($txt -match 'version\s+"17(?:\.|"|\s)') { return $full }
+    } catch { }
+  }
+  return $null
+}
+
 function Ensure-Jdk {
   Refresh-ProcessPath
   $java = Get-Command java.exe -ErrorAction SilentlyContinue
   $ok = $false
   if ($java) {
-    $txt = & cmd.exe /d /c 'java.exe -version 2>&1' | Out-String
+    $txt = Get-JavaVersionText
     $m = [regex]::Match($txt, 'version\s+"(\d+)(?:\.\d+)?')
     if ($m.Success -and [int]$m.Groups[1].Value -eq $RequiredJdkMajor) { $ok = $true }
     if ($ok) { Write-Ok 'JDK 17 detected.' } else { Write-Warn 'Installed Java is not JDK 17.' }
   } else { Write-Warn 'Java is not installed.' }
   if (-not $ok) { Install-WingetPackage 'EclipseAdoptium.Temurin.17.JDK' 'Eclipse Temurin JDK 17'; Refresh-ProcessPath }
-  $jdkCandidates = @($env:JAVA_HOME,'C:\Program Files\Eclipse Adoptium\jdk-17*','C:\Program Files\Eclipse Adoptium\jre-17*') | Where-Object { $_ }
-  $jdkHome = $null
-  foreach ($candidate in $jdkCandidates) {
-    if ($candidate -like '*\*') {
-      $found = Get-ChildItem -Path $candidate -Directory -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
-      if ($found) { $jdkHome = $found.FullName; break }
-    } elseif (Test-Path (Join-Path $candidate 'bin\java.exe')) { $jdkHome = $candidate; break }
-  }
+
+  $jdkHome = Find-JdkHome
   if (-not $jdkHome) {
-    $javaCmd = Get-Command java.exe -ErrorAction SilentlyContinue
-    if ($javaCmd) { $jdkHome = Split-Path (Split-Path $javaCmd.Source -Parent) -Parent }
+    $jdkHome = Find-JdkHome
   }
-  if (-not $jdkHome -or -not (Test-Path (Join-Path $jdkHome 'bin\java.exe'))) { throw 'JDK 17 was installed but JAVA_HOME could not be determined.' }
-  $env:JAVA_HOME = $jdkHome; $env:Path = "$(Join-Path $jdkHome 'bin');$env:Path"
+  if (-not $jdkHome) { throw 'JDK 17 was installed/detected, but its JAVA_HOME could not be determined from the environment, Windows Java registry, or common JDK installation paths.' }
+
+  $env:JAVA_HOME = $jdkHome
+  $env:Path = "$(Join-Path $jdkHome 'bin');$env:Path"
   [Environment]::SetEnvironmentVariable('JAVA_HOME',$jdkHome,'User')
-  $check = & cmd.exe /d /c 'java.exe -version 2>&1' | Out-String
+  $check = & cmd.exe /d /c ('"' + (Join-Path $jdkHome 'bin\java.exe') + '" -version 2>&1') | Out-String
   if ($check -notmatch 'version\s+"17(?:\.|"|\s)') { throw 'JAVA_HOME does not point to JDK 17.' }
   Write-Ok "JAVA_HOME=$jdkHome"
 }
