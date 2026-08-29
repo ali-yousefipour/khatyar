@@ -58,7 +58,7 @@ function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $false
     $psi.RedirectStandardError = $false
-    $command = '"' + $Gradlew + '" --init-script "' + $InitScript + '" ' + $Task + ' --console=plain --stacktrace --warning-mode=all'
+    $command = '\"' + $Gradlew + '\" --init-script \"' + $InitScript + '\" ' + $Task + ' --console=plain --stacktrace --warning-mode=all'
     $psi.Arguments = '/d /c "' + $command + ' > "' + $LogPath + '" 2>&1"'
     Write-Host ('> ' + $Gradlew + ' --init-script ' + $InitScript + ' ' + $Task) -ForegroundColor DarkGray
     $p = New-Object Diagnostics.Process
@@ -106,6 +106,15 @@ try {
 
     Stage 5 'Preparing and validating the complete build environment'
     if(-not (Test-Path -LiteralPath $EnvironmentScript)){ throw 'scripts\ensure-build-environment.ps1 is missing.' }
+
+    # Android SDK repositories are Iran-network constrained. Persist the known-good
+    # non-Google mirror into the child environment so sdkmanager can use it even
+    # when the SDK is already installed and no bootstrap download occurs.
+    if(-not $env:KHATYAR_ANDROID_SDK_MIRROR_URL){ $env:KHATYAR_ANDROID_SDK_MIRROR_URL = 'https://mirrors.cloud.tencent.com/AndroidSDK/' }
+    if(-not $env:SDK_TEST_BASE_URL){ $env:SDK_TEST_BASE_URL = $env:KHATYAR_ANDROID_SDK_MIRROR_URL }
+    if(-not $env:KHATYAR_ANDROID_MIRROR_URL_ACTIVE){ $env:KHATYAR_ANDROID_MIRROR_URL_ACTIVE = $env:KHATYAR_ANDROID_SDK_MIRROR_URL }
+    Write-Host ('[khatyar-build] Android SDK mirror: ' + $env:KHATYAR_ANDROID_SDK_MIRROR_URL) -ForegroundColor DarkGray
+
     $envArgs = @()
     if($Fresh){ $envArgs += '-Fresh' }
     Invoke-DirectChecked 'powershell.exe' (@('-NoProfile','-ExecutionPolicy','Bypass','-File',$EnvironmentScript) + $envArgs)
@@ -140,7 +149,7 @@ try {
     Stage 55 'Validating Java 17 and Gradle wrapper'
     $gv = Join-Path $env:TEMP ('khatyar-gradle-version-' + [guid]::NewGuid().ToString('N') + '.txt')
     try {
-        & cmd.exe /d /c ('"' + $gradlew + '" --version > "' + $gv + '" 2>&1')
+        & cmd.exe /d /c ('\"' + $gradlew + '\" --version > \"' + $gv + '\" 2>&1')
         $gradleVersionExit = $LASTEXITCODE
         $gradleVersionText = if(Test-Path -LiteralPath $gv){ Get-Content -LiteralPath $gv -Raw } else { '' }
     } finally {
@@ -159,7 +168,7 @@ try {
     $task = if($ArtifactType -eq 'AAB'){'bundleRelease'}else{'assembleRelease'}
     Stage 72 ('Building standard Android release ' + $ArtifactType)
     Write-Host '[khatyar-build] Maven: local Maven -> Myket -> Runflare -> official.' -ForegroundColor DarkGray
-    Write-Host '[khatyar-build] Gradle Wrapper: F:\gradle-cache -> Myket -> Runflare -> official.' -ForegroundColor DarkGray
+    Write-Host '[khatyar-build] Gradle Wrapper: F:\\gradle-cache -> Myket -> Runflare -> official.' -ForegroundColor DarkGray
     $logDir = Join-Path $android 'build\khatyar-build-logs'
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
     $logPath = Join-Path $logDir ($task + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
