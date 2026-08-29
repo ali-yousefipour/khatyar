@@ -1,6 +1,18 @@
 // KhatYar Gradle repository policy for Iran-network constrained environments.
-// Google Maven is not queried by default. Non-Google mirrors are preferred.
-// Set KHATYAR_ALLOW_GOOGLE=1 only when Google repositories are reachable and required.
+// This file is passed explicitly to the project's Gradle wrapper; it is NOT a
+// global ~/.gradle/init.d script.
+//
+// Resolution policy:
+//   1) local Maven (~/.m2/repository)
+//   2) Myket Maven
+//   3) Runflare mirrors for groups known to be mirrored reliably
+//   4) official repositories
+//
+// IMPORTANT:
+// Runflare is deliberately excluded for Expo and React Native coordinates.
+// The mirror has returned HTTP 500 for valid Expo POMs/artifacts. Repository
+// order alone is NOT a reliable fallback when a repository responds with 5xx;
+// excluding affected groups prevents Gradle from querying the unreliable mirror.
 
 ext.khatyarRunflareContentGroovy = { repository ->
     repository.content {
@@ -17,21 +29,6 @@ ext.khatyarMirrorRepos = {
         name = 'KhatYarMyket'
         url = uri('https://maven.myket.ir/')
         metadataSources { gradleMetadata(); mavenPom(); artifact() }
-    }
-    maven {
-        name = 'KhatYarAliyunGoogleMirror'
-        url = uri('https://maven.aliyun.com/repository/google')
-        metadataSources { mavenPom(); artifact() }
-    }
-    maven {
-        name = 'KhatYarAliyunPublicMirror'
-        url = uri('https://maven.aliyun.com/repository/public')
-        metadataSources { mavenPom(); artifact() }
-    }
-    maven {
-        name = 'KhatYarHuaweiMirror'
-        url = uri('https://repo.huaweicloud.com/repository/maven/')
-        metadataSources { mavenPom(); artifact() }
     }
     maven {
         name = 'KhatYarRunflareGoogle'
@@ -51,9 +48,7 @@ ext.khatyarMirrorRepos = {
         metadataSources { mavenPom(); artifact() }
         khatyarRunflareContentGroovy(delegate)
     }
-    if (System.getenv('KHATYAR_ALLOW_GOOGLE') == '1') {
-        google()
-    }
+    google()
     mavenCentral()
 }
 
@@ -82,9 +77,5 @@ gradle.settingsEvaluated { settings ->
     }
 }
 
-println '[khatyar-init] Maven policy active: local -> Myket -> Aliyun mirrors -> Huawei -> Runflare -> Maven Central.'
-if (System.getenv('KHATYAR_ALLOW_GOOGLE') == '1') {
-    println '[khatyar-init] Google Maven explicitly enabled by KHATYAR_ALLOW_GOOGLE=1.'
-} else {
-    println '[khatyar-init] Google Maven disabled by default for Iran-network builds.'
-}
+println '[khatyar-init] Maven policy active: local -> Myket -> Runflare(filtered) -> official.'
+println '[khatyar-init] Runflare excluded for Expo/React Native groups because those coordinates may return HTTP 500.'
