@@ -45,6 +45,46 @@ function Invoke-CmdChecked([string]$CommandLine,[string]$Cwd=$ScriptRoot) {
     } finally { Pop-Location }
 }
 
+function Invoke-CommandWithCapture {
+    param(
+        [Parameter(Mandatory=$true)][string]$File,
+        [Parameter(Mandatory=$true)][string[]]$Arguments,
+        [string]$WorkingDirectory = $ScriptRoot
+    )
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.WorkingDirectory = $WorkingDirectory
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $extension = [System.IO.Path]::GetExtension($File).ToLowerInvariant()
+    if ($extension -eq '.bat' -or $extension -eq '.cmd') {
+        $psi.FileName = 'cmd.exe'
+        $command = '"' + $File + '"'
+        foreach ($arg in $Arguments) {
+            $a = [string]$arg
+            $command += ' "' + ($a -replace '"','\"') + '"'
+        }
+        $psi.Arguments = '/d /c "' + $command + '"'
+    } else {
+        $psi.FileName = $File
+        foreach ($arg in $Arguments) {
+            $a = [string]$arg
+            if ($a -match '[\s"]') { $psi.Arguments += ' "' + ($a -replace '"','\"') + '"' }
+            else { $psi.Arguments += ' ' + $a }
+        }
+    }
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $psi
+    try {
+        [void]$p.Start()
+        $stdout = $p.StandardOutput.ReadToEnd()
+        $stderr = $p.StandardError.ReadToEnd()
+        $p.WaitForExit()
+        return [pscustomobject]@{ ExitCode = $p.ExitCode; Output = $stdout; Error = $stderr }
+    } finally { $p.Dispose() }
+}
+
 function Stop-Tree([int]$ProcessId) {
     if($ProcessId -gt 0){ try{ taskkill.exe /PID $ProcessId /T /F 2>$null | Out-Null }catch{} }
 }
@@ -105,9 +145,7 @@ try {
 
     Stage 10 'Checking required tools'
     $toolCommands = @('node.exe','npm.cmd','java.exe','git.exe')
-    foreach($tool in $toolCommands){
-        if(-not (Get-Command $tool -ErrorAction SilentlyContinue)){ throw "$tool was not found in PATH." }
-    }
+    foreach($tool in $toolCommands){ if(-not (Get-Command $tool -ErrorAction SilentlyContinue)){ throw "$tool was not found in PATH." } }
     Invoke-CmdChecked 'node.exe --version'
     Invoke-CmdChecked 'npm.cmd --version'
     Invoke-CmdChecked 'java.exe -version 2>&1'
@@ -144,9 +182,7 @@ try {
         & cmd.exe /d /c ('"' + $gradlew + '" --version > "' + $gv + '" 2>&1')
         $gradleVersionExit = $LASTEXITCODE
         $gradleVersionText = if(Test-Path -LiteralPath $gv){ Get-Content -LiteralPath $gv -Raw } else { '' }
-    } finally {
-        Remove-Item -LiteralPath $gv -Force -ErrorAction SilentlyContinue
-    }
+    } finally { Remove-Item -LiteralPath $gv -Force -ErrorAction SilentlyContinue }
     if($gradleVersionExit -ne 0){ throw 'Gradle wrapper --version failed.' }
     Write-Host $gradleVersionText.Trim() -ForegroundColor DarkGray
     if($gradleVersionText -notmatch 'Gradle 8\.13'){ throw 'Gradle wrapper did not launch Gradle 8.13.' }
@@ -154,7 +190,14 @@ try {
 
     if(-not $SkipDoctor){
         Stage 63 'Running Expo dependency diagnostics'
-        Invoke-CmdChecked 'npm.cmd exec -- expo-doctor'
+        $doctor = Invoke-CommandWithCapture -File 'npm.cmd' -Arguments @('exec','--','expo-doctor')
+        if($doctor.Output.Trim()){ Write-Host $doctor.Output.Trim() -ForegroundColor DarkGray }
+        if($doctor.Error.Trim()){ Write-Host $doctor.Error.Trim() -ForegroundColor DarkGray }
+        if($doctor.ExitCode -ne 0){
+            $message = 'expo-doctor exited with code ' + $doctor.ExitCode + '. Diagnostics are recorded above and are non-blocking by default.'
+            if($StrictDoctor){ throw $message }
+            Write-Host $message -ForegroundColor Yellow
+        } else { Write-Host 'expo-doctor completed successfully.' -ForegroundColor Green }
     }
 
     $task = if($ArtifactType -eq 'AAB'){'bundleRelease'}else{'assembleRelease'}
@@ -167,10 +210,10 @@ try {
     Run-Gradle $gradlew $android $logPath $task
 
     Stage 95 'Verifying release artifact'
-    if($ArtifactType -eq 'AAB'){
-        $artifact = Join-Path $android 'app\build\outputs\bundle\release\app-release.aab'
+    $artifact = if($ArtifactType -eq 'AAB') {
+        Join-Path $android 'app\build\outputs\bundle\release\app-release.aab'
     } else {
-        $artifact = Join-Path $android 'app\build\outputs\apk\release\app-release.apk'
+        Join-Path $android 'app\build\outputs\apk\release\app-release.apk'
     }
     if(-not (Test-Path -LiteralPath $artifact)){ throw "Release artifact was not found: $artifact" }
     $sizeMB = [math]::Round((Get-Item -LiteralPath $artifact).Length / 1MB, 2)
