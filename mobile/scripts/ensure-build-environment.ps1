@@ -96,7 +96,7 @@ function Ensure-Jdk {
   $java = Get-Command java.exe -ErrorAction SilentlyContinue
   $ok = $false
   if ($java) {
-    $txt = (& java.exe -version 2>&1 | Out-String)
+    $txt = & cmd.exe /d /c 'java.exe -version 2>&1' | Out-String
     $m = [regex]::Match($txt, 'version\s+"(\d+)(?:\.\d+)?')
     if ($m.Success -and [int]$m.Groups[1].Value -eq $RequiredJdkMajor) { $ok = $true }
     if ($ok) { Write-Ok 'JDK 17 detected.' } else { Write-Warn 'Installed Java is not JDK 17.' }
@@ -117,7 +117,7 @@ function Ensure-Jdk {
   if (-not $home -or -not (Test-Path (Join-Path $home 'bin\java.exe'))) { throw 'JDK 17 was installed but JAVA_HOME could not be determined.' }
   $env:JAVA_HOME = $home; $env:Path = "$(Join-Path $home 'bin');$env:Path"
   [Environment]::SetEnvironmentVariable('JAVA_HOME',$home,'User')
-  $check = (& java.exe -version 2>&1 | Out-String)
+  $check = & cmd.exe /d /c 'java.exe -version 2>&1' | Out-String
   if ($check -notmatch 'version\s+"17(?:\.|"|\s)') { throw 'JAVA_HOME does not point to JDK 17.' }
   Write-Ok "JAVA_HOME=$home"
 }
@@ -176,9 +176,7 @@ function Ensure-AndroidSdk {
   Write-Stage 'Installing required Android SDK packages'
   & $sdkManager 'platform-tools' "platforms;$RequiredCompileSdk" "build-tools;$RequiredBuildTools" "ndk;$RequiredNdk"
   if ($LASTEXITCODE -ne 0) { throw "sdkmanager failed to install required Android packages (exit code $LASTEXITCODE)." }
-  foreach ($requiredPath in @((Join-Path $sdk 'platform-tools\adb.exe'),(Join-Path $sdk "platforms\$RequiredCompileSdk\android.jar"),(Join-Path $sdk "build-tools\$RequiredBuildTools\aapt2.exe"),(Join-Path $sdk "ndk\$RequiredNdk\source.properties"))) {
-    if (-not (Test-Path $requiredPath)) { throw "Required Android SDK component is missing: $requiredPath" }
-  }
+  foreach ($requiredPath in @((Join-Path $sdk 'platform-tools\adb.exe'),(Join-Path $sdk "platforms\$RequiredCompileSdk\android.jar"),(Join-Path $sdk "build-tools\$RequiredBuildTools\aapt2.exe"),(Join-Path $sdk "ndk\$RequiredNdk\source.properties"))) { if (-not (Test-Path $requiredPath)) { throw "Required Android SDK component is missing: $requiredPath" } }
   Write-Ok "Android SDK ready: $sdk"
 }
 
@@ -205,7 +203,8 @@ Ensure-Node; Ensure-Jdk; Ensure-Git; Ensure-AndroidSdk; Ensure-NpmDependencies
 Write-Host '`n[environment] Required toolchain:' -ForegroundColor Cyan
 Invoke-Checked 'node.exe' @('--version')
 Invoke-Checked 'npm.cmd' @('--version')
-Invoke-Checked 'java.exe' @('-version')
+& cmd.exe /d /c 'java.exe -version 2>&1'
+if ($LASTEXITCODE -ne 0) { throw "java.exe exited with code $LASTEXITCODE." }
 Invoke-Checked 'git.exe' @('--version')
 Invoke-Checked (Join-Path $env:ANDROID_SDK_ROOT 'platform-tools\adb.exe') @('version')
 Write-Ok 'Build environment preparation completed successfully.'
