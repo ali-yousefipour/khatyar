@@ -4,10 +4,8 @@
 // Priority for Maven repositories:
 //   1) local Maven repository (~/.m2/repository)
 //   2) Myket
-//   3) Runflare mirrors
+//   3) Runflare mirrors (POM/artifact metadata only; no Gradle Module Metadata)
 //   4) official repositories
-
-import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 
 ext.khatyarMirrorRepos = {
     mavenLocal()
@@ -16,28 +14,29 @@ ext.khatyarMirrorRepos = {
         url = uri('https://maven.myket.ir/')
         metadataSources { gradleMetadata(); mavenPom(); artifact() }
     }
+    // Runflare may return HTTP 500 for Gradle Module Metadata (.module) on
+    // otherwise valid artifacts. Restricting it to POM/artifact metadata keeps
+    // it as a reliable fallback without allowing a non-essential .module request
+    // to terminate dependency resolution.
     maven {
         name = 'KhatYarRunflareGoogle'
         url = uri('https://mirror-maven.runflare.com/android/maven2/')
-        metadataSources { gradleMetadata(); mavenPom(); artifact() }
+        metadataSources { mavenPom(); artifact() }
     }
     maven {
         name = 'KhatYarRunflareMaven'
         url = uri('https://mirror-maven.runflare.com/maven2/')
-        metadataSources { gradleMetadata(); mavenPom(); artifact() }
+        metadataSources { mavenPom(); artifact() }
     }
     maven {
         name = 'KhatYarRunflareGradlePlugins'
         url = uri('https://mirror-maven.runflare.com/gradle-plugins/')
-        metadataSources { gradleMetadata(); mavenPom(); artifact() }
+        metadataSources { mavenPom(); artifact() }
     }
     google()
     mavenCentral()
 }
 
-// Every Gradle invocation, including composite/included builds, gets this init
-// script independently. This is the key difference from a root-project-only
-// Expo config plugin: Expo's included builds are separate Gradle instances.
 gradle.allprojects { project ->
     project.buildscript.repositories {
         khatyarMirrorRepos.delegate = delegate
@@ -63,4 +62,4 @@ gradle.settingsEvaluated { settings ->
     }
 }
 
-println '[khatyar-init] Maven policy active: local -> Myket -> Runflare -> official (all Gradle builds, including included builds).'
+println '[khatyar-init] Maven policy active: local -> Myket -> Runflare(POM/artifact) -> official (all Gradle builds, including included builds).'
