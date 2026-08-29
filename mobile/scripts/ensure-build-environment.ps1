@@ -16,7 +16,7 @@ $RequiredCompileSdk = 'android-36'
 $RequiredBuildTools = '36.0.0'
 $RequiredNdk = '27.1.12297006'
 $AndroidCmdlineZip = 'commandlinetools-win-15859902_latest.zip'
-$AndroidCmdlineSha256 = '90ae805d20434428bffcb699c290860f19bb5f66a67e6b330067e3de801fb04a'
+$AndroidCmdlineSha256 = '90ae805d20434428bffcb699c290860f19bb5f66a67e3de801fb04a'
 
 function Write-Stage([string]$Name) { Write-Host "`n[environment] $Name" -ForegroundColor Yellow }
 function Write-Ok([string]$Text) { Write-Host "[environment] $Text" -ForegroundColor Green }
@@ -63,7 +63,8 @@ function Install-Node22Direct {
   Invoke-WebRequest -Uri ($base + 'SHASUMS256.txt') -OutFile $shaPath -UseBasicParsing -TimeoutSec 180
   $expected = $null
   foreach ($line in Get-Content -LiteralPath $shaPath) {
-    if ($line -match "^([0-9a-fA-F]{64})\s+\*?$( [regex]::Escape($msi) )$".Replace('$( ','').Replace(' )','')) { $expected = $Matches[1].ToLowerInvariant(); break }
+    $parts = $line.Trim() -split '\s+'
+    if ($parts.Count -ge 2 -and $parts[$parts.Count-1].TrimStart('*') -eq $msi) { $expected = $parts[0].ToLowerInvariant(); break }
   }
   if (-not $expected) { throw "Could not find SHA-256 for $msi." }
   $actual = (Get-FileHash -LiteralPath $msiPath -Algorithm SHA256).Hash.ToLowerInvariant()
