@@ -18,6 +18,15 @@ $RequiredNdk = '27.1.12297006'
 $AndroidCmdlineZip = 'commandlinetools-win-15859902_latest.zip'
 $AndroidCmdlineSha256 = '90ae805d20434428bffcb699c290860f19bb5f66a67e6b330067e3de801fb04a'
 
+# Android SDK downloads are mirror-first for Iran-network constrained environments.
+# Google endpoints are intentionally disabled by default. Set KHATYAR_ALLOW_GOOGLE=1
+# only when a build environment explicitly permits direct Google access.
+$AndroidMirrorCandidates = @(
+  'https://mirrors.aliyun.com/android/repository/',
+  'https://mirrors.cloud.tencent.com/AndroidSDK/',
+  'https://repo.huaweicloud.com/repository/toolkit/android/repository/'
+)
+
 function Write-Stage([string]$Name) { Write-Host "`n[environment] $Name" -ForegroundColor Yellow }
 function Write-Ok([string]$Text) { Write-Host "[environment] $Text" -ForegroundColor Green }
 function Write-Warn([string]$Text) { Write-Host "[environment] $Text" -ForegroundColor DarkYellow }
@@ -38,6 +47,7 @@ function Install-WingetPackage([string]$Id, [string]$DisplayName) {
   Write-Stage "Installing $DisplayName"
   & winget.exe install --id $Id --exact --accept-package-agreements --accept-source-agreements --silent
   if ($LASTEXITCODE -ne 0) { throw "Automatic installation failed for $DisplayName (winget exit code $LASTEXITCODE)." }
+  Refresh-ProcessPath
 }
 
 function Refresh-ProcessPath {
@@ -179,7 +189,8 @@ function Ensure-Jdk {
 function Ensure-Git {
   Refresh-ProcessPath
   if (Get-Command git.exe -ErrorAction SilentlyContinue) { Write-Ok 'Git detected.'; return }
-  Install-WingetPackage 'Git.Git' 'Git for Windows'; Refresh-ProcessPath
+  Install-WingetPackage 'Git.Git' 'Git for Windows'
+  Refresh-ProcessPath
   if (-not (Get-Command git.exe -ErrorAction SilentlyContinue)) { throw 'Git installation could not be verified.' }
   Write-Ok 'Git ready.'
 }
@@ -194,7 +205,8 @@ function Find-SdkManager([string]$SdkRoot) {
   $paths = @((Join-Path $SdkRoot 'cmdline-tools\latest\bin\sdkmanager.bat'),(Join-Path $SdkRoot 'cmdline-tools\bin\sdkmanager.bat'),(Join-Path $SdkRoot 'tools\bin\sdkmanager.bat'))
   foreach ($p in $paths) { if (Test-Path $p) { return $p } }
   $found = Get-ChildItem -Path (Join-Path $SdkRoot 'cmdline-tools') -Filter sdkmanager.bat -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-  if ($found) { return $found.FullName }; return $null
+  if ($found) { return $found.FullName }
+  return $null
 }
 
 function Test-SdkManager([string]$SdkManager) {
@@ -212,79 +224,156 @@ function Test-SdkManager([string]$SdkManager) {
   } catch { return $false }
 }
 
-function Download-AndroidCommandLineTools([string]$Destination) {
-  $urls = @(
-    "https://dl.google.com/android/repository/$AndroidCmdlineZip",
-    "https://redirector.gvt1.com/edgedl/android/repository/$AndroidCmdlineZip"
-  )
-  $lastError = $null
-  foreach ($url in $urls) {
+function Get-AndroidMirrorCandidates {
+  if ($env:KHATYAR_ANDROID_SDK_MIRROR_URL) {
+    return @($env:KHATYAR_ANDROID_SDK_MIRROR_URL.TrimEnd('/') + '/') + $AndroidMirrorCandidates
+  }
+  return $AndroidMirrorCandidates
+}
+
+function Test-AndroidMirror([string]$BaseUrl) {
+  $base = $BaseUrl.TrimEnd('/') + '/'
+  foreach ($manifest in @('repository2-3.xml','repository2-2.xml','repository2-1.xml')) {
+    $tmp = Join-Path $env:TEMP ('khatyar-mirror-' + [guid]::NewGuid().ToString('N') + '.xml')
     try {
-      Write-Stage "Downloading Android SDK command-line tools from $url"
+      Invoke-WebRequest -Uri ($base + $manifest) -OutFile $tmp -UseBasicParsing -TimeoutSec 30
+      if ((Get-Item -LiteralPath $tmp).Length -gt 10000) { return $true }
+    } catch { }
+    finally { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
+  }
+  return $false
+}
+
+function Select-AndroidMirror {
+  $candidates = @(Get-AndroidMirrorCandidates)
+  foreach ($base in $candidates) {
+    if (Test-AndroidMirror $base) {
+      return ($base.TrimEnd('/') + '/')
+    }
+    Write-Warn "Android SDK mirror unavailable: $base"
+  }
+  if ($env:KHATYAR_ALLOW_GOOGLE -eq '1') {
+    return 'https://dl.google.com/android/repository/'
+  }
+  throw 'No accessible non-Google Android SDK mirror was found. Set KHATYAR_ANDROID_SDK_MIRROR_URL to a reachable Android repository mirror. Google is disabled by default for Iran-network builds.'
+}
+
+function Download-AndroidCommandLineTools([string]$Destination, [string]$PreferredMirror) {
+  $mirrors = @($PreferredMirror) + @(Get-AndroidMirrorCandidates)
+  if ($env:KHATYAR_ALLOW_GOOGLE -eq '1') { $mirrors += 'https://dl.google.com/android/repository/' }
+  $seen = @{}
+  $lastError = $null
+  foreach ($base in $mirrors) {
+    if (-not $base) { continue }
+    $base = $base.TrimEnd('/') + '/'
+    if ($seen.ContainsKey($base)) { continue }
+    $seen[$base] = $true
+    try {
+      $url = $base + $AndroidCmdlineZip
+      Write-Stage "Downloading Android SDK command-line tools from $base"
       Invoke-WebRequest -Uri $url -OutFile $Destination -UseBasicParsing -TimeoutSec 180
       if (-not (Test-Path $Destination)) { throw 'Download completed without creating the expected archive.' }
-      $length = (Get-Item $Destination).Length
-      if ($length -lt 10MB) { throw "Downloaded archive is unexpectedly small ($length bytes)." }
-      return
+      if ((Get-Item -LiteralPath $Destination).Length -lt 50MB) { throw 'Downloaded archive is unexpectedly small.' }
+      $actual = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash.ToLowerInvariant()
+      if ($actual -ne $AndroidCmdlineSha256) { throw "SHA-256 mismatch. Expected $AndroidCmdlineSha256, got $actual." }
+      return $base
     } catch {
       $lastError = $_.Exception.Message
       Remove-Item $Destination -Force -ErrorAction SilentlyContinue
-      Write-Warn "Download failed: $lastError"
+      Write-Warn "Command-line tools download failed from $base : $lastError"
     }
   }
-  throw "Could not download Android command-line tools from the official Google endpoints. Last error: $lastError"
+  throw "Could not download the Android command-line tools from an accessible mirror. Last error: $lastError"
 }
 
-function Bootstrap-AndroidCommandLineTools([string]$SdkRoot) {
-  Write-Stage 'Installing Android SDK command-line tools'
+function Bootstrap-AndroidCommandLineTools([string]$SdkRoot, [string]$PreferredMirror) {
+  Write-Stage 'Installing Android SDK command-line tools from non-Google mirror'
   New-Item -ItemType Directory -Force -Path $SdkRoot | Out-Null
   $zip = Join-Path $env:TEMP $AndroidCmdlineZip
-  Download-AndroidCommandLineTools $zip
-  $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-  if ($actual -ne $AndroidCmdlineSha256) { Remove-Item $zip -Force -ErrorAction SilentlyContinue; throw "Android command-line tools SHA-256 verification failed. Expected $AndroidCmdlineSha256, got $actual." }
+  $usedMirror = Download-AndroidCommandLineTools $zip $PreferredMirror
   $stage = Join-Path $env:TEMP ('khatyar-cmdline-' + [guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Force -Path $stage | Out-Null
   Expand-Archive -LiteralPath $zip -DestinationPath $stage -Force
-  $source = Join-Path $stage 'cmdline-tools'; $target = Join-Path $SdkRoot 'cmdline-tools\latest'
+  $source = Join-Path $stage 'cmdline-tools'
+  $target = Join-Path $SdkRoot 'cmdline-tools\latest'
   New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
   if (Test-Path $target) { Remove-Item $target -Recurse -Force }
   Move-Item -LiteralPath $source -Destination $target
-  Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item $zip -Force -ErrorAction SilentlyContinue
+  Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item $zip -Force -ErrorAction SilentlyContinue
+  Write-Ok "Android command-line tools installed from $usedMirror"
+  return $usedMirror
+}
+
+function Install-AndroidPackagesWithMirrors([string]$SdkManager, [string]$SdkRoot, [string]$PreferredMirror) {
+  $mirrors = @($PreferredMirror) + @(Get-AndroidMirrorCandidates)
+  if ($env:KHATYAR_ALLOW_GOOGLE -eq '1') { $mirrors += 'https://dl.google.com/android/repository/' }
+  $seen = @{}
+  $lastError = $null
+  foreach ($base in $mirrors) {
+    if (-not $base) { continue }
+    $base = $base.TrimEnd('/') + '/'
+    if ($seen.ContainsKey($base)) { continue }
+    $seen[$base] = $true
+    try {
+      if (-not (Test-AndroidMirror $base) -and $base -ne 'https://dl.google.com/android/repository/') { continue }
+      $env:SDK_TEST_BASE_URL = $base
+      Write-Stage "Installing Android SDK packages via $base"
+      1..30 | ForEach-Object { 'y' } | & $SdkManager --licenses | Out-Null
+      & $SdkManager 'platform-tools' "platforms;$RequiredCompileSdk" "build-tools;$RequiredBuildTools" "ndk;$RequiredNdk"
+      if ($LASTEXITCODE -ne 0) { throw "sdkmanager exited with code $LASTEXITCODE." }
+      foreach ($requiredPath in @(
+        (Join-Path $SdkRoot 'platform-tools\adb.exe'),
+        (Join-Path $SdkRoot "platforms\$RequiredCompileSdk\android.jar"),
+        (Join-Path $SdkRoot "build-tools\$RequiredBuildTools\aapt2.exe"),
+        (Join-Path $SdkRoot "ndk\$RequiredNdk\source.properties")
+      )) {
+        if (-not (Test-Path $requiredPath)) { throw "Required Android SDK component is missing: $requiredPath" }
+      }
+      Write-Ok "Android SDK packages ready via $base"
+      return $base
+    } catch {
+      $lastError = $_.Exception.Message
+      Write-Warn "Android SDK installation failed via $base : $lastError"
+    }
+  }
+  throw "Could not install the required Android SDK components from the configured mirrors. Last error: $lastError"
 }
 
 function Ensure-AndroidSdk {
+  $preferredMirror = Select-AndroidMirror
   $sdk = Find-AndroidSdk
-  if (-not $sdk) { $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk'; Bootstrap-AndroidCommandLineTools $sdk }
+  if (-not $sdk) { $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
+  New-Item -ItemType Directory -Force -Path $sdk | Out-Null
+
   $sdkManager = Find-SdkManager $sdk
-  if (-not $sdkManager) { Bootstrap-AndroidCommandLineTools $sdk; $sdkManager = Find-SdkManager $sdk }
-  if (-not $sdkManager) { throw "sdkmanager.bat was not found under $sdk." }
   if (-not (Test-SdkManager $sdkManager)) {
-    Write-Warn 'Existing sdkmanager is missing or incompatible with JDK 17. Replacing Android command-line tools with the supported current package.'
-    Bootstrap-AndroidCommandLineTools $sdk
+    Write-Warn 'Existing sdkmanager is missing or incompatible with JDK 17. Replacing it from a non-Google Android SDK mirror.'
+    $preferredMirror = Bootstrap-AndroidCommandLineTools $sdk $preferredMirror
     $sdkManager = Find-SdkManager $sdk
   }
   if (-not $sdkManager -or -not (Test-SdkManager $sdkManager)) { throw "A compatible sdkmanager.bat was not found under $sdk." }
-  $env:ANDROID_SDK_ROOT = $sdk; $env:ANDROID_HOME = $sdk
-  [Environment]::SetEnvironmentVariable('ANDROID_SDK_ROOT',$sdk,'User'); [Environment]::SetEnvironmentVariable('ANDROID_HOME',$sdk,'User')
+
+  $env:ANDROID_SDK_ROOT = $sdk
+  $env:ANDROID_HOME = $sdk
+  [Environment]::SetEnvironmentVariable('ANDROID_SDK_ROOT',$sdk,'User')
+  [Environment]::SetEnvironmentVariable('ANDROID_HOME',$sdk,'User')
   $env:Path = "$(Join-Path $sdk 'platform-tools');$(Split-Path $sdkManager -Parent);$env:Path"
-  Write-Stage 'Accepting Android SDK licenses'
-  1..20 | ForEach-Object { 'y' } | & $sdkManager --licenses | Out-Null
-  if ($LASTEXITCODE -ne 0) { Write-Warn 'SDK license command returned a non-zero code; continuing to package installation for a clearer diagnostic.' }
-  Write-Stage 'Installing required Android SDK packages'
-  & $sdkManager 'platform-tools' "platforms;$RequiredCompileSdk" "build-tools;$RequiredBuildTools" "ndk;$RequiredNdk"
-  if ($LASTEXITCODE -ne 0) { throw "sdkmanager failed to install required Android packages (exit code $LASTEXITCODE)." }
-  foreach ($requiredPath in @((Join-Path $sdk 'platform-tools\adb.exe'),(Join-Path $sdk "platforms\$RequiredCompileSdk\android.jar"),(Join-Path $sdk "build-tools\$RequiredBuildTools\aapt2.exe"),(Join-Path $sdk "ndk\$RequiredNdk\source.properties"))) { if (-not (Test-Path $requiredPath)) { throw "Required Android SDK component is missing: $requiredPath" } }
-  Write-Ok "Android SDK ready: $sdk"
+  $usedMirror = Install-AndroidPackagesWithMirrors $sdkManager $sdk $preferredMirror
+  $env:SDK_TEST_BASE_URL = $usedMirror
+  Write-Ok "ANDROID_SDK_ROOT=$sdk"
+  Write-Ok "Android SDK mirror active: $usedMirror"
 }
 
 function Ensure-NpmDependencies {
   if ($SkipNpm) { return }
-  $manifest = Join-Path $Root 'package.json'; $installer = Join-Path $Root 'scripts\install-dependencies-fallback.ps1'
+  $manifest = Join-Path $Root 'package.json'
+  $installer = Join-Path $Root 'scripts\install-dependencies-fallback.ps1'
   if (-not (Test-Path $manifest)) { throw 'package.json not found.' }
   if (-not (Test-Path $installer)) { throw 'Dependency fallback installer not found.' }
   $needs = $Fresh -or -not (Test-Path (Join-Path $Root 'node_modules\expo\package.json'))
   if (-not $needs) { Write-Ok 'npm dependencies already installed.'; return }
-  Write-Stage 'Installing project npm dependencies with mirror fallback'
+  Write-Stage 'Installing project npm dependencies with the existing local/mirror fallback policy'
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Ci:$true
   if ($LASTEXITCODE -ne 0) { throw "npm dependency installation failed (exit code $LASTEXITCODE)." }
   if (-not (Test-Path (Join-Path $Root 'node_modules\expo\package.json'))) { throw 'Expo dependency is still missing after npm installation.' }
@@ -294,8 +383,13 @@ function Ensure-NpmDependencies {
 Write-Host '============================================================' -ForegroundColor Cyan
 Write-Host '       KHATYAR - BUILD ENVIRONMENT PREPARATION' -ForegroundColor Cyan
 Write-Host '============================================================' -ForegroundColor Cyan
-if (-not (Test-Winget)) { Write-Warn 'winget is not available. Direct Node/Android downloads will still work; missing JDK/Git cannot be installed automatically.' }
-Ensure-Node; Ensure-Jdk; Ensure-Git; Ensure-AndroidSdk; Ensure-NpmDependencies
+if (-not (Test-Winget)) { Write-Warn 'winget is not available. Direct Node/Android downloads still work; missing JDK/Git cannot be installed automatically.' }
+if ($env:KHATYAR_ALLOW_GOOGLE -eq '1') { Write-Warn 'KHATYAR_ALLOW_GOOGLE=1: direct Google Android SDK access is explicitly enabled.' } else { Write-Ok 'Direct Google Android SDK access disabled; non-Google mirrors are preferred.' }
+Ensure-Node
+Ensure-Jdk
+Ensure-Git
+Ensure-AndroidSdk
+Ensure-NpmDependencies
 
 Write-Host '`n[environment] Required toolchain:' -ForegroundColor Cyan
 Invoke-Checked 'node.exe' @('--version')
