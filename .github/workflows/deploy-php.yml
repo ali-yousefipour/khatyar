@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'php/**'
+      - '.github/workflows/deploy-php.yml'
   workflow_dispatch:
 
 permissions:
@@ -22,10 +23,20 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repository (PHP only)
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          sparse-checkout: |
+            php
+          sparse-checkout-cone-mode: true
+
+      - name: Verify PHP deployment payload
+        shell: bash
+        run: |
+          test -d ./php
+          echo "PHP deployment directory is ready: ./php"
+          find ./php -maxdepth 2 -type f | head -50
 
       - name: Deploy php directory by FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
