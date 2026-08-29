@@ -2,9 +2,9 @@
 [CmdletBinding()]
 param(
     [switch]$Fresh,
+    [switch]$SkipCleanup,
     [switch]$SkipDoctor,
     [switch]$StrictDoctor,
-    [ValidateSet('APK','AAB')][string]$ArtifactType = 'APK',
     [int]$GradleTimeoutMinutes = 180,
     [int]$GradleIdleTimeoutMinutes = 30,
     [switch]$NoPause
@@ -12,54 +12,100 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-$ScriptRoot = [IO.Path]::GetFullPath($PSScriptRoot)
+$ScriptRoot = [System.IO.Path]::GetFullPath($PSScriptRoot)
 Set-Location -LiteralPath $ScriptRoot
 $BuildStart = Get-Date
 $FinalExitCode = 1
 $FinalStage = 'Starting'
-$InitScript = Join-Path $ScriptRoot 'gradle-mirror.init.gradle'
 
-function Stage([int]$Percent,[string]$Name) {
-    $script:FinalStage = $Name
-    Write-Host "`n[$($Percent.ToString('000'))%] $Name" -ForegroundColor Yellow
-    Write-Host ('    Elapsed: ' + ((Get-Date)-$BuildStart).ToString('hh\:mm\:ss'))
+function Write-Stage {
+    param([int]$Percent, [string]$Stage)
+    $script:FinalStage = $Stage
+    $elapsed = (Get-Date) - $BuildStart
+    Write-Host ''
+    Write-Host ('[' + $Percent.ToString('000') + '%] ' + $Stage) -ForegroundColor Yellow
+    Write-Host ('    Elapsed: ' + $elapsed.ToString('hh\:mm\:ss'))
 }
-function Invoke-DirectChecked([string]$File,[string[]]$Arguments,[string]$Cwd=$ScriptRoot) {
-    Push-Location -LiteralPath $Cwd
+
+function Stop-Tree {
+    param([int]$ProcessId)
+    if ($ProcessId -gt 0) {
+        try { & taskkill.exe /PID $ProcessId /T /F 2>$null | Out-Null } catch {}
+    }
+}
+
+function Invoke-Checked {
+    param(
+        [Parameter(Mandatory=$true)][string]$File,
+        [Parameter(Mandatory=$true)][string[]]$Arguments,
+        [string]$WorkingDirectory = $ScriptRoot
+    )
+    Write-Host ('> ' + $File + ' ' + ($Arguments -join ' ')) -ForegroundColor DarkGray
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.WorkingDirectory = $WorkingDirectory
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $false
+    $psi.RedirectStandardError = $false
+
+    $extension = [System.IO.Path]::GetExtension($File).ToLowerInvariant()
+    if ($extension -eq '.bat' -or $extension -eq '.cmd') {
+        $psi.FileName = 'cmd.exe'
+        $command = '"' + $File + '"'
+        foreach ($arg in $Arguments) {
+            $a = [string]$arg
+            $command += ' "' + ($a -replace '"','\"') + '"'
+        }
+        $psi.Arguments = '/d /c "' + $command + '"'
+    } else {
+        $psi.FileName = $File
+        foreach ($arg in $Arguments) {
+            $a = [string]$arg
+            if ($a -match '[\s"]') { $psi.Arguments += ' "' + ($a -replace '"','\"') + '"' }
+            else { $psi.Arguments += ' ' + $a }
+        }
+    }
+
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $psi
     try {
-        Write-Host ('> ' + $File + ' ' + ($Arguments -join ' ')) -ForegroundColor DarkGray
-        & $File @Arguments
-        $code = $LASTEXITCODE
-        if ($null -ne $code -and $code -ne 0) { throw ("$File exited with code {0}." -f $code) }
-    } finally { Pop-Location }
+        [void]$p.Start()
+        $p.WaitForExit()
+        if ($p.ExitCode -ne 0) { throw ($File + ' exited with code ' + $p.ExitCode + '.') }
+    } finally { $p.Dispose() }
 }
-function Invoke-CmdChecked([string]$CommandLine,[string]$Cwd=$ScriptRoot) {
-    Push-Location -LiteralPath $Cwd
-    try {
-        Write-Host ('> cmd.exe /d /c ' + $CommandLine) -ForegroundColor DarkGray
-        & cmd.exe /d /c $CommandLine
-        $code = $LASTEXITCODE
-        if ($null -ne $code -and $code -ne 0) { throw ("Command exited with code {0}: {1}" -f $code, $CommandLine) }
-    } finally { Pop-Location }
-}
+
 function Invoke-CommandWithCapture {
-    param([Parameter(Mandatory=$true)][string]$File,[Parameter(Mandatory=$true)][string[]]$Arguments,[string]$WorkingDirectory=$ScriptRoot)
+    param(
+        [Parameter(Mandatory=$true)][string]$File,
+        [Parameter(Mandatory=$true)][string[]]$Arguments,
+        [string]$WorkingDirectory = $ScriptRoot
+    )
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.WorkingDirectory = $WorkingDirectory
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
+
     $extension = [System.IO.Path]::GetExtension($File).ToLowerInvariant()
     if ($extension -eq '.bat' -or $extension -eq '.cmd') {
         $psi.FileName = 'cmd.exe'
         $command = '"' + $File + '"'
-        foreach ($arg in $Arguments) { $a=[string]$arg; $command += ' "' + ($a -replace '"','\"') + '"' }
+        foreach ($arg in $Arguments) {
+            $a = [string]$arg
+            $command += ' "' + ($a -replace '"','\"') + '"'
+        }
         $psi.Arguments = '/d /c "' + $command + '"'
     } else {
         $psi.FileName = $File
-        foreach ($arg in $Arguments) { $a=[string]$arg; if($a -match '[\s"]'){$psi.Arguments+=' "'+($a -replace '"','\"')+'"'}else{$psi.Arguments+=' '+$a} }
+        foreach ($arg in $Arguments) {
+            $a = [string]$arg
+            if ($a -match '[\s"]') { $psi.Arguments += ' "' + ($a -replace '"','\"') + '"' }
+            else { $psi.Arguments += ' ' + $a }
+        }
     }
+
     $p = New-Object System.Diagnostics.Process
     $p.StartInfo = $psi
     try {
@@ -67,67 +113,203 @@ function Invoke-CommandWithCapture {
         $stdout = $p.StandardOutput.ReadToEnd()
         $stderr = $p.StandardError.ReadToEnd()
         $p.WaitForExit()
-        return [pscustomobject]@{ ExitCode=$p.ExitCode; Output=$stdout; Error=$stderr }
-    } finally { $p.Dispose() }
-}
-function Stop-Tree([int]$ProcessId) { if($ProcessId -gt 0){ try{ taskkill.exe /PID $ProcessId /T /F 2>$null | Out-Null }catch{} } }
-function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task) {
-    $psi = New-Object Diagnostics.ProcessStartInfo
-    $psi.FileName='cmd.exe'; $psi.WorkingDirectory=$Cwd; $psi.UseShellExecute=$false; $psi.CreateNoWindow=$true; $psi.RedirectStandardOutput=$false; $psi.RedirectStandardError=$false
-    $command='"'+$Gradlew+'" --init-script "'+$InitScript+'" '+$Task+' --console=plain --stacktrace --warning-mode=all'
-    $psi.Arguments='/d /c "'+$command+' > "'+$LogPath+'" 2>&1"'
-    Write-Host ('> '+$Gradlew+' --init-script '+$InitScript+' '+$Task) -ForegroundColor DarkGray
-    $p=New-Object Diagnostics.Process; $p.StartInfo=$psi; [void]$p.Start(); $lastLen=0; $lastActivity=Get-Date; $lastDisplay=Get-Date
-    try {
-        while(-not $p.HasExited){
-            Start-Sleep -Seconds 2
-            if(Test-Path -LiteralPath $LogPath){$len=(Get-Item -LiteralPath $LogPath).Length;if($len -gt $lastLen){$lastLen=$len;$lastActivity=Get-Date}}
-            $total=((Get-Date)-$BuildStart).TotalSeconds; $idle=((Get-Date)-$lastActivity).TotalSeconds
-            if(((Get-Date)-$lastDisplay).TotalSeconds -ge 10){$lastDisplay=Get-Date;Write-Host ('    Gradle running | '+$Task+' | elapsed '+(New-TimeSpan -Seconds ([int]$total)).ToString('hh\:mm\:ss')) -ForegroundColor Cyan;if(Test-Path -LiteralPath $LogPath){@(Get-Content -LiteralPath $LogPath -Tail 3 -ErrorAction SilentlyContinue)|ForEach-Object{if($_.Trim()){Write-Host ('    '+$_.Trim()) -ForegroundColor DarkGray}}}}
-            if($total -ge ($GradleTimeoutMinutes*60)){Stop-Tree $p.Id;throw ("Gradle exceeded {0} minutes." -f $GradleTimeoutMinutes)}
-            if($idle -ge ($GradleIdleTimeoutMinutes*60)){Stop-Tree $p.Id;throw ("Gradle produced no new log output for {0} minutes." -f $GradleIdleTimeoutMinutes)}
+        return [pscustomobject]@{
+            ExitCode = $p.ExitCode
+            Output = $stdout
+            Error = $stderr
         }
-        if($p.ExitCode -ne 0){Write-Host "`n---------------- Last 200 Gradle log lines ----------------" -ForegroundColor Red;if(Test-Path -LiteralPath $LogPath){Get-Content -LiteralPath $LogPath -Tail 200};Write-Host '--------------------------------------------------------------' -ForegroundColor Red;throw ("Gradle exited with code {0}." -f $p.ExitCode)}
     } finally { $p.Dispose() }
 }
-function Invoke-OptionalDoctor {
-    if ($SkipDoctor) { Write-Host '[khatyar-build] expo-doctor explicitly skipped.' -ForegroundColor DarkGray; return }
-    if (-not $StrictDoctor) { Write-Host '[khatyar-build] expo-doctor disabled for standard release builds (use -StrictDoctor to enable).' -ForegroundColor DarkGray; return }
-    Stage 63 'Running Expo dependency diagnostics (strict mode)'
-    $doctorLines=@()
-    & cmd.exe /d /c 'npm.cmd exec -- expo-doctor' 2>&1 | ForEach-Object { $doctorLines += [string]$_; Write-Host $_ -ForegroundColor DarkGray }
-    $doctorExit=$LASTEXITCODE
-    if($doctorExit -ne 0){throw ('expo-doctor exited with code '+$doctorExit+'.')}
-    Write-Host 'expo-doctor completed successfully.' -ForegroundColor Green
+
+function Get-JavaMajorVersion {
+    $result = Invoke-CommandWithCapture -File 'java.exe' -Arguments @('-version')
+    if ($result.ExitCode -ne 0) { throw 'java.exe -version failed.' }
+    $text = ($result.Output + "`n" + $result.Error)
+    $m = [regex]::Match($text, 'version\s+"([0-9]+)(?:\.([0-9]+))?')
+    if (-not $m.Success) { throw 'Unable to determine Java major version.' }
+    return [int]$m.Groups[1].Value
 }
+
+function Invoke-GradleRelease {
+    param(
+        [string]$Gradlew,
+        [string]$WorkingDirectory,
+        [string]$InitScript,
+        [string]$LogPath
+    )
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'cmd.exe'
+    $psi.WorkingDirectory = $WorkingDirectory
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $false
+    $psi.RedirectStandardError = $false
+    $command = '"' + $Gradlew + '" --init-script "' + $InitScript + '" assembleRelease --console=plain --stacktrace --warning-mode=all'
+    $psi.Arguments = '/d /c "' + $command + ' > "' + $LogPath + '" 2>&1"'
+
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $psi
+    [void]$p.Start()
+    $lastLength = 0
+    $lastActivity = Get-Date
+    $lastDisplay = Get-Date
+
+    try {
+        while (-not $p.HasExited) {
+            Start-Sleep -Seconds 2
+            if (Test-Path -LiteralPath $LogPath) {
+                $length = (Get-Item -LiteralPath $LogPath).Length
+                if ($length -gt $lastLength) { $lastLength = $length; $lastActivity = Get-Date }
+            }
+            $displaySeconds = ((Get-Date) - $lastDisplay).TotalSeconds
+            $totalSeconds = ((Get-Date) - $BuildStart).TotalSeconds
+            $idleSeconds = ((Get-Date) - $lastActivity).TotalSeconds
+            if ($displaySeconds -ge 5) {
+                $lastDisplay = Get-Date
+                Write-Host ('    Gradle running | elapsed ' + (New-TimeSpan -Seconds ([int]$totalSeconds)).ToString('hh\:mm\:ss')) -ForegroundColor Cyan
+                if (Test-Path -LiteralPath $LogPath) {
+                    @(Get-Content -LiteralPath $LogPath -Tail 2 -ErrorAction SilentlyContinue) | ForEach-Object {
+                        if ($_.Trim()) { Write-Host ('    ' + $_.Trim()) -ForegroundColor DarkGray }
+                    }
+                }
+            }
+            if ($totalSeconds -ge ($GradleTimeoutMinutes * 60)) {
+                Stop-Tree $p.Id
+                throw ('Gradle exceeded the total timeout of ' + $GradleTimeoutMinutes + ' minutes.')
+            }
+            if ($idleSeconds -ge ($GradleIdleTimeoutMinutes * 60)) {
+                Stop-Tree $p.Id
+                throw ('Gradle produced no new log output for ' + $GradleIdleTimeoutMinutes + ' minutes.')
+            }
+        }
+        $exitCode = $p.ExitCode
+        if ($exitCode -ne 0) { throw ('Gradle exited with code ' + $exitCode + '.') }
+    } finally { $p.Dispose() }
+}
+
+function Refresh-ProcessEnvironment {
+    $machine = [Environment]::GetEnvironmentVariable('Path','Machine')
+    $user = [Environment]::GetEnvironmentVariable('Path','User')
+    $parts = @()
+    if ($machine) { $parts += ($machine -split ';') }
+    if ($user) { $parts += ($user -split ';') }
+    $parts += ($env:Path -split ';')
+    $env:Path = (($parts | Where-Object { $_ -and $_.Trim() } | Select-Object -Unique) -join ';')
+    $javaHomeUser = [Environment]::GetEnvironmentVariable('JAVA_HOME','User')
+    if ($javaHomeUser -and (Test-Path (Join-Path $javaHomeUser 'bin\java.exe'))) {
+        $env:JAVA_HOME = $javaHomeUser
+        $env:Path = (Join-Path $javaHomeUser 'bin') + ';' + $env:Path
+    }
+}
+
 try {
     Write-Host '============================================================' -ForegroundColor Cyan
     Write-Host '       KHATYAR - ANDROID STANDARD RELEASE BUILD' -ForegroundColor Cyan
     Write-Host '============================================================' -ForegroundColor Cyan
-    Write-Host ('Project: ' + $ScriptRoot); Write-Host ('Artifact: ' + $ArtifactType)
-    Stage 10 'Checking required tools'
-    $toolCommands=@('node.exe','npm.cmd','java.exe','git.exe'); foreach($tool in $toolCommands){if(-not(Get-Command $tool -ErrorAction SilentlyContinue)){throw "$tool was not found in PATH."}}
-    Invoke-CmdChecked 'node.exe --version'; Invoke-CmdChecked 'npm.cmd --version'; Invoke-CmdChecked 'java.exe -version 2>&1'; Invoke-CmdChecked 'git.exe --version'
-    if(-not(Test-Path -LiteralPath $InitScript)){throw 'gradle-mirror.init.gradle is missing.'}
-    Stage 20 'Checking project dependency manifest'
-    if(-not(Test-Path -LiteralPath (Join-Path $ScriptRoot 'package.json'))){throw 'package.json was not found.'}
-    if(-not(Test-Path -LiteralPath (Join-Path $ScriptRoot 'node_modules'))){throw 'node_modules is missing.'}
-    if($Fresh){Stage 28 'Refreshing npm dependencies';if(Test-Path -LiteralPath (Join-Path $ScriptRoot 'package-lock.json')){Invoke-DirectChecked 'npm.cmd' @('ci','--no-audit','--no-fund','--legacy-peer-deps')}else{Invoke-DirectChecked 'npm.cmd' @('install','--no-audit','--no-fund','--legacy-peer-deps')}}
-    Stage 38 'Generating a clean Expo Android project'; Invoke-DirectChecked 'node.exe' @((Join-Path $ScriptRoot 'scripts\prepare-android-release.js'))
-    $android=Join-Path $ScriptRoot 'android'; $gradlew=Join-Path $android 'gradlew.bat'; $wrapperProps=Join-Path $android 'gradle\wrapper\gradle-wrapper.properties'
-    if(-not(Test-Path -LiteralPath $gradlew)){throw 'Generated gradlew.bat is missing.'}; if(-not(Test-Path -LiteralPath $wrapperProps)){throw 'Generated gradle-wrapper.properties is missing.'}
-    $wrapperText=Get-Content -LiteralPath $wrapperProps -Raw; if($wrapperText -notmatch 'gradle-8\.13-bin\.zip'){throw 'Gradle wrapper must use Gradle 8.13.'}
-    Stage 55 'Validating Java 17 and Gradle wrapper'; $gv=Join-Path $env:TEMP ('khatyar-gradle-version-'+[guid]::NewGuid().ToString('N')+'.txt')
-    try{& cmd.exe /d /c ('"'+$gradlew+'" --version > "'+$gv+'" 2>&1');$gradleVersionExit=$LASTEXITCODE;$gradleVersionText=if(Test-Path -LiteralPath $gv){Get-Content -LiteralPath $gv -Raw}else{''}}finally{Remove-Item -LiteralPath $gv -Force -ErrorAction SilentlyContinue}
-    if($gradleVersionExit -ne 0){throw 'Gradle wrapper --version failed.'}; Write-Host $gradleVersionText.Trim() -ForegroundColor DarkGray
-    if($gradleVersionText -notmatch 'Gradle 8\.13'){throw 'Gradle wrapper did not launch Gradle 8.13.'}; if($gradleVersionText -notmatch 'Launcher JVM:\s+17(?:\.|\s|$)'){throw 'JDK 17 is required for the Android build.'}
-    Invoke-OptionalDoctor
-    $task=if($ArtifactType -eq 'AAB'){'bundleRelease'}else{'assembleRelease'}; Stage 72 ('Building standard Android release '+$ArtifactType)
-    Write-Host '[khatyar-build] Maven: local Maven -> Myket -> Runflare -> official.' -ForegroundColor DarkGray; Write-Host '[khatyar-build] Gradle Wrapper: F:\gradle-cache -> Myket -> Runflare -> official.' -ForegroundColor DarkGray
-    $logDir=Join-Path $android 'build\khatyar-build-logs'; New-Item -ItemType Directory -Path $logDir -Force|Out-Null; $logPath=Join-Path $logDir ($task+'-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'.log'); Run-Gradle $gradlew $android $logPath $task
-    Stage 95 'Verifying release artifact'; $artifact=if($ArtifactType -eq 'AAB'){Join-Path $android 'app\build\outputs\bundle\release\app-release.aab'}else{Join-Path $android 'app\build\outputs\apk\release\app-release.apk'}
-    if(-not(Test-Path -LiteralPath $artifact)){throw "Release artifact was not found: $artifact"}; $sizeMB=[math]::Round((Get-Item -LiteralPath $artifact).Length/1MB,2); Write-Host ('Artifact: '+$artifact) -ForegroundColor Green; Write-Host ('Size MB : '+$sizeMB) -ForegroundColor Green; $FinalExitCode=0
+    Write-Host ('Project: ' + $ScriptRoot)
+
+    # Prerequisite bootstrap added in front of the proven release pipeline.
+    # The release/build logic below remains unchanged.
+    Write-Stage 5 'Preparing and validating the complete build environment'
+    $EnvironmentScript = Join-Path $ScriptRoot 'scripts\ensure-build-environment.ps1'
+    if (-not (Test-Path -LiteralPath $EnvironmentScript)) { throw 'scripts\ensure-build-environment.ps1 is missing.' }
+    $EnvironmentArgs = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$EnvironmentScript)
+    if ($Fresh) { $EnvironmentArgs += '-Fresh' }
+    Write-Host ('> powershell.exe ' + ($EnvironmentArgs -join ' ')) -ForegroundColor DarkGray
+    & powershell.exe @EnvironmentArgs
+    $environmentExit = $LASTEXITCODE
+    if ($environmentExit -ne 0) { throw ('Build environment preparation failed with exit code ' + $environmentExit + '.') }
+    Refresh-ProcessEnvironment
+
+    Write-Stage 10 'Checking required tools'
+    if (-not (Get-Command node.exe -ErrorAction SilentlyContinue)) { throw 'Node.js was not found in PATH.' }
+    if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) { throw 'npm was not found in PATH.' }
+    if (-not (Get-Command java.exe -ErrorAction SilentlyContinue)) { throw 'Java was not found in PATH.' }
+    if (-not (Get-Command git.exe -ErrorAction SilentlyContinue)) { throw 'Git was not found in PATH.' }
+    & node.exe --version
+    & npm.cmd --version
+
+    Write-Stage 20 'Checking project dependency manifest'
+    $packageJson = Join-Path $ScriptRoot 'package.json'
+    if (-not (Test-Path -LiteralPath $packageJson)) { throw 'mobile/package.json was not found.' }
+    if (-not (Test-Path -LiteralPath (Join-Path $ScriptRoot 'node_modules'))) {
+        throw 'node_modules is missing. Run the dependency build step first.'
+    }
+
+    if ($Fresh) {
+        Write-Stage 28 'Refreshing npm dependencies'
+        $lock = Join-Path $ScriptRoot 'package-lock.json'
+        if (Test-Path -LiteralPath $lock) {
+            Invoke-Checked -File 'npm.cmd' -Arguments @('ci','--no-audit','--no-fund','--legacy-peer-deps')
+        } else {
+            Invoke-Checked -File 'npm.cmd' -Arguments @('install','--no-audit','--no-fund','--legacy-peer-deps')
+        }
+    }
+
+    Write-Stage 38 'Generating a clean Expo Android project'
+    Invoke-Checked -File 'node.exe' -Arguments @((Join-Path $ScriptRoot 'scripts\prepare-android-release.js'))
+
+    $AndroidRoot = Join-Path $ScriptRoot 'android'
+    $Gradlew = Join-Path $AndroidRoot 'gradlew.bat'
+    $InitScript = Join-Path $ScriptRoot 'myket.init.gradle'
+    if (-not (Test-Path -LiteralPath $Gradlew)) { throw 'Generated Gradle wrapper was not found.' }
+    if (-not (Test-Path -LiteralPath $InitScript)) { throw 'myket.init.gradle was not found.' }
+
+    Write-Stage 55 'Validating Java 17 and Gradle wrapper'
+    $javaMajor = Get-JavaMajorVersion
+    Write-Host ('Java major version: ' + $javaMajor)
+    if ($javaMajor -ne 17) { throw ('This project build policy requires JDK 17. Detected Java ' + $javaMajor + '.') }
+    Invoke-Checked -File $Gradlew -Arguments @('--version') -WorkingDirectory $AndroidRoot
+
+    if (-not $SkipDoctor) {
+        Write-Stage 63 'Running Expo dependency diagnostics'
+        $doctor = Invoke-CommandWithCapture -File 'npm.cmd' -Arguments @('exec','--','expo-doctor')
+        if ($doctor.Output.Trim()) { Write-Host $doctor.Output.Trim() -ForegroundColor DarkGray }
+        if ($doctor.Error.Trim()) { Write-Host $doctor.Error.Trim() -ForegroundColor DarkGray }
+        if ($doctor.ExitCode -ne 0) {
+            $message = 'expo-doctor exited with code ' + $doctor.ExitCode + '. Diagnostics are recorded above and are non-blocking by default.'
+            if ($StrictDoctor) { throw $message }
+            Write-Host $message -ForegroundColor Yellow
+        } else {
+            Write-Host 'expo-doctor completed successfully.' -ForegroundColor Green
+        }
+    }
+
+    Write-Stage 72 'Building release APK with Myket repository policy'
+    $logDir = Join-Path $AndroidRoot 'build\khatyar-build-logs'
+    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+    $logPath = Join-Path $logDir ('assembleRelease-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
+    Write-Host ('Gradle log: ' + $logPath) -ForegroundColor DarkGray
+    Invoke-GradleRelease -Gradlew $Gradlew -WorkingDirectory $AndroidRoot -InitScript $InitScript -LogPath $logPath
+
+    Write-Stage 95 'Verifying release artifact'
+    $apk = Join-Path $AndroidRoot 'app\build\outputs\apk\release\app-release.apk'
+    if (-not (Test-Path -LiteralPath $apk)) {
+        $apk = Join-Path $AndroidRoot 'app\build\outputs\apk\release\app-release-unsigned.apk'
+    }
+    if (-not (Test-Path -LiteralPath $apk)) { throw 'Gradle succeeded but no release APK was produced.' }
+    $size = (Get-Item -LiteralPath $apk).Length
+    if ($size -lt 100000) { throw ('Release APK is unexpectedly small: ' + $size + ' bytes.') }
+    Write-Host ('APK: ' + $apk) -ForegroundColor Green
+    Write-Host ('APK size: ' + $size + ' bytes') -ForegroundColor Green
+
+    $FinalExitCode = 0
+    $FinalStage = 'Completed'
+    Write-Host ''
+    Write-Host 'ANDROID RELEASE BUILD COMPLETED SUCCESSFULLY.' -ForegroundColor Green
 }
-catch{$FinalExitCode=1;Write-Host "`nBUILD ERROR: $($_.Exception.Message)" -ForegroundColor Red}
-finally{Write-Host "`n============================================================" -ForegroundColor Cyan;Write-Host ('Final stage : '+$FinalStage);Write-Host ('Exit code   : '+$FinalExitCode);Write-Host ('Total elapsed: '+((Get-Date)-$BuildStart).ToString('hh\:mm\:ss'));Write-Host '============================================================' -ForegroundColor Cyan;if(-not $NoPause){Read-Host 'Press ENTER to close this window'|Out-Null}}
+catch {
+    $FinalExitCode = 1
+    Write-Host ''
+    Write-Host ('BUILD ERROR: ' + $_.Exception.Message) -ForegroundColor Red
+}
+finally {
+    Write-Host ''
+    Write-Host '============================================================' -ForegroundColor Cyan
+    Write-Host ('Final stage: ' + $FinalStage)
+    Write-Host ('Exit code  : ' + $FinalExitCode)
+    Write-Host '============================================================' -ForegroundColor Cyan
+    if (-not $NoPause) { [void](Read-Host 'Press ENTER to close this window') }
+}
 exit $FinalExitCode
