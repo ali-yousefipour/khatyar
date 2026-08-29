@@ -212,15 +212,36 @@ function Test-SdkManager([string]$SdkManager) {
   } catch { return $false }
 }
 
+function Download-AndroidCommandLineTools([string]$Destination) {
+  $urls = @(
+    "https://dl.google.com/android/repository/$AndroidCmdlineZip",
+    "https://redirector.gvt1.com/edgedl/android/repository/$AndroidCmdlineZip"
+  )
+  $lastError = $null
+  foreach ($url in $urls) {
+    try {
+      Write-Stage "Downloading Android SDK command-line tools from $url"
+      Invoke-WebRequest -Uri $url -OutFile $Destination -UseBasicParsing -TimeoutSec 180
+      if (-not (Test-Path $Destination)) { throw 'Download completed without creating the expected archive.' }
+      $length = (Get-Item $Destination).Length
+      if ($length -lt 10MB) { throw "Downloaded archive is unexpectedly small ($length bytes)." }
+      return
+    } catch {
+      $lastError = $_.Exception.Message
+      Remove-Item $Destination -Force -ErrorAction SilentlyContinue
+      Write-Warn "Download failed: $lastError"
+    }
+  }
+  throw "Could not download Android command-line tools from the official Google endpoints. Last error: $lastError"
+}
+
 function Bootstrap-AndroidCommandLineTools([string]$SdkRoot) {
   Write-Stage 'Installing Android SDK command-line tools'
   New-Item -ItemType Directory -Force -Path $SdkRoot | Out-Null
   $zip = Join-Path $env:TEMP $AndroidCmdlineZip
-  $url = "https://dl.google.com/android/repository/$AndroidCmdlineZip"
-  Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing -TimeoutSec 180
-  if (-not (Test-Path $zip)) { throw 'Android command-line tools archive was not downloaded.' }
+  Download-AndroidCommandLineTools $zip
   $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-  if ($actual -ne $AndroidCmdlineSha256) { Remove-Item $zip -Force -ErrorAction SilentlyContinue; throw 'Android command-line tools SHA-256 verification failed.' }
+  if ($actual -ne $AndroidCmdlineSha256) { Remove-Item $zip -Force -ErrorAction SilentlyContinue; throw "Android command-line tools SHA-256 verification failed. Expected $AndroidCmdlineSha256, got $actual." }
   $stage = Join-Path $env:TEMP ('khatyar-cmdline-' + [guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Force -Path $stage | Out-Null
   Expand-Archive -LiteralPath $zip -DestinationPath $stage -Force
