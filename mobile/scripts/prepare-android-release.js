@@ -115,9 +115,9 @@ assertContains(build, buildFile, /com\.android\.tools\.build:gradle/, 'Android G
 assertContains(build, buildFile, /com\.facebook\.react:react-native-gradle-plugin/, 'React Native Gradle Plugin classpath');
 assertContains(build, buildFile, /org\.jetbrains\.kotlin:kotlin-gradle-plugin/, 'Kotlin Gradle Plugin classpath');
 
-if (/com\.android\.tools\.build:gradle:\s*['"]?\s*['"]/.test(build)) fail('Android Gradle Plugin dependency has an empty version literal.');
-if (/react-native-gradle-plugin:\s*['"]?\s*['"]/.test(build)) fail('React Native Gradle Plugin dependency has an empty version literal.');
-if (/kotlin-gradle-plugin:\s*['"]?\s*['"]/.test(build)) fail('Kotlin Gradle Plugin dependency has an empty version literal.');
+if (/com\.android\.tools\.build:gradle:\s*["']?\s*["']/.test(build)) fail('Android Gradle Plugin dependency has an empty version literal.');
+if (/react-native-gradle-plugin:\s*["']?\s*["']/.test(build)) fail('React Native Gradle Plugin dependency has an empty version literal.');
+if (/kotlin-gradle-plugin:\s*["']?\s*["']/.test(build)) fail('Kotlin Gradle Plugin dependency has an empty version literal.');
 
 // Verify the generic Iranian mirror plugin patched the real generated Expo
 // included build, not just the main Android project.
