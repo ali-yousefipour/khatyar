@@ -1,0 +1,77 @@
+// KhatYar baseline-safe Gradle repository policy.
+// Used only by build-release-baseline.ps1.
+// Resolution order: local Maven -> Myket -> filtered Runflare -> official.
+// Expo/RN are excluded from Runflare because the mirror can return HTTP 500
+// for otherwise valid Expo POM requests. This lets Gradle continue to official
+// repositories instead of treating the mirror error as final.
+
+ext.khatyarBaselineRepos = {
+    mavenLocal()
+    maven {
+        name = 'KhatYarMyket'
+        url = uri('https://maven.myket.ir/')
+        metadataSources { gradleMetadata(); mavenPom(); artifact() }
+    }
+    maven {
+        name = 'KhatYarRunflareGoogle'
+        url = uri('https://mirror-maven.runflare.com/android/maven2/')
+        metadataSources { mavenPom(); artifact() }
+        content {
+            excludeGroupByRegex('expo\\.modules(\\..*)?')
+            excludeGroup('host.exp.exponent')
+            excludeGroupByRegex('com\\.facebook\\.react(\\..*)?')
+            excludeGroupByRegex('com\\.facebook\\.fbjni(\\..*)?')
+        }
+    }
+    maven {
+        name = 'KhatYarRunflareMaven'
+        url = uri('https://mirror-maven.runflare.com/maven2/')
+        metadataSources { mavenPom(); artifact() }
+        content {
+            excludeGroupByRegex('expo\\.modules(\\..*)?')
+            excludeGroup('host.exp.exponent')
+            excludeGroupByRegex('com\\.facebook\\.react(\\..*)?')
+            excludeGroupByRegex('com\\.facebook\\.fbjni(\\..*)?')
+        }
+    }
+    maven {
+        name = 'KhatYarRunflareGradlePlugins'
+        url = uri('https://mirror-maven.runflare.com/gradle-plugins/')
+        metadataSources { mavenPom(); artifact() }
+        content {
+            excludeGroupByRegex('expo\\.modules(\\..*)?')
+            excludeGroup('host.exp.exponent')
+            excludeGroupByRegex('com\\.facebook\\.react(\\..*)?')
+            excludeGroupByRegex('com\\.facebook\\.fbjni(\\..*)?')
+        }
+    }
+    google()
+    mavenCentral()
+}
+
+gradle.allprojects { project ->
+    project.buildscript.repositories {
+        khatyarBaselineRepos.delegate = delegate
+        khatyarBaselineRepos()
+    }
+    project.repositories {
+        khatyarBaselineRepos.delegate = delegate
+        khatyarBaselineRepos()
+    }
+}
+
+gradle.settingsEvaluated { settings ->
+    settings.pluginManagement.repositories {
+        khatyarBaselineRepos.delegate = delegate
+        khatyarBaselineRepos()
+        gradlePluginPortal()
+    }
+    if (settings.hasProperty('dependencyResolutionManagement')) {
+        settings.dependencyResolutionManagement.repositories {
+            khatyarBaselineRepos.delegate = delegate
+            khatyarBaselineRepos()
+        }
+    }
+}
+
+println '[khatyar-fast-init] local -> Myket -> filtered Runflare -> official; Expo/RN excluded from Runflare.'
