@@ -16,7 +16,7 @@ $RequiredCompileSdk = 'android-36'
 $RequiredBuildTools = '36.0.0'
 $RequiredNdk = '27.1.12297006'
 $AndroidCmdlineZip = 'commandlinetools-win-15859902_latest.zip'
-$AndroidCmdlineSha256 = '90ae805d20434428bffcb699c290860f19bb5f66a67e3de801fb04a'
+$AndroidCmdlineSha256 = '90ae805d20434428bffcb699c290860f19bb5f66a67e6b330067e3de801fb04a'
 
 function Write-Stage([string]$Name) { Write-Host "`n[environment] $Name" -ForegroundColor Yellow }
 function Write-Ok([string]$Text) { Write-Host "[environment] $Text" -ForegroundColor Green }
@@ -91,14 +91,11 @@ function Ensure-Node {
   Install-Node22Direct
 }
 
-function Get-JavaVersionText {
-  return (& cmd.exe /d /c 'java.exe -version 2>&1' | Out-String)
-}
+function Get-JavaVersionText { return (& cmd.exe /d /c 'java.exe -version 2>&1' | Out-String) }
 
 function Find-JdkHome {
   $candidates = New-Object System.Collections.Generic.List[string]
   if ($env:JAVA_HOME) { [void]$candidates.Add($env:JAVA_HOME) }
-
   $registryPaths = @(
     'HKLM:\SOFTWARE\JavaSoft\JDK',
     'HKLM:\SOFTWARE\JavaSoft\Java Development Kit',
@@ -123,7 +120,6 @@ function Find-JdkHome {
       }
     } catch { }
   }
-
   $knownRoots = @(
     'C:\Program Files\Eclipse Adoptium',
     'C:\Program Files\Java',
@@ -131,14 +127,13 @@ function Find-JdkHome {
     'C:\Program Files\Zulu',
     'C:\Program Files\Amazon Corretto'
   )
-  foreach ($root in $knownRoots) {
-    if (Test-Path $root) {
-      $dirs = Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
+  foreach ($rootPath in $knownRoots) {
+    if (Test-Path $rootPath) {
+      $dirs = Get-ChildItem -Path $rootPath -Directory -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -match '(?i)(jdk|java|temurin|corretto|zulu).*17' }
       foreach ($dir in $dirs) { [void]$candidates.Add($dir.FullName) }
     }
   }
-
   $javaCmd = Get-Command java.exe -ErrorAction SilentlyContinue
   if ($javaCmd) {
     $javaPath = $javaCmd.Source
@@ -148,7 +143,6 @@ function Find-JdkHome {
       if ((Split-Path $parent -Leaf) -ieq 'bin') { [void]$candidates.Add((Split-Path $parent -Parent)) }
     }
   }
-
   foreach ($candidate in ($candidates | Where-Object { $_ } | Select-Object -Unique)) {
     try {
       $full = [IO.Path]::GetFullPath($candidate)
@@ -172,13 +166,8 @@ function Ensure-Jdk {
     if ($ok) { Write-Ok 'JDK 17 detected.' } else { Write-Warn 'Installed Java is not JDK 17.' }
   } else { Write-Warn 'Java is not installed.' }
   if (-not $ok) { Install-WingetPackage 'EclipseAdoptium.Temurin.17.JDK' 'Eclipse Temurin JDK 17'; Refresh-ProcessPath }
-
   $jdkHome = Find-JdkHome
-  if (-not $jdkHome) {
-    $jdkHome = Find-JdkHome
-  }
   if (-not $jdkHome) { throw 'JDK 17 was installed/detected, but its JAVA_HOME could not be determined from the environment, Windows Java registry, or common JDK installation paths.' }
-
   $env:JAVA_HOME = $jdkHome
   $env:Path = "$(Join-Path $jdkHome 'bin');$env:Path"
   [Environment]::SetEnvironmentVariable('JAVA_HOME',$jdkHome,'User')
@@ -208,6 +197,21 @@ function Find-SdkManager([string]$SdkRoot) {
   if ($found) { return $found.FullName }; return $null
 }
 
+function Test-SdkManager([string]$SdkManager) {
+  if (-not $SdkManager -or -not (Test-Path $SdkManager)) { return $false }
+  try {
+    $outputFile = Join-Path $env:TEMP ('khatyar-sdkmanager-' + [guid]::NewGuid().ToString('N') + '.txt')
+    try {
+      & cmd.exe /d /c ('"' + $SdkManager + '" --version > "' + $outputFile + '" 2>&1')
+      $exit = $LASTEXITCODE
+      $text = if (Test-Path $outputFile) { Get-Content -LiteralPath $outputFile -Raw } else { '' }
+    } finally { Remove-Item -LiteralPath $outputFile -Force -ErrorAction SilentlyContinue }
+    if ($exit -ne 0) { return $false }
+    if ($text -match 'NoClassDefFoundError|ClassNotFoundException|javax\.xml\.bind') { return $false }
+    return $text -match '\d+\.\d+(?:\.\d+)?'
+  } catch { return $false }
+}
+
 function Bootstrap-AndroidCommandLineTools([string]$SdkRoot) {
   Write-Stage 'Installing Android SDK command-line tools'
   New-Item -ItemType Directory -Force -Path $SdkRoot | Out-Null
@@ -233,11 +237,18 @@ function Ensure-AndroidSdk {
   $sdkManager = Find-SdkManager $sdk
   if (-not $sdkManager) { Bootstrap-AndroidCommandLineTools $sdk; $sdkManager = Find-SdkManager $sdk }
   if (-not $sdkManager) { throw "sdkmanager.bat was not found under $sdk." }
+  if (-not (Test-SdkManager $sdkManager)) {
+    Write-Warn 'Existing sdkmanager is missing or incompatible with JDK 17. Replacing Android command-line tools with the supported current package.'
+    Bootstrap-AndroidCommandLineTools $sdk
+    $sdkManager = Find-SdkManager $sdk
+  }
+  if (-not $sdkManager -or -not (Test-SdkManager $sdkManager)) { throw "A compatible sdkmanager.bat was not found under $sdk." }
   $env:ANDROID_SDK_ROOT = $sdk; $env:ANDROID_HOME = $sdk
   [Environment]::SetEnvironmentVariable('ANDROID_SDK_ROOT',$sdk,'User'); [Environment]::SetEnvironmentVariable('ANDROID_HOME',$sdk,'User')
   $env:Path = "$(Join-Path $sdk 'platform-tools');$(Split-Path $sdkManager -Parent);$env:Path"
   Write-Stage 'Accepting Android SDK licenses'
   1..20 | ForEach-Object { 'y' } | & $sdkManager --licenses | Out-Null
+  if ($LASTEXITCODE -ne 0) { Write-Warn 'SDK license command returned a non-zero code; continuing to package installation for a clearer diagnostic.' }
   Write-Stage 'Installing required Android SDK packages'
   & $sdkManager 'platform-tools' "platforms;$RequiredCompileSdk" "build-tools;$RequiredBuildTools" "ndk;$RequiredNdk"
   if ($LASTEXITCODE -ne 0) { throw "sdkmanager failed to install required Android packages (exit code $LASTEXITCODE)." }
