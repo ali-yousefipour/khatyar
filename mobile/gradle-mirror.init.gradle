@@ -1,11 +1,7 @@
 // KhatYar Gradle repository policy for Iran-network constrained environments.
-// This file is passed explicitly to the project's Gradle wrapper; it is NOT a
-// global ~/.gradle/init.d script.
-// Priority for Maven repositories:
-//   1) local Maven repository (~/.m2/repository)
-//   2) Myket
-//   3) Runflare mirrors (POM/artifact metadata only; no Gradle Module Metadata)
-//   4) official repositories
+// Resolution order: local Maven -> Myket -> filtered Runflare -> official.
+// Expo/RN groups are excluded from Runflare because the mirror may return HTTP 500
+// for valid Expo/RN POM requests. Gradle can then continue to official repositories.
 
 ext.khatyarMirrorRepos = {
     mavenLocal()
@@ -14,24 +10,38 @@ ext.khatyarMirrorRepos = {
         url = uri('https://maven.myket.ir/')
         metadataSources { gradleMetadata(); mavenPom(); artifact() }
     }
-    // Runflare may return HTTP 500 for Gradle Module Metadata (.module) on
-    // otherwise valid artifacts. Restricting it to POM/artifact metadata keeps
-    // it as a reliable fallback without allowing a non-essential .module request
-    // to terminate dependency resolution.
     maven {
         name = 'KhatYarRunflareGoogle'
         url = uri('https://mirror-maven.runflare.com/android/maven2/')
         metadataSources { mavenPom(); artifact() }
+        content {
+            excludeGroupByRegex('expo\\.modules(\\..*)?')
+            excludeGroup('host.exp.exponent')
+            excludeGroupByRegex('com\\.facebook\\.react(\\..*)?')
+            excludeGroupByRegex('com\\.facebook\\.fbjni(\\..*)?')
+        }
     }
     maven {
         name = 'KhatYarRunflareMaven'
         url = uri('https://mirror-maven.runflare.com/maven2/')
         metadataSources { mavenPom(); artifact() }
+        content {
+            excludeGroupByRegex('expo\\.modules(\\..*)?')
+            excludeGroup('host.exp.exponent')
+            excludeGroupByRegex('com\\.facebook\\.react(\\..*)?')
+            excludeGroupByRegex('com\\.facebook\\.fbjni(\\..*)?')
+        }
     }
     maven {
         name = 'KhatYarRunflareGradlePlugins'
         url = uri('https://mirror-maven.runflare.com/gradle-plugins/')
         metadataSources { mavenPom(); artifact() }
+        content {
+            excludeGroupByRegex('expo\\.modules(\\..*)?')
+            excludeGroup('host.exp.exponent')
+            excludeGroupByRegex('com\\.facebook\\.react(\\..*)?')
+            excludeGroupByRegex('com\\.facebook\\.fbjni(\\..*)?')
+        }
     }
     google()
     mavenCentral()
@@ -62,4 +72,4 @@ gradle.settingsEvaluated { settings ->
     }
 }
 
-println '[khatyar-init] Maven policy active: local -> Myket -> Runflare(POM/artifact) -> official (all Gradle builds, including included builds).'
+println '[khatyar-fast-init] local -> Myket -> filtered Runflare -> official; Expo/RN excluded from Runflare.'
