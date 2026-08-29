@@ -11,7 +11,6 @@ $Root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Set-Location -LiteralPath $Root
 
 $RequiredNodeMajor = 22
-$RequiredJdkMajor = 17
 $RequiredCompileSdk = 'android-36'
 $RequiredBuildTools = '36.0.0'
 $RequiredNdk = '27.1.12297006'
@@ -20,7 +19,6 @@ $DefaultAndroidMirror = 'https://mirrors.cloud.tencent.com/AndroidSDK/'
 function Write-Stage([string]$Text) { Write-Host "`n[environment] $Text" -ForegroundColor Yellow }
 function Write-Ok([string]$Text) { Write-Host "[environment] $Text" -ForegroundColor Green }
 function Write-Warn([string]$Text) { Write-Host "[environment] $Text" -ForegroundColor DarkYellow }
-function Fail([string]$Text) { throw $Text }
 
 function Refresh-Path {
     $machine = [Environment]::GetEnvironmentVariable('Path','Machine')
@@ -32,23 +30,35 @@ function Refresh-Path {
     $env:Path = (($parts | Where-Object { $_ -and $_.Trim() } | Select-Object -Unique) -join ';')
 }
 
-function Invoke-Native([string]$File, [string[]]$Arguments, [string]$WorkingDirectory=$Root) {
+function Invoke-Native([string]$File,[string[]]$Arguments,[string]$WorkingDirectory=$Root) {
     Push-Location -LiteralPath $WorkingDirectory
     try {
         Write-Host ('> ' + $File + ' ' + ($Arguments -join ' ')) -ForegroundColor DarkGray
         & $File @Arguments
         $code = $LASTEXITCODE
         if ($null -ne $code -and $code -ne 0) { throw "$File exited with code $code." }
-    } finally {
-        Pop-Location
-    }
+    } finally { Pop-Location }
 }
 
 function Get-JavaMajor {
     $text = (& cmd.exe /d /c 'java.exe -version 2>&1' | Out-String)
-    $m = [regex]::Match($text, 'version\s+"(\d+)(?:\.\d+)?')
+    $m = [regex]::Match($text,'version\s+"(\d+)')
     if (-not $m.Success) { return 0 }
     return [int]$m.Groups[1].Value
+}
+
+function Ensure-Node {
+    Refresh-Path
+    $node = Get-Command node.exe -ErrorAction SilentlyContinue
+    if ($node) {
+        $version = (& node.exe --version 2>$null).Trim()
+        $m = [regex]::Match($version,'^v(\d+)\.')
+        if ($m.Success -and [int]$m.Groups[1].Value -eq $RequiredNodeMajor) {
+            Write-Ok "Node.js $version detected."
+            return
+        }
+    }
+    throw 'Node.js 22.x is required but was not found. Install Node.js 22.x and rerun the build.'
 }
 
 function Find-Jdk17 {
@@ -64,7 +74,8 @@ function Find-Jdk17 {
     foreach ($rootPath in $roots) {
         if (-not (Test-Path $rootPath)) { continue }
         if (Test-Path (Join-Path $rootPath 'bin\java.exe')) {
-            if ((& cmd.exe /d /c ('"' + (Join-Path $rootPath 'bin\java.exe') + '" -version 2>&1') | Out-String) -match 'version\s+"17(?:\.|"|\s)') { return $rootPath }
+            $txt = & cmd.exe /d /c ('"' + (Join-Path $rootPath 'bin\java.exe') + '" -version 2>&1') | Out-String
+            if ($txt -match 'version\s+"17(?:\.|"|\s)') { return $rootPath }
         }
         foreach ($dir in (Get-ChildItem -Path $rootPath -Directory -ErrorAction SilentlyContinue)) {
             $java = Join-Path $dir.FullName 'bin\java.exe'
@@ -77,80 +88,24 @@ function Find-Jdk17 {
     return $null
 }
 
-function Ensure-Node {
-    Refresh-Path
-    $node = Get-Command node.exe -ErrorAction SilentlyContinue
-    if ($node) {
-        $version = (& node.exe --version 2>$null).Trim()
-        $m = [regex]::Match($version, '^v(\d+)\.')
-        if ($m.Success -and [int]$m.Groups[1].Value -eq $RequiredNodeMajor) {
-            Write-Ok "Node.js $version detected."
-            return
-        }
-    }
-    Write-Stage 'Installing Node.js 22.x'
-    $index = Invoke-RestMethod -Uri 'https://nodejs.org/dist/index.json' -TimeoutSec 120
-    $release = @($index | Where-Object { $_.version -match '^v22\.\d+\.\d+$' }) | Select-Object -First 1
-    if (-not $release) { Fail 'Could not find a Node.js 22.x release.' }
-    $version = [string]$release.version
-    $msi = "node-$version-x64.msi"
-    $base = "https://nodejs.org/dist/$version/"
-    $msiPath = Join-Path $env:TEMP "khatyar-$msi"
-    $sumPath = Join-Path $env:TEMP "khatyar-$version-SHASUMS256.txt"
-    Invoke-WebRequest -Uri ($base + $msi) -OutFile $msiPath -UseBasicParsing -TimeoutSec 180
-    Invoke-WebRequest -Uri ($base + 'SHASUMS256.txt') -OutFile $sumPath -UseBasicParsing -TimeoutSec 180
-    $expected = $null
-    foreach ($line in Get-Content $sumPath) {
-        $p = $line.Trim() -split '\s+'
-        if ($p.Count -ge 2 -and $p[-1].TrimStart('*') -eq $msi) { $expected = $p[0].ToLowerInvariant(); break }
-    }
-    if (-not $expected) { Fail "SHA-256 for $msi was not found." }
-    $actual = (Get-FileHash $msiPath -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($actual -ne $expected) { Fail 'Node.js MSI SHA-256 verification failed.' }
-    $p = Start-Process msiexec.exe -ArgumentList @('/i',$msiPath,'/qn','/norestart') -Wait -PassThru
-    if ($p.ExitCode -notin @(0,3010)) { Fail "Node.js installation failed with exit code $($p.ExitCode)." }
-    Remove-Item $msiPath,$sumPath -Force -ErrorAction SilentlyContinue
-    Refresh-Path
-    if (Test-Path 'C:\Program Files\nodejs\node.exe') { $env:Path = "C:\Program Files\nodejs;$env:Path" }
-    $installed = (& node.exe --version 2>$null).Trim()
-    if ($installed -notmatch '^v22\.') { Fail "Node.js 22.x could not be verified. Detected: $installed" }
-    Write-Ok "Node.js $installed ready."
-}
-
 function Ensure-Jdk {
     Refresh-Path
+    if (-not (Get-Command java.exe -ErrorAction SilentlyContinue)) { throw 'Java is required but was not found.' }
+    if ((Get-JavaMajor) -ne 17) { throw "JDK 17 is required. Detected Java $(Get-JavaMajor)." }
     $jdk = Find-Jdk17
-    if ($jdk -and (Get-JavaMajor) -eq $RequiredJdkMajor) {
+    if ($jdk) {
         $env:JAVA_HOME = $jdk
         $env:Path = "$(Join-Path $jdk 'bin');$env:Path"
         Write-Ok "JDK 17 detected at $jdk."
-        return
+    } else {
+        throw 'JDK 17 is active but JAVA_HOME could not be resolved.'
     }
-    $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
-    if (-not $winget) { Fail 'JDK 17 is missing and winget is unavailable for automatic installation.' }
-    Write-Stage 'Installing JDK 17'
-    & winget.exe install --id EclipseAdoptium.Temurin.17.JDK --exact --accept-package-agreements --accept-source-agreements --silent
-    if ($LASTEXITCODE -ne 0) { Fail "JDK 17 installation failed (winget exit code $LASTEXITCODE)." }
-    Refresh-Path
-    $jdk = Find-Jdk17
-    if (-not $jdk) { Fail 'JDK 17 was installed but could not be located.' }
-    $env:JAVA_HOME = $jdk
-    $env:Path = "$(Join-Path $jdk 'bin');$env:Path"
-    [Environment]::SetEnvironmentVariable('JAVA_HOME',$jdk,'User')
-    Write-Ok "JAVA_HOME=$jdk"
 }
 
 function Ensure-Git {
     Refresh-Path
-    if (Get-Command git.exe -ErrorAction SilentlyContinue) { Write-Ok 'Git detected.'; return }
-    $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
-    if (-not $winget) { Fail 'Git is missing and winget is unavailable for automatic installation.' }
-    Write-Stage 'Installing Git for Windows'
-    & winget.exe install --id Git.Git --exact --accept-package-agreements --accept-source-agreements --silent
-    if ($LASTEXITCODE -ne 0) { Fail "Git installation failed (winget exit code $LASTEXITCODE)." }
-    Refresh-Path
-    if (-not (Get-Command git.exe -ErrorAction SilentlyContinue)) { Fail 'Git installation could not be verified.' }
-    Write-Ok 'Git ready.'
+    if (-not (Get-Command git.exe -ErrorAction SilentlyContinue)) { throw 'Git is required but was not found.' }
+    Write-Ok 'Git detected.'
 }
 
 function Find-AndroidSdk {
@@ -158,7 +113,7 @@ function Find-AndroidSdk {
     foreach ($path in $candidates) {
         if (Test-Path (Join-Path $path 'platform-tools\adb.exe')) { return [IO.Path]::GetFullPath($path) }
     }
-    return $null
+    return [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Android\Sdk'))
 }
 
 function Find-SdkManager([string]$SdkRoot) {
@@ -170,12 +125,11 @@ function Find-SdkManager([string]$SdkRoot) {
     return $null
 }
 
-function Get-NdkRevision([string]$SdkRoot) {
+function Test-Ndk([string]$SdkRoot) {
     $props = Join-Path $SdkRoot "ndk\$RequiredNdk\source.properties"
-    if (-not (Test-Path $props)) { return $null }
+    if (-not (Test-Path $props)) { return $false }
     $line = Get-Content $props -ErrorAction SilentlyContinue | Where-Object { $_ -match '^\s*Pkg\.Revision\s*=' } | Select-Object -First 1
-    if (-not $line) { return $null }
-    return (($line -split '=',2)[1]).Trim()
+    return ($line -and (($line -split '=',2)[1]).Trim() -eq $RequiredNdk)
 }
 
 function Test-AndroidRequirements([string]$SdkRoot) {
@@ -183,100 +137,78 @@ function Test-AndroidRequirements([string]$SdkRoot) {
         (Test-Path (Join-Path $SdkRoot 'platform-tools\adb.exe')) -and
         (Test-Path (Join-Path $SdkRoot "platforms\$RequiredCompileSdk\android.jar")) -and
         (Test-Path (Join-Path $SdkRoot "build-tools\$RequiredBuildTools\aapt2.exe")) -and
-        ((Get-NdkRevision $SdkRoot) -eq $RequiredNdk)
+        (Test-Ndk $SdkRoot)
     )
-}
-
-function Download-CmdlineTools([string]$Destination) {
-    $mirror = if ($env:KHATYAR_ANDROID_MIRROR_URL) { $env:KHATYAR_ANDROID_MIRROR_URL } else { $DefaultAndroidMirror }
-    $url = $mirror.TrimEnd('/') + '/commandlinetools-win-15859902_latest.zip'
-    Invoke-WebRequest -Uri $url -OutFile $Destination -UseBasicParsing -TimeoutSec 180
-    if ((Get-Item $Destination).Length -lt 10MB) { Fail 'Downloaded Android command-line tools archive is unexpectedly small.' }
 }
 
 function Ensure-AndroidSdk {
     $sdk = Find-AndroidSdk
-    if (-not $sdk) { $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
-    New-Item -ItemType Directory -Force -Path $sdk | Out-Null
+    $env:ANDROID_SDK_ROOT = $sdk
+    $env:ANDROID_HOME = $sdk
+    $env:Path = "$(Join-Path $sdk 'platform-tools');$env:Path"
 
-    # Reuse first. Do not probe mirrors or call sdkmanager when the local SDK is already complete.
     if (Test-AndroidRequirements $sdk) {
-        $env:ANDROID_SDK_ROOT = $sdk
-        $env:ANDROID_HOME = $sdk
-        $env:Path = "$(Join-Path $sdk 'platform-tools');$env:Path"
-        [Environment]::SetEnvironmentVariable('ANDROID_SDK_ROOT',$sdk,'User')
-        [Environment]::SetEnvironmentVariable('ANDROID_HOME',$sdk,'User')
         Write-Ok 'Android SDK components already present and validated; skipping sdkmanager installation.'
         Write-Ok "Using existing NDK $RequiredNdk from $(Join-Path $sdk "ndk\$RequiredNdk")"
         return
     }
 
     $sdkManager = Find-SdkManager $sdk
-    if (-not $sdkManager) {
-        Write-Stage 'Installing Android SDK command-line tools'
-        $zip = Join-Path $env:TEMP 'khatyar-commandlinetools.zip'
-        Download-CmdlineTools $zip
-        $stage = Join-Path $env:TEMP ('khatyar-cmdline-' + [guid]::NewGuid().ToString('N'))
-        New-Item -ItemType Directory -Force -Path $stage | Out-Null
-        Expand-Archive -LiteralPath $zip -DestinationPath $stage -Force
-        $source = Join-Path $stage 'cmdline-tools'
-        $target = Join-Path $sdk 'cmdline-tools\latest'
-        New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
-        if (Test-Path $target) { Remove-Item $target -Recurse -Force }
-        Move-Item $source $target
-        Remove-Item $stage,$zip -Recurse -Force -ErrorAction SilentlyContinue
-        $sdkManager = Find-SdkManager $sdk
-    }
-    if (-not $sdkManager) { Fail "sdkmanager.bat was not found under $sdk." }
+    if (-not $sdkManager) { throw "Required Android SDK components are missing and sdkmanager.bat was not found under $sdk." }
 
-    $env:ANDROID_SDK_ROOT = $sdk
-    $env:ANDROID_HOME = $sdk
-    $env:Path = "$(Join-Path $sdk 'platform-tools');$(Split-Path $sdkManager -Parent);$env:Path"
-    $mirror = if ($env:KHATYAR_ANDROID_MIRROR_URL) { $env:KHATYAR_ANDROID_MIRROR_URL } else { $DefaultAndroidMirror }
-    $env:SDK_TEST_BASE_URL = $mirror.TrimEnd('/') + '/'
-    Write-Stage "Installing missing Android SDK components via $($env:SDK_TEST_BASE_URL)"
+    $mirror = if ($env:KHATYAR_ANDROID_MIRROR_URL) { $env:KHATYAR_ANDROID_MIRROR_URL.TrimEnd('/') + '/' } else { $DefaultAndroidMirror }
+    $env:SDK_TEST_BASE_URL = $mirror
+    $required = @('platform-tools',"platforms;$RequiredCompileSdk","build-tools;$RequiredBuildTools","ndk;$RequiredNdk")
+    $missing = @($required | Where-Object {
+        switch -Regex ($_){
+            '^platform-tools$' { -not (Test-Path (Join-Path $sdk 'platform-tools\adb.exe')) }
+            '^platforms;(.+)$' { -not (Test-Path (Join-Path $sdk ("platforms\" + $Matches[1] + '\android.jar'))) }
+            '^build-tools;(.+)$' { -not (Test-Path (Join-Path $sdk ("build-tools\" + $Matches[1] + '\aapt2.exe'))) }
+            '^ndk;(.+)$' { -not (Test-Ndk $sdk) }
+        }
+    })
+    if ($missing.Count -eq 0) { return }
+
+    Write-Stage "Installing missing Android SDK components via $mirror"
     1..30 | ForEach-Object { 'y' } | & $sdkManager --sdk_root=$sdk --licenses | Out-Null
-    & $sdkManager --sdk_root=$sdk 'platform-tools' "platforms;$RequiredCompileSdk" "build-tools;$RequiredBuildTools" "ndk;$RequiredNdk"
-    if ($LASTEXITCODE -ne 0) { Fail "sdkmanager failed with exit code $LASTEXITCODE." }
-    if (-not (Test-AndroidRequirements $sdk)) { Fail 'Required Android SDK components are still missing after installation.' }
-    [Environment]::SetEnvironmentVariable('ANDROID_SDK_ROOT',$sdk,'User')
-    [Environment]::SetEnvironmentVariable('ANDROID_HOME',$sdk,'User')
-    Write-Ok "Android SDK packages ready via $($env:SDK_TEST_BASE_URL)"
-    Write-Ok "Using NDK $RequiredNdk"
+    & $sdkManager --sdk_root=$sdk @missing
+    if ($LASTEXITCODE -ne 0) { throw "sdkmanager failed with exit code $LASTEXITCODE." }
+    if (-not (Test-AndroidRequirements $sdk)) { throw 'Required Android SDK components are still missing after installation.' }
+    Write-Ok "Android SDK packages ready via $mirror"
 }
 
-function Ensure-NpmDependencies {
-    if ($SkipNpm) { Write-Ok 'npm dependency installation explicitly skipped.'; return }
-    $expoPackage = Join-Path $Root 'node_modules\expo\package.json'
-    if (-not $Fresh -and (Test-Path $expoPackage)) {
+function Ensure-Npm {
+    if ($SkipNpm) { Write-Ok 'npm dependency preparation explicitly skipped.'; return }
+    $expo = Join-Path $Root 'node_modules\expo\package.json'
+    if (-not $Fresh -and (Test-Path $expo)) {
         Write-Ok 'npm dependencies already installed.'
         return
     }
     $installer = Join-Path $Root 'scripts\install-dependencies-fallback.ps1'
-    if (-not (Test-Path $installer)) { Fail 'Dependency fallback installer is missing.' }
-    Write-Stage 'Installing project npm dependencies with the configured mirror fallback policy'
+    if (-not (Test-Path $installer)) { throw 'Dependency fallback installer is missing.' }
+    Write-Stage 'Installing project npm dependencies with the configured mirror-first fallback policy'
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Ci
-    if ($LASTEXITCODE -ne 0) { Fail "npm dependency installation failed (exit code $LASTEXITCODE)." }
-    if (-not (Test-Path $expoPackage)) { Fail 'Expo dependency is still missing after npm installation.' }
+    if ($LASTEXITCODE -ne 0) { throw "npm dependency installation failed with exit code $LASTEXITCODE." }
+    if (-not (Test-Path $expo)) { throw 'Expo dependency is still missing after npm installation.' }
     Write-Ok 'Project npm dependencies ready.'
 }
 
 Write-Host '============================================================' -ForegroundColor Cyan
 Write-Host '       KHATYAR - BUILD ENVIRONMENT PREPARATION' -ForegroundColor Cyan
 Write-Host '============================================================' -ForegroundColor Cyan
-Write-Host '[environment] Preparing only missing prerequisites; valid existing installations are reused.' -ForegroundColor Cyan
+Write-Host '[environment] Local valid installations are reused; network is used only for missing prerequisites.' -ForegroundColor Cyan
 
 Ensure-Node
 Ensure-Jdk
 Ensure-Git
 Ensure-AndroidSdk
-Ensure-NpmDependencies
+Ensure-Npm
 
 Write-Stage 'Validating required toolchain'
 Invoke-Native 'node.exe' @('--version')
 Invoke-Native 'npm.cmd' @('--version')
 & cmd.exe /d /c 'java.exe -version 2>&1'
-if ($LASTEXITCODE -ne 0) { Fail "java.exe exited with code $LASTEXITCODE." }
+if ($LASTEXITCODE -ne 0) { throw "java.exe exited with code $LASTEXITCODE." }
 Invoke-Native 'git.exe' @('--version')
 Invoke-Native (Join-Path $env:ANDROID_SDK_ROOT 'platform-tools\adb.exe') @('version')
 Write-Ok 'Build environment preparation completed successfully.'
