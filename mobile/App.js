@@ -1,8 +1,9 @@
 import React from 'react';
 import { I18nManager, View, TouchableOpacity, Text, AppState, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef, DrawerActions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createDrawerNavigator } from '@react-navigation/drawer';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -75,26 +76,29 @@ import InventoryScreen from './src/screens/InventoryScreen';
 import LineLocationScreen from './src/screens/LineLocationScreen';
 import RadioScreen from './src/screens/RadioScreen';
 import HelpScreen from './src/screens/HelpScreen';
-import StationCaptureScreen from './src/screens/StationCaptureScreen';
+import StationCaptureV5Screen from './src/screens/StationCaptureV5Screen';
 import MyStationsScreen from './src/screens/MyStationsScreen';
+import DrawerMenuScreen from './src/DrawerMenuScreen';
 import { installGlobalCrashHandlers, setCurrentRoute, flushCrashReports } from './src/crashReporter';
 import { afterUiReady } from './src/androidCompat';
 
-try { I18nManager.allowRTL(false); } catch (e) {}
+try { I18nManager.allowRTL(true); I18nManager.forceRTL(true); } catch (e) {}
 installGlobalCrashHandlers();
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const navigationRef = createNavigationContainerRef();
 const Stack = createNativeStackNavigator();
+const Drawer = createDrawerNavigator();
 const opts = {
   headerStyle: { backgroundColor: C.brand },
   headerTintColor: '#fff',
   headerTitleStyle: { fontFamily: FONT.bold },
   contentStyle: { backgroundColor: C.paper },
+  headerLeft: ({ navigation }) => <TouchableOpacity onPress={() => navigation.getParent()?.dispatch(DrawerActions.openDrawer())} style={{ paddingHorizontal: 10 }}><Text style={{ color: '#fff', fontSize: 24 }}>☰</Text></TouchableOpacity>,
 };
 
 function ProfileBtn({ navigation }) {
-  return <TouchableOpacity onPress={() => navigation.navigate('Profile')}><Text style={{ color: '#fff', fontSize: 20 }}>☰</Text></TouchableOpacity>;
+  return <TouchableOpacity onPress={() => navigation.getParent()?.dispatch(DrawerActions.openDrawer())} style={{ paddingHorizontal: 10 }}><Text style={{ color: '#fff', fontSize: 24 }}>☰</Text></TouchableOpacity>;
 }
 
 function DeferredRuntimeServices() {
@@ -201,11 +205,17 @@ function Routes(){
       <Stack.Screen name="RoleDashboard" component={RoleDashboardScreen} options={{title:'داشبورد و امتیاز من'}}/>
       <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{title:'رتبه‌بندی و نشان‌ها'}}/>
       <Stack.Screen name="Radio" component={RadioScreen} options={{title:'بی‌سیم خطیار'}}/>
-      <Stack.Screen name="Help" component={HelpScreen} options={{title:'راهنمای استفاده'}}/>
-      <Stack.Screen name="StationCapture" component={StationCaptureScreen} options={{title:'ثبت موقعیت و تصویر خطوط'}}/>
+      <Stack.Screen name="Help" component={HelpScreen} options={{title:'راهنمای برنامه'}}/>
+      <Stack.Screen name="StationCapture" component={StationCaptureV5Screen} options={{title:'ثبت موقعیت و تصویر خطوط'}}/>
       <Stack.Screen name="MyStations" component={MyStationsScreen} options={{title:'ایستگاه‌های ثبت‌شده من'}}/>
     </>}
   </Stack.Navigator>;
+}
+
+function MainDrawer(){
+  return <Drawer.Navigator drawerContent={props=><DrawerMenuScreen {...props}/>} screenOptions={{headerShown:false,drawerPosition:'right',swipeEnabled:true,drawerStyle:{width:'82%'},sceneStyle:{backgroundColor:C.paper}}}>
+    <Drawer.Screen name="Main" component={Routes}/>
+  </Drawer.Navigator>;
 }
 
 export default function App(){
@@ -240,10 +250,10 @@ export default function App(){
                 <OfflineBanner/>
                 <AppLock>
                   <PermissionGuard>
-                    <View style={{flex:1}}>
+                    <View style={{flex:1,direction:'rtl'}}>
                       <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
                         <NavigationContainer ref={navigationRef} onReady={()=>setCurrentRoute(navigationRef.getCurrentRoute()?.name)} onStateChange={()=>setCurrentRoute(navigationRef.getCurrentRoute()?.name)}>
-                          <Routes/>
+                          <MainDrawer/>
                         </NavigationContainer>
                       </KeyboardAvoidingView>
                       <DeferredRuntimeServices/>
