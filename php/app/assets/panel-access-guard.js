@@ -118,12 +118,10 @@
       const jp=jwtPayload();
       roleId=jp&&(jp.role_id??jp.roleId??jp.role?.id);
       if(roleId==null)roleId=localRole();
-      /* Never fall back to /session/me: that endpoint is not part of KhatYar's current API. */
       if(roleId==null){rolePerms=[];apply();return;}
       const s=await getSettings();
       const all=s.role_perms&&typeof s.role_perms==='object'?s.role_perms:{};
       const p=all[String(roleId)];
-      /* Explicit policy: missing/empty role configuration means NO site sections. */
       rolePerms=Array.isArray(p)?p:[];
       apply();
       addRadioPermissionRow();
