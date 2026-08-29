@@ -284,7 +284,37 @@ function Bootstrap-AndroidCommandLineTools([string]$SdkRoot) {
   Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item $zip -Force -ErrorAction SilentlyContinue
 }
 
+function Get-AndroidComponentStatus([string]$SdkRoot) {
+  $status = [ordered]@{}
+  $status['platform-tools'] = Test-Path (Join-Path $SdkRoot 'platform-tools\adb.exe')
+  $status["platforms;$RequiredCompileSdk"] = Test-Path (Join-Path $SdkRoot "platforms\$RequiredCompileSdk\android.jar")
+  $status["build-tools;$RequiredBuildTools"] = Test-Path (Join-Path $SdkRoot "build-tools\$RequiredBuildTools\aapt2.exe")
+
+  $ndkSource = Join-Path $SdkRoot "ndk\$RequiredNdk\source.properties"
+  $ndkValid = $false
+  if (Test-Path $ndkSource) {
+    $revision = Get-Content -LiteralPath $ndkSource -ErrorAction SilentlyContinue |
+      Where-Object { $_ -match '^\s*Pkg\.Revision\s*=\s*(.+?)\s*$' } |
+      Select-Object -First 1
+    if ($revision) {
+      $ndkValid = ($revision -replace '^\s*Pkg\.Revision\s*=\s*','').Trim() -eq $RequiredNdk
+    }
+  }
+  $status["ndk;$RequiredNdk"] = $ndkValid
+  return $status
+}
+
 function Install-AndroidPackagesWithMirrors([string]$SdkManager, [string]$SdkRoot, [string]$PreferredMirror) {
+  $status = Get-AndroidComponentStatus $SdkRoot
+  $missing = @($status.GetEnumerator() | Where-Object { -not $_.Value } | ForEach-Object { $_.Key })
+
+  if ($missing.Count -eq 0) {
+    Write-Ok "Android SDK components already present and validated; skipping sdkmanager installation."
+    Write-Ok "Using existing NDK $RequiredNdk from $SdkRoot\ndk\$RequiredNdk"
+    return ($PreferredMirror.TrimEnd('/') + '/')
+  }
+
+  Write-Warn "Missing Android SDK components: $($missing -join ', ')"
   $mirrors = @($PreferredMirror) + @(Get-AndroidMirrors)
   if ($env:KHATYAR_ALLOW_GOOGLE -eq '1') { $mirrors += 'https://dl.google.com/android/repository/' }
   $seen = @{}
@@ -297,11 +327,15 @@ function Install-AndroidPackagesWithMirrors([string]$SdkManager, [string]$SdkRoo
     try {
       if ($base -ne 'https://dl.google.com/android/repository/' -and -not (Test-AndroidMirror $base)) { continue }
       $env:SDK_TEST_BASE_URL = $base
-      Write-Stage "Installing Android SDK packages via $base"
-      1..30 | ForEach-Object { 'y' } | & $SdkManager --licenses | Out-Null
-      & $SdkManager 'platform-tools' "platforms;$RequiredCompileSdk" "build-tools;$RequiredBuildTools" "ndk;$RequiredNdk"
+      Write-Stage "Installing missing Android SDK packages via $base"
+      1..30 | ForEach-Object { 'y' } | & $SdkManager --sdk_root=$SdkRoot --licenses | Out-Null
+      & $SdkManager --sdk_root=$SdkRoot @missing
       if ($LASTEXITCODE -ne 0) { throw "sdkmanager exited with code $LASTEXITCODE." }
-      foreach ($requiredPath in @((Join-Path $SdkRoot 'platform-tools\adb.exe'),(Join-Path $SdkRoot "platforms\$RequiredCompileSdk\android.jar"),(Join-Path $SdkRoot "build-tools\$RequiredBuildTools\aapt2.exe"),(Join-Path $SdkRoot "ndk\$RequiredNdk\source.properties"))) { if (-not (Test-Path $requiredPath)) { throw "Required Android SDK component is missing: $requiredPath" } }
+
+      $after = Get-AndroidComponentStatus $SdkRoot
+      $stillMissing = @($after.GetEnumerator() | Where-Object { -not $_.Value } | ForEach-Object { $_.Key })
+      if ($stillMissing.Count -gt 0) { throw "Required Android SDK components are still missing: $($stillMissing -join ', ')" }
+
       Write-Ok "Android SDK packages ready via $base"
       return $base
     } catch {
