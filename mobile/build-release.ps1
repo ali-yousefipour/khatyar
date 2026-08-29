@@ -63,13 +63,15 @@ function Save-PrebuildMarker([string]$PackageHash) {
     $obj | ConvertTo-Json | Set-Content -LiteralPath $PrebuildMarker -Encoding UTF8
 }
 function Configure-GradlePerformance([string]$Android) {
+    # Tuned for the target build machine: 24 GB RAM / Intel Core i3-6100 (4 logical processors).
+    # Keep enough RAM for Windows, Node/Metro and Android tooling while giving Gradle a large heap.
     $cpu = [Environment]::ProcessorCount
-    $workers = [Math]::Max(2, [Math]::Min($cpu, 12))
+    $workers = [Math]::Max(2, [Math]::Min($cpu, 4))
     $propsPath = Join-Path $Android 'gradle.properties'
     $props = @()
     if (Test-Path -LiteralPath $propsPath) { $props = @(Get-Content -LiteralPath $propsPath) }
-    $keys = @{
-        'org.gradle.jvmargs' = "-Xmx6g -XX:MaxMetaspaceSize=1536m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
+    $keys = [ordered]@{
+        'org.gradle.jvmargs' = '-Xmx14g -XX:MaxMetaspaceSize=3g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8'
         'org.gradle.daemon' = 'true'
         'org.gradle.parallel' = 'true'
         'org.gradle.workers.max' = [string]$workers
@@ -88,7 +90,7 @@ function Configure-GradlePerformance([string]$Android) {
         $props = @($next)
     }
     Set-Content -LiteralPath $propsPath -Value $props -Encoding UTF8
-    Write-Host "    Gradle memory: 6 GiB heap / 1536 MiB metaspace / $workers workers" -ForegroundColor Green
+    Write-Host "    Gradle memory: 14 GiB heap / 3 GiB metaspace / $workers workers" -ForegroundColor Green
 }
 function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task,[hashtable]$Environment) {
     $psi = New-Object Diagnostics.ProcessStartInfo
