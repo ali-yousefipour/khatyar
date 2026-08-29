@@ -17,8 +17,6 @@ Set-Location -LiteralPath $ScriptRoot
 $BuildStart = Get-Date
 $FinalExitCode = 1
 $FinalStage = 'Starting'
-$InitScript = Join-Path $ScriptRoot 'gradle-mirror.init.gradle'
-$EnvironmentScript = Join-Path $ScriptRoot 'scripts\ensure-build-environment.ps1'
 
 function Stage([int]$Percent,[string]$Name) {
     $script:FinalStage = $Name
@@ -50,6 +48,10 @@ function Stop-Tree([int]$ProcessId) {
     if($ProcessId -gt 0){ try{ taskkill.exe /PID $ProcessId /T /F 2>$null | Out-Null }catch{} }
 }
 
+# Standard release build deliberately does NOT pass a project Gradle init script.
+# Expo/RN included builds must keep their own plugin-management resolution path.
+# Repository mirrors for generated Android projects are handled by the project
+# configuration/plugin layer prepared by prepare-android-release.js.
 function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task) {
     $psi = New-Object Diagnostics.ProcessStartInfo
     $psi.FileName = 'cmd.exe'
@@ -58,9 +60,9 @@ function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $false
     $psi.RedirectStandardError = $false
-    $command = '"' + $Gradlew + '" --init-script "' + $InitScript + '" ' + $Task + ' --console=plain --stacktrace --warning-mode=all'
+    $command = '"' + $Gradlew + '" ' + $Task + ' --console=plain --stacktrace --warning-mode=all'
     $psi.Arguments = '/d /c "' + $command + ' > "' + $LogPath + '" 2>&1"'
-    Write-Host ('> ' + $Gradlew + ' --init-script ' + $InitScript + ' ' + $Task) -ForegroundColor DarkGray
+    Write-Host ('> ' + $Gradlew + ' ' + $Task) -ForegroundColor DarkGray
     $p = New-Object Diagnostics.Process
     $p.StartInfo = $psi
     [void]$p.Start()
@@ -105,6 +107,7 @@ try {
     Write-Host ('Artifact: ' + $ArtifactType)
 
     Stage 5 'Preparing and validating the complete build environment'
+    $EnvironmentScript = Join-Path $ScriptRoot 'scripts\ensure-build-environment.ps1'
     if(-not (Test-Path -LiteralPath $EnvironmentScript)){ throw 'scripts\ensure-build-environment.ps1 is missing.' }
 
     if(-not $env:KHATYAR_ANDROID_SDK_MIRROR_URL){ $env:KHATYAR_ANDROID_SDK_MIRROR_URL = 'https://mirrors.cloud.tencent.com/AndroidSDK/' }
@@ -125,7 +128,6 @@ try {
     Invoke-CmdChecked 'npm.cmd --version'
     Invoke-CmdChecked 'java.exe -version 2>&1'
     Invoke-CmdChecked 'git.exe --version'
-    if(-not (Test-Path -LiteralPath $InitScript)){ throw 'gradle-mirror.init.gradle is missing.' }
 
     Stage 20 'Checking project dependency manifest'
     if(-not (Test-Path -LiteralPath (Join-Path $ScriptRoot 'package.json'))){ throw 'package.json was not found.' }
@@ -149,9 +151,7 @@ try {
         & cmd.exe /d /c ('"' + $gradlew + '" --version > "' + $gv + '" 2>&1')
         $gradleVersionExit = $LASTEXITCODE
         $gradleVersionText = if(Test-Path -LiteralPath $gv){ Get-Content -LiteralPath $gv -Raw } else { '' }
-    } finally {
-        Remove-Item -LiteralPath $gv -Force -ErrorAction SilentlyContinue
-    }
+    } finally { Remove-Item -LiteralPath $gv -Force -ErrorAction SilentlyContinue }
     if($gradleVersionExit -ne 0){ throw 'Gradle wrapper --version failed.' }
     Write-Host $gradleVersionText.Trim() -ForegroundColor DarkGray
     if($gradleVersionText -notmatch 'Gradle 8\.13'){ throw 'Gradle wrapper did not launch Gradle 8.13.' }
@@ -159,17 +159,11 @@ try {
 
     if(-not $SkipDoctor){
         Stage 63 'Running Expo dependency diagnostics'
-        $doctor = $null
-        try {
-            $doctor = & cmd.exe /d /c 'npm.cmd exec -- expo-doctor' 2>&1
-            $doctorExitCode = $LASTEXITCODE
-        } catch {
-            $doctor = @($_.Exception.Message)
-            $doctorExitCode = 1
-        }
-        if($doctor){ $doctor | ForEach-Object { if($_ -ne $null -and ([string]$_).Trim()){ Write-Host ([string]$_).Trim() -ForegroundColor DarkGray } } }
-        if($doctorExitCode -ne 0){
-            $message = 'expo-doctor exited with code ' + $doctorExitCode + '. Diagnostics are recorded above and are non-blocking by default.'
+        $doctor = & cmd.exe /d /c 'npm.cmd exec -- expo-doctor' 2>&1
+        $doctorExit = $LASTEXITCODE
+        if($doctor){ $doctor | ForEach-Object { Write-Host $_ -ForegroundColor DarkGray } }
+        if($doctorExit -ne 0){
+            $message = 'expo-doctor exited with code ' + $doctorExit + '. Diagnostics are recorded above and are non-blocking by default.'
             if($StrictDoctor){ throw $message }
             Write-Host $message -ForegroundColor Yellow
         } else {
@@ -179,8 +173,8 @@ try {
 
     $task = if($ArtifactType -eq 'AAB'){'bundleRelease'}else{'assembleRelease'}
     Stage 72 ('Building standard Android release ' + $ArtifactType)
-    Write-Host '[khatyar-build] Maven: local Maven -> Myket -> Runflare -> official.' -ForegroundColor DarkGray
-    Write-Host '[khatyar-build] Gradle Wrapper: F:\gradle-cache -> Myket -> Runflare -> official.' -ForegroundColor DarkGray
+    Write-Host '[khatyar-build] Maven: project-local generated configuration -> Myket/Runflare/official as prepared by Expo build plugins.' -ForegroundColor DarkGray
+    Write-Host '[khatyar-build] Gradle Wrapper: local F:\gradle-cache -> configured fallback.' -ForegroundColor DarkGray
     $logDir = Join-Path $android 'build\khatyar-build-logs'
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
     $logPath = Join-Path $logDir ($task + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
@@ -191,6 +185,11 @@ try {
         $artifact = Join-Path $android 'app\build\outputs\bundle\release\app-release.aab'
     } else {
         $artifact = Join-Path $android 'app\build\outputs\apk\release\app-release.apk'
+    }
+    if(-not (Test-Path -LiteralPath $artifact)){
+        if($ArtifactType -eq 'APK'){
+            $artifact = Join-Path $android 'app\build\outputs\apk\release\app-release-unsigned.apk'
+        }
     }
     if(-not (Test-Path -LiteralPath $artifact)){ throw "Release artifact was not found: $artifact" }
     $sizeMB = [math]::Round((Get-Item -LiteralPath $artifact).Length / 1MB, 2)
