@@ -130,5 +130,39 @@
       new MutationObserver(()=>{apply();addRadioPermissionRow();}).observe(document.body,{childList:true,subtree:true});
     }catch(e){rolePerms=[];apply();}
   }
+
+  // Dashboard birthday filter: keep only birthdays on today or later in the current Jalali month.
+  // The backend also returns `passed`; filtering here avoids changing the birthday cron behavior.
+  (function installBirthdayDashboardFilter(){
+    const originalFetch=window.fetch;
+    if(typeof originalFetch!=='function')return;
+    window.fetch=function(){
+      return originalFetch.apply(this,arguments).then(async response=>{
+        try{
+          const input=arguments[0];
+          const rawUrl=typeof input==='string' ? input : (input&&input.url);
+          const url=new URL(rawUrl||'',window.location.href);
+          if(url.pathname==='/api/admin/birthdays-month' && response.ok){
+            const data=await response.clone().json();
+            if(data && Array.isArray(data.people)){
+              const today=Number(data.today);
+              data.people=data.people.filter(person=>{
+                const daysLeft=Number(person&&person.days_left);
+                if(Number.isFinite(daysLeft))return daysLeft>=0;
+                const day=Number(person&&person.day);
+                return Number.isFinite(day) && Number.isFinite(today) && day>=today;
+              });
+              data.count=data.people.length;
+              const headers=new Headers(response.headers);
+              headers.set('content-type','application/json; charset=utf-8');
+              return new Response(JSON.stringify(data),{status:response.status,statusText:response.statusText,headers});
+            }
+          }
+        }catch(e){}
+        return response;
+      });
+    };
+  })();
+
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(load,300));else setTimeout(load,300);
 })();
