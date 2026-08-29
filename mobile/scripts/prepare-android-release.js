@@ -60,15 +60,6 @@ function assertContains(text, file, pattern, description) {
   if (!pattern.test(text)) fail(`${path.relative(root, file)} is missing ${description}.`);
 }
 
-function resolvePackageAndroidDir(packageName) {
-  try {
-    const pkg = require.resolve(`${packageName}/package.json`, { paths: [root] });
-    return path.join(path.dirname(pkg), 'android');
-  } catch (_) {
-    return null;
-  }
-}
-
 const packageJson = readJson(path.join(root, 'package.json'));
 const expo = String(packageJson.dependencies?.expo || '');
 const reactNative = String(packageJson.dependencies?.['react-native'] || '');
@@ -119,38 +110,20 @@ if (/com\.android\.tools\.build:gradle:\s*['"]?\s*['"]/.test(build)) fail('Andro
 if (/react-native-gradle-plugin:\s*['"]?\s*['"]/.test(build)) fail('React Native Gradle Plugin dependency has an empty version literal.');
 if (/kotlin-gradle-plugin:\s*['"]?\s*['"]/.test(build)) fail('Kotlin Gradle Plugin dependency has an empty version literal.');
 
-// Verify the generic Iranian mirror plugin patched the real generated Expo
-// included build, not just the main Android project.
-const expoAndroid = resolvePackageAndroidDir('expo-modules-autolinking');
-const expoIncludedBuild = expoAndroid && path.join(expoAndroid, 'expo-gradle-plugin');
-const expoIncludedFiles = [];
-if (expoIncludedBuild && fs.existsSync(expoIncludedBuild)) {
-  const stack = [expoIncludedBuild];
-  while (stack.length) {
-    const current = stack.pop();
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      const full = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        if (!['.gradle', 'build'].includes(entry.name)) stack.push(full);
-      } else if (/^(settings|build)\.gradle(?:\.kts)?$/i.test(entry.name)) {
-        expoIncludedFiles.push(full);
-      }
-    }
-  }
-}
-const mirrorPatchedFiles = expoIncludedFiles
-  .filter((file) => fs.readFileSync(file, 'utf8').includes(MAVEN_MARKER));
-if (mirrorPatchedFiles.length === 0) {
-  fail('The real expo-modules-autolinking included build was not patched with the local/Myket/Runflare Maven mirror policy.');
+// Mirror policy is intentionally validated on the main generated Android
+// project only. Expo/RN included builds retain their upstream settings so their
+// composite plugin resolution cannot be broken by repository injection.
+if (!build.includes(MAVEN_MARKER) && !settings.includes(MAVEN_MARKER)) {
+  fail('The generated Android project was not patched with the local/Myket/Runflare Maven mirror policy.');
 }
 
-console.log(`[android-prebuild] Maven mirror validation: ${mirrorPatchedFiles.length} generated Expo included-build file(s) patched.`);
+console.log('[android-prebuild] Main Android project mirror policy validated. Expo/RN included-build plugin settings left untouched.');
 console.log('[android-prebuild] Generated Android project passed structural compatibility checks.');
 console.log(`[android-prebuild] Expo SDK: ${expo}`);
 console.log(`[android-prebuild] React Native: ${reactNative}`);
 console.log(`[android-prebuild] React: ${react}`);
 console.log(`[android-prebuild] Gradle wrapper: ${REQUIRED_GRADLE}`);
 console.log('[android-prebuild] Standard Android release build: no Myket store/signing integration.');
-console.log('[android-prebuild] Maven policy: local -> Myket -> Runflare -> official.');
-console.log('[android-prebuild] Gradle wrapper policy: local F:\\gradle-cache -> Myket -> Runflare -> official.');
+console.log('[android-prebuild] Maven policy: main project local -> Myket -> Runflare -> official.');
+console.log('[android-prebuild] Gradle wrapper policy: local F:\\gradle-cache -> configured fallback.');
 console.log('[android-prebuild] Expected Android toolchain: AGP 8.12.x / Gradle 8.13 / JDK 17 / compileSdk 36 / NDK 27.1.12297006.');
