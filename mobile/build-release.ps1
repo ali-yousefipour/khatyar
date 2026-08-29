@@ -18,6 +18,7 @@ $BuildStart = Get-Date
 $FinalExitCode = 1
 $FinalStage = 'Starting'
 $InitScript = Join-Path $ScriptRoot 'gradle-mirror.init.gradle'
+$EnvironmentScript = Join-Path $ScriptRoot 'scripts\ensure-build-environment.ps1'
 
 function Stage([int]$Percent,[string]$Name) {
     $script:FinalStage = $Name
@@ -103,6 +104,12 @@ try {
     Write-Host ('Project: ' + $ScriptRoot)
     Write-Host ('Artifact: ' + $ArtifactType)
 
+    Stage 5 'Preparing and validating the complete build environment'
+    if(-not (Test-Path -LiteralPath $EnvironmentScript)){ throw 'scripts\ensure-build-environment.ps1 is missing.' }
+    $envArgs = @()
+    if($Fresh){ $envArgs += '-Fresh' }
+    Invoke-DirectChecked 'powershell.exe' (@('-NoProfile','-ExecutionPolicy','Bypass','-File',$EnvironmentScript) + $envArgs)
+
     Stage 10 'Checking required tools'
     $toolCommands = @('node.exe','npm.cmd','java.exe','git.exe')
     foreach($tool in $toolCommands){
@@ -116,16 +123,8 @@ try {
 
     Stage 20 'Checking project dependency manifest'
     if(-not (Test-Path -LiteralPath (Join-Path $ScriptRoot 'package.json'))){ throw 'package.json was not found.' }
-    if(-not (Test-Path -LiteralPath (Join-Path $ScriptRoot 'node_modules'))){ throw 'node_modules is missing.' }
-
-    if($Fresh){
-        Stage 28 'Refreshing npm dependencies'
-        if(Test-Path -LiteralPath (Join-Path $ScriptRoot 'package-lock.json')){
-            Invoke-DirectChecked 'npm.cmd' @('ci','--no-audit','--no-fund','--legacy-peer-deps')
-        } else {
-            Invoke-DirectChecked 'npm.cmd' @('install','--no-audit','--no-fund','--legacy-peer-deps')
-        }
-    }
+    if(-not (Test-Path -LiteralPath (Join-Path $ScriptRoot 'node_modules'))){ throw 'node_modules is missing after environment preparation.' }
+    if(-not (Test-Path -LiteralPath (Join-Path $ScriptRoot 'node_modules\expo\package.json'))){ throw 'Expo dependency is missing after environment preparation.' }
 
     Stage 38 'Generating a clean Expo Android project'
     Invoke-DirectChecked 'node.exe' @((Join-Path $ScriptRoot 'scripts\prepare-android-release.js'))
