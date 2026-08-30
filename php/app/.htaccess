@@ -6,14 +6,15 @@ RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 RewriteRule ^api/admin/role-app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
 RewriteRule ^api/my/app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
 
-# Radio: both legacy and v2 URLs are served by the secure authorization-aware implementation.
-RewriteRule ^api/radio-api\.php$ radio-api-v2.php [QSA,L,NC]
-RewriteRule ^api/radio-api-v2\.php$ radio-api-v2.php [QSA,L,NC]
+# Radio: bootstrap the schema before executing the secure v2 implementation.
+RewriteRule ^api/radio-api\.php$ radio-api-v2-entry.php [QSA,L,NC]
+RewriteRule ^api/radio-api-v2\.php$ radio-api-v2-entry.php [QSA,L,NC]
 RewriteRule ^api/radio-admin-api\.php$ radio-admin-api.php [QSA,L,NC]
-RewriteRule ^radio-api\.php$ radio-api-v2.php [QSA,L,NC]
+RewriteRule ^radio-api\.php$ radio-api-v2-entry.php [QSA,L,NC]
 
 # Station wizard: mobile calls /api/station-wizard-api.php while the canonical PHP file lives in /app.
-RewriteRule ^api/station-wizard-api\.php$ station-wizard-api.php [QSA,L,NC]
+# The entry wrapper prepares station_sign_types before loading the canonical wizard.
+RewriteRule ^api/station-wizard-api\.php$ station-wizard-api-entry.php [QSA,L,NC]
 
 RewriteCond %{QUERY_STRING} (^|&)op=capture-report(&|$) [NC]
 RewriteRule ^line-station-api\.php$ station-capture-report.php [QSA,L]
