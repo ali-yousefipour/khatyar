@@ -12,6 +12,9 @@ RewriteRule ^api/radio-api-v2\.php$ radio-api-v2.php [QSA,L,NC]
 RewriteRule ^api/radio-admin-api\.php$ radio-admin-api.php [QSA,L,NC]
 RewriteRule ^radio-api\.php$ radio-api-v2.php [QSA,L,NC]
 
+# Station wizard: mobile calls /api/station-wizard-api.php while the canonical PHP file lives in /app.
+RewriteRule ^api/station-wizard-api\.php$ station-wizard-api.php [QSA,L,NC]
+
 RewriteCond %{QUERY_STRING} (^|&)op=capture-report(&|$) [NC]
 RewriteRule ^line-station-api\.php$ station-capture-report.php [QSA,L]
 RewriteRule ^line-station-api\.php$ line-station-api-v2.php [QSA,L]
