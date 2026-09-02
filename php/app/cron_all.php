@@ -7,3 +7,5 @@
 // اگر از مرورگر صدا بزنید، باید ?key=مقدار_cron_key اضافه کنید.
 $GLOBALS['CRON_TASK'] = 'all';
 require __DIR__ . '/cron.php';
+// پاکسازی آرشیو صوتی بی‌سیم بر اساس مدت نگهداری تنظیم‌شده.
+require __DIR__ . '/radio-cleanup.php';
