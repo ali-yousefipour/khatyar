@@ -8,6 +8,9 @@ const radioPkg = `${pkg}.radio`;
 const bridge = `package ${radioPkg}
 
 import android.content.Context
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import android.os.Build
 import android.view.KeyEvent
 import com.facebook.react.ReactApplication
 import com.facebook.react.bridge.Arguments
@@ -25,6 +28,19 @@ object KhatyarRadioPttBridge {
       reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
         .emit("KhatyarRadioPTT", payload)
     } catch (_: Throwable) {}
+  }
+
+  fun volumePttAllowed(context: Context): Boolean {
+    return try {
+      val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+      audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).none { d ->
+        d.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+        d.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+        d.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+        d.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+        (Build.VERSION.SDK_INT >= 31 && d.type == AudioDeviceInfo.TYPE_BLE_HEADSET)
+      }
+    } catch (_: Throwable) { true }
   }
 
   fun handleMediaIntent(context: Context, intent: android.content.Intent) {
@@ -59,9 +75,7 @@ function withRadioPtt(config) {
     const m = c.modResults.manifest;
     m['uses-permission'] = m['uses-permission'] || [];
     const addPermission = name => {
-      if (!m['uses-permission'].some(x => x.$?.['android:name'] === name)) {
-        m['uses-permission'].push({$: {'android:name': name}});
-      }
+      if (!m['uses-permission'].some(x => x.$?.['android:name'] === name)) m['uses-permission'].push({$: {'android:name': name}});
     };
     addPermission('android.permission.FOREGROUND_SERVICE');
     addPermission('android.permission.FOREGROUND_SERVICE_MICROPHONE');
@@ -69,28 +83,9 @@ function withRadioPtt(config) {
     const app = m.application?.[0];
     if (!app) return c;
     app.service = app.service || [];
-    if (!app.service.some(x => x.$?.['android:name'] === 'expo.modules.audio.service.AudioRecordingService')) {
-      app.service.push({$: {
-        'android:name': 'expo.modules.audio.service.AudioRecordingService',
-        'android:exported': 'false',
-        'android:foregroundServiceType': 'microphone'
-      }});
-    }
+    if (!app.service.some(x => x.$?.['android:name'] === 'expo.modules.audio.service.AudioRecordingService')) app.service.push({$: {'android:name':'expo.modules.audio.service.AudioRecordingService','android:exported':'false','android:foregroundServiceType':'microphone'}});
     app.receiver = app.receiver || [];
-    const exists = app.receiver.some(x => x.$?.['android:name'] === `${radioPkg}.KhatyarRadioMediaButtonReceiver`);
-    if (!exists) {
-      app.receiver.push({
-        $: {
-          'android:name': `${radioPkg}.KhatyarRadioMediaButtonReceiver`,
-          'android:enabled': 'true',
-          'android:exported': 'true'
-        },
-        'intent-filter': [{
-          $: { 'android:priority': '900' },
-          action: [{ $: { 'android:name': 'android.intent.action.MEDIA_BUTTON' } }]
-        }]
-      });
-    }
+    if (!app.receiver.some(x => x.$?.['android:name'] === `${radioPkg}.KhatyarRadioMediaButtonReceiver`)) app.receiver.push({$:{'android:name':`${radioPkg}.KhatyarRadioMediaButtonReceiver`,'android:enabled':'true','android:exported':'true'},'intent-filter':[{$:{'android:priority':'900'},action:[{$:{'android:name':'android.intent.action.MEDIA_BUTTON'}}]}]});
     return c;
   });
 
@@ -101,46 +96,12 @@ function withRadioPtt(config) {
     fs.mkdirSync(radioDir, { recursive: true });
     fs.writeFileSync(path.join(radioDir, 'KhatyarRadioPttBridge.kt'), bridge, 'utf8');
     fs.writeFileSync(path.join(radioDir, 'KhatyarRadioMediaButtonReceiver.kt'), receiver, 'utf8');
-
-    // Volume-Up PTT is intentionally limited to the foreground Activity. Android does not
-    // expose a normal application API for globally hijacking volume keys while backgrounded.
-    const mainRoots = [
-      path.join(root, 'app', 'src', 'main', 'java'),
-      path.join(root, 'app', 'src', 'main', 'kotlin')
-    ];
-    const found = [];
-    const walk = dir => {
-      if (!fs.existsSync(dir)) return;
-      for (const name of fs.readdirSync(dir)) {
-        const p = path.join(dir, name);
-        const st = fs.statSync(p);
-        if (st.isDirectory()) walk(p);
-        else if (/^MainActivity\.(kt|java)$/.test(name)) found.push(p);
-      }
-    };
+    const mainRoots=[path.join(root,'app','src','main','java'),path.join(root,'app','src','main','kotlin')],found=[];
+    const walk=dir=>{if(!fs.existsSync(dir))return;for(const name of fs.readdirSync(dir)){const p=path.join(dir,name),st=fs.statSync(p);if(st.isDirectory())walk(p);else if(/^MainActivity\.(kt|java)$/.test(name))found.push(p)}};
     mainRoots.forEach(walk);
-    for (const file of found) {
-      let s = fs.readFileSync(file, 'utf8');
-      if (!s.includes('KhatyarRadioPttBridge.emit')) {
-        const importLine = `import ${radioPkg}.KhatyarRadioPttBridge\n`;
-        if (!s.includes(importLine.trim())) {
-          const packageMatch = s.match(/^package [^\n]+\n/);
-          if (packageMatch) s = s.slice(0, packageMatch[0].length) + importLine + s.slice(packageMatch[0].length);
-          else s = importLine + s;
-        }
-        if (file.endsWith('.kt')) {
-          const methods = `\n\n  override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {\n    if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) {\n      KhatyarRadioPttBridge.emit(this, "down", "volume_up")\n      return true\n    }\n    return super.onKeyDown(keyCode, event)\n  }\n\n  override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent): Boolean {\n    if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) {\n      KhatyarRadioPttBridge.emit(this, "up", "volume_up")\n      return true\n    }\n    return super.onKeyUp(keyCode, event)\n  }\n}`;
-          s = s.replace(/\n}\s*$/, methods);
-        } else {
-          const javaMethods = `\n\n  @Override public boolean onKeyDown(int keyCode, android.view.KeyEvent event) { if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) { ${radioPkg}.KhatyarRadioPttBridge.INSTANCE.emit(this, "down", "volume_up"); return true; } return super.onKeyDown(keyCode, event); }\n  @Override public boolean onKeyUp(int keyCode, android.view.KeyEvent event) { if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) { ${radioPkg}.KhatyarRadioPttBridge.INSTANCE.emit(this, "up", "volume_up"); return true; } return super.onKeyUp(keyCode, event); }\n}`;
-          s = s.replace(/\n}\s*$/, javaMethods);
-        }
-        fs.writeFileSync(file, s, 'utf8');
-      }
-    }
+    for(const file of found){let s=fs.readFileSync(file,'utf8');if(!s.includes('KhatyarRadioPttBridge.emit')){const importLine=`import ${radioPkg}.KhatyarRadioPttBridge\n`;if(!s.includes(importLine.trim())){const packageMatch=s.match(/^package [^\n]+\n/);if(packageMatch)s=s.slice(0,packageMatch[0].length)+importLine+s.slice(packageMatch[0].length);else s=importLine+s}if(file.endsWith('.kt')){const methods=`\n\n  override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {\n    if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP && KhatyarRadioPttBridge.volumePttAllowed(this)) {\n      KhatyarRadioPttBridge.emit(this, "down", "volume_up")\n      return true\n    }\n    return super.onKeyDown(keyCode, event)\n  }\n\n  override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent): Boolean {\n    if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP && KhatyarRadioPttBridge.volumePttAllowed(this)) {\n      KhatyarRadioPttBridge.emit(this, "up", "volume_up")\n      return true\n    }\n    return super.onKeyUp(keyCode, event)\n  }\n}`;s=s.replace(/\n}\s*$/,methods)}else{const javaMethods=`\n\n  @Override public boolean onKeyDown(int keyCode, android.view.KeyEvent event) { if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP && ${radioPkg}.KhatyarRadioPttBridge.INSTANCE.volumePttAllowed(this)) { ${radioPkg}.KhatyarRadioPttBridge.INSTANCE.emit(this, "down", "volume_up"); return true; } return super.onKeyDown(keyCode, event); }\n  @Override public boolean onKeyUp(int keyCode, android.view.KeyEvent event) { if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP && ${radioPkg}.KhatyarRadioPttBridge.INSTANCE.volumePttAllowed(this)) { ${radioPkg}.KhatyarRadioPttBridge.INSTANCE.emit(this, "up", "volume_up"); return true; } return super.onKeyUp(keyCode, event); }\n}`;s=s.replace(/\n}\s*$/,javaMethods)}fs.writeFileSync(file,s,'utf8')}}
     return c;
   }]);
   return config;
 }
-
 module.exports = withRadioPtt;
