@@ -98,25 +98,25 @@ function withRadioPtt(config) {
         const p = path.join(dir, name);
         const st = fs.statSync(p);
         if (st.isDirectory()) walk(p);
-        else if (/^MainActivity\\.(kt|java)$/.test(name)) found.push(p);
+        else if (/^MainActivity\.(kt|java)$/.test(name)) found.push(p);
       }
     };
     mainRoots.forEach(walk);
     for (const file of found) {
       let s = fs.readFileSync(file, 'utf8');
       if (!s.includes('KhatyarRadioPttBridge.emit')) {
-        const importLine = s.includes('import ') ? `import ${radioPkg}.KhatyarRadioPttBridge\\n` : '';
-        if (importLine && !s.includes(importLine.trim())) {
-          const packageMatch = s.match(/^package [^\\n]+\\n/);
+        const importLine = `import ${radioPkg}.KhatyarRadioPttBridge\n`;
+        if (!s.includes(importLine.trim())) {
+          const packageMatch = s.match(/^package [^\n]+\n/);
           if (packageMatch) s = s.slice(0, packageMatch[0].length) + importLine + s.slice(packageMatch[0].length);
           else s = importLine + s;
         }
-        const marker = /\\n}\\s*$/;
-        const methods = `\\n\\n  override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {\\n    if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) {\\n      KhatyarRadioPttBridge.emit(this, "down", "volume_up")\\n      return true\\n    }\\n    return super.onKeyDown(keyCode, event)\\n  }\\n\\n  override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent): Boolean {\\n    if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) {\\n      KhatyarRadioPttBridge.emit(this, "up", "volume_up")\\n      return true\\n    }\\n    return super.onKeyUp(keyCode, event)\\n  }\\n}`;
-        if (file.endsWith('.kt') && marker.test(s)) s = s.replace(marker, methods);
-        else if (file.endsWith('.java')) {
-          const javaMethods = `\\n\\n  @Override public boolean onKeyDown(int keyCode, android.view.KeyEvent event) { if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) { ${radioPkg}.KhatyarRadioPttBridge.INSTANCE.emit(this, "down", "volume_up"); return true; } return super.onKeyDown(keyCode, event); }\\n  @Override public boolean onKeyUp(int keyCode, android.view.KeyEvent event) { if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) { ${radioPkg}.KhatyarRadioPttBridge.INSTANCE.emit(this, "up", "volume_up"); return true; } return super.onKeyUp(keyCode, event); }\\n}`;
-          s = s.replace(/\\n}\\s*$/, javaMethods);
+        if (file.endsWith('.kt')) {
+          const methods = `\n\n  override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {\n    if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) {\n      KhatyarRadioPttBridge.emit(this, "down", "volume_up")\n      return true\n    }\n    return super.onKeyDown(keyCode, event)\n  }\n\n  override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent): Boolean {\n    if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) {\n      KhatyarRadioPttBridge.emit(this, "up", "volume_up")\n      return true\n    }\n    return super.onKeyUp(keyCode, event)\n  }\n}`;
+          s = s.replace(/\n}\s*$/, methods);
+        } else {
+          const javaMethods = `\n\n  @Override public boolean onKeyDown(int keyCode, android.view.KeyEvent event) { if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) { ${radioPkg}.KhatyarRadioPttBridge.INSTANCE.emit(this, "down", "volume_up"); return true; } return super.onKeyDown(keyCode, event); }\n  @Override public boolean onKeyUp(int keyCode, android.view.KeyEvent event) { if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) { ${radioPkg}.KhatyarRadioPttBridge.INSTANCE.emit(this, "up", "volume_up"); return true; } return super.onKeyUp(keyCode, event); }\n}`;
+          s = s.replace(/\n}\s*$/, javaMethods);
         }
         fs.writeFileSync(file, s, 'utf8');
       }
