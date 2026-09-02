@@ -57,8 +57,25 @@ class KhatyarRadioMediaButtonReceiver : BroadcastReceiver() {
 function withRadioPtt(config) {
   config = withAndroidManifest(config, c => {
     const m = c.modResults.manifest;
+    m['uses-permission'] = m['uses-permission'] || [];
+    const addPermission = name => {
+      if (!m['uses-permission'].some(x => x.$?.['android:name'] === name)) {
+        m['uses-permission'].push({$: {'android:name': name}});
+      }
+    };
+    addPermission('android.permission.FOREGROUND_SERVICE');
+    addPermission('android.permission.FOREGROUND_SERVICE_MICROPHONE');
+    addPermission('android.permission.POST_NOTIFICATIONS');
     const app = m.application?.[0];
     if (!app) return c;
+    app.service = app.service || [];
+    if (!app.service.some(x => x.$?.['android:name'] === 'expo.modules.audio.service.AudioRecordingService')) {
+      app.service.push({$: {
+        'android:name': 'expo.modules.audio.service.AudioRecordingService',
+        'android:exported': 'false',
+        'android:foregroundServiceType': 'microphone'
+      }});
+    }
     app.receiver = app.receiver || [];
     const exists = app.receiver.some(x => x.$?.['android:name'] === `${radioPkg}.KhatyarRadioMediaButtonReceiver`);
     if (!exists) {
