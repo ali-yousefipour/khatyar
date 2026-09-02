@@ -4269,6 +4269,44 @@ route('GET', '/api/attendance/{driverId}', function($p,$b,$u){
   return Db::all("SELECT created_at, exit_at FROM attendances WHERE driver_id=? ORDER BY created_at DESC LIMIT 200", [$p['driverId']]);
 });
 
+// گزارش کارکرد رانندگان: برای یک خط خاص یا کل خطوط، در یک بازهٔ تاریخی، جمع‌بندی حضور هر راننده
+route('GET', '/api/admin/driver-work-report', function($p,$b,$u){
+  _ensure_attendances_schema();
+  $lineId = (int)($_GET['line_id'] ?? 0);
+  $from = trim((string)($_GET['from'] ?? ''));
+  $to = trim((string)($_GET['to'] ?? ''));
+  $where = ['1=1']; $params = [];
+  if ($lineId > 0) { $where[] = 'a.line_id=?'; $params[] = $lineId; }
+  if ($from !== '') { $where[] = 'a.created_at >= ?'; $params[] = $from.' 00:00:00'; }
+  if ($to !== '') { $where[] = 'a.created_at <= ?'; $params[] = $to.' 23:59:59'; }
+  $whereSql = implode(' AND ', $where);
+  $rows = Db::all("SELECT
+      a.driver_id, d.first_name, d.last_name, d.national_id,
+      GROUP_CONCAT(DISTINCT l.code ORDER BY l.code SEPARATOR '، ') line_codes,
+      COUNT(*) total_sessions,
+      SUM(TIMESTAMPDIFF(SECOND, a.created_at, COALESCE(a.exit_at, a.created_at))) total_seconds,
+      COUNT(DISTINCT DATE(a.created_at)) distinct_days,
+      COUNT(DISTINCT DATE_FORMAT(a.created_at,'%Y-%m')) distinct_months,
+      MIN(a.created_at) first_seen, MAX(a.created_at) last_seen
+    FROM attendances a
+    JOIN drivers d ON d.id = a.driver_id
+    LEFT JOIN `lines` l ON l.id = a.line_id
+    WHERE $whereSql
+    GROUP BY a.driver_id, d.first_name, d.last_name, d.national_id
+    ORDER BY total_sessions DESC", $params);
+  foreach ($rows as &$r) {
+    $days = max(1, (int)$r['distinct_days']);
+    $months = max(1, (int)$r['distinct_months']);
+    $r['total_sessions'] = (int)$r['total_sessions'];
+    $r['total_seconds'] = (int)$r['total_seconds'];
+    $r['avg_daily_count'] = round($r['total_sessions'] / $days, 2);
+    $r['avg_daily_seconds'] = round($r['total_seconds'] / $days, 1);
+    $r['avg_monthly_seconds'] = round($r['total_seconds'] / $months, 1);
+  }
+  unset($r);
+  return $rows;
+}, false, ADMIN);
+
 // آمار لحظه‌ای تعداد تاکسیرانان حاضر در هر خط (مرتب بر اساس بیشترین) — برای سایت
 route('GET', '/api/admin/present-stats', function($p,$b,$u){
   $rows = Db::all("SELECT l.id line_id, l.code, l.origin, l.destination,

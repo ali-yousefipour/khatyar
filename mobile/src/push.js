@@ -53,6 +53,16 @@ export async function registerPush() {
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       bypassDnd: true,
     });
+    await Notifications.setNotificationChannelAsync('radio_alert', {
+      name: 'پیج بی‌سیم',
+      description: 'هشدار دریافت پیام صوتی بی‌سیم، حتی هنگام خاموش بودن صفحه',
+      importance: Notifications.AndroidImportance.MAX,
+      sound: 'radio_call_alert.wav',
+      vibrationPattern: [0, 400, 200, 400],
+      enableVibrate: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      bypassDnd: true,
+    });
   }
   const token = (await Notifications.getExpoPushTokenAsync()).data;
   try {

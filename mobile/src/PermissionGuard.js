@@ -3,7 +3,8 @@ import{AppState,Linking,ScrollView,StyleSheet,Text,TouchableOpacity,View}from're
 import*as Notifications from'expo-notifications';
 import*as Location from'expo-location';
 import*as Network from'expo-network';
-import*as Camera from'expo-camera';
+import*as ImagePicker from'expo-image-picker';
+import*as Audio from'expo-audio';
 import*as IntentLauncher from'expo-intent-launcher';
 import AsyncStorage from'@react-native-async-storage/async-storage';
 import{C,FONT}from'./theme';
@@ -11,6 +12,7 @@ import{useAuth}from'./auth';
 
 const CHECK_INTERVAL_MS=5000;
 const CAMERA_EXPLANATION_KEY='khatyar_camera_permission_explained_v2';
+const MIC_EXPLANATION_KEY='khatyar_mic_permission_explained_v1';
 
 async function callModuleAsync(module,name,fallback){
   try{
@@ -44,6 +46,7 @@ export default function PermissionGuard({children}){
   const exempt=!!user&&(Number(user.security_exempt||0)===1||user.security_exempt===true);
   const[runtimeIssue,setRuntimeIssue]=useState(null);
   const[cameraExplanation,setCameraExplanation]=useState(false);
+  const[micExplanation,setMicExplanation]=useState(false);
   const[checking,setChecking]=useState(false);
   const inFlight=useRef(false);
   const mounted=useRef(true);
@@ -52,12 +55,12 @@ export default function PermissionGuard({children}){
     if(inFlight.current||!mounted.current)return;
     inFlight.current=true;setChecking(true);
     try{
-      if(exempt){setRuntimeIssue(null);setCameraExplanation(false);return;}
+      if(exempt){setRuntimeIssue(null);setCameraExplanation(false);setMicExplanation(false);return;}
 
       // PermissionGuard must not block the unauthenticated startup/login screen.
       // Permissions are enforced only after authentication, so granting camera
       // permission can never prevent the app from reaching Login.
-      if(!user){setRuntimeIssue(null);setCameraExplanation(false);return;}
+      if(!user){setRuntimeIssue(null);setCameraExplanation(false);setMicExplanation(false);return;}
 
       const notification=await callModuleAsync(Notifications,'getPermissionsAsync',{status:'denied'});
       if(notification?.status!=='granted'){
@@ -65,23 +68,34 @@ export default function PermissionGuard({children}){
           const requested=await callModuleAsync(Notifications,'requestPermissionsAsync',null);
           if(requested?.status==='granted'){return check();}
         }
-        setRuntimeIssue({type:'notifications'});setCameraExplanation(false);return;
+        setRuntimeIssue({type:'notifications'});setCameraExplanation(false);setMicExplanation(false);return;
       }
 
-      if(await checkVpn()){setCameraExplanation(false);setRuntimeIssue({type:'vpn'});return;}
       setRuntimeIssue(null);
 
-      const cam=await callModuleAsync(Camera,'getCameraPermissionsAsync',{granted:false,status:'denied'});
+      const cam=await callModuleAsync(ImagePicker,'getCameraPermissionsAsync',{granted:false,status:'denied'});
       if(!cam?.granted){
         const explained=await AsyncStorage.getItem(CAMERA_EXPLANATION_KEY).catch(()=>null);
         if(!explained){setCameraExplanation(true);return;}
         if(cam?.status==='undetermined'){
-          const requested=await callModuleAsync(Camera,'requestCameraPermissionsAsync',null);
+          const requested=await callModuleAsync(ImagePicker,'requestCameraPermissionsAsync',null);
           if(requested?.granted){setCameraExplanation(false);setRuntimeIssue(null);return check();}
         }
         setRuntimeIssue({type:'camera'});setCameraExplanation(false);return;
       }
       setCameraExplanation(false);
+
+      const mic=await callModuleAsync(Audio,'getRecordingPermissionsAsync',{granted:false,status:'denied'});
+      if(!mic?.granted){
+        const explainedMic=await AsyncStorage.getItem(MIC_EXPLANATION_KEY).catch(()=>null);
+        if(!explainedMic){setMicExplanation(true);return;}
+        if(mic?.status==='undetermined'){
+          const requested=await callModuleAsync(Audio,'requestRecordingPermissionsAsync',null);
+          if(requested?.granted){setMicExplanation(false);setRuntimeIssue(null);return check();}
+        }
+        setRuntimeIssue({type:'microphone'});setMicExplanation(false);return;
+      }
+      setMicExplanation(false);
 
       const locationPerm=await callModuleAsync(Location,'getForegroundPermissionsAsync',{granted:false,status:'denied'});
       if(!locationPerm?.granted){
@@ -103,14 +117,22 @@ export default function PermissionGuard({children}){
   const handleCameraExplanation=async()=>{
     await AsyncStorage.setItem(CAMERA_EXPLANATION_KEY,'1').catch(()=>{});
     setCameraExplanation(false);
-    const requested=await callModuleAsync(Camera,'requestCameraPermissionsAsync',null);
+    const requested=await callModuleAsync(ImagePicker,'requestCameraPermissionsAsync',null);
     if(requested?.granted)check();else setRuntimeIssue({type:'camera'});
+  };
+
+  const handleMicExplanation=async()=>{
+    await AsyncStorage.setItem(MIC_EXPLANATION_KEY,'1').catch(()=>{});
+    setMicExplanation(false);
+    const requested=await callModuleAsync(Audio,'requestRecordingPermissionsAsync',null);
+    if(requested?.granted)check();else setRuntimeIssue({type:'microphone'});
   };
 
   const issueContent={
     notifications:{icon:'🔔',title:'دسترسی اعلان‌ها لازم است',text:'برای دریافت اعلان‌های کاری و هشدارهای سامانه، دسترسی اعلان‌ها را فعال کنید.',button:'فعال‌سازی اعلان‌ها'},
     vpn:{icon:'🛡️',title:'VPN روشن است',text:'برای ورود به برنامه باید VPN یا فیلترشکن خاموش باشد. پس از خاموش کردن، برنامه به‌صورت خودکار وضعیت را بررسی می‌کند.',button:'باز کردن تنظیمات VPN'},
     camera:{icon:'📷',title:'دسترسی دوربین لازم است',text:'دوربین فقط در هنگام صحت‌سنجی حضور و پس از شروع همان فرایند استفاده می‌شود و خارج از آن فرایند، برنامه از دوربین استفاده نمی‌کند.',button:'رفتن به تنظیمات دوربین'},
+    microphone:{icon:'🎙️',title:'دسترسی میکروفون لازم است',text:'برای صحبت در بی‌سیم، دسترسی میکروفون لازم است. میکروفون فقط هنگام فشردن دکمهٔ صحبت در بی‌سیم فعال می‌شود.',button:'رفتن به تنظیمات میکروفون'},
     locationPermission:{icon:'📍',title:'دسترسی موقعیت مکانی لازم است',text:'برای ثبت حضور و کنترل موقعیت کاری، اجازه دسترسی به موقعیت مکانی لازم است.',button:'فعال‌سازی موقعیت مکانی'},
     gps:{icon:'📍',title:'موقعیت‌یابی دستگاه خاموش است',text:'برای ادامه ورود، Location/GPS دستگاه را روشن کنید. پس از برگشت، برنامه به‌صورت خودکار دوباره بررسی می‌کند.',button:'روشن کردن موقعیت‌یابی'}
   };
@@ -118,6 +140,7 @@ export default function PermissionGuard({children}){
 
   return <View style={{flex:1}}>{children}
     {cameraExplanation&&<View style={s.overlay}><ScrollView contentContainerStyle={s.box}><Text style={s.icon}>📷</Text><Text style={s.title}>مجوز استفاده از دوربین</Text><Text style={s.sub}>دوربین فقط برای صحت‌سنجی حضور و فقط پس از شروع فرایند صحت‌سنجی استفاده می‌شود. خارج از آن فرایند، برنامه از دوربین استفاده نمی‌کند.</Text><TouchableOpacity style={s.btn} onPress={handleCameraExplanation}><Text style={s.btnTxt}>تأیید و درخواست دسترسی</Text></TouchableOpacity></ScrollView></View>}
+    {micExplanation&&<View style={s.overlay}><ScrollView contentContainerStyle={s.box}><Text style={s.icon}>🎙️</Text><Text style={s.title}>مجوز استفاده از میکروفون</Text><Text style={s.sub}>میکروفون فقط برای صحبت در بی‌سیم و فقط هنگام فشردن دکمهٔ صحبت استفاده می‌شود. خارج از آن، برنامه از میکروفون استفاده نمی‌کند.</Text><TouchableOpacity style={s.btn} onPress={handleMicExplanation}><Text style={s.btnTxt}>تأیید و درخواست دسترسی</Text></TouchableOpacity></ScrollView></View>}
     {blocking&&<View style={s.overlay}><ScrollView contentContainerStyle={s.box}><Text style={s.icon}>{blocking.icon}</Text><Text style={s.title}>{blocking.title}</Text><Text style={s.sub}>{blocking.text}</Text><TouchableOpacity style={s.btn} disabled={checking} onPress={async()=>{if(runtimeIssue.type==='notifications'){const r=await callModuleAsync(Notifications,'requestPermissionsAsync',null);if(r?.status==='granted'){check();return}}else if(runtimeIssue.type==='vpn'){await openVpnSettings()}else if(runtimeIssue.type==='gps'){await openLocationSettings()}else{try{await Linking.openSettings()}catch{}}check()}}><Text style={s.btnTxt}>{blocking.button}</Text></TouchableOpacity></ScrollView></View>}
   </View>;
 }

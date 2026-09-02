@@ -7,5 +7,3 @@
 // اگر از مرورگر صدا بزنید، باید ?key=مقدار_cron_key اضافه کنید.
 $GLOBALS['CRON_TASK'] = 'all';
 require __DIR__ . '/cron.php';
-// پاکسازی مستقل آرشیو صوتی بی‌سیم؛ در صورت خطا، اجرای سایر cronها مختل نمی‌شود.
-try { require __DIR__ . '/radio-cleanup.php'; } catch (Throwable $e) { error_log('radio cleanup: '.$e->getMessage()); }

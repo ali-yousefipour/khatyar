@@ -72,7 +72,7 @@
   .tabbtn.on{background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;border-color:transparent;font-weight:700;box-shadow:0 8px 18px -8px rgba(14,138,106,.6)}
   .settings-tabs{display:block !important;max-width:760px}
   .settings-tabs .panel{display:none;margin-bottom:16px}
-  .settings-tabs.tab-general .t-general,.settings-tabs.tab-subscription .t-subscription,.settings-tabs.tab-monitoring .t-monitoring,.settings-tabs.tab-security .t-security,.settings-tabs.tab-files .t-files,.settings-tabs.tab-drivers .t-drivers,.settings-tabs.tab-print .t-print,.settings-tabs.tab-access .t-access,.settings-tabs.tab-dashboard .t-dashboard,.settings-tabs.tab-sms .t-sms,.settings-tabs.tab-bale .t-bale,.settings-tabs.tab-plate .t-plate,.settings-tabs.tab-hr .t-hr,.settings-tabs.tab-fields .t-fields,.settings-tabs.tab-appitems .t-appitems,.settings-tabs.tab-backup .t-backup{display:block}
+  .settings-tabs.tab-general .t-general,.settings-tabs.tab-subscription .t-subscription,.settings-tabs.tab-monitoring .t-monitoring,.settings-tabs.tab-security .t-security,.settings-tabs.tab-files .t-files,.settings-tabs.tab-drivers .t-drivers,.settings-tabs.tab-print .t-print,.settings-tabs.tab-access .t-access,.settings-tabs.tab-dashboard .t-dashboard,.settings-tabs.tab-sms .t-sms,.settings-tabs.tab-bale .t-bale,.settings-tabs.tab-plate .t-plate,.settings-tabs.tab-hr .t-hr,.settings-tabs.tab-fields .t-fields,.settings-tabs.tab-appitems .t-appitems,.settings-tabs.tab-backup .t-backup,.settings-tabs.tab-radio .t-radio{display:block}
 
   /* ---------- محتوای اصلی ---------- */
   .main{padding:26px 30px 70px;max-width:1500px;margin:0 auto}

@@ -5713,7 +5713,7 @@ function Settings() {
         return React.createElement("div", null, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026");
     const set = (k, val) => setV({ ...v, [k]: val });
     const save = async () => { await db.saveSettings(v); alert("تنظیمات ذخیره شد."); };
-    const TABS = [["general", "عمومی و موقعیت"], ["subscription", "اشتراک"], ["monitoring", "پایش و هشدارها"], ["dashboard", "داشبورد و محاسبهٔ عملکرد"], ["hr", "منابع انسانی"], ["fields", "فیلدهای پرسنل"], ["appitems", "آیتم‌های اپ هر سمت"], ["sms", "پیامک"], ["bale", "ربات‌ها"], ["security", "امنیت و نسخه اپ"], ["files", "پیوست‌ها و اعلان‌ها"], ["drivers", "بدهکاران"], ["print", "قالب چاپ"], ["access", "دسترسی‌ها"], ["backup", "پشتیبان‌گیری و پاکسازی"]];
+    const TABS = [["general", "عمومی و موقعیت"], ["subscription", "اشتراک"], ["monitoring", "پایش و هشدارها"], ["dashboard", "داشبورد و محاسبهٔ عملکرد"], ["hr", "منابع انسانی"], ["fields", "فیلدهای پرسنل"], ["appitems", "آیتم‌های اپ هر سمت"], ["sms", "پیامک"], ["bale", "ربات‌ها"], ["radio", "بی‌سیم"], ["security", "امنیت و نسخه اپ"], ["files", "پیوست‌ها و اعلان‌ها"], ["drivers", "بدهکاران"], ["print", "قالب چاپ"], ["access", "دسترسی‌ها"], ["backup", "پشتیبان‌گیری و پاکسازی"]];
     const Field = (k, l) => {
         var _a;
         return React.createElement("div", { style: { marginBottom: 12 } },
@@ -6278,6 +6278,10 @@ function Settings() {
             React.createElement("div", { className: "panel t-access" },
                 React.createElement("h3", null, "\u0633\u0637\u062D \u062F\u0633\u062A\u0631\u0633\u06CC \u0633\u0645\u062A\u200C\u0647\u0627 \u0628\u0647 \u0628\u062E\u0634\u200C\u0647\u0627\u06CC \u0633\u0627\u06CC\u062A"),
                 React.createElement(RolePerms, null)),
+            React.createElement("div", { className: "panel t-radio" },
+                React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645"),
+                React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 10 } }, "\u062A\u0639\u0631\u06CC\u0641 \u06A9\u0627\u0646\u0627\u0644\u060C \u0642\u0648\u0627\u0646\u06CC\u0646 \u0639\u0636\u0648\u06CC\u062A\u060C \u0627\u0648\u0644\u0648\u06CC\u062A \u0648 \u0632\u0645\u0627\u0646 \u0635\u062D\u0628\u062A \u0647\u0631 \u06A9\u0627\u0646\u0627\u0644\u060C \u062F\u0642\u06CC\u0642\u0627\u064B \u0647\u0645\u0627\u0646 \u0635\u0641\u062D\u0647\u200C\u0627\u06CC \u0627\u0633\u062A \u06A9\u0647 \u067E\u06CC\u0634\u200C\u062A\u0631 \u062C\u062F\u0627\u06AF\u0627\u0646\u0647 \u0628\u0627\u0632 \u0645\u06CC\u200C\u0634\u062F (radio-admin.html)\u060C \u0627\u06A9\u0646\u0648\u0646 \u0641\u0642\u0637 \u062F\u0631 \u0647\u0645\u06CC\u0646 \u062C\u0627 \u062A\u0639\u0628\u06CC\u0647 \u0634\u062F\u0647 \u0627\u0633\u062A.", React.createElement("br", null), "\u062F\u0633\u062A\u0631\u0633\u06CC \u0628\u0647 \u0627\u06CC\u0646 \u0628\u062E\u0634 \u0627\u0632 \u0637\u0631\u06CC\u0642 \u0622\u06CC\u062A\u0645 \u00AB\u0622\u06CC\u062A\u0645\u200C\u0647\u0627\u06CC \u0627\u067E \u0647\u0631 \u0633\u0645\u062A\u00BB \u0628\u0627 \u06A9\u0644\u06CC\u062F \u062F\u0633\u062A\u0631\u0633\u06CC \u00AB\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645 (\u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0627\u0646\u0627\u0644\u200C\u0647\u0627)\u00BB \u062A\u0639\u06CC\u06CC\u0646 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+                React.createElement("iframe", { src: "radio-admin.html", title: "\u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0627\u0646\u0627\u0644\u200C\u0647\u0627\u06CC \u0628\u06CC\u200C\u0633\u06CC\u0645", style: { width: "100%", height: "78vh", border: "1px solid var(--line)", borderRadius: 12, background: "#fff" } })),
             React.createElement("div", { className: "panel t-backup" },
                 React.createElement("h3", null, "\u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u200C\u06AF\u06CC\u0631\u06CC\u060C \u0628\u0627\u0632\u06CC\u0627\u0628\u06CC \u0648 \u067E\u0627\u06A9\u0633\u0627\u0632\u06CC"),
                 React.createElement(BackupSettings, null)))));
@@ -7884,7 +7888,7 @@ function DashboardConfig() {
             saved && React.createElement("span", { style: { color: "var(--ok)", fontSize: 13 } }, "\u2713 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"))));
 }
 function RolePerms() {
-    const MENU = [["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["officials", "حضور مسئولین"], ["covertselfies", "سلفی‌های نامحسوس"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "شیفت و کارکرد"], ["attreport", "گزارش تردد پرسنل"], ["workpolicy", "سیاست کاری"], ["requests", "گزارش درخواست‌ها"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["settings", "تنظیمات"]];
+    const MENU = [["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["driverworkreport", "کارکرد رانندگان (حضور در خط)"], ["officials", "حضور مسئولین"], ["covertselfies", "سلفی‌های نامحسوس"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["radiocenter", "مرکز بی‌سیم"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "شیفت و کارکرد"], ["attreport", "گزارش تردد پرسنل"], ["workpolicy", "سیاست کاری"], ["requests", "گزارش درخواست‌ها"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["settings", "تنظیمات"]];
     const [roles, setRoles] = useState([]);
     const [perms, setPerms] = useState({});
     const [sel, setSel] = useState(null);
@@ -13046,6 +13050,117 @@ function DriverServiceReport() {
                     React.createElement("td", null,
                         React.createElement("button", { className: "btn d", onClick: () => del(x.id) }, "\u062D\u0630\u0641 \u062F\u0627\u0626\u0645\u06CC"))))))));
 }
+function RadioCenterView() {
+    const [channels, setChannels] = useState([]);
+    const [channelId, setChannelId] = useState("");
+    const [messages, setMessages] = useState([]);
+    const [err, setErr] = useState("");
+    const afterRef = useRef(0);
+    const audioRef = useRef(null);
+    const queueRef = useRef([]);
+    const playingRef = useRef(false);
+    const rapi = (qs) => fetch("/api/radio-admin-api.php" + qs, { headers: { Authorization: "Bearer " + (localStorage.token || "") }, cache: "no-store" }).then(async r => { const t = await r.text(); let d = {}; try { d = t ? JSON.parse(t) : {}; } catch (e) { throw new Error("پاسخ نامعتبر سرور"); } if (!r.ok) throw new Error(d.error || "خطای سرور"); return d; });
+    useEffect(() => { rapi("?op=channel-list").then(d => setChannels(d.channels || [])).catch(e => setErr(e.message || "بارگذاری کانال‌ها ناموفق بود")); }, []);
+    const playNext = () => {
+        if (playingRef.current) return;
+        const next = queueRef.current.shift();
+        if (!next || !audioRef.current) return;
+        playingRef.current = true;
+        audioRef.current.src = next.audio_url;
+        audioRef.current.play().catch(() => { playingRef.current = false; });
+    };
+    useEffect(() => {
+        if (!channelId) return;
+        afterRef.current = 0; setMessages([]); queueRef.current = [];
+        const poll = () => rapi(`?op=monitor&channel_id=${channelId}&after=${afterRef.current}`).then(d => {
+            const msgs = d.messages || [];
+            if (msgs.length) {
+                afterRef.current = msgs[msgs.length - 1].id;
+                setMessages(m => [...msgs.slice().reverse(), ...m].slice(0, 60));
+                queueRef.current.push(...msgs);
+                playNext();
+            }
+        }).catch(() => { });
+        poll();
+        const iv = setInterval(poll, 3000);
+        return () => clearInterval(iv);
+    }, [channelId]);
+    return (React.createElement("div", { className: "panel" },
+        React.createElement("h3", null, "📻 مرکز بی‌سیم — شنود زنده"),
+        React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 12 } }, "یک کانال را انتخاب کنید؛ پیام‌های صوتی تازهٔ آن کانال به‌صورت خودکار و پشت‌سرهم برای شما پخش می‌شود."),
+        React.createElement("select", { className: "input", style: { maxWidth: 280 }, value: channelId, onChange: e => setChannelId(e.target.value) },
+            React.createElement("option", { value: "" }, "انتخاب کانال…"),
+            channels.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))),
+        err && React.createElement("p", { style: { color: "var(--danger)", marginTop: 8 } }, err),
+        React.createElement("audio", { ref: audioRef, onEnded: () => { playingRef.current = false; playNext(); }, style: { display: "none" } }),
+        channelId && React.createElement("div", { style: { marginTop: 16 } },
+            React.createElement("table", null,
+                React.createElement("thead", null, React.createElement("tr", null,
+                    React.createElement("th", null, "زمان"), React.createElement("th", null, "فرستنده"),
+                    React.createElement("th", null, "مدت"), React.createElement("th", null, "پخش"))),
+                React.createElement("tbody", null, messages.length ? messages.map(m => React.createElement("tr", { key: m.id },
+                    React.createElement("td", null, fj(m.created_at)),
+                    React.createElement("td", null, m.sender_name),
+                    React.createElement("td", null, fa(Math.round((m.duration_ms || 0) / 1000)) + " ثانیه"),
+                    React.createElement("td", null, React.createElement("button", { className: "btn g", onClick: () => { if (audioRef.current) { audioRef.current.src = m.audio_url; audioRef.current.play().catch(() => { }); } } }, "▶ پخش مجدد"))
+                )) : React.createElement("tr", null, React.createElement("td", { colSpan: 4, className: "empty" }, "هنوز پیامی روی این کانال دریافت نشده است."))))))
+    );
+}
+function DriverWorkReport() {
+    const [lines, setLines] = useState([]);
+    const [lineId, setLineId] = useState("");
+    const [from, setFrom] = useState("");
+    const [to, setTo] = useState("");
+    const [q, setQ] = useState("");
+    const [rows, setRows] = useState([]);
+    const [loading, setLoading] = useState(false);
+    useEffect(() => { db.lines().then(setLines).catch(() => { }); }, []);
+    const fmtDur = (sec) => { sec = Math.round(sec || 0); const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return `${fa(h)} ساعت و ${fa(m)} دقیقه`; };
+    const load = () => {
+        setLoading(true);
+        const qs = new URLSearchParams();
+        if (lineId) qs.set("line_id", lineId);
+        if (from) qs.set("from", from);
+        if (to) qs.set("to", to);
+        GET("/admin/driver-work-report?" + qs.toString()).then(setRows).catch(() => setRows([])).finally(() => setLoading(false));
+    };
+    useEffect(load, []);
+    const filtered = rows.filter(r => !q || (((r.first_name || "") + " " + (r.last_name || "") + " " + (r.national_id || "")).indexOf(q) >= 0));
+    const exportExcel = () => {
+        const header = ["راننده", "کد ملی", "خط(ها)", "تعداد کل حضور در خط", "مجموع زمان حضور در ایستگاه", "میانگین تعداد حضور روزانه", "میانگین زمان توقف در روز", "میانگین زمان توقف در ماه"];
+        const body = filtered.map(r => [((r.first_name || "") + " " + (r.last_name || "")).trim(), r.national_id || "", r.line_codes || "—", r.total_sessions, fmtDur(r.total_seconds), r.avg_daily_count, fmtDur(r.avg_daily_seconds), fmtDur(r.avg_monthly_seconds)]);
+        const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "کارکرد رانندگان");
+        XLSX.writeFile(wb, "گزارش_کارکرد_رانندگان.xlsx");
+    };
+    return (React.createElement("div", { className: "panel" },
+        React.createElement("h3", null, "📈 گزارش کارکرد رانندگان"),
+        React.createElement("div", { className: "row no-print", style: { gap: 8, flexWrap: "wrap", marginBottom: 12 } },
+            React.createElement("select", { className: "input", style: { maxWidth: 240 }, value: lineId, onChange: e => setLineId(e.target.value) },
+                React.createElement("option", { value: "" }, "کل خطوط تاکسیرانی"),
+                lines.map(l => React.createElement("option", { key: l.id, value: l.id }, (l.code || "") + " — " + (l.origin || "") + (l.destination ? " به " + l.destination : "")))),
+            React.createElement(JDate, { value: from, onChange: setFrom, placeholder: "از تاریخ" }),
+            React.createElement(JDate, { value: to, onChange: setTo, placeholder: "تا تاریخ" }),
+            React.createElement("input", { className: "input", style: { maxWidth: 220 }, placeholder: "جستجوی نام یا کد ملی راننده", value: q, onChange: e => setQ(e.target.value) }),
+            React.createElement("button", { className: "btn g", onClick: load }, loading ? "در حال بارگذاری…" : "اعمال فیلتر"),
+            React.createElement("button", { className: "btn p", onClick: exportExcel }, "⬇ خروجی Excel")),
+        React.createElement("table", null,
+            React.createElement("thead", null, React.createElement("tr", null,
+                React.createElement("th", null, "راننده"), React.createElement("th", null, "خط(ها)"),
+                React.createElement("th", null, "تعداد کل حضور"), React.createElement("th", null, "مجموع زمان حضور"),
+                React.createElement("th", null, "میانگین حضور روزانه"), React.createElement("th", null, "میانگین توقف روزانه"),
+                React.createElement("th", null, "میانگین توقف ماهانه"))),
+            React.createElement("tbody", null, filtered.length ? filtered.map(r => React.createElement("tr", { key: r.driver_id },
+                React.createElement("td", null, ((r.first_name || "") + " " + (r.last_name || "")).trim() + (r.national_id ? " (" + r.national_id + ")" : "")),
+                React.createElement("td", null, r.line_codes || "—"),
+                React.createElement("td", null, fa(r.total_sessions)),
+                React.createElement("td", null, fmtDur(r.total_seconds)),
+                React.createElement("td", null, fa(r.avg_daily_count)),
+                React.createElement("td", null, fmtDur(r.avg_daily_seconds)),
+                React.createElement("td", null, fmtDur(r.avg_monthly_seconds))
+            )) : React.createElement("tr", null, React.createElement("td", { colSpan: 7, className: "empty" }, loading ? "در حال بارگذاری…" : "داده‌ای برای نمایش یافت نشد."))))));
+}
 const VIEWS = {
     covertselfies: { t: "سلفی‌های نامحسوس", ic: "📸", c: CovertSelfies },
     dashboard: { t: "داشبورد مدیریت", ic: "▦", c: Dashboard },
@@ -13058,12 +13173,14 @@ const VIEWS = {
     messages: { t: "پیام‌رسانی به نیروها", ic: "✉", c: Messages },
     salaryslips: { t: "بارگذاری فیش حقوقی", ic: "💳", c: SalarySlipsAdmin },
     messengercenter: { t: "مرکز ارسال ربات‌ها", ic: "🤖", c: MessengerCenterPanel },
+    radiocenter: { t: "مرکز بی‌سیم", ic: "📻", c: RadioCenterView },
     companyrequests: { t: "مدارک ارسالی شرکت", ic: "📨", c: CompanyRequestsAdmin },
     users: { t: "مدیریت کاربران", ic: "☷", c: Users },
     zones: { t: "منطقه‌بندی نیروها", ic: "⬡", c: Zones },
     org: { t: "چارت سازمانی", ic: "⤢", c: OrgChart },
     drivers: { t: "رانندگان و خودروها", ic: "<img>", c: Drivers },
     driverservicereport: { t: "عملکرد و تذکرات تاکسیران", ic: "📈", c: DriverServiceReport },
+    driverworkreport: { t: "کارکرد رانندگان (حضور در خط)", ic: "📊", c: DriverWorkReport },
     lines: { t: "خطوط تاکسیرانی", ic: "⇄", c: Lines },
     bills: { t: "آبونمان و فیش‌ها", ic: "₪", c: Bills },
     config: { t: "تذکرات و چک‌لیست", ic: "✎", c: Config },
@@ -13163,7 +13280,7 @@ function App() {
     const [allowed, setAllowed] = useState(null);
     const [drawer, setDrawer] = useState(false);
     const [brand, setBrand] = useState({});
-    const [openSections, setOpenSections] = useState({ "داشبورد و پایش": true, "عملیات میدانی": true, "تاکسی و تاکسیران": false, "گزارش‌ها": false, "منابع انسانی": false, "ارتباطات": false, "مدیریت سامانه": false });
+    const [openSections, setOpenSections] = useState({ "داشبورد و پایش": false, "عملیات میدانی": false, "تاکسی و تاکسیران": false, "گزارش‌ها": false, "منابع انسانی": false, "ارتباطات": false, "مدیریت سامانه": false });
     useEffect(() => { db.publicSettings().then(s => { const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => { }); }, []);
     useEffect(() => { if (me && me.is_admin) {
         db.settings().then(s => { const all = s.role_perms || {}; const has = Object.prototype.hasOwnProperty.call(all, String(me.role_id)) || Object.prototype.hasOwnProperty.call(all, me.role_id); const rp = all[me.role_id]; setAllowed(has && Array.isArray(rp) ? rp : null); const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => setAllowed(null));
@@ -13184,9 +13301,9 @@ function App() {
         ["داشبورد و پایش", ["dashboard", "reportscenter", "health", "map", "present", "presentchart"]],
         ["عملیات میدانی", ["missiondashboard", "citydashboard", "missiontemplates", "scoreengine", "officials", "presence", "attendance", "companyrequests", "outages", "covertselfies"]],
         ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "lines", "zones", "bills"]],
-        ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "useract"]],
+        ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "useract", "driverworkreport"]],
         ["منابع انسانی", ["shifts", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural"]],
-        ["ارتباطات", ["messages", "sms", "smslog", "messengercenter"]],
+        ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
         ["مدیریت سامانه", ["users", "org", "forms", "config", "customfields", "inventory", "excel", "appitems", "cronstatus", "activesessions", "logs", "settings"]],
     ];
     const CORE = ["dashboard", "driverservicereport"];
@@ -13195,9 +13312,9 @@ function App() {
         missiondashboard: 'performance-gauge', citydashboard: 'city-map', missiontemplates: 'forms-pen', scoreengine: 'reports-folder',
         officials: 'official-badge', presence: 'self-checkin', attendance: 'attendance-register', companyrequests: 'company-envelope', outages: 'service-outage', covertselfies: 'covert-camera',
         drivers: 'driver-id', driverservicereport: 'driver-service-chart', tempdrivers: 'temporary-driver-clock', lines: 'route-line', zones: 'zone-grid', bills: 'billing-receipt',
-        reports: 'reports-folder', report: 'report-send', perfreport: 'performance-gauge', attreport: 'attendance-calendar', useract: 'user-activity',
+        reports: 'reports-folder', report: 'report-send', perfreport: 'performance-gauge', attreport: 'attendance-calendar', useract: 'user-activity', driverworkreport: 'driver-service-chart',
         shifts: 'shift-cycle', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
-        messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen',
+        messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', radiocenter: 'messenger-bot', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen',
         config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'system-health', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears'
     };
     const can = (k) => !allowed || allowed.includes(k) || CORE.includes(k);

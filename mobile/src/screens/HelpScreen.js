@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { C, FONT } from '../theme';
+import { currentVersion, checkForUpdate } from '../updater';
 
 // Keep the help content inside this ASCII-named JS module. Do not load a
 // separate Persian-named asset/file at runtime; this avoids filename/packaging
@@ -89,6 +90,7 @@ const SECTIONS = [
 ];
 
 export default function HelpScreen({ navigation }) {
+  const [checking, setChecking] = useState(false);
   return (
     <ScrollView style={s.wrap} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <View style={s.hero}>
@@ -112,8 +114,16 @@ export default function HelpScreen({ navigation }) {
       <View style={s.about}>
         <Text style={s.aboutTitle}>اطلاعات برنامه</Text>
         <Text style={s.aboutText}>نام برنامه: خطیار</Text>
+        <Text style={s.aboutText}>نسخهٔ نصب‌شده: {currentVersion()}</Text>
         <Text style={s.aboutText}>توسعه‌دهنده: علی یوسفی‌پور</Text>
         <Text style={s.aboutText}>شرکت: مبین شات</Text>
+        <TouchableOpacity
+          style={s.updateBtn}
+          disabled={checking}
+          onPress={async () => { setChecking(true); try { await checkForUpdate(true); } finally { setChecking(false); } }}
+        >
+          <Text style={s.updateBtnText}>{checking ? 'در حال بررسی…' : 'بررسی بروزرسانی برنامه'}</Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={s.back} onPress={() => navigation.goBack()} activeOpacity={0.85}>
@@ -138,6 +148,8 @@ const s = StyleSheet.create({
   about: { backgroundColor: '#102033', borderRadius: 15, padding: 16 },
   aboutTitle: { color: '#fff', fontFamily: FONT.bold, fontSize: 15, textAlign: 'right', marginBottom: 7 },
   aboutText: { color: '#d7dee9', fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', lineHeight: 23 },
+  updateBtn: { backgroundColor: C.brand, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 14 },
+  updateBtnText: { color: '#fff', fontFamily: FONT.bold, fontSize: 13 },
   back: { backgroundColor: C.brand, borderRadius: 13, paddingVertical: 13, alignItems: 'center', marginTop: 12 },
   backText: { color: '#fff', fontFamily: FONT.bold, fontSize: 14 },
 });
