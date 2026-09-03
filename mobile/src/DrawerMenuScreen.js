@@ -1,13 +1,11 @@
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { DrawerActions } from '@react-navigation/native';
+import { DrawerActions, useDrawerStatus } from '@react-navigation/native';
 import { C, FONT } from './theme';
 import { useAuth } from './auth';
 
-// طبق درخواست شما، این منو فقط شامل موارد زیر است (هیچ آیتم اضافه‌ای نیست):
-// اعلان‌ها، پیام‌ها، کارکرد من، فیش‌های حقوقی من، حساب کاربری،
-// راهنمای برنامه (شامل ورژن و اطلاعات سازنده و دکمهٔ بررسی بروزرسانی)،
-// آخرین زمان‌های بروزرسانی (دادهٔ وارد‌شده از اکسل)، و گزینهٔ خروج.
+// طبق درخواست شما، محتوای منو فقط هنگام باز بودن Drawer رندر می‌شود.
+// این کار جلوی دیده‌شدن هرگونه نوار/محتوای منو در حالت بسته را می‌گیرد.
 const ITEMS = [
   ['Notifications', 'اعلان‌ها', '🔔'],
   ['Messages', 'پیام‌ها', '💬'],
@@ -20,12 +18,18 @@ const ITEMS = [
 
 export default function DrawerMenuScreen({ navigation }) {
   const { logout } = useAuth();
+  const drawerStatus = useDrawerStatus();
+  const isOpen = drawerStatus === 'open';
+
+  if (!isOpen) return null;
+
   const go = screen => {
     try { navigation?.dispatch?.(DrawerActions.closeDrawer()); } catch (_) {}
-    requestAnimationFrame(() => {
+    setTimeout(() => {
       try { navigation?.navigate?.('Main', { screen }); } catch (_) {}
-    });
+    }, 80);
   };
+
   const onLogout = () => {
     Alert.alert('خروج از حساب', 'آیا مطمئن هستید می‌خواهید از حساب کاربری خارج شوید؟', [
       { text: 'انصراف', style: 'cancel' },
@@ -37,6 +41,7 @@ export default function DrawerMenuScreen({ navigation }) {
       },
     ]);
   };
+
   return <View style={s.page}>
     <View style={s.header}><Text style={s.brand}>خطیار</Text><Text style={s.title}>منوی برنامه</Text></View>
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -51,6 +56,7 @@ export default function DrawerMenuScreen({ navigation }) {
     </ScrollView>
   </View>;
 }
+
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: C.paper, direction: 'rtl' },
   header: { backgroundColor: C.brand, paddingTop: 52, paddingHorizontal: 20, paddingBottom: 22 },
