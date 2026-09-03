@@ -11,6 +11,9 @@ RewriteRule ^api/radio-admin-api\.php$ radio-admin-api.php [QSA,L,NC]
 RewriteRule ^radio-api\.php$ radio-api-v2.php [QSA,L,NC]
 RewriteRule ^api/station-wizard-api\.php$ station-wizard-api.php [QSA,L,NC]
 RewriteRule ^api/station-missing-line-api\.php$ station-missing-line-api.php [QSA,L,NC]
+# مسیر پنل /api/presence-immediate-api.php را به entrypoint پایدار ریشه هدایت می‌کنیم؛
+# این کار روی هاست‌هایی که deploy آن‌ها فایل‌های api/ را متفاوت publish می‌کند، خطای 404 را حذف می‌کند.
+RewriteRule ^api/presence-immediate-api\.php$ presence-immediate-api.php [QSA,L,NC]
 RewriteRule ^presence-immediate-api\.php$ api/presence-immediate-api.php [QSA,L,NC]
 RewriteRule ^api/company-request-support\.php$ api/company-request-support.php [QSA,L,NC]
 
