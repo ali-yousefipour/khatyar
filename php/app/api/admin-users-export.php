@@ -5,6 +5,7 @@ date_default_timezone_set('Asia/Tehran');
 require_once __DIR__.'/../../lib/Db.php';
 require_once __DIR__.'/../../lib/Jwt.php';
 require_once __DIR__.'/../../lib/Http.php';
+require_once __DIR__.'/../../lib/XlsxWriter.php';
 $CONFIG=require __DIR__.'/../../config.php';
 
 $tok=Http::bearer();
@@ -29,14 +30,11 @@ $rows=Db::all("SELECT u.id,u.username,u.personnel_code,u.first_name,u.last_name,
   FROM users u LEFT JOIN roles r ON r.id=u.role_id
   ORDER BY r.level ASC,u.last_name ASC,u.first_name ASC,u.id ASC");
 
-header('Content-Type: text/csv; charset=UTF-8');
-header('Content-Disposition: attachment; filename="users_full.csv"');
-header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-echo "\xEF\xBB\xBF";
-$out=fopen('php://output','w');
-fputcsv($out,['شناسه کاربری','شماره پرسنلی','نام کاربری','نام','نام خانوادگی','سمت','سطح سمت','ایمیل','شماره همراه','شناسه مدیر','شناسه منطقه','ستاره سمت','فعال','ورود وب','ورود اندروید','تاریخ ایجاد']);
+$xw=new XlsxWriter(['شناسه کاربری','شماره پرسنلی','نام کاربری','نام','نام خانوادگی','سمت','سطح سمت','ایمیل','شماره همراه','شناسه مدیر','شناسه منطقه','ستاره سمت','فعال','ورود وب','ورود اندروید','تاریخ ایجاد']);
+$widths=[14,16,20,16,20,24,12,28,18,14,14,12,12,12,16,22];
+foreach($widths as $i=>$w) $xw->setColWidth($i,$w);
 foreach($rows as $r){
-  fputcsv($out,[
+  $xw->addRow([
     $r['id'],
     $r['personnel_code']??'',
     $r['username']??'',
@@ -55,5 +53,5 @@ foreach($rows as $r){
     $r['created_at']??''
   ]);
 }
-fclose($out);
+$xw->output('users_full.xlsx','کاربران');
 exit;
