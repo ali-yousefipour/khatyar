@@ -14,9 +14,8 @@ RewriteRule ^api/station-missing-line-api\.php$ station-missing-line-api.php [QS
 RewriteRule ^presence-immediate-api\.php$ api/presence-immediate-api.php [QSA,L,NC]
 RewriteRule ^api/company-request-support\.php$ api/company-request-support.php [QSA,L,NC]
 
-# گزارش‌های مدیریتی: از درگاه‌های پایدار و بدون mutation schema استفاده می‌کنند.
-RewriteRule ^api/admin/attendance-report/?$ api/admin-attendance-report-fast.php [QSA,L,NC]
-RewriteRule ^api/admin/users/export/?$ api/admin-users-export-fast.php [QSA,L,NC]
+# گزارش‌های مدیریتی از Router اصلی سامانه عبور می‌کنند؛ این مسیرها احراز هویت، نشست و مدیریت خطا را در index.php حفظ می‌کنند.
+# عمداً هیچ Rewrite مستقیمی برای attendance-report و users/export وجود ندارد.
 
 RewriteCond %{QUERY_STRING} (^|&)op=capture-report(&|$) [NC]
 RewriteRule ^line-station-api\.php$ station-capture-report.php [QSA,L]
