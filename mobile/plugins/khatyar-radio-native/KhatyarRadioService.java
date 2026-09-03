@@ -68,9 +68,7 @@ public final class KhatyarRadioService extends Service {
     return START_STICKY;
   }
 
-  private android.content.SharedPreferences getPrefs() {
-    return getSharedPreferences(PREFS, MODE_PRIVATE);
-  }
+  private android.content.SharedPreferences getPrefs() { return getSharedPreferences(PREFS, MODE_PRIVATE); }
 
   private void createNotificationChannel() {
     if (Build.VERSION.SDK_INT >= 26) {
@@ -89,20 +87,18 @@ public final class KhatyarRadioService extends Service {
       pi = PendingIntent.getActivity(this, 7841, launch, f);
     }
     NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL)
-      .setSmallIcon(getApplicationInfo().icon)
-      .setContentTitle("بی‌سیم خطیار")
-      .setContentText("دریافت بی‌سیم در پس‌زمینه فعال است")
-      .setOngoing(true).setCategory(NotificationCompat.CATEGORY_SERVICE)
-      .setPriority(NotificationCompat.PRIORITY_LOW);
+      .setSmallIcon(getApplicationInfo().icon).setContentTitle("بی‌سیم خطیار")
+      .setContentText("دریافت بی‌سیم در پس‌زمینه فعال است").setOngoing(true)
+      .setCategory(NotificationCompat.CATEGORY_SERVICE).setPriority(NotificationCompat.PRIORITY_LOW);
     if (pi != null) b.setContentIntent(pi);
     Notification n = b.build();
-    if (Build.VERSION.SDK_INT >= 29) {
-      startForeground(NOTIFICATION_ID, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK | android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
-    } else startForeground(NOTIFICATION_ID, n);
+    if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK | android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+    else startForeground(NOTIFICATION_ID, n);
   }
 
   private void setupMediaSession() {
     mediaSession = new MediaSession(this, "KhatyarRadioPTT");
+    if (Build.VERSION.SDK_INT >= 21) mediaSession.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
     mediaSession.setCallback(new MediaSession.Callback() {
       @Override public boolean onMediaButtonEvent(Intent intent) {
         KeyEvent e = intent == null ? null : intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
@@ -135,36 +131,40 @@ public final class KhatyarRadioService extends Service {
 
   private void sendPtt(boolean down, String source) {
     if (!getPrefs().getBoolean("enabled", false) || getPrefs().getLong("channelId", 0L) <= 0) return;
-    Intent i = new Intent(KhatyarRadioModule.ACTION_PTT);
-    i.setPackage(getPackageName());
-    i.putExtra("down", down);
-    i.putExtra("source", source);
-    sendBroadcast(i);
+    Intent i = new Intent(KhatyarRadioModule.ACTION_PTT); i.setPackage(getPackageName());
+    i.putExtra("down", down); i.putExtra("source", source); sendBroadcast(i);
   }
 
   private void pollOnce() {
     try {
       android.content.SharedPreferences p = getPrefs();
-      String token = p.getString("token", "");
-      String base = p.getString("baseUrl", "");
-      long channel = p.getLong("channelId", 0L);
-      long userId = p.getLong("userId", 0L);
+      String token = p.getString("token", ""), base = p.getString("baseUrl", "");
+      long channel = p.getLong("channelId", 0L), userId = p.getLong("userId", 0L);
       if (token == null || token.isEmpty() || base == null || base.isEmpty() || channel <= 0 || !p.getBoolean("enabled", false)) return;
       String endpoint = base.replaceAll("/+$", "") + "/radio-api-v2.php?op=poll&channel_id=" + channel + "&after=" + lastId;
-      String body = get(endpoint, token);
-      if (body == null || body.isEmpty()) return;
+      String body = get(endpoint, token); if (body == null || body.isEmpty()) return;
       JSONObject root = new JSONObject(body);
       if (root.has("last_message_id")) lastId = Math.max(lastId, root.optLong("last_message_id", lastId));
       JSONArray messages = root.optJSONArray("messages");
-      if (messages == null) { p.edit().putLong("lastId", lastId).apply(); return; }
+      if (messages == null) { p.edit().putLong("lastId", lastId).putBoolean("initialized", true).apply(); return; }
+
+      // اولین poll فقط همگام‌سازی است؛ پیام‌هایی که قبل از باز شدن/راه‌اندازی
+      // سرویس وجود داشته‌اند نباید هنگام ورود کاربر پخش شوند.
+      boolean initialized = p.getBoolean("initialized", false);
+      if (!initialized) {
+        for (int idx = 0; idx < messages.length(); idx++) {
+          JSONObject m = messages.optJSONObject(idx);
+          if (m != null) lastId = Math.max(lastId, m.optLong("id", 0L));
+        }
+        p.edit().putLong("lastId", lastId).putBoolean("initialized", true).apply();
+        return;
+      }
+
       for (int idx = 0; idx < messages.length(); idx++) {
-        JSONObject m = messages.optJSONObject(idx);
-        if (m == null) continue;
-        long id = m.optLong("id", 0L);
-        lastId = Math.max(lastId, id);
+        JSONObject m = messages.optJSONObject(idx); if (m == null) continue;
+        long id = m.optLong("id", 0L); lastId = Math.max(lastId, id);
         if (m.optLong("sender_id", 0L) == userId) continue;
-        String audio = m.optString("audio_url", "");
-        if (!audio.isEmpty()) playRemote(audio, token);
+        String audio = m.optString("audio_url", ""); if (!audio.isEmpty()) playRemote(audio, token);
       }
       p.edit().putLong("lastId", lastId).apply();
     } catch (Throwable ignored) {}
@@ -173,27 +173,19 @@ public final class KhatyarRadioService extends Service {
   private String get(String endpoint, String token) {
     HttpURLConnection c = null;
     try {
-      c = (HttpURLConnection)new URL(endpoint).openConnection();
-      c.setConnectTimeout(7000); c.setReadTimeout(12000); c.setUseCaches(false);
-      c.setRequestProperty("Accept", "application/json");
-      if (token != null && !token.isEmpty()) c.setRequestProperty("Authorization", "Bearer " + token);
-      int code = c.getResponseCode();
-      if (code < 200 || code >= 300) return null;
-      BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream(), "UTF-8"));
-      StringBuilder out = new StringBuilder(); String line;
-      while ((line = r.readLine()) != null) out.append(line);
-      r.close(); return out.toString();
-    } catch (Throwable e) { return null; }
-    finally { if (c != null) c.disconnect(); }
+      c = (HttpURLConnection)new URL(endpoint).openConnection(); c.setConnectTimeout(7000); c.setReadTimeout(12000); c.setUseCaches(false);
+      c.setRequestProperty("Accept", "application/json"); if (token != null && !token.isEmpty()) c.setRequestProperty("Authorization", "Bearer " + token);
+      int code = c.getResponseCode(); if (code < 200 || code >= 300) return null;
+      BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream(), "UTF-8")); StringBuilder out = new StringBuilder(); String line;
+      while ((line = r.readLine()) != null) out.append(line); r.close(); return out.toString();
+    } catch (Throwable e) { return null; } finally { if (c != null) c.disconnect(); }
   }
 
   private synchronized void playRemote(String audioUrl, String token) {
     try {
       if (audioUrl.startsWith("/")) {
         String base = getPrefs().getString("baseUrl", "").replaceAll("/+$", "");
-        if (audioUrl.startsWith("/api/") && base.endsWith("/api")) {
-          base = base.substring(0, base.length() - 4);
-        }
+        if (audioUrl.startsWith("/api/") && base.endsWith("/api")) base = base.substring(0, base.length() - 4);
         audioUrl = base + audioUrl;
       }
       if (player != null) { try { player.stop(); } catch (Throwable ignored) {} try { player.release(); } catch (Throwable ignored) {} }
@@ -203,8 +195,7 @@ public final class KhatyarRadioService extends Service {
       player.setDataSource(this, android.net.Uri.parse(audioUrl), headers);
       player.setOnCompletionListener(mp -> { try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; });
       player.setOnErrorListener((mp, what, extra) -> { try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; return true; });
-      player.prepareAsync();
-      player.setOnPreparedListener(MediaPlayer::start);
+      player.setOnPreparedListener(MediaPlayer::start); player.prepareAsync();
     } catch (Throwable ignored) {}
   }
 
