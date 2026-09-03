@@ -4,23 +4,32 @@ import { DrawerActions } from '@react-navigation/native';
 import { C, FONT } from './theme';
 import { useAuth } from './auth';
 
+// Keep the drawer menu aligned with the routes actually registered in App.js.
+// Use text glyphs instead of emoji so icons remain visible consistently across Android builds.
 const ITEMS = [
-  ['Notifications', 'اعلان‌ها', '🔔'],
-  ['Messages', 'پیام‌ها', '💬'],
-  ['WorkSummary', 'کارکرد من', '📊'],
-  ['SalarySlips', 'فیش‌های حقوقی من', '💵'],
-  ['Profile', 'حساب کاربری', '👤'],
-  ['Help', 'راهنمای برنامه، ورژن و اطلاعات سازنده', '❓'],
-  ['ImportTimes', 'آخرین زمان‌های به‌روزرسانی', '🕒'],
+  ['Dashboard', 'داشبورد', '⌂'],
+  ['Radio', 'دریافتی بی‌سیم', '◉'],
+  ['StationCapture', 'ثبت موقعیت و تصویر خطوط', '⌖'],
+  ['MyStations', 'ایستگاه‌های ثبت‌شده من', '▣'],
+  ['LineVisitProgram', 'برنامه بازدید و پوشش خط', '✓'],
+  ['MyDailyMission', 'مأموریت روزانه من', '★'],
+  ['Reports', 'ارسال گزارش', '↗'],
+  ['InboxReports', 'گزارشات دریافتی', '▤'],
+  ['Requests', 'درخواست‌ها', '☷'],
+  ['RequestInbox', 'کارتابل تأیید درخواست‌ها', '✓'],
+  ['WorkSummary', 'کارکرد من', '▥'],
+  ['SalarySlips', 'فیش‌های حقوقی من', '▣'],
+  ['Notifications', 'اعلان‌ها', '●'],
+  ['Messages', 'پیام‌ها', '▰'],
+  ['Profile', 'حساب کاربری', '●'],
+  ['Help', 'راهنمای برنامه، ورژن و اطلاعات سازنده', '?'],
+  ['ImportTimes', 'آخرین زمان‌های به‌روزرسانی', '◷'],
 ];
 
 export default function DrawerMenuScreen({ navigation }) {
   const { logout } = useAuth();
 
   const go = screen => {
-    // ابتدا مقصد را تعیین می‌کنیم و بلافاصله بعد از شروع رندر مقصد،
-    // Drawer را می‌بندیم. تأخیر طولانی یا navigation بعد از close می‌تواند
-    // در Android باعث گیرکردن بخشی از Drawer روی لبه راست صفحه شود.
     try {
       navigation?.navigate?.('Main', { screen });
     } catch (_) {}
@@ -63,12 +72,14 @@ export default function DrawerMenuScreen({ navigation }) {
             onPress={() => go(route)}
             activeOpacity={0.82}
           >
-            <View style={s.icon}><Text style={s.iconText}>{glyph}</Text></View>
+            <View style={s.icon}>
+              <Text style={s.iconText}>{glyph}</Text>
+            </View>
             <Text style={s.itemText}>{title}</Text>
           </TouchableOpacity>
         ))}
         <TouchableOpacity style={[s.item, s.logoutItem]} onPress={onLogout} activeOpacity={0.82}>
-          <View style={[s.icon, s.logoutIcon]}><Text style={s.iconText}>🚪</Text></View>
+          <View style={[s.icon, s.logoutIcon]}><Text style={s.iconText}>↪</Text></View>
           <Text style={[s.itemText, s.logoutText]}>خروج از حساب</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -77,14 +88,14 @@ export default function DrawerMenuScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: C.paper },
+  page: { flex: 1, backgroundColor: C.paper, direction: 'rtl' },
   header: { backgroundColor: C.brand, paddingTop: 52, paddingHorizontal: 20, paddingBottom: 22 },
   brand: { color: '#fff', fontFamily: FONT.bold, fontSize: 25, textAlign: 'right' },
   title: { color: '#dcefe9', fontFamily: FONT.regular, fontSize: 13, textAlign: 'right', marginTop: 5 },
   content: { padding: 12, paddingBottom: 30 },
   item: { minHeight: 52, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 14, marginBottom: 8, paddingHorizontal: 13, flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
   icon: { width: 34, height: 34, borderRadius: 10, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center' },
-  iconText: { color: C.brand, fontSize: 18, fontFamily: FONT.bold },
+  iconText: { color: C.brand, fontSize: 19, fontFamily: FONT.bold, textAlign: 'center' },
   itemText: { flex: 1, color: C.ink, fontFamily: FONT.bold, fontSize: 13, textAlign: 'right' },
   logoutItem: { marginTop: 14, borderColor: '#e3403e' },
   logoutIcon: { backgroundColor: '#fde8e7' },
