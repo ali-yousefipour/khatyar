@@ -41,8 +41,20 @@ function run(args, registry, offline, label) {
     NPM_CONFIG_AUDIT: 'false',
     NPM_CONFIG_FUND: 'false'
   };
-  const r = spawnSync(npm, args, { cwd: root, env, stdio: 'inherit', shell: false });
-  return r.status === 0;
+
+  // Windows .cmd launchers (including npm.cmd) cannot be started reliably
+  // with shell:false. The previous implementation therefore failed every
+  // npm attempt silently before the actual PowerShell build could start.
+  const r = spawnSync(npm, args, { cwd: root, env, stdio: 'inherit', shell: process.platform === 'win32' });
+  if (r.error) {
+    console.error(`[khatyar-network] ${label} failed to start: ${r.error.message}`);
+    return false;
+  }
+  if (r.status !== 0) {
+    console.error(`[khatyar-network] ${label} exited with code ${r.status}`);
+    return false;
+  }
+  return true;
 }
 
 const ci = ['ci', ...common];
@@ -72,6 +84,10 @@ const r = spawnSync('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass',
   stdio: 'inherit'
 });
 
+if (r.error) {
+  console.error(`[khatyar-network] PowerShell build failed to start: ${r.error.message}`);
+  process.exit(1);
+}
 if (r.status !== 0) process.exit(r.status === null ? 1 : r.status);
 
 // Release artifact naming is centralized here so every npm release path uses
