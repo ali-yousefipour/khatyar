@@ -58,7 +58,7 @@ if (!ok) process.exit(1);
 // The cache is now complete. Force the actual PowerShell build to use only
 // the populated cache, preventing a later registry 404 from breaking the build.
 const ps1 = path.join(root, 'build-release.ps1');
-const r = spawnSync('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-File',ps1], {
+const r = spawnSync('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-File',ps1,'-NoPause'], {
   cwd: root,
   env: {
     ...process.env,
@@ -74,9 +74,8 @@ const r = spawnSync('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass',
 
 if (r.status !== 0) process.exit(r.status === null ? 1 : r.status);
 
-// Release APK naming: khatyar-<software-version>.apk
-// The version is read from the resolved Expo app config so environment-based
-// ANDROID_VERSION_NAME overrides are respected exactly as they are in the build.
+// Release artifact naming is centralized here so every npm release path uses
+// the same deterministic name: khatyar-<software-version>.<apk|aab>.
 try {
   const appConfigFactory = require(path.join(root, 'app.config.js'));
   const resolvedConfig = typeof appConfigFactory === 'function'
@@ -87,16 +86,19 @@ try {
     throw new Error(`Invalid Android software version: ${version || '(empty)'}`);
   }
 
-  const apkDir = path.join(root, 'android', 'app', 'build', 'outputs', 'apk', 'release');
-  const source = path.join(apkDir, 'app-release.apk');
-  const target = path.join(apkDir, `khatyar-${version}.apk`);
-  if (!fs.existsSync(source)) throw new Error(`Release APK was not found: ${source}`);
+  const artifactType = String(process.env.KHATYAR_ARTIFACT_TYPE || 'APK').toUpperCase();
+  if (!['APK', 'AAB'].includes(artifactType)) throw new Error(`Invalid artifact type: ${artifactType}`);
+  const ext = artifactType.toLowerCase();
+  const outputDir = path.join(root, 'android', 'app', 'build', 'outputs', ext === 'apk' ? 'apk' : 'bundle', 'release');
+  const source = path.join(outputDir, `app-release.${ext}`);
+  const target = path.join(outputDir, `khatyar-${version}.${ext}`);
+  if (!fs.existsSync(source)) throw new Error(`Release ${artifactType} was not found: ${source}`);
   if (path.resolve(source) !== path.resolve(target)) {
     if (fs.existsSync(target)) fs.rmSync(target, { force: true });
     fs.renameSync(source, target);
   }
-  console.log(`\n[khatyar-release] APK: ${target}`);
+  console.log(`\n[khatyar-release] ${artifactType}: ${target}`);
 } catch (error) {
-  console.error(`\n[khatyar-release] APK rename failed: ${error.message}`);
+  console.error(`\n[khatyar-release] artifact rename failed: ${error.message}`);
   process.exit(1);
 }
