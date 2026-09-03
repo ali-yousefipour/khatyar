@@ -1,0 +1,40 @@
+<?php
+/* خطیار — گزارش تردد سریع و مقاوم در برابر N+1
+ * یک query برای همه پانچ‌های بازه + کش شیفت‌ها؛ حل کندی گزارش روزبه‌روز.
+ */
+ini_set('display_errors','0');
+date_default_timezone_set('Asia/Tehran');
+$ROOT=__DIR__.'/../../';
+require "$ROOT/lib/Db.php"; require "$ROOT/lib/Jwt.php"; require "$ROOT/lib/Http.php";
+require "$ROOT/lib/ShiftCalc.php"; require "$ROOT/lib/Media.php";
+$CONFIG=require "$ROOT/config.php";
+require "$ROOT/lib/routes.php";
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+function afr_json($v,$s=200){http_response_code($s);echo json_encode($v,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
+function afr_error($m,$s=400){afr_json(['error'=>$m],$s);}
+function afr_auth(){global $CONFIG;$tok=Http::bearer();$p=$tok?Jwt::verify($tok,$CONFIG['jwt_secret']):null;if(!$p||empty($p['sub']))afr_error('توکن منقضی یا نامعتبر است',401);$u=Db::one("SELECT u.id,u.is_active,u.is_admin,r.level,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",[$p['sub']]);if(!$u||!(int)$u['is_active'])afr_error('کاربر نامعتبر',401);$dt=$p['dt']??'web';$sess=Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=?",[$u['id'],$dt]);$unlimited=in_array($u['role_title'],['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'],true);if(!$sess||$sess['revoked_at']||(!$unlimited&&$sess['device_id']!==($p['device_id']??'')))afr_error('نشست منقضی یا باطل شده است',401);if(empty($u['is_admin']))afr_error('دسترسی مدیریتی لازم است',403);return $u;}
+function afr_en($s){return strtr((string)$s,['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9','٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9']);}
+function afr_j2g($jy,$jm,$jd){$jy=(int)$jy-979;$jm=(int)$jm-1;$jd=(int)$jd-1;$jdn=365*$jy+intdiv($jy,33)*8+intdiv(($jy%33+3),4);$md=[31,31,31,31,31,31,30,30,30,30,30,29];for($i=0;$i<$jm;$i++)$jdn+=$md[$i];$jdn+=$jd;$g=$jdn+79;$gy=1600+400*intdiv($g,146097);$g%=146097;$leap=true;if($g>=36525){$g--; $gy+=100*intdiv($g,36524);$g%=36524;if($g>=365)$g++;else$leap=false;}$gy+=4*intdiv($g,1461);$g%=1461;if($g>=366){$leap=false;$g--; $gy+=intdiv($g,365);$g%=365;}$gd=[31,($leap?29:28),31,30,31,30,31,31,30,31,30,31];$gm=0;for(;$gm<12&&$g>=$gd[$gm];$gm++)$g-=$gd[$gm];return [$gy,$gm+1,$g+1];}
+function afr_jts($j){$j=preg_replace('/[\/-]/','-',afr_en(trim((string)$j)));if(!preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/',$j,$m))return null;[$gy,$gm,$gd]=afr_j2g($m[1],$m[2],$m[3]);return mktime(0,0,0,$gm,$gd,$gy);}
+function afr_jdate($ts){[$jy,$jm,$jd]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));return sprintf('%04d-%02d-%02d',$jy,$jm,$jd);}
+function afr_hm($m){$m=max(0,(int)$m);return sprintf('%02d:%02d',intdiv($m,60),$m%60);}
+function afr_col_exists($t,$c){try{return (bool)Db::one("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=? LIMIT 1",[$t,$c]);}catch(Throwable $e){return false;}}
+function afr_shift_cache($uid,$fromJ,$toJ){
+  $rows=Db::all("SELECT us.user_id,us.shift_id,us.from_jdate,us.to_jdate,s.* FROM user_shifts us JOIN shifts s ON s.id=us.shift_id WHERE us.user_id=? AND s.is_active=1",[$uid]);
+  $auto=null;$out=[];
+  foreach($rows as $r){$f=!empty($r['from_jdate'])?str_replace('/','-',$r['from_jdate']):null;$t=!empty($r['to_jdate'])?str_replace('/','-',$r['to_jdate']):null;$out[]=['row'=>$r,'from'=>$f,'to'=>$t];}
+  return [$out,$auto];
+}
+function afr_shift_for($uid,$jdate,&$cache){foreach($cache as $x){if($x['from']&&strcmp($jdate,$x['from'])<0)continue;if($x['to']&&strcmp($jdate,$x['to'])>0)continue;return $x['row'];}static $auto=[];if(!array_key_exists($uid,$auto))$auto[$uid]=_auto_shift_for_user($uid);return $auto[$uid];}
+
+$u=afr_auth();$uid=(int)($_GET['user_id']??0);$from=afr_en(trim($_GET['from']??''));$to=afr_en(trim($_GET['to']??''));if(!$uid||!$from||!$to)afr_error('پرسنل و بازهٔ تاریخ را مشخص کنید',400);$fts=afr_jts($from);$tts=afr_jts($to);if($fts===null||$tts===null||$fts>$tts)afr_error('بازهٔ تاریخ نامعتبر است',400);
+$fromDate=date('Y-m-d',$fts);$toExclusive=date('Y-m-d',$tts+86400);$endJ=afr_jdate($tts);$usr=Db::one("SELECT id,TRIM(CONCAT(COALESCE(first_name,''),' ',COALESCE(last_name,''))) name,COALESCE(NULLIF(personnel_code,''),id) pcode,device_model,work_policy_id FROM users WHERE id=? LIMIT 1",[$uid]);if(!$usr)afr_error('پرسنل یافت نشد',404);
+$att=Db::all("SELECT id,check_in,check_out,method,in_lat,in_lng,out_lat,out_lng,in_station,out_station FROM staff_attendance WHERE user_id=? AND check_in < ? AND COALESCE(check_out,NOW()) > ? ORDER BY check_in",[$uid,$toExclusive.' 00:00:00',$fromDate.' 00:00:00']);
+$byDay=[];foreach($att as $r){$inTs=strtotime($r['check_in']);$outTs=$r['check_out']?strtotime($r['check_out']):time();$s=max($inTs,$fts);$e=min($outTs,$tts+86400);if($e<=$s)continue;for($dts=$fts;$dts<=$tts;$dts+=86400){$ds=$dts;$de=$dts+86400;if($inTs<$de&&$outTs>$ds)$byDay[afr_jdate($dts)][]=$r;}}
+$holRows=Db::all("SELECT jdate FROM holidays WHERE jdate>=? AND jdate<=?",[str_replace('/','-',$from),str_replace('/','-',$to)]);$hol=array_flip(array_map(fn($r)=>str_replace('/','-',$r['jdate']),$holRows));[$shiftCache,$dummy]=afr_shift_cache($uid,$from,$to);$days=[];$lastShift=null;
+for($ts=$fts;$ts<=$tts;$ts+=86400){$jdate=afr_jdate($ts);$rows=$byDay[$jdate]??[];$punches=[];$sessions=[];foreach($rows as $r){$punches[]=['id'=>$r['id'],'in'=>$r['check_in']?date('H:i',strtotime($r['check_in'])):null,'out'=>$r['check_out']?date('H:i',strtotime($r['check_out'])):null,'in_full'=>$r['check_in'],'out_full'=>$r['check_out'],'in_station'=>$r['in_station']??null,'out_station'=>$r['out_station']??null,'method'=>$r['method'],'device'=>$usr['device_model']?:null,'in_lat'=>$r['in_lat'],'in_lng'=>$r['in_lng'],'out_lat'=>$r['out_lat'],'out_lng'=>$r['out_lng']];$sessions[]=['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>$ts,'clip_end'=>$ts+86400];}
+  $shift=afr_shift_for($uid,$jdate,$shiftCache);$lastShift=$shift?:$lastShift;$dr=($shift&&(($shift['type']??'')==='advanced'))?_shift_day_row($shift['shift_id']??$shift['id'],$jdate):null;$isHol=isset($hol[$jdate]);$w=$shift?ShiftCalc::dayWork($shift,$jdate,$dr,$sessions,$isHol):['worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'late_in'=>0,'early_out'=>0,'surplus'=>0];$adj=_attendance_adjusted_overtime($uid,$jdate);if($adj>0){$use=min($adj,(int)($w['surplus']??0));$w['overtime']=(int)($w['overtime']??0)+$use;$w['surplus']=max(0,(int)($w['surplus']??0)-$use);$w['adjusted_ot']=$use;}
+  [$jy,$jm,$jd]=array_map('intval',explode('-', $jdate));$days[]=['jdate'=>str_replace('-','/',$jdate),'weekday'=>_jweekday_name($jy,$jm,$jd),'is_holiday'=>$isHol,'punches'=>$punches,'in_shift'=>afr_hm($w['in_shift']??$w['worked']),'worked'=>afr_hm($w['worked']??0),'expected'=>afr_hm($w['expected']??0),'late_in'=>afr_hm($w['late_in']??0),'early_out'=>afr_hm($w['early_out']??0),'shortage'=>afr_hm($w['shortage']??0),'night'=>afr_hm($w['night']??0),'overtime'=>afr_hm($w['overtime']??0),'surplus'=>afr_hm($w['surplus']??0),'adjusted_ot'=>afr_hm($w['adjusted_ot']??0),'absent'=>(!$punches&&!$isHol)?1:0];}
+afr_json(['user'=>$usr,'shift'=>$lastShift?['title'=>$lastShift['title']]:null,'from'=>str_replace('-','/',$from),'to'=>str_replace('-','/',$to),'days'=>$days,'fast_report'=>true,'station_resolution'=>'stored_only']);
