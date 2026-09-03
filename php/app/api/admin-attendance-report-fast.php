@@ -44,7 +44,6 @@ $uid=(int)($_GET['user_id']??0);
 $from=trim($_GET['from']??'');
 $to=trim($_GET['to']??'');
 if(!$uid||!$from||!$to) Http::error('پرسنل و بازهٔ تاریخ را مشخص کنید',400);
-return_report:
 $result=_attendance_report($uid,$from,$to);
 header('Content-Type: application/json; charset=utf-8');
 echo json_encode($result,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
