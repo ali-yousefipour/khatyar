@@ -24,6 +24,9 @@ RewriteRule ^presence-immediate-api\.php$ api/presence-immediate-api.php [QSA,L,
 # Fast personnel performance endpoint: avoid the expensive N+1 implementation in routes.php.
 RewriteRule ^api/admin/personnel-performance/?$ api/admin-personnel-performance.php [QSA,L,NC]
 
+# Company document request support: driver lookup, admin driver enrichment and SMS notification.
+RewriteRule ^api/company-request-support\.php$ api/company-request-support.php [QSA,L,NC]
+
 RewriteCond %{QUERY_STRING} (^|&)op=capture-report(&|$) [NC]
 RewriteRule ^line-station-api\.php$ station-capture-report.php [QSA,L]
 RewriteRule ^line-station-api\.php$ line-station-api-v2.php [QSA,L]
