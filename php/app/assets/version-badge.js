@@ -1,7 +1,7 @@
 /* Shared version badge. */
 (function(){
 'use strict';
-var V='1.3.83';
+var V='1.3.87';
 function mount(){var host=document.getElementById('kh-version-badge-host');if(host)host.textContent='نسخه '+V;}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();
