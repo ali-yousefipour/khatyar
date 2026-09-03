@@ -1,12 +1,9 @@
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { DrawerActions } from '@react-navigation/native';
-import { useDrawerStatus } from '@react-navigation/drawer';
 import { C, FONT } from './theme';
 import { useAuth } from './auth';
 
-// محتوای منو فقط هنگام باز بودن Drawer رندر می‌شود تا در حالت بسته هیچ
-// نوار یا بخشی از منوی کناری روی صفحه باقی نماند.
 const ITEMS = [
   ['Notifications', 'اعلان‌ها', '🔔'],
   ['Messages', 'پیام‌ها', '💬'],
@@ -19,45 +16,65 @@ const ITEMS = [
 
 export default function DrawerMenuScreen({ navigation }) {
   const { logout } = useAuth();
-  const drawerStatus = useDrawerStatus();
-  if (drawerStatus !== 'open') return null;
 
+  // DrawerContent باید همیشه یک View واقعی برگرداند. برگرداندن null در حالت بسته
+  // می‌تواند باعث باقی‌ماندن نوار/فضای سفید در لبه Drawer شود.
   const go = screen => {
-    try { navigation?.dispatch?.(DrawerActions.closeDrawer()); } catch (_) {}
-    setTimeout(() => {
-      try { navigation?.navigate?.('Main', { screen }); } catch (_) {}
-    }, 80);
+    try {
+      navigation?.navigate?.('Main', { screen });
+    } catch (_) {}
+    try {
+      navigation?.dispatch?.(DrawerActions.closeDrawer());
+    } catch (_) {}
   };
 
   const onLogout = () => {
     Alert.alert('خروج از حساب', 'آیا مطمئن هستید می‌خواهید از حساب کاربری خارج شوید؟', [
       { text: 'انصراف', style: 'cancel' },
       {
-        text: 'خروج', style: 'destructive', onPress: async () => {
+        text: 'خروج',
+        style: 'destructive',
+        onPress: async () => {
           try { navigation?.dispatch?.(DrawerActions.closeDrawer()); } catch (_) {}
-          try { await logout(); } catch (e) { Alert.alert('خروج ممکن نیست', e.message || 'خطا'); }
+          try {
+            await logout();
+          } catch (e) {
+            Alert.alert('خروج ممکن نیست', e.message || 'خطا');
+          }
         },
       },
     ]);
   };
 
-  return <View style={s.page}>
-    <View style={s.header}><Text style={s.brand}>خطیار</Text><Text style={s.title}>منوی برنامه</Text></View>
-    <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-      {ITEMS.map(([route, title, glyph]) => <TouchableOpacity key={route} style={s.item} onPress={() => go(route)} activeOpacity={0.82}>
-        <View style={s.icon}><Text style={s.iconText}>{glyph}</Text></View>
-        <Text style={s.itemText}>{title}</Text>
-      </TouchableOpacity>)}
-      <TouchableOpacity style={[s.item, s.logoutItem]} onPress={onLogout} activeOpacity={0.82}>
-        <View style={[s.icon, s.logoutIcon]}><Text style={s.iconText}>🚪</Text></View>
-        <Text style={[s.itemText, s.logoutText]}>خروج از حساب</Text>
-      </TouchableOpacity>
-    </ScrollView>
-  </View>;
+  return (
+    <View style={s.page}>
+      <View style={s.header}>
+        <Text style={s.brand}>خطیار</Text>
+        <Text style={s.title}>منوی برنامه</Text>
+      </View>
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        {ITEMS.map(([route, title, glyph]) => (
+          <TouchableOpacity
+            key={route}
+            style={s.item}
+            onPress={() => go(route)}
+            activeOpacity={0.82}
+          >
+            <View style={s.icon}><Text style={s.iconText}>{glyph}</Text></View>
+            <Text style={s.itemText}>{title}</Text>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity style={[s.item, s.logoutItem]} onPress={onLogout} activeOpacity={0.82}>
+          <View style={[s.icon, s.logoutIcon]}><Text style={s.iconText}>🚪</Text></View>
+          <Text style={[s.itemText, s.logoutText]}>خروج از حساب</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: C.paper, direction: 'rtl' },
+  page: { flex: 1, backgroundColor: C.paper },
   header: { backgroundColor: C.brand, paddingTop: 52, paddingHorizontal: 20, paddingBottom: 22 },
   brand: { color: '#fff', fontFamily: FONT.bold, fontSize: 25, textAlign: 'right' },
   title: { color: '#dcefe9', fontFamily: FONT.regular, fontSize: 13, textAlign: 'right', marginTop: 5 },
