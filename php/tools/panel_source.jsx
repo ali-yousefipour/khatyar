@@ -368,51 +368,52 @@ function todayJStr(){ const [y,m,d]=todayJ(); return `${y}/${String(m).padStart(
 function isoFromJ(jy,jm,jd){ const [gy,gm,gd]=jalaliToGreg(jy,jm,jd); return `${gy}-${String(gm).padStart(2,"0")}-${String(gd).padStart(2,"0")}`; }
 function jLabel(iso){ if(!iso)return""; const [y,m,d]=iso.split("-").map(Number); const [jy,jm,jd]=gregToJalali(y,m,d); return `${jy}/${String(jm).padStart(2,"0")}/${String(jd).padStart(2,"0")}`; }
 function seniorityLabel(iso){ if(!iso)return""; const d=new Date(String(iso).replace(' ','T')); if(isNaN(d))return""; const now=new Date(); let mo=(now.getFullYear()-d.getFullYear())*12+(now.getMonth()-d.getMonth()); if(now.getDate()<d.getDate())mo--; if(mo<0)return"تاریخ نامعتبر"; const y=Math.floor(mo/12),m=mo%12; return `سنوات: ${fa(y)} سال و ${fa(m)} ماه`; }
-function JDate({value,onChange,placeholder,jalali,yearFrom,yearTo}){ const [open,setOpen]=useState(false);
-  // value می‌تواند رشتهٔ ISO میلادی («YYYY-MM-DD») یا رشتهٔ جلالی («YYYY/MM/DD» یا «YYYY-MM-DD» با jalali=true) باشد.
-  // اگر jalali=true باشد، خروجی onChange به‌صورت جلالی «YYYY/MM/DD» خواهد بود؛ وگرنه ISO میلادی.
-  const parseInit=()=>{
-    if(value && typeof value==="string"){
-      const raw=value.trim();
-      if(raw.indexOf("/")>=0){ const[y,m,d]=raw.split("/").map(Number); if(y&&m&&d) return [y,m,d]; }
-      if(raw.indexOf("-")>=0){
-        const[y,m,d]=raw.split("-").map(Number);
-        if(y&&m&&d){ return jalali ? [y,m,d] : gregToJalali(y,m,d); }
-      }
-    }
-    return todayJ();
+/* KHATYAR_REACT_JDATE_V2 */
+function JDate({value,onChange,placeholder,jalali,yearFrom,yearTo}){
+  const [open,setOpen]=useState(false);
+  const parse=()=>{
+    const raw=String(value||'').trim();
+    if(!raw)return null;
+    const sep=raw.includes('/')?'/':'-';
+    const p=raw.split(sep).map(Number);
+    if(p.length<3||p.some(v=>!Number.isFinite(v)||v<=0))return null;
+    return jalali?p:gregToJalali(p[0],p[1],p[2]);
   };
-  const init=parseInit();
-  const [vy,setVy]=useState(init[0]); const [vm,setVm]=useState(init[1]);
-  useEffect(()=>{ const p=parseInit(); setVy(p[0]); setVm(p[1]); },[value]);
-  const daysIn=(jy,jm)=> jm<=6?31: (jm<=11?30: ((((jy%33)%4)===1)?30:29));
-  const emit=(jy,jm,jd)=>{ if(jalali){ onChange(`${jy}/${String(jm).padStart(2,"0")}/${String(jd).padStart(2,"0")}`); } else { onChange(isoFromJ(jy,jm,jd)); } };
-  const pick=(d)=>{ emit(vy,vm,d); setOpen(false); };
-  const label=()=>{ if(!value)return""; try{
-    if(typeof value==="string" && value.indexOf("/")>=0) return value.replace(/-/g,"/");
-    if(jalali && typeof value==="string" && value.indexOf("-")>=0) return value.replace(/-/g,"/");
-    return jLabel(value);
-  }catch(e){ return ""; } };
-  const nowY=todayJ()[0], yf=yearFrom||1320, yt=yearTo||nowY+5;
-  const years=[]; for(let y=yt;y>=yf;y--) years.push(y);
-  const dayCount=daysIn(vy,vm);
-  return(<span style={{position:"relative",display:"inline-block"}}>
-    <input className="input" readOnly value={label()} placeholder={placeholder||"تاریخ"} onClick={()=>setOpen(o=>!o)} style={{cursor:"pointer",maxWidth:150}}/>
-    {value&&<button onClick={()=>onChange("")} style={{position:"absolute",left:6,top:8,background:"none",border:"none",cursor:"pointer",color:"var(--muted)"}}>✕</button>}
-    {open&&<div style={{position:"absolute",zIndex:9999,background:"#fff",border:"1px solid var(--line)",borderRadius:12,padding:10,boxShadow:"0 8px 24px rgba(0,0,0,.15)",top:"110%",right:0,width:270}}>
-      <div className="row" style={{justifyContent:"space-between",alignItems:"center",marginBottom:8,gap:6}}>
-        <button className="btn g" onClick={()=>{ if(vm===1){setVm(12);setVy(vy-1);}else setVm(vm-1); }}>‹</button>
-        <select className="input" style={{maxWidth:110,padding:"6px 8px"}} value={vm} onChange={e=>setVm(+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}</select>
-        <select className="input" style={{maxWidth:92,padding:"6px 8px"}} value={vy} onChange={e=>setVy(+e.target.value)}>{years.map(y=><option key={y} value={y}>{y}</option>)}</select>
-        <button className="btn g" onClick={()=>{ if(vm===12){setVm(1);setVy(vy+1);}else setVm(vm+1); }}>›</button></div>
-      <div className="cal-h" style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>{["ش","ی","د","س","چ","پ","ج"].map(x=><span key={x}>{x}</span>)}</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
-        {Array.from({length:dayCount},(_,i)=>i+1).map(d=><button key={d} className="btn g" style={{padding:"5px 0",fontSize:12}} onClick={()=>pick(d)}>{d}</button>)}</div>
-      <div className="row" style={{justifyContent:"space-between",marginTop:6}}>
-        <button className="btn g" onClick={()=>{const[y,m,d]=todayJ();setVy(y);setVm(m);emit(y,m,d);setOpen(false);}}>امروز</button>
-        <button className="btn t" onClick={()=>setOpen(false)}>بستن</button></div>
+  const selected=parse();
+  const initial=selected?{y:selected[0],m:selected[1]}:(()=>{const t=todayJ();return{y:t[0],m:t[1]};})();
+  const [view,setView]=useState(initial);
+  useEffect(()=>{const p=parse();if(p)setView({y:p[0],m:p[1]});},[value,jalali]);
+  const daysIn=(y,m)=>{
+    const a=jalaliToGreg(y,m,1), b=jalaliToGreg(m===12?y+1:y,m===12?1:m+1,1);
+    return a&&b?Math.round((Date.UTC(b[0],b[1]-1,b[2])-Date.UTC(a[0],a[1]-1,a[2]))/86400000):(m<=6?31:(m<=11?30:29));
+  };
+  const firstWeekday=(y,m)=>{
+    const g=jalaliToGreg(y,m,1);
+    return g?((new Date(Date.UTC(g[0],g[1]-1,g[2],12)).getUTCDay()+1)%7):0;
+  };
+  const [ty,tm,td]=todayJ();
+  const yf=yearFrom||Math.max(1200,ty-80), yt=yearTo||ty+20;
+  const years=[];for(let y=yt;y>=yf;y--)years.push(y);
+  const monthLen=daysIn(view.y,view.m), first=firstWeekday(view.y,view.m), cells=[];
+  for(let i=0;i<first;i++)cells.push(<span key={'e'+i} style={{height:36}}/>);
+  const emit=(y,m,d)=>onChange(jalali?`${y}/${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}`:isoFromJ(y,m,d));
+  for(let d=1;d<=monthLen;d++){
+    const sel=!!selected&&selected[0]===view.y&&selected[1]===view.m&&selected[2]===d;
+    const tod=ty===view.y&&tm===view.m&&td===d;
+    cells.push(<button key={d} type="button" className={sel?"btn p":"btn g"} style={{height:36,padding:0,fontSize:11,fontWeight:sel||tod?800:500,boxShadow:tod?'inset 0 0 0 1.5px var(--brand)':'none'}} onClick={()=>{emit(view.y,view.m,d);setOpen(false);}}>{fa(d)}</button>);
+  }
+  const shift=(delta)=>{let y=view.y,m=view.m+delta;if(m<1){m=12;y--}if(m>12){m=1;y++}if(y>=yf&&y<=yt)setView({y,m});};
+  const label=()=>selected?`${fa(selected[0])}/${fa(String(selected[1]).padStart(2,'0'))}/${fa(String(selected[2]).padStart(2,'0'))}`:'';
+  return <span style={{position:'relative',display:'inline-block',width:'100%',minWidth:0}}>
+    <input className="input" readOnly value={label()} placeholder={placeholder||'تاریخ'} onClick={()=>setOpen(v=>!v)} style={{cursor:'pointer',maxWidth:150,width:'100%'}}/>
+    {value&&<button type="button" onClick={()=>onChange('')} style={{position:'absolute',left:6,top:8,background:'none',border:0,cursor:'pointer',color:'var(--muted)',zIndex:2}}>✕</button>}
+    {open&&<div style={{position:'absolute',zIndex:2147483000,background:'#fff',border:'1px solid var(--line)',borderRadius:16,padding:12,boxShadow:'0 18px 50px rgba(0,0,0,.18)',top:'calc(100% + 7px)',right:0,width:330,direction:'rtl'}}>
+      <div style={{display:'grid',gridTemplateColumns:'36px 1fr 36px',gap:6,alignItems:'center',marginBottom:8}}><button type="button" className="btn g" onClick={()=>shift(-1)}>‹</button><div style={{display:'flex',gap:6,justifyContent:'center'}}><select className="input" value={view.m} onChange={e=>setView(v=>({...v,m:+e.target.value}))} style={{padding:'6px 8px',fontSize:11,maxWidth:120}}>{J_MONTHS.map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}</select><select className="input" value={view.y} onChange={e=>setView(v=>({...v,y:+e.target.value}))} style={{padding:'6px 8px',fontSize:11,maxWidth:90}}>{years.map(y=><option key={y} value={y}>{fa(y)}</option>)}</select></div><button type="button" className="btn g" onClick={()=>shift(1)}>›</button></div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:5}}>{['ش','ی','د','س','چ','پ','ج'].map(x=><span key={x} style={{textAlign:'center',fontSize:10,fontWeight:800,color:'var(--muted)'}}>{x}</span>)}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3}}>{cells}</div>
+      <div style={{display:'flex',justifyContent:'space-between',marginTop:9,paddingTop:9,borderTop:'1px solid var(--line)'}}><button type="button" className="btn g" onClick={()=>{emit(ty,tm,td);setView({y:ty,m:tm});setOpen(false);}}>امروز</button><button type="button" className="btn t" onClick={()=>setOpen(false)}>بستن</button></div>
     </div>}
-  </span>);
+  </span>;
 }
 function _g2j(gy,gm,gd){
   const gdm=[0,31,59,90,120,151,181,212,243,273,304,334], gy2=gm>2?gy+1:gy;
