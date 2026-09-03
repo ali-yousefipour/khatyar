@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import * as Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { request } from './api';
 
@@ -9,7 +10,13 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// ثبت دستگاه برای دریافت Push و ارسال توکن به سرور
+function projectId() {
+  return Constants?.expoConfig?.extra?.eas?.projectId || Constants?.easConfig?.projectId || '';
+}
+
+// ثبت دستگاه برای دریافت Push و ارسال توکن به سرور.
+// در SDK 57 نسبت دادن توکن به EAS project ضروری است؛ در غیر این صورت
+// getExpoPushTokenAsync ممکن است توکن معتبر تولید نکند و در پنل «توکن Push» پیدا نشود.
 export async function registerPush() {
   if (!Device.isDevice) return null;
   const { status: existing } = await Notifications.getPermissionsAsync();
@@ -64,7 +71,10 @@ export async function registerPush() {
       bypassDnd: true,
     });
   }
-  const token = (await Notifications.getExpoPushTokenAsync()).data;
+
+  const id = projectId();
+  const token = (await Notifications.getExpoPushTokenAsync(id ? { projectId: id } : undefined)).data;
+  if (!token || !/^(ExpoPushToken|ExponentPushToken)\[[^\]]+\]$/.test(String(token))) return null;
   try {
     await request('/devices/push-token', { method: 'POST', body: { token, platform: Platform.OS } });
   } catch {}
