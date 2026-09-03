@@ -50,10 +50,31 @@ reportsRouter.get('/:id', async (req, res) => {
   res.json({ ...r.rows[0], trail: trail.rows });
 });
 
+// اقدام روی گزارش فقط برای مدیر، فرستنده یا کاربری که گزارش به او ارجاع شده مجاز است.
 reportsRouter.post('/:id/action', async (req, res) => {
   const s = z.object({ action: z.enum(['forward','comment','reply']), to_user_id: z.number().optional(), note: z.string().optional() });
   const p = s.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: 'ورودی نامعتبر' });
+
+  const report = await q(`
+    SELECT r.sender_id,
+           EXISTS (
+             SELECT 1 FROM report_routes rr
+             WHERE rr.report_id=r.id AND rr.to_user_id=$2
+           ) AS is_recipient
+    FROM reports r
+    WHERE r.id=$1
+  `, [req.params.id, req.user.id]);
+
+  if (!report.rows[0]) return res.status(404).json({ error: 'گزارش یافت نشد' });
+
+  const isAdmin = Boolean(req.user.is_admin) || Number(req.user.level) <= 3;
+  const isSender = Number(report.rows[0].sender_id) === Number(req.user.id);
+  const isRecipient = Boolean(report.rows[0].is_recipient);
+
+  if (!isAdmin && !isSender && !isRecipient)
+    return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+
   await q(`INSERT INTO report_routes(report_id,to_user_id,action,note,actor_id) VALUES ($1,$2,$3,$4,$5)`, [req.params.id,p.data.to_user_id ?? null,p.data.action,p.data.note ?? null,req.user.id]);
   const status = p.data.action === 'reply' ? 'answered' : p.data.action === 'forward' ? 'forwarded' : 'seen';
   await q(`UPDATE reports SET status=$1 WHERE id=$2`, [status,req.params.id]);
