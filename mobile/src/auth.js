@@ -16,7 +16,7 @@ const AuthCtx=createContext(null);export const useAuth=()=>useContext(AuthCtx);
 let activityStartPromise=null;
 async function beginActivityNow(){
  if(activityStartPromise)return activityStartPromise;
- activityStartPromise=(async()=>{try{registerPush()}catch{}try{sendTelemetry('session_start')}catch{}
+ activityStartPromise=(async()=>{try{await registerPush()}catch{}try{sendTelemetry('session_start')}catch{}
   let gpsCheckSeconds=60,vpnCheckSeconds=60,stationCheckSeconds=60;
   try{const cfg=await getAppConfig();if(cfg){gpsCheckSeconds=cfg.gps_check_seconds||60;vpnCheckSeconds=cfg.vpn_check_seconds||60;stationCheckSeconds=cfg.station_check_seconds||60}}catch{}
   try{startTelemetry({gpsCheckSeconds,vpnCheckSeconds,stationCheckSeconds})}catch{}
@@ -32,7 +32,7 @@ function beginActivity(){return afterUiReady(()=>beginActivityNow(),1200)}
 export function AuthProvider({children}){
  const[user,setUser]=useState(null),[loading,setLoading]=useState(true);
  useEffect(()=>{(async()=>{try{const token=await loadTokens();if(token){try{const me=await request('/auth/me');setUser(me.user);beginActivity()}catch{await clearTokens()}}}catch{}finally{setLoading(false)}})()},[]);
- useEffect(()=>{const sub=AppState.addEventListener('change',st=>{if(st==='active'){try{startNotifyPolling()}catch{}}else{try{stopNotifyPolling()}catch{}}});return()=>sub.remove()},[]);
+ useEffect(()=>{const sub=AppState.addEventListener('change',st=>{if(st==='active'){try{startNotifyPolling()}catch{};if(user){try{registerPush()}catch{}}}else{try{stopNotifyPolling()}catch{}}});return()=>sub.remove()},[user?.id]);
  async function login(username,password,remember){
   const device_id=await getDeviceId();
   const sig=await securitySignals();
