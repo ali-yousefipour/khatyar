@@ -12,5 +12,10 @@ if ! command -v npx >/dev/null 2>&1; then
   echo "npx not found. Install Node.js and TypeScript to rebuild panel bundle." >&2
   exit 1
 fi
-npx tsc --allowJs --jsx react --target ES2018 --module none --ignoreDeprecations 6.0 --outFile "$OUT" "$SRC"
+npx tsc --allowJs --jsx react --jsxFactory React.createElement --jsxFragmentFactory React.Fragment --target ES2018 --module none --ignoreDeprecations 6.0 --outFile "$OUT" "$SRC"
+if head -c 16 "$OUT" | grep -q '^import'; then
+  echo "ERROR: panel bundle still contains an ES module import." >&2
+  exit 1
+fi
+echo "Verified: panel bundle is browser-compatible (no top-level ES module import)."
 echo "Built: $OUT"
