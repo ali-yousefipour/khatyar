@@ -63,7 +63,6 @@ public final class KhatyarRadioService extends Service {
     setupMediaSession();
     startForegroundCompat();
     lastId = getPrefs().getLong("lastId", 0L);
-    // هر اجرای تازهٔ سرویس از لحظه فعلی به بعد زنده است؛ پیام‌های قبلی پخش نمی‌شوند.
     getPrefs().edit().putLong("sessionStartedAt", serviceStartedAt).putBoolean("initialized", false).apply();
     handler.post(poller);
   }
@@ -117,8 +116,7 @@ public final class KhatyarRadioService extends Service {
       }
     });
     mediaSession.setActive(true);
-    // عمداً VolumeProvider نصب نمی‌شود؛ نصب آن کلید Volume+ را می‌بلعد و باعث می‌شود
-    // MainActivity نتواند رویداد down/up واقعی Volume+ را به PTT تبدیل کند.
+    // VolumeProvider نصب نمی‌شود تا Volume+ در MainActivity به رویداد down/up واقعی PTT تبدیل شود.
   }
 
   private void sendPtt(boolean down, String source) {
@@ -143,8 +141,15 @@ public final class KhatyarRadioService extends Service {
         if (root.has("last_message_id")) newest = Math.max(newest, root.optLong("last_message_id", newest));
         if (messages != null) {
           for (int idx = 0; idx < messages.length(); idx++) {
-            JSONObject m = messages.optJSONObject(idx);
-            if (m != null) newest = Math.max(newest, m.optLong("id", 0L));
+            JSONObject m = messages.optJSONObject(idx); if (m == null) continue;
+            newest = Math.max(newest, m.optLong("id", 0L));
+            long createdAt = messageTimeMillis(m);
+            // در poll اولیه فقط پیامی که واقعاً بعد از باز شدن سرویس ایجاد شده باشد قابل پخش است.
+            // پیام بدون timestamp نیز عمداً پخش نمی‌شود تا هیچ پیام قدیمی به اشتباه پخش نشود.
+            if (createdAt > 0 && createdAt >= serviceStartedAt && m.optLong("sender_id", 0L) != userId) {
+              String audio = m.optString("audio_url", "");
+              if (!audio.isEmpty()) playRemote(audio, token);
+            }
           }
         }
         lastId = newest;
@@ -156,10 +161,9 @@ public final class KhatyarRadioService extends Service {
         JSONObject m = messages.optJSONObject(idx); if (m == null) continue;
         long id = m.optLong("id", 0L); lastId = Math.max(lastId, id);
         if (m.optLong("sender_id", 0L) == userId) continue;
-        // حتی اگر after به‌علت restart یا cache پیام قدیمی برگرداند، زمان پیام باید
-        // بعد از لحظه راه‌اندازی این نشست باشد تا هرگز پیام قدیمی پخش نشود.
         long createdAt = messageTimeMillis(m);
         if (createdAt > 0 && createdAt < serviceStartedAt) continue;
+        if (createdAt <= 0) continue;
         String audio = m.optString("audio_url", ""); if (!audio.isEmpty()) playRemote(audio, token);
       }
       p.edit().putLong("lastId", lastId).apply();
