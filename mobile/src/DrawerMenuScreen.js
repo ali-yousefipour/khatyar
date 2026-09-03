@@ -17,15 +17,18 @@ const ITEMS = [
 export default function DrawerMenuScreen({ navigation }) {
   const { logout } = useAuth();
 
-  // DrawerContent باید همیشه یک View واقعی برگرداند. برگرداندن null در حالت بسته
-  // می‌تواند باعث باقی‌ماندن نوار/فضای سفید در لبه Drawer شود.
   const go = screen => {
+    // ابتدا مقصد را تعیین می‌کنیم و بلافاصله بعد از شروع رندر مقصد،
+    // Drawer را می‌بندیم. تأخیر طولانی یا navigation بعد از close می‌تواند
+    // در Android باعث گیرکردن بخشی از Drawer روی لبه راست صفحه شود.
     try {
       navigation?.navigate?.('Main', { screen });
     } catch (_) {}
-    try {
-      navigation?.dispatch?.(DrawerActions.closeDrawer());
-    } catch (_) {}
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        try { navigation?.dispatch?.(DrawerActions.closeDrawer()); } catch (_) {}
+      });
+    });
   };
 
   const onLogout = () => {
