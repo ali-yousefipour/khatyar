@@ -16,7 +16,8 @@
     "prebuild:android": "node scripts/prepare-android-release.js",
     "build:android:release": "node scripts/build-network-policy-v2.js",
     "validate:phase5": "node scripts/validate-phase5.js",
-    "validate:babel": "node scripts/validate-babel.js"
+    "validate:babel": "node scripts/validate-babel.js",
+    "validate:safe-area": "node scripts/validate-safe-area.js"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -47,7 +48,7 @@
     "expo-splash-screen": "~57.0.4",
     "expo-local-authentication": "~57.0.1",
     "expo-status-bar": "~57.0.1",
-    "expo-task-manager": "~57.0.4",
+    "expo-task-manager": "~57.0.1",
     "react-native-webview": "13.16.1",
     "expo-file-system": "~57.0.1",
     "expo-clipboard": "~57.0.1",
