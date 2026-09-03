@@ -139,3 +139,6 @@ dmypy.json
 *.rej
 *.patch
 *.diff
+
+# Local Gradle cache
+.gradle-cache/
