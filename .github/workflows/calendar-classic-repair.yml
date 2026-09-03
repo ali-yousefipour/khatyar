@@ -1,0 +1,66 @@
+name: Calendar classic bundle repair
+
+on:
+  workflow_run:
+    workflows: ["One-time React JDate migration"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: |
+            php/app/panel.html
+            php/app/assets
+            php/tools/panel_source.jsx
+            php/tools/apply_react_jdate_migration.py
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify migrated source
+        run: grep -q 'KHATYAR_REACT_JDATE_V2' php/tools/panel_source.jsx
+
+      - name: Install Babel
+        run: npm install --no-save @babel/core @babel/cli @babel/preset-env @babel/plugin-transform-react-jsx
+
+      - name: Create explicit classic JSX config
+        run: |
+          cat > .babel.calendar.json <<'JSON'
+          {
+            "presets": ["@babel/preset-env"],
+            "plugins": [["@babel/plugin-transform-react-jsx", {"runtime":"classic"}]]
+          }
+          JSON
+
+      - name: Rebuild browser bundle
+        run: ./node_modules/.bin/babel php/tools/panel_source.jsx --out-file php/app/assets/panel.bundle.js --config-file ./.babel.calendar.json --no-babelrc
+
+      - name: Validate classic bundle
+        run: |
+          if grep -qE '(^|[[:space:]])import[[:space:]]' php/app/assets/panel.bundle.js; then exit 1; fi
+          if grep -q 'react/jsx-runtime' php/app/assets/panel.bundle.js; then exit 1; fi
+          grep -q 'React.createElement' php/app/assets/panel.bundle.js
+
+      - name: Bump asset cache version
+        run: python3 -c "from pathlib import Path; p=Path('php/app/panel.html'); p.write_text(p.read_text(encoding='utf-8').replace('1.3.83-r4','1.3.83-r5'),encoding='utf-8')"
+
+      - name: Commit repaired bundle
+        run: |
+          rm -f .babel.calendar.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add php/app/assets/panel.bundle.js php/app/panel.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix(calendar): emit browser-compatible classic panel bundle'
+          git push
