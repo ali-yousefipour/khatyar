@@ -27,6 +27,12 @@ RewriteRule ^api/admin/personnel-performance/?$ api/admin-personnel-performance.
 # Company document request support: driver lookup, admin driver enrichment and SMS notification.
 RewriteRule ^api/company-request-support\.php$ api/company-request-support.php [QSA,L,NC]
 
+# Full users export: include personnel number immediately after user ID.
+RewriteRule ^api/admin/users/export/?$ api/admin-users-export.php [QSA,L,NC]
+
+# Personnel attendance report: use the optimized gateway before the generic index router.
+RewriteRule ^api/admin/attendance-report/?$ api/admin-attendance-report-fast.php [QSA,L,NC]
+
 RewriteCond %{QUERY_STRING} (^|&)op=capture-report(&|$) [NC]
 RewriteRule ^line-station-api\.php$ station-capture-report.php [QSA,L]
 RewriteRule ^line-station-api\.php$ line-station-api-v2.php [QSA,L]
