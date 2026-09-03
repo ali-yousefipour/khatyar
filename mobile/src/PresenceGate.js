@@ -9,7 +9,6 @@ import { startPresenceAlarm, stopPresenceAlarm } from './presenceAlarm';
 import * as Notifications from 'expo-notifications';
 import { tehranGregorianParts } from './jdate';
 
-// زمان تهران به‌صورت دقیقهٔ روز و رشتهٔ روز، بدون وابستگی به Intl
 function tehranNow() {
   const p = tehranGregorianParts(new Date());
   if (!p) {
@@ -26,7 +25,7 @@ function slotToMinutes(s) { const m = /^(\d{2}):(\d{2})$/.exec(s); return m ? (+
 
 export default function PresenceGate() {
   const { user } = useAuth();
-  const [due, setDue] = useState(null); // {slot, windowMinutes}
+  const [due, setDue] = useState(null);
   const cfgRef = useRef(null);
   const pollRef = useRef(null);
 
@@ -39,13 +38,12 @@ export default function PresenceGate() {
         if (!alive) return;
         cfgRef.current = cfg;
         if (!cfg.enabled || !cfg.required || !(cfg.slots || []).length) { setDue(null); return; }
-        if (due) return; // پنجره باز است
+        if (due) return;
         const now = tehranNow();
         const win = cfg.window_minutes || 1;
         for (const sl of cfg.slots) {
           const sm = slotToMinutes(sl);
           if (sm < 0) continue;
-          // داخل پنجرهٔ مهلت؟
           if (now.minutes >= sm && now.minutes < sm + win) {
             const key = `presence_done:${now.day}:${sl}`;
             const done = await AsyncStorage.getItem(key);
@@ -60,34 +58,36 @@ export default function PresenceGate() {
             }
           }
         }
-      } catch (e) { /* ساکت */ }
+      } catch (e) {}
     };
     check();
     pollRef.current = setInterval(check, 20000);
     return () => { alive = false; clearInterval(pollRef.current); };
   }, [user, due]);
 
-
-  // وقتی اعلان Push صحت‌سنجی از سرور رسید، حتی اگر تایمر داخلی اپ به‌موقع اجرا نشده باشد، پنجره باز و آلارم فعال می‌شود.
   useEffect(() => {
     if (!user) return;
     const openFromNotification = async (data = {}) => {
       if (!data || data.type !== 'presence_check') return;
+      const immediate = data.immediate === true || data.immediate === 'true' || data.immediate === 1 || data.immediate === '1';
       const cfg = cfgRef.current || {};
-      const sl = data.slot || ((cfg.slots || [])[0]);
-      if (!sl) return;
       const now = tehranNow();
-      const key = `presence_done:${now.day}:${sl}`;
-      const done = await AsyncStorage.getItem(key);
-      if (!done) setDue({ slot: sl, windowMinutes: Number(data.window_minutes || cfg.window_minutes || 1), day: now.day, key });
+      const sl = data.slot || ((cfg.slots || [])[0]) || `${String(Math.floor(now.minutes / 60)).padStart(2, '0')}:${String(now.minutes % 60).padStart(2, '0')}`;
+      const key = immediate
+        ? `presence_immediate_done:${now.day}:${data.request_id || Date.now()}`
+        : `presence_done:${now.day}:${sl}`;
+      if (!immediate) {
+        const done = await AsyncStorage.getItem(key);
+        if (done) return;
+      }
+      setDue({ slot: sl, windowMinutes: Number(data.window_minutes || cfg.window_minutes || 1), day: now.day, key, immediate });
     };
     const r1 = Notifications.addNotificationReceivedListener(n => openFromNotification(n?.request?.content?.data || {}).catch(()=>{}));
     const r2 = Notifications.addNotificationResponseReceivedListener(r => openFromNotification(r?.notification?.request?.content?.data || {}).catch(()=>{}));
-    const r3 = AppState.addEventListener('change', st => { if (st === 'active') { /* polling اصلی خودش بررسی می‌کند */ } });
+    const r3 = AppState.addEventListener('change', st => { if (st === 'active') {} });
     return () => { try { r1.remove(); } catch(e) {} try { r2.remove(); } catch(e) {} try { r3.remove(); } catch(e) {} };
   }, [user]);
 
-  // پخش/قطع آلارم با باز/بسته شدن پنجرهٔ صحت‌سنجی (در صورت فعال بودن در تنظیمات)
   useEffect(() => {
     const alarmOn = cfgRef.current ? cfgRef.current.alarm !== false : true;
     if (due && alarmOn) { startPresenceAlarm().catch(() => {}); }
