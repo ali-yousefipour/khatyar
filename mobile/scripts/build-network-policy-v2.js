@@ -24,6 +24,16 @@ const registries = [
 const common = ['--no-audit','--no-fund','--legacy-peer-deps','--include=dev'];
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
+// Regression gate: the Android release must never reintroduce SafeAreaView.
+// This runs before dependency installation so a bad source tree fails fast.
+const safeAreaValidator = path.join(root, 'scripts', 'validate-safe-area.js');
+const validation = spawnSync(process.execPath, [safeAreaValidator], { cwd: root, stdio: 'inherit' });
+if (validation.error) {
+  console.error(`[khatyar-safe-area] validator failed to start: ${validation.error.message}`);
+  process.exit(1);
+}
+if (validation.status !== 0) process.exit(validation.status === null ? 1 : validation.status);
+
 function run(args, registry, offline, label) {
   console.log(`\n=== ${label} ===`);
   console.log(`registry=${registry}`);
@@ -42,9 +52,6 @@ function run(args, registry, offline, label) {
     NPM_CONFIG_FUND: 'false'
   };
 
-  // Windows .cmd launchers (including npm.cmd) cannot be started reliably
-  // with shell:false. The previous implementation therefore failed every
-  // npm attempt silently before the actual PowerShell build could start.
   const r = spawnSync(npm, args, { cwd: root, env, stdio: 'inherit', shell: process.platform === 'win32' });
   if (r.error) {
     console.error(`[khatyar-network] ${label} failed to start: ${r.error.message}`);
@@ -67,8 +74,6 @@ if (!ok) {
 }
 if (!ok) process.exit(1);
 
-// The cache is now complete. Force the actual PowerShell build to use only
-// the populated cache, preventing a later registry 404 from breaking the build.
 const ps1 = path.join(root, 'build-release.ps1');
 const r = spawnSync('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-File',ps1,'-NoPause'], {
   cwd: root,
@@ -90,8 +95,6 @@ if (r.error) {
 }
 if (r.status !== 0) process.exit(r.status === null ? 1 : r.status);
 
-// Release artifact naming is centralized here so every npm release path uses
-// the same deterministic name: khatyar-<software-version>.<apk|aab>.
 try {
   const appConfigFactory = require(path.join(root, 'app.config.js'));
   const resolvedConfig = typeof appConfigFactory === 'function'
