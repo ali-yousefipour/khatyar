@@ -1,0 +1,63 @@
+from pathlib import Path
+
+SOURCE = Path('php/tools/panel_source.jsx')
+
+NEW_JDATE = r'''/* KHATYAR_REACT_JDATE_V2 */
+function JDate({value,onChange,placeholder,jalali,yearFrom,yearTo}){
+  const [open,setOpen]=useState(false);
+  const parse=()=>{
+    const raw=String(value||'').trim();
+    if(!raw)return null;
+    const sep=raw.includes('/')?'/':'-';
+    const p=raw.split(sep).map(Number);
+    if(p.length<3||p.some(v=>!Number.isFinite(v)||v<=0))return null;
+    return jalali?p:gregToJalali(p[0],p[1],p[2]);
+  };
+  const selected=parse();
+  const initial=selected?{y:selected[0],m:selected[1]}:(()=>{const t=todayJ();return{y:t[0],m:t[1]};})();
+  const [view,setView]=useState(initial);
+  useEffect(()=>{const p=parse();if(p)setView({y:p[0],m:p[1]});},[value,jalali]);
+  const daysIn=(y,m)=>{
+    const a=jalaliToGreg(y,m,1), b=jalaliToGreg(m===12?y+1:y,m===12?1:m+1,1);
+    return a&&b?Math.round((Date.UTC(b[0],b[1]-1,b[2])-Date.UTC(a[0],a[1]-1,a[2]))/86400000):(m<=6?31:(m<=11?30:29));
+  };
+  const firstWeekday=(y,m)=>{
+    const g=jalaliToGreg(y,m,1);
+    return g?((new Date(Date.UTC(g[0],g[1]-1,g[2],12)).getUTCDay()+1)%7):0;
+  };
+  const [ty,tm,td]=todayJ();
+  const yf=yearFrom||Math.max(1200,ty-80), yt=yearTo||ty+20;
+  const years=[];for(let y=yt;y>=yf;y--)years.push(y);
+  const monthLen=daysIn(view.y,view.m), first=firstWeekday(view.y,view.m), cells=[];
+  for(let i=0;i<first;i++)cells.push(<span key={'e'+i} style={{height:36}}/>);
+  const emit=(y,m,d)=>onChange(jalali?`${y}/${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}`:isoFromJ(y,m,d));
+  for(let d=1;d<=monthLen;d++){
+    const sel=!!selected&&selected[0]===view.y&&selected[1]===view.m&&selected[2]===d;
+    const tod=ty===view.y&&tm===view.m&&td===d;
+    cells.push(<button key={d} type="button" className={sel?"btn p":"btn g"} style={{height:36,padding:0,fontSize:11,fontWeight:sel||tod?800:500,boxShadow:tod?'inset 0 0 0 1.5px var(--brand)':'none'}} onClick={()=>{emit(view.y,view.m,d);setOpen(false);}}>{fa(d)}</button>);
+  }
+  const shift=(delta)=>{let y=view.y,m=view.m+delta;if(m<1){m=12;y--}if(m>12){m=1;y++}if(y>=yf&&y<=yt)setView({y,m});};
+  const label=()=>selected?`${fa(selected[0])}/${fa(String(selected[1]).padStart(2,'0'))}/${fa(String(selected[2]).padStart(2,'0'))}`:'';
+  return <span style={{position:'relative',display:'inline-block',width:'100%',minWidth:0}}>
+    <input className="input" readOnly value={label()} placeholder={placeholder||'تاریخ'} onClick={()=>setOpen(v=>!v)} style={{cursor:'pointer',maxWidth:150,width:'100%'}}/>
+    {value&&<button type="button" onClick={()=>onChange('')} style={{position:'absolute',left:6,top:8,background:'none',border:0,cursor:'pointer',color:'var(--muted)',zIndex:2}}>✕</button>}
+    {open&&<div style={{position:'absolute',zIndex:2147483000,background:'#fff',border:'1px solid var(--line)',borderRadius:16,padding:12,boxShadow:'0 18px 50px rgba(0,0,0,.18)',top:'calc(100% + 7px)',right:0,width:330,direction:'rtl'}}>
+      <div style={{display:'grid',gridTemplateColumns:'36px 1fr 36px',gap:6,alignItems:'center',marginBottom:8}}><button type="button" className="btn g" onClick={()=>shift(-1)}>‹</button><div style={{display:'flex',gap:6,justifyContent:'center'}}><select className="input" value={view.m} onChange={e=>setView(v=>({...v,m:+e.target.value}))} style={{padding:'6px 8px',fontSize:11,maxWidth:120}}>{J_MONTHS.map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}</select><select className="input" value={view.y} onChange={e=>setView(v=>({...v,y:+e.target.value}))} style={{padding:'6px 8px',fontSize:11,maxWidth:90}}>{years.map(y=><option key={y} value={y}>{fa(y)}</option>)}</select></div><button type="button" className="btn g" onClick={()=>shift(1)}>›</button></div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:5}}>{['ش','ی','د','س','چ','پ','ج'].map(x=><span key={x} style={{textAlign:'center',fontSize:10,fontWeight:800,color:'var(--muted)'}}>{x}</span>)}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3}}>{cells}</div>
+      <div style={{display:'flex',justifyContent:'space-between',marginTop:9,paddingTop:9,borderTop:'1px solid var(--line)'}}><button type="button" className="btn g" onClick={()=>{emit(ty,tm,td);setView({y:ty,m:tm});setOpen(false);}}>امروز</button><button type="button" className="btn t" onClick={()=>setOpen(false)}>بستن</button></div>
+    </div>}
+  </span>;
+}
+'''
+
+text = SOURCE.read_text(encoding='utf-8')
+if 'KHATYAR_REACT_JDATE_V2' in text:
+    print('JDate already migrated')
+    raise SystemExit(0)
+start = text.find('function JDate({')
+end = text.find('function _g2j(', start)
+if start < 0 or end < 0:
+    raise SystemExit('JDate markers not found')
+SOURCE.write_text(text[:start] + NEW_JDATE + text[end:], encoding='utf-8')
+print('React JDate migrated')
