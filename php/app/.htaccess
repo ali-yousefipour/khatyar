@@ -30,9 +30,6 @@ RewriteRule ^api/company-request-support\.php$ api/company-request-support.php [
 # Full users export: include personnel number immediately after user ID.
 RewriteRule ^api/admin/users/export/?$ api/admin-users-export.php [QSA,L,NC]
 
-# Personnel attendance report: use the optimized gateway before the generic index router.
-RewriteRule ^api/admin/attendance-report/?$ api/admin-attendance-report-fast.php [QSA,L,NC]
-
 RewriteCond %{QUERY_STRING} (^|&)op=capture-report(&|$) [NC]
 RewriteRule ^line-station-api\.php$ station-capture-report.php [QSA,L]
 RewriteRule ^line-station-api\.php$ line-station-api-v2.php [QSA,L]
@@ -84,8 +81,6 @@ ServerSignature Off
     Header set Pragma "no-cache"
     Header set Expires "0"
   </FilesMatch>
-
-  # Heavy/static assets and map resources may be cached. Their URLs should be versioned when replaced.
   <FilesMatch "\.(png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|eot|mp3|wav|ogg|mp4|webm|pdf|zip)$">
     Header set Cache-Control "public, max-age=2592000, immutable"
   </FilesMatch>
