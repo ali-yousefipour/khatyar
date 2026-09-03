@@ -8,10 +8,8 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioAttributes;
-import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.session.MediaSession;
-import android.media.VolumeProvider;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -28,7 +26,11 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,8 +44,8 @@ public final class KhatyarRadioService extends Service {
   private final ExecutorService io = Executors.newSingleThreadExecutor();
   private MediaSession mediaSession;
   private MediaPlayer player;
-  private boolean volumePttDown = false;
   private long lastId = 0;
+  private long serviceStartedAt = 0;
   private boolean destroyed = false;
 
   private final Runnable poller = new Runnable() {
@@ -56,10 +58,13 @@ public final class KhatyarRadioService extends Service {
 
   @Override public void onCreate() {
     super.onCreate();
+    serviceStartedAt = System.currentTimeMillis();
     createNotificationChannel();
     setupMediaSession();
     startForegroundCompat();
     lastId = getPrefs().getLong("lastId", 0L);
+    // هر اجرای تازهٔ سرویس از لحظه فعلی به بعد زنده است؛ پیام‌های قبلی پخش نمی‌شوند.
+    getPrefs().edit().putLong("sessionStartedAt", serviceStartedAt).putBoolean("initialized", false).apply();
     handler.post(poller);
   }
 
@@ -112,21 +117,8 @@ public final class KhatyarRadioService extends Service {
       }
     });
     mediaSession.setActive(true);
-    if (Build.VERSION.SDK_INT >= 21) {
-      mediaSession.setPlaybackToRemote(new VolumeProvider(VolumeProvider.VOLUME_CONTROL_RELATIVE, 1, 0) {
-        @Override public void onAdjustVolume(int direction) {
-          if (direction == AudioManager.ADJUST_RAISE) {
-            volumePttDown = !volumePttDown;
-            sendPtt(volumePttDown, "volume_up");
-            return;
-          }
-          if (direction == AudioManager.ADJUST_LOWER) {
-            AudioManager am = (AudioManager)getSystemService(AUDIO_SERVICE);
-            if (am != null) am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0);
-          }
-        }
-      });
-    }
+    // عمداً VolumeProvider نصب نمی‌شود؛ نصب آن کلید Volume+ را می‌بلعد و باعث می‌شود
+    // MainActivity نتواند رویداد down/up واقعی Volume+ را به PTT تبدیل کند.
   }
 
   private void sendPtt(boolean down, String source) {
@@ -144,30 +136,60 @@ public final class KhatyarRadioService extends Service {
       String endpoint = base.replaceAll("/+$", "") + "/radio-api-v2.php?op=poll&channel_id=" + channel + "&after=" + lastId;
       String body = get(endpoint, token); if (body == null || body.isEmpty()) return;
       JSONObject root = new JSONObject(body);
-      if (root.has("last_message_id")) lastId = Math.max(lastId, root.optLong("last_message_id", lastId));
       JSONArray messages = root.optJSONArray("messages");
-      if (messages == null) { p.edit().putLong("lastId", lastId).putBoolean("initialized", true).apply(); return; }
-
-      // اولین poll فقط همگام‌سازی است؛ پیام‌هایی که قبل از باز شدن/راه‌اندازی
-      // سرویس وجود داشته‌اند نباید هنگام ورود کاربر پخش شوند.
       boolean initialized = p.getBoolean("initialized", false);
       if (!initialized) {
-        for (int idx = 0; idx < messages.length(); idx++) {
-          JSONObject m = messages.optJSONObject(idx);
-          if (m != null) lastId = Math.max(lastId, m.optLong("id", 0L));
+        long newest = lastId;
+        if (root.has("last_message_id")) newest = Math.max(newest, root.optLong("last_message_id", newest));
+        if (messages != null) {
+          for (int idx = 0; idx < messages.length(); idx++) {
+            JSONObject m = messages.optJSONObject(idx);
+            if (m != null) newest = Math.max(newest, m.optLong("id", 0L));
+          }
         }
+        lastId = newest;
         p.edit().putLong("lastId", lastId).putBoolean("initialized", true).apply();
         return;
       }
 
-      for (int idx = 0; idx < messages.length(); idx++) {
+      for (int idx = 0; messages != null && idx < messages.length(); idx++) {
         JSONObject m = messages.optJSONObject(idx); if (m == null) continue;
         long id = m.optLong("id", 0L); lastId = Math.max(lastId, id);
         if (m.optLong("sender_id", 0L) == userId) continue;
+        // حتی اگر after به‌علت restart یا cache پیام قدیمی برگرداند، زمان پیام باید
+        // بعد از لحظه راه‌اندازی این نشست باشد تا هرگز پیام قدیمی پخش نشود.
+        long createdAt = messageTimeMillis(m);
+        if (createdAt > 0 && createdAt < serviceStartedAt) continue;
         String audio = m.optString("audio_url", ""); if (!audio.isEmpty()) playRemote(audio, token);
       }
       p.edit().putLong("lastId", lastId).apply();
     } catch (Throwable ignored) {}
+  }
+
+  private long messageTimeMillis(JSONObject m) {
+    String[] keys = {"created_at", "sent_at", "timestamp", "createdAt", "sentAt"};
+    for (String key : keys) {
+      try {
+        Object raw = m.opt(key);
+        if (raw == null) continue;
+        if (raw instanceof Number) {
+          long v = ((Number) raw).longValue();
+          return v < 100000000000L ? v * 1000L : v;
+        }
+        String s = String.valueOf(raw).trim();
+        if (s.isEmpty()) continue;
+        try { long v = Long.parseLong(s); return v < 100000000000L ? v * 1000L : v; } catch (Throwable ignored) {}
+        String[] formats = {"yyyy-MM-dd'T'HH:mm:ss.SSSXXX","yyyy-MM-dd'T'HH:mm:ssXXX","yyyy-MM-dd HH:mm:ss","yyyy-MM-dd'T'HH:mm:ss"};
+        for (String f : formats) {
+          try {
+            SimpleDateFormat df = new SimpleDateFormat(f, Locale.US);
+            Date d = df.parse(s, new ParsePosition(0));
+            if (d != null) return d.getTime();
+          } catch (Throwable ignored) {}
+        }
+      } catch (Throwable ignored) {}
+    }
+    return 0L;
   }
 
   private String get(String endpoint, String token) {
