@@ -1,11 +1,15 @@
-/* خطیار — اصلاح سراسری نمایش ساعت و مدت زمان در کل پنل */
+/* خطیار — اصلاح سراسری نمایش ساعت، تاریخ و اعداد در کل پنل */
 (function(){
 'use strict';
 var FA={'0':'۰','1':'۱','2':'۲','3':'۳','4':'۴','5':'۵','6':'۶','7':'۷','8':'۸','9':'۹'};
 var DIG='0-9۰-۹';
 function fa(v){return String(v==null?'':v).replace(/[0-9]/g,function(d){return FA[d];});}
+function stripThousands(s){
+  return String(s==null?'':s).replace(/([0-9۰-۹])[٬,](?=[0-9۰-۹])/g,'$1');
+}
 function fixString(s){
-  return String(s==null?'':s).replace(new RegExp('(^|[^'+DIG+'])((?:[0-9۰-۹]{1,4}):(?:[0-9۰-۹]{2}))(?=$|[^'+DIG+'])','g'),function(_,p,t){return p+fa(t);});
+  var x=stripThousands(String(s==null?'':s));
+  return x.replace(new RegExp('(^|[^'+DIG+'])((?:[0-9۰-۹]{1,4}):(?:[0-9۰-۹]{2}))(?=$|[^'+DIG+'])','g'),function(_,p,t){return p+fa(t);});
 }
 function fixText(n){
   if(!n||n.nodeType!==3)return;
@@ -18,9 +22,8 @@ function fixValue(el){
   if(!el||!('value' in el))return;
   if(el.tagName==='TEXTAREA')return;
   var v=String(el.value||'');
-  if(/(?:^|[^0-9۰-۹])(?:[0-9۰-۹]{1,4}):(?:[0-9۰-۹]{2})(?:$|[^0-9۰-۹])/.test(v)){
-    var x=fixString(v);if(x!==v)el.value=x;
-  }
+  var x=fixString(v);
+  if(x!==v)el.value=x;
 }
 function scan(root){
   root=root||document;
@@ -48,5 +51,6 @@ function start(){
   });
   if(document.body)ob.observe(document.body,{subtree:true,childList:true,characterData:true});
 }
+window.KhatyarNumberFormat={fixString:fixString,stripThousands:stripThousands,fa:fa};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
