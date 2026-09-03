@@ -30,13 +30,16 @@ jobs:
         run: python3 php/tools/apply_react_jdate_migration.py
 
       - name: Install Babel compiler
-        run: npm install --no-save @babel/core @babel/cli @babel/preset-env @babel/preset-react
+        run: npm install --no-save @babel/core @babel/cli @babel/preset-env @babel/plugin-transform-react-jsx
 
       - name: Rebuild panel bundle
-        run: ./node_modules/.bin/babel php/tools/panel_source.jsx --out-file php/app/assets/panel.bundle.js --presets @babel/preset-env,@babel/preset-react?runtime=classic
+        run: ./node_modules/.bin/babel php/tools/panel_source.jsx --out-file php/app/assets/panel.bundle.js --presets @babel/preset-env --plugins @babel/plugin-transform-react-jsx
 
       - name: Validate bundle has no ES module import
         run: '! grep -qE "(^|[[:space:]])import[[:space:]]" php/app/assets/panel.bundle.js'
+
+      - name: Validate migrated source marker
+        run: grep -q 'KHATYAR_REACT_JDATE_V2' php/tools/panel_source.jsx
 
       - name: Bump cache version
         run: python3 -c "from pathlib import Path; p=Path('php/app/panel.html'); p.write_text(p.read_text(encoding='utf-8').replace('1.3.83-r3','1.3.83-r4'),encoding='utf-8')"
@@ -47,5 +50,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add php/tools/panel_source.jsx php/app/assets/panel.bundle.js php/app/panel.html php/tools/apply_react_jdate_migration.py
           git diff --cached --quiet && exit 0
-          git commit -m 'fix(calendar): migrate React JDate to shared calendar'
+          git commit -m 'fix(calendar): migrate React JDate to classic React bundle'
           git push
