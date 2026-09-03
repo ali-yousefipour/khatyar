@@ -6,13 +6,26 @@ import { request } from '../api';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 
+const normalizePresent = (r) => {
+  if (Array.isArray(r)) return r;
+  if (Array.isArray(r?.items)) return r.items;
+  if (Array.isArray(r?.present)) return r.present;
+  if (Array.isArray(r?.data)) return r.data;
+  return [];
+};
+
 export default function PresentListScreen() {
   const [data, setData] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(null);
 
-  const load = useCallback(() => {
-    request('/attendance/present').then(setData).catch(() => setData([]));
+  const load = useCallback(async () => {
+    try {
+      const result = await request('/attendance/present');
+      setData(normalizePresent(result));
+    } catch (e) {
+      setData([]);
+    }
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -47,8 +60,8 @@ export default function PresentListScreen() {
       </View>
       <FlatList
         data={data}
-        keyExtractor={(it) => String(it.id)}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); setTimeout(() => setRefreshing(false), 600); }} colors={[C.brand]} />}
+        keyExtractor={(it, index) => String(it.id ?? it.driver_id ?? index)}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} colors={[C.brand]} />}
         ListEmptyComponent={<Text style={s.empty}>هیچ راننده‌ای در خط حاضر نیست.</Text>}
         contentContainerStyle={{ padding: 14 }}
         renderItem={({ item }) => (
