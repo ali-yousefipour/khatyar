@@ -14,10 +14,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            php/app/panel.html
+            php/app/assets
+            php/tools/panel_source.jsx
+            php/tools/apply_react_jdate_migration.py
+          sparse-checkout-cone-mode: false
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Migrate React JDate source
         run: python3 php/tools/apply_react_jdate_migration.py
