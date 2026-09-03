@@ -1,11 +1,12 @@
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { DrawerActions, useDrawerStatus } from '@react-navigation/native';
+import { DrawerActions } from '@react-navigation/native';
+import { useDrawerStatus } from '@react-navigation/drawer';
 import { C, FONT } from './theme';
 import { useAuth } from './auth';
 
-// طبق درخواست شما، محتوای منو فقط هنگام باز بودن Drawer رندر می‌شود.
-// این کار جلوی دیده‌شدن هرگونه نوار/محتوای منو در حالت بسته را می‌گیرد.
+// محتوای منو فقط هنگام باز بودن Drawer رندر می‌شود تا در حالت بسته هیچ
+// نوار یا بخشی از منوی کناری روی صفحه باقی نماند.
 const ITEMS = [
   ['Notifications', 'اعلان‌ها', '🔔'],
   ['Messages', 'پیام‌ها', '💬'],
@@ -19,9 +20,7 @@ const ITEMS = [
 export default function DrawerMenuScreen({ navigation }) {
   const { logout } = useAuth();
   const drawerStatus = useDrawerStatus();
-  const isOpen = drawerStatus === 'open';
-
-  if (!isOpen) return null;
+  if (drawerStatus !== 'open') return null;
 
   const go = screen => {
     try { navigation?.dispatch?.(DrawerActions.closeDrawer()); } catch (_) {}
