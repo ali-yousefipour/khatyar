@@ -1,16 +1,77 @@
-/* خطیار — اصلاح سراسری نمایش ساعت، تاریخ و اعداد در کل پنل */
+/* خطیار — نمایش یکنواخت اعداد فارسی و حذف قطعی جداکننده هزارگان */
 (function(){
-'use strict';
-var FA={'0':'۰','1':'۱','2':'۲','3':'۳','4':'۴','5':'۵','6':'۶','7':'۷','8':'۸','9':'۹'};
-var DIG='0-9۰-۹';
-function fa(v){return String(v==null?'':v).replace(/[0-9]/g,function(d){return FA[d];});}
-function stripThousands(s){return String(s==null?'':s).replace(/([0-9۰-۹])[٬,](?=[0-9۰-۹])/g,'$1');}
-function fixString(s){var x=stripThousands(String(s==null?'':s));return x.replace(new RegExp('(^|[^'+DIG+'])((?:[0-9۰-۹]{1,4}):(?:[0-9۰-۹]{2}))(?=$|[^'+DIG+'])','g'),function(_,p,t){return p+fa(t);});}
-function fixText(n){if(!n||n.nodeType!==3)return;var p=n.parentElement;if(!p||p.closest('script,style,textarea,code,pre'))return;var s=n.nodeValue||'',x=fixString(s);if(x!==s)n.nodeValue=x;}
-function fixValue(el){if(!el||!('value' in el))return;if(el.tagName==='TEXTAREA'||el.type==='time'||el.type==='date')return;var v=String(el.value||''),x=fixString(v);if(x!==v)el.value=x;}
-function scan(root){root=root||document;var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),a=[];while(w.nextNode())a.push(w.currentNode);a.forEach(fixText);if(root.querySelectorAll)root.querySelectorAll('input,select').forEach(function(el){if(el.tagName==='SELECT')Array.prototype.forEach.call(el.options||[],function(o){var v=o.textContent||'',x=fixString(v);if(x!==v)o.textContent=x;});else fixValue(el);});}
-function loadFixes(){['iran-calendar-ui.js','personnel-selector-fix.js','attendance-holiday-render-fix.js'].forEach(function(name){if(document.querySelector('script[data-kh-global-fix="'+name+'"]'))return;var s=document.createElement('script');s.defer=true;s.src='assets/'+name+'?v=1.3.85';s.setAttribute('data-kh-global-fix',name);document.head.appendChild(s);});}
-function start(){scan(document);loadFixes();var timer=0;var ob=new MutationObserver(function(ms){if(timer)clearTimeout(timer);timer=setTimeout(function(){ms.forEach(function(m){if(m.type==='characterData')fixText(m.target);(m.addedNodes||[]).forEach(function(n){if(n.nodeType===3)fixText(n);else if(n.nodeType===1&&n.tagName!=='SCRIPT'&&n.tagName!=='STYLE')scan(n);});},30);});if(document.body)ob.observe(document.body,{subtree:true,childList:true,characterData:true});}
-window.KhatyarNumberFormat={fixString:fixString,stripThousands:stripThousands,fa:fa};
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+  'use strict';
+  var FA='۰۱۲۳۴۵۶۷۸۹';
+  function fa(v){
+    return String(v == null ? '' : v).replace(/[0-9]/g,function(d){ return FA.charAt(Number(d)); });
+  }
+  function stripThousands(v){
+    return String(v == null ? '' : v).replace(/([0-9۰-۹])[٬,](?=[0-9۰-۹])/g,'$1');
+  }
+  function fixString(v){ return fa(stripThousands(v)); }
+  function shouldSkip(el){
+    if(!el) return true;
+    var tag=(el.tagName||'').toLowerCase();
+    return tag==='script'||tag==='style'||tag==='textarea'||tag==='pre'||tag==='code';
+  }
+  function fixText(node){
+    if(!node || node.nodeType!==3) return;
+    var parent=node.parentElement;
+    if(shouldSkip(parent)) return;
+    var old=node.nodeValue||'';
+    var next=fixString(old);
+    if(next!==old) node.nodeValue=next;
+  }
+  function fixControl(el){
+    if(!el || !el.tagName) return;
+    var tag=el.tagName.toLowerCase();
+    if(tag==='textarea'||tag==='script'||tag==='style'||tag==='pre'||tag==='code') return;
+    if(tag==='select'){
+      Array.prototype.forEach.call(el.options||[],function(o){
+        var old=o.textContent||'', next=fixString(old);
+        if(next!==old) o.textContent=next;
+      });
+      return;
+    }
+    if(tag==='input'){
+      var type=(el.type||'').toLowerCase();
+      if(type==='date'||type==='time'||type==='datetime-local'||type==='file') return;
+      var old=el.value||'', next=fixString(old);
+      if(next!==old) el.value=next;
+    }
+  }
+  function scan(root){
+    if(!root) return;
+    if(root.nodeType===3){ fixText(root); return; }
+    var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null,false), nodes=[];
+    while(walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(fixText);
+    if(root.querySelectorAll){
+      Array.prototype.forEach.call(root.querySelectorAll('input,select'),fixControl);
+    }
+  }
+  function start(){
+    scan(document);
+    var target=document.body||document.documentElement;
+    if(!target) return;
+    var queued=false;
+    var observer=new MutationObserver(function(mutations){
+      if(queued) return;
+      queued=true;
+      setTimeout(function(){
+        queued=false;
+        mutations.forEach(function(m){
+          if(m.type==='characterData') fixText(m.target);
+          if(m.addedNodes) Array.prototype.forEach.call(m.addedNodes,function(n){
+            if(n.nodeType===3) fixText(n);
+            else if(n.nodeType===1 && !shouldSkip(n)) scan(n);
+          });
+        });
+      },25);
+    });
+    observer.observe(target,{subtree:true,childList:true,characterData:true});
+  }
+  window.KhatyarNumberFormat={fa:fa,stripThousands:stripThousands,fixString:fixString};
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true});
+  else start();
 })();
