@@ -9,6 +9,22 @@ class Push {
     if ($type === 'report' || $type === 'inbox_report') return ['sound' => 'report_received.mp3', 'channelId' => 'reports'];
     return ['sound' => 'notification_new.mp3', 'channelId' => 'default'];
   }
+
+  private static function tokenWhere() {
+    static $where = null;
+    if ($where !== null) return $where;
+    $parts = ["token IS NOT NULL", "token<>''", "(token LIKE 'ExpoPushToken%' OR token LIKE 'ExponentPushToken%')"];
+    try {
+      $cols = Db::all("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='push_tokens'");
+      $names = array_map(static fn($r)=>(string)($r['COLUMN_NAME']??''), $cols ?: []);
+      if (in_array('is_active', $names, true)) $parts[] = 'is_active=1';
+      elseif (in_array('active', $names, true)) $parts[] = 'active=1';
+      elseif (in_array('status', $names, true)) $parts[] = "status IN ('active','enabled','1')";
+      elseif (in_array('revoked_at', $names, true)) $parts[] = 'revoked_at IS NULL';
+    } catch (Throwable $e) {}
+    return $where = implode(' AND ', $parts);
+  }
+
   // فقط ارسال Push به دستگاه‌ها (بدون ثبت در فهرست اعلان‌ها)
   public static function send(array $userIds, $title, $body, $data = []) {
     $ids = array_values(array_unique(array_filter($userIds)));
@@ -32,8 +48,9 @@ class Push {
       try { error_log('messenger mirror failed: '.$e->getMessage()); } catch (Throwable $ignore) {}
     }
 
-    $tokens = array_column(Db::all("SELECT token FROM push_tokens WHERE user_id IN ($in)", $ids), 'token');
-    $tokens = array_values(array_filter($tokens, fn($t) => strpos($t, 'ExponentPushToken') === 0 || strpos($t, 'ExpoPushToken') === 0));
+    $where = self::tokenWhere();
+    $tokens = array_column(Db::all("SELECT token FROM push_tokens WHERE user_id IN ($in) AND $where", $ids), 'token');
+    $tokens = array_values(array_unique(array_filter($tokens, fn($t) => preg_match('/^(ExpoPushToken|ExponentPushToken)\[[^\]]+\]$/', (string)$t))));
     if (!$tokens) return;
     $sx = self::soundChannel($data);
     $messages = array_map(fn($t) => [
