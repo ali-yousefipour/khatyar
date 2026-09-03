@@ -1,0 +1,51 @@
+(function(){'use strict';
+const API='/api/presence-immediate-api.php';
+const token=()=>localStorage.token||'';
+const headers=()=>({'Authorization':'Bearer '+token(),'Content-Type':'application/json'});
+let data=null, injected=false;
+function fa(n){return String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);}
+async function load(){const r=await fetch(API+'?op=targets',{headers:{Authorization:'Bearer '+token()},cache:'no-store'});if(!r.ok)throw new Error('بارگذاری اهداف ناموفق بود');data=await r.json();return data;}
+function findHost(){
+  const nodes=[...document.querySelectorAll('h1,h2,h3,h4,h5,.card,.panel,.section,.module,.box')];
+  return nodes.find(n=>{const t=(n.textContent||'').replace(/\s+/g,' ');return t.includes('صحت‌سنجی حضور')||t.includes('صحت سنجی حضور');})||null;
+}
+function make(){
+ if(injected)return;const host=findHost();if(!host)return;
+ const card=document.createElement('div');card.id='khatyar-immediate-presence';card.className='card';card.style.cssText='margin-top:14px;border:1px solid #f0c36a;border-radius:16px;padding:16px;background:linear-gradient(180deg,#fffdf5,#fff);box-shadow:0 5px 18px rgba(16,32,51,.06)';
+ card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><h3 style="margin:0 0 5px">ارسال صحت‌سنجی فوری</h3><div style="font-size:11px;color:#667085">ارسال فوری درخواست صحت‌سنجی به شخص، سمت یا کل نیروهای مشمول</div></div><span id="pim-count" style="font-size:12px;font-weight:700;color:#0d7a5f"></span></div>
+ <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:14px">
+  <label style="font-size:12px;font-weight:700">نوع ارسال<select id="pim-scope" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;border:1px solid #d7dde7;border-radius:10px;padding:9px;background:#fff;font:inherit"><option value="all">کل نیروهای مشمول</option><option value="role">یک سمت</option><option value="users">اشخاص انتخابی</option></select></label>
+  <label id="pim-role-wrap" style="display:none;font-size:12px;font-weight:700">سمت<select id="pim-role" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;border:1px solid #d7dde7;border-radius:10px;padding:9px;background:#fff;font:inherit"></select></label>
+  <label style="font-size:12px;font-weight:700">مهلت پاسخ (دقیقه)<input id="pim-window" type="number" min="1" max="60" value="5" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;border:1px solid #d7dde7;border-radius:10px;padding:9px;font:inherit"></label>
+  <label style="font-size:12px;font-weight:700">بازه ثبت<select id="pim-slot" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;border:1px solid #d7dde7;border-radius:10px;padding:9px;background:#fff;font:inherit"></select></label>
+ </div>
+ <div id="pim-users-wrap" style="display:none;margin-top:10px"><div style="font-size:12px;font-weight:700;margin-bottom:6px">انتخاب اشخاص</div><input id="pim-search" placeholder="جستجوی نام یا کد کاربری" style="width:100%;box-sizing:border-box;border:1px solid #d7dde7;border-radius:10px;padding:9px;font:inherit"><div id="pim-users" style="max-height:220px;overflow:auto;margin-top:7px;border:1px solid #edf0f4;border-radius:10px;background:#fff"></div></div>
+ <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button id="pim-send" type="button" style="border:0;border-radius:10px;padding:10px 15px;background:#d92d20;color:#fff;font:inherit;font-weight:700;cursor:pointer">ارسال فوری صحت‌سنجی</button><button id="pim-refresh" type="button" style="border:0;border-radius:10px;padding:10px 15px;background:#eef2f6;color:#172033;font:inherit;cursor:pointer">به‌روزرسانی فهرست</button></div><div id="pim-msg" style="font-size:12px;margin-top:8px"></div>`;
+ host.parentNode.insertBefore(card,host.nextSibling);injected=true;
+ bind(card);refresh(card).catch(e=>msg(card,e.message,true));
+}
+function msg(c,t,err){const m=c.querySelector('#pim-msg');m.textContent=t;m.style.color=err?'#b42318':'#0d7a5f';}
+function bind(c){
+ c.querySelector('#pim-scope').onchange=()=>toggle(c);
+ c.querySelector('#pim-search').oninput=()=>renderUsers(c);
+ c.querySelector('#pim-refresh').onclick=()=>refresh(c).catch(e=>msg(c,e.message,true));
+ c.querySelector('#pim-send').onclick=()=>send(c).catch(e=>msg(c,e.message,true));
+}
+async function refresh(c){await load();const role=c.querySelector('#pim-role');role.innerHTML='<option value="">انتخاب سمت</option>'+(data.roles||[]).map(r=>`<option value="${r.id}">${r.title}</option>`).join('');c.querySelector('#pim-slot').innerHTML=(data.slots||[data.slot]).filter(Boolean).map(s=>`<option value="${s}">${s}</option>`).join('');renderUsers(c);updateCount(c);msg(c,'فهرست اهداف به‌روزرسانی شد.');}
+function toggle(c){const s=c.querySelector('#pim-scope').value; c.querySelector('#pim-role-wrap').style.display=s==='role'?'block':'none';c.querySelector('#pim-users-wrap').style.display=s==='users'?'block':'none';updateCount(c);}
+function renderUsers(c){if(!data)return;const q=(c.querySelector('#pim-search').value||'').trim().toLowerCase();const rows=(data.users||[]).filter(u=>{const x=((u.first_name||'')+' '+(u.last_name||'')+' '+(u.username||'')).toLowerCase();return !q||x.includes(q);});c.querySelector('#pim-users').innerHTML=rows.map(u=>`<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #f0f2f5;font-size:12px"><input type="checkbox" value="${u.id}"><span>${u.first_name||''} ${u.last_name||''} <span style="color:#667085">(${u.role_title||'بدون سمت'})</span></span></label>`).join('')||'<div style="padding:12px;color:#667085;font-size:12px">موردی پیدا نشد.</div>';c.querySelectorAll('#pim-users input').forEach(x=>x.onchange=()=>updateCount(c));}
+function selected(c){return [...c.querySelectorAll('#pim-users input:checked')].map(x=>Number(x.value));}
+function updateCount(c){if(!data)return;const s=c.querySelector('#pim-scope').value;let n=0;if(s==='all')n=(data.users||[]).length;if(s==='role'){const rid=Number(c.querySelector('#pim-role').value);n=(data.users||[]).filter(u=>Number(u.role_id)===rid).length;}if(s==='users')n=selected(c).length;c.querySelector('#pim-count').textContent=n?'تعداد هدف: '+fa(n):'';}
+async function send(c){
+ const scope=c.querySelector('#pim-scope').value,roleId=Number(c.querySelector('#pim-role').value||0),userIds=selected(c),windowMinutes=Math.max(1,Math.min(60,Number(c.querySelector('#pim-window').value||5))),slot=c.querySelector('#pim-slot').value;
+ let count=0;if(scope==='all')count=(data.users||[]).length;if(scope==='role')count=(data.users||[]).filter(u=>Number(u.role_id)===roleId).length;if(scope==='users')count=userIds.length;
+ if(!count)throw new Error('هیچ فردی برای ارسال انتخاب نشده است');
+ const target=scope==='role'?'سمت انتخاب‌شده':scope==='users'?'افراد انتخاب‌شده':'کل نیروهای مشمول';
+ if(!confirm(`درخواست صحت‌سنجی فوری برای ${target} (${fa(count)} نفر) ارسال شود؟`))return;
+ const b={scope,role_id:roleId,user_ids:userIds,window_minutes:windowMinutes,slot};
+ const r=await fetch(API+'?op=send',{method:'POST',headers:headers(),body:JSON.stringify(b),cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.error||'ارسال ناموفق بود');
+ msg(c,`درخواست با موفقیت ارسال شد؛ ${fa(d.sent)} نفر Push دریافت کردند. شناسه: ${d.request_id}`); 
+}
+function observe(){if(injected)return;make();const ob=new MutationObserver(()=>{if(!injected)make();else ob.disconnect();});ob.observe(document.body,{childList:true,subtree:true});setTimeout(()=>{if(!injected)make();},5000);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(observe,500));else setTimeout(observe,500);
+})();
