@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState, Modal } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { request } from './api';
 import { notify } from './notify';
@@ -113,17 +112,13 @@ export default function PresenceGate() {
       navigationBarTranslucent={false}
       presentationStyle="fullScreen"
     >
-      <SafeAreaProvider>
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'bottom', 'left', 'right']}>
-          <PresenceCheckModal
-            slot={due.slot}
-            windowMinutes={due.windowMinutes}
-            onDone={finish}
-            onExpire={finish}
-            onStart={() => stopPresenceAlarm().catch(() => {})}
-          />
-        </SafeAreaView>
-      </SafeAreaProvider>
+      <PresenceCheckModal
+        slot={due.slot}
+        windowMinutes={due.windowMinutes}
+        onDone={finish}
+        onExpire={finish}
+        onStart={() => stopPresenceAlarm().catch(() => {})}
+      />
     </Modal>
   );
 }
