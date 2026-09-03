@@ -32,8 +32,8 @@ function withManifest(config) {
     if (app) {
       app.$=app.$||{}; app.$['android:supportsRtl']='true'; app.service=app.service||[];
       const existing=app.service.find(x=>x.$&&x.$['android:name']===SERVICE);
-      const item={$:{'android:name':SERVICE,'android:exported':'false','android:foregroundServiceType':'mediaPlayback|microphone','android:stopWithTask':'false','android:description':'دریافت و پخش بی‌سیم خطیار و کنترل PTT در پس‌زمینه'}};
-      if(existing)existing.$=item.$;else app.service.push(item);
+      const item={$:{'android:name':SERVICE,'android:exported':'false','android:foregroundServiceType':'mediaPlayback|microphone','android:stopWithTask':'false'}};
+      if(existing)existing.$=Object.assign({},existing.$,item.$);else app.service.push(item);
     }
     return cfg;
   });
