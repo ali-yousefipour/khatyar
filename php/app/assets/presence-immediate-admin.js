@@ -1,7 +1,7 @@
 /* صحت‌سنجی حضور فوری — تب مستقل داخل صفحه «صحت‌سنجی حضور» */
 (function(){
 'use strict';
-const API=new URL('presence-immediate-api.php',document.baseURI).href;
+const API=new URL('api/presence-immediate-api.php',document.baseURI).href;
 const token=()=>localStorage.token||'';
 const headers=()=>({'Authorization':'Bearer '+token(),'Content-Type':'application/json'});
 let data=null,injected=false,tabHost=null,originalDisplay=new Map();
