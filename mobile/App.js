@@ -80,7 +80,9 @@ import StationCaptureScreen from './src/screens/StationCaptureScreen';
 import MyStationsScreen from './src/screens/MyStationsScreen';
 import DrawerMenuScreen from './src/DrawerMenuScreen';
 import { installGlobalCrashHandlers, setCurrentRoute, flushCrashReports } from './src/crashReporter';
-try { I18nManager.allowRTL(true); I18nManager.forceRTL(false); I18nManager.swapLeftAndRightInRTL(false); } catch (_) {}
+// Keep native RTL enabled so React Navigation's right-side Drawer uses the same
+// native layout direction as the Persian UI. Do not swap left/right styles globally.
+try { I18nManager.allowRTL(true); I18nManager.forceRTL(true); I18nManager.swapLeftAndRightInRTL(false); } catch (_) {}
 installGlobalCrashHandlers(); SplashScreen.preventAutoHideAsync().catch(() => {});
 const navigationRef=createNavigationContainerRef(),Stack=createNativeStackNavigator(),Drawer=createDrawerNavigator();
 const SCREEN_W=Dimensions.get('window').width;
