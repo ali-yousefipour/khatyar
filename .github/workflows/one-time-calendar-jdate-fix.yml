@@ -1,0 +1,127 @@
+name: One-time React JDate migration
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: ${{ !contains(github.event.head_commit.message, 'chore(calendar): remove one-time React JDate migration workflow') && !contains(github.event.head_commit.message, 'fix(calendar): migrate React JDate to shared calendar') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch React JDate source
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('php/tools/panel_source.jsx')
+          s=p.read_text(encoding='utf-8')
+          start=s.find('function JDate({')
+          end=s.find('function _g2j(', start)
+          if start < 0 or end < 0:
+              raise SystemExit('JDate markers not found')
+          new=r'''function JDate({value,onChange,placeholder,jalali,yearFrom,yearTo}){
+  const [open,setOpen]=useState(false);
+  const [view,setView]=useState(()=>{
+    const raw=String(value||'').trim();
+    if(raw.includes('/')){const [y,m]=raw.split('/').map(Number);if(y&&m)return {y,m};}
+    if(raw.includes('-')){const [y,m,d]=raw.split('-').map(Number);if(y&&m&&d){const j=jalali?{y,m}: {y:gregToJalali(y,m,d)[0],m:gregToJalali(y,m,d)[1]};return j;}}
+    const [y,m]=todayJ();return {y,m};
+  });
+  const parsed=()=>{
+    const raw=String(value||'').trim();
+    if(!raw)return null;
+    if(raw.includes('/')){const p=raw.split('/').map(Number);return p.length>=3&&p.every(Boolean)?p:null;}
+    if(raw.includes('-')){const p=raw.split('-').map(Number);if(p.length>=3&&p.every(Boolean))return jalali? p : gregToJalali(p[0],p[1],p[2]);}
+    return null;
+  };
+  useEffect(()=>{
+    const p=parsed();
+    if(p)setView({y:p[0],m:p[1]});
+  },[value,jalali]);
+  const daysIn=(y,m)=>{
+    const a=jalaliToGreg(y,m,1);
+    const b=jalaliToGreg(m===12?y+1:y,m===12?1:m+1,1);
+    if(a&&b)return Math.round((Date.UTC(b[0],b[1]-1,b[2])-Date.UTC(a[0],a[1]-1,a[2]))/86400000);
+    return m<=6?31:(m<=11?30:29);
+  };
+  const firstWeekday=(y,m)=>{
+    const g=jalaliToGreg(y,m,1);
+    if(!g)return 0;
+    return (new Date(Date.UTC(g[0],g[1]-1,g[2],12)).getUTCDay()+1)%7;
+  };
+  const emit=(y,m,d)=>onChange(jalali?`${y}/${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}`:isoFromJ(y,m,d));
+  const selected=parsed();
+  const [ty,tm,td]=todayJ();
+  const yf=yearFrom||Math.max(1200,ty-80), yt=yearTo||ty+20;
+  const years=[];for(let y=yt;y>=yf;y--)years.push(y);
+  const monthLen=daysIn(view.y,view.m), first=firstWeekday(view.y,view.m), cells=[];
+  for(let i=0;i<first;i++)cells.push(<span key={'e'+i} style={{height:34}}/>);
+  for(let d=1;d<=monthLen;d++){
+    const sel=!!selected&&selected[0]===view.y&&selected[1]===view.m&&selected[2]===d;
+    const tod=ty===view.y&&tm===view.m&&td===d;
+    cells.push(<button key={d} type="button" className={"btn g"+(sel?" p":"")} style={{height:34,padding:0,fontSize:11,fontWeight:sel||tod?800:500,boxShadow:tod?"inset 0 0 0 1.5px var(--brand)":"none"}} onClick={()=>{emit(view.y,view.m,d);setOpen(false);}}>{fa(d)}</button>);
+  }
+  const shift=(delta)=>{let y=view.y,m=view.m+delta;if(m<1){m=12;y--}if(m>12){m=1;y++}if(y>=yf&&y<=yt)setView({y,m});};
+  const label=()=>{if(!value)return '';const p=parsed();return p?`${fa(p[0])}/${fa(String(p[1]).padStart(2,'0'))}/${fa(String(p[2]).padStart(2,'0'))}`:String(value).replace(/-/g,'/');};
+  return <span style={{position:'relative',display:'inline-block',width:'100%',minWidth:0}}>
+    <input className="input" readOnly value={label()} placeholder={placeholder||'تاریخ'} onClick={()=>setOpen(v=>!v)} style={{cursor:'pointer',maxWidth:150,width:'100%'}}/>
+    {value&&<button type="button" onClick={()=>onChange('')} style={{position:'absolute',left:6,top:8,background:'none',border:0,cursor:'pointer',color:'var(--muted)',zIndex:2}}>✕</button>}
+    {open&&<div style={{position:'absolute',zIndex:2147483000,background:'#fff',border:'1px solid var(--line)',borderRadius:16,padding:12,boxShadow:'0 18px 50px rgba(0,0,0,.18)',top:'calc(100% + 7px)',right:0,width:320,direction:'rtl'}}>
+      <div style={{display:'grid',gridTemplateColumns:'36px 1fr 36px',gap:6,alignItems:'center',marginBottom:8}}>
+        <button type="button" className="btn g" onClick={()=>shift(-1)}>‹</button>
+        <div style={{display:'flex',gap:6,justifyContent:'center'}}>
+          <select className="input" value={view.m} onChange={e=>setView(v=>({...v,m:+e.target.value}))} style={{padding:'6px 8px',fontSize:11,maxWidth:115}}>{J_MONTHS.map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}</select>
+          <select className="input" value={view.y} onChange={e=>setView(v=>({...v,y:+e.target.value}))} style={{padding:'6px 8px',fontSize:11,maxWidth:88}}>{years.map(y=><option key={y} value={y}>{fa(y)}</option>)}</select>
+        </div>
+        <button type="button" className="btn g" onClick={()=>shift(1)}>›</button>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:4}}>{['ش','ی','د','س','چ','پ','ج'].map(x=><span key={x} style={{textAlign:'center',fontSize:10,fontWeight:800,color:'var(--muted)'}}>{x}</span>)}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3}}>{cells}</div>
+      <div style={{display:'flex',justifyContent:'space-between',marginTop:8,paddingTop:8,borderTop:'1px solid var(--line)'}}><button type="button" className="btn g" onClick={()=>{emit(ty,tm,td);setView({y:ty,m:tm});setOpen(false);}}>امروز</button><button type="button" className="btn t" onClick={()=>setOpen(false)}>بستن</button></div>
+    </div>}
+  </span>;
+}
+'''
+          p.write_text(s[:start]+new+s[end:],encoding='utf-8')
+          print('patched JDate')
+          PY
+
+      - name: Rebuild panel bundle
+        shell: bash
+        run: |
+          npm exec --yes --package=typescript@6.0.0 -- tsc --allowJs --jsx react --target ES2018 --module none --ignoreDeprecations 6.0 --outFile php/app/assets/panel.bundle.js php/tools/panel_source.jsx
+
+      - name: Bump cache version
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('php/app/panel.html')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('panel.bundle.css?v=1.3.83-r3','panel.bundle.css?v=1.3.83-r4')
+          s=s.replace('role-app-items-unified.js?v=1.3.83-r3','role-app-items-unified.js?v=1.3.83-r4')
+          s=s.replace('presence-immediate-admin.js?v=1.3.83-r3','presence-immediate-admin.js?v=1.3.83-r4')
+          s=s.replace('panel.bundle.js?v=1.3.83-r3','panel.bundle.js?v=1.3.83-r4')
+          s=s.replace('outage-datetime-fix.js?v=1.3.83-r3','outage-datetime-fix.js?v=1.3.83-r4')
+          s=s.replace('panel-access-guard.js?v=1.3.83-r3','panel-access-guard.js?v=1.3.83-r4')
+          s=s.replace('site-permission-radio-fix.js?v=1.3.83-r3','site-permission-radio-fix.js?v=1.3.83-r4')
+          s=s.replace('version-badge.js?v=1.3.83-r3','version-badge.js?v=1.3.83-r4')
+          s=s.replace('dashboard-no-charts.js?v=1.3.83-r3','dashboard-no-charts.js?v=1.3.83-r4')
+          p.write_text(s,encoding='utf-8')
+          PY
+
+      - name: Commit migration
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add php/tools/panel_source.jsx php/app/assets/panel.bundle.js php/app/panel.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix(calendar): migrate React JDate to shared calendar'
+          git push
