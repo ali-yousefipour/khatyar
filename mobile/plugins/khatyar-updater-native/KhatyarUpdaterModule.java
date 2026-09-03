@@ -25,12 +25,14 @@ import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.MessageDigest;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,6 +41,7 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
     private static final String NAME = "KhatyarUpdater";
     private static final String PREFS = "khatyar_updater";
     private static final String KEY_PENDING_URI = "pending_install_uri";
+    private static final String TRUSTED_UPDATE_HOST = "app.yousefipour.ir";
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     public KhatyarUpdaterModule(ReactApplicationContext context) { super(context); }
@@ -50,23 +53,53 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
     private String safeName(String name) { String n=name==null?"":name.trim().replaceAll("[^A-Za-z0-9._-]","_"); if(n.length()<5)n="KhatYar-update.apk"; if(!n.toLowerCase(Locale.US).endsWith(".apk"))n+=".apk"; return n; }
     private File partFile(String name) { File dir=new File(getReactApplicationContext().getFilesDir(),"updates"); if(!dir.exists())dir.mkdirs(); return new File(dir,name+".part"); }
 
+    private String validateExpectedSha256(String value) throws Exception {
+        String sha=value==null?"":value.trim().toLowerCase(Locale.US);
+        if(!sha.matches("[a-f0-9]{64}")) throw new Exception("هش SHA-256 فایل به‌روزرسانی معتبر نیست.");
+        return sha;
+    }
+
+    private void validateUpdateUrl(URL url) throws Exception {
+        if(url==null || !"https".equalsIgnoreCase(url.getProtocol()) || !TRUSTED_UPDATE_HOST.equalsIgnoreCase(url.getHost()) || (url.getPort()!=-1 && url.getPort()!=443)) {
+            throw new Exception("آدرس به‌روزرسانی مجاز نیست؛ فقط HTTPS روی سرور رسمی خطیار قابل استفاده است.");
+        }
+    }
+
+    private String sha256(File file) throws Exception {
+        MessageDigest digest=MessageDigest.getInstance("SHA-256");
+        try(InputStream in=new FileInputStream(file)){
+            byte[] buffer=new byte[64*1024]; int read;
+            while((read=in.read(buffer))!=-1) digest.update(buffer,0,read);
+        }
+        byte[] bytes=digest.digest(); StringBuilder out=new StringBuilder(64);
+        for(byte b:bytes) out.append(String.format(Locale.US,"%02x",b & 0xff));
+        return out.toString();
+    }
+
     @ReactMethod
-    public void downloadApk(String urlString,String fileName,Promise promise) {
+    public void downloadApk(String urlString,String fileName,String expectedSha256,Promise promise) {
         if(urlString==null||urlString.trim().isEmpty()){promise.reject("UPDATE_URL","آدرس فایل به‌روزرسانی خالی است.");return;}
-        final String urlText=urlString.trim(); final String name=safeName(fileName); final File part=partFile(name);
+        final String urlText=urlString.trim(); final String name=safeName(fileName);
+        final File part=partFile(name);
+        final String expected;
+        try { expected=validateExpectedSha256(expectedSha256); }
+        catch(Exception e){ promise.reject("UPDATE_SHA256",e.getMessage(),e); return; }
         executor.execute(()->{
             HttpURLConnection connection=null;
             try{
-                long existing=part.exists()?part.length():0;
                 URL url=new URL(urlText);
+                validateUpdateUrl(url);
+                long existing=part.exists()?part.length():0;
                 connection=(HttpURLConnection)url.openConnection();
                 connection.setConnectTimeout(30000); connection.setReadTimeout(120000); connection.setInstanceFollowRedirects(true);
                 connection.setRequestProperty("Accept","application/vnd.android.package-archive,application/octet-stream,*/*");
                 if(existing>0)connection.setRequestProperty("Range","bytes="+existing+"-");
                 connection.connect();
+                URL finalUrl=connection.getURL();
+                validateUpdateUrl(finalUrl);
                 int code=connection.getResponseCode();
                 boolean resumed=existing>0&&code==206;
-                if(existing>0&&code==416){part.delete();existing=0;connection.disconnect();connection=null;connection=(HttpURLConnection)url.openConnection();connection.setConnectTimeout(30000);connection.setReadTimeout(120000);connection.setInstanceFollowRedirects(true);connection.connect();code=connection.getResponseCode();}
+                if(existing>0&&code==416){part.delete();existing=0;connection.disconnect();connection=null;connection=(HttpURLConnection)url.openConnection();connection.setConnectTimeout(30000);connection.setReadTimeout(120000);connection.setInstanceFollowRedirects(true);connection.setRequestProperty("Accept","application/vnd.android.package-archive,application/octet-stream,*/*");connection.connect();validateUpdateUrl(connection.getURL());code=connection.getResponseCode();}
                 if(code<200||code>=300)throw new Exception("دانلود فایل ناموفق بود (HTTP "+code+").");
                 if(existing>0&&!resumed){existing=0;try{part.delete();}catch(Exception ignored){}}
                 long contentLength=connection.getContentLengthLong();
@@ -80,10 +113,15 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
                     if(total>0&&done!=total)throw new Exception("اتصال قطع شد؛ دانلود ناقص است و با تلاش بعدی ادامه می‌یابد.");
                     emitProgress(done,total);
                 }
+                String actual=sha256(part);
+                if(!MessageDigest.isEqual(expected.getBytes(java.nio.charset.StandardCharsets.US_ASCII),actual.getBytes(java.nio.charset.StandardCharsets.US_ASCII))){
+                    try{part.delete();}catch(Exception ignored){}
+                    throw new Exception("صحت فایل به‌روزرسانی تأیید نشد؛ SHA-256 فایل با مقدار اعلام‌شده توسط سرور مطابقت ندارد.");
+                }
                 Uri finalUri=publishToDownloads(part,name);
                 try{part.delete();}catch(Exception ignored){}
                 prefs().edit().putString(KEY_PENDING_URI,finalUri.toString()).apply();
-                WritableMap result=Arguments.createMap();result.putString("fileName",name);result.putString("uri",finalUri.toString());result.putString("location","Downloads/"+name);emit("khatyarUpdaterComplete",result);promise.resolve(result);
+                WritableMap result=Arguments.createMap();result.putString("fileName",name);result.putString("uri",finalUri.toString());result.putString("location","Downloads/"+name);result.putString("sha256",actual);emit("khatyarUpdaterComplete",result);promise.resolve(result);
                 installApk(finalUri);
             }catch(Exception e){WritableMap m=Arguments.createMap();m.putString("message",e.getMessage()==null?"دانلود ناموفق بود؛ با تلاش دوباره ادامه می‌یابد.":e.getMessage());emit("khatyarUpdaterError",m);promise.reject("UPDATE_DOWNLOAD",e.getMessage(),e);}finally{if(connection!=null)connection.disconnect();}
         });
@@ -97,11 +135,11 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
             if(cursor!=null){try{if(cursor.moveToFirst()){long id=cursor.getLong(0);resolver.delete(Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI,String.valueOf(id)),null,null);}}finally{cursor.close();}}
             ContentValues values=new ContentValues();values.put(MediaStore.MediaColumns.DISPLAY_NAME,name);values.put(MediaStore.MediaColumns.MIME_TYPE,"application/vnd.android.package-archive");values.put(MediaStore.MediaColumns.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS);values.put(MediaStore.MediaColumns.IS_PENDING,1);
             Uri uri=resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);if(uri==null)throw new Exception("ایجاد فایل در Downloads ممکن نشد.");
-            try(OutputStream out=resolver.openOutputStream(uri);InputStream in=new java.io.FileInputStream(part)){if(out==null)throw new Exception("دسترسی نوشتن در Downloads ممکن نشد.");byte[] b=new byte[64*1024];int n;while((n=in.read(b))!=-1)out.write(b,0,n);out.flush();}
+            try(OutputStream out=resolver.openOutputStream(uri);InputStream in=new FileInputStream(part)){if(out==null)throw new Exception("دسترسی نوشتن در Downloads ممکن نشد.");byte[] b=new byte[64*1024];int n;while((n=in.read(b))!=-1)out.write(b,0,n);out.flush();}
             ContentValues done=new ContentValues();done.put(MediaStore.MediaColumns.IS_PENDING,0);resolver.update(uri,done,null,null);return uri;
         }
         if(ContextCompat.checkSelfPermission(getReactApplicationContext(),Manifest.permission.WRITE_EXTERNAL_STORAGE)!=PackageManager.PERMISSION_GRANTED)throw new Exception("برای ذخیره فایل در Downloads، دسترسی ذخیره‌سازی لازم است.");
-        File dir=Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);if(!dir.exists()&&!dir.mkdirs())throw new Exception("پوشه Downloads قابل ایجاد نیست.");File target=new File(dir,name);try(InputStream in=new java.io.FileInputStream(part);OutputStream out=new FileOutputStream(target)){byte[] b=new byte[64*1024];int n;while((n=in.read(b))!=-1)out.write(b,0,n);out.flush();}return FileProvider.getUriForFile(getReactApplicationContext(),getReactApplicationContext().getPackageName()+".khatyar.fileprovider",target);
+        File dir=Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);if(!dir.exists()&&!dir.mkdirs())throw new Exception("پوشه Downloads قابل ایجاد نیست.");File target=new File(dir,name);try(InputStream in=new FileInputStream(part);OutputStream out=new FileOutputStream(target)){byte[] b=new byte[64*1024];int n;while((n=in.read(b))!=-1)out.write(b,0,n);out.flush();}return FileProvider.getUriForFile(getReactApplicationContext(),getReactApplicationContext().getPackageName()+".khatyar.fileprovider",target);
     }
 
     @ReactMethod public void installPending(Promise promise){try{String value=prefs().getString(KEY_PENDING_URI,null);if(value==null||value.isEmpty()){promise.resolve(false);return;}boolean started=installApk(Uri.parse(value));promise.resolve(started);}catch(Exception e){promise.reject("UPDATE_INSTALL",e.getMessage(),e);}}
