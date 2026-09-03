@@ -1,54 +1,7 @@
 name: One-time React JDate migration
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
-permissions:
-  contents: write
-
-jobs:
-  migrate:
-    if: ${{ github.actor != 'github-actions[bot]' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            php/app/panel.html
-            php/app/assets
-            php/tools/panel_source.jsx
-            php/tools/apply_react_jdate_migration.py
-          sparse-checkout-cone-mode: false
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Migrate React JDate source
-        run: python3 php/tools/apply_react_jdate_migration.py
-
-      - name: Install Babel compiler
-        run: npm install --no-save @babel/core @babel/cli @babel/preset-env @babel/plugin-transform-react-jsx
-
-      - name: Rebuild panel bundle
-        run: ./node_modules/.bin/babel php/tools/panel_source.jsx --out-file php/app/assets/panel.bundle.js --presets @babel/preset-env --plugins @babel/plugin-transform-react-jsx
-
-      - name: Validate bundle has no ES module import
-        run: '! grep -qE "(^|[[:space:]])import[[:space:]]" php/app/assets/panel.bundle.js'
-
-      - name: Validate migrated source marker
-        run: grep -q 'KHATYAR_REACT_JDATE_V2' php/tools/panel_source.jsx
-
-      - name: Bump cache version
-        run: python3 -c "from pathlib import Path; p=Path('php/app/panel.html'); p.write_text(p.read_text(encoding='utf-8').replace('1.3.83-r3','1.3.83-r4'),encoding='utf-8')"
-
-      - name: Commit migration
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add php/tools/panel_source.jsx php/app/assets/panel.bundle.js php/app/panel.html php/tools/apply_react_jdate_migration.py
-          git diff --cached --quiet && exit 0
-          git commit -m 'fix(calendar): migrate React JDate to classic React bundle'
-          git push
+# Retained only as historical documentation. The calendar migration is already
+# integrated into the main panel source and bundle. Do not re-run automatically.
