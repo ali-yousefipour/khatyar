@@ -20,7 +20,10 @@ window.fetch=async function(input,init){
         return r;
       });
     }
-    return new Response(JSON.stringify(data),{status:response.status,statusText:response.statusText,headers:new Headers(response.headers)});
+    const headers=new Headers(response.headers);
+    headers.delete('content-length');
+    headers.delete('content-encoding');
+    return new Response(JSON.stringify(data),{status:response.status,statusText:response.statusText,headers});
   }catch(_){return response;}
 };
 })();
