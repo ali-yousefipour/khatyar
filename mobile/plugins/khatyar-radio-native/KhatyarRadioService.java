@@ -116,7 +116,6 @@ public final class KhatyarRadioService extends Service {
       }
     });
     mediaSession.setActive(true);
-    // VolumeProvider نصب نمی‌شود تا Volume+ در MainActivity به رویداد down/up واقعی PTT تبدیل شود.
   }
 
   private void sendPtt(boolean down, String source) {
@@ -144,8 +143,6 @@ public final class KhatyarRadioService extends Service {
             JSONObject m = messages.optJSONObject(idx); if (m == null) continue;
             newest = Math.max(newest, m.optLong("id", 0L));
             long createdAt = messageTimeMillis(m);
-            // در poll اولیه فقط پیامی که واقعاً بعد از باز شدن سرویس ایجاد شده باشد قابل پخش است.
-            // پیام بدون timestamp نیز عمداً پخش نمی‌شود تا هیچ پیام قدیمی به اشتباه پخش نشود.
             if (createdAt > 0 && createdAt >= serviceStartedAt && m.optLong("sender_id", 0L) != userId) {
               String audio = m.optString("audio_url", "");
               if (!audio.isEmpty()) playRemote(audio, token);
@@ -162,9 +159,10 @@ public final class KhatyarRadioService extends Service {
         long id = m.optLong("id", 0L); lastId = Math.max(lastId, id);
         if (m.optLong("sender_id", 0L) == userId) continue;
         long createdAt = messageTimeMillis(m);
-        if (createdAt > 0 && createdAt < serviceStartedAt) continue;
-        if (createdAt <= 0) continue;
-        String audio = m.optString("audio_url", ""); if (!audio.isEmpty()) playRemote(audio, token);
+        // امنیت پخش: timestamp نامعتبر یا قدیمی هرگز پخش نمی‌شود.
+        if (createdAt <= 0L || createdAt < serviceStartedAt) continue;
+        String audio = m.optString("audio_url", "");
+        if (!audio.isEmpty()) playRemote(audio, token);
       }
       p.edit().putLong("lastId", lastId).apply();
     } catch (Throwable ignored) {}
