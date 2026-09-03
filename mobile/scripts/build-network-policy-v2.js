@@ -71,4 +71,32 @@ const r = spawnSync('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass',
   },
   stdio: 'inherit'
 });
-process.exit(r.status === null ? 1 : r.status);
+
+if (r.status !== 0) process.exit(r.status === null ? 1 : r.status);
+
+// Release APK naming: khatyar-<software-version>.apk
+// The version is read from the resolved Expo app config so environment-based
+// ANDROID_VERSION_NAME overrides are respected exactly as they are in the build.
+try {
+  const appConfigFactory = require(path.join(root, 'app.config.js'));
+  const resolvedConfig = typeof appConfigFactory === 'function'
+    ? appConfigFactory({ config: {} })
+    : appConfigFactory;
+  const version = String(resolvedConfig?.version || process.env.ANDROID_VERSION_NAME || '').trim();
+  if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
+    throw new Error(`Invalid Android software version: ${version || '(empty)'}`);
+  }
+
+  const apkDir = path.join(root, 'android', 'app', 'build', 'outputs', 'apk', 'release');
+  const source = path.join(apkDir, 'app-release.apk');
+  const target = path.join(apkDir, `khatyar-${version}.apk`);
+  if (!fs.existsSync(source)) throw new Error(`Release APK was not found: ${source}`);
+  if (path.resolve(source) !== path.resolve(target)) {
+    if (fs.existsSync(target)) fs.rmSync(target, { force: true });
+    fs.renameSync(source, target);
+  }
+  console.log(`\n[khatyar-release] APK: ${target}`);
+} catch (error) {
+  console.error(`\n[khatyar-release] APK rename failed: ${error.message}`);
+  process.exit(1);
+}
