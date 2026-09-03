@@ -13,6 +13,8 @@ RewriteRule ^api/station-wizard-api\.php$ station-wizard-api.php [QSA,L,NC]
 RewriteRule ^api/station-missing-line-api\.php$ station-missing-line-api.php [QSA,L,NC]
 RewriteRule ^presence-immediate-api\.php$ api/presence-immediate-api.php [QSA,L,NC]
 RewriteRule ^api/admin/personnel-performance/?$ api/admin-personnel-performance.php [QSA,L,NC]
+RewriteRule ^api/admin/attendance-report/?$ api/admin-attendance-report-fast.php [QSA,L,NC]
+RewriteRule ^api/admin/users/export/?$ api/admin-users-export-fast.php [QSA,L,NC]
 RewriteRule ^api/company-request-support\.php$ api/company-request-support.php [QSA,L,NC]
 
 RewriteCond %{QUERY_STRING} (^|&)op=capture-report(&|$) [NC]
