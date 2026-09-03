@@ -40,31 +40,48 @@ function Get-FileHashSafe([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path)) { return '' }
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
 }
-function Test-PrebuildCurrent([string]$PackageHash) {
+function Get-NativeConfigHash() {
+    $files = @(
+        (Join-Path $Root 'app.config.js'),
+        (Join-Path $Root 'plugins\withKhatyarRadio.js')
+    )
+    $parts = foreach ($file in $files) { Get-FileHashSafe $file }
+    return (($parts -join ':') | ForEach-Object { $_ })
+}
+function Test-PrebuildCurrent([string]$PackageHash,[string]$NativeConfigHash) {
     if ($ForcePrebuild -or -not (Test-Path -LiteralPath $PrebuildMarker)) { return $false }
     try {
         $m = Get-Content -LiteralPath $PrebuildMarker -Raw | ConvertFrom-Json
         $android = Join-Path $Root 'android'
         return ([string]$m.packageHash -eq $PackageHash -and
+                [string]$m.nativeConfigHash -eq $NativeConfigHash -and
                 [string]$m.initHash -eq (Get-FileHashSafe $InitScript) -and
                 (Test-Path -LiteralPath (Join-Path $android 'gradlew.bat')) -and
                 (Test-Path -LiteralPath (Join-Path $android 'app\build.gradle')) -and
                 (Test-Path -LiteralPath (Join-Path $android 'settings.gradle')))
     } catch { return $false }
 }
-function Save-PrebuildMarker([string]$PackageHash) {
+function Save-PrebuildMarker([string]$PackageHash,[string]$NativeConfigHash) {
     $android = Join-Path $Root 'android'
     $obj = [ordered]@{
         packageHash = $PackageHash
+        nativeConfigHash = $NativeConfigHash
         lockHash = Get-FileHashSafe (Join-Path $Root 'package-lock.json')
         initHash = Get-FileHashSafe $InitScript
         created = (Get-Date).ToString('o')
     }
     $obj | ConvertTo-Json | Set-Content -LiteralPath $PrebuildMarker -Encoding UTF8
 }
+function Test-GeneratedRadioManifest([string]$Android) {
+    $manifest = Join-Path $Android 'app\src\main\AndroidManifest.xml'
+    if (-not (Test-Path -LiteralPath $manifest)) { Fail 'Generated AndroidManifest.xml is missing.' }
+    $text = Get-Content -LiteralPath $manifest -Raw -Encoding UTF8
+    if ($text -match 'android:description\s*=\s*"(?!@string/)') {
+        Fail 'AndroidManifest.xml contains a literal android:description value. Radio service descriptions must use an @string resource reference or be omitted.'
+    }
+}
 function Configure-GradlePerformance([string]$Android) {
     # Tuned for 24 GB RAM / Intel Core i3-6100 (4 logical processors).
-    # Do not over-allocate RAM: Windows, Node and Android tooling also need memory.
     $cpu = [Environment]::ProcessorCount
     $workers = [Math]::Max(2, [Math]::Min($cpu, 4))
     $propsPath = Join-Path $Android 'gradle.properties'
@@ -143,6 +160,7 @@ try {
     if ([string]$package.dependencies.'react-native' -ne '0.86.0') { Fail 'React Native 0.86.0 baseline required.' }
     if ([string]$package.dependencies.react -ne '19.2.3') { Fail 'React 19.2.3 baseline required.' }
     $packageHash = Get-FileHashSafe $packagePath
+    $nativeConfigHash = Get-NativeConfigHash
     Invoke-Checked 'cmd.exe' @('/d','/c','node.exe --version')
     Invoke-Checked 'cmd.exe' @('/d','/c','npm.cmd --version')
     Invoke-Checked 'cmd.exe' @('/d','/c','java.exe -version 2>&1')
@@ -164,7 +182,7 @@ try {
     }
 
     $android = Join-Path $Root 'android'
-    if (Test-PrebuildCurrent $packageHash) {
+    if (Test-PrebuildCurrent $packageHash $nativeConfigHash) {
         Stage 40 'Reusing existing Android native project (clean prebuild skipped)'
     } else {
         Stage 40 'Generating Android native project from Expo baseline'
@@ -173,8 +191,10 @@ try {
             if (Test-Path -LiteralPath $oldWrapper) { try { Invoke-Checked $oldWrapper @('--stop') $android } catch {} }
         }
         Invoke-Checked 'node.exe' @((Join-Path $Root 'scripts\prepare-android-release.js'))
-        Save-PrebuildMarker $packageHash
+        Save-PrebuildMarker $packageHash $nativeConfigHash
     }
+
+    Test-GeneratedRadioManifest $android
 
     $gradlew = Join-Path $android 'gradlew.bat'; $wrapperProps = Join-Path $android 'gradle\wrapper\gradle-wrapper.properties'
     if (-not (Test-Path -LiteralPath $gradlew)) { Fail 'Gradle wrapper is missing.' }
