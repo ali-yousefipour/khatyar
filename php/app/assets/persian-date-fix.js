@@ -1,1 +1,67 @@
-(()=>{'use strict';function d(a,b){return Math.floor(a/b)}function j2g(y,m,day){let y2=y+1595,n=-355668+365*y2+d(y2,33)*8+d(y2%33+3,4)+day+(m<7?(m-1)*31:(m-7)*30+186),gy=400*d(n,146097);n%=146097;if(n>36524){gy+=100*d(--n,36524);n%=36524;if(n>=365)n++}gy+=4*d(n,1461);n%=1461;if(n>365){gy+=d(n-1,365);n=(n-1)%365}let gd=n+1,leap=gy%4===0&&gy%100!==0||gy%400===0,md=[0,31,leap?29:28,31,30,31,30,31,31,30,31,30,31],gm=1;while(gd>md[gm])gd-=md[gm++];return Date.UTC(gy,gm-1,gd)}function days(y,m){const a=j2g(y,m,1),b=m===12?j2g(y+1,1,1):j2g(y,m+1,1);return Math.round((b-a)/86400000)}function fix(){document.querySelectorAll('.kh-jdp').forEach(c=>{const title=c.querySelector('.kh-jdp-title');if(!title)return;const t=(title.textContent||'').trim(),y=Number((t.match(/\d+/)||[])[0]);if(!y)return;const months=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'],m=months.findIndex(x=>t.includes(x))+1;if(m!==12)return;const grid=c.querySelector('.kh-jdp-grid');if(!grid||days(y,12)!==30||grid.querySelector('[data-d="30"]'))return;const b=document.createElement('button');b.type='button';b.className='kh-jdp-day';b.dataset.d='30';b.textContent='۳۰';grid.appendChild(b)})}new MutationObserver(fix).observe(document.documentElement,{subtree:true,childList:true});setInterval(fix,500)})();
+/* خطیار — سازگارساز تقویم شمسی
+ * نسخه 3.0.1
+ *
+ * نکته معماری:
+ * persian-date-picker.js تنها منبع محاسبه تقویم است و تاریخ انتخابی را
+ * برای ارسال به Backend به ISO میلادی (YYYY-MM-DD) تبدیل می‌کند.
+ * این فایل نباید الگوریتم تبدیل جلالی/میلادی مستقل داشته باشد؛ در نسخه‌های
+ * قبلی یک الگوریتم تقریبی ۳۳ ساله در اینجا وجود داشت و می‌توانست روز ۳۰ اسفند
+ * را اشتباه به تقویم اضافه کند.
+ */
+(function () {
+  'use strict';
+
+  function daysInJalaliMonth(year, month) {
+    var api = window.KhatyarJalaliDate;
+    if (!api || typeof api.toGregorian !== 'function') return null;
+
+    var first = api.toGregorian(year, month, 1);
+    var ny = month === 12 ? year + 1 : year;
+    var nm = month === 12 ? 1 : month + 1;
+    var next = api.toGregorian(ny, nm, 1);
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(first) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(next)) return null;
+
+    var a = first.split('-').map(Number);
+    var b = next.split('-').map(Number);
+    return Math.round((Date.UTC(b[0], b[1] - 1, b[2]) - Date.UTC(a[0], a[1] - 1, a[2])) / 86400000);
+  }
+
+  function repair() {
+    if (!window.KhatyarJalaliDate) return;
+
+    document.querySelectorAll('.kh-jdp').forEach(function (cal) {
+      var title = cal.querySelector('.kh-jdp-title');
+      if (!title) return;
+
+      var yearEl = title.querySelector('select.year');
+      var monthEl = title.querySelector('select.month');
+      var year = yearEl ? Number(yearEl.value) : NaN;
+      var month = monthEl ? Number(monthEl.value) : NaN;
+      if (!Number.isInteger(year) || !Number.isInteger(month) || month !== 12) return;
+
+      var len = daysInJalaliMonth(year, month);
+      if (len !== 30) return;
+
+      var grid = cal.querySelector('.kh-jdp-grid');
+      if (!grid || grid.querySelector('[data-d="30"]')) return;
+
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'kh-jdp-day';
+      button.dataset.d = '30';
+      button.textContent = '۳۰';
+      grid.appendChild(button);
+    });
+  }
+
+  new MutationObserver(repair).observe(document.documentElement, {
+    subtree: true,
+    childList: true
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', repair);
+  } else {
+    repair();
+  }
+})();
