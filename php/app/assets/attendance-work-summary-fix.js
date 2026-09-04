@@ -1,8 +1,7 @@
 /* خطیار — شاخص‌های مستقل جمعه‌کاری، تعطیل‌کاری و شب‌کاری ماهانه؛ event-driven */
 (function(){
 'use strict';
-var FA={'0':'۰','1':'۱','2':'۲','3':'۳','4':'۴','5':'۵','6':'۶','7':'۷','8':'۹'};
-FA['7']='۷';FA['8']='۸';FA['9']='۹';
+var FA={'0':'۰','1':'۱','2':'۲','3':'۳','4':'۴','5':'۵','6':'۶','7':'۷','8':'۸','9':'۹'};
 function fa(v){return String(v==null?'':v).replace(/[0-9]/g,function(d){return FA[d];});}
 function norm(v){return String(v==null?'':v).replace(/[يى]/g,'ی').replace(/[ك]/g,'ک').replace(/[\u200c\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();}
 function minOf(v){if(v==null||v==='')return 0;if(typeof v==='number')return Math.max(0,v);var s=String(v).trim();if(/^\d+:\d{1,2}$/.test(s)){var p=s.split(':');return(+p[0]*60)+(+p[1]);}var n=parseInt(s.replace(/[^0-9-]/g,''),10);return isFinite(n)?Math.max(0,n):0;}
