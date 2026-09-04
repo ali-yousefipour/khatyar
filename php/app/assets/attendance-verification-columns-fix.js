@@ -1,103 +1,30 @@
-/* خطیار — صحت‌سنجی حضور: حذف ستون تاریخ، تغییر عنوان و یکدست‌سازی اعداد تاریخ/زمان */
+/* خطیار — صحت‌سنجی حضور: اصلاح ستون‌ها بدون observer دائمی */
 (function(){
   'use strict';
-
   var FA_DIGITS='۰۱۲۳۴۵۶۷۸۹';
-  function faDigits(v){
-    return String(v==null?'':v).replace(/[0-9]/g,function(d){return FA_DIGITS[d];});
-  }
-
-  function norm(v){
-    return String(v||'')
-      .replace(/[يى]/g,'ی')
-      .replace(/[ك]/g,'ک')
-      .replace(/[\u200c\u200e\u200f]/g,'')
-      .replace(/\s+/g,' ')
-      .trim();
-  }
-
-  function findRegisteredCell(table){
-    var headerRow=table.tHead && table.tHead.rows[0];
-    if(!headerRow) headerRow=table.querySelector('thead tr');
-    if(!headerRow) return -1;
-    var headers=Array.from(headerRow.cells).map(function(cell){return norm(cell.textContent);});
-    return headers.findIndex(function(h){return h==='تاریخ و زمان انجام' || h==='زمان ثبت (تهران)' || h==='زمان ثبت تهران';});
-  }
-
-  function normalizeRegisteredColumn(table,index){
-    if(index<0) return;
-    Array.from(table.rows).forEach(function(row){
-      var cell=row.cells[index];
-      if(!cell) return;
-      if(row.parentElement && row.parentElement.tagName==='THEAD'){
-        cell.textContent='تاریخ و زمان انجام';
-        return;
-      }
-      // فقط ستون «تاریخ و زمان انجام» تبدیل می‌شود؛ مختصات نقشه و سایر اعداد نباید تغییر کنند.
-      cell.textContent=faDigits(cell.textContent);
-    });
-  }
-
+  function faDigits(v){return String(v==null?'':v).replace(/[0-9]/g,function(d){return FA_DIGITS[d];});}
+  function norm(v){return String(v||'').replace(/[يى]/g,'ی').replace(/[ك]/g,'ک').replace(/[\u200c\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();}
+  function findTable(){return Array.from(document.querySelectorAll('table')).find(function(t){var h=norm(t.innerText||'');return / نیرو|نام نیرو/.test(h)&&/موقعیت/.test(h)&&/تصاویر/.test(h)&&/تاریخ و زمان انجام|زمان ثبت/.test(h);});}
   function fixTable(table){
-    if(!table) return false;
-    var headerRow=table.tHead && table.tHead.rows[0];
-    if(!headerRow) headerRow=table.querySelector('thead tr');
-    if(!headerRow) return false;
-
-    var headers=Array.from(headerRow.cells).map(function(cell){return norm(cell.textContent);});
+    if(!table)return false;
+    var headerRow=table.tHead&&table.tHead.rows[0]||table.querySelector('thead tr');
+    if(!headerRow)return false;
+    var headers=Array.from(headerRow.cells).map(function(c){return norm(c.textContent);});
     var dateIndex=headers.findIndex(function(h){return h==='تاریخ';});
-    var registeredIndex=headers.findIndex(function(h){return h==='تاریخ و زمان انجام' || h==='زمان ثبت (تهران)' || h==='زمان ثبت تهران';});
-    var locationIndex=headers.findIndex(function(h){return h==='موقعیت' || h.indexOf('موقعیت')===0;});
-    var imagesIndex=headers.findIndex(function(h){return h==='تصاویر' || h.indexOf('تصاویر')===0;});
-    var personnelIndex=headers.findIndex(function(h){return h==='نیرو' || h==='نام نیرو';});
-
-    if(personnelIndex<0 || locationIndex<0 || imagesIndex<0 || registeredIndex<0) return false;
-
-    if(dateIndex>=0){
-      Array.from(table.rows).forEach(function(row){
-        if(row.cells[dateIndex]) row.deleteCell(dateIndex);
-      });
-      if(registeredIndex>dateIndex) registeredIndex--;
-    }
-
-    var newHeader=table.tHead && table.tHead.rows[0] || table.querySelector('thead tr');
-    if(newHeader && newHeader.cells[registeredIndex]){
-      newHeader.cells[registeredIndex].textContent='تاریخ و زمان انجام';
-    }
-
-    normalizeRegisteredColumn(table,registeredIndex);
+    var registeredIndex=headers.findIndex(function(h){return h==='تاریخ و زمان انجام'||h==='زمان ثبت (تهران)'||h==='زمان ثبت تهران';});
+    var locationIndex=headers.findIndex(function(h){return h==='موقعیت'||h.indexOf('موقعیت')===0;});
+    var imagesIndex=headers.findIndex(function(h){return h==='تصاویر'||h.indexOf('تصاویر')===0;});
+    var personnelIndex=headers.findIndex(function(h){return h==='نیرو'||h==='نام نیرو';});
+    if(personnelIndex<0||locationIndex<0||imagesIndex<0||registeredIndex<0)return false;
+    if(dateIndex>=0){Array.from(table.rows).forEach(function(row){if(row.cells[dateIndex])row.deleteCell(dateIndex);});if(registeredIndex>dateIndex)registeredIndex--;}
+    var h2=table.tHead&&table.tHead.rows[0]||table.querySelector('thead tr');
+    if(h2&&h2.cells[registeredIndex])h2.cells[registeredIndex].textContent='تاریخ و زمان انجام';
+    Array.from(table.rows).forEach(function(row){var cell=row.cells[registeredIndex];if(!cell)return;if(row.parentElement&&row.parentElement.tagName==='THEAD')cell.textContent='تاریخ و زمان انجام';else cell.textContent=faDigits(cell.textContent);});
     table.dataset.khatyarVerificationColumnsFixed='1';
-    table.dataset.khatyarVerificationRegisteredIndex=String(registeredIndex);
     return true;
   }
-
-  function resync(table){
-    if(!table) return;
-    var index=Number(table.dataset.khatyarVerificationRegisteredIndex);
-    if(!Number.isInteger(index) || index<0) index=findRegisteredCell(table);
-    if(index>=0) normalizeRegisteredColumn(table,index);
-  }
-
-  function scan(root){
-    var tables=Array.from((root||document).querySelectorAll('table'));
-    tables.forEach(function(table){
-      if(!fixTable(table)) resync(table);
-    });
-  }
-
-  function start(){
-    scan(document);
-    var target=document.querySelector('#root')||document.body;
-    if(!target) return;
-    var queued=false;
-    var observer=new MutationObserver(function(){
-      if(queued) return;
-      queued=true;
-      requestAnimationFrame(function(){queued=false;scan(target);});
-    });
-    observer.observe(target,{childList:true,subtree:true,characterData:true});
-  }
-
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true});
-  else setTimeout(start,0);
+  function start(){var tries=0,max=8;function run(){var t=findTable();if(fixTable(t)||tries++>=max)return;setTimeout(run,250);}run();}
+  function rerun(){setTimeout(function(){var t=findTable();if(t&&!t.dataset.khatyarVerificationColumnsFixed)fixTable(t);},0);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+  window.addEventListener('khatyar:attendance-report-updated',rerun);
 })();
