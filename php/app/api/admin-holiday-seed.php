@@ -21,15 +21,11 @@ try{
  $stage='آماده‌سازی جدول تعطیلات';hs_ensure_table();
  $stage='دریافت تعطیلات رسمی سال '.$y;$events=IranCalendar::events($y);$official=[];foreach($events as $j=>$e)if(!empty($e['is_holiday']))$official[$j]=trim((string)($e['title']??'تعطیل رسمی'));if(!$official)hs_json(['ok'=>false,'error'=>'فهرست تعطیلات رسمی برای این سال موجود نیست','year'=>$y],422);
  $cols=hs_cols();$sourceCol=!empty($cols['source'])?'source':null;$officialCol=!empty($cols['is_official'])?'is_official':(!empty($cols['official'])?'official':null);
- $stage='جایگزینی تعطیلات رسمی سال '.$y;Db::query('START TRANSACTION');
- try{
-  $where=[];$params=[];
-  if($sourceCol){$where[]='source=?';$params[]='official';}
-  if($officialCol){$where[]=($officialCol==='official'?'`official`':'`is_official`').'=?';$params[]=1;}
-  if($where){$whereSql='('.implode(' OR ',$where).') AND (jdate LIKE ? OR jdate LIKE ?)';$params[]=$y.'-%';$params[]=$y.'/%';$removed=(int)Db::exec('DELETE FROM holidays WHERE '.$whereSql,$params);}else{$removed=(int)Db::exec('DELETE FROM holidays WHERE (jdate LIKE ? OR jdate LIKE ?)',[$y.'-%',$y.'/%']);}
-  $inserted=0;$details=[];
-  foreach($official as $j=>$title){$fields=['jdate','title'];$vals=[$j,$title];if($sourceCol){$fields[]=$sourceCol;$vals[]='official';}if($officialCol){$fields[]=$officialCol;$vals[]=1;}$qs=implode(',',array_fill(0,count($vals),'?'));Db::query('INSERT INTO holidays (`'.implode('`,`',$fields).'`) VALUES ('.$qs.')',$vals);$inserted++;$details[]=['jdate'=>$j,'status'=>'inserted','title'=>$title];}
-  Db::query('COMMIT');
- }catch(Throwable $tx){try{Db::query('ROLLBACK');}catch(Throwable $ignore){}throw $tx;}
+ $stage='حذف تعطیلات رسمی قبلی سال '.$y;$where=[];$params=[];
+ if($sourceCol){$where[]='`source`=?';$params[]='official';}
+ if($officialCol){$where[]='`'.($officialCol==='official'?'official':'is_official').'`=?';$params[]=1;}
+ if($where){$whereSql='('.implode(' OR ',$where).') AND (jdate LIKE ? OR jdate LIKE ?)';$params[]=$y.'-%';$params[]=$y.'/%';$removed=(int)Db::exec('DELETE FROM holidays WHERE '.$whereSql,$params);}else{$removed=(int)Db::exec('DELETE FROM holidays WHERE (jdate LIKE ? OR jdate LIKE ?)',[$y.'-%',$y.'/%']);}
+ $stage='درج تعطیلات رسمی جدید سال '.$y;$inserted=0;$details=[];
+ foreach($official as $j=>$title){$fields=['jdate','title'];$vals=[$j,$title];if($sourceCol){$fields[]=$sourceCol;$vals[]='official';}if($officialCol){$fields[]=$officialCol;$vals[]=1;}$qs=implode(',',array_fill(0,count($vals),'?'));Db::query('INSERT INTO holidays (`'.implode('`,`',$fields).'`) VALUES ('.$qs.')',$vals);$inserted++;$details[]=['jdate'=>$j,'status'=>'inserted','title'=>$title];}
  hs_json(['ok'=>true,'year'=>$y,'total'=>count($official),'inserted'=>$inserted,'updated'=>0,'existing'=>0,'replaced'=>$removed,'details'=>$details]);
 }catch(Throwable $e){error_log('admin-holiday-seed: stage='.$stage.' '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());$detail=$e->getMessage();if($detail==='')$detail=get_class($e);hs_json(['ok'=>false,'error'=>'خطای داخلی در بررسی و جایگزینی تعطیلات رسمی','stage'=>$stage,'detail'=>$detail],500);}
