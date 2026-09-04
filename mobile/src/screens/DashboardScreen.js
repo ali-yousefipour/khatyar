@@ -31,7 +31,7 @@ export default function DashboardScreen({ navigation }) {
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const cols = width >= 760 ? 4 : width >= 540 ? 3 : 2;
-  const cardW = `${100 / cols - 2}%`;
+  const cardW = `${100 / cols - 3}%`;
   const [stats, setStats] = useState({ today: 0, checklists: 0, notices: 0, reports: 0, unread: 0 });
   const [myStats, setMyStats] = useState({ drivers: 0, vehicles: 0 });
   const [allowed, setAllowed] = useState(null);
@@ -78,13 +78,51 @@ export default function DashboardScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: C.paper }, pageContent: { paddingBottom: 24 }, rtlRoot: { width: '100%', alignSelf: 'stretch' },
-  syncBanner: { backgroundColor: '#1b3a6b', padding: 10 }, syncText: { color: '#fff', fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
-  headerBar: { height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', width: 214 }, headerActions: { height: 44, flexDirection: 'row', alignItems: 'center' }, headerIcon: { width: 34, height: 44, alignItems: 'center', justifyContent: 'center' }, headerIconText: { color: '#fff', fontSize: 18, textAlign: 'center' }, headerMenuButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }, headerMenuText: { color: '#fff', fontSize: 24, textAlign: 'center' },
-  bellWrap: { width: 34, height: 40, alignItems: 'center', justifyContent: 'center', position: 'relative' }, unreadBadge: { position: 'absolute', top: -2, right: -3, minWidth: 19, height: 19, paddingHorizontal: 4, borderRadius: 10, backgroundColor: '#e53935', borderWidth: 2, borderColor: C.brand, alignItems: 'center', justifyContent: 'center' }, unreadBadgeText: { color: '#fff', fontFamily: FONT.bold, fontSize: 8, lineHeight: 10, textAlign: 'center' },
-  top: { backgroundColor: C.brand, padding: 20, paddingTop: 28, paddingBottom: 22, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, flexDirection: 'row-reverse', alignItems: 'center' }, topInfo: { flex: 1, minWidth: 0, alignSelf: 'stretch', alignItems: 'flex-end' }, hi: { width: '100%', color: '#fff', opacity: 0.85, fontFamily: FONT.regular, textAlign: 'right', writingDirection: 'rtl', fontSize: 13 }, nameRow: { width: '100%', flexDirection: 'row-reverse', alignItems: 'center' }, nm: { flex: 1, color: '#fff', fontFamily: FONT.bold, fontSize: 19, textAlign: 'right', writingDirection: 'rtl' }, stars: { color: '#ffd24a', fontSize: 15, textAlign: 'right', writingDirection: 'rtl', marginLeft: 6 }, todayTxt: { width: '100%', color: '#fff', opacity: 0.9, fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', writingDirection: 'rtl', marginTop: 4 }, avatar: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: 'rgba(255,255,255,.6)', marginLeft: 12 }, avatarPh: { width: 74, height: 74, borderRadius: 37, backgroundColor: 'rgba(255,255,255,.25)', alignItems: 'center', justifyContent: 'center', marginLeft: 12 }, avatarTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 28 }, roleChip: { alignSelf: 'flex-end', backgroundColor: 'rgba(255,255,255,.18)', borderRadius: 8, paddingVertical: 3, paddingHorizontal: 10, marginTop: 8 }, roleTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
-  kpis: { flexDirection: 'row-reverse', flexWrap: 'wrap', paddingHorizontal: 12, paddingTop: 14 }, kpi: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, padding: 14, marginLeft: 5, marginRight: 5, marginBottom: 10 }, kpiN: { fontFamily: FONT.bold, fontSize: 22, color: C.brand, textAlign: 'right', writingDirection: 'rtl' }, kpiL: { fontFamily: FONT.regular, fontSize: 12, color: C.muted, textAlign: 'right', writingDirection: 'rtl', marginTop: 2 },
-  sectionTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 15, textAlign: 'right', writingDirection: 'rtl', marginHorizontal: 16, marginTop: 18, marginBottom: 8 }, menuTabs: { paddingHorizontal: 12, paddingBottom: 10, flexDirection: 'row-reverse' }, menuTab: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginLeft: 4, marginRight: 4 }, menuTabOn: { backgroundColor: C.brand, borderColor: C.brand }, menuTabTxt: { fontFamily: FONT.bold, color: C.muted, fontSize: 12, textAlign: 'center', writingDirection: 'rtl' }, menuTabTxtOn: { color: '#fff' },
-  grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', paddingHorizontal: 12 }, card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, padding: 14, marginLeft: 5, marginRight: 5, marginBottom: 10 }, iconWrap: { width: 44, height: 44, borderRadius: 13, alignSelf: 'flex-end', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }, icon3d: { width: 46, height: 46 }, glyph: { fontSize: 30, textAlign: 'center' }, cardTxtWrap: { width: '100%', alignItems: 'flex-end' }, cardTxt: { width: '100%', fontFamily: FONT.bold, color: C.ink, textAlign: 'right', writingDirection: 'rtl', fontSize: 13, lineHeight: 20 },
-  popBg: { flex: 1, backgroundColor: 'rgba(11,27,46,.55)', alignItems: 'center', justifyContent: 'center', padding: 24 }, popCard: { backgroundColor: '#fff', borderRadius: 18, padding: 20, width: '100%', maxWidth: 360 }, popBtn: { backgroundColor: C.brand, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 16 }, popBtnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 14, textAlign: 'center', writingDirection: 'rtl' }
+  page: { flex: 1, backgroundColor: C.paper, direction: 'rtl' },
+  pageContent: { paddingBottom: 24 },
+  rtlRoot: { width: '100%', alignSelf: 'stretch', direction: 'rtl' },
+  syncBanner: { backgroundColor: '#1b3a6b', padding: 10, alignItems: 'stretch' },
+  syncText: { color: '#fff', fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
+  headerBar: { height: 44, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', width: 250 },
+  headerActions: { height: 44, flexDirection: 'row-reverse', alignItems: 'center' },
+  headerIcon: { width: 36, height: 44, alignItems: 'center', justifyContent: 'center' },
+  headerIconText: { color: '#fff', fontSize: 18, textAlign: 'center', writingDirection: 'ltr' },
+  headerMenuButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  headerMenuText: { color: '#fff', fontSize: 24, textAlign: 'center', writingDirection: 'ltr' },
+  bellWrap: { width: 34, height: 40, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  unreadBadge: { position: 'absolute', top: -2, right: -3, minWidth: 19, height: 19, paddingHorizontal: 4, borderRadius: 10, backgroundColor: '#e53935', borderWidth: 2, borderColor: C.brand, alignItems: 'center', justifyContent: 'center' },
+  unreadBadgeText: { color: '#fff', fontFamily: FONT.bold, fontSize: 8, lineHeight: 10, textAlign: 'center', writingDirection: 'rtl' },
+  top: { backgroundColor: C.brand, padding: 20, paddingTop: 28, paddingBottom: 22, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, flexDirection: 'row-reverse', alignItems: 'center' },
+  topInfo: { flex: 1, minWidth: 0, alignSelf: 'stretch', alignItems: 'flex-end' },
+  hi: { width: '100%', color: '#fff', opacity: 0.85, fontFamily: FONT.regular, textAlign: 'right', writingDirection: 'rtl', fontSize: 13 },
+  nameRow: { width: '100%', flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'flex-start' },
+  nm: { flex: 1, color: '#fff', fontFamily: FONT.bold, fontSize: 19, textAlign: 'right', writingDirection: 'rtl' },
+  stars: { color: '#ffd24a', fontSize: 15, textAlign: 'right', writingDirection: 'rtl', marginLeft: 6 },
+  todayTxt: { width: '100%', color: '#fff', opacity: 0.9, fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', writingDirection: 'rtl', marginTop: 4 },
+  avatar: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: 'rgba(255,255,255,.6)', marginLeft: 12 },
+  avatarPh: { width: 74, height: 74, borderRadius: 37, backgroundColor: 'rgba(255,255,255,.25)', alignItems: 'center', justifyContent: 'center', marginLeft: 12 },
+  avatarTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 28, textAlign: 'center', writingDirection: 'rtl' },
+  roleChip: { alignSelf: 'flex-end', backgroundColor: 'rgba(255,255,255,.18)', borderRadius: 8, paddingVertical: 3, paddingHorizontal: 10, marginTop: 8 },
+  roleTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
+  kpis: { flexDirection: 'row-reverse', flexWrap: 'wrap', paddingHorizontal: 12, paddingTop: 14, justifyContent: 'space-between' },
+  kpi: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 10, minHeight: 78, justifyContent: 'center' },
+  kpiN: { fontFamily: FONT.bold, fontSize: 22, color: C.brand, textAlign: 'right', writingDirection: 'rtl' },
+  kpiL: { fontFamily: FONT.regular, fontSize: 12, color: C.muted, textAlign: 'right', writingDirection: 'rtl', marginTop: 2 },
+  sectionTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 15, textAlign: 'right', writingDirection: 'rtl', marginHorizontal: 16, marginTop: 18, marginBottom: 8 },
+  menuTabs: { paddingHorizontal: 12, paddingBottom: 10, flexDirection: 'row-reverse' },
+  menuTab: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginLeft: 4, marginRight: 4 },
+  menuTabOn: { backgroundColor: C.brand, borderColor: C.brand },
+  menuTabTxt: { fontFamily: FONT.bold, color: C.muted, fontSize: 12, textAlign: 'center', writingDirection: 'rtl' },
+  menuTabTxtOn: { color: '#fff' },
+  grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', paddingHorizontal: 12, justifyContent: 'space-between' },
+  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 10, minHeight: 118, justifyContent: 'space-between' },
+  iconWrap: { width: 46, height: 46, borderRadius: 13, alignSelf: 'flex-end', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  icon3d: { width: 46, height: 46 },
+  glyph: { fontSize: 30, textAlign: 'center', writingDirection: 'ltr' },
+  cardTxtWrap: { width: '100%', alignItems: 'flex-end', justifyContent: 'flex-end', minHeight: 40 },
+  cardTxt: { width: '100%', fontFamily: FONT.bold, color: C.ink, textAlign: 'right', writingDirection: 'rtl', fontSize: 13, lineHeight: 20 },
+  popBg: { flex: 1, backgroundColor: 'rgba(11,27,46,.55)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  popCard: { backgroundColor: '#fff', borderRadius: 18, padding: 20, width: '100%', maxWidth: 360 },
+  popBtn: { backgroundColor: C.brand, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 16 },
+  popBtnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 14, textAlign: 'center', writingDirection: 'rtl' },
 });
