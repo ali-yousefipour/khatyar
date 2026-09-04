@@ -26,7 +26,11 @@ function normRole(value) {
 
 function roleAllowsVehicle(role) {
   const r = normRole(role);
-  return r.includes('گشت خودرویی') || r.includes('گشت موتوری') || r.includes('سربازرس');
+  if (r.includes('گشت موتوری')) return true;
+  if (r.includes('گشت خودرویی')) return true;
+  if (r.includes('سربازرس')) return true;
+  if (r.includes('بازرس')) return true;
+  return false;
 }
 
 export default function DrawerMenuScreen({ navigation }) {
@@ -41,9 +45,10 @@ export default function DrawerMenuScreen({ navigation }) {
     return () => { active = false; };
   }, [user?.id, user?.role]);
 
-  const roleVehicle = roleAllowsVehicle(user?.role || user?.role_title);
+  const role = normRole(user?.role || user?.role_title);
+  const roleVehicle = roleAllowsVehicle(role);
   const vehicleAllowed = access?.allowed === true || roleVehicle;
-  const assetType = access?.asset_type || (normRole(user?.role || user?.role_title).includes('گشت موتوری') ? 'motorcycle' : 'car');
+  const assetType = access?.asset_type || (role.includes('گشت موتوری') ? 'motorcycle' : 'car');
 
   const go = (screen) => {
     try { navigation?.navigate?.('Main', { screen }); } catch (_) {}
