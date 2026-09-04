@@ -1,116 +1,30 @@
 <?php
-/* خطیار — تقویم رسمی ایران
- * منبع اصلی تشخیص تعطیلات: تقویم رسمی کشور.
- * جدول holidays فقط برای تعطیلات دستی سازمان است و با تقویم رسمی ادغام می‌شود.
+/* خطیار — تقویم پویا ایران
+ * تعطیلات/مناسبت‌های هر سال از Time.ir به‌صورت خودکار دریافت و در کش محلی ذخیره می‌شوند.
+ * تعطیلات دستی جدول holidays با داده رسمی ادغام می‌شوند. روز هفته الگوریتمی است.
  */
-class IranCalendar
-{
-    private static $years = [
-        1405 => [
-            '01-01'=>'نوروز و تعطیل عید فطر',
-            '01-02'=>'عید نوروز',
-            '01-03'=>'عید نوروز',
-            '01-04'=>'عید نوروز',
-            '01-12'=>'روز جمهوری اسلامی ایران',
-            '01-13'=>'روز طبیعت',
-            '01-24'=>'شهادت امام جعفر صادق (ع)',
-            '03-03'=>'شهادت امام محمد باقر (ع)',
-            '03-06'=>'عید سعید قربان',
-            '03-14'=>'رحلت حضرت امام خمینی (ره) و عید سعید غدیر خم',
-            '03-15'=>'قیام ۱۵ خرداد',
-            '04-03'=>'تاسوعای حسینی',
-            '04-04'=>'عاشورای حسینی',
-            '05-13'=>'اربعین حسینی',
-            '05-21'=>'رحلت حضرت رسول اکرم (ص) و شهادت امام حسن مجتبی (ع)',
-            '05-22'=>'شهادت امام رضا (ع)',
-            '05-30'=>'شهادت امام حسن عسکری (ع) و آغاز امامت حضرت ولیعصر (عج)',
-            '06-08'=>'ولادت حضرت رسول اکرم (ص) و ولادت امام جعفر صادق (ع)',
-            '08-22'=>'شهادت حضرت فاطمه زهرا (س)',
-            '10-02'=>'ولادت حضرت امام علی (ع) و روز پدر',
-            '10-16'=>'مبعث حضرت رسول اکرم (ص)',
-            '11-04'=>'ولادت حضرت قائم (عج) و نیمه شعبان',
-            '11-22'=>'پیروزی انقلاب اسلامی ایران',
-            '12-09'=>'شهادت حضرت علی (ع)',
-            '12-19'=>'عید سعید فطر',
-            '12-20'=>'تعطیل به مناسبت عید سعید فطر',
-            '12-29'=>'روز ملی شدن صنعت نفت ایران',
-        ],
-    ];
-
-    public static function normalize($jdate)
-    {
-        $s = trim(strtr((string)$jdate, ['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9','٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9']));
-        $s = str_replace(['/', '.'], '-', $s);
-        if (!preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $s, $m)) return null;
-        return sprintf('%04d-%02d-%02d', (int)$m[1], (int)$m[2], (int)$m[3]);
-    }
-
-    public static function isOfficialHoliday($jdate)
-    {
-        $d = self::normalize($jdate);
-        if (!$d) return false;
-        [$y,$m,$day] = array_map('intval', explode('-', $d));
-        return isset(self::$years[$y][sprintf('%02d-%02d',$m,$day)]);
-    }
-
-    public static function title($jdate)
-    {
-        $d = self::normalize($jdate);
-        if (!$d) return null;
-        [$y,$m,$day] = array_map('intval', explode('-', $d));
-        return self::$years[$y][sprintf('%02d-%02d',$m,$day)] ?? null;
-    }
-
-    public static function manualTitle($jdate)
-    {
-        $d = self::normalize($jdate);
-        if (!$d || !class_exists('Db')) return null;
-        try {
-            $r = Db::one("SELECT title FROM holidays WHERE jdate IN (?,?) LIMIT 1", [$d, str_replace('-','/',$d)]);
-            return $r && array_key_exists('title',$r) ? trim((string)$r['title']) : null;
-        } catch (Throwable $e) { return null; }
-    }
-
-    public static function isManualHoliday($jdate)
-    {
-        return self::manualTitle($jdate) !== null;
-    }
-
-    public static function holidays($year)
-    {
-        $year = (int)$year;
-        $out = [];
-        foreach (self::$years[$year] ?? [] as $md=>$title) $out[$year.'-'.$md] = $title;
-        if (class_exists('Db')) {
-            try {
-                $prefix = sprintf('%04d-', $year);
-                $rows = Db::all("SELECT jdate,title FROM holidays WHERE jdate LIKE ? ORDER BY jdate", [$prefix.'%']);
-                foreach ($rows as $r) {
-                    $d = self::normalize($r['jdate'] ?? '');
-                    if (!$d) continue;
-                    $out[$d] = trim((string)($r['title'] ?? '')) ?: ($out[$d] ?? 'تعطیل دستی');
-                }
-            } catch (Throwable $e) {}
-        }
-        ksort($out);
-        return $out;
-    }
-
-    public static function day($jdate)
-    {
-        $d = self::normalize($jdate);
-        if (!$d) return ['is_official_holiday'=>false,'is_manual_holiday'=>false,'is_holiday'=>false,'title'=>null,'source'=>null];
-        $official = self::isOfficialHoliday($d);
-        $officialTitle = self::title($d);
-        $manualTitle = self::manualTitle($d);
-        $manual = ($manualTitle !== null);
-        $titles = array_values(array_filter([$officialTitle, $manualTitle]));
-        return [
-            'is_official_holiday'=>$official,
-            'is_manual_holiday'=>$manual,
-            'is_holiday'=>($official || $manual),
-            'title'=>implode(' | ', array_unique($titles)) ?: null,
-            'source'=>$official && $manual ? 'official+manual' : ($official ? 'official' : ($manual ? 'manual' : null)),
-        ];
-    }
+class IranCalendar {
+    private const ENDPOINT='https://api.time.ir/v1/event/fa/events/calendar';
+    private static $cache=[];
+    private static $wd=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
+    private static function env($n,$d=null){$v=getenv($n);return $v===false||trim((string)$v)===''?$d:trim((string)$v);}
+    public static function normalize($x){$x=trim(strtr((string)$x,['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9','٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9']));$x=str_replace(['/','.'],'-',$x);if(!preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/',$x,$m))return null;$y=(int)$m[1];$mo=(int)$m[2];$d=(int)$m[3];if($mo<1||$mo>12||$d<1||$d>self::monthLength($y,$mo))return null;return sprintf('%04d-%02d-%02d',$y,$mo,$d);}
+    private static function leap($y){return in_array($y%33,[1,5,9,13,17,22,26,30],true);}
+    public static function monthLength($y,$m){return $m<=6?31:($m<=11?30:(self::leap($y)?30:29));}
+    public static function toGregorian($jy,$jm,$jd){$j=$jy-979;$m=$jm-1;$n=365*$j+intdiv($j,33)*8+intdiv(($j%33)+3,4)+($m<6?$m*31:$m*30+6)+$jd-1+79;$gy=1600+400*intdiv($n,146097);$n%=146097;$lp=true;if($n>=36525){$n--;$gy+=100*intdiv($n,36524);$n%=36524;if($n>=365)$n++;else$lp=false;}$gy+=4*intdiv($n,1461);$n%=1461;if($n>=366){$lp=false;$n--;$gy+=intdiv($n,365);$n%=365;}$gd=$n+1;$md=[31,$lp?29:28,31,30,31,30,31,31,30,31,30,31];$gm=1;foreach($md as $z){if($gd<=$z)break;$gd-=$z;$gm++;}return[$gy,$gm,$gd];}
+    public static function weekdayIndex($j){$j=self::normalize($j);if(!$j)return null;[$y,$m,$d]=array_map('intval',explode('-',$j));[$gy,$gm,$gd]=self::toGregorian($y,$m,$d);return((int)date('w',mktime(12,0,0,$gm,$gd,$gy))+1)%7;}
+    public static function weekday($j){$i=self::weekdayIndex($j);return$i===null?null:self::$wd[$i];}
+    private static function file($y){$d=__DIR__.'/../cache/calendar';if(!is_dir($d))@mkdir($d,0775,true);return$d.'/'.$y.'.json';}
+    private static function json($url){$t=(int)self::env('KHATYAR_CALENDAR_TIMEOUT',8);$key=self::env('TIME_IR_API_KEY',self::env('KHATYAR_TIME_IR_API_KEY',null));$h=['Accept: application/json','User-Agent: KhatYar-Calendar/1.0'];if($key)$h[]='X-API-Key: '.$key;if(function_exists('curl_init')){$c=curl_init($url);curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>1,CURLOPT_FOLLOWLOCATION=>1,CURLOPT_CONNECTTIMEOUT=>$t,CURLOPT_TIMEOUT=>$t,CURLOPT_HTTPHEADER=>$h,CURLOPT_SSL_VERIFYPEER=>1,CURLOPT_SSL_VERIFYHOST=>2]);$b=curl_exec($c);$s=(int)curl_getinfo($c,CURLINFO_HTTP_CODE);curl_close($c);if($b!==false&&$s>=200&&$s<300){$j=json_decode($b,true);if(is_array($j))return$j;}}return null;}
+    private static function title($e){foreach(['title','event_name','eventName','text','description','occasion','name']as$k)if(isset($e[$k])&&is_scalar($e[$k])&&trim((string)$e[$k])!=='')return trim((string)$e[$k]);return'مناسبت';}
+    private static function dateOf($e,$y){foreach(['jDate','jdate','jalali_date','date','persian_date']as$k){if(!isset($e[$k]))continue;$v=$e[$k];if(is_array($v)){if(isset($v['date']))$v=$v['date'];elseif(isset($v['year'],$v['month'],$v['day']))$v=sprintf('%04d-%02d-%02d',$v['year'],$v['month'],$v['day']);elseif(isset($v[0],$v[1],$v[2]))$v=implode('-',$v);} $d=self::normalize($v);if($d&&(int)substr($d,0,4)===$y)return$d;}return null;}
+    private static function isHoliday($e){foreach(['isHoliday','is_holiday','holiday']as$k)if(array_key_exists($k,$e)){if(is_bool($e[$k]))return$e[$k];return in_array(strtolower(trim((string)$e[$k])),['1','true','yes','holiday','تعطیل'],true);}return mb_strpos(mb_strtolower(self::title($e),'UTF-8'),'تعطیل')!==false;}
+    private static function walk($x,$y,&$out){if(!is_array($x))return;if(isset($x['events'])&&is_array($x['events']))foreach($x['events']as$e)self::walk($e,$y,$out);$d=self::dateOf($x,$y);if($d)$out[$d.'|'.self::title($x)]=['jdate'=>$d,'title'=>self::title($x),'is_holiday'=>self::isHoliday($x),'source'=>'official'];foreach($x as$v)if(is_array($v))self::walk($v,$y,$out);}
+    public static function syncYear($y,$force=false){$y=(int)$y;$f=self::file($y);$c=self::$cache[$y]??(is_file($f)?json_decode((string)@file_get_contents($f),true):null);if(!$force&&is_array($c)&&isset($c['synced_at'])&&time()-strtotime($c['synced_at'])<86400){self::$cache[$y]=$c;return true;}$ep=self::env('KHATYAR_CALENDAR_ENDPOINT',self::ENDPOINT);$sep=strpos($ep,'?')===false?'?':'&';$all=[];foreach(range(0,12)as$m){$j=self::json($ep.$sep.'year='.$y.($m?'&month='.$m:''));if($j)self::walk($j,$y,$all);if(count($all)>15&&$m>0)break;}if(!$all&&$c){self::$cache[$y]=$c;return true;}if(!$all)return false;$c=['year'=>$y,'source'=>'official','synced_at'=>date('c'),'events'=>array_values($all)];@file_put_contents($f,json_encode($c,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);self::$cache[$y]=$c;return true;}
+    public static function events($y,$force=false){$y=(int)$y;self::syncYear($y,$force);$c=self::$cache[$y]??null;$days=[];for($m=1;$m<=12;$m++)for($d=1;$d<=self::monthLength($y,$m);$d++){ $j=sprintf('%04d-%02d-%02d',$y,$m,$d);$days[$j]=['jdate'=>$j,'weekday_index'=>self::weekdayIndex($j),'weekday'=>self::weekday($j),'is_holiday'=>false,'title'=>null,'source'=>'calculated'];}foreach(($c['events']??[])as$e){$j=self::normalize($e['jdate']??'');if(!$j||!isset($days[$j]))continue;if(!empty($e['is_holiday']))$days[$j]['is_holiday']=true;$days[$j]['title']=$days[$j]['title']?($days[$j]['title'].' | '.$e['title']):$e['title'];$days[$j]['source']=$e['source']??'official';}return$days;}
+    public static function manualTitle($j){$j=self::normalize($j);if(!$j||!class_exists('Db'))return null;try{$r=Db::one('SELECT title FROM holidays WHERE jdate IN (?,?) LIMIT 1',[$j,str_replace('-','/',$j)]);return$r&&array_key_exists('title',$r)?trim((string)$r['title']):null;}catch(Throwable$e){return null;}}
+    public static function isManualHoliday($j){return self::manualTitle($j)!==null;}
+    public static function holidays($y){$o=[];foreach(self::events($y)as$j=>$e){$m=self::manualTitle($j);if(!empty($e['is_holiday'])||$m!==null)$o[$j]=implode(' | ',array_unique(array_filter([$e['title']??null,$m])))?:'تعطیل';}ksort($o);return$o;}
+    public static function isOfficialHoliday($j){return!empty(self::day($j)['is_official_holiday']);}
+    public static function day($j){$j=self::normalize($j);if(!$j)return['is_official_holiday'=>false,'is_manual_holiday'=>false,'is_holiday'=>false,'title'=>null,'source'=>null,'weekday'=>null,'weekday_index'=>null];$e=self::events((int)substr($j,0,4))[$j]??[];$m=self::manualTitle($j);$of=!empty($e['is_holiday']);$man=$m!==null;$t=array_filter([$e['title']??null,$m]);return['is_official_holiday'=>$of,'is_manual_holiday'=>$man,'is_holiday'=>$of||$man,'title'=>implode(' | ',array_unique($t))?:null,'source'=>$of&&$man?'official+manual':($of?($e['source']??'official'):($man?'manual':null)),'weekday'=>$e['weekday']??self::weekday($j),'weekday_index'=>$e['weekday_index']??self::weekdayIndex($j)];}
 }
