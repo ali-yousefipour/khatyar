@@ -3,6 +3,9 @@ RewriteEngine On
 RewriteCond %{HTTP:Authorization} .
 RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+# Web App is served through app-shell.php so Android/Web parity screens are injected without rewriting app.html.
+RewriteRule ^app\.html$ app-shell.php [QSA,L,NC]
+
 RewriteRule ^api/admin/role-app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
 RewriteRule ^api/my/app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
 RewriteRule ^api/radio-api\.php$ radio-api-v2.php [QSA,L,NC]
