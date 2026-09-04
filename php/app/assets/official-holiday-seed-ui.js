@@ -1,11 +1,34 @@
-/* خطیار — اتصال دکمه‌های درج تعطیلات رسمی به منبع مرجع واحد */
-(function(){'use strict';
+/* خطیار — بررسی و جایگزینی تعطیلات رسمی سال جاری */
+(function(){
+'use strict';
 function token(){try{return localStorage.token||localStorage.access_token||localStorage.jwt||'';}catch(e){return '';}}
-function norm(s){return String(s||'').replace(/[يى]/g,'ی').replace(/[ك]/g,'ک').replace(/[۰-۹]/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d);}).replace(/[٠-٩]/g,function(d){return '٠١٢٣٤٥٦٧٨٩'.indexOf(d);}).replace(/\s+/g,' ').trim();}
 function currentJalaliYear(){var d=new Date(),gy=d.getFullYear(),gm=d.getMonth()+1,gd=d.getDate(),jy=gy-621;if(gm<3||(gm===3&&gd<21))jy--;return jy;}
-function yearFromButton(b){var t=norm(b.textContent||''),m=t.match(/(13\d{2}|14\d{2})/);return m?+m[1]:currentJalaliYear();}
-function isSeedButton(b){var t=norm(b.textContent||'');return /درج تعطیلات رسمی/.test(t)&&(/سال جاری|۱۴۰۴|۱۴۰۵|1404|1405/.test(t));}
-async function seed(b){var y=yearFromButton(b),h={'Accept':'application/json'},tok=token();if(tok)h.Authorization='Bearer '+tok;b.disabled=true;var old=b.innerHTML;b.innerHTML='در حال درج تعطیلات رسمی...';try{var r=await fetch('/api/admin-holiday-seed.php?year='+y,{method:'POST',credentials:'same-origin',headers:h,cache:'no-store'}),d=await r.json().catch(function(){return{};});if(!r.ok||!d.ok)throw new Error(d.error||('HTTP '+r.status));alert('سال '+y+' — '+d.total+' تعطیل رسمی\nجدید: '+d.inserted+'\nبه‌روزرسانی: '+d.updated+'\nموجود: '+d.existing);window.dispatchEvent(new CustomEvent('khatyar:calendar-refresh',{detail:{year:y}}));setTimeout(function(){location.reload();},150);}catch(e){alert(e.message||'درج تعطیلات رسمی ناموفق بود');}finally{b.disabled=false;b.innerHTML=old;}}
-function bind(){document.querySelectorAll('button,a,[role="button"]').forEach(function(b){if(b.dataset.khHolidaySeedBound==='1'||!isSeedButton(b))return;b.dataset.khHolidaySeedBound='1';b.addEventListener('click',function(ev){ev.preventDefault();ev.stopImmediatePropagation();seed(b);},true);});}
-var ob=new MutationObserver(bind);if(document.body)ob.observe(document.body,{childList:true,subtree:true});if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
+function isOldSeedButton(b){var t=String(b.textContent||'').replace(/\s+/g,' ').trim();return /درج تعطیلات رسمی/.test(t)||(/سال جاری/.test(t)&&/تعطیلات/.test(t));}
+function removeOldButtons(){document.querySelectorAll('button,a,[role="button"]').forEach(function(b){if(isOldSeedButton(b)&&b.id!=='kh-official-holiday-check-btn')b.remove();});}
+function createButton(){
+ if(document.getElementById('kh-official-holiday-check-btn'))return;
+ var host=document.createElement('div');host.id='kh-official-holiday-action';host.style.cssText='display:flex;justify-content:flex-start;align-items:center;gap:8px;margin:10px 0;';
+ var b=document.createElement('button');b.type='button';b.id='kh-official-holiday-check-btn';b.className='btn btn-primary';b.textContent='بررسی و اضافه نمودن تعطیلات رسمی';
+ b.addEventListener('click',function(){seed(b);});host.appendChild(b);
+ var candidates=document.querySelectorAll('h1,h2,h3,h4,h5,h6,p,div,section');
+ var anchor=null;for(var i=0;i<candidates.length;i++){var t=String(candidates[i].textContent||'');if(/تعطیلات رسمی/.test(t)&&(/۱۴۰۴|۱۴۰۵|سال جاری|سال/.test(t))){anchor=candidates[i];break;}}
+ if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(host,anchor.nextSibling);else{var root=document.getElementById('root');(root||document.body).appendChild(host);}
+}
+async function seed(b){
+ var y=currentJalaliYear(),h={'Accept':'application/json'},tok=token();
+ if(tok)h.Authorization='Bearer '+tok;
+ b.disabled=true;var old=b.innerHTML;b.innerHTML='در حال بررسی و جایگزینی تعطیلات رسمی...';
+ try{
+  var r=await fetch('/api/admin-holiday-seed.php?year='+y,{method:'POST',credentials:'same-origin',headers:h,cache:'no-store'}),d=await r.json().catch(function(){return{};});
+  if(!r.ok||!d.ok)throw new Error(d.error||('HTTP '+r.status));
+  alert('تعطیلات رسمی سال '+y+' با موفقیت بررسی و جایگزین شد.\nتعداد تعطیلات رسمی: '+d.total);
+  window.dispatchEvent(new CustomEvent('khatyar:calendar-refresh',{detail:{year:y}}));
+  setTimeout(function(){location.reload();},150);
+ }catch(e){alert(e.message||'بررسی و جایگزینی تعطیلات رسمی ناموفق بود');}
+ finally{b.disabled=false;b.innerHTML=old;}
+}
+function bind(){removeOldButtons();createButton();}
+var ob=new MutationObserver(function(){bind();});
+if(document.body)ob.observe(document.body,{childList:true,subtree:true});
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
 })();
