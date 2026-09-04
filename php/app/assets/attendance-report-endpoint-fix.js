@@ -1,4 +1,4 @@
-/* خطیار — انتقال گزارش تردد به endpoint فقط‌خواندنی */
+/* خطیار — انتقال گزارش تردد به endpoint سریع و فقط‌خواندنی */
 (function(){
   'use strict';
   if (window.__khatyarAttendanceEndpointFix) return;
@@ -7,7 +7,10 @@
     if (!url) return url;
     var s=String(url);
     if (/\/api\/admin\/attendance-report(?:\?|$)/.test(s)) {
-      return s.replace('/api/admin/attendance-report','/api/admin-attendance-report-safe.php');
+      return s.replace('/api/admin/attendance-report','/api/admin-attendance-report-fast.php');
+    }
+    if (/\/api\/admin-attendance-report-safe\.php(?:\?|$)/.test(s)) {
+      return s.replace('/api/admin-attendance-report-safe.php','/api/admin-attendance-report-fast.php');
     }
     return s;
   }
