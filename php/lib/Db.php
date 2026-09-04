@@ -19,4 +19,6 @@ class Db {
   public static function exec($sql, $params = []) { return self::run($sql, $params)->rowCount(); }
   public static function insert($sql, $params = []) { self::run($sql, $params); return (int) self::pdo()->lastInsertId(); }
   public static function lastId() { return (int) self::pdo()->lastInsertId(); }
+  public static function query($sql, $params = []) { return self::run($sql, $params); }
+  public static function lastInsertId() { return (int) self::pdo()->lastInsertId(); }
 }
