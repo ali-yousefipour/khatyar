@@ -1,7 +1,13 @@
-/* Shared version badge. */
+/* Shared version badge. The version is read from panel.html. */
 (function(){
  'use strict';
- var V='1.3.92';
- function mount(){var host=document.getElementById('kh-version-badge-host');if(host)host.textContent='نسخه '+V;}
+ function mount(){
+  var host=document.getElementById('kh-version-badge-host');
+  if(!host) return;
+  var text=(host.textContent||'').trim();
+  var match=text.match(/نسخه\s+([0-9]+(?:\.[0-9]+)*)/);
+  if(!match) return;
+  host.textContent='نسخه '+match[1];
+ }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();
