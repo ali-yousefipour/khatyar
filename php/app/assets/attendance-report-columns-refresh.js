@@ -1,2 +1,7 @@
-/* خطیار — refresh layer برای تغییر پرسنل/بازه گزارش */
-(function(){'use strict';var last='';function run(){var d=window.__khatyarAttendancePayload,ds=d&&Array.isArray(d.days)?d.days:[],t=document.querySelector('table[data-kc-v2],table.khar-real-attendance-report');if(!ds.length||!t)return;var key=String(window.__khatyarAttendanceVersion||'')+'|'+String(ds[0]&&ds[0].jdate||'')+'|'+ds.length;if(key!==last){last=key;delete t.dataset.kcV2;}}if(document.body){new MutationObserver(run).observe(document.body,{childList:true,subtree:true});setInterval(run,800);}else document.addEventListener('DOMContentLoaded',run,{once:true});})();
+/* خطیار — refresh layer؛ بدون MutationObserver و setInterval */
+(function(){'use strict';
+if(window.addEventListener){window.addEventListener('khatyar:attendance-report-updated',function(){
+  var t=document.querySelector('table[data-kc-v2],table.khar-real-attendance-report');
+  if(t)delete t.dataset.kcV2;
+});}
+})();
