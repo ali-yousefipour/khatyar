@@ -2,7 +2,7 @@
 (function(){'use strict';
 const API='/api/personnel-vehicle-assets.php';
 const norm=s=>String(s||'').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim();
-const allowedRoles=['سربازرس ارشد','نیروی اداری ارشد','رییس اداره بازرسی'];
+const allowedRoles=['سربازرس ارشد','نیروی اداری ارشد','رییس اداره بازرسی','مدیر کل','admin','superadmin'];
 const fa=n=>String(n??'').replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function token(){try{return localStorage.token||localStorage.access_token||localStorage.jwt||'';}catch(e){return '';}}
