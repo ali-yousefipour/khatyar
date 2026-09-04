@@ -1,4 +1,4 @@
-/* خطیار — تضمین نمایش تعطیلات رسمی ایران در گزارش تردد */
+/* خطیار — تضمین نمایش تعطیلات رسمی ایران در گزارش تردد؛ event-driven */
 (function(){
 'use strict';
 var OFFICIAL={
@@ -7,34 +7,9 @@ var OFFICIAL={
 };
 function en(s){return String(s||'').replace(/[۰-۹]/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d);}).replace(/-/g,'/');}
 function isReport(t){return /حضور کل/.test(t.innerText||'');}
-function fixTable(t){
- if(!isReport(t))return;
- Array.prototype.forEach.call(t.tBodies||[],function(tb){Array.prototype.forEach.call(tb.rows||[],function(r){
-  if(!r.cells.length)return;
-  var key=en(r.cells[0].textContent).replace(/\s/g,''),title=OFFICIAL[key];
-  if(!title)return;
-  var c=r.cells[7];
-  if(c){
-   if(c.textContent!=='تعطیل')c.textContent='تعطیل';
-   if(c.title!==title)c.title=title;
-   if(!c.classList.contains('kh-official-holiday'))c.classList.add('kh-official-holiday');
-  }
-  if(!r.classList.contains('kh-official-holiday-row'))r.classList.add('kh-official-holiday-row');
- });});
-}
-function fix(){Array.prototype.forEach.call(document.querySelectorAll('table'),fixTable);}
-function start(){
- if(document.getElementById('kh-holiday-render-css'))return;
- var s=document.createElement('style');s.id='kh-holiday-render-css';s.textContent='.kh-official-holiday,.kh-official-holiday-row .kh-official-holiday{color:#d92d20!important;font-weight:900!important}.kh-official-holiday-row{background:#fff8f7!important}.kh-official-holiday-row:hover{background:#fff1f0!important}';document.head.appendChild(s);
- fix();
- var scheduled=false;
- function schedule(){if(scheduled)return;scheduled=true;setTimeout(function(){scheduled=false;fix();},60);}
- if(window.MutationObserver&&document.body)new MutationObserver(function(ms){
-  for(var i=0;i<ms.length;i++){
-   var m=ms[i];
-   if(m.type==='childList'&&((m.addedNodes&&m.addedNodes.length)||(m.removedNodes&&m.removedNodes.length))){schedule();break;}
-  }
- }).observe(document.body,{subtree:true,childList:true});
-}
+function fixTable(t){if(!isReport(t))return;Array.prototype.forEach.call(t.tBodies||[],function(tb){Array.prototype.forEach.call(tb.rows||[],function(r){if(!r.cells.length)return;var key=en(r.cells[0].textContent).replace(/\s/g,''),title=OFFICIAL[key];if(!title)return;var c=r.cells[7];if(c){if(c.textContent!=='تعطیل')c.textContent='تعطیل';if(c.title!==title)c.title=title;if(!c.classList.contains('kh-official-holiday'))c.classList.add('kh-official-holiday');}if(!r.classList.contains('kh-official-holiday-row'))r.classList.add('kh-official-holiday-row');});});}
+function fix(){Array.prototype.forEach.call(document.querySelectorAll('table.khar-real-attendance-report,table.khatyar-attendance-report'),fixTable);}
+function start(){if(!document.getElementById('kh-holiday-render-css')){var s=document.createElement('style');s.id='kh-holiday-render-css';s.textContent='.kh-official-holiday,.kh-official-holiday-row .kh-official-holiday{color:#d92d20!important;font-weight:900!important}.kh-official-holiday-row{background:#fff8f7!important}.kh-official-holiday-row:hover{background:#fff1f0!important}';document.head.appendChild(s);}fix();}
+if(window.addEventListener)window.addEventListener('khatyar:attendance-report-updated',fix);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
