@@ -2,12 +2,10 @@
 # اختصاصی پروژه (بر اساس ساختار شما) #
 ##############################
 
-# فایل‌های حاصل از اجرای دستور tree
 project_structure.txt
 project_structure_clean.txt
 
 # ========== موبایل (Expo / React Native) ==========
-
 mobile/.expo/
 mobile/.expo-shared/
 mobile/.build-state.json
@@ -36,7 +34,7 @@ mobile/REGISTRY-SELECTION-README.txt
 mobile/WINDOWS-ANDROID-LOCK-FIX-V5.txt
 mobile/Γò¬*.ps1
 mobile/Γò¬*.md
-mobile/╪│╪º╪«╪¬-╪º┘å╪»╪▒┘ê█î╪».ps1
+mobile/╪│╪º╪«╪¬-╪º┘å╪»╪▒╪▒┘ê█î╪».ps1
 
 # ========== بک‌اند ==========
 backend/.env
@@ -112,7 +110,7 @@ credentials/*.keystore
 credentials/*.jks
 credentials/*.p12
 credentials/*.pem
-credentials/*.md  # اگر اطلاعات حساس در آن‌هاست
+credentials/*.md
 
 # ========== پایتون (در صورت استفاده) ==========
 __pycache__/
@@ -142,3 +140,6 @@ dmypy.json
 
 # Local Gradle cache
 .gradle-cache/
+
+# Runtime calendar cache
+php/cache/calendar/
