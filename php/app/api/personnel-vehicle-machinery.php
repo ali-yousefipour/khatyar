@@ -10,16 +10,10 @@ require "$ROOT/lib/XlsxWriter.php";
 $CONFIG=require "$ROOT/config.php";
 function pvm_fail($m,$s=400){http_response_code($s);header('Content-Type: application/json; charset=utf-8');echo json_encode(['error'=>$m],JSON_UNESCAPED_UNICODE);exit;}
 function pvm_auth(){global $CONFIG;$tok=Http::bearer();$p=$tok?Jwt::verify($tok,$CONFIG['jwt_secret']):null;if(!$p||empty($p['sub']))pvm_fail('توکن نامعتبر یا منقضی است',401);$u=Db::one("SELECT id,is_active,is_admin FROM users WHERE id=? LIMIT 1",[$p['sub']]);if(!$u||!(int)$u['is_active'])pvm_fail('کاربر نامعتبر است',401);if(!(int)$u['is_admin'])pvm_fail('دسترسی مدیریتی لازم است',403);return $u;}
+function pvm_history($id){return Db::all("SELECT h.id,h.result,h.note,h.checked_at,h.checker_id,u.first_name,u.last_name FROM personnel_vehicle_checklist_history h LEFT JOIN users u ON u.id=h.checker_id WHERE h.asset_id=? ORDER BY h.checked_at DESC,h.id DESC",[$id]);}
 function pvm_rows(){
- $rows=Db::all("SELECT a.*,u.first_name,u.last_name,u.username,u.phone,u.national_code,r.title role_title,
-   MAX(c.updated_at) checklist_last_at, MIN(c.created_at) checklist_first_at,
-   GROUP_CONCAT(DISTINCT c.updated_at ORDER BY c.updated_at DESC SEPARATOR ' | ') checklist_dates
-   FROM personnel_vehicle_assets a
-   JOIN users u ON u.id=a.user_id
-   LEFT JOIN roles r ON r.id=u.role_id
-   LEFT JOIN personnel_vehicle_asset_checks c ON c.asset_id=a.id
-   GROUP BY a.id ORDER BY u.last_name,u.first_name,a.asset_type");
- foreach($rows as &$r){$r['photos']=Db::all("SELECT photo_key,data_uri,crop_json FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id",[$r['id']]);}
+ $rows=Db::all("SELECT a.*,u.first_name,u.last_name,u.username,u.phone,u.national_code,r.title role_title FROM personnel_vehicle_assets a JOIN users u ON u.id=a.user_id LEFT JOIN roles r ON r.id=u.role_id ORDER BY u.last_name,u.first_name,a.asset_type");
+ foreach($rows as &$r){$r['photos']=Db::all("SELECT photo_key,data_uri,crop_json FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id",[$r['id']]);$r['checklist_history']=pvm_history($r['id']);$dates=array_column($r['checklist_history'],'checked_at');$r['checklist_first_at']=$dates?end($dates):null;$r['checklist_last_at']=$dates?$dates[0]:null;$r['checklist_dates']=$dates?implode(' | ',$dates):null;}
  unset($r);return $rows;
 }
 function pvm_plate($r){if(($r['asset_type']??'')==='motorcycle')return trim(($r['motorcycle_plate_top']??'').' / '.($r['motorcycle_plate_bottom']??''));return trim(($r['plate_part_right']??'').' '.($r['plate_letter']??'').' '.($r['plate_part_left']??'').' ایران '.($r['plate_iran']??''));}
@@ -28,18 +22,9 @@ try{
  $u=pvm_auth();$op=$_GET['op']??'list';
  if($op==='list'){header('Content-Type: application/json; charset=utf-8');echo json_encode(['items'=>pvm_rows()],JSON_UNESCAPED_UNICODE);exit;}
  if($op==='export'){
-  $rows=pvm_rows();
-  $photoKeys=[];foreach($rows as $r){foreach(($r['photos']??[]) as $ph){$k=(string)$ph['photo_key'];if($k!==''&&!in_array($k,$photoKeys,true))$photoKeys[]=$k;}}
-  $head=['شناسه','نام','نام خانوادگی','نام کاربری','سمت','موبایل','کد ملی','نوع وسیله','پلاک','نوع خودرو','سوخت','رنگ','سال ساخت','شماره شاسی/تنه','شماره موتور','VIN','سیستم موتور','تیپ موتور','کاربری موتور','سیلندر','شماره گواهینامه','صدور گواهینامه','انقضای گواهینامه','شماره بیمه','شرکت بیمه','صدور بیمه','انقضای بیمه','شماره معاینه فنی','صدور معاینه','انقضای معاینه','چراغگردان ثابت','چراغگردان متحرک','گرمایش','سرمایش','آمپلی‌فایر','وضعیت بررسی','اولین تاریخ چک‌لیست','آخرین تاریخ چک‌لیست','تمام تاریخ‌های چک‌لیست'];
-  foreach($photoKeys as $k)$head[]='تصویر '.$k;
-  $x=new XlsxWriter($head);
-  foreach($rows as $r){
-   $plate=pvm_plate($r);
-   $cells=[$r['id'],$r['first_name'],$r['last_name'],$r['username'],$r['role_title'],$r['phone'],$r['national_code'],$r['asset_type']==='car'?'خودرو':'موتورسیکلت',$plate,$r['vehicle_type'],$r['fuel_type'],$r['color'],$r['model_year'],$r['chassis_number'],$r['engine_number'],$r['vin'],$r['motorcycle_system'],$r['motorcycle_type'],$r['motorcycle_usage'],$r['cylinders'],$r['license_number'],$r['license_issue_date'],$r['license_expiry_date'],$r['insurance_number'],$r['insurance_company'],$r['insurance_issue_date'],$r['insurance_expiry_date'],$r['technical_inspection_number'],$r['technical_inspection_issue_date'],$r['technical_inspection_expiry_date'],((int)$r['fixed_beacon']?'بله':'خیر'),((int)$r['mobile_beacon']?'بله':'خیر'),((int)$r['heating_ok']?'بله':'خیر'),((int)$r['cooling_ok']?'بله':'خیر'),((int)$r['amplifier']?'بله':'خیر'),$r['status'],$r['checklist_first_at'],$r['checklist_last_at'],$r['checklist_dates']];
-   foreach($photoKeys as $k)$cells[]='';
-   $row=$x->addRow($cells);$byKey=[];foreach(($r['photos']??[]) as $ph){$key=(string)$ph['photo_key'];if($key!=='')$byKey[$key]=$ph;}
-   foreach($photoKeys as $idx=>$key){if(empty($byKey[$key]))continue;$bytes=pvm_image_bytes($byKey[$key]['data_uri']??'');if(!$bytes)continue;$x->setImage($row,39+$idx,$bytes,110);$x->setColWidth(39+$idx,18);}
-  }
+  $rows=pvm_rows();$photoKeys=[];foreach($rows as $r){foreach(($r['photos']??[]) as $ph){$k=(string)$ph['photo_key'];if($k!==''&&!in_array($k,$photoKeys,true))$photoKeys[]=$k;}}
+  $head=['شناسه','نام','نام خانوادگی','نام کاربری','سمت','موبایل','کد ملی','نوع وسیله','پلاک','نوع خودرو','سوخت','رنگ','سال ساخت','شماره شاسی/تنه','شماره موتور','VIN','سیستم موتور','تیپ موتور','کاربری موتور','سیلندر','شماره گواهینامه','صدور گواهینامه','انقضای گواهینامه','شماره بیمه','شرکت بیمه','صدور بیمه','انقضای بیمه','شماره معاینه فنی','صدور معاینه','انقضای معاینه','چراغگردان ثابت','چراغگردان متحرک','گرمایش','سرمایش','آمپلی‌فایر','وضعیت بررسی','اولین تاریخ چک‌لیست','آخرین تاریخ چک‌لیست','تمام تاریخ‌های چک‌لیست'];foreach($photoKeys as $k)$head[]='تصویر '.$k;$x=new XlsxWriter($head);
+  foreach($rows as $r){$plate=pvm_plate($r);$cells=[$r['id'],$r['first_name'],$r['last_name'],$r['username'],$r['role_title'],$r['phone'],$r['national_code'],$r['asset_type']==='car'?'خودرو':'موتورسیکلت',$plate,$r['vehicle_type'],$r['fuel_type'],$r['color'],$r['model_year'],$r['chassis_number'],$r['engine_number'],$r['vin'],$r['motorcycle_system'],$r['motorcycle_type'],$r['motorcycle_usage'],$r['cylinders'],$r['license_number'],$r['license_issue_date'],$r['license_expiry_date'],$r['insurance_number'],$r['insurance_company'],$r['insurance_issue_date'],$r['insurance_expiry_date'],$r['technical_inspection_number'],$r['technical_inspection_issue_date'],$r['technical_inspection_expiry_date'],((int)$r['fixed_beacon']?'بله':'خیر'),((int)$r['mobile_beacon']?'بله':'خیر'),((int)$r['heating_ok']?'بله':'خیر'),((int)$r['cooling_ok']?'بله':'خیر'),((int)$r['amplifier']?'بله':'خیر'),$r['status'],$r['checklist_first_at'],$r['checklist_last_at'],$r['checklist_dates']];foreach($photoKeys as $k)$cells[]='';$row=$x->addRow($cells);$byKey=[];foreach(($r['photos']??[]) as $ph)$byKey[(string)$ph['photo_key']=$ph;$imageStart=39;foreach($photoKeys as $idx=>$key){$bytes=pvm_image_bytes($byKey[$key]['data_uri']??'');if($bytes!==''){$x->setImage($row,$imageStart+$idx,$bytes,110);$x->setColWidth($imageStart+$idx,18);}}}
   $x->output('personnel_vehicle_machinery.xlsx','ماشین آلات');exit;
  }
  pvm_fail('عملیات نامعتبر',404);
