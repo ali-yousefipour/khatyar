@@ -1,38 +1,15 @@
-/* خطیار — بهینه‌سازی گزارش تردد: حذف درخواست‌های تکراری و بارگذاری سریع پرسنل */
-(function(){
-'use strict';
-var reportInflight=Object.create(null);
-var nativeFetch=window.fetch;
-function isAttendanceView(){
-  try{var h=document.querySelector('.top h2');return !!(h&&/گزارش تردد پرسنل/.test(h.textContent||''));}
-  catch(e){return false;}
-}
-function normalizeUrl(input){
-  try{return new URL(typeof input==='string'?input:input.url,location.href).toString();}
-  catch(e){return String(input||'');}
-}
-if(nativeFetch){
-  window.fetch=function(input,init){
-    var url=normalizeUrl(input),path='';
-    try{path=new URL(url,location.href).pathname;}catch(e){path=url;}
-    /* AttendanceReport قدیمی db.users() را فراخوانی می‌کند؛ فقط در همین صفحه از users-lite استفاده شود. */
-    if(isAttendanceView()&&/\/api\/admin\/users(?:\?|$)/.test(path)){
-      try{
-        var u=new URL(url,location.href);u.pathname=u.pathname.replace(/\/admin\/users$/,'/admin/users-lite');url=u.toString();
-        if(typeof input==='string')input=url;else if(window.Request)input=new Request(url,input);
-      }catch(e){}
-    }
-    /* endpoint اصلی قبل از این لایه به safe تبدیل می‌شود؛ هر دو نام را پوشش می‌دهیم. */
-    var method=(init&&init.method)||(input&&input.method)||'GET';
-    var isReport=/\/api\/admin\/attendance-report(?:\?|$)|\/api\/admin-attendance-report-(?:safe|fast)\.php(?:\?|$)/.test(url);
-    if(String(method).toUpperCase()!=='GET'||!isReport)return nativeFetch.call(this,input,init);
-    var key=url;
-    if(reportInflight[key])return reportInflight[key].then(function(r){return r.clone();});
-    var p=nativeFetch.call(this,input,init);
-    reportInflight[key]=p.then(function(r){return r.clone();},function(e){delete reportInflight[key];throw e;});
-    p.then(function(){delete reportInflight[key];},function(){delete reportInflight[key];});
-    return p;
-  };
-}
-if(window.addEventListener){window.addEventListener('khatyar:attendance-report-updated',function(){var t=document.querySelector('table[data-kc-v2],table.khar-real-attendance-report');if(t)delete t.dataset.kcV2;});}
+/* خطیار — گزارش تردد: single-flight + جستجوی پرسنل بعد از بارگذاری async */
+(function(){'use strict';
+var reportInflight=Object.create(null),nativeFetch=window.fetch,MARK='data-kh-personnel-search';
+function isAttendanceView(){try{var h=document.querySelector('.top h2');return !!(h&&/گزارش تردد پرسنل/.test(h.textContent||''));}catch(e){return false;}}
+function normalizeUrl(input){try{return new URL(typeof input==='string'?input:input.url,location.href).toString();}catch(e){return String(input||'');}}
+if(nativeFetch){window.fetch=function(input,init){var url=normalizeUrl(input),path='';try{path=new URL(url,location.href).pathname;}catch(e){path=url;}
+if(isAttendanceView()&&/\/api\/admin\/users(?:\?|$)/.test(path)){try{var u=new URL(url,location.href);u.pathname=u.pathname.replace(/\/admin\/users$/,'/admin/users-lite');url=u.toString();if(typeof input==='string')input=url;else if(window.Request)input=new Request(url,input);}catch(e){}}
+var method=(init&&init.method)||(input&&input.method)||'GET',isReport=/\/api\/admin\/attendance-report(?:\?|$)|\/api\/admin-attendance-report-(?:safe|fast)\.php(?:\?|$)/.test(url);if(String(method).toUpperCase()!=='GET'||!isReport)return nativeFetch.call(this,input,init);var key=url;if(reportInflight[key])return reportInflight[key].then(function(r){return r.clone();});var p=nativeFetch.call(this,input,init);reportInflight[key]=p.then(function(r){return r.clone();},function(e){delete reportInflight[key];throw e;});p.then(function(){delete reportInflight[key];},function(){delete reportInflight[key];});return p;};}
+function norm(v){return String(v==null?'':v).replace(/[يى]/g,'ی').replace(/[ك]/g,'ک').replace(/[\u200c\u200e\u200f]/g,'').replace(/\s+/g,' ').trim().toLowerCase();}
+function makeSearch(s){if(!s||s.getAttribute(MARK)==='1'||s.options.length<2)return false;var p=s.parentElement,t=norm(p&&p.textContent),sample=norm([].slice.call(s.options,0,12).map(function(o){return o.textContent;}).join(' '));if(!/پرسنل|کارمند|نام و نام خانوادگی|انتخاب شخص|افراد|کاربر/.test(t)&&!/پرسنل|نام و نام خانوادگی|کارمند|انتخاب پرسنل/.test(sample))return false;s.setAttribute(MARK,'1');var w=document.createElement('div');w.className='kh-personnel-search-wrap';w.dir='rtl';w.style.cssText='margin:0 0 8px;width:100%;';var i=document.createElement('input');i.type='search';i.className='kh-personnel-search-input';i.placeholder='جستجوی نام یا نام خانوادگی...';i.setAttribute('aria-label','جستجوی پرسنل');i.autocomplete='off';i.style.cssText='width:100%;box-sizing:border-box;border:1px solid #d0d5dd;border-radius:8px;padding:8px 10px;font:inherit;direction:rtl;background:#fff;';w.appendChild(i);s.parentNode.insertBefore(w,s);function filter(){var q=norm(i.value);[].slice.call(s.options).forEach(function(o){o.hidden=!!q&&!norm(o.textContent).includes(q);});}i.addEventListener('input',filter);i.addEventListener('search',filter);filter();return true;}
+function scanSearch(){if(!isAttendanceView())return false;var found=false;document.querySelectorAll('select').forEach(function(s){if(makeSearch(s))found=true;});return found;}
+function startSearch(){var started=Date.now(),limit=20000;function loop(){if(scanSearch()||Date.now()-started>=limit)return;setTimeout(loop,300);}loop();}
+if(window.addEventListener)window.addEventListener('khatyar:attendance-report-updated',function(){var t=document.querySelector('table[data-kc-v2],table.khar-real-attendance-report');if(t)delete t.dataset.kcV2;startSearch();});
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startSearch,{once:true});else startSearch();
 })();
