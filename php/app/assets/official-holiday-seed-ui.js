@@ -22,7 +22,7 @@ function createButton(){
  if(!root)return;
  removeOldButtons(root);
  var host=document.createElement('div');host.id='kh-official-holiday-action';host.style.cssText='display:flex;justify-content:flex-start;align-items:center;gap:8px;margin:10px 0;';
- var b=document.createElement('button');b.type='button';b.id='kh-official-holiday-check-btn';b.className='btn btn-success';b.style.cssText='background:#0d7a5f;border-color:#0d7a5f;color:#fff;';b.textContent='بررسی و اضافه نمودن تعطیلات رسمی';
+ var b=document.createElement('button');b.type='button';b.id='kh-official-holiday-check-btn';b.className='btn';b.style.cssText='background:#00B251;border-color:#00B251;color:#fff;';b.textContent='بررسی و اضافه نمودن تعطیلات رسمی';
  b.addEventListener('click',function(){seed(b);});host.appendChild(b);
  var labels=root.querySelectorAll('h1,h2,h3,h4,h5,h6,p,div,span,strong,label');
  var anchor=null;
@@ -38,7 +38,7 @@ async function seed(b){
  b.disabled=true;var old=b.innerHTML;b.innerHTML='در حال بررسی و جایگزینی تعطیلات رسمی...';
  try{
   var r=await fetch('/api/admin-holiday-seed.php?year='+y,{method:'POST',credentials:'same-origin',headers:h,cache:'no-store'}),d=await r.json().catch(function(){return{};});
-  if(!r.ok||!d.ok){var msg=d.error||('HTTP '+r.status);if(d.stage)msg+='\nمرحله: '+d.stage;if(d.detail)msg+='\nجزئیات: '+d.detail;throw new Error(msg);}
+  if(!r.ok||!d.ok)throw new Error(d.error||('HTTP '+r.status));
   alert('تعطیلات رسمی سال '+y+' با موفقیت بررسی و جایگزین شد.\nتعداد تعطیلات رسمی: '+d.total);
   window.dispatchEvent(new CustomEvent('khatyar:calendar-refresh',{detail:{year:y}}));
   setTimeout(function(){location.reload();},150);
