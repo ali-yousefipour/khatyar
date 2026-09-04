@@ -1,26 +1,70 @@
-/* خطیار — لایه نهایی گزارش تردد: یک تنظیم ستون + استفاده از دکمه دانلود گزارش + ساعت فارسی ۲۴ ساعته */
+/* خطیار — اصلاح نهایی مودال اصلاح ساعت: حذف کامل AM/PM و نمایش ۲۴ ساعته فارسی */
 (function(){
 'use strict';
 var FA='۰۱۲۳۴۵۶۷۸۹',EN='0123456789';
-var HEAD=['تاریخ','روز هفته','ورود','خروج','محل ورود','محل خروج','حضور در شیفت','کسری کار','غیبت','جمع غیبت و کسری کار','شب کاری','اضافه کاری','موظفی','ماموریت','مرخصی استحقاقی','مرخصی استعلاجی','مرخصی بدون حقوق','مازاد حضور','کل حضور','اضافه کاری تعطیل','اضافه کاری جمعه','جمع اضافه کاری','اضافه کاری تعطیل و جمعه','جمعه کاری','روزکارکرد جمعه','تهاتر مازاد حضور','تهاتر کسری کار','اولین ورود','آخرین خروج'];
-function norm(v){return String(v==null?'':v).replace(/[يى]/g,'ی').replace(/[ك]/g,'ک').replace(/[\u200c\u200e\u200f]/g,'').replace(/\s+/g,' ').trim();}
 function fa(v){return String(v==null?'':v).replace(/[0-9]/g,function(x){return FA[x.charCodeAt(0)-48];});}
 function en(v){return String(v==null?'':v).replace(/[۰-۹]/g,function(x){return EN[FA.indexOf(x)];});}
-function mins(v){var m=en(v).match(/^(\d{1,3}):(\d{1,2})/);return m?parseInt(m[1],10)*60+parseInt(m[2],10):0;}
-function hm(v){v=Math.max(0,parseInt(v,10)||0);return String(Math.floor(v/60)).padStart(2,'0')+':'+String(v%60).padStart(2,'0');}
-function value(d,k){var p=Array.isArray(d.punches)?d.punches:[],ins=[],outs=[];p.forEach(function(x){if(x&&x.in)ins.push(x.in);if(x&&x.out)outs.push(x.out);});var f=!!d.is_friday||norm(d.weekday)==='جمعه',h=!!d.is_holiday&&!f,w=mins(d.worked),ot=mins(d.overtime),shortage=mins(d.shortage),expected=mins(d.expected),abs=(!p.length&&!f&&!h&&!mins(d.mission)&&!mins(d.annual_leave)&&!mins(d.sick_leave)&&!mins(d.unpaid_leave))?1:0;switch(k){case'in':return ins[0]||'';case'out':return outs.length?outs[outs.length-1]:'';case'in_station':return(p.find(function(x){return x&&x.in_station;})||{}).in_station||'';case'out_station':return(p.slice().reverse().find(function(x){return x&&x.out_station;})||{}).out_station||'';case'absent':return abs;case'absence_shortage':return hm(shortage+(abs?expected:0));case'holiday_overtime':return h?hm(w):'00:00';case'friday_overtime':return f?hm(w):'00:00';case'total_overtime':return hm(ot+(h?w:0)+(f?w:0));case'holiday_friday_overtime':return hm((h?w:0)+(f?w:0));case'friday_work':return f?hm(w):'00:00';case'friday_workday':return f&&w>0?1:0;case'first_in':return d.first_in||ins[0]||'';case'last_out':return d.last_out||(outs.length?outs[outs.length-1]:'');default:return d[k]!=null&&d[k]!==''?d[k]:'00:00';}}
-function rows(data){var out=[HEAD],ds=data&&Array.isArray(data.days)?data.days:[];ds.forEach(function(d){out.push([d.jdate||'',d.weekday||'',value(d,'in'),value(d,'out'),value(d,'in_station'),value(d,'out_station'),d.in_shift||'00:00',d.shortage||'00:00',value(d,'absent'),value(d,'absence_shortage'),d.night||'00:00',d.overtime||'00:00',d.expected||'00:00',d.mission||'00:00',d.annual_leave||'00:00',d.sick_leave||'00:00',d.unpaid_leave||'00:00',d.surplus||'00:00',d.worked||'00:00',value(d,'holiday_overtime'),value(d,'friday_overtime'),value(d,'total_overtime'),value(d,'holiday_friday_overtime'),value(d,'friday_work'),value(d,'friday_workday'),d.adjusted_surplus||d.adjusted_ot||'00:00',d.adjusted_shortage||'00:00',value(d,'first_in'),value(d,'last_out')]);});return out;}
-function exportXlsx(data){if(!data||!Array.isArray(data.days)||!data.days.length){alert('ابتدا گزارش تردد را دریافت کنید');return;}if(!window.XLSX||!XLSX.utils){alert('ماژول Excel در مرورگر بارگذاری نشده است');return;}var ws=XLSX.utils.aoa_to_sheet(rows(data));ws['!cols']=HEAD.map(function(){return{wch:18};});var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'گزارش تردد ۲۹ ستونه');XLSX.writeFile(wb,'گزارش تردد پرسنل - ۲۹ ستونه.xlsx');}
-function cleanSettings(){var all=Array.prototype.slice.call(document.querySelectorAll('button,a,[role="button"]')),primary=null;all.forEach(function(b){var t=norm(b.textContent||'');if(t.indexOf('تنظیم ستون')<0)return;if(b.classList.contains('khar-column-settings-v6')){if(!primary)primary=b;else b.remove();return;}b.remove();});if(primary)primary.classList.add('khar-authoritative-settings');}
-function cleanExcel(){document.querySelectorAll('button,a,[role="button"]').forEach(function(b){var t=norm(b.textContent||'');if(/خروجی\s*(XLSX|Excel)|Excel\s*۲۹|گزارش تردد.*ستونه/.test(t))b.remove();});}
-function isDownloadReport(el){if(!el)return false;var t=norm(el.textContent||el.getAttribute('aria-label')||el.title||'');return /دانلود\s*گزارش/.test(t);}
-function interceptDownload(e){var b=e.target&&e.target.closest?e.target.closest('button,a,[role="button"]'):null;if(!b||!isDownloadReport(b))return;var data=window.__khatyarAttendancePayload;if(!data)return;e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();try{exportXlsx(data);}catch(err){alert(err.message||'خطا در تولید فایل Excel');}}
-function normalizeTimeInput(input){if(!input)return;var v=en(input.value||''),m=v.match(/^(\d{1,2}):(\d{1,2})$/);if(m){var h=Math.min(23,Math.max(0,parseInt(m[1],10))),mm=Math.min(59,Math.max(0,parseInt(m[2],10)));input.value=fa(String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0'));}input.type='text';input.inputMode='numeric';input.dir='ltr';input.maxLength=5;input.placeholder='۰۰:۰۰';input.setAttribute('pattern','[۰-۹0-9]{2}:[۰-۹0-9]{2}');input.style.fontFamily='Vazirmatn,Tahoma';input.style.textAlign='center';}
-function normalizeModal(){['khar-in-v6','khar-out-v6','khar-manual-in-v6','khar-manual-out-v6'].forEach(function(id){normalizeTimeInput(document.getElementById(id));});document.querySelectorAll('#khar-detail-v6 .khar-punch-card strong').forEach(function(x){var t=String(x.textContent||'').trim();if(/^\d{1,2}:\d{1,2}$/.test(en(t)))x.textContent=fa(en(t));});}
-function beforeSave(e){var b=e.target&&e.target.closest?e.target.closest('[data-khar-save],[data-khar-manual-save]'):null;if(!b)return;['khar-in-v6','khar-out-v6','khar-manual-in-v6','khar-manual-out-v6'].forEach(function(id){var x=document.getElementById(id);if(x)x.value=en(x.value);});}
-document.addEventListener('click',interceptDownload,true);
+function normalizeTime(input){
+ if(!input)return;
+ var raw=en(input.value||'').trim();
+ var m=raw.match(/(\d{1,2}):(\d{1,2})/);
+ if(m){
+  var h=Math.max(0,Math.min(23,parseInt(m[1],10)||0));
+  var mm=Math.max(0,Math.min(59,parseInt(m[2],10)||0));
+  input.value=fa(String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0'));
+ }else if(raw){input.value=fa(raw.replace(/[^0-9:]/g,''));}
+ if(input.type!=='text'){
+  try{input.type='text';}catch(e){}
+ }
+ input.setAttribute('type','text');
+ input.setAttribute('inputmode','numeric');
+ input.setAttribute('maxlength','5');
+ input.setAttribute('dir','ltr');
+ input.setAttribute('placeholder','۰۰:۰۰');
+ input.setAttribute('pattern','[۰-۹0-9]{2}:[۰-۹0-9]{2}');
+ input.style.fontFamily='Vazirmatn,Tahoma,sans-serif';
+ input.style.direction='ltr';
+ input.style.textAlign='center';
+ input.style.fontVariantNumeric='normal';
+}
+function normalizeAll(){
+ document.querySelectorAll('#khar-edit-v6 input,#khar-manual-v6 input,#khar-detail-v6 input,input[data-ma-in],input[data-ma-out]').forEach(normalizeTime);
+ document.querySelectorAll('#khar-detail-v6 .khar-punch-card strong').forEach(function(x){
+  var v=en(x.textContent||'').trim(),m=v.match(/^(\d{1,2}):(\d{1,2})$/);
+  if(m){var h=Math.max(0,Math.min(23,+m[1])),mm=Math.max(0,Math.min(59,+m[2]));x.textContent=fa(String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0'));}
+ });
+}
+function beforeSave(e){
+ var b=e.target&&e.target.closest?e.target.closest('[data-khar-save],[data-khar-manual-save],[data-ma-save]'):null;
+ if(!b)return;
+ document.querySelectorAll('#khar-edit-v6 input,#khar-manual-v6 input,input[data-ma-in],input[data-ma-out]').forEach(function(x){x.value=en(x.value||'');});
+}
+function cleanDuplicateSettings(){
+ var a=Array.from(document.querySelectorAll('button,a,[role="button"]')).filter(function(x){return /تنظیم\s*ستون/.test((x.textContent||'').replace(/\s+/g,' ').trim());});
+ var keep=a.find(function(x){return x.classList.contains('khar-column-settings-v6');})||a[0];
+ a.forEach(function(x){if(x!==keep)x.remove();});
+}
+function cleanExcelButtons(){
+ document.querySelectorAll('button,a,[role="button"]').forEach(function(x){
+  var t=(x.textContent||'').replace(/\s+/g,' ').trim();
+  if(/خروجی\s*(XLSX|Excel)|Excel\s*۲۹|گزارش تردد.*ستونه/.test(t))x.remove();
+ });
+}
+function interceptDownload(e){
+ var b=e.target&&e.target.closest?e.target.closest('button,a,[role="button"]'):null;
+ if(!b||!/دانلود\s*گزارش/.test((b.textContent||b.getAttribute('aria-label')||b.title||'').replace(/\s+/g,' ').trim()))return;
+ var d=window.__khatyarAttendancePayload;
+ if(!d||!window.XLSX||!XLSX.utils||!Array.isArray(d.days))return;
+ e.preventDefault();if(e.stopImmediatePropagation)e.stopImmediatePropagation();e.stopPropagation();
+ var head=['تاریخ','روز هفته','ورود','خروج','محل ورود','محل خروج','حضور در شیفت','کسری کار','غیبت','جمع غیبت و کسری کار','شب کاری','اضافه کاری','موظفی','ماموریت','مرخصی استحقاقی','مرخصی استعلاجی','مرخصی بدون حقوق','مازاد حضور','کل حضور','اضافه کاری تعطیل','اضافه کاری جمعه','جمع اضافه کاری','اضافه کاری تعطیل و جمعه','جمعه کاری','روزکارکرد جمعه','تهاتر مازاد حضور','تهاتر کسری کار','اولین ورود','آخرین خروج'];
+ var rows=[head];
+ d.days.forEach(function(x){var p=Array.isArray(x.punches)?x.punches:[],ins=p.map(function(q){return q&&q.in||'';}).filter(Boolean),outs=p.map(function(q){return q&&q.out||'';}).filter(Boolean);rows.push([x.jdate||'',x.weekday||'',ins[0]||'',outs.length?outs[outs.length-1]:'',((p.find(function(q){return q&&q.in_station;})||{}).in_station)||'',((p.slice().reverse().find(function(q){return q&&q.out_station;})||{}).out_station)||'',x.in_shift||'00:00',x.shortage||'00:00',x.absent||0,x.absence_shortage||'00:00',x.night||'00:00',x.overtime||'00:00',x.expected||'00:00',x.mission||'00:00',x.annual_leave||'00:00',x.sick_leave||'00:00',x.unpaid_leave||'00:00',x.surplus||'00:00',x.worked||'00:00',x.holiday_overtime||'00:00',x.friday_overtime||'00:00',x.total_overtime||'00:00',x.holiday_friday_overtime||'00:00',x.friday_work||'00:00',x.friday_workday||0,x.adjusted_surplus||x.adjusted_ot||'00:00',x.adjusted_shortage||'00:00',x.first_in||ins[0]||'',x.last_out||(outs.length?outs[outs.length-1]:'')]);});
+ var ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'گزارش تردد ۲۹ ستونه');XLSX.writeFile(wb,'گزارش تردد پرسنل - ۲۹ ستونه.xlsx');
+}
 document.addEventListener('click',beforeSave,true);
-function tick(){cleanSettings();cleanExcel();normalizeModal();}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){tick();var n=0,t=setInterval(function(){tick();if(++n>=20)clearInterval(t);},300);},{once:true});else{tick();var n=0,t=setInterval(function(){tick();if(++n>=20)clearInterval(t);},300);}
-var css=document.createElement('style');css.textContent='.khar-final-xlsx{display:none!important}.khar-authoritative-settings{display:inline-flex!important;visibility:visible!important;opacity:1!important}#khar-edit-v6 input,#khar-manual-v6 input{font-family:Vazirmatn,Tahoma!important;direction:ltr!important;text-align:center!important;font-variant-numeric:normal!important}';document.head.appendChild(css);
+document.addEventListener('click',interceptDownload,true);
+function tick(){normalizeAll();cleanDuplicateSettings();cleanExcelButtons();}
+function start(){tick();var n=0,t=setInterval(function(){tick();if(++n>=100)clearInterval(t);},300);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+var css=document.createElement('style');css.textContent='#khar-edit-v6 .khar-edit-grid,#khar-manual-v6 .khar-edit-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:12px!important}#khar-edit-v6 .khar-edit-grid label,#khar-manual-v6 .khar-edit-grid label{display:flex!important;flex-direction:column!important;gap:7px!important}#khar-edit-v6 input,#khar-manual-v6 input,input[data-ma-in],input[data-ma-out]{font-family:Vazirmatn,Tahoma,sans-serif!important;direction:ltr!important;text-align:center!important;font-variant-numeric:normal!important}#khar-edit-v6 input[type=time],#khar-manual-v6 input[type=time]{appearance:none!important;-webkit-appearance:none!important}';document.head.appendChild(css);
 })();
