@@ -29,7 +29,7 @@ class ShiftCalc
         $ts += ((int)$days) * 86400;
         if (!function_exists('gregorian_to_jalali')) return null;
         [$jy,$jm,$jd] = gregorian_to_jalali((int)date('Y',$ts), (int)date('n',$ts), (int)date('j',$ts));
-        return sprintf('%04d-%02d-%02d', $jy, $jm, $jd);
+        return sprintf('%04d-%02d-%02d', $jy,$jm,$jd);
     }
 
     static function jdateToTs($jdate) {
@@ -43,7 +43,7 @@ class ShiftCalc
     static function jweekday($jdate) {
         $ts = self::jdateToTs($jdate);
         if ($ts === null) return null;
-        $w = (int)date('w', $ts); // 0=Sun..6=Sat
+        $w = (int)date('w', $ts);
         $map = [6=>0, 0=>1, 1=>2, 2=>3, 3=>4, 4=>5, 5=>6];
         return $map[$w];
     }
@@ -51,7 +51,6 @@ class ShiftCalc
     static function isFriday($jdate) { return self::jweekday($jdate) === 6; }
 
     static function isJalaliLeap($jy) {
-        // الگوریتم رایج چرخهٔ ۲۸۲۰ ساله؛ برای تشخیص اسفند ۳۰ روزه کافی است.
         $a = $jy - (($jy >= 0) ? 474 : 473);
         $b = 474 + ($a % 2820);
         return ((($b + 38) * 682) % 2816) < 682;
@@ -70,10 +69,25 @@ class ShiftCalc
         return is_array($x) ? $x : [];
     }
 
+    /* تعطیلی مؤثر روز: تقویم رسمی ایران + تعطیلی دستی سازمان. */
+    static function effectiveHoliday($jdate, $fallback=false) {
+        $official = false;
+        $manual = false;
+        if (class_exists('IranCalendar')) {
+            try {
+                $d = IranCalendar::day($jdate);
+                $official = !empty($d['is_official_holiday']);
+                $manual = !empty($d['is_manual_holiday']);
+            } catch (Throwable $e) {}
+        }
+        // برای سازگاری با مسیرهای قدیمی، مقدار ورودی فقط می‌تواند تعطیلی را اضافه کند، نه حذف.
+        return (bool)$fallback || $official || $manual;
+    }
+
     static function segmentLength($seg) {
         $a = self::hm($seg['s'] ?? null); $b = self::hm($seg['e'] ?? null);
         if ($a === null || $b === null) return 0;
-        if ($b <= $a) $b += 1440; // شیفت عبوری از نیمه‌شب: 23:00 تا 07:00
+        if ($b <= $a) $b += 1440;
         return max(0, $b - $a);
     }
 
@@ -141,7 +155,7 @@ class ShiftCalc
         $ne = self::hm($nightEnd ?: '06:00');
         if ($ns === null) $ns = 22 * 60;
         if ($ne === null) $ne = 6 * 60;
-        if ($ne <= $ns) $ne += 1440; // پنجره عبوری از نیمه‌شب؛ مثال 22 تا 6
+        if ($ne <= $ns) $ne += 1440;
         $total = 0;
         $cursor = strtotime(date('Y-m-d 00:00:00', $inTs)) - 86400;
         $endDay = strtotime(date('Y-m-d 00:00:00', $outTs)) + 86400;
@@ -160,19 +174,19 @@ class ShiftCalc
         return $expected;
     }
 
-
     static function roleOtCap($shift) {
         $cap = $shift['auto_ot_cap_min'] ?? null;
         if ($cap !== null && $cap !== '') return max(0, (int)$cap);
         $role = trim((string)($shift['role_title'] ?? $shift['role'] ?? ''));
         $roleKey = trim((string)($shift['role_key'] ?? ''));
         $txt = $roleKey . ' ' . $role;
-        if (preg_match('/اداری|niroo|office/i', $txt)) return 240;              // نیروی اداری: ۴ ساعت
-        if (preg_match('/بازرس|سربازرس|inspector/i', $txt)) return 147;          // بازرس/سربازرس/ارشد: ۲:۲۷
-        return 27;                                                              // اپراتور/رئیس خط/پیش‌فرض: ۲۷ دقیقه
+        if (preg_match('/اداری|niroo|office/i', $txt)) return 240;
+        if (preg_match('/بازرس|سربازرس|inspector/i', $txt)) return 147;
+        return 27;
     }
 
     static function autoDayWork($shift, $jdate, $sessions, $isHoliday) {
+        $isHoliday = self::effectiveHoliday($jdate, $isHoliday);
         $worked = 0; $night = 0; $inMin = null; $outMax = null;
         $now = time();
         $todayJ = null;
@@ -200,7 +214,7 @@ class ShiftCalc
         $includeFridayDuty = !empty($shift['include_friday_in_duty']);
         $includeHolidayDuty = !empty($shift['include_holiday_in_duty']);
         $offLike = ($isFri && $countFriday && !$includeFridayDuty) || ($isHoliday && !$isFri && $countHoliday && !$includeHolidayDuty);
-        $expected = $offLike ? 0 : (int)($shift['auto_expected_min'] ?? 453); // ۷:۳۳
+        $expected = $offLike ? 0 : (int)($shift['auto_expected_min'] ?? 453);
         $cap = self::roleOtCap($shift);
         $rawExtra = max(0, $worked - $expected);
         $overtime = min($rawExtra, $cap);
@@ -218,13 +232,14 @@ class ShiftCalc
     }
 
     static function dayWork($shift, $jdate, $dayRow, $sessions, $isHoliday) {
+        $isHoliday = self::effectiveHoliday($jdate, $isHoliday);
         if (($shift['type'] ?? '') === 'auto') return self::autoDayWork($shift, $jdate, $sessions, $isHoliday);
         $worked = 0; $night = 0; $inMin = null; $outMax = null;
         $now = time();
         $jTs = self::jdateToTs($jdate); $todayJ = null;
         if (function_exists('gregorian_to_jalali')) {
             [$ty,$tm,$td] = gregorian_to_jalali((int)date('Y'), (int)date('n'), (int)date('j'));
-            $todayJ = sprintf('%04d-%02d-%02d',$ty,$tm,$td);
+            $todayJ = sprintf('%04d-%02d-%02d', $ty,$tm,$td);
         }
         foreach ($sessions as $s) {
             if (empty($s['in'])) continue;
@@ -306,10 +321,6 @@ class ShiftCalc
                 $ee = self::hm($seg['ee'] ?? null); $le = self::hm($seg['le'] ?? null);
                 if ($ee === null) $ee = $e !== null ? max(0, $e - 60) : null;
                 if ($le === null) $le = $e !== null ? $e + 60 : null;
-                // نکته: قبلاً `$ee %= 1440` بدون بررسی null اجرا می‌شد؛ در PHP این کار مقدار
-                // null را بی‌سروصدا به 0 تبدیل می‌کند (نه اینکه null بماند)، و باعث می‌شد
-                // یک بازهٔ «تعریف‌نشده» به‌اشتباه به بازهٔ ۰۰:۰۰ تبدیل و با آن مقایسه شود.
-                // حالا فقط وقتی مقدار واقعاً عددی است، عملیات باقیمانده روی آن اعمال می‌شود.
                 if ($ee !== null) $ee %= 1440;
                 if ($le !== null) $le %= 1440;
                 if (self::minuteInWindow($mins, $ee, $le)) return ['ok'=>true,'seg'=>$seg];
