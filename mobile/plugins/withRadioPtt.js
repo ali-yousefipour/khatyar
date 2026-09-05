@@ -33,7 +33,7 @@ object KhatyarRadioPttBridge {
   fun volumePttAllowed(context: Context): Boolean {
     return try {
       val prefs = context.getSharedPreferences("khatyar_radio_native", Context.MODE_PRIVATE)
-      if (!prefs.getBoolean("enabled", false) || prefs.getLong("channelId", 0L) <= 0L) return false
+      if (!prefs.getBoolean("enabled", false) || prefs.getLong("channelId", 0L) <= 0L || prefs.getBoolean("playbackActive", false)) return false
       val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
       audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).none { d ->
         d.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
@@ -52,6 +52,7 @@ object KhatyarRadioPttBridge {
         key != KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE &&
         key != KeyEvent.KEYCODE_MEDIA_PLAY) return
     val action = if (event.action == KeyEvent.ACTION_DOWN) "down" else "up"
+    if (!volumePttAllowed(context)) return
     emit(context, action, "headset")
   }
 }
