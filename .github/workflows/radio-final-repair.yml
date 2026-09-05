@@ -1,0 +1,85 @@
+name: Radio final repair
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, '[radio-final-repair]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply radio fixes without checkout
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = 'main';
+            const b64 = s => Buffer.from(s, 'base64').toString('utf8');
+            const getFile = async path => {
+              const r = await github.rest.repos.getContent({owner, repo, path, ref: branch});
+              const item = Array.isArray(r.data) ? r.data[0] : r.data;
+              return {item, content: b64(item.content)};
+            };
+            const update = async (path, transform, message) => {
+              const {item, content: old} = await getFile(path);
+              const next = transform(old);
+              if (next === old) throw new Error(`No change made to ${path}`);
+              await github.rest.repos.createOrUpdateFileContents({owner, repo, path, branch, message, content: Buffer.from(next,'utf8').toString('base64'), sha:item.sha});
+            };
+
+            await update('mobile/src/screens/RadioScreen.js', s => {
+              let n = s;
+              n = n.replace(
+                "import React,{useEffect,useRef,useState}from'react';",
+                "import React,{useEffect,useRef,useState}from'react';import{createAudioPlayer}from'expo-audio';"
+              );
+              n = n.replace(
+                "const[recent,setRecent]=useState([]);const[playbackLockUntil=setPlaybackLockUntil,"
+                ,"const[recent,setRecent]=useState([]);"
+              );
+              const marker = "const radioNative=NativeModules?.KhatyarRadio;";
+              if (!n.includes(marker)) throw new Error('RadioScreen native marker missing');
+              n = n.replace(marker, marker + "const CHANNEL_AUDIO={1:require('../../assets/sounds/ch1.mp3'),2:require('../../assets/sounds/ch2.mp3'),3:require('../../assets/sounds/ch3.mp3'),4:require('../../assets/sounds/ch4.mp3'),5:require('../../assets/sounds/ch5.mp3')};");
+              const afterSelector = "const selectorRef=useRef(null);";
+              n = n.replace(afterSelector, afterSelector + "const channelAnnouncementRef=useRef(null);");
+              const loadOld = "const loadRecent=async()=>{if(!user?.id||!channelId)return;try{const r=await request(`/radio-api-v2.php?op=responsible-recent&channel_id=${channelId}`,{noStore:true});const rows=Array.isArray(r?.messages)?r.messages.slice().sort((a,b)=>Number(b?.id||0)-Number(a?.id||0)).slice(0,3):[];setRecent(rows)}catch(_){setRecent([])}};";
+              if (!n.includes(loadOld)) throw new Error('RadioScreen loadRecent target missing');
+              n = n.replace(loadOld, "const loadRecent=async()=>{if(!user?.id||!channelId)return;try{const r=await request(`/radio-api-v2.php?op=latest-three&channel_id=${channelId}`,{noStore:true});const rows=Array.isArray(r?.messages)?r.messages.slice(0,3):[];setRecent(rows)}catch(_){setRecent([])}};");
+              const effectOld = "useEffect(()=>{loadRecent();poll();const t=setInterval(poll,1500);return()=>clearInterval(t)},[user?.id,channelId,enabled]);";
+              if (!n.includes(effectOld)) throw new Error('RadioScreen polling effect target missing');
+              n = n.replace(effectOld, "useEffect(()=>{loadRecent();poll();const t=setInterval(()=>{poll();loadRecent()},1500);return()=>clearInterval(t)},[user?.id,channelId,enabled]);");
+              const openOld = "const openChannels=()=>{if(recording||loading||actualBusy||playbackBusy)return;";
+              const announcement = "const announceChannel=cid=>{const source=CHANNEL_AUDIO[Number(cid)];if(!source)return;try{const old=channelAnnouncementRef.current;if(old){try{old.stop?.()}catch(_){ }try{old.release?.()}catch(_){ }}const p=createAudioPlayer(source);channelAnnouncementRef.current=p;p.play();setTimeout(()=>{try{p.release?.()}catch(_){ }if(channelAnnouncementRef.current===p)channelAnnouncementRef.current=null},5000)}catch(_){}};useEffect(()=>()=>{try{channelAnnouncementRef.current?.release?.()}catch(_){}} ,[]);";
+              n = n.replace(openOld, announcement + openOld);
+              const pressOld = "onPress={()=>{setChannel(c.id);setOpen(false)}}";
+              if (!n.includes(pressOld)) throw new Error('channel selector target missing');
+              n = n.replace(pressOld, "onPress={()=>{if(Number(c.id)!==Number(channelId))announceChannel(c.id);setChannel(c.id);setOpen(false)}}");
+              return n;
+            }, 'fix(radio): use explicit latest-three endpoint and channel announcements [radio-final-repair]');
+
+            await update('mobile/src/radio/RadioContext.js', s => {
+              const oldSounds = "const botPlayer=useAudioPlayer(require('../../assets/sounds/radio_bot.wav')),rogerPlayer=useAudioPlayer(require('../../assets/sounds/radio_roger_beep.wav')),eotPlayer=useAudioPlayer(require('../../assets/sounds/radio_eot.wav')),squelchPlayer=useAudioPlayer(require('../../assets/sounds/radio_squelch.wav')),courtesyPlayer=useAudioPlayer(require('../../assets/sounds/radio_courtesy_beep.wav'));const ch1Player=useAudioPlayer(require('../../assets/sounds/ch1.mp3')),ch2Player=useAudioPlayer(require('../../assets/sounds/ch2.mp3')),ch3Player=useAudioPlayer(require('../../assets/sounds/ch3.mp3')),ch4Player=useAudioPlayer(require('../../assets/sounds/ch4.mp3')),ch5Player=useAudioPlayer(require('../../assets/sounds/ch5.mp3'));const channelPlayers={1:ch1Player,2:ch2Player,3:ch3Player,4:ch4Player,5:ch5Player};const RADIO_SQUELCH_DELAY_MS=900;const playSfx=p=>{try{p.seekTo(0);p.play()}catch(e){}};";
+              const newSounds = "const botPlayer=useAudioPlayer(require('../../assets/sounds/radio_bot.wav')),rogerPlayer=useAudioPlayer(require('../../assets/sounds/radio_roger_beep.wav')),eotPlayer=useAudioPlayer(require('../../assets/sounds/radio_eot.wav')),squelchPlayer=useAudioPlayer(require('../../assets/sounds/radio_squelch.wav')),courtesyPlayer=useAudioPlayer(require('../../assets/sounds/radio_courtesy_beep.wav'));const RADIO_SQUELCH_DELAY_MS=900;const playSfx=p=>{try{p.seekTo(0);p.play()}catch(e){}};";
+              if (!s.includes(oldSounds)) throw new Error('RadioContext channel-player block missing');
+              let n = s.replace(oldSounds,newSounds);
+              const setOld = "const setChannel=async id=>{const cid=Number(id),c=channels.find(x=>Number(x.id)===cid);if(!c)return;const previousId=Number(channelRef.current||0);if(cid!==previousId){const channelPlayer=channelPlayers[cid];if(channelPlayer){try{channelPlayer.seekTo(0);channelPlayer.play()}catch(e){}}}setChannelIdState(cid);";
+              const setNew = "const setChannel=async id=>{const cid=Number(id),c=channels.find(x=>Number(x.id)===cid);if(!c)return;setChannelIdState(cid);";
+              if (!n.includes(setOld)) throw new Error('RadioContext setChannel channel-player target missing');
+              n = n.replace(setOld,setNew);
+              const recentOld = "const loadRecentMessages=async()=>{if(!user?.id||!channelRef.current)return;try{const r=await request(`/radio-api-v2.php?op=responsible-recent&channel_id=${channelRef.current}`,{noStore:true});if(mountedRef.current)setRecentMessages(Array.isArray(r?.messages)?r.messages:[])}catch(e){if(mountedRef.current)setRecentMessages([])}};";
+              if (!n.includes(recentOld)) throw new Error('RadioContext recent target missing');
+              n = n.replace(recentOld, "const loadRecentMessages=async()=>{if(!user?.id||!channelRef.current)return;try{const r=await request(`/radio-api-v2.php?op=latest-three&channel_id=${channelRef.current}`,{noStore:true});if(mountedRef.current)setRecentMessages(Array.isArray(r?.messages)?r.messages:[])}catch(e){if(mountedRef.current)setRecentMessages([])}};");
+              return n;
+            }, 'fix(radio): keep channel selection playback in screen and use latest-three API [radio-final-repair]');
+
+            await update('php/app/radio-api-v2.php', s => {
+              const marker = "if($op==='audio'&&$method==='GET')";
+              if (!s.includes(marker)) throw new Error('radio audio endpoint marker missing');
+              const block = "if($op==='latest-three'&&$method==='GET'){ $cid=(int)($_GET['channel_id']??0);ec($cid,$u);$sql='SELECT m.id,m.channel_id,m.sender_id,m.sender_name,m.duration_ms,m.bytes_size,m.created_at,r.title role_title FROM radio_messages m JOIN users su ON su.id=m.sender_id LEFT JOIN roles r ON r.id=su.role_id WHERE m.channel_id=? ORDER BY m.created_at DESC,m.id DESC LIMIT 3';$rows=Db::all($sql,[$cid]);foreach($rows as&$r)$r['audio_url']='/api/radio-api-v2.php?op=audio&id='.(int)$r['id'];unset($r);rj(['ok'=>true,'messages'=>$rows]);}\n";
+              return s.replace(marker, block + marker);
+            }, 'feat(radio): add explicit latest-three endpoint ordered by timestamp [radio-final-repair]');
+
+            const wf = await getFile('.github/workflows/radio-final-repair.yml');
+            await github.rest.repos.deleteFile({owner,repo,path:'.github/workflows/radio-final-repair.yml',branch,message:'chore(radio): remove one-time repair workflow [radio-final-repair]',sha:wf.item.sha});
