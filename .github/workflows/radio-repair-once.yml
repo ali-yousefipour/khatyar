@@ -6,7 +6,6 @@ permissions:
   contents: write
 jobs:
   repair:
-    if: github.actor == 'ali-yousefipour'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,11 +29,8 @@ jobs:
           patch('mobile/src/screens/RadioScreen.js', [
             ("const loadRecent=async()=>{if(!user?.id||!channelId)return;try{const r=await request(`/radio-api-v2.php?op=responsible-recent&channel_id=${channelId}`,{noStore:true});const rows=Array.isArray(r?.messages)?r.messages:[];setRecent(rows.slice(0,3))}catch(_){setRecent([])}};const poll=async()=>{if(!user?.id||!enabled||!channelId||pollBusyRef.current)return;pollBusyRef.current=true;try{const r=await request(`/radio-api-v2.php?op=poll&channel_id=${channelId}&after=0`,{noStore:true});const sp=r?.speaker_id?{id:Number(r.speaker_id),name:r.speaker_name||'کاربر در حال صحبت',role:r.speaker_role||''}:null;setLive({busy:!!r?.busy,speaker:sp});await loadRecent()}catch(_){ }finally{pollBusyRef.current=false}};",
              "const loadRecent=async()=>{if(!user?.id||!channelId)return;try{const r=await request(`/radio-api-v2.php?op=poll&channel_id=${channelId}&after=0`,{noStore:true});const rows=Array.isArray(r?.messages)?r.messages.slice().sort((a,b)=>Number(b?.id||0)-Number(a?.id||0)).slice(0,3):[];setRecent(rows)}catch(_){setRecent([])}};const poll=async()=>{if(!user?.id||!enabled||!channelId||pollBusyRef.current)return;pollBusyRef.current=true;try{const r=await request(`/radio-api-v2.php?op=poll&channel_id=${channelId}&after=0`,{noStore:true});const sp=r?.speaker_id?{id:Number(r.speaker_id),name:r.speaker_name||'کاربر در حال صحبت',role:r.speaker_role||''}:null;setLive({busy:!!r?.busy,speaker:sp});if(Array.isArray(r?.messages)){const rows=r.messages.slice().sort((a,b)=>Number(b?.id||0)-Number(a?.id||0)).slice(0,3);setRecent(rows)}}catch(_){ }finally{pollBusyRef.current=false}};"),
-            ("const[recent,setRecent]=useState([]);const[playbackLockUntil,setPlaybackLockUntil]=useState(0);",
-             "const[recent,setRecent]=useState([]);const[playbackLockUntil,setPlaybackLockUntil]=useState(0);"),
           ])
 
-          # Exact second pass for context: longer squelch, native playback lock, latest three real messages.
           patch('mobile/src/radio/RadioContext.js', [
             ("const enabledRef=useRef(true),channelRef=useRef(0),lastIdRef=useRef(0),pollingRef=useRef(false),mountedRef=useRef(true),recordingRef=useRef(false),limitRef=useRef(DEFAULT_TALK_MS),talkStartRef=useRef(0),autoStoppedRef=useRef(false),pttReleaseTimerRef=useRef(null),pttDownRef=useRef(false),talkGenerationRef=useRef(0),pttInputGenerationRef=useRef(0);",
              "const enabledRef=useRef(true),channelRef=useRef(0),lastIdRef=useRef(0),pollingRef=useRef(false),mountedRef=useRef(true),recordingRef=useRef(false),limitRef=useRef(DEFAULT_TALK_MS),talkStartRef=useRef(0),autoStoppedRef=useRef(false),pttReleaseTimerRef=useRef(null),pttDownRef=useRef(false),talkGenerationRef=useRef(0),pttInputGenerationRef=useRef(0),playingRef=useRef(0);"),
@@ -62,10 +58,8 @@ jobs:
             ('if (player != null) { try { player.release(); } catch (Throwable ignored) {} player = null; }', 'if (player != null) { try { player.release(); } catch (Throwable ignored) {} player = null; } broadcastPlayback(false, -1L);'),
           ])
 
-          wf=Path('.github/workflows/radio-repair-once.yml')
-          print('patched', ' + '.join(['RadioScreen.js','RadioContext.js','KhatyarRadioModule.java','KhatyarRadioService.java']))
-          wf.unlink()
-      - name: Commit and remove one-time workflow
+          Path('.github/workflows/radio-repair-once.yml').unlink()
+      - name: Commit changes
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
