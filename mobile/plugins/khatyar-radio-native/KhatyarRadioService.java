@@ -48,6 +48,9 @@ public final class KhatyarRadioService extends Service {
   private long serviceStartedAt = 0;
   private boolean destroyed = false;
 
+  private boolean playbackActive() { return getPrefs().getBoolean("playbackActive", false); }
+  private void setPlaybackActive(boolean active) { try { getPrefs().edit().putBoolean("playbackActive", active).apply(); } catch (Throwable ignored) {} }
+
   private final Runnable poller = new Runnable() {
     @Override public void run() {
       if (destroyed) return;
@@ -63,7 +66,7 @@ public final class KhatyarRadioService extends Service {
     setupMediaSession();
     startForegroundCompat();
     lastId = getPrefs().getLong("lastId", 0L);
-    getPrefs().edit().putLong("sessionStartedAt", serviceStartedAt).putBoolean("initialized", false).apply();
+    getPrefs().edit().putLong("sessionStartedAt", serviceStartedAt).putBoolean("initialized", false).putBoolean("playbackActive", false).apply();
     handler.post(poller);
   }
 
@@ -119,7 +122,7 @@ public final class KhatyarRadioService extends Service {
   }
 
   private void sendPtt(boolean down, String source) {
-    if (!getPrefs().getBoolean("enabled", false) || getPrefs().getLong("channelId", 0L) <= 0) return;
+    if (!getPrefs().getBoolean("enabled", false) || getPrefs().getLong("channelId", 0L) <= 0 || playbackActive() || player != null) return;
     Intent i = new Intent(KhatyarRadioModule.ACTION_PTT); i.setPackage(getPackageName());
     i.putExtra("down", down); i.putExtra("source", source); sendBroadcast(i);
   }
@@ -217,16 +220,17 @@ public final class KhatyarRadioService extends Service {
       player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
       Map<String,String> headers = new HashMap<>(); if (token != null && !token.isEmpty()) headers.put("Authorization", "Bearer " + token);
       player.setDataSource(this, android.net.Uri.parse(audioUrl), headers);
-      player.setOnCompletionListener(mp -> { try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; });
-      player.setOnErrorListener((mp, what, extra) -> { try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; return true; });
+      setPlaybackActive(true);
+      player.setOnCompletionListener(mp -> { setPlaybackActive(false); try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; });
+      player.setOnErrorListener((mp, what, extra) -> { setPlaybackActive(false); try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; return true; });
       player.setOnPreparedListener(MediaPlayer::start); player.prepareAsync();
-    } catch (Throwable ignored) {}
+    } catch (Throwable ignored) { setPlaybackActive(false); }
   }
 
   @Override public void onDestroy() {
     destroyed = true; handler.removeCallbacksAndMessages(null); io.shutdownNow();
     if (mediaSession != null) { try { mediaSession.setActive(false); mediaSession.release(); } catch (Throwable ignored) {} mediaSession = null; }
-    if (player != null) { try { player.release(); } catch (Throwable ignored) {} player = null; }
+    if (player != null) { try { player.release(); } catch (Throwable ignored) {} player = null; } setPlaybackActive(false);
     super.onDestroy();
   }
   @Nullable @Override public IBinder onBind(Intent intent) { return null; }
