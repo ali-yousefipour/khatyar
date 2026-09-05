@@ -10,6 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/workflows/radio-repair-once.yml
+            mobile/src/screens/RadioScreen.js
+            mobile/src/radio/RadioContext.js
+            mobile/plugins/khatyar-radio-native/KhatyarRadioModule.java
+            mobile/plugins/khatyar-radio-native/KhatyarRadioService.java
+            mobile/plugins/withRadioPtt.js
+          sparse-checkout-cone-mode: false
       - name: Apply radio fixes
         shell: python
         run: |
@@ -67,8 +76,7 @@ jobs:
               ('const action = if (event.action == KeyEvent.ACTION_DOWN) "down" else "up"\n    emit(context, action, "headset")', 'const action = if (event.action == KeyEvent.ACTION_DOWN) "down" else "up"\n    if (!volumePttAllowed(context)) return\n    emit(context, action, "headset")'),
           ])
 
-          p=Path('.github/workflows/radio-repair-once.yml')
-          p.unlink()
+          Path('.github/workflows/radio-repair-once.yml').unlink()
       - name: Commit repaired radio code
         shell: bash
         run: |
