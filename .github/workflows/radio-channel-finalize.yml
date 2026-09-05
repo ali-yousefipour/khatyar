@@ -1,0 +1,62 @@
+name: Radio channel finalize
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/radio-channel-finalize.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  finalize:
+    if: ${{ !contains(github.event.head_commit.message, '[radio-channel-finalize]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply radio UI and channel-audio fixes without checkout
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = 'main';
+            const b64 = s => Buffer.from(s, 'base64').toString('utf8');
+            const getFile = async path => github.rest.repos.getContent({owner, repo, path, ref: branch});
+            const update = async (path, old, next, message) => {
+              const r = await getFile(path);
+              const item = Array.isArray(r.data) ? r.data[0] : r.data;
+              let content = b64(item.content);
+              if (!content.includes(old)) throw new Error(`Missing target in ${path}: ${old.slice(0,180)}`);
+              content = content.replace(old, next);
+              await github.rest.repos.createOrUpdateFileContents({owner, repo, path, branch, message, content: Buffer.from(content,'utf8').toString('base64'), sha: item.sha});
+            };
+
+            await update(
+              'mobile/src/screens/RadioScreen.js',
+              "const loadRecent=async()=>{if(!user?.id||!channelId)return;try{const r=await request(`/radio-api-v2.php?op=poll&channel_id=${channelId}&after=0`,{noStore:true});const rows=Array.isArray(r?.messages)?r.messages.slice().sort((a,b)=>Number(b?.id||0)-Number(a?.id||0)).slice(0,3):[];setRecent(rows)}catch(_){setRecent([])}};",
+              "const loadRecent=async()=>{if(!user?.id||!channelId)return;try{const r=await request(`/radio-api-v2.php?op=responsible-recent&channel_id=${channelId}`,{noStore:true});const rows=Array.isArray(r?.messages)?r.messages.slice().sort((a,b)=>Number(b?.id||0)-Number(a?.id||0)).slice(0,3):[];setRecent(rows)}catch(_){setRecent([])}};",
+              'fix(radio): load actual latest three messages'
+            );
+
+            await update(
+              'mobile/src/screens/RadioScreen.js',
+              ";if(Array.isArray(r?.messages)){const rows=r.messages.slice().sort((a,b)=>Number(b?.id||0)-Number(a?.id||0)).slice(0,3);setRecent(rows)}catch(_){ }finally",
+              "catch(_){ }finally",
+              'fix(radio): keep recent list isolated from live polling'
+            );
+
+            await update(
+              'mobile/src/radio/RadioContext.js',
+              "const botPlayer=useAudioPlayer(require('../../assets/sounds/radio_bot.wav')),rogerPlayer=useAudioPlayer(require('../../assets/sounds/radio_roger_beep.wav')),eotPlayer=useAudioPlayer(require('../../assets/sounds/radio_eot.wav')),squelchPlayer=useAudioPlayer(require('../../assets/sounds/radio_squelch.wav')),courtesyPlayer=useAudioPlayer(require('../../assets/sounds/radio_courtesy_beep.wav'));const RADIO_SQUELCH_DELAY_MS=900;const playSfx=p=>{try{p.seekTo(0);p.play()}catch(e){}};",
+              "const botPlayer=useAudioPlayer(require('../../assets/sounds/radio_bot.wav')),rogerPlayer=useAudioPlayer(require('../../assets/sounds/radio_roger_beep.wav')),eotPlayer=useAudioPlayer(require('../../assets/sounds/radio_eot.wav')),squelchPlayer=useAudioPlayer(require('../../assets/sounds/radio_squelch.wav')),courtesyPlayer=useAudioPlayer(require('../../assets/sounds/radio_courtesy_beep.wav'));const ch1Player=useAudioPlayer(require('../../assets/sounds/ch1.mp3')),ch2Player=useAudioPlayer(require('../../assets/sounds/ch2.mp3')),ch3Player=useAudioPlayer(require('../../assets/sounds/ch3.mp3')),ch4Player=useAudioPlayer(require('../../assets/sounds/ch4.mp3')),ch5Player=useAudioPlayer(require('../../assets/sounds/ch5.mp3'));const channelPlayers={1:ch1Player,2:ch2Player,3:ch3Player,4:ch4Player,5:ch5Player};const RADIO_SQUELCH_DELAY_MS=900;const playSfx=p=>{try{p.seekTo(0);p.play()}catch(e){}};",
+              'fix(radio): announce selected channel by numeric id'
+            );
+
+            await update(
+              'mobile/src/radio/RadioContext.js',
+              "const setChannel=async id=>{const cid=Number(id),c=channels.find(x=>Number(x.id)===cid);if(!c)return;setChannelIdState(cid);channelRef.current=cid;",
+              "const setChannel=async id=>{const cid=Number(id),c=channels.find(x=>Number(x.id)===cid);if(!c)return;const previousId=Number(channelRef.current||0);if(cid!==previousId){const channelPlayer=channelPlayers[cid];if(channelPlayer){try{channelPlayer.seekTo(0);channelPlayer.play()}catch(e){}}}setChannelIdState(cid);channelRef.current=cid;",
+              'fix(radio): play channel announcement on selection [radio-channel-finalize]'
+            );
+
+            const wf = await getFile('.github/workflows/radio-channel-finalize.yml');
+            await github.rest.repos.deleteFile({owner, repo, path: '.github/workflows/radio-channel-finalize.yml', branch, message: 'chore(radio): remove one-time channel finalize workflow [radio-channel-finalize]', sha: (Array.isArray(wf.data)?wf.data[0]:wf.data).sha});
