@@ -1,0 +1,52 @@
+name: Radio recent source finalize
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/radio-recent-finalize.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[radio-recent-finalize]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Patch recent-message source
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const branch = 'main';
+            const decode = s => Buffer.from(s, 'base64').toString('utf8');
+            const get = async path => github.rest.repos.getContent({ owner, repo, path, ref: branch });
+            const update = async (path, transform, message) => {
+              const r = await get(path);
+              const item = Array.isArray(r.data) ? r.data[0] : r.data;
+              const oldText = decode(item.content);
+              const newText = transform(oldText);
+              if (newText === oldText) throw new Error(`No change made to ${path}`);
+              await github.rest.repos.createOrUpdateFileContents({
+                owner, repo, path, branch, sha: item.sha,
+                message,
+                content: Buffer.from(newText, 'utf8').toString('base64')
+              });
+            };
+            const oldScreen = "const loadRecent=async()=>{if(!user?.id||!channelId)return;try{const r=await request(`/radio-api-v2.php?op=latest-three&channel_id=${channelId}`,{noStore:true});const rows=Array.isArray(r?.messages)?r.messages.slice(0,3):[];setRecent(rows)}catch(_){setRecent([])}};";
+            const newScreen = "const loadRecent=async()=>{if(!user?.id||!channelId)return;try{const r=await request(`/radio-api-v2.php?op=responsible-recent&channel_id=${channelId}`,{noStore:true});const rows=Array.isArray(r?.messages)?r.messages:Array.isArray(r?.data?.messages)?r.data.messages:Array.isArray(r)?r:[];rows.sort((a,b)=>Number(b?.id||0)-Number(a?.id||0));setRecent(rows.slice(0,3))}catch(_){setRecent([])}};";
+            await update('mobile/src/screens/RadioScreen.js', text => {
+              if (!text.includes(oldScreen)) throw new Error('RadioScreen loadRecent block not found');
+              return text.replace(oldScreen, newScreen);
+            }, 'fix(radio): use stable recent messages endpoint [radio-recent-finalize]');
+            const oldContext = "const loadRecentMessages=async()=>{if(!user?.id||!channelRef.current)return;try{const r=await request(`/radio-api-v2.php?op=latest-three&channel_id=${channelRef.current}`,{noStore:true});const list=Array.isArray(r?.messages)?r.messages:Array.isArray(r?.data?.messages)?r.data.messages:Array.isArray(r)?r:[];if(mountedRef.current)setRecentMessages(list.slice(-3).reverse())}catch(e){if(mountedRef.current)setRecentMessages([])}};";
+            const newContext = "const loadRecentMessages=async()=>{if(!user?.id||!channelRef.current)return;try{const r=await request(`/radio-api-v2.php?op=responsible-recent&channel_id=${channelRef.current}`,{noStore:true});const list=Array.isArray(r?.messages)?r.messages:Array.isArray(r?.data?.messages)?r.data.messages:Array.isArray(r)?r:[];list.sort((a,b)=>Number(b?.id||0)-Number(a?.id||0));if(mountedRef.current)setRecentMessages(list.slice(0,3))}catch(e){if(mountedRef.current)setRecentMessages([])}};";
+            await update('mobile/src/radio/RadioContext.js', text => {
+              if (!text.includes(oldContext)) throw new Error('RadioContext loadRecentMessages block not found');
+              return text.replace(oldContext, newContext);
+            }, 'fix(radio): align context with stable recent messages endpoint [radio-recent-finalize]');
+            const wf = await get('.github/workflows/radio-recent-finalize.yml');
+            const wfItem = Array.isArray(wf.data) ? wf.data[0] : wf.data;
+            await github.rest.repos.deleteFile({
+              owner, repo, path: '.github/workflows/radio-recent-finalize.yml', branch,
+              sha: wfItem.sha,
+              message: 'chore(radio): remove one-time recent-message workflow [radio-recent-finalize]'
+            });
