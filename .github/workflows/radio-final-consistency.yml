@@ -1,0 +1,54 @@
+name: Radio final consistency fixes
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/radio-final-consistency.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const getFile = async path => {
+              const r = await github.rest.repos.getContent({owner, repo, path, ref:'main'});
+              return Array.isArray(r.data) ? r.data[0] : r.data;
+            };
+            const put = async (path, transform, message) => {
+              const f = await getFile(path);
+              const oldText = Buffer.from(f.content, 'base64').toString('utf8');
+              const newText = transform(oldText);
+              if (newText === oldText) throw new Error(`No change made to ${path}`);
+              await github.rest.repos.createOrUpdateFileContents({owner,repo,path,branch:'main',sha:f.sha,message,content:Buffer.from(newText,'utf8').toString('base64')});
+            };
+
+            await put('mobile/src/radio/RadioContext.js', text => {
+              text = text.replace("if(mountedRef.current)setRecentMessages(list.slice(-3).reverse())", "if(mountedRef.current)setRecentMessages(list.slice(0,3))");
+              text = text.replace("const token=await SecureStore.getItemAsync('access');await NATIVE.configure(token||'',apiBase(),Number(user.id),Number(overrides.channelId??channelRef.current),overrides.enabled??enabledRef.current)", "const token=await SecureStore.getItemAsync('access');const nativeEnabled=(overrides.enabled??enabledRef.current)&&AppState.currentState!=='active';await NATIVE.configure(token||'',apiBase(),Number(user.id),Number(overrides.channelId??channelRef.current),nativeEnabled)");
+              text = text.replace("for(const m of(r.messages||[])){lastIdRef.current=Math.max(lastIdRef.current,Number(m.id));if(Number(m.sender_id)!==Number(user.id))await playFile(m)}", "for(const m of(r.messages||[])){lastIdRef.current=Math.max(lastIdRef.current,Number(m.id));if(AppState.currentState==='active'&&Number(m.sender_id)!==Number(user.id))await playFile(m)}");
+              const oldEffect = "useEffect(()=>{if(!user?.id||!NATIVE)return;syncNative();},[user?.id,enabled,channelId]);";
+              const newEffect = "useEffect(()=>{if(!user?.id||!NATIVE)return;syncNative();const sub=AppState.addEventListener('change',()=>syncNative());return()=>{try{sub.remove()}catch(e){}}},[user?.id,enabled,channelId]);";
+              if(!text.includes(oldEffect)) throw new Error('native sync effect marker not found');
+              text = text.replace(oldEffect,newEffect);
+              return text;
+            }, 'fix(radio): isolate native playback to background and preserve latest order');
+
+            await put('mobile/src/screens/RadioScreen.js', text => {
+              text = text.replace("const[open,setOpen]=useState(false),[drop,setDrop]=useState({top:0,left:14,width:0}),[live,setLive]=useState({busy:false,speaker:null}),[recent,setRecent]=useState([]),[nativePlayback,setNativePlayback]=useState(false),[playbackLockUntil,setPlaybackLockUntil]=useState(0);", "const[open,setOpen]=useState(false),[drop,setDrop]=useState({top:0,left:14,width:0}),[live,setLive]=useState({busy:false,speaker:null}),[nativePlayback,setNativePlayback]=useState(false),[playbackLockUntil,setPlaybackLockUntil]=useState(0);");
+              const syncEffect = "useEffect(()=>{if(Array.isArray(recentMessages)&&recentMessages.length)setRecent(recentMessages.slice(0,3));},[recentMessages]);";
+              if(text.includes(syncEffect)) text=text.replace(syncEffect,"const recent=Array.isArray(recentMessages)?recentMessages.slice(0,3):[];"); else text=text.replace("const recent=Array.isArray(recentMessages)?recentMessages.slice(0,3):[];","const recent=Array.isArray(recentMessages)?recentMessages.slice(0,3):[];");
+              const start = text.indexOf("const sortLatest=rows=>");
+              const end = text.indexOf("const poll=async()=>", start);
+              if(start>=0 && end>start) text=text.slice(0,start)+text.slice(end);
+              text = text.replace("const t=setInterval(()=>{loadRecent();poll()},1500);", "const t=setInterval(poll,1500);");
+              text = text.replace("useEffect(()=>{loadRecent();poll();const t=setInterval(()=>{loadRecent();poll()},1500);return()=>clearInterval(t)},[user?.id,channelId,enabled,channels.length]);", "useEffect(()=>{poll();const t=setInterval(poll,1500);return()=>clearInterval(t)},[user?.id,channelId,enabled]);");
+              text = text.replace("content:{padding:14,paddingBottom:40}", "content:{padding:14,paddingBottom:40,direction:'rtl'}");
+              return text;
+            }, 'fix(radio): make latest-message panel context-driven and force RTL');
+
+            const wf = await getFile('.github/workflows/radio-final-consistency.yml');
+            await github.rest.repos.deleteFile({owner,repo,path:'.github/workflows/radio-final-consistency.yml',branch:'main',sha:wf.sha,message:'chore(radio): remove one-time consistency workflow'});
