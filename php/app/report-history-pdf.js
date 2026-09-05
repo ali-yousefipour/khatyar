@@ -1,8 +1,6 @@
 /* Khatyar report-history PDF runtime — Android Reports parity */
 (function(){'use strict';if(window.__KH_REPORT_PDF__)return;window.__KH_REPORT_PDF__=true;
-/* app.html currently loads an older v32 parity file; block it and load the scoped v33 runtime. */
-window.__KHATYAR_PARITY_V32__=true;
-function loadParity(){if(window.__KHATYAR_PARITY_V33__)return;const s=document.createElement('script');s.src='web-android-parity-v33.js?v=3';s.defer=true;document.head.appendChild(s)}
+function loadParity(){}
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const faDate=v=>{try{return new Intl.DateTimeFormat('fa-IR',{dateStyle:'short',timeStyle:'short'}).format(new Date(v))}catch(_){return String(v||'')}};
 function addStyle(){if(document.getElementById('kh-report-pdf-style'))return;const s=document.createElement('style');s.id='kh-report-pdf-style';s.textContent='.kh-report-pdf-tools{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0}.kh-report-pdf-tools button{border:1px solid #d8dee9;border-radius:10px;background:#fff;padding:8px 12px;font:inherit;font-weight:800;cursor:pointer}.kh-report-pdf-tools button.on{background:#0d7a5f;color:#fff;border-color:#0d7a5f}.kh-report-pdf-tools .pdf{background:#5b3bb8;color:#fff;border-color:#5b3bb8}.kh-report-pdf-tools.hidden{display:none}';document.head.appendChild(s)}

@@ -3,6 +3,7 @@ import { faNum } from '../num';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { request } from '../api';
 import { C, FONT } from '../theme';
+import { refreshUnreadCounts } from '../unread';
 import { fj } from '../jdate';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 
@@ -23,6 +24,7 @@ export default function MessagesScreen() {
       try {
         await request(`/my/messages/${m.id}/read`, { method: 'POST' });
         setData((cur) => (cur || []).map((x) => x.id === m.id ? { ...x, read_at: new Date().toISOString() } : x));
+        refreshUnreadCounts();
       } catch (e) {}
     }
   }

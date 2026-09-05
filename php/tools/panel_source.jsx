@@ -1189,6 +1189,7 @@ function Modal({title,onClose,children}){
 }
 
 function Users(){
+  const [usersTab,setUsersTab]=useState("users");
   const [users,setUsers]=useState([]); const [roles,setRoles]=useState([]); const [zones,setZones]=useState([]);
   const [edit,setEdit]=useState(null); const [lineModal,setLineModal]=useState(null); const [adding,setAdding]=useState(false);
   const [f,setF]=useState({q:"",role_id:"",zone_id:"",active:""}); const [pw,setPw]=useState("");
@@ -1207,7 +1208,21 @@ function Users(){
   const pickPhoto=async(u,file)=>{ if(!file)return; const data=await compressImage(file,512,0.6); await db.adminSetPhoto(u.id,data); setEdit(e=>e?{...e,photo:data}:e); reload(); };
   const pickSignature=async(u,file)=>{ if(!file)return; const data=await compressImage(file,500,0.7); await db.adminSetSignature(u.id,data); setEdit(e=>e?{...e,signature_data:data}:e); reload(); };
   const clearSignature=async(u)=>{ if(!confirm("امضای این کاربر حذف شود؟"))return; await db.adminSetSignature(u.id,""); setEdit(e=>e?{...e,signature_data:null}:e); reload(); };
+  if(usersTab!=="users") return(<div className="panel">
+    <h3>مدیریت کاربران</h3>
+    <div className="row" style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
+      <button className={"btn "+(usersTab==="users"?"p":"g")} onClick={()=>setUsersTab("users")}>اطلاعات کاربران</button>
+      <button className={"btn "+(usersTab==="vehicles"?"p":"g")} onClick={()=>setUsersTab("vehicles")}>خودرو و موتورسیکلت</button>
+      <button className={"btn "+(usersTab==="checklist"?"p":"g")} onClick={()=>setUsersTab("checklist")}>چک‌لیست خودرو و موتورسیکلت</button>
+    </div>
+    {usersTab==="vehicles"?<PersonnelVehicleAssets/>:<PersonnelVehicleChecklist/>}
+  </div>);
   return(<div className="panel"><h3>مدیریت کاربران <button className="btn p" onClick={()=>setAdding(true)}>+ افزودن کاربر</button> <button className="btn g" onClick={async()=>{ try{ const res=await fetch(db.usersExportUrl(),{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="اطلاعات_کامل_کاربران.xlsx"; a.click(); }catch(e){alert(e.message);} }}>⤓ خروجی کامل کاربران (Excel)</button></h3>
+    <div className="row" style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
+      <button className="btn p">اطلاعات کاربران</button>
+      <button className="btn g" onClick={()=>setUsersTab("vehicles")}>خودرو و موتورسیکلت</button>
+      <button className="btn g" onClick={()=>setUsersTab("checklist")}>چک‌لیست خودرو و موتورسیکلت</button>
+    </div>
     <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
       <input className="input" style={{maxWidth:170}} placeholder="نام یا کد ملی" value={f.q} onChange={e=>setF({...f,q:e.target.value})}/>
       <select className="input" style={{maxWidth:150}} value={f.role_id} onChange={e=>setF({...f,role_id:e.target.value})}><option value="">همهٔ سمت‌ها</option>{roles.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select>
@@ -2812,42 +2827,47 @@ function RoleAppItemsView(){
 }
 
 function RoleAppItems(){
-  // کلیدها باید با مقادیر route در منوی اپ یکی باشند
+  // منبع حقیقت آیتم‌های اپ: باید دقیقاً با MainStack در mobile/App.js یکسان باشد.
   const ITEMS=[
-    ["Search","جستجوی تاکسی و تاکسیران"],["PresentList","حاضرین در خط"],["Reports","ارسال گزارش"],
-    ["CheckIn","ثبت حضور من"],["Requests","درخواست‌ها"],["RequestInbox","تأیید درخواست‌ها"],
-    ["WorkSummary","کارکرد من"],["CustomFields","اطلاعات تکمیلی"],["Sms","ارسال پیامک"],
-    ["BotMessages","ارسال پیام در ربات‌ها"],["TempDrivers","رانندگان موقت خطوط ویژه"],
-    ["MySms","پیامک‌های ارسالی من"],["Forms","تکمیل فرم‌ها"],["OfficialPresence","حضور مسئولین در خط"],
-    ["InboxReports","گزارشات دریافتی"],["ActivityReport","پرکار/کم‌کار هر خط"],["ExpInsurance","بیمه و معاینه خودروها"],
-    ["ExpTaxi","افراد فاقد اعتبار"],["ExpOplic","خودرو فاقد بهره‌برداری"],["TeamReport","زیرمجموعهٔ من"],["Outage","اعلام قطع سیستم نوبت‌دهی"],
-    ["CompanyRequests","ارسال برای شرکت"],["Cultural","فعالیت‌های فرهنگی"],["Welfare","ثبت رفاهیات"],["SalarySlips","فیش حقوقی"],["Inventory","اقلام تحویلی"]
+    ["Dashboard","داشبورد"],["Search","جستجوی تاکسی و تاکسیران"],["Driver","اطلاعات راننده"],["Vehicle","اطلاعات خودرو"],["Debt","بدهی آبونمان"],["Checklist","چک‌لیست خودرو"],["Notice","ثبت تذکر"],["Reports","ارسال گزارش"],["Sms","ارسال پیامک به رانندگان"],["BotMessages","ارسال پیام در ربات‌ها"],["Requests","درخواست‌ها"],["RequestInbox","کارتابل تأیید درخواست‌ها"],["WorkSummary","کارکرد من"],["SalarySlips","فیش‌های حقوقی من"],["CompanyRequests","ارسال برای شرکت"],["Subscription","اشتراک گروهی و انفرادی"],["CheckIn","ثبت حضور من"],["Forms","فرم‌ها"],["Cultural","فعالیت‌های فرهنگی"],["Welfare","رفاهیات"],["TempDrivers","رانندگان موقت"],["Notifications","اعلان‌ها"],["FieldAlerts","هشدارها"],["ActivityReport","فعالیت رانندگان هر خط"],["ExpInsurance","وضعیت بیمه و معاینه"],["ExpTaxi","افراد فاقد اعتبار"],["ExpOplic","خودروهای فاقد بهره‌برداری"],["TeamReport","زیرمجموعه من"],["InboxReports","گزارشات دریافتی"],["ReportDetail","جزئیات گزارش"],["OfficialPresence","ثبت حضور مسئولین در خط"],["Inventory","اقلام تحویلی"],["Messages","پیام‌ها"],["Attendance","گزارش حضور"],["PastNotices","تذکرات قبلی"],["PastChecklists","چک‌لیست‌های قبلی"],["DriverSms","پیامک‌های راننده"],["MySms","پیامک‌های ارسالی من"],["CustomFields","اطلاعات تکمیلی"],["Outage","اعلام قطع سیستم نوبت‌دهی"],["Profile","حساب کاربری"],["ChangePassword","تغییر رمز"],["EditProfile","ویرایش اطلاعات من"],["PersonnelVehicleAsset","مشخصات خودرو یا موتورسیکلت"],["PersonnelVehicleChecklist","چک‌لیست خودرویی و موتوری"],["MapSettings","تنظیمات نقشه"],["ExpiryNotificationSettings","تنظیمات اعلان اعتبار"],["FieldAlertSettings","تنظیمات هشدارهای میدانی"],["ImportTimes","آخرین زمان‌های به‌روزرسانی"],["AppLockSettings","قفل برنامه"],["CrashReports","گزارش خطاهای برنامه"],["LineVisitProgram","برنامه بازدید و پوشش خط"],["LineLocation","ثبت موقعیت و تصویر خطوط"],["MyDailyMission","مأموریت روزانه من"],["RoleDashboard","داشبورد و امتیاز من"],["Leaderboard","رتبه‌بندی و نشان‌ها"],["Radio","بی‌سیم خطیار"],["Help","راهنمای برنامه"],["StationCapture","ثبت موقعیت و تصویر خطوط"],["MyStations","ایستگاه‌های ثبت‌شده من"],["PresentList","حاضرین در خط"]
   ];
   const [roles,setRoles]=useState([]); const [cfg,setCfg]=useState({}); const [rid,setRid]=useState(""); const [saving,setSaving]=useState(false);
   useEffect(()=>{ db.roleAppItems().then(d=>{ setRoles(d.roles||[]); setCfg(d.config&&!Array.isArray(d.config)?d.config:{}); if(d.roles&&d.roles[0])setRid(String(d.roles[0].id)); }).catch(()=>{}); },[]);
-  const sel = (cfg[rid]===undefined) ? null : (cfg[rid]||[]); // null = همه نمایش داده می‌شود
+  const sel = (cfg[rid]===undefined) ? null : (cfg[rid]||[]);
   const allKeys = ITEMS.map(i=>i[0]);
-  const toggleItem=(k)=>{ const cur = sel===null ? allKeys.slice() : sel.slice(); const i=cur.indexOf(k); if(i>=0)cur.splice(i,1); else cur.push(k); setCfg({...cfg,[rid]:cur}); };
-  const setAll=()=>{ const c={...cfg}; delete c[rid]; setCfg(c); }; // حذف کلید = نمایش همه
+  const toggleItem=(k)=>{ const cur=sel===null?allKeys.slice():sel.slice(); const i=cur.indexOf(k); if(i>=0)cur.splice(i,1); else cur.push(k); setCfg({...cfg,[rid]:cur}); };
+  const setAll=()=>{ const c={...cfg}; delete c[rid]; setCfg(c); };
   const setNone=()=>setCfg({...cfg,[rid]:[]});
-  const save=async()=>{ setSaving(true); try{ await db.saveRoleAppItems(cfg); alert("ذخیره شد. کاربران آن سمت پس از ورود مجدد تغییر را می‌بینند."); }catch(e){alert(e.message||"خطا");} finally{setSaving(false);} };
-  return(<div>
-    <p style={{fontSize:12,color:"var(--muted)",marginBottom:10}}>برای هر سمت مشخص کنید کدام آیتم‌ها در داشبورد اپ نمایش داده شوند. اگر «نمایش همه» را انتخاب کنید (پیش‌فرض)، همهٔ آیتم‌ها برای آن سمت دیده می‌شوند.</p>
-    <div className="row" style={{gap:8,alignItems:"center",flexWrap:"wrap"}}>
-      <span className="label">سمت:</span>
-      <select className="input" style={{maxWidth:240}} value={rid} onChange={e=>setRid(e.target.value)}>{roles.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select>
-      <button className="btn g" onClick={setAll}>نمایش همه</button>
-      <button className="btn g" onClick={setNone}>هیچ‌کدام</button>
-    </div>
-    <p className="muted" style={{fontSize:11,marginTop:8}}>{sel===null?"وضعیت فعلی: همهٔ آیتم‌ها نمایش داده می‌شوند":`وضعیت فعلی: ${fa(sel.length)} آیتم انتخاب شده`}</p>
-    <div className="row" style={{gap:8,flexWrap:"wrap",marginTop:6}}>
-      {ITEMS.map(([k,l])=>{ const on = sel===null ? true : sel.includes(k); return(
-        <label key={k} className="row" style={{gap:6,minWidth:200,padding:"6px 8px",border:"1px solid var(--line)",borderRadius:8,background:on?"#e7f3ee":"#fff"}}>
-          <input type="checkbox" checked={on} onChange={()=>toggleItem(k)}/>{l}
-        </label>); })}
-    </div>
+  const save=async()=>{setSaving(true);try{await db.saveRoleAppItems(cfg);alert("ذخیره شد. کاربران آن سمت پس از ورود مجدد تغییر را می‌بینند.");}catch(e){alert(e.message||"خطا");}finally{setSaving(false);}};
+  return <div>
+    <p style={{fontSize:12,color:"var(--muted)",marginBottom:10}}>این فهرست فقط آیتم‌های واقعی نرم‌افزار اندروید است و مستقیماً با Routeهای <code>MainStack</code> در اپ تطبیق داده شده است؛ هیچ آیتم پنل وب در این بخش قرار ندارد.</p>
+    <div className="row" style={{gap:8,alignItems:"center",flexWrap:"wrap"}}><span className="label">سمت:</span><select className="input" style={{maxWidth:240}} value={rid} onChange={e=>setRid(e.target.value)}>{roles.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select><button className="btn g" onClick={setAll}>نمایش همه</button><button className="btn g" onClick={setNone}>هیچ‌کدام</button></div>
+    <p className="muted" style={{fontSize:11,marginTop:8}}>{sel===null?`وضعیت فعلی: همهٔ ${fa(ITEMS.length)} آیتم نمایش داده می‌شوند`:`وضعیت فعلی: ${fa(sel.length)} از ${fa(ITEMS.length)} آیتم انتخاب شده`}</p>
+    <div className="row" style={{gap:8,flexWrap:"wrap",marginTop:6}}>{ITEMS.map(([k,l])=>{const on=sel===null?true:sel.includes(k);return <label key={k} className="row" style={{gap:6,minWidth:200,padding:"6px 8px",border:"1px solid var(--line)",borderRadius:8,background:on?"#e7f3ee":"#fff"}}><input type="checkbox" checked={on} onChange={()=>toggleItem(k)}/>{l}</label>})}</div>
     <button className="btn p" style={{marginTop:12}} disabled={saving} onClick={save}>{saving?"در حال ذخیره…":"ذخیرهٔ تنظیمات"}</button>
-  </div>);
+  </div>;
+}
+
+function RadioSettings(){
+  const [data,setData]=useState({channels:[],users:[],roles:[],regions:[],retention_days:1,retention_hours:24}); const [busy,setBusy]=useState(false); const [form,setForm]=useState({id:0,name:'',code:'',description:'',channel_type:'region',match_mode:'OR',max_talk_ms:25000,priority:0,is_active:true,rules:{regions:[],users:[],roles:[]}});
+  const api=async(op,opt={})=>{const r=await fetch(`/api/radio-admin-api.php?op=${op}`,{...opt,headers:{...(opt.headers||{}),Authorization:`Bearer ${localStorage.token||''}`,'Content-Type':'application/json'},cache:'no-store'});const d=await r.json();if(!r.ok||d.ok===false)throw Error(d.error||'خطای سرور');return d;};
+  const load=async()=>{try{setData(await api('bootstrap'));}catch(e){alert(e.message)}}; useEffect(()=>{load()},[]);
+  const save=async()=>{setBusy(true);try{await api('save',{method:'POST',body:JSON.stringify(form)});setForm({id:0,name:'',code:'',description:'',channel_type:'region',match_mode:'OR',max_talk_ms:25000,priority:0,is_active:true,rules:{regions:[],users:[],roles:[]}});await load();}catch(e){alert(e.message)}finally{setBusy(false)}};
+  const edit=c=>setForm({...c,rules:c.rules||{regions:[],users:[],roles:[]},max_talk_ms:Number(c.max_talk_ms||25000)});
+  const del=async(id)=>{if(!confirm('این کانال حذف شود؟'))return;try{await api('delete',{method:'POST',body:JSON.stringify({id})});await load()}catch(e){alert(e.message)}};
+  const toggle=(key,id)=>setForm(f=>({...f,rules:{...f.rules,[key]:f.rules[key].includes(id)?f.rules[key].filter(x=>x!==id):[...f.rules[key],id]}}));
+  return <div><p className="muted" style={{fontSize:12}}>تنظیمات بی‌سیم اکنون بخشی از تنظیمات اصلی سامانه است. مدیریت کانال‌ها و نگهداری آرشیو از همین تب انجام می‌شود.</p><div className="panel"><h3>{form.id?'ویرایش کانال':'ایجاد کانال جدید'}</h3><div className="grid2"><div><label className="label">نام کانال</label><input className="input" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></div><div><label className="label">کد یکتا</label><input className="input" dir="ltr" value={form.code} onChange={e=>setForm({...form,code:e.target.value})}/></div><div><label className="label">نوع کانال</label><select className="input" value={form.channel_type} onChange={e=>setForm({...form,channel_type:e.target.value})}><option value="region">منطقه‌ای</option><option value="users">اعضای انتخابی</option><option value="roles">سمت‌محور</option><option value="custom">ترکیبی</option></select></div><div><label className="label">منطق شروط</label><select className="input" value={form.match_mode} onChange={e=>setForm({...form,match_mode:e.target.value})}><option value="OR">OR</option><option value="AND">AND</option></select></div><div><label className="label">حداکثر زمان صحبت (ثانیه)</label><input className="input" type="number" min="5" max="120" value={Math.round(form.max_talk_ms/1000)} onChange={e=>setForm({...form,max_talk_ms:Math.max(5000,Math.min(120000,(Number(e.target.value)||25)*1000))})}/></div><div><label className="label">اولویت</label><input className="input" type="number" value={form.priority} onChange={e=>setForm({...form,priority:Number(e.target.value)||0})}/></div></div><label className="row" style={{gap:8,marginTop:10}}><input type="checkbox" checked={!!form.is_active} onChange={e=>setForm({...form,is_active:e.target.checked})}/>کانال فعال باشد</label><label className="label" style={{marginTop:10}}>توضیحات</label><textarea className="input" value={form.description||''} onChange={e=>setForm({...form,description:e.target.value})}/><div className="grid2" style={{marginTop:10}}>{[['regions','مناطق مجاز',data.regions],['roles','سمت‌های مجاز',data.roles],['users','کاربران مجاز',data.users]].map(([k,l,arr])=><div key={k}><label className="label">{l}</label><div style={{maxHeight:150,overflow:'auto',border:'1px solid var(--line)',padding:8,borderRadius:8}}>{(arr||[]).map(x=><label key={x.id} className="row" style={{gap:6,fontSize:11,padding:3}}><input type="checkbox" checked={form.rules[k].includes(Number(x.id))} onChange={()=>toggle(k,Number(x.id))}/>{x.name||x.title||`${x.first_name||''} ${x.last_name||''}`}</label>)}</div></div>)}</div><div className="row" style={{gap:8,marginTop:12}}><button className="btn p" disabled={busy} onClick={save}>{busy?'در حال ذخیره…':'ذخیره کانال'}</button>{form.id>0&&<button className="btn g" onClick={()=>setForm({id:0,name:'',code:'',description:'',channel_type:'region',match_mode:'OR',max_talk_ms:25000,priority:0,is_active:true,rules:{regions:[],users:[],roles:[]}})}>انصراف</button>}</div></div><div className="panel"><div className="row" style={{justifyContent:'space-between'}}><h3>نگهداری آرشیو</h3><span className="muted">{fa(data.retention_hours||24)} ساعت</span></div><div className="row" style={{gap:8,alignItems:'center',flexWrap:'wrap'}}><input className="input" type="number" min="1" max="87600" value={data.retention_hours||24} onChange={e=>setData({...data,retention_hours:Number(e.target.value)||24,retention_days:Math.max(1,Math.ceil((Number(e.target.value)||24)/24))})}/><span className="muted">ساعت</span><button className="btn p" onClick={async()=>{try{await api('retention-set',{method:'POST',body:JSON.stringify({retention_hours:data.retention_hours})});await load()}catch(e){alert(e.message)}}}>ذخیره</button></div><p className="muted" style={{marginTop:6}}>پیش‌فرض: ۲۴ ساعت. پیام‌های قدیمی‌تر از این بازه توسط پاکسازی خودکار حذف می‌شوند.</p></div><div className="panel"><h3>کانال‌های تعریف‌شده</h3><table><thead><tr><th>کانال</th><th>نوع</th><th>اولویت</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>{data.channels.map(c=><tr key={c.id}><td><b>{c.name}</b><br/><small>{c.code}</small></td><td>{({region:'منطقه‌ای',users:'اعضای انتخابی',roles:'سمت‌محور',custom:'ترکیبی'}[c.channel_type]||c.channel_type)}</td><td>{fa(c.priority||0)}</td><td>{c.is_active?'فعال':'غیرفعال'}</td><td><button className="btn g" onClick={()=>edit(c)}>ویرایش</button> <button className="btn d" onClick={()=>del(c.id)}>حذف</button></td></tr>)}</tbody></table></div></div>;
+}
+
+function RadioCenter(){
+  const [tab,setTab]=useState('live'); const [channels,setChannels]=useState([]); const [cid,setCid]=useState(0); const [messages,setMessages]=useState([]); const [after,setAfter]=useState(0); const afterRef=React.useRef(0); const [retention,setRetention]=useState(1);
+  const api=async(op)=>{const r=await fetch(`/api/radio-admin-api.php?op=${op}`,{headers:{Authorization:`Bearer ${localStorage.token||''}`},cache:'no-store'});const d=await r.json();if(!r.ok||d.ok===false)throw Error(d.error||'خطای سرور');return d;};
+  const load=async()=>{try{const d=await api('channel-list');setChannels(d.channels||[]);setCid(x=>x||(d.channels?.[0]?.id||0));setAfter(x=>{const c=(d.channels||[]).find(q=>Number(q.id)===Number(cid||d.channels?.[0]?.id));const n=c?Number(c.last_message_id||0):x;afterRef.current=n;return n;});}catch(e){alert(e.message)}};
+  const poll=async()=>{if(!cid)return;try{const d=await api(`monitor&channel_id=${cid}&after=${afterRef.current}`);if((d.messages||[]).length){const n=Math.max(afterRef.current,...d.messages.map(x=>Number(x.id)));afterRef.current=n;setMessages(m=>[...(d.messages||[]).map(x=>({...x,newItem:true})),...m].slice(0,100));setAfter(n)}}catch(_) {}}
+  useEffect(()=>{load()},[]); useEffect(()=>{if(tab!=='live'||!cid)return; poll();const t=setInterval(poll,1800);return()=>clearInterval(t)},[tab,cid]);
+  const archive=async()=>{try{const d=await api(`archive&channel_id=${cid}&limit=100`);setMessages(d.messages||[]);setRetention(d.retention_hours||((d.retention_days||1)*24))}catch(e){alert(e.message)}};
+  useEffect(()=>{if(tab==='archive')archive(); else if(tab==='live'&&cid){const c=channels.find(x=>Number(x.id)===Number(cid));const n=Number(c?.last_message_id||0);afterRef.current=n;setAfter(n);setMessages([]);}},[tab,cid]);
+  return <div><div className="tabbar"><button className={'tabbtn'+(tab==='live'?' on':'')} onClick={()=>setTab('live')}>پخش زنده بی‌سیم</button><button className={'tabbtn'+(tab==='archive'?' on':'')} onClick={()=>setTab('archive')}>آرشیو پیام‌ها</button></div><div className="panel"><div className="row" style={{gap:8,alignItems:'center',flexWrap:'wrap'}}><label className="label">کانال</label><select className="input" style={{maxWidth:280}} value={cid} onChange={e=>{setCid(Number(e.target.value));setAfter(0);afterRef.current=0;setMessages([])}}>{channels.map(c=><option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}</select>{tab==='live'&&<span className="muted">در حال شنود زنده…</span>}{tab==='archive'&&<span className="muted">نگهداری: {fa(retention)} ساعت</span>}</div></div><div className="panel"><h3>{tab==='live'?'شنود زنده':'آرشیو پیام‌های صوتی'}</h3>{tab==='live'&&<p className="muted" style={{marginBottom:8}}>در این بخش فقط پیام‌هایی که پس از ورود شما به شنود زنده دریافت شوند نمایش داده می‌شوند؛ پیام‌های قبلی در آرشیو هستند.</p>}{messages.length?messages.map(m=><div key={m.id} className="row" style={{justifyContent:'space-between',gap:10,padding:'10px 0',borderBottom:'1px solid var(--line)',alignItems:'center'}}><div><b>{m.sender_name||'کاربر'}</b><div className="muted" style={{fontSize:11}}>{m.created_at||''} · {fa(Math.round(Number(m.duration_ms||0)/1000))} ثانیه</div></div><audio controls preload="none" src={m.audio_url} style={{maxWidth:280}}/></div>):<p className="muted">پیامی برای نمایش وجود ندارد.</p>}</div></div>;
 }
 
 function CustomFieldsManager(){
@@ -3434,7 +3454,7 @@ function Settings(){
   if(!v)return <div>در حال بارگذاری…</div>;
   const set=(k,val)=>setV({...v,[k]:val});
   const save=async()=>{ await db.saveSettings(v); alert("تنظیمات ذخیره شد."); };
-  const TABS=[["general","عمومی و موقعیت"],["subscription","اشتراک"],["monitoring","پایش و هشدارها"],["dashboard","داشبورد و محاسبهٔ عملکرد"],["hr","منابع انسانی"],["fields","فیلدهای پرسنل"],["appitems","آیتم‌های اپ هر سمت"],["sms","پیامک"],["bale","ربات‌ها"],["security","امنیت و نسخه اپ"],["files","پیوست‌ها و اعلان‌ها"],["drivers","بدهکاران"],["print","قالب چاپ"],["access","دسترسی‌ها"],["backup","پشتیبان‌گیری و پاکسازی"]];
+  const TABS=[["general","عمومی و موقعیت"],["subscription","اشتراک"],["monitoring","پایش و هشدارها"],["dashboard","داشبورد و محاسبهٔ عملکرد"],["hr","منابع انسانی"],["fields","فیلدهای پرسنل"],["appitems","آیتم‌های اپ هر سمت"],["sms","پیامک"],["bale","ربات‌ها"],["radio","بی‌سیم"],["security","امنیت و نسخه اپ"],["files","پیوست‌ها و اعلان‌ها"],["drivers","بدهکاران"],["print","قالب چاپ"],["access","دسترسی‌ها"],["backup","پشتیبان‌گیری و پاکسازی"]];
   const Field=(k,l)=><div style={{marginBottom:12}}><label style={{fontSize:13,color:"var(--muted)"}}>{l}</label>
     <input className="input" value={v[k]??""} onChange={e=>set(k,e.target.value)} style={{marginTop:5}}/></div>;
   const Toggle=(k,l)=><label className="row" style={{justifyContent:"space-between",padding:"8px 0",cursor:"pointer"}}>
@@ -3799,6 +3819,7 @@ function Settings(){
     <div className="panel t-sms"><h3>💰 هزینهٔ پیامک و ظرفیت ارسال</h3><SmsCostPanel v={v} set={set} save={save}/></div>
     <div className="panel t-sms"><h3>محدودیت ارسال پیامک</h3><label className="row" style={{gap:8}}><input type="checkbox" checked={!!v.sms_templates_only} onChange={e=>set("sms_templates_only",e.target.checked)}/>کاربران فقط بتوانند از قالب‌های تعریف‌شده استفاده کنند (امکان نوشتن متن دلخواه نباشد)</label><button className="btn p" style={{marginTop:10}} onClick={save}>ذخیره</button></div>
     <div className="panel t-bale"><h3>🤖 تنظیمات ربات‌های پیام‌رسان</h3><BaleSettings v={v} setV={setV} set={set} save={save}/></div>
+    <div className="panel t-radio"><h3>📻 تنظیمات بی‌سیم</h3><RadioSettings/></div>
 <div className="panel t-sms"><h3>پیامک خوش‌آمد هنگام ثبت‌نام کاربر</h3>
       <p style={{fontSize:13,color:"var(--muted)",marginBottom:8}}>هنگام ایجاد کاربر جدید (در صورت داشتن موبایل و فعال بودن سرویس)، این پیامک حاوی نام کاربری و رمز عبور برای او ارسال می‌شود. از متغیرها استفاده کنید: <code dir="ltr">{"{username}"}</code>، <code dir="ltr">{"{password}"}</code>، <code dir="ltr">{"{first_name}"}</code>، <code dir="ltr">{"{last_name}"}</code></p>
       <textarea className="input" rows="4" placeholder={"به سامانه خوش آمدید.\nنام کاربری: {username}\nرمز عبور: {password}"} value={v.sms_welcome_template||""} onChange={e=>setV({...v,sms_welcome_template:e.target.value})}/>
@@ -3828,7 +3849,7 @@ function Logs(){
   return(<div className="panel"><h3>لاگ فعالیت‌ها و رویدادهای امنیتی</h3>
     <div className="row no-print" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
       <select className="input" style={{maxWidth:180}} value={f.event} onChange={e=>setF({...f,event:e.target.value})}><option value="">همهٔ رویدادها</option>{events.map(e=><option key={e} value={e}>{ev[e]||e}</option>)}</select>
-      <select className="input" style={{maxWidth:200}} value={f.user_id} onChange={e=>setF({...f,user_id:e.target.value})}><option value="">همهٔ کاربران</option>{users.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}</select>
+      <select className="input" style={{maxWidth:200}} value={f.user_id} onChange={e=>setF({...f,user_id:e.target.value})}><option value="">همهٔ کاربران</option>{visibleUsers.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}{u.username?` — ${u.username}`:""}</option>)}</select>
       <JDate value={f.from} onChange={v=>setF({...f,from:v})} placeholder="از تاریخ"/>
       <JDate value={f.to} onChange={v=>setF({...f,to:v})} placeholder="تا تاریخ"/>
       <button className="btn g" onClick={load}>اعمال فیلتر</button>
@@ -4761,7 +4782,7 @@ function DashboardConfig(){
 }
 
 function RolePerms(){
-  const MENU=[["dashboard","داشبورد"],["reportscenter","مرکز گزارش‌ها"],["health","سلامت سامانه"],["map","نقشهٔ زنده"],["present","آمار حاضرین"],["presentchart","نمودار زندهٔ حاضرین"],["missiondashboard","داشبورد عملیات میدانی"],["citydashboard","داشبورد مدیریتی کل‌شهر"],["missiontemplates","موتور مأموریت — الگوها و تنظیمات"],["scoreengine","موتور امتیازدهی"],["driverservicereport","عملکرد و تذکرات تاکسیران"],["officials","حضور مسئولین"],["covertselfies","سلفی‌های نامحسوس"],["messages","پیام‌رسانی"],["messengercenter","مرکز ارسال ربات‌ها"],["companyrequests","مدارک ارسالی شرکت"],["salaryslips","بارگذاری فیش حقوقی"],["users","کاربران"],["zones","منطقه‌بندی"],["org","چارت سازمانی"],["drivers","رانندگان"],["platetraining","پلاک‌خوان"],["lines","خطوط"],["bills","آبونمان"],["config","تذکر/چک‌لیست"],["forms","فرم‌ساز"],["reports","گردش گزارش"],["report","گزارش‌گیری"],["perfreport","گزارش عملکرد پرسنل"],["welfare","رفاهیات روابط عمومی"],["cultural","فعالیت‌های فرهنگی"],["excel","ورود اکسل"],["logs","لاگ"],["useract","فعالیت کاربران"],["commitments","تعهدات انضباطی"],["tempdrivers","رانندگان موقت"],["presence","صحت‌سنجی حضور"],["attendance","حضور نیروها"],["shifts","شیفت و کارکرد"],["attreport","گزارش تردد پرسنل"],["workpolicy","سیاست کاری"],["requests","گزارش درخواست‌ها"],["outages","قطعی سیستم نوبت‌دهی"],["customfields","فیلدهای سفارشی"],["inventory","اقلام تحویلی"],["sms","ارسال پیامک"],["smslog","تاریخچهٔ پیامک"],["appitems","آیتم‌های اپ هر سمت"],["cronstatus","پایش سلامت کرون‌ها"],["activesessions","جلسات فعال کاربران"],["settings","تنظیمات"]];
+  const MENU=[["dashboard","داشبورد"],["reportscenter","مرکز گزارش‌ها"],["health","سلامت سامانه"],["map","نقشهٔ زنده"],["present","آمار حاضرین"],["presentchart","نمودار زندهٔ حاضرین"],["missiondashboard","داشبورد عملیات میدانی"],["citydashboard","داشبورد مدیریتی کل‌شهر"],["missiontemplates","موتور مأموریت — الگوها و تنظیمات"],["scoreengine","موتور امتیازدهی"],["driverservicereport","عملکرد و تذکرات تاکسیران"],["officials","حضور مسئولین"],["covertselfies","سلفی‌های نامحسوس"],["messages","پیام‌رسانی"],["messengercenter","مرکز ارسال ربات‌ها"],["companyrequests","مدارک ارسالی شرکت"],["salaryslips","بارگذاری فیش حقوقی"],["users","کاربران"],["zones","منطقه‌بندی"],["org","چارت سازمانی"],["drivers","رانندگان"],["platetraining","پلاک‌خوان"],["lines","خطوط"],["bills","آبونمان"],["config","تذکر/چک‌لیست"],["forms","فرم‌ساز"],["reports","گردش گزارش"],["report","گزارش‌گیری"],["perfreport","گزارش عملکرد پرسنل"],["welfare","رفاهیات روابط عمومی"],["cultural","فعالیت‌های فرهنگی"],["excel","ورود اکسل"],["logs","لاگ"],["useract","فعالیت کاربران"],["commitments","تعهدات انضباطی"],["tempdrivers","رانندگان موقت"],["presence","صحت‌سنجی حضور"],["attendance","حضور نیروها"],["shifts","شیفت و کارکرد"],["attreport","گزارش تردد پرسنل"],["workpolicy","سیاست کاری"],["requests","گزارش درخواست‌ها"],["outages","قطعی سیستم نوبت‌دهی"],["customfields","فیلدهای سفارشی"],["inventory","اقلام تحویلی"],["sms","ارسال پیامک"],["smslog","تاریخچهٔ پیامک"],["appitems","آیتم‌های اپ هر سمت"],["cronstatus","پایش سلامت کرون‌ها"],["activesessions","جلسات فعال کاربران"],["radiocenter","مرکز بی‌سیم"],["vehicleassets","ماشین‌آلات و وسایل مأموریتی"],["vehiclechecklist","چک‌لیست خودرویی و موتوری"],["settings","تنظیمات"]];
   const [roles,setRoles]=useState([]); const [perms,setPerms]=useState({}); const [sel,setSel]=useState(null);
   useEffect(()=>{ db.roles().then(rs=>{setRoles(rs);}).catch(()=>{}); db.settings().then(s=>setPerms(s.role_perms||{})).catch(()=>{}); },[]);
   const allowed=sel!=null?(perms[sel]||MENU.map(m=>m[0])):[];
@@ -5705,6 +5726,7 @@ function Holidays(){
 function AttendanceReport(){
   const [users,setUsers]=useState([]);
   const [uid,setUid]=useState("");
+  const [personQuery,setPersonQuery]=useState("");
   const [from,setFrom]=useState(todayJStr());
   const [to,setTo]=useState(todayJStr());
   const [data,setData]=useState(null);
@@ -5713,6 +5735,7 @@ function AttendanceReport(){
   const [edit,setEdit]=useState(null); // {punch, field} در حال ویرایش
   const [addModal,setAddModal]=useState(null); // {jdate}
   useEffect(()=>{ db.users().then(us=>setUsers(us||[])).catch(()=>{}); },[]);
+  const visibleUsers=users.filter(u=>{const q=String(personQuery||"").trim().toLowerCase();return !q||String((u.first_name||"")+" "+(u.last_name||"")).toLowerCase().includes(q)||String(u.username||"").includes(q);});
   const run=async()=>{ if(!uid){alert("پرسنل را انتخاب کنید");return;} setBusy(true); setData(null); setOpenDay(null);
     try{ const r=await db.attendanceReport(uid,from,to); setData(r); }
     catch(e){ alert(e.message||"خطا در دریافت گزارش"); }
@@ -5725,7 +5748,7 @@ function AttendanceReport(){
   const convertSurplus=async(d)=>{ const surplus=hmToMin(d.surplus); if(!surplus){alert("مازاد حضوری برای تبدیل وجود ندارد");return;} const val=prompt("چند دقیقه از مازاد حضور به اضافه‌کار تبدیل شود؟", String(surplus)); if(val===null)return; const minutes=Math.max(0,Math.min(surplus,parseInt(String(val).replace(/\D/g,""),10)||0)); const reason=prompt("علت/توضیح تأیید مازاد حضور:", "تأیید مدیر"); try{ await db.attendanceSurplusConvert({user_id:+uid,jdate:d.jdate,minutes,reason:reason||""}); await refresh(); }catch(e){alert(e.message||"خطا در تبدیل مازاد حضور");} };
   const resetSurplus=async(d)=>{ if(!confirm("تبدیل مازاد حضور این روز حذف شود؟"))return; try{ await db.attendanceSurplusReset({user_id:+uid,jdate:d.jdate}); await refresh(); }catch(e){alert(e.message||"خطا");} };
   const exportExcel=()=>{ if(!data)return;
-    const rows=[]; data.days.forEach(d=>{ if(!d.punches.length){ rows.push({"تاریخ":d.jdate,"روز هفته":d.weekday,"ورود":"--:--","خروج":"--:--","محل ورود":"--","محل خروج":"--","حضور کل":d.worked,"حضور در شیفت":d.in_shift,"کسری کار":d.shortage,"شب کاری":d.night,"جمعه کاری":d.friday||"00:00","تعطیل کاری":d.holiday||"00:00","اضافه کاری":d.overtime,"مازاد حضور":d.surplus||"00:00","تبدیل‌شده":d.adjusted_ot||"00:00","وضعیت":d.is_holiday?"تعطیل":(d.absent?"غیبت":"")}); }
+    const rows=[]; data.days.forEach(d=>{ if(!d.punches.length){ rows.push({"تاریخ":d.jdate,"روز هفته":d.weekday,"ورود":"--:--","خروج":"--:--","محل ورود":"--","محل خروج":"--","حضور کل":d.worked,"حضور در شیفت":d.in_shift,"کسری کار":d.shortage,"شب کاری":d.night,"جمعه کاری":d.friday_work||d.friday||"00:00","تعطیل کاری":d.holiday_work||d.holiday||"00:00","اضافه کاری":d.overtime,"مازاد حضور":d.surplus||"00:00","تبدیل‌شده":d.adjusted_ot||"00:00","وضعیت":d.is_holiday?"تعطیل":(d.absent?"غیبت":"")}); }
       else d.punches.forEach((p,i)=>rows.push({"تاریخ":i===0?d.jdate:"","روز هفته":i===0?d.weekday:"","ورود":p.in||"--:--","خروج":p.out||"--:--","محل ورود":p.in_station||"--","محل خروج":p.out_station||"--","حضور کل":i===0?d.worked:"","حضور در شیفت":i===0?d.in_shift:"","کسری کار":i===0?d.shortage:"","شب کاری":i===0?d.night:"","جمعه کاری":i===0?(d.friday||"00:00"):"","تعطیل کاری":i===0?(d.holiday||"00:00"):"","اضافه کاری":i===0?d.overtime:"","مازاد حضور":i===0?(d.surplus||"00:00"):"","تبدیل‌شده":i===0?(d.adjusted_ot||"00:00"):"","وضعیت":i===0&&d.is_holiday?"تعطیل":""})); });
     const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,(data.user.name||"تردد").slice(0,28)); XLSX.writeFile(wb,"گزارش_تردد_"+(data.user.name||"")+".xlsx"); };
@@ -5733,7 +5756,8 @@ function AttendanceReport(){
   return(<div className="panel"><h3>🕒 گزارش تردد پرسنل</h3>
     <div className="card-p" style={{marginBottom:14}}>
       <div className="row" style={{gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
-        <div style={{minWidth:200}}><label className="label">پرسنل</label>
+        <div style={{minWidth:260}}><label className="label">پرسنل</label>
+          <input className="input" value={personQuery} onChange={e=>setPersonQuery(e.target.value)} placeholder="جستجوی نام، نام خانوادگی یا کد ملی" style={{marginBottom:6}}/>
           <select className="input" value={uid} onChange={e=>setUid(e.target.value)}>
             <option value="">انتخاب پرسنل…</option>
             {users.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
@@ -5754,12 +5778,12 @@ function AttendanceReport(){
       <table style={{fontSize:12.5,minWidth:640}}>
         <thead><tr><th>تاریخ</th><th>روز هفته</th><th>خلاصه تردد</th><th>حضور کل</th><th>حضور در شیفت</th><th>کسری کار</th><th>شب کاری</th><th>جمعه/تعطیل</th><th>اضافه کاری</th><th>مازاد حضور</th><th>اقدام</th></tr></thead>
         <tbody>{data.days.map(d=>{
-          const red=d.is_holiday;
+          const red=!!d.is_holiday || !!d.is_friday || d.weekday==="جمعه";
           return(<tr key={d.jdate}>
             <td style={{color:red?"var(--danger)":"inherit",fontWeight:red?700:400}}>{fa(d.jdate)}{red&&<div style={{fontSize:10}}>تعطیل</div>}</td>
             <td style={{color:red?"var(--danger)":"inherit"}}>{d.weekday}</td>
             <td style={{textAlign:"center",position:"relative"}}>
-              <button onClick={()=>setOpenDay(openDay===d.jdate?null:d.jdate)} title="لیست ورود و خروج"
+              <button onClick={()=>setOpenDay(openDay===d.jdate?null:d.jdate)} title="لیست ورود و خروج" aria-label="لیست ورود و خروج" data-attendance-clock="1"
                 style={{border:"none",background:"none",cursor:"pointer",color:d.punches.length?"#b83b8c":"#888",fontSize:18}}>🕐</button>
               {openDay===d.jdate&&<PunchPopup day={d} onClose={()=>setOpenDay(null)} onEdit={setEdit} onDel={delPunch} onAdd={()=>setAddModal({jdate:d.jdate})}/>}
             </td>
@@ -5767,7 +5791,7 @@ function AttendanceReport(){
             <td>{fa(d.in_shift)}</td>
             <td style={{color:d.shortage!=="00:00"?"var(--danger)":"inherit"}}>{fa(d.shortage)}</td>
             <td>{fa(d.night)}</td>
-            <td><div>{fa(d.friday||"00:00")} جمعه</div><div>{fa(d.holiday||"00:00")} تعطیل</div></td>
+            <td><div>{fa(d.friday_work||d.friday||"00:00")} جمعه</div><div>{fa(d.holiday_work||d.holiday||"00:00")} تعطیل</div></td>
             <td style={{color:"var(--ok)"}}>{fa(d.overtime)}</td>
             <td style={{color:(d.surplus&&d.surplus!=="00:00")?"var(--danger)":"inherit"}}>{fa(d.surplus||"00:00")}{d.adjusted_ot&&d.adjusted_ot!=="00:00"?<div style={{fontSize:10,color:"var(--ok)"}}>تبدیل‌شده: {fa(d.adjusted_ot)}</div>:null}</td>
             <td>{d.surplus&&d.surplus!=="00:00"?<button className="btn p" style={{padding:"5px 8px",fontSize:11}} onClick={()=>convertSurplus(d)}>تبدیل</button>:d.adjusted_ot&&d.adjusted_ot!=="00:00"?<button className="btn g" style={{padding:"5px 8px",fontSize:11}} onClick={()=>resetSurplus(d)}>لغو</button>:"—"}</td>
@@ -7512,6 +7536,20 @@ function DriverServiceReport(){
   </div>;
 }
 
+function pvaFa(v){return String(v??'').replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);}
+function pvaEsc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+const PVA_CAR_PHOTOS=[['car_front','جلوی خودرو'],['car_back','پشت خودرو'],['car_right','سمت راست خودرو'],['car_left','سمت چپ خودرو'],['license_front','روی گواهینامه'],['license_back','پشت گواهینامه'],['vehicle_card_front','روی کارت خودرو'],['vehicle_card_back','پشت کارت خودرو'],['technical_inspection','معاینه فنی'],['insurance','بیمه‌نامه'],['green_card','برگ سبز']];
+const PVA_MOTOR_PHOTOS=[['motor_front','جلوی موتورسیکلت'],['motor_back','پشت موتورسیکلت'],['motor_right','سمت راست موتورسیکلت'],['motor_left','سمت چپ موتورسیکلت'],['motor_card_front','کارت موتورسیکلت'],['motor_card_back','پشت کارت موتورسیکلت'],['green_card','برگ سبز'],['insurance','بیمه‌نامه'],['license_front','روی گواهینامه'],['license_back','پشت گواهینامه']];
+const PVA_CAR_CHECKS=[['identity','تطبیق مشخصات خودرو با مدارک'],['plate','صحت پلاک خودرو'],['license','صحت گواهینامه و تاریخ اعتبار'],['insurance','صحت بیمه شخص ثالث و تاریخ اعتبار'],['technical','صحت معاینه فنی و تاریخ اعتبار'],['photos','صحت چهار طرف خودرو و تصاویر مدارک'],['equipment','چراغ‌گردان، گرمایش، سرمایش و آمپلی‌فایر'],['numbers','صحت شماره شاسی، موتور و VIN']];
+const PVA_MOTOR_CHECKS=[['identity','تطبیق مشخصات موتورسیکلت با مدارک'],['plate','صحت پلاک موتورسیکلت'],['license','صحت گواهینامه و تاریخ اعتبار'],['insurance','صحت بیمه شخص ثالث و تاریخ اعتبار'],['photos','صحت چهار طرف موتورسیکلت و تصاویر مدارک'],['numbers','صحت شماره موتور، تنه/شاسی و سیستم موتور']];
+function pvaPlate(r){return r?.asset_type==='motorcycle'?`${r.motorcycle_plate_top||''} / ${r.motorcycle_plate_bottom||''}`.trim():`${r?.plate_part_right||''} ${r?.plate_letter||''} ${r?.plate_part_left||''} ایران ${r?.plate_iran||''}`.replace(/\s+/g,' ').trim();}
+function pvaStatus(s){return ({pending:'در انتظار بررسی',verified:'تأیید شده',needs_correction:'نیازمند اصلاح',draft:'پیش‌نویس'}[s]||s||'—');}
+function PVAFields({a}){const motor=a.asset_type==='motorcycle';const rows=motor?[['نوع وسیله','موتورسیکلت'],['پلاک',pvaPlate(a)],['کاربری موتور',a.motorcycle_usage],['سیستم موتور',a.motorcycle_system],['تیپ موتور',a.motorcycle_type],['سوخت',a.fuel_type],['سال ساخت',pvaFa(a.model_year)],['رنگ',a.color],['سیلندر',pvaFa(a.cylinders)],['شماره موتور',a.engine_number],['شماره تنه/شاسی',a.chassis_number],['گواهینامه',a.license_number],['صدور گواهینامه',a.license_issue_date],['انقضای گواهینامه',a.license_expiry_date],['بیمه',a.insurance_number],['شروع بیمه',a.insurance_issue_date],['پایان بیمه',a.insurance_expiry_date]]:[['نوع وسیله','خودرو'],['پلاک',pvaPlate(a)],['نوع خودرو',a.vehicle_type],['سوخت',a.fuel_type],['سال ساخت',pvaFa(a.model_year)],['رنگ',a.color],['شماره شاسی',a.chassis_number],['شماره موتور',a.engine_number],['VIN',a.vin],['گواهینامه',a.license_number],['صدور گواهینامه',a.license_issue_date],['انقضای گواهینامه',a.license_expiry_date],['بیمه',a.insurance_number],['شرکت بیمه',a.insurance_company],['صدور بیمه',a.insurance_issue_date],['انقضای بیمه',a.insurance_expiry_date],['معاینه فنی',a.technical_inspection_number],['صدور معاینه',a.technical_inspection_issue_date],['انقضای معاینه',a.technical_inspection_expiry_date],['چراغگردان ثابت',Number(a.fixed_beacon)?'بله':'خیر'],['چراغگردان متحرک',Number(a.mobile_beacon)?'بله':'خیر'],['گرمایش',Number(a.heating_ok)?'سالم':'ناسالم'],['سرمایش',Number(a.cooling_ok)?'سالم':'ناسالم'],['آمپلی‌فایر',Number(a.amplifier)?'دارد':'ندارد']];return <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:8}}>{rows.map(([k,v])=><div key={k} style={{border:'1px solid var(--line)',borderRadius:10,padding:9,background:'#fff'}}><small className="muted">{k}</small><div style={{fontWeight:700,marginTop:3}}>{v||'—'}</div></div>)}</div>}
+function PVAHistory({history=[]}){return <div>{history.length?history.map(h=><div key={h.id} style={{borderBottom:'1px solid var(--line)',padding:'9px 0'}}><b>{h.result==='verified'?'تأیید نهایی':'نیازمند اصلاح'}</b><div className="muted" style={{fontSize:11}}>{h.checked_at||'—'} {h.checker_name?`— ${h.checker_name}`:''}</div>{h.note&&<div style={{fontSize:12,marginTop:3}}>{h.note}</div>}</div>):<div className="muted">هنوز سابقه‌ای ثبت نشده است.</div>}</div>}
+function PersonnelVehicleAssets(){const [items,setItems]=useState([]),[selected,setSelected]=useState(null),[loading,setLoading]=useState(true),[q,setQ]=useState('');const load=async()=>{setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=list',{ttl:0});setItems(d.items||[]);}catch(e){alert(e.message)}finally{setLoading(false)}};useEffect(()=>{load()},[]);const filtered=items.filter(a=>{const s=(a.first_name+' '+a.last_name+' '+pvaPlate(a)+' '+(a.national_code||'')).toLowerCase();return !q||s.includes(q.toLowerCase())});const open=async a=>{try{const d=await GET('/personnel-vehicle-assets.php?op=detail&id='+encodeURIComponent(a.id),{ttl:0});setSelected(d.asset)}catch(e){alert(e.message)}};return <div className="panel"><div className="row" style={{justifyContent:'space-between',gap:8,flexWrap:'wrap'}}><div><h3>ماشین‌آلات و وسایل مأموریتی</h3><p className="muted">پرونده یکپارچه خودرو و موتورسیکلت پرسنل گشت، تصاویر مدارک و آخرین وضعیت چک‌لیست.</p></div><div className="row" style={{gap:8}}><input className="input" placeholder="جستجوی نام، پلاک یا کد ملی" value={q} onChange={e=>setQ(e.target.value)}/><button className="btn g" onClick={()=>downloadProtectedFile('/personnel-vehicle-assets.php?op=export','personnel_vehicle_assets.xlsx')}>خروجی Excel + تصاویر</button></div></div>{loading?<p className="muted">در حال دریافت اطلاعات…</p>:<div style={{display:'grid',gridTemplateColumns:'minmax(250px,32%) 1fr',gap:10}}><div style={{display:'grid',gap:7,maxHeight:650,overflow:'auto'}}>{filtered.map(a=><button key={a.id} type="button" onClick={()=>open(a)} style={{textAlign:'right',border:'1px solid var(--line)',background:'#fff',borderRadius:12,padding:10,cursor:'pointer',outline:selected?.id===a.id?'2px solid var(--brand)':'none'}}><b>{pvaPlate(a)||'بدون پلاک'}</b><div style={{fontSize:12}}>{a.first_name} {a.last_name} — {a.asset_type==='car'?'خودرو':'موتورسیکلت'}</div><div className="muted" style={{fontSize:11}}>{pvaStatus(a.status)} · آخرین چک‌لیست: {a.checklist_last_at||'—'}</div></button>)}{!filtered.length&&<div className="muted" style={{padding:20,textAlign:'center'}}>پرونده‌ای یافت نشد.</div>}</div><div style={{background:'#f8fafc',border:'1px solid var(--line)',borderRadius:14,padding:14}}>{selected?<PVAAssetDetail asset={selected}/>:<div className="muted" style={{padding:30,textAlign:'center'}}>برای مشاهده مشخصات، یک خودرو یا موتورسیکلت را انتخاب کنید.</div>}</div></div>}</div>}
+function PVAAssetDetail({asset:a}){return <div><div className="row" style={{justifyContent:'space-between',alignItems:'start'}}><div><h3>{a.asset_type==='car'?'خودرو':'موتورسیکلت'} — {pvaPlate(a)}</h3><div className="muted">{a.first_name} {a.last_name} · {a.role_title||'—'} · وضعیت: {pvaStatus(a.status)}</div></div></div><div className="panel"><h4>مشخصات کامل</h4><PVAFields a={a}/></div><div className="panel"><h4>تصاویر و مدارک</h4><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>{(a.photos||[]).map(p=><figure key={p.photo_key} style={{margin:0,border:'1px solid var(--line)',borderRadius:10,padding:6}}><img src={p.data_uri} style={{width:'100%',height:120,objectFit:'contain',background:'#f5f6f8',borderRadius:7}}/><figcaption style={{fontSize:10,textAlign:'center'}}>{p.photo_key}</figcaption></figure>)}</div></div><div className="panel"><h4>تاریخچه چک‌لیست</h4><PVAHistory history={a.checklist_history||[]}/></div></div>}
+function PersonnelVehicleChecklist(){const [items,setItems]=useState([]),[selected,setSelected]=useState(null),[detail,setDetail]=useState(null),[checks,setChecks]=useState({}),[note,setNote]=useState(''),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false);const load=async()=>{setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=checklist-list',{ttl:0});setItems(d.items||[])}catch(e){alert(e.message)}finally{setLoading(false)}};useEffect(()=>{load()},[]);const open=async a=>{setSelected(a);setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=detail&id='+encodeURIComponent(a.id),{ttl:0});const x=d.asset||a;setDetail(x);const m={};(x.checks||[]).forEach(c=>m[c.check_key]=!!Number(c.check_value));setChecks(m);setNote(x.checklist_note||'')}catch(e){alert(e.message)}finally{setLoading(false)}};const motor=detail?.asset_type==='motorcycle',list=motor?PVA_MOTOR_CHECKS:PVA_CAR_CHECKS;const submit=async approved=>{const missing=list.filter(([k])=>checks[k]===undefined);if(missing.length){alert('تمام موارد چک‌لیست را تعیین تکلیف کنید.');return}if(approved&&list.some(([k])=>checks[k]!==true)){alert('برای تأیید نهایی همه موارد باید تأیید شده باشند.');return}setSaving(true);try{await SEND('POST','/personnel-vehicle-assets.php?op=checklist-verify',{asset_id:detail.id,approved,checks:Object.fromEntries(list.map(([k])=>[k,{value:!!checks[k],note:''}])),note});alert(approved?'وسیله تأیید شد.':'وسیله برای اصلاح برگشت داده شد.');setSelected(null);setDetail(null);await load()}catch(e){alert(e.message)}finally{setSaving(false)}};if(loading&&!detail)return <div className="panel"><p className="muted">در حال دریافت اطلاعات…</p></div>;return <div className="panel"><h3>چک‌لیست خودرویی و موتوری</h3>{!detail?<><p className="muted">پلاک را انتخاب کنید تا مشخصات کامل، تصاویر مدارک و سوابق چک‌لیست نمایش داده شود.</p><div style={{display:'grid',gap:8}}>{items.map(a=><button key={a.id} type="button" onClick={()=>open(a)} style={{textAlign:'right',background:'#fff',border:'1px solid var(--line)',borderRadius:12,padding:12,cursor:'pointer'}}><b>{pvaPlate(a)}</b><div>{a.first_name} {a.last_name} — {a.asset_type==='car'?'خودرو':'موتورسیکلت'}</div><small className="muted">{pvaStatus(a.status)} · {a.checklist_count?`${pvaFa(a.checklist_count)} بار بررسی شده`: 'بدون سابقه'}</small></button>)}{!items.length&&<div className="muted">هنوز وسیله‌ای برای بررسی ثبت نشده است.</div>}</div></>:<><button className="btn g" onClick={()=>{setDetail(null);setSelected(null)}}>بازگشت به فهرست</button><div className="panel"><h4>مشخصات و مالک</h4><PVAFields a={detail}/></div><div className="panel"><h4>تصاویر و مدارک</h4><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>{(detail.photos||[]).map(p=><figure key={p.photo_key} style={{margin:0}}><img src={p.data_uri} style={{width:'100%',height:130,objectFit:'contain',border:'1px solid var(--line)',borderRadius:10}}/><figcaption style={{fontSize:10,textAlign:'center'}}>{p.photo_key}</figcaption></figure>)}</div></div><div className="panel"><h4>تاریخچه قبلی</h4><PVAHistory history={detail.checklist_history||[]}/></div><div className="panel"><h4>بررسی چک‌لیست</h4>{list.map(([k,t])=><div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid var(--line)'}}><b style={{fontSize:13}}>{t}</b><div className="row" style={{gap:6}}><button className={'btn '+(checks[k]===true?'p':'')} onClick={()=>setChecks(x=>({...x,[k]:true}))}>تأیید</button><button className={'btn '+(checks[k]===false?'d':'')} onClick={()=>setChecks(x=>({...x,[k]:false}))}>رد</button></div></div>)}<label className="label" style={{display:'block',marginTop:12}}>توضیحات</label><textarea className="input" rows="4" value={note} onChange={e=>setNote(e.target.value)}/><div className="row" style={{gap:8,marginTop:10}}><button className="btn d" disabled={saving} onClick={()=>submit(false)}>نیازمند اصلاح</button><button className="btn p" disabled={saving} onClick={()=>submit(true)}>{saving?'در حال ثبت…':'تأیید نهایی'}</button></div></div></> }</div>}
+
 const VIEWS={
   covertselfies:{t:"سلفی‌های نامحسوس",ic:"📸",c:CovertSelfies},
   dashboard:{t:"داشبورد مدیریت",ic:"▦",c:Dashboard},
@@ -7529,6 +7567,7 @@ const VIEWS={
   zones:{t:"منطقه‌بندی نیروها",ic:"⬡",c:Zones},
   org:{t:"چارت سازمانی",ic:"⤢",c:OrgChart},
   drivers:{t:"رانندگان و خودروها",ic:"<img>",c:Drivers},
+  platetraining:{t:"پلاک‌خوان",ic:"🔎",c:PlateTrainingPanel},
   driverservicereport:{t:"عملکرد و تذکرات تاکسیران",ic:"📈",c:DriverServiceReport},
   lines:{t:"خطوط تاکسیرانی",ic:"⇄",c:Lines},
   bills:{t:"آبونمان و فیش‌ها",ic:"₪",c:Bills},
@@ -7562,6 +7601,9 @@ const VIEWS={
   appitems:{t:"آیتم‌های اپ هر سمت",ic:"📱",c:RoleAppItemsView},
   cronstatus:{t:"پایش سلامت کرون‌ها",ic:"⏱",c:CronStatusView},
   activesessions:{t:"جلسات فعال کاربران",ic:"🔐",c:ActiveSessionsView},
+  radiocenter:{t:"مرکز بی‌سیم",ic:"📻",c:RadioCenter},
+  vehicleassets:{t:"ماشین‌آلات و وسایل مأموریتی",ic:"🚙",c:PersonnelVehicleAssets},
+  vehiclechecklist:{t:"چک‌لیست خودرویی و موتوری",ic:"☑",c:PersonnelVehicleChecklist},
   settings:{t:"تنظیمات سامانه",ic:"⚙",c:Settings},
 };
 
@@ -7616,7 +7658,7 @@ function App(){
     ["تاکسی و تاکسیران",["drivers","driverservicereport","tempdrivers","lines","zones","bills"]],
     ["گزارش‌ها",["reports","report","perfreport","attreport","useract"]],
     ["منابع انسانی",["shifts","workpolicy","requests","salaryslips","commitments","welfare","cultural"]],
-    ["ارتباطات",["messages","sms","smslog","messengercenter"]],
+    ["ارتباطات",["messages","sms","smslog","messengercenter","radiocenter"]],
     ["مدیریت سامانه",["users","org","forms","config","customfields","inventory","excel","appitems","cronstatus","activesessions","logs","settings"]],
   ];
   const CORE=["dashboard","driverservicereport"];
@@ -7627,7 +7669,7 @@ function App(){
     drivers:'driver-id', driverservicereport:'driver-service-chart', tempdrivers:'temporary-driver-clock', lines:'route-line', zones:'zone-grid', bills:'billing-receipt',
     reports:'reports-folder', report:'report-send', perfreport:'performance-gauge', attreport:'attendance-calendar', useract:'user-activity',
     shifts:'shift-cycle', workpolicy:'work-policy', requests:'request-form', salaryslips:'salary-slip', commitments:'commitment-sign', welfare:'welfare-gift', cultural:'cultural-book',
-    messages:'messages-mail', sms:'sms-phone', smslog:'sms-history', messengercenter:'messenger-bot', users:'users-admin', org:'organization-tree', forms:'forms-pen',
+    messages:'messages-mail', sms:'sms-phone', smslog:'sms-history', messengercenter:'messenger-bot', radiocenter:'radio-tower', users:'users-admin', org:'organization-tree', forms:'forms-pen',
     config:'system-config', customfields:'custom-fields', inventory:'request-box', excel:'excel-upload', appitems:'app-menu', cronstatus:'system-health', activesessions:'security-lock', logs:'audit-logs', settings:'settings-gears'
   };
   const can=(k)=>!allowed||allowed.includes(k)||CORE.includes(k);
@@ -7660,6 +7702,6 @@ function App(){
   const ok = await checkConnection();
   const root = document.getElementById("root");
   if(!ok){ root.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px;font-family:Vazirmatn"><div><h2 style="color:#e23b54">اتصال به سرور برقرار نشد</h2><p style="color:#6b7890;max-width:420px;line-height:2">این پنل باید از آدرس سرور باز شود (مثل https://app.yousefipour.ir/). لطفاً آدرس <b>/api/health</b> را بررسی کنید و مطمئن شوید نصب کامل شده است.</p></div></div>'; return; }
-  console.log("PANEL BUILD: 2026-08-05-v213 (field-api-location-queue-attendance-fix)");
+  console.log("PANEL BUILD: 2026-09-05-v218 (users-hierarchy-radio-attendance-vehicle-fix)");
   ReactDOM.createRoot(root).render(<App/>);
 })();

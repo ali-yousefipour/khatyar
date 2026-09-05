@@ -69,7 +69,7 @@ function pointInPolygon(lat, lng, poly) {
   return inside;
 }
 
-export default function CheckInScreen() {
+function CheckInCore() {
   const [cfg, setCfg] = useState(null);
   const [appCfg, setAppCfg] = useState({ map_provider: 'osm' });
   const [mapRuntime,setMapRuntime]=useState({mode:'smart',provider:'osm',offline:false,tiles:{}});
@@ -446,6 +446,31 @@ export default function CheckInScreen() {
   );
 }
 
+function fmtMinFa(min){const n=Math.max(0,Number(min)||0),h=Math.floor(n/60),m=n%60;return `${faNum(h)}:${String(m).padStart(2,'0').replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d])}`;}
+function CheckInPerformanceTab(){
+  const [date,setDate]=useState(null); const [data,setData]=useState(null); const [busy,setBusy]=useState(true); const [err,setErr]=useState('');
+  const load=async(d=date)=>{setBusy(true);setErr('');try{const q=d?`?date=${encodeURIComponent(d)}`:'';setData(await request(`/my/daily-performance${q}`,{noStore:true}));}catch(e){setErr(e.message||'دریافت عملکرد روزانه ناموفق بود.');}finally{setBusy(false)}};
+  useEffect(()=>{load()},[date]);
+  const shiftDate=(delta)=>{if(!data?.date)return;const [y,m,d]=data.date.split('-').map(Number);const g=jalali_to_gregorian_client(y,m,d);const t=new Date(g[0],g[1]-1,g[2]);t.setDate(t.getDate()+delta);const j=gregorian_to_jalali_client(t.getFullYear(),t.getMonth()+1,t.getDate());setDate(`${j[0]}-${String(j[1]).padStart(2,'0')}-${String(j[2]).padStart(2,'0')}`)};
+  if(busy&&!data)return <View style={s.center}><ActivityIndicator size={80} message="در حال دریافت عملکرد…"/></View>;
+  const w=data?.data||{};const cards=[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['کسری کار',w.shortage],['شب‌کاری',w.night]];
+  return <View style={{padding:14}}>{err?<Text style={s.warnText}>{err}</Text>:null}<View style={s.perfNav}><TouchableOpacity style={s.perfNavBtn} onPress={()=>shiftDate(1)}><Text style={s.perfNavTxt}>روز بعد ›</Text></TouchableOpacity><Text style={s.perfDate}>{data?.weekday||''} {'('}{data?.date||''}{')'}</Text><TouchableOpacity style={s.perfNavBtn} onPress={()=>shiftDate(-1)}><Text style={s.perfNavTxt}>‹ روز قبل</Text></TouchableOpacity></View><View style={s.perfHero}><Text style={s.perfTitle}>عملکرد روزانه</Text><Text style={s.perfShift}>{data?.shift_title||'شیفت کاری'}</Text></View><View style={s.perfGrid}>{cards.map(([l,v])=><View key={l} style={s.perfCard}><Text style={s.perfValue}>{fmtMinFa(v)}</Text><Text style={s.perfLabel}>{l}</Text></View>)}</View><View style={s.perfCardWide}><Text style={s.perfLabel}>وضعیت امروز</Text><Text style={s.perfStatus}>{data?.holiday?`تعطیل: ${data.holiday_title||'رسمی'}`:(w.is_off?'روز بدون شیفت':(w.worked>0?'حضور ثبت شده':'هنوز حضوری ثبت نشده'))}</Text>{w.late_in>0?<Text style={s.perfHint}>تأخیر ورود: {faNum(w.late_in)} دقیقه</Text>:null}{w.early_out>0?<Text style={s.perfHint}>تعجیل خروج: {faNum(w.early_out)} دقیقه</Text>:null}</View></View>;
+}
+function jalali_to_gregorian_client(j,m,d){
+  const gy=j>979?1600:621, jy=j>979?j-979:j-1, days=365*jy+Math.floor(jy/33)*8+Math.floor((jy%33+3)/4)+78+d-1+(m<7?(m-1)*31:(m-7)*30+186);let gy2=gy+400*Math.floor(days/146097);let r=days%146097;if(r>36524){gy2+=100*Math.floor(--r/36524);r%=36524;if(r>=365)r++}gy2+=4*Math.floor(r/1461);r%=1461;if(r>365){gy2+=Math.floor((r-1)/365);r=(r-1)%365}let gd=r+1,gm;const sal=[31,(gy2%4===0&&(gy2%100!==0||gy2%400===0))?29:28,31,30,31,30,31,31,30,31,30,31];for(gm=0;gm<12&&gd>sal[gm];gm++)gd-=sal[gm];return[gy2,gm+1,gd];
+}
+function gregorian_to_jalali_client(gy,gm,gd){const gdm=[0,31,59,90,120,151,181,212,243,273,304,334];let gy2=gy+100000,jy=979+33*Math.floor(gy2/33),r=gy2%33;let d=365*gy2+Math.floor((gy2+3)/4)-Math.floor((gy2+99)/100)+Math.floor((gy2+399)/400)+gd+gdm[gm-1];if(gm>2&&((gy%4===0&&gy%100!==0)||gy%400===0))d++;d-=79;let y=979+33*Math.floor(d/12053);d%=12053;y+=4*Math.floor(d/1461);d%=1461;if(d>365){y+=Math.floor((d-1)/365);d=(d-1)%365}const m=d<186?1+Math.floor(d/31):7+Math.floor((d-186)/30),day=1+(d<186?d%31:(d-186)%30);return[y,m,day];}
+function CheckInShiftTab(){
+  const [data,setData]=useState(null); const [busy,setBusy]=useState(true);const [err,setErr]=useState('');
+  useEffect(()=>{request('/my/shift-schedule',{noStore:true}).then(setData).catch(e=>setErr(e.message||'دریافت برنامه شیفت ناموفق بود.')).finally(()=>setBusy(false))},[]);
+  if(busy)return <View style={s.center}><ActivityIndicator size={80} message="در حال دریافت شیفت کاری…"/></View>;
+  return <ScrollView contentContainerStyle={{padding:14}}>{err?<Text style={s.warnText}>{err}</Text>:null}<View style={s.shiftHero}><Text style={s.shiftHeroTitle}>{data?.shift?.title||'شیفت کاری'}</Text><Text style={s.shiftHeroSub}>برنامهٔ ۱۴ روز آینده</Text></View>{(data?.days||[]).map(d=><View key={d.date} style={s.shiftCard}><View style={s.shiftAccent}/><View style={{flex:1}}><Text style={s.shiftDate}>{d.weekday} <Text style={s.shiftDateLight}>({d.date})</Text></Text><Text style={s.shiftMeta}>{d.is_off?'روز استراحت/بدون موظفی':d.is_holiday?`تعطیل: ${d.holiday_title||''}`:'شیفت کاری'}</Text></View><Text style={s.shiftMinutes}>{d.is_off?'—':`${faNum(d.minutes)} دقیقه`}</Text></View>)}</ScrollView>;
+}
+export default function CheckInScreen(){
+  const [tab,setTab]=useState('checkin');
+  return <View style={{flex:1,backgroundColor:C.paper}}><View style={s.checkTabs}>{[['checkin','ثبت حضور'],['performance','عملکرد روزانه'],['shift','شیفت کاری']].map(([k,l])=><TouchableOpacity key={k} style={[s.checkTab,tab===k&&s.checkTabOn]} onPress={()=>setTab(k)}><Text style={[s.checkTabTxt,tab===k&&s.checkTabTxtOn]}>{l}</Text></TouchableOpacity>)}</View>{tab==='checkin'?<CheckInCore/>:tab==='performance'?<CheckInPerformanceTab/>:<CheckInShiftTab/>}</View>;
+}
+
 // اسلایدر کشیدنی برای تأیید ورود/خروج (سازگار با چیدمان راست‌به‌چپ)
 function SlideButton({ mode, onComplete, disabled }) {
   const x = useRef(new Animated.Value(0)).current;   // مقدار مثبت = میزان پیشروی
@@ -655,7 +680,16 @@ render();
 }
 
 const s = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },  checkTabs: { flexDirection:'row-reverse', backgroundColor:'#fff', borderBottomWidth:1, borderBottomColor:C.line, paddingHorizontal:10, paddingTop:8, paddingBottom:6, gap:6 },
+  checkTab: { flex:1, minHeight:42, borderRadius:12, alignItems:'center', justifyContent:'center', borderWidth:1, borderColor:C.line, backgroundColor:'#fff' },
+  checkTabOn: { backgroundColor:C.brand, borderColor:C.brand }, checkTabTxt:{fontFamily:FONT.bold,fontSize:12,color:C.ink}, checkTabTxtOn:{color:'#fff'},
+  perfNav:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',backgroundColor:'#fff',borderRadius:14,padding:8,borderWidth:1,borderColor:C.line},
+  perfNavBtn:{paddingVertical:9,paddingHorizontal:10},perfNavTxt:{fontFamily:FONT.bold,fontSize:12,color:C.brand},perfDate:{fontFamily:FONT.bold,fontSize:13,color:C.ink},
+  perfHero:{backgroundColor:C.brand,borderRadius:16,padding:16,marginTop:10},perfTitle:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right'},perfShift:{fontFamily:FONT.regular,fontSize:12,color:'#dcefe9',marginTop:4,textAlign:'right'},
+  perfGrid:{flexDirection:'row-reverse',flexWrap:'wrap',justifyContent:'space-between',marginTop:10},perfCard:{width:'48.5%',backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:14,padding:13,marginBottom:9},perfValue:{fontFamily:FONT.bold,fontSize:20,color:C.brand,textAlign:'left'},perfLabel:{fontFamily:FONT.bold,fontSize:12,color:C.ink,textAlign:'right',marginTop:5},perfCardWide:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:14,padding:14,marginTop:2},perfStatus:{fontFamily:FONT.bold,fontSize:14,color:C.brand,textAlign:'right',marginTop:6},perfHint:{fontFamily:FONT.regular,fontSize:11,color:C.muted,textAlign:'right',marginTop:4},
+  shiftHero:{backgroundColor:C.brand,borderRadius:16,padding:16,marginBottom:10},shiftHeroTitle:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right'},shiftHeroSub:{fontFamily:FONT.regular,fontSize:12,color:'#dcefe9',textAlign:'right',marginTop:4},
+  shiftCard:{backgroundColor:'#fff',borderRadius:14,marginBottom:10,minHeight:90,borderWidth:1,borderColor:C.line,flexDirection:'row-reverse',alignItems:'center',padding:12,elevation:2,shadowColor:'#000',shadowOpacity:.08,shadowRadius:7,shadowOffset:{width:0,height:3}},shiftAccent:{width:9,height:'100%',minHeight:64,borderRadius:8,backgroundColor:'#b78be0',marginLeft:10},shiftDate:{fontFamily:FONT.bold,fontSize:15,color:C.ink,textAlign:'right'},shiftDateLight:{fontFamily:FONT.regular,fontSize:12,color:C.muted},shiftMeta:{fontFamily:FONT.regular,fontSize:11,color:C.muted,textAlign:'right',marginTop:6},shiftMinutes:{fontFamily:FONT.bold,fontSize:13,color:C.ink,minWidth:72,textAlign:'left'},
+
   label: { fontFamily: FONT.bold, fontSize: 14, color: C.ink, textAlign: 'right', marginTop: 8, marginBottom: 6 },
   muted: { fontFamily: FONT.regular, color: C.muted, fontSize: 13, textAlign: 'center' },
   hint: { fontFamily: FONT.regular, color: C.muted, fontSize: 11, textAlign: 'right', marginTop: 6 },

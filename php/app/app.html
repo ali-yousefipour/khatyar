@@ -196,6 +196,20 @@ async function doForgot(){ const v=document.getElementById('fu').value.trim(); c
 async function doReset(){ const c=document.getElementById('rc').value.trim(); const p=document.getElementById('rp').value; const e=document.getElementById('rerr'); if(!c||p.length<6){e.textContent='کد و رمز جدید (حداقل ۶ کاراکتر) را وارد کنید';return;} e.textContent='در حال ثبت…'; try{ await POST('/auth/reset-password',{username:_resetUser,code:c,password:p}); toast('رمز تغییر کرد؛ وارد شوید'); nav('login'); }catch(err){ e.textContent=err.message; } }
 function logout(){ store.del('token');store.del('refresh');store.del('user');USER=null;current='login';render(); }
 
+// ---- Android/Web parity source of truth ----
+const ANDROID_ITEMS=[
+['Dashboard','داشبورد','general'],['Search','جستجوی تاکسی و تاکسیران','general'],['Driver','اطلاعات راننده','general'],['Vehicle','اطلاعات خودرو','general'],['Debt','بدهی آبونمان','personal'],['Checklist','چک‌لیست خودرو','work'],['Notice','ثبت تذکر','work'],['Reports','ارسال گزارش','work'],['Sms','ارسال پیامک به رانندگان','messages'],['BotMessages','ارسال پیام در ربات‌ها','messages'],['Requests','درخواست‌ها','work'],['RequestInbox','کارتابل تأیید درخواست‌ها','work'],['WorkSummary','کارکرد من','personal'],['SalarySlips','فیش‌های حقوقی من','personal'],['CompanyRequests','ارسال برای شرکت','work'],['Subscription','اشتراک گروهی و انفرادی','personal'],['CheckIn','ثبت حضور من','field'],['Forms','فرم‌ها','work'],['Cultural','فعالیت‌های فرهنگی','personal'],['Welfare','رفاهیات','personal'],['TempDrivers','رانندگان موقت','field'],['Notifications','اعلان‌ها','messages'],['FieldAlerts','هشدارها','field'],['ActivityReport','فعالیت رانندگان هر خط','work'],['ExpInsurance','وضعیت بیمه و معاینه','work'],['ExpTaxi','افراد فاقد اعتبار','work'],['ExpOplic','خودروهای فاقد بهره‌برداری','work'],['TeamReport','زیرمجموعه من','work'],['InboxReports','گزارشات دریافتی','messages'],['ReportDetail','جزئیات گزارش','messages'],['OfficialPresence','ثبت حضور مسئولین در خط','field'],['Inventory','اقلام تحویلی','personal'],['Messages','پیام‌ها','messages'],['Attendance','گزارش حضور','work'],['PastNotices','تذکرات قبلی','work'],['PastChecklists','چک‌لیست‌های قبلی','work'],['DriverSms','پیامک‌های راننده','messages'],['MySms','پیامک‌های ارسالی من','messages'],['CustomFields','اطلاعات تکمیلی','personal'],['Outage','اعلام قطع سیستم نوبت‌دهی','work'],['Profile','حساب کاربری','personal'],['ChangePassword','تغییر رمز','personal'],['EditProfile','ویرایش اطلاعات من','personal'],['PersonnelVehicleAsset','مشخصات خودرو یا موتورسیکلت','personal'],['PersonnelVehicleChecklist','چک‌لیست خودرویی و موتوری','personal'],['MapSettings','تنظیمات نقشه','personal'],['ExpiryNotificationSettings','تنظیمات اعلان اعتبار','personal'],['FieldAlertSettings','تنظیمات هشدارهای میدانی','field'],['ImportTimes','آخرین زمان‌های به‌روزرسانی','personal'],['AppLockSettings','قفل برنامه','personal'],['CrashReports','گزارش خطاهای برنامه','personal'],['LineVisitProgram','برنامه بازدید و پوشش خط','field'],['LineLocation','ثبت موقعیت و تصویر خطوط','field'],['MyDailyMission','مأموریت روزانه من','field'],['RoleDashboard','داشبورد و امتیاز من','personal'],['Leaderboard','رتبه‌بندی و نشان‌ها','personal'],['Radio','بی‌سیم خطیار','messages'],['Help','راهنمای برنامه','general'],['StationCapture','ثبت موقعیت و تصویر خطوط','field'],['MyStations','ایستگاه‌های ثبت‌شده من','field'],['PresentList','حاضرین در خط','field']
+];
+const ANDROID_CATS=[['all','همه'],['field','میدانی'],['work','عملیات'],['messages','ارتباطات'],['personal','شخصی'],['general','عمومی']];
+const token=()=>localStorage.getItem('token')||localStorage.getItem('access')||localStorage.getItem('access_token')||'';
+let APP_ALLOWED=null;
+async function loadAppAllowed(){try{const r=await GET('/my/app-items');APP_ALLOWED=Array.isArray(r?.items)?r.items:null;}catch(_){APP_ALLOWED=null}return APP_ALLOWED;}
+const appAllowed=k=>APP_ALLOWED===null||APP_ALLOWED.includes(k);
+const routeAlias={
+  PresentList:'present',ActivityReport:'activity',ExpInsurance:'expInsurance',ExpTaxi:'expTaxi',ExpOplic:'expOplic',TeamReport:'team',InboxReports:'inbox',OfficialPresence:'official',Messages:'messages',Notifications:'notifications',Forms:'forms',Reports:'reports',Search:'search',CheckIn:'checkin',Radio:'radio',Help:'help',Profile:'profile'
+};
+function webPlaceholder(key,label){return async()=>{chrome(true,label,'back');return `<div class="card"><h3>${esc(label)}</h3><p class="muted" style="margin-top:8px">این بخش در نسخه وب با همان نام و دسترسی نسخه اندروید ارائه شده است. رابط اختصاصی این بخش در حال تکمیل است.</p></div>`}}
+
 // ---- screens ----
 const screens={
   forgot:async()=>{ chrome(false); return `<div class="center"><div><div class="lg">ت</div><h3 style="margin-top:14px">بازیابی رمز عبور</h3><p class="muted">نام کاربری (کد ملی) خود را وارد کنید؛ کد بازیابی به موبایل ثبت‌شده پیامک می‌شود.</p></div></div>
@@ -219,24 +233,15 @@ const screens={
     <button class="btn ghost" onclick="nav('forgot')" style="margin-top:8px">رمز عبور را فراموش کرده‌ام</button>
     <p class="muted" style="text-align:center;margin-top:14px">ورود نیازمند روشن‌بودن موقعیت (GPS) است.</p>`; },
 
-  dashboard:async()=>{ chrome(true,'داشبورد','menu');
+  dashboard:async()=>{ chrome(true,'داشبورد','menu'); await loadAppAllowed();
     const [s,st]=await Promise.all([GET('/my/dashboard').catch(()=>({today:0,checklists:0,notices:0,reports:0,unread:0})),GET('/my/stats').catch(()=>({drivers:0,vehicles:0}))]);
     bell(s.unread); msgBadge(s.unread_messages); INBOX_N=s.inbox_reports||0;
     const K=[['رانندگان خطوط شما',st.drivers],['خودروهای خطوط شما',st.vehicles],['حضور امروز',s.today],['چک‌لیست این ماه',s.checklists]];
+    const visible=ANDROID_ITEMS.filter(x=>x[0]!=='Dashboard'&&appAllowed(x[0]));
     return `<div class="hero"><div class="hi">روز بخیر،</div><div class="nm">${starsForUser(USER)?`<span style="color:#b7791f">${starsForUser(USER)}</span> `:''}${esc(USER.name)} — ${esc(USER.role)}${starsForUser(USER)?` <span style="color:#b7791f">${starsForUser(USER)}</span>`:''}</div></div>
       <div class="kpis">${K.map(([l,n])=>`<div class="kpi"><div class="n">${toFa(n)}</div><div class="l">${l}</div></div>`).join('')}</div>
-      <div class="item" onclick="nav('search')">🔍 جستجوی تاکسی و تاکسیران</div>
-      <div class="item" onclick="nav('present')">🧍 حاضرین در خط</div>
-      <div class="item" onclick="nav('official')">👤 ثبت حضور مسئولین در خط</div>
-      <div class="item" onclick="nav('forms')">▤ تکمیل فرم‌ها</div>
-      <div class="item" onclick="nav('reports')">✉ ارسال گزارش</div>
-      <div class="item" onclick="nav('inbox')">📥 گزارشات دریافتی${INBOX_N>0?` <span class="badge taxi">${toFa(INBOX_N)}</span>`:''}</div>
-      <div class="label" style="margin-top:6px">گزارش‌های خط‌محور</div>
-      <div class="item" onclick="nav('activity')">📊 پرکارترین و کم‌کارترین راننده هر خط</div>
-      <div class="item" onclick="nav('expInsurance')">🛡 وضعیت بیمه و معاینه خودروها</div>
-      <div class="item" onclick="nav('expTaxi')">⛔ افراد فاقد اعتبار (پروانه تاکسیرانی)</div>
-      <div class="item" onclick="nav('expOplic')">🚖 خودروهای فاقد بهره‌برداری معتبر</div>
-      ${canSeeTeam()?`<div class="item" onclick="nav('team')">👥 زیرمجموعهٔ من (بازرسین/ناظران/اپراتورها)</div>`:''}`; },
+      <div class="label">امکانات خطیار</div><div class="row" style="gap:6px;overflow:auto;flex-wrap:nowrap;margin-bottom:8px">${ANDROID_CATS.map(([k,l])=>`<button class="chip" data-cat="${k}" onclick="filterWebAndroid('${k}')">${l}</button>`).join('')}</div>
+      <div id="webAndroidGrid" class="kgrid">${visible.map(x=>`<button class="item" data-route="${x[0]}" data-cat="${x[2]}" onclick="nav('${x[0]}')"><span style="font-size:18px">${x[0]==='Radio'?'📻':'•'}</span>${esc(x[1])}</button>`).join('')}</div>`; },
 
   team:async()=>{ chrome(true,'زیرمجموعهٔ من','back'); const d=await GET('/my/team').catch(()=>({groups:{},counts:{},busiest:null,idlest:null}));
     const groups=Object.entries(d.groups||{});
@@ -388,6 +393,11 @@ const screens={
       <button class="btn" style="margin-top:8px" onclick="reportAct('forward')">ارجاع به مسئول بالادستی</button>
       ${trail?`<label class="label" style="margin-top:16px">روند گردش</label>${trail}`:''}`; },
 
+
+  checkin:async()=>{ chrome(true,'ثبت حضور من','back'); const cfg=await GET('/my/checkin-config'); tmp.checkTab=tmp.checkTab||'checkin';
+    return `<div class="tabbar"><button class="tabbtn ${tmp.checkTab==='checkin'?'on':''}" onclick="tmp.checkTab='checkin';render()">ثبت حضور</button><button class="tabbtn ${tmp.checkTab==='performance'?'on':''}" onclick="tmp.checkTab='performance';render()">عملکرد روزانه</button><button class="tabbtn ${tmp.checkTab==='shift'?'on':''}" onclick="tmp.checkTab='shift';render()">شیفت کاری</button></div><div id="checkinTabBody"><div class="spin"></div></div>`; },
+
+  radio:async()=>{ chrome(true,'بی‌سیم خطیار','back'); await loadRadioWeb(); return `<div class="tabbar"><button class="tabbtn on" data-radtab="live">شنود زنده</button><button class="tabbtn" data-radtab="archive">آرشیو پیام‌ها</button></div><div id="radioWeb"></div>`; },
   notifications:async()=>{ chrome(true,'اعلان‌ها و هشدارها','back'); const d=await GET('/my/notifications'); bell(0);
     POST('/my/notifications/read').catch(()=>{});
     return d.items.length?d.items.map(n=>{ const alert=n.type==='alert';
@@ -476,6 +486,10 @@ function canSeeTeam(){ const r=USER&&USER.role||''; return r.indexOf('سرباز
 function canSeeOfficialChart(){ const r=USER&&USER.role||''; return !!(USER&&(USER.is_admin || r.indexOf('سربازرس ارشد')>=0)); }
 function filterLines(q){ document.querySelectorAll('#lns .chip').forEach(c=>{ c.style.display=(!q||c.dataset.code.indexOf(q)>=0)?'':'none'; }); }
 function matchq(obj,q){ if(!q)return true; q=q.trim(); return Object.values(obj).some(v=>String(v||'').indexOf(q)>=0); }
+['Dashboard','Search','Driver','Vehicle','Debt','Checklist','Notice','Reports','Sms','BotMessages','Requests','RequestInbox','WorkSummary','SalarySlips','CompanyRequests','Subscription','CheckIn','Forms','Cultural','Welfare','TempDrivers','Notifications','FieldAlerts','ActivityReport','ExpInsurance','ExpTaxi','ExpOplic','TeamReport','InboxReports','ReportDetail','OfficialPresence','Inventory','Messages','Attendance','PastNotices','PastChecklists','DriverSms','MySms','CustomFields','Outage','Profile','ChangePassword','EditProfile','PersonnelVehicleAsset','PersonnelVehicleChecklist','MapSettings','ExpiryNotificationSettings','FieldAlertSettings','ImportTimes','AppLockSettings','CrashReports','LineVisitProgram','LineLocation','MyDailyMission','RoleDashboard','Leaderboard','Radio','Help','StationCapture','MyStations','PresentList'].forEach(k=>{const r=routeAlias[k]||k.toLowerCase();if(!screens[r])screens[r]=webPlaceholder(k,ANDROID_ITEMS.find(x=>x[0]===k)?.[1]||k)});
+function help(){ chrome(true,'راهنمای برنامه','back'); return Promise.resolve('<div class="card"><h3>راهنمای خطیار</h3><p class="muted" style="margin-top:8px">راهنمای استفاده از امکانات نسخه اندروید و وب‌اپ خطیار.</p></div>'); }
+screens.help=help;
+
 function setExpFilter(f){ tmp.expFilter=f; ['all','ins','insp'].forEach(x=>{const el=document.getElementById('ef_'+x); if(el)el.classList.toggle('on',x===f);}); renderExpIns(); }
 function renderExpIns(){ const q=(document.getElementById('expq')||{}).value||''; const f=tmp.expFilter||'all';
   let list=[]; if(f==='all'||f==='ins')list=list.concat(tmp.expIns||[]); if(f==='all'||f==='insp')list=list.concat(tmp.expInsp||[]);
@@ -571,23 +585,32 @@ function bell(n){ const d=document.getElementById('bellDot'); if(d){ if(n>0){d.s
 function msgBadge(n){ const d=document.getElementById('msgDot'); if(d){ if(n>0){d.style.display='block';d.textContent=toFa(n);}else d.style.display='none'; } }
 let INBOX_N=0;
 function hdrAction(){ if(tmp._icon==='back') nav('dashboard'); else openDrawer(); }
-function openDrawer(){ document.getElementById('drawerPanel').innerHTML=`<div class="uhead"><b>${esc(USER.name)}</b><div style="opacity:.85;font-size:12px">${esc(USER.role)}</div></div>
-  ${[['search','🔍','جستجو'],['official','👤','حضور مسئولین'],['forms','▤','فرم‌ها'],['reports','✉','ارسال گزارش'],['profile','⚙','حساب کاربری']].map(([k,e,t])=>`<div class="ditem" onclick="nav('${k}')"><span style="width:22px">${e}</span>${t}</div>`).join('')}
-  <div class="ditem" style="color:var(--danger)" onclick="logout()"><span style="width:22px">⎋</span>خروج</div>`;
-  document.getElementById('drawer').classList.add('on'); }
+function openDrawer(){ const rows=ANDROID_ITEMS.filter(x=>x[0]!=='Dashboard'&&appAllowed(x[0])); document.getElementById('drawerPanel').innerHTML=`<div class="uhead"><b>${esc(USER.name)}</b><div style="opacity:.85;font-size:12px">${esc(USER.role)}</div></div><div class="ditem" onclick="nav('Dashboard')"><span style="width:22px">🏠</span>داشبورد</div>${rows.map(x=>`<div class="ditem" onclick="nav('${x[0]}')"><span style="width:22px">${x[0]==='Radio'?'📻':'•'}</span>${esc(x[1])}</div>`).join('')}<div class="ditem" style="color:var(--danger)" onclick="logout()"><span style="width:22px">⎋</span>خروج</div>`; document.getElementById('drawer').classList.add('on'); }
 function closeDrawer(){ document.getElementById('drawer').classList.remove('on'); }
-function nav(k){ current=k; closeDrawer(); render(); }
+
+async function renderCheckinTab(){const host=document.getElementById('checkinTabBody');if(!host)return;try{if(tmp.checkTab==='performance'){const d=await GET('/my/daily-performance');const w=d.data||{};host.innerHTML=`<div class="hero"><div class="nm">عملکرد روزانه</div><div class="hi">${esc(d.weekday||'')} (${esc(d.date||'')}) · ${esc(d.shift_title||'شیفت کاری')}</div></div><div class="kpis">${[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['کسری کار',w.shortage],['شب‌کاری',w.night]].map(([l,v])=>`<div class="kpi"><div class="n">${toFa(Math.floor((Number(v)||0)/60))}:${toFa(String((Number(v)||0)%60).padStart(2,'0'))}</div><div class="l">${l}</div></div>`).join('')}</div>`;return;}if(tmp.checkTab==='shift'){const d=await GET('/my/shift-schedule');host.innerHTML=`<div class="card"><b>${esc(d.shift?.title||'شیفت کاری')}</b><div class="muted" style="margin-top:4px">برنامهٔ ۱۴ روز آینده</div></div>${(d.days||[]).map(x=>`<div class="card between"><div><b>${esc(x.weekday)} (${esc(x.date)})</b><div class="muted" style="margin-top:4px">${x.is_off?'روز استراحت/بدون موظفی':x.is_holiday?'تعطیل: '+esc(x.holiday_title||''): 'شیفت کاری'}</div></div><b>${x.is_off?'—':toFa(x.minutes)+' دقیقه'}</b></div>`).join('')}`;return;}const c=await GET('/my/checkin-config');const o=c.open;host.innerHTML=`<div class="card"><div class="between"><b>${o?'حضور شما ثبت شده است':'ثبت حضور'}</b><span class="badge ${o?'b-ok':'b-no'}">${o?'در شیفت':'خارج از شیفت'}</span></div><p class="muted" style="margin-top:8px">${o?'زمان ورود: '+esc(fj(o.check_in)):'برای ثبت ورود، موقعیت مکانی را دریافت کنید.'}</p><button class="btn" id="webCheckBtn">${o?'ثبت خروج':'ثبت ورود'}</button></div>`;document.getElementById('webCheckBtn').onclick=()=>webCheckinAction(o); }catch(e){host.innerHTML=`<div class="warn">${esc(e.message)}</div>`}}
+function webCheckinAction(open){if(!navigator.geolocation){toast('مرورگر به موقعیت مکانی دسترسی ندارد');return}navigator.geolocation.getCurrentPosition(async p=>{try{const url=open?'/my/checkout':'/my/checkin';await POST(url,{lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy,method:'gps'});toast(open?'خروج ثبت شد':'ورود ثبت شد');renderCheckinTab()}catch(e){toast(e.message)}} ,e=>toast('دریافت موقعیت ناموفق بود: '+e.message),{enableHighAccuracy:true,maximumAge:0,timeout:12000})}
+let radioWebState={channels:[],cid:0,after:0,liveTimer:null,media:null,recording:false};
+async function loadRadioWeb(){try{const d=await fetch('/api/radio-admin-api.php?op=channel-list',{headers:{Authorization:'Bearer '+token()},cache:'no-store'}).then(r=>r.json());radioWebState.channels=d.channels||[];const c=radioWebState.channels[0];radioWebState.cid=radioWebState.cid||c?.id||0;radioWebState.after=Number((radioWebState.channels.find(x=>Number(x.id)===Number(radioWebState.cid))||c||{}).last_message_id||0);}catch(_){}}
+async function renderRadioWebTab(tab){const host=document.getElementById('radioWeb');if(!host)return;host.innerHTML=`<div class="card"><div class="between"><b>کانال</b><select class="inp" id="radioCh" style="width:70%">${radioWebState.channels.map(c=>`<option value="${c.id}" ${Number(c.id)===Number(radioWebState.cid)?'selected':''}>${esc(c.name)} (${esc(c.code)})</option>`).join('')}</select></div>${tab==='live'?'<div id="radioPtt" style="margin-top:10px"></div>':''}</div><div class="card"><h3>${tab==='live'?'شنود زنده':'آرشیو پیام‌ها'}</h3><div id="radioMsgs"></div></div>`;document.getElementById('radioCh').onchange=e=>{radioWebState.cid=Number(e.target.value);radioWebState.after=Number((radioWebState.channels.find(c=>Number(c.id)===radioWebState.cid)||{}).last_message_id||0);renderRadioWebTab(tab)};if(tab==='archive'){const d=await fetch(`/api/radio-admin-api.php?op=archive&channel_id=${radioWebState.cid}&limit=100`,{headers:{Authorization:'Bearer '+token()},cache:'no-store'}).then(r=>r.json());renderRadioMessages(d.messages||[]);return;}const liveC=radioWebState.channels.find(c=>Number(c.id)===Number(radioWebState.cid));radioWebState.after=Number(liveC?.last_message_id||radioWebState.after||0);document.getElementById('radioMsgs').innerHTML='<p class="muted">در انتظار پیام زنده…</p>';renderRadioPtt();if(radioWebState.liveTimer)clearInterval(radioWebState.liveTimer);await pollRadioWeb();radioWebState.liveTimer=setInterval(pollRadioWeb,1800);}
+function renderRadioMessages(rows){const e=document.getElementById('radioMsgs');if(e)e.innerHTML=rows.length?rows.map(m=>`<div class="between" style="padding:10px 0;border-bottom:1px solid var(--line);gap:8px"><div><b>${esc(m.sender_name||'کاربر')}</b><div class="muted">${esc(m.created_at||'')} · ${toFa(Math.round(Number(m.duration_ms||0)/1000))} ثانیه</div></div><audio controls preload="none" src="${m.audio_url}"></audio></div>`).join(''):'<p class="muted">پیامی برای نمایش وجود ندارد.</p>';}
+async function pollRadioWeb(){if(!radioWebState.cid)return;try{const d=await fetch(`/api/radio-admin-api.php?op=monitor&channel_id=${radioWebState.cid}&after=${radioWebState.after}`,{headers:{Authorization:'Bearer '+token()},cache:'no-store'}).then(r=>r.json());if((d.messages||[]).length){radioWebState.after=Math.max(radioWebState.after,...d.messages.map(x=>Number(x.id)));renderRadioMessages(d.messages.map(x=>({...x,audio_url:x.audio_url})).reverse().concat([]));}}catch(_){} }
+function renderRadioPtt(){const e=document.getElementById('radioPtt');if(!e)return;e.innerHTML='<button class="btn" id="radioTalk">نگه‌داشتن برای صحبت</button><p class="muted" style="text-align:center;margin-top:6px">برای صحبت، دکمه را نگه دارید؛ پس از رها کردن پیام ارسال می‌شود.</p>';const b=document.getElementById('radioTalk');const start=async ev=>{ev.preventDefault();if(radioWebState.recording)return;try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});const mr=new MediaRecorder(stream,{mimeType:'audio/webm'});radioWebState.media={mr,stream,chunks:[],started:Date.now()};mr.ondataavailable=x=>{if(x.data.size)radioWebState.media.chunks.push(x.data)};mr.onstop=async()=>{const st=radioWebState.media;radioWebState.media=null;stream.getTracks().forEach(t=>t.stop());const blob=new Blob(st.chunks,{type:'audio/webm'});const fd=new FormData();fd.append('channel_id',String(radioWebState.cid));fd.append('duration_ms',String(Math.min(120000,Date.now()-st.started)));fd.append('audio',blob,'radio.webm');const r=await fetch('/api/radio-api-v2.php?op=send',{method:'POST',headers:{Authorization:'Bearer '+token()},body:fd});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'ارسال پیام ناموفق بود');toast('پیام بی‌سیم ارسال شد')};mr.start();radioWebState.recording=true;b.textContent='در حال صحبت… رها کنید';}catch(e){toast(e.message||'دسترسی میکروفن برقرار نشد')}};const stop=()=>{if(radioWebState.media?.mr?.state==='recording')radioWebState.media.mr.stop();radioWebState.recording=false;b.textContent='نگه‌داشتن برای صحبت'};b.onmousedown=start;b.onmouseup=stop;b.onmouseleave=stop;b.ontouchstart=start;b.ontouchend=stop;}
+function filterWebAndroid(cat){document.querySelectorAll('#webAndroidGrid [data-route]').forEach(e=>{e.style.display=(cat==='all'||e.dataset.cat===cat)?'flex':'none'});document.querySelectorAll('[data-cat].chip').forEach(e=>e.classList.toggle('on',e.dataset.cat===cat));}
+function nav(k){ const item=ANDROID_ITEMS.find(x=>x[0]===k)||ANDROID_ITEMS.find(x=>(routeAlias[x[0]]||x[0].toLowerCase())===k); const key=item?.[0]||k; if(item&&!appAllowed(key)){toast('دسترسی این بخش برای سمت شما فعال نیست');return;} current=routeAlias[key]||key.toLowerCase(); closeDrawer(); render(); }
 async function render(){
   const body=document.getElementById('body'); body.innerHTML='<div class="spin"></div>';
   try{ body.innerHTML=await screens[current](); }catch(e){ body.innerHTML=`<p class="warn">${esc(e.message)}</p>`; }
   body.scrollTop=0;
+  if(current==='checkin') setTimeout(renderCheckinTab,0);
+  if(current==='radio') setTimeout(()=>{document.querySelectorAll('[data-radtab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-radtab]').forEach(x=>x.classList.toggle('on',x===b));renderRadioWebTab(b.dataset.radtab)});renderRadioWebTab('live')},0); else if(radioWebState.liveTimer){clearInterval(radioWebState.liveTimer);radioWebState.liveTimer=null;}
   if(tmp._after){ const fn=tmp._after; tmp._after=null; setTimeout(fn,0); }
-  if(USER){ const tabs=[['dashboard','🏠','خانه'],['search','🔍','جستجو'],['official','👤','مسئولین'],['notifications','🔔','اعلان'],['profile','⚙','حساب']];
+  if(USER){ const tabs=[['dashboard','🏠','خانه'],['search','🔍','جستجو'],['checkin','🕘','حضور'],['notifications','🔔','اعلان'],['profile','⚙','حساب']];
     document.getElementById('footer').innerHTML=tabs.map(([k,i,l])=>`<button class="${current===k?'on':''}" onclick="nav('${k}')"><span class="fi">${i}</span>${l}</button>`).join(''); }
 }
 
 // ---- boot ----
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=20260905.12',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
 USER = store.get('user')?JSON.parse(store.get('user')):null;
 current = USER?'dashboard':'login';
 refreshOffline(); if(navigator.onLine) flushQueue();
@@ -595,14 +618,7 @@ try{applyFont();}catch(e){}
 loadBrand().finally(render);
 </script>
 
-<!-- KHATYAR_WEB_PARITY_V2 -->
-<script src="web-android-parity-v2.js" defer></script>
-
-<!-- KHATYAR_REPORT_PDF_RUNTIME -->
-<script src="report-history-pdf.js" defer></script>
-
-<!-- KHATYAR_WEB_ANDROID_PARITY_V32 -->
-<script src="web-android-parity-v32.js?v=1" defer></script>
+<!-- نسخهٔ وب از همان منبع آیتم‌های اپ استفاده می‌کند و تزریق‌های parity قدیمی حذف شده‌اند. -->
 <!-- KHATYAR_DEVELOPER_COMPANY --><div id="KHATYAR_DEVELOPER_COMPANY" style="display:none">توسعه‌دهنده: علی یوسفی‌پور | شرکت: مبین شات</div>
 </body>
 </html>

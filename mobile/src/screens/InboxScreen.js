@@ -120,6 +120,7 @@ export function ReportDetailScreen({ route, navigation }) {
   const [rejectReason, setRejectReason] = useState('');
   const load = useCallback(() => {
     request('/reports/' + id).then(setR).catch(() => setR(null));
+    refreshUnreadCounts();
     request('/my/reports/' + id + '/flow').then(setFlow).catch(() => setFlow([]));
   }, [id]);
   useEffect(() => { load(); }, [load]);

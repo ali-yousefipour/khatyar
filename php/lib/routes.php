@@ -3,8 +3,8 @@
 const ADMIN = 3; // سطح ۳ و بالاتر = مدیریتی
 // از این نسخه به بعد، به‌درخواست کارفرما، شمارهٔ نسخهٔ سایت و اپ اندروید و نام فایل زیپ پروژه
 // همیشه یکسان و هماهنگ نگه داشته می‌شوند (به‌جای دو شمارندهٔ جداگانه مثل قبل).
-const SITE_VERSION = '1.3.70';   // نسخهٔ سایت — همیشه با نسخهٔ اپ و نام فایل پروژه یکی است
-const APP_VERSION = '1.3.70'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
+const SITE_VERSION = '1.3.99';   // نسخهٔ سایت — همیشه با نسخهٔ اپ و نام فایل پروژه یکی است
+const APP_VERSION = '1.3.99'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
 
 
 /* Phase 7.8 — زمان واقعی ثبت کلاینت برای عملیات آفلاین/آنلاین */
@@ -2508,7 +2508,7 @@ function _auto_shift_for_user($userId){
   ];
 }
 function _attendance_adjusted_overtime($userId,$jdate){
-  _ensure_attendance_phase1_schema();
+  static $schemaReady=false; if(!$schemaReady){ _ensure_attendance_phase1_schema(); $schemaReady=true; }
   try { $r=Db::one("SELECT minutes FROM attendance_ot_adjustments WHERE user_id=? AND jdate=?",[(int)$userId,str_replace('/','-',$jdate)]); return (int)($r['minutes'] ?? 0); } catch (\Throwable $e) { return 0; }
 }
 function _hm_min($m){ return sprintf('%02d:%02d', intdiv(max(0,(int)$m),60), max(0,(int)$m)%60); }
@@ -2724,6 +2724,9 @@ function _attendance_report($userId,$fromJ,$toJ){
       'jdate'=>$jdate,
       'weekday'=>_jweekday_name($jy,$jm,$jd),
       'is_holiday'=>$isHol,
+      'is_friday'=>(bool)ShiftCalc::isFriday($jdateDash),
+      'friday_work'=>$hm($w['friday_work']??$w['friday']??0),
+      'holiday_work'=>$hm($w['holiday_work']??$w['holiday']??0),
       'punches'=>$punches,
       'in_shift'=>$hm($w['in_shift'] ?? $w['worked']),       // حضور در بازهٔ شیفت
       'worked'=>$hm($w['worked']),
@@ -2780,9 +2783,18 @@ route('PUT', '/api/admin/attendance-punch/{id}', function($p,$b,$u){
   if(!$row) Http::error('رکورد تردد یافت نشد',404);
   $inT=trim($b['check_in']??'');   // فرمت HH:MM یا خالی
   $outT=trim($b['check_out']??'');
+  $newJdate=trim((string)($b['jdate']??''));
   $set=[]; $args=[];
-  // تاریخ مبنا از check_in فعلی
+  // تاریخ مبنا از check_in فعلی؛ در صورت ارسال jdate، تاریخ شمسی جدید اعمال می‌شود.
   $baseDate = date('Y-m-d', strtotime($row['check_in']));
+  if ($newJdate!=='') {
+    $jp=preg_split('/[\/-]/',$newJdate);
+    if (count($jp)!==3 || !preg_match('/^\d{4}$/',$jp[0]) || !preg_match('/^\d{1,2}$/',$jp[1]) || !preg_match('/^\d{1,2}$/',$jp[2])) Http::error('فرمت تاریخ نامعتبر است',422);
+    [$jy,$jm,$jd]=array_map('intval',$jp);
+    if ($jm<1||$jm>12||$jd<1||$jd>31) Http::error('تاریخ نامعتبر است',422);
+    [$gy,$gm,$gd]=jalali_to_gregorian($jy,$jm,$jd);
+    $baseDate=sprintf('%04d-%02d-%02d',$gy,$gm,$gd);
+  }
   if($inT!==''){
     if(!preg_match('/^\d{1,2}:\d{2}$/',$inT)) Http::error('فرمت ساعت ورود نامعتبر است (HH:MM)',422);
     $set[]="check_in=?"; $args[]="$baseDate $inT:00";
@@ -3243,6 +3255,40 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
   Push::send([$r['user_id']],'درخواست شما تأیید شد','',['type'=>'request','request_id'=>$p['id']]);
   _req_notify_sms($r,'approved','');
   return ['ok'=>true,'status'=>'approved'];
+});
+
+// عملکرد روزانهٔ خودِ کاربر — مدل فینتو، برای تب «عملکرد روزانه» در اپ و وب‌اپ
+route('GET', '/api/my/daily-performance', function($p,$b,$u){
+  [$ty,$tm,$td]=array_slice(gregorian_to_jalali(date('Y'),date('m'),date('d')),0,3);
+  $jdate=preg_replace('/\//','-',trim((string)($_GET['date']??'')));
+  if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$jdate)) $jdate=sprintf('%04d-%02d-%02d',$ty,$tm,$td);
+  $shift=_auto_shift_for_user($u['id']);
+  if(!$shift) return ['date'=>$jdate,'data'=>null,'message'=>'برای شما شیفت فعالی تعریف نشده است.'];
+  $dayRow=null;
+  if(($shift['type']??'')==='advanced') $dayRow=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$jdate]);
+  $hol=Db::one("SELECT jdate,title FROM holidays WHERE jdate=? LIMIT 1",[$jdate]);
+  $rows=_attendance_rows_for_jdate($u['id'],$jdate);
+  $sessions=array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start']??'1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00')],$rows);
+  $w=ShiftCalc::dayWork($shift,$jdate,$dayRow,$sessions,(bool)$hol);
+  $weekday=_jweekday_name((int)substr($jdate,0,4),(int)substr($jdate,5,2),(int)substr($jdate,8,2));
+  return ['date'=>$jdate,'weekday'=>$weekday,'shift_title'=>$shift['title']??'شیفت کاری','shift_type'=>$shift['type']??'','holiday'=>(bool)$hol,'holiday_title'=>$hol['title']??'', 'sessions'=>$rows,'data'=>$w];
+});
+
+// برنامهٔ شیفت کاری کاربر — بازهٔ آینده برای تب «شیفت کاری»
+route('GET', '/api/my/shift-schedule', function($p,$b,$u){
+  [$gy,$gm,$gd]=[date('Y'),date('m'),date('d')]; [$jy,$jm,$jd]=array_slice(gregorian_to_jalali((int)$gy,(int)$gm,(int)$gd),0,3);
+  $start=preg_replace('/\//','-',trim((string)($_GET['from']??'')));
+  if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$start)) $start=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
+  [$sy,$sm,$sd]=array_map('intval',explode('-',$start));
+  $shift=_auto_shift_for_user($u['id']); if(!$shift)return ['shift'=>null,'days'=>[],'message'=>'برای شما شیفت فعالی تعریف نشده است.'];
+  $days=[];$ts=mktime(12,0,0,...jalali_to_gregorian($sy,$sm,$sd));
+  for($i=0;$i<14;$i++){
+    $gt=getdate($ts+($i*86400)); [$y,$m,$d]=array_slice(gregorian_to_jalali($gt['year'],$gt['mon'],$gt['mday']),0,3);$j=sprintf('%04d-%02d-%02d',$y,$m,$d);
+    $dr=null;if(($shift['type']??'')==='advanced')$dr=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$j]);
+    $hol=Db::one("SELECT jdate,title FROM holidays WHERE jdate=? LIMIT 1",[$j]);$mins=ShiftCalc::expectedMinutes($shift,$j,$dr);
+    $days[]=['date'=>$j,'weekday'=>_jweekday_name($y,$m,$d),'shift_title'=>$shift['title']??'شیفت کاری','minutes'=>$mins,'is_off'=>(bool)($dr['is_off']??false)||($mins<=0),'is_holiday'=>(bool)$hol,'holiday_title'=>$hol['title']??''];
+  }
+  return ['shift'=>['id'=>(int)$shift['id'],'title'=>$shift['title']??'شیفت کاری','type'=>$shift['type']??''],'days'=>$days];
 });
 
 // خلاصهٔ کارکرد ماهانهٔ خودِ کاربر (برای اپ)
@@ -5871,6 +5917,23 @@ route('PUT', '/api/admin/tracking-windows', function($p,$b,$u){
   Db::run("INSERT INTO app_settings(`key`,value) VALUES('tracking_windows',?) ON DUPLICATE KEY UPDATE value=VALUES(value)", [json_encode($all, JSON_UNESCAPED_UNICODE)]);
   return ['ok'=>true];
 }, false, ADMIN);
+route('GET', '/api/my/unread-counts', function($p,$b,$u){
+  $uid=(int)$u['id']; $messages=0; $reports=0;
+  try { $messages=(int)(Db::one("SELECT COUNT(*) n FROM message_recipients WHERE user_id=? AND read_at IS NULL",[$uid])['n']??0); } catch(\Throwable $e) { error_log('unread messages count: '.$e->getMessage()); }
+  try {
+    _ensure_reports_index();
+    $sql="SELECT COUNT(*) n FROM reports r JOIN (SELECT rr.report_id,rr.to_user_id FROM report_routes rr JOIN (SELECT report_id,MAX(id) mx FROM report_routes GROUP BY report_id) lm ON lm.report_id=rr.report_id AND lm.mx=rr.id) lr ON lr.report_id=r.id LEFT JOIN report_reads rd ON rd.report_id=r.id AND rd.user_id=? WHERE lr.to_user_id=? AND r.deleted_at IS NULL AND rd.report_id IS NULL";
+    $params=[$uid,$uid];
+    $hasArchives=false; $hasDeletions=false;
+    try { $hasArchives=(bool)Db::one("SHOW TABLES LIKE 'report_archives'"); } catch(\Throwable $e) {}
+    try { $hasDeletions=(bool)Db::one("SHOW TABLES LIKE 'report_deletions'"); } catch(\Throwable $e) {}
+    if($hasArchives){$sql.=" AND NOT EXISTS(SELECT 1 FROM report_archives ra WHERE ra.report_id=r.id AND ra.user_id=?)";$params[]=$uid;}
+    if($hasDeletions){$sql.=" AND NOT EXISTS(SELECT 1 FROM report_deletions rx WHERE rx.report_id=r.id AND rx.user_id=?)";$params[]=$uid;}
+    $reports=(int)(Db::one($sql,$params)['n']??0);
+  } catch(\Throwable $e) { error_log('unread reports count: '.$e->getMessage()); }
+  return ['messages'=>$messages,'reports'=>$reports,'total'=>$messages+$reports];
+});
+
 route('GET', '/api/my/dashboard', function($p, $b, $u) {
   _ensure_reports_index();
   $i = fn($sql) => (int)Db::one($sql, [$u['id']])['n'];
@@ -7131,7 +7194,7 @@ route('GET', '/api/admin/users', function($p,$b,$u){
     (SELECT COUNT(*) FROM user_commitments uc WHERE uc.user_id=u.id) commitments_count,
     (SELECT device_type FROM user_sessions s WHERE s.user_id=u.id AND s.revoked_at IS NULL AND s.device_type='android' LIMIT 1) android_bound,
     (SELECT device_type FROM user_sessions s WHERE s.user_id=u.id AND s.revoked_at IS NULL AND s.device_type='web' LIMIT 1) web_bound
-    FROM users u JOIN roles r ON r.id=u.role_id $where ORDER BY r.level, u.last_name", $pr);
+    FROM users u JOIN roles r ON r.id=u.role_id $where ORDER BY r.level DESC, r.title ASC, u.last_name ASC, u.first_name ASC, u.id ASC", $pr);
 });
 route('POST', '/api/admin/users', function($p,$b,$u){
   // اطمینان از وجود ستون تاریخ تولد در نسخه‌های ارتقایی
