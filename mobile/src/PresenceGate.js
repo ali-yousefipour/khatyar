@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AppState, Modal } from 'react-native';
+import { AppState, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { request } from './api';
 import { notify } from './notify';
@@ -103,15 +103,40 @@ export default function PresenceGate() {
     setDue(null);
   };
 
+  // Do not nest the capture flow inside React Native Modal. On Android, the
+  // nested modal window can receive a constrained height and clip the vehicle
+  // photo confirmation screen. An absolute full-screen layer is stable across
+  // devices and keeps the camera/preview at the real display size.
   return (
-    <Modal visible animationType="slide" onRequestClose={() => {}}>
-      <PresenceCheckModal
-        slot={due.slot}
-        windowMinutes={due.windowMinutes}
-        onDone={finish}
-        onExpire={finish}
-        onStart={() => stopPresenceAlarm().catch(() => {})}
-      />
-    </Modal>
+    <View style={styles.fullscreenOverlay} pointerEvents="box-none">
+      <View style={styles.fullscreenContent}>
+        <PresenceCheckModal
+          slot={due.slot}
+          windowMinutes={due.windowMinutes}
+          onDone={finish}
+          onExpire={finish}
+          onStart={() => stopPresenceAlarm().catch(() => {})}
+        />
+      </View>
+    </View>
   );
 }
+
+const styles = {
+  fullscreenOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 100000,
+    elevation: 100000,
+    backgroundColor: '#000',
+  },
+  fullscreenContent: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#000',
+  },
+};
