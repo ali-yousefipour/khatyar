@@ -57,3 +57,15 @@ export function stopUnreadPolling() {
 }
 
 export function unreadLabel(n) { return Number(n || 0) > 99 ? '+۹۹' : faNum(Number(n || 0)); }
+
+// Compatibility facade: older screens/bundles accessed the module through an
+// object and expected a refreshUnreadCounts property. Keep named exports above
+// while also exposing the same API as a default object.
+export default {
+  refreshUnreadCounts,
+  getUnreadCounts,
+  subscribeUnreadCounts,
+  startUnreadPolling,
+  stopUnreadPolling,
+  unreadLabel,
+};
