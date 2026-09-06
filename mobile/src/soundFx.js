@@ -29,7 +29,7 @@ async function prepareAudio() {
   try {
     await AudioApi.setAudioModeAsync({
       playsInSilentMode: true,
-      shouldPlayInBackground: false,
+      shouldPlayInBackground: true,
       interruptionMode: 'duckOthers',
     });
     audioPrepared = true;
