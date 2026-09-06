@@ -14,9 +14,6 @@ function projectId() {
   return Constants?.expoConfig?.extra?.eas?.projectId || Constants?.easConfig?.projectId || '';
 }
 
-// ثبت دستگاه برای دریافت Push و ارسال توکن به سرور.
-// در SDK 57 نسبت دادن توکن به EAS project ضروری است؛ در غیر این صورت
-// getExpoPushTokenAsync ممکن است توکن معتبر تولید نکند و در پنل «توکن Push» پیدا نشود.
 export async function registerPush() {
   if (!Device.isDevice) return null;
   const { status: existing } = await Notifications.getPermissionsAsync();
@@ -34,14 +31,15 @@ export async function registerPush() {
       sound: 'notification_new.mp3',
       vibrationPattern: [0, 250, 250, 250],
       enableVibrate: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
-
     await Notifications.setNotificationChannelAsync('messages', {
       name: 'پیام‌های جدید',
       importance: Notifications.AndroidImportance.HIGH,
       sound: 'message_new.mp3',
       vibrationPattern: [0, 250, 150, 250],
       enableVibrate: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
     await Notifications.setNotificationChannelAsync('reports', {
       name: 'گزارش‌های جدید',
@@ -49,6 +47,7 @@ export async function registerPush() {
       sound: 'report_received.mp3',
       vibrationPattern: [0, 250, 150, 250],
       enableVibrate: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
     await Notifications.setNotificationChannelAsync('presence_alarm', {
       name: 'هشدار صحت‌سنجی حضور',
