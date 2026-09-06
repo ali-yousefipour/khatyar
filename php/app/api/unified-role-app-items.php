@@ -1,5 +1,5 @@
 <?php
-/** Unified Role App Items source of truth. */
+/** Unified Role App Items source of truth — Android only. */
 require_once __DIR__ . '/../../lib/Db.php'; require_once __DIR__ . '/../../lib/Jwt.php'; require_once __DIR__ . '/../../lib/Http.php';
 $CONFIG=require __DIR__.'/../../config.php'; header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 function kh_table_exists($t){static $c=[];if(isset($c[$t]))return $c[$t];try{$r=Db::one("SELECT COUNT(*) c FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?",[$t]);return $c[$t]=((int)($r['c']??0)>0);}catch(Throwable $e){return $c[$t]=false;}}
@@ -10,10 +10,10 @@ $allItems=['Dashboard','Search','Driver','Vehicle','Debt','Checklist','Notice','
 function kh_read_config($pdo){try{$r=$pdo->query("SELECT value FROM app_settings WHERE `key`='role_app_items' LIMIT 1")->fetch(PDO::FETCH_ASSOC);$x=$r?json_decode((string)$r['value'],true):[];return is_array($x)?$x:[];}catch(Throwable $e){error_log('role_app_items config: '.$e->getMessage());return [];}}
 function kh_roles($pdo){$o=[];try{foreach($pdo->query("SELECT id,title FROM roles ORDER BY id") as $r)$o[]=['id'=>(string)$r['id'],'title'=>(string)$r['title']];}catch(Throwable $e){error_log('role_app_items roles: '.$e->getMessage());}return $o;}
 function kh_clean($v){global $allItems;$allowed=array_fill_keys($allItems,true);if(!is_array($v))return []; $o=[];$seen=[];foreach($v as $x){$x=(string)$x;if($x!==''&&isset($allowed[$x])&&!isset($seen[$x])){$seen[$x]=1;$o[]=$x;}}return $o;}
-function kh_normalize_config($cfg){global $allItems;$out=[];if(!is_array($cfg))return $out;foreach($cfg as $rid=>$items){$rid=(string)$rid;$raw=is_array($items)?$items:[];$clean=kh_clean($raw);$hadValid=count($clean)>0;$hadExplicitArray=is_array($items); // [] intentionally means no access
-    // Legacy/site-only configurations can otherwise lock everyone out. If a role has only
-    // obsolete web keys, restore the app default; explicit [] remains "none".
-    if($hadExplicitArray && count($raw)>0 && !$hadValid)$clean=$allItems;
+function kh_normalize_config($cfg){global $allItems;$out=[];if(!is_array($cfg))return $out;foreach($cfg as $rid=>$items){$rid=(string)$rid;$raw=is_array($items)?$items:[];$clean=kh_clean($raw);
+    // IMPORTANT: role_app_items is Android-only. Never infer app access from
+    // legacy/site permission keys. An invalid/legacy-only value means no app access.
+    // Explicit [] also means no app access. Web permissions live independently in role_perms.
     $out[$rid]=$clean;
   }return $out;}
 function kh_one_time_migrate($pdo,$cfg){
@@ -22,5 +22,5 @@ function kh_one_time_migrate($pdo,$cfg){
   }catch(Throwable $e){error_log('role_app_items migration: '.$e->getMessage());return kh_normalize_config($cfg);}
 }
 try{$u=kh_auth_user();$pdo=Db::pdo();$m=$_SERVER['REQUEST_METHOD']??'GET';$cfg=kh_read_config($pdo);$roles=kh_roles($pdo);$cfg=kh_one_time_migrate($pdo,$cfg);
-if($m==='GET'){if(kh_is_admin($u)){echo json_encode(['success'=>true,'roles'=>$roles,'config'=>$cfg,'items'=>$allItems,'default_items'=>$allItems,'source'=>'role_app_items'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}$rid=(string)($u['role_id']??'');$items=!array_key_exists($rid,$cfg)||!is_array($cfg[$rid])?$allItems:kh_clean($cfg[$rid]);echo json_encode(['success'=>true,'items'=>$items,'source'=>'role_app_items'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
-if($m==='POST'){if(!kh_is_admin($u))Http::error('دسترسی غیرمجاز',403);$in=Http::body();if(!isset($in['config'])||!is_array($in['config']))Http::error('تنظیمات آیتم‌های اپ نامعتبر است',422);$new=[];foreach($in['config'] as $rid=>$items)$new[(string)$rid]=is_array($items)?kh_clean($items):$allItems;$js=json_encode($new,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$st=$pdo->prepare("INSERT INTO app_settings(`key`,value) VALUES('role_app_items',?) ON DUPLICATE KEY UPDATE value=VALUES(value)");$st->execute([$js]);echo json_encode(['success'=>true,'ok'=>true,'config'=>$new,'items'=>$allItems,'roles'=>$roles,'default_items'=>$allItems,'source'=>'role_app_items'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}Http::error('Method not allowed',405);}catch(Throwable $e){error_log('unified-role-app-items fatal: '.$e->getMessage());http_response_code(500);echo json_encode(['success'=>false,'error'=>'خطای داخلی در بارگذاری تنظیمات سمت‌ها و آیتم‌های اپ'],JSON_UNESCAPED_UNICODE);}
+if($m==='GET'){if(kh_is_admin($u)){echo json_encode(['success'=>true,'roles'=>$roles,'config'=>$cfg,'items'=>$allItems,'default_items'=>[],'source'=>'role_app_items_android_only'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}$rid=(string)($u['role_id']??'');$items=array_key_exists($rid,$cfg)&&is_array($cfg[$rid])?kh_clean($cfg[$rid]):[];echo json_encode(['success'=>true,'items'=>$items,'source'=>'role_app_items_android_only'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
+if($m==='POST'){if(!kh_is_admin($u))Http::error('دسترسی غیرمجاز',403);$in=Http::body();if(!isset($in['config'])||!is_array($in['config']))Http::error('تنظیمات آیتم‌های اپ نامعتبر است',422);$new=[];foreach($in['config'] as $rid=>$items)$new[(string)$rid]=is_array($items)?kh_clean($items):[];$js=json_encode($new,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$st=$pdo->prepare("INSERT INTO app_settings(`key`,value) VALUES('role_app_items',?) ON DUPLICATE KEY UPDATE value=VALUES(value)");$st->execute([$js]);echo json_encode(['success'=>true,'ok'=>true,'config'=>$new,'items'=>$allItems,'roles'=>$roles,'default_items'=>[],'source'=>'role_app_items_android_only'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}Http::error('Method not allowed',405);}catch(Throwable $e){error_log('unified-role-app-items fatal: '.$e->getMessage());http_response_code(500);echo json_encode(['success'=>false,'error'=>'خطای داخلی در بارگذاری تنظیمات سمت‌ها و آیتم‌های اپ'],JSON_UNESCAPED_UNICODE);}
