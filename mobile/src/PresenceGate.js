@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AppState, View } from 'react-native';
+import { AppState, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { request } from './api';
 import { notify } from './notify';
@@ -103,38 +103,22 @@ export default function PresenceGate() {
     setDue(null);
   };
 
-  // Keep the full-screen overlay fix from 992b082. The next fix is applied
-  // inside the vehicle-photo confirmation view instead of changing this gate.
   return (
-    <View style={styles.fullscreenOverlay} pointerEvents="box-none">
-      <View style={styles.fullscreenContent}>
-        <PresenceCheckModal
-          slot={due.slot}
-          windowMinutes={due.windowMinutes}
-          onDone={finish}
-          onExpire={finish}
-          onStart={() => stopPresenceAlarm().catch(() => {})}
-        />
-      </View>
-    </View>
+    <Modal
+      visible={true}
+      animationType="none"
+      presentationStyle="fullScreen"
+      statusBarTranslucent={true}
+      navigationBarTranslucent={true}
+      onRequestClose={() => {}}
+    >
+      <PresenceCheckModal
+        slot={due.slot}
+        windowMinutes={due.windowMinutes}
+        onDone={finish}
+        onExpire={finish}
+        onStart={() => stopPresenceAlarm().catch(() => {})}
+      />
+    </Modal>
   );
 }
-
-const styles = {
-  fullscreenOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 100000,
-    elevation: 100000,
-    backgroundColor: '#000',
-  },
-  fullscreenContent: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#000',
-  },
-};
