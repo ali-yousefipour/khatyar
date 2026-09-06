@@ -6,9 +6,11 @@ CREATE TABLE IF NOT EXISTS personnel_vehicle_checklist_history (
   checker_id BIGINT UNSIGNED NOT NULL,
   result ENUM('verified','needs_correction') NOT NULL,
   note TEXT NULL,
+  checks_json LONGTEXT NULL,
   checked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_pvch_asset (asset_id),
   KEY idx_pvch_checker (checker_id),
-  KEY idx_pvch_checked_at (checked_at)
+  KEY idx_pvch_checked_at (checked_at),
+  KEY idx_pvch_asset_time (asset_id,checked_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
