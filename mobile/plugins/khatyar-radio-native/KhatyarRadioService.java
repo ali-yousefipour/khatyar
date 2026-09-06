@@ -1,5 +1,6 @@
 package ir.mashhad.taxicontrol.radio;
 
+import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -50,6 +51,20 @@ public final class KhatyarRadioService extends Service {
 
   private boolean playbackActive() { return getPrefs().getBoolean("playbackActive", false); }
   private void setPlaybackActive(boolean active) { try { getPrefs().edit().putBoolean("playbackActive", active).apply(); } catch (Throwable ignored) {} }
+
+  private boolean isAppInForeground() {
+    try {
+      ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+      if (am == null) return false;
+      int pid = android.os.Process.myPid();
+      for (ActivityManager.RunningAppProcessInfo p : am.getRunningAppProcesses()) {
+        if (p != null && p.pid == pid) {
+          return p.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
+        }
+      }
+    } catch (Throwable ignored) {}
+    return false;
+  }
 
   private final Runnable poller = new Runnable() {
     @Override public void run() {
@@ -162,7 +177,6 @@ public final class KhatyarRadioService extends Service {
         long id = m.optLong("id", 0L); lastId = Math.max(lastId, id);
         if (m.optLong("sender_id", 0L) == userId) continue;
         long createdAt = messageTimeMillis(m);
-        // امنیت پخش: timestamp نامعتبر یا قدیمی هرگز پخش نمی‌شود.
         if (createdAt <= 0L || createdAt < serviceStartedAt) continue;
         String audio = m.optString("audio_url", "");
         if (!audio.isEmpty()) playRemote(audio, token);
@@ -210,6 +224,7 @@ public final class KhatyarRadioService extends Service {
 
   private synchronized void playRemote(String audioUrl, String token) {
     try {
+      if (isAppInForeground()) return;
       if (audioUrl.startsWith("/")) {
         String base = getPrefs().getString("baseUrl", "").replaceAll("/+$", "");
         if (audioUrl.startsWith("/api/") && base.endsWith("/api")) base = base.substring(0, base.length() - 4);
