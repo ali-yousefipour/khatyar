@@ -59,11 +59,7 @@ public final class KhatyarRadioService extends Service {
       int pid = android.os.Process.myPid();
       for (ActivityManager.RunningAppProcessInfo p : am.getRunningAppProcesses()) {
         if (p != null && p.pid == pid) {
-          // خطیار: قبلاً فقط IMPORTANCE_FOREGROUND (اکتیویتی دقیقاً روی صفحه و فوکوس‌دار) در نظر گرفته می‌شد.
-          // در لحظاتی که یک دیالوگ سیستمی (مثلاً درخواست مجوز) یا انتقال بین صفحات روی اپ باز است،
-          // اندروید سطح اهمیت را موقتاً IMPORTANCE_VISIBLE گزارش می‌کند در حالی که کاربر همچنان صفحهٔ بی‌سیم را می‌بیند
-          // و سمت جاوااسکریپت هم در حال پخش زندهٔ پیام است؛ بدون این خط، سرویس نیتیو هم همان پیام را دوباره پخش می‌کرد (اکو).
-          return p.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE;
+          return p.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
         }
       }
     } catch (Throwable ignored) {}
@@ -165,7 +161,7 @@ public final class KhatyarRadioService extends Service {
             JSONObject m = messages.optJSONObject(idx); if (m == null) continue;
             newest = Math.max(newest, m.optLong("id", 0L));
             long createdAt = messageTimeMillis(m);
-            if (createdAt > 0 && createdAt >= serviceStartedAt && m.optLong("sender_id", 0L) != userId && !isAppInForeground()) {
+            if (createdAt > 0 && createdAt >= serviceStartedAt && m.optLong("sender_id", 0L) != userId) {
               String audio = m.optString("audio_url", "");
               if (!audio.isEmpty()) playRemote(audio, token);
             }
@@ -183,7 +179,7 @@ public final class KhatyarRadioService extends Service {
         long createdAt = messageTimeMillis(m);
         if (createdAt <= 0L || createdAt < serviceStartedAt) continue;
         String audio = m.optString("audio_url", "");
-        if (!audio.isEmpty() && !isAppInForeground()) playRemote(audio, token);
+        if (!audio.isEmpty()) playRemote(audio, token);
       }
       p.edit().putLong("lastId", lastId).apply();
     } catch (Throwable ignored) {}
@@ -228,6 +224,7 @@ public final class KhatyarRadioService extends Service {
 
   private synchronized void playRemote(String audioUrl, String token) {
     try {
+      if (isAppInForeground()) return;
       if (audioUrl.startsWith("/")) {
         String base = getPrefs().getString("baseUrl", "").replaceAll("/+$", "");
         if (audioUrl.startsWith("/api/") && base.endsWith("/api")) base = base.substring(0, base.length() - 4);
