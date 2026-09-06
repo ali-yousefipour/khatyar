@@ -12,6 +12,7 @@ $CONFIG=require "$ROOT/config.php";
 
 function pva_table_exists(string $table): bool { try { $r=Db::one("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? LIMIT 1",[$table]); return $r!==null; } catch(Throwable $e){ return false; } }
 function pva_column_exists(string $table,string $column): bool { try { $r=Db::one("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=? LIMIT 1",[$table,$column]); return $r!==null; } catch(Throwable $e){ return false; } }
+function pva_try_ddl(string $sql): void { try { Db::run($sql); } catch(Throwable $e) { error_log('personnel-vehicle-assets optional schema change skipped: '.$e->getMessage()); } }
 function pva_ensure_schema(): void {
   Db::run("CREATE TABLE IF NOT EXISTS personnel_vehicle_assets (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,user_id BIGINT UNSIGNED NOT NULL,asset_type ENUM('car','motorcycle') NOT NULL,
@@ -35,10 +36,11 @@ function pva_ensure_schema(): void {
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,asset_id BIGINT UNSIGNED NOT NULL,checker_id BIGINT UNSIGNED NOT NULL,result ENUM('verified','needs_correction') NOT NULL,note TEXT NULL,checks_json LONGTEXT NULL,checked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(id),KEY idx_pvch_asset(asset_id),KEY idx_pvch_checker(checker_id),KEY idx_pvch_checked_at(checked_at),KEY idx_pvch_asset_time(asset_id,checked_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-  if(pva_table_exists('personnel_vehicle_checklist_history') && !pva_column_exists('personnel_vehicle_checklist_history','checks_json')) Db::run("ALTER TABLE personnel_vehicle_checklist_history ADD COLUMN checks_json LONGTEXT NULL AFTER note");
-  if(pva_table_exists('users') && !pva_column_exists('users','national_code')) Db::run("ALTER TABLE users ADD COLUMN national_code VARCHAR(10) NULL AFTER phone");
-  if(pva_table_exists('users') && !pva_column_exists('users','device_model')) Db::run("ALTER TABLE users ADD COLUMN device_model VARCHAR(255) NULL AFTER national_code");
+  if(pva_table_exists('personnel_vehicle_checklist_history') && !pva_column_exists('personnel_vehicle_checklist_history','checks_json')) pva_try_ddl("ALTER TABLE personnel_vehicle_checklist_history ADD COLUMN checks_json LONGTEXT NULL AFTER note");
+  if(pva_table_exists('users') && !pva_column_exists('users','national_code')) pva_try_ddl("ALTER TABLE users ADD COLUMN national_code VARCHAR(10) NULL AFTER phone");
+  if(pva_table_exists('users') && !pva_column_exists('users','device_model')) pva_try_ddl("ALTER TABLE users ADD COLUMN device_model VARCHAR(255) NULL AFTER national_code");
 }
+function pva_user_national_code_sql(): string { return pva_column_exists('users','national_code') ? 'u.national_code' : 'NULL'; }
 function pva_json($data,int $status=200): void { http_response_code($status); header('Content-Type: application/json; charset=utf-8'); echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); exit; }
 function pva_fail(string $m,int $s=400): void { pva_json(['ok'=>false,'error'=>$m],$s); }
 function pva_body(): array { static $b=null; if($b===null){$raw=file_get_contents('php://input');$b=json_decode($raw?:'',true);if(!is_array($b))$b=[];}return $b; }
@@ -52,7 +54,8 @@ function pva_history(int $id): array { static $hasJson=null; if($hasJson===null)
 function pva_photo_keys(string $type): array { return $type==='motorcycle'?['motor_front','motor_back','motor_right','motor_left','motor_card_front','motor_card_back','green_card','insurance','license_front','license_back']:['car_front','car_back','car_right','car_left','license_front','license_back','vehicle_card_front','vehicle_card_back','technical_inspection','insurance','green_card']; }
 function pva_load(int $id,bool $photos=true): ?array { $a=pva_asset($id); if(!$a)return null; if($photos)$a['photos']=Db::all('SELECT photo_key,data_uri,crop_json,created_at,updated_at FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$id]); else $a['photo_keys']=array_column(Db::all('SELECT photo_key FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$id]),'photo_key'); $a['checks']=Db::all('SELECT check_key,check_value,note,checker_id,updated_at FROM personnel_vehicle_asset_checks WHERE asset_id=? ORDER BY check_key',[$id]); $a['checklist_history']=pva_history($id); return $a; }
 function pva_list(bool $photos=false): array {
-  $rows=Db::all("SELECT a.*,u.first_name,u.last_name,u.username,u.phone,u.national_code,r.title role_title,
+  $national=pva_user_national_code_sql();
+  $rows=Db::all("SELECT a.*,u.first_name,u.last_name,u.username,u.phone,{$national} national_code,r.title role_title,
     h.checklist_first_at,h.checklist_last_at,h.checklist_count,h.checklist_dates,h.last_result,h.last_checker_name
     FROM personnel_vehicle_assets a
     JOIN users u ON u.id=a.user_id
@@ -113,7 +116,8 @@ try {
   }
   if($op==='export'){
     if(!pva_admin_allowed($u))pva_fail('دسترسی مدیریتی لازم است',403);
-    $rows=Db::all("SELECT a.*,u.first_name,u.last_name,u.username,u.phone,u.national_code,r.title role_title FROM personnel_vehicle_assets a JOIN users u ON u.id=a.user_id LEFT JOIN roles r ON r.id=u.role_id ORDER BY u.last_name,u.first_name,a.asset_type");
+    $national=pva_user_national_code_sql();
+    $rows=Db::all("SELECT a.*,u.first_name,u.last_name,u.username,u.phone,{$national} national_code,r.title role_title FROM personnel_vehicle_assets a JOIN users u ON u.id=a.user_id LEFT JOIN roles r ON r.id=u.role_id ORDER BY u.last_name,u.first_name,a.asset_type");
     $photoKeys=[];foreach($rows as $r){foreach(Db::all('SELECT photo_key FROM personnel_vehicle_asset_photos WHERE asset_id=?',[$r['id']]) as $p){$k=(string)$p['photo_key'];if($k!==''&&!in_array($k,$photoKeys,true))$photoKeys[]=$k;}}
     $head=['شناسه','نام','نام خانوادگی','نام کاربری','سمت','موبایل','کد ملی','نوع وسیله','پلاک','نوع خودرو','سوخت','رنگ','سال ساخت','شماره شاسی/تنه','شماره موتور','VIN','سیستم موتور','تیپ موتور','کاربری موتور','سیلندر','شماره گواهینامه','صدور گواهینامه','انقضای گواهینامه','شماره بیمه','شرکت بیمه','صدور بیمه','انقضای بیمه','شماره معاینه فنی','صدور معاینه','انقضای معاینه','چراغگردان ثابت','چراغگردان متحرک','گرمایش','سرمایش','آمپلی‌فایر','وضعیت بررسی','اولین تاریخ چک‌لیست','آخرین تاریخ چک‌لیست','تاریخچه کامل چک‌لیست'];foreach($photoKeys as $k)$head[]='تصویر '.$k;$x=new XlsxWriter($head);
     foreach($rows as $r){$hist=pva_history((int)$r['id']);$dates=array_column($hist,'checked_at');$plate=pva_plate($r);$cells=[$r['id'],$r['first_name'],$r['last_name'],$r['username'],$r['role_title'],$r['phone'],$r['national_code'],$r['asset_type']==='car'?'خودرو':'موتورسیکلت',$plate,$r['vehicle_type'],$r['fuel_type'],$r['color'],$r['model_year'],$r['chassis_number'],$r['engine_number'],$r['vin'],$r['motorcycle_system'],$r['motorcycle_type'],$r['motorcycle_usage'],$r['cylinders'],$r['license_number'],$r['license_issue_date'],$r['license_expiry_date'],$r['insurance_number'],$r['insurance_company'],$r['insurance_issue_date'],$r['insurance_expiry_date'],$r['technical_inspection_number'],$r['technical_inspection_issue_date'],$r['technical_inspection_expiry_date'],((int)$r['fixed_beacon']?'بله':'خیر'),((int)$r['mobile_beacon']?'بله':'خیر'),((int)$r['heating_ok']?'بله':'خیر'),((int)$r['cooling_ok']?'بله':'خیر'),((int)$r['amplifier']?'بله':'خیر'),$r['status'],$dates?end($dates):null,$dates?$dates[0]:null,$dates?implode(' | ',$dates):null];$photos=Db::all('SELECT photo_key,data_uri FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$r['id']]);$by=[];foreach($photos as $p){$by[(string)$p['photo_key']]=$p;}$start=count($cells);foreach($photoKeys as $k)$cells[]='';$row=$x->addRow($cells);foreach($photoKeys as $i=>$k){$bytes=pva_image_bytes($by[$k]['data_uri']??'');if($bytes!==''){$x->setImage($row,$start+$i,$bytes,110);$x->setColWidth($start+$i,18);}}}
