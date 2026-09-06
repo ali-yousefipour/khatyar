@@ -19,6 +19,14 @@ function RadioHeaderToggle({ navigation }) {
   return <TouchableOpacity onPress={() => navigation.navigate('Radio')} style={s.headerIcon} hitSlop={6}><Text style={s.headerIconText}>{enabled ? (busy ? '📻' : '📡') : '📻̸'}</Text></TouchableOpacity>;
 }
 
+function RankInsignia({ count = 0 }) {
+  const n = Math.max(0, Math.min(5, Number(count) || 0));
+  if (!n) return null;
+  return <View style={s.rankInsignia} accessibilityLabel={`${n} نوار درجه`}>
+    {Array.from({ length: n }).map((_, i) => <View key={i} style={s.rankBar} />)}
+  </View>;
+}
+
 const MENU_TABS = [['all', 'همه'], ['general', 'عمومی'], ['field', 'عملیات میدانی'], ['work', 'اداری'], ['messages', 'ارتباطات'], ['personal', 'شخصی']];
 const ICON3D = {
   search: require('../../assets/icons3d/search-taxi.png'), present: require('../../assets/icons3d/present-people.png'), sendReport: require('../../assets/icons3d/send-report-plane.png'), checkin: require('../../assets/icons3d/checkin-fingerprint.png'), requests: require('../../assets/icons3d/request-box.png'), approvals: require('../../assets/icons3d/approve-stamp.png'), performance: require('../../assets/icons3d/my-performance.png'), salary: require('../../assets/icons3d/salary-money.png'), company: require('../../assets/icons3d/company-send.png'), subscription: require('../../assets/icons3d/subscription-card.png'), sms: require('../../assets/icons3d/sms-bubble.png'), bot: require('../../assets/icons3d/bot-message.png'), sent: require('../../assets/icons3d/sent-folder.png'), forms: require('../../assets/icons3d/form-document.png'), cultural: require('../../assets/icons3d/cultural-lamp.png'), welfare: require('../../assets/icons3d/welfare-heart.png'), official: require('../../assets/icons3d/official-presence.png'), activity: require('../../assets/icons3d/activity-wave.png'), insurance: require('../../assets/icons3d/insurance-shield.png'), invalid: require('../../assets/icons3d/invalid-warning.png'), operation: require('../../assets/icons3d/operation-tools.png'), team: require('../../assets/icons3d/team-people.png'), temporary: require('../../assets/icons3d/temp-driver.png'), outage: require('../../assets/icons3d/outage-bolt.png')
@@ -44,8 +52,8 @@ export default function DashboardScreen({ navigation }) {
   const [syncDetail, setSyncDetail] = useState('');
   const [pop, setPop] = useState(null);
 
-  const starsFor = (role) => { if (!role) return ''; const r = String(role); if (r.includes('سربازرس')) return '★★★★'; if (r.includes('بازرس')) return '★★'; if (r.includes('ناظر خط') || r.includes('اپراتور')) return '★'; return ''; };
-  const stars = user?.rank_stars !== null && user?.rank_stars !== undefined ? '★'.repeat(Math.max(0, Math.min(5, Number(user.rank_stars) || 0))) : starsFor(user?.role);
+  const rankCountFor = (role) => { if (!role) return 0; const r = String(role); if (r.includes('سربازرس')) return 4; if (r.includes('بازرس')) return 2; if (r.includes('ناظر خط') || r.includes('اپراتور') || r.includes('مسئول خط') || r.includes('سرپرست خط')) return 1; return 0; };
+  const rankCount = user?.rank_stars !== null && user?.rank_stars !== undefined ? Math.max(0, Math.min(5, Number(user.rank_stars) || 0)) : rankCountFor(user?.role);
 
   useEffect(() => {
     const off = subscribeUnreadCounts(setUnreadCounts);
@@ -82,12 +90,12 @@ export default function DashboardScreen({ navigation }) {
   const visibleMenu = MENU.filter((m) => (m.r !== 'Sms' && m.r !== 'MySms' && m.r !== 'BotMessages') || !!user?.can_send_sms || m.r === 'BotMessages').filter(canShow).filter((m) => menuTab === 'all' || categoryOf(m.r) === menuTab);
   const KPIS = [['رانندگان خطوط شما', myStats.drivers], ['خودروهای خطوط شما', myStats.vehicles], ['حضور امروز', stats.today], ['چک‌لیست این ماه', stats.checklists]];
 
-  return <ScrollView style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text style={s.syncText}>{syncDetail}</Text></View> : null}<View style={s.top}><View style={s.topInfo}><Text style={s.hi}>روز بخیر،</Text><View style={s.nameRow}>{stars ? <Text style={s.stars}>{stars}</Text> : null}<Text style={s.nm}>{user?.name || '—'}</Text></View><Text style={s.todayTxt}>{todayFaLong()}</Text>{user?.role ? <View style={s.roleChip}><Text style={s.roleTxt}>{user.role}</Text></View> : null}</View>{myPhoto ? <Image source={imageSource(myPhoto)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}</View><View style={s.kpis}>{KPIS.map(([l, n], i) => <View style={[s.kpi, { width: cardW }]} key={i}><Text style={s.kpiN}>{faNum(Number(n))}</Text><Text style={s.kpiL}>{l}</Text></View>)}</View><FieldStatusBanner /><Text style={s.sectionTitle}>دسترسی سریع</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.menuTabs}>{MENU_TABS.map(([k, l]) => <TouchableOpacity key={k} style={[s.menuTab, menuTab === k && s.menuTabOn]} onPress={() => setMenuTab(k)}><Text style={[s.menuTabTxt, menuTab === k && s.menuTabTxtOn]}>{l}</Text></TouchableOpacity>)}</ScrollView><View style={s.grid}>{visibleMenu.map((m, i) => <TouchableOpacity key={i} style={[s.card, { width: cardW }]} activeOpacity={0.85} onPress={() => navigation.navigate(m.r)}><View style={[s.iconWrap, { backgroundColor: m.bg }]}>{m.glyph ? <Text style={s.glyph}>{m.glyph}</Text> : <Image source={m.icon3d} style={s.icon3d} resizeMode="contain" />}</View><View style={s.cardTxtWrap}><Text style={s.cardTxt} numberOfLines={2}>{m.t}</Text></View></TouchableOpacity>)}</View><Modal visible={!!pop} transparent animationType="fade" onRequestClose={() => setPop(null)}><TouchableOpacity style={s.popBg} activeOpacity={1} onPress={() => setPop(null)}><View style={s.popCard}><TouchableOpacity style={s.popBtn} onPress={() => setPop(null)}><Text style={s.popBtnTxt}>بستن</Text></TouchableOpacity></View></TouchableOpacity></Modal></View></ScrollView>;
+  return <ScrollView style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text style={s.syncText}>{syncDetail}</Text></View> : null}<View style={s.top}><View style={s.topInfo}><Text style={s.hi}>روز بخیر،</Text><View style={s.nameRow}>{rankCount > 0 ? <RankInsignia count={rankCount} /> : null}<Text style={s.nm}>{user?.name || '—'}</Text></View><Text style={s.todayTxt}>{todayFaLong()}</Text>{user?.role ? <View style={s.roleChip}><Text style={s.roleTxt}>{user.role}</Text></View> : null}</View>{myPhoto ? <Image source={imageSource(myPhoto)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}</View><View style={s.kpis}>{KPIS.map(([l, n], i) => <View style={[s.kpi, { width: cardW }]} key={i}><Text style={s.kpiN}>{faNum(Number(n))}</Text><Text style={s.kpiL}>{l}</Text></View>)}</View><FieldStatusBanner /><Text style={s.sectionTitle}>دسترسی سریع</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.menuTabs}>{MENU_TABS.map(([k, l]) => <TouchableOpacity key={k} style={[s.menuTab, menuTab === k && s.menuTabOn]} onPress={() => setMenuTab(k)}><Text style={[s.menuTabTxt, menuTab === k && s.menuTabTxtOn]}>{l}</Text></TouchableOpacity>)}</ScrollView><View style={s.grid}>{visibleMenu.map((m, i) => <TouchableOpacity key={i} style={[s.card, { width: cardW }]} activeOpacity={0.85} onPress={() => navigation.navigate(m.r)}><View style={[s.iconWrap, { backgroundColor: m.bg }]}>{m.glyph ? <Text style={s.glyph}>{m.glyph}</Text> : <Image source={m.icon3d} style={s.icon3d} resizeMode="contain" />}</View><View style={s.cardTxtWrap}><Text style={s.cardTxt} numberOfLines={2}>{m.t}</Text></View></TouchableOpacity>)}</View><Modal visible={!!pop} transparent animationType="fade" onRequestClose={() => setPop(null)}><TouchableOpacity style={s.popBg} activeOpacity={1} onPress={() => setPop(null)}><View style={s.popCard}><TouchableOpacity style={s.popBtn} onPress={() => setPop(null)}><Text style={s.popBtnTxt}>بستن</Text></TouchableOpacity></View></TouchableOpacity></Modal></View></ScrollView>;
 }
 
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: C.paper, direction: 'rtl' },
-  pageContent: { paddingBottom: 24 },
+  pageContent: { paddingBottom: 24, direction: 'rtl' },
   rtlRoot: { width: '100%', alignSelf: 'stretch', direction: 'rtl' },
   syncBanner: { backgroundColor: '#1b3a6b', padding: 10, alignItems: 'stretch' },
   syncText: { color: '#fff', fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
@@ -105,7 +113,8 @@ const s = StyleSheet.create({
   hi: { width: '100%', color: '#fff', opacity: 0.85, fontFamily: FONT.regular, textAlign: 'right', writingDirection: 'rtl', fontSize: 13 },
   nameRow: { width: '100%', flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'flex-start' },
   nm: { flex: 1, color: '#fff', fontFamily: FONT.bold, fontSize: 19, textAlign: 'right', writingDirection: 'rtl' },
-  stars: { color: '#ffd24a', fontSize: 15, textAlign: 'right', writingDirection: 'rtl', marginLeft: 6 },
+  rankInsignia: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 4, marginLeft: 8, height: 20 },
+  rankBar: { width: 3, height: 17, borderRadius: 1.5, backgroundColor: '#ffd24a' },
   todayTxt: { width: '100%', color: '#fff', opacity: 0.9, fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', writingDirection: 'rtl', marginTop: 4 },
   avatar: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: 'rgba(255,255,255,.6)', marginLeft: 12 },
   avatarPh: { width: 74, height: 74, borderRadius: 37, backgroundColor: 'rgba(255,255,255,.25)', alignItems: 'center', justifyContent: 'center', marginLeft: 12 },
