@@ -101,7 +101,12 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   }
 
   if (shot) {
-    const maxImageHeight = Math.max(190, Math.min(height * 0.52, 500));
+    // مهم: برای مرحلهٔ تأیید، ارتفاع کادر باید صریحاً تعیین شود.
+    // ترکیب maxHeight با Image دارای height:100% باعث می‌شد در بعضی دستگاه‌ها
+    // ارتفاع والد به مقدار حداقلی محاسبه شود و صفحهٔ تأیید نصفه/کوتاه دیده شود.
+    // اینجا یک ارتفاع واقعی و واکنش‌گرا به کادر می‌دهیم تا ScrollView و دکمه‌ها
+    // فضای باقی‌مانده را به‌درستی مدیریت کنند.
+    const previewHeight = Math.max(250, Math.min(height * 0.62, 560));
     return (
       <View style={s.previewWrap}>
         <ScrollView
@@ -111,7 +116,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
           bounces={false}
         >
           <Text style={s.title}>تأیید عکس خودروهای خط</Text>
-          <View ref={shotRef} collapsable={false} style={[s.shotBox, { maxHeight: maxImageHeight }]}>
+          <View ref={shotRef} collapsable={false} style={[s.shotBox, { height: previewHeight }]}>
             <Image source={{ uri: shot }} style={s.shotImg} resizeMode="contain" />
             <View style={s.stampBox}>
               <Text style={s.stampTxt}>{stamp.date}</Text>
@@ -158,7 +163,7 @@ const s = StyleSheet.create({
   previewScroll: { flex: 1 },
   previewContent: { alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 },
   title: { fontFamily: FONT.bold, fontSize: 18, color: C.ink, marginVertical: 10, textAlign: 'center' },
-  shotBox: { width: '100%', minHeight: 190, borderRadius: 14, overflow: 'hidden', backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
+  shotBox: { width: '100%', borderRadius: 14, overflow: 'hidden', backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
   shotImg: { width: '100%', height: '100%' },
   stampBox: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.5)', padding: 8 },
   stampTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right' },
