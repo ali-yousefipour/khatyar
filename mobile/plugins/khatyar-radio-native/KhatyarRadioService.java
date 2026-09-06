@@ -59,7 +59,11 @@ public final class KhatyarRadioService extends Service {
       int pid = android.os.Process.myPid();
       for (ActivityManager.RunningAppProcessInfo p : am.getRunningAppProcesses()) {
         if (p != null && p.pid == pid) {
-          return p.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
+          // خطیار: قبلاً فقط IMPORTANCE_FOREGROUND (اکتیویتی دقیقاً روی صفحه و فوکوس‌دار) در نظر گرفته می‌شد.
+          // در لحظاتی که یک دیالوگ سیستمی (مثلاً درخواست مجوز) یا انتقال بین صفحات روی اپ باز است،
+          // اندروید سطح اهمیت را موقتاً IMPORTANCE_VISIBLE گزارش می‌کند در حالی که کاربر همچنان صفحهٔ بی‌سیم را می‌بیند
+          // و سمت جاوااسکریپت هم در حال پخش زندهٔ پیام است؛ بدون این خط، سرویس نیتیو هم همان پیام را دوباره پخش می‌کرد (اکو).
+          return p.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE;
         }
       }
     } catch (Throwable ignored) {}

@@ -36,6 +36,8 @@ function pva_ensure_schema(): void {
     PRIMARY KEY(id),KEY idx_pvch_asset(asset_id),KEY idx_pvch_checker(checker_id),KEY idx_pvch_checked_at(checked_at),KEY idx_pvch_asset_time(asset_id,checked_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
   if(pva_table_exists('personnel_vehicle_checklist_history') && !pva_column_exists('personnel_vehicle_checklist_history','checks_json')) Db::run("ALTER TABLE personnel_vehicle_checklist_history ADD COLUMN checks_json LONGTEXT NULL AFTER note");
+  if(pva_table_exists('users') && !pva_column_exists('users','national_code')) Db::run("ALTER TABLE users ADD COLUMN national_code VARCHAR(10) NULL AFTER phone");
+  if(pva_table_exists('users') && !pva_column_exists('users','device_model')) Db::run("ALTER TABLE users ADD COLUMN device_model VARCHAR(255) NULL AFTER national_code");
 }
 function pva_json($data,int $status=200): void { http_response_code($status); header('Content-Type: application/json; charset=utf-8'); echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); exit; }
 function pva_fail(string $m,int $s=400): void { pva_json(['ok'=>false,'error'=>$m],$s); }

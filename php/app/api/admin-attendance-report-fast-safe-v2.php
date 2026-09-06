@@ -9,6 +9,7 @@ require "$ROOT/lib/Http.php";
 require "$ROOT/lib/ShiftCalc.php";
 require "$ROOT/lib/IranCalendar.php";
 $CONFIG=require "$ROOT/config.php";
+if (!function_exists('route')) { function route($m,$p,$fn,$public=false,$minLevel=99){} }
 require "$ROOT/lib/routes.php";
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');

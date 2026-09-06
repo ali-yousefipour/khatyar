@@ -94,9 +94,9 @@ export default function DashboardScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: C.paper, direction: 'rtl' },
-  pageContent: { paddingBottom: 24, direction: 'rtl' },
-  rtlRoot: { width: '100%', alignSelf: 'stretch', direction: 'rtl' },
+  page: { flex: 1, backgroundColor: C.paper},
+  pageContent: { paddingBottom: 24},
+  rtlRoot: { width: '100%', alignSelf: 'stretch'},
   syncBanner: { backgroundColor: '#1b3a6b', padding: 10, alignItems: 'stretch' },
   syncText: { color: '#fff', fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
   headerBar: { height: 44, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', width: 250 },

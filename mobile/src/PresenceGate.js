@@ -127,7 +127,6 @@ const s = StyleSheet.create({
     zIndex: 100000,
     elevation: 100000,
     backgroundColor: '#fff',
-    direction: 'rtl',
   },
   surface: {
     ...StyleSheet.absoluteFillObject,
@@ -136,6 +135,5 @@ const s = StyleSheet.create({
     minWidth: '100%',
     minHeight: '100%',
     backgroundColor: '#fff',
-    direction: 'rtl',
   },
 });

@@ -104,7 +104,7 @@ export default function DrawerMenuScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: C.paper, direction: 'rtl' },
+  page: { flex: 1, backgroundColor: C.paper},
   header: { backgroundColor: C.brand, paddingTop: 52, paddingHorizontal: 20, paddingBottom: 22, alignItems: 'flex-end' },
   brand: { width: '100%', color: '#fff', fontFamily: FONT.bold, fontSize: 25, textAlign: 'right', writingDirection: 'rtl' },
   title: { width: '100%', color: '#dcefe9', fontFamily: FONT.regular, fontSize: 13, textAlign: 'right', writingDirection: 'rtl', marginTop: 5 },
