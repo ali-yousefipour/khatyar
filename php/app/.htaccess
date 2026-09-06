@@ -11,6 +11,9 @@ RewriteRule ^app\.html$ app-shell.php [QSA,L,NC]
 
 RewriteRule ^api/admin/role-app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
 RewriteRule ^api/my/app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
+# Mobile currently calls /my/app-items. It must use the Android-only permission
+# source as well; never let the main router's Web permissions gate Android.
+RewriteRule ^my/app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
 RewriteRule ^api/radio-api\.php$ radio-api-v2.php [QSA,L,NC]
 RewriteRule ^api/radio-api-v2\.php$ radio-api-v2.php [QSA,L,NC]
 RewriteRule ^api/radio-admin-api\.php$ radio-admin-api.php [QSA,L,NC]
