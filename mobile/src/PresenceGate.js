@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AppState, Modal } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { request } from './api';
 import { notify } from './notify';
@@ -82,10 +82,10 @@ export default function PresenceGate() {
       }
       setDue({ slot: sl, windowMinutes: Number(data.window_minutes || cfg.window_minutes || 1), day: now.day, key, immediate });
     };
-    const r1 = Notifications.addNotificationReceivedListener(n => openFromNotification(n?.request?.content?.data || {}).catch(()=>{}));
-    const r2 = Notifications.addNotificationResponseReceivedListener(r => openFromNotification(r?.notification?.request?.content?.data || {}).catch(()=>{}));
+    const r1 = Notifications.addNotificationReceivedListener(n => openFromNotification(n?.request?.content?.data || {}).catch(() => {}));
+    const r2 = Notifications.addNotificationResponseReceivedListener(r => openFromNotification(r?.notification?.request?.content?.data || {}).catch(() => {}));
     const r3 = AppState.addEventListener('change', st => { if (st === 'active') {} });
-    return () => { try { r1.remove(); } catch(e) {} try { r2.remove(); } catch(e) {} try { r3.remove(); } catch(e) {} };
+    return () => { try { r1.remove(); } catch (e) {} try { r2.remove(); } catch (e) {} try { r3.remove(); } catch (e) {} };
   }, [user]);
 
   useEffect(() => {
@@ -103,22 +103,39 @@ export default function PresenceGate() {
     setDue(null);
   };
 
+  // به‌جای React Native Modal از overlay تمام‌صفحه استفاده می‌کنیم.
+  // این روش با edge-to-edge اندروید/React Native 0.86 تداخل اندازه‌ای ندارد و
+  // صفحه‌ای که صحت‌سنجی روی آن باز شده را در تمام عرض و ارتفاع می‌پوشاند.
   return (
-    <Modal
-      visible={true}
-      animationType="none"
-      presentationStyle="fullScreen"
-      statusBarTranslucent={true}
-      navigationBarTranslucent={true}
-      onRequestClose={() => {}}
-    >
-      <PresenceCheckModal
-        slot={due.slot}
-        windowMinutes={due.windowMinutes}
-        onDone={finish}
-        onExpire={finish}
-        onStart={() => stopPresenceAlarm().catch(() => {})}
-      />
-    </Modal>
+    <View style={s.overlay} pointerEvents="box-none">
+      <View style={s.surface}>
+        <PresenceCheckModal
+          slot={due.slot}
+          windowMinutes={due.windowMinutes}
+          onDone={finish}
+          onExpire={finish}
+          onStart={() => stopPresenceAlarm().catch(() => {})}
+        />
+      </View>
+    </View>
   );
 }
+
+const s = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100000,
+    elevation: 100000,
+    backgroundColor: '#fff',
+    direction: 'rtl',
+  },
+  surface: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    minWidth: '100%',
+    minHeight: '100%',
+    backgroundColor: '#fff',
+    direction: 'rtl',
+  },
+});
