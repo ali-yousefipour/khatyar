@@ -230,7 +230,7 @@ const db = {
   delHoliday: (jdate)=> SEND('DELETE','/admin/holidays/'+jdate,{}),
   fetchHolidays: (year,month)=> SEND('POST','/admin/holidays/fetch',{year,month}),
   shiftReport: (year,month)=> GET('/admin/shift-report?year='+year+'&month='+month),
-  attendanceReport: (userId,from,to)=> GET('/admin/attendance-report?user_id='+userId+'&from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to)),
+  attendanceReport: (userId,from,to)=> GET('/admin-attendance-report.php?user_id='+userId+'&from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to)),
   attendanceSurplusConvert: (body)=> SEND('POST','/admin/attendance-surplus/convert',body),
   attendanceSurplusReset: (body)=> SEND('POST','/admin/attendance-surplus/reset',body),
   ruleEngineRoles: ()=> GET('/admin/rule-engine/roles'),
@@ -2860,14 +2860,162 @@ function RadioSettings(){
 }
 
 function RadioCenter(){
-  const [tab,setTab]=useState('live'); const [channels,setChannels]=useState([]); const [cid,setCid]=useState(0); const [messages,setMessages]=useState([]); const [after,setAfter]=useState(0); const afterRef=React.useRef(0); const [retention,setRetention]=useState(1);
-  const api=async(op)=>{const r=await fetch(`/api/radio-admin-api.php?op=${op}`,{headers:{Authorization:`Bearer ${localStorage.token||''}`},cache:'no-store'});const d=await r.json();if(!r.ok||d.ok===false)throw Error(d.error||'خطای سرور');return d;};
-  const load=async()=>{try{const d=await api('channel-list');setChannels(d.channels||[]);setCid(x=>x||(d.channels?.[0]?.id||0));setAfter(x=>{const c=(d.channels||[]).find(q=>Number(q.id)===Number(cid||d.channels?.[0]?.id));const n=c?Number(c.last_message_id||0):x;afterRef.current=n;return n;});}catch(e){alert(e.message)}};
-  const poll=async()=>{if(!cid)return;try{const d=await api(`monitor&channel_id=${cid}&after=${afterRef.current}`);if((d.messages||[]).length){const n=Math.max(afterRef.current,...d.messages.map(x=>Number(x.id)));afterRef.current=n;setMessages(m=>[...(d.messages||[]).map(x=>({...x,newItem:true})),...m].slice(0,100));setAfter(n)}}catch(_) {}}
-  useEffect(()=>{load()},[]); useEffect(()=>{if(tab!=='live'||!cid)return; poll();const t=setInterval(poll,1800);return()=>clearInterval(t)},[tab,cid]);
-  const archive=async()=>{try{const d=await api(`archive&channel_id=${cid}&limit=100`);setMessages(d.messages||[]);setRetention(d.retention_hours||((d.retention_days||1)*24))}catch(e){alert(e.message)}};
-  useEffect(()=>{if(tab==='archive')archive(); else if(tab==='live'&&cid){const c=channels.find(x=>Number(x.id)===Number(cid));const n=Number(c?.last_message_id||0);afterRef.current=n;setAfter(n);setMessages([]);}},[tab,cid]);
-  return <div><div className="tabbar"><button className={'tabbtn'+(tab==='live'?' on':'')} onClick={()=>setTab('live')}>پخش زنده بی‌سیم</button><button className={'tabbtn'+(tab==='archive'?' on':'')} onClick={()=>setTab('archive')}>آرشیو پیام‌ها</button></div><div className="panel"><div className="row" style={{gap:8,alignItems:'center',flexWrap:'wrap'}}><label className="label">کانال</label><select className="input" style={{maxWidth:280}} value={cid} onChange={e=>{setCid(Number(e.target.value));setAfter(0);afterRef.current=0;setMessages([])}}>{channels.map(c=><option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}</select>{tab==='live'&&<span className="muted">در حال شنود زنده…</span>}{tab==='archive'&&<span className="muted">نگهداری: {fa(retention)} ساعت</span>}</div></div><div className="panel"><h3>{tab==='live'?'شنود زنده':'آرشیو پیام‌های صوتی'}</h3>{tab==='live'&&<p className="muted" style={{marginBottom:8}}>در این بخش فقط پیام‌هایی که پس از ورود شما به شنود زنده دریافت شوند نمایش داده می‌شوند؛ پیام‌های قبلی در آرشیو هستند.</p>}{messages.length?messages.map(m=><div key={m.id} className="row" style={{justifyContent:'space-between',gap:10,padding:'10px 0',borderBottom:'1px solid var(--line)',alignItems:'center'}}><div><b>{m.sender_name||'کاربر'}</b><div className="muted" style={{fontSize:11}}>{m.created_at||''} · {fa(Math.round(Number(m.duration_ms||0)/1000))} ثانیه</div></div><audio controls preload="none" src={m.audio_url} style={{maxWidth:280}}/></div>):<p className="muted">پیامی برای نمایش وجود ندارد.</p>}</div></div>;
+  /* خطیار — مرکز بی‌سیم (بازنویسی کامل)
+     تب «پخش زنده»: هر پیام تازه‌ای که برای کانال انتخاب‌شده برسد، به‌صورت خودکار (بدون کلیک کاربر) پخش می‌شود؛
+       پیام‌ها در صف قرار می‌گیرند و یکی‌یکی، بدون همپوشانی، پخش می‌شوند (نه هم‌زمان/اکو).
+     تب «آرشیو پیام‌ها»: پیام‌های ۲۴ ساعت اخیر هر کانال (قابل تغییر به بازه‌های دیگر) با امکان پخش پیش‌نمایش و دانلود فایل صوتی.
+  */
+  const [tab,setTab]=useState('live');
+  const [channels,setChannels]=useState([]);
+  const [cid,setCid]=useState(0);
+  const [err,setErr]=useState('');
+
+  const api=async(op,opts)=>{const r=await fetch(`/api/radio-admin-api.php?op=${op}`,{headers:{Authorization:`Bearer ${localStorage.token||''}`},cache:'no-store',...(opts||{})});const d=await r.json().catch(()=>null);if(!r.ok||!d||d.ok===false)throw Error((d&&d.error)||'خطای سرور');return d;};
+
+  const loadChannels=async()=>{try{const d=await api('channel-list');const chs=d.channels||[];setChannels(chs);setCid(x=>x||(chs[0]?.id||0));setErr('');}catch(e){setErr(e.message);}};
+  useEffect(()=>{loadChannels();const t=setInterval(loadChannels,15000);return()=>clearInterval(t);},[]);
+
+  return <div>
+    <div className="tabbar">
+      <button className={'tabbtn'+(tab==='live'?' on':'')} onClick={()=>setTab('live')}>پخش زنده</button>
+      <button className={'tabbtn'+(tab==='archive'?' on':'')} onClick={()=>setTab('archive')}>آرشیو پیام‌ها</button>
+    </div>
+    {err&&<p className="muted" style={{color:'#c0392b'}}>{err}</p>}
+    {tab==='live'
+      ? <RadioLiveTab api={api} channels={channels} cid={cid} setCid={setCid}/>
+      : <RadioArchiveTab api={api} channels={channels} cid={cid} setCid={setCid}/>}
+  </div>;
+}
+
+function RadioLiveTab({api,channels,cid,setCid}){
+  const [items,setItems]=useState([]); // پیام‌های دریافت‌شده از زمان ورود به این تب
+  const [playingId,setPlayingId]=useState(0);
+  const [listening,setListening]=useState(false);
+  const afterRef=React.useRef(0);
+  const channelRef=React.useRef(cid);
+  const queueRef=React.useRef([]); // صف پخش خودکار
+  const playingRef=React.useRef(false);
+  const audioElRef=React.useRef(null);
+  const pollingRef=React.useRef(false);
+
+  useEffect(()=>{channelRef.current=cid;},[cid]);
+
+  // به‌محض تغییر کانال، صف/تاریخچهٔ نمایش را پاک می‌کنیم و از آخرین پیام موجود همان کانال شروع می‌کنیم
+  // تا پیام‌های قدیمیِ کانال قبلی هرگز با تعویض کانال پشت‌سرهم پخش نشوند.
+  useEffect(()=>{
+    const c=channels.find(x=>Number(x.id)===Number(cid));
+    afterRef.current=Number(c?.last_message_id||0);
+    queueRef.current=[];
+    setItems([]);
+    setPlayingId(0);
+    if(audioElRef.current){try{audioElRef.current.pause();}catch(e){}}
+  },[cid,channels]);
+
+  const playNext=()=>{
+    if(playingRef.current)return;
+    const next=queueRef.current.shift();
+    if(!next){setPlayingId(0);return;}
+    playingRef.current=true;
+    setPlayingId(next.id);
+    const a=new Audio(next.audio_url);
+    audioElRef.current=a;
+    const done=()=>{playingRef.current=false;audioElRef.current=null;playNext();};
+    a.addEventListener('ended',done);
+    a.addEventListener('error',done);
+    a.play().catch(done); // اگر مرورگر پخش خودکار را رد کند (نبود تعامل کاربر)، به پیام بعدی می‌رویم و خطا را می‌بلعیم
+  };
+
+  const poll=async()=>{
+    if(pollingRef.current||!channelRef.current)return;
+    pollingRef.current=true;
+    const requestedChannel=Number(channelRef.current);
+    try{
+      const d=await api(`monitor&channel_id=${requestedChannel}&after=${afterRef.current}`);
+      if(requestedChannel!==Number(channelRef.current))return; // کانال حین درخواست عوض شده؛ این پاسخ متعلق به کانال قبلی است
+      const msgs=d.messages||[];
+      if(msgs.length){
+        afterRef.current=Math.max(afterRef.current,...msgs.map(x=>Number(x.id)));
+        setItems(prev=>[...msgs,...prev].slice(0,60));
+        queueRef.current.push(...msgs);
+        playNext();
+      }
+    }catch(e){/* خطای موقت شبکه؛ در دور بعدی دوباره تلاش می‌شود */}
+    finally{pollingRef.current=false;}
+  };
+
+  useEffect(()=>{
+    if(!cid)return;
+    setListening(true);
+    poll();
+    const t=setInterval(poll,1800);
+    return()=>{clearInterval(t);setListening(false);if(audioElRef.current){try{audioElRef.current.pause();}catch(e){}}playingRef.current=false;queueRef.current=[];};
+  },[cid]);
+
+  return <>
+    <div className="panel"><div className="row" style={{gap:8,alignItems:'center',flexWrap:'wrap'}}>
+      <label className="label">کانال</label>
+      <select className="input" style={{maxWidth:280}} value={cid} onChange={e=>setCid(Number(e.target.value))}>
+        {channels.map(c=><option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}
+      </select>
+      <span className="muted">{listening?'در حال شنود زنده… پیام‌های تازه خودکار پخش می‌شوند':'—'}</span>
+    </div></div>
+    <div className="panel">
+      <h3>پخش زنده</h3>
+      <p className="muted" style={{marginBottom:8}}>پیام‌هایی که از این لحظه به بعد در این کانال ارسال شوند، همین‌جا و به‌صورت خودکار (یکی پس از دیگری) پخش می‌شوند. پیام‌های قبل‌تر را در تب «آرشیو پیام‌ها» ببینید.</p>
+      {items.length?items.map(m=><div key={m.id} className="row" style={{justifyContent:'space-between',gap:10,padding:'10px 0',borderBottom:'1px solid var(--line)',alignItems:'center'}}>
+        <div><b>{m.sender_name||'کاربر'}</b>{playingId===m.id&&<span style={{color:'var(--accent,#2a9d63)',marginRight:8,fontSize:12}}>● در حال پخش</span>}
+          <div className="muted" style={{fontSize:11}}>{m.created_at||''} · {fa(Math.round(Number(m.duration_ms||0)/1000))} ثانیه</div>
+        </div>
+        <button className="btn g" onClick={()=>{queueRef.current.unshift(m);playNext();}}>پخش مجدد</button>
+      </div>):<p className="muted">هنوز پیام تازه‌ای دریافت نشده است.</p>}
+    </div>
+  </>;
+}
+
+function RadioArchiveTab({api,channels,cid,setCid}){
+  const [messages,setMessages]=useState(null);
+  const [hours,setHours]=useState(24);
+  const [retention,setRetention]=useState(24);
+
+  const load=async()=>{
+    if(!cid){setMessages([]);return;}
+    setMessages(null);
+    try{
+      const d=await api(`archive&channel_id=${cid}&hours=${hours}&limit=200`);
+      setMessages(d.messages||[]);
+      setRetention(d.retention_hours||24);
+    }catch(e){setMessages([]);}
+  };
+  useEffect(()=>{load();},[cid,hours]);
+
+  return <>
+    <div className="panel"><div className="row" style={{gap:8,alignItems:'center',flexWrap:'wrap'}}>
+      <label className="label">کانال</label>
+      <select className="input" style={{maxWidth:280}} value={cid} onChange={e=>setCid(Number(e.target.value))}>
+        {channels.map(c=><option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}
+      </select>
+      <label className="label">بازه</label>
+      <select className="input" style={{maxWidth:160}} value={hours} onChange={e=>setHours(Number(e.target.value))}>
+        <option value={24}>۲۴ ساعت اخیر</option>
+        <option value={48}>۲ روز اخیر</option>
+        <option value={168}>۷ روز اخیر</option>
+      </select>
+      <span className="muted">مدت نگهداری آرشیو روی سرور: {fa(retention)} ساعت</span>
+    </div></div>
+    <div className="panel">
+      <h3>آرشیو پیام‌های صوتی</h3>
+      {messages===null?<p className="muted">در حال بارگذاری…</p>:
+       messages.length?messages.map(m=><div key={m.id} className="row" style={{justifyContent:'space-between',gap:10,padding:'10px 0',borderBottom:'1px solid var(--line)',alignItems:'center',flexWrap:'wrap'}}>
+        <div><b>{m.sender_name||'کاربر'}</b>
+          <div className="muted" style={{fontSize:11}}>{m.created_at||''} · {fa(Math.round(Number(m.duration_ms||0)/1000))} ثانیه</div>
+        </div>
+        <div className="row" style={{gap:8,alignItems:'center'}}>
+          <audio controls preload="none" src={m.audio_url} style={{maxWidth:240}}/>
+          <a className="btn g" href={m.download_url} download>دانلود</a>
+        </div>
+      </div>):<p className="muted">در این بازه پیامی برای این کانال ثبت نشده است.</p>}
+    </div>
+  </>;
 }
 
 function CustomFieldsManager(){
@@ -7546,7 +7694,51 @@ function pvaPlate(r){return r?.asset_type==='motorcycle'?`${r.motorcycle_plate_t
 function pvaStatus(s){return ({pending:'در انتظار بررسی',verified:'تأیید شده',needs_correction:'نیازمند اصلاح',draft:'پیش‌نویس'}[s]||s||'—');}
 function PVAFields({a}){const motor=a.asset_type==='motorcycle';const rows=motor?[['نوع وسیله','موتورسیکلت'],['پلاک',pvaPlate(a)],['کاربری موتور',a.motorcycle_usage],['سیستم موتور',a.motorcycle_system],['تیپ موتور',a.motorcycle_type],['سوخت',a.fuel_type],['سال ساخت',pvaFa(a.model_year)],['رنگ',a.color],['سیلندر',pvaFa(a.cylinders)],['شماره موتور',a.engine_number],['شماره تنه/شاسی',a.chassis_number],['گواهینامه',a.license_number],['صدور گواهینامه',a.license_issue_date],['انقضای گواهینامه',a.license_expiry_date],['بیمه',a.insurance_number],['شروع بیمه',a.insurance_issue_date],['پایان بیمه',a.insurance_expiry_date]]:[['نوع وسیله','خودرو'],['پلاک',pvaPlate(a)],['نوع خودرو',a.vehicle_type],['سوخت',a.fuel_type],['سال ساخت',pvaFa(a.model_year)],['رنگ',a.color],['شماره شاسی',a.chassis_number],['شماره موتور',a.engine_number],['VIN',a.vin],['گواهینامه',a.license_number],['صدور گواهینامه',a.license_issue_date],['انقضای گواهینامه',a.license_expiry_date],['بیمه',a.insurance_number],['شرکت بیمه',a.insurance_company],['صدور بیمه',a.insurance_issue_date],['انقضای بیمه',a.insurance_expiry_date],['معاینه فنی',a.technical_inspection_number],['صدور معاینه',a.technical_inspection_issue_date],['انقضای معاینه',a.technical_inspection_expiry_date],['چراغگردان ثابت',Number(a.fixed_beacon)?'بله':'خیر'],['چراغگردان متحرک',Number(a.mobile_beacon)?'بله':'خیر'],['گرمایش',Number(a.heating_ok)?'سالم':'ناسالم'],['سرمایش',Number(a.cooling_ok)?'سالم':'ناسالم'],['آمپلی‌فایر',Number(a.amplifier)?'دارد':'ندارد']];return <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:8}}>{rows.map(([k,v])=><div key={k} style={{border:'1px solid var(--line)',borderRadius:10,padding:9,background:'#fff'}}><small className="muted">{k}</small><div style={{fontWeight:700,marginTop:3}}>{v||'—'}</div></div>)}</div>}
 function PVAHistory({history=[]}){return <div>{history.length?history.map(h=><div key={h.id} style={{borderBottom:'1px solid var(--line)',padding:'9px 0'}}><b>{h.result==='verified'?'تأیید نهایی':'نیازمند اصلاح'}</b><div className="muted" style={{fontSize:11}}>{h.checked_at||'—'} {h.checker_name?`— ${h.checker_name}`:''}</div>{h.note&&<div style={{fontSize:12,marginTop:3}}>{h.note}</div>}</div>):<div className="muted">هنوز سابقه‌ای ثبت نشده است.</div>}</div>}
-function PersonnelVehicleAssets(){const [items,setItems]=useState([]),[selected,setSelected]=useState(null),[loading,setLoading]=useState(true),[q,setQ]=useState('');const load=async()=>{setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=list',{ttl:0});setItems(d.items||[]);}catch(e){alert(e.message)}finally{setLoading(false)}};useEffect(()=>{load()},[]);const filtered=items.filter(a=>{const s=(a.first_name+' '+a.last_name+' '+pvaPlate(a)+' '+(a.national_code||'')).toLowerCase();return !q||s.includes(q.toLowerCase())});const open=async a=>{try{const d=await GET('/personnel-vehicle-assets.php?op=detail&id='+encodeURIComponent(a.id),{ttl:0});setSelected(d.asset)}catch(e){alert(e.message)}};return <div className="panel"><div className="row" style={{justifyContent:'space-between',gap:8,flexWrap:'wrap'}}><div><h3>ماشین‌آلات و وسایل مأموریتی</h3><p className="muted">پرونده یکپارچه خودرو و موتورسیکلت پرسنل گشت، تصاویر مدارک و آخرین وضعیت چک‌لیست.</p></div><div className="row" style={{gap:8}}><input className="input" placeholder="جستجوی نام، پلاک یا کد ملی" value={q} onChange={e=>setQ(e.target.value)}/><button className="btn g" onClick={()=>downloadProtectedFile('/personnel-vehicle-assets.php?op=export','personnel_vehicle_assets.xlsx')}>خروجی Excel + تصاویر</button></div></div>{loading?<p className="muted">در حال دریافت اطلاعات…</p>:<div style={{display:'grid',gridTemplateColumns:'minmax(250px,32%) 1fr',gap:10}}><div style={{display:'grid',gap:7,maxHeight:650,overflow:'auto'}}>{filtered.map(a=><button key={a.id} type="button" onClick={()=>open(a)} style={{textAlign:'right',border:'1px solid var(--line)',background:'#fff',borderRadius:12,padding:10,cursor:'pointer',outline:selected?.id===a.id?'2px solid var(--brand)':'none'}}><b>{pvaPlate(a)||'بدون پلاک'}</b><div style={{fontSize:12}}>{a.first_name} {a.last_name} — {a.asset_type==='car'?'خودرو':'موتورسیکلت'}</div><div className="muted" style={{fontSize:11}}>{pvaStatus(a.status)} · آخرین چک‌لیست: {a.checklist_last_at||'—'}</div></button>)}{!filtered.length&&<div className="muted" style={{padding:20,textAlign:'center'}}>پرونده‌ای یافت نشد.</div>}</div><div style={{background:'#f8fafc',border:'1px solid var(--line)',borderRadius:14,padding:14}}>{selected?<PVAAssetDetail asset={selected}/>:<div className="muted" style={{padding:30,textAlign:'center'}}>برای مشاهده مشخصات، یک خودرو یا موتورسیکلت را انتخاب کنید.</div>}</div></div>}</div>}
+function PersonnelVehicleAssign(){
+  const [users,setUsers]=useState(null),[q,setQ]=useState(''),[busy,setBusy]=useState(0);
+  const load=async()=>{try{const d=await GET('/personnel-vehicle-assets.php?op=assign-list',{ttl:0});setUsers(d.users||[]);}catch(e){alert(e.message);setUsers([]);}};
+  useEffect(()=>{load();},[]);
+  const setType=async(uid,type)=>{setBusy(uid);try{await SEND('POST','/personnel-vehicle-assets.php?op=assign-set',{user_id:uid,asset_type:type});setUsers(list=>list.map(x=>Number(x.id)===Number(uid)?{...x,asset_type:type||null}:x));}catch(e){alert(e.message);}finally{setBusy(0);}};
+  if(users===null)return <p className="muted">در حال دریافت فهرست پرسنل…</p>;
+  const filtered=users.filter(u=>{const s=(u.first_name+' '+u.last_name+' '+(u.role_title||'')).toLowerCase();return !q||s.includes(q.toLowerCase());});
+  return <div>
+    <p className="muted" style={{marginBottom:10}}>مشخص کنید کدام پرسنل مسئول یک دستگاه خودرو یا موتورسیکلت مأموریتی است. فقط افرادی که این‌جا برایشان خودرو یا موتورسیکلت تخصیص داده شود، در برنامهٔ اندروید به بخش «ثبت مشخصات خودرو/موتورسیکلت» دسترسی خواهند داشت.</p>
+    <input className="input" style={{marginBottom:10,maxWidth:320}} placeholder="جستجوی نام یا سمت" value={q} onChange={e=>setQ(e.target.value)}/>
+    <table style={{fontSize:12.5}}><thead><tr><th>نام</th><th>سمت</th><th>تخصیص فعلی</th><th></th></tr></thead><tbody>
+      {filtered.map(u=><tr key={u.id}>
+        <td><b>{u.first_name} {u.last_name}</b></td>
+        <td>{u.role_title||'—'}</td>
+        <td>{u.asset_type==='car'?'خودرو':u.asset_type==='motorcycle'?'موتورسیکلت':<span className="muted">تخصیص نشده</span>}</td>
+        <td style={{whiteSpace:'nowrap'}}>
+          <select className="input" style={{display:'inline-block',width:150}} disabled={busy===u.id} value={u.asset_type||''} onChange={e=>setType(u.id,e.target.value)}>
+            <option value="">— بدون تخصیص —</option>
+            <option value="car">خودرو</option>
+            <option value="motorcycle">موتورسیکلت</option>
+          </select>
+        </td>
+      </tr>)}
+      {!filtered.length&&<tr><td colSpan="4" className="muted">فردی یافت نشد.</td></tr>}
+    </tbody></table>
+  </div>;
+}
+function PersonnelVehicleAssets(){
+  const [tab,setTab]=useState('assign');
+  const [items,setItems]=useState([]),[selected,setSelected]=useState(null),[loading,setLoading]=useState(true),[q,setQ]=useState('');const load=async()=>{setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=list',{ttl:0});setItems(d.items||[]);}catch(e){alert(e.message)}finally{setLoading(false)}};useEffect(()=>{if(tab==='files')load()},[tab]);const filtered=items.filter(a=>{const s=(a.first_name+' '+a.last_name+' '+pvaPlate(a)+' '+(a.national_code||'')).toLowerCase();return !q||s.includes(q.toLowerCase())});const open=async a=>{try{const d=await GET('/personnel-vehicle-assets.php?op=detail&id='+encodeURIComponent(a.id),{ttl:0});setSelected(d.asset)}catch(e){alert(e.message)}};
+  return <div className="panel">
+    <div className="row" style={{justifyContent:'space-between',gap:8,flexWrap:'wrap'}}><h3>ماشین‌آلات و وسایل مأموریتی</h3>
+      {tab==='files'&&<button className="btn g" onClick={()=>downloadProtectedFile('/personnel-vehicle-assets.php?op=export','personnel_vehicle_assets.xlsx')}>خروجی Excel + تصاویر</button>}
+    </div>
+    <div className="row" style={{gap:8,margin:'10px 0'}}>
+      <button className={"btn "+(tab==='assign'?'p':'g')} onClick={()=>setTab('assign')}>تخصیص خودرو/موتورسیکلت</button>
+      <button className={"btn "+(tab==='files'?'p':'g')} onClick={()=>setTab('files')}>پرونده‌های ثبت‌شده</button>
+    </div>
+    {tab==='assign'?<PersonnelVehicleAssign/>:
+     loading?<p className="muted">در حال دریافت اطلاعات…</p>:<>
+      <input className="input" style={{marginBottom:10,maxWidth:320}} placeholder="جستجوی نام، پلاک یا کد ملی" value={q} onChange={e=>setQ(e.target.value)}/>
+      <div style={{display:'grid',gridTemplateColumns:'minmax(250px,32%) 1fr',gap:10}}><div style={{display:'grid',gap:7,maxHeight:650,overflow:'auto'}}>{filtered.map(a=><button key={a.id} type="button" onClick={()=>open(a)} style={{textAlign:'right',border:'1px solid var(--line)',background:'#fff',borderRadius:12,padding:10,cursor:'pointer',outline:selected?.id===a.id?'2px solid var(--brand)':'none'}}><b>{pvaPlate(a)||'بدون پلاک'}</b><div style={{fontSize:12}}>{a.first_name} {a.last_name} — {a.asset_type==='car'?'خودرو':'موتورسیکلت'}</div><div className="muted" style={{fontSize:11}}>{pvaStatus(a.status)} · آخرین چک‌لیست: {a.checklist_last_at||'—'}</div></button>)}{!filtered.length&&<div className="muted" style={{padding:20,textAlign:'center'}}>پرونده‌ای یافت نشد.</div>}</div><div style={{background:'#f8fafc',border:'1px solid var(--line)',borderRadius:14,padding:14}}>{selected?<PVAAssetDetail asset={selected}/>:<div className="muted" style={{padding:30,textAlign:'center'}}>برای مشاهده مشخصات، یک خودرو یا موتورسیکلت را انتخاب کنید.</div>}</div></div>
+     </>}
+  </div>;
+}
 function PVAAssetDetail({asset:a}){return <div><div className="row" style={{justifyContent:'space-between',alignItems:'start'}}><div><h3>{a.asset_type==='car'?'خودرو':'موتورسیکلت'} — {pvaPlate(a)}</h3><div className="muted">{a.first_name} {a.last_name} · {a.role_title||'—'} · وضعیت: {pvaStatus(a.status)}</div></div></div><div className="panel"><h4>مشخصات کامل</h4><PVAFields a={a}/></div><div className="panel"><h4>تصاویر و مدارک</h4><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>{(a.photos||[]).map(p=><figure key={p.photo_key} style={{margin:0,border:'1px solid var(--line)',borderRadius:10,padding:6}}><img src={p.data_uri} style={{width:'100%',height:120,objectFit:'contain',background:'#f5f6f8',borderRadius:7}}/><figcaption style={{fontSize:10,textAlign:'center'}}>{p.photo_key}</figcaption></figure>)}</div></div><div className="panel"><h4>تاریخچه چک‌لیست</h4><PVAHistory history={a.checklist_history||[]}/></div></div>}
 function PersonnelVehicleChecklist(){const [items,setItems]=useState([]),[selected,setSelected]=useState(null),[detail,setDetail]=useState(null),[checks,setChecks]=useState({}),[note,setNote]=useState(''),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false);const load=async()=>{setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=checklist-list',{ttl:0});setItems(d.items||[])}catch(e){alert(e.message)}finally{setLoading(false)}};useEffect(()=>{load()},[]);const open=async a=>{setSelected(a);setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=detail&id='+encodeURIComponent(a.id),{ttl:0});const x=d.asset||a;setDetail(x);const m={};(x.checks||[]).forEach(c=>m[c.check_key]=!!Number(c.check_value));setChecks(m);setNote(x.checklist_note||'')}catch(e){alert(e.message)}finally{setLoading(false)}};const motor=detail?.asset_type==='motorcycle',list=motor?PVA_MOTOR_CHECKS:PVA_CAR_CHECKS;const submit=async approved=>{const missing=list.filter(([k])=>checks[k]===undefined);if(missing.length){alert('تمام موارد چک‌لیست را تعیین تکلیف کنید.');return}if(approved&&list.some(([k])=>checks[k]!==true)){alert('برای تأیید نهایی همه موارد باید تأیید شده باشند.');return}setSaving(true);try{await SEND('POST','/personnel-vehicle-assets.php?op=checklist-verify',{asset_id:detail.id,approved,checks:Object.fromEntries(list.map(([k])=>[k,{value:!!checks[k],note:''}])),note});alert(approved?'وسیله تأیید شد.':'وسیله برای اصلاح برگشت داده شد.');setSelected(null);setDetail(null);await load()}catch(e){alert(e.message)}finally{setSaving(false)}};if(loading&&!detail)return <div className="panel"><p className="muted">در حال دریافت اطلاعات…</p></div>;return <div className="panel"><h3>چک‌لیست خودرویی و موتوری</h3>{!detail?<><p className="muted">پلاک را انتخاب کنید تا مشخصات کامل، تصاویر مدارک و سوابق چک‌لیست نمایش داده شود.</p><div style={{display:'grid',gap:8}}>{items.map(a=><button key={a.id} type="button" onClick={()=>open(a)} style={{textAlign:'right',background:'#fff',border:'1px solid var(--line)',borderRadius:12,padding:12,cursor:'pointer'}}><b>{pvaPlate(a)}</b><div>{a.first_name} {a.last_name} — {a.asset_type==='car'?'خودرو':'موتورسیکلت'}</div><small className="muted">{pvaStatus(a.status)} · {a.checklist_count?`${pvaFa(a.checklist_count)} بار بررسی شده`: 'بدون سابقه'}</small></button>)}{!items.length&&<div className="muted">هنوز وسیله‌ای برای بررسی ثبت نشده است.</div>}</div></>:<><button className="btn g" onClick={()=>{setDetail(null);setSelected(null)}}>بازگشت به فهرست</button><div className="panel"><h4>مشخصات و مالک</h4><PVAFields a={detail}/></div><div className="panel"><h4>تصاویر و مدارک</h4><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>{(detail.photos||[]).map(p=><figure key={p.photo_key} style={{margin:0}}><img src={p.data_uri} style={{width:'100%',height:130,objectFit:'contain',border:'1px solid var(--line)',borderRadius:10}}/><figcaption style={{fontSize:10,textAlign:'center'}}>{p.photo_key}</figcaption></figure>)}</div></div><div className="panel"><h4>تاریخچه قبلی</h4><PVAHistory history={detail.checklist_history||[]}/></div><div className="panel"><h4>بررسی چک‌لیست</h4>{list.map(([k,t])=><div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid var(--line)'}}><b style={{fontSize:13}}>{t}</b><div className="row" style={{gap:6}}><button className={'btn '+(checks[k]===true?'p':'')} onClick={()=>setChecks(x=>({...x,[k]:true}))}>تأیید</button><button className={'btn '+(checks[k]===false?'d':'')} onClick={()=>setChecks(x=>({...x,[k]:false}))}>رد</button></div></div>)}<label className="label" style={{display:'block',marginTop:12}}>توضیحات</label><textarea className="input" rows="4" value={note} onChange={e=>setNote(e.target.value)}/><div className="row" style={{gap:8,marginTop:10}}><button className="btn d" disabled={saving} onClick={()=>submit(false)}>نیازمند اصلاح</button><button className="btn p" disabled={saving} onClick={()=>submit(true)}>{saving?'در حال ثبت…':'تأیید نهایی'}</button></div></div></> }</div>}
 

@@ -1,3 +1,4 @@
 <?php
-/* خطیار — Compatibility entrypoint for production-safe attendance report v3. */
-require __DIR__ . '/admin-attendance-report-fast-safe-v3.php';
+/* خطیار: این فایل منسوخ شده و صرفاً برای سازگاری با نسخه‌های قدیمی‌تر جاوااسکریپت/کش مرورگر نگه داشته شده.
+   پیاده‌سازی واقعی و کامل گزارش تردد اکنون یک‌جا، تمیز و مستقل (بدون وابستگی به routes.php) در همین پوشه قرار دارد. */
+require __DIR__.'/admin-attendance-report.php';

@@ -6,11 +6,13 @@
   function rewrite(url){
     if (!url) return url;
     var s=String(url);
+    /* خطیار: پیاده‌سازی نهایی و پایدار گزارش تردد الان admin-attendance-report.php است (بازنویسی کامل، بدون وابستگی به routes.php).
+       هر آدرس قدیمی (چه مسیرِ روتر اصلی، چه هر یک از نسخه‌های safe/fast/v2/v3) به همین فایل هدایت می‌شود. */
     if (/\/api\/admin\/attendance-report(?:\?|$)/.test(s)) {
-      return s.replace('/api/admin/attendance-report','/api/admin-attendance-report-fast.php');
+      return s.replace('/api/admin/attendance-report','/api/admin-attendance-report.php');
     }
-    if (/\/api\/admin-attendance-report-safe\.php(?:\?|$)/.test(s)) {
-      return s.replace('/api/admin-attendance-report-safe.php','/api/admin-attendance-report-fast.php');
+    if (/\/api\/admin-attendance-report-(?:safe|fast|fast-safe-v2|fast-safe-v3)\.php(?:\?|$)/.test(s)) {
+      return s.replace(/\/api\/admin-attendance-report-(?:safe|fast|fast-safe-v2|fast-safe-v3)\.php/, '/api/admin-attendance-report.php');
     }
     return s;
   }

@@ -1,3 +1,4 @@
+"use strict";
 const { useState, useEffect, useRef } = React;
 const I8 = (name) => React.createElement("img", { src: `/assets/icons3d/${name}.png`, alt: "", width: "30", height: "30", loading: "eager", decoding: "async", style: { objectFit: 'contain' }, onError: e => { e.currentTarget.style.display = 'none'; } });
 // چاپ حرفه‌ای با سربرگ (لوگو + عنوان سازمان + تاریخ تولید) — برای استفادهٔ مشترک در همهٔ گزارش‌ها
@@ -280,7 +281,7 @@ const db = {
     delHoliday: (jdate) => SEND('DELETE', '/admin/holidays/' + jdate, {}),
     fetchHolidays: (year, month) => SEND('POST', '/admin/holidays/fetch', { year, month }),
     shiftReport: (year, month) => GET('/admin/shift-report?year=' + year + '&month=' + month),
-    attendanceReport: (userId, from, to) => GET('/admin/attendance-report?user_id=' + userId + '&from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to)),
+    attendanceReport: (userId, from, to) => GET('/admin-attendance-report.php?user_id=' + userId + '&from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to)),
     attendanceSurplusConvert: (body) => SEND('POST', '/admin/attendance-surplus/convert', body),
     attendanceSurplusReset: (body) => SEND('POST', '/admin/attendance-surplus/reset', body),
     ruleEngineRoles: () => GET('/admin/rule-engine/roles'),
@@ -4708,84 +4709,191 @@ function RadioSettings() {
                         React.createElement("button", { className: "btn d", onClick: () => del(c.id) }, "\u062D\u0630\u0641"))))))));
 }
 function RadioCenter() {
+    /* خطیار — مرکز بی‌سیم (بازنویسی کامل)
+       تب «پخش زنده»: هر پیام تازه‌ای که برای کانال انتخاب‌شده برسد، به‌صورت خودکار (بدون کلیک کاربر) پخش می‌شود؛
+         پیام‌ها در صف قرار می‌گیرند و یکی‌یکی، بدون همپوشانی، پخش می‌شوند (نه هم‌زمان/اکو).
+       تب «آرشیو پیام‌ها»: پیام‌های ۲۴ ساعت اخیر هر کانال (قابل تغییر به بازه‌های دیگر) با امکان پخش پیش‌نمایش و دانلود فایل صوتی.
+    */
     const [tab, setTab] = useState('live');
     const [channels, setChannels] = useState([]);
     const [cid, setCid] = useState(0);
-    const [messages, setMessages] = useState([]);
-    const [after, setAfter] = useState(0);
-    const afterRef = React.useRef(0);
-    const [retention, setRetention] = useState(1);
-    const api = async (op) => { const r = await fetch(`/api/radio-admin-api.php?op=${op}`, { headers: { Authorization: `Bearer ${localStorage.token || ''}` }, cache: 'no-store' }); const d = await r.json(); if (!r.ok || d.ok === false)
-        throw Error(d.error || 'خطای سرور'); return d; };
-    const load = async () => { try {
+    const [err, setErr] = useState('');
+    const api = async (op, opts) => { const r = await fetch(`/api/radio-admin-api.php?op=${op}`, { headers: { Authorization: `Bearer ${localStorage.token || ''}` }, cache: 'no-store', ...(opts || {}) }); const d = await r.json().catch(() => null); if (!r.ok || !d || d.ok === false)
+        throw Error((d && d.error) || 'خطای سرور'); return d; };
+    const loadChannels = async () => { try {
         const d = await api('channel-list');
-        setChannels(d.channels || []);
-        setCid(x => { var _a, _b; return x || (((_b = (_a = d.channels) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.id) || 0); });
-        setAfter(x => { const c = (d.channels || []).find(q => { var _a, _b; return Number(q.id) === Number(cid || ((_b = (_a = d.channels) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.id)); }); const n = c ? Number(c.last_message_id || 0) : x; afterRef.current = n; return n; });
+        const chs = d.channels || [];
+        setChannels(chs);
+        setCid(x => { var _a; return x || (((_a = chs[0]) === null || _a === void 0 ? void 0 : _a.id) || 0); });
+        setErr('');
     }
     catch (e) {
-        alert(e.message);
+        setErr(e.message);
     } };
-    const poll = async () => { if (!cid)
-        return; try {
-        const d = await api(`monitor&channel_id=${cid}&after=${afterRef.current}`);
-        if ((d.messages || []).length) {
-            const n = Math.max(afterRef.current, ...d.messages.map(x => Number(x.id)));
-            afterRef.current = n;
-            setMessages(m => [...(d.messages || []).map(x => ({ ...x, newItem: true })), ...m].slice(0, 100));
-            setAfter(n);
-        }
-    }
-    catch (_) { } };
-    useEffect(() => { load(); }, []);
-    useEffect(() => { if (tab !== 'live' || !cid)
-        return; poll(); const t = setInterval(poll, 1800); return () => clearInterval(t); }, [tab, cid]);
-    const archive = async () => { try {
-        const d = await api(`archive&channel_id=${cid}&limit=100`);
-        setMessages(d.messages || []);
-        setRetention(d.retention_hours || ((d.retention_days || 1) * 24));
-    }
-    catch (e) {
-        alert(e.message);
-    } };
-    useEffect(() => { if (tab === 'archive')
-        archive();
-    else if (tab === 'live' && cid) {
-        const c = channels.find(x => Number(x.id) === Number(cid));
-        const n = Number((c === null || c === void 0 ? void 0 : c.last_message_id) || 0);
-        afterRef.current = n;
-        setAfter(n);
-        setMessages([]);
-    } }, [tab, cid]);
+    useEffect(() => { loadChannels(); const t = setInterval(loadChannels, 15000); return () => clearInterval(t); }, []);
     return React.createElement("div", null,
         React.createElement("div", { className: "tabbar" },
-            React.createElement("button", { className: 'tabbtn' + (tab === 'live' ? ' on' : ''), onClick: () => setTab('live') }, "\u067E\u062E\u0634 \u0632\u0646\u062F\u0647 \u0628\u06CC\u200C\u0633\u06CC\u0645"),
+            React.createElement("button", { className: 'tabbtn' + (tab === 'live' ? ' on' : ''), onClick: () => setTab('live') }, "\u067E\u062E\u0634 \u0632\u0646\u062F\u0647"),
             React.createElement("button", { className: 'tabbtn' + (tab === 'archive' ? ' on' : ''), onClick: () => setTab('archive') }, "\u0622\u0631\u0634\u06CC\u0648 \u067E\u06CC\u0627\u0645\u200C\u0647\u0627")),
+        err && React.createElement("p", { className: "muted", style: { color: '#c0392b' } }, err),
+        tab === 'live'
+            ? React.createElement(RadioLiveTab, { api: api, channels: channels, cid: cid, setCid: setCid })
+            : React.createElement(RadioArchiveTab, { api: api, channels: channels, cid: cid, setCid: setCid }));
+}
+function RadioLiveTab({ api, channels, cid, setCid }) {
+    const [items, setItems] = useState([]); // پیام‌های دریافت‌شده از زمان ورود به این تب
+    const [playingId, setPlayingId] = useState(0);
+    const [listening, setListening] = useState(false);
+    const afterRef = React.useRef(0);
+    const channelRef = React.useRef(cid);
+    const queueRef = React.useRef([]); // صف پخش خودکار
+    const playingRef = React.useRef(false);
+    const audioElRef = React.useRef(null);
+    const pollingRef = React.useRef(false);
+    useEffect(() => { channelRef.current = cid; }, [cid]);
+    // به‌محض تغییر کانال، صف/تاریخچهٔ نمایش را پاک می‌کنیم و از آخرین پیام موجود همان کانال شروع می‌کنیم
+    // تا پیام‌های قدیمیِ کانال قبلی هرگز با تعویض کانال پشت‌سرهم پخش نشوند.
+    useEffect(() => {
+        const c = channels.find(x => Number(x.id) === Number(cid));
+        afterRef.current = Number((c === null || c === void 0 ? void 0 : c.last_message_id) || 0);
+        queueRef.current = [];
+        setItems([]);
+        setPlayingId(0);
+        if (audioElRef.current) {
+            try {
+                audioElRef.current.pause();
+            }
+            catch (e) { }
+        }
+    }, [cid, channels]);
+    const playNext = () => {
+        if (playingRef.current)
+            return;
+        const next = queueRef.current.shift();
+        if (!next) {
+            setPlayingId(0);
+            return;
+        }
+        playingRef.current = true;
+        setPlayingId(next.id);
+        const a = new Audio(next.audio_url);
+        audioElRef.current = a;
+        const done = () => { playingRef.current = false; audioElRef.current = null; playNext(); };
+        a.addEventListener('ended', done);
+        a.addEventListener('error', done);
+        a.play().catch(done); // اگر مرورگر پخش خودکار را رد کند (نبود تعامل کاربر)، به پیام بعدی می‌رویم و خطا را می‌بلعیم
+    };
+    const poll = async () => {
+        if (pollingRef.current || !channelRef.current)
+            return;
+        pollingRef.current = true;
+        const requestedChannel = Number(channelRef.current);
+        try {
+            const d = await api(`monitor&channel_id=${requestedChannel}&after=${afterRef.current}`);
+            if (requestedChannel !== Number(channelRef.current))
+                return; // کانال حین درخواست عوض شده؛ این پاسخ متعلق به کانال قبلی است
+            const msgs = d.messages || [];
+            if (msgs.length) {
+                afterRef.current = Math.max(afterRef.current, ...msgs.map(x => Number(x.id)));
+                setItems(prev => [...msgs, ...prev].slice(0, 60));
+                queueRef.current.push(...msgs);
+                playNext();
+            }
+        }
+        catch (e) { /* خطای موقت شبکه؛ در دور بعدی دوباره تلاش می‌شود */ }
+        finally {
+            pollingRef.current = false;
+        }
+    };
+    useEffect(() => {
+        if (!cid)
+            return;
+        setListening(true);
+        poll();
+        const t = setInterval(poll, 1800);
+        return () => { clearInterval(t); setListening(false); if (audioElRef.current) {
+            try {
+                audioElRef.current.pause();
+            }
+            catch (e) { }
+        } playingRef.current = false; queueRef.current = []; };
+    }, [cid]);
+    return React.createElement(React.Fragment, null,
         React.createElement("div", { className: "panel" },
             React.createElement("div", { className: "row", style: { gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
                 React.createElement("label", { className: "label" }, "\u06A9\u0627\u0646\u0627\u0644"),
-                React.createElement("select", { className: "input", style: { maxWidth: 280 }, value: cid, onChange: e => { setCid(Number(e.target.value)); setAfter(0); afterRef.current = 0; setMessages([]); } }, channels.map(c => React.createElement("option", { key: c.id, value: c.id },
+                React.createElement("select", { className: "input", style: { maxWidth: 280 }, value: cid, onChange: e => setCid(Number(e.target.value)) }, channels.map(c => React.createElement("option", { key: c.id, value: c.id },
                     c.name,
                     " (",
                     c.code,
                     ")"))),
-                tab === 'live' && React.createElement("span", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0634\u0646\u0648\u062F \u0632\u0646\u062F\u0647\u2026"),
-                tab === 'archive' && React.createElement("span", { className: "muted" },
-                    "\u0646\u06AF\u0647\u062F\u0627\u0631\u06CC: ",
-                    fa(retention),
-                    " \u0633\u0627\u0639\u062A"))),
+                React.createElement("span", { className: "muted" }, listening ? 'در حال شنود زنده… پیام‌های تازه خودکار پخش می‌شوند' : '—'))),
         React.createElement("div", { className: "panel" },
-            React.createElement("h3", null, tab === 'live' ? 'شنود زنده' : 'آرشیو پیام‌های صوتی'),
-            tab === 'live' && React.createElement("p", { className: "muted", style: { marginBottom: 8 } }, "\u062F\u0631 \u0627\u06CC\u0646 \u0628\u062E\u0634 \u0641\u0642\u0637 \u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u06CC\u06CC \u06A9\u0647 \u067E\u0633 \u0627\u0632 \u0648\u0631\u0648\u062F \u0634\u0645\u0627 \u0628\u0647 \u0634\u0646\u0648\u062F \u0632\u0646\u062F\u0647 \u062F\u0631\u06CC\u0627\u0641\u062A \u0634\u0648\u0646\u062F \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F\u061B \u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u06CC \u0642\u0628\u0644\u06CC \u062F\u0631 \u0622\u0631\u0634\u06CC\u0648 \u0647\u0633\u062A\u0646\u062F."),
-            messages.length ? messages.map(m => React.createElement("div", { key: m.id, className: "row", style: { justifyContent: 'space-between', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--line)', alignItems: 'center' } },
+            React.createElement("h3", null, "\u067E\u062E\u0634 \u0632\u0646\u062F\u0647"),
+            React.createElement("p", { className: "muted", style: { marginBottom: 8 } }, "\u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u06CC\u06CC \u06A9\u0647 \u0627\u0632 \u0627\u06CC\u0646 \u0644\u062D\u0638\u0647 \u0628\u0647 \u0628\u0639\u062F \u062F\u0631 \u0627\u06CC\u0646 \u06A9\u0627\u0646\u0627\u0644 \u0627\u0631\u0633\u0627\u0644 \u0634\u0648\u0646\u062F\u060C \u0647\u0645\u06CC\u0646\u200C\u062C\u0627 \u0648 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u062E\u0648\u062F\u06A9\u0627\u0631 (\u06CC\u06A9\u06CC \u067E\u0633 \u0627\u0632 \u062F\u06CC\u06AF\u0631\u06CC) \u067E\u062E\u0634 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u06CC \u0642\u0628\u0644\u200C\u062A\u0631 \u0631\u0627 \u062F\u0631 \u062A\u0628 \u00AB\u0622\u0631\u0634\u06CC\u0648 \u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u00BB \u0628\u0628\u06CC\u0646\u06CC\u062F."),
+            items.length ? items.map(m => React.createElement("div", { key: m.id, className: "row", style: { justifyContent: 'space-between', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--line)', alignItems: 'center' } },
                 React.createElement("div", null,
                     React.createElement("b", null, m.sender_name || 'کاربر'),
+                    playingId === m.id && React.createElement("span", { style: { color: 'var(--accent,#2a9d63)', marginRight: 8, fontSize: 12 } }, "\u25CF \u062F\u0631 \u062D\u0627\u0644 \u067E\u062E\u0634"),
                     React.createElement("div", { className: "muted", style: { fontSize: 11 } },
                         m.created_at || '',
                         " \u00B7 ",
                         fa(Math.round(Number(m.duration_ms || 0) / 1000)),
                         " \u062B\u0627\u0646\u06CC\u0647")),
-                React.createElement("audio", { controls: true, preload: "none", src: m.audio_url, style: { maxWidth: 280 } }))) : React.createElement("p", { className: "muted" }, "\u067E\u06CC\u0627\u0645\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F.")));
+                React.createElement("button", { className: "btn g", onClick: () => { queueRef.current.unshift(m); playNext(); } }, "\u067E\u062E\u0634 \u0645\u062C\u062F\u062F"))) : React.createElement("p", { className: "muted" }, "\u0647\u0646\u0648\u0632 \u067E\u06CC\u0627\u0645 \u062A\u0627\u0632\u0647\u200C\u0627\u06CC \u062F\u0631\u06CC\u0627\u0641\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")));
+}
+function RadioArchiveTab({ api, channels, cid, setCid }) {
+    const [messages, setMessages] = useState(null);
+    const [hours, setHours] = useState(24);
+    const [retention, setRetention] = useState(24);
+    const load = async () => {
+        if (!cid) {
+            setMessages([]);
+            return;
+        }
+        setMessages(null);
+        try {
+            const d = await api(`archive&channel_id=${cid}&hours=${hours}&limit=200`);
+            setMessages(d.messages || []);
+            setRetention(d.retention_hours || 24);
+        }
+        catch (e) {
+            setMessages([]);
+        }
+    };
+    useEffect(() => { load(); }, [cid, hours]);
+    return React.createElement(React.Fragment, null,
+        React.createElement("div", { className: "panel" },
+            React.createElement("div", { className: "row", style: { gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
+                React.createElement("label", { className: "label" }, "\u06A9\u0627\u0646\u0627\u0644"),
+                React.createElement("select", { className: "input", style: { maxWidth: 280 }, value: cid, onChange: e => setCid(Number(e.target.value)) }, channels.map(c => React.createElement("option", { key: c.id, value: c.id },
+                    c.name,
+                    " (",
+                    c.code,
+                    ")"))),
+                React.createElement("label", { className: "label" }, "\u0628\u0627\u0632\u0647"),
+                React.createElement("select", { className: "input", style: { maxWidth: 160 }, value: hours, onChange: e => setHours(Number(e.target.value)) },
+                    React.createElement("option", { value: 24 }, "\u06F2\u06F4 \u0633\u0627\u0639\u062A \u0627\u062E\u06CC\u0631"),
+                    React.createElement("option", { value: 48 }, "\u06F2 \u0631\u0648\u0632 \u0627\u062E\u06CC\u0631"),
+                    React.createElement("option", { value: 168 }, "\u06F7 \u0631\u0648\u0632 \u0627\u062E\u06CC\u0631")),
+                React.createElement("span", { className: "muted" },
+                    "\u0645\u062F\u062A \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0622\u0631\u0634\u06CC\u0648 \u0631\u0648\u06CC \u0633\u0631\u0648\u0631: ",
+                    fa(retention),
+                    " \u0633\u0627\u0639\u062A"))),
+        React.createElement("div", { className: "panel" },
+            React.createElement("h3", null, "\u0622\u0631\u0634\u06CC\u0648 \u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u06CC \u0635\u0648\u062A\u06CC"),
+            messages === null ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") :
+                messages.length ? messages.map(m => React.createElement("div", { key: m.id, className: "row", style: { justifyContent: 'space-between', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--line)', alignItems: 'center', flexWrap: 'wrap' } },
+                    React.createElement("div", null,
+                        React.createElement("b", null, m.sender_name || 'کاربر'),
+                        React.createElement("div", { className: "muted", style: { fontSize: 11 } },
+                            m.created_at || '',
+                            " \u00B7 ",
+                            fa(Math.round(Number(m.duration_ms || 0) / 1000)),
+                            " \u062B\u0627\u0646\u06CC\u0647")),
+                    React.createElement("div", { className: "row", style: { gap: 8, alignItems: 'center' } },
+                        React.createElement("audio", { controls: true, preload: "none", src: m.audio_url, style: { maxWidth: 240 } }),
+                        React.createElement("a", { className: "btn g", href: m.download_url, download: true }, "\u062F\u0627\u0646\u0644\u0648\u062F")))) : React.createElement("p", { className: "muted" }, "\u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u067E\u06CC\u0627\u0645\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u06A9\u0627\u0646\u0627\u0644 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")));
 }
 function CustomFieldsManager() {
     const [fields, setFields] = useState(null);
@@ -13260,45 +13368,107 @@ function PVAHistory({ history = [] }) { return React.createElement("div", null, 
         " ",
         h.checker_name ? `— ${h.checker_name}` : ''),
     h.note && React.createElement("div", { style: { fontSize: 12, marginTop: 3 } }, h.note))) : React.createElement("div", { className: "muted" }, "\u0647\u0646\u0648\u0632 \u0633\u0627\u0628\u0642\u0647\u200C\u0627\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")); }
-function PersonnelVehicleAssets() { const [items, setItems] = useState([]), [selected, setSelected] = useState(null), [loading, setLoading] = useState(true), [q, setQ] = useState(''); const load = async () => { setLoading(true); try {
-    const d = await GET('/personnel-vehicle-assets.php?op=list', { ttl: 0 });
-    setItems(d.items || []);
+function PersonnelVehicleAssign() {
+    const [users, setUsers] = useState(null), [q, setQ] = useState(''), [busy, setBusy] = useState(0);
+    const load = async () => { try {
+        const d = await GET('/personnel-vehicle-assets.php?op=assign-list', { ttl: 0 });
+        setUsers(d.users || []);
+    }
+    catch (e) {
+        alert(e.message);
+        setUsers([]);
+    } };
+    useEffect(() => { load(); }, []);
+    const setType = async (uid, type) => { setBusy(uid); try {
+        await SEND('POST', '/personnel-vehicle-assets.php?op=assign-set', { user_id: uid, asset_type: type });
+        setUsers(list => list.map(x => Number(x.id) === Number(uid) ? { ...x, asset_type: type || null } : x));
+    }
+    catch (e) {
+        alert(e.message);
+    }
+    finally {
+        setBusy(0);
+    } };
+    if (users === null)
+        return React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0641\u0647\u0631\u0633\u062A \u067E\u0631\u0633\u0646\u0644\u2026");
+    const filtered = users.filter(u => { const s = (u.first_name + ' ' + u.last_name + ' ' + (u.role_title || '')).toLowerCase(); return !q || s.includes(q.toLowerCase()); });
+    return React.createElement("div", null,
+        React.createElement("p", { className: "muted", style: { marginBottom: 10 } }, "\u0645\u0634\u062E\u0635 \u06A9\u0646\u06CC\u062F \u06A9\u062F\u0627\u0645 \u067E\u0631\u0633\u0646\u0644 \u0645\u0633\u0626\u0648\u0644 \u06CC\u06A9 \u062F\u0633\u062A\u06AF\u0627\u0647 \u062E\u0648\u062F\u0631\u0648 \u06CC\u0627 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A \u0645\u0623\u0645\u0648\u0631\u06CC\u062A\u06CC \u0627\u0633\u062A. \u0641\u0642\u0637 \u0627\u0641\u0631\u0627\u062F\u06CC \u06A9\u0647 \u0627\u06CC\u0646\u200C\u062C\u0627 \u0628\u0631\u0627\u06CC\u0634\u0627\u0646 \u062E\u0648\u062F\u0631\u0648 \u06CC\u0627 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A \u062A\u062E\u0635\u06CC\u0635 \u062F\u0627\u062F\u0647 \u0634\u0648\u062F\u060C \u062F\u0631 \u0628\u0631\u0646\u0627\u0645\u0647\u0654 \u0627\u0646\u062F\u0631\u0648\u06CC\u062F \u0628\u0647 \u0628\u062E\u0634 \u00AB\u062B\u0628\u062A \u0645\u0634\u062E\u0635\u0627\u062A \u062E\u0648\u062F\u0631\u0648/\u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A\u00BB \u062F\u0633\u062A\u0631\u0633\u06CC \u062E\u0648\u0627\u0647\u0646\u062F \u062F\u0627\u0634\u062A."),
+        React.createElement("input", { className: "input", style: { marginBottom: 10, maxWidth: 320 }, placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u06CC\u0627 \u0633\u0645\u062A", value: q, onChange: e => setQ(e.target.value) }),
+        React.createElement("table", { style: { fontSize: 12.5 } },
+            React.createElement("thead", null,
+                React.createElement("tr", null,
+                    React.createElement("th", null, "\u0646\u0627\u0645"),
+                    React.createElement("th", null, "\u0633\u0645\u062A"),
+                    React.createElement("th", null, "\u062A\u062E\u0635\u06CC\u0635 \u0641\u0639\u0644\u06CC"),
+                    React.createElement("th", null))),
+            React.createElement("tbody", null,
+                filtered.map(u => React.createElement("tr", { key: u.id },
+                    React.createElement("td", null,
+                        React.createElement("b", null,
+                            u.first_name,
+                            " ",
+                            u.last_name)),
+                    React.createElement("td", null, u.role_title || '—'),
+                    React.createElement("td", null, u.asset_type === 'car' ? 'خودرو' : u.asset_type === 'motorcycle' ? 'موتورسیکلت' : React.createElement("span", { className: "muted" }, "\u062A\u062E\u0635\u06CC\u0635 \u0646\u0634\u062F\u0647")),
+                    React.createElement("td", { style: { whiteSpace: 'nowrap' } },
+                        React.createElement("select", { className: "input", style: { display: 'inline-block', width: 150 }, disabled: busy === u.id, value: u.asset_type || '', onChange: e => setType(u.id, e.target.value) },
+                            React.createElement("option", { value: "" }, "\u2014 \u0628\u062F\u0648\u0646 \u062A\u062E\u0635\u06CC\u0635 \u2014"),
+                            React.createElement("option", { value: "car" }, "\u062E\u0648\u062F\u0631\u0648"),
+                            React.createElement("option", { value: "motorcycle" }, "\u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A"))))),
+                !filtered.length && React.createElement("tr", null,
+                    React.createElement("td", { colSpan: "4", className: "muted" }, "\u0641\u0631\u062F\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")))));
 }
-catch (e) {
-    alert(e.message);
-}
-finally {
-    setLoading(false);
-} }; useEffect(() => { load(); }, []); const filtered = items.filter(a => { const s = (a.first_name + ' ' + a.last_name + ' ' + pvaPlate(a) + ' ' + (a.national_code || '')).toLowerCase(); return !q || s.includes(q.toLowerCase()); }); const open = async (a) => { try {
-    const d = await GET('/personnel-vehicle-assets.php?op=detail&id=' + encodeURIComponent(a.id), { ttl: 0 });
-    setSelected(d.asset);
-}
-catch (e) {
-    alert(e.message);
-} }; return React.createElement("div", { className: "panel" },
-    React.createElement("div", { className: "row", style: { justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' } },
-        React.createElement("div", null,
+function PersonnelVehicleAssets() {
+    const [tab, setTab] = useState('assign');
+    const [items, setItems] = useState([]), [selected, setSelected] = useState(null), [loading, setLoading] = useState(true), [q, setQ] = useState('');
+    const load = async () => { setLoading(true); try {
+        const d = await GET('/personnel-vehicle-assets.php?op=list', { ttl: 0 });
+        setItems(d.items || []);
+    }
+    catch (e) {
+        alert(e.message);
+    }
+    finally {
+        setLoading(false);
+    } };
+    useEffect(() => { if (tab === 'files')
+        load(); }, [tab]);
+    const filtered = items.filter(a => { const s = (a.first_name + ' ' + a.last_name + ' ' + pvaPlate(a) + ' ' + (a.national_code || '')).toLowerCase(); return !q || s.includes(q.toLowerCase()); });
+    const open = async (a) => { try {
+        const d = await GET('/personnel-vehicle-assets.php?op=detail&id=' + encodeURIComponent(a.id), { ttl: 0 });
+        setSelected(d.asset);
+    }
+    catch (e) {
+        alert(e.message);
+    } };
+    return React.createElement("div", { className: "panel" },
+        React.createElement("div", { className: "row", style: { justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' } },
             React.createElement("h3", null, "\u0645\u0627\u0634\u06CC\u0646\u200C\u0622\u0644\u0627\u062A \u0648 \u0648\u0633\u0627\u06CC\u0644 \u0645\u0623\u0645\u0648\u0631\u06CC\u062A\u06CC"),
-            React.createElement("p", { className: "muted" }, "\u067E\u0631\u0648\u0646\u062F\u0647 \u06CC\u06A9\u067E\u0627\u0631\u0686\u0647 \u062E\u0648\u062F\u0631\u0648 \u0648 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A \u067E\u0631\u0633\u0646\u0644 \u06AF\u0634\u062A\u060C \u062A\u0635\u0627\u0648\u06CC\u0631 \u0645\u062F\u0627\u0631\u06A9 \u0648 \u0622\u062E\u0631\u06CC\u0646 \u0648\u0636\u0639\u06CC\u062A \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A.")),
-        React.createElement("div", { className: "row", style: { gap: 8 } },
-            React.createElement("input", { className: "input", placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645\u060C \u067E\u0644\u0627\u06A9 \u06CC\u0627 \u06A9\u062F \u0645\u0644\u06CC", value: q, onChange: e => setQ(e.target.value) }),
-            React.createElement("button", { className: "btn g", onClick: () => downloadProtectedFile('/personnel-vehicle-assets.php?op=export', 'personnel_vehicle_assets.xlsx') }, "\u062E\u0631\u0648\u062C\u06CC Excel + \u062A\u0635\u0627\u0648\u06CC\u0631"))),
-    loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A\u2026") : React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'minmax(250px,32%) 1fr', gap: 10 } },
-        React.createElement("div", { style: { display: 'grid', gap: 7, maxHeight: 650, overflow: 'auto' } },
-            filtered.map(a => React.createElement("button", { key: a.id, type: "button", onClick: () => open(a), style: { textAlign: 'right', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: 10, cursor: 'pointer', outline: (selected === null || selected === void 0 ? void 0 : selected.id) === a.id ? '2px solid var(--brand)' : 'none' } },
-                React.createElement("b", null, pvaPlate(a) || 'بدون پلاک'),
-                React.createElement("div", { style: { fontSize: 12 } },
-                    a.first_name,
-                    " ",
-                    a.last_name,
-                    " \u2014 ",
-                    a.asset_type === 'car' ? 'خودرو' : 'موتورسیکلت'),
-                React.createElement("div", { className: "muted", style: { fontSize: 11 } },
-                    pvaStatus(a.status),
-                    " \u00B7 \u0622\u062E\u0631\u06CC\u0646 \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A: ",
-                    a.checklist_last_at || '—'))),
-            !filtered.length && React.createElement("div", { className: "muted", style: { padding: 20, textAlign: 'center' } }, "\u067E\u0631\u0648\u0646\u062F\u0647\u200C\u0627\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")),
-        React.createElement("div", { style: { background: '#f8fafc', border: '1px solid var(--line)', borderRadius: 14, padding: 14 } }, selected ? React.createElement(PVAAssetDetail, { asset: selected }) : React.createElement("div", { className: "muted", style: { padding: 30, textAlign: 'center' } }, "\u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647 \u0645\u0634\u062E\u0635\u0627\u062A\u060C \u06CC\u06A9 \u062E\u0648\u062F\u0631\u0648 \u06CC\u0627 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F.")))); }
+            tab === 'files' && React.createElement("button", { className: "btn g", onClick: () => downloadProtectedFile('/personnel-vehicle-assets.php?op=export', 'personnel_vehicle_assets.xlsx') }, "\u062E\u0631\u0648\u062C\u06CC Excel + \u062A\u0635\u0627\u0648\u06CC\u0631")),
+        React.createElement("div", { className: "row", style: { gap: 8, margin: '10px 0' } },
+            React.createElement("button", { className: "btn " + (tab === 'assign' ? 'p' : 'g'), onClick: () => setTab('assign') }, "\u062A\u062E\u0635\u06CC\u0635 \u062E\u0648\u062F\u0631\u0648/\u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A"),
+            React.createElement("button", { className: "btn " + (tab === 'files' ? 'p' : 'g'), onClick: () => setTab('files') }, "\u067E\u0631\u0648\u0646\u062F\u0647\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647")),
+        tab === 'assign' ? React.createElement(PersonnelVehicleAssign, null) :
+            loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A\u2026") : React.createElement(React.Fragment, null,
+                React.createElement("input", { className: "input", style: { marginBottom: 10, maxWidth: 320 }, placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645\u060C \u067E\u0644\u0627\u06A9 \u06CC\u0627 \u06A9\u062F \u0645\u0644\u06CC", value: q, onChange: e => setQ(e.target.value) }),
+                React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'minmax(250px,32%) 1fr', gap: 10 } },
+                    React.createElement("div", { style: { display: 'grid', gap: 7, maxHeight: 650, overflow: 'auto' } },
+                        filtered.map(a => React.createElement("button", { key: a.id, type: "button", onClick: () => open(a), style: { textAlign: 'right', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: 10, cursor: 'pointer', outline: (selected === null || selected === void 0 ? void 0 : selected.id) === a.id ? '2px solid var(--brand)' : 'none' } },
+                            React.createElement("b", null, pvaPlate(a) || 'بدون پلاک'),
+                            React.createElement("div", { style: { fontSize: 12 } },
+                                a.first_name,
+                                " ",
+                                a.last_name,
+                                " \u2014 ",
+                                a.asset_type === 'car' ? 'خودرو' : 'موتورسیکلت'),
+                            React.createElement("div", { className: "muted", style: { fontSize: 11 } },
+                                pvaStatus(a.status),
+                                " \u00B7 \u0622\u062E\u0631\u06CC\u0646 \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A: ",
+                                a.checklist_last_at || '—'))),
+                        !filtered.length && React.createElement("div", { className: "muted", style: { padding: 20, textAlign: 'center' } }, "\u067E\u0631\u0648\u0646\u062F\u0647\u200C\u0627\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")),
+                    React.createElement("div", { style: { background: '#f8fafc', border: '1px solid var(--line)', borderRadius: 14, padding: 14 } }, selected ? React.createElement(PVAAssetDetail, { asset: selected }) : React.createElement("div", { className: "muted", style: { padding: 30, textAlign: 'center' } }, "\u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647 \u0645\u0634\u062E\u0635\u0627\u062A\u060C \u06CC\u06A9 \u062E\u0648\u062F\u0631\u0648 \u06CC\u0627 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F.")))));
+}
 function PVAAssetDetail({ asset: a }) { return React.createElement("div", null,
     React.createElement("div", { className: "row", style: { justifyContent: 'space-between', alignItems: 'start' } },
         React.createElement("div", null,

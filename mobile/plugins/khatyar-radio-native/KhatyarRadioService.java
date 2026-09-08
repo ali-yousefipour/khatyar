@@ -1,6 +1,5 @@
 package ir.mashhad.taxicontrol.radio;
 
-import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -52,16 +51,22 @@ public final class KhatyarRadioService extends Service {
   private boolean playbackActive() { return getPrefs().getBoolean("playbackActive", false); }
   private void setPlaybackActive(boolean active) { try { getPrefs().edit().putBoolean("playbackActive", active).apply(); } catch (Throwable ignored) {} }
 
+  // خطیار: نسخهٔ قبلی این متد فقط بر اساس ActivityManager.RunningAppProcessInfo.importance تصمیم می‌گرفت.
+  // این روش ذاتاً غلط بود: به‌محض این‌که همین سرویس (KhatyarRadioService) به‌عنوان یک foreground service اجرا شود،
+  // اندروید *همیشه* پردازهٔ میزبانش را در سطح IMPORTANCE_FOREGROUND گزارش می‌کند — کاملاً مستقل از این‌که صفحه روشن است
+  // یا کاربر واقعاً دارد اپ را می‌بیند یا خیر. یعنی این شرط تقریباً همیشه true بود و سرویس عملاً هیچ‌وقت پیام واقعی پخش نمی‌کرد،
+  // چون همیشه فکر می‌کرد جاوااسکریپت مسئول پخش است — دقیقاً همان چیزی که باعث می‌شد با خاموش‌بودن صفحه/بسته‌بودن اپ، پیام‌ها پخش نشوند.
+  // به‌جایش حالا از «ضربان قلب» (heartbeat) دقیقی که خودِ جاوااسکریپت (بر اساس AppState واقعی) دوره‌ای ارسال می‌کند استفاده می‌کنیم:
+  // فقط اگر ظرف چند ثانیهٔ اخیر جاوااسکریپت گفته «من در پیش‌زمینه‌ام»، سرویس نیتیو از پخش صرف‌نظر می‌کند؛
+  // در غیر این صورت (از جمله وقتی هیچ ضربانی نرسیده، یعنی اپ کاملاً بسته/کشته شده) پیش‌فرض روی «نیتیو خودش پخش کند» می‌ماند.
+  private static final long FOREGROUND_HEARTBEAT_TIMEOUT_MS = 6000L;
+
   private boolean isAppInForeground() {
     try {
-      ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-      if (am == null) return false;
-      int pid = android.os.Process.myPid();
-      for (ActivityManager.RunningAppProcessInfo p : am.getRunningAppProcesses()) {
-        if (p != null && p.pid == pid) {
-          return p.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
-        }
-      }
+      android.content.SharedPreferences p = getPrefs();
+      boolean jsForeground = p.getBoolean("jsForeground", false);
+      long jsAt = p.getLong("jsForegroundAt", 0L);
+      if (jsForeground && (System.currentTimeMillis() - jsAt) <= FOREGROUND_HEARTBEAT_TIMEOUT_MS) return true;
     } catch (Throwable ignored) {}
     return false;
   }
@@ -161,7 +166,7 @@ public final class KhatyarRadioService extends Service {
             JSONObject m = messages.optJSONObject(idx); if (m == null) continue;
             newest = Math.max(newest, m.optLong("id", 0L));
             long createdAt = messageTimeMillis(m);
-            if (createdAt > 0 && createdAt >= serviceStartedAt && m.optLong("sender_id", 0L) != userId) {
+            if (createdAt > 0 && createdAt >= serviceStartedAt && m.optLong("sender_id", 0L) != userId && !isAppInForeground()) {
               String audio = m.optString("audio_url", "");
               if (!audio.isEmpty()) playRemote(audio, token);
             }
@@ -179,7 +184,7 @@ public final class KhatyarRadioService extends Service {
         long createdAt = messageTimeMillis(m);
         if (createdAt <= 0L || createdAt < serviceStartedAt) continue;
         String audio = m.optString("audio_url", "");
-        if (!audio.isEmpty()) playRemote(audio, token);
+        if (!audio.isEmpty() && !isAppInForeground()) playRemote(audio, token);
       }
       p.edit().putLong("lastId", lastId).apply();
     } catch (Throwable ignored) {}
@@ -224,7 +229,6 @@ public final class KhatyarRadioService extends Service {
 
   private synchronized void playRemote(String audioUrl, String token) {
     try {
-      if (isAppInForeground()) return;
       if (audioUrl.startsWith("/")) {
         String base = getPrefs().getString("baseUrl", "").replaceAll("/+$", "");
         if (audioUrl.startsWith("/api/") && base.endsWith("/api")) base = base.substring(0, base.length() - 4);
