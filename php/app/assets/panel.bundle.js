@@ -13646,6 +13646,7 @@ function Login({ onLogin, brand }) {
     const [info, setInfo] = useState("");
     const submit = async () => { try {
         const d = await db.login(u, p);
+        await khForceFreshReloadAfterLogin();
         onLogin(d.user);
     }
     catch (e) {
@@ -13723,7 +13724,7 @@ function App() {
         ["عملیات میدانی", ["missiondashboard", "citydashboard", "missiontemplates", "scoreengine", "officials", "presence", "attendance", "companyrequests", "outages", "covertselfies"]],
         ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "lines", "zones", "bills"]],
         ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "useract"]],
-        ["منابع انسانی", ["shifts", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural"]],
+        ["منابع انسانی", ["shifts", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural", "vehicleassets", "vehiclechecklist"]],
         ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
         ["مدیریت سامانه", ["users", "org", "forms", "config", "customfields", "inventory", "excel", "appitems", "cronstatus", "activesessions", "logs", "settings"]],
     ];
@@ -13736,7 +13737,8 @@ function App() {
         reports: 'reports-folder', report: 'report-send', perfreport: 'performance-gauge', attreport: 'attendance-calendar', useract: 'user-activity',
         shifts: 'shift-cycle', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
         messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', radiocenter: 'radio-tower', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen',
-        config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'system-health', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears'
+        config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'system-health', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
+        vehicleassets: 'driver-id', vehiclechecklist: 'checklist'
     };
     const can = (k) => !allowed || allowed.includes(k) || CORE.includes(k);
     const closeOnPick = (k) => { setV(k); setDrawer(false); };
@@ -13783,6 +13785,40 @@ function App() {
                     React.createElement("div", { className: "av" }, (me.name || "؟")[0]))),
             React.createElement(View, null))));
 }
+const PANEL_BUILD_VERSION = "1.4.0";
+/* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
+   نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
+   چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
+async function khEnsureFreshBuild() {
+    try {
+        if (!(window.__health && window.__health.site_version))
+            return;
+        const serverV = String(window.__health.site_version);
+        if (serverV === PANEL_BUILD_VERSION)
+            return;
+        if (sessionStorage.getItem('kh_reloaded_for_' + serverV) === '1')
+            return; // از حلقهٔ رفرش بی‌پایان جلوگیری می‌کند
+        sessionStorage.setItem('kh_reloaded_for_' + serverV, '1');
+        if (window.caches) {
+            try {
+                const names = await caches.keys();
+                await Promise.all(names.map(n => caches.delete(n)));
+            }
+            catch (e) { }
+        }
+        location.href = location.pathname + '?_v=' + encodeURIComponent(serverV) + '&_t=' + Date.now();
+    }
+    catch (e) { }
+}
+async function khForceFreshReloadAfterLogin() {
+    try {
+        if (window.caches) {
+            const names = await caches.keys();
+            await Promise.all(names.map(n => caches.delete(n)));
+        }
+    }
+    catch (e) { }
+}
 (async () => {
     const ok = await checkConnection();
     const root = document.getElementById("root");
@@ -13790,6 +13826,7 @@ function App() {
         root.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px;font-family:Vazirmatn"><div><h2 style="color:#e23b54">اتصال به سرور برقرار نشد</h2><p style="color:#6b7890;max-width:420px;line-height:2">این پنل باید از آدرس سرور باز شود (مثل https://app.yousefipour.ir/). لطفاً آدرس <b>/api/health</b> را بررسی کنید و مطمئن شوید نصب کامل شده است.</p></div></div>';
         return;
     }
-    console.log("PANEL BUILD: 2026-09-05-v218 (users-hierarchy-radio-attendance-vehicle-fix)");
+    await khEnsureFreshBuild();
+    console.log("PANEL BUILD: 1.4.0 (radio-center-vehicle-assign-sidebar-fix)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
 })();

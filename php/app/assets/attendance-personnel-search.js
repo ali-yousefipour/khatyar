@@ -1,10 +1,5 @@
-/* attendance personnel search async fix */
-(function(){'use strict';
-var MARK='data-kh-personnel-search',INPUT='kh-personnel-search-input';
-function norm(v){return String(v==null?'':v).replace(/[يى]/g,'ی').replace(/[ك]/g,'ک').replace(/[\u200c\u200e\u200f]/g,'').replace(/\s+/g,' ').trim().toLowerCase();}
-function page(){var h=document.querySelector('.top h2');return !!(h&&/گزارش تردد پرسنل/.test(norm(h.textContent)));}
-function context(el){var p=el.parentElement;for(var i=0;p&&i<8;i++,p=p.parentElement){var t=norm(p.textContent);if(/گزارش تردد پرسنل|گزارش حضور|گزارش ورود|گزارش خروج|شیفت و کارکرد/.test(t))return true;}return false;}
-function make(s){if(!s||s.getAttribute(MARK)==='1'||!context(s)||s.options.length<2)return false;var parent=norm(s.parentElement&&s.parentElement.textContent),sample=norm([].slice.call(s.options,0,12).map(function(o){return o.textContent;}).join(' '));if(!/پرسنل|کارمند|نام و نام خانوادگی|انتخاب شخص|افراد|کاربر/.test(parent)&&!/پرسنل|نام و نام خانوادگی|کارمند|انتخاب پرسنل/.test(sample))return false;s.setAttribute(MARK,'1');var w=document.createElement('div');w.className='kh-personnel-search-wrap';w.dir='rtl';w.style.cssText='margin:0 0 8px;width:100%;';var i=document.createElement('input');i.type='search';i.className=INPUT;i.placeholder='جستجوی نام یا نام خانوادگی...';i.setAttribute('aria-label','جستجوی پرسنل');i.autocomplete='off';i.style.cssText='width:100%;box-sizing:border-box;border:1px solid #d0d5dd;border-radius:8px;padding:8px 10px;font:inherit;direction:rtl;background:#fff;';w.appendChild(i);s.parentNode.insertBefore(w,s);function filter(){var q=norm(i.value);[].slice.call(s.options).forEach(function(o){o.hidden=!!q&&!norm(o.textContent).includes(q);});}i.addEventListener('input',filter);i.addEventListener('search',filter);filter();return true;}
-function scan(){if(!page())return false;var ok=false;document.querySelectorAll('select').forEach(function(s){if(make(s))ok=true;});return ok;}
-function start(){var t=Date.now(),limit=15000;function loop(){if(scan()||Date.now()-t>limit)return;setTimeout(loop,250);}loop();}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();})();
+/* خطیار: این اسکریپت قبلاً با دستکاری مستقیم DOM یک کادر جستجوی پرسنل اضافه به صفحهٔ
+   «گزارش تردد پرسنل» تزریق می‌کرد. کامپوننت React این صفحه اکنون خودش یک کادر جستجوی
+   بومی و کامل دارد؛ اجرای هم‌زمان هر دو باعث نمایش دو کادر جستجوی تکراری می‌شد.
+   به همین دلیل این فایل عمداً خنثی نگه داشته شده (برای سازگاری با تگ <script> که در
+   panel.html به آن ارجاع داده شده، بدون نیاز به ویرایش آن فایل). */

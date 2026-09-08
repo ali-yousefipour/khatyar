@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 $method = $_SERVER['REQUEST_METHOD']; $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); $path = rtrim($path, '/'); if ($path === '') $path = '/';
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
-  $siteV = '1.3.99'; $appV = '1.3.99';
+  $siteV = '1.4.0'; $appV = '1.3.99';
   Http::json(['ok' => true, 'installed' => is_file("$ROOT/.installed"), 'db' => $db_ok, 'site_version' => $siteV, 'app_version' => $appV]);
 }
 if (strpos($path, '/api') !== 0) {
