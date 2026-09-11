@@ -52,7 +52,7 @@ export default function AppLockSettingsScreen() {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: CC.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: CC.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <Text style={s.h}>قفل خودکار برنامه</Text>
       <Text style={s.sub}>برنامه را با رمز عددی، الگو یا اثر انگشت محافظت کنید. پس از مدت بی‌فعالیتی، برنامه قفل می‌شود.</Text>
 

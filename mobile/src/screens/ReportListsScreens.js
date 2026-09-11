@@ -102,7 +102,7 @@ export function ActivityReportScreen() {
   const rows = useFetch('/my/driver-activity');
   if (rows === null) return <Loading />;
   return (
-    <ScrollView style={s.wrap} contentContainerStyle={{ padding: 14 }}>
+    <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={{ padding: 14 }}>
       {rows.length === 0 ? <Empty /> : rows.map((r, i) => (
         <View key={i} style={s.card}>
           <Text style={s.title}>خط {r.line}</Text>
@@ -262,7 +262,7 @@ export function TeamReportScreen() {
   if (d === null) return <Loading />;
   const groups = Object.entries(d.groups || {});
   return (
-    <ScrollView style={s.wrap} contentContainerStyle={{ padding: 14 }}>
+    <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={{ padding: 14 }}>
       {(d.busiest || d.idlest) && (
         <View style={s.card}><Text style={s.title}>کارایی زیرمجموعه</Text>
           {d.busiest && <View style={s.row}><Text style={[s.k, { color: C.ok }]}>پرکارترین: {d.busiest.name}</Text><Text style={s.v}>{faNum(Number(d.busiest.total))}</Text></View>}
@@ -297,7 +297,7 @@ export function TeamReportScreen() {
           <View style={tm.modalBox}>
             <Text style={tm.modalTitle}>خطوط {linesModal?.name}</Text>
             <Text style={tm.modalSub}>{faNum(linesModal?.lines?.length || 0)} خط</Text>
-            <ScrollView style={{ maxHeight: 340, marginVertical: 10 }}>
+            <ScrollView persistentScrollbar={true} style={{ maxHeight: 340, marginVertical: 10 }}>
               <View style={tm.chipWrap}>
                 {(linesModal?.lines || []).map((l, i) => (
                   <View key={i} style={tm.lineChip}><Text style={tm.lineChipTxt}>خط {faNum(l)}</Text></View>

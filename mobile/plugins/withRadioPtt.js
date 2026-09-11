@@ -20,7 +20,16 @@ object KhatyarRadioPttBridge {
   fun emit(context: Context, action: String, source: String) {
     try {
       val app = context.applicationContext as? ReactApplication ?: return
-      val reactContext = app.reactNativeHost.reactInstanceManager.currentReactContext ?: return
+      // خطیار: این اپ با newArchEnabled:true (حالت Bridgeless) اجرا می‌شود. در این حالت،
+      // مسیر قدیمی reactNativeHost.reactInstanceManager.currentReactContext معمولاً یا خالی/null
+      // برمی‌گردد یا حتی throw می‌کند (و چون کل تابع در try/catch خاموش پیچیده شده، بی‌صدا نادیده گرفته می‌شد) —
+      // دقیقاً همین باعث می‌شد فشردن دکمهٔ Volume+ هیچ اتفاقی نیفتد. ابتدا مسیر جدید (reactHost) را امتحان
+      // می‌کنیم و فقط در صورت نبودنش (نصب‌های قدیمی‌تر/bridge mode) به مسیر قدیمی برمی‌گردیم.
+      val reactContext = try {
+        (app.reactHost?.currentReactContext) ?: app.reactNativeHost.reactInstanceManager.currentReactContext
+      } catch (_: Throwable) {
+        try { app.reactNativeHost.reactInstanceManager.currentReactContext } catch (_: Throwable) { null }
+      } ?: return
       val payload = Arguments.createMap()
       payload.putBoolean("down", action == "down")
       payload.putString("source", source)

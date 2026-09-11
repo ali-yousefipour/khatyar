@@ -92,8 +92,7 @@ export default function PersonalPhotoCapture({
     const previewMaxHeight = Math.max(180, Math.min(height * 0.58, 520));
     return (
       <View style={styles.previewPage}>
-        <ScrollView
-          style={styles.previewScroll}
+        <ScrollView persistentScrollbar={true}           style={styles.previewScroll}
           contentContainerStyle={styles.previewContent}
           showsVerticalScrollIndicator={false}
           bounces={false}

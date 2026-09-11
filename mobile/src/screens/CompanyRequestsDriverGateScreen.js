@@ -71,7 +71,7 @@ export default function CompanyRequestsDriverGateScreen(){
  }
 
  if(driver)return <CompanyRequestsScreen/>;
- return <ScrollView style={s.page} contentContainerStyle={s.content}>
+ return <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.content}>
    <View style={s.card}><Text style={s.title}>ارسال مدارک برای شرکت</Text><Text style={s.step}>مرحله ۱ — انتخاب راننده</Text><Text style={s.muted}>کد ملی راننده را وارد کنید، مشخصات فرد را از بانک اطلاعاتی بررسی کنید و سپس همان راننده را انتخاب کنید. اطلاعات انتخاب‌شده به‌صورت خودکار همراه درخواست ارسال می‌شود.</Text></View>
    <View style={s.card}><Text style={s.label}>کد ملی راننده</Text><TextInput value={nid} onChangeText={setNid} keyboardType="numeric" maxLength={10} placeholder="مثلاً ۰۰۱۲۳۴۵۶۷۸" placeholderTextColor={C.muted} style={s.input}/><TouchableOpacity style={s.btn} onPress={find} disabled={busy}>{busy?<ActivityIndicator size={32}/>:<Text style={s.btnTxt}>جستجوی راننده</Text>}</TouchableOpacity></View>
    {candidate&&<View style={s.card}><Text style={s.step}>راننده یافت شد</Text><Text style={s.driverName}>{candidate.name||'—'}</Text><Text style={s.info}>کد ملی: {fa(candidate.national_id||nid)}</Text>{candidate.mobile?<Text style={s.info}>موبایل: {fa(candidate.mobile)}</Text>:null}{candidate.vehicles?.length?<Text style={s.info}>خودرو: {candidate.vehicles.map(v=>v.plate).filter(Boolean).join('، ')}</Text>:null}<TouchableOpacity style={s.selectBtn} onPress={()=>setDriver(candidate)}><Text style={s.btnTxt}>✓ انتخاب این راننده و ادامه</Text></TouchableOpacity></View>}

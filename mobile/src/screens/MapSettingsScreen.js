@@ -55,7 +55,7 @@ export default function MapSettingsScreen() {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: CC.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: CC.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <Text style={s.h}>تنظیمات نقشه</Text>
 
       <Text style={s.section}>۱) نوع نقشه برای دانلود آفلاین</Text>

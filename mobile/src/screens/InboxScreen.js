@@ -65,12 +65,12 @@ export function InboxReportsScreen({ navigation }) {
         {(from || to || sender || statusF) ? <TouchableOpacity style={s.clr} onPress={() => { setFrom(null); setTo(null); setSender(null); setStatusF(null); }}><Text style={s.clrTxt}>پاک</Text></TouchableOpacity> : null}
       </View>
       {senders.length > 1 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipsScroll} contentContainerStyle={s.chipsRow}>
+        <ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} style={s.chipsScroll} contentContainerStyle={s.chipsRow}>
           <TouchableOpacity style={[s.chip, !sender && s.chipOn]} onPress={() => setSender(null)}><Text style={[s.chipTxt, !sender && { color: '#fff' }]}>همه فرستندگان</Text></TouchableOpacity>
           {senders.map((sd) => <TouchableOpacity key={sd.id} style={[s.chip, sender === sd.id && s.chipOn]} onPress={() => setSender(sd.id)}><Text style={[s.chipTxt, sender === sd.id && { color: '#fff' }]}>{sd.name}</Text></TouchableOpacity>)}
         </ScrollView>
       )}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipsScroll} contentContainerStyle={s.chipsRow}>
+      <ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} style={s.chipsScroll} contentContainerStyle={s.chipsRow}>
         <TouchableOpacity style={[s.chip, !statusF && s.chipOn]} onPress={() => setStatusF(null)}><Text style={[s.chipTxt, !statusF && { color: '#fff' }]}>همه وضعیت‌ها</Text></TouchableOpacity>
         {Object.entries(ST).map(([k, v]) => <TouchableOpacity key={k} style={[s.chip, statusF === k && s.chipOn]} onPress={() => setStatusF(k)}><Text style={[s.chipTxt, statusF === k && { color: '#fff' }]}>{v}</Text></TouchableOpacity>)}
       </ScrollView>
@@ -184,7 +184,7 @@ export function ReportDetailScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView style={s.wrap} contentContainerStyle={{ padding: 14 }}>
+    <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={{ padding: 14 }}>
       <View style={s.card}>
         {editing ? (<>
           <Text style={s.label}>موضوع</Text>

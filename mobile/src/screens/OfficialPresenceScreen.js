@@ -79,7 +79,7 @@ export default function OfficialPresenceScreen() {
 
   return (
     <>
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <Text style={s.label}>۱) سمت مسئول را انتخاب کنید</Text>
       <View style={s.chips}>
         {roles.map((r) => (

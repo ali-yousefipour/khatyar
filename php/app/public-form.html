@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0d7a5f">
+<title>تکمیل فرم</title>
+<link href="vendor/vazirmatn/Vazirmatn-font-face.css" rel="stylesheet" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css'">
+<style>
+  :root{--ink:#0f1b2d;--paper:#f4f6fb;--line:#e4e9f2;--muted:#6b7890;--brand:#0d7a5f;--brand2:#0a5f4a;--danger:#e23b54;--ok:#16a06a}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:Vazirmatn,system-ui,sans-serif;background:var(--paper);color:var(--ink);max-width:520px;margin:0 auto;min-height:100vh}
+  .hdr{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;padding:18px 16px;position:sticky;top:0;z-index:5}
+  .hdr .ttl{font-weight:800;font-size:16px}
+  .hdr .sub{font-size:12px;opacity:.85;margin-top:4px}
+  .body{padding:16px;padding-bottom:60px}
+  .label{color:var(--muted);font-size:12.5px;margin:10px 2px 6px;text-align:right;display:block}
+  .req{color:var(--danger)}
+  .inp{background:#fff;border:1px solid var(--line);border-radius:13px;padding:12px;font:inherit;font-size:14px;width:100%;text-align:right;color:var(--ink)}
+  textarea.inp{min-height:90px;resize:vertical}
+  .btn{background:var(--brand);color:#fff;border:0;border-radius:14px;padding:14px;font:inherit;font-weight:800;font-size:15px;width:100%;cursor:pointer;margin-top:14px}
+  .btn:disabled{opacity:.6}
+  .btn.ghost{background:#eef1f7;color:var(--ink);margin-top:8px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:14px;margin-bottom:11px}
+  .muted{color:var(--muted);font-size:12px}
+  .err{color:var(--danger);font-size:12.5px;margin-top:6px}
+  .center{min-height:80vh;display:grid;place-items:center;text-align:center;padding:24px}
+  .two{display:flex;gap:10px}
+  .chkrow{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:13px;padding:12px}
+  .sigwrap{background:#fff;border:1px solid var(--line);border-radius:13px;overflow:hidden}
+  .sigwrap canvas{display:block;width:100%;height:160px;touch-action:none}
+  .sigbar{display:flex;justify-content:space-between;padding:8px 10px;border-top:1px solid var(--line);background:#fafbfe}
+  .sigbar button{background:none;border:0;color:var(--brand);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  .filebtn{display:block;background:#fff;border:1px dashed var(--line);border-radius:13px;padding:16px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer}
+  .filebtn.has{border-color:var(--ok);color:var(--ok)}
+  .success{background:#e3f6ec;color:var(--ok);border-radius:14px;padding:16px;text-align:center;font-weight:700}
+</style>
+</head>
+<body>
+<div id="root"><div class="center"><p class="muted">در حال بارگذاری…</p></div></div>
+<script src="assets/persian-date-picker-safe.js"></script>
+<script>
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function toFa(n){return String(n==null?'':n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);}
+function toEn(s){return String(s==null?'':s).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));}
+var slug=new URLSearchParams(location.search).get('slug')||'';
+var root=document.getElementById('root');
+var formData=null, answers={}, signatures={}, files={};
+
+function render(){
+  if(!formData){ root.innerHTML='<div class="center"><p class="muted">در حال بارگذاری…</p></div>'; return; }
+  var f=formData;
+  root.innerHTML =
+    '<div class="hdr"><div class="ttl">'+esc(f.title)+'</div><div class="sub">این فرم عمومی است؛ برای تکمیل آن نیازی به ورود به سامانه ندارید.</div></div>'+
+    '<div class="body" id="formBody"></div>';
+  var body=document.getElementById('formBody');
+  (f.schema||[]).forEach(function(field){
+    if(field.showIfKey){ if(String(answers[field.showIfKey]||'')!==String(field.showIfVal||'')) return; }
+    var wrap=document.createElement('div');
+    wrap.innerHTML='<label class="label">'+esc(field.label)+(field.required?' <span class="req">*</span>':'')+'</label>';
+    body.appendChild(wrap.firstChild);
+    body.appendChild(renderField(field));
+  });
+  var errBox=document.createElement('div'); errBox.id='formErr'; errBox.className='err'; body.appendChild(errBox);
+  var btn=document.createElement('button'); btn.className='btn'; btn.textContent='ارسال فرم'; btn.onclick=submit; body.appendChild(btn);
+}
+
+function renderField(field){
+  var k=field.key, t=field.type;
+  if(t==='textarea'){ var ta=document.createElement('textarea'); ta.className='inp'; ta.value=answers[k]||''; ta.oninput=function(){answers[k]=ta.value}; return ta; }
+  if(t==='select'||t==='combobox'){
+    var sel=document.createElement('select'); sel.className='inp';
+    var opt0=document.createElement('option'); opt0.value=''; opt0.textContent='— انتخاب کنید —'; sel.appendChild(opt0);
+    (field.options||[]).forEach(function(o){ var op=document.createElement('option'); op.value=o; op.textContent=o; if(answers[k]===o)op.selected=true; sel.appendChild(op); });
+    sel.onchange=function(){answers[k]=sel.value; render();};
+    return sel;
+  }
+  if(t==='checkbox'){
+    var row=document.createElement('div'); row.className='chkrow';
+    var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=!!answers[k];
+    cb.onchange=function(){answers[k]=cb.checked?'بله':''; render();};
+    var lbl=document.createElement('span'); lbl.textContent='بله';
+    row.appendChild(cb); row.appendChild(lbl); return row;
+  }
+  if(t==='date'){
+    var di=document.createElement('input'); di.className='inp'; di.placeholder='تاریخ (مثال: ۱۴۰۴/۰۱/۰۱)'; di.value=answers[k]||'';
+    di.oninput=function(){answers[k]=toEn(di.value)};
+    setTimeout(function(){ if(window.KhatyarSafeJalaliDate) window.KhatyarSafeJalaliDate.install(di); },0);
+    return di;
+  }
+  if(t==='signature'){
+    var wrap=document.createElement('div'); wrap.className='sigwrap';
+    var cv=document.createElement('canvas'); wrap.appendChild(cv);
+    var bar=document.createElement('div'); bar.className='sigbar';
+    var clearBtn=document.createElement('button'); clearBtn.type='button'; clearBtn.textContent='پاک کردن';
+    var hint=document.createElement('span'); hint.className='muted'; hint.textContent='با انگشت یا ماوس امضا کنید';
+    bar.appendChild(clearBtn); bar.appendChild(hint); wrap.appendChild(bar);
+    setTimeout(function(){ setupSignature(cv,k,clearBtn); },0);
+    return wrap;
+  }
+  if(t==='file'){
+    var lab=document.createElement('label'); lab.className='filebtn';
+    lab.textContent=files[k]?'فایل انتخاب شد ✓ (برای تغییر دوباره کلیک کنید)':'برای انتخاب فایل ضربه بزنید';
+    if(files[k]) lab.classList.add('has');
+    var inp=document.createElement('input'); inp.type='file'; inp.style.display='none';
+    if(field.allowedTypes) inp.accept=field.allowedTypes;
+    inp.onchange=function(){
+      var file=inp.files[0]; if(!file) return;
+      var maxKb=Number(field.maxSizeKB||2048);
+      if(file.size>maxKb*1024){ alert('حجم فایل بیش از حد مجاز ('+toFa(maxKb)+' کیلوبایت) است.'); inp.value=''; return; }
+      var reader=new FileReader();
+      reader.onload=function(){ files[k]=reader.result; answers[k]=reader.result; render(); };
+      reader.readAsDataURL(file);
+    };
+    lab.appendChild(inp);
+    return lab;
+  }
+  if(t==='sheba'){
+    var si=document.createElement('input'); si.className='inp'; si.placeholder='IR + ۲۴ رقم'; si.value=answers[k]||'';
+    si.style.direction='ltr'; si.style.textAlign='left';
+    si.oninput=function(){answers[k]=toEn(si.value).toUpperCase()};
+    return si;
+  }
+  if(t==='number'){
+    var ni=document.createElement('input'); ni.className='inp'; ni.inputMode='numeric'; ni.value=answers[k]||'';
+    ni.oninput=function(){answers[k]=toEn(ni.value)}; return ni;
+  }
+  // text, national_id و هر نوع ناشناختهٔ دیگر
+  var txt=document.createElement('input'); txt.className='inp'; txt.value=answers[k]||'';
+  txt.oninput=function(){answers[k]=t==='national_id'?toEn(txt.value):txt.value}; return txt;
+}
+
+function setupSignature(cv,key,clearBtn){
+  var ratio=window.devicePixelRatio||1;
+  var rect=cv.getBoundingClientRect();
+  cv.width=rect.width*ratio; cv.height=160*ratio;
+  var ctx=cv.getContext('2d'); ctx.scale(ratio,ratio); ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.strokeStyle='#0f1b2d';
+  var drawing=false,last=null;
+  function pos(e){ var r=cv.getBoundingClientRect(); var p=(e.touches?e.touches[0]:e); return {x:p.clientX-r.left,y:p.clientY-r.top}; }
+  function start(e){ drawing=true; last=pos(e); e.preventDefault(); }
+  function move(e){ if(!drawing)return; var p=pos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last=p; answers[key]=cv.toDataURL('image/png'); e.preventDefault(); }
+  function end(){ drawing=false; }
+  cv.addEventListener('mousedown',start); cv.addEventListener('mousemove',move); window.addEventListener('mouseup',end);
+  cv.addEventListener('touchstart',start,{passive:false}); cv.addEventListener('touchmove',move,{passive:false}); cv.addEventListener('touchend',end);
+  clearBtn.onclick=function(){ ctx.clearRect(0,0,cv.width,cv.height); answers[key]=''; };
+}
+
+async function submit(){
+  var errBox=document.getElementById('formErr'); errBox.textContent='';
+  for(var i=0;i<(formData.schema||[]).length;i++){
+    var f=formData.schema[i];
+    if(f.showIfKey && String(answers[f.showIfKey]||'')!==String(f.showIfVal||'')) continue;
+    if(f.required && !answers[f.key]){ errBox.textContent='لطفاً «'+f.label+'» را تکمیل کنید.'; return; }
+    if(f.type==='sheba' && answers[f.key] && !/^IR[0-9]{24}$/.test(answers[f.key])){ errBox.textContent='شمارهٔ شبای واردشده برای «'+f.label+'» نامعتبر است.'; return; }
+  }
+  var btn=document.querySelector('.btn'); btn.disabled=true; btn.textContent='در حال ارسال…';
+  try{
+    var r=await fetch('/api/public/forms/'+encodeURIComponent(slug)+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({answers:answers})});
+    var d=await r.json().catch(function(){return {}});
+    if(!r.ok||!d.ok) throw new Error(d.error||'ارسال فرم ناموفق بود');
+    root.innerHTML='<div class="body"><div class="success">✓ فرم شما با موفقیت ثبت شد. سپاسگزاریم.</div></div>';
+  }catch(e){ errBox.textContent=e.message||'ارسال فرم ناموفق بود'; btn.disabled=false; btn.textContent='ارسال فرم'; }
+}
+
+(async function(){
+  if(!slug){ root.innerHTML='<div class="center"><p class="muted">آدرس فرم نامعتبر است.</p></div>'; return; }
+  try{
+    var r=await fetch('/api/public/forms/'+encodeURIComponent(slug),{cache:'no-store'});
+    var d=await r.json().catch(function(){return {}});
+    if(!r.ok) throw new Error(d.error||'این فرم در دسترس نیست');
+    formData=d; render();
+  }catch(e){
+    root.innerHTML='<div class="center"><p class="muted">'+esc(e.message||'این فرم در دسترس نیست.')+'</p></div>';
+  }
+})();
+</script>
+</body>
+</html>

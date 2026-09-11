@@ -102,8 +102,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   if (shot) {
     return (
       <View style={s.previewWrap}>
-        <ScrollView
-          style={s.previewScroll}
+        <ScrollView persistentScrollbar={true}           style={s.previewScroll}
           contentContainerStyle={s.previewContent}
           showsVerticalScrollIndicator={false}
           bounces={false}

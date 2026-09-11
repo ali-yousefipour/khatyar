@@ -106,7 +106,7 @@ export default function CustomFieldsScreen({ navigation }) {
 
   if (!editing) {
     return (
-      <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+      <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
         <Text style={s.intro}>اطلاعات تکمیلی شما</Text>
         {fields.map((f) => (
           <View key={f.id} style={s.roRow}>
@@ -124,7 +124,7 @@ export default function CustomFieldsScreen({ navigation }) {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <Text style={s.intro}>اطلاعات تکمیلی خود را وارد یا ویرایش کنید.</Text>
       {editable.map((f) => (
         <View key={f.id} style={s.fieldWrap}>

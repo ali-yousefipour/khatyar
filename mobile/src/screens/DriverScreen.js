@@ -80,7 +80,7 @@ export default function DriverScreen({ route, navigation }) {
   ];
 
   return (
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <View style={s.card}>
         <View style={s.row}>
           <View style={s.pf}><Text style={s.pfTxt}>{safeText(driver.first_name || driver.last_name || '؟').slice(0,1) || '؟'}</Text></View>

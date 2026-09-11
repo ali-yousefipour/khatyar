@@ -159,7 +159,7 @@ function NewRequest({ onDone }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+    <ScrollView persistentScrollbar={true} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
       <Text style={s.label}>نوع درخواست</Text>
       <View style={s.chips}>
         {TYPES.map((t) => (
@@ -234,7 +234,7 @@ function NewRequest({ onDone }) {
             <Text style={s.modalTitle}>انتخاب نیروی جایگزین</Text>
             <Text style={s.modalHint}>فقط افرادی که برای این بازهٔ زمانی در دسترس‌اند قابل انتخاب‌اند.</Text>
             {subLoading ? <ActivityIndicator color={C.brand} style={{ marginVertical: 16 }} /> : (
-              <ScrollView style={{ maxHeight: 360 }}>
+              <ScrollView persistentScrollbar={true} style={{ maxHeight: 360 }}>
                 <TouchableOpacity style={s.subRow} onPress={() => { setSub(null); setSubOpen(false); }}>
                   <Text style={s.subRowT}>بدون جایگزین</Text>
                 </TouchableOpacity>
@@ -270,7 +270,7 @@ function MyRequests() {
   const TY = { annual: 'مرخصی استحقاقی', sick: 'مرخصی استعلاجی', mission: 'ماموریت', overtime: 'اضافه‌کار', manual: 'تردد دستی' };
   const num = (x) => (x == null ? '∞' : String(Math.round((x + Number.EPSILON) * 10) / 10));
   return (
-    <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} contentContainerStyle={{ padding: 14, paddingBottom: 56 }}>
       {bal && (
         <View style={s.balCard}>
           <Text style={s.balTitle}>مانده مرخصی (ماه جاری / سال)</Text>

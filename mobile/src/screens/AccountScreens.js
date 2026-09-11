@@ -205,7 +205,7 @@ export function EditProfileScreen({ navigation }) {
     } catch (e) { Alert.alert('خطا', e.message); } finally { setBusy(false); }
   }
   return (
-    <ScrollView style={{ backgroundColor: CC.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: CC.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <Text style={s.label}>نام</Text>
       <TextInput style={[s.input, s.ro]} value={`${p.first_name || ''} ${p.last_name || ''}`} editable={false} />
       <Text style={s.label}>ایمیل</Text>
@@ -406,8 +406,7 @@ export function ProfileScreen({ navigation }) {
   );
 
   return (
-    <ScrollView
-      style={s.profileScroll}
+    <ScrollView persistentScrollbar={true}       style={s.profileScroll}
       contentContainerStyle={[s.profileContent, tablet && s.profileContentTablet]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"

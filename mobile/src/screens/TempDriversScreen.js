@@ -98,7 +98,7 @@ export default function TempDriversScreen() {
       </View>
 
       {tab === 'add' && (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+        <ScrollView persistentScrollbar={true} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
           <Text style={s.note}>راننده را با کد ملی در «همهٔ خطوط» جستجو کنید و او را به‌صورت موقت به یکی از خطوط ویژه اضافه کنید. خط اصلی راننده حفظ می‌شود.</Text>
           <Text style={s.label}>کد ملی راننده</Text>
           <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
@@ -171,7 +171,7 @@ export default function TempDriversScreen() {
       )}
 
       {tab === 'list' && (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 56 }}
+        <ScrollView persistentScrollbar={true} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
           {list === null ? <ActivityIndicator color={C.brand} style={{ marginTop: 20 }} /> :
             list.length === 0 ? <Text style={s.empty}>راننده موقتی در خطوط شما ثبت نشده است.</Text> :

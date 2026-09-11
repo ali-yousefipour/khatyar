@@ -30,7 +30,7 @@ export default function PeriodicRenewScreen({ onDone }) {
   if (step === 'submitting') return <View style={s.center}><ActivityIndicator size="large" color={C.brand} /><Text style={s.body}>در حال ثبت…</Text></View>;
 
   return (
-    <ScrollView contentContainerStyle={s.wrap}>
+    <ScrollView persistentScrollbar={true} contentContainerStyle={s.wrap}>
       <Text style={s.icon}>🔄</Text>
       <Text style={s.title}>به‌روزرسانی دوره‌ای</Text>
       <Text style={s.body}>طبق سیاست سازمان، لازم است به‌صورت دوره‌ای رمز عبور خود را تغییر دهید و عکس پرسنلی جدید (با لباس فرم) بگیرید.</Text>

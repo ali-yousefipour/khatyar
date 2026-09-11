@@ -27,8 +27,7 @@ export default function ImportTimesScreen() {
   if (!rows) return <View style={s.center}><ActivityIndicator color={CC.brand} /></View>;
 
   return (
-    <ScrollView
-      style={{ backgroundColor: CC.paper }}
+    <ScrollView persistentScrollbar={true}       style={{ backgroundColor: CC.paper }}
       contentContainerStyle={{ padding: 16, paddingBottom: 56 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[CC.brand]} />}
     >

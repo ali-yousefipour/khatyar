@@ -2900,18 +2900,20 @@ function ConfigDefine() {
 }
 function FormBuilder() {
     const DRIVER_ATTRS = [["", "—"], ["first_name", "نام"], ["last_name", "نام خانوادگی"], ["father_name", "نام پدر"], ["national_id", "کد ملی"], ["mobile", "موبایل"], ["gender", "جنسیت"], ["birth_date", "تاریخ تولد"], ["address", "آدرس"], ["smart_no", "شماره هوشمند"], ["operating_code", "کد بهره‌برداری"], ["op_lic_status", "وضعیت پروانه بهره‌برداری"], ["op_lic_issue", "صدور بهره‌برداری"], ["op_lic_expire", "انقضای بهره‌برداری"], ["taxi_lic_status", "وضعیت پروانه تاکسیرانی"], ["taxi_lic_issue", "صدور تاکسیرانی"], ["taxi_lic_expire", "انقضای تاکسیرانی"], ["driver_type", "نوع راننده"], ["plate", "پلاک خودرو"], ["model_name", "مدل خودرو"], ["model_year", "سال خودرو"], ["line_code", "کد خط"], ["insurance_expire", "انقضای بیمه"], ["tech_inspection_expire", "انقضای معاینه فنی"]];
-    const TYPES = [["text", "متن"], ["number", "عدد"], ["textarea", "متن بلند"], ["select", "لیست کشویی"], ["combobox", "کمبوباکس"], ["checkbox", "بله/خیر"], ["signature", "امضا"], ["national_id", "کد ملی (فراخوان راننده)"]];
+    const TYPES = [["text", "متن"], ["number", "عدد"], ["textarea", "متن بلند"], ["select", "لیست کشویی"], ["combobox", "کمبوباکس"], ["checkbox", "بله/خیر"], ["signature", "امضا"], ["national_id", "کد ملی (فراخوان راننده)"], ["date", "تاریخ (تقویم شمسی)"], ["file", "پیوست فایل"], ["sheba", "شمارهٔ شبا"]];
     const [fields, setFields] = useState([{ key: "nid", label: "کد ملی راننده", type: "national_id", options: [], required: true, prefill: "", showIfKey: "", showIfVal: "" }]);
     const [title, setTitle] = useState("فرم بازدید میدانی");
     const [editId, setEditId] = useState(null);
+    const [isPublic, setIsPublic] = useState(false);
+    const [publicSlug, setPublicSlug] = useState(null);
     const [list, setList] = useState([]);
     const [subsFor, setSubsFor] = useState(null);
     const loadList = () => db.formsAll().then(r => setList(r || [])).catch(() => { });
     useEffect(() => { loadList(); }, []);
-    const add = () => setFields([...fields, { key: "f" + Date.now(), label: "فیلد جدید", type: "text", options: [], required: false, prefill: "", showIfKey: "", showIfVal: "" }]);
+    const add = () => setFields([...fields, { key: "f" + Date.now(), label: "فیلد جدید", type: "text", options: [], required: false, prefill: "", showIfKey: "", showIfVal: "", allowedTypes: "", maxSizeKB: 2048 }]);
     const upd = (i, k, val) => setFields(fields.map((f, j) => j === i ? { ...f, [k]: val } : f));
-    const resetForm = () => { setEditId(null); setTitle("فرم جدید"); setFields([{ key: "nid", label: "کد ملی راننده", type: "national_id", options: [], required: true, prefill: "", showIfKey: "", showIfVal: "" }]); };
-    const editForm = (f) => { setEditId(f.id); setTitle(f.title); setFields(Array.isArray(f.schema) && f.schema.length ? f.schema : []); window.scrollTo(0, 0); };
+    const resetForm = () => { setEditId(null); setTitle("فرم جدید"); setIsPublic(false); setPublicSlug(null); setFields([{ key: "nid", label: "کد ملی راننده", type: "national_id", options: [], required: true, prefill: "", showIfKey: "", showIfVal: "" }]); };
+    const editForm = (f) => { setEditId(f.id); setTitle(f.title); setIsPublic(!!f.public_enabled); setPublicSlug(f.public_slug || null); setFields(Array.isArray(f.schema) && f.schema.length ? f.schema : []); window.scrollTo(0, 0); };
     const delForm = async (f) => { if (!confirm("حذف فرم «" + f.title + "» و همهٔ پاسخ‌های آن؟"))
         return; try {
         await db.delForm(f.id);
@@ -2942,13 +2944,19 @@ function FormBuilder() {
     catch (e) {
         alert(e.message);
     } };
+    const publicUrl = (slug) => slug ? (location.origin + "/f/" + slug) : "";
+    const copyLink = (slug) => { var _a; (_a = navigator.clipboard) === null || _a === void 0 ? void 0 : _a.writeText(publicUrl(slug)); alert("لینک فرم کپی شد:\n" + publicUrl(slug)); };
     const save = async () => { try {
         if (editId) {
-            await db.updForm(editId, { title, schema: fields });
+            const r = await db.updForm(editId, { title, schema: fields, public_enabled: isPublic });
+            if (r === null || r === void 0 ? void 0 : r.public_slug)
+                setPublicSlug(r.public_slug);
             alert("فرم ویرایش شد.");
         }
         else {
-            await SEND('POST', '/admin/forms', { title, schema: fields });
+            const r = await SEND('POST', '/admin/forms', { title, schema: fields, public_enabled: isPublic });
+            if (r === null || r === void 0 ? void 0 : r.public_slug)
+                setPublicSlug(r.public_slug);
             alert("فرم ذخیره شد.");
         }
         loadList();
@@ -2969,26 +2977,43 @@ function FormBuilder() {
             editId && React.createElement("button", { className: "btn g", onClick: resetForm }, "\u0641\u0631\u0645 \u062C\u062F\u06CC\u062F")),
         React.createElement("label", { className: "label" }, "\u0639\u0646\u0648\u0627\u0646 \u0641\u0631\u0645"),
         React.createElement("input", { className: "input", value: title, onChange: e => setTitle(e.target.value), style: { marginBottom: 14 } }),
-        fields.map((f, i) => React.createElement("div", { key: i, className: "card-p", style: { display: "block" } },
-            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
-                React.createElement("input", { className: "input", style: { maxWidth: 200 }, value: f.label, onChange: e => upd(i, "label", e.target.value), placeholder: "\u0639\u0646\u0648\u0627\u0646 \u0641\u06CC\u0644\u062F" }),
-                React.createElement("select", { className: "input", style: { maxWidth: 190 }, value: f.type, onChange: e => upd(i, "type", e.target.value) }, TYPES.map(([v, tt]) => React.createElement("option", { key: v, value: v }, tt))),
-                React.createElement("label", { className: "row", style: { gap: 4, fontSize: 12 } },
-                    React.createElement("input", { type: "checkbox", checked: f.required, onChange: e => upd(i, "required", e.target.checked) }),
-                    "\u0627\u062C\u0628\u0627\u0631\u06CC"),
-                React.createElement("button", { className: "btn g", onClick: () => setFields(fields.filter((_, j) => j !== i)) }, "\u062D\u0630\u0641")),
-            (f.type === "select" || f.type === "combobox") && React.createElement("input", { className: "input", style: { marginTop: 6, fontSize: 12 }, placeholder: "\u06AF\u0632\u06CC\u0646\u0647\u200C\u0647\u0627 \u0628\u0627 \u06A9\u0627\u0645\u0627: \u062A\u0627\u06CC\u06CC\u062F\u060C \u0631\u062F", value: (f.options || []).join("، "), onChange: e => upd(i, "options", e.target.value.split(/[،,]/).map(s => s.trim()).filter(Boolean)) }),
-            f.type !== "national_id" && f.type !== "signature" && React.createElement("div", { className: "row", style: { gap: 8, marginTop: 6, flexWrap: "wrap" } },
-                React.createElement("span", { style: { fontSize: 12, color: "var(--muted)" } }, "\u0641\u0631\u0627\u062E\u0648\u0627\u0646 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0627\u0632 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0631\u0627\u0646\u0646\u062F\u0647:"),
-                React.createElement("select", { className: "input", style: { maxWidth: 200, fontSize: 12 }, value: f.prefill || "", onChange: e => upd(i, "prefill", e.target.value) }, DRIVER_ATTRS.map(([v, tt]) => React.createElement("option", { key: v, value: v }, tt)))),
-            React.createElement("div", { className: "row", style: { gap: 8, marginTop: 6, flexWrap: "wrap" } },
-                React.createElement("span", { style: { fontSize: 12, color: "var(--muted)" } }, "\u0646\u0645\u0627\u06CC\u0634 \u0645\u0634\u0631\u0648\u0637: \u0627\u06AF\u0631 \u0641\u06CC\u0644\u062F"),
-                React.createElement("select", { className: "input", style: { maxWidth: 150, fontSize: 12 }, value: f.showIfKey || "", onChange: e => upd(i, "showIfKey", e.target.value) },
-                    React.createElement("option", { value: "" }, "(\u0647\u0645\u06CC\u0634\u0647 \u0646\u0645\u0627\u06CC\u0634)"),
-                    fields.filter(x => x.key !== f.key).map(x => React.createElement("option", { key: x.key, value: x.key }, x.label))),
-                React.createElement("span", { style: { fontSize: 12 } }, "="),
-                React.createElement("input", { className: "input", style: { maxWidth: 110, fontSize: 12 }, value: f.showIfVal || "", onChange: e => upd(i, "showIfVal", e.target.value), placeholder: "\u0645\u0642\u062F\u0627\u0631" })))),
+        fields.map((f, i) => {
+            var _a;
+            return React.createElement("div", { key: i, className: "card-p", style: { display: "block" } },
+                React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
+                    React.createElement("input", { className: "input", style: { maxWidth: 200 }, value: f.label, onChange: e => upd(i, "label", e.target.value), placeholder: "\u0639\u0646\u0648\u0627\u0646 \u0641\u06CC\u0644\u062F" }),
+                    React.createElement("select", { className: "input", style: { maxWidth: 190 }, value: f.type, onChange: e => upd(i, "type", e.target.value) }, TYPES.map(([v, tt]) => React.createElement("option", { key: v, value: v }, tt))),
+                    React.createElement("label", { className: "row", style: { gap: 4, fontSize: 12 } },
+                        React.createElement("input", { type: "checkbox", checked: f.required, onChange: e => upd(i, "required", e.target.checked) }),
+                        "\u0627\u062C\u0628\u0627\u0631\u06CC"),
+                    React.createElement("button", { className: "btn g", onClick: () => setFields(fields.filter((_, j) => j !== i)) }, "\u062D\u0630\u0641")),
+                (f.type === "select" || f.type === "combobox") && React.createElement("input", { className: "input", style: { marginTop: 6, fontSize: 12 }, placeholder: "\u06AF\u0632\u06CC\u0646\u0647\u200C\u0647\u0627 \u0628\u0627 \u06A9\u0627\u0645\u0627: \u062A\u0627\u06CC\u06CC\u062F\u060C \u0631\u062F", value: (f.options || []).join("، "), onChange: e => upd(i, "options", e.target.value.split(/[،,]/).map(s => s.trim()).filter(Boolean)) }),
+                f.type === "file" && React.createElement("div", { className: "row", style: { gap: 8, marginTop: 6, flexWrap: "wrap" } },
+                    React.createElement("span", { style: { fontSize: 12, color: "var(--muted)" } }, "\u0646\u0648\u0639\u200C\u0647\u0627\u06CC \u0645\u062C\u0627\u0632 (\u0645\u062B\u0627\u0644: image/jpeg,image/png,application/pdf):"),
+                    React.createElement("input", { className: "input", style: { maxWidth: 280, fontSize: 12 }, placeholder: "\u062E\u0627\u0644\u06CC = \u0647\u0631 \u0646\u0648\u0639\u06CC \u0645\u062C\u0627\u0632", value: f.allowedTypes || "", onChange: e => upd(i, "allowedTypes", e.target.value) }),
+                    React.createElement("span", { style: { fontSize: 12, color: "var(--muted)" } }, "\u062D\u062F\u0627\u06A9\u062B\u0631 \u062D\u062C\u0645 (\u06A9\u06CC\u0644\u0648\u0628\u0627\u06CC\u062A):"),
+                    React.createElement("input", { className: "input", type: "number", style: { maxWidth: 100, fontSize: 12 }, value: (_a = f.maxSizeKB) !== null && _a !== void 0 ? _a : 2048, onChange: e => upd(i, "maxSizeKB", Number(e.target.value) || 2048) })),
+                f.type !== "national_id" && f.type !== "signature" && React.createElement("div", { className: "row", style: { gap: 8, marginTop: 6, flexWrap: "wrap" } },
+                    React.createElement("span", { style: { fontSize: 12, color: "var(--muted)" } }, "\u0641\u0631\u0627\u062E\u0648\u0627\u0646 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0627\u0632 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0631\u0627\u0646\u0646\u062F\u0647:"),
+                    React.createElement("select", { className: "input", style: { maxWidth: 200, fontSize: 12 }, value: f.prefill || "", onChange: e => upd(i, "prefill", e.target.value) }, DRIVER_ATTRS.map(([v, tt]) => React.createElement("option", { key: v, value: v }, tt)))),
+                React.createElement("div", { className: "row", style: { gap: 8, marginTop: 6, flexWrap: "wrap" } },
+                    React.createElement("span", { style: { fontSize: 12, color: "var(--muted)" } }, "\u0646\u0645\u0627\u06CC\u0634 \u0645\u0634\u0631\u0648\u0637: \u0627\u06AF\u0631 \u0641\u06CC\u0644\u062F"),
+                    React.createElement("select", { className: "input", style: { maxWidth: 150, fontSize: 12 }, value: f.showIfKey || "", onChange: e => upd(i, "showIfKey", e.target.value) },
+                        React.createElement("option", { value: "" }, "(\u0647\u0645\u06CC\u0634\u0647 \u0646\u0645\u0627\u06CC\u0634)"),
+                        fields.filter(x => x.key !== f.key).map(x => React.createElement("option", { key: x.key, value: x.key }, x.label))),
+                    React.createElement("span", { style: { fontSize: 12 } }, "="),
+                    React.createElement("input", { className: "input", style: { maxWidth: 110, fontSize: 12 }, value: f.showIfVal || "", onChange: e => upd(i, "showIfVal", e.target.value), placeholder: "\u0645\u0642\u062F\u0627\u0631" })));
+        }),
         React.createElement("button", { className: "btn p", style: { marginTop: 10 }, onClick: save }, editId ? "ذخیرهٔ ویرایش" : "ذخیره فرم"),
+        React.createElement("div", { className: "card-p", style: { marginTop: 14 } },
+            React.createElement("label", { className: "row", style: { gap: 8, alignItems: "center", cursor: "pointer" } },
+                React.createElement("input", { type: "checkbox", checked: isPublic, onChange: e => setIsPublic(e.target.checked) }),
+                React.createElement("b", null, "\u0627\u06CC\u0646 \u0641\u0631\u0645 \u0639\u0645\u0648\u0645\u06CC \u0648 \u0642\u0627\u0628\u0644 \u0627\u0634\u062A\u0631\u0627\u06A9\u200C\u06AF\u0630\u0627\u0631\u06CC \u0628\u0627\u0634\u062F")),
+            React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 6 } }, "\u0628\u0627 \u0641\u0639\u0627\u0644\u200C\u0628\u0648\u062F\u0646 \u0627\u06CC\u0646 \u06AF\u0632\u06CC\u0646\u0647\u060C \u0647\u0631 \u0641\u0631\u062F\u06CC (\u062D\u062A\u06CC \u0628\u062F\u0648\u0646 \u0648\u0631\u0648\u062F \u0628\u0647 \u0633\u0627\u0645\u0627\u0646\u0647) \u0628\u0627 \u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u0644\u06CC\u0646\u06A9 \u0627\u062E\u062A\u0635\u0627\u0635\u06CC \u0632\u06CC\u0631 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0627\u06CC\u0646 \u0641\u0631\u0645 \u0631\u0627 \u0645\u0634\u0627\u0647\u062F\u0647 \u0648 \u062A\u06A9\u0645\u06CC\u0644 \u06A9\u0646\u062F."),
+            isPublic && publicSlug && React.createElement("div", { className: "row", style: { gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" } },
+                React.createElement("input", { className: "input", readOnly: true, value: publicUrl(publicSlug), style: { flex: 1, minWidth: 220, fontSize: 12 }, onClick: e => e.target.select() }),
+                React.createElement("button", { className: "btn g", type: "button", onClick: () => copyLink(publicSlug) }, "\u06A9\u067E\u06CC \u0644\u06CC\u0646\u06A9")),
+            isPublic && !publicSlug && React.createElement("p", { style: { fontSize: 12, color: "var(--brand)", marginTop: 6 } }, "\u0644\u06CC\u0646\u06A9 \u067E\u0633 \u0627\u0632 \u0630\u062E\u06CC\u0631\u0647\u0654 \u0641\u0631\u0645 \u0633\u0627\u062E\u062A\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F.")),
         React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 10 } }, "\u0641\u06CC\u0644\u062F \u00AB\u06A9\u062F \u0645\u0644\u06CC\u00BB \u062F\u0631 \u0627\u067E \u06CC\u06A9 \u062F\u06A9\u0645\u0647\u0654 \u00AB\u0641\u0631\u0627\u062E\u0648\u0627\u0646\u00BB \u0645\u06CC\u200C\u0633\u0627\u0632\u062F \u06A9\u0647 \u0628\u0627 \u06A9\u062F \u0645\u0644\u06CC\u060C \u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u062F\u0627\u0631\u0627\u06CC \u00AB\u0641\u0631\u0627\u062E\u0648\u0627\u0646 \u062E\u0648\u062F\u06A9\u0627\u0631\u00BB \u0631\u0627 \u0627\u0632 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0631\u0627\u0646\u0646\u062F\u0647 \u067E\u0631 \u0645\u06CC\u200C\u06A9\u0646\u062F."),
         React.createElement("div", { style: { marginTop: 20, paddingTop: 16, borderTop: "2px solid var(--line)" } },
             React.createElement("h3", { style: { marginTop: 0 } }, "\u0641\u0631\u0645\u200C\u0647\u0627\u06CC \u0633\u0627\u062E\u062A\u0647\u200C\u0634\u062F\u0647"),
@@ -3000,12 +3025,14 @@ function FormBuilder() {
                                 React.createElement("th", null, "\u0639\u0646\u0648\u0627\u0646"),
                                 React.createElement("th", null, "\u0641\u06CC\u0644\u062F\u0647\u0627"),
                                 React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
+                                React.createElement("th", null, "\u0639\u0645\u0648\u0645\u06CC"),
                                 React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
                         React.createElement("tbody", null, list.map(f => React.createElement("tr", { key: f.id },
                             React.createElement("td", null,
                                 React.createElement("b", null, f.title)),
                             React.createElement("td", null, fa((f.schema || []).length)),
                             React.createElement("td", null, f.is_active ? React.createElement("span", { className: "badge b-ok" }, "\u0641\u0639\u0627\u0644") : React.createElement("span", { className: "badge b-no" }, "\u063A\u06CC\u0631\u0641\u0639\u0627\u0644")),
+                            React.createElement("td", null, f.public_enabled && f.public_slug ? React.createElement("button", { className: "btn g", onClick: () => copyLink(f.public_slug) }, "\u06A9\u067E\u06CC \u0644\u06CC\u0646\u06A9") : React.createElement("span", { className: "muted" }, "\u2014")),
                             React.createElement("td", { style: { whiteSpace: "nowrap" } },
                                 React.createElement("button", { className: "btn g", onClick: () => editForm(f) }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
                                 " ",
@@ -13722,7 +13749,7 @@ function App() {
     const SECTIONS = [
         ["داشبورد و پایش", ["dashboard", "reportscenter", "health", "map", "present", "presentchart"]],
         ["عملیات میدانی", ["missiondashboard", "citydashboard", "missiontemplates", "scoreengine", "officials", "presence", "attendance", "companyrequests", "outages", "covertselfies"]],
-        ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "lines", "zones", "bills"]],
+        ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "platetraining", "lines", "zones", "bills"]],
         ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "useract"]],
         ["منابع انسانی", ["shifts", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural", "vehicleassets", "vehiclechecklist"]],
         ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
@@ -13730,15 +13757,15 @@ function App() {
     ];
     const CORE = ["dashboard", "driverservicereport"];
     const MENU_ICONS = {
-        dashboard: 'dashboard-home', reportscenter: 'reports-folder', health: 'system-health', map: 'city-map', present: 'present-group', presentchart: 'presence-chart',
-        missiondashboard: 'performance-gauge', citydashboard: 'city-map', missiontemplates: 'forms-pen', scoreengine: 'reports-folder',
+        dashboard: 'dashboard-home', reportscenter: 'reports-folder', health: 'system-health', map: 'map-marker', present: 'present-group', presentchart: 'presence-chart',
+        missiondashboard: 'performance-gauge', citydashboard: 'city-map', missiontemplates: 'dashboard-layout', scoreengine: 'live-chart',
         officials: 'official-badge', presence: 'self-checkin', attendance: 'attendance-register', companyrequests: 'company-envelope', outages: 'service-outage', covertselfies: 'covert-camera',
-        drivers: 'driver-id', driverservicereport: 'driver-service-chart', tempdrivers: 'temporary-driver-clock', lines: 'route-line', zones: 'zone-grid', bills: 'billing-receipt',
-        reports: 'reports-folder', report: 'report-send', perfreport: 'performance-gauge', attreport: 'attendance-calendar', useract: 'user-activity',
+        drivers: 'driver-id', driverservicereport: 'driver-service-chart', tempdrivers: 'temporary-driver-clock', lines: 'route-line', zones: 'zone-grid', bills: 'billing-receipt', platetraining: 'search-taxi',
+        reports: 'report-card', report: 'report-send', perfreport: 'checked-user-male', attreport: 'attendance-calendar', useract: 'user-activity',
         shifts: 'shift-cycle', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
         messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', radiocenter: 'radio-tower', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen',
-        config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'system-health', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
-        vehicleassets: 'driver-id', vehiclechecklist: 'checklist'
+        config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'activity-wave', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
+        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist'
     };
     const can = (k) => !allowed || allowed.includes(k) || CORE.includes(k);
     const closeOnPick = (k) => { setV(k); setDrawer(false); };
@@ -13785,7 +13812,7 @@ function App() {
                     React.createElement("div", { className: "av" }, (me.name || "؟")[0]))),
             React.createElement(View, null))));
 }
-const PANEL_BUILD_VERSION = "1.4.0";
+const PANEL_BUILD_VERSION = "1.4.4";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
@@ -13827,6 +13854,6 @@ async function khForceFreshReloadAfterLogin() {
         return;
     }
     await khEnsureFreshBuild();
-    console.log("PANEL BUILD: 1.4.0 (radio-center-vehicle-assign-sidebar-fix)");
+    console.log("PANEL BUILD: 1.4.4 (custom-drawer-radio-fixes-volume-ptt)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
 })();

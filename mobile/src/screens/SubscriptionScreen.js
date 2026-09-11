@@ -86,7 +86,7 @@ export default function SubscriptionScreen({ onActivated }) {
   }
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
+    <ScrollView persistentScrollbar={true} style={styles.page} contentContainerStyle={styles.content}>
       <View style={styles.card}>
         <Text style={styles.icon}>💳</Text>
         <Text style={styles.title}>اشتراک برنامه</Text>

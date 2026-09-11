@@ -3,8 +3,8 @@
 const ADMIN = 3; // سطح ۳ و بالاتر = مدیریتی
 // از این نسخه به بعد، به‌درخواست کارفرما، شمارهٔ نسخهٔ سایت و اپ اندروید و نام فایل زیپ پروژه
 // همیشه یکسان و هماهنگ نگه داشته می‌شوند (به‌جای دو شمارندهٔ جداگانه مثل قبل).
-const SITE_VERSION = '1.4.0';   // نسخهٔ سایت — همیشه با نسخهٔ اپ و نام فایل پروژه یکی است
-const APP_VERSION = '1.3.99'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
+const SITE_VERSION = '1.4.4';   // نسخهٔ سایت — همیشه با نسخهٔ اپ و نام فایل پروژه یکی است
+const APP_VERSION = '1.4.4'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
 
 
 /* Phase 7.8 — زمان واقعی ثبت کلاینت برای عملیات آفلاین/آنلاین */
@@ -6161,26 +6161,84 @@ route('GET', '/api/my/official-visits', fn($p,$b,$u) => Db::all(
    WHERE ov.recorded_by=? ORDER BY ov.created_at DESC LIMIT 50", [$u['id']]));
 
 /* ---------------- فرم‌ها ---------------- */
+function _forms_ensure_schema(){
+  static $done=false; if($done)return; $done=true;
+  try{
+    $col=function($t,$c){ $r=Db::one("SELECT COUNT(*) n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?",[$t,$c]); return (int)($r['n']??0)>0; };
+    if(!$col('custom_forms','public_enabled')) Db::run("ALTER TABLE custom_forms ADD COLUMN public_enabled TINYINT(1) NOT NULL DEFAULT 0");
+    if(!$col('custom_forms','public_slug')) Db::run("ALTER TABLE custom_forms ADD COLUMN public_slug VARCHAR(40) NULL");
+    if(!$col('custom_forms','public_slug')===false){ /* noop guard */ }
+    $r=Db::one("SELECT COUNT(*) n FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='custom_forms' AND INDEX_NAME='public_slug_uq'");
+    if((int)($r['n']??0)===0){ try{ Db::run("ALTER TABLE custom_forms ADD UNIQUE KEY public_slug_uq (public_slug)"); }catch(Throwable $e){} }
+    // ثبت پاسخ عمومی (بدون ورود) باید بدون کاربر لاگین‌شده هم ممکن باشد
+    $r2=Db::one("SELECT IS_NULLABLE n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='form_submissions' AND COLUMN_NAME='user_id'");
+    if($r2 && strtoupper((string)$r2['n'])==='NO'){ try{ Db::run("ALTER TABLE form_submissions MODIFY user_id INT NULL"); }catch(Throwable $e){} }
+    if(!$col('form_submissions','is_public')) Db::run("ALTER TABLE form_submissions ADD COLUMN is_public TINYINT(1) NOT NULL DEFAULT 0");
+    if(!$col('form_submissions','submitter_name')) Db::run("ALTER TABLE form_submissions ADD COLUMN submitter_name VARCHAR(150) NULL");
+    if(!$col('form_submissions','submitter_mobile')) Db::run("ALTER TABLE form_submissions ADD COLUMN submitter_mobile VARCHAR(20) NULL");
+  }catch(Throwable $e){ error_log('forms schema: '.$e->getMessage()); }
+}
+function _forms_gen_slug(){ return bin2hex(random_bytes(12)); }
+function _app_base_url(){ $s=(!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off')?'https':'http'; $h=$_SERVER['HTTP_HOST']??'localhost'; return $s.'://'.$h; }
+function _forms_is_sheba($v){ $v=strtoupper(preg_replace('/\s+/','',(string)$v)); return (bool)preg_match('/^IR[0-9]{24}$/',$v); }
+/* اعتبارسنجی سمت سرور بر اساس نوع فیلد (اندازه/نوع فایل پیوستی، فرمت شمارهٔ شبا، اجباری‌بودن) —
+   چه فرم از اپ/پنل پر شود چه از لینک عمومی، این تابع مشترک، یکسان اجرا می‌شود. */
+function _forms_validate($schema,&$answers){
+  foreach($schema as $f){
+    $key=(string)($f['key']??''); if($key==='')continue;
+    $type=(string)($f['type']??'text');
+    $val=$answers[$key]??'';
+    if(!empty($f['required'])&&($val===''||$val===null||(is_array($val)&&!count($val)))) Http::error('فیلد «'.($f['label']??$key).'» اجباری است',400);
+    if($val==='' || $val===null) continue;
+    if($type==='sheba'){
+      $clean=strtoupper(preg_replace('/\s+/','',(string)$val));
+      if(!_forms_is_sheba($clean)) Http::error('شمارهٔ شبای «'.($f['label']??$key).'» نامعتبر است (باید IR و ۲۴ رقم باشد)',400);
+      $answers[$key]=$clean;
+    }
+    if($type==='file'&&is_string($val)&&strpos($val,'data:')===0){
+      $maxKb=(int)($f['maxSizeKB']??2048); if($maxKb<=0)$maxKb=2048;
+      $approxBytes = (int)(strlen($val)*0.73); // برآورد حجم واقعی از روی طول base64
+      if($approxBytes > $maxKb*1024) Http::error('حجم فایل «'.($f['label']??$key).'» بیش از حد مجاز ('.$maxKb.' کیلوبایت) است',400);
+      $allowed=array_filter(array_map('trim',explode(',',(string)($f['allowedTypes']??''))));
+      if($allowed){
+        if(!preg_match('/^data:([a-zA-Z0-9.\/+-]+);base64,/',$val,$mm)) Http::error('فایل «'.($f['label']??$key).'» نامعتبر است',400);
+        $mime=strtolower($mm[1]); $ok=false;
+        foreach($allowed as $a){ $a=strtolower(trim($a)); if($a==='') continue; if($a===$mime || ($a[0]==='.'&&isset($f['_ext'])) || strpos($mime,$a)!==false) { $ok=true; break; } }
+        if(!$ok) Http::error('نوع فایل «'.($f['label']??$key).'» مجاز نیست', 400);
+      }
+    }
+  }
+}
 route('GET', '/api/admin/forms', function($p,$b,$u){
+  _forms_ensure_schema();
   $all = !empty($_GET['all']);
-  $rows = Db::all("SELECT id,title,`schema`,is_active FROM custom_forms ".($all?"":"WHERE is_active=1")." ORDER BY id");
-  foreach ($rows as &$r) $r['schema'] = json_decode($r['schema'], true);
+  $rows = Db::all("SELECT id,title,`schema`,is_active,public_enabled,public_slug FROM custom_forms ".($all?"":"WHERE is_active=1")." ORDER BY id");
+  foreach ($rows as &$r) { $r['schema'] = json_decode($r['schema'], true); $r['public_url'] = $r['public_enabled']&&$r['public_slug'] ? _app_base_url().'/f/'.$r['public_slug'] : null; }
   return $rows;
 });
 route('POST', '/api/admin/forms', function($p,$b,$u){
-  $id = Db::insert("INSERT INTO custom_forms(title,`schema`) VALUES(?,?)", [$b['title'], json_encode($b['schema'] ?? [], JSON_UNESCAPED_UNICODE)]);
-  return ['id'=>$id];
+  _forms_ensure_schema();
+  $pub = !empty($b['public_enabled']) ? 1 : 0;
+  $slug = $pub ? _forms_gen_slug() : null;
+  $id = Db::insert("INSERT INTO custom_forms(title,`schema`,public_enabled,public_slug) VALUES(?,?,?,?)", [$b['title'], json_encode($b['schema'] ?? [], JSON_UNESCAPED_UNICODE), $pub, $slug]);
+  return ['id'=>$id,'public_slug'=>$slug];
 }, false, ADMIN);
 // ویرایش فرم موجود
 route('PUT', '/api/admin/forms/{id}', function($p,$b,$u){
+  _forms_ensure_schema();
   $sets=[]; $args=[];
   if (isset($b['title'])) { $sets[]="title=?"; $args[]=$b['title']; }
   if (isset($b['schema'])) { $sets[]="`schema`=?"; $args[]=json_encode($b['schema'], JSON_UNESCAPED_UNICODE); }
   if (isset($b['is_active'])) { $sets[]="is_active=?"; $args[]=!empty($b['is_active'])?1:0; }
+  if (isset($b['public_enabled'])) {
+    $pub = !empty($b['public_enabled']) ? 1 : 0; $sets[]="public_enabled=?"; $args[]=$pub;
+    if ($pub) { $cur=Db::one("SELECT public_slug FROM custom_forms WHERE id=?",[$p['id']]); if(empty($cur['public_slug'])){ $sets[]="public_slug=?"; $args[]=_forms_gen_slug(); } }
+  }
   if (!$sets) return ['ok'=>true];
   $args[]=$p['id'];
   Db::run("UPDATE custom_forms SET ".implode(',',$sets)." WHERE id=?", $args);
-  return ['ok'=>true];
+  $row=Db::one("SELECT public_enabled,public_slug FROM custom_forms WHERE id=?",[$p['id']]);
+  return ['ok'=>true,'public_slug'=>$row['public_slug']??null];
 }, false, ADMIN);
 // حذف فرم (و پاسخ‌هایش)
 route('DELETE', '/api/admin/forms/{id}', function($p,$b,$u){
@@ -6241,6 +6299,7 @@ route('GET', '/api/admin/forms/{id}/export', function($p,$b,$u){
   fclose($out); exit;
 }, false, ADMIN);
 route('POST', '/api/admin/form-submit', function($p,$b,$u){
+  _forms_ensure_schema();
   $formId=(int)($b['form_id']??0); $answers=is_array($b['answers']??null)?$b['answers']:[];
   $form=Db::one("SELECT `schema` FROM custom_forms WHERE id=?",[$formId]);
   $schema=$form ? (json_decode($form['schema']??'[]',true)?:[]) : [];
@@ -6252,12 +6311,41 @@ route('POST', '/api/admin/form-submit', function($p,$b,$u){
     if(($f['type']??'')==='national_id' || ($f['prefill']??'')==='national_id') $nationalId=_digits_only($v);
   }
   foreach($answers as $k=>$v) if(!array_key_exists($k,$normalized)) $normalized[$k]=$v;
+  _forms_validate($schema,$normalized);
   $driverId=(int)($b['driver_id']??0);
   if(!$driverId && $nationalId!=='') { $dr=Db::one("SELECT id FROM drivers WHERE "._driver_national_where_sql('drivers'),_driver_national_args($nationalId)); if($dr)$driverId=(int)$dr['id']; }
   $id = Db::insert("INSERT INTO form_submissions(form_id,user_id,driver_id,answers) VALUES(?,?,?,?)",
     [$formId, $u['id'], $driverId?:null, json_encode($normalized, JSON_UNESCAPED_UNICODE)]);
   return ['id'=>$id,'driver_id'=>$driverId?:null];
 });
+// فرم عمومی — قابل مشاهده و تکمیل بدون ورود به سامانه، فقط از طریق لینک اختصاصی هر فرم
+route('GET', '/api/public/forms/{slug}', function($p,$b,$u){
+  _forms_ensure_schema();
+  $form=Db::one("SELECT id,title,`schema`,is_active,public_enabled FROM custom_forms WHERE public_slug=? LIMIT 1",[$p['slug']]);
+  if(!$form || !(int)$form['is_active'] || !(int)$form['public_enabled']) Http::error('این فرم در دسترس نیست',404);
+  return ['id'=>(int)$form['id'],'title'=>$form['title'],'schema'=>json_decode($form['schema'],true)?:[]];
+}, true);
+route('POST', '/api/public/forms/{slug}/submit', function($p,$b,$u){
+  _forms_ensure_schema();
+  $form=Db::one("SELECT id,`schema`,is_active,public_enabled FROM custom_forms WHERE public_slug=? LIMIT 1",[$p['slug']]);
+  if(!$form || !(int)$form['is_active'] || !(int)$form['public_enabled']) Http::error('این فرم در دسترس نیست',404);
+  $schema=json_decode($form['schema']??'[]',true)?:[];
+  $answers=is_array($b['answers']??null)?$b['answers']:[];
+  $normalized=[]; $nationalId='';
+  foreach($schema as $f){
+    $key=(string)($f['key']??''); $label=(string)($f['label']??'');
+    $v=array_key_exists($key,$answers)?$answers[$key]:(array_key_exists($label,$answers)?$answers[$label]:'');
+    if($key!=='') $normalized[$key]=$v;
+    if(($f['type']??'')==='national_id' || ($f['prefill']??'')==='national_id') $nationalId=_digits_only($v);
+  }
+  _forms_validate($schema,$normalized);
+  $driverId=0;
+  if($nationalId!==''){ $dr=Db::one("SELECT id FROM drivers WHERE "._driver_national_where_sql('drivers'),_driver_national_args($nationalId)); if($dr)$driverId=(int)$dr['id']; }
+  $name=trim((string)($b['submitter_name']??'')); $mobile=_digits_only((string)($b['submitter_mobile']??''));
+  $id = Db::insert("INSERT INTO form_submissions(form_id,user_id,driver_id,answers,is_public,submitter_name,submitter_mobile) VALUES(?,NULL,?,?,1,?,?)",
+    [(int)$form['id'], $driverId?:null, json_encode($normalized, JSON_UNESCAPED_UNICODE), $name?:null, $mobile?:null]);
+  return ['id'=>$id,'ok'=>true];
+}, true);
 
 /* ---------------- گزارش‌ها ---------------- */
 // فهرست بازرس‌های بالادست کاربر فعلی (برای انتخاب گیرندهٔ گزارش)

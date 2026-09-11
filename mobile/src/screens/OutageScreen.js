@@ -67,7 +67,7 @@ export default function OutageScreen() {
   const hm = (m) => `${faNum(Math.floor((m || 0) / 60))}:${faNum(String((m || 0) % 60).padStart(2, '0'))}`;
 
   return (
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <Text style={s.label}>تاریخ قطعی (امروز — غیرقابل تغییر)</Text>
       <View style={[s.input, s.fixedDate]}><Text style={s.fixedDateTxt}>{faNum(date)}</Text></View>
 

@@ -169,7 +169,7 @@ export default function ScannerScreen({ navigation, route }) {
       <Modal visible={!!confirm} transparent animationType="slide" onRequestClose={() => setConfirm(null)}>
         <View style={s.modalShade}>
           <View style={s.modalCard}>
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView persistentScrollbar={true} keyboardShouldPersistTaps="handled">
               <Text style={s.modalTitle}>تأیید پلاک خوانده‌شده</Text>
               {confirm?.cropUri ? <Image source={{ uri: confirm.cropUri }} style={s.cropPreview} resizeMode="contain" /> : null}
               <Text style={s.modalNote}>حرف «ت» و منطقه «۱۲» ثابت است. فقط اعداد را اصلاح کنید.</Text>

@@ -9,6 +9,9 @@ RewriteRule ^app$ app-shell.php [QSA,L,NC]
 RewriteRule ^app/$ app-shell.php [QSA,L,NC]
 RewriteRule ^app\.html$ app-shell.php [QSA,L,NC]
 
+# لینک عمومی و اختصاصی فرم‌ها: /f/{slug} → صفحهٔ تکمیل فرم بدون نیاز به ورود به سامانه
+RewriteRule ^f/([a-zA-Z0-9]+)/?$ public-form.html?slug=$1 [QSA,L,NC]
+
 RewriteRule ^api/admin/role-app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
 RewriteRule ^api/my/app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
 # Mobile currently calls /my/app-items. It must use the Android-only permission

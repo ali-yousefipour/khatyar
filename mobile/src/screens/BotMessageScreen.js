@@ -87,7 +87,7 @@ export default function BotMessageScreen() {
   if (loading) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
 
   return (
-    <ScrollView style={s.wrap} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+    <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
       {/* نمایش اعتبار و سهمیهٔ کاربر */}
       {(credit || quota) && (
         <View style={s.creditBox}>
@@ -131,7 +131,7 @@ export default function BotMessageScreen() {
 
       <Text style={s.hint}>۱) ابتدا یک خط انتخاب کنید تا رانندگان آن بارگذاری شوند:</Text>
       {lines.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+        <ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
           {lines.map((l) => (
             <TouchableOpacity key={l.id} style={[s.lineChip, String(lineId) === String(l.id) && s.lineChipOn]} onPress={() => loadLine(l.id)}>
               <Text style={[s.lineChipTxt, String(lineId) === String(l.id) && s.lineChipTxtOn]}>خط {faNum(l.code)}</Text>

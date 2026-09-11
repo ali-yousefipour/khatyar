@@ -114,7 +114,7 @@ export default function NoticeScreen({ route, navigation }) {
   const showSmsBox = enabled(cfg.notice_sms_enabled) && enabled(cfg.can_send_sms);
 
   return (
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <Text style={s.label}>دلیل تذکر</Text>
       <View style={s.chips}>
         {reasons.map((r) => {

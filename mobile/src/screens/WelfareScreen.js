@@ -76,7 +76,7 @@ export default function WelfareScreen({ route }) {
   };
 
   return (
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.brand]} />}>
       <Text style={s.h}>ثبت تحویل رفاهیت به راننده</Text>
 
@@ -168,7 +168,7 @@ export default function WelfareScreen({ route }) {
         <View style={s.modalWrap}>
           <View style={s.modalCard}>
             <Text style={s.modalTitle}>انتخاب نوع رفاهیت</Text>
-            <ScrollView style={{ maxHeight: 380 }}>
+            <ScrollView persistentScrollbar={true} style={{ maxHeight: 380 }}>
               {items.length === 0 ? <Text style={s.empty}>نوع رفاهیتی تعریف نشده است.</Text> :
                 items.map((t) => (
                   <TouchableOpacity key={t.id} style={s.typeRow} onPress={() => { setItemId(t); setItemOpen(false); }}>
@@ -185,7 +185,7 @@ export default function WelfareScreen({ route }) {
         <View style={s.modalWrap}>
           <View style={s.modalCard}>
             <Text style={s.modalTitle}>انتخاب مکان ارائه</Text>
-            <ScrollView style={{ maxHeight: 380 }}>
+            <ScrollView persistentScrollbar={true} style={{ maxHeight: 380 }}>
               <TouchableOpacity style={s.typeRow} onPress={() => { setPlaceId(null); setPlaceOpen(false); }}>
                 <Text style={s.typeTxt}>بدون مکان</Text>
               </TouchableOpacity>

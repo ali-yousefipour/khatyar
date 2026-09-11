@@ -38,7 +38,7 @@ export function RequestInboxScreen() {
   if (!rows.length) return <Text style={[s.muted, { padding: 24 }]}>درخواستی در کارتابل شما نیست.</Text>;
 
   return (
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 14 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 14 }}>
       {rows.map((r) => (
         <View key={r.id} style={s.card}>
           <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}>
@@ -123,7 +123,7 @@ table{width:100%;border-collapse:collapse;font-size:12px}td{padding:6px 4px;bord
 
   if (data === undefined) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
   return (
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       {ym && <Text style={s.month}>{J[ym[1] - 1]} {ym[0]}</Text>}
       {!data ? <Text style={[s.muted, { marginTop: 20 }]}>برای این ماه شیفت یا ترددی ثبت نشده است.</Text> : (
         <View>
@@ -229,7 +229,7 @@ export function SalarySlipsScreen() {
     } catch (e) { Alert.alert('خطا', 'ذخیره فیش ممکن نشد. ' + (e.message || '')); }
   };
   if (rows === null) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
-  return <View style={{flex:1,backgroundColor:C.paper}}><ScrollView style={{ backgroundColor:C.paper }} contentContainerStyle={{ padding:16 }}>
+  return <View style={{flex:1,backgroundColor:C.paper}}><ScrollView persistentScrollbar={true} style={{ backgroundColor:C.paper }} contentContainerStyle={{ padding:16 }}>
     {err ? <View style={{backgroundColor:'#fde9e7',borderRadius:12,padding:14,marginTop:10}}>
         <Text style={{color:'#b04a42',fontFamily:s.cardT.fontFamily,textAlign:'center'}}>{err}</Text>
         <Text style={[s.muted,{textAlign:'center',marginTop:6,fontSize:12}]}>اگر مطمئن هستید فیش برایتان ثبت شده، این خطا معمولاً یعنی دسترسی «فیش حقوقی» برای سمت شما در تنظیمات فعال نیست — با مدیر سیستم هماهنگ کنید.</Text>

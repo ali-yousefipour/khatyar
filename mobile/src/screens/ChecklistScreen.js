@@ -61,7 +61,7 @@ export default function ChecklistScreen({ route, navigation }) {
   if (!tpl) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
 
   return (
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom, 16) + 28 }}
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom, 16) + 28 }}
       keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={true}>
       <Text style={s.title}>{tpl.title}</Text>
       {tpl.items.map((it) => {

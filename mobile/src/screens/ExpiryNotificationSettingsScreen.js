@@ -49,7 +49,7 @@ export default function ExpiryNotificationSettingsScreen() {
   if (!cfg) return <View style={s.center}><ActivityIndicator size={90} message="در حال دریافت تنظیمات اعلان‌ها…" /></View>;
 
   return (
-    <ScrollView style={s.page} contentContainerStyle={s.content}>
+    <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.content}>
       <Text style={s.help}>اعلان‌ها فقط برای رانندگان و خودروهای خطوطی نمایش داده می‌شوند که کاربر به آن‌ها دسترسی دارد.</Text>
       <View style={s.card}>
         <Text style={s.heading}>نوع اعلان‌های فعال</Text>

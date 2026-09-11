@@ -34,7 +34,7 @@ export default function LeaderboardScreen(){
  useEffect(()=>{load(period);},[period]);
  const refresh=async()=>{setRefreshing(true);await load(period);setRefreshing(false);};
 
- return <ScrollView style={s.page} contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
+ return <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
   <View style={s.head}><Text style={s.headTitle}>رتبه‌بندی و نشان‌ها</Text><Text style={s.headSub}>عملکرد وزن‌دار نیروهای میدانی بر اساس امتیاز</Text></View>
 
   <View style={s.tabs}>{PERIODS.map(([k,l])=>

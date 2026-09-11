@@ -1734,21 +1734,25 @@ function ConfigDefine(){
 
 function FormBuilder(){
   const DRIVER_ATTRS=[["","—"],["first_name","نام"],["last_name","نام خانوادگی"],["father_name","نام پدر"],["national_id","کد ملی"],["mobile","موبایل"],["gender","جنسیت"],["birth_date","تاریخ تولد"],["address","آدرس"],["smart_no","شماره هوشمند"],["operating_code","کد بهره‌برداری"],["op_lic_status","وضعیت پروانه بهره‌برداری"],["op_lic_issue","صدور بهره‌برداری"],["op_lic_expire","انقضای بهره‌برداری"],["taxi_lic_status","وضعیت پروانه تاکسیرانی"],["taxi_lic_issue","صدور تاکسیرانی"],["taxi_lic_expire","انقضای تاکسیرانی"],["driver_type","نوع راننده"],["plate","پلاک خودرو"],["model_name","مدل خودرو"],["model_year","سال خودرو"],["line_code","کد خط"],["insurance_expire","انقضای بیمه"],["tech_inspection_expire","انقضای معاینه فنی"]];
-  const TYPES=[["text","متن"],["number","عدد"],["textarea","متن بلند"],["select","لیست کشویی"],["combobox","کمبوباکس"],["checkbox","بله/خیر"],["signature","امضا"],["national_id","کد ملی (فراخوان راننده)"]];
+  const TYPES=[["text","متن"],["number","عدد"],["textarea","متن بلند"],["select","لیست کشویی"],["combobox","کمبوباکس"],["checkbox","بله/خیر"],["signature","امضا"],["national_id","کد ملی (فراخوان راننده)"],["date","تاریخ (تقویم شمسی)"],["file","پیوست فایل"],["sheba","شمارهٔ شبا"]];
   const [fields,setFields]=useState([{key:"nid",label:"کد ملی راننده",type:"national_id",options:[],required:true,prefill:"",showIfKey:"",showIfVal:""}]);
   const [title,setTitle]=useState("فرم بازدید میدانی");
   const [editId,setEditId]=useState(null);
+  const [isPublic,setIsPublic]=useState(false);
+  const [publicSlug,setPublicSlug]=useState(null);
   const [list,setList]=useState([]); const [subsFor,setSubsFor]=useState(null);
   const loadList=()=>db.formsAll().then(r=>setList(r||[])).catch(()=>{});
   useEffect(()=>{loadList();},[]);
-  const add=()=>setFields([...fields,{key:"f"+Date.now(),label:"فیلد جدید",type:"text",options:[],required:false,prefill:"",showIfKey:"",showIfVal:""}]);
+  const add=()=>setFields([...fields,{key:"f"+Date.now(),label:"فیلد جدید",type:"text",options:[],required:false,prefill:"",showIfKey:"",showIfVal:"",allowedTypes:"",maxSizeKB:2048}]);
   const upd=(i,k,val)=>setFields(fields.map((f,j)=>j===i?{...f,[k]:val}:f));
-  const resetForm=()=>{ setEditId(null); setTitle("فرم جدید"); setFields([{key:"nid",label:"کد ملی راننده",type:"national_id",options:[],required:true,prefill:"",showIfKey:"",showIfVal:""}]); };
-  const editForm=(f)=>{ setEditId(f.id); setTitle(f.title); setFields(Array.isArray(f.schema)&&f.schema.length?f.schema:[]); window.scrollTo(0,0); };
+  const resetForm=()=>{ setEditId(null); setTitle("فرم جدید"); setIsPublic(false); setPublicSlug(null); setFields([{key:"nid",label:"کد ملی راننده",type:"national_id",options:[],required:true,prefill:"",showIfKey:"",showIfVal:""}]); };
+  const editForm=(f)=>{ setEditId(f.id); setTitle(f.title); setIsPublic(!!f.public_enabled); setPublicSlug(f.public_slug||null); setFields(Array.isArray(f.schema)&&f.schema.length?f.schema:[]); window.scrollTo(0,0); };
   const delForm=async(f)=>{ if(!confirm("حذف فرم «"+f.title+"» و همهٔ پاسخ‌های آن؟"))return; try{ await db.delForm(f.id); loadList(); if(editId===f.id)resetForm(); }catch(e){alert(e.message);} };
   const exportForm=async(f)=>{ try{ const res=await fetch(db.formExportUrl(f.id),{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="فرم_"+f.title+".csv"; a.click(); }catch(e){alert(e.message);} };
   const viewSubs=async(f)=>{ try{ const d=await db.formSubs(f.id); setSubsFor(d); }catch(e){alert(e.message);} };
-  const save=async()=>{ try{ if(editId){ await db.updForm(editId,{title,schema:fields}); alert("فرم ویرایش شد."); } else { await SEND('POST','/admin/forms',{title,schema:fields}); alert("فرم ذخیره شد."); } loadList(); }catch(e){ alert(e.message); } };
+  const publicUrl=(slug)=>slug?(location.origin+"/f/"+slug):"";
+  const copyLink=(slug)=>{ navigator.clipboard?.writeText(publicUrl(slug)); alert("لینک فرم کپی شد:\n"+publicUrl(slug)); };
+  const save=async()=>{ try{ if(editId){ const r=await db.updForm(editId,{title,schema:fields,public_enabled:isPublic}); if(r?.public_slug)setPublicSlug(r.public_slug); alert("فرم ویرایش شد."); } else { const r=await SEND('POST','/admin/forms',{title,schema:fields,public_enabled:isPublic}); if(r?.public_slug)setPublicSlug(r.public_slug); alert("فرم ذخیره شد."); } loadList(); }catch(e){ alert(e.message); } };
   return(<div className="panel"><h3>فرم‌ساز حرفه‌ای {editId?<span style={{fontSize:13,color:"var(--brand)"}}>(ویرایش فرم #{fa(editId)})</span>:""} <button className="btn p" onClick={add}>+ افزودن فیلد</button> {editId&&<button className="btn g" onClick={resetForm}>فرم جدید</button>}</h3>
     <label className="label">عنوان فرم</label><input className="input" value={title} onChange={e=>setTitle(e.target.value)} style={{marginBottom:14}}/>
     {fields.map((f,i)=><div key={i} className="card-p" style={{display:"block"}}>
@@ -1759,6 +1763,12 @@ function FormBuilder(){
         <button className="btn g" onClick={()=>setFields(fields.filter((_,j)=>j!==i))}>حذف</button>
       </div>
       {(f.type==="select"||f.type==="combobox")&&<input className="input" style={{marginTop:6,fontSize:12}} placeholder="گزینه‌ها با کاما: تایید، رد" value={(f.options||[]).join("، ")} onChange={e=>upd(i,"options",e.target.value.split(/[،,]/).map(s=>s.trim()).filter(Boolean))}/>}
+      {f.type==="file"&&<div className="row" style={{gap:8,marginTop:6,flexWrap:"wrap"}}>
+        <span style={{fontSize:12,color:"var(--muted)"}}>نوع‌های مجاز (مثال: image/jpeg,image/png,application/pdf):</span>
+        <input className="input" style={{maxWidth:280,fontSize:12}} placeholder="خالی = هر نوعی مجاز" value={f.allowedTypes||""} onChange={e=>upd(i,"allowedTypes",e.target.value)}/>
+        <span style={{fontSize:12,color:"var(--muted)"}}>حداکثر حجم (کیلوبایت):</span>
+        <input className="input" type="number" style={{maxWidth:100,fontSize:12}} value={f.maxSizeKB??2048} onChange={e=>upd(i,"maxSizeKB",Number(e.target.value)||2048)}/>
+      </div>}
       {f.type!=="national_id"&&f.type!=="signature"&&<div className="row" style={{gap:8,marginTop:6,flexWrap:"wrap"}}>
         <span style={{fontSize:12,color:"var(--muted)"}}>فراخوان خودکار از اطلاعات راننده:</span>
         <select className="input" style={{maxWidth:200,fontSize:12}} value={f.prefill||""} onChange={e=>upd(i,"prefill",e.target.value)}>{DRIVER_ATTRS.map(([v,tt])=><option key={v} value={v}>{tt}</option>)}</select></div>}
@@ -1770,14 +1780,27 @@ function FormBuilder(){
       </div>
     </div>)}
     <button className="btn p" style={{marginTop:10}} onClick={save}>{editId?"ذخیرهٔ ویرایش":"ذخیره فرم"}</button>
+    <div className="card-p" style={{marginTop:14}}>
+      <label className="row" style={{gap:8,alignItems:"center",cursor:"pointer"}}>
+        <input type="checkbox" checked={isPublic} onChange={e=>setIsPublic(e.target.checked)}/>
+        <b>این فرم عمومی و قابل اشتراک‌گذاری باشد</b>
+      </label>
+      <p style={{fontSize:12,color:"var(--muted)",marginTop:6}}>با فعال‌بودن این گزینه، هر فردی (حتی بدون ورود به سامانه) با باز کردن لینک اختصاصی زیر می‌تواند این فرم را مشاهده و تکمیل کند.</p>
+      {isPublic&&publicSlug&&<div className="row" style={{gap:8,marginTop:8,alignItems:"center",flexWrap:"wrap"}}>
+        <input className="input" readOnly value={publicUrl(publicSlug)} style={{flex:1,minWidth:220,fontSize:12}} onClick={e=>e.target.select()}/>
+        <button className="btn g" type="button" onClick={()=>copyLink(publicSlug)}>کپی لینک</button>
+      </div>}
+      {isPublic&&!publicSlug&&<p style={{fontSize:12,color:"var(--brand)",marginTop:6}}>لینک پس از ذخیرهٔ فرم ساخته می‌شود.</p>}
+    </div>
     <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>فیلد «کد ملی» در اپ یک دکمهٔ «فراخوان» می‌سازد که با کد ملی، فیلدهای دارای «فراخوان خودکار» را از اطلاعات راننده پر می‌کند.</p>
     <div style={{marginTop:20,paddingTop:16,borderTop:"2px solid var(--line)"}}>
       <h3 style={{marginTop:0}}>فرم‌های ساخته‌شده</h3>
       {list.length===0?<p className="muted">فرمی ساخته نشده است.</p>:
-      <div style={{overflowX:"auto"}}><table style={{fontSize:12.5,minWidth:560}}><thead><tr><th>عنوان</th><th>فیلدها</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>
+      <div style={{overflowX:"auto"}}><table style={{fontSize:12.5,minWidth:560}}><thead><tr><th>عنوان</th><th>فیلدها</th><th>وضعیت</th><th>عمومی</th><th>عملیات</th></tr></thead><tbody>
         {list.map(f=><tr key={f.id}>
           <td><b>{f.title}</b></td><td>{fa((f.schema||[]).length)}</td>
           <td>{f.is_active?<span className="badge b-ok">فعال</span>:<span className="badge b-no">غیرفعال</span>}</td>
+          <td>{f.public_enabled&&f.public_slug?<button className="btn g" onClick={()=>copyLink(f.public_slug)}>کپی لینک</button>:<span className="muted">—</span>}</td>
           <td style={{whiteSpace:"nowrap"}}>
             <button className="btn g" onClick={()=>editForm(f)}>ویرایش</button>{" "}
             <button className="btn g" onClick={()=>viewSubs(f)}>پاسخ‌ها</button>{" "}
@@ -7847,7 +7870,7 @@ function App(){
   const SECTIONS=[
     ["داشبورد و پایش",["dashboard","reportscenter","health","map","present","presentchart"]],
     ["عملیات میدانی",["missiondashboard","citydashboard","missiontemplates","scoreengine","officials","presence","attendance","companyrequests","outages","covertselfies"]],
-    ["تاکسی و تاکسیران",["drivers","driverservicereport","tempdrivers","lines","zones","bills"]],
+    ["تاکسی و تاکسیران",["drivers","driverservicereport","tempdrivers","platetraining","lines","zones","bills"]],
     ["گزارش‌ها",["reports","report","perfreport","attreport","useract"]],
     ["منابع انسانی",["shifts","workpolicy","requests","salaryslips","commitments","welfare","cultural","vehicleassets","vehiclechecklist"]],
     ["ارتباطات",["messages","sms","smslog","messengercenter","radiocenter"]],
@@ -7855,15 +7878,15 @@ function App(){
   ];
   const CORE=["dashboard","driverservicereport"];
   const MENU_ICONS={
-    dashboard:'dashboard-home', reportscenter:'reports-folder', health:'system-health', map:'city-map', present:'present-group', presentchart:'presence-chart',
-    missiondashboard:'performance-gauge', citydashboard:'city-map', missiontemplates:'forms-pen', scoreengine:'reports-folder',
+    dashboard:'dashboard-home', reportscenter:'reports-folder', health:'system-health', map:'map-marker', present:'present-group', presentchart:'presence-chart',
+    missiondashboard:'performance-gauge', citydashboard:'city-map', missiontemplates:'dashboard-layout', scoreengine:'live-chart',
     officials:'official-badge', presence:'self-checkin', attendance:'attendance-register', companyrequests:'company-envelope', outages:'service-outage', covertselfies:'covert-camera',
-    drivers:'driver-id', driverservicereport:'driver-service-chart', tempdrivers:'temporary-driver-clock', lines:'route-line', zones:'zone-grid', bills:'billing-receipt',
-    reports:'reports-folder', report:'report-send', perfreport:'performance-gauge', attreport:'attendance-calendar', useract:'user-activity',
+    drivers:'driver-id', driverservicereport:'driver-service-chart', tempdrivers:'temporary-driver-clock', lines:'route-line', zones:'zone-grid', bills:'billing-receipt', platetraining:'search-taxi',
+    reports:'report-card', report:'report-send', perfreport:'checked-user-male', attreport:'attendance-calendar', useract:'user-activity',
     shifts:'shift-cycle', workpolicy:'work-policy', requests:'request-form', salaryslips:'salary-slip', commitments:'commitment-sign', welfare:'welfare-gift', cultural:'cultural-book',
     messages:'messages-mail', sms:'sms-phone', smslog:'sms-history', messengercenter:'messenger-bot', radiocenter:'radio-tower', users:'users-admin', org:'organization-tree', forms:'forms-pen',
-    config:'system-config', customfields:'custom-fields', inventory:'request-box', excel:'excel-upload', appitems:'app-menu', cronstatus:'system-health', activesessions:'security-lock', logs:'audit-logs', settings:'settings-gears',
-    vehicleassets:'driver-id', vehiclechecklist:'checklist'
+    config:'system-config', customfields:'custom-fields', inventory:'request-box', excel:'excel-upload', appitems:'app-menu', cronstatus:'activity-wave', activesessions:'security-lock', logs:'audit-logs', settings:'settings-gears',
+    vehicleassets:'operation-tools', vehiclechecklist:'checklist'
   };
   const can=(k)=>!allowed||allowed.includes(k)||CORE.includes(k);
   const closeOnPick=(k)=>{ setV(k); setDrawer(false); };
@@ -7891,7 +7914,7 @@ function App(){
       <View/></main></div>);
 }
 
-const PANEL_BUILD_VERSION = "1.4.0";
+const PANEL_BUILD_VERSION = "1.4.4";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
@@ -7917,6 +7940,6 @@ async function khForceFreshReloadAfterLogin(){
   const root = document.getElementById("root");
   if(!ok){ root.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px;font-family:Vazirmatn"><div><h2 style="color:#e23b54">اتصال به سرور برقرار نشد</h2><p style="color:#6b7890;max-width:420px;line-height:2">این پنل باید از آدرس سرور باز شود (مثل https://app.yousefipour.ir/). لطفاً آدرس <b>/api/health</b> را بررسی کنید و مطمئن شوید نصب کامل شده است.</p></div></div>'; return; }
   await khEnsureFreshBuild();
-  console.log("PANEL BUILD: 1.4.0 (radio-center-vehicle-assign-sidebar-fix)");
+  console.log("PANEL BUILD: 1.4.4 (custom-drawer-radio-fixes-volume-ptt)");
   ReactDOM.createRoot(root).render(<App/>);
 })();

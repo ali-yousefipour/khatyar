@@ -109,7 +109,7 @@ export default function InventoryScreen() {
         ))}
       </View>
 
-      <ScrollView style={s.body} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+      <ScrollView persistentScrollbar={true} style={s.body} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         {tab === 'balance' && (
           <View>
             {balance.length === 0 ? <Text style={s.empty}>هنوز قلمی به شما تعلق نگرفته است.</Text> :

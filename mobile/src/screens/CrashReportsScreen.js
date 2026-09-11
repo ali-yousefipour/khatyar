@@ -11,7 +11,7 @@ export default function CrashReportsScreen() {
   React.useEffect(() => { load(); }, [load]);
   const act = async (fn, ok) => { try { setBusy(true); await fn(); if (ok) Alert.alert('انجام شد', ok); await load(); } catch (e) { Alert.alert('خطا', e?.message || 'عملیات انجام نشد'); } finally { setBusy(false); } };
   return <View style={s.root}>
-    <ScrollView contentContainerStyle={s.pad}>
+    <ScrollView persistentScrollbar={true} contentContainerStyle={s.pad}>
       <Text style={s.note}>گزارش‌های خطای JavaScript و خطاهای رابط کاربری روی دستگاه ذخیره می‌شوند. برای کرش‌های کاملاً Native ممکن است Logcat همچنان لازم باشد.</Text>
       {!items.length && <Text style={s.empty}>گزارش خطایی ثبت نشده است.</Text>}
       {items.map(x => <TouchableOpacity key={x.id} style={[s.card, selected?.id===x.id&&s.active]} onPress={()=>setSelected(x)}>

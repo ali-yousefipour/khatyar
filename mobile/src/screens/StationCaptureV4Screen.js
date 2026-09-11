@@ -130,7 +130,7 @@ export default function StationCaptureV4Screen({route,navigation}){
   const stepTitle=['موقعیت ایستگاه','انتخاب خط','تابلوهای ایستگاه','تصویر محل ایستگاه','آدرس محل','تأیید نهایی'][step];
   if(busy)return <View style={s.center}><ActivityIndicator size="large" color={C.brand}/><Text style={s.muted}>در حال آماده‌سازی ثبت ایستگاه…</Text></View>;
 
-  return <ScrollView style={s.page} contentContainerStyle={s.content}>
+  return <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.content}>
     <View style={s.progress}>
       <Text style={s.stepNo}>مرحله {fa(step+1)} از {fa(6)}</Text>
       <Text style={s.title}>{stepTitle}</Text>

@@ -189,7 +189,7 @@ export function VehicleScreen({ route, navigation }) {
     });
   }
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ flex: 1, backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <View style={s.card}>
         <Text style={s.title}>خودرو {vehicle.plate}</Text>
         <Text style={s.meta}>{vehicle.model_name || ''}{vehicle.line_code ? ` — خط ${vehicle.line_code}` : ''}</Text>

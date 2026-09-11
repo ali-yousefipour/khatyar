@@ -23,7 +23,7 @@ export default class ErrorBoundary extends React.Component {
     if (!this.state.hasError) return this.props.children;
     return (
       <View style={s.wrap}>
-        <ScrollView contentContainerStyle={s.center}>
+        <ScrollView persistentScrollbar={true} contentContainerStyle={s.center}>
           <Text style={s.emoji}>⚠️</Text>
           <Text style={s.title}>مشکلی پیش آمد</Text>
           <Text style={s.msg}>صفحه با خطا مواجه شد. لطفاً دوباره تلاش کنید.</Text>

@@ -337,7 +337,7 @@ function CheckInCore() {
   const mapHtml = buildMapHtml(line, pos, appCfg, mapRuntime);
 
   return (
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
       {loadError && cfg && <View style={{ backgroundColor: '#fff4d7', borderRadius: 10, padding: 10, marginBottom: 10, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={{ color: '#8a6100', fontFamily: FONT.regular, fontSize: 12, flex: 1 }}>آخرین تازه‌سازی وضعیت ناموفق بود؛ اطلاعات نمایش‌داده‌شده ممکن است قدیمی باشد.</Text>
         <TouchableOpacity onPress={() => load()} style={{ marginRight: 8 }}><Text style={{ color: C.brand, fontFamily: FONT.bold, fontSize: 12 }}>تلاش مجدد</Text></TouchableOpacity>
@@ -464,7 +464,7 @@ function CheckInShiftTab(){
   const [data,setData]=useState(null); const [busy,setBusy]=useState(true);const [err,setErr]=useState('');
   useEffect(()=>{request('/my/shift-schedule',{noStore:true}).then(setData).catch(e=>setErr(e.message||'دریافت برنامه شیفت ناموفق بود.')).finally(()=>setBusy(false))},[]);
   if(busy)return <View style={s.center}><ActivityIndicator size={80} message="در حال دریافت شیفت کاری…"/></View>;
-  return <ScrollView contentContainerStyle={{padding:14}}>{err?<Text style={s.warnText}>{err}</Text>:null}<View style={s.shiftHero}><Text style={s.shiftHeroTitle}>{data?.shift?.title||'شیفت کاری'}</Text><Text style={s.shiftHeroSub}>برنامهٔ ۱۴ روز آینده</Text></View>{(data?.days||[]).map(d=><View key={d.date} style={s.shiftCard}><View style={s.shiftAccent}/><View style={{flex:1}}><Text style={s.shiftDate}>{d.weekday} <Text style={s.shiftDateLight}>({d.date})</Text></Text><Text style={s.shiftMeta}>{d.is_off?'روز استراحت/بدون موظفی':d.is_holiday?`تعطیل: ${d.holiday_title||''}`:'شیفت کاری'}</Text></View><Text style={s.shiftMinutes}>{d.is_off?'—':`${faNum(d.minutes)} دقیقه`}</Text></View>)}</ScrollView>;
+  return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14}}>{err?<Text style={s.warnText}>{err}</Text>:null}<View style={s.shiftHero}><Text style={s.shiftHeroTitle}>{data?.shift?.title||'شیفت کاری'}</Text><Text style={s.shiftHeroSub}>برنامهٔ ۱۴ روز آینده</Text></View>{(data?.days||[]).map(d=><View key={d.date} style={s.shiftCard}><View style={s.shiftAccent}/><View style={{flex:1}}><Text style={s.shiftDate}>{d.weekday} <Text style={s.shiftDateLight}>({d.date})</Text></Text><Text style={s.shiftMeta}>{d.is_off?'روز استراحت/بدون موظفی':d.is_holiday?`تعطیل: ${d.holiday_title||''}`:'شیفت کاری'}</Text></View><Text style={s.shiftMinutes}>{d.is_off?'—':`${faNum(d.minutes)} دقیقه`}</Text></View>)}</ScrollView>;
 }
 export default function CheckInScreen(){
   const [tab,setTab]=useState('checkin');

@@ -73,7 +73,7 @@ export default function CulturalScreen({ route }) {
   };
 
   return (
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.brand]} />}>
       <Text style={s.h}>ثبت فعالیت فرهنگی راننده</Text>
 
@@ -165,7 +165,7 @@ export default function CulturalScreen({ route }) {
         <View style={s.modalWrap}>
           <View style={s.modalCard}>
             <Text style={s.modalTitle}>انتخاب نوع فعالیت فرهنگی</Text>
-            <ScrollView style={{ maxHeight: 380 }}>
+            <ScrollView persistentScrollbar={true} style={{ maxHeight: 380 }}>
               {types.length === 0 ? <Text style={s.empty}>نوع فعالیتی تعریف نشده است.</Text> :
                 types.map((t) => (
                   <TouchableOpacity key={t.id} style={s.typeRow} onPress={() => { setTypeId(t); setTypeOpen(false); }}>
@@ -182,7 +182,7 @@ export default function CulturalScreen({ route }) {
         <View style={s.modalWrap}>
           <View style={s.modalCard}>
             <Text style={s.modalTitle}>انتخاب مکان خدمات</Text>
-            <ScrollView style={{ maxHeight: 380 }}>
+            <ScrollView persistentScrollbar={true} style={{ maxHeight: 380 }}>
               <TouchableOpacity style={s.typeRow} onPress={() => { setPlaceId(null); setPlaceOpen(false); }}>
                 <Text style={s.typeTxt}>بدون مکان</Text>
               </TouchableOpacity>

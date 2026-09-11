@@ -1,8 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { request, postOrQueue } from '../api';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import SignaturePad from '../components/SignaturePad';
+import JDatePicker, { jLabel } from '../components/JDatePicker';
+
+function fileExtOk(name, allowedTypes) {
+  if (!allowedTypes) return true;
+  const list = allowedTypes.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+  if (!list.length) return true;
+  const lower = String(name || '').toLowerCase();
+  return list.some((a) => (a.startsWith('.') ? lower.endsWith(a) : true)); // نوع MIME دقیق در سرور هم دوباره بررسی می‌شود
+}
 
 export default function FormsScreen({ route }) {
   const driverParam = route.params?.driver;
@@ -11,6 +23,8 @@ export default function FormsScreen({ route }) {
   const [answers, setAnswers] = useState({}); // keyed by field.key
   const [driver, setDriver] = useState(driverParam || null);
   const [busy, setBusy] = useState(false);
+  const [dateField, setDateField] = useState(null); // کلید فیلدی که در حال انتخاب تاریخ برای آن هستیم
+  const [filePicking, setFilePicking] = useState(null);
 
   useEffect(() => { request('/admin/forms').then(setForms).catch(() => setForms([])); }, []);
 
@@ -39,6 +53,25 @@ export default function FormsScreen({ route }) {
     } catch (e) { Alert.alert('خطا', e.message); }
   }
 
+  async function pickFile(field) {
+    setFilePicking(field.key);
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ type: field.allowedTypes || '*/*', copyToCacheDirectory: true });
+      if (res.canceled || !res.assets?.[0]) return;
+      const asset = res.assets[0];
+      const maxKb = Number(field.maxSizeKB || 2048);
+      if (asset.size && asset.size > maxKb * 1024) { Alert.alert('حجم فایل زیاد است', `حداکثر حجم مجاز ${maxKb} کیلوبایت است.`); return; }
+      if (!fileExtOk(asset.name, field.allowedTypes)) { Alert.alert('نوع فایل مجاز نیست', 'نوع فایل انتخاب‌شده برای این فیلد مجاز نیست.'); return; }
+      const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const approxKb = Math.round((base64.length * 0.73) / 1024);
+      if (approxKb > maxKb) { Alert.alert('حجم فایل زیاد است', `حداکثر حجم مجاز ${maxKb} کیلوبایت است.`); return; }
+      const mime = asset.mimeType || 'application/octet-stream';
+      setA(field.key, `data:${mime};base64,${base64}`);
+      setA(field.key + '__name', asset.name || 'فایل');
+    } catch (e) { Alert.alert('خطا', 'انتخاب فایل ناموفق بود.'); }
+    finally { setFilePicking(null); }
+  }
+
   function visible(field) {
     if (!field.showIfKey) return true;
     return String(answers[field.showIfKey] ?? '') === String(field.showIfVal ?? '');
@@ -50,6 +83,7 @@ export default function FormsScreen({ route }) {
       if (!visible(f)) continue;
       const v = answers[f.key] ?? '';
       if (f.required && !v) return Alert.alert('توجه', `فیلد «${f.label}» الزامی است.`);
+      if (f.type === 'sheba' && v && !/^IR[0-9]{24}$/.test(v)) return Alert.alert('توجه', `شمارهٔ شبای «${f.label}» نامعتبر است (باید IR و ۲۴ رقم باشد).`);
       out[f.key] = v;
     }
     setBusy(true);
@@ -64,7 +98,7 @@ export default function FormsScreen({ route }) {
   if (!forms) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
 
   if (!active) return (
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <Text style={s.h}>فرم‌های قابل تکمیل</Text>
       {forms.length === 0 && <Text style={s.empty}>فرمی تعریف نشده است.</Text>}
       {forms.map((f) => (
@@ -77,7 +111,7 @@ export default function FormsScreen({ route }) {
   );
 
   return (
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <Text style={s.h}>{active.title}</Text>
       {(active.schema || []).filter(visible).map((field) => (
         <View key={field.key} style={{ marginBottom: 12 }}>
@@ -113,8 +147,22 @@ export default function FormsScreen({ route }) {
             <TextInput style={[s.input, { minHeight: 90, textAlignVertical: 'top' }]} multiline
               value={answers[field.key] || ''} onChangeText={(v) => setA(field.key, v)} />
           ) : field.type === 'signature' ? (
-            <TextInput style={s.input} placeholder="نام و نام خانوادگی (به‌جای امضا)" placeholderTextColor={C.muted}
-              value={answers[field.key] || ''} onChangeText={(v) => setA(field.key, v)} />
+            <SignaturePad value={answers[field.key]} onChange={(v) => setA(field.key, v)} />
+          ) : field.type === 'date' ? (
+            <TouchableOpacity style={s.input} onPress={() => setDateField(field.key)}>
+              <Text style={{ fontFamily: FONT.regular, color: answers[field.key] ? C.ink : C.muted, textAlign: 'right' }}>
+                {answers[field.key] || 'برای انتخاب تاریخ ضربه بزنید'}
+              </Text>
+            </TouchableOpacity>
+          ) : field.type === 'file' ? (
+            <TouchableOpacity style={[s.input, answers[field.key] && { borderColor: C.brand }]} onPress={() => pickFile(field)} disabled={filePicking === field.key}>
+              <Text style={{ fontFamily: FONT.regular, color: answers[field.key] ? C.brand : C.muted, textAlign: 'right' }}>
+                {filePicking === field.key ? 'در حال انتخاب…' : (answers[field.key + '__name'] || (answers[field.key] ? 'فایل انتخاب شد ✓' : 'برای انتخاب فایل ضربه بزنید'))}
+              </Text>
+            </TouchableOpacity>
+          ) : field.type === 'sheba' ? (
+            <TextInput style={[s.input, { textAlign: 'left', writingDirection: 'ltr' }]} autoCapitalize="characters" placeholder="IR + ۲۴ رقم" placeholderTextColor={C.muted}
+              value={answers[field.key] || ''} onChangeText={(v) => setA(field.key, v.toUpperCase())} />
           ) : (
             <TextInput style={s.input} keyboardType={field.type === 'number' ? 'number-pad' : 'default'}
               value={answers[field.key] || ''} onChangeText={(v) => setA(field.key, v)} />
@@ -127,6 +175,8 @@ export default function FormsScreen({ route }) {
       <TouchableOpacity onPress={() => setActive(null)} style={{ marginTop: 12, alignItems: 'center' }}>
         <Text style={{ color: C.muted, fontFamily: FONT.regular }}>بازگشت به فهرست فرم‌ها</Text>
       </TouchableOpacity>
+      <JDatePicker visible={!!dateField} onClose={() => setDateField(null)}
+        onSelect={(v) => { if (dateField) setA(dateField, jLabel(v.jy, v.jm, v.jd)); setDateField(null); }} />
     </ScrollView>
   );
 }

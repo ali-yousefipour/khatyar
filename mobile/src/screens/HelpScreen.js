@@ -92,7 +92,7 @@ const SECTIONS = [
 export default function HelpScreen({ navigation }) {
   const [checking, setChecking] = useState(false);
   return (
-    <ScrollView style={s.wrap} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+    <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <View style={s.hero}>
         <Text style={s.brand}>خطیار</Text>
         <Text style={s.title}>راهنمای کامل استفاده از نرم‌افزار</Text>

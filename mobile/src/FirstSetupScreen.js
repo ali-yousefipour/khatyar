@@ -51,7 +51,7 @@ export default function FirstSetupScreen({ onDone }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={s.wrap}>
+    <ScrollView persistentScrollbar={true} contentContainerStyle={s.wrap}>
       <Text style={s.icon}>🪪</Text>
       <Text style={s.title}>تکمیل اطلاعات و عکس پرسنلی</Text>
       <Text style={s.body}>در نخستین ورود، اطلاعات فردی خود را تکمیل، رمز عبور را تغییر دهید و یک عکس پرسنلی با دوربین بگیرید.</Text>

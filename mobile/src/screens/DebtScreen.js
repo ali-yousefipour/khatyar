@@ -54,7 +54,7 @@ export default function DebtScreen({ route, navigation }) {
   const showSms = cfg.bill_sms_enabled && cfg.can_send_sms;
 
   return (
-    <ScrollView style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       {data.unpaid_count > 0 && (
         <View style={s.red}>
           <Text style={s.redTxt}>{faNum(data.unpaid_count)} فیش پرداخت‌نشده · مجموع {faNum(faNum(Number(data.total_unpaid).toLocaleString()))} ریال</Text>

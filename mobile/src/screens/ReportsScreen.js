@@ -180,7 +180,7 @@ export default function ReportsScreen({ navigation }) {
         <TouchableOpacity style={[s.tab, tab === 'sent' && s.tabOn]} onPress={() => setTab('sent')}><Text style={[s.tabTxt, tab === 'sent' && s.tabTxtOn]}>گزارشات ارسال‌شده</Text></TouchableOpacity>
       </View>
       {tab === 'send' ? (
-        <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <ScrollView persistentScrollbar={true} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
           <Text style={s.label}>موضوع گزارش</Text>
           <View style={s.mgrWrap}>{reportSubjects.map((x)=><TouchableOpacity key={x.id} style={[s.mgrChip,subjectMode===String(x.id)&&s.mgrChipOn]} onPress={()=>{setSubjectMode(String(x.id));setSubject(x.title||'')}}><Text style={[s.mgrChipTxt,subjectMode===String(x.id)&&s.white]}>{x.title}</Text></TouchableOpacity>)}<TouchableOpacity style={[s.mgrChip,subjectMode==='other'&&s.mgrChipOn]} onPress={()=>{setSubjectMode('other');setSubject('')}}><Text style={[s.mgrChipTxt,subjectMode==='other'&&s.white]}>سایر</Text></TouchableOpacity></View>
           {subjectMode==='other'?<TextInput style={s.input} value={subject} onChangeText={setSubject} placeholder="موضوع دلخواه را وارد کنید…" placeholderTextColor={C.muted}/>:null}
@@ -198,7 +198,7 @@ export default function ReportsScreen({ navigation }) {
           <TouchableOpacity style={[s.btn, sending && { opacity: 0.6 }]} onPress={send} disabled={sending}><Text style={s.btnTxt}>{sending ? 'در حال ارسال…' : 'ارسال گزارش'}</Text></TouchableOpacity>
         </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <ScrollView persistentScrollbar={true} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
           <TextInput style={s.input} value={sentQuery} onChangeText={setSentQuery} placeholder="جستجو بر اساس موضوع یا بخشی از متن گزارش…" placeholderTextColor={C.muted} />
           <View style={s.sortBar}><TouchableOpacity style={[s.sortBtn, sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(true)}><Text style={[s.sortTxt, sortNewest && s.white]}>جدیدترین</Text></TouchableOpacity><TouchableOpacity style={[s.sortBtn, !sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(false)}><Text style={[s.sortTxt, !sortNewest && s.white]}>قدیمی‌ترین</Text></TouchableOpacity><TouchableOpacity style={[s.pdfBtn, pdfBusy && { opacity: .6 }]} disabled={pdfBusy} onPress={exportPdf}><Text style={s.pdfTxt}>{pdfBusy ? 'در حال ساخت PDF…' : 'خروجی PDF'}</Text></TouchableOpacity></View>
           {sortedMine.length === 0 && <Text style={s.empty}>گزارشی مطابق جستجو یافت نشد.</Text>}
