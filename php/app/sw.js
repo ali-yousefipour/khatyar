@@ -1,6 +1,6 @@
 // خطیار PWA service worker — cache is versioned and HTML/JS/CSS/JSON are network-first.
-const CACHE = 'khatyar-web-20260905.12';
-const SHELL = ['/app?sw=20260905.12', '/manifest.json', '/icon-192.png', '/icon-512.png'];
+const CACHE = 'khatyar-web-20260912.1';
+const SHELL = ['/app?sw=20260912.1', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 const IMMUTABLE_EXT = /\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|eot|mp3|wav|ogg|mp4|webm)$/i;
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -16,14 +16,17 @@ self.addEventListener('fetch', event => {
   const isCode = /\.(?:js|mjs|css|json)$/i.test(url.pathname);
   if (isDocument || isCode) {
     event.respondWith(fetch(event.request, {cache:'no-store'}).then(response => {
-      if (response.ok && isDocument) caches.open(CACHE).then(c => c.put(event.request, response.clone()));
+      // خطیار: قبلاً response.clone() داخل یک callback غیرهمزمان (بعد از resolve شدن caches.open) صدا زده می‌شد.
+      // clone() باید همان لحظه و همزمان، پیش از هر مصرفی از بدنهٔ پاسخ، انجام شود؛ وگرنه با خطای
+      // «Response body is already used» مواجه می‌شد چون تا آن لحظه بدنهٔ پاسخ اصلی مصرف شده بود.
+      if (response.ok && isDocument) { const copy = response.clone(); caches.open(CACHE).then(c => c.put(event.request, copy)); }
       return response;
-    }).catch(() => caches.match(event.request).then(r => r || caches.match('/app?sw=20260905.12'))));
+    }).catch(() => caches.match(event.request).then(r => r || caches.match('/app?sw=20260912.1'))));
     return;
   }
   if (IMMUTABLE_EXT.test(url.pathname)) {
     event.respondWith(caches.match(event.request).then(r => r || fetch(event.request).then(response => {
-      if (response.ok) caches.open(CACHE).then(c => c.put(event.request, response.clone()));
+      if (response.ok) { const copy = response.clone(); caches.open(CACHE).then(c => c.put(event.request, copy)); }
       return response;
     })));
   }

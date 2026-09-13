@@ -1,7 +1,8 @@
 <?php
 /* خطیار — پرونده خودرو/موتورسیکلت پرسنل + صحت‌سنجی و تاریخچه چک‌لیست */
 declare(strict_types=1);
-ini_set('display_errors','0');
+error_reporting(E_ALL);
+ini_set('display_errors','1'); // خطیار: موقتاً برای عیب‌یابی فعال شد؛ بعد از پیداکردن علت واقعی باید به '0' برگردد.
 date_default_timezone_set('Asia/Tehran');
 $ROOT=__DIR__.'/../../';
 require "$ROOT/lib/Db.php";
@@ -146,4 +147,4 @@ try {
     $x->output('personnel_vehicle_assets.xlsx','خودرو و موتورسیکلت');exit;
   }
   pva_fail('عملیات نامعتبر',404);
-}catch(Throwable $e){error_log('personnel-vehicle-assets: '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());pva_fail('خطای داخلی سرویس اطلاعات خودرو و موتورسیکلت',500);}
+}catch(Throwable $e){error_log('personnel-vehicle-assets: '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());pva_fail('خطای داخلی: '.get_class($e).': '.$e->getMessage().' (فایل: '.basename($e->getFile()).' خط '.$e->getLine().')',500);}

@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import Constants from 'expo-constants';
+import { AppState } from 'react-native';
 import { postOrQueue, request } from './api';
 import { isVpnOn, vpnStatus } from './device';
 import { getBatteryInfo } from './battery';
@@ -14,7 +15,24 @@ export async function getGsmPosition({timeoutMs=5000,maxAccuracy=100}={}){try{co
 export async function getTrackingPosition(){const fast=await getFastPosition();if(fast?.coords)return{lat:fast.coords.latitude,lng:fast.coords.longitude,acc:fast.coords.accuracy,viaGsm:false,ts:fast.timestamp};const gps=await getAccuratePosition({samples:2,timeoutMs:7000,desiredAccuracy:25,maxAccuracy:100});if(gps?.coords)return{lat:gps.coords.latitude,lng:gps.coords.longitude,acc:gps.coords.accuracy,viaGsm:false,ts:gps.timestamp};const gsm=await getGsmPosition({timeoutMs:5000,maxAccuracy:150});if(gsm?.coords)return{lat:gsm.coords.latitude,lng:gsm.coords.longitude,acc:gsm.coords.accuracy,viaGsm:true,ts:gsm.timestamp};return null;}
 const IS_EXPO_GO=Constants.appOwnership==='expo'||Constants.executionEnvironment==='storeClient';
 try{TaskManager.defineTask(BG_TASK,async({data,error})=>{if(error||!data)return;const{locations}=data;if(!locations?.length)return;const ok=await isInShift().catch(()=>true);if(!ok)return;const pings=locations.map(l=>({lat:l.coords.latitude,lng:l.coords.longitude,captured_at:new Date(l.timestamp).toISOString(),mocked:!!(l.mocked||l.coords.mocked)}));let vpn=false,vpnCountry=null;try{const v=await vpnStatus();vpn=v.on;vpnCountry=v.country}catch{}let battery=null;try{battery=await getBatteryInfo()}catch{}await postOrQueue('/locations',{vpn_on:vpn,vpn_country:vpnCountry,battery,pings}).catch(()=>{});});}catch{}
-let fgWatcher=null,networkFallbackInterval=null,trackingStartPromise=null;
+let fgWatcher=null,networkFallbackInterval=null,trackingStartPromise=null,fgWatcherWanted=false;
+/* خطیار: علت کرش نیتیو «Cannot create an event emitter ... Available modules: []» در LocationModule پیدا شد —
+   watchPositionAsync (رهگیری پیش‌زمینه) یک listener نیتیو ثبت می‌کند که فقط تا وقتی موتور جاوااسکریپت زنده است معتبر است.
+   اگر کاربر در حین شیفت اپ را ببندد/به پس‌زمینه ببرد (بدون خروج از حساب و بدون پایان شیفت)، این listener هرگز remove
+   نمی‌شد؛ وقتی اندروید بعداً یک موقعیت جدید به همان listener یتیم تحویل می‌داد، چون دیگر ماژول‌ری‌اکت‌نیتیوی فعالی
+   نبود، همین کرش رخ می‌داد. رهگیری پس‌زمینهٔ واقعی (BG_TASK از طریق TaskManager) از قبل درست و امن پیاده شده و
+   نیازی به این listener پیش‌زمینه‌ای، وقتی اپ در پس‌زمینه است، ندارد؛ پس با پس‌زمینه‌رفتن اپ، این listener را
+   متوقف می‌کنیم (و رهگیری پس‌زمینهٔ واقعی کارش را ادامه می‌دهد)، و با بازگشت به پیش‌زمینه دوباره‌اش راه می‌اندازیم. */
+try{
+  AppState.addEventListener('change', state=>{
+    if(state!=='active'){
+      if(fgWatcher){ fgWatcherWanted=true; try{fgWatcher.remove();}catch{} fgWatcher=null; }
+    }else if(fgWatcherWanted){
+      fgWatcherWanted=false;
+      startTracking().catch(()=>{});
+    }
+  });
+}catch{}
 export async function startTracking(){if(trackingStartPromise)return trackingStartPromise;trackingStartPromise=(async()=>{let fg;try{fg=await Location.requestForegroundPermissionsAsync()}catch{return}if(!fg?.granted)return;let intervalMs=60000;try{const c=await request('/app/version',{auth:false});const sec=parseInt(c?.location_interval_sec,10);if(sec&&sec>=5)intervalMs=sec*1000}catch{}try{const b=await getBatteryInfo();if(b&&!b.charging){if(b.level<=10)intervalMs=Math.round(intervalMs*3);else if(b.level<=20)intervalMs=Math.round(intervalMs*1.75)}}catch{}try{fgWatcher?.remove?.()}catch{}try{fgWatcher=await Location.watchPositionAsync({accuracy:Location.Accuracy.High,timeInterval:Math.max(8000,Math.floor(intervalMs/2)),distanceInterval:20,mayShowUserSettingsDialog:true},async p=>{let vpn=false;try{vpn=await isVpnOn()}catch{}postOrQueue('/locations',{vpn_on:vpn,pings:[{lat:p.coords.latitude,lng:p.coords.longitude,captured_at:new Date(p.timestamp).toISOString(),mocked:!!(p.mocked||p.coords.mocked),accuracy:p.coords.accuracy,via_gsm:(p.coords.accuracy||0)>80,provider:(p.coords.accuracy||0)>80?'network':'gps'}]}).catch(()=>{})});}catch{}try{clearInterval(networkFallbackInterval)}catch{}networkFallbackInterval=setInterval(async()=>{try{const ok=await isInShift().catch(()=>true);if(!ok)return;const p=await getTrackingPosition();if(!p)return;postOrQueue('/locations',{vpn_on:false,pings:[{lat:p.lat,lng:p.lng,captured_at:new Date(p.ts||Date.now()).toISOString(),via_gsm:p.viaGsm,accuracy:p.acc,provider:p.viaGsm?'network':'gps'}]}).catch(()=>{})}catch{}},Math.max(120000,intervalMs));if(FEATURES.bgTracking&&!IS_EXPO_GO){try{const bg=await requestBackgroundLocationCompat(Location);if(bg.granted){const running=await Location.hasStartedLocationUpdatesAsync(BG_TASK).catch(()=>false);if(running)await Location.stopLocationUpdatesAsync(BG_TASK).catch(()=>{});await Location.startLocationUpdatesAsync(BG_TASK,{accuracy:Location.Accuracy.High,timeInterval:intervalMs,distanceInterval:25,pausesUpdatesAutomatically:false,activityType:Location.ActivityType.AutomotiveNavigation,showsBackgroundLocationIndicator:true,foregroundService:{notificationTitle:'خطیار',notificationBody:'نرم افزار خطیار فعال و به سرور متصل است',notificationColor:'#0d7a5f',killServiceOnDestroy:false}})}}catch{}}})();try{return await trackingStartPromise}finally{trackingStartPromise=null}}
 export async function isTrackingActive(){if(IS_EXPO_GO)return!!fgWatcher;try{return await Location.hasStartedLocationUpdatesAsync(BG_TASK).catch(()=>false)}catch{return false}}
-export async function stopTracking(){try{fgWatcher?.remove?.();fgWatcher=null}catch{}try{clearInterval(networkFallbackInterval);networkFallbackInterval=null}catch{}if(IS_EXPO_GO)return;try{if(await Location.hasStartedLocationUpdatesAsync(BG_TASK).catch(()=>false))await Location.stopLocationUpdatesAsync(BG_TASK)}catch{}}
+export async function stopTracking(){fgWatcherWanted=false;try{fgWatcher?.remove?.();fgWatcher=null}catch{}try{clearInterval(networkFallbackInterval);networkFallbackInterval=null}catch{}if(IS_EXPO_GO)return;try{if(await Location.hasStartedLocationUpdatesAsync(BG_TASK).catch(()=>false))await Location.stopLocationUpdatesAsync(BG_TASK)}catch{}}

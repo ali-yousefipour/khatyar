@@ -11,7 +11,8 @@
    به‌جای صفحهٔ خطای خام ۵۰۰، همیشه یک JSON تمیز برگرداند.
 */
 
-ini_set('display_errors', '0');
+error_reporting(E_ALL);
+ini_set('display_errors', '1'); // خطیار: موقتاً برای عیب‌یابی فعال شد؛ بعد از پیداکردن علت واقعی باید به '0' برگردد.
 date_default_timezone_set('Asia/Tehran');
 
 header('Content-Type: application/json; charset=utf-8');
@@ -31,6 +32,20 @@ try {
   require "$ROOT/lib/Db.php";
   require "$ROOT/lib/Jwt.php";
   require "$ROOT/lib/Http.php";
+  // خطیار: این‌جا دقیقاً همان require هایی که app/index.php پیش از بارگذاری routes.php انجام می‌دهد تکرار شده‌اند.
+  // نسخهٔ قبلی این فایل فقط Db/Jwt/Http را می‌آورد؛ چون _attendance_report() واقعاً از ShiftCalc:: استفاده می‌کند
+  // (که این‌جا اصلاً require نشده بود)، هر فراخوانی با خطای «کلاس ShiftCalc یافت نشد» شکست می‌خورد — این خطا چون
+  // داخل try/catch رخ می‌داد به‌صورت یک JSON 500 تمیز برمی‌گشت، نه یک کرش خام، برای همین در نگاه اول نامرئی بود.
+  require "$ROOT/lib/Push.php";
+  require "$ROOT/lib/Sms.php";
+  require "$ROOT/lib/Bale.php";
+  require "$ROOT/lib/MessengerBots.php";
+  if (is_file("$ROOT/lib/CloudOcr.php")) require "$ROOT/lib/CloudOcr.php";
+  require "$ROOT/lib/ShiftCalc.php";
+  require "$ROOT/lib/Media.php";
+  require "$ROOT/lib/XlsxWriter.php";
+  require "$ROOT/lib/Backup.php";
+  if (is_file("$ROOT/lib/DeliveryQueue.php")) require "$ROOT/lib/DeliveryQueue.php";
   $CONFIG = require "$ROOT/config.php";
 
   // این فایل خارج از index.php اصلی اجرا می‌شود، پس تابع route() (که routes.php برای ثبت هر مسیر صدا می‌زند)
@@ -61,5 +76,8 @@ try {
 
 } catch (Throwable $e) {
   error_log('admin-attendance-report: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
-  aar_error('خطای داخلی گزارش تردد؛ جزئیات در گزارش خطای سرور ثبت شد.', 500);
+  // خطیار: چون علت دقیق خطا با بررسی کد به‌تنهایی پیدا نشد و بعد از استقرار کامل هم باز تکرار شده،
+  // موقتاً پیام واقعی خطا (نوع، متن، فایل و خط) مستقیم در پاسخ برگردانده می‌شود — فقط برای عیب‌یابی همین مرحله.
+  // بعد از پیداکردن و رفع علت واقعی، این بخش باید به همان پیام کلی قبلی برگردد.
+  aar_error('خطای داخلی: ' . get_class($e) . ': ' . $e->getMessage() . ' (فایل: ' . basename($e->getFile()) . ' خط ' . $e->getLine() . ')', 500);
 }
