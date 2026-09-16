@@ -1,7 +1,5 @@
 <?php
-/* خطیار — گزارش تردد پرسنل
-   این endpoint مستقل است تا گزارش تردد در صورت تفاوت schema نصب‌های قدیمی نیز پایدار بماند.
-*/
+/* خطیار — گزارش تردد پرسنل */
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
 date_default_timezone_set('Asia/Tehran');
@@ -17,29 +15,10 @@ function aar_json($v, $status = 200) {
 function aar_error($message, $status = 400) { aar_json(['error' => $message], $status); }
 
 /**
- * شیفت شب متعلق به «روز کاریِ ورود» است، نه دو روز تقویمی.
- *
- * مثال: 1405/06/01 ساعت 22:30 تا 1405/06/02 ساعت 07:15
- * کل 08:45 کارکرد در 1405/06/01 ثبت می‌شود و همان تردد در 1405/06/02
- * دوباره محاسبه نمی‌شود. این تابع خروجی _attendance_report را قبل از
- * ارسال به پنل نرمال می‌کند تا حتی در نصب‌هایی که routes.php هنوز رکورد
- * عبوری از نیمه‌شب را روی هر دو روز برمی‌گرداند، دوباره‌شماری رخ ندهد.
+ * بازسازی روزهای گزارش با «تاریخ ورود» به عنوان مالک تردد.
+ * رکورد 22:30 روز X تا 07:15 روز X+1 فقط متعلق به روز X است و کامل محاسبه می‌شود.
+ * روز X+1 فقط ترددهایی را می‌بیند که ورودشان واقعاً در همان روز ثبت شده است.
  */
-function aar_jdate_from_datetime($value) {
-  $ts = strtotime((string)$value);
-  if (!$ts || !function_exists('gregorian_to_jalali')) return null;
-  [$jy,$jm,$jd] = gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
-  return sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
-}
-
-function aar_normalize_jdate($value) {
-  $s = str_replace('/','-',trim((string)$value));
-  if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/',$s,$m)) {
-    return sprintf('%04d-%02d-%02d',(int)$m[1],(int)$m[2],(int)$m[3]);
-  }
-  return null;
-}
-
 function aar_rebuild_overnight_report(array $report, int $userId) {
   if (!isset($report['days']) || !is_array($report['days'])) return $report;
 
@@ -49,26 +28,31 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
   ];
   $sum = array_fill_keys($metricKeys, 0);
   $sum['night_work'] = 0;
+  $sum['present_days'] = 0;
 
   foreach ($report['days'] as $i => $day) {
     if (!is_array($day)) continue;
-    $dayJ = aar_normalize_jdate($day['jdate'] ?? $day['date'] ?? '');
+    $dayJ = ShiftCalc::normJdate($day['jdate'] ?? $day['date'] ?? '');
     if (!$dayJ) continue;
 
-    $allPunches = is_array($day['punches'] ?? null) ? $day['punches'] : [];
-    $ownedPunches = [];
+    // فقط رکوردهایی که ورودشان در همین تاریخ است. عمداً رکوردی با ورود روز قبل
+    // را از روز جاری نمی‌خوانیم؛ این همان نقطه‌ای است که دوباره‌شماری شیفت شب رخ می‌داد.
+    [$ds, $de] = _attendance_day_bounds($dayJ);
+    $db = Db::pdo();
+    $st = $db->prepare("SELECT * FROM staff_attendance
+      WHERE user_id=? AND status='approved'
+        AND check_in >= ? AND check_in < ?
+      ORDER BY check_in");
+    $st->execute([(int)$userId, date('Y-m-d H:i:s',$ds), date('Y-m-d H:i:s',$de)]);
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
-    foreach ($allPunches as $p) {
-      if (!is_array($p)) continue;
-      $inFull = trim((string)($p['in_full'] ?? ''));
-      $ownerJ = $inFull !== '' ? aar_jdate_from_datetime($inFull) : null;
-      // رکوردهای قدیمی بدون in_full را به همان روز گزارش نسبت می‌دهیم.
-      if (!$ownerJ || $ownerJ === $dayJ) $ownedPunches[] = $p;
+    $sessions = [];
+    foreach ($rows as $r) {
+      $sessions[] = [
+        'in'  => !empty($r['check_in']) ? strtotime($r['check_in']) : null,
+        'out' => !empty($r['check_out']) ? strtotime($r['check_out']) : null,
+      ];
     }
-
-    // اگر رکورد فقط ادامهٔ شیفت شبِ روز قبل است، نباید برای این روز کارکرد
-    // یا شب‌کاری تولید کند؛ در نتیجه این روز از نظر تردد، مستقل باقی می‌ماند.
-    $day['punches'] = $ownedPunches;
 
     $shift = _active_user_shift_assignment($userId, $dayJ);
     $dayRow = null;
@@ -80,15 +64,10 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
       [$dayJ, str_replace('-','/',$dayJ)]
     );
 
-    $sessions = [];
-    foreach ($ownedPunches as $p) {
-      $in = !empty($p['in_full']) ? strtotime($p['in_full']) : null;
-      $out = !empty($p['out_full']) ? strtotime($p['out_full']) : null;
-      if ($in) $sessions[] = ['in'=>$in,'out'=>$out];
-    }
-
     if ($shift) {
-      $w = ShiftCalc::dayWork($shift,$dayJ,$dayRow,$sessions,$hol);
+      // هیچ clip روزانه‌ای به session نمی‌دهیم؛ شیفت شب باید از 22:00 تا خروج فردا
+      // به صورت یک session واقعی محاسبه شود.
+      $w = ShiftCalc::dayWork($shift, $dayJ, $dayRow, $sessions, $hol);
     } else {
       $w = [
         'worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,
@@ -98,45 +77,55 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
       ];
     }
 
-    // محاسبهٔ دوبارهٔ تهاتر همان منطق گزارش اصلی را حفظ می‌کند.
-    $adj = _attendance_adjusted_overtime($userId,$dayJ);
+    $adj = _attendance_adjusted_overtime($userId, $dayJ);
     if ($adj > 0) {
-      $use = min((int)$adj,(int)($w['surplus'] ?? 0));
+      $use = min((int)$adj, (int)($w['surplus'] ?? 0));
       $w['overtime'] = (int)($w['overtime'] ?? 0) + $use;
-      $w['surplus'] = max(0,(int)($w['surplus'] ?? 0) - $use);
+      $w['surplus'] = max(0, (int)($w['surplus'] ?? 0) - $use);
       $w['adjusted_ot'] = $use;
     }
 
+    // همان رکوردهای واقعی برای نمایش ورود/خروج و محل‌ها حفظ می‌شوند.
+    $day['punches'] = $rows;
+    $day['sessions'] = $rows;
     $day['data'] = $w;
     foreach ($metricKeys as $k) {
-      if (array_key_exists($k,$w)) $day[$k] = (int)$w[$k];
+      if (array_key_exists($k, $w)) $day[$k] = (int)$w[$k];
     }
     $day['night_work'] = (int)($w['night'] ?? 0);
     $day['overnight_owned_by_entry_date'] = true;
-    $day['continuation_of_previous_day'] = empty($ownedPunches) && !empty($allPunches);
+    $day['continuation_of_previous_day'] = false;
 
-    // زمان‌های ورود/خروج از رکوردهای متعلق به همین روز گرفته می‌شوند؛
-    // بنابراین 22:30→07:15 دیگر به شکل یک بازهٔ تقویمیِ 24 ساعته تفسیر نمی‌شود.
-    if (!empty($w['in'])) $day['in'] = $w['in'];
-    if (!empty($w['out'])) $day['out'] = $w['out'];
+    // برای روز بدون ورود جدید، تردد شب قبل عمداً در این ردیف نمایش داده نمی‌شود.
+    if (!empty($rows)) {
+      $day['in'] = $w['in'] ?? null;
+      $day['out'] = $w['out'] ?? null;
+      $first = $rows[0];
+      $last = $rows[count($rows)-1];
+      $day['in_station'] = $first['in_station'] ?? null;
+      $day['out_station'] = $last['out_station'] ?? null;
+    } else {
+      $day['in'] = null;
+      $day['out'] = null;
+      $day['in_station'] = null;
+      $day['out_station'] = null;
+    }
 
     $report['days'][$i] = $day;
-
     foreach ($metricKeys as $k) $sum[$k] += (int)($w[$k] ?? 0);
     $sum['night_work'] += (int)($w['night'] ?? 0);
+    if ((int)($w['worked'] ?? 0) > 0) $sum['present_days']++;
   }
 
-  // خلاصهٔ استاندارد و مستقل از night_work؛ شب‌کاری زیرمجموعهٔ کارکرد است
-  // ولی هرگز به worked/overtime اضافه نمی‌شود.
   $report['totals'] = $sum;
   $report['work_totals'] = $sum;
   if (isset($report['summary']) && is_array($report['summary'])) {
     foreach ($metricKeys as $k) {
-      if (array_key_exists($k,$report['summary'])) $report['summary'][$k] = $sum[$k];
+      if (array_key_exists($k, $report['summary'])) $report['summary'][$k] = $sum[$k];
     }
-    if (array_key_exists('night_work',$report['summary'])) $report['summary']['night_work'] = $sum['night_work'];
+    if (array_key_exists('night_work', $report['summary'])) $report['summary']['night_work'] = $sum['night_work'];
+    if (array_key_exists('present_days', $report['summary'])) $report['summary']['present_days'] = $sum['present_days'];
   }
-
   return $report;
 }
 
@@ -157,8 +146,6 @@ try {
   if (is_file("$ROOT/lib/DeliveryQueue.php")) require "$ROOT/lib/DeliveryQueue.php";
   $CONFIG = require "$ROOT/config.php";
 
-  // routes.php تابع route() را هنگام load کردن مسیرها صدا می‌زند؛ در این endpoint
-  // فقط توابع کمکی آن لازم است و خود مسیرها ثبت نمی‌شوند.
   if (!function_exists('route')) { function route($m, $p, $fn, $public = false, $minLevel = 99) {} }
   require "$ROOT/lib/routes.php";
 
@@ -166,14 +153,9 @@ try {
   $payload = $token ? Jwt::verify($token, $CONFIG['jwt_secret']) : null;
   if (!$payload || empty($payload['sub'])) aar_error('توکن منقضی یا نامعتبر است', 401);
 
-  // نصب‌های قدیمی ممکن است users.is_admin نداشته باشند. طبق ساختار فعلی پروژه
-  // پرچم مدیریتی در roles.is_admin قرار دارد؛ بنابراین احراز هویت گزارش نباید
-  // به ستون حذف/نشده users.is_admin وابسته باشد.
   $u = Db::one(
     "SELECT u.id,u.is_active,u.role_id,r.level,r.is_admin AS is_admin,r.title AS role_title
-       FROM users u
-       JOIN roles r ON r.id=u.role_id
-      WHERE u.id=? LIMIT 1",
+       FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",
     [$payload['sub']]
   );
   if (!$u || !(int)($u['is_active'] ?? 0)) aar_error('کاربر نامعتبر', 401);
@@ -184,6 +166,7 @@ try {
   $to = trim((string)($_GET['to'] ?? ''));
   if (!$uid || !$from || !$to) aar_error('پرسنل و بازهٔ تاریخ را مشخص کنید', 400);
 
+  // گزارش پایه، شامل ساختار کامل ۲۹ ستون و اطلاعات جانبی.
   $report = _attendance_report($uid, $from, $to);
   $report = aar_rebuild_overnight_report($report, $uid);
   aar_json($report);
