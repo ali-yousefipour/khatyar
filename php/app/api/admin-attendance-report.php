@@ -14,63 +14,27 @@ function aar_json($v, $status = 200) {
 }
 function aar_error($message, $status = 400) { aar_json(['error' => $message], $status); }
 
-/** تبدیل امن مقدار تاریخ/زمان به timestamp برای سازگاری با PHP 8+. */
-function aar_timestamp($value): ?int {
-  if ($value === null || $value === '') return null;
-  if (is_int($value)) return $value;
-  if (is_float($value) || is_numeric($value)) return (int)$value;
+function aar_jdate_from_datetime($value) {
   $ts = strtotime((string)$value);
-  return $ts === false ? null : $ts;
+  if (!$ts || !function_exists('gregorian_to_jalali')) return null;
+  [$jy,$jm,$jd] = gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
+  return sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
+}
+
+function aar_normalize_jdate($value) {
+  $s = str_replace('/','-',trim((string)$value));
+  if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/',$s,$m)) {
+    return sprintf('%04d-%02d-%02d',(int)$m[1],(int)$m[2],(int)$m[3]);
+  }
+  return null;
 }
 
 /**
- * سازگاری اسکیمای گزارش مستقیم با دیتابیس‌های قدیمی.
- * ساختار پایه از upgrade_full_standalone.sql و فیلدهای تکمیلی از
- * 2026_09_06_vehicle_attendance_hardening.sql گرفته شده است.
- * این fallback فقط وقتی ستونی/جدولی وجود نداشته باشد اجرا می‌شود و
- * منطق محاسبه شیفت، مخصوصاً شیفت شب، را تغییر نمی‌دهد.
- */
-function aar_ensure_report_schema() {
-  $pdo = Db::pdo();
-
-  $pdo->exec("CREATE TABLE IF NOT EXISTS staff_attendance (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    line_id INT NULL,
-    check_in DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    check_out DATETIME NULL,
-    method VARCHAR(20) NULL,
-    in_lat DOUBLE NULL,
-    in_lng DOUBLE NULL,
-    out_lat DOUBLE NULL,
-    out_lng DOUBLE NULL,
-    auto_closed TINYINT(1) NOT NULL DEFAULT 0,
-    INDEX idx_sa_user (user_id, check_in),
-    INDEX idx_sa_open (user_id, check_out)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
-  $addColumn = static function ($table, $column, $definition) use ($pdo) {
-    $st = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?");
-    $st->execute([$table, $column]);
-    if ((int)$st->fetchColumn() === 0) {
-      $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
-    }
-  };
-
-  $addColumn('staff_attendance', 'in_station', 'VARCHAR(190) NULL');
-  $addColumn('staff_attendance', 'out_station', 'VARCHAR(190) NULL');
-  $addColumn('staff_attendance', 'handover_id', 'INT NULL');
-  $addColumn('staff_attendance', 'calc_json', 'JSON NULL');
-  $addColumn('staff_attendance', 'client_check_in', 'DATETIME NULL');
-  $addColumn('staff_attendance', 'client_check_out', 'DATETIME NULL');
-  $addColumn('users', 'device_model', 'VARCHAR(255) NULL');
-  $addColumn('users', 'work_policy_id', 'INT NULL');
-}
-
-/**
- * بازسازی روزهای گزارش با «تاریخ ورود» به عنوان مالک تردد.
- * رکورد 22:30 روز X تا 07:15 روز X+1 فقط متعلق به روز X است و کامل محاسبه می‌شود.
- * روز X+1 فقط ترددهایی را می‌بیند که ورودشان واقعاً در همان روز ثبت شده است.
+ * تردد شب متعلق به تاریخ ورود است.
+ * نمونه: ورود 22:30 در 1405/06/10 و خروج 07:15 در 1405/06/11
+ * تمام کارکرد و شب‌کاری در ردیف 1405/06/10 ثبت می‌شود و در روز بعد تکرار نمی‌شود.
+ * از punchهای تولیدشده توسط _attendance_report استفاده می‌کنیم تا in_full/out_full
+ * و رکوردهای overnight از بین نروند.
  */
 function aar_rebuild_overnight_report(array $report, int $userId) {
   if (!isset($report['days']) || !is_array($report['days'])) return $report;
@@ -85,29 +49,16 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
 
   foreach ($report['days'] as $i => $day) {
     if (!is_array($day)) continue;
-    $dayJ = ShiftCalc::normJdate($day['jdate'] ?? $day['date'] ?? '');
+    $dayJ = aar_normalize_jdate($day['jdate'] ?? $day['date'] ?? '');
     if (!$dayJ) continue;
 
-    [$ds, $de] = _attendance_day_bounds($dayJ);
-    $dsTs = aar_timestamp($ds);
-    $deTs = aar_timestamp($de);
-    if ($dsTs === null || $deTs === null) {
-      throw new RuntimeException('بازه زمانی گزارش برای تاریخ '.$dayJ.' قابل تبدیل به timestamp نیست');
-    }
-    $db = Db::pdo();
-    $st = $db->prepare("SELECT * FROM staff_attendance
-      WHERE user_id=?
-        AND check_in >= ? AND check_in < ?
-      ORDER BY check_in");
-    $st->execute([(int)$userId, date('Y-m-d H:i:s', $dsTs), date('Y-m-d H:i:s', $deTs)]);
-    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-
-    $sessions = [];
-    foreach ($rows as $r) {
-      $sessions[] = [
-        'in'  => !empty($r['check_in']) ? strtotime($r['check_in']) : null,
-        'out' => !empty($r['check_out']) ? strtotime($r['check_out']) : null,
-      ];
+    $allPunches = is_array($day['punches'] ?? null) ? $day['punches'] : [];
+    $ownedPunches = [];
+    foreach ($allPunches as $p) {
+      if (!is_array($p)) continue;
+      $inFull = trim((string)($p['in_full'] ?? ''));
+      $ownerJ = $inFull !== '' ? aar_jdate_from_datetime($inFull) : null;
+      if (!$ownerJ || $ownerJ === $dayJ) $ownedPunches[] = $p;
     }
 
     $shift = _active_user_shift_assignment($userId, $dayJ);
@@ -120,8 +71,15 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
       [$dayJ, str_replace('-','/',$dayJ)]
     );
 
+    $sessions = [];
+    foreach ($ownedPunches as $p) {
+      $in = !empty($p['in_full']) ? strtotime($p['in_full']) : null;
+      $out = !empty($p['out_full']) ? strtotime($p['out_full']) : null;
+      if ($in) $sessions[] = ['in'=>$in,'out'=>$out];
+    }
+
     if ($shift) {
-      $w = ShiftCalc::dayWork($shift, $dayJ, $dayRow, $sessions, $hol);
+      $w = ShiftCalc::dayWork($shift,$dayJ,$dayRow,$sessions,$hol);
     } else {
       $w = [
         'worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,
@@ -131,37 +89,47 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
       ];
     }
 
-    $adj = _attendance_adjusted_overtime($userId, $dayJ);
+    $adj = _attendance_adjusted_overtime($userId,$dayJ);
     if ($adj > 0) {
-      $use = min((int)$adj, (int)($w['surplus'] ?? 0));
+      $use = min((int)$adj,(int)($w['surplus'] ?? 0));
       $w['overtime'] = (int)($w['overtime'] ?? 0) + $use;
-      $w['surplus'] = max(0, (int)($w['surplus'] ?? 0) - $use);
+      $w['surplus'] = max(0,(int)($w['surplus'] ?? 0) - $use);
       $w['adjusted_ot'] = $use;
     }
 
-    $day['punches'] = $rows;
-    $day['sessions'] = $rows;
+    $day['punches'] = $ownedPunches;
+    $day['sessions'] = $sessions;
     $day['data'] = $w;
     foreach ($metricKeys as $k) {
-      if (array_key_exists($k, $w)) $day[$k] = (int)$w[$k];
+      if (array_key_exists($k,$w)) $day[$k] = (int)$w[$k];
     }
     $day['night_work'] = (int)($w['night'] ?? 0);
     $day['overnight_owned_by_entry_date'] = true;
-    $day['continuation_of_previous_day'] = false;
+    $day['continuation_of_previous_day'] = empty($ownedPunches) && !empty($allPunches);
 
-    if (!empty($rows)) {
-      $day['in'] = $w['in'] ?? null;
-      $day['out'] = $w['out'] ?? null;
-      $first = $rows[0];
-      $last = $rows[count($rows)-1];
-      $day['in_station'] = $first['in_station'] ?? null;
-      $day['out_station'] = $last['out_station'] ?? null;
+    if (!empty($ownedPunches) && !empty($w['in'])) {
+      $day['in'] = $w['in'];
+      $day['first_in'] = $w['in'];
+      $day['first_entry'] = $w['in'];
     } else {
       $day['in'] = null;
-      $day['out'] = null;
-      $day['in_station'] = null;
-      $day['out_station'] = null;
+      $day['first_in'] = null;
+      $day['first_entry'] = null;
     }
+    if (!empty($ownedPunches) && !empty($w['out'])) {
+      $day['out'] = $w['out'];
+      $day['last_out'] = $w['out'];
+      $day['last_exit'] = $w['out'];
+    } else {
+      $day['out'] = null;
+      $day['last_out'] = null;
+      $day['last_exit'] = null;
+    }
+
+    $first = $ownedPunches[0] ?? null;
+    $last = !empty($ownedPunches) ? $ownedPunches[count($ownedPunches)-1] : null;
+    $day['in_station'] = is_array($first) ? ($first['in_station'] ?? null) : null;
+    $day['out_station'] = is_array($last) ? ($last['out_station'] ?? null) : null;
 
     $report['days'][$i] = $day;
     foreach ($metricKeys as $k) $sum[$k] += (int)($w[$k] ?? 0);
@@ -173,10 +141,10 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
   $report['work_totals'] = $sum;
   if (isset($report['summary']) && is_array($report['summary'])) {
     foreach ($metricKeys as $k) {
-      if (array_key_exists($k, $report['summary'])) $report['summary'][$k] = $sum[$k];
+      if (array_key_exists($k,$report['summary'])) $report['summary'][$k] = $sum[$k];
     }
-    if (array_key_exists('night_work', $report['summary'])) $report['summary']['night_work'] = $sum['night_work'];
-    if (array_key_exists('present_days', $report['summary'])) $report['summary']['present_days'] = $sum['present_days'];
+    if (array_key_exists('night_work',$report['summary'])) $report['summary']['night_work'] = $sum['night_work'];
+    if (array_key_exists('present_days',$report['summary'])) $report['summary']['present_days'] = $sum['present_days'];
   }
   return $report;
 }
@@ -200,8 +168,6 @@ try {
 
   if (!function_exists('route')) { function route($m, $p, $fn, $public = false, $minLevel = 99) {} }
   require "$ROOT/lib/routes.php";
-
-  aar_ensure_report_schema();
 
   $token = Http::bearer();
   $payload = $token ? Jwt::verify($token, $CONFIG['jwt_secret']) : null;
