@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
+import { startAppCacheRetention } from './cacheRetention';
 
 const extra = Constants.expoConfig?.extra || {};
 const BUILD_DEFAULT = extra.defaultApiBase || 'https://app.yousefipour.ir/api';
@@ -7,6 +8,9 @@ export const FEATURES = {
   ocr: extra.enableOcr !== false,
   bgTracking: extra.enableBgTracking !== false,
 };
+
+// کش محلی اپ مستقل از تنظیمات سرور است و همیشه پس از ۲۴ ساعت پاک می‌شود.
+startAppCacheRetention();
 
 let _base = BUILD_DEFAULT;
 
