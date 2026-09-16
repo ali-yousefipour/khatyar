@@ -48,9 +48,9 @@ function pva_json($data,int $status=200): void { http_response_code($status); he
 function pva_fail(string $m,int $s=400): void { pva_json(['ok'=>false,'error'=>$m],$s); }
 function pva_body(): array { static $b=null; if($b===null){$raw=file_get_contents('php://input');$b=json_decode($raw?:'',true);if(!is_array($b))$b=[];}return $b; }
 function pva_norm($s): string { $s=trim((string)$s); $s=strtr($s,['ي'=>'ی','ى'=>'ی','ك'=>'ک','ۀ'=>'ه','ة'=>'ه','۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9','٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9']); $s=preg_replace('/\s+/u',' ',$s)??$s; return trim($s); }
-function pva_auth(): array { global $CONFIG; $tok=Http::bearer(); $p=$tok?Jwt::verify($tok,$CONFIG['jwt_secret']):null; if(!$p||empty($p['sub']))pva_fail('توکن نامعتبر یا منقضی است',401); $u=Db::one("SELECT u.id,u.is_active,u.is_admin,u.role_id,r.title role_title FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",[$p['sub']]); if(!$u||!(int)$u['is_active'])pva_fail('کاربر نامعتبر است',401); return $u; }
+function pva_auth(): array { global $CONFIG; $tok=Http::bearer(); $p=$tok?Jwt::verify($tok,$CONFIG['jwt_secret']):null; if(!$p||empty($p['sub']))pva_fail('توکن نامعتبر یا منقضی است',401); $u=Db::one("SELECT u.id,u.is_active,u.is_admin,u.role_id,r.title role_title,r.level role_level FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",[$p['sub']]); if(!$u||!(int)$u['is_active'])pva_fail('کاربر نامعتبر است',401); return $u; }
 function pva_role_kind(string $title,$forChecklist=false){ $t=pva_norm($title); $senior=((mb_strpos($t,'سربازرس')!==false || mb_strpos($t,'بازرس')!==false) && mb_strpos($t,'ارشد')!==false); if($forChecklist)return $senior; if(mb_strpos($t,'گشت موتوری')!==false)return 'motorcycle'; if(mb_strpos($t,'گشت خودرویی')!==false)return 'car'; if(mb_strpos($t,'سربازرس')!==false)return 'car'; return false; }
-function pva_is_check_authorized(array $u): bool { return (bool)((int)($u['is_admin']??0) || pva_role_kind((string)($u['role_title']??''),true)); }
+function pva_is_check_authorized(array $u): bool { return (bool)((int)($u['is_admin']??0) || ((int)($u['role_level']??0)>=1 && (int)($u['role_level']??0)<=3) || pva_role_kind((string)($u['role_title']??''),true)); }
 function pva_years(): array { $y=(int)date('Y')-621; $a=[]; for($x=$y;$x>=1390;$x--)$a[]=$x; return $a; }
 function pva_asset(int $id): ?array { return Db::one('SELECT * FROM personnel_vehicle_assets WHERE id=? LIMIT 1',[$id]); }
 function pva_history(int $id): array { static $hasJson=null; if($hasJson===null){try{$hasJson=(bool)Db::one("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='personnel_vehicle_checklist_history' AND COLUMN_NAME='checks_json' LIMIT 1");}catch(Throwable $e){$hasJson=false;}} $json=$hasJson?',h.checks_json':''; return Db::all("SELECT h.id,h.result,h.note{$json},h.checked_at,h.checker_id,CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) checker_name FROM personnel_vehicle_checklist_history h LEFT JOIN users u ON u.id=h.checker_id WHERE h.asset_id=? ORDER BY h.checked_at DESC,h.id DESC",[$id]); }
@@ -83,7 +83,7 @@ function pva_effective_type(array $u): ?string { $a=pva_assigned_type((int)$u['i
 try {
   pva_ensure_schema();
   $u=pva_auth(); $op=$_GET['op']??'access';
-  if($op==='access'){ $type=pva_effective_type($u); pva_json(['ok'=>true,'allowed'=>$type!==null,'asset_type'=>$type,'checklist_allowed'=>pva_is_check_authorized($u),'role_title'=>$u['role_title']??'','years'=>pva_years()]); }
+  if($op==='access'){ $type=pva_effective_type($u); pva_json(['ok'=>true,'allowed'=>$type!==null,'asset_type'=>$type,'checklist_allowed'=>pva_is_check_authorized($u),'role_title'=>$u['role_title']??'','role_level'=>(int)($u['role_level']??0),'years'=>pva_years()]); }
   if($op==='mine'){ $type=pva_effective_type($u); if($type===null)pva_fail('برای شما خودرو یا موتورسیکلتی تخصیص داده نشده است',403); pva_json(['ok'=>true,'asset_type'=>$type,'asset'=>($a=Db::one('SELECT id FROM personnel_vehicle_assets WHERE user_id=? AND asset_type=? LIMIT 1',[$u['id'],$type]))?pva_load((int)$a['id'],true):null]); }
   if($op==='assign-list'){
     if(!pva_admin_allowed($u))pva_fail('دسترسی مدیریتی لازم است',403);
@@ -122,7 +122,7 @@ try {
     pva_json(['ok'=>true,'asset'=>pva_load($id,true)]);
   }
   if($op==='checklist-verify'){
-    if(!pva_is_check_authorized($u))pva_fail('فقط سربازرس ارشد یا مدیر سامانه دسترسی دارد',403);
+    if(!pva_is_check_authorized($u))pva_fail('فقط کاربران سطح ۱ تا ۳، سربازرس ارشد یا مدیر سامانه دسترسی دارند',403);
     $b=pva_body();$id=(int)($b['asset_id']??0);$asset=pva_asset($id);if(!$asset)pva_fail('وسیله یافت نشد',404);
     $keys=pva_check_keys((string)$asset['asset_type']);$incoming=is_array($b['checks']??null)?$b['checks']:[];$checks=[];$missing=[];
     foreach($keys as $k){if(!array_key_exists($k,$incoming)){$missing[]=$k;continue;} $v=$incoming[$k];$checks[$k]=['value'=>!empty($v['value']),'note'=>pva_norm($v['note']??'')];}
