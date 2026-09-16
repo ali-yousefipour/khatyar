@@ -18,6 +18,7 @@ require "$ROOT/lib/Db.php"; require "$ROOT/lib/Jwt.php"; require "$ROOT/lib/Http
 if (is_file("$ROOT/lib/CloudOcr.php")) require "$ROOT/lib/CloudOcr.php";
 require "$ROOT/lib/ShiftCalc.php"; require "$ROOT/lib/Media.php"; require "$ROOT/lib/XlsxWriter.php"; require "$ROOT/lib/Backup.php";
 if (is_file("$ROOT/lib/DeliveryQueue.php")) require "$ROOT/lib/DeliveryQueue.php";
+if (is_file("$ROOT/lib/SubstituteShift.php")) require "$ROOT/lib/SubstituteShift.php";
 $CONFIG = require "$ROOT/config.php";
 header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: SAMEORIGIN'); header("Content-Security-Policy: frame-ancestors 'self'"); header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Permissions-Policy: camera=(self), microphone=(self), geolocation=(self)'); header('Cross-Origin-Resource-Policy: same-origin');
@@ -43,6 +44,8 @@ if (strpos($path, '/api') !== 0) {
   }
   http_response_code(404); echo 'Not Found'; exit;
 }
+// Keep temporary substitute shifts synchronized before any API route consumes shift assignments.
+if (class_exists('SubstituteShift')) SubstituteShift::reconcile();
 $routes = [];
 function route($m, $p, $fn, $public = false, $minLevel = 99) { global $routes; $routes[] = compact('m', 'p', 'fn', 'public', 'minLevel'); }
 function nid($v){ $s = preg_replace('/\D/', '', (string)$v); return $s === '' ? null : str_pad($s, 10, '0', STR_PAD_LEFT); }
