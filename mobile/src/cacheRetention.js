@@ -35,7 +35,10 @@ const cleanDirectory = async (uri, cutoff) => {
       continue;
     }
 
-    const modified = Number(info.modificationTime || info.modificationTimeMs || 0);
+    // expo-file-system/legacy معمولاً modificationTime را برحسب ثانیه برمی‌گرداند.
+    // آن را به میلی‌ثانیه تبدیل می‌کنیم تا مقایسه با Date.now() صحیح باشد.
+    let modified = Number(info.modificationTime || info.modificationTimeMs || 0);
+    if (modified > 0 && modified < 100000000000) modified *= 1000;
     if (modified > 0 && modified < cutoff) await safeDelete(child);
   }
 };
