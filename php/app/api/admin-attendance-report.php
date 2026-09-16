@@ -40,7 +40,7 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
     [$ds, $de] = _attendance_day_bounds($dayJ);
     $db = Db::pdo();
     $st = $db->prepare("SELECT * FROM staff_attendance
-      WHERE user_id=? AND status='approved'
+      WHERE user_id=?
         AND check_in >= ? AND check_in < ?
       ORDER BY check_in");
     $st->execute([(int)$userId, date('Y-m-d H:i:s',$ds), date('Y-m-d H:i:s',$de)]);
