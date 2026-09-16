@@ -14,6 +14,15 @@ function aar_json($v, $status = 200) {
 }
 function aar_error($message, $status = 400) { aar_json(['error' => $message], $status); }
 
+/** تبدیل امن مقدار تاریخ/زمان به timestamp برای سازگاری با PHP 8+. */
+function aar_timestamp($value): ?int {
+  if ($value === null || $value === '') return null;
+  if (is_int($value)) return $value;
+  if (is_float($value) || is_numeric($value)) return (int)$value;
+  $ts = strtotime((string)$value);
+  return $ts === false ? null : $ts;
+}
+
 /**
  * سازگاری اسکیمای گزارش مستقیم با دیتابیس‌های قدیمی.
  * ساختار پایه از upgrade_full_standalone.sql و فیلدهای تکمیلی از
@@ -48,15 +57,12 @@ function aar_ensure_report_schema() {
     }
   };
 
-  // ستون‌های ثبت‌شده در migrationهای قبلی تردد.
   $addColumn('staff_attendance', 'in_station', 'VARCHAR(190) NULL');
   $addColumn('staff_attendance', 'out_station', 'VARCHAR(190) NULL');
   $addColumn('staff_attendance', 'handover_id', 'INT NULL');
   $addColumn('staff_attendance', 'calc_json', 'JSON NULL');
   $addColumn('staff_attendance', 'client_check_in', 'DATETIME NULL');
   $addColumn('staff_attendance', 'client_check_out', 'DATETIME NULL');
-
-  // _attendance_report این دو فیلد را مستقیماً در SELECT خود می‌خواند.
   $addColumn('users', 'device_model', 'VARCHAR(255) NULL');
   $addColumn('users', 'work_policy_id', 'INT NULL');
 }
@@ -82,15 +88,18 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
     $dayJ = ShiftCalc::normJdate($day['jdate'] ?? $day['date'] ?? '');
     if (!$dayJ) continue;
 
-    // فقط رکوردهایی که ورودشان در همین تاریخ است. عمداً رکوردی با ورود روز قبل
-    // را از روز جاری نمی‌خوانیم؛ این همان نقطه‌ای است که دوباره‌شماری شیفت شب رخ می‌داد.
     [$ds, $de] = _attendance_day_bounds($dayJ);
+    $dsTs = aar_timestamp($ds);
+    $deTs = aar_timestamp($de);
+    if ($dsTs === null || $deTs === null) {
+      throw new RuntimeException('بازه زمانی گزارش برای تاریخ '.$dayJ.' قابل تبدیل به timestamp نیست');
+    }
     $db = Db::pdo();
     $st = $db->prepare("SELECT * FROM staff_attendance
       WHERE user_id=?
         AND check_in >= ? AND check_in < ?
       ORDER BY check_in");
-    $st->execute([(int)$userId, date('Y-m-d H:i:s',$ds), date('Y-m-d H:i:s',$de)]);
+    $st->execute([(int)$userId, date('Y-m-d H:i:s', $dsTs), date('Y-m-d H:i:s', $deTs)]);
     $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
     $sessions = [];
@@ -112,8 +121,6 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
     );
 
     if ($shift) {
-      // هیچ clip روزانه‌ای به session نمی‌دهیم؛ شیفت شب باید از 22:00 تا خروج فردا
-      // به صورت یک session واقعی محاسبه شود.
       $w = ShiftCalc::dayWork($shift, $dayJ, $dayRow, $sessions, $hol);
     } else {
       $w = [
@@ -132,7 +139,6 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
       $w['adjusted_ot'] = $use;
     }
 
-    // همان رکوردهای واقعی برای نمایش ورود/خروج و محل‌ها حفظ می‌شوند.
     $day['punches'] = $rows;
     $day['sessions'] = $rows;
     $day['data'] = $w;
@@ -143,7 +149,6 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
     $day['overnight_owned_by_entry_date'] = true;
     $day['continuation_of_previous_day'] = false;
 
-    // برای روز بدون ورود جدید، تردد شب قبل عمداً در این ردیف نمایش داده نمی‌شود.
     if (!empty($rows)) {
       $day['in'] = $w['in'] ?? null;
       $day['out'] = $w['out'] ?? null;
@@ -196,7 +201,6 @@ try {
   if (!function_exists('route')) { function route($m, $p, $fn, $public = false, $minLevel = 99) {} }
   require "$ROOT/lib/routes.php";
 
-  // قبل از اجرای _attendance_report، اسکیمای واقعی/تاریخی گزارش را تضمین می‌کنیم.
   aar_ensure_report_schema();
 
   $token = Http::bearer();
@@ -216,7 +220,6 @@ try {
   $to = trim((string)($_GET['to'] ?? ''));
   if (!$uid || !$from || !$to) aar_error('پرسنل و بازهٔ تاریخ را مشخص کنید', 400);
 
-  // گزارش پایه، شامل ساختار کامل ۲۹ ستون و اطلاعات جانبی.
   $report = _attendance_report($uid, $from, $to);
   $report = aar_rebuild_overnight_report($report, $uid);
   aar_json($report);
