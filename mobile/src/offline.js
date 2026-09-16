@@ -12,7 +12,7 @@ function normalizeQueue(value) {
   const source = Array.isArray(value) ? value : [];
   let changed = !Array.isArray(value);
   const normalized = source
-    .filter((x) => x && typeof x === 'object')
+    .filter((x) => x && typeof x === 'object' && x.path)
     .map((item) => {
       if (typeof item.client_uuid === 'string' && item.client_uuid.trim()) return item;
       changed = true;
@@ -21,22 +21,23 @@ function normalizeQueue(value) {
   return { normalized, changed };
 }
 
-// هر عملیات آفلاین در صف ذخیره می‌شود.
 export async function enqueue(item = {}) {
+  if (!item?.path) return null;
   const queue = await pending();
+  const clientUuid = typeof item.client_uuid === 'string' && item.client_uuid.trim() ? item.client_uuid : uuid();
+  // یک عملیات با همان شناسه نباید دوبار وارد صف شود.
+  const exists = queue.some((x) => String(x.client_uuid || '') === String(clientUuid));
+  if (exists) return clientUuid;
   queue.push({
     ...item,
-    client_uuid:
-      typeof item.client_uuid === 'string' && item.client_uuid.trim()
-        ? item.client_uuid
-        : uuid(),
+    client_uuid: clientUuid,
     type: item.type || item.path || 'unknown',
-    queued_at: Date.now(),
+    queued_at: Number(item.queued_at || Date.now()),
   });
   await AsyncStorage.setItem(KEY, JSON.stringify(queue));
+  return clientUuid;
 }
 
-// صف‌های قدیمی فاقد client_uuid در اولین خواندن ترمیم می‌شوند.
 export async function pending() {
   const raw = await AsyncStorage.getItem(KEY);
   if (!raw) return [];
@@ -51,73 +52,48 @@ export async function pending() {
   }
 }
 
-export async function clearQueue() {
-  await AsyncStorage.removeItem(KEY);
-}
+export async function clearQueue() { await AsyncStorage.removeItem(KEY); }
 
 export async function removeSynced(ids = []) {
   const idSet = new Set((ids || []).map(String));
   const queue = await pending();
-  const remaining = queue.filter(
-    (item) => !idSet.has(String(item.client_uuid || '')),
-  );
+  const remaining = queue.filter((item) => !idSet.has(String(item.client_uuid || '')));
   await AsyncStorage.setItem(KEY, JSON.stringify(remaining));
   return queue.length - remaining.length;
 }
 
-// ارسال صف به endpoint تجمیعی سرور؛ اجرای هم‌زمان قفل می‌شود تا یک صف چندبار ارسال نشود.
+function isRetryableResponse(result) {
+  if (!result) return false;
+  const status = Number(result?.status || result?.http_status || 0);
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+// صف را به‌ترتیب ثبت تخلیه می‌کنیم. هر مورد فقط بعد از موفقیت حذف می‌شود؛
+// بنابراین قطع اینترنت وسط ارسال باعث از بین رفتن اطلاعات قبلی صف نمی‌شود.
 export async function flush(send) {
   if (flushPromise) return flushPromise;
-
   flushPromise = (async () => {
     let net;
-    try {
-      net = await Network.getNetworkStateAsync();
-    } catch (_) {
-      // اگر تشخیص وضعیت شبکه خطا بدهد، فرض می‌کنیم آنلاین هستیم تا اجرای
-      // flush به‌طور کامل متوقف نشود و صف برای همیشه معلق نماند.
-      net = { isInternetReachable: true };
-    }
+    try { net = await Network.getNetworkStateAsync(); } catch (_) { net = { isInternetReachable: true }; }
     if (net.isInternetReachable !== true) return 0;
 
     const queue = await pending();
     if (!queue.length) return 0;
 
-    try {
-      const res = await send({
-        path: '/mobile/offline-sync',
-        body: { items: queue },
-        batch: true,
-      });
-
-      if (res && (res.ok || Number.isFinite(Number(res.received)))) {
-        if (Array.isArray(res.synced_ids)) {
-          return await removeSynced(res.synced_ids);
-        }
-
-        await AsyncStorage.setItem(KEY, JSON.stringify([]));
-        return queue.length;
-      }
-    } catch (_) {
-      // در صورت ناسازگاری endpoint تجمیعی، fallback تک‌به‌تک اجرا می‌شود.
-    }
-
-    const remaining = [];
+    let synced = 0;
     for (const item of queue) {
       try {
-        await send(item);
+        const res = await send(item);
+        if (res?.queued) break;
+        if (res?.ok === false && isRetryableResponse(res)) break;
+        await removeSynced([item.client_uuid]);
+        synced += 1;
       } catch (_) {
-        remaining.push(item);
+        // اولین خطای شبکه/موقت، ترتیب صف را حفظ می‌کنیم و بقیه را برای نوبت بعد نگه می‌داریم.
+        break;
       }
     }
-
-    await AsyncStorage.setItem(KEY, JSON.stringify(remaining));
-    return queue.length - remaining.length;
+    return synced;
   })();
-
-  try {
-    return await flushPromise;
-  } finally {
-    flushPromise = null;
-  }
+  try { return await flushPromise; } finally { flushPromise = null; }
 }
