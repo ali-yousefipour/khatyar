@@ -30,6 +30,43 @@ function aar_normalize_jdate($value) {
 }
 
 /**
+ * حذف تکرار و هم‌پوشانی punchها قبل از محاسبه.
+ * _attendance_report ممکن است در اثر تجمیع رکوردهای تردد، یک بازه را بیش از یک بار
+ * داخل punches/sessions قرار دهد. ShiftCalc مجموع هر session را جمع می‌زند و در این
+ * حالت حضور به شکل غیرواقعی بزرگ می‌شود. این تابع فقط بازه‌های تکراری/هم‌پوشان را
+ * یک‌بار محاسبه می‌کند و ساعت ورود/خروج واقعی را نگه می‌دارد.
+ */
+function aar_dedupe_sessions(array $sessions): array {
+  $items = [];
+  $seen = [];
+  foreach ($sessions as $s) {
+    if (!is_array($s) || empty($s['in'])) continue;
+    $in = (int)$s['in'];
+    $out = !empty($s['out']) ? (int)$s['out'] : null;
+    if ($in <= 0 || !$out || $out <= $in) continue;
+    $key = $in . ':' . $out;
+    if (isset($seen[$key])) continue;
+    $seen[$key] = true;
+    $items[] = ['in'=>$in,'out'=>$out];
+  }
+  usort($items, static function($a,$b){ return $a['in'] <=> $b['in'] ?: $a['out'] <=> $b['out']; });
+
+  $merged = [];
+  foreach ($items as $item) {
+    $n = count($merged);
+    if ($n === 0) { $merged[] = $item; continue; }
+    $last = $merged[$n-1];
+    // بازه‌های هم‌پوشان/تودرتو فقط یک‌بار محاسبه شوند.
+    if ($item['in'] <= $last['out']) {
+      $merged[$n-1]['out'] = max($last['out'], $item['out']);
+    } else {
+      $merged[] = $item;
+    }
+  }
+  return $merged;
+}
+
+/**
  * تردد شب متعلق به تاریخ ورود است.
  * نمونه: ورود 22:30 در 1405/06/10 و خروج 07:15 در 1405/06/11
  * تمام کارکرد و شب‌کاری در ردیف 1405/06/10 ثبت می‌شود و در روز بعد تکرار نمی‌شود.
@@ -71,12 +108,15 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
       [$dayJ, str_replace('-','/',$dayJ)]
     );
 
-    $sessions = [];
+    $rawSessions = [];
     foreach ($ownedPunches as $p) {
       $in = !empty($p['in_full']) ? strtotime($p['in_full']) : null;
       $out = !empty($p['out_full']) ? strtotime($p['out_full']) : null;
-      if ($in) $sessions[] = ['in'=>$in,'out'=>$out];
+      if ($in && $out && $out > $in) {
+        $rawSessions[] = ['in'=>$in,'out'=>$out];
+      }
     }
+    $sessions = aar_dedupe_sessions($rawSessions);
 
     if ($shift) {
       $w = ShiftCalc::dayWork($shift,$dayJ,$dayRow,$sessions,$hol);
