@@ -17,6 +17,8 @@ RewriteRule ^api/my/app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
 # Mobile currently calls /my/app-items. It must use the Android-only permission
 # source as well; never let the main router's Web permissions gate Android.
 RewriteRule ^my/app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
+RewriteRule ^api/my/sms-quota-v2/?$ api/my/sms-quota-v2.php [QSA,L,NC]
+RewriteRule ^my/sms-quota-v2/?$ api/my/sms-quota-v2.php [QSA,L,NC]
 RewriteRule ^api/radio-api\.php$ radio-api-v2.php [QSA,L,NC]
 RewriteRule ^api/radio-api-v2\.php$ radio-api-v2.php [QSA,L,NC]
 RewriteRule ^api/radio-admin-api\.php$ radio-admin-api.php [QSA,L,NC]
@@ -43,7 +45,7 @@ RewriteRule ^ index.php [QSA,L]
 DirectoryIndex index.php
 Options -Indexes
 ServerSignature Off
-<FilesMatch "(^\.env|\.ini$|\.log$|\.sql$|composer\.(json|lock)$|package(-lock)?\.json$|config\.php$)">
+<FilesMatch "(^\.env|\.ini$|\.log$|\.sql$|composer\.(json|lock)$|package(-lock)?\.json|config\.php$)">
   Require all denied
 </FilesMatch>
 <FilesMatch "^(install|setup-libs|migrate_images|fix_attendance_2026)\.php$">
