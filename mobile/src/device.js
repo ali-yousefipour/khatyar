@@ -5,6 +5,13 @@ import * as Network from 'expo-network';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
+// وضعیت سراسری استثناء امنیتی کاربر؛ پس از احراز هویت توسط AuthProvider تنظیم می‌شود.
+let _securityExempt = false;
+export function setSecurityExempt(value) {
+  _securityExempt = Number(value) === 1 || value === true || String(value).toLowerCase() === 'true';
+}
+export function isSecurityExempt() { return _securityExempt; }
+
 // شناسهٔ پایدار دستگاه (برای اتصال تک‌دستگاهی)
 export async function getDeviceId() {
   let id = await SecureStore.getItemAsync('device_id');
@@ -21,21 +28,20 @@ export async function getDeviceId() {
 }
 
 export function getDeviceModel() {
-  // از expo-device استفاده می‌کنیم (بدون نیاز به ماژول بومی جداگانه)
   const brand = Device.brand || Device.manufacturer || '';
   const model = Device.modelName || '';
   return `${brand} ${model} ${Platform.OS} ${Platform.Version}`.replace(/\s+/g, ' ').trim();
 }
 
-// سیگنال‌های امنیتی که سرور برای اجازهٔ ورود بررسی می‌کند
+// سیگنال‌های امنیتی که سرور برای اجازهٔ ورود بررسی می‌کند.
+// توجه: استثناء کاربر بعد از ورود از /auth/me اعمال می‌شود؛ بنابراین
+// برای مرحلهٔ login نباید این تابع را با استثناء فرضی صدا زد.
 export async function securitySignals() {
   let vpn_on = false, dev_options_on = false, mock_location = false;
-  // تشخیص VPN از طریق نوع شبکهٔ expo-network (وقتی VPN فعال است نوع شبکه VPN گزارش می‌شود)
   try {
     const st = await Network.getNetworkStateAsync();
     if (st && st.type === Network.NetworkStateType.VPN) vpn_on = true;
   } catch (e) {}
-  // حالت توسعه‌دهنده از ماژول بومی محلی (در صورت موجود بودن) خوانده می‌شود
   try {
     const SecurityCheck = require('../modules/security-check').default || require('../modules/security-check');
     if (SecurityCheck && typeof SecurityCheck.isDeveloperModeEnabled === 'function') {
@@ -47,7 +53,6 @@ export async function securitySignals() {
   let gpsEnabled = false, granted = false;
   try { gpsEnabled = await Location.hasServicesEnabledAsync(); } catch (e) {}
   try { const fg = await Location.getForegroundPermissionsAsync(); granted = !!fg.granted; } catch (e) {}
-  // تشخیص ماک‌لوکیشن: اگر موقعیت فعلی جعلی باشد
   try {
     if (gpsEnabled && granted) {
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -57,8 +62,9 @@ export async function securitySignals() {
   return { vpn_on, dev_options_on, mock_location, gps_on: gpsEnabled && granted, is_emulator: !Device.isDevice };
 }
 
-// آیا موقعیت فعلی جعلی (ماک) است؟ (برای مسدودسازی هنگام ورود)
+// آیا موقعیت فعلی جعلی (ماک) است؟
 export async function isMockLocation() {
+  if (_securityExempt) return false;
   try {
     const enabled = await Location.hasServicesEnabledAsync();
     const fg = await Location.getForegroundPermissionsAsync();
@@ -68,16 +74,18 @@ export async function isMockLocation() {
   } catch (e) { return false; }
 }
 
-// بررسی سبک VPN برای ارسال همراه هر موقعیت (تشخیص روشن‌شدن فیلترشکن پس از باز شدن برنامه)
-// خروجی: { on: bool, country: string|null, reason: string }
-// محتاطانه عمل می‌کند تا کاربر واقعی بدون VPN مسدود نشود (false positive کم).
+// بررسی VPN برای استفاده در مسیرهای عملیاتی.
 export async function isVpnOn() {
+  if (_securityExempt) return false;
   const r = await vpnStatus();
   return r.on;
 }
 
 let _vpnRuntimeState = { positive: 0, negative: 0, on: false };
 export async function vpnStatus() {
+  if (_securityExempt) {
+    return { on: false, country: null, reason: 'security_exempt', signalCount: 0, confirmationCount: 0, network: null };
+  }
   let transport = false, expoVpn = false, activeTunnels = [], network = null;
   try {
     const SecurityCheck = require('../modules/security-check').default || require('../modules/security-check');
@@ -108,20 +116,15 @@ export async function vpnStatus() {
   };
 }
 
-// تشخیص کشور IP عمومی کاربر (با کش کوتاه‌مدت). اگر غیر «IR» بود نشانهٔ فیلترشکن است.
 let _ipCountryCache = { at: 0, country: null };
 export async function getIpCountry() {
   const now = Date.now();
-  // کش ۹۰ ثانیه‌ای تا فشار شبکه کم شود
   if (now - _ipCountryCache.at < 90000 && _ipCountryCache.country) return _ipCountryCache.country;
-  // چند سرویس سبک برای تشخیص کشور (اولین پاسخ معتبر کافی است)
   const sources = [
     { url: 'https://ipapi.co/country/', parse: (t) => (t || '').trim().slice(0, 2).toUpperCase() },
     { url: 'https://ipwho.is/?fields=country_code', parse: (t) => { try { return (JSON.parse(t).country_code || '').toUpperCase(); } catch { return null; } } },
     { url: 'https://api.country.is/', parse: (t) => { try { return (JSON.parse(t).country || '').toUpperCase(); } catch { return null; } } },
   ];
-  // برای کاهش false positive: حداقل دو منبع باید کشور یکسانِ غیرایران بدهند تا «غیرایران» قطعی شود.
-  // اگر فقط یک منبع غیرایران گفت ولی منبع دیگر IR یا نامشخص بود، نتیجه را IR (امن) برمی‌گردانیم.
   const results = [];
   for (const src of sources) {
     try {
@@ -132,21 +135,21 @@ export async function getIpCountry() {
       const txt = await res.text();
       const c = src.parse(txt);
       if (c && /^[A-Z]{2}$/.test(c)) results.push(c);
-    } catch (e) { /* سرویس بعدی */ }
-    if (results.length >= 2) break; // دو پاسخ کافی است
+    } catch (e) {}
+    if (results.length >= 2) break;
   }
-  if (results.length === 0) return null; // هیچ سرویسی پاسخ نداد → نامشخص (VPN فرض نمی‌شود)
+  if (results.length === 0) return null;
   if (results.includes('IR')) { _ipCountryCache = { at: now, country: 'IR' }; return 'IR'; }
-  // اگر همهٔ پاسخ‌ها یکسان و غیرایران بودند → قطعی
   const allSame = results.every((c) => c === results[0]);
   if (allSame) { _ipCountryCache = { at: now, country: results[0] }; return results[0]; }
-  // پاسخ‌های متناقض غیرایران → نامشخص، امن‌تر است IR فرض شود
   _ipCountryCache = { at: now, country: 'IR' };
   return 'IR';
 }
 
-// بررسی سبک برای پایش مداوم در حین کار (کم‌مصرف): از آخرین موقعیت معلوم استفاده می‌کند
 export async function runtimeSecurityCheck() {
+  if (_securityExempt) {
+    return { dev_options_on: false, mock_location: false, vpn_on: false, vpn_country: null, vpn_reason: 'security_exempt' };
+  }
   let dev_options_on = false, mock_location = false;
   try {
     const SecurityCheck = require('../modules/security-check').default || require('../modules/security-check');
@@ -166,6 +169,7 @@ export async function runtimeSecurityCheck() {
 }
 
 export async function ensureGpsOn() {
+  if (_securityExempt) return true;
   let enabled = false;
   try { enabled = await Location.hasServicesEnabledAsync(); } catch (e) {}
   if (!enabled) throw new Error('برای استفاده از برنامه باید GPS روشن باشد.');
