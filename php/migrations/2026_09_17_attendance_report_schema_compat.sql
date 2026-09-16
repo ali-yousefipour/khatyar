@@ -18,6 +18,14 @@ CREATE TABLE IF NOT EXISTS staff_attendance (
   out_lat DOUBLE NULL,
   out_lng DOUBLE NULL,
   auto_closed TINYINT(1) NOT NULL DEFAULT 0,
+  in_station VARCHAR(190) NULL,
+  out_station VARCHAR(190) NULL,
+  handover_id INT NULL,
+  calc_json JSON NULL,
+  client_uuid VARCHAR(120) NULL,
+  offline_synced TINYINT(1) NOT NULL DEFAULT 0,
+  client_check_in DATETIME NULL,
+  client_check_out DATETIME NULL,
   INDEX idx_sa_user (user_id, check_in),
   INDEX idx_sa_open (user_id, check_out)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -38,6 +46,14 @@ SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHE
   'ALTER TABLE staff_attendance ADD COLUMN calc_json JSON NULL','SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='staff_attendance' AND COLUMN_NAME='client_uuid')=0,
+  'ALTER TABLE staff_attendance ADD COLUMN client_uuid VARCHAR(120) NULL','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='staff_attendance' AND COLUMN_NAME='offline_synced')=0,
+  'ALTER TABLE staff_attendance ADD COLUMN offline_synced TINYINT(1) NOT NULL DEFAULT 0','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='staff_attendance' AND COLUMN_NAME='client_check_in')=0,
   'ALTER TABLE staff_attendance ADD COLUMN client_check_in DATETIME NULL','SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
@@ -55,7 +71,11 @@ SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHE
   'ALTER TABLE users ADD COLUMN work_policy_id INT NULL','SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- ایندکس گزارش مستقیم: کاربر + زمان ورود
+-- ایندکس‌های گزارش مستقیم و همگام‌سازی آفلاین
 SET @sql := IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='staff_attendance' AND INDEX_NAME='idx_sa_user_checkin_report')=0,
   'ALTER TABLE staff_attendance ADD INDEX idx_sa_user_checkin_report (user_id,check_in)','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='staff_attendance' AND INDEX_NAME='idx_attendance_client_uuid')=0,
+  'ALTER TABLE staff_attendance ADD INDEX idx_attendance_client_uuid (client_uuid)','SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
