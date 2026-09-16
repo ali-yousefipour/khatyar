@@ -45,7 +45,9 @@ export function jLabel(jy, jm, jd) { return `${fa(jy)}/${fa(String(jm).padStart(
 export default function JDatePicker({ visible, onClose, onSelect, initial, minYear = 1300, maxYear }) {
   const todayArr = jToday();
   const today = { jy: Number(todayArr?.[0]) || 1405, jm: Number(todayArr?.[1]) || 1, jd: Number(todayArr?.[2]) || 1 };
-  const maxY = maxYear || today.jy;
+  // برای تاریخ‌های اعتبار مدارک (گواهینامه، بیمه، معاینه فنی و موارد مشابه)
+  // انتخاب سال‌های آینده نیز باید ممکن باشد. در صورت تعیین maxYear توسط مصرف‌کننده، همان مقدار محترم است.
+  const maxY = maxYear || (today.jy + 10);
   const init = normalizeInitial(initial, Math.min(today.jy, maxY));
   const [jy, setJy] = useState(init.jy);
   const [jm, setJm] = useState(init.jm);
