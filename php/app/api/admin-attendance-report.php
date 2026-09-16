@@ -15,6 +15,53 @@ function aar_json($v, $status = 200) {
 function aar_error($message, $status = 400) { aar_json(['error' => $message], $status); }
 
 /**
+ * سازگاری اسکیمای گزارش مستقیم با دیتابیس‌های قدیمی.
+ * ساختار پایه از upgrade_full_standalone.sql و فیلدهای تکمیلی از
+ * 2026_09_06_vehicle_attendance_hardening.sql گرفته شده است.
+ * این fallback فقط وقتی ستونی/جدولی وجود نداشته باشد اجرا می‌شود و
+ * منطق محاسبه شیفت، مخصوصاً شیفت شب، را تغییر نمی‌دهد.
+ */
+function aar_ensure_report_schema() {
+  $pdo = Db::pdo();
+
+  $pdo->exec("CREATE TABLE IF NOT EXISTS staff_attendance (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    line_id INT NULL,
+    check_in DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    check_out DATETIME NULL,
+    method VARCHAR(20) NULL,
+    in_lat DOUBLE NULL,
+    in_lng DOUBLE NULL,
+    out_lat DOUBLE NULL,
+    out_lng DOUBLE NULL,
+    auto_closed TINYINT(1) NOT NULL DEFAULT 0,
+    INDEX idx_sa_user (user_id, check_in),
+    INDEX idx_sa_open (user_id, check_out)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+  $addColumn = static function ($table, $column, $definition) use ($pdo) {
+    $st = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?");
+    $st->execute([$table, $column]);
+    if ((int)$st->fetchColumn() === 0) {
+      $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
+    }
+  };
+
+  // ستون‌های ثبت‌شده در migrationهای قبلی تردد.
+  $addColumn('staff_attendance', 'in_station', 'VARCHAR(190) NULL');
+  $addColumn('staff_attendance', 'out_station', 'VARCHAR(190) NULL');
+  $addColumn('staff_attendance', 'handover_id', 'INT NULL');
+  $addColumn('staff_attendance', 'calc_json', 'JSON NULL');
+  $addColumn('staff_attendance', 'client_check_in', 'DATETIME NULL');
+  $addColumn('staff_attendance', 'client_check_out', 'DATETIME NULL');
+
+  // _attendance_report این دو فیلد را مستقیماً در SELECT خود می‌خواند.
+  $addColumn('users', 'device_model', 'VARCHAR(255) NULL');
+  $addColumn('users', 'work_policy_id', 'INT NULL');
+}
+
+/**
  * بازسازی روزهای گزارش با «تاریخ ورود» به عنوان مالک تردد.
  * رکورد 22:30 روز X تا 07:15 روز X+1 فقط متعلق به روز X است و کامل محاسبه می‌شود.
  * روز X+1 فقط ترددهایی را می‌بیند که ورودشان واقعاً در همان روز ثبت شده است.
@@ -148,6 +195,9 @@ try {
 
   if (!function_exists('route')) { function route($m, $p, $fn, $public = false, $minLevel = 99) {} }
   require "$ROOT/lib/routes.php";
+
+  // قبل از اجرای _attendance_report، اسکیمای واقعی/تاریخی گزارش را تضمین می‌کنیم.
+  aar_ensure_report_schema();
 
   $token = Http::bearer();
   $payload = $token ? Jwt::verify($token, $CONFIG['jwt_secret']) : null;
