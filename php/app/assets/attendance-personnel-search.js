@@ -1,5 +1,15 @@
-/* خطیار: این اسکریپت قبلاً با دستکاری مستقیم DOM یک کادر جستجوی پرسنل اضافه به صفحهٔ
-   «گزارش تردد پرسنل» تزریق می‌کرد. کامپوننت React این صفحه اکنون خودش یک کادر جستجوی
-   بومی و کامل دارد؛ اجرای هم‌زمان هر دو باعث نمایش دو کادر جستجوی تکراری می‌شد.
-   به همین دلیل این فایل عمداً خنثی نگه داشته شده (برای سازگاری با تگ <script> که در
-   panel.html به آن ارجاع داده شده، بدون نیاز به ویرایش آن فایل). */
+/* خطیار — گزارش تردد: لایهٔ سبکِ انتخاب پرسنل و تثبیت رندر ۲۹ ستون
+ * این فایل عمداً مستقل از bundle اصلی است تا تغییرات صفحهٔ گزارش با سایر صفحات تداخل نداشته باشد.
+ */
+(function(){
+  'use strict';
+  var USER_URL='/api/admin/leave-balance-init',USER_CACHE='khatyar.attendance.personnel.v2',USER_TTL=5*60*1000,loading=false;
+  function isAttendancePage(){return /گزارش تردد پرسنل/.test((document.body&&document.body.innerText)||'');}
+  function getPicker(){if(!isAttendancePage())return null;var labels=Array.from(document.querySelectorAll('label'));for(var i=0;i<labels.length;i++){if((labels[i].textContent||'').trim()!=='پرسنل')continue;var box=labels[i].parentElement,input=box&&box.querySelector('input[placeholder*="جستجوی نام"]'),select=box&&box.querySelector('select');if(input&&select)return{input:input,select:select};}return null;}
+  function normalize(rows){return(Array.isArray(rows)?rows:[]).map(function(r){var n=String(r.name||'').trim().split(/\s+/);return{id:r.id,first_name:r.first_name||n[0]||'',last_name:r.last_name||n.slice(1).join(' '),username:r.username||''};}).filter(function(r){return r.id;});}
+  async function loadUsers(){if(loading)return;var picker=getPicker();if(!picker)return;var cached=null;try{cached=JSON.parse(localStorage.getItem(USER_CACHE)||'null');}catch(e){}if(cached&&cached.t&&Date.now()-cached.t<USER_TTL&&Array.isArray(cached.rows))applyUsers(picker,cached.rows);loading=true;try{var r=await fetch(USER_URL,{headers:{Authorization:'Bearer '+(localStorage.token||'')},cache:'no-store'});if(!r.ok)throw new Error('users');var rows=normalize(await r.json());if(rows.length){localStorage.setItem(USER_CACHE,JSON.stringify({t:Date.now(),rows:rows}));applyUsers(getPicker()||picker,rows);}}catch(e){}finally{loading=false;}}
+  function applyUsers(picker,rows){if(!picker||!picker.select||!rows.length)return;var current=picker.select.value,frag=document.createDocumentFragment(),first=document.createElement('option');first.value='';first.textContent='انتخاب پرسنل…';frag.appendChild(first);rows.forEach(function(u){var o=document.createElement('option');o.value=String(u.id);o.textContent=(u.first_name+' '+u.last_name).replace(/\s+/g,' ').trim();frag.appendChild(o);});picker.select.innerHTML='';picker.select.appendChild(frag);if(current)picker.select.value=current;}
+  function stabilizeReport(){if(!isAttendancePage())return;var p=window.__khatyarAttendancePayload,api=window.khatyarAttendanceReport;if(!p||!Array.isArray(p.days)||!api||typeof api.render!=='function')return;var tables=Array.from(document.querySelectorAll('table')),report=tables.find(function(t){return/حضور در شیفت/.test(t.innerText||'')||/کسری کار/.test(t.innerText||'')||/موظفی/.test(t.innerText||'');});if(!report)return;var headers=report.querySelectorAll('thead th').length;if(headers!==29||!report.classList.contains('khar-real-attendance-report')){try{api.render(p);}catch(e){}}}
+  function boot(){loadUsers();stabilizeReport();var obs=new MutationObserver(function(){loadUsers();stabilizeReport();});obs.observe(document.body,{childList:true,subtree:true});var n=0,t=setInterval(function(){loadUsers();stabilizeReport();if(++n>=60)clearInterval(t);},500);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+})();
