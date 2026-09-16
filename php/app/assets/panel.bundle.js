@@ -4622,14 +4622,21 @@ function RoleAppItems() {
 function RadioSettings() {
     const [data, setData] = useState({ channels: [], users: [], roles: [], regions: [], retention_days: 1, retention_hours: 24 });
     const [busy, setBusy] = useState(false);
+    const [loadErr, setLoadErr] = useState('');
+    const [loading, setLoading] = useState(true);
     const [form, setForm] = useState({ id: 0, name: '', code: '', description: '', channel_type: 'region', match_mode: 'OR', max_talk_ms: 25000, priority: 0, is_active: true, rules: { regions: [], users: [], roles: [] } });
-    const api = async (op, opt = {}) => { const r = await fetch(`/api/radio-admin-api.php?op=${op}`, { ...opt, headers: { ...(opt.headers || {}), Authorization: `Bearer ${localStorage.token || ''}`, 'Content-Type': 'application/json' }, cache: 'no-store' }); const d = await r.json(); if (!r.ok || d.ok === false)
-        throw Error(d.error || 'خطای سرور'); return d; };
-    const load = async () => { try {
+    const api = async (op, opt = {}) => { const r = await fetch(`/api/radio-admin-api.php?op=${op}`, { ...opt, headers: { ...(opt.headers || {}), Authorization: `Bearer ${localStorage.token || ''}`, 'Content-Type': 'application/json' }, cache: 'no-store' }); const d = await r.json().catch(() => null); if (!r.ok || !d || d.ok === false)
+        throw Error((d && d.error) || `خطای سرور (کد ${r.status})`); return d; };
+    /* خطیار: قبلاً فقط alert() نشان داده می‌شد که ممکن بود دیده/بسته شود بدون توجه؛ حالا خطای بارگذاری
+       به‌صورت دائمی و واضح در خودِ صفحه نمایش داده می‌شود تا علت واقعیِ خالی‌بودن این تب مشخص شود. */
+    const load = async () => { setLoading(true); setLoadErr(''); try {
         setData(await api('bootstrap'));
     }
     catch (e) {
-        alert(e.message);
+        setLoadErr(e.message || 'خطای نامشخص در بارگذاری تنظیمات بی‌سیم');
+    }
+    finally {
+        setLoading(false);
     } };
     useEffect(() => { load(); }, []);
     const save = async () => { setBusy(true); try {
@@ -4655,85 +4662,91 @@ function RadioSettings() {
     const toggle = (key, id) => setForm(f => ({ ...f, rules: { ...f.rules, [key]: f.rules[key].includes(id) ? f.rules[key].filter(x => x !== id) : [...f.rules[key], id] } }));
     return React.createElement("div", null,
         React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645 \u0627\u06A9\u0646\u0648\u0646 \u0628\u062E\u0634\u06CC \u0627\u0632 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u0635\u0644\u06CC \u0633\u0627\u0645\u0627\u0646\u0647 \u0627\u0633\u062A. \u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0627\u0646\u0627\u0644\u200C\u0647\u0627 \u0648 \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0622\u0631\u0634\u06CC\u0648 \u0627\u0632 \u0647\u0645\u06CC\u0646 \u062A\u0628 \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F."),
-        React.createElement("div", { className: "panel" },
-            React.createElement("h3", null, form.id ? 'ویرایش کانال' : 'ایجاد کانال جدید'),
-            React.createElement("div", { className: "grid2" },
-                React.createElement("div", null,
-                    React.createElement("label", { className: "label" }, "\u0646\u0627\u0645 \u06A9\u0627\u0646\u0627\u0644"),
-                    React.createElement("input", { className: "input", value: form.name, onChange: e => setForm({ ...form, name: e.target.value }) })),
-                React.createElement("div", null,
-                    React.createElement("label", { className: "label" }, "\u06A9\u062F \u06CC\u06A9\u062A\u0627"),
-                    React.createElement("input", { className: "input", dir: "ltr", value: form.code, onChange: e => setForm({ ...form, code: e.target.value }) })),
-                React.createElement("div", null,
-                    React.createElement("label", { className: "label" }, "\u0646\u0648\u0639 \u06A9\u0627\u0646\u0627\u0644"),
-                    React.createElement("select", { className: "input", value: form.channel_type, onChange: e => setForm({ ...form, channel_type: e.target.value }) },
-                        React.createElement("option", { value: "region" }, "\u0645\u0646\u0637\u0642\u0647\u200C\u0627\u06CC"),
-                        React.createElement("option", { value: "users" }, "\u0627\u0639\u0636\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u06CC"),
-                        React.createElement("option", { value: "roles" }, "\u0633\u0645\u062A\u200C\u0645\u062D\u0648\u0631"),
-                        React.createElement("option", { value: "custom" }, "\u062A\u0631\u06A9\u06CC\u0628\u06CC"))),
-                React.createElement("div", null,
-                    React.createElement("label", { className: "label" }, "\u0645\u0646\u0637\u0642 \u0634\u0631\u0648\u0637"),
-                    React.createElement("select", { className: "input", value: form.match_mode, onChange: e => setForm({ ...form, match_mode: e.target.value }) },
-                        React.createElement("option", { value: "OR" }, "OR"),
-                        React.createElement("option", { value: "AND" }, "AND"))),
-                React.createElement("div", null,
-                    React.createElement("label", { className: "label" }, "\u062D\u062F\u0627\u06A9\u062B\u0631 \u0632\u0645\u0627\u0646 \u0635\u062D\u0628\u062A (\u062B\u0627\u0646\u06CC\u0647)"),
-                    React.createElement("input", { className: "input", type: "number", min: "5", max: "120", value: Math.round(form.max_talk_ms / 1000), onChange: e => setForm({ ...form, max_talk_ms: Math.max(5000, Math.min(120000, (Number(e.target.value) || 25) * 1000)) }) })),
-                React.createElement("div", null,
-                    React.createElement("label", { className: "label" }, "\u0627\u0648\u0644\u0648\u06CC\u062A"),
-                    React.createElement("input", { className: "input", type: "number", value: form.priority, onChange: e => setForm({ ...form, priority: Number(e.target.value) || 0 }) }))),
-            React.createElement("label", { className: "row", style: { gap: 8, marginTop: 10 } },
-                React.createElement("input", { type: "checkbox", checked: !!form.is_active, onChange: e => setForm({ ...form, is_active: e.target.checked }) }),
-                "\u06A9\u0627\u0646\u0627\u0644 \u0641\u0639\u0627\u0644 \u0628\u0627\u0634\u062F"),
-            React.createElement("label", { className: "label", style: { marginTop: 10 } }, "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A"),
-            React.createElement("textarea", { className: "input", value: form.description || '', onChange: e => setForm({ ...form, description: e.target.value }) }),
-            React.createElement("div", { className: "grid2", style: { marginTop: 10 } }, [['regions', 'مناطق مجاز', data.regions], ['roles', 'سمت‌های مجاز', data.roles], ['users', 'کاربران مجاز', data.users]].map(([k, l, arr]) => React.createElement("div", { key: k },
-                React.createElement("label", { className: "label" }, l),
-                React.createElement("div", { style: { maxHeight: 150, overflow: 'auto', border: '1px solid var(--line)', padding: 8, borderRadius: 8 } }, (arr || []).map(x => React.createElement("label", { key: x.id, className: "row", style: { gap: 6, fontSize: 11, padding: 3 } },
-                    React.createElement("input", { type: "checkbox", checked: form.rules[k].includes(Number(x.id)), onChange: () => toggle(k, Number(x.id)) }),
-                    x.name || x.title || `${x.first_name || ''} ${x.last_name || ''}`)))))),
-            React.createElement("div", { className: "row", style: { gap: 8, marginTop: 12 } },
-                React.createElement("button", { className: "btn p", disabled: busy, onClick: save }, busy ? 'در حال ذخیره…' : 'ذخیره کانال'),
-                form.id > 0 && React.createElement("button", { className: "btn g", onClick: () => setForm({ id: 0, name: '', code: '', description: '', channel_type: 'region', match_mode: 'OR', max_talk_ms: 25000, priority: 0, is_active: true, rules: { regions: [], users: [], roles: [] } }) }, "\u0627\u0646\u0635\u0631\u0627\u0641"))),
-        React.createElement("div", { className: "panel" },
-            React.createElement("div", { className: "row", style: { justifyContent: 'space-between' } },
-                React.createElement("h3", null, "\u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0622\u0631\u0634\u06CC\u0648"),
-                React.createElement("span", { className: "muted" },
-                    fa(data.retention_hours || 24),
-                    " \u0633\u0627\u0639\u062A")),
-            React.createElement("div", { className: "row", style: { gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
-                React.createElement("input", { className: "input", type: "number", min: "1", max: "87600", value: data.retention_hours || 24, onChange: e => setData({ ...data, retention_hours: Number(e.target.value) || 24, retention_days: Math.max(1, Math.ceil((Number(e.target.value) || 24) / 24)) }) }),
-                React.createElement("span", { className: "muted" }, "\u0633\u0627\u0639\u062A"),
-                React.createElement("button", { className: "btn p", onClick: async () => { try {
-                        await api('retention-set', { method: 'POST', body: JSON.stringify({ retention_hours: data.retention_hours }) });
-                        await load();
-                    }
-                    catch (e) {
-                        alert(e.message);
-                    } } }, "\u0630\u062E\u06CC\u0631\u0647")),
-            React.createElement("p", { className: "muted", style: { marginTop: 6 } }, "\u067E\u06CC\u0634\u200C\u0641\u0631\u0636: \u06F2\u06F4 \u0633\u0627\u0639\u062A. \u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u06CC \u0642\u062F\u06CC\u0645\u06CC\u200C\u062A\u0631 \u0627\u0632 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u062A\u0648\u0633\u0637 \u067E\u0627\u06A9\u0633\u0627\u0632\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631 \u062D\u0630\u0641 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F.")),
-        React.createElement("div", { className: "panel" },
-            React.createElement("h3", null, "\u06A9\u0627\u0646\u0627\u0644\u200C\u0647\u0627\u06CC \u062A\u0639\u0631\u06CC\u0641\u200C\u0634\u062F\u0647"),
-            React.createElement("table", null,
-                React.createElement("thead", null,
-                    React.createElement("tr", null,
-                        React.createElement("th", null, "\u06A9\u0627\u0646\u0627\u0644"),
-                        React.createElement("th", null, "\u0646\u0648\u0639"),
-                        React.createElement("th", null, "\u0627\u0648\u0644\u0648\u06CC\u062A"),
-                        React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
-                        React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
-                React.createElement("tbody", null, data.channels.map(c => React.createElement("tr", { key: c.id },
-                    React.createElement("td", null,
-                        React.createElement("b", null, c.name),
-                        React.createElement("br", null),
-                        React.createElement("small", null, c.code)),
-                    React.createElement("td", null, ({ region: 'منطقه‌ای', users: 'اعضای انتخابی', roles: 'سمت‌محور', custom: 'ترکیبی' }[c.channel_type] || c.channel_type)),
-                    React.createElement("td", null, fa(c.priority || 0)),
-                    React.createElement("td", null, c.is_active ? 'فعال' : 'غیرفعال'),
-                    React.createElement("td", null,
-                        React.createElement("button", { className: "btn g", onClick: () => edit(c) }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
-                        " ",
-                        React.createElement("button", { className: "btn d", onClick: () => del(c.id) }, "\u062D\u0630\u0641"))))))));
+        loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645\u2026") : null,
+        loadErr ? React.createElement("div", { className: "panel", style: { borderColor: '#e23b54', background: '#fdeef0' } },
+            React.createElement("b", { style: { color: '#e23b54' } }, "\u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F"),
+            React.createElement("p", { style: { marginTop: 6, fontSize: 13 } }, loadErr),
+            React.createElement("button", { className: "btn g", style: { marginTop: 8 }, onClick: load }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")) : null,
+        !loading && !loadErr ? React.createElement(React.Fragment, null,
+            React.createElement("div", { className: "panel" },
+                React.createElement("h3", null, form.id ? 'ویرایش کانال' : 'ایجاد کانال جدید'),
+                React.createElement("div", { className: "grid2" },
+                    React.createElement("div", null,
+                        React.createElement("label", { className: "label" }, "\u0646\u0627\u0645 \u06A9\u0627\u0646\u0627\u0644"),
+                        React.createElement("input", { className: "input", value: form.name, onChange: e => setForm({ ...form, name: e.target.value }) })),
+                    React.createElement("div", null,
+                        React.createElement("label", { className: "label" }, "\u06A9\u062F \u06CC\u06A9\u062A\u0627"),
+                        React.createElement("input", { className: "input", dir: "ltr", value: form.code, onChange: e => setForm({ ...form, code: e.target.value }) })),
+                    React.createElement("div", null,
+                        React.createElement("label", { className: "label" }, "\u0646\u0648\u0639 \u06A9\u0627\u0646\u0627\u0644"),
+                        React.createElement("select", { className: "input", value: form.channel_type, onChange: e => setForm({ ...form, channel_type: e.target.value }) },
+                            React.createElement("option", { value: "region" }, "\u0645\u0646\u0637\u0642\u0647\u200C\u0627\u06CC"),
+                            React.createElement("option", { value: "users" }, "\u0627\u0639\u0636\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u06CC"),
+                            React.createElement("option", { value: "roles" }, "\u0633\u0645\u062A\u200C\u0645\u062D\u0648\u0631"),
+                            React.createElement("option", { value: "custom" }, "\u062A\u0631\u06A9\u06CC\u0628\u06CC"))),
+                    React.createElement("div", null,
+                        React.createElement("label", { className: "label" }, "\u0645\u0646\u0637\u0642 \u0634\u0631\u0648\u0637"),
+                        React.createElement("select", { className: "input", value: form.match_mode, onChange: e => setForm({ ...form, match_mode: e.target.value }) },
+                            React.createElement("option", { value: "OR" }, "OR"),
+                            React.createElement("option", { value: "AND" }, "AND"))),
+                    React.createElement("div", null,
+                        React.createElement("label", { className: "label" }, "\u062D\u062F\u0627\u06A9\u062B\u0631 \u0632\u0645\u0627\u0646 \u0635\u062D\u0628\u062A (\u062B\u0627\u0646\u06CC\u0647)"),
+                        React.createElement("input", { className: "input", type: "number", min: "5", max: "120", value: Math.round(form.max_talk_ms / 1000), onChange: e => setForm({ ...form, max_talk_ms: Math.max(5000, Math.min(120000, (Number(e.target.value) || 25) * 1000)) }) })),
+                    React.createElement("div", null,
+                        React.createElement("label", { className: "label" }, "\u0627\u0648\u0644\u0648\u06CC\u062A"),
+                        React.createElement("input", { className: "input", type: "number", value: form.priority, onChange: e => setForm({ ...form, priority: Number(e.target.value) || 0 }) }))),
+                React.createElement("label", { className: "row", style: { gap: 8, marginTop: 10 } },
+                    React.createElement("input", { type: "checkbox", checked: !!form.is_active, onChange: e => setForm({ ...form, is_active: e.target.checked }) }),
+                    "\u06A9\u0627\u0646\u0627\u0644 \u0641\u0639\u0627\u0644 \u0628\u0627\u0634\u062F"),
+                React.createElement("label", { className: "label", style: { marginTop: 10 } }, "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A"),
+                React.createElement("textarea", { className: "input", value: form.description || '', onChange: e => setForm({ ...form, description: e.target.value }) }),
+                React.createElement("div", { className: "grid2", style: { marginTop: 10 } }, [['regions', 'مناطق مجاز', data.regions], ['roles', 'سمت‌های مجاز', data.roles], ['users', 'کاربران مجاز', data.users]].map(([k, l, arr]) => React.createElement("div", { key: k },
+                    React.createElement("label", { className: "label" }, l),
+                    React.createElement("div", { style: { maxHeight: 150, overflow: 'auto', border: '1px solid var(--line)', padding: 8, borderRadius: 8 } }, (arr || []).map(x => React.createElement("label", { key: x.id, className: "row", style: { gap: 6, fontSize: 11, padding: 3 } },
+                        React.createElement("input", { type: "checkbox", checked: form.rules[k].includes(Number(x.id)), onChange: () => toggle(k, Number(x.id)) }),
+                        x.name || x.title || `${x.first_name || ''} ${x.last_name || ''}`)))))),
+                React.createElement("div", { className: "row", style: { gap: 8, marginTop: 12 } },
+                    React.createElement("button", { className: "btn p", disabled: busy, onClick: save }, busy ? 'در حال ذخیره…' : 'ذخیره کانال'),
+                    form.id > 0 && React.createElement("button", { className: "btn g", onClick: () => setForm({ id: 0, name: '', code: '', description: '', channel_type: 'region', match_mode: 'OR', max_talk_ms: 25000, priority: 0, is_active: true, rules: { regions: [], users: [], roles: [] } }) }, "\u0627\u0646\u0635\u0631\u0627\u0641"))),
+            React.createElement("div", { className: "panel" },
+                React.createElement("div", { className: "row", style: { justifyContent: 'space-between' } },
+                    React.createElement("h3", null, "\u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0622\u0631\u0634\u06CC\u0648"),
+                    React.createElement("span", { className: "muted" },
+                        fa(data.retention_hours || 24),
+                        " \u0633\u0627\u0639\u062A")),
+                React.createElement("div", { className: "row", style: { gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
+                    React.createElement("input", { className: "input", type: "number", min: "1", max: "87600", value: data.retention_hours || 24, onChange: e => setData({ ...data, retention_hours: Number(e.target.value) || 24, retention_days: Math.max(1, Math.ceil((Number(e.target.value) || 24) / 24)) }) }),
+                    React.createElement("span", { className: "muted" }, "\u0633\u0627\u0639\u062A"),
+                    React.createElement("button", { className: "btn p", onClick: async () => { try {
+                            await api('retention-set', { method: 'POST', body: JSON.stringify({ retention_hours: data.retention_hours }) });
+                            await load();
+                        }
+                        catch (e) {
+                            alert(e.message);
+                        } } }, "\u0630\u062E\u06CC\u0631\u0647")),
+                React.createElement("p", { className: "muted", style: { marginTop: 6 } }, "\u067E\u06CC\u0634\u200C\u0641\u0631\u0636: \u06F2\u06F4 \u0633\u0627\u0639\u062A. \u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u06CC \u0642\u062F\u06CC\u0645\u06CC\u200C\u062A\u0631 \u0627\u0632 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u062A\u0648\u0633\u0637 \u067E\u0627\u06A9\u0633\u0627\u0632\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631 \u062D\u0630\u0641 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F.")),
+            React.createElement("div", { className: "panel" },
+                React.createElement("h3", null, "\u06A9\u0627\u0646\u0627\u0644\u200C\u0647\u0627\u06CC \u062A\u0639\u0631\u06CC\u0641\u200C\u0634\u062F\u0647"),
+                React.createElement("table", null,
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u06A9\u0627\u0646\u0627\u0644"),
+                            React.createElement("th", null, "\u0646\u0648\u0639"),
+                            React.createElement("th", null, "\u0627\u0648\u0644\u0648\u06CC\u062A"),
+                            React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
+                            React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
+                    React.createElement("tbody", null, data.channels.map(c => React.createElement("tr", { key: c.id },
+                        React.createElement("td", null,
+                            React.createElement("b", null, c.name),
+                            React.createElement("br", null),
+                            React.createElement("small", null, c.code)),
+                        React.createElement("td", null, ({ region: 'منطقه‌ای', users: 'اعضای انتخابی', roles: 'سمت‌محور', custom: 'ترکیبی' }[c.channel_type] || c.channel_type)),
+                        React.createElement("td", null, fa(c.priority || 0)),
+                        React.createElement("td", null, c.is_active ? 'فعال' : 'غیرفعال'),
+                        React.createElement("td", null,
+                            React.createElement("button", { className: "btn g", onClick: () => edit(c) }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
+                            " ",
+                            React.createElement("button", { className: "btn d", onClick: () => del(c.id) }, "\u062D\u0630\u0641")))))))) : null);
 }
 function RadioCenter() {
     /* خطیار — مرکز بی‌سیم (بازنویسی کامل)
