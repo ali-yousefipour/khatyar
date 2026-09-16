@@ -1,19 +1,17 @@
 <?php
 /**
- * پاکسازی قطعی آرشیو بی‌سیم.
+ * پاکسازی آرشیو بی‌سیم بر اساس تنظیمات مدیریتی.
  *
- * سیاست خطیار: پیام‌های بی‌سیم حداکثر ۲۴ ساعت نگهداری می‌شوند.
+ * مقدار پیش‌فرض نگهداری پیام‌های بی‌سیم ۲۴ ساعت است.
+ * اگر مدیر مقدار بیشتری در تنظیمات قدیمی radio_archive_retention_* ثبت کند،
+ * همان مقدار اعمال می‌شود.
  * این فایل باید از طریق cron_all.php حداقل روزی یک‌بار اجرا شود.
- *
- * نکته مهم: تنظیمات قدیمی radio_archive_retention_* عمداً در اینجا نادیده
- * گرفته می‌شوند تا هیچ تنظیم مدیریتی نتواند نگهداری پیام بی‌سیم را بیشتر از
- * ۲۴ ساعت کند.
  */
 ini_set('display_errors', '0');
 $ROOT = __DIR__ . '/..';
 require "$ROOT/lib/Db.php";
 
-const RADIO_RETENTION_HOURS = 24;
+const RADIO_RETENTION_DEFAULT_HOURS = 24;
 const RADIO_CLEANUP_BATCH = 500;
 
 function radio_cleanup_table($table) {
@@ -38,6 +36,29 @@ function radio_cleanup_index($table, $index) {
         [$table, $index]
     );
     return (int)($r['c'] ?? 0) > 0;
+}
+
+/** مقدار نگهداری: تنظیم قدیمی فعال است و اگر تنظیمی ثبت نشده باشد ۲۴ ساعت است. */
+function radio_cleanup_retention_hours() {
+    try {
+        if (radio_cleanup_table('app_settings')) {
+            $r = Db::one(
+                "SELECT value FROM app_settings WHERE `key`='radio_archive_retention_hours' LIMIT 1"
+            );
+            $v = (int)($r['value'] ?? 0);
+            if ($v > 0) return max(1, min(87600, $v));
+
+            $r = Db::one(
+                "SELECT value FROM app_settings WHERE `key`='radio_archive_retention_days' LIMIT 1"
+            );
+            $d = (int)($r['value'] ?? 0);
+            if ($d > 0) return max(1, min(87600, $d * 24));
+        }
+    } catch (Throwable $e) {
+        // در صورت خطای تنظیمات، مقدار پیش‌فرض اعمال می‌شود.
+    }
+
+    return RADIO_RETENTION_DEFAULT_HOURS;
 }
 
 /**
@@ -68,15 +89,14 @@ try {
     if (!radio_cleanup_table('radio_messages')) {
         echo json_encode([
             'ok' => true,
-            'retention_hours' => RADIO_RETENTION_HOURS,
+            'retention_hours' => RADIO_RETENTION_DEFAULT_HOURS,
             'deleted' => 0,
             'message' => 'radio_messages table not found'
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
         exit;
     }
 
-    // برای پاکسازی روزانه روی created_at ایندکس داشته باشیم تا با رشد جدول
-    // مجبور به اسکن کامل نشویم.
+    // برای پاکسازی روی created_at ایندکس داشته باشیم تا با رشد جدول مجبور به اسکن کامل نشویم.
     if (radio_cleanup_column('radio_messages', 'created_at') && !radio_cleanup_index('radio_messages', 'idx_radio_messages_created_at')) {
         try {
             Db::run('ALTER TABLE radio_messages ADD KEY idx_radio_messages_created_at(created_at)');
@@ -85,15 +105,15 @@ try {
         }
     }
 
+    $retentionHours = radio_cleanup_retention_hours();
     $deleted = 0;
     $missingFiles = 0;
     $unlinkFailed = 0;
     $outsidePath = 0;
     $batches = 0;
-    $cutoff = date('Y-m-d H:i:s', time() - (RADIO_RETENTION_HOURS * 3600));
+    $cutoff = date('Y-m-d H:i:s', time() - ($retentionHours * 3600));
 
-    // در صورت حجم زیاد، پاکسازی را در بسته‌های کوچک انجام می‌دهیم تا قفل طولانی
-    // روی جدول ایجاد نشود. DELETE با LIMIT برای این سناریو مناسب است. 
+    // در صورت حجم زیاد، پاکسازی را در بسته‌های کوچک انجام می‌دهیم تا قفل طولانی روی جدول ایجاد نشود.
     while ($batches < 20) {
         $rows = Db::all(
             "SELECT id, audio_path FROM radio_messages
@@ -111,8 +131,7 @@ try {
             elseif ($fileResult['status'] === 'unlink_failed') $unlinkFailed++;
             elseif ($fileResult['status'] === 'outside_radio_dir') $outsidePath++;
 
-            // انقضای پیام باید قطعی باشد؛ حتی اگر فایل فیزیکی به هر دلیل
-            // قبلاً حذف شده یا دسترسی حذف فایل موقتاً مشکل داشته باشد.
+            // انقضای پیام باید قطعی باشد؛ حتی اگر فایل فیزیکی قبلاً حذف شده یا حذف فایل موقتاً مشکل داشته باشد.
             Db::run('DELETE FROM radio_messages WHERE id=?', [(int)$m['id']]);
             $deleted++;
         }
@@ -122,8 +141,9 @@ try {
 
     echo json_encode([
         'ok' => true,
-        'retention_hours' => RADIO_RETENTION_HOURS,
-        'retention_days' => 1,
+        'retention_hours' => $retentionHours,
+        'retention_days' => (int)ceil($retentionHours / 24),
+        'default_retention_hours' => RADIO_RETENTION_DEFAULT_HOURS,
         'cutoff' => $cutoff,
         'deleted' => $deleted,
         'missing_files' => $missingFiles,
@@ -135,7 +155,7 @@ try {
     http_response_code(500);
     echo json_encode([
         'ok' => false,
-        'retention_hours' => RADIO_RETENTION_HOURS,
+        'retention_hours' => radio_cleanup_retention_hours(),
         'error' => $e->getMessage()
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
 }
