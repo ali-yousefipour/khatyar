@@ -61,7 +61,8 @@ try {
   $mime=(string)($info['mime']??'');
   if(!in_array($mime,['image/jpeg','image/jpg'],true))pvu_fail('تصویر باید JPG باشد');
 
-  $root=dirname(__DIR__,2).'/uploads/personnel-vehicle-assets/'.(int)$asset['user_id'];
+  // Document root سامانه در php/app است؛ بنابراین فایل باید زیر php/app/uploads قرار بگیرد.
+  $root=dirname(__DIR__,1).'/uploads/personnel-vehicle-assets/'.(int)$asset['user_id'];
   if(!is_dir($root)&&!mkdir($root,0755,true)&&!is_dir($root))pvu_fail('ایجاد پوشه ذخیره تصویر ممکن نشد',500);
   $filename=(int)$assetId.'_'.$photoKey.'.jpg';
   $target=$root.'/'.$filename;
