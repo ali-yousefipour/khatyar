@@ -9,11 +9,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
+import android.media.audiofx.LoudnessEnhancer;
 import android.media.session.MediaSession;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.view.KeyEvent;
 
 import androidx.annotation.Nullable;
@@ -40,27 +42,27 @@ public final class KhatyarRadioService extends Service {
   private static final String CHANNEL = "khatyar_radio_service";
   private static final int NOTIFICATION_ID = 7841;
   private static final long POLL_MS = 1800L;
+  private static final int DEFAULT_GAIN_MB = 600; // +6 dB: conservative voice amplification
+  private static final int MAX_GAIN_MB = 1000;    // +10 dB hard safety ceiling
   private final Handler handler = new Handler(Looper.getMainLooper());
   private final ExecutorService io = Executors.newSingleThreadExecutor();
   private MediaSession mediaSession;
   private MediaPlayer player;
+  private LoudnessEnhancer loudnessEnhancer;
   private long lastId = 0;
   private long serviceStartedAt = 0;
   private boolean destroyed = false;
 
   private boolean playbackActive() { return getPrefs().getBoolean("playbackActive", false); }
   private void setPlaybackActive(boolean active) { try { getPrefs().edit().putBoolean("playbackActive", active).apply(); } catch (Throwable ignored) {} }
+  public static int clampGainMb(int gainMb) { return Math.max(0, Math.min(MAX_GAIN_MB, gainMb)); }
+  private int amplificationGainMb() { return clampGainMb(getPrefs().getInt("amplificationGainMb", DEFAULT_GAIN_MB)); }
 
-  // خطیار: نسخهٔ قبلی این متد فقط بر اساس ActivityManager.RunningAppProcessInfo.importance تصمیم می‌گرفت.
-  // این روش ذاتاً غلط بود: به‌محض این‌که همین سرویس (KhatyarRadioService) به‌عنوان یک foreground service اجرا شود،
-  // اندروید *همیشه* پردازهٔ میزبانش را در سطح IMPORTANCE_FOREGROUND گزارش می‌کند — کاملاً مستقل از این‌که صفحه روشن است
-  // یا کاربر واقعاً دارد اپ را می‌بیند یا خیر. یعنی این شرط تقریباً همیشه true بود و سرویس عملاً هیچ‌وقت پیام واقعی پخش نمی‌کرد،
-  // چون همیشه فکر می‌کرد جاوااسکریپت مسئول پخش است — دقیقاً همان چیزی که باعث می‌شد با خاموش‌بودن صفحه/بسته‌بودن اپ، پیام‌ها پخش نشوند.
-  // به‌جایش حالا از «ضربان قلب» (heartbeat) دقیقی که خودِ جاوااسکریپت (بر اساس AppState واقعی) دوره‌ای ارسال می‌کند استفاده می‌کنیم:
-  // فقط اگر ظرف چند ثانیهٔ اخیر جاوااسکریپت گفته «من در پیش‌زمینه‌ام»، سرویس نیتیو از پخش صرف‌نظر می‌کند؛
-  // در غیر این صورت (از جمله وقتی هیچ ضربانی نرسیده، یعنی اپ کاملاً بسته/کشته شده) پیش‌فرض روی «نیتیو خودش پخش کند» می‌ماند.
+  // The foreground-service state is intentionally not inferred from ActivityManager:
+  // the radio service itself makes the process foreground even while the screen is off.
+  // JS sends a short-lived AppState heartbeat; the native service only defers playback
+  // while a recent heartbeat explicitly says that the app is visible.
   private static final long FOREGROUND_HEARTBEAT_TIMEOUT_MS = 6000L;
-
   private boolean isAppInForeground() {
     try {
       android.content.SharedPreferences p = getPrefs();
@@ -227,6 +229,39 @@ public final class KhatyarRadioService extends Service {
     } catch (Throwable e) { return null; } finally { if (c != null) c.disconnect(); }
   }
 
+  private synchronized void releasePlayer() {
+    LoudnessEnhancer effect = loudnessEnhancer;
+    loudnessEnhancer = null;
+    if (effect != null) { try { effect.setEnabled(false); } catch (Throwable ignored) {} try { effect.release(); } catch (Throwable ignored) {} }
+    MediaPlayer old = player;
+    player = null;
+    if (old != null) { try { old.stop(); } catch (Throwable ignored) {} try { old.release(); } catch (Throwable ignored) {} }
+    setPlaybackActive(false);
+  }
+
+  private void attachLoudnessEnhancer(MediaPlayer mp) {
+    try {
+      if (Build.VERSION.SDK_INT < 19) return;
+      LoudnessEnhancer effect = new LoudnessEnhancer(mp.getAudioSessionId());
+      effect.setTargetGain(amplificationGainMb());
+      effect.setEnabled(amplificationGainMb() > 0);
+      loudnessEnhancer = effect;
+    } catch (Throwable ignored) {
+      loudnessEnhancer = null;
+    }
+  }
+
+  public synchronized void setAmplificationGain(int gainMb) {
+    int safe = clampGainMb(gainMb);
+    getPrefs().edit().putInt("amplificationGainMb", safe).apply();
+    try {
+      if (loudnessEnhancer != null) {
+        loudnessEnhancer.setTargetGain(safe);
+        loudnessEnhancer.setEnabled(safe > 0);
+      }
+    } catch (Throwable ignored) {}
+  }
+
   private synchronized void playRemote(String audioUrl, String token) {
     try {
       if (audioUrl.startsWith("/")) {
@@ -234,22 +269,26 @@ public final class KhatyarRadioService extends Service {
         if (audioUrl.startsWith("/api/") && base.endsWith("/api")) base = base.substring(0, base.length() - 4);
         audioUrl = base + audioUrl;
       }
-      if (player != null) { try { player.stop(); } catch (Throwable ignored) {} try { player.release(); } catch (Throwable ignored) {} }
+      releasePlayer();
       player = new MediaPlayer();
       player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+      // Keep the CPU awake for the short duration of a received radio message while the screen is off.
+      // WAKE_LOCK is already injected by the Expo config plugin.
+      try { player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK); } catch (Throwable ignored) {}
       Map<String,String> headers = new HashMap<>(); if (token != null && !token.isEmpty()) headers.put("Authorization", "Bearer " + token);
       player.setDataSource(this, android.net.Uri.parse(audioUrl), headers);
       setPlaybackActive(true);
-      player.setOnCompletionListener(mp -> { setPlaybackActive(false); try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; });
-      player.setOnErrorListener((mp, what, extra) -> { setPlaybackActive(false); try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; return true; });
-      player.setOnPreparedListener(MediaPlayer::start); player.prepareAsync();
-    } catch (Throwable ignored) { setPlaybackActive(false); }
+      player.setOnCompletionListener(mp -> { synchronized (KhatyarRadioService.this) { if (loudnessEnhancer != null) { try { loudnessEnhancer.release(); } catch (Throwable ignored) {} loudnessEnhancer = null; } try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); } });
+      player.setOnErrorListener((mp, what, extra) -> { synchronized (KhatyarRadioService.this) { if (loudnessEnhancer != null) { try { loudnessEnhancer.release(); } catch (Throwable ignored) {} loudnessEnhancer = null; } try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); } return true; });
+      player.setOnPreparedListener(mp -> { attachLoudnessEnhancer(mp); try { mp.start(); } catch (Throwable ignored) { setPlaybackActive(false); } });
+      player.prepareAsync();
+    } catch (Throwable ignored) { releasePlayer(); }
   }
 
   @Override public void onDestroy() {
     destroyed = true; handler.removeCallbacksAndMessages(null); io.shutdownNow();
     if (mediaSession != null) { try { mediaSession.setActive(false); mediaSession.release(); } catch (Throwable ignored) {} mediaSession = null; }
-    if (player != null) { try { player.release(); } catch (Throwable ignored) {} player = null; } setPlaybackActive(false);
+    releasePlayer();
     super.onDestroy();
   }
   @Nullable @Override public IBinder onBind(Intent intent) { return null; }
