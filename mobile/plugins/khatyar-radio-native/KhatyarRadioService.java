@@ -35,6 +35,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class KhatyarRadioService extends Service {
   public static final String PREFS = "khatyar_radio_native";
@@ -48,6 +49,7 @@ public final class KhatyarRadioService extends Service {
   private static final String ACTION_NOTIFICATION_PTT = "ir.mashhad.taxicontrol.radio.NOTIFICATION_PTT";
   private final Handler handler = new Handler(Looper.getMainLooper());
   private final ExecutorService io = Executors.newSingleThreadExecutor();
+  private final AtomicBoolean pollInFlight = new AtomicBoolean(false);
   private MediaSession mediaSession;
   private MediaPlayer player;
   private LoudnessEnhancer loudnessEnhancer;
@@ -74,7 +76,12 @@ public final class KhatyarRadioService extends Service {
   private final Runnable poller = new Runnable() {
     @Override public void run() {
       if (destroyed) return;
-      io.execute(() -> pollOnce());
+      if (pollInFlight.compareAndSet(false, true)) {
+        io.execute(() -> {
+          try { pollOnce(); }
+          finally { pollInFlight.set(false); }
+        });
+      }
       handler.postDelayed(this, POLL_MS);
     }
   };
