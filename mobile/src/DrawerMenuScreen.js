@@ -10,11 +10,9 @@ const ITEMS = [
   ['Notifications', 'اعلان‌ها', '🔔'],
   ['Messages', 'پیام‌ها', '💬'],
   ['WorkSummary', 'کارکرد من', '📊'],
-  ['SalarySlips', 'فیش‌های حقوقی من', '💵'],
   ['Profile', 'حساب کاربری', '👤'],
   ['Settings', 'تنظیمات', '⚙️'],
   ['Help', 'راهنمای برنامه، ورژن و اطلاعات سازنده', '❓'],
-  ['ImportTimes', 'آخرین زمان‌های به‌روزرسانی', '🕒'],
 ];
 
 function normRole(value) {
