@@ -4,21 +4,23 @@ import { C, FONT } from '../theme';
 import { currentVersion } from '../updater';
 
 export default function AboutAppScreen({ navigation }) {
-  const openSite=async()=>{try{await Linking.openURL('https://app.yousefipour.ir')}catch(_){}};
+  const openSite=async()=>{try{await Linking.openURL('https://www.mobinshot.ir')}catch(_){}};
+  const callSupport=async()=>{try{await Linking.openURL('tel:09982118899')}catch(_){}};
   const rows=[
     ['نام برنامه','خطیار — سامانه مدیریت و نظارت بر ناوگان تاکسیرانی'],
     ['نسخه',currentVersion()],
     ['تولیدکننده','علی یوسفی‌پور'],
     ['شرکت','مبین شات'],
-    ['وب‌سایت / سامانه','https://app.yousefipour.ir'],
-    ['پشتیبانی','برای پشتیبانی و پیگیری مشکلات، از مسیر ارتباطی رسمی سامانه یا مسئول سامانه سازمان استفاده کنید.'],
-    ['سیاست حریم خصوصی','اطلاعات مربوط به داده‌ها و دسترسی‌ها در صفحه سیاست حریم خصوصی ارائه شده است.'],
+    ['وب‌سایت','www.mobinshot.ir'],
+    ['سامانه خطیار','app.yousefipour.ir'],
+    ['پشتیبانی','۰۹۹۸۲۱۱۸۸۹۹'],
     ['شرایط استفاده','استفاده از خطیار برای کاربران مجاز سازمانی است و کاربر موظف است از حساب، اطلاعات و امکانات سامانه مطابق مقررات و دستورالعمل‌های سازمان استفاده کند.'],
   ];
   return <ScrollView style={s.wrap} contentContainerStyle={s.content}>
     <View style={s.hero}><Text style={s.brand}>خطیار</Text><Text style={s.title}>درباره برنامه</Text><Text style={s.sub}>اطلاعات رسمی برنامه</Text></View>
     <View style={s.card}>{rows.map(([label,value])=><View key={label} style={s.row}><Text style={s.label}>{label}</Text><Text style={s.value}>{value}</Text></View>)}
-      <TouchableOpacity style={s.btn} onPress={openSite}><Text style={s.btnText}>باز کردن وب‌سایت سامانه</Text></TouchableOpacity>
+      <TouchableOpacity style={s.btn} onPress={openSite}><Text style={s.btnText}>باز کردن وب‌سایت مبین شات</Text></TouchableOpacity>
+      <TouchableOpacity style={s.btn} onPress={callSupport}><Text style={s.btnText}>تماس با پشتیبانی: ۰۹۹۸۲۱۱۸۸۹۹</Text></TouchableOpacity>
       <TouchableOpacity style={s.btn} onPress={()=>navigation?.navigate?.('PrivacyPolicy')}><Text style={s.btnText}>مشاهده سیاست حریم خصوصی</Text></TouchableOpacity>
     </View>
   </ScrollView>;
