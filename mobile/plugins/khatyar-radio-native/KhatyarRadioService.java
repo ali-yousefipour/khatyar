@@ -58,7 +58,13 @@ public final class KhatyarRadioService extends Service {
   private boolean destroyed = false;
 
   private boolean playbackActive() { return getPrefs().getBoolean("playbackActive", false); }
-  private void setPlaybackActive(boolean active) { try { getPrefs().edit().putBoolean("playbackActive", active).apply(); } catch (Throwable ignored) {} }
+  private void setPlaybackActive(boolean active) {
+    try {
+      android.content.SharedPreferences.Editor editor = getPrefs().edit().putBoolean("playbackActive", active);
+      if (!active) editor.remove("audioSessionId");
+      editor.apply();
+    } catch (Throwable ignored) {}
+  }
   public static int clampGainMb(int gainMb) { return Math.max(0, Math.min(MAX_GAIN_MB, gainMb)); }
   private int amplificationGainMb() { return clampGainMb(getPrefs().getInt("amplificationGainMb", DEFAULT_GAIN_MB)); }
 
@@ -101,7 +107,7 @@ public final class KhatyarRadioService extends Service {
     setupMediaSession();
     startForegroundCompat();
     lastId = getPrefs().getLong("lastId", 0L);
-    getPrefs().edit().putLong("sessionStartedAt", serviceStartedAt).putBoolean("initialized", false).putBoolean("playbackActive", false).putBoolean("notificationPttActive", false).apply();
+    getPrefs().edit().putLong("sessionStartedAt", serviceStartedAt).putBoolean("initialized", false).putBoolean("playbackActive", false).putBoolean("notificationPttActive", false).remove("audioSessionId").apply();
     handler.post(poller);
     handler.postDelayed(notificationRefresher, NOTIFICATION_REFRESH_MS);
   }
@@ -375,10 +381,18 @@ public final class KhatyarRadioService extends Service {
       try { player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK); } catch (Throwable ignored) {}
       Map<String,String> headers = new HashMap<>(); if (token != null && !token.isEmpty()) headers.put("Authorization", "Bearer " + token);
       player.setDataSource(this, android.net.Uri.parse(audioUrl), headers);
-      setPlaybackActive(true);
       player.setOnCompletionListener(mp -> { synchronized (KhatyarRadioService.this) { if (loudnessEnhancer != null) { try { loudnessEnhancer.release(); } catch (Throwable ignored) {} loudnessEnhancer = null; } try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); } });
       player.setOnErrorListener((mp, what, extra) -> { synchronized (KhatyarRadioService.this) { if (loudnessEnhancer != null) { try { loudnessEnhancer.release(); } catch (Throwable ignored) {} loudnessEnhancer = null; } try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); } return true; });
-      player.setOnPreparedListener(mp -> { attachLoudnessEnhancer(mp); try { mp.start(); } catch (Throwable ignored) { setPlaybackActive(false); } });
+      player.setOnPreparedListener(mp -> {
+        try {
+          int sessionId = mp.getAudioSessionId();
+          getPrefs().edit().putInt("audioSessionId", Math.max(0, sessionId)).putBoolean("playbackActive", true).apply();
+          attachLoudnessEnhancer(mp);
+          mp.start();
+        } catch (Throwable ignored) {
+          setPlaybackActive(false);
+        }
+      });
       player.prepareAsync();
     } catch (Throwable ignored) { releasePlayer(); }
   }
