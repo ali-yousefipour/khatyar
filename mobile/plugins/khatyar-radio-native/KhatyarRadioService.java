@@ -5,7 +5,6 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
@@ -41,9 +40,12 @@ public final class KhatyarRadioService extends Service {
   public static final String PREFS = "khatyar_radio_native";
   private static final String CHANNEL = "khatyar_radio_service";
   private static final int NOTIFICATION_ID = 7841;
+  private static final int REQUEST_PTT = 7842;
   private static final long POLL_MS = 1800L;
-  private static final int DEFAULT_GAIN_MB = 600; // +6 dB: conservative voice amplification
-  private static final int MAX_GAIN_MB = 1000;    // +10 dB hard safety ceiling
+  private static final long NOTIFICATION_REFRESH_MS = 60000L;
+  private static final int DEFAULT_GAIN_MB = 600;
+  private static final int MAX_GAIN_MB = 1000;
+  private static final String ACTION_NOTIFICATION_PTT = "ir.mashhad.taxicontrol.radio.NOTIFICATION_PTT";
   private final Handler handler = new Handler(Looper.getMainLooper());
   private final ExecutorService io = Executors.newSingleThreadExecutor();
   private MediaSession mediaSession;
@@ -58,10 +60,6 @@ public final class KhatyarRadioService extends Service {
   public static int clampGainMb(int gainMb) { return Math.max(0, Math.min(MAX_GAIN_MB, gainMb)); }
   private int amplificationGainMb() { return clampGainMb(getPrefs().getInt("amplificationGainMb", DEFAULT_GAIN_MB)); }
 
-  // The foreground-service state is intentionally not inferred from ActivityManager:
-  // the radio service itself makes the process foreground even while the screen is off.
-  // JS sends a short-lived AppState heartbeat; the native service only defers playback
-  // while a recent heartbeat explicitly says that the app is visible.
   private static final long FOREGROUND_HEARTBEAT_TIMEOUT_MS = 6000L;
   private boolean isAppInForeground() {
     try {
@@ -81,6 +79,14 @@ public final class KhatyarRadioService extends Service {
     }
   };
 
+  private final Runnable notificationRefresher = new Runnable() {
+    @Override public void run() {
+      if (destroyed) return;
+      try { updateNotification(); } catch (Throwable ignored) {}
+      handler.postDelayed(this, NOTIFICATION_REFRESH_MS);
+    }
+  };
+
   @Override public void onCreate() {
     super.onCreate();
     serviceStartedAt = System.currentTimeMillis();
@@ -88,11 +94,16 @@ public final class KhatyarRadioService extends Service {
     setupMediaSession();
     startForegroundCompat();
     lastId = getPrefs().getLong("lastId", 0L);
-    getPrefs().edit().putLong("sessionStartedAt", serviceStartedAt).putBoolean("initialized", false).putBoolean("playbackActive", false).apply();
+    getPrefs().edit().putLong("sessionStartedAt", serviceStartedAt).putBoolean("initialized", false).putBoolean("playbackActive", false).putBoolean("notificationPttActive", false).apply();
     handler.post(poller);
+    handler.postDelayed(notificationRefresher, NOTIFICATION_REFRESH_MS);
   }
 
   @Override public int onStartCommand(Intent intent, int flags, int startId) {
+    if (intent != null && ACTION_NOTIFICATION_PTT.equals(intent.getAction())) {
+      toggleNotificationPtt();
+      return START_STICKY;
+    }
     if (!getPrefs().getBoolean("enabled", false)) { stopSelf(); return START_NOT_STICKY; }
     return START_STICKY;
   }
@@ -108,6 +119,50 @@ public final class KhatyarRadioService extends Service {
     }
   }
 
+  private PendingIntent buildPttPendingIntent() {
+    Intent i = new Intent(this, KhatyarRadioService.class);
+    i.setAction(ACTION_NOTIFICATION_PTT);
+    int flags = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+    return PendingIntent.getService(this, REQUEST_PTT, i, flags);
+  }
+
+  private String toPersianDigits(String value) {
+    if (value == null) return "";
+    return value.replace('0','۰').replace('1','۱').replace('2','۲').replace('3','۳').replace('4','۴').replace('5','۵').replace('6','۶').replace('7','۷').replace('8','۸').replace('9','۹');
+  }
+
+  private String jalaliToday() {
+    java.util.Calendar cal = java.util.Calendar.getInstance();
+    int gy = cal.get(java.util.Calendar.YEAR);
+    int gm = cal.get(java.util.Calendar.MONTH) + 1;
+    int gd = cal.get(java.util.Calendar.DAY_OF_MONTH);
+    int[] j = gregorianToJalali(gy, gm, gd);
+    return toPersianDigits(String.format(Locale.US, "%04d/%02d/%02d", j[0], j[1], j[2]));
+  }
+
+  private int[] gregorianToJalali(int gy, int gm, int gd) {
+    int[] gdm = {0,31,28,31,30,31,30,31,31,30,31,30,31};
+    int gy2 = gy - 1600;
+    int gm2 = gm - 1;
+    int gd2 = gd - 1;
+    int gDayNo = 365 * gy2 + (gy2 + 3) / 4 - (gy2 + 99) / 100 + (gy2 + 399) / 400;
+    for (int i = 0; i < gm2; ++i) gDayNo += gdm[i + 1];
+    if (gm2 > 1 && ((gy % 4 == 0 && gy % 100 != 0) || (gy % 400 == 0))) gDayNo++;
+    gDayNo += gd2;
+    int jDayNo = gDayNo - 79;
+    int jNp = jDayNo / 12053;
+    jDayNo %= 12053;
+    int jy = 979 + 33 * jNp + 4 * (jDayNo / 1461);
+    jDayNo %= 1461;
+    if (jDayNo >= 366) {
+      jy += (jDayNo - 1) / 365;
+      jDayNo = (jDayNo - 1) % 365;
+    }
+    int jm = jDayNo < 186 ? 1 + jDayNo / 31 : 7 + (jDayNo - 186) / 30;
+    int jd = 1 + (jDayNo < 186 ? jDayNo % 31 : (jDayNo - 186) % 30);
+    return new int[]{jy, jm, jd};
+  }
+
   private void startForegroundCompat() {
     Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
     PendingIntent pi = null;
@@ -115,14 +170,52 @@ public final class KhatyarRadioService extends Service {
       int f = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
       pi = PendingIntent.getActivity(this, 7841, launch, f);
     }
+    boolean pttActive = getPrefs().getBoolean("notificationPttActive", false);
     NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL)
-      .setSmallIcon(getApplicationInfo().icon).setContentTitle("بی‌سیم خطیار")
-      .setContentText("دریافت بی‌سیم در پس‌زمینه فعال است").setOngoing(true)
+      .setSmallIcon(getApplicationInfo().icon)
+      .setContentTitle("بی‌سیم خطیار")
+      .setContentText("📅 امروز: " + jalaliToday() + "  •  📻 آماده‌به‌کاری")
+      .setStyle(new NotificationCompat.BigTextStyle().bigText("📅 تاریخ امروز: " + jalaliToday() + "\n📻 بی‌سیم: آماده‌به‌کاری"))
+      .addAction(new NotificationCompat.Action.Builder(0, pttActive ? "⏹ پایان PTT" : "🎙 PTT", buildPttPendingIntent()).build())
+      .setOngoing(true).setOnlyAlertOnce(true)
       .setCategory(NotificationCompat.CATEGORY_SERVICE).setPriority(NotificationCompat.PRIORITY_LOW);
     if (pi != null) b.setContentIntent(pi);
     Notification n = b.build();
     if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK | android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
     else startForeground(NOTIFICATION_ID, n);
+  }
+
+  private void updateNotification() {
+    boolean pttActive = getPrefs().getBoolean("notificationPttActive", false);
+    Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
+    PendingIntent pi = null;
+    if (launch != null) {
+      int f = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+      pi = PendingIntent.getActivity(this, 7841, launch, f);
+    }
+    NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL)
+      .setSmallIcon(getApplicationInfo().icon)
+      .setContentTitle("بی‌سیم خطیار")
+      .setContentText("📅 امروز: " + jalaliToday() + "  •  📻 آماده‌به‌کاری")
+      .setStyle(new NotificationCompat.BigTextStyle().bigText("📅 تاریخ امروز: " + jalaliToday() + "\n📻 بی‌سیم: آماده‌به‌کاری"))
+      .addAction(new NotificationCompat.Action.Builder(0, pttActive ? "⏹ پایان PTT" : "🎙 PTT", buildPttPendingIntent()).build())
+      .setOngoing(true).setOnlyAlertOnce(true)
+      .setCategory(NotificationCompat.CATEGORY_SERVICE).setPriority(NotificationCompat.PRIORITY_LOW);
+    if (pi != null) b.setContentIntent(pi);
+    ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(NOTIFICATION_ID, b.build());
+  }
+
+  private void toggleNotificationPtt() {
+    if (!getPrefs().getBoolean("enabled", false) || getPrefs().getLong("channelId", 0L) <= 0 || playbackActive() || player != null) return;
+    boolean active = getPrefs().getBoolean("notificationPttActive", false);
+    if (active) {
+      sendPtt(false, "notification");
+      getPrefs().edit().putBoolean("notificationPttActive", false).apply();
+    } else {
+      sendPtt(true, "notification");
+      getPrefs().edit().putBoolean("notificationPttActive", true).apply();
+    }
+    updateNotification();
   }
 
   private void setupMediaSession() {
@@ -272,8 +365,6 @@ public final class KhatyarRadioService extends Service {
       releasePlayer();
       player = new MediaPlayer();
       player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
-      // Keep the CPU awake for the short duration of a received radio message while the screen is off.
-      // WAKE_LOCK is already injected by the Expo config plugin.
       try { player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK); } catch (Throwable ignored) {}
       Map<String,String> headers = new HashMap<>(); if (token != null && !token.isEmpty()) headers.put("Authorization", "Bearer " + token);
       player.setDataSource(this, android.net.Uri.parse(audioUrl), headers);
