@@ -189,7 +189,7 @@ public final class KhatyarRadioService extends Service {
       .setContentTitle("بی‌سیم خطیار")
       .setContentText("📅 امروز: " + jalaliToday() + "  •  📻 آماده‌به‌کاری")
       .setStyle(new NotificationCompat.BigTextStyle().bigText("📅 تاریخ امروز: " + jalaliToday() + "\n📻 بی‌سیم: آماده‌به‌کاری"))
-      .addAction(new NotificationCompat.Action.Builder(0, pttActive ? "⏹ پایان PTT" : "🎙 PTT", buildPttPendingIntent()).build())
+      .addAction(new NotificationCompat.Action.Builder(android.R.drawable.ic_btn_speak_now, pttActive ? "⏹ پایان PTT" : "🎙 PTT", buildPttPendingIntent()).build())
       .setOngoing(true).setOnlyAlertOnce(true)
       .setCategory(NotificationCompat.CATEGORY_SERVICE).setPriority(NotificationCompat.PRIORITY_LOW);
     if (pi != null) b.setContentIntent(pi);
@@ -211,7 +211,7 @@ public final class KhatyarRadioService extends Service {
       .setContentTitle("بی‌سیم خطیار")
       .setContentText("📅 امروز: " + jalaliToday() + "  •  📻 آماده‌به‌کاری")
       .setStyle(new NotificationCompat.BigTextStyle().bigText("📅 تاریخ امروز: " + jalaliToday() + "\n📻 بی‌سیم: آماده‌به‌کاری"))
-      .addAction(new NotificationCompat.Action.Builder(0, pttActive ? "⏹ پایان PTT" : "🎙 PTT", buildPttPendingIntent()).build())
+      .addAction(new NotificationCompat.Action.Builder(android.R.drawable.ic_btn_speak_now, pttActive ? "⏹ پایان PTT" : "🎙 PTT", buildPttPendingIntent()).build())
       .setOngoing(true).setOnlyAlertOnce(true)
       .setCategory(NotificationCompat.CATEGORY_SERVICE).setPriority(NotificationCompat.PRIORITY_LOW);
     if (pi != null) b.setContentIntent(pi);
