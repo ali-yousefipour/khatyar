@@ -1,19 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, Switch, Animated, Easing, useWindowDimensions, PanResponder, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, PanResponder, Modal } from 'react-native';
 import * as Application from 'expo-application';
 import { request, imageSource } from '../api';
 import { useAuth } from '../auth';
-import { useTheme } from '../themeContext';
-import { useFontScale } from '../fontscale';
 import { faNum } from '../num';
 import ImageViewer from '../components/ImageViewer';
 import PersonalPhotoCapture from '../PersonalPhotoCapture';
 import JDatePicker from '../components/JDatePicker';
 import { C as CC, FONT } from '../theme';
-import { MENU_UI } from '../uiTokens';
 import { captureRef } from 'react-native-view-shot';
 
-const MENU_ICONS = {
+const UNUSED_MENU_ICONS = {
   edit: require('../../assets/icons3d/profile-edit.png'),
   password: require('../../assets/icons3d/password-key.png'),
   salary: require('../../assets/icons3d/salary-slip.png'),
@@ -27,37 +24,6 @@ const MENU_ICONS = {
   update: require('../../assets/icons3d/app-update.png'),
   logout: require('../../assets/icons3d/logout-door.png'),
 };
-
-function AccordionSection({ section, open, activeKey, onToggle, onSelect, tablet }) {
-  const progress = useRef(new Animated.Value(open ? 1 : 0)).current;
-  useEffect(() => {
-    Animated.timing(progress, { toValue: open ? 1 : 0, duration: MENU_UI.animationMs, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
-  }, [open, progress]);
-  const bodyHeight = section.items.length * (MENU_UI.itemHeight + MENU_UI.spacing.xs);
-  const height = progress.interpolate({ inputRange: [0, 1], outputRange: [0, bodyHeight] });
-  const opacity = progress.interpolate({ inputRange: [0, .35, 1], outputRange: [0, 0, 1] });
-  const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-90deg'] });
-  return (
-    <View style={[s.menuSection, tablet && s.menuSectionTablet]}>
-      <TouchableOpacity activeOpacity={0.82} style={[s.menuSectionHead, open && s.menuSectionHeadOpen]} onPress={onToggle}>
-        <Text style={[s.menuSectionTitle, open && s.menuSectionTitleOpen]}>{section.title}</Text>
-        <Animated.Text style={[s.menuSectionChevron, { transform: [{ rotate }] }]}>‹</Animated.Text>
-      </TouchableOpacity>
-      <Animated.View style={[s.menuBody, { height, opacity }]} pointerEvents={open ? 'auto' : 'none'}>
-        {section.items.map((it) => {
-          const active = activeKey === it.key;
-          return (
-            <TouchableOpacity key={it.key} activeOpacity={0.82} style={[s.menuItem, active && s.menuItemActive, it.danger && s.menuItemDanger]} onPress={() => onSelect(it)}>
-              <Image source={MENU_ICONS[it.icon]} style={[s.menuIcon, active && s.menuIconActive]} resizeMode="contain" />
-              <Text numberOfLines={2} style={[s.menuItemText, active && s.menuItemTextActive, it.danger && s.menuItemTextDanger]}>{it.t}</Text>
-              <Text style={[s.menuItemArrow, active && s.menuItemArrowActive, it.danger && s.menuItemTextDanger]}>‹</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </Animated.View>
-    </View>
-  );
-}
 
 function parseJDate(value) {
   if (!value) return null;
@@ -340,81 +306,72 @@ export function EditProfileScreen({ navigation }) {
 }
 
 export function ProfileScreen({ navigation }) {
-  const { user, logout } = useAuth();
-  const { mode, toggle } = useTheme();
-  const { scale, setScale } = useFontScale();
+  const { user } = useAuth();
   const [photo, setPhoto] = useState(user?.photo || null);
   const [busy, setBusy] = useState(false);
   const [photoCaptureOpen, setPhotoCaptureOpen] = useState(false);
   const [lines, setLines] = useState([]);
   const [linesOpen, setLinesOpen] = useState(false);
   const [viewPhoto, setViewPhoto] = useState(false);
-  const [logoutStatus, setLogoutStatus] = useState(null);
-  const [allowedItems, setAllowedItems] = useState(null);
-  const { width } = useWindowDimensions();
-  const tablet = width >= 700;
-  const [openSections, setOpenSections] = useState({ account: true, settings: false, exit: false });
-  const [activeKey, setActiveKey] = useState('');
-  useEffect(() => { request('/me/logout-status').then(setLogoutStatus).catch(() => {}); }, []);
+
   useEffect(() => { request('/my/lines').then(setLines).catch(() => setLines([])); }, []);
-  useEffect(() => { request('/my/app-items').then((r) => setAllowedItems(r.items)).catch(() => setAllowedItems(null)); }, []);
   useEffect(() => { request('/me/full-profile').then((p) => { if (p?.photo) setPhoto(p.photo); }).catch(() => {}); }, []);
+
   async function saveProfilePhoto(dataUri) {
-    if (!dataUri || typeof dataUri !== 'string' || !dataUri.startsWith('data:image/')) { Alert.alert('خطا', 'تصویر گرفته‌شده معتبر نیست. دوباره تلاش کنید.'); return; }
-    setPhotoCaptureOpen(false); setBusy(true);
+    if (!dataUri || typeof dataUri !== 'string' || !dataUri.startsWith('data:image/')) {
+      Alert.alert('خطا', 'تصویر گرفته‌شده معتبر نیست. دوباره تلاش کنید.');
+      return;
+    }
+    setPhotoCaptureOpen(false);
+    setBusy(true);
     try {
       const up = await request('/me/photo', { method: 'POST', body: { photo: dataUri } });
       if (up?.path) setPhoto('/api/media?path=' + encodeURIComponent(up.path));
       const pr = await request('/me/full-profile', { noStore: true }).catch(() => null);
       if (pr?.photo) setPhoto(pr.photo);
       Alert.alert('ذخیره شد', 'عکس پرسنلی جدید ثبت شد.');
-    } catch (e) { Alert.alert('خطا', e.message || 'ثبت عکس ناموفق بود.'); } finally { setBusy(false); }
+    } catch (e) {
+      Alert.alert('خطا', e.message || 'ثبت عکس ناموفق بود.');
+    } finally {
+      setBusy(false);
+    }
   }
-  const sections = [
-    { key: 'account', title: 'حساب کاربری', items: [
-      { key: 'edit-profile', t: 'ویرایش اطلاعات من', icon: 'edit', on: () => navigation.navigate('EditProfile') },
-      { key: 'change-password', t: 'تغییر رمز عبور', icon: 'password', on: () => navigation.navigate('ChangePassword') },
-      { key: 'salary-slips', t: 'فیش‌های حقوقی من', icon: 'salary', on: () => navigation.navigate('SalarySlips') },
-      { key: 'my-reports', t: 'گزارش‌های من و گردش آن‌ها', icon: 'reports', on: () => navigation.navigate('Reports') },
-      { key: 'subscription', t: 'اشتراک گروهی و انفرادی', icon: 'subscription', on: () => navigation.navigate('Subscription') },
-    ]},
-    { key: 'settings', title: 'تنظیمات', items: [
-      { key: 'map-settings', t: 'تنظیمات نقشه و دانلود آفلاین', icon: 'map', on: () => navigation.navigate('MapSettings') },
-      { key: 'expiry-settings', t: 'اعلان‌های پایان اعتبار', icon: 'expiry', on: () => navigation.navigate('ExpiryNotificationSettings') },
-      { key: 'field-alerts', t: 'هشدارهای میدانی', icon: 'alerts', on: () => navigation.navigate('FieldAlertSettings') },
-      { key: 'app-lock', t: 'قفل برنامه', icon: 'lock', on: () => navigation.navigate('AppLockSettings') },
-      { key: 'crash-reports', t: 'گزارش خطاهای برنامه', icon: 'health', on: () => navigation.navigate('CrashReports') },
-      { key: 'import-times', t: 'آخرین زمان‌های به‌روزرسانی', icon: 'imports', on: () => navigation.navigate('ImportTimes') },
-      { key: 'check-update', t: 'بررسی به‌روزرسانی برنامه', icon: 'update', on: () => import('../updater').then(m => m.checkForUpdate(true)).catch(() => {}) },
-    ]},
-    { key: 'exit', title: 'خروج', items: [
-      { key: 'logout', t: 'خروج از حساب', icon: 'logout', danger: true, on: () => {
-        Alert.alert('خروج از حساب', 'آیا می‌خواهید از حساب کاربری خود خارج شوید؟', [
-          { text: 'انصراف', style: 'cancel' },
-          { text: 'خروج', style: 'destructive', onPress: async () => { try { await logout(); } catch (e) { Alert.alert('خروج ممکن نیست', e.message || 'خطا'); } } },
-        ]);
-      } },
-    ]},
-  ];
-  const selectMenuItem = (it) => { setActiveKey(it.key); requestAnimationFrame(() => it.on()); };
-  if (photoCaptureOpen) return <PersonalPhotoCapture facing="front" showGuide={false} title="تغییر عکس پرسنلی" instruction="صورت خود را روبه‌روی دوربین قرار دهید" uniformNotice={true} onCapture={saveProfilePhoto} onCancel={() => setPhotoCaptureOpen(false)} />;
+
+  if (photoCaptureOpen) {
+    return <PersonalPhotoCapture facing="front" showGuide={false} title="تغییر عکس پرسنلی" instruction="صورت خود را روبه‌روی دوربین قرار دهید" uniformNotice={true} onCapture={saveProfilePhoto} onCancel={() => setPhotoCaptureOpen(false)} />;
+  }
+
   return (
-    <ScrollView persistentScrollbar={true} style={s.profileScroll} contentContainerStyle={[s.profileContent, tablet && s.profileContentTablet]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+    <ScrollView persistentScrollbar={true} style={s.profileScroll} contentContainerStyle={s.profileContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={s.card}>
         <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity onPress={() => photo && setViewPhoto(true)}>{photo ? <Image source={imageSource(photo)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}</TouchableOpacity>
+          <TouchableOpacity onPress={() => photo && setViewPhoto(true)}>
+            {photo ? <Image source={imageSource(photo)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}
+          </TouchableOpacity>
           <View><Text style={s.name}>{user?.name}</Text><Text style={s.role}>{user?.role}</Text></View>
         </View>
-        <TouchableOpacity style={s.photoBtn} onPress={() => setPhotoCaptureOpen(true)} disabled={busy}><Text style={s.photoBtnTxt}>گرفتن عکس پرسنلی (سلفی)</Text></TouchableOpacity>
+        <TouchableOpacity style={s.photoBtn} onPress={() => setPhotoCaptureOpen(true)} disabled={busy}>
+          <Text style={s.photoBtnTxt}>گرفتن عکس پرسنلی (سلفی)</Text>
+        </TouchableOpacity>
       </View>
+
       <Text style={[s.label, { fontFamily: FONT.bold, color: CC.ink }]}>خطوط زیر نظر شما</Text>
-      {lines.length === 0 ? <Text style={{ color: CC.muted, fontFamily: FONT.regular, textAlign: 'right', marginBottom: 6 }}>خطی به شما اختصاص نیافته است.</Text> : (<>
-        <TouchableOpacity onPress={() => setLinesOpen(o => !o)} style={s.linesHead}><Text style={{ fontFamily: FONT.bold, color: CC.ink, textAlign: 'right' }}>خطوط مجاز برای شما ({faNum(lines.length)})</Text><Text style={{ color: CC.brand, fontFamily: FONT.bold }}>{linesOpen ? '▲' : '▼'}</Text></TouchableOpacity>
-        {linesOpen && lines.map((l) => <View key={l.id} style={s.lineCard}><Text style={{ fontFamily: FONT.bold, color: CC.ink, textAlign: 'right' }}>{faNum(l.code)} — {l.origin}{l.destination ? ' → ' + l.destination : ''}</Text></View>)}
-      </>)}
-      <View style={[s.menuGrid, tablet && s.menuGridTablet]}>{sections.map((section) => <AccordionSection key={section.key} section={section} open={!!openSections[section.key]} activeKey={activeKey} tablet={tablet} onToggle={() => setOpenSections((cur) => ({ ...cur, [section.key]: !cur[section.key] }))} onSelect={selectMenuItem} />)}</View>
-      {logoutStatus && logoutStatus.allow && logoutStatus.limit > 0 && <Text style={{ textAlign: 'center', color: CC.muted, fontFamily: FONT.regular, fontSize: 12, marginTop: 10 }}>شما تنها {faNum(logoutStatus.remaining)} بار دیگر می‌توانید در ۳۰ روز اخیر از حساب کاربری خارج و دوباره وارد شوید.</Text>}
-      {logoutStatus && !logoutStatus.allow && <Text style={{ textAlign: 'center', color: CC.danger, fontFamily: FONT.regular, fontSize: 12, marginTop: 10 }}>خروج از حساب کاربری توسط مدیر سامانه غیرفعال شده است.</Text>}
+      {lines.length === 0 ? (
+        <Text style={{ color: CC.muted, fontFamily: FONT.regular, textAlign: 'right', marginBottom: 6 }}>خطی به شما اختصاص نیافته است.</Text>
+      ) : (
+        <>
+          <TouchableOpacity onPress={() => setLinesOpen(o => !o)} style={s.linesHead}>
+            <Text style={{ fontFamily: FONT.bold, color: CC.ink, textAlign: 'right' }}>خطوط مجاز برای شما ({faNum(lines.length)})</Text>
+            <Text style={{ color: CC.brand, fontFamily: FONT.bold }}>{linesOpen ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
+          {linesOpen && lines.map((l) => (
+            <View key={l.id} style={s.lineCard}>
+              <Text style={{ fontFamily: FONT.bold, color: CC.ink, textAlign: 'right' }}>{faNum(l.code)} — {l.origin}{l.destination ? ' → ' + l.destination : ''}</Text>
+            </View>
+          ))}
+        </>
+      )}
+
       <Text style={{ textAlign: 'center', color: CC.muted, fontFamily: FONT.regular, fontSize: 12, marginTop: 18 }}>نسخهٔ برنامه: {faNum(Application.nativeApplicationVersion || '—')}</Text>
       <Text style={{ textAlign: 'center', color: CC.muted, fontFamily: FONT.regular, fontSize: 11, marginTop: 4, marginBottom: 6 }}>شرکت مبین شات مشهد</Text>
       <ImageViewer visible={viewPhoto} uri={photo} onClose={() => setViewPhoto(false)} />
