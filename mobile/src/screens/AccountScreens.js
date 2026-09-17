@@ -10,21 +10,6 @@ import JDatePicker from '../components/JDatePicker';
 import { C as CC, FONT } from '../theme';
 import { captureRef } from 'react-native-view-shot';
 
-const UNUSED_MENU_ICONS = {
-  edit: require('../../assets/icons3d/profile-edit.png'),
-  password: require('../../assets/icons3d/password-key.png'),
-  salary: require('../../assets/icons3d/salary-slip.png'),
-  reports: require('../../assets/icons3d/reports-folder.png'),
-  subscription: require('../../assets/icons3d/subscription-wallet.png'),
-  map: require('../../assets/icons3d/map-download.png'),
-  expiry: require('../../assets/icons3d/expiry-bell.png'),
-  alerts: require('../../assets/icons3d/field-alert.png'),
-  lock: require('../../assets/icons3d/app-lock.png'),
-  imports: require('../../assets/icons3d/import-clock.png'),
-  update: require('../../assets/icons3d/app-update.png'),
-  logout: require('../../assets/icons3d/logout-door.png'),
-};
-
 function parseJDate(value) {
   if (!value) return null;
   const parts = String(value).replace(/[\\/.]/g, '-').split('-').map((x) => parseInt(x, 10));
@@ -445,26 +430,5 @@ const s = StyleSheet.create({
   signatureActions: { flexDirection: 'row-reverse', gap: 8 },
   signatureAction: { flex: 1, marginTop: 10 },
   profileScroll: { flex: 1, backgroundColor: CC.paper },
-  profileContent: { paddingHorizontal: MENU_UI.spacing.md, paddingTop: MENU_UI.spacing.md, paddingBottom: MENU_UI.spacing.xs },
-  profileContentTablet: { width: '100%', maxWidth: 920, alignSelf: 'center', paddingHorizontal: MENU_UI.spacing.lg },
-  menuGrid: { width: '100%', gap: MENU_UI.sectionGap },
-  menuGridTablet: { width: '100%' },
-  menuSection: { borderRadius: MENU_UI.radius, overflow: 'hidden', backgroundColor: '#fff', borderWidth: 1, borderColor: CC.line },
-  menuSectionTablet: { alignSelf: 'stretch' },
-  menuSectionHead: { minHeight: MENU_UI.itemHeight, paddingHorizontal: MENU_UI.spacing.md, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8fafc' },
-  menuSectionHeadOpen: { backgroundColor: CC.soft, borderBottomWidth: 1, borderBottomColor: CC.line },
-  menuSectionTitle: { flex: 1, fontFamily: FONT.bold, color: CC.ink, textAlign: 'right', fontSize: 15 },
-  menuSectionTitleOpen: { color: CC.brand },
-  menuSectionChevron: { width: 24, textAlign: 'center', fontFamily: FONT.bold, color: CC.brand, fontSize: 28 },
-  menuBody: { overflow: 'hidden', paddingHorizontal: MENU_UI.spacing.xs },
-  menuItem: { minHeight: MENU_UI.itemHeight, marginTop: MENU_UI.spacing.xs, borderRadius: 12, paddingHorizontal: MENU_UI.spacing.sm, flexDirection: 'row-reverse', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: 'transparent' },
-  menuItemActive: { backgroundColor: CC.soft, borderColor: CC.brand },
-  menuItemDanger: { backgroundColor: '#fffafa' },
-  menuIcon: { width: MENU_UI.iconSize, height: MENU_UI.iconSize, marginLeft: MENU_UI.gap },
-  menuIconActive: { opacity: 1 },
-  menuItemText: { flex: 1, minHeight: 24, fontFamily: FONT.bold, color: CC.ink, textAlign: 'right', textAlignVertical: 'center', fontSize: 14, lineHeight: 21 },
-  menuItemTextActive: { color: CC.brand },
-  menuItemTextDanger: { color: CC.danger },
-  menuItemArrow: { width: 22, marginRight: MENU_UI.spacing.xs, fontFamily: FONT.bold, color: CC.muted, fontSize: 25, textAlign: 'center' },
-  menuItemArrowActive: { color: CC.brand },
+  profileContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20 },
 });
