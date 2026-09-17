@@ -7,6 +7,9 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.media.AudioAttributes;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioTrack;
 import android.media.MediaPlayer;
 import android.media.audiofx.LoudnessEnhancer;
 import android.media.audiofx.Equalizer;
@@ -385,6 +388,76 @@ public final class KhatyarRadioService extends Service {
     }
   }
 
+  /** Native radio SFX for background reception. Generated locally so no extra audio asset/dependency is required. */
+  private void playRadioSfx(boolean opening, boolean closing) {
+    try {
+      final int sampleRate = 8000;
+      final int openMs = opening ? 70 : 0;
+      final int hissMs = 110;
+      final int closeMs = closing ? 70 : 0;
+      final int totalSamples = Math.max(1, (openMs + hissMs + closeMs) * sampleRate / 1000);
+      final short[] pcm = new short[totalSamples];
+      java.util.Random random = new java.util.Random();
+      for (int i = 0; i < totalSamples; i++) {
+        int ms = i * 1000 / sampleRate;
+        double sample = 0.0;
+        if (opening && ms < openMs) {
+          double env = Math.min(1.0, (double)i / Math.max(1, openMs * sampleRate / 1000));
+          sample += Math.sin(2.0 * Math.PI * 1450.0 * i / sampleRate) * 0.22 * env;
+        } else if (ms < openMs + hissMs) {
+          double env = 0.78;
+          if (ms < openMs + 15) env *= (ms - openMs) / 15.0;
+          if (ms > openMs + hissMs - 20) env *= (openMs + hissMs - ms) / 20.0;
+          sample += (random.nextDouble() * 2.0 - 1.0) * 0.16 * env;
+          sample += Math.sin(2.0 * Math.PI * 2600.0 * i / sampleRate) * 0.035 * env;
+        } else if (closing) {
+          int local = ms - openMs - hissMs;
+          double env = Math.max(0.0, 1.0 - local / 70.0);
+          sample += Math.sin(2.0 * Math.PI * 900.0 * i / sampleRate) * 0.16 * env;
+        }
+        pcm[i] = (short)Math.max(-32767, Math.min(32767, (int)(sample * 32767.0)));
+      }
+      new Thread(() -> {
+        AudioTrack track = null;
+        try {
+          int min = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+          track = new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate, AudioFormat.CHANNEL_OUT_MONO,
+              AudioFormat.ENCODING_PCM_16BIT, Math.max(min, pcm.length * 2), AudioTrack.MODE_STATIC);
+          track.write(pcm, 0, pcm.length);
+          track.play();
+          long waitMs = (pcm.length * 1000L / sampleRate) + 40L;
+          try { Thread.sleep(waitMs); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+        } catch (Throwable ignored) {
+        } finally {
+          if (track != null) { try { track.stop(); } catch (Throwable ignored) {} try { track.release(); } catch (Throwable ignored) {} }
+        }
+      }, "KhatyarRadioSfx").start();
+    } catch (Throwable ignored) {}
+  }
+
+  private void playRadioKeyTone(boolean pressed) {
+    try {
+      final int sampleRate = 8000, durationMs = pressed ? 55 : 75;
+      final int n = durationMs * sampleRate / 1000;
+      final short[] pcm = new short[n];
+      for (int i = 0; i < n; i++) {
+        double env = Math.min(1.0, i / (sampleRate * 0.008)) * Math.max(0.0, 1.0 - i / (double)n);
+        double hz = pressed ? 1850.0 : 720.0;
+        pcm[i] = (short)(Math.sin(2.0 * Math.PI * hz * i / sampleRate) * 0.20 * env * 32767.0);
+      }
+      new Thread(() -> {
+        AudioTrack t = null;
+        try {
+          int min = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+          t = new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
+              Math.max(min, pcm.length * 2), AudioTrack.MODE_STATIC);
+          t.write(pcm, 0, pcm.length); t.play(); Thread.sleep(durationMs + 30L);
+        } catch (Throwable ignored) {
+        } finally { if (t != null) { try { t.stop(); } catch (Throwable ignored) {} try { t.release(); } catch (Throwable ignored) {} } }
+      }, "KhatyarRadioKeyTone").start();
+    } catch (Throwable ignored) {}
+  }
+
   private void attachLoudnessEnhancer(MediaPlayer mp) {
     try {
       if (Build.VERSION.SDK_INT < 19) return;
@@ -421,7 +494,7 @@ public final class KhatyarRadioService extends Service {
       try { player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK); } catch (Throwable ignored) {}
       Map<String,String> headers = new HashMap<>(); if (token != null && !token.isEmpty()) headers.put("Authorization", "Bearer " + token);
       player.setDataSource(this, android.net.Uri.parse(audioUrl), headers);
-      player.setOnCompletionListener(mp -> { synchronized (KhatyarRadioService.this) { if (loudnessEnhancer != null) { try { loudnessEnhancer.release(); } catch (Throwable ignored) {} loudnessEnhancer = null; } try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); } });
+      player.setOnCompletionListener(mp -> { playRadioSfx(false, true); synchronized (KhatyarRadioService.this) { if (loudnessEnhancer != null) { try { loudnessEnhancer.release(); } catch (Throwable ignored) {} loudnessEnhancer = null; } try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); } });
       player.setOnErrorListener((mp, what, extra) -> { synchronized (KhatyarRadioService.this) { if (loudnessEnhancer != null) { try { loudnessEnhancer.release(); } catch (Throwable ignored) {} loudnessEnhancer = null; } try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); } return true; });
       player.setOnPreparedListener(mp -> {
         try {
