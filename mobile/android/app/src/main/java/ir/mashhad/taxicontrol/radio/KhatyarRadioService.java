@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.media.audiofx.LoudnessEnhancer;
+import android.media.audiofx.Equalizer;
 import android.media.session.MediaSession;
 import android.os.Build;
 import android.os.Handler;
@@ -53,6 +54,7 @@ public final class KhatyarRadioService extends Service {
   private MediaSession mediaSession;
   private MediaPlayer player;
   private LoudnessEnhancer loudnessEnhancer;
+  private Equalizer radioEqualizer;
   private long lastId = 0;
   private long serviceStartedAt = 0;
   private boolean destroyed = false;
@@ -338,11 +340,49 @@ public final class KhatyarRadioService extends Service {
   private synchronized void releasePlayer() {
     LoudnessEnhancer effect = loudnessEnhancer;
     loudnessEnhancer = null;
+    Equalizer eq = radioEqualizer;
+    radioEqualizer = null;
+    if (eq != null) { try { eq.setEnabled(false); } catch (Throwable ignored) {} try { eq.release(); } catch (Throwable ignored) {} }
     if (effect != null) { try { effect.setEnabled(false); } catch (Throwable ignored) {} try { effect.release(); } catch (Throwable ignored) {} }
     MediaPlayer old = player;
     player = null;
     if (old != null) { try { old.stop(); } catch (Throwable ignored) {} try { old.release(); } catch (Throwable ignored) {} }
     setPlaybackActive(false);
+  }
+
+  /**
+   * Gives received speech a narrow-band walkie-talkie character without requiring
+   * a third-party DSP library. The recorder is already 8 kHz mono, so we keep the
+   * processing focused on speech and avoid artificial reverb/bass.
+   */
+  private void attachRadioEqualizer(MediaPlayer mp) {
+    try {
+      if (Build.VERSION.SDK_INT < 19) return;
+      Equalizer eq = new Equalizer(0, mp.getAudioSessionId());
+      short bands = eq.getNumberOfBands();
+      if (bands <= 0) { eq.release(); return; }
+
+      for (short b = 0; b < bands; b++) {
+        int centerHz = eq.getCenterFreq(b) / 1000;
+        short level;
+        if (centerHz < 300) {
+          level = -1200;
+        } else if (centerHz < 700) {
+          level = -450;
+        } else if (centerHz < 1800) {
+          level = 650;
+        } else if (centerHz < 3000) {
+          level = 350;
+        } else {
+          level = -900;
+        }
+        try { eq.setBandLevel(b, level); } catch (Throwable ignored) {}
+      }
+      eq.setEnabled(true);
+      radioEqualizer = eq;
+    } catch (Throwable ignored) {
+      radioEqualizer = null;
+    }
   }
 
   private void attachLoudnessEnhancer(MediaPlayer mp) {
@@ -387,6 +427,7 @@ public final class KhatyarRadioService extends Service {
         try {
           int sessionId = mp.getAudioSessionId();
           getPrefs().edit().putInt("audioSessionId", Math.max(0, sessionId)).putBoolean("playbackActive", true).apply();
+          attachRadioEqualizer(mp);
           attachLoudnessEnhancer(mp);
           mp.start();
         } catch (Throwable ignored) {
