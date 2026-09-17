@@ -4,8 +4,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.media.AudioManager;
-import android.media.AudioPlaybackConfiguration;
 import android.media.audiofx.LoudnessEnhancer;
 import android.os.Build;
 import android.os.Handler;
@@ -18,7 +16,6 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
-import java.util.List;
 
 public final class KhatyarRadioModule extends ReactContextBaseJavaModule {
   public static final String EVENT_PTT="khatyarRadioPTT";
@@ -28,7 +25,7 @@ public final class KhatyarRadioModule extends ReactContextBaseJavaModule {
   private LoudnessEnhancer foregroundEnhancer;
   private int foregroundSessionId=0;
   private boolean foregroundRequested=false;
-  private final Runnable foregroundMonitor=new Runnable(){@Override public void run(){if(!foregroundRequested){releaseForegroundEnhancer();return;}try{if(Build.VERSION.SDK_INT>=26){int sessionId=findActiveAppAudioSessionId();if(sessionId>0)ensureForegroundEnhancer(sessionId);else releaseForegroundEnhancer();}else releaseForegroundEnhancer();}catch(Throwable ignored){}handler.postDelayed(this,180L);}};
+  private final Runnable foregroundMonitor=new Runnable(){@Override public void run(){if(!foregroundRequested){releaseForegroundEnhancer();return;}try{if(Build.VERSION.SDK_INT>=19){int sessionId=findActiveAppAudioSessionId();if(sessionId>0)ensureForegroundEnhancer(sessionId);else releaseForegroundEnhancer();}else releaseForegroundEnhancer();}catch(Throwable ignored){}handler.postDelayed(this,180L);}};
   private final BroadcastReceiver receiver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent i){if(!ACTION_PTT.equals(i.getAction()))return;WritableMap map=Arguments.createMap();map.putString("source",i.getStringExtra("source"));map.putBoolean("down",i.getBooleanExtra("down",false));emit(EVENT_PTT,map);}};
   public KhatyarRadioModule(ReactApplicationContext context){super(context);this.context=context;IntentFilter f=new IntentFilter(ACTION_PTT);if(Build.VERSION.SDK_INT>=33)context.registerReceiver(receiver,f,Context.RECEIVER_NOT_EXPORTED);else context.registerReceiver(receiver,f);}
   @NonNull @Override public String getName(){return "KhatyarRadio";}
@@ -40,36 +37,17 @@ public final class KhatyarRadioModule extends ReactContextBaseJavaModule {
   @ReactMethod public void setAmplification(double db,Promise promise){try{int gain=KhatyarRadioService.clampGainMb((int)Math.round(db*100.0));context.getSharedPreferences(KhatyarRadioService.PREFS,Context.MODE_PRIVATE).edit().putInt("amplificationGainMb",gain).apply();setForegroundEnhancerGain(gain);promise.resolve(gain/100.0);}catch(Throwable e){promise.reject("RADIO_AMPLIFIER",e);}}
 
   /**
-   * AudioPlaybackConfiguration exposes the player/session details through methods that are
-   * hidden from the normal Android SDK surface used by javac. Calling them directly therefore
-   * breaks compilation with recent compileSdk versions. Keep the compatibility lookup isolated
-   * here and use reflection so the source compiles across the supported Android SDKs.
+   * The radio service owns the MediaPlayer, so it also owns the authoritative audio-session ID.
+   * Read that ID from shared preferences instead of using AudioPlaybackConfiguration's @SystemApi
+   * methods (getClientUid/getSessionId), which are not part of the normal Android SDK surface and
+   * cause javac compilation failures with current compileSdk versions.
    */
   private int findActiveAppAudioSessionId(){
-    if(Build.VERSION.SDK_INT<26)return 0;
     try{
-      AudioManager am=(AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
-      if(am==null)return 0;
-      int uid=android.os.Process.myUid();
-      List<AudioPlaybackConfiguration> active=am.getActivePlaybackConfigurations();
-      for(AudioPlaybackConfiguration cfg:active){
-        if(cfg==null)continue;
-        Integer clientUid=invokeIntMethod(cfg,"getClientUid");
-        if(clientUid==null||clientUid!=uid)continue;
-        Integer sessionId=invokeIntMethod(cfg,"getSessionId");
-        if(sessionId!=null&&sessionId>0)return sessionId;
-      }
-    }catch(Throwable ignored){}
-    return 0;
-  }
-
-  private Integer invokeIntMethod(Object target,String methodName){
-    try{
-      java.lang.reflect.Method method=target.getClass().getMethod(methodName);
-      method.setAccessible(true);
-      Object value=method.invoke(target);
-      return value instanceof Integer?(Integer)value:null;
-    }catch(Throwable ignored){return null;}
+      android.content.SharedPreferences prefs=context.getSharedPreferences(KhatyarRadioService.PREFS,Context.MODE_PRIVATE);
+      if(!prefs.getBoolean("playbackActive",false))return 0;
+      return Math.max(0,prefs.getInt("audioSessionId",0));
+    }catch(Throwable ignored){return 0;}
   }
 
   private synchronized void ensureForegroundEnhancer(int sessionId){int gain=KhatyarRadioService.clampGainMb(context.getSharedPreferences(KhatyarRadioService.PREFS,Context.MODE_PRIVATE).getInt("amplificationGainMb",600));if(gain<=0||sessionId<=0){releaseForegroundEnhancer();return;}try{if(foregroundEnhancer==null||foregroundSessionId!=sessionId){releaseForegroundEnhancer();foregroundEnhancer=new LoudnessEnhancer(sessionId);foregroundSessionId=sessionId;}foregroundEnhancer.setTargetGain(gain);foregroundEnhancer.setEnabled(true);}catch(Throwable ignored){releaseForegroundEnhancer();}}
