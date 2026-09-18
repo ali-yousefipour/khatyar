@@ -38,7 +38,6 @@ export async function downloadAndInstallUpdate(info) {
   if (!info?.url) throw new Error('آدرس فایل به‌روزرسانی در سرور تنظیم نشده است.');
   if (!validateUpdateUrl(info.url)) throw new Error('آدرس به‌روزرسانی معتبر نیست؛ فقط HTTPS روی سرور رسمی مجاز است.');
   const expectedSha256 = normalizeSha256(info.apk_sha256 || info.sha256);
-  if (!expectedSha256) throw new Error('هش SHA-256 فایل به‌روزرسانی در سرور تنظیم نشده یا معتبر نیست.');
   if (!KhatyarUpdater?.downloadApk) throw new Error('ماژول دانلود و نصب درون‌برنامه‌ای در این نسخه موجود نیست.');
   const fileName = `KhatYar-v${String(info.latest || 'update').replace(/[^0-9A-Za-z._-]/g, '_')}.apk`;
   return KhatyarUpdater.downloadApk(info.url, fileName, expectedSha256);
