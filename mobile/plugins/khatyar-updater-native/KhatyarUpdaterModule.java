@@ -55,6 +55,7 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
 
     private String validateExpectedSha256(String value) throws Exception {
         String sha=value==null?"":value.trim().toLowerCase(Locale.US);
+        if(sha.isEmpty()) return "";
         if(!sha.matches("[a-f0-9]{64}")) throw new Exception("هش SHA-256 فایل به‌روزرسانی معتبر نیست.");
         return sha;
     }
@@ -114,7 +115,7 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
                     emitProgress(done,total);
                 }
                 String actual=sha256(part);
-                if(!MessageDigest.isEqual(expected.getBytes(java.nio.charset.StandardCharsets.US_ASCII),actual.getBytes(java.nio.charset.StandardCharsets.US_ASCII))){
+                if(!expected.isEmpty() && !MessageDigest.isEqual(expected.getBytes(java.nio.charset.StandardCharsets.US_ASCII),actual.getBytes(java.nio.charset.StandardCharsets.US_ASCII))){
                     try{part.delete();}catch(Exception ignored){}
                     throw new Exception("صحت فایل به‌روزرسانی تأیید نشد؛ SHA-256 فایل با مقدار اعلام‌شده توسط سرور مطابقت ندارد.");
                 }
