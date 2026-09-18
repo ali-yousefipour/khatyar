@@ -26,7 +26,7 @@ export default function UpdateScreen({ info, onRecheck }) {
     if(!info?.url){Alert.alert('به‌روزرسانی','آدرس فایل به‌روزرسانی در سرور تنظیم نشده است.');return;}
     if(!KhatyarUpdater?.downloadApk){Alert.alert('به‌روزرسانی','ماژول دانلود درون‌برنامه‌ای در این نسخه موجود نیست.');return;}
     setBusy(true);setPermission(false);setStatus('در حال شروع/ادامه دانلود…');
-    try{await KhatyarUpdater.downloadApk(info.url,fileName);}catch(_){setBusy(false);}
+    try{await KhatyarUpdater.downloadApk(info.url,fileName,info?.apk_sha256||'');}catch(_){setBusy(false);}
   }
   const pct=Math.round(progress*100);
   return <View style={s.wrap}>
