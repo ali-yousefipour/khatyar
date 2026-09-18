@@ -185,7 +185,7 @@ public final class KhatyarRadioService extends Service {
 
   private Notification buildRadioNotification() {
     boolean pttActive = getPrefs().getBoolean("notificationPttActive", false);
-    String status = pttActive ? "📻 بی‌سیم خطیار • PTT فعال" : "📻 بی‌سیم خطیار • آماده‌به‌کاری";
+    String channelName = getPrefs().getString("channelName", "");\n    long channelId = getPrefs().getLong("channelId", 0L);\n    String channelLabel = !channelName.isEmpty() ? channelName : (channelId > 0 ? "کانال " + toPersianDigits(String.valueOf(channelId)) : "بدون کانال");\n    String status = pttActive ? "📻 بی‌سیم خطیار • PTT فعال" : "📻 بی‌سیم خطیار • آماده‌به‌کاری";
     String date = "📅 امروز: " + jalaliToday();
     String pttLabel = pttActive ? "⏹ پایان PTT" : "🎙 PTT";
 
@@ -193,11 +193,11 @@ public final class KhatyarRadioService extends Service {
     RemoteViews expanded = new RemoteViews(getPackageName(), R.layout.khatyar_radio_notification_big);
     PendingIntent ptt = buildPttPendingIntent();
 
-    compact.setTextViewText(R.id.khatyar_notification_text, date + "  •  " + status);
+    compact.setTextViewText(R.id.khatyar_notification_text, date + "  •  " + status + "\n📡 کانال: " + channelLabel);
     compact.setTextViewText(R.id.khatyar_notification_ptt, pttLabel);
     compact.setOnClickPendingIntent(R.id.khatyar_notification_ptt, ptt);
 
-    expanded.setTextViewText(R.id.khatyar_notification_text, date + "\\n" + status);
+    expanded.setTextViewText(R.id.khatyar_notification_text, date + "\\n" + status + "\\n📡 کانال انتخاب‌شده: " + channelLabel);
     expanded.setTextViewText(R.id.khatyar_notification_ptt, pttLabel);
     expanded.setOnClickPendingIntent(R.id.khatyar_notification_ptt, ptt);
 
