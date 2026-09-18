@@ -3,11 +3,6 @@ import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from 'react-nati
 import { C, FONT } from '../theme';
 
 const ITEMS = [
-  ['edit-profile', 'ویرایش اطلاعات من', '✏️', 'EditProfile', 'مدیریت اطلاعات شخصی و سازمانی'],
-  ['change-password', 'تغییر رمز عبور', '🔑', 'ChangePassword', 'تغییر رمز ورود به برنامه'],
-  ['salary-slips', 'فیش‌های حقوقی من', '💵', 'SalarySlips', 'مشاهده فیش‌های حقوقی'],
-  ['my-reports', 'گزارش‌های من و گردش آن‌ها', '📋', 'Reports', 'مشاهده گزارش‌های ارسال‌شده و وضعیت آن‌ها'],
-  ['subscription', 'اشتراک گروهی و انفرادی', '💳', 'Subscription', 'مدیریت اشتراک برنامه'],
   ['map-settings', 'تنظیمات نقشه و دانلود آفلاین', '🗺️', 'MapSettings', 'مدیریت تنظیمات نقشه و داده‌های آفلاین'],
   ['expiry-settings', 'اعلان‌های پایان اعتبار', '🔔', 'ExpiryNotificationSettings', 'تنظیم اعلان‌های مربوط به اعتبار'],
   ['field-alerts', 'هشدارهای میدانی', '⚠️', 'FieldAlertSettings', 'تنظیم هشدارهای میدانی'],
@@ -45,7 +40,7 @@ export default function SettingsScreen({ navigation }) {
       </View>
       <View style={s.section}>
         <Text style={s.sectionTitle}>اطلاعات و حریم خصوصی</Text>
-        {ITEMS.slice(12).map(([key, title, icon, route, description]) => (
+        {ITEMS.slice(7).map(([key, title, icon, route, description]) => (
           <Item key={key} title={title} icon={icon} description={description} onPress={() => openItem(route)} />
         ))}
       </View>
