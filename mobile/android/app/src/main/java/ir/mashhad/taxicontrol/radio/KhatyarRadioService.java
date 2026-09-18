@@ -20,6 +20,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.view.KeyEvent;
+import android.widget.RemoteViews;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -181,46 +182,62 @@ public final class KhatyarRadioService extends Service {
     return new int[]{jy, jm, jd};
   }
 
-  private void startForegroundCompat() {
-    Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
-    PendingIntent pi = null;
-    if (launch != null) {
-      int f = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
-      pi = PendingIntent.getActivity(this, 7841, launch, f);
-    }
+  private Notification buildRadioNotification() {
     boolean pttActive = getPrefs().getBoolean("notificationPttActive", false);
+    String status = pttActive ? "📻 بی‌سیم خطیار • PTT فعال" : "📻 بی‌سیم خطیار • آماده‌به‌کاری";
+    String date = "📅 امروز: " + jalaliToday();
+    String pttLabel = pttActive ? "⏹ پایان PTT" : "🎙 PTT";
+
+    RemoteViews compact = new RemoteViews(getPackageName(), R.layout.khatyar_radio_notification);
+    RemoteViews expanded = new RemoteViews(getPackageName(), R.layout.khatyar_radio_notification_big);
+    PendingIntent ptt = buildPttPendingIntent();
+
+    compact.setTextViewText(R.id.khatyar_notification_text, date + "  •  " + status);
+    compact.setTextViewText(R.id.khatyar_notification_ptt, pttLabel);
+    compact.setOnClickPendingIntent(R.id.khatyar_notification_ptt, ptt);
+
+    expanded.setTextViewText(R.id.khatyar_notification_text, date + "\\n" + status);
+    expanded.setTextViewText(R.id.khatyar_notification_ptt, pttLabel);
+    expanded.setOnClickPendingIntent(R.id.khatyar_notification_ptt, ptt);
+
+    Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
+    PendingIntent contentIntent = null;
+    if (launch != null) {
+      int flags = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+      contentIntent = PendingIntent.getActivity(this, 7841, launch, flags);
+    }
+
     NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL)
       .setSmallIcon(getApplicationInfo().icon)
       .setContentTitle("بی‌سیم خطیار")
-      .setContentText("📅 امروز: " + jalaliToday() + "  •  📻 آماده‌به‌کاری")
-      .setStyle(new NotificationCompat.BigTextStyle().bigText("📅 تاریخ امروز: " + jalaliToday() + "\n📻 بی‌سیم: آماده‌به‌کاری"))
-      .addAction(new NotificationCompat.Action.Builder(android.R.drawable.ic_btn_speak_now, pttActive ? "⏹ پایان PTT" : "🎙 PTT", buildPttPendingIntent()).build())
-      .setOngoing(true).setOnlyAlertOnce(true)
-      .setCategory(NotificationCompat.CATEGORY_SERVICE).setPriority(NotificationCompat.PRIORITY_LOW);
-    if (pi != null) b.setContentIntent(pi);
-    Notification n = b.build();
-    if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK | android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
-    else startForeground(NOTIFICATION_ID, n);
+      .setContentText(status)
+      .setCustomContentView(compact)
+      .setCustomBigContentView(expanded)
+      .setCustomHeadsUpContentView(compact)
+      .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
+      .addAction(new NotificationCompat.Action.Builder(android.R.drawable.ic_btn_speak_now, pttLabel, ptt).build())
+      .setOngoing(true)
+      .setOnlyAlertOnce(true)
+      .setCategory(NotificationCompat.CATEGORY_SERVICE)
+      .setPriority(NotificationCompat.PRIORITY_LOW);
+
+    if (contentIntent != null) b.setContentIntent(contentIntent);
+    return b.build();
+  }
+
+  private void startForegroundCompat() {
+    Notification n = buildRadioNotification();
+    if (Build.VERSION.SDK_INT >= 29) {
+      startForeground(NOTIFICATION_ID, n,
+        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK |
+        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+    } else {
+      startForeground(NOTIFICATION_ID, n);
+    }
   }
 
   private void updateNotification() {
-    boolean pttActive = getPrefs().getBoolean("notificationPttActive", false);
-    Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
-    PendingIntent pi = null;
-    if (launch != null) {
-      int f = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
-      pi = PendingIntent.getActivity(this, 7841, launch, f);
-    }
-    NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL)
-      .setSmallIcon(getApplicationInfo().icon)
-      .setContentTitle("بی‌سیم خطیار")
-      .setContentText("📅 امروز: " + jalaliToday() + "  •  📻 آماده‌به‌کاری")
-      .setStyle(new NotificationCompat.BigTextStyle().bigText("📅 تاریخ امروز: " + jalaliToday() + "\n📻 بی‌سیم: آماده‌به‌کاری"))
-      .addAction(new NotificationCompat.Action.Builder(android.R.drawable.ic_btn_speak_now, pttActive ? "⏹ پایان PTT" : "🎙 PTT", buildPttPendingIntent()).build())
-      .setOngoing(true).setOnlyAlertOnce(true)
-      .setCategory(NotificationCompat.CATEGORY_SERVICE).setPriority(NotificationCompat.PRIORITY_LOW);
-    if (pi != null) b.setContentIntent(pi);
-    ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(NOTIFICATION_ID, b.build());
+    ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(NOTIFICATION_ID, buildRadioNotification());
   }
 
   private void toggleNotificationPtt() {
