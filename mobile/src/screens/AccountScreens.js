@@ -340,6 +340,15 @@ export function ProfileScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
+      <View style={s.accountSection}>
+        <Text style={s.accountSectionTitle}>مدیریت حساب و خدمات من</Text>
+        <AccountAction icon="✏️" title="ویرایش اطلاعات من" description="اطلاعات شخصی و سازمانی خود را ویرایش کنید" onPress={() => navigation.navigate('EditProfile')} />
+        <AccountAction icon="🔑" title="تغییر رمز عبور" description="رمز ورود حساب خود را تغییر دهید" onPress={() => navigation.navigate('ChangePassword')} />
+        <AccountAction icon="💵" title="فیش‌های حقوقی من" description="مشاهده و پیگیری فیش‌های حقوقی" onPress={() => navigation.navigate('SalarySlips')} />
+        <AccountAction icon="📋" title="گزارش‌های من و گردش آن‌ها" description="گزارش‌های ارسال‌شده و وضعیت آن‌ها" onPress={() => navigation.navigate('Reports')} />
+        <AccountAction icon="💳" title="اشتراک گروهی و انفرادی" description="مشاهده و مدیریت اشتراک برنامه" onPress={() => navigation.navigate('Subscription')} />
+      </View>
+
       <Text style={[s.label, { fontFamily: FONT.bold, color: CC.ink }]}>خطوط زیر نظر شما</Text>
       {lines.length === 0 ? (
         <Text style={{ color: CC.muted, fontFamily: FONT.regular, textAlign: 'right', marginBottom: 6 }}>خطی به شما اختصاص نیافته است.</Text>
@@ -361,6 +370,19 @@ export function ProfileScreen({ navigation }) {
       <Text style={{ textAlign: 'center', color: CC.muted, fontFamily: FONT.regular, fontSize: 11, marginTop: 4, marginBottom: 6 }}>شرکت مبین شات مشهد</Text>
       <ImageViewer visible={viewPhoto} uri={photo} onClose={() => setViewPhoto(false)} />
     </ScrollView>
+  );
+}
+
+function AccountAction({ icon, title, description, onPress }) {
+  return (
+    <TouchableOpacity style={s.accountAction} activeOpacity={0.82} onPress={onPress}>
+      <View style={s.accountIcon}><Text style={s.accountIconText}>{icon}</Text></View>
+      <View style={s.accountActionText}>
+        <Text style={s.accountActionTitle}>{title}</Text>
+        <Text style={s.accountActionDesc}>{description}</Text>
+      </View>
+      <Text style={s.accountArrow}>‹</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -389,6 +411,15 @@ const s = StyleSheet.create({
   role: { color: '#fff', opacity: 0.85, fontFamily: FONT.regular, textAlign: 'right', marginTop: 2 },
   photoBtn: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10, padding: 9, alignItems: 'center', marginTop: 12 },
   photoBtnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 13 },
+  accountSection: { marginBottom: 18 },
+  accountSectionTitle: { color: CC.brand, fontFamily: FONT.bold, fontSize: 15, textAlign: 'right', marginBottom: 9, paddingHorizontal: 3 },
+  accountAction: { backgroundColor: '#fff', borderColor: CC.line, borderWidth: 1, borderRadius: 15, padding: 13, marginBottom: 8, flexDirection: 'row-reverse', alignItems: 'center' },
+  accountIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: CC.soft, alignItems: 'center', justifyContent: 'center', marginLeft: 11 },
+  accountIconText: { fontSize: 19 },
+  accountActionText: { flex: 1, minWidth: 0 },
+  accountActionTitle: { color: CC.ink, fontFamily: FONT.bold, fontSize: 14, textAlign: 'right' },
+  accountActionDesc: { color: CC.muted, fontFamily: FONT.regular, fontSize: 11.5, lineHeight: 18, textAlign: 'right', marginTop: 3 },
+  accountArrow: { color: CC.brand, fontSize: 27, marginRight: 5 },
   settingsCard: { backgroundColor: '#fff', borderColor: CC.line, borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 14 },
   settingRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
   settingTxt: { fontFamily: FONT.bold, color: CC.ink, fontSize: 14 },
