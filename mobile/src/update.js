@@ -22,11 +22,12 @@ export async function checkVersion() {
     const latest = d.latest_version || current;
     const min = d.min_version || '0.0.0';
     const url = d.apk_url || '';
+    const apkSha256 = d.apk_sha256 || d.sha256 || '';
     const hasUpdate = cmp(latest, current) > 0;
     // حداقل نسخه اجباری قبلی حفظ شده است؛ هر نسخه جدید نیز از همین صفحه درون‌برنامه‌ای دریافت می‌شود.
     const required = cmp(current, min) < 0 || hasUpdate;
-    return { required, hasUpdate, latest, min, url, current };
+    return { required, hasUpdate, latest, min, url, apkSha256, current };
   } catch (e) {
-    return { required: false, hasUpdate: false, latest: current, url: '', current };
+    return { required: false, hasUpdate: false, latest: current, url: '', apkSha256: '', current };
   }
 }
