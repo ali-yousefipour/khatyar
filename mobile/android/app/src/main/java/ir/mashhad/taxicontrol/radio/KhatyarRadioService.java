@@ -21,6 +21,7 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.view.KeyEvent;
 import android.widget.RemoteViews;
+import ir.mashhad.taxicontrol.R;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
