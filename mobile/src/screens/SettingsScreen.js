@@ -34,7 +34,7 @@ export default function SettingsScreen({ navigation }) {
       </View>
       <View style={s.section}>
         <Text style={s.sectionTitle}>تنظیمات برنامه</Text>
-        {ITEMS.slice(5, 12).map(([key, title, icon, route, description]) => (
+        {ITEMS.slice(5, 7).map(([key, title, icon, route, description]) => (
           <Item key={key} title={title} icon={icon} description={description} onPress={() => openItem(route)} />
         ))}
       </View>
