@@ -9,10 +9,26 @@ import{playSound}from'./soundFx';
 
 export default function PresenceCheckModal({slot,windowMinutes,onDone,onExpire,onStart}){
  const[step,setStep]=useState('intro'),[selfie,setSelfie]=useState(null),[secs,setSecs]=useState((windowMinutes||1)*60),[sending,setSending]=useState(false),[error,setError]=useState('');
- const coordsRef=useRef(null),timer=useRef(null),finishedRef=useRef(false),expireRef=useRef(onExpire);\n expireRef.current=onExpire;
+ const coordsRef=useRef(null),timer=useRef(null),finishedRef=useRef(false),expireRef=useRef(onExpire);
+ expireRef.current=onExpire;
  useEffect(()=>{getAppConfig(true).catch(()=>{});},[]);
  useEffect(()=>{if(['selfie','vehicles','submitting','done'].includes(step))onStart&&onStart();if(step==='selfie')playSound('presenceSelfie').catch(()=>{});if(step==='vehicles')playSound('presenceStationPhoto').catch(()=>{});if(step==='done')playSound('presenceSuccess').catch(()=>{})},[step]);
- useEffect(()=>{\n  if(['submitting','done','expired'].includes(step)){if(timer.current){clearInterval(timer.current);timer.current=null}return;}\n  if(timer.current)clearInterval(timer.current);\n  timer.current=setInterval(()=>{\n   setSecs(x=>{\n    if(x<=1){\n     if(timer.current){clearInterval(timer.current);timer.current=null}\n     setStep('expired');\n     expireRef.current&&expireRef.current();\n     return 0;\n    }\n    return x-1;\n   });\n  },1000);\n  return()=>{if(timer.current){clearInterval(timer.current);timer.current=null}};\n },[step]);
+ useEffect(()=>{
+  if(['submitting','done','expired'].includes(step)){if(timer.current){clearInterval(timer.current);timer.current=null}return;}
+  if(timer.current)clearInterval(timer.current);
+  timer.current=setInterval(()=>{
+   setSecs(x=>{
+    if(x<=1){
+     if(timer.current){clearInterval(timer.current);timer.current=null}
+     setStep('expired');
+     expireRef.current&&expireRef.current();
+     return 0;
+    }
+    return x-1;
+   });
+  },1000);
+  return()=>{if(timer.current){clearInterval(timer.current);timer.current=null}};
+ },[step]);
  async function submit(vehiclesUrl,coords){
   if(finishedRef.current||sending)return;
   coordsRef.current=coords||coordsRef.current;setError('');setSending(true);setStep('submitting');
