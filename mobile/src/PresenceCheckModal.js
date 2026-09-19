@@ -1,5 +1,5 @@
 import React,{useState,useEffect,useRef}from'react';
-import{View,Text,TouchableOpacity,StyleSheet,Alert,BackHandler}from'react-native';
+import{View,Text,TouchableOpacity,StyleSheet,Alert}from'react-native';
 import{request}from'./api';
 import{C,FONT}from'./theme';
 import{getAppConfig}from'./appconfig';
@@ -13,7 +13,6 @@ export default function PresenceCheckModal({slot,windowMinutes,onDone,onExpire,o
  useEffect(()=>{getAppConfig(true).catch(()=>{});},[]);
  useEffect(()=>{if(['selfie','vehicles','submitting','done'].includes(step))onStart&&onStart();if(step==='selfie')playSound('presenceSelfie').catch(()=>{});if(step==='vehicles')playSound('presenceStationPhoto').catch(()=>{});if(step==='done')playSound('presenceSuccess').catch(()=>{})},[step]);
  useEffect(()=>{if(['submitting','done','expired'].includes(step)){if(timer.current){clearInterval(timer.current);timer.current=null}return()=>{};}timer.current=setInterval(()=>{setSecs(x=>{if(x<=1){if(timer.current){clearInterval(timer.current);timer.current=null}setStep('expired');onExpire&&onExpire();return 0}return x-1})},1000);return()=>{if(timer.current){clearInterval(timer.current);timer.current=null}}},[step,onExpire]);
- useEffect(()=>{const sub=BackHandler.addEventListener('hardwareBackPress',()=>true);return()=>sub.remove()},[]);
  async function submit(vehiclesUrl,coords){
   if(finishedRef.current||sending)return;
   coordsRef.current=coords||coordsRef.current;setError('');setSending(true);setStep('submitting');
