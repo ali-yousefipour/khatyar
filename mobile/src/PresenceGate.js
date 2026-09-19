@@ -77,7 +77,8 @@ export default function PresenceGate(){
    const requestId=String(data.request_id||`${now.day}_${sl}`);
    const key=immediate?`presence_immediate_done:${now.day}:${requestId}`:`presence_done:${now.day}:${sl}`;
    const expiredKey=`presence_expired:${now.day}:${sl}`;
-   if(!immediate&&(await AsyncStorage.getItem(key)||await AsyncStorage.getItem(expiredKey)))return;
+   if(await AsyncStorage.getItem(key))return;
+   if(!immediate&&await AsyncStorage.getItem(expiredKey))return;
    if(!dueRef.current)setDueStable({slot:sl,windowMinutes:Math.max(1,Number(data.window_minutes||cfg.window_minutes||1)),day:now.day,key,expiredKey,immediate});
   };
   const handleResponse=r=>openFromNotification(r?.notification?.request?.content?.data||{}).catch(()=>{});
