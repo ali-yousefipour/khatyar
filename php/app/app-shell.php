@@ -3,7 +3,7 @@
 $source = __DIR__ . '/app.html';
 if (!is_file($source)) { http_response_code(404); exit('app.html not found'); }
 $html = file_get_contents($source);
-$tag = '<script src="assets/android-web-parity.js?v=20260905.12" defer></script><script src="assets/android-web-existing-screen-parity.js?v=20260905.12" defer></script><script src="assets/personnel-vehicle-web.js?v=20260905.12" defer></script><script src="assets/personnel-vehicle-checklist-enhancement.js?v=20260905.12" defer></script><script src="assets/personnel-vehicle-ui-bridge.js?v=20260905.12" defer></script>';
+$tag = '<script src="assets/android-web-parity.js?v=20260905.12" defer></script><script src="assets/android-web-existing-screen-parity.js?v=20260905.12" defer></script><script src="assets/personnel-vehicle-web.js?v=20260905.12" defer></script><script src="assets/personnel-vehicle-checklist-enhancement.js?v=20260905.12" defer></script><script src="assets/personnel-vehicle-ui-bridge.js?v=20260905.12" defer></script><script src="assets/presence-immediate-admin.js?v=20260919.01" defer></script>';
 if (strpos($html, 'android-web-parity.js') === false) {
     $html = preg_replace('/<\/body>/i', $tag . "\n</body>", $html, 1);
 } elseif (strpos($html, 'personnel-vehicle-checklist-enhancement.js') === false) {
