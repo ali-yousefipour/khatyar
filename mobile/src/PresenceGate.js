@@ -10,7 +10,7 @@ import*as Notifications from'expo-notifications';
 import{tehranGregorianParts}from'./jdate';
 
 function tehranNow(){const p=tehranGregorianParts(new Date());if(!p){const d=new Date();return{day:d.toISOString().slice(0,10),minutes:d.getHours()*60+d.getMinutes()};}return{day:`${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`,minutes:p.hour*60+p.minute};}
-function slotToMinutes(s){const m=/^(\\d{2}):(\\d{2})$/.exec(s);return m?(+m[1])*60+(+m[2]):-1;}
+function slotToMinutes(s){const m=/^(\d{2}):(\d{2})$/.exec(s);return m?(+m[1])*60+(+m[2]):-1;}
 function notificationData(raw){if(!raw)return{};if(typeof raw==='string'){try{return JSON.parse(raw)}catch(e){return{}}}if(raw?.data&&typeof raw.data==='string'){try{return JSON.parse(raw.data)}catch(e){}}return raw?.data&&typeof raw.data==='object'?raw.data:raw;}
 
 export default function PresenceGate(){
