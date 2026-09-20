@@ -105,6 +105,24 @@ class Media {
     return null;
   }
 
+  /** ذخیرهٔ سند PDF ارسالی به‌صورت فایل فیزیکی امن. */
+  static function saveDocumentBase64($b64, $type='reports', $ext='pdf', $maxBytes=15728640) {
+    if (!$b64 || !is_string($b64)) return null;
+    $data = $b64;
+    if (strpos($b64, 'base64,') !== false) $data = substr($b64, strpos($b64, 'base64,') + 7);
+    $raw = base64_decode($data, true);
+    if ($raw === false || strlen($raw) < 5 || strlen($raw) > $maxBytes) return null;
+    if ($ext === 'pdf' && strpos($raw, '%PDF-') !== 0) return null;
+    $sub = $type . '/' . date('Y') . '/' . date('m');
+    $dir = self::baseDir() . '/' . $sub;
+    if (!is_dir($dir)) @mkdir($dir, 0755, true);
+    $name = bin2hex(random_bytes(12));
+    $rel = 'uploads/' . $sub . '/' . $name . '.' . $ext;
+    $full = self::baseDir() . '/' . $sub . '/' . $name . '.' . $ext;
+    if (@file_put_contents($full, $raw) === false) return null;
+    return $rel;
+  }
+
   // تشخیص پسوند از بایت‌های ابتدایی
   static function extFromBytes($raw) {
     $sig = substr($raw, 0, 4);
