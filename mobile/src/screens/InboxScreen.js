@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Image, Switch } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Image, Switch, Linking } from 'react-native';
 import { request, imageSource } from '../api';
 import { C, FONT } from '../theme';
 import { fj, inJRange } from '../jdate';
@@ -7,6 +7,8 @@ import ImageViewer from '../components/ImageViewer';
 import JDatePicker, { jLabel } from '../components/JDatePicker';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import { refreshUnreadCounts } from '../unread';
+import ReportPersonPickerModal from '../components/ReportPersonPickerModal';
+import ReportTextModal from '../components/ReportTextModal';
 
 const ST = { sent: 'جدید', seen: 'دیده‌شده', answered: 'پاسخ‌داده‌شده', forwarded: 'ارجاع‌شده', rejected: 'رد شده' };
 const PR = { normal: 'عادی', important: 'مهم', urgent: 'فوری' };
@@ -119,6 +121,9 @@ export function ReportDetailScreen({ route, navigation }) {
   const [eBody, setEBody] = useState('');
   const [ePriority, setEPriority] = useState('normal');
   const [rejectReason, setRejectReason] = useState('');
+  const [showPersonPicker, setShowPersonPicker] = useState(false);
+  const [personPickerMode, setPersonPickerMode] = useState('forward');
+  const [textModalMode, setTextModalMode] = useState(null);
   const load = useCallback(() => {
     request('/reports/' + id).then(setR).catch(() => setR(null));
     refreshUnreadCounts();
@@ -142,24 +147,26 @@ export function ReportDetailScreen({ route, navigation }) {
     catch(e) { Alert.alert('خطا', e.message || 'ویرایش ناموفق بود.'); } finally { setBusy(false); }
   };
   const deleteReport = async () => {
-    Alert.alert('حذف گزارش', mine ? 'آیا از حذف گزارش مطمئن هستید؟' : 'گزارش برای شما حذف/بایگانی می‌شود. ادامه می‌دهید؟', [
-      { text: 'انصراف', style: 'cancel' },
-      { text: 'حذف', style: 'destructive', onPress: async () => { try { await request('/reports/' + id, { method: 'DELETE', body: { reason: rejectReason || undefined } }); navigation.goBack(); } catch(e) { Alert.alert('خطا', e.message); } } }
-    ]);
+    if (!rejectReason.trim()) return Alert.alert('علت حذف', 'دلیل حذف گزارش را وارد کنید.');
+    try { await request('/reports/' + id, { method: 'DELETE', body: { reason: rejectReason } }); setTextModalMode(null); navigation.goBack(); }
+    catch(e) { Alert.alert('خطا', e.message); }
   };
   const rejectReport = async () => {
-    if (!rejectReason.trim()) return Alert.alert('علت رد', 'علت حذف/رد گزارش بی‌مورد را بنویسید.');
-    try { await request('/reports/' + id + '/reject', { method: 'POST', body: { reason: rejectReason } }); Alert.alert('ثبت شد', 'گزارش رد شد و علت ثبت گردید.'); navigation.goBack(); }
+    if (!rejectReason.trim()) return Alert.alert('علت رد', 'علت رد گزارش را وارد کنید.');
+    try { await request('/reports/' + id + '/reject', { method: 'POST', body: { reason: rejectReason } }); setTextModalMode(null); Alert.alert('ثبت شد', 'گزارش رد شد و علت ثبت گردید.'); navigation.goBack(); }
     catch(e) { Alert.alert('خطا', e.message); }
   };
 
-  const act = async (action, toUserId) => {    if ((action === 'note' || action === 'reply') && !note.trim()) { Alert.alert('خطا', 'متن را وارد کنید'); return; }
+  const act = async (action, toUserId) => {
+    if ((action === 'note' || action === 'reply') && !note.trim()) { Alert.alert('خطا', 'متن را وارد کنید'); return; }
     setBusy(true);
     try {
       await request('/reports/' + id + '/action', { method: 'POST', body: { action, note, to_user_id: toUserId || null, confidential_history: action === 'forward' && confidentialForward ? 1 : 0 } });
-      Alert.alert('انجام شد', action === 'forward' ? 'گزارش ارجاع شد' : action === 'reply' ? 'پاسخ ثبت شد' : 'یادداشت ثبت شد');
+      setTextModalMode(null);
+      setShowPersonPicker(false);
+      Alert.alert('انجام شد', action === 'forward' ? 'گزارش ارجاع شد' : action === 'reply' ? 'پاسخ ثبت شد و برای آخرین ارجاع‌دهنده ارسال شد.' : 'یادداشت ثبت شد');
       if (action === 'forward') navigation.goBack(); else { setNote(''); load(); }
-    } catch (e) { Alert.alert('خطا', e.message); } finally { setBusy(false); setShowFwd(false); }
+    } catch (e) { Alert.alert('خطا', e.message); } finally { setBusy(false); }
   };
   const fwdList = q.trim() ? targets.filter((t) => ((t.first_name || '') + ' ' + (t.last_name || '')).includes(q.trim())) : targets;
   const fwdByRole = fwdRole ? fwdList.filter((t) => t.role_title === fwdRole) : [];
@@ -170,7 +177,7 @@ export function ReportDetailScreen({ route, navigation }) {
     try {
       await request('/reports/' + id + '/cc', { method: 'POST', body: { to_user_id: toUserId } });
       Alert.alert('انجام شد', 'رونوشت گزارش ارسال شد.');
-    } catch (e) { Alert.alert('خطا', e.message); } finally { setBusy(false); setShowCc(false); setCcRole(null); setQCc(''); }
+    } catch (e) { Alert.alert('خطا', e.message); } finally { setBusy(false); setShowPersonPicker(false); setCcRole(null); setQCc(''); }
   };
   const actMeta = {
     forward: { label: 'ارجاع', color: '#6a4fd6', bg: '#f0ecff', icon: '➡' },
@@ -238,64 +245,16 @@ export function ReportDetailScreen({ route, navigation }) {
       </View>
 
       {!mine && (<>
-        <Text style={s.label}>یادداشت / پاسخ</Text>
-        <TextInput style={s.input} value={note} onChangeText={setNote} multiline placeholder="متن یادداشت یا پاسخ…" placeholderTextColor={C.muted} />
+        <Text style={s.label}>عملیات گزارش</Text>
         <View style={s.actRow}>
-          <TouchableOpacity style={[s.btnGhost, { flex: 1 }]} disabled={busy} onPress={() => act('note')}><Text style={s.btnGhostTxt}>ثبت یادداشت</Text></TouchableOpacity>
-          <TouchableOpacity style={[s.btnGhost, { flex: 1 }]} disabled={busy} onPress={() => act('reply')}><Text style={s.btnGhostTxt}>پاسخ به فرستنده</Text></TouchableOpacity>
+          <TouchableOpacity style={[s.btnGhost, { flex: 1 }]} disabled={busy} onPress={() => { setNote(''); setTextModalMode('note'); }}><Text style={s.btnGhostTxt}>✎ نوشتن یادداشت</Text></TouchableOpacity>
+          <TouchableOpacity style={[s.btnGhost, { flex: 1 }]} disabled={busy} onPress={() => { setNote(''); setTextModalMode('reply'); }}><Text style={s.btnGhostTxt}>↩ نوشتن پاسخ</Text></TouchableOpacity>
         </View>
         <View style={{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',backgroundColor:'#fff8e8',borderWidth:1,borderColor:'#f0c36a',borderRadius:12,padding:10,marginTop:8}}><View style={{flex:1}}><Text style={{fontFamily:FONT.bold,color:C.ink,textAlign:'right'}}>ارجاع محرمانه</Text><Text style={{fontFamily:FONT.regular,color:C.muted,fontSize:11,textAlign:'right',marginTop:3}}>با فعال‌سازی توسط دریافت‌کننده، سوابق بعدی برای ارسال‌کننده اولیه مخفی می‌شود.</Text></View><Switch value={confidentialForward} onValueChange={setConfidentialForward}/></View>
         <TouchableOpacity style={s.btn} disabled={busy} onPress={() => act('forward')}><Text style={s.btnTxt}>ارجاع به مسئول بالادستی</Text></TouchableOpacity>
-        <TouchableOpacity style={[s.btn, { backgroundColor: '#2563eb', marginTop: 8 }]} disabled={busy} onPress={() => { setShowFwd((v) => !v); setShowCc(false); }}><Text style={s.btnTxt}>ارجاع به فرد مشخص…</Text></TouchableOpacity>
-        <TouchableOpacity style={[s.btn, { backgroundColor: '#6a4fd6', marginTop: 8 }]} disabled={busy} onPress={() => { setShowCc((v) => !v); setShowFwd(false); }}><Text style={s.btnTxt}>📋 ارسال رونوشت به فرد دیگر</Text></TouchableOpacity>
-        <TextInput style={[s.input, { minHeight: 50, marginTop: 8 }]} value={rejectReason} onChangeText={setRejectReason} placeholder="علت رد/حذف گزارش بی‌مورد…" placeholderTextColor={C.muted} />
-        <TouchableOpacity style={[s.btn, { backgroundColor: C.danger, marginTop: 8 }]} disabled={busy} onPress={rejectReport}><Text style={s.btnTxt}>رد / حذف به‌عنوان گزارش بی‌مورد</Text></TouchableOpacity>
-        {showFwd && (
-          <View style={[s.card, { marginTop: 8 }]}>
-            <Text style={s.label}>۱) ابتدا سمت گیرنده را انتخاب کنید</Text>
-            <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 }}>
-              {fwdRoles.map((role) => (
-                <TouchableOpacity key={role} onPress={() => setFwdRole(fwdRole === role ? null : role)} style={[s.roleChip, fwdRole === role && s.roleChipOn]}>
-                  <Text style={[s.roleChipTxt, fwdRole === role && s.roleChipTxtOn]}>{role}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            {fwdRole && (<>
-              <Text style={[s.label, { marginTop: 10 }]}>۲) سپس شخص را انتخاب کنید</Text>
-              <TextInput style={s.input} value={q} onChangeText={setQ} placeholder="جستجوی نام فرد…" placeholderTextColor={C.muted} />
-              {fwdByRole.slice(0, 20).map((t) => (
-                <TouchableOpacity key={t.id} style={s.fwdRow} onPress={() => act('forward', t.id)}>
-                  <Text style={s.fwdName}>{t.first_name} {t.last_name}</Text>
-                  <Text style={s.meta}>{t.role_title || ''}</Text>
-                </TouchableOpacity>
-              ))}
-              {fwdByRole.length === 0 && <Text style={s.meta}>موردی یافت نشد.</Text>}
-            </>)}
-          </View>
-        )}
-        {showCc && (
-          <View style={[s.card, { marginTop: 8 }]}>
-            <Text style={s.label}>۱) ابتدا سمت گیرندهٔ رونوشت را انتخاب کنید</Text>
-            <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 }}>
-              {fwdRoles.map((role) => (
-                <TouchableOpacity key={role} onPress={() => setCcRole(ccRole === role ? null : role)} style={[s.roleChip, ccRole === role && s.roleChipOn]}>
-                  <Text style={[s.roleChipTxt, ccRole === role && s.roleChipTxtOn]}>{role}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            {ccRole && (<>
-              <Text style={[s.label, { marginTop: 10 }]}>۲) سپس شخص را انتخاب کنید</Text>
-              <TextInput style={s.input} value={qCc} onChangeText={setQCc} placeholder="جستجوی نام فرد…" placeholderTextColor={C.muted} />
-              {ccByRole.slice(0, 20).map((t) => (
-                <TouchableOpacity key={t.id} style={s.fwdRow} onPress={() => sendCc(t.id)}>
-                  <Text style={s.fwdName}>{t.first_name} {t.last_name}</Text>
-                  <Text style={s.meta}>{t.role_title || ''}</Text>
-                </TouchableOpacity>
-              ))}
-              {ccByRole.length === 0 && <Text style={s.meta}>موردی یافت نشد.</Text>}
-            </>)}
-          </View>
-        )}
+        <TouchableOpacity style={[s.btn, { backgroundColor: '#2563eb', marginTop: 8 }]} disabled={busy} onPress={() => { setPersonPickerMode('forward'); setShowPersonPicker(true); }}><Text style={s.btnTxt}>ارجاع به شخص دیگر…</Text></TouchableOpacity>
+        <TouchableOpacity style={[s.btn, { backgroundColor: '#6a4fd6', marginTop: 8 }]} disabled={busy} onPress={() => { setPersonPickerMode('cc'); setShowPersonPicker(true); }}><Text style={s.btnTxt}>📋 ارسال رونوشت به شخص دیگر</Text></TouchableOpacity>
+        <TouchableOpacity style={[s.btn, { backgroundColor: C.danger, marginTop: 8 }]} disabled={busy} onPress={() => { setRejectReason(''); setTextModalMode('reject'); }}><Text style={s.btnTxt}>رد / حذف به‌عنوان گزارش بی‌مورد</Text></TouchableOpacity>
       </>)}
 
       <Text style={s.label}>روند گردش کار</Text>
@@ -322,6 +281,33 @@ export function ReportDetailScreen({ route, navigation }) {
           </View>
         );
       })}
+      <ReportPersonPickerModal
+        visible={showPersonPicker}
+        title={personPickerMode === 'forward' ? 'انتخاب شخص برای ارجاع گزارش' : 'انتخاب شخص برای رونوشت'}
+        targets={targets}
+        selectedId={null}
+        onClose={() => setShowPersonPicker(false)}
+        onSelect={(person) => {
+          if (personPickerMode === 'forward') { act('forward', person.id); }
+          else { sendCc(person.id); }
+        }}
+      />
+      <ReportTextModal
+        visible={!!textModalMode}
+        title={textModalMode === 'note' ? 'نوشتن یادداشت' : textModalMode === 'reply' ? 'نوشتن پاسخ' : textModalMode === 'reject' ? 'دلیل رد گزارش' : 'دلیل حذف گزارش'}
+        value={textModalMode === 'note' || textModalMode === 'reply' ? note : rejectReason}
+        onChangeText={textModalMode === 'note' || textModalMode === 'reply' ? setNote : setRejectReason}
+        placeholder={textModalMode === 'note' ? 'یادداشت خود را وارد کنید…' : textModalMode === 'reply' ? 'پاسخ گزارش را وارد کنید…' : textModalMode === 'reject' ? 'دلیل رد گزارش را دقیق وارد کنید…' : 'دلیل حذف گزارش را وارد کنید…'}
+        confirmText={textModalMode === 'note' ? 'ثبت یادداشت' : textModalMode === 'reply' ? 'ثبت پاسخ' : textModalMode === 'reject' ? 'رد گزارش' : 'حذف گزارش'}
+        busy={busy}
+        onClose={() => setTextModalMode(null)}
+        onConfirm={() => {
+          if (textModalMode === 'note') act('note');
+          else if (textModalMode === 'reply') act('reply');
+          else if (textModalMode === 'reject') rejectReport();
+          else if (textModalMode === 'delete') deleteReport();
+        }}
+      />
       <ImageViewer
         visible={viewer}
         initialIndex={viewerIndex}
