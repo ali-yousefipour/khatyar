@@ -6702,16 +6702,30 @@ route('POST', '/api/reports/{id}/action', function($p,$b,$u){
     } catch (\Throwable $e) { /* اعلان پیام‌رسان اختیاری است؛ نبود اتصال نباید ارجاع را مختل کند */ }
     return ['ok'=>true, 'forwarded_to'=>count($targets)];
   }
-  // پاسخ/یادداشت: گزارش در کارتابل خودِ کاربر باقی می‌ماند
-  $to = $u['id'];
+  // پاسخ باید به آخرین فردی که گزارش را به کاربر فعلی ارجاع داده برگردد؛
+  // اگر چنین ارجاعی وجود نداشت، به فرستنده اصلی گزارش پاسخ داده می‌شود.
+  $rep = Db::one("SELECT subject, sender_id FROM reports WHERE id=?", [$p['id']]);
+  if (!$rep) Http::error('گزارش یافت نشد', 404);
+  $to = (int)$u['id'];
+  if ($action === 'reply') {
+    $last = Db::one("SELECT actor_id,to_user_id FROM report_routes WHERE report_id=? AND to_user_id=? AND actor_id<>? ORDER BY id DESC LIMIT 1",
+      [$p['id'], $u['id'], $u['id']]);
+    $to = (int)($last['actor_id'] ?? 0);
+    if (!$to || $to === (int)$u['id']) $to = (int)$rep['sender_id'];
+    if (!$to || $to === (int)$u['id']) Http::error('گیرنده پاسخ مشخص نشد.', 422);
+  }
   Db::run("INSERT INTO report_routes(report_id,to_user_id,action,note,actor_id) VALUES(?,?,?,?,?)",
     [$p['id'], $to, $action, $b['note'] ?? null, $u['id']]);
   $st = $action==='reply' ? 'answered' : 'seen';
   Db::run("UPDATE reports SET status=? WHERE id=?", [$st, $p['id']]);
-  _report_audit((int)$p['id'], (int)$u['id'], $action, $b['note'] ?? null);
-  $rep = Db::one("SELECT subject, sender_id FROM reports WHERE id=?", [$p['id']]);
-  if ($action === 'reply' && $rep) Push::send([$rep['sender_id']], 'پاسخ به گزارش شما', $rep['subject'] ?? 'گزارش', ['type'=>'report','report_id'=>$p['id']]);
-  return ['ok'=>true];
+  _report_audit((int)$p['id'], (int)$u['id'], $action, $b['note'] ?? null, ['reply_to_user_id'=>$to]);
+  if ($action === 'reply') {
+    Push::send([$to], 'پاسخ به گزارش شما', $rep['subject'] ?? 'گزارش', ['type'=>'report','report_id'=>$p['id']]);
+    try {
+      if (class_exists('MessengerHub')) MessengerHub::sendToUserIds([$to], '↩ پاسخ گزارش', 'برای گزارش «'.($rep['subject'] ?? 'گزارش').'» پاسخ ثبت شد.', 'report_notify', ['type'=>'report','report_id'=>$p['id']]);
+    } catch (Throwable $e) {}
+  }
+  return ['ok'=>true, 'reply_to_user_id'=>$to];
 });
 
 // رونوشت گزارش برای شخص دیگر — برخلاف ارجاع، کارتابل/مالکیت گزارش را تغییر نمی‌دهد
