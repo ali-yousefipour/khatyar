@@ -211,18 +211,29 @@ export function ReportDetailScreen({ route, navigation }) {
         </>)}
         {(() => {
           const primaryUrl = r.attachment_url || r.attachment_data;
+          const primaryName = String(r.attachment_name || '');
+          const primaryIsPdf = /\.pdf$/i.test(primaryName);
           const extra = Array.isArray(r.attachments) ? r.attachments : [];
           const extraImages = extra.filter((a) => !a.mime_type || String(a.mime_type).startsWith('image'));
           const extraFiles = extra.filter((a) => a.mime_type && !String(a.mime_type).startsWith('image'));
           const gallery = [
-            ...(primaryUrl ? [{ uri: primaryUrl, label: null }] : []),
+            ...(primaryUrl && !primaryIsPdf ? [{ uri: primaryUrl, label: primaryName || null }] : []),
             ...extraImages.map((a) => ({ uri: a.url, thumbnailUri: a.thumbnail_url || a.url, label: a.file_name || null })),
           ];
+          const openFile = async (url, name) => {
+            if (!url) return Alert.alert('پیوست', 'نشانی پیوست در دسترس نیست.');
+            try {
+              const src = imageSource(url);
+              await Linking.openURL(src?.uri || url);
+            } catch (e) {
+              Alert.alert('پیوست', 'باز کردن پیوست ممکن نشد. لطفاً دوباره تلاش کنید.');
+            }
+          };
           return (
             <>
               {gallery.length > 0 && (
                 <View style={{ marginTop: 10 }}>
-                  <Text style={s.meta}>{gallery.length > 1 ? `پیوست‌ها (${gallery.length} تصویر — برای نمایش کامل لمس کنید):` : 'پیوست (برای نمایش کامل لمس کنید):'}</Text>
+                  <Text style={s.meta}>{gallery.length > 1 ? `پیوست‌ها (${gallery.length} تصویر — برای نمایش کامل لمس کنید):` : 'پیوست تصویر (برای نمایش کامل لمس کنید):'}</Text>
                   <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
                     {gallery.map((g, i) => (
                       <TouchableOpacity key={i} onPress={() => { setViewerIndex(i); setViewer(true); }}>
@@ -232,15 +243,24 @@ export function ReportDetailScreen({ route, navigation }) {
                   </View>
                 </View>
               )}
+              {(primaryUrl && primaryIsPdf) ? (
+                <TouchableOpacity style={s.fileBtn} onPress={() => openFile(primaryUrl, primaryName)}>
+                  <Text style={s.fileBtnTxt}>📎 {primaryName || 'فایل PDF'} — باز کردن پیوست</Text>
+                </TouchableOpacity>
+              ) : null}
               {extraFiles.length > 0 && (
                 <View style={{ marginTop: 8 }}>
-                  {extraFiles.map((a) => <Text key={a.id} style={s.hasAtt}>📎 {a.file_name || 'پیوست'} {a.mime_type ? `· ${a.mime_type}` : ''}</Text>)}
+                  {extraFiles.map((a) => (
+                    <TouchableOpacity key={a.id} style={s.fileBtn} onPress={() => openFile(a.url, a.file_name)}>
+                      <Text style={s.fileBtnTxt}>📎 {a.file_name || 'پیوست'} {a.mime_type ? `· ${a.mime_type}` : ''} — باز کردن</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               )}
-              {gallery.length === 0 && r.attachment_name ? <Text style={s.meta}>پیوست: {r.attachment_name} (حذف‌شده طبق سیاست نگهداری)</Text> : null}
+              {gallery.length === 0 && !primaryIsPdf && r.attachment_name ? <Text style={s.meta}>پیوست: {r.attachment_name}</Text> : null}
             </>
           );
-        })()}
+        })()}}
         {r.rejected_at ? <Text style={[s.hasAtt, { color: C.danger }]}>رد شده: {r.reject_reason || '—'}</Text> : null}
       </View>
 
@@ -360,5 +380,7 @@ const s = StyleSheet.create({
   flowAct: { fontFamily: FONT.bold, fontSize: 13 },
   flowWho: { fontFamily: FONT.regular, color: C.ink, fontSize: 13, textAlign: 'right', marginTop: 6, lineHeight: 21 },
   fwdRow: { paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: C.line },
+  fileBtn: { backgroundColor: '#eef2f8', borderWidth: 1, borderColor: C.line, borderRadius: 10, padding: 10, marginTop: 6 },
+  fileBtnTxt: { fontFamily: FONT.bold, color: C.brand, fontSize: 12, textAlign: 'right' },
   fwdName: { fontFamily: FONT.bold, color: C.brand, fontSize: 13, textAlign: 'right' },
 });
