@@ -110,7 +110,7 @@ export default function PresenceGate(){
  return <Modal
    visible={!!due}
    animationType="fade"
-   transparent={true}
+   transparent={false}
    statusBarTranslucent
    hardwareAccelerated
    presentationStyle="overFullScreen"
