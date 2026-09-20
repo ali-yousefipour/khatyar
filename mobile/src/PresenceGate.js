@@ -110,10 +110,11 @@ export default function PresenceGate(){
  return <Modal
    visible={!!due}
    animationType="fade"
-   transparent={false}
+   transparent={true}
    statusBarTranslucent
    hardwareAccelerated
-   presentationStyle="fullScreen"
+   presentationStyle="overFullScreen"
+   navigationBarTranslucent
    onRequestClose={()=>{}}
  >
    <View style={s.modalRoot}>
@@ -128,4 +129,4 @@ export default function PresenceGate(){
    </View>
  </Modal>;
 }
-const s=StyleSheet.create({modalRoot:{flex:1,width:'100%',height:'100%',backgroundColor:'#fff'}});
+const s=StyleSheet.create({modalRoot:{...StyleSheet.absoluteFillObject,flex:1,width:'100%',height:'100%',minWidth:'100%',minHeight:'100%',backgroundColor:'#fff',zIndex:1,elevation:100000}});
