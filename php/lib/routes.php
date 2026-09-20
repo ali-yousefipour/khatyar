@@ -6410,7 +6410,16 @@ function _save_report_attachments($reportId,$items){
     $data = $it['data'] ?? $it['attachment_data'] ?? null;
     if (!$data) continue;
     $name = substr((string)($it['name'] ?? $it['file_name'] ?? 'attachment'),0,220);
+    $mime = strtolower(trim((string)($it['mime_type'] ?? '')));
     try {
+      // PDF باید به‌عنوان سند ذخیره شود؛ Media::saveBase64 مخصوص تصویر است و PDF را رد می‌کند.
+      if ($mime === 'application/pdf' || preg_match('/\.pdf$/i', $name)) {
+        $path = Media::saveDocumentBase64($data, 'reports', 'pdf');
+        if (!$path) continue;
+        Db::run("INSERT INTO report_attachments(report_id,file_name,file_path,thumbnail_path,mime_type) VALUES(?,?,?,?,?)", [(int)$reportId,$name,$path,null,'application/pdf']);
+        $n++;
+        continue;
+      }
       $path = Media::saveBase64($data, 'reports', 1600, 75);
       if(!$path) continue;
       $thumb = Media::makeThumbnail($path, 'report_thumbs');
