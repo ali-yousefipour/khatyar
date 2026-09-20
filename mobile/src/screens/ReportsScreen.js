@@ -10,6 +10,7 @@ import { postOrQueue, request } from '../api';
 import { C, FONT } from '../theme';
 import { fj } from '../jdate';
 import { playSound } from '../soundFx';
+import ReportPersonPickerModal from '../components/ReportPersonPickerModal';
 
 const STATUS = { sent: 'ارسال‌شده', seen: 'دیده‌شده', answered: 'پاسخ‌داده‌شده', forwarded: 'ارجاع‌شده', rejected: 'رد شده' };
 const PRIORITY = { normal: 'عادی', important: 'مهم', urgent: 'فوری' };
@@ -26,6 +27,7 @@ export default function ReportsScreen({ navigation }) {
   const [managers, setManagers] = useState([]);
   const [allTargets, setAllTargets] = useState([]);
   const [targetMode, setTargetMode] = useState('manager');
+  const [showTargetModal, setShowTargetModal] = useState(false);
   const [targetQuery, setTargetQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('');
   const [toUserId, setToUserId] = useState(null);
@@ -192,7 +194,7 @@ export default function ReportsScreen({ navigation }) {
           {attachments.map((a, idx) => <View key={`${a.name}-${idx}`} style={s.attItem}>{String(a.mime_type || '').startsWith('image') ? <Image source={{ uri: a.data }} style={s.thumb} /> : null}<Text style={s.attName}>{a.name}</Text><TouchableOpacity onPress={() => removeAttachment(idx)}><Text style={s.attDel}>حذف</Text></TouchableOpacity></View>)}
           <Text style={[s.label, { marginTop: 14 }]}>گیرنده گزارش</Text>
           <View style={s.mgrWrap}><TouchableOpacity style={[s.mgrChip, targetMode === 'manager' && s.mgrChipOn]} onPress={() => { setTargetMode('manager'); setSelectedRole(''); setTargetQuery(''); setToUserId(managers.length === 1 ? managers[0].id : null); }}><Text style={[s.mgrChipTxt, targetMode === 'manager' && s.white]}>مقام بالادست</Text></TouchableOpacity><TouchableOpacity style={[s.mgrChip, targetMode === 'specific' && s.mgrChipOn]} onPress={() => { setTargetMode('specific'); setToUserId(null); setSelectedRole(''); setTargetQuery(''); }}><Text style={[s.mgrChipTxt, targetMode === 'specific' && s.white]}>شخص خاص</Text></TouchableOpacity></View>
-          {targetMode === 'manager' ? <View style={s.mgrWrap}>{managers.map((m) => <TouchableOpacity key={m.id} style={[s.mgrChip, String(toUserId) === String(m.id) && s.mgrChipOn]} onPress={() => setToUserId(m.id)}><Text style={[s.mgrChipTxt, String(toUserId) === String(m.id) && s.white]}>{m.is_chief ? '★ ' : ''}{m.name}{m.role_title ? ` (${m.role_title})` : ''}</Text></TouchableOpacity>)}</View> : <><Text style={s.stepTitle}>۱. انتخاب سمت</Text><View style={s.mgrWrap}>{roles.map((r) => <TouchableOpacity key={r.key} style={[s.mgrChip, selectedRole === r.key && s.mgrChipOn]} onPress={() => { setSelectedRole(r.key); setToUserId(null); setTargetQuery(''); }}><Text style={[s.mgrChipTxt, selectedRole === r.key && s.white]}>{r.title}</Text></TouchableOpacity>)}</View>{selectedRole ? <><Text style={s.stepTitle}>۲. انتخاب شخص</Text><TextInput style={s.input} value={targetQuery} onChangeText={setTargetQuery} placeholder="جستجوی نام شخص…" placeholderTextColor={C.muted} /><View style={s.mgrWrap}>{roleTargets.map((t) => <TouchableOpacity key={t.id} style={[s.mgrChip, String(toUserId) === String(t.id) && s.mgrChipOn]} onPress={() => setToUserId(t.id)}><Text style={[s.mgrChipTxt, String(toUserId) === String(t.id) && s.white]}>{t.first_name} {t.last_name}</Text></TouchableOpacity>)}</View>{roleTargets.length === 0 ? <Text style={s.empty}>شخصی با این مشخصات یافت نشد.</Text> : null}</> : null}</>}
+          {targetMode === 'manager' ? <View style={s.mgrWrap}>{managers.map((m) => <TouchableOpacity key={m.id} style={[s.mgrChip, String(toUserId) === String(m.id) && s.mgrChipOn]} onPress={() => setToUserId(m.id)}><Text style={[s.mgrChipTxt, String(toUserId) === String(m.id) && s.white]}>{m.is_chief ? '★ ' : ''}{m.name}{m.role_title ? ` (${m.role_title})` : ''}</Text></TouchableOpacity>)}</View> : <TouchableOpacity style={s.personSelect} onPress={() => setShowTargetModal(true)}><Text style={s.personSelectTitle}>{toUserId ? 'گیرنده انتخاب شده' : 'انتخاب شخص دیگر'}</Text><Text style={s.personSelectValue}>{toUserId ? (([...managers, ...allTargets].find(x => String(x.id) === String(toUserId))?.first_name || '') + ' ' + ([...managers, ...allTargets].find(x => String(x.id) === String(toUserId))?.last_name || '')).trim() : 'جستجوی مستقیم یا فیلتر بر اساس سمت'}</Text></TouchableOpacity>}
           <TouchableOpacity style={s.ccToggle} onPress={() => { setCcEnabled((v) => !v); setCcRole(''); setCcQuery(''); setCcUserId(null); }}><Text style={s.ccToggleTxt}>{ccEnabled ? '✓ ' : ''}📋 ارسال رونوشت به فرد دیگر</Text></TouchableOpacity>
           {ccEnabled && <><Text style={s.stepTitle}>۱. انتخاب سمت گیرندهٔ رونوشت</Text><View style={s.mgrWrap}>{roles.map((r) => <TouchableOpacity key={r.key} style={[s.mgrChip, ccRole === r.key && s.mgrChipOn]} onPress={() => { setCcRole(r.key); setCcUserId(null); setCcQuery(''); }}><Text style={[s.mgrChipTxt, ccRole === r.key && s.white]}>{r.title}</Text></TouchableOpacity>)}</View>{ccRole ? <><Text style={s.stepTitle}>۲. انتخاب شخص</Text><TextInput style={s.input} value={ccQuery} onChangeText={setCcQuery} placeholder="جستجوی نام شخص…" placeholderTextColor={C.muted} /><View style={s.mgrWrap}>{ccTargets.map((t) => <TouchableOpacity key={t.id} style={[s.mgrChip, String(ccUserId) === String(t.id) && s.mgrChipOn]} onPress={() => setCcUserId(t.id)}><Text style={[s.mgrChipTxt, String(ccUserId) === String(t.id) && s.white]}>{t.first_name} {t.last_name}</Text></TouchableOpacity>)}</View></> : null}</>}
           <TouchableOpacity style={[s.btn, sending && { opacity: 0.6 }]} onPress={send} disabled={sending}><Text style={s.btnTxt}>{sending ? 'در حال ارسال…' : 'ارسال گزارش'}</Text></TouchableOpacity>
@@ -205,6 +207,14 @@ export default function ReportsScreen({ navigation }) {
           {sortedMine.map((r) => <TouchableOpacity key={r.id} style={s.card} onPress={() => navigation.navigate('ReportDetail', { id: r.id, mine: true })}><View style={s.cardHead}><Text style={s.cardTitle}>{r.subject}</Text><Text style={s.status}>{PRIORITY[r.priority] ? `${PRIORITY[r.priority]} · ` : ''}{STATUS[r.status] || r.status}</Text></View><Text numberOfLines={2} style={s.preview}>{r.body}</Text><Text style={s.date}>{fj(r.created_at)}</Text>{Number(r.confidential_history) === 1 ? <Text style={s.confBadge}>محرمانه · سابقه برای ارسال‌کننده مخفی است</Text> : null}<Text style={s.tapHint}>برای دیدن متن کامل و پیوست‌ها ضربه بزنید ›</Text></TouchableOpacity>)}
         </ScrollView>
       )}
+      <ReportPersonPickerModal
+        visible={showTargetModal}
+        title="انتخاب گیرنده گزارش"
+        targets={allTargets}
+        selectedId={toUserId}
+        onClose={() => setShowTargetModal(false)}
+        onSelect={(person) => { setToUserId(person.id); setSelectedRole(String(person.role_id || person.role_title || '')); setTargetQuery(''); setShowTargetModal(false); }}
+      />
     </View>
   );
 }
