@@ -207,7 +207,7 @@ export function ReportDetailScreen({ route, navigation }) {
           <Text style={s.body}>{r.body}</Text>
           {Number(r.confidential_history) === 1 ? <Text style={[s.hasAtt, { color: '#9a5b00', backgroundColor: '#fff8e8', padding: 8, borderRadius: 9 }]}>ارجاع محرمانه: سابقه و یادداشت‌های بعدی برای ارسال‌کننده مخفی است.</Text> : null}
           {r.can_edit ? <TouchableOpacity style={s.archBtn} onPress={startEdit}><Text style={s.archTxt}>✎ ویرایش گزارش</Text></TouchableOpacity> : null}
-          {(mine || !r.can_edit) ? <TouchableOpacity style={[s.archBtn, { backgroundColor: '#ffecec' }]} onPress={deleteReport}><Text style={[s.archTxt, { color: C.danger }]}>🗑 حذف گزارش</Text></TouchableOpacity> : null}
+          {(mine || !r.can_edit) ? <TouchableOpacity style={[s.archBtn, { backgroundColor: '#ffecec' }]} onPress={() => { setRejectReason(''); setTextModalMode('delete'); }}><Text style={[s.archTxt, { color: C.danger }]}>🗑 حذف گزارش</Text></TouchableOpacity> : null}
         </>)}
         {(() => {
           const primaryUrl = r.attachment_url || r.attachment_data;
