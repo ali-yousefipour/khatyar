@@ -96,6 +96,4 @@
             android:textSize="15sp"
             android:textStyle="bold"
             android:includeFontPadding="false"/>
-</LinearLayout>
-
     </LinearLayout>
