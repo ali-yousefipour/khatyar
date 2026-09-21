@@ -107,26 +107,22 @@ export default function PresenceGate(){
   if(mountedRef.current)setDue(null);
  };
 
- return <Modal
-   visible={!!due}
-   animationType="fade"
-   transparent={false}
-   statusBarTranslucent
-   hardwareAccelerated
-   presentationStyle="overFullScreen"
-   navigationBarTranslucent
-   onRequestClose={()=>{}}
- >
-   <View style={s.modalRoot}>
-    {due?<PresenceCheckModal
-      key={`${due.immediate?'immediate':'scheduled'}:${due.key}`}
-      slot={due.slot}
-      windowMinutes={due.windowMinutes}
-      onDone={()=>finish(true)}
-      onExpire={()=>finish(false)}
-      onStart={()=>stopPresenceAlarm().catch(()=>{})}
-    />:null}
+ // عمداً از Native Modal برای ویزارد صحت‌سنجی استفاده نمی‌کنیم؛
+ // مرحله‌های دوربین داخل یک لایهٔ تمام‌صفحهٔ خود اپ اجرا می‌شوند تا lifecycle
+ // دوربین/CameraView باعث dismiss شدن ناگهانی ویزارد نشود.
+ return due ? (
+   <View style={s.overlayRoot} pointerEvents="box-none">
+    <View style={s.modalRoot}>
+     <PresenceCheckModal
+       key={`${due.immediate?'immediate':'scheduled'}:${due.key}`}
+       slot={due.slot}
+       windowMinutes={due.windowMinutes}
+       onDone={()=>finish(true)}
+       onExpire={()=>finish(false)}
+       onStart={()=>stopPresenceAlarm().catch(()=>{})}
+     />
+    </View>
    </View>
- </Modal>;
+ ) : null;
 }
-const s=StyleSheet.create({modalRoot:{...StyleSheet.absoluteFillObject,flex:1,width:'100%',height:'100%',minWidth:'100%',minHeight:'100%',backgroundColor:'#fff',zIndex:1,elevation:100000}});
+const s=StyleSheet.create({overlayRoot:{...StyleSheet.absoluteFillObject,flex:1,width:'100%',height:'100%',zIndex:100000,elevation:100000},modalRoot:{...StyleSheet.absoluteFillObject,flex:1,width:'100%',height:'100%',minWidth:'100%',minHeight:'100%',backgroundColor:'#fff',zIndex:100001,elevation:100001}});
