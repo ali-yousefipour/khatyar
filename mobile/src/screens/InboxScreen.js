@@ -213,14 +213,39 @@ export function ReportDetailScreen({ route, navigation }) {
           const primaryUrl = r.attachment_url || r.attachment_data;
           const primaryName = String(r.attachment_name || '');
           const primaryIsPdf = /\.pdf$/i.test(primaryName);
-          const extra = Array.isArray(r.attachments) ? r.attachments : [];
-          const extraImages = extra.filter((a) => !a.mime_type || String(a.mime_type).startsWith('image'));
-          const extraFiles = extra.filter((a) => a.mime_type && !String(a.mime_type).startsWith('image'));
-          const gallery = [
-            ...(primaryUrl && !primaryIsPdf ? [{ uri: primaryUrl, label: primaryName || null }] : []),
-            ...extraImages.map((a) => ({ uri: a.url, thumbnailUri: a.thumbnail_url || a.url, label: a.file_name || null })),
-          ];
-          const openFile = async (url, name) => {
+          const extra = Array.isArray(r.attachments) ? r.attachments.filter((a) => a && a.url) : [];
+
+          // پیوست‌های جدول report_attachments منبع اصلی هستند. برای تصویر از thumbnail
+          // استفاده می‌کنیم تا حتی یک پیوست نیز مانند چند پیوست پایدار و قابل‌نمایش باشد؛
+          // با لمس تصویر، فایل اصلی باز می‌شود.
+          const attachmentImages = extra
+            .filter((a) => String(a.mime_type || '').toLowerCase().startsWith('image/'))
+            .map((a) => ({
+              uri: a.thumbnail_url || a.url,
+              openUri: a.url,
+              label: a.file_name || null,
+            }));
+
+          const attachmentFiles = extra
+            .filter((a) => !String(a.mime_type || '').toLowerCase().startsWith('image/'))
+            .map((a) => ({
+              uri: a.url,
+              label: a.file_name || 'پیوست',
+              mimeType: a.mime_type || '',
+            }));
+
+          // سازگاری با گزارش‌های قدیمی که هنوز پیوست را در ستون اصلی نگه می‌دارند.
+          const legacyImage = primaryUrl && !primaryIsPdf && !attachmentImages.length
+            ? [{ uri: primaryUrl, openUri: primaryUrl, label: primaryName || null }]
+            : [];
+          const gallery = [...legacyImage, ...attachmentImages];
+
+          const legacyPdf = primaryUrl && primaryIsPdf
+            ? [{ uri: primaryUrl, label: primaryName || 'فایل PDF', mimeType: 'application/pdf' }]
+            : [];
+          const files = [...legacyPdf, ...attachmentFiles];
+
+          const openFile = async (url) => {
             if (!url) return Alert.alert('پیوست', 'نشانی پیوست در دسترس نیست.');
             try {
               const src = imageSource(url);
@@ -229,38 +254,48 @@ export function ReportDetailScreen({ route, navigation }) {
               Alert.alert('پیوست', 'باز کردن پیوست ممکن نشد. لطفاً دوباره تلاش کنید.');
             }
           };
+
           return (
             <>
               {gallery.length > 0 && (
                 <View style={{ marginTop: 10 }}>
-                  <Text style={s.meta}>{gallery.length > 1 ? `پیوست‌ها (${gallery.length} تصویر — برای نمایش کامل لمس کنید):` : 'پیوست تصویر (برای نمایش کامل لمس کنید):'}</Text>
+                  <Text style={s.meta}>
+                    {gallery.length > 1
+                      ? `پیوست‌ها (${gallery.length} تصویر — برای نمایش کامل لمس کنید):`
+                      : 'پیوست تصویر (برای نمایش کامل لمس کنید):'}
+                  </Text>
                   <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
                     {gallery.map((g, i) => (
-                      <TouchableOpacity key={i} onPress={() => { setViewerIndex(i); setViewer(true); }}>
-                        <Image source={imageSource(g.uri)} style={gallery.length > 1 ? { width: 104, height: 104, borderRadius: 12 } : { width: '100%', height: 200, borderRadius: 12 }} resizeMode="cover" />
+                      <TouchableOpacity key={i} onPress={() => openFile(g.openUri || g.uri)}>
+                        <Image
+                          source={imageSource(g.uri)}
+                          style={gallery.length > 1
+                            ? { width: 104, height: 104, borderRadius: 12 }
+                            : { width: '100%', height: 200, borderRadius: 12 }}
+                          resizeMode="cover"
+                        />
                       </TouchableOpacity>
                     ))}
                   </View>
                 </View>
               )}
-              {(primaryUrl && primaryIsPdf) ? (
-                <TouchableOpacity style={s.fileBtn} onPress={() => openFile(primaryUrl, primaryName)}>
-                  <Text style={s.fileBtnTxt}>📎 {primaryName || 'فایل PDF'} — باز کردن پیوست</Text>
-                </TouchableOpacity>
-              ) : null}
-              {extraFiles.length > 0 && (
+              {files.length > 0 && (
                 <View style={{ marginTop: 8 }}>
-                  {extraFiles.map((a) => (
-                    <TouchableOpacity key={a.id} style={s.fileBtn} onPress={() => openFile(a.url, a.file_name)}>
-                      <Text style={s.fileBtnTxt}>📎 {a.file_name || 'پیوست'} {a.mime_type ? `· ${a.mime_type}` : ''} — باز کردن</Text>
+                  {files.map((a, i) => (
+                    <TouchableOpacity key={a.id || `file-${i}`} style={s.fileBtn} onPress={() => openFile(a.uri)}>
+                      <Text style={s.fileBtnTxt}>
+                        📎 {a.label} {a.mimeType ? `· ${a.mimeType}` : ''} — باز کردن
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               )}
-              {gallery.length === 0 && !primaryIsPdf && r.attachment_name ? <Text style={s.meta}>پیوست: {r.attachment_name}</Text> : null}
+              {gallery.length === 0 && files.length === 0 && r.attachment_name
+                ? <Text style={s.meta}>پیوست: {r.attachment_name}</Text>
+                : null}
             </>
           );
-        })()}}
+        })()}
         {r.rejected_at ? <Text style={[s.hasAtt, { color: C.danger }]}>رد شده: {r.reject_reason || '—'}</Text> : null}
       </View>
 
