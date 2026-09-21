@@ -185,22 +185,22 @@ public final class KhatyarRadioService extends Service {
 
   private Notification buildRadioNotification() {
     boolean pttActive = getPrefs().getBoolean("notificationPttActive", false);
-    String channelName = getPrefs().getString("channelName", "");
-    long channelId = getPrefs().getLong("channelId", 0L);
-    String channelLabel = !channelName.isEmpty() ? channelName : (channelId > 0 ? "کانال " + toPersianDigits(String.valueOf(channelId)) : "بدون کانال");
-    String status = pttActive ? "📻 بی‌سیم خطیار • PTT فعال" : "📻 بی‌سیم خطیار • آماده‌به‌کاری";
-    String date = "📅 امروز: " + jalaliToday();
-    String pttLabel = pttActive ? "⏹ پایان PTT" : "🎙 PTT";
 
     RemoteViews compact = new RemoteViews(getPackageName(), R.layout.khatyar_radio_notification);
     RemoteViews expanded = new RemoteViews(getPackageName(), R.layout.khatyar_radio_notification_big);
     PendingIntent ptt = buildPttPendingIntent();
 
-    compact.setTextViewText(R.id.khatyar_notification_text, date + "  •  " + status + "\n📡 کانال: " + channelLabel);
+    String status = pttActive ? "فعال • متصل به سرور • PTT فعال" : "فعال • متصل به سرور";
+    String info = "تاریخ شمسی: " + jalaliToday() + " • بی‌سیم";
+    String pttLabel = pttActive ? "🎙  پایان PTT" : "🎙  PTT";
+
+    compact.setTextViewText(R.id.khatyar_notification_status, status);
+    compact.setTextViewText(R.id.khatyar_notification_info, info);
     compact.setTextViewText(R.id.khatyar_notification_ptt, pttLabel);
     compact.setOnClickPendingIntent(R.id.khatyar_notification_ptt, ptt);
 
-    expanded.setTextViewText(R.id.khatyar_notification_text, date + "\n" + status + "\n📡 کانال انتخاب‌شده: " + channelLabel);
+    expanded.setTextViewText(R.id.khatyar_notification_status, status);
+    expanded.setTextViewText(R.id.khatyar_notification_info, info);
     expanded.setTextViewText(R.id.khatyar_notification_ptt, pttLabel);
     expanded.setOnClickPendingIntent(R.id.khatyar_notification_ptt, ptt);
 
@@ -217,9 +217,7 @@ public final class KhatyarRadioService extends Service {
       .setContentText(status)
       .setCustomContentView(compact)
       .setCustomBigContentView(expanded)
-      .setCustomHeadsUpContentView(compact)
       .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
-      .addAction(new NotificationCompat.Action.Builder(android.R.drawable.ic_btn_speak_now, pttLabel, ptt).build())
       .setOngoing(true)
       .setOnlyAlertOnce(true)
       .setCategory(NotificationCompat.CATEGORY_SERVICE)
