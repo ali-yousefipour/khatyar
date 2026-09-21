@@ -6727,6 +6727,11 @@ route('POST', '/api/reports/{id}/action', function($p,$b,$u){
     [$p['id'], $to, $action, $b['note'] ?? null, $u['id']]);
   $st = $action==='reply' ? 'answered' : 'seen';
   Db::run("UPDATE reports SET status=? WHERE id=?", [$st, $p['id']]);
+  // پاسخ، گزارش را از کارتابل دریافت‌کننده خارج می‌کند. بایگانی کاربرمحور است
+  // تا گزارش همچنان برای سابقه و تب «بایگانی» قابل دسترسی باشد.
+  if ($action === 'reply') {
+    Db::run("INSERT IGNORE INTO report_archives(report_id,user_id) VALUES(?,?)", [$p['id'], (int)$u['id']]);
+  }
   _report_audit((int)$p['id'], (int)$u['id'], $action, $b['note'] ?? null, ['reply_to_user_id'=>$to]);
   if ($action === 'reply') {
     Push::send([$to], 'پاسخ به گزارش شما', $rep['subject'] ?? 'گزارش', ['type'=>'report','report_id'=>$p['id']]);
