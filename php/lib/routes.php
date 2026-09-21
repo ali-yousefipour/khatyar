@@ -6711,16 +6711,13 @@ route('POST', '/api/reports/{id}/action', function($p,$b,$u){
     } catch (\Throwable $e) { /* اعلان پیام‌رسان اختیاری است؛ نبود اتصال نباید ارجاع را مختل کند */ }
     return ['ok'=>true, 'forwarded_to'=>count($targets)];
   }
-  // پاسخ باید به آخرین فردی که گزارش را به کاربر فعلی ارجاع داده برگردد؛
-  // اگر چنین ارجاعی وجود نداشت، به فرستنده اصلی گزارش پاسخ داده می‌شود.
+  // «پاسخ» همیشه باید به شخص ارسال‌کننده اصلی گزارش برگردد؛
+  // حتی اگر گزارش در مسیر خود چند بار ارجاع شده باشد.
   $rep = Db::one("SELECT subject, sender_id FROM reports WHERE id=?", [$p['id']]);
   if (!$rep) Http::error('گزارش یافت نشد', 404);
   $to = (int)$u['id'];
   if ($action === 'reply') {
-    $last = Db::one("SELECT actor_id,to_user_id FROM report_routes WHERE report_id=? AND to_user_id=? AND actor_id<>? ORDER BY id DESC LIMIT 1",
-      [$p['id'], $u['id'], $u['id']]);
-    $to = (int)($last['actor_id'] ?? 0);
-    if (!$to || $to === (int)$u['id']) $to = (int)$rep['sender_id'];
+    $to = (int)$rep['sender_id'];
     if (!$to || $to === (int)$u['id']) Http::error('گیرنده پاسخ مشخص نشد.', 422);
   }
   Db::run("INSERT INTO report_routes(report_id,to_user_id,action,note,actor_id) VALUES(?,?,?,?,?)",
