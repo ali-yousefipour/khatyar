@@ -191,13 +191,13 @@ public final class KhatyarRadioService extends Service {
     PendingIntent ptt = buildPttPendingIntent();
 
     String status = pttActive ? "فعال • متصل به سرور • PTT فعال" : "فعال • متصل به سرور";
-    String info = "تاریخ شمسی: " + jalaliToday() + " • بی‌سیم";
-    String pttLabel = pttActive ? "🎙  پایان PTT" : "🎙  PTT";
+    String channelName = getPrefs().getString("channelName", "").trim();
+    String info = (channelName.isEmpty() ? "کانال بی‌سیم" : "کانال: " + channelName)
+      + "  •  تاریخ شمسی: " + jalaliToday();
+    String pttLabel = pttActive ? "پایان PTT" : "شروع PTT";
 
     compact.setTextViewText(R.id.khatyar_notification_status, status);
     compact.setTextViewText(R.id.khatyar_notification_info, info);
-    compact.setTextViewText(R.id.khatyar_notification_ptt_label, pttLabel);
-    compact.setOnClickPendingIntent(R.id.khatyar_notification_ptt, ptt);
 
     expanded.setTextViewText(R.id.khatyar_notification_status, status);
     expanded.setTextViewText(R.id.khatyar_notification_info, info);
@@ -221,7 +221,15 @@ public final class KhatyarRadioService extends Service {
       .setOngoing(true)
       .setOnlyAlertOnce(true)
       .setCategory(NotificationCompat.CATEGORY_SERVICE)
-      .setPriority(NotificationCompat.PRIORITY_LOW);
+      .setPriority(NotificationCompat.PRIORITY_LOW)
+      // Native notification actions are intentionally kept in addition to the
+      // custom RemoteViews. Android 12+ may collapse/restrict custom RemoteViews,
+      // while a NotificationCompat action remains exposed by the system UI.
+      .addAction(new NotificationCompat.Action.Builder(
+        R.drawable.khatyar_notification_ptt,
+        pttActive ? "پایان PTT" : "PTT",
+        ptt
+      ).build());
 
     if (contentIntent != null) b.setContentIntent(contentIntent);
     return b.build();
