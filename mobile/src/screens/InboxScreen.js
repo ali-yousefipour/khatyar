@@ -164,8 +164,16 @@ export function ReportDetailScreen({ route, navigation }) {
       await request('/reports/' + id + '/action', { method: 'POST', body: { action, note, to_user_id: toUserId || null, confidential_history: action === 'forward' && confidentialForward ? 1 : 0 } });
       setTextModalMode(null);
       setShowPersonPicker(false);
-      Alert.alert('انجام شد', action === 'forward' ? 'گزارش ارجاع شد' : action === 'reply' ? 'پاسخ ثبت شد و برای آخرین ارجاع‌دهنده ارسال شد.' : 'یادداشت ثبت شد');
-      if (action === 'forward') navigation.goBack(); else { setNote(''); load(); }
+      if (action === 'reply') {
+        Alert.alert(
+          'پاسخ ارسال شد',
+          'پاسخ به ارسال‌کننده گزارش ارسال شد و گزارش از گزارشات دریافتی شما خارج شد.',
+          [{ text: 'باشه', onPress: () => navigation.goBack() }]
+        );
+      } else {
+        Alert.alert('انجام شد', action === 'forward' ? 'گزارش ارجاع شد' : 'یادداشت ثبت شد');
+        if (action === 'forward') navigation.goBack(); else { setNote(''); load(); }
+      }
     } catch (e) { Alert.alert('خطا', e.message); } finally { setBusy(false); }
   };
   const fwdList = q.trim() ? targets.filter((t) => ((t.first_name || '') + ' ' + (t.last_name || '')).includes(q.trim())) : targets;
