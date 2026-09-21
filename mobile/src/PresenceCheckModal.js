@@ -1,5 +1,5 @@
 import React,{useState,useEffect,useRef}from'react';
-import{View,Text,TouchableOpacity,StyleSheet,Alert}from'react-native';
+import{View,Text,TouchableOpacity,StyleSheet,Alert,ScrollView}from'react-native';
 import{request}from'./api';
 import{C,FONT}from'./theme';
 import{getAppConfig}from'./appconfig';
@@ -45,10 +45,48 @@ export default function PresenceCheckModal({slot,windowMinutes,onDone,onExpire,o
  if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/></View>;
  if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture onCapture={(url,coords)=>{coordsRef.current=coords;submit(url,coords)}}/></View>;
  return <View style={s.wrap}>
-  {step==='intro'&&<><Text style={s.icon}>📸</Text><Text style={s.title}>صحت‌سنجی حضور</Text><Text style={s.timer}>{mm}:{ss}</Text><Text style={s.body}>برای تأیید حضور در محل کار، باید ظرف این مدت یک «عکس سلفی» و سپس یک «عکس از خودروهای حاضر در خط» ارسال کنید.</Text><Text style={s.note}>۱) سلفی با دوربین جلو (با لباس فرم){'\n'}۲) عکس خودروها با دوربین پشت (تاریخ، ساعت و موقعیت خودکار درج می‌شود)</Text><TouchableOpacity style={s.btn} onPress={()=>{onStart&&onStart();setStep('selfie')}}><Text style={s.btnTxt}>شروع — گرفتن سلفی</Text></TouchableOpacity></>}
-  {step==='submitting'&&<><Text style={s.icon}>⏳</Text><Text style={s.title}>در حال ارسال…</Text><Text style={s.body}>لطفاً تا دریافت پاسخ سرور صبر کنید.</Text></>}
-  {step==='done'&&<><Text style={s.icon}>✅</Text><Text style={s.title}>ثبت شد</Text><Text style={s.body}>حضور شما با موفقیت ثبت شد.</Text><TouchableOpacity style={s.btn} onPress={()=>onDone&&onDone()}><Text style={s.btnTxt}>بستن</Text></TouchableOpacity></>}
-  {step==='expired'&&<><Text style={s.icon}>⛔</Text><Text style={[s.title,{color:C.danger}]}>مهلت به پایان رسید</Text><Text style={s.body}>صحت‌سنجی در مهلت مقرر ثبت نشد.</Text><TouchableOpacity style={[s.btn,{backgroundColor:C.muted}]} onPress={()=>onExpire&&onExpire()}><Text style={s.btnTxt}>بستن</Text></TouchableOpacity></>}
+  <ScrollView
+   style={s.scroll}
+   contentContainerStyle={s.content}
+   showsVerticalScrollIndicator={false}
+   keyboardShouldPersistTaps="handled"
+  >
+   {step==='intro'&&<>
+    <Text style={s.icon}>📸</Text>
+    <Text style={s.title}>صحت‌سنجی حضور</Text>
+    <Text style={s.timer}>{mm}:{ss}</Text>
+    <Text style={s.body}>برای تأیید حضور در محل کار، باید ظرف این مدت یک «عکس سلفی» و سپس یک «عکس از خودروهای حاضر در خط» ارسال کنید.</Text>
+    <Text style={s.note}>۱) سلفی با دوربین جلو (با لباس فرم){'\n'}۲) عکس خودروها با دوربین پشت (تاریخ، ساعت و موقعیت خودکار درج می‌شود)</Text>
+    {!!error&&<Text style={s.error}>{error}</Text>}
+    <TouchableOpacity style={s.btn} activeOpacity={0.85} onPress={()=>{onStart&&onStart();setStep('selfie')}}>
+     <Text style={s.btnTxt}>شروع — گرفتن سلفی</Text>
+    </TouchableOpacity>
+   </>}
+   {step==='submitting'&&<>
+    <Text style={s.icon}>⏳</Text><Text style={s.title}>در حال ارسال…</Text><Text style={s.body}>لطفاً تا دریافت پاسخ سرور صبر کنید.</Text>
+   </>}
+   {step==='done'&&<>
+    <Text style={s.icon}>✅</Text><Text style={s.title}>ثبت شد</Text><Text style={s.body}>حضور شما با موفقیت ثبت شد.</Text>
+    <TouchableOpacity style={s.btn} activeOpacity={0.85} onPress={()=>onDone&&onDone()}><Text style={s.btnTxt}>بستن</Text></TouchableOpacity>
+   </>}
+   {step==='expired'&&<>
+    <Text style={s.icon}>⛔</Text><Text style={[s.title,{color:C.danger}]}>مهلت به پایان رسید</Text><Text style={s.body}>صحت‌سنجی در مهلت مقرر ثبت نشد.</Text>
+    <TouchableOpacity style={[s.btn,{backgroundColor:C.muted}]} activeOpacity={0.85} onPress={()=>onExpire&&onExpire()}><Text style={s.btnTxt}>بستن</Text></TouchableOpacity>
+   </>}
+  </ScrollView>
  </View>
 }
-const s=StyleSheet.create({full:{flex:1,width:'100%',height:'100%',minHeight:1,minWidth:1,backgroundColor:'#000'},stage:{...StyleSheet.absoluteFillObject,flex:1,width:'100%',height:'100%',minHeight:1,minWidth:1,backgroundColor:'#000'},wrap:{flex:1,width:'100%',height:'100%',minHeight:1,minWidth:1,backgroundColor:C.paper,alignItems:'center',justifyContent:'center',padding:26},icon:{fontSize:54,marginBottom:10},title:{fontFamily:FONT.bold,fontSize:21,color:C.ink,marginBottom:8,textAlign:'center',writingDirection:'rtl'},timer:{fontFamily:FONT.bold,fontSize:40,color:C.brand,marginVertical:8,textAlign:'center'},body:{fontFamily:FONT.regular,fontSize:14,color:C.muted,textAlign:'center',writingDirection:'rtl',lineHeight:24,marginBottom:12,width:'100%'},note:{fontFamily:FONT.regular,fontSize:13,color:C.ink,textAlign:'right',writingDirection:'rtl',lineHeight:24,backgroundColor:'#fff',padding:12,borderRadius:12,marginBottom:18,alignSelf:'stretch'},btn:{backgroundColor:C.brand,borderRadius:13,paddingVertical:14,paddingHorizontal:30,alignItems:'center',justifyContent:'center',minWidth:160},btnTxt:{color:'#fff',fontFamily:FONT.bold,fontSize:15,textAlign:'center',writingDirection:'rtl'}});
+const s=StyleSheet.create({
+ stage:{flex:1,width:'100%',height:'100%',backgroundColor:'#000'},
+ wrap:{flex:1,width:'100%',height:'100%',minHeight:1,minWidth:1,backgroundColor:C.paper},
+ scroll:{flex:1,width:'100%'},
+ content:{flexGrow:1,width:'100%',alignItems:'center',justifyContent:'center',paddingHorizontal:22,paddingVertical:28},
+ icon:{fontSize:54,marginBottom:10,textAlign:'center'},
+ title:{fontFamily:FONT.bold,fontSize:21,color:C.ink,marginBottom:8,textAlign:'center',writingDirection:'rtl'},
+ timer:{fontFamily:FONT.bold,fontSize:40,color:C.brand,marginVertical:8,textAlign:'center'},
+ body:{fontFamily:FONT.regular,fontSize:14,color:C.muted,textAlign:'center',writingDirection:'rtl',lineHeight:24,marginBottom:12,width:'100%'},
+ note:{fontFamily:FONT.regular,fontSize:13,color:C.ink,textAlign:'right',writingDirection:'rtl',lineHeight:24,backgroundColor:'#fff',padding:12,borderRadius:12,marginBottom:18,alignSelf:'stretch',direction:'rtl'},
+ error:{fontFamily:FONT.regular,fontSize:12,color:C.danger,textAlign:'center',writingDirection:'rtl',marginBottom:12,width:'100%'},
+ btn:{backgroundColor:C.brand,borderRadius:13,paddingVertical:14,paddingHorizontal:30,alignItems:'center',justifyContent:'center',minWidth:190,minHeight:50,alignSelf:'center'},
+ btnTxt:{color:'#fff',fontFamily:FONT.bold,fontSize:15,textAlign:'center',writingDirection:'rtl'}
+});
