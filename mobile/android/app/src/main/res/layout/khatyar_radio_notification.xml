@@ -72,7 +72,7 @@
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:layout_marginTop="9dp"
-        android:background="@drawable/khatyar_notification_ptt_background"
+        android:background="@drawable/shape_drawable"
         android:gravity="center"
         android:text="🎙 PTT"
         android:textColor="#FFFFFF"
