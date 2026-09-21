@@ -15,7 +15,7 @@ $get = function ($key, $default = null) {
     }
 };
 
-$latest = (string)$get('app_latest_version', '1.4.6');
+$latest = (string)$get('app_latest_version', '1.4.9');
 $min = (string)$get('app_min_version', '0.0.0');
 $url = trim((string)$get('app_apk_url', ''));
 $sha = strtolower(trim((string)$get('app_apk_sha256', '')));
