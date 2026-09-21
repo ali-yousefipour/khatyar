@@ -4,10 +4,10 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingStart="12dp"
-    android:paddingEnd="12dp"
-    android:paddingTop="8dp"
-    android:paddingBottom="8dp"
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:paddingTop="9dp"
+    android:paddingBottom="9dp"
     android:layoutDirection="rtl"
     android:textDirection="rtl">
 
@@ -19,13 +19,12 @@
         android:layoutDirection="rtl">
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="●"
-            android:textColor="#22C55E"
-            android:textSize="14sp"
-            android:includeFontPadding="false"
-            android:layout_marginStart="6dp"/>
+            android:layout_width="9dp"
+            android:layout_height="9dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/khatyar_notification_ptt_background"
+            android:text=""
+            android:includeFontPadding="false"/>
 
         <TextView
             android:id="@+id/khatyar_notification_status"
@@ -38,62 +37,25 @@
             android:textStyle="bold"
             android:gravity="start"
             android:includeFontPadding="false"/>
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginTop="6dp"
-        android:layoutDirection="rtl">
-
-        <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:src="@android:drawable/ic_menu_my_calendar"
-            android:contentDescription="@null"
-            android:layout_marginStart="7dp"/>
 
         <TextView
-            android:id="@+id/khatyar_notification_info"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="تاریخ شمسی: ۱۴۰۵/۰۶/۳۰ • بی‌سیم"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="12sp"
-            android:gravity="start"
-            android:includeFontPadding="false"/>
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/khatyar_notification_ptt"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="9dp"
-        android:background="@drawable/shape_drawable"
-        android:gravity="center"
-        android:orientation="horizontal"
-        android:clickable="true"
-        android:focusable="true"
-        android:layoutDirection="rtl">
-
-        <ImageView
-            android:layout_width="22dp"
-            android:layout_height="22dp"
-            android:src="@android:drawable/ic_btn_speak_now"
-            android:contentDescription="@null"
-            android:layout_marginStart="7dp"
-            android:layout_marginEnd="7dp"/>
-
-        <TextView
-            android:id="@+id/khatyar_notification_ptt_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="PTT"
-            android:textColor="#FFFFFF"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:includeFontPadding="false"/>
+            android:text="بی‌سیم"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="11sp"
+            android:includeFontPadding="false"
+            android:layout_marginStart="8dp"/>
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/khatyar_notification_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="کانال بی‌سیم  •  تاریخ شمسی: ۱۴۰۵/۰۶/۳۰"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="12sp"
+        android:gravity="start"
+        android:includeFontPadding="false"/>
+</LinearLayout>
