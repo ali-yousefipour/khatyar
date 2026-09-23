@@ -1,6 +1,7 @@
 let radioWebState={channels:[],cid:0,after:0,liveTimer:null,media:null,recording:false,queue:[],playing:false,audio:null,audioUnlocked:false};
 function ensureRadioWebAudio(){if(!radioWebState.audio){const a=new Audio();a.preload='auto';a.volume=1;radioWebState.audio=a;}return radioWebState.audio;}
 async function playRadioWebQueue(){if(radioWebState.playing||!radioWebState.queue.length)return;const a=ensureRadioWebAudio();const msg=radioWebState.queue.shift();if(!msg||!msg.audio_url)return playRadioWebQueue();radioWebState.playing=true;a.onended=()=>{radioWebState.playing=false;playRadioWebQueue()};a.onerror=()=>{radioWebState.playing=false;playRadioWebQueue()};a.src=msg.audio_url;try{await a.play();}catch(_){radioWebState.playing=false;radioWebState.queue.unshift(msg);}}
+try{document.addEventListener('pointerdown',()=>{radioWebState.audioUnlocked=true;playRadioWebQueue();},{passive:true});}catch(_){}
 async function pollRadioWeb(){if(!radioWebState.cid)return;try{const d=await fetch(`/api/radio-api-v2.php?op=poll&channel_id=${radioWebState.cid}&after=${radioWebState.after}`,{headers:{Authorization:'Bearer '+token()},cache:'no-store'}).then(r=>r.json());if((d.messages||[]).length){radioWebState.after=Math.max(radioWebState.after,...d.messages.map(x=>Number(x.id)));const msgs=d.messages.map(x=>({...x,audio_url:x.audio_url}));renderRadioMessages(msgs);radioWebState.queue.push(...msgs);playRadioWebQueue()}}catch(_){}}
 function renderRadioPtt(){const e=document.getElementById('radioPtt');if(!e)return;e.innerHTML='<button class="btn" id="radioTalk">نگه‌داشتن برای صحبت</button><p class="muted" style="text-align:center;margin-top:6px">برای صحبت، دکمه را نگه دارید؛ پس از رها کردن پیام ارسال می‌شود.</p>';const b=document.getElementById('radioTalk');const start=async ev=>{ev.preventDefault();if(radioWebState.recording)return;
     /* خطیار: قبلاً این‌جا بدون گرفتن مجوز صحبت (op=take) مستقیم ضبط شروع می‌شد؛ چون بک‌اند ارسال پیام (op=send)
@@ -35,5 +36,3 @@ loadBrand().finally(render);
 <!-- KHATYAR_DEVELOPER_COMPANY --><div id="KHATYAR_DEVELOPER_COMPANY" style="display:none">توسعه‌دهنده: علی یوسفی‌پور | شرکت: مبین شات</div>
 </body>
 </html>
-
-try{document.addEventListener('pointerdown',()=>{radioWebState.audioUnlocked=true;playRadioWebQueue();},{passive:true});}catch(_){}
