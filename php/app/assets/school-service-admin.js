@@ -45,19 +45,18 @@ window.openSchoolService = open;
       return;
     }
     if(!allowed) return;
-    // فقط پس از ورود و داخل ناوبری واقعی پنل اضافه شود؛ صفحه ورود نیز داخل #root است.
-    const navHosts=[...document.querySelectorAll('aside,nav,[role="navigation"]')];
-    if(!navHosts.length) return;
-    const host=navHosts.find(el=>{
-      const t=String(el.textContent||'').replace(/\\s+/g,' ').trim();
-      return t.includes('داشبورد');
-    });
+    // سایدبار واقعی پنل با کلاس‌های .side و .nav ساخته می‌شود.
+    // این نقطه فقط بعد از احراز هویت و دریافت مجوز اجرا می‌شود؛ بنابراین صفحه ورود هرگز هدف قرار نمی‌گیرد.
+    const host=document.querySelector('.side .nav');
     if(!host) return;
     const btn=document.createElement('button');
-    btn.id='school-service-menu-item'; btn.type='button'; btn.className='ssv-btn';
-    btn.innerHTML='<span style="font-size:18px">🏫</span><span>سرویس مدارس</span>';
+    btn.id='school-service-menu-item';
+    btn.type='button';
+    btn.className='navitem';
+    btn.innerHTML='<span class="ic" aria-hidden="true">🏫</span><span class="navlabel">سرویس مدارس</span>';
     btn.onclick=()=>open().catch(e=>alert(e.message||'دسترسی به سرویس مدارس ممکن نیست.'));
-    host.appendChild(btn); done=true;
+    host.appendChild(btn);
+    done=true;
   };
   // panel.bundle may not have completed its first authenticated request yet.
   // Keep observing for up to 60 seconds instead of giving up after 15 seconds.
