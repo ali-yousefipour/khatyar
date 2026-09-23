@@ -2,7 +2,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 
 // تنظیمات فشرده‌سازی که از سرور (app-config) خوانده می‌شود
 // quality: درصد (۱۰..۱۰۰) — maxWidth: پیکسل
-let IMG_CFG = { quality: 45, maxWidth: 1024 };
+let IMG_CFG = { quality: 45, maxWidth: 1024, maxBytes: 0 };
 
 // به‌روزرسانی تنظیمات از app-config (مقادیر سرور درصد هستند؛ به نسبت ۰..۱ تبدیل می‌شوند)
 export function setImageConfig(cfg) {
@@ -15,6 +15,8 @@ export function setImageConfig(cfg) {
     const w = Number(cfg.image_max_width);
     if (!isNaN(w) && w >= 240 && w <= 4096) IMG_CFG.maxWidth = w;
   }
+  const rawBytes = cfg.image_max_bytes ?? cfg.image_max_size ?? cfg.max_image_bytes ?? cfg.max_image_size ?? cfg.image_max_kb;
+  if (rawBytes != null) { let b=Number(rawBytes); if (b>0 && b<10000) b*=1024; if (!isNaN(b) && b>=64*1024) IMG_CFG.maxBytes=b; }
 }
 export function getImageConfig() { return { ...IMG_CFG }; }
 
@@ -59,15 +61,24 @@ export async function compressToDataUri(uri, { maxW, quality } = {}) {
 }
 
 // فشرده‌سازی تصویر و بازگرداندن URI فایل فشرده‌شده (برای آپلود multipart)
-export async function compressToFile(uri, { maxW, quality } = {}) {
-  try {
-    const res = await ImageManipulator.manipulateAsync(
-      uri,
-      [{ resize: { width: resolveWidth(maxW) } }],
-      { compress: resolveQuality(quality), format: ImageManipulator.SaveFormat.JPEG }
-    );
-    return res.uri;
-  } catch (e) {
-    return uri;
+export async function compressToFile(uri, { maxW, quality, maxBytes } = {}) {
+  const targetBytes = Number(maxBytes || IMG_CFG.maxBytes || 0);
+  let w = Number(resolveWidth(maxW)), q = Number(resolveQuality(quality));
+  const attempts = [];
+  for (let i=0;i<5;i++) {
+    try {
+      const res = await ImageManipulator.manipulateAsync(uri,[{ resize:{ width:Math.max(240,Math.round(w)) } }],{compress:Math.max(.1,Math.min(1,q)),format:ImageManipulator.SaveFormat.JPEG});
+      if (!targetBytes) return res.uri;
+      try {
+        const info = await (await import('expo-file-system/legacy')).getInfoAsync(res.uri);
+        const bytes = Number(info?.size||0);
+        if (!bytes || bytes<=targetBytes) return res.uri;
+        attempts.push(res.uri);
+      } catch (_) { return res.uri; }
+      q=Math.max(.25,q*.75); w=Math.max(640,w*.85);
+    } catch (_) {
+      q=Math.max(.25,q*.75); w=Math.max(640,w*.75);
+    }
   }
+  return attempts[attempts.length-1] || uri;
 }
