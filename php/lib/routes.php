@@ -244,7 +244,7 @@ function _ssv_sheet_records($rows){
   ];
   $find=function($key)use($map,$aliases){foreach($aliases[$key]??[] as $a){$a=_ssv_norm($a);if(array_key_exists($a,$map))return $map[$a];}return null;};
   $idx=[];foreach(array_keys($aliases) as $k)$idx[$k]=$find($k);$out=[];
-  for($r=1;$r<count($rows);$r++){ $x=$rows[$r];$get=fn($k)=>$idx[$k]===null?'':trim((string)($x[$idx[$k]]??''));$school=$get('school');$company=$get('company');if($school===''&&$company==='')continue;$out[]=['code'=>$get('code'),'school'=>$school,'district'=>$get('district'),'gender'=>$get('gender'),'company'=>$company,'manager'=>$get('manager'),'phone'=>$get('phone'),'address'=>$get('address')];}
+  for($r=1;$r<count($rows);$r++){ $x=$rows[$r];$get=fn($k)=>$idx[$k]===null?'':trim((string)($x[$idx[$k]]??''));$school=$get('school');$company=$get('company');if(in_array($company,['نامشخص','نامعلوم','-','—'],true))$company='';if($school===''&&$company==='')continue;$out[]=['code'=>$get('code'),'school'=>$school,'district'=>$get('district'),'gender'=>$get('gender'),'company'=>$company,'manager'=>$get('manager'),'phone'=>$get('phone'),'address'=>$get('address')];}
   return $out;
 }
 
