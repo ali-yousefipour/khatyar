@@ -13152,6 +13152,24 @@ function _ssv_tables(){
       errors_count INT NOT NULL DEFAULT 0,
       errors_text LONGTEXT NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_districts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(100) NOT NULL UNIQUE,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_vehicle_types (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(100) NOT NULL UNIQUE,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_vehicle_colors (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(100) NOT NULL UNIQUE,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
   ];
   foreach($sql as $q){try{Db::run($q);}catch(Throwable $e){error_log('school-service table: '.$e->getMessage());}}
@@ -13181,7 +13199,16 @@ function _ssv_perm($u,$action='view'){
 function _ssv_need($u,$a='view'){if(!_ssv_perm($u,$a)) Http::error('دسترسی به بخش سرویس مدارس برای سمت شما فعال نیست.',403);}
 function _ssv_json_rows($rows){return array_map(function($r){foreach($r as $k=>$v)if(is_string($v))$r[$k]=$v;return $r;},$rows);}
 function _ssv_en($s){return strtr((string)$s,['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9']);}
-function _ssv_norm($s){$s=trim((string)$s);$s=str_replace(['ي','ى','ك','ۀ'],['ی','ی','ک','ه'],$s);return preg_replace('/\s+/u',' ',$s);}
+function _ssv_norm($s){
+  $s=trim((string)$s);
+  $s=preg_replace('/^\\xEF\\xBB\\xBF/u','',$s);
+  $s=str_replace(["ي","ى","ك","ۀ","ة","ـ","\\xC2\\xA0","\\xE2\\x80\\x8C","\\xE2\\x80\\x8D"],["ی","ی","ک","ه","ه",""," ","",""],$s);
+  $s=preg_replace('/[\\x{200B}-\\x{200D}\\x{FEFF}]/u','',$s);
+  $s=preg_replace('/[\\x{0660}-\\x{0669}]/u',function($m){return (string)(ord($m[0])-0x0660);},$s);
+  $s=preg_replace('/[\\x{06F0}-\\x{06F9}]/u',function($m){return (string)(ord($m[0])-0x06F0);},$s);
+  $s=preg_replace('/[\\x{00A0}]/u',' ',$s);
+  return preg_replace('/\\s+/u',' ',$s);
+}
 function _ssv_plate($b){
   $a=preg_replace('/\D/','',_ssv_en($b['plate_three']??''));$c=preg_replace('/\D/','',_ssv_en($b['plate_two']??''));
   $l=_ssv_norm($b['plate_letter']??''); if($a!==''&&strlen($a)!==3)Http::error('بخش سه‌رقمی پلاک باید دقیقاً ۳ رقم باشد',422);
@@ -13207,23 +13234,41 @@ function _ssv_xlsx_rows($file){
 }
 function _ssv_sheet_records($rows){
   if(count($rows)<2)return [];
-  $h=$rows[0];$map=[];foreach($h as $i=>$v)$map[_ssv_norm($v)]=$i;
   $aliases=[
-    'code'=>['کد مدرسه','شناسه مدرسه','کد'],
-    'school'=>['نام مدرسه','مدرسه'],
-    'district'=>['ناحیه آموزشی','ناحیه','منطقه آموزشی'],
-    'gender'=>['نوع مدرسه','جنسیت مدرسه','جنسیت'],
-    'company'=>['شرکت مجری سرویس دانش‌آموزی','شرکت مجری','شرکت سرویس‌دهنده','شرکت'],
+    'code'=>['کد مدرسه','شناسه مدرسه','کد مدرسه/شناسه','کد'],
+    'school'=>['نام مدرسه','نام مدرسه محل خدمت','نام مدرسه ','مدرسه'],
+    'district'=>['ناحیه آموزشی','ناحیه آموزش و پرورش','ناحیه','منطقه آموزشی','منطقه'],
+    'gender'=>['نوع مدرسه','جنسیت مدرسه','جنسیت','نوع'],
+    'company'=>['شرکت مجری سرویس دانش‌آموزی','شرکت مجری سرویس دانش آموزی','شرکت مجری','شرکت سرویس‌دهنده','شرکت سرویس دهنده','شرکت'],
     'manager'=>['مدیر شرکت','مدیرعامل','نام مدیر'],
-    'phone'=>['تلفن شرکت','شماره تماس','موبایل'],
+    'phone'=>['تلفن شرکت','شماره تماس','شماره تلفن','موبایل','تلفن'],
     'address'=>['آدرس','نشانی']
   ];
-  $find=function($key)use($map,$aliases){foreach($aliases[$key]??[] as $a){$a=_ssv_norm($a);if(array_key_exists($a,$map))return $map[$a];}return null;};
-  $idx=[];foreach(array_keys($aliases) as $k)$idx[$k]=$find($k);$out=[];
-  for($r=1;$r<count($rows);$r++){ $x=$rows[$r];$get=fn($k)=>$idx[$k]===null?'':trim((string)($x[$idx[$k]]??''));$school=$get('school');$company=$get('company');if($school===''&&$company==='')continue;$out[]=['code'=>$get('code'),'school'=>$school,'district'=>$get('district'),'gender'=>$get('gender'),'company'=>$company,'manager'=>$get('manager'),'phone'=>$get('phone'),'address'=>$get('address')];}
+  $headerRow=-1;$map=[];
+  $limit=min(count($rows),15);
+  $score=function($row)use($aliases){
+    $vals=array_map('_ssv_norm',$row);$score=0;$found=[];
+    foreach($aliases as $key=>$list){foreach($list as $a){$a=_ssv_norm($a);foreach($vals as $i=>$v){if($v!==''&&($v===$a || (mb_strlen($a)>=5 && mb_strpos($v,$a)!==false))){$found[$key]=$i;break 2;}}}}
+    if(isset($found['school']))$score+=5;
+    if(isset($found['company']))$score+=5;
+    if(isset($found['code']))$score+=1;
+    if(isset($found['district']))$score+=1;
+    if(isset($found['gender']))$score+=1;
+    return [$score,$found];
+  };
+  $best=[0,[]];
+  for($i=0;$i<$limit;$i++){[$sc,$mp]=$score($rows[$i]);if($sc>$best[0])$best=[$sc,$mp,$i];}
+  if($best[0]<5)return [];
+  $headerRow=(int)$best[2];$map=$best[1];
+  $out=[];
+  for($r=$headerRow+1;$r<count($rows);$r++){
+    $x=$rows[$r];$get=function($k)use($map,$x){$i=$map[$k]??null;return $i===null?'':trim((string)($x[$i]??''));};
+    $school=_ssv_norm($get('school'));$company=_ssv_norm($get('company'));
+    if($school===''&&$company==='')continue;
+    $out[]=['code'=>_ssv_norm($get('code')),'school'=>$school,'district'=>_ssv_norm($get('district')),'gender'=>_ssv_norm($get('gender')),'company'=>$company,'manager'=>_ssv_norm($get('manager')),'phone'=>_ssv_norm($get('phone')),'address'=>_ssv_norm($get('address'))];
+  }
   return $out;
 }
-
 
 route('POST','/api/school-service/companies',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام شرکت الزامی است',422);if(Db::one("SELECT id FROM school_service_companies WHERE name=?",[$name]))Http::error('این شرکت قبلاً ثبت شده است',409);Db::run("INSERT INTO school_service_companies(name,manager_name,phone,address) VALUES(?,?,?,?)",[$name,_ssv_norm($b['manager_name']??'')?:null,trim($b['phone']??'')?:null,_ssv_norm($b['address']??'')?:null]);return ['ok'=>true,'id'=>(int)Db::pdo()->lastInsertId()];});
 route('PUT','/api/school-service/companies/{id}',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$id=(int)$p['id'];if(!Db::one("SELECT id FROM school_service_companies WHERE id=?",[$id]))Http::error('شرکت یافت نشد',404);$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام شرکت الزامی است',422);Db::run("UPDATE school_service_companies SET name=?,manager_name=?,phone=?,address=?,is_active=? WHERE id=?",[$name,_ssv_norm($b['manager_name']??'')?:null,trim($b['phone']??'')?:null,_ssv_norm($b['address']??'')?:null,isset($b['is_active'])?(int)!!$b['is_active']:1,$id]);return ['ok'=>true];});
