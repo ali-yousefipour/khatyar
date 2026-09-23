@@ -45,16 +45,13 @@ window.openSchoolService = open;
       return;
     }
     if(!allowed) return;
-    const all=[...document.querySelectorAll('aside,nav,[role="navigation"],button,a,[role="button"],div')];
-    const dash=all.find(el=>{
+    // فقط پس از ورود و داخل ناوبری واقعی پنل اضافه شود؛ صفحه ورود نیز داخل #root است.
+    const navHosts=[...document.querySelectorAll('aside,nav,[role="navigation"]')];
+    if(!navHosts.length) return;
+    const host=navHosts.find(el=>{
       const t=String(el.textContent||'').replace(/\\s+/g,' ').trim();
-      return t==='داشبورد' || t.includes('داشبورد');
+      return t.includes('داشبورد');
     });
-    const host=dash?.closest('aside,nav,[role="navigation"]')
-      || document.querySelector('aside')
-      || document.querySelector('nav')
-      || document.querySelector('[role="navigation"]')
-      || document.querySelector('#root > div > div:first-child');
     if(!host) return;
     const btn=document.createElement('button');
     btn.id='school-service-menu-item'; btn.type='button'; btn.className='ssv-btn';
