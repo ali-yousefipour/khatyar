@@ -156,6 +156,27 @@ function _ssv_tables(){
       errors_count INT NOT NULL DEFAULT 0,
       errors_text LONGTEXT NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_inspection_photos (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      inspection_id BIGINT NOT NULL,
+      file_path VARCHAR(500) NOT NULL,
+      mime_type VARCHAR(80) NOT NULL DEFAULT 'image/jpeg',
+      width INT NULL,
+      height INT NULL,
+      file_size INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_ssip_inspection(inspection_id),
+      CONSTRAINT fk_ssip_inspection FOREIGN KEY(inspection_id) REFERENCES school_service_inspections(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_photo_settings (
+      id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+      max_width INT NOT NULL DEFAULT 1600,
+      max_height INT NOT NULL DEFAULT 1200,
+      quality TINYINT UNSIGNED NOT NULL DEFAULT 82,
+      max_bytes INT NOT NULL DEFAULT 524288,
+      max_count TINYINT UNSIGNED NOT NULL DEFAULT 1,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
   ];
   foreach($sql as $q){try{Db::run($q);}catch(Throwable $e){error_log('school-service table: '.$e->getMessage());}}
@@ -166,6 +187,7 @@ function _ssv_tables(){
   }catch(Throwable $e){error_log('school-service relation normalize: '.$e->getMessage());}
   $viol=['عدم اعتبار معاینه فنی','عدم اعتبار بیمه شخص ثالث','سرنشین اضافی','راننده غیر مجاز','داشتن یا نداشتن گواهی صلاحیت معتبر','عدم توجه به فرمان و ایست'];
   foreach($viol as $i=>$v){try{Db::run("INSERT IGNORE INTO school_service_violation_types(title,sort_order) VALUES(?,?)",[$v,$i]);}catch(Throwable $e){}}
+  try{Db::run("INSERT IGNORE INTO school_service_photo_settings(id,max_width,max_height,quality,max_bytes,max_count) VALUES(1,1600,1200,82,524288,1)");}catch(Throwable $e){}
   $districts=['۱','۲','۳','۴','۵','۶','۷','تبادکان']; foreach($districts as $i=>$v){try{Db::run("INSERT IGNORE INTO school_service_districts(title,sort_order) VALUES(?,?)",[$v,$i+1]);}catch(Throwable $e){}}
   $vehicleTypes=['سمند','سورن','پژو','پراید','تیبا','دنا','رانا','اطلس','کوییک','سایر']; foreach($vehicleTypes as $i=>$v){try{Db::run("INSERT IGNORE INTO school_service_vehicle_types(title,sort_order) VALUES(?,?)",[$v,$i+1]);}catch(Throwable $e){}}
   $vehicleColors=['سفید','زرد','مشکی','نقره‌ای','خاکستری','آبی','قرمز','سبز','سایر']; foreach($vehicleColors as $i=>$v){try{Db::run("INSERT IGNORE INTO school_service_vehicle_colors(title,sort_order) VALUES(?,?)",[$v,$i+1]);}catch(Throwable $e){}}
@@ -255,6 +277,8 @@ route('DELETE','/api/school-service/companies/{id}',function($p,$b,$u){_ssv_need
 route('POST','/api/school-service/schools',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام مدرسه الزامی است',422);$g=in_array($b['gender']??'',['دخترانه','پسرانه'],true)?$b['gender']:'نامشخص';$cid=!empty($b['company_id'])?(int)$b['company_id']:0;if($cid&&!Db::one("SELECT id FROM school_service_companies WHERE id=? AND is_active=1",[$cid]))Http::error('شرکت مجری نامعتبر است',422);Db::run("INSERT INTO school_service_schools(code,name,educational_district,gender,address) VALUES(?,?,?,?,?)",[_ssv_norm($b['code']??'')?:null,$name,_ssv_norm($b['educational_district']??'')?:null,$g,_ssv_norm($b['address']??'')?:null]);$sid=(int)Db::pdo()->lastInsertId();if($cid)Db::run("INSERT INTO school_service_school_companies(school_id,company_id,is_primary) VALUES(?,?,1)",[$sid,$cid]);return ['ok'=>true,'id'=>$sid];});
 route('PUT','/api/school-service/schools/{id}',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$id=(int)$p['id'];if(!Db::one("SELECT id FROM school_service_schools WHERE id=?",[$id]))Http::error('مدرسه یافت نشد',404);$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام مدرسه الزامی است',422);$g=in_array($b['gender']??'',['دخترانه','پسرانه'],true)?$b['gender']:'نامشخص';Db::run("UPDATE school_service_schools SET code=?,name=?,educational_district=?,gender=?,address=? WHERE id=?",[_ssv_norm($b['code']??'')?:null,$name,_ssv_norm($b['educational_district']??'')?:null,$g,_ssv_norm($b['address']??'')?:null,$id]);if(isset($b['company_id'])){Db::run("DELETE FROM school_service_school_companies WHERE school_id=?",[$id]);$cid=(int)$b['company_id'];if($cid){if(!Db::one("SELECT id FROM school_service_companies WHERE id=? AND is_active=1",[$cid]))Http::error('شرکت مجری نامعتبر است',422);Db::run("INSERT INTO school_service_school_companies(school_id,company_id,is_primary) VALUES(?,?,1)",[$id,$cid]);}}return ['ok'=>true];});
 route('DELETE','/api/school-service/schools/{id}',function($p,$b,$u){_ssv_need($u,'delete');_ssv_tables();Db::run("UPDATE school_service_schools SET is_active=0 WHERE id=?",[(int)$p['id']]);return ['ok'=>true];});
+route('GET','/api/school-service/photo-settings',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();$r=Db::one("SELECT max_width,max_height,quality,max_bytes,max_count FROM school_service_photo_settings WHERE id=1");return $r?:['max_width'=>1600,'max_height'=>1200,'quality'=>82,'max_bytes'=>524288,'max_count'=>1];});
+route('POST','/api/school-service/photo-settings',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$w=max(320,min(4096,(int)($b['max_width']??1600)));$h=max(240,min(4096,(int)($b['max_height']??1200)));$q=max(40,min(95,(int)($b['quality']??82)));$mb=max(100,min(10240,(int)($b['max_kb']??512)));$cnt=max(1,min(5,(int)($b['max_count']??1)));Db::run("UPDATE school_service_photo_settings SET max_width=?,max_height=?,quality=?,max_bytes=?,max_count=? WHERE id=1",[$w,$h,$q,$mb*1024,$cnt]);return ['ok'=>true,'max_width'=>$w,'max_height'=>$h,'quality'=>$q,'max_bytes'=>$mb*1024,'max_count'=>$cnt];});
 route('GET','/api/school-service/access',function($p,$b,$u){_ssv_tables();return ['allowed'=>_ssv_perm($u,'view'),'can_create'=>_ssv_perm($u,'create'),'can_edit'=>_ssv_perm($u,'edit'),'can_delete'=>_ssv_perm($u,'delete'),'can_import'=>_ssv_perm($u,'import'),'can_report'=>_ssv_perm($u,'report')];});
 route('GET','/api/school-service/meta',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();return ['districts'=>array_column(Db::all("SELECT title FROM school_service_districts WHERE is_active=1 ORDER BY sort_order,id"),'title'),'genders'=>['دخترانه','پسرانه','نامشخص'],'driver_genders'=>['خانم','آقا','نامشخص'],'vehicle_types'=>array_column(Db::all("SELECT title FROM school_service_vehicle_types WHERE is_active=1 ORDER BY sort_order,id"),'title'),'vehicle_colors'=>array_column(Db::all("SELECT title FROM school_service_vehicle_colors WHERE is_active=1 ORDER BY sort_order,id"),'title'),'violations'=>Db::all("SELECT id,title FROM school_service_violation_types WHERE is_active=1 ORDER BY sort_order,id")];});
 route('GET','/api/school-service/companies',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();$q=_ssv_norm($_GET['search']??'');$limit=min(200,(int)($_GET['limit']??100));$where=$q!==''?'WHERE c.name LIKE ?':'WHERE 1';$args=$q!==''?['%'.$q.'%']:[];return ['items'=>Db::all("SELECT c.id,c.name,c.manager_name,c.phone,c.address,c.is_active,COUNT(DISTINCT sc.school_id) school_count FROM school_service_companies c LEFT JOIN school_service_school_companies sc ON sc.company_id=c.id $where GROUP BY c.id ORDER BY c.name LIMIT $limit",$args)];});
