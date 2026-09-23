@@ -32,7 +32,12 @@ function roleAllowsVehicle(role) {
 export default function DrawerMenuScreen({ navigation }) {
   const { user, logout } = useAuth();
   const [access, setAccess] = React.useState(null);
+  const [schoolAccess, setSchoolAccess] = React.useState(null);
   const [unread, setUnread] = React.useState({ messages: 0, reports: 0 });
+
+  React.useEffect(() => {
+    request('/school-service/access', { noStore: true }).then(setSchoolAccess).catch(() => setSchoolAccess(null));
+  }, [user?.id]);
 
   React.useEffect(() => {
     const off = subscribeUnreadCounts(setUnread);
@@ -78,6 +83,7 @@ export default function DrawerMenuScreen({ navigation }) {
       assetType === 'motorcycle' ? '🏍️' : '🚗',
     ]] : []),
     ...(access?.checklist_allowed ? [['PersonnelVehicleChecklist', 'چک‌لیست خودرویی و موتوری', '☑️']] : []),
+    ...(schoolAccess?.allowed ? [['SchoolService', 'سرویس مدارس', '🏫']] : []),
   ];
 
   return (
