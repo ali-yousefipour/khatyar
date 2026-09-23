@@ -30,4 +30,22 @@ b.querySelectorAll('[data-del-s]').forEach(x=>x.onclick=()=>ssvConfirm('غیرف
 b.querySelectorAll('[data-edit-c]').forEach(x=>x.onclick=async()=>{const rows2=(await api('/api/school-service/companies?search=')).items||[];const r=rows2.find(z=>Number(z.id)===Number(x.dataset.editC));if(r)ssvEntityForm('companies',r,load)});
 b.querySelectorAll('[data-edit-s]').forEach(x=>x.onclick=async()=>{const rows2=(await api('/api/school-service/schools?search=')).items||[];const r=rows2.find(z=>Number(z.id)===Number(x.dataset.editS));if(r)ssvEntityForm('schools',r,load)});
 };input.oninput=()=>{clearTimeout(input._t);input._t=setTimeout(()=>{page=1;load()},250)};await load();}catch(e){b.innerHTML='<div class="ssv-msg">'+esc(e.message||'خطا در دریافت اطلاعات')+'</div>'}}
+window.openSchoolService = open;
+(async function installSchoolServiceMenu(){
+  let done=false;
+  const add=async()=>{
+    if(done||document.getElementById('school-service-menu-item')) return;
+    try{ const a=await api('/api/school-service/access'); if(!a?.allowed) return; }catch(_){ return; }
+    const all=[...document.querySelectorAll('button,a,[role="button"],div')];
+    const dash=all.find(el=>String(el.textContent||'').trim()==='داشبورد');
+    const host=dash?.parentElement?.parentElement || dash?.parentElement;
+    if(!host) return;
+    const btn=document.createElement('button');
+    btn.id='school-service-menu-item'; btn.type='button'; btn.className='ssv-btn';
+    btn.innerHTML='<span style="font-size:18px">🏫</span><span>سرویس مدارس</span>';
+    btn.onclick=()=>open().catch(e=>alert(e.message||'دسترسی به سرویس مدارس ممکن نیست.'));
+    host.appendChild(btn); done=true;
+  };
+  for(let i=0;i<30&&!done;i++){await add();if(!done)await new Promise(r=>setTimeout(r,500));}
+})();
 })();
