@@ -55,7 +55,10 @@ export default function DrawerMenuScreen({ navigation }) {
 
   const roleVehicle = roleAllowsVehicle(user?.role || user?.role_title);
   const vehicleAllowed = access?.allowed === true || roleVehicle;
-  const assetType = access?.asset_type || (normRole(user?.role || user?.role_title).includes('گشت موتوری') ? 'motorcycle' : 'car');
+  const roleTitle = normRole(user?.role_title || user?.role);
+  const schoolAdminFallback = user?.is_admin === true || ['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'].includes(roleTitle);
+  const schoolVisible = schoolAccess?.allowed === true || schoolAdminFallback;
+  const assetType = access?.asset_type || (roleTitle.includes('گشت موتوری') ? 'motorcycle' : 'car');
 
   const go = (screen) => {
     try { navigation?.navigate?.('Main', { screen }); } catch (_) {}
@@ -83,7 +86,7 @@ export default function DrawerMenuScreen({ navigation }) {
       assetType === 'motorcycle' ? '🏍️' : '🚗',
     ]] : []),
     ...(access?.checklist_allowed ? [['PersonnelVehicleChecklist', 'چک‌لیست خودرویی و موتوری', '☑️']] : []),
-    ...(schoolAccess?.allowed ? [['SchoolService', 'سرویس مدارس', '🏫']] : []),
+    ...(schoolVisible ? [['SchoolService', 'سرویس مدارس', '🏫']] : []),
   ];
 
   return (
