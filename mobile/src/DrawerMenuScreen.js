@@ -56,7 +56,7 @@ export default function DrawerMenuScreen({ navigation }) {
   const roleVehicle = roleAllowsVehicle(user?.role || user?.role_title);
   const vehicleAllowed = access?.allowed === true || roleVehicle;
   const roleTitle = normRole(user?.role_title || user?.role);
-  const schoolAdminFallback = user?.is_admin === true || ['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'].includes(roleTitle);
+  const schoolAdminFallback = user?.is_admin === true || ['مدیر کل','مدیرکل','رییس اداره بازرسی','رئیس اداره بازرسی','نیروی اداری ارشد'].includes(roleTitle);
   const schoolVisible = schoolAccess?.allowed === true || schoolAdminFallback;
   const assetType = access?.asset_type || (roleTitle.includes('گشت موتوری') ? 'motorcycle' : 'car');
 
