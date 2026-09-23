@@ -79,7 +79,7 @@ export default function DrawerMenuScreen({ navigation }) {
     ]);
   };
 
-  const items = [
+  const generalItems = [
     ...ITEMS,
     ['InboxReports', 'گزارشات دریافتی', '📥'],
     ...(vehicleAllowed ? [[
@@ -88,8 +88,19 @@ export default function DrawerMenuScreen({ navigation }) {
       assetType === 'motorcycle' ? '🏍️' : '🚗',
     ]] : []),
     ...(access?.checklist_allowed ? [['PersonnelVehicleChecklist', 'چک‌لیست خودرویی و موتوری', '☑️']] : []),
+  ];
+
+  const taxiItems = [
+    ['Search', 'جستجوی تاکسی و تاکسیران', '🚕'],
     ...(schoolVisible ? [['SchoolService', 'سرویس مدارس', '🏫']] : []),
   ];
+
+  const renderItem = ([route, title, glyph]) => (
+    <TouchableOpacity key={route} style={s.item} onPress={() => { go(route); if (route === 'Messages' || route === 'InboxReports' || route === 'Notifications') refreshUnreadCounts(); }} activeOpacity={0.82}>
+      <View style={s.icon}><Text style={s.iconText}>{glyph}</Text>{(route === 'Messages' && unread.messages > 0) || (route === 'InboxReports' && unread.reports > 0) ? <View style={s.menuBadge}><Text style={s.menuBadgeText}>{unreadLabel(route === 'InboxReports' ? unread.reports : unread.messages)}</Text></View> : null}</View>
+      <View style={s.itemTextWrap}><Text style={s.itemText}>{title}</Text></View>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={s.page}>
@@ -98,12 +109,9 @@ export default function DrawerMenuScreen({ navigation }) {
         <Text style={s.title}>منوی برنامه</Text>
       </View>
       <ScrollView persistentScrollbar={true} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        {items.map(([route, title, glyph]) => (
-          <TouchableOpacity key={route} style={s.item} onPress={() => { go(route); if (route === 'Messages' || route === 'InboxReports' || route === 'Notifications') refreshUnreadCounts(); }} activeOpacity={0.82}>
-            <View style={s.icon}><Text style={s.iconText}>{glyph}</Text>{(route === 'Messages' && unread.messages > 0) || (route === 'InboxReports' && unread.reports > 0) ? <View style={s.menuBadge}><Text style={s.menuBadgeText}>{unreadLabel(route === 'InboxReports' ? unread.reports : unread.messages)}</Text></View> : null}</View>
-            <View style={s.itemTextWrap}><Text style={s.itemText}>{title}</Text></View>
-          </TouchableOpacity>
-        ))}
+        <Text style={s.sectionTitle}>تاکسی و تاکسیران</Text>
+        {taxiItems.map(renderItem)}
+        {generalItems.map(renderItem)}
         <TouchableOpacity style={[s.item, s.logoutItem]} onPress={onLogout} activeOpacity={0.82}>
           <View style={[s.icon, s.logoutIcon]}><Text style={s.iconText}>🚪</Text></View>
           <View style={s.itemTextWrap}><Text style={[s.itemText, s.logoutText]}>خروج از حساب</Text></View>
@@ -119,6 +127,7 @@ const s = StyleSheet.create({
   brand: { width: '100%', color: '#fff', fontFamily: FONT.bold, fontSize: 25, textAlign: 'right', writingDirection: 'rtl' },
   title: { width: '100%', color: '#dcefe9', fontFamily: FONT.regular, fontSize: 13, textAlign: 'right', writingDirection: 'rtl', marginTop: 5 },
   content: { padding: 12, paddingBottom: 30 },
+  sectionTitle: { width: '100%', color: C.brand, fontFamily: FONT.bold, fontSize: 14, textAlign: 'right', writingDirection: 'rtl', marginTop: 4, marginBottom: 8, paddingHorizontal: 4 },
   item: { minHeight: 54, width: '100%', backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 14, marginBottom: 9, paddingHorizontal: 13, flexDirection: 'row-reverse', alignItems: 'center' },
   icon: { width: 38, height: 38, position: 'relative', borderRadius: 11, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center', marginLeft: 10 },
   menuBadge: { position: 'absolute', top: -5, right: -7, minWidth: 18, height: 18, paddingHorizontal: 3, borderRadius: 9, backgroundColor: '#e53935', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
