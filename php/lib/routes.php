@@ -1,4 +1,64 @@
-      TRIM(CONCAT(COALESCE(tu.first_name,''),' ',COALESCE(tu.last_name,''))) to_name
+<?php
+/* ================= احراز هویت پنل وب + تنظیمات عمومی ================= */
+route('POST','/api/session/start',function($p,$b,$unused){
+  $username=trim((string)($_POST['username']??$b['username']??''));
+  $password=(string)($_POST['password']??$b['password']??'');
+  $deviceId=trim((string)($_POST['device_id']??$b['device_id']??'web-panel'));
+  if($username===''||$password==='') Http::error('نام کاربری و رمز عبور الزامی است',400);
+  if($deviceId==='') $deviceId='web-panel';
+
+  $u=Db::one("SELECT u.id,u.username,u.first_name,u.last_name,u.password_hash,u.role_id,u.rank_stars,u.must_change_pw,u.is_active,u.allow_web,
+                     r.title AS role_title,r.level,r.is_admin
+              FROM users u JOIN roles r ON r.id=u.role_id
+              WHERE u.username=? LIMIT 1",[$username]);
+  if(!$u||empty($u['is_active'])||empty($u['allow_web'])||!password_verify($password,$u['password_hash'])){
+    try{Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?,?,?)",[$u['id']??null,'login_failed',json_encode(['username'=>$username],JSON_UNESCAPED_UNICODE)]);}catch(Throwable $e){}
+    Http::error('نام کاربری یا رمز عبور اشتباه است',401);
+  }
+
+  $deviceType='web';
+  try{
+    Db::run("INSERT INTO user_sessions(user_id,device_type,device_id,device_model,revoked_at)
+             VALUES(?,?,?,?,NULL)
+             ON DUPLICATE KEY UPDATE device_id=VALUES(device_id),device_model=VALUES(device_model),revoked_at=NULL",
+      [(int)$u['id'],$deviceType,$deviceId,'web-panel']);
+  }catch(Throwable $e){ Http::error('ایجاد نشست کاربری ناموفق بود',500); }
+
+  $config=$GLOBALS['CONFIG'];
+  $access=Jwt::sign([
+    'sub'=>(int)$u['id'],
+    'device_id'=>$deviceId,
+    'dt'=>$deviceType
+  ],$config['jwt_secret'],(int)$config['access_ttl']);
+
+  try{Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?,?,?)",[(int)$u['id'],'login',json_encode(['device_type'=>$deviceType],JSON_UNESCAPED_UNICODE)]);}catch(Throwable $e){}
+
+  return [
+    'access'=>$access,
+    'user'=>[
+      'id'=>(int)$u['id'],
+      'username'=>$u['username'],
+      'name'=>trim(($u['first_name']??'').' '.($u['last_name']??'')),
+      'role'=>$u['role_title'],
+      'role_id'=>(int)$u['role_id'],
+      'level'=>(int)$u['level'],
+      'is_admin'=>(int)$u['is_admin']===1,
+      'rank_stars'=>$u['rank_stars']===null?null:(int)$u['rank_stars'],
+      'must_change_pw'=>(int)$u['must_change_pw']===1
+    ]
+  ];
+},true,99);
+
+route('GET','/api/settings/public',function($p,$b,$u){
+  $rows=Db::all("SELECT `key`,value FROM app_settings WHERE `key` IN ('site_title','site_logo','org_title','org_logo')");
+  $out=[];
+  foreach($rows as $r){
+    $v=json_decode($r['value'],true);
+    $out[$r['key']]=$v===null&&$r['value']!=='null'?$r['value']:$v;
+  }
+  return $out;
+},true,99);
+
     FROM inventory_transfers t JOIN inventory_item_types it ON it.id=t.item_type_id
     LEFT JOIN users fu ON fu.id=t.from_user_id JOIN users tu ON tu.id=t.to_user_id
     WHERE t.from_user_id=? OR t.to_user_id=? ORDER BY t.created_at DESC LIMIT 500",[(int)$u['id'],(int)$u['id'],(int)$u['id']]);
