@@ -218,9 +218,14 @@ function _ssv_school_company_validate($schoolId,$companyId,$district=''){
   }elseif($companyId && !Db::one("SELECT id FROM school_service_companies WHERE id=? AND is_active=1",[$companyId])) Http::error('شرکت مجری انتخاب‌شده معتبر نیست.',422);
 }
 function _ssv_valid_option($table,$title){$title=_ssv_norm($title);return $title!==''&&Db::one("SELECT id FROM $table WHERE title=? AND is_active=1",[$title]);}
+function _ssv_role_is_admin($u){
+  if(!empty($u['is_admin'])) return true;
+  $r=_ssv_norm($u['role_title']??'');
+  return in_array($r,['مدیر کل','مدیرکل','رییس اداره بازرسی','رئیس اداره بازرسی','نیروی اداری ارشد'],true);
+}
 function _ssv_perm($u,$action='view'){
   _ssv_tables();
-  if(!empty($u['is_admin']) || in_array(($u['role_title']??''),['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'],true)) return true;
+  if(_ssv_role_is_admin($u)) return true;
   $col='can_'.preg_replace('/[^a-z_]/','',$action);
   if(!in_array($col,['can_view','can_create','can_edit','can_delete','can_import','can_report'],true)) return false;
   $r=Db::one("SELECT $col v FROM school_service_permissions WHERE role_id=?",[(int)$u['role_id']]);
