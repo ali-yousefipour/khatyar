@@ -56,8 +56,10 @@ export default function DrawerMenuScreen({ navigation }) {
   const roleVehicle = roleAllowsVehicle(user?.role || user?.role_title);
   const vehicleAllowed = access?.allowed === true || roleVehicle;
   const roleTitle = normRole(user?.role_title || user?.role);
-  const schoolAdminFallback = user?.is_admin === true || ['مدیر کل','مدیرکل','رییس اداره بازرسی','رئیس اداره بازرسی','نیروی اداری ارشد'].includes(roleTitle);
-  const schoolVisible = schoolAccess?.allowed === true || schoolAdminFallback;
+  // دسترسی سرویس مدارس بر اساس سطح عددی سمت است؛ عنوان سمت نباید معیار دسترسی باشد.
+  const roleLevel = Number(user?.level ?? 0);
+  const schoolLevelFallback = roleLevel >= 1 && roleLevel <= 4;
+  const schoolVisible = schoolAccess?.allowed === true || schoolLevelFallback;
   const assetType = access?.asset_type || (roleTitle.includes('گشت موتوری') ? 'motorcycle' : 'car');
 
   const go = (screen) => {
