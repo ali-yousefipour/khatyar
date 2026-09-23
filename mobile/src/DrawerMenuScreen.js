@@ -33,12 +33,7 @@ function roleAllowsVehicle(role) {
 export default function DrawerMenuScreen({ navigation }) {
   const { user, logout } = useAuth();
   const [access, setAccess] = React.useState(null);
-  const [schoolAccess, setSchoolAccess] = React.useState(null);
   const [unread, setUnread] = React.useState({ messages: 0, reports: 0 });
-
-  React.useEffect(() => {
-    request('/school-service/access', { noStore: true }).then(setSchoolAccess).catch(() => setSchoolAccess(null));
-  }, [user?.id]);
 
   React.useEffect(() => {
     const off = subscribeUnreadCounts(setUnread);
@@ -57,10 +52,6 @@ export default function DrawerMenuScreen({ navigation }) {
   const roleVehicle = roleAllowsVehicle(user?.role || user?.role_title);
   const vehicleAllowed = access?.allowed === true || roleVehicle;
   const roleTitle = normRole(user?.role_title || user?.role);
-  // دسترسی سرویس مدارس بر اساس سطح عددی سمت است؛ عنوان سمت نباید معیار دسترسی باشد.
-  const roleLevel = Number(user?.level ?? 0);
-  const schoolLevelFallback = roleLevel >= 1 && roleLevel <= 4;
-  const schoolVisible = schoolAccess?.allowed === true || schoolLevelFallback;
   const assetType = access?.asset_type || (roleTitle.includes('گشت موتوری') ? 'motorcycle' : 'car');
 
   const go = (screen) => {
@@ -91,8 +82,6 @@ export default function DrawerMenuScreen({ navigation }) {
     ...(access?.checklist_allowed ? [['PersonnelVehicleChecklist', 'چک‌لیست خودرویی و موتوری', '☑️']] : []),
   ];
 
-  const taxiItems = schoolVisible ? [['SchoolService', 'سرویس مدارس', '🏫']] : [];
-
   const renderItem = ([route, title, glyph]) => (
     <TouchableOpacity key={route} style={s.item} onPress={() => { go(route); if (route === 'Messages' || route === 'InboxReports' || route === 'Notifications') refreshUnreadCounts(); }} activeOpacity={0.82}>
       <View style={s.icon}><Text style={s.iconText}>{glyph}</Text>{(route === 'Messages' && unread.messages > 0) || (route === 'InboxReports' && unread.reports > 0) ? <View style={s.menuBadge}><Text style={s.menuBadgeText}>{unreadLabel(route === 'InboxReports' ? unread.reports : unread.messages)}</Text></View> : null}</View>
@@ -108,7 +97,6 @@ export default function DrawerMenuScreen({ navigation }) {
       </View>
       <ScrollView persistentScrollbar={true} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {generalItems.map(renderItem)}
-        {taxiItems.map(renderItem)}
         <TouchableOpacity style={[s.item, s.logoutItem]} onPress={onLogout} activeOpacity={0.82}>
           <View style={[s.icon, s.logoutIcon]}><Text style={s.iconText}>🚪</Text></View>
           <View style={s.itemTextWrap}><Text style={[s.itemText, s.logoutText]}>خروج از حساب</Text></View>
