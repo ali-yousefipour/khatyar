@@ -13169,9 +13169,10 @@ function _ssv_tables(){
 }
 function _ssv_perm($u,$action='view'){
   _ssv_tables();
-  $role=_ssv_norm($u['role_title']??'');
-  $role=str_replace(['ي','ى','ك','ۀ'],['ی','ی','ک','ه'],$role);
-  if(!empty($u['is_admin']) || in_array($role,['مدیر کل','مدیرکل','رییس اداره بازرسی','رئیس اداره بازرسی','نیروی اداری ارشد'],true)) return true;
+  // دسترسی سرویس مدارس بر اساس سطح عددی سمت تعیین می‌شود، نه عنوان سمت.
+  // سطوح ۱ تا ۴ مجاز به مشاهده/مدیریت هستند و سطح ۳ و بالاتر مجوز مدیریتی کامل دارد.
+  $level=(int)($u['level']??0);
+  if($level>=1 && $level<=4) return true;
   $col='can_'.preg_replace('/[^a-z_]/','',$action);
   if(!in_array($col,['can_view','can_create','can_edit','can_delete','can_import','can_report'],true)) return false;
   $r=Db::one("SELECT $col v FROM school_service_permissions WHERE role_id=?",[(int)$u['role_id']]);
