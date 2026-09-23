@@ -193,7 +193,13 @@ function _ssv_tables(){
     foreach($roles as $r){
       $default=((int)$r['level']<=4)?1:0;
       Db::run("INSERT INTO school_service_permissions(role_id,can_view,can_create,can_edit,can_delete,can_import,can_report)
-        VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE role_id=role_id",
+        VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
+        can_view=IF(can_view=0 AND can_create=0 AND can_edit=0 AND can_delete=0 AND can_import=0 AND can_report=0,VALUES(can_view),can_view),
+        can_create=IF(can_view=VALUES(can_view) AND can_create=0 AND can_edit=0 AND can_delete=0 AND can_import=0 AND can_report=0,VALUES(can_create),can_create),
+        can_edit=IF(can_view=VALUES(can_view) AND can_create=VALUES(can_create) AND can_edit=0 AND can_delete=0 AND can_import=0 AND can_report=0,VALUES(can_edit),can_edit),
+        can_delete=IF(can_view=VALUES(can_view) AND can_create=VALUES(can_create) AND can_edit=VALUES(can_edit) AND can_delete=0 AND can_import=0 AND can_report=0,VALUES(can_delete),can_delete),
+        can_import=IF(can_view=VALUES(can_view) AND can_create=VALUES(can_create) AND can_edit=VALUES(can_edit) AND can_delete=VALUES(can_delete) AND can_import=0 AND can_report=0,VALUES(can_import),can_import),
+        can_report=IF(can_view=VALUES(can_view) AND can_create=VALUES(can_create) AND can_edit=VALUES(can_edit) AND can_delete=VALUES(can_delete) AND can_import=VALUES(can_import) AND can_report=0,VALUES(can_report),can_report)",
         [(int)$r['id'],$default,$default,$default,$default,((int)$r['level']<=3)?1:0,$default]);
     }
   }catch(Throwable $e){}
