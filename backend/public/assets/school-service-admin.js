@@ -28,4 +28,4 @@ b.querySelectorAll('[data-del-c]').forEach(x=>x.onclick=()=>ssvConfirm('غیرف
 b.querySelectorAll('[data-del-s]').forEach(x=>x.onclick=()=>ssvConfirm('غیرفعال‌سازی مدرسه','مدرسه از فهرست فعال خارج می‌شود و سوابق قبلی حفظ خواهد شد.',async()=>{await api('/api/school-service/schools/'+x.dataset.delS,{method:'DELETE'});load()}));
 b.querySelectorAll('[data-edit-c]').forEach(x=>x.onclick=async()=>{const rows2=(await api('/api/school-service/companies?search=')).items||[];const r=rows2.find(z=>Number(z.id)===Number(x.dataset.editC));if(r)ssvEntityForm('companies',r,load)});
 b.querySelectorAll('[data-edit-s]').forEach(x=>x.onclick=async()=>{const rows2=(await api('/api/school-service/schools?search=')).items||[];const r=rows2.find(z=>Number(z.id)===Number(x.dataset.editS));if(r)ssvEntityForm('schools',r,load)});
-};};input.oninput=()=>{clearTimeout(input._t);input._t=setTimeout(()=>{page=1;load()},250)};await load();
+};input.oninput=()=>{clearTimeout(input._t);input._t=setTimeout(()=>{page=1;load()},250)};await load();
