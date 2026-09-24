@@ -60,8 +60,99 @@ route('PUT','/api/school-service/inspections/{id}',function($p,$b,$u){
  Db::run("UPDATE school_service_inspections SET educational_district=?,company_id=?,school_id=?,school_gender=?,plate_three=?,plate_letter=?,plate_two=?,vehicle_type=?,vehicle_color=?,passenger_count=?,driver_gender=?,certificate_status=?,violation_date=?,violation_time=?,location_text=?,latitude=?,longitude=?,description=? WHERE id=?",[_ssv_norm($b['educational_district']??''),!empty($b['company_id'])?(int)$b['company_id']:null,!empty($b['school_id'])?(int)$b['school_id']:null,$g,$a,$l,$c,_ssv_norm($b['vehicle_type']??''),_ssv_norm($b['vehicle_color']??''),max(0,(int)($b['passenger_count']??0)),$dg,$cert,$date?:null,trim((string)($b['violation_time']??''))?:null,_ssv_norm($b['location_text']??'')?:null,$lat,$lng,trim((string)($b['description']??''))?:null,$id]);Db::run("DELETE FROM school_service_inspection_violations WHERE inspection_id=?",[$id]);foreach($viol as $vid)if(Db::one("SELECT id FROM school_service_violation_types WHERE id=? AND is_active=1",[$vid]))Db::run("INSERT IGNORE INTO school_service_inspection_violations(inspection_id,violation_type_id) VALUES(?,?)",[$id,$vid]);return ['ok'=>true,'id'=>$id];
 });
 route('DELETE','/api/school-service/inspections/{id}',function($p,$b,$u){_ssv_need($u,'delete');_ssv_tables();$id=(int)$p['id'];if(!Db::one("SELECT id FROM school_service_inspections WHERE id=?",[$id]))Http::error('بازدید پیدا نشد',404);Db::run("DELETE FROM school_service_inspections WHERE id=?",[$id]);return ['ok'=>true];});
+function _ssv_xlsx_rows_v2($file){
+  if(!class_exists('ZipArchive')) Http::error('امکان خواندن فایل Excel روی سرور فعال نیست.',500);
+  if(!$file||($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) Http::error('فایل Excel دریافت نشد.',422);
+  $name=strtolower((string)($file['name']??''));
+  if($name!==''&&!preg_match('/\.xlsx$/',$name)) Http::error('فقط فایل Excel با فرمت xlsx قابل ورود است.',422);
+  $z=new ZipArchive(); if($z->open($file['tmp_name'])!==true) Http::error('فایل Excel معتبر نیست.',422);
+  $shared=[];
+  $sx=$z->getFromName('xl/sharedStrings.xml');
+  if($sx!==false){
+    $xml=@simplexml_load_string($sx);
+    if($xml){
+      $ns=$xml->getDocNamespaces(true); $xml->registerXPathNamespace('m',$ns['']??'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+      foreach($xml->xpath('//m:si') as $si){
+        $parts=$si->xpath('.//m:t'); $v='';
+        foreach((array)$parts as $part) $v.=(string)$part;
+        $shared[]=$v;
+      }
+    }
+  }
+  $wb=@simplexml_load_string((string)$z->getFromName('xl/workbook.xml'));
+  $rels=@simplexml_load_string((string)$z->getFromName('xl/_rels/workbook.xml.rels'));
+  $sheets=[];
+  if($wb){
+    $wns=$wb->getDocNamespaces(true); $wb->registerXPathNamespace('m',$wns['']??'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+    $rns=$rels?$rels->getDocNamespaces(true):[];
+    if($rels) $rels->registerXPathNamespace('r',$rns['']??'http://schemas.openxmlformats.org/package/2006/relationships');
+    $relMap=[];
+    if($rels) foreach($rels->xpath('//r:Relationship') as $rr) $relMap[(string)$rr['Id']]=(string)$rr['Target'];
+    foreach($wb->xpath('//m:sheets/m:sheet') as $sh){
+      $rid=(string)$sh->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'];
+      $target=$relMap[$rid]??''; if($target==='') continue;
+      if(strpos($target,'/')===0) $target=ltrim($target,'/');
+      if(strpos($target,'xl/')!==0) $target='xl/'.ltrim($target,'/');
+      $sheets[]=[(string)$sh['name'],$target];
+    }
+  }
+  $out=[];
+  foreach($sheets as [$sheetName,$path]){
+    $raw=$z->getFromName($path); if($raw===false) continue;
+    $xml=@simplexml_load_string($raw); if(!$xml) continue;
+    $ns=$xml->getDocNamespaces(true); $xml->registerXPathNamespace('m',$ns['']??'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+    $rows=[];
+    foreach($xml->xpath('//m:sheetData/m:row') as $row){
+      $cells=[];
+      foreach($row->xpath('./m:c') as $cell){
+        $ref=(string)$cell['r']; $mm=[]; preg_match('/^([A-Z]+)\\d+$/',$ref,$mm);
+        $col=0; foreach(str_split($mm[1]??'A') as $ch) $col=$col*26+(ord($ch)-64);
+        $type=(string)$cell['t'];
+        $v='';
+        if($type==='s') $v=(string)($shared[(int)($cell->v??0)]??'');
+        elseif($type==='inlineStr'){ $parts=$cell->xpath('.//m:t'); foreach((array)$parts as $part) $v.=(string)$part; }
+        elseif($type==='str') $v=(string)$cell->v;
+        else $v=(string)$cell->v;
+        $cells[$col]=$v;
+      }
+      if($cells) $rows[]=$cells;
+    }
+    if($rows) $out[$sheetName]=$rows;
+  }
+  $z->close(); return $out;
+}
+
 route('POST','/api/school-service/import-preview',function($p,$b,$u){
- _ssv_need($u,'import');_ssv_tables();$sheets=_ssv_xlsx_rows($_FILES['file']??null);$records=[];$sheetCounts=[];foreach($sheets as $name=>$rows){$rs=_ssv_sheet_records($rows);$sheetCounts[$name]=count($rs);$records=array_merge($records,$rs);}$companies=[];$schools=[];$maps=[];$errors=[];$duplicateRows=0;$newCompanies=[];$existingCompanies=[];$newSchools=[];$existingSchools=[];$newMappings=[];$existingMappings=[];foreach($records as $i=>$r){$cn=_ssv_norm($r['company']);$sn=_ssv_norm($r['school']);if($cn){$companies[$cn]=1;$co=Db::one("SELECT id FROM school_service_companies WHERE name=?",[$cn]);if($co)$existingCompanies[$cn]=1;else$newCompanies[$cn]=1;}if($sn){$schools[$sn]=1;$school=null;if(_ssv_norm($r['code'])!=='')$school=Db::one("SELECT id FROM school_service_schools WHERE code=?",[_ssv_norm($r['code'])]);if(!$school)$school=Db::one("SELECT id FROM school_service_schools WHERE name=? AND educational_district=?",[$sn,_ssv_norm($r['district'])]);if($school)$existingSchools[$sn]=1;else$newSchools[$sn]=1;}if($cn&&$sn){$key=$sn.'|'.$cn;if(isset($maps[$key])){$duplicateRows++;}else{$maps[$key]=1;$co=$cn?Db::one("SELECT id FROM school_service_companies WHERE name=?",[$cn]):null;$sch=null;if(_ssv_norm($r['code'])!=='')$sch=Db::one("SELECT id FROM school_service_schools WHERE code=?",[_ssv_norm($r['code'])]);if(!$sch)$sch=Db::one("SELECT id FROM school_service_schools WHERE name=? AND educational_district=?",[$sn,_ssv_norm($r['district'])]);if($co&&$sch){$existingMap=Db::one("SELECT company_id FROM school_service_school_companies WHERE school_id=?",[(int)$sch['id']]);if($existingMap&&(int)$existingMap['company_id']===(int)$co['id'])$existingMappings[$key]=1;else$newMappings[$key]=1;}else$newMappings[$key]=1;}}else if($sn==='') $errors[]='ردیف '.($i+2).' نام مدرسه ندارد';if(count($errors)>=100)break;}return ['ok'=>true,'rows'=>count($records),'companies_count'=>count($companies),'schools_count'=>count($schools),'mappings_count'=>count($maps),'new_companies'=>count($newCompanies),'existing_companies'=>count($existingCompanies),'new_schools'=>count($newSchools),'existing_schools'=>count($existingSchools),'new_mappings'=>count($newMappings),'existing_mappings'=>count($existingMappings),'duplicate_rows'=>$duplicateRows,'errors'=>$errors,'sheets'=>$sheetCounts];
+ _ssv_need($u,'import');_ssv_tables();$sheets=_ssv_xlsx_rows_v2($_FILES['file']??null);$records=[];$sheetCounts=[];foreach($sheets as $name=>$rows){$rs=_ssv_sheet_records($rows);$sheetCounts[$name]=count($rs);$records=array_merge($records,$rs);}$companies=[];$schools=[];$maps=[];$errors=[];$duplicateRows=0;$newCompanies=[];$existingCompanies=[];$newSchools=[];$existingSchools=[];$newMappings=[];$existingMappings=[];foreach($records as $i=>$r){$cn=_ssv_norm($r['company']);$sn=_ssv_norm($r['school']);if($cn){$companies[$cn]=1;$co=Db::one("SELECT id FROM school_service_companies WHERE name=?",[$cn]);if($co)$existingCompanies[$cn]=1;else$newCompanies[$cn]=1;}if($sn){$schools[$sn]=1;$school=null;if(_ssv_norm($r['code'])!=='')$school=Db::one("SELECT id FROM school_service_schools WHERE code=?",[_ssv_norm($r['code'])]);if(!$school)$school=Db::one("SELECT id FROM school_service_schools WHERE name=? AND educational_district=?",[$sn,_ssv_norm($r['district'])]);if($school)$existingSchools[$sn]=1;else$newSchools[$sn]=1;}if($cn&&$sn){$key=$sn.'|'.$cn;if(isset($maps[$key])){$duplicateRows++;}else{$maps[$key]=1;$co=$cn?Db::one("SELECT id FROM school_service_companies WHERE name=?",[$cn]):null;$sch=null;if(_ssv_norm($r['code'])!=='')$sch=Db::one("SELECT id FROM school_service_schools WHERE code=?",[_ssv_norm($r['code'])]);if(!$sch)$sch=Db::one("SELECT id FROM school_service_schools WHERE name=? AND educational_district=?",[$sn,_ssv_norm($r['district'])]);if($co&&$sch){$existingMap=Db::one("SELECT company_id FROM school_service_school_companies WHERE school_id=?",[(int)$sch['id']]);if($existingMap&&(int)$existingMap['company_id']===(int)$co['id'])$existingMappings[$key]=1;else$newMappings[$key]=1;}else$newMappings[$key]=1;}}else if($sn==='') $errors[]='ردیف '.($i+2).' نام مدرسه ندارد';if(count($errors)>=100)break;}return ['ok'=>true,'rows'=>count($records),'companies_count'=>count($companies),'schools_count'=>count($schools),'mappings_count'=>count($maps),'new_companies'=>count($newCompanies),'existing_companies'=>count($existingCompanies),'new_schools'=>count($newSchools),'existing_schools'=>count($existingSchools),'new_mappings'=>count($newMappings),'existing_mappings'=>count($existingMappings),'duplicate_rows'=>$duplicateRows,'errors'=>$errors,'sheets'=>$sheetCounts];
+},false,99);
+route('POST','/api/school-service/import',function($p,$b,$u){
+ _ssv_need($u,'import'); _ssv_tables();
+ $sheets=_ssv_xlsx_rows_v2($_FILES['file']??null); $records=[];
+ foreach($sheets as $rows) $records=array_merge($records,_ssv_sheet_records($rows));
+ $companies=[];$schools=[];$mappings=[];$errors=[];$dup=0;
+ foreach($records as $idx=>$r){
+   $cn=_ssv_norm($r['company']??''); $sn=_ssv_norm($r['school']??''); $code=_ssv_norm($r['code']??''); $district=_ssv_norm($r['district']??'');
+   if($cn){
+     $co=Db::one("SELECT id FROM school_service_companies WHERE name=?",[$cn]);
+     if(!$co){ Db::run("INSERT INTO school_service_companies(name,manager_name,phone,address) VALUES(?,?,?,?)",[$cn,_ssv_norm($r['manager']??'')?:null,trim((string)($r['phone']??''))?:null,_ssv_norm($r['address']??'')?:null]); $co=Db::one("SELECT id FROM school_service_companies WHERE name=?",[$cn]); $companies[]=$cn; }
+   }
+   if(!$sn) { if(!$cn) $errors[]='ردیف '.($idx+2).' فاقد نام مدرسه و نام شرکت است'; continue; }
+   $sch=null; if($code!=='') $sch=Db::one("SELECT id FROM school_service_schools WHERE code=?",[$code]);
+   if(!$sch) $sch=Db::one("SELECT id FROM school_service_schools WHERE name=? AND educational_district=?",[$sn,$district]);
+   if(!$sch){
+     $gender=in_array($r['gender']??'',['دخترانه','پسرانه'],true)?$r['gender']:'نامشخص';
+     Db::run("INSERT INTO school_service_schools(code,name,educational_district,gender,address) VALUES(?,?,?,?,?)",[$code?:null,$sn,$district?:null,$gender,_ssv_norm($r['address']??'')?:null]);
+     $sch=Db::one("SELECT id FROM school_service_schools WHERE name=? AND educational_district=?",[$sn,$district]); $schools[]=$sn;
+   }
+   if($cn&&$sch){
+     $co=Db::one("SELECT id FROM school_service_companies WHERE name=?",[$cn]);
+     if($co){
+       $map=Db::one("SELECT company_id FROM school_service_school_companies WHERE school_id=? AND company_id=?",[(int)$sch['id'],(int)$co['id']]);
+       if($map) $dup++; else { Db::run("INSERT INTO school_service_school_companies(school_id,company_id,is_primary) VALUES(?,?,1)",[(int)$sch['id'],(int)$co['id']]); $mappings++; }
+     }
+   }
+ }
+ return ['ok'=>true,'companies_count'=>count($companies),'schools_count'=>count($schools),'mappings_count'=>$mappings,'duplicate_rows'=>$dup,'errors'=>$errors];
 },false,99);
 route('GET','/api/school-service/export-filtered',function($p,$b,$u){
  _ssv_need($u,'report');_ssv_tables();$q=_ssv_norm($_GET['search']??'');$district=_ssv_norm($_GET['district']??'');$company=(int)($_GET['company_id']??0);$w=['1=1'];$a=[];if($q!==''){$w[]='(s.name LIKE ? OR c.name LIKE ? OR i.location_text LIKE ? OR CONCAT(i.plate_three,i.plate_letter,i.plate_two) LIKE ?)';array_push($a,'%'.$q.'%','%'.$q.'%','%'.$q.'%','%'.$q.'%');}if($district!==''){$w[]='i.educational_district=?';$a[]=$district;}if($company){$w[]='i.company_id=?';$a[]=$company;}
