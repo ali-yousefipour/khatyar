@@ -148,7 +148,7 @@ route('POST','/api/school-service/import',function($p,$b,$u){
    if(!$sch){
      $gender=in_array($r['gender']??'',['دخترانه','پسرانه'],true)?$r['gender']:'نامشخص';
      Db::run("INSERT INTO school_service_schools(code,name,educational_district,gender,address) VALUES(?,?,?,?,?)",[$code?:null,$sn,$district?:null,$gender,_ssv_norm($r['address']??'')?:null]);
-     $sch=Db::one("SELECT id FROM school_service_schools WHERE name=? AND educational_district=?",[$sn,$district]); $schools[]=$sn;
+     $sch=$district!==''?Db::one("SELECT id FROM school_service_schools WHERE name=? AND educational_district=?",[$sn,$district]):Db::one("SELECT id FROM school_service_schools WHERE name=?",[$sn]); $schools[]=$sn;
    }
    if($cn&&$sch){
      $co=Db::one("SELECT id FROM school_service_companies WHERE name=?",[$cn]);
