@@ -13181,6 +13181,7 @@ function _ssv_tables(){
   try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN plate_region VARCHAR(2) NULL AFTER plate_two");}catch(Throwable $e){}
   try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN passenger_front_count INT NOT NULL DEFAULT 0 AFTER vehicle_color");}catch(Throwable $e){}
   try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN passenger_rear_count INT NOT NULL DEFAULT 0 AFTER passenger_front_count");}catch(Throwable $e){}
+  try{Db::run("UPDATE school_service_inspections SET passenger_front_count=passenger_count WHERE passenger_front_count=0 AND passenger_rear_count=0 AND passenger_count>0");}catch(Throwable $e){}
   $viol=['عدم اعتبار معاینه فنی','عدم اعتبار بیمه شخص ثالث','سرنشین اضافی','راننده غیر مجاز','داشتن یا نداشتن گواهی صلاحیت معتبر','عدم توجه به فرمان و ایست'];
   foreach($viol as $i=>$v){try{Db::run("INSERT IGNORE INTO school_service_violation_types(title,sort_order) VALUES(?,?)",[$v,$i]);}catch(Throwable $e){}}
   try{
