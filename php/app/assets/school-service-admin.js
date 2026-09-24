@@ -45,9 +45,16 @@ window.openSchoolService = open;
       return;
     }
     if(!allowed) return;
-    // سایدبار واقعی پنل با کلاس‌های .side و .nav ساخته می‌شود.
-    // این نقطه فقط بعد از احراز هویت و دریافت مجوز اجرا می‌شود؛ بنابراین صفحه ورود هرگز هدف قرار نمی‌گیرد.
-    const host=document.querySelector('.side .nav');
+    // سرویس مدارس باید داخل بخش «تاکسی و تاکسیران» باشد، نه انتهای کل منوی پنل.
+    const nav=document.querySelector('.side .nav');
+    if(!nav) return;
+    const sections=Array.from(nav.querySelectorAll('.navsec'));
+    const taxiSection=sections.find(sec=>{
+      const title=String(sec.querySelector('.navsec-head')?.textContent||'')
+        .replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim();
+      return title.includes('تاکسی') || title.includes('تاکسیران');
+    });
+    const host=taxiSection?.querySelector('.navsec-body');
     if(!host) return;
     const btn=document.createElement('button');
     btn.id='school-service-menu-item';
