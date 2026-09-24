@@ -13218,14 +13218,15 @@ function _ssv_plate($b){
 }
 function _ssv_xlsx_cell_value($cell,$shared){
   $type=(string)($cell['t']??'');
-  if($type==='s') return (string)($shared[(int)$cell->v]??'');
+  if($type==='s') return (string)($shared[(int)($cell->v??0)]??'');
   if($type==='inlineStr'){
-    $parts=$cell->xpath('.//t');$v='';
+    $ns=$cell->getDocNamespaces(true);$cell->registerXPathNamespace('m',$ns['']??'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+    $parts=$cell->xpath('.//m:t');$v='';
     foreach((array)$parts as $part)$v.=(string)$part;
     return $v;
   }
-  if($type==='str') return (string)$cell->v;
-  return (string)$cell->v;
+  if($type==='str') return (string)($cell->v??'');
+  return (string)($cell->v??'');
 }
 function _ssv_xlsx_rows($file){
   if(!class_exists('ZipArchive')) Http::error('امکان خواندن فایل Excel روی سرور فعال نیست.',500);
@@ -13281,23 +13282,24 @@ function _ssv_xlsx_rows($file){
 }
 function _ssv_header_key($v){
   $v=_ssv_norm($v);
-  $v=preg_replace('/[\x{061F}\x{060C},:؛;|\\\/()\[\]{}«»"\']+/u',' ',$v);
-  return preg_replace('/\s+/u','',$v);
+  $v=str_replace(['ي','ى','ك','ۀ','ة'],['ی','ی','ک','ه','ه'],$v);
+  $v=preg_replace('/[\\x{061F}\\x{060C},:؛;|\\\\\\/()\\[\\]{}«»"\']+/u',' ',$v);
+  return preg_replace('/\\s+/u','',$v);
 }
 function _ssv_sheet_records($rows){
   if(count($rows)<2)return [];
   $aliases=[
-    'code'=>['کد مدرسه','شناسه مدرسه','کد مدرسه/شناسه','شناسه','کد'],
-    'school'=>['نام مدرسه','نام مدرسه محل خدمت','نام محل خدمت','مدرسه','نام مدرسه محل'],
-    'district'=>['ناحیه آموزشی','ناحیه آموزش و پرورش','ناحیه','منطقه آموزشی','منطقه','ناحیه مدرسه'],
+    'code'=>['کد مدرسه','شناسه مدرسه','کد مدرسه/شناسه','شناسه مدرسه','شناسه','کد'],
+    'school'=>['نام مدرسه','نام مدرسه محل خدمت','نام محل خدمت','نام مدرسه و آموزشگاه','مدرسه','نام مدرسه محل'],
+    'district'=>['ناحیه آموزشی','ناحیه آموزش و پرورش','ناحیه آموزش‌وپرورش','ناحیه','منطقه آموزشی','منطقه','ناحیه مدرسه'],
     'gender'=>['نوع مدرسه','جنسیت مدرسه','جنسیت','نوع مدرسه دخترانه پسرانه','نوع'],
-    'company'=>['شرکت مجری سرویس دانش‌آموزی','شرکت مجری سرویس دانش آموزی','شرکت مجری','شرکت سرویس‌دهنده','شرکت سرویس دهنده','نام شرکت','شرکت'],
-    'manager'=>['مدیر شرکت','مدیرعامل','نام مدیر','مدیر'],
-    'phone'=>['تلفن شرکت','شماره تماس','شماره تلفن','موبایل','تلفن'],
-    'address'=>['آدرس','نشانی','آدرس مدرسه','آدرس شرکت']
+    'company'=>['شرکت مجری سرویس دانش‌آموزی','شرکت مجری سرویس دانش آموزی','شرکت مجری سرویس','شرکت مجری','شرکت سرویس‌دهنده','شرکت سرویس دهنده','نام شرکت','شرکت'],
+    'manager'=>['مدیر شرکت','مدیرعامل شرکت','مدیرعامل','نام مدیر','مدیر'],
+    'phone'=>['تلفن شرکت','شماره تماس شرکت','شماره تماس','شماره تلفن','موبایل','تلفن'],
+    'address'=>['آدرس مدرسه','آدرس شرکت','آدرس','نشانی']
   ];
-  $headerRow=-1;$map=[];$best=[0,[],0];
-  $limit=min(count($rows),30);
+  $best=[0,[],0];
+  $limit=min(count($rows),40);
   for($ri=0;$ri<$limit;$ri++){
     $vals=[];foreach($rows[$ri] as $ci=>$v)$vals[$ci]=_ssv_header_key($v);
     $found=[];$score=0;
@@ -13305,30 +13307,49 @@ function _ssv_sheet_records($rows){
       foreach($list as $alias){
         $ak=_ssv_header_key($alias);if($ak==='')continue;
         foreach($vals as $ci=>$v){
-          if($v==='' )continue;
-          if($v===$ak || mb_strlen($ak)>=4 && (mb_strpos($v,$ak)!==false || mb_strpos($ak,$v)!==false)){
-            $found[$key]=$ci;break 2;
+          if($v==='')continue;
+          if($v===$ak || (mb_strlen($ak)>=4 && (mb_strpos($v,$ak)!==false || mb_strpos($ak,$v)!==false))){
+            if(!isset($found[$key]))$found[$key]=$ci;
+            break;
           }
         }
+        if(isset($found[$key]))break;
       }
     }
     if(isset($found['school']))$score+=5;
     if(isset($found['company']))$score+=5;
-    if(isset($found['code']))$score+=1;
-    if(isset($found['district']))$score+=1;
-    if(isset($found['gender']))$score+=1;
-    if(isset($found['manager']))$score+=1;
+    foreach(['code','district','gender','manager','phone','address'] as $k)if(isset($found[$k]))$score++;
     if($score>$best[0])$best=[$score,$found,$ri];
   }
-  // شرکت‌ها و مدارس ممکن است در دو شیت جدا باشند؛ وجود حداقل یکی از دو ستون اصلی کافی است.
-  if($best[0]<5)return [];
-  $map=$best[1];$headerRow=(int)$best[2];$out=[];
+  $map=$best[1];$headerRow=(int)$best[2];
+  // قالب استاندارد سامانه: حتی اگر عنوان‌ها کمی تغییر کرده باشند، ترتیب ستون‌های اصلی ثابت است.
+  // این fallback فقط زمانی فعال می‌شود که حداقل «نام مدرسه» یا «شرکت» از روی عنوان پیدا شده باشد.
+  if(!isset($map['school'])&&!isset($map['company']))return [];
+  if(!isset($map['school']) && count($rows[$headerRow])>=2)$map['school']=0;
+  if(!isset($map['code']) && isset($map['school']))$map['code']=0;
+  if(!isset($map['district']) && isset($map['school']))$map['district']=2;
+  if(!isset($map['gender']) && isset($map['school']))$map['gender']=3;
+  if(!isset($map['company']) && count($rows[$headerRow])>=5)$map['company']=4;
+  if(!isset($map['manager']) && count($rows[$headerRow])>=6)$map['manager']=5;
+  if(!isset($map['phone']) && count($rows[$headerRow])>=7)$map['phone']=6;
+  if(!isset($map['address']) && count($rows[$headerRow])>=8)$map['address']=7;
+
+  $out=[];
   for($r=$headerRow+1;$r<count($rows);$r++){
     $x=$rows[$r];
     $get=function($k)use($map,$x){$i=$map[$k]??null;return $i===null?'':trim((string)($x[$i]??''));};
     $school=_ssv_norm($get('school'));$company=_ssv_norm($get('company'));
     if($school===''&&$company==='')continue;
-    $out[]=['code'=>_ssv_norm($get('code')),'school'=>$school,'district'=>_ssv_norm($get('district')),'gender'=>_ssv_norm($get('gender')),'company'=>$company,'manager'=>_ssv_norm($get('manager')),'phone'=>_ssv_norm($get('phone')),'address'=>_ssv_norm($get('address'))];
+    $out[]=[
+      'code'=>_ssv_norm($get('code')),
+      'school'=>$school,
+      'district'=>_ssv_norm($get('district')),
+      'gender'=>_ssv_norm($get('gender')),
+      'company'=>$company,
+      'manager'=>_ssv_norm($get('manager')),
+      'phone'=>_ssv_norm($get('phone')),
+      'address'=>_ssv_norm($get('address'))
+    ];
   }
   return $out;
 }
