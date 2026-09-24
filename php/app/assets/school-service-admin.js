@@ -33,58 +33,26 @@ b.querySelectorAll('[data-edit-s]').forEach(x=>x.onclick=async()=>{const rows2=(
 };input.oninput=()=>{clearTimeout(input._t);input._t=setTimeout(()=>{page=1;load()},250)};await load();}catch(e){b.innerHTML='<div class="ssv-msg">'+esc(e.message||'خطا در دریافت اطلاعات')+'</div>'}}
 window.openSchoolService = open;
 (async function installSchoolServiceMenu(){
-  let done=false, accessChecked=false, allowed=false;
-  const add=async()=>{
-    if(done||document.getElementById('school-service-menu-item')) return;
-    // panel.bundle initializes authentication/fetch after this defer script.
-    // Do not make the first access request before its Authorization header is captured.
-    try{
-      const a=await api('/api/school-service/access');
-      accessChecked=true; allowed=a?.allowed===true;
-    }catch(_){
-      return;
-    }
-    if(!allowed) return;
-    // سرویس مدارس باید داخل بخش «تاکسی و تاکسیران» باشد، نه انتهای کل منوی پنل.
+  let done=false;
+  const add=()=>{
+    if(done||document.getElementById('school-service-menu-item')) return true;
     const nav=document.querySelector('.side .nav');
-    if(!nav) return;
+    if(!nav) return false;
     const sections=Array.from(nav.querySelectorAll('.navsec'));
     const taxiSection=sections.find(sec=>{
-      const title=String(sec.querySelector('.navsec-head')?.textContent||'')
-        .replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim();
+      const title=String(sec.querySelector('.navsec-head')?.textContent||'').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim();
       return title.includes('تاکسی') || title.includes('تاکسیران');
     });
     const host=taxiSection?.querySelector('.navsec-body');
-    if(!host) return;
+    if(!host) return false;
     const btn=document.createElement('button');
-    btn.id='school-service-menu-item';
-    btn.type='button';
-    btn.className='navitem';
+    btn.id='school-service-menu-item'; btn.type='button'; btn.className='navitem';
     btn.innerHTML='<span class="ic" aria-hidden="true">🏫</span><span class="navlabel">سرویس مدارس</span>';
     btn.onclick=()=>open().catch(e=>alert(e.message||'دسترسی به سرویس مدارس ممکن نیست.'));
     host.appendChild(btn);
-    // پنل برای آیتم‌های موجود ارتفاع navsec-body را از قبل محاسبه می‌کند.
-    // چون این آیتم بعد از ساخت منو اضافه می‌شود، ارتفاع را فوراً با محتوای جدید هماهنگ می‌کنیم
-    // تا متن/دکمه «سرویس مدارس» بریده نشود.
-    const refreshNavHeight=()=>{
-      try{
-        if(host.closest('.navsec')?.classList.contains('open')){
-          host.style.maxHeight=host.scrollHeight+'px';
-          host.style.opacity='1';
-        }
-      }catch(_){}
-    };
-    refreshNavHeight();
-    requestAnimationFrame(refreshNavHeight);
-    setTimeout(refreshNavHeight,60);
-    setTimeout(refreshNavHeight,300);
-    done=true;
+    const refresh=()=>{try{host.style.maxHeight=host.scrollHeight+'px';host.style.opacity='1'}catch(_){}};
+    refresh(); requestAnimationFrame(refresh); setTimeout(refresh,100); setTimeout(refresh,500);
+    done=true; return true;
   };
-  // panel.bundle may not have completed its first authenticated request yet.
-  // Keep observing for up to 60 seconds instead of giving up after 15 seconds.
-  for(let i=0;i<120&&!done;i++){
-    await add();
-    if(!done) await new Promise(r=>setTimeout(r,500));
-  }
-})();
-})();
+  for(let i=0;i<120&&!done;i++){if(!add()) await new Promise(r=>setTimeout(r,500));}
+}
