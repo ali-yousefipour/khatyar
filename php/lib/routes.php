@@ -13214,54 +13214,116 @@ function _ssv_plate($b){
   if($c!==''&&strlen($c)!==2)Http::error('بخش دورقمی پلاک باید دقیقاً ۲ رقم باشد',422);
   return [$a?:null,$l?:null,$c?:null];
 }
+function _ssv_xlsx_cell_value($cell,$shared){
+  $type=(string)($cell['t']??'');
+  if($type==='s') return (string)($shared[(int)$cell->v]??'');
+  if($type==='inlineStr'){
+    $parts=$cell->xpath('.//t');$v='';
+    foreach((array)$parts as $part)$v.=(string)$part;
+    return $v;
+  }
+  if($type==='str') return (string)$cell->v;
+  return (string)$cell->v;
+}
 function _ssv_xlsx_rows($file){
   if(!class_exists('ZipArchive')) Http::error('امکان خواندن فایل Excel روی سرور فعال نیست.',500);
   if(!$file||($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) Http::error('فایل Excel دریافت نشد.',422);
+  $name=strtolower((string)($file['name']??''));
+  if($name!==''&&!preg_match('/\.xlsx$/',$name)) Http::error('فقط فایل Excel با فرمت xlsx قابل ورود است.',422);
   $z=new ZipArchive();if($z->open($file['tmp_name'])!==true)Http::error('فایل Excel معتبر نیست.',422);
-  $shared=[];$sx=$z->getFromName('xl/sharedStrings.xml');
-  if($sx!==false){$xml=@simplexml_load_string($sx);if($xml)foreach($xml->si as $si){$t='';foreach($si->xpath('.//t') as $x)$t.=(string)$x;$shared[]=$t;}}
-  $wb=@simplexml_load_string((string)$z->getFromName('xl/workbook.xml'));$rels=@simplexml_load_string((string)$z->getFromName('xl/_rels/workbook.xml.rels'));
+  $shared=[];
+  $sx=$z->getFromName('xl/sharedStrings.xml');
+  if($sx!==false){
+    $xml=@simplexml_load_string($sx);
+    if($xml){
+      foreach($xml->si as $si){
+        $parts=$si->xpath('.//t');$v='';
+        foreach((array)$parts as $part)$v.=(string)$part;
+        $shared[]=$v;
+      }
+    }
+  }
+  $wb=@simplexml_load_string((string)$z->getFromName('xl/workbook.xml'));
+  $rels=@simplexml_load_string((string)$z->getFromName('xl/_rels/workbook.xml.rels'));
   $sheets=[];
-  if($wb){$ns=$wb->getDocNamespaces(true);$wb->registerXPathNamespace('m',$ns['']??'http://schemas.openxmlformats.org/spreadsheetml/2006/main');$relsNs=$rels?$rels->getDocNamespaces(true):[];$rels->registerXPathNamespace('r',$relsNs['']??'http://schemas.openxmlformats.org/package/2006/relationships');$relsMap=[];if($rels)foreach($rels->Relationship as $rr)$relsMap[(string)$rr['Id']]=(string)$rr['Target'];foreach($wb->xpath('//m:sheets/m:sheet') as $sh){$rid=(string)$sh->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'];$target=$relsMap[$rid]??'';$target=ltrim($target,'/');if(strpos($target,'xl/')!==0)$target='xl/'.$target;$sheets[]=[(string)$sh['name'],$target];}}
+  if($wb){
+    $ns=$wb->getDocNamespaces(true);$wb->registerXPathNamespace('m',$ns['']??'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+    $relsNs=$rels?$rels->getDocNamespaces(true):[];$rels&&$rels->registerXPathNamespace('r',$relsNs['']??'http://schemas.openxmlformats.org/package/2006/relationships');
+    $relsMap=[];
+    if($rels)foreach($rels->Relationship as $rr)$relsMap[(string)$rr['Id']]=(string)$rr['Target'];
+    foreach($wb->xpath('//m:sheets/m:sheet') as $sh){
+      $rid=(string)$sh->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'];
+      $target=$relsMap[$rid]??'';$target=ltrim($target,'/');
+      if(strpos($target,'xl/')!==0)$target='xl/'.$target;
+      if($target!=='xl/')$sheets[]=[(string)$sh['name'],$target];
+    }
+  }
   $out=[];
-  foreach($sheets as [$name,$path]){
-    $xml=@simplexml_load_string((string)$z->getFromName($path));if(!$xml)continue;$ns=$xml->getDocNamespaces(true);$xml->registerXPathNamespace('m',$ns['']??'http://schemas.openxmlformats.org/spreadsheetml/2006/main');$rows=[];
-    foreach($xml->xpath('//m:sheetData/m:row') as $row){$cells=[];foreach($row->c as $cell){$ref=(string)$cell['r'];preg_match('/([A-Z]+)\d+/',$ref,$mm);$col=0;foreach(str_split($mm[1]??'A') as $ch)$col=$col*26+(ord($ch)-64);$v=(string)$cell->v;if((string)$cell['t']==='s')$v=$shared[(int)$v]??'';elseif((string)$cell['t']==='inlineStr')$v=implode('',array_map('strval',$cell->is->t??[]));$cells[$col]=$v;}if($cells)$rows[]=$cells;}
-    $out[$name]=$rows;
+  foreach($sheets as [$sheetName,$path]){
+    $raw=$z->getFromName($path);if($raw===false)continue;
+    $xml=@simplexml_load_string($raw);if(!$xml)continue;
+    $ns=$xml->getDocNamespaces(true);$xml->registerXPathNamespace('m',$ns['']??'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+    $rows=[];
+    foreach($xml->xpath('//m:sheetData/m:row') as $row){
+      $cells=[];
+      foreach($row->c as $cell){
+        $ref=(string)$cell['r'];$mm=[];preg_match('/([A-Z]+)\\d+/',$ref,$mm);
+        $col=0;foreach(str_split($mm[1]??'A') as $ch)$col=$col*26+(ord($ch)-64);
+        $cells[$col]=_ssv_xlsx_cell_value($cell,$shared);
+      }
+      if($cells)$rows[]=$cells;
+    }
+    if($rows)$out[$sheetName]=$rows;
   }
   $z->close();return $out;
+}
+function _ssv_header_key($v){
+  $v=_ssv_norm($v);
+  $v=preg_replace('/[\x{061F}\x{060C},:؛;|\\\/()\[\]{}«»"\']+/u',' ',$v);
+  return preg_replace('/\s+/u','',$v);
 }
 function _ssv_sheet_records($rows){
   if(count($rows)<2)return [];
   $aliases=[
-    'code'=>['کد مدرسه','شناسه مدرسه','کد مدرسه/شناسه','کد'],
-    'school'=>['نام مدرسه','نام مدرسه محل خدمت','نام مدرسه ','مدرسه'],
-    'district'=>['ناحیه آموزشی','ناحیه آموزش و پرورش','ناحیه','منطقه آموزشی','منطقه'],
-    'gender'=>['نوع مدرسه','جنسیت مدرسه','جنسیت','نوع'],
-    'company'=>['شرکت مجری سرویس دانش‌آموزی','شرکت مجری سرویس دانش آموزی','شرکت مجری','شرکت سرویس‌دهنده','شرکت سرویس دهنده','شرکت'],
-    'manager'=>['مدیر شرکت','مدیرعامل','نام مدیر'],
+    'code'=>['کد مدرسه','شناسه مدرسه','کد مدرسه/شناسه','شناسه','کد'],
+    'school'=>['نام مدرسه','نام مدرسه محل خدمت','نام محل خدمت','مدرسه','نام مدرسه محل'],
+    'district'=>['ناحیه آموزشی','ناحیه آموزش و پرورش','ناحیه','منطقه آموزشی','منطقه','ناحیه مدرسه'],
+    'gender'=>['نوع مدرسه','جنسیت مدرسه','جنسیت','نوع مدرسه دخترانه پسرانه','نوع'],
+    'company'=>['شرکت مجری سرویس دانش‌آموزی','شرکت مجری سرویس دانش آموزی','شرکت مجری','شرکت سرویس‌دهنده','شرکت سرویس دهنده','نام شرکت','شرکت'],
+    'manager'=>['مدیر شرکت','مدیرعامل','نام مدیر','مدیر'],
     'phone'=>['تلفن شرکت','شماره تماس','شماره تلفن','موبایل','تلفن'],
-    'address'=>['آدرس','نشانی']
+    'address'=>['آدرس','نشانی','آدرس مدرسه','آدرس شرکت']
   ];
-  $headerRow=-1;$map=[];
-  $limit=min(count($rows),15);
-  $score=function($row)use($aliases){
-    $vals=array_map('_ssv_norm',$row);$score=0;$found=[];
-    foreach($aliases as $key=>$list){foreach($list as $a){$a=_ssv_norm($a);foreach($vals as $i=>$v){if($v!==''&&($v===$a || (mb_strlen($a)>=5 && mb_strpos($v,$a)!==false))){$found[$key]=$i;break 2;}}}}
+  $headerRow=-1;$map=[];$best=[0,[],0];
+  $limit=min(count($rows),30);
+  for($ri=0;$ri<$limit;$ri++){
+    $vals=[];foreach($rows[$ri] as $ci=>$v)$vals[$ci]=_ssv_header_key($v);
+    $found=[];$score=0;
+    foreach($aliases as $key=>$list){
+      foreach($list as $alias){
+        $ak=_ssv_header_key($alias);if($ak==='')continue;
+        foreach($vals as $ci=>$v){
+          if($v==='' )continue;
+          if($v===$ak || mb_strlen($ak)>=4 && (mb_strpos($v,$ak)!==false || mb_strpos($ak,$v)!==false)){
+            $found[$key]=$ci;break 2;
+          }
+        }
+      }
+    }
     if(isset($found['school']))$score+=5;
     if(isset($found['company']))$score+=5;
     if(isset($found['code']))$score+=1;
     if(isset($found['district']))$score+=1;
     if(isset($found['gender']))$score+=1;
-    return [$score,$found];
-  };
-  $best=[0,[]];
-  for($i=0;$i<$limit;$i++){[$sc,$mp]=$score($rows[$i]);if($sc>$best[0])$best=[$sc,$mp,$i];}
+    if(isset($found['manager']))$score+=1;
+    if($score>$best[0])$best=[$score,$found,$ri];
+  }
+  // شرکت‌ها و مدارس ممکن است در دو شیت جدا باشند؛ وجود حداقل یکی از دو ستون اصلی کافی است.
   if($best[0]<5)return [];
-  $headerRow=(int)$best[2];$map=$best[1];
-  $out=[];
+  $map=$best[1];$headerRow=(int)$best[2];$out=[];
   for($r=$headerRow+1;$r<count($rows);$r++){
-    $x=$rows[$r];$get=function($k)use($map,$x){$i=$map[$k]??null;return $i===null?'':trim((string)($x[$i]??''));};
+    $x=$rows[$r];
+    $get=function($k)use($map,$x){$i=$map[$k]??null;return $i===null?'':trim((string)($x[$i]??''));};
     $school=_ssv_norm($get('school'));$company=_ssv_norm($get('company'));
     if($school===''&&$company==='')continue;
     $out[]=['code'=>_ssv_norm($get('code')),'school'=>$school,'district'=>_ssv_norm($get('district')),'gender'=>_ssv_norm($get('gender')),'company'=>$company,'manager'=>_ssv_norm($get('manager')),'phone'=>_ssv_norm($get('phone')),'address'=>_ssv_norm($get('address'))];
