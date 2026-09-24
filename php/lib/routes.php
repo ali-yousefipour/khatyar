@@ -13173,6 +13173,8 @@ function _ssv_tables(){
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
   ];
   foreach($sql as $q){try{Db::run($q);}catch(Throwable $e){error_log('school-service table: '.$e->getMessage());}}
+  // نسخه‌های قبلی ممکن است iran_code را VARCHAR(4) ساخته باشند؛ «ایران» پنج کاراکتر فارسی دارد.
+  try{Db::run("ALTER TABLE school_service_inspections MODIFY iran_code VARCHAR(5) NOT NULL DEFAULT 'ایران'");}catch(Throwable $e){error_log('school-service iran_code: '.$e->getMessage());}
   $viol=['عدم اعتبار معاینه فنی','عدم اعتبار بیمه شخص ثالث','سرنشین اضافی','راننده غیر مجاز','داشتن یا نداشتن گواهی صلاحیت معتبر','عدم توجه به فرمان و ایست'];
   foreach($viol as $i=>$v){try{Db::run("INSERT IGNORE INTO school_service_violation_types(title,sort_order) VALUES(?,?)",[$v,$i]);}catch(Throwable $e){}}
   try{
