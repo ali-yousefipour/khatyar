@@ -13050,6 +13050,17 @@ route('POST','/api/inventory/reject/{id}',function($p,$b,$u){
 
 
 /* ================= سرویس مدارس ================= */
+function _ssv_school_company_validate($schoolId,$companyId,$district=''){
+  $schoolId=(int)$schoolId;$companyId=(int)$companyId;$district=_ssv_norm($district);
+  if($companyId>0&&!Db::one("SELECT id FROM school_service_companies WHERE id=? AND is_active=1",[$companyId]))Http::error('شرکت سرویس انتخاب‌شده معتبر یا فعال نیست.',422);
+  if($schoolId>0){
+    $school=Db::one("SELECT id,educational_district FROM school_service_schools WHERE id=? AND is_active=1",[$schoolId]);
+    if(!$school)Http::error('مدرسه انتخاب‌شده معتبر یا فعال نیست.',422);
+    $sd=_ssv_norm($school['educational_district']??'');
+    if($district!==''&&$sd!==''&&$sd!==$district)Http::error('ناحیه آموزشی با ناحیه ثبت‌شده مدرسه یکسان نیست.',422);
+    if($companyId>0&&!Db::one("SELECT school_id FROM school_service_school_companies WHERE school_id=? AND company_id=?",[$schoolId,$companyId]))Http::error('شرکت انتخاب‌شده مجری این مدرسه نیست.',422);
+  }
+}
 function _ssv_tables(){
   static $done=false; if($done) return; $done=true;
   $sql=[
