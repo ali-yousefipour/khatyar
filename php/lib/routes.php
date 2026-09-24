@@ -13290,14 +13290,15 @@ function _ssv_sheet_records($rows){
   // قالب رسمی ورود سرویس مدارس ثابت است و داده‌ها بر اساس «محل ستون» خوانده می‌شوند.
   // بنابراین عنوان ستون‌ها عمداً بررسی یا تشخیص داده نمی‌شود.
   // ترتیب ثابت قالب:
-  // 0: کد مدرسه
-  // 1: نام مدرسه
-  // 2: ناحیه آموزشی
-  // 3: نوع مدرسه
-  // 4: شرکت مجری سرویس دانش‌آموزی
-  // 5: مدیر شرکت
-  // 6: تلفن شرکت
-  // 7: آدرس
+  // Excel columns are 1-based in _ssv_xlsx_rows_v2():
+  // 1=A: کد مدرسه
+  // 2=B: نام مدرسه
+  // 3=C: ناحیه آموزشی
+  // 4=D: نوع مدرسه
+  // 5=E: شرکت مجری سرویس دانش‌آموزی
+  // 6=F: مدیر شرکت
+  // 7=G: تلفن شرکت
+  // 8=H: آدرس
   if(count($rows)<2)return [];
 
   $out=[];
@@ -13306,21 +13307,21 @@ function _ssv_sheet_records($rows){
     $x=$rows[$r]??[];
     $get=function($i)use($x){return trim((string)($x[$i]??''));};
 
-    $school=_ssv_norm($get(1));
-    $company=_ssv_norm($get(4));
+    $school=_ssv_norm($get(2));
+    $company=_ssv_norm($get(5));
 
     // ردیف کاملاً خالی وارد نشود.
     if($school===''&&$company==='')continue;
 
     $out[]=[
-      'code'=>_ssv_norm($get(0)),
+      'code'=>_ssv_norm($get(1)),
       'school'=>$school,
-      'district'=>_ssv_norm($get(2)),
-      'gender'=>_ssv_norm($get(3)),
+      'district'=>_ssv_norm($get(3)),
+      'gender'=>_ssv_norm($get(4)),
       'company'=>$company,
-      'manager'=>_ssv_norm($get(5)),
-      'phone'=>trim((string)$get(6)),
-      'address'=>_ssv_norm($get(7))
+      'manager'=>_ssv_norm($get(6)),
+      'phone'=>trim((string)$get(7)),
+      'address'=>_ssv_norm($get(8))
     ];
   }
   return $out;
