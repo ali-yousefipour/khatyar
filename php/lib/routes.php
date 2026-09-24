@@ -13105,7 +13105,7 @@ function _ssv_tables(){
       plate_three VARCHAR(3) NULL,
       plate_letter VARCHAR(5) NULL,
       plate_two VARCHAR(2) NULL,
-      iran_code VARCHAR(4) NOT NULL DEFAULT 'ایران',
+      iran_code VARCHAR(5) NOT NULL DEFAULT 'ایران',
       vehicle_type VARCHAR(100) NULL,
       vehicle_color VARCHAR(80) NULL,
       passenger_count INT NOT NULL DEFAULT 0,
