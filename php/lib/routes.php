@@ -13098,6 +13098,7 @@ function _ssv_tables(){
     "CREATE TABLE IF NOT EXISTS school_service_inspections (
       id BIGINT AUTO_INCREMENT PRIMARY KEY,
       inspector_user_id INT NOT NULL,
+      client_uuid VARCHAR(80) NULL,
       educational_district VARCHAR(80) NULL,
       company_id INT NULL,
       school_id INT NULL,
@@ -13178,6 +13179,8 @@ function _ssv_tables(){
   foreach($sql as $q){try{Db::run($q);}catch(Throwable $e){error_log('school-service table: '.$e->getMessage());}}
   // نسخه‌های قبلی ممکن است iran_code را VARCHAR(4) ساخته باشند؛ «ایران» پنج کاراکتر فارسی دارد.
   try{Db::run("ALTER TABLE school_service_inspections MODIFY iran_code VARCHAR(5) NOT NULL DEFAULT 'ایران'");}catch(Throwable $e){error_log('school-service iran_code: '.$e->getMessage());}
+  try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN client_uuid VARCHAR(80) NULL AFTER inspector_user_id");}catch(Throwable $e){}
+  try{Db::run("ALTER TABLE school_service_inspections ADD UNIQUE KEY uq_ssi_client_uuid(client_uuid)");}catch(Throwable $e){}
   try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN plate_region VARCHAR(2) NULL AFTER plate_two");}catch(Throwable $e){}
   try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN passenger_front_count INT NOT NULL DEFAULT 0 AFTER vehicle_color");}catch(Throwable $e){}
   try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN passenger_rear_count INT NOT NULL DEFAULT 0 AFTER passenger_front_count");}catch(Throwable $e){}
