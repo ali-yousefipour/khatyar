@@ -55,5 +55,4 @@ window.openSchoolService = open;
     done=true; return true;
   };
   for(let i=0;i<120&&!done;i++){if(!add()) await new Promise(r=>setTimeout(r,500));}
-}
 })();
