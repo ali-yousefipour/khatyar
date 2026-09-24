@@ -13287,68 +13287,40 @@ function _ssv_header_key($v){
   return preg_replace('/\\s+/u','',$v);
 }
 function _ssv_sheet_records($rows){
+  // قالب رسمی ورود سرویس مدارس ثابت است و داده‌ها بر اساس «محل ستون» خوانده می‌شوند.
+  // بنابراین عنوان ستون‌ها عمداً بررسی یا تشخیص داده نمی‌شود.
+  // ترتیب ثابت قالب:
+  // 0: کد مدرسه
+  // 1: نام مدرسه
+  // 2: ناحیه آموزشی
+  // 3: نوع مدرسه
+  // 4: شرکت مجری سرویس دانش‌آموزی
+  // 5: مدیر شرکت
+  // 6: تلفن شرکت
+  // 7: آدرس
   if(count($rows)<2)return [];
-  $aliases=[
-    'code'=>['کد مدرسه','شناسه مدرسه','کد مدرسه/شناسه','شناسه مدرسه','شناسه','کد'],
-    'school'=>['نام مدرسه','نام مدرسه محل خدمت','نام محل خدمت','نام مدرسه و آموزشگاه','مدرسه','نام مدرسه محل'],
-    'district'=>['ناحیه آموزشی','ناحیه آموزش و پرورش','ناحیه آموزش‌وپرورش','ناحیه','منطقه آموزشی','منطقه','ناحیه مدرسه'],
-    'gender'=>['نوع مدرسه','جنسیت مدرسه','جنسیت','نوع مدرسه دخترانه پسرانه','نوع'],
-    'company'=>['شرکت مجری سرویس دانش‌آموزی','شرکت مجری سرویس دانش آموزی','شرکت مجری سرویس','شرکت مجری','شرکت سرویس‌دهنده','شرکت سرویس دهنده','نام شرکت','شرکت'],
-    'manager'=>['مدیر شرکت','مدیرعامل شرکت','مدیرعامل','نام مدیر','مدیر'],
-    'phone'=>['تلفن شرکت','شماره تماس شرکت','شماره تماس','شماره تلفن','موبایل','تلفن'],
-    'address'=>['آدرس مدرسه','آدرس شرکت','آدرس','نشانی']
-  ];
-  $best=[0,[],0];
-  $limit=min(count($rows),40);
-  for($ri=0;$ri<$limit;$ri++){
-    $vals=[];foreach($rows[$ri] as $ci=>$v)$vals[$ci]=_ssv_header_key($v);
-    $found=[];$score=0;
-    foreach($aliases as $key=>$list){
-      foreach($list as $alias){
-        $ak=_ssv_header_key($alias);if($ak==='')continue;
-        foreach($vals as $ci=>$v){
-          if($v==='')continue;
-          if($v===$ak || (mb_strlen($ak)>=4 && (mb_strpos($v,$ak)!==false || mb_strpos($ak,$v)!==false))){
-            if(!isset($found[$key]))$found[$key]=$ci;
-            break;
-          }
-        }
-        if(isset($found[$key]))break;
-      }
-    }
-    if(isset($found['school']))$score+=5;
-    if(isset($found['company']))$score+=5;
-    foreach(['code','district','gender','manager','phone','address'] as $k)if(isset($found[$k]))$score++;
-    if($score>$best[0])$best=[$score,$found,$ri];
-  }
-  $map=$best[1];$headerRow=(int)$best[2];
-  // قالب استاندارد سامانه: حتی اگر عنوان‌ها کمی تغییر کرده باشند، ترتیب ستون‌های اصلی ثابت است.
-  // این fallback فقط زمانی فعال می‌شود که حداقل «نام مدرسه» یا «شرکت» از روی عنوان پیدا شده باشد.
-  if(!isset($map['school'])&&!isset($map['company']))return [];
-  if(!isset($map['school']) && count($rows[$headerRow])>=2)$map['school']=0;
-  if(!isset($map['code']) && isset($map['school']))$map['code']=0;
-  if(!isset($map['district']) && isset($map['school']))$map['district']=2;
-  if(!isset($map['gender']) && isset($map['school']))$map['gender']=3;
-  if(!isset($map['company']) && count($rows[$headerRow])>=5)$map['company']=4;
-  if(!isset($map['manager']) && count($rows[$headerRow])>=6)$map['manager']=5;
-  if(!isset($map['phone']) && count($rows[$headerRow])>=7)$map['phone']=6;
-  if(!isset($map['address']) && count($rows[$headerRow])>=8)$map['address']=7;
 
   $out=[];
-  for($r=$headerRow+1;$r<count($rows);$r++){
-    $x=$rows[$r];
-    $get=function($k)use($map,$x){$i=$map[$k]??null;return $i===null?'':trim((string)($x[$i]??''));};
-    $school=_ssv_norm($get('school'));$company=_ssv_norm($get('company'));
+  // ردیف اول قالب، ردیف عنوان است و همیشه نادیده گرفته می‌شود.
+  for($r=1;$r<count($rows);$r++){
+    $x=$rows[$r]??[];
+    $get=function($i)use($x){return trim((string)($x[$i]??''));};
+
+    $school=_ssv_norm($get(1));
+    $company=_ssv_norm($get(4));
+
+    // ردیف کاملاً خالی وارد نشود.
     if($school===''&&$company==='')continue;
+
     $out[]=[
-      'code'=>_ssv_norm($get('code')),
+      'code'=>_ssv_norm($get(0)),
       'school'=>$school,
-      'district'=>_ssv_norm($get('district')),
-      'gender'=>_ssv_norm($get('gender')),
+      'district'=>_ssv_norm($get(2)),
+      'gender'=>_ssv_norm($get(3)),
       'company'=>$company,
-      'manager'=>_ssv_norm($get('manager')),
-      'phone'=>_ssv_norm($get('phone')),
-      'address'=>_ssv_norm($get('address'))
+      'manager'=>_ssv_norm($get(5)),
+      'phone'=>trim((string)$get(6)),
+      'address'=>_ssv_norm($get(7))
     ];
   }
   return $out;
