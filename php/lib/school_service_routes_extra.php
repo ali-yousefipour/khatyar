@@ -25,17 +25,23 @@ route('POST','/api/school-service/inspections-with-photo',function($p,$b,$u){
  _ssv_school_company_validate($schoolId??0,$companyId??0,$district);
  $gender=in_array($body['school_gender']??'',['دخترانه','پسرانه','نامشخص'],true)?$body['school_gender']:'نامشخص';$dg=in_array($body['driver_gender']??'',['خانم','آقا','نامشخص'],true)?$body['driver_gender']:'نامشخص';$cert=in_array($body['certificate_status']??'',['معتبر','نامعتبر','ارائه نشد'],true)?$body['certificate_status']:'ارائه نشد';
  $pass=max(0,(int)($body['passenger_count']??0));$date=_ssv_en($body['violation_date']??'');$time=trim((string)($body['violation_time']??''));if($date!==''&&!preg_match('/^14\d{2}[\/-]\d{1,2}[\/-]\d{1,2}$/',$date))Http::error('تاریخ ثبت تخلف نامعتبر است.',422);if($time!==''&&!preg_match('/^(?:[01]?\d|2[0-3]):[0-5]\d$/',$time))Http::error('ساعت ثبت تخلف نامعتبر است.',422);[$lat,$lng]=validGeo($body['latitude']??null,$body['longitude']??null);
- $f=$_FILES['file']??null;if(!$f||($f['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK)Http::error('تصویر خودرو دریافت نشد.',422);if(($f['size']??0)>20*1024*1024)Http::error('حجم فایل اولیه بیش از حد مجاز است.',422);
- $raw=@file_get_contents($f['tmp_name']);if(!is_string($raw)||$raw===''||@getimagesizefromstring($raw)===false)Http::error('فرمت تصویر پشتیبانی نمی‌شود.',422);
+ $f=$_FILES['file']??null;
+ $hasPhoto=$f&&($f['error']??UPLOAD_ERR_NO_FILE)===UPLOAD_ERR_OK;
+ if($hasPhoto&&($f['size']??0)>20*1024*1024)Http::error('حجم فایل اولیه بیش از حد مجاز است.',422);
+ $raw=null;
+ if($hasPhoto){$raw=@file_get_contents($f['tmp_name']);if(!is_string($raw)||$raw===''||@getimagesizefromstring($raw)===false)Http::error('فرمت تصویر پشتیبانی نمی‌شود.',422);}
  $pdo=Db::pdo();$pdo->beginTransaction();$path=null;
  try{
    Db::run("INSERT INTO school_service_inspections(inspector_user_id,client_uuid,educational_district,company_id,school_id,school_gender,plate_three,plate_letter,plate_two,iran_code,vehicle_type,vehicle_color,passenger_count,driver_gender,certificate_status,violation_date,violation_time,location_text,latitude,longitude,description) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",[(int)$u['id'],$clientUuid?:null,$district,$companyId,$schoolId,$gender,$a,$l,$pc,'ایران',$vehicleType,$vehicleColor,$pass,$dg,$cert,$date?:null,$time?:null,_ssv_norm($body['location_text']??'')?:null,$lat,$lng,trim((string)($body['description']??''))?:null]);
    $id=(int)$pdo->lastInsertId();
    foreach((array)$viol as $vid){$vid=(int)$vid;if(Db::one("SELECT id FROM school_service_violation_types WHERE id=? AND is_active=1",[$vid]))Db::run("INSERT IGNORE INTO school_service_inspection_violations(inspection_id,violation_type_id) VALUES(?,?)",[$id,$vid]);}
-   $dir=__DIR__.'/../public/uploads/school-service';if(!is_dir($dir)&&!@mkdir($dir,0755,true))throw new RuntimeException('پوشه ذخیره تصاویر قابل ایجاد نیست.');
-   $name='inspection_'.$id.'_'.bin2hex(random_bytes(8)).'.jpg';$path=$dir.'/'.$name;if(!LineImageCompressor::fromBinary($raw,$path))throw new RuntimeException('فشرده‌سازی تصویر با تنظیمات عمومی سایت ناموفق بود.');
-   $info=@getimagesize($path);$size=(int)(@filesize($path)?:0);$rel='/uploads/school-service/'.$name;Db::run("INSERT INTO school_service_inspection_photos(inspection_id,file_path,mime_type,width,height,file_size) VALUES(?,?,?,?,?,?)",[$id,$rel,'image/jpeg',(int)($info[0]??0),(int)($info[1]??0),$size]);
-   $pdo->commit();return ['ok'=>true,'id'=>$id,'photo'=>['file_path'=>$rel,'file_size'=>$size]];
+   $photoInfo=null;
+   if($hasPhoto){
+     $dir=__DIR__.'/../public/uploads/school-service';if(!is_dir($dir)&&!@mkdir($dir,0755,true))throw new RuntimeException('پوشه ذخیره تصاویر قابل ایجاد نیست.');
+     $name='inspection_'.$id.'_'.bin2hex(random_bytes(8)).'.jpg';$path=$dir.'/'.$name;if(!LineImageCompressor::fromBinary($raw,$path))throw new RuntimeException('فشرده‌سازی تصویر با تنظیمات عمومی سایت ناموفق بود.');
+     $info=@getimagesize($path);$size=(int)(@filesize($path)?:0);$rel='/uploads/school-service/'.$name;Db::run("INSERT INTO school_service_inspection_photos(inspection_id,file_path,mime_type,width,height,file_size) VALUES(?,?,?,?,?,?)",[$id,$rel,'image/jpeg',(int)($info[0]??0),(int)($info[1]??0),$size]);$photoInfo=['file_path'=>$rel,'file_size'=>$size];
+   }
+   $pdo->commit();return ['ok'=>true,'id'=>$id,'photo'=>$photoInfo];
  }catch(Throwable $e){if($path)@unlink($path);if($pdo->inTransaction())$pdo->rollBack();throw $e;}
 },false,99);
 route('POST','/api/school-service/inspections/{id}/photos',function($p,$b,$u){
