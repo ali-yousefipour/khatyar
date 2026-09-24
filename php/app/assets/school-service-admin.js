@@ -63,6 +63,21 @@ window.openSchoolService = open;
     btn.innerHTML='<span class="ic" aria-hidden="true">🏫</span><span class="navlabel">سرویس مدارس</span>';
     btn.onclick=()=>open().catch(e=>alert(e.message||'دسترسی به سرویس مدارس ممکن نیست.'));
     host.appendChild(btn);
+    // پنل برای آیتم‌های موجود ارتفاع navsec-body را از قبل محاسبه می‌کند.
+    // چون این آیتم بعد از ساخت منو اضافه می‌شود، ارتفاع را فوراً با محتوای جدید هماهنگ می‌کنیم
+    // تا متن/دکمه «سرویس مدارس» بریده نشود.
+    const refreshNavHeight=()=>{
+      try{
+        if(host.closest('.navsec')?.classList.contains('open')){
+          host.style.maxHeight=host.scrollHeight+'px';
+          host.style.opacity='1';
+        }
+      }catch(_){}
+    };
+    refreshNavHeight();
+    requestAnimationFrame(refreshNavHeight);
+    setTimeout(refreshNavHeight,60);
+    setTimeout(refreshNavHeight,300);
     done=true;
   };
   // panel.bundle may not have completed its first authenticated request yet.
