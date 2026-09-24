@@ -13128,6 +13128,18 @@ function _ssv_tables(){
       KEY idx_ssi_school(school_id,created_at),
       KEY idx_ssi_date(violation_date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_inspection_photos (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      inspection_id BIGINT NOT NULL,
+      file_path VARCHAR(500) NOT NULL,
+      mime_type VARCHAR(100) NOT NULL DEFAULT 'image/jpeg',
+      width INT NOT NULL DEFAULT 0,
+      height INT NOT NULL DEFAULT 0,
+      file_size INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_ssip_inspection(inspection_id),
+      CONSTRAINT fk_ssip_inspection FOREIGN KEY(inspection_id) REFERENCES school_service_inspections(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     "CREATE TABLE IF NOT EXISTS school_service_inspection_violations (
       inspection_id BIGINT NOT NULL,
       violation_type_id INT NOT NULL,
