@@ -2,6 +2,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const root = path.resolve(__dirname, '..');
 
 function fail(message, error) {
   console.error(`[babel-check] ${message}`);
