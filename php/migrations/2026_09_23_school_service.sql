@@ -148,6 +148,22 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='client_uuid'),'SELECT 1','ALTER TABLE school_service_inspections ADD COLUMN client_uuid VARCHAR(80) NULL');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- تکمیل قطعی ساختار جداول seed برای دیتابیس‌های قدیمی
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_violation_types' AND COLUMN_NAME='sort_order'),'SELECT 1','ALTER TABLE school_service_violation_types ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_violation_types' AND COLUMN_NAME='is_active'),'SELECT 1','ALTER TABLE school_service_violation_types ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_vehicle_types' AND COLUMN_NAME='sort_order'),'SELECT 1','ALTER TABLE school_service_vehicle_types ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_vehicle_types' AND COLUMN_NAME='is_active'),'SELECT 1','ALTER TABLE school_service_vehicle_types ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_vehicle_colors' AND COLUMN_NAME='sort_order'),'SELECT 1','ALTER TABLE school_service_vehicle_colors ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_vehicle_colors' AND COLUMN_NAME='is_active'),'SELECT 1','ALTER TABLE school_service_vehicle_colors ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- جداول قدیمی ممکن است فقط title را داشته باشند.
 SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_districts' AND COLUMN_NAME='sort_order'),'SELECT 1','ALTER TABLE school_service_districts ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
