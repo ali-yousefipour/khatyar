@@ -376,23 +376,7 @@ $loginHandler = function ($p, $b) {
   $password = (string)($b['password'] ?? '');
   $dev = $b['device_id'] ?? ''; if (strlen($dev) < 6) Http::error('ورودی نامعتبر', 400);
   $dtype = (($b['device_type'] ?? 'web') === 'android') ? 'android' : 'web';
-  // این بررسی نباید با JSON_EXTRACT روی کل activity_logs باعث کندی ورود شود.
-  // ایندکس event/created_at فقط آخرین رخدادها را می‌خواند و تطبیق نام کاربری در PHP انجام می‌شود.
-  $fails = 0;
-  try {
-    $recentFailures = Db::all("SELECT meta FROM activity_logs
-      WHERE event='login_failed' AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)
-      ORDER BY created_at DESC LIMIT 200");
-    foreach ($recentFailures as $rf) {
-      $meta = json_decode((string)($rf['meta'] ?? ''), true);
-      if (is_array($meta) && in_array((string)($meta['username'] ?? ''), $usernameCandidates, true)) {
-        $fails++;
-        if ($fails >= 5) break;
-      }
-    }
-  } catch (Throwable $e) {
-    // خرابی لاگ نباید مانع ورود شود؛ محدودیت IP در ادامه مستقل بررسی می‌شود.
-    // Login must never scan activity_logs or JSON metadata. Previous versions queried
+  // Login must never scan activity_logs or JSON metadata. Previous versions queried
   // recent login_failed rows from activity_logs, which could become a full/expensive scan
   // on older production databases and make the browser appear to hang.
   $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
