@@ -381,7 +381,12 @@ $loginHandler = function ($p, $b) {
   // این ترتیب از نادیده‌گرفته‌شدن معافیت به‌علت جست‌وجوی مقدماتی نام کاربری جلوگیری می‌کند.
   // ساختار ستون‌های users در migration 2026_09_25_core_runtime_repair.sql هم‌تراز می‌شود؛
   // در مسیر Login نباید ALTER TABLE/SHOW COLUMNS اجرا شود چون می‌تواند metadata lock ایجاد کند.
+  // ابتدا جستجوی مستقیم (قابل استفاده از ایندکس)؛ اگر نصب قدیمی در username فاصلهٔ ابتدا/انتها داشته باشد،
+  // برای سازگاری با رفتار قبلی یک fallback محدود با TRIM انجام می‌شود.
   $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=? LIMIT 1", [$username]);
+  if (!$u) {
+    $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE TRIM(u.username)=? LIMIT 1", [$username]);
+  }
   if (!$u || !$u['is_active'] || !password_verify($password, $u['password_hash'])) {
     Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?, 'login_failed', ?)", [$u['id'] ?? null, json_encode(['username'=>$username], JSON_UNESCAPED_UNICODE)]);
     if (!empty($ip)) { try { Db::run("INSERT INTO login_ip_attempts(ip) VALUES(?)", [$ip]); } catch (\Throwable $e) {} }
