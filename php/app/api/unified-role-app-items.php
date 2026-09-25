@@ -14,7 +14,32 @@ function kh_read_config($pdo){try{$r=$pdo->query("SELECT value FROM app_settings
 function kh_roles($pdo){$o=[];try{foreach($pdo->query("SELECT id,title FROM roles ORDER BY id") as $r)$o[]=['id'=>(string)$r['id'],'title'=>(string)$r['title']];}catch(Throwable $e){error_log('role_app_items roles: '.$e->getMessage());}return $o;}
 function kh_clean($v){global $allItems;$allowed=array_fill_keys($allItems,true);if(!is_array($v))return []; $o=[];$seen=[];foreach($v as $x){$x=(string)$x;if($x!==''&&isset($allowed[$x])&&!isset($seen[$x])){$seen[$x]=1;$o[]=$x;}}return $o;}
 function kh_normalize_config($cfg){global $allItems;$out=[];if(!is_array($cfg))return $out;foreach($cfg as $rid=>$items){$out[(string)$rid]=kh_clean(is_array($items)?$items:[]);}return $out;}
-function kh_default_school_service_roles($pdo,$cfg,$roles){global $allItems;try{$target=['مدیر کل','معاونت بازرسی','رئیس اداره بازرسی','رییس اداره بازرسی','سربازرس ارشد','نیروی اداری ارشد','سربازرس','بازرس','گشت خودرویی','گشت موتوری'];$changed=false;foreach($roles as $r){$rid=(string)$r['id'];$title=trim((string)($r['title']??''));if(!in_array($title,$target,true))continue;$items=array_key_exists($rid,$cfg)&&is_array($cfg[$rid])?$cfg[$rid]:$allItems;if(!in_array('SchoolService',$items,true)){$items[]='SchoolService';$cfg[$rid]=array_values(array_unique($items));$changed=true;}}if($changed){$js=json_encode($cfg,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$st=$pdo->prepare("INSERT INTO app_settings(`key`,value) VALUES('role_app_items',?) ON DUPLICATE KEY UPDATE value=VALUES(value)");$st->execute([$js]);}return $cfg;}catch(Throwable $e){error_log('school service role defaults: '.$e->getMessage());return $cfg;}}
+function kh_default_school_service_roles($pdo,$cfg,$roles){
+  global $allItems;
+  try{
+    // آیتم «بازدید و بازرسی سرویس مدارس» از مجوزهای role_id همان سمت تغذیه می‌شود.
+    // عنوان سمت و level در تعیین دسترسی این آیتم استفاده نمی‌شوند.
+    $changed=false;
+    foreach($roles as $r){
+      $rid=(string)$r['id'];
+      $perm=$pdo->prepare("SELECT can_view,can_create FROM school_service_permissions WHERE role_id=? LIMIT 1");
+      $perm->execute([(int)$rid]);
+      $p=$perm->fetch(PDO::FETCH_ASSOC);
+      if(!$p) continue;
+      $allowed=!empty($p['can_view'])||!empty($p['can_create']);
+      $items=array_key_exists($rid,$cfg)&&is_array($cfg[$rid])?$cfg[$rid]:$allItems;
+      $has=in_array('SchoolService',$items,true);
+      if($allowed&&!$has){$items[]='SchoolService';$cfg[$rid]=array_values(array_unique($items));$changed=true;}
+      if(!$allowed&&$has){$cfg[$rid]=array_values(array_filter($items,function($x){return $x!=='SchoolService';}));$changed=true;}
+    }
+    if($changed){
+      $js=json_encode($cfg,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+      $st=$pdo->prepare("INSERT INTO app_settings(`key`,value) VALUES('role_app_items',?) ON DUPLICATE KEY UPDATE value=VALUES(value)");
+      $st->execute([$js]);
+    }
+    return $cfg;
+  }catch(Throwable $e){error_log('school service role defaults: '.$e->getMessage());return $cfg;}
+}
 function kh_migrate_existing_empty_roles($pdo,$cfg,$roles){global $allItems;try{$marker=$pdo->query("SELECT value FROM app_settings WHERE `key`='role_app_items_empty_roles_migrated_v2' LIMIT 1")->fetchColumn();if((string)$marker==='1')return $cfg;$changed=false;foreach($roles as $r){$rid=(string)$r['id'];if(array_key_exists($rid,$cfg)&&is_array($cfg[$rid])&&count($cfg[$rid])===0){$cfg[$rid]=$allItems;$changed=true;}}if($changed){$js=json_encode($cfg,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$st=$pdo->prepare("INSERT INTO app_settings(`key`,value) VALUES('role_app_items',?) ON DUPLICATE KEY UPDATE value=VALUES(value)");$st->execute([$js]);}$st=$pdo->prepare("INSERT INTO app_settings(`key`,value) VALUES('role_app_items_empty_roles_migrated_v2','1') ON DUPLICATE KEY UPDATE value='1'");$st->execute();return $cfg;}catch(Throwable $e){error_log('role_app_items empty-role migration: '.$e->getMessage());return $cfg;}}
 try{$u=kh_auth_user();$pdo=Db::pdo();$m=$_SERVER['REQUEST_METHOD']??'GET';$roles=kh_roles($pdo);$cfg=kh_normalize_config(kh_read_config($pdo));$cfg=kh_migrate_existing_empty_roles($pdo,$cfg,$roles);$cfg=kh_default_school_service_roles($pdo,$cfg,$roles);
 if($m==='GET'){if(kh_is_admin($u)){echo json_encode(['success'=>true,'roles'=>$roles,'config'=>$cfg,'items'=>$allItems,'default_items'=>$allItems,'source'=>'role_app_items_android_only'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}$rid=(string)($u['role_id']??'');$items=array_key_exists($rid,$cfg)?kh_clean($cfg[$rid]):$allItems;echo json_encode(['success'=>true,'items'=>$items,'source'=>'role_app_items_android_only'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
