@@ -44,6 +44,38 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='profile_completed'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN profile_completed TINYINT(1) NOT NULL DEFAULT 0');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- ارتقای کامل جدول شرکت‌ها برای دیتابیس‌های قدیمی
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='name'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN name VARCHAR(255) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='manager_name'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN manager_name VARCHAR(150) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='phone'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN phone VARCHAR(80) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='ceo_mobile'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN ceo_mobile VARCHAR(80) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='landline_phone'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN landline_phone VARCHAR(80) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='address'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN address VARCHAR(700) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='latitude'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN latitude DECIMAL(10,7) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='longitude'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN longitude DECIMAL(10,7) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='declared_school_count'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN declared_school_count INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='registered_school_count'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN registered_school_count INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='representative_count'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN representative_count INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='profile_completed'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN profile_completed TINYINT(1) NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='is_active'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='created_at'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='updated_at'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 INSERT INTO school_service_companies (id,name,manager_name,phone,ceo_mobile,landline_phone,address,latitude,longitude,declared_school_count,registered_school_count,representative_count,is_active,profile_completed) VALUES
 (92,'آپادانا ترابر بارثاوا','زهره سیاه پور','09157020255','09157020255','9.16E+09','بزرگراه شهید سلیمانی ، شهرک آبادگران پارکینگ جنب مجتمع توریستی و رفاهی آبادگران واحد A','36.27043','59.55056',34,27,1,1,1),
 (83,'آدریان سیر امیران توس','محبوبه عزیزی','09153042102','09153042102','05137659494','بازار بین‌المللی سپاد فاز یک طبقه منفی یک واحد هفت','36.34591','59.59219',20,19,1,1,1),
