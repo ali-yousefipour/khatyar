@@ -365,7 +365,7 @@ $loginHandler = function ($p, $b) {
   $dtype = (($b['device_type'] ?? 'web') === 'android') ? 'android' : 'web';
   $fails = (int) Db::one("SELECT COUNT(*) n FROM activity_logs WHERE event='login_failed'
       AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)
-      AND JSON_UNQUOTE(JSON_EXTRACT(meta,'$.username'))=?", [$username])['n'];
+      AND JSON_UNQUOTE(JSON_EXTRACT(CASE WHEN JSON_VALID(meta) THEN meta ELSE '{}' END,'$.username'))=?", [$username])['n'];
   if ($fails >= 5) Http::error('به‌دلیل تلاش‌های ناموفق متعدد، حساب موقتاً مسدود است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
   // محدودیت اضافی بر اساس IP (مستقل از نام‌کاربری) — جلوگیری از brute-force با نام‌کاربری‌های مختلف
   try {
