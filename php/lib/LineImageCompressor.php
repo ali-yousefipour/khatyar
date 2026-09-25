@@ -91,4 +91,32 @@ final class LineImageCompressor
         $binary = @file_get_contents($tmp);
         return is_string($binary) && self::fromBinary($binary, $absolutePath);
     }
+
+    /**
+     * ذخیره تصویر JPEG که قبلاً در موبایل طبق تنظیمات سایت resize/compress شده است.
+     * اگر تصویر از سقف ابعاد سایت عبور کند یا JPEG نباشد، برای حفظ امنیت و سازگاری
+     * به مسیر normalize سرور برمی‌گردد؛ در حالت عادی از encode مجدد JPEG جلوگیری می‌شود.
+     */
+    public static function storeNormalized(string $binary, string $absolutePath): bool
+    {
+        $cfg = self::settings();
+        $info = @getimagesizefromstring($binary);
+        if (!$info) return false;
+
+        $mime = strtolower((string)($info['mime'] ?? ''));
+        $w = (int)($info[0] ?? 0);
+        $h = (int)($info[1] ?? 0);
+        $dir = dirname($absolutePath);
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) return false;
+
+        // اپ موبایل JPEG نهایی را طبق همین تنظیمات سایت می‌سازد؛ اگر ابعاد مجاز است
+        // همان بایت‌ها را ذخیره می‌کنیم تا یک JPEG دوباره lossy encode نشود.
+        if ($mime === 'image/jpeg' && $w > 0 && $h > 0 &&
+            $w <= (int)$cfg['max_width'] && $h <= (int)$cfg['max_height']) {
+            return @file_put_contents($absolutePath, $binary) !== false;
+        }
+
+        // مسیر امن برای کلاینت قدیمی/فایل غیر JPEG/ابعاد بیش از حد مجاز.
+        return self::fromBinary($binary, $absolutePath);
+    }
 }
