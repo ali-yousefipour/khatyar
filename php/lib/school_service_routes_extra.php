@@ -166,8 +166,69 @@ route('GET','/api/school-service/export-filtered',function($p,$b,$u){
 },false,99);
 
 
+
+function _ssv_company_sheet_records($rows){
+  if(count($rows)<2)return [];
+  $out=[];
+  for($i=1;$i<count($rows);$i++){
+    $x=$rows[$i]??[];
+    $get=function($n)use($x){return trim((string)($x[$n]??''));};
+    $name=_ssv_norm($get(2));
+    if($name==='')continue;
+    $out[]=[
+      'id'=>_ssv_norm($get(1)),
+      'name'=>$name,
+      'manager'=>_ssv_norm($get(3)),
+      'mobile'=>trim($get(4)),
+      'landline'=>trim($get(5)),
+      'address'=>_ssv_norm($get(6)),
+      'latitude'=>trim($get(7)),
+      'longitude'=>trim($get(8)),
+      'declared'=>max(0,(int)_ssv_en($get(9))),
+      'registered'=>max(0,(int)_ssv_en($get(10))),
+      'representatives'=>max(0,(int)_ssv_en($get(11))),
+      'active'=>!in_array(_ssv_norm($get(12)),['غیرفعال','غیر فعال','0','خیر'],true)?1:0,
+      'profile'=>in_array(_ssv_norm($get(13)),['تکمیل‌شده','تکمیل شده','کامل','1','بله'],true)?1:0
+    ];
+  }
+  return $out;
+}
+route('POST','/api/school-service/companies-import-preview',function($p,$b,$u){
+  _ssv_need($u,'import');_ssv_tables();
+  $sheets=_ssv_xlsx_rows_v2($_FILES['file']??null);$records=[];
+  foreach($sheets as $rows)$records=array_merge($records,_ssv_company_sheet_records($rows));
+  $new=0;$existing=0;$errors=[];
+  foreach($records as $r){
+    if($r['id']!==''&&Db::one("SELECT id FROM school_service_companies WHERE id=?",(int)$r['id']))$existing++;
+    elseif(Db::one("SELECT id FROM school_service_companies WHERE name=?",[$r['name']]))$existing++;
+    else$new++;
+    if($r['id']!==''&&!ctype_digit(str_replace(['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'],'',$r['id'])))$errors[]='شناسه نامعتبر برای شرکت: '.$r['name'];
+  }
+  return ['ok'=>true,'rows'=>count($records),'new_companies'=>$new,'existing_companies'=>$existing,'errors'=>array_slice($errors,0,100)];
+});
+route('POST','/api/school-service/companies-import',function($p,$b,$u){
+  _ssv_need($u,'import');_ssv_tables();
+  $sheets=_ssv_xlsx_rows_v2($_FILES['file']??null);$records=[];
+  foreach($sheets as $rows)$records=array_merge($records,_ssv_company_sheet_records($rows));
+  $count=0;$errors=[];
+  foreach($records as $r){
+    try{
+      $id=(int)_ssv_en($r['id']);
+      $lat=$r['latitude']!==''?(float)$r['latitude']:null;$lng=$r['longitude']!==''?(float)$r['longitude']:null;
+      $params=[$r['name'], $r['manager']?:null, $r['mobile']?:null, $r['mobile']?:null, $r['landline']?:null, $r['address']?:null, $lat, $lng, $r['declared'], $r['registered'], $r['representatives'], $r['profile'], $r['active']];
+      if($id>0){
+        Db::run("INSERT INTO school_service_companies(id,name,manager_name,phone,ceo_mobile,landline_phone,address,latitude,longitude,declared_school_count,registered_school_count,representative_count,profile_completed,is_active) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name),manager_name=VALUES(manager_name),phone=VALUES(phone),ceo_mobile=VALUES(ceo_mobile),landline_phone=VALUES(landline_phone),address=VALUES(address),latitude=VALUES(latitude),longitude=VALUES(longitude),declared_school_count=VALUES(declared_school_count),registered_school_count=VALUES(registered_school_count),representative_count=VALUES(representative_count),profile_completed=VALUES(profile_completed),is_active=VALUES(is_active)",array_merge([$id],$params));
+      }else{
+        Db::run("INSERT INTO school_service_companies(name,manager_name,phone,ceo_mobile,landline_phone,address,latitude,longitude,declared_school_count,registered_school_count,representative_count,profile_completed,is_active) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",$params);
+      }
+      $count++;
+    }catch(Throwable $e){$errors[]='شرکت «'.$r['name'].'»: '.$e->getMessage();}
+  }
+  return ['ok'=>true,'companies_count'=>$count,'errors'=>array_slice($errors,0,100)];
+});
+
 route('GET','/api/school-service/companies-page',function($p,$b,$u){
- _ssv_need($u,'view');_ssv_tables();$q=_ssv_norm($_GET['search']??'');$page=max(1,(int)($_GET['page']??1));$size=min(100,max(1,(int)($_GET['page_size']??25)));$where=$q!==''?'WHERE c.name LIKE ?':'WHERE 1';$args=$q!==''?['%'.$q.'%']:[];$total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_companies c $where",$args)['n']??0);$off=($page-1)*$size;$items=Db::all("SELECT c.id,c.name,c.manager_name,c.phone,c.address,c.is_active,COUNT(DISTINCT sc.school_id) school_count FROM school_service_companies c LEFT JOIN school_service_school_companies sc ON sc.company_id=c.id $where GROUP BY c.id ORDER BY c.name LIMIT $size OFFSET $off",$args);return ['items'=>$items,'page'=>$page,'page_size'=>$size,'total'=>$total];
+ _ssv_need($u,'view');_ssv_tables();$q=_ssv_norm($_GET['search']??'');$page=max(1,(int)($_GET['page']??1));$size=min(100,max(1,(int)($_GET['page_size']??25)));$where=$q!==''?'WHERE c.name LIKE ?':'WHERE 1';$args=$q!==''?['%'.$q.'%']:[];$total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_companies c $where",$args)['n']??0);$off=($page-1)*$size;$items=Db::all("SELECT c.id,c.name,c.manager_name,c.phone,c.ceo_mobile,c.landline_phone,c.address,c.latitude,c.longitude,c.declared_school_count,c.registered_school_count,c.representative_count,c.profile_completed,c.is_active,COUNT(DISTINCT sc.school_id) actual_school_count FROM school_service_companies c LEFT JOIN school_service_school_companies sc ON sc.company_id=c.id $where GROUP BY c.id ORDER BY c.name LIMIT $size OFFSET $off",$args);return ['items'=>$items,'page'=>$page,'page_size'=>$size,'total'=>$total];
 });
 route('GET','/api/school-service/schools-page',function($p,$b,$u){
  _ssv_need($u,'view');_ssv_tables();$q=_ssv_norm($_GET['search']??'');$page=max(1,(int)($_GET['page']??1));$size=min(100,max(1,(int)($_GET['page_size']??25)));$w=['s.is_active=1'];$args=[];if($q!==''){$w[]='(s.name LIKE ? OR s.code LIKE ?)';$args[]='%'.$q.'%';$args[]='%'.$q.'%';}$where=implode(' AND ',$w);$total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_schools s WHERE $where",$args)['n']??0);$off=($page-1)*$size;$items=Db::all("SELECT s.id,s.code,s.name,s.educational_district,s.gender,s.address,COALESCE(MAX(CASE WHEN sc.is_primary=1 THEN sc.company_id END),MIN(sc.company_id)) company_id,GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') company_names FROM school_service_schools s LEFT JOIN school_service_school_companies sc ON sc.school_id=s.id LEFT JOIN school_service_companies c ON c.id=sc.company_id WHERE $where GROUP BY s.id ORDER BY s.name LIMIT $size OFFSET $off",$args);return ['items'=>$items,'page'=>$page,'page_size'=>$size,'total'=>$total];
