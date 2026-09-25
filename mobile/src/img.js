@@ -1,10 +1,8 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 
-// تنظیمات فشرده‌سازی که از سرور (app-config) خوانده می‌شود
-// quality: درصد (۱۰..۱۰۰) — maxWidth: پیکسل
-let IMG_CFG = { quality: 45, maxWidth: 1024, maxBytes: 0 };
+// تنظیمات تصویر از app-config سایت؛ هیچ تنظیم مستقلی برای سرویس مدارس وجود ندارد.
+let IMG_CFG = { quality: 45, maxWidth: 1024, maxHeight: 1920, maxBytes: 0 };
 
-// به‌روزرسانی تنظیمات از app-config (مقادیر سرور درصد هستند؛ به نسبت ۰..۱ تبدیل می‌شوند)
 export function setImageConfig(cfg) {
   if (!cfg) return;
   if (cfg.image_quality != null) {
@@ -15,28 +13,30 @@ export function setImageConfig(cfg) {
     const w = Number(cfg.image_max_width);
     if (!isNaN(w) && w >= 240 && w <= 4096) IMG_CFG.maxWidth = w;
   }
+  if (cfg.image_max_height != null) {
+    const h = Number(cfg.image_max_height);
+    if (!isNaN(h) && h >= 240 && h <= 4096) IMG_CFG.maxHeight = h;
+  }
   const rawBytes = cfg.image_max_bytes ?? cfg.image_max_size ?? cfg.max_image_bytes ?? cfg.max_image_size ?? cfg.image_max_kb;
-  if (rawBytes != null) { let b=Number(rawBytes); if (b>0 && b<10000) b*=1024; if (!isNaN(b) && b>=64*1024) IMG_CFG.maxBytes=b; }
+  if (rawBytes != null) {
+    let b = Number(rawBytes);
+    if (b > 0 && b < 10000) b *= 1024;
+    if (!isNaN(b) && b >= 64 * 1024) IMG_CFG.maxBytes = b;
+  }
 }
 export function getImageConfig() { return { ...IMG_CFG }; }
 
-// نسبت کیفیت ۰..۱ از درصد سرور (با امکان override موضعی)
 function resolveQuality(override) {
   if (override != null) return override > 1 ? override / 100 : override;
   return IMG_CFG.quality / 100;
 }
 function resolveWidth(override) {
-  return override != null ? override : IMG_CFG.maxWidth;
+  return override != null ? Number(override) : IMG_CFG.maxWidth;
+}
+function resolveHeight(override) {
+  return override != null ? Number(override) : IMG_CFG.maxHeight;
 }
 
-// فشرده‌سازی و کوچک‌کردن تصویر برای کاهش حجم بارگذاری
-// خروجی: رشتهٔ data:image/jpeg;base64 با حجم بسیار کمتر
-// اگر maxW/quality داده نشود، از تنظیمات سرور استفاده می‌شود
-//
-// نکتهٔ سازگاری: روی برخی گوشی‌ها (به‌خصوص مدل‌های جدید با دوربین بسیار پرمگاپیکسل،
-// مثل بسیاری از گوشی‌های اندروید ۱۶) پردازش تصویر با ابعاد/تنظیمات پیش‌فرض ممکن است
-// به دلیل فشار حافظه ناموفق شود. در این حالت به‌جای شکست کامل، یک تلاش دوم با ابعاد و
-// کیفیت بسیار محافظه‌کارانه‌تر انجام می‌شود که احتمال موفقیتش بسیار بیشتر است.
 export async function compressToDataUri(uri, { maxW, quality } = {}) {
   const attempt = async (w, q) => {
     const res = await ImageManipulator.manipulateAsync(
@@ -48,37 +48,62 @@ export async function compressToDataUri(uri, { maxW, quality } = {}) {
   };
   try {
     return await attempt(resolveWidth(maxW), resolveQuality(quality));
-  } catch (e) {
-    // تلاش دوم با ابعاد/کیفیت بسیار کمتر (محافظه‌کارانه) تا احتمال شکست به دلیل فشار حافظه کم شود
+  } catch (_) {
     try {
-      const safeW = Math.min(resolveWidth(maxW), 800);
-      const safeQ = Math.min(resolveQuality(quality), 0.5);
-      return await attempt(safeW, safeQ);
-    } catch (e2) {
+      return await attempt(Math.min(resolveWidth(maxW), 800), Math.min(resolveQuality(quality), 0.5));
+    } catch (_) {
       return null;
     }
   }
 }
 
-// فشرده‌سازی تصویر و بازگرداندن URI فایل فشرده‌شده (برای آپلود multipart)
-export async function compressToFile(uri, { maxW, quality, maxBytes } = {}) {
+// تنها نقطه فشرده‌سازی موبایل. ImagePicker نباید قبل از این تابع JPEG را دوباره encode کند.
+// اگر maxW/maxH/source dimensions داده شوند، هر دو سقف ابعاد سایت رعایت می‌شوند.
+export async function compressToFile(uri, { maxW, maxH, quality, maxBytes, sourceWidth, sourceHeight } = {}) {
   const targetBytes = Number(maxBytes || IMG_CFG.maxBytes || 0);
-  let w = Number(resolveWidth(maxW)), q = Number(resolveQuality(quality));
+  const configuredW = Number(resolveWidth(maxW));
+  const configuredH = Number(resolveHeight(maxH));
+  let w = configuredW;
+
+  const sw = Number(sourceWidth || 0);
+  const sh = Number(sourceHeight || 0);
+  if (sw > 0 && sh > 0) {
+    const scale = Math.min(1, configuredW / sw, configuredH / sh);
+    w = Math.max(240, Math.round(sw * scale));
+  }
+
+  let q = Number(resolveQuality(quality));
   const attempts = [];
-  for (let i=0;i<5;i++) {
+  for (let i = 0; i < 7; i++) {
     try {
-      const res = await ImageManipulator.manipulateAsync(uri,[{ resize:{ width:Math.max(240,Math.round(w)) } }],{compress:Math.max(.1,Math.min(1,q)),format:ImageManipulator.SaveFormat.JPEG});
+      const res = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: Math.max(240, Math.round(w)) } }],
+        {
+          compress: Math.max(0.1, Math.min(1, q)),
+          format: ImageManipulator.SaveFormat.JPEG
+        }
+      );
       if (!targetBytes) return res.uri;
+
       try {
         const info = await (await import('expo-file-system/legacy')).getInfoAsync(res.uri);
-        const bytes = Number(info?.size||0);
-        if (!bytes || bytes<=targetBytes) return res.uri;
+        const bytes = Number(info?.size || 0);
+        if (!bytes || bytes <= targetBytes) return res.uri;
         attempts.push(res.uri);
-      } catch (_) { return res.uri; }
-      q=Math.max(.25,q*.75); w=Math.max(640,w*.85);
+      } catch (_) {
+        return res.uri;
+      }
+
+      q = Math.max(0.1, q * 0.78);
+      w = Math.max(240, Math.round(w * 0.88));
     } catch (_) {
-      q=Math.max(.25,q*.75); w=Math.max(640,w*.75);
+      q = Math.max(0.1, q * 0.78);
+      w = Math.max(240, Math.round(w * 0.82));
     }
   }
-  return attempts[attempts.length-1] || uri;
+
+  // در نبود تنظیم maxBytes، یا وقتی encoder نتوانست به سقف برسد، آخرین خروجی
+  // پردازش‌شده را برمی‌گردانیم؛ هرگز به تصویر خام دوربین برنمی‌گردیم.
+  return attempts[attempts.length - 1] || uri;
 }
