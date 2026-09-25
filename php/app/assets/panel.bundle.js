@@ -138,14 +138,19 @@ async function openMediaUrl(url) {
 // بررسی اتصال به سرور (بدون حالت دمو؛ در صورت قطع اتصال خطا نمایش داده می‌شود)
 async function checkConnection() {
     for (const url of [API_BASE + '/health', '/health']) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6000);
         try {
-            const r = await fetch(url, { cache: 'no-store' });
+            const r = await fetch(url, { cache: 'no-store', signal: controller.signal });
             if (r.ok) {
                 window.__health = await r.json().catch(() => ({}));
                 return true;
             }
         }
         catch (e) { }
+        finally {
+            clearTimeout(timer);
+        }
     }
     return false;
 }
@@ -158,12 +163,24 @@ const db = {
         form.append('username', u);
         form.append('password', p);
         form.append('device_id', 'web-panel');
-        const r = await fetch(API_BASE + '/session/start', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: form.toString() });
-        const d = await _readJsonResponse(r);
-        if (!r.ok)
-            throw new Error(d.error || d.message || 'ورود ناموفق بود');
-        localStorage.token = d.access;
-        return d;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 12000);
+        try {
+            const r = await fetch(API_BASE + '/session/start', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8', 'accept': 'application/json', 'cache-control': 'no-store' }, body: form.toString(), signal: controller.signal });
+            const d = await _readJsonResponse(r);
+            if (!r.ok)
+                throw new Error(d.error || d.message || 'ورود ناموفق بود');
+            localStorage.token = d.access;
+            return d;
+        }
+        catch (e) {
+            if (e && e.name === 'AbortError')
+                throw new Error('زمان پاسخ سرور برای ورود بیش از ۱۲ ثانیه شد؛ لطفاً اتصال سرور را بررسی کنید.');
+            throw e;
+        }
+        finally {
+            clearTimeout(timer);
+        }
     },
     stats: () => GET('/admin/stats'),
     systemHealthDashboard: () => GET('/admin/system-health-dashboard'),
