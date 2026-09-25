@@ -379,9 +379,9 @@ $loginHandler = function ($p, $b) {
   } catch (\Throwable $e) { $ip = null; }
   // ابتدا کاربر را احراز هویت می‌کنیم؛ سپس معافیت امنیتی همان رکورد قطعی اعمال می‌شود.
   // این ترتیب از نادیده‌گرفته‌شدن معافیت به‌علت جست‌وجوی مقدماتی نام کاربری جلوگیری می‌کند.
-  try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='security_exempt'")) Db::run("ALTER TABLE users ADD COLUMN security_exempt TINYINT(1) NOT NULL DEFAULT 0"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='rank_stars'")) Db::run("ALTER TABLE users ADD COLUMN rank_stars TINYINT NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE TRIM(u.username)=? LIMIT 1", [$username]);
+  // ساختار ستون‌های users در migration 2026_09_25_core_runtime_repair.sql هم‌تراز می‌شود؛
+  // در مسیر Login نباید ALTER TABLE/SHOW COLUMNS اجرا شود چون می‌تواند metadata lock ایجاد کند.
+  $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=? LIMIT 1", [$username]);
   if (!$u || !$u['is_active'] || !password_verify($password, $u['password_hash'])) {
     Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?, 'login_failed', ?)", [$u['id'] ?? null, json_encode(['username'=>$username], JSON_UNESCAPED_UNICODE)]);
     if (!empty($ip)) { try { Db::run("INSERT INTO login_ip_attempts(ip) VALUES(?)", [$ip]); } catch (\Throwable $e) {} }
@@ -3800,7 +3800,7 @@ route('GET', '/api/admin/users/export', function($p,$b,$u){
 route('GET', '/api/auth/me', function($p,$b,$u){
   $exempt = false; $mustSetup = false; $mustRenew = false; $secEx = false;
   try {
-    $r = Db::one("SELECT security_exempt, must_change_pw, profile_done, pw_changed_at, photo_taken_at FROM users WHERE id=?", [$u['id']]);
+    $r = Db::one("SELECT security_exempt, must_change_pw, profile_done, pw_changed_at, photo_taken_at, can_send_sms FROM users WHERE id=?", [$u['id']]);
     $exempt = (bool)($r['security_exempt'] ?? 0); $secEx = $exempt;
     // دورهٔ اجباری تمدید (روز) از تنظیمات؛ پیش‌فرض ۳۰
     $rd = Db::one("SELECT value FROM app_settings WHERE `key`='renew_days'");
@@ -3818,7 +3818,7 @@ route('GET', '/api/auth/me', function($p,$b,$u){
     'role'=>$u['role_title']??'','role_id'=>(int)($u['role_id']??0),'level'=>(int)($u['level']??0),'is_admin'=>(bool)($u['is_admin']??false),
     'must_change_pw'=>(bool)($u['must_change_pw']??false),'email'=>$u['email']??null,'photo'=>_user_photo_url($u['photo_path'] ?? null, $u['photo'] ?? null),
     'security_exempt'=>$secEx, 'must_setup'=>$mustSetup, 'must_renew'=>$mustRenew,
-    'can_send_sms'=>(bool)($u['is_admin']??false) || (bool)(Db::one("SELECT can_send_sms FROM users WHERE id=?", [$u['id']])['can_send_sms'] ?? 0),
+    'can_send_sms'=>(bool)($u['is_admin']??false) || (bool)($r['can_send_sms'] ?? 0),
   ]];
 });
 
