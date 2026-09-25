@@ -28,7 +28,26 @@ function radio_schema(){static $ready=null;if($ready===true)return true;try{
  $cnt=Db::one('SELECT COUNT(*) c FROM radio_channels');if((int)($cnt['c']??0)===0){foreach([['عمومی','general','کانال عمومی ارتباط خطیار'],['مدیریت','management','ارتباط مدیریت و مسئولین'],['بازرسی','inspection','ارتباط واحد بازرسی'],['عملیات خطوط','field','ارتباط عملیات میدانی خطوط']] as $ch)Db::run("INSERT INTO radio_channels(name,code,description) VALUES(?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name),description=VALUES(description),is_active=1",$ch);}
  $ready=true;return true;
 }catch(Throwable $e){$ready=false;error_log('radio_schema bootstrap failed: '.$e->getMessage());return false;}}
-function au(){global$CONFIG;$tok=Http::bearer();$p=$tok?Jwt::verify($tok,$CONFIG['jwt_secret']):null;if(!$p||empty($p['sub']))re('توکن منقضی یا نامعتبر است',401);$u=Db::one("SELECT u.*,r.title role_title,r.level,r.is_admin FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",[$p['sub']]);if(!$u||!(int)$u['is_active'])re('کاربر نامعتبر است',401);if(te('user_sessions')){$dt=$p['dt']??'web';$s=Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? ORDER BY id DESC LIMIT 1",[$u['id'],$dt]);$admin=!empty($u['is_admin'])||in_array((string)$u['role_title'],['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد','admin','superadmin'],true);if(!$s||$s['revoked_at']||(!$admin&&(string)$s['device_id']!==(string)($p['device_id']??'')))re('نشست منقضی یا باطل شده است',401);}return$u;}
+function ensure_radio_auth_schema(){
+  try{
+    if(!te('user_sessions')) Db::run("CREATE TABLE user_sessions(
+      id INT AUTO_INCREMENT PRIMARY KEY,user_id INT NOT NULL,device_type VARCHAR(20) NOT NULL DEFAULT 'web',
+      device_id VARCHAR(255) NOT NULL DEFAULT '',device_model VARCHAR(255) NULL,revoked_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE KEY uq_user_type(user_id,device_type),
+      KEY idx_user_sessions_revoked(revoked_at,created_at),KEY idx_user_sessions_device(device_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $ensure=function($table,$column,$definition){if(!ce($table,$column))Db::run("ALTER TABLE ".$table." ADD COLUMN ".$column." ".$definition);};
+    $ensure('user_sessions','user_id','INT NOT NULL DEFAULT 0');
+    $ensure('user_sessions','device_type',"VARCHAR(20) NOT NULL DEFAULT 'web'");
+    $ensure('user_sessions','device_id',"VARCHAR(255) NOT NULL DEFAULT ''");
+    $ensure('user_sessions','device_model','VARCHAR(255) NULL');
+    $ensure('user_sessions','revoked_at','DATETIME NULL');
+    $ensure('user_sessions','created_at','DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP');
+    if(te('roles')&&!ce('roles','is_admin'))Db::run("ALTER TABLE roles ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0");
+    return true;
+  }catch(Throwable $e){error_log('radio auth schema bootstrap failed: '.$e->getMessage());return false;}
+}
+function au(){global$CONFIG;if(!ensure_radio_auth_schema())re('ساختار احراز هویت بیسیم آماده نیست',503);$tok=Http::bearer();$p=$tok?Jwt::verify($tok,$CONFIG['jwt_secret']):null;if(!$p||empty($p['sub']))re('توکن منقضی یا نامعتبر است',401);$u=Db::one("SELECT u.*,r.title role_title,r.level,r.is_admin FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",[$p['sub']]);if(!$u||!(int)$u['is_active'])re('کاربر نامعتبر است',401);if(te('user_sessions')){$dt=$p['dt']??'web';$s=Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? ORDER BY id DESC LIMIT 1",[$u['id'],$dt]);$admin=!empty($u['is_admin'])||in_array((string)$u['role_title'],['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد','admin','superadmin'],true);if(!$s||$s['revoked_at']||(!$admin&&(string)$s['device_id']!==(string)($p['device_id']??'')))re('نشست منقضی یا باطل شده است',401);}return$u;}
 function ch($id){$c=Db::one('SELECT * FROM radio_channels WHERE id=? AND is_active=1',[(int)$id]);if(!$c)re('کانال بی‌سیم یافت نشد',404);return$c;}
 function rules($id){$a=['regions'=>[],'users'=>[],'roles'=>[]];foreach($a as$k=>$_){$t=['regions'=>'radio_channel_regions','users'=>'radio_channel_users','roles'=>'radio_channel_roles'][$k];if(te($t)){$col=$k==='regions'?'region_id':($k==='users'?'user_id':'role_id');$a[$k]=array_map('intval',array_column(Db::all("SELECT $col v FROM $t WHERE channel_id=?",[$id]),'v'));}}return$a;}
 function uregion($u){foreach(['region_id','area_id','zone_id','district_id']as$c)if(ce('users',$c)&&!empty($u[$c]))return(int)$u[$c];foreach(['user_regions','user_region']as$t)if(te($t)&&ce($t,'user_id'))foreach(['region_id','area_id','zone_id']as$c)if(ce($t,$c)){$r=Db::one("SELECT $c v FROM $t WHERE user_id=? LIMIT 1",[$u['id']]);if($r&&$r['v']!==null)return(int)$r['v'];}return 0;}
@@ -48,7 +67,7 @@ if($op==='take'&&$method==='POST'){$cid=(int)(rb()['channel_id']??0);$c=ec($cid,
 if($op==='release'&&$method==='POST'){$cid=(int)(rb()['channel_id']??0);ec($cid,$u);Db::run('UPDATE radio_channels SET current_speaker_id=NULL,lock_until=NULL WHERE id=? AND current_speaker_id=?',[$cid,$u['id']]);logx($cid,$u['id'],'release');rj(['ok'=>true]);}
 if($op==='send'&&$method==='POST'){
  $cid=(int)($_POST['channel_id']??0);$c=ec($cid,$u);$row=Db::one('SELECT current_speaker_id,lock_until FROM radio_channels WHERE id=?',[$cid]);
- if((int)($row['current_speaker_id']??0)!==(int)$u['id']||strtotime((string)($row['lock_until']??''))<=time())re('مجوز صحبت شما منقضی شده است',409);
+ if((int)($row['current_speaker_id']??0)!==(int)$u['id']||strtotime((string)($row['lock_until']??''))<=time()-30)re('مجوز صحبت شما منقضی شده است',409);
  $max=(int)($c['max_talk_ms']??25000);$duration=(int)($_POST['duration_ms']??0);
  if($duration<1000||$duration>$max)re('مدت پیام صوتی نامعتبر است',422);
  $f=$_FILES['audio']??null;if(!$f||($f['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK||empty($f['tmp_name'])||!is_uploaded_file($f['tmp_name']))re('فایل صوتی ارسال نشده است',422);
