@@ -1,7 +1,7 @@
 -- سرویس مدارس - MySQL/MariaDB
 -- این فایل idempotent است؛ Backend نیز در اولین درخواست جداول را خودکار ایجاد/تکمیل می‌کند.
 CREATE TABLE IF NOT EXISTS school_service_companies (id INT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(255) NOT NULL,manager_name VARCHAR(150) NULL,phone VARCHAR(50) NULL,address VARCHAR(500) NULL,is_active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,UNIQUE KEY uq_ssc_name(name),KEY idx_ssc_active(is_active)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-CREATE TABLE IF NOT EXISTS school_service_schools (id INT AUTO_INCREMENT PRIMARY KEY,code VARCHAR(80) NULL,name VARCHAR(255) NOT NULL,educational_district VARCHAR(80) NULL,gender ENUM('دخترانه','پسرانه','نامشخص') NOT NULL DEFAULT 'نامشخص',address VARCHAR(700) NULL,is_active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,UNIQUE KEY uq_sss_code(code),KEY idx_sss_name(name),KEY idx_sss_district(educational_district)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS school_service_schools (id INT AUTO_INCREMENT PRIMARY KEY,code VARCHAR(80) NULL,name VARCHAR(255) NOT NULL,educational_district VARCHAR(80) NULL,gender ENUM('دخترانه','پسرانه','دخترانه-پسرانه','نامشخص') NOT NULL DEFAULT 'نامشخص',shift VARCHAR(40) NULL,education_level VARCHAR(120) NULL,school_type VARCHAR(120) NULL,activity_start DATE NULL,activity_end DATE NULL,morning_start TIME NULL,morning_end TIME NULL,afternoon_start TIME NULL,afternoon_end TIME NULL,driver_count INT NULL,student_count INT NULL,address VARCHAR(700) NULL,phone VARCHAR(80) NULL,latitude DECIMAL(10,7) NULL,longitude DECIMAL(10,7) NULL,status VARCHAR(50) NOT NULL DEFAULT 'ثبت‌شده',location_registered_at DATETIME NULL,is_active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,UNIQUE KEY uq_sss_code(code),KEY idx_sss_name(name),KEY idx_sss_district(educational_district)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS school_service_school_companies (school_id INT NOT NULL,company_id INT NOT NULL,is_primary TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(school_id,company_id),UNIQUE KEY uq_sssc_school(school_id),KEY idx_sssc_company(company_id),CONSTRAINT fk_sssc_school FOREIGN KEY(school_id) REFERENCES school_service_schools(id) ON DELETE CASCADE,CONSTRAINT fk_sssc_company FOREIGN KEY(company_id) REFERENCES school_service_companies(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS school_service_violation_types (id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(255) NOT NULL UNIQUE,is_active TINYINT(1) NOT NULL DEFAULT 1,sort_order INT NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 INSERT IGNORE INTO school_service_violation_types(title,sort_order) VALUES ('عدم اعتبار معاینه فنی',0),('عدم اعتبار بیمه شخص ثالث',1),('سرنشین اضافی',2),('راننده غیر مجاز',3),('داشتن یا نداشتن گواهی صلاحیت معتبر',4),('عدم توجه به فرمان و ایست',5);
@@ -16,3 +16,22 @@ CREATE TABLE IF NOT EXISTS school_service_vehicle_types (id INT AUTO_INCREMENT P
 INSERT IGNORE INTO school_service_vehicle_types(title,sort_order) VALUES ('سمند',1),('سورن',2),('پژو',3),('پراید',4),('تیبا',5),('دنا',6),('رانا',7),('اطلس',8),('کوییک',9),('سایر',99);
 CREATE TABLE IF NOT EXISTS school_service_vehicle_colors (id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(80) NOT NULL UNIQUE,is_active TINYINT(1) NOT NULL DEFAULT 1,sort_order INT NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 INSERT IGNORE INTO school_service_vehicle_colors(title,sort_order) VALUES ('سفید',1),('زرد',2),('مشکی',3),('نقره‌ای',4),('خاکستری',5),('آبی',6),('قرمز',7),('سبز',8),('سایر',99);
+
+-- تکمیل ساختار مدارس برای دیتابیس‌های قبلی
+ALTER TABLE school_service_schools MODIFY COLUMN gender ENUM('دخترانه','پسرانه','دخترانه-پسرانه','نامشخص') NOT NULL DEFAULT 'نامشخص';
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS shift VARCHAR(40) NULL AFTER gender;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS education_level VARCHAR(120) NULL AFTER shift;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS school_type VARCHAR(120) NULL AFTER education_level;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS activity_start DATE NULL AFTER school_type;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS activity_end DATE NULL AFTER activity_start;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS morning_start TIME NULL AFTER activity_end;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS morning_end TIME NULL AFTER morning_start;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS afternoon_start TIME NULL AFTER morning_end;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS afternoon_end TIME NULL AFTER afternoon_start;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS driver_count INT NULL AFTER afternoon_end;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS student_count INT NULL AFTER driver_count;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS phone VARCHAR(80) NULL AFTER address;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS latitude DECIMAL(10,7) NULL AFTER phone;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS longitude DECIMAL(10,7) NULL AFTER latitude;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS status VARCHAR(50) NOT NULL DEFAULT 'ثبت‌شده' AFTER longitude;
+ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS location_registered_at DATETIME NULL AFTER status;
