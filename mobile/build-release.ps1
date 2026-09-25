@@ -192,7 +192,7 @@ try {
     if (-not (Test-Path -LiteralPath (Join-Path $Root 'node_modules\.bin\expo.cmd'))) { Fail 'Local Expo CLI is missing.' }
 
     Stage 25 'Validating Babel and Hermes compiler before Android build'
-    Invoke-Checked 'node.exe' @('scripts\\validate-babel.js')
+    Invoke-Checked 'node.exe' @('scripts\validate-babel.js')
     Validate-HermesCompiler
 
     if (-not $SkipDoctor) {
