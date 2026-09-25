@@ -13062,232 +13062,118 @@ function _ssv_school_company_validate($schoolId,$companyId,$district=''){
   }
 }
 function _ssv_tables(){
-  static $done=false; if($done) return; $done=true;
-  $sql=[
-    "CREATE TABLE IF NOT EXISTS school_service_companies (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(255) NOT NULL,
-      manager_name VARCHAR(150) NULL,
-      phone VARCHAR(50) NULL,
-      ceo_mobile VARCHAR(50) NULL,
-      landline_phone VARCHAR(50) NULL,
-      address VARCHAR(500) NULL,
-      latitude DECIMAL(10,7) NULL,
-      longitude DECIMAL(10,7) NULL,
-      declared_school_count INT NOT NULL DEFAULT 0,
-      registered_school_count INT NOT NULL DEFAULT 0,
-      representative_count INT NOT NULL DEFAULT 0,
-      profile_completed TINYINT(1) NOT NULL DEFAULT 0,
-      is_active TINYINT(1) NOT NULL DEFAULT 1,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uq_ssc_name(name),
-      KEY idx_ssc_active(is_active)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS school_service_schools (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      code VARCHAR(80) NULL,
-      name VARCHAR(255) NOT NULL,
-      educational_district VARCHAR(80) NULL,
-      gender ENUM('دخترانه','پسرانه','دخترانه-پسرانه','نامشخص') NOT NULL DEFAULT 'نامشخص',
-      shift VARCHAR(40) NULL,
-      education_level VARCHAR(120) NULL,
-      school_type VARCHAR(120) NULL,
-      activity_start DATE NULL,
-      activity_end DATE NULL,
-      morning_start TIME NULL,
-      morning_end TIME NULL,
-      afternoon_start TIME NULL,
-      afternoon_end TIME NULL,
-      driver_count INT NULL,
-      student_count INT NULL,
-      address VARCHAR(700) NULL,
-      phone VARCHAR(80) NULL,
-      latitude DECIMAL(10,7) NULL,
-      longitude DECIMAL(10,7) NULL,
-      status VARCHAR(50) NOT NULL DEFAULT 'ثبت‌شده',
-      location_registered_at DATETIME NULL,
-      is_active TINYINT(1) NOT NULL DEFAULT 1,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uq_sss_code(code),
-      KEY idx_sss_name(name),
-      KEY idx_sss_district(educational_district)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS school_service_school_companies (
-      school_id INT NOT NULL,
-      company_id INT NOT NULL,
-      is_primary TINYINT(1) NOT NULL DEFAULT 1,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY(school_id,company_id),
-      KEY idx_sssc_company(company_id),
-      CONSTRAINT fk_sssc_school FOREIGN KEY(school_id) REFERENCES school_service_schools(id) ON DELETE CASCADE,
-      CONSTRAINT fk_sssc_company FOREIGN KEY(company_id) REFERENCES school_service_companies(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS school_service_violation_types (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      title VARCHAR(255) NOT NULL UNIQUE,
-      is_active TINYINT(1) NOT NULL DEFAULT 1,
-      sort_order INT NOT NULL DEFAULT 0
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS school_service_inspections (
-      id BIGINT AUTO_INCREMENT PRIMARY KEY,
-      inspector_user_id INT NOT NULL,
-      client_uuid VARCHAR(80) NULL,
-      educational_district VARCHAR(80) NULL,
-      company_id INT NULL,
-      school_id INT NULL,
-      school_gender ENUM('دخترانه','پسرانه','نامشخص') NOT NULL DEFAULT 'نامشخص',
-      plate_three VARCHAR(3) NULL,
-      plate_letter VARCHAR(5) NULL,
-      plate_two VARCHAR(2) NULL,
-      plate_region VARCHAR(2) NULL,
-      iran_code VARCHAR(5) NOT NULL DEFAULT 'ایران',
-      vehicle_type VARCHAR(100) NULL,
-      vehicle_color VARCHAR(80) NULL,
-      passenger_front_count INT NOT NULL DEFAULT 0,
-      passenger_rear_count INT NOT NULL DEFAULT 0,
-      passenger_count INT NOT NULL DEFAULT 0,
-      driver_gender ENUM('خانم','آقا','نامشخص') NOT NULL DEFAULT 'نامشخص',
-      certificate_status ENUM('معتبر','نامعتبر','ارائه نشد') NOT NULL DEFAULT 'ارائه نشد',
-      violation_date VARCHAR(20) NULL,
-      violation_time VARCHAR(10) NULL,
-      location_text VARCHAR(700) NULL,
-      latitude DECIMAL(10,7) NULL,
-      longitude DECIMAL(10,7) NULL,
-      description TEXT NULL,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      KEY idx_ssi_user(inspector_user_id,created_at),
-      KEY idx_ssi_company(company_id,created_at),
-      KEY idx_ssi_school(school_id,created_at),
-      KEY idx_ssi_date(violation_date)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS school_service_inspection_photos (
-      id BIGINT AUTO_INCREMENT PRIMARY KEY,
-      inspection_id BIGINT NOT NULL,
-      file_path VARCHAR(500) NOT NULL,
-      mime_type VARCHAR(100) NOT NULL DEFAULT 'image/jpeg',
-      width INT NOT NULL DEFAULT 0,
-      height INT NOT NULL DEFAULT 0,
-      file_size INT NOT NULL DEFAULT 0,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      KEY idx_ssip_inspection(inspection_id),
-      CONSTRAINT fk_ssip_inspection FOREIGN KEY(inspection_id) REFERENCES school_service_inspections(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS school_service_inspection_violations (
-      inspection_id BIGINT NOT NULL,
-      violation_type_id INT NOT NULL,
-      PRIMARY KEY(inspection_id,violation_type_id),
-      KEY idx_ssiv_type(violation_type_id),
-      CONSTRAINT fk_ssiv_inspection FOREIGN KEY(inspection_id) REFERENCES school_service_inspections(id) ON DELETE CASCADE,
-      CONSTRAINT fk_ssiv_type FOREIGN KEY(violation_type_id) REFERENCES school_service_violation_types(id) ON DELETE RESTRICT
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS school_service_permissions (
-      role_id INT NOT NULL PRIMARY KEY,
-      can_view TINYINT(1) NOT NULL DEFAULT 0,
-      can_create TINYINT(1) NOT NULL DEFAULT 0,
-      can_edit TINYINT(1) NOT NULL DEFAULT 0,
-      can_delete TINYINT(1) NOT NULL DEFAULT 0,
-      can_import TINYINT(1) NOT NULL DEFAULT 0,
-      can_report TINYINT(1) NOT NULL DEFAULT 0,
-      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS school_service_import_logs (
-      id BIGINT AUTO_INCREMENT PRIMARY KEY,
-      user_id INT NULL,
-      file_name VARCHAR(255) NULL,
-      companies_count INT NOT NULL DEFAULT 0,
-      schools_count INT NOT NULL DEFAULT 0,
-      mappings_count INT NOT NULL DEFAULT 0,
-      errors_count INT NOT NULL DEFAULT 0,
-      errors_text LONGTEXT NULL,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS school_service_districts (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      title VARCHAR(100) NOT NULL UNIQUE,
-      is_active TINYINT(1) NOT NULL DEFAULT 1,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS school_service_vehicle_types (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      title VARCHAR(100) NOT NULL UNIQUE,
-      is_active TINYINT(1) NOT NULL DEFAULT 1,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS school_service_vehicle_colors (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      title VARCHAR(100) NOT NULL UNIQUE,
-      is_active TINYINT(1) NOT NULL DEFAULT 1,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+  static $done=false;
+  if($done)return;
+
+  $required=[
+    "school_service_companies"=>[
+      ["id","INT AUTO_INCREMENT PRIMARY KEY"],["name","VARCHAR(255) NULL"],["manager_name","VARCHAR(150) NULL"],["phone","VARCHAR(80) NULL"],["ceo_mobile","VARCHAR(80) NULL"],["landline_phone","VARCHAR(80) NULL"],["address","VARCHAR(700) NULL"],["latitude","DECIMAL(10,7) NULL"],["longitude","DECIMAL(10,7) NULL"],["declared_school_count","INT NOT NULL DEFAULT 0"],["registered_school_count","INT NOT NULL DEFAULT 0"],["representative_count","INT NOT NULL DEFAULT 0"],["profile_completed","TINYINT(1) NOT NULL DEFAULT 0"],["is_active","TINYINT(1) NOT NULL DEFAULT 1"],["created_at","DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"],["updated_at","DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"]
+    ],
+    "school_service_schools"=>[
+      ["id","BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY"],["code","VARCHAR(100) NULL"],["name","VARCHAR(255) NULL"],["educational_district","VARCHAR(80) NULL"],["gender","VARCHAR(80) NULL"],["shift","VARCHAR(80) NULL"],["education_level","VARCHAR(150) NULL"],["school_type","VARCHAR(150) NULL"],["activity_start","VARCHAR(20) NULL"],["activity_end","VARCHAR(20) NULL"],["morning_start","VARCHAR(20) NULL"],["morning_end","VARCHAR(20) NULL"],["afternoon_start","VARCHAR(20) NULL"],["afternoon_end","VARCHAR(20) NULL"],["driver_count","INT NULL"],["student_count","INT NULL"],["address","TEXT NULL"],["phone","VARCHAR(80) NULL"],["latitude","DECIMAL(10,7) NULL"],["longitude","DECIMAL(10,7) NULL"],["status","VARCHAR(80) NULL DEFAULT 'ثبت‌شده'"],["location_registered_at","DATETIME NULL"],["is_active","TINYINT(1) NOT NULL DEFAULT 1"],["created_at","DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"],["updated_at","DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"]
+    ],
+    "school_service_school_companies"=>[
+      ["school_id","BIGINT UNSIGNED NOT NULL"],["company_id","INT NOT NULL"],["is_primary","TINYINT(1) NOT NULL DEFAULT 1"],["created_at","DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"]
+    ],
+    "school_service_violation_types"=>[
+      ["id","INT AUTO_INCREMENT PRIMARY KEY"],["title","VARCHAR(255) NULL"],["is_active","TINYINT(1) NOT NULL DEFAULT 1"],["sort_order","INT NOT NULL DEFAULT 0"]
+    ],
+    "school_service_inspections"=>[
+      ["id","BIGINT AUTO_INCREMENT PRIMARY KEY"],["inspector_user_id","INT NULL"],["client_uuid","VARCHAR(80) NULL"],["educational_district","VARCHAR(80) NULL"],["company_id","INT NULL"],["school_id","BIGINT UNSIGNED NULL"],["school_gender","VARCHAR(80) NULL DEFAULT 'نامشخص'"],["plate_three","VARCHAR(3) NULL"],["plate_letter","VARCHAR(5) NULL"],["plate_two","VARCHAR(2) NULL"],["plate_region","VARCHAR(2) NULL"],["iran_code","VARCHAR(10) NULL DEFAULT 'ایران'"],["vehicle_type","VARCHAR(100) NULL"],["vehicle_color","VARCHAR(80) NULL"],["passenger_front_count","INT NOT NULL DEFAULT 0"],["passenger_rear_count","INT NOT NULL DEFAULT 0"],["passenger_count","INT NOT NULL DEFAULT 0"],["driver_gender","VARCHAR(40) NULL DEFAULT 'نامشخص'"],["certificate_status","VARCHAR(60) NULL DEFAULT 'ارائه نشد'"],["violation_date","VARCHAR(20) NULL"],["violation_time","VARCHAR(10) NULL"],["location_text","VARCHAR(700) NULL"],["latitude","DECIMAL(10,7) NULL"],["longitude","DECIMAL(10,7) NULL"],["description","TEXT NULL"],["created_at","DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"],["updated_at","DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"]
+    ],
+    "school_service_inspection_photos"=>[
+      ["id","BIGINT AUTO_INCREMENT PRIMARY KEY"],["inspection_id","BIGINT NOT NULL"],["file_path","VARCHAR(500) NULL"],["mime_type","VARCHAR(100) NULL DEFAULT 'image/jpeg'"],["width","INT NOT NULL DEFAULT 0"],["height","INT NOT NULL DEFAULT 0"],["file_size","INT NOT NULL DEFAULT 0"],["created_at","DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"]
+    ],
+    "school_service_inspection_violations"=>[["inspection_id","BIGINT NOT NULL"],["violation_type_id","INT NOT NULL"]],
+    "school_service_permissions"=>[["role_id","INT NOT NULL PRIMARY KEY"],["can_view","TINYINT(1) NOT NULL DEFAULT 0"],["can_create","TINYINT(1) NOT NULL DEFAULT 0"],["can_edit","TINYINT(1) NOT NULL DEFAULT 0"],["can_delete","TINYINT(1) NOT NULL DEFAULT 0"],["can_import","TINYINT(1) NOT NULL DEFAULT 0"],["can_report","TINYINT(1) NOT NULL DEFAULT 0"],["updated_at","DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"]],
+    "school_service_import_logs"=>[["id","BIGINT AUTO_INCREMENT PRIMARY KEY"],["user_id","INT NULL"],["file_name","VARCHAR(255) NULL"],["companies_count","INT NOT NULL DEFAULT 0"],["schools_count","INT NOT NULL DEFAULT 0"],["mappings_count","INT NOT NULL DEFAULT 0"],["errors_count","INT NOT NULL DEFAULT 0"],["errors_text","LONGTEXT NULL"],["created_at","DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"]],
+    "school_service_districts"=>[["id","INT AUTO_INCREMENT PRIMARY KEY"],["title","VARCHAR(100) NULL"],["is_active","TINYINT(1) NOT NULL DEFAULT 1"],["sort_order","INT NOT NULL DEFAULT 0"],["created_at","DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"]],
+    "school_service_vehicle_types"=>[["id","INT AUTO_INCREMENT PRIMARY KEY"],["title","VARCHAR(100) NULL"],["is_active","TINYINT(1) NOT NULL DEFAULT 1"],["sort_order","INT NOT NULL DEFAULT 0"]],
+    "school_service_vehicle_colors"=>[["id","INT AUTO_INCREMENT PRIMARY KEY"],["title","VARCHAR(100) NULL"],["is_active","TINYINT(1) NOT NULL DEFAULT 1"],["sort_order","INT NOT NULL DEFAULT 0"]]
   ];
-  foreach($sql as $q){try{Db::run($q);}catch(Throwable $e){error_log('school-service table: '.$e->getMessage());}}
-  $companyAlters=[
-    "ALTER TABLE school_service_companies ADD COLUMN ceo_mobile VARCHAR(50) NULL AFTER phone",
-    "ALTER TABLE school_service_companies ADD COLUMN landline_phone VARCHAR(50) NULL AFTER ceo_mobile",
-    "ALTER TABLE school_service_companies ADD COLUMN latitude DECIMAL(10,7) NULL AFTER address",
-    "ALTER TABLE school_service_companies ADD COLUMN longitude DECIMAL(10,7) NULL AFTER latitude",
-    "ALTER TABLE school_service_companies ADD COLUMN declared_school_count INT NOT NULL DEFAULT 0 AFTER longitude",
-    "ALTER TABLE school_service_companies ADD COLUMN registered_school_count INT NOT NULL DEFAULT 0 AFTER declared_school_count",
-    "ALTER TABLE school_service_companies ADD COLUMN representative_count INT NOT NULL DEFAULT 0 AFTER registered_school_count",
-    "ALTER TABLE school_service_companies ADD COLUMN profile_completed TINYINT(1) NOT NULL DEFAULT 0 AFTER representative_count"
+
+  $create=[
+    "school_service_companies"=>"CREATE TABLE IF NOT EXISTS school_service_companies(id INT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(255) NOT NULL,manager_name VARCHAR(150) NULL,phone VARCHAR(80) NULL,ceo_mobile VARCHAR(80) NULL,landline_phone VARCHAR(80) NULL,address VARCHAR(700) NULL,latitude DECIMAL(10,7) NULL,longitude DECIMAL(10,7) NULL,declared_school_count INT NOT NULL DEFAULT 0,registered_school_count INT NOT NULL DEFAULT 0,representative_count INT NOT NULL DEFAULT 0,profile_completed TINYINT(1) NOT NULL DEFAULT 0,is_active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,UNIQUE KEY uq_ssc_name(name),KEY idx_ssc_active(is_active)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "school_service_schools"=>"CREATE TABLE IF NOT EXISTS school_service_schools(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,code VARCHAR(100) NULL,name VARCHAR(255) NOT NULL,educational_district VARCHAR(80) NULL,gender VARCHAR(80) NULL,shift VARCHAR(80) NULL,education_level VARCHAR(150) NULL,school_type VARCHAR(150) NULL,activity_start VARCHAR(20) NULL,activity_end VARCHAR(20) NULL,morning_start VARCHAR(20) NULL,morning_end VARCHAR(20) NULL,afternoon_start VARCHAR(20) NULL,afternoon_end VARCHAR(20) NULL,driver_count INT NULL,student_count INT NULL,address TEXT NULL,phone VARCHAR(80) NULL,latitude DECIMAL(10,7) NULL,longitude DECIMAL(10,7) NULL,status VARCHAR(80) NULL DEFAULT 'ثبت‌شده',location_registered_at DATETIME NULL,is_active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,KEY idx_sss_code(code),KEY idx_sss_name(name),KEY idx_sss_district(educational_district)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "school_service_school_companies"=>"CREATE TABLE IF NOT EXISTS school_service_school_companies(school_id BIGINT UNSIGNED NOT NULL,company_id INT NOT NULL,is_primary TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(school_id,company_id),KEY idx_sssc_company(company_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "school_service_violation_types"=>"CREATE TABLE IF NOT EXISTS school_service_violation_types(id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(255) NOT NULL UNIQUE,is_active TINYINT(1) NOT NULL DEFAULT 1,sort_order INT NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "school_service_inspections"=>"CREATE TABLE IF NOT EXISTS school_service_inspections(id BIGINT AUTO_INCREMENT PRIMARY KEY,inspector_user_id INT NOT NULL,client_uuid VARCHAR(80) NULL,educational_district VARCHAR(80) NULL,company_id INT NULL,school_id BIGINT UNSIGNED NULL,school_gender VARCHAR(80) NULL DEFAULT 'نامشخص',plate_three VARCHAR(3) NULL,plate_letter VARCHAR(5) NULL,plate_two VARCHAR(2) NULL,plate_region VARCHAR(2) NULL,iran_code VARCHAR(10) NULL DEFAULT 'ایران',vehicle_type VARCHAR(100) NULL,vehicle_color VARCHAR(80) NULL,passenger_front_count INT NOT NULL DEFAULT 0,passenger_rear_count INT NOT NULL DEFAULT 0,passenger_count INT NOT NULL DEFAULT 0,driver_gender VARCHAR(40) NULL DEFAULT 'نامشخص',certificate_status VARCHAR(60) NULL DEFAULT 'ارائه نشد',violation_date VARCHAR(20) NULL,violation_time VARCHAR(10) NULL,location_text VARCHAR(700) NULL,latitude DECIMAL(10,7) NULL,longitude DECIMAL(10,7) NULL,description TEXT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,KEY idx_ssi_user(inspector_user_id,created_at),KEY idx_ssi_company(company_id,created_at),KEY idx_ssi_school(school_id,created_at),KEY idx_ssi_date(violation_date)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "school_service_inspection_photos"=>"CREATE TABLE IF NOT EXISTS school_service_inspection_photos(id BIGINT AUTO_INCREMENT PRIMARY KEY,inspection_id BIGINT NOT NULL,file_path VARCHAR(500) NULL,mime_type VARCHAR(100) NULL DEFAULT 'image/jpeg',width INT NOT NULL DEFAULT 0,height INT NOT NULL DEFAULT 0,file_size INT NOT NULL DEFAULT 0,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,KEY idx_ssip_inspection(inspection_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "school_service_inspection_violations"=>"CREATE TABLE IF NOT EXISTS school_service_inspection_violations(inspection_id BIGINT NOT NULL,violation_type_id INT NOT NULL,PRIMARY KEY(inspection_id,violation_type_id),KEY idx_ssiv_type(violation_type_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "school_service_permissions"=>"CREATE TABLE IF NOT EXISTS school_service_permissions(role_id INT NOT NULL PRIMARY KEY,can_view TINYINT(1) NOT NULL DEFAULT 0,can_create TINYINT(1) NOT NULL DEFAULT 0,can_edit TINYINT(1) NOT NULL DEFAULT 0,can_delete TINYINT(1) NOT NULL DEFAULT 0,can_import TINYINT(1) NOT NULL DEFAULT 0,can_report TINYINT(1) NOT NULL DEFAULT 0,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "school_service_import_logs"=>"CREATE TABLE IF NOT EXISTS school_service_import_logs(id BIGINT AUTO_INCREMENT PRIMARY KEY,user_id INT NULL,file_name VARCHAR(255) NULL,companies_count INT NOT NULL DEFAULT 0,schools_count INT NOT NULL DEFAULT 0,mappings_count INT NOT NULL DEFAULT 0,errors_count INT NOT NULL DEFAULT 0,errors_text LONGTEXT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "school_service_districts"=>"CREATE TABLE IF NOT EXISTS school_service_districts(id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(100) NOT NULL,is_active TINYINT(1) NOT NULL DEFAULT 1,sort_order INT NOT NULL DEFAULT 0,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "school_service_vehicle_types"=>"CREATE TABLE IF NOT EXISTS school_service_vehicle_types(id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(100) NOT NULL UNIQUE,is_active TINYINT(1) NOT NULL DEFAULT 1,sort_order INT NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "school_service_vehicle_colors"=>"CREATE TABLE IF NOT EXISTS school_service_vehicle_colors(id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(100) NOT NULL UNIQUE,is_active TINYINT(1) NOT NULL DEFAULT 1,sort_order INT NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
   ];
-  foreach($companyAlters as $q){try{Db::run($q);}catch(Throwable $e){}}
-  $schoolAlters=[
-    "ALTER TABLE school_service_schools MODIFY COLUMN gender ENUM('دخترانه','پسرانه','دخترانه-پسرانه','نامشخص') NOT NULL DEFAULT 'نامشخص'",
-    "ALTER TABLE school_service_schools ADD COLUMN shift VARCHAR(40) NULL AFTER gender",
-    "ALTER TABLE school_service_schools ADD COLUMN education_level VARCHAR(120) NULL AFTER shift",
-    "ALTER TABLE school_service_schools ADD COLUMN school_type VARCHAR(120) NULL AFTER education_level",
-    "ALTER TABLE school_service_schools ADD COLUMN activity_start DATE NULL AFTER school_type",
-    "ALTER TABLE school_service_schools ADD COLUMN activity_end DATE NULL AFTER activity_start",
-    "ALTER TABLE school_service_schools ADD COLUMN morning_start TIME NULL AFTER activity_end",
-    "ALTER TABLE school_service_schools ADD COLUMN morning_end TIME NULL AFTER morning_start",
-    "ALTER TABLE school_service_schools ADD COLUMN afternoon_start TIME NULL AFTER morning_end",
-    "ALTER TABLE school_service_schools ADD COLUMN afternoon_end TIME NULL AFTER afternoon_start",
-    "ALTER TABLE school_service_schools ADD COLUMN driver_count INT NULL AFTER afternoon_end",
-    "ALTER TABLE school_service_schools ADD COLUMN student_count INT NULL AFTER driver_count",
-    "ALTER TABLE school_service_schools ADD COLUMN phone VARCHAR(80) NULL AFTER address",
-    "ALTER TABLE school_service_schools ADD COLUMN latitude DECIMAL(10,7) NULL AFTER phone",
-    "ALTER TABLE school_service_schools ADD COLUMN longitude DECIMAL(10,7) NULL AFTER latitude",
-    "ALTER TABLE school_service_schools ADD COLUMN status VARCHAR(50) NOT NULL DEFAULT 'ثبت‌شده' AFTER longitude",
-    "ALTER TABLE school_service_schools ADD COLUMN location_registered_at DATETIME NULL AFTER status"
-  ];
-  foreach($schoolAlters as $q){try{Db::run($q);}catch(Throwable $e){}}
+
+  $errors=[];
+  foreach($create as $name=>$q){try{Db::run($q);}catch(Throwable $e){$errors[]=$name.': '.$e->getMessage();}}
+
+  $existsCol=function($table,$column){
+    $r=Db::one("SELECT COUNT(*) c FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?",[$table,$column]);
+    return (int)($r['c']??0)>0;
+  };
+  $ensureCol=function($table,$column,$definition)use($existsCol){
+    if(!$existsCol($table,$column)){
+      Db::run("ALTER TABLE ".$table." ADD COLUMN ".$column." ".$definition);
+    }
+  };
+
+  foreach($required as $table=>$cols){
+    foreach($cols as [$column,$definition]){
+      if($column==='id')continue;
+      try{$ensureCol($table,$column,$definition);}catch(Throwable $e){$errors[]=$table.'.'.$column.': '.$e->getMessage();}
+    }
+  }
+
   try{
-    $seedFile=__DIR__.'/../seed/school_service_companies.php';
-    if(is_file($seedFile)){
-      $seed=require $seedFile;
-      foreach($seed as $row){
-        if(count($row)<13) continue;
-        [$sid,$name,$manager,$mobile,$landline,$address,$lat,$lng,$declared,$registered,$reps,$active,$profile]=$row;
-        Db::run("INSERT IGNORE INTO school_service_companies
-          (id,name,manager_name,phone,ceo_mobile,landline_phone,address,latitude,longitude,declared_school_count,registered_school_count,representative_count,profile_completed,is_active)
-          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-          [(int)$sid,_ssv_norm($name),_ssv_norm($manager)?:null,trim((string)$mobile)?:null,trim((string)$landline)?:null,_ssv_norm($address)?:null,$lat!==''?(float)$lat:null,$lng!==''?(float)$lng:null,(int)$declared,(int)$registered,(int)$reps,(int)$profile,(int)$active]);
+    if($existsCol('school_service_schools','district')&&$existsCol('school_service_schools','educational_district')){
+      Db::run("UPDATE school_service_schools SET educational_district=district WHERE (educational_district IS NULL OR educational_district='') AND district IS NOT NULL");
+    }
+  }catch(Throwable $e){$errors[]='school_service_schools.district migration: '.$e->getMessage();}
+
+  $seedOption=function($table,$title,$sort){
+    $row=Db::one("SELECT id FROM ".$table." WHERE title=? ORDER BY id LIMIT 1",[$title]);
+    if($row)Db::run("UPDATE ".$table." SET sort_order=?,is_active=1 WHERE id=?",[$sort,(int)$row['id']]);
+    else Db::run("INSERT INTO ".$table."(title,sort_order,is_active) VALUES(?,?,1)",[$title,$sort]);
+  };
+  foreach([['۱',1],['۲',2],['۳',3],['۴',4],['۵',5],['۶',6],['۷',7],['تبادکان',8]] as $x)try{$seedOption('school_service_districts',$x[0],$x[1]);}catch(Throwable $e){$errors[]='district seed: '.$e->getMessage();}
+  foreach([['عدم اعتبار معاینه فنی',0],['عدم اعتبار بیمه شخص ثالث',1],['سرنشین اضافی',2],['راننده غیر مجاز',3],['داشتن یا نداشتن گواهی صلاحیت معتبر',4],['عدم توجه به فرمان و ایست',5]] as $x)try{$seedOption('school_service_violation_types',$x[0],$x[1]);}catch(Throwable $e){$errors[]='violation seed: '.$e->getMessage();}
+  foreach([['سمند',1],['سورن',2],['پژو',3],['پراید',4],['تیبا',5],['دنا',6],['رانا',7],['اطلس',8],['کوییک',9],['سایر',99]] as $x)try{$seedOption('school_service_vehicle_types',$x[0],$x[1]);}catch(Throwable $e){$errors[]='vehicle type seed: '.$e->getMessage();}
+  foreach([['سفید',1],['زرد',2],['مشکی',3],['نقره‌ای',4],['خاکستری',5],['آبی',6],['قرمز',7],['سبز',8],['سایر',99]] as $x)try{$seedOption('school_service_vehicle_colors',$x[0],$x[1]);}catch(Throwable $e){$errors[]='vehicle color seed: '.$e->getMessage();}
+
+  try{
+    if((int)(Db::one("SELECT COUNT(*) c FROM school_service_companies",[])['c']??0)===0){
+      $seedFile=__DIR__.'/../seed/school_service_companies.php';
+      if(is_file($seedFile)){
+        $seed=require $seedFile;
+        foreach($seed as $row){
+          if(count($row)<13)continue;
+          [$sid,$name,$manager,$mobile,$landline,$address,$lat,$lng,$declared,$registered,$reps,$active,$profile]=$row;
+          Db::run("INSERT IGNORE INTO school_service_companies(id,name,manager_name,phone,ceo_mobile,landline_phone,address,latitude,longitude,declared_school_count,registered_school_count,representative_count,profile_completed,is_active) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            [(int)$sid,_ssv_norm($name),_ssv_norm($manager)?:null,trim((string)$mobile)?:null,trim((string)$mobile)?:null,trim((string)$landline)?:null,_ssv_norm($address)?:null,$lat!==''?(float)$lat:null,$lng!==''?(float)$lng:null,(int)$declared,(int)$registered,(int)$reps,(int)$profile,(int)$active]);
+        }
       }
     }
-  }catch(Throwable $e){error_log('school-service company seed: '.$e->getMessage());}
-  // نسخه‌های قبلی ممکن است iran_code را VARCHAR(4) ساخته باشند؛ «ایران» پنج کاراکتر فارسی دارد.
-  try{Db::run("ALTER TABLE school_service_inspections MODIFY iran_code VARCHAR(5) NOT NULL DEFAULT 'ایران'");}catch(Throwable $e){error_log('school-service iran_code: '.$e->getMessage());}
-  try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN client_uuid VARCHAR(80) NULL AFTER inspector_user_id");}catch(Throwable $e){}
-  try{Db::run("ALTER TABLE school_service_inspections ADD UNIQUE KEY uq_ssi_client_uuid(client_uuid)");}catch(Throwable $e){}
-  try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN plate_region VARCHAR(2) NULL AFTER plate_two");}catch(Throwable $e){}
-  try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN passenger_front_count INT NOT NULL DEFAULT 0 AFTER vehicle_color");}catch(Throwable $e){}
-  try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN passenger_rear_count INT NOT NULL DEFAULT 0 AFTER passenger_front_count");}catch(Throwable $e){}
-  try{Db::run("UPDATE school_service_inspections SET passenger_front_count=passenger_count WHERE passenger_front_count=0 AND passenger_rear_count=0 AND passenger_count>0");}catch(Throwable $e){}
-  $viol=['عدم اعتبار معاینه فنی','عدم اعتبار بیمه شخص ثالث','سرنشین اضافی','راننده غیر مجاز','داشتن یا نداشتن گواهی صلاحیت معتبر','عدم توجه به فرمان و ایست'];
-  foreach($viol as $i=>$v){try{Db::run("INSERT IGNORE INTO school_service_violation_types(title,sort_order) VALUES(?,?)",[$v,$i]);}catch(Throwable $e){}}
+  }catch(Throwable $e){$errors[]='company seed: '.$e->getMessage();}
+
   try{
-    $roles=Db::all("SELECT id,level FROM roles");
-    foreach($roles as $r){
-      $default=((int)$r['level']<=4)?1:0;
-      Db::run("INSERT INTO school_service_permissions(role_id,can_view,can_create,can_edit,can_delete,can_import,can_report)
-        VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE role_id=role_id",
-        [(int)$r['id'],$default,$default,$default,$default,((int)$r['level']<=3)?1:0,$default]);
+    foreach(Db::all("SELECT id,level FROM roles") as $r){
+      $rid=(int)$r['id'];
+      if(!Db::one("SELECT role_id FROM school_service_permissions WHERE role_id=?",[$rid])){
+        $default=((int)$r['level']<=4)?1:0;
+        Db::run("INSERT INTO school_service_permissions(role_id,can_view,can_create,can_edit,can_delete,can_import,can_report) VALUES(?,?,?,?,?,?,?)",[$rid,$default,$default,$default,$default,((int)$r['level']<=3)?1:0,$default]);
+      }
     }
-  }catch(Throwable $e){}
+  }catch(Throwable $e){$errors[]='permissions seed: '.$e->getMessage();}
+
+  if($errors){
+    foreach($errors as $e)error_log('school-service schema: '.$e);
+    // Do not mark this bootstrap complete when anything failed; the next request retries it.
+    return;
+  }
+  $done=true;
 }
 function _ssv_perm($u,$action='view'){
   _ssv_tables();
