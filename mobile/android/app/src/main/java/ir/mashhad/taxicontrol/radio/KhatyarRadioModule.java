@@ -5,8 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
-import android.os.Handler;
-import android.os.Looper;
 import androidx.annotation.NonNull;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
@@ -47,5 +45,5 @@ public final class KhatyarRadioModule extends ReactContextBaseJavaModule {
   @ReactMethod public void configure(String token,String baseUrl,double userId,double channelId,boolean enabled,double lastMessageId,Promise promise){try{Context app=context.getApplicationContext();android.content.SharedPreferences p=app.getSharedPreferences(KhatyarRadioService.PREFS,Context.MODE_PRIVATE);long oldChannel=p.getLong("channelId",0L);boolean channelChanged=oldChannel!=(long)channelId;p.edit().putString("token",token==null?"":token).putString("baseUrl",baseUrl==null?"":baseUrl).putLong("userId",(long)userId).putLong("channelId",(long)channelId).putBoolean("enabled",enabled).apply();if(channelChanged){p.edit().putLong("lastId",Math.max(0L,(long)lastMessageId)).putBoolean("initialized",false).putBoolean("allInitialized",false).apply();app.stopService(new Intent(app,KhatyarRadioService.class));}if(enabled&&channelId>0&&token!=null&&!token.isEmpty()){Intent in=new Intent(app,KhatyarRadioService.class);if(Build.VERSION.SDK_INT>=26)app.startForegroundService(in);else app.startService(in);}else app.stopService(new Intent(app,KhatyarRadioService.class));promise.resolve(true);}catch(Throwable e){promise.reject("RADIO_NATIVE",e);}}
   @ReactMethod public void stop(Promise promise){try{foregroundRequested=false;context.getApplicationContext().stopService(new Intent(context.getApplicationContext(),KhatyarRadioService.class));promise.resolve(true);}catch(Throwable e){promise.reject("RADIO_NATIVE",e);}}
   @ReactMethod public void setForegroundState(boolean foreground,Promise promise){try{context.getApplicationContext().getSharedPreferences(KhatyarRadioService.PREFS,Context.MODE_PRIVATE).edit().putBoolean("jsForeground",foreground).putLong("jsForegroundAt",System.currentTimeMillis()).apply();foregroundRequested=foreground;promise.resolve(true);}catch(Throwable e){promise.reject("RADIO_NATIVE",e);}}
-  @Override public void invalidate(){foregroundRequested=false;handler.removeCallbacks(foregroundMonitor);releaseForegroundEnhancer();try{context.unregisterReceiver(receiver);}catch(Throwable ignored){}super.invalidate();}
+  @Override public void invalidate(){try{context.unregisterReceiver(receiver);}catch(Throwable ignored){}super.invalidate();}
 }
