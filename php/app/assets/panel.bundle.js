@@ -1,3 +1,4 @@
+"use strict";
 const { useState, useEffect, useRef } = React;
 const I8 = (name) => React.createElement("img", { src: `/assets/icons3d/${name}.png`, alt: "", width: "30", height: "30", loading: "eager", decoding: "async", style: { objectFit: 'contain' }, onError: e => { e.currentTarget.style.display = 'none'; } });
 // چاپ حرفه‌ای با سربرگ (لوگو + عنوان سازمان + تاریخ تولید) — برای استفادهٔ مشترک در همهٔ گزارش‌ها
@@ -13824,7 +13825,7 @@ function App() {
                     React.createElement("div", { className: "av" }, (me.name || "؟")[0]))),
             React.createElement(View, null))));
 }
-const PANEL_BUILD_VERSION = "1.5.0";
+const PANEL_BUILD_VERSION = "1.4.4";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
@@ -13866,6 +13867,6 @@ async function khForceFreshReloadAfterLogin() {
         return;
     }
     await khEnsureFreshBuild();
-    console.log("PANEL BUILD: 1.5.0 (modern-sidebar-school-service-jalali)");
+    console.log("PANEL BUILD: 1.4.4 (custom-drawer-radio-fixes-volume-ptt)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
 })();
