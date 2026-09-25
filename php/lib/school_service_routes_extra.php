@@ -199,10 +199,10 @@ route('POST','/api/school-service/companies-import-preview',function($p,$b,$u){
   foreach($sheets as $rows)$records=array_merge($records,_ssv_company_sheet_records($rows));
   $new=0;$existing=0;$errors=[];
   foreach($records as $r){
-    if($r['id']!==''&&Db::one("SELECT id FROM school_service_companies WHERE id=?",(int)$r['id']))$existing++;
+    if($r['id']!==''&&Db::one("SELECT id FROM school_service_companies WHERE id=?",[(int)_ssv_en($r['id'])]))$existing++;
     elseif(Db::one("SELECT id FROM school_service_companies WHERE name=?",[$r['name']]))$existing++;
     else$new++;
-    if($r['id']!==''&&!ctype_digit(str_replace(['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'],'',$r['id'])))$errors[]='شناسه نامعتبر برای شرکت: '.$r['name'];
+    if($r['id']!=='' && (int)_ssv_en($r['id'])<=0)$errors[]='شناسه نامعتبر برای شرکت: '.$r['name'];
   }
   return ['ok'=>true,'rows'=>count($records),'new_companies'=>$new,'existing_companies'=>$existing,'errors'=>array_slice($errors,0,100)];
 });
