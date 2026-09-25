@@ -344,7 +344,7 @@ function _ensure_core_runtime_tables(){
 // خودِ کد PHP کاملاً سالم است. مسیر دوم بدون کلمات حساس (login/auth) این مشکل را دور
 // می‌زند. مسیر اول برای سازگاری با نسخه‌های قدیمی‌تر اپ که هنوز نصب هستند نگه داشته شده.
 $loginHandler = function ($p, $b) {
-  if(!_ensure_core_runtime_tables()) Http::error('ساختار زیرساخت ورود سامانه آماده نیست. لطفاً پایگاه‌داده را بررسی کنید.',503);
+  // Login must never perform CREATE/ALTER/INFORMATION_SCHEMA work. Core tables are provisioned by migrations.
   // نکتهٔ حیاتی: چون بدنهٔ ورود اکنون به‌جای JSON با فرم urlencoded ارسال می‌شود (برای دورزدن
   // مسدودسازی WAF)، همهٔ مقادیر رشته‌ای هستند — یعنی JS مقدار boolean مثل false را به رشتهٔ
   // غیرخالیِ "false" تبدیل می‌کند که در PHP با !empty() به‌اشتباه «true» شمرده می‌شود. بدون
@@ -360,7 +360,12 @@ $loginHandler = function ($p, $b) {
   foreach (['vpn_on', 'dev_options_on', 'mock_location', 'gps_on'] as $__bk) {
     if (array_key_exists($__bk, $b)) $b[$__bk] = $strBool($b[$__bk]);
   }
-  $username = trim($b['username'] ?? ''); $password = $b['password'] ?? '';
+  $username = trim((string)($b['username'] ?? ''));
+  // کد ملی ممکن است با ارقام فارسی/عربی یا کاراکترهای نامرئی از فرم وب وارد شود.
+  // فقط در حالت تماماً عددی آن را به رقم لاتین استاندارد تبدیل می‌کنیم؛ نام‌های کاربری غیرعددی دست‌نخورده می‌مانند.
+  $username = preg_replace('/[\\x{200B}-\\x{200D}\\x{FEFF}]/u', '', $username);
+  if (preg_match('/^[0-9۰-۹٠-٩]+$/u', $username)) $username = _digits_only($username);
+  $password = (string)($b['password'] ?? '');
   $dev = $b['device_id'] ?? ''; if (strlen($dev) < 6) Http::error('ورودی نامعتبر', 400);
   $dtype = (($b['device_type'] ?? 'web') === 'android') ? 'android' : 'web';
   $fails = (int) Db::one("SELECT COUNT(*) n FROM activity_logs WHERE event='login_failed'
@@ -369,7 +374,7 @@ $loginHandler = function ($p, $b) {
   if ($fails >= 5) Http::error('به‌دلیل تلاش‌های ناموفق متعدد، حساب موقتاً مسدود است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
   // محدودیت اضافی بر اساس IP (مستقل از نام‌کاربری) — جلوگیری از brute-force با نام‌کاربری‌های مختلف
   try {
-    _v201_health_tables();
+    // جدول login_ip_attempts باید توسط migration ساخته شده باشد؛ در Login هیچ DDL اجرا نمی‌شود.
     $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
     if ($ip) {
       $ip = trim(explode(',', $ip)[0]);
