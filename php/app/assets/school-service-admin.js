@@ -42,31 +42,69 @@ b.querySelectorAll('[data-edit-s]').forEach(x=>x.onclick=async()=>{const rows2=(
 };input.oninput=()=>{clearTimeout(input._t);input._t=setTimeout(()=>{page=1;load()},250)};await load();}catch(e){b.innerHTML='<div class="ssv-msg">'+esc(e.message||'خطا در دریافت اطلاعات')+'</div>'}}
 window.openSchoolService = open;
 (async function installSchoolServiceMenu(){
-  let done=false;
-  const add=()=>{
-    if(done||document.getElementById('school-service-menu-item')) return true;
-    const nav=document.querySelector('.side .nav');
-    if(!nav) return false;
-    if(document.getElementById('school-service-menu-item')){done=true;return true;}
-    const sections=Array.from(nav.querySelectorAll('.navsec'));
-    const taxiSection=sections.find(sec=>{
-      const title=String(sec.querySelector('.navsec-head')?.textContent||'').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim();
-      return title.includes('تاکسی') || title.includes('تاکسیران');
-    });
-    if(!taxiSection) return false;
-    const section=document.createElement('section');
-    section.className='navsec school-service-navsec';
-    section.setAttribute('data-school-service-section','1');
-    section.innerHTML='<div class="navsec-head" style="display:flex;align-items:center;gap:8px"><span aria-hidden="true">🏫</span><span>سرویس مدارس</span></div><div class="navsec-body" style="display:block"></div>';
-    const host=section.querySelector('.navsec-body');
+  const MENU_ID='school-service-menu-item';
+  const SECTION_ID='school-service-nav-section';
+  let timer=null;
+  function norm(v){
+    return String(v||'').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim();
+  }
+  function makeButton(){
     const btn=document.createElement('button');
-    btn.id='school-service-menu-item'; btn.type='button'; btn.className='navitem'; btn.setAttribute('aria-label','باز کردن بخش سرویس مدارس');
+    btn.id=MENU_ID;
+    btn.type='button';
+    btn.className='navitem';
+    btn.setAttribute('aria-label','باز کردن بخش سرویس مدارس');
     btn.innerHTML='<span class="ic" aria-hidden="true">📋</span><span class="navlabel">مدیریت سرویس مدارس</span>';
     btn.onclick=()=>open().catch(e=>alert(e.message||'دسترسی به سرویس مدارس ممکن نیست.'));
-    host.appendChild(btn);
-    taxiSection.parentNode.insertBefore(section,taxiSection.nextSibling);
-    done=true; return true;
-  };
-  for(let i=0;i<120&&!done;i++){if(!add()) await new Promise(r=>setTimeout(r,500));}
-})();
+    return btn;
+  }
+  function add(){
+    if(document.getElementById(MENU_ID)) return true;
+    const nav=document.querySelector('.side .nav, aside nav, nav[role="navigation"], [role="navigation"]');
+    if(!nav) return false;
+
+    const sections=Array.from(nav.querySelectorAll('.navsec'));
+    const taxi=sections.find(sec=>{
+      const title=norm(sec.querySelector('.navsec-head')?.textContent);
+      return title.includes('تاکسی') || title.includes('تاکسیران');
+    });
+
+    if(taxi){
+      const section=document.createElement('section');
+      section.id=SECTION_ID;
+      section.className='navsec school-service-navsec';
+      section.setAttribute('data-school-service-section','1');
+      section.innerHTML='<div class="navsec-head" style="display:flex;align-items:center;gap:8px"><span aria-hidden="true">🏫</span><span>سرویس مدارس</span></div><div class="navsec-body" style="display:block"></div>';
+      section.querySelector('.navsec-body').appendChild(makeButton());
+      taxi.parentNode.insertBefore(section,taxi.nextSibling);
+      return true;
+    }
+
+    // اگر ساختار بخش‌های منوی تاکسی در نسخه فعلی متفاوت بود، آیتم را در همان
+    // ناوبری واقعی پنل قرار بده؛ هرگز روی صفحه ورود یا داخل #root عمومی اضافه نمی‌شود.
+    const fallback=document.createElement('div');
+    fallback.id=SECTION_ID;
+    fallback.className='navsec school-service-navsec';
+    fallback.setAttribute('data-school-service-section','1');
+    fallback.innerHTML='<div class="navsec-head" style="display:flex;align-items:center;gap:8px"><span aria-hidden="true">🏫</span><span>سرویس مدارس</span></div><div class="navsec-body" style="display:block"></div>';
+    fallback.querySelector('.navsec-body').appendChild(makeButton());
+    nav.appendChild(fallback);
+    return true;
+  }
+  function start(){
+    if(add()) return;
+    let attempts=0;
+    timer=setInterval(()=>{
+      attempts++;
+      if(add() || attempts>=120){
+        clearInterval(timer);
+        timer=null;
+      }
+    },500);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+  try{
+    const observer=new MutationObserver(()=>{if(!document.getElementById(MENU_ID))add();});
+    observer.observe(document.documentElement,{childList:true,subtree:true});
+  }catch(_){}
 })();
