@@ -54,7 +54,7 @@ try {
       if (['node_modules', 'android', 'ios', '.expo'].includes(entry.name)) continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(full);
-      else if (/\\.(js|jsx)$/.test(entry.name)) files.push(full);
+      else if (/\.(js|jsx)$/.test(entry.name)) files.push(full);
     }
   }
   walk(sourceRoot);
