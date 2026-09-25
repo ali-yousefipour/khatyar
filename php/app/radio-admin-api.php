@@ -31,3 +31,49 @@ if($op==='retention-get'&&$method==='GET')j(['ok'=>true,'retention_days'=>retent
 if($op==='retention-set'&&$method==='POST'){require_admin_op($me);$x=b();$hours=max(1,min(87600,(int)($x['retention_hours']??(($x['retention_days']??1)*24))));ensure_settings();Db::run("INSERT INTO app_settings(`key`,`value`) VALUES(?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)",['radio_archive_retention_hours',(string)$hours]);Db::run("INSERT INTO app_settings(`key`,`value`) VALUES(?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)",['radio_archive_retention_days',(string)max(1,(int)ceil($hours/24))]);Db::run('INSERT INTO radio_logs(channel_id,user_id,event_type,meta_json) VALUES(NULL,?,?,?)',[$me['id'],'archive_retention',json_encode(['hours'=>$hours,'days'=>max(1,(int)ceil($hours/24))],JSON_UNESCAPED_UNICODE)]);j(['ok'=>true,'retention_days'=>max(1,(int)ceil($hours/24)),'retention_hours'=>$hours]);}
 if($op==='access'&&$method==='GET')j(['ok'=>true,'allowed'=>true,'role_id'=>(int)$me['role_id'],'can_manage'=>has_radio_permission($me)]);
 if($op==='bootstrap'&&$method==='GET'){ require_admin_op($me);$chs=Db::all('SELECT id,name,code,description,is_active,channel_type,match_mode,max_talk_ms,priority,current_speaker_id,lock_until FROM radio_channels ORDER BY priority DESC,id');foreach($chs as&$c){$c['id']=(int)$c['id'];$c['is_active']=(bool)$c['is_active'];$c['max_talk_ms']=(int)$c['max_talk_ms'];$c['priority']=(int)$c['priority'];$c['rules']=['regions'=>array_map('intval',array_column(Db::all('SELECT region_id FROM radio_channel_regions WHERE channel_id=?',[$c['id']]),'region_id')),'users'=>array_map('intval',array_column(Db::all('SELECT user_id FROM radio_channel_users WHERE channel_id=?',[$c['id']]),'user_id')),'roles'=>array_map('intval',array_column(Db::all('SELECT role_id FROM radio_channel_roles WHERE channel_id=?',[$c['id']]),'role_id'))];$c['online_count']=(int)(Db::one('SELECT COUNT(*) n FROM radio_presence WHERE channel_id=? AND last_seen_at>=DATE_SUB(NOW(),INTERVAL 90 SECOND)',[$c['id']])['n']??0);}unset($c);j(['ok'=>true,'channels'=>$chs,'regions'=>regions(),'retention_hours'=>retention_hours(),'retention_days'=>retention_days()]);}
+
+// --- مدیریت کانال‌ها ---
+if($op==='save'&&$method==='POST'){
+  require_admin_op($me);$x=b();
+  $id=(int)($x['id']??0);$name=trim((string)($x['name']??''));$code=preg_replace('/[^a-zA-Z0-9_-]/','',trim((string)($x['code']??'')));
+  $desc=trim((string)($x['description']??''));$type=(string)($x['channel_type']??'custom');$mode=strtoupper((string)($x['match_mode']??'OR'));
+  $max=max(5000,min(120000,(int)($x['max_talk_ms']??25000)));$priority=max(-100,min(100,(int)($x['priority']??0)));$active=!empty($x['is_active'])?1:0;
+  if($name==='')e('نام کانال الزامی است',422);if($code==='')e('کد یکتا الزامی است',422);
+  if(!in_array($type,['region','users','roles','custom'],true))e('نوع کانال نامعتبر است',422);
+  if(!in_array($mode,['OR','AND'],true))e('منطق ترکیب شروط نامعتبر است',422);
+  $rules=$x['rules']??[];$regions=array_values(array_unique(array_map('intval',is_array($rules['regions']??null)?$rules['regions']:[])));$users=array_values(array_unique(array_map('intval',is_array($rules['users']??null)?$rules['users']:[])));$roles=array_values(array_unique(array_map('intval',is_array($rules['roles']??null)?$rules['roles']:[])));
+  if($type==='region'&&!$regions)e('برای کانال منطقه‌ای حداقل یک منطقه انتخاب کنید',422);
+  if($type==='users'&&!$users)e('برای کانال اعضای انتخابی حداقل یک عضو انتخاب کنید',422);
+  if($type==='roles'&&!$roles)e('برای کانال سمت‌محور حداقل یک سمت انتخاب کنید',422);
+  $dup=Db::one("SELECT id FROM radio_channels WHERE code=? AND id<>? LIMIT 1",[$code,$id]);if($dup)e('کد کانال قبلاً استفاده شده است',409);
+  $pdo=Db::pdo();$pdo->beginTransaction();
+  try{
+    if($id){
+      if(!Db::one("SELECT id FROM radio_channels WHERE id=?",[$id]))throw new RuntimeException('کانال یافت نشد');
+      Db::run("UPDATE radio_channels SET name=?,code=?,description=?,is_active=?,channel_type=?,match_mode=?,max_talk_ms=?,priority=? WHERE id=?",[$name,$code,$desc?:null,$active,$type,$mode,$max,$priority,$id]);
+    }else{
+      Db::run("INSERT INTO radio_channels(name,code,description,is_active,channel_type,match_mode,max_talk_ms,priority) VALUES(?,?,?,?,?,?,?,?)",[$name,$code,$desc?:null,$active,$type,$mode,$max,$priority]);$id=(int)$pdo->lastInsertId();
+    }
+    Db::run("DELETE FROM radio_channel_regions WHERE channel_id=?",[$id]);Db::run("DELETE FROM radio_channel_users WHERE channel_id=?",[$id]);Db::run("DELETE FROM radio_channel_roles WHERE channel_id=?",[$id]);
+    foreach($regions as $v)Db::run("INSERT IGNORE INTO radio_channel_regions(channel_id,region_id) VALUES(?,?)",[$id,$v]);
+    foreach($users as $v)Db::run("INSERT IGNORE INTO radio_channel_users(channel_id,user_id) VALUES(?,?)",[$id,$v]);
+    foreach($roles as $v)Db::run("INSERT IGNORE INTO radio_channel_roles(channel_id,role_id) VALUES(?,?)",[$id,$v]);
+    $pdo->commit();j(['ok'=>true,'id'=>$id]);
+  }catch(Throwable$ex){if($pdo->inTransaction())$pdo->rollBack();e('ذخیره کانال ناموفق بود',500);}
+}
+if($op==='delete'&&$method==='POST'){
+  require_admin_op($me);$id=(int)(b()['id']??0);if(!$id)e('شناسه کانال نامعتبر است',422);
+  if(!Db::one("SELECT id FROM radio_channels WHERE id=?",[$id]))e('کانال یافت نشد',404);
+  Db::run("UPDATE radio_channels SET is_active=0,current_speaker_id=NULL,lock_until=NULL WHERE id=?",[$id]);
+  j(['ok'=>true]);
+}
+if($op==='members'&&$method==='GET'){
+  require_admin_op($me);$id=(int)($_GET['channel_id']??0);if(!$id)e('شناسه کانال نامعتبر است',422);if(!Db::one("SELECT id FROM radio_channels WHERE id=?",[$id]))e('کانال یافت نشد',404);
+  $rg=Db::all("SELECT region_id FROM radio_channel_regions WHERE channel_id=?",[$id]);$us=Db::all("SELECT user_id FROM radio_channel_users WHERE channel_id=?",[$id]);$ro=Db::all("SELECT role_id FROM radio_channel_roles WHERE channel_id=?",[$id]);
+  $members=[];foreach($us as $x)$members[]=['type'=>'user','id'=>(int)$x['user_id']];foreach($ro as $x)$members[]=['type'=>'role','id'=>(int)$x['role_id']];foreach($rg as $x)$members[]=['type'=>'region','id'=>(int)$x['region_id']];j(['ok'=>true,'members'=>$members,'counts'=>['users'=>count($us),'roles'=>count($ro),'regions'=>count($rg)]]);
+}
+if($op==='logs'&&$method==='GET'){
+  require_admin_op($me);$id=(int)($_GET['channel_id']??0);if(!$id)e('شناسه کانال نامعتبر است',422);$limit=max(1,min(200,(int)($_GET['limit']??100)));
+  $rows=Db::all("SELECT l.id,l.channel_id,l.user_id,l.event_type,l.meta_json,l.created_at,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) user_name FROM radio_logs l LEFT JOIN users u ON u.id=l.user_id WHERE l.channel_id=? ORDER BY l.id DESC LIMIT ".$limit,[$id]);
+  j(['ok'=>true,'logs'=>$rows]);
+}
