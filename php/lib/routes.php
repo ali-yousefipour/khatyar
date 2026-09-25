@@ -13224,13 +13224,13 @@ function _ssv_tables(){
 }
 function _ssv_perm($u,$action='view'){
   _ssv_tables();
-  // دسترسی سرویس مدارس بر اساس سطح عددی سمت تعیین می‌شود، نه عنوان سمت.
-  // سطوح ۱ تا ۴ مجاز به مشاهده/مدیریت هستند و سطح ۳ و بالاتر مجوز مدیریتی کامل دارد.
-  $level=(int)($u['level']??0);
-  if($level>=1 && $level<=4) return true;
+  // مجوز سرویس مدارس فقط بر اساس شناسه یکتای سمت (role_id) تعیین می‌شود.
+  // عنوان سمت و level هیچ نقشی در authorization این بخش ندارند.
+  $roleId=(int)($u['role_id']??0);
+  if($roleId<=0) return false;
   $col='can_'.preg_replace('/[^a-z_]/','',$action);
   if(!in_array($col,['can_view','can_create','can_edit','can_delete','can_import','can_report'],true)) return false;
-  $r=Db::one("SELECT $col v FROM school_service_permissions WHERE role_id=?",[(int)$u['role_id']]);
+  $r=Db::one("SELECT $col v FROM school_service_permissions WHERE role_id=? LIMIT 1",[$roleId]);
   return !empty($r['v']);
 }
 function _ssv_need($u,$a='view'){if(!_ssv_perm($u,$a)) Http::error('دسترسی به بخش سرویس مدارس برای سمت شما فعال نیست.',403);}
