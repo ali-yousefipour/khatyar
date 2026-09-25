@@ -1984,6 +1984,7 @@ route('GET', '/api/my/app-config', function($p,$b,$u){
     // کیفیت و رزولوشن تصاویر ارسالی از موبایل برای گزارشات (قابل تنظیم در پنل)
     'image_quality'        => max(10, min(100, (int)($g('image_quality', 45) ?: 45))),     // درصد فشرده‌سازی JPEG
     'image_max_width'      => max(240, min(4096, (int)($g('image_max_width', 1024) ?: 1024))), // حداکثر عرض تصویر (پیکسل)
+    'image_max_height'     => max(240, min(4096, (int)($g('image_max_height', 1920) ?: 1920))), // حداکثر ارتفاع تصویر (پیکسل)
     // محدودیت‌های ماهانه
     'forget_checkin_monthly_limit' => (int)($g('forget_checkin_monthly_limit', 0) ?: 0), // 0 = بدون محدودیت
     'logout_monthly_limit'  => (int)($g('logout_monthly_limit', 0) ?: 0), // 0 = بدون محدودیت
