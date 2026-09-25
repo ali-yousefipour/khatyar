@@ -5,6 +5,7 @@ import*as ImagePicker from'expo-image-picker';
 import*as Audio from'expo-audio';
 import*as Location from'expo-location';
 import{FONT,C}from'./theme';
+import{useAuth}from'./auth';
 
 const items=[
   ['notifications','اعلان‌ها','برای دریافت پیام‌ها و هشدارهای کاری'],
@@ -14,7 +15,7 @@ const items=[
   ['background','موقعیت مکانی در پس‌زمینه','برای ادامه سرویس‌های موقعیت و شیفت در پس‌زمینه']
 ];
 
-export default function StartupPermissions({children}){
+export default function StartupPermissions({children}){const{user}=useAuth();
   const[ready,setReady]=useState(false),[state,setState]=useState({}),[busy,setBusy]=useState(false);
   const read=useCallback(async()=>{
     const next={};
@@ -38,7 +39,7 @@ export default function StartupPermissions({children}){
       setReady(Object.values({...r}).every(Boolean));
     }finally{setBusy(false)}
   },[read]);
-  useEffect(()=>{requestAll().catch(()=>{});},[requestAll]);
+  useEffect(()=>{if(!user){setReady(true);return;}setReady(false);requestAll().catch(()=>{});},[requestAll,user?.id]);
   const openSettings=()=>{Linking.openSettings().catch(()=>{})};
   if(ready)return children;
   return <View style={s.page}><ScrollView persistentScrollbar={true} contentContainerStyle={s.content}><Text style={s.logo}>خطیار</Text><Text style={s.title}>فعال‌سازی دسترسی‌های لازم</Text><Text style={s.sub}>برای اینکه ثبت حضور، موقعیت مکانی، اعلان‌ها و بی‌سیم در پس‌زمینه بدون توقف کار کنند، دسترسی‌های زیر باید یک‌بار فعال شوند.</Text>{items.map(([k,t,d])=><View key={k} style={s.row}><View style={{flex:1}}><Text style={s.rowTitle}>{t}</Text><Text style={s.rowSub}>{d}</Text></View><Text style={[s.status,state[k]?s.ok:s.bad]}>{state[k]?'فعال':'نیازمند دسترسی'}</Text></View>)}<TouchableOpacity disabled={busy} style={s.btn} onPress={requestAll}><Text style={s.btnText}>{busy?'در حال درخواست دسترسی‌ها…':'درخواست / تکمیل همه دسترسی‌ها'}</Text></TouchableOpacity><TouchableOpacity style={s.secondary} onPress={openSettings}><Text style={s.secondaryText}>باز کردن تنظیمات برنامه</Text></TouchableOpacity><Text style={s.note}>پس از اعطای موقعیت مکانی در حالت «همیشه مجاز»، برنامه می‌تواند سرویس موقعیت را در پس‌زمینه ادامه دهد. برای بی‌سیم نیز یک اعلان دائمی در نوار وضعیت نمایش داده خواهد شد.</Text></ScrollView></View>;
