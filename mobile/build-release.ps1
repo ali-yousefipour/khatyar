@@ -72,6 +72,22 @@ function Save-PrebuildMarker([string]$PackageHash,[string]$NativeConfigHash) {
     }
     $obj | ConvertTo-Json | Set-Content -LiteralPath $PrebuildMarker -Encoding UTF8
 }
+function Validate-HermesCompiler() {
+    $candidates = @(
+        (Join-Path $Root 'node_modules\react-native\sdks\hermesc\win64-bin\hermesc.exe'),
+        (Join-Path $Root 'node_modules\hermes-compiler\hermesc\win64-bin\hermesc.exe'),
+        (Join-Path $Root 'node_modules\hermes-engine\win64-bin\hermesc.exe')
+    )
+    $hermes = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if (-not $hermes) { Fail 'Hermes compiler (hermesc.exe) was not found in the installed React Native/Hermes packages.' }
+    Write-Host ('    Hermes compiler: ' + $hermes) -ForegroundColor DarkGray
+    $out = & $hermes -version 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        $details = ($out | Out-String).Trim()
+        Fail ("Hermes compiler self-test failed. The Android release build cannot execute BundleHermesCTask. Output: " + $details)
+    }
+    Write-Host ('    ' + (($out | Select-Object -First 1) -join '')) -ForegroundColor Green
+}
 function Test-GeneratedRadioManifest([string]$Android) {
     $manifest = Join-Path $Android 'app\src\main\AndroidManifest.xml'
     if (-not (Test-Path -LiteralPath $manifest)) { Fail 'Generated AndroidManifest.xml is missing.' }
@@ -174,6 +190,10 @@ try {
         Invoke-Checked 'npm.cmd' @('ci','--no-audit','--no-fund','--legacy-peer-deps','--include=dev')
     }
     if (-not (Test-Path -LiteralPath (Join-Path $Root 'node_modules\.bin\expo.cmd'))) { Fail 'Local Expo CLI is missing.' }
+
+    Stage 25 'Validating Babel and Hermes compiler before Android build'
+    Invoke-Checked 'node.exe' @('scripts\\validate-babel.js')
+    Validate-HermesCompiler
 
     if (-not $SkipDoctor) {
         Stage 30 'Running Expo diagnostics'
