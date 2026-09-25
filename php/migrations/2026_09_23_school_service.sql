@@ -132,11 +132,11 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 -- این تغییر مانع ثبت «دخترانه-پسرانه» و مقادیر توسعه‌یافته در دیتابیس قدیمی می‌شود.
 SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='gender'),'ALTER TABLE school_service_schools MODIFY COLUMN gender VARCHAR(80) NULL','SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='school_gender'),'ALTER TABLE school_service_inspections MODIFY COLUMN school_gender VARCHAR(80) NULL DEFAULT "نامشخص"','SELECT 1');
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='school_gender'),'ALTER TABLE school_service_inspections MODIFY COLUMN school_gender VARCHAR(80) NULL DEFAULT ''نامشخص''','SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='driver_gender'),'ALTER TABLE school_service_inspections MODIFY COLUMN driver_gender VARCHAR(40) NULL DEFAULT "نامشخص"','SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='certificate_status'),'ALTER TABLE school_service_inspections MODIFY COLUMN certificate_status VARCHAR(60) NULL DEFAULT "ارائه نشد"','SELECT 1');
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='certificate_status'),'ALTER TABLE school_service_inspections MODIFY COLUMN certificate_status VARCHAR(60) NULL DEFAULT ''ارائه نشد''','SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- انتقال داده ناحیه قدیمی به ستون استاندارد جدید، فقط اگر هر دو ستون وجود داشته باشند.
