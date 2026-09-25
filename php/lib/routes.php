@@ -360,17 +360,40 @@ $loginHandler = function ($p, $b) {
   foreach (['vpn_on', 'dev_options_on', 'mock_location', 'gps_on'] as $__bk) {
     if (array_key_exists($__bk, $b)) $b[$__bk] = $strBool($b[$__bk]);
   }
-  $username = trim((string)($b['username'] ?? ''));
-  // کد ملی ممکن است با ارقام فارسی/عربی یا کاراکترهای نامرئی از فرم وب وارد شود.
-  // فقط در حالت تماماً عددی آن را به رقم لاتین استاندارد تبدیل می‌کنیم؛ نام‌های کاربری غیرعددی دست‌نخورده می‌مانند.
-  $username = preg_replace('/[\\x{200B}-\\x{200D}\\x{FEFF}]/u', '', $username);
-  if (preg_match('/^[0-9۰-۹٠-٩]+$/u', $username)) $username = _digits_only($username);
+  // نام کاربری را تغییر نمی‌دهیم؛ نصب‌های قدیمی ممکن است کد ملی را با رقم فارسی/عربی ذخیره کرده باشند.
+  // برای سازگاری، ابتدا مقدار خامِ تمیزشده و سپس تمام نمایش‌های عددی معادل را به‌ترتیب امتحان می‌کنیم.
+  $usernameRaw = trim((string)($b['username'] ?? ''));
+  $usernameRaw = preg_replace('/[\\x{200B}-\\x{200D}\\x{FEFF}]/u', '', $usernameRaw);
+  $username = $usernameRaw;
+  $usernameCandidates = [$usernameRaw];
+  $latinDigits = _digits_only($usernameRaw);
+  if ($latinDigits !== '' && preg_match('/^[0-9۰-۹٠-٩]+$/u', $usernameRaw)) {
+    $usernameCandidates[] = $latinDigits;
+    $usernameCandidates[] = _fa_digits_str($latinDigits);
+    $usernameCandidates[] = strtr($latinDigits, ['0'=>'٠','1'=>'١','2'=>'٢','3'=>'٣','4'=>'٤','5'=>'٥','6'=>'٦','7'=>'٧','8'=>'٨','9'=>'٩']);
+  }
+  $usernameCandidates = array_values(array_unique(array_filter($usernameCandidates, static fn($v)=>$v !== '')));
   $password = (string)($b['password'] ?? '');
   $dev = $b['device_id'] ?? ''; if (strlen($dev) < 6) Http::error('ورودی نامعتبر', 400);
   $dtype = (($b['device_type'] ?? 'web') === 'android') ? 'android' : 'web';
-  $fails = (int) Db::one("SELECT COUNT(*) n FROM activity_logs WHERE event='login_failed'
-      AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)
-      AND JSON_UNQUOTE(JSON_EXTRACT(CASE WHEN JSON_VALID(meta) THEN meta ELSE '{}' END,'$.username'))=?", [$username])['n'];
+  // این بررسی نباید با JSON_EXTRACT روی کل activity_logs باعث کندی ورود شود.
+  // ایندکس event/created_at فقط آخرین رخدادها را می‌خواند و تطبیق نام کاربری در PHP انجام می‌شود.
+  $fails = 0;
+  try {
+    $recentFailures = Db::all("SELECT meta FROM activity_logs
+      WHERE event='login_failed' AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+      ORDER BY created_at DESC LIMIT 200");
+    foreach ($recentFailures as $rf) {
+      $meta = json_decode((string)($rf['meta'] ?? ''), true);
+      if (is_array($meta) && in_array((string)($meta['username'] ?? ''), $usernameCandidates, true)) {
+        $fails++;
+        if ($fails >= 5) break;
+      }
+    }
+  } catch (Throwable $e) {
+    // خرابی لاگ نباید مانع ورود شود؛ محدودیت IP در ادامه مستقل بررسی می‌شود.
+    $fails = 0;
+  }
   if ($fails >= 5) Http::error('به‌دلیل تلاش‌های ناموفق متعدد، حساب موقتاً مسدود است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
   // محدودیت اضافی بر اساس IP (مستقل از نام‌کاربری) — جلوگیری از brute-force با نام‌کاربری‌های مختلف
   try {
@@ -388,9 +411,17 @@ $loginHandler = function ($p, $b) {
   // در مسیر Login نباید ALTER TABLE/SHOW COLUMNS اجرا شود چون می‌تواند metadata lock ایجاد کند.
   // ابتدا جستجوی مستقیم (قابل استفاده از ایندکس)؛ اگر نصب قدیمی در username فاصلهٔ ابتدا/انتها داشته باشد،
   // برای سازگاری با رفتار قبلی یک fallback محدود با TRIM انجام می‌شود.
-  $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=? LIMIT 1", [$username]);
+  $u = null;
+  foreach ($usernameCandidates as $candidate) {
+    $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=? LIMIT 1", [$candidate]);
+    if ($u) { $username = (string)$u['username']; break; }
+  }
+  // سازگاری نهایی با نصب‌های قدیمی که username با فاصلهٔ ابتدا/انتها ذخیره شده است.
   if (!$u) {
-    $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE TRIM(u.username)=? LIMIT 1", [$username]);
+    foreach ($usernameCandidates as $candidate) {
+      $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE TRIM(u.username)=? LIMIT 1", [$candidate]);
+      if ($u) { $username = (string)$u['username']; break; }
+    }
   }
   // احراز هویت را عمداً به سه حالت داخلی تفکیک می‌کنیم تا خطای واقعی در لاگ سرور قابل تشخیص باشد،
   // ولی پاسخ عمومی همچنان اطلاعاتی دربارهٔ وجود/وضعیت حساب افشا نمی‌کند.
