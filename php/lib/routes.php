@@ -13198,6 +13198,13 @@ function _ssv_norm($s){
   $s=preg_replace('/[\\x{00A0}]/u',' ',$s);
   return preg_replace('/\\s+/u',' ',$s);
 }
+function _ssv_valid_option($table,$value){
+  $allowed=['school_service_districts'=>true,'school_service_vehicle_types'=>true,'school_service_vehicle_colors'=>true];
+  if(!isset($allowed[$table]))return false;
+  $value=_ssv_norm($value);if($value==='')return false;
+  return (bool)Db::one("SELECT id FROM ".$table." WHERE title=? AND is_active=1 LIMIT 1",[$value]);
+}
+
 function _ssv_plate($b){
   $a=preg_replace('/\D/','',_ssv_en($b['plate_three']??''));$c=preg_replace('/\D/','',_ssv_en($b['plate_two']??''));$r=preg_replace('/\D/','',_ssv_en($b['plate_region']??''));
   $l=_ssv_norm($b['plate_letter']??''); if($a!==''&&strlen($a)!==3)Http::error('بخش سه‌رقمی پلاک باید دقیقاً ۳ رقم باشد',422);
@@ -13277,7 +13284,6 @@ function _ssv_header_key($v){
   return preg_replace('/\\s+/u','',$v);
 }
 function _ssv_excel_scalar($v){$v=trim((string)$v);if($v==='')return '';if(preg_match('/^([+-]?\\d+(?:\\.\\d+)?)[eE]([+-]?\\d+)$/',$v,$m)){ $n=(float)$v;if(is_finite($n))return number_format($n,0,'.','');}return $v;}
-function _ssv_header_key($v){$v=_ssv_norm($v);return str_replace(['‌','‏','‎',' ','_','-'],'',$v);}
 function _ssv_sheet_records($rows){
  if(count($rows)<2)return [];$header=$rows[0]??[];$h=[];foreach($header as $i=>$v)$h[_ssv_header_key($v)]=$i;
  $find=function($names,$fallback=null)use($h){foreach($names as $n){$k=_ssv_header_key($n);if(array_key_exists($k,$h))return $h[$k];}return $fallback;};
