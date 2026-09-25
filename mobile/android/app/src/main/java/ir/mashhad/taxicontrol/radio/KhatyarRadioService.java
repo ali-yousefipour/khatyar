@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.ArrayDeque;
 
 public final class KhatyarRadioService extends Service {
   public static final String PREFS = "khatyar_radio_native";
@@ -53,6 +54,8 @@ public final class KhatyarRadioService extends Service {
   private final Handler handler = new Handler(Looper.getMainLooper());
   private final ExecutorService io = Executors.newSingleThreadExecutor();
   private final AtomicBoolean pollInFlight = new AtomicBoolean(false);
+  private final ArrayDeque<String> pendingAudioUrls = new ArrayDeque<>();
+  private final ArrayDeque<String> pendingAudioTokens = new ArrayDeque<>();
   private MediaSession mediaSession;
   private MediaPlayer player;
   private Equalizer radioEqualizer;
@@ -312,7 +315,7 @@ public final class KhatyarRadioService extends Service {
             // new message received after the service started may be played natively.
             if (createdAt > 0 && createdAt >= serviceStartedAt && m.optLong("sender_id", 0L) != userId && !isAppInForeground()) {
               String audio = m.optString("audio_url", "");
-              if (!audio.isEmpty()) playRemote(audio, token);
+              if (!audio.isEmpty()) enqueueRemote(audio, token);
             }
           }
         }
@@ -488,6 +491,10 @@ public final class KhatyarRadioService extends Service {
     } catch (Throwable ignored) {}
   }
 
+  private synchronized void enqueueRemote(String audioUrl, String token) { if (audioUrl == null || audioUrl.isEmpty()) return; if (player != null || !pendingAudioUrls.isEmpty()) { pendingAudioUrls.add(audioUrl); pendingAudioTokens.add(token == null ? "" : token); return; } playRemote(audioUrl, token); }
+
+  private synchronized void drainAudioQueue() { if (player != null || pendingAudioUrls.isEmpty()) return; String url=pendingAudioUrls.poll(); String token=pendingAudioTokens.poll(); if (url != null && !url.isEmpty()) playRemote(url, token); }
+
   private synchronized void playRemote(String audioUrl, String token) {
     try {
       if (audioUrl.startsWith("/")) {
@@ -495,14 +502,14 @@ public final class KhatyarRadioService extends Service {
         if (audioUrl.startsWith("/api/") && base.endsWith("/api")) base = base.substring(0, base.length() - 4);
         audioUrl = base + audioUrl;
       }
-      releasePlayer();
+      if (player != null) { try { player.stop(); } catch (Throwable ignored) {} try { player.release(); } catch (Throwable ignored) {} player = null; }
       player = new MediaPlayer();
       player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
       try { player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK); } catch (Throwable ignored) {}
       Map<String,String> headers = new HashMap<>(); if (token != null && !token.isEmpty()) headers.put("Authorization", "Bearer " + token);
       player.setDataSource(this, android.net.Uri.parse(audioUrl), headers);
-      player.setOnCompletionListener(mp -> { playRadioSfx(false, true); synchronized (KhatyarRadioService.this) { try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); } });
-      player.setOnErrorListener((mp, what, extra) -> { synchronized (KhatyarRadioService.this) { try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); } return true; });
+      player.setOnCompletionListener(mp -> { playRadioSfx(false, true); synchronized (KhatyarRadioService.this) { try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); drainAudioQueue(); } });
+      player.setOnErrorListener((mp, what, extra) -> { synchronized (KhatyarRadioService.this) { try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); drainAudioQueue(); } return true; });
       player.setOnPreparedListener(mp -> {
         try {
           int sessionId = mp.getAudioSessionId();
@@ -520,6 +527,7 @@ public final class KhatyarRadioService extends Service {
   @Override public void onDestroy() {
     destroyed = true; handler.removeCallbacksAndMessages(null); io.shutdownNow();
     if (mediaSession != null) { try { mediaSession.setActive(false); mediaSession.release(); } catch (Throwable ignored) {} mediaSession = null; }
+    synchronized (this) { pendingAudioUrls.clear(); pendingAudioTokens.clear(); }
     releasePlayer();
     super.onDestroy();
   }
