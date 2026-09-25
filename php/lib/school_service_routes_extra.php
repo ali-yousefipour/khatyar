@@ -38,7 +38,7 @@ route('POST','/api/school-service/inspections-with-photo',function($p,$b,$u){
    $photoInfo=null;
    if($hasPhoto){
      $dir=__DIR__.'/../public/uploads/school-service';if(!is_dir($dir)&&!@mkdir($dir,0755,true))throw new RuntimeException('پوشه ذخیره تصاویر قابل ایجاد نیست.');
-     $name='inspection_'.$id.'_'.bin2hex(random_bytes(8)).'.jpg';$path=$dir.'/'.$name;if(!LineImageCompressor::fromBinary($raw,$path))throw new RuntimeException('فشرده‌سازی تصویر با تنظیمات عمومی سایت ناموفق بود.');
+     $name='inspection_'.$id.'_'.bin2hex(random_bytes(8)).'.jpg';$path=$dir.'/'.$name;if(!LineImageCompressor::storeNormalized($raw,$path))throw new RuntimeException('ذخیره تصویر با تنظیمات عمومی سایت ناموفق بود.');
      $info=@getimagesize($path);$size=(int)(@filesize($path)?:0);$rel='/uploads/school-service/'.$name;Db::run("INSERT INTO school_service_inspection_photos(inspection_id,file_path,mime_type,width,height,file_size) VALUES(?,?,?,?,?,?)",[$id,$rel,'image/jpeg',(int)($info[0]??0),(int)($info[1]??0),$size]);$photoInfo=['file_path'=>$rel,'file_size'=>$size];
    }
    $pdo->commit();return ['ok'=>true,'id'=>$id,'photo'=>$photoInfo];
@@ -56,7 +56,7 @@ route('POST','/api/school-service/inspections/{id}/photos',function($p,$b,$u){
  if(@getimagesizefromstring($raw)===false)Http::error('فرمت تصویر پشتیبانی نمی‌شود.',422);
  $dir=__DIR__.'/../public/uploads/school-service';if(!is_dir($dir)&&!@mkdir($dir,0755,true))Http::error('پوشه ذخیره تصاویر قابل ایجاد نیست.',500);
  $name='inspection_'.$id.'_'.bin2hex(random_bytes(8)).'.jpg';$path=$dir.'/'.$name;
- if(!LineImageCompressor::fromBinary($raw,$path)){@unlink($path);Http::error('فشرده‌سازی تصویر با تنظیمات عمومی سایت ناموفق بود.',500);}
+ if(!LineImageCompressor::storeNormalized($raw,$path)){@unlink($path);Http::error('ذخیره تصویر با تنظیمات عمومی سایت ناموفق بود.',500);}
  $info=@getimagesize($path);$nw=(int)($info[0]??0);$nh=(int)($info[1]??0);$size=(int)(@filesize($path)?:0);
  $rel='/uploads/school-service/'.$name;Db::run("INSERT INTO school_service_inspection_photos(inspection_id,file_path,mime_type,width,height,file_size) VALUES(?,?,?,?,?,?)",[$id,$rel,'image/jpeg',$nw,$nh,$size]);$pid=(int)Db::pdo()->lastInsertId();
  return ['ok'=>true,'id'=>$pid,'file_path'=>$rel,'width'=>$nw,'height'=>$nh,'file_size'=>$size,'image_settings'=>['quality'=>(int)$set['quality'],'max_width'=>(int)$set['max_width'],'max_height'=>(int)$set['max_height']]];
