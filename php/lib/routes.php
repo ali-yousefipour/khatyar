@@ -13069,7 +13069,15 @@ function _ssv_tables(){
       name VARCHAR(255) NOT NULL,
       manager_name VARCHAR(150) NULL,
       phone VARCHAR(50) NULL,
+      ceo_mobile VARCHAR(50) NULL,
+      landline_phone VARCHAR(50) NULL,
       address VARCHAR(500) NULL,
+      latitude DECIMAL(10,7) NULL,
+      longitude DECIMAL(10,7) NULL,
+      declared_school_count INT NOT NULL DEFAULT 0,
+      registered_school_count INT NOT NULL DEFAULT 0,
+      representative_count INT NOT NULL DEFAULT 0,
+      profile_completed TINYINT(1) NOT NULL DEFAULT 0,
       is_active TINYINT(1) NOT NULL DEFAULT 1,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -13200,6 +13208,35 @@ function _ssv_tables(){
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
   ];
   foreach($sql as $q){try{Db::run($q);}catch(Throwable $e){error_log('school-service table: '.$e->getMessage());}}
+  $companyAlters=[
+    "ALTER TABLE school_service_companies ADD COLUMN ceo_mobile VARCHAR(50) NULL AFTER phone",
+    "ALTER TABLE school_service_companies ADD COLUMN landline_phone VARCHAR(50) NULL AFTER ceo_mobile",
+    "ALTER TABLE school_service_companies ADD COLUMN latitude DECIMAL(10,7) NULL AFTER address",
+    "ALTER TABLE school_service_companies ADD COLUMN longitude DECIMAL(10,7) NULL AFTER latitude",
+    "ALTER TABLE school_service_companies ADD COLUMN declared_school_count INT NOT NULL DEFAULT 0 AFTER longitude",
+    "ALTER TABLE school_service_companies ADD COLUMN registered_school_count INT NOT NULL DEFAULT 0 AFTER declared_school_count",
+    "ALTER TABLE school_service_companies ADD COLUMN representative_count INT NOT NULL DEFAULT 0 AFTER registered_school_count",
+    "ALTER TABLE school_service_companies ADD COLUMN profile_completed TINYINT(1) NOT NULL DEFAULT 0 AFTER representative_count"
+  ];
+  foreach($companyAlters as $q){try{Db::run($q);}catch(Throwable $e){}}
+  try{
+    $seedFile=__DIR__.'/../seed/school_service_companies.php';
+    if(is_file($seedFile)){
+      $seed=require $seedFile;
+      foreach($seed as $row){
+        if(count($row)<13) continue;
+        [$sid,$name,$manager,$mobile,$landline,$address,$lat,$lng,$declared,$registered,$reps,$active,$profile]=$row;
+        Db::run("INSERT INTO school_service_companies
+          (id,name,manager_name,phone,ceo_mobile,landline_phone,address,latitude,longitude,declared_school_count,registered_school_count,representative_count,profile_completed,is_active)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          ON DUPLICATE KEY UPDATE name=VALUES(name),manager_name=VALUES(manager_name),phone=VALUES(phone),ceo_mobile=VALUES(ceo_mobile),
+          landline_phone=VALUES(landline_phone),address=VALUES(address),latitude=VALUES(latitude),longitude=VALUES(longitude),
+          declared_school_count=VALUES(declared_school_count),registered_school_count=VALUES(registered_school_count),
+          representative_count=VALUES(representative_count),profile_completed=VALUES(profile_completed),is_active=VALUES(is_active)",
+          [(int)$sid,_ssv_norm($name),_ssv_norm($manager)?:null,trim((string)$mobile)?:null,trim((string)$landline)?:null,_ssv_norm($address)?:null,$lat!==''?(float)$lat:null,$lng!==''?(float)$lng:null,(int)$declared,(int)$registered,(int)$reps,(int)$profile,(int)$active]);
+      }
+    }
+  }catch(Throwable $e){error_log('school-service company seed: '.$e->getMessage());}
   // نسخه‌های قبلی ممکن است iran_code را VARCHAR(4) ساخته باشند؛ «ایران» پنج کاراکتر فارسی دارد.
   try{Db::run("ALTER TABLE school_service_inspections MODIFY iran_code VARCHAR(5) NOT NULL DEFAULT 'ایران'");}catch(Throwable $e){error_log('school-service iran_code: '.$e->getMessage());}
   try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN client_uuid VARCHAR(80) NULL AFTER inspector_user_id");}catch(Throwable $e){}
@@ -13362,15 +13399,15 @@ function _ssv_sheet_records($rows){
   return $out;
 }
 
-route('POST','/api/school-service/companies',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام شرکت الزامی است',422);if(Db::one("SELECT id FROM school_service_companies WHERE name=?",[$name]))Http::error('این شرکت قبلاً ثبت شده است',409);Db::run("INSERT INTO school_service_companies(name,manager_name,phone,address) VALUES(?,?,?,?)",[$name,_ssv_norm($b['manager_name']??'')?:null,trim($b['phone']??'')?:null,_ssv_norm($b['address']??'')?:null]);return ['ok'=>true,'id'=>(int)Db::pdo()->lastInsertId()];});
-route('PUT','/api/school-service/companies/{id}',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$id=(int)$p['id'];if(!Db::one("SELECT id FROM school_service_companies WHERE id=?",[$id]))Http::error('شرکت یافت نشد',404);$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام شرکت الزامی است',422);Db::run("UPDATE school_service_companies SET name=?,manager_name=?,phone=?,address=?,is_active=? WHERE id=?",[$name,_ssv_norm($b['manager_name']??'')?:null,trim($b['phone']??'')?:null,_ssv_norm($b['address']??'')?:null,isset($b['is_active'])?(int)!!$b['is_active']:1,$id]);return ['ok'=>true];});
+route('POST','/api/school-service/companies',function($p,$b,$u){_ssv_need($u,'create');_ssv_tables();$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام شرکت الزامی است',422);if(Db::one("SELECT id FROM school_service_companies WHERE name=?",[$name]))Http::error('این شرکت قبلاً ثبت شده است',409);$mobile=trim((string)($b['ceo_mobile']??($b['phone']??'')));$landline=trim((string)($b['landline_phone']??''));Db::run("INSERT INTO school_service_companies(name,manager_name,phone,ceo_mobile,landline_phone,address,latitude,longitude,declared_school_count,registered_school_count,representative_count,profile_completed,is_active) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",[$name,_ssv_norm($b['manager_name']??'')?:null,$mobile?:null,$mobile?:null,$landline?:null,_ssv_norm($b['address']??'')?:null,($b['latitude']??'')!==''?(float)$b['latitude']:null,($b['longitude']??'')!==''?(float)$b['longitude']:null,max(0,(int)($b['declared_school_count']??0)),max(0,(int)($b['registered_school_count']??0)),max(0,(int)($b['representative_count']??0)),!empty($b['profile_completed'])?1:0,isset($b['is_active'])?(int)!!$b['is_active']:1]);return ['ok'=>true,'id'=>(int)Db::pdo()->lastInsertId()];});
+route('PUT','/api/school-service/companies/{id}',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$id=(int)$p['id'];if(!Db::one("SELECT id FROM school_service_companies WHERE id=?",[$id]))Http::error('شرکت یافت نشد',404);$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام شرکت الزامی است',422);$mobile=trim((string)($b['ceo_mobile']??($b['phone']??'')));$landline=trim((string)($b['landline_phone']??''));Db::run("UPDATE school_service_companies SET name=?,manager_name=?,phone=?,ceo_mobile=?,landline_phone=?,address=?,latitude=?,longitude=?,declared_school_count=?,registered_school_count=?,representative_count=?,profile_completed=?,is_active=? WHERE id=?",[$name,_ssv_norm($b['manager_name']??'')?:null,$mobile?:null,$mobile?:null,$landline?:null,_ssv_norm($b['address']??'')?:null,($b['latitude']??'')!==''?(float)$b['latitude']:null,($b['longitude']??'')!==''?(float)$b['longitude']:null,max(0,(int)($b['declared_school_count']??0)),max(0,(int)($b['registered_school_count']??0)),max(0,(int)($b['representative_count']??0)),!empty($b['profile_completed'])?1:0,isset($b['is_active'])?(int)!!$b['is_active']:1,$id]);return ['ok'=>true];});
 route('DELETE','/api/school-service/companies/{id}',function($p,$b,$u){_ssv_need($u,'delete');_ssv_tables();$id=(int)$p['id'];Db::run("UPDATE school_service_companies SET is_active=0 WHERE id=?",[$id]);return ['ok'=>true];});
 route('POST','/api/school-service/schools',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام مدرسه الزامی است',422);$g=in_array($b['gender']??'',['دخترانه','پسرانه'],true)?$b['gender']:'نامشخص';Db::run("INSERT INTO school_service_schools(code,name,educational_district,gender,address) VALUES(?,?,?,?,?)",[_ssv_norm($b['code']??'')?:null,$name,_ssv_norm($b['educational_district']??'')?:null,$g,_ssv_norm($b['address']??'')?:null]);return ['ok'=>true,'id'=>(int)Db::pdo()->lastInsertId()];});
 route('PUT','/api/school-service/schools/{id}',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$id=(int)$p['id'];if(!Db::one("SELECT id FROM school_service_schools WHERE id=?",[$id]))Http::error('مدرسه یافت نشد',404);$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام مدرسه الزامی است',422);$g=in_array($b['gender']??'',['دخترانه','پسرانه'],true)?$b['gender']:'نامشخص';Db::run("UPDATE school_service_schools SET code=?,name=?,educational_district=?,gender=?,address=? WHERE id=?",[_ssv_norm($b['code']??'')?:null,$name,_ssv_norm($b['educational_district']??'')?:null,$g,_ssv_norm($b['address']??'')?:null,$id]);if(isset($b['company_id'])){Db::run("DELETE FROM school_service_school_companies WHERE school_id=?",[$id]);$cid=(int)$b['company_id'];if($cid)Db::run("INSERT IGNORE INTO school_service_school_companies(school_id,company_id,is_primary) VALUES(?,?,1)",[$id,$cid]);}return ['ok'=>true];});
 route('DELETE','/api/school-service/schools/{id}',function($p,$b,$u){_ssv_need($u,'delete');_ssv_tables();Db::run("UPDATE school_service_schools SET is_active=0 WHERE id=?",[(int)$p['id']]);return ['ok'=>true];});
 route('GET','/api/school-service/access',function($p,$b,$u){_ssv_tables();return ['allowed'=>_ssv_perm($u,'view'),'can_create'=>_ssv_perm($u,'create'),'can_edit'=>_ssv_perm($u,'edit'),'can_delete'=>_ssv_perm($u,'delete'),'can_import'=>_ssv_perm($u,'import'),'can_report'=>_ssv_perm($u,'report')];});
 route('GET','/api/school-service/meta',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();return ['districts'=>['۱','۲','۳','۴','۵','۶','۷','تبادکان'],'genders'=>['دخترانه','پسرانه','نامشخص'],'driver_genders'=>['خانم','آقا','نامشخص'],'vehicle_types'=>['سمند','سورن','پژو','پراید','تیبا','دنا','رانا','اطلس','کوییک','سایر'],'vehicle_colors'=>['سفید','زرد','مشکی','نقره‌ای','خاکستری','آبی','قرمز','سبز','سایر'],'violations'=>Db::all("SELECT id,title FROM school_service_violation_types WHERE is_active=1 ORDER BY sort_order,id")];});
-route('GET','/api/school-service/companies',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();$q=_ssv_norm($_GET['search']??'');$limit=min(200,(int)($_GET['limit']??100));$where=$q!==''?'WHERE c.name LIKE ?':'WHERE 1';$args=$q!==''?['%'.$q.'%']:[];return ['items'=>Db::all("SELECT c.id,c.name,c.manager_name,c.phone,c.address,c.is_active,COUNT(DISTINCT sc.school_id) school_count FROM school_service_companies c LEFT JOIN school_service_school_companies sc ON sc.company_id=c.id $where GROUP BY c.id ORDER BY c.name LIMIT $limit",$args)];});
+route('GET','/api/school-service/companies',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();$q=_ssv_norm($_GET['search']??'');$limit=min(200,(int)($_GET['limit']??100));$where=$q!==''?'WHERE c.name LIKE ?':'WHERE 1';$args=$q!==''?['%'.$q.'%']:[];return ['items'=>Db::all("SELECT c.id,c.name,c.manager_name,c.phone,c.ceo_mobile,c.landline_phone,c.address,c.latitude,c.longitude,c.declared_school_count,c.registered_school_count,c.representative_count,c.profile_completed,c.is_active,COUNT(DISTINCT sc.school_id) actual_school_count FROM school_service_companies c LEFT JOIN school_service_school_companies sc ON sc.company_id=c.id $where GROUP BY c.id ORDER BY c.name LIMIT $limit",$args)];});
 route('GET','/api/school-service/schools',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();$q=_ssv_norm($_GET['search']??'');$company=(int)($_GET['company_id']??0);$district=_ssv_norm($_GET['district']??'');$c=['s.is_active=1'];$args=[];if($q!==''){$c[]='(s.name LIKE ? OR s.code LIKE ?)';$args[]='%'.$q.'%';$args[]='%'.$q.'%';}if($company){$c[]='EXISTS(SELECT 1 FROM school_service_school_companies x WHERE x.school_id=s.id AND x.company_id=?)';$args[]=$company;}if($district!==''){$c[]='s.educational_district=?';$args[]=$district;}$where=implode(' AND ',$c);return ['items'=>Db::all("SELECT s.id,s.code,s.name,s.educational_district,s.gender,s.address,COALESCE(MAX(CASE WHEN sc.is_primary=1 THEN sc.company_id END),MIN(sc.company_id)) company_id,GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') company_names FROM school_service_schools s LEFT JOIN school_service_school_companies sc ON sc.school_id=s.id LEFT JOIN school_service_companies c ON c.id=sc.company_id WHERE $where GROUP BY s.id ORDER BY s.name LIMIT 500",$args)];});
 route('GET','/api/school-service/inspections',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();$c=['1=1'];$args=[];$q=_ssv_norm($_GET['search']??'');if($q!==''){$c[]='(s.name LIKE ? OR c.name LIKE ? OR i.location_text LIKE ? OR CONCAT(i.plate_three,i.plate_letter,i.plate_two,i.plate_region) LIKE ?)';$args=array_merge($args,['%'.$q.'%','%'.$q.'%','%'.$q.'%','%'.$q.'%']);}if(!empty($_GET['company_id'])){$c[]='i.company_id=?';$args[]=(int)$_GET['company_id'];}if(!empty($_GET['district'])){$c[]='i.educational_district=?';$args[]=_ssv_norm($_GET['district']);}$where=implode(' AND ',$c);$rows=Db::all("SELECT i.*,s.name school_name,c.name company_name,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) inspector_name FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id LEFT JOIN school_service_companies c ON c.id=i.company_id LEFT JOIN users u ON u.id=i.inspector_user_id WHERE $where ORDER BY i.id DESC LIMIT 1000",$args);foreach($rows as &$r){$r['plate']=trim(($r['plate_two']??'').' '.($r['plate_letter']??'').' '.($r['plate_three']??'').' ایران '.($r['plate_region']??''));$r['violations']=array_column(Db::all("SELECT v.title FROM school_service_inspection_violations x JOIN school_service_violation_types v ON v.id=x.violation_type_id WHERE x.inspection_id=?",[(int)$r['id']]),'title');}unset($r);return ['items'=>$rows];});
 route('POST','/api/school-service/inspections',function($p,$b,$u){
