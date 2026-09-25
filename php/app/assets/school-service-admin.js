@@ -45,20 +45,24 @@ window.openSchoolService = open;
     if(done||document.getElementById('school-service-menu-item')) return true;
     const nav=document.querySelector('.side .nav');
     if(!nav) return false;
+    if(document.getElementById('school-service-menu-item')){done=true;return true;}
     const sections=Array.from(nav.querySelectorAll('.navsec'));
     const taxiSection=sections.find(sec=>{
       const title=String(sec.querySelector('.navsec-head')?.textContent||'').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim();
       return title.includes('تاکسی') || title.includes('تاکسیران');
     });
-    const host=taxiSection?.querySelector('.navsec-body');
-    if(!host) return false;
+    if(!taxiSection) return false;
+    const section=document.createElement('section');
+    section.className='navsec school-service-navsec';
+    section.setAttribute('data-school-service-section','1');
+    section.innerHTML='<div class="navsec-head" style="display:flex;align-items:center;gap:8px"><span aria-hidden="true">🏫</span><span>سرویس مدارس</span></div><div class="navsec-body" style="display:block"></div>';
+    const host=section.querySelector('.navsec-body');
     const btn=document.createElement('button');
-    btn.id='school-service-menu-item'; btn.type='button'; btn.className='navitem';
-    btn.innerHTML='<span class="ic" aria-hidden="true">🏫</span><span class="navlabel">سرویس مدارس</span>';
+    btn.id='school-service-menu-item'; btn.type='button'; btn.className='navitem'; btn.setAttribute('aria-label','باز کردن بخش سرویس مدارس');
+    btn.innerHTML='<span class="ic" aria-hidden="true">📋</span><span class="navlabel">مدیریت سرویس مدارس</span>';
     btn.onclick=()=>open().catch(e=>alert(e.message||'دسترسی به سرویس مدارس ممکن نیست.'));
     host.appendChild(btn);
-    const refresh=()=>{try{host.style.maxHeight=host.scrollHeight+'px';host.style.opacity='1'}catch(_){}};
-    refresh(); requestAnimationFrame(refresh); setTimeout(refresh,100); setTimeout(refresh,500);
+    taxiSection.parentNode.insertBefore(section,taxiSection.nextSibling);
     done=true; return true;
   };
   for(let i=0;i<120&&!done;i++){if(!add()) await new Promise(r=>setTimeout(r,500));}
