@@ -13703,7 +13703,6 @@ function Login({ onLogin, brand }) {
     const [info, setInfo] = useState("");
     const submit = async () => { try {
         const d = await db.login(u, p);
-        await khForceFreshReloadAfterLogin();
         onLogin(d.user);
     }
     catch (e) {
@@ -13884,6 +13883,6 @@ async function khForceFreshReloadAfterLogin() {
         return;
     }
     await khEnsureFreshBuild();
-    console.log("PANEL BUILD: 1.4.4 (custom-drawer-radio-fixes-volume-ptt)");
+    console.log("PANEL BUILD: 1.5.0 (custom-drawer-radio-fixes-volume-ptt)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
 })();
