@@ -111,11 +111,28 @@ const db = {
   // POST با Content-Type: application/json را (به‌خصوص برای فیلدهای شبیه به فرم ورود) مسدود
   // می‌کند؛ با تست مستقیم روی سرور واقعی تأیید شد که فرم urlencoded بدون مشکل عبور می‌کند.
   login: async (u,p)=>{
-    const form = new URLSearchParams(); form.append('username',u); form.append('password',p); form.append('device_id','web-panel');
-    const r = await fetch(API_BASE+'/session/start',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded; charset=UTF-8'},body:form.toString()});
-    const d = await _readJsonResponse(r);
-    if(!r.ok) throw new Error(d.error||d.message||'ورود ناموفق بود');
-    localStorage.token=d.access; return d;
+    const form = new URLSearchParams();
+    form.append('username',u); form.append('password',p); form.append('device_id','web-panel');
+    const controller = new AbortController();
+    const timer = setTimeout(()=>controller.abort(),12000);
+    try{
+      const r = await fetch(API_BASE+'/session/start',{
+        method:'POST',
+        headers:{
+          'content-type':'application/x-www-form-urlencoded; charset=UTF-8',
+          'accept':'application/json',
+          'cache-control':'no-store'
+        },
+        body:form.toString(),
+        signal:controller.signal
+      });
+      const d = await _readJsonResponse(r);
+      if(!r.ok) throw new Error(d.error||d.message||'ورود ناموفق بود');
+      localStorage.token=d.access; return d;
+    }catch(e){
+      if(e&&e.name==='AbortError') throw new Error('زمان پاسخ سرور برای ورود بیش از ۱۲ ثانیه شد؛ لطفاً اتصال سرور را بررسی کنید.');
+      throw e;
+    }finally{clearTimeout(timer);}
   },
   stats: ()=> GET('/admin/stats'),
   systemHealthDashboard: ()=> GET('/admin/system-health-dashboard'),
@@ -7829,8 +7846,16 @@ const VIEWS={
 
 function Login({onLogin,brand}){
   const [u,setU]=useState(""); const [p,setP]=useState(""); const [err,setErr]=useState("");
-  const [mode,setMode]=useState("login"); const [code,setCode]=useState(""); const [np,setNp]=useState(""); const [info,setInfo]=useState("");
-  const submit=async()=>{ try{ const d=await db.login(u,p); await khForceFreshReloadAfterLogin(); onLogin(d.user); }catch(e){ setErr(e.message); } };
+  const [mode,setMode]=useState("login"); const [code,setCode]=useState(""); const [np,setNp]=useState(""); const [info,setInfo]=useState(""); const [busy,setBusy]=useState(false);
+  const submit=async()=>{
+    if(busy)return;
+    setErr("");setInfo("");
+    if(!u.trim()||!p){setErr("نام کاربری و رمز عبور را وارد کنید.");return;}
+    setBusy(true);
+    try{const d=await db.login(u,p);onLogin(d.user);}
+    catch(e){setErr(e.message||'ورود ناموفق بود');}
+    finally{setBusy(false);}
+  };
   const sendCode=async()=>{ setErr("");setInfo(""); try{ await SEND('POST','/auth/forgot-password',{username:u}); setInfo("اگر نام کاربری معتبر باشد، کد بازیابی پیامک شد."); setMode("reset"); }catch(e){ setErr(e.message); } };
   const doReset=async()=>{ setErr("");setInfo(""); try{ await SEND('POST','/auth/reset-password',{username:u,code,password:np}); setInfo("رمز با موفقیت تغییر کرد. اکنون وارد شوید."); setMode("login"); setP(""); }catch(e){ setErr(e.message); } };
   return(<div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)"}}>
@@ -7840,7 +7865,7 @@ function Login({onLogin,brand}){
       <input className="input" placeholder="نام کاربری (کد ملی)" value={u} onChange={e=>setU(e.target.value)} style={{marginBottom:10}}/>
       {mode==="login"&&<>
         <input className="input" type="password" placeholder="رمز عبور" value={p} onChange={e=>setP(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()}/>
-        <button className="btn p" style={{width:"100%",marginTop:14}} onClick={submit}>ورود</button>
+        <button className="btn p" disabled={busy} style={{width:"100%",marginTop:14,opacity:busy?.7:1}} onClick={submit}>{busy?"در حال ورود...":"ورود"}</button>
         <p style={{textAlign:"center",marginTop:10}}><a style={{fontSize:12,color:"var(--brand)",cursor:"pointer"}} onClick={()=>{setErr("");setInfo("");setMode("forgot");}}>فراموشی رمز عبور</a></p>
       </>}
       {mode==="forgot"&&<>
@@ -7934,11 +7959,8 @@ async function khEnsureFreshBuild(){
     location.href=location.pathname+'?_v='+encodeURIComponent(serverV)+'&_t='+Date.now();
   }catch(e){}
 }
-async function khForceFreshReloadAfterLogin(){
-  try{
-    if(window.caches){const names=await caches.keys();await Promise.all(names.map(n=>caches.delete(n)));}
-  }catch(e){}
-}
+// Deliberately no cache operation is performed after login.
+  // Cache invalidation must never be on the authentication critical path.
 
 (async ()=>{
   const ok = await checkConnection();
