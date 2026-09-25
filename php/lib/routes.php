@@ -13202,7 +13202,10 @@ function _ssv_valid_option($table,$value){
   $allowed=['school_service_districts'=>true,'school_service_vehicle_types'=>true,'school_service_vehicle_colors'=>true];
   if(!isset($allowed[$table]))return false;
   $value=_ssv_norm($value);if($value==='')return false;
-  return (bool)Db::one("SELECT id FROM ".$table." WHERE title=? AND is_active=1 LIMIT 1",[$value]);
+  foreach(Db::all("SELECT id,title FROM ".$table." WHERE is_active=1") as $row){
+    if(_ssv_norm($row['title']??'')===$value)return true;
+  }
+  return false;
 }
 
 function _ssv_plate($b){
