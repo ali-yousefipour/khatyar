@@ -18,20 +18,38 @@ CREATE TABLE IF NOT EXISTS school_service_vehicle_colors (id INT AUTO_INCREMENT 
 INSERT IGNORE INTO school_service_vehicle_colors(title,sort_order) VALUES ('سفید',1),('زرد',2),('مشکی',3),('نقره‌ای',4),('خاکستری',5),('آبی',6),('قرمز',7),('سبز',8),('سایر',99);
 
 -- تکمیل ساختار مدارس برای دیتابیس‌های قبلی
-ALTER TABLE school_service_schools MODIFY COLUMN gender ENUM('دخترانه','پسرانه','دخترانه-پسرانه','نامشخص') NOT NULL DEFAULT 'نامشخص';
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS shift VARCHAR(40) NULL AFTER gender;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS education_level VARCHAR(120) NULL AFTER shift;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS school_type VARCHAR(120) NULL AFTER education_level;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS activity_start DATE NULL AFTER school_type;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS activity_end DATE NULL AFTER activity_start;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS morning_start TIME NULL AFTER activity_end;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS morning_end TIME NULL AFTER morning_start;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS afternoon_start TIME NULL AFTER morning_end;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS afternoon_end TIME NULL AFTER afternoon_start;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS driver_count INT NULL AFTER afternoon_end;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS student_count INT NULL AFTER driver_count;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS phone VARCHAR(80) NULL AFTER address;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS latitude DECIMAL(10,7) NULL AFTER phone;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS longitude DECIMAL(10,7) NULL AFTER latitude;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS status VARCHAR(50) NOT NULL DEFAULT 'ثبت‌شده' AFTER longitude;
-ALTER TABLE school_service_schools ADD COLUMN IF NOT EXISTS location_registered_at DATETIME NULL AFTER status;
+-- برای سازگاری با MySQL و MariaDB، افزودن ستون‌ها با INFORMATION_SCHEMA انجام می‌شود.
+SET @db = DATABASE();
+
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='shift'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN shift VARCHAR(40) NULL AFTER gender');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='education_level'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN education_level VARCHAR(120) NULL AFTER shift');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='school_type'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN school_type VARCHAR(120) NULL AFTER education_level');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='activity_start'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN activity_start DATE NULL AFTER school_type');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='activity_end'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN activity_end DATE NULL AFTER activity_start');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='morning_start'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN morning_start TIME NULL AFTER activity_end');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='morning_end'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN morning_end TIME NULL AFTER morning_start');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='afternoon_start'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN afternoon_start TIME NULL AFTER morning_end');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='afternoon_end'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN afternoon_end TIME NULL AFTER afternoon_start');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='driver_count'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN driver_count INT NULL AFTER afternoon_end');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='student_count'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN student_count INT NULL AFTER driver_count');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='phone'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN phone VARCHAR(80) NULL AFTER address');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='latitude'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN latitude DECIMAL(10,7) NULL AFTER phone');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='longitude'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN longitude DECIMAL(10,7) NULL AFTER latitude');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='status'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN status VARCHAR(50) NOT NULL DEFAULT 'ثبت‌شده' AFTER longitude');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='location_registered_at'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN location_registered_at DATETIME NULL AFTER status');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
