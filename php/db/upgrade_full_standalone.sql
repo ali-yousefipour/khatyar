@@ -1012,6 +1012,473 @@ CREATE TABLE IF NOT EXISTS inventory_transfers (
 
 DROP PROCEDURE IF EXISTS __taxi_setting_default;
 
+
+-- ============================================================
+-- KhatYar final runtime sync: core + radio v2 + school service
+-- این بخش‌ها عمداً به‌صورت inline قرار گرفته‌اند تا در phpMyAdmin
+-- بدون SOURCE و بدون نیاز به اجرای چند فایل جداگانه قابل Import باشند.
+-- ============================================================
+
+-- تعمیر زیرساخت هسته سامانه برای نصب‌های قدیمی MySQL/MariaDB
+-- قابل اجرای مجدد است و قبل از ورود/تنظیمات، جداول پایه را هم‌تراز می‌کند.
+SET @db=DATABASE();
+
+CREATE TABLE IF NOT EXISTS app_settings(
+  `key` VARCHAR(190) NOT NULL PRIMARY KEY,
+  value LONGTEXT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS activity_logs(
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NULL,
+  event VARCHAR(80) NOT NULL DEFAULT 'event',
+  meta LONGTEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_activity_logs_user_time(user_id,created_at),
+  KEY idx_activity_logs_event_time(event,created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_sessions(
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL DEFAULT 0,
+  device_type VARCHAR(20) NOT NULL DEFAULT 'web',
+  device_id VARCHAR(255) NOT NULL DEFAULT '',
+  device_model VARCHAR(255) NULL,
+  revoked_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_user_type(user_id,device_type),
+  KEY idx_user_sessions_revoked(revoked_at,created_at),
+  KEY idx_user_sessions_device(device_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='activity_logs' AND COLUMN_NAME='user_id'),'SELECT 1','ALTER TABLE activity_logs ADD COLUMN user_id INT NULL'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='activity_logs' AND COLUMN_NAME='event'),'SELECT 1','ALTER TABLE activity_logs ADD COLUMN event VARCHAR(80) NOT NULL DEFAULT ''event'''); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='activity_logs' AND COLUMN_NAME='meta'),'SELECT 1','ALTER TABLE activity_logs ADD COLUMN meta LONGTEXT NULL'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='activity_logs' AND COLUMN_NAME='created_at'),'SELECT 1','ALTER TABLE activity_logs ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='user_sessions' AND COLUMN_NAME='user_id'),'SELECT 1','ALTER TABLE user_sessions ADD COLUMN user_id INT NOT NULL DEFAULT 0'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='user_sessions' AND COLUMN_NAME='device_type'),'SELECT 1','ALTER TABLE user_sessions ADD COLUMN device_type VARCHAR(20) NOT NULL DEFAULT ''web'''); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='user_sessions' AND COLUMN_NAME='device_id'),'SELECT 1','ALTER TABLE user_sessions ADD COLUMN device_id VARCHAR(255) NOT NULL DEFAULT '''''); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='user_sessions' AND COLUMN_NAME='device_model'),'SELECT 1','ALTER TABLE user_sessions ADD COLUMN device_model VARCHAR(255) NULL'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='user_sessions' AND COLUMN_NAME='revoked_at'),'SELECT 1','ALTER TABLE user_sessions ADD COLUMN revoked_at DATETIME NULL'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='user_sessions' AND COLUMN_NAME='created_at'),'SELECT 1','ALTER TABLE user_sessions ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='roles' AND COLUMN_NAME='is_admin'),'SELECT 1','ALTER TABLE roles ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='users' AND COLUMN_NAME='security_exempt'),'SELECT 1','ALTER TABLE users ADD COLUMN security_exempt TINYINT(1) NOT NULL DEFAULT 0'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='users' AND COLUMN_NAME='rank_stars'),'SELECT 1','ALTER TABLE users ADD COLUMN rank_stars TINYINT NULL'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+
+-- KhatYar Radio v2: secure membership rules, presence and audit log.
+-- MySQL/MariaDB compatible and idempotent.
+-- برای دیتابیس جدید و دیتابیس‌های قدیمی طراحی شده است.
+
+SET @db=DATABASE();
+
+CREATE TABLE IF NOT EXISTS radio_channels (
+ id INT UNSIGNED NOT NULL AUTO_INCREMENT,name VARCHAR(100) NOT NULL,code VARCHAR(50) NOT NULL,
+ description VARCHAR(255) NULL,is_active TINYINT(1) NOT NULL DEFAULT 1,current_speaker_id INT NULL,lock_until DATETIME NULL,
+ channel_type VARCHAR(20) NOT NULL DEFAULT 'custom',match_mode VARCHAR(3) NOT NULL DEFAULT 'OR',max_talk_ms INT UNSIGNED NOT NULL DEFAULT 25000,
+ priority INT NOT NULL DEFAULT 0,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY(id),UNIQUE KEY uq_radio_channels_code(code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS radio_messages (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,channel_id INT UNSIGNED NOT NULL,sender_id INT NOT NULL,sender_name VARCHAR(190) NOT NULL,
+ audio_path VARCHAR(255) NOT NULL,mime_type VARCHAR(80) NOT NULL DEFAULT 'audio/mp4',duration_ms INT UNSIGNED NOT NULL DEFAULT 0,
+ bytes_size INT UNSIGNED NOT NULL DEFAULT 0,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(id),KEY idx_radio_messages_channel(channel_id,id),KEY idx_radio_messages_sender(sender_id,id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS radio_user_settings (
+ user_id INT NOT NULL PRIMARY KEY,enabled TINYINT(1) NOT NULL DEFAULT 1,channel_id INT UNSIGNED NULL,
+ listen_all TINYINT(1) NOT NULL DEFAULT 0,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS radio_channel_regions (
+ channel_id INT UNSIGNED NOT NULL,region_id INT NOT NULL,PRIMARY KEY(channel_id,region_id),KEY idx_radio_cr_region(region_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS radio_channel_users (
+ channel_id INT UNSIGNED NOT NULL,user_id INT NOT NULL,PRIMARY KEY(channel_id,user_id),KEY idx_radio_cu_user(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS radio_channel_roles (
+ channel_id INT UNSIGNED NOT NULL,role_id INT NOT NULL,PRIMARY KEY(channel_id,role_id),KEY idx_radio_cr_role(role_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS radio_presence (
+ channel_id INT UNSIGNED NOT NULL,user_id INT NOT NULL,last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(channel_id,user_id),KEY idx_radio_presence_seen(channel_id,last_seen_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS radio_logs (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,channel_id INT UNSIGNED NULL,user_id INT NULL,event_type VARCHAR(40) NOT NULL,
+ meta_json TEXT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(id),KEY idx_radio_logs_channel(channel_id,id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- تکمیل ستون‌های دیتابیس‌های قدیمی
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_user_settings' AND COLUMN_NAME='listen_all'),'SELECT 1','ALTER TABLE radio_user_settings ADD COLUMN listen_all TINYINT(1) NOT NULL DEFAULT 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_channels' AND COLUMN_NAME='channel_type'),'SELECT 1','ALTER TABLE radio_channels ADD COLUMN channel_type VARCHAR(20) NOT NULL DEFAULT ''custom''');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_channels' AND COLUMN_NAME='match_mode'),'SELECT 1','ALTER TABLE radio_channels ADD COLUMN match_mode VARCHAR(3) NOT NULL DEFAULT ''OR''');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_channels' AND COLUMN_NAME='max_talk_ms'),'SELECT 1','ALTER TABLE radio_channels ADD COLUMN max_talk_ms INT UNSIGNED NOT NULL DEFAULT 25000');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_channels' AND COLUMN_NAME='priority'),'SELECT 1','ALTER TABLE radio_channels ADD COLUMN priority INT NOT NULL DEFAULT 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_messages' AND COLUMN_NAME='sender_name'),'SELECT 1','ALTER TABLE radio_messages ADD COLUMN sender_name VARCHAR(190) NOT NULL DEFAULT ''کاربر''');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_messages' AND COLUMN_NAME='audio_path'),'SELECT 1','ALTER TABLE radio_messages ADD COLUMN audio_path VARCHAR(255) NOT NULL DEFAULT ''''');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_messages' AND COLUMN_NAME='mime_type'),'SELECT 1','ALTER TABLE radio_messages ADD COLUMN mime_type VARCHAR(80) NOT NULL DEFAULT ''audio/mp4''');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_messages' AND COLUMN_NAME='duration_ms'),'SELECT 1','ALTER TABLE radio_messages ADD COLUMN duration_ms INT UNSIGNED NOT NULL DEFAULT 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_messages' AND COLUMN_NAME='bytes_size'),'SELECT 1','ALTER TABLE radio_messages ADD COLUMN bytes_size INT UNSIGNED NOT NULL DEFAULT 0');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_messages' AND COLUMN_NAME='created_at'),'SELECT 1','ALTER TABLE radio_messages ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP');
+PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+
+INSERT INTO radio_channels(name,code,description,is_active,channel_type,match_mode,max_talk_ms,priority)
+VALUES
+('عمومی','general','کانال عمومی ارتباط خطیار',1,'custom','OR',25000,10),
+('مدیریت','management','ارتباط مدیریت و مسئولین',1,'custom','OR',25000,20),
+('بازرسی','inspection','ارتباط واحد بازرسی',1,'custom','OR',25000,30),
+('عملیات خطوط','field','ارتباط عملیات میدانی خطوط',1,'custom','OR',25000,25)
+ON DUPLICATE KEY UPDATE name=VALUES(name),description=VALUES(description),is_active=1;
+
+UPDATE radio_channels SET channel_type='custom' WHERE channel_type IS NULL OR channel_type='';
+UPDATE radio_channels SET match_mode='OR' WHERE match_mode IS NULL OR match_mode='';
+UPDATE radio_channels SET max_talk_ms=25000 WHERE max_talk_ms IS NULL OR max_talk_ms<5000;
+
+
+-- سرویس مدارس - Migration سازگار با MySQL 8 / MariaDB
+-- این فایل هم برای دیتابیس جدید و هم دیتابیس‌های قدیمی قابل اجرا است.
+-- هیچ INSERT ای قبل از ساخت/تکمیل ستون موردنیاز اجرا نمی‌شود.
+SET @db = DATABASE();
+
+CREATE TABLE IF NOT EXISTS school_service_companies (
+ id INT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(255) NOT NULL,manager_name VARCHAR(150) NULL,
+ phone VARCHAR(50) NULL,address VARCHAR(500) NULL,is_active TINYINT(1) NOT NULL DEFAULT 1,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_ssc_name(name),KEY idx_ssc_active(is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS school_service_schools (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,code VARCHAR(100) NULL,name VARCHAR(255) NOT NULL,
+ educational_district VARCHAR(80) NULL,gender VARCHAR(80) NULL,shift VARCHAR(80) NULL,
+ education_level VARCHAR(150) NULL,school_type VARCHAR(150) NULL,
+ activity_start VARCHAR(20) NULL,activity_end VARCHAR(20) NULL,
+ morning_start VARCHAR(20) NULL,morning_end VARCHAR(20) NULL,
+ afternoon_start VARCHAR(20) NULL,afternoon_end VARCHAR(20) NULL,
+ driver_count INT NULL,student_count INT NULL,address TEXT NULL,phone VARCHAR(80) NULL,
+ latitude DECIMAL(10,7) NULL,longitude DECIMAL(10,7) NULL,status VARCHAR(80) NULL DEFAULT 'ثبت‌شده',
+ location_registered_at DATETIME NULL,is_active TINYINT(1) NOT NULL DEFAULT 1,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY(id),KEY idx_ss_code(code),KEY idx_ss_name(name),KEY idx_ss_district(educational_district),
+ KEY idx_ss_status(status),KEY idx_ss_location(latitude,longitude)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS school_service_school_companies (
+ school_id BIGINT UNSIGNED NOT NULL,company_id INT NOT NULL,is_primary TINYINT(1) NOT NULL DEFAULT 1,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(school_id,company_id),
+ UNIQUE KEY uq_sssc_school(school_id),KEY idx_sssc_company(company_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS school_service_violation_types (
+ id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(255) NOT NULL UNIQUE,is_active TINYINT(1) NOT NULL DEFAULT 1,sort_order INT NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS school_service_inspections (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY,inspector_user_id INT NOT NULL,client_uuid VARCHAR(80) NULL,
+ educational_district VARCHAR(80) NULL,company_id INT NULL,school_id BIGINT UNSIGNED NULL,
+ school_gender ENUM('دخترانه','پسرانه','نامشخص') NOT NULL DEFAULT 'نامشخص',
+ plate_three VARCHAR(3) NULL,plate_letter VARCHAR(5) NULL,plate_two VARCHAR(2) NULL,plate_region VARCHAR(2) NULL,
+ iran_code VARCHAR(10) NOT NULL DEFAULT 'ایران',vehicle_type VARCHAR(100) NULL,vehicle_color VARCHAR(80) NULL,
+ passenger_front_count INT NOT NULL DEFAULT 0,passenger_rear_count INT NOT NULL DEFAULT 0,passenger_count INT NOT NULL DEFAULT 0,
+ driver_gender ENUM('خانم','آقا','نامشخص') NOT NULL DEFAULT 'نامشخص',
+ certificate_status ENUM('معتبر','نامعتبر','ارائه نشد') NOT NULL DEFAULT 'ارائه نشد',
+ violation_date VARCHAR(20) NULL,violation_time VARCHAR(10) NULL,location_text VARCHAR(700) NULL,
+ latitude DECIMAL(10,7) NULL,longitude DECIMAL(10,7) NULL,description TEXT NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ KEY idx_ssi_user(inspector_user_id,created_at),KEY idx_ssi_company(company_id,created_at),
+ KEY idx_ssi_school(school_id,created_at),KEY idx_ssi_date(violation_date),KEY idx_ssi_client_uuid(client_uuid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS school_service_inspection_photos (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY,inspection_id BIGINT NOT NULL,file_path VARCHAR(500) NOT NULL,
+ mime_type VARCHAR(100) NOT NULL DEFAULT 'image/jpeg',width INT NOT NULL DEFAULT 0,height INT NOT NULL DEFAULT 0,
+ file_size INT NOT NULL DEFAULT 0,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ KEY idx_ssip_inspection(inspection_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS school_service_inspection_violations (
+ inspection_id BIGINT NOT NULL,violation_type_id INT NOT NULL,PRIMARY KEY(inspection_id,violation_type_id),
+ KEY idx_ssiv_type(violation_type_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS school_service_permissions (
+ role_id INT NOT NULL PRIMARY KEY,can_view TINYINT(1) NOT NULL DEFAULT 0,can_create TINYINT(1) NOT NULL DEFAULT 0,
+ can_edit TINYINT(1) NOT NULL DEFAULT 0,can_delete TINYINT(1) NOT NULL DEFAULT 0,can_import TINYINT(1) NOT NULL DEFAULT 0,
+ can_report TINYINT(1) NOT NULL DEFAULT 0,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS school_service_import_logs (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY,user_id INT NULL,file_name VARCHAR(255) NULL,companies_count INT NOT NULL DEFAULT 0,
+ schools_count INT NOT NULL DEFAULT 0,mappings_count INT NOT NULL DEFAULT 0,errors_count INT NOT NULL DEFAULT 0,
+ errors_text LONGTEXT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS school_service_districts (
+ id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(100) NOT NULL,is_active TINYINT(1) NOT NULL DEFAULT 1,
+ sort_order INT NOT NULL DEFAULT 0,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS school_service_vehicle_types (
+ id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(100) NOT NULL UNIQUE,is_active TINYINT(1) NOT NULL DEFAULT 1,sort_order INT NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS school_service_vehicle_colors (
+ id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(80) NOT NULL UNIQUE,is_active TINYINT(1) NOT NULL DEFAULT 1,sort_order INT NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ابزار افزودن ستون به جداول موجود؛ در صورت وجود ستون هیچ ALTER ای اجرا نمی‌شود.
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='educational_district'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN educational_district VARCHAR(80) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='gender'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN gender VARCHAR(80) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='shift'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN shift VARCHAR(80) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='education_level'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN education_level VARCHAR(150) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='school_type'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN school_type VARCHAR(150) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='activity_start'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN activity_start VARCHAR(20) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='activity_end'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN activity_end VARCHAR(20) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='morning_start'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN morning_start VARCHAR(20) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='morning_end'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN morning_end VARCHAR(20) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='afternoon_start'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN afternoon_start VARCHAR(20) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='afternoon_end'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN afternoon_end VARCHAR(20) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='driver_count'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN driver_count INT NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='student_count'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN student_count INT NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='phone'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN phone VARCHAR(80) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='latitude'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN latitude DECIMAL(10,7) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='longitude'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN longitude DECIMAL(10,7) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='status'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN status VARCHAR(80) NULL DEFAULT ''ثبت‌شده''');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='location_registered_at'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN location_registered_at DATETIME NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='is_active'),'SELECT 1','ALTER TABLE school_service_schools ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- سازگاری با نسخه‌های قدیمی که برای جنسیت/وضعیت‌ها ENUM محدود داشته‌اند.
+-- این تغییر مانع ثبت «دخترانه-پسرانه» و مقادیر توسعه‌یافته در دیتابیس قدیمی می‌شود.
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='gender'),'ALTER TABLE school_service_schools MODIFY COLUMN gender VARCHAR(80) NULL','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='school_gender'),'ALTER TABLE school_service_inspections MODIFY COLUMN school_gender VARCHAR(80) NULL DEFAULT ''نامشخص''','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='driver_gender'),'ALTER TABLE school_service_inspections MODIFY COLUMN driver_gender VARCHAR(40) NULL DEFAULT "نامشخص"','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='certificate_status'),'ALTER TABLE school_service_inspections MODIFY COLUMN certificate_status VARCHAR(60) NULL DEFAULT ''ارائه نشد''','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- انتقال داده ناحیه قدیمی به ستون استاندارد جدید، فقط اگر هر دو ستون وجود داشته باشند.
+SET @sql=IF(
+ EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='district')
+ AND EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_schools' AND COLUMN_NAME='educational_district'),
+ 'UPDATE school_service_schools SET educational_district=district WHERE (educational_district IS NULL OR educational_district="") AND district IS NOT NULL',
+ 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- ستون‌های بازدید برای دیتابیس‌های قدیمی
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='client_uuid'),'SELECT 1','ALTER TABLE school_service_inspections ADD COLUMN client_uuid VARCHAR(80) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='plate_region'),'SELECT 1','ALTER TABLE school_service_inspections ADD COLUMN plate_region VARCHAR(2) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='passenger_front_count'),'SELECT 1','ALTER TABLE school_service_inspections ADD COLUMN passenger_front_count INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='passenger_rear_count'),'SELECT 1','ALTER TABLE school_service_inspections ADD COLUMN passenger_rear_count INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_inspections' AND COLUMN_NAME='client_uuid'),'SELECT 1','ALTER TABLE school_service_inspections ADD COLUMN client_uuid VARCHAR(80) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- تکمیل قطعی ساختار جداول seed برای دیتابیس‌های قدیمی
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_violation_types' AND COLUMN_NAME='sort_order'),'SELECT 1','ALTER TABLE school_service_violation_types ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_violation_types' AND COLUMN_NAME='is_active'),'SELECT 1','ALTER TABLE school_service_violation_types ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_vehicle_types' AND COLUMN_NAME='sort_order'),'SELECT 1','ALTER TABLE school_service_vehicle_types ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_vehicle_types' AND COLUMN_NAME='is_active'),'SELECT 1','ALTER TABLE school_service_vehicle_types ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_vehicle_colors' AND COLUMN_NAME='sort_order'),'SELECT 1','ALTER TABLE school_service_vehicle_colors ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_vehicle_colors' AND COLUMN_NAME='is_active'),'SELECT 1','ALTER TABLE school_service_vehicle_colors ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- جداول قدیمی ممکن است فقط title را داشته باشند.
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_districts' AND COLUMN_NAME='sort_order'),'SELECT 1','ALTER TABLE school_service_districts ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql=IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_districts' AND COLUMN_NAME='is_active'),'SELECT 1','ALTER TABLE school_service_districts ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Seedها بدون ON DUPLICATE KEY؛ بنابراین حتی اگر title در دیتابیس قدیمی UNIQUE نباشد نیز امن است.
+INSERT INTO school_service_districts(title,sort_order)
+SELECT '۱',1 WHERE NOT EXISTS(SELECT 1 FROM school_service_districts WHERE title='۱');
+INSERT INTO school_service_districts(title,sort_order)
+SELECT '۲',2 WHERE NOT EXISTS(SELECT 1 FROM school_service_districts WHERE title='۲');
+INSERT INTO school_service_districts(title,sort_order)
+SELECT '۳',3 WHERE NOT EXISTS(SELECT 1 FROM school_service_districts WHERE title='۳');
+INSERT INTO school_service_districts(title,sort_order)
+SELECT '۴',4 WHERE NOT EXISTS(SELECT 1 FROM school_service_districts WHERE title='۴');
+INSERT INTO school_service_districts(title,sort_order)
+SELECT '۵',5 WHERE NOT EXISTS(SELECT 1 FROM school_service_districts WHERE title='۵');
+INSERT INTO school_service_districts(title,sort_order)
+SELECT '۶',6 WHERE NOT EXISTS(SELECT 1 FROM school_service_districts WHERE title='۶');
+INSERT INTO school_service_districts(title,sort_order)
+SELECT '۷',7 WHERE NOT EXISTS(SELECT 1 FROM school_service_districts WHERE title='۷');
+INSERT INTO school_service_districts(title,sort_order)
+SELECT 'تبادکان',8 WHERE NOT EXISTS(SELECT 1 FROM school_service_districts WHERE title='تبادکان');
+
+INSERT IGNORE INTO school_service_violation_types(title,sort_order) VALUES
+('عدم اعتبار معاینه فنی',0),('عدم اعتبار بیمه شخص ثالث',1),('سرنشین اضافی',2),
+('راننده غیر مجاز',3),('داشتن یا نداشتن گواهی صلاحیت معتبر',4),('عدم توجه به فرمان و ایست',5);
+
+INSERT IGNORE INTO school_service_vehicle_types(title,sort_order) VALUES
+('سمند',1),('سورن',2),('پژو',3),('پراید',4),('تیبا',5),('دنا',6),('رانا',7),('اطلس',8),('کوییک',9),('سایر',99);
+
+INSERT IGNORE INTO school_service_vehicle_colors(title,sort_order) VALUES
+('سفید',1),('زرد',2),('مشکی',3),('نقره‌ای',4),('خاکستری',5),('آبی',6),('قرمز',7),('سبز',8),('سایر',99);
+
+
+-- شرکت‌های سرویس مدارس - داده پایه
+-- ۶۵ شرکت مطابق فهرست ارائه‌شده
+-- این Migration برای اجرای مستقیم در MySQL/MariaDB و اجرای مجدد امن شده است.
+SET @db = DATABASE();
+
+-- امکان اجرای مستقل این Migration حتی در دیتابیس قدیمی/بدون جدول پایه
+CREATE TABLE IF NOT EXISTS school_service_companies (
+ id INT AUTO_INCREMENT PRIMARY KEY,
+ name VARCHAR(255) NOT NULL,
+ manager_name VARCHAR(150) NULL,
+ phone VARCHAR(80) NULL,
+ ceo_mobile VARCHAR(80) NULL,
+ landline_phone VARCHAR(80) NULL,
+ address VARCHAR(700) NULL,
+ latitude DECIMAL(10,7) NULL,
+ longitude DECIMAL(10,7) NULL,
+ declared_school_count INT NOT NULL DEFAULT 0,
+ registered_school_count INT NOT NULL DEFAULT 0,
+ representative_count INT NOT NULL DEFAULT 0,
+ profile_completed TINYINT(1) NOT NULL DEFAULT 0,
+ is_active TINYINT(1) NOT NULL DEFAULT 1,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_ssc_name(name),
+ KEY idx_ssc_active(is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='ceo_mobile'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN ceo_mobile VARCHAR(50) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='landline_phone'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN landline_phone VARCHAR(50) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='latitude'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN latitude DECIMAL(10,7) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='longitude'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN longitude DECIMAL(10,7) NULL');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='declared_school_count'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN declared_school_count INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='registered_school_count'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN registered_school_count INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='representative_count'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN representative_count INT NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='profile_completed'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN profile_completed TINYINT(1) NOT NULL DEFAULT 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+INSERT INTO school_service_companies (id,name,manager_name,phone,ceo_mobile,landline_phone,address,latitude,longitude,declared_school_count,registered_school_count,representative_count,is_active,profile_completed) VALUES
+(92,'آپادانا ترابر بارثاوا','زهره سیاه پور','09157020255','09157020255','9.16E+09','بزرگراه شهید سلیمانی ، شهرک آبادگران پارکینگ جنب مجتمع توریستی و رفاهی آبادگران واحد A','36.27043','59.55056',34,27,1,1,1),
+(83,'آدریان سیر امیران توس','محبوبه عزیزی','09153042102','09153042102','05137659494','بازار بین‌المللی سپاد فاز یک طبقه منفی یک واحد هفت','36.34591','59.59219',20,19,1,1,1),
+(110,'آرام سیر ابیورد','امیرحسین سلمانیان','','','9.36E+09','',NULL,NULL,52,5,1,1,0),
+(75,'آرام نسیم توس','محمدرضا بنایی','09153089731','09153089731','05133861056','سیدی خلج 11مجتمع تجاری کاوه پلاک 38','36.24375','59.60177',31,27,1,1,1),
+(98,'آرتا نوین یزدان خراسان','مسعود یزدی','','','9.16E+09','',NULL,NULL,29,13,1,1,0),
+(77,'آسایش سیر گستر','جعفر مزدورکار','09155140898','09155140898','05138429661','کوهسنگی بهشتی ۴۰ پلاک ۶۳','36.28072','59.56703',31,21,1,1,1),
+(125,'آستان سیر دانش(خاص)','حمیدرضا جعفرزاده','','','9.16E+09','',NULL,NULL,0,0,1,1,0),
+(97,'اختر سینای توس','لیلا رئیسی','09153212257','09153212257','05135317962','الهیه۳نرسیده به شفایی۱ روبروی ساختمان سبحان','36.36838','59.48883',4,4,1,1,1),
+(95,'ارمغان گشت رضوان','علی شیردلی','09153059326','09153059326','05138668167','معلم 64 نبش معرفت جنوبی 1 پلاک 1','36.33932','59.48435',22,18,1,1,1),
+(103,'امید گشت نورالرضا','ناصر رضایی','09158834673','09158834673','9.16E+09','قاسم آباد- فلاحی ۲۰/۱-پلاک ۱۲۱','36.36071','59.49544',0,0,2,1,1),
+(115,'امیدوار سیر توس شاد(خاص)','مهدی شادی','09153108048','09153108048','9.15E+09','بلوار پیروزی بین حافظیه 6,8','36.29308','59.58499',1,0,1,1,1),
+(85,'امیران سیر آسیا','حامد بیات','09105518860','09105518860','05136036519','بین سیدرضی۳۳و۳۵ پلاک ۳۳۵',NULL,NULL,2,2,1,1,1),
+(89,'اهورا گشت برنس','عباسعلی بیات','09029228582','09029228582','05135221600','دکتر حسابی شمالی ۱ پلاک ۲۵','36.35245','59.49939',8,8,1,1,1),
+(122,'ایمن سیر گلهای بارثاوا','غلامعلی مقدسیان','','','9.16E+09','',NULL,NULL,0,0,1,1,0),
+(94,'برنا گشت پارس گستر','مهناز مهرجویا','09158019912','09158019912','05138674757','الهیه ۳قبل از شفایی ا روبروی ساختمان سبحان','36.36838','59.48884',18,13,1,1,1),
+(123,'بعثت سیر مشهد(خاص)','محمد رضا صدیق پور','','','9.35E+09','',NULL,NULL,0,0,1,1,0),
+(68,'بیتا ترابر بیتا','رضا شکوفنده','','','9.94E+09','',NULL,NULL,0,0,1,1,0),
+(81,'پگاه سیر دقیق','سیدحامد میرزا بابایی','09158174808','09158174808','05137237323','قاضی طباطبایی۸ پلاک۴','36.31646','59.58004',24,19,1,1,1),
+(90,'پناه سیر رهپویان ولایت','ملیحه پناهی','09158939462','09158939462','9.16E+09','بلوار سرافرازان پایداری7قائمی15پلاک111','36.29117','59.51081',16,12,1,1,1),
+(99,'پیام سیر کلات','مسلم احمدیان کلات','','','9.15E+09','',NULL,NULL,0,0,1,1,0),
+(93,'پیشگامان باران سیر شرق','ناصر جوانمرد','09155041105','09155041105','05136077879','بلوار مهران بین بلوار سید رضی و دانش اموز نبش مهران۱۷ پ ۳۷۵ زنگ اول','36.33727','59.51503',6,6,1,1,1),
+(120,'تربیت نوین آکام(خاص)','مریم آرافته','','','9.18E+09','',NULL,NULL,0,0,1,1,0),
+(116,'توس سیر نگین مفتاح(خاص)','سید محمود حسین زاده','09155142498','09155142498','9.16E+09','هاشمیه 2/۱','36.37695','59.48212',0,0,1,1,1),
+(87,'ثامن گشت خراسان','رضا محمد زاده','09155057583','09155057583','05136629265','ادیب جنوبی ۱۹/۴پلاک ۲۴','36.35142','59.51472',27,18,1,1,1),
+(86,'جهان گشت بارثاوا ایرانیان','قاسم جهانی','09153032758','09153032758','05136611348','مشهد، شهرک رازی، بین شهید محمدی ۱۱ و ۱۳','36.35566','59.5366',21,17,1,1,1),
+(101,'حسام سیر درخشان','ابوالفضل اکبری','09010665100','09010665100','9.01E+09','بازار ملل طبقه منفی یک پلاک۱۸۱۵',NULL,NULL,34,31,1,1,1),
+(78,'حمایت مشهد الرضا','مصطفی اختراعی طوسی','','','9.15E+09','',NULL,NULL,0,0,1,1,0),
+(65,'رایزن سرویس','هادی بهاریه','','','9.16E+09','',NULL,NULL,0,0,1,1,0),
+(67,'رایزن سیر آسایش','هادی سالاری','09153218230','09153218230','05136036837','بلوار مهران بین مهران 17 و 19 پلاک 401','36.33739','59.51388',26,12,1,1,1),
+(114,'رسالت سیر پویندگان(خاص)','طاهره نصیریان','','','9.16E+09','',NULL,NULL,7,0,1,1,0),
+(121,'رضوان سیربارثاوا نوین(خاص)','مریم خیرخواهان','','','9.16E+09','',NULL,NULL,0,0,1,1,0),
+(109,'ره پویان سیر بارثاوا','رضا هوشمند باقری','09030280882','09030280882','09030280882','قاسم آباد_بین شریعتی ۵۰ و چهارراه ادیب پلاک ۵۷۴','36.35177','59.514',16,15,1,1,1),
+(80,'رهپویان گلهای البرز','علی کاشفی','09155085530','09155085530','9.16E+09','فرامرز عباسی36سادات 4پلاک8طبقه یک','36.33609','59.54859',20,19,1,1,1),
+(69,'رهنورد سیر شمال شرق','انسیه باقری','09150294301','09150294301','9.15E+09','بازار بین المللی سپاد فاز 3طبقه مثبت 1واحد 406',NULL,NULL,29,14,1,1,1),
+(84,'رویش گشت خراسان','زهرا سیاری','09155061739','09155061739','9.16E+09','فرامرز عباسی 6پلاک 43',NULL,NULL,10,0,1,1,1),
+(119,'سر آمد سیر گستر علوی(خاص)','ذوالفقاری ( رضائیان )','','','9.16E+09','',NULL,NULL,0,0,1,1,0),
+(126,'سفیر سیر راهیان نور(خاص)','محمد حسن کرومی','','','9.15E+09','',NULL,NULL,0,0,1,1,0),
+(74,'سفیران شهر بهشت','مطهره صداقت','','','9.34E+09','',NULL,NULL,37,0,1,1,0),
+(91,'سهیل گشت مشهد','عباس زارع','09151029096','09151029096','05136109954','نبش جلال 46 پلاک 105','36.33509','59.53017',7,7,1,1,1),
+(107,'سینا گشت آیسا','محمد عین آبادی','09156833448','09156833448','9.16E+09','دانشجوی 30مهران 33',NULL,NULL,17,1,1,1,1),
+(102,'شایان گشت ستاره هشتم','معصومه ندیمی','09159064435','09159064435','05632504725','بازارملل طبقه منفی ۱ واحد۱۴۱۷','36.29521','59.66296',39,35,1,1,1),
+(70,'شتاب سیر خراسان','علیرضا لطفی','09155041280','09155041280','9.16E+09','سیدی نبش قائم ۵۷','36.23936','59.58887',1,0,1,1,1),
+(66,'شیرین گشت شکوفه ها','محسن شاهمرادی زاده','09153586293','09153586293','05137428005','خیابان خواجه ربیع ـ خواجه ربیع ۹ ـ پایانه مسافربری کلات ـ طبقه اول','36.3357','59.62639',0,0,1,1,1),
+(118,'صالح سیر طوس ایرانیان(خاص)','سیدعلی ذولفقاری','','','9.37E+09','',NULL,NULL,0,0,1,1,0),
+(76,'ظفر سیر آرمان','فرزانه کریمیان','09156910878','09156910878','9.16E+09','خیابان ایمان بین ۱۳ و ۱۵ پلاک ۲۰۳','36.24975','59.59118',33,12,1,1,1),
+(117,'عادل گشت اختر هشتم(خاص)','علی امانی','09158307297','09158307297','05132504725','بازارملل طبقه منفی ۱ واحد۱۰۳۲','36.2958','59.66239',5,5,1,1,1),
+(142,'عدالت منش توس رضوان','','','','','',NULL,NULL,23,0,0,1,0),
+(100,'عدالت منش مشهد','ستایش عدالتیان عسگری','09153209775','09153209775','05632505476','بازارملل طبقه منفی ۱ واحد ۱۰۰۷','36.29572','59.66234',32,29,1,1,1),
+(96,'فاران گستر صبا','علیرضا تقوی','','','9.16E+09','',NULL,NULL,0,0,1,1,0),
+(73,'فرهنگ سیر توس','مجید کریمیان','','','9.21E+08','',NULL,NULL,1,0,1,1,0),
+(124,'فرهنگ سیر دانش(خاص)','محمد بنائی تربتی','','','9.16E+09','',NULL,NULL,0,0,1,1,0),
+(72,'فضا سیر مبتکران خاورمیانه','علیرضا صداقت','','','9.16E+09','',NULL,NULL,2,0,1,1,0),
+(82,'کرامت سیر رضوان','علی اکبر کرامتی','','','9.16E+09','',NULL,NULL,0,0,1,1,0),
+(111,'کیمیا گشت ثامن','محمدرضا پاپلی','09159241353','09159241353','05136625151','قاسم آباد اديب جنوبی ۱۹ بلاک ۷','36.35105','59.51409',9,9,1,1,1),
+(108,'مارال سیر خراسان','سعید ابراهیمی عرفانی','09157040241','09157040241','05136233123','شهرک غرب رستگاری6','36.3716','59.51212',2,2,1,1,1),
+(113,'مجید سیر آفتاب هشتم','محمود نوری','','','9.16E+09','',NULL,NULL,0,0,1,1,0),
+(88,'مهتاب سیر کیهان','امیر پاک سیما','','','9.15E+09','',NULL,NULL,0,0,1,1,0),
+(139,'مهرآوران فراسو سیر آریا','سید محسن علوی','09150682931','09150682931','05137428006','نقش خواجه ربیع ۱۱ پایانه مسافربری کلات پلاک ۱۰۰۰۱','36.33589','59.62614',58,51,1,1,1),
+(79,'مهربانو گشت رضوان','فهیمه قاسمی قرقی','09156909889','09156909889','05137113403','مجتمع تجاری الماس شرق','36.34655','59.5971',36,32,1,1,1),
+(143,'ندای به آوران','','','','','',NULL,NULL,18,8,0,1,0),
+(105,'نسیم امین خراسان','نسرین ابراهیمی عرفانی','09906235713','09906235713','05136231690','قاسم آباد حجاب 86/2 غلام حجی 2','36.37196','59.51265',12,11,1,1,1),
+(106,'نسیم سیر ابوذر','جواد قجری','05135230459','05135230459','9.16E+09','فلاحی ۲۴ پلاک ۵۷ طبقه اول','36.35994','59.49351',14,14,1,1,1),
+(104,'نگین نخل خراسان','عبداله قاسمی','09156531145','09156531145','9.16E+09','قاسم اباد بلوار شریعتی شریعتی ۵۰ پلاک ۵','36.35154','59.51423',15,13,1,1,1),
+(71,'نوید گرد توس','محمد صفایی','09151081559','09151081559','05138587085','امام رضا 68 پلاک 27','36.26323','59.59553',23,0,1,1,1),
+(112,'یزدان سیر پویا','وجیهه احمدزاده','09019472229','09019472229','05137603392','بازار بین المللی فاز 3 طبقه منفی 1واحد 325','36.34638','59.59261',22,21,1,1,1)
+ON DUPLICATE KEY UPDATE name=VALUES(name),manager_name=VALUES(manager_name),phone=VALUES(phone),ceo_mobile=VALUES(ceo_mobile),landline_phone=VALUES(landline_phone),address=VALUES(address),latitude=VALUES(latitude),longitude=VALUES(longitude),declared_school_count=VALUES(declared_school_count),registered_school_count=VALUES(registered_school_count),representative_count=VALUES(representative_count),is_active=VALUES(is_active),profile_completed=VALUES(profile_completed);
+
+
 SET FOREIGN_KEY_CHECKS=1;
 -- پایان فایل ارتقا
 
