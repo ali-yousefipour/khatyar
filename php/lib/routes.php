@@ -392,8 +392,12 @@ $loginHandler = function ($p, $b) {
   if (!$u) {
     $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE TRIM(u.username)=? LIMIT 1", [$username]);
   }
-  if (!$u || !$u['is_active'] || !password_verify($password, $u['password_hash'])) {
-    Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?, 'login_failed', ?)", [$u['id'] ?? null, json_encode(['username'=>$username], JSON_UNESCAPED_UNICODE)]);
+  // احراز هویت را عمداً به سه حالت داخلی تفکیک می‌کنیم تا خطای واقعی در لاگ سرور قابل تشخیص باشد،
+  // ولی پاسخ عمومی همچنان اطلاعاتی دربارهٔ وجود/وضعیت حساب افشا نمی‌کند.
+  $loginFailureReason = !$u ? 'user_not_found' : (empty($u['is_active']) ? 'user_inactive' : (!isset($u['password_hash']) ? 'password_hash_missing' : (!password_verify($password, (string)$u['password_hash']) ? 'password_mismatch' : 'unknown')));
+  if ($loginFailureReason !== 'unknown' && $loginFailureReason !== '') {
+    error_log('KhatYar login failed ['.$loginFailureReason.'] username='.preg_replace('/[^0-9A-Za-z._@-]/','',(string)$username));
+    Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?, 'login_failed', ?)", [$u['id'] ?? null, json_encode(['username'=>$username,'reason'=>$loginFailureReason], JSON_UNESCAPED_UNICODE)]);
     if (!empty($ip)) { try { Db::run("INSERT INTO login_ip_attempts(ip) VALUES(?)", [$ip]); } catch (\Throwable $e) {} }
     Http::error('نام کاربری یا رمز عبور اشتباه است', 401);
   }
