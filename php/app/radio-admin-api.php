@@ -2,7 +2,26 @@
 ini_set('display_errors','0');$ROOT=__DIR__.'/..';require "$ROOT/lib/Db.php";require "$ROOT/lib/Jwt.php";require "$ROOT/lib/Http.php";$CONFIG=require "$ROOT/config.php";header('Content-Type: application/json; charset=utf-8');header('Cache-Control:no-store,max-age=0');
 function j($v,$s=200){http_response_code($s);echo json_encode($v,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}function e($m,$s=400){j(['ok'=>false,'error'=>$m],$s);}function b(){ $x=json_decode(file_get_contents('php://input'),true);return is_array($x)?$x:$_POST;}
 function te($t){$r=Db::one("SELECT COUNT(*) c FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?",[$t]);return(int)($r['c']??0)>0;}function ce($t,$c){$r=Db::one("SELECT COUNT(*) c FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?",[$t,$c]);return(int)($r['c']??0)>0;}
-function load_user(){global$CONFIG;$p=($t=Http::bearer())?Jwt::verify($t,$CONFIG['jwt_secret']):null;if(!$p||empty($p['sub']))e('توکن منقضی یا نامعتبر است',401);$u=Db::one("SELECT u.*,r.title role_title,r.level,r.is_admin FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",[$p['sub']]);if(!$u||!(int)$u['is_active'])e('کاربر نامعتبر است',401);return$u;}
+function ensure_admin_auth_schema(){
+  try{
+    if(!te('user_sessions')) Db::run("CREATE TABLE user_sessions(
+      id INT AUTO_INCREMENT PRIMARY KEY,user_id INT NOT NULL,device_type VARCHAR(20) NOT NULL DEFAULT 'web',
+      device_id VARCHAR(255) NOT NULL DEFAULT '',device_model VARCHAR(255) NULL,revoked_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE KEY uq_user_type(user_id,device_type),
+      KEY idx_user_sessions_revoked(revoked_at,created_at),KEY idx_user_sessions_device(device_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $ensure=function($table,$column,$definition){if(!ce($table,$column))Db::run("ALTER TABLE ".$table." ADD COLUMN ".$column." ".$definition);};
+    $ensure('user_sessions','user_id','INT NOT NULL DEFAULT 0');
+    $ensure('user_sessions','device_type',"VARCHAR(20) NOT NULL DEFAULT 'web'");
+    $ensure('user_sessions','device_id',"VARCHAR(255) NOT NULL DEFAULT ''");
+    $ensure('user_sessions','device_model','VARCHAR(255) NULL');
+    $ensure('user_sessions','revoked_at','DATETIME NULL');
+    $ensure('user_sessions','created_at','DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP');
+    if(te('roles')&&!ce('roles','is_admin'))Db::run("ALTER TABLE roles ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0");
+    return true;
+  }catch(Throwable $e){error_log('radio admin auth schema bootstrap failed: '.$e->getMessage());return false;}
+}
+function load_user(){global$CONFIG;if(!ensure_admin_auth_schema())e('ساختار احراز هویت مدیریت بیسیم آماده نیست',503);$p=($t=Http::bearer())?Jwt::verify($t,$CONFIG['jwt_secret']):null;if(!$p||empty($p['sub']))e('توکن منقضی یا نامعتبر است',401);$u=Db::one("SELECT u.*,r.title role_title,r.level,r.is_admin FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",[$p['sub']]);if(!$u||!(int)$u['is_active'])e('کاربر نامعتبر است',401);return$u;}
 function is_super_admin($u){return!empty($u['is_admin'])||in_array((string)$u['role_title'],['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد','admin','superadmin'],true);}
 function has_radio_permission($u){if(is_super_admin($u))return true;try{$r=Db::one("SELECT value FROM app_settings WHERE `key`='role_perms' LIMIT 1");$cfg=$r?json_decode((string)$r['value'],true):[];$rid=(string)($u['role_id']??'');if(!is_array($cfg)||!array_key_exists($rid,$cfg))return false;$items=is_array($cfg[$rid])?$cfg[$rid]:[];return in_array('radiocenter',$items,true)||in_array('radio',$items,true);}catch(Throwable$e){return false;}}
 function has_radio_listen_permission($u){return has_radio_permission($u);}
