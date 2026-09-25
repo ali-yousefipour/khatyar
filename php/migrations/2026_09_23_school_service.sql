@@ -1,7 +1,39 @@
 -- سرویس مدارس - MySQL/MariaDB
 -- این فایل idempotent است؛ Backend نیز در اولین درخواست جداول را خودکار ایجاد/تکمیل می‌کند.
 CREATE TABLE IF NOT EXISTS school_service_companies (id INT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(255) NOT NULL,manager_name VARCHAR(150) NULL,phone VARCHAR(50) NULL,address VARCHAR(500) NULL,is_active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,UNIQUE KEY uq_ssc_name(name),KEY idx_ssc_active(is_active)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-CREATE TABLE IF NOT EXISTS school_service_schools (id INT AUTO_INCREMENT PRIMARY KEY,code VARCHAR(80) NULL,name VARCHAR(255) NOT NULL,educational_district VARCHAR(80) NULL,gender ENUM('دخترانه','پسرانه','دخترانه-پسرانه','نامشخص') NOT NULL DEFAULT 'نامشخص',shift VARCHAR(40) NULL,education_level VARCHAR(120) NULL,school_type VARCHAR(120) NULL,activity_start DATE NULL,activity_end DATE NULL,morning_start TIME NULL,morning_end TIME NULL,afternoon_start TIME NULL,afternoon_end TIME NULL,driver_count INT NULL,student_count INT NULL,address VARCHAR(700) NULL,phone VARCHAR(80) NULL,latitude DECIMAL(10,7) NULL,longitude DECIMAL(10,7) NULL,status VARCHAR(50) NOT NULL DEFAULT 'ثبت‌شده',location_registered_at DATETIME NULL,is_active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,UNIQUE KEY uq_sss_code(code),KEY idx_sss_name(name),KEY idx_sss_district(educational_district)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS school_service_schools (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  code VARCHAR(100) NULL,
+  name VARCHAR(255) NOT NULL,
+  district VARCHAR(80) NULL,
+  address TEXT NULL,
+  gender VARCHAR(80) NULL,
+  shift VARCHAR(80) NULL,
+  education_level VARCHAR(150) NULL,
+  school_type VARCHAR(150) NULL,
+  activity_start VARCHAR(20) NULL,
+  activity_end VARCHAR(20) NULL,
+  morning_start VARCHAR(20) NULL,
+  morning_end VARCHAR(20) NULL,
+  afternoon_start VARCHAR(20) NULL,
+  afternoon_end VARCHAR(20) NULL,
+  driver_count INT NULL,
+  student_count INT NULL,
+  phone VARCHAR(50) NULL,
+  latitude DECIMAL(10,7) NULL,
+  longitude DECIMAL(10,7) NULL,
+  status VARCHAR(80) NULL DEFAULT 'فعال',
+  location_registered_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_ss_code (code),
+  KEY idx_ss_name (name),
+  KEY idx_ss_district (district),
+  KEY idx_ss_status (status),
+  KEY idx_ss_location (latitude, longitude)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS school_service_school_companies (school_id INT NOT NULL,company_id INT NOT NULL,is_primary TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(school_id,company_id),UNIQUE KEY uq_sssc_school(school_id),KEY idx_sssc_company(company_id),CONSTRAINT fk_sssc_school FOREIGN KEY(school_id) REFERENCES school_service_schools(id) ON DELETE CASCADE,CONSTRAINT fk_sssc_company FOREIGN KEY(company_id) REFERENCES school_service_companies(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS school_service_violation_types (id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(255) NOT NULL UNIQUE,is_active TINYINT(1) NOT NULL DEFAULT 1,sort_order INT NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 INSERT IGNORE INTO school_service_violation_types(title,sort_order) VALUES ('عدم اعتبار معاینه فنی',0),('عدم اعتبار بیمه شخص ثالث',1),('سرنشین اضافی',2),('راننده غیر مجاز',3),('داشتن یا نداشتن گواهی صلاحیت معتبر',4),('عدم توجه به فرمان و ایست',5);
