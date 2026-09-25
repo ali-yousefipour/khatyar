@@ -19,7 +19,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
+          sparse-checkout: |
+            php/tools
+            php/app/assets
+          sparse-checkout-cone-mode: true
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
