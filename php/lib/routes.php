@@ -409,7 +409,7 @@ $loginHandler = function ($p, $b) {
       )['n'] ?? 0);
       if ($ipFails >= 20) Http::error('تعداد تلاش‌های ورود از این آدرس بیش از حد مجاز است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
     }
-  } catch (\\Throwable $e) {}
+  } catch (\Throwable $e) {}
 
   // Indexed username lookup first; TRIM is only a compatibility fallback.
   $u = null;
@@ -443,7 +443,7 @@ $loginHandler = function ($p, $b) {
         [(int)$u['id']]
       )['n'] ?? 0);
       if ($fails >= 5) Http::error('به‌دلیل تلاش‌های ناموفق متعدد، حساب موقتاً مسدود است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
-    } catch (\\Throwable $e) {}
+    } catch (\Throwable $e) {}
   }
 
   $loginFailureReason = !$u ? 'user_not_found' :
@@ -458,7 +458,7 @@ $loginHandler = function ($p, $b) {
          VALUES(?,?,?,?,0,?)",
         [$u['id'] ?? null, hash('sha256',(string)$username), $ip ?: null, $dtype, $loginFailureReason]
       );
-    } catch (\\Throwable $e) {}
+    } catch (\Throwable $e) {}
     Http::error('نام کاربری یا رمز عبور اشتباه است', 401);
   }
 
@@ -529,7 +529,7 @@ $loginHandler = function ($p, $b) {
        VALUES(?,?,?,?,1,NULL)",
       [(int)$u['id'], hash('sha256',(string)$username), $ip ?: null, $dtype]
     );
-  } catch (\\Throwable $e) {}
+  } catch (\Throwable $e) {}
   return array_merge($t, ['user'=>[
     'id'=>(int)$u['id'],'username'=>$u['username'],'name'=>$u['first_name'].' '.$u['last_name'],
     'role'=>$u['role_title'],'role_id'=>(int)$u['role_id'],'level'=>(int)$u['level'],'is_admin'=>(bool)$u['is_admin'],'must_change_pw'=>$mustChange,
