@@ -1,5 +1,7 @@
 -- سرویس مدارس - MySQL/MariaDB
--- این فایل idempotent است؛ Backend نیز در اولین درخواست جداول را خودکار ایجاد/تکمیل می‌کند.
+-- Schema اصلی این فایل با ساختار مورد استفاده PHP و اپ موبایل یکسان است.
+-- قابل اجرای مجدد است و برای phpMyAdmin/MySQL/MariaDB طراحی شده است.
+
 CREATE TABLE IF NOT EXISTS school_service_companies (id INT AUTO_INCREMENT PRIMARY KEY,name VARCHAR(255) NOT NULL,manager_name VARCHAR(150) NULL,phone VARCHAR(50) NULL,address VARCHAR(500) NULL,is_active TINYINT(1) NOT NULL DEFAULT 1,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,UNIQUE KEY uq_ssc_name(name),KEY idx_ssc_active(is_active)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS school_service_schools (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
