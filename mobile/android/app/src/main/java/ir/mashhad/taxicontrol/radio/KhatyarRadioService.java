@@ -11,7 +11,6 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.MediaPlayer;
-import android.media.audiofx.LoudnessEnhancer;
 import android.media.audiofx.Equalizer;
 import android.media.session.MediaSession;
 import android.os.Build;
@@ -50,15 +49,12 @@ public final class KhatyarRadioService extends Service {
   private static final int REQUEST_PTT = 7842;
   private static final long POLL_MS = 1800L;
   private static final long NOTIFICATION_REFRESH_MS = 60000L;
-  private static final int DEFAULT_GAIN_MB = 600;
-  private static final int MAX_GAIN_MB = 1000;
   private static final String ACTION_NOTIFICATION_PTT = "ir.mashhad.taxicontrol.radio.NOTIFICATION_PTT";
   private final Handler handler = new Handler(Looper.getMainLooper());
   private final ExecutorService io = Executors.newSingleThreadExecutor();
   private final AtomicBoolean pollInFlight = new AtomicBoolean(false);
   private MediaSession mediaSession;
   private MediaPlayer player;
-  private LoudnessEnhancer loudnessEnhancer;
   private Equalizer radioEqualizer;
   private long lastId = 0;
   private long serviceStartedAt = 0;
@@ -72,9 +68,6 @@ public final class KhatyarRadioService extends Service {
       editor.apply();
     } catch (Throwable ignored) {}
   }
-  public static int clampGainMb(int gainMb) { return Math.max(0, Math.min(MAX_GAIN_MB, gainMb)); }
-  private int amplificationGainMb() { return clampGainMb(getPrefs().getInt("amplificationGainMb", DEFAULT_GAIN_MB)); }
-
   private static final long FOREGROUND_HEARTBEAT_TIMEOUT_MS = 6000L;
   private boolean isAppInForeground() {
     try {
@@ -114,7 +107,7 @@ public final class KhatyarRadioService extends Service {
     setupMediaSession();
     startForegroundCompat();
     lastId = getPrefs().getLong("lastId", 0L);
-    getPrefs().edit().putLong("sessionStartedAt", serviceStartedAt).putBoolean("initialized", false).putBoolean("playbackActive", false).putBoolean("notificationPttActive", false).remove("audioSessionId").apply();
+    getPrefs().edit().putLong("sessionStartedAt", serviceStartedAt).putBoolean("initialized", false).putBoolean("allInitialized", false).putBoolean("playbackActive", false).putBoolean("notificationPttActive", false).remove("audioSessionId").apply();
     handler.post(poller);
     handler.postDelayed(notificationRefresher, NOTIFICATION_REFRESH_MS);
   }
@@ -292,41 +285,54 @@ public final class KhatyarRadioService extends Service {
       android.content.SharedPreferences p = getPrefs();
       String token = p.getString("token", ""), base = p.getString("baseUrl", "");
       long channel = p.getLong("channelId", 0L), userId = p.getLong("userId", 0L);
+      boolean listenAll = p.getBoolean("listenAll", false);
       if (token == null || token.isEmpty() || base == null || base.isEmpty() || channel <= 0 || !p.getBoolean("enabled", false)) return;
-      String endpoint = base.replaceAll("/+$", "") + "/radio-api-v2.php?op=poll&channel_id=" + channel + "&after=" + lastId;
-      String body = get(endpoint, token); if (body == null || body.isEmpty()) return;
+
+      String afterKey = listenAll ? "lastAllId" : "lastId";
+      String initKey = listenAll ? "allInitialized" : "initialized";
+      long cursor = p.getLong(afterKey, 0L);
+      String endpoint = base.replaceAll("/+$", "") + (listenAll
+        ? "/radio-api-v2.php?op=poll-all&after=" + cursor
+        : "/radio-api-v2.php?op=poll&channel_id=" + channel + "&after=" + cursor);
+      String body = get(endpoint, token);
+      if (body == null || body.isEmpty()) return;
       JSONObject root = new JSONObject(body);
       JSONArray messages = root.optJSONArray("messages");
-      boolean initialized = p.getBoolean("initialized", false);
+      boolean initialized = p.getBoolean(initKey, false);
+
       if (!initialized) {
-        long newest = lastId;
+        long newest = cursor;
         if (root.has("last_message_id")) newest = Math.max(newest, root.optLong("last_message_id", newest));
         if (messages != null) {
           for (int idx = 0; idx < messages.length(); idx++) {
             JSONObject m = messages.optJSONObject(idx); if (m == null) continue;
             newest = Math.max(newest, m.optLong("id", 0L));
             long createdAt = messageTimeMillis(m);
+            // Never replay the server backlog on service startup. Only a genuinely
+            // new message received after the service started may be played natively.
             if (createdAt > 0 && createdAt >= serviceStartedAt && m.optLong("sender_id", 0L) != userId && !isAppInForeground()) {
               String audio = m.optString("audio_url", "");
               if (!audio.isEmpty()) playRemote(audio, token);
             }
           }
         }
-        lastId = newest;
-        p.edit().putLong("lastId", lastId).putBoolean("initialized", true).apply();
+        p.edit().putLong(afterKey, newest).putBoolean(initKey, true).apply();
+        if (listenAll) getPrefs().edit().putLong("lastAllId", newest).apply(); else lastId = newest;
         return;
       }
 
       for (int idx = 0; messages != null && idx < messages.length(); idx++) {
         JSONObject m = messages.optJSONObject(idx); if (m == null) continue;
-        long id = m.optLong("id", 0L); lastId = Math.max(lastId, id);
+        long id = m.optLong("id", 0L);
+        if (id > cursor) cursor = id;
         if (m.optLong("sender_id", 0L) == userId) continue;
         long createdAt = messageTimeMillis(m);
         if (createdAt <= 0L || createdAt < serviceStartedAt) continue;
         String audio = m.optString("audio_url", "");
         if (!audio.isEmpty() && !isAppInForeground()) playRemote(audio, token);
       }
-      p.edit().putLong("lastId", lastId).apply();
+      p.edit().putLong(afterKey, cursor).apply();
+      if (!listenAll) lastId = cursor;
     } catch (Throwable ignored) {}
   }
 
@@ -368,12 +374,9 @@ public final class KhatyarRadioService extends Service {
   }
 
   private synchronized void releasePlayer() {
-    LoudnessEnhancer effect = loudnessEnhancer;
-    loudnessEnhancer = null;
     Equalizer eq = radioEqualizer;
     radioEqualizer = null;
     if (eq != null) { try { eq.setEnabled(false); } catch (Throwable ignored) {} try { eq.release(); } catch (Throwable ignored) {} }
-    if (effect != null) { try { effect.setEnabled(false); } catch (Throwable ignored) {} try { effect.release(); } catch (Throwable ignored) {} }
     MediaPlayer old = player;
     player = null;
     if (old != null) { try { old.stop(); } catch (Throwable ignored) {} try { old.release(); } catch (Throwable ignored) {} }
@@ -485,29 +488,6 @@ public final class KhatyarRadioService extends Service {
     } catch (Throwable ignored) {}
   }
 
-  private void attachLoudnessEnhancer(MediaPlayer mp) {
-    try {
-      if (Build.VERSION.SDK_INT < 19) return;
-      LoudnessEnhancer effect = new LoudnessEnhancer(mp.getAudioSessionId());
-      effect.setTargetGain(amplificationGainMb());
-      effect.setEnabled(amplificationGainMb() > 0);
-      loudnessEnhancer = effect;
-    } catch (Throwable ignored) {
-      loudnessEnhancer = null;
-    }
-  }
-
-  public synchronized void setAmplificationGain(int gainMb) {
-    int safe = clampGainMb(gainMb);
-    getPrefs().edit().putInt("amplificationGainMb", safe).apply();
-    try {
-      if (loudnessEnhancer != null) {
-        loudnessEnhancer.setTargetGain(safe);
-        loudnessEnhancer.setEnabled(safe > 0);
-      }
-    } catch (Throwable ignored) {}
-  }
-
   private synchronized void playRemote(String audioUrl, String token) {
     try {
       if (audioUrl.startsWith("/")) {
@@ -521,14 +501,13 @@ public final class KhatyarRadioService extends Service {
       try { player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK); } catch (Throwable ignored) {}
       Map<String,String> headers = new HashMap<>(); if (token != null && !token.isEmpty()) headers.put("Authorization", "Bearer " + token);
       player.setDataSource(this, android.net.Uri.parse(audioUrl), headers);
-      player.setOnCompletionListener(mp -> { playRadioSfx(false, true); synchronized (KhatyarRadioService.this) { if (loudnessEnhancer != null) { try { loudnessEnhancer.release(); } catch (Throwable ignored) {} loudnessEnhancer = null; } try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); } });
-      player.setOnErrorListener((mp, what, extra) -> { synchronized (KhatyarRadioService.this) { if (loudnessEnhancer != null) { try { loudnessEnhancer.release(); } catch (Throwable ignored) {} loudnessEnhancer = null; } try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); } return true; });
+      player.setOnCompletionListener(mp -> { playRadioSfx(false, true); synchronized (KhatyarRadioService.this) { try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); } });
+      player.setOnErrorListener((mp, what, extra) -> { synchronized (KhatyarRadioService.this) { try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); } return true; });
       player.setOnPreparedListener(mp -> {
         try {
           int sessionId = mp.getAudioSessionId();
           getPrefs().edit().putInt("audioSessionId", Math.max(0, sessionId)).putBoolean("playbackActive", true).apply();
           attachRadioEqualizer(mp);
-          attachLoudnessEnhancer(mp);
           mp.start();
         } catch (Throwable ignored) {
           setPlaybackActive(false);
