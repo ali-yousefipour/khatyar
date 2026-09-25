@@ -521,7 +521,15 @@ $loginHandler = function ($p, $b) {
   // اگر رمز هنوز پیش‌فرض (۱۲۳۴۶۶) باشد، کاربر باید رمز و ایمیل را تغییر دهد
   $mustChange = (bool)($u['must_change_pw'] ?? 0) || ($password === '123456');
   $t = issueTokens($u['id'], $dev, $dtype);
-  Db::run("INSERT INTO activity_logs(user_id,event) VALUES(?, 'login')", [$u['id']]);
+  // Successful login is audited in the dedicated lightweight table; do not make
+  // the critical response depend on the potentially large activity_logs table.
+  try {
+    Db::run(
+      "INSERT INTO login_attempts(user_id,username_hash,ip,device_type,success,reason)
+       VALUES(?,?,?,?,1,NULL)",
+      [(int)$u['id'], hash('sha256',(string)$username), $ip ?: null, $dtype]
+    );
+  } catch (\\Throwable $e) {}
   return array_merge($t, ['user'=>[
     'id'=>(int)$u['id'],'username'=>$u['username'],'name'=>$u['first_name'].' '.$u['last_name'],
     'role'=>$u['role_title'],'role_id'=>(int)$u['role_id'],'level'=>(int)$u['level'],'is_admin'=>(bool)$u['is_admin'],'must_change_pw'=>$mustChange,
