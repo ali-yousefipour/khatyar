@@ -297,6 +297,45 @@ function _attendance_reject_log($userId,$lineId,$method,$lat,$lng,$accuracy,$rea
   try { Db::run("INSERT INTO attendance_reject_logs(user_id,line_id,method,lat,lng,accuracy_m,reason,meta) VALUES(?,?,?,?,?,?,?,?)", [$userId,$lineId?:null,$method,$lat,$lng,$accuracy,$reason,json_encode($extra,JSON_UNESCAPED_UNICODE)]); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
 }
 
+/* ---------------- زیرساخت امن ورود/تنظیمات برای نصب‌های قدیمی ---------------- */
+function _ensure_core_runtime_tables(){
+  static $ready=false;
+  if($ready)return true;
+  try{
+    Db::run("CREATE TABLE IF NOT EXISTS app_settings(
+      `key` VARCHAR(190) NOT NULL PRIMARY KEY,
+      value LONGTEXT NULL,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    Db::run("CREATE TABLE IF NOT EXISTS activity_logs(
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NULL,
+      event VARCHAR(80) NOT NULL,
+      meta JSON NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_activity_logs_user_time(user_id,created_at),
+      KEY idx_activity_logs_event_time(event,created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    Db::run("CREATE TABLE IF NOT EXISTS user_sessions(
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      device_type VARCHAR(20) NOT NULL,
+      device_id VARCHAR(255) NOT NULL,
+      device_model VARCHAR(255) NULL,
+      revoked_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_user_type(user_id,device_type),
+      KEY idx_user_sessions_revoked(revoked_at,created_at),
+      KEY idx_user_sessions_device(device_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    if(!_db_col_exists_safe('roles','is_admin')) Db::run("ALTER TABLE roles ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0");
+    $ready=true; return true;
+  }catch(Throwable $e){
+    error_log('core runtime bootstrap failed: '.$e->getMessage());
+    return false;
+  }
+}
+
 /* ---------------- احراز هویت ---------------- */
 // نکته دربارهٔ مسیر دوم (/api/session/start):
 // روی برخی هاست‌ها/فایروال‌های امنیتی (WAF)، مسیرهایی که کلمهٔ «login» را در خود دارند
@@ -305,6 +344,7 @@ function _attendance_reject_log($userId,$lineId,$method,$lat,$lng,$accuracy,$rea
 // خودِ کد PHP کاملاً سالم است. مسیر دوم بدون کلمات حساس (login/auth) این مشکل را دور
 // می‌زند. مسیر اول برای سازگاری با نسخه‌های قدیمی‌تر اپ که هنوز نصب هستند نگه داشته شده.
 $loginHandler = function ($p, $b) {
+  if(!_ensure_core_runtime_tables()) Http::error('ساختار زیرساخت ورود سامانه آماده نیست. لطفاً پایگاه‌داده را بررسی کنید.',503);
   // نکتهٔ حیاتی: چون بدنهٔ ورود اکنون به‌جای JSON با فرم urlencoded ارسال می‌شود (برای دورزدن
   // مسدودسازی WAF)، همهٔ مقادیر رشته‌ای هستند — یعنی JS مقدار boolean مثل false را به رشتهٔ
   // غیرخالیِ "false" تبدیل می‌کند که در PHP با !empty() به‌اشتباه «true» شمرده می‌شود. بدون
@@ -7717,8 +7757,14 @@ route('PUT', '/api/admin/settings', function($p,$b,$u){
 }, false, ADMIN);
 // تنظیمات عمومی (محدودیت آپلود هر بخش) برای اپ میدانی — فقط کلیدهای غیرحساس
 route('GET', '/api/settings/public', function($p,$b,$u){
-  $keys = ['upload_reports','upload_checklists','upload_notices','image_quality','image_max_width','image_max_height','thumbnail_size','thumbnail_quality','attachment_retention_days','form_attachment_retention_days','presence_retention_days','covert_selfie_retention_days','salary_slip_retention_days','company_request_retention_days','site_title','site_logo','org_title','org_logo','plate_ocr_enabled','plate_ocr_mode','plate_ocr_min_confidence','plate_ocr_require_confirm','plate_ocr_save_samples','plate_ocr_fixed_letter','plate_ocr_region_code','plate_ocr_crop_width','plate_ocr_crop_quality','cloud_ocr_enabled','cloud_ocr_provider','cloud_ocr_api_key','cloud_ocr_endpoint','cloud_ocr_connect_timeout','cloud_ocr_timeout'];
-  $out=[]; foreach (Db::all("SELECT `key`,value FROM app_settings WHERE `key` IN ('".implode("','",$keys)."')") as $r) $out[$r['key']] = json_decode($r['value'], true);
+  // این endpoint نباید با نصب ناقص DB، 500 یا پاسخ HTML تولید کند.
+  if(!_ensure_core_runtime_tables()) return [];
+  $keys = ['upload_reports','upload_checklists','upload_notices','image_quality','image_max_width','image_max_height','thumbnail_size','thumbnail_quality','attachment_retention_days','form_attachment_retention_days','presence_retention_days','covert_selfie_retention_days','salary_slip_retention_days','company_request_retention_days','site_title','site_logo','org_title','org_logo','plate_ocr_enabled','plate_ocr_mode','plate_ocr_min_confidence','plate_ocr_require_confirm','plate_ocr_save_samples','plate_ocr_fixed_letter','plate_ocr_region_code','plate_ocr_crop_width','plate_ocr_crop_quality','cloud_ocr_enabled','cloud_ocr_provider','cloud_ocr_endpoint','cloud_ocr_connect_timeout','cloud_ocr_timeout'];
+  $out=[];
+  foreach(Db::all("SELECT `key`,value FROM app_settings WHERE `key` IN ('".implode("','",$keys)."')") as $r){
+    $decoded=json_decode((string)$r['value'],true);
+    $out[$r['key']] = json_last_error()===JSON_ERROR_NONE ? $decoded : $r['value'];
+  }
   return $out;
 }, true);
 // حذف خودکار پیوست‌های قدیمی‌تر از N روز (از طریق Cron یا دکمهٔ مدیر)
