@@ -105,3 +105,4 @@ window.openSchoolService = open;
     observer.observe(document.documentElement,{childList:true,subtree:true});
   }catch(_){}
 })();
+})();
