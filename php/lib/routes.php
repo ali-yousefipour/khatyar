@@ -13226,13 +13226,9 @@ function _ssv_tables(){
       foreach($seed as $row){
         if(count($row)<13) continue;
         [$sid,$name,$manager,$mobile,$landline,$address,$lat,$lng,$declared,$registered,$reps,$active,$profile]=$row;
-        Db::run("INSERT INTO school_service_companies
+        Db::run("INSERT IGNORE INTO school_service_companies
           (id,name,manager_name,phone,ceo_mobile,landline_phone,address,latitude,longitude,declared_school_count,registered_school_count,representative_count,profile_completed,is_active)
-          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-          ON DUPLICATE KEY UPDATE name=VALUES(name),manager_name=VALUES(manager_name),phone=VALUES(phone),ceo_mobile=VALUES(ceo_mobile),
-          landline_phone=VALUES(landline_phone),address=VALUES(address),latitude=VALUES(latitude),longitude=VALUES(longitude),
-          declared_school_count=VALUES(declared_school_count),registered_school_count=VALUES(registered_school_count),
-          representative_count=VALUES(representative_count),profile_completed=VALUES(profile_completed),is_active=VALUES(is_active)",
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
           [(int)$sid,_ssv_norm($name),_ssv_norm($manager)?:null,trim((string)$mobile)?:null,trim((string)$landline)?:null,_ssv_norm($address)?:null,$lat!==''?(float)$lat:null,$lng!==''?(float)$lng:null,(int)$declared,(int)$registered,(int)$reps,(int)$profile,(int)$active]);
       }
     }
