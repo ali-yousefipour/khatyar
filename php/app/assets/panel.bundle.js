@@ -13880,15 +13880,6 @@ async function khEnsureFreshBuild() {
     }
     catch (e) { }
 }
-async function khForceFreshReloadAfterLogin() {
-    try {
-        if (window.caches) {
-            const names = await caches.keys();
-            await Promise.all(names.map(n => caches.delete(n)));
-        }
-    }
-    catch (e) { }
-}
 (async () => {
     const ok = await checkConnection();
     const root = document.getElementById("root");
