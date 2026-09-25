@@ -45,7 +45,8 @@ if (strpos($path, '/api') !== 0) {
   http_response_code(404); echo 'Not Found'; exit;
 }
 // Keep temporary substitute shifts synchronized before any API route consumes shift assignments.
-if (class_exists('SubstituteShift')) SubstituteShift::reconcile();
+// نکته: همگام‌سازی SubstituteShift از مسیر عمومی درخواست‌ها حذف شده است. اجرای reconcile روی هر درخواست
+// باعث CREATE/UPDATE/SELECT گسترده روی requests می‌شد و می‌توانست ورود سایت و /auth/me اپ را معطل کند.
 $routes = [];
 function route($m, $p, $fn, $public = false, $minLevel = 99) { global $routes; $routes[] = compact('m', 'p', 'fn', 'public', 'minLevel'); }
 function nid($v){ $s = preg_replace('/\D/', '', (string)$v); return $s === '' ? null : str_pad($s, 10, '0', STR_PAD_LEFT); }
