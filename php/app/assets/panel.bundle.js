@@ -13701,13 +13701,27 @@ function Login({ onLogin, brand }) {
     const [code, setCode] = useState("");
     const [np, setNp] = useState("");
     const [info, setInfo] = useState("");
-    const submit = async () => { try {
-        const d = await db.login(u, p);
-        onLogin(d.user);
-    }
-    catch (e) {
-        setErr(e.message);
-    } };
+    const [busy, setBusy] = useState(false);
+    const submit = async () => {
+        if (busy) return;
+        setErr("");
+        setInfo("");
+        if (!u.trim() || !p) {
+            setErr("نام کاربری و رمز عبور را وارد کنید.");
+            return;
+        }
+        setBusy(true);
+        try {
+            const d = await db.login(u, p);
+            onLogin(d.user);
+        }
+        catch (e) {
+            setErr(e.message || "ورود ناموفق بود");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
     const sendCode = async () => { setErr(""); setInfo(""); try {
         await SEND('POST', '/auth/forgot-password', { username: u });
         setInfo("اگر نام کاربری معتبر باشد، کد بازیابی پیامک شد.");
@@ -13735,7 +13749,7 @@ function Login({ onLogin, brand }) {
             React.createElement("input", { className: "input", placeholder: "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC (\u06A9\u062F \u0645\u0644\u06CC)", value: u, onChange: e => setU(e.target.value), style: { marginBottom: 10 } }),
             mode === "login" && React.createElement(React.Fragment, null,
                 React.createElement("input", { className: "input", type: "password", placeholder: "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631", value: p, onChange: e => setP(e.target.value), onKeyDown: e => e.key === 'Enter' && submit() }),
-                React.createElement("button", { className: "btn p", style: { width: "100%", marginTop: 14 }, onClick: submit }, "\u0648\u0631\u0648\u062F"),
+                React.createElement("button", { className: "btn p", disabled: busy, style: { width: "100%", marginTop: 14, opacity: busy ? .7 : 1 }, onClick: submit }, busy ? "در حال ورود..." : "ورود"),
                 React.createElement("p", { style: { textAlign: "center", marginTop: 10 } },
                     React.createElement("a", { style: { fontSize: 12, color: "var(--brand)", cursor: "pointer" }, onClick: () => { setErr(""); setInfo(""); setMode("forgot"); } }, "\u0641\u0631\u0627\u0645\u0648\u0634\u06CC \u0631\u0645\u0632 \u0639\u0628\u0648\u0631"))),
             mode === "forgot" && React.createElement(React.Fragment, null,
@@ -13841,7 +13855,7 @@ function App() {
                     React.createElement("div", { className: "av" }, (me.name || "؟")[0]))),
             React.createElement(View, null))));
 }
-const PANEL_BUILD_VERSION = "1.4.4";
+const PANEL_BUILD_VERSION = "1.5.0";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
