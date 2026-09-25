@@ -51,7 +51,7 @@ object KhatyarRadioPttBridge {
         d.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
         (Build.VERSION.SDK_INT >= 31 && d.type == AudioDeviceInfo.TYPE_BLE_HEADSET)
       }
-    } catch (_: Throwable) { true }
+    } catch (_: Throwable) { false }
   }
 
   fun handleMediaIntent(context: Context, intent: android.content.Intent) {
