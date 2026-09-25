@@ -27,21 +27,21 @@ CREATE TABLE IF NOT EXISTS school_service_companies (
 
 
 
-SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='ceo_mobile'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN ceo_mobile VARCHAR(50) NULL AFTER phone');
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='ceo_mobile'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN ceo_mobile VARCHAR(50) NULL');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='landline_phone'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN landline_phone VARCHAR(50) NULL AFTER ceo_mobile');
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='landline_phone'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN landline_phone VARCHAR(50) NULL');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='latitude'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN latitude DECIMAL(10,7) NULL AFTER address');
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='latitude'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN latitude DECIMAL(10,7) NULL');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='longitude'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN longitude DECIMAL(10,7) NULL AFTER latitude');
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='longitude'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN longitude DECIMAL(10,7) NULL');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='declared_school_count'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN declared_school_count INT NOT NULL DEFAULT 0 AFTER longitude');
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='declared_school_count'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN declared_school_count INT NOT NULL DEFAULT 0');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='registered_school_count'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN registered_school_count INT NOT NULL DEFAULT 0 AFTER declared_school_count');
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='registered_school_count'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN registered_school_count INT NOT NULL DEFAULT 0');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='representative_count'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN representative_count INT NOT NULL DEFAULT 0 AFTER registered_school_count');
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='representative_count'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN representative_count INT NOT NULL DEFAULT 0');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='profile_completed'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN profile_completed TINYINT(1) NOT NULL DEFAULT 0 AFTER representative_count');
+SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='profile_completed'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN profile_completed TINYINT(1) NOT NULL DEFAULT 0');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 INSERT INTO school_service_companies (id,name,manager_name,phone,ceo_mobile,landline_phone,address,latitude,longitude,declared_school_count,registered_school_count,representative_count,is_active,profile_completed) VALUES
