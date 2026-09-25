@@ -332,7 +332,7 @@ public final class KhatyarRadioService extends Service {
         long createdAt = messageTimeMillis(m);
         if (createdAt <= 0L || createdAt < serviceStartedAt) continue;
         String audio = m.optString("audio_url", "");
-        if (!audio.isEmpty() && !isAppInForeground()) playRemote(audio, token);
+        if (!audio.isEmpty() && !isAppInForeground()) enqueueRemote(audio, token);
       }
       p.edit().putLong(afterKey, cursor).apply();
       if (!listenAll) lastId = cursor;
