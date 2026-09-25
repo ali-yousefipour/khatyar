@@ -13206,11 +13206,11 @@ function _ssv_tables(){
   }catch(Throwable $e){$errors[]='company seed: '.$e->getMessage();}
 
   try{
-    foreach(Db::all("SELECT id,level FROM roles") as $r){
+    foreach(Db::all("SELECT id FROM roles") as $r){
       $rid=(int)$r['id'];
-      if(!Db::one("SELECT role_id FROM school_service_permissions WHERE role_id=?",[$rid])){
-        $default=((int)$r['level']<=4)?1:0;
-        Db::run("INSERT INTO school_service_permissions(role_id,can_view,can_create,can_edit,can_delete,can_import,can_report) VALUES(?,?,?,?,?,?,?)",[$rid,$default,$default,$default,$default,((int)$r['level']<=3)?1:0,$default]);
+      if(!Db::one("SELECT role_id FROM school_service_permissions WHERE role_id=? LIMIT 1",[$rid])){
+        // ایجاد رکورد خنثی برای هر role_id؛ دسترسی هر سمت باید صراحتاً در همین جدول تعیین شود.
+        Db::run("INSERT INTO school_service_permissions(role_id,can_view,can_create,can_edit,can_delete,can_import,can_report) VALUES(?,?,?,?,?,?,?)",[$rid,0,0,0,0,0,0]);
       }
     }
   }catch(Throwable $e){$errors[]='permissions seed: '.$e->getMessage();}
