@@ -3,6 +3,30 @@
 -- این Migration برای اجرای مستقیم در MySQL/MariaDB و اجرای مجدد امن شده است.
 SET @db = DATABASE();
 
+-- امکان اجرای مستقل این Migration حتی در دیتابیس قدیمی/بدون جدول پایه
+CREATE TABLE IF NOT EXISTS school_service_companies (
+ id INT AUTO_INCREMENT PRIMARY KEY,
+ name VARCHAR(255) NOT NULL,
+ manager_name VARCHAR(150) NULL,
+ phone VARCHAR(80) NULL,
+ ceo_mobile VARCHAR(80) NULL,
+ landline_phone VARCHAR(80) NULL,
+ address VARCHAR(700) NULL,
+ latitude DECIMAL(10,7) NULL,
+ longitude DECIMAL(10,7) NULL,
+ declared_school_count INT NOT NULL DEFAULT 0,
+ registered_school_count INT NOT NULL DEFAULT 0,
+ representative_count INT NOT NULL DEFAULT 0,
+ profile_completed TINYINT(1) NOT NULL DEFAULT 0,
+ is_active TINYINT(1) NOT NULL DEFAULT 1,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_ssc_name(name),
+ KEY idx_ssc_active(is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+
 SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='ceo_mobile'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN ceo_mobile VARCHAR(50) NULL AFTER phone');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='school_service_companies' AND COLUMN_NAME='landline_phone'),'SELECT 1','ALTER TABLE school_service_companies ADD COLUMN landline_phone VARCHAR(50) NULL AFTER ceo_mobile');
