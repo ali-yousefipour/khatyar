@@ -392,46 +392,76 @@ $loginHandler = function ($p, $b) {
     }
   } catch (Throwable $e) {
     // خرابی لاگ نباید مانع ورود شود؛ محدودیت IP در ادامه مستقل بررسی می‌شود.
-    $fails = 0;
-  }
-  if ($fails >= 5) Http::error('به‌دلیل تلاش‌های ناموفق متعدد، حساب موقتاً مسدود است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
-  // محدودیت اضافی بر اساس IP (مستقل از نام‌کاربری) — جلوگیری از brute-force با نام‌کاربری‌های مختلف
+    // Login must never scan activity_logs or JSON metadata. Previous versions queried
+  // recent login_failed rows from activity_logs, which could become a full/expensive scan
+  // on older production databases and make the browser appear to hang.
+  $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+  if ($ip) $ip = trim(explode(',', $ip)[0]);
+
+  // IP rate-limit uses a dedicated indexed table. If the migration is not installed yet,
+  // this optional protection is skipped; it must never block authentication.
   try {
-    // جدول login_ip_attempts باید توسط migration ساخته شده باشد؛ در Login هیچ DDL اجرا نمی‌شود.
-    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
     if ($ip) {
-      $ip = trim(explode(',', $ip)[0]);
-      $ipFails = (int) Db::one("SELECT COUNT(*) n FROM login_ip_attempts WHERE ip=? AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)", [$ip])['n'];
+      $ipFails = (int)(Db::one(
+        "SELECT COUNT(*) n FROM login_attempts
+         WHERE ip=? AND success=0 AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)",
+        [$ip]
+      )['n'] ?? 0);
       if ($ipFails >= 20) Http::error('تعداد تلاش‌های ورود از این آدرس بیش از حد مجاز است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
     }
-  } catch (\Throwable $e) { $ip = null; }
-  // ابتدا کاربر را احراز هویت می‌کنیم؛ سپس معافیت امنیتی همان رکورد قطعی اعمال می‌شود.
-  // این ترتیب از نادیده‌گرفته‌شدن معافیت به‌علت جست‌وجوی مقدماتی نام کاربری جلوگیری می‌کند.
-  // ساختار ستون‌های users در migration 2026_09_25_core_runtime_repair.sql هم‌تراز می‌شود؛
-  // در مسیر Login نباید ALTER TABLE/SHOW COLUMNS اجرا شود چون می‌تواند metadata lock ایجاد کند.
-  // ابتدا جستجوی مستقیم (قابل استفاده از ایندکس)؛ اگر نصب قدیمی در username فاصلهٔ ابتدا/انتها داشته باشد،
-  // برای سازگاری با رفتار قبلی یک fallback محدود با TRIM انجام می‌شود.
+  } catch (\\Throwable $e) {}
+
+  // Indexed username lookup first; TRIM is only a compatibility fallback.
   $u = null;
   foreach ($usernameCandidates as $candidate) {
-    $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=? LIMIT 1", [$candidate]);
+    $u = Db::one(
+      "SELECT u.*, r.title AS role_title, r.level, r.is_admin
+       FROM users u JOIN roles r ON r.id=u.role_id
+       WHERE u.username=? LIMIT 1",
+      [$candidate]
+    );
     if ($u) { $username = (string)$u['username']; break; }
   }
-  // سازگاری نهایی با نصب‌های قدیمی که username با فاصلهٔ ابتدا/انتها ذخیره شده است.
   if (!$u) {
     foreach ($usernameCandidates as $candidate) {
-      $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE TRIM(u.username)=? LIMIT 1", [$candidate]);
+      $u = Db::one(
+        "SELECT u.*, r.title AS role_title, r.level, r.is_admin
+         FROM users u JOIN roles r ON r.id=u.role_id
+         WHERE TRIM(u.username)=? LIMIT 1",
+        [$candidate]
+      );
       if ($u) { $username = (string)$u['username']; break; }
     }
   }
-  // احراز هویت را عمداً به سه حالت داخلی تفکیک می‌کنیم تا خطای واقعی در لاگ سرور قابل تشخیص باشد،
-  // ولی پاسخ عمومی همچنان اطلاعاتی دربارهٔ وجود/وضعیت حساب افشا نمی‌کند.
-  $loginFailureReason = !$u ? 'user_not_found' : (empty($u['is_active']) ? 'user_inactive' : (!isset($u['password_hash']) ? 'password_hash_missing' : (!password_verify($password, (string)$u['password_hash']) ? 'password_mismatch' : 'unknown')));
+
+  // Account rate-limit is also isolated from activity_logs and uses user_id.
+  if ($u) {
+    try {
+      $fails = (int)(Db::one(
+        "SELECT COUNT(*) n FROM login_attempts
+         WHERE user_id=? AND success=0 AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)",
+        [(int)$u['id']]
+      )['n'] ?? 0);
+      if ($fails >= 5) Http::error('به‌دلیل تلاش‌های ناموفق متعدد، حساب موقتاً مسدود است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
+    } catch (\\Throwable $e) {}
+  }
+
+  $loginFailureReason = !$u ? 'user_not_found' :
+    (empty($u['is_active']) ? 'user_inactive' :
+    (!isset($u['password_hash']) ? 'password_hash_missing' :
+    (!password_verify($password, (string)$u['password_hash']) ? 'password_mismatch' : 'unknown')));
+
   if ($loginFailureReason !== 'unknown' && $loginFailureReason !== '') {
-    error_log('KhatYar login failed ['.$loginFailureReason.'] username='.preg_replace('/[^0-9A-Za-z._@-]/','',(string)$username));
-    Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?, 'login_failed', ?)", [$u['id'] ?? null, json_encode(['username'=>$username,'reason'=>$loginFailureReason], JSON_UNESCAPED_UNICODE)]);
-    if (!empty($ip)) { try { Db::run("INSERT INTO login_ip_attempts(ip) VALUES(?)", [$ip]); } catch (\Throwable $e) {} }
+    try {
+      Db::run(
+        "INSERT INTO login_attempts(user_id,username_hash,ip,device_type,success,reason)
+         VALUES(?,?,?,?,0,?)",
+        [$u['id'] ?? null, hash('sha256',(string)$username), $ip ?: null, $dtype, $loginFailureReason]
+      );
+    } catch (\\Throwable $e) {}
     Http::error('نام کاربری یا رمز عبور اشتباه است', 401);
   }
+
   // قوانین امنیتی ورود؛ کاربر معاف از VPN، حالت توسعه‌دهنده، موقعیت جعلی و الزام GPS مستثنا است.
   $securityExempt = ((int)($u['security_exempt'] ?? 0) === 1);
   if (!$securityExempt) {
