@@ -8,6 +8,9 @@
     <!-- Notification icon tint referenced by AndroidManifest.xml. -->
     <color name="notification_icon_color">#FFFFFFFF</color>
 
+    <!-- Launcher background referenced by the adaptive launcher icons. -->
+    <color name="iconBackground">#FFFFFF</color>
+
     <color name="khatyar_notification_primary">#FF1A1A1A</color>
     <color name="khatyar_notification_secondary">#FF555555</color>
     <color name="khatyar_notification_button_text">#FFFFFFFF</color>
