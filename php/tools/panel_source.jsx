@@ -58,7 +58,7 @@ async function GET(p, opts){
   const ttl = (opts&&opts.ttl) || _cacheTtlFor(p);
   const key = p;
   if(ttl && _cache[key] && (Date.now()-_cache[key].t)<ttl) return _cache[key].v;
-  const r = await fetch(API_BASE+p,{headers:tok(), cache:'no-store'});
+  const r = await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+p,{headers:tok(), cache:'no-store'});
   const v = await _readJsonResponse(r);
   if(!r.ok) throw new Error(v.error||v.message||'خطای سرور');
   if(ttl) _cache[key]={t:Date.now(),v};
@@ -78,7 +78,7 @@ function exportXlsx(rows, sheetName, filename){
   XLSX.utils.book_append_sheet(wb,ws,String(sheetName||'گزارش').slice(0,31)); XLSX.writeFile(wb,filename);
 }
 async function SEND(method,p,body){
-  const r = await fetch(API_BASE+p,{method,headers:{'content-type':'application/json',...tok()},body:body?JSON.stringify(body):undefined});
+  const r = await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+p,{method,headers:{'content-type':'application/json',...tok()},body:body?JSON.stringify(body):undefined});
   const v = await _readJsonResponse(r);
   if(!r.ok) throw new Error(v.error||v.message||'خطای سرور');
   _invalidateCache(); // بعد از هر تغییر، کش پاک شود تا داده‌ها تازه بماند
@@ -7965,6 +7965,6 @@ async function khForceFreshReloadAfterLogin(){
   const root = document.getElementById("root");
   if(!ok){ root.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px;font-family:Vazirmatn"><div><h2 style="color:#e23b54">اتصال به سرور برقرار نشد</h2><p style="color:#6b7890;max-width:420px;line-height:2">این پنل باید از آدرس سرور باز شود (مثل https://app.yousefipour.ir/). لطفاً آدرس <b>/api/health</b> را بررسی کنید و مطمئن شوید نصب کامل شده است.</p></div></div>'; return; }
   await khEnsureFreshBuild();
-  console.log("PANEL BUILD: 1.4.4 (custom-drawer-radio-fixes-volume-ptt)");
+  console.log("PANEL BUILD: 1.5.0 (login-stability-school-service-fixes)");
   ReactDOM.createRoot(root).render(<App/>);
 })();
