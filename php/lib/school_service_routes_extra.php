@@ -20,7 +20,7 @@ route('POST','/api/school-service/inspections-with-photo',function($p,$b,$u){
  }
  [$a,$l,$pc]=_ssv_plate($body);$schoolId=(int)($body['school_id']??0);$companyId=(int)($body['company_id']??0);if(!$schoolId)$schoolId=null;if(!$companyId)$companyId=null;
  $district=_ssv_norm($body['educational_district']??'');if($district!==''&&!_ssv_valid_option('school_service_districts',$district))Http::error('ناحیه آموزشی انتخاب‌شده معتبر یا فعال نیست.',422);
- $vehicleType=_ssv_norm($body['vehicle_type']??'');if($vehicleType!==''&&!_ssv_valid_option('school_service_vehicle_types',$vehicleType))Http::error('نوع خودرو انتخاب‌شده معتبر یا فعال نیست.',422);
+ $locationText=_ssv_norm($body['location_text']??'');if($locationText==='')Http::error('آدرس یا محل نوشتاری بازرسی الزامی است.',422);$vehicleType=_ssv_norm($body['vehicle_type']??'');if($vehicleType!==''&&!_ssv_valid_option('school_service_vehicle_types',$vehicleType))Http::error('نوع خودرو انتخاب‌شده معتبر یا فعال نیست.',422);
  $vehicleColor=_ssv_norm($body['vehicle_color']??'');if($vehicleColor!==''&&!_ssv_valid_option('school_service_vehicle_colors',$vehicleColor))Http::error('رنگ خودرو انتخاب‌شده معتبر یا فعال نیست.',422);
  _ssv_school_company_validate($schoolId??0,$companyId??0,$district);
  $gender=in_array($body['school_gender']??'',['دخترانه','پسرانه','نامشخص'],true)?$body['school_gender']:'نامشخص';$dg=in_array($body['driver_gender']??'',['خانم','آقا','نامشخص'],true)?$body['driver_gender']:'نامشخص';$cert=in_array($body['certificate_status']??'',['معتبر','نامعتبر','ارائه نشد'],true)?$body['certificate_status']:'ارائه نشد';
