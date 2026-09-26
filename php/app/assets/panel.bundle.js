@@ -13708,7 +13708,7 @@ const VIEWS = {
     vehicleassets: { t: "ماشین‌آلات و وسایل مأموریتی", ic: "🚙", c: PersonnelVehicleAssets },
     vehiclechecklist: { t: "چک‌لیست خودرویی و موتوری", ic: "☑", c: PersonnelVehicleChecklist },
     settings: { t: "تنظیمات سامانه", ic: "⚙", c: Settings },
-    schoolservice: { t: "سرویس مدارس", ic: "route", c: SchoolServiceLauncher },
+    schoolservice: { t: "سرویس مدارس", ic: "checklist", c: SchoolServiceLauncher },
 };
 function Login({ onLogin, brand }) {
     const [u, setU] = useState("");

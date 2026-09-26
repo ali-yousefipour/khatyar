@@ -7945,7 +7945,7 @@ function App(){
     shifts:'shift-cycle', workpolicy:'work-policy', requests:'request-form', salaryslips:'salary-slip', commitments:'commitment-sign', welfare:'welfare-gift', cultural:'cultural-book',
     messages:'messages-mail', sms:'sms-phone', smslog:'sms-history', messengercenter:'messenger-bot', radiocenter:'radio-tower', users:'users-admin', org:'organization-tree', forms:'forms-pen',
     config:'system-config', customfields:'custom-fields', inventory:'request-box', excel:'excel-upload', appitems:'app-menu', cronstatus:'activity-wave', activesessions:'security-lock', logs:'audit-logs', settings:'settings-gears',
-    vehicleassets:'operation-tools', vehiclechecklist:'checklist', schoolservice:'school-service'
+    vehicleassets:'operation-tools', vehiclechecklist:'checklist', schoolservice:'checklist'
   };
   const can=(k)=>k==="schoolservice"?schoolServiceAllowed:(!allowed||allowed.includes(k)||CORE.includes(k));
   const closeOnPick=(k)=>{ if(k==="schoolservice"&&v===k){try{window.openSchoolService?.().catch?.(e=>alert(e.message||"دسترسی به سرویس مدارس ممکن نیست."));}catch(e){alert(e.message||"دسترسی به سرویس مدارس ممکن نیست.");} return;} setV(k); setDrawer(false); };
