@@ -13,9 +13,21 @@ if ! command -v npx >/dev/null 2>&1; then
   exit 1
 fi
 npx tsc --allowJs --jsx react --jsxFactory React.createElement --jsxFragmentFactory React.Fragment --target ES2018 --module none --ignoreDeprecations 5.0 --outFile "$OUT" "$SRC"
+if [ ! -s "$OUT" ]; then
+  echo "ERROR: panel bundle was generated as an empty file." >&2
+  exit 1
+fi
 if head -c 16 "$OUT" | grep -q '^import'; then
   echo "ERROR: panel bundle still contains an ES module import." >&2
   exit 1
 fi
-echo "Verified: panel bundle is browser-compatible (no top-level ES module import)."
+if ! grep -q "schoolservice" "$OUT"; then
+  echo "ERROR: compiled panel bundle does not contain the school service view. Source/bundle are out of sync." >&2
+  exit 1
+fi
+if grep -q "school-service.png" "$OUT"; then
+  echo "ERROR: compiled panel bundle still references the removed school-service.png icon." >&2
+  exit 1
+fi
+echo "Verified: panel bundle is non-empty, browser-compatible, contains schoolservice, and has no stale school-service.png reference."
 echo "Built: $OUT"
