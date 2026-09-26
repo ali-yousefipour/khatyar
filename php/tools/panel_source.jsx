@@ -7999,6 +7999,6 @@ async function khForceFreshReloadAfterLogin(){
   const root = document.getElementById("root");
   if(!ok){ root.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px;font-family:Vazirmatn"><div><h2 style="color:#e23b54">اتصال به سرور برقرار نشد</h2><p style="color:#6b7890;max-width:420px;line-height:2">این پنل باید از آدرس سرور باز شود (مثل https://app.yousefipour.ir/). لطفاً آدرس <b>/api/health</b> را بررسی کنید و مطمئن شوید نصب کامل شده است.</p></div></div>'; return; }
   await khEnsureFreshBuild();
-  console.log("PANEL BUILD: 1.5.0 (login-stability-school-service-fixes)");
+  console.log("PANEL BUILD: 1.5.0 (school-service-inline-school-list-fix)");
   ReactDOM.createRoot(root).render(<App/>);
 })();
