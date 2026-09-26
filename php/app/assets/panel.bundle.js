@@ -13706,9 +13706,7 @@ function Login({ onLogin, brand }) {
         if (busy) return;
         setBusy(true); setErr("");
         try {
-            const d = await db.login(u, p);
-            await khForceFreshReloadAfterLogin();
-            onLogin(d.user);
+            const d = await db.login(u, p); onLogin(d.user);
         }
         catch (e) { setErr(e && e.name === 'AbortError' ? 'زمان پاسخ سرور تمام شد. اتصال اینترنت و آدرس سرور را بررسی کنید.' : (e.message || 'ورود ناموفق بود')); }
         finally { setBusy(false); }
