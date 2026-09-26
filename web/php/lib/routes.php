@@ -1,8 +1,10 @@
 <?php
 // ============ تعریف همهٔ مسیرهای API ============
 const ADMIN = 3; // سطح ۳ و بالاتر = مدیریتی
-const SITE_VERSION = 154;   // نسخهٔ سایت — با هر تغییر افزایش می‌یابد
-const APP_VERSION = '1.3.65'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
+// از این نسخه به بعد، به‌درخواست کارفرما، شمارهٔ نسخهٔ سایت و اپ اندروید و نام فایل زیپ پروژه
+// همیشه یکسان و هماهنگ نگه داشته می‌شوند (به‌جای دو شمارندهٔ جداگانه مثل قبل).
+const SITE_VERSION = '1.4.4';   // نسخهٔ سایت — همیشه با نسخهٔ اپ و نام فایل پروژه یکی است
+const APP_VERSION = '1.4.4'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
 
 
 /* Phase 7.8 — زمان واقعی ثبت کلاینت برای عملیات آفلاین/آنلاین */
@@ -326,19 +328,10 @@ $loginHandler = function ($p, $b) {
       AND JSON_UNQUOTE(JSON_EXTRACT(meta,'$.username'))=?", [$username])['n'];
   if ($fails >= 5) Http::error('به‌دلیل تلاش‌های ناموفق متعدد، حساب موقتاً مسدود است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
   // محدودیت اضافی بر اساس IP (مستقل از نام‌کاربری) — جلوگیری از brute-force با نام‌کاربری‌های مختلف
-  try {
-    _v201_health_tables();
-    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
-    if ($ip) {
-      $ip = trim(explode(',', $ip)[0]);
-      $ipFails = (int) Db::one("SELECT COUNT(*) n FROM login_ip_attempts WHERE ip=? AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)", [$ip])['n'];
-      if ($ipFails >= 20) Http::error('تعداد تلاش‌های ورود از این آدرس بیش از حد مجاز است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
-    }
-  } catch (\Throwable $e) { $ip = null; }
+  $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? ''; if ($ip) $ip=trim(explode(',', $ip)[0]);
+
   // ابتدا کاربر را احراز هویت می‌کنیم؛ سپس معافیت امنیتی همان رکورد قطعی اعمال می‌شود.
   // این ترتیب از نادیده‌گرفته‌شدن معافیت به‌علت جست‌وجوی مقدماتی نام کاربری جلوگیری می‌کند.
-  try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='security_exempt'")) Db::run("ALTER TABLE users ADD COLUMN security_exempt TINYINT(1) NOT NULL DEFAULT 0"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='rank_stars'")) Db::run("ALTER TABLE users ADD COLUMN rank_stars TINYINT NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE TRIM(u.username)=? LIMIT 1", [$username]);
   if (!$u || !$u['is_active'] || !password_verify($password, $u['password_hash'])) {
     Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?, 'login_failed', ?)", [$u['id'] ?? null, json_encode(['username'=>$username], JSON_UNESCAPED_UNICODE)]);
@@ -408,7 +401,7 @@ $loginHandler = function ($p, $b) {
   return array_merge($t, ['user'=>[
     'id'=>(int)$u['id'],'username'=>$u['username'],'name'=>$u['first_name'].' '.$u['last_name'],
     'role'=>$u['role_title'],'role_id'=>(int)$u['role_id'],'level'=>(int)$u['level'],'is_admin'=>(bool)$u['is_admin'],'must_change_pw'=>$mustChange,
-    'email'=>$u['email'],'photo'=>$u['photo'],'security_exempt'=>$securityExempt,
+    'email'=>$u['email'],'photo'=>_user_photo_url($u['photo_path'] ?? null, $u['photo'] ?? null),'security_exempt'=>$securityExempt,
     'rank_stars'=>isset($u['rank_stars']) && $u['rank_stars']!==null ? (int)$u['rank_stars'] : null,
     'can_send_sms'=>(bool)$u['is_admin'] || (bool)($u['can_send_sms'] ?? 0),
   ]]);
@@ -498,7 +491,7 @@ route('POST', '/api/session/otp-verify', function($p, $b) {
     'id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['first_name'].' '.$u['last_name'],
     'role' => $u['role_title'], 'role_id' => (int)$u['role_id'], 'level' => (int)$u['level'], 'is_admin' => (bool)$u['is_admin'],
     'must_change_pw' => (bool)($u['must_change_pw'] ?? 0),
-    'email' => $u['email'], 'photo' => $u['photo'], 'security_exempt' => $securityExempt,
+    'email' => $u['email'], 'photo' => _user_photo_url($u['photo_path'] ?? null, $u['photo'] ?? null), 'security_exempt' => $securityExempt,
     'rank_stars' => isset($u['rank_stars']) && $u['rank_stars'] !== null ? (int)$u['rank_stars'] : null,
     'can_send_sms' => (bool)$u['is_admin'] || (bool)($u['can_send_sms'] ?? 0),
   ]]);
@@ -2506,7 +2499,7 @@ function _auto_shift_for_user($userId){
   ];
 }
 function _attendance_adjusted_overtime($userId,$jdate){
-  _ensure_attendance_phase1_schema();
+  static $schemaReady=false; if(!$schemaReady){ _ensure_attendance_phase1_schema(); $schemaReady=true; }
   try { $r=Db::one("SELECT minutes FROM attendance_ot_adjustments WHERE user_id=? AND jdate=?",[(int)$userId,str_replace('/','-',$jdate)]); return (int)($r['minutes'] ?? 0); } catch (\Throwable $e) { return 0; }
 }
 function _hm_min($m){ return sprintf('%02d:%02d', intdiv(max(0,(int)$m),60), max(0,(int)$m)%60); }
@@ -2722,6 +2715,9 @@ function _attendance_report($userId,$fromJ,$toJ){
       'jdate'=>$jdate,
       'weekday'=>_jweekday_name($jy,$jm,$jd),
       'is_holiday'=>$isHol,
+      'is_friday'=>(bool)ShiftCalc::isFriday($jdateDash),
+      'friday_work'=>$hm($w['friday_work']??$w['friday']??0),
+      'holiday_work'=>$hm($w['holiday_work']??$w['holiday']??0),
       'punches'=>$punches,
       'in_shift'=>$hm($w['in_shift'] ?? $w['worked']),       // حضور در بازهٔ شیفت
       'worked'=>$hm($w['worked']),
@@ -2778,9 +2774,18 @@ route('PUT', '/api/admin/attendance-punch/{id}', function($p,$b,$u){
   if(!$row) Http::error('رکورد تردد یافت نشد',404);
   $inT=trim($b['check_in']??'');   // فرمت HH:MM یا خالی
   $outT=trim($b['check_out']??'');
+  $newJdate=trim((string)($b['jdate']??''));
   $set=[]; $args=[];
-  // تاریخ مبنا از check_in فعلی
+  // تاریخ مبنا از check_in فعلی؛ در صورت ارسال jdate، تاریخ شمسی جدید اعمال می‌شود.
   $baseDate = date('Y-m-d', strtotime($row['check_in']));
+  if ($newJdate!=='') {
+    $jp=preg_split('/[\/-]/',$newJdate);
+    if (count($jp)!==3 || !preg_match('/^\d{4}$/',$jp[0]) || !preg_match('/^\d{1,2}$/',$jp[1]) || !preg_match('/^\d{1,2}$/',$jp[2])) Http::error('فرمت تاریخ نامعتبر است',422);
+    [$jy,$jm,$jd]=array_map('intval',$jp);
+    if ($jm<1||$jm>12||$jd<1||$jd>31) Http::error('تاریخ نامعتبر است',422);
+    [$gy,$gm,$gd]=jalali_to_gregorian($jy,$jm,$jd);
+    $baseDate=sprintf('%04d-%02d-%02d',$gy,$gm,$gd);
+  }
   if($inT!==''){
     if(!preg_match('/^\d{1,2}:\d{2}$/',$inT)) Http::error('فرمت ساعت ورود نامعتبر است (HH:MM)',422);
     $set[]="check_in=?"; $args[]="$baseDate $inT:00";
@@ -3241,6 +3246,40 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
   Push::send([$r['user_id']],'درخواست شما تأیید شد','',['type'=>'request','request_id'=>$p['id']]);
   _req_notify_sms($r,'approved','');
   return ['ok'=>true,'status'=>'approved'];
+});
+
+// عملکرد روزانهٔ خودِ کاربر — مدل فینتو، برای تب «عملکرد روزانه» در اپ و وب‌اپ
+route('GET', '/api/my/daily-performance', function($p,$b,$u){
+  [$ty,$tm,$td]=array_slice(gregorian_to_jalali(date('Y'),date('m'),date('d')),0,3);
+  $jdate=preg_replace('/\//','-',trim((string)($_GET['date']??'')));
+  if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$jdate)) $jdate=sprintf('%04d-%02d-%02d',$ty,$tm,$td);
+  $shift=_auto_shift_for_user($u['id']);
+  if(!$shift) return ['date'=>$jdate,'data'=>null,'message'=>'برای شما شیفت فعالی تعریف نشده است.'];
+  $dayRow=null;
+  if(($shift['type']??'')==='advanced') $dayRow=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$jdate]);
+  $hol=Db::one("SELECT jdate,title FROM holidays WHERE jdate=? LIMIT 1",[$jdate]);
+  $rows=_attendance_rows_for_jdate($u['id'],$jdate);
+  $sessions=array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start']??'1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00')],$rows);
+  $w=ShiftCalc::dayWork($shift,$jdate,$dayRow,$sessions,(bool)$hol);
+  $weekday=_jweekday_name((int)substr($jdate,0,4),(int)substr($jdate,5,2),(int)substr($jdate,8,2));
+  return ['date'=>$jdate,'weekday'=>$weekday,'shift_title'=>$shift['title']??'شیفت کاری','shift_type'=>$shift['type']??'','holiday'=>(bool)$hol,'holiday_title'=>$hol['title']??'', 'sessions'=>$rows,'data'=>$w];
+});
+
+// برنامهٔ شیفت کاری کاربر — بازهٔ آینده برای تب «شیفت کاری»
+route('GET', '/api/my/shift-schedule', function($p,$b,$u){
+  [$gy,$gm,$gd]=[date('Y'),date('m'),date('d')]; [$jy,$jm,$jd]=array_slice(gregorian_to_jalali((int)$gy,(int)$gm,(int)$gd),0,3);
+  $start=preg_replace('/\//','-',trim((string)($_GET['from']??'')));
+  if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$start)) $start=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
+  [$sy,$sm,$sd]=array_map('intval',explode('-',$start));
+  $shift=_auto_shift_for_user($u['id']); if(!$shift)return ['shift'=>null,'days'=>[],'message'=>'برای شما شیفت فعالی تعریف نشده است.'];
+  $days=[];$ts=mktime(12,0,0,...jalali_to_gregorian($sy,$sm,$sd));
+  for($i=0;$i<14;$i++){
+    $gt=getdate($ts+($i*86400)); [$y,$m,$d]=array_slice(gregorian_to_jalali($gt['year'],$gt['mon'],$gt['mday']),0,3);$j=sprintf('%04d-%02d-%02d',$y,$m,$d);
+    $dr=null;if(($shift['type']??'')==='advanced')$dr=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$j]);
+    $hol=Db::one("SELECT jdate,title FROM holidays WHERE jdate=? LIMIT 1",[$j]);$mins=ShiftCalc::expectedMinutes($shift,$j,$dr);
+    $days[]=['date'=>$j,'weekday'=>_jweekday_name($y,$m,$d),'shift_title'=>$shift['title']??'شیفت کاری','minutes'=>$mins,'is_off'=>(bool)($dr['is_off']??false)||($mins<=0),'is_holiday'=>(bool)$hol,'holiday_title'=>$hol['title']??''];
+  }
+  return ['shift'=>['id'=>(int)$shift['id'],'title'=>$shift['title']??'شیفت کاری','type'=>$shift['type']??''],'days'=>$days];
 });
 
 // خلاصهٔ کارکرد ماهانهٔ خودِ کاربر (برای اپ)
@@ -3727,7 +3766,7 @@ route('GET', '/api/auth/me', function($p,$b,$u){
   return ['user'=>[
     'id'=>(int)$u['id'],'username'=>$u['username'],'name'=>trim(($u['first_name']??'').' '.($u['last_name']??'')),
     'role'=>$u['role_title']??'','role_id'=>(int)($u['role_id']??0),'level'=>(int)($u['level']??0),'is_admin'=>(bool)($u['is_admin']??false),
-    'must_change_pw'=>(bool)($u['must_change_pw']??false),'email'=>$u['email']??null,'photo'=>$u['photo']??null,
+    'must_change_pw'=>(bool)($u['must_change_pw']??false),'email'=>$u['email']??null,'photo'=>_user_photo_url($u['photo_path'] ?? null, $u['photo'] ?? null),
     'security_exempt'=>$secEx, 'must_setup'=>$mustSetup, 'must_renew'=>$mustRenew,
     'can_send_sms'=>(bool)($u['is_admin']??false) || (bool)(Db::one("SELECT can_send_sms FROM users WHERE id=?", [$u['id']])['can_send_sms'] ?? 0),
   ]];
@@ -4266,6 +4305,44 @@ route('GET', '/api/attendance/{driverId}', function($p,$b,$u){
   _ensure_attendances_schema();
   return Db::all("SELECT created_at, exit_at FROM attendances WHERE driver_id=? ORDER BY created_at DESC LIMIT 200", [$p['driverId']]);
 });
+
+// گزارش کارکرد رانندگان: برای یک خط خاص یا کل خطوط، در یک بازهٔ تاریخی، جمع‌بندی حضور هر راننده
+route('GET', '/api/admin/driver-work-report', function($p,$b,$u){
+  _ensure_attendances_schema();
+  $lineId = (int)($_GET['line_id'] ?? 0);
+  $from = trim((string)($_GET['from'] ?? ''));
+  $to = trim((string)($_GET['to'] ?? ''));
+  $where = ['1=1']; $params = [];
+  if ($lineId > 0) { $where[] = 'a.line_id=?'; $params[] = $lineId; }
+  if ($from !== '') { $where[] = 'a.created_at >= ?'; $params[] = $from.' 00:00:00'; }
+  if ($to !== '') { $where[] = 'a.created_at <= ?'; $params[] = $to.' 23:59:59'; }
+  $whereSql = implode(' AND ', $where);
+  $rows = Db::all("SELECT
+      a.driver_id, d.first_name, d.last_name, d.national_id,
+      GROUP_CONCAT(DISTINCT l.code ORDER BY l.code SEPARATOR '، ') line_codes,
+      COUNT(*) total_sessions,
+      SUM(TIMESTAMPDIFF(SECOND, a.created_at, COALESCE(a.exit_at, a.created_at))) total_seconds,
+      COUNT(DISTINCT DATE(a.created_at)) distinct_days,
+      COUNT(DISTINCT DATE_FORMAT(a.created_at,'%Y-%m')) distinct_months,
+      MIN(a.created_at) first_seen, MAX(a.created_at) last_seen
+    FROM attendances a
+    JOIN drivers d ON d.id = a.driver_id
+    LEFT JOIN `lines` l ON l.id = a.line_id
+    WHERE $whereSql
+    GROUP BY a.driver_id, d.first_name, d.last_name, d.national_id
+    ORDER BY total_sessions DESC", $params);
+  foreach ($rows as &$r) {
+    $days = max(1, (int)$r['distinct_days']);
+    $months = max(1, (int)$r['distinct_months']);
+    $r['total_sessions'] = (int)$r['total_sessions'];
+    $r['total_seconds'] = (int)$r['total_seconds'];
+    $r['avg_daily_count'] = round($r['total_sessions'] / $days, 2);
+    $r['avg_daily_seconds'] = round($r['total_seconds'] / $days, 1);
+    $r['avg_monthly_seconds'] = round($r['total_seconds'] / $months, 1);
+  }
+  unset($r);
+  return $rows;
+}, false, ADMIN);
 
 // آمار لحظه‌ای تعداد تاکسیرانان حاضر در هر خط (مرتب بر اساس بیشترین) — برای سایت
 route('GET', '/api/admin/present-stats', function($p,$b,$u){
@@ -5831,6 +5908,23 @@ route('PUT', '/api/admin/tracking-windows', function($p,$b,$u){
   Db::run("INSERT INTO app_settings(`key`,value) VALUES('tracking_windows',?) ON DUPLICATE KEY UPDATE value=VALUES(value)", [json_encode($all, JSON_UNESCAPED_UNICODE)]);
   return ['ok'=>true];
 }, false, ADMIN);
+route('GET', '/api/my/unread-counts', function($p,$b,$u){
+  $uid=(int)$u['id']; $messages=0; $reports=0;
+  try { $messages=(int)(Db::one("SELECT COUNT(*) n FROM message_recipients WHERE user_id=? AND read_at IS NULL",[$uid])['n']??0); } catch(\Throwable $e) { error_log('unread messages count: '.$e->getMessage()); }
+  try {
+    _ensure_reports_index();
+    $sql="SELECT COUNT(*) n FROM reports r JOIN (SELECT rr.report_id,rr.to_user_id FROM report_routes rr JOIN (SELECT report_id,MAX(id) mx FROM report_routes GROUP BY report_id) lm ON lm.report_id=rr.report_id AND lm.mx=rr.id) lr ON lr.report_id=r.id LEFT JOIN report_reads rd ON rd.report_id=r.id AND rd.user_id=? WHERE lr.to_user_id=? AND r.deleted_at IS NULL AND rd.report_id IS NULL";
+    $params=[$uid,$uid];
+    $hasArchives=false; $hasDeletions=false;
+    try { $hasArchives=(bool)Db::one("SHOW TABLES LIKE 'report_archives'"); } catch(\Throwable $e) {}
+    try { $hasDeletions=(bool)Db::one("SHOW TABLES LIKE 'report_deletions'"); } catch(\Throwable $e) {}
+    if($hasArchives){$sql.=" AND NOT EXISTS(SELECT 1 FROM report_archives ra WHERE ra.report_id=r.id AND ra.user_id=?)";$params[]=$uid;}
+    if($hasDeletions){$sql.=" AND NOT EXISTS(SELECT 1 FROM report_deletions rx WHERE rx.report_id=r.id AND rx.user_id=?)";$params[]=$uid;}
+    $reports=(int)(Db::one($sql,$params)['n']??0);
+  } catch(\Throwable $e) { error_log('unread reports count: '.$e->getMessage()); }
+  return ['messages'=>$messages,'reports'=>$reports,'total'=>$messages+$reports];
+});
+
 route('GET', '/api/my/dashboard', function($p, $b, $u) {
   _ensure_reports_index();
   $i = fn($sql) => (int)Db::one($sql, [$u['id']])['n'];
@@ -6058,26 +6152,84 @@ route('GET', '/api/my/official-visits', fn($p,$b,$u) => Db::all(
    WHERE ov.recorded_by=? ORDER BY ov.created_at DESC LIMIT 50", [$u['id']]));
 
 /* ---------------- فرم‌ها ---------------- */
+function _forms_ensure_schema(){
+  static $done=false; if($done)return; $done=true;
+  try{
+    $col=function($t,$c){ $r=Db::one("SELECT COUNT(*) n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?",[$t,$c]); return (int)($r['n']??0)>0; };
+    if(!$col('custom_forms','public_enabled')) Db::run("ALTER TABLE custom_forms ADD COLUMN public_enabled TINYINT(1) NOT NULL DEFAULT 0");
+    if(!$col('custom_forms','public_slug')) Db::run("ALTER TABLE custom_forms ADD COLUMN public_slug VARCHAR(40) NULL");
+    if(!$col('custom_forms','public_slug')===false){ /* noop guard */ }
+    $r=Db::one("SELECT COUNT(*) n FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='custom_forms' AND INDEX_NAME='public_slug_uq'");
+    if((int)($r['n']??0)===0){ try{ Db::run("ALTER TABLE custom_forms ADD UNIQUE KEY public_slug_uq (public_slug)"); }catch(Throwable $e){} }
+    // ثبت پاسخ عمومی (بدون ورود) باید بدون کاربر لاگین‌شده هم ممکن باشد
+    $r2=Db::one("SELECT IS_NULLABLE n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='form_submissions' AND COLUMN_NAME='user_id'");
+    if($r2 && strtoupper((string)$r2['n'])==='NO'){ try{ Db::run("ALTER TABLE form_submissions MODIFY user_id INT NULL"); }catch(Throwable $e){} }
+    if(!$col('form_submissions','is_public')) Db::run("ALTER TABLE form_submissions ADD COLUMN is_public TINYINT(1) NOT NULL DEFAULT 0");
+    if(!$col('form_submissions','submitter_name')) Db::run("ALTER TABLE form_submissions ADD COLUMN submitter_name VARCHAR(150) NULL");
+    if(!$col('form_submissions','submitter_mobile')) Db::run("ALTER TABLE form_submissions ADD COLUMN submitter_mobile VARCHAR(20) NULL");
+  }catch(Throwable $e){ error_log('forms schema: '.$e->getMessage()); }
+}
+function _forms_gen_slug(){ return bin2hex(random_bytes(12)); }
+function _app_base_url(){ $s=(!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off')?'https':'http'; $h=$_SERVER['HTTP_HOST']??'localhost'; return $s.'://'.$h; }
+function _forms_is_sheba($v){ $v=strtoupper(preg_replace('/\s+/','',(string)$v)); return (bool)preg_match('/^IR[0-9]{24}$/',$v); }
+/* اعتبارسنجی سمت سرور بر اساس نوع فیلد (اندازه/نوع فایل پیوستی، فرمت شمارهٔ شبا، اجباری‌بودن) —
+   چه فرم از اپ/پنل پر شود چه از لینک عمومی، این تابع مشترک، یکسان اجرا می‌شود. */
+function _forms_validate($schema,&$answers){
+  foreach($schema as $f){
+    $key=(string)($f['key']??''); if($key==='')continue;
+    $type=(string)($f['type']??'text');
+    $val=$answers[$key]??'';
+    if(!empty($f['required'])&&($val===''||$val===null||(is_array($val)&&!count($val)))) Http::error('فیلد «'.($f['label']??$key).'» اجباری است',400);
+    if($val==='' || $val===null) continue;
+    if($type==='sheba'){
+      $clean=strtoupper(preg_replace('/\s+/','',(string)$val));
+      if(!_forms_is_sheba($clean)) Http::error('شمارهٔ شبای «'.($f['label']??$key).'» نامعتبر است (باید IR و ۲۴ رقم باشد)',400);
+      $answers[$key]=$clean;
+    }
+    if($type==='file'&&is_string($val)&&strpos($val,'data:')===0){
+      $maxKb=(int)($f['maxSizeKB']??2048); if($maxKb<=0)$maxKb=2048;
+      $approxBytes = (int)(strlen($val)*0.73); // برآورد حجم واقعی از روی طول base64
+      if($approxBytes > $maxKb*1024) Http::error('حجم فایل «'.($f['label']??$key).'» بیش از حد مجاز ('.$maxKb.' کیلوبایت) است',400);
+      $allowed=array_filter(array_map('trim',explode(',',(string)($f['allowedTypes']??''))));
+      if($allowed){
+        if(!preg_match('/^data:([a-zA-Z0-9.\/+-]+);base64,/',$val,$mm)) Http::error('فایل «'.($f['label']??$key).'» نامعتبر است',400);
+        $mime=strtolower($mm[1]); $ok=false;
+        foreach($allowed as $a){ $a=strtolower(trim($a)); if($a==='') continue; if($a===$mime || ($a[0]==='.'&&isset($f['_ext'])) || strpos($mime,$a)!==false) { $ok=true; break; } }
+        if(!$ok) Http::error('نوع فایل «'.($f['label']??$key).'» مجاز نیست', 400);
+      }
+    }
+  }
+}
 route('GET', '/api/admin/forms', function($p,$b,$u){
+  _forms_ensure_schema();
   $all = !empty($_GET['all']);
-  $rows = Db::all("SELECT id,title,`schema`,is_active FROM custom_forms ".($all?"":"WHERE is_active=1")." ORDER BY id");
-  foreach ($rows as &$r) $r['schema'] = json_decode($r['schema'], true);
+  $rows = Db::all("SELECT id,title,`schema`,is_active,public_enabled,public_slug FROM custom_forms ".($all?"":"WHERE is_active=1")." ORDER BY id");
+  foreach ($rows as &$r) { $r['schema'] = json_decode($r['schema'], true); $r['public_url'] = $r['public_enabled']&&$r['public_slug'] ? _app_base_url().'/f/'.$r['public_slug'] : null; }
   return $rows;
 });
 route('POST', '/api/admin/forms', function($p,$b,$u){
-  $id = Db::insert("INSERT INTO custom_forms(title,`schema`) VALUES(?,?)", [$b['title'], json_encode($b['schema'] ?? [], JSON_UNESCAPED_UNICODE)]);
-  return ['id'=>$id];
+  _forms_ensure_schema();
+  $pub = !empty($b['public_enabled']) ? 1 : 0;
+  $slug = $pub ? _forms_gen_slug() : null;
+  $id = Db::insert("INSERT INTO custom_forms(title,`schema`,public_enabled,public_slug) VALUES(?,?,?,?)", [$b['title'], json_encode($b['schema'] ?? [], JSON_UNESCAPED_UNICODE), $pub, $slug]);
+  return ['id'=>$id,'public_slug'=>$slug];
 }, false, ADMIN);
 // ویرایش فرم موجود
 route('PUT', '/api/admin/forms/{id}', function($p,$b,$u){
+  _forms_ensure_schema();
   $sets=[]; $args=[];
   if (isset($b['title'])) { $sets[]="title=?"; $args[]=$b['title']; }
   if (isset($b['schema'])) { $sets[]="`schema`=?"; $args[]=json_encode($b['schema'], JSON_UNESCAPED_UNICODE); }
   if (isset($b['is_active'])) { $sets[]="is_active=?"; $args[]=!empty($b['is_active'])?1:0; }
+  if (isset($b['public_enabled'])) {
+    $pub = !empty($b['public_enabled']) ? 1 : 0; $sets[]="public_enabled=?"; $args[]=$pub;
+    if ($pub) { $cur=Db::one("SELECT public_slug FROM custom_forms WHERE id=?",[$p['id']]); if(empty($cur['public_slug'])){ $sets[]="public_slug=?"; $args[]=_forms_gen_slug(); } }
+  }
   if (!$sets) return ['ok'=>true];
   $args[]=$p['id'];
   Db::run("UPDATE custom_forms SET ".implode(',',$sets)." WHERE id=?", $args);
-  return ['ok'=>true];
+  $row=Db::one("SELECT public_enabled,public_slug FROM custom_forms WHERE id=?",[$p['id']]);
+  return ['ok'=>true,'public_slug'=>$row['public_slug']??null];
 }, false, ADMIN);
 // حذف فرم (و پاسخ‌هایش)
 route('DELETE', '/api/admin/forms/{id}', function($p,$b,$u){
@@ -6138,6 +6290,7 @@ route('GET', '/api/admin/forms/{id}/export', function($p,$b,$u){
   fclose($out); exit;
 }, false, ADMIN);
 route('POST', '/api/admin/form-submit', function($p,$b,$u){
+  _forms_ensure_schema();
   $formId=(int)($b['form_id']??0); $answers=is_array($b['answers']??null)?$b['answers']:[];
   $form=Db::one("SELECT `schema` FROM custom_forms WHERE id=?",[$formId]);
   $schema=$form ? (json_decode($form['schema']??'[]',true)?:[]) : [];
@@ -6149,12 +6302,41 @@ route('POST', '/api/admin/form-submit', function($p,$b,$u){
     if(($f['type']??'')==='national_id' || ($f['prefill']??'')==='national_id') $nationalId=_digits_only($v);
   }
   foreach($answers as $k=>$v) if(!array_key_exists($k,$normalized)) $normalized[$k]=$v;
+  _forms_validate($schema,$normalized);
   $driverId=(int)($b['driver_id']??0);
   if(!$driverId && $nationalId!=='') { $dr=Db::one("SELECT id FROM drivers WHERE "._driver_national_where_sql('drivers'),_driver_national_args($nationalId)); if($dr)$driverId=(int)$dr['id']; }
   $id = Db::insert("INSERT INTO form_submissions(form_id,user_id,driver_id,answers) VALUES(?,?,?,?)",
     [$formId, $u['id'], $driverId?:null, json_encode($normalized, JSON_UNESCAPED_UNICODE)]);
   return ['id'=>$id,'driver_id'=>$driverId?:null];
 });
+// فرم عمومی — قابل مشاهده و تکمیل بدون ورود به سامانه، فقط از طریق لینک اختصاصی هر فرم
+route('GET', '/api/public/forms/{slug}', function($p,$b,$u){
+  _forms_ensure_schema();
+  $form=Db::one("SELECT id,title,`schema`,is_active,public_enabled FROM custom_forms WHERE public_slug=? LIMIT 1",[$p['slug']]);
+  if(!$form || !(int)$form['is_active'] || !(int)$form['public_enabled']) Http::error('این فرم در دسترس نیست',404);
+  return ['id'=>(int)$form['id'],'title'=>$form['title'],'schema'=>json_decode($form['schema'],true)?:[]];
+}, true);
+route('POST', '/api/public/forms/{slug}/submit', function($p,$b,$u){
+  _forms_ensure_schema();
+  $form=Db::one("SELECT id,`schema`,is_active,public_enabled FROM custom_forms WHERE public_slug=? LIMIT 1",[$p['slug']]);
+  if(!$form || !(int)$form['is_active'] || !(int)$form['public_enabled']) Http::error('این فرم در دسترس نیست',404);
+  $schema=json_decode($form['schema']??'[]',true)?:[];
+  $answers=is_array($b['answers']??null)?$b['answers']:[];
+  $normalized=[]; $nationalId='';
+  foreach($schema as $f){
+    $key=(string)($f['key']??''); $label=(string)($f['label']??'');
+    $v=array_key_exists($key,$answers)?$answers[$key]:(array_key_exists($label,$answers)?$answers[$label]:'');
+    if($key!=='') $normalized[$key]=$v;
+    if(($f['type']??'')==='national_id' || ($f['prefill']??'')==='national_id') $nationalId=_digits_only($v);
+  }
+  _forms_validate($schema,$normalized);
+  $driverId=0;
+  if($nationalId!==''){ $dr=Db::one("SELECT id FROM drivers WHERE "._driver_national_where_sql('drivers'),_driver_national_args($nationalId)); if($dr)$driverId=(int)$dr['id']; }
+  $name=trim((string)($b['submitter_name']??'')); $mobile=_digits_only((string)($b['submitter_mobile']??''));
+  $id = Db::insert("INSERT INTO form_submissions(form_id,user_id,driver_id,answers,is_public,submitter_name,submitter_mobile) VALUES(?,NULL,?,?,1,?,?)",
+    [(int)$form['id'], $driverId?:null, json_encode($normalized, JSON_UNESCAPED_UNICODE), $name?:null, $mobile?:null]);
+  return ['id'=>$id,'ok'=>true];
+}, true);
 
 /* ---------------- گزارش‌ها ---------------- */
 // فهرست بازرس‌های بالادست کاربر فعلی (برای انتخاب گیرندهٔ گزارش)
@@ -6291,6 +6473,21 @@ route('POST', '/api/reports', function($p,$b,$u){
       } catch (\Throwable $e) { /* اعلان پیام‌رسان اختیاری است؛ نبود اتصال نباید ارسال گزارش را مختل کند */ }
     }
   } catch (\Throwable $e) { /* گردش اختیاری است؛ نبود جدول/مدیر نباید ارسال را مختل کند */ }
+  // امکان ارسال رونوشتِ گزارش تازه‌ایجادشده به یک یا چند نفر، همان لحظهٔ ثبت
+  // (کاربر می‌تواند هنگام نوشتن گزارش جدید، «رونوشت» هم انتخاب کند؛ مثل دکمهٔ رونوشت
+  // که برای گزارش‌های دریافتی از قبل وجود داشت). جدول report_cc از قبل توسط
+  // _ensure_reports_index() که در ابتدای همین تابع فراخوانی شده، تضمین‌شده است.
+  if (!empty($b['cc_user_id'])) {
+    $ccIds = is_array($b['cc_user_id']) ? $b['cc_user_id'] : [$b['cc_user_id']];
+    foreach (array_unique(array_map('intval', $ccIds)) as $ccId) {
+      if (!$ccId || $ccId === (int)$u['id']) continue;
+      if (!Db::one("SELECT id FROM users WHERE id=? AND is_active=1", [$ccId])) continue;
+      try {
+        Db::run("INSERT INTO report_cc(report_id,to_user_id,added_by) VALUES(?,?,?)", [$id, $ccId, (int)$u['id']]);
+        Push::send([$ccId], 'رونوشت گزارش', $b['subject'], ['type'=>'report','report_id'=>$id]);
+      } catch (\Throwable $e) { /* نادیده */ }
+    }
+  }
   return ['id'=>$id];
 });
 route('GET', '/api/reports', function($p,$b,$u){
@@ -7076,7 +7273,7 @@ route('GET', '/api/admin/users', function($p,$b,$u){
     (SELECT COUNT(*) FROM user_commitments uc WHERE uc.user_id=u.id) commitments_count,
     (SELECT device_type FROM user_sessions s WHERE s.user_id=u.id AND s.revoked_at IS NULL AND s.device_type='android' LIMIT 1) android_bound,
     (SELECT device_type FROM user_sessions s WHERE s.user_id=u.id AND s.revoked_at IS NULL AND s.device_type='web' LIMIT 1) web_bound
-    FROM users u JOIN roles r ON r.id=u.role_id $where ORDER BY r.level, u.last_name", $pr);
+    FROM users u JOIN roles r ON r.id=u.role_id $where ORDER BY r.level DESC, r.title ASC, u.last_name ASC, u.first_name ASC, u.id ASC", $pr);
 });
 route('POST', '/api/admin/users', function($p,$b,$u){
   // اطمینان از وجود ستون تاریخ تولد در نسخه‌های ارتقایی
@@ -12690,82 +12887,67 @@ route('GET','/api/admin/inventory/ledger',function($p,$b,$u){
   $where = implode(' AND ',$c);
   $rows = Db::all("SELECT t.id,t.quantity,t.note,t.created_at,t.confirmed_at,t.transferable,it.name item_name,it.unit,
       TRIM(CONCAT(COALESCE(fu.first_name,''),' ',COALESCE(fu.last_name,''))) from_name,
-      TRIM(CONCAT(COALESCE(tu.first_name,''),' ',COALESCE(tu.last_name,''))) to_name
-    FROM inventory_transfers t
-    JOIN inventory_item_types it ON it.id=t.item_type_id
-    LEFT JOIN users fu ON fu.id=t.from_user_id
-    JOIN users tu ON tu.id=t.to_user_id
-    WHERE $where ORDER BY t.confirmed_at DESC LIMIT 2000", $pr);
-  foreach ($rows as &$r3) { $r3['created_at_fa'] = fa_datetime($r3['created_at']); $r3['confirmed_at_fa'] = fa_datetime($r3['confirmed_at']); } unset($r3);
-  return ['items'=>$rows];
-},false,ADMIN);
+<?php
+/* ================= احراز هویت پنل وب + تنظیمات عمومی ================= */
+route('POST','/api/session/start',function($p,$b,$unused){
+  $username=trim((string)($_POST['username']??$b['username']??''));
+  $password=(string)($_POST['password']??$b['password']??'');
+  $deviceId=trim((string)($_POST['device_id']??$b['device_id']??'web-panel'));
+  if($username===''||$password==='') Http::error('نام کاربری و رمز عبور الزامی است',400);
+  if($deviceId==='') $deviceId='web-panel';
 
-// خروجی اکسل تحویل‌ها با درج امضای تحویل‌دهنده و تحویل‌گیرنده
-route('GET','/api/admin/inventory/export',function($p,$b,$u){
-  _inv_tables();
-  $c=["t.status='confirmed'"]; $pr=[];
-  if (!empty($_GET['item_type_id'])) { $c[]='t.item_type_id=?'; $pr[]=(int)$_GET['item_type_id']; }
-  if (!empty($_GET['from'])) { $c[]='t.confirmed_at >= ?'; $pr[]=$_GET['from'].' 00:00:00'; }
-  if (!empty($_GET['to'])) { $c[]='t.confirmed_at <= ?'; $pr[]=$_GET['to'].' 23:59:59'; }
-  $where = implode(' AND ',$c);
-  $rows = Db::all("SELECT t.id,t.quantity,t.note,t.created_at,t.confirmed_at,t.transferable,it.name item_name,it.unit,
-      TRIM(CONCAT(COALESCE(fu.first_name,''),' ',COALESCE(fu.last_name,''))) from_name, fu.signature_data from_sig,
-      TRIM(CONCAT(COALESCE(tu.first_name,''),' ',COALESCE(tu.last_name,''))) to_name, tu.signature_data to_sig
-    FROM inventory_transfers t
-    JOIN inventory_item_types it ON it.id=t.item_type_id
-    LEFT JOIN users fu ON fu.id=t.from_user_id
-    JOIN users tu ON tu.id=t.to_user_id
-    WHERE $where ORDER BY t.confirmed_at DESC LIMIT 5000", $pr);
-
-  $head=['شناسه تحویل','نوع قلم','تعداد','واحد','تحویل‌دهنده','تحویل‌گیرنده','تاریخ ثبت (شمسی - تهران)','تاریخ تأیید دریافت (شمسی - تهران)','قابل انتقال مجدد توسط گیرنده','توضیح'];
-  $fromSigCol=count($head); $head[]='امضای تحویل‌دهنده';
-  $toSigCol=count($head); $head[]='امضای تحویل‌گیرنده';
-  $xw = new XlsxWriter($head);
-  foreach ([6,16,8,8,16,16,20,20,14,20] as $i2=>$w2) $xw->setColWidth($i2,$w2);
-  $xw->setColWidth($fromSigCol,16); $xw->setColWidth($toSigCol,16);
-  foreach ($rows as $r2) {
-    $row=[$r2['id'],$r2['item_name'],$r2['quantity'],$r2['unit'],$r2['from_name']?:'مدیر سامانه (واگذاری اولیه)',$r2['to_name'],
-      fa_datetime($r2['created_at']),fa_datetime($r2['confirmed_at']),(!empty($r2['transferable'])?'بله':'خیر'),$r2['note'],'',''];
-    $rIdx=$xw->addRow($row);
-    if (!empty($r2['from_sig']) && strpos($r2['from_sig'],'base64,')!==false) {
-      $bytes=base64_decode(substr($r2['from_sig'],strpos($r2['from_sig'],'base64,')+7),true);
-      if ($bytes) $xw->setImage($rIdx,$fromSigCol,$bytes,110);
-    }
-    if (!empty($r2['to_sig']) && strpos($r2['to_sig'],'base64,')!==false) {
-      $bytes=base64_decode(substr($r2['to_sig'],strpos($r2['to_sig'],'base64,')+7),true);
-      if ($bytes) $xw->setImage($rIdx,$toSigCol,$bytes,110);
-    }
+  $u=Db::one("SELECT u.id,u.username,u.first_name,u.last_name,u.password_hash,u.role_id,u.rank_stars,u.must_change_pw,u.is_active,u.allow_web,
+                     r.title AS role_title,r.level,r.is_admin
+              FROM users u JOIN roles r ON r.id=u.role_id
+              WHERE u.username=? LIMIT 1",[$username]);
+  if(!$u||empty($u['is_active'])||empty($u['allow_web'])||!password_verify($password,$u['password_hash'])){
+    try{Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?,?,?)",[$u['id']??null,'login_failed',json_encode(['username'=>$username],JSON_UNESCAPED_UNICODE)]);}catch(Throwable $e){}
+    Http::error('نام کاربری یا رمز عبور اشتباه است',401);
   }
-  $xw->output('گزارش_اقلام_تحویلی.xlsx','اقلام تحویلی');
-},false,ADMIN);
 
-// ---- برنامهٔ کاربر (موبایل/وب) ----
-route('GET','/api/inventory/item-types',function($p,$b,$u){ _inv_tables(); return ['items'=>Db::all("SELECT id,name,unit FROM inventory_item_types WHERE is_active=1 ORDER BY name")]; });
-// فهرست سمت‌ها و کاربران فعال، برای انتخاب دومرحله‌ای «سمت → شخص» در فرم تحویل
-route('GET','/api/inventory/recipients',function($p,$b,$u){
-  $roles=Db::all("SELECT id,title FROM roles ORDER BY title");
-  $users=Db::all("SELECT u.id,CONCAT(u.first_name,' ',u.last_name) name,u.role_id,r.title role_title FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 AND u.id<>? ORDER BY name",[(int)$u['id']]);
-  return ['roles'=>$roles,'users'=>$users];
-});
-route('GET','/api/inventory/balance',function($p,$b,$u){ return ['items'=>_inv_balance((int)$u['id'])]; });
-// اقلامی که برای این کاربر ثبت شده و در انتظار تأیید دریافت اوست
-route('GET','/api/inventory/pending',function($p,$b,$u){
-  _inv_tables();
-  $rows=Db::all("SELECT t.id,t.quantity,t.note,t.created_at,t.transferable,it.name item_name,it.unit,
-      CASE WHEN t.from_user_id IS NULL THEN 'مدیر سامانه' ELSE TRIM(CONCAT(COALESCE(fu.first_name,''),' ',COALESCE(fu.last_name,''))) END from_name
-    FROM inventory_transfers t JOIN inventory_item_types it ON it.id=t.item_type_id
-    LEFT JOIN users fu ON fu.id=t.from_user_id
-    WHERE t.to_user_id=? AND t.status='pending' ORDER BY t.created_at DESC",[(int)$u['id']]);
-  foreach ($rows as &$r3) { $r3['created_at_fa'] = fa_datetime($r3['created_at']); } unset($r3);
-  return ['items'=>$rows];
-});
-// تاریخچهٔ کامل تحویل‌های ارسالی و دریافتی این کاربر
-route('GET','/api/inventory/history',function($p,$b,$u){
-  _inv_tables();
-  $rows=Db::all("SELECT t.id,t.quantity,t.status,t.note,t.created_at,t.confirmed_at,t.transferable,it.name item_name,it.unit,
-      CASE WHEN t.from_user_id=? THEN 'ارسالی' ELSE 'دریافتی' END direction,
-      CASE WHEN t.from_user_id IS NULL THEN 'مدیر سامانه' ELSE TRIM(CONCAT(COALESCE(fu.first_name,''),' ',COALESCE(fu.last_name,''))) END from_name,
-      TRIM(CONCAT(COALESCE(tu.first_name,''),' ',COALESCE(tu.last_name,''))) to_name
+  $deviceType='web';
+  try{
+    Db::run("INSERT INTO user_sessions(user_id,device_type,device_id,device_model,revoked_at)
+             VALUES(?,?,?,?,NULL)
+             ON DUPLICATE KEY UPDATE device_id=VALUES(device_id),device_model=VALUES(device_model),revoked_at=NULL",
+      [(int)$u['id'],$deviceType,$deviceId,'web-panel']);
+  }catch(Throwable $e){ Http::error('ایجاد نشست کاربری ناموفق بود',500); }
+
+  $config=$GLOBALS['CONFIG'];
+  $access=Jwt::sign([
+    'sub'=>(int)$u['id'],
+    'device_id'=>$deviceId,
+    'dt'=>$deviceType
+  ],$config['jwt_secret'],(int)$config['access_ttl']);
+
+  try{Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?,?,?)",[(int)$u['id'],'login',json_encode(['device_type'=>$deviceType],JSON_UNESCAPED_UNICODE)]);}catch(Throwable $e){}
+
+  return [
+    'access'=>$access,
+    'user'=>[
+      'id'=>(int)$u['id'],
+      'username'=>$u['username'],
+      'name'=>trim(($u['first_name']??'').' '.($u['last_name']??'')),
+      'role'=>$u['role_title'],
+      'role_id'=>(int)$u['role_id'],
+      'level'=>(int)$u['level'],
+      'is_admin'=>(int)$u['is_admin']===1,
+      'rank_stars'=>$u['rank_stars']===null?null:(int)$u['rank_stars'],
+      'must_change_pw'=>(int)$u['must_change_pw']===1
+    ]
+  ];
+},true,99);
+
+route('GET','/api/settings/public',function($p,$b,$u){
+  $rows=Db::all("SELECT `key`,value FROM app_settings WHERE `key` IN ('site_title','site_logo','org_title','org_logo')");
+  $out=[];
+  foreach($rows as $r){
+    $v=json_decode($r['value'],true);
+    $out[$r['key']]=$v===null&&$r['value']!=='null'?$r['value']:$v;
+  }
+  return $out;
+},true,99);
+
     FROM inventory_transfers t JOIN inventory_item_types it ON it.id=t.item_type_id
     LEFT JOIN users fu ON fu.id=t.from_user_id JOIN users tu ON tu.id=t.to_user_id
     WHERE t.from_user_id=? OR t.to_user_id=? ORDER BY t.created_at DESC LIMIT 500",[(int)$u['id'],(int)$u['id'],(int)$u['id']]);
@@ -12814,3 +12996,259 @@ route('POST','/api/inventory/reject/{id}',function($p,$b,$u){
   Db::run("UPDATE inventory_transfers SET status='rejected', rejected_at=NOW() WHERE id=?",[(int)$p['id']]);
   return ['ok'=>true];
 });
+
+
+
+/* ================= سرویس مدارس ================= */
+function _ssv_tables(){
+  static $done=false; if($done) return; $done=true;
+  $sql=[
+    "CREATE TABLE IF NOT EXISTS school_service_companies (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      manager_name VARCHAR(150) NULL,
+      phone VARCHAR(50) NULL,
+      address VARCHAR(500) NULL,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_ssc_name(name),
+      KEY idx_ssc_active(is_active)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_schools (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      code VARCHAR(80) NULL,
+      name VARCHAR(255) NOT NULL,
+      educational_district VARCHAR(80) NULL,
+      gender ENUM('دخترانه','پسرانه','نامشخص') NOT NULL DEFAULT 'نامشخص',
+      address VARCHAR(700) NULL,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_sss_code(code),
+      KEY idx_sss_name(name),
+      KEY idx_sss_district(educational_district)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_school_companies (
+      school_id INT NOT NULL,
+      company_id INT NOT NULL,
+      is_primary TINYINT(1) NOT NULL DEFAULT 1,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(school_id,company_id),
+      KEY idx_sssc_company(company_id),
+      CONSTRAINT fk_sssc_school FOREIGN KEY(school_id) REFERENCES school_service_schools(id) ON DELETE CASCADE,
+      CONSTRAINT fk_sssc_company FOREIGN KEY(company_id) REFERENCES school_service_companies(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_violation_types (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL UNIQUE,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      sort_order INT NOT NULL DEFAULT 0
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_inspections (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      inspector_user_id INT NOT NULL,
+      client_uuid VARCHAR(64) NULL,
+      educational_district VARCHAR(80) NULL,
+      company_id INT NULL,
+      school_id INT NULL,
+      school_gender ENUM('دخترانه','پسرانه','نامشخص') NOT NULL DEFAULT 'نامشخص',
+      plate_three VARCHAR(3) NULL,
+      plate_letter VARCHAR(5) NULL,
+      plate_two VARCHAR(2) NULL,
+      iran_code VARCHAR(5) NOT NULL DEFAULT 'ایران',
+      vehicle_type VARCHAR(100) NULL,
+      vehicle_color VARCHAR(80) NULL,
+      passenger_count INT NOT NULL DEFAULT 0,
+      driver_gender ENUM('خانم','آقا','نامشخص') NOT NULL DEFAULT 'نامشخص',
+      certificate_status ENUM('معتبر','نامعتبر','ارائه نشد') NOT NULL DEFAULT 'ارائه نشد',
+      violation_date VARCHAR(20) NULL,
+      violation_time VARCHAR(10) NULL,
+      location_text VARCHAR(700) NULL,
+      latitude DECIMAL(10,7) NULL,
+      longitude DECIMAL(10,7) NULL,
+      description TEXT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_ssi_user(inspector_user_id,created_at),
+      KEY idx_ssi_company(company_id,created_at),
+      KEY idx_ssi_school(school_id,created_at),
+      KEY idx_ssi_date(violation_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_inspection_violations (
+      inspection_id BIGINT NOT NULL,
+      violation_type_id INT NOT NULL,
+      PRIMARY KEY(inspection_id,violation_type_id),
+      KEY idx_ssiv_type(violation_type_id),
+      CONSTRAINT fk_ssiv_inspection FOREIGN KEY(inspection_id) REFERENCES school_service_inspections(id) ON DELETE CASCADE,
+      CONSTRAINT fk_ssiv_type FOREIGN KEY(violation_type_id) REFERENCES school_service_violation_types(id) ON DELETE RESTRICT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_permissions (
+      role_id INT NOT NULL PRIMARY KEY,
+      can_view TINYINT(1) NOT NULL DEFAULT 0,
+      can_create TINYINT(1) NOT NULL DEFAULT 0,
+      can_edit TINYINT(1) NOT NULL DEFAULT 0,
+      can_delete TINYINT(1) NOT NULL DEFAULT 0,
+      can_import TINYINT(1) NOT NULL DEFAULT 0,
+      can_report TINYINT(1) NOT NULL DEFAULT 0,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_districts (id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(80) NOT NULL UNIQUE,is_active TINYINT(1) NOT NULL DEFAULT 1,sort_order INT NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_vehicle_types (id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(100) NOT NULL UNIQUE,is_active TINYINT(1) NOT NULL DEFAULT 1,sort_order INT NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_vehicle_colors (id INT AUTO_INCREMENT PRIMARY KEY,title VARCHAR(80) NOT NULL UNIQUE,is_active TINYINT(1) NOT NULL DEFAULT 1,sort_order INT NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_import_logs (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NULL,
+      file_name VARCHAR(255) NULL,
+      companies_count INT NOT NULL DEFAULT 0,
+      schools_count INT NOT NULL DEFAULT 0,
+      mappings_count INT NOT NULL DEFAULT 0,
+      errors_count INT NOT NULL DEFAULT 0,
+      errors_text LONGTEXT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS school_service_inspection_photos (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      inspection_id BIGINT NOT NULL,
+      file_path VARCHAR(500) NOT NULL,
+      mime_type VARCHAR(80) NOT NULL DEFAULT 'image/jpeg',
+      width INT NULL,
+      height INT NULL,
+      file_size INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_ssip_inspection(inspection_id),
+      CONSTRAINT fk_ssip_inspection FOREIGN KEY(inspection_id) REFERENCES school_service_inspections(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+  ];
+  foreach($sql as $q){try{Db::run($q);}catch(Throwable $e){error_log('school-service table: '.$e->getMessage());}}
+  // شناسه یکتای سمت گوشی برای جلوگیری از ثبت دوباره بازدید هنگام تکرار صف آفلاین.
+  try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN client_uuid VARCHAR(64) NULL");}catch(Throwable $e){}
+  try{Db::run("ALTER TABLE school_service_inspections ADD UNIQUE KEY uq_ssi_client_uuid(client_uuid)");}catch(Throwable $e){}
+  // تنظیمات تصویر اختصاصی سرویس مدارس عمداً وجود ندارد؛ این قابلیت از تنظیمات عمومی تصاویر سایت استفاده می‌کند.
+  try{Db::run("DROP TABLE IF EXISTS school_service_photo_settings");}catch(Throwable $e){}
+  // هر مدرسه فقط یک شرکت مجری دارد. داده‌های قدیمیِ چندشرکتی ابتدا یک رابطه را نگه می‌دارند و سپس قید یکتا اعمال می‌شود.
+  try{
+    Db::run("DELETE sc1 FROM school_service_school_companies sc1 JOIN school_service_school_companies sc2 ON sc1.school_id=sc2.school_id AND sc1.company_id>sc2.company_id");
+    try{Db::run("ALTER TABLE school_service_school_companies ADD UNIQUE KEY uq_sssc_school(school_id)");}catch(Throwable $e){}
+  }catch(Throwable $e){error_log('school-service relation normalize: '.$e->getMessage());}
+  $viol=['عدم اعتبار معاینه فنی','عدم اعتبار بیمه شخص ثالث','سرنشین اضافی','راننده غیر مجاز','داشتن یا نداشتن گواهی صلاحیت معتبر','عدم توجه به فرمان و ایست'];
+  foreach($viol as $i=>$v){try{Db::run("INSERT IGNORE INTO school_service_violation_types(title,sort_order) VALUES(?,?)",[$v,$i]);}catch(Throwable $e){}}
+  $districts=['۱','۲','۳','۴','۵','۶','۷','تبادکان']; foreach($districts as $i=>$v){try{Db::run("INSERT IGNORE INTO school_service_districts(title,sort_order) VALUES(?,?)",[$v,$i+1]);}catch(Throwable $e){}}
+  $vehicleTypes=['سمند','سورن','پژو','پراید','تیبا','دنا','رانا','اطلس','کوییک','سایر']; foreach($vehicleTypes as $i=>$v){try{Db::run("INSERT IGNORE INTO school_service_vehicle_types(title,sort_order) VALUES(?,?)",[$v,$i+1]);}catch(Throwable $e){}}
+  $vehicleColors=['سفید','زرد','مشکی','نقره‌ای','خاکستری','آبی','قرمز','سبز','سایر']; foreach($vehicleColors as $i=>$v){try{Db::run("INSERT IGNORE INTO school_service_vehicle_colors(title,sort_order) VALUES(?,?)",[$v,$i+1]);}catch(Throwable $e){}}
+
+  try{
+    $roles=Db::all("SELECT id,level FROM roles");
+    foreach($roles as $r){
+      $default=((int)$r['level']<=4)?1:0;
+      Db::run("INSERT INTO school_service_permissions(role_id,can_view,can_create,can_edit,can_delete,can_import,can_report)
+        VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
+        can_view=IF(can_view=0 AND can_create=0 AND can_edit=0 AND can_delete=0 AND can_import=0 AND can_report=0,VALUES(can_view),can_view),
+        can_create=IF(can_view=VALUES(can_view) AND can_create=0 AND can_edit=0 AND can_delete=0 AND can_import=0 AND can_report=0,VALUES(can_create),can_create),
+        can_edit=IF(can_view=VALUES(can_view) AND can_create=VALUES(can_create) AND can_edit=0 AND can_delete=0 AND can_import=0 AND can_report=0,VALUES(can_edit),can_edit),
+        can_delete=IF(can_view=VALUES(can_view) AND can_create=VALUES(can_create) AND can_edit=VALUES(can_edit) AND can_delete=0 AND can_import=0 AND can_report=0,VALUES(can_delete),can_delete),
+        can_import=IF(can_view=VALUES(can_view) AND can_create=VALUES(can_create) AND can_edit=VALUES(can_edit) AND can_delete=VALUES(can_delete) AND can_import=0 AND can_report=0,VALUES(can_import),can_import),
+        can_report=IF(can_view=VALUES(can_view) AND can_create=VALUES(can_create) AND can_edit=VALUES(can_edit) AND can_delete=VALUES(can_delete) AND can_import=VALUES(can_import) AND can_report=0,VALUES(can_report),can_report)",
+        [(int)$r['id'],$default,$default,$default,$default,((int)$r['level']<=3)?1:0,$default]);
+    }
+  }catch(Throwable $e){}
+}
+function _ssv_school_company_validate($schoolId,$companyId,$district=''){
+  $schoolId=(int)$schoolId;$companyId=(int)$companyId;
+  if($schoolId){
+    $s=Db::one("SELECT id,educational_district FROM school_service_schools WHERE id=? AND is_active=1",[$schoolId]);
+    if(!$s) Http::error('مدرسه انتخاب‌شده معتبر نیست.',422);
+    if($district!=='' && (string)$s['educational_district']!==$district) Http::error('ناحیه مدرسه با ناحیه انتخاب‌شده یکسان نیست.',422);
+    if($companyId){
+      if(!Db::one("SELECT id FROM school_service_companies WHERE id=? AND is_active=1",[$companyId])) Http::error('شرکت مجری انتخاب‌شده معتبر نیست.',422);
+      $map=Db::one("SELECT company_id FROM school_service_school_companies WHERE school_id=?",[$schoolId]);
+      if($map && (int)$map['company_id']!==$companyId) Http::error('شرکت انتخاب‌شده با شرکت مجری این مدرسه مطابقت ندارد.',422);
+    }
+  }elseif($companyId && !Db::one("SELECT id FROM school_service_companies WHERE id=? AND is_active=1",[$companyId])) Http::error('شرکت مجری انتخاب‌شده معتبر نیست.',422);
+}
+function _ssv_valid_option($table,$title){$title=_ssv_norm($title);return $title!==''&&Db::one("SELECT id FROM $table WHERE title=? AND is_active=1",[$title]);}
+function _ssv_role_is_admin($u){
+  if(!empty($u['is_admin'])) return true;
+  $r=_ssv_norm($u['role_title']??'');
+  return in_array($r,['مدیر کل','مدیرکل','رییس اداره بازرسی','رئیس اداره بازرسی','نیروی اداری ارشد'],true);
+}
+function _ssv_perm($u,$action='view'){
+  _ssv_tables();
+  if(_ssv_role_is_admin($u)) return true;
+  $col='can_'.preg_replace('/[^a-z_]/','',$action);
+  if(!in_array($col,['can_view','can_create','can_edit','can_delete','can_import','can_report'],true)) return false;
+  $r=Db::one("SELECT $col v FROM school_service_permissions WHERE role_id=?",[(int)$u['role_id']]);
+  return !empty($r['v']);
+}
+function _ssv_need($u,$a='view'){if(!_ssv_perm($u,$a)) Http::error('دسترسی به بخش سرویس مدارس برای سمت شما فعال نیست.',403);}
+function _ssv_json_rows($rows){return array_map(function($r){foreach($r as $k=>$v)if(is_string($v))$r[$k]=$v;return $r;},$rows);}
+function _ssv_en($s){return strtr((string)$s,['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9']);}
+function _ssv_norm($s){$s=trim((string)$s);$s=str_replace(['ي','ى','ك','ۀ'],['ی','ی','ک','ه'],$s);return preg_replace('/\s+/u',' ',$s);}
+function _ssv_plate($b){
+  $a=preg_replace('/\D/','',_ssv_en($b['plate_three']??''));$c=preg_replace('/\D/','',_ssv_en($b['plate_two']??''));
+  $l=_ssv_norm($b['plate_letter']??''); if($a!==''&&strlen($a)!==3)Http::error('بخش سه‌رقمی پلاک باید دقیقاً ۳ رقم باشد',422);
+  if($c!==''&&strlen($c)!==2)Http::error('بخش دورقمی پلاک باید دقیقاً ۲ رقم باشد',422);
+  return [$a?:null,$l?:null,$c?:null];
+}
+function _ssv_xlsx_rows($file){
+  if(!class_exists('ZipArchive')) Http::error('امکان خواندن فایل Excel روی سرور فعال نیست.',500);
+  if(!$file||($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) Http::error('فایل Excel دریافت نشد.',422);
+  $z=new ZipArchive();if($z->open($file['tmp_name'])!==true)Http::error('فایل Excel معتبر نیست.',422);
+  $shared=[];$sx=$z->getFromName('xl/sharedStrings.xml');
+  if($sx!==false){$xml=@simplexml_load_string($sx);if($xml)foreach($xml->si as $si){$t='';foreach($si->xpath('.//t') as $x)$t.=(string)$x;$shared[]=$t;}}
+  $wb=@simplexml_load_string((string)$z->getFromName('xl/workbook.xml'));$rels=@simplexml_load_string((string)$z->getFromName('xl/_rels/workbook.xml.rels'));
+  $sheets=[];
+  if($wb){$ns=$wb->getDocNamespaces(true);$wb->registerXPathNamespace('m',$ns['']??'http://schemas.openxmlformats.org/spreadsheetml/2006/main');$relsNs=$rels?$rels->getDocNamespaces(true):[];$rels->registerXPathNamespace('r',$relsNs['']??'http://schemas.openxmlformats.org/package/2006/relationships');$relsMap=[];if($rels)foreach($rels->Relationship as $rr)$relsMap[(string)$rr['Id']]=(string)$rr['Target'];foreach($wb->xpath('//m:sheets/m:sheet') as $sh){$rid=(string)$sh->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'];$target=$relsMap[$rid]??'';$target=ltrim($target,'/');if(strpos($target,'xl/')!==0)$target='xl/'.$target;$sheets[]=[(string)$sh['name'],$target];}}
+  $out=[];
+  foreach($sheets as [$name,$path]){
+    $xml=@simplexml_load_string((string)$z->getFromName($path));if(!$xml)continue;$ns=$xml->getDocNamespaces(true);$xml->registerXPathNamespace('m',$ns['']??'http://schemas.openxmlformats.org/spreadsheetml/2006/main');$rows=[];
+    foreach($xml->xpath('//m:sheetData/m:row') as $row){$cells=[];foreach($row->c as $cell){$ref=(string)$cell['r'];preg_match('/([A-Z]+)\d+/',$ref,$mm);$col=0;foreach(str_split($mm[1]??'A') as $ch)$col=$col*26+(ord($ch)-64);$v=(string)$cell->v;if((string)$cell['t']==='s')$v=$shared[(int)$v]??'';elseif((string)$cell['t']==='inlineStr')$v=implode('',array_map('strval',$cell->is->t??[]));$cells[$col]=$v;}if($cells)$rows[]=$cells;}
+    $out[$name]=$rows;
+  }
+  $z->close();return $out;
+}
+function _ssv_sheet_records($rows){
+  if(count($rows)<2)return [];
+  $h=$rows[0];$map=[];foreach($h as $i=>$v)$map[_ssv_norm($v)]=$i;
+  $aliases=[
+    'code'=>['کد مدرسه','شناسه مدرسه','کد'],
+    'school'=>['نام مدرسه','مدرسه'],
+    'district'=>['ناحیه آموزشی','ناحیه','منطقه آموزشی'],
+    'gender'=>['نوع مدرسه','جنسیت مدرسه','جنسیت'],
+    'company'=>['شرکت مجری سرویس دانش‌آموزی','شرکت مجری','شرکت سرویس‌دهنده','شرکت'],
+    'manager'=>['مدیر شرکت','مدیرعامل','نام مدیر'],
+    'phone'=>['تلفن شرکت','شماره تماس','موبایل'],
+    'address'=>['آدرس','نشانی']
+  ];
+  $find=function($key)use($map,$aliases){foreach($aliases[$key]??[] as $a){$a=_ssv_norm($a);if(array_key_exists($a,$map))return $map[$a];}return null;};
+  $idx=[];foreach(array_keys($aliases) as $k)$idx[$k]=$find($k);$out=[];
+  for($r=1;$r<count($rows);$r++){ $x=$rows[$r];$get=fn($k)=>$idx[$k]===null?'':trim((string)($x[$idx[$k]]??''));$school=$get('school');$company=$get('company');if(in_array($company,['نامشخص','نامعلوم','-','—'],true))$company='';if($school===''&&$company==='')continue;$out[]=['code'=>$get('code'),'school'=>$school,'district'=>$get('district'),'gender'=>$get('gender'),'company'=>$company,'manager'=>$get('manager'),'phone'=>$get('phone'),'address'=>$get('address')];}
+  return $out;
+}
+
+
+route('POST','/api/school-service/companies',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام شرکت الزامی است',422);if(Db::one("SELECT id FROM school_service_companies WHERE name=?",[$name]))Http::error('این شرکت قبلاً ثبت شده است',409);Db::run("INSERT INTO school_service_companies(name,manager_name,phone,address) VALUES(?,?,?,?)",[$name,_ssv_norm($b['manager_name']??'')?:null,trim($b['phone']??'')?:null,_ssv_norm($b['address']??'')?:null]);return ['ok'=>true,'id'=>(int)Db::pdo()->lastInsertId()];});
+route('PUT','/api/school-service/companies/{id}',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$id=(int)$p['id'];if(!Db::one("SELECT id FROM school_service_companies WHERE id=?",[$id]))Http::error('شرکت یافت نشد',404);$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام شرکت الزامی است',422);Db::run("UPDATE school_service_companies SET name=?,manager_name=?,phone=?,address=?,is_active=? WHERE id=?",[$name,_ssv_norm($b['manager_name']??'')?:null,trim($b['phone']??'')?:null,_ssv_norm($b['address']??'')?:null,isset($b['is_active'])?(int)!!$b['is_active']:1,$id]);return ['ok'=>true];});
+route('DELETE','/api/school-service/companies/{id}',function($p,$b,$u){_ssv_need($u,'delete');_ssv_tables();$id=(int)$p['id'];Db::run("UPDATE school_service_companies SET is_active=0 WHERE id=?",[$id]);return ['ok'=>true];});
+route('POST','/api/school-service/schools',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام مدرسه الزامی است',422);$g=in_array($b['gender']??'',['دخترانه','پسرانه'],true)?$b['gender']:'نامشخص';$cid=!empty($b['company_id'])?(int)$b['company_id']:0;if($cid&&!Db::one("SELECT id FROM school_service_companies WHERE id=? AND is_active=1",[$cid]))Http::error('شرکت مجری نامعتبر است',422);Db::run("INSERT INTO school_service_schools(code,name,educational_district,gender,address) VALUES(?,?,?,?,?)",[_ssv_norm($b['code']??'')?:null,$name,_ssv_norm($b['educational_district']??'')?:null,$g,_ssv_norm($b['address']??'')?:null]);$sid=(int)Db::pdo()->lastInsertId();if($cid)Db::run("INSERT INTO school_service_school_companies(school_id,company_id,is_primary) VALUES(?,?,1)",[$sid,$cid]);return ['ok'=>true,'id'=>$sid];});
+route('PUT','/api/school-service/schools/{id}',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$id=(int)$p['id'];if(!Db::one("SELECT id FROM school_service_schools WHERE id=?",[$id]))Http::error('مدرسه یافت نشد',404);$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام مدرسه الزامی است',422);$g=in_array($b['gender']??'',['دخترانه','پسرانه'],true)?$b['gender']:'نامشخص';Db::run("UPDATE school_service_schools SET code=?,name=?,educational_district=?,gender=?,address=? WHERE id=?",[_ssv_norm($b['code']??'')?:null,$name,_ssv_norm($b['educational_district']??'')?:null,$g,_ssv_norm($b['address']??'')?:null,$id]);if(isset($b['company_id'])){Db::run("DELETE FROM school_service_school_companies WHERE school_id=?",[$id]);$cid=(int)$b['company_id'];if($cid){if(!Db::one("SELECT id FROM school_service_companies WHERE id=? AND is_active=1",[$cid]))Http::error('شرکت مجری نامعتبر است',422);Db::run("INSERT INTO school_service_school_companies(school_id,company_id,is_primary) VALUES(?,?,1)",[$id,$cid]);}}return ['ok'=>true];});
+route('DELETE','/api/school-service/schools/{id}',function($p,$b,$u){_ssv_need($u,'delete');_ssv_tables();Db::run("UPDATE school_service_schools SET is_active=0 WHERE id=?",[(int)$p['id']]);return ['ok'=>true];});
+route('GET','/api/school-service/access',function($p,$b,$u){_ssv_tables();return ['allowed'=>_ssv_perm($u,'view'),'can_create'=>_ssv_perm($u,'create'),'can_edit'=>_ssv_perm($u,'edit'),'can_delete'=>_ssv_perm($u,'delete'),'can_import'=>_ssv_perm($u,'import'),'can_report'=>_ssv_perm($u,'report')];});
+route('GET','/api/school-service/meta',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();return ['districts'=>array_column(Db::all("SELECT title FROM school_service_districts WHERE is_active=1 ORDER BY sort_order,id"),'title'),'genders'=>['دخترانه','پسرانه','نامشخص'],'driver_genders'=>['خانم','آقا','نامشخص'],'vehicle_types'=>array_column(Db::all("SELECT title FROM school_service_vehicle_types WHERE is_active=1 ORDER BY sort_order,id"),'title'),'vehicle_colors'=>array_column(Db::all("SELECT title FROM school_service_vehicle_colors WHERE is_active=1 ORDER BY sort_order,id"),'title'),'violations'=>Db::all("SELECT id,title FROM school_service_violation_types WHERE is_active=1 ORDER BY sort_order,id")];});
+route('GET','/api/school-service/companies',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();$q=_ssv_norm($_GET['search']??'');$limit=min(200,(int)($_GET['limit']??100));$where=$q!==''?'WHERE c.name LIKE ?':'WHERE 1';$args=$q!==''?['%'.$q.'%']:[];return ['items'=>Db::all("SELECT c.id,c.name,c.manager_name,c.phone,c.address,c.is_active,COUNT(DISTINCT sc.school_id) school_count FROM school_service_companies c LEFT JOIN school_service_school_companies sc ON sc.company_id=c.id $where GROUP BY c.id ORDER BY c.name LIMIT $limit",$args)];});
+route('GET','/api/school-service/schools',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();$q=_ssv_norm($_GET['search']??'');$company=(int)($_GET['company_id']??0);$district=_ssv_norm($_GET['district']??'');$c=['s.is_active=1'];$args=[];if($q!==''){$c[]='(s.name LIKE ? OR s.code LIKE ?)';$args[]='%'.$q.'%';$args[]='%'.$q.'%';}if($company){$c[]='EXISTS(SELECT 1 FROM school_service_school_companies x WHERE x.school_id=s.id AND x.company_id=?)';$args[]=$company;}if($district!==''){$c[]='s.educational_district=?';$args[]=$district;}$where=implode(' AND ',$c);return ['items'=>Db::all("SELECT s.id,s.code,s.name,s.educational_district,s.gender,s.address,(SELECT scx.company_id FROM school_service_school_companies scx WHERE scx.school_id=s.id LIMIT 1) company_id,GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') company_names FROM school_service_schools s LEFT JOIN school_service_school_companies sc ON sc.school_id=s.id LEFT JOIN school_service_companies c ON c.id=sc.company_id WHERE $where GROUP BY s.id ORDER BY s.name LIMIT 500",$args)];});
+route('GET','/api/school-service/inspections',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();$c=['1=1'];$args=[];$q=_ssv_norm($_GET['search']??'');if($q!==''){$c[]='(s.name LIKE ? OR c.name LIKE ? OR i.location_text LIKE ? OR CONCAT(i.plate_three,i.plate_letter,i.plate_two) LIKE ?)';$args=array_merge($args,['%'.$q.'%','%'.$q.'%','%'.$q.'%','%'.$q.'%']);}if(!empty($_GET['company_id'])){$c[]='i.company_id=?';$args[]=(int)$_GET['company_id'];}if(!empty($_GET['district'])){$c[]='i.educational_district=?';$args[]=_ssv_norm($_GET['district']);}$where=implode(' AND ',$c);$rows=Db::all("SELECT i.*,s.name school_name,c.name company_name,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) inspector_name FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id LEFT JOIN school_service_companies c ON c.id=i.company_id LEFT JOIN users u ON u.id=i.inspector_user_id WHERE $where ORDER BY i.id DESC LIMIT 1000",$args);foreach($rows as &$r){$r['plate']=trim(($r['plate_three']??'').' '.($r['plate_letter']??'').' '.($r['plate_two']??'').' ایران');$r['violations']=array_column(Db::all("SELECT v.title FROM school_service_inspection_violations x JOIN school_service_violation_types v ON v.id=x.violation_type_id WHERE x.inspection_id=?",[(int)$r['id']]),'title');}unset($r);return ['items'=>$rows];});
+route('POST','/api/school-service/inspections',function($p,$b,$u){_ssv_need($u,'create');_ssv_tables();$clientUuid=_ssv_norm($b['client_uuid']??'');if($clientUuid!==''){ $existing=Db::one("SELECT id FROM school_service_inspections WHERE client_uuid=?",[$clientUuid]);if($existing)return ['ok'=>true,'id'=>(int)$existing['id'],'duplicate'=>true]; }[$a,$l,$c]=_ssv_plate($b);$schoolId=(int)($b['school_id']??0);$companyId=(int)($b['company_id']??0);$viol=$b['violation_ids']??[];if(is_string($viol))$viol=json_decode($viol,true)?:[];$viol=array_values(array_unique(array_map('intval',(array)$viol)));if(!$schoolId)$schoolId=null;if(!$companyId)$companyId=null;$district=_ssv_norm($b['educational_district']??'');if($district!==''&&!_ssv_valid_option('school_service_districts',$district))Http::error('ناحیه آموزشی انتخاب‌شده معتبر یا فعال نیست.',422);$vehicleType=_ssv_norm($b['vehicle_type']??'');if($vehicleType!==''&&!_ssv_valid_option('school_service_vehicle_types',$vehicleType))Http::error('نوع خودرو انتخاب‌شده معتبر یا فعال نیست.',422);$vehicleColor=_ssv_norm($b['vehicle_color']??'');if($vehicleColor!==''&&!_ssv_valid_option('school_service_vehicle_colors',$vehicleColor))Http::error('رنگ خودرو انتخاب‌شده معتبر یا فعال نیست.',422);_ssv_school_company_validate($schoolId??0,$companyId??0,$district);$gender=in_array($b['school_gender']??'',['دخترانه','پسرانه','نامشخص'],true)?$b['school_gender']:'نامشخص';$dg=in_array($b['driver_gender']??'',['خانم','آقا','نامشخص'],true)?$b['driver_gender']:'نامشخص';$cert=in_array($b['certificate_status']??'',['معتبر','نامعتبر','ارائه نشد'],true)?$b['certificate_status']:'ارائه نشد';$pass=max(0,(int)($b['passenger_count']??0));$date=_ssv_en($b['violation_date']??'');$time=trim((string)($b['violation_time']??''));if($date!==''&&!preg_match('/^14\d{2}[\/-]\d{1,2}[\/-]\d{1,2}$/',$date))Http::error('تاریخ ثبت تخلف نامعتبر است.',422);if($time!==''&&!preg_match('/^(?:[01]?\d|2[0-3]):[0-5]\d$/',$time))Http::error('ساعت ثبت تخلف نامعتبر است.',422);[$lat,$lng]=validGeo($b['latitude']??null,$b['longitude']??null);Db::run("INSERT INTO school_service_inspections(inspector_user_id,client_uuid,educational_district,company_id,school_id,school_gender,plate_three,plate_letter,plate_two,iran_code,vehicle_type,vehicle_color,passenger_count,driver_gender,certificate_status,violation_date,violation_time,location_text,latitude,longitude,description) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",[(int)$u['id'],_ssv_norm($b['client_uuid']??'')?:null,$district,$companyId?:null,$schoolId?:null,$gender,$a,$l,$c,'ایران',$vehicleType,$vehicleColor,$pass,$dg,$cert,$date?:null,$time?:null,_ssv_norm($b['location_text']??'')?:null,$lat,$lng,trim((string)($b['description']??''))?:null]);$id=(int)Db::pdo()->lastInsertId();foreach($viol as $vid){if(Db::one("SELECT id FROM school_service_violation_types WHERE id=? AND is_active=1",[$vid]))Db::run("INSERT IGNORE INTO school_service_inspection_violations(inspection_id,violation_type_id) VALUES(?,?)",[$id,$vid]);}return ['ok'=>true,'id'=>$id];});
+route('POST','/api/school-service/import',function($p,$b,$u){_ssv_need($u,'import');_ssv_tables();$sheets=_ssv_xlsx_rows($_FILES['file']??null);$records=[];foreach($sheets as $name=>$rows){$records=array_merge($records,_ssv_sheet_records($rows));}if(!$records)Http::error('هیچ ردیف قابل شناسایی در فایل Excel پیدا نشد. ستون‌های «نام مدرسه» و «شرکت مجری سرویس دانش‌آموزی» را بررسی کنید.',422);$cc=0;$sc=0;$mc=0;$errs=[];foreach($records as $r){try{$cn=_ssv_norm($r['company']);$sn=_ssv_norm($r['school']);if($cn!==''){$co=Db::one("SELECT id FROM school_service_companies WHERE name=?",[$cn]);if($co)$cid=(int)$co['id'];else{Db::run("INSERT INTO school_service_companies(name,manager_name,phone,address) VALUES(?,?,?,?)",[$cn,$r['manager']?:null,$r['phone']?:null,$r['address']?:null]);$cid=(int)Db::pdo()->lastInsertId();$cc++;}}else{$cid=null;}$code=_ssv_norm($r['code']);$school=null;if($code!=='')$school=Db::one("SELECT id FROM school_service_schools WHERE code=?",[$code]);if(!$school)$school=Db::one("SELECT id FROM school_service_schools WHERE name=? AND educational_district=?",[$sn,_ssv_norm($r['district'])]);if($school){$sid=(int)$school['id'];Db::run("UPDATE school_service_schools SET name=?,educational_district=?,gender=?,address=? WHERE id=?",[$sn,_ssv_norm($r['district']),in_array($r['gender'],['دخترانه','پسرانه'],true)?$r['gender']:'نامشخص',$r['address']?:null,$sid]);}else{Db::run("INSERT INTO school_service_schools(code,name,educational_district,gender,address) VALUES(?,?,?,?,?)",[$code?:null,$sn,_ssv_norm($r['district']),in_array($r['gender'],['دخترانه','پسرانه'],true)?$r['gender']:'نامشخص',$r['address']?:null]);$sid=(int)Db::pdo()->lastInsertId();$sc++;}if($cid){$oldMap=Db::one("SELECT company_id FROM school_service_school_companies WHERE school_id=?",[$sid]);if($oldMap){if((int)$oldMap['company_id']!==(int)$cid){Db::run("UPDATE school_service_school_companies SET company_id=?,is_primary=1 WHERE school_id=?",[$cid,$sid]);$mc++;}}else{Db::run("INSERT INTO school_service_school_companies(school_id,company_id,is_primary) VALUES(?,?,1)",[$sid,$cid]);$mc++;}}}catch(Throwable $e){$errs[]='ردیف مدرسه «'.($r['school']??'').'»: '.$e->getMessage();if(count($errs)>=100)break;}}Db::run("INSERT INTO school_service_import_logs(user_id,file_name,companies_count,schools_count,mappings_count,errors_count,errors_text) VALUES(?,?,?,?,?,?,?)",[(int)$u['id'],$_FILES['file']['name']??'Excel',$cc,$sc,$mc,count($errs),implode("\n",$errs)]);return ['ok'=>true,'companies_count'=>$cc,'schools_count'=>$sc,'mappings_count'=>$mc,'errors'=>$errs];},false,99);
+route('GET','/api/school-service/export',function($p,$b,$u){_ssv_need($u,'report');_ssv_tables();$type=$_GET['type']??'inspections';$rows=[];$head=[];if($type==='schools'){$head=['ردیف','کد مدرسه','نام مدرسه','ناحیه آموزشی','نوع مدرسه','شرکت/شرکت‌های مجری','آدرس'];$rows=Db::all("SELECT s.id,s.code,s.name,s.educational_district,s.gender,s.address,GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR '، ') company_names FROM school_service_schools s LEFT JOIN school_service_school_companies sc ON sc.school_id=s.id LEFT JOIN school_service_companies c ON c.id=sc.company_id WHERE s.is_active=1 GROUP BY s.id ORDER BY s.name LIMIT 10000");foreach($rows as $i=>&$r)$r=[$i+1,$r['code'],$r['name'],$r['educational_district'],$r['gender'],$r['company_names'],$r['address']];unset($r);}elseif($type==='companies'){$head=['ردیف','نام شرکت','مدیر','تلفن','آدرس','تعداد مدارس'];$rows=Db::all("SELECT c.*,COUNT(DISTINCT sc.school_id) school_count FROM school_service_companies c LEFT JOIN school_service_school_companies sc ON sc.company_id=c.id WHERE c.is_active=1 GROUP BY c.id ORDER BY c.name LIMIT 5000");foreach($rows as $i=>&$r)$r=[$i+1,$r['name'],$r['manager_name'],$r['phone'],$r['address'],$r['school_count']];unset($r);}else{$head=['ردیف','ناحیه','شرکت','نوع مدرسه','مدرسه','پلاک','نوع خودرو','رنگ خودرو','تخلفات','تعداد سرنشین بدون راننده','نوع راننده','وضعیت گواهی صلاحیت','تاریخ','ساعت','محل ثبت تخلف','توضیحات','بازرس'];$rows=Db::all("SELECT i.*,s.name school_name,c.name company_name,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) inspector_name FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id LEFT JOIN school_service_companies c ON c.id=i.company_id LEFT JOIN users u ON u.id=i.inspector_user_id ORDER BY i.id DESC LIMIT 20000");foreach($rows as $r){$vs=Db::all("SELECT v.title FROM school_service_inspection_violations x JOIN school_service_violation_types v ON v.id=x.violation_type_id WHERE x.inspection_id=?",[(int)$r['id']]);$rows2[]=[count($rows2??[])+1,$r['educational_district'],$r['company_name'],$r['school_gender'],$r['school_name'],trim(($r['plate_three']??'').' '.($r['plate_letter']??'').' '.($r['plate_two']??'').' ایران'),$r['vehicle_type'],$r['vehicle_color'],implode('، ',array_column($vs,'title')),$r['passenger_count'],$r['driver_gender'],$r['certificate_status'],$r['violation_date'],$r['violation_time'],$r['location_text'],$r['description'],$r['inspector_name']];}$rows=$rows2??[];}$xw=new XlsxWriter($head);foreach($rows as $row)$xw->addRow($row);$xw->output('سرویس_مدارس_'.$type.'.xlsx','سرویس مدارس');},false,99);
+route('GET','/api/school-service/companies-page',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();$page=max(1,(int)($_GET['page']??1));$size=max(10,min(100,(int)($_GET['page_size']??25)));$q=_ssv_norm($_GET['search']??'');$where=$q!==''?'WHERE c.name LIKE ?':'WHERE 1';$args=$q!==''?['%'.$q.'%']:[];$total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_companies c $where",$args)['n']??0);$rows=Db::all("SELECT c.id,c.name,c.manager_name,c.phone,c.address,c.is_active,COUNT(DISTINCT sc.school_id) school_count FROM school_service_companies c LEFT JOIN school_service_school_companies sc ON sc.company_id=c.id $where GROUP BY c.id ORDER BY c.name LIMIT $size OFFSET ".(($page-1)*$size),$args);return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'total'=>$total,'pages'=>max(1,(int)ceil($total/$size))];});
+route('GET','/api/school-service/schools-page',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();$page=max(1,(int)($_GET['page']??1));$size=max(10,min(100,(int)($_GET['page_size']??25)));$q=_ssv_norm($_GET['search']??'');$district=_ssv_norm($_GET['district']??'');$where=['s.is_active=1'];$args=[];if($q!==''){$where[]='(s.name LIKE ? OR s.code LIKE ?)';$args[]='%'.$q.'%';$args[]='%'.$q.'%';}if($district!==''){$where[]='s.educational_district=?';$args[]=$district;}$w=implode(' AND ',$where);$total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_schools s WHERE $w",$args)['n']??0);$rows=Db::all("SELECT s.id,s.code,s.name,s.educational_district,s.gender,s.address,GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') company_names FROM school_service_schools s LEFT JOIN school_service_school_companies sc ON sc.school_id=s.id LEFT JOIN school_service_companies c ON c.id=sc.company_id WHERE $w GROUP BY s.id ORDER BY s.name LIMIT $size OFFSET ".(($page-1)*$size),$args);return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'total'=>$total,'pages'=>max(1,(int)ceil($total/$size))];});
+route('GET','/api/school-service/inspections-page',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();$page=max(1,(int)($_GET['page']??1));$size=max(10,min(100,(int)($_GET['page_size']??25)));$q=_ssv_norm($_GET['search']??'');$where=['1=1'];$args=[];if($q!==''){$where[]='(s.name LIKE ? OR c.name LIKE ? OR i.location_text LIKE ? OR CONCAT(i.plate_three,i.plate_letter,i.plate_two) LIKE ?)';array_push($args,'%'.$q.'%','%'.$q.'%','%'.$q.'%','%'.$q.'%');}$w=implode(' AND ',$where);$total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id LEFT JOIN school_service_companies c ON c.id=i.company_id WHERE $w",$args)['n']??0);$rows=Db::all("SELECT i.*,s.name school_name,c.name company_name,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) inspector_name FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id LEFT JOIN school_service_companies c ON c.id=i.company_id LEFT JOIN users u ON u.id=i.inspector_user_id WHERE $w ORDER BY i.id DESC LIMIT $size OFFSET ".(($page-1)*$size),$args);foreach($rows as &$rr){$rr['plate']=trim(($rr['plate_three']??'').' '.($rr['plate_letter']??'').' '.($rr['plate_two']??'').' ایران');$rr['violations']=array_column(Db::all("SELECT v.title FROM school_service_inspection_violations x JOIN school_service_violation_types v ON v.id=x.violation_type_id WHERE x.inspection_id=?",[(int)$rr['id']]),'title');}unset($rr);return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'total'=>$total,'pages'=>max(1,(int)ceil($total/$size))];});
+route('GET','/api/school-service/config',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();if(!_ssv_perm($u,'edit'))Http::error('دسترسی مدیریت تنظیمات ندارید',403);return ['districts'=>Db::all("SELECT * FROM school_service_districts ORDER BY sort_order,id"),'vehicle_types'=>Db::all("SELECT * FROM school_service_vehicle_types ORDER BY sort_order,id"),'vehicle_colors'=>Db::all("SELECT * FROM school_service_vehicle_colors ORDER BY sort_order,id")];});
+route('POST','/api/school-service/config',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$type=(string)($b['type']??'');$title=_ssv_norm($b['title']??'');if(!in_array($type,['district','vehicle_type','vehicle_color'],true)||$title==='')Http::error('نوع یا عنوان تنظیم نامعتبر است',422);$table=['district'=>'school_service_districts','vehicle_type'=>'school_service_vehicle_types','vehicle_color'=>'school_service_vehicle_colors'][$type];Db::run("INSERT INTO $table(title,sort_order) VALUES(?,?) ON DUPLICATE KEY UPDATE is_active=1",[$title,(int)($b['sort_order']??99)]);return ['ok'=>true];});
+route('DELETE','/api/school-service/config',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$type=(string)($_GET['type']??'');$id=(int)($_GET['id']??0);$table=['district'=>'school_service_districts','vehicle_type'=>'school_service_vehicle_types','vehicle_color'=>'school_service_vehicle_colors'][$type]??'';if(!$table||!$id)Http::error('تنظیم نامعتبر است',422);Db::run("UPDATE $table SET is_active=0 WHERE id=?",[$id]);return ['ok'=>true];});
+route('GET','/api/school-service/permissions',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();if(empty($u['is_admin']) && !in_array(($u['role_title']??''),['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'],true))Http::error('فقط مدیر سامانه می‌تواند دسترسی‌ها را مدیریت کند.',403);$rows=Db::all("SELECT r.id,r.title,r.level,COALESCE(p.can_view,0) can_view,COALESCE(p.can_create,0) can_create,COALESCE(p.can_edit,0) can_edit,COALESCE(p.can_delete,0) can_delete,COALESCE(p.can_import,0) can_import,COALESCE(p.can_report,0) can_report FROM roles r LEFT JOIN school_service_permissions p ON p.role_id=r.id ORDER BY r.level,r.title");return ['items'=>$rows];});
+route('POST','/api/school-service/permissions/{role_id}',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();if(empty($u['is_admin']) && !in_array(($u['role_title']??''),['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'],true))Http::error('فقط مدیر سامانه می‌تواند دسترسی‌ها را مدیریت کند.',403);$rid=(int)$p['role_id'];if(!Db::one("SELECT id FROM roles WHERE id=?",[$rid]))Http::error('سمت نامعتبر است',422);$vals=[];foreach(['view','create','edit','delete','import','report'] as $k)$vals[$k]=!empty($b['can_'.$k])?1:0;Db::run("INSERT INTO school_service_permissions(role_id,can_view,can_create,can_edit,can_delete,can_import,can_report) VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE can_view=VALUES(can_view),can_create=VALUES(can_create),can_edit=VALUES(can_edit),can_delete=VALUES(can_delete),can_import=VALUES(can_import),can_report=VALUES(can_report)",[$rid,$vals['view'],$vals['create'],$vals['edit'],$vals['delete'],$vals['import'],$vals['report']]);return ['ok'=>true];},false,99);
+
+
+require_once __DIR__.'/school_service_routes_extra.php';
