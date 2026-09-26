@@ -201,6 +201,8 @@ public final class KhatyarRadioService extends Service {
 
     compact.setTextViewText(R.id.khatyar_notification_status, status);
     compact.setTextViewText(R.id.khatyar_notification_info, info);
+    compact.setTextViewText(R.id.khatyar_notification_ptt_label, pttLabel);
+    compact.setOnClickPendingIntent(R.id.khatyar_notification_ptt, ptt);
 
     expanded.setTextViewText(R.id.khatyar_notification_status, status);
     expanded.setTextViewText(R.id.khatyar_notification_info, info);
