@@ -32,12 +32,7 @@ function roleAllowsVehicle(role) {
 export default function DrawerMenuScreen({ navigation }) {
   const { user, logout } = useAuth();
   const [access, setAccess] = React.useState(null);
-  const [schoolAccess, setSchoolAccess] = React.useState(null);
   const [unread, setUnread] = React.useState({ messages: 0, reports: 0 });
-
-  React.useEffect(() => {
-    request('/school-service/access', { noStore: true }).then(setSchoolAccess).catch(() => setSchoolAccess(null));
-  }, [user?.id]);
 
   React.useEffect(() => {
     const off = subscribeUnreadCounts(setUnread);
@@ -56,8 +51,6 @@ export default function DrawerMenuScreen({ navigation }) {
   const roleVehicle = roleAllowsVehicle(user?.role || user?.role_title);
   const vehicleAllowed = access?.allowed === true || roleVehicle;
   const roleTitle = normRole(user?.role_title || user?.role);
-  const schoolAdminFallback = user?.is_admin === true || ['مدیر کل','مدیرکل','رییس اداره بازرسی','رئیس اداره بازرسی','نیروی اداری ارشد'].includes(roleTitle);
-  const schoolVisible = schoolAccess?.allowed === true || schoolAdminFallback;
   const assetType = access?.asset_type || (roleTitle.includes('گشت موتوری') ? 'motorcycle' : 'car');
 
   const go = (screen) => {
@@ -86,7 +79,6 @@ export default function DrawerMenuScreen({ navigation }) {
       assetType === 'motorcycle' ? '🏍️' : '🚗',
     ]] : []),
     ...(access?.checklist_allowed ? [['PersonnelVehicleChecklist', 'چک‌لیست خودرویی و موتوری', '☑️']] : []),
-    ...(schoolVisible ? [['SchoolService', 'سرویس مدارس', '🏫']] : []),
   ];
 
   return (
