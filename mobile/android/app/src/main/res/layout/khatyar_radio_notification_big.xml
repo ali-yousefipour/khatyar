@@ -19,20 +19,12 @@
         android:layoutDirection="rtl">
 
         <TextView
-            android:layout_width="9dp"
-            android:layout_height="9dp"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/khatyar_notification_ptt_background"
-            android:text=""
-            android:includeFontPadding="false"/>
-
-        <TextView
             android:id="@+id/khatyar_notification_status"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="فعال • متصل به سرور"
-            android:textColor="?android:attr/textColorPrimary"
+            android:textColor="@color/khatyar_notification_primary"
             android:textSize="15sp"
             android:textStyle="bold"
             android:gravity="start"
@@ -41,8 +33,8 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="مرکز بی‌سیم"
-            android:textColor="?android:attr/textColorSecondary"
+            android:text="بی‌سیم"
+            android:textColor="@color/khatyar_notification_secondary"
             android:textSize="11sp"
             android:includeFontPadding="false"
             android:layout_marginStart="8dp"/>
@@ -53,8 +45,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="کانال بی‌سیم  •  تاریخ شمسی: ۱۴۰۵/۰۶/۳۰"
-        android:textColor="?android:attr/textColorSecondary"
+        android:text="تاریخ شمسی: ۱۴۰۵/۰۶/۳۰"
+        android:textColor="@color/khatyar_notification_secondary"
         android:textSize="13sp"
         android:gravity="start"
         android:includeFontPadding="false"/>
@@ -62,8 +54,8 @@
     <LinearLayout
         android:id="@+id/khatyar_notification_ptt"
         android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:layout_marginTop="11dp"
+        android:layout_height="64dp"
+        android:layout_marginTop="12dp"
         android:background="@drawable/khatyar_notification_ptt_background"
         android:gravity="center"
         android:orientation="horizontal"
@@ -72,20 +64,20 @@
         android:layoutDirection="rtl">
 
         <ImageView
-            android:layout_width="23dp"
-            android:layout_height="23dp"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
             android:src="@drawable/khatyar_notification_ptt"
             android:contentDescription="@null"
-            android:layout_marginStart="7dp"
-            android:layout_marginEnd="7dp"/>
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"/>
 
         <TextView
             android:id="@+id/khatyar_notification_ptt_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="شروع PTT"
-            android:textColor="#FFFFFF"
-            android:textSize="15sp"
+            android:textColor="@color/khatyar_notification_button_text"
+            android:textSize="17sp"
             android:textStyle="bold"
             android:includeFontPadding="false"/>
     </LinearLayout>
@@ -94,9 +86,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="برای فعال‌سازی ارسال صوت، PTT را لمس کنید"
-        android:textColor="?android:attr/textColorSecondary"
-        android:textSize="10sp"
+        android:text="برای ارسال صوت، دکمه PTT را لمس کنید"
+        android:textColor="@color/khatyar_notification_secondary"
+        android:textSize="11sp"
         android:gravity="center"
         android:includeFontPadding="false"/>
 </LinearLayout>
