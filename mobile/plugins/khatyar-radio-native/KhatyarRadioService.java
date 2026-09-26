@@ -8,8 +8,12 @@ import android.app.Service;
 import android.content.Intent;
 import android.content.Context;
 import android.media.AudioAttributes;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioTrack;
 import android.media.MediaPlayer;
 import android.media.audiofx.LoudnessEnhancer;
+import android.media.audiofx.Equalizer;
 import android.media.session.MediaSession;
 import android.os.Build;
 import android.os.Handler;
@@ -17,6 +21,8 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.view.KeyEvent;
+import android.widget.RemoteViews;
+import ir.mashhad.taxicontrol.R;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -54,6 +60,7 @@ public final class KhatyarRadioService extends Service {
   private MediaSession mediaSession;
   private MediaPlayer player;
   private LoudnessEnhancer loudnessEnhancer;
+  private Equalizer radioEqualizer;
   private long lastId = 0;
   private long serviceStartedAt = 0;
   private boolean destroyed = false;
@@ -179,46 +186,73 @@ public final class KhatyarRadioService extends Service {
     return new int[]{jy, jm, jd};
   }
 
-  private void startForegroundCompat() {
-    Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
-    PendingIntent pi = null;
-    if (launch != null) {
-      int f = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
-      pi = PendingIntent.getActivity(this, 7841, launch, f);
-    }
+  private Notification buildRadioNotification() {
     boolean pttActive = getPrefs().getBoolean("notificationPttActive", false);
+
+    RemoteViews compact = new RemoteViews(getPackageName(), R.layout.khatyar_radio_notification);
+    RemoteViews expanded = new RemoteViews(getPackageName(), R.layout.khatyar_radio_notification_big);
+    PendingIntent ptt = buildPttPendingIntent();
+
+    String status = pttActive ? "فعال • متصل به سرور • PTT فعال" : "فعال • متصل به سرور";
+    String channelName = getPrefs().getString("channelName", "").trim();
+    String info = (channelName.isEmpty() ? "کانال بی‌سیم" : "کانال: " + channelName)
+      + "  •  تاریخ شمسی: " + jalaliToday();
+    String pttLabel = pttActive ? "پایان PTT" : "شروع PTT";
+
+    compact.setTextViewText(R.id.khatyar_notification_status, status);
+    compact.setTextViewText(R.id.khatyar_notification_info, info);
+    compact.setTextViewText(R.id.khatyar_notification_ptt_label, pttLabel);
+    compact.setOnClickPendingIntent(R.id.khatyar_notification_ptt, ptt);
+
+    expanded.setTextViewText(R.id.khatyar_notification_status, status);
+    expanded.setTextViewText(R.id.khatyar_notification_info, info);
+    expanded.setTextViewText(R.id.khatyar_notification_ptt_label, pttLabel);
+    expanded.setOnClickPendingIntent(R.id.khatyar_notification_ptt, ptt);
+
+    Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
+    PendingIntent contentIntent = null;
+    if (launch != null) {
+      int flags = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+      contentIntent = PendingIntent.getActivity(this, 7841, launch, flags);
+    }
+
     NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL)
       .setSmallIcon(getApplicationInfo().icon)
       .setContentTitle("بی‌سیم خطیار")
-      .setContentText("📅 امروز: " + jalaliToday() + "  •  📻 آماده‌به‌کاری")
-      .setStyle(new NotificationCompat.BigTextStyle().bigText("📅 تاریخ امروز: " + jalaliToday() + "\n📻 بی‌سیم: آماده‌به‌کاری"))
-      .addAction(new NotificationCompat.Action.Builder(0, pttActive ? "⏹ پایان PTT" : "🎙 PTT", buildPttPendingIntent()).build())
-      .setOngoing(true).setOnlyAlertOnce(true)
-      .setCategory(NotificationCompat.CATEGORY_SERVICE).setPriority(NotificationCompat.PRIORITY_LOW);
-    if (pi != null) b.setContentIntent(pi);
-    Notification n = b.build();
-    if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
-    else startForeground(NOTIFICATION_ID, n);
+      .setContentText(status)
+      .setCustomContentView(compact)
+      .setCustomBigContentView(expanded)
+      .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
+      .setOngoing(true)
+      .setOnlyAlertOnce(true)
+      .setCategory(NotificationCompat.CATEGORY_SERVICE)
+      .setPriority(NotificationCompat.PRIORITY_LOW)
+      // Native notification actions are intentionally kept in addition to the
+      // custom RemoteViews. Android 12+ may collapse/restrict custom RemoteViews,
+      // while a NotificationCompat action remains exposed by the system UI.
+      .addAction(new NotificationCompat.Action.Builder(
+        R.drawable.khatyar_notification_ptt,
+        pttActive ? "پایان PTT" : "PTT",
+        ptt
+      ).build());
+
+    if (contentIntent != null) b.setContentIntent(contentIntent);
+    return b.build();
+  }
+
+  private void startForegroundCompat() {
+    Notification n = buildRadioNotification();
+    if (Build.VERSION.SDK_INT >= 29) {
+      startForeground(NOTIFICATION_ID, n,
+        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK |
+        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+    } else {
+      startForeground(NOTIFICATION_ID, n);
+    }
   }
 
   private void updateNotification() {
-    boolean pttActive = getPrefs().getBoolean("notificationPttActive", false);
-    Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
-    PendingIntent pi = null;
-    if (launch != null) {
-      int f = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
-      pi = PendingIntent.getActivity(this, 7841, launch, f);
-    }
-    NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL)
-      .setSmallIcon(getApplicationInfo().icon)
-      .setContentTitle("بی‌سیم خطیار")
-      .setContentText("📅 امروز: " + jalaliToday() + "  •  📻 آماده‌به‌کاری")
-      .setStyle(new NotificationCompat.BigTextStyle().bigText("📅 تاریخ امروز: " + jalaliToday() + "\n📻 بی‌سیم: آماده‌به‌کاری"))
-      .addAction(new NotificationCompat.Action.Builder(0, pttActive ? "⏹ پایان PTT" : "🎙 PTT", buildPttPendingIntent()).build())
-      .setOngoing(true).setOnlyAlertOnce(true)
-      .setCategory(NotificationCompat.CATEGORY_SERVICE).setPriority(NotificationCompat.PRIORITY_LOW);
-    if (pi != null) b.setContentIntent(pi);
-    ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(NOTIFICATION_ID, b.build());
+    ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(NOTIFICATION_ID, buildRadioNotification());
   }
 
   private void toggleNotificationPtt() {
@@ -265,46 +299,33 @@ public final class KhatyarRadioService extends Service {
       long channel = p.getLong("channelId", 0L), userId = p.getLong("userId", 0L);
       boolean listenAll = p.getBoolean("listenAll", false);
       if (token == null || token.isEmpty() || base == null || base.isEmpty() || !p.getBoolean("enabled", false)) return;
-
       String endpoint;
-      if (listenAll) {
-        endpoint = base.replaceAll("/+$", "") + "/radio-api-v2.php?op=poll-all&after=" + lastId;
-      } else {
+      if (listenAll) endpoint = base.replaceAll("/+$", "") + "/radio-api-v2.php?op=poll-all&after=" + lastId;
+      else {
         if (channel <= 0) return;
         endpoint = base.replaceAll("/+$", "") + "/radio-api-v2.php?op=poll&channel_id=" + channel + "&after=" + lastId;
       }
-
-      String body = get(endpoint, token);
-      if (body == null || body.isEmpty()) return;
+      String body = get(endpoint, token); if (body == null || body.isEmpty()) return;
       JSONObject root = new JSONObject(body);
       JSONArray messages = root.optJSONArray("messages");
       boolean initialized = p.getBoolean("initialized", false);
-
       if (!initialized) {
         long newest = lastId;
-        if (messages != null) {
-          for (int idx = 0; idx < messages.length(); idx++) {
-            JSONObject m = messages.optJSONObject(idx);
-            if (m == null) continue;
-            newest = Math.max(newest, m.optLong("id", 0L));
-            long createdAt = messageTimeMillis(m);
-            if (createdAt > 0 && createdAt >= serviceStartedAt &&
-                m.optLong("sender_id", 0L) != userId && !isAppInForeground()) {
-              String audio = m.optString("audio_url", "");
-              if (!audio.isEmpty()) enqueueRemote(audio, token);
-            }
+        if (messages != null) for (int idx = 0; idx < messages.length(); idx++) {
+          JSONObject m = messages.optJSONObject(idx); if (m == null) continue;
+          newest = Math.max(newest, m.optLong("id", 0L));
+          long createdAt = messageTimeMillis(m);
+          if (createdAt > 0 && createdAt >= serviceStartedAt && m.optLong("sender_id", 0L) != userId && !isAppInForeground()) {
+            String audio = m.optString("audio_url", ""); if (!audio.isEmpty()) enqueueRemote(audio, token);
           }
         }
         lastId = newest;
         p.edit().putLong("lastId", lastId).putBoolean("initialized", true).apply();
         return;
       }
-
       for (int idx = 0; messages != null && idx < messages.length(); idx++) {
-        JSONObject m = messages.optJSONObject(idx);
-        if (m == null) continue;
-        long id = m.optLong("id", 0L);
-        lastId = Math.max(lastId, id);
+        JSONObject m = messages.optJSONObject(idx); if (m == null) continue;
+        long id = m.optLong("id", 0L); lastId = Math.max(lastId, id);
         if (m.optLong("sender_id", 0L) == userId) continue;
         long createdAt = messageTimeMillis(m);
         if (createdAt <= 0L || createdAt < serviceStartedAt) continue;
@@ -359,33 +380,136 @@ public final class KhatyarRadioService extends Service {
     pendingAudioToken = token == null ? "" : token;
     if (player == null && !playbackActive()) playNextRemote();
   }
-
   private synchronized void playNextRemote() {
     if (player != null || pendingAudioUrls.isEmpty()) return;
     String url = pendingAudioUrls.pollFirst();
-    String token = pendingAudioToken;
-    playRemote(url, token);
+    playRemote(url, pendingAudioToken);
   }
-
   private void ensureMaxMediaVolume() {
     try {
       AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
       if (am == null) return;
       int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-      if (max > 0 && am.getStreamVolume(AudioManager.STREAM_MUSIC) < max) {
-        am.setStreamVolume(AudioManager.STREAM_MUSIC, max, 0);
-      }
+      if (max > 0 && am.getStreamVolume(AudioManager.STREAM_MUSIC) < max) am.setStreamVolume(AudioManager.STREAM_MUSIC, max, 0);
     } catch (Throwable ignored) {}
   }
 
   private synchronized void releasePlayer() {
     LoudnessEnhancer effect = loudnessEnhancer;
     loudnessEnhancer = null;
+    Equalizer eq = radioEqualizer;
+    radioEqualizer = null;
+    if (eq != null) { try { eq.setEnabled(false); } catch (Throwable ignored) {} try { eq.release(); } catch (Throwable ignored) {} }
     if (effect != null) { try { effect.setEnabled(false); } catch (Throwable ignored) {} try { effect.release(); } catch (Throwable ignored) {} }
     MediaPlayer old = player;
     player = null;
     if (old != null) { try { old.stop(); } catch (Throwable ignored) {} try { old.release(); } catch (Throwable ignored) {} }
     setPlaybackActive(false);
+  }
+
+  /**
+   * Gives received speech a narrow-band walkie-talkie character without requiring
+   * a third-party DSP library. The recorder is already 8 kHz mono, so we keep the
+   * processing focused on speech and avoid artificial reverb/bass.
+   */
+  private void attachRadioEqualizer(MediaPlayer mp) {
+    try {
+      if (Build.VERSION.SDK_INT < 19) return;
+      Equalizer eq = new Equalizer(0, mp.getAudioSessionId());
+      short bands = eq.getNumberOfBands();
+      if (bands <= 0) { eq.release(); return; }
+
+      for (short b = 0; b < bands; b++) {
+        int centerHz = eq.getCenterFreq(b) / 1000;
+        short level;
+        if (centerHz < 300) {
+          level = -1200;
+        } else if (centerHz < 700) {
+          level = -450;
+        } else if (centerHz < 1800) {
+          level = 650;
+        } else if (centerHz < 3000) {
+          level = 350;
+        } else {
+          level = -900;
+        }
+        try { eq.setBandLevel(b, level); } catch (Throwable ignored) {}
+      }
+      eq.setEnabled(true);
+      radioEqualizer = eq;
+    } catch (Throwable ignored) {
+      radioEqualizer = null;
+    }
+  }
+
+  /** Native radio SFX for background reception. Generated locally so no extra audio asset/dependency is required. */
+  private void playRadioSfx(boolean opening, boolean closing) {
+    try {
+      final int sampleRate = 8000;
+      final int openMs = opening ? 70 : 0;
+      final int hissMs = 110;
+      final int closeMs = closing ? 70 : 0;
+      final int totalSamples = Math.max(1, (openMs + hissMs + closeMs) * sampleRate / 1000);
+      final short[] pcm = new short[totalSamples];
+      java.util.Random random = new java.util.Random();
+      for (int i = 0; i < totalSamples; i++) {
+        int ms = i * 1000 / sampleRate;
+        double sample = 0.0;
+        if (opening && ms < openMs) {
+          double env = Math.min(1.0, (double)i / Math.max(1, openMs * sampleRate / 1000));
+          sample += Math.sin(2.0 * Math.PI * 1450.0 * i / sampleRate) * 0.22 * env;
+        } else if (ms < openMs + hissMs) {
+          double env = 0.78;
+          if (ms < openMs + 15) env *= (ms - openMs) / 15.0;
+          if (ms > openMs + hissMs - 20) env *= (openMs + hissMs - ms) / 20.0;
+          sample += (random.nextDouble() * 2.0 - 1.0) * 0.16 * env;
+          sample += Math.sin(2.0 * Math.PI * 2600.0 * i / sampleRate) * 0.035 * env;
+        } else if (closing) {
+          int local = ms - openMs - hissMs;
+          double env = Math.max(0.0, 1.0 - local / 70.0);
+          sample += Math.sin(2.0 * Math.PI * 900.0 * i / sampleRate) * 0.16 * env;
+        }
+        pcm[i] = (short)Math.max(-32767, Math.min(32767, (int)(sample * 32767.0)));
+      }
+      new Thread(() -> {
+        AudioTrack track = null;
+        try {
+          int min = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+          track = new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate, AudioFormat.CHANNEL_OUT_MONO,
+              AudioFormat.ENCODING_PCM_16BIT, Math.max(min, pcm.length * 2), AudioTrack.MODE_STATIC);
+          track.write(pcm, 0, pcm.length);
+          track.play();
+          long waitMs = (pcm.length * 1000L / sampleRate) + 40L;
+          try { Thread.sleep(waitMs); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+        } catch (Throwable ignored) {
+        } finally {
+          if (track != null) { try { track.stop(); } catch (Throwable ignored) {} try { track.release(); } catch (Throwable ignored) {} }
+        }
+      }, "KhatyarRadioSfx").start();
+    } catch (Throwable ignored) {}
+  }
+
+  private void playRadioKeyTone(boolean pressed) {
+    try {
+      final int sampleRate = 8000, durationMs = pressed ? 55 : 75;
+      final int n = durationMs * sampleRate / 1000;
+      final short[] pcm = new short[n];
+      for (int i = 0; i < n; i++) {
+        double env = Math.min(1.0, i / (sampleRate * 0.008)) * Math.max(0.0, 1.0 - i / (double)n);
+        double hz = pressed ? 1850.0 : 720.0;
+        pcm[i] = (short)(Math.sin(2.0 * Math.PI * hz * i / sampleRate) * 0.20 * env * 32767.0);
+      }
+      new Thread(() -> {
+        AudioTrack t = null;
+        try {
+          int min = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+          t = new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
+              Math.max(min, pcm.length * 2), AudioTrack.MODE_STATIC);
+          t.write(pcm, 0, pcm.length); t.play(); Thread.sleep(durationMs + 30L);
+        } catch (Throwable ignored) {
+        } finally { if (t != null) { try { t.stop(); } catch (Throwable ignored) {} try { t.release(); } catch (Throwable ignored) {} } }
+      }, "KhatyarRadioKeyTone").start();
+    } catch (Throwable ignored) {}
   }
 
   private void attachLoudnessEnhancer(MediaPlayer mp) {
@@ -424,13 +548,14 @@ public final class KhatyarRadioService extends Service {
       try { player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK); } catch (Throwable ignored) {}
       Map<String,String> headers = new HashMap<>(); if (token != null && !token.isEmpty()) headers.put("Authorization", "Bearer " + token);
       player.setDataSource(this, android.net.Uri.parse(audioUrl), headers);
-      player.setOnCompletionListener(mp -> { synchronized (KhatyarRadioService.this) { if (loudnessEnhancer != null) { try { loudnessEnhancer.release(); } catch (Throwable ignored) {} loudnessEnhancer = null; } try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); playNextRemote(); } });
+      player.setOnCompletionListener(mp -> { playRadioSfx(false, true); synchronized (KhatyarRadioService.this) { if (loudnessEnhancer != null) { try { loudnessEnhancer.release(); } catch (Throwable ignored) {} loudnessEnhancer = null; } try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); playNextRemote(); } });
       player.setOnErrorListener((mp, what, extra) -> { synchronized (KhatyarRadioService.this) { if (loudnessEnhancer != null) { try { loudnessEnhancer.release(); } catch (Throwable ignored) {} loudnessEnhancer = null; } try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); playNextRemote(); } return true; });
       player.setOnPreparedListener(mp -> {
         try {
           ensureMaxMediaVolume();
           int sessionId = mp.getAudioSessionId();
           getPrefs().edit().putInt("audioSessionId", Math.max(0, sessionId)).putBoolean("playbackActive", true).apply();
+          attachRadioEqualizer(mp);
           attachLoudnessEnhancer(mp);
           mp.start();
         } catch (Throwable ignored) {
