@@ -157,9 +157,11 @@ function CheckInCore() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') { Alert.alert('دسترسی موقعیت', 'برای نمایش موقعیت، اجازهٔ دسترسی به موقعیت لازم است.'); return; }
+      const services = await Location.hasServicesEnabledAsync();
+      setGpsReady(!!services);
+      if (!services) { Alert.alert('GPS خاموش است', 'برای ثبت حضور یا خروج، GPS گوشی را روشن کنید.'); return; }
       const gsm = await getGsmPosition({ timeoutMs: 4000 });
       if (gsm?.coords) setPos({ lat: gsm.coords.latitude, lng: gsm.coords.longitude, acc: gsm.coords.accuracy, ts: gsm.timestamp, viaGsm: true });
-        setGpsReady(true);
       const p = await getAccuratePosition({ samples: 5, timeoutMs: 10000, desiredAccuracy: 12 });
       if (p?.coords) setPos({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, ts: p.timestamp, viaGsm: false });
       else if (!gsm?.coords) Alert.alert('موقعیت', 'دریافت موقعیت ناموفق بود. GPS را روشن کنید و دوباره تلاش کنید.');
@@ -251,8 +253,7 @@ function CheckInCore() {
       if (!canAttend) throw new Error('موقعیت فعلی شما داخل محدوده مجاز خط نیست؛ ثبت حضور یا خروج امکان‌پذیر نیست.');
       const body = { method: 'gps', line_id: open?.line_id || undefined, lat, lng, accuracy: pos?.acc || undefined };
       // خط به‌صورت دستی از اپ ارسال نمی‌شود؛ سرور باید حضور را در همهٔ خطوط تعریف‌شدهٔ کاربر بررسی و خط صحیح را خودش ثبت کند.
-      if (method !== 'gps') body.proof = proof != null ? proof : proofVal;
-      body.client_time = new Date().toISOString();
+            body.client_time = new Date().toISOString();
       body.client_uuid = 'checkin_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
       let r;
       try {
@@ -323,17 +324,8 @@ function CheckInCore() {
 
   // وقتی اسلایدر کامل کشیده شد
   const onSlideComplete = () => {
-    if (open) { doCheckout(); return; }
-    if (!gpsReady || !canAttend) { Alert.alert('ثبت حضور', !gpsReady ? 'GPS گوشی باید روشن باشد.' : 'شما در محدوده مجاز هیچ‌یک از خطوط تعریف‌شده برای خود نیستید.'); return; }
-    if (method === 'gps') {
-      // تصمیم نهایی با سرور است. سرور همهٔ خطوط تعریف‌شده برای کاربر را بررسی می‌کند و اگر کاربر داخل هرکدام باشد همان خط را ثبت می‌کند.
-      doCheckin();
-    } else if (method === 'qr') {
-      if (!perm?.granted) requestPerm().then((r) => { if (r.granted) setScanOpen(true); }); else setScanOpen(true);
-    } else {
-      if (!proofVal.trim()) { Alert.alert('توجه', 'مقدار شناسه را وارد کنید یا با دکمهٔ خواندن خودکار/اسکن دریافت کنید.'); return; }
-      doCheckin(proofVal.trim());
-    }
+    if (!gpsReady || !canAttend) { Alert.alert(open ? 'ثبت خروج' : 'ثبت حضور', !gpsReady ? 'GPS گوشی باید روشن باشد.' : 'موقعیت فعلی شما داخل محدوده مجاز خط نیست.'); return; }
+    if (open) doCheckout(); else doCheckin();
   };
 
   if (loading) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
