@@ -43,23 +43,32 @@ public final class OutgoingRadioRecorder {
     int min = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_MASK, AudioFormat.ENCODING_PCM_16BIT);
     if (min <= 0) throw new IllegalStateException("AudioRecord buffer size unavailable");
     int bufferBytes = Math.max(min * 2, FRAME_SAMPLES * PCM_BYTES * 8);
-    recorder = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, SAMPLE_RATE, CHANNEL_MASK,
-        AudioFormat.ENCODING_PCM_16BIT, bufferBytes);
-    if (recorder.getState() != AudioRecord.STATE_INITIALIZED) { recorder.release(); recorder = null; throw new IllegalStateException("Microphone recorder unavailable"); }
     File file = new File(outputDir, "radio-out-" + System.currentTimeMillis() + ".m4a");
-    MediaFormat format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, SAMPLE_RATE, CHANNEL_COUNT);
-    format.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
-    format.setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE);
-    format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, FRAME_SAMPLES * PCM_BYTES * 4);
-    encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC);
-    encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-    muxer = new MediaMuxer(file.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-    muxerTrack = -1; muxerStarted = false; stopping = false; running = true; startedAt = SystemClock.elapsedRealtime(); stopped = new CountDownLatch(1);
-    recorder.startRecording();
-    encoder.start();
-    worker = new Thread(() -> runEncoder(file), "KhatyarRadioOutgoingDSP");
-    worker.start();
-    return true;
+    try {
+      recorder = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, SAMPLE_RATE, CHANNEL_MASK,
+          AudioFormat.ENCODING_PCM_16BIT, bufferBytes);
+      if (recorder.getState() != AudioRecord.STATE_INITIALIZED) throw new IllegalStateException("Microphone recorder unavailable");
+      MediaFormat format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, SAMPLE_RATE, CHANNEL_COUNT);
+      format.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+      format.setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE);
+      format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, FRAME_SAMPLES * PCM_BYTES * 4);
+      encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC);
+      encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+      muxer = new MediaMuxer(file.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+      muxerTrack = -1; muxerStarted = false; stopping = false; running = true;
+      startedAt = SystemClock.elapsedRealtime();
+      callbackResultPath = null; callbackError = null; callbackDurationMs = 0L;
+      stopped = new CountDownLatch(1);
+      recorder.startRecording();
+      encoder.start();
+      worker = new Thread(() -> runEncoder(file), "KhatyarRadioOutgoingDSP");
+      worker.start();
+      return true;
+    } catch (Throwable e) {
+      running = false; stopping = true; cleanup();
+      try { if (file.exists()) file.delete(); } catch (Throwable ignored) {}
+      throw e;
+    }
   }
 
   public synchronized String stopBlocking(long timeoutMs) throws Exception {
@@ -132,8 +141,14 @@ public final class OutgoingRadioRecorder {
   }
 
   private void signalEncoderEndOfInputStream() throws Exception {
-    int index = encoder.dequeueInputBuffer(20000);
-    if (index >= 0) encoder.queueInputBuffer(index, 0, 0, Math.max(0L, SystemClock.elapsedRealtime() - startedAt) * 1000L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+    while (true) {
+      int index = encoder.dequeueInputBuffer(20000);
+      if (index >= 0) {
+        encoder.queueInputBuffer(index, 0, 0, Math.max(0L, SystemClock.elapsedRealtime() - startedAt) * 1000L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+        return;
+      }
+      drainEncoder(false);
+    }
   }
 
   private void drainEncoder(boolean endOfStream) throws Exception {
