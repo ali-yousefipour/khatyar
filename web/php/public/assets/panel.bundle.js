@@ -157,8 +157,19 @@ const db = {
         const form = new URLSearchParams();
         form.append('username', u);
         form.append('password', p);
-        form.append('device_id', 'web-panel');
-        const r = await fetch(API_BASE + '/session/start', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: form.toString() });
+        let deviceId = localStorage.getItem('kh_web_device_id');
+        if (!deviceId) {
+            deviceId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('web-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+            localStorage.setItem('kh_web_device_id', deviceId);
+        }
+        form.append('device_id', deviceId);
+        form.append('device_type', 'web');
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        let r;
+        try {
+            r = await fetch(API_BASE + '/session/start', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: form.toString(), cache: 'no-store', signal: controller.signal });
+        } finally { clearTimeout(timeout); }
         const d = await _readJsonResponse(r);
         if (!r.ok)
             throw new Error(d.error || d.message || 'ورود ناموفق بود');
