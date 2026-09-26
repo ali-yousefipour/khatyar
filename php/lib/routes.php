@@ -323,12 +323,18 @@ $loginHandler = function ($p, $b) {
   $username = trim($b['username'] ?? ''); $password = $b['password'] ?? '';
   $dev = $b['device_id'] ?? ''; if (strlen($dev) < 6) Http::error('ورودی نامعتبر', 400);
   $dtype = (($b['device_type'] ?? 'web') === 'android') ? 'android' : 'web';
-  $fails = (int) Db::one("SELECT COUNT(*) n FROM activity_logs WHERE event='login_failed'
-      AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)
-      AND JSON_UNQUOTE(JSON_EXTRACT(meta,'$.username'))=?", [$username])['n'];
-  if ($fails >= 5) Http::error('به‌دلیل تلاش‌های ناموفق متعدد، حساب موقتاً مسدود است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
-  // محدودیت اضافی بر اساس IP (مستقل از نام‌کاربری) — جلوگیری از brute-force با نام‌کاربری‌های مختلف
-  $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? ''; if ($ip) $ip=trim(explode(',', $ip)[0]);
+  // محدودیت ورود بر اساس IP با جدول ایندکس‌دار؛ از JSON_EXTRACT روی activity_logs در مسیر ورود استفاده نمی‌شود
+  // تا جست‌وجوی نام‌کاربری در دیتابیس باعث کندی/هنگ شدن ورود نشود.
+  $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+  if ($ip) $ip = trim(explode(',', $ip)[0]);
+  if ($ip !== '') {
+    try {
+      $ipFails = (int)(Db::one("SELECT COUNT(*) n FROM login_ip_attempts WHERE ip=? AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)", [$ip])['n'] ?? 0);
+      if ($ipFails >= 20) Http::error('تعداد تلاش‌های ورود از این آدرس بیش از حد مجاز است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
+    } catch (\Throwable $e) {
+      // نبودن جدول قدیمیِ محدودیت IP نباید ورود را از کار بیندازد.
+    }
+  }
 
   // ابتدا کاربر را احراز هویت می‌کنیم؛ سپس معافیت امنیتی همان رکورد قطعی اعمال می‌شود.
   // این ترتیب از نادیده‌گرفته‌شدن معافیت به‌علت جست‌وجوی مقدماتی نام کاربری جلوگیری می‌کند.
