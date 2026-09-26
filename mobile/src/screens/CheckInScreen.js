@@ -136,7 +136,6 @@ function CheckInCore() {
   // تشخیص خودکار نزدیک‌ترین خط تعریف‌شده برای کاربر بر اساس موقعیت دقیق GPS؛ انتخاب دستی خط حذف شده است.
   useEffect(() => {
     if (!pos || !cfg?.lines?.length) return;
-    if (open?.line_id) { if (Number(lineId)!==Number(open.line_id)) setLineId(Number(open.line_id)); return; }
     let best = null;
     for (const l of cfg.lines) {
       const fences = l.geofences || [];
@@ -199,7 +198,7 @@ function CheckInCore() {
     return () => { if (timerSyncRef.current) clearInterval(timerSyncRef.current); };
   }, [open?.id, timerInfo?.next_sync_sec]);
 
-  const line = cfg?.lines?.find((l) => Number(l.id) === Number(open?.line_id || lineId));
+  const line = cfg?.lines?.find((l) => Number(l.id) === Number(lineId));
   // اگر روش فعلی برای خط انتخابی مجاز نباشد، به اولین روش مجاز سوییچ کن
   useEffect(() => {
     if (!line) return;
