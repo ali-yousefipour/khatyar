@@ -102,10 +102,22 @@ function CheckInCore() {
       const c = cfgResult.value;
       setCfg(c);
       setOpen(c.open || null);
+      try { await AsyncStorage.setItem('attendance_checkin_config_v1', JSON.stringify({ savedAt: Date.now(), data: c })); } catch {}
     } else {
-      // مهم: در صورت خطای شبکه/سرور، وضعیت قبلی (ممکن است کهنه باشد) دست‌نخورده می‌ماند
-      // و به‌جای نمایش نادرست «بدون جلسهٔ باز»، خطا به کاربر اعلام و امکان تلاش مجدد داده می‌شود.
-      setLoadError(cfgResult.reason?.message || 'دریافت وضعیت ثبت حضور ناموفق بود. اتصال اینترنت را بررسی و دوباره تلاش کنید.');
+      // هنگام قطعی اینترنت، آخرین کش معتبر خطوط و محدوده‌ها را برای تشخیص محلی نگه می‌داریم.
+      try {
+        const raw = await AsyncStorage.getItem('attendance_checkin_config_v1');
+        const cached = raw ? JSON.parse(raw) : null;
+        if (cached?.data?.lines?.length) {
+          setCfg(cached.data);
+          setOpen(cached.data.open || null);
+          setLoadError(null);
+        } else {
+          setLoadError(cfgResult.reason?.message || 'دریافت وضعیت ثبت حضور ناموفق بود و کش خطوط مجاز نیز موجود نیست.');
+        }
+      } catch {
+        setLoadError(cfgResult.reason?.message || 'دریافت وضعیت ثبت حضور ناموفق بود. اتصال اینترنت را بررسی و دوباره تلاش کنید.');
+      }
     }
     setLoading(false); // صفحه را فوری نشان بده
     // ابتدا آخرین موقعیت معتبر گوشی/اپ را فوراً نمایش بده، سپس با GPS دقیق جایگزین کن.
