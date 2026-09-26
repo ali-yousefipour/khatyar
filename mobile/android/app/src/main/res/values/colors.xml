@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Keep the standard Android theme resources because the generated Expo/RN release theme references them. -->
+    <!-- Standard Android theme resources referenced by the generated Expo/RN release theme. -->
     <color name="colorPrimary">#0D7A5F</color>
     <color name="colorPrimaryDark">#07533F</color>
     <color name="colorAccent">#0D7A5F</color>
+
+    <!-- Notification icon tint referenced by AndroidManifest.xml. -->
+    <color name="notification_icon_color">#FFFFFFFF</color>
 
     <color name="khatyar_notification_primary">#FF1A1A1A</color>
     <color name="khatyar_notification_secondary">#FF555555</color>
