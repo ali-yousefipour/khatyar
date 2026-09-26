@@ -328,8 +328,7 @@ $loginHandler = function ($p, $b) {
       AND JSON_UNQUOTE(JSON_EXTRACT(meta,'$.username'))=?", [$username])['n'];
   if ($fails >= 5) Http::error('به‌دلیل تلاش‌های ناموفق متعدد، حساب موقتاً مسدود است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
   // محدودیت اضافی بر اساس IP (مستقل از نام‌کاربری) — جلوگیری از brute-force با نام‌کاربری‌های مختلف
-  try {
-    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? ''; if ($ip) $ip=trim(explode(',', $ip)[0]);
+  $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? ''; if ($ip) $ip=trim(explode(',', $ip)[0]);
 
   // ابتدا کاربر را احراز هویت می‌کنیم؛ سپس معافیت امنیتی همان رکورد قطعی اعمال می‌شود.
   // این ترتیب از نادیده‌گرفته‌شدن معافیت به‌علت جست‌وجوی مقدماتی نام کاربری جلوگیری می‌کند.
