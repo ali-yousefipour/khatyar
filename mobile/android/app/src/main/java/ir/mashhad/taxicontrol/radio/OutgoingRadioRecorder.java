@@ -71,11 +71,30 @@ public final class OutgoingRadioRecorder {
     }
   }
 
-  public synchronized String stopBlocking(long timeoutMs) throws Exception {
-    if (!running) return null;
-    stopping = true;
-    CountDownLatch latch = stopped;
-    if (!latch.await(Math.max(1000L, timeoutMs), java.util.concurrent.TimeUnit.MILLISECONDS)) throw new IllegalStateException("Audio encoding did not finish in time");
+  public String stopBlocking(long timeoutMs) throws Exception {
+    CountDownLatch latch;
+    AudioRecord activeRecorder;
+    synchronized (this) {
+      if (!running) return null;
+      stopping = true;
+      latch = stopped;
+      activeRecorder = recorder;
+    }
+    // AudioRecord.read(..., READ_BLOCKING) must be released before waiting for
+    // the encoder thread. The previous synchronized wait could deadlock because
+    // runEncoder() needs the same monitor during cleanup(), and a blocking read
+    // could keep the latch from being released until the 10-second timeout.
+    if (activeRecorder != null) {
+      try { activeRecorder.stop(); } catch (Throwable ignored) {}
+    }
+    if (!latch.await(Math.max(1000L, timeoutMs), java.util.concurrent.TimeUnit.MILLISECONDS)) {
+      throw new IllegalStateException("Audio encoding did not finish in time");
+    }
+    Throwable error = callbackError;
+    if (error != null) {
+      if (error instanceof Exception) throw (Exception) error;
+      throw new IllegalStateException(error.getMessage() == null ? "خطای رمزگذاری صوت" : error.getMessage(), error);
+    }
     return callbackResultPath;
   }
 
