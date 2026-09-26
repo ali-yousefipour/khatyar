@@ -22,7 +22,8 @@ public final class KhatyarRadioModule extends ReactContextBaseJavaModule {
   public static final String EVENT_PTT="khatyarRadioPTT";
   public static final String ACTION_PTT="ir.mashhad.taxicontrol.radio.PTT";
   private final ReactApplicationContext context;
-  private OutgoingRadioRecorder outgoingRecorder;\n  private final Handler handler=new Handler(Looper.getMainLooper());
+  private OutgoingRadioRecorder outgoingRecorder;
+  private final Handler handler=new Handler(Looper.getMainLooper());
   private LoudnessEnhancer foregroundEnhancer;
   private int foregroundSessionId=0;
   private boolean foregroundRequested=false;
