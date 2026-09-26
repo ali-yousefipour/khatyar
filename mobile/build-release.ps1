@@ -150,13 +150,13 @@ function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task
                     'symbol: .*',
                     'location: .*'
                 )
-                $matches = New-Object System.Collections.Generic.List[int]
+                $diagnosticMatches = New-Object System.Collections.Generic.List[int]
                 for ($i = 0; $i -lt $lines.Count; $i++) {
                     foreach ($pattern in $patterns) {
-                        if ($lines[$i] -match $pattern) { [void]$matches.Add($i); break }
+                        if ($lines[$i] -match $pattern) { [void]$diagnosticMatches.Add($i); break }
                     }
                 }
-                $unique = @($matches | Select-Object -Unique)
+                $unique = @($diagnosticMatches | Select-Object -Unique)
                 if ($unique.Count -gt 0) {
                     $shown = New-Object System.Collections.Generic.HashSet[int]
                     foreach ($idx in $unique) {
