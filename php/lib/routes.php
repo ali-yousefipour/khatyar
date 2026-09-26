@@ -10024,8 +10024,13 @@ function _phase7p4_offline_checkout($b,$u,$uuid,$it){
   [$lat,$lng] = validGeo($b['lat'] ?? null, $b['lng'] ?? null);
   $clientTime = _phase7p4_client_time($b['client_time'] ?? $it['queued_at'] ?? null);
   $open = Db::one("SELECT id,check_in,line_id,method FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
-  if (!$open) throw new Exception('برای خروج آفلاین، ورود بازی در سرور وجود ندارد');
-  $station = _station_name_at($lat,$lng,user_line_ids($u));
+  if (!$open) throw new Exception('برای خروج آفلاین، جلسه ورود باز در سرور وجود ندارد');
+  if ($lat === null || $lng === null) throw new Exception('موقعیت ثبت خروج آفلاین وجود ندارد');
+  $lineIds = user_line_ids($u);
+  $extraR = max(20, (int)_req_setting('checkin_error_radius_m', 0)) + (int)ceil(min(80, (float)($b['accuracy'] ?? 0) * 0.75));
+  $outFence = station_at_point($lat,$lng,[(int)$open['line_id']],$extraR);
+  if (!$outFence) throw new Exception('ثبت خروج آفلاین خارج از محدوده خط ثبت حضور است');
+  $station = $outFence['name'] ?? _station_name_at($lat,$lng,[$open['line_id']]);
   if (strtotime($clientTime) <= strtotime($open['check_in'])) $clientTime = date('Y-m-d H:i:s', strtotime($open['check_in']) + 60);
   Db::run("UPDATE staff_attendance SET check_out=?, out_lat=?, out_lng=?, out_station=?, offline_synced=1, client_check_out=? WHERE id=?", [$clientTime,$lat,$lng,$station,$clientTime,$open['id']]);
   try { _notify_attendance_action('checkout',(int)$u['id'],$open['line_id']??null,$open['method']??'gps',$station,$clientTime); } catch (\Throwable $e) { error_log('offline attendance checkout alert failed: '.$e->getMessage()); }
