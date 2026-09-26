@@ -10013,7 +10013,13 @@ function _phase7p4_offline_checkin($b,$u,$uuid,$it){
     if (is_array($allowed) && $allowed && !in_array($method, $allowed, true)) throw new Exception('روش ثبت حضور برای خط تشخیص‌داده‌شده مجاز نیست');
   }
   $clientTime = _phase7p4_client_time($b['client_time'] ?? $it['queued_at'] ?? null);
-  $open = Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
+  $open = Db::one("SELECT id,check_in,line_id,method FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
+  // صف آفلاین ممکن است روز بعد ارسال شود؛ جلسهٔ روز قبل نباید ورود روز جدید را قفل کند.
+  if ($open && date('Y-m-d', strtotime($open['check_in'])) !== date('Y-m-d', strtotime($clientTime))) {
+    $autoOut = date('Y-m-d H:i:s', max(strtotime($open['check_in']) + 60, strtotime($clientTime) - 60));
+    Db::run("UPDATE staff_attendance SET check_out=?, client_check_out=?, offline_synced=1 WHERE id=? AND check_out IS NULL", [$autoOut,$autoOut,$open['id']]);
+    $open = null;
+  }
   if ($open) return ['ok'=>true,'already_open'=>true,'attendance_id'=>(int)$open['id'],'kind'=>'checkin'];
   $station = ($st['name'] ?? null) ?: _station_name_at($lat,$lng,$lineIds);
   $id = Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,check_in,in_lat,in_lng,in_station,client_uuid,offline_synced,client_check_in) VALUES(?,?,?,?,?,?,?,?,1,?)",
