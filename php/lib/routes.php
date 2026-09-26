@@ -2137,11 +2137,34 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
   $eventAt = _app_client_time($b);
   $open = Db::one("SELECT id, check_in, line_id, method FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
   if (!$open) Http::error('جلسهٔ ورودِ بازی برای شما وجود ندارد.', 400);
+
+  // خروج نیز باید با GPS کنترل شود، اما برخلاف ورود، خط خروج الزاماً همان خط ورود نیست.
+  // کاربر می‌تواند در هرکدام از خطوط مجاز خودش که اکنون داخل محدوده آن قرار دارد خروج بزند.
   [$lat, $lng] = validGeo($b['lat'] ?? null, $b['lng'] ?? null);
-  $outStation = _station_name_at($lat, $lng, user_line_ids($u));
+  if ($lat === null || $lng === null) {
+    _attendance_reject_log((int)$u['id'], null, 'gps_checkout', $lat, $lng, $b['accuracy'] ?? null, 'موقعیت GPS برای ثبت خروج در دسترس نیست.', ['open_line_id'=>(int)($open['line_id']??0)]);
+    Http::error('برای ثبت خروج، GPS و موقعیت مکانی باید روشن و در دسترس باشد.', 422);
+  }
+
+  $lineIds = user_line_ids($u);
+  $acc = isset($b['accuracy']) ? max(0, min(100, (float)$b['accuracy'])) : 0;
+  $extraR = max(20, (int)_req_setting('checkin_error_radius_m', 0)) + (int)ceil(min(80, $acc * 0.75));
+  $outFence = station_at_point($lat, $lng, $lineIds, $extraR);
+  if (!$outFence) {
+    $near = _nearest_station($lat, $lng, $lineIds);
+    $msg = $near
+      ? 'شما در محدودهٔ هیچ‌یک از خطوط مجاز خود برای ثبت خروج نیستید. نزدیک‌ترین ایستگاه «'.$near['name'].'» در '.number_format($near['distance_m']).' متری شماست.'
+      : 'شما در محدودهٔ هیچ‌یک از خطوط مجاز خود برای ثبت خروج نیستید.';
+    _attendance_reject_log((int)$u['id'], null, 'gps_checkout', $lat, $lng, $b['accuracy'] ?? null, $msg, ['line_ids'=>$lineIds,'open_line_id'=>(int)($open['line_id']??0)]);
+    Http::error($msg, 403);
+  }
+
+  $outLineId = (int)($outFence['line_id'] ?? 0);
+  $outStation = $outFence['name'] ?? _station_name_at($lat, $lng, $lineIds);
   $now = $eventAt;
   if (strtotime($now) <= strtotime($open['check_in'])) $now = date('Y-m-d H:i:s', strtotime($open['check_in']) + 60);
-  Db::run("UPDATE staff_attendance SET check_out=?, out_lat=?, out_lng=?, out_station=?, client_check_out=? WHERE id=?", [$now, $lat, $lng, $outStation, $now, $open['id']]);
+
+  Db::run("UPDATE staff_attendance SET check_out=?, out_lat=?, out_lng=?, out_station=?, out_line_id=?, client_check_out=? WHERE id=?", [$now, $lat, $lng, $outStation, $outLineId ?: null, $now, $open['id']]);
   try {
     [$jy,$jm,$jd] = gregorian_to_jalali((int)date('Y',strtotime($open['check_in'])),(int)date('n',strtotime($open['check_in'])),(int)date('j',strtotime($open['check_in'])));
     $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
@@ -2150,11 +2173,11 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
     $hol = (bool)Db::one("SELECT jdate FROM holidays WHERE jdate IN (?,?) LIMIT 1", [$jdate, str_replace('-','/',$jdate)]);
     $w = ShiftCalc::dayWork($shift,$jdate,null,$sessions,$hol);
     Db::run("UPDATE staff_attendance SET calc_json=? WHERE id=?", [json_encode($w,JSON_UNESCAPED_UNICODE), $open['id']]);
-  } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  try { _notify_attendance_action('checkout',(int)$u['id'],$open['line_id']??null,$open['method']??'gps',$outStation,$now); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  return ['ok'=>true, 'check_out'=>$now];
+  } catch (\\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  try { _notify_attendance_action('checkout',(int)$u['id'],$open['line_id']??null,$open['method']??'gps',$outStation,$now); } catch (\\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  $outLineCode = $outLineId ? (Db::one("SELECT code FROM `lines` WHERE id=?",[$outLineId])['code'] ?? null) : null;
+  return ['ok'=>true, 'check_out'=>$now, 'checkout_line_id'=>$outLineId ?: null, 'checkout_line_code'=>$outLineCode, 'checkout_station'=>$outStation];
 });
-
 
 // تحویل شیفت با QR Code: تحویل‌دهنده توکن می‌سازد، تحویل‌گیرنده اسکن می‌کند؛ خروج اولی و ورود دومی ثبت می‌شود.
 route('POST', '/api/my/shift-handover/start', function($p,$b,$u){
@@ -2425,6 +2448,8 @@ function _ensure_attendance_phase1_schema(){
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='calc_json'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN calc_json JSON NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='client_check_in'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN client_check_in DATETIME NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='client_check_out'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN client_check_out DATETIME NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  // خط خروج می‌تواند با خط ورود متفاوت باشد؛ این ستون خطی را که خروج واقعاً در محدوده آن ثبت شده نگه می‌دارد.
+  try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='out_line_id'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN out_line_id INT NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
 }
 
 function _user_role_title($userId){
