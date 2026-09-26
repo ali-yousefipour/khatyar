@@ -7850,7 +7850,7 @@ const VIEWS={
 function Login({onLogin,brand}){
   const [u,setU]=useState(""); const [p,setP]=useState(""); const [err,setErr]=useState("");
   const [mode,setMode]=useState("login"); const [code,setCode]=useState(""); const [np,setNp]=useState(""); const [info,setInfo]=useState(""); const [busy,setBusy]=useState(false);
-  const submit=async()=>{ if(busy)return; setBusy(true); setErr(""); try{ const d=await db.login(u,p); await khForceFreshReloadAfterLogin(); onLogin(d.user); }catch(e){ setErr(e&&e.message?e.message:'ورود ناموفق بود'); }finally{setBusy(false);} };
+  const submit=async()=>{ if(busy)return; setBusy(true); setErr(""); try{ const d = await db.login(u,p); onLogin(d.user); }catch(e){ setErr(e&&e.message?e.message:'ورود ناموفق بود'); }finally{setBusy(false);} };
   const sendCode=async()=>{ setErr("");setInfo(""); try{ await SEND('POST','/auth/forgot-password',{username:u}); setInfo("اگر نام کاربری معتبر باشد، کد بازیابی پیامک شد."); setMode("reset"); }catch(e){ setErr(e.message); } };
   const doReset=async()=>{ setErr("");setInfo(""); try{ await SEND('POST','/auth/reset-password',{username:u,code,password:np}); setInfo("رمز با موفقیت تغییر کرد. اکنون وارد شوید."); setMode("login"); setP(""); }catch(e){ setErr(e.message); } };
   return(<div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)"}}>
