@@ -135,9 +135,42 @@ function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task
             if ($idle -ge ($GradleIdleTimeoutMinutes * 60)) { try { taskkill.exe /PID $process.Id /T /F 2>$null | Out-Null } catch {}; throw "Gradle produced no new log output for $GradleIdleTimeoutMinutes minutes." }
         }
         if ($process.ExitCode -ne 0) {
-            Write-Host "`n---------------- Last 160 Gradle log lines ----------------" -ForegroundColor Red
-            if (Test-Path -LiteralPath $LogPath) { Get-Content -LiteralPath $LogPath -Tail 160 }
-            Write-Host '------------------------------------------------------------' -ForegroundColor Red
+            if (Test-Path -LiteralPath $LogPath) {
+                $lines = @(Get-Content -LiteralPath $LogPath)
+                Write-Host "`n---------------- Compiler/Gradle root-cause diagnostics ----------------" -ForegroundColor Red
+                $patterns = @(
+                    'error: .*',
+                    'e: .*',
+                    'FAILURE: .*',
+                    'What went wrong:',
+                    'Execution failed for task .*',
+                    'Caused by: .*',
+                    'AAPT: error: .*',
+                    'cannot find symbol',
+                    'symbol: .*',
+                    'location: .*'
+                )
+                $matches = New-Object System.Collections.Generic.List[int]
+                for ($i = 0; $i -lt $lines.Count; $i++) {
+                    foreach ($pattern in $patterns) {
+                        if ($lines[$i] -match $pattern) { [void]$matches.Add($i); break }
+                    }
+                }
+                $unique = @($matches | Select-Object -Unique)
+                if ($unique.Count -gt 0) {
+                    $shown = New-Object System.Collections.Generic.HashSet[int]
+                    foreach ($idx in $unique) {
+                        $from = [Math]::Max(0, $idx - 3); $to = [Math]::Min($lines.Count - 1, $idx + 8)
+                        for ($j = $from; $j -le $to; $j++) { if ($shown.Add($j)) { Write-Host ($('{0,6}: {1}' -f ($j + 1), $lines[$j])) -ForegroundColor Red } }
+                        Write-Host '---' -ForegroundColor DarkRed
+                    }
+                } else {
+                    Write-Host 'No structured compiler diagnostic matched; showing final 160 log lines.' -ForegroundColor Yellow
+                    $lines | Select-Object -Last 160
+                }
+                Write-Host "Full log: $LogPath" -ForegroundColor Yellow
+                Write-Host '-----------------------------------------------------------------------' -ForegroundColor Red
+            }
             throw "Gradle exited with code $($process.ExitCode). Full log: $LogPath"
         }
     } finally { $process.Dispose() }
