@@ -13708,7 +13708,7 @@ const VIEWS = {
     vehicleassets: { t: "ماشین‌آلات و وسایل مأموریتی", ic: "🚙", c: PersonnelVehicleAssets },
     vehiclechecklist: { t: "چک‌لیست خودرویی و موتوری", ic: "☑", c: PersonnelVehicleChecklist },
     settings: { t: "تنظیمات سامانه", ic: "⚙", c: Settings },
-    schoolservice: { t: "سرویس مدارس", ic: "🏫", c: SchoolServiceLauncher },
+    schoolservice: { t: "سرویس مدارس", ic: "route", c: SchoolServiceLauncher },
 };
 function Login({ onLogin, brand }) {
     const [u, setU] = useState("");
@@ -13819,7 +13819,7 @@ function App() {
         vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'school-service'
     };
     const can = (k) => k === "schoolservice" ? schoolServiceAllowed : (!allowed || allowed.includes(k) || CORE.includes(k));
-    const closeOnPick = (k) => { setV(k); setDrawer(false); };
+    const closeOnPick = (k) => { if (k === "schoolservice" && v === k) { try { window.openSchoolService?.().catch?.(e => alert(e.message || "دسترسی به سرویس مدارس ممکن نیست.")); } catch (e) { alert(e.message || "دسترسی به سرویس مدارس ممکن نیست."); } return; } setV(k); setDrawer(false); };
     return (React.createElement("div", { className: "layout" + (drawer ? " drawer-open" : "") },
         React.createElement("div", { className: "scrim", onClick: () => setDrawer(false) }),
         React.createElement("aside", { className: "side" },
