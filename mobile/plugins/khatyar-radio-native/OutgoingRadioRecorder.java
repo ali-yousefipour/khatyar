@@ -162,4 +162,28 @@ public final class OutgoingRadioRecorder {
     try { if (encoder != null) { try { encoder.stop(); } catch (Throwable ignored) {} encoder.release(); } } catch (Throwable ignored) {} encoder = null;
     try { if (muxer != null) { if (muxerStarted) muxer.stop(); muxer.release(); } } catch (Throwable ignored) {} muxer = null; muxerStarted = false;
   }
+  private static final class Compressor {
+    private double envelope = 0.0;
+    private static final double ATTACK = 0.035;
+    private static final double RELEASE = 0.0025;
+    void process(short[] samples) {
+      for(int i=0;i<samples.length;i++){
+        double x=samples[i]/32768.0;
+        double a=Math.abs(x);
+        envelope += (a>envelope ? ATTACK : RELEASE)*(a-envelope);
+        double threshold=0.28;
+        double y=x;
+        if(envelope>threshold){
+          double sign=x<0?-1.0:1.0;
+          double mag=Math.abs(x);
+          double compressed=threshold+(mag-threshold)/3.0;
+          y=sign*compressed;
+        }
+        y*=1.35;
+        y=Math.tanh(y*1.15)/1.15;
+        samples[i]=(short)Math.max(-32767,Math.min(32767,Math.round((float)(y*32767.0))));
+      }
+    }
+  }
+
 }
