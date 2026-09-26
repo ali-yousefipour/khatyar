@@ -7977,7 +7977,7 @@ const PANEL_BUILD_VERSION = "1.5.0";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
-async function khEnsureFreshBuild(){
+async async function khEnsureFreshBuild(){
   try{
     if(!(window.__health&&window.__health.site_version))return;
     const serverV=String(window.__health.site_version);
