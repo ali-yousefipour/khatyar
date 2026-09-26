@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 $method = $_SERVER['REQUEST_METHOD']; $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); $path = rtrim($path, '/'); if ($path === '') $path = '/';
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
-  $siteV = '1.4.4'; $appV = '1.4.4';
+  $siteV = '1.5.0'; $appV = '1.5.0';
   Http::json(['ok' => true, 'installed' => is_file("$ROOT/.installed"), 'db' => $db_ok, 'site_version' => $siteV, 'app_version' => $appV]);
 }
 if (strpos($path, '/api') !== 0) {
@@ -44,9 +44,7 @@ if (strpos($path, '/api') !== 0) {
   }
   http_response_code(404); echo 'Not Found'; exit;
 }
-// Keep temporary substitute shifts synchronized before any API route consumes shift assignments.
-if (class_exists('SubstituteShift')) SubstituteShift::reconcile();
-$routes = [];
+// IMPORTANT: do not reconcile substitute shifts in the global request bootstrap.\n// That routine performs schema writes and scans request data; running it before every\n// API request can block login and health checks. Reconciliation is handled by its\n// dedicated workflow instead of the authentication/request bootstrap.\n$routes = [];
 function route($m, $p, $fn, $public = false, $minLevel = 99) { global $routes; $routes[] = compact('m', 'p', 'fn', 'public', 'minLevel'); }
 function nid($v){ $s = preg_replace('/\D/', '', (string)$v); return $s === '' ? null : str_pad($s, 10, '0', STR_PAD_LEFT); }
 require "$ROOT/lib/routes.php"; $body = Http::body();
