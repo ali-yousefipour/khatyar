@@ -227,14 +227,7 @@ public final class KhatyarRadioService extends Service {
       .setOnlyAlertOnce(true)
       .setCategory(NotificationCompat.CATEGORY_SERVICE)
       .setPriority(NotificationCompat.PRIORITY_LOW)
-      // Native notification actions are intentionally kept in addition to the
-      // custom RemoteViews. Android 12+ may collapse/restrict custom RemoteViews,
-      // while a NotificationCompat action remains exposed by the system UI.
-      .addAction(new NotificationCompat.Action.Builder(
-        R.drawable.khatyar_notification_ptt,
-        pttActive ? "پایان PTT" : "PTT",
-        ptt
-      ).build());
+
 
     if (contentIntent != null) b.setContentIntent(contentIntent);
     return b.build();
