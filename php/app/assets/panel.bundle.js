@@ -157,8 +157,19 @@ const db = {
         const form = new URLSearchParams();
         form.append('username', u);
         form.append('password', p);
-        form.append('device_id', 'web-panel');
-        const r = await fetch(API_BASE + '/session/start', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: form.toString() });
+        let deviceId = localStorage.getItem('kh_web_device_id');
+        if (!deviceId) {
+            deviceId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('web-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+            localStorage.setItem('kh_web_device_id', deviceId);
+        }
+        form.append('device_id', deviceId);
+        form.append('device_type', 'web');
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        let r;
+        try {
+            r = await fetch(API_BASE + '/session/start', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: form.toString(), cache: 'no-store', signal: controller.signal });
+        } finally { clearTimeout(timeout); }
         const d = await _readJsonResponse(r);
         if (!r.ok)
             throw new Error(d.error || d.message || 'ورود ناموفق بود');
@@ -13684,14 +13695,18 @@ function Login({ onLogin, brand }) {
     const [code, setCode] = useState("");
     const [np, setNp] = useState("");
     const [info, setInfo] = useState("");
-    const submit = async () => { try {
-        const d = await db.login(u, p);
-        await khForceFreshReloadAfterLogin();
-        onLogin(d.user);
-    }
-    catch (e) {
-        setErr(e.message);
-    } };
+    const [busy, setBusy] = useState(false);
+    const submit = async () => {
+        if (busy) return;
+        setBusy(true); setErr("");
+        try {
+            const d = await db.login(u, p);
+            await khForceFreshReloadAfterLogin();
+            onLogin(d.user);
+        }
+        catch (e) { setErr(e && e.name === 'AbortError' ? 'زمان پاسخ سرور تمام شد. اتصال اینترنت و آدرس سرور را بررسی کنید.' : (e.message || 'ورود ناموفق بود')); }
+        finally { setBusy(false); }
+    };
     const sendCode = async () => { setErr(""); setInfo(""); try {
         await SEND('POST', '/auth/forgot-password', { username: u });
         setInfo("اگر نام کاربری معتبر باشد، کد بازیابی پیامک شد.");
@@ -13825,7 +13840,7 @@ function App() {
                     React.createElement("div", { className: "av" }, (me.name || "؟")[0]))),
             React.createElement(View, null))));
 }
-const PANEL_BUILD_VERSION = "1.4.4";
+const PANEL_BUILD_VERSION = "1.5.0";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
