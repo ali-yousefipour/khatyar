@@ -226,8 +226,7 @@ public final class KhatyarRadioService extends Service {
       .setOngoing(true)
       .setOnlyAlertOnce(true)
       .setCategory(NotificationCompat.CATEGORY_SERVICE)
-      .setPriority(NotificationCompat.PRIORITY_LOW)
-
+      .setPriority(NotificationCompat.PRIORITY_LOW);
 
     if (contentIntent != null) b.setContentIntent(contentIntent);
     return b.build();
