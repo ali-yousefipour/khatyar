@@ -7805,19 +7805,19 @@ function PersonnelVehicleChecklist(){const [items,setItems]=useState([]),[select
 function SchoolServiceLauncher(){
   const [error,setError]=useState("");
   const [busy,setBusy]=useState(true);
+  const [host,setHost]=useState(null);
   const launch=()=>{
     setBusy(true);setError("");
     try{
-      if(typeof window.openSchoolService!=="function")throw new Error("ماژول سرویس مدارس هنوز بارگذاری نشده است.");
-      Promise.resolve(window.openSchoolService()).catch(e=>setError(e&&e.message?e.message:"باز کردن سرویس مدارس ناموفق بود")).finally(()=>setBusy(false));
+      if(!window.openSchoolService)throw new Error("ماژول سرویس مدارس هنوز بارگذاری نشده است.");
+      if(host)Promise.resolve(window.openSchoolService(host,()=>{setBusy(false);setError("");})).catch(e=>{setError(e&&e.message?e.message:"باز کردن سرویس مدارس ناموفق بود");setBusy(false);});
     }catch(e){setError(e&&e.message?e.message:"باز کردن سرویس مدارس ناموفق بود");setBusy(false);}
   };
-  useEffect(()=>{launch();},[]);
-  return <div className="panel" style={{margin:"14px 0"}}>
-    <h3 style={{marginTop:0}}>🏫 سرویس مدارس</h3>
-    {busy&&!error&&<p className="muted">در حال باز کردن ویزارد سرویس مدارس…</p>}
-    {error&&<div><p style={{color:"var(--danger)",lineHeight:1.9}}>{error}</p><button className="btn p" onClick={launch}>تلاش مجدد</button></div>}
-    {!busy&&!error&&<p className="muted">ویزارد سرویس مدارس باز شد. برای بازگشایی مجدد، همین آیتم منو را انتخاب کنید.</p>}
+  useEffect(()=>{if(host)launch();},[host]);
+  return <div className="panel" style={{margin:"14px 0",padding:0,border:0,background:"transparent"}}>
+    {busy&&!error&&<div className="muted" style={{padding:"10px 14px"}}>در حال بارگذاری ویزارد سرویس مدارس…</div>}
+    {error&&<div style={{padding:"14px"}}><p style={{color:"var(--danger)",lineHeight:1.9}}>{error}</p><button className="btn p" onClick={launch}>تلاش مجدد</button></div>}
+    <div ref={setHost} style={{width:"100%"}}></div>
   </div>;
 }
 
