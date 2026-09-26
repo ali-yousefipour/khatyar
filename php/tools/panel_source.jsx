@@ -111,10 +111,30 @@ const db = {
   // POST با Content-Type: application/json را (به‌خصوص برای فیلدهای شبیه به فرم ورود) مسدود
   // می‌کند؛ با تست مستقیم روی سرور واقعی تأیید شد که فرم urlencoded بدون مشکل عبور می‌کند.
   login: async (u,p)=>{
-    const form = new URLSearchParams(); form.append('username',u); form.append('password',p); form.append('device_id','web-panel');
-    const r = await fetch(API_BASE+'/session/start',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded; charset=UTF-8'},body:form.toString()});
-    const d = await _readJsonResponse(r);
-    if(!r.ok) throw new Error(d.error||d.message||'ورود ناموفق بود');
+    const username=String(u||'').trim();
+    const password=String(p||'');
+    if(!username) throw new Error('نام کاربری را وارد کنید');
+    if(!password) throw new Error('رمز عبور را وارد کنید');
+    let deviceId=localStorage.getItem('kh_web_device_id');
+    if(!deviceId){
+      deviceId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('web-'+Date.now()+'-'+Math.random().toString(36).slice(2));
+      localStorage.setItem('kh_web_device_id',deviceId);
+    }
+    const form=new URLSearchParams();
+    form.append('username',username); form.append('password',password);
+    form.append('device_id',deviceId); form.append('device_type','web');
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),20000);
+    let r;
+    try{
+      r=await fetch(API_BASE+'/session/start',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded; charset=UTF-8','accept':'application/json','cache-control':'no-store'},body:form.toString(),cache:'no-store',signal:controller.signal});
+    }catch(e){
+      if(e&&e.name==='AbortError') throw new Error('زمان پاسخ سرور تمام شد. اتصال سرور و مسیر /api/session/start را بررسی کنید.');
+      throw new Error('اتصال به سرور برای ورود برقرار نشد.');
+    }finally{clearTimeout(timer)}
+    const d=await _readJsonResponse(r);
+    if(!r.ok) throw new Error(d.error||d.message||('ورود ناموفق بود (HTTP '+r.status+')'));
+    if(!d.access) throw new Error('پاسخ ورود ناقص است: توکن دریافت نشد.');
     localStorage.token=d.access; return d;
   },
   stats: ()=> GET('/admin/stats'),
@@ -7829,8 +7849,8 @@ const VIEWS={
 
 function Login({onLogin,brand}){
   const [u,setU]=useState(""); const [p,setP]=useState(""); const [err,setErr]=useState("");
-  const [mode,setMode]=useState("login"); const [code,setCode]=useState(""); const [np,setNp]=useState(""); const [info,setInfo]=useState("");
-  const submit=async()=>{ try{ const d=await db.login(u,p); await khForceFreshReloadAfterLogin(); onLogin(d.user); }catch(e){ setErr(e.message); } };
+  const [mode,setMode]=useState("login"); const [code,setCode]=useState(""); const [np,setNp]=useState(""); const [info,setInfo]=useState(""); const [busy,setBusy]=useState(false);
+  const submit=async()=>{ if(busy)return; setBusy(true); setErr(""); try{ const d=await db.login(u,p); await khForceFreshReloadAfterLogin(); onLogin(d.user); }catch(e){ setErr(e&&e.message?e.message:'ورود ناموفق بود'); }finally{setBusy(false);} };
   const sendCode=async()=>{ setErr("");setInfo(""); try{ await SEND('POST','/auth/forgot-password',{username:u}); setInfo("اگر نام کاربری معتبر باشد، کد بازیابی پیامک شد."); setMode("reset"); }catch(e){ setErr(e.message); } };
   const doReset=async()=>{ setErr("");setInfo(""); try{ await SEND('POST','/auth/reset-password',{username:u,code,password:np}); setInfo("رمز با موفقیت تغییر کرد. اکنون وارد شوید."); setMode("login"); setP(""); }catch(e){ setErr(e.message); } };
   return(<div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)"}}>
@@ -7840,7 +7860,7 @@ function Login({onLogin,brand}){
       <input className="input" placeholder="نام کاربری (کد ملی)" value={u} onChange={e=>setU(e.target.value)} style={{marginBottom:10}}/>
       {mode==="login"&&<>
         <input className="input" type="password" placeholder="رمز عبور" value={p} onChange={e=>setP(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()}/>
-        <button className="btn p" style={{width:"100%",marginTop:14}} onClick={submit}>ورود</button>
+        <button className="btn p" style={{width:"100%",marginTop:14}} onClick={submit} disabled={busy}>{busy?'در حال ورود…':'ورود'}</button>
         <p style={{textAlign:"center",marginTop:10}}><a style={{fontSize:12,color:"var(--brand)",cursor:"pointer"}} onClick={()=>{setErr("");setInfo("");setMode("forgot");}}>فراموشی رمز عبور</a></p>
       </>}
       {mode==="forgot"&&<>
@@ -7919,7 +7939,7 @@ function App(){
       <View/></main></div>);
 }
 
-const PANEL_BUILD_VERSION = "1.4.4";
+const PANEL_BUILD_VERSION = "1.5.0";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
