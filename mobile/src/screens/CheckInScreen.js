@@ -109,8 +109,11 @@ function CheckInCore() {
         const raw = await AsyncStorage.getItem('attendance_checkin_config_v1');
         const cached = raw ? JSON.parse(raw) : null;
         if (cached?.data?.lines?.length) {
-          setCfg(cached.data);
-          setOpen(cached.data.open || null);
+          const cc = cached.data;
+          const cachedOpen = cc.open || null;
+          const stale = !!cachedOpen?.check_in && new Date(String(cachedOpen.check_in).replace(' ','T')).toDateString() !== new Date().toDateString();
+          setCfg({ ...cc, open_stale: !!cc.open_stale || stale });
+          setOpen(stale ? null : cachedOpen);
           setLoadError(null);
         } else {
           setLoadError(cfgResult.reason?.message || 'دریافت وضعیت ثبت حضور ناموفق بود و کش خطوط مجاز نیز موجود نیست.');
