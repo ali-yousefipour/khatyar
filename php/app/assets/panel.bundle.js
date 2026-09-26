@@ -168,11 +168,17 @@ const db = {
         const timeout = setTimeout(() => controller.abort(), 20000);
         let r;
         try {
-            r = await fetch(API_BASE + '/session/start', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: form.toString(), cache: 'no-store', signal: controller.signal });
+            r = await fetch(API_BASE + '/session/start', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8', 'accept': 'application/json', 'cache-control': 'no-store' }, body: form.toString(), cache: 'no-store', signal: controller.signal });
+        } catch (e) {
+            if (e && e.name === 'AbortError')
+                throw new Error('زمان پاسخ سرور تمام شد. اتصال سرور و مسیر /api/session/start را بررسی کنید.');
+            throw new Error('اتصال به سرور برای ورود برقرار نشد.');
         } finally { clearTimeout(timeout); }
         const d = await _readJsonResponse(r);
         if (!r.ok)
-            throw new Error(d.error || d.message || 'ورود ناموفق بود');
+            throw new Error(d.error || d.message || ('ورود ناموفق بود (HTTP ' + r.status + ')'));
+        if (!d.access)
+            throw new Error('پاسخ ورود ناقص است: توکن دریافت نشد.');
         localStorage.token = d.access;
         return d;
     },
@@ -13882,6 +13888,6 @@ async function khForceFreshReloadAfterLogin() {
         return;
     }
     await khEnsureFreshBuild();
-    console.log("PANEL BUILD: 1.4.4 (custom-drawer-radio-fixes-volume-ptt)");
+    console.log("PANEL BUILD: 1.5.0 (login-stability-school-service-fixes)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
 })();
