@@ -13652,7 +13652,7 @@ finally {
             React.createElement("div", { className: "row", style: { gap: 8, marginTop: 10 } },
                 React.createElement("button", { className: "btn d", disabled: saving, onClick: () => submit(false) }, "\u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0627\u0635\u0644\u0627\u062D"),
                 React.createElement("button", { className: "btn p", disabled: saving, onClick: () => submit(true) }, saving ? 'در حال ثبت…' : 'تأیید نهایی'))))); }
-function SchoolServiceLauncher(){const [error,setError]=useState("");const [busy,setBusy]=useState(true);const launch=()=>{setBusy(true);setError("");try{if(typeof window.openSchoolService!=="function")throw new Error("ماژول سرویس مدارس هنوز بارگذاری نشده است.");Promise.resolve(window.openSchoolService()).catch(e=>setError(e&&e.message?e.message:"باز کردن سرویس مدارس ناموفق بود")).finally(()=>setBusy(false));}catch(e){setError(e&&e.message?e.message:"باز کردن سرویس مدارس ناموفق بود");setBusy(false);}};useEffect(()=>{launch();},[]);return React.createElement("div",{className:"panel",style:{margin:"14px 0"}},React.createElement("h3",{style:{marginTop:0}},"🏫 سرویس مدارس"),busy&&!error&&React.createElement("p",{className:"muted"},"در حال باز کردن ویزارد سرویس مدارس…"),error&&React.createElement("div",null,React.createElement("p",{style:{color:"var(--danger)",lineHeight:1.9}},error),React.createElement("button",{className:"btn p",onClick:launch},"تلاش مجدد")),!busy&&!error&&React.createElement("p",{className:"muted"},"ویزارد سرویس مدارس باز شد. برای بازگشایی مجدد، همین آیتم منو را انتخاب کنید."));}
+function SchoolServiceLauncher(){const [error,setError]=useState("");const [busy,setBusy]=useState(true);const [host,setHost]=useState(null);const launch=()=>{setBusy(true);setError("");try{if(!window.openSchoolService)throw new Error("ماژول سرویس مدارس هنوز بارگذاری نشده است.");if(host)Promise.resolve(window.openSchoolService(host,()=>{setBusy(false);setError("");})).catch(e=>{setError(e&&e.message?e.message:"باز کردن سرویس مدارس ناموفق بود");setBusy(false);});}catch(e){setError(e&&e.message?e.message:"باز کردن سرویس مدارس ناموفق بود");setBusy(false);}};useEffect(()=>{if(host)launch();},[host]);return React.createElement("div",{className:"panel",style:{margin:"14px 0",padding:0,border:0,background:"transparent"}},busy&&!error&&React.createElement("div",{className:"muted",style:{padding:"10px 14px"}},"در حال بارگذاری ویزارد سرویس مدارس…"),error&&React.createElement("div",{style:{padding:"14px"}},React.createElement("p",{style:{color:"var(--danger)",lineHeight:1.9}},error),React.createElement("button",{className:"btn p",onClick:launch},"تلاش مجدد")),React.createElement("div",{ref:setHost,style:{width:"100%"}}));}
 const VIEWS = {
     covertselfies: { t: "سلفی‌های نامحسوس", ic: "📸", c: CovertSelfies },
     dashboard: { t: "داشبورد مدیریت", ic: "▦", c: Dashboard },
@@ -13905,6 +13905,6 @@ async function khForceFreshReloadAfterLogin() {
         return;
     }
     await khEnsureFreshBuild();
-    console.log("PANEL BUILD: 1.5.0 (login-stability-school-service-fixes)");
+    console.log("PANEL BUILD: 1.5.0 (school-service-inline-school-list-fix)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
 })();
