@@ -3,8 +3,8 @@
 const ADMIN = 3; // سطح ۳ و بالاتر = مدیریتی
 // از این نسخه به بعد، به‌درخواست کارفرما، شمارهٔ نسخهٔ سایت و اپ اندروید و نام فایل زیپ پروژه
 // همیشه یکسان و هماهنگ نگه داشته می‌شوند (به‌جای دو شمارندهٔ جداگانه مثل قبل).
-const SITE_VERSION = '1.4.4';   // نسخهٔ سایت — همیشه با نسخهٔ اپ و نام فایل پروژه یکی است
-const APP_VERSION = '1.4.4'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
+const SITE_VERSION = '1.5.0';   // نسخهٔ سایت — همیشه با نسخهٔ اپ و نام فایل پروژه یکی است
+const APP_VERSION = '1.5.0'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
 
 
 /* Phase 7.8 — زمان واقعی ثبت کلاینت برای عملیات آفلاین/آنلاین */
@@ -332,7 +332,7 @@ $loginHandler = function ($p, $b) {
 
   // ابتدا کاربر را احراز هویت می‌کنیم؛ سپس معافیت امنیتی همان رکورد قطعی اعمال می‌شود.
   // این ترتیب از نادیده‌گرفته‌شدن معافیت به‌علت جست‌وجوی مقدماتی نام کاربری جلوگیری می‌کند.
-  $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE TRIM(u.username)=? LIMIT 1", [$username]);
+  // Fast path first: exact username lookup can use the normal username index.\n  // Only legacy rows containing incidental whitespace fall back to TRIM().\n  $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=? LIMIT 1", [$username]);\n  if (!$u) {\n    $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE TRIM(u.username)=? LIMIT 1", [$username]);\n  }
   if (!$u || !$u['is_active'] || !password_verify($password, $u['password_hash'])) {
     Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?, 'login_failed', ?)", [$u['id'] ?? null, json_encode(['username'=>$username], JSON_UNESCAPED_UNICODE)]);
     if (!empty($ip)) { try { Db::run("INSERT INTO login_ip_attempts(ip) VALUES(?)", [$ip]); } catch (\Throwable $e) {} }
