@@ -2023,7 +2023,23 @@ route('GET', '/api/my/checkin-config', function($p,$b,$u){
 route('POST', '/api/my/checkin', function($p,$b,$u){
   $eventAt = _app_client_time($b);
   // اگر جلسهٔ باز دارد، اجازهٔ ورود مجدد نده
-  $open = Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL", [$u['id']]);
+  $open = Db::one("SELECT id,check_in,line_id,method FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
+  // اگر جلسهٔ قبلی مربوط به روز دیگری است، کاربر نباید به‌دلیل فراموشی خروج در روز جدید قفل شود.
+  // چون زمان واقعی خروج مشخص نیست، جلسهٔ قبلی یک دقیقه قبل از ورود جدید بسته می‌شود تا دو جلسه با هم هم‌پوشانی نداشته باشند.
+  if ($open && date('Y-m-d', strtotime($open['check_in'])) !== date('Y-m-d', strtotime($eventAt))) {
+    $autoOut = date('Y-m-d H:i:s', max(strtotime($open['check_in']) + 60, strtotime($eventAt) - 60));
+    Db::run("UPDATE staff_attendance SET check_out=?, client_check_out=? WHERE id=? AND check_out IS NULL", [$autoOut,$autoOut,$open['id']]);
+    try {
+      [$ajy,$ajm,$ajd] = gregorian_to_jalali((int)date('Y',strtotime($open['check_in'])),(int)date('n',strtotime($open['check_in'])),(int)date('j',strtotime($open['check_in'])));
+      $ajdate = sprintf('%04d-%02d-%02d',$ajy,$ajm,$ajd);
+      $ashift = _active_user_shift_assignment($u['id'], $ajdate);
+      $asessions = [['in'=>strtotime($open['check_in']),'out'=>strtotime($autoOut)]];
+      $ahol = (bool)Db::one("SELECT jdate FROM holidays WHERE jdate IN (?,?) LIMIT 1", [$ajdate, str_replace('-','/',$ajdate)]);
+      $aw = ShiftCalc::dayWork($ashift,$ajdate,null,$asessions,$ahol);
+      Db::run("UPDATE staff_attendance SET calc_json=? WHERE id=?", [json_encode($aw,JSON_UNESCAPED_UNICODE),$open['id']]);
+    } catch (Throwable $e) { error_log('suppressed overnight attendance close: '.$e->getMessage()); }
+    $open = null;
+  }
   if ($open) Http::error('شما قبلاً ثبت ورود کرده‌اید. ابتدا خروج بزنید.', 400);
   $lineId = (int)($b['line_id'] ?? 0);
   $method = $b['method'] ?? 'gps';
@@ -2136,9 +2152,19 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
   _ensure_attendance_phase1_schema();
   $eventAt = _app_client_time($b);
   $open = Db::one("SELECT id, check_in, line_id, method FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
-  if (!$open) Http::error('جلسهٔ ورودِ بازی برای شما وجود ندارد.', 400);
+  if (!$open) Http::error('جلسهٔ ورودِ باز برای شما وجود ندارد.', 400);
   [$lat, $lng] = validGeo($b['lat'] ?? null, $b['lng'] ?? null);
-  $outStation = _station_name_at($lat, $lng, user_line_ids($u));
+  if ($lat === null || $lng === null) Http::error('موقعیت مکانی برای ثبت خروج در دسترس نیست. GPS را روشن کنید.', 422);
+  $lineIds = user_line_ids($u);
+  $extraR = max(20, (int)_req_setting('checkin_error_radius_m', 0)) + (int)ceil(min(80, (float)($b['accuracy'] ?? 0) * 0.75));
+  $outFence = station_at_point($lat, $lng, [(int)$open['line_id']], $extraR);
+  if (!$outFence) {
+    $nearOut = _nearest_station($lat, $lng, [(int)$open['line_id']]);
+    $msg = $nearOut ? ('شما خارج از محدوده خط ثبت حضور هستید؛ نزدیک‌ترین محدوده «'.$nearOut['name'].'» در '.number_format($nearOut['distance_m']).' متری شماست.') : 'شما خارج از محدوده خط ثبت حضور هستید.';
+    _attendance_reject_log((int)$u['id'],(int)$open['line_id'],'gps',$lat,$lng,$b['accuracy'] ?? null,$msg,['checkout'=>true,'line_ids'=>$lineIds]);
+    Http::error($msg,403);
+  }
+  $outStation = $outFence['name'] ?? _station_name_at($lat, $lng, [$open['line_id']]);
   $now = $eventAt;
   if (strtotime($now) <= strtotime($open['check_in'])) $now = date('Y-m-d H:i:s', strtotime($open['check_in']) + 60);
   Db::run("UPDATE staff_attendance SET check_out=?, out_lat=?, out_lng=?, out_station=?, client_check_out=? WHERE id=?", [$now, $lat, $lng, $outStation, $now, $open['id']]);
