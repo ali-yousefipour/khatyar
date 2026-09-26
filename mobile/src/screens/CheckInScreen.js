@@ -345,6 +345,7 @@ function CheckInCore() {
         <Text style={{ color: '#8a6100', fontFamily: FONT.regular, fontSize: 12, flex: 1 }}>آخرین تازه‌سازی وضعیت ناموفق بود؛ اطلاعات نمایش‌داده‌شده ممکن است قدیمی باشد.</Text>
         <TouchableOpacity onPress={() => load()} style={{ marginRight: 8 }}><Text style={{ color: C.brand, fontFamily: FONT.bold, fontSize: 12 }}>تلاش مجدد</Text></TouchableOpacity>
       </View>}
+      {cfg?.open_stale ? <View style={{ backgroundColor: '#fff4d7', borderRadius: 10, padding: 10, marginBottom: 10 }}><Text style={{ color: '#8a6100', fontFamily: FONT.bold, textAlign: 'right' }}>جلسه حضور روز قبل بدون ثبت خروج باقی مانده بود. با ثبت ورود امروز، جلسه قبلی به‌صورت خودکار بسته و ورود امروز جداگانه ثبت می‌شود.</Text></View> : null}
       {/* خط به‌صورت خودکار از روی موقعیت کاربر تشخیص داده می‌شود؛ انتخاب دستی حذف شده است. */}
       <Text style={s.label}>خط تشخیص‌داده‌شده</Text>
       <View style={s.autoLineBox}>
