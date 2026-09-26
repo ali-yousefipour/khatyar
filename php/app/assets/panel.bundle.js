@@ -65,7 +65,7 @@ async function GET(p, opts) {
     const key = p;
     if (ttl && _cache[key] && (Date.now() - _cache[key].t) < ttl)
         return _cache[key].v;
-    const r = await fetch(API_BASE + p, { headers: tok(), cache: 'no-store' });
+    const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + p, { headers: tok(), cache: 'no-store' });
     const v = await _readJsonResponse(r);
     if (!r.ok)
         throw new Error(v.error || v.message || 'خطای سرور');
@@ -103,7 +103,7 @@ function exportXlsx(rows, sheetName, filename) {
     XLSX.writeFile(wb, filename);
 }
 async function SEND(method, p, body) {
-    const r = await fetch(API_BASE + p, { method, headers: { 'content-type': 'application/json', ...tok() }, body: body ? JSON.stringify(body) : undefined });
+    const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + p, { method, headers: { 'content-type': 'application/json', ...tok() }, body: body ? JSON.stringify(body) : undefined });
     const v = await _readJsonResponse(r);
     if (!r.ok)
         throw new Error(v.error || v.message || 'خطای سرور');
