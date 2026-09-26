@@ -2240,8 +2240,13 @@ route('GET', '/api/my/work-timer', function($p,$b,$u){
 
 // تاریخچهٔ ثبت حضور شخصی
 route('GET', '/api/my/attendance-history', fn($p,$b,$u) => Db::all(
-  "SELECT sa.id, sa.check_in, sa.check_out, sa.method, l.code line
-   FROM staff_attendance sa LEFT JOIN `lines` l ON l.id=sa.line_id
+  "SELECT sa.id, sa.check_in, sa.check_out, sa.method,
+          l.code line,
+          l.code in_line,
+          lo.code out_line
+   FROM staff_attendance sa
+   LEFT JOIN `lines` l ON l.id=sa.line_id
+   LEFT JOIN `lines` lo ON lo.id=sa.out_line_id
    WHERE sa.user_id=? ORDER BY sa.id DESC LIMIT 60", [$u['id']]));
 
 // ==================== سیاست کاری (مدل فینتو) ====================
