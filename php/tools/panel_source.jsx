@@ -7913,6 +7913,7 @@ function Login({onLogin,brand}){
 
 function App(){
   const [me,setMe]=useState(null); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState(null); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
+  const [schoolServiceAllowed,setSchoolServiceAllowed]=useState(false);
   const [openSections,setOpenSections]=useState({"داشبورد و پایش":true,"عملیات میدانی":true,"تاکسی و تاکسیران":false,"گزارش‌ها":false,"منابع انسانی":false,"ارتباطات":false,"مدیریت سامانه":false});
   useEffect(()=>{ db.publicSettings().then(s=>{ const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>{}); },[]);
   useEffect(()=>{ if(me&&me.is_admin){ db.settings().then(s=>{ const all=s.role_perms||{}; const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id); const rp=all[me.role_id]; setAllowed(has&&Array.isArray(rp)?rp:null); const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>setAllowed(null)); } },[me]);
