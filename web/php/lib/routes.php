@@ -391,8 +391,13 @@ $loginHandler = function ($p, $b) {
              ON DUPLICATE KEY UPDATE device_id=VALUES(device_id),device_model=VALUES(device_model),revoked_at=NULL,created_at=NOW()",
             [$u['id'], $dtype, $dev, $b['device_model'] ?? null]);
   } elseif ($sess['device_id'] !== $dev) {
-    Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?, 'device_mismatch', ?)", [$u['id'], json_encode(['tried'=>$dev,'type'=>$dtype])]);
-    Http::error('این حساب روی ' . ($dtype==='android'?'یک گوشی اندروید':'یک مرورگر') . ' دیگر فعال است. برای تعویض، مدیر باید آن دستگاه را حذف کند.', 409);
+    // وب یک کلاینت مرورگری است؛ پس از احراز هویت موفق، ورود از مرورگر جدید باید نشست وب قبلی را جابه‌جا کند.
+    if ($dtype === 'web') {
+      Db::run("UPDATE user_sessions SET device_id=?, device_model=?, revoked_at=NULL, created_at=NOW() WHERE user_id=? AND device_type=?", [$dev, $b['device_model'] ?? null, $u['id'], $dtype]);
+    } else {
+      Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?, 'device_mismatch', ?)", [$u['id'], json_encode(['tried'=>$dev,'type'=>$dtype])]);
+      Http::error('این حساب روی یک گوشی اندروید دیگر فعال است. برای تعویض، مدیر باید آن دستگاه را حذف کند.', 409);
+    }
   }
   // اگر رمز هنوز پیش‌فرض (۱۲۳۴۶۶) باشد، کاربر باید رمز و ایمیل را تغییر دهد
   $mustChange = (bool)($u['must_change_pw'] ?? 0) || ($password === '123456');
