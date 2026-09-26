@@ -13113,7 +13113,9 @@ function _ssv_tables(){
   try{
     $roles=Db::all("SELECT id,level FROM roles");
     foreach($roles as $r){
-      $default=((int)$r['level']<=4)?1:0;
+      $title=_ssv_norm($r['title']??'');
+      $allowedRoles=['مدیر کل','مدیرکل','معاونت بازرسی','رییس اداره بازرسی','رئیس اداره بازرسی','سربازرس ارشد','نیروی اداری ارشد','سربازرس','بازرس','گشت خودرویی','گشت موتوری'];
+      $default=in_array($title,$allowedRoles,true)?1:0;
       Db::run("INSERT INTO school_service_permissions(role_id,can_view,can_create,can_edit,can_delete,can_import,can_report)
         VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
         can_view=IF(can_view=0 AND can_create=0 AND can_edit=0 AND can_delete=0 AND can_import=0 AND can_report=0,VALUES(can_view),can_view),
