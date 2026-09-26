@@ -2016,7 +2016,9 @@ route('GET', '/api/my/checkin-config', function($p,$b,$u){
     }
   }
   $open = Db::one("SELECT id, line_id, check_in, method FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
-  return ['lines'=>$lines, 'open'=>$open];
+  $openStale = false;
+  if ($open && !empty($open['check_in'])) $openStale = date('Y-m-d', strtotime($open['check_in'])) !== date('Y-m-d');
+  return ['lines'=>$lines, 'open'=>$openStale ? null : $open, 'open_stale'=>$openStale];
 });
 
 // ثبت ورود
