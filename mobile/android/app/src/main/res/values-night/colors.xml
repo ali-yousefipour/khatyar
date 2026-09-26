@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="khatyar_notification_primary">#FFFFFFFF</color>
+    <color name="khatyar_notification_secondary">#FFE6E6E6</color>
+    <color name="khatyar_notification_button_text">#FFFFFFFF</color>
+</resources>
