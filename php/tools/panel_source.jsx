@@ -7876,7 +7876,7 @@ const VIEWS={
   vehicleassets:{t:"ماشین‌آلات و وسایل مأموریتی",ic:"🚙",c:PersonnelVehicleAssets},
   vehiclechecklist:{t:"چک‌لیست خودرویی و موتوری",ic:"☑",c:PersonnelVehicleChecklist},
   settings:{t:"تنظیمات سامانه",ic:"⚙",c:Settings},
-  schoolservice:{t:"سرویس مدارس",ic:"🏫",c:SchoolServiceLauncher},
+  schoolservice:{t:"سرویس مدارس",ic:"route",c:SchoolServiceLauncher},
 };
 
 function Login({onLogin,brand}){
@@ -7947,7 +7947,7 @@ function App(){
     vehicleassets:'operation-tools', vehiclechecklist:'checklist', schoolservice:'school-service'
   };
   const can=(k)=>k==="schoolservice"?schoolServiceAllowed:(!allowed||allowed.includes(k)||CORE.includes(k));
-  const closeOnPick=(k)=>{ setV(k); setDrawer(false); };
+  const closeOnPick=(k)=>{ if(k==="schoolservice"&&v===k){try{window.openSchoolService?.().catch?.(e=>alert(e.message||"دسترسی به سرویس مدارس ممکن نیست."));}catch(e){alert(e.message||"دسترسی به سرویس مدارس ممکن نیست.");} return;} setV(k); setDrawer(false); };
   return(<div className={"layout"+(drawer?" drawer-open":"")}>
     <div className="scrim" onClick={()=>setDrawer(false)}></div>
     <aside className="side"><div className="brand">{brand.logo?<img src={brand.logo} style={{width:38,height:38,borderRadius:10,objectFit:"contain",background:"#fff",padding:3}}/>:<img src="/brand-khatyar.png" style={{width:38,height:38,borderRadius:19,objectFit:"cover"}}/>}<span>{brand.title||"خطیار"}</span></div>
