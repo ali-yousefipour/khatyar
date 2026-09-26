@@ -729,7 +729,18 @@ function Dashboard() {
     const lineRef = useRef();
     const [tab, setTab] = useState("charts");
     const [bdays, setBdays] = useState(null);
-    useEffect(() => { db.stats().then(setS).catch(() => { }); db.reports().then(setRep).catch(() => { }); db.topWorkers().then(setTw).catch(() => { }); GET("/admin/birthdays-month").then(setBdays).catch(() => { }); }, []);
+    const [loadErr, setLoadErr] = useState("");
+    const [loading, setLoading] = useState(true);
+    const loadStats = () => {
+        setLoading(true);
+        setLoadErr("");
+        db.stats().then(setS).catch(e => setLoadErr(e && e.message ? e.message : "خطا در دریافت اطلاعات داشبورد")).finally(() => setLoading(false));
+    };
+    useEffect(() => { loadStats(); GET("/admin/birthdays-month").then(setBdays).catch(() => { }); }, []);
+    useEffect(() => {
+        if (tab === "reports") db.reports().then(setRep).catch(() => { });
+        if (tab === "workers") db.topWorkers().then(setTw).catch(() => { });
+    }, [tab]);
     useEffect(() => {
         if (!s || tab !== "charts" || !chartRef.current)
             return;
@@ -744,8 +755,12 @@ function Dashboard() {
         }
         return () => { c.destroy(); c2 && c2.destroy(); };
     }, [s, tab]);
+    if (loading && !s)
+        return React.createElement("div", { className: "panel", style: { margin: "14px 0" } }, React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center", gap: 10 } }, React.createElement("span", null, "در حال دریافت اطلاعات داشبورد…"), React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "لطفاً چند لحظه صبر کنید")));
+    if (loadErr && !s)
+        return React.createElement("div", { className: "panel", style: { margin: "14px 0", border: "1px solid #f0caca" } }, React.createElement("h3", { style: { marginTop: 0 } }, "اطلاعات داشبورد دریافت نشد"), React.createElement("p", { style: { color: "var(--danger)", fontSize: 13, lineHeight: 1.9 } }, loadErr), React.createElement("button", { className: "btn p", onClick: loadStats }, "تلاش مجدد"));
     if (!s)
-        return React.createElement("div", null, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026");
+        return React.createElement("div", { className: "panel", style: { margin: "14px 0" } }, "اطلاعات داشبورد در دسترس نیست.");
     const K = [["راننده فعال", s.drivers], ["خط فعال", s.lines], ["حضور امروز", s.today_attendance], ["فیش پرداخت‌نشده", s.unpaid_bills], ["تذکر این ماه", s.notices_month]];
     return (React.createElement(React.Fragment, null,
         React.createElement("div", { className: "kpis" }, K.map(([l, n], i) => React.createElement("div", { className: "kpi", key: i },
