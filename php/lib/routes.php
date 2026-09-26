@@ -2159,14 +2159,14 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
   if ($lat === null || $lng === null) Http::error('موقعیت مکانی برای ثبت خروج در دسترس نیست. GPS را روشن کنید.', 422);
   $lineIds = user_line_ids($u);
   $extraR = max(20, (int)_req_setting('checkin_error_radius_m', 0)) + (int)ceil(min(80, (float)($b['accuracy'] ?? 0) * 0.75));
-  $outFence = station_at_point($lat, $lng, [(int)$open['line_id']], $extraR);
+  $outFence = station_at_point($lat, $lng, $lineIds, $extraR);
   if (!$outFence) {
-    $nearOut = _nearest_station($lat, $lng, [(int)$open['line_id']]);
-    $msg = $nearOut ? ('شما خارج از محدوده خط ثبت حضور هستید؛ نزدیک‌ترین محدوده «'.$nearOut['name'].'» در '.number_format($nearOut['distance_m']).' متری شماست.') : 'شما خارج از محدوده خط ثبت حضور هستید.';
+    $nearOut = _nearest_station($lat, $lng, $lineIds);
+    $msg = $nearOut ? ('شما خارج از محدوده خطوط مجاز خود هستید؛ نزدیک‌ترین محدوده «'.$nearOut['name'].'» در '.number_format($nearOut['distance_m']).' متری شماست.') : 'شما خارج از محدوده خطوط مجاز خود هستید.';
     _attendance_reject_log((int)$u['id'],(int)$open['line_id'],'gps',$lat,$lng,$b['accuracy'] ?? null,$msg,['checkout'=>true,'line_ids'=>$lineIds]);
     Http::error($msg,403);
   }
-  $outStation = $outFence['name'] ?? _station_name_at($lat, $lng, [$open['line_id']]);
+  $outStation = $outFence['name'] ?? _station_name_at($lat, $lng, $lineIds);
   $now = $eventAt;
   if (strtotime($now) <= strtotime($open['check_in'])) $now = date('Y-m-d H:i:s', strtotime($open['check_in']) + 60);
   Db::run("UPDATE staff_attendance SET check_out=?, out_lat=?, out_lng=?, out_station=?, client_check_out=? WHERE id=?", [$now, $lat, $lng, $outStation, $now, $open['id']]);
@@ -10030,9 +10030,9 @@ function _phase7p4_offline_checkout($b,$u,$uuid,$it){
   if ($lat === null || $lng === null) throw new Exception('موقعیت ثبت خروج آفلاین وجود ندارد');
   $lineIds = user_line_ids($u);
   $extraR = max(20, (int)_req_setting('checkin_error_radius_m', 0)) + (int)ceil(min(80, (float)($b['accuracy'] ?? 0) * 0.75));
-  $outFence = station_at_point($lat,$lng,[(int)$open['line_id']],$extraR);
-  if (!$outFence) throw new Exception('ثبت خروج آفلاین خارج از محدوده خط ثبت حضور است');
-  $station = $outFence['name'] ?? _station_name_at($lat,$lng,[$open['line_id']]);
+  $outFence = station_at_point($lat,$lng,$lineIds,$extraR);
+  if (!$outFence) throw new Exception('ثبت خروج آفلاین خارج از محدوده خطوط مجاز شماست');
+  $station = $outFence['name'] ?? _station_name_at($lat,$lng,$lineIds);
   if (strtotime($clientTime) <= strtotime($open['check_in'])) $clientTime = date('Y-m-d H:i:s', strtotime($open['check_in']) + 60);
   Db::run("UPDATE staff_attendance SET check_out=?, out_lat=?, out_lng=?, out_station=?, offline_synced=1, client_check_out=? WHERE id=?", [$clientTime,$lat,$lng,$station,$clientTime,$open['id']]);
   try { _notify_attendance_action('checkout',(int)$u['id'],$open['line_id']??null,$open['method']??'gps',$station,$clientTime); } catch (\Throwable $e) { error_log('offline attendance checkout alert failed: '.$e->getMessage()); }
