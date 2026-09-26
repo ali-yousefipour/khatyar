@@ -7802,6 +7802,25 @@ function PersonnelVehicleAssets(){
 function PVAAssetDetail({asset:a}){return <div><div className="row" style={{justifyContent:'space-between',alignItems:'start'}}><div><h3>{a.asset_type==='car'?'خودرو':'موتورسیکلت'} — {pvaPlate(a)}</h3><div className="muted">{a.first_name} {a.last_name} · {a.role_title||'—'} · وضعیت: {pvaStatus(a.status)}</div></div></div><div className="panel"><h4>مشخصات کامل</h4><PVAFields a={a}/></div><div className="panel"><h4>تصاویر و مدارک</h4><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>{(a.photos||[]).map(p=><figure key={p.photo_key} style={{margin:0,border:'1px solid var(--line)',borderRadius:10,padding:6}}><img src={p.data_uri} style={{width:'100%',height:120,objectFit:'contain',background:'#f5f6f8',borderRadius:7}}/><figcaption style={{fontSize:10,textAlign:'center'}}>{p.photo_key}</figcaption></figure>)}</div></div><div className="panel"><h4>تاریخچه چک‌لیست</h4><PVAHistory history={a.checklist_history||[]}/></div></div>}
 function PersonnelVehicleChecklist(){const [items,setItems]=useState([]),[selected,setSelected]=useState(null),[detail,setDetail]=useState(null),[checks,setChecks]=useState({}),[note,setNote]=useState(''),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false);const load=async()=>{setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=checklist-list',{ttl:0});setItems(d.items||[])}catch(e){alert(e.message)}finally{setLoading(false)}};useEffect(()=>{load()},[]);const open=async a=>{setSelected(a);setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=detail&id='+encodeURIComponent(a.id),{ttl:0});const x=d.asset||a;setDetail(x);const m={};(x.checks||[]).forEach(c=>m[c.check_key]=!!Number(c.check_value));setChecks(m);setNote(x.checklist_note||'')}catch(e){alert(e.message)}finally{setLoading(false)}};const motor=detail?.asset_type==='motorcycle',list=motor?PVA_MOTOR_CHECKS:PVA_CAR_CHECKS;const submit=async approved=>{const missing=list.filter(([k])=>checks[k]===undefined);if(missing.length){alert('تمام موارد چک‌لیست را تعیین تکلیف کنید.');return}if(approved&&list.some(([k])=>checks[k]!==true)){alert('برای تأیید نهایی همه موارد باید تأیید شده باشند.');return}setSaving(true);try{await SEND('POST','/personnel-vehicle-assets.php?op=checklist-verify',{asset_id:detail.id,approved,checks:Object.fromEntries(list.map(([k])=>[k,{value:!!checks[k],note:''}])),note});alert(approved?'وسیله تأیید شد.':'وسیله برای اصلاح برگشت داده شد.');setSelected(null);setDetail(null);await load()}catch(e){alert(e.message)}finally{setSaving(false)}};if(loading&&!detail)return <div className="panel"><p className="muted">در حال دریافت اطلاعات…</p></div>;return <div className="panel"><h3>چک‌لیست خودرویی و موتوری</h3>{!detail?<><p className="muted">پلاک را انتخاب کنید تا مشخصات کامل، تصاویر مدارک و سوابق چک‌لیست نمایش داده شود.</p><div style={{display:'grid',gap:8}}>{items.map(a=><button key={a.id} type="button" onClick={()=>open(a)} style={{textAlign:'right',background:'#fff',border:'1px solid var(--line)',borderRadius:12,padding:12,cursor:'pointer'}}><b>{pvaPlate(a)}</b><div>{a.first_name} {a.last_name} — {a.asset_type==='car'?'خودرو':'موتورسیکلت'}</div><small className="muted">{pvaStatus(a.status)} · {a.checklist_count?`${pvaFa(a.checklist_count)} بار بررسی شده`: 'بدون سابقه'}</small></button>)}{!items.length&&<div className="muted">هنوز وسیله‌ای برای بررسی ثبت نشده است.</div>}</div></>:<><button className="btn g" onClick={()=>{setDetail(null);setSelected(null)}}>بازگشت به فهرست</button><div className="panel"><h4>مشخصات و مالک</h4><PVAFields a={detail}/></div><div className="panel"><h4>تصاویر و مدارک</h4><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>{(detail.photos||[]).map(p=><figure key={p.photo_key} style={{margin:0}}><img src={p.data_uri} style={{width:'100%',height:130,objectFit:'contain',border:'1px solid var(--line)',borderRadius:10}}/><figcaption style={{fontSize:10,textAlign:'center'}}>{p.photo_key}</figcaption></figure>)}</div></div><div className="panel"><h4>تاریخچه قبلی</h4><PVAHistory history={detail.checklist_history||[]}/></div><div className="panel"><h4>بررسی چک‌لیست</h4>{list.map(([k,t])=><div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid var(--line)'}}><b style={{fontSize:13}}>{t}</b><div className="row" style={{gap:6}}><button className={'btn '+(checks[k]===true?'p':'')} onClick={()=>setChecks(x=>({...x,[k]:true}))}>تأیید</button><button className={'btn '+(checks[k]===false?'d':'')} onClick={()=>setChecks(x=>({...x,[k]:false}))}>رد</button></div></div>)}<label className="label" style={{display:'block',marginTop:12}}>توضیحات</label><textarea className="input" rows="4" value={note} onChange={e=>setNote(e.target.value)}/><div className="row" style={{gap:8,marginTop:10}}><button className="btn d" disabled={saving} onClick={()=>submit(false)}>نیازمند اصلاح</button><button className="btn p" disabled={saving} onClick={()=>submit(true)}>{saving?'در حال ثبت…':'تأیید نهایی'}</button></div></div></> }</div>}
 
+function SchoolServiceLauncher(){
+  const [error,setError]=useState("");
+  const [busy,setBusy]=useState(true);
+  const launch=()=>{
+    setBusy(true);setError("");
+    try{
+      if(typeof window.openSchoolService!=="function")throw new Error("ماژول سرویس مدارس هنوز بارگذاری نشده است.");
+      Promise.resolve(window.openSchoolService()).catch(e=>setError(e&&e.message?e.message:"باز کردن سرویس مدارس ناموفق بود")).finally(()=>setBusy(false));
+    }catch(e){setError(e&&e.message?e.message:"باز کردن سرویس مدارس ناموفق بود");setBusy(false);}
+  };
+  useEffect(()=>{launch();},[]);
+  return <div className="panel" style={{margin:"14px 0"}}>
+    <h3 style={{marginTop:0}}>🏫 سرویس مدارس</h3>
+    {busy&&!error&&<p className="muted">در حال باز کردن ویزارد سرویس مدارس…</p>}
+    {error&&<div><p style={{color:"var(--danger)",lineHeight:1.9}}>{error}</p><button className="btn p" onClick={launch}>تلاش مجدد</button></div>}
+    {!busy&&!error&&<p className="muted">ویزارد سرویس مدارس باز شد. برای بازگشایی مجدد، همین آیتم منو را انتخاب کنید.</p>}
+  </div>;
+}
+
 const VIEWS={
   covertselfies:{t:"سلفی‌های نامحسوس",ic:"📸",c:CovertSelfies},
   dashboard:{t:"داشبورد مدیریت",ic:"▦",c:Dashboard},
@@ -7857,6 +7876,7 @@ const VIEWS={
   vehicleassets:{t:"ماشین‌آلات و وسایل مأموریتی",ic:"🚙",c:PersonnelVehicleAssets},
   vehiclechecklist:{t:"چک‌لیست خودرویی و موتوری",ic:"☑",c:PersonnelVehicleChecklist},
   settings:{t:"تنظیمات سامانه",ic:"⚙",c:Settings},
+  schoolservice:{t:"سرویس مدارس",ic:"🏫",c:SchoolServiceLauncher},
 };
 
 function Login({onLogin,brand}){
@@ -7896,6 +7916,7 @@ function App(){
   const [openSections,setOpenSections]=useState({"داشبورد و پایش":true,"عملیات میدانی":true,"تاکسی و تاکسیران":false,"گزارش‌ها":false,"منابع انسانی":false,"ارتباطات":false,"مدیریت سامانه":false});
   useEffect(()=>{ db.publicSettings().then(s=>{ const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>{}); },[]);
   useEffect(()=>{ if(me&&me.is_admin){ db.settings().then(s=>{ const all=s.role_perms||{}; const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id); const rp=all[me.role_id]; setAllowed(has&&Array.isArray(rp)?rp:null); const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>setAllowed(null)); } },[me]);
+  useEffect(()=>{ if(!me||!me.is_admin){setSchoolServiceAllowed(false);return;} let alive=true; GET("/school-service/access").then(a=>{if(alive)setSchoolServiceAllowed(a?.allowed===true);}).catch(()=>{if(alive)setSchoolServiceAllowed(false);}); return()=>{alive=false}; },[me]);
   if(!me)return <Login onLogin={setMe} brand={brand}/>;
   if(!me.is_admin) return (<div style={{minHeight:"100vh",display:"grid",placeItems:"center",textAlign:"center",padding:24}}>
     <div><h2 style={{color:"var(--danger)"}}>دسترسی مدیریتی ندارید</h2>
@@ -7907,7 +7928,7 @@ function App(){
   const SECTIONS=[
     ["داشبورد و پایش",["dashboard","reportscenter","health","map","present","presentchart"]],
     ["عملیات میدانی",["missiondashboard","citydashboard","missiontemplates","scoreengine","officials","presence","attendance","companyrequests","outages","covertselfies"]],
-    ["تاکسی و تاکسیران",["drivers","driverservicereport","tempdrivers","platetraining","lines","zones","bills"]],
+    ["تاکسی و تاکسیران",["drivers","driverservicereport","tempdrivers","platetraining","lines","zones","bills","schoolservice"]],
     ["گزارش‌ها",["reports","report","perfreport","attreport","useract"]],
     ["منابع انسانی",["shifts","workpolicy","requests","salaryslips","commitments","welfare","cultural","vehicleassets","vehiclechecklist"]],
     ["ارتباطات",["messages","sms","smslog","messengercenter","radiocenter"]],
@@ -7923,9 +7944,9 @@ function App(){
     shifts:'shift-cycle', workpolicy:'work-policy', requests:'request-form', salaryslips:'salary-slip', commitments:'commitment-sign', welfare:'welfare-gift', cultural:'cultural-book',
     messages:'messages-mail', sms:'sms-phone', smslog:'sms-history', messengercenter:'messenger-bot', radiocenter:'radio-tower', users:'users-admin', org:'organization-tree', forms:'forms-pen',
     config:'system-config', customfields:'custom-fields', inventory:'request-box', excel:'excel-upload', appitems:'app-menu', cronstatus:'activity-wave', activesessions:'security-lock', logs:'audit-logs', settings:'settings-gears',
-    vehicleassets:'operation-tools', vehiclechecklist:'checklist'
+    vehicleassets:'operation-tools', vehiclechecklist:'checklist', schoolservice:'school-service'
   };
-  const can=(k)=>!allowed||allowed.includes(k)||CORE.includes(k);
+  const can=(k)=>k==="schoolservice"?schoolServiceAllowed:(!allowed||allowed.includes(k)||CORE.includes(k));
   const closeOnPick=(k)=>{ setV(k); setDrawer(false); };
   return(<div className={"layout"+(drawer?" drawer-open":"")}>
     <div className="scrim" onClick={()=>setDrawer(false)}></div>
