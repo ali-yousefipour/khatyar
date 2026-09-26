@@ -526,7 +526,17 @@ function Dashboard(){
   const [s,setS]=useState(null); const [rep,setRep]=useState([]); const [tw,setTw]=useState({top:[],bottom:[]}); const chartRef=useRef(); const lineRef=useRef();
   const [tab,setTab]=useState("charts");
   const [bdays,setBdays]=useState(null);
-  useEffect(()=>{db.stats().then(setS).catch(()=>{}); db.reports().then(setRep).catch(()=>{}); db.topWorkers().then(setTw).catch(()=>{}); GET("/admin/birthdays-month").then(setBdays).catch(()=>{})},[]);
+  const [loadErr,setLoadErr]=useState("");
+  const [loading,setLoading]=useState(true);
+  const loadStats=()=>{
+    setLoading(true); setLoadErr("");
+    db.stats().then(setS).catch(e=>setLoadErr(e&&e.message?e.message:"خطا در دریافت اطلاعات داشبورد")).finally(()=>setLoading(false));
+  };
+  useEffect(()=>{loadStats(); GET("/admin/birthdays-month").then(setBdays).catch(()=>{})},[]);
+  useEffect(()=>{
+    if(tab==="reports"){ db.reports().then(setRep).catch(()=>{}); }
+    if(tab==="workers"){ db.topWorkers().then(setTw).catch(()=>{}); }
+  },[tab]);
   useEffect(()=>{
     if(!s||tab!=="charts"||!chartRef.current)return;
     const c=new Chart(chartRef.current,{type:"bar",data:{labels:(s.week_attendance||[]).map(x=>x.d||""),
@@ -540,7 +550,9 @@ function Dashboard(){
     }
     return()=>{c.destroy();c2&&c2.destroy();};
   },[s,tab]);
-  if(!s)return <div>در حال بارگذاری…</div>;
+  if(loading&&!s)return <div className="panel" style={{margin:"14px 0"}}><div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10}}><span>در حال دریافت اطلاعات داشبورد…</span><span className="muted" style={{fontSize:12}}>لطفاً چند لحظه صبر کنید</span></div></div>;
+  if(loadErr&&!s)return <div className="panel" style={{margin:"14px 0",border:"1px solid #f0caca"}}><h3 style={{marginTop:0}}>اطلاعات داشبورد دریافت نشد</h3><p style={{color:"var(--danger)",fontSize:13,lineHeight:1.9}}>{loadErr}</p><button className="btn p" onClick={loadStats}>تلاش مجدد</button></div>;
+  if(!s)return <div className="panel" style={{margin:"14px 0"}}>اطلاعات داشبورد در دسترس نیست.</div>;
   const K=[["راننده فعال",s.drivers],["خط فعال",s.lines],["حضور امروز",s.today_attendance],["فیش پرداخت‌نشده",s.unpaid_bills],["تذکر این ماه",s.notices_month]];
   return(<>
     <div className="kpis">{K.map(([l,n],i)=><div className="kpi" key={i}><div className="n">{fa(n)}</div><div className="l">{l}</div></div>)}</div>
