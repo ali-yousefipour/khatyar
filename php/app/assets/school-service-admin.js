@@ -32,66 +32,7 @@ b.querySelectorAll('[data-edit-c]').forEach(x=>x.onclick=async()=>{const rows2=(
 b.querySelectorAll('[data-edit-s]').forEach(x=>x.onclick=async()=>{const rows2=(await api('/api/school-service/schools?search=')).items||[];const r=rows2.find(z=>Number(z.id)===Number(x.dataset.editS));if(r)ssvEntityForm('schools',r,load)});
 };input.oninput=()=>{clearTimeout(input._t);input._t=setTimeout(()=>{page=1;load()},250)};await load();}catch(e){b.innerHTML='<div class="ssv-msg">'+esc(e.message||'خطا در دریافت اطلاعات')+'</div>'}}
 window.openSchoolService = open;
-(async function installSchoolServiceMenu(){
-  let accessChecked=false, allowed=false, accessBusy=false, menuBusy=false, observer=null;
-
-  const checkAccess=async()=>{
-    if(accessChecked||accessBusy)return;
-    accessBusy=true;
-    try{
-      const a=await api('/api/school-service/access');
-      accessChecked=true;
-      allowed=a?.allowed===true;
-    }catch(_){
-      // Authentication may not be ready yet. Retry on the next observer/timer cycle.
-    }finally{
-      accessBusy=false;
-    }
-  };
-
-  const add=async()=>{
-    if(menuBusy)return;
-    await checkAccess();
-    if(!accessChecked||!allowed)return;
-    if(document.getElementById('school-service-menu-item'))return;
-
-    const nav=document.querySelector('aside.side nav.nav');
-    if(!nav)return;
-
-    menuBusy=true;
-    try{
-      if(document.getElementById('school-service-menu-item'))return;
-      const btn=document.createElement('button');
-      btn.id='school-service-menu-item';
-      btn.type='button';
-      btn.className='ssv-btn';
-      btn.innerHTML='<span style="font-size:18px">🏫</span><span>سرویس مدارس</span>';
-      btn.onclick=()=>open().catch(e=>alert(e.message||'دسترسی به سرویس مدارس ممکن نیست.'));
-
-      const logout=nav.querySelector('.logout-item');
-      if(logout)nav.insertBefore(btn,logout);
-      else nav.appendChild(btn);
-    }finally{
-      menuBusy=false;
-    }
-  };
-
-  const schedule=()=>{
-    clearTimeout(schedule._t);
-    schedule._t=setTimeout(()=>{add().catch(()=>{});},120);
-  };
-
-  // The sidebar is rendered and re-rendered by React. The old implementation
-  // inserted the button once and then stopped watching, so React could remove it.
-  // Keep the small integration point synchronized with the React-owned sidebar.
-  observer=new MutationObserver(schedule);
-  observer.observe(document.getElementById('root')||document.body,{childList:true,subtree:true});
-
-  // Initial login/render plus a short retry window for authentication readiness.
-  for(let i=0;i<120;i++){
-    await add();
-    if(document.getElementById('school-service-menu-item'))break;
-    await new Promise(r=>setTimeout(r,500));
-  }
+/* منوی سرویس مدارس توسط پنل React و در ساختار اصلی سایدبار ساخته می‌شود.
+   این فایل فقط ویزارد و API آن را فراهم می‌کند تا منوی جداگانه و پایدار با React تداخل نداشته باشد. */
 })();
 })();
