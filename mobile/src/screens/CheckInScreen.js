@@ -199,9 +199,8 @@ function CheckInCore() {
   // نزدیک‌ترین فاصله تا محدودهٔ خط انتخاب‌شده
   const toleranceM = appCfg?.checkin_error_radius_m || 0;
   let distance = null;
-  if (pos && line && line.geofences?.length) {
-    distance = Math.min(...line.geofences.map((g) => distanceToFence(pos.lat, pos.lng, g)));
-  }
+  const distanceFences = open ? (cfg?.lines || []).flatMap((l) => l.geofences || []) : (line?.geofences || []);
+  if (pos && distanceFences.length) distance = Math.min(...distanceFences.map((g) => distanceToFence(pos.lat, pos.lng, g)));
   const inArea = distance != null && distance <= toleranceM;
 
   const fmtTime = (s) => {
@@ -268,10 +267,24 @@ function CheckInCore() {
   async function doCheckout() {
     setBusy(true);
     try {
-      let lat, lng;
-      try { const p = await getAccuratePosition({ samples: 3, timeoutMs: 9000, desiredAccuracy: 20 }); if (p) { lat = p.coords.latitude; lng = p.coords.longitude; } } catch {}
-      const r = await postOrQueue('/my/checkout', { lat, lng, client_time: new Date().toISOString(), client_uuid: 'checkout_' + Date.now() + '_' + Math.random().toString(36).slice(2,8) }, 'checkout');
-      Alert.alert(r.queued ? 'آفلاین' : 'ثبت شد', r.queued ? 'خروج ذخیره شد و بعد از اتصال ارسال می‌شود.' : 'خروج شما ثبت شد.');
+      let lat, lng, accuracy;
+      try {
+        const p = await getAccuratePosition({ samples: 5, timeoutMs: 12000, desiredAccuracy: 12 });
+        if (p) { lat = p.coords.latitude; lng = p.coords.longitude; accuracy = p.coords.accuracy; }
+      } catch {}
+      // سرور خروج را در تمام خطوط مجاز کاربر بررسی می‌کند؛ خط خروج می‌تواند با خط ورود متفاوت باشد.
+      const r = await postOrQueue('/my/checkout', {
+        lat, lng, accuracy,
+        client_time: new Date().toISOString(),
+        client_uuid: 'checkout_' + Date.now() + '_' + Math.random().toString(36).slice(2,8)
+      }, 'checkout');
+      const lineText = r?.checkout_line_code ? \` در خط \${faNum(String(r.checkout_line_code))}\` : '';
+      Alert.alert(
+        r.queued ? 'آفلاین' : 'ثبت شد',
+        r.queued
+          ? 'خروج ذخیره شد و بعد از اتصال، موقعیت شما در تمام خطوط مجاز بررسی و ثبت می‌شود.'
+          : \`خروج شما\${lineText} ثبت شد.\`
+      );
       await load();
     } catch (e) { Alert.alert('خطا', e.message || 'ثبت خروج ناموفق'); }
     finally { setBusy(false); }
@@ -334,7 +347,11 @@ function CheckInCore() {
   </View>;
   if (!cfg?.lines?.length) return <View style={s.center}><Text style={s.muted}>خط مجازی برای شما تعریف نشده است.</Text></View>;
 
-  const mapHtml = buildMapHtml(line, pos, appCfg, mapRuntime);
+  // هنگام حضور باز، نقشه محدوده تمام خطوط مجاز را نشان می‌دهد؛ بنابراین خروج در خطی غیر از خط ورود نیز قابل مشاهده و کنترل است.
+  const mapLine = open
+    ? { geofences: (cfg?.lines || []).flatMap((l) => l.geofences || []) }
+    : line;
+  const mapHtml = buildMapHtml(mapLine, pos, appCfg, mapRuntime);
 
   return (
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
@@ -343,13 +360,17 @@ function CheckInCore() {
         <TouchableOpacity onPress={() => load()} style={{ marginRight: 8 }}><Text style={{ color: C.brand, fontFamily: FONT.bold, fontSize: 12 }}>تلاش مجدد</Text></TouchableOpacity>
       </View>}
       {/* خط به‌صورت خودکار از روی موقعیت کاربر تشخیص داده می‌شود؛ انتخاب دستی حذف شده است. */}
-      <Text style={s.label}>خط تشخیص‌داده‌شده</Text>
+      <Text style={s.label}>{open ? 'خطوط مجاز برای ثبت خروج' : 'خط تشخیص‌داده‌شده'}</Text>
       <View style={s.autoLineBox}>
         <Text style={s.autoLineTitle}>
-          {line ? `خط ${faNum(line.code || line.id)}` : 'در حال تشخیص خودکار خط'}
+          {open
+            ? \`خط ورود: \${open?.line_id ? faNum(String(cfg?.lines?.find((l) => Number(l.id) === Number(open.line_id))?.code || open.line_id)) : 'نامشخص'}\`
+            : (line ? \`خط \${faNum(line.code || line.id)}\` : 'در حال تشخیص خودکار خط')}
         </Text>
         <Text style={s.autoHint}>
-          برای ثبت حضور نیازی به انتخاب خط نیست. اگر داخل محدودهٔ هرکدام از خطوط تعریف‌شده برای شما باشید، سرور همان خط را به‌صورت خودکار ثبت می‌کند.
+          {open
+            ? 'برای خروج، لازم نیست در همان خطی باشید که ورود را ثبت کرده‌اید. کافی است اکنون داخل محدودهٔ یکی از خطوط مجاز شما باشید؛ سامانه خط واقعی محل خروج را تشخیص می‌دهد و همان را ثبت می‌کند.'
+            : 'برای ثبت حضور نیازی به انتخاب خط نیست. اگر داخل محدودهٔ هرکدام از خطوط تعریف‌شده برای شما باشید، سرور همان خط را به‌صورت خودکار ثبت می‌کند.'}
         </Text>
       </View>
 
@@ -368,9 +389,9 @@ function CheckInCore() {
 
       {/* فاصله */}
       <View style={s.distRow}>
-        {distance == null ? <Text style={s.muted}>محدوده‌ای برای این خط تعریف نشده یا موقعیت در دسترس نیست.</Text> :
-          inArea ? <Text style={[s.distTxt, { color: C.ok }]}>✓ شما داخل محدودهٔ ایستگاه هستید</Text> :
-            <Text style={s.distTxt}>فاصله تا محدودهٔ خط: <Text style={{ color: C.danger, fontFamily: FONT.bold }}>{faNum(Math.round(distance))} متر</Text></Text>}
+        {distance == null ? <Text style={s.muted}>{open ? 'هیچ محدوده‌ای برای خطوط مجاز تعریف نشده یا موقعیت در دسترس نیست.' : 'محدوده‌ای برای این خط تعریف نشده یا موقعیت در دسترس نیست.'}</Text> :
+          inArea ? <Text style={[s.distTxt, { color: C.ok }]}>✓ {open ? 'شما داخل محدودهٔ یکی از خطوط مجاز برای خروج هستید' : 'شما داخل محدودهٔ ایستگاه هستید'}</Text> :
+            <Text style={s.distTxt}>فاصله تا نزدیک‌ترین محدوده: <Text style={{ color: C.danger, fontFamily: FONT.bold }}>{faNum(Math.round(distance))} متر</Text></Text>}
       </View>
 
       {/* تایمر حضور */}
