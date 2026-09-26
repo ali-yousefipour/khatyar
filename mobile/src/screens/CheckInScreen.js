@@ -4,7 +4,7 @@ import { tehranTimeToEpochMs } from '../jdate';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, PanResponder, Animated, TextInput, Modal } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
-import { getAccuratePosition, getGsmPosition } from '../location';
+import { getAccuratePosition, getGsmPosition, getFastPosition, getCachedLastPosition, rememberLastPosition } from '../location';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { request, postOrQueue } from '../api';
 import { getAppConfig } from '../appconfig';
@@ -94,7 +94,7 @@ function CheckInCore() {
     setLoadError(null);
     // موازی: config + موقعیت را با هم بگیر تا صفحه سریع باز شود
     const [cfgResult, timerResult] = await Promise.allSettled([
-      request('/my/checkin-config', { noStore: true }),
+      request('/my/checkin-config'),
       request('/my/work-timer', { noStore: true }),
     ]);
     if (timerResult && timerResult.status === 'fulfilled') setTimerInfo(timerResult.value);
@@ -108,21 +108,26 @@ function CheckInCore() {
       setLoadError(cfgResult.reason?.message || 'دریافت وضعیت ثبت حضور ناموفق بود. اتصال اینترنت را بررسی و دوباره تلاش کنید.');
     }
     setLoading(false); // صفحه را فوری نشان بده
-    // تعیین خودکار محدوده: ابتدا موقعیت تقریبی شبکه/GSM و سپس جایگزینی با GPS دقیق.
+    // ابتدا آخرین موقعیت معتبر گوشی/اپ را فوراً نمایش بده، سپس با GPS دقیق جایگزین کن.
     try {
+      const cached = await getCachedLastPosition({ maxAgeMs: 6 * 60 * 60 * 1000, maxAccuracy: 200 });
+      if (cached) setPos(cached);
+      const fast = await getFastPosition({ maxAgeMs: 60 * 1000, timeoutMs: 3000, maxAccuracy: 100 });
+      if (fast?.coords) {
+        const fp = { lat: fast.coords.latitude, lng: fast.coords.longitude, acc: fast.coords.accuracy, ts: fast.timestamp, viaGsm: false };
+        setPos(fp); await rememberLastPosition(fp);
+      }
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const gsm = await getGsmPosition({ timeoutMs: 4500 });
-        if (gsm?.coords) {
-          setPos({ lat: gsm.coords.latitude, lng: gsm.coords.longitude, acc: gsm.coords.accuracy, ts: gsm.timestamp, viaGsm: true });
-        }
-        // GPS دقیق بعد از نمایش سریع محدوده، بدون نیاز به دکمهٔ کاربر دریافت و جایگزین می‌شود.
+      const services = status === 'granted' ? await Location.hasServicesEnabledAsync() : false;
+      setGpsReady(!!services);
+      if (status === 'granted' && services) {
         const gps = await getAccuratePosition({ samples: 5, timeoutMs: 10000, desiredAccuracy: 12 });
         if (gps?.coords) {
-          setPos({ lat: gps.coords.latitude, lng: gps.coords.longitude, acc: gps.coords.accuracy, ts: gps.timestamp, viaGsm: false });
+          const gp = { lat: gps.coords.latitude, lng: gps.coords.longitude, acc: gps.coords.accuracy, ts: gps.timestamp, viaGsm: false };
+          setPos(gp); await rememberLastPosition(gp);
         }
       }
-    } catch {}
+    } catch { setGpsReady(false); }
   };
   useEffect(() => { load(); getAppConfig().then((c) => c && setAppCfg(c)).catch(() => {}); }, []);
   useEffect(()=>{ let alive=true; (async()=>{ const mode=await AsyncStorage.getItem('map_offline_mode')||'smart'; const provider=await AsyncStorage.getItem('map_offline_provider')||'osm'; const net=await NetInfo.fetch(); const cached=await isTileCached(provider); const offline=mode==='offline'||(mode==='smart'&&!net.isConnected); let tiles={}; if(offline&&cached){ const c=pos||{lat:36.297,lng:59.606}; tiles=await loadLocalTilesAround(c.lat,c.lng,15,3); } if(alive)setMapRuntime({mode,provider,offline:offline&&cached,tiles}); })().catch(()=>{}); return()=>{alive=false}; },[pos?.lat,pos?.lng]);
@@ -130,7 +135,8 @@ function CheckInCore() {
 
   // تشخیص خودکار نزدیک‌ترین خط تعریف‌شده برای کاربر بر اساس موقعیت دقیق GPS؛ انتخاب دستی خط حذف شده است.
   useEffect(() => {
-    if (!pos || !cfg?.lines?.length || open) return;
+    if (!pos || !cfg?.lines?.length) return;
+    if (open?.line_id) { if (Number(lineId)!==Number(open.line_id)) setLineId(Number(open.line_id)); return; }
     let best = null;
     for (const l of cfg.lines) {
       const fences = l.geofences || [];
@@ -145,6 +151,7 @@ function CheckInCore() {
 
   // بروزرسانی موقعیت من روی نقشه
   const [refreshingPos, setRefreshingPos] = useState(false);
+  const [gpsReady, setGpsReady] = useState(false);
   const refreshMyLocation = async () => {
     setRefreshingPos(true);
     try {
@@ -152,6 +159,7 @@ function CheckInCore() {
       if (status !== 'granted') { Alert.alert('دسترسی موقعیت', 'برای نمایش موقعیت، اجازهٔ دسترسی به موقعیت لازم است.'); return; }
       const gsm = await getGsmPosition({ timeoutMs: 4000 });
       if (gsm?.coords) setPos({ lat: gsm.coords.latitude, lng: gsm.coords.longitude, acc: gsm.coords.accuracy, ts: gsm.timestamp, viaGsm: true });
+        setGpsReady(true);
       const p = await getAccuratePosition({ samples: 5, timeoutMs: 10000, desiredAccuracy: 12 });
       if (p?.coords) setPos({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, ts: p.timestamp, viaGsm: false });
       else if (!gsm?.coords) Alert.alert('موقعیت', 'دریافت موقعیت ناموفق بود. GPS را روشن کنید و دوباره تلاش کنید.');
@@ -189,7 +197,7 @@ function CheckInCore() {
     return () => { if (timerSyncRef.current) clearInterval(timerSyncRef.current); };
   }, [open?.id, timerInfo?.next_sync_sec]);
 
-  const line = cfg?.lines?.find((l) => l.id === lineId);
+  const line = cfg?.lines?.find((l) => Number(l.id) === Number(open?.line_id || lineId));
   // اگر روش فعلی برای خط انتخابی مجاز نباشد، به اولین روش مجاز سوییچ کن
   useEffect(() => {
     if (!line) return;
@@ -197,12 +205,11 @@ function CheckInCore() {
     if (allowed && !allowed.includes(method)) setMethod(allowed[0]);
   }, [lineId]);
   // نزدیک‌ترین فاصله تا محدودهٔ خط انتخاب‌شده
-  const toleranceM = appCfg?.checkin_error_radius_m || 0;
+  const toleranceM = Math.max(20, +(appCfg?.checkin_error_radius_m || 0)) + Math.ceil(Math.min(80, +(pos?.acc || 0) * 0.75));
   let distance = null;
-  if (pos && line && line.geofences?.length) {
-    distance = Math.min(...line.geofences.map((g) => distanceToFence(pos.lat, pos.lng, g)));
-  }
+  if (pos && line && line.geofences?.length) distance = Math.min(...line.geofences.map((g) => distanceToFence(pos.lat, pos.lng, g)));
   const inArea = distance != null && distance <= toleranceM;
+  const canAttend = !!gpsReady && !!pos && !!line && inArea;
 
   const fmtTime = (s) => {
     const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
@@ -240,7 +247,9 @@ function CheckInCore() {
       // ابتدا از همان موقعیتی که در نقشه نمایش داده شده استفاده کن (تا با بررسی محدوده تطابق داشته باشد)
       if (pos && pos.lat && pos.lng) { lat = pos.lat; lng = pos.lng; }
       else { try { const p = await getAccuratePosition({ samples: 4, timeoutMs: 10000, desiredAccuracy: 15 }); if (p) { lat = p.coords.latitude; lng = p.coords.longitude; } } catch {} }
-      const body = { method, lat, lng, accuracy: pos?.acc || undefined };
+      if (!gpsReady) throw new Error('برای ثبت حضور و خروج، GPS گوشی باید روشن باشد.');
+      if (!canAttend) throw new Error('موقعیت فعلی شما داخل محدوده مجاز خط نیست؛ ثبت حضور یا خروج امکان‌پذیر نیست.');
+      const body = { method: 'gps', line_id: open?.line_id || undefined, lat, lng, accuracy: pos?.acc || undefined };
       // خط به‌صورت دستی از اپ ارسال نمی‌شود؛ سرور باید حضور را در همهٔ خطوط تعریف‌شدهٔ کاربر بررسی و خط صحیح را خودش ثبت کند.
       if (method !== 'gps') body.proof = proof != null ? proof : proofVal;
       body.client_time = new Date().toISOString();
@@ -270,7 +279,8 @@ function CheckInCore() {
     try {
       let lat, lng;
       try { const p = await getAccuratePosition({ samples: 3, timeoutMs: 9000, desiredAccuracy: 20 }); if (p) { lat = p.coords.latitude; lng = p.coords.longitude; } } catch {}
-      const r = await postOrQueue('/my/checkout', { lat, lng, client_time: new Date().toISOString(), client_uuid: 'checkout_' + Date.now() + '_' + Math.random().toString(36).slice(2,8) }, 'checkout');
+      if (!gpsReady || !canAttend) throw new Error(!gpsReady ? 'برای ثبت خروج، GPS گوشی باید روشن باشد.' : 'موقعیت فعلی شما داخل محدوده مجاز خط نیست؛ ثبت خروج امکان‌پذیر نیست.');
+      const r = await postOrQueue('/my/checkout', { lat, lng, line_id: open?.line_id || undefined, client_time: new Date().toISOString(), client_uuid: 'checkout_' + Date.now() + '_' + Math.random().toString(36).slice(2,8) }, 'checkout');
       Alert.alert(r.queued ? 'آفلاین' : 'ثبت شد', r.queued ? 'خروج ذخیره شد و بعد از اتصال ارسال می‌شود.' : 'خروج شما ثبت شد.');
       await load();
     } catch (e) { Alert.alert('خطا', e.message || 'ثبت خروج ناموفق'); }
@@ -314,6 +324,7 @@ function CheckInCore() {
   // وقتی اسلایدر کامل کشیده شد
   const onSlideComplete = () => {
     if (open) { doCheckout(); return; }
+    if (!gpsReady || !canAttend) { Alert.alert('ثبت حضور', !gpsReady ? 'GPS گوشی باید روشن باشد.' : 'شما در محدوده مجاز هیچ‌یک از خطوط تعریف‌شده برای خود نیستید.'); return; }
     if (method === 'gps') {
       // تصمیم نهایی با سرور است. سرور همهٔ خطوط تعریف‌شده برای کاربر را بررسی می‌کند و اگر کاربر داخل هرکدام باشد همان خط را ثبت می‌کند.
       doCheckin();
@@ -394,34 +405,12 @@ function CheckInCore() {
         </View>
       )}
 
-      {/* روش ثبت حضور */}
-      {!open && (
-        <>
-          <Text style={s.label}>روش ثبت حضور</Text>
-          <View style={s.methodRow}>
-            {[['gps', 'موقعیت (GPS)'], ['qr', 'اسکن QR'], ['wifi', 'WiFi'], ['bt', 'بلوتوث']]
-              .filter(([k]) => !line || !line.checkin_methods || !Array.isArray(line.checkin_methods) || line.checkin_methods.length === 0 || line.checkin_methods.includes(k))
-              .map(([k, t]) => (
-              <TouchableOpacity key={k} style={[s.mChip, method === k && s.mChipOn]} onPress={() => setMethod(k)}>
-                <Text style={[s.mChipTxt, method === k && s.mChipTxtOn]}>{t}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {(method === 'wifi' || method === 'bt') && (
-            <TextInput style={s.input} value={proofVal} onChangeText={setProofVal} autoCapitalize="none"
-              placeholder={method === 'wifi' ? 'BSSID وای‌فای (مثلاً a1:b2:c3:d4:e5:f6)' : 'MAC بلوتوث'} placeholderTextColor={C.muted} />
-          )}
-          {method === 'wifi' && (
-            <TouchableOpacity style={s.readBtn} onPress={readWifi}><Text style={s.readBtnTxt}>📶 خواندن خودکار شبکهٔ متصل</Text></TouchableOpacity>
-          )}
-          {(method === 'wifi' || method === 'bt') && (
-            <Text style={s.hint}>این مقدار باید با یکی از شناسه‌های تعریف‌شدهٔ خط در پنل مطابقت داشته باشد. برای WiFi باید به شبکهٔ همان ایستگاه متصل باشید و موقعیت مکانی روشن باشد. برای بلوتوث، MAC دستگاه ثابت ایستگاه را وارد کنید.</Text>
-          )}
-        </>
-      )}
-
+      {/* ثبت حضور فقط با GPS انجام می‌شود؛ سایر روش‌ها در این آیتم مجاز نیستند. */}
+      <View style={{ backgroundColor: gpsReady ? '#e7f3ee' : '#fdecef', borderRadius: 10, padding: 10, marginBottom: 10 }}>
+        <Text style={{ fontFamily: FONT.bold, color: gpsReady ? C.ok : C.danger, textAlign: 'right' }}>{gpsReady ? '✓ GPS روشن است و موقعیت شما در حال بررسی است.' : '⚠ GPS گوشی خاموش است؛ ثبت حضور و خروج غیرفعال است.'}</Text>
+      </View>
       {/* اسلایدر ورود/خروج */}
-      <SlideButton mode={open ? 'out' : 'in'} disabled={busy} onComplete={onSlideComplete} />
+      <SlideButton mode={open ? 'out' : 'in'} disabled={busy || !canAttend} onComplete={onSlideComplete} />
       {open ? <TouchableOpacity style={s.handoverBtn} onPress={startHandover} disabled={busy}><Text style={s.handoverTxt}>🔁 تحویل شیفت با QR</Text></TouchableOpacity> : <TouchableOpacity style={s.readBtn} onPress={() => { if (!perm?.granted) requestPerm().then((r)=>{ if(r.granted) setScanOpen(true); }); else setScanOpen(true); }}><Text style={s.readBtnTxt}>📷 اسکن کد تحویل شیفت</Text></TouchableOpacity>}
       {handover ? <View style={s.qrBox}><Text style={s.qrTitle}>کد تحویل شیفت</Text>
         <WebView
