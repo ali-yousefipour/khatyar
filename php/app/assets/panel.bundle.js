@@ -13652,6 +13652,7 @@ finally {
             React.createElement("div", { className: "row", style: { gap: 8, marginTop: 10 } },
                 React.createElement("button", { className: "btn d", disabled: saving, onClick: () => submit(false) }, "\u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0627\u0635\u0644\u0627\u062D"),
                 React.createElement("button", { className: "btn p", disabled: saving, onClick: () => submit(true) }, saving ? 'در حال ثبت…' : 'تأیید نهایی'))))); }
+function SchoolServiceLauncher(){const [error,setError]=useState("");const [busy,setBusy]=useState(true);const launch=()=>{setBusy(true);setError("");try{if(typeof window.openSchoolService!=="function")throw new Error("ماژول سرویس مدارس هنوز بارگذاری نشده است.");Promise.resolve(window.openSchoolService()).catch(e=>setError(e&&e.message?e.message:"باز کردن سرویس مدارس ناموفق بود")).finally(()=>setBusy(false));}catch(e){setError(e&&e.message?e.message:"باز کردن سرویس مدارس ناموفق بود");setBusy(false);}};useEffect(()=>{launch();},[]);return React.createElement("div",{className:"panel",style:{margin:"14px 0"}},React.createElement("h3",{style:{marginTop:0}},"🏫 سرویس مدارس"),busy&&!error&&React.createElement("p",{className:"muted"},"در حال باز کردن ویزارد سرویس مدارس…"),error&&React.createElement("div",null,React.createElement("p",{style:{color:"var(--danger)",lineHeight:1.9}},error),React.createElement("button",{className:"btn p",onClick:launch},"تلاش مجدد")),!busy&&!error&&React.createElement("p",{className:"muted"},"ویزارد سرویس مدارس باز شد. برای بازگشایی مجدد، همین آیتم منو را انتخاب کنید."));}
 const VIEWS = {
     covertselfies: { t: "سلفی‌های نامحسوس", ic: "📸", c: CovertSelfies },
     dashboard: { t: "داشبورد مدیریت", ic: "▦", c: Dashboard },
@@ -13707,6 +13708,7 @@ const VIEWS = {
     vehicleassets: { t: "ماشین‌آلات و وسایل مأموریتی", ic: "🚙", c: PersonnelVehicleAssets },
     vehiclechecklist: { t: "چک‌لیست خودرویی و موتوری", ic: "☑", c: PersonnelVehicleChecklist },
     settings: { t: "تنظیمات سامانه", ic: "⚙", c: Settings },
+    schoolservice: { t: "سرویس مدارس", ic: "🏫", c: SchoolServiceLauncher },
 };
 function Login({ onLogin, brand }) {
     const [u, setU] = useState("");
@@ -13776,11 +13778,13 @@ function App() {
     const [allowed, setAllowed] = useState(null);
     const [drawer, setDrawer] = useState(false);
     const [brand, setBrand] = useState({});
+    const [schoolServiceAllowed, setSchoolServiceAllowed] = useState(false);
     const [openSections, setOpenSections] = useState({ "داشبورد و پایش": true, "عملیات میدانی": true, "تاکسی و تاکسیران": false, "گزارش‌ها": false, "منابع انسانی": false, "ارتباطات": false, "مدیریت سامانه": false });
     useEffect(() => { db.publicSettings().then(s => { const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => { }); }, []);
     useEffect(() => { if (me && me.is_admin) {
         db.settings().then(s => { const all = s.role_perms || {}; const has = Object.prototype.hasOwnProperty.call(all, String(me.role_id)) || Object.prototype.hasOwnProperty.call(all, me.role_id); const rp = all[me.role_id]; setAllowed(has && Array.isArray(rp) ? rp : null); const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => setAllowed(null));
     } }, [me]);
+    useEffect(() => { if (!me || !me.is_admin) { setSchoolServiceAllowed(false); return; } let alive = true; GET("/school-service/access").then(a => { if (alive) setSchoolServiceAllowed((a === null || a === void 0 ? void 0 : a.allowed) === true); }).catch(() => { if (alive) setSchoolServiceAllowed(false); }); return () => { alive = false; }; }, [me]);
     if (!me)
         return React.createElement(Login, { onLogin: setMe, brand: brand });
     if (!me.is_admin)
@@ -13796,7 +13800,7 @@ function App() {
     const SECTIONS = [
         ["داشبورد و پایش", ["dashboard", "reportscenter", "health", "map", "present", "presentchart"]],
         ["عملیات میدانی", ["missiondashboard", "citydashboard", "missiontemplates", "scoreengine", "officials", "presence", "attendance", "companyrequests", "outages", "covertselfies"]],
-        ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "platetraining", "lines", "zones", "bills"]],
+        ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "platetraining", "lines", "zones", "bills", "schoolservice"]],
         ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "useract"]],
         ["منابع انسانی", ["shifts", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural", "vehicleassets", "vehiclechecklist"]],
         ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
@@ -13812,9 +13816,9 @@ function App() {
         shifts: 'shift-cycle', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
         messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', radiocenter: 'radio-tower', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen',
         config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'activity-wave', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
-        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist'
+        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'school-service'
     };
-    const can = (k) => !allowed || allowed.includes(k) || CORE.includes(k);
+    const can = (k) => k === "schoolservice" ? schoolServiceAllowed : (!allowed || allowed.includes(k) || CORE.includes(k));
     const closeOnPick = (k) => { setV(k); setDrawer(false); };
     return (React.createElement("div", { className: "layout" + (drawer ? " drawer-open" : "") },
         React.createElement("div", { className: "scrim", onClick: () => setDrawer(false) }),
