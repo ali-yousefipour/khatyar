@@ -46,7 +46,7 @@ function _cacheTtlFor(p){
   return 0;
 }
 function _invalidateCache(){ for(const k in _cache) delete _cache[k]; }
-async function _readJsonResponse(r){
+async async function _readJsonResponse(r){
   const text = await r.text();
   try { return text ? JSON.parse(text) : {}; }
   catch(e){
@@ -54,7 +54,7 @@ async function _readJsonResponse(r){
     throw new Error('پاسخ JSON معتبر از سرور دریافت نشد'+(clean?' — '+clean:''));
   }
 }
-async function GET(p, opts){
+async async function GET(p, opts){
   const ttl = (opts&&opts.ttl) || _cacheTtlFor(p);
   const key = p;
   if(ttl && _cache[key] && (Date.now()-_cache[key].t)<ttl) return _cache[key].v;
@@ -77,7 +77,7 @@ function exportXlsx(rows, sheetName, filename){
   const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,String(sheetName||'گزارش').slice(0,31)); XLSX.writeFile(wb,filename);
 }
-async function SEND(method,p,body){
+async async function SEND(method,p,body){
   const r = await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+p,{method,headers:{'content-type':'application/json',...tok()},body:body?JSON.stringify(body):undefined});
   const v = await _readJsonResponse(r);
   if(!r.ok) throw new Error(v.error||v.message||'خطای سرور');
@@ -86,7 +86,7 @@ async function SEND(method,p,body){
 }
 // باز کردن تصویر؛ اگر مسیر فایل فیزیکی (/api/media) باشد با توکن دریافت و در تب جدید باز می‌شود؛
 // اگر data URI (base64 قدیمی) باشد مستقیماً باز می‌شود.
-async function openMediaUrl(url){
+async async function openMediaUrl(url){
   if(!url) return;
   if(url.indexOf('data:')===0){ const w=window.open(); if(w) w.document.write('<img src="'+url+'" style="max-width:100%"/>'); return; }
   try{
@@ -99,7 +99,7 @@ async function openMediaUrl(url){
   }catch(e){ alert(e.message||'خطا در نمایش تصویر'); }
 }
 // بررسی اتصال به سرور (بدون حالت دمو؛ در صورت قطع اتصال خطا نمایش داده می‌شود)
-async function checkConnection(){
+async async function checkConnection(){
   for (const url of [API_BASE+'/health','/health']) {
     try { const r=await fetch(url,{cache:'no-store'}); if(r.ok){ window.__health=await r.json().catch(()=>({})); return true; } } catch(e){}
   }
