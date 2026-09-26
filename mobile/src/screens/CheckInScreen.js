@@ -278,12 +278,12 @@ function CheckInCore() {
         client_time: new Date().toISOString(),
         client_uuid: 'checkout_' + Date.now() + '_' + Math.random().toString(36).slice(2,8)
       }, 'checkout');
-      const lineText = r?.checkout_line_code ? \` در خط \${faNum(String(r.checkout_line_code))}\` : '';
+      const lineText = r?.checkout_line_code ? ` در خط ${faNum(String(r.checkout_line_code))}` : '';
       Alert.alert(
         r.queued ? 'آفلاین' : 'ثبت شد',
         r.queued
           ? 'خروج ذخیره شد و بعد از اتصال، موقعیت شما در تمام خطوط مجاز بررسی و ثبت می‌شود.'
-          : \`خروج شما\${lineText} ثبت شد.\`
+          : `خروج شما${lineText} ثبت شد.`
       );
       await load();
     } catch (e) { Alert.alert('خطا', e.message || 'ثبت خروج ناموفق'); }
@@ -364,8 +364,8 @@ function CheckInCore() {
       <View style={s.autoLineBox}>
         <Text style={s.autoLineTitle}>
           {open
-            ? \`خط ورود: \${open?.line_id ? faNum(String(cfg?.lines?.find((l) => Number(l.id) === Number(open.line_id))?.code || open.line_id)) : 'نامشخص'}\`
-            : (line ? \`خط \${faNum(line.code || line.id)}\` : 'در حال تشخیص خودکار خط')}
+            ? `خط ورود: ${open?.line_id ? faNum(String(cfg?.lines?.find((l) => Number(l.id) === Number(open.line_id))?.code || open.line_id)) : 'نامشخص'}`
+            : (line ? `خط ${faNum(line.code || line.id)}` : 'در حال تشخیص خودکار خط')}
         </Text>
         <Text style={s.autoHint}>
           {open
