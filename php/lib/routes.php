@@ -2173,8 +2173,8 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
     $hol = (bool)Db::one("SELECT jdate FROM holidays WHERE jdate IN (?,?) LIMIT 1", [$jdate, str_replace('-','/',$jdate)]);
     $w = ShiftCalc::dayWork($shift,$jdate,null,$sessions,$hol);
     Db::run("UPDATE staff_attendance SET calc_json=? WHERE id=?", [json_encode($w,JSON_UNESCAPED_UNICODE), $open['id']]);
-  } catch (\\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  try { _notify_attendance_action('checkout',(int)$u['id'],$open['line_id']??null,$open['method']??'gps',$outStation,$now); } catch (\\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  try { _notify_attendance_action('checkout',(int)$u['id'],$open['line_id']??null,$open['method']??'gps',$outStation,$now); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   $outLineCode = $outLineId ? (Db::one("SELECT code FROM `lines` WHERE id=?",[$outLineId])['code'] ?? null) : null;
   return ['ok'=>true, 'check_out'=>$now, 'checkout_line_id'=>$outLineId ?: null, 'checkout_line_code'=>$outLineCode, 'checkout_station'=>$outStation];
 });
