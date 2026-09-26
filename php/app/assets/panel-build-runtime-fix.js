@@ -3,7 +3,7 @@
 'use strict';
 /* Capture the browser-native fetch before feature patches wrap window.fetch. */
 try{if(!window.__KHATYAR_NATIVE_FETCH__&&typeof window.fetch==='function')window.__KHATYAR_NATIVE_FETCH__=window.fetch.bind(window);}catch(_){}
-var PATCH='2026-09-26-v224';
+var PATCH='2026-09-27-v225';
 window.__KHATYAR_PANEL_RUNTIME_PATCH__=PATCH;
 try{var old=console.log;console.log=function(){try{var a=[].slice.call(arguments),s=String(a[0]||'');if(s.indexOf('PANEL BUILD:')===0&&s.indexOf('RUNTIME PATCH:')<0)a[0]=s+' | RUNTIME PATCH: '+PATCH;return old.apply(console,a);}catch(e){return old.apply(console,arguments);}};}catch(e){}
 function fix(v){return String(v==null?'':v).replace(/([0-9۰-۹])[٬,](?=[0-9۰-۹])/g,'$1').replace(/[0-9]/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'.charAt(+d);});}
