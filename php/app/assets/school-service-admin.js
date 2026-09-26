@@ -33,33 +33,65 @@ b.querySelectorAll('[data-edit-s]').forEach(x=>x.onclick=async()=>{const rows2=(
 };input.oninput=()=>{clearTimeout(input._t);input._t=setTimeout(()=>{page=1;load()},250)};await load();}catch(e){b.innerHTML='<div class="ssv-msg">'+esc(e.message||'خطا در دریافت اطلاعات')+'</div>'}}
 window.openSchoolService = open;
 (async function installSchoolServiceMenu(){
-  let done=false, accessChecked=false, allowed=false;
-  const add=async()=>{
-    if(done||document.getElementById('school-service-menu-item')) return;
-    // panel.bundle initializes authentication/fetch after this defer script.
-    // Do not make the first access request before its Authorization header is captured.
+  let accessChecked=false, allowed=false, accessBusy=false, menuBusy=false, observer=null;
+
+  const checkAccess=async()=>{
+    if(accessChecked||accessBusy)return;
+    accessBusy=true;
     try{
       const a=await api('/api/school-service/access');
-      accessChecked=true; allowed=a?.allowed===true;
+      accessChecked=true;
+      allowed=a?.allowed===true;
     }catch(_){
-      return;
+      // Authentication may not be ready yet. Retry on the next observer/timer cycle.
+    }finally{
+      accessBusy=false;
     }
-    if(!allowed) return;
-    const all=[...document.querySelectorAll('aside,nav,[role="navigation"],button,a,[role="button"],div')];
-    const dash=all.find(el=>String(el.textContent||'').trim()==='داشبورد');
-    const host=dash?.closest('aside,nav,[role="navigation"]') || dash?.parentElement?.parentElement || dash?.parentElement;
-    if(!host) return;
-    const btn=document.createElement('button');
-    btn.id='school-service-menu-item'; btn.type='button'; btn.className='ssv-btn';
-    btn.innerHTML='<span style="font-size:18px">🏫</span><span>سرویس مدارس</span>';
-    btn.onclick=()=>open().catch(e=>alert(e.message||'دسترسی به سرویس مدارس ممکن نیست.'));
-    host.appendChild(btn); done=true;
   };
-  // panel.bundle may not have completed its first authenticated request yet.
-  // Keep observing for up to 60 seconds instead of giving up after 15 seconds.
-  for(let i=0;i<120&&!done;i++){
+
+  const add=async()=>{
+    if(menuBusy)return;
+    await checkAccess();
+    if(!accessChecked||!allowed)return;
+    if(document.getElementById('school-service-menu-item'))return;
+
+    const nav=document.querySelector('aside.side nav.nav');
+    if(!nav)return;
+
+    menuBusy=true;
+    try{
+      if(document.getElementById('school-service-menu-item'))return;
+      const btn=document.createElement('button');
+      btn.id='school-service-menu-item';
+      btn.type='button';
+      btn.className='ssv-btn';
+      btn.innerHTML='<span style="font-size:18px">🏫</span><span>سرویس مدارس</span>';
+      btn.onclick=()=>open().catch(e=>alert(e.message||'دسترسی به سرویس مدارس ممکن نیست.'));
+
+      const logout=nav.querySelector('.logout-item');
+      if(logout)nav.insertBefore(btn,logout);
+      else nav.appendChild(btn);
+    }finally{
+      menuBusy=false;
+    }
+  };
+
+  const schedule=()=>{
+    clearTimeout(schedule._t);
+    schedule._t=setTimeout(()=>{add().catch(()=>{});},120);
+  };
+
+  // The sidebar is rendered and re-rendered by React. The old implementation
+  // inserted the button once and then stopped watching, so React could remove it.
+  // Keep the small integration point synchronized with the React-owned sidebar.
+  observer=new MutationObserver(schedule);
+  observer.observe(document.getElementById('root')||document.body,{childList:true,subtree:true});
+
+  // Initial login/render plus a short retry window for authentication readiness.
+  for(let i=0;i<120;i++){
     await add();
-    if(!done) await new Promise(r=>setTimeout(r,500));
+    if(document.getElementById('school-service-menu-item'))break;
+    await new Promise(r=>setTimeout(r,500));
   }
 })();
 })();
