@@ -13845,7 +13845,9 @@ function App() {
                 React.createElement("h2", { style: { color: "var(--danger)" } }, "\u062F\u0633\u062A\u0631\u0633\u06CC \u0645\u062F\u06CC\u0631\u06CC\u062A\u06CC \u0646\u062F\u0627\u0631\u06CC\u062F"),
                 React.createElement("p", { style: { color: "var(--muted)", maxWidth: 430, lineHeight: 2, marginTop: 8 } }, "\u0648\u0631\u0648\u062F \u0628\u0647 \u0633\u0627\u0645\u0627\u0646\u0647 \u0645\u062F\u06CC\u0631\u06CC\u062A \u0648 \u0646\u0638\u0627\u0631\u062A \u0628\u0631 \u062E\u0637\u0648\u0637 \u0648 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0627\u062C\u0631\u0627\u06CC\u06CC \u062A\u0627\u06A9\u0633\u06CC\u0631\u0627\u0646\u06CC \u062A\u0646\u0647\u0627 \u0628\u0631\u0627\u06CC \u0646\u06CC\u0631\u0648\u06CC \u0627\u062F\u0627\u0631\u06CC\u060C \u0646\u06CC\u0631\u0648\u06CC \u0627\u062F\u0627\u0631\u06CC \u0627\u0631\u0634\u062F\u060C \u0631\u06CC\u06CC\u0633 \u0627\u062F\u0627\u0631\u0647 \u0628\u0627\u0632\u0631\u0633\u06CC \u0648 \u0645\u062F\u06CC\u0631 \u06A9\u0644 \u0645\u062C\u0627\u0632 \u0627\u0633\u062A. \u0628\u0631\u0627\u06CC \u06A9\u0627\u0631\u0647\u0627\u06CC \u0645\u06CC\u062F\u0627\u0646\u06CC \u0627\u0632 \u0627\u067E \u0645\u0648\u0628\u0627\u06CC\u0644/\u0648\u0628\u200C\u0627\u067E \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F."),
                 React.createElement("button", { className: "btn p", style: { marginTop: 16 }, onClick: () => { localStorage.removeItem("token"); setMe(null); } }, "\u062E\u0631\u0648\u062C"))));
-    const CORE_VIEWS = ["dashboard", "driverservicereport"];
+    // سرویس مدارس یک نمای هسته‌ای و مستقل پنل است؛ نمایش آن نباید به مجوزهای
+    // پویا یا منوی fallback وابسته باشد. کنترل دسترسی خود صفحه جداگانه انجام می‌شود.
+    const CORE_VIEWS = ["dashboard", "driverservicereport", "schoolservice"];
     const vk = (!allowed || allowed.includes(v) || CORE_VIEWS.includes(v)) ? v : "dashboard";
     const View = VIEWS[vk].c;
     window.__navigateTo = (k) => { setV(k); setDrawer(false); };
@@ -13858,7 +13860,7 @@ function App() {
         ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
         ["مدیریت سامانه", ["users", "org", "forms", "config", "customfields", "inventory", "excel", "appitems", "cronstatus", "activesessions", "logs", "settings"]],
     ];
-    const CORE = ["dashboard", "driverservicereport"];
+    const CORE = ["dashboard", "driverservicereport", "schoolservice"];
     const MENU_ICONS = {
         dashboard: 'dashboard-home', reportscenter: 'reports-folder', health: 'system-health', map: 'map-marker', present: 'present-group', presentchart: 'presence-chart',
         missiondashboard: 'performance-gauge', citydashboard: 'city-map', missiontemplates: 'dashboard-layout', scoreengine: 'live-chart',
@@ -13870,7 +13872,7 @@ function App() {
         config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'activity-wave', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
         vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist'
     };
-    const can = (k) => k === "schoolservice" ? (schoolServiceAllowed || (me === null || me === void 0 ? void 0 : me.is_admin) === true) : (!allowed || allowed.includes(k) || CORE.includes(k));
+    const can = (k) => !allowed || allowed.includes(k) || CORE.includes(k);
     const closeOnPick = (k) => { setV(k); setDrawer(false); };
     return (React.createElement("div", { className: "layout" + (drawer ? " drawer-open" : "") },
         React.createElement("div", { className: "scrim", onClick: () => setDrawer(false) }),
@@ -13879,7 +13881,7 @@ function App() {
                 brand.logo ? React.createElement("img", { src: brand.logo, style: { width: 38, height: 38, borderRadius: 10, objectFit: "contain", background: "#fff", padding: 3 } }) : React.createElement("img", { src: "/brand-khatyar.png", style: { width: 38, height: 38, borderRadius: 19, objectFit: "cover" } }),
                 React.createElement("span", null, brand.title || "خطیار")),
             React.createElement("nav", { className: "nav", style: { flex: 1 } },
-                React.createElement("button", { "data-school-service": "canonical", className: "navitem " + (v === "schoolservice" ? "on" : ""), style: { display: "flex", visibility: "visible", opacity: 1, position: "relative", zIndex: 2, order: -9999, flex: "0 0 54px", width: "100%", minHeight: 54 }, onClick: () => closeOnPick("schoolservice") },
+                React.createElement("button", { "data-school-service": "canonical", className: "navitem " + (v === "schoolservice" ? "on" : ""), onClick: () => closeOnPick("schoolservice") },
                     React.createElement("span", { className: "ic" }, I8(MENU_ICONS.schoolservice)),
                     React.createElement("span", { className: "navlabel" }, "\u0633\u0631\u0648\u06CC\u0633 \u0645\u062F\u0627\u0631\u0633")),
                 SECTIONS.map(([title, keys]) => {
