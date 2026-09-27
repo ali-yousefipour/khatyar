@@ -130,7 +130,7 @@ function patchExpoAutolinkingIncludedBuild(projectRoot) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (!['.gradle', 'build'].includes(entry.name)) walk(full);
-      } else if (/^(settings|build)\\.gradle(?:\\.kts)?$/i.test(entry.name)) {
+      } else if (/^(settings|build)\.gradle(?:\.kts)?$/i.test(entry.name)) {
         files.push(full);
       }
     }
