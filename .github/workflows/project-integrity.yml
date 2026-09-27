@@ -1,0 +1,19 @@
+name: project-integrity
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          php -v
+          php -l php/lib/routes.php
+          php -l php/lib/school_service_routes_extra.php
+      - name: Panel bundle syntax
+        run: |
+          node --version
+          node --check php/app/assets/panel.bundle.js
