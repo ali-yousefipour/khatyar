@@ -11,11 +11,25 @@ function ensureSourceFiles(config) {
     const dir = path.join(root, 'app', 'src', 'main', 'java', ...PKG.split('.'));
     fs.mkdirSync(dir, { recursive: true });
     const srcRoot = path.join(cfg.modRequest.projectRoot, 'plugins', 'khatyar-radio-native');
-    for (const name of ['KhatyarRadioPackage.java', 'KhatyarRadioModule.java', 'KhatyarRadioService.java']) {
+    for (const name of ['KhatyarRadioPackage.java', 'KhatyarRadioModule.java', 'KhatyarRadioService.java', 'OutgoingRadioRecorder.java', 'RadioSfxPlayer.java']) {
       const source = path.join(srcRoot, name);
       const target = path.join(dir, name);
       if (!fs.existsSync(source)) throw new Error(`Missing KhatYar radio native source: ${source}`);
       fs.copyFileSync(source, target);
+    }
+    const resourceRoot = path.join(srcRoot, 'resources');
+    const resourceDirs = ['layout','drawable'];
+    for (const rdir of resourceDirs) {
+      const sourceDir = path.join(resourceRoot, rdir);
+      const targetDir = path.join(root, 'app', 'src', 'main', 'res', rdir);
+      fs.mkdirSync(targetDir, { recursive: true });
+      if (fs.existsSync(sourceDir)) {
+        for (const name of fs.readdirSync(sourceDir)) {
+          const source = path.join(sourceDir, name);
+          const target = path.join(targetDir, name);
+          if (fs.statSync(source).isFile()) fs.copyFileSync(source, target);
+        }
+      }
     }
     return cfg;
   }]);
