@@ -60,15 +60,19 @@ function assertContains(text, file, pattern, description) {
   if (!pattern.test(text)) fail(`${path.relative(root, file)} is missing ${description}.`);
 }
 
-function resolvePackageAndroidDir(packageName) {
+function resolveExpoAutolinkingIncludedBuild() {
   try {
-    const pkg = require.resolve(`${packageName}/package.json`, { paths: [root] });
-    return path.join(path.dirname(pkg), 'android');
+    const pkg = require.resolve('expo-modules-autolinking/package.json', { paths: [root] });
+    const packageRoot = path.dirname(pkg);
+    const candidates = [
+      path.join(packageRoot, 'android', 'expo-gradle-plugin'),
+      path.join(packageRoot, 'expo-gradle-plugin'),
+    ];
+    return candidates.find((dir) => fs.existsSync(dir)) || null;
   } catch (_) {
     return null;
   }
 }
-
 const packageJson = readJson(path.join(root, 'package.json'));
 const expo = String(packageJson.dependencies?.expo || '');
 const reactNative = String(packageJson.dependencies?.['react-native'] || '');
@@ -121,8 +125,7 @@ if (/kotlin-gradle-plugin:\s*["']?\s*["']/.test(build)) fail('Kotlin Gradle Plug
 
 // Verify the generic Iranian mirror plugin patched the real generated Expo
 // included build, not just the main Android project.
-const expoAndroid = resolvePackageAndroidDir('expo-modules-autolinking');
-const expoIncludedBuild = expoAndroid && path.join(expoAndroid, 'expo-gradle-plugin');
+const expoIncludedBuild = resolveExpoAutolinkingIncludedBuild();
 const expoIncludedFiles = [];
 if (expoIncludedBuild && fs.existsSync(expoIncludedBuild)) {
   const stack = [expoIncludedBuild];
