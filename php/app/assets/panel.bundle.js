@@ -13879,6 +13879,9 @@ function App() {
                 brand.logo ? React.createElement("img", { src: brand.logo, style: { width: 38, height: 38, borderRadius: 10, objectFit: "contain", background: "#fff", padding: 3 } }) : React.createElement("img", { src: "/brand-khatyar.png", style: { width: 38, height: 38, borderRadius: 19, objectFit: "cover" } }),
                 React.createElement("span", null, brand.title || "خطیار")),
             React.createElement("nav", { className: "nav", style: { flex: 1 } },
+                React.createElement("button", { className: "navitem " + (v === "schoolservice" ? "on" : ""), style: { flex: "none", width: "100%" }, onClick: () => closeOnPick("schoolservice") },
+                    React.createElement("span", { className: "ic" }, I8(MENU_ICONS.schoolservice)),
+                    React.createElement("span", { className: "navlabel" }, "\u0633\u0631\u0648\u06CC\u0633 \u0645\u062F\u0627\u0631\u0633")),
                 SECTIONS.map(([title, keys]) => {
                     const ks = keys.filter(k => VIEWS[k] && can(k));
                     if (!ks.length)
@@ -13892,9 +13895,6 @@ function App() {
                             React.createElement("span", { className: "ic" }, I8(MENU_ICONS[k])),
                             React.createElement("span", { className: "navlabel" }, VIEWS[k].t))))));
                 }),
-                React.createElement("button", { className: "navitem " + (v === "schoolservice" ? "on" : ""), onClick: () => closeOnPick("schoolservice") },
-                    React.createElement("span", { className: "ic" }, I8(MENU_ICONS.schoolservice)),
-                    React.createElement("span", { className: "navlabel" }, "\u0633\u0631\u0648\u06CC\u0633 \u0645\u062F\u0627\u0631\u0633")),
                 React.createElement("button", { className: "navitem logout-item", onClick: () => { localStorage.removeItem("token"); setMe(null); } },
                     React.createElement("span", { className: "ic" }, I8('logout-door')),
                     React.createElement("span", { className: "navlabel" }, "\u062E\u0631\u0648\u062C"))),
