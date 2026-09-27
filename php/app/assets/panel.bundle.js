@@ -13852,7 +13852,7 @@ function App() {
     const SECTIONS = [
         ["داشبورد و پایش", ["dashboard", "reportscenter", "health", "map", "present", "presentchart"]],
         ["عملیات میدانی", ["missiondashboard", "citydashboard", "missiontemplates", "scoreengine", "officials", "presence", "attendance", "companyrequests", "outages", "covertselfies"]],
-        ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "platetraining", "lines", "zones", "bills", "schoolservice"]],
+        ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "platetraining", "lines", "zones", "bills"]],
         ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "useract"]],
         ["منابع انسانی", ["shifts", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural", "vehicleassets", "vehiclechecklist"]],
         ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
@@ -13870,7 +13870,7 @@ function App() {
         config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'activity-wave', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
         vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist'
     };
-    const can = (k) => k === "schoolservice" ? schoolServiceAllowed : (!allowed || allowed.includes(k) || CORE.includes(k));
+    const can = (k) => k === "schoolservice" ? (schoolServiceAllowed || (me === null || me === void 0 ? void 0 : me.is_admin) === true) : (!allowed || allowed.includes(k) || CORE.includes(k));
     const closeOnPick = (k) => { setV(k); setDrawer(false); };
     return (React.createElement("div", { className: "layout" + (drawer ? " drawer-open" : "") },
         React.createElement("div", { className: "scrim", onClick: () => setDrawer(false) }),
@@ -13892,6 +13892,9 @@ function App() {
                             React.createElement("span", { className: "ic" }, I8(MENU_ICONS[k])),
                             React.createElement("span", { className: "navlabel" }, VIEWS[k].t))))));
                 }),
+                React.createElement("button", { className: "navitem " + (v === "schoolservice" ? "on" : ""), onClick: () => closeOnPick("schoolservice") },
+                    React.createElement("span", { className: "ic" }, I8(MENU_ICONS.schoolservice)),
+                    React.createElement("span", { className: "navlabel" }, "\u0633\u0631\u0648\u06CC\u0633 \u0645\u062F\u0627\u0631\u0633")),
                 React.createElement("button", { className: "navitem logout-item", onClick: () => { localStorage.removeItem("token"); setMe(null); } },
                     React.createElement("span", { className: "ic" }, I8('logout-door')),
                     React.createElement("span", { className: "navlabel" }, "\u062E\u0631\u0648\u062C"))),
