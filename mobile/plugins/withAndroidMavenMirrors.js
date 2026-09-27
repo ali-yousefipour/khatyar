@@ -1,7 +1,5 @@
-const { withProjectBuildGradle } = require('@expo/config-plugins');
+const { withProjectBuildGradle, withDangerousMod } = require('@expo/config-plugins');
 
-// KhatYar dependency-resolution policy for the main Android project only.
-// Expo/RN composite builds keep their native plugin-management configuration.
 const MARKER = 'KHATYAR_ANDROID_MAVEN_MIRRORS';
 const REPOS = [
   { name: 'MyketMaven', url: 'https://maven.myket.ir/', allowGradleMetadata: true },
@@ -116,6 +114,63 @@ function ensureTopLevelRepositories(source, language) {
   return `// ${MARKER}: local -> Myket -> filtered Runflare -> official repositories.\nrepositories {\n${snippet}  google()\n  mavenCentral()\n}\n\n${source}`;
 }
 
+function patchExpoAutolinkingIncludedBuild(projectRoot) {
+  const packageJson = require.resolve('expo-modules-autolinking/package.json', { paths: [projectRoot] });
+  const packageRoot = require('path').dirname(packageJson);
+  const includedRoot = require('path').join(packageRoot, 'expo-gradle-plugin');
+  const fs = require('fs');
+  const path = require('path');
+  if (!fs.existsSync(includedRoot)) {
+    throw new Error('expo-modules-autolinking/expo-gradle-plugin was not found after Expo prebuild.');
+  }
+
+  const files = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (!['.gradle', 'build'].includes(entry.name)) walk(full);
+      } else if (/^(settings|build)\\.gradle(?:\\.kts)?$/i.test(entry.name)) {
+        files.push(full);
+      }
+    }
+  };
+  walk(includedRoot);
+
+  let patched = 0;
+  for (const file of files) {
+    const language = file.endsWith('.kts') ? 'kotlin' : 'groovy';
+    const source = fs.readFileSync(file, 'utf8');
+    if (source.includes(MARKER)) { patched += 1; continue; }
+
+    let next = source;
+    const settingsBlock = findBlock(next, 'pluginManagement');
+    if (settingsBlock) {
+      const repos = findBlock(next, 'repositories', settingsBlock.open + 1);
+      if (repos && repos.start < settingsBlock.end) {
+        next = injectRepositories(next, repos, language);
+      }
+    }
+    const dependencyBlock = findBlock(next, 'dependencyResolutionManagement');
+    if (dependencyBlock) {
+      const repos = findBlock(next, 'repositories', dependencyBlock.open + 1);
+      if (repos && repos.start < dependencyBlock.end) {
+        next = injectRepositories(next, repos, language);
+      }
+    }
+    next = ensureTopLevelRepositories(next, language);
+    if (next !== source) {
+      fs.writeFileSync(file, next, 'utf8');
+      patched += 1;
+    }
+  }
+
+  if (patched === 0) {
+    throw new Error('Could not patch the generated expo-modules-autolinking included build with the KhatYar Maven mirror policy.');
+  }
+  console.log(`[withAndroidMavenMirrors] patched ${patched} real expo-modules-autolinking included-build file(s).`);
+}
+
 module.exports = function withAndroidMavenMirrors(config) {
   config = withProjectBuildGradle(config, (cfg) => {
     const language = cfg.modResults.language === 'kotlin' ? 'kotlin' : 'groovy';
@@ -127,6 +182,11 @@ module.exports = function withAndroidMavenMirrors(config) {
     return cfg;
   });
 
-  console.log('[withAndroidMavenMirrors] main Android project mirror policy applied; Expo/RN included-build settings left untouched.');
+  config = withDangerousMod(config, ['android', async (cfg) => {
+    patchExpoAutolinkingIncludedBuild(cfg.modRequest.projectRoot);
+    return cfg;
+  }]);
+
+  console.log('[withAndroidMavenMirrors] main Android project mirror policy applied; real Expo included-build mirror policy applied.');
   return config;
 };
