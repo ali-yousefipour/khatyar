@@ -385,12 +385,9 @@ public final class KhatyarRadioService extends Service {
   }
 
   private synchronized void releasePlayer() {
-    LoudnessEnhancer effect = loudnessEnhancer;
-    loudnessEnhancer = null;
     Equalizer eq = radioEqualizer;
     radioEqualizer = null;
     if (eq != null) { try { eq.setEnabled(false); } catch (Throwable ignored) {} try { eq.release(); } catch (Throwable ignored) {} }
-    if (effect != null) { try { effect.setEnabled(false); } catch (Throwable ignored) {} try { effect.release(); } catch (Throwable ignored) {} }
     MediaPlayer old = player;
     player = null;
     if (old != null) { try { old.stop(); } catch (Throwable ignored) {} try { old.release(); } catch (Throwable ignored) {} }
