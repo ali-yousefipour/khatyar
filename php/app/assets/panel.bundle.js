@@ -13965,6 +13965,6 @@ async function khForceFreshReloadAfterLogin() {
         return;
     }
     await khEnsureFreshBuild();
-    console.log("PANEL BUILD: 1.5.0 (school-service-inline-school-list-fix)");
+    console.log("PANEL BUILD: 1.5.1 (school-service-full-page-map-form-fix)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
 })();
