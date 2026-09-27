@@ -7952,7 +7952,7 @@ function App(){
   return(<div className={"layout"+(drawer?" drawer-open":"")}>
     <div className="scrim" onClick={()=>setDrawer(false)}></div>
     <aside className="side"><div className="brand">{brand.logo?<img src={brand.logo} style={{width:38,height:38,borderRadius:10,objectFit:"contain",background:"#fff",padding:3}}/>:<img src="/brand-khatyar.png" style={{width:38,height:38,borderRadius:19,objectFit:"cover"}}/>}<span>{brand.title||"خطیار"}</span></div>
-      <nav className="nav" style={{flex:1}}><button data-school-service="canonical" className={"navitem "+(v==="schoolservice"?"on":"")} style={{flex:"none",width:"100%"}} onClick={()=>closeOnPick("schoolservice")}><span className="ic">{I8(MENU_ICONS.schoolservice)}</span><span className="navlabel">سرویس مدارس</span></button>{SECTIONS.map(([title,keys])=>{ const ks=keys.filter(k=>VIEWS[k]&&can(k)); if(!ks.length)return null; const open=!!openSections[title];
+      <nav className="nav" style={{flex:1}}><button data-school-service="canonical" className={"navitem "+(v==="schoolservice"?"on":"")} style={{display:"flex",visibility:"visible",opacity:1,position:"relative",zIndex:2,order:-9999,flex:"0 0 54px",width:"100%",minHeight:54}} onClick={()=>closeOnPick("schoolservice")}><span className="ic">{I8(MENU_ICONS.schoolservice)}</span><span className="navlabel">سرویس مدارس</span></button>{SECTIONS.map(([title,keys])=>{ const ks=keys.filter(k=>VIEWS[k]&&can(k)); if(!ks.length)return null; const open=!!openSections[title];
         return(<div key={title} className={"navsec"+(open?" open":"")}>
           <button className="navsec-head" onClick={()=>setOpenSections(cur=>({...cur,[title]:!cur[title]}))} aria-expanded={open}>
             <span>{title}</span><span className="nav-chevron">‹</span>
