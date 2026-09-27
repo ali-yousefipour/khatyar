@@ -1,4 +1,5 @@
 name: build-panel-bundle
+# Trigger: regenerate the browser bundle from php/tools/panel_source.jsx.
 on:
   push:
     branches: [main]
