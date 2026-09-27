@@ -1,0 +1,17 @@
+name: temporary-php-lint
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          php -v
+          php -l php/app/index.php
+          php -l php/lib/routes.php
+          php -l php/lib/school_service_routes_extra.php
+          php -l php/lib/LineImageCompressor.php
