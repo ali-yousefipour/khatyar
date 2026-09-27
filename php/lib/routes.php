@@ -340,9 +340,9 @@ $loginHandler = function ($p, $b) {
   // این ترتیب از نادیده‌گرفته‌شدن معافیت به‌علت جست‌وجوی مقدماتی نام کاربری جلوگیری می‌کند.
   // Fast path first: exact username lookup can use the normal username index.
   // Only legacy rows containing incidental whitespace fall back to TRIM().
-  $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=? LIMIT 1", [$username]);
+  try { $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=? LIMIT 1", [$username]); } catch (Throwable $e) { error_log("login role lookup failed: ".$e->getMessage()); $u = Db::one("SELECT u.* FROM users u WHERE u.username=? LIMIT 1", [$username]); $u["role_title"]=""; $u["level"]=0; $u["is_admin"]=0; }
   if (!$u) {
-    $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE TRIM(u.username)=? LIMIT 1", [$username]);
+    try { $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE TRIM(u.username)=? LIMIT 1", [$username]); } catch (Throwable $e) { error_log("login trimmed role lookup failed: ".$e->getMessage()); $u = Db::one("SELECT u.* FROM users u WHERE TRIM(u.username)=? LIMIT 1", [$username]); $u["role_title"]=""; $u["level"]=0; $u["is_admin"]=0; }
   }
   if (!$u || !$u['is_active'] || !password_verify($password, $u['password_hash'])) {
     Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?, 'login_failed', ?)", [$u['id'] ?? null, json_encode(['username'=>$username], JSON_UNESCAPED_UNICODE)]);
@@ -352,7 +352,7 @@ $loginHandler = function ($p, $b) {
   // قوانین امنیتی ورود؛ کاربر معاف از VPN، حالت توسعه‌دهنده، موقعیت جعلی و الزام GPS مستثنا است.
   $securityExempt = ((int)($u['security_exempt'] ?? 0) === 1);
   if (!$securityExempt) {
-    $secCfg = function($k,$d=true){ $r = Db::one("SELECT value FROM app_settings WHERE `key`=?", [$k]); return $r ? json_decode($r['value'], true) : $d; };
+    $secCfg = function($k,$d=true){ try { $r = Db::one("SELECT value FROM app_settings WHERE `key`=?", [$k]); return $r ? json_decode($r['value'], true) : $d; } catch (Throwable $e) { error_log('login settings fallback: '.$e->getMessage()); return $d; } };
     $block_vpn = $secCfg('block_vpn', true);
     $block_dev = $secCfg('block_dev_options', true);
     $block_mock = $secCfg('block_mock_location', true);
@@ -413,11 +413,11 @@ $loginHandler = function ($p, $b) {
   // اگر رمز هنوز پیش‌فرض (۱۲۳۴۶۶) باشد، کاربر باید رمز و ایمیل را تغییر دهد
   $mustChange = (bool)($u['must_change_pw'] ?? 0) || ($password === '123456');
   $t = issueTokens($u['id'], $dev, $dtype);
-  Db::run("INSERT INTO activity_logs(user_id,event) VALUES(?, 'login')", [$u['id']]);
+  try { Db::run("INSERT INTO activity_logs(user_id,event) VALUES(?, 'login')", [$u['id']]); } catch (Throwable $e) { error_log('login activity log suppressed: '.$e->getMessage()); }
   return array_merge($t, ['user'=>[
-    'id'=>(int)$u['id'],'username'=>$u['username'],'name'=>$u['first_name'].' '.$u['last_name'],
+    'id'=>(int)$u['id'],'username'=>$u['username'],'name'=>trim((string)($u['first_name']??'').' '.(string)($u['last_name']??'')),
     'role'=>$u['role_title'],'role_id'=>(int)$u['role_id'],'level'=>(int)$u['level'],'is_admin'=>(bool)$u['is_admin'],'must_change_pw'=>$mustChange,
-    'email'=>$u['email'],'photo'=>_user_photo_url($u['photo_path'] ?? null, $u['photo'] ?? null),'security_exempt'=>$securityExempt,
+    'email'=>$u['email']??null,'photo'=>_user_photo_url($u['photo_path'] ?? null, $u['photo'] ?? null),'security_exempt'=>$securityExempt,
     'rank_stars'=>isset($u['rank_stars']) && $u['rank_stars']!==null ? (int)$u['rank_stars'] : null,
     'can_send_sms'=>(bool)$u['is_admin'] || (bool)($u['can_send_sms'] ?? 0),
   ]]);
@@ -7729,7 +7729,7 @@ route('PUT', '/api/admin/settings', function($p,$b,$u){
 // تنظیمات عمومی (محدودیت آپلود هر بخش) برای اپ میدانی — فقط کلیدهای غیرحساس
 route('GET', '/api/settings/public', function($p,$b,$u){
   $keys = ['upload_reports','upload_checklists','upload_notices','image_quality','image_max_width','image_max_height','thumbnail_size','thumbnail_quality','attachment_retention_days','form_attachment_retention_days','presence_retention_days','covert_selfie_retention_days','salary_slip_retention_days','company_request_retention_days','site_title','site_logo','org_title','org_logo','plate_ocr_enabled','plate_ocr_mode','plate_ocr_min_confidence','plate_ocr_require_confirm','plate_ocr_save_samples','plate_ocr_fixed_letter','plate_ocr_region_code','plate_ocr_crop_width','plate_ocr_crop_quality','cloud_ocr_enabled','cloud_ocr_provider','cloud_ocr_api_key','cloud_ocr_endpoint','cloud_ocr_connect_timeout','cloud_ocr_timeout'];
-  $out=[]; foreach (Db::all("SELECT `key`,value FROM app_settings WHERE `key` IN ('".implode("','",$keys)."')") as $r) $out[$r['key']] = json_decode($r['value'], true);
+  $out=[]; try { foreach (Db::all("SELECT `key`,value FROM app_settings WHERE `key` IN ('".implode("','",$keys)."')") as $r) $out[$r['key']] = json_decode($r['value'], true); } catch (Throwable $e) { error_log('settings/public fallback: '.$e->getMessage()); }
   return $out;
 }, true);
 // حذف خودکار پیوست‌های قدیمی‌تر از N روز (از طریق Cron یا دکمهٔ مدیر)
