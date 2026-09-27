@@ -7,11 +7,17 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: PHP syntax
+      - name: PHP version
+        run: php -v
+      - name: Lint remote PHP files
         run: |
-          php -v
-          php -l php/app/index.php
-          php -l php/lib/routes.php
-          php -l php/lib/school_service_routes_extra.php
-          php -l php/lib/LineImageCompressor.php
+          set -eux
+          SHA="${GITHUB_SHA}"
+          curl -fsSL "https://raw.githubusercontent.com/ali-yousefipour/khatyar/${SHA}/php/app/index.php" -o /tmp/index.php
+          curl -fsSL "https://raw.githubusercontent.com/ali-yousefipour/khatyar/${SHA}/php/lib/routes.php" -o /tmp/routes.php
+          curl -fsSL "https://raw.githubusercontent.com/ali-yousefipour/khatyar/${SHA}/php/lib/school_service_routes_extra.php" -o /tmp/school_service_routes_extra.php
+          curl -fsSL "https://raw.githubusercontent.com/ali-yousefipour/khatyar/${SHA}/php/lib/LineImageCompressor.php" -o /tmp/LineImageCompressor.php
+          php -l /tmp/index.php
+          php -l /tmp/routes.php
+          php -l /tmp/school_service_routes_extra.php
+          php -l /tmp/LineImageCompressor.php
