@@ -43,7 +43,8 @@ function Get-FileHashSafe([string]$Path) {
 function Get-NativeConfigHash() {
     $files = @(
         (Join-Path $Root 'app.config.js'),
-        (Join-Path $Root 'plugins\withKhatyarRadio.js')
+        (Join-Path $Root 'plugins\withKhatyarRadio.js'),
+        (Join-Path $Root 'plugins\withAndroidMavenMirrors.js')
     )
     $parts = foreach ($file in $files) { Get-FileHashSafe $file }
     return (($parts -join ':') | ForEach-Object { $_ })
@@ -56,6 +57,7 @@ function Test-PrebuildCurrent([string]$PackageHash,[string]$NativeConfigHash) {
         return ([string]$m.packageHash -eq $PackageHash -and
                 [string]$m.nativeConfigHash -eq $NativeConfigHash -and
                 [string]$m.initHash -eq (Get-FileHashSafe $InitScript) -and
+                [string]$m.androidMirrorPluginHash -eq (Get-FileHashSafe (Join-Path $Root 'plugins\withAndroidMavenMirrors.js')) -and
                 (Test-Path -LiteralPath (Join-Path $android 'gradlew.bat')) -and
                 (Test-Path -LiteralPath (Join-Path $android 'app\build.gradle')) -and
                 (Test-Path -LiteralPath (Join-Path $android 'settings.gradle')))
@@ -68,6 +70,7 @@ function Save-PrebuildMarker([string]$PackageHash,[string]$NativeConfigHash) {
         nativeConfigHash = $NativeConfigHash
         lockHash = Get-FileHashSafe (Join-Path $Root 'package-lock.json')
         initHash = Get-FileHashSafe $InitScript
+        androidMirrorPluginHash = Get-FileHashSafe (Join-Path $Root 'plugins\withAndroidMavenMirrors.js')
         created = (Get-Date).ToString('o')
     }
     $obj | ConvertTo-Json | Set-Content -LiteralPath $PrebuildMarker -Encoding UTF8
