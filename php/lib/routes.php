@@ -13431,4 +13431,10 @@ route('GET','/api/school-service/permissions',function($p,$b,$u){_ssv_need($u,'v
 route('POST','/api/school-service/permissions/{role_id}',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();if(empty($u['is_admin']) && !in_array(($u['role_title']??''),['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'],true))Http::error('فقط مدیر سامانه می‌تواند دسترسی‌ها را مدیریت کند.',403);$rid=(int)$p['role_id'];if(!Db::one("SELECT id FROM roles WHERE id=?",[$rid]))Http::error('سمت نامعتبر است',422);$vals=[];foreach(['view','create','edit','delete','import','report'] as $k)$vals[$k]=!empty($b['can_'.$k])?1:0;Db::run("INSERT INTO school_service_permissions(role_id,can_view,can_create,can_edit,can_delete,can_import,can_report) VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE can_view=VALUES(can_view),can_create=VALUES(can_create),can_edit=VALUES(can_edit),can_delete=VALUES(can_delete),can_import=VALUES(can_import),can_report=VALUES(can_report)",[$rid,$vals['view'],$vals['create'],$vals['edit'],$vals['delete'],$vals['import'],$vals['report']]);return ['ok'=>true];},false,99);
 
 
-require_once __DIR__.'/school_service_routes_extra.php';
+try {
+  require_once __DIR__.'/school_service_routes_extra.php';
+} catch (Throwable $e) {
+  // A failure in the optional school-service extension must never take down
+  // authentication, public settings, health, or the rest of the API.
+  error_log('school-service routes bootstrap failed: '.$e->getMessage().' @ '.basename($e->getFile()).':'.$e->getLine());
+}
