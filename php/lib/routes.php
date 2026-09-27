@@ -13246,7 +13246,7 @@ function _ssv_autoseed_schools(){
         'status'=>$dictVal('status',$r[20]??-1),'location_registered_at'=>$dictVal('lr',$r[21]??-1)
       ];
       if($row['status']===null || $row['status']==='') $row['status']='ثبت‌شده';
-      if($row['district']!==null && $row['district']!=='') $row['district']=_ssv_norm($row['district']);
+      if($row['district']!==null && $row['district']!=='') $row['district']=_ssv_district_key($row['district']);
       if($row['company']!=='') $companies[$row['company']]=true;
       $rows[$code]=$row;
     }
