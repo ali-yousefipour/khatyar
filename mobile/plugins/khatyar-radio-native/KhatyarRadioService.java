@@ -462,9 +462,10 @@ public final class KhatyarRadioService extends Service {
         AudioTrack track = null;
         try {
           int min = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+          ensureMaxMediaVolume();
           track = new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate, AudioFormat.CHANNEL_OUT_MONO,
               AudioFormat.ENCODING_PCM_16BIT, Math.max(min, pcm.length * 2), AudioTrack.MODE_STATIC);
-          track.write(pcm, 0, pcm.length);
+          track.setVolume(1.0f); track.write(pcm, 0, pcm.length);
           track.play();
           long waitMs = (pcm.length * 1000L / sampleRate) + 40L;
           try { Thread.sleep(waitMs); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
