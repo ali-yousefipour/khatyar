@@ -308,7 +308,15 @@ try {
     $ExitCode = 0
 }
 catch {
-    $ExitCode = 1; Write-Host "`nBUILD ERROR: $($_.Exception.Message)" -ForegroundColor Red
+    $ExitCode = 1
+    Write-Host "`nBUILD ERROR: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host ("Exception type: " + $_.Exception.GetType().FullName) -ForegroundColor DarkRed
+    if ($_.InvocationInfo) {
+        Write-Host ("Source: " + $_.InvocationInfo.PositionMessage) -ForegroundColor DarkRed
+    }
+    if ($_.Exception.StackTrace) {
+        Write-Host ("Stack: " + $_.Exception.StackTrace) -ForegroundColor DarkRed
+    }
 }
 finally {
     Write-Host "`n============================================================" -ForegroundColor Cyan
