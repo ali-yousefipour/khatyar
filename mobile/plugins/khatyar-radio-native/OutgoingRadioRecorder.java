@@ -93,8 +93,7 @@ public final class OutgoingRadioRecorder {
 
   /**
    * MediaRecorder.stop() is synchronous and finalizes the M4A container itself.
-   * We keep this off the JS thread in the native module, so no encoder-EOS polling
-   * or artificial 4-second MediaCodec deadline is needed.
+   * The stop operation runs off the JS thread in the native module.
    */
   public String stopBlocking(long timeoutMs) throws Exception {
     final CountDownLatch done = new CountDownLatch(1);
