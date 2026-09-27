@@ -1,0 +1,15 @@
+name: temporary-php-lint-2
+on:
+  push:
+    branches: [main]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download current PHP
+        run: |
+          set -eux
+          curl -fsSL "https://raw.githubusercontent.com/ali-yousefipour/khatyar/${GITHUB_SHA}/php/lib/routes.php" -o /tmp/routes.php
+          curl -fsSL "https://raw.githubusercontent.com/ali-yousefipour/khatyar/${GITHUB_SHA}/php/lib/school_service_routes_extra.php" -o /tmp/extra.php
+          php -l /tmp/routes.php
+          php -l /tmp/extra.php
