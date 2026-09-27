@@ -13923,7 +13923,7 @@ function App() {
                     React.createElement("div", { className: "av" }, (me.name || "؟")[0]))),
             React.createElement(View, null))));
 }
-const PANEL_BUILD_VERSION = "1.5.1";
+const PANEL_BUILD_VERSION = "1.5.2";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
@@ -13965,6 +13965,6 @@ async function khForceFreshReloadAfterLogin() {
         return;
     }
     await khEnsureFreshBuild();
-    console.log("PANEL BUILD: 1.5.1 (school-service-full-page-map-form-fix)");
+    console.log("PANEL BUILD: 1.5.2 (school-service-final-inline-map)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
 })();
