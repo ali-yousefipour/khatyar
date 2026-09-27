@@ -1,5 +1,5 @@
 name: build-panel-bundle
-# Trigger: regenerate the browser bundle from php/tools/panel_source.jsx.
+# Build TypeScript explicitly; do not let npx resolve the unrelated npm package named tsc.
 on:
   push:
     branches: [main]
@@ -17,6 +17,7 @@ jobs:
       - name: Build panel bundle
         run: |
           cd php
+          npm install --no-save --no-package-lock typescript@5.9.3
           bash ./tools/build_panel_bundle.sh
       - name: Verify bundle
         run: |
