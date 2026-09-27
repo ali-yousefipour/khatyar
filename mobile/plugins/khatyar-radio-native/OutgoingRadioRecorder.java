@@ -7,13 +7,7 @@ import java.io.File;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Stable outgoing radio recorder.
- *
- * We intentionally use Android's MediaRecorder AAC/MPEG-4 pipeline here instead of
- * driving MediaCodec manually. The previous implementation could leave an encoder
- * without an EOS output buffer and surface a false "4 seconds" failure to the user.
- */
+/** Stable outgoing radio recorder using Android MediaRecorder AAC/MPEG-4. */
 public final class OutgoingRadioRecorder {
   public interface Callback { void onStopped(String path, long durationMs, Throwable error); }
 
