@@ -2,8 +2,8 @@
 try { require('dotenv').config(); } catch (e) {}
 let hasLocalAuth = false;
 try { require.resolve('expo-local-authentication'); hasLocalAuth = true; } catch (e) { hasLocalAuth = false; }
-const APP_VERSION = '1.5.1';
-const APP_VERSION_CODE = 10501;
+const APP_VERSION = '1.5.2';
+const APP_VERSION_CODE = 10502;
 module.exports = ({ config }) => ({
   ...config,
   name: process.env.APP_NAME || 'خطیار', slug: 'khatyar-mobile', version: APP_VERSION, orientation: 'portrait', newArchEnabled: true, icon: './assets/icon.png', userInterfaceStyle: 'light', assetBundlePatterns: ['**/*'],
