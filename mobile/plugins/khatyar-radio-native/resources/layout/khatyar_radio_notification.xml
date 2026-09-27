@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/khatyar_notification_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    android:layoutDirection="rtl"
+    android:textDirection="rtl">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_marginEnd="10dp">
+
+        <TextView
+            android:id="@+id/khatyar_notification_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="فعال • متصل به سرور"
+            android:textColor="@color/khatyar_notification_primary"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:gravity="start"
+            android:includeFontPadding="false"/>
+
+        <TextView
+            android:id="@+id/khatyar_notification_info"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="تاریخ شمسی: ۱۴۰۵/۰۶/۳۰ • بی‌سیم"
+            android:textColor="@color/khatyar_notification_secondary"
+            android:textSize="12sp"
+            android:gravity="start"
+            android:includeFontPadding="false"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/khatyar_notification_ptt"
+        android:layout_width="116dp"
+        android:layout_height="52dp"
+        android:background="@drawable/khatyar_notification_ptt_background"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:clickable="true"
+        android:focusable="true"
+        android:layoutDirection="rtl">
+
+        <ImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/khatyar_notification_ptt"
+            android:contentDescription="@null"
+            android:layout_marginStart="5dp"
+            android:layout_marginEnd="5dp"/>
+
+        <TextView
+            android:id="@+id/khatyar_notification_ptt_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="شروع PTT"
+            android:textColor="@color/khatyar_notification_button_text"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:includeFontPadding="false"/>
+    </LinearLayout>
+</LinearLayout>
