@@ -95,32 +95,45 @@ b.querySelectorAll('[data-edit-s]').forEach(x=>x.onclick=async()=>{const rows2=(
 };input.oninput=()=>{clearTimeout(input._t);input._t=setTimeout(()=>{page=1;load()},250)};await load();}catch(e){b.innerHTML='<div class="ssv-msg">'+esc(e.message||'خطا در دریافت اطلاعات')+'</div>'}}
 window.openSchoolService = open;
 
-/* Compatibility bridge: if an older panel.bundle.js is still cached/deployed,
-   expose the canonical school-service entry without creating a React/MutationObserver patch. */
+/* Compatibility bridge: deterministic recovery for an older/stale panel bundle.
+   The canonical React menu remains the source of truth. This bounded bridge only restores
+   the entry when the deployed bundle has not rendered it yet; it never uses MutationObserver. */
 (function ensureSchoolServiceMenuCompatibility(){
   const ID='kh-school-service-menu-compat';
+  let ticks=0;
   const add=()=>{
     try{
-      if(document.querySelector('[data-school-service="canonical"]') || document.getElementById(ID)) return;
-      const nav=document.querySelector('aside .nav, nav.nav, .nav');
-      if(!nav || !window.openSchoolService) return;
-      const btn=document.createElement('button');
-      btn.id=ID;btn.type='button';btn.className='navitem';
-      btn.setAttribute('data-school-service','compat');
-      btn.style.cssText='width:100%;text-align:right;display:flex;align-items:center;gap:10px;flex:none;';
-      btn.innerHTML='<span class="ic">✓</span><span class="navlabel">سرویس مدارس</span>';
+      const canonical=document.querySelector('[data-school-service="canonical"]');
+      const existing=document.getElementById(ID);
+      if(canonical){ if(existing) existing.remove(); return; }
+      const nav=document.querySelector('aside .nav, aside nav.nav, aside nav, .side .nav, nav.nav, .nav, .side');
+      if(!nav) return;
+      let btn=existing;
+      if(!btn){
+        btn=document.createElement('button');
+        btn.id=ID;
+        btn.type='button';
+        btn.className='navitem';
+        btn.setAttribute('data-school-service','compat');
+        btn.style.cssText='width:100%;min-height:54px;text-align:right;display:flex;align-items:center;gap:12px;flex:none;';
+        btn.innerHTML='<span class="ic">✓</span><span class="navlabel">سرویس مدارس</span>';
+        const logout=nav.querySelector('.logout-item');
+        if(logout) nav.insertBefore(btn,logout); else nav.appendChild(btn);
+      }
       btn.onclick=()=>{
+        const fn=window.openSchoolService;
+        if(typeof fn!=='function'){alert('سرویس مدارس هنوز آماده نشده است؛ دوباره انتخاب کنید.');return;}
         const host=document.querySelector('main.main,.main,.main-content,.content,.page-content,[role="main"]')||document.body;
-        Promise.resolve(window.openSchoolService(host)).catch(e=>alert(e&&e.message?e.message:'باز کردن سرویس مدارس ناموفق بود'));
+        Promise.resolve(fn(host)).catch(e=>alert(e&&e.message?e.message:'باز کردن سرویس مدارس ناموفق بود'));
       };
-      const logout=nav.querySelector('.logout-item');
-      if(logout) nav.insertBefore(btn,logout); else nav.appendChild(btn);
     }catch(_){}
   };
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',add,{once:true}); else add();
-  [300,1000,2500].forEach(ms=>setTimeout(add,ms));
+  const timer=setInterval(()=>{
+    add();
+    if(++ticks>=30) clearInterval(timer);
+  },500);
+  add();
 })();
-
 /* منوی سرویس مدارس توسط پنل React و در ساختار اصلی سایدبار ساخته می‌شود.
    این فایل فقط ویزارد و API آن را فراهم می‌کند تا منوی جداگانه و پایدار با React تداخل نداشته باشد. */
 })();
