@@ -1,4 +1,3 @@
-"use strict";
 const { useState, useEffect, useRef } = React;
 const I8 = (name) => React.createElement("img", { src: `/assets/icons3d/${name}.png`, alt: "", width: "30", height: "30", loading: "eager", decoding: "async", style: { objectFit: 'contain' }, onError: e => { e.currentTarget.style.display = 'none'; } });
 // چاپ حرفه‌ای با سربرگ (لوگو + عنوان سازمان + تاریخ تولید) — برای استفادهٔ مشترک در همهٔ گزارش‌ها
@@ -154,26 +153,36 @@ const db = {
     // POST با Content-Type: application/json را (به‌خصوص برای فیلدهای شبیه به فرم ورود) مسدود
     // می‌کند؛ با تست مستقیم روی سرور واقعی تأیید شد که فرم urlencoded بدون مشکل عبور می‌کند.
     login: async (u, p) => {
-        const form = new URLSearchParams();
-        form.append('username', u);
-        form.append('password', p);
+        const username = String(u || '').trim();
+        const password = String(p || '');
+        if (!username)
+            throw new Error('نام کاربری را وارد کنید');
+        if (!password)
+            throw new Error('رمز عبور را وارد کنید');
         let deviceId = localStorage.getItem('kh_web_device_id');
         if (!deviceId) {
             deviceId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('web-' + Date.now() + '-' + Math.random().toString(36).slice(2));
             localStorage.setItem('kh_web_device_id', deviceId);
         }
+        const form = new URLSearchParams();
+        form.append('username', username);
+        form.append('password', password);
         form.append('device_id', deviceId);
         form.append('device_type', 'web');
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
+        const timer = setTimeout(() => controller.abort(), 20000);
         let r;
         try {
             r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/start', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8', 'accept': 'application/json', 'cache-control': 'no-store' }, body: form.toString(), cache: 'no-store', signal: controller.signal });
-        } catch (e) {
+        }
+        catch (e) {
             if (e && e.name === 'AbortError')
                 throw new Error('زمان پاسخ سرور تمام شد. اتصال سرور و مسیر /api/session/start را بررسی کنید.');
             throw new Error('اتصال به سرور برای ورود برقرار نشد.');
-        } finally { clearTimeout(timeout); }
+        }
+        finally {
+            clearTimeout(timer);
+        }
         const d = await _readJsonResponse(r);
         if (!r.ok)
             throw new Error(d.error || d.message || ('ورود ناموفق بود (HTTP ' + r.status + ')'));
@@ -738,8 +747,12 @@ function Dashboard() {
     };
     useEffect(() => { loadStats(); GET("/admin/birthdays-month").then(setBdays).catch(() => { }); }, []);
     useEffect(() => {
-        if (tab === "reports") db.reports().then(setRep).catch(() => { });
-        if (tab === "workers") db.topWorkers().then(setTw).catch(() => { });
+        if (tab === "reports") {
+            db.reports().then(setRep).catch(() => { });
+        }
+        if (tab === "workers") {
+            db.topWorkers().then(setTw).catch(() => { });
+        }
     }, [tab]);
     useEffect(() => {
         if (!s || tab !== "charts" || !chartRef.current)
@@ -756,11 +769,17 @@ function Dashboard() {
         return () => { c.destroy(); c2 && c2.destroy(); };
     }, [s, tab]);
     if (loading && !s)
-        return React.createElement("div", { className: "panel", style: { margin: "14px 0" } }, React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center", gap: 10 } }, React.createElement("span", null, "در حال دریافت اطلاعات داشبورد…"), React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "لطفاً چند لحظه صبر کنید")));
+        return React.createElement("div", { className: "panel", style: { margin: "14px 0" } },
+            React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center", gap: 10 } },
+                React.createElement("span", null, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062F\u0627\u0634\u0628\u0648\u0631\u062F\u2026"),
+                React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u0644\u0637\u0641\u0627\u064B \u0686\u0646\u062F \u0644\u062D\u0638\u0647 \u0635\u0628\u0631 \u06A9\u0646\u06CC\u062F")));
     if (loadErr && !s)
-        return React.createElement("div", { className: "panel", style: { margin: "14px 0", border: "1px solid #f0caca" } }, React.createElement("h3", { style: { marginTop: 0 } }, "اطلاعات داشبورد دریافت نشد"), React.createElement("p", { style: { color: "var(--danger)", fontSize: 13, lineHeight: 1.9 } }, loadErr), React.createElement("button", { className: "btn p", onClick: loadStats }, "تلاش مجدد"));
+        return React.createElement("div", { className: "panel", style: { margin: "14px 0", border: "1px solid #f0caca" } },
+            React.createElement("h3", { style: { marginTop: 0 } }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u062F\u0631\u06CC\u0627\u0641\u062A \u0646\u0634\u062F"),
+            React.createElement("p", { style: { color: "var(--danger)", fontSize: 13, lineHeight: 1.9 } }, loadErr),
+            React.createElement("button", { className: "btn p", onClick: loadStats }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F"));
     if (!s)
-        return React.createElement("div", { className: "panel", style: { margin: "14px 0" } }, "اطلاعات داشبورد در دسترس نیست.");
+        return React.createElement("div", { className: "panel", style: { margin: "14px 0" } }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0646\u06CC\u0633\u062A.");
     const K = [["راننده فعال", s.drivers], ["خط فعال", s.lines], ["حضور امروز", s.today_attendance], ["فیش پرداخت‌نشده", s.unpaid_bills], ["تذکر این ماه", s.notices_month]];
     return (React.createElement(React.Fragment, null,
         React.createElement("div", { className: "kpis" }, K.map(([l, n], i) => React.createElement("div", { className: "kpi", key: i },
@@ -13652,7 +13671,33 @@ finally {
             React.createElement("div", { className: "row", style: { gap: 8, marginTop: 10 } },
                 React.createElement("button", { className: "btn d", disabled: saving, onClick: () => submit(false) }, "\u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0627\u0635\u0644\u0627\u062D"),
                 React.createElement("button", { className: "btn p", disabled: saving, onClick: () => submit(true) }, saving ? 'در حال ثبت…' : 'تأیید نهایی'))))); }
-function SchoolServiceLauncher(){const [error,setError]=useState("");const [busy,setBusy]=useState(true);const [host,setHost]=useState(null);const launch=()=>{setBusy(true);setError("");try{if(!window.openSchoolService)throw new Error("ماژول سرویس مدارس هنوز بارگذاری نشده است.");if(host)Promise.resolve(window.openSchoolService(host,()=>{setBusy(false);setError("");})).catch(e=>{setError(e&&e.message?e.message:"باز کردن سرویس مدارس ناموفق بود");setBusy(false);});}catch(e){setError(e&&e.message?e.message:"باز کردن سرویس مدارس ناموفق بود");setBusy(false);}};useEffect(()=>{if(host)launch();},[host]);return React.createElement("div",{className:"panel",style:{margin:"14px 0",padding:0,border:0,background:"transparent"}},busy&&!error&&React.createElement("div",{className:"muted",style:{padding:"10px 14px"}},"در حال بارگذاری ویزارد سرویس مدارس…"),error&&React.createElement("div",{style:{padding:"14px"}},React.createElement("p",{style:{color:"var(--danger)",lineHeight:1.9}},error),React.createElement("button",{className:"btn p",onClick:launch},"تلاش مجدد")),React.createElement("div",{ref:setHost,style:{width:"100%"}}));}
+function SchoolServiceLauncher() {
+    const [error, setError] = useState("");
+    const [busy, setBusy] = useState(true);
+    const [host, setHost] = useState(null);
+    const launch = () => {
+        setBusy(true);
+        setError("");
+        try {
+            if (!window.openSchoolService)
+                throw new Error("ماژول سرویس مدارس هنوز بارگذاری نشده است.");
+            if (host)
+                Promise.resolve(window.openSchoolService(host, () => { setBusy(false); setError(""); })).catch(e => { setError(e && e.message ? e.message : "باز کردن سرویس مدارس ناموفق بود"); setBusy(false); });
+        }
+        catch (e) {
+            setError(e && e.message ? e.message : "باز کردن سرویس مدارس ناموفق بود");
+            setBusy(false);
+        }
+    };
+    useEffect(() => { if (host)
+        launch(); }, [host]);
+    return React.createElement("div", { className: "panel", style: { margin: "14px 0", padding: 0, border: 0, background: "transparent" } },
+        busy && !error && React.createElement("div", { className: "muted", style: { padding: "10px 14px" } }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u0648\u06CC\u0632\u0627\u0631\u062F \u0633\u0631\u0648\u06CC\u0633 \u0645\u062F\u0627\u0631\u0633\u2026"),
+        error && React.createElement("div", { style: { padding: "14px" } },
+            React.createElement("p", { style: { color: "var(--danger)", lineHeight: 1.9 } }, error),
+            React.createElement("button", { className: "btn p", onClick: launch }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")),
+        React.createElement("div", { ref: setHost, style: { width: "100%" } }));
+}
 const VIEWS = {
     covertselfies: { t: "سلفی‌های نامحسوس", ic: "📸", c: CovertSelfies },
     dashboard: { t: "داشبورد مدیریت", ic: "▦", c: Dashboard },
@@ -13708,7 +13753,7 @@ const VIEWS = {
     vehicleassets: { t: "ماشین‌آلات و وسایل مأموریتی", ic: "🚙", c: PersonnelVehicleAssets },
     vehiclechecklist: { t: "چک‌لیست خودرویی و موتوری", ic: "☑", c: PersonnelVehicleChecklist },
     settings: { t: "تنظیمات سامانه", ic: "⚙", c: Settings },
-    schoolservice: { t: "سرویس مدارس", ic: "checklist", c: SchoolServiceLauncher },
+    schoolservice: { t: "سرویس مدارس", ic: "route", c: SchoolServiceLauncher },
 };
 function Login({ onLogin, brand }) {
     const [u, setU] = useState("");
@@ -13719,15 +13764,17 @@ function Login({ onLogin, brand }) {
     const [np, setNp] = useState("");
     const [info, setInfo] = useState("");
     const [busy, setBusy] = useState(false);
-    const submit = async () => {
-        if (busy) return;
-        setBusy(true); setErr("");
-        try {
-            const d = await db.login(u, p); onLogin(d.user);
-        }
-        catch (e) { setErr(e && e.name === 'AbortError' ? 'زمان پاسخ سرور تمام شد. اتصال اینترنت و آدرس سرور را بررسی کنید.' : (e.message || 'ورود ناموفق بود')); }
-        finally { setBusy(false); }
-    };
+    const submit = async () => { if (busy)
+        return; setBusy(true); setErr(""); try {
+        const d = await db.login(u, p);
+        onLogin(d.user);
+    }
+    catch (e) {
+        setErr(e && e.message ? e.message : 'ورود ناموفق بود');
+    }
+    finally {
+        setBusy(false);
+    } };
     const sendCode = async () => { setErr(""); setInfo(""); try {
         await SEND('POST', '/auth/forgot-password', { username: u });
         setInfo("اگر نام کاربری معتبر باشد، کد بازیابی پیامک شد.");
@@ -13755,7 +13802,7 @@ function Login({ onLogin, brand }) {
             React.createElement("input", { className: "input", placeholder: "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC (\u06A9\u062F \u0645\u0644\u06CC)", value: u, onChange: e => setU(e.target.value), style: { marginBottom: 10 } }),
             mode === "login" && React.createElement(React.Fragment, null,
                 React.createElement("input", { className: "input", type: "password", placeholder: "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631", value: p, onChange: e => setP(e.target.value), onKeyDown: e => e.key === 'Enter' && submit() }),
-                React.createElement("button", { className: "btn p", style: { width: "100%", marginTop: 14 }, onClick: submit }, "\u0648\u0631\u0648\u062F"),
+                React.createElement("button", { className: "btn p", style: { width: "100%", marginTop: 14 }, onClick: submit, disabled: busy }, busy ? 'در حال ورود…' : 'ورود'),
                 React.createElement("p", { style: { textAlign: "center", marginTop: 10 } },
                     React.createElement("a", { style: { fontSize: 12, color: "var(--brand)", cursor: "pointer" }, onClick: () => { setErr(""); setInfo(""); setMode("forgot"); } }, "\u0641\u0631\u0627\u0645\u0648\u0634\u06CC \u0631\u0645\u0632 \u0639\u0628\u0648\u0631"))),
             mode === "forgot" && React.createElement(React.Fragment, null,
@@ -13784,7 +13831,12 @@ function App() {
     useEffect(() => { if (me && me.is_admin) {
         db.settings().then(s => { const all = s.role_perms || {}; const has = Object.prototype.hasOwnProperty.call(all, String(me.role_id)) || Object.prototype.hasOwnProperty.call(all, me.role_id); const rp = all[me.role_id]; setAllowed(has && Array.isArray(rp) ? rp : null); const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => setAllowed(null));
     } }, [me]);
-    useEffect(() => { if (!me || !me.is_admin) { setSchoolServiceAllowed(false); return; } let alive = true; GET("/school-service/access").then(a => { if (alive) setSchoolServiceAllowed((a === null || a === void 0 ? void 0 : a.allowed) === true); }).catch(() => { if (alive) setSchoolServiceAllowed(false); }); return () => { alive = false; }; }, [me]);
+    useEffect(() => { if (!me || !me.is_admin) {
+        setSchoolServiceAllowed(false);
+        return;
+    } let alive = true; GET("/school-service/access").then(a => { if (alive)
+        setSchoolServiceAllowed((a === null || a === void 0 ? void 0 : a.allowed) === true); }).catch(() => { if (alive)
+        setSchoolServiceAllowed(false); }); return () => { alive = false; }; }, [me]);
     if (!me)
         return React.createElement(Login, { onLogin: setMe, brand: brand });
     if (!me.is_admin)
@@ -13816,10 +13868,18 @@ function App() {
         shifts: 'shift-cycle', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
         messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', radiocenter: 'radio-tower', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen',
         config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'activity-wave', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
-        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'school-service'
+        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist'
     };
     const can = (k) => k === "schoolservice" ? schoolServiceAllowed : (!allowed || allowed.includes(k) || CORE.includes(k));
-    const closeOnPick = (k) => { if (k === "schoolservice" && v === k) { try { window.openSchoolService?.().catch?.(e => alert(e.message || "دسترسی به سرویس مدارس ممکن نیست.")); } catch (e) { alert(e.message || "دسترسی به سرویس مدارس ممکن نیست."); } return; } setV(k); setDrawer(false); };
+    const closeOnPick = (k) => { var _a, _b, _c; if (k === "schoolservice" && v === k) {
+        try {
+            (_c = (_a = window.openSchoolService) === null || _a === void 0 ? void 0 : (_b = _a.call(window)).catch) === null || _c === void 0 ? void 0 : _c.call(_b, e => alert(e.message || "دسترسی به سرویس مدارس ممکن نیست."));
+        }
+        catch (e) {
+            alert(e.message || "دسترسی به سرویس مدارس ممکن نیست.");
+        }
+        return;
+    } setV(k); setDrawer(false); };
     return (React.createElement("div", { className: "layout" + (drawer ? " drawer-open" : "") },
         React.createElement("div", { className: "scrim", onClick: () => setDrawer(false) }),
         React.createElement("aside", { className: "side" },
