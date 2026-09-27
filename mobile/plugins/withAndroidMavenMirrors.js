@@ -1,11 +1,10 @@
-const { withProjectBuildGradle, withDangerousMod } = require('@expo/config-plugins');
+const { withProjectBuildGradle } = require('@expo/config-plugins');
 
 const MARKER = 'KHATYAR_ANDROID_MAVEN_MIRRORS';
 const REPOS = [
   { name: 'MyketMaven', url: 'https://maven.myket.ir/', allowGradleMetadata: true },
   { name: 'RunflareGoogle', url: 'https://mirror-maven.runflare.com/android/maven2/', allowGradleMetadata: false },
   { name: 'RunflareMaven', url: 'https://mirror-maven.runflare.com/maven2/', allowGradleMetadata: false },
-  { name: 'RunflareGradlePlugins', url: 'https://mirror-maven.runflare.com/gradle-plugins/', allowGradleMetadata: false },
 ];
 
 function addRunflareContentGroovy(lines, indent) {
@@ -114,69 +113,6 @@ function ensureTopLevelRepositories(source, language) {
   return `// ${MARKER}: local -> Myket -> filtered Runflare -> official repositories.\nrepositories {\n${snippet}  google()\n  mavenCentral()\n}\n\n${source}`;
 }
 
-function patchExpoAutolinkingIncludedBuild(projectRoot) {
-  const fs = require('fs');
-  const path = require('path');
-
-  // Expo SDK 57 does not necessarily expose expo-gradle-plugin as a child
-  // directory of the JS package. The authoritative included build is the
-  // generated Android build referenced by Expo autolinking. Search the
-  // generated project first, then fall back to the package tree.
-  const candidates = [
-    path.join(projectRoot, 'node_modules', 'expo-modules-autolinking', 'expo-gradle-plugin'),
-    path.join(projectRoot, 'node_modules', 'expo-modules-autolinking', 'android', 'expo-gradle-plugin'),
-    path.join(projectRoot, 'android', 'node_modules', 'expo-modules-autolinking', 'expo-gradle-plugin'),
-  ];
-
-  const roots = candidates.filter((dir, i, all) => fs.existsSync(dir) && all.indexOf(dir) === i);
-  if (!roots.length) {
-    // Do not fail prebuild here: prepare-android-release.js performs the
-    // authoritative validation after prebuild and can report the exact
-    // generated include-build location if Expo changes its layout.
-    console.warn('[withAndroidMavenMirrors] expo-modules-autolinking included-build directory is not present in the npm package tree; deferring validation to prepare-android-release.js.');
-    return;
-  }
-
-  const files = [];
-  const walk = (dir) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (!['.gradle', 'build'].includes(entry.name)) walk(full);
-      } else if (/^(settings|build)\.gradle(?:\.kts)?$/i.test(entry.name)) {
-        files.push(full);
-      }
-    }
-  };
-  roots.forEach(walk);
-
-  let patched = 0;
-  for (const file of files) {
-    const language = file.endsWith('.kts') ? 'kotlin' : 'groovy';
-    const source = fs.readFileSync(file, 'utf8');
-    if (source.includes(MARKER)) { patched += 1; continue; }
-
-    let next = source;
-    const settingsBlock = findBlock(next, 'pluginManagement');
-    if (settingsBlock) {
-      const repos = findBlock(next, 'repositories', settingsBlock.open + 1);
-      if (repos && repos.start < settingsBlock.end) next = injectRepositories(next, repos, language);
-    }
-    const dependencyBlock = findBlock(next, 'dependencyResolutionManagement');
-    if (dependencyBlock) {
-      const repos = findBlock(next, 'repositories', dependencyBlock.open + 1);
-      if (repos && repos.start < dependencyBlock.end) next = injectRepositories(next, repos, language);
-    }
-    next = ensureTopLevelRepositories(next, language);
-    if (next !== source) {
-      fs.writeFileSync(file, next, 'utf8');
-      patched += 1;
-    }
-  }
-
-  console.log(`[withAndroidMavenMirrors] Expo autolinking candidate files discovered: ${files.length}; patched/verified: ${patched}.`);
-}
-
 module.exports = function withAndroidMavenMirrors(config) {
   config = withProjectBuildGradle(config, (cfg) => {
     const language = cfg.modResults.language === 'kotlin' ? 'kotlin' : 'groovy';
@@ -188,11 +124,6 @@ module.exports = function withAndroidMavenMirrors(config) {
     return cfg;
   });
 
-  config = withDangerousMod(config, ['android', async (cfg) => {
-    patchExpoAutolinkingIncludedBuild(cfg.modRequest.projectRoot);
-    return cfg;
-  }]);
-
-  console.log('[withAndroidMavenMirrors] main Android project mirror policy applied; real Expo included-build mirror policy applied.');
+  console.log('[withAndroidMavenMirrors] main Android project mirror policy applied; Expo/RN included-build settings left untouched.');
   return config;
 };
