@@ -1,5 +1,7 @@
 package ir.mashhad.taxicontrol.radio;
 
+import android.content.Context;
+
 import android.media.MediaRecorder;
 import android.os.SystemClock;
 
@@ -15,6 +17,7 @@ public final class OutgoingRadioRecorder {
   private static final int CHANNEL_COUNT = 1;
   private static final int BIT_RATE = 12000;
 
+  private final Context context;
   private final File outputDir;
   private final Callback callback;
   private final Object lock = new Object();
@@ -32,7 +35,9 @@ public final class OutgoingRadioRecorder {
   private File outputFile;
   private long startedAt;
 
-  public OutgoingRadioRecorder(File outputDir, Callback callback) {
+  public OutgoingRadioRecorder(Context context, File outputDir, Callback callback) {
+    if (context == null) throw new IllegalArgumentException("Radio context unavailable");
+    this.context = context.getApplicationContext();
     this.outputDir = outputDir;
     this.callback = callback;
   }
