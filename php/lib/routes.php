@@ -13195,6 +13195,7 @@ function _ssv_tables(){
         [(int)$r['id'],$default,$default,$default,$default,((int)$r['level']<=3)?1:0,$default]);
     }
   }catch(Throwable $e){}
+  _ssv_autoseed_schools();
 }
 function _ssv_autoseed_schools(){
   static $attempted=false; if($attempted) return; $attempted=true;
@@ -13299,7 +13300,6 @@ function _ssv_autoseed_schools(){
       $pdo->commit(); error_log('school-service seed completed: '.$stored.' rows');
     }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('school-service seed failed: '.$e->getMessage());}
   }catch(Throwable $e){error_log('school-service seed bootstrap failed: '.$e->getMessage());}
-  _ssv_autoseed_schools();
 }
 
 function _ssv_school_company_validate($schoolId,$companyId,$district=''){
