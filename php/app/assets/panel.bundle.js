@@ -13871,15 +13871,7 @@ function App() {
         vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist'
     };
     const can = (k) => k === "schoolservice" ? schoolServiceAllowed : (!allowed || allowed.includes(k) || CORE.includes(k));
-    const closeOnPick = (k) => { var _a, _b, _c; if (k === "schoolservice" && v === k) {
-        try {
-            (_c = (_a = window.openSchoolService) === null || _a === void 0 ? void 0 : (_b = _a.call(window)).catch) === null || _c === void 0 ? void 0 : _c.call(_b, e => alert(e.message || "دسترسی به سرویس مدارس ممکن نیست."));
-        }
-        catch (e) {
-            alert(e.message || "دسترسی به سرویس مدارس ممکن نیست.");
-        }
-        return;
-    } setV(k); setDrawer(false); };
+    const closeOnPick = (k) => { setV(k); setDrawer(false); };
     return (React.createElement("div", { className: "layout" + (drawer ? " drawer-open" : "") },
         React.createElement("div", { className: "scrim", onClick: () => setDrawer(false) }),
         React.createElement("aside", { className: "side" },
@@ -13923,7 +13915,7 @@ function App() {
                     React.createElement("div", { className: "av" }, (me.name || "؟")[0]))),
             React.createElement(View, null))));
 }
-const PANEL_BUILD_VERSION = "1.5.2";
+const PANEL_BUILD_VERSION = "1.5.3";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
@@ -13965,6 +13957,6 @@ async function khForceFreshReloadAfterLogin() {
         return;
     }
     await khEnsureFreshBuild();
-    console.log("PANEL BUILD: 1.5.2 (school-service-final-inline-map)");
+    console.log("PANEL BUILD: 1.5.3 (school-service-final-inline-map)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
 })();
