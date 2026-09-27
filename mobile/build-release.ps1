@@ -72,6 +72,41 @@ function Save-PrebuildMarker([string]$PackageHash,[string]$NativeConfigHash) {
     }
     $obj | ConvertTo-Json | Set-Content -LiteralPath $PrebuildMarker -Encoding UTF8
 }
+function Sync-RadioNativeSources([string]$Android) {
+    $sourceDir = Join-Path $Root 'plugins\khatyar-radio-native'
+    $targetDir = Join-Path $Android 'app\src\main\java\ir\mashhad\taxicontrol\radio'
+    if (-not (Test-Path -LiteralPath $sourceDir)) { Fail 'Canonical Khatyar radio plugin source directory is missing.' }
+    New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+
+    foreach ($name in @('KhatyarRadioPackage.java','KhatyarRadioModule.java','KhatyarRadioService.java','OutgoingRadioRecorder.java','RadioSfxPlayer.java')) {
+        $source = Join-Path $sourceDir $name
+        if (-not (Test-Path -LiteralPath $source)) { Fail "Missing canonical radio source: $source" }
+        Copy-Item -LiteralPath $source -Destination (Join-Path $targetDir $name) -Force
+    }
+
+    $resourceRoot = Join-Path $sourceDir 'resources'
+    foreach ($dir in @('layout','drawable','values')) {
+        $src = Join-Path $resourceRoot $dir
+        if (-not (Test-Path -LiteralPath $src)) { continue }
+        $dst = Join-Path $Android ('app\src\main\res\' + $dir)
+        New-Item -ItemType Directory -Force -Path $dst | Out-Null
+        Get-ChildItem -LiteralPath $src -File | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dst $_.Name) -Force
+        }
+    }
+
+    $expected = @(
+        (Join-Path $targetDir 'OutgoingRadioRecorder.java'),
+        (Join-Path $targetDir 'RadioSfxPlayer.java'),
+        (Join-Path $Android 'app\src\main\res\layout\khatyar_radio_notification.xml'),
+        (Join-Path $Android 'app\src\main\res\layout\khatyar_radio_notification_big.xml')
+    )
+    foreach ($file in $expected) {
+        if (-not (Test-Path -LiteralPath $file)) { Fail "Radio native synchronization failed; missing $file" }
+    }
+    Write-Host '    Radio native sources/resources synchronized from canonical plugin.' -ForegroundColor Green
+}
+
 function Test-GeneratedRadioManifest([string]$Android) {
     $manifest = Join-Path $Android 'app\src\main\AndroidManifest.xml'
     if (-not (Test-Path -LiteralPath $manifest)) { Fail 'Generated AndroidManifest.xml is missing.' }
@@ -227,7 +262,7 @@ try {
         Save-PrebuildMarker $packageHash $nativeConfigHash
     }
 
-    Test-GeneratedRadioManifest $android
+    Sync-RadioNativeSources $android`r`n`r`n    Test-GeneratedRadioManifest $android
 
     $gradlew = Join-Path $android 'gradlew.bat'; $wrapperProps = Join-Path $android 'gradle\wrapper\gradle-wrapper.properties'
     if (-not (Test-Path -LiteralPath $gradlew)) { Fail 'Gradle wrapper is missing.' }
