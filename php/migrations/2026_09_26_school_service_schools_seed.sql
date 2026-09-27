@@ -8,11 +8,11 @@ SET NAMES utf8mb4;
 
 -- این Seed ممکن است روی دیتابیسی اجرا شود که جدول مدارس قبلاً توسط نسخه پایه ساخته شده است.
 -- ستون‌های تکمیلی زیر باید قبل از UPDATE/INSERT وجود داشته باشند.
--- به‌جای IF NOT EXISTS از INFORMATION_SCHEMA استفاده شده تا روی نسخه‌های مختلف
--- MySQL 8.x و MariaDB 10.6+ بدون خطای تکراری اجرا شود.
+-- به‌جای ADD COLUMN IF NOT EXISTS از INFORMATION_SCHEMA استفاده شده تا
+-- روی نسخه‌های مختلف MySQL 8.x و MariaDB 10.6+ بدون خطای تکراری اجرا شود.
 SET @ssv_missing_columns := (
   SELECT GROUP_CONCAT(
-    CONCAT('ADD COLUMN \`', d.column_name, '\` ', d.column_definition)
+    CONCAT('ADD COLUMN ', d.column_name, ' ', d.column_definition)
     SEPARATOR ', '
   )
   FROM (
@@ -30,7 +30,7 @@ SET @ssv_missing_columns := (
     UNION ALL SELECT 'phone','VARCHAR(80) NULL'
     UNION ALL SELECT 'latitude','DECIMAL(10,7) NULL'
     UNION ALL SELECT 'longitude','DECIMAL(10,7) NULL'
-    UNION ALL SELECT 'status',\`VARCHAR(80) NULL DEFAULT 'ثبت‌شده'\`
+    UNION ALL SELECT 'status',"VARCHAR(80) NULL DEFAULT 'ثبت‌شده'"
     UNION ALL SELECT 'location_registered_at','DATETIME NULL'
   ) d
   LEFT JOIN information_schema.columns c
