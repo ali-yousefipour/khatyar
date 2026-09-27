@@ -49,6 +49,17 @@ function Get-NativeConfigHash() {
     $parts = foreach ($file in $files) { Get-FileHashSafe $file }
     return (($parts -join ':') | ForEach-Object { $_ })
 }
+function Test-ExpoAutolinkingPackageClean() {
+    $settingsPath = Join-Path $Root 'node_modules\expo-modules-autolinking\android\expo-gradle-plugin\settings.gradle.kts'
+    $buildPath = Join-Path $Root 'node_modules\expo-modules-autolinking\android\expo-gradle-plugin\build.gradle.kts'
+    if (-not (Test-Path -LiteralPath $settingsPath)) { return $true }
+    $settings = Get-Content -LiteralPath $settingsPath -Raw -Encoding UTF8
+    $build = if (Test-Path -LiteralPath $buildPath) { Get-Content -LiteralPath $buildPath -Raw -Encoding UTF8 } else { '' }
+    return ($settings -notmatch 'KHATYAR_ANDROID_MAVEN_MIRRORS' -and
+            $build -notmatch 'KHATYAR_ANDROID_MAVEN_MIRRORS' -and
+            $settings -notmatch 'RunflareGradlePlugins' -and
+            $build -notmatch 'RunflareGradlePlugins')
+}
 function Test-PrebuildCurrent([string]$PackageHash,[string]$NativeConfigHash) {
     if ($ForcePrebuild -or -not (Test-Path -LiteralPath $PrebuildMarker)) { return $false }
     try {
@@ -245,7 +256,11 @@ try {
     Invoke-Checked 'cmd.exe' @('/d','/c','java.exe -version 2>&1')
     Invoke-Checked 'cmd.exe' @('/d','/c','git.exe --version')
 
-    if ($Fresh) {
+    $expoAutolinkingContaminated = -not (Test-ExpoAutolinkingPackageClean)
+    if ($Fresh -or $expoAutolinkingContaminated) {
+        if ($expoAutolinkingContaminated) {
+            Write-Host '    Detected legacy KhatYar patch inside expo-modules-autolinking; restoring package from package-lock.json.' -ForegroundColor Yellow
+        }
         Stage 22 'Refreshing locked npm dependencies'
         Invoke-Checked 'npm.cmd' @('ci','--no-audit','--no-fund','--legacy-peer-deps','--include=dev')
     } elseif (-not (Test-Path -LiteralPath (Join-Path $Root 'node_modules\.bin\expo.cmd'))) {
@@ -253,6 +268,7 @@ try {
         Invoke-Checked 'npm.cmd' @('ci','--no-audit','--no-fund','--legacy-peer-deps','--include=dev')
     }
     if (-not (Test-Path -LiteralPath (Join-Path $Root 'node_modules\.bin\expo.cmd'))) { Fail 'Local Expo CLI is missing.' }
+    if (-not (Test-ExpoAutolinkingPackageClean)) { Fail 'expo-modules-autolinking is still modified after npm ci; package installation is not clean.' }
 
     if (-not $SkipDoctor) {
         Stage 30 'Running Expo diagnostics'
