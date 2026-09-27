@@ -13347,9 +13347,8 @@ function _ssv_district_key($s){
   return _ssv_norm($s);
 }
 function _ssv_district_sql($column){
-  $e="TRIM(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE($column,'۰','0'),'۱','1'),'۲','2'),'۳','3'),'۴','4'),'۵','5'),'۶','6'),'۷','7'),'۸','8'),'۹','9'))";
-  $e="REPLACE($e,'ناحیه','')";
-  $e="REPLACE($e,' ','')";
+  $e="TRIM(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE($column,'۰','0'),'۱','1'),'۲','2'),'۳','3'),'۴','4'),'۵','5'),'۶','6'),'۷','7'),'۸','8'),'۹','9'),'٠','0'),'١','1'),'٢','2'),'٣','3'),'٤','4'),'٥','5'),'٦','6'),'٧','7'),'٨','8'),'٩','9'))";
+  $e="REPLACE(REPLACE(REPLACE($e,'ناحیه',''),'منطقه',''),' ','')";
   return "CASE $e WHEN '1' THEN '۱' WHEN '2' THEN '۲' WHEN '3' THEN '۳' WHEN '4' THEN '۴' WHEN '5' THEN '۵' WHEN '6' THEN '۶' WHEN '7' THEN '۷' WHEN 'تبادکان' THEN 'تبادکان' ELSE $e END";
 }
 function _ssv_valid_district($title){
