@@ -26,6 +26,9 @@ public final class OutgoingRadioRecorder {
   private volatile long callbackDurationMs;
 
   private MediaRecorder recorder;
+  private android.media.AudioManager audioManager;
+  private int previousAudioMode = android.media.AudioManager.MODE_NORMAL;
+  private boolean audioModeChanged = false;
   private File outputFile;
   private long startedAt;
 
@@ -43,6 +46,14 @@ public final class OutgoingRadioRecorder {
       }
 
       outputFile = new File(outputDir, "radio-out-" + System.currentTimeMillis() + ".m4a");
+      audioManager = (android.media.AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+      if (audioManager != null) {
+        previousAudioMode = audioManager.getMode();
+        if (previousAudioMode != android.media.AudioManager.MODE_IN_COMMUNICATION) {
+          audioManager.setMode(android.media.AudioManager.MODE_IN_COMMUNICATION);
+          audioModeChanged = true;
+        }
+      }
       recorder = new MediaRecorder();
       try {
         recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION);
@@ -126,6 +137,14 @@ public final class OutgoingRadioRecorder {
     return callbackResultPath;
   }
 
+  private void restoreAudioMode() {
+    try {
+      if (audioManager != null && audioModeChanged) audioManager.setMode(previousAudioMode);
+    } catch (Throwable ignored) {}
+    audioModeChanged = false;
+    audioManager = null;
+  }
+
   private void safeReleaseRecorder() {
     MediaRecorder r = recorder;
     recorder = null;
@@ -133,5 +152,6 @@ public final class OutgoingRadioRecorder {
       try { r.reset(); } catch (Throwable ignored) {}
       try { r.release(); } catch (Throwable ignored) {}
     }
+    restoreAudioMode();
   }
 }
