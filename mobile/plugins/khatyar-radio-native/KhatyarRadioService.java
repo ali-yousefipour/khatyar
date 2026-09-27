@@ -491,9 +491,10 @@ public final class KhatyarRadioService extends Service {
         AudioTrack t = null;
         try {
           int min = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+          ensureMaxMediaVolume();
           t = new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
               Math.max(min, pcm.length * 2), AudioTrack.MODE_STATIC);
-          t.write(pcm, 0, pcm.length); t.play(); Thread.sleep(durationMs + 30L);
+          t.setVolume(1.0f); t.write(pcm, 0, pcm.length); t.play(); Thread.sleep(durationMs + 30L);
         } catch (Throwable ignored) {
         } finally { if (t != null) { try { t.stop(); } catch (Throwable ignored) {} try { t.release(); } catch (Throwable ignored) {} } }
       }, "KhatyarRadioKeyTone").start();
