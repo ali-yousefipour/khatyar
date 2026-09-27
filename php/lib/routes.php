@@ -423,7 +423,7 @@ $loginHandler = function ($p, $b) {
   ]]);
 };
 route('POST', '/api/auth/login', $loginHandler, true);
-route('POST', '/api/session/start', $loginHandler, true);
+route('POST', '/api/session/start', function($p,$b,$u)use($loginHandler){_ensure_web_core_tables();return $loginHandler($p,$b,$u);}, true);
 
 $refreshHandler = function ($p, $b) {
   $payload = Jwt::verify($b['refresh'] ?? '', $GLOBALS['CONFIG']['jwt_secret']);
@@ -7727,7 +7727,7 @@ route('PUT', '/api/admin/settings', function($p,$b,$u){
   return ['ok'=>true,'subscription'=>function_exists('_subscription_status_for_user')?_subscription_status_for_user($u):null];
 }, false, ADMIN);
 // تنظیمات عمومی (محدودیت آپلود هر بخش) برای اپ میدانی — فقط کلیدهای غیرحساس
-route('GET', '/api/settings/public', function($p,$b,$u){
+route('GET', '/api/settings/public', function($p,$b,$u){_ensure_web_core_tables();
   $keys = ['upload_reports','upload_checklists','upload_notices','image_quality','image_max_width','image_max_height','thumbnail_size','thumbnail_quality','attachment_retention_days','form_attachment_retention_days','presence_retention_days','covert_selfie_retention_days','salary_slip_retention_days','company_request_retention_days','site_title','site_logo','org_title','org_logo','plate_ocr_enabled','plate_ocr_mode','plate_ocr_min_confidence','plate_ocr_require_confirm','plate_ocr_save_samples','plate_ocr_fixed_letter','plate_ocr_region_code','plate_ocr_crop_width','plate_ocr_crop_quality','cloud_ocr_enabled','cloud_ocr_provider','cloud_ocr_api_key','cloud_ocr_endpoint','cloud_ocr_connect_timeout','cloud_ocr_timeout'];
   $out=[]; try { foreach (Db::all("SELECT `key`,value FROM app_settings WHERE `key` IN ('".implode("','",$keys)."')") as $r) $out[$r['key']] = json_decode($r['value'], true); } catch (Throwable $e) { error_log('settings/public fallback: '.$e->getMessage()); }
   return $out;
