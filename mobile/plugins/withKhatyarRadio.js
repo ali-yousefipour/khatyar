@@ -18,7 +18,7 @@ function ensureSourceFiles(config) {
       fs.copyFileSync(source, target);
     }
     const resourceRoot = path.join(srcRoot, 'resources');
-    const resourceDirs = ['layout','drawable'];
+    const resourceDirs = ['layout','drawable','values'];
     for (const rdir of resourceDirs) {
       const sourceDir = path.join(resourceRoot, rdir);
       const targetDir = path.join(root, 'app', 'src', 'main', 'res', rdir);
