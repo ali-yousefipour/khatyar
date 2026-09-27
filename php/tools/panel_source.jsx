@@ -7961,12 +7961,12 @@ function App(){
             {ks.map(k=><button key={k} className={"navitem "+(v===k?"on":"")} onClick={()=>closeOnPick(k)}><span className="ic">{I8(MENU_ICONS[k])}</span><span className="navlabel">{VIEWS[k].t}</span></button>)}
           </div>
         </div>); })}
+        <button className={"navitem "+(v==="schoolservice"?"on":"")} onClick={()=>closeOnPick("schoolservice")}><span className="ic">{I8(MENU_ICONS.schoolservice)}</span><span className="navlabel">سرویس مدارس</span></button>
         <button className="navitem logout-item" onClick={()=>{localStorage.removeItem("token");setMe(null);}}><span className="ic">{I8('logout-door')}</span><span className="navlabel">خروج</span></button></nav>
       <div className="apibar">
         <div>برنامه‌نویسی و راه‌اندازی شده توسط شرکت مبین شات مشهد (خرداد ۱۴۰۵)</div>
         <div style={{marginTop:4,opacity:.85}}>نسخهٔ سایت {(window.__health&&window.__health.site_version)?fa(window.__health.site_version):"—"} · <span style={{color:(window.__health?"#16a06a":"#e3403e")}}>{window.__health?"متصل به سرور":"قطع"}</span></div>
       </div>
-        <button className={"navitem "+(v==="schoolservice"?"on":"")} onClick={()=>closeOnPick("schoolservice")}><span className="ic">{I8(MENU_ICONS.schoolservice)}</span><span className="navlabel">سرویس مدارس</span></button></nav>
     <main className="main"><div className="top">
       <button className="burger" onClick={()=>setDrawer(d=>!d)}>☰</button>
       <h2>{VIEWS[vk].t}</h2>
