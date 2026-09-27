@@ -172,9 +172,17 @@ public final class OutgoingRadioRecorder {
 
   private void drainEncoder(boolean endOfStream) throws Exception {
     MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+    final long deadline = endOfStream ? SystemClock.elapsedRealtime() + 4000L : Long.MAX_VALUE;
     while (true) {
-      int index = encoder.dequeueOutputBuffer(info, endOfStream ? 20000 : 1000);
-      if (index == MediaCodec.INFO_TRY_AGAIN_LATER) { if (!endOfStream) return; continue; }
+      long remaining = deadline == Long.MAX_VALUE ? 1000L : Math.max(1L, deadline - SystemClock.elapsedRealtime());
+      int index = encoder.dequeueOutputBuffer(info, Math.min(1000L, remaining));
+      if (index == MediaCodec.INFO_TRY_AGAIN_LATER) {
+        if (!endOfStream) return;
+        if (SystemClock.elapsedRealtime() >= deadline) {
+          throw new IllegalStateException("AAC encoder did not finish within 4 seconds");
+        }
+        continue;
+      }
       if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
         if (muxerStarted) throw new IllegalStateException("AAC output format changed twice");
         muxerTrack = muxer.addTrack(encoder.getOutputFormat()); muxer.start(); muxerStarted = true; continue;
@@ -188,6 +196,9 @@ public final class OutgoingRadioRecorder {
       boolean eos = (info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;
       encoder.releaseOutputBuffer(index, false);
       if (eos) return;
+      if (endOfStream && SystemClock.elapsedRealtime() >= deadline) {
+        throw new IllegalStateException("AAC encoder did not finish within 4 seconds");
+      }
     }
   }
 
