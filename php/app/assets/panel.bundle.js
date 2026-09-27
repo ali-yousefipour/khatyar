@@ -13879,7 +13879,7 @@ function App() {
                 brand.logo ? React.createElement("img", { src: brand.logo, style: { width: 38, height: 38, borderRadius: 10, objectFit: "contain", background: "#fff", padding: 3 } }) : React.createElement("img", { src: "/brand-khatyar.png", style: { width: 38, height: 38, borderRadius: 19, objectFit: "cover" } }),
                 React.createElement("span", null, brand.title || "خطیار")),
             React.createElement("nav", { className: "nav", style: { flex: 1 } },
-                React.createElement("button", { "data-school-service": "canonical", className: "navitem " + (v === "schoolservice" ? "on" : ""), style: { flex: "none", width: "100%" }, onClick: () => closeOnPick("schoolservice") },
+                React.createElement("button", { "data-school-service": "canonical", className: "navitem " + (v === "schoolservice" ? "on" : ""), style: { display: "flex", visibility: "visible", opacity: 1, position: "relative", zIndex: 2, order: -9999, flex: "0 0 54px", width: "100%", minHeight: 54 }, onClick: () => closeOnPick("schoolservice") },
                     React.createElement("span", { className: "ic" }, I8(MENU_ICONS.schoolservice)),
                     React.createElement("span", { className: "navlabel" }, "\u0633\u0631\u0648\u06CC\u0633 \u0645\u062F\u0627\u0631\u0633")),
                 SECTIONS.map(([title, keys]) => {
