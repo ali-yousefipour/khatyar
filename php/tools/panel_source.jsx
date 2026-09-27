@@ -7929,7 +7929,7 @@ function App(){
   const SECTIONS=[
     ["داشبورد و پایش",["dashboard","reportscenter","health","map","present","presentchart"]],
     ["عملیات میدانی",["missiondashboard","citydashboard","missiontemplates","scoreengine","officials","presence","attendance","companyrequests","outages","covertselfies"]],
-    ["تاکسی و تاکسیران",["drivers","driverservicereport","tempdrivers","platetraining","lines","zones","bills","schoolservice"]],
+    ["تاکسی و تاکسیران",["drivers","driverservicereport","tempdrivers","platetraining","lines","zones","bills"]],
     ["گزارش‌ها",["reports","report","perfreport","attreport","useract"]],
     ["منابع انسانی",["shifts","workpolicy","requests","salaryslips","commitments","welfare","cultural","vehicleassets","vehiclechecklist"]],
     ["ارتباطات",["messages","sms","smslog","messengercenter","radiocenter"]],
@@ -7965,7 +7965,8 @@ function App(){
       <div className="apibar">
         <div>برنامه‌نویسی و راه‌اندازی شده توسط شرکت مبین شات مشهد (خرداد ۱۴۰۵)</div>
         <div style={{marginTop:4,opacity:.85}}>نسخهٔ سایت {(window.__health&&window.__health.site_version)?fa(window.__health.site_version):"—"} · <span style={{color:(window.__health?"#16a06a":"#e3403e")}}>{window.__health?"متصل به سرور":"قطع"}</span></div>
-      </div></aside>
+      </div>
+        <button className={"navitem "+(v==="schoolservice"?"on":"")} onClick={()=>closeOnPick("schoolservice")}><span className="ic">{I8(MENU_ICONS.schoolservice)}</span><span className="navlabel">سرویس مدارس</span></button></nav>
     <main className="main"><div className="top">
       <button className="burger" onClick={()=>setDrawer(d=>!d)}>☰</button>
       <h2>{VIEWS[vk].t}</h2>
