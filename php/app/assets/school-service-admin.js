@@ -94,6 +94,34 @@ b.querySelectorAll('[data-edit-c]').forEach(x=>x.onclick=async()=>{const rows2=(
 b.querySelectorAll('[data-edit-s]').forEach(x=>x.onclick=async()=>{const rows2=(await api('/api/school-service/schools?search=')).items||[];const r=rows2.find(z=>Number(z.id)===Number(x.dataset.editS));if(r)ssvEntityForm('schools',r,load)});
 };input.oninput=()=>{clearTimeout(input._t);input._t=setTimeout(()=>{page=1;load()},250)};await load();}catch(e){b.innerHTML='<div class="ssv-msg">'+esc(e.message||'خطا در دریافت اطلاعات')+'</div>'}}
 window.openSchoolService = open;
+
+/* Fallback menu: اگر Bundle قدیمی باشد و آیتم React هنوز ساخته نشده باشد،
+   سرویس مدارس همچنان باید در سایدبار اصلی و زیر «تاکسی و تاکسیران» دیده شود. */
+(function installSchoolServiceMenuFallback(){
+  const ID='kh-school-service-menu-fallback';
+  const add=()=>{
+    try{
+      if(document.getElementById(ID)) return;
+      const nav=document.querySelector('aside .nav, .nav');
+      if(!nav) return;
+      const sections=[...nav.querySelectorAll('.navsec')];
+      const section=sections.find(x=>/تاکسی و تاکسیران/.test(x.textContent||''));
+      if(!section) return;
+      const body=section.querySelector('.navsec-body')||section;
+      const btn=document.createElement('button');
+      btn.id=ID;btn.type='button';btn.className='navitem';
+      btn.innerHTML='<span class="ic">✓</span><span class="navlabel">سرویس مدارس</span>';
+      btn.onclick=()=>{
+        const host=document.querySelector('main,.main-content,.content,.page-content,[role="main"]')||document.body;
+        try{Promise.resolve(window.openSchoolService&&window.openSchoolService(host)).catch(e=>alert(e&&e.message?e.message:'باز کردن سرویس مدارس ناموفق بود'));}catch(e){alert(e&&e.message?e.message:'باز کردن سرویس مدارس ناموفق بود');}
+      };
+      body.appendChild(btn);
+    }catch(_){}
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',add,{once:true});else add();
+  try{new MutationObserver(()=>setTimeout(add,0)).observe(document.body,{childList:true,subtree:true});}catch(_){}
+})();
+
 /* منوی سرویس مدارس توسط پنل React و در ساختار اصلی سایدبار ساخته می‌شود.
    این فایل فقط ویزارد و API آن را فراهم می‌کند تا منوی جداگانه و پایدار با React تداخل نداشته باشد. */
 })();
