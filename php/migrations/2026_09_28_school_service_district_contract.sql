@@ -30,11 +30,11 @@ WHEN TRIM(educational_district)='تبادکان' THEN 'تبادکان'
 ELSE educational_district END
 WHERE educational_district IS NOT NULL AND TRIM(educational_district)<>'';
 
-UPDATE school_service_districts SET title='۱' WHERE title IN ('1','۱','ناحیه 1','ناحیه ۱','منطقه 1','منطقه ۱');
-UPDATE school_service_districts SET title='۲' WHERE title IN ('2','۲','ناحیه 2','ناحیه ۲','منطقه 2','منطقه ۲');
-UPDATE school_service_districts SET title='۳' WHERE title IN ('3','۳','ناحیه 3','ناحیه ۳','منطقه 3','منطقه ۳');
-UPDATE school_service_districts SET title='۴' WHERE title IN ('4','۴','ناحیه 4','ناحیه ۴','منطقه 4','منطقه ۴');
-UPDATE school_service_districts SET title='۵' WHERE title IN ('5','۵','ناحیه 5','ناحیه ۵','منطقه 5','منطقه ۵');
-UPDATE school_service_districts SET title='۶' WHERE title IN ('6','۶','ناحیه 6','ناحیه ۶','منطقه 6','منطقه ۶');
-UPDATE school_service_districts SET title='۷' WHERE title IN ('7','۷','ناحیه 7','ناحیه ۷','منطقه 7','منطقه ۷');
+DELETE FROM school_service_districts WHERE title IN (
+ '1','2','3','4','5','6','7','١','٢','٣','٤','٥','٦','٧',
+ 'ناحیه 1','ناحیه 2','ناحیه 3','ناحیه 4','ناحیه 5','ناحیه 6','ناحیه 7',
+ 'ناحیه ۱','ناحیه ۲','ناحیه ۳','ناحیه ۴','ناحیه ۵','ناحیه ۶','ناحیه ۷',
+ 'منطقه 1','منطقه 2','منطقه 3','منطقه 4','منطقه 5','منطقه 6','منطقه 7',
+ 'منطقه ۱','منطقه ۲','منطقه ۳','منطقه ۴','منطقه ۵','منطقه ۶','منطقه ۷'
+);
 INSERT IGNORE INTO school_service_districts(title,sort_order,is_active) VALUES ('۱',1,1),('۲',2,1),('۳',3,1),('۴',4,1),('۵',5,1),('۶',6,1),('۷',7,1),('تبادکان',8,1);
