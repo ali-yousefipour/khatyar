@@ -270,7 +270,8 @@ try {
         Save-PrebuildMarker $packageHash $nativeConfigHash
     }
 
-    Sync-RadioNativeSources $android`r`n`r`n    Test-GeneratedRadioManifest $android
+    Sync-RadioNativeSources $android
+    Test-GeneratedRadioManifest $android
 
     $gradlew = Join-Path $android 'gradlew.bat'; $wrapperProps = Join-Path $android 'gradle\wrapper\gradle-wrapper.properties'
     if (-not (Test-Path -LiteralPath $gradlew)) { Fail 'Gradle wrapper is missing.' }
