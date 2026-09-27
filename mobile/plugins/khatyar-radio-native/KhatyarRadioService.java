@@ -518,7 +518,7 @@ public final class KhatyarRadioService extends Service {
       Map<String,String> headers = new HashMap<>(); if (token != null && !token.isEmpty()) headers.put("Authorization", "Bearer " + token);
       player.setDataSource(this, android.net.Uri.parse(audioUrl), headers);
       player.setOnCompletionListener(mp -> { playRadioSfx(false, true); synchronized (KhatyarRadioService.this) { try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); playNextRemote(); } });
-      player.setOnErrorListener((mp, what, extra) -> { synchronized (KhatyarRadioService.this) { if (loudnessEnhancer != null) { try { loudnessEnhancer.release(); } catch (Throwable ignored) {} loudnessEnhancer = null; } try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); playNextRemote(); } return true; });
+      player.setOnErrorListener((mp, what, extra) -> { synchronized (KhatyarRadioService.this) { try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); playNextRemote(); } return true; });
       player.setOnPreparedListener(mp -> {
         try {
           ensureMaxMediaVolume();
