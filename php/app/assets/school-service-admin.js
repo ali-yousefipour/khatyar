@@ -1,4 +1,4 @@
-console.log('SCHOOL SERVICE ADMIN BUILD: 2026-09-27-v238');
+console.log('SCHOOL SERVICE ADMIN BUILD: 2026-09-28-v239');
 (()=>{const S={token:null,root:null,ready:false,access:null};const css=document.createElement('style');css.textContent='.ssv-btn{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;margin:4px 0;border:0;border-radius:10px;background:transparent;color:inherit;font:600 13px Vazirmatn,Tahoma;cursor:pointer;text-align:right;direction:rtl}.ssv-btn:hover{background:#eef5f2}.ssv-page-host{width:100%;box-sizing:border-box;background:#f6f8fb;overflow:visible;padding:16px;direction:rtl}.ssv-inline-page{display:block!important;position:relative!important;inset:auto!important;width:100%;min-height:calc(100vh - 84px);box-sizing:border-box;background:#f6f8fb;padding:0;direction:rtl;z-index:1}.ssv-page-head{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;width:100%;box-sizing:border-box}.ssv-inline-page .ssv-box{display:none!important}.ssv-inline-page .ssv-head{position:sticky;top:0;z-index:5}.ssv-inline-page .ssv-body{overflow:visible}.ssv-map-wrap{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(360px,1fr);gap:12px;align-items:stretch;margin-bottom:12px}.ssv-map{height:520px;min-height:420px;border-radius:16px;overflow:hidden;border:1px solid #dfe5eb;background:#eef3f6}.ssv-map-info{border:1px solid #e4e8ee;border-radius:14px;background:#fff;padding:12px;overflow:auto;max-height:520px}.ssv-school-pick{display:block;width:100%;padding:9px;border:1px solid #e4e8ee;border-radius:10px;background:#fff;margin-bottom:7px;cursor:pointer;text-align:right;direction:rtl;font-family:Vazirmatn,Tahoma}.ssv-school-pick:hover{border-color:#0d7a5f;background:#f1faf6}.ssv-map-empty{display:flex;align-items:center;justify-content:center;height:100%;color:#7a8694;font-family:Vazirmatn,Tahoma}.ssv-box{width:min(1180px,96vw);height:min(820px,92vh);background:#fff;border-radius:18px;box-shadow:0 20px 70px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden;font-family:Vazirmatn,Tahoma}.ssv-head{padding:14px 18px;background:#0d7a5f;color:#fff;display:flex;align-items:center;justify-content:space-between}.ssv-tabs{display:flex;gap:6px;padding:10px;background:#f4f6f8;flex-wrap:wrap}.ssv-tabs button{border:1px solid #dce2e8;background:#fff;border-radius:10px;padding:8px 12px;font-family:inherit;cursor:pointer}.ssv-tabs button.on{background:#0d7a5f;color:#fff}.ssv-body{padding:14px;overflow:auto}.ssv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ssv-card{border:1px solid #e4e8ee;border-radius:14px;padding:12px;background:#fff}.ssv-input{width:100%;box-sizing:border-box;border:1px solid #d9e0e7;border-radius:10px;padding:9px;font-family:inherit}.ssv-table{width:100%;border-collapse:collapse;font-size:12px}.ssv-table th,.ssv-table td{border-bottom:1px solid #edf0f3;padding:8px;text-align:right;vertical-align:top}.ssv-table th{background:#f8fafb}.ssv-form-modal{position:fixed;inset:0;background:rgba(15,23,42,.48);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px}.ssv-form-box{width:min(720px,96vw);max-height:90vh;background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}.ssv-form-head{display:flex;align-items:center;justify-content:space-between;background:#0d7a5f;color:#fff;padding:13px 16px}.ssv-form-body{padding:16px;overflow:auto}.ssv-form-foot{display:flex;gap:8px;justify-content:flex-start;padding:12px 16px;border-top:1px solid #edf0f3}.ssv-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ssv-form-grid label{display:flex;flex-direction:column;gap:5px;font-size:12px}.ssv-form-foot button{border:0;border-radius:10px;padding:9px 16px;background:#0d7a5f;color:#fff;font-family:inherit;cursor:pointer}.ssv-form-foot button.alt{background:#eef2f5;color:#263238}.ssv-close{border:0;background:rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:7px 11px;cursor:pointer}.ssv-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.ssv-actions button{border:0;border-radius:10px;padding:9px 13px;background:#0d7a5f;color:#fff;font-family:inherit;cursor:pointer}.ssv-actions button.alt{background:#eef2f5;color:#263238}.ssv-pager{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px}.ssv-pager button{border:0;border-radius:9px;padding:7px 13px;background:#eef2f5;color:#263238;cursor:pointer}.ssv-pager button:disabled{opacity:.45;cursor:not-allowed}.ssv-chip{display:inline-flex;align-items:center;gap:4px;padding:7px 10px;border:1px solid #e2e7ec;border-radius:18px;margin:4px;background:#f8fafb}.ssv-chip button{border:0;background:transparent;color:#9a3b3b;cursor:pointer}.ssv-msg{padding:10px;border-radius:10px;background:#f7faf8;margin:8px 0}.ssv-file{display:none}@media(max-width:800px){.ssv-grid{grid-template-columns:1fr}.ssv-box{height:96vh}}';document.head.appendChild(css);
 function capture(){const old=window.fetch;if(window.__ssvFetch)return;window.__ssvFetch=true;window.fetch=function(input,init){try{const h=init&&init.headers;if(h){if(h instanceof Headers)S.token=h.get('Authorization')||S.token;else S.token=h.Authorization||h.authorization||S.token}}catch(_){}return old.apply(this,arguments)}}capture();
 function bootstrapAuthToken(){try{if(S.token)return;const keys=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i)||'';if(/token|access|auth/i.test(k))keys.push(k)}for(const k of keys){const v=localStorage.getItem(k);if(!v)continue;try{const j=JSON.parse(v);const t=j?.access||j?.access_token||j?.token||j?.data?.access||j?.data?.token;if(t){S.token=String(t).startsWith('Bearer ')?String(t):'Bearer '+t;return}}catch(_){}if(/^Bearer\s+/i.test(v)||v.length>20){S.token=/^Bearer\s+/i.test(v)?v:'Bearer '+v;return}}}catch(_){}}
@@ -95,34 +95,6 @@ b.querySelectorAll('[data-edit-s]').forEach(x=>x.onclick=async()=>{const rows2=(
 };input.oninput=()=>{clearTimeout(input._t);input._t=setTimeout(()=>{page=1;load()},250)};await load();}catch(e){b.innerHTML='<div class="ssv-msg">'+esc(e.message||'خطا در دریافت اطلاعات')+'</div>'}}
 window.openSchoolService = open;
 
-/* Fallback menu: سرویس مدارس باید همیشه به‌صورت یک آیتم مستقل در سایدبار دیده شود،
-   مستقل از permission fetch و مستقل از باز/بسته بودن گروه‌ها. */
-(function installSchoolServiceMenuFallback(){
-  const ID='kh-school-service-menu-fallback';
-  const add=()=>{
-    try{
-      if(document.getElementById(ID)) return;
-      const nav=document.querySelector('aside .nav, nav.nav, .nav');
-      if(!nav) return;
-      const btn=document.createElement('button');
-      btn.id=ID;btn.type='button';btn.className='navitem';
-      btn.style.cssText='width:100%;text-align:right;display:flex;align-items:center;gap:10px;flex:none;';
-      btn.innerHTML='<span class="ic">✓</span><span class="navlabel">سرویس مدارس</span>';
-      btn.onclick=()=>{
-        const host=document.querySelector('main.main,.main,.main-content,.content,.page-content,[role="main"]')||document.body;
-        try{
-          const p=window.openSchoolService&&window.openSchoolService(host);
-          Promise.resolve(p).catch(e=>alert(e&&e.message?e.message:'باز کردن سرویس مدارس ناموفق بود'));
-        }catch(e){alert(e&&e.message?e.message:'باز کردن سرویس مدارس ناموفق بود');}
-      };
-      const logout=nav.querySelector('.logout-item');
-      if(logout) nav.insertBefore(btn,logout); else nav.appendChild(btn);
-    }catch(_){}
-  };
-  const run=()=>{add();setTimeout(add,100);setTimeout(add,500);};
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});else run();
-  try{new MutationObserver(run).observe(document.body,{childList:true,subtree:true});}catch(_){}
-})();
 /* منوی سرویس مدارس توسط پنل React و در ساختار اصلی سایدبار ساخته می‌شود.
    این فایل فقط ویزارد و API آن را فراهم می‌کند تا منوی جداگانه و پایدار با React تداخل نداشته باشد. */
 })();
