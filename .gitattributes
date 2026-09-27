@@ -1,0 +1,2 @@
+# Keep executable shell scripts in Unix LF format on every platform.
+*.sh text eol=lf
