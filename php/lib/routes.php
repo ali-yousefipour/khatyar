@@ -13196,6 +13196,112 @@ function _ssv_tables(){
     }
   }catch(Throwable $e){}
 }
+function _ssv_autoseed_schools(){
+  static $attempted=false; if($attempted) return; $attempted=true;
+  try{
+    Db::run("CREATE TABLE IF NOT EXISTS school_service_seed_state (
+      seed_key VARCHAR(120) NOT NULL PRIMARY KEY,
+      completed_at DATETIME NULL,
+      row_count INT NOT NULL DEFAULT 0
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $state=Db::one("SELECT seed_key,row_count FROM school_service_seed_state WHERE seed_key=?",['schools-book1-v1']);
+    if($state && (int)$state['row_count']>0) return;
+
+    $seedFile=dirname(__DIR__).'/migrations/2026_09_26_school_service_schools_seed.sql';
+    if(!is_file($seedFile)){error_log('school-service seed file missing: '.$seedFile);return;}
+    $seedSql=@file_get_contents($seedFile);
+    if($seedSql===false || !preg_match("/SET\s+@payload\s*=\s*FROM_BASE64\('([^']+)'\)/",$seedSql,$mm)){error_log('school-service seed payload not found');return;}
+    $compressed=base64_decode($mm[1],true);
+    if($compressed===false){error_log('school-service seed base64 decode failed');return;}
+    $json=@gzuncompress($compressed);
+    if($json===false || $json===''){error_log('school-service seed decompression failed');return;}
+    $doc=json_decode($json,true);
+    if(!is_array($doc) || !is_array($doc['d']??null) || !is_array($doc['r']??null)){error_log('school-service seed JSON invalid');return;}
+
+    $d=$doc['d']; $rawRows=$doc['r']; $rows=[]; $companies=[];
+    $dictVal=function($key,$idx)use(&$d){
+      $idx=(int)$idx; if($idx<0) return null; $a=$d[$key]??null;
+      if(!is_array($a) || !array_key_exists($idx,$a)) return null;
+      $v=$a[$idx]; return $v===null?'':trim((string)$v);
+    };
+    foreach($rawRows as $r){
+      if(!is_array($r) || count($r)<22) continue;
+      $code=trim((string)($r[0]??'')); if($code==='') continue;
+      $name=$dictVal('n',$r[5]??-1); if($name===null || $name==='') continue;
+      $company=$dictVal('co',$r[7]??-1); if(in_array($company,['نامشخص','نامعلوم','-','—'],true)) $company='';
+      $gender=$dictVal('g',$r[8]??-1); if(!in_array($gender,['دخترانه','پسرانه','نامشخص'],true)) $gender='نامشخص';
+      $row=[
+        'code'=>$code,'name'=>$name,'district'=>$dictVal('d',$r[6]??-1),'company'=>$company,'gender'=>$gender,
+        'shift'=>$dictVal('sh',$r[9]??-1),'education_level'=>$dictVal('el',$r[10]??-1),'school_type'=>$dictVal('st',$r[11]??-1),
+        'activity_start'=>$dictVal('as',$r[12]??-1),'activity_end'=>$dictVal('ae',$r[13]??-1),
+        'morning_start'=>$dictVal('ms',$r[14]??-1),'morning_end'=>$dictVal('me',$r[15]??-1),
+        'afternoon_start'=>$dictVal('af',$r[16]??-1),'afternoon_end'=>$dictVal('afe',$r[17]??-1),
+        'driver_count'=>isset($r[1])&&$r[1]!==null?(int)$r[1]:null,'student_count'=>isset($r[2])&&$r[2]!==null?(int)$r[2]:null,
+        'address'=>$dictVal('ad',$r[18]??-1),'phone'=>$dictVal('ph',$r[19]??-1),
+        'latitude'=>isset($r[3])&&$r[3]!==null?(float)$r[3]:null,'longitude'=>isset($r[4])&&$r[4]!==null?(float)$r[4]:null,
+        'status'=>$dictVal('status',$r[20]??-1),'location_registered_at'=>$dictVal('lr',$r[21]??-1)
+      ];
+      if($row['status']===null || $row['status']==='') $row['status']='ثبت‌شده';
+      if($row['district']!==null && $row['district']!=='') $row['district']=_ssv_norm($row['district']);
+      if($row['company']!=='') $companies[$row['company']]=true;
+      $rows[$code]=$row;
+    }
+    if(!$rows){error_log('school-service seed contains no usable rows');return;}
+
+    $pdo=Db::pdo(); if($pdo->inTransaction()) throw new Exception('school-service seed cannot start nested transaction');
+    $pdo->beginTransaction();
+    try{
+      foreach(array_keys($companies) as $cn)
+        Db::run("INSERT INTO school_service_companies(name) VALUES(?) ON DUPLICATE KEY UPDATE name=VALUES(name)",[$cn]);
+
+      $cols="code,name,educational_district,gender,shift,education_level,school_type,activity_start,activity_end,morning_start,morning_end,afternoon_start,afternoon_end,driver_count,student_count,address,phone,latitude,longitude,status,location_registered_at,is_active";
+      $upsertTail="ON DUPLICATE KEY UPDATE name=VALUES(name),educational_district=VALUES(educational_district),gender=VALUES(gender),shift=VALUES(shift),education_level=VALUES(education_level),school_type=VALUES(school_type),activity_start=VALUES(activity_start),activity_end=VALUES(activity_end),morning_start=VALUES(morning_start),morning_end=VALUES(morning_end),afternoon_start=VALUES(afternoon_start),afternoon_end=VALUES(afternoon_end),driver_count=VALUES(driver_count),student_count=VALUES(student_count),address=VALUES(address),phone=VALUES(phone),latitude=VALUES(latitude),longitude=VALUES(longitude),status=VALUES(status),location_registered_at=VALUES(location_registered_at),is_active=1";
+      $tuples=[];$params=[];$chunk=0;
+      foreach($rows as $row){
+        $tuples[]="(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        $params=array_merge($params,[
+          $row['code'],$row['name'],$row['district']!==''?$row['district']:null,$row['gender'],$row['shift']!==''?$row['shift']:null,
+          $row['education_level']!==''?$row['education_level']:null,$row['school_type']!==''?$row['school_type']:null,$row['activity_start']!==''?$row['activity_start']:null,
+          $row['activity_end']!==''?$row['activity_end']:null,$row['morning_start']!==''?$row['morning_start']:null,$row['morning_end']!==''?$row['morning_end']:null,
+          $row['afternoon_start']!==''?$row['afternoon_start']:null,$row['afternoon_end']!==''?$row['afternoon_end']:null,$row['driver_count'],$row['student_count'],
+          ($row['address']??'')!==''?mb_substr((string)$row['address'],0,700):null,($row['phone']??'')!==''?$row['phone']:null,
+          $row['latitude'],$row['longitude'],($row['status']??'')!==''?$row['status']:'ثبت‌شده',$row['location_registered_at']?:null,1
+        ]);
+        if(++$chunk>=100){
+          Db::run("INSERT INTO school_service_schools($cols) VALUES ".implode(',',$tuples)." $upsertTail",$params);
+          $tuples=[];$params=[];$chunk=0;
+        }
+      }
+      if($chunk>0) Db::run("INSERT INTO school_service_schools($cols) VALUES ".implode(',',$tuples)." $upsertTail",$params);
+
+      $ids=[];
+      foreach(array_chunk(array_keys($rows),250) as $codes){
+        $ph=implode(',',array_fill(0,count($codes),'?'));
+        foreach(Db::all("SELECT id,code FROM school_service_schools WHERE code IN ($ph)",$codes) as $sr) $ids[(string)$sr['code']]=(int)$sr['id'];
+      }
+      $companyIds=[];
+      foreach(array_keys($companies) as $cn){$cr=Db::one("SELECT id FROM school_service_companies WHERE name=?",[$cn]);if($cr)$companyIds[$cn]=(int)$cr['id'];}
+
+      $tuples=[];$params=[];$chunk=0;
+      foreach($rows as $row){
+        if($row['company']!=='' && isset($ids[$row['code']],$companyIds[$row['company']])){
+          $tuples[]='(?,?,1)';$params[]=$ids[$row['code']];$params[]=$companyIds[$row['company']];
+          if(++$chunk>=200){
+            Db::run("INSERT INTO school_service_school_companies(school_id,company_id,is_primary) VALUES ".implode(',',$tuples)." ON DUPLICATE KEY UPDATE company_id=VALUES(company_id),is_primary=1",$params);
+            $tuples=[];$params=[];$chunk=0;
+          }
+        }
+      }
+      if($chunk>0) Db::run("INSERT INTO school_service_school_companies(school_id,company_id,is_primary) VALUES ".implode(',',$tuples)." ON DUPLICATE KEY UPDATE company_id=VALUES(company_id),is_primary=1",$params);
+
+      $stored=(int)(Db::one("SELECT COUNT(*) n FROM school_service_schools")['n']??0);
+      Db::run("INSERT INTO school_service_seed_state(seed_key,completed_at,row_count) VALUES(?,?,?) ON DUPLICATE KEY UPDATE completed_at=VALUES(completed_at),row_count=VALUES(row_count)",['schools-book1-v1',date('Y-m-d H:i:s'),$stored]);
+      $pdo->commit(); error_log('school-service seed completed: '.$stored.' rows');
+    }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('school-service seed failed: '.$e->getMessage());}
+  }catch(Throwable $e){error_log('school-service seed bootstrap failed: '.$e->getMessage());}
+  _ssv_autoseed_schools();
+}
+
 function _ssv_school_company_validate($schoolId,$companyId,$district=''){
   $schoolId=(int)$schoolId;$companyId=(int)$companyId;
   if($schoolId){
@@ -13281,7 +13387,20 @@ function _ssv_sheet_records($rows){
 route('POST','/api/school-service/companies',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام شرکت الزامی است',422);if(Db::one("SELECT id FROM school_service_companies WHERE name=?",[$name]))Http::error('این شرکت قبلاً ثبت شده است',409);Db::run("INSERT INTO school_service_companies(name,manager_name,phone,address,manager_mobile,landline_phone,latitude,longitude,registered_school_count,representative_count,status,profile_complete) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",[$name,_ssv_norm($b['manager_name']??'')?:null,trim($b['phone']??'')?:null,_ssv_norm($b['address']??'')?:null,trim($b['manager_mobile']??'')?:null,trim($b['landline_phone']??'')?:null,isset($b['latitude'])&&$b['latitude']!==''?(float)$b['latitude']:null,isset($b['longitude'])&&$b['longitude']!==''?(float)$b['longitude']:null,max(0,(int)($b['registered_school_count']??0)),max(0,(int)($b['representative_count']??0)),_ssv_norm($b['status']??'فعال')?:'فعال',!empty($b['profile_complete'])?1:0]);return ['ok'=>true,'id'=>(int)Db::pdo()->lastInsertId()];});
 route('PUT','/api/school-service/companies/{id}',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$id=(int)$p['id'];if(!Db::one("SELECT id FROM school_service_companies WHERE id=?",[$id]))Http::error('شرکت یافت نشد',404);$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام شرکت الزامی است',422);Db::run("UPDATE school_service_companies SET name=?,manager_name=?,phone=?,address=?,manager_mobile=?,landline_phone=?,latitude=?,longitude=?,registered_school_count=?,representative_count=?,status=?,profile_complete=?,is_active=? WHERE id=?",[$name,_ssv_norm($b['manager_name']??'')?:null,trim($b['phone']??'')?:null,_ssv_norm($b['address']??'')?:null,trim($b['manager_mobile']??'')?:null,trim($b['landline_phone']??'')?:null,$b['latitude']!==''&&isset($b['latitude'])?(float)$b['latitude']:null,$b['longitude']!==''&&isset($b['longitude'])?(float)$b['longitude']:null,max(0,(int)($b['registered_school_count']??0)),max(0,(int)($b['representative_count']??0)),_ssv_norm($b['status']??'فعال')?:'فعال',!empty($b['profile_complete'])?1:0,isset($b['is_active'])?(int)!!$b['is_active']:1,$id]);return ['ok'=>true];});
 route('DELETE','/api/school-service/companies/{id}',function($p,$b,$u){_ssv_need($u,'delete');_ssv_tables();$id=(int)$p['id'];Db::run("UPDATE school_service_companies SET is_active=0,status='غیرفعال' WHERE id=?",[$id]);return ['ok'=>true];});
-route('POST','/api/school-service/schools',function($p,$b,$u){_ssv_need($u,'create');_ssv_tables();$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام مدرسه الزامی است',422);$g=in_array($b['gender']??'',['دخترانه','پسرانه'],true)?$b['gender']:'نامشخص';$cid=!empty($b['company_id'])?(int)$b['company_id']:0;if($cid&&!Db::one("SELECT id FROM school_service_companies WHERE id=? AND is_active=1",[$cid]))Http::error('شرکت مجری نامعتبر است',422);Db::run("INSERT INTO school_service_schools(code,name,educational_district,gender,address) VALUES(?,?,?,?,?)",[_ssv_norm($b['code']??'')?:null,$name,_ssv_norm($b['educational_district']??'')?:null,$g,_ssv_norm($b['address']??'')?:null]);$sid=(int)Db::pdo()->lastInsertId();if($cid)Db::run("INSERT INTO school_service_school_companies(school_id,company_id,is_primary) VALUES(?,?,1)",[$sid,$cid]);return ['ok'=>true,'id'=>$sid];});
+route('POST','/api/school-service/schools',function($p,$b,$u){
+  // سازگاری با نسخه قدیمی پنل: POST بدون نام مدرسه = درخواست فهرست مدارس.
+  if(trim((string)($b['name']??''))===''){
+    _ssv_need($u,'view');_ssv_tables();
+    $q=_ssv_norm($b['search']??$_GET['search']??'');$company=(int)($b['company_id']??$_GET['company_id']??0);$district=_ssv_norm($b['district']??$_GET['district']??'');
+    $w=['s.is_active=1'];$args=[];
+    if($q!==''){$w[]='(s.name LIKE ? OR s.code LIKE ?)';$args[]='%'.$q.'%';$args[]='%'.$q.'%';}
+    if($company){$w[]='EXISTS(SELECT 1 FROM school_service_school_companies x WHERE x.school_id=s.id AND x.company_id=?)';$args[]=$company;}
+    if($district!==''){$w[]='s.educational_district=?';$args[]=$district;}
+    $where=implode(' AND ',$w);
+    return ['items'=>Db::all("SELECT s.id,s.code,s.name,s.educational_district,s.gender,s.address,(SELECT scx.company_id FROM school_service_school_companies scx WHERE scx.school_id=s.id ORDER BY scx.is_primary DESC,scx.company_id ASC LIMIT 1) company_id,GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') company_names FROM school_service_schools s LEFT JOIN school_service_school_companies sc ON sc.school_id=s.id LEFT JOIN school_service_companies c ON c.id=sc.company_id WHERE $where GROUP BY s.id ORDER BY s.name LIMIT 500",$args)];
+  }
+  _ssv_need($u,'create');_ssv_tables();$name=_ssv_norm($b['name']??'');$g=in_array($b['gender']??'',['دخترانه','پسرانه'],true)?$b['gender']:'نامشخص';$cid=!empty($b['company_id'])?(int)$b['company_id']:0;if($cid&&!Db::one("SELECT id FROM school_service_companies WHERE id=? AND is_active=1",[$cid]))Http::error('شرکت مجری نامعتبر است',422);Db::run("INSERT INTO school_service_schools(code,name,educational_district,gender,address) VALUES(?,?,?,?,?)",[_ssv_norm($b['code']??'')?:null,$name,_ssv_norm($b['educational_district']??'')?:null,$g,_ssv_norm($b['address']??'')?:null]);$sid=(int)Db::pdo()->lastInsertId();if($cid)Db::run("INSERT INTO school_service_school_companies(school_id,company_id,is_primary) VALUES(?,?,1)",[$sid,$cid]);return ['ok'=>true,'id'=>$sid];
+});
 route('PUT','/api/school-service/schools/{id}',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$id=(int)$p['id'];if(!Db::one("SELECT id FROM school_service_schools WHERE id=?",[$id]))Http::error('مدرسه یافت نشد',404);$name=_ssv_norm($b['name']??'');if($name==='')Http::error('نام مدرسه الزامی است',422);$g=in_array($b['gender']??'',['دخترانه','پسرانه'],true)?$b['gender']:'نامشخص';Db::run("UPDATE school_service_schools SET code=?,name=?,educational_district=?,gender=?,address=? WHERE id=?",[_ssv_norm($b['code']??'')?:null,$name,_ssv_norm($b['educational_district']??'')?:null,$g,_ssv_norm($b['address']??'')?:null,$id]);if(isset($b['company_id'])){Db::run("DELETE FROM school_service_school_companies WHERE school_id=?",[$id]);$cid=(int)$b['company_id'];if($cid){if(!Db::one("SELECT id FROM school_service_companies WHERE id=? AND is_active=1",[$cid]))Http::error('شرکت مجری نامعتبر است',422);Db::run("INSERT INTO school_service_school_companies(school_id,company_id,is_primary) VALUES(?,?,1)",[$id,$cid]);}}return ['ok'=>true];});
 route('DELETE','/api/school-service/schools/{id}',function($p,$b,$u){_ssv_need($u,'delete');_ssv_tables();Db::run("UPDATE school_service_schools SET is_active=0 WHERE id=?",[(int)$p['id']]);return ['ok'=>true];});
 route('GET','/api/school-service/access',function($p,$b,$u){_ssv_tables();return ['allowed'=>_ssv_perm($u,'view'),'can_create'=>_ssv_perm($u,'create'),'can_edit'=>_ssv_perm($u,'edit'),'can_delete'=>_ssv_perm($u,'delete'),'can_import'=>_ssv_perm($u,'import'),'can_report'=>_ssv_perm($u,'report')];});
