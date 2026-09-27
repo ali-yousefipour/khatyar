@@ -124,7 +124,8 @@ public final class OutgoingRadioRecorder {
         }
         drainEncoder(false);
         if (inputEnded) {
-          signalEncoderEndOfInputStream();
+          final long eosDeadline = SystemClock.elapsedRealtime() + 4000L;
+          signalEncoderEndOfInputStream(eosDeadline);
           drainEncoder(true);
           break;
         }
@@ -159,9 +160,11 @@ public final class OutgoingRadioRecorder {
     }
   }
 
-  private void signalEncoderEndOfInputStream() throws Exception {
+  private void signalEncoderEndOfInputStream(long deadline) throws Exception {
     while (true) {
-      int index = encoder.dequeueInputBuffer(20000);
+      long remaining = deadline - SystemClock.elapsedRealtime();
+      if (remaining <= 0L) throw new IllegalStateException("AAC encoder input buffer did not become available");
+      int index = encoder.dequeueInputBuffer(Math.min(1000L, remaining));
       if (index >= 0) {
         encoder.queueInputBuffer(index, 0, 0, Math.max(0L, SystemClock.elapsedRealtime() - startedAt) * 1000L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
         return;
