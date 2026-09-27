@@ -13013,7 +13013,23 @@ function _ssv_tables(){
       name VARCHAR(255) NOT NULL,
       educational_district VARCHAR(80) NULL,
       gender ENUM('دخترانه','پسرانه','نامشخص') NOT NULL DEFAULT 'نامشخص',
+      shift VARCHAR(80) NULL,
+      education_level VARCHAR(150) NULL,
+      school_type VARCHAR(150) NULL,
+      activity_start VARCHAR(20) NULL,
+      activity_end VARCHAR(20) NULL,
+      morning_start VARCHAR(20) NULL,
+      morning_end VARCHAR(20) NULL,
+      afternoon_start VARCHAR(20) NULL,
+      afternoon_end VARCHAR(20) NULL,
+      driver_count INT NULL,
+      student_count INT NULL,
       address VARCHAR(700) NULL,
+      phone VARCHAR(80) NULL,
+      latitude DECIMAL(10,7) NULL,
+      longitude DECIMAL(10,7) NULL,
+      status VARCHAR(80) NOT NULL DEFAULT 'ثبت‌شده',
+      location_registered_at DATETIME NULL,
       is_active TINYINT(1) NOT NULL DEFAULT 1,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -13124,6 +13140,27 @@ function _ssv_tables(){
     "ALTER TABLE school_service_companies ADD COLUMN status VARCHAR(30) NOT NULL DEFAULT 'فعال'",
     "ALTER TABLE school_service_companies ADD COLUMN profile_complete TINYINT(1) NOT NULL DEFAULT 0"
   ] as $q){try{Db::run($q);}catch(Throwable $e){}}
+  // تکمیل ساختار اطلاعات مدارس برای Seed و نصب‌های قدیمی.
+  foreach([
+    ['school_service_schools','shift','VARCHAR(80) NULL'],
+    ['school_service_schools','education_level','VARCHAR(150) NULL'],
+    ['school_service_schools','school_type','VARCHAR(150) NULL'],
+    ['school_service_schools','activity_start','VARCHAR(20) NULL'],
+    ['school_service_schools','activity_end','VARCHAR(20) NULL'],
+    ['school_service_schools','morning_start','VARCHAR(20) NULL'],
+    ['school_service_schools','morning_end','VARCHAR(20) NULL'],
+    ['school_service_schools','afternoon_start','VARCHAR(20) NULL'],
+    ['school_service_schools','afternoon_end','VARCHAR(20) NULL'],
+    ['school_service_schools','driver_count','INT NULL'],
+    ['school_service_schools','student_count','INT NULL'],
+    ['school_service_schools','phone','VARCHAR(80) NULL'],
+    ['school_service_schools','latitude','DECIMAL(10,7) NULL'],
+    ['school_service_schools','longitude','DECIMAL(10,7) NULL'],
+    ['school_service_schools','status',"VARCHAR(80) NULL DEFAULT 'ثبت‌شده'"],
+    ['school_service_schools','location_registered_at','DATETIME NULL']
+  ] as $colDef){
+    try{ if(!col_exists($colDef[0],$colDef[1])) q("ALTER TABLE `{$colDef[0]}` ADD COLUMN `{$colDef[1]}` {$colDef[2]}"); }catch(Throwable $e){}
+  }
   // شناسه یکتای سمت گوشی برای جلوگیری از ثبت دوباره بازدید هنگام تکرار صف آفلاین.
   try{Db::run("ALTER TABLE school_service_inspections ADD COLUMN client_uuid VARCHAR(64) NULL");}catch(Throwable $e){}
   try{Db::run("ALTER TABLE school_service_inspections ADD UNIQUE KEY uq_ssi_client_uuid(client_uuid)");}catch(Throwable $e){}
