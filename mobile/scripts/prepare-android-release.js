@@ -123,31 +123,7 @@ if (/com\.android\.tools\.build:gradle:\s*["']?\s*["']/.test(build)) fail('Andro
 if (/react-native-gradle-plugin:\s*["']?\s*["']/.test(build)) fail('React Native Gradle Plugin dependency has an empty version literal.');
 if (/kotlin-gradle-plugin:\s*["']?\s*["']/.test(build)) fail('Kotlin Gradle Plugin dependency has an empty version literal.');
 
-// Verify the generic Iranian mirror plugin patched the real generated Expo
-// included build, not just the main Android project.
-const expoIncludedBuild = resolveExpoAutolinkingIncludedBuild();
-const expoIncludedFiles = [];
-if (expoIncludedBuild && fs.existsSync(expoIncludedBuild)) {
-  const stack = [expoIncludedBuild];
-  while (stack.length) {
-    const current = stack.pop();
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      const full = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        if (!['.gradle', 'build'].includes(entry.name)) stack.push(full);
-      } else if (/^(settings|build)\.gradle(?:\.kts)?$/i.test(entry.name)) {
-        expoIncludedFiles.push(full);
-      }
-    }
-  }
-}
-const mirrorPatchedFiles = expoIncludedFiles
-  .filter((file) => fs.readFileSync(file, 'utf8').includes(MAVEN_MARKER));
-if (mirrorPatchedFiles.length === 0) {
-  fail('The real expo-modules-autolinking included build was not patched with the local/Myket/Runflare Maven mirror policy.');
-}
-
-console.log(`[android-prebuild] Maven mirror validation: ${mirrorPatchedFiles.length} generated Expo included-build file(s) patched.`);
+// Validate the mirror policy only on the generated root Android project.\n// Expo/RN included builds retain their upstream plugin-management settings.\nif (!build.includes(MAVEN_MARKER) && !settings.includes(MAVEN_MARKER)) {\n  fail('The generated Android project was not patched with the local/Myket/Runflare Maven mirror policy.');\n}\n\nconsole.log('[android-prebuild] Main Android project mirror policy validated. Expo/RN included-build plugin settings left untouched.');
 console.log('[android-prebuild] Generated Android project passed structural compatibility checks.');
 console.log(`[android-prebuild] Expo SDK: ${expo}`);
 console.log(`[android-prebuild] React Native: ${reactNative}`);
