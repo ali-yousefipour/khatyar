@@ -7967,6 +7967,7 @@ function App(){
         <div>برنامه‌نویسی و راه‌اندازی شده توسط شرکت مبین شات مشهد (خرداد ۱۴۰۵)</div>
         <div style={{marginTop:4,opacity:.85}}>نسخهٔ سایت {(window.__health&&window.__health.site_version)?fa(window.__health.site_version):"—"} · <span style={{color:(window.__health?"#16a06a":"#e3403e")}}>{window.__health?"متصل به سرور":"قطع"}</span></div>
       </div>
+    </aside>
     <main className="main"><div className="top">
       <button className="burger" onClick={()=>setDrawer(d=>!d)}>☰</button>
       <h2>{VIEWS[vk].t}</h2>
