@@ -7923,7 +7923,9 @@ function App(){
     <div><h2 style={{color:"var(--danger)"}}>دسترسی مدیریتی ندارید</h2>
     <p style={{color:"var(--muted)",maxWidth:430,lineHeight:2,marginTop:8}}>ورود به سامانه مدیریت و نظارت بر خطوط و نیروهای اجرایی تاکسیرانی تنها برای نیروی اداری، نیروی اداری ارشد، رییس اداره بازرسی و مدیر کل مجاز است. برای کارهای میدانی از اپ موبایل/وب‌اپ استفاده کنید.</p>
     <button className="btn p" style={{marginTop:16}} onClick={()=>{localStorage.removeItem("token");setMe(null);}}>خروج</button></div></div>);
-  const CORE_VIEWS=["dashboard","driverservicereport"];
+  // سرویس مدارس یک نمای هسته‌ای و مستقل پنل است؛ نمایش آن نباید به مجوزهای
+  // پویا یا منوی fallback وابسته باشد. کنترل دسترسی خود صفحه جداگانه انجام می‌شود.
+  const CORE_VIEWS=["dashboard","driverservicereport","schoolservice"];
   const vk=(!allowed||allowed.includes(v)||CORE_VIEWS.includes(v))?v:"dashboard"; const View=VIEWS[vk].c;
   window.__navigateTo = (k)=>{ setV(k); setDrawer(false); };
   const SECTIONS=[
@@ -7935,7 +7937,7 @@ function App(){
     ["ارتباطات",["messages","sms","smslog","messengercenter","radiocenter"]],
     ["مدیریت سامانه",["users","org","forms","config","customfields","inventory","excel","appitems","cronstatus","activesessions","logs","settings"]],
   ];
-  const CORE=["dashboard","driverservicereport"];
+  const CORE=["dashboard","driverservicereport","schoolservice"];
   const MENU_ICONS={
     dashboard:'dashboard-home', reportscenter:'reports-folder', health:'system-health', map:'map-marker', present:'present-group', presentchart:'presence-chart',
     missiondashboard:'performance-gauge', citydashboard:'city-map', missiontemplates:'dashboard-layout', scoreengine:'live-chart',
@@ -7947,12 +7949,12 @@ function App(){
     config:'system-config', customfields:'custom-fields', inventory:'request-box', excel:'excel-upload', appitems:'app-menu', cronstatus:'activity-wave', activesessions:'security-lock', logs:'audit-logs', settings:'settings-gears',
     vehicleassets:'operation-tools', vehiclechecklist:'checklist', schoolservice:'checklist'
   };
-  const can=(k)=>k==="schoolservice"?(schoolServiceAllowed||me?.is_admin===true):(!allowed||allowed.includes(k)||CORE.includes(k));
+  const can=(k)=>!allowed||allowed.includes(k)||CORE.includes(k);
   const closeOnPick=(k)=>{ setV(k); setDrawer(false); };
   return(<div className={"layout"+(drawer?" drawer-open":"")}>
     <div className="scrim" onClick={()=>setDrawer(false)}></div>
     <aside className="side"><div className="brand">{brand.logo?<img src={brand.logo} style={{width:38,height:38,borderRadius:10,objectFit:"contain",background:"#fff",padding:3}}/>:<img src="/brand-khatyar.png" style={{width:38,height:38,borderRadius:19,objectFit:"cover"}}/>}<span>{brand.title||"خطیار"}</span></div>
-      <nav className="nav" style={{flex:1}}><button data-school-service="canonical" className={"navitem "+(v==="schoolservice"?"on":"")} style={{display:"flex",visibility:"visible",opacity:1,position:"relative",zIndex:2,order:-9999,flex:"0 0 54px",width:"100%",minHeight:54}} onClick={()=>closeOnPick("schoolservice")}><span className="ic">{I8(MENU_ICONS.schoolservice)}</span><span className="navlabel">سرویس مدارس</span></button>{SECTIONS.map(([title,keys])=>{ const ks=keys.filter(k=>VIEWS[k]&&can(k)); if(!ks.length)return null; const open=!!openSections[title];
+      <nav className="nav" style={{flex:1}}><button data-school-service="canonical" className={"navitem "+(v==="schoolservice"?"on":"")} onClick={()=>closeOnPick("schoolservice")}><span className="ic">{I8(MENU_ICONS.schoolservice)}</span><span className="navlabel">سرویس مدارس</span></button>{SECTIONS.map(([title,keys])=>{ const ks=keys.filter(k=>VIEWS[k]&&can(k)); if(!ks.length)return null; const open=!!openSections[title];
         return(<div key={title} className={"navsec"+(open?" open":"")}>
           <button className="navsec-head" onClick={()=>setOpenSections(cur=>({...cur,[title]:!cur[title]}))} aria-expanded={open}>
             <span>{title}</span><span className="nav-chevron">‹</span>
