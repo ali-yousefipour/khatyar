@@ -72,11 +72,19 @@ function Save-PrebuildMarker([string]$PackageHash,[string]$NativeConfigHash) {
     }
     $obj | ConvertTo-Json | Set-Content -LiteralPath $PrebuildMarker -Encoding UTF8
 }
+function Ensure-Directory([string]$Path) {
+    if ([string]::IsNullOrWhiteSpace($Path)) { Fail 'Directory path is empty.' }
+    $full = [IO.Path]::GetFullPath($Path)
+    if (-not [IO.Directory]::Exists($full)) { [void][IO.Directory]::CreateDirectory($full) }
+    if (-not [IO.Directory]::Exists($full)) { Fail "Unable to create directory: $full" }
+    return $full
+}
 function Sync-RadioNativeSources([string]$Android) {
+    $Android = [IO.Path]::GetFullPath($Android)
     $sourceDir = Join-Path $Root 'plugins\khatyar-radio-native'
     $targetDir = Join-Path $Android 'app\src\main\java\ir\mashhad\taxicontrol\radio'
     if (-not (Test-Path -LiteralPath $sourceDir)) { Fail 'Canonical Khatyar radio plugin source directory is missing.' }
-    New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+    $targetDir = Ensure-Directory $targetDir
 
     foreach ($name in @('KhatyarRadioPackage.java','KhatyarRadioModule.java','KhatyarRadioService.java','OutgoingRadioRecorder.java','RadioSfxPlayer.java')) {
         $source = Join-Path $sourceDir $name
@@ -89,7 +97,7 @@ function Sync-RadioNativeSources([string]$Android) {
         $src = Join-Path $resourceRoot $dir
         if (-not (Test-Path -LiteralPath $src)) { continue }
         $dst = Join-Path $Android ('app\src\main\res\' + $dir)
-        New-Item -ItemType Directory -Force -Path $dst | Out-Null
+        $dst = Ensure-Directory $dst
         Get-ChildItem -LiteralPath $src -File | ForEach-Object {
             Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dst $_.Name) -Force
         }
@@ -281,8 +289,8 @@ try {
     if ($version -notmatch 'Gradle 8\.13' -or $version -notmatch 'Launcher JVM:\s+17(?:\.|\s|$)') { Fail 'Gradle/JDK baseline validation failed.' }
 
     Stage 70 'Preparing persistent Gradle cache'
-    New-Item -ItemType Directory -Force -Path $PersistentGradleHome | Out-Null
-    $logDir = Join-Path $android 'build\khatyar-fast-logs'; New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+    $PersistentGradleHome = Ensure-Directory $PersistentGradleHome
+    $logDir = Ensure-Directory (Join-Path $android 'build\khatyar-fast-logs')
     $task = if ($ArtifactType -eq 'AAB') { 'bundleRelease' } else { 'assembleRelease' }
     $logPath = Join-Path $logDir (($ArtifactType.ToLowerInvariant()) + '-release-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
     $gradleEnv = @{
