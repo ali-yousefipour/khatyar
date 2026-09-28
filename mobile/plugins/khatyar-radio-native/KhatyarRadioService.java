@@ -226,7 +226,7 @@ public final class KhatyarRadioService extends Service {
       .setSmallIcon(getApplicationInfo().icon)
       .setContentTitle("خطیار • " + status)
       .setContentText(info)
-      .setSubText("خطیار فعال و آماده‌به‌کار");
+      .setSubText("خطیار فعال و آماده‌به‌کار")
       .setCustomContentView(compact)
       .setCustomBigContentView(expanded)
       .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
