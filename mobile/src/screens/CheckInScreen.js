@@ -11,6 +11,7 @@ import { getAppConfig } from '../appconfig';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import NetInfo from '@react-native-community/netinfo';
 import { isTileCached, loadLocalTilesAround } from '../mapCache';
 
@@ -85,6 +86,9 @@ function CheckInCore() {
   const [busy, setBusy] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [proofVal, setProofVal] = useState('');
+  const [exitReminder, setExitReminder] = useState(false);
+  const exitReminderIdRef = useRef(null);
+  const exitReminderAlertRef = useRef(false);
   const [perm, requestPerm] = useCameraPermissions();
   const timerRef = useRef(null);
   const timerSyncRef = useRef(null);
@@ -124,7 +128,14 @@ function CheckInCore() {
       }
     } catch {}
   };
-  useEffect(() => { load(); getAppConfig().then((c) => c && setAppCfg(c)).catch(() => {}); }, []);
+  useEffect(() => {
+    load();
+    AsyncStorage.getItem('attendance_exit_reminder_8h').then(v => setExitReminder(v === '1')).catch(() => {});
+    getAppConfig().then((c) => c && setAppCfg(c)).catch(() => {});
+    return () => {
+      if (exitReminderIdRef.current) Notifications.cancelScheduledNotificationAsync(exitReminderIdRef.current).catch(() => {});
+    };
+  }, []);
   useEffect(()=>{ let alive=true; (async()=>{ const mode=await AsyncStorage.getItem('map_offline_mode')||'smart'; const provider=await AsyncStorage.getItem('map_offline_provider')||'osm'; const net=await NetInfo.fetch(); const cached=await isTileCached(provider); const offline=mode==='offline'||(mode==='smart'&&!net.isConnected); let tiles={}; if(offline&&cached){ const c=pos||{lat:36.297,lng:59.606}; tiles=await loadLocalTilesAround(c.lat,c.lng,15,3); } if(alive)setMapRuntime({mode,provider,offline:offline&&cached,tiles}); })().catch(()=>{}); return()=>{alive=false}; },[pos?.lat,pos?.lng]);
 
 
@@ -159,6 +170,67 @@ function CheckInCore() {
     finally { setRefreshingPos(false); }
   };
 
+  const cancelExitReminder = async () => {
+    if (exitReminderIdRef.current) {
+      try { await Notifications.cancelScheduledNotificationAsync(exitReminderIdRef.current); } catch {}
+      exitReminderIdRef.current = null;
+    }
+  };
+
+  const scheduleExitReminder = async (checkInValue) => {
+    await cancelExitReminder();
+    if (!exitReminder || !checkInValue) return;
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') return;
+      const start = tehranTimeToEpochMs(checkInValue);
+      if (start == null) return;
+      const fireAt = new Date(start + 8 * 60 * 60 * 1000);
+      if (fireAt.getTime() <= Date.now()) return;
+      exitReminderIdRef.current = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'یاداور ثبت خروج',
+          body: 'ساعت کارکرد شما به هشت ساعت رسیده است ( در صورت اتمام شیفت کاری، ثبت خروح خود را فراموش نکنید)',
+          sound: 'default',
+          data: { type: 'attendance_exit_reminder_8h' },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: fireAt,
+        },
+      });
+    } catch {}
+  };
+
+  const setExitReminderEnabled = async (value) => {
+    const next = !!value;
+    setExitReminder(next);
+    await AsyncStorage.setItem('attendance_exit_reminder_8h', next ? '1' : '0');
+    if (!next) {
+      exitReminderAlertRef.current = false;
+      await cancelExitReminder();
+      return;
+    }
+    try {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        setExitReminder(false);
+        await AsyncStorage.setItem('attendance_exit_reminder_8h', '0');
+        Alert.alert('مجوز اعلان', 'برای فعال‌سازی یاداور ثبت خروج، اجازه ارسال اعلان را فعال کنید.');
+        return;
+      }
+      if (open?.check_in) {
+        const start = tehranTimeToEpochMs(open.check_in);
+        if (start != null && Date.now() >= start + 8 * 60 * 60 * 1000) {
+          exitReminderAlertRef.current = false;
+          Alert.alert('یاداور ثبت خروج', 'ساعت کارکرد شما به هشت ساعت رسیده است ( در صورت اتمام شیفت کاری، ثبت خروح خود را فراموش نکنید)');
+        } else {
+          await scheduleExitReminder(open.check_in);
+        }
+      }
+    } catch {}
+  };
+
   // تایمر حضور
   useEffect(() => {
     if (open && open.check_in) {
@@ -174,6 +246,32 @@ function CheckInCore() {
     } else { setElapsed(0); if (timerRef.current) clearInterval(timerRef.current); }
   }, [open]);
 
+
+  useEffect(() => {
+    if (open?.check_in && exitReminder) scheduleExitReminder(open.check_in);
+    else cancelExitReminder();
+  }, [open?.id, open?.check_in, exitReminder]);
+
+  // هشدار داخل برنامه نیز دقیقاً در رسیدن تایمر به ۸ ساعت نمایش داده می‌شود.
+  useEffect(() => {
+    if (!open || !exitReminder) {
+      exitReminderAlertRef.current = false;
+      return;
+    }
+    if (elapsed >= 8 * 3600 && !exitReminderAlertRef.current) {
+      exitReminderAlertRef.current = true;
+      Alert.alert('یاداور ثبت خروج', 'ساعت کارکرد شما به هشت ساعت رسیده است ( در صورت اتمام شیفت کاری، ثبت خروح خود را فراموش نکنید)');
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'یاداور ثبت خروج',
+          body: 'ساعت کارکرد شما به هشت ساعت رسیده است ( در صورت اتمام شیفت کاری، ثبت خروح خود را فراموش نکنید)',
+          sound: 'default',
+          data: { type: 'attendance_exit_reminder_8h' },
+        },
+        trigger: null,
+      }).catch(() => {});
+    }
+  }, [elapsed, open?.id, exitReminder]);
 
   // همگام‌سازی دوره‌ای تایمر با سرور؛ محاسبهٔ لحظه‌ای روی گوشی انجام می‌شود اما مرجع زمان سرور است.
   useEffect(() => {
@@ -422,6 +520,17 @@ function CheckInCore() {
           ) : null}
         </View>
       )}
+
+      {/* یاداور ثبت خروج */}
+      <TouchableOpacity style={s.reminderCard} activeOpacity={0.82} onPress={() => setExitReminderEnabled(!exitReminder)}>
+        <View style={s.reminderTextWrap}>
+          <Text style={s.reminderTitle}>یاداور ثبت خروج</Text>
+          <Text style={s.reminderHint}>با فعال بودن این گزینه، پس از رسیدن کارکرد به ۸ ساعت هشدار و اعلان دریافت می‌کنید.</Text>
+        </View>
+        <View style={[s.reminderCheckbox, exitReminder && s.reminderCheckboxOn]}>
+          {exitReminder ? <Text style={s.reminderCheck}>✓</Text> : null}
+        </View>
+      </TouchableOpacity>
 
       {/* روش ثبت حضور */}
       {!open && (
@@ -734,6 +843,13 @@ const s = StyleSheet.create({
   distRow: { padding: 12, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginBottom: 12 },
   distTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 14, textAlign: 'center' },
   timerBox: { alignItems: 'center', padding: 16, borderRadius: 14, backgroundColor: '#e7f3ee', marginBottom: 14 },
+  reminderCard: { flexDirection:'row-reverse', alignItems:'center', backgroundColor:'#fff', borderWidth:1, borderColor:C.line, borderRadius:14, padding:14, marginBottom:12 },
+  reminderTextWrap: { flex:1, minWidth:0 },
+  reminderTitle: { fontFamily:FONT.bold, color:C.ink, fontSize:14, textAlign:'right' },
+  reminderHint: { fontFamily:FONT.regular, color:C.muted, fontSize:11, lineHeight:19, textAlign:'right', marginTop:4 },
+  reminderCheckbox: { width:28, height:28, borderRadius:8, borderWidth:2, borderColor:'#cfd8e3', backgroundColor:'#f8fafc', alignItems:'center', justifyContent:'center', marginRight:12 },
+  reminderCheckboxOn: { backgroundColor:C.brand, borderColor:C.brand },
+  reminderCheck: { color:'#fff', fontFamily:FONT.bold, fontSize:16 },
   timerLabel: { fontFamily: FONT.regular, color: C.brand2, fontSize: 13 },
   timerSub: { fontFamily: FONT.bold, fontSize: 13, textAlign: 'center' },
   timerHint: { fontFamily: FONT.regular, fontSize: 11, color: C.muted, textAlign: 'center', marginTop: 4 },
