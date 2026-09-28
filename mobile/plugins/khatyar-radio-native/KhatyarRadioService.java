@@ -53,6 +53,7 @@ public final class KhatyarRadioService extends Service {
   private static final int DEFAULT_GAIN_MB = 600;
   private static final int MAX_GAIN_MB = 1000;
   private static final String ACTION_NOTIFICATION_PTT = "ir.mashhad.taxicontrol.radio.NOTIFICATION_PTT";
+  public static final String ACTION_REFRESH_NOTIFICATION = "ir.mashhad.taxicontrol.radio.REFRESH_NOTIFICATION";
   private final Handler handler = new Handler(Looper.getMainLooper());
   private final ExecutorService io = Executors.newSingleThreadExecutor();
   private final AtomicBoolean pollInFlight = new AtomicBoolean(false);
@@ -123,6 +124,10 @@ public final class KhatyarRadioService extends Service {
   @Override public int onStartCommand(Intent intent, int flags, int startId) {
     if (intent != null && ACTION_NOTIFICATION_PTT.equals(intent.getAction())) {
       toggleNotificationPtt();
+      return START_STICKY;
+    }
+    if (intent != null && ACTION_REFRESH_NOTIFICATION.equals(intent.getAction())) {
+      updateNotification();
       return START_STICKY;
     }
     if (!getPrefs().getBoolean("enabled", false)) { stopSelf(); return START_NOT_STICKY; }
