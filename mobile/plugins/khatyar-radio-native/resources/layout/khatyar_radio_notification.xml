@@ -24,7 +24,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="فعال • متصل به سرور"
-            android:textColor="?android:attr/textColorPrimary"
+            android:textColor="@color/khatyar_notification_primary"
             android:textSize="16sp"
             android:textStyle="bold"
             android:gravity="start"
@@ -36,7 +36,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="تاریخ شمسی: ۱۴۰۵/۰۶/۳۰ • بی‌سیم"
-            android:textColor="?android:attr/textColorSecondary"
+            android:textColor="@color/khatyar_notification_secondary"
             android:textSize="14sp"
             android:gravity="start"
             android:includeFontPadding="false"/>
