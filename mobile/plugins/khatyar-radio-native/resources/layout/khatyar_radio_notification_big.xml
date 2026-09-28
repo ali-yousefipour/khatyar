@@ -76,7 +76,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="شروع PTT"
-            android:textColor="?android:attr/textColorPrimary"
+            android:textColor="@color/khatyar_notification_button_text"
             android:textSize="17sp"
             android:textStyle="bold"
             android:includeFontPadding="false"/>
