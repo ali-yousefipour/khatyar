@@ -365,12 +365,16 @@ function CheckInCore() {
   async function doCheckout() {
     setBusy(true);
     try {
-      let lat, lng, accuracy;
-      try {
-        const p = await getAccuratePosition({ samples: 5, timeoutMs: 12000, desiredAccuracy: 12 });
-        if (p) { lat = p.coords.latitude; lng = p.coords.longitude; accuracy = p.coords.accuracy; }
-      } catch {}
-      // سرور خروج را در تمام خطوط مجاز کاربر بررسی می‌کند؛ خط خروج می‌تواند با خط ورود متفاوت باشد.
+      // موقعیت نمایش‌داده‌شده روی نقشه قبلاً توسط load() به‌روز شده است.
+      // منتظر ماندن برای ۵ نمونه GPS و timeout دوازده‌ثانیه‌ای هنگام خروج باعث تأخیر محسوس می‌شد.
+      // ابتدا همان موقعیت معتبر فعلی را ارسال می‌کنیم؛ فقط اگر موقعیت نداریم یک GPS کوتاه می‌گیریم.
+      let lat = pos?.lat, lng = pos?.lng, accuracy = pos?.acc;
+      if (lat == null || lng == null) {
+        try {
+          const p = await getAccuratePosition({ samples: 2, timeoutMs: 5000, desiredAccuracy: 20 });
+          if (p?.coords) { lat = p.coords.latitude; lng = p.coords.longitude; accuracy = p.coords.accuracy; }
+        } catch {}
+      }
       const r = await postOrQueue('/my/checkout', {
         lat, lng, accuracy,
         client_time: new Date().toISOString(),
@@ -383,7 +387,12 @@ function CheckInCore() {
           ? 'خروج ذخیره شد و بعد از اتصال، موقعیت شما در تمام خطوط مجاز بررسی و ثبت می‌شود.'
           : `خروج شما${lineText} ثبت شد.`
       );
-      await load();
+      // پاسخ موفق سرور کافی است؛ صفحه را بلافاصله از حالت «حضور باز» خارج کن.
+      // بارگذاری مجدد وضعیت/موقعیت در پس‌زمینه انجام می‌شود تا دکمه خروج معطل GPS نشود.
+      setOpen(null);
+      setElapsed(0);
+      setTimerInfo(null);
+      load().catch(() => {});
     } catch (e) { Alert.alert('خطا', e.message || 'ثبت خروج ناموفق'); }
     finally { setBusy(false); }
   }
