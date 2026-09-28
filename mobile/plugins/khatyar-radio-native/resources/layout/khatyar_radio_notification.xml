@@ -5,10 +5,10 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingStart="12dp"
-    android:paddingEnd="12dp"
-    android:paddingTop="12dp"
-    android:paddingBottom="12dp"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
     android:layoutDirection="rtl"
     android:textDirection="rtl">
 
@@ -17,7 +17,7 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:orientation="vertical"
-        android:layout_marginEnd="10dp">
+        android:layout_marginEnd="6dp">
 
         <TextView
             android:id="@+id/khatyar_notification_status"
@@ -37,15 +37,15 @@
             android:layout_marginTop="4dp"
             android:text="تاریخ شمسی: ۱۴۰۵/۰۶/۳۰ • بی‌سیم"
             android:textColor="@color/khatyar_notification_secondary"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:gravity="start"
             android:includeFontPadding="false"/>
     </LinearLayout>
 
     <LinearLayout
         android:id="@+id/khatyar_notification_ptt"
-        android:layout_width="132dp"
-        android:layout_height="60dp"
+        android:layout_width="148dp"
+        android:layout_height="56dp"
         android:background="@drawable/khatyar_notification_ptt_background"
         android:gravity="center"
         android:orientation="horizontal"
@@ -58,8 +58,8 @@
             android:layout_height="22dp"
             android:src="@drawable/khatyar_notification_ptt"
             android:contentDescription="@null"
-            android:layout_marginStart="5dp"
-            android:layout_marginEnd="5dp"/>
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"/>
 
         <TextView
             android:id="@+id/khatyar_notification_ptt_label"
