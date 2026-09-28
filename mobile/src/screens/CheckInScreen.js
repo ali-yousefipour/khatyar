@@ -293,6 +293,7 @@ function CheckInCore() {
         if (r) {
           setTimerInfo(r);
           if (r.auto_closed) {
+            await persistLocalOpen(null);
             setOpen(null);
             setElapsed(0);
             surplusAlertShownRef.current = false;
