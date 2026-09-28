@@ -154,6 +154,7 @@ public final class KhatyarRadioService extends Service {
 
   private String jalaliToday() {
     java.util.Calendar cal = java.util.Calendar.getInstance();
+    // تاریخ شمسی مستقیماً هنگام هر refresh محاسبه می‌شود؛ به کش یا مقدار قدیمی وابسته نیست.
     int gy = cal.get(java.util.Calendar.YEAR);
     int gm = cal.get(java.util.Calendar.MONTH) + 1;
     int gd = cal.get(java.util.Calendar.DAY_OF_MONTH);
@@ -193,7 +194,9 @@ public final class KhatyarRadioService extends Service {
 
     String status = pttActive ? "فعال • متصل به سرور • PTT فعال" : "فعال • متصل به سرور";
     String channelName = getPrefs().getString("channelName", "").trim();
-    String info = (channelName.isEmpty() ? "کانال بی‌سیم" : "کانال: " + channelName)
+    String role = getPrefs().getString("userRole", "").trim();
+    String info = (role.isEmpty() ? "سمت کاربر نامشخص" : "سمت: " + role)
+      + "  •  " + (channelName.isEmpty() ? "کانال بی‌سیم" : "کانال: " + channelName)
       + "  •  تاریخ شمسی: " + jalaliToday();
     String pttLabel = pttActive ? "پایان PTT" : "شروع PTT";
 
@@ -216,8 +219,9 @@ public final class KhatyarRadioService extends Service {
 
     NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL)
       .setSmallIcon(getApplicationInfo().icon)
-      .setContentTitle("بی‌سیم خطیار")
-      .setContentText(status)
+      .setContentTitle("خطیار • " + status)
+      .setContentText(info)
+      .setSubText("خطیار فعال و آماده‌به‌کار");
       .setCustomContentView(compact)
       .setCustomBigContentView(expanded)
       .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
