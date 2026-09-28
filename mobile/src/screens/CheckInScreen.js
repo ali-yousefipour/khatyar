@@ -427,14 +427,23 @@ function CheckInCore() {
       const current = await getPositionForAttendance();
       if (!current?.lat || !current?.lng) throw new Error('موقعیت دستگاه در دسترس نیست؛ برای ثبت خروج GPS را روشن کنید.');
       const localLine = getLocalAuthorizedLine(current.lat, current.lng);
-      if (!localLine) {
+      let checkoutOnline = true;
+      try {
+        const net = await NetInfo.fetch();
+        checkoutOnline = net?.isInternetReachable !== false;
+      } catch {}
+      // در حالت آفلاین خروج را به‌خاطر عدم دسترسی لحظه‌ای به سرور یا
+      // تغییر محدوده متوقف نکن؛ جلسهٔ باز از قبل روی گوشی معتبر است.
+      // پس از اتصال، سرور موقعیت و جلسهٔ باز را دوباره اعتبارسنجی می‌کند.
+      if (checkoutOnline && !localLine) {
         throw new Error('شما در محدوده هیچ‌یک از خطوط مجاز خود قرار ندارید؛ ثبت خروج انجام نشد.');
       }
       const lat = current.lat, lng = current.lng, accuracy = current.acc;
+      const checkoutLineId = localLine?.line?.id || Number(open?.line_id || 0) || undefined;
       const r = await postOrQueue('/my/checkout', {
         lat, lng, accuracy,
         client_time: new Date().toISOString(),
-        local_line_id: localLine.line.id,
+        ...(checkoutLineId ? { local_line_id: checkoutLineId } : {}),
         client_uuid: 'checkout_' + Date.now() + '_' + Math.random().toString(36).slice(2,8)
       }, 'checkout');
       const lineText = r?.checkout_line_code ? ` در خط ${faNum(String(r.checkout_line_code))}` : '';
