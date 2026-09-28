@@ -430,7 +430,7 @@ function CheckInCore() {
       let checkoutOnline = true;
       try {
         const net = await NetInfo.fetch();
-        checkoutOnline = net?.isInternetReachable !== false;
+        checkoutOnline = net?.isInternetReachable === true;
       } catch {}
       // در حالت آفلاین خروج را به‌خاطر عدم دسترسی لحظه‌ای به سرور یا
       // تغییر محدوده متوقف نکن؛ جلسهٔ باز از قبل روی گوشی معتبر است.
