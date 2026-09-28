@@ -1,11 +1,20 @@
 const { withProjectBuildGradle } = require('@expo/config-plugins');
 
 const MARKER = 'KHATYAR_ANDROID_MAVEN_MIRRORS';
-const REPOS = [
-  { name: 'MyketMaven', url: 'https://maven.myket.ir/', allowGradleMetadata: false },
-  { name: 'RunflareGoogle', url: 'https://mirror-maven.runflare.com/android/maven2/', allowGradleMetadata: false },
-  { name: 'RunflareMaven', url: 'https://mirror-maven.runflare.com/maven2/', allowGradleMetadata: false },
-];
+const IS_GITHUB_ACTIONS = process.env.GITHUB_ACTIONS === 'true';
+
+const REPOS = IS_GITHUB_ACTIONS
+  ? [
+      // GitHub Actions: do not contact Myket; use official Google/Maven repositories.
+      { name: 'Google', url: 'https://dl.google.com/dl/android/maven2/', allowGradleMetadata: true },
+      { name: 'MavenCentral', url: 'https://repo.maven.apache.org/maven2/', allowGradleMetadata: true },
+    ]
+  : [
+      // Local Windows builds: preserve the existing Myket-first configuration.
+      { name: 'MyketMaven', url: 'https://maven.myket.ir/', allowGradleMetadata: true },
+      { name: 'RunflareGoogle', url: 'https://mirror-maven.runflare.com/android/maven2/', allowGradleMetadata: false },
+      { name: 'RunflareMaven', url: 'https://mirror-maven.runflare.com/maven2/', allowGradleMetadata: false },
+    ];
 
 function addRunflareContentGroovy(lines, indent) {
   lines.push(`${indent}content {`);
@@ -124,6 +133,6 @@ module.exports = function withAndroidMavenMirrors(config) {
     return cfg;
   });
 
-  console.log('[withAndroidMavenMirrors] main Android project mirror policy applied; Expo/RN included-build settings left untouched.');
+  console.log('[withAndroidMavenMirrors] ${IS_GITHUB_ACTIONS ? 'GitHub Actions -> official Google/Maven repositories' : 'Local build -> Myket-first repositories'}; Expo/RN included-build settings left untouched.');
   return config;
 };
