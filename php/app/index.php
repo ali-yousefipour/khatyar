@@ -31,7 +31,7 @@ $method = $_SERVER['REQUEST_METHOD']; $path = parse_url($_SERVER['REQUEST_URI'],
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
   $siteV = '1.5.3'; $appV = '1.5.3';
-  Http::json(['ok' => true, 'installed' => is_file("$ROOT/.installed"), 'db' => $db_ok, 'site_version' => $siteV, 'app_version' => $appV, 'api_build' => '2026-09-27-v237-backend']);
+  Http::json(['ok' => true, 'installed' => is_file("$ROOT/.installed"), 'db' => $db_ok, 'site_version' => $siteV, 'app_version' => $appV, 'api_build' => '2026-09-27-v237-backend', 'release_notes' => ['version' => '1.5.3', 'title' => 'تغییرات نسخه ۱.۵.۳', 'items' => ['بهبود ثبت حضور و خروج در حالت آفلاین و همگام‌سازی پس از اتصال', 'نمایش شیفت کاری ماه جاری در ثبت حضور من', 'افزوده شدن یادآور ثبت خروج پس از ۸ ساعت کارکرد', 'بهبود ویزارد ثبت بازدید سرویس مدارس و ورود پلاک', 'اصلاح نمایش منوی سرویس مدارس و کش پنل وب', 'بهبود ناتیفیکیشن بی‌سیم و نمایش صحیح در حالت تاریک', 'اصلاح عملکرد PTT با دکمه افزایش صدا', 'اصلاح اعلام صوتی کانال ۵']]]);
 }
 if (strpos($path, '/api') !== 0) {
   if ($path === '/' || $path === '/index.php') { header('Cache-Control: no-cache, must-revalidate'); readfile(__DIR__ . '/panel.html'); exit; }
