@@ -86,6 +86,42 @@ function Save-PrebuildMarker([string]$PackageHash,[string]$NativeConfigHash) {
     }
     $obj | ConvertTo-Json | Set-Content -LiteralPath $PrebuildMarker -Encoding UTF8
 }
+function Stop-AndroidBuildProcesses([string]$Android) {
+    $Android = [IO.Path]::GetFullPath($Android)
+    $gradlew = Join-Path $Android 'gradlew.bat'
+    if (Test-Path -LiteralPath $gradlew) {
+        try { Invoke-Checked $gradlew @('--stop') $Android } catch { Write-Host '    Gradle daemon stop returned a non-zero status; continuing with process cleanup.' -ForegroundColor Yellow }
+    }
+    $androidNeedle = $Android.ToLowerInvariant()
+    $cacheNeedle = $PersistentGradleHome.ToLowerInvariant()
+    $killed = 0
+    try {
+        $processes = @(Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" -ErrorAction Stop)
+        foreach ($proc in $processes) {
+            $cmdLower = ([string]$proc.CommandLine).ToLowerInvariant()
+            if (($cmdLower -like "*$androidNeedle*") -or ($cmdLower -like "*$cacheNeedle*")) {
+                try { Stop-Process -Id ([int]$proc.ProcessId) -Force -ErrorAction Stop; $killed++ } catch {}
+            }
+        }
+    } catch { Write-Host '    Could not enumerate Java processes; continuing.' -ForegroundColor Yellow }
+    if ($killed -gt 0) {
+        Write-Host "    Terminated $killed stale Java/Gradle process(es) holding the Android build directory." -ForegroundColor Yellow
+        Start-Sleep -Milliseconds 800
+    }
+}
+function Remove-LockedAndroidDirectory([string]$Android) {
+    if (-not (Test-Path -LiteralPath $Android)) { return }
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
+        try { Remove-Item -LiteralPath $Android -Recurse -Force -ErrorAction Stop; return }
+        catch {
+            if ($attempt -eq 5) { throw "Unable to remove generated Android directory after 5 attempts: $Android. Close Android Studio/Gradle or another process using the project, then retry." }
+            Write-Host "    Android directory is still locked; retrying cleanup ($attempt/5)..." -ForegroundColor Yellow
+            Stop-AndroidBuildProcesses $Android
+            Start-Sleep -Seconds 1
+        }
+    }
+}
+
 function Ensure-Directory([string]$Path) {
     if ([string]::IsNullOrWhiteSpace($Path)) { Fail 'Directory path is empty.' }
     $full = [IO.Path]::GetFullPath($Path)
@@ -282,8 +318,8 @@ try {
     } else {
         Stage 40 'Generating Android native project from Expo baseline'
         if (Test-Path -LiteralPath $android) {
-            $oldWrapper = Join-Path $android 'gradlew.bat'
-            if (Test-Path -LiteralPath $oldWrapper) { try { Invoke-Checked $oldWrapper @('--stop') $android } catch {} }
+            Stop-AndroidBuildProcesses $android
+            Remove-LockedAndroidDirectory $android
         }
         Invoke-Checked 'node.exe' @((Join-Path $Root 'scripts\prepare-android-release.js'))
         Save-PrebuildMarker $packageHash $nativeConfigHash
