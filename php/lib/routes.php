@@ -3353,8 +3353,13 @@ route('GET', '/api/my/shift-schedule', function($p,$b,$u){
   if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$start)) $start=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
   [$sy,$sm,$sd]=array_map('intval',explode('-',$start));
   $shift=_auto_shift_for_user($u['id']); if(!$shift)return ['shift'=>null,'days'=>[],'message'=>'برای شما شیفت فعالی تعریف نشده است.'];
-  $days=[];$ts=mktime(12,0,0,...jalali_to_gregorian($sy,$sm,$sd));
-  for($i=0;$i<14;$i++){
+  // «شیفت کاری» باید کل ماه جاری شمسی را نشان دهد، نه فقط ۱۴ روز از امروز.
+  // پارامتر from فقط برای سازگاری با کلاینت‌های قدیمی نگه داشته شده و ماه جاری مرجع نمایش است.
+  $days=[];$ts=mktime(12,0,0,...jalali_to_gregorian($jy,$jm,1));
+  $nextJy=$jy;$nextJm=$jm+1;if($nextJm>12){$nextJm=1;$nextJy++;}
+  $nextTs=mktime(12,0,0,...jalali_to_gregorian($nextJy,$nextJm,1));
+  $daysCount=max(1,(int)round(($nextTs-$ts)/86400));
+  for($i=0;$i<$daysCount;$i++){
     $gt=getdate($ts+($i*86400)); [$y,$m,$d]=array_slice(gregorian_to_jalali($gt['year'],$gt['mon'],$gt['mday']),0,3);$j=sprintf('%04d-%02d-%02d',$y,$m,$d);
     $dr=null;if(($shift['type']??'')==='advanced')$dr=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$j]);
     $hol=Db::one("SELECT jdate,title FROM holidays WHERE jdate=? LIMIT 1",[$j]);$mins=ShiftCalc::expectedMinutes($shift,$j,$dr);
