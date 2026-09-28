@@ -2023,7 +2023,7 @@ route('GET', '/api/my/checkin-config', function($p,$b,$u){
 // ثبت ورود
 route('POST', '/api/my/checkin', function($p,$b,$u){
   $eventAt = _app_client_time($b);
-  _attendance_auto_close_stale((int)$u['id'],$eventAt);
+  _attendance_auto_close_stale((int)$u['id']);
   // اگر جلسهٔ باز دارد، اجازهٔ ورود مجدد نده
   $open = Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL", [$u['id']]);
   if ($open) Http::error('شما قبلاً ثبت ورود کرده‌اید. ابتدا خروج بزنید.', 400);
