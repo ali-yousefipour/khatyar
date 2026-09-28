@@ -6,7 +6,7 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { getAccuratePosition, getGsmPosition } from '../location';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { request, postOrQueue } from '../api';
+import { request, postOrQueue, cachedValue } from '../api';
 import { getAppConfig } from '../appconfig';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
@@ -96,20 +96,26 @@ function CheckInCore() {
 
   const load = async () => {
     setLoadError(null);
-    // موازی: config + موقعیت را با هم بگیر تا صفحه سریع باز شود
+    // اول کش محلی را بخوان؛ ثبت حضور باید حتی بدون اینترنت بتواند از آخرین
+    // اطلاعات خطوط مجاز و جلسهٔ باز استفاده کند. سپس نسخهٔ تازه را در پس‌زمینه بگیر.
+    try {
+      const cachedCfg = await cachedValue('/my/checkin-config');
+      if (cachedCfg && typeof cachedCfg === 'object') {
+        setCfg(cachedCfg);
+        setOpen(cachedCfg.open || null);
+      }
+    } catch {}
     const [cfgResult, timerResult] = await Promise.allSettled([
-      request('/my/checkin-config', { noStore: true }),
-      request('/my/work-timer', { noStore: true }),
+      request('/my/checkin-config', { timeoutMs: 8000 }),
+      request('/my/work-timer', { noStore: true, timeoutMs: 8000 }),
     ]);
     if (timerResult && timerResult.status === 'fulfilled') setTimerInfo(timerResult.value);
     if (cfgResult.status === 'fulfilled') {
-      const c = cfgResult.value;
-      setCfg(c);
-      setOpen(c.open || null);
-    } else {
-      // مهم: در صورت خطای شبکه/سرور، وضعیت قبلی (ممکن است کهنه باشد) دست‌نخورده می‌ماند
-      // و به‌جای نمایش نادرست «بدون جلسهٔ باز»، خطا به کاربر اعلام و امکان تلاش مجدد داده می‌شود.
-      setLoadError(cfgResult.reason?.message || 'دریافت وضعیت ثبت حضور ناموفق بود. اتصال اینترنت را بررسی و دوباره تلاش کنید.');
+      const fresh = cfgResult.value;
+      setCfg(fresh);
+      setOpen(fresh.open || null);
+    } else if (!cfg) {
+      setLoadError(cfgResult.reason?.message || 'اطلاعات خطوط مجاز در دسترس نیست. ابتدا برنامه را یک‌بار با اتصال اینترنت باز کنید.');
     }
     setLoading(false); // صفحه را فوری نشان بده
     // تعیین خودکار محدوده: ابتدا موقعیت تقریبی شبکه/GSM و سپس جایگزینی با GPS دقیق.
@@ -330,15 +336,48 @@ function CheckInCore() {
     if (liveTimer?.phase !== 'surplus') surplusAlertShownRef.current = false;
   }, [liveTimer?.phase]);
 
+  // اعتبارسنجی محلی محدوده؛ در حالت آفلاین نباید برای تصمیم ورود/خروج به سرور وابسته باشیم.
+  const getLocalAuthorizedLine = (latitude, longitude) => {
+    if (latitude == null || longitude == null || !cfg?.lines?.length) return null;
+    const tolerance = Number(appCfg?.checkin_error_radius_m || 0);
+    let best = null;
+    for (const l of cfg.lines) {
+      const fences = Array.isArray(l.geofences) ? l.geofences : [];
+      for (const g of fences) {
+        const d = distanceToFence(latitude, longitude, g);
+        if (!isFinite(d)) continue;
+        if (!best || d < best.distance) best = { line: l, distance: d };
+      }
+    }
+    return best && best.distance <= tolerance ? best : null;
+  };
+
+  const getPositionForAttendance = async () => {
+    if (pos?.lat != null && pos?.lng != null) return pos;
+    try {
+      const p = await getAccuratePosition({ samples: 2, timeoutMs: 5000, desiredAccuracy: 20, maxAccuracy: 100 });
+      if (p?.coords) {
+        const next = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, ts: p.timestamp, viaGsm: false };
+        setPos(next);
+        return next;
+      }
+    } catch {}
+    return null;
+  };
+
   async function doCheckin(proof) {
     setBusy(true);
     try {
-      let lat, lng;
-      // ابتدا از همان موقعیتی که در نقشه نمایش داده شده استفاده کن (تا با بررسی محدوده تطابق داشته باشد)
-      if (pos && pos.lat && pos.lng) { lat = pos.lat; lng = pos.lng; }
-      else { try { const p = await getAccuratePosition({ samples: 4, timeoutMs: 10000, desiredAccuracy: 15 }); if (p) { lat = p.coords.latitude; lng = p.coords.longitude; } } catch {} }
-      const body = { method, lat, lng, accuracy: pos?.acc || undefined };
-      // خط به‌صورت دستی از اپ ارسال نمی‌شود؛ سرور باید حضور را در همهٔ خطوط تعریف‌شدهٔ کاربر بررسی و خط صحیح را خودش ثبت کند.
+      const current = await getPositionForAttendance();
+      if (!current?.lat || !current?.lng) throw new Error('موقعیت دستگاه در دسترس نیست؛ برای ثبت حضور GPS را روشن کنید.');
+      const localLine = getLocalAuthorizedLine(current.lat, current.lng);
+      if (!localLine) {
+        throw new Error('شما در محدوده هیچ‌یک از خطوط مجاز خود قرار ندارید؛ ثبت حضور انجام نشد.');
+      }
+      const lat = current.lat, lng = current.lng;
+      const body = { method, lat, lng, accuracy: current.acc || undefined, local_line_id: localLine.line.id };
+      // خط انتخابی توسط کاربر ارسال نمی‌شود؛ برنامه خودش محدوده را کنترل کرده و
+      // سرور نیز برای جلوگیری از دستکاری، همان کنترل را مستقل تکرار می‌کند.
       if (method !== 'gps') body.proof = proof != null ? proof : proofVal;
       body.client_time = new Date().toISOString();
       body.client_uuid = 'checkin_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
@@ -368,16 +407,17 @@ function CheckInCore() {
       // موقعیت نمایش‌داده‌شده روی نقشه قبلاً توسط load() به‌روز شده است.
       // منتظر ماندن برای ۵ نمونه GPS و timeout دوازده‌ثانیه‌ای هنگام خروج باعث تأخیر محسوس می‌شد.
       // ابتدا همان موقعیت معتبر فعلی را ارسال می‌کنیم؛ فقط اگر موقعیت نداریم یک GPS کوتاه می‌گیریم.
-      let lat = pos?.lat, lng = pos?.lng, accuracy = pos?.acc;
-      if (lat == null || lng == null) {
-        try {
-          const p = await getAccuratePosition({ samples: 2, timeoutMs: 5000, desiredAccuracy: 20 });
-          if (p?.coords) { lat = p.coords.latitude; lng = p.coords.longitude; accuracy = p.coords.accuracy; }
-        } catch {}
+      const current = await getPositionForAttendance();
+      if (!current?.lat || !current?.lng) throw new Error('موقعیت دستگاه در دسترس نیست؛ برای ثبت خروج GPS را روشن کنید.');
+      const localLine = getLocalAuthorizedLine(current.lat, current.lng);
+      if (!localLine) {
+        throw new Error('شما در محدوده هیچ‌یک از خطوط مجاز خود قرار ندارید؛ ثبت خروج انجام نشد.');
       }
+      const lat = current.lat, lng = current.lng, accuracy = current.acc;
       const r = await postOrQueue('/my/checkout', {
         lat, lng, accuracy,
         client_time: new Date().toISOString(),
+        local_line_id: localLine.line.id,
         client_uuid: 'checkout_' + Date.now() + '_' + Math.random().toString(36).slice(2,8)
       }, 'checkout');
       const lineText = r?.checkout_line_code ? ` در خط ${faNum(String(r.checkout_line_code))}` : '';
