@@ -1992,6 +1992,7 @@ route('GET', '/api/my/search-cache', function($p,$b,$u){
 });
 
 route('GET', '/api/my/checkin-config', function($p,$b,$u){
+  _attendance_auto_close_stale((int)$u['id']);
   $ids = user_line_ids($u);
   $lines = [];
   if (is_array($ids) && $ids) {
@@ -2022,6 +2023,7 @@ route('GET', '/api/my/checkin-config', function($p,$b,$u){
 // ثبت ورود
 route('POST', '/api/my/checkin', function($p,$b,$u){
   $eventAt = _app_client_time($b);
+  _attendance_auto_close_stale((int)$u['id'],$eventAt);
   // اگر جلسهٔ باز دارد، اجازهٔ ورود مجدد نده
   $open = Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL", [$u['id']]);
   if ($open) Http::error('شما قبلاً ثبت ورود کرده‌اید. ابتدا خروج بزنید.', 400);
@@ -2135,6 +2137,7 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
 route('POST', '/api/my/checkout', function($p,$b,$u){
   _ensure_attendance_phase1_schema();
   $eventAt = _app_client_time($b);
+  _attendance_auto_close_stale((int)$u['id'],$eventAt);
   $open = Db::one("SELECT id, check_in, line_id, method FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
   if (!$open) Http::error('جلسهٔ ورودِ بازی برای شما وجود ندارد.', 400);
 
@@ -2182,6 +2185,7 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
 // تحویل شیفت با QR Code: تحویل‌دهنده توکن می‌سازد، تحویل‌گیرنده اسکن می‌کند؛ خروج اولی و ورود دومی ثبت می‌شود.
 route('POST', '/api/my/shift-handover/start', function($p,$b,$u){
   _ensure_attendance_phase1_schema();
+  _attendance_auto_close_stale((int)$u['id']);
   $open = Db::one("SELECT id,line_id,check_in FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
   if (!$open) Http::error('برای تحویل شیفت ابتدا باید حضور باز داشته باشید.', 400);
   $token = bin2hex(random_bytes(24));
@@ -2192,6 +2196,7 @@ route('POST', '/api/my/shift-handover/start', function($p,$b,$u){
 });
 route('POST', '/api/my/shift-handover/accept', function($p,$b,$u){
   _ensure_attendance_phase1_schema();
+  _attendance_auto_close_stale((int)$u['id']);
   $token = trim((string)($b['token'] ?? ''));
   $token = preg_replace('/^SHIFT_HANDOVER:/','',$token);
   if ($token==='') Http::error('کد تحویل شیفت نامعتبر است.', 422);
@@ -2210,6 +2215,7 @@ route('POST', '/api/my/shift-handover/accept', function($p,$b,$u){
 
 route('GET', '/api/my/work-timer', function($p,$b,$u){
   _ensure_attendance_phase1_schema();
+  $autoClosed = _attendance_auto_close_stale((int)$u['id']);
   $open = Db::one("SELECT id,line_id,check_in,check_out FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
   $role=_user_role_title($u['id']);
   $jdate = null;
@@ -2230,7 +2236,7 @@ route('GET', '/api/my/work-timer', function($p,$b,$u){
   $surplus=max(0,$elapsed-$expected-$cap);
   $phase = $remain>0 ? 'duty' : ($ot<$cap ? 'overtime' : 'surplus');
   return [
-    'open'=>$open,'role_title'=>$role['title']??'','shift_title'=>$shift['title']??'شیفت خودکار',
+    'open'=>$open,'auto_closed'=>$autoClosed ? true : false,'auto_closed_at'=>$autoClosed['check_out'] ?? null,'auto_close_reason'=>$autoClosed['reason'] ?? null,'role_title'=>$role['title']??'','shift_title'=>$shift['title']??'شیفت خودکار',
     'expected_min'=>$expected,'ot_cap_min'=>$cap,'elapsed_min'=>$elapsed,'elapsed_sec'=>$elapsedSec,
     'remaining_min'=>$remain,'overtime_min'=>$ot,'surplus_min'=>$surplus,'phase'=>$phase,
     'server_now'=>date('c'),'server_now_ts'=>time(),'check_in_ts'=>$checkInTs,'check_in_at'=>$open['check_in']??null,
@@ -2455,6 +2461,35 @@ function _ensure_attendance_phase1_schema(){
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='client_check_out'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN client_check_out DATETIME NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   // خط خروج می‌تواند با خط ورود متفاوت باشد؛ این ستون خطی را که خروج واقعاً در محدوده آن ثبت شده نگه می‌دارد.
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='out_line_id'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN out_line_id INT NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+}
+
+function _attendance_auto_close_stale($userId, $now=null){
+  _ensure_attendance_phase1_schema();
+  $now = $now ?: date('Y-m-d H:i:s');
+  $open = Db::one("SELECT id, check_in, line_id, method FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [(int)$userId]);
+  if (!$open || empty($open['check_in'])) return null;
+  $inTs = strtotime($open['check_in']);
+  $nowTs = strtotime($now);
+  if ($inTs === false || $nowTs === false || ($nowTs - $inTs) < 14*3600) return null;
+
+  $autoOutTs = $inTs + 14*3600;
+  $autoOut = date('Y-m-d H:i:s', $autoOutTs);
+  try {
+    $gy=(int)date('Y', $inTs); $gm=(int)date('n', $inTs); $gd=(int)date('j', $inTs);
+    [$jy,$jm,$jd] = gregorian_to_jalali($gy,$gm,$gd);
+    $jdate=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
+    $shift=function_exists('_active_user_shift_assignment') ? _active_user_shift_assignment((int)$userId,$jdate) : null;
+    $sessions=[['in'=>$inTs,'out'=>$autoOutTs]];
+    $hol=(bool)Db::one("SELECT jdate FROM holidays WHERE jdate IN (?,?) LIMIT 1",[$jdate,str_replace('-','/',$jdate)]);
+    $w=ShiftCalc::dayWork($shift,$jdate,null,$sessions,$hol);
+    Db::run("UPDATE staff_attendance SET check_out=?, client_check_out=?, calc_json=? WHERE id=? AND check_out IS NULL",
+      [$autoOut,$autoOut,json_encode($w,JSON_UNESCAPED_UNICODE),(int)$open['id']]);
+  } catch (\Throwable $e) {
+    Db::run("UPDATE staff_attendance SET check_out=?, client_check_out=? WHERE id=? AND check_out IS NULL",
+      [$autoOut,$autoOut,(int)$open['id']]);
+    error_log('attendance auto-close calculation failed: '.$e->getMessage());
+  }
+  return ['id'=>(int)$open['id'],'check_out'=>$autoOut,'check_in'=>$open['check_in'],'line_id'=>$open['line_id'],'method'=>$open['method'],'reason'=>'14_hour_limit'];
 }
 
 function _user_role_title($userId){
