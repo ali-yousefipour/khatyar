@@ -5268,7 +5268,9 @@ route('GET', '/api/app/version', function($p,$b,$u){
   return [
     'latest_version' => $get('app_latest_version', APP_VERSION),
     'min_version'    => $get('app_min_version', '0.0.0'),
-    'apk_url'        => $get('app_apk_url', ''),
+    'apk_url'        => $get('app_apk_url', 'https://github.com/ali-yousefipour/khatyar/releases/latest/download/khatyar.apk'),
+    'release_url'    => 'https://github.com/ali-yousefipour/khatyar/releases/latest',
+    'apk_asset'     => 'khatyar.apk',
     'notes'          => $get('app_update_notes', ''),
     'site_version'   => SITE_VERSION,
     'app_version'    => APP_VERSION,
