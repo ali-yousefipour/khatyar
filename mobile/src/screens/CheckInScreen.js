@@ -168,7 +168,7 @@ function CheckInCore() {
       // کاملاً غلط می‌شد. حالا از تابع مشترک و صحیح tehranTimeToEpochMs استفاده می‌شود.
       const start = tehranTimeToEpochMs(open.check_in);
       if (start == null) { setElapsed(0); return; }
-      const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
+      const tick = () => setElapsed(Math.min(14 * 3600, Math.max(0, Math.floor((Date.now() - start) / 1000))));
       tick(); timerRef.current = setInterval(tick, 1000);
       return () => clearInterval(timerRef.current);
     } else { setElapsed(0); if (timerRef.current) clearInterval(timerRef.current); }
@@ -182,7 +182,15 @@ function CheckInCore() {
     const syncTimer = async () => {
       try {
         const r = await request('/my/work-timer');
-        if (r) setTimerInfo(r);
+        if (r) {
+          setTimerInfo(r);
+          if (r.auto_closed) {
+            setOpen(null);
+            setElapsed(0);
+            surplusAlertShownRef.current = false;
+            Alert.alert('ثبت حضور بسته شد', 'برای این حضور بیش از ۱۴ ساعت خروج ثبت نشده بود؛ جلسه کاری به‌صورت خودکار بسته شد و اکنون امکان ثبت حضور جدید دارید.');
+          }
+        }
       } catch {}
     };
     timerSyncRef.current = setInterval(syncTimer, Math.max(30, +(timerInfo?.next_sync_sec || 60)) * 1000);
@@ -217,7 +225,7 @@ function CheckInCore() {
     if (!open) return null;
     const expected = +(timerInfo?.expected_min || 453);
     const cap = +(timerInfo?.ot_cap_min || 27);
-    const elapsedMin = Math.floor(elapsed / 60);
+    const elapsedMin = Math.min(14 * 60, Math.floor(elapsed / 60));
     const remaining = Math.max(0, expected - elapsedMin);
     const overtime = Math.max(0, Math.min(Math.max(0, elapsedMin - expected), cap));
     const surplus = Math.max(0, elapsedMin - expected - cap);
