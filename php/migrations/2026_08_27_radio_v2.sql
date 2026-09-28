@@ -2,6 +2,7 @@
 -- MySQL/MariaDB compatible and idempotent.
 
 SET @db=DATABASE();
+SET @sql=(SELECT IF(COUNT(*)=0,'ALTER TABLE radio_channels ADD COLUMN min_talk_ms INT UNSIGNED NOT NULL DEFAULT 1500','SELECT 1') FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_channels' AND COLUMN_NAME='min_talk_ms'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(COUNT(*)=0,'ALTER TABLE radio_channels ADD COLUMN channel_type VARCHAR(20) NOT NULL DEFAULT ''custom''','SELECT 1') FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_channels' AND COLUMN_NAME='channel_type'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(COUNT(*)=0,'ALTER TABLE radio_channels ADD COLUMN match_mode VARCHAR(3) NOT NULL DEFAULT ''OR''','SELECT 1') FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_channels' AND COLUMN_NAME='match_mode'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(COUNT(*)=0,'ALTER TABLE radio_channels ADD COLUMN max_talk_ms INT UNSIGNED NOT NULL DEFAULT 25000','SELECT 1') FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@db AND TABLE_NAME='radio_channels' AND COLUMN_NAME='max_talk_ms'); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
@@ -30,4 +31,6 @@ CREATE TABLE IF NOT EXISTS radio_logs (
  CONSTRAINT fk_radio_logs_channel FOREIGN KEY(channel_id) REFERENCES radio_channels(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-UPDATE radio_channels SET channel_type='custom',match_mode='OR',max_talk_ms=25000 WHERE channel_type IS NULL OR channel_type='';
+UPDATE radio_channels SET channel_type='custom',match_mode='OR',min_talk_ms=1500,max_talk_ms=25000 WHERE channel_type IS NULL OR channel_type='';
+UPDATE radio_channels SET min_talk_ms=1500 WHERE min_talk_ms IS NULL OR min_talk_ms<1500;
+UPDATE radio_channels SET max_talk_ms=25000 WHERE max_talk_ms IS NULL OR max_talk_ms<min_talk_ms;
