@@ -2,7 +2,7 @@ const { withProjectBuildGradle } = require('@expo/config-plugins');
 
 const MARKER = 'KHATYAR_ANDROID_MAVEN_MIRRORS';
 const REPOS = [
-  { name: 'MyketMaven', url: 'https://maven.myket.ir/', allowGradleMetadata: true },
+  { name: 'MyketMaven', url: 'https://maven.myket.ir/', allowGradleMetadata: false },
   { name: 'RunflareGoogle', url: 'https://mirror-maven.runflare.com/android/maven2/', allowGradleMetadata: false },
   { name: 'RunflareMaven', url: 'https://mirror-maven.runflare.com/maven2/', allowGradleMetadata: false },
 ];
