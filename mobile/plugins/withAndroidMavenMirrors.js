@@ -133,6 +133,6 @@ module.exports = function withAndroidMavenMirrors(config) {
     return cfg;
   });
 
-  console.log('[withAndroidMavenMirrors] ${IS_GITHUB_ACTIONS ? 'GitHub Actions -> official Google/Maven repositories' : 'Local build -> Myket-first repositories'}; Expo/RN included-build settings left untouched.');
+  console.log(`[withAndroidMavenMirrors] ${IS_GITHUB_ACTIONS ? 'GitHub Actions -> official Google/Maven repositories' : 'Local build -> Myket-first repositories'}; Expo/RN included-build settings left untouched.`);
   return config;
 };
