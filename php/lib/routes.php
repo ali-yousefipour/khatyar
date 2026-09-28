@@ -2137,7 +2137,7 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
 route('POST', '/api/my/checkout', function($p,$b,$u){
   _ensure_attendance_phase1_schema();
   $eventAt = _app_client_time($b);
-  _attendance_auto_close_stale((int)$u['id'],$eventAt);
+  _attendance_auto_close_stale((int)$u['id']);
   $open = Db::one("SELECT id, check_in, line_id, method FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
   if (!$open) Http::error('جلسهٔ ورودِ بازی برای شما وجود ندارد.', 400);
 
