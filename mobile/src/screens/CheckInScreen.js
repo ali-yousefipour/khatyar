@@ -189,8 +189,8 @@ function CheckInCore() {
       if (fireAt.getTime() <= Date.now()) return;
       exitReminderIdRef.current = await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'یاداور ثبت خروج',
-          body: 'ساعت کارکرد شما به هشت ساعت رسیده است ( در صورت اتمام شیفت کاری، ثبت خروح خود را فراموش نکنید)',
+           title: 'ساعت کارکرد شما به هشت ساعت رسیده است',
+          body: '( در صورت اتمام شیفت کاری، ثبت خروج خود را فراموش نکنید)',
           sound: 'default',
           data: { type: 'attendance_exit_reminder_8h' },
         },
@@ -223,7 +223,7 @@ function CheckInCore() {
         const start = tehranTimeToEpochMs(open.check_in);
         if (start != null && Date.now() >= start + 8 * 60 * 60 * 1000) {
           exitReminderAlertRef.current = false;
-          Alert.alert('یاداور ثبت خروج', 'ساعت کارکرد شما به هشت ساعت رسیده است ( در صورت اتمام شیفت کاری، ثبت خروح خود را فراموش نکنید)');
+          Alert.alert('ساعت کارکرد شما به هشت ساعت رسیده است', '( در صورت اتمام شیفت کاری، ثبت خروج خود را فراموش نکنید)');
         } else {
           await scheduleExitReminder(open.check_in);
         }
@@ -260,16 +260,8 @@ function CheckInCore() {
     }
     if (elapsed >= 8 * 3600 && !exitReminderAlertRef.current) {
       exitReminderAlertRef.current = true;
-      Alert.alert('یاداور ثبت خروج', 'ساعت کارکرد شما به هشت ساعت رسیده است ( در صورت اتمام شیفت کاری، ثبت خروح خود را فراموش نکنید)');
-      Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'یاداور ثبت خروج',
-          body: 'ساعت کارکرد شما به هشت ساعت رسیده است ( در صورت اتمام شیفت کاری، ثبت خروح خود را فراموش نکنید)',
-          sound: 'default',
-          data: { type: 'attendance_exit_reminder_8h' },
-        },
-        trigger: null,
-      }).catch(() => {});
+      Alert.alert('ساعت کارکرد شما به هشت ساعت رسیده است', '( در صورت اتمام شیفت کاری، ثبت خروج خود را فراموش نکنید)');
+
     }
   }, [elapsed, open?.id, exitReminder]);
 
