@@ -1,0 +1,104 @@
+name: publish-android-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "نسخه انتشار (مثلاً 1.5.3)"
+        required: true
+        default: "1.5.3"
+      target:
+        description: "شاخه/commit مبنای انتشار"
+        required: true
+        default: "main"
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+    steps:
+      - name: Normalize version
+        id: version
+        shell: bash
+        run: |
+          VERSION="${RELEASE_VERSION#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release version: $VERSION"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.target || github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+
+      - name: Generate Android project
+        working-directory: mobile
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Build release APK
+        working-directory: mobile/android
+        run: |
+          chmod +x gradlew
+          ./gradlew app:assembleRelease --no-daemon --stacktrace --console=plain
+
+      - name: Prepare release asset
+        run: |
+          mkdir -p release
+          cp mobile/android/app/build/outputs/apk/release/app-release.apk release/khatyar.apk
+          sha256sum release/khatyar.apk | tee release/khatyar.apk.sha256
+
+      - name: Verify APK
+        run: |
+          test -s release/khatyar.apk
+          file release/khatyar.apk
+          unzip -p release/khatyar.apk AndroidManifest.xml >/dev/null || true
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release/khatyar.apk release/khatyar.apk.sha256 --clobber
+          else
+            NOTES_FILE="CHANGELOG_${VERSION}.md"
+            if [ ! -f "$NOTES_FILE" ]; then
+              NOTES_FILE="CHANGELOG_1.5.3.md"
+            fi
+            gh release create "$TAG" release/khatyar.apk release/khatyar.apk.sha256 \
+              --target "${GITHUB_SHA}" \
+              --title "خطیار ${VERSION}" \
+              --notes-file "$NOTES_FILE"
+          fi
+
+      - name: Print stable download links
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "Stable: https://github.com/ali-yousefipour/khatyar/releases/latest/download/khatyar.apk"
+          echo "Versioned: https://github.com/ali-yousefipour/khatyar/releases/download/v${VERSION}/khatyar.apk"
