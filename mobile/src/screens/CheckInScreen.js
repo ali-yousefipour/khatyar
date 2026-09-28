@@ -6,7 +6,7 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { getAccuratePosition, getGsmPosition } from '../location';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { request, postOrQueue, cachedValue } from '../api';
+import { request, postOrQueue, cachedValue, flushQueuedRequests } from '../api';
 import { getAppConfig } from '../appconfig';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
@@ -93,6 +93,9 @@ function CheckInCore() {
   const timerRef = useRef(null);
   const timerSyncRef = useRef(null);
   const surplusAlertShownRef = useRef(false);
+  const LOCAL_OPEN_KEY = 'attendance_local_open_v1';
+  const persistLocalOpen = async (value) => { try { if (value) await AsyncStorage.setItem(LOCAL_OPEN_KEY, JSON.stringify(value)); else await AsyncStorage.removeItem(LOCAL_OPEN_KEY); } catch {} };
+  const readLocalOpen = async () => { try { const raw = await AsyncStorage.getItem(LOCAL_OPEN_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } };
 
   const load = async () => {
     setLoadError(null);
@@ -102,7 +105,8 @@ function CheckInCore() {
       const cachedCfg = await cachedValue('/my/checkin-config');
       if (cachedCfg && typeof cachedCfg === 'object') {
         setCfg(cachedCfg);
-        setOpen(cachedCfg.open || null);
+        const localOpen = await readLocalOpen();
+        setOpen(localOpen || cachedCfg.open || null);
       }
     } catch {}
     const [cfgResult, timerResult] = await Promise.allSettled([
@@ -113,7 +117,11 @@ function CheckInCore() {
     if (cfgResult.status === 'fulfilled') {
       const fresh = cfgResult.value;
       setCfg(fresh);
-      setOpen(fresh.open || null);
+      const localOpen = await readLocalOpen();
+      const serverOpen = fresh.open || null;
+      if (serverOpen) { await persistLocalOpen(serverOpen); setOpen(serverOpen); }
+      else if (localOpen) { setOpen(localOpen); }
+      else setOpen(null);
     } else if (!cfg) {
       setLoadError(cfgResult.reason?.message || 'اطلاعات خطوط مجاز در دسترس نیست. ابتدا برنامه را یک‌بار با اتصال اینترنت باز کنید.');
     }
@@ -136,9 +144,13 @@ function CheckInCore() {
   };
   useEffect(() => {
     load();
+    let alive = true;
+    let netSub = null;
+    try { netSub = NetInfo.addEventListener(async state => { if (alive && state?.isInternetReachable === true) { try { await flushQueuedRequests(); } catch {} await load(); } }); } catch {}
     AsyncStorage.getItem('attendance_exit_reminder_8h').then(v => setExitReminder(v === '1')).catch(() => {});
     getAppConfig().then((c) => c && setAppCfg(c)).catch(() => {});
     return () => {
+      alive = false; try { netSub?.(); } catch {};
       if (exitReminderIdRef.current) Notifications.cancelScheduledNotificationAsync(exitReminderIdRef.current).catch(() => {});
     };
   }, []);
@@ -395,9 +407,13 @@ function CheckInCore() {
           } else throw firstError;
         } else throw firstError;
       }
+      if (r.queued) {
+        const localOpen = { id: `local_${Date.now()}`, line_id: Number(localLine.line.id), check_in: body.client_time, check_out: null, method };
+        await persistLocalOpen(localOpen); setOpen(localOpen); setTimerInfo(null); setElapsed(0); await scheduleExitReminder(localOpen.check_in);
+      } else { await persistLocalOpen(r.open || { id: r.id, line_id: Number(r.line_id || localLine.line.id), check_in: r.check_in || body.client_time, check_out: null, method }); }
       Alert.alert(r.queued ? 'آفلاین' : 'ثبت شد', r.queued ? 'ورود ذخیره شد و بعد از اتصال ارسال می‌شود.' : 'ورود شما ثبت شد.');
       setProofVal('');
-      await load();
+      if (!r.queued) await load();
     } catch (e) { Alert.alert('خطا', e.message || 'ثبت ورود ناموفق'); }
     finally { setBusy(false); }
   }
@@ -429,6 +445,7 @@ function CheckInCore() {
       );
       // پاسخ موفق سرور کافی است؛ صفحه را بلافاصله از حالت «حضور باز» خارج کن.
       // بارگذاری مجدد وضعیت/موقعیت در پس‌زمینه انجام می‌شود تا دکمه خروج معطل GPS نشود.
+      await persistLocalOpen(null);
       setOpen(null);
       setElapsed(0);
       setTimerInfo(null);
