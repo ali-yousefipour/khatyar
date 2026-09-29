@@ -61,9 +61,12 @@ jobs:
 
       - name: Build release APK
         working-directory: mobile/android
+        env:
+          # CI-only JVM sizing. Local Windows builds keep their existing Gradle/Maven settings.
+          GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
         run: |
           chmod +x gradlew
-          ./gradlew app:assembleRelease --no-daemon --stacktrace --console=plain
+          ./gradlew app:assembleRelease --no-daemon --stacktrace --console=plain --max-workers=2 -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
 
       - name: Prepare release asset
         run: |
