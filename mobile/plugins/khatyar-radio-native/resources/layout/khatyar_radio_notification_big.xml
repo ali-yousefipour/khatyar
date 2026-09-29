@@ -87,7 +87,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
         android:text="برای ارسال صوت، دکمه PTT را لمس کنید"
-        android:textColor="?android:attr/textColorSecondary"
+        android:textColor="@color/khatyar_notification_secondary"
         android:textSize="11sp"
         android:gravity="center"
         android:includeFontPadding="false"/>
