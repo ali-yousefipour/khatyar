@@ -19,11 +19,13 @@ public final class KhatyarRadioModule extends ReactContextBaseJavaModule {
   public static final String EVENT_PTT="khatyarRadioPTT";
   public static final String ACTION_PTT="ir.mashhad.taxicontrol.radio.PTT";
   private final ReactApplicationContext context;
+  private static volatile ReactApplicationContext sharedContext;
   private OutgoingRadioRecorder outgoingRecorder;
   private final BroadcastReceiver receiver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent i){if(!ACTION_PTT.equals(i.getAction()))return;WritableMap map=Arguments.createMap();map.putString("source",i.getStringExtra("source"));map.putBoolean("down",i.getBooleanExtra("down",false));emit(EVENT_PTT,map);}};
-  public KhatyarRadioModule(ReactApplicationContext context){super(context);this.context=context;IntentFilter f=new IntentFilter(ACTION_PTT);if(Build.VERSION.SDK_INT>=33)context.registerReceiver(receiver,f,Context.RECEIVER_NOT_EXPORTED);else context.registerReceiver(receiver,f);}
+  public KhatyarRadioModule(ReactApplicationContext context){super(context);this.context=context;sharedContext=context;IntentFilter f=new IntentFilter(ACTION_PTT);if(Build.VERSION.SDK_INT>=33)context.registerReceiver(receiver,f,Context.RECEIVER_NOT_EXPORTED);else context.registerReceiver(receiver,f);}
   @NonNull @Override public String getName(){return "KhatyarRadio";}
   private void emit(String name,WritableMap data){if(context.hasActiveCatalystInstance())context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(name,data);}
+  public static void emitPhysicalPtt(String action,String source){try{ReactApplicationContext c=sharedContext;if(c==null)return;WritableMap map=Arguments.createMap();map.putString("source",source);map.putBoolean("down","down".equals(action));map.putDouble("timestamp",System.currentTimeMillis());if(c.hasActiveCatalystInstance())c.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(EVENT_PTT,map);}catch(Throwable ignored){}}
   @ReactMethod public void addListener(String eventName){}
   @ReactMethod public void removeListeners(double count){}
   @ReactMethod public void isPlaybackActive(Promise promise){try{promise.resolve(context.getSharedPreferences(KhatyarRadioService.PREFS,Context.MODE_PRIVATE).getBoolean("playbackActive",false));}catch(Throwable e){promise.resolve(false);}}
