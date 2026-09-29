@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
+import { useAudioPlayer } from 'expo-audio';
 import { openDrawer as khOpenDrawer } from '../drawerControl';
 import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -39,6 +40,7 @@ const categoryOf = (r) => ['CheckIn', 'OfficialPresence', 'LineVisitProgram', 'S
 
 export default function DashboardScreen({ navigation }) {
   const { user } = useAuth();
+  const welcomePlayer = useAudioPlayer(require('../../assets/sounds/welcome.mp3'));
   const { width } = useWindowDimensions();
   const cols = width >= 760 ? 4 : width >= 540 ? 3 : 2;
   const cardW = `${100 / cols - 3}%`;
@@ -54,6 +56,12 @@ export default function DashboardScreen({ navigation }) {
   const [syncing, setSyncing] = useState(false);
   const [syncDetail, setSyncDetail] = useState('');
   const [pop, setPop] = useState(null);
+
+  // صدای خوش‌آمد فقط یک‌بار در هر mount داشبورد پخش می‌شود؛ بنابراین با
+  // برگشت‌های معمولی داخل همان صفحه دوباره تکرار نخواهد شد.
+  useEffect(() => {
+    try { welcomePlayer.play(); } catch (_) {}
+  }, [welcomePlayer]);
 
   const rankCountFor = (role) => { if (!role) return 0; const r = String(role); if (r.includes('سربازرس')) return 4; if (r.includes('بازرس')) return 2; if (r.includes('ناظر خط') || r.includes('اپراتور') || r.includes('مسئول خط') || r.includes('سرپرست خط')) return 1; return 0; };
   const rankCount = user?.rank_stars !== null && user?.rank_stars !== undefined ? Math.max(0, Math.min(5, Number(user.rank_stars) || 0)) : rankCountFor(user?.role);
