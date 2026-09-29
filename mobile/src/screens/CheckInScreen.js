@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { faNum } from '../num';
 import { tehranTimeToEpochMs } from '../jdate';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, PanResponder, Animated, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, PanResponder, Animated, TextInput, Modal, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { getAccuratePosition, getGsmPosition } from '../location';
