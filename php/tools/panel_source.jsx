@@ -8107,7 +8107,7 @@ function App(){
     config:'system-config', customfields:'custom-fields', inventory:'request-box', excel:'excel-upload', appitems:'app-menu', cronstatus:'activity-wave', activesessions:'security-lock', logs:'audit-logs', settings:'settings-gears',
     vehicleassets:'operation-tools', vehiclechecklist:'checklist', schoolservice:'checklist', radiosettings:'radio-tower'
   };
-  const can=(k)=>!allowed||allowed.includes(k)||CORE.includes(k);
+  const can=(k)=>!allowed||allowed.includes(k)||CORE.includes(k)||(k==='radiosettings'&&allowed.includes('radiocenter'));
   const closeOnPick=(k)=>{ setV(k); setDrawer(false); };
   return(<div className={"layout"+(drawer?" drawer-open":"")}>
     <div className="scrim" onClick={()=>setDrawer(false)}></div>
