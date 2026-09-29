@@ -94,6 +94,8 @@ function CheckInCore() {
   const timerSyncRef = useRef(null);
   const surplusAlertShownRef = useRef(false);
   const LOCAL_OPEN_KEY = 'attendance_local_open_v1';
+  const REMEMBER_SOUND = 'remember.mp3';
+  const REMEMBER_CHANNEL_ID = 'attendance_8h_reminder_v1';
   const persistLocalOpen = async (value) => { try { if (value) await AsyncStorage.setItem(LOCAL_OPEN_KEY, JSON.stringify(value)); else await AsyncStorage.removeItem(LOCAL_OPEN_KEY); } catch {} };
   const readLocalOpen = async () => { try { const raw = await AsyncStorage.getItem(LOCAL_OPEN_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } };
 
@@ -201,6 +203,14 @@ function CheckInCore() {
     try {
       const { status } = await Notifications.getPermissionsAsync();
       if (status !== 'granted') return;
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync(REMEMBER_CHANNEL_ID, {
+          name: 'یادآور ثبت خروج',
+          importance: Notifications.AndroidImportance.HIGH,
+          sound: REMEMBER_SOUND,
+          vibrationPattern: [0, 500, 250, 700],
+        });
+      }
       const start = tehranTimeToEpochMs(checkInValue);
       if (start == null) return;
       const fireAt = new Date(start + 8 * 60 * 60 * 1000);
@@ -209,12 +219,14 @@ function CheckInCore() {
         content: {
            title: 'ساعت کارکرد شما به هشت ساعت رسیده است',
           body: '( در صورت اتمام شیفت کاری، ثبت خروج خود را فراموش نکنید)',
-          sound: 'default',
+          sound: REMEMBER_SOUND,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
           data: { type: 'attendance_exit_reminder_8h' },
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: fireAt,
+          ...(Platform.OS === 'android' ? { channelId: REMEMBER_CHANNEL_ID } : {}),
         },
       });
     } catch {}
