@@ -6093,7 +6093,7 @@ function MaintenanceModeSettings() {
         React.createElement("button", { className: "btn p", style: { marginTop: 10 }, disabled: saving, onClick: save }, saving ? 'در حال ذخیره…' : 'ذخیره حالت نگهداری'));
 }
 function Settings() {
-    var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l, _m, _p, _q, _r, _t, _u, _v, _w, _x, _y, _z;
+    var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l, _m, _p, _q, _r, _u, _v, _w, _x, _y, _z, _0;
     const [v, setV] = useState(null);
     const [tab, setTab] = useState("general");
     useEffect(() => { db.settings().then(setV).catch(() => { }); }, []);
@@ -6268,17 +6268,17 @@ function Settings() {
                 React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 10 } }, "\u0628\u0631\u0627\u06CC \u062C\u0644\u0648\u06AF\u06CC\u0631\u06CC \u0627\u0632 \u062B\u0628\u062A\u200C\u0647\u0627\u06CC \u062A\u06A9\u0631\u0627\u0631\u06CC \u06CC\u0627 \u0628\u06CC\u0634 \u0627\u0632 \u062D\u062F\u060C \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0641\u0627\u0635\u0644\u0647 \u06CC\u0627 \u0633\u0642\u0641 \u0645\u062C\u0627\u0632 \u0647\u0631 \u0641\u0631\u0627\u06CC\u0646\u062F \u0631\u0627 \u062A\u0639\u06CC\u06CC\u0646 \u06A9\u0646\u06CC\u062F. \u0645\u0642\u062F\u0627\u0631 \u06F0 \u06CC\u0639\u0646\u06CC \u0628\u062F\u0648\u0646 \u0645\u062D\u062F\u0648\u062F\u06CC\u062A."),
                 React.createElement("div", { className: "row", style: { gap: 10, marginBottom: 8, flexWrap: "wrap", alignItems: "center" } },
                     React.createElement("label", { className: "label", style: { minWidth: 230 } }, "\u0641\u0627\u0635\u0644\u0647\u0654 \u0645\u062C\u0627\u0632 \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A \u0647\u0631 \u062E\u0648\u062F\u0631\u0648 (\u0631\u0648\u0632):"),
-                    React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 90 }, value: (_t = v.checklist_interval_days) !== null && _t !== void 0 ? _t : 0, onChange: e => set("checklist_interval_days", Math.max(0, +e.target.value || 0)) }),
+                    React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 90 }, value: (_u = v.checklist_interval_days) !== null && _u !== void 0 ? _u : 0, onChange: e => set("checklist_interval_days", Math.max(0, +e.target.value || 0)) }),
                     React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u06F1 = \u062D\u062F\u0627\u06A9\u062B\u0631 \u0631\u0648\u0632\u06CC \u06CC\u06A9\u200C\u0628\u0627\u0631")),
                 React.createElement("div", { className: "row", style: { gap: 10, marginBottom: 8, flexWrap: "wrap", alignItems: "center" } },
                     React.createElement("label", { className: "label", style: { minWidth: 230 } }, "\u0641\u0627\u0635\u0644\u0647\u0654 \u0645\u062C\u0627\u0632 \u062A\u0630\u06A9\u0631 \u0628\u0647 \u0647\u0631 \u0631\u0627\u0646\u0646\u062F\u0647 (\u0631\u0648\u0632):"),
-                    React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 90 }, value: (_u = v.notice_interval_days) !== null && _u !== void 0 ? _u : 0, onChange: e => set("notice_interval_days", Math.max(0, +e.target.value || 0)) })),
+                    React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 90 }, value: (_v = v.notice_interval_days) !== null && _v !== void 0 ? _v : 0, onChange: e => set("notice_interval_days", Math.max(0, +e.target.value || 0)) })),
                 React.createElement("div", { className: "row", style: { gap: 10, marginBottom: 8, flexWrap: "wrap", alignItems: "center" } },
                     React.createElement("label", { className: "label", style: { minWidth: 230 } }, "\u062D\u062F\u0627\u06A9\u062B\u0631 \u06AF\u0632\u0627\u0631\u0634 \u0647\u0631 \u06A9\u0627\u0631\u0628\u0631 \u062F\u0631 \u0631\u0648\u0632:"),
-                    React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 90 }, value: (_v = v.report_daily_limit) !== null && _v !== void 0 ? _v : 0, onChange: e => set("report_daily_limit", Math.max(0, +e.target.value || 0)) })),
+                    React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 90 }, value: (_w = v.report_daily_limit) !== null && _w !== void 0 ? _w : 0, onChange: e => set("report_daily_limit", Math.max(0, +e.target.value || 0)) })),
                 React.createElement("div", { className: "row", style: { gap: 10, marginBottom: 8, flexWrap: "wrap", alignItems: "center" } },
                     React.createElement("label", { className: "label", style: { minWidth: 230 } }, "\u062D\u062F\u0627\u0642\u0644 \u0641\u0627\u0635\u0644\u0647\u0654 \u0628\u06CC\u0646 \u062F\u0648 \u06AF\u0632\u0627\u0631\u0634 \u0647\u0631 \u06A9\u0627\u0631\u0628\u0631 (\u062F\u0642\u06CC\u0642\u0647):"),
-                    React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 100 }, value: (_w = v.report_send_interval_min) !== null && _w !== void 0 ? _w : 0, onChange: e => set("report_send_interval_min", Math.max(0, +e.target.value || 0)) })),
+                    React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 100 }, value: (_x = v.report_send_interval_min) !== null && _x !== void 0 ? _x : 0, onChange: e => set("report_send_interval_min", Math.max(0, +e.target.value || 0)) })),
                 React.createElement("button", { className: "btn p", style: { marginTop: 6 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u0645\u062D\u062F\u0648\u062F\u06CC\u062A\u200C\u0647\u0627")),
             React.createElement("div", { className: "panel t-hr" },
                 React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627 (\u0645\u0631\u062E\u0635\u06CC/\u0645\u0627\u0645\u0648\u0631\u06CC\u062A/\u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631)"),
@@ -6427,7 +6427,7 @@ function Settings() {
                 }),
                 React.createElement("div", { style: { marginTop: 8 } },
                     React.createElement("label", { style: { fontSize: 13, color: "var(--muted)" } }, "\u062D\u0630\u0641 \u062E\u0648\u062F\u06A9\u0627\u0631 \u067E\u06CC\u0648\u0633\u062A\u200C\u0647\u0627 \u067E\u0633 \u0627\u0632 \u0627\u06CC\u0646 \u062A\u0639\u062F\u0627\u062F \u0631\u0648\u0632 (\u06F0 = \u063A\u06CC\u0631\u0641\u0639\u0627\u0644)"),
-                    React.createElement("input", { className: "input", type: "number", value: (_x = v.attachment_retention_days) !== null && _x !== void 0 ? _x : "", onChange: e => set("attachment_retention_days", +e.target.value || 0), style: { marginTop: 5, maxWidth: 160 } })),
+                    React.createElement("input", { className: "input", type: "number", value: (_y = v.attachment_retention_days) !== null && _y !== void 0 ? _y : "", onChange: e => set("attachment_retention_days", +e.target.value || 0), style: { marginTop: 5, maxWidth: 160 } })),
                 React.createElement("div", { className: "row", style: { gap: 8, marginTop: 10 } },
                     React.createElement("button", { className: "btn p", onClick: save }, "\u0630\u062E\u06CC\u0631\u0647"),
                     React.createElement("button", { className: "btn g", onClick: async () => { const r = await db.cleanupAttachments(); alert(r.days ? ("پیوست‌های قدیمی‌تر از " + fa(r.days) + " روز پاک شدند.") : (r.note || "انجام شد.")); } }, "\u067E\u0627\u06A9\u200C\u0633\u0627\u0632\u06CC \u067E\u06CC\u0648\u0633\u062A\u200C\u0647\u0627\u06CC \u0642\u062F\u06CC\u0645\u06CC \u0627\u0644\u0627\u0646")),
@@ -6440,7 +6440,7 @@ function Settings() {
                     React.createElement("p", { className: "muted", style: { fontSize: 12, marginTop: 6 } }, "\u06AF\u0632\u06CC\u0646\u0647\u200C\u0647\u0627\u06CC \u00AB\u0633\u0644\u0641\u06CC \u0647\u0646\u06AF\u0627\u0645 \u0648\u0631\u0648\u062F\u00BB\u060C \u00AB\u0633\u0644\u0641\u06CC \u0647\u0646\u06AF\u0627\u0645 \u062B\u0628\u062A \u062D\u0636\u0648\u0631\u00BB \u0648 \u00AB\u0633\u0644\u0641\u06CC \u062F\u0648\u0631\u0647\u200C\u0627\u06CC\u00BB \u0627\u0632 \u0627\u067E \u0645\u0648\u0628\u0627\u06CC\u0644 \u062D\u0630\u0641 \u0634\u062F\u0647\u200C\u0627\u0646\u062F. \u0627\u0631\u0633\u0627\u0644 \u062F\u0633\u062A\u0648\u0631 \u0633\u0644\u0641\u06CC \u0627\u0632 \u0628\u062E\u0634 \u0645\u062F\u06CC\u0631\u06CC\u062A \u0633\u0644\u0641\u06CC\u200C\u0647\u0627 \u0647\u0645\u0686\u0646\u0627\u0646 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A.")),
                 React.createElement("div", { className: "row", style: { gap: 10, marginBottom: 8, flexWrap: "wrap", alignItems: "center" } },
                     React.createElement("label", { className: "label" }, "\u067E\u0627\u06A9\u200C\u0633\u0627\u0632\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631 \u0633\u0644\u0641\u06CC\u200C\u0647\u0627\u06CC \u0646\u0627\u0645\u062D\u0633\u0648\u0633 \u067E\u0633 \u0627\u0632 (\u0631\u0648\u0632 \u2014 \u06F0 = \u063A\u06CC\u0631\u0641\u0639\u0627\u0644):"),
-                    React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 90 }, value: (_y = v.covert_selfie_retention_days) !== null && _y !== void 0 ? _y : 0, onChange: e => set("covert_selfie_retention_days", Math.max(0, +e.target.value || 0)) }),
+                    React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 90 }, value: (_z = v.covert_selfie_retention_days) !== null && _z !== void 0 ? _z : 0, onChange: e => set("covert_selfie_retention_days", Math.max(0, +e.target.value || 0)) }),
                     React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u0646\u06CC\u0627\u0632 \u0628\u0647 \u0627\u062C\u0631\u0627\u06CC \u06A9\u0631\u0648\u0646 \u0631\u0648\u0632\u0627\u0646\u0647 \u062F\u0627\u0631\u062F")),
                 React.createElement("button", { className: "btn p", style: { marginTop: 10 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0633\u0644\u0641\u06CC")),
             React.createElement("div", { className: "panel t-security" },
@@ -6491,7 +6491,7 @@ function Settings() {
                         "\u0627\u0633\u06A9\u0631\u06CC\u0646\u200C\u0634\u0627\u062A \u0647\u0646\u06AF\u0627\u0645 \u0632\u062F\u0646 \u00AB\u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u0645\u0646\u00BB"),
                     React.createElement("div", { className: "row", style: { gap: 10, marginBottom: 10, flexWrap: "wrap", alignItems: "center" } },
                         React.createElement("label", { className: "label" }, "\u0641\u0627\u0635\u0644\u0647\u0654 \u0632\u0645\u0627\u0646\u06CC \u0627\u0633\u06A9\u0631\u06CC\u0646\u200C\u0634\u0627\u062A \u062F\u0648\u0631\u0647\u200C\u0627\u06CC (\u062F\u0642\u06CC\u0642\u0647):"),
-                        React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 100 }, value: (_z = v.covert_screenshot_interval_min) !== null && _z !== void 0 ? _z : 0, onChange: e => set("covert_screenshot_interval_min", Math.max(0, +e.target.value || 0)) }),
+                        React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 100 }, value: (_0 = v.covert_screenshot_interval_min) !== null && _0 !== void 0 ? _0 : 0, onChange: e => set("covert_screenshot_interval_min", Math.max(0, +e.target.value || 0)) }),
                         React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u06F0 = \u0641\u0642\u0637 \u0647\u0646\u06AF\u0627\u0645 \u0648\u0631\u0648\u062F")),
                     React.createElement("label", { className: "label" }, "\u0633\u0627\u0639\u062A\u200C\u0647\u0627\u06CC \u0645\u062C\u0627\u0632 \u0627\u0633\u06A9\u0631\u06CC\u0646\u200C\u0634\u0627\u062A (\u062E\u0627\u0644\u06CC = \u062A\u0645\u0627\u0645 \u0634\u0628\u0627\u0646\u0647\u200C\u0631\u0648\u0632)"),
                     React.createElement(HoursRangeEditor, { value: v.covert_screenshot_hours || [], onChange: (arr) => set("covert_screenshot_hours", arr) })),
@@ -13671,6 +13671,524 @@ finally {
             React.createElement("div", { className: "row", style: { gap: 8, marginTop: 10 } },
                 React.createElement("button", { className: "btn d", disabled: saving, onClick: () => submit(false) }, "\u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0627\u0635\u0644\u0627\u062D"),
                 React.createElement("button", { className: "btn p", disabled: saving, onClick: () => submit(true) }, saving ? 'در حال ثبت…' : 'تأیید نهایی'))))); }
+/* SCHOOL SERVICE INLINE MODULE: bundled into the canonical panel; API endpoints unchanged. */
+console.log('SCHOOL SERVICE ADMIN BUILD: 2026-09-28-v240');
+(() => {
+    const S = { token: null, root: null, ready: false, access: null };
+    const css = document.createElement('style');
+    css.textContent = '.ssv-btn{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;margin:4px 0;border:0;border-radius:10px;background:transparent;color:inherit;font:600 13px Vazirmatn,Tahoma;cursor:pointer;text-align:right;direction:rtl}.ssv-btn:hover{background:#eef5f2}.ssv-page-host{width:100%;box-sizing:border-box;background:#f6f8fb;overflow:visible;padding:16px;direction:rtl}.ssv-inline-page{display:block!important;position:relative!important;inset:auto!important;width:100%;min-height:calc(100vh - 84px);box-sizing:border-box;background:#f6f8fb;padding:0;direction:rtl;z-index:1}.ssv-page-head{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;width:100%;box-sizing:border-box}.ssv-inline-page .ssv-box{display:none!important}.ssv-inline-page .ssv-head{position:sticky;top:0;z-index:5}.ssv-inline-page .ssv-body{overflow:visible}.ssv-map-wrap{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(360px,1fr);gap:12px;align-items:stretch;margin-bottom:12px}.ssv-map{height:520px;min-height:420px;border-radius:16px;overflow:hidden;border:1px solid #dfe5eb;background:#eef3f6}.ssv-map-info{border:1px solid #e4e8ee;border-radius:14px;background:#fff;padding:12px;overflow:auto;max-height:520px}.ssv-school-pick{display:block;width:100%;padding:9px;border:1px solid #e4e8ee;border-radius:10px;background:#fff;margin-bottom:7px;cursor:pointer;text-align:right;direction:rtl;font-family:Vazirmatn,Tahoma}.ssv-school-pick:hover{border-color:#0d7a5f;background:#f1faf6}.ssv-map-empty{display:flex;align-items:center;justify-content:center;height:100%;color:#7a8694;font-family:Vazirmatn,Tahoma}.ssv-box{width:min(1180px,96vw);height:min(820px,92vh);background:#fff;border-radius:18px;box-shadow:0 20px 70px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden;font-family:Vazirmatn,Tahoma}.ssv-head{padding:14px 18px;background:#0d7a5f;color:#fff;display:flex;align-items:center;justify-content:space-between}.ssv-tabs{display:flex;gap:6px;padding:10px;background:#f4f6f8;flex-wrap:wrap}.ssv-tabs button{border:1px solid #dce2e8;background:#fff;border-radius:10px;padding:8px 12px;font-family:inherit;cursor:pointer}.ssv-tabs button.on{background:#0d7a5f;color:#fff}.ssv-body{padding:14px;overflow:auto}.ssv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ssv-card{border:1px solid #e4e8ee;border-radius:14px;padding:12px;background:#fff}.ssv-input{width:100%;box-sizing:border-box;border:1px solid #d9e0e7;border-radius:10px;padding:9px;font-family:inherit}.ssv-table{width:100%;border-collapse:collapse;font-size:12px}.ssv-table th,.ssv-table td{border-bottom:1px solid #edf0f3;padding:8px;text-align:right;vertical-align:top}.ssv-table th{background:#f8fafb}.ssv-form-modal{position:fixed;inset:0;background:rgba(15,23,42,.48);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px}.ssv-form-box{width:min(720px,96vw);max-height:90vh;background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}.ssv-form-head{display:flex;align-items:center;justify-content:space-between;background:#0d7a5f;color:#fff;padding:13px 16px}.ssv-form-body{padding:16px;overflow:auto}.ssv-form-foot{display:flex;gap:8px;justify-content:flex-start;padding:12px 16px;border-top:1px solid #edf0f3}.ssv-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ssv-form-grid label{display:flex;flex-direction:column;gap:5px;font-size:12px}.ssv-form-foot button{border:0;border-radius:10px;padding:9px 16px;background:#0d7a5f;color:#fff;font-family:inherit;cursor:pointer}.ssv-form-foot button.alt{background:#eef2f5;color:#263238}.ssv-close{border:0;background:rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:7px 11px;cursor:pointer}.ssv-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.ssv-actions button{border:0;border-radius:10px;padding:9px 13px;background:#0d7a5f;color:#fff;font-family:inherit;cursor:pointer}.ssv-actions button.alt{background:#eef2f5;color:#263238}.ssv-pager{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px}.ssv-pager button{border:0;border-radius:9px;padding:7px 13px;background:#eef2f5;color:#263238;cursor:pointer}.ssv-pager button:disabled{opacity:.45;cursor:not-allowed}.ssv-chip{display:inline-flex;align-items:center;gap:4px;padding:7px 10px;border:1px solid #e2e7ec;border-radius:18px;margin:4px;background:#f8fafb}.ssv-chip button{border:0;background:transparent;color:#9a3b3b;cursor:pointer}.ssv-msg{padding:10px;border-radius:10px;background:#f7faf8;margin:8px 0}.ssv-file{display:none}@media(max-width:800px){.ssv-grid{grid-template-columns:1fr}.ssv-box{height:96vh}}';
+    document.head.appendChild(css);
+    function capture() { const old = window.fetch; if (window.__ssvFetch)
+        return; window.__ssvFetch = true; window.fetch = function (input, init) { try {
+        const h = init && init.headers;
+        if (h) {
+            if (h instanceof Headers)
+                S.token = h.get('Authorization') || S.token;
+            else
+                S.token = h.Authorization || h.authorization || S.token;
+        }
+    }
+    catch (_) { } return old.apply(this, arguments); }; }
+    capture();
+    function bootstrapAuthToken() { var _a, _b; try {
+        if (S.token)
+            return;
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i) || '';
+            if (/token|access|auth/i.test(k))
+                keys.push(k);
+        }
+        for (const k of keys) {
+            const v = localStorage.getItem(k);
+            if (!v)
+                continue;
+            try {
+                const j = JSON.parse(v);
+                const t = (j === null || j === void 0 ? void 0 : j.access) || (j === null || j === void 0 ? void 0 : j.access_token) || (j === null || j === void 0 ? void 0 : j.token) || ((_a = j === null || j === void 0 ? void 0 : j.data) === null || _a === void 0 ? void 0 : _a.access) || ((_b = j === null || j === void 0 ? void 0 : j.data) === null || _b === void 0 ? void 0 : _b.token);
+                if (t) {
+                    S.token = String(t).startsWith('Bearer ') ? String(t) : 'Bearer ' + t;
+                    return;
+                }
+            }
+            catch (_) { }
+            if (/^Bearer\s+/i.test(v) || v.length > 20) {
+                S.token = /^Bearer\s+/i.test(v) ? v : 'Bearer ' + v;
+                return;
+            }
+        }
+    }
+    catch (_) { } }
+    async function api(path, opt = {}) { bootstrapAuthToken(); const h = Object.assign({}, opt.headers || {}); if (S.token)
+        h.Authorization = S.token; const req = Object.assign({}, opt, { headers: h, cache: 'no-store', credentials: 'include' }); if (req.body && typeof req.body === 'object' && !(req.body instanceof FormData) && !(req.body instanceof Blob) && !(req.body instanceof URLSearchParams) && !(req.body instanceof ArrayBuffer)) {
+        req.body = JSON.stringify(req.body);
+        if (!Object.keys(h).some(k => k.toLowerCase() === 'content-type'))
+            h['Content-Type'] = 'application/json';
+    } const r = await fetch(path, req); const t = await r.text(); let d = {}; try {
+        d = t ? JSON.parse(t) : {};
+    }
+    catch (_) {
+        throw Error('پاسخ نامعتبر از سرور');
+    } ; if (!r.ok)
+        throw Error(d.error || 'خطای سرور'); return d; }
+    function esc(v) { return String(v !== null && v !== void 0 ? v : '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
+    function ssvModal(title, html, onSave) { const m = document.createElement('div'); m.className = 'ssv-form-modal'; m.innerHTML = '<div class="ssv-form-box"><div class="ssv-form-head"><b>' + esc(title) + '</b><button type="button" class="ssv-close">بستن</button></div><div class="ssv-form-body">' + html + '</div><div class="ssv-form-foot"><button type="button" class="ssv-cancel alt">انصراف</button><button type="button" class="ssv-submit">ذخیره</button></div></div>'; document.body.appendChild(m); const close = () => m.remove(); m.querySelector('.ssv-close').onclick = close; m.querySelector('.ssv-cancel').onclick = close; m.querySelector('.ssv-submit').onclick = async () => { const ok = await onSave(m); if (ok !== false)
+        close(); }; return m; }
+    function ssvConfirm(title, body, onYes) { const m = document.createElement('div'); m.className = 'ssv-form-modal'; m.innerHTML = '<div class="ssv-form-box"><div class="ssv-form-head"><b>' + esc(title) + '</b><button type="button" class="ssv-close">بستن</button></div><div class="ssv-form-body"><div class="ssv-msg">' + body + '</div></div><div class="ssv-form-foot"><button type="button" class="ssv-cancel alt">بازگشت</button><button type="button" class="ssv-submit">تأیید</button></div></div>'; document.body.appendChild(m); const close = () => m.remove(); m.querySelector('.ssv-close').onclick = close; m.querySelector('.ssv-cancel').onclick = close; m.querySelector('.ssv-submit').onclick = async () => { m.querySelector('.ssv-submit').disabled = true; try {
+        await onYes();
+        close();
+    }
+    catch (e) {
+        alert(e.message);
+        m.querySelector('.ssv-submit').disabled = false;
+    } }; return m; }
+    function districtKey(v) {
+        const s = String(v !== null && v !== void 0 ? v : '').trim()
+            .replace(/[٠-٩]/g, ch => '0123456789'['٠١٢٣٤٥٦٧٨٩'.indexOf(ch)])
+            .replace(/[۰-۹]/g, ch => '0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(ch)])
+            .replace(/^(ناحیه|منطقه)[\\s\\u200c\\u200f]*/, '')
+            .replace(/[\\s\\u200c\\u200f]+/g, '');
+        return s;
+    }
+    async function ssvEntityForm(kind, row, load) {
+        var _a, _b, _c, _e;
+        const r = row || {}, isCompany = kind === 'companies';
+        let companies = [], districts = [];
+        if (!isCompany) {
+            try {
+                const [cr, mr] = await Promise.all([api('/api/school-service/companies?limit=200'), api('/api/school-service/meta')]);
+                companies = cr.items || [];
+                districts = mr.districts || [];
+            }
+            catch (e) {
+                alert('فهرست شرکت‌ها یا نواحی دریافت نشد: ' + e.message);
+                return;
+            }
+        }
+        const selectedCompany = Number(r.company_id || 0);
+        const selectedDistrict = districts.find(x => districtKey(x) === districtKey(r.educational_district));
+        const districtValue = selectedDistrict !== undefined ? String(selectedDistrict) : '';
+        const html = isCompany
+            ? '<div class="ssv-form-grid"><label>نام شرکت<input id="ef-name" class="ssv-input" value="' + esc(r.name || '') + '"></label><label>نام مدیرعامل<input id="ef-manager" class="ssv-input" value="' + esc(r.manager_name || '') + '"></label><label>موبایل مدیرعامل<input id="ef-manager-mobile" class="ssv-input" inputmode="tel" value="' + esc(r.manager_mobile || '') + '"></label><label>تلفن ثابت<input id="ef-landline" class="ssv-input" inputmode="tel" value="' + esc(r.landline_phone || r.phone || '') + '"></label><label>آدرس<input id="ef-address" class="ssv-input" value="' + esc(r.address || '') + '"></label><label>عرض جغرافیایی<input id="ef-lat" class="ssv-input" inputmode="decimal" value="' + esc((_a = r.latitude) !== null && _a !== void 0 ? _a : '') + '"></label><label>طول جغرافیایی<input id="ef-lng" class="ssv-input" inputmode="decimal" value="' + esc((_b = r.longitude) !== null && _b !== void 0 ? _b : '') + '"></label><label>مدارس ثبت‌شده<input id="ef-registered-schools" class="ssv-input" type="number" min="0" value="' + esc((_c = r.registered_school_count) !== null && _c !== void 0 ? _c : 0) + '"></label><label>تعداد نمایندگان<input id="ef-representatives" class="ssv-input" type="number" min="0" value="' + esc((_e = r.representative_count) !== null && _e !== void 0 ? _e : 0) + '"></label><label>وضعیت<select id="ef-status" class="ssv-input"><option ' + ((r.status || 'فعال') === 'فعال' ? 'selected' : '') + '>فعال</option><option ' + ((r.status || 'فعال') === 'تعلیق' ? 'selected' : '') + '>تعلیق</option><option ' + ((r.status || 'فعال') === 'غیرفعال' ? 'selected' : '') + '>غیرفعال</option></select></label><label>تکمیل پروفایل<select id="ef-profile" class="ssv-input"><option value="1" ' + (Number(r.profile_complete) ? 'selected' : '') + '>تکمیل</option><option value="0" ' + (!Number(r.profile_complete) ? 'selected' : '') + '>ناقص</option></select></label></div>'
+            : '<div class="ssv-form-grid"><label>نام مدرسه<input id="ef-name" class="ssv-input" value="' + esc(r.name || '') + '"></label><label>کد مدرسه<input id="ef-code" class="ssv-input" value="' + esc(r.code || '') + '"></label><label>ناحیه آموزشی<select id="ef-district" class="ssv-input"><option value="">انتخاب کنید</option>' + districts.map(x => '<option value="' + esc(x) + '" ' + (String(x) === districtValue ? 'selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label><label>نوع مدرسه<select id="ef-gender" class="ssv-input"><option ' + ((r.gender || 'نامشخص') === 'دخترانه' ? 'selected' : '') + '>دخترانه</option><option ' + ((r.gender || 'نامشخص') === 'پسرانه' ? 'selected' : '') + '>پسرانه</option><option ' + ((r.gender || 'نامشخص') === 'نامشخص' ? 'selected' : '') + '>نامشخص</option></select></label><label>شرکت مجری سرویس<select id="ef-company" class="ssv-input"><option value="0">نامشخص</option>' + companies.map(x => '<option value="' + x.id + '" ' + (selectedCompany === Number(x.id) ? 'selected' : '') + '>' + esc(x.name) + '</option>').join('') + '</select></label><label>آدرس<input id="ef-address" class="ssv-input" value="' + esc(r.address || '') + '"></label></div>';
+        return ssvModal(isCompany ? (r.id ? 'ویرایش شرکت' : 'افزودن شرکت') : (r.id ? 'ویرایش مدرسه' : 'افزودن مدرسه'), html, async (m) => {
+            var _a, _b;
+            const body = isCompany
+                ? { name: m.querySelector('#ef-name').value, manager_name: m.querySelector('#ef-manager').value, manager_mobile: m.querySelector('#ef-manager-mobile').value, landline_phone: m.querySelector('#ef-landline').value, phone: m.querySelector('#ef-landline').value, address: m.querySelector('#ef-address').value, latitude: m.querySelector('#ef-lat').value, longitude: m.querySelector('#ef-lng').value, registered_school_count: m.querySelector('#ef-registered-schools').value, representative_count: m.querySelector('#ef-representatives').value, status: m.querySelector('#ef-status').value, profile_complete: m.querySelector('#ef-profile').value === '1' }
+                : { name: m.querySelector('#ef-name').value, code: m.querySelector('#ef-code').value, educational_district: m.querySelector('#ef-district').value, gender: m.querySelector('#ef-gender').value, company_id: m.querySelector('#ef-company').value || null, address: m.querySelector('#ef-address').value, latitude: ((_a = m.querySelector('#ef-lat')) === null || _a === void 0 ? void 0 : _a.value) || null, longitude: ((_b = m.querySelector('#ef-lng')) === null || _b === void 0 ? void 0 : _b.value) || null };
+            try {
+                await api('/api/school-service/' + kind + (r.id ? '/' + r.id : ''), { method: r.id ? 'PUT' : 'POST', body });
+                await load();
+                return true;
+            }
+            catch (e) {
+                alert(e.message);
+                return false;
+            }
+        });
+    }
+    function resolveSchoolPageHost(target) {
+        if (target && target.nodeType === 1)
+            return { host: target, owned: false };
+        const sels = ['main', '.main-content', '.content', '.page-content', '[role="main"]'];
+        for (const sel of sels) {
+            const el = document.querySelector(sel);
+            if (el && el.getBoundingClientRect().width > 500)
+                return { host: el, owned: false };
+        }
+        const host = document.createElement('div');
+        host.className = 'ssv-page-host';
+        const root = document.querySelector('#root') || document.body;
+        root.appendChild(host);
+        return { host, owned: true };
+    }
+    function mountSchoolMap(container, rows) {
+        if (S.schoolMap && S.schoolMap.remove) {
+            try {
+                S.schoolMap.remove();
+            }
+            catch (_) { }
+        }
+        container.innerHTML = '<div class="ssv-map-wrap"><div id="ssv-school-map" class="ssv-map"></div><div class="ssv-map-info"><b>موقعیت مدارس</b><div id="ssv-school-points" style="margin-top:10px"></div></div></div>';
+        const mapEl = container.querySelector('#ssv-school-map');
+        if (!window.L) {
+            mapEl.innerHTML = '<div class="ssv-map-empty">کتابخانه نقشه در دسترس نیست.</div>';
+            return;
+        }
+        const map = L.map(mapEl, { zoomControl: true, attributionControl: true }).setView([36.2972, 59.6067], 11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+        S.schoolMap = map;
+        const list = container.querySelector('#ssv-school-points'), bounds = [];
+        let count = 0;
+        (rows || []).forEach(r => { const lat = Number(r.latitude), lng = Number(r.longitude); if (!Number.isFinite(lat) || !Number.isFinite(lng))
+            return; count++; bounds.push([lat, lng]); const marker = L.marker([lat, lng]).addTo(map); const company = esc(r.company_names || 'نامشخص'); marker.bindPopup('<div dir="rtl" style="font-family:Vazirmatn,Tahoma;min-width:220px"><b>' + esc(r.name || 'مدرسه') + '</b><div>ناحیه: ' + esc(r.educational_district || 'نامشخص') + '</div><div>نوع: ' + esc(r.gender || 'نامشخص') + '</div><div>شرکت مجری: ' + company + '</div><div>آدرس: ' + esc(r.address || 'ثبت نشده') + '</div></div>'); const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'ssv-school-pick'; btn.innerHTML = '<b>' + esc(r.name || 'مدرسه') + '</b><div style="font-size:11px;color:#667085;margin-top:3px">' + esc(r.educational_district || '') + ' • ' + company + '</div>'; btn.onclick = () => { map.setView([lat, lng], 17); marker.openPopup(); }; list.appendChild(btn); });
+        if (!count)
+            list.innerHTML = '<div class="ssv-msg">برای مدارس فعلی مختصات جغرافیایی ثبت نشده است.</div>';
+        else if (bounds.length === 1)
+            map.setView(bounds[0], 16);
+        else
+            map.fitBounds(bounds, { padding: [25, 25], maxZoom: 16 });
+        setTimeout(() => map.invalidateSize(), 250);
+    }
+    async function open(target, onClose) { if (S.root)
+        return; const a = await api('/api/school-service/access'); if (!a.allowed)
+        throw Error('دسترسی به سرویس مدارس برای حساب شما فعال نیست.'); S.access = a; const resolved = resolveSchoolPageHost(target); const host = resolved.host; const m = document.createElement('div'); m.className = 'ssv-inline-page'; m.innerHTML = '<div class="ssv-head ssv-page-head"><b>سرویس مدارس</b><button class="ssv-close">بستن صفحه</button></div><div class="ssv-tabs"><button data-t="dashboard">داشبورد</button><button data-t="create">ثبت بازدید</button><button data-t="inspections">بازدیدها و تخلفات</button><button data-t="schools" class="on">مدارس و نقشه</button><button data-t="companies">شرکت‌ها</button><button data-t="import">ورود Excel</button><button data-t="reports">گزارش‌ها</button><button data-t="config">تنظیمات</button><button data-t="permissions">دسترسی‌ها</button></div><div class="ssv-body"></div>'; host.appendChild(m); S.root = m; const close = () => { try {
+        m.remove();
+    }
+    catch (_) { } if (resolved.owned) {
+        try {
+            host.remove();
+        }
+        catch (_) { }
+    } S.root = null; try {
+        onClose && onClose();
+    }
+    catch (_) { } }; m.querySelectorAll('[data-t]').forEach(x => { const k = x.dataset.t; if (k === 'config' && !a.can_edit)
+        x.style.display = 'none'; if (k === 'create' && !a.can_create)
+        x.style.display = 'none'; if (k === 'import' && !a.can_import)
+        x.style.display = 'none'; if (k === 'reports' && !a.can_report)
+        x.style.display = 'none'; }); m.querySelector('.ssv-close').onclick = close; m.addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) {
+        m.querySelectorAll('[data-t]').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        render(b.dataset.t);
+    } }); await render('schools'); }
+    function close() { var _a; (_a = S.root) === null || _a === void 0 ? void 0 : _a.remove(); S.root = null; }
+    async function render(t) {
+        var _a, _b, _c, _e;
+        const b = S.root.querySelector('.ssv-body');
+        b.innerHTML = '<div class="ssv-msg">در حال دریافت اطلاعات…</div>';
+        try {
+            if (t === 'import') {
+                if (!(await api('/api/school-service/access')).can_import) {
+                    b.innerHTML = '<div class="ssv-msg">مجوز ورود Excel برای شما فعال نیست.</div>';
+                    return;
+                }
+                b.innerHTML = '<div class="ssv-card"><h3>ورود شرکت‌ها و مدارس</h3><p>فایل xlsx می‌تواند یک شیت یا چند شیت داشته باشد. هر مدرسه فقط یک «شرکت مجری سرویس دانش‌آموزی» دارد و هر شرکت می‌تواند چند مدرسه داشته باشد.</p><input id="ssv-file" class="ssv-file" type="file" accept=".xlsx"><div class="ssv-actions"><button id="ssv-pick">انتخاب فایل Excel</button><button class="alt" id="ssv-template">دانلود قالب پیشنهادی</button></div><div id="ssv-result"></div></div>';
+                b.querySelector('#ssv-pick').onclick = () => b.querySelector('#ssv-file').click();
+                b.querySelector('#ssv-file').onchange = async (e) => { const f = e.target.files[0]; if (!f)
+                    return; const fd = new FormData(); fd.append('file', f); try {
+                    const r = await fetch('/api/school-service/import-preview', { method: 'POST', headers: S.token ? { Authorization: S.token } : {}, body: fd });
+                    const d = await r.json();
+                    if (!r.ok)
+                        throw Error(d.error || 'خطا');
+                    b.querySelector('#ssv-result').innerHTML = '<div class="ssv-msg">پیش‌نمایش: ' + d.rows + ' ردیف | شرکت جدید: ' + d.new_companies + ' | شرکت موجود: ' + d.existing_companies + ' | مدرسه جدید: ' + d.new_schools + ' | مدرسه موجود: ' + d.existing_schools + ' | رابطه جدید: ' + d.new_mappings + ' | رابطه موجود: ' + d.existing_mappings + ' | ردیف تکراری: ' + d.duplicate_rows + ' | خطا: ' + d.errors.length + '</div>' + (d.errors.length ? '<pre>' + esc(d.errors.join('\\n')) + '</pre>' : '') + '<button id="ssv-confirm-import">تأیید و ورود نهایی</button>';
+                    b.querySelector('#ssv-confirm-import').onclick = async () => { const fd2 = new FormData(); fd2.append('file', f); try {
+                        const rr = await fetch('/api/school-service/import', { method: 'POST', headers: S.token ? { Authorization: S.token } : {}, body: fd2 });
+                        const dd = await rr.json();
+                        if (!rr.ok)
+                            throw Error(dd.error || 'خطا');
+                        b.querySelector('#ssv-result').innerHTML = '<div class="ssv-msg">ورود نهایی شد؛ شرکت جدید: ' + dd.companies_count + '، مدرسه جدید: ' + dd.schools_count + '، رابطه: ' + dd.mappings_count + '، خطا: ' + dd.errors.length + '</div>' + (dd.errors.length ? '<pre>' + esc(dd.errors.join('\\n')) + '</pre>' : '');
+                    }
+                    catch (x) {
+                        b.querySelector('#ssv-result').innerHTML = '<div class="ssv-msg">' + esc(x.message) + '</div>';
+                    } };
+                }
+                catch (x) {
+                    b.querySelector('#ssv-result').innerHTML = '<div class="ssv-msg">' + esc(x.message) + '</div>';
+                } };
+                b.querySelector('#ssv-template').onclick = () => { const rows = [['کد مدرسه', 'نام مدرسه', 'ناحیه آموزشی', 'نوع مدرسه', 'شرکت مجری سرویس دانش‌آموزی', 'مدیرعامل', 'تلفن همراه مدیرعامل', 'تلفن ثابت', 'آدرس', 'عرض جغرافیایی', 'طول جغرافیایی', 'مدارس ثبت‌شده', 'تعداد نمایندگان', 'وضعیت شرکت', 'تکمیل پروفایل'], ['1001', 'امام علی', '۱', 'پسرانه', 'شرکت نمونه', 'مدیر نمونه', '09150000000', '051-00000000', 'آدرس', '', '', '0', '0', 'فعال', 'ناقص']]; const ws = XLSX.utils.aoa_to_sheet(rows), wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'مدارس-شرکت‌ها'); XLSX.writeFile(wb, 'قالب_ورود_سرویس_مدارس.xlsx'); };
+                return;
+            }
+            if (t === 'dashboard') {
+                const d = await api('/api/school-service/dashboard');
+                b.innerHTML = '<div class="ssv-grid"><div class="ssv-card"><h3>کل بازدیدها</h3><b style="font-size:28px">' + d.total_inspections + '</b></div><div class="ssv-card"><h3>کل موارد تخلف</h3><b style="font-size:28px">' + d.total_violations + '</b></div></div><div class="ssv-grid"><div class="ssv-card"><h3>بر اساس ناحیه</h3>' + d.by_district.map(x => '<div>' + esc(x.label || 'نامشخص') + ' : ' + x.n + '</div>').join('') + '</div><div class="ssv-card"><h3>بر اساس شرکت</h3>' + d.by_company.map(x => '<div>' + esc(x.label) + ' : ' + x.n + '</div>').join('') + '</div><div class="ssv-card"><h3>بر اساس تخلف</h3>' + d.by_violation.map(x => '<div>' + esc(x.label) + ' : ' + x.n + '</div>').join('') + '</div><div class="ssv-card"><h3>بر اساس مدرسه</h3>' + d.by_school.map(x => '<div>' + esc(x.label) + ' : ' + x.n + '</div>').join('') + '</div></div>';
+                return;
+            }
+            if (t === 'create') {
+                const initial = S.editing || {};
+                const meta = await api('/api/school-service/meta');
+                const cs = await api('/api/school-service/companies?limit=500');
+                const ss = await api('/api/school-service/schools?limit=500');
+                const vs = meta.violations || [];
+                const todayJ = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+                const dateOpts = Array.from({ length: 721 }, (_, i) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + i - 360); return new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(d); });
+                const timeOpts = Array.from({ length: 288 }, (_, i) => String(Math.floor(i / 12)).padStart(2, '0') + ':' + String((i % 12) * 5).padStart(2, '0'));
+                const schoolHasLoc = Number.isFinite(Number(initial.school_latitude)) && Number.isFinite(Number(initial.school_longitude));
+                const schoolLocLat = schoolHasLoc ? Number(initial.school_latitude) : Number(initial.latitude);
+                const schoolLocLng = schoolHasLoc ? Number(initial.school_longitude) : Number(initial.longitude);
+                const useSchoolLoc = schoolHasLoc && Number.isFinite(Number(initial.latitude)) && Number.isFinite(Number(initial.longitude)) && Math.abs(Number(initial.latitude) - Number(initial.school_latitude)) < 0.00002 && Math.abs(Number(initial.longitude) - Number(initial.school_longitude)) < 0.00002;
+                b.innerHTML = '<div class="ssv-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">' + (initial.id ? 'ویرایش بازدید' : 'ثبت بازدید جدید') + '</h3><button id="f-cancel" class="alt">بازگشت به لیست</button></div><div class="ssv-msg">اطلاعات بازدید را کامل کنید. موقعیت مدرسه در صورت وجود نمایش داده می‌شود و می‌توانید آن را اصلاح و ذخیره کنید.</div><div class="ssv-grid"><label>ناحیه آموزشی<select id="f-district" class="ssv-input"><option value="">انتخاب کنید</option>' + ((meta.districts || []).map(x => '<option ' + (String(x) === String(initial.educational_district || '') ? 'selected' : '') + '>' + esc(x) + '</option>').join('')) + '</select></label><label>شرکت مجری<select id="f-company" class="ssv-input"><option value="">نامشخص</option>' + cs.items.map(x => '<option value="' + x.id + '" ' + (Number(initial.company_id) === Number(x.id) ? 'selected' : '') + '>' + esc(x.name) + '</option>').join('') + '</select></label><label style="grid-column:1/-1">جستجوی مدرسه<input id="f-school-search" class="ssv-input" placeholder="نام یا کد مدرسه"><div id="f-school-results" style="margin-top:7px"></div></label><label>مدرسه انتخاب‌شده<input id="f-school-name" class="ssv-input" readonly value="' + esc(initial.school_name || '') + '"><input id="f-school" type="hidden" value="' + esc(initial.school_id || '') + '"></label><label>نوع مدرسه<select id="f-gender" class="ssv-input">' + (meta.genders || []).map(x => '<option ' + (x === (initial.school_gender || 'نامشخص') ? 'selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label></div><div id="f-school-map" class="ssv-map" style="height:360px;margin:8px 0;display:' + (initial.school_id ? 'block' : 'none') + '"></div><div id="f-map-note" class="ssv-msg" style="display:' + (initial.school_id ? 'block' : 'none') + '">نشانگر مدرسه را می‌توانید جابه‌جا کنید یا روی نقطه جدید نقشه بزنید؛ سپس «ذخیره موقعیت مدرسه» را بزنید.</div><div class="ssv-actions"><button type="button" id="f-use-gps" class="alt">استفاده از موقعیت فعلی مدرسه</button><button type="button" id="f-save-school-loc">ذخیره موقعیت مدرسه</button></div><div class="ssv-card"><h3>مشخصات خودرو</h3><div class="ssv-grid"><div><label>پلاک خودرو</label><div style="height:64px;border:2px solid #263238;border-radius:9px;background:#fff;display:flex;direction:ltr;overflow:hidden"><div style="width:38px;background:#1267a9;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:9px;font-weight:800">IR<span style="font-size:8px;margin-top:3px">ایران</span></div><input id="f-p2" maxlength="2" inputmode="numeric" class="ssv-input" style="height:100%;border:0;border-left:1px solid #aaa;border-radius:0;text-align:center;font-size:22px;font-weight:800" value="' + esc(initial.plate_two || '') + '"><input id="f-pl" maxlength="1" class="ssv-input" style="height:100%;border:0;border-left:1px solid #aaa;border-radius:0;text-align:center;font-size:22px;font-weight:800" value="' + esc(initial.plate_letter || '') + '"><input id="f-p3" maxlength="3" inputmode="numeric" class="ssv-input" style="height:100%;border:0;border-left:1px solid #aaa;border-radius:0;text-align:center;font-size:22px;font-weight:800" value="' + esc(initial.plate_three || '') + '"><div style="width:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800">ایران<span style="font-size:8px;color:#667085">پلاک ملی</span></div></div></div><label>نوع خودرو<select id="f-vt" class="ssv-input"><option value="">انتخاب کنید</option>' + Array.from(new Set(['سایر', ...(meta.vehicle_types || [])])).map(x => '<option ' + (x === (initial.vehicle_type ? '' : '') ? 'selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label><label>رنگ خودرو<select id="f-vc" class="ssv-input"><option value="">انتخاب کنید</option>' + Array.from(new Set(['سایر', ...(meta.vehicle_colors || [])])).map(x => '<option ' + (x === (initial.vehicle_color ? '' : '') ? 'selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label><div id="f-vt-custom-wrap" style="display:none"><label>نوع خودرو — سایر<input id="f-vt-custom" class="ssv-input" value=""></label></div><div id="f-vc-custom-wrap" style="display:none"><label>رنگ خودرو — سایر<input id="f-vc-custom" class="ssv-input" value=""></label></div><label>سرنشین جلو<div style="display:flex;align-items:center;gap:6px"><button type="button" id="front-minus" class="alt">−</button><input id="f-front" class="ssv-input" style="text-align:center" value="' + esc((_a = initial.passenger_front_count) !== null && _a !== void 0 ? _a : 0) + '" readonly><button type="button" id="front-plus">+</button></div></label><label>سرنشین عقب<div style="display:flex;align-items:center;gap:6px"><button type="button" id="rear-minus" class="alt">−</button><input id="f-rear" class="ssv-input" style="text-align:center" value="' + esc((_b = initial.passenger_rear_count) !== null && _b !== void 0 ? _b : 0) + '" readonly><button type="button" id="rear-plus">+</button></div></label></div></div><div class="ssv-card"><h3>راننده، تخلف و زمان بازدید</h3><div class="ssv-grid"><label>نوع راننده<select id="f-dg" class="ssv-input">' + (meta.driver_genders || []).map(x => '<option ' + (x === (initial.driver_gender || 'نامشخص') ? 'selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label><label>گواهی صلاحیت<select id="f-cert" class="ssv-input">' + ['معتبر', 'نامعتبر', 'ارائه نشد'].map(x => '<option ' + (x === (initial.certificate_status || 'ارائه نشد') ? 'selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label><label>تاریخ بازدید<select id="f-date" class="ssv-input">' + dateOpts.map(x => '<option ' + (x === (initial.violation_date || todayJ) ? 'selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></label><label>ساعت بازدید<select id="f-time" class="ssv-input">' + timeOpts.map(x => '<option ' + (x === (initial.violation_time || timeOpts[Math.max(0, Math.round((new Date().getHours() * 60 + new Date().getMinutes()) / 5) * 1)] || '') ? 'selected' : '') + '>' + x + '</option>').join('') + '</select></label></div><div style="margin-top:10px"><b>تخلفات</b><div class="ssv-actions">' + vs.map(v => '<label><input type="checkbox" data-v="' + v.id + '" ' + ((initial.violations || []).some(x => Number(x.id || x) === Number(v.id)) ? 'checked' : '') + '> ' + esc(v.title) + '</label>').join('') + '</div></div></div><div class="ssv-card"><h3>محل بازدید و تصویر</h3><label style="display:flex;align-items:center;gap:8px;padding:11px;border:1px solid #e2e8ee;border-radius:12px"><input id="f-same-school" type="checkbox" ' + (useSchoolLoc ? 'checked' : '') + '> <span><b>محل بازدید همان مکان مدرسه است</b><br><small>با فعال‌کردن، مختصات ذخیره‌شده مدرسه برای بازدید استفاده می‌شود.</small></span></label><div class="ssv-grid" style="margin-top:10px"><label>آدرس/محل بازدید<input id="f-loc" class="ssv-input" value="' + esc(initial.location_text || '') + '"></label><label>عرض جغرافیایی<input id="f-lat" class="ssv-input" value="' + esc((_c = initial.latitude) !== null && _c !== void 0 ? _c : '') + '"></label><label>طول جغرافیایی<input id="f-lng" class="ssv-input" value="' + esc((_e = initial.longitude) !== null && _e !== void 0 ? _e : '') + '"></label></div><div class="ssv-actions"><button type="button" id="f-get-gps">دریافت موقعیت بازدید از GPS</button></div><label>تصویر خودرو<input id="f-photo" class="ssv-input" type="file" accept="image/*"></label><label>توضیحات<textarea id="f-desc" class="ssv-input" rows="4">' + esc(initial.description || '') + '</textarea></label></div><div class="ssv-actions"><button id="f-save">' + (initial.id ? 'ذخیره تغییرات' : 'ثبت بازدید') + '</button><button id="f-cancel-2" class="alt">انصراف</button></div></div>';
+                const cancel = () => { S.editing = null; render('inspections'); };
+                b.querySelector('#f-cancel').onclick = cancel;
+                b.querySelector('#f-cancel-2').onclick = cancel;
+                let schoolMap = null, schoolMarker = null, selectedSchool = null, schoolMapLat = schoolLocLat, schoolMapLng = schoolLocLng;
+                const destroySchoolMap = () => { try {
+                    if (schoolMap)
+                        schoolMap.remove();
+                }
+                catch (_) { } schoolMap = null; schoolMarker = null; };
+                const renderSchoolMap = () => { const box = b.querySelector('#f-school-map'); if (!box)
+                    return; if (!selectedSchool && !(Number.isFinite(Number(schoolMapLat)) && Number.isFinite(Number(schoolMapLng)))) {
+                    box.style.display = 'none';
+                    return;
+                } box.style.display = 'block'; if (!window.L) {
+                    box.innerHTML = '<div class="ssv-map-empty">کتابخانه نقشه در دسترس نیست.</div>';
+                    return;
+                } destroySchoolMap(); schoolMap = L.map(box).setView([Number(schoolMapLat) || 36.2972, Number(schoolMapLng) || 59.6067], Number.isFinite(Number(schoolMapLat)) ? 16 : 11); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(schoolMap); if (Number.isFinite(Number(schoolMapLat)) && Number.isFinite(Number(schoolMapLng))) {
+                    schoolMarker = L.marker([Number(schoolMapLat), Number(schoolMapLng)], { draggable: true }).addTo(schoolMap);
+                    schoolMarker.on('dragend', () => { const p = schoolMarker.getLatLng(); schoolMapLat = p.lat; schoolMapLng = p.lng; b.querySelector('#f-lat').value = p.lat; b.querySelector('#f-lng').value = p.lng; });
+                } schoolMap.on('click', e => { schoolMapLat = e.latlng.lat; schoolMapLng = e.latlng.lng; if (schoolMarker)
+                    schoolMarker.setLatLng(e.latlng);
+                else
+                    schoolMarker = L.marker(e.latlng, { draggable: true }).addTo(schoolMap); b.querySelector('#f-lat').value = e.latlng.lat; b.querySelector('#f-lng').value = e.latlng.lng; }); setTimeout(() => schoolMap.invalidateSize(), 120); };
+                const selectSchool = z => { var _a, _b; selectedSchool = z; b.querySelector('#f-school').value = z.id; b.querySelector('#f-school-name').value = z.name; b.querySelector('#f-lat').value = (_a = z.latitude) !== null && _a !== void 0 ? _a : ''; b.querySelector('#f-lng').value = (_b = z.longitude) !== null && _b !== void 0 ? _b : ''; schoolMapLat = z.latitude; schoolMapLng = z.longitude; const has = Number.isFinite(Number(z.latitude)) && Number.isFinite(Number(z.longitude)); b.querySelector('#f-school-map').style.display = has ? 'block' : 'block'; b.querySelector('#f-map-note').style.display = 'block'; renderSchoolMap(); };
+                const loadSchoolResults = async () => { const q = String(b.querySelector('#f-school-search').value || '').trim(), d = b.querySelector('#f-district').value; const rr = (await api('/api/school-service/schools?district=' + encodeURIComponent(d) + (q ? '&search=' + encodeURIComponent(q) : '') + '&limit=500')).items || []; const box = b.querySelector('#f-school-results'); box.innerHTML = rr.slice(0, 40).map(z => '<button type="button" data-school-id="' + z.id + '" class="ssv-school-pick"><b>' + esc(z.name) + '</b><div>' + esc(z.code || '') + ' • ناحیه ' + esc(z.educational_district || '') + ' • ' + esc(z.company_names || 'نامشخص') + '</div></button>').join('') || '<div class="ssv-msg">مدرسه‌ای پیدا نشد.</div>'; box.querySelectorAll('[data-school-id]').forEach(btn => btn.onclick = () => { const z = rr.find(x => Number(x.id) === Number(btn.dataset.schoolId)); if (z)
+                    selectSchool(z); }); };
+                b.querySelector('#f-district').onchange = loadSchoolResults;
+                b.querySelector('#f-school-search').oninput = () => { clearTimeout(b.querySelector('#f-school-search')._t); b.querySelector('#f-school-search')._t = setTimeout(loadSchoolResults, 220); };
+                if (initial.school_id) {
+                    const z = ss.items.find(x => Number(x.id) === Number(initial.school_id));
+                    if (z)
+                        selectSchool(z);
+                    else {
+                        selectedSchool = { id: initial.school_id, name: initial.school_name || '', latitude: schoolLocLat, longitude: schoolLocLng, address: initial.location_text || '' };
+                        renderSchoolMap();
+                    }
+                }
+                b.querySelector('#f-use-gps').onclick = () => { var _a; (_a = navigator.geolocation) === null || _a === void 0 ? void 0 : _a.getCurrentPosition(p => { schoolMapLat = p.coords.latitude; schoolMapLng = p.coords.longitude; b.querySelector('#f-lat').value = p.coords.latitude; b.querySelector('#f-lng').value = p.coords.longitude; renderSchoolMap(); }, () => alert('دریافت موقعیت فعلی ناموفق بود'), { enableHighAccuracy: true }); };
+                b.querySelector('#f-save-school-loc').onclick = async () => { const id = Number(b.querySelector('#f-school').value || 0), lat = Number(b.querySelector('#f-lat').value), lng = Number(b.querySelector('#f-lng').value); if (!id || !Number.isFinite(lat) || !Number.isFinite(lng))
+                    return alert('ابتدا مدرسه و مختصات معتبر را مشخص کنید.'); try {
+                    await api('/api/school-service/schools/' + id + '/location', { method: 'POST', body: { latitude: lat, longitude: lng } });
+                    schoolMapLat = lat;
+                    schoolMapLng = lng;
+                    alert('موقعیت مدرسه ذخیره شد.');
+                    renderSchoolMap();
+                }
+                catch (e) {
+                    alert(e.message);
+                } };
+                const customType = b.querySelector('#f-vt'), customColor = b.querySelector('#f-vc');
+                const setOther = () => { const vt = customType.value === 'سایر', vc = customColor.value === 'سایر'; b.querySelector('#f-vt-custom-wrap').style.display = vt ? 'block' : 'none'; b.querySelector('#f-vc-custom-wrap').style.display = vc ? 'block' : 'none'; };
+                customType.onchange = setOther;
+                customColor.onchange = setOther;
+                const initialVT = customType.querySelector('option:nth-child(2)');
+                if (initial.vehicle_type && ![...(meta.vehicle_types || [])].includes(String(initial.vehicle_type))) {
+                    customType.value = 'سایر';
+                    b.querySelector('#f-vt-custom').value = initial.vehicle_type;
+                }
+                else
+                    customType.value = initial.vehicle_type || '';
+                if (initial.vehicle_color && ![...(meta.vehicle_colors || [])].includes(String(initial.vehicle_color))) {
+                    customColor.value = 'سایر';
+                    b.querySelector('#f-vc-custom').value = initial.vehicle_color;
+                }
+                else
+                    customColor.value = initial.vehicle_color || '';
+                setOther();
+                const counter = (id, delta) => { const x = b.querySelector(id), n = Math.max(0, (parseInt(x.value, 10) || 0) + delta); x.value = n; };
+                b.querySelector('#front-plus').onclick = () => counter('#f-front', 1);
+                b.querySelector('#front-minus').onclick = () => counter('#f-front', -1);
+                b.querySelector('#rear-plus').onclick = () => counter('#f-rear', 1);
+                b.querySelector('#rear-minus').onclick = () => counter('#f-rear', -1);
+                const syncSame = () => { const checked = b.querySelector('#f-same-school').checked; if (checked) {
+                    b.querySelector('#f-lat').value = schoolMapLat !== null && schoolMapLat !== void 0 ? schoolMapLat : '';
+                    b.querySelector('#f-lng').value = schoolMapLng !== null && schoolMapLng !== void 0 ? schoolMapLng : '';
+                    b.querySelector('#f-loc').value = (selectedSchool && selectedSchool.address) || 'مکان مدرسه';
+                    b.querySelector('#f-lat').readOnly = true;
+                    b.querySelector('#f-lng').readOnly = true;
+                }
+                else {
+                    b.querySelector('#f-lat').readOnly = false;
+                    b.querySelector('#f-lng').readOnly = false;
+                } };
+                b.querySelector('#f-same-school').onchange = syncSame;
+                syncSame();
+                b.querySelector('#f-get-gps').onclick = () => { var _a; return (_a = navigator.geolocation) === null || _a === void 0 ? void 0 : _a.getCurrentPosition(p => { b.querySelector('#f-lat').value = p.coords.latitude; b.querySelector('#f-lng').value = p.coords.longitude; b.querySelector('#f-same-school').checked = false; syncSame(); }, () => alert('دریافت GPS ناموفق بود'), { enableHighAccuracy: true }); };
+                const uploadPhoto = async (id, file) => { if (!file)
+                    return; const fd = new FormData(); fd.append('file', file, file.name || 'inspection.jpg'); const h = {}; if (S.token)
+                    h.Authorization = S.token; const rr = await fetch('/api/school-service/inspections/' + id + '/photos', { method: 'POST', headers: h, body: fd, credentials: 'include' }); const dd = await rr.json(); if (!rr.ok)
+                    throw Error(dd.error || 'آپلود تصویر ناموفق بود.'); };
+                b.querySelector('#f-save').onclick = async (ev) => { var _a; ev.preventDefault(); const body = { educational_district: b.querySelector('#f-district').value, company_id: b.querySelector('#f-company').value || null, school_id: b.querySelector('#f-school').value || null, school_gender: b.querySelector('#f-gender').value, plate_three: b.querySelector('#f-p3').value, plate_letter: b.querySelector('#f-pl').value, plate_two: b.querySelector('#f-p2').value, vehicle_type: customType.value === 'سایر' ? (b.querySelector('#f-vt-custom').value || '') : customType.value, vehicle_type_custom: customType.value === 'سایر' ? (b.querySelector('#f-vt-custom').value || '') : '', vehicle_color: customColor.value === 'سایر' ? (b.querySelector('#f-vc-custom').value || '') : customColor.value, vehicle_color_custom: customColor.value === 'سایر' ? (b.querySelector('#f-vc-custom').value || '') : '', passenger_front_count: parseInt(b.querySelector('#f-front').value, 10) || 0, passenger_rear_count: parseInt(b.querySelector('#f-rear').value, 10) || 0, driver_gender: b.querySelector('#f-dg').value, certificate_status: b.querySelector('#f-cert').value, violation_date: b.querySelector('#f-date').value, violation_time: b.querySelector('#f-time').value, location_text: b.querySelector('#f-same-school').checked ? 'مکان مدرسه' : b.querySelector('#f-loc').value, latitude: b.querySelector('#f-lat').value || null, longitude: b.querySelector('#f-lng').value || null, use_school_location: b.querySelector('#f-same-school').checked ? 1 : 0, description: b.querySelector('#f-desc').value, violation_ids: [...b.querySelectorAll('[data-v]:checked')].map(x => x.dataset.v) }; try {
+                    const r = await api('/api/school-service/inspections' + (initial.id ? '/' + initial.id : ''), { method: initial.id ? 'PUT' : 'POST', body });
+                    const id = Number(r.id || initial.id || 0);
+                    const photo = (_a = b.querySelector('#f-photo').files) === null || _a === void 0 ? void 0 : _a[0];
+                    if (photo && id)
+                        await uploadPhoto(id, photo);
+                    alert(initial.id ? 'ویرایش بازدید ذخیره شد.' : 'بازدید با موفقیت ثبت شد.');
+                    S.editing = null;
+                    await render('inspections');
+                }
+                catch (e) {
+                    alert(e.message);
+                } };
+                return;
+            }
+            if (t === 'reports') {
+                b.innerHTML = '<div class="ssv-card"><h3>گزارش‌ها و خروجی Excel</h3><div class="ssv-actions"><input id="rep-search" class="ssv-input" placeholder="جستجو"><input id="rep-district" class="ssv-input" placeholder="ناحیه"><button id="ssv-exp">خروجی بازدیدها</button><button id="ssv-exp-s">خروجی مدارس</button><button id="ssv-exp-c">خروجی شرکت‌ها</button></div></div>';
+                [['ssv-exp', 'inspections'], ['ssv-exp-s', 'schools'], ['ssv-exp-c', 'companies']].forEach(([id, tp]) => b.querySelector('#' + id).onclick = async () => { var _a, _b; try {
+                    const base = tp === 'inspections' ? '/api/school-service/export-filtered?type=inspections&search=' + encodeURIComponent(((_a = b.querySelector('#rep-search')) === null || _a === void 0 ? void 0 : _a.value) || '') + '&district=' + encodeURIComponent(((_b = b.querySelector('#rep-district')) === null || _b === void 0 ? void 0 : _b.value) || '') : '/api/school-service/export?type=' + tp;
+                    const r = await fetch(base, { headers: S.token ? { Authorization: S.token } : {} });
+                    if (!r.ok)
+                        throw Error('خروجی قابل دریافت نیست');
+                    const blob = await r.blob();
+                    const u = URL.createObjectURL(blob), a = document.createElement('a');
+                    a.href = u;
+                    a.download = 'سرویس_مدارس_' + tp + '.xlsx';
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(u), 1000);
+                }
+                catch (e) {
+                    alert(e.message);
+                } });
+                return;
+            }
+            if (t === 'config') {
+                if (!(await api('/api/school-service/access')).can_edit) {
+                    b.innerHTML = '<div class="ssv-msg">دسترسی مدیریت تنظیمات ندارید.</div>';
+                    return;
+                }
+                const d = await api('/api/school-service/config');
+                const groups = [['districts', 'ناحیه‌های آموزشی', 'district'], ['vehicle_types', 'انواع خودرو', 'vehicle_type'], ['vehicle_colors', 'رنگ خودرو', 'vehicle_color']];
+                b.innerHTML = '<div class="ssv-grid">' + groups.map(g => '<div class="ssv-card"><h3>' + g[1] + '</h3><div class="ssv-actions"><input class="ssv-input" data-cfg-input="' + g[2] + '" placeholder="عنوان جدید"><button data-cfg-add="' + g[2] + '">افزودن</button></div><div>' + d[g[0]].filter(x => Number(x.is_active)).map(x => '<span class="ssv-chip">' + esc(x.title) + ' <button data-cfg-del="' + g[2] + '" data-id="' + x.id + '">×</button></span>').join('') + '</div></div>').join('');
+                b.querySelectorAll('[data-cfg-add]').forEach(btn => btn.onclick = async () => { const inp = b.querySelector('[data-cfg-input="' + btn.dataset.cfgAdd + '"]'); if (!inp.value.trim())
+                    return; await api('/api/school-service/config', { method: 'POST', body: { type: btn.dataset.cfgAdd, title: inp.value.trim() } }); render('config'); });
+                b.querySelectorAll('[data-cfg-del]').forEach(btn => btn.onclick = () => ssvConfirm('غیرفعال‌سازی گزینه', 'این گزینه در ثبت‌های جدید نمایش داده نخواهد شد.', async () => { await api('/api/school-service/config?type=' + encodeURIComponent(btn.dataset.cfgDel) + '&id=' + btn.dataset.id, { method: 'DELETE' }); render('config'); }));
+                return;
+            }
+            if (t === 'permissions') {
+                const d = await api('/api/school-service/permissions');
+                b.innerHTML = '<div class="ssv-card"><h3>دسترسی سمت‌ها</h3><table class="ssv-table"><thead><tr><th>سمت</th><th>مشاهده</th><th>ثبت</th><th>ویرایش</th><th>حذف</th><th>Excel</th><th>گزارش</th><th></th></tr></thead><tbody>' + d.items.map(r => '<tr data-role="' + r.id + '"><td>' + esc(r.title) + '</td>' + ['view', 'create', 'edit', 'delete', 'import', 'report'].map(k => '<td><input type="checkbox" data-k="' + k + '" ' + (r['can_' + k] ? 'checked' : '') + '></td>').join('') + '<td><button class="ssv-save-perm">ذخیره</button></td></tr>').join('') + '</tbody></table></div>';
+                b.querySelectorAll('.ssv-save-perm').forEach(btn => btn.onclick = async () => { const tr = btn.closest('tr'), body = {}; tr.querySelectorAll('[data-k]').forEach(x => body['can_' + x.dataset.k] = x.checked ? 1 : 0); await api('/api/school-service/permissions/' + tr.dataset.role, { method: 'POST', body }); btn.textContent = 'ذخیره شد'; setTimeout(() => btn.textContent = 'ذخیره', 1200); });
+                return;
+            }
+            const isIns = t === 'inspections';
+            const q = '<div class="ssv-actions">' + (!isIns ? '<button id="ssv-add">' + (t === 'companies' ? 'افزودن شرکت' : 'افزودن مدرسه') + '</button>' : '<button id="ssv-new">ثبت بازدید جدید</button>') + '<input id="ssv-search" class="ssv-input" placeholder="' + (isIns ? 'جستجوی مدرسه، شرکت، پلاک یا محل' : t === 'companies' ? 'جستجوی شرکت' : 'جستجوی مدرسه') + '"></div><div id="ssv-list" class="ssv-card">در حال دریافت…</div>';
+            b.innerHTML = q;
+            const input = b.querySelector('#ssv-search');
+            if (b.querySelector('#ssv-new'))
+                b.querySelector('#ssv-new').onclick = () => { S.editing = null; render('create'); };
+            if (b.querySelector('#ssv-add'))
+                b.querySelector('#ssv-add').onclick = () => ssvEntityForm(t, null, load);
+            let page = 1;
+            const load = async () => {
+                const ep = t === 'companies' ? 'companies-page' : t === 'schools' ? 'schools-page' : 'inspections-page';
+                let x = await api('/api/school-service/' + ep + '?search=' + encodeURIComponent(input.value) + '&page=' + page + '&page_size=25');
+                let rows = x.items || [], mapRows = rows;
+                if (t === 'schools') {
+                    try {
+                        const total = Math.min(10000, Number(x.total || rows.length));
+                        const pages = Math.max(1, Math.ceil(total / 100));
+                        mapRows = [];
+                        for (let pg = 1; pg <= pages; pg++) {
+                            const mm = await api('/api/school-service/schools-page?search=' + encodeURIComponent(input.value) + '&page=' + pg + '&page_size=100');
+                            const part = mm.items || [];
+                            mapRows = mapRows.concat(part);
+                            if (part.length < 100)
+                                break;
+                        }
+                    }
+                    catch (_) {
+                        mapRows = rows;
+                    }
+                    if (rows.length === 0 && Number(x.total || 0) === 0 && mapRows.length) {
+                        rows = mapRows.slice(0, 25);
+                        x = { items: rows, page: 1, page_size: 25, total: mapRows.length, pages: Math.max(1, Math.ceil(mapRows.length / 25)) };
+                    }
+                }
+                if (t === 'companies')
+                    b.querySelector('#ssv-list').innerHTML = '<table class="ssv-table"><thead><tr><th>ردیف</th><th>شرکت</th><th>مدیرعامل</th><th>موبایل مدیرعامل</th><th>تلفن ثابت</th><th>تعداد مدارس</th><th>مدارس ثبت‌شده</th><th>نمایندگان</th><th>وضعیت</th><th>پروفایل</th><th>عملیات</th></tr></thead><tbody>' + rows.map((r, i) => '<tr><td>' + ((page - 1) * 25 + i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.manager_name) + '</td><td>' + esc(r.manager_mobile || '') + '</td><td>' + esc(r.landline_phone || r.phone || '') + '</td><td>' + r.school_count + '</td><td>' + Number(r.registered_school_count || 0) + '</td><td>' + Number(r.representative_count || 0) + '</td><td>' + esc(r.status || 'فعال') + '</td><td>' + (Number(r.profile_complete) ? 'تکمیل' : 'ناقص') + '</td><td><button data-edit-c="' + r.id + '">ویرایش</button> <button data-del-c="' + r.id + '">حذف</button></td></tr>').join('') + '</tbody></table>';
+                else if (t === 'schools')
+                    b.querySelector('#ssv-list').innerHTML = '<div id="ssv-schools-map-block"></div><table class="ssv-table"><thead><tr><th>ردیف</th><th>مدرسه</th><th>کد</th><th>ناحیه</th><th>نوع</th><th>شرکت</th><th>موقعیت</th><th>عملیات</th></tr></thead><tbody>' + rows.map((r, i) => '<tr><td>' + ((page - 1) * 25 + i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.code || '') + '</td><td>' + esc(r.educational_district) + '</td><td>' + esc(r.gender) + '</td><td>' + esc(r.company_names || 'نامشخص') + '</td><td>' + ((Number.isFinite(Number(r.latitude)) && Number.isFinite(Number(r.longitude))) ? 'ثبت شده' : 'ثبت نشده') + '</td><td><button data-edit-s="' + r.id + '">ویرایش</button> <button data-del-s="' + r.id + '">حذف</button></td></tr>').join('') + '</tbody></table>';
+                else
+                    b.querySelector('#ssv-list').innerHTML = '<table class="ssv-table"><thead><tr><th>ردیف</th><th>ناحیه</th><th>شرکت</th><th>مدرسه</th><th>پلاک</th><th>تخلفات</th><th>تاریخ</th><th>عملیات</th></tr></thead><tbody>' + rows.map((r, i) => '<tr><td>' + ((page - 1) * 25 + i + 1) + '</td><td>' + esc(r.educational_district) + '</td><td>' + esc(r.company_name || 'نامشخص') + '</td><td>' + esc(r.school_name || 'نامشخص') + '</td><td>' + esc(r.plate) + '</td><td>' + esc((r.violations || []).join('، ')) + '</td><td>' + esc(r.violation_date) + ' ' + esc(r.violation_time) + '</td><td><button data-view="' + r.id + '">جزئیات</button> <button data-edit="' + r.id + '">ویرایش</button> <button data-del="' + r.id + '">حذف</button></td></tr>').join('') + '</tbody></table>';
+                if (t === 'schools') {
+                    const mapBlock = b.querySelector('#ssv-schools-map-block');
+                    if (mapBlock)
+                        mountSchoolMap(mapBlock, mapRows);
+                }
+                ;
+                if (S.access) {
+                    if (!S.access.can_create)
+                        b.querySelectorAll('#ssv-new,#ssv-add').forEach(x => x.style.display = 'none');
+                    if (!S.access.can_edit)
+                        b.querySelectorAll('[data-edit],[data-edit-c],[data-edit-s]').forEach(x => x.style.display = 'none');
+                    if (!S.access.can_delete)
+                        b.querySelectorAll('[data-del],[data-del-c],[data-del-s]').forEach(x => x.style.display = 'none');
+                }
+                b.querySelector('#ssv-list').insertAdjacentHTML('beforeend', '<div class="ssv-pager"><button id="ssv-prev" ' + (page <= 1 ? 'disabled' : '') + '>قبلی</button><span>صفحه ' + x.page + ' از ' + x.pages + ' — ' + x.total + ' مورد</span><button id="ssv-next" ' + (page >= x.pages ? 'disabled' : '') + '>بعدی</button></div>');
+                b.querySelector('#ssv-prev').onclick = () => { if (page > 1) {
+                    page--;
+                    load();
+                } };
+                b.querySelector('#ssv-next').onclick = () => { if (page < x.pages) {
+                    page++;
+                    load();
+                } };
+                b.querySelectorAll('[data-view]').forEach(x => x.onclick = async () => { const r = await api('/api/school-service/inspections/' + x.dataset.view); const old = document.getElementById('ssv-detail-modal'); if (old)
+                    old.remove(); const photo = (r.photos || [])[0], src = photo ? (photo.file_path || '') : ''; const m = document.createElement('div'); m.id = 'ssv-detail-modal'; m.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px'; m.innerHTML = '<div style="background:#fff;border-radius:16px;max-width:720px;width:100%;max-height:90vh;overflow:auto;padding:18px;direction:rtl"><div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">جزئیات بازدید</h3><button id="ssv-detail-close">بستن</button></div><p>ناحیه: ' + esc(r.educational_district || 'نامشخص') + '<br>مدرسه: ' + esc(r.school_name || 'نامشخص') + '<br>شرکت: ' + esc(r.company_name || 'نامشخص') + '<br>پلاک: ' + esc(r.plate || '') + '<br>تخلفات: ' + esc((r.violations || []).map(v => v.title).join('، ') || 'بدون تخلف') + '<br>محل: ' + esc(r.location_text || '') + '<br>توضیحات: ' + esc(r.description || '') + '</p>' + (src ? '<img src="' + esc(src) + '" style="display:block;width:100%;max-height:420px;object-fit:contain;border-radius:12px;background:#f2f4f7" alt="تصویر خودروی بازدیدشده">' : '<div class="ssv-msg">تصویر خودرو ثبت نشده است.</div>') + '</div>'; document.body.appendChild(m); m.querySelector('#ssv-detail-close').onclick = () => m.remove(); m.onclick = e => { if (e.target === m)
+                    m.remove(); }; });
+                b.querySelectorAll('[data-edit]').forEach(x => x.onclick = async () => { S.editing = await api('/api/school-service/inspections/' + x.dataset.edit); render('create'); });
+                b.querySelectorAll('[data-del]').forEach(x => x.onclick = () => ssvConfirm('حذف بازدید', 'این بازدید و تخلفات وابسته به آن حذف می‌شود.', async () => { await api('/api/school-service/inspections/' + x.dataset.del, { method: 'DELETE' }); load(); }));
+                b.querySelectorAll('[data-del-c]').forEach(x => x.onclick = () => ssvConfirm('غیرفعال‌سازی شرکت', 'شرکت از فهرست فعال خارج می‌شود و سوابق قبلی حفظ خواهد شد.', async () => { await api('/api/school-service/companies/' + x.dataset.delC, { method: 'DELETE' }); load(); }));
+                b.querySelectorAll('[data-del-s]').forEach(x => x.onclick = () => ssvConfirm('غیرفعال‌سازی مدرسه', 'مدرسه از فهرست فعال خارج می‌شود و سوابق قبلی حفظ خواهد شد.', async () => { await api('/api/school-service/schools/' + x.dataset.delS, { method: 'DELETE' }); load(); }));
+                b.querySelectorAll('[data-edit-c]').forEach(x => x.onclick = async () => { const rows2 = (await api('/api/school-service/companies?search=')).items || []; const r = rows2.find(z => Number(z.id) === Number(x.dataset.editC)); if (r)
+                    ssvEntityForm('companies', r, load); });
+                b.querySelectorAll('[data-edit-s]').forEach(x => x.onclick = async () => { const rows2 = (await api('/api/school-service/schools?search=')).items || []; const r = rows2.find(z => Number(z.id) === Number(x.dataset.editS)); if (r)
+                    ssvEntityForm('schools', r, load); });
+            };
+            input.oninput = () => { clearTimeout(input._t); input._t = setTimeout(() => { page = 1; load(); }, 250); };
+            await load();
+        }
+        catch (e) {
+            b.innerHTML = '<div class="ssv-msg">' + esc(e.message || 'خطا در دریافت اطلاعات') + '</div>';
+        }
+    }
+    window.openSchoolService = open;
+    /* Compatibility bridge: deterministic recovery for an older/stale panel bundle.
+       The canonical React menu remains the source of truth. This bounded bridge only restores
+       the entry when the deployed bundle has not rendered it yet; it never uses MutationObserver. */
+    (function ensureSchoolServiceMenuCompatibility() {
+        const ID = 'kh-school-service-menu-compat';
+        let ticks = 0;
+        const add = () => {
+            try {
+                const canonical = document.querySelector('[data-school-service="canonical"]');
+                const existing = document.getElementById(ID);
+                if (canonical) {
+                    if (existing)
+                        existing.remove();
+                    return;
+                }
+                const nav = document.querySelector('aside .nav, aside nav.nav, aside nav, .side .nav, nav.nav, .nav, .side');
+                if (!nav)
+                    return;
+                let btn = existing;
+                if (!btn) {
+                    btn = document.createElement('button');
+                    btn.id = ID;
+                    btn.type = 'button';
+                    btn.className = 'navitem';
+                    btn.setAttribute('data-school-service', 'compat');
+                    btn.style.cssText = 'width:100%;min-height:54px;text-align:right;display:flex;align-items:center;gap:12px;flex:none;';
+                    btn.innerHTML = '<span class="ic">✓</span><span class="navlabel">سرویس مدارس</span>';
+                    const logout = nav.querySelector('.logout-item');
+                    if (logout)
+                        nav.insertBefore(btn, logout);
+                    else
+                        nav.appendChild(btn);
+                }
+                btn.onclick = () => {
+                    const fn = window.openSchoolService;
+                    if (typeof fn !== 'function') {
+                        alert('سرویس مدارس هنوز آماده نشده است؛ دوباره انتخاب کنید.');
+                        return;
+                    }
+                    const host = document.querySelector('main.main,.main,.main-content,.content,.page-content,[role="main"]') || document.body;
+                    Promise.resolve(fn(host)).catch(e => alert(e && e.message ? e.message : 'باز کردن سرویس مدارس ناموفق بود'));
+                };
+            }
+            catch (_) { }
+        };
+        const timer = setInterval(() => {
+            add();
+            if (++ticks >= 30)
+                clearInterval(timer);
+        }, 500);
+        add();
+    })();
+    /* منوی سرویس مدارس توسط پنل React و در ساختار اصلی سایدبار ساخته می‌شود.
+       این فایل فقط ویزارد و API آن را فراهم می‌کند تا منوی جداگانه و پایدار با React تداخل نداشته باشد. */
+})();
 function SchoolServiceLauncher() {
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(true);
@@ -13680,7 +14198,7 @@ function SchoolServiceLauncher() {
         setError("");
         try {
             if (!window.openSchoolService)
-                throw new Error("ماژول سرویس مدارس هنوز بارگذاری نشده است.");
+                throw new Error("ماژول سرویس مدارس در پنل اصلی آماده نشده است.");
             if (host)
                 Promise.resolve(window.openSchoolService(host, () => { setBusy(false); setError(""); })).catch(e => { setError(e && e.message ? e.message : "باز کردن سرویس مدارس ناموفق بود"); setBusy(false); });
         }
@@ -13750,6 +14268,7 @@ const VIEWS = {
     cronstatus: { t: "پایش سلامت کرون‌ها", ic: "⏱", c: CronStatusView },
     activesessions: { t: "جلسات فعال کاربران", ic: "🔐", c: ActiveSessionsView },
     radiocenter: { t: "مرکز بی‌سیم", ic: "📻", c: RadioCenter },
+    radiosettings: { t: "تنظیمات بی‌سیم", ic: "📻", c: RadioSettings },
     vehicleassets: { t: "ماشین‌آلات و وسایل مأموریتی", ic: "🚙", c: PersonnelVehicleAssets },
     vehiclechecklist: { t: "چک‌لیست خودرویی و موتوری", ic: "☑", c: PersonnelVehicleChecklist },
     settings: { t: "تنظیمات سامانه", ic: "⚙", c: Settings },
@@ -13857,7 +14376,7 @@ function App() {
         ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "platetraining", "lines", "zones", "bills"]],
         ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "useract"]],
         ["منابع انسانی", ["shifts", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural", "vehicleassets", "vehiclechecklist"]],
-        ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
+        ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter", "radiosettings"]],
         ["مدیریت سامانه", ["users", "org", "forms", "config", "customfields", "inventory", "excel", "appitems", "cronstatus", "activesessions", "logs", "settings"]],
     ];
     const CORE = ["dashboard", "driverservicereport", "schoolservice"];
@@ -13870,9 +14389,9 @@ function App() {
         shifts: 'shift-cycle', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
         messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', radiocenter: 'radio-tower', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen',
         config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'activity-wave', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
-        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist'
+        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist', radiosettings: 'radio-tower'
     };
-    const can = (k) => !allowed || allowed.includes(k) || CORE.includes(k);
+    const can = (k) => !allowed || allowed.includes(k) || CORE.includes(k) || (k === 'radiosettings' && allowed.includes('radiocenter'));
     const closeOnPick = (k) => { setV(k); setDrawer(false); };
     return (React.createElement("div", { className: "layout" + (drawer ? " drawer-open" : "") },
         React.createElement("div", { className: "scrim", onClick: () => setDrawer(false) }),
@@ -13962,6 +14481,6 @@ async function khForceFreshReloadAfterLogin() {
         return;
     }
     await khEnsureFreshBuild();
-    console.log("PANEL BUILD: 1.5.3 (school-service-final-inline-map)");
+    console.log("PANEL BUILD: 1.5.4 (panel-native-radio-school-service)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
 })();
