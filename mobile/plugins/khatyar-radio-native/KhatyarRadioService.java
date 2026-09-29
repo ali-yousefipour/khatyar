@@ -261,9 +261,7 @@ public final class KhatyarRadioService extends Service {
         .build();
     }
     if (Build.VERSION.SDK_INT >= 29) {
-      startForeground(NOTIFICATION_ID, n,
-        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK |
-        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+      startForeground(NOTIFICATION_ID, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
     } else {
       startForeground(NOTIFICATION_ID, n);
     }
