@@ -1,5 +1,5 @@
 import React,{useState,useEffect,useRef}from'react';
-import{AppState,StyleSheet}from'react-native';
+import{AppState}from'react-native';
 import AsyncStorage from'@react-native-async-storage/async-storage';
 import{request}from'./api';
 import{notify}from'./notify';
@@ -140,16 +140,6 @@ export default function PresenceGate({navigationRef}){
   if(due&&alarmOn)startPresenceAlarm().catch(()=>{});else stopPresenceAlarm().catch(()=>{});
   return()=>{stopPresenceAlarm().catch(()=>{})};
  },[due]);
-
- const finish=async(success=true)=>{
-  const current=dueRef.current;
-  if(!current)return;
-  try{await stopPresenceAlarm()}catch(e){}
-  if(success){try{await AsyncStorage.setItem(current.key,'1')}catch(e){}}
-  else if(current.expiredKey&&!current.immediate){try{await AsyncStorage.setItem(current.expiredKey,'1')}catch(e){}}
-  dueRef.current=null;
-  if(mountedRef.current)setDue(null);
- };
 
  return null;
 }
