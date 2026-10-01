@@ -3662,7 +3662,7 @@ function Settings(){
   if(!v)return <div>در حال بارگذاری…</div>;
   const set=(k,val)=>setV({...v,[k]:val});
   const save=async()=>{ await db.saveSettings(v); alert("تنظیمات ذخیره شد."); };
-  const TABS=[["general","عمومی و موقعیت"],["subscription","اشتراک"],["monitoring","پایش و هشدارها"],["dashboard","داشبورد و محاسبهٔ عملکرد"],["hr","منابع انسانی"],["fields","فیلدهای پرسنل"],["appitems","آیتم‌های اپ هر سمت"],["sms","پیامک"],["bale","ربات‌ها"],["radio","بی‌سیم"],["security","امنیت و نسخه اپ"],["files","پیوست‌ها و اعلان‌ها"],["drivers","بدهکاران"],["print","قالب چاپ"],["access","دسترسی‌ها"],["backup","پشتیبان‌گیری و پاکسازی"]];
+  const TABS=[["general","عمومی و موقعیت"],["subscription","اشتراک"],["monitoring","پایش و هشدارها"],["dashboard","داشبورد و محاسبهٔ عملکرد"],["hr","منابع انسانی"],["fields","فیلدهای پرسنل"],["appitems","آیتم‌های اپ هر سمت"],["sms","پیامک"],["bale","ربات‌ها"],["security","امنیت و نسخه اپ"],["files","پیوست‌ها و اعلان‌ها"],["drivers","بدهکاران"],["print","قالب چاپ"],["access","دسترسی‌ها"],["backup","پشتیبان‌گیری و پاکسازی"]];
   const Field=(k,l)=><div style={{marginBottom:12}}><label style={{fontSize:13,color:"var(--muted)"}}>{l}</label>
     <input className="input" value={v[k]??""} onChange={e=>set(k,e.target.value)} style={{marginTop:5}}/></div>;
   const Toggle=(k,l)=><label className="row" style={{justifyContent:"space-between",padding:"8px 0",cursor:"pointer"}}>
@@ -3708,6 +3708,10 @@ function Settings(){
       {Toggle("block_mock_location","مسدودسازی هنگام موقعیت جعلی (Mock)")}
       <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>این قوانین توسط اپ موبایل بررسی و توسط سرور اعمال می‌شوند.</p>
       <MaintenanceModeSettings/>
+    </div>
+    <div className="panel t-security"><h3>📻 تنظیمات بی‌سیم</h3>
+      <p className="muted" style={{fontSize:12,marginBottom:10}}>مدیریت کانال‌های بی‌سیم، سطح دسترسی کانال‌ها و مدت نگهداری آرشیو از همین بخش انجام می‌شود. این تنظیمات دیگر به‌عنوان صفحهٔ جداگانه در منوی سایت نمایش داده نمی‌شوند.</p>
+      <RadioSettings/>
     </div>
     <div className="panel t-general"><h3>تنظیمات موقعیت‌یابی</h3>
       {Field("location_interval_sec","فاصلهٔ ارسال موقعیت کاربران (ثانیه) — پیش‌فرض ۶۰")}
@@ -8078,7 +8082,6 @@ const VIEWS={
   cronstatus:{t:"پایش سلامت کرون‌ها",ic:"⏱",c:CronStatusView},
   activesessions:{t:"جلسات فعال کاربران",ic:"🔐",c:ActiveSessionsView},
   radiocenter:{t:"مرکز بی‌سیم",ic:"📻",c:RadioCenter},
-  radiosettings:{t:"تنظیمات بی‌سیم",ic:"📻",c:RadioSettings},
   vehicleassets:{t:"ماشین‌آلات و وسایل مأموریتی",ic:"🚙",c:PersonnelVehicleAssets},
   vehiclechecklist:{t:"چک‌لیست خودرویی و موتوری",ic:"☑",c:PersonnelVehicleChecklist},
   settings:{t:"تنظیمات سامانه",ic:"⚙",c:Settings},
@@ -8140,7 +8143,7 @@ function App(){
     ["تاکسی و تاکسیران",["drivers","driverservicereport","tempdrivers","platetraining","lines","zones","bills"]],
     ["گزارش‌ها",["reports","report","perfreport","attreport","useract"]],
     ["منابع انسانی",["shifts","workpolicy","requests","salaryslips","commitments","welfare","cultural","vehicleassets","vehiclechecklist"]],
-    ["ارتباطات",["messages","sms","smslog","messengercenter","radiocenter","radiosettings"]],
+    ["ارتباطات",["messages","sms","smslog","messengercenter","radiocenter"]],
     ["مدیریت سامانه",["users","org","forms","config","customfields","inventory","excel","appitems","cronstatus","activesessions","logs","settings"]],
   ];
   const CORE=["dashboard","driverservicereport","schoolservice"];
@@ -8153,9 +8156,9 @@ function App(){
     shifts:'shift-cycle', workpolicy:'work-policy', requests:'request-form', salaryslips:'salary-slip', commitments:'commitment-sign', welfare:'welfare-gift', cultural:'cultural-book',
     messages:'messages-mail', sms:'sms-phone', smslog:'sms-history', messengercenter:'messenger-bot', radiocenter:'radio-tower', users:'users-admin', org:'organization-tree', forms:'forms-pen',
     config:'system-config', customfields:'custom-fields', inventory:'request-box', excel:'excel-upload', appitems:'app-menu', cronstatus:'activity-wave', activesessions:'security-lock', logs:'audit-logs', settings:'settings-gears',
-    vehicleassets:'operation-tools', vehiclechecklist:'checklist', schoolservice:'checklist', radiosettings:'radio-tower'
+    vehicleassets:'operation-tools', vehiclechecklist:'checklist', schoolservice:'checklist'
   };
-  const can=(k)=>!allowed||allowed.includes(k)||CORE.includes(k)||(k==='radiosettings'&&allowed.includes('radiocenter'));
+  const can=(k)=>!allowed||allowed.includes(k)||CORE.includes(k);
   const closeOnPick=(k)=>{ setV(k); setDrawer(false); };
   return(<div className={"layout"+(drawer?" drawer-open":"")}>
     <div className="scrim" onClick={()=>setDrawer(false)}></div>
