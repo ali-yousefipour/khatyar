@@ -94,10 +94,13 @@ function CheckInCore() {
   const timerSyncRef = useRef(null);
   const surplusAlertShownRef = useRef(false);
   const LOCAL_OPEN_KEY = 'attendance_local_open_v1';
+  const LOCAL_WORKED_KEY = 'attendance_local_worked_v1';
   const REMEMBER_SOUND = 'remember.mp3';
   const REMEMBER_CHANNEL_ID = 'attendance_8h_reminder_v1';
   const persistLocalOpen = async (value) => { try { if (value) await AsyncStorage.setItem(LOCAL_OPEN_KEY, JSON.stringify(value)); else await AsyncStorage.removeItem(LOCAL_OPEN_KEY); } catch {} };
   const readLocalOpen = async () => { try { const raw = await AsyncStorage.getItem(LOCAL_OPEN_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } };
+  const readLocalWorked = async () => { try { const raw = await AsyncStorage.getItem(LOCAL_WORKED_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } };
+  const persistLocalWorked = async (value) => { try { if (value) await AsyncStorage.setItem(LOCAL_WORKED_KEY, JSON.stringify(value)); else await AsyncStorage.removeItem(LOCAL_WORKED_KEY); } catch {} };
 
   const load = async () => {
     setLoadError(null);
@@ -115,7 +118,16 @@ function CheckInCore() {
       request('/my/checkin-config', { timeoutMs: 8000 }),
       request('/my/work-timer', { noStore: true, timeoutMs: 8000 }),
     ]);
-    if (timerResult && timerResult.status === 'fulfilled') setTimerInfo(timerResult.value);
+    if (timerResult && timerResult.status === 'fulfilled') {
+      setTimerInfo(timerResult.value);
+      try {
+        const localWorked = await readLocalWorked();
+        const workedSec = Math.max(0, Number(timerResult.value?.elapsed_sec || 0));
+        const completedSec = Math.max(0, Number(timerResult.value?.completed_sec || 0));
+        const activeWorked = timerResult.value?.open ? completedSec : workedSec;
+        if (activeWorked > 0) await persistLocalWorked({ gdate: new Date().toISOString().slice(0,10), worked_sec: activeWorked });
+      } catch {}
+    }
     if (cfgResult.status === 'fulfilled') {
       const fresh = cfgResult.value;
       setCfg(fresh);
@@ -425,8 +437,14 @@ function CheckInCore() {
         } else throw firstError;
       }
       if (r.queued) {
+        const localWorked = await readLocalWorked();
+        const completedSec = Math.max(0, Number(localWorked?.worked_sec || 0));
         const localOpen = { id: `local_${Date.now()}`, line_id: Number(localLine.line.id), check_in: body.client_time, check_out: null, method };
-        await persistLocalOpen(localOpen); setOpen(localOpen); setTimerInfo(null); setElapsed(0); await scheduleExitReminder(localOpen.check_in, 0);
+        await persistLocalOpen(localOpen);
+        setOpen(localOpen);
+        setTimerInfo({ completed_sec: completedSec, elapsed_sec: completedSec });
+        setElapsed(completedSec);
+        await scheduleExitReminder(localOpen.check_in, completedSec);
       } else { await persistLocalOpen(r.open || { id: r.id, line_id: Number(r.line_id || localLine.line.id), check_in: r.check_in || body.client_time, check_out: null, method }); }
       Alert.alert(r.queued ? 'آفلاین' : 'ثبت شد', r.queued ? 'ورود ذخیره شد و بعد از اتصال ارسال می‌شود.' : 'ورود شما ثبت شد.');
       setProofVal('');
@@ -456,12 +474,25 @@ function CheckInCore() {
       }
       const lat = current.lat, lng = current.lng, accuracy = current.acc;
       const checkoutLineId = localLine?.line?.id || Number(open?.line_id || 0) || undefined;
+      const checkoutClientTime = new Date().toISOString();
       const r = await postOrQueue('/my/checkout', {
         lat, lng, accuracy,
-        client_time: new Date().toISOString(),
+        client_time: checkoutClientTime,
         ...(checkoutLineId ? { local_line_id: checkoutLineId } : {}),
         client_uuid: 'checkout_' + Date.now() + '_' + Math.random().toString(36).slice(2,8)
       }, 'checkout');
+
+      // برای خروج آفلاین، زمان این بازه را به مجموع کارکرد روز اضافه کن تا
+      // ورود بعدی حتی بدون اینترنت نیز تایمر را از زمان قبلی ادامه دهد.
+      try {
+        const previous = await readLocalWorked();
+        const baseSec = Math.max(0, Number(timerInfo?.completed_sec ?? previous?.worked_sec ?? 0));
+        const start = tehranTimeToEpochMs(open?.check_in);
+        const end = tehranTimeToEpochMs(checkoutClientTime);
+        const sessionSec = start != null && end != null ? Math.max(0, Math.floor((end - start) / 1000)) : 0;
+        const workedSec = Math.max(0, baseSec + sessionSec);
+        if (workedSec > 0) await persistLocalWorked({ gdate: String(open?.check_in || '').slice(0,10) || new Date().toISOString().slice(0,10), worked_sec: workedSec });
+      } catch {}
       const lineText = r?.checkout_line_code ? ` در خط ${faNum(String(r.checkout_line_code))}` : '';
       Alert.alert(
         r.queued ? 'آفلاین' : 'ثبت شد',
@@ -474,6 +505,9 @@ function CheckInCore() {
       await persistLocalOpen(null);
       setOpen(null);
       setElapsed(0);
+      if (!r.queued) {
+        // پاسخ آنلاین و سپس load() مرجع نهایی سرور برای مجموع کارکرد روز است.
+      }
       setTimerInfo(null);
       load().catch(() => {});
     } catch (e) { Alert.alert('خطا', e.message || 'ثبت خروج ناموفق'); }
