@@ -10001,40 +10001,95 @@ function PunchPopup({ day, onClose, onEdit, onDel, onAdd }) {
         React.createElement("button", { onClick: onClose, style: { position: "absolute", top: 6, left: 8, border: "none", background: "none", color: "#9aa", cursor: "pointer", fontSize: 16 } }, "\u00D7")));
 }
 // مودال ویرایش ساعت یک پانچ (ادمین)
-function PunchEditModal({ punch, onSave, onClose }) {
-    const [ci, setCi] = useState(punch.in || "");
-    const [co, setCo] = useState(punch.out || "");
-    return (React.createElement("div", { className: "modal-bg", onClick: onClose },
-        React.createElement("div", { className: "modal", onClick: e => e.stopPropagation(), style: { maxWidth: 340 } },
-            React.createElement("h4", null, "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0633\u0627\u0639\u062A \u062A\u0631\u062F\u062F"),
-            React.createElement("label", { className: "label" }, "\u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F (HH:MM)"),
-            React.createElement("input", { className: "input", value: ci, onChange: e => setCi(e.target.value), placeholder: "\u0645\u062B\u0644\u0627\u064B 08:55", style: { direction: "ltr", textAlign: "left" } }),
-            React.createElement("label", { className: "label" }, "\u0633\u0627\u0639\u062A \u062E\u0631\u0648\u062C (HH:MM)"),
-            React.createElement("input", { className: "input", value: co, onChange: e => setCo(e.target.value), placeholder: "\u0645\u062B\u0644\u0627\u064B 13:00 \u06CC\u0627 \u062E\u0627\u0644\u06CC", style: { direction: "ltr", textAlign: "left" } }),
-            React.createElement("p", { style: { fontSize: 11, color: "var(--muted)", marginTop: 6 } }, "\u0627\u06AF\u0631 \u062E\u0631\u0648\u062C \u06A9\u0648\u0686\u06A9\u200C\u062A\u0631 \u0627\u0632 \u0648\u0631\u0648\u062F \u0628\u0627\u0634\u062F\u060C \u0628\u0647 \u0631\u0648\u0632 \u0628\u0639\u062F \u0645\u0646\u062A\u0642\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F (\u0634\u06CC\u0641\u062A \u0634\u0628)."),
-            React.createElement("div", { className: "row", style: { gap: 8, marginTop: 12, justifyContent: "flex-end" } },
-                React.createElement("button", { className: "btn g", onClick: onClose }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
-                React.createElement("button", { className: "btn p", onClick: () => onSave(punch, ci, co) }, "\u0630\u062E\u06CC\u0631\u0647")))));
+function normalizeHm(v) {
+    const raw = String(v || "").trim().replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
+    const m = raw.match(/^\\d{1,2}:\\d{2}$/);
+    if (!m)
+        return null;
+    const parts = raw.split(":");
+    const h = +parts[0], min = +parts[1];
+    if (h < 0 || h > 23 || min < 0 || min > 59)
+        return null;
+    return String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
 }
-// مودال افزودن تردد دستی (ادمین)
+function HmField({ label, value, onChange, optional = false, autoFocus = false }) {
+    return React.createElement("div", { className: "punch-field" },
+        React.createElement("label", { className: "label" },
+            label,
+            optional ? " — اختیاری" : ""),
+        React.createElement("input", { className: "input punch-time-input", inputMode: "numeric", type: "text", maxLength: 5, autoFocus: autoFocus, value: value, onChange: e => onChange(e.target.value.replace(/[^0-9۰-۹٠-٩:]/g, "").slice(0, 5)), onBlur: e => { const v = e.target.value.trim(); if (v)
+                onChange(normalizeHm(v) || v); }, placeholder: "\u0645\u062B\u0644\u0627\u064B 08:55", "aria-label": label }));
+}
+function PunchModalShell({ title, subtitle, children, onClose, actions }) {
+    return React.createElement("div", { className: "modal-bg punch-modal-bg", onClick: onClose },
+        React.createElement("div", { className: "modal punch-modal", role: "dialog", "aria-modal": "true", onClick: e => e.stopPropagation() },
+            React.createElement("div", { className: "punch-modal-head" },
+                React.createElement("div", null,
+                    React.createElement("h3", null, title),
+                    subtitle && React.createElement("div", { className: "punch-modal-sub" }, subtitle)),
+                React.createElement("button", { type: "button", className: "punch-modal-close", onClick: onClose, "aria-label": "\u0628\u0633\u062A\u0646" }, "\u00D7")),
+            children,
+            React.createElement("div", { className: "punch-modal-actions" }, actions)));
+}
+function PunchEditModal({ punch, onSave, onClose }) {
+    const [ci, setCi] = useState(normalizeHm(punch.in) || punch.in || "");
+    const [co, setCo] = useState(normalizeHm(punch.out) || punch.out || "");
+    const [err, setErr] = useState("");
+    const submit = () => {
+        const nci = normalizeHm(ci), nco = co.trim() ? normalizeHm(co) : "";
+        if (!nci) {
+            setErr("ساعت ورود را به شکل صحیح (۰۰:۰۰ تا ۲۳:۵۹) وارد کنید.");
+            return;
+        }
+        if (co.trim() && !nco) {
+            setErr("ساعت خروج را به شکل صحیح (۰۰:۰۰ تا ۲۳:۵۹) وارد کنید.");
+            return;
+        }
+        setErr("");
+        onSave(punch, nci, nco);
+    };
+    return React.createElement(PunchModalShell, { title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0633\u0627\u0639\u062A \u062A\u0631\u062F\u062F", subtitle: "\u0627\u0635\u0644\u0627\u062D \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632", onClose: onClose, actions: React.createElement(React.Fragment, null,
+            React.createElement("button", { className: "btn g punch-action-secondary", onClick: onClose }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
+            React.createElement("button", { className: "btn p punch-action-primary", onClick: submit }, "\u0630\u062E\u06CC\u0631\u0647 \u062A\u063A\u06CC\u06CC\u0631\u0627\u062A")) },
+        React.createElement("div", { className: "punch-summary" },
+            React.createElement("span", null, "\u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C"),
+            React.createElement("small", null, "\u0641\u0631\u0645\u062A \u06F2\u06F4 \u0633\u0627\u0639\u062A\u0647")),
+        React.createElement("div", { className: "punch-fields" },
+            React.createElement(HmField, { label: "\u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F", value: ci, onChange: setCi, autoFocus: true }),
+            React.createElement(HmField, { label: "\u0633\u0627\u0639\u062A \u062E\u0631\u0648\u062C", value: co, onChange: setCo, optional: true })),
+        err ? React.createElement("div", { className: "punch-error", role: "alert" },
+            "\u26A0 ",
+            err) : React.createElement("div", { className: "punch-info" }, "\u2139 \u0627\u06AF\u0631 \u062E\u0631\u0648\u062C \u0627\u0632 \u0648\u0631\u0648\u062F \u06A9\u0648\u0686\u06A9\u200C\u062A\u0631 \u0628\u0627\u0634\u062F\u060C \u062A\u0631\u062F\u062F \u0628\u0647 \u0631\u0648\u0632 \u0628\u0639\u062F \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F (\u0634\u06CC\u0641\u062A \u0634\u0628)."));
+}
 function PunchAddModal({ jdate, onSave, onClose }) {
     const [ci, setCi] = useState("");
     const [co, setCo] = useState("");
-    return (React.createElement("div", { className: "modal-bg", onClick: onClose },
-        React.createElement("div", { className: "modal", onClick: e => e.stopPropagation(), style: { maxWidth: 340 } },
-            React.createElement("h4", null,
-                "\u062F\u0631\u062E\u0648\u0627\u0633\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC \u2014 ",
-                fa(jdate)),
-            React.createElement("label", { className: "label" }, "\u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F (HH:MM)"),
-            React.createElement("input", { className: "input", value: ci, onChange: e => setCi(e.target.value), placeholder: "\u0645\u062B\u0644\u0627\u064B 08:55", style: { direction: "ltr", textAlign: "left" } }),
-            React.createElement("label", { className: "label" }, "\u0633\u0627\u0639\u062A \u062E\u0631\u0648\u062C (HH:MM) \u2014 \u0627\u062E\u062A\u06CC\u0627\u0631\u06CC"),
-            React.createElement("input", { className: "input", value: co, onChange: e => setCo(e.target.value), placeholder: "\u0645\u062B\u0644\u0627\u064B 13:00", style: { direction: "ltr", textAlign: "left" } }),
-            React.createElement("div", { className: "row", style: { gap: 8, marginTop: 12, justifyContent: "flex-end" } },
-                React.createElement("button", { className: "btn g", onClick: onClose }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
-                React.createElement("button", { className: "btn p", onClick: () => { if (!ci) {
-                        alert("ساعت ورود الزامی است");
-                        return;
-                    } onSave(jdate, ci, co); } }, "\u062B\u0628\u062A")))));
+    const [err, setErr] = useState("");
+    const submit = () => {
+        const nci = normalizeHm(ci), nco = co.trim() ? normalizeHm(co) : "";
+        if (!nci) {
+            setErr("ساعت ورود الزامی است و باید بین ۰۰:۰۰ تا ۲۳:۵۹ باشد.");
+            return;
+        }
+        if (co.trim() && !nco) {
+            setErr("ساعت خروج باید به شکل صحیح (۰۰:۰۰ تا ۲۳:۵۹) وارد شود.");
+            return;
+        }
+        setErr("");
+        onSave(jdate, nci, nco);
+    };
+    return React.createElement(PunchModalShell, { title: "\u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC", subtitle: "تاریخ: " + fa(jdate), onClose: onClose, actions: React.createElement(React.Fragment, null,
+            React.createElement("button", { className: "btn g punch-action-secondary", onClick: onClose }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
+            React.createElement("button", { className: "btn p punch-action-primary", onClick: submit }, "\u062B\u0628\u062A \u062A\u0631\u062F\u062F")) },
+        React.createElement("div", { className: "punch-summary" },
+            React.createElement("span", null, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u0631\u062F\u062F"),
+            React.createElement("small", null, "\u0648\u0631\u0648\u062F \u0627\u0644\u0632\u0627\u0645\u06CC \u00B7 \u062E\u0631\u0648\u062C \u0627\u062E\u062A\u06CC\u0627\u0631\u06CC")),
+        React.createElement("div", { className: "punch-fields" },
+            React.createElement(HmField, { label: "\u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F", value: ci, onChange: setCi, autoFocus: true }),
+            React.createElement(HmField, { label: "\u0633\u0627\u0639\u062A \u062E\u0631\u0648\u062C", value: co, onChange: setCo, optional: true })),
+        err && React.createElement("div", { className: "punch-error", role: "alert" },
+            "\u26A0 ",
+            err));
 }
 function ShiftReport() {
     const tj = todayJ();
