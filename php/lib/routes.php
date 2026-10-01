@@ -6071,7 +6071,9 @@ route('DELETE', '/api/admin/line-idents/{id}', function($p,$b,$u){
 route('GET', '/api/admin/staff-attendance', function($p,$b,$u){
   $from = $_GET['from'] ?? date('Y-m-d'); $to = $_GET['to'] ?? $from;
   $from = date('Y-m-d', strtotime($from)); $to = date('Y-m-d', strtotime($to));
-  $cond = ["DATE(sa.check_in) BETWEEN ? AND ?"]; $args = [$from, $to];
+  // گزارش باید بر اساس هم‌پوشانی جلسه با بازه باشد؛ تردد شبانه از روز قبل نیز دیده می‌شود.
+  $toExclusive = date('Y-m-d H:i:s', strtotime($to) + 86400);
+  $cond = ["sa.check_in < ?", "COALESCE(sa.check_out, NOW()) > ?"]; $args = [$toExclusive, $from.' 00:00:00'];
   if (!empty($_GET['user_id'])) { $cond[] = "sa.user_id=?"; $args[] = (int)$_GET['user_id']; }
   if (!empty($_GET['line_id'])) { $cond[] = "sa.line_id=?"; $args[] = (int)$_GET['line_id']; }
   if (!empty($_GET['role_id'])) { $cond[] = "us.role_id=?"; $args[] = (int)$_GET['role_id']; }
@@ -6079,16 +6081,20 @@ route('GET', '/api/admin/staff-attendance', function($p,$b,$u){
   $where = implode(' AND ', $cond);
   return Db::all("SELECT sa.id, CONCAT(us.first_name,' ',us.last_name) name, r.title role, l.code line,
       sa.check_in, sa.check_out, sa.method,
-      TIMESTAMPDIFF(MINUTE, sa.check_in, COALESCE(sa.check_out, NOW())) minutes
+      TIMESTAMPDIFF(MINUTE,
+        GREATEST(sa.check_in, ?),
+        LEAST(COALESCE(sa.check_out, NOW()), ?)
+      ) minutes
     FROM staff_attendance sa JOIN users us ON us.id=sa.user_id LEFT JOIN roles r ON r.id=us.role_id
     LEFT JOIN `lines` l ON l.id=sa.line_id
-    WHERE $where ORDER BY sa.check_in DESC LIMIT 2000", $args);
+    WHERE $where ORDER BY sa.check_in DESC LIMIT 2000", array_merge([$from.' 00:00:00', $toExclusive], $args));
 }, false, ADMIN);
 // خروجی CSV حضور نیروها (با همان فیلترها + سربرگ سازمان)
 route('GET', '/api/admin/staff-attendance/export', function($p,$b,$u){
   $from = $_GET['from'] ?? date('Y-m-d'); $to = $_GET['to'] ?? $from;
   $from = date('Y-m-d', strtotime($from)); $to = date('Y-m-d', strtotime($to));
-  $cond = ["DATE(sa.check_in) BETWEEN ? AND ?"]; $args = [$from, $to];
+  $toExclusive = date('Y-m-d H:i:s', strtotime($to) + 86400);
+  $cond = ["sa.check_in < ?", "COALESCE(sa.check_out, NOW()) > ?"]; $args = [$toExclusive, $from.' 00:00:00'];
   if (!empty($_GET['user_id'])) { $cond[] = "sa.user_id=?"; $args[] = (int)$_GET['user_id']; }
   if (!empty($_GET['line_id'])) { $cond[] = "sa.line_id=?"; $args[] = (int)$_GET['line_id']; }
   if (!empty($_GET['role_id'])) { $cond[] = "us.role_id=?"; $args[] = (int)$_GET['role_id']; }
@@ -6096,8 +6102,13 @@ route('GET', '/api/admin/staff-attendance/export', function($p,$b,$u){
   $where = implode(' AND ', $cond);
   $rows = Db::all("SELECT CONCAT(us.first_name,' ',us.last_name) name, r.title role, l.code line,
       sa.check_in, sa.check_out, sa.method,
-      TIMESTAMPDIFF(MINUTE, sa.check_in, COALESCE(sa.check_out, NOW())) minutes
+      TIMESTAMPDIFF(MINUTE,
+        GREATEST(sa.check_in, ?),
+        LEAST(COALESCE(sa.check_out, NOW()), ?)
+      ) minutes
     FROM staff_attendance sa JOIN users us ON us.id=sa.user_id LEFT JOIN roles r ON r.id=us.role_id
+    LEFT JOIN `lines` l ON l.id=sa.line_id WHERE $where ORDER BY sa.check_in DESC LIMIT 10000",
+    array_merge([$from.' 00:00:00', $toExclusive], $args));
     LEFT JOIN `lines` l ON l.id=sa.line_id WHERE $where ORDER BY sa.check_in DESC LIMIT 10000", $args);
   $methodFa = ['gps'=>'GPS','qr'=>'QR','wifi'=>'WiFi','nfc'=>'NFC','bt'=>'بلوتوث','manual'=>'دستی'];
   header('Content-Type: text/csv; charset=UTF-8');
