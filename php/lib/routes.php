@@ -771,9 +771,9 @@ route('GET', '/api/cron/presence-alert', function($p,$b,$u){
   if (!$key || ($_GET['key'] ?? '') !== $key) Http::error('forbidden', 403);
   $cfgRow = Db::one("SELECT value FROM app_settings WHERE `key`='presence_check'");
   $cfg = $cfgRow ? json_decode($cfgRow['value'], true) : [];
-  if (empty($cfg['enabled']) || empty($cfg['slots']) || (isset($cfg['server_push']) && empty($cfg['server_push']))) return ['ok'=>true,'sent'=>0,'reason'=>'disabled'];
+  if (empty($cfg['enabled']) || (isset($cfg['server_push']) && empty($cfg['server_push']))) return ['ok'=>true,'sent'=>0,'reason'=>'disabled'];
   $now = time(); $today = date('Y-m-d'); $sent = 0; $win = max(1,(int)($cfg['window_minutes'] ?? 1));
-  foreach (($cfg['slots'] ?? []) as $sl) {
+  if(empty($cfg['random_enabled'])) foreach (($cfg['slots'] ?? []) as $sl) {
     if (!preg_match('/^\d{2}:\d{2}$/', $sl)) continue;
     $slotTs = strtotime($today.' '.$sl.':00');
     if ($now < $slotTs || $now > $slotTs + 70) continue; // فقط همان حوالی شروع بازه، جلوگیری از ارسال تکراری
@@ -790,6 +790,7 @@ route('GET', '/api/cron/presence-alert', function($p,$b,$u){
       $sent += count($targets);
     }
   }
+  // در حالت تصادفی، ساعت‌های دستی عمداً نادیده گرفته می‌شوند.
   // زمان‌بندی تصادفی: زمان‌ها از لحظهٔ ثبت ورود هر پرسنل مستقل هستند و فقط تا وقتی حضور باز است ارسال می‌شوند.
   if(_presence_random_schedule_enabled($cfg)){
     _ensure_presence_random_schedule_schema();
