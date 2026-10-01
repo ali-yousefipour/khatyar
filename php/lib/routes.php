@@ -2154,10 +2154,11 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
   try {
     [$jy,$jm,$jd] = gregorian_to_jalali((int)date('Y',strtotime($open['check_in'])),(int)date('n',strtotime($open['check_in'])),(int)date('j',strtotime($open['check_in'])));
     $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
-    $shift = _active_user_shift_assignment($u['id'], $jdate);
+    // همان مبنای گزارش و تایمر: در نبود تخصیص صریح، شیفت خودکار استفاده شود.
+    $shift = _active_user_shift_assignment($u['id'], $jdate) ?: _auto_shift_for_user($u['id']);
     $sessions = [['in'=>strtotime($open['check_in']),'out'=>strtotime($now)]];
-    $hol = (bool)Db::one("SELECT jdate FROM holidays WHERE jdate IN (?,?) LIMIT 1", [$jdate, str_replace('-','/',$jdate)]);
-    $w = ShiftCalc::dayWork($shift,$jdate,null,$sessions,$hol);
+    $hol = ShiftCalc::effectiveHoliday($jdate, (bool)Db::one("SELECT jdate FROM holidays WHERE jdate IN (?,?) LIMIT 1", [$jdate, str_replace('-','/',$jdate)]));
+    $w = $shift ? ShiftCalc::dayWork($shift,$jdate,null,$sessions,$hol) : ['worked'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'surplus'=>0];
     Db::run("UPDATE staff_attendance SET calc_json=? WHERE id=?", [json_encode($w,JSON_UNESCAPED_UNICODE), $open['id']]);
   } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { _notify_attendance_action('checkout',(int)$u['id'],$open['line_id']??null,$open['method']??'gps',$outStation,$now); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
