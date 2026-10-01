@@ -2660,6 +2660,13 @@ function _attendance_rows_for_jdate($userId,$jdate){
 // گزارش تجمیعی کارکرد ماهانه (شبیه فینتو) — بر اساس staff_attendance و شیفت کاربر
 // پارامترها: ?year=1404&month=6  (یا from/to جلالی)
 function _shift_month_report($jy, $jm) {
+  // رکوردهای بازِ قدیمی باید قبل از گزارش مطابق سیاست Auto-Close بسته شوند؛
+  // وگرنه گزارش ماه‌های گذشته ممکن است یک جلسهٔ باز را صفر محاسبه کند.
+  try {
+    foreach (Db::all("SELECT DISTINCT user_id FROM staff_attendance WHERE check_out IS NULL") as $or) {
+      _attendance_auto_close_stale((int)$or['user_id']);
+    }
+  } catch (Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   $jmStr = str_pad($jm, 2, '0', STR_PAD_LEFT);
   $prefix = "$jy-$jmStr-";
   // تعداد روزهای ماه شمسی: ۱..۶ ⇒۳۱، ۷..۱۱⇒۳۰، ۱۲⇒۲۹/۳۰
@@ -2768,6 +2775,8 @@ function _jweekday_name($jy,$jm,$jd){
 }
 // گزارش تردد روزانهٔ یک پرسنل در بازهٔ جلالی
 function _attendance_report($userId,$fromJ,$toJ){
+  // گزارش باید همان وضعیت Auto-Close را که تایمر و ثبت تردد استفاده می‌کنند ببیند.
+  try { _attendance_auto_close_stale((int)$userId); } catch (Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='personnel_code'")) Db::run("ALTER TABLE users ADD COLUMN personnel_code VARCHAR(40) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='birth_date'")) Db::run("ALTER TABLE users ADD COLUMN birth_date VARCHAR(20) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='rank_stars'")) Db::run("ALTER TABLE users ADD COLUMN rank_stars TINYINT NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
