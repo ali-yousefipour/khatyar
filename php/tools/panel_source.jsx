@@ -6056,13 +6056,18 @@ function normalizeHm(v){
   if(h<0||h>23||min<0||min>59)return null;
   return String(h).padStart(2,"0")+":"+String(min).padStart(2,"0");
 }
-function HmField({label,value,onChange,optional=false,autoFocus=false}){
+function HmField({label,value,onChange,optional=false,autoFocus=false}){ 
+  const normalized=normalizeHm(value)||"";
   return <div className="punch-field">
     <label className="label">{label}{optional?" — اختیاری":""}</label>
-    <input className="input punch-time-input" inputMode="numeric" type="text" maxLength={5} autoFocus={autoFocus}
-      value={value} onChange={e=>onChange(e.target.value.replace(/[^0-9۰-۹٠-٩:]/g,"").slice(0,5))}
-      onBlur={e=>{const v=e.target.value.trim(); if(v)onChange(normalizeHm(v)||v);}}
-      placeholder="مثلاً 08:55" aria-label={label} />
+    <div className="punch-time-control">
+      <input className="input punch-time-input" inputMode="numeric" type="time" step="60" autoFocus={autoFocus}
+        value={normalized}
+        onChange={e=>onChange(e.target.value)}
+        aria-label={label}
+        aria-describedby={label+"-hint"} />
+      <span id={label+"-hint"} className="punch-time-hint">تایپ کنید یا از انتخاب‌گر ساعت استفاده کنید</span>
+    </div>
   </div>;
 }
 function PunchModalShell({title,subtitle,children,onClose,actions}){
