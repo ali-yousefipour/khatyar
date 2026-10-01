@@ -623,6 +623,88 @@ function _presence_is_required_for_user($userId, $cfg, $presenceRequired=true, $
   return true;
 }
 
+// زمان‌بندی تصادفی صحت‌سنجی: در هر بلوک ۴ ساعته، ۳ زمان مستقل برای هر حضور ساخته می‌شود.
+function _ensure_presence_random_schedule_schema(){
+  try{
+    Db::run("CREATE TABLE IF NOT EXISTS presence_random_schedules(
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      attendance_id BIGINT UNSIGNED NOT NULL,
+      checkin_at DATETIME NOT NULL,
+      schedule_json LONGTEXT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY(id),
+      UNIQUE KEY uq_prs_attendance(attendance_id),
+      KEY idx_prs_user_attendance(user_id,attendance_id),
+      KEY idx_prs_checkin(checkin_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  }catch(Throwable $e){}
+}
+function _presence_random_schedule_enabled($cfg){
+  return !empty($cfg['enabled']) && !empty($cfg['random_enabled']);
+}
+function _presence_random_generate_schedule($checkinAt,$windowMinutes=1,$blocks=6){
+  $ts=strtotime((string)$checkinAt);
+  if(!$ts)return [];
+  $window=max(1,min(10,(int)$windowMinutes));
+  $out=[];
+  // حداکثر ۲۴ ساعت بعد از ورود؛ وضعیت باز بودن حضور در کرون تعیین می‌کند که بعد از خروج چیزی ارسال نشود.
+  for($b=0;$b<max(1,(int)$blocks);$b++){
+    $base=$ts+($b*4*3600);
+    $candidates=[];
+    $attempts=0;
+    while(count($candidates)<3 && $attempts<80){
+      $attempts++;
+      $offset=random_int(10*60,230*60);
+      $candidate=$base+$offset;
+      $ok=true;
+      foreach($candidates as $x)if(abs($candidate-$x)<30*60){$ok=false;break;}
+      if($ok)$candidates[]=$candidate;
+    }
+    sort($candidates,SORT_NUMERIC);
+    foreach($candidates as $idx=>$at){
+      $out[]=[
+        'id'=>($b*3)+$idx+1,
+        'at'=>date('Y-m-d H:i:s',$at),
+        'ts'=>$at,
+        'slot'=>date('H:i',$at),
+        'window_minutes'=>$window,
+        'block'=>$b+1
+      ];
+    }
+  }
+  usort($out,fn($a,$b)=>($a['ts']??0)<=>($b['ts']??0));
+  return $out;
+}
+function _presence_random_schedule_for_attendance($userId,$attendanceId,$checkinAt,$cfg){
+  _ensure_presence_random_schedule_schema();
+  if(!_presence_random_schedule_enabled($cfg))return [];
+  $existing=Db::one("SELECT schedule_json FROM presence_random_schedules WHERE attendance_id=? LIMIT 1",[$attendanceId]);
+  if($existing){
+    $j=json_decode($existing['schedule_json']??'',true);
+    return is_array($j)?$j:[];
+  }
+  $win=max(1,min(10,(int)($cfg['window_minutes']??1)));
+  $items=_presence_random_generate_schedule($checkinAt,$win,6);
+  Db::run("INSERT INTO presence_random_schedules(user_id,attendance_id,checkin_at,schedule_json) VALUES(?,?,?,?)",[
+    $userId,$attendanceId,$checkinAt,json_encode($items,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)
+  ]);
+  return $items;
+}
+function _presence_random_schedule_payload($items){
+  return array_values(array_map(function($x){
+    return [
+      'id'=>(int)($x['id']??0),
+      'at'=>(string)($x['at']??''),
+      'ts'=>(int)($x['ts']??0),
+      'slot'=>(string)($x['slot']??''),
+      'window_minutes'=>max(1,(int)($x['window_minutes']??1)),
+      'block'=>(int)($x['block']??0)
+    ];
+  },is_array($items)?$items:[]));
+}
+
 // پیکربندی برای اپ موبایل: آیا فعال است، آیا این کاربر مشمول است، بازه‌های ساعتی، مهلت
 route('GET', '/api/my/presence-config', function($p,$b,$u){
   $cfgRow = Db::one("SELECT value FROM app_settings WHERE `key`='presence_check'");
@@ -639,7 +721,23 @@ route('GET', '/api/my/presence-config', function($p,$b,$u){
     'alarm' => !isset($cfg['alarm']) ? true : !empty($cfg['alarm']), // صدای آلارم هنگام صحت‌سنجی
     'audience' => $cfg['audience'] ?? 'all_required', // all_required | shift_only
     'server_push' => !isset($cfg['server_push']) ? true : !empty($cfg['server_push']),
+    'random_enabled' => !empty($cfg['random_enabled']),
   ];
+});
+
+// برنامهٔ زمان‌بندی تصادفی فعال برای جلسهٔ حضور فعلی؛ برای بازیابی کش اپ نیز استفاده می‌شود.
+route('GET', '/api/my/presence-random-schedule', function($p,$b,$u){
+  $cfgRow=Db::one("SELECT value FROM app_settings WHERE `key`='presence_check'");
+  $cfg=$cfgRow?json_decode($cfgRow['value'],true):[];
+  if(!_presence_random_schedule_enabled($cfg)) return ['ok'=>true,'enabled'=>false,'items'=>[]];
+  $open=Db::one("SELECT id,check_in FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1",[$u['id']]);
+  if(!$open)return ['ok'=>true,'enabled'=>true,'items'=>[]];
+  $jdate=_presence_today_jdate();
+  $presenceRequired=false;
+  try{$rr=Db::one("SELECT presence_required FROM users WHERE id=?",[$u['id']]);$presenceRequired=!empty($rr['presence_required']);}catch(Throwable $e){}
+  if(!_presence_is_required_for_user((int)$u['id'],$cfg,$presenceRequired,$jdate,strtotime($open['check_in']))) return ['ok'=>true,'enabled'=>true,'items'=>[]];
+  $items=_presence_random_schedule_for_attendance((int)$u['id'],(int)$open['id'],$open['check_in'],$cfg);
+  return ['ok'=>true,'enabled'=>true,'attendance_id'=>(int)$open['id'],'items'=>_presence_random_schedule_payload($items)];
 });
 
 // ثبت صحت‌سنجی: سلفی + عکس خودروها + موقعیت
@@ -2132,8 +2230,20 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   $inStation = ($st['name'] ?? null) ?: _station_name_at($lat, $lng, $lineIds);
   $id = Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,check_in,in_lat,in_lng,in_station,client_check_in) VALUES(?,?,?,?,?,?,?,?)",
     [$u['id'], $lineId ?: null, $method, $eventAt, $lat, $lng, $inStation, $eventAt]);
+  $presenceSchedule=[];
+  try{
+    $pcRow=Db::one("SELECT value FROM app_settings WHERE `key`='presence_check'");
+    $pcfg=$pcRow?json_decode($pcRow['value'],true):[];
+    $presenceRequired=false;
+    try{$pr=Db::one("SELECT presence_required FROM users WHERE id=?",[$u['id']]);$presenceRequired=!empty($pr['presence_required']);}catch(Throwable $e){}
+    [$pjy,$pjm,$pjd]=gregorian_to_jalali((int)date('Y',strtotime($eventAt)),(int)date('n',strtotime($eventAt)),(int)date('j',strtotime($eventAt)));
+    $pjdate=sprintf('%04d-%02d-%02d',$pjy,$pjm,$pjd);
+    if(_presence_random_schedule_enabled($pcfg) && _presence_is_required_for_user((int)$u['id'],$pcfg,$presenceRequired,$pjdate,strtotime($eventAt))){
+      $presenceSchedule=_presence_random_schedule_for_attendance((int)$u['id'],(int)$id,$eventAt,$pcfg);
+    }
+  }catch(Throwable $e){ error_log('presence random schedule suppressed: '.$e->getMessage()); }
   try { _notify_attendance_action('checkin',(int)$u['id'],$lineId ?: null,$method,$inStation,$eventAt); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  return ['ok'=>true, 'id'=>$id, 'check_in'=>$eventAt];
+  return ['ok'=>true, 'id'=>$id, 'check_in'=>$eventAt, 'presence_random_schedule'=>_presence_random_schedule_payload($presenceSchedule)];
 });
 
 // ثبت خروج
