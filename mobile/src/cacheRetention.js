@@ -1,6 +1,8 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
-// سیاست کش محلی خطیار مستقل از تنظیمات سرور است و همیشه ۲۴ ساعت است.
+// سیاست فایل‌های موقت محلی خطیار مستقل از تنظیمات سرور است و همیشه ۲۴ ساعت است.
+// فقط FileSystem.cacheDirectory پاک می‌شود؛ صف آفلاین و فایل‌های در انتظار ارسال
+// در documentDirectory قرار دارند و عمداً تحت این پاکسازی نیستند.
 export const APP_CACHE_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 const safeDelete = async (uri) => {
@@ -57,7 +59,8 @@ export function startAppCacheRetention() {
     purgeExpiredAppCache().catch(() => {});
   };
   run();
-  const timer = setInterval(run, 6 * 60 * 60 * 1000);
+  // پاکسازی زمان‌بندی‌شده دقیقاً هر ۲۴ ساعت؛ در شروع برنامه نیز یک‌بار اجرا می‌شود.
+  const timer = setInterval(run, APP_CACHE_RETENTION_MS);
   return () => {
     stopped = true;
     clearInterval(timer);
