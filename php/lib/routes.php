@@ -950,21 +950,49 @@ route('GET', '/api/admin/presence-violations', function($p,$b,$u){
   $cfgRow = Db::one("SELECT value FROM app_settings WHERE `key`='presence_check'");
   $cfg = $cfgRow ? json_decode($cfgRow['value'], true) : [];
   if (empty($cfg['enabled'])) return [];
-  $slots = $cfg['slots'] ?? []; if (!$slots) return [];
   $grace = (int)($cfg['grace_minutes'] ?? 15);
   $users = Db::all("SELECT u.id, CONCAT(u.first_name,' ',u.last_name) name, r.title role FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 AND u.presence_required=1");
-  $aud = $cfg['audience'] ?? 'all_required';
   $done = Db::all("SELECT user_id, slot_date, slot FROM presence_checks WHERE slot_date BETWEEN ? AND ?", [$from,$to]);
   $doneSet = [];
   foreach ($done as $d) $doneSet[$d['user_id'].'|'.$d['slot_date'].'|'.$d['slot']] = true;
-  $out = []; $now = time();
+  $out=[]; $now=time();
+
+  if(!empty($cfg['random_enabled'])){
+    _ensure_presence_random_schedule_schema();
+    $rows=Db::all("SELECT prs.user_id,prs.schedule_json,CONCAT(us.first_name,' ',us.last_name) name,r.title role
+      FROM presence_random_schedules prs
+      JOIN users us ON us.id=prs.user_id
+      LEFT JOIN roles r ON r.id=us.role_id
+      JOIN staff_attendance sa ON sa.id=prs.attendance_id
+      WHERE us.is_active=1 AND us.presence_required=1
+        AND DATE(sa.check_in) <= ? AND (sa.check_out IS NULL OR DATE(sa.check_out) >= ?)
+      ORDER BY prs.id DESC",[$to,$from]);
+    foreach($rows as $row){
+      $items=json_decode($row['schedule_json']??'',true);
+      if(!is_array($items))continue;
+      foreach($items as $it){
+        $ts=(int)($it['ts']??0); if(!$ts)continue;
+        $ds=date('Y-m-d',$ts);
+        if($ds<$from||$ds>$to)continue;
+        if($ts+$grace*60>$now)continue;
+        $slot=(string)($it['slot']??date('H:i',$ts));
+        if(!empty($doneSet[$row['user_id'].'|'.$ds.'|'.$slot]))continue;
+        $out[]=['user_id'=>(int)$row['user_id'],'name'=>$row['name'],'role'=>$row['role'],'slot_date'=>$ds,'slot'=>$slot,'type'=>'عدم ارسال صحت‌سنجی حضور'];
+      }
+    }
+    return $out;
+  }
+
+  $slots = $cfg['slots'] ?? []; if (!$slots) return [];
+  $aud = $cfg['audience'] ?? 'all_required';
+  foreach($done as $d) $doneSet[$d['user_id'].'|'.$d['slot_date'].'|'.$d['slot']] = true;
   $start = strtotime($from); $end = strtotime($to);
   for ($day = $start; $day <= $end; $day += 86400) {
     $ds = date('Y-m-d', $day);
     foreach ($users as $usr) {
       foreach ($slots as $sl) {
         $deadline = strtotime($ds.' '.$sl.':00') + $grace*60;
-        if ($deadline > $now) continue; // هنوز مهلت نگذشته
+        if ($deadline > $now) continue;
         if ($aud === 'shift_only' && !_presence_user_in_shift((int)$usr['id'], $ds, strtotime($ds.' '.$sl.':00'))) continue;
         if (empty($doneSet[$usr['id'].'|'.$ds.'|'.$sl])) {
           $out[] = ['user_id'=>(int)$usr['id'],'name'=>$usr['name'],'role'=>$usr['role'],'slot_date'=>$ds,'slot'=>$sl,'type'=>'عدم ارسال صحت‌سنجی حضور'];
