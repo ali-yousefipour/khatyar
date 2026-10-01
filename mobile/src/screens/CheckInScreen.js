@@ -163,12 +163,16 @@ function CheckInCore() {
           const sessionDate = String(localOpen.check_in).slice(0,10);
           const workedDate = String(localWorked?.gdate || '');
           const completedSec = workedDate === sessionDate
-            ? Math.max(0, Number(localWorked?.worked_sec || 0))
+            ? Math.max(0, Number(localWorked?.completed_sec || 0))
+            : 0;
+          const start = tehranTimeToEpochMs(localOpen.check_in);
+          const liveElapsed = start != null
+            ? Math.max(0, Math.floor((Date.now() - start) / 1000))
             : 0;
           setTimerInfo({
             expected_min: Math.max(0, Number(localWorked?.expected_min || 453)),
             ot_cap_min: Math.max(0, Number(localWorked?.ot_cap_min || 27)),
-            elapsed_sec: completedSec,
+            elapsed_sec: completedSec + liveElapsed,
             completed_sec: completedSec,
             open: localOpen,
             next_sync_sec: 60,
@@ -528,16 +532,16 @@ function CheckInCore() {
       try {
         const previous = await readLocalWorked();
         const sessionDateKey = String(open?.check_in || '').slice(0,10);
-        const previousSec = previous?.gdate === sessionDateKey
-          ? Math.max(0, Number(previous?.worked_sec || 0))
+        const previousCompletedSec = previous?.gdate === sessionDateKey
+          ? Math.max(0, Number(previous?.completed_sec || 0))
           : 0;
-        // localWorked مجموع کارکرد روز است؛ completed_sec فقط بازه‌های بستهٔ
-        // ثبت‌شده نزد سرور را نشان می‌دهد. برای حالت آفلاین، هرکدام که بزرگ‌تر
-        // است مانع از دست رفتن کارکرد قبلی می‌شود.
+        // برای خروج آفلاین فقط زمانِ جلسات بستهٔ قبلی پایه است؛
+        // worked_sec شامل زمان جلسهٔ باز فعلی نیز هست و نباید دوباره به آن
+        // اضافه شود.
         const baseSec = Math.max(
           0,
           Number(timerInfo?.completed_sec || 0),
-          previousSec
+          previousCompletedSec
         );
         const start = tehranTimeToEpochMs(open?.check_in);
         const end = tehranTimeToEpochMs(checkoutClientTime);
