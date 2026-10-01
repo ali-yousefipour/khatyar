@@ -6086,7 +6086,7 @@ function ShiftReport(){
   const [jy,setJy]=useState(tj[0]); const [jm,setJm]=useState(tj[1]); const [rows,setRows]=useState(null); const [busy,setBusy]=useState(false);
   const hm=(m)=>`${fa(Math.floor((m||0)/60))}:${String((m||0)%60).padStart(2,"0")}`;
   const run=async()=>{ setBusy(true); try{ const r=await db.shiftReport(jy,jm); setRows(r.rows||[]); }catch(e){ alert(e.message||"خطا"); } setBusy(false); };
-  const exportExcel=async()=>{ try{ const res=await fetch(`${API_BASE}/admin/shift-report/export?year=${jy}&month=${jm}`,{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`کارکرد_${jy}_${jm}.csv`; a.click(); }catch(e){ alert(e.message); } };
+  const exportExcel=async()=>{ try{ const res=await fetch(`${API_BASE}/admin/shift-report/export?year=${jy}&month=${jm}`,{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`کارکرد_${jy}_${jm}.xlsx`; a.click(); }catch(e){ alert(e.message); } };
   return(<div>
     <div className="row" style={{gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"flex-end"}}>
       <div><label className="label">سال</label><input className="input" type="number" style={{maxWidth:100}} value={jy} onChange={e=>setJy(+e.target.value||tj[0])}/></div>
