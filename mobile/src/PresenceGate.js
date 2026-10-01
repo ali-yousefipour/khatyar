@@ -48,8 +48,13 @@ export default function PresenceGate({navigationRef}){
       try{
         const remote=await request('/my/presence-random-schedule',{auth:true,noStore:true,timeoutMs:8000});
         if(Array.isArray(remote?.items)){
-          schedule={attendance_id:Number(remote.attendance_id||schedule?.attendance_id||0),items:remote.items,cached_at:Date.now()};
-          await AsyncStorage.setItem(RANDOM_CACHE_KEY,JSON.stringify(schedule));
+          if(remote.items.length){
+            schedule={attendance_id:Number(remote.attendance_id||schedule?.attendance_id||0),items:remote.items,cached_at:Date.now()};
+            await AsyncStorage.setItem(RANDOM_CACHE_KEY,JSON.stringify(schedule));
+          }else{
+            schedule=null;
+            await AsyncStorage.removeItem(RANDOM_CACHE_KEY);
+          }
         }
       }catch{}
       if(!schedule?.items?.length)return;
