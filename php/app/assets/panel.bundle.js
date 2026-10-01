@@ -10013,12 +10013,14 @@ function normalizeHm(v) {
     return String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
 }
 function HmField({ label, value, onChange, optional = false, autoFocus = false }) {
+    const normalized = normalizeHm(value) || "";
     return React.createElement("div", { className: "punch-field" },
         React.createElement("label", { className: "label" },
             label,
             optional ? " — اختیاری" : ""),
-        React.createElement("input", { className: "input punch-time-input", inputMode: "numeric", type: "text", maxLength: 5, autoFocus: autoFocus, value: value, onChange: e => onChange(e.target.value.replace(/[^0-9۰-۹٠-٩:]/g, "").slice(0, 5)), onBlur: e => { const v = e.target.value.trim(); if (v)
-                onChange(normalizeHm(v) || v); }, placeholder: "\u0645\u062B\u0644\u0627\u064B 08:55", "aria-label": label }));
+        React.createElement("div", { className: "punch-time-control" },
+            React.createElement("input", { className: "input punch-time-input", inputMode: "numeric", type: "time", step: "60", autoFocus: autoFocus, value: normalized, onChange: e => onChange(e.target.value), "aria-label": label, "aria-describedby": label + "-hint" }),
+            React.createElement("span", { id: label + "-hint", className: "punch-time-hint" }, "\u062A\u0627\u06CC\u067E \u06A9\u0646\u06CC\u062F \u06CC\u0627 \u0627\u0632 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u06AF\u0631 \u0633\u0627\u0639\u062A \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F")));
 }
 function PunchModalShell({ title, subtitle, children, onClose, actions }) {
     return React.createElement("div", { className: "modal-bg punch-modal-bg", onClick: onClose },
