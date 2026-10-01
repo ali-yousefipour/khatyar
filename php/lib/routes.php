@@ -2101,27 +2101,10 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
       }
     }
   }
-  // بررسی آستانهٔ مجاز ثبت ورود طبق شیفت فعال کاربر (با رعایت from/to)
+  // ثبت ورود/خروج در هر ساعت مجاز است. شیفت فقط برای محاسبهٔ موظفی، اضافه‌کار و
+  // گزارش روزانه استفاده می‌شود و نباید مانع ثبت حضور واقعیِ نیرو در میانهٔ روز شود.
   [$jy,$jm,$jd] = gregorian_to_jalali(date('Y', strtotime($eventAt)),date('m', strtotime($eventAt)),date('d', strtotime($eventAt)));
   $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
-  $shift = function_exists('_active_user_shift_assignment') ? _active_user_shift_assignment($u['id'], $jdate) : null;
-  if ($shift) {
-    if (($shift['type'] ?? '') === 'auto') {
-      if (empty($shift['auto_shift_enabled'])) Http::error('شیفت خودکار برای سمت شما غیرفعال است.', 422);
-      if (empty($shift['checkin_any_time'])) {
-        $nowMin = (int)date('G', strtotime($eventAt))*60 + (int)date('i', strtotime($eventAt));
-        $fromMin = isset($shift['allowed_checkin_from']) ? ShiftCalc::hm($shift['allowed_checkin_from']) : null;
-        $toMin = isset($shift['allowed_checkin_to']) ? ShiftCalc::hm($shift['allowed_checkin_to']) : null;
-        if ($fromMin !== null && $toMin !== null && !ShiftCalc::minuteInWindow($nowMin, $fromMin, $toMin)) {
-          Http::error('ثبت ورود خارج از بازهٔ مجاز شیفت خودکار است.', 422);
-        }
-      }
-    } else {
-      $dr = (($shift['type']??'')==='advanced') ? _shift_day_row($shift['shift_id'] ?? $shift['id'], $jdate) : null;
-      $thr = ShiftCalc::checkThreshold($shift, $jdate, $dr, time(), 'in');
-      if (empty($thr['ok'])) Http::error($thr['reason'] ?? 'ثبت ورود خارج از بازهٔ مجاز شیفت است.', 422);
-    }
-  }
   // اطمینان از وجود ستون‌های محل ورود/خروج (یک‌بار)
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='in_station'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN in_station VARCHAR(150) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='out_station'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN out_station VARCHAR(150) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
