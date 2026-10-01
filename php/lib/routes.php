@@ -2216,30 +2216,57 @@ route('POST', '/api/my/shift-handover/accept', function($p,$b,$u){
 route('GET', '/api/my/work-timer', function($p,$b,$u){
   _ensure_attendance_phase1_schema();
   $autoClosed = _attendance_auto_close_stale((int)$u['id']);
+
+  // تایمر روزانه بر اساس مجموع همهٔ بازه‌های حضور همان روز است؛
+  // بنابراین خروج و ورود مجدد در میانهٔ روز، زمان قبلی را از بین نمی‌برد.
+  [$gy,$gm,$gd] = [(int)date('Y'), (int)date('n'), (int)date('j')];
+  [$jy,$jm,$jd] = gregorian_to_jalali($gy,$gm,$gd);
+  $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
+
+  // ابتدا جلسهٔ باز فعلی را بعد از کنترل سقف ۱۴ ساعت دوباره بخوان.
   $open = Db::one("SELECT id,line_id,check_in,check_out FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
-  $role=_user_role_title($u['id']);
-  $jdate = null;
-  if ($open && !empty($open['check_in'])) {
-    [$gy,$gm,$gd] = [(int)date('Y',strtotime($open['check_in'])), (int)date('n',strtotime($open['check_in'])), (int)date('j',strtotime($open['check_in']))];
-    [$jy,$jm,$jd] = gregorian_to_jalali($gy,$gm,$gd);
-    $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
+  $rows = _attendance_rows_for_jdate((int)$u['id'], $jdate);
+
+  $workedSec = 0;
+  $completedSec = 0;
+  $openElapsedSec = 0;
+  foreach ($rows as $row) {
+    $inTs = strtotime($row['check_in'] ?? '');
+    if ($inTs === false) continue;
+    $outTs = !empty($row['check_out']) ? strtotime($row['check_out']) : time();
+    if ($outTs === false || $outTs <= $inTs) continue;
+    $startTs = strtotime($row['_clip_start'] ?? '1970-01-01 00:00:00');
+    $endTs = strtotime($row['_clip_end'] ?? '2999-01-01 00:00:00');
+    $segIn = max($inTs, $startTs ?: $inTs);
+    $segOut = min($outTs, $endTs ?: $outTs);
+    $sec = max(0, $segOut - $segIn);
+    $workedSec += $sec;
+    if (empty($row['check_out'])) $openElapsedSec += $sec;
+    else $completedSec += $sec;
   }
+
+  $role=_user_role_title($u['id']);
   $shift = _active_user_shift_assignment($u['id'], $jdate) ?: _auto_shift_for_user($u['id']);
   $cap = ShiftCalc::roleOtCap($shift);
-  $expected = (($shift['type'] ?? '') === 'auto') ? (int)($shift['auto_expected_min'] ?? 453) : max(0,(int)ShiftCalc::expectedMinutes($shift, $jdate ?: date('Y-m-d'), null));
+  $expected = (($shift['type'] ?? '') === 'auto') ? (int)($shift['auto_expected_min'] ?? 453) : max(0,(int)ShiftCalc::expectedMinutes($shift, $jdate, null));
   if ($expected <= 0) $expected = 453;
-  $checkInTs = $open ? strtotime($open['check_in']) : null;
-  $elapsedSec = $checkInTs ? max(0, time() - $checkInTs) : 0;
+
+  $elapsedSec = (int)$workedSec;
   $elapsed = (int)floor($elapsedSec/60);
   $remain=max(0,$expected-$elapsed);
   $ot=max(0,min(max(0,$elapsed-$expected),$cap));
   $surplus=max(0,$elapsed-$expected-$cap);
   $phase = $remain>0 ? 'duty' : ($ot<$cap ? 'overtime' : 'surplus');
+  $checkInTs = $open ? strtotime($open['check_in']) : null;
+
   return [
-    'open'=>$open,'auto_closed'=>$autoClosed ? true : false,'auto_closed_at'=>$autoClosed['check_out'] ?? null,'auto_close_reason'=>$autoClosed['reason'] ?? null,'role_title'=>$role['title']??'','shift_title'=>$shift['title']??'شیفت خودکار',
+    'open'=>$open,'auto_closed'=>$autoClosed ? true : false,'auto_closed_at'=>$autoClosed['check_out'] ?? null,'auto_close_reason'=>$autoClosed['reason'] ?? null,
+    'role_title'=>$role['title']??'','shift_title'=>$shift['title']??'',
     'expected_min'=>$expected,'ot_cap_min'=>$cap,'elapsed_min'=>$elapsed,'elapsed_sec'=>$elapsedSec,
+    'worked_min'=>$elapsed,'worked_sec'=>$elapsedSec,'completed_min'=>(int)floor($completedSec/60),'completed_sec'=>(int)$completedSec,
+    'open_elapsed_sec'=>(int)$openElapsedSec,'session_count'=>count($rows),
     'remaining_min'=>$remain,'overtime_min'=>$ot,'surplus_min'=>$surplus,'phase'=>$phase,
-    'server_now'=>date('c'),'server_now_ts'=>time(),'check_in_ts'=>$checkInTs,'check_in_at'=>$open['check_in']??null,
+    'jdate'=>$jdate,'server_now'=>date('c'),'server_now_ts'=>time(),'check_in_ts'=>$checkInTs,'check_in_at'=>$open['check_in']??null,
     'night_start'=>$shift['night_start']??'22:00','night_end'=>$shift['night_end']??'06:00','next_sync_sec'=>60
   ];
 });
