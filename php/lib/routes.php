@@ -790,6 +790,36 @@ route('GET', '/api/cron/presence-alert', function($p,$b,$u){
       $sent += count($targets);
     }
   }
+  // زمان‌بندی تصادفی: زمان‌ها از لحظهٔ ثبت ورود هر پرسنل مستقل هستند و فقط تا وقتی حضور باز است ارسال می‌شوند.
+  if(_presence_random_schedule_enabled($cfg)){
+    _ensure_presence_random_schedule_schema();
+    try{
+      $rows=Db::all("SELECT prs.user_id,prs.attendance_id,prs.schedule_json,sa.check_in
+        FROM presence_random_schedules prs
+        JOIN staff_attendance sa ON sa.id=prs.attendance_id
+        WHERE sa.check_out IS NULL AND sa.check_in IS NOT NULL
+        ORDER BY prs.id DESC LIMIT 5000");
+      foreach($rows as $row){
+        $items=json_decode($row['schedule_json']??'',true);
+        if(!is_array($items))continue;
+        foreach($items as $it){
+          $at=(int)($it['ts']??0); if(!$at)continue;
+          if($now<$at || $now>$at+70)continue;
+          $slot=(string)($it['slot']??date('H:i',$at));
+          $win=max(1,(int)($it['window_minutes']??$win));
+          $dup=Db::one("SELECT id FROM notifications WHERE user_id=? AND data LIKE ? AND created_at>=DATE_SUB(NOW(),INTERVAL 2 MINUTE) LIMIT 1",
+            [(int)$row['user_id'],'%"presence_random_attendance":"'.(int)$row['attendance_id'].'"%']);
+          if($dup)continue;
+          Push::notify([(int)$row['user_id']],'صحت‌سنجی حضور',"لطفاً ظرف {$win} دقیقه سلفی و عکس خودروهای خط را ارسال کنید.",[
+            'type'=>'presence_check','slot'=>$slot,'presence_slot'=>$slot,'window_minutes'=>$win,
+            'random'=>true,'presence_random_attendance'=>(int)$row['attendance_id'],'request_id'=>'rnd_'.(int)$row['attendance_id'].'_'.$at
+          ]);
+          $sent++;
+          break;
+        }
+      }
+    }catch(Throwable $e){ error_log('presence random cron suppressed: '.$e->getMessage()); }
+  }
   return ['ok'=>true,'sent'=>$sent];
 }, true);
 
