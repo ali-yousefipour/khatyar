@@ -93,6 +93,7 @@ function CheckInCore() {
   const timerRef = useRef(null);
   const timerSyncRef = useRef(null);
   const surplusAlertShownRef = useRef(false);
+  const PRESENCE_RANDOM_CACHE_KEY = 'presence_random_schedule_v1';
   const LOCAL_OPEN_KEY = 'attendance_local_open_v1';
   const LOCAL_WORKED_KEY = 'attendance_local_worked_v1';
   const REMEMBER_SOUND = 'remember.mp3';
@@ -490,7 +491,14 @@ function CheckInCore() {
         setTimerInfo({ completed_sec: completedSec, elapsed_sec: completedSec });
         setElapsed(completedSec);
         await scheduleExitReminder(localOpen.check_in, completedSec);
-      } else { await persistLocalOpen(r.open || { id: r.id, line_id: Number(r.line_id || localLine.line.id), check_in: r.check_in || body.client_time, check_out: null, method }); }
+      } else {
+        await persistLocalOpen(r.open || { id: r.id, line_id: Number(r.line_id || localLine.line.id), check_in: r.check_in || body.client_time, check_out: null, method });
+        try{
+          const schedule=Array.isArray(r.presence_random_schedule)?r.presence_random_schedule:[];
+          if(schedule.length) await AsyncStorage.setItem(PRESENCE_RANDOM_CACHE_KEY,JSON.stringify({attendance_id:Number(r.id||0),items:schedule,cached_at:Date.now()}));
+          else await AsyncStorage.removeItem(PRESENCE_RANDOM_CACHE_KEY);
+        }catch{}
+      }
       Alert.alert(r.queued ? 'آفلاین' : 'ثبت شد', r.queued ? 'ورود ذخیره شد و بعد از اتصال ارسال می‌شود.' : 'ورود شما ثبت شد.');
       setProofVal('');
       if (!r.queued) await load();
