@@ -2702,17 +2702,19 @@ function _shift_month_report($jy, $jm) {
       $rows = _attendance_rows_for_jdate($a['user_id'], $jdate);
       $dr = $dayRows[$jdate] ?? null;
       $isHol = ShiftCalc::effectiveHoliday($jdate, isset($holidaySet[$jdate]));
-      if (!$rows) {
-        // روزی که تردد ندارد: اگر شیفت برای آن روز موظفی دارد و تعطیل نیست ⇒ غیبت
-        if (!$isHol) {
-          $exp = 0;
-          $exp = ShiftCalc::expectedMinutes($shift, $jdate, $dr);
-          $tot['absent_min'] += $exp;
-        }
-        continue;
-      }
+      // محاسبهٔ روزهای بدون تردد نیز باید دقیقاً از همان موتور محاسبهٔ
+      // روزهای دارای تردد عبور کند؛ مخصوصاً برای شیفت خودکار، جمعه، تعطیل
+      // و روزهای بدون موظفی. در غیر این صورت گزارش ماهانه می‌توانست یک روز
+      // آزاد را به اشتباه غیبت ۷:۳۳ ثبت کند.
       $sessions = array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00')], $rows);
       $w = ShiftCalc::dayWork($shift, $jdate, $dr, $sessions, $isHol);
+
+      if (!$rows) {
+        // غیبت فقط وقتی محاسبه می‌شود که موتور شیفت برای آن روز موظفی
+        // واقعی تعیین کرده باشد. روز آزاد/جمعه/تعطیلِ بدون موظفی غیبت نیست.
+        $tot['absent_min'] += max(0, (int)($w['expected'] ?? 0));
+        continue;
+      }
       $adj = _attendance_adjusted_overtime($a['user_id'],$jdate);
       if ($adj > 0) { $use = min($adj, (int)($w['surplus'] ?? 0)); $w['overtime'] = (int)($w['overtime'] ?? 0) + $use; $w['surplus'] = max(0, (int)($w['surplus'] ?? 0) - $use); $w['adjusted_ot'] = $use; }
       foreach (['worked','in_shift','expected','overtime','shortage','night','friday','holiday','late_in','early_out','surplus','adjusted_ot'] as $k) $tot[$k]+=($w[$k] ?? 0);
