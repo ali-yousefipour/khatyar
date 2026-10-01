@@ -2710,9 +2710,12 @@ function _shift_month_report($jy, $jm) {
       $w = ShiftCalc::dayWork($shift, $jdate, $dr, $sessions, $isHol);
 
       if (!$rows) {
-        // غیبت فقط وقتی محاسبه می‌شود که موتور شیفت برای آن روز موظفی
-        // واقعی تعیین کرده باشد. روز آزاد/جمعه/تعطیلِ بدون موظفی غیبت نیست.
-        $tot['absent_min'] += max(0, (int)($w['expected'] ?? 0));
+        // موظفی ماهانه باید حتی در روز غیبت هم در مجموع ثبت شود.
+        // غیبت همان موظفیِ انجام‌نشده است؛ بنابراین حذف expected از
+        // این روزها باعث کم‌نمایی موظفی ماهانه می‌شد.
+        $dayExpected = max(0, (int)($w['expected'] ?? 0));
+        $tot['expected'] += $dayExpected;
+        $tot['absent_min'] += $dayExpected;
         continue;
       }
       $adj = _attendance_adjusted_overtime($a['user_id'],$jdate);
@@ -2829,7 +2832,9 @@ function _attendance_report($userId,$fromJ,$toJ){
       'overtime'=>$hm($w['overtime']??0),
       'surplus'=>$hm($w['surplus']??0),
       'adjusted_ot'=>$hm($w['adjusted_ot']??0),
-      'absent'=>(!$punches && !$isHol)?1:0,
+      // غیبت فقط وقتی معنا دارد که برای همان روز واقعاً موظفی وجود داشته باشد.
+      // جمعه/تعطیل/روز آزاد با expected=00:00 نباید غیبت نمایش داده شود.
+      'absent'=>(!$punches && !$isHol && (int)($w['expected'] ?? 0)>0)?1:0,
     ];
   }
   return ['user'=>$u,'shift'=>$shift?['title'=>$shift['title']]:null,'from'=>$fromJ,'to'=>$toJ,'days'=>$days];
