@@ -92,8 +92,10 @@ import { setDrawerControlRef, openDrawer as khOpenDrawer } from './src/drawerCon
 import { navigationRef } from './src/navigationRef';
 import UnreadBadgeService from './src/UnreadBadgeService';
 import { installGlobalCrashHandlers, setCurrentRoute, flushCrashReports } from './src/crashReporter';
+import { startAppCacheRetention } from './src/cacheRetention';
 try { I18nManager.allowRTL(false); I18nManager.forceRTL(false); I18nManager.swapLeftAndRightInRTL(false); } catch (_) {}
-installGlobalCrashHandlers(); SplashScreen.preventAutoHideAsync().catch(() => {});
+installGlobalCrashHandlers();
+try { startAppCacheRetention(); } catch (_) {} SplashScreen.preventAutoHideAsync().catch(() => {});
 const Stack=createNativeStackNavigator();
 const SCREEN_W=Dimensions.get('window').width;
 const SCREEN_H=Dimensions.get('window').height;
