@@ -2955,14 +2955,31 @@ route('GET', '/api/admin/shift-report/export', function($p,$b,$u){
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if (!$jy||!$jm) Http::error('سال و ماه را مشخص کنید',400);
   $rows=_shift_month_report($jy,$jm);
-  header('Content-Type: text/csv; charset=UTF-8');
-  header('Content-Disposition: attachment; filename="shift_'.$jy.'_'.$jm.'.csv"');
-  echo "\xEF\xBB\xBF";
-  $out=fopen('php://output','w');
   $hm=fn($m)=>sprintf('%02d:%02d',intdiv(max(0,(int)$m),60),max(0,(int)$m)%60);
-  fputcsv($out,['نام و نام خانوادگی','موظفی','حضور کل','حضور در شیفت','تاخیر ورود','تعجیل خروج','کسری کار','غیبت','جمع غیبت و کسری کار','شب کاری','اضافه کاری','ماموریت','مرخصی استحقاقی','مرخصی استعلاجی']);
-  foreach($rows as $r){ $gh=($r['absent_min']??0)+($r['shortage']??0); fputcsv($out,[$r['name'],$hm($r['expected']),$hm($r['worked']),$hm($r['in_shift']??$r['worked']),$hm($r['late_in']??0),$hm($r['early_out']??0),$hm($r['shortage']),$hm($r['absent_min']??0),$hm($gh),$hm($r['night']),$hm($r['overtime']),$hm($r['mission_min']??0),$hm($r['annual_min']??0),$hm($r['sick_min']??0)]); }
-  fclose($out); exit;
+  $headers=['نام و نام خانوادگی','موظفی','حضور کل','حضور در شیفت','تاخیر ورود','تعجیل خروج','کسری کار','غیبت','جمع غیبت و کسری کار','شب کاری','اضافه کاری','ماموریت','مرخصی استحقاقی','مرخصی استعلاجی'];
+  $xw=new XlsxWriter($headers);
+  $widths=[24,11,12,15,12,12,12,10,18,12,12,12,15,15];
+  foreach($widths as $i=>$w) $xw->setColWidth($i,$w);
+  foreach($rows as $r){
+    $gh=($r['absent_min']??0)+($r['shortage']??0);
+    $xw->addRow([
+      $r['name'],
+      $hm($r['expected']),
+      $hm($r['worked']),
+      $hm($r['in_shift']??$r['worked']),
+      $hm($r['late_in']??0),
+      $hm($r['early_out']??0),
+      $hm($r['shortage']),
+      $hm($r['absent_min']??0),
+      $hm($gh),
+      $hm($r['night']),
+      $hm($r['overtime']),
+      $hm($r['mission_min']??0),
+      $hm($r['annual_min']??0),
+      $hm($r['sick_min']??0)
+    ]);
+  }
+  $xw->output('کارکرد_'.$jy.'_'.$jm.'.xlsx','کارکرد ماهانه');
 }, false, ADMIN);
 
 // فراخوان خودکار تعطیلات رسمی یک ماه از سرویس holidayapi.ir (شمسی)
