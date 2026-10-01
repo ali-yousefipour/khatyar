@@ -2701,7 +2701,7 @@ function _shift_month_report($jy, $jm) {
       if (!empty($a['to_jdate']) && strcmp($jdate, str_replace('/','-',$a['to_jdate'])) > 0) continue;
       $rows = _attendance_rows_for_jdate($a['user_id'], $jdate);
       $dr = $dayRows[$jdate] ?? null;
-      $isHol = isset($holidaySet[$jdate]);
+      $isHol = ShiftCalc::effectiveHoliday($jdate, isset($holidaySet[$jdate]));
       if (!$rows) {
         // روزی که تردد ندارد: اگر شیفت برای آن روز موظفی دارد و تعطیل نیست ⇒ غیبت
         if (!$isHol) {
@@ -2802,7 +2802,7 @@ function _attendance_report($userId,$fromJ,$toJ){
       ];
       $sessions[]=['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00')];
     }
-    $isHol=isset($holidaySet[$jdateDash])||isset($holidaySet[$jdate]);
+    $isHol=ShiftCalc::effectiveHoliday($jdateDash, isset($holidaySet[$jdateDash])||isset($holidaySet[$jdate]));
     $shift = _active_user_shift_assignment($userId, $jdateDash);
     $dr = ($shift && (($shift['type'] ?? '') === 'advanced')) ? _shift_day_row($shift['shift_id'] ?? $shift['id'], $jdateDash) : null;
     $w = $shift ? ShiftCalc::dayWork($shift,$jdateDash,$dr,$sessions,$isHol) : ['worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'late_in'=>0,'early_out'=>0,'surplus'=>0];
