@@ -2674,7 +2674,14 @@ function _shift_month_report($jy, $jm) {
   $seenAssign = array_flip(array_map(fn($x)=>(int)$x['user_id'], $assigns));
   $autoUsers = Db::all("SELECT u.id user_id, 0 shift_id, NULL from_jdate, NULL to_jdate, CONCAT(u.first_name,' ',u.last_name) name, r.title role
     FROM users u LEFT JOIN roles r ON r.id=u.role_id
-    WHERE u.is_active=1 AND NOT EXISTS (SELECT 1 FROM user_shifts us WHERE us.user_id=u.id)");
+    WHERE u.is_active=1
+      AND NOT EXISTS (
+        SELECT 1
+        FROM user_shifts us
+        WHERE us.user_id=u.id
+          AND (us.from_jdate IS NULL OR us.from_jdate <= ?)
+          AND (us.to_jdate IS NULL OR us.to_jdate >= ?)
+      )", [$prefix.'31', $prefix.'01']);
   foreach ($autoUsers as $au) if (!isset($seenAssign[(int)$au['user_id']])) $assigns[] = $au;
   $shiftsById = [];
   foreach (Db::all("SELECT * FROM shifts WHERE is_active=1") as $sx) $shiftsById[$sx['id']] = $sx;
