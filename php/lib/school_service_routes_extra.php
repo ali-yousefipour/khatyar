@@ -11,7 +11,7 @@ route('GET','/api/school-service/inspections/{id}',function($p,$b,$u){
 route('POST','/api/school-service/schools/{id}/location',function($p,$b,$u){_ssv_need($u,'create');_ssv_tables();$id=(int)$p['id'];$s=Db::one("SELECT id FROM school_service_schools WHERE id=? AND is_active=1",[$id]);if(!$s)Http::error('مدرسه یافت نشد',404);[$lat,$lng]=validGeo($b['latitude']??null,$b['longitude']??null);if($lat===null||$lng===null)Http::error('مختصات مدرسه معتبر نیست.',422);Db::run("UPDATE school_service_schools SET latitude=?,longitude=?,location_registered_at=? WHERE id=?",[$lat,$lng,date('Y-m-d H:i:s'),$id]);return ['ok'=>true,'id'=>$id,'latitude'=>$lat,'longitude'=>$lng,'location_registered_at'=>date('Y-m-d H:i:s')];},false,99);
 route('POST','/api/school-service/inspections-with-photo',function($p,$b,$u){
  _ssv_need($u,'create');_ssv_tables();
- $body=$_POST?:[];$viol=$body['violation_ids']??[];if(is_string($viol))$viol=json_decode($viol,true)?:[];$body['violation_ids']=$viol;
+ $body=$_POST?:[];_ssv_require_inspection_core($body);$viol=$body['violation_ids']??[];if(is_string($viol))$viol=json_decode($viol,true)?:[];$body['violation_ids']=$viol;
  $clientUuid=_ssv_norm($body['client_uuid']??($_SERVER['HTTP_X_CLIENT_UUID']??''));if($clientUuid!==''){
    $existing=Db::one("SELECT id FROM school_service_inspections WHERE client_uuid=?",[$clientUuid]);
    if($existing){
