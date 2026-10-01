@@ -153,4 +153,3 @@ export default function PresenceGate({navigationRef}){
 
  return null;
 }
-const s=StyleSheet.create({overlayRoot:{...StyleSheet.absoluteFillObject,flex:1,width:'100%',height:'100%',zIndex:100000,elevation:100000},modalRoot:{...StyleSheet.absoluteFillObject,flex:1,width:'100%',height:'100%',minWidth:'100%',minHeight:'100%',backgroundColor:'#fff',zIndex:100001,elevation:100001}});
