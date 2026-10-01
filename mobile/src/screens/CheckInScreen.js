@@ -575,6 +575,7 @@ function CheckInCore() {
       // پاسخ موفق سرور کافی است؛ صفحه را بلافاصله از حالت «حضور باز» خارج کن.
       // بارگذاری مجدد وضعیت/موقعیت در پس‌زمینه انجام می‌شود تا دکمه خروج معطل GPS نشود.
       await persistLocalOpen(null);
+      try { await AsyncStorage.removeItem(PRESENCE_RANDOM_CACHE_KEY); } catch {}
       setOpen(null);
       setElapsed(0);
       if (!r.queued) {
