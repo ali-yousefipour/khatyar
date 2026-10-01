@@ -168,6 +168,40 @@
   .burger{display:none;background:none;border:none;color:var(--ink);font-size:22px;cursor:pointer;margin-left:10px}
   .scrim{display:none}
 
+  /* ---------- مودال اصلاح تردد ---------- */
+  .punch-modal-bg{padding:18px;z-index:1100}
+  .punch-modal{
+    width:min(420px,94vw)!important;max-width:420px!important;max-height:min(90vh,560px);
+    padding:0!important;border:1px solid var(--line);border-radius:18px;
+    background:var(--card);color:var(--ink);overflow:hidden;box-shadow:0 24px 70px -24px rgba(15,29,51,.42);
+  }
+  .punch-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 14px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--card),var(--line-2))}
+  .punch-modal-head h3{font-size:16px;font-weight:800;margin:0;color:var(--ink);line-height:1.7}
+  .punch-modal-sub{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.7}
+  .punch-modal-close{width:32px;height:32px;flex:0 0 32px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--muted);font:inherit;font-size:20px;line-height:1;cursor:pointer;display:grid;place-items:center}
+  .punch-modal-close:hover{background:var(--danger-soft);color:var(--danger);border-color:#f2b8c1}
+  .punch-summary{display:flex;justify-content:space-between;align-items:center;margin:16px 20px 10px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--info-soft);color:var(--ink);font-size:12px;font-weight:700}
+  .punch-summary small{color:var(--info);font-size:10.5px;font-weight:700}
+  .punch-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 20px}
+  .punch-field{display:flex;flex-direction:column;gap:6px}
+  .punch-time-input{height:46px;text-align:center!important;direction:ltr;font-size:16px!important;font-weight:700;letter-spacing:.5px;background:var(--card)}
+  .punch-time-input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,138,106,.14)}
+  .punch-info,.punch-error{margin:12px 20px 0;padding:9px 11px;border-radius:10px;font-size:11px;line-height:1.8}
+  .punch-info{background:var(--warn-soft);border:1px solid #f1df9f;color:var(--warn)}
+  .punch-error{background:var(--danger-soft);border:1px solid #f2b8c1;color:var(--danger);font-weight:600}
+  .punch-modal-actions{display:flex;gap:8px;justify-content:flex-start;padding:16px 20px 20px;margin-top:4px;border-top:1px solid var(--line)}
+  .punch-modal-actions .btn{min-height:42px;padding:9px 16px}
+  .punch-action-primary{min-width:130px;justify-content:center}
+  .punch-action-secondary{min-width:90px;justify-content:center}
+  @media(max-width:560px){
+    .punch-modal-bg{padding:10px}
+    .punch-modal{width:100%!important;max-width:none!important;max-height:calc(100dvh - 20px)}
+    .punch-modal-head{padding:16px}
+    .punch-summary,.punch-info,.punch-error{margin-left:16px;margin-right:16px}
+    .punch-fields{grid-template-columns:1fr;padding:0 16px;gap:10px}
+    .punch-modal-actions{padding:14px 16px 16px}
+    .punch-modal-actions .btn{flex:1}
+  }
   /* ---------- واکنش‌گرایی ---------- */
   @media(max-width:1280px){.kpis{grid-template-columns:repeat(4,1fr)}}
   @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}.grid2{grid-template-columns:1fr}}
