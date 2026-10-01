@@ -6109,7 +6109,6 @@ route('GET', '/api/admin/staff-attendance/export', function($p,$b,$u){
     FROM staff_attendance sa JOIN users us ON us.id=sa.user_id LEFT JOIN roles r ON r.id=us.role_id
     LEFT JOIN `lines` l ON l.id=sa.line_id WHERE $where ORDER BY sa.check_in DESC LIMIT 10000",
     array_merge([$from.' 00:00:00', $toExclusive], $args));
-    LEFT JOIN `lines` l ON l.id=sa.line_id WHERE $where ORDER BY sa.check_in DESC LIMIT 10000", $args);
   $methodFa = ['gps'=>'GPS','qr'=>'QR','wifi'=>'WiFi','nfc'=>'NFC','bt'=>'بلوتوث','manual'=>'دستی'];
   header('Content-Type: text/csv; charset=UTF-8');
   header('Content-Disposition: attachment; filename="staff_attendance.csv"');
