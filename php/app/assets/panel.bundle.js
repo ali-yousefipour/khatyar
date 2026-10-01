@@ -10057,7 +10057,7 @@ function ShiftReport() {
         const blob = await res.blob();
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `کارکرد_${jy}_${jm}.csv`;
+        a.download = `کارکرد_${jy}_${jm}.xlsx`;
         a.click();
     }
     catch (e) {
