@@ -6048,37 +6048,72 @@ function PunchPopup({day,onClose,onEdit,onDel,onAdd}){
 }
 
 // مودال ویرایش ساعت یک پانچ (ادمین)
-function PunchEditModal({punch,onSave,onClose}){
-  const [ci,setCi]=useState(punch.in||"");
-  const [co,setCo]=useState(punch.out||"");
-  return(<div className="modal-bg" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:340}}>
-    <h4>ویرایش ساعت تردد</h4>
-    <label className="label">ساعت ورود (HH:MM)</label>
-    <input className="input" value={ci} onChange={e=>setCi(e.target.value)} placeholder="مثلاً 08:55" style={{direction:"ltr",textAlign:"left"}}/>
-    <label className="label">ساعت خروج (HH:MM)</label>
-    <input className="input" value={co} onChange={e=>setCo(e.target.value)} placeholder="مثلاً 13:00 یا خالی" style={{direction:"ltr",textAlign:"left"}}/>
-    <p style={{fontSize:11,color:"var(--muted)",marginTop:6}}>اگر خروج کوچک‌تر از ورود باشد، به روز بعد منتقل می‌شود (شیفت شب).</p>
-    <div className="row" style={{gap:8,marginTop:12,justifyContent:"flex-end"}}>
-      <button className="btn g" onClick={onClose}>انصراف</button>
-      <button className="btn p" onClick={()=>onSave(punch,ci,co)}>ذخیره</button>
-    </div>
-  </div></div>);
+function normalizeHm(v){
+  const raw=String(v||"").trim().replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d));
+  const m=raw.match(/^\\d{1,2}:\\d{2}$/);
+  if(!m)return null;
+  const parts=raw.split(":"); const h=+parts[0], min=+parts[1];
+  if(h<0||h>23||min<0||min>59)return null;
+  return String(h).padStart(2,"0")+":"+String(min).padStart(2,"0");
 }
-
-// مودال افزودن تردد دستی (ادمین)
-function PunchAddModal({jdate,onSave,onClose}){
-  const [ci,setCi]=useState(""); const [co,setCo]=useState("");
-  return(<div className="modal-bg" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:340}}>
-    <h4>درخواست تردد دستی — {fa(jdate)}</h4>
-    <label className="label">ساعت ورود (HH:MM)</label>
-    <input className="input" value={ci} onChange={e=>setCi(e.target.value)} placeholder="مثلاً 08:55" style={{direction:"ltr",textAlign:"left"}}/>
-    <label className="label">ساعت خروج (HH:MM) — اختیاری</label>
-    <input className="input" value={co} onChange={e=>setCo(e.target.value)} placeholder="مثلاً 13:00" style={{direction:"ltr",textAlign:"left"}}/>
-    <div className="row" style={{gap:8,marginTop:12,justifyContent:"flex-end"}}>
-      <button className="btn g" onClick={onClose}>انصراف</button>
-      <button className="btn p" onClick={()=>{ if(!ci){alert("ساعت ورود الزامی است");return;} onSave(jdate,ci,co); }}>ثبت</button>
+function HmField({label,value,onChange,optional=false,autoFocus=false}){
+  return <div className="punch-field">
+    <label className="label">{label}{optional?" — اختیاری":""}</label>
+    <input className="input punch-time-input" inputMode="numeric" type="text" maxLength={5} autoFocus={autoFocus}
+      value={value} onChange={e=>onChange(e.target.value.replace(/[^0-9۰-۹٠-٩:]/g,"").slice(0,5))}
+      onBlur={e=>{const v=e.target.value.trim(); if(v)onChange(normalizeHm(v)||v);}}
+      placeholder="مثلاً 08:55" aria-label={label} />
+  </div>;
+}
+function PunchModalShell({title,subtitle,children,onClose,actions}){
+  return <div className="modal-bg punch-modal-bg" onClick={onClose}>
+    <div className="modal punch-modal" role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()}>
+      <div className="punch-modal-head">
+        <div><h3>{title}</h3>{subtitle&&<div className="punch-modal-sub">{subtitle}</div>}</div>
+        <button type="button" className="punch-modal-close" onClick={onClose} aria-label="بستن">×</button>
+      </div>
+      {children}
+      <div className="punch-modal-actions">{actions}</div>
     </div>
-  </div></div>);
+  </div>;
+}
+function PunchEditModal({punch,onSave,onClose}){
+  const [ci,setCi]=useState(normalizeHm(punch.in)||punch.in||"");
+  const [co,setCo]=useState(normalizeHm(punch.out)||punch.out||"");
+  const [err,setErr]=useState("");
+  const submit=()=>{
+    const nci=normalizeHm(ci), nco=co.trim()?normalizeHm(co):"";
+    if(!nci){setErr("ساعت ورود را به شکل صحیح (۰۰:۰۰ تا ۲۳:۵۹) وارد کنید.");return;}
+    if(co.trim()&&!nco){setErr("ساعت خروج را به شکل صحیح (۰۰:۰۰ تا ۲۳:۵۹) وارد کنید.");return;}
+    setErr(""); onSave(punch,nci,nco);
+  };
+  return <PunchModalShell title="ویرایش ساعت تردد" subtitle="اصلاح ورود و خروج ثبت‌شده برای این روز" onClose={onClose}
+    actions={<><button className="btn g punch-action-secondary" onClick={onClose}>انصراف</button><button className="btn p punch-action-primary" onClick={submit}>ذخیره تغییرات</button></>}>
+    <div className="punch-summary"><span>ورود و خروج</span><small>فرمت ۲۴ ساعته</small></div>
+    <div className="punch-fields">
+      <HmField label="ساعت ورود" value={ci} onChange={setCi} autoFocus/>
+      <HmField label="ساعت خروج" value={co} onChange={setCo} optional/>
+    </div>
+    {err?<div className="punch-error" role="alert">⚠ {err}</div>:<div className="punch-info">ℹ اگر خروج از ورود کوچک‌تر باشد، تردد به روز بعد محاسبه می‌شود (شیفت شب).</div>}
+  </PunchModalShell>;
+}
+function PunchAddModal({jdate,onSave,onClose}){
+  const [ci,setCi]=useState(""); const [co,setCo]=useState(""); const [err,setErr]=useState("");
+  const submit=()=>{
+    const nci=normalizeHm(ci), nco=co.trim()?normalizeHm(co):"";
+    if(!nci){setErr("ساعت ورود الزامی است و باید بین ۰۰:۰۰ تا ۲۳:۵۹ باشد.");return;}
+    if(co.trim()&&!nco){setErr("ساعت خروج باید به شکل صحیح (۰۰:۰۰ تا ۲۳:۵۹) وارد شود.");return;}
+    setErr(""); onSave(jdate,nci,nco);
+  };
+  return <PunchModalShell title="ثبت تردد دستی" subtitle={"تاریخ: "+fa(jdate)} onClose={onClose}
+    actions={<><button className="btn g punch-action-secondary" onClick={onClose}>انصراف</button><button className="btn p punch-action-primary" onClick={submit}>ثبت تردد</button></>}>
+    <div className="punch-summary"><span>اطلاعات تردد</span><small>ورود الزامی · خروج اختیاری</small></div>
+    <div className="punch-fields">
+      <HmField label="ساعت ورود" value={ci} onChange={setCi} autoFocus/>
+      <HmField label="ساعت خروج" value={co} onChange={setCo} optional/>
+    </div>
+    {err&&<div className="punch-error" role="alert">⚠ {err}</div>}
+  </PunchModalShell>;
 }
 
 function ShiftReport(){
