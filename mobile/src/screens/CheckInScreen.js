@@ -197,7 +197,7 @@ function CheckInCore() {
     }
   };
 
-  const scheduleExitReminder = async (checkInValue) => {
+  const scheduleExitReminder = async (checkInValue, completedSec = 0) => {
     await cancelExitReminder();
     if (!exitReminder || !checkInValue) return;
     try {
@@ -213,11 +213,12 @@ function CheckInCore() {
       }
       const start = tehranTimeToEpochMs(checkInValue);
       if (start == null) return;
-      const fireAt = new Date(start + 8 * 60 * 60 * 1000);
-      if (fireAt.getTime() <= Date.now()) return;
+      const remainingSec = Math.max(0, 8 * 60 * 60 - Math.max(0, Number(completedSec) || 0));
+      const fireAt = new Date(Date.now() + remainingSec * 1000);
+      if (remainingSec <= 0 || fireAt.getTime() <= Date.now()) return;
       exitReminderIdRef.current = await Notifications.scheduleNotificationAsync({
         content: {
-           title: 'ساعت کارکرد شما به هشت ساعت رسیده است',
+          title: 'ساعت کارکرد شما به هشت ساعت رسیده است',
           body: '( در صورت اتمام شیفت کاری، ثبت خروج خود را فراموش نکنید)',
           sound: REMEMBER_SOUND,
           priority: Notifications.AndroidNotificationPriority.HIGH,
@@ -250,37 +251,40 @@ function CheckInCore() {
         return;
       }
       if (open?.check_in) {
-        const start = tehranTimeToEpochMs(open.check_in);
-        if (start != null && Date.now() >= start + 8 * 60 * 60 * 1000) {
+        const completedSec = Number(timerInfo?.completed_sec || 0);
+        if (Number(timerInfo?.elapsed_sec || 0) >= 8 * 60 * 60) {
           exitReminderAlertRef.current = false;
           Alert.alert('ساعت کارکرد شما به هشت ساعت رسیده است', '( در صورت اتمام شیفت کاری، ثبت خروج خود را فراموش نکنید)');
         } else {
-          await scheduleExitReminder(open.check_in);
+          await scheduleExitReminder(open.check_in, completedSec);
         }
       }
     } catch {}
   };
 
-  // تایمر حضور
+  // تایمر حضور: مجموع تمام بازه‌های حضور امروز + بازهٔ باز فعلی.
+  // خروج زودهنگام تایمر را صفر نمی‌کند؛ ورود بعدی ادامهٔ مجموع قبلی است.
   useEffect(() => {
     if (open && open.check_in) {
-      // نکته: قبلاً از new Date(check_in.replace(' ','T')) استفاده می‌شد که رشتهٔ زمانِ
-      // بدون‌منطقه‌زمانیِ سرور (ساعت تهران) را به‌اشتباه به‌عنوان «ساعت محلی گوشی» تفسیر
-      // می‌کرد — اگر منطقهٔ زمانی گوشی با تهران یکی نبود، مدت‌زمان حضورِ نمایش‌داده‌شده
-      // کاملاً غلط می‌شد. حالا از تابع مشترک و صحیح tehranTimeToEpochMs استفاده می‌شود.
       const start = tehranTimeToEpochMs(open.check_in);
-      if (start == null) { setElapsed(0); return; }
-      const tick = () => setElapsed(Math.min(14 * 3600, Math.max(0, Math.floor((Date.now() - start) / 1000))));
-      tick(); timerRef.current = setInterval(tick, 1000);
+      if (start == null) { setElapsed(Number(timerInfo?.elapsed_sec || 0)); return; }
+      const completedSec = Math.max(0, Number(timerInfo?.completed_sec || 0));
+      const tick = () => setElapsed(Math.max(0, completedSec + Math.floor((Date.now() - start) / 1000)));
+      tick();
+      timerRef.current = setInterval(tick, 1000);
       return () => clearInterval(timerRef.current);
-    } else { setElapsed(0); if (timerRef.current) clearInterval(timerRef.current); }
-  }, [open]);
+    } else {
+      setElapsed(0);
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+  }, [open, timerInfo?.completed_sec]);
 
 
   useEffect(() => {
-    if (open?.check_in && exitReminder) scheduleExitReminder(open.check_in);
-    else cancelExitReminder();
-  }, [open?.id, open?.check_in, exitReminder]);
+    if (open?.check_in && exitReminder) {
+      scheduleExitReminder(open.check_in, Number(timerInfo?.completed_sec || 0));
+    } else cancelExitReminder();
+  }, [open?.id, open?.check_in, exitReminder, timerInfo?.completed_sec]);
 
   // هشدار داخل برنامه نیز دقیقاً در رسیدن تایمر به ۸ ساعت نمایش داده می‌شود.
   useEffect(() => {
@@ -346,7 +350,7 @@ function CheckInCore() {
     if (!open) return null;
     const expected = +(timerInfo?.expected_min || 453);
     const cap = +(timerInfo?.ot_cap_min || 27);
-    const elapsedMin = Math.min(14 * 60, Math.floor(elapsed / 60));
+    const elapsedMin = Math.max(0, Math.floor(elapsed / 60));
     const remaining = Math.max(0, expected - elapsedMin);
     const overtime = Math.max(0, Math.min(Math.max(0, elapsedMin - expected), cap));
     const surplus = Math.max(0, elapsedMin - expected - cap);
@@ -422,7 +426,7 @@ function CheckInCore() {
       }
       if (r.queued) {
         const localOpen = { id: `local_${Date.now()}`, line_id: Number(localLine.line.id), check_in: body.client_time, check_out: null, method };
-        await persistLocalOpen(localOpen); setOpen(localOpen); setTimerInfo(null); setElapsed(0); await scheduleExitReminder(localOpen.check_in);
+        await persistLocalOpen(localOpen); setOpen(localOpen); setTimerInfo(null); setElapsed(0); await scheduleExitReminder(localOpen.check_in, 0);
       } else { await persistLocalOpen(r.open || { id: r.id, line_id: Number(r.line_id || localLine.line.id), check_in: r.check_in || body.client_time, check_out: null, method }); }
       Alert.alert(r.queued ? 'آفلاین' : 'ثبت شد', r.queued ? 'ورود ذخیره شد و بعد از اتصال ارسال می‌شود.' : 'ورود شما ثبت شد.');
       setProofVal('');
