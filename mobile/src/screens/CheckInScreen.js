@@ -121,11 +121,23 @@ function CheckInCore() {
     if (timerResult && timerResult.status === 'fulfilled') {
       setTimerInfo(timerResult.value);
       try {
-        const localWorked = await readLocalWorked();
+        const localOpen = await readLocalOpen();
         const workedSec = Math.max(0, Number(timerResult.value?.elapsed_sec || 0));
         const completedSec = Math.max(0, Number(timerResult.value?.completed_sec || 0));
-        const activeWorked = timerResult.value?.open ? completedSec : workedSec;
-        if (activeWorked > 0) await persistLocalWorked({ gdate: new Date().toISOString().slice(0,10), worked_sec: activeWorked });
+        const gdate = String(
+          timerResult.value?.open?.check_in ||
+          localOpen?.check_in ||
+          new Date().toISOString()
+        ).slice(0,10);
+        if (workedSec > 0) {
+          await persistLocalWorked({
+            gdate,
+            worked_sec: workedSec,
+            expected_min: Math.max(0, Number(timerResult.value?.expected_min || 453)),
+            ot_cap_min: Math.max(0, Number(timerResult.value?.ot_cap_min || 27)),
+            completed_sec: completedSec,
+          });
+        }
       } catch {}
     }
     if (cfgResult.status === 'fulfilled') {
@@ -139,6 +151,32 @@ function CheckInCore() {
     } else if (!cfg) {
       setLoadError(cfgResult.reason?.message || 'اطلاعات خطوط مجاز در دسترس نیست. ابتدا برنامه را یک‌بار با اتصال اینترنت باز کنید.');
     }
+
+    // اگر تایمر آنلاین در دسترس نبود، جلسه و مجموع کارکرد محلی باید مبنای
+    // ادامهٔ تایمر باشند؛ وگرنه پس از باز و بسته کردن اپ در حالت آفلاین،
+    // جلسهٔ قبلی در نمایش تایمر از دست می‌رفت.
+    if (timerResult.status !== 'fulfilled') {
+      try {
+        const localOpen = await readLocalOpen();
+        const localWorked = await readLocalWorked();
+        if (localOpen?.check_in) {
+          const sessionDate = String(localOpen.check_in).slice(0,10);
+          const workedDate = String(localWorked?.gdate || '');
+          const completedSec = workedDate === sessionDate
+            ? Math.max(0, Number(localWorked?.worked_sec || 0))
+            : 0;
+          setTimerInfo({
+            expected_min: Math.max(0, Number(localWorked?.expected_min || 453)),
+            ot_cap_min: Math.max(0, Number(localWorked?.ot_cap_min || 27)),
+            elapsed_sec: completedSec,
+            completed_sec: completedSec,
+            open: localOpen,
+            next_sync_sec: 60,
+          });
+        }
+      } catch {}
+    }
+
     setLoading(false); // صفحه را فوری نشان بده
     // تعیین خودکار محدوده: ابتدا موقعیت تقریبی شبکه/GSM و سپس جایگزینی با GPS دقیق.
     try {
@@ -490,13 +528,30 @@ function CheckInCore() {
       try {
         const previous = await readLocalWorked();
         const sessionDateKey = String(open?.check_in || '').slice(0,10);
-        const previousSec = previous?.gdate === sessionDateKey ? Number(previous?.worked_sec || 0) : 0;
-        const baseSec = Math.max(0, Number(timerInfo?.completed_sec ?? previousSec ?? 0));
+        const previousSec = previous?.gdate === sessionDateKey
+          ? Math.max(0, Number(previous?.worked_sec || 0))
+          : 0;
+        // localWorked مجموع کارکرد روز است؛ completed_sec فقط بازه‌های بستهٔ
+        // ثبت‌شده نزد سرور را نشان می‌دهد. برای حالت آفلاین، هرکدام که بزرگ‌تر
+        // است مانع از دست رفتن کارکرد قبلی می‌شود.
+        const baseSec = Math.max(
+          0,
+          Number(timerInfo?.completed_sec || 0),
+          previousSec
+        );
         const start = tehranTimeToEpochMs(open?.check_in);
         const end = tehranTimeToEpochMs(checkoutClientTime);
         const sessionSec = start != null && end != null ? Math.max(0, Math.floor((end - start) / 1000)) : 0;
         const workedSec = Math.max(0, baseSec + sessionSec);
-        if (workedSec > 0) await persistLocalWorked({ gdate: String(open?.check_in || '').slice(0,10) || new Date().toISOString().slice(0,10), worked_sec: workedSec });
+        if (workedSec > 0) {
+          await persistLocalWorked({
+            gdate: String(open?.check_in || '').slice(0,10) || new Date().toISOString().slice(0,10),
+            worked_sec: workedSec,
+            expected_min: Math.max(0, Number(timerInfo?.expected_min || 453)),
+            ot_cap_min: Math.max(0, Number(timerInfo?.ot_cap_min || 27)),
+            completed_sec: workedSec,
+          });
+        }
       } catch {}
       const lineText = r?.checkout_line_code ? ` در خط ${faNum(String(r.checkout_line_code))}` : '';
       Alert.alert(
