@@ -20,6 +20,7 @@ export default function PresenceGate({navigationRef}){
  const mountedRef=useRef(false);
  const openedRef=useRef(false);
  const wizardWasActiveRef=useRef(false);
+ const RANDOM_CACHE_KEY='presence_random_schedule_v1';
 
  const setDueStable=next=>{if(!mountedRef.current)return;dueRef.current=next;setDue(next);};
 
@@ -37,8 +38,42 @@ export default function PresenceGate({navigationRef}){
     if(!alive)return;
     cfgRef.current=cfg||{};
     if(dueRef.current)return;
-    if(!cfg?.enabled||!cfg?.required||!(cfg?.slots||[]).length){setDueStable(null);return;}
+    if(!cfg?.enabled||!cfg?.required){setDueStable(null);return;}
     const now=tehranNow(),win=Math.max(1,Number(cfg.window_minutes||1));
+
+    // حالت تصادفی: برنامه از سرور/کش جلسهٔ باز خوانده می‌شود؛ ساعت‌های دستی کاملاً کنار گذاشته می‌شوند.
+    if(cfg.random_enabled){
+      let schedule=null;
+      try{ const raw=await AsyncStorage.getItem(RANDOM_CACHE_KEY); if(raw){const x=JSON.parse(raw);if(Array.isArray(x?.items)&&x.items.length)schedule=x;} }catch{}
+      try{
+        const remote=await request('/my/presence-random-schedule',{auth:true,noStore:true,timeoutMs:8000});
+        if(Array.isArray(remote?.items)){
+          schedule={attendance_id:Number(remote.attendance_id||schedule?.attendance_id||0),items:remote.items,cached_at:Date.now()};
+          await AsyncStorage.setItem(RANDOM_CACHE_KEY,JSON.stringify(schedule));
+        }
+      }catch{}
+      if(!schedule?.items?.length)return;
+      for(const item of schedule.items){
+        const at=Number(item.ts||0)*1000;
+        if(!at)continue;
+        const itemWin=Math.max(1,Number(item.window_minutes||win));
+        const nowMs=Date.now();
+        if(nowMs<at||nowMs>=at+itemWin*60000)continue;
+        const requestId=String(item.request_id||('rnd_'+schedule.attendance_id+'_'+item.ts));
+        const key='presence_random_done:'+requestId;
+        const expiredKey='presence_random_expired:'+requestId;
+        if(await AsyncStorage.getItem(key)||await AsyncStorage.getItem(expiredKey))continue;
+        const notifKey='presence_random_notified:'+requestId;
+        if(!await AsyncStorage.getItem(notifKey)){
+          await AsyncStorage.setItem(notifKey,'1');
+          notify('صحت‌سنجی حضور','لطفاً ظرف '+itemWin+' دقیقه سلفی و عکس خودروهای خط را ارسال کنید.',{type:'presence_check',slot:item.slot||'',window_minutes:itemWin,random:true,request_id:requestId});
+        }
+        setDueStable({slot:String(item.slot||''),windowMinutes:itemWin,day:now.day,key,expiredKey,immediate:false,random:true,requestId});
+        return;
+      }
+      return;
+    }
+    if(!(cfg?.slots||[]).length){setDueStable(null);return;}
     for(const sl of cfg.slots){
      const sm=slotToMinutes(sl);
      if(sm<0||now.minutes<sm||now.minutes>=sm+win)continue;
@@ -76,11 +111,12 @@ export default function PresenceGate({navigationRef}){
    const now=tehranNow();
    const sl=data.slot||((cfg.slots||[])[0])||`${String(Math.floor(now.minutes/60)).padStart(2,'0')}:${String(now.minutes%60).padStart(2,'0')}`;
    const requestId=String(data.request_id||`${now.day}_${sl}`);
-   const key=immediate?`presence_immediate_done:${now.day}:${requestId}`:`presence_done:${now.day}:${sl}`;
-   const expiredKey=`presence_expired:${now.day}:${sl}`;
+   const random=!!(data.random===true||data.random==='true'||data.random===1||data.random==='1');
+   const key=immediate?`presence_immediate_done:${now.day}:${requestId}`:random?`presence_random_done:${requestId}`:`presence_done:${now.day}:${sl}`;
+   const expiredKey=random?`presence_random_expired:${requestId}`:`presence_expired:${now.day}:${sl}`;
    if(await AsyncStorage.getItem(key))return;
    if(!immediate&&await AsyncStorage.getItem(expiredKey))return;
-   if(!dueRef.current)setDueStable({slot:sl,windowMinutes:Math.max(1,Number(data.window_minutes||cfg.window_minutes||1)),day:now.day,key,expiredKey,immediate,requestId});
+   if(!dueRef.current)setDueStable({slot:sl,windowMinutes:Math.max(1,Number(data.window_minutes||cfg.window_minutes||1)),day:now.day,key,expiredKey,immediate,random,requestId});
   };
   const handleResponse=r=>openFromNotification(r?.notification?.request?.content?.data||{}).catch(()=>{});
   const handleReceived=n=>openFromNotification(n?.request?.content?.data||{}).catch(()=>{});
