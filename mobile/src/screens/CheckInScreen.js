@@ -438,7 +438,10 @@ function CheckInCore() {
       }
       if (r.queued) {
         const localWorked = await readLocalWorked();
-        const completedSec = Math.max(0, Number(localWorked?.worked_sec || 0));
+        const todayKey = String(body.client_time || '').slice(0,10);
+        const completedSec = localWorked?.gdate === todayKey
+          ? Math.max(0, Number(localWorked?.worked_sec || 0))
+          : 0;
         const localOpen = { id: `local_${Date.now()}`, line_id: Number(localLine.line.id), check_in: body.client_time, check_out: null, method };
         await persistLocalOpen(localOpen);
         setOpen(localOpen);
@@ -486,7 +489,9 @@ function CheckInCore() {
       // ورود بعدی حتی بدون اینترنت نیز تایمر را از زمان قبلی ادامه دهد.
       try {
         const previous = await readLocalWorked();
-        const baseSec = Math.max(0, Number(timerInfo?.completed_sec ?? previous?.worked_sec ?? 0));
+        const sessionDateKey = String(open?.check_in || '').slice(0,10);
+        const previousSec = previous?.gdate === sessionDateKey ? Number(previous?.worked_sec || 0) : 0;
+        const baseSec = Math.max(0, Number(timerInfo?.completed_sec ?? previousSec ?? 0));
         const start = tehranTimeToEpochMs(open?.check_in);
         const end = tehranTimeToEpochMs(checkoutClientTime);
         const sessionSec = start != null && end != null ? Math.max(0, Math.floor((end - start) / 1000)) : 0;
