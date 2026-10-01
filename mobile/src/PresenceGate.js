@@ -1,10 +1,9 @@
 import React,{useState,useEffect,useRef}from'react';
-import{AppState,Modal,StyleSheet,View}from'react-native';
+import{AppState,StyleSheet}from'react-native';
 import AsyncStorage from'@react-native-async-storage/async-storage';
 import{request}from'./api';
 import{notify}from'./notify';
 import{useAuth}from'./auth';
-import PresenceCheckModal from'./PresenceCheckModal';
 import{startPresenceAlarm,stopPresenceAlarm}from'./presenceAlarm';
 import*as Notifications from'expo-notifications';
 import{tehranGregorianParts}from'./jdate';
@@ -13,12 +12,14 @@ function tehranNow(){const p=tehranGregorianParts(new Date());if(!p){const d=new
 function slotToMinutes(s){const m=/^(\d{2}):(\d{2})$/.exec(s);return m?(+m[1])*60+(+m[2]):-1;}
 function notificationData(raw){if(!raw)return{};if(typeof raw==='string'){try{return JSON.parse(raw)}catch(e){return{}}}if(raw?.data&&typeof raw.data==='string'){try{return JSON.parse(raw.data)}catch(e){}}return raw?.data&&typeof raw.data==='object'?raw.data:raw;}
 
-export default function PresenceGate(){
+export default function PresenceGate({navigationRef}){
  const{user}=useAuth();
  const[due,setDue]=useState(null);
  const dueRef=useRef(null);
  const cfgRef=useRef(null);
  const mountedRef=useRef(false);
+ const openedRef=useRef(false);
+ const wizardWasActiveRef=useRef(false);
 
  const setDueStable=next=>{if(!mountedRef.current)return;dueRef.current=next;setDue(next);};
 
@@ -48,7 +49,7 @@ export default function PresenceGate(){
       await AsyncStorage.setItem(notifKey,'1');
       notify('صحت‌سنجی حضور',`لطفاً ظرف ${win} دقیقه سلفی و عکس خودروهای خط را ارسال کنید.`,{type:'presence_check',slot:sl,window_minutes:win});
      }
-     if(!dueRef.current)setDueStable({slot:sl,windowMinutes:win,day:now.day,key,expiredKey,immediate:false});
+     if(!dueRef.current)setDueStable({slot:sl,windowMinutes:win,day:now.day,key,expiredKey,immediate:false,requestId:`${now.day}_${sl}`});
      return;
     }
    }catch(e){}
@@ -79,7 +80,7 @@ export default function PresenceGate(){
    const expiredKey=`presence_expired:${now.day}:${sl}`;
    if(await AsyncStorage.getItem(key))return;
    if(!immediate&&await AsyncStorage.getItem(expiredKey))return;
-   if(!dueRef.current)setDueStable({slot:sl,windowMinutes:Math.max(1,Number(data.window_minutes||cfg.window_minutes||1)),day:now.day,key,expiredKey,immediate});
+   if(!dueRef.current)setDueStable({slot:sl,windowMinutes:Math.max(1,Number(data.window_minutes||cfg.window_minutes||1)),day:now.day,key,expiredKey,immediate,requestId});
   };
   const handleResponse=r=>openFromNotification(r?.notification?.request?.content?.data||{}).catch(()=>{});
   const handleReceived=n=>openFromNotification(n?.request?.content?.data||{}).catch(()=>{});
@@ -90,6 +91,49 @@ export default function PresenceGate(){
   Notifications.getLastNotificationResponseAsync().then(r=>{if(r)handleResponse(r)}).catch(()=>{});
   return()=>{alive=false;try{r1.remove()}catch(e){}try{r2.remove()}catch(e){}try{appSub?.remove()}catch(e){}};
  },[user]);
+
+ // درخواست فعال به یک Route مستقل تبدیل می‌شود؛ دیگر Modal/Overlay مالک lifecycle دوربین نیست.
+ useEffect(()=>{
+  if(!navigationRef)return;
+  const onState=()=>{
+   if(!navigationRef.isReady())return;
+   const route=navigationRef.getCurrentRoute?.();
+   if(route?.name==='PresenceCheckWizard'){
+    wizardWasActiveRef.current=true;
+    return;
+   }
+   if(wizardWasActiveRef.current){
+    wizardWasActiveRef.current=false;
+    openedRef.current=false;
+    dueRef.current=null;
+    if(mountedRef.current)setDue(null);
+    stopPresenceAlarm().catch(()=>{});
+   }
+  };
+  const sub=navigationRef.addListener?.('state',onState);
+  return()=>{try{sub?.remove?.()}catch(e){}};
+ },[navigationRef]);
+
+ useEffect(()=>{
+  if(!due||!navigationRef?.isReady?.()||openedRef.current)return;
+  openedRef.current=true;
+  wizardWasActiveRef.current=false;
+  stopPresenceAlarm().catch(()=>{});
+  try{
+   navigationRef.navigate('PresenceCheckWizard',{
+    slot:due.slot,
+    windowMinutes:due.windowMinutes,
+    day:due.day,
+    key:due.key,
+    expiredKey:due.expiredKey,
+    immediate:!!due.immediate,
+    requestId:due.requestId||''
+   });
+  }catch(e){
+   openedRef.current=false;
+   startPresenceAlarm().catch(()=>{});
+  }
+ },[due,navigationRef]);
 
  useEffect(()=>{
   const alarmOn=cfgRef.current?cfgRef.current.alarm!==false:true;
@@ -107,22 +151,6 @@ export default function PresenceGate(){
   if(mountedRef.current)setDue(null);
  };
 
- // عمداً از Native Modal برای ویزارد صحت‌سنجی استفاده نمی‌کنیم؛
- // مرحله‌های دوربین داخل یک لایهٔ تمام‌صفحهٔ خود اپ اجرا می‌شوند تا lifecycle
- // دوربین/CameraView باعث dismiss شدن ناگهانی ویزارد نشود.
- return due ? (
-   <View style={s.overlayRoot} pointerEvents="box-none">
-    <View style={s.modalRoot}>
-     <PresenceCheckModal
-       key={`${due.immediate?'immediate':'scheduled'}:${due.key}`}
-       slot={due.slot}
-       windowMinutes={due.windowMinutes}
-       onDone={()=>finish(true)}
-       onExpire={()=>finish(false)}
-       onStart={()=>stopPresenceAlarm().catch(()=>{})}
-     />
-    </View>
-   </View>
- ) : null;
+ return null;
 }
 const s=StyleSheet.create({overlayRoot:{...StyleSheet.absoluteFillObject,flex:1,width:'100%',height:'100%',zIndex:100000,elevation:100000},modalRoot:{...StyleSheet.absoluteFillObject,flex:1,width:'100%',height:'100%',minWidth:'100%',minHeight:'100%',backgroundColor:'#fff',zIndex:100001,elevation:100001}});
