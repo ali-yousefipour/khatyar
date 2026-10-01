@@ -307,7 +307,7 @@ const db = {
     delHoliday: (jdate) => SEND('DELETE', '/admin/holidays/' + jdate, {}),
     fetchHolidays: (year, month) => SEND('POST', '/admin/holidays/fetch', { year, month }),
     shiftReport: (year, month) => GET('/admin/shift-report?year=' + year + '&month=' + month),
-    attendanceReport: (userId, from, to) => GET('/admin-attendance-report.php?user_id=' + userId + '&from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to)),
+    attendanceReport: (userId, from, to) => GET('/admin/attendance-report?user_id=' + userId + '&from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to)),
     attendanceSurplusConvert: (body) => SEND('POST', '/admin/attendance-surplus/convert', body),
     attendanceSurplusReset: (body) => SEND('POST', '/admin/attendance-surplus/reset', body),
     ruleEngineRoles: () => GET('/admin/rule-engine/roles'),
