@@ -4930,7 +4930,7 @@ function PresenceSettings(){
         <input className="input" style={{maxWidth:120}} placeholder="08:30" value={nt} onChange={e=>setNt(e.target.value)}/>
         <button className="btn g" onClick={addSlot}>+ افزودن بازه</button>
       </div>
-    </>
+    </>}
     <div className="row" style={{gap:14,flexWrap:"wrap"}}>
       <div><label className="label">مهلت گرفتن عکس (دقیقه)</label><input className="input" type="number" min="1" style={{maxWidth:90}} value={cfg.window_minutes} onChange={e=>{setCfg({...cfg,window_minutes:Math.max(1,+e.target.value||1)});setSaved(false);}}/></div>
       <div><label className="label">مهلت تا ثبت تخلف (دقیقه)</label><input className="input" type="number" min="1" style={{maxWidth:90}} value={cfg.grace_minutes} onChange={e=>{setCfg({...cfg,grace_minutes:Math.max(1,+e.target.value||1)});setSaved(false);}}/></div>
