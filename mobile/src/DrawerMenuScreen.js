@@ -32,6 +32,7 @@ function roleAllowsVehicle(role) {
 export default function DrawerMenuScreen({ navigation }) {
   const { user, logout } = useAuth();
   const [access, setAccess] = React.useState(null);
+  const [schoolServiceAllowed, setSchoolServiceAllowed] = React.useState(false);
   const [unread, setUnread] = React.useState({ messages: 0, reports: 0 });
 
   React.useEffect(() => {
@@ -42,9 +43,16 @@ export default function DrawerMenuScreen({ navigation }) {
 
   React.useEffect(() => {
     let active = true;
-    request('/personnel-vehicle-assets.php?op=access', { noStore: true })
-      .then((result) => { if (active) setAccess(result || null); })
-      .catch(() => { if (active) setAccess(null); });
+    Promise.allSettled([
+      request('/personnel-vehicle-assets.php?op=access', { noStore: true }),
+      request('/school-service/access', { noStore: true }),
+    ]).then(([vehicleResult, schoolResult]) => {
+      if (!active) return;
+      setAccess(vehicleResult.status === 'fulfilled' ? (vehicleResult.value || null) : null);
+      setSchoolServiceAllowed(
+        schoolResult.status === 'fulfilled' && schoolResult.value?.allowed === true
+      );
+    });
     return () => { active = false; };
   }, [user?.id, user?.role]);
 
@@ -72,6 +80,7 @@ export default function DrawerMenuScreen({ navigation }) {
 
   const items = [
     ...ITEMS,
+    ...(schoolServiceAllowed ? [['SchoolService', 'سرویس مدارس', '🏫']] : []),
     ['InboxReports', 'گزارشات دریافتی', '📥'],
     ...(vehicleAllowed ? [[
       'PersonnelVehicleAsset',
