@@ -12,8 +12,8 @@ on:
         required: true
         default: "main"
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
 
 permissions:
   contents: write
