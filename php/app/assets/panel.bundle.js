@@ -1,3 +1,4 @@
+// Build sync: keep generated panel bundle aligned with panel_source changes.
 const { useState, useEffect, useRef } = React;
 const I8 = (name) => React.createElement("img", { src: `/assets/icons3d/${name}.png`, alt: "", width: "30", height: "30", loading: "eager", decoding: "async", style: { objectFit: 'contain' }, onError: e => { e.currentTarget.style.display = 'none'; } });
 // چاپ حرفه‌ای با سربرگ (لوگو + عنوان سازمان + تاریخ تولید) — برای استفادهٔ مشترک در همهٔ گزارش‌ها
@@ -6101,7 +6102,7 @@ function Settings() {
         return React.createElement("div", null, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026");
     const set = (k, val) => setV({ ...v, [k]: val });
     const save = async () => { await db.saveSettings(v); alert("تنظیمات ذخیره شد."); };
-    const TABS = [["general", "عمومی و موقعیت"], ["subscription", "اشتراک"], ["monitoring", "پایش و هشدارها"], ["dashboard", "داشبورد و محاسبهٔ عملکرد"], ["hr", "منابع انسانی"], ["fields", "فیلدهای پرسنل"], ["appitems", "آیتم‌های اپ هر سمت"], ["sms", "پیامک"], ["bale", "ربات‌ها"], ["radio", "بی‌سیم"], ["security", "امنیت و نسخه اپ"], ["files", "پیوست‌ها و اعلان‌ها"], ["drivers", "بدهکاران"], ["print", "قالب چاپ"], ["access", "دسترسی‌ها"], ["backup", "پشتیبان‌گیری و پاکسازی"]];
+    const TABS = [["general", "عمومی و موقعیت"], ["subscription", "اشتراک"], ["monitoring", "پایش و هشدارها"], ["dashboard", "داشبورد و محاسبهٔ عملکرد"], ["hr", "منابع انسانی"], ["fields", "فیلدهای پرسنل"], ["appitems", "آیتم‌های اپ هر سمت"], ["sms", "پیامک"], ["bale", "ربات‌ها"], ["security", "امنیت و نسخه اپ"], ["files", "پیوست‌ها و اعلان‌ها"], ["drivers", "بدهکاران"], ["print", "قالب چاپ"], ["access", "دسترسی‌ها"], ["backup", "پشتیبان‌گیری و پاکسازی"]];
     const Field = (k, l) => {
         var _a;
         return React.createElement("div", { style: { marginBottom: 12 } },
@@ -6165,7 +6166,11 @@ function Settings() {
                 Toggle("block_dev_options", "مسدودسازی هنگام Developer Options"),
                 Toggle("block_mock_location", "مسدودسازی هنگام موقعیت جعلی (Mock)"),
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 10 } }, "\u0627\u06CC\u0646 \u0642\u0648\u0627\u0646\u06CC\u0646 \u062A\u0648\u0633\u0637 \u0627\u067E \u0645\u0648\u0628\u0627\u06CC\u0644 \u0628\u0631\u0631\u0633\u06CC \u0648 \u062A\u0648\u0633\u0637 \u0633\u0631\u0648\u0631 \u0627\u0639\u0645\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
-                React.createElement(MaintenanceModeSettings, null)),
+                React.createElement(MaintenanceModeSettings, null),
+                React.createElement("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" } },
+                    React.createElement("h3", { style: { margin: "0 0 8px" } }, "\uD83D\uDCFB \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645"),
+                    React.createElement("p", { className: "muted", style: { fontSize: 12, marginBottom: 10 } }, "\u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0627\u0646\u0627\u0644\u200C\u0647\u0627\u06CC \u0628\u06CC\u200C\u0633\u06CC\u0645\u060C \u0633\u0637\u062D \u062F\u0633\u062A\u0631\u0633\u06CC \u06A9\u0627\u0646\u0627\u0644\u200C\u0647\u0627 \u0648 \u0645\u062F\u062A \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0622\u0631\u0634\u06CC\u0648 \u0627\u0632 \u0647\u0645\u06CC\u0646 \u062A\u0628 \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F \u0648 \u0635\u0641\u062D\u0647\u0654 \u062C\u062F\u0627\u06AF\u0627\u0646\u0647\u200C\u0627\u06CC \u062F\u0631 \u0645\u0646\u0648\u06CC \u0633\u0627\u06CC\u062A \u0646\u062F\u0627\u0631\u062F."),
+                    React.createElement(RadioSettings, null))),
             React.createElement("div", { className: "panel t-general" },
                 React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0645\u0648\u0642\u0639\u06CC\u062A\u200C\u06CC\u0627\u0628\u06CC"),
                 Field("location_interval_sec", "فاصلهٔ ارسال موقعیت کاربران (ثانیه) — پیش‌فرض ۶۰"),
@@ -6641,7 +6646,7 @@ function Settings() {
             React.createElement("div", { className: "panel t-bale" },
                 React.createElement("h3", null, "\uD83E\uDD16 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0631\u0628\u0627\u062A\u200C\u0647\u0627\u06CC \u067E\u06CC\u0627\u0645\u200C\u0631\u0633\u0627\u0646"),
                 React.createElement(BaleSettings, { v: v, setV: setV, set: set, save: save })),
-            React.createElement("div", { className: "panel t-radio" },
+            React.createElement("div", { className: "panel t-security" },
                 React.createElement("h3", null, "\uD83D\uDCFB \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645"),
                 React.createElement(RadioSettings, null)),
             React.createElement("div", { className: "panel t-sms" },
@@ -8134,11 +8139,11 @@ function RolesManager() {
 }
 // تنظیمات صحت‌سنجی حضور
 function PresenceSettings() {
-    const [cfg, setCfg] = useState({ enabled: false, slots: [], window_minutes: 1, grace_minutes: 15, alarm: true, audience: 'all_required', server_push: true });
+    const [cfg, setCfg] = useState({ enabled: false, slots: [], window_minutes: 1, grace_minutes: 15, alarm: true, audience: 'all_required', server_push: true, random_enabled: false });
     const [nt, setNt] = useState("");
     const [saved, setSaved] = useState(false);
     useEffect(() => { db.settings().then(s => { if (s.presence_check)
-        setCfg({ enabled: !!s.presence_check.enabled, slots: s.presence_check.slots || [], window_minutes: s.presence_check.window_minutes || 1, grace_minutes: s.presence_check.grace_minutes || 15, alarm: s.presence_check.alarm !== false, audience: s.presence_check.audience || 'all_required', server_push: s.presence_check.server_push !== false }); }).catch(() => { }); }, []);
+        setCfg({ enabled: !!s.presence_check.enabled, slots: s.presence_check.slots || [], window_minutes: s.presence_check.window_minutes || 1, grace_minutes: s.presence_check.grace_minutes || 15, alarm: s.presence_check.alarm !== false, audience: s.presence_check.audience || 'all_required', server_push: s.presence_check.server_push !== false, random_enabled: !!s.presence_check.random_enabled }); }).catch(() => { }); }, []);
     const addSlot = () => { if (!/^\d{2}:\d{2}$/.test(nt)) {
         alert("ساعت را به شکل HH:MM وارد کنید، مثل 08:30");
         return;
@@ -8150,15 +8155,20 @@ function PresenceSettings() {
         React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 12 } },
             React.createElement("input", { type: "checkbox", checked: cfg.enabled, onChange: e => { setCfg({ ...cfg, enabled: e.target.checked }); setSaved(false); } }),
             React.createElement("b", null, "\u0641\u0639\u0627\u0644\u200C\u0633\u0627\u0632\u06CC \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062D\u0636\u0648\u0631")),
-        React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 10 } }, "\u062F\u0631 \u0647\u0631 \u0628\u0627\u0632\u0647\u0654 \u0633\u0627\u0639\u062A\u06CC \u062A\u0639\u0631\u06CC\u0641\u200C\u0634\u062F\u0647\u060C \u0628\u0631\u0627\u06CC \u06A9\u0627\u0631\u0628\u0631\u0627\u0646\u0650 \u00AB\u0645\u0634\u0645\u0648\u0644 \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC\u00BB \u067E\u0646\u062C\u0631\u0647\u200C\u0627\u06CC \u062F\u0631 \u0627\u067E \u0628\u0627\u0632 \u0645\u06CC\u200C\u0634\u0648\u062F \u062A\u0627 \u0633\u0644\u0641\u06CC \u0648 \u0639\u06A9\u0633 \u062E\u0648\u062F\u0631\u0648\u0647\u0627\u06CC \u062E\u0637 \u0627\u0631\u0633\u0627\u0644 \u06A9\u0646\u0646\u062F."),
-        React.createElement("div", { className: "label" }, "\u0628\u0627\u0632\u0647\u200C\u0647\u0627\u06CC \u0633\u0627\u0639\u062A\u06CC \u0631\u0648\u0632\u0627\u0646\u0647:"),
-        React.createElement("div", { className: "chiprow", style: { margin: "8px 0" } }, cfg.slots.length ? cfg.slots.map(s => React.createElement("span", { key: s, className: "chip" },
-            s,
-            " ",
-            React.createElement("b", { onClick: () => delSlot(s) }, "\u00D7"))) : React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u0647\u0646\u0648\u0632 \u0628\u0627\u0632\u0647\u200C\u0627\u06CC \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647.")),
-        React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 12 } },
-            React.createElement("input", { className: "input", style: { maxWidth: 120 }, placeholder: "08:30", value: nt, onChange: e => setNt(e.target.value) }),
-            React.createElement("button", { className: "btn g", onClick: addSlot }, "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0628\u0627\u0632\u0647")),
+        React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 10 } }, cfg.random_enabled ? 'زمان‌های تصادفی بعد از ثبت ورود هر پرسنل ساخته می‌شوند و در هر ۴ ساعت ۳ نوبت صحت‌سنجی برای همان فرد ایجاد می‌شود.' : 'در هر بازهٔ ساعتی تعریف‌شده، برای کاربرانِ «مشمول صحت‌سنجی» پنجره‌ای در اپ باز می‌شود تا سلفی و عکس خودروهای خط ارسال کنند.'),
+        React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 12 } },
+            React.createElement("input", { type: "checkbox", checked: !!cfg.random_enabled, onChange: e => { setCfg({ ...cfg, random_enabled: e.target.checked }); setSaved(false); } }),
+            React.createElement("b", null, "\uD83C\uDFB2 \u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u062A\u0635\u0627\u062F\u0641\u06CC \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC")),
+        React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 12 } }, "\u062F\u0631 \u0635\u0648\u0631\u062A \u0641\u0639\u0627\u0644 \u0628\u0648\u062F\u0646\u060C \u0633\u0627\u0639\u062A\u200C\u0647\u0627\u06CC \u062F\u0633\u062A\u06CC \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u067E\u0633 \u0627\u0632 \u0647\u0631 \u062B\u0628\u062A \u0648\u0631\u0648\u062F\u060C \u0628\u0631\u0627\u06CC \u0647\u0645\u0627\u0646 \u067E\u0631\u0633\u0646\u0644 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u0645\u0633\u062A\u0642\u0644 \u0648 \u062A\u0635\u0627\u062F\u0641\u06CC\u060C \u062F\u0631 \u0647\u0631 \u0628\u0627\u0632\u0647\u0654 \u06F4 \u0633\u0627\u0639\u062A\u0647 \u06F3 \u0646\u0648\u0628\u062A \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062A\u0639\u06CC\u06CC\u0646 \u0648 \u062F\u0631 \u0646\u0631\u0645\u200C\u0627\u0641\u0632\u0627\u0631 \u0630\u062E\u06CC\u0631\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+        !cfg.random_enabled && React.createElement(React.Fragment, null,
+            React.createElement("div", { className: "label" }, "\u0628\u0627\u0632\u0647\u200C\u0647\u0627\u06CC \u0633\u0627\u0639\u062A\u06CC \u0631\u0648\u0632\u0627\u0646\u0647:"),
+            React.createElement("div", { className: "chiprow", style: { margin: "8px 0" } }, cfg.slots.length ? cfg.slots.map(s => React.createElement("span", { key: s, className: "chip" },
+                s,
+                " ",
+                React.createElement("b", { onClick: () => delSlot(s) }, "\u00D7"))) : React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u0647\u0646\u0648\u0632 \u0628\u0627\u0632\u0647\u200C\u0627\u06CC \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647.")),
+            React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 12 } },
+                React.createElement("input", { className: "input", style: { maxWidth: 120 }, placeholder: "08:30", value: nt, onChange: e => setNt(e.target.value) }),
+                React.createElement("button", { className: "btn g", onClick: addSlot }, "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0628\u0627\u0632\u0647"))),
         React.createElement("div", { className: "row", style: { gap: 14, flexWrap: "wrap" } },
             React.createElement("div", null,
                 React.createElement("label", { className: "label" }, "\u0645\u0647\u0644\u062A \u06AF\u0631\u0641\u062A\u0646 \u0639\u06A9\u0633 (\u062F\u0642\u06CC\u0642\u0647)"),
@@ -14353,7 +14363,6 @@ const VIEWS = {
     cronstatus: { t: "پایش سلامت کرون‌ها", ic: "⏱", c: CronStatusView },
     activesessions: { t: "جلسات فعال کاربران", ic: "🔐", c: ActiveSessionsView },
     radiocenter: { t: "مرکز بی‌سیم", ic: "📻", c: RadioCenter },
-    radiosettings: { t: "تنظیمات بی‌سیم", ic: "📻", c: RadioSettings },
     vehicleassets: { t: "ماشین‌آلات و وسایل مأموریتی", ic: "🚙", c: PersonnelVehicleAssets },
     vehiclechecklist: { t: "چک‌لیست خودرویی و موتوری", ic: "☑", c: PersonnelVehicleChecklist },
     settings: { t: "تنظیمات سامانه", ic: "⚙", c: Settings },
@@ -14461,7 +14470,7 @@ function App() {
         ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "platetraining", "lines", "zones", "bills"]],
         ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "useract"]],
         ["منابع انسانی", ["shifts", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural", "vehicleassets", "vehiclechecklist"]],
-        ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter", "radiosettings"]],
+        ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
         ["مدیریت سامانه", ["users", "org", "forms", "config", "customfields", "inventory", "excel", "appitems", "cronstatus", "activesessions", "logs", "settings"]],
     ];
     const CORE = ["dashboard", "driverservicereport", "schoolservice"];
@@ -14474,9 +14483,9 @@ function App() {
         shifts: 'shift-cycle', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
         messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', radiocenter: 'radio-tower', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen',
         config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'activity-wave', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
-        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist', radiosettings: 'radio-tower'
+        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist'
     };
-    const can = (k) => !allowed || allowed.includes(k) || CORE.includes(k) || (k === 'radiosettings' && allowed.includes('radiocenter'));
+    const can = (k) => !allowed || allowed.includes(k) || CORE.includes(k);
     const closeOnPick = (k) => { setV(k); setDrawer(false); };
     return (React.createElement("div", { className: "layout" + (drawer ? " drawer-open" : "") },
         React.createElement("div", { className: "scrim", onClick: () => setDrawer(false) }),
