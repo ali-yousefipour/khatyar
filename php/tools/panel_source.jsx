@@ -3709,10 +3709,11 @@ function Settings(){
       {Toggle("block_mock_location","مسدودسازی هنگام موقعیت جعلی (Mock)")}
       <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>این قوانین توسط اپ موبایل بررسی و توسط سرور اعمال می‌شوند.</p>
       <MaintenanceModeSettings/>
-    </div>
-    <div className="panel t-security"><h3>📻 تنظیمات بی‌سیم</h3>
-      <p className="muted" style={{fontSize:12,marginBottom:10}}>مدیریت کانال‌های بی‌سیم، سطح دسترسی کانال‌ها و مدت نگهداری آرشیو از همین بخش انجام می‌شود. این تنظیمات دیگر به‌عنوان صفحهٔ جداگانه در منوی سایت نمایش داده نمی‌شوند.</p>
-      <RadioSettings/>
+      <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid var(--line)"}}>
+        <h3 style={{margin:"0 0 8px"}}>📻 تنظیمات بی‌سیم</h3>
+        <p className="muted" style={{fontSize:12,marginBottom:10}}>مدیریت کانال‌های بی‌سیم، سطح دسترسی کانال‌ها و مدت نگهداری آرشیو از همین تب انجام می‌شود و صفحهٔ جداگانه‌ای در منوی سایت ندارد.</p>
+        <RadioSettings/>
+      </div>
     </div>
     <div className="panel t-general"><h3>تنظیمات موقعیت‌یابی</h3>
       {Field("location_interval_sec","فاصلهٔ ارسال موقعیت کاربران (ثانیه) — پیش‌فرض ۶۰")}
