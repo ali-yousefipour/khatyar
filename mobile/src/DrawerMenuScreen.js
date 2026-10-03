@@ -47,7 +47,7 @@ export default function DrawerMenuScreen({ navigation }) {
       request('/personnel-vehicle-assets.php?op=access', { noStore: true }),
       // مجوز سرویس مدارس باید ابتدا از سرور خوانده شود تا تغییرات پنل
       // بلافاصله روی منوی اپ اعمال شود؛ فقط در صورت خطای شبکه به کش برمی‌گردیم.
-      request('/school-service/access', { noStore: true }).catch(() => request('/school-service/access')),
+      request('/school-service/access', { noStore: true }),
     ]).then(([vehicleResult, schoolResult]) => {
       if (!active) return;
       setAccess(vehicleResult.status === 'fulfilled' ? (vehicleResult.value || null) : null);
