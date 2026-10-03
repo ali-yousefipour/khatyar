@@ -4033,7 +4033,7 @@ function Settings(){
     <div className="panel t-sms"><h3>💰 هزینهٔ پیامک و ظرفیت ارسال</h3><SmsCostPanel v={v} set={set} save={save}/></div>
     <div className="panel t-sms"><h3>محدودیت ارسال پیامک</h3><label className="row" style={{gap:8}}><input type="checkbox" checked={!!v.sms_templates_only} onChange={e=>set("sms_templates_only",e.target.checked)}/>کاربران فقط بتوانند از قالب‌های تعریف‌شده استفاده کنند (امکان نوشتن متن دلخواه نباشد)</label><button className="btn p" style={{marginTop:10}} onClick={save}>ذخیره</button></div>
     <div className="panel t-bale"><h3>🤖 تنظیمات ربات‌های پیام‌رسان</h3><BaleSettings v={v} setV={setV} set={set} save={save}/></div>
-    <div className="panel t-radio"><h3>📻 تنظیمات بی‌سیم</h3><RadioSettings/></div>
+    <div className="panel t-security"><h3>📻 تنظیمات بی‌سیم</h3><RadioSettings/></div>
 <div className="panel t-sms"><h3>پیامک خوش‌آمد هنگام ثبت‌نام کاربر</h3>
       <p style={{fontSize:13,color:"var(--muted)",marginBottom:8}}>هنگام ایجاد کاربر جدید (در صورت داشتن موبایل و فعال بودن سرویس)، این پیامک حاوی نام کاربری و رمز عبور برای او ارسال می‌شود. از متغیرها استفاده کنید: <code dir="ltr">{"{username}"}</code>، <code dir="ltr">{"{password}"}</code>، <code dir="ltr">{"{first_name}"}</code>، <code dir="ltr">{"{last_name}"}</code></p>
       <textarea className="input" rows="4" placeholder={"به سامانه خوش آمدید.\nنام کاربری: {username}\nرمز عبور: {password}"} value={v.sms_welcome_template||""} onChange={e=>setV({...v,sms_welcome_template:e.target.value})}/>
