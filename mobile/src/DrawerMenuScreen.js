@@ -45,12 +45,15 @@ export default function DrawerMenuScreen({ navigation }) {
     let active = true;
     Promise.allSettled([
       request('/personnel-vehicle-assets.php?op=access', { noStore: true }),
-      request('/school-service/access', { noStore: true }),
+      // دسترسی سرویس مدارس قابل کش شدن است تا آیتم منو در شروع آفلاین نیز
+      // بر اساس آخرین مجوز معتبر مخفی نشود.
+      request('/school-service/access'),
     ]).then(([vehicleResult, schoolResult]) => {
       if (!active) return;
       setAccess(vehicleResult.status === 'fulfilled' ? (vehicleResult.value || null) : null);
       setSchoolServiceAllowed(
-        schoolResult.status === 'fulfilled' && schoolResult.value?.allowed === true
+        schoolResult.status === 'fulfilled' &&
+        (schoolResult.value?.allowed === true || schoolResult.value?.can_view === true)
       );
     });
     return () => { active = false; };
