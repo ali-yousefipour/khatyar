@@ -25,9 +25,17 @@ if ! grep -q "schoolservice" "$OUT"; then
   echo "ERROR: compiled panel bundle does not contain the school service view. Source/bundle are out of sync." >&2
   exit 1
 fi
+if ! grep -q "تنظیمات بی‌سیم" "$OUT"; then
+  echo "ERROR: compiled panel bundle does not contain the integrated radio settings section. Source/bundle are out of sync." >&2
+  exit 1
+fi
+if ! grep -q "data-school-service=\\\"canonical\\\"" "$OUT"; then
+  echo "ERROR: compiled panel bundle does not contain the canonical school service menu item." >&2
+  exit 1
+fi
 if grep -q "school-service.png" "$OUT"; then
   echo "ERROR: compiled panel bundle still references the removed school-service.png icon." >&2
   exit 1
 fi
-echo "Verified: panel bundle is non-empty, browser-compatible, contains schoolservice, and has no stale school-service.png reference."
+echo "Verified: panel bundle is non-empty, browser-compatible, contains schoolservice, integrated radio settings, canonical school-service menu, and has no stale school-service.png reference."
 echo "Built: $OUT"
