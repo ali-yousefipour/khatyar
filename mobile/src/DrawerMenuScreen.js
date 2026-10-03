@@ -45,9 +45,9 @@ export default function DrawerMenuScreen({ navigation }) {
     let active = true;
     Promise.allSettled([
       request('/personnel-vehicle-assets.php?op=access', { noStore: true }),
-      // دسترسی سرویس مدارس قابل کش شدن است تا آیتم منو در شروع آفلاین نیز
-      // بر اساس آخرین مجوز معتبر مخفی نشود.
-      request('/school-service/access'),
+      // مجوز سرویس مدارس باید ابتدا از سرور خوانده شود تا تغییرات پنل
+      // بلافاصله روی منوی اپ اعمال شود؛ فقط در صورت خطای شبکه به کش برمی‌گردیم.
+      request('/school-service/access', { noStore: true }).catch(() => request('/school-service/access')),
     ]).then(([vehicleResult, schoolResult]) => {
       if (!active) return;
       setAccess(vehicleResult.status === 'fulfilled' ? (vehicleResult.value || null) : null);
