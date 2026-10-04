@@ -268,7 +268,7 @@ function CheckInCore() {
       }
       const start = tehranTimeToEpochMs(checkInValue);
       if (start == null) return;
-      const remainingSec = Math.max(0, 8 * 60 * 60 - Math.max(0, Number(completedSec) || 0));
+      const completed = Math.max(0, Number(completedSec) || 0);\n      const openElapsedSec = Math.max(0, Math.floor((Date.now() - start) / 1000));\n      const remainingSec = Math.max(0, 8 * 60 * 60 - completed - openElapsedSec);
       const fireAt = new Date(Date.now() + remainingSec * 1000);
       if (remainingSec <= 0 || fireAt.getTime() <= Date.now()) return;
       exitReminderIdRef.current = await Notifications.scheduleNotificationAsync({
