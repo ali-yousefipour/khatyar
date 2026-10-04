@@ -13774,6 +13774,22 @@ route('PUT','/api/school-service/schools/{id}',function($p,$b,$u){
 });
 route('DELETE','/api/school-service/schools/{id}',function($p,$b,$u){_ssv_need($u,'delete');_ssv_tables();Db::run("UPDATE school_service_schools SET is_active=0 WHERE id=?",[(int)$p['id']]);return ['ok'=>true];});
 route('GET','/api/school-service/access',function($p,$b,$u){_ssv_tables();return ['allowed'=>_ssv_perm($u,'view'),'can_create'=>_ssv_perm($u,'create'),'can_edit'=>_ssv_perm($u,'edit'),'can_delete'=>_ssv_perm($u,'delete'),'can_import'=>_ssv_perm($u,'import'),'can_report'=>_ssv_perm($u,'report')];});
+route('GET','/api/school-service/bootstrap',function($p,$b,$u){
+  _ssv_need($u,'view'); _ssv_tables(); _ssv_autoseed_schools();
+  $districtRows=Db::all("SELECT DISTINCT TRIM(educational_district) AS title FROM school_service_schools WHERE is_active=1 AND educational_district IS NOT NULL AND TRIM(educational_district)<>'' ORDER BY title");
+  $districts=[]; foreach($districtRows as $row){$title=_ssv_norm($row['title']??'');if($title!==''&&!in_array($title,$districts,true))$districts[]=$title;}
+  $meta=[
+    'districts'=>$districts,
+    'genders'=>['دخترانه','پسرانه','نامشخص'],
+    'driver_genders'=>['خانم','آقا','نامشخص'],
+    'vehicle_types'=>array_column(Db::all("SELECT title FROM school_service_vehicle_types WHERE is_active=1 ORDER BY sort_order,id"),'title'),
+    'vehicle_colors'=>array_column(Db::all("SELECT title FROM school_service_vehicle_colors WHERE is_active=1 ORDER BY sort_order,id"),'title'),
+    'violations'=>Db::all("SELECT id,title FROM school_service_violation_types WHERE is_active=1 ORDER BY sort_order,id")
+  ];
+  $companies=Db::all("SELECT c.id,c.name,c.manager_name,c.manager_mobile,c.landline_phone,c.phone,c.address,c.latitude,c.longitude,c.registered_school_count,c.representative_count,c.status,c.profile_complete,c.is_active,COUNT(DISTINCT sc.school_id) school_count FROM school_service_companies c LEFT JOIN school_service_school_companies sc ON sc.company_id=c.id WHERE c.is_active=1 GROUP BY c.id ORDER BY c.name");
+  $schools=Db::all("SELECT s.id,s.code,s.name,s.educational_district,s.gender,s.address,s.latitude,s.longitude,s.location_registered_at,(SELECT scx.company_id FROM school_service_school_companies scx WHERE scx.school_id=s.id ORDER BY scx.is_primary DESC,scx.company_id ASC LIMIT 1) company_id,GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') company_names FROM school_service_schools s LEFT JOIN school_service_school_companies sc ON sc.school_id=s.id LEFT JOIN school_service_companies c ON c.id=sc.company_id WHERE s.is_active=1 GROUP BY s.id ORDER BY s.name");
+  return ['version'=>1,'generated_at'=>date('c'),'meta'=>$meta,'companies'=>$companies,'schools'=>$schools,'counts'=>['districts'=>count($districts),'companies'=>count($companies),'schools'=>count($schools)]];
+});
 route('GET','/api/school-service/meta',function($p,$b,$u){
   _ssv_need($u,'view'); _ssv_tables();
   // فهرست نواحی از خود دادهٔ مدارس خوانده می‌شود؛ جدول تنظیمات فقط تنظیمات
