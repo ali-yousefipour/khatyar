@@ -3,6 +3,7 @@ import { request } from './api';
 
 const KEY='school_service_master_cache_v2';
 const memory={data:null};
+let refreshPromise=null;
 
 const uniqById=(rows=[])=>{const m=new Map();for(const x of Array.isArray(rows)?rows:[]){const id=String(x?.id??'');if(id)m.set(id,x);}return [...m.values()];};
 
@@ -27,11 +28,25 @@ export async function readSchoolServiceCache(){
 }
 
 export async function refreshSchoolServiceCache(){
-  const meta=await request('/school-service/meta',{noStore:true});
-  const [companies,schools]=await Promise.all([
-    fetchPages('/school-service/companies',500),
-    fetchPages('/school-service/schools',500)
-  ]);
+  if(refreshPromise)return refreshPromise;
+  refreshPromise=(async()=>{
+    let boot;
+    try{
+      // یک درخواست bootstrap کل اطلاعات موردنیاز را می‌گیرد؛ این مسیر هم سریع‌تر
+      // است و هم از چندین round-trip و بارگذاری تدریجی جلوگیری می‌کند.
+      boot=await request('/school-service/bootstrap',{noStore:true,timeoutMs:30000});
+    }catch(_){
+      // سازگاری با سرورهای قدیمی که bootstrap را ندارند.
+      const meta=await request('/school-service/meta',{noStore:true,timeoutMs:15000});
+      const [companies,schools]=await Promise.all([
+        fetchPages('/school-service/companies',500),
+        fetchPages('/school-service/schools',500)
+      ]);
+      boot={meta,companies,schools};
+    }
+    const meta=boot?.meta||boot||{};
+    const companies=Array.isArray(boot?.companies)?boot.companies:[];
+    const schools=Array.isArray(boot?.schools)?boot.schools:[];
   const data={
     version:2,
     savedAt:Date.now(),
@@ -45,8 +60,10 @@ export async function refreshSchoolServiceCache(){
     schools:uniqById(schools)
   };
   memory.data=data;
-  await AsyncStorage.setItem(KEY,JSON.stringify({data}));
-  return data;
+    await AsyncStorage.setItem(KEY,JSON.stringify({data}));
+    return data;
+  })();
+  try{return await refreshPromise}finally{refreshPromise=null}
 }
 
 export async function loadSchoolServiceCache({refresh=true}={}){
