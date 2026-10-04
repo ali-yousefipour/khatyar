@@ -42,7 +42,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 22.23.1
           cache: npm
           cache-dependency-path: mobile/package-lock.json
 
@@ -53,7 +53,7 @@ jobs:
 
       - name: Install mobile dependencies
         working-directory: mobile
-        run: npm ci --legacy-peer-deps --no-audit --no-fund
+        run: npm ci --legacy-peer-deps --no-audit --no-fund --loglevel=warn
 
       - name: Generate Android project
         working-directory: mobile
