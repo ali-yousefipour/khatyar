@@ -13811,6 +13811,30 @@ route('GET','/api/school-service/bootstrap',function($p,$b,$u){
   $schools=Db::all("SELECT s.id,s.code,s.name,s.educational_district,s.gender,s.address,s.latitude,s.longitude,s.location_registered_at,(SELECT scx.company_id FROM school_service_school_companies scx WHERE scx.school_id=s.id ORDER BY scx.is_primary DESC,scx.company_id ASC LIMIT 1) company_id,GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') company_names FROM school_service_schools s LEFT JOIN school_service_school_companies sc ON sc.school_id=s.id LEFT JOIN school_service_companies c ON c.id=sc.company_id WHERE s.is_active=1 GROUP BY s.id ORDER BY s.name");
   return ['version'=>1,'generated_at'=>date('c'),'meta'=>$meta,'companies'=>$companies,'schools'=>$schools,'counts'=>['districts'=>count($districts),'companies'=>count($companies),'schools'=>count($schools)]];
 });
+route('GET','/api/school-service/dashboard',function($p,$b,$u){
+  _ssv_need($u,'view'); _ssv_tables(); _ssv_autoseed_schools();
+  $activeSchools=(int)(Db::one("SELECT COUNT(*) n FROM school_service_schools WHERE is_active=1")['n']??0);
+  $studentTotal=(int)(Db::one("SELECT COALESCE(SUM(student_count),0) n FROM school_service_schools WHERE is_active=1")['n']??0);
+  $activeCompanies=(int)(Db::one("SELECT COUNT(*) n FROM school_service_companies WHERE is_active=1")['n']??0);
+  $activeVehicles=(int)(Db::one("SELECT COUNT(*) n FROM school_service_vehicles WHERE is_active=1")['n']??0);
+  $inspections=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections")['n']??0);
+  $inspections30=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections WHERE created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)")['n']??0);
+  $violations=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspection_violations")['n']??0);
+  $invalidCert=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections WHERE certificate_status IN ('نامعتبر','ارائه نشد')")['n']??0);
+  $avgViol=$inspections>0?round($violations/$inspections,2):0;
+  $byDistrict=Db::all("SELECT COALESCE(NULLIF(TRIM(i.educational_district),''),'نامشخص') label,COUNT(*) n FROM school_service_inspections i GROUP BY i.educational_district ORDER BY n DESC");
+  $byCompany=Db::all("SELECT COALESCE(NULLIF(TRIM(c.name),''),'نامشخص') label,COUNT(i.id) n FROM school_service_inspections i LEFT JOIN school_service_companies c ON c.id=i.company_id GROUP BY c.id,c.name ORDER BY n DESC LIMIT 12");
+  $byViolation=Db::all("SELECT COALESCE(NULLIF(TRIM(v.title),''),'نامشخص') label,COUNT(iv.inspection_id) n FROM school_service_inspection_violations iv LEFT JOIN school_service_violation_types v ON v.id=iv.violation_type_id GROUP BY v.id,v.title ORDER BY n DESC LIMIT 10");
+  $bySchool=Db::all("SELECT COALESCE(NULLIF(TRIM(s.name),''),'نامشخص') label,COUNT(i.id) n FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id GROUP BY s.id,s.name ORDER BY n DESC LIMIT 10");
+  $vehicleTypes=Db::all("SELECT COALESCE(NULLIF(TRIM(vehicle_type),''),'نامشخص') label,COUNT(*) n FROM school_service_vehicles WHERE is_active=1 GROUP BY vehicle_type ORDER BY n DESC LIMIT 10");
+  $certificates=Db::all("SELECT certificate_status label,COUNT(*) n FROM school_service_inspections GROUP BY certificate_status ORDER BY n DESC");
+  $trend=Db::all("SELECT DATE_FORMAT(created_at,'%Y-%m') ym,COUNT(*) n FROM school_service_inspections WHERE created_at>=DATE_SUB(CURDATE(),INTERVAL 5 MONTH) GROUP BY DATE_FORMAT(created_at,'%Y-%m') ORDER BY ym ASC");
+  $districtSchools=Db::all("SELECT COALESCE(NULLIF(TRIM(educational_district),''),'نامشخص') label,COUNT(*) n,COALESCE(SUM(student_count),0) students FROM school_service_schools WHERE is_active=1 GROUP BY educational_district ORDER BY n DESC");
+  return ['cards'=>[
+    'active_schools'=>$activeSchools,'students'=>$studentTotal,'active_companies'=>$activeCompanies,'active_vehicles'=>$activeVehicles,
+    'inspections'=>$inspections,'inspections_30d'=>$inspections30,'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol
+  ],'by_district'=>$byDistrict,'by_company'=>$byCompany,'by_violation'=>$byViolation,'by_school'=>$bySchool,'vehicle_types'=>$vehicleTypes,'certificates'=>$certificates,'trend'=>$trend,'district_schools'=>$districtSchools,'generated_at'=>date('Y-m-d H:i:s')];
+});
 route('GET','/api/school-service/meta',function($p,$b,$u){
   _ssv_need($u,'view'); _ssv_tables();
   // فهرست نواحی از خود دادهٔ مدارس خوانده می‌شود؛ جدول تنظیمات فقط تنظیمات
