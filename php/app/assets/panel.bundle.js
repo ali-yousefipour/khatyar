@@ -13739,12 +13739,13 @@ finally {
                 React.createElement("button", { className: "btn d", disabled: saving, onClick: () => submit(false) }, "\u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0627\u0635\u0644\u0627\u062D"),
                 React.createElement("button", { className: "btn p", disabled: saving, onClick: () => submit(true) }, saving ? 'در حال ثبت…' : 'تأیید نهایی'))))); }
 /* SCHOOL SERVICE INLINE MODULE: bundled into the canonical panel; API endpoints unchanged. */
-console.log('SCHOOL SERVICE ADMIN BUILD: 2026-09-28-v240');
+console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-04-v243');
 (() => {
     const S = { token: null, root: null, ready: false, access: null };
     const css = document.createElement('style');
-    css.textContent = '.ssv-btn{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;margin:4px 0;border:0;border-radius:10px;background:transparent;color:inherit;font:600 13px Vazirmatn,Tahoma;cursor:pointer;text-align:right;direction:rtl}.ssv-btn:hover{background:#eef5f2}.ssv-page-host{width:100%;box-sizing:border-box;background:#f6f8fb;overflow:visible;padding:16px;direction:rtl}.ssv-inline-page{display:block!important;position:relative!important;inset:auto!important;width:100%;min-height:calc(100vh - 84px);box-sizing:border-box;background:#f6f8fb;padding:0;direction:rtl;z-index:1}.ssv-page-head{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;width:100%;box-sizing:border-box}.ssv-inline-page .ssv-box{display:none!important}.ssv-inline-page .ssv-head{position:sticky;top:0;z-index:5}.ssv-inline-page .ssv-body{overflow:visible}.ssv-map-wrap{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(360px,1fr);gap:12px;align-items:stretch;margin-bottom:12px}.ssv-map{height:520px;min-height:420px;border-radius:16px;overflow:hidden;border:1px solid #dfe5eb;background:#eef3f6}.ssv-map-info{border:1px solid #e4e8ee;border-radius:14px;background:#fff;padding:12px;overflow:auto;max-height:520px}.ssv-school-pick{display:block;width:100%;padding:9px;border:1px solid #e4e8ee;border-radius:10px;background:#fff;margin-bottom:7px;cursor:pointer;text-align:right;direction:rtl;font-family:Vazirmatn,Tahoma}.ssv-school-pick:hover{border-color:#0d7a5f;background:#f1faf6}.ssv-map-empty{display:flex;align-items:center;justify-content:center;height:100%;color:#7a8694;font-family:Vazirmatn,Tahoma}.ssv-box{width:min(1180px,96vw);height:min(820px,92vh);background:#fff;border-radius:18px;box-shadow:0 20px 70px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden;font-family:Vazirmatn,Tahoma}.ssv-head{padding:14px 18px;background:#0d7a5f;color:#fff;display:flex;align-items:center;justify-content:space-between}.ssv-tabs{display:flex;gap:6px;padding:10px;background:#f4f6f8;flex-wrap:wrap}.ssv-tabs button{border:1px solid #dce2e8;background:#fff;border-radius:10px;padding:8px 12px;font-family:inherit;cursor:pointer}.ssv-tabs button.on{background:#0d7a5f;color:#fff}.ssv-body{padding:14px;overflow:auto}.ssv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ssv-card{border:1px solid #e4e8ee;border-radius:14px;padding:12px;background:#fff}.ssv-input{width:100%;box-sizing:border-box;border:1px solid #d9e0e7;border-radius:10px;padding:9px;font-family:inherit}.ssv-table{width:100%;border-collapse:collapse;font-size:12px}.ssv-table th,.ssv-table td{border-bottom:1px solid #edf0f3;padding:8px;text-align:right;vertical-align:top}.ssv-table th{background:#f8fafb}.ssv-form-modal{position:fixed;inset:0;background:rgba(15,23,42,.48);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px}.ssv-form-box{width:min(720px,96vw);max-height:90vh;background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}.ssv-form-head{display:flex;align-items:center;justify-content:space-between;background:#0d7a5f;color:#fff;padding:13px 16px}.ssv-form-body{padding:16px;overflow:auto}.ssv-form-foot{display:flex;gap:8px;justify-content:flex-start;padding:12px 16px;border-top:1px solid #edf0f3}.ssv-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ssv-form-grid label{display:flex;flex-direction:column;gap:5px;font-size:12px}.ssv-form-foot button{border:0;border-radius:10px;padding:9px 16px;background:#0d7a5f;color:#fff;font-family:inherit;cursor:pointer}.ssv-form-foot button.alt{background:#eef2f5;color:#263238}.ssv-close{border:0;background:rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:7px 11px;cursor:pointer}.ssv-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.ssv-actions button{border:0;border-radius:10px;padding:9px 13px;background:#0d7a5f;color:#fff;font-family:inherit;cursor:pointer}.ssv-actions button.alt{background:#eef2f5;color:#263238}.ssv-pager{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px}.ssv-pager button{border:0;border-radius:9px;padding:7px 13px;background:#eef2f5;color:#263238;cursor:pointer}.ssv-pager button:disabled{opacity:.45;cursor:not-allowed}.ssv-chip{display:inline-flex;align-items:center;gap:4px;padding:7px 10px;border:1px solid #e2e7ec;border-radius:18px;margin:4px;background:#f8fafb}.ssv-chip button{border:0;background:transparent;color:#9a3b3b;cursor:pointer}.ssv-msg{padding:10px;border-radius:10px;background:#f7faf8;margin:8px 0}.ssv-file{display:none}@media(max-width:800px){.ssv-grid{grid-template-columns:1fr}.ssv-box{height:96vh}}';
+    css.textContent = '.ssv-btn{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;margin:4px 0;border:0;border-radius:10px;background:transparent;color:inherit;font:600 13px Vazirmatn,Tahoma;cursor:pointer;text-align:right;direction:rtl}.ssv-btn:hover{background:#eef5f2}.ssv-page-host{width:100%;box-sizing:border-box;background:#f6f8fb;overflow:visible;padding:16px;direction:rtl}.ssv-inline-page{width:100%;min-height:100%;box-sizing:border-box}.ssv-inline-page .ssv-box{width:100%;max-width:none;height:auto;min-height:calc(100vh - 100px);border-radius:14px;box-shadow:none}.ssv-inline-page .ssv-body{overflow:visible}.ssv-map-wrap{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(360px,1fr);gap:12px;align-items:stretch;margin-bottom:12px}.ssv-map{height:520px;min-height:420px;border-radius:16px;overflow:hidden;border:1px solid #dfe5eb;background:#eef3f6}.ssv-map-info{border:1px solid #e4e8ee;border-radius:14px;background:#fff;padding:12px;overflow:auto;max-height:520px}.ssv-school-pick{display:block;width:100%;padding:9px;border:1px solid #e4e8ee;border-radius:10px;background:#fff;margin-bottom:7px;cursor:pointer;text-align:right;direction:rtl;font-family:Vazirmatn,Tahoma}.ssv-school-pick:hover{border-color:#0d7a5f;background:#f1faf6}.ssv-map-empty{display:flex;align-items:center;justify-content:center;height:100%;color:#7a8694;font-family:Vazirmatn,Tahoma}.ssv-box{width:min(1180px,96vw);height:min(820px,92vh);background:#fff;border-radius:18px;box-shadow:0 20px 70px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden;font-family:Vazirmatn,Tahoma}.ssv-head{padding:14px 18px;background:#0d7a5f;color:#fff;display:flex;align-items:center;justify-content:space-between}.ssv-tabs{display:flex;gap:6px;padding:10px;background:#f4f6f8;flex-wrap:wrap}.ssv-tabs button{border:1px solid #dce2e8;background:#fff;border-radius:10px;padding:8px 12px;font-family:inherit;cursor:pointer}.ssv-tabs button.on{background:#0d7a5f;color:#fff}.ssv-body{padding:14px;overflow:auto}.ssv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ssv-card{border:1px solid #e4e8ee;border-radius:14px;padding:12px;background:#fff}.ssv-input{width:100%;box-sizing:border-box;border:1px solid #d9e0e7;border-radius:10px;padding:9px;font-family:inherit}.ssv-table{width:100%;border-collapse:collapse;font-size:12px}.ssv-table th,.ssv-table td{border-bottom:1px solid #edf0f3;padding:8px;text-align:right;vertical-align:top}.ssv-table th{background:#f8fafb}.ssv-form-modal{position:fixed;inset:0;background:rgba(15,23,42,.48);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px}.ssv-form-box{width:min(720px,96vw);max-height:90vh;background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}.ssv-form-head{display:flex;align-items:center;justify-content:space-between;background:#0d7a5f;color:#fff;padding:13px 16px}.ssv-form-body{padding:16px;overflow:auto}.ssv-form-foot{display:flex;gap:8px;justify-content:flex-start;padding:12px 16px;border-top:1px solid #edf0f3}.ssv-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ssv-form-grid label{display:flex;flex-direction:column;gap:5px;font-size:12px}.ssv-form-foot button{border:0;border-radius:10px;padding:9px 16px;background:#0d7a5f;color:#fff;font-family:inherit;cursor:pointer}.ssv-form-foot button.alt{background:#eef2f5;color:#263238}.ssv-close{border:0;background:rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:7px 11px;cursor:pointer}.ssv-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.ssv-actions button{border:0;border-radius:10px;padding:9px 13px;background:#0d7a5f;color:#fff;font-family:inherit;cursor:pointer}.ssv-actions button.alt{background:#eef2f5;color:#263238}.ssv-pager{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px}.ssv-pager button{border:0;border-radius:9px;padding:7px 13px;background:#eef2f5;color:#263238;cursor:pointer}.ssv-pager button:disabled{opacity:.45;cursor:not-allowed}.ssv-chip{display:inline-flex;align-items:center;gap:4px;padding:7px 10px;border:1px solid #e2e7ec;border-radius:18px;margin:4px;background:#f8fafb}.ssv-chip button{border:0;background:transparent;color:#9a3b3b;cursor:pointer}.ssv-msg{padding:10px;border-radius:10px;background:#f7faf8;margin:8px 0}.ssv-file{display:none}@media(max-width:800px){.ssv-grid{grid-template-columns:1fr}.ssv-box{height:96vh}}';
     document.head.appendChild(css);
+    css.textContent += `.ssv-dash{display:flex;flex-direction:column;gap:14px}.ssv-dash-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px;border:1px solid #e3e8ee;border-radius:16px;background:linear-gradient(135deg,#0d7a5f,#126e8f);color:#fff}.ssv-dash-head h2{margin:0;font-size:19px}.ssv-dash-head p{margin:5px 0 0;opacity:.85;font-size:11px}.ssv-dash-refresh{border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#fff;border-radius:10px;padding:9px 13px;font-family:inherit;cursor:pointer}.ssv-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.ssv-kpi{border:1px solid #e4e8ee;border-radius:14px;background:#fff;padding:14px;box-shadow:0 2px 8px rgba(15,23,42,.04)}.ssv-kpi small{display:block;color:#778395;font-size:11px}.ssv-kpi strong{display:block;font-size:25px;margin-top:6px}.ssv-kpi span{display:block;color:#0d7a5f;font-size:10px;margin-top:4px}.ssv-chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ssv-chart-card{border:1px solid #e4e8ee;border-radius:14px;background:#fff;padding:14px;min-width:0}.ssv-chart-card h3{margin:0 0 12px;font-size:13px}.ssv-bars{display:flex;flex-direction:column;gap:8px}.ssv-bar-row{display:grid;grid-template-columns:minmax(100px,1fr) 2fr 42px;align-items:center;gap:8px;font-size:11px}.ssv-bar-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ssv-bar-track{height:9px;background:#edf1f4;border-radius:99px;overflow:hidden}.ssv-bar-fill{height:100%;background:#0d7a5f;border-radius:99px}.ssv-bar-value{text-align:left;font-weight:700}.ssv-trend{display:flex;align-items:flex-end;gap:10px;height:180px;padding:10px 4px 4px;border-bottom:1px solid #edf0f3}.ssv-trend-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px}.ssv-trend-bar{width:min(42px,70%);min-height:3px;background:#126e8f;border-radius:7px 7px 2px 2px}.ssv-trend-col small{font-size:9px;color:#7b8794}.ssv-trend-col b{font-size:10px}.ssv-donut-wrap{display:flex;align-items:center;justify-content:center;gap:20px;min-height:180px}.ssv-donut{width:142px;height:142px;border-radius:50%;position:relative}.ssv-donut:after{content:"";position:absolute;inset:28px;border-radius:50%;background:#fff}.ssv-legend{display:flex;flex-direction:column;gap:8px;font-size:11px}.ssv-legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-left:6px}.ssv-empty-chart{padding:40px 10px;text-align:center;color:#8a95a3;font-size:12px}@media(max-width:1050px){.ssv-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:800px){.ssv-chart-grid{grid-template-columns:1fr}.ssv-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ssv-dash-head{align-items:flex-start;flex-direction:column}}`;
     function capture() { const old = window.fetch; if (window.__ssvFetch)
         return; window.__ssvFetch = true; window.fetch = function (input, init) { try {
         const h = init && init.headers;
@@ -13897,9 +13898,16 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-09-28-v240');
             map.fitBounds(bounds, { padding: [25, 25], maxZoom: 16 });
         setTimeout(() => map.invalidateSize(), 250);
     }
+    function ssvFa(n) { return new Intl.NumberFormat('fa-IR').format(Number(n) || 0); }
+    function ssvBars(items, limit = 8) { const a = (items || []).slice(0, limit); if (!a.length)
+        return '<div class="ssv-empty-chart">داده‌ای برای نمایش وجود ندارد.</div>'; const mx = Math.max(1, ...a.map(x => Number(x.n) || 0)); return '<div class="ssv-bars">' + a.map(x => '<div class="ssv-bar-row"><div class="ssv-bar-label" title="' + esc(x.label || 'نامشخص') + '">' + esc(x.label || 'نامشخص') + '</div><div class="ssv-bar-track"><div class="ssv-bar-fill" style="width:' + Math.max(2, Math.round((Number(x.n) || 0) / mx * 100)) + '%"></div></div><div class="ssv-bar-value">' + ssvFa(x.n) + '</div></div>').join('') + '</div>'; }
+    function ssvTrend(items) { const a = items || []; if (!a.length)
+        return '<div class="ssv-empty-chart">هنوز سابقه‌ای ثبت نشده است.</div>'; const mx = Math.max(1, ...a.map(x => Number(x.n) || 0)); return '<div class="ssv-trend">' + a.map(x => '<div class="ssv-trend-col"><b>' + ssvFa(x.n) + '</b><div class="ssv-trend-bar" style="height:' + Math.max(3, Math.round((Number(x.n) || 0) / mx * 135)) + 'px"></div><small>' + esc(String(x.ym || '').replace(/^(\\d{4})-/, '$1/')) + '</small></div>').join('') + '</div>'; }
+    function ssvDonut(items) { const a = (items || []).slice(0, 6); if (!a.length)
+        return '<div class="ssv-empty-chart">داده‌ای برای نمایش وجود ندارد.</div>'; const total = Math.max(1, a.reduce((s, x) => s + (Number(x.n) || 0), 0)); const colors = ['#0d7a5f', '#126e8f', '#d99a16', '#b54b68', '#6f56a8', '#718096']; let start = 0; const stops = a.map((x, i) => { const end = start + (Number(x.n) || 0) / total * 360; const z = colors[i % colors.length] + ' ' + start + 'deg ' + end + 'deg'; start = end; return z; }).join(','); return '<div class="ssv-donut-wrap"><div class="ssv-donut" style="background:conic-gradient(' + stops + ')"></div><div class="ssv-legend">' + a.map((x, i) => '<div><i style="background:' + colors[i % colors.length] + '"></i>' + esc(x.label || 'نامشخص') + ' <b>' + ssvFa(x.n) + '</b></div>').join('') + '</div></div>'; }
     async function open(target, onClose) { if (S.root)
         return; const a = await api('/api/school-service/access'); if (!a.allowed)
-        throw Error('دسترسی به سرویس مدارس برای حساب شما فعال نیست.'); S.access = a; const resolved = resolveSchoolPageHost(target); const host = resolved.host; const m = document.createElement('div'); m.className = 'ssv-inline-page'; m.innerHTML = '<div class="ssv-head ssv-page-head"><b>سرویس مدارس</b><button class="ssv-close">بستن صفحه</button></div><div class="ssv-tabs"><button data-t="dashboard">داشبورد</button><button data-t="create">ثبت بازدید</button><button data-t="inspections">بازدیدها و تخلفات</button><button data-t="schools" class="on">مدارس و نقشه</button><button data-t="companies">شرکت‌ها</button><button data-t="import">ورود Excel</button><button data-t="reports">گزارش‌ها</button><button data-t="config">تنظیمات</button><button data-t="permissions">دسترسی‌ها</button></div><div class="ssv-body"></div>'; host.appendChild(m); S.root = m; const close = () => { try {
+        throw Error('دسترسی به سرویس مدارس برای حساب شما فعال نیست.'); S.access = a; const resolved = resolveSchoolPageHost(target); const host = resolved.host; const m = document.createElement('div'); m.className = 'ssv-inline-page'; m.innerHTML = '<div class="ssv-box"><div class="ssv-head"><b>سرویس مدارس</b><button class="ssv-close">بستن</button></div><div class="ssv-tabs"><button data-t="dashboard" class="on">داشبورد</button><button data-t="create">ثبت بازدید</button><button data-t="inspections">بازدیدها و تخلفات</button><button data-t="vehicles">خودروها</button><button data-t="schools">مدارس</button><button data-t="companies">شرکت‌ها</button><button data-t="import">ورود Excel</button><button data-t="reports">گزارش‌ها</button><button data-t="config">تنظیمات</button><button data-t="permissions">دسترسی‌ها</button></div><div class="ssv-body"></div></div>'; host.appendChild(m); S.root = m; const close = () => { try {
         m.remove();
     }
     catch (_) { } if (resolved.owned) {
@@ -13918,11 +13926,16 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-09-28-v240');
         m.querySelectorAll('[data-t]').forEach(x => x.classList.remove('on'));
         b.classList.add('on');
         render(b.dataset.t);
-    } }); await render('schools'); }
+    } }); await render('dashboard'); }
     function close() { var _a; (_a = S.root) === null || _a === void 0 ? void 0 : _a.remove(); S.root = null; }
     async function render(t) {
         var _a, _b, _c, _e;
-        const b = S.root.querySelector('.ssv-body');
+        const root = S.root;
+        if (!root || !root.isConnected)
+            return;
+        const b = root.querySelector('.ssv-body');
+        if (!b)
+            return;
         b.innerHTML = '<div class="ssv-msg">در حال دریافت اطلاعات…</div>';
         try {
             if (t === 'import') {
@@ -13958,7 +13971,9 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-09-28-v240');
             }
             if (t === 'dashboard') {
                 const d = await api('/api/school-service/dashboard');
-                b.innerHTML = '<div class="ssv-grid"><div class="ssv-card"><h3>کل بازدیدها</h3><b style="font-size:28px">' + d.total_inspections + '</b></div><div class="ssv-card"><h3>کل موارد تخلف</h3><b style="font-size:28px">' + d.total_violations + '</b></div></div><div class="ssv-grid"><div class="ssv-card"><h3>بر اساس ناحیه</h3>' + d.by_district.map(x => '<div>' + esc(x.label || 'نامشخص') + ' : ' + x.n + '</div>').join('') + '</div><div class="ssv-card"><h3>بر اساس شرکت</h3>' + d.by_company.map(x => '<div>' + esc(x.label) + ' : ' + x.n + '</div>').join('') + '</div><div class="ssv-card"><h3>بر اساس تخلف</h3>' + d.by_violation.map(x => '<div>' + esc(x.label) + ' : ' + x.n + '</div>').join('') + '</div><div class="ssv-card"><h3>بر اساس مدرسه</h3>' + d.by_school.map(x => '<div>' + esc(x.label) + ' : ' + x.n + '</div>').join('') + '</div></div>';
+                const c = d.cards || {};
+                b.innerHTML = '<div class="ssv-dash"><div class="ssv-dash-head"><div><h2>داشبورد مدیریتی سرویس مدارس</h2><p>تصویر لحظه‌ای از پوشش مدارس، بازرسی، تخلفات و وضعیت ناوگان</p></div><button id="ssv-dash-refresh" class="ssv-dash-refresh">↻ بروزرسانی</button></div><div class="ssv-kpis"><div class="ssv-kpi"><small>مدارس فعال</small><strong>' + ssvFa(c.active_schools) + '</strong><span>پوشش فعال</span></div><div class="ssv-kpi"><small>دانش‌آموزان سرویس‌شده</small><strong>' + ssvFa(c.students) + '</strong><span>مجموع ثبت‌شده</span></div><div class="ssv-kpi"><small>شرکت‌های فعال</small><strong>' + ssvFa(c.active_companies) + '</strong><span>مجریان سرویس</span></div><div class="ssv-kpi"><small>خودروهای فعال</small><strong>' + ssvFa(c.active_vehicles) + '</strong><span>ناوگان بازرسی‌شده</span></div><div class="ssv-kpi"><small>بازدید ۳۰ روز اخیر</small><strong>' + ssvFa(c.inspections_30d) + '</strong><span>از ' + ssvFa(c.inspections) + ' بازدید کل</span></div></div><div class="ssv-chart-grid"><div class="ssv-chart-card"><h3>روند بازدیدهای ماهانه</h3>' + ssvTrend(d.trend) + '</div><div class="ssv-chart-card"><h3>وضعیت گواهی خودروها</h3>' + ssvDonut(d.certificates) + '</div><div class="ssv-chart-card"><h3>بازدید به تفکیک ناحیه</h3>' + ssvBars(d.by_district, 8) + '</div><div class="ssv-chart-card"><h3>تعداد مدارس و دانش‌آموزان به تفکیک ناحیه</h3>' + ssvBars((d.district_schools || []).map(x => ({ label: x.label, n: x.students })), 8) + '</div><div class="ssv-chart-card"><h3>شرکت‌های دارای بیشترین بازدید</h3>' + ssvBars(d.by_company, 8) + '</div><div class="ssv-chart-card"><h3>پرتکرارترین تخلفات</h3>' + ssvBars(d.by_violation, 8) + '</div><div class="ssv-chart-card"><h3>انواع خودروهای فعال</h3>' + ssvBars(d.vehicle_types, 8) + '</div><div class="ssv-chart-card"><h3>مدارس با بیشترین بازدید</h3>' + ssvBars(d.by_school, 8) + '</div></div><div class="ssv-card"><b>شاخص تخلف:</b> میانگین ' + ssvFa(c.avg_violations_per_inspection) + ' مورد تخلف به ازای هر بازدید · <b>موارد دارای گواهی نامعتبر/ارائه‌نشده:</b> ' + ssvFa(c.invalid_certificates) + ' · <b>کل تخلفات:</b> ' + ssvFa(c.violations) + '</div></div>';
+                b.querySelector('#ssv-dash-refresh').onclick = () => render('dashboard');
                 return;
             }
             if (t === 'create') {
@@ -14081,41 +14096,14 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-09-28-v240');
                 return;
             }
             if (t === 'reports') {
-                b.innerHTML = '<div class="ssv-card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h3 style="margin:0">گزارش حرفه‌ای بازدیدهای سرویس مدارس</h3><div class="ssv-muted" style="margin-top:5px">نمای مدیریتی بازدیدها، تخلفات، پوشش مکانی و عملکرد شرکت‌ها</div></div><div class="ssv-actions"><button id="ssv-exp" class="ssv-btn">خروجی Excel بازدیدها</button><button id="ssv-exp-s" class="ssv-btn">مدارس</button><button id="ssv-exp-c" class="ssv-btn">شرکت‌ها</button></div></div><div class="ssv-grid" style="margin-top:14px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))"><div class="ssv-card"><div class="ssv-muted">کل بازدیدها</div><div id="rep-total" style="font-size:26px;font-weight:800;margin-top:5px">—</div></div><div class="ssv-card"><div class="ssv-muted">بازدید دارای تخلف</div><div id="rep-viol" style="font-size:26px;font-weight:800;margin-top:5px">—</div></div><div class="ssv-card"><div class="ssv-muted">دارای مختصات</div><div id="rep-geo" style="font-size:26px;font-weight:800;margin-top:5px">—</div></div><div class="ssv-card"><div class="ssv-muted">محل همان مدرسه</div><div id="rep-school-loc" style="font-size:26px;font-weight:800;margin-top:5px">—</div></div></div><div class="ssv-actions" style="margin-top:14px;align-items:end"><input id="rep-search" class="ssv-input" placeholder="جستجو: مدرسه، شرکت، پلاک یا محل"><input id="rep-district" class="ssv-input" placeholder="ناحیه آموزشی"><select id="rep-company" class="ssv-input"><option value="">همه شرکت‌ها</option></select><button id="rep-apply" class="ssv-btn">اعمال فیلتر</button><button id="rep-clear" class="ssv-btn">پاک کردن</button></div><div id="rep-summary" class="ssv-card" style="margin-top:12px"></div><div id="rep-table" class="ssv-card" style="margin-top:12px;overflow:auto"><div class="ssv-muted">در حال دریافت گزارش…</div></div></div>';
-                const loadReport = async () => { try {
-                    const q = b.querySelector('#rep-search').value.trim(), d = b.querySelector('#rep-district').value.trim(), c = b.querySelector('#rep-company').value.trim();
-                    const [rows, dash] = await Promise.all([api('/api/school-service/inspections?search=' + encodeURIComponent(q) + '&district=' + encodeURIComponent(d) + (c ? '&company_id=' + encodeURIComponent(c) : '')), api('/api/school-service/dashboard?district=' + encodeURIComponent(d) + (c ? '&company_id=' + encodeURIComponent(c) : ''))]);
-                    const items = rows.items || [];
-                    const total = Number(dash.total_inspections || items.length);
-                    const viol = items.filter(x => (x.violations || []).length).length;
-                    const geo = items.filter(x => x.latitude != null && x.longitude != null).length;
-                    const same = items.filter(x => Number(x.use_school_location) === 1).length;
-                    b.querySelector('#rep-total').textContent = fa(total);
-                    b.querySelector('#rep-viol').textContent = fa(viol);
-                    b.querySelector('#rep-geo').textContent = fa(geo);
-                    b.querySelector('#rep-school-loc').textContent = fa(same);
-                    const byCompany = (dash.by_company || []).slice(0, 10);
-                    const byViolation = (dash.by_violation || []).slice(0, 10);
-                    b.querySelector('#rep-summary').innerHTML = '<div class="ssv-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))"><div><h4 style="margin-top:0">بازدید بر اساس شرکت</h4>' + (byCompany.length ? byCompany.map(x => '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:7px 0"><span>' + esc(x.label) + '</span><b>' + fa(x.n) + '</b></div>').join('') : '<div class="ssv-muted">داده‌ای وجود ندارد.</div>') + '</div><div><h4 style="margin-top:0">پرتکرارترین تخلفات</h4>' + (byViolation.length ? byViolation.map(x => '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:7px 0"><span>' + esc(x.label) + '</span><b>' + fa(x.n) + '</b></div>').join('') : '<div class="ssv-muted">تخلف ثبت نشده است.</div>') + '</div></div>';
-                    b.querySelector('#rep-table').innerHTML = '<table style="min-width:1250px"><thead><tr><th>ردیف</th><th>تاریخ/ساعت</th><th>ناحیه</th><th>مدرسه</th><th>شرکت</th><th>پلاک</th><th>راننده</th><th>سرنشین جلو</th><th>سرنشین عقب</th><th>تخلف</th><th>مکان</th><th>GPS</th><th>بازرس</th><th>عملیات</th></tr></thead><tbody>' + items.map((x, i) => { var _a, _b; return '<tr><td>' + fa(i + 1) + '</td><td>' + esc((x.violation_date || '—') + ' ' + (x.violation_time || '')) + '</td><td>' + esc(x.educational_district || '—') + '</td><td>' + esc(x.school_name || 'نامشخص') + '</td><td>' + esc(x.company_name || 'نامشخص') + '</td><td>' + esc(x.plate || '—') + '</td><td>' + esc(x.driver_gender || '—') + '</td><td>' + fa((_a = x.passenger_front_count) !== null && _a !== void 0 ? _a : 0) + '</td><td>' + fa((_b = x.passenger_rear_count) !== null && _b !== void 0 ? _b : 0) + '</td><td>' + esc((x.violations || []).join('، ') || 'بدون تخلف') + '</td><td>' + esc(x.use_school_location ? 'همان مکان مدرسه' : (x.location_text || '—')) + '</td><td>' + (x.latitude != null && x.longitude != null ? '✓ ' + Number(x.latitude).toFixed(5) + ', ' + Number(x.longitude).toFixed(5) : '—') + '</td><td>' + esc(x.inspector_name || '—') + '</td><td><button class="ssv-btn" data-rep-view="' + x.id + '">جزئیات</button></td></tr>'; }).join('') + '</tbody></table>';
-                    b.querySelectorAll('[data-rep-view]').forEach(x => x.onclick = async () => { var _a, _b; const r = await api('/api/school-service/inspections/' + x.dataset.repView); const m = document.createElement('div'); m.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:18px'; const p = (r.photos || [])[0]; m.innerHTML = '<div style="background:#fff;border-radius:18px;max-width:820px;width:100%;max-height:90vh;overflow:auto;padding:20px;direction:rtl"><div style="display:flex;justify-content:space-between"><h3 style="margin:0">جزئیات کامل بازدید</h3><button id="rep-close" class="ssv-btn">بستن</button></div><div class="ssv-grid" style="margin-top:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"><div>مدرسه: <b>' + esc(r.school_name || '—') + '</b></div><div>شرکت: <b>' + esc(r.company_name || '—') + '</b></div><div>پلاک: <b>' + esc(r.plate || '—') + '</b></div><div>راننده: <b>' + esc(r.driver_gender || '—') + '</b></div><div>سرنشین جلو: <b>' + fa((_a = r.passenger_front_count) !== null && _a !== void 0 ? _a : 0) + '</b></div><div>سرنشین عقب: <b>' + fa((_b = r.passenger_rear_count) !== null && _b !== void 0 ? _b : 0) + '</b></div><div>تخلفات: <b>' + esc((r.violations || []).map(v => v.title).join('، ') || 'بدون تخلف') + '</b></div><div>محل: <b>' + esc(r.use_school_location ? 'همان مکان مدرسه' : (r.location_text || '—')) + '</b></div><div>مختصات: <b>' + (r.latitude != null && r.longitude != null ? Number(r.latitude).toFixed(6) + ' , ' + Number(r.longitude).toFixed(6) : 'ثبت نشده') + '</b></div><div>بازرس: <b>' + esc(r.inspector_name || '—') + '</b></div></div>' + (p ? '<img src="' + esc(p.file_path || '') + '" style="width:100%;max-height:430px;object-fit:contain;background:#f3f4f6;border-radius:14px;margin-top:14px">' : '<div class="ssv-msg" style="margin-top:14px">تصویر خودرو ثبت نشده است.</div>') + '</div>'; document.body.appendChild(m); m.querySelector('#rep-close').onclick = () => m.remove(); m.onclick = e => { if (e.target === m)
-                        m.remove(); }; });
-                }
-                catch (e) {
-                    b.querySelector('#rep-table').innerHTML = '<div class="ssv-msg">' + esc(e.message || 'خطا در دریافت گزارش') + '</div>';
-                } };
-                const companies = (await api('/api/school-service/companies?limit=500')).items || [];
-                b.querySelector('#rep-company').innerHTML = '<option value="">همه شرکت‌ها</option>' + companies.map(x => '<option value="' + x.id + '">' + esc(x.name) + '</option>').join('');
-                b.querySelector('#rep-company').onchange = loadReport;
-                b.querySelector('#rep-apply').onclick = loadReport;
-                b.querySelector('#rep-clear').onclick = () => { b.querySelector('#rep-search').value = ''; b.querySelector('#rep-district').value = ''; b.querySelector('#rep-company').value = ''; loadReport(); };
-                [['ssv-exp', 'inspections'], ['ssv-exp-s', 'schools'], ['ssv-exp-c', 'companies']].forEach(([id, tp]) => b.querySelector('#' + id).onclick = async () => { try {
-                    const q = b.querySelector('#rep-search').value.trim(), d = b.querySelector('#rep-district').value.trim(), c = b.querySelector('#rep-company').value.trim();
-                    const base = tp === 'inspections' ? '/api/school-service/export-filtered?type=inspections&search=' + encodeURIComponent(q) + '&district=' + encodeURIComponent(d) + (c ? '&company_id=' + encodeURIComponent(c) : '') : '/api/school-service/export?type=' + tp;
-                    const rr = await fetch(base, { headers: S.token ? { Authorization: S.token } : {} });
-                    if (!rr.ok)
+                b.innerHTML = '<div class="ssv-card"><h3>گزارش‌ها و خروجی Excel</h3><div class="ssv-actions"><input id="rep-search" class="ssv-input" placeholder="جستجو"><input id="rep-district" class="ssv-input" placeholder="ناحیه"><button id="ssv-exp">خروجی بازدیدها</button><button id="ssv-exp-s">خروجی مدارس</button><button id="ssv-exp-c">خروجی شرکت‌ها</button></div></div>';
+                [['ssv-exp', 'inspections'], ['ssv-exp-s', 'schools'], ['ssv-exp-c', 'companies']].forEach(([id, tp]) => b.querySelector('#' + id).onclick = async () => { var _a, _b; try {
+                    const base = tp === 'inspections' ? '/api/school-service/export-filtered?type=inspections&search=' + encodeURIComponent(((_a = b.querySelector('#rep-search')) === null || _a === void 0 ? void 0 : _a.value) || '') + '&district=' + encodeURIComponent(((_b = b.querySelector('#rep-district')) === null || _b === void 0 ? void 0 : _b.value) || '') : '/api/school-service/export?type=' + tp;
+                    const r = await fetch(base, { headers: S.token ? { Authorization: S.token } : {} });
+                    if (!r.ok)
                         throw Error('خروجی قابل دریافت نیست');
-                    const blob = await rr.blob(), u = URL.createObjectURL(blob), a = document.createElement('a');
+                    const blob = await r.blob();
+                    const u = URL.createObjectURL(blob), a = document.createElement('a');
                     a.href = u;
                     a.download = 'سرویس_مدارس_' + tp + '.xlsx';
                     a.click();
@@ -14124,7 +14112,6 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-09-28-v240');
                 catch (e) {
                     alert(e.message);
                 } });
-                loadReport();
                 return;
             }
             if (t === 'config') {
@@ -14180,6 +14167,60 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-09-28-v240');
                         x = { items: rows, page: 1, page_size: 25, total: mapRows.length, pages: Math.max(1, Math.ceil(mapRows.length / 25)) };
                     }
                 }
+                if (t === 'vehicles') {
+                    let page = 1;
+                    b.innerHTML = '<div class="ssv-card"><div class="ssv-actions"><input id="vehicle-search" class="ssv-input" placeholder="جستجوی پلاک، نوع یا رنگ خودرو"><button id="vehicle-new">خودروی جدید</button></div><div id="vehicle-list" style="margin-top:12px"></div></div>';
+                    const input = b.querySelector('#vehicle-search'), list = b.querySelector('#vehicle-list');
+                    const load = async () => {
+                        try {
+                            const x = await api('/api/school-service/vehicles?search=' + encodeURIComponent(input.value || '') + '&page=' + page + '&limit=25');
+                            list.innerHTML = '<table class="ssv-table"><thead><tr><th>ردیف</th><th>پلاک</th><th>نوع خودرو</th><th>رنگ</th><th>سرنشین</th><th>راننده</th><th>گواهی</th><th>تعداد بازدید</th><th>آخرین بازدید</th><th>عملیات</th></tr></thead><tbody>' +
+                                (x.items || []).map((r, n) => '<tr><td>' + ((page - 1) * 25 + n + 1) + '</td><td><b>' + esc(r.plate || '') + '</b></td><td>' + esc(r.vehicle_type || '') + '</td><td>' + esc(r.vehicle_color || '') + '</td><td>' + Number(r.passenger_front_count || 0) + ' جلو / ' + Number(r.passenger_rear_count || 0) + ' عقب</td><td>' + esc(r.driver_gender || '') + '</td><td>' + esc(r.certificate_status || '') + '</td><td>' + Number(r.inspection_count || 0) + '</td><td>' + esc(r.last_inspection_at || '') + '</td><td><button data-edit-v="' + r.id + '">ویرایش</button> <button data-del-v="' + r.id + '">غیرفعال</button></td></tr>').join('') +
+                                '</tbody></table><div class="ssv-pager"><button id="vehicle-prev" ' + (page <= 1 ? 'disabled' : '') + '>قبلی</button><span>صفحه ' + x.page + ' از ' + x.pages + ' — ' + x.total + ' خودرو</span><button id="vehicle-next" ' + (page >= x.pages ? 'disabled' : '') + '>بعدی</button></div>';
+                            if (S.access && !S.access.can_edit)
+                                list.querySelectorAll('[data-edit-v]').forEach(x => x.style.display = 'none');
+                            if (S.access && !S.access.can_delete)
+                                list.querySelectorAll('[data-del-v]').forEach(x => x.style.display = 'none');
+                            list.querySelector('#vehicle-prev').onclick = () => { if (page > 1) {
+                                page--;
+                                load();
+                            } };
+                            list.querySelector('#vehicle-next').onclick = () => { if (page < x.pages) {
+                                page++;
+                                load();
+                            } };
+                            list.querySelectorAll('[data-edit-v]').forEach(btn => btn.onclick = async () => {
+                                const row = (x.items || []).find(v => Number(v.id) === Number(btn.dataset.editV));
+                                if (!row)
+                                    return;
+                                const html = '<div class="ssv-form-grid"><label>پلاک<input class="ssv-input" value="' + esc(row.plate || '') + '" readonly></label><label>نوع خودرو<input id="vf-type" class="ssv-input" value="' + esc(row.vehicle_type || '') + '"></label><label>رنگ خودرو<input id="vf-color" class="ssv-input" value="' + esc(row.vehicle_color || '') + '"></label><label>سرنشین جلو<input id="vf-front" class="ssv-input" type="number" min="0" value="' + Number(row.passenger_front_count || 0) + '"></label><label>سرنشین عقب<input id="vf-rear" class="ssv-input" type="number" min="0" value="' + Number(row.passenger_rear_count || 0) + '"></label><label>جنسیت راننده<select id="vf-dg" class="ssv-input"><option>نامشخص</option><option>خانم</option><option>آقا</option></select></label><label>وضعیت گواهی<select id="vf-cert" class="ssv-input"><option>ارائه نشد</option><option>معتبر</option><option>نامعتبر</option></select></label></div>';
+                                ssvModal('ویرایش خودرو', html, async (m) => {
+                                    try {
+                                        await api('/api/school-service/vehicles/' + row.id, { method: 'PUT', body: { vehicle_type: m.querySelector('#vf-type').value.trim(), vehicle_color: m.querySelector('#vf-color').value.trim(), passenger_front_count: m.querySelector('#vf-front').value, passenger_rear_count: m.querySelector('#vf-rear').value, driver_gender: m.querySelector('#vf-dg').value, certificate_status: m.querySelector('#vf-cert').value } });
+                                        await load();
+                                        return true;
+                                    }
+                                    catch (e) {
+                                        alert(e.message);
+                                        return false;
+                                    }
+                                });
+                                document.querySelector('.ssv-form-modal #vf-dg').value = row.driver_gender || 'نامشخص';
+                                document.querySelector('.ssv-form-modal #vf-cert').value = row.certificate_status || 'ارائه نشد';
+                            });
+                            list.querySelectorAll('[data-del-v]').forEach(btn => btn.onclick = () => ssvConfirm('غیرفعال‌سازی خودرو', 'خودرو از فهرست خودروهای فعال خارج می‌شود و سوابق بازرسی آن حفظ خواهد شد.', async () => { await api('/api/school-service/vehicles/' + btn.dataset.delV, { method: 'DELETE' }); load(); }));
+                        }
+                        catch (e) {
+                            list.innerHTML = '<div class="ssv-msg">' + esc(e.message || 'خطا در دریافت خودروها') + '</div>';
+                        }
+                    };
+                    b.querySelector('#vehicle-new').style.display = 'none';
+                    if (S.access && !S.access.can_edit)
+                        b.querySelector('#vehicle-new').style.display = 'none';
+                    input.oninput = () => { clearTimeout(input._t); input._t = setTimeout(() => { page = 1; load(); }, 250); };
+                    await load();
+                    return;
+                }
                 if (t === 'companies')
                     b.querySelector('#ssv-list').innerHTML = '<table class="ssv-table"><thead><tr><th>ردیف</th><th>شرکت</th><th>مدیرعامل</th><th>موبایل مدیرعامل</th><th>تلفن ثابت</th><th>تعداد مدارس</th><th>مدارس ثبت‌شده</th><th>نمایندگان</th><th>وضعیت</th><th>پروفایل</th><th>عملیات</th></tr></thead><tbody>' + rows.map((r, i) => '<tr><td>' + ((page - 1) * 25 + i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.manager_name) + '</td><td>' + esc(r.manager_mobile || '') + '</td><td>' + esc(r.landline_phone || r.phone || '') + '</td><td>' + r.school_count + '</td><td>' + Number(r.registered_school_count || 0) + '</td><td>' + Number(r.representative_count || 0) + '</td><td>' + esc(r.status || 'فعال') + '</td><td>' + (Number(r.profile_complete) ? 'تکمیل' : 'ناقص') + '</td><td><button data-edit-c="' + r.id + '">ویرایش</button> <button data-del-c="' + r.id + '">حذف</button></td></tr>').join('') + '</tbody></table>';
                 else if (t === 'schools')
@@ -14229,58 +14270,6 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-09-28-v240');
         }
     }
     window.openSchoolService = open;
-    /* Compatibility bridge: deterministic recovery for an older/stale panel bundle.
-       The canonical React menu remains the source of truth. This bounded bridge only restores
-       the entry when the deployed bundle has not rendered it yet; it never uses MutationObserver. */
-    (function ensureSchoolServiceMenuCompatibility() {
-        const ID = 'kh-school-service-menu-compat';
-        let ticks = 0;
-        const add = () => {
-            try {
-                const canonical = document.querySelector('[data-school-service="canonical"]');
-                const existing = document.getElementById(ID);
-                if (canonical) {
-                    if (existing)
-                        existing.remove();
-                    return;
-                }
-                const nav = document.querySelector('aside .nav, aside nav.nav, aside nav, .side .nav, nav.nav, .nav, .side');
-                if (!nav)
-                    return;
-                let btn = existing;
-                if (!btn) {
-                    btn = document.createElement('button');
-                    btn.id = ID;
-                    btn.type = 'button';
-                    btn.className = 'navitem';
-                    btn.setAttribute('data-school-service', 'compat');
-                    btn.style.cssText = 'width:100%;min-height:54px;text-align:right;display:flex;align-items:center;gap:12px;flex:none;';
-                    btn.innerHTML = '<span class="ic">✓</span><span class="navlabel">سرویس مدارس</span>';
-                    const logout = nav.querySelector('.logout-item');
-                    if (logout)
-                        nav.insertBefore(btn, logout);
-                    else
-                        nav.appendChild(btn);
-                }
-                btn.onclick = () => {
-                    const fn = window.openSchoolService;
-                    if (typeof fn !== 'function') {
-                        alert('سرویس مدارس هنوز آماده نشده است؛ دوباره انتخاب کنید.');
-                        return;
-                    }
-                    const host = document.querySelector('main.main,.main,.main-content,.content,.page-content,[role="main"]') || document.body;
-                    Promise.resolve(fn(host)).catch(e => alert(e && e.message ? e.message : 'باز کردن سرویس مدارس ناموفق بود'));
-                };
-            }
-            catch (_) { }
-        };
-        const timer = setInterval(() => {
-            add();
-            if (++ticks >= 30)
-                clearInterval(timer);
-        }, 500);
-        add();
-    })();
     /* منوی سرویس مدارس توسط پنل React و در ساختار اصلی سایدبار ساخته می‌شود.
        این فایل فقط ویزارد و API آن را فراهم می‌کند تا منوی جداگانه و پایدار با React تداخل نداشته باشد. */
 })();
