@@ -202,14 +202,33 @@ function Configure-GradlePerformance([string]$Android) {
     Set-Content -LiteralPath $propsPath -Value $props -Encoding UTF8
     Write-Host "    Gradle memory: 12 GiB heap / 3 GiB metaspace / $workers workers" -ForegroundColor Green
 }
+function Remove-ReactNativeScreensNativeBuild([string]$Android) {
+    $nativeBuild = Join-Path $Root 'node_modules\react-native-screens\android\build'
+    if (-not (Test-Path -LiteralPath $nativeBuild)) { return }
+    Write-Host '    Cleaning react-native-screens native CMake intermediates before release build.' -ForegroundColor Yellow
+    Stop-AndroidBuildProcesses $Android
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            Remove-Item -LiteralPath $nativeBuild -Recurse -Force -ErrorAction Stop
+            return
+        } catch {
+            if ($attempt -eq 3) {
+                throw "react-native-screens native build directory is locked: $nativeBuild. Close Android Studio/other native build tools and retry."
+            }
+            Start-Sleep -Seconds 1
+            Stop-AndroidBuildProcesses $Android
+        }
+    }
+}
+
 function Run-Gradle([string]$Gradlew,[string]$Cwd,[string]$LogPath,[string]$Task,[hashtable]$Environment) {
     $psi = New-Object Diagnostics.ProcessStartInfo
     $psi.FileName = 'cmd.exe'; $psi.WorkingDirectory = $Cwd; $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true; $psi.RedirectStandardOutput = $false; $psi.RedirectStandardError = $false
-    $command = '"' + $Gradlew + '" --init-script "' + $InitScript + '" ' + $Task + ' --parallel --build-cache --console=plain --stacktrace'
+    $command = '"' + $Gradlew + '" --init-script "' + $InitScript + '" ' + $Task + ' --build-cache --console=plain --stacktrace'
     $psi.Arguments = '/d /c "' + $command + ' > "' + $LogPath + '" 2>&1"'
     foreach ($key in $Environment.Keys) { $psi.EnvironmentVariables[$key] = [string]$Environment[$key] }
-    Write-Host ('> ' + $Gradlew + ' --init-script ' + $InitScript + ' ' + $Task + ' --parallel --build-cache') -ForegroundColor DarkGray
+    Write-Host ('> ' + $Gradlew + ' --init-script ' + $InitScript + ' ' + $Task + ' --build-cache') -ForegroundColor DarkGray
     $process = New-Object Diagnostics.Process; $process.StartInfo = $psi; [void]$process.Start()
     $lastLength = 0L; $lastActivity = Get-Date; $lastDisplay = Get-Date
     try {
@@ -359,7 +378,9 @@ try {
 
     Stage 75 ('Building cached Android release ' + $ArtifactType)
     Write-Host '[khatyar-fast] Configuration cache intentionally disabled for Expo/RN compatibility.' -ForegroundColor DarkGray
-    Write-Host '[khatyar-fast] Parallel + build cache enabled; persistent cache retained.' -ForegroundColor DarkGray
+    Write-Host '[khatyar-fast] Gradle parallel execution disabled for Windows CMake/native stability; build cache remains enabled.' -ForegroundColor DarkGray
+    Remove-ReactNativeScreensNativeBuild $android
+    Stop-AndroidBuildProcesses $android
     Run-Gradle $gradlew $android $logPath $task $gradleEnv
 
     Stage 95 'Verifying release artifact'
