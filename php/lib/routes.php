@@ -2309,9 +2309,13 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
 route('POST', '/api/my/checkout', function($p,$b,$u){
   _ensure_attendance_phase1_schema();
   $eventAt = _app_client_time($b);
-  _attendance_auto_close_stale((int)$u['id']);
+  $autoClosed = _attendance_auto_close_stale((int)$u['id']);
   $open = Db::one("SELECT id, check_in, line_id, method FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
-  if (!$open) Http::error('جلسهٔ ورودِ بازی برای شما وجود ندارد.', 400);
+  // جلسه‌ای که به‌دلیل عبور از سقف ۱۴ ساعت همین لحظه بسته شده، خطای ثبت خروج نیست.
+  if (!$open && $autoClosed) {
+    return ['ok'=>true,'auto_closed'=>true,'check_out'=>$autoClosed['check_out'] ?? null,'attendance_id'=>(int)($autoClosed['id'] ?? 0),'auto_close_reason'=>$autoClosed['reason'] ?? '14_hour_limit'];
+  }
+  if (!$open) Http::error('جلسهٔ ورودِ باز برای شما وجود ندارد.', 400);
 
   // خروج نیز باید با GPS کنترل شود، اما برخلاف ورود، خط خروج الزاماً همان خط ورود نیست.
   // کاربر می‌تواند در هرکدام از خطوط مجاز خودش که اکنون داخل محدوده آن قرار دارد خروج بزند.
