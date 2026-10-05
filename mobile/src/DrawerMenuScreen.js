@@ -33,6 +33,7 @@ export default function DrawerMenuScreen({ navigation }) {
   const { user, logout } = useAuth();
   const [access, setAccess] = React.useState(null);
   const [schoolServiceAllowed, setSchoolServiceAllowed] = React.useState(false);
+  const [complaintsAllowed, setComplaintsAllowed] = React.useState(false);
   const [unread, setUnread] = React.useState({ messages: 0, reports: 0 });
 
   React.useEffect(() => {
@@ -45,12 +46,12 @@ export default function DrawerMenuScreen({ navigation }) {
     let active = true;
     Promise.allSettled([
       request('/personnel-vehicle-assets.php?op=access', { noStore: true }),
-      // مجوز سرویس مدارس باید ابتدا از سرور خوانده شود تا تغییرات پنل
-      // بلافاصله روی منوی اپ اعمال شود؛ فقط در صورت خطای شبکه به کش برمی‌گردیم.
       request('/school-service/access', { noStore: true }).catch(() => request('/school-service/access')),
-    ]).then(([vehicleResult, schoolResult]) => {
+      request('/complaints/access', { noStore: true }),
+    ]).then(([vehicleResult, schoolResult, complaintResult]) => {
       if (!active) return;
       setAccess(vehicleResult.status === 'fulfilled' ? (vehicleResult.value || null) : null);
+      setComplaintsAllowed(complaintResult.status === 'fulfilled' && complaintResult.value?.allowed === true);
       setSchoolServiceAllowed(
         schoolResult.status === 'fulfilled' &&
         (schoolResult.value?.allowed === true || schoolResult.value?.can_view === true)
@@ -84,6 +85,7 @@ export default function DrawerMenuScreen({ navigation }) {
   const items = [
     ...ITEMS,
     ...(schoolServiceAllowed ? [['SchoolService', 'سرویس مدارس', '🏫']] : []),
+    ...(complaintsAllowed ? [['Complaints', 'شکایات تاکسیرانان', '📣']] : []),
     ['InboxReports', 'گزارشات دریافتی', '📥'],
     ...(vehicleAllowed ? [[
       'PersonnelVehicleAsset',
