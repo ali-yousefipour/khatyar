@@ -36,25 +36,32 @@ jobs:
       EXPECTED_EXPO: "57.0.6"
       EXPECTED_REACT_NATIVE: "0.86.0"
       EXPECTED_REACT: "19.2.3"
-      RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || (github.ref_type == 'tag' && github.ref_name || '') }}
     steps:
-      - name: Normalize and validate release version
+      - name: Checkout source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.target || github.ref }}
+          fetch-depth: 0
+
+      - name: Resolve release version
         id: version
         shell: bash
         run: |
-          VERSION="${RELEASE_VERSION#v}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(node -p "require('./mobile/package.json').version")"
+          fi
+          VERSION="${VERSION#v}"
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Invalid release version: $VERSION"
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout source
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.target || (github.ref_type == 'tag' && github.ref_name || 'main') }}
-          fetch-depth: 0
+          echo "Release version resolved: $VERSION"
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -154,8 +161,6 @@ jobs:
       - name: Verify APK version and artifact
         working-directory: mobile
         shell: bash
-        env:
-          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
         run: |
           APK="android/app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
@@ -201,5 +206,3 @@ jobs:
         run: |
           echo "Stable: https://github.com/ali-yousefipour/khatyar/releases/latest/download/khatyar.apk"
           echo "Versioned: https://github.com/ali-yousefipour/khatyar/releases/download/v${VERSION}/khatyar.apk"
-
-# Release workflow trigger path: workflow_dispatch or ci(android-release) push.
