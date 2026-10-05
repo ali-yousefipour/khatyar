@@ -2023,9 +2023,14 @@ route('GET', '/api/my/checkin-config', function($p,$b,$u){
 route('POST', '/api/my/checkin', function($p,$b,$u){
   $eventAt = _app_client_time($b);
   // اگر جلسهٔ باز دارد، اجازهٔ ورود مجدد نده
+  $clientUuid = trim((string)($b['client_uuid'] ?? ''));
+  if ($clientUuid !== '') {
+    $done = Db::one("SELECT id,line_id,check_in FROM staff_attendance WHERE user_id=? AND client_uuid=? LIMIT 1", [$u['id'],$clientUuid]);
+    if ($done) return ['ok'=>true,'id'=>(int)$done['id'],'line_id'=>(int)($done['line_id']??0),'check_in'=>$done['check_in'],'idempotent'=>true];
+  }
   $open = Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL", [$u['id']]);
   if ($open) Http::error('شما قبلاً ثبت ورود کرده‌اید. ابتدا خروج بزنید.', 400);
-  $lineId = (int)($b['line_id'] ?? 0);
+  $lineId = (int)($b['line_id'] ?? $b['local_line_id'] ?? 0);
   $method = $b['method'] ?? 'gps';
   $lineIds = user_line_ids($u);
   // انتخاب خط از اپ حذف شده است؛ اگر کلاینت قدیمی line_id بفرستد، فقط وقتی می‌پذیریم که جزو خطوط مجاز کاربر باشد.
@@ -2125,23 +2130,28 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='out_station'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN out_station VARCHAR(150) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   // نام محل ورود از روی مختصات (نزدیک‌ترین ایستگاه/محدودهٔ خط)
   $inStation = ($st['name'] ?? null) ?: _station_name_at($lat, $lng, $lineIds);
-  $id = Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,check_in,in_lat,in_lng,in_station,client_check_in) VALUES(?,?,?,?,?,?,?,?)",
-    [$u['id'], $lineId ?: null, $method, $eventAt, $lat, $lng, $inStation, $eventAt]);
+  $id = Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,check_in,in_lat,in_lng,in_station,client_uuid,offline_synced,client_check_in) VALUES(?,?,?,?,?,?,?,?,0,?)",
+    [$u['id'], $lineId ?: null, $method, $eventAt, $lat, $lng, $inStation, $clientUuid !== '' ? $clientUuid : null, $eventAt]);
   try { _notify_attendance_action('checkin',(int)$u['id'],$lineId ?: null,$method,$inStation,$eventAt); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  return ['ok'=>true, 'id'=>$id, 'check_in'=>$eventAt];
+  return ['ok'=>true, 'id'=>$id, 'line_id'=>$lineId ?: null, 'check_in'=>$eventAt, 'client_uuid'=>$clientUuid ?: null];
 });
 
 // ثبت خروج
 route('POST', '/api/my/checkout', function($p,$b,$u){
   _ensure_attendance_phase1_schema();
   $eventAt = _app_client_time($b);
+  $clientUuid = trim((string)($b['client_uuid'] ?? ''));
+  if ($clientUuid !== '') {
+    $done = Db::one("SELECT id,check_out,line_id FROM staff_attendance WHERE user_id=? AND client_uuid=? AND check_out IS NOT NULL LIMIT 1", [$u['id'],$clientUuid]);
+    if ($done) return ['ok'=>true,'attendance_id'=>(int)$done['id'],'line_id'=>(int)($done['line_id']??0),'check_out'=>$done['check_out'],'idempotent'=>true];
+  }
   $open = Db::one("SELECT id, check_in, line_id, method FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
   if (!$open) Http::error('جلسهٔ ورودِ بازی برای شما وجود ندارد.', 400);
   [$lat, $lng] = validGeo($b['lat'] ?? null, $b['lng'] ?? null);
   $outStation = _station_name_at($lat, $lng, user_line_ids($u));
   $now = $eventAt;
   if (strtotime($now) <= strtotime($open['check_in'])) $now = date('Y-m-d H:i:s', strtotime($open['check_in']) + 60);
-  Db::run("UPDATE staff_attendance SET check_out=?, out_lat=?, out_lng=?, out_station=?, client_check_out=? WHERE id=?", [$now, $lat, $lng, $outStation, $now, $open['id']]);
+  Db::run("UPDATE staff_attendance SET check_out=?, out_lat=?, out_lng=?, out_station=?, client_uuid=COALESCE(NULLIF(client_uuid,''),NULLIF(?,'')), client_check_out=? WHERE id=?", [$now, $lat, $lng, $outStation, $clientUuid, $now, $open['id']]);
   try {
     [$jy,$jm,$jd] = gregorian_to_jalali((int)date('Y',strtotime($open['check_in'])),(int)date('n',strtotime($open['check_in'])),(int)date('j',strtotime($open['check_in'])));
     $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
@@ -2152,7 +2162,7 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
     Db::run("UPDATE staff_attendance SET calc_json=? WHERE id=?", [json_encode($w,JSON_UNESCAPED_UNICODE), $open['id']]);
   } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { _notify_attendance_action('checkout',(int)$u['id'],$open['line_id']??null,$open['method']??'gps',$outStation,$now); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  return ['ok'=>true, 'check_out'=>$now];
+  return ['ok'=>true, 'attendance_id'=>(int)$open['id'], 'line_id'=>(int)($open['line_id']??0), 'check_out'=>$now, 'client_uuid'=>$clientUuid ?: null];
 });
 
 
@@ -2425,6 +2435,9 @@ function _ensure_attendance_phase1_schema(){
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='calc_json'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN calc_json JSON NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='client_check_in'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN client_check_in DATETIME NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='client_check_out'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN client_check_out DATETIME NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='client_uuid'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN client_uuid VARCHAR(120) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='offline_synced'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN offline_synced TINYINT(1) NOT NULL DEFAULT 0"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  try { Db::run("CREATE INDEX idx_staff_att_client_uuid ON staff_attendance(client_uuid)"); } catch (\Throwable $e) {}
 }
 
 function _user_role_title($userId){
