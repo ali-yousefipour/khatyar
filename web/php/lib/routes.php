@@ -2021,6 +2021,7 @@ route('GET', '/api/my/checkin-config', function($p,$b,$u){
 
 // ثبت ورود
 route('POST', '/api/my/checkin', function($p,$b,$u){
+  _ensure_attendance_phase1_schema();
   $eventAt = _app_client_time($b);
   // اگر جلسهٔ باز دارد، اجازهٔ ورود مجدد نده
   $clientUuid = trim((string)($b['client_uuid'] ?? ''));
