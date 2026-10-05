@@ -1,5 +1,6 @@
 name: build-android-release
 
+# CI trigger: verified 1.5.5 / versionCode 10505 release build
 on:
   workflow_dispatch:
     inputs:
@@ -101,9 +102,6 @@ jobs:
               process.exit(1);
             }
           }
-          // package-lock may resolve Expo modules to newer patch releases that are
-          // still permitted by the semver ranges in package.json. npm ci is the
-          // authoritative lockfile integrity check, so do not reject valid patches here.
           console.log('Declared release baseline validated; lockfile will be installed with npm ci.');
           NODE
 
