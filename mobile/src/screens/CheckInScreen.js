@@ -144,11 +144,16 @@ function CheckInCore() {
     if (cfgResult.status === 'fulfilled') {
       const fresh = cfgResult.value;
       setCfg(fresh);
-      const localOpen = await readLocalOpen();
+      // وقتی API آنلاین با موفقیت پاسخ داده، وضعیت جلسهٔ سرور مرجع قطعی است.
+      // نباید جلسهٔ قدیمیِ کش‌شده بعد از Auto-close دوباره به‌عنوان جلسهٔ باز نمایش داده شود.
       const serverOpen = fresh.open || null;
-      if (serverOpen) { await persistLocalOpen(serverOpen); setOpen(serverOpen); }
-      else if (localOpen) { setOpen(localOpen); }
-      else setOpen(null);
+      if (serverOpen) {
+        await persistLocalOpen(serverOpen);
+        setOpen(serverOpen);
+      } else {
+        await persistLocalOpen(null);
+        setOpen(null);
+      }
     } else if (!cfg) {
       setLoadError(cfgResult.reason?.message || 'اطلاعات خطوط مجاز در دسترس نیست. ابتدا برنامه را یک‌بار با اتصال اینترنت باز کنید.');
     }
@@ -536,6 +541,21 @@ function CheckInCore() {
         ...(checkoutLineId ? { local_line_id: checkoutLineId } : {}),
         client_uuid: 'checkout_' + Date.now() + '_' + Math.random().toString(36).slice(2,8)
       }, 'checkout');
+
+      // اگر سرور هنگام درخواست خروج، جلسهٔ قدیمی را به‌دلیل عبور از ۱۴ ساعت
+      // خودکار بسته باشد، این یک موفقیت است و نباید به خطای «جلسه باز وجود ندارد»
+      // تبدیل شود. همچنین زمان را با checkoutClientTime دوباره محاسبه نمی‌کنیم تا
+      // کارکرد محلی از سقف ۱۴ ساعت عبور نکند.
+      if (r?.auto_closed) {
+        await persistLocalOpen(null);
+        try { await AsyncStorage.removeItem(PRESENCE_RANDOM_CACHE_KEY); } catch {}
+        setOpen(null);
+        setElapsed(0);
+        setTimerInfo(null);
+        Alert.alert('ثبت حضور بسته شد', 'این جلسه به‌دلیل عبور از ۱۴ ساعت به‌صورت خودکار بسته شد. اکنون می‌توانید حضور جدید ثبت کنید.');
+        load().catch(() => {});
+        return;
+      }
 
       // برای خروج آفلاین، زمان این بازه را به مجموع کارکرد روز اضافه کن تا
       // ورود بعدی حتی بدون اینترنت نیز تایمر را از زمان قبلی ادامه دهد.
