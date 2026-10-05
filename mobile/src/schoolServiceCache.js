@@ -56,6 +56,7 @@ export async function refreshSchoolServiceCache(){
     vehicle_types:Array.isArray(meta?.vehicle_types)?meta.vehicle_types:[],
     vehicle_colors:Array.isArray(meta?.vehicle_colors)?meta.vehicle_colors:[],
     violations:Array.isArray(meta?.violations)?meta.violations:[],
+    district_boundaries:Array.isArray(boot?.district_boundaries)?boot.district_boundaries:[],
     companies:uniqById(companies),
     schools:uniqById(schools)
   };
