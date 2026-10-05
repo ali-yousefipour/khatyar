@@ -13833,12 +13833,20 @@ route('GET','/api/school-service/dashboard',function($p,$b,$u){
   $vehicleTypes=Db::all("SELECT COALESCE(NULLIF(TRIM(vehicle_type),''),'نامشخص') label,COUNT(*) n FROM school_service_vehicles WHERE is_active=1 GROUP BY vehicle_type ORDER BY n DESC LIMIT 10");
   $certificates=Db::all("SELECT certificate_status label,COUNT(*) n FROM school_service_inspections GROUP BY certificate_status ORDER BY n DESC");
   $trend=Db::all("SELECT DATE_FORMAT(created_at,'%Y-%m') ym,COUNT(*) n FROM school_service_inspections WHERE created_at>=DATE_SUB(CURDATE(),INTERVAL 5 MONTH) GROUP BY DATE_FORMAT(created_at,'%Y-%m') ORDER BY ym ASC");
-  $districtSchools=Db::all("SELECT COALESCE(NULLIF(TRIM(educational_district),''),'نامشخص') label,COUNT(*) n,COALESCE(SUM(student_count),0) students FROM school_service_schools WHERE is_active=1 GROUP BY educational_district ORDER BY n DESC");
+  $districtSchools=Db::all("SELECT COALESCE(NULLIF(TRIM(educational_district),''),'نامشخص') label,COUNT(*) n,COALESCE(SUM(student_count),0) students FROM school_service_schools WHERE is_active=1 GROUP BY educational_district ORDER BY n DESC);
+  $activeInspectors=Db::all("SELECT u.id,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) name,r.title role_title,
+    COUNT(i.id) inspection_count_30d
+    FROM users u
+    JOIN roles r ON r.id=u.role_id
+    LEFT JOIN school_service_inspections i ON i.inspector_user_id=u.id AND i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)
+    WHERE u.is_active=1 AND (r.title LIKE '%بازرس%' OR r.title LIKE '%بازرسی%')
+    GROUP BY u.id,u.first_name,u.last_name,r.title
+    ORDER BY inspection_count_30d DESC,name ASC");
   return ['cards'=>[
     'active_schools'=>$activeSchools,'students'=>$studentTotal,'active_companies'=>$activeCompanies,'active_vehicles'=>$activeVehicles,
-    'inspections'=>$inspections,'inspections_30d'=>$inspections30,'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol
-  ],'by_district'=>$byDistrict,'by_company'=>$byCompany,'by_violation'=>$byViolation,'by_school'=>$bySchool,'vehicle_types'=>$vehicleTypes,'certificates'=>$certificates,'trend'=>$trend,'district_schools'=>$districtSchools,'generated_at'=>date('Y-m-d H:i:s')];
-});
+    'inspections'=>$inspections,'inspections_30d'=>$inspections30,'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol,
+    'active_inspectors'=>count($activeInspectors)
+  ],'by_district'=>$byDistrict,'by_company'=>$byCompany,'by_violation'=>$byViolation,'by_school'=>$bySchool,'vehicle_types'=>$vehicleTypes,'certificates'=>$certificates,'trend'=>$trend,'district_schools'=>$districtSchools,'active_inspectors'=>$activeInspectors,'generated_at'=>date('Y-m-d H:i:s')];});
 route('GET','/api/school-service/meta',function($p,$b,$u){
   _ssv_need($u,'view'); _ssv_tables();
   // فهرست نواحی از خود دادهٔ مدارس خوانده می‌شود؛ جدول تنظیمات فقط تنظیمات
