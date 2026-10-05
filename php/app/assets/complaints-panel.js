@@ -18,25 +18,53 @@ async function detail(id){const c=await req('/complaints/'+id),x=document.getEle
 async function act(id,a,note){try{await req('/complaints/'+id+'/action',{method:'POST',body:JSON.stringify({action:a,note:note||''})});detail(id)}catch(e){alert(e.message)}}
 let menuObserver=null;
 function hasAuth(){return !!localStorage.token;}
+function menuContainerFor(school){
+  let el=school;
+  for(let i=0;i<8&&el;i++,el=el.parentElement){
+    const controls=el.querySelectorAll('button,a,[role="button"]');
+    const rect=el.getBoundingClientRect();
+    if(controls.length>=4 && rect.width>120 && rect.width<520) return el;
+  }
+  return school.closest('aside,nav')||school.parentElement;
+}
+function menuItemFor(school,container){
+  const li=school.closest('li');
+  if(li && container.contains(li)) return li;
+  let el=school;
+  while(el.parentElement && el.parentElement!==container){
+    const siblings=el.parentElement.children;
+    if(siblings.length>=2 && siblings.length<=30) return el;
+    el=el.parentElement;
+  }
+  return school;
+}
 function installMenuEntry(){
   if(!hasAuth()) return;
-  const existing=document.getElementById('khcMenuEntry');
+  const old=document.getElementById('khcMenuEntry');
   const nodes=[...document.querySelectorAll('button,a,[role="button"]')];
   const school=nodes.find(el=>el.textContent && el.textContent.trim()==='سرویس مدارس');
-  if(!school) return;
-  const host=school.parentElement||school;
-  if(existing){
-    if(host.contains(existing)) return;
-    existing.remove();
+  if(!school){
+    if(old) old.remove();
+    return;
   }
+  const container=menuContainerFor(school);
+  if(!container || !container.contains(school)){
+    if(old) old.remove();
+    return;
+  }
+  if(old && container.contains(old)) return;
+  if(old) old.remove();
   const b=document.createElement('button');
   b.id='khcMenuEntry';
   b.type='button';
   b.textContent='شکایات تاکسیرانان';
   b.className=school.className||'';
-  b.style.cssText='display:block;width:100%;text-align:right;border:0;background:transparent;padding:8px 12px;font:inherit;cursor:pointer;color:inherit;';
+  b.style.cssText='display:block;width:100%;box-sizing:border-box;text-align:right;border:0;background:transparent;padding:8px 12px;font:inherit;cursor:pointer;color:inherit;';
   b.onclick=(e)=>{e.preventDefault();e.stopPropagation();open();};
-  host.insertAdjacentElement('afterend',b);
+  const item=menuItemFor(school,container);
+  const parent=item.parentElement;
+  if(parent && parent!==document.body && parent.contains(item)) parent.insertBefore(b,item.nextSibling);
+  else container.appendChild(b);
 }
 function observeMenu(){
   installMenuEntry();
