@@ -56,6 +56,24 @@ route('GET','/api/school-service/inspections/{id}',function($p,$b,$u){
  $r['plate']=trim(($r['plate_three']??'').' '.($r['plate_letter']??'').' '.($r['plate_two']??'').' ایران '.($r['plate_region_code']??''));
  return $r;
 });
+route('GET','/api/school-service/district-boundaries',function($p,$b,$u){
+ _ssv_need($u,'view');_ssv_tables();
+ $rows=Db::all("SELECT district_id,title,points_json,updated_at FROM school_service_district_boundaries WHERE is_active=1 ORDER BY district_id");
+ $items=[];
+ foreach($rows as $r){
+   $points=json_decode((string)($r['points_json']??''),true);
+   if(!is_array($points)||count($points)<3)continue;
+   $clean=[];
+   foreach($points as $p){
+     if(!is_array($p)||count($p)<2)continue;
+     $lat=(float)$p[0];$lng=(float)$p[1];
+     if(is_finite($lat)&&is_finite($lng))$clean[]=[$lat,$lng];
+   }
+   if(count($clean)>=3)$items[]=['district_id'=>(int)$r['district_id'],'title'=>(string)$r['title'],'points'=>$clean,'updated_at'=>$r['updated_at']];
+ }
+ return ['items'=>$items,'total'=>count($items),'generated_at'=>date('c')];
+});
+
 route('GET','/api/school-service/inspection-map',function($p,$b,$u){
  _ssv_need($u,'view');_ssv_tables();
  $rows=Db::all("SELECT s.id,s.name,s.code,s.educational_district,s.gender,s.address,s.latitude,s.longitude,
