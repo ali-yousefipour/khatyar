@@ -14569,7 +14569,7 @@ function App() {
         shifts: 'shift-cycle', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
         messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', radiocenter: 'radio-tower', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen',
         config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'activity-wave', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
-        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist', complaints: 'complaints'
+        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist', complaints: 'chat-message'
     };
     const can = (k) => !allowed || allowed.includes(k) || CORE.includes(k);
     const closeOnPick = (k) => { setV(k); setDrawer(false); };
