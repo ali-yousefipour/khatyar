@@ -13929,14 +13929,14 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             map.fitBounds(bounds, { padding: [25, 25], maxZoom: 16 });
         setTimeout(() => map.invalidateSize(), 250);
     }
-    function mountInspectionMap(container, rows) {
+    function mountInspectionMap(container, rows, districtBoundaries) {
         if (S.schoolInspectionMap && S.schoolInspectionMap.remove) {
             try {
                 S.schoolInspectionMap.remove();
             }
             catch (_) { }
         }
-        container.innerHTML = '<div class="ssv-map-wrap"><div><div class="ssv-map-legend"><span class="ssv-map-stat">مدارس دارای بازدید: ' + ssvFa((rows || []).length) + '</span><span class="ssv-map-stat">نمایش فقط مدارس بازرسی‌شده</span></div><div id="ssv-inspection-map" class="ssv-map"></div></div><div class="ssv-map-info"><b>مدارس بازدیدشده</b><div id="ssv-inspection-points" style="margin-top:10px"></div></div></div>';
+        container.innerHTML = '<div class="ssv-map-wrap"><div><div class="ssv-map-legend"><span class="ssv-map-stat">مدارس دارای بازدید: ' + ssvFa((rows || []).length) + '</span><span class="ssv-map-stat">مرز ۸ ناحیه آموزش‌وپرورش</span></div><div id="ssv-inspection-map" class="ssv-map"></div></div><div class="ssv-map-info"><b>مدارس بازدیدشده</b><div id="ssv-inspection-points" style="margin-top:10px"></div></div></div>';
         const mapEl = container.querySelector('#ssv-inspection-map');
         if (!window.L) {
             mapEl.innerHTML = '<div class="ssv-map-empty">کتابخانه نقشه در دسترس نیست.</div>';
@@ -13946,6 +13946,14 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
         S.schoolInspectionMap = map;
         const list = container.querySelector('#ssv-inspection-points'), bounds = [];
+        (districtBoundaries || []).forEach(d => {
+            const pts = (d.points || []).map(p => [Number(p === null || p === void 0 ? void 0 : p[0]), Number(p === null || p === void 0 ? void 0 : p[1])]).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+            if (pts.length < 3)
+                return;
+            const poly = L.polygon(pts, { color: '#126e8f', weight: 2, fillColor: '#126e8f', fillOpacity: .07 });
+            poly.addTo(map).bindTooltip(String(d.title || 'ناحیه'), { permanent: true, direction: 'center', className: 'ssv-district-label', opacity: .9 });
+            pts.forEach(p => bounds.push(p));
+        });
         (rows || []).forEach(r => {
             const lat = Number(r.latitude), lng = Number(r.longitude);
             if (!Number.isFinite(lat) || !Number.isFinite(lng))
@@ -13962,11 +13970,11 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             list.appendChild(btn);
         });
         if (!bounds.length)
-            list.innerHTML = '<div class="ssv-msg">هیچ مدرسه بازدیدشده‌ای با مختصات جغرافیایی ثبت‌شده پیدا نشد.</div>';
-        else if (bounds.length === 1)
-            map.setView(bounds[0], 16);
+            map.setView([36.2972, 59.6067], 11);
         else
-            map.fitBounds(bounds, { padding: [25, 25], maxZoom: 16 });
+            map.fitBounds(bounds, { padding: [25, 25], maxZoom: 12 });
+        if (!(rows || []).some(r => Number.isFinite(Number(r.latitude)) && Number.isFinite(Number(r.longitude))))
+            list.innerHTML = '<div class="ssv-msg">مرز نواحی نمایش داده شد؛ هنوز مدرسه بازدیدشده‌ای با مختصات جغرافیایی ثبت‌شده وجود ندارد.</div>';
         setTimeout(() => map.invalidateSize(), 250);
     }
     function ssvFa(n) { return new Intl.NumberFormat('fa-IR').format(Number(n) || 0); }
@@ -14207,7 +14215,7 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             if (t === 'map') {
                 const d = await api('/api/school-service/inspection-map');
                 b.innerHTML = '<div class="ssv-card"><h3>نقشه مدارس بازدیدشده و بازرسی‌شده</h3><p style="font-size:11px;color:#667085">در این نقشه فقط مدارسی نمایش داده می‌شوند که حداقل یک بازدید/بازرسی سرویس مدارس برای آن‌ها ثبت شده و مختصات جغرافیایی معتبر دارند.</p><div id="ssv-inspection-map-block"></div></div>';
-                mountInspectionMap(b.querySelector('#ssv-inspection-map-block'), d.items || []);
+                mountInspectionMap(b.querySelector('#ssv-inspection-map-block'), d.items || [], d.district_boundaries || []);
                 return;
             }
             const isIns = t === 'inspections';
