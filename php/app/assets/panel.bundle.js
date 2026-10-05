@@ -14348,9 +14348,30 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
         }
     }
     window.openSchoolService = open;
+    window.closeSchoolService = close;
     /* منوی سرویس مدارس توسط پنل React و در ساختار اصلی سایدبار ساخته می‌شود.
-       این فایل فقط ویزارد و API آن را فراهم می‌کند تا منوی جداگانه و پایدار با React تداخل نداشته باشد. */
+       Launcher باید در خود bundle اصلی تعریف شود؛ در غیر این صورت VIEWS هنگام ساخت پنل
+       به SchoolServiceLauncher ارجاع می‌دهد ولی فایل school-service-admin.js هنوز اجرا نشده است. */
 })();
+function SchoolServiceLauncher() {
+    const hostRef = useRef(null);
+    const [error, setError] = useState("");
+    useEffect(() => {
+        let alive = true;
+        const host = hostRef.current;
+        if (!host)
+            return;
+        Promise.resolve()
+            .then(() => window.openSchoolService(host))
+            .catch(e => { if (alive)
+            setError(e && e.message ? e.message : "خطا در بارگذاری سرویس مدارس"); });
+        return () => { alive = false; try {
+            window.closeSchoolService && window.closeSchoolService();
+        }
+        catch (_) { } };
+    }, []);
+    return React.createElement("div", { ref: hostRef, className: "ssv-page-host", style: { minHeight: "calc(100vh - 100px)" } }, error ? React.createElement("div", { className: "ssv-msg" }, error) : null);
+}
 const VIEWS = {
     covertselfies: { t: "سلفی‌های نامحسوس", ic: "📸", c: CovertSelfies },
     dashboard: { t: "داشبورد مدیریت", ic: "▦", c: Dashboard },
