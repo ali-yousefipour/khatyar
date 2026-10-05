@@ -470,7 +470,7 @@ function CheckInCore() {
       // قبل از ورود جدید، صف خروج آفلاین را تخلیه و وضعیت جلسه را از سرور تازه می‌کنیم.
       // اگر خروج روی گوشی ثبت شده ولی هنوز همگام نشده باشد، ورود جدید نباید قبل از
       // ارسال خروج به سرور اجرا شود.
-      try { await flushQueuedRequests(); } catch {}
+      try { await flushQueuedRequests({force:true}); } catch {}
       try {
         if (await hasPendingAttendanceCheckout()) {
           throw new Error('خروج قبلی هنوز با سرور همگام نشده است؛ لطفاً اتصال اینترنت را بررسی کنید و چند ثانیه بعد دوباره تلاش کنید.');
@@ -487,7 +487,7 @@ function CheckInCore() {
           setOpen(null);
         }
       } catch (e) {
-        if (String(e?.message || '').includes('جلسهٔ ورودِ باز')) throw e;
+        if (String(e?.message || '').includes('جلسهٔ ورودِ باز') || String(e?.message || '').includes('خروج قبلی هنوز')) throw e;
       }
       const current = await getPositionForAttendance();
       if (!current?.lat || !current?.lng) throw new Error('موقعیت دستگاه در دسترس نیست؛ برای ثبت حضور GPS را روشن کنید.');
