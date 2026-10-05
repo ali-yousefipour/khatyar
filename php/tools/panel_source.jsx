@@ -1,4 +1,4 @@
-// PANEL BUILD TARGET: 2026-10-05-v247
+// PANEL BUILD TARGET: 2026-10-06-v248
 // Build sync: keep generated panel bundle aligned with panel_source changes.
 const {useState,useEffect,useRef} = React;
 const I8=(name)=><img src={`/assets/icons3d/${name}.png`} alt="" width="30" height="30" loading="eager" decoding="async" style={{objectFit:'contain'}} onError={e=>{e.currentTarget.style.display='none'}}/>;
@@ -8158,7 +8158,7 @@ const VIEWS={
   vehiclechecklist:{t:"چک‌لیست خودرویی و موتوری",ic:"☑",c:PersonnelVehicleChecklist},
   settings:{t:"تنظیمات سامانه",ic:"⚙",c:Settings},
   schoolservice:{t:"سرویس مدارس",ic:"route",c:SchoolServiceLauncher},
-  complaints:{t:"شکایات تاکسیرانان",ic:"complaints",c:ComplaintsLauncher},
+  complaints:{t:"شکایات تاکسیرانان",ic:"chat-message",c:ComplaintsLauncher},
 };
 
 function Login({onLogin,brand}){
