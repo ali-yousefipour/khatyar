@@ -84,7 +84,20 @@ route('GET','/api/school-service/inspection-map',function($p,$b,$u){
    GROUP BY s.id ORDER BY last_inspection_at DESC");
  foreach($rows as &$r){$r['inspection_count']=(int)$r['inspection_count'];}
  unset($r);
- return ['items'=>$rows,'total'=>count($rows),'district_boundaries'=>_ssv_get_district_boundaries(),'generated_at'=>date('Y-m-d H:i:s')];
+ $boundaries=[];
+ $br=Db::all("SELECT district_id,title,points_json,updated_at FROM school_service_district_boundaries WHERE is_active=1 ORDER BY district_id");
+ foreach($br as $bb){
+   $pts=json_decode((string)($bb['points_json']??''),true);
+   if(!is_array($pts)||count($pts)<3)continue;
+   $clean=[];
+   foreach($pts as $pp){
+     if(!is_array($pp)||count($pp)<2)continue;
+     $lat=(float)$pp[0];$lng=(float)$pp[1];
+     if(is_finite($lat)&&is_finite($lng))$clean[]=[$lat,$lng];
+   }
+   if(count($clean)>=3)$boundaries[]=['district_id'=>(int)$bb['district_id'],'title'=>(string)$bb['title'],'points'=>$clean,'updated_at'=>$bb['updated_at']];
+ }
+ return ['items'=>$rows,'total'=>count($rows),'district_boundaries'=>$boundaries,'generated_at'=>date('Y-m-d H:i:s')];
 });
 route('POST','/api/school-service/schools/{id}/location',function($p,$b,$u){_ssv_need($u,'create');_ssv_tables();$id=(int)$p['id'];$s=Db::one("SELECT id FROM school_service_schools WHERE id=? AND is_active=1",[$id]);if(!$s)Http::error('مدرسه یافت نشد',404);[$lat,$lng]=validGeo($b['latitude']??null,$b['longitude']??null);if($lat===null||$lng===null)Http::error('مختصات مدرسه معتبر نیست.',422);Db::run("UPDATE school_service_schools SET latitude=?,longitude=?,location_registered_at=? WHERE id=?",[$lat,$lng,date('Y-m-d H:i:s'),$id]);return ['ok'=>true,'id'=>$id,'latitude'=>$lat,'longitude'=>$lng,'location_registered_at'=>date('Y-m-d H:i:s')];},false,99);
 route('POST','/api/school-service/inspections-with-photo',function($p,$b,$u){
