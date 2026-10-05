@@ -10,7 +10,7 @@ function _complaints_can($u,$kind='submit'){
   $allowedUsers=array_map('intval',$s['allowed_user_ids']??[]);
   $allowedRoles=array_map('intval',$s['allowed_role_ids']??[]);
   $isSystemAdmin=(int)($u['is_admin']??0)===1 || (int)($u['level']??99)<=3;
-  if($kind==='submit') return in_array($uid,$allowedUsers,true) || in_array($rid,$allowedRoles,true);
+  if($kind==='submit') return !$allowedUsers && !$allowedRoles ? true : (in_array($uid,$allowedUsers,true) || in_array($rid,$allowedRoles,true));
   if($isSystemAdmin) return true;
   if($kind==='receive') return $uid===(int)($s['receiver_user_id']??0) || $uid===(int)($s['manager_user_id']??0);
   if($kind==='manage') return $uid===(int)($s['manager_user_id']??0);
@@ -56,7 +56,7 @@ route('PUT','/api/admin/complaints/settings',function($p,$b,$u){
   $users=array_values(array_unique(array_filter(array_map('intval',$b['allowed_user_ids']??[]),fn($v)=>$v>0)));
   if(!$receiver) Http::error('کاربر دریافت شکایات الزامی است',422);
   if(!$manager) Http::error('مسئول رسیدگی الزامی است',422);
-  if(!$roles&&!$users) Http::error('حداقل یک سمت یا کاربر باید برای ثبت شکایت مجاز باشد',422);
+  // خالی بودن هر دو فهرست یعنی «همه کاربران نرم‌افزار»؛ این حالت پیش‌فرض است.
   $out=['sms_enabled'=>!empty($b['sms_enabled']),'sms_template'=>(string)($b['sms_template']??''),'receiver_user_id'=>$receiver,'manager_user_id'=>$manager,'allowed_user_ids'=>$users,'allowed_role_ids'=>$roles];
   Db::run("INSERT INTO app_settings(`key`,value) VALUES('complaints_settings',?) ON DUPLICATE KEY UPDATE value=VALUES(value),updated_at=NOW()",[json_encode($out,JSON_UNESCAPED_UNICODE)]);
   return ['ok'=>true,'settings'=>$out];
