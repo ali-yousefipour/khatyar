@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS complaints (
   complainant_first_name VARCHAR(100) NOT NULL,
   complainant_last_name VARCHAR(100) NOT NULL,
   complainant_mobile VARCHAR(20) NOT NULL,
+  receipt_channel VARCHAR(20) NOT NULL DEFAULT 'software',
   complainant_type VARCHAR(20) NOT NULL,
   stay_days INT NULL,
   residence_city VARCHAR(120) NULL,
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS complaints (
   category_id INT NULL,
   subject VARCHAR(300) NOT NULL,
   body TEXT NOT NULL,
-  signature_data MEDIUMTEXT NOT NULL,
+  signature_data MEDIUMTEXT NULL,
   status VARCHAR(30) NOT NULL DEFAULT 'received',
   assigned_to INT NULL,
   manager_id INT NULL,
@@ -84,3 +85,6 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql := IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='complaints' AND COLUMN_NAME='sms_sent_at')=0,
   'ALTER TABLE complaints ADD COLUMN sms_sent_at DATETIME NULL AFTER sms_error','SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql := IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='complaints' AND COLUMN_NAME='receipt_channel')=0,'ALTER TABLE complaints ADD COLUMN receipt_channel VARCHAR(20) NOT NULL DEFAULT ''software''','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='complaints' AND COLUMN_NAME='signature_data')='NO','ALTER TABLE complaints MODIFY COLUMN signature_data MEDIUMTEXT NULL','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
