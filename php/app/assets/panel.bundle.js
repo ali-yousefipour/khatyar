@@ -14294,7 +14294,6 @@ function SchoolServiceLauncher() {
     useEffect(() => { if (host)
         launch(); }, [host]);
     return React.createElement("div", { className: "panel", style: { margin: "14px 0", padding: 0, border: 0, background: "transparent" } },
-        busy && !error && React.createElement("div", { className: "muted", style: { padding: "10px 14px" } }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u0648\u06CC\u0632\u0627\u0631\u062F \u0633\u0631\u0648\u06CC\u0633 \u0645\u062F\u0627\u0631\u0633\u2026"),
         error && React.createElement("div", { style: { padding: "14px" } },
             React.createElement("p", { style: { color: "var(--danger)", lineHeight: 1.9 } }, error),
             React.createElement("button", { className: "btn p", onClick: launch }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")),
