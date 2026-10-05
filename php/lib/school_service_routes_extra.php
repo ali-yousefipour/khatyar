@@ -84,7 +84,7 @@ route('GET','/api/school-service/inspection-map',function($p,$b,$u){
    GROUP BY s.id ORDER BY last_inspection_at DESC");
  foreach($rows as &$r){$r['inspection_count']=(int)$r['inspection_count'];}
  unset($r);
- return ['items'=>$rows,'total'=>count($rows),'generated_at'=>date('Y-m-d H:i:s')];
+ return ['items'=>$rows,'total'=>count($rows),'district_boundaries'=>_ssv_get_district_boundaries(),'generated_at'=>date('Y-m-d H:i:s')];
 });
 route('POST','/api/school-service/schools/{id}/location',function($p,$b,$u){_ssv_need($u,'create');_ssv_tables();$id=(int)$p['id'];$s=Db::one("SELECT id FROM school_service_schools WHERE id=? AND is_active=1",[$id]);if(!$s)Http::error('مدرسه یافت نشد',404);[$lat,$lng]=validGeo($b['latitude']??null,$b['longitude']??null);if($lat===null||$lng===null)Http::error('مختصات مدرسه معتبر نیست.',422);Db::run("UPDATE school_service_schools SET latitude=?,longitude=?,location_registered_at=? WHERE id=?",[$lat,$lng,date('Y-m-d H:i:s'),$id]);return ['ok'=>true,'id'=>$id,'latitude'=>$lat,'longitude'=>$lng,'location_registered_at'=>date('Y-m-d H:i:s')];},false,99);
 route('POST','/api/school-service/inspections-with-photo',function($p,$b,$u){
