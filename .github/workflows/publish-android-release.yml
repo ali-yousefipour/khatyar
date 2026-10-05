@@ -12,6 +12,8 @@ on:
         required: true
         default: "main"
   push:
+    branches:
+      - "main"
     tags:
       - "v*"
 
@@ -25,6 +27,7 @@ concurrency:
 jobs:
   release:
     name: Build and publish Android release
+    if: github.event_name != 'push' || github.ref_type == 'tag' || startsWith(github.event.head_commit.message, 'ci(android-release):')
     runs-on: ubuntu-latest
     env:
       NODE_VERSION: "22.23.1"
@@ -33,7 +36,7 @@ jobs:
       EXPECTED_EXPO: "57.0.6"
       EXPECTED_REACT_NATIVE: "0.86.0"
       EXPECTED_REACT: "19.2.3"
-      RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+      RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || (github.ref_type == 'tag' && github.ref_name || '') }}
     steps:
       - name: Normalize and validate release version
         id: version
@@ -50,7 +53,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.target || github.ref_name }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.target || (github.ref_type == 'tag' && github.ref_name || 'main') }}
           fetch-depth: 0
 
       - name: Setup Node
