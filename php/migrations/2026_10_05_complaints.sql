@@ -88,3 +88,6 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @sql := IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='complaints' AND COLUMN_NAME='receipt_channel')=0,'ALTER TABLE complaints ADD COLUMN receipt_channel VARCHAR(20) NOT NULL DEFAULT ''software''','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql := IF((SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='complaints' AND COLUMN_NAME='signature_data')='NO','ALTER TABLE complaints MODIFY COLUMN signature_data MEDIUMTEXT NULL','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql := IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='complaints' AND INDEX_NAME='idx_complaints_receipt_channel')=0,'ALTER TABLE complaints ADD KEY idx_complaints_receipt_channel (receipt_channel,created_at)','SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+UPDATE complaints SET receipt_channel='software' WHERE receipt_channel IS NULL OR receipt_channel NOT IN ('software','phone','in_person');
