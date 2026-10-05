@@ -6,7 +6,7 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { getAccuratePosition, getGsmPosition } from '../location';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { request, postOrQueue, cachedValue, flushQueuedRequests } from '../api';
+import { request, postOrQueue, cachedValue, flushQueuedRequests, hasPendingAttendanceCheckout } from '../api';
 import { getAppConfig } from '../appconfig';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
@@ -214,7 +214,7 @@ function CheckInCore() {
     load();
     let alive = true;
     let netSub = null;
-    try { netSub = NetInfo.addEventListener(async state => { if (alive && state?.isInternetReachable === true) { try { await flushQueuedRequests(); } catch {} await load(); } }); } catch {}
+    try { netSub = NetInfo.addEventListener(async state => { if (alive && state?.isInternetReachable === true) { try { await flushQueuedRequests({force:true}); } catch {} await load(); } }); } catch {}
     AsyncStorage.getItem('attendance_exit_reminder_8h').then(v => setExitReminder(v === '1')).catch(() => {});
     getAppConfig().then((c) => c && setAppCfg(c)).catch(() => {});
     return () => {
@@ -472,6 +472,9 @@ function CheckInCore() {
       // ارسال خروج به سرور اجرا شود.
       try { await flushQueuedRequests(); } catch {}
       try {
+        if (await hasPendingAttendanceCheckout()) {
+          throw new Error('خروج قبلی هنوز با سرور همگام نشده است؛ لطفاً اتصال اینترنت را بررسی کنید و چند ثانیه بعد دوباره تلاش کنید.');
+        }
         const freshCfg = await request('/my/checkin-config', { noStore: true, timeoutMs: 8000 });
         if (freshCfg && Object.prototype.hasOwnProperty.call(freshCfg, 'open')) {
           const serverOpen = freshCfg.open || null;
@@ -493,7 +496,7 @@ function CheckInCore() {
         throw new Error('شما در محدوده هیچ‌یک از خطوط مجاز خود قرار ندارید؛ ثبت حضور انجام نشد.');
       }
       const lat = current.lat, lng = current.lng;
-      const body = { method, lat, lng, accuracy: current.acc || undefined, local_line_id: localLine.line.id };
+      const body = { method, lat, lng, accuracy: current.acc || undefined, line_id: Number(localLine.line.id) };
       // خط انتخابی توسط کاربر ارسال نمی‌شود؛ برنامه خودش محدوده را کنترل کرده و
       // سرور نیز برای جلوگیری از دستکاری، همان کنترل را مستقل تکرار می‌کند.
       if (method !== 'gps') body.proof = proof != null ? proof : proofVal;
