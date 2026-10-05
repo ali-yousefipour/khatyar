@@ -14214,6 +14214,8 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             }
             if (t === 'map') {
                 const d = await api('/api/school-service/inspection-map');
+                const boot = await api('/api/school-service/bootstrap');
+                d.district_boundaries = boot.district_boundaries || [];
                 b.innerHTML = '<div class="ssv-card"><h3>نقشه مدارس بازدیدشده و بازرسی‌شده</h3><p style="font-size:11px;color:#667085">در این نقشه فقط مدارسی نمایش داده می‌شوند که حداقل یک بازدید/بازرسی سرویس مدارس برای آن‌ها ثبت شده و مختصات جغرافیایی معتبر دارند.</p><div id="ssv-inspection-map-block"></div></div>';
                 mountInspectionMap(b.querySelector('#ssv-inspection-map-block'), d.items || [], d.district_boundaries || []);
                 return;
