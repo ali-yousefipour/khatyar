@@ -48,7 +48,7 @@ export async function refreshSchoolServiceCache(){
     const companies=Array.isArray(boot?.companies)?boot.companies:[];
     const schools=Array.isArray(boot?.schools)?boot.schools:[];
   const data={
-    version:2,
+    version:3,
     savedAt:Date.now(),
     districts:Array.isArray(meta?.districts)?meta.districts:[],
     genders:Array.isArray(meta?.genders)?meta.genders:[],
