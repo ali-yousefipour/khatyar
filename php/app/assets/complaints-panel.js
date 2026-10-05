@@ -10,45 +10,6 @@ async function render(){const app=document.getElementById('khcApp');if(!app)retu
 async function openForm(driver){const x=document.getElementById('khcTab');let cats=await req('/complaints/categories?type=rate');const cities=await req('/complaints/cities').catch(()=>[]);const loc=await req('/complaints/default-location').catch(()=>null);x.innerHTML='<div class="khcPanel"><h3>ثبت شکایت برای '+esc(driver.first_name+' '+driver.last_name)+'</h3><div class="khcMuted">پلاک '+esc(driver.plate||'—')+' | خط '+esc(driver.line_code||'—')+'</div><label>نحوه دریافت شکایت</label><select id="crch" class="khcSelect"><option value="software">کاربران نرم‌افزار</option><option value="phone">تلفنی</option><option value="in_person">حضوری</option></select><label>محل دریافت شکایت</label><input id="cloc" class="khcInput" placeholder="محل دریافت شکایت" value="'+esc(loc?.name||'آخرین محل ثبت حضور')+'"><div class="khcRow"><input id="cf" class="khcInput" placeholder="نام شاکی"><input id="cl" class="khcInput" placeholder="نام خانوادگی شاکی"></div><input id="cm" class="khcInput" placeholder="شماره همراه"><select id="ct" class="khcSelect"><option value="neighbor">مجاور / مقیم مشهد</option><option value="visitor">زائر</option></select><input id="cstay" class="khcInput" type="number" min="1" placeholder="مدت اقامت زائر (روز)"><input id="ccity" list="citylist" class="khcInput" placeholder="شهر محل سکونت زائر"><datalist id="citylist">'+cities.map(c=>'<option value="'+esc(c.name||c)+'">').join('')+'</datalist><select id="ctype" class="khcSelect"><option value="rate">تخلف نرخی</option><option value="non_rate">تخلف غیرنرخی</option></select><select id="cc" class="khcSelect">'+cats.map(c=>'<option value="'+c.id+'">'+esc(c.title)+'</option>').join('')+'</select><input id="cs" class="khcInput" placeholder="موضوع شکایت"><textarea id="cb" class="khcArea" placeholder="متن کامل شکایت"></textarea><button id="csubmit" class="khcBtn khcPrimary">ثبت شکایت</button></div></div>';const crch=document.getElementById('crch'),cf=document.getElementById('cf'),cl=document.getElementById('cl'),cm=document.getElementById('cm'),ct=document.getElementById('ct'),cstay=document.getElementById('cstay'),ccity=document.getElementById('ccity'),ctype=document.getElementById('ctype'),cc=document.getElementById('cc'),cs=document.getElementById('cs'),cb=document.getElementById('cb'),cloc=document.getElementById('cloc');ctype.onchange=async()=>{cats=await req('/complaints/categories?type='+encodeURIComponent(ctype.value));cc.innerHTML=cats.map(c=>'<option value="'+c.id+'">'+esc(c.title)+'</option>').join('')};document.getElementById('csubmit').onclick=async()=>{if(!cf.value.trim()||!cl.value.trim()||!cm.value.trim()||!cs.value.trim()||!cb.value.trim())return alert('نام، نام خانوادگی، موبایل، موضوع و متن شکایت الزامی است.');if(ct.value==='visitor'&&(!cstay.value||!ccity.value.trim()))return alert('برای زائر مدت اقامت و شهر محل سکونت الزامی است.');const body={driver_id:driver.id,receipt_channel:crch.value,complainant_first_name:cf.value.trim(),complainant_last_name:cl.value.trim(),complainant_mobile:cm.value.trim(),complainant_type:ct.value,stay_days:ct.value==='visitor'?Number(cstay.value):null,residence_city:ct.value==='visitor'?ccity.value.trim():null,complaint_type:ctype.value,category_id:Number(cc.value),subject:cs.value.trim(),body:cb.value.trim(),location_name:cloc.value.trim()||loc?.name||'آخرین محل ثبت حضور',lat:loc?.lat??null,lng:loc?.lng??null};try{const r=await req('/complaints',{method:'POST',body:JSON.stringify(body)});const sm=r.sms?.status==='sent'?'\\nپیامک شماره پیگیری برای شاکی ارسال شد.':r.sms?.status==='error'?'\\nثبت شد، اما پیامک ارسال نشد: '+(r.sms.error||'خطای نامشخص'):'';alert('شماره پیگیری: '+r.tracking_code+sm);render()}catch(e){alert(e.message)}}}
 async function detail(id){const c=await req('/complaints/'+id),x=document.getElementById('khcTab');x.innerHTML='<div class="khcPanel"><h3>'+esc(c.tracking_code)+' — '+esc(c.driver_name)+'</h3><p>'+esc(c.body)+'</p><p class="khcMuted">نحوه دریافت: '+esc(({software:'کاربران نرم‌افزار',phone:'تماس تلفنی',in_person:'حضوری'})[c.receipt_channel]||c.receipt_channel||'—')+'</p><textarea id="cn" class="khcArea" placeholder="یادداشت / پاسخ"></textarea><div class="khcActions"><button id="cnote" class="khcBtn">ثبت یادداشت</button><button id="cfwd" class="khcBtn">ارجاع به مسئول</button><button id="creply" class="khcBtn">پاسخ و ارجاع</button><button id="cback" class="khcBtn">بازگشت به دریافت‌کننده</button><button id="cclose" class="khcBtn khcPrimary">مختومه</button></div><h3>گردش کار</h3>'+((c.workflow||[]).map(w=>'<div class="khcItem">'+esc(w.actor_name)+' — '+esc(w.action)+' — '+esc(w.note||'')+'</div>').join('')||'بدون گردش')+'</div>';const note=document.getElementById('cn');document.getElementById('cnote').onclick=()=>act(id,'note',note.value);document.getElementById('cfwd').onclick=()=>act(id,'manager_forward',note.value);document.getElementById('creply').onclick=()=>act(id,'reply',note.value);document.getElementById('cback').onclick=()=>act(id,'back',note.value);document.getElementById('cclose').onclick=()=>act(id,'close',note.value)}
 async function act(id,a,note){try{await req('/complaints/'+id+'/action',{method:'POST',body:JSON.stringify({action:a,note:note||''})});detail(id)}catch(e){alert(e.message)}}
-let menuObserver=null;
-function hasAuth(){return !!localStorage.token;}
-function installMenuEntry(){
-  if(!hasAuth())return;
-  const old=document.getElementById('khcMenuEntry');
-  const nodes=[...document.querySelectorAll('button,a,[role="button"]')];
-  const school=nodes.find(el=>el.textContent&&el.textContent.trim()==='سرویس مدارس');
-  if(!school){if(old)old.remove();return;}
-  const nav=school.closest('nav,aside');
-  let item=school.closest('li');
-  if(item&&nav&&nav.contains(item)){
-    if(old&&item.parentElement&&item.parentElement.contains(old))return;
-    if(old)old.remove();
-    const b=document.createElement('li');
-    b.id='khcMenuEntry';
-    b.style.cssText='list-style:none;margin:0;padding:0;';
-    b.innerHTML='<button type="button" style="display:block;width:100%;box-sizing:border-box;text-align:right;border:0;background:transparent;padding:8px 12px;font:inherit;cursor:pointer;color:inherit;">شکایات تاکسیرانان</button>';
-    b.querySelector('button').onclick=e=>{e.preventDefault();e.stopPropagation();open();};
-    item.parentElement.insertBefore(b,item.nextSibling);
-    return;
-  }
-  const parent=school.parentElement;
-  if(!parent){if(old)old.remove();return;}
-  if(old&&parent.contains(old))return;
-  if(old)old.remove();
-  const b=document.createElement('button');
-  b.id='khcMenuEntry';b.type='button';b.textContent='شکایات تاکسیرانان';b.className=school.className||'';
-  b.style.cssText='display:block;width:100%;box-sizing:border-box;text-align:right;border:0;background:transparent;padding:8px 12px;font:inherit;cursor:pointer;color:inherit;';
-  b.onclick=e=>{e.preventDefault();e.stopPropagation();open();};
-  parent.insertBefore(b,school.nextSibling);
-}
-function observeMenu(){
-  installMenuEntry();
-  if(menuObserver)return;
-  menuObserver=new MutationObserver(()=>{
-    clearTimeout(window.__khcMenuTimer);
-    window.__khcMenuTimer=setTimeout(installMenuEntry,150);
-  });
-  menuObserver.observe(document.body,{childList:true,subtree:true});
-}
-observeMenu();
+window.openComplaints=open;
+window.closeComplaints=()=>{const el=document.getElementById("khComplaints");if(el)el.remove();};
 })();
