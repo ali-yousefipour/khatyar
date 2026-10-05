@@ -459,6 +459,25 @@ function CheckInCore() {
   async function doCheckin(proof) {
     setBusy(true);
     try {
+      // قبل از ورود جدید، صف خروج آفلاین را تخلیه و وضعیت جلسه را از سرور تازه می‌کنیم.
+      // اگر خروج روی گوشی ثبت شده ولی هنوز همگام نشده باشد، ورود جدید نباید قبل از
+      // ارسال خروج به سرور اجرا شود.
+      try { await flushQueuedRequests(); } catch {}
+      try {
+        const freshCfg = await request('/my/checkin-config', { noStore: true, timeoutMs: 8000 });
+        if (freshCfg && Object.prototype.hasOwnProperty.call(freshCfg, 'open')) {
+          const serverOpen = freshCfg.open || null;
+          if (serverOpen) {
+            await persistLocalOpen(serverOpen);
+            setOpen(serverOpen);
+            throw new Error('جلسهٔ ورودِ باز برای شما وجود دارد؛ ابتدا خروج همان جلسه را ثبت کنید.');
+          }
+          await persistLocalOpen(null);
+          setOpen(null);
+        }
+      } catch (e) {
+        if (String(e?.message || '').includes('جلسهٔ ورودِ باز')) throw e;
+      }
       const current = await getPositionForAttendance();
       if (!current?.lat || !current?.lng) throw new Error('موقعیت دستگاه در دسترس نیست؛ برای ثبت حضور GPS را روشن کنید.');
       const localLine = getLocalAuthorizedLine(current.lat, current.lng);
