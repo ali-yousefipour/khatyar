@@ -8051,9 +8051,28 @@ b.querySelectorAll('[data-edit-c]').forEach(x=>x.onclick=async()=>{const rows2=(
 b.querySelectorAll('[data-edit-s]').forEach(x=>x.onclick=async()=>{const rows2=(await api('/api/school-service/schools?search=')).items||[];const r=rows2.find(z=>Number(z.id)===Number(x.dataset.editS));if(r)ssvEntityForm('schools',r,load)});
 };input.oninput=()=>{clearTimeout(input._t);input._t=setTimeout(()=>{page=1;load()},250)};await load();}catch(e){b.innerHTML='<div class="ssv-msg">'+esc(e.message||'خطا در دریافت اطلاعات')+'</div>'}}
 window.openSchoolService = open;
+window.closeSchoolService = close;
 /* منوی سرویس مدارس توسط پنل React و در ساختار اصلی سایدبار ساخته می‌شود.
-   این فایل فقط ویزارد و API آن را فراهم می‌کند تا منوی جداگانه و پایدار با React تداخل نداشته باشد. */
+   Launcher باید در خود bundle اصلی تعریف شود؛ در غیر این صورت VIEWS هنگام ساخت پنل
+   به SchoolServiceLauncher ارجاع می‌دهد ولی فایل school-service-admin.js هنوز اجرا نشده است. */
 })();
+
+function SchoolServiceLauncher(){
+  const hostRef=useRef(null);
+  const [error,setError]=useState("");
+  useEffect(()=>{
+    let alive=true;
+    const host=hostRef.current;
+    if(!host)return;
+    Promise.resolve()
+      .then(()=>window.openSchoolService(host))
+      .catch(e=>{if(alive)setError(e&&e.message?e.message:"خطا در بارگذاری سرویس مدارس");});
+    return()=>{alive=false;try{window.closeSchoolService&&window.closeSchoolService()}catch(_){}};
+  },[]);
+  return <div ref={hostRef} className="ssv-page-host" style={{minHeight:"calc(100vh - 100px)"}}>
+    {error?<div className="ssv-msg">{error}</div>:null}
+  </div>;
+}
 
 
 const VIEWS={
