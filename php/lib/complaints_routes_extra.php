@@ -14,8 +14,18 @@ function _complaints_can($u,$kind='submit'){
 }
 function _complaints_require($u,$kind='submit'){if(!_complaints_can($u,$kind)) Http::error('دسترسی به بخش شکایات برای شما فعال نیست.',403);}
 function _complaints_tables(){
-  // Schema is installed only by php/migrations/2026_10_05_complaints.sql.
-  // Never CREATE/ALTER tables during an API request: this avoids locks, races and latency.
+  static $checked=false;
+  if($checked)return;
+  foreach(['complaints','complaint_categories','complaint_workflow'] as $table){
+    try{$ok=Db::one("SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=? LIMIT 1",[$table]);}
+    catch(Throwable $e){Http::error('خطا در بررسی ساختار پایگاه داده شکایات',503);}
+    if(!$ok) Http::error('ساختار پایگاه داده شکایات نصب نشده است. migration 2026_10_05_complaints.sql باید اجرا شود.',503);
+  }
+  $checked=true;
+}
+function _complaints_admin($u){
+  if(empty($u['is_admin']) && (int)($u['level']??99)>3) Http::error('دسترسی مدیریتی لازم است',403);
+  _complaints_tables();
 }
 function _complaint_code(){return 'SHK-'.date('YmdHis').'-'.strtoupper(substr(bin2hex(random_bytes(4)),0,8));}
 function _complaint_driver($id){return Db::one("SELECT d.*,v.id vehicle_id,v.plate,v.line_id,v.operating_code vehicle_operating_code,l.code line_code,l.origin line_origin FROM drivers d LEFT JOIN vehicle_drivers vd ON vd.driver_id=d.id LEFT JOIN vehicles v ON v.id=vd.vehicle_id LEFT JOIN lines l ON l.id=v.line_id WHERE d.id=? LIMIT 1",[$id]);}
