@@ -1992,6 +1992,8 @@ route('GET', '/api/my/search-cache', function($p,$b,$u){
 });
 
 route('GET', '/api/my/checkin-config', function($p,$b,$u){
+  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+  header('Pragma: no-cache');
   $ids = user_line_ids($u);
   $lines = [];
   if (is_array($ids) && $ids) {
@@ -2197,6 +2199,8 @@ route('POST', '/api/my/shift-handover/accept', function($p,$b,$u){
 });
 
 route('GET', '/api/my/work-timer', function($p,$b,$u){
+  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+  header('Pragma: no-cache');
   _ensure_attendance_phase1_schema();
   $open = Db::one("SELECT id,line_id,check_in,check_out FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
   $role=_user_role_title($u['id']);
