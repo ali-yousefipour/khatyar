@@ -1,4 +1,4 @@
-// PANEL BUILD TARGET: 2026-10-05-v246
+// PANEL BUILD TARGET: 2026-10-05-v247
 // Build sync: keep generated panel bundle aligned with panel_source changes.
 const { useState, useEffect, useRef } = React;
 const I8 = (name) => React.createElement("img", { src: `/assets/icons3d/${name}.png`, alt: "", width: "30", height: "30", loading: "eager", decoding: "async", style: { objectFit: 'contain' }, onError: e => { e.currentTarget.style.display = 'none'; } });
@@ -14383,6 +14383,25 @@ function SchoolServiceLauncher() {
     }, []);
     return React.createElement("div", { ref: hostRef, className: "ssv-page-host", style: { minHeight: "calc(100vh - 100px)" } }, error ? React.createElement("div", { className: "ssv-msg" }, error) : null);
 }
+function ComplaintsLauncher() {
+    const hostRef = useRef(null);
+    const [error, setError] = useState("");
+    useEffect(() => {
+        let alive = true;
+        const host = hostRef.current;
+        if (!host)
+            return;
+        Promise.resolve()
+            .then(() => window.openComplaints && window.openComplaints(host))
+            .catch(e => { if (alive)
+            setError(e && e.message ? e.message : "خطا در بارگذاری شکایات تاکسیرانان"); });
+        return () => { alive = false; try {
+            window.closeComplaints && window.closeComplaints();
+        }
+        catch (_) { } };
+    }, []);
+    return React.createElement("div", { ref: hostRef, className: "khc-page-host", style: { minHeight: "calc(100vh - 100px)" } }, error ? React.createElement("div", { className: "ssv-msg" }, error) : null);
+}
 const VIEWS = {
     covertselfies: { t: "سلفی‌های نامحسوس", ic: "📸", c: CovertSelfies },
     dashboard: { t: "داشبورد مدیریت", ic: "▦", c: Dashboard },
@@ -14439,6 +14458,7 @@ const VIEWS = {
     vehiclechecklist: { t: "چک‌لیست خودرویی و موتوری", ic: "☑", c: PersonnelVehicleChecklist },
     settings: { t: "تنظیمات سامانه", ic: "⚙", c: Settings },
     schoolservice: { t: "سرویس مدارس", ic: "route", c: SchoolServiceLauncher },
+    complaints: { t: "شکایات تاکسیرانان", ic: "complaints", c: ComplaintsLauncher },
 };
 function Login({ onLogin, brand }) {
     const [u, setU] = useState("");
@@ -14510,18 +14530,11 @@ function App() {
     const [allowed, setAllowed] = useState(null);
     const [drawer, setDrawer] = useState(false);
     const [brand, setBrand] = useState({});
-    const [schoolServiceAllowed, setSchoolServiceAllowed] = useState(false);
     const [openSections, setOpenSections] = useState({ "داشبورد و پایش": true, "عملیات میدانی": true, "تاکسی و تاکسیران": false, "گزارش‌ها": false, "منابع انسانی": false, "ارتباطات": false, "مدیریت سامانه": false });
     useEffect(() => { db.publicSettings().then(s => { const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => { }); }, []);
     useEffect(() => { if (me && me.is_admin) {
         db.settings().then(s => { const all = s.role_perms || {}; const has = Object.prototype.hasOwnProperty.call(all, String(me.role_id)) || Object.prototype.hasOwnProperty.call(all, me.role_id); const rp = all[me.role_id]; setAllowed(has && Array.isArray(rp) ? rp : null); const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => setAllowed(null));
     } }, [me]);
-    useEffect(() => { if (!me || !me.is_admin) {
-        setSchoolServiceAllowed(false);
-        return;
-    } let alive = true; GET("/school-service/access").then(a => { if (alive)
-        setSchoolServiceAllowed((a === null || a === void 0 ? void 0 : a.allowed) === true); }).catch(() => { if (alive)
-        setSchoolServiceAllowed(false); }); return () => { alive = false; }; }, [me]);
     if (!me)
         return React.createElement(Login, { onLogin: setMe, brand: brand });
     if (!me.is_admin)
@@ -14532,20 +14545,20 @@ function App() {
                 React.createElement("button", { className: "btn p", style: { marginTop: 16 }, onClick: () => { localStorage.removeItem("token"); setMe(null); } }, "\u062E\u0631\u0648\u062C"))));
     // سرویس مدارس یک نمای هسته‌ای و مستقل پنل است؛ نمایش آن نباید به مجوزهای
     // پویا یا منوی fallback وابسته باشد. کنترل دسترسی خود صفحه جداگانه انجام می‌شود.
-    const CORE_VIEWS = ["dashboard", "driverservicereport", "schoolservice"];
+    const CORE_VIEWS = ["dashboard", "driverservicereport", "schoolservice", "complaints"];
     const vk = (!allowed || allowed.includes(v) || CORE_VIEWS.includes(v)) ? v : "dashboard";
     const View = VIEWS[vk].c;
     window.__navigateTo = (k) => { setV(k); setDrawer(false); };
     const SECTIONS = [
         ["داشبورد و پایش", ["dashboard", "reportscenter", "health", "map", "present", "presentchart"]],
-        ["عملیات میدانی", ["missiondashboard", "citydashboard", "missiontemplates", "scoreengine", "officials", "presence", "attendance", "companyrequests", "outages", "covertselfies"]],
-        ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "platetraining", "lines", "zones", "bills"]],
+        ["عملیات میدانی", ["missiondashboard", "citydashboard", "missiontemplates", "scoreengine", "officials", "presence", "attendance", "companyrequests", "outages", "covertselfies", "schoolservice"]],
+        ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "platetraining", "lines", "zones", "bills", "complaints"]],
         ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "useract"]],
         ["منابع انسانی", ["shifts", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural", "vehicleassets", "vehiclechecklist"]],
         ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
         ["مدیریت سامانه", ["users", "org", "forms", "config", "customfields", "inventory", "excel", "appitems", "cronstatus", "activesessions", "logs", "settings"]],
     ];
-    const CORE = ["dashboard", "driverservicereport", "schoolservice"];
+    const CORE = ["dashboard", "driverservicereport", "schoolservice", "complaints"];
     const MENU_ICONS = {
         dashboard: 'dashboard-home', reportscenter: 'reports-folder', health: 'system-health', map: 'map-marker', present: 'present-group', presentchart: 'presence-chart',
         missiondashboard: 'performance-gauge', citydashboard: 'city-map', missiontemplates: 'dashboard-layout', scoreengine: 'live-chart',
@@ -14555,7 +14568,7 @@ function App() {
         shifts: 'shift-cycle', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
         messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', radiocenter: 'radio-tower', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen',
         config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'activity-wave', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
-        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist'
+        vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist', complaints: 'complaints'
     };
     const can = (k) => !allowed || allowed.includes(k) || CORE.includes(k);
     const closeOnPick = (k) => { setV(k); setDrawer(false); };
@@ -14566,9 +14579,6 @@ function App() {
                 brand.logo ? React.createElement("img", { src: brand.logo, style: { width: 38, height: 38, borderRadius: 10, objectFit: "contain", background: "#fff", padding: 3 } }) : React.createElement("img", { src: "/brand-khatyar.png", style: { width: 38, height: 38, borderRadius: 19, objectFit: "cover" } }),
                 React.createElement("span", null, brand.title || "خطیار")),
             React.createElement("nav", { className: "nav", style: { flex: 1 } },
-                React.createElement("button", { "data-school-service": "canonical", className: "navitem " + (v === "schoolservice" ? "on" : ""), onClick: () => closeOnPick("schoolservice") },
-                    React.createElement("span", { className: "ic" }, I8(MENU_ICONS.schoolservice)),
-                    React.createElement("span", { className: "navlabel" }, "\u0633\u0631\u0648\u06CC\u0633 \u0645\u062F\u0627\u0631\u0633")),
                 SECTIONS.map(([title, keys]) => {
                     const ks = keys.filter(k => VIEWS[k] && can(k));
                     if (!ks.length)
@@ -14605,7 +14615,7 @@ function App() {
                     React.createElement("div", { className: "av" }, (me.name || "؟")[0]))),
             React.createElement(View, null))));
 }
-const PANEL_BUILD_VERSION = "1.5.4";
+const PANEL_BUILD_VERSION = "1.5.5";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
@@ -14647,6 +14657,6 @@ async function khForceFreshReloadAfterLogin() {
         return;
     }
     await khEnsureFreshBuild();
-    console.log("PANEL BUILD: 1.5.4 (panel-native-radio-school-service)");
+    console.log("PANEL BUILD: 1.5.5 (panel-native-radio-school-service)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
 })();
