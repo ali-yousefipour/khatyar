@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
-import { postOrQueue } from '../api';
+import { postOrQueue, request } from '../api';
 import { getAppConfig } from '../appconfig';
 import * as Location from 'expo-location';
 import { C, FONT } from '../theme';
@@ -16,9 +16,11 @@ export default function DriverScreen({ route, navigation }) {
   const [lastAttendance, setLastAttendance] = useState(null);
   const [busy, setBusy] = useState(false);
   const [access, setAccess] = useState({ welfare: false, cultural: false });
+  const [complaintAllowed, setComplaintAllowed] = useState(false);
   const hasDriver = !!(driver && (driver.id || driver.national_id || driver.national_code));
   useEffect(() => {
     getAppConfig().then((c) => setAccess({ welfare: !!c.can_welfare, cultural: !!c.can_cultural })).catch(() => {});
+    request('/complaints/access', { noStore: true }).then((x) => setComplaintAllowed(!!x?.can_submit)).catch(() => {});
   }, []);
   const safeText = (v) => {
     if (v === null || v === undefined || v === '') return '';
@@ -75,6 +77,10 @@ export default function DriverScreen({ route, navigation }) {
     { t: 'تذکرات قبلی', e: '🗂', on: () => navigation.navigate('PastNotices', { driver }) },
     { t: 'چک‌لیست‌های قبلی', e: '📋', on: () => navigation.navigate('PastChecklists', { driver }) },
     { t: 'پیامک‌های راننده', e: '✉', on: () => navigation.navigate('DriverSms', { driver }) },
+    ...(complaintAllowed ? [
+      { t: 'ثبت شکایت', e: '📣', on: () => navigation.navigate('Complaints', { driver }) },
+      { t: 'سوابق شکایات', e: '🗂️', on: () => navigation.navigate('Complaints', { driver, tab: 'submit' }) },
+    ] : []),
     ...(access.welfare ? [{ t: 'رفاهیات راننده', e: '🎁', on: () => navigation.navigate('Welfare', { driver }) }] : []),
     ...(access.cultural ? [{ t: 'فعالیت فرهنگی', e: '🎭', on: () => navigation.navigate('Cultural', { driver }) }] : []),
   ];
