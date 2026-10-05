@@ -1,3 +1,4 @@
+// PANEL BUILD TARGET: 2026-10-05-v246
 // Build sync: keep generated panel bundle aligned with panel_source changes.
 const { useState, useEffect, useRef } = React;
 const I8 = (name) => React.createElement("img", { src: `/assets/icons3d/${name}.png`, alt: "", width: "30", height: "30", loading: "eager", decoding: "async", style: { objectFit: 'contain' }, onError: e => { e.currentTarget.style.display = 'none'; } });
