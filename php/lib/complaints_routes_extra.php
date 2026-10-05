@@ -5,12 +5,15 @@ function _complaints_settings(){
   $v=$r?json_decode($r['value'],true):[]; return is_array($v)?$v:[];
 }
 function _complaints_can($u,$kind='submit'){
-  // سطح دسترسی مدیریتی مستقل از آماده بودن تنظیمات/جداول شکایات است.
-  if((int)($u['is_admin']??0) || (int)($u['level']??99)<=3) return true;
   $s=_complaints_settings();
-  if(in_array((int)$u['id'],array_map('intval',$s['allowed_user_ids']??[]),true) || in_array((int)$u['role_id'],array_map('intval',$s['allowed_role_ids']??[]),true)) return true;
-  if($kind==='receive' && (int)$u['id']===(int)($s['receiver_user_id']??0)) return true;
-  if($kind==='manage' && (int)$u['id']===(int)($s['manager_user_id']??0)) return true;
+  $uid=(int)($u['id']??0); $rid=(int)($u['role_id']??0);
+  $allowedUsers=array_map('intval',$s['allowed_user_ids']??[]);
+  $allowedRoles=array_map('intval',$s['allowed_role_ids']??[]);
+  $isSystemAdmin=(int)($u['is_admin']??0)===1 || (int)($u['level']??99)<=3;
+  if($kind==='submit') return in_array($uid,$allowedUsers,true) || in_array($rid,$allowedRoles,true);
+  if($isSystemAdmin) return true;
+  if($kind==='receive') return $uid===(int)($s['receiver_user_id']??0) || $uid===(int)($s['manager_user_id']??0);
+  if($kind==='manage') return $uid===(int)($s['manager_user_id']??0);
   return false;
 }
 function _complaints_require($u,$kind='submit'){if(!_complaints_can($u,$kind)) Http::error('دسترسی به بخش شکایات برای شما فعال نیست.',403);}
@@ -46,7 +49,18 @@ route('GET','/api/admin/complaints/channel-stats',function($p,$b,$u){_complaints
 route('GET','/api/admin/complaints/dashboard',function($p,$b,$u){_complaints_admin($u);$total=(int)(Db::one("SELECT COUNT(*) n FROM complaints")['n']??0);$closed=(int)(Db::one("SELECT COUNT(*) n FROM complaints WHERE status='closed'")['n']??0);$open=$total-$closed;$byLine=Db::all("SELECT COALESCE(l.code,'بدون خط') line_code,COUNT(*) n FROM complaints c LEFT JOIN `lines` l ON l.id=c.line_id GROUP BY c.line_id,l.code ORDER BY n DESC LIMIT 10");return ['total'=>$total,'closed'=>$closed,'open'=>$open,'in_progress'=>$open,'by_line'=>$byLine];});
 route('GET','/api/admin/complaints/report',function($p,$b,$u){_complaints_admin($u);$w=['1=1'];$a=[];$from=trim((string)($_GET['from']??''));$to=trim((string)($_GET['to']??''));$line=(int)($_GET['line_id']??0);$driver=(int)($_GET['driver_id']??0);if($from){$w[]='c.created_at>=?';$a[]=$from.' 00:00:00';}if($to){$w[]='c.created_at<=?';$a[]=$to.' 23:59:59';}if($line){$w[]='c.line_id=?';$a[]=$line;}if($driver){$w[]='c.driver_id=?';$a[]=$driver;}return Db::all("SELECT c.tracking_code,c.created_at,c.status,c.complaint_type,cc.title category,c.subject,CONCAT(c.complainant_first_name,' ',c.complainant_last_name) complainant,c.complainant_mobile,c.receipt_channel,CONCAT(d.first_name,' ',d.last_name) driver_name,d.national_id,v.plate,l.code line_code FROM complaints c JOIN drivers d ON d.id=c.driver_id LEFT JOIN complaint_categories cc ON cc.id=c.category_id LEFT JOIN vehicles v ON v.id=c.vehicle_id LEFT JOIN `lines` l ON l.id=c.line_id WHERE ".implode(' AND ',$w)." ORDER BY c.created_at DESC LIMIT 5000",$a);});
 route('GET','/api/admin/complaints/settings',function($p,$b,$u){_complaints_admin($u);return _complaints_settings();});
-route('PUT','/api/admin/complaints/settings',function($p,$b,$u){_complaints_admin($u);Db::run("INSERT INTO app_settings(`key`,value) VALUES('complaints_settings',?) ON DUPLICATE KEY UPDATE value=VALUES(value),updated_at=NOW()",[json_encode($b,JSON_UNESCAPED_UNICODE)]);return ['ok'=>true];});
+route('PUT','/api/admin/complaints/settings',function($p,$b,$u){
+  _complaints_admin($u);
+  $receiver=(int)($b['receiver_user_id']??0); $manager=(int)($b['manager_user_id']??0);
+  $roles=array_values(array_unique(array_filter(array_map('intval',$b['allowed_role_ids']??[]),fn($v)=>$v>0)));
+  $users=array_values(array_unique(array_filter(array_map('intval',$b['allowed_user_ids']??[]),fn($v)=>$v>0)));
+  if(!$receiver) Http::error('کاربر دریافت شکایات الزامی است',422);
+  if(!$manager) Http::error('مسئول رسیدگی الزامی است',422);
+  if(!$roles&&!$users) Http::error('حداقل یک سمت یا کاربر باید برای ثبت شکایت مجاز باشد',422);
+  $out=['sms_enabled'=>!empty($b['sms_enabled']),'sms_template'=>(string)($b['sms_template']??''),'receiver_user_id'=>$receiver,'manager_user_id'=>$manager,'allowed_user_ids'=>$users,'allowed_role_ids'=>$roles];
+  Db::run("INSERT INTO app_settings(`key`,value) VALUES('complaints_settings',?) ON DUPLICATE KEY UPDATE value=VALUES(value),updated_at=NOW()",[json_encode($out,JSON_UNESCAPED_UNICODE)]);
+  return ['ok'=>true,'settings'=>$out];
+});
 route('GET','/api/admin/complaints/categories',function($p,$b,$u){_complaints_admin($u);return Db::all("SELECT * FROM complaint_categories ORDER BY complaint_type,sort_order,id");});
 route('POST','/api/admin/complaints/categories',function($p,$b,$u){_complaints_admin($u);Db::insert("INSERT INTO complaint_categories(complaint_type,title,sort_order,is_active) VALUES(?,?,?,1)",[$b['complaint_type'],$b['title'],(int)($b['sort_order']??0)]);return ['ok'=>true];});
 route('PUT','/api/admin/complaints/categories/{id}',function($p,$b,$u){_complaints_admin($u);Db::run("UPDATE complaint_categories SET title=?,complaint_type=?,sort_order=?,is_active=? WHERE id=?",[$b['title'],$b['complaint_type'],(int)($b['sort_order']??0),!empty($b['is_active'])?1:0,(int)$p['id']]);return ['ok'=>true];});
