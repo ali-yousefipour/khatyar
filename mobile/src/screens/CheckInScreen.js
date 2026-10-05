@@ -508,7 +508,42 @@ function CheckInCore() {
       }
       Alert.alert(r.queued ? 'آفلاین' : 'ثبت شد', r.queued ? 'ورود ذخیره شد و بعد از اتصال ارسال می‌شود.' : 'ورود شما ثبت شد.');
       setProofVal('');
-      if (!r.queued) await load();
+      if (!r.queued) {
+        // پس از ورود مجدد، تایمر نباید از صفر یا از موظفی کامل روز شروع شود.
+        // work-timer مجموع تمام جلسات بسته‌شده امروز + جلسه باز فعلی را برمی‌گرداند.
+        // پاسخ آن را بلافاصله مرجع تایمر قرار می‌دهیم تا کش/جلسه جدید مقدار قبلی را
+        // از بین نبرد.
+        try {
+          const wt = await request('/my/work-timer', { noStore: true, timeoutMs: 8000 });
+          if (wt) {
+            setTimerInfo(wt);
+            const previousCompleted = Math.max(0, Number(wt.completed_sec || 0));
+            const currentOpen = wt.open || r.open || {
+              id: r.id,
+              line_id: Number(r.line_id || localLine.line.id),
+              check_in: r.check_in || body.client_time,
+              check_out: null,
+              method
+            };
+            await persistLocalOpen(currentOpen);
+            setOpen(currentOpen);
+            const currentStart = tehranTimeToEpochMs(currentOpen.check_in);
+            const live = currentStart != null
+              ? Math.max(0, Math.floor((Date.now() - currentStart) / 1000))
+              : Math.max(0, Number(wt.open_elapsed_sec || 0));
+            setElapsed(previousCompleted + live);
+            await persistLocalWorked({
+              gdate: String(wt.jdate || body.client_time || '').replace(/\//g,'-'),
+              worked_sec: Math.max(0, Number(wt.elapsed_sec || 0)),
+              expected_min: Math.max(0, Number(wt.expected_min || 453)),
+              ot_cap_min: Math.max(0, Number(wt.ot_cap_min || 27)),
+              completed_sec: previousCompleted
+            });
+          }
+        } catch {
+          await load();
+        }
+      }
     } catch (e) { Alert.alert('خطا', e.message || 'ثبت ورود ناموفق'); }
     finally { setBusy(false); }
   }
