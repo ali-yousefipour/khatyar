@@ -201,3 +201,5 @@ jobs:
         run: |
           echo "Stable: https://github.com/ali-yousefipour/khatyar/releases/latest/download/khatyar.apk"
           echo "Versioned: https://github.com/ali-yousefipour/khatyar/releases/download/v${VERSION}/khatyar.apk"
+
+# Release workflow trigger path: workflow_dispatch or ci(android-release) push.
