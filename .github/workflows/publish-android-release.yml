@@ -71,6 +71,9 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
 
+      - name: Pin npm to local build toolchain
+        run: npm install --global npm@12.0.2
+
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
