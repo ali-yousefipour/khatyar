@@ -1,7 +1,7 @@
 <?php
 /* خطیار — شکایات تاکسیرانان */
 function _complaints_settings(){
-  $r=Db::one("SELECT value FROM app_settings WHERE key='complaints_settings'");
+  $r=Db::one("SELECT value FROM app_settings WHERE `key`='complaints_settings'");
   $v=$r?json_decode($r['value'],true):[]; return is_array($v)?$v:[];
 }
 function _complaints_can($u,$kind='submit'){
