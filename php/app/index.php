@@ -47,7 +47,7 @@ if (strpos($path, '/api') !== 0) {
 // IMPORTANT: do not reconcile substitute shifts in the global request bootstrap.\n// That routine performs schema writes and scans request data; running it before every\n// API request can block login and health checks. Reconciliation is handled by its\n// dedicated workflow instead of the authentication/request bootstrap.\n$routes = [];
 function route($m, $p, $fn, $public = false, $minLevel = 99) { global $routes; $routes[] = compact('m', 'p', 'fn', 'public', 'minLevel'); }
 function nid($v){ $s = preg_replace('/\D/', '', (string)$v); return $s === '' ? null : str_pad($s, 10, '0', STR_PAD_LEFT); }
-require "$ROOT/lib/routes.php"; $body = Http::body();
+require "$ROOT/lib/routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; $body = Http::body();
 foreach ($routes as $r) {
   if ($r['m'] !== $method) continue; $regex = '#^' . preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $r['p']) . '$#'; if (!preg_match($regex, $path, $mm)) continue; $params = array_filter($mm, 'is_string', ARRAY_FILTER_USE_KEY); $user = null;
   if (!$r['public']) {
