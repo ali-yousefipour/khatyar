@@ -533,7 +533,7 @@ function CheckInCore() {
               : Math.max(0, Number(wt.open_elapsed_sec || 0));
             setElapsed(previousCompleted + live);
             await persistLocalWorked({
-              gdate: String(wt.jdate || body.client_time || '').replace(/\//g,'-'),
+              gdate: String(currentOpen.check_in || body.client_time || '').slice(0,10),
               worked_sec: Math.max(0, Number(wt.elapsed_sec || 0)),
               expected_min: Math.max(0, Number(wt.expected_min || 453)),
               ot_cap_min: Math.max(0, Number(wt.ot_cap_min || 27)),
