@@ -29,8 +29,8 @@ if ! grep -q "تنظیمات بی‌سیم" "$OUT"; then
   echo "ERROR: compiled panel bundle does not contain the integrated radio settings section. Source/bundle are out of sync." >&2
   exit 1
 fi
-if ! grep -q "data-school-service" "$OUT" || ! grep -q "canonical" "$OUT"; then
-  echo "ERROR: compiled panel bundle does not contain the canonical school service menu item." >&2
+if ! grep -q "schoolservice" "$OUT" || ! grep -q "complaints" "$OUT"; then
+  echo "ERROR: compiled panel bundle does not contain the canonical school-service/complaints sidebar items." >&2
   exit 1
 fi
 if grep -q "school-service.png" "$OUT"; then
