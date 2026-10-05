@@ -84,6 +84,9 @@ function CheckInCore() {
   const [handover, setHandover] = useState(null);
   const [elapsed, setElapsed] = useState(0);
   const [busy, setBusy] = useState(false);
+  // جلوگیری از race بین loadهای پس‌زمینه و ورود/خروج جدید؛ پاسخ یک load قدیمی
+  // نباید وضعیت جلسهٔ جدید را دوباره null یا به جلسهٔ قبلی برگرداند.
+  const attendanceStateEpochRef = useRef(0);
   const [scanOpen, setScanOpen] = useState(false);
   const [proofVal, setProofVal] = useState('');
   const [exitReminder, setExitReminder] = useState(false);
@@ -104,12 +107,13 @@ function CheckInCore() {
   const persistLocalWorked = async (value) => { try { if (value) await AsyncStorage.setItem(LOCAL_WORKED_KEY, JSON.stringify(value)); else await AsyncStorage.removeItem(LOCAL_WORKED_KEY); } catch {} };
 
   const load = async () => {
+    const loadEpoch = attendanceStateEpochRef.current;
     setLoadError(null);
     // اول کش محلی را بخوان؛ ثبت حضور باید حتی بدون اینترنت بتواند از آخرین
     // اطلاعات خطوط مجاز و جلسهٔ باز استفاده کند. سپس نسخهٔ تازه را در پس‌زمینه بگیر.
     try {
       const cachedCfg = await cachedValue('/my/checkin-config');
-      if (cachedCfg && typeof cachedCfg === 'object') {
+      if (cachedCfg && typeof cachedCfg === 'object' && loadEpoch === attendanceStateEpochRef.current) {
         setCfg(cachedCfg);
         const localOpen = await readLocalOpen();
         setOpen(localOpen || cachedCfg.open || null);
@@ -119,6 +123,7 @@ function CheckInCore() {
       request('/my/checkin-config', { timeoutMs: 8000 }),
       request('/my/work-timer', { noStore: true, timeoutMs: 8000 }),
     ]);
+    if (loadEpoch !== attendanceStateEpochRef.current) return;
     if (timerResult && timerResult.status === 'fulfilled') {
       setTimerInfo(timerResult.value);
       try {
@@ -142,6 +147,7 @@ function CheckInCore() {
       } catch {}
     }
     if (cfgResult.status === 'fulfilled') {
+      if (loadEpoch !== attendanceStateEpochRef.current) return;
       const fresh = cfgResult.value;
       setCfg(fresh);
       // وقتی API آنلاین با موفقیت پاسخ داده، وضعیت جلسهٔ سرور مرجع قطعی است.
@@ -457,6 +463,8 @@ function CheckInCore() {
   };
 
   async function doCheckin(proof) {
+    // هر ورود جدید نسل وضعیت را عوض می‌کند تا load قبلی نتواند جلسهٔ جدید را overwrite کند.
+    attendanceStateEpochRef.current += 1;
     setBusy(true);
     try {
       // قبل از ورود جدید، صف خروج آفلاین را تخلیه و وضعیت جلسه را از سرور تازه می‌کنیم.
@@ -567,6 +575,9 @@ function CheckInCore() {
     finally { setBusy(false); }
   }
   async function doCheckout() {
+    // خروج جاری نیز باید هر load قدیمی را بی‌اعتبار کند؛ مخصوصاً loadای که
+    // بعد از خروج قبلی در پس‌زمینه باقی مانده و ممکن است open=null را دیر برگرداند.
+    attendanceStateEpochRef.current += 1;
     setBusy(true);
     try {
       // موقعیت نمایش‌داده‌شده روی نقشه قبلاً توسط load() به‌روز شده است.
