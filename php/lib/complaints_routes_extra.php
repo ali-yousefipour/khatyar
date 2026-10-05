@@ -5,8 +5,9 @@ function _complaints_settings(){
   $v=$r?json_decode($r['value'],true):[]; return is_array($v)?$v:[];
 }
 function _complaints_can($u,$kind='submit'){
-  $s=_complaints_settings();
+  // سطح دسترسی مدیریتی مستقل از آماده بودن تنظیمات/جداول شکایات است.
   if((int)($u['is_admin']??0) || (int)($u['level']??99)<=3) return true;
+  $s=_complaints_settings();
   if(in_array((int)$u['id'],array_map('intval',$s['allowed_user_ids']??[]),true) || in_array((int)$u['role_id'],array_map('intval',$s['allowed_role_ids']??[]),true)) return true;
   if($kind==='receive' && (int)$u['id']===(int)($s['receiver_user_id']??0)) return true;
   if($kind==='manage' && (int)$u['id']===(int)($s['manager_user_id']??0)) return true;
