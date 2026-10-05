@@ -1,12 +1,12 @@
-name: publish-android-release
+name: build-android-release
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "نسخه انتشار (مثلاً 1.5.3)"
+        description: "نسخه انتشار؛ باید با package.json و app.config.js یکسان باشد"
         required: true
-        default: "1.5.3"
+        default: "1.5.5"
       target:
         description: "شاخه/commit مبنای انتشار"
         required: true
@@ -18,88 +18,181 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
+    name: Build and publish Android release
     runs-on: ubuntu-latest
     env:
+      NODE_VERSION: "22.23.1"
+      JAVA_VERSION: "17"
+      EXPECTED_GRADLE: "8.13"
+      EXPECTED_EXPO: "57.0.6"
+      EXPECTED_REACT_NATIVE: "0.86.0"
+      EXPECTED_REACT: "19.2.3"
       RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
     steps:
-      - name: Normalize version
+      - name: Normalize and validate release version
         id: version
         shell: bash
         run: |
           VERSION="${RELEASE_VERSION#v}"
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid release version: $VERSION"
+            echo "::error::Invalid release version: $VERSION"
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v5
+      - name: Checkout source
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.target || github.ref_name }}
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v5
+      - name: Setup Node
+        uses: actions/setup-node@v5
         with:
-          node-version: 22.23.1
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: mobile/package-lock.json
 
-      - uses: actions/setup-java@v5
+      - name: Setup Java
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Install mobile dependencies
+      - name: Validate locked Android/Expo baseline
+        working-directory: mobile
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const expected = process.env.EXPECTED_VERSION;
+          const root = lock.packages && lock.packages[''];
+          const checks = [
+            ['package.json version', pkg.version, expected],
+            ['package-lock root version', root?.version, expected],
+            ['Expo SDK', pkg.dependencies?.expo, '~57.0.6'],
+            ['React Native', pkg.dependencies?.['react-native'], '0.86.0'],
+            ['React', pkg.dependencies?.react, '19.2.3'],
+          ];
+          for (const [name, actual, wanted] of checks) {
+            if (actual !== wanted) {
+              console.error(`::error::${name} mismatch: expected "${wanted}", got "${actual}"`);
+              process.exit(1);
+            }
+          }
+          const resolved = [
+            ['expo', '57.0.6'],
+            ['react-native', '0.86.0'],
+            ['react', '19.2.3'],
+            ['expo-build-properties', '57.0.5'],
+            ['expo-camera', '57.0.2'],
+            ['expo-location', '57.0.1'],
+            ['expo-notifications', '57.0.5'],
+          ];
+          for (const [name, wanted] of resolved) {
+            const actual = lock.packages?.[`node_modules/${name}`]?.version;
+            if (actual !== wanted) {
+              console.error(`::error::Locked ${name} mismatch: expected ${wanted}, got ${actual}`);
+              process.exit(1);
+            }
+          }
+          console.log('Stable release baseline validated.');
+          NODE
+
+      - name: Install locked mobile dependencies
         working-directory: mobile
         run: npm ci --legacy-peer-deps --no-audit --no-fund --loglevel=warn
 
-      - name: Generate Android project
+      - name: Verify Expo dependency tree
         working-directory: mobile
+        run: npx expo-doctor
+
+      - name: Generate clean Android project
+        working-directory: mobile
+        env:
+          CI: "true"
+          GITHUB_ACTIONS: "true"
         run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Verify CI repository policy and Gradle baseline
+        working-directory: mobile/android
+        shell: bash
+        run: |
+          test -f gradle/wrapper/gradle-wrapper.properties
+          grep -Eq 'gradle-8\.13-(bin|all)\.zip' gradle/wrapper/gradle-wrapper.properties
+          if grep -RniE 'maven\.myket\.ir|mirror-maven\.runflare\.com' settings.gradle* build.gradle* app/build.gradle* gradle.properties 2>/dev/null; then
+            echo "::error::Iranian Maven mirrors were injected into the GitHub Actions Android project."
+            exit 1
+          fi
+          echo "CI Maven policy validated: official Google/Maven repositories only."
 
       - name: Build release APK
         working-directory: mobile/android
         env:
-          # CI-only JVM sizing. Local Windows builds keep their existing Gradle/Maven settings.
+          CI: "true"
+          GITHUB_ACTIONS: "true"
           GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
         run: |
           chmod +x gradlew
-          ./gradlew app:assembleRelease --no-daemon --stacktrace --console=plain --max-workers=2 -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
+          ./gradlew app:assembleRelease --no-daemon --stacktrace --console=plain --max-workers=2 \
+            -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
 
-      - name: Prepare release asset
+      - name: Verify APK version and artifact
+        working-directory: mobile
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          mkdir -p release
-          cp mobile/android/app/build/outputs/apk/release/app-release.apk release/khatyar.apk
-          sha256sum release/khatyar.apk | tee release/khatyar.apk.sha256
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          mkdir -p ../release
+          cp "$APK" ../release/khatyar.apk
+          sha256sum ../release/khatyar.apk | tee ../release/khatyar.apk.sha256
+          echo "APK artifact verified."
 
-      - name: Verify APK
-        run: |
-          test -s release/khatyar.apk
-          file release/khatyar.apk
-          unzip -p release/khatyar.apk AndroidManifest.xml >/dev/null || true
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: khatyar-android-release-${{ steps.version.outputs.version }}
+          path: |
+            release/khatyar.apk
+            release/khatyar.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Create or update GitHub Release
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
           TAG: ${{ steps.version.outputs.tag }}
+          TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || github.sha }}
         run: |
+          NOTES_FILE="CHANGELOG_${VERSION}.md"
+          if [ ! -f "$NOTES_FILE" ]; then
+            NOTES_FILE="CHANGELOG_CURRENT.md"
+          fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" release/khatyar.apk release/khatyar.apk.sha256 --clobber
           else
-            NOTES_FILE="CHANGELOG_${VERSION}.md"
-            if [ ! -f "$NOTES_FILE" ]; then
-              NOTES_FILE="CHANGELOG_1.5.3.md"
-            fi
             gh release create "$TAG" release/khatyar.apk release/khatyar.apk.sha256 \
-              --target "${GITHUB_SHA}" \
+              --target "$TARGET" \
               --title "خطیار ${VERSION}" \
               --notes-file "$NOTES_FILE"
           fi
 
-      - name: Print stable download links
+      - name: Print release links
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
