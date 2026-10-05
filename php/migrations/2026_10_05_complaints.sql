@@ -67,3 +67,20 @@ INSERT IGNORE INTO complaint_categories(complaint_type,title,sort_order) VALUES
 INSERT INTO app_settings(`key`,value) VALUES
 ('complaints_settings','{"sms_enabled":false,"sms_template":"شکایت شما با شماره پیگیری {tracking_code} در سامانه ثبت شد.","receiver_user_id":null,"manager_user_id":null,"allowed_user_ids":[],"allowed_role_ids":[]}')
 ON DUPLICATE KEY UPDATE `key`=`key`;
+
+-- Backward-compatible upgrades for installations that already created the complaint table.
+SET @sql := IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='complaints' AND COLUMN_NAME='location_name')=0,
+  'ALTER TABLE complaints ADD COLUMN location_name VARCHAR(300) NULL AFTER receive_lng','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='complaints' AND COLUMN_NAME='sms_status')=0,
+  'ALTER TABLE complaints ADD COLUMN sms_status VARCHAR(20) NULL AFTER closed_by','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='complaints' AND COLUMN_NAME='sms_message_id')=0,
+  'ALTER TABLE complaints ADD COLUMN sms_message_id VARCHAR(80) NULL AFTER sms_status','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='complaints' AND COLUMN_NAME='sms_error')=0,
+  'ALTER TABLE complaints ADD COLUMN sms_error VARCHAR(500) NULL AFTER sms_message_id','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='complaints' AND COLUMN_NAME='sms_sent_at')=0,
+  'ALTER TABLE complaints ADD COLUMN sms_sent_at DATETIME NULL AFTER sms_error','SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
