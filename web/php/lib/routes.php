@@ -6001,6 +6001,8 @@ route('DELETE', '/api/admin/line-idents/{id}', function($p,$b,$u){
 
 // گزارش ثبت حضور نیروها (ادمین)
 route('GET', '/api/admin/staff-attendance', function($p,$b,$u){
+  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+  header('Pragma: no-cache');
   $from = $_GET['from'] ?? date('Y-m-d'); $to = $_GET['to'] ?? $from;
   $from = date('Y-m-d', strtotime($from)); $to = date('Y-m-d', strtotime($to));
   $cond = ["DATE(sa.check_in) BETWEEN ? AND ?"]; $args = [$from, $to];
@@ -6009,7 +6011,7 @@ route('GET', '/api/admin/staff-attendance', function($p,$b,$u){
   if (!empty($_GET['role_id'])) { $cond[] = "us.role_id=?"; $args[] = (int)$_GET['role_id']; }
   if (!empty($_GET['method'])) { $cond[] = "sa.method=?"; $args[] = $_GET['method']; }
   $where = implode(' AND ', $cond);
-  return Db::all("SELECT sa.id, CONCAT(us.first_name,' ',us.last_name) name, r.title role, l.code line,
+  return Db::all("SELECT sa.id, sa.line_id, CONCAT(us.first_name,' ',us.last_name) name, r.title role, l.code line,
       sa.check_in, sa.check_out, sa.method,
       TIMESTAMPDIFF(MINUTE, sa.check_in, COALESCE(sa.check_out, NOW())) minutes
     FROM staff_attendance sa JOIN users us ON us.id=sa.user_id LEFT JOIN roles r ON r.id=us.role_id
