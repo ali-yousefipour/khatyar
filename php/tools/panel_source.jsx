@@ -8020,7 +8020,6 @@ function SchoolServiceLauncher(){
   useEffect(()=>{if(host)launch();},[host]);
   return <div className="panel" style={{margin:"14px 0",padding:0,border:0,background:"transparent"}}>
     {error&&<div style={{padding:"14px"}}><p style={{color:"var(--danger)",lineHeight:1.9}}>{error}</p><button className="btn p" onClick={launch}>تلاش مجدد</button></div>}
-    {error&&<div style={{padding:"14px"}}><p style={{color:"var(--danger)",lineHeight:1.9}}>{error}</p><button className="btn p" onClick={launch}>تلاش مجدد</button></div>}
     <div ref={setHost} style={{width:"100%"}}></div>
   </div>;
 }
