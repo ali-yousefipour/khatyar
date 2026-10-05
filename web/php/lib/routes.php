@@ -2145,7 +2145,7 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
   $eventAt = _app_client_time($b);
   $clientUuid = trim((string)($b['client_uuid'] ?? ''));
   if ($clientUuid !== '') {
-    $done = Db::one("SELECT id,check_out,line_id FROM staff_attendance WHERE user_id=? AND client_uuid=? AND check_out IS NOT NULL LIMIT 1", [$u['id'],$clientUuid]);
+    $done = Db::one("SELECT id,check_out,line_id FROM staff_attendance WHERE user_id=? AND checkout_client_uuid=? AND check_out IS NOT NULL LIMIT 1", [$u['id'],$clientUuid]);
     if ($done) return ['ok'=>true,'attendance_id'=>(int)$done['id'],'line_id'=>(int)($done['line_id']??0),'check_out'=>$done['check_out'],'idempotent'=>true];
   }
   $open = Db::one("SELECT id, check_in, line_id, method FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
@@ -2154,7 +2154,7 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
   $outStation = _station_name_at($lat, $lng, user_line_ids($u));
   $now = $eventAt;
   if (strtotime($now) <= strtotime($open['check_in'])) $now = date('Y-m-d H:i:s', strtotime($open['check_in']) + 60);
-  Db::run("UPDATE staff_attendance SET check_out=?, out_lat=?, out_lng=?, out_station=?, client_uuid=COALESCE(NULLIF(client_uuid,''),NULLIF(?,'')), client_check_out=? WHERE id=?", [$now, $lat, $lng, $outStation, $clientUuid, $now, $open['id']]);
+  Db::run("UPDATE staff_attendance SET check_out=?, out_lat=?, out_lng=?, out_station=?, checkout_client_uuid=?, client_check_out=? WHERE id=?", [$now, $lat, $lng, $outStation, $clientUuid, $now, $open['id']]);
   try {
     [$jy,$jm,$jd] = gregorian_to_jalali((int)date('Y',strtotime($open['check_in'])),(int)date('n',strtotime($open['check_in'])),(int)date('j',strtotime($open['check_in'])));
     $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
@@ -2442,6 +2442,8 @@ function _ensure_attendance_phase1_schema(){
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='client_check_out'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN client_check_out DATETIME NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='client_uuid'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN client_uuid VARCHAR(120) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='offline_synced'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN offline_synced TINYINT(1) NOT NULL DEFAULT 0"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='checkout_client_uuid'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN checkout_client_uuid VARCHAR(120) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  try { Db::run("CREATE INDEX idx_staff_att_checkout_uuid ON staff_attendance(checkout_client_uuid)"); } catch (\Throwable $e) {}
   try { Db::run("CREATE INDEX idx_staff_att_client_uuid ON staff_attendance(client_uuid)"); } catch (\Throwable $e) {}
 }
 
