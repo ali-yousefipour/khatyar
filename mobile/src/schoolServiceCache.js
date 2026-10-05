@@ -23,7 +23,7 @@ async function fetchPages(path, pageSize=500){
 
 export async function readSchoolServiceCache(){
   if(memory.data)return memory.data;
-  try{const raw=await AsyncStorage.getItem(KEY);if(raw){const parsed=JSON.parse(raw);if(parsed?.data){memory.data=parsed.data;return parsed.data;}}}catch(_){}
+  try{const raw=await AsyncStorage.getItem(KEY);if(raw){const parsed=JSON.parse(raw);if(parsed?.data&&Number(parsed.data.version||0)>=3){memory.data=parsed.data;return parsed.data;}}}catch(_){}
   return null;
 }
 
