@@ -30,6 +30,14 @@ function roleAllowsVehicle(role) {
   return r.includes('گشت خودرویی') || r.includes('گشت موتوری') || r.includes('سربازرس');
 }
 
+function isUserQueueItem(item) {
+  const p = String(item?.path || '').toLowerCase();
+  const b = item?.body || item?.fields || {};
+  if (/location|locations|background|gps|geolocation|tracking|position/.test(p)) return false;
+  if (/activity\/telemetry/.test(p) && /gps|location|tracking|position/.test(String(b?.kind || '').toLowerCase())) return false;
+  return /school-service|school.*inspection|inspection.*school|checkin|checkout|attendance|presence|checklist|report|notice|warning|tazkor|تذکر/.test(p);
+}
+
 export default function DrawerMenuScreen({ navigation }) {
   const { user, logout } = useAuth();
   const [access, setAccess] = React.useState(null);
@@ -71,6 +79,21 @@ export default function DrawerMenuScreen({ navigation }) {
       try { navigation?.dispatch?.(DrawerActions.closeDrawer()); } catch (_) {}
     }));
   };
+
+  const refreshQueueCount = React.useCallback(async () => {
+    try {
+      const q = await pendingOfflineQueue();
+      setQueueCount(q.filter(isUserQueueItem).length);
+    } catch (_) {
+      setQueueCount(0);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    refreshQueueCount();
+    const timer = setInterval(refreshQueueCount, 4000);
+    return () => clearInterval(timer);
+  }, [refreshQueueCount]);
 
   const onQueue = async () => {
     await refreshQueueCount();
