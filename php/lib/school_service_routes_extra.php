@@ -108,7 +108,7 @@ route('POST','/api/school-service/inspections-with-photo',function($p,$b,$u){
    $existing=Db::one("SELECT id FROM school_service_inspections WHERE client_uuid=?",[$clientUuid]);
    if($existing){
      $photo=Db::one("SELECT file_path,file_size FROM school_service_inspection_photos WHERE inspection_id=? ORDER BY id LIMIT 1",[(int)$existing['id']]);
-     return ['ok'=>true,'id'=>(int)$existing['id'],'duplicate'=>true,'photo'=>$photo?:null];
+     if($photo&& !empty($photo['file_path']))$photo['file_path']='/api/media?path='.rawurlencode(ltrim((string)$photo['file_path'],'/'));return ['ok'=>true,'id'=>(int)$existing['id'],'duplicate'=>true,'photo'=>$photo?:null];
    }
  }
  [$a,$l,$pc,$r]=_ssv_plate($body);$schoolId=(int)($body['school_id']??0);$companyId=(int)($body['company_id']??0);if(!$schoolId)$schoolId=null;if(!$companyId)$companyId=null;
