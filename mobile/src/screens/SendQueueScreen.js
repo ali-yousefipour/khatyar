@@ -8,6 +8,15 @@ function hidden(item){
   const p=String(item?.path||'').toLowerCase();
   return /location|background|gps|geolocation|tracking|position/.test(p) || /\/(location|tracking|geolocation)(\/|\?|$)/.test(p);
 }
+function queueType(item){
+  const p=String(item?.path||'').toLowerCase();
+  if(/school-service|school.*inspection|inspection.*school/.test(p)) return 'school';
+  if(/checkin|checkout|attendance|presence/.test(p)) return /driver|driver.*attendance|attendance.*driver/.test(p)?'driverAttendance':'attendance';
+  if(/checklist/.test(p)) return 'checklist';
+  if(/report/.test(p)) return 'report';
+  if(/notice|warning|tazkor|تذکر/.test(p)) return 'notice';
+  return null;
+}
 function label(item){
   const p=String(item?.path||'').toLowerCase();
   if(/school-service|school.*inspection|inspection.*school/.test(p)) return 'بازدید / تذکر بازرسی سرویس مدارس';
@@ -25,7 +34,7 @@ function detail(item){
 }
 export default function SendQueueScreen(){
  const [items,setItems]=React.useState([]),[busy,setBusy]=React.useState(false),[retrying,setRetrying]=React.useState({});
- const load=React.useCallback(async()=>{try{const q=await pending();setItems(q.filter(x=>!hidden(x)))}catch(e){setItems([])}},[]);
+ const load=React.useCallback(async()=>{try{const q=await pending();setItems(q.filter(x=>!hidden(x)&&queueType(x)))}catch(e){setItems([])}},[]);
  React.useEffect(()=>{load();const t=setInterval(load,4000);return()=>clearInterval(t)},[load]);
  const retryOne=async id=>{setRetrying(x=>({...x,[id]:true}));try{await retryQueuedRequest(id);await load()}catch(e){Alert.alert('ارسال ناموفق',e?.message||'ارسال انجام نشد.')}finally{setRetrying(x=>({...x,[id]:false}))}};
  const retryAll=async()=>{setBusy(true);try{await flushQueuedRequests({force:true});await load()}finally{setBusy(false)}};
