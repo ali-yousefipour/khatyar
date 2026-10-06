@@ -85,24 +85,23 @@ async function received(x){
 }
 function j2g(jy,jm,jd){
   jy=Number(jy);jm=Number(jm);jd=Number(jd);
-  const ep=jy-979, epYear=1600+33*Math.floor(ep/33)+(ep%33>=1?1:0);
-  const jp=ep%33, leap=Math.floor((ep%33+3)/4);
-  let gy=epYear+Math.floor((ep*8+21)/33);
-  const days=365*Math.floor(ep/33)+Math.floor((ep%33+3)/4)+365;
-  let day=days+(jm<=6?(jm-1)*31:(jm-7)*30+186)+jd-1;
-  const base=Date.UTC(1600,2,20);
-  const d=new Date(base+day*86400000);
-  return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+  const epbase=jy-(jy>=0?474:473),epyear=474+(epbase%2820);
+  const jdn=jd+(jm<=7?31*(jm-1):30*(jm-1)+6)+Math.floor((epyear*682-110)/2816)+(epyear-1)*365+Math.floor(epbase/2820)*1029983+1948320;
+  let f=jdn+68569,c=4*f/146097|0;f=f-(146097*c+3)/4|0;
+  let y=4000*(f+1)/1461001|0;f=f-1461*y/4|0+31;let m=80*f/2447|0,d=f-2447*m/80|0;f=m/11|0;m=m+2-12*f;y=100*(c-49)+y+f;
+  return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
 }
 function g2j(date){
-  const d=new Date(date+'T00:00:00Z'), gy=d.getUTCFullYear(),gm=d.getUTCMonth()+1,gd=d.getUTCDate();
-  const gdm=[0,31,28,31,30,31,30,31,31,30,31,30,31];let gy2=gy-(gm>2?0:1);
-  let days=355666+365*gy2+Math.floor((gy2+3)/4)-Math.floor((gy2+99)/100)+Math.floor((gy2+399)/400)+gd;
-  for(let i=1;i<gm;i++)days+=gdm[i];
-  if(gm>2&&((gy%4===0&&gy%100!==0)||gy%400===0))days++;
-  let jy=-1597+33*Math.floor(days/12053);days%=12053;
-  jy+=4*Math.floor(days/1461);days%=1461;if(days>365){jy+=Math.floor((days-1)/365);days=(days-1)%365;}
-  const jm=days<186?1+Math.floor(days/31):7+Math.floor((days-186)/30),jd=1+(days<186?days%31:(days-186)%30);
+  const d=new Date(date+'T00:00:00Z'),gy0=d.getUTCFullYear(),gm0=d.getUTCMonth(),gd0=d.getUTCDate();
+  const gy=gy0-1600,gm=gm0,gd=gd0-1,gdm=[31,28,31,30,31,30,31,31,30,31,30,31];
+  let gdn=365*gy+Math.floor((gy+3)/4)-Math.floor((gy+99)/100)+Math.floor((gy+399)/400);
+  for(let i=0;i<gm;i++)gdn+=gdm[i];
+  if(gm>1&&((gy0%4===0&&gy0%100!==0)||gy0%400===0))gdn++;
+  gdn+=gd;
+  let jdn=gdn-79,jnp=Math.floor(jdn/12053);jdn%=12053;
+  let jy=979+33*jnp+4*Math.floor(jdn/1461);jdn%=1461;
+  if(jdn>=366){jy+=Math.floor((jdn-1)/365);jdn=(jdn-1)%365;}
+  const jm=jdn<186?1+Math.floor(jdn/31):7+Math.floor((jdn-186)/30),jd=1+(jdn<186?jdn%31:(jdn-186)%30);
   return {jy,jm,jd};
 }
 const faDigits=s=>String(s).replace(/\\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
