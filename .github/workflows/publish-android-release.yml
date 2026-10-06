@@ -1,13 +1,13 @@
 name: build-android-release
 
-# CI trigger: verified 1.5.5 / versionCode 10505 release build
+# CI trigger: verified 1.5.6 / versionCode 10506 release build
 on:
   workflow_dispatch:
     inputs:
       version:
         description: "نسخه انتشار؛ باید با package.json و app.config.js یکسان باشد"
         required: true
-        default: "1.5.5"
+        default: "1.5.6"
       target:
         description: "شاخه/commit مبنای انتشار"
         required: true
