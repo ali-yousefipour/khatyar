@@ -60,6 +60,7 @@ export default function DashboardScreen({ navigation }) {
   const [orderModal, setOrderModal] = useState(false);
   const [dragRoute, setDragRoute] = useState(null);
   const [dragDy, setDragDy] = useState(0);
+  const menuOrderRef = useRef([]);
   const dragStartIndex = useRef(-1);
   const dragCurrentIndex = useRef(-1);
   const orderSaveQueue = useRef(Promise.resolve()).current;
@@ -109,7 +110,9 @@ export default function DashboardScreen({ navigation }) {
         const saved = Array.isArray(parsed) ? parsed : [];
         const valid = saved.filter((r) => defaults.includes(r));
         const missing = defaults.filter((r) => !valid.includes(r));
-        setMenuOrder([...valid, ...missing]);
+        const normalized = [...valid, ...missing];
+        menuOrderRef.current = normalized;
+        setMenuOrder(normalized);
       } catch (_) { setMenuOrder(defaults); }
     }).catch(() => { if (alive) setMenuOrder(defaults); });
     return () => { alive = false; };
@@ -119,6 +122,7 @@ export default function DashboardScreen({ navigation }) {
     const clean = Array.from(new Set(next)).filter((r) => MENU.some((m) => m.r === r));
     const missing = MENU.map((m) => m.r).filter((r) => !clean.includes(r));
     const normalized = [...clean, ...missing];
+    menuOrderRef.current = normalized;
     setMenuOrder(normalized);
     if (!save) return Promise.resolve(normalized);
     orderSaveQueue.current = orderSaveQueue.current.then(() => AsyncStorage.setItem(orderKey, JSON.stringify(normalized)).catch(() => {}));
@@ -155,7 +159,7 @@ export default function DashboardScreen({ navigation }) {
   };
   const finishMenuDrag = () => {
     if (!dragRoute) return;
-    const finalOrder = menuOrder.length ? [...menuOrder] : MENU.map((m) => m.r);
+    const finalOrder = menuOrderRef.current.length ? [...menuOrderRef.current] : MENU.map((m) => m.r);
     setDragRoute(null);
     setDragDy(0);
     dragStartIndex.current = -1;
