@@ -56,6 +56,9 @@ export default function DashboardScreen({ navigation }) {
   const [syncing, setSyncing] = useState(false);
   const [syncDetail, setSyncDetail] = useState('');
   const [pop, setPop] = useState(null);
+  const [menuOrder, setMenuOrder] = useState([]);
+  const [orderModal, setOrderModal] = useState(false);
+  const orderKey = `dashboard-menu-order:${user?.id || 'me'}`;
 
   // صدای خوش‌آمد فقط یک‌بار در هر mount داشبورد پخش می‌شود؛ بنابراین با
   // برگشت‌های معمولی داخل همان صفحه دوباره تکرار نخواهد شد.
@@ -90,6 +93,36 @@ export default function DashboardScreen({ navigation }) {
   }, [user?.id]);
 
   const load = () => { swr('/my/dashboard', setStats); swr('/my/stats', setMyStats); swr('/my/app-items', (r) => setAllowed(Array.isArray(r?.items) ? r.items : null)); };
+
+  useEffect(() => {
+    let alive = true;
+    const defaults = MENU.map((m) => m.r);
+    AsyncStorage.getItem(orderKey).then((raw) => {
+      if (!alive) return;
+      try {
+        const saved = Array.isArray(JSON.parse(raw || 'null')) ? JSON.parse(raw) : [];
+        const valid = saved.filter((r) => defaults.includes(r));
+        const missing = defaults.filter((r) => !valid.includes(r));
+        setMenuOrder([...valid, ...missing]);
+      } catch (_) { setMenuOrder(defaults); }
+    }).catch(() => { if (alive) setMenuOrder(defaults); });
+    return () => { alive = false; };
+  }, [orderKey]);
+
+  const persistMenuOrder = async (next) => {
+    setMenuOrder(next);
+    try { await AsyncStorage.setItem(orderKey, JSON.stringify(next)); } catch (_) {}
+  };
+  const resetMenuOrder = () => persistMenuOrder(MENU.map((m) => m.r));
+  const sortMenuOrder = () => persistMenuOrder(MENU.slice().sort((a, b) => String(a.t).localeCompare(String(b.t), 'fa')).map((m) => m.r));
+  const moveMenuItem = (route, direction) => {
+    const list = menuOrder.length ? [...menuOrder] : MENU.map((m) => m.r);
+    const i = list.indexOf(route), j = i + direction;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    persistMenuOrder(list);
+  };
+  const orderedMenu = (menuOrder.length ? menuOrder : MENU.map((m) => m.r)).map((r) => MENU.find((m) => m.r === r)).filter(Boolean);
   useEffect(() => { flushQueuedRequests(); registerPush(); load(); const unsub = navigation.addListener('focus', load); return unsub; }, [navigation]);
 
   const manualSync = async () => {
@@ -103,10 +136,10 @@ export default function DashboardScreen({ navigation }) {
   }, [navigation, stats.unread, syncing]);
 
   const canShow = (m) => { if (m.r === 'Complaints') return true; if (m.r === 'Help') return false; if (m.needs === 'schoolservice') return schoolServiceAllowed; if (m.needs && !access[m.needs]) return false; if (allowed === null) return true; if (m.r === 'StationCapture' || m.r === 'MyStations') return ['StationCapture', 'MyStations', 'LineLocation'].some((k) => allowed.includes(k)); return allowed.includes(m.r); };
-  const visibleMenu = MENU.filter((m) => (m.r !== 'Sms' && m.r !== 'MySms' && m.r !== 'BotMessages') || !!user?.can_send_sms || m.r === 'BotMessages').filter(canShow).filter((m) => menuTab === 'all' || categoryOf(m.r) === menuTab).filter((m) => { const q = String(menuSearch || '').trim().toLocaleLowerCase(); return !q || String(m.t || '').toLocaleLowerCase().includes(q); });
+  const visibleMenu = orderedMenu.filter((m) => (m.r !== 'Sms' && m.r !== 'MySms' && m.r !== 'BotMessages') || !!user?.can_send_sms || m.r === 'BotMessages').filter(canShow).filter((m) => menuTab === 'all' || categoryOf(m.r) === menuTab).filter((m) => { const q = String(menuSearch || '').trim().toLocaleLowerCase(); return !q || String(m.t || '').toLocaleLowerCase().includes(q); });
   const KPIS = [['رانندگان خطوط شما', myStats.drivers], ['خودروهای خطوط شما', myStats.vehicles], ['حضور امروز', stats.today], ['چک‌لیست این ماه', stats.checklists]];
 
-  return <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text style={s.syncText}>{syncDetail}</Text></View> : null}<View style={s.top}><View style={s.topInfo}><Text style={s.hi}>روز بخیر،</Text><View style={s.nameRow}>{rankCount > 0 ? <RankInsignia count={rankCount} /> : null}<Text style={s.nm}>{user?.name || '—'}</Text></View><Text style={s.todayTxt}>{todayFaLong()}</Text>{user?.role ? <View style={s.roleChip}><Text style={s.roleTxt}>{user.role}</Text></View> : null}</View>{myPhoto ? <Image source={imageSource(myPhoto)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}</View><View style={s.kpis}>{KPIS.map(([l, n], i) => <View style={[s.kpi, { width: cardW }]} key={i}><Text style={s.kpiN}>{faNum(Number(n))}</Text><Text style={s.kpiL}>{l}</Text></View>)}</View><FieldStatusBanner /><Text style={s.sectionTitle}>دسترسی سریع</Text><TextInput value={menuSearch} onChangeText={setMenuSearch} placeholder="جستجو در آیتم‌های داشبورد" placeholderTextColor={C.muted} style={s.menuSearch} returnKeyType="search"/><ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.menuTabs}>{MENU_TABS.map(([k, l]) => <TouchableOpacity key={k} style={[s.menuTab, menuTab === k && s.menuTabOn]} onPress={() => setMenuTab(k)}><Text style={[s.menuTabTxt, menuTab === k && s.menuTabTxtOn]}>{l}</Text></TouchableOpacity>)}</ScrollView><View style={s.grid}>{visibleMenu.map((m, i) => <TouchableOpacity key={i} style={s.card} activeOpacity={0.85} onPress={() => navigation.navigate(m.r)}><View style={[s.iconWrap, { backgroundColor: m.bg }]}>{m.glyph ? <Text style={s.glyph}>{m.glyph}</Text> : <Image source={m.icon3d} style={s.icon3d} resizeMode="contain" />}</View><View style={s.cardTxtWrap}><Text style={s.cardTxt} numberOfLines={2}>{m.t}</Text></View></TouchableOpacity>)}</View><Modal visible={!!pop} transparent animationType="fade" onRequestClose={() => setPop(null)}><TouchableOpacity style={s.popBg} activeOpacity={1} onPress={() => setPop(null)}><View style={s.popCard}><TouchableOpacity style={s.popBtn} onPress={() => setPop(null)}><Text style={s.popBtnTxt}>بستن</Text></TouchableOpacity></View></TouchableOpacity></Modal></View></ScrollView>;
+  return <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text style={s.syncText}>{syncDetail}</Text></View> : null}<View style={s.top}><View style={s.topInfo}><Text style={s.hi}>روز بخیر،</Text><View style={s.nameRow}>{rankCount > 0 ? <RankInsignia count={rankCount} /> : null}<Text style={s.nm}>{user?.name || '—'}</Text></View><Text style={s.todayTxt}>{todayFaLong()}</Text>{user?.role ? <View style={s.roleChip}><Text style={s.roleTxt}>{user.role}</Text></View> : null}</View>{myPhoto ? <Image source={imageSource(myPhoto)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}</View><View style={s.kpis}>{KPIS.map(([l, n], i) => <View style={[s.kpi, { width: cardW }]} key={i}><Text style={s.kpiN}>{faNum(Number(n))}</Text><Text style={s.kpiL}>{l}</Text></View>)}</View><FieldStatusBanner /><Text style={s.sectionTitle}>دسترسی سریع</Text><TextInput value={menuSearch} onChangeText={setMenuSearch} placeholder="جستجو در آیتم‌های داشبورد" placeholderTextColor={C.muted} style={s.menuSearch} returnKeyType="search"/><View style={s.orderBar}><Text style={s.orderHint}>ترتیب آیتم‌ها برای حساب کاربری شما ذخیره می‌شود.</Text><TouchableOpacity style={s.orderBtn} onPress={() => setOrderModal(true)}><Text style={s.orderBtnTxt}>☷ تنظیم ترتیب</Text></TouchableOpacity></View><ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.menuTabs}>{MENU_TABS.map(([k, l]) => <TouchableOpacity key={k} style={[s.menuTab, menuTab === k && s.menuTabOn]} onPress={() => setMenuTab(k)}><Text style={[s.menuTabTxt, menuTab === k && s.menuTabTxtOn]}>{l}</Text></TouchableOpacity>)}</ScrollView><View style={s.grid}>{visibleMenu.map((m, i) => <TouchableOpacity key={i} style={s.card} activeOpacity={0.85} onPress={() => navigation.navigate(m.r)}><View style={[s.iconWrap, { backgroundColor: m.bg }]}>{m.glyph ? <Text style={s.glyph}>{m.glyph}</Text> : <Image source={m.icon3d} style={s.icon3d} resizeMode="contain" />}</View><View style={s.cardTxtWrap}><Text style={s.cardTxt} numberOfLines={2}>{m.t}</Text></View></TouchableOpacity>)}</View><Modal visible={orderModal} transparent animationType="slide" onRequestClose={() => setOrderModal(false)}><View style={s.orderBg}><View style={s.orderCard}><View style={s.orderHead}><Text style={s.orderTitle}>مرتب‌سازی داشبورد</Text><TouchableOpacity onPress={() => setOrderModal(false)}><Text style={s.orderClose}>✕</Text></TouchableOpacity></View><View style={s.orderActions}><TouchableOpacity style={s.orderAction} onPress={sortMenuOrder}><Text style={s.orderActionTxt}>مرتب‌سازی الفبایی</Text></TouchableOpacity><TouchableOpacity style={s.orderAction} onPress={resetMenuOrder}><Text style={s.orderActionTxt}>بازگردانی ترتیب پیش‌فرض</Text></TouchableOpacity></View><ScrollView style={s.orderList}>{(menuOrder.length ? menuOrder : MENU.map((m) => m.r)).map((route, i, arr) => { const m = MENU.find((x) => x.r === route); if (!m) return null; return <View key={route} style={s.orderRow}><View style={s.orderIndex}><Text style={s.orderIndexTxt}>{faNum(i + 1)}</Text></View><View style={s.orderName}><Text style={s.orderNameTxt}>{m.t}</Text></View><TouchableOpacity style={s.moveBtn} disabled={i === 0} onPress={() => moveMenuItem(route, -1)}><Text style={[s.moveTxt, i === 0 && s.moveDisabled]}>▲</Text></TouchableOpacity><TouchableOpacity style={s.moveBtn} disabled={i === arr.length - 1} onPress={() => moveMenuItem(route, 1)}><Text style={[s.moveTxt, i === arr.length - 1 && s.moveDisabled]}>▼</Text></TouchableOpacity></View>; })}</ScrollView><TouchableOpacity style={s.orderDone} onPress={() => setOrderModal(false)}><Text style={s.orderDoneTxt}>ذخیره و بستن</Text></TouchableOpacity></View></View></Modal><Modal visible={!!pop} transparent animationType="fade" onRequestClose={() => setPop(null)}><TouchableOpacity style={s.popBg} activeOpacity={1} onPress={() => setPop(null)}><View style={s.popCard}><TouchableOpacity style={s.popBtn} onPress={() => setPop(null)}><Text style={s.popBtnTxt}>بستن</Text></TouchableOpacity></View></TouchableOpacity></Modal></View></ScrollView>;
 }
 
 const s = StyleSheet.create({
