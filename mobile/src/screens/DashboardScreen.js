@@ -63,7 +63,7 @@ export default function DashboardScreen({ navigation }) {
   const menuOrderRef = useRef([]);
   const dragStartIndex = useRef(-1);
   const dragCurrentIndex = useRef(-1);
-  const orderSaveQueue = useRef(Promise.resolve()).current;
+  const orderSaveQueue = useRef(Promise.resolve());
   const orderKey = `dashboard-menu-order:${user?.id || 'me'}`;
 
   // صدای خوش‌آمد فقط یک‌بار در هر mount داشبورد پخش می‌شود؛ بنابراین با
@@ -125,7 +125,9 @@ export default function DashboardScreen({ navigation }) {
     menuOrderRef.current = normalized;
     setMenuOrder(normalized);
     if (!save) return Promise.resolve(normalized);
-    orderSaveQueue.current = orderSaveQueue.current.then(() => AsyncStorage.setItem(orderKey, JSON.stringify(normalized)).catch(() => {}));
+    orderSaveQueue.current = orderSaveQueue.current
+      .catch(() => {})
+      .then(() => AsyncStorage.setItem(orderKey, JSON.stringify(normalized)).catch(() => {}));
     return orderSaveQueue.current.then(() => normalized);
   };
   const resetMenuOrder = () => persistMenuOrder(MENU.map((m) => m.r));
