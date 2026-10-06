@@ -6,7 +6,16 @@ function _complaints_settings(){
 }
 function _complaints_can($u,$kind='submit'){
   $s=_complaints_settings();
-  $uid=(int)($u['id']??0); $rid=(int)($u['role_id']??0);
+  $uid=(int)($u['id']??0);
+  $rid=(int)($u['role_id']??0);
+  // role_id موجود در session ممکن است از نسخه قدیمی auth یا به صورت string/خالی باشد.
+  // برای کنترل دسترسی شکایات، شناسه سمت را از رکورد users نیز به صورت authoritative می‌خوانیم.
+  if($uid>0){
+    try{
+      $ur=Db::one("SELECT role_id FROM users WHERE id=? LIMIT 1",[$uid]);
+      if($ur && $ur['role_id']!==null && $ur['role_id']!=='') $rid=(int)$ur['role_id'];
+    }catch(Throwable $e){}
+  }
   $allowedUsers=array_map('intval',$s['allowed_user_ids']??[]);
   $allowedRoles=array_map('intval',$s['allowed_role_ids']??[]);
   $isSystemAdmin=(int)($u['is_admin']??0)===1 || (int)($u['level']??99)<=3;
