@@ -14392,8 +14392,37 @@ function ComplaintsLauncher() {
         const host = hostRef.current;
         if (!host)
             return;
-        Promise.resolve()
-            .then(() => window.openComplaints && window.openComplaints(host))
+        const loadModule = () => new Promise((resolve, reject) => {
+            if (typeof window.openComplaints === "function")
+                return resolve();
+            const src = "/assets/complaints-panel-v255.js?v=20261006.256";
+            const existing = [...document.scripts].find(s => String(s.src || "").includes("/assets/complaints-panel-v255.js"));
+            if (existing) {
+                const started = Date.now();
+                const wait = () => {
+                    if (typeof window.openComplaints === "function")
+                        return resolve();
+                    if (Date.now() - started > 8000)
+                        return reject(new Error("ماژول شکایات بارگذاری نشد."));
+                    setTimeout(wait, 100);
+                };
+                wait();
+                return;
+            }
+            const s = document.createElement("script");
+            s.src = src;
+            s.async = true;
+            s.onload = () => {
+                if (typeof window.openComplaints === "function")
+                    resolve();
+                else
+                    reject(new Error("ماژول شکایات بارگذاری شد اما رابط آن آماده نشد."));
+            };
+            s.onerror = () => reject(new Error("فایل ماژول شکایات از سرور دریافت نشد."));
+            document.head.appendChild(s);
+        });
+        loadModule()
+            .then(() => window.openComplaints(host))
             .catch(e => { if (alive)
             setError(e && e.message ? e.message : "خطا در بارگذاری شکایات تاکسیرانان"); });
         return () => { alive = false; try {
@@ -14531,7 +14560,7 @@ function App() {
     const [allowed, setAllowed] = useState(null);
     const [drawer, setDrawer] = useState(false);
     const [brand, setBrand] = useState({});
-    const [openSections, setOpenSections] = useState({ "داشبورد و پایش": true, "عملیات میدانی": true, "تاکسی و تاکسیران": false, "گزارش‌ها": false, "منابع انسانی": false, "ارتباطات": false, "مدیریت سامانه": false });
+    const [openSections, setOpenSections] = useState({ "داشبورد و پایش": true, "عملیات میدانی": true, "تاکسی و تاکسیران": true, "گزارش‌ها": false, "منابع انسانی": false, "ارتباطات": false, "مدیریت سامانه": false });
     useEffect(() => { db.publicSettings().then(s => { const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => { }); }, []);
     useEffect(() => { if (me && me.is_admin) {
         db.settings().then(s => { const all = s.role_perms || {}; const has = Object.prototype.hasOwnProperty.call(all, String(me.role_id)) || Object.prototype.hasOwnProperty.call(all, me.role_id); const rp = all[me.role_id]; setAllowed(has && Array.isArray(rp) ? rp : null); const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => setAllowed(null));
