@@ -17,7 +17,78 @@ export async function requestLoginOtp(mobile){return _sessionFormPost('/session/
 export async function verifyLoginOtp(body){return _sessionFormPost('/session/otp-verify',body)}
 export function imageSource(val){if(!val)return null;if(typeof val!=='string')return val;if(val.indexOf('data:')===0)return{uri:val};if(val.indexOf('/api/')===0){const base=apiBase().replace(/\/api$/,'');return{uri:base+val,headers:accessToken?{Authorization:'Bearer '+accessToken}:{}}}if(val.indexOf('http')===0)return{uri:val};return{uri:val}}
 async function queueMultipart(path,fields,fileField,fileUri,fileName,mimeType){let persistedUri=fileUri;const id=`q_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,10)}`;if(fileUri&&!/^https?:\/\//i.test(String(fileUri))){const dir=FileSystem.documentDirectory||'';if(dir){const safe=String(fileName||'upload.bin').replace(/[^a-zA-Z0-9._-]/g,'_');const target=`${dir}offline-${id}-${safe}`;try{await FileSystem.copyAsync({from:fileUri,to:target});persistedUri=target}catch(_){throw new Error('ذخیره فایل برای ارسال آفلاین ممکن نشد.')}}}await enqueue({path,kind:'multipart',fields:fields||{},fileField:fileField||'file',fileUri:persistedUri,fileName:fileName||'photo.jpg',mimeType:mimeType||'image/jpeg',client_uuid:id,client_time:Date.now(),type:path});return{queued:true,ok:true,id,client_uuid:id,client_time:Date.now()}}
-export async function uploadFile(path,fields={},fileField='file',fileUri=null,fileName='photo.jpg',mimeType='image/jpeg',opts={}){const base=apiBase(),token=accessToken,clientUuid=opts.clientUuid||`q_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,10)}`,sendFields={...(fields||{}),client_uuid:clientUuid};let net;try{net=await Network.getNetworkStateAsync()}catch(_){net={isInternetReachable:true}}if(opts.queueIfOffline!==false&&net.isConnected===false)return queueMultipart(path,sendFields,fileField,fileUri,fileName,mimeType);const fd=new FormData();for(const[k,v]of Object.entries(sendFields)){if(v!=null&&v!==undefined)fd.append(k,String(v))}if(fileUri)fd.append(fileField,{uri:fileUri,name:fileName,type:mimeType});try{let r=await fetchTimeout(base+path,{method:'POST',headers:{...(accessToken?{Authorization:'Bearer '+accessToken}:{}),...(opts.clientUuid?{'X-Client-UUID':opts.clientUuid}:{})},body:fd},opts.timeoutMs||45000);if(r.status===401&&await refreshAccess()){r=await fetchTimeout(base+path,{method:'POST',headers:{...(accessToken?{Authorization:'Bearer '+accessToken}:{}),...(opts.clientUuid?{'X-Client-UUID':opts.clientUuid}:{})},body:fd},opts.timeoutMs||45000)}const text=await r.text();let json={};try{json=text?JSON.parse(text):{}}catch(_){if(!r.ok)throw new Error('خطای داخلی سرور؛ پاسخ قابل خواندن نیست.');throw new Error('پاسخ نامعتبر از سرور دریافت شد.')}if(!r.ok)throw new Error(json.error||json.message||`خطای سرور (HTTP ${r.status})`);return json}catch(e){if(opts.queueIfOffline!==false&&/اتصال|ارتباط|زمان انتظار|network|fetch/i.test(String(e?.message||''))){try{return await queueMultipart(path,sendFields,fileField,fileUri,fileName,mimeType)}catch(_){}}throw e}}
+async function uploadMultipartXHR(url,fields,fileField,fileUri,fileName,mimeType,timeoutMs=60000){
+  return new Promise((resolve,reject)=>{
+    try{
+      const xhr=new XMLHttpRequest();
+      xhr.open('POST',url,true);
+      xhr.timeout=timeoutMs;
+      if(accessToken)xhr.setRequestHeader('Authorization','Bearer '+accessToken);
+      const fd=new FormData();
+      for(const[k,v]of Object.entries(fields||{})){if(v!=null)fd.append(k,String(v))}
+      if(fileUri)fd.append(fileField,{uri:fileUri,name:fileName,type:mimeType});
+      xhr.onload=()=>{
+        const text=xhr.responseText||'';
+        let json={};
+        try{json=text?JSON.parse(text):{}}catch(_){
+          reject(new Error(xhr.status>=200&&xhr.status<300?'پاسخ نامعتبر از سرور دریافت شد.':'خطای داخلی سرور؛ پاسخ قابل خواندن نیست.'));
+          return;
+        }
+        if(xhr.status<200||xhr.status>=300){
+          if(xhr.status===401){reject(Object.assign(new Error(json.error||json.message||'احراز هویت منقضی شده است.'),{status:401}));return}
+          reject(new Error(json.error||json.message||`خطای سرور (HTTP ${xhr.status})`));return;
+        }
+        resolve(json);
+      };
+      xhr.onerror=()=>reject(new Error('ارسال فایل به سرور ناموفق بود.'));
+      xhr.ontimeout=()=>reject(new Error('زمان ارسال فایل به سرور به پایان رسید.'));
+      xhr.send(fd);
+    }catch(e){reject(e)}
+  });
+}
+
+export async function uploadFile(path,fields={},fileField='file',fileUri=null,fileName='photo.jpg',mimeType='image/jpeg',opts={}){
+  const base=apiBase(),clientUuid=opts.clientUuid||`q_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,10)}`;
+  const sendFields={...(fields||{}),client_uuid:clientUuid};
+  let net;
+  try{net=await Network.getNetworkStateAsync()}catch(_){net={isConnected:true,isInternetReachable:true}}
+  const definitelyOffline=net.isConnected===false;
+  if(opts.queueIfOffline!==false&&definitelyOffline)return queueMultipart(path,sendFields,fileField,fileUri,fileName,mimeType);
+  const timeout=opts.timeoutMs||60000;
+  const doFetch=async()=>{
+    const fd=new FormData();
+    for(const[k,v]of Object.entries(sendFields)){if(v!=null)fd.append(k,String(v))}
+    if(fileUri)fd.append(fileField,{uri:fileUri,name:fileName,type:mimeType});
+    let r=await fetchTimeout(base+path,{method:'POST',headers:{...(accessToken?{Authorization:'Bearer '+accessToken}:{}),...(opts.clientUuid?{'X-Client-UUID':opts.clientUuid}:{})},body:fd},timeout);
+    if(r.status===401&&await refreshAccess()){
+      const fd2=new FormData();
+      for(const[k,v]of Object.entries(sendFields)){if(v!=null)fd2.append(k,String(v))}
+      if(fileUri)fd2.append(fileField,{uri:fileUri,name:fileName,type:mimeType});
+      r=await fetchTimeout(base+path,{method:'POST',headers:{...(accessToken?{Authorization:'Bearer '+accessToken}:{}),...(opts.clientUuid?{'X-Client-UUID':opts.clientUuid}:{})},body:fd2},timeout);
+    }
+    const text=await r.text();let json={};
+    try{json=text?JSON.parse(text):{}}catch(_){if(!r.ok)throw new Error('خطای داخلی سرور؛ پاسخ قابل خواندن نیست.');throw new Error('پاسخ نامعتبر از سرور دریافت شد.')}
+    if(!r.ok)throw new Error(json.error||json.message||`خطای سرور (HTTP ${r.status})`);
+    return json;
+  };
+  try{
+    return await doFetch();
+  }catch(firstError){
+    // اگر اتصال واقعاً برقرار است، خطای شبکه نباید باعث انتقال کاذب بازدید به صف آفلاین شود.
+    // برای Android یک مسیر multipart مبتنی بر XHR نیز امتحان می‌کنیم.
+    try{
+      return await uploadMultipartXHR(base+path,sendFields,fileField,fileUri,fileName,mimeType,timeout);
+    }catch(secondError){
+      let state=net;
+      try{state=await Network.getNetworkStateAsync()}catch(_){}
+      if(opts.queueIfOffline!==false&&state?.isConnected===false){
+        return queueMultipart(path,sendFields,fileField,fileUri,fileName,mimeType);
+      }
+      throw secondError?.message?secondError:firstError;
+    }
+  }
+}
+
 function isQueueableWrite(path,method){if(!['POST','PUT','PATCH','DELETE'].includes(String(method).toUpperCase()))return false;const p=String(path||'');if(/^\/session\//.test(p)||/^\/auth\//.test(p)||p.includes('radio-api-v2.php'))return false;return true}
 function eventBody(body){const now=Date.now();if(body&&typeof body==='object'&&!Array.isArray(body))return{...body,client_uuid:body.client_uuid||`q_${now.toString(36)}_${Math.random().toString(36).slice(2,10)}`,client_time:body.client_time||now,client_timestamp_ms:body.client_timestamp_ms||now};return body}
 async function queueWrite(path,body,method){const b=eventBody(body);await enqueue({path,body:b,method,type:path,client_uuid:b?.client_uuid,client_time:b?.client_time});return{queued:true,ok:true,id:b?.client_uuid||`queued_${Date.now()}`,client_uuid:b?.client_uuid,client_time:b?.client_time}}
