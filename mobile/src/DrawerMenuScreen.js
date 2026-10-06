@@ -3,7 +3,8 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { DrawerActions } from '@react-navigation/native';
 import { C, FONT } from './theme';
 import { useAuth } from './auth';
-import { request } from './api';
+import { request, flushQueuedRequests } from './api';
+import { pending as pendingOfflineQueue } from './offline';
 import { subscribeUnreadCounts, refreshUnreadCounts, unreadLabel } from './unread';
 
 const ITEMS = [
@@ -34,6 +35,7 @@ export default function DrawerMenuScreen({ navigation }) {
   const [access, setAccess] = React.useState(null);
   const [schoolServiceAllowed, setSchoolServiceAllowed] = React.useState(false);
   const [unread, setUnread] = React.useState({ messages: 0, reports: 0 });
+  const [queueCount, setQueueCount] = React.useState(0);
 
   React.useEffect(() => {
     const off = subscribeUnreadCounts(setUnread);
@@ -70,6 +72,12 @@ export default function DrawerMenuScreen({ navigation }) {
     }));
   };
 
+  const onQueue = async () => {
+    await refreshQueueCount();
+    try { navigation?.navigate?.('Main', { screen: 'SendQueue' }); } catch (_) {}
+    requestAnimationFrame(() => requestAnimationFrame(() => { try { navigation?.dispatch?.(DrawerActions.closeDrawer()); } catch (_) {} }));
+  };
+
   const onLogout = () => {
     Alert.alert('خروج از حساب', 'آیا مطمئن هستید می‌خواهید از حساب کاربری خارج شوید؟', [
       { text: 'انصراف', style: 'cancel' },
@@ -83,6 +91,7 @@ export default function DrawerMenuScreen({ navigation }) {
   const items = [
     ...ITEMS,
     ...(schoolServiceAllowed ? [['SchoolService', 'سرویس مدارس', '🏫']] : []),
+    ['SendQueue', 'صف ارسال' + (queueCount ? ` (${queueCount})` : ''), '📤'],
     ['InboxReports', 'گزارشات دریافتی', '📥'],
     ...(vehicleAllowed ? [[
       'PersonnelVehicleAsset',
@@ -100,7 +109,7 @@ export default function DrawerMenuScreen({ navigation }) {
       </View>
       <ScrollView persistentScrollbar={true} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {items.map(([route, title, glyph]) => (
-          <TouchableOpacity key={route} style={s.item} onPress={() => { go(route); if (route === 'Messages' || route === 'InboxReports' || route === 'Notifications') refreshUnreadCounts(); }} activeOpacity={0.82}>
+          <TouchableOpacity key={route} style={s.item} onPress={() => { if (route === 'SendQueue') return onQueue(); go(route); if (route === 'Messages' || route === 'InboxReports' || route === 'Notifications') refreshUnreadCounts(); }} activeOpacity={0.82}>
             <View style={s.icon}><Text style={s.iconText}>{glyph}</Text>{(route === 'Messages' && unread.messages > 0) || (route === 'InboxReports' && unread.reports > 0) ? <View style={s.menuBadge}><Text style={s.menuBadgeText}>{unreadLabel(route === 'InboxReports' ? unread.reports : unread.messages)}</Text></View> : null}</View>
             <View style={s.itemTextWrap}><Text style={s.itemText}>{title}</Text></View>
           </TouchableOpacity>
