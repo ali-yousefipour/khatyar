@@ -52,7 +52,7 @@ export async function uploadFile(path,fields={},fileField='file',fileUri=null,fi
   const sendFields={...(fields||{}),client_uuid:clientUuid};
   let net;
   try{net=await Network.getNetworkStateAsync()}catch(_){net={isConnected:true,isInternetReachable:true}}
-  const definitelyOffline=net.isConnected===false;
+  const definitelyOffline=net.isConnected===false&&net.isInternetReachable!==true;
   if(opts.queueIfOffline!==false&&definitelyOffline)return queueMultipart(path,sendFields,fileField,fileUri,fileName,mimeType);
   const timeout=opts.timeoutMs||60000;
   const doFetch=async()=>{
@@ -81,7 +81,7 @@ export async function uploadFile(path,fields={},fileField='file',fileUri=null,fi
     }catch(secondError){
       let state=net;
       try{state=await Network.getNetworkStateAsync()}catch(_){}
-      if(opts.queueIfOffline!==false&&state?.isConnected===false){
+      if(opts.queueIfOffline!==false&&state?.isConnected===false&&state?.isInternetReachable!==true){
         return queueMultipart(path,sendFields,fileField,fileUri,fileName,mimeType);
       }
       throw secondError?.message?secondError:firstError;
