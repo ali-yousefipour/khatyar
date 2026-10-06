@@ -3,7 +3,7 @@ import * as Network from 'expo-network';
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiBase } from './config';
-import { enqueue, flush as flushOfflineQueue, hasPendingPath } from './offline';
+import { enqueue, flush as flushOfflineQueue, hasPendingPath, retryOne as retryOfflineItem } from './offline';
 import { setLastApi } from './crashReporter';
 let accessToken=null;const memCache={};const CACHE_MAX_AGE_MS=10*60*1000;
 export async function setTokens(access,refresh){accessToken=access;await SecureStore.setItemAsync('access',access);if(refresh)await SecureStore.setItemAsync('refresh',refresh)}
@@ -27,3 +27,5 @@ export async function swr(path,onData){try{const c=await cachedValue(path);if(c!
 export async function postOrQueue(path,body,type=null,opts={}){const eventMs=Date.now(),sendBody=body&&typeof body==='object'&&!Array.isArray(body)?{...body,client_uuid:body.client_uuid||`q_${eventMs.toString(36)}_${Math.random().toString(36).slice(2,10)}`,client_time:body.client_time||eventMs,client_timestamp_ms:body.client_timestamp_ms||eventMs}:body;let net;try{net=await Network.getNetworkStateAsync()}catch(_){net={isInternetReachable:true}}if(net.isConnected===false){await enqueue({path,body:sendBody,type:type||path,client_uuid:sendBody?.client_uuid,client_time:eventMs});return{queued:true,ok:true,id:sendBody?.client_uuid,client_time:eventMs,client_uuid:sendBody?.client_uuid}}return request(path,{method:'POST',body:sendBody,timeoutMs:opts.timeoutMs,queueIfOffline:true,forceNetwork:path==='/my/checkin'||path==='/my/checkout'})}
 export async function hasPendingAttendanceCheckout(){return hasPendingPath('/my/checkout')}
 export async function flushQueuedRequests(options={}){return flushOfflineQueue(async(item)=>{if(!item?.path)throw new Error('صف نامعتبر است');if(item.kind==='multipart')return uploadFile(item.path,item.fields||{},item.fileField||'file',item.fileUri||null,item.fileName||'upload.bin',item.mimeType||'application/octet-stream',{queueIfOffline:false,clientUuid:item.client_uuid});return request(item.path,{method:item.method||'POST',body:item.body||{},queueIfOffline:false,noStore:true})},{force:!!options.force})}
+
+export async function retryQueuedRequest(clientUuid){return retryOfflineItem(clientUuid,async(item)=>{if(!item?.path)throw new Error('صف نامعتبر است');if(item.kind==='multipart')return uploadFile(item.path,item.fields||{},item.fileField||'file',item.fileUri||null,item.fileName||'upload.bin',item.mimeType||'application/octet-stream',{queueIfOffline:false,clientUuid:item.client_uuid});return request(item.path,{method:item.method||'POST',body:item.body||{},queueIfOffline:false,noStore:true,forceNetwork:true})})}
