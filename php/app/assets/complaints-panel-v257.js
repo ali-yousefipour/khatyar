@@ -27,7 +27,8 @@ const css=`
 .khcSplit{display:grid;grid-template-columns:1.25fr .75fr;gap:14px}.khcBars{display:grid;gap:10px}.khcBarRow{display:grid;grid-template-columns:110px 1fr 45px;gap:8px;align-items:center;font-size:12px}.khcBar{height:9px;background:#e8edf2;border-radius:20px;overflow:hidden}.khcBar>i{display:block;height:100%;background:#0d7a5f;border-radius:20px}
 .khcTableWrap{overflow:auto;border:1px solid #e2e8f0;border-radius:12px}.khcTable{width:100%;border-collapse:collapse;min-width:850px}.khcTable th,.khcTable td{border-bottom:1px solid #edf0f4;padding:10px;text-align:right;font-size:12px;white-space:nowrap}.khcTable th{background:#f7f9fb;font-weight:800}.khcEmpty{text-align:center;padding:28px;color:#667085}
 .khcLoading{padding:28px;text-align:center;color:#667085}.khcSpin{display:inline-block;width:18px;height:18px;border:2px solid #dce5e0;border-top-color:#0d7a5f;border-radius:50%;animation:khspin .7s linear infinite;vertical-align:middle;margin-left:8px}@keyframes khspin{to{transform:rotate(360deg)}}
-.khcCheckGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px}.khcRole{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid #e4e7ec;border-radius:12px;background:#fff;cursor:pointer}.khcRole.on{border-color:#0d7a5f;background:#effaf6}.khcRole input{width:18px;height:18px}
+.khcCheckGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px}
+.khcDateBox{display:flex;align-items:center;gap:6px;position:relative}.khcDateBox .khcInput{margin:5px 0}.khcDateBtn{border:1px solid #d9e1ea;background:#fff;border-radius:10px;padding:9px 11px;cursor:pointer;font-size:16px}.khcJp{position:absolute;top:58px;right:0;width:270px;background:#fff;border:1px solid #d9e1ea;border-radius:14px;box-shadow:0 12px 35px #17203322;padding:10px;z-index:20}.khcJpHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.khcJpHead button{border:0;background:#edf8f4;border-radius:8px;width:32px;height:30px;cursor:pointer}.khcJpWeek,.khcJpDays{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}.khcJpWeek{font-size:11px;color:#667085;margin-bottom:4px}.khcJpDays button{border:0;background:#f7f9fb;border-radius:7px;padding:7px 2px;cursor:pointer}.khcJpDays button:hover{background:#0d7a5f;color:#fff}.khcRole{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid #e4e7ec;border-radius:12px;background:#fff;cursor:pointer}.khcRole.on{border-color:#0d7a5f;background:#effaf6}.khcRole input{width:18px;height:18px}
 @media(max-width:900px){.khcGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.khcSplit,.khcRow{grid-template-columns:1fr}}@media(max-width:560px){.khcGrid{grid-template-columns:1fr}.khcBody{padding:12px}}
 `;
 function mountStyle(){if(document.getElementById('khc257-style'))return;const st=document.createElement('style');st.id='khc257-style';st.textContent=css;document.head.appendChild(st)}
@@ -82,11 +83,62 @@ async function openForm(driver){
 async function received(x){
  loading(x);const rows=await req('/complaints/my',{},15000);x.innerHTML='<div class="khcPanel"><div style="display:flex;justify-content:space-between;align-items:center"><h3>شکایات دریافتی</h3><span class="khcMuted">'+rows.length.toLocaleString('fa-IR')+' مورد</span></div><div class="khcList">'+(rows.map(v=>'<div class="khcItem" data-id="'+v.id+'"><b>'+esc(v.tracking_code)+' — '+esc(v.driver_name)+'</b><div style="margin-top:5px">'+esc(v.subject||'—')+' <span class="khcBadge">'+esc(v.status||'—')+'</span></div></div>').join('')||'<div class="khcEmpty">موردی برای نمایش وجود ندارد.</div>')+'</div></div>';x.querySelectorAll('.khcItem').forEach(el=>el.onclick=()=>detail(el.dataset.id));
 }
+function j2g(jy,jm,jd){
+  jy=Number(jy);jm=Number(jm);jd=Number(jd);
+  const ep=jy-979, epYear=1600+33*Math.floor(ep/33)+(ep%33>=1?1:0);
+  const jp=ep%33, leap=Math.floor((ep%33+3)/4);
+  let gy=epYear+Math.floor((ep*8+21)/33);
+  const days=365*Math.floor(ep/33)+Math.floor((ep%33+3)/4)+365;
+  let day=days+(jm<=6?(jm-1)*31:(jm-7)*30+186)+jd-1;
+  const base=Date.UTC(1600,2,20);
+  const d=new Date(base+day*86400000);
+  return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+}
+function g2j(date){
+  const d=new Date(date+'T00:00:00Z'), gy=d.getUTCFullYear(),gm=d.getUTCMonth()+1,gd=d.getUTCDate();
+  const gdm=[0,31,28,31,30,31,30,31,31,30,31,30,31];let gy2=gy-(gm>2?0:1);
+  let days=355666+365*gy2+Math.floor((gy2+3)/4)-Math.floor((gy2+99)/100)+Math.floor((gy2+399)/400)+gd;
+  for(let i=1;i<gm;i++)days+=gdm[i];
+  if(gm>2&&((gy%4===0&&gy%100!==0)||gy%400===0))days++;
+  let jy=-1597+33*Math.floor(days/12053);days%=12053;
+  jy+=4*Math.floor(days/1461);days%=1461;if(days>365){jy+=Math.floor((days-1)/365);days=(days-1)%365;}
+  const jm=days<186?1+Math.floor(days/31):7+Math.floor((days-186)/30),jd=1+(days<186?days%31:(days-186)%30);
+  return {jy,jm,jd};
+}
+const faDigits=s=>String(s).replace(/\\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
+const toEn=s=>String(s||'').replace(/[۰-۹]/g,d=>'0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(d)]);
+function jalaliValid(s){const m=toEn(s).match(/^(\\d{4})[\\/-](\\d{1,2})[\\/-](\\d{1,2})$/);if(!m)return false;const jy=+m[1],jm=+m[2],jd=+m[3];return jy>=1300&&jm>=1&&jm<=12&&jd>=1&&jd<=(jm<=6?31:jm<=11?30:30);}
+function reportDatePicker(input){
+  let p=input.parentElement.querySelector('.khcJp');if(p){p.remove();return;}
+  p=document.createElement('div');p.className='khcJp';
+  let v=toEn(input.value),m=v.match(/^(\\d{4})[\\/-](\\d{1,2})[\\/-](\\d{1,2})$/),now=g2j(new Date().toISOString().slice(0,10));
+  let cy=m?+m[1]:now.jy,cm=m?+m[2]:now.jm;
+  const render=()=>{
+    const ml=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+    const first=g2j(j2g(cy,cm,1)); const dow=new Date(j2g(cy,cm,1)+'T00:00:00Z').getUTCDay();
+    const offset=(dow+1)%7, max=cm<=6?31:cm<=11?30:30;
+    let h='<div class="khcJpHead"><button data-jp="prev">‹</button><b>'+ml[cm-1]+' '+faDigits(cy)+'</b><button data-jp="next">›</button></div><div class="khcJpWeek">'+['ش','ی','د','س','چ','پ','ج'].map(d=>'<span>'+d+'</span>').join('')+'</div><div class="khcJpDays">';
+    for(let i=0;i<offset;i++)h+='<span></span>';
+    for(let d=1;d<=max;d++)h+='<button type="button" data-day="'+d+'">'+faDigits(d)+'</button>';
+    p.innerHTML=h+'</div>';
+    p.querySelector('[data-jp="prev"]').onclick=()=>{cm--;if(cm<1){cm=12;cy--;}render()};
+    p.querySelector('[data-jp="next"]').onclick=()=>{cm++;if(cm>12){cm=1;cy++;}render()};
+    p.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{input.value=cy+'/'+String(cm).padStart(2,'0')+'/'+String(b.dataset.day).padStart(2,'0');p.remove();});
+  };render();input.parentElement.style.position='relative';input.parentElement.appendChild(p);
+}
 async function report(x){
- x.innerHTML='<div class="khcPanel"><h3>گزارش‌گیری حرفه‌ای شکایات</h3><div class="khcRow"><div><label>از تاریخ</label><input id="kf" class="khcInput" placeholder="YYYY-MM-DD"></div><div><label>تا تاریخ</label><input id="kt" class="khcInput" placeholder="YYYY-MM-DD"></div></div><div class="khcRow"><input id="kd" class="khcInput" placeholder="فیلتر تاکسیران: کد ملی، پلاک، خط یا کد خودرو"><select id="kl" class="khcSelect"><option value="">همه خطوط</option></select></div><div class="khcActions"><button id="krun" class="khcBtn khcPrimary">تولید گزارش</button><button id="kxls" class="khcBtn">خروجی Excel</button></div><div id="ksum" style="display:none" class="khcGrid"></div><div id="krep" style="margin-top:14px"></div></div>';
- const ls=await req('/admin/lines',{},180000);document.getElementById('kl').innerHTML='<option value="">همه خطوط</option>'+ls.map(v=>'<option value="'+v.id+'">خط '+esc(v.code)+'</option>').join('');
- document.getElementById('krun').onclick=async()=>{const out=document.getElementById('krep');loading(out);let did='';const dq=document.getElementById('kd').value.trim();if(dq){const ds=await req('/complaints/drivers?q='+encodeURIComponent(dq),{},10000);if(!ds[0]){out.innerHTML='<div class="khcWarn">تاکسیران موردنظر پیدا نشد.</div>';return}did=ds[0].id}const qs=new URLSearchParams({from:document.getElementById('kf').value,to:document.getElementById('kt').value,line_id:document.getElementById('kl').value,driver_id:did});try{const rows=await req('/admin/complaints/report?'+qs.toString(),{},5000);window.__khcReport=rows;const closed=rows.filter(v=>String(v.status||'').includes('closed')||String(v.status||'').includes('مختوم')).length,progress=rows.length-closed;document.getElementById('ksum').style.display='grid';document.getElementById('ksum').innerHTML=[['تعداد نتایج',rows.length],['مختومه',closed],['در جریان',progress],['نرخ مختومه',rows.length?Math.round(closed/rows.length*100)+'%':'۰٪']].map(v=>'<div class="khcCard"><div class="khcMuted">'+v[0]+'</div><div class="khcNum">'+v[1]+'</div></div>').join('');out.innerHTML='<div class="khcTableWrap"><table class="khcTable"><thead><tr><th>پیگیری</th><th>تاکسیران</th><th>خط</th><th>نحوه دریافت</th><th>موضوع</th><th>وضعیت</th><th>تاریخ</th></tr></thead><tbody>'+(rows.slice(0,500).map(v=>'<tr><td>'+esc(v.tracking_code)+'</td><td>'+esc(v.driver_name)+'</td><td>'+esc(v.line_code||'—')+'</td><td>'+esc(({software:'کاربران نرم‌افزار',phone:'تلفنی',in_person:'حضوری'})[v.receipt_channel]||v.receipt_channel||'—')+'</td><td>'+esc(v.subject||'—')+'</td><td><span class="khcBadge">'+esc(v.status||'—')+'</span></td><td>'+esc(v.created_at||v.date||'—')+'</td></tr>').join('')||'<tr><td colspan="7" class="khcEmpty">نتیجه‌ای یافت نشد.</td></tr>')+'</tbody></table></div>'+(rows.length>500?'<div class="khcMuted" style="margin-top:8px">۵۰۰ مورد اول نمایش داده شد؛ خروجی Excel شامل همه نتایج است.</div>':'')}catch(e){out.innerHTML='<div class="khcWarn">'+esc(e.message)+'</div>'}};
- document.getElementById('kxls').onclick=()=>{const rows=window.__khcReport||[];if(!rows.length)return alert('ابتدا گزارش را تولید کنید');if(typeof XLSX==='undefined')return alert('کتابخانه Excel بارگذاری نشده است');const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'شکایات');XLSX.writeFile(wb,'گزارش-شکایات.xlsx')};
+  x.innerHTML='<div class="khcPanel"><h3>گزارش‌گیری حرفه‌ای شکایات</h3><div class="khcMuted">بازه گزارش با تقویم شمسی انتخاب می‌شود و هنگام ارسال به سرور به تاریخ میلادی تبدیل خواهد شد.</div><div class="khcRow"><div><label>از تاریخ (شمسی)</label><div class="khcDateBox"><input id="kf" class="khcInput" inputmode="numeric" placeholder="۱۴۰۵/۰۷/۰۱"><button type="button" class="khcDateBtn" data-for="kf">📅</button></div></div><div><label>تا تاریخ (شمسی)</label><div class="khcDateBox"><input id="kt" class="khcInput" inputmode="numeric" placeholder="۱۴۰۵/۰۷/۳۰"><button type="button" class="khcDateBtn" data-for="kt">📅</button></div></div></div><div class="khcRow"><input id="kd" class="khcInput" placeholder="فیلتر تاکسیران: کد ملی، پلاک، خط یا کد خودرو"><select id="kl" class="khcSelect"><option value="">همه خطوط</option></select></div><div class="khcActions"><button id="krun" class="khcBtn khcPrimary">تولید گزارش</button><button id="kxls" class="khcBtn">خروجی Excel</button></div><div id="ksum" style="display:none" class="khcGrid"></div><div id="krep" style="margin-top:14px"></div></div>';
+  const ls=await req('/admin/lines',{},180000);document.getElementById('kl').innerHTML='<option value="">همه خطوط</option>'+ls.map(v=>'<option value="'+v.id+'">خط '+esc(v.code)+'</option>').join('');
+  x.querySelectorAll('.khcDateBtn').forEach(b=>b.onclick=()=>reportDatePicker(document.getElementById(b.dataset.for)));
+  ['kf','kt'].forEach(id=>document.getElementById(id).onblur=e=>{if(e.target.value&&!jalaliValid(e.target.value)){e.target.setCustomValidity('تاریخ شمسی نامعتبر است؛ مانند ۱۴۰۵/۰۷/۰۱ وارد کنید.');e.target.reportValidity()}else e.target.setCustomValidity('')});
+  document.getElementById('krun').onclick=async()=>{
+    const out=document.getElementById('krep'), from=document.getElementById('kf').value.trim(), to=document.getElementById('kt').value.trim();
+    if(from&&!jalaliValid(from)||to&&!jalaliValid(to))return alert('تاریخ شمسی را به شکل ۱۴۰۵/۰۷/۰۱ وارد کنید.');
+    const fromG=from?j2g(...toEn(from).split(/[\\/-]/).map(Number)):'';const toG=to?j2g(...toEn(to).split(/[\\/-]/).map(Number)):'';
+    loading(out);let did='';const dq=document.getElementById('kd').value.trim();if(dq){const ds=await req('/complaints/drivers?q='+encodeURIComponent(dq),{},10000);if(!ds[0]){out.innerHTML='<div class="khcWarn">تاکسیران موردنظر پیدا نشد.</div>';return}did=ds[0].id}
+    const qs=new URLSearchParams({from:fromG,to:toG,line_id:document.getElementById('kl').value,driver_id:did});
+    try{const rows=await req('/admin/complaints/report?'+qs.toString(),{},5000);window.__khcReport=rows;const closed=rows.filter(v=>String(v.status||'').includes('closed')||String(v.status||'').includes('مختوم')).length,progress=rows.length-closed;document.getElementById('ksum').style.display='grid';document.getElementById('ksum').innerHTML=[['تعداد نتایج',rows.length],['مختومه',closed],['در جریان',progress],['نرخ مختومه',rows.length?Math.round(closed/rows.length*100)+'%':'۰٪']].map(v=>'<div class="khcCard"><div class="khcMuted">'+v[0]+'</div><div class="khcNum">'+v[1]+'</div></div>').join('');out.innerHTML='<div class="khcTableWrap"><table class="khcTable"><thead><tr><th>پیگیری</th><th>تاکسیران</th><th>خط</th><th>نحوه دریافت</th><th>موضوع</th><th>وضعیت</th><th>تاریخ</th></tr></thead><tbody>'+(rows.slice(0,500).map(v=>'<tr><td>'+esc(v.tracking_code)+'</td><td>'+esc(v.driver_name)+'</td><td>'+esc(v.line_code||'—')+'</td><td>'+esc(({software:'کاربران نرم‌افزار',phone:'تلفنی',in_person:'حضوری'})[v.receipt_channel]||v.receipt_channel||'—')+'</td><td>'+esc(v.subject||'—')+'</td><td><span class="khcBadge">'+esc(v.status||'—')+'</span></td><td>'+esc(v.created_at||v.date||'—')+'</td></tr>').join('')||'<tr><td colspan="7" class="khcEmpty">نتیجه‌ای یافت نشد.</td></tr>')+'</tbody></table></div>'+(rows.length>500?'<div class="khcMuted" style="margin-top:8px">۵۰۰ مورد اول نمایش داده شد؛ خروجی Excel شامل همه نتایج است.</div>':'')}catch(e){out.innerHTML='<div class="khcWarn">'+esc(e.message)+'</div>'}};
+  document.getElementById('kxls').onclick=()=>{const rows=window.__khcReport||[];if(!rows.length)return alert('ابتدا گزارش را تولید کنید');if(typeof XLSX==='undefined')return alert('کتابخانه Excel بارگذاری نشده است');const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'شکایات');XLSX.writeFile(wb,'گزارش-شکایات.xlsx')};
 }
 async function settings(x){
  loading(x);const [s,u,roles]=await Promise.all([req('/admin/complaints/settings',{},30000),req('/admin/users',{},60000),req('/admin/roles',{},300000)]);
