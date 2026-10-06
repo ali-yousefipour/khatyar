@@ -53,6 +53,7 @@ route('GET','/api/school-service/inspections/{id}',function($p,$b,$u){
  if((int)$r['inspector_user_id']!==(int)$u['id']&&!_ssv_role_is_admin($u))Http::error('این بازدید متعلق به حساب شما نیست.',403);
  $r['violations']=_ssv_filter_violation_rows(Db::all("SELECT v.id,v.title FROM school_service_inspection_violations x JOIN school_service_violation_types v ON v.id=x.violation_type_id WHERE x.inspection_id=? ORDER BY v.sort_order,v.id",[$id]));
  $r['photos']=Db::all("SELECT id,file_path,mime_type,width,height,file_size,created_at FROM school_service_inspection_photos WHERE inspection_id=? ORDER BY id",[$id]);
+ foreach($r['photos'] as &$photo){$rawPath=(string)($photo['file_path']??'');$photo['file_path']=$rawPath!==''?('/api/media?path='.rawurlencode(ltrim($rawPath,'/'))):null;}unset($photo);
  $r['plate']=trim(($r['plate_three']??'').' '.($r['plate_letter']??'').' '.($r['plate_two']??'').' ایران '.($r['plate_region_code']??''));
  return $r;
 });
