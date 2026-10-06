@@ -1,4 +1,4 @@
-const KH_COMPLAINTS_BUILD = "2026-10-06-v255";
+const KH_COMPLAINTS_BUILD = "2026-10-06-v257";
 // PANEL BUILD TARGET: 2026-10-06-v248
 // Build sync: keep generated panel bundle aligned with panel_source changes.
 const { useState, useEffect, useRef } = React;
