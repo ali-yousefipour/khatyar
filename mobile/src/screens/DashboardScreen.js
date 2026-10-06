@@ -1,7 +1,7 @@
-import React, { useEffect, useLayoutEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAudioPlayer } from 'expo-audio';
 import { openDrawer as khOpenDrawer } from '../drawerControl';
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Alert, Animated, Image, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
@@ -58,6 +58,11 @@ export default function DashboardScreen({ navigation }) {
   const [pop, setPop] = useState(null);
   const [menuOrder, setMenuOrder] = useState([]);
   const [orderModal, setOrderModal] = useState(false);
+  const [dragRoute, setDragRoute] = useState(null);
+  const [dragDy, setDragDy] = useState(0);
+  const dragStartIndex = useRef(-1);
+  const dragCurrentIndex = useRef(-1);
+  const orderSaveQueue = useRef(Promise.resolve()).current;
   const orderKey = `dashboard-menu-order:${user?.id || 'me'}`;
 
   // صدای خوش‌آمد فقط یک‌بار در هر mount داشبورد پخش می‌شود؛ بنابراین با
@@ -100,7 +105,8 @@ export default function DashboardScreen({ navigation }) {
     AsyncStorage.getItem(orderKey).then((raw) => {
       if (!alive) return;
       try {
-        const saved = Array.isArray(JSON.parse(raw || 'null')) ? JSON.parse(raw) : [];
+        const parsed = raw ? JSON.parse(raw) : null;
+        const saved = Array.isArray(parsed) ? parsed : [];
         const valid = saved.filter((r) => defaults.includes(r));
         const missing = defaults.filter((r) => !valid.includes(r));
         setMenuOrder([...valid, ...missing]);
@@ -109,12 +115,68 @@ export default function DashboardScreen({ navigation }) {
     return () => { alive = false; };
   }, [orderKey]);
 
-  const persistMenuOrder = async (next) => {
-    setMenuOrder(next);
-    try { await AsyncStorage.setItem(orderKey, JSON.stringify(next)); } catch (_) {}
+  const persistMenuOrder = (next, save = true) => {
+    const clean = Array.from(new Set(next)).filter((r) => MENU.some((m) => m.r === r));
+    const missing = MENU.map((m) => m.r).filter((r) => !clean.includes(r));
+    const normalized = [...clean, ...missing];
+    setMenuOrder(normalized);
+    if (!save) return Promise.resolve(normalized);
+    orderSaveQueue.current = orderSaveQueue.current.then(() => AsyncStorage.setItem(orderKey, JSON.stringify(normalized)).catch(() => {}));
+    return orderSaveQueue.current.then(() => normalized);
   };
   const resetMenuOrder = () => persistMenuOrder(MENU.map((m) => m.r));
   const sortMenuOrder = () => persistMenuOrder(MENU.slice().sort((a, b) => String(a.t).localeCompare(String(b.t), 'fa')).map((m) => m.r));
+  const beginMenuDrag = (route) => {
+    const list = menuOrder.length ? menuOrder : MENU.map((m) => m.r);
+    const index = list.indexOf(route);
+    if (index < 0) return;
+    dragStartIndex.current = index;
+    dragCurrentIndex.current = index;
+    setDragDy(0);
+    setDragRoute(route);
+  };
+  const updateMenuDrag = (route, dy) => {
+    if (dragRoute !== route) return;
+    const base = menuOrder.length ? menuOrder : MENU.map((m) => m.r);
+    const list = [...base];
+    let current = dragCurrentIndex.current;
+    const threshold = 62;
+    while (dy < (current - dragStartIndex.current) * threshold - threshold / 2 && current > 0) {
+      [list[current], list[current - 1]] = [list[current - 1], list[current]];
+      current -= 1;
+    }
+    while (dy > (current - dragStartIndex.current) * threshold + threshold / 2 && current < list.length - 1) {
+      [list[current], list[current + 1]] = [list[current + 1], list[current]];
+      current += 1;
+    }
+    dragCurrentIndex.current = current;
+    if (list.join('|') !== base.join('|')) persistMenuOrder(list, false);
+    setDragDy(dy);
+  };
+  const finishMenuDrag = () => {
+    if (!dragRoute) return;
+    const finalOrder = menuOrder.length ? [...menuOrder] : MENU.map((m) => m.r);
+    setDragRoute(null);
+    setDragDy(0);
+    dragStartIndex.current = -1;
+    dragCurrentIndex.current = -1;
+    persistMenuOrder(finalOrder, true);
+  };
+  const cancelMenuDrag = () => {
+    setDragRoute(null);
+    setDragDy(0);
+    dragStartIndex.current = -1;
+    dragCurrentIndex.current = -1;
+  };
+  const dragResponder = (route) => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 3,
+    onPanResponderGrant: () => beginMenuDrag(route),
+    onPanResponderMove: (_, g) => updateMenuDrag(route, g.dy),
+    onPanResponderRelease: finishMenuDrag,
+    onPanResponderTerminate: cancelMenuDrag,
+    onPanResponderTerminationRequest: () => false,
+  });
   const moveMenuItem = (route, direction) => {
     const list = menuOrder.length ? [...menuOrder] : MENU.map((m) => m.r);
     const i = list.indexOf(route), j = i + direction;
@@ -139,7 +201,7 @@ export default function DashboardScreen({ navigation }) {
   const visibleMenu = orderedMenu.filter((m) => (m.r !== 'Sms' && m.r !== 'MySms' && m.r !== 'BotMessages') || !!user?.can_send_sms || m.r === 'BotMessages').filter(canShow).filter((m) => menuTab === 'all' || categoryOf(m.r) === menuTab).filter((m) => { const q = String(menuSearch || '').trim().toLocaleLowerCase(); return !q || String(m.t || '').toLocaleLowerCase().includes(q); });
   const KPIS = [['رانندگان خطوط شما', myStats.drivers], ['خودروهای خطوط شما', myStats.vehicles], ['حضور امروز', stats.today], ['چک‌لیست این ماه', stats.checklists]];
 
-  return <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text style={s.syncText}>{syncDetail}</Text></View> : null}<View style={s.top}><View style={s.topInfo}><Text style={s.hi}>روز بخیر،</Text><View style={s.nameRow}>{rankCount > 0 ? <RankInsignia count={rankCount} /> : null}<Text style={s.nm}>{user?.name || '—'}</Text></View><Text style={s.todayTxt}>{todayFaLong()}</Text>{user?.role ? <View style={s.roleChip}><Text style={s.roleTxt}>{user.role}</Text></View> : null}</View>{myPhoto ? <Image source={imageSource(myPhoto)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}</View><View style={s.kpis}>{KPIS.map(([l, n], i) => <View style={[s.kpi, { width: cardW }]} key={i}><Text style={s.kpiN}>{faNum(Number(n))}</Text><Text style={s.kpiL}>{l}</Text></View>)}</View><FieldStatusBanner /><Text style={s.sectionTitle}>دسترسی سریع</Text><TextInput value={menuSearch} onChangeText={setMenuSearch} placeholder="جستجو در آیتم‌های داشبورد" placeholderTextColor={C.muted} style={s.menuSearch} returnKeyType="search"/><View style={s.orderBar}><Text style={s.orderHint}>ترتیب آیتم‌ها برای حساب کاربری شما ذخیره می‌شود.</Text><TouchableOpacity style={s.orderBtn} onPress={() => setOrderModal(true)}><Text style={s.orderBtnTxt}>☷ تنظیم ترتیب</Text></TouchableOpacity></View><ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.menuTabs}>{MENU_TABS.map(([k, l]) => <TouchableOpacity key={k} style={[s.menuTab, menuTab === k && s.menuTabOn]} onPress={() => setMenuTab(k)}><Text style={[s.menuTabTxt, menuTab === k && s.menuTabTxtOn]}>{l}</Text></TouchableOpacity>)}</ScrollView><View style={s.grid}>{visibleMenu.map((m, i) => <TouchableOpacity key={i} style={s.card} activeOpacity={0.85} onPress={() => navigation.navigate(m.r)}><View style={[s.iconWrap, { backgroundColor: m.bg }]}>{m.glyph ? <Text style={s.glyph}>{m.glyph}</Text> : <Image source={m.icon3d} style={s.icon3d} resizeMode="contain" />}</View><View style={s.cardTxtWrap}><Text style={s.cardTxt} numberOfLines={2}>{m.t}</Text></View></TouchableOpacity>)}</View><Modal visible={orderModal} transparent animationType="slide" onRequestClose={() => setOrderModal(false)}><View style={s.orderBg}><View style={s.orderCard}><View style={s.orderHead}><Text style={s.orderTitle}>مرتب‌سازی داشبورد</Text><TouchableOpacity onPress={() => setOrderModal(false)}><Text style={s.orderClose}>✕</Text></TouchableOpacity></View><View style={s.orderActions}><TouchableOpacity style={s.orderAction} onPress={sortMenuOrder}><Text style={s.orderActionTxt}>مرتب‌سازی الفبایی</Text></TouchableOpacity><TouchableOpacity style={s.orderAction} onPress={resetMenuOrder}><Text style={s.orderActionTxt}>بازگردانی ترتیب پیش‌فرض</Text></TouchableOpacity></View><ScrollView style={s.orderList}>{(menuOrder.length ? menuOrder : MENU.map((m) => m.r)).map((route, i, arr) => { const m = MENU.find((x) => x.r === route); if (!m) return null; return <View key={route} style={s.orderRow}><View style={s.orderIndex}><Text style={s.orderIndexTxt}>{faNum(i + 1)}</Text></View><View style={s.orderName}><Text style={s.orderNameTxt}>{m.t}</Text></View><TouchableOpacity style={s.moveBtn} disabled={i === 0} onPress={() => moveMenuItem(route, -1)}><Text style={[s.moveTxt, i === 0 && s.moveDisabled]}>▲</Text></TouchableOpacity><TouchableOpacity style={s.moveBtn} disabled={i === arr.length - 1} onPress={() => moveMenuItem(route, 1)}><Text style={[s.moveTxt, i === arr.length - 1 && s.moveDisabled]}>▼</Text></TouchableOpacity></View>; })}</ScrollView><TouchableOpacity style={s.orderDone} onPress={() => setOrderModal(false)}><Text style={s.orderDoneTxt}>ذخیره و بستن</Text></TouchableOpacity></View></View></Modal><Modal visible={!!pop} transparent animationType="fade" onRequestClose={() => setPop(null)}><TouchableOpacity style={s.popBg} activeOpacity={1} onPress={() => setPop(null)}><View style={s.popCard}><TouchableOpacity style={s.popBtn} onPress={() => setPop(null)}><Text style={s.popBtnTxt}>بستن</Text></TouchableOpacity></View></TouchableOpacity></Modal></View></ScrollView>;
+  return <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text style={s.syncText}>{syncDetail}</Text></View> : null}<View style={s.top}><View style={s.topInfo}><Text style={s.hi}>روز بخیر،</Text><View style={s.nameRow}>{rankCount > 0 ? <RankInsignia count={rankCount} /> : null}<Text style={s.nm}>{user?.name || '—'}</Text></View><Text style={s.todayTxt}>{todayFaLong()}</Text>{user?.role ? <View style={s.roleChip}><Text style={s.roleTxt}>{user.role}</Text></View> : null}</View>{myPhoto ? <Image source={imageSource(myPhoto)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}</View><View style={s.kpis}>{KPIS.map(([l, n], i) => <View style={[s.kpi, { width: cardW }]} key={i}><Text style={s.kpiN}>{faNum(Number(n))}</Text><Text style={s.kpiL}>{l}</Text></View>)}</View><FieldStatusBanner /><Text style={s.sectionTitle}>دسترسی سریع</Text><TextInput value={menuSearch} onChangeText={setMenuSearch} placeholder="جستجو در آیتم‌های داشبورد" placeholderTextColor={C.muted} style={s.menuSearch} returnKeyType="search"/><View style={s.orderBar}><Text style={s.orderHint}>ترتیب آیتم‌ها برای حساب کاربری شما ذخیره می‌شود.</Text><TouchableOpacity style={s.orderBtn} onPress={() => setOrderModal(true)}><Text style={s.orderBtnTxt}>☷ تنظیم ترتیب</Text></TouchableOpacity></View><ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.menuTabs}>{MENU_TABS.map(([k, l]) => <TouchableOpacity key={k} style={[s.menuTab, menuTab === k && s.menuTabOn]} onPress={() => setMenuTab(k)}><Text style={[s.menuTabTxt, menuTab === k && s.menuTabTxtOn]}>{l}</Text></TouchableOpacity>)}</ScrollView><View style={s.grid}>{visibleMenu.map((m) => <TouchableOpacity key={m.r} style={s.card} activeOpacity={0.85} onPress={() => navigation.navigate(m.r)}><View style={[s.iconWrap, { backgroundColor: m.bg }]}>{m.glyph ? <Text style={s.glyph}>{m.glyph}</Text> : <Image source={m.icon3d} style={s.icon3d} resizeMode="contain" />}</View><View style={s.cardTxtWrap}><Text style={s.cardTxt} numberOfLines={2}>{m.t}</Text></View></TouchableOpacity>)}</View><Modal visible={orderModal} transparent animationType="slide" onRequestClose={() => setOrderModal(false)}><View style={s.orderBg}><View style={s.orderCard}><View style={s.orderHead}><Text style={s.orderTitle}>مرتب‌سازی داشبورد</Text><TouchableOpacity onPress={() => setOrderModal(false)}><Text style={s.orderClose}>✕</Text></TouchableOpacity></View><View style={s.orderActions}><TouchableOpacity style={s.orderAction} onPress={sortMenuOrder}><Text style={s.orderActionTxt}>مرتب‌سازی الفبایی</Text></TouchableOpacity><TouchableOpacity style={s.orderAction} onPress={resetMenuOrder}><Text style={s.orderActionTxt}>بازگردانی ترتیب پیش‌فرض</Text></TouchableOpacity></View><ScrollView style={s.orderList} contentContainerStyle={s.orderListContent} showsVerticalScrollIndicator={false}>{(menuOrder.length ? menuOrder : MENU.map((m) => m.r)).map((route, i, arr) => { const m = MENU.find((x) => x.r === route); if (!m) return null; const dragging = dragRoute === route; const responder = dragResponder(route); return <Animated.View key={route} style={[s.orderRow, dragging && s.orderRowDragging, dragging && { transform: [{ translateY: dragDy }] }]}><View style={s.orderIndex}><Text style={s.orderIndexTxt}>{faNum(i + 1)}</Text></View><View style={s.orderName}><Text style={s.orderNameTxt} numberOfLines={1}>{m.t}</Text></View><View style={s.dragHandle} {...responder.panHandlers} accessibilityRole="button" accessibilityLabel="جابجایی آیتم"><Text style={s.dragHandleDots}>☷</Text></View><TouchableOpacity style={s.moveBtn} disabled={i === 0} onPress={() => moveMenuItem(route, -1)} accessibilityLabel="انتقال به بالا"><Text style={[s.moveTxt, i === 0 && s.moveDisabled]}>▲</Text></TouchableOpacity><TouchableOpacity style={s.moveBtn} disabled={i === arr.length - 1} onPress={() => moveMenuItem(route, 1)} accessibilityLabel="انتقال به پایین"><Text style={[s.moveTxt, i === arr.length - 1 && s.moveDisabled]}>▼</Text></TouchableOpacity></Animated.View>; })}</ScrollView><TouchableOpacity style={s.orderDone} onPress={() => setOrderModal(false)}><Text style={s.orderDoneTxt}>ذخیره و بستن</Text></TouchableOpacity></View></View></Modal><Modal visible={!!pop} transparent animationType="fade" onRequestClose={() => setPop(null)}><TouchableOpacity style={s.popBg} activeOpacity={1} onPress={() => setPop(null)}><View style={s.popCard}><TouchableOpacity style={s.popBtn} onPress={() => setPop(null)}><Text style={s.popBtnTxt}>بستن</Text></TouchableOpacity></View></TouchableOpacity></Modal></View></ScrollView>;
 }
 
 const s = StyleSheet.create({
@@ -188,6 +250,31 @@ const s = StyleSheet.create({
   glyph: { fontSize: 22, textAlign: 'center', writingDirection: 'ltr' },
   cardTxtWrap: { width: '100%', alignItems: 'center', justifyContent: 'flex-start', minHeight: 32 },
   cardTxt: { width: '100%', fontFamily: FONT.bold, color: C.ink, textAlign: 'center', writingDirection: 'rtl', fontSize: 11, lineHeight: 15 },
+  orderListContent: { paddingBottom: 4 },
+  orderRowDragging: { opacity: 0.92, elevation: 8, shadowOpacity: 0.18, shadowRadius: 8, zIndex: 10 },
+  dragHandle: { width: 38, height: 42, borderRadius: 10, backgroundColor: '#eef2f7', alignItems: 'center', justifyContent: 'center', marginHorizontal: 3 },
+  dragHandleDots: { color: C.brand, fontSize: 22, lineHeight: 24, textAlign: 'center' },
+  orderBar: { marginHorizontal: 14, marginBottom: 8, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  orderHint: { flex: 1, color: C.muted, fontFamily: FONT.regular, fontSize: 11, textAlign: 'right', writingDirection: 'rtl' },
+  orderBtn: { backgroundColor: C.brand, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 },
+  orderBtnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 11, textAlign: 'center', writingDirection: 'rtl' },
+  orderBg: { flex: 1, backgroundColor: 'rgba(11,27,46,.58)', alignItems: 'center', justifyContent: 'center', padding: 14 },
+  orderCard: { width: '100%', maxWidth: 620, maxHeight: '88%', backgroundColor: C.paper, borderRadius: 22, padding: 14, overflow: 'hidden' },
+  orderHead: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  orderTitle: { flex: 1, color: C.ink, fontFamily: FONT.bold, fontSize: 17, textAlign: 'right', writingDirection: 'rtl' },
+  orderClose: { color: C.muted, fontSize: 20, paddingHorizontal: 6 },
+  orderActions: { flexDirection: 'row-reverse', gap: 8, marginBottom: 8 },
+  orderAction: { flex: 1, borderWidth: 1, borderColor: C.line, backgroundColor: '#fff', borderRadius: 10, paddingVertical: 9, alignItems: 'center' },
+  orderActionTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 11, textAlign: 'center', writingDirection: 'rtl' },
+  orderList: { flexGrow: 0, maxHeight: 520 },
+  orderRow: { minHeight: 56, marginBottom: 6, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 13, flexDirection: 'row-reverse', alignItems: 'center', paddingHorizontal: 7 },
+  orderIndex: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#eef2f7', alignItems: 'center', justifyContent: 'center', marginLeft: 7 },
+  orderIndexTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 12 },
+  orderName: { flex: 1, minWidth: 0, paddingHorizontal: 4 },
+  orderNameTxt: { color: C.ink, fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
+  moveBtn: { width: 34, height: 38, borderRadius: 9, backgroundColor: '#f5f7fa', alignItems: 'center', justifyContent: 'center', marginHorizontal: 2 },
+  moveTxt: { color: C.brand, fontSize: 15, fontFamily: FONT.bold },
+  moveDisabled: { opacity: 0.25 },
   popBg: { flex: 1, backgroundColor: 'rgba(11,27,46,.55)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   popCard: { backgroundColor: '#fff', borderRadius: 18, padding: 20, width: '100%', maxWidth: 360 },
   popBtn: { backgroundColor: C.brand, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 16 },
