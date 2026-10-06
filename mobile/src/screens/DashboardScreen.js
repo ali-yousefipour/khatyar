@@ -113,8 +113,8 @@ export default function DashboardScreen({ navigation }) {
         const normalized = [...valid, ...missing];
         menuOrderRef.current = normalized;
         setMenuOrder(normalized);
-      } catch (_) { setMenuOrder(defaults); }
-    }).catch(() => { if (alive) setMenuOrder(defaults); });
+      } catch (_) { menuOrderRef.current = defaults; setMenuOrder(defaults); }
+    }).catch(() => { if (alive) { menuOrderRef.current = defaults; setMenuOrder(defaults); } });
     return () => { alive = false; };
   }, [orderKey]);
 
@@ -131,7 +131,7 @@ export default function DashboardScreen({ navigation }) {
   const resetMenuOrder = () => persistMenuOrder(MENU.map((m) => m.r));
   const sortMenuOrder = () => persistMenuOrder(MENU.slice().sort((a, b) => String(a.t).localeCompare(String(b.t), 'fa')).map((m) => m.r));
   const beginMenuDrag = (route) => {
-    const list = menuOrder.length ? menuOrder : MENU.map((m) => m.r);
+    const list = menuOrderRef.current.length ? menuOrderRef.current : MENU.map((m) => m.r);
     const index = list.indexOf(route);
     if (index < 0) return;
     dragStartIndex.current = index;
@@ -141,7 +141,7 @@ export default function DashboardScreen({ navigation }) {
   };
   const updateMenuDrag = (route, dy) => {
     if (dragRoute !== route) return;
-    const base = menuOrder.length ? menuOrder : MENU.map((m) => m.r);
+    const base = menuOrderRef.current.length ? menuOrderRef.current : MENU.map((m) => m.r);
     const list = [...base];
     let current = dragCurrentIndex.current;
     const threshold = 62;
