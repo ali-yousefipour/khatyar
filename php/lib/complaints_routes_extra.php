@@ -8,22 +8,40 @@ function _complaints_can($u,$kind='submit'){
   $s=_complaints_settings();
   $uid=(int)($u['id']??0);
   $rid=(int)($u['role_id']??0);
-  // role_id موجود در session ممکن است از نسخه قدیمی auth یا به صورت string/خالی باشد.
-  // برای کنترل دسترسی شکایات، شناسه سمت را از رکورد users نیز به صورت authoritative می‌خوانیم.
+  $roleTitle=(string)($u['role_title']??'');
+  $level=(int)($u['level']??99);
+  $isAdmin=!empty($u['is_admin']) || $level<=3 || in_array($roleTitle,['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد','admin','superadmin'],true);
+
+  // قرارداد دسترسی سایر ماژول‌ها: role_id از users + roles مرجع نهایی است،
+  // نه مقدار role موجود در JWT/کلاینت. اینجا همان الگو را مستقیماً اعمال می‌کنیم.
   if($uid>0){
     try{
-      $ur=Db::one("SELECT role_id FROM users WHERE id=? LIMIT 1",[$uid]);
-      if($ur && $ur['role_id']!==null && $ur['role_id']!=='') $rid=(int)$ur['role_id'];
+      $ur=Db::one("SELECT u.role_id,COALESCE(r.title,'') role_title,COALESCE(r.level,99) level,COALESCE(r.is_admin,0) is_admin FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1",[$uid]);
+      if($ur){
+        $rid=(int)($ur['role_id']??0);
+        $roleTitle=(string)($ur['role_title']??'');
+        $level=(int)($ur['level']??99);
+        $isAdmin=!empty($ur['is_admin']) || $level<=3 || in_array($roleTitle,['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد','admin','superadmin'],true);
+      }
     }catch(Throwable $e){}
   }
-  $allowedUsers=array_map('intval',$s['allowed_user_ids']??[]);
-  $allowedRoles=array_map('intval',$s['allowed_role_ids']??[]);
-  $isSystemAdmin=(int)($u['is_admin']??0)===1 || (int)($u['level']??99)<=3;
-  if($kind==='submit') return !$allowedUsers && !$allowedRoles ? true : (in_array($uid,$allowedUsers,true) || in_array($rid,$allowedRoles,true));
-  if($isSystemAdmin) return true;
-  if($kind==='receive') return $uid===(int)($s['receiver_user_id']??0) || $uid===(int)($s['manager_user_id']??0);
-  if($kind==='manage') return $uid===(int)($s['manager_user_id']??0);
-  return false;
+
+  if($kind==='receive'){
+    return $isAdmin || $uid===(int)($s['receiver_user_id']??0) || $uid===(int)($s['manager_user_id']??0);
+  }
+  if($kind==='manage'){
+    return $isAdmin || $uid===(int)($s['manager_user_id']??0);
+  }
+  if($isAdmin) return true;
+
+  $allowedUsers=array_values(array_unique(array_filter(array_map('intval',(array)$s['allowed_user_ids']),fn($v)=>$v>0)));
+  $allowedRoles=array_values(array_unique(array_filter(array_map('intval',(array)$s['allowed_role_ids']),fn($v)=>$v>0)));
+
+  // نبودن هر دو فهرست طبق قرارداد تنظیمات = همه کاربران مجاز.
+  if(!$allowedUsers && !$allowedRoles) return true;
+
+  // دقیقاً همان شناسه‌ای که پنل از /admin/roles و /admin/users ذخیره می‌کند.
+  return in_array($uid,$allowedUsers,true) || in_array($rid,$allowedRoles,true);
 }
 function _complaints_require($u,$kind='submit'){if(!_complaints_can($u,$kind)) Http::error('دسترسی به بخش شکایات برای شما فعال نیست.',403);}
 function _complaints_tables(){
