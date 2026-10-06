@@ -132,6 +132,27 @@ route('POST','/api/school-service/inspections-with-photo',function($p,$b,$u){
    $pdo->commit();return ['ok'=>true,'id'=>$id,'photo'=>['file_path'=>$rel,'file_size'=>$size]];
  }catch(Throwable $e){if($path)@unlink($path);if($pdo->inTransaction())$pdo->rollBack();throw $e;}
 },false,99);
+route('POST','/api/school-service/inspections',function($p,$b,$u){
+ _ssv_need($u,'create');_ssv_tables();$body=is_array($b)?$b:[];_ssv_require_inspection_core($body);
+ $viol=$body['violation_ids']??[];if(is_string($viol))$viol=json_decode($viol,true)?:[];$viol=array_values(array_unique(array_map('intval',(array)$viol)));
+ [$a,$l,$pc,$r]=_ssv_plate($body);$schoolId=(int)($body['school_id']??0);$companyId=(int)($body['company_id']??0);if(!$schoolId)$schoolId=null;if(!$companyId)$companyId=null;
+ $district=_ssv_district_key($body['educational_district']??'');if($district===''||!_ssv_valid_district($district))Http::error('ناحیه آموزشی انتخاب‌شده معتبر یا فعال نیست.',422);_ssv_school_company_validate($schoolId??0,$companyId??0,$district);
+ $vehicleType=_ssv_norm($body['vehicle_type_custom']??'')?:_ssv_norm($body['vehicle_type']??'');$vehicleColor=_ssv_norm($body['vehicle_color_custom']??'')?:_ssv_norm($body['vehicle_color']??'');
+ if($vehicleType!==''&&!_ssv_valid_option('school_service_vehicle_types',$vehicleType)&&$vehicleType!=='سایر')Http::error('نوع خودرو انتخاب‌شده معتبر نیست.',422);
+ if($vehicleColor!==''&&!_ssv_valid_option('school_service_vehicle_colors',$vehicleColor)&&$vehicleColor!=='سایر')Http::error('رنگ خودرو انتخاب‌شده معتبر نیست.',422);
+ $gender=in_array($body['school_gender']??'',['دخترانه','پسرانه','نامشخص'],true)?$body['school_gender']:'نامشخص';$dg=in_array($body['driver_gender']??'',['خانم','آقا','نامشخص'],true)?$body['driver_gender']:'نامشخص';$cert=in_array($body['certificate_status']??'',['معتبر','نامعتبر','ارائه نشد'],true)?$body['certificate_status']:'ارائه نشد';
+ [$passFront,$passRear,$pass]=_ssv_passengers($body);$date=_ssv_en($body['violation_date']??'');$time=_ssv_en(trim((string)($body['violation_time']??'')));if($date!==''&&!preg_match('/^14\\d{2}[\\/-]\\d{1,2}[\\/-]\\d{1,2}$/',$date))Http::error('تاریخ ثبت تخلف نامعتبر است.',422);if($time!==''&&!preg_match('/^(?:[01]?\\d|2[0-3]):[0-5]\\d$/',$time))Http::error('ساعت ثبت تخلف نامعتبر است.',422);
+ $useSchool=!empty($body['use_school_location']);$locationText=_ssv_norm($body['location_text']??'')?:null;[$lat,$lng]=validGeo($body['latitude']??null,$body['longitude']??null);
+ if($useSchool){$sl=$schoolId?Db::one("SELECT latitude,longitude,address FROM school_service_schools WHERE id=? AND is_active=1",[$schoolId]):null;if(!$sl||$sl['latitude']===null||$sl['longitude']===null)Http::error('موقعیت مدرسه ثبت نشده است؛ ابتدا موقعیت مدرسه را اصلاح یا ثبت کنید.',422);$lat=(float)$sl['latitude'];$lng=(float)$sl['longitude'];$locationText=_ssv_norm($sl['address']??'')?:'مکان مدرسه';}
+ $uuid=_ssv_norm($body['client_uuid']??($_SERVER['HTTP_X_CLIENT_UUID']??''));if($uuid!==''){ $ex=Db::one("SELECT id FROM school_service_inspections WHERE client_uuid=? LIMIT 1",[$uuid]);if($ex)return ['ok'=>true,'id'=>(int)$ex['id'],'duplicate'=>true];}
+ $pdo=Db::pdo();$pdo->beginTransaction();
+ try{
+  Db::run("INSERT INTO school_service_inspections(inspector_user_id,client_uuid,educational_district,company_id,school_id,school_gender,plate_three,plate_letter,plate_two,iran_code,plate_region_code,vehicle_type,vehicle_color,passenger_count,passenger_front_count,passenger_rear_count,driver_gender,certificate_status,violation_date,violation_time,location_text,latitude,longitude,description) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",[(int)$u['id'],$uuid?:null,$district,$companyId,$schoolId,$gender,$a,$l,$pc,'ایران',$r,$vehicleType?:null,$vehicleColor?:null,$pass,$passFront,$passRear,$dg,$cert,$date?:null,$time?:null,$locationText,$lat,$lng,trim((string)($body['description']??''))?:null]);
+  $id=(int)$pdo->lastInsertId();
+  foreach($viol as $vid)if(Db::one("SELECT id FROM school_service_violation_types WHERE id=? AND is_active=1",[$vid]))Db::run("INSERT IGNORE INTO school_service_inspection_violations(inspection_id,violation_type_id) VALUES(?,?)",[$id,$vid]);
+  _ssv_sync_vehicle_from_inspection($id);$pdo->commit();return ['ok'=>true,'id'=>$id,'photo'=>null];
+ }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+},false,99);
 route('POST','/api/school-service/inspections/{id}/photos',function($p,$b,$u){
  _ssv_need($u,'create');_ssv_tables();$id=(int)$p['id'];$owner=Db::one("SELECT inspector_user_id FROM school_service_inspections WHERE id=?",[$id]);if(!$owner)Http::error('بازدید پیدا نشد',404);if((int)$owner['inspector_user_id']!==(int)$u['id']&&!_ssv_role_is_admin($u))Http::error('این بازدید متعلق به حساب شما نیست.',403);
  // محدودیت تصویر از تنظیمات عمومی تصاویر سایت خوانده می‌شود؛ تنظیم موازی برای سرویس مدارس وجود ندارد.
