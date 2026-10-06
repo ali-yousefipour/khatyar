@@ -129,6 +129,7 @@ route('POST','/api/school-service/inspections-with-photo',function($p,$b,$u){
    $dir=__DIR__.'/../public/uploads/school-service';if(!is_dir($dir)&&!@mkdir($dir,0755,true))throw new RuntimeException('پوشه ذخیره تصاویر قابل ایجاد نیست.');
    $name='inspection_'.$id.'_'.bin2hex(random_bytes(8)).'.jpg';$path=$dir.'/'.$name;if(!LineImageCompressor::fromBinary($raw,$path))throw new RuntimeException('فشرده‌سازی تصویر با تنظیمات عمومی سایت ناموفق بود.');
    $info=@getimagesize($path);$size=(int)(@filesize($path)?:0);$rel='/uploads/school-service/'.$name;Db::run("INSERT INTO school_service_inspection_photos(inspection_id,file_path,mime_type,width,height,file_size) VALUES(?,?,?,?,?,?)",[$id,$rel,'image/jpeg',(int)($info[0]??0),(int)($info[1]??0),$size]);
+   _ssv_sync_vehicle_from_inspection($id);
    $pdo->commit();return ['ok'=>true,'id'=>$id,'photo'=>['file_path'=>$rel,'file_size'=>$size]];
  }catch(Throwable $e){if($path)@unlink($path);if($pdo->inTransaction())$pdo->rollBack();throw $e;}
 },false,99);
