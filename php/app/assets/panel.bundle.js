@@ -10157,13 +10157,34 @@ function HmField({ label, value, onChange, optional = false, autoFocus = false }
             onChange(n);
         }
     };
+    const normalized = normalizeHm(text) || "";
+    const [hour, minute] = normalized ? normalized.split(":") : ["", ""];
+    const choosePart = (part, v) => {
+        if (v === "") {
+            setText("");
+            onChange("");
+            return;
+        }
+        const h = part === "hour" ? v : (hour || "00");
+        const m = part === "minute" ? v : (minute || "00");
+        const next = h + ":" + m;
+        setText(next);
+        onChange(next);
+    };
     return React.createElement("div", { className: "punch-field", style: { minWidth: 0, flex: "1 1 280px" } },
         React.createElement("label", { className: "label" },
             label,
             optional ? " — اختیاری" : ""),
-        React.createElement("div", { className: "punch-time-control", dir: "ltr", style: { display: "block", width: "100%" } },
-            React.createElement("input", { className: "input punch-time-input", type: "text", inputMode: "numeric", dir: "ltr", value: text, onChange: handleChange, onBlur: handleBlur, placeholder: "00:00", maxLength: 5, autoFocus: autoFocus, "aria-label": label, "aria-describedby": label + "-hint", style: { display: "block", width: "100%", height: 46, boxSizing: "border-box", fontSize: 20, fontWeight: 700, textAlign: "center", letterSpacing: 1 } }),
-            React.createElement("span", { id: label + "-hint", className: "punch-time-hint", style: { display: "block", marginTop: 6, textAlign: "center" } }, "\u0633\u0627\u0639\u062A \u0631\u0627 \u0628\u0647 \u0634\u06A9\u0644 \u06F2\u06F4 \u0633\u0627\u0639\u062A\u0647 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F")));
+        React.createElement("div", { className: "punch-time-control", dir: "rtl", style: { width: "100%" } },
+            React.createElement("input", { className: "input punch-time-input", type: "text", inputMode: "numeric", dir: "ltr", value: text, onChange: handleChange, onBlur: handleBlur, placeholder: "\u06F0\u06F0:\u06F0\u06F0", maxLength: 5, autoFocus: autoFocus, "aria-label": label, "aria-describedby": label + "-hint", style: { width: "100%", height: 46, boxSizing: "border-box", fontSize: 20, fontWeight: 700, textAlign: "center", letterSpacing: 1 } }),
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 6 } },
+                React.createElement("select", { className: "input punch-time-select", dir: "rtl", value: hour, onChange: e => choosePart("hour", e.target.value), "aria-label": label + " ساعت" },
+                    React.createElement("option", { value: "" }, "\u0633\u0627\u0639\u062A"),
+                    Array.from({ length: 24 }, (_, h) => { const v = String(h).padStart(2, "0"); return React.createElement("option", { key: v, value: v }, toFaDigits(v)); })),
+                React.createElement("select", { className: "input punch-time-select", dir: "rtl", value: minute, onChange: e => choosePart("minute", e.target.value), "aria-label": label + " دقیقه" },
+                    React.createElement("option", { value: "" }, "\u062F\u0642\u06CC\u0642\u0647"),
+                    Array.from({ length: 60 }, (_, m) => { const v = String(m).padStart(2, "0"); return React.createElement("option", { key: v, value: v }, toFaDigits(v)); }))),
+            React.createElement("span", { id: label + "-hint", className: "punch-time-hint", style: { display: "block", marginTop: 6, textAlign: "center" } }, "\u0633\u0627\u0639\u062A \u0631\u0627 \u0628\u0647 \u0634\u06A9\u0644 \u06F2\u06F4 \u0633\u0627\u0639\u062A\u0647 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F\u061B \u06CC\u0627 \u0633\u0627\u0639\u062A \u0648 \u062F\u0642\u06CC\u0642\u0647 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F")));
 }
 function PunchModalShell({ title, subtitle, children, onClose, actions }) {
     return React.createElement("div", { className: "modal-bg punch-modal-bg", style: { zIndex: 99999 }, onClick: onClose },
