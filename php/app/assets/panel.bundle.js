@@ -10113,18 +10113,13 @@ function toFaDigits(v) {
 }
 function HmField({ label, value, onChange, optional = false, autoFocus = false }) {
     const normalized = normalizeHm(value) || "";
-    const displayValue = toFaDigits(normalized);
     return React.createElement("div", { className: "punch-field" },
         React.createElement("label", { className: "label" },
             label,
             optional ? " — اختیاری" : ""),
         React.createElement("div", { className: "punch-time-control", dir: "rtl" },
-            React.createElement("input", { className: "input punch-time-input", inputMode: "numeric", type: "text", dir: "ltr", value: displayValue, onChange: e => onChange(e.target.value), onBlur: e => { const n = normalizeHm(e.target.value); if (n)
-                    onChange(n); }, placeholder: "\u06F0\u06F0:\u06F0\u06F0", maxLength: 5, autoFocus: autoFocus, "aria-label": label, "aria-describedby": label + "-hint" }),
-            React.createElement("select", { className: "input punch-time-select", dir: "rtl", value: normalized, onChange: e => onChange(e.target.value), "aria-label": label + " انتخاب ساعت" },
-                React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0633\u0627\u0639\u062A"),
-                Array.from({ length: 24 }, (_, h) => Array.from({ length: 60 }, (_, m) => { const v = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0"); return React.createElement("option", { key: v, value: v }, toFaDigits(v)); }))),
-            React.createElement("span", { id: label + "-hint", className: "punch-time-hint" }, "\u062A\u0627\u06CC\u067E \u06A9\u0646\u06CC\u062F \u06CC\u0627 \u0627\u0632 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u06AF\u0631 \u0633\u0627\u0639\u062A \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F")));
+            React.createElement("input", { className: "input punch-time-input", inputMode: "numeric", type: "time", step: "60", value: normalized, onChange: e => onChange(e.target.value), autoFocus: autoFocus, "aria-label": label, "aria-describedby": label + "-hint" }),
+            React.createElement("span", { id: label + "-hint", className: "punch-time-hint" }, "\u0633\u0627\u0639\u062A \u0631\u0627 \u0628\u0647 \u0634\u06A9\u0644 \u06F2\u06F4 \u0633\u0627\u0639\u062A\u0647 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F")));
 }
 function PunchModalShell({ title, subtitle, children, onClose, actions }) {
     return React.createElement("div", { className: "modal-bg punch-modal-bg", style: { zIndex: 99999 }, onClick: onClose },
