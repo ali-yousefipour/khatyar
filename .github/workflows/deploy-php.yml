@@ -1,5 +1,5 @@
 name: Upload to Khatyar Host
-# DEPLOY-RECONCILE: 20261007-v271
+# DEPLOY-RECONCILE: 20261007-v272
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: php-production-deploy
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy-php:
