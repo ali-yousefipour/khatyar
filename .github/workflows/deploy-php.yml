@@ -183,7 +183,7 @@ jobs:
                 continue
               fi
 
-              dir="\$(dirname "${rel}")"
+              dir="$(dirname "${rel}")"
               if [ "${dir}" = "." ]; then
                 remote_dir="/"
               else
@@ -191,7 +191,7 @@ jobs:
               fi
 
               local_file="${GITHUB_WORKSPACE}/${file}"
-              remote_file="${remote_dir}/\$(basename "${rel}")"
+              remote_file="${remote_dir}/$(basename "${rel}")"
               printf 'put %s -o %s\n' "${local_file}" "${remote_file}"
             done < <(find deploy-payload -type f -print | sort)
 
