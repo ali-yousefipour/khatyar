@@ -5973,11 +5973,21 @@ function AttendanceReport(){
   const pout=(p)=>n(p&& (p.out??p.out_full??p.check_out??p.last_out??p.last_exit));
   const mins=(v)=>{const s=String(v==null?"":v).replace(/[۰-۹]/g,x=>"۰۱۲۳۴۵۶۷۸۹".indexOf(x));const m=s.match(/(\d+):([0-5]\d)/);return m?(+m[1])*60+(+m[2]):0;};
   const hm=(v)=>{v=Math.max(0,parseInt(v,10)||0);return String(Math.floor(v/60)).padStart(2,"0")+":"+String(v%60).padStart(2,"0");};
-  const punchTimes=(d)=>{const p=Array.isArray(d.punches)?d.punches:[];return {ins:p.map(pin).filter(Boolean),outs:p.map(pout).filter(Boolean)};};
+  const punchTimes=(d)=>{
+    const p=Array.isArray(d.punches)?d.punches:[];
+    const ins=p.map(pin).filter(Boolean);
+    const outs=p.map(pout).filter(Boolean);
+    // گزارش API ساعت واقعی روز را مستقیماً در d.in/d.out هم برمی‌گرداند.
+    // این مقادیر باید fallback اصلی باشند؛ چون بعضی رکوردهای قدیمی punches
+    // فقط metadata دارند و فیلد in/out در خود punch وجود ندارد.
+    if(!ins.length){ const direct=n(d&&((d.in??d.first_in??d.first_entry))); if(direct) ins.push(direct); }
+    if(!outs.length){ const direct=n(d&&((d.out??d.last_out??d.last_exit))); if(direct) outs.push(direct); }
+    return {ins,outs};
+  };
   const dayVal=(d,k)=>{
     const {ins,outs}=punchTimes(d);
-    if(k==="in")return ins[0]||"--:--";
-    if(k==="out")return outs.length?outs[outs.length-1]:"--:--";
+    if(k==="in")return n(d&&((d.in??d.first_in??d.first_entry)))||ins[0]||"--:--";
+    if(k==="out")return n(d&&((d.out??d.last_out??d.last_exit)))||(outs.length?outs[outs.length-1]:"--:--");
     if(k==="in_station")return ((d.punches||[]).find(p=>p&&p.in_station)||{}).in_station||"—";
     if(k==="out_station")return (((d.punches||[]).slice().reverse().find(p=>p&&p.out_station))||{}).out_station||"—";
     if(k==="first_in")return n(d.first_in)||ins[0]||"--:--";
