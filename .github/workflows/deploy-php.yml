@@ -38,21 +38,30 @@ jobs:
           git checkout -B main origin/main
 
           HEAD_SHA="$(git rev-parse HEAD)"
-          BASE_SHA="$(git rev-parse HEAD~3)"
+          PHP_COMMITS="$(git rev-list --max-count=3 "$HEAD_SHA" -- php/)"
+          PHP_COMMIT_COUNT="$(printf '%s\n' "$PHP_COMMITS" | sed '/^$/d' | wc -l | tr -d ' ')"
 
           echo "Deployment HEAD: ${HEAD_SHA}"
-          echo "Deployment BASE: ${BASE_SHA}"
-          echo "Latest main commits:"
-          git log --oneline -3 "${HEAD_SHA}"
+          echo "Latest 3 commits that modify php/:"
+          printf '%s\n' "$PHP_COMMITS"
 
           rm -rf deploy-payload
           mkdir -p deploy-payload
           : > deploy-deletions.txt
           : > /tmp/php-diff.txt
 
-          git diff --name-status --find-renames --find-copies "${BASE_SHA}" "${HEAD_SHA}" -- php/ > /tmp/php-diff.txt
+          if [ "$PHP_COMMIT_COUNT" -gt 0 ]; then
+            OLDEST_PHP_COMMIT="$(printf '%s\n' "$PHP_COMMITS" | tail -n 1)"
+            BASE_SHA="$(git rev-parse "${OLDEST_PHP_COMMIT}^")"
+            echo "PHP deployment base: ${BASE_SHA}"
 
-          echo "PHP changes across the latest 3 commits:"
+            # Select the union of the latest three commits that actually modify
+            # php/. Workflow-only commits are intentionally skipped so changing
+            # this workflow cannot push a pending PHP change out of the window.
+            git diff --name-status --find-renames --find-copies "$BASE_SHA" "$HEAD_SHA" -- php/ > /tmp/php-diff.txt
+          fi
+
+          echo "PHP changes across the latest 3 PHP-touching commits:"
           cat /tmp/php-diff.txt || true
 
           while IFS=$'\t' read -r status path1 path2; do
