@@ -6162,8 +6162,8 @@ function PunchModalShell({title,subtitle,children,onClose,actions}){
   </div>;
 }
 function PunchEditModal({punch,onSave,onClose}){
-  const punchInValue=pin(punch)||"";
-  const punchOutValue=pout(punch)||"";
+  const punchInValue=punch?.in??punch?.in_full??punch?.check_in??punch?.first_in??punch?.first_entry??"";
+  const punchOutValue=punch?.out??punch?.out_full??punch?.check_out??punch?.last_out??punch?.last_exit??"";
   const [ci,setCi]=useState(normalizeHm(punchInValue)||"");
   const [co,setCo]=useState(normalizeHm(punchOutValue)||"");
   const [err,setErr]=useState("");
