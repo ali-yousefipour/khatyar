@@ -9817,6 +9817,7 @@ function AttendanceReport() {
     const [data, setData] = useState(null);
     const [busy, setBusy] = useState(false);
     const [openDay, setOpenDay] = useState(null);
+    const [mapPunch, setMapPunch] = useState(null);
     const [edit, setEdit] = useState(null);
     const [addModal, setAddModal] = useState(null);
     useEffect(() => { db.users().then(us => setUsers(us || [])).catch(() => { }); }, []);
@@ -10044,15 +10045,31 @@ function AttendanceReport() {
                             React.createElement("th", null, "\u0631\u0648\u0634 \u062B\u0628\u062A"),
                             React.createElement("th", null, "\u062F\u0633\u062A\u06AF\u0627\u0647"),
                             React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645"))),
-                    React.createElement("tbody", null, (d.punches || []).map(p => React.createElement("tr", { key: p.id },
+                    React.createElement("tbody", null, (d.punches || []).map(p => { const hasGps = Number.isFinite(Number(p.in_lat)) && Number.isFinite(Number(p.in_lng)); return React.createElement("tr", { key: p.id },
                         React.createElement("td", null, attendanceCell(pin(p) || "--:--")),
                         React.createElement("td", null, attendanceCell(pout(p) || "--:--")),
                         React.createElement("td", null, p.method || "—"),
                         React.createElement("td", null, p.device || "—"),
-                        React.createElement("td", null,
+                        React.createElement("td", { style: { whiteSpace: "nowrap" } },
+                            hasGps && React.createElement("button", { className: "btn g", onClick: () => setMapPunch(p) }, "\uD83D\uDCCD \u0646\u0645\u0627\u06CC\u0634 \u062F\u0631 \u0646\u0642\u0634\u0647"),
                             React.createElement("button", { className: "btn g", onClick: () => { setOpenDay(null); setEdit(p); } }, "\u0627\u0635\u0644\u0627\u062D"),
-                            React.createElement("button", { className: "btn g", onClick: () => delPunch(p) }, "\u062D\u0630\u0641")))))),
+                            React.createElement("button", { className: "btn g", onClick: () => delPunch(p) }, "\u062D\u0630\u0641"))); }))),
                 React.createElement("button", { className: "btn p", onClick: () => setAddModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC"))) : null; })(),
+        mapPunch && (() => { const lat = Number(mapPunch.in_lat), lng = Number(mapPunch.in_lng); const delta = 0.002; const bbox = [lng - delta, lat - delta, lng + delta, lat + delta].join("%2C"); const mapSrc = "https://www.openstreetmap.org/export/embed.html?bbox=" + bbox + "&layer=mapnik&marker=" + lat + "%2C" + lng; return React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 100000, background: "rgba(0,0,0,.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }, onClick: () => setMapPunch(null) },
+            React.createElement("div", { className: "card-p", style: { width: "min(900px,96vw)", height: "min(720px,92vh)", display: "flex", flexDirection: "column", gap: 10, overflow: "hidden" }, onClick: e => e.stopPropagation() },
+                React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 } },
+                    React.createElement("div", null,
+                        React.createElement("h3", { style: { margin: 0 } }, "\u0645\u06A9\u0627\u0646 \u062B\u0628\u062A \u0648\u0631\u0648\u062F \u0628\u0627 GPS"),
+                        React.createElement("div", { className: "muted", style: { fontSize: 12, marginTop: 4 } },
+                            "\u0645\u062E\u062A\u0635\u0627\u062A: ",
+                            lat.toFixed(6),
+                            " \u060C ",
+                            lng.toFixed(6))),
+                    React.createElement("button", { className: "btn g", onClick: () => setMapPunch(null) }, "\u0628\u0633\u062A\u0646")),
+                React.createElement("div", { style: { flex: 1, minHeight: 320, borderRadius: 10, overflow: "hidden", border: "1px solid var(--line)" } },
+                    React.createElement("iframe", { title: "\u0645\u06A9\u0627\u0646 \u062B\u0628\u062A \u0648\u0631\u0648\u062F \u0628\u0627 GPS", src: mapSrc, style: { width: "100%", height: "100%", border: 0 }, loading: "lazy" })),
+                React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8 } },
+                    React.createElement("a", { className: "btn g", href: "https://www.google.com/maps?q=" + lat + "," + lng, target: "_blank", rel: "noreferrer" }, "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u062F\u0631 Google Maps")))); })(),
         edit && React.createElement(PunchEditModal, { punch: edit, onSave: savePunch, onClose: () => setEdit(null) }),
         addModal && React.createElement(PunchAddModal, { jdate: addModal.jdate, onSave: addPunch, onClose: () => setAddModal(null) })));
 }
