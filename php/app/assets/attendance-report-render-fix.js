@@ -1,4 +1,4 @@
-/* خطیار — گزارش تردد: رندر پایدار ۲۹ ستون + جزئیات و ویرایش تردد | FINAL v269 */
+/* خطیار — گزارش تردد: رندر پایدار ۲۹ ستون + جزئیات و ویرایش تردد | FINAL v276 */
 (function(){
 'use strict';
 var FA={'0':'۰','1':'۱','2':'۲','3':'۳','4':'۴','5':'۵','6':'۶','7':'۷','8':'۸','9':'۹'},KEY='khatyar.attendance.report.columns.v6';
@@ -9,7 +9,8 @@ function en(v){return String(v==null?'':v).replace(/[۰-۹]/g,function(x){return
 function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;');}
 function minutes(v){var s=String(v==null?'':v),m=s.match(/^(\d+):(\d{1,2})/);return m?parseInt(m[1],10)*60+parseInt(m[2],10):Math.max(0,parseInt(s.replace(/[^0-9-]/g,''),10)||0);}
 function hm(v){v=Math.max(0,parseInt(v,10)||0);return String(Math.floor(v/60)).padStart(2,'0')+':'+String(v%60).padStart(2,'0');}
-function punchTime(p,k){p=p||{};var a=k==='in'?['in','in_full','check_in','first_in','first_entry']:['out','out_full','check_out','last_out','last_exit'];for(var i=0;i<a.length;i++){var v=p[a[i]];if(v!=null&&String(v).trim()!=='')return v;}return '';}\nfunction timeText(v){var s=en(String(v==null?'':v).trim());if(!s)return '';var m=s.match(/(?:^|[ T])([01]?\d|2[0-3]):([0-5]\d)(?::\d{1,2})?(?:\s|$)/);if(!m)m=s.match(/([01]?\d|2[0-3]):([0-5]\d)/);if(!m)return '';return fa(String(+m[1]).padStart(2,'0')+':'+String(+m[2]).padStart(2,'0'));}
+function punchTime(p,k){p=p||{};var a=k==='in'?['in','in_full','check_in','first_in','first_entry']:['out','out_full','check_out','last_out','last_exit'];for(var i=0;i<a.length;i++){var v=p[a[i]];if(v!=null&&String(v).trim()!=='')return v;}return '';}
+function timeText(v){var s=en(String(v==null?'':v).trim());if(!s)return '';var m=s.match(/(?:^|[ T])([01]?\d|2[0-3]):([0-5]\d)(?::\d{1,2})?(?:\s|$)/);if(!m)m=s.match(/([01]?\d|2[0-3]):([0-5]\d)/);if(!m)return '';return fa(String(+m[1]).padStart(2,'0')+':'+String(+m[2]).padStart(2,'0'));}
 function ok(d){return !!(d&&Array.isArray(d.days));}
 function payload(){return window.__khatyarAttendancePayload||null;}
 function sourceTable(){var ts=document.querySelectorAll('table');for(var i=0;i<ts.length;i++){var h=norm(ts[i].innerText||'');if(/حضور در شیفت/.test(h)||/کسری کار/.test(h)||/موظفی/.test(h))return ts[i];}return ts[0]||null;}
@@ -37,4 +38,4 @@ function boot(){css();bind();hook();var n=0,t=setInterval(function(){n++;var d=p
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 window.khatyarAttendanceReport={render:render,capture:capture};
 })();
-/* DEPLOY-SYNC: 20261007-v269 */
+/* DEPLOY-SYNC: 20261007-v276 */
