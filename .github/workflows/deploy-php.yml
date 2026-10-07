@@ -56,4 +56,4 @@ jobs:
             **/.env.*
             **/node_modules/**
             **/vendor/**
-            **/*.log**
+            **/*.log
