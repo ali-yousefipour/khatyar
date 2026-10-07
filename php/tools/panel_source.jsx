@@ -6084,7 +6084,7 @@ function AttendanceReport(){
       </table>
     </div>}
     {data&&<div style={{marginTop:8,fontSize:11,color:"var(--muted)"}}>۲۹ ستون گزارش فعال است؛ ساعت ورود و خروج از داده واقعی تردد خوانده می‌شود.</div>}
-    {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div style={{position:"fixed",inset:0,zIndex:10000,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div className="card-p" style={{width:"min(760px,96vw)",maxHeight:"90vh",overflow:"auto"}}><button className="btn g" onClick={()=>setOpenDay(null)}>بستن</button><h3>جزئیات تردد {fa(d.jdate)}</h3><table><thead><tr><th>ورود</th><th>خروج</th><th>روش ثبت</th><th>دستگاه</th><th>اقدام</th></tr></thead><tbody>{(d.punches||[]).map(p=><tr key={p.id}><td>{attendanceCell(pin(p)||"--:--")}</td><td>{attendanceCell(pout(p)||"--:--")}</td><td>{p.method||"—"}</td><td>{p.device||"—"}</td><td><button className="btn g" onClick={()=>setEdit(p)}>اصلاح</button><button className="btn g" onClick={()=>delPunch(p)}>حذف</button></td></tr>)}</tbody></table><button className="btn p" onClick={()=>setAddModal({jdate:d.jdate})}>ثبت تردد دستی</button></div></div>:null})()}
+    {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div style={{position:"fixed",inset:0,zIndex:10000,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div className="card-p" style={{width:"min(760px,96vw)",maxHeight:"90vh",overflow:"auto"}}><button className="btn g" onClick={()=>setOpenDay(null)}>بستن</button><h3>جزئیات تردد {fa(d.jdate)}</h3><table><thead><tr><th>ورود</th><th>خروج</th><th>روش ثبت</th><th>دستگاه</th><th>اقدام</th></tr></thead><tbody>{(d.punches||[]).map(p=><tr key={p.id}><td>{attendanceCell(pin(p)||"--:--")}</td><td>{attendanceCell(pout(p)||"--:--")}</td><td>{p.method||"—"}</td><td>{p.device||"—"}</td><td><button className="btn g" onClick={()=>{setOpenDay(null);setEdit(p)}}>اصلاح</button><button className="btn g" onClick={()=>delPunch(p)}>حذف</button></td></tr>)}</tbody></table><button className="btn p" onClick={()=>setAddModal({jdate:d.jdate})}>ثبت تردد دستی</button></div></div>:null})()}
     {edit&&<PunchEditModal punch={edit} onSave={savePunch} onClose={()=>setEdit(null)}/>}
     {addModal&&<PunchAddModal jdate={addModal.jdate} onSave={addPunch} onClose={()=>setAddModal(null)}/>}
   </div>);
@@ -6127,9 +6127,9 @@ function PunchPopup({day,onClose,onEdit,onDel,onAdd}){
 // مودال ویرایش ساعت یک پانچ (ادمین)
 function normalizeHm(v){
   const raw=String(v||"").trim().replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d));
-  const m=raw.match(/^\\d{1,2}:\\d{2}$/);
+  const m=raw.match(/(?:^|[ T])([01]?\d|2[0-3]):([0-5]\d)/);
   if(!m)return null;
-  const parts=raw.split(":"); const h=+parts[0], min=+parts[1];
+  const h=+m[1], min=+m[2];
   if(h<0||h>23||min<0||min>59)return null;
   return String(h).padStart(2,"0")+":"+String(min).padStart(2,"0");
 }
@@ -6148,7 +6148,7 @@ function HmField({label,value,onChange,optional=false,autoFocus=false}){
   </div>;
 }
 function PunchModalShell({title,subtitle,children,onClose,actions}){
-  return <div className="modal-bg punch-modal-bg" onClick={onClose}>
+  return <div className="modal-bg punch-modal-bg" style={{zIndex:20000}} onClick={onClose}>
     <div className="modal punch-modal" role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()}>
       <div className="punch-modal-head">
         <div><h3>{title}</h3>{subtitle&&<div className="punch-modal-sub">{subtitle}</div>}</div>
@@ -6160,8 +6160,10 @@ function PunchModalShell({title,subtitle,children,onClose,actions}){
   </div>;
 }
 function PunchEditModal({punch,onSave,onClose}){
-  const [ci,setCi]=useState(normalizeHm(punch.in)||punch.in||"");
-  const [co,setCo]=useState(normalizeHm(punch.out)||punch.out||"");
+  const punchInValue=punch.in??punch.in_full??punch.check_in??punch.first_in??punch.first_entry??"";
+  const punchOutValue=punch.out??punch.out_full??punch.check_out??punch.last_out??punch.last_exit??"";
+  const [ci,setCi]=useState(normalizeHm(punchInValue)||"");
+  const [co,setCo]=useState(normalizeHm(punchOutValue)||"");
   const [err,setErr]=useState("");
   const submit=()=>{
     const nci=normalizeHm(ci), nco=co.trim()?normalizeHm(co):"";
