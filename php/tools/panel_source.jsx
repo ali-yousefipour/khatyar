@@ -8094,8 +8094,8 @@ function ComplaintsLauncher(){
     if(!host)return;
     const loadModule=()=>new Promise((resolve,reject)=>{
       if(typeof window.openComplaints==="function")return resolve();
-      const src="/assets/complaints-panel-v255.js?v=20261006.256";
-      const existing=[...document.scripts].find(s=>String(s.src||"").includes("/assets/complaints-panel-v255.js"));
+      const src="/assets/complaints-panel-v257.js?v=20261007.260";
+      const existing=[...document.scripts].find(s=>String(s.src||"").includes("/assets/complaints-panel-v257.js"));
       if(existing){
         const started=Date.now();
         const wait=()=>{
