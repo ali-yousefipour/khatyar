@@ -213,6 +213,11 @@ jobs:
               bye
             "
 
+            remote_basename="$(basename "${rel}")"
+            downloaded="/tmp/${remote_basename}"
+            if [ "${downloaded}" != "/tmp/ftp-verify" ]; then
+              mv -f "${downloaded}" /tmp/ftp-verify
+            fi
             remote_sha="$(sha256sum /tmp/ftp-verify | awk '{print $1}')"
             echo "FTP verify ${rel}: local=${local_sha} remote=${remote_sha}"
             [ "${local_sha}" = "${remote_sha}" ] || {
