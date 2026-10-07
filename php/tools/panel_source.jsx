@@ -5950,79 +5950,89 @@ function AttendanceReport(){
   const [users,setUsers]=useState([]);
   const [uid,setUid]=useState("");
   const [personQuery,setPersonQuery]=useState("");
-  const [from,setFrom]=useState(todayJStr());
-  const [to,setTo]=useState(todayJStr());
+  const [from,setFrom]=useState("");
+  const [to,setTo]=useState("");
   const [data,setData]=useState(null);
   const [busy,setBusy]=useState(false);
-  const [openDay,setOpenDay]=useState(null); // jdate پاپ‌آپ باز
-  const [edit,setEdit]=useState(null); // {punch, field} در حال ویرایش
-  const [addModal,setAddModal]=useState(null); // {jdate}
+  const [openDay,setOpenDay]=useState(null);
+  const [edit,setEdit]=useState(null);
+  const [addModal,setAddModal]=useState(null);
+
   useEffect(()=>{ db.users().then(us=>setUsers(us||[])).catch(()=>{}); },[]);
   const visibleUsers=users.filter(u=>{const q=String(personQuery||"").trim().toLowerCase();return !q||String((u.first_name||"")+" "+(u.last_name||"")).toLowerCase().includes(q)||String(u.username||"").includes(q);});
   const run=async()=>{ if(!uid){alert("پرسنل را انتخاب کنید");return;} setBusy(true); setData(null); setOpenDay(null);
     try{ const r=await db.attendanceReport(uid,from,to); setData(r); }
     catch(e){ alert(e.message||"خطا در دریافت گزارش"); }
     finally{ setBusy(false); } };
-  const refresh=async()=>{ try{ const r=await db.attendanceReport(uid,from,to); setData(r); }catch(e){} };
+  const refresh=async()=>{ if(!uid)return; try{ const r=await db.attendanceReport(uid,from,to); setData(r); }catch(e){} };
   const savePunch=async(punch,ci,co)=>{ try{ await db.attendancePunchEdit(punch.id,{check_in:ci,check_out:co}); setEdit(null); await refresh(); }catch(e){alert(e.message||"خطا");} };
   const delPunch=async(punch)=>{ if(!confirm("این تردد حذف شود؟"))return; try{ await db.attendancePunchDelete(punch.id); await refresh(); }catch(e){alert(e.message||"خطا");} };
   const addPunch=async(jdate,ci,co)=>{ try{ await db.attendancePunchAdd({user_id:+uid,jdate,check_in:ci,check_out:co||null}); setAddModal(null); await refresh(); }catch(e){alert(e.message||"خطا");} };
-  const hmToMin=(v)=>{ const m=String(v||"00:00").match(/(\d+):(\d+)/); return m?(+m[1])*60+(+m[2]):0; };
-  const convertSurplus=async(d)=>{ const surplus=hmToMin(d.surplus); if(!surplus){alert("مازاد حضوری برای تبدیل وجود ندارد");return;} const val=prompt("چند دقیقه از مازاد حضور به اضافه‌کار تبدیل شود؟", String(surplus)); if(val===null)return; const minutes=Math.max(0,Math.min(surplus,parseInt(String(val).replace(/\D/g,""),10)||0)); const reason=prompt("علت/توضیح تأیید مازاد حضور:", "تأیید مدیر"); try{ await db.attendanceSurplusConvert({user_id:+uid,jdate:d.jdate,minutes,reason:reason||""}); await refresh(); }catch(e){alert(e.message||"خطا در تبدیل مازاد حضور");} };
-  const resetSurplus=async(d)=>{ if(!confirm("تبدیل مازاد حضور این روز حذف شود؟"))return; try{ await db.attendanceSurplusReset({user_id:+uid,jdate:d.jdate}); await refresh(); }catch(e){alert(e.message||"خطا");} };
-  const exportExcel=()=>{ if(!data)return;
-    const rows=[]; data.days.forEach(d=>{ if(!d.punches.length){ rows.push({"تاریخ":d.jdate,"روز هفته":d.weekday,"ورود":"--:--","خروج":"--:--","محل ورود":"--","محل خروج":"--","حضور کل":d.worked,"حضور در شیفت":d.in_shift,"کسری کار":d.shortage,"شب کاری":d.night,"جمعه کاری":d.friday_work||d.friday||"00:00","تعطیل کاری":d.holiday_work||d.holiday||"00:00","اضافه کاری":d.overtime,"مازاد حضور":d.surplus||"00:00","تبدیل‌شده":d.adjusted_ot||"00:00","وضعیت":d.is_holiday?"تعطیل":(d.absent?"غیبت":"")}); }
-      else d.punches.forEach((p,i)=>rows.push({"تاریخ":i===0?d.jdate:"","روز هفته":i===0?d.weekday:"","ورود":p.in||"--:--","خروج":p.out||"--:--","محل ورود":p.in_station||"--","محل خروج":p.out_station||"--","حضور کل":i===0?d.worked:"","حضور در شیفت":i===0?d.in_shift:"","کسری کار":i===0?d.shortage:"","شب کاری":i===0?d.night:"","جمعه کاری":i===0?(d.friday||"00:00"):"","تعطیل کاری":i===0?(d.holiday||"00:00"):"","اضافه کاری":i===0?d.overtime:"","مازاد حضور":i===0?(d.surplus||"00:00"):"","تبدیل‌شده":i===0?(d.adjusted_ot||"00:00"):"","وضعیت":i===0&&d.is_holiday?"تعطیل":""})); });
-    const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,(data.user.name||"تردد").slice(0,28)); XLSX.writeFile(wb,"گزارش_تردد_"+(data.user.name||"")+".xlsx"); };
+  const n=(v)=>{const s=String(v==null?"":v).replace(/[۰-۹]/g,x=>"۰۱۲۳۴۵۶۷۸۹".indexOf(x)); const m=s.match(/(?:^|[ T])([01]?\d|2[0-3]):([0-5]\d)/); return m?String(+m[1]).padStart(2,"0")+":"+m[2]:"";};
+  const pin=(p)=>n(p&& (p.in??p.in_full??p.check_in??p.first_in??p.first_entry));
+  const pout=(p)=>n(p&& (p.out??p.out_full??p.check_out??p.last_out??p.last_exit));
+  const mins=(v)=>{const s=String(v==null?"":v).replace(/[۰-۹]/g,x=>"۰۱۲۳۴۵۶۷۸۹".indexOf(x));const m=s.match(/(\d+):([0-5]\d)/);return m?(+m[1])*60+(+m[2]):0;};
+  const hm=(v)=>{v=Math.max(0,parseInt(v,10)||0);return String(Math.floor(v/60)).padStart(2,"0")+":"+String(v%60).padStart(2,"0");};
+  const punchTimes=(d)=>{const p=Array.isArray(d.punches)?d.punches:[];return {ins:p.map(pin).filter(Boolean),outs:p.map(pout).filter(Boolean)};};
+  const dayVal=(d,k)=>{
+    const {ins,outs}=punchTimes(d);
+    if(k==="in")return ins[0]||"--:--";
+    if(k==="out")return outs.length?outs[outs.length-1]:"--:--";
+    if(k==="in_station")return ((d.punches||[]).find(p=>p&&p.in_station)||{}).in_station||"—";
+    if(k==="out_station")return (((d.punches||[]).slice().reverse().find(p=>p&&p.out_station))||{}).out_station||"—";
+    if(k==="first_in")return n(d.first_in)||ins[0]||"--:--";
+    if(k==="last_out")return n(d.last_out)||(outs.length?outs[outs.length-1]:"--:--");
+    const v=d[k]; return v==null||v===""?"00:00":v;
+  };
+  const convertSurplus=async(d)=>{ const surplus=mins(d.surplus); if(!surplus){alert("مازاد حضوری برای تبدیل وجود ندارد");return;} const val=prompt("چند دقیقه از مازاد حضور به اضافه‌کار تبدیل شود؟",String(surplus)); if(val===null)return; const minutes=Math.max(0,Math.min(surplus,parseInt(String(val).replace(/\D/g,""),10)||0)); const reason=prompt("علت/توضیح تأیید مازاد حضور:","تأیید مدیر"); try{await db.attendanceSurplusConvert({user_id:+uid,jdate:d.jdate,minutes,reason:reason||""});await refresh();}catch(e){alert(e.message||"خطا در تبدیل مازاد حضور");} };
+  const resetSurplus=async(d)=>{if(!confirm("تبدیل مازاد حضور این روز حذف شود؟"))return;try{await db.attendanceSurplusReset({user_id:+uid,jdate:d.jdate});await refresh();}catch(e){alert(e.message||"خطا");}};
+  const columns=[
+    ["تاریخ",d=>d.jdate||"—"],["روز هفته",d=>d.weekday||"—"],["ورود",d=>dayVal(d,"in")],["خروج",d=>dayVal(d,"out")],
+    ["محل ورود",d=>dayVal(d,"in_station")],["محل خروج",d=>dayVal(d,"out_station")],["حضور در شیفت",d=>dayVal(d,"in_shift")],
+    ["کسری کار",d=>dayVal(d,"shortage")],["غیبت",d=>String(d.absent??0)],["جمع غیبت و کسری کار",d=>dayVal(d,"absence_shortage")],
+    ["شب کاری",d=>dayVal(d,"night")],["اضافه کاری",d=>dayVal(d,"overtime")],["موظفی",d=>dayVal(d,"expected")],
+    ["ماموریت",d=>dayVal(d,"mission")],["مرخصی استحقاقی",d=>dayVal(d,"annual_leave")],["مرخصی استعلاجی",d=>dayVal(d,"sick_leave")],
+    ["مرخصی بدون حقوق",d=>dayVal(d,"unpaid_leave")],["مازاد حضور",d=>dayVal(d,"surplus")],["کل حضور",d=>dayVal(d,"worked")],
+    ["اضافه کاری تعطیل",d=>dayVal(d,"holiday_overtime")],["اضافه کاری جمعه",d=>dayVal(d,"friday_overtime")],["جمع اضافه کاری",d=>dayVal(d,"total_overtime")],
+    ["اضافه کاری تعطیل و جمعه",d=>dayVal(d,"holiday_friday_overtime")],["جمعه کاری",d=>dayVal(d,"friday_work")],["روزکارکرد جمعه",d=>dayVal(d,"friday_workday")],
+    ["تهاتر مازاد حضور",d=>dayVal(d,"adjusted_surplus")],["تهاتر کسری کار",d=>dayVal(d,"adjusted_shortage")],["اولین ورود",d=>dayVal(d,"first_in")],["آخرین خروج",d=>dayVal(d,"last_out")]
+  ];
+  const exportExcel=()=>{if(!data)return;const rows=[columns.map(x=>x[0])];(data.days||[]).forEach(d=>rows.push(columns.map(x=>x[1](d))));const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"گزارش تردد ۲۹ ستونه");XLSX.writeFile(wb,"گزارش تردد پرسنل - ۲۹ ستونه.xlsx");};
 
   return(<div className="panel"><h3>🕒 گزارش تردد پرسنل</h3>
     <div className="card-p" style={{marginBottom:14}}>
       <div className="row" style={{gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
-        <div style={{minWidth:260}}><label className="label">پرسنل</label>
-          <input className="input" value={personQuery} onChange={e=>setPersonQuery(e.target.value)} placeholder="جستجوی نام، نام خانوادگی یا کد ملی" style={{marginBottom:6}}/>
+        <div style={{minWidth:280,flex:"1 1 280px"}}><label className="label">پرسنل</label>
+          <input className="input" value={personQuery} onChange={e=>setPersonQuery(e.target.value)} placeholder="جستجوی نام، نام خانوادگی یا کد پرسنلی" style={{marginBottom:6}}/>
           <select className="input" value={uid} onChange={e=>setUid(e.target.value)}>
-            <option value="">انتخاب پرسنل…</option>
-            {users.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
-          </select></div>
+            <option value="">انتخاب پرسنل…</option>{visibleUsers.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+          </select>
+        </div>
         <div><label className="label">از تاریخ</label><JDate value={from} onChange={setFrom} jalali/></div>
         <div><label className="label">تا تاریخ</label><JDate value={to} onChange={setTo} jalali/></div>
         <button className="btn p" onClick={run} disabled={busy}>{busy?"…":"🔍 مشاهده گزارش"}</button>
         <button className="btn g" onClick={exportExcel} disabled={!data}>⤓ دانلود گزارش</button>
       </div>
     </div>
-
     {data&&<div className="card-p" style={{marginBottom:10,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-      <b>{data.user.name}</b>
-      <span style={{color:"var(--muted)",fontSize:12}}>کد پرسنلی: {fa(data.user.pcode)} | از {fa(data.from)} تا {fa(data.to)}</span>
+      <b>{data.user?.name||"—"}</b><span style={{color:"var(--muted)",fontSize:12}}>کد پرسنلی: {fa(data.user?.pcode||"—")} | از {fa(data.from||from||"—")} تا {fa(data.to||to||"—")}</span>
     </div>}
-
-    {data&&<div style={{overflowX:"auto"}}>
-      <table style={{fontSize:12.5,minWidth:640}}>
-        <thead><tr><th>تاریخ</th><th>روز هفته</th><th>خلاصه تردد</th><th>حضور کل</th><th>حضور در شیفت</th><th>کسری کار</th><th>شب کاری</th><th>جمعه/تعطیل</th><th>اضافه کاری</th><th>مازاد حضور</th><th>اقدام</th></tr></thead>
-        <tbody>{data.days.map(d=>{
-          const red=!!d.is_holiday || !!d.is_friday || d.weekday==="جمعه";
-          return(<tr key={d.jdate}>
-            <td style={{color:red?"var(--danger)":"inherit",fontWeight:red?700:400}}>{fa(d.jdate)}{red&&<div style={{fontSize:10}}>تعطیل</div>}</td>
-            <td style={{color:red?"var(--danger)":"inherit"}}>{d.weekday}</td>
-            <td style={{textAlign:"center",position:"relative"}}>
-              <button onClick={()=>setOpenDay(openDay===d.jdate?null:d.jdate)} title="لیست ورود و خروج" aria-label="لیست ورود و خروج" data-attendance-clock="1"
-                style={{border:"none",background:"none",cursor:"pointer",color:d.punches.length?"#b83b8c":"#888",fontSize:18}}>🕐</button>
-              {openDay===d.jdate&&<PunchPopup day={d} onClose={()=>setOpenDay(null)} onEdit={setEdit} onDel={delPunch} onAdd={()=>setAddModal({jdate:d.jdate})}/>}
-            </td>
-            <td>{fa(d.worked||"00:00")}</td>
-            <td>{fa(d.in_shift)}</td>
-            <td style={{color:d.shortage!=="00:00"?"var(--danger)":"inherit"}}>{fa(d.shortage)}</td>
-            <td>{fa(d.night)}</td>
-            <td><div>{fa(d.friday_work||d.friday||"00:00")} جمعه</div><div>{fa(d.holiday_work||d.holiday||"00:00")} تعطیل</div></td>
-            <td style={{color:"var(--ok)"}}>{fa(d.overtime)}</td>
-            <td style={{color:(d.surplus&&d.surplus!=="00:00")?"var(--danger)":"inherit"}}>{fa(d.surplus||"00:00")}{d.adjusted_ot&&d.adjusted_ot!=="00:00"?<div style={{fontSize:10,color:"var(--ok)"}}>تبدیل‌شده: {fa(d.adjusted_ot)}</div>:null}</td>
-            <td>{d.surplus&&d.surplus!=="00:00"?<button className="btn p" style={{padding:"5px 8px",fontSize:11}} onClick={()=>convertSurplus(d)}>تبدیل</button>:d.adjusted_ot&&d.adjusted_ot!=="00:00"?<button className="btn g" style={{padding:"5px 8px",fontSize:11}} onClick={()=>resetSurplus(d)}>لغو</button>:"—"}</td>
-          </tr>);
+    {data&&<div style={{overflowX:"auto",border:"1px solid var(--line)",borderRadius:10}}>
+      <table className="khar-attendance-native" style={{fontSize:12,minWidth:2400}}>
+        <thead><tr>{columns.map(([title],i)=><th key={title} style={{whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2}}>{title}</th>)}</tr></thead>
+        <tbody>{(data.days||[]).map(d=>{
+          const red=!!d.is_holiday||!!d.is_friday||d.weekday==="جمعه";
+          return <tr key={d.jdate}>
+            {columns.map(([title,get],i)=><td key={title} style={{whiteSpace:"nowrap",color:red?"var(--danger)":"inherit",fontWeight:i<2&&red?700:400,textAlign:["ورود","خروج","اولین ورود","آخرین خروج"].includes(title)?"center":"right"}>
+              {title==="تاریخ"?<>{fa(get(d))}{red&&<div style={{fontSize:10}}>تعطیل</div>}</>:fa(get(d))}
+              {title==="تاریخ"&&<button type="button" className="btn g" style={{padding:"3px 6px",fontSize:10,marginInlineStart:5}} onClick={()=>setOpenDay(openDay===d.jdate?null:d.jdate)}>جزئیات</button>}
+            </td>)}
+          </tr>;
         })}</tbody>
       </table>
     </div>}
-
+    {data&&<div style={{marginTop:8,fontSize:11,color:"var(--muted)"}}>۲۹ ستون گزارش فعال است؛ ساعت ورود و خروج از داده واقعی تردد خوانده می‌شود.</div>}
+    {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div style={{position:"fixed",inset:0,zIndex:10000,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div className="card-p" style={{width:"min(760px,96vw)",maxHeight:"90vh",overflow:"auto"}}><button className="btn g" onClick={()=>setOpenDay(null)}>بستن</button><h3>جزئیات تردد {fa(d.jdate)}</h3><table><thead><tr><th>ورود</th><th>خروج</th><th>روش ثبت</th><th>دستگاه</th><th>اقدام</th></tr></thead><tbody>{(d.punches||[]).map(p=><tr key={p.id}><td>{fa(pin(p)||"--:--")}</td><td>{fa(pout(p)||"--:--")}</td><td>{p.method||"—"}</td><td>{p.device||"—"}</td><td><button className="btn g" onClick={()=>setEdit(p)}>اصلاح</button><button className="btn g" onClick={()=>delPunch(p)}>حذف</button></td></tr>)}</tbody></table><button className="btn p" onClick={()=>setAddModal({jdate:d.jdate})}>ثبت تردد دستی</button></div></div>:null})()}
     {edit&&<PunchEditModal punch={edit} onSave={savePunch} onClose={()=>setEdit(null)}/>}
     {addModal&&<PunchAddModal jdate={addModal.jdate} onSave={addPunch} onClose={()=>setAddModal(null)}/>}
   </div>);
