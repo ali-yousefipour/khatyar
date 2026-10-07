@@ -6023,10 +6023,16 @@ function AttendanceReport(){
         <tbody>{(data.days||[]).map(d=>{
           const red=!!d.is_holiday||!!d.is_friday||d.weekday==="جمعه";
           return <tr key={d.jdate}>
-            {columns.map(([title,getter],i)=><td key={title} style={{whiteSpace:"nowrap",color:red?"var(--danger)":"inherit",fontWeight:(i<2&&red)?700:400,textAlign:["ورود","خروج","اولین ورود","آخرین خروج"].includes(title)?"center":"right"}>
-              {fa(getter(d))}{title==="تاریخ"&&red&&<span style={{display:"block",fontSize:10}}>تعطیل</span>}
-              {title==="تاریخ"&&<button type="button" className="btn g" style={{padding:"3px 6px",fontSize:10,marginInlineStart:5}} onClick={()=>setOpenDay(openDay===d.jdate?null:d.jdate)}>جزئیات</button>}
-            </td>)}
+            {columns.map((col,i)=>{
+              const title=col[0];
+              const getter=col[1];
+              const fontWeight=(i<2&&red)?700:400;
+              const textAlign=["ورود","خروج","اولین ورود","آخرین خروج"].includes(title)?"center":"right";
+              return <td key={title} style={{whiteSpace:"nowrap",color:red?"var(--danger)":"inherit",fontWeight:fontWeight,textAlign:textAlign}}>
+                {fa(getter(d))}{title==="تاریخ"&&red&&<span style={{display:"block",fontSize:10}}>تعطیل</span>}
+                {title==="تاریخ"&&<button type="button" className="btn g" style={{padding:"3px 6px",fontSize:10,marginInlineStart:5}} onClick={()=>setOpenDay(openDay===d.jdate?null:d.jdate)}>جزئیات</button>}
+              </td>;
+            })}
           </tr>;
         })}</tbody>
       </table>
