@@ -1,10 +1,10 @@
-/* خطیار — اصلاح ساعت تردد: انتخاب ساعت و دقیقه با Drop-down */
+/* خطیار — اصلاح ساعت تردد: انتخاب ساعت و دقیقه با Drop-down | FINAL v269 */
 (function(){
 'use strict';
 var FA='۰۱۲۳۴۵۶۷۸۹',EN='0123456789';
 function fa(v){return String(v==null?'':v).replace(/[0-9]/g,function(x){return FA[x.charCodeAt(0)-48];});}
 function en(v){return String(v==null?'':v).replace(/[۰-۹]/g,function(x){return EN[FA.indexOf(x)];});}
-function hm(v){var s=en(String(v||'')).trim(),m=s.match(/(\d{1,2})\s*[:٫.]\s*(\d{1,2})/);if(!m)return '';return String(Math.max(0,Math.min(23,+m[1]||0))).padStart(2,'0')+':'+String(Math.max(0,Math.min(59,+m[2]||0))).padStart(2,'0');}
+function punchTime(p,k){p=p||{};var a=k==='in'?['in','in_full','check_in','first_in','first_entry']:['out','out_full','check_out','last_out','last_exit'];for(var i=0;i<a.length;i++){var v=p[a[i]];if(v!=null&&String(v).trim()!=='')return v;}return '';}\nfunction hm(v){var s=en(String(v==null?'':v).trim()),m=s.match(/(?:^|[ T])([01]?\d|2[0-3])\s*[:٫.]\s*([0-5]\d)(?::\d{1,2})?(?:\s|$)/);if(!m)m=s.match(/([01]?\d|2[0-3])\s*[:٫.]\s*([0-5]\d)/);if(!m)return '';return String(+m[1]).padStart(2,'0')+':'+String(+m[2]).padStart(2,'0');}
 function cleanSettings(){var a=Array.from(document.querySelectorAll('button,a,[role="button"]')).filter(function(x){return /تنظیم\s*ستون/.test((x.textContent||'').replace(/\s+/g,' ').trim());});if(a.length<2)return;var keep=a.find(function(x){return x.classList.contains('khar-column-settings-v6');})||a[0];a.forEach(function(x){if(x!==keep)x.remove();});}
 function cleanExcel(){document.querySelectorAll('button,a,[role="button"]').forEach(function(x){var t=(x.textContent||'').replace(/\s+/g,' ').trim();if(/خروجی\s*(XLSX|Excel)|Excel\s*۲۹|گزارش تردد.*ستونه/.test(t))x.remove();});}
 function findPunch(id){var d=window.__khatyarAttendancePayload;if(!d||!Array.isArray(d.days))return null;for(var i=0;i<d.days.length;i++){var p=d.days[i].punches||[];for(var j=0;j<p.length;j++)if(String(p[j].id)===String(id))return p[j];}return null;}
@@ -25,8 +25,8 @@ function picker(id,title,value,onChange){
  wrap.querySelector('.kh-tp-ok').onclick=function(){onChange(hs.value+':'+ms.value);wrap.remove();};
  refresh();setTimeout(function(){hs.focus();},30);
 }
-function openEdit(id){var p=findPunch(id);if(!p)return;close('khar-edit-v6');var wrap=document.createElement('div');wrap.id='khar-edit-v6';wrap.className='khar-overlay';wrap.innerHTML='<div class="khar-dialog khar-prof-edit"><button class="khar-close" type="button">×</button><h3>اصلاح ساعت تردد</h3><p class="khar-edit-hint">برای اصلاح ساعت، روی آیکون ساعت کنار زمان ورود یا خروج بزنید.</p><div class="khar-edit-grid"><label>ورود<div class="khar-time-control" dir="ltr"><span class="khar-time-value" data-t="in">'+fa(hm(p.in)||'--:--')+'</span><button type="button" class="khar-clock-icon" data-clock="in" title="انتخاب ساعت ورود" aria-label="انتخاب ساعت ورود"><i class="bi bi-clock-history"></i></button></div></label><label>خروج<div class="khar-time-control" dir="ltr"><span class="khar-time-value" data-t="out">'+fa(hm(p.out)||'--:--')+'</span><button type="button" class="khar-clock-icon" data-clock="out" title="انتخاب ساعت خروج" aria-label="انتخاب ساعت خروج"><i class="bi bi-clock-history"></i></button></div></label></div><button type="button" class="khar-save" data-save>ذخیره تغییرات</button></div>';document.body.appendChild(wrap);
- var vals={in:hm(p.in)||'',out:hm(p.out)||''};
+function openEdit(id){var p=findPunch(id);if(!p)return;close('khar-edit-v6');var wrap=document.createElement('div');wrap.id='khar-edit-v6';wrap.className='khar-overlay';wrap.innerHTML='<div class="khar-dialog khar-prof-edit"><button class="khar-close" type="button">×</button><h3>اصلاح ساعت تردد</h3><p class="khar-edit-hint">برای اصلاح ساعت، روی آیکون ساعت کنار زمان ورود یا خروج بزنید.</p><div class="khar-edit-grid"><label>ورود<div class="khar-time-control" dir="ltr"><span class="khar-time-value" data-t="in">'+fa(hm(punchTime(p,'in'))||'--:--')+'</span><button type="button" class="khar-clock-icon" data-clock="in" title="انتخاب ساعت ورود" aria-label="انتخاب ساعت ورود"><i class="bi bi-clock-history"></i></button></div></label><label>خروج<div class="khar-time-control" dir="ltr"><span class="khar-time-value" data-t="out">'+fa(hm(punchTime(p,'out'))||'--:--')+'</span><button type="button" class="khar-clock-icon" data-clock="out" title="انتخاب ساعت خروج" aria-label="انتخاب ساعت خروج"><i class="bi bi-clock-history"></i></button></div></label></div><button type="button" class="khar-save" data-save>ذخیره تغییرات</button></div>';document.body.appendChild(wrap);
+ var vals={in:hm(punchTime(p,'in'))||'',out:hm(punchTime(p,'out'))||''};
  wrap.querySelectorAll('.khar-clock-icon').forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-clock');picker(k,k==='in'?'ساعت ورود':'ساعت خروج',vals[k]||'08:00',function(v){vals[k]=v;var f=wrap.querySelector('.khar-time-value[data-t="'+k+'"]');if(f)f.textContent=fa(v);});};});
  wrap.querySelectorAll('.khar-time-value').forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-t'),btn=wrap.querySelector('.khar-clock-icon[data-clock="'+k+'"]');if(btn)btn.click();};});
  wrap.querySelector('.khar-close').onclick=function(){wrap.remove();};
@@ -39,3 +39,5 @@ var css=document.createElement('style');css.textContent='.khar-time-control{disp
 function boot(){cleanSettings();cleanExcel();var n=0,t=setInterval(function(){cleanSettings();cleanExcel();if(++n>=80)clearInterval(t);},300);}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
+
+/* DEPLOY-SYNC: 20261007-v269 */
