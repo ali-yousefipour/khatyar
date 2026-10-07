@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
           ref: main
 
-      - name: Build deployment payload from latest 3 main commits
+      - name: Build deployment payload from latest 3 PHP-touching main commits
         shell: bash
         run: |
           set -euo pipefail
@@ -110,7 +110,7 @@ jobs:
           fi
 
           if [ "${change_count}" -eq 0 ]; then
-            echo "No PHP changes in the latest 3 commits; nothing needs to be uploaded."
+            echo "No PHP changes in the latest 3 PHP-touching commits; nothing needs to be uploaded."
           fi
 
       - name: Install lftp
