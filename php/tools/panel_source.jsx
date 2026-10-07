@@ -6140,20 +6140,38 @@ function toFaDigits(v){
   return String(v??"").replace(/\\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[+d]);
 }
 function HmField({label,value,onChange,optional=false,autoFocus=false}){
-  const normalized=normalizeHm(value)||"";
+  const [text,setText]=useState(String(value??""));
+  useEffect(()=>{setText(String(value??""));},[value]);
+  const handleChange=(e)=>{
+    const raw=String(e.target.value??"")
+      .replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+      .replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d))
+      .replace(/[^0-9:]/g,"")
+      .slice(0,5);
+    setText(raw);
+    onChange(raw);
+  };
+  const handleBlur=()=>{
+    const n=normalizeHm(text);
+    if(n){setText(n);onChange(n);}
+  };
   return <div className="punch-field" style={{minWidth:0,flex:"1 1 280px"}}>
     <label className="label">{label}{optional?" — اختیاری":""}</label>
     <div className="punch-time-control" dir="ltr" style={{width:"100%"}}>
       <input
         className="input punch-time-input"
-        type="time"
-        step="60"
-        value={normalized}
-        onChange={e=>onChange(e.target.value||"")}
+        type="text"
+        inputMode="numeric"
+        dir="ltr"
+        value={text}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        placeholder="00:00"
+        maxLength={5}
         autoFocus={autoFocus}
         aria-label={label}
         aria-describedby={label+"-hint"}
-        style={{width:"100%",height:46,boxSizing:"border-box",fontSize:18,textAlign:"center"}}
+        style={{width:"100%",height:46,boxSizing:"border-box",fontSize:20,fontWeight:700,textAlign:"center",letterSpacing:1}}
       />
       <span id={label+"-hint"} className="punch-time-hint" style={{display:"block",marginTop:6,textAlign:"center"}}>ساعت را به شکل ۲۴ ساعته وارد کنید</span>
     </div>
