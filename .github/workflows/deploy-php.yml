@@ -229,6 +229,21 @@ jobs:
 
           echo "Public panel verification passed for ${GITHUB_SHA}."
 
+      - name: Verify public panel bundle after PHP upload
+        if: ${{ hashFiles('deploy-payload/app/assets/panel.bundle.js') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          url="https://app.yousefipour.ir/assets/panel.bundle.js?deploy_verify=${GITHUB_SHA}"
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+            -H 'Cache-Control: no-cache, no-store' \
+            -A 'Khatyar-Deploy-Verify/1.0' \
+            "${url}" > /tmp/live-panel-bundle.js
+
+          grep -q 'complaints-panel-v257.js?v=20261007.263' /tmp/live-panel-bundle.js
+          echo "Public panel bundle verification passed for ${GITHUB_SHA}."
+
       - name: Delete removed PHP files from FTP root
         if: ${{ hashFiles('deploy-deletions.txt') != '' }}
         shell: bash
