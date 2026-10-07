@@ -34,10 +34,10 @@ jobs:
       - name: Verify PHP deployment payload
         run: |
           test -d ./php
-          echo "PHP deployment directory is ready: ./php"
+          echo "Deploying contents of ./php/ to FTP account root"
           find ./php -maxdepth 2 -type f | head -50
 
-      - name: Deploy php directory by FTP
+      - name: Deploy contents of php directory to FTP root
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: 2870352177.cloudylink.com
@@ -46,7 +46,7 @@ jobs:
           protocol: ftp
           port: 21
           local-dir: ./php/
-          server-dir: /home/h301194/
+          server-dir: /
           dangerous-clean-slate: false
           log-level: verbose
           exclude: |
@@ -56,4 +56,4 @@ jobs:
             **/.env.*
             **/node_modules/**
             **/vendor/**
-            **/*.log
+            **/*.log**
