@@ -6132,7 +6132,7 @@ function normalizeHm(v){
     .replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d))
     .replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d));
   if(!raw)return null;
-  const m=raw.match(/(?:^|[T ])(?:\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}[T ]?)?([01]?\\d|2[0-3]):([0-5]\\d)/);
+  const m=raw.match(/(?:^|[T ])(?:\d{4}[-/]\d{1,2}[-/]\d{1,2}[T ]?)?([01]?\d|2[0-3]):([0-5]\d)/);
   if(!m)return null;
   return String(+m[1]).padStart(2,"0")+":"+String(+m[2]).padStart(2,"0");
 }
