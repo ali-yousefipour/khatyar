@@ -6126,23 +6126,33 @@ function PunchPopup({day,onClose,onEdit,onDel,onAdd}){
 
 // مودال ویرایش ساعت یک پانچ (ادمین)
 function normalizeHm(v){
-  const raw=String(v||"").trim().replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d));
-  const m=raw.match(/(?:^|[ T])([01]?\d|2[0-3]):([0-5]\d)/);
+  const raw=String(v??"").trim()
+    .replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+    .replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d));
+  if(!raw)return null;
+  const m=raw.match(/(?:^|[T ])(?:\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}[T ]?)?([01]?\\d|2[0-3]):([0-5]\\d)/);
   if(!m)return null;
-  const h=+m[1], min=+m[2];
-  if(h<0||h>23||min<0||min>59)return null;
-  return String(h).padStart(2,"0")+":"+String(min).padStart(2,"0");
+  return String(+m[1]).padStart(2,"0")+":"+String(+m[2]).padStart(2,"0");
+}
+function toFaDigits(v){
+  return String(v??"").replace(/\\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[+d]);
 }
 function HmField({label,value,onChange,optional=false,autoFocus=false}){ 
   const normalized=normalizeHm(value)||"";
+  const displayValue=toFaDigits(normalized);
   return <div className="punch-field">
     <label className="label">{label}{optional?" — اختیاری":""}</label>
-    <div className="punch-time-control">
-      <input className="input punch-time-input" inputMode="numeric" type="time" step="60" autoFocus={autoFocus}
-        value={normalized}
+    <div className="punch-time-control" dir="rtl">
+      <input className="input punch-time-input" inputMode="numeric" type="text" dir="ltr"
+        value={displayValue}
         onChange={e=>onChange(e.target.value)}
-        aria-label={label}
-        aria-describedby={label+"-hint"} />
+        onBlur={e=>{const n=normalizeHm(e.target.value); if(n) onChange(n);}}
+        placeholder="۰۰:۰۰" maxLength={5} autoFocus={autoFocus}
+        aria-label={label} aria-describedby={label+"-hint"} />
+      <select className="input punch-time-select" dir="rtl" value={normalized} onChange={e=>onChange(e.target.value)} aria-label={label+" انتخاب ساعت"}>
+        <option value="">انتخاب ساعت</option>
+        {Array.from({length:24},(_,h)=>Array.from({length:60},(_,m)=>{const v=String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");return <option key={v} value={v}>{toFaDigits(v)}</option>;}))}
+      </select>
       <span id={label+"-hint"} className="punch-time-hint">تایپ کنید یا از انتخاب‌گر ساعت استفاده کنید</span>
     </div>
   </div>;
@@ -6160,8 +6170,8 @@ function PunchModalShell({title,subtitle,children,onClose,actions}){
   </div>;
 }
 function PunchEditModal({punch,onSave,onClose}){
-  const punchInValue=punch.in??punch.in_full??punch.check_in??punch.first_in??punch.first_entry??"";
-  const punchOutValue=punch.out??punch.out_full??punch.check_out??punch.last_out??punch.last_exit??"";
+  const punchInValue=punch.in??punch.in_full??punch.check_in??punch.first_in??punch.first_entry??punch.in_time??punch.in_at??"";
+  const punchOutValue=punch.out??punch.out_full??punch.check_out??punch.last_out??punch.last_exit??punch.out_time??punch.out_at??"";
   const [ci,setCi]=useState(normalizeHm(punchInValue)||"");
   const [co,setCo]=useState(normalizeHm(punchOutValue)||"");
   const [err,setErr]=useState("");
