@@ -5973,6 +5973,13 @@ function AttendanceReport(){
   const pout=(p)=>n(p&& (p.out??p.out_full??p.check_out??p.last_out??p.last_exit));
   const mins=(v)=>{const s=String(v==null?"":v).replace(/[۰-۹]/g,x=>"۰۱۲۳۴۵۶۷۸۹".indexOf(x));const m=s.match(/(\d+):([0-5]\d)/);return m?(+m[1])*60+(+m[2]):0;};
   const hm=(v)=>{v=Math.max(0,parseInt(v,10)||0);return String(Math.floor(v/60)).padStart(2,"0")+":"+String(v%60).padStart(2,"0");};
+  // fa() فقط برای مقادیر عددی طراحی شده و رشته‌هایی مثل 08:15 یا 1405/07/15 را «—» می‌کند.
+  // گزارش تردد شامل زمان/تاریخ رشته‌ای است؛ بنابراین باید رشته را فقط به ارقام فارسی تبدیل کنیم.
+  const attendanceCell=(v)=>{
+    if(v===null||v===undefined||v==="") return "—";
+    if(typeof v==="number"&&Number.isFinite(v)) return v.toLocaleString("fa-IR");
+    return faPlain(String(v));
+  };
   const punchTimes=(d)=>{
     const p=Array.isArray(d.punches)?d.punches:[];
     const ins=p.map(pin).filter(Boolean);
@@ -6039,7 +6046,7 @@ function AttendanceReport(){
               const fontWeight=(i<2&&red)?700:400;
               const textAlign=["ورود","خروج","اولین ورود","آخرین خروج"].includes(title)?"center":"right";
               return <td key={title} style={{whiteSpace:"nowrap",color:red?"var(--danger)":"inherit",fontWeight:fontWeight,textAlign:textAlign}}>
-                {fa(getter(d))}{title==="تاریخ"&&red&&<span style={{display:"block",fontSize:10}}>تعطیل</span>}
+                {attendanceCell(getter(d))}{title==="تاریخ"&&red&&<span style={{display:"block",fontSize:10}}>تعطیل</span>}
                 {title==="تاریخ"&&<button type="button" className="btn g" style={{padding:"3px 6px",fontSize:10,marginInlineStart:5}} onClick={()=>setOpenDay(openDay===d.jdate?null:d.jdate)}>جزئیات</button>}
               </td>;
             })}
