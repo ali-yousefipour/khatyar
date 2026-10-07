@@ -6139,21 +6139,13 @@ function toFaDigits(v){
 }
 function HmField({label,value,onChange,optional=false,autoFocus=false}){ 
   const normalized=normalizeHm(value)||"";
-  const displayValue=toFaDigits(normalized);
   return <div className="punch-field">
     <label className="label">{label}{optional?" — اختیاری":""}</label>
     <div className="punch-time-control" dir="rtl">
-      <input className="input punch-time-input" inputMode="numeric" type="text" dir="ltr"
-        value={displayValue}
-        onChange={e=>onChange(e.target.value)}
-        onBlur={e=>{const n=normalizeHm(e.target.value); if(n) onChange(n);}}
-        placeholder="۰۰:۰۰" maxLength={5} autoFocus={autoFocus}
-        aria-label={label} aria-describedby={label+"-hint"} />
-      <select className="input punch-time-select" dir="rtl" value={normalized} onChange={e=>onChange(e.target.value)} aria-label={label+" انتخاب ساعت"}>
-        <option value="">انتخاب ساعت</option>
-        {Array.from({length:24},(_,h)=>Array.from({length:60},(_,m)=>{const v=String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");return <option key={v} value={v}>{toFaDigits(v)}</option>;}))}
-      </select>
-      <span id={label+"-hint"} className="punch-time-hint">تایپ کنید یا از انتخاب‌گر ساعت استفاده کنید</span>
+      <input className="input punch-time-input" inputMode="numeric" type="time" step="60"
+        value={normalized} onChange={e=>onChange(e.target.value)}
+        autoFocus={autoFocus} aria-label={label} aria-describedby={label+"-hint"} />
+      <span id={label+"-hint"} className="punch-time-hint">ساعت را به شکل ۲۴ ساعته وارد کنید</span>
     </div>
   </div>;
 }
