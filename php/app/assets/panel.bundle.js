@@ -10133,8 +10133,9 @@ function PunchModalShell({ title, subtitle, children, onClose, actions }) {
             React.createElement("div", { className: "punch-modal-actions" }, actions)));
 }
 function PunchEditModal({ punch, onSave, onClose }) {
-    const punchInValue = pin(punch) || "";
-    const punchOutValue = pout(punch) || "";
+    var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l;
+    const punchInValue = (_f = (_e = (_c = (_b = (_a = punch === null || punch === void 0 ? void 0 : punch.in) !== null && _a !== void 0 ? _a : punch === null || punch === void 0 ? void 0 : punch.in_full) !== null && _b !== void 0 ? _b : punch === null || punch === void 0 ? void 0 : punch.check_in) !== null && _c !== void 0 ? _c : punch === null || punch === void 0 ? void 0 : punch.first_in) !== null && _e !== void 0 ? _e : punch === null || punch === void 0 ? void 0 : punch.first_entry) !== null && _f !== void 0 ? _f : "";
+    const punchOutValue = (_l = (_k = (_j = (_h = (_g = punch === null || punch === void 0 ? void 0 : punch.out) !== null && _g !== void 0 ? _g : punch === null || punch === void 0 ? void 0 : punch.out_full) !== null && _h !== void 0 ? _h : punch === null || punch === void 0 ? void 0 : punch.check_out) !== null && _j !== void 0 ? _j : punch === null || punch === void 0 ? void 0 : punch.last_out) !== null && _k !== void 0 ? _k : punch === null || punch === void 0 ? void 0 : punch.last_exit) !== null && _l !== void 0 ? _l : "";
     const [ci, setCi] = useState(normalizeHm(punchInValue) || "");
     const [co, setCo] = useState(normalizeHm(punchOutValue) || "");
     const [err, setErr] = useState("");
