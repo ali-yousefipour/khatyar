@@ -10098,23 +10098,32 @@ function PunchPopup({ day, onClose, onEdit, onDel, onAdd }) {
 }
 // مودال ویرایش ساعت یک پانچ (ادمین)
 function normalizeHm(v) {
-    const raw = String(v || "").trim().replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
-    const m = raw.match(/(?:^|[ T])([01]?\d|2[0-3]):([0-5]\d)/);
+    const raw = String(v !== null && v !== void 0 ? v : "").trim()
+        .replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+        .replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
+    if (!raw)
+        return null;
+    const m = raw.match(/(?:^|[T ])(?:\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}[T ]?)?([01]?\\d|2[0-3]):([0-5]\\d)/);
     if (!m)
         return null;
-    const h = +m[1], min = +m[2];
-    if (h < 0 || h > 23 || min < 0 || min > 59)
-        return null;
-    return String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
+    return String(+m[1]).padStart(2, "0") + ":" + String(+m[2]).padStart(2, "0");
+}
+function toFaDigits(v) {
+    return String(v !== null && v !== void 0 ? v : "").replace(/\\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[+d]);
 }
 function HmField({ label, value, onChange, optional = false, autoFocus = false }) {
     const normalized = normalizeHm(value) || "";
+    const displayValue = toFaDigits(normalized);
     return React.createElement("div", { className: "punch-field" },
         React.createElement("label", { className: "label" },
             label,
             optional ? " — اختیاری" : ""),
-        React.createElement("div", { className: "punch-time-control" },
-            React.createElement("input", { className: "input punch-time-input", inputMode: "numeric", type: "time", step: "60", autoFocus: autoFocus, value: normalized, onChange: e => onChange(e.target.value), "aria-label": label, "aria-describedby": label + "-hint" }),
+        React.createElement("div", { className: "punch-time-control", dir: "rtl" },
+            React.createElement("input", { className: "input punch-time-input", inputMode: "numeric", type: "text", dir: "ltr", value: displayValue, onChange: e => onChange(e.target.value), onBlur: e => { const n = normalizeHm(e.target.value); if (n)
+                    onChange(n); }, placeholder: "\u06F0\u06F0:\u06F0\u06F0", maxLength: 5, autoFocus: autoFocus, "aria-label": label, "aria-describedby": label + "-hint" }),
+            React.createElement("select", { className: "input punch-time-select", dir: "rtl", value: normalized, onChange: e => onChange(e.target.value), "aria-label": label + " انتخاب ساعت" },
+                React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0633\u0627\u0639\u062A"),
+                Array.from({ length: 24 }, (_, h) => Array.from({ length: 60 }, (_, m) => { const v = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0"); return React.createElement("option", { key: v, value: v }, toFaDigits(v)); }))),
             React.createElement("span", { id: label + "-hint", className: "punch-time-hint" }, "\u062A\u0627\u06CC\u067E \u06A9\u0646\u06CC\u062F \u06CC\u0627 \u0627\u0632 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u06AF\u0631 \u0633\u0627\u0639\u062A \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F")));
 }
 function PunchModalShell({ title, subtitle, children, onClose, actions }) {
@@ -10129,9 +10138,9 @@ function PunchModalShell({ title, subtitle, children, onClose, actions }) {
             React.createElement("div", { className: "punch-modal-actions" }, actions)));
 }
 function PunchEditModal({ punch, onSave, onClose }) {
-    var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l;
-    const punchInValue = (_f = (_e = (_c = (_b = (_a = punch.in) !== null && _a !== void 0 ? _a : punch.in_full) !== null && _b !== void 0 ? _b : punch.check_in) !== null && _c !== void 0 ? _c : punch.first_in) !== null && _e !== void 0 ? _e : punch.first_entry) !== null && _f !== void 0 ? _f : "";
-    const punchOutValue = (_l = (_k = (_j = (_h = (_g = punch.out) !== null && _g !== void 0 ? _g : punch.out_full) !== null && _h !== void 0 ? _h : punch.check_out) !== null && _j !== void 0 ? _j : punch.last_out) !== null && _k !== void 0 ? _k : punch.last_exit) !== null && _l !== void 0 ? _l : "";
+    var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l, _m, _p, _q, _r;
+    const punchInValue = (_h = (_g = (_f = (_e = (_c = (_b = (_a = punch.in) !== null && _a !== void 0 ? _a : punch.in_full) !== null && _b !== void 0 ? _b : punch.check_in) !== null && _c !== void 0 ? _c : punch.first_in) !== null && _e !== void 0 ? _e : punch.first_entry) !== null && _f !== void 0 ? _f : punch.in_time) !== null && _g !== void 0 ? _g : punch.in_at) !== null && _h !== void 0 ? _h : "";
+    const punchOutValue = (_r = (_q = (_p = (_m = (_l = (_k = (_j = punch.out) !== null && _j !== void 0 ? _j : punch.out_full) !== null && _k !== void 0 ? _k : punch.check_out) !== null && _l !== void 0 ? _l : punch.last_out) !== null && _m !== void 0 ? _m : punch.last_exit) !== null && _p !== void 0 ? _p : punch.out_time) !== null && _q !== void 0 ? _q : punch.out_at) !== null && _r !== void 0 ? _r : "";
     const [ci, setCi] = useState(normalizeHm(punchInValue) || "");
     const [co, setCo] = useState(normalizeHm(punchOutValue) || "");
     const [err, setErr] = useState("");
