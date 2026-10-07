@@ -201,10 +201,10 @@ jobs:
           echo "Uploading changed PHP files without remote directory creation:"
           find deploy-payload -type f -print | sort | grep -v '^deploy-payload/lib/routes.php$' || true
 
-          lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "\$(cat /tmp/lftp-upload.cmd)"
+          lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-upload.cmd)"
 
           if [ -f deploy-payload/lib/routes.php ]; then
-            ROUTES_TOKEN="\$(openssl rand -hex 32)"
+            ROUTES_TOKEN="$(openssl rand -hex 32)"
             STAGE_NAME=".routes-deploy-${GITHUB_SHA}.php"
             INSTALLER_NAME=".routes-install-${GITHUB_SHA}.php"
 
@@ -257,7 +257,7 @@ jobs:
               echo 'bye'
             } >> /tmp/lftp-routes-stage.cmd
 
-            lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "\$(cat /tmp/lftp-routes-stage.cmd)"
+            lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-routes-stage.cmd)"
 
             echo "Installing canonical /lib/routes.php through the host PHP process..."
             install_url="https://app.yousefipour.ir/assets/${INSTALLER_NAME}"
