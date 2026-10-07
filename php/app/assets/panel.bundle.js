@@ -10030,7 +10030,7 @@ function AttendanceReport() {
                     }));
                 })))),
         data && React.createElement("div", { style: { marginTop: 8, fontSize: 11, color: "var(--muted)" } }, "\u06F2\u06F9 \u0633\u062A\u0648\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A\u061B \u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0627\u0632 \u062F\u0627\u062F\u0647 \u0648\u0627\u0642\u0639\u06CC \u062A\u0631\u062F\u062F \u062E\u0648\u0627\u0646\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
-        openDay && data && (() => { const d = (data.days || []).find(x => x.jdate === openDay); return d ? React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+        openDay && data && (() => { const d = (data.days || []).find(x => x.jdate === openDay); return d ? React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 900, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
             React.createElement("div", { className: "card-p", style: { width: "min(760px,96vw)", maxHeight: "90vh", overflow: "auto" } },
                 React.createElement("button", { className: "btn g", onClick: () => setOpenDay(null) }, "\u0628\u0633\u062A\u0646"),
                 React.createElement("h3", null,
@@ -10127,7 +10127,7 @@ function HmField({ label, value, onChange, optional = false, autoFocus = false }
             React.createElement("span", { id: label + "-hint", className: "punch-time-hint" }, "\u062A\u0627\u06CC\u067E \u06A9\u0646\u06CC\u062F \u06CC\u0627 \u0627\u0632 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u06AF\u0631 \u0633\u0627\u0639\u062A \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F")));
 }
 function PunchModalShell({ title, subtitle, children, onClose, actions }) {
-    return React.createElement("div", { className: "modal-bg punch-modal-bg", style: { zIndex: 20000 }, onClick: onClose },
+    return React.createElement("div", { className: "modal-bg punch-modal-bg", style: { zIndex: 99999 }, onClick: onClose },
         React.createElement("div", { className: "modal punch-modal", role: "dialog", "aria-modal": "true", onClick: e => e.stopPropagation() },
             React.createElement("div", { className: "punch-modal-head" },
                 React.createElement("div", null,
@@ -10138,9 +10138,8 @@ function PunchModalShell({ title, subtitle, children, onClose, actions }) {
             React.createElement("div", { className: "punch-modal-actions" }, actions)));
 }
 function PunchEditModal({ punch, onSave, onClose }) {
-    var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l, _m, _p, _q, _r;
-    const punchInValue = (_h = (_g = (_f = (_e = (_c = (_b = (_a = punch.in) !== null && _a !== void 0 ? _a : punch.in_full) !== null && _b !== void 0 ? _b : punch.check_in) !== null && _c !== void 0 ? _c : punch.first_in) !== null && _e !== void 0 ? _e : punch.first_entry) !== null && _f !== void 0 ? _f : punch.in_time) !== null && _g !== void 0 ? _g : punch.in_at) !== null && _h !== void 0 ? _h : "";
-    const punchOutValue = (_r = (_q = (_p = (_m = (_l = (_k = (_j = punch.out) !== null && _j !== void 0 ? _j : punch.out_full) !== null && _k !== void 0 ? _k : punch.check_out) !== null && _l !== void 0 ? _l : punch.last_out) !== null && _m !== void 0 ? _m : punch.last_exit) !== null && _p !== void 0 ? _p : punch.out_time) !== null && _q !== void 0 ? _q : punch.out_at) !== null && _r !== void 0 ? _r : "";
+    const punchInValue = pin(punch) || "";
+    const punchOutValue = pout(punch) || "";
     const [ci, setCi] = useState(normalizeHm(punchInValue) || "");
     const [co, setCo] = useState(normalizeHm(punchOutValue) || "");
     const [err, setErr] = useState("");
