@@ -28,30 +28,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Build changed PHP deployment payload
+      - name: Build deployment payload from last 3 commits
         shell: bash
         env:
-          EVENT_BEFORE: ${{ github.event.before }}
           EVENT_AFTER: ${{ github.sha }}
         run: |
           set -euo pipefail
 
           rm -rf deploy-payload
           mkdir -p deploy-payload
+          : > /tmp/php-deletions.txt
 
-          if [ "${EVENT_BEFORE}" = "0000000000000000000000000000000000000000" ]; then
-            BASE="$(git rev-parse "${EVENT_AFTER}^")"
-          elif git cat-file -e "${EVENT_BEFORE}^{commit}" 2>/dev/null; then
-            BASE="${EVENT_BEFORE}"
-          else
-            BASE="$(git rev-parse "${EVENT_AFTER}^")"
-          fi
+          # Always deploy exactly the union of PHP files changed by the last 3 commits.
+          # No FTP state, remote listing, checksum comparison, or remote diff is used.
+          COMMITS="$(git rev-list --max-count=3 "${EVENT_AFTER}")"
+          echo "Commits selected for deployment:"
+          printf '%s\n' "${COMMITS}"
 
-          echo "Comparing PHP changes: ${BASE}..${EVENT_AFTER}"
+          git diff --name-status --find-renames "${EVENT_AFTER}~3" "${EVENT_AFTER}" -- php/ > /tmp/php-diff.txt
 
-          git diff --name-status --find-renames "${BASE}" "${EVENT_AFTER}" -- php/ > /tmp/php-diff.txt
-
-          echo "Changed PHP paths:"
+          echo "PHP changes across the last 3 commits:"
           cat /tmp/php-diff.txt || true
 
           while IFS=$'\t' read -r status path1 path2; do
@@ -73,22 +69,14 @@ jobs:
             esac
           done < /tmp/php-diff.txt
 
-          if [ -f /tmp/php-deletions.txt ]; then
-            sort -u /tmp/php-deletions.txt > deploy-deletions.txt
-          else
-            : > deploy-deletions.txt
-          fi
+          sort -u /tmp/php-deletions.txt > deploy-deletions.txt
 
-          echo "Deployment payload:"
+          echo "Deployment payload (local files only; no remote inspection):"
           find deploy-payload -type f -print | sort || true
-
           echo "Remote deletions:"
           cat deploy-deletions.txt || true
 
-          if [ -z "$(find deploy-payload -type f -print -quit)" ] && [ ! -s deploy-deletions.txt ]; then
-            echo "No PHP changes to deploy."
-          fi
-
+          echo "Payload file count: $(find deploy-payload -type f | wc -l)"
       - name: Install lftp for FTP transfer
         if: ${{ hashFiles('deploy-payload/**') != '' || hashFiles('deploy-deletions.txt') != '' }}
         shell: bash
