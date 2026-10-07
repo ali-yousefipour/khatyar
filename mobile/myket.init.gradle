@@ -1,12 +1,15 @@
-// KhatYar Gradle repository policy.
-// Resolution policy:
-//   1) Gradle's own local dependency cache (automatic) + local Maven/Expo repos
-//   2) Iranian Maven/Gradle mirrors
-//   3) non-Iranian mirrors
-//   4) official repositories as the final fallback
+// KhatYar local Android Gradle repository policy.
 //
-// Gradle checks its dependency cache before remote resolution, so this script
-// must not use --refresh-dependencies or otherwise defeat the local cache.
+// IMPORTANT:
+//   This init script is for LOCAL Android builds only.
+//   GitHub Actions must NOT use this file. CI uses official Google/Maven
+//   repositories exclusively, enforced by the release workflow.
+//
+// Local resolution policy:
+//   1) Gradle's local dependency cache + local Maven/Expo repos
+//   2) Myket and Iranian mirrors
+//   3) non-Iranian mirrors
+//   4) official repositories as final fallback
 
 final String myketUrl = 'https://maven.myket.ir/'
 final String jamkoUrl = 'https://jamko.ir/'
