@@ -10050,7 +10050,7 @@ function AttendanceReport() {
                         React.createElement("td", null, p.method || "—"),
                         React.createElement("td", null, p.device || "—"),
                         React.createElement("td", null,
-                            React.createElement("button", { className: "btn g", onClick: () => setEdit(p) }, "\u0627\u0635\u0644\u0627\u062D"),
+                            React.createElement("button", { className: "btn g", onClick: () => { setOpenDay(null); setEdit(p); } }, "\u0627\u0635\u0644\u0627\u062D"),
                             React.createElement("button", { className: "btn g", onClick: () => delPunch(p) }, "\u062D\u0630\u0641")))))),
                 React.createElement("button", { className: "btn p", onClick: () => setAddModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC"))) : null; })(),
         edit && React.createElement(PunchEditModal, { punch: edit, onSave: savePunch, onClose: () => setEdit(null) }),
@@ -10099,11 +10099,10 @@ function PunchPopup({ day, onClose, onEdit, onDel, onAdd }) {
 // مودال ویرایش ساعت یک پانچ (ادمین)
 function normalizeHm(v) {
     const raw = String(v || "").trim().replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
-    const m = raw.match(/^\\d{1,2}:\\d{2}$/);
+    const m = raw.match(/(?:^|[ T])([01]?\d|2[0-3]):([0-5]\d)/);
     if (!m)
         return null;
-    const parts = raw.split(":");
-    const h = +parts[0], min = +parts[1];
+    const h = +m[1], min = +m[2];
     if (h < 0 || h > 23 || min < 0 || min > 59)
         return null;
     return String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
@@ -10119,7 +10118,7 @@ function HmField({ label, value, onChange, optional = false, autoFocus = false }
             React.createElement("span", { id: label + "-hint", className: "punch-time-hint" }, "\u062A\u0627\u06CC\u067E \u06A9\u0646\u06CC\u062F \u06CC\u0627 \u0627\u0632 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u06AF\u0631 \u0633\u0627\u0639\u062A \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F")));
 }
 function PunchModalShell({ title, subtitle, children, onClose, actions }) {
-    return React.createElement("div", { className: "modal-bg punch-modal-bg", onClick: onClose },
+    return React.createElement("div", { className: "modal-bg punch-modal-bg", style: { zIndex: 20000 }, onClick: onClose },
         React.createElement("div", { className: "modal punch-modal", role: "dialog", "aria-modal": "true", onClick: e => e.stopPropagation() },
             React.createElement("div", { className: "punch-modal-head" },
                 React.createElement("div", null,
@@ -10130,8 +10129,11 @@ function PunchModalShell({ title, subtitle, children, onClose, actions }) {
             React.createElement("div", { className: "punch-modal-actions" }, actions)));
 }
 function PunchEditModal({ punch, onSave, onClose }) {
-    const [ci, setCi] = useState(normalizeHm(punch.in) || punch.in || "");
-    const [co, setCo] = useState(normalizeHm(punch.out) || punch.out || "");
+    var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l;
+    const punchInValue = (_f = (_e = (_c = (_b = (_a = punch.in) !== null && _a !== void 0 ? _a : punch.in_full) !== null && _b !== void 0 ? _b : punch.check_in) !== null && _c !== void 0 ? _c : punch.first_in) !== null && _e !== void 0 ? _e : punch.first_entry) !== null && _f !== void 0 ? _f : "";
+    const punchOutValue = (_l = (_k = (_j = (_h = (_g = punch.out) !== null && _g !== void 0 ? _g : punch.out_full) !== null && _h !== void 0 ? _h : punch.check_out) !== null && _j !== void 0 ? _j : punch.last_out) !== null && _k !== void 0 ? _k : punch.last_exit) !== null && _l !== void 0 ? _l : "";
+    const [ci, setCi] = useState(normalizeHm(punchInValue) || "");
+    const [co, setCo] = useState(normalizeHm(punchOutValue) || "");
     const [err, setErr] = useState("");
     const submit = () => {
         const nci = normalizeHm(ci), nco = co.trim() ? normalizeHm(co) : "";
