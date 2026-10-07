@@ -209,7 +209,7 @@ jobs:
               set net:timeout 60;
               set net:max-retries 3;
               set ssl:verify-certificate no;
-              get -o /tmp/ftp-verify "${remote}";
+              get "${remote}" -o /tmp/ftp-verify;
               bye
             "
 
