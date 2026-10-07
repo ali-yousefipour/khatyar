@@ -1,4 +1,4 @@
-const KH_COMPLAINTS_BUILD = "2026-10-07-v269";
+const KH_COMPLAINTS_BUILD = "2026-10-06-v257";
 // PANEL BUILD TARGET: 2026-10-06-v248
 // Build sync: keep generated panel bundle aligned with panel_source changes.
 const { useState, useEffect, useRef } = React;
@@ -14395,8 +14395,8 @@ function ComplaintsLauncher() {
         const loadModule = () => new Promise((resolve, reject) => {
             if (typeof window.openComplaints === "function")
                 return resolve();
-            const src = "/assets/complaints-panel.js?v=20261007.269";
-            const existing = [...document.scripts].find(s => String(s.src || "").includes("/assets/complaints-panel.js"));
+            const src = "/assets/complaints-panel-v257.js?v=20261007.267";
+            const existing = [...document.scripts].find(s => String(s.src || "").includes("/assets/complaints-panel-v257.js"));
             if (existing) {
                 const started = Date.now();
                 const wait = () => {
