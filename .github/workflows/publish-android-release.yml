@@ -1,6 +1,7 @@
 name: build-android-release
 
 # CI trigger: verified 1.5.6 / versionCode 10506 release build
+# CI release rerun: official npmjs.org + official Google/Maven Central only
 on:
   workflow_dispatch:
     inputs:
