@@ -9866,6 +9866,15 @@ function AttendanceReport() {
     const pout = (p) => { var _a, _b, _c, _e; return n(p && ((_e = (_c = (_b = (_a = p.out) !== null && _a !== void 0 ? _a : p.out_full) !== null && _b !== void 0 ? _b : p.check_out) !== null && _c !== void 0 ? _c : p.last_out) !== null && _e !== void 0 ? _e : p.last_exit)); };
     const mins = (v) => { const s = String(v == null ? "" : v).replace(/[۰-۹]/g, x => "۰۱۲۳۴۵۶۷۸۹".indexOf(x)); const m = s.match(/(\d+):([0-5]\d)/); return m ? (+m[1]) * 60 + (+m[2]) : 0; };
     const hm = (v) => { v = Math.max(0, parseInt(v, 10) || 0); return String(Math.floor(v / 60)).padStart(2, "0") + ":" + String(v % 60).padStart(2, "0"); };
+    // fa() فقط برای مقادیر عددی طراحی شده و رشته‌هایی مثل 08:15 یا 1405/07/15 را «—» می‌کند.
+    // گزارش تردد شامل زمان/تاریخ رشته‌ای است؛ بنابراین باید رشته را فقط به ارقام فارسی تبدیل کنیم.
+    const attendanceCell = (v) => {
+        if (v === null || v === undefined || v === "")
+            return "—";
+        if (typeof v === "number" && Number.isFinite(v))
+            return v.toLocaleString("fa-IR");
+        return faPlain(String(v));
+    };
     const punchTimes = (d) => {
         var _a, _b, _c, _e;
         const p = Array.isArray(d.punches) ? d.punches : [];
@@ -9978,7 +9987,7 @@ function AttendanceReport() {
                         const fontWeight = (i < 2 && red) ? 700 : 400;
                         const textAlign = ["ورود", "خروج", "اولین ورود", "آخرین خروج"].includes(title) ? "center" : "right";
                         return React.createElement("td", { key: title, style: { whiteSpace: "nowrap", color: red ? "var(--danger)" : "inherit", fontWeight: fontWeight, textAlign: textAlign } },
-                            fa(getter(d)),
+                            attendanceCell(getter(d)),
                             title === "تاریخ" && red && React.createElement("span", { style: { display: "block", fontSize: 10 } }, "\u062A\u0639\u0637\u06CC\u0644"),
                             title === "تاریخ" && React.createElement("button", { type: "button", className: "btn g", style: { padding: "3px 6px", fontSize: 10, marginInlineStart: 5 }, onClick: () => setOpenDay(openDay === d.jdate ? null : d.jdate) }, "\u062C\u0632\u0626\u06CC\u0627\u062A"));
                     }));
