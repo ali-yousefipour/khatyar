@@ -9799,16 +9799,17 @@ function Holidays() {
 // گزارش کارکرد ماهانه
 // گزارش تردد پرسنل (مدل فینتو) — سطر روزانه + پاپ‌آپ لیست ورود/خروج + ویرایش ساعت توسط ادمین
 function AttendanceReport() {
+    var _a, _b;
     const [users, setUsers] = useState([]);
     const [uid, setUid] = useState("");
     const [personQuery, setPersonQuery] = useState("");
-    const [from, setFrom] = useState(todayJStr());
-    const [to, setTo] = useState(todayJStr());
+    const [from, setFrom] = useState("");
+    const [to, setTo] = useState("");
     const [data, setData] = useState(null);
     const [busy, setBusy] = useState(false);
-    const [openDay, setOpenDay] = useState(null); // jdate پاپ‌آپ باز
-    const [edit, setEdit] = useState(null); // {punch, field} در حال ویرایش
-    const [addModal, setAddModal] = useState(null); // {jdate}
+    const [openDay, setOpenDay] = useState(null);
+    const [edit, setEdit] = useState(null);
+    const [addModal, setAddModal] = useState(null);
     useEffect(() => { db.users().then(us => setUsers(us || [])).catch(() => { }); }, []);
     const visibleUsers = users.filter(u => { const q = String(personQuery || "").trim().toLowerCase(); return !q || String((u.first_name || "") + " " + (u.last_name || "")).toLowerCase().includes(q) || String(u.username || "").includes(q); });
     const run = async () => {
@@ -9830,7 +9831,8 @@ function AttendanceReport() {
             setBusy(false);
         }
     };
-    const refresh = async () => { try {
+    const refresh = async () => { if (!uid)
+        return; try {
         const r = await db.attendanceReport(uid, from, to);
         setData(r);
     }
@@ -9859,8 +9861,30 @@ function AttendanceReport() {
     catch (e) {
         alert(e.message || "خطا");
     } };
-    const hmToMin = (v) => { const m = String(v || "00:00").match(/(\d+):(\d+)/); return m ? (+m[1]) * 60 + (+m[2]) : 0; };
-    const convertSurplus = async (d) => { const surplus = hmToMin(d.surplus); if (!surplus) {
+    const n = (v) => { const s = String(v == null ? "" : v).replace(/[۰-۹]/g, x => "۰۱۲۳۴۵۶۷۸۹".indexOf(x)); const m = s.match(/(?:^|[ T])([01]?\d|2[0-3]):([0-5]\d)/); return m ? String(+m[1]).padStart(2, "0") + ":" + m[2] : ""; };
+    const pin = (p) => { var _a, _b, _c, _e; return n(p && ((_e = (_c = (_b = (_a = p.in) !== null && _a !== void 0 ? _a : p.in_full) !== null && _b !== void 0 ? _b : p.check_in) !== null && _c !== void 0 ? _c : p.first_in) !== null && _e !== void 0 ? _e : p.first_entry)); };
+    const pout = (p) => { var _a, _b, _c, _e; return n(p && ((_e = (_c = (_b = (_a = p.out) !== null && _a !== void 0 ? _a : p.out_full) !== null && _b !== void 0 ? _b : p.check_out) !== null && _c !== void 0 ? _c : p.last_out) !== null && _e !== void 0 ? _e : p.last_exit)); };
+    const mins = (v) => { const s = String(v == null ? "" : v).replace(/[۰-۹]/g, x => "۰۱۲۳۴۵۶۷۸۹".indexOf(x)); const m = s.match(/(\d+):([0-5]\d)/); return m ? (+m[1]) * 60 + (+m[2]) : 0; };
+    const hm = (v) => { v = Math.max(0, parseInt(v, 10) || 0); return String(Math.floor(v / 60)).padStart(2, "0") + ":" + String(v % 60).padStart(2, "0"); };
+    const punchTimes = (d) => { const p = Array.isArray(d.punches) ? d.punches : []; return { ins: p.map(pin).filter(Boolean), outs: p.map(pout).filter(Boolean) }; };
+    const dayVal = (d, k) => {
+        const { ins, outs } = punchTimes(d);
+        if (k === "in")
+            return ins[0] || "--:--";
+        if (k === "out")
+            return outs.length ? outs[outs.length - 1] : "--:--";
+        if (k === "in_station")
+            return ((d.punches || []).find(p => p && p.in_station) || {}).in_station || "—";
+        if (k === "out_station")
+            return (((d.punches || []).slice().reverse().find(p => p && p.out_station)) || {}).out_station || "—";
+        if (k === "first_in")
+            return n(d.first_in) || ins[0] || "--:--";
+        if (k === "last_out")
+            return n(d.last_out) || (outs.length ? outs[outs.length - 1] : "--:--");
+        const v = d[k];
+        return v == null || v === "" ? "00:00" : v;
+    };
+    const convertSurplus = async (d) => { const surplus = mins(d.surplus); if (!surplus) {
         alert("مازاد حضوری برای تبدیل وجود ندارد");
         return;
     } const val = prompt("چند دقیقه از مازاد حضور به اضافه‌کار تبدیل شود؟", String(surplus)); if (val === null)
@@ -9879,32 +9903,29 @@ function AttendanceReport() {
     catch (e) {
         alert(e.message || "خطا");
     } };
-    const exportExcel = () => {
-        if (!data)
-            return;
-        const rows = [];
-        data.days.forEach(d => {
-            if (!d.punches.length) {
-                rows.push({ "تاریخ": d.jdate, "روز هفته": d.weekday, "ورود": "--:--", "خروج": "--:--", "محل ورود": "--", "محل خروج": "--", "حضور کل": d.worked, "حضور در شیفت": d.in_shift, "کسری کار": d.shortage, "شب کاری": d.night, "جمعه کاری": d.friday_work || d.friday || "00:00", "تعطیل کاری": d.holiday_work || d.holiday || "00:00", "اضافه کاری": d.overtime, "مازاد حضور": d.surplus || "00:00", "تبدیل‌شده": d.adjusted_ot || "00:00", "وضعیت": d.is_holiday ? "تعطیل" : (d.absent ? "غیبت" : "") });
-            }
-            else
-                d.punches.forEach((p, i) => rows.push({ "تاریخ": i === 0 ? d.jdate : "", "روز هفته": i === 0 ? d.weekday : "", "ورود": p.in || "--:--", "خروج": p.out || "--:--", "محل ورود": p.in_station || "--", "محل خروج": p.out_station || "--", "حضور کل": i === 0 ? d.worked : "", "حضور در شیفت": i === 0 ? d.in_shift : "", "کسری کار": i === 0 ? d.shortage : "", "شب کاری": i === 0 ? d.night : "", "جمعه کاری": i === 0 ? (d.friday || "00:00") : "", "تعطیل کاری": i === 0 ? (d.holiday || "00:00") : "", "اضافه کاری": i === 0 ? d.overtime : "", "مازاد حضور": i === 0 ? (d.surplus || "00:00") : "", "تبدیل‌شده": i === 0 ? (d.adjusted_ot || "00:00") : "", "وضعیت": i === 0 && d.is_holiday ? "تعطیل" : "" }));
-        });
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, (data.user.name || "تردد").slice(0, 28));
-        XLSX.writeFile(wb, "گزارش_تردد_" + (data.user.name || "") + ".xlsx");
-    };
+    const columns = [
+        ["تاریخ", d => d.jdate || "—"], ["روز هفته", d => d.weekday || "—"], ["ورود", d => dayVal(d, "in")], ["خروج", d => dayVal(d, "out")],
+        ["محل ورود", d => dayVal(d, "in_station")], ["محل خروج", d => dayVal(d, "out_station")], ["حضور در شیفت", d => dayVal(d, "in_shift")],
+        ["کسری کار", d => dayVal(d, "shortage")], ["غیبت", d => { var _a; return String((_a = d.absent) !== null && _a !== void 0 ? _a : 0); }], ["جمع غیبت و کسری کار", d => dayVal(d, "absence_shortage")],
+        ["شب کاری", d => dayVal(d, "night")], ["اضافه کاری", d => dayVal(d, "overtime")], ["موظفی", d => dayVal(d, "expected")],
+        ["ماموریت", d => dayVal(d, "mission")], ["مرخصی استحقاقی", d => dayVal(d, "annual_leave")], ["مرخصی استعلاجی", d => dayVal(d, "sick_leave")],
+        ["مرخصی بدون حقوق", d => dayVal(d, "unpaid_leave")], ["مازاد حضور", d => dayVal(d, "surplus")], ["کل حضور", d => dayVal(d, "worked")],
+        ["اضافه کاری تعطیل", d => dayVal(d, "holiday_overtime")], ["اضافه کاری جمعه", d => dayVal(d, "friday_overtime")], ["جمع اضافه کاری", d => dayVal(d, "total_overtime")],
+        ["اضافه کاری تعطیل و جمعه", d => dayVal(d, "holiday_friday_overtime")], ["جمعه کاری", d => dayVal(d, "friday_work")], ["روزکارکرد جمعه", d => dayVal(d, "friday_workday")],
+        ["تهاتر مازاد حضور", d => dayVal(d, "adjusted_surplus")], ["تهاتر کسری کار", d => dayVal(d, "adjusted_shortage")], ["اولین ورود", d => dayVal(d, "first_in")], ["آخرین خروج", d => dayVal(d, "last_out")]
+    ];
+    const exportExcel = () => { if (!data)
+        return; const rows = [columns.map(x => x[0])]; (data.days || []).forEach(d => rows.push(columns.map(x => x[1](d)))); const ws = XLSX.utils.aoa_to_sheet(rows), wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "گزارش تردد ۲۹ ستونه"); XLSX.writeFile(wb, "گزارش تردد پرسنل - ۲۹ ستونه.xlsx"); };
     return (React.createElement("div", { className: "panel" },
         React.createElement("h3", null, "\uD83D\uDD52 \u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F \u067E\u0631\u0633\u0646\u0644"),
         React.createElement("div", { className: "card-p", style: { marginBottom: 14 } },
             React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap", alignItems: "flex-end" } },
-                React.createElement("div", { style: { minWidth: 260 } },
+                React.createElement("div", { style: { minWidth: 280, flex: "1 1 280px" } },
                     React.createElement("label", { className: "label" }, "\u067E\u0631\u0633\u0646\u0644"),
-                    React.createElement("input", { className: "input", value: personQuery, onChange: e => setPersonQuery(e.target.value), placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645\u060C \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u06CC\u0627 \u06A9\u062F \u0645\u0644\u06CC", style: { marginBottom: 6 } }),
+                    React.createElement("input", { className: "input", value: personQuery, onChange: e => setPersonQuery(e.target.value), placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645\u060C \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u06CC\u0627 \u06A9\u062F \u067E\u0631\u0633\u0646\u0644\u06CC", style: { marginBottom: 6 } }),
                     React.createElement("select", { className: "input", value: uid, onChange: e => setUid(e.target.value) },
                         React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0633\u0646\u0644\u2026"),
-                        users.map(u => React.createElement("option", { key: u.id, value: u.id },
+                        visibleUsers.map(u => React.createElement("option", { key: u.id, value: u.id },
                             u.first_name,
                             " ",
                             u.last_name)))),
@@ -9917,58 +9938,55 @@ function AttendanceReport() {
                 React.createElement("button", { className: "btn p", onClick: run, disabled: busy }, busy ? "…" : "🔍 مشاهده گزارش"),
                 React.createElement("button", { className: "btn g", onClick: exportExcel, disabled: !data }, "\u2913 \u062F\u0627\u0646\u0644\u0648\u062F \u06AF\u0632\u0627\u0631\u0634"))),
         data && React.createElement("div", { className: "card-p", style: { marginBottom: 10, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 } },
-            React.createElement("b", null, data.user.name),
+            React.createElement("b", null, ((_a = data.user) === null || _a === void 0 ? void 0 : _a.name) || "—"),
             React.createElement("span", { style: { color: "var(--muted)", fontSize: 12 } },
                 "\u06A9\u062F \u067E\u0631\u0633\u0646\u0644\u06CC: ",
-                fa(data.user.pcode),
+                fa(((_b = data.user) === null || _b === void 0 ? void 0 : _b.pcode) || "—"),
                 " | \u0627\u0632 ",
-                fa(data.from),
+                fa(data.from || from || "—"),
                 " \u062A\u0627 ",
-                fa(data.to))),
-        data && React.createElement("div", { style: { overflowX: "auto" } },
-            React.createElement("table", { style: { fontSize: 12.5, minWidth: 640 } },
+                fa(data.to || to || "—"))),
+        data && React.createElement("div", { style: { overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 } },
+            React.createElement("table", { className: "khar-attendance-native", style: { fontSize: 12, minWidth: 2400 } },
                 React.createElement("thead", null,
-                    React.createElement("tr", null,
-                        React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
-                        React.createElement("th", null, "\u0631\u0648\u0632 \u0647\u0641\u062A\u0647"),
-                        React.createElement("th", null, "\u062E\u0644\u0627\u0635\u0647 \u062A\u0631\u062F\u062F"),
-                        React.createElement("th", null, "\u062D\u0636\u0648\u0631 \u06A9\u0644"),
-                        React.createElement("th", null, "\u062D\u0636\u0648\u0631 \u062F\u0631 \u0634\u06CC\u0641\u062A"),
-                        React.createElement("th", null, "\u06A9\u0633\u0631\u06CC \u06A9\u0627\u0631"),
-                        React.createElement("th", null, "\u0634\u0628 \u06A9\u0627\u0631\u06CC"),
-                        React.createElement("th", null, "\u062C\u0645\u0639\u0647/\u062A\u0639\u0637\u06CC\u0644"),
-                        React.createElement("th", null, "\u0627\u0636\u0627\u0641\u0647 \u06A9\u0627\u0631\u06CC"),
-                        React.createElement("th", null, "\u0645\u0627\u0632\u0627\u062F \u062D\u0636\u0648\u0631"),
-                        React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645"))),
-                React.createElement("tbody", null, data.days.map(d => {
+                    React.createElement("tr", null, columns.map(([title], i) => React.createElement("th", { key: title, style: { whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2 } }, title)))),
+                React.createElement("tbody", null, (data.days || []).map(d => {
                     const red = !!d.is_holiday || !!d.is_friday || d.weekday === "جمعه";
-                    return (React.createElement("tr", { key: d.jdate },
-                        React.createElement("td", { style: { color: red ? "var(--danger)" : "inherit", fontWeight: red ? 700 : 400 } },
-                            fa(d.jdate),
-                            red && React.createElement("div", { style: { fontSize: 10 } }, "\u062A\u0639\u0637\u06CC\u0644")),
-                        React.createElement("td", { style: { color: red ? "var(--danger)" : "inherit" } }, d.weekday),
-                        React.createElement("td", { style: { textAlign: "center", position: "relative" } },
-                            React.createElement("button", { onClick: () => setOpenDay(openDay === d.jdate ? null : d.jdate), title: "\u0644\u06CC\u0633\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C", "aria-label": "\u0644\u06CC\u0633\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C", "data-attendance-clock": "1", style: { border: "none", background: "none", cursor: "pointer", color: d.punches.length ? "#b83b8c" : "#888", fontSize: 18 } }, "\uD83D\uDD50"),
-                            openDay === d.jdate && React.createElement(PunchPopup, { day: d, onClose: () => setOpenDay(null), onEdit: setEdit, onDel: delPunch, onAdd: () => setAddModal({ jdate: d.jdate }) })),
-                        React.createElement("td", null, fa(d.worked || "00:00")),
-                        React.createElement("td", null, fa(d.in_shift)),
-                        React.createElement("td", { style: { color: d.shortage !== "00:00" ? "var(--danger)" : "inherit" } }, fa(d.shortage)),
-                        React.createElement("td", null, fa(d.night)),
-                        React.createElement("td", null,
-                            React.createElement("div", null,
-                                fa(d.friday_work || d.friday || "00:00"),
-                                " \u062C\u0645\u0639\u0647"),
-                            React.createElement("div", null,
-                                fa(d.holiday_work || d.holiday || "00:00"),
-                                " \u062A\u0639\u0637\u06CC\u0644")),
-                        React.createElement("td", { style: { color: "var(--ok)" } }, fa(d.overtime)),
-                        React.createElement("td", { style: { color: (d.surplus && d.surplus !== "00:00") ? "var(--danger)" : "inherit" } },
-                            fa(d.surplus || "00:00"),
-                            d.adjusted_ot && d.adjusted_ot !== "00:00" ? React.createElement("div", { style: { fontSize: 10, color: "var(--ok)" } },
-                                "\u062A\u0628\u062F\u06CC\u0644\u200C\u0634\u062F\u0647: ",
-                                fa(d.adjusted_ot)) : null),
-                        React.createElement("td", null, d.surplus && d.surplus !== "00:00" ? React.createElement("button", { className: "btn p", style: { padding: "5px 8px", fontSize: 11 }, onClick: () => convertSurplus(d) }, "\u062A\u0628\u062F\u06CC\u0644") : d.adjusted_ot && d.adjusted_ot !== "00:00" ? React.createElement("button", { className: "btn g", style: { padding: "5px 8px", fontSize: 11 }, onClick: () => resetSurplus(d) }, "\u0644\u063A\u0648") : "—")));
+                    return React.createElement("tr", { key: d.jdate }, columns.map((col, i) => {
+                        const title = col[0];
+                        const getter = col[1];
+                        const fontWeight = (i < 2 && red) ? 700 : 400;
+                        const textAlign = ["ورود", "خروج", "اولین ورود", "آخرین خروج"].includes(title) ? "center" : "right";
+                        return React.createElement("td", { key: title, style: { whiteSpace: "nowrap", color: red ? "var(--danger)" : "inherit", fontWeight: fontWeight, textAlign: textAlign } },
+                            fa(getter(d)),
+                            title === "تاریخ" && red && React.createElement("span", { style: { display: "block", fontSize: 10 } }, "\u062A\u0639\u0637\u06CC\u0644"),
+                            title === "تاریخ" && React.createElement("button", { type: "button", className: "btn g", style: { padding: "3px 6px", fontSize: 10, marginInlineStart: 5 }, onClick: () => setOpenDay(openDay === d.jdate ? null : d.jdate) }, "\u062C\u0632\u0626\u06CC\u0627\u062A"));
+                    }));
                 })))),
+        data && React.createElement("div", { style: { marginTop: 8, fontSize: 11, color: "var(--muted)" } }, "\u06F2\u06F9 \u0633\u062A\u0648\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A\u061B \u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0627\u0632 \u062F\u0627\u062F\u0647 \u0648\u0627\u0642\u0639\u06CC \u062A\u0631\u062F\u062F \u062E\u0648\u0627\u0646\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+        openDay && data && (() => { const d = (data.days || []).find(x => x.jdate === openDay); return d ? React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+            React.createElement("div", { className: "card-p", style: { width: "min(760px,96vw)", maxHeight: "90vh", overflow: "auto" } },
+                React.createElement("button", { className: "btn g", onClick: () => setOpenDay(null) }, "\u0628\u0633\u062A\u0646"),
+                React.createElement("h3", null,
+                    "\u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F ",
+                    fa(d.jdate)),
+                React.createElement("table", null,
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0648\u0631\u0648\u062F"),
+                            React.createElement("th", null, "\u062E\u0631\u0648\u062C"),
+                            React.createElement("th", null, "\u0631\u0648\u0634 \u062B\u0628\u062A"),
+                            React.createElement("th", null, "\u062F\u0633\u062A\u06AF\u0627\u0647"),
+                            React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645"))),
+                    React.createElement("tbody", null, (d.punches || []).map(p => React.createElement("tr", { key: p.id },
+                        React.createElement("td", null, fa(pin(p) || "--:--")),
+                        React.createElement("td", null, fa(pout(p) || "--:--")),
+                        React.createElement("td", null, p.method || "—"),
+                        React.createElement("td", null, p.device || "—"),
+                        React.createElement("td", null,
+                            React.createElement("button", { className: "btn g", onClick: () => setEdit(p) }, "\u0627\u0635\u0644\u0627\u062D"),
+                            React.createElement("button", { className: "btn g", onClick: () => delPunch(p) }, "\u062D\u0630\u0641")))))),
+                React.createElement("button", { className: "btn p", onClick: () => setAddModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC"))) : null; })(),
         edit && React.createElement(PunchEditModal, { punch: edit, onSave: savePunch, onClose: () => setEdit(null) }),
         addModal && React.createElement(PunchAddModal, { jdate: addModal.jdate, onSave: addPunch, onClose: () => setAddModal(null) })));
 }
