@@ -1,5 +1,5 @@
 name: Upload to Khatyar Host
-# DEPLOY-RECONCILE: 20261007-v274
+# DEPLOY-RECONCILE: 20261007-v275
 
 on:
   push:
@@ -190,7 +190,18 @@ jobs:
               remote_file="${remote_dir}/$(basename "${rel}")"
 
               printf 'mkdir -p %s\n' "${remote_dir}"
-              printf 'put %s -o %s\n' "${local_file}" "${remote_file}"
+              if [ "${rel}" = "lib/routes.php" ]; then
+                # The hosting FTP account can read the legacy /lib tree, but the
+                # existing routes.php may be read-only. Upload a temporary file
+                # first, then replace the target. chmod is best-effort.
+                printf 'site chmod 775 %s\n' "${remote_dir}"
+                temp_remote="${remote_dir}/.routes.php.deploy-${GITHUB_SHA}"
+                printf 'put %s -o %s\n' "${local_file}" "${temp_remote}"
+                printf 'rm %s\n' "${remote_file}"
+                printf 'mv %s %s\n' "${temp_remote}" "${remote_file}"
+              else
+                printf 'put %s -o %s\n' "${local_file}" "${remote_file}"
+              fi
             done < <(find deploy-payload -type f -print | sort)
 
             echo 'bye'
