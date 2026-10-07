@@ -6159,9 +6159,18 @@ function HmField({label,value,onChange,optional=false,autoFocus=false}){
     const n=normalizeHm(text);
     if(n){setText(n);onChange(n);}
   };
+  const normalized=normalizeHm(text)||"";
+  const [hour,minute]=normalized?normalized.split(":"): ["",""];
+  const choosePart=(part,v)=>{
+    if(v===""){setText("");onChange("");return;}
+    const h=part==="hour"?v:(hour||"00");
+    const m=part==="minute"?v:(minute||"00");
+    const next=h+":"+m;
+    setText(next);onChange(next);
+  };
   return <div className="punch-field" style={{minWidth:0,flex:"1 1 280px"}}>
     <label className="label">{label}{optional?" — اختیاری":""}</label>
-    <div className="punch-time-control" dir="ltr" style={{display:"block",width:"100%"}}>
+    <div className="punch-time-control" dir="rtl" style={{width:"100%"}}>
       <input
         className="input punch-time-input"
         type="text"
@@ -6170,14 +6179,24 @@ function HmField({label,value,onChange,optional=false,autoFocus=false}){
         value={text}
         onChange={handleChange}
         onBlur={handleBlur}
-        placeholder="00:00"
+        placeholder="۰۰:۰۰"
         maxLength={5}
         autoFocus={autoFocus}
         aria-label={label}
         aria-describedby={label+"-hint"}
-        style={{display:"block",width:"100%",height:46,boxSizing:"border-box",fontSize:20,fontWeight:700,textAlign:"center",letterSpacing:1}}
+        style={{width:"100%",height:46,boxSizing:"border-box",fontSize:20,fontWeight:700,textAlign:"center",letterSpacing:1}}
       />
-      <span id={label+"-hint"} className="punch-time-hint" style={{display:"block",marginTop:6,textAlign:"center"}}>ساعت را به شکل ۲۴ ساعته وارد کنید</span>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginTop:6}}>
+        <select className="input punch-time-select" dir="rtl" value={hour} onChange={e=>choosePart("hour",e.target.value)} aria-label={label+" ساعت"}>
+          <option value="">ساعت</option>
+          {Array.from({length:24},(_,h)=>{const v=String(h).padStart(2,"0");return <option key={v} value={v}>{toFaDigits(v)}</option>;})}
+        </select>
+        <select className="input punch-time-select" dir="rtl" value={minute} onChange={e=>choosePart("minute",e.target.value)} aria-label={label+" دقیقه"}>
+          <option value="">دقیقه</option>
+          {Array.from({length:60},(_,m)=>{const v=String(m).padStart(2,"0");return <option key={v} value={v}>{toFaDigits(v)}</option>;})}
+        </select>
+      </div>
+      <span id={label+"-hint"} className="punch-time-hint" style={{display:"block",marginTop:6,textAlign:"center"}}>ساعت را به شکل ۲۴ ساعته وارد کنید؛ یا ساعت و دقیقه را انتخاب کنید</span>
     </div>
   </div>;
 }
