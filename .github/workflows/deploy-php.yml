@@ -123,11 +123,12 @@ jobs:
           fi
 
           if [ "${change_count}" -eq 0 ]; then
-            echo "No PHP changes in this deployment range; nothing needs to be uploaded."
+            echo "No PHP changes in this commit; skipping Khatyar Host upload."
+            echo "SKIP_HOST_UPLOAD=true" >> "$GITHUB_ENV"
           fi
 
       - name: Install lftp
-        if: ${{ hashFiles('deploy-payload/**') != '' || hashFiles('deploy-deletions.txt') != '' }}
+        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && (hashFiles('deploy-payload/**') != '' || hashFiles('deploy-deletions.txt') != '') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -135,7 +136,7 @@ jobs:
           sudo apt-get install -y -qq lftp
 
       - name: Upload changed PHP files to FTP root
-        if: ${{ hashFiles('deploy-payload/**') != '' }}
+        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/**') != '' }}
         shell: bash
         env:
           FTP_HOST: 2870352177.cloudylink.com
@@ -182,7 +183,7 @@ jobs:
           lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-upload.cmd)"
 
       - name: Verify uploaded FTP files
-        if: ${{ hashFiles('deploy-payload/**') != '' }}
+        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/**') != '' }}
         shell: bash
         env:
           FTP_HOST: 2870352177.cloudylink.com
@@ -224,7 +225,7 @@ jobs:
           done < <(find deploy-payload -type f -print | sort)
 
       - name: Verify public panel after PHP upload
-        if: ${{ hashFiles('deploy-payload/app/panel.html') != '' }}
+        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/app/panel.html') != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -245,7 +246,7 @@ jobs:
           echo "Public panel verification passed for ${GITHUB_SHA}."
 
       - name: Verify public panel bundle after PHP upload
-        if: ${{ hashFiles('deploy-payload/app/assets/panel.bundle.js') != '' }}
+        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/app/assets/panel.bundle.js') != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -260,7 +261,7 @@ jobs:
           echo "Public panel bundle verification passed for ${GITHUB_SHA}."
 
       - name: Delete removed PHP files from FTP root
-        if: ${{ hashFiles('deploy-deletions.txt') != '' }}
+        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-deletions.txt') != '' }}
         shell: bash
         env:
           FTP_HOST: 2870352177.cloudylink.com
