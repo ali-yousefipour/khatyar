@@ -134,7 +134,7 @@ jobs:
           echo "Uploading changed PHP files:"
           find deploy-payload -type f -print | sort
 
-          lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -f /tmp/lftp-upload.cmd
+          lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-upload.cmd)"
       - name: Delete removed PHP files from FTP root
         if: ${{ hashFiles('deploy-deletions.txt') != '' }}
         shell: bash
