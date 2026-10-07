@@ -9803,8 +9803,17 @@ function AttendanceReport() {
     const [users, setUsers] = useState([]);
     const [uid, setUid] = useState("");
     const [personQuery, setPersonQuery] = useState("");
-    const [from, setFrom] = useState("");
-    const [to, setTo] = useState("");
+    // API گزارش تردد بازهٔ کامل را الزامی می‌کند؛ پیش‌فرض را روی کل ماه جاری شمسی می‌گذاریم.
+    const attendanceDefaultRange = () => {
+        const [y, m] = todayJ();
+        const a = jalaliToGreg(y, m, 1);
+        const b = jalaliToGreg(m === 12 ? y + 1 : y, m === 12 ? 1 : m + 1, 1);
+        const days = a && b ? Math.round((Date.UTC(b[0], b[1] - 1, b[2]) - Date.UTC(a[0], a[1] - 1, a[2])) / 86400000) : 30;
+        return { from: `${y}/${String(m).padStart(2, "0")}/01`, to: `${y}/${String(m).padStart(2, "0")}/${String(days).padStart(2, "0")}` };
+    };
+    const attendanceInitialRange = attendanceDefaultRange();
+    const [from, setFrom] = useState(attendanceInitialRange.from);
+    const [to, setTo] = useState(attendanceInitialRange.to);
     const [data, setData] = useState(null);
     const [busy, setBusy] = useState(false);
     const [openDay, setOpenDay] = useState(null);
@@ -9817,11 +9826,33 @@ function AttendanceReport() {
             alert("پرسنل را انتخاب کنید");
             return;
         }
+        const fallback = attendanceDefaultRange();
+        const rangeFrom = String(from || fallback.from).trim();
+        const rangeTo = String(to || fallback.to).trim();
+        const parseJ = (v) => String(v).split(/[\\/-]/).map(Number);
+        const f = parseJ(rangeFrom), t = parseJ(rangeTo);
+        if (f.length !== 3 || t.length !== 3 || f.some(x => !Number.isFinite(x)) || t.some(x => !Number.isFinite(x))) {
+            alert("فرمت بازهٔ تاریخ نامعتبر است");
+            return;
+        }
+        const fg = jalaliToGreg(f[0], f[1], f[2]), tg = jalaliToGreg(t[0], t[1], t[2]);
+        if (!fg || !tg) {
+            alert("تاریخ گزارش نامعتبر است");
+            return;
+        }
+        if (Date.UTC(fg[0], fg[1] - 1, fg[2]) > Date.UTC(tg[0], tg[1] - 1, tg[2])) {
+            alert("تاریخ «از» نباید بعد از تاریخ «تا» باشد");
+            return;
+        }
+        if (from !== rangeFrom)
+            setFrom(rangeFrom);
+        if (to !== rangeTo)
+            setTo(rangeTo);
         setBusy(true);
         setData(null);
         setOpenDay(null);
         try {
-            const r = await db.attendanceReport(uid, from, to);
+            const r = await db.attendanceReport(uid, rangeFrom, rangeTo);
             setData(r);
         }
         catch (e) {
@@ -9831,12 +9862,18 @@ function AttendanceReport() {
             setBusy(false);
         }
     };
-    const refresh = async () => { if (!uid)
-        return; try {
-        const r = await db.attendanceReport(uid, from, to);
-        setData(r);
-    }
-    catch (e) { } };
+    const refresh = async () => {
+        if (!uid)
+            return;
+        const fallback = attendanceDefaultRange();
+        const rangeFrom = String(from || fallback.from).trim();
+        const rangeTo = String(to || fallback.to).trim();
+        try {
+            const r = await db.attendanceReport(uid, rangeFrom, rangeTo);
+            setData(r);
+        }
+        catch (e) { }
+    };
     const savePunch = async (punch, ci, co) => { try {
         await db.attendancePunchEdit(punch.id, { check_in: ci, check_out: co });
         setEdit(null);
@@ -10008,8 +10045,8 @@ function AttendanceReport() {
                             React.createElement("th", null, "\u062F\u0633\u062A\u06AF\u0627\u0647"),
                             React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645"))),
                     React.createElement("tbody", null, (d.punches || []).map(p => React.createElement("tr", { key: p.id },
-                        React.createElement("td", null, fa(pin(p) || "--:--")),
-                        React.createElement("td", null, fa(pout(p) || "--:--")),
+                        React.createElement("td", null, attendanceCell(pin(p) || "--:--")),
+                        React.createElement("td", null, attendanceCell(pout(p) || "--:--")),
                         React.createElement("td", null, p.method || "—"),
                         React.createElement("td", null, p.device || "—"),
                         React.createElement("td", null,
@@ -14607,7 +14644,8 @@ function App() {
     const [allowed, setAllowed] = useState(null);
     const [drawer, setDrawer] = useState(false);
     const [brand, setBrand] = useState({});
-    const [openSections, setOpenSections] = useState({ "داشبورد و پایش": true, "عملیات میدانی": true, "تاکسی و تاکسیران": true, "گزارش‌ها": false, "منابع انسانی": false, "ارتباطات": false, "مدیریت سامانه": false });
+    // منوهای اصلی در لود اولیه بسته باشند؛ کاربر فقط بخش موردنیاز را باز می‌کند.
+    const [openSections, setOpenSections] = useState({ "داشبورد و پایش": false, "عملیات میدانی": false, "تاکسی و تاکسیران": false, "گزارش‌ها": false, "منابع انسانی": false, "ارتباطات": false, "مدیریت سامانه": false });
     useEffect(() => { db.publicSettings().then(s => { const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => { }); }, []);
     useEffect(() => { if (me && me.is_admin) {
         db.settings().then(s => { const all = s.role_perms || {}; const has = Object.prototype.hasOwnProperty.call(all, String(me.role_id)) || Object.prototype.hasOwnProperty.call(all, me.role_id); const rp = all[me.role_id]; setAllowed(has && Array.isArray(rp) ? rp : null); const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => setAllowed(null));
