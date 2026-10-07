@@ -6024,7 +6024,7 @@ function AttendanceReport(){
           const red=!!d.is_holiday||!!d.is_friday||d.weekday==="جمعه";
           return <tr key={d.jdate}>
             {columns.map(([title,get],i)=><td key={title} style={{whiteSpace:"nowrap",color:red?"var(--danger)":"inherit",fontWeight:i<2&&red?700:400,textAlign:["ورود","خروج","اولین ورود","آخرین خروج"].includes(title)?"center":"right"}>
-              {title==="تاریخ"?<>{fa(get(d))}{red&&<div style={{fontSize:10}}>تعطیل</div>}</>:fa(get(d))}
+              {title==="تاریخ"?<span>{fa(get(d))}{red&&<span style={{display:"block",fontSize:10}}>تعطیل</span>}</span>:fa(get(d))}
               {title==="تاریخ"&&<button type="button" className="btn g" style={{padding:"3px 6px",fontSize:10,marginInlineStart:5}} onClick={()=>setOpenDay(openDay===d.jdate?null:d.jdate)}>جزئیات</button>}
             </td>)}
           </tr>;
