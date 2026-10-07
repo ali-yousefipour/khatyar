@@ -5950,8 +5950,17 @@ function AttendanceReport(){
   const [users,setUsers]=useState([]);
   const [uid,setUid]=useState("");
   const [personQuery,setPersonQuery]=useState("");
-  const [from,setFrom]=useState("");
-  const [to,setTo]=useState("");
+  // API گزارش تردد بازهٔ کامل را الزامی می‌کند؛ پیش‌فرض را روی کل ماه جاری شمسی می‌گذاریم.
+  const attendanceDefaultRange=()=>{
+    const [y,m]=todayJ();
+    const a=jalaliToGreg(y,m,1);
+    const b=jalaliToGreg(m===12?y+1:y,m===12?1:m+1,1);
+    const days=a&&b?Math.round((Date.UTC(b[0],b[1]-1,b[2])-Date.UTC(a[0],a[1]-1,a[2]))/86400000):30;
+    return {from:`${y}/${String(m).padStart(2,"0")}/01`,to:`${y}/${String(m).padStart(2,"0")}/${String(days).padStart(2,"0")}`};
+  };
+  const attendanceInitialRange=attendanceDefaultRange();
+  const [from,setFrom]=useState(attendanceInitialRange.from);
+  const [to,setTo]=useState(attendanceInitialRange.to);
   const [data,setData]=useState(null);
   const [busy,setBusy]=useState(false);
   const [openDay,setOpenDay]=useState(null);
@@ -5960,11 +5969,31 @@ function AttendanceReport(){
 
   useEffect(()=>{ db.users().then(us=>setUsers(us||[])).catch(()=>{}); },[]);
   const visibleUsers=users.filter(u=>{const q=String(personQuery||"").trim().toLowerCase();return !q||String((u.first_name||"")+" "+(u.last_name||"")).toLowerCase().includes(q)||String(u.username||"").includes(q);});
-  const run=async()=>{ if(!uid){alert("پرسنل را انتخاب کنید");return;} setBusy(true); setData(null); setOpenDay(null);
-    try{ const r=await db.attendanceReport(uid,from,to); setData(r); }
+  const run=async()=>{
+    if(!uid){alert("پرسنل را انتخاب کنید");return;}
+    const fallback=attendanceDefaultRange();
+    const rangeFrom=String(from||fallback.from).trim();
+    const rangeTo=String(to||fallback.to).trim();
+    const parseJ=(v)=>String(v).split(/[\\/-]/).map(Number);
+    const f=parseJ(rangeFrom), t=parseJ(rangeTo);
+    if(f.length!==3||t.length!==3||f.some(x=>!Number.isFinite(x))||t.some(x=>!Number.isFinite(x))){alert("فرمت بازهٔ تاریخ نامعتبر است");return;}
+    const fg=jalaliToGreg(f[0],f[1],f[2]), tg=jalaliToGreg(t[0],t[1],t[2]);
+    if(!fg||!tg){alert("تاریخ گزارش نامعتبر است");return;}
+    if(Date.UTC(fg[0],fg[1]-1,fg[2])>Date.UTC(tg[0],tg[1]-1,tg[2])){alert("تاریخ «از» نباید بعد از تاریخ «تا» باشد");return;}
+    if(from!==rangeFrom)setFrom(rangeFrom);
+    if(to!==rangeTo)setTo(rangeTo);
+    setBusy(true); setData(null); setOpenDay(null);
+    try{ const r=await db.attendanceReport(uid,rangeFrom,rangeTo); setData(r); }
     catch(e){ alert(e.message||"خطا در دریافت گزارش"); }
-    finally{ setBusy(false); } };
-  const refresh=async()=>{ if(!uid)return; try{ const r=await db.attendanceReport(uid,from,to); setData(r); }catch(e){} };
+    finally{ setBusy(false); }
+  };
+  const refresh=async()=>{
+    if(!uid)return;
+    const fallback=attendanceDefaultRange();
+    const rangeFrom=String(from||fallback.from).trim();
+    const rangeTo=String(to||fallback.to).trim();
+    try{ const r=await db.attendanceReport(uid,rangeFrom,rangeTo); setData(r); }catch(e){}
+  };
   const savePunch=async(punch,ci,co)=>{ try{ await db.attendancePunchEdit(punch.id,{check_in:ci,check_out:co}); setEdit(null); await refresh(); }catch(e){alert(e.message||"خطا");} };
   const delPunch=async(punch)=>{ if(!confirm("این تردد حذف شود؟"))return; try{ await db.attendancePunchDelete(punch.id); await refresh(); }catch(e){alert(e.message||"خطا");} };
   const addPunch=async(jdate,ci,co)=>{ try{ await db.attendancePunchAdd({user_id:+uid,jdate,check_in:ci,check_out:co||null}); setAddModal(null); await refresh(); }catch(e){alert(e.message||"خطا");} };
@@ -6055,7 +6084,7 @@ function AttendanceReport(){
       </table>
     </div>}
     {data&&<div style={{marginTop:8,fontSize:11,color:"var(--muted)"}}>۲۹ ستون گزارش فعال است؛ ساعت ورود و خروج از داده واقعی تردد خوانده می‌شود.</div>}
-    {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div style={{position:"fixed",inset:0,zIndex:10000,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div className="card-p" style={{width:"min(760px,96vw)",maxHeight:"90vh",overflow:"auto"}}><button className="btn g" onClick={()=>setOpenDay(null)}>بستن</button><h3>جزئیات تردد {fa(d.jdate)}</h3><table><thead><tr><th>ورود</th><th>خروج</th><th>روش ثبت</th><th>دستگاه</th><th>اقدام</th></tr></thead><tbody>{(d.punches||[]).map(p=><tr key={p.id}><td>{fa(pin(p)||"--:--")}</td><td>{fa(pout(p)||"--:--")}</td><td>{p.method||"—"}</td><td>{p.device||"—"}</td><td><button className="btn g" onClick={()=>setEdit(p)}>اصلاح</button><button className="btn g" onClick={()=>delPunch(p)}>حذف</button></td></tr>)}</tbody></table><button className="btn p" onClick={()=>setAddModal({jdate:d.jdate})}>ثبت تردد دستی</button></div></div>:null})()}
+    {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div style={{position:"fixed",inset:0,zIndex:10000,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div className="card-p" style={{width:"min(760px,96vw)",maxHeight:"90vh",overflow:"auto"}}><button className="btn g" onClick={()=>setOpenDay(null)}>بستن</button><h3>جزئیات تردد {fa(d.jdate)}</h3><table><thead><tr><th>ورود</th><th>خروج</th><th>روش ثبت</th><th>دستگاه</th><th>اقدام</th></tr></thead><tbody>{(d.punches||[]).map(p=><tr key={p.id}><td>{attendanceCell(pin(p)||"--:--")}</td><td>{attendanceCell(pout(p)||"--:--")}</td><td>{p.method||"—"}</td><td>{p.device||"—"}</td><td><button className="btn g" onClick={()=>setEdit(p)}>اصلاح</button><button className="btn g" onClick={()=>delPunch(p)}>حذف</button></td></tr>)}</tbody></table><button className="btn p" onClick={()=>setAddModal({jdate:d.jdate})}>ثبت تردد دستی</button></div></div>:null})()}
     {edit&&<PunchEditModal punch={edit} onSave={savePunch} onClose={()=>setEdit(null)}/>}
     {addModal&&<PunchAddModal jdate={addModal.jdate} onSave={addPunch} onClose={()=>setAddModal(null)}/>}
   </div>);
@@ -8251,7 +8280,8 @@ function Login({onLogin,brand}){
 
 function App(){
   const [me,setMe]=useState(null); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState(null); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
-  const [openSections,setOpenSections]=useState({"داشبورد و پایش":true,"عملیات میدانی":true,"تاکسی و تاکسیران":true,"گزارش‌ها":false,"منابع انسانی":false,"ارتباطات":false,"مدیریت سامانه":false});
+  // منوهای اصلی در لود اولیه بسته باشند؛ کاربر فقط بخش موردنیاز را باز می‌کند.
+  const [openSections,setOpenSections]=useState({"داشبورد و پایش":false,"عملیات میدانی":false,"تاکسی و تاکسیران":false,"گزارش‌ها":false,"منابع انسانی":false,"ارتباطات":false,"مدیریت سامانه":false});
   useEffect(()=>{ db.publicSettings().then(s=>{ const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>{}); },[]);
   useEffect(()=>{ if(me&&me.is_admin){ db.settings().then(s=>{ const all=s.role_perms||{}; const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id); const rp=all[me.role_id]; setAllowed(has&&Array.isArray(rp)?rp:null); const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>setAllowed(null)); } },[me]);
   if(!me)return <Login onLogin={setMe} brand={brand}/>;
