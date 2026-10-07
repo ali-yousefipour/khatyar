@@ -8094,8 +8094,8 @@ function ComplaintsLauncher(){
     if(!host)return;
     const loadModule=()=>new Promise((resolve,reject)=>{
       if(typeof window.openComplaints==="function")return resolve();
-      const src="/assets/complaints-panel-v257.js?v=20261007.267";
-      const existing=[...document.scripts].find(s=>String(s.src||"").includes("/assets/complaints-panel-v257.js"));
+      const src="/assets/complaints-panel.js?v=20261007.269";
+      const existing=[...document.scripts].find(s=>String(s.src||"").includes("/assets/complaints-panel.js"));
       if(existing){
         const started=Date.now();
         const wait=()=>{
@@ -8308,3 +8308,5 @@ async function khForceFreshReloadAfterLogin(){
   console.log("PANEL BUILD: 1.5.6 (panel-native-radio-school-service)");
   ReactDOM.createRoot(root).render(<App/>);
 })();
+
+// DEPLOY-SYNC: complaints canonical module v269
