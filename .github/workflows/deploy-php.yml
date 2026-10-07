@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'php/**'
-      - '.github/workflows/deploy-php.yml'
   workflow_dispatch:
 
 permissions:
