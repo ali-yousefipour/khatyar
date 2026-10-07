@@ -98,12 +98,13 @@ jobs:
           : > /tmp/lftp-upload.cmd
           {
             echo 'set ftp:ssl-force false'
+            echo 'set ftp:ssl-protect-data false'
             echo 'set ftp:passive-mode true'
             echo 'set ftp:prefer-epsv false'
             echo 'set net:timeout 60'
             echo 'set net:max-retries 5'
             echo 'set net:reconnect-interval-base 2'
-            echo 'set net:max-reconnect-interval 10'
+            echo 'set ssl:verify-certificate no'
             while IFS= read -r file; do
               [ -n "${file}" ] || continue
               rel="${file#deploy-payload/}"
@@ -113,8 +114,8 @@ jobs:
               else
                 remote_dir="/${dir}"
               fi
-              printf 'mkdir -p "%s"\n' "${remote_dir}"
-              printf 'put -c "%s" -o "%s"\n' "${file}" "${remote_dir}/$(basename "${rel}")"
+              printf "mkdir -p %s\n" "${remote_dir}"
+              printf "put -c %s -o %s\n" "${file}" "${remote_dir}/$(basename "${rel}")"
             done < <(find deploy-payload -type f -print | sort)
             echo 'bye'
           } >> /tmp/lftp-upload.cmd
@@ -141,9 +142,11 @@ jobs:
             echo "Deleting remote: /${rel}"
             lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}" -e "
               set ftp:ssl-force false;
+              set ftp:ssl-protect-data false;
               set ftp:passive-mode true;
               set net:timeout 30;
               set net:max-retries 2;
+              set ssl:verify-certificate no;
               rm "/${rel}";
               bye
             " || {
