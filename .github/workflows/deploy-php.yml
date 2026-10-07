@@ -31,13 +31,45 @@ jobs:
             php
           sparse-checkout-cone-mode: true
 
-      - name: Verify PHP deployment payload
+      - name: Prepare only changed PHP files
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
         run: |
-          test -d ./php
-          echo "Deploying contents of ./php/ to FTP account root"
-          find ./php -maxdepth 2 -type f | head -50
+          set -euo pipefail
 
-      - name: Deploy contents of php directory to FTP root
+          rm -rf ./ftp-payload
+          mkdir -p ./ftp-payload
+
+          if [ -z "${BEFORE_SHA}" ] || [ "${BEFORE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+            if git rev-parse "${AFTER_SHA}^" >/dev/null 2>&1; then
+              BEFORE_SHA="$(git rev-parse "${AFTER_SHA}^")"
+            else
+              BEFORE_SHA="${AFTER_SHA}"
+            fi
+          fi
+
+          echo "Diff range: ${BEFORE_SHA} -> ${AFTER_SHA}"
+          echo "Changed PHP files:"
+          git diff --name-status "${BEFORE_SHA}" "${AFTER_SHA}" -- php || true
+
+          git diff --name-only --diff-filter=ACMR "${BEFORE_SHA}" "${AFTER_SHA}" -- php |
+            while IFS= read -r file; do
+              [ -n "${file}" ] || continue
+              relative="${file#php/}"
+              mkdir -p "./ftp-payload/$(dirname "${relative}")"
+              cp -- "${file}" "./ftp-payload/${relative}"
+            done
+
+          if [ -z "$(find ./ftp-payload -type f -print -quit)" ]; then
+            echo "No changed PHP files found; nothing will be uploaded."
+          else
+            echo "FTP payload contains only files changed in this push:"
+            find ./ftp-payload -type f | sort
+          fi
+
+      - name: Deploy only changed PHP files to FTP root
+        if: ${{ hashFiles('ftp-payload/**') != '' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: 2870352177.cloudylink.com
