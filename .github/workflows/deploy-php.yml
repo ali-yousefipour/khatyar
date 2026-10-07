@@ -40,42 +40,42 @@ jobs:
           HEAD_SHA="$(git rev-parse HEAD)"
           BASE_SHA="$(git rev-parse HEAD~3)"
 
-          echo "Deployment HEAD: \${HEAD_SHA}"
-          echo "Deployment BASE: \${BASE_SHA}"
+          echo "Deployment HEAD: ${HEAD_SHA}"
+          echo "Deployment BASE: ${BASE_SHA}"
           echo "Latest main commits:"
-          git log --oneline -3 "\${HEAD_SHA}"
+          git log --oneline -3 "${HEAD_SHA}"
 
           rm -rf deploy-payload
           mkdir -p deploy-payload
           : > deploy-deletions.txt
           : > /tmp/php-diff.txt
 
-          git diff --name-status --find-renames --find-copies "\${BASE_SHA}" "\${HEAD_SHA}" -- php/ > /tmp/php-diff.txt
+          git diff --name-status --find-renames --find-copies "${BASE_SHA}" "${HEAD_SHA}" -- php/ > /tmp/php-diff.txt
 
           echo "PHP changes across the latest 3 commits:"
           cat /tmp/php-diff.txt || true
 
           while IFS=$'\t' read -r status path1 path2; do
-            [ -n "\${status:-}" ] || continue
+            [ -n "${status:-}" ] || continue
 
-            case "\${status}" in
+            case "${status}" in
               A|M|T)
-                rel="\${path1#php/}"
-                mkdir -p "deploy-payload/\$(dirname "\${rel}")"
-                cp "\${path1}" "deploy-payload/\${rel}"
+                rel="${path1#php/}"
+                mkdir -p "deploy-payload/\$(dirname "${rel}")"
+                cp "${path1}" "deploy-payload/${rel}"
                 ;;
               D)
-                printf '%s\n' "\${path1#php/}" >> deploy-deletions.txt
+                printf '%s\n' "${path1#php/}" >> deploy-deletions.txt
                 ;;
               R*|C*)
-                old_rel="\${path1#php/}"
-                new_rel="\${path2#php/}"
-                mkdir -p "deploy-payload/\$(dirname "\${new_rel}")"
-                cp "\${path2}" "deploy-payload/\${new_rel}"
-                printf '%s\n' "\${old_rel}" >> deploy-deletions.txt
+                old_rel="${path1#php/}"
+                new_rel="${path2#php/}"
+                mkdir -p "deploy-payload/\$(dirname "${new_rel}")"
+                cp "${path2}" "deploy-payload/${new_rel}"
+                printf '%s\n' "${old_rel}" >> deploy-deletions.txt
                 ;;
               *)
-                echo "ERROR: Unsupported PHP diff status: \${status}" >&2
+                echo "ERROR: Unsupported PHP diff status: ${status}" >&2
                 exit 1
                 ;;
             esac
@@ -91,16 +91,16 @@ jobs:
           find deploy-payload -type f -print | sort || true
           echo "Remote deletions:"
           cat deploy-deletions.txt || true
-          echo "PHP diff entries: \${change_count}"
-          echo "Payload file count: \${payload_count}"
-          echo "Deletion count: \${deletion_count}"
+          echo "PHP diff entries: ${change_count}"
+          echo "Payload file count: ${payload_count}"
+          echo "Deletion count: ${deletion_count}"
 
-          if [ "\${change_count}" -gt 0 ] && [ "\${payload_count}" -eq 0 ] && [ "\${deletion_count}" -eq 0 ]; then
+          if [ "${change_count}" -gt 0 ] && [ "${payload_count}" -eq 0 ] && [ "${deletion_count}" -eq 0 ]; then
             echo "ERROR: PHP changes were detected, but the deployment payload is empty." >&2
             exit 1
           fi
 
-          if [ "\${change_count}" -eq 0 ]; then
+          if [ "${change_count}" -eq 0 ]; then
             echo "No PHP changes in the latest 3 commits; nothing needs to be uploaded."
           fi
 
@@ -112,12 +112,12 @@ jobs:
           sudo apt-get install -y -qq lftp
 
       - name: Upload changed PHP files to FTP root
-        if: \${{ hashFiles('deploy-payload/**') != '' }}
+        if: ${{ hashFiles('deploy-payload/**') != '' }}
         shell: bash
         env:
           FTP_HOST: 2870352177.cloudylink.com
-          FTP_USER: \${{ secrets.FTP_USERNAME }}
-          FTP_PASS: \${{ secrets.FTP_PASSWORD }}
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
         run: |
           set -euo pipefail
 
@@ -133,18 +133,18 @@ jobs:
             echo 'set ssl:verify-certificate no'
 
             while IFS= read -r file; do
-              [ -n "\${file}" ] || continue
-              rel="\${file#deploy-payload/}"
-              dir="\$(dirname "\${rel}")"
+              [ -n "${file}" ] || continue
+              rel="${file#deploy-payload/}"
+              dir="\$(dirname "${rel}")"
 
-              if [ "\${dir}" = "." ]; then
+              if [ "${dir}" = "." ]; then
                 remote_dir="/"
               else
-                remote_dir="/\${dir}"
+                remote_dir="/${dir}"
               fi
 
-              printf 'mkdir -p "%s"\n' "\${remote_dir}"
-              printf 'put -c "%s" -o "%s"\n' "\${file}" "\${remote_dir}/\$(basename "\${rel}")"
+              printf 'mkdir -p "%s"\n' "${remote_dir}"
+              printf 'put -c "%s" -o "%s"\n' "${file}" "${remote_dir}/\$(basename "${rel}")"
             done < <(find deploy-payload -type f -print | sort)
 
             echo 'bye'
@@ -153,23 +153,23 @@ jobs:
           echo "Uploading changed PHP files:"
           find deploy-payload -type f -print | sort
 
-          lftp --user "\${FTP_USER}" --password "\${FTP_PASS}" "ftp://\${FTP_HOST}:21" -e "\$(cat /tmp/lftp-upload.cmd)"
+          lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "\$(cat /tmp/lftp-upload.cmd)"
 
       - name: Delete removed PHP files from FTP root
-        if: \${{ hashFiles('deploy-deletions.txt') != '' }}
+        if: ${{ hashFiles('deploy-deletions.txt') != '' }}
         shell: bash
         env:
           FTP_HOST: 2870352177.cloudylink.com
-          FTP_USER: \${{ secrets.FTP_USERNAME }}
-          FTP_PASS: \${{ secrets.FTP_PASSWORD }}
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
         run: |
           set -euo pipefail
 
           while IFS= read -r rel; do
-            [ -n "\${rel}" ] || continue
-            echo "Deleting remote: /\${rel}"
+            [ -n "${rel}" ] || continue
+            echo "Deleting remote: /${rel}"
 
-            lftp -u "\${FTP_USER},\${FTP_PASS}" "ftp://\${FTP_HOST}:21" -e "
+            lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "
               set ftp:ssl-force false;
               set ftp:ssl-protect-data false;
               set ftp:passive-mode true;
@@ -177,9 +177,9 @@ jobs:
               set net:timeout 30;
               set net:max-retries 2;
               set ssl:verify-certificate no;
-              rm "/\${rel}";
+              rm "/${rel}";
               bye
             " || {
-              echo "Warning: remote file may already be absent: /\${rel}"
+              echo "Warning: remote file may already be absent: /${rel}"
             }
           done < deploy-deletions.txt
