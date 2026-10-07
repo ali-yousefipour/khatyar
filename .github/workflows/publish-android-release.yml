@@ -74,6 +74,15 @@ jobs:
       - name: Pin npm to local build toolchain
         run: npm install --global npm@12.0.2
 
+      - name: Force official npm registry for GitHub Actions
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm config set fetch-retries 3
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+          npm config set fetch-timeout 300000
+          test "$(npm config get registry)" = "https://registry.npmjs.org/"
+
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
