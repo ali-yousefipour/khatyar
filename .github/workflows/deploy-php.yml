@@ -29,8 +29,12 @@ jobs:
           fetch-depth: 0
           ref: main
 
-      - name: Build deployment payload from latest 3 PHP-touching main commits
+      - name: Build deployment payload from this push
         shell: bash
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
 
@@ -38,30 +42,31 @@ jobs:
           git checkout -B main origin/main
 
           HEAD_SHA="$(git rev-parse HEAD)"
-          PHP_COMMITS="$(git rev-list --max-count=3 "$HEAD_SHA" -- php/)"
-          PHP_COMMIT_COUNT="$(printf '%s\n' "$PHP_COMMITS" | sed '/^$/d' | wc -l | tr -d ' ')"
+          BASE_SHA=""
+
+          if [ "${EVENT_NAME}" = "push" ] && [ -n "${PUSH_BEFORE}" ] && [ "${PUSH_BEFORE}" != "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="${PUSH_BEFORE}"
+            git cat-file -e "${BASE_SHA}^{commit}"
+          else
+            BASE_SHA="$(git rev-parse "${HEAD_SHA}^" 2>/dev/null || true)"
+          fi
 
           echo "Deployment HEAD: ${HEAD_SHA}"
-          echo "Latest 3 commits that modify php/:"
-          printf '%s\n' "$PHP_COMMITS"
+          echo "Deployment BASE: ${BASE_SHA:-<none>}"
+          echo "Event: ${EVENT_NAME}"
 
           rm -rf deploy-payload
           mkdir -p deploy-payload
           : > deploy-deletions.txt
           : > /tmp/php-diff.txt
 
-          if [ "$PHP_COMMIT_COUNT" -gt 0 ]; then
-            OLDEST_PHP_COMMIT="$(printf '%s\n' "$PHP_COMMITS" | tail -n 1)"
-            BASE_SHA="$(git rev-parse "${OLDEST_PHP_COMMIT}^")"
-            echo "PHP deployment base: ${BASE_SHA}"
-
-            # Select the union of the latest three commits that actually modify
-            # php/. Workflow-only commits are intentionally skipped so changing
-            # this workflow cannot push a pending PHP change out of the window.
-            git diff --name-status --find-renames --find-copies "$BASE_SHA" "$HEAD_SHA" -- php/ > /tmp/php-diff.txt
+          if [ -n "${BASE_SHA}" ]; then
+            git diff --name-status --find-renames --find-copies "${BASE_SHA}" "${HEAD_SHA}" -- php/ > /tmp/php-diff.txt
+          else
+            git diff-tree --root --no-commit-id --name-status --find-renames --find-copies -r "${HEAD_SHA}" -- php/ > /tmp/php-diff.txt
           fi
 
-          echo "PHP changes across the latest 3 PHP-touching commits:"
+          echo "PHP changes in this deployment range:"
           cat /tmp/php-diff.txt || true
 
           while IFS=$'\t' read -r status path1 path2; do
@@ -110,10 +115,11 @@ jobs:
           fi
 
           if [ "${change_count}" -eq 0 ]; then
-            echo "No PHP changes in the latest 3 PHP-touching commits; nothing needs to be uploaded."
+            echo "No PHP changes in this deployment range; nothing needs to be uploaded."
           fi
 
       - name: Install lftp
+        if: ${{ hashFiles('deploy-payload/**') != '' || hashFiles('deploy-deletions.txt') != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -155,8 +161,6 @@ jobs:
               local_file="${GITHUB_WORKSPACE}/${file}"
               remote_file="${remote_dir}/$(basename "${rel}")"
 
-              # Use an absolute local path. lftp was interpreting the quoted
-              # relative path as part of the filename on the runner.
               printf 'mkdir -p %s\n' "${remote_dir}"
               printf 'put -c %s -o %s\n' "${local_file}" "${remote_file}"
             done < <(find deploy-payload -type f -print | sort)
@@ -168,6 +172,62 @@ jobs:
           find deploy-payload -type f -print | sort
 
           lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-upload.cmd)"
+
+      - name: Verify uploaded FTP files
+        if: ${{ hashFiles('deploy-payload/**') != '' }}
+        shell: bash
+        env:
+          FTP_HOST: 2870352177.cloudylink.com
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          while IFS= read -r file; do
+            [ -n "${file}" ] || continue
+            rel="${file#deploy-payload/}"
+            remote="/${rel}"
+            local_sha="$(sha256sum "${file}" | awk '{print $1}')"
+
+            rm -f /tmp/ftp-verify
+            lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "
+              set ftp:ssl-force false;
+              set ftp:ssl-protect-data false;
+              set ftp:passive-mode true;
+              set ftp:prefer-epsv false;
+              set net:timeout 60;
+              set net:max-retries 3;
+              set ssl:verify-certificate no;
+              get -o /tmp/ftp-verify "${remote}";
+              bye
+            "
+
+            remote_sha="$(sha256sum /tmp/ftp-verify | awk '{print $1}')"
+            echo "FTP verify ${rel}: local=${local_sha} remote=${remote_sha}"
+            [ "${local_sha}" = "${remote_sha}" ] || {
+              echo "ERROR: FTP checksum mismatch for ${rel}" >&2
+              exit 1
+            }
+          done < <(find deploy-payload -type f -print | sort)
+
+      - name: Verify public panel after PHP upload
+        if: ${{ hashFiles('deploy-payload/app/panel.html') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          url="https://app.yousefipour.ir/?deploy_verify=${GITHUB_SHA}"
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+            -H 'Cache-Control: no-cache, no-store' \
+            -A 'Khatyar-Deploy-Verify/1.0' \
+            "${url}" > /tmp/live-panel.html
+
+          grep -q 'assets/panel-build-runtime-fix.js?v=20261007.263' /tmp/live-panel.html
+          grep -q 'assets/panel.bundle.js?v=20261007.263' /tmp/live-panel.html
+          grep -q 'complaints-panel-v257.js?v=20261007.263' /tmp/live-panel.html
+          grep -q 'نسخه 1.5.6' /tmp/live-panel.html
+
+          echo "Public panel verification passed for ${GITHUB_SHA}."
 
       - name: Delete removed PHP files from FTP root
         if: ${{ hashFiles('deploy-deletions.txt') != '' }}
