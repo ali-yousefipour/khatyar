@@ -603,46 +603,7 @@ function Dashboard(){
       <table><tbody>{rep.map(r=><tr key={r.id}><td>{r.first_name} {r.last_name}</td><td>{r.subject}</td>
         <td><span className={"badge "+badgeCls(r.status)}>{STATUS_FA[r.status]||r.status}</span></td></tr>)}</tbody></table>
     </div>}
-    <WorkDashboard/></>);
-}
-
-// خلاصهٔ تجمیعی کارکرد ماهانه + نمودار برترین‌ها
-function WorkDashboard(){
-  const tj=todayJ();
-  const [jy,setJy]=useState(tj[0]); const [jm,setJm]=useState(tj[1]); const [d,setD]=useState(null); const barRef=useRef();
-  const load=()=>db.workDashboard(jy,jm).then(setD).catch(()=>{});
-  useEffect(()=>{load();},[]);
-  useEffect(()=>{
-    if(!d||!barRef.current||!d.top.length)return;
-    const c=new Chart(barRef.current,{type:"bar",data:{labels:d.top.map(x=>x.name),
-      datasets:[{label:"کارکرد (ساعت)",data:d.top.map(x=>Math.round(x.worked/60*10)/10),backgroundColor:"#0d7a5f",borderRadius:6},
-        {label:"اضافه‌کار (ساعت)",data:d.top.map(x=>Math.round(x.overtime/60*10)/10),backgroundColor:"#f6c324",borderRadius:6}]},
-      options:{plugins:{legend:{labels:{font:{family:"Vazirmatn"}}}},scales:{y:{ticks:{font:{family:"Vazirmatn"}}},x:{ticks:{font:{family:"Vazirmatn"},autoSkip:false,maxRotation:45}}}}});
-    return()=>c.destroy();
-  },[d]);
-  const hm=(m)=>`${fa(Math.floor((m||0)/60))}:${String((m||0)%60).padStart(2,"0")}`;
-  return(<div className="panel" style={{marginTop:16}}>
-    <div className="row" style={{justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-      <h3 style={{margin:0}}>خلاصهٔ کارکرد نیروها</h3>
-      <div className="row" style={{gap:6,alignItems:"center"}}>
-        <select className="input" style={{maxWidth:120}} value={jm} onChange={e=>setJm(+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select>
-        <input className="input" type="number" style={{maxWidth:90}} value={jy} onChange={e=>setJy(+e.target.value||tj[0])}/>
-        <button className="btn p" onClick={load}>نمایش</button>
-        <button className="btn g" onClick={async()=>{ try{ const res=await fetch(db.payrollExportUrl(jy,jm),{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`لیست_حقوق_${jy}_${jm}.csv`; a.click(); }catch(e){ alert(e.message); } }}>⤓ اکسل لیست حقوق</button>
-      </div>
-    </div>
-    {!d?<p className="muted" style={{marginTop:10}}>در حال بارگذاری…</p>:<>
-      <div className="kpis" style={{marginTop:12}}>
-        {[["نیروهای دارای شیفت",d.sum.staff],["مجموع کارکرد",hm(d.sum.worked)],["مجموع اضافه‌کار",hm(d.sum.overtime)],["مجموع کسری",hm(d.sum.shortage)],["شب‌کاری",hm(d.sum.night)],["درخواست در انتظار",d.pending_requests]].map(([l,n],i)=>
-          <div className="kpi" key={i}><div className="n" style={{fontSize:18}}>{typeof n==="number"?fa(n):n}</div><div className="l">{l}</div></div>)}
-      </div>
-      <div className="row" style={{gap:14,flexWrap:"wrap",marginTop:6,fontSize:12,color:"var(--muted)"}}>
-        <span>جمعه‌کاری: {hm(d.sum.friday)}</span><span>تعطیل‌کاری: {hm(d.sum.holiday)}</span>
-        <span>مرخصی استحقاقی: {hm(d.sum.annual_min)}</span><span>مرخصی استعلاجی: {hm(d.sum.sick_min)}</span><span>ماموریت: {hm(d.sum.mission_min)}</span>
-      </div>
-      {d.top.length>0?<div style={{marginTop:14}}><canvas ref={barRef} height="140"></canvas></div>:<p className="muted" style={{marginTop:10}}>داده‌ای برای این ماه نیست.</p>}
-    </>}
-  </div>);
+  </>);
 }
 
 const GROUP_COLORS={supervisor:"#0d7a5f",operator:"#0891b2",admin_staff:"#2563eb",chief_inspector:"#7c3aed",inspector:"#d97706"};
