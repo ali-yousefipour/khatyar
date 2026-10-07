@@ -159,3 +159,4 @@ async function detail(id){
 async function act(id,a,note){try{await req('/complaints/'+id+'/action',{method:'POST',body:JSON.stringify({action:a,note:note||''})});detail(id)}catch(e){alert(e.message)}}
 window.openComplaints=open;window.closeComplaints=()=>document.getElementById('khComplaints')?.remove();
 })();
+/* DEPLOY-SYNC: 20261007-v267 */
