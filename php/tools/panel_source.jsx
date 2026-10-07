@@ -6085,7 +6085,11 @@ function AttendanceReport(){
       </table>
     </div>}
     {data&&<div style={{marginTop:8,fontSize:11,color:"var(--muted)"}}>۲۹ ستون گزارش فعال است؛ ساعت ورود و خروج از داده واقعی تردد خوانده می‌شود.</div>}
-    {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div className="card-p" style={{width:"min(760px,96vw)",maxHeight:"90vh",overflow:"auto"}}><button className="btn g" onClick={()=>setOpenDay(null)}>بستن</button><h3>جزئیات تردد {fa(d.jdate)}</h3><table><thead><tr><th>ورود</th><th>خروج</th><th>روش ثبت</th><th>دستگاه</th><th>اقدام</th></tr></thead><tbody>{(d.punches||[]).map(p=>{const hasGps=Number.isFinite(Number(p.in_lat))&&Number.isFinite(Number(p.in_lng));return <tr key={p.id}><td>{attendanceCell(pin(p)||"--:--")}</td><td>{attendanceCell(pout(p)||"--:--")}</td><td>{p.method||"—"}</td><td>{p.device||"—"}</td><td style={{whiteSpace:"nowrap"}}>{hasGps&&<button className="btn g" onClick={()=>setMapPunch(p)}>📍 نمایش در نقشه</button>}<button className="btn g" onClick={()=>{setOpenDay(null);setEdit(p)}}>اصلاح</button><button className="btn g" onClick={()=>delPunch(p)}>حذف</button></td></tr>})}</tbody></table><button className="btn p" onClick={()=>setAddModal({jdate:d.jdate})}>ثبت تردد دستی</button></div></div>:null})()}
+    {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div className="card-p" style={{width:"min(760px,96vw)",maxHeight:"90vh",overflow:"auto"}}><button className="btn g" onClick={()=>setOpenDay(null)}>بستن</button><h3>جزئیات تردد {fa(d.jdate)}</h3><table><thead><tr><th>ورود</th><th>خروج</th><th>روش ثبت</th><th>دستگاه</th><th>اقدام</th></tr></thead><tbody>{(d.punches||[]).map(p=>{const hasGps=Number.isFinite(Number(p.in_lat))&&Number.isFinite(Number(p.in_lng));return <tr key={p.id}><td>{attendanceCell(pin(p)||"--:--")}</td><td>{attendanceCell(pout(p)||"--:--")}</td><td>{p.method||"—"}</td><td>{p.device||"—"}</td><td style={{whiteSpace:"nowrap"}}>{hasGps&&<button className="btn g" onClick={()=>setMapPunch(p)}>📍 نمایش در نقشه</button>}<button className="btn g" onClick={()=>{setOpenDay(null);setEdit({
+  ...p,
+  in: p?.in ?? p?.in_full ?? p?.check_in ?? p?.first_in ?? p?.first_entry ?? d?.in ?? d?.first_in ?? d?.first_entry ?? "",
+  out: p?.out ?? p?.out_full ?? p?.check_out ?? p?.last_out ?? p?.last_exit ?? d?.out ?? d?.last_out ?? d?.last_exit ?? ""
+})}}>اصلاح</button><button className="btn g" onClick={()=>delPunch(p)}>حذف</button></td></tr>})}</tbody></table><button className="btn p" onClick={()=>setAddModal({jdate:d.jdate})}>ثبت تردد دستی</button></div></div>:null})()}
     {mapPunch&&(()=>{const lat=Number(mapPunch.in_lat),lng=Number(mapPunch.in_lng);const delta=0.002;const bbox=[lng-delta,lat-delta,lng+delta,lat+delta].join("%2C");const mapSrc="https://www.openstreetmap.org/export/embed.html?bbox="+bbox+"&layer=mapnik&marker="+lat+"%2C"+lng;return <div style={{position:"fixed",inset:0,zIndex:100000,background:"rgba(0,0,0,.62)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setMapPunch(null)}><div className="card-p" style={{width:"min(900px,96vw)",height:"min(720px,92vh)",display:"flex",flexDirection:"column",gap:10,overflow:"hidden"}} onClick={e=>e.stopPropagation()}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}><div><h3 style={{margin:0}}>مکان ثبت ورود با GPS</h3></div><button className="btn g" onClick={()=>setMapPunch(null)}>بستن</button></div><div style={{flex:1,minHeight:320,borderRadius:10,overflow:"hidden",border:"1px solid var(--line)"}}><iframe title="مکان ثبت ورود با GPS" src={mapSrc} style={{width:"100%",height:"100%",border:0}} loading="lazy"/></div><div style={{display:"flex",justifyContent:"flex-end",gap:8}}><a className="btn g" href={"https://www.google.com/maps?q="+lat+","+lng} target="_blank" rel="noreferrer">باز کردن در Google Maps</a></div></div></div>})()}
     {edit&&<PunchEditModal punch={edit} onSave={savePunch} onClose={()=>setEdit(null)}/>}
     {addModal&&<PunchAddModal jdate={addModal.jdate} onSave={addPunch} onClose={()=>setAddModal(null)}/>}
@@ -6157,7 +6161,7 @@ function HmField({label,value,onChange,optional=false,autoFocus=false}){
   };
   return <div className="punch-field" style={{minWidth:0,flex:"1 1 280px"}}>
     <label className="label">{label}{optional?" — اختیاری":""}</label>
-    <div className="punch-time-control" dir="ltr" style={{width:"100%"}}>
+    <div className="punch-time-control" dir="ltr" style={{display:"block",width:"100%"}}>
       <input
         className="input punch-time-input"
         type="text"
@@ -6171,7 +6175,7 @@ function HmField({label,value,onChange,optional=false,autoFocus=false}){
         autoFocus={autoFocus}
         aria-label={label}
         aria-describedby={label+"-hint"}
-        style={{width:"100%",height:46,boxSizing:"border-box",fontSize:20,fontWeight:700,textAlign:"center",letterSpacing:1}}
+        style={{display:"block",width:"100%",height:46,boxSizing:"border-box",fontSize:20,fontWeight:700,textAlign:"center",letterSpacing:1}}
       />
       <span id={label+"-hint"} className="punch-time-hint" style={{display:"block",marginTop:6,textAlign:"center"}}>ساعت را به شکل ۲۴ ساعته وارد کنید</span>
     </div>
@@ -6190,8 +6194,8 @@ function PunchModalShell({title,subtitle,children,onClose,actions}){
   </div>;
 }
 function PunchEditModal({punch,onSave,onClose}){
-  const punchInValue=punch?.in??punch?.in_full??punch?.check_in??punch?.first_in??punch?.first_entry??"";
-  const punchOutValue=punch?.out??punch?.out_full??punch?.check_out??punch?.last_out??punch?.last_exit??"";
+  const punchInValue=punch?.in ?? punch?.in_full ?? punch?.check_in ?? punch?.first_in ?? punch?.first_entry ?? "";
+  const punchOutValue=punch?.out ?? punch?.out_full ?? punch?.check_out ?? punch?.last_out ?? punch?.last_exit ?? "";
   const [ci,setCi]=useState(normalizeHm(punchInValue)||"");
   const [co,setCo]=useState(normalizeHm(punchOutValue)||"");
   const [err,setErr]=useState("");
