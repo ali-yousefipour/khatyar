@@ -10125,28 +10125,13 @@ function toFaDigits(v) {
 }
 function HmField({ label, value, onChange, optional = false, autoFocus = false }) {
     const normalized = normalizeHm(value) || "";
-    const display = String(value !== null && value !== void 0 ? value : "").trim() || normalized;
-    const handleChange = (e) => {
-        var _a;
-        const raw = String((_a = e.target.value) !== null && _a !== void 0 ? _a : "")
-            .replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
-            .replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
-            .replace(/[^0-9:]/g, "")
-            .slice(0, 5);
-        onChange(raw);
-    };
-    const handleBlur = () => {
-        const n = normalizeHm(display);
-        if (n)
-            onChange(n);
-    };
-    return React.createElement("div", { className: "punch-field" },
+    return React.createElement("div", { className: "punch-field", style: { minWidth: 0, flex: "1 1 280px" } },
         React.createElement("label", { className: "label" },
             label,
             optional ? " — اختیاری" : ""),
-        React.createElement("div", { className: "punch-time-control", style: { display: "block" } },
-            React.createElement("input", { className: "input punch-time-input", type: "text", inputMode: "numeric", dir: "ltr", value: display, onChange: handleChange, onBlur: handleBlur, placeholder: "00:00", maxLength: 5, autoFocus: autoFocus, "aria-label": label, "aria-describedby": label + "-hint", style: { width: "100%", height: 46, boxSizing: "border-box", fontSize: 20, fontWeight: 700, textAlign: "center", letterSpacing: 1 } }),
-            React.createElement("span", { id: label + "-hint", className: "punch-time-hint", style: { display: "block", marginTop: 6 } }, "\u0633\u0627\u0639\u062A \u0631\u0627 \u0628\u0647 \u0634\u06A9\u0644 \u06F2\u06F4 \u0633\u0627\u0639\u062A\u0647 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F")));
+        React.createElement("div", { className: "punch-time-control", dir: "ltr", style: { width: "100%" } },
+            React.createElement("input", { className: "input punch-time-input", type: "time", step: "60", value: normalized, onChange: e => onChange(e.target.value || ""), autoFocus: autoFocus, "aria-label": label, "aria-describedby": label + "-hint", style: { width: "100%", height: 46, boxSizing: "border-box", fontSize: 18, textAlign: "center" } }),
+            React.createElement("span", { id: label + "-hint", className: "punch-time-hint", style: { display: "block", marginTop: 6, textAlign: "center" } }, "\u0633\u0627\u0639\u062A \u0631\u0627 \u0628\u0647 \u0634\u06A9\u0644 \u06F2\u06F4 \u0633\u0627\u0639\u062A\u0647 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F")));
 }
 function PunchModalShell({ title, subtitle, children, onClose, actions }) {
     return React.createElement("div", { className: "modal-bg punch-modal-bg", style: { zIndex: 99999 }, onClick: onClose },
