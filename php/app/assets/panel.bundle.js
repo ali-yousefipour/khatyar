@@ -10031,30 +10031,44 @@ function AttendanceReport() {
                     }));
                 })))),
         data && React.createElement("div", { style: { marginTop: 8, fontSize: 11, color: "var(--muted)" } }, "\u06F2\u06F9 \u0633\u062A\u0648\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A\u061B \u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0627\u0632 \u062F\u0627\u062F\u0647 \u0648\u0627\u0642\u0639\u06CC \u062A\u0631\u062F\u062F \u062E\u0648\u0627\u0646\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
-        openDay && data && (() => { const d = (data.days || []).find(x => x.jdate === openDay); return d ? React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 900, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
-            React.createElement("div", { className: "card-p", style: { width: "min(760px,96vw)", maxHeight: "90vh", overflow: "auto" } },
-                React.createElement("button", { className: "btn g", onClick: () => setOpenDay(null) }, "\u0628\u0633\u062A\u0646"),
-                React.createElement("h3", null,
-                    "\u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F ",
-                    fa(d.jdate)),
-                React.createElement("table", null,
-                    React.createElement("thead", null,
-                        React.createElement("tr", null,
-                            React.createElement("th", null, "\u0648\u0631\u0648\u062F"),
-                            React.createElement("th", null, "\u062E\u0631\u0648\u062C"),
-                            React.createElement("th", null, "\u0631\u0648\u0634 \u062B\u0628\u062A"),
-                            React.createElement("th", null, "\u062F\u0633\u062A\u06AF\u0627\u0647"),
-                            React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645"))),
-                    React.createElement("tbody", null, (d.punches || []).map(p => { const hasGps = Number.isFinite(Number(p.in_lat)) && Number.isFinite(Number(p.in_lng)); return React.createElement("tr", { key: p.id },
-                        React.createElement("td", null, attendanceCell(pin(p) || "--:--")),
-                        React.createElement("td", null, attendanceCell(pout(p) || "--:--")),
-                        React.createElement("td", null, p.method || "—"),
-                        React.createElement("td", null, p.device || "—"),
-                        React.createElement("td", { style: { whiteSpace: "nowrap" } },
-                            hasGps && React.createElement("button", { className: "btn g", onClick: () => setMapPunch(p) }, "\uD83D\uDCCD \u0646\u0645\u0627\u06CC\u0634 \u062F\u0631 \u0646\u0642\u0634\u0647"),
-                            React.createElement("button", { className: "btn g", onClick: () => { setOpenDay(null); setEdit(p); } }, "\u0627\u0635\u0644\u0627\u062D"),
-                            React.createElement("button", { className: "btn g", onClick: () => delPunch(p) }, "\u062D\u0630\u0641"))); }))),
-                React.createElement("button", { className: "btn p", onClick: () => setAddModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC"))) : null; })(),
+        openDay && data && (() => {
+            const d = (data.days || []).find(x => x.jdate === openDay);
+            return d ? React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 900, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+                React.createElement("div", { className: "card-p", style: { width: "min(760px,96vw)", maxHeight: "90vh", overflow: "auto" } },
+                    React.createElement("button", { className: "btn g", onClick: () => setOpenDay(null) }, "\u0628\u0633\u062A\u0646"),
+                    React.createElement("h3", null,
+                        "\u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F ",
+                        fa(d.jdate)),
+                    React.createElement("table", null,
+                        React.createElement("thead", null,
+                            React.createElement("tr", null,
+                                React.createElement("th", null, "\u0648\u0631\u0648\u062F"),
+                                React.createElement("th", null, "\u062E\u0631\u0648\u062C"),
+                                React.createElement("th", null, "\u0631\u0648\u0634 \u062B\u0628\u062A"),
+                                React.createElement("th", null, "\u062F\u0633\u062A\u06AF\u0627\u0647"),
+                                React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645"))),
+                        React.createElement("tbody", null, (d.punches || []).map(p => {
+                            const hasGps = Number.isFinite(Number(p.in_lat)) && Number.isFinite(Number(p.in_lng));
+                            return React.createElement("tr", { key: p.id },
+                                React.createElement("td", null, attendanceCell(pin(p) || "--:--")),
+                                React.createElement("td", null, attendanceCell(pout(p) || "--:--")),
+                                React.createElement("td", null, p.method || "—"),
+                                React.createElement("td", null, p.device || "—"),
+                                React.createElement("td", { style: { whiteSpace: "nowrap" } },
+                                    hasGps && React.createElement("button", { className: "btn g", onClick: () => setMapPunch(p) }, "\uD83D\uDCCD \u0646\u0645\u0627\u06CC\u0634 \u062F\u0631 \u0646\u0642\u0634\u0647"),
+                                    React.createElement("button", { className: "btn g", onClick: () => {
+                                            var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l, _m, _p, _q, _r, _u, _v;
+                                            setOpenDay(null);
+                                            setEdit({
+                                                ...p,
+                                                in: (_j = (_h = (_g = (_f = (_e = (_c = (_b = (_a = p === null || p === void 0 ? void 0 : p.in) !== null && _a !== void 0 ? _a : p === null || p === void 0 ? void 0 : p.in_full) !== null && _b !== void 0 ? _b : p === null || p === void 0 ? void 0 : p.check_in) !== null && _c !== void 0 ? _c : p === null || p === void 0 ? void 0 : p.first_in) !== null && _e !== void 0 ? _e : p === null || p === void 0 ? void 0 : p.first_entry) !== null && _f !== void 0 ? _f : d === null || d === void 0 ? void 0 : d.in) !== null && _g !== void 0 ? _g : d === null || d === void 0 ? void 0 : d.first_in) !== null && _h !== void 0 ? _h : d === null || d === void 0 ? void 0 : d.first_entry) !== null && _j !== void 0 ? _j : "",
+                                                out: (_v = (_u = (_r = (_q = (_p = (_m = (_l = (_k = p === null || p === void 0 ? void 0 : p.out) !== null && _k !== void 0 ? _k : p === null || p === void 0 ? void 0 : p.out_full) !== null && _l !== void 0 ? _l : p === null || p === void 0 ? void 0 : p.check_out) !== null && _m !== void 0 ? _m : p === null || p === void 0 ? void 0 : p.last_out) !== null && _p !== void 0 ? _p : p === null || p === void 0 ? void 0 : p.last_exit) !== null && _q !== void 0 ? _q : d === null || d === void 0 ? void 0 : d.out) !== null && _r !== void 0 ? _r : d === null || d === void 0 ? void 0 : d.last_out) !== null && _u !== void 0 ? _u : d === null || d === void 0 ? void 0 : d.last_exit) !== null && _v !== void 0 ? _v : ""
+                                            });
+                                        } }, "\u0627\u0635\u0644\u0627\u062D"),
+                                    React.createElement("button", { className: "btn g", onClick: () => delPunch(p) }, "\u062D\u0630\u0641")));
+                        }))),
+                    React.createElement("button", { className: "btn p", onClick: () => setAddModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC"))) : null;
+        })(),
         mapPunch && (() => { const lat = Number(mapPunch.in_lat), lng = Number(mapPunch.in_lng); const delta = 0.002; const bbox = [lng - delta, lat - delta, lng + delta, lat + delta].join("%2C"); const mapSrc = "https://www.openstreetmap.org/export/embed.html?bbox=" + bbox + "&layer=mapnik&marker=" + lat + "%2C" + lng; return React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 100000, background: "rgba(0,0,0,.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }, onClick: () => setMapPunch(null) },
             React.createElement("div", { className: "card-p", style: { width: "min(900px,96vw)", height: "min(720px,92vh)", display: "flex", flexDirection: "column", gap: 10, overflow: "hidden" }, onClick: e => e.stopPropagation() },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 } },
@@ -10147,8 +10161,8 @@ function HmField({ label, value, onChange, optional = false, autoFocus = false }
         React.createElement("label", { className: "label" },
             label,
             optional ? " — اختیاری" : ""),
-        React.createElement("div", { className: "punch-time-control", dir: "ltr", style: { width: "100%" } },
-            React.createElement("input", { className: "input punch-time-input", type: "text", inputMode: "numeric", dir: "ltr", value: text, onChange: handleChange, onBlur: handleBlur, placeholder: "00:00", maxLength: 5, autoFocus: autoFocus, "aria-label": label, "aria-describedby": label + "-hint", style: { width: "100%", height: 46, boxSizing: "border-box", fontSize: 20, fontWeight: 700, textAlign: "center", letterSpacing: 1 } }),
+        React.createElement("div", { className: "punch-time-control", dir: "ltr", style: { display: "block", width: "100%" } },
+            React.createElement("input", { className: "input punch-time-input", type: "text", inputMode: "numeric", dir: "ltr", value: text, onChange: handleChange, onBlur: handleBlur, placeholder: "00:00", maxLength: 5, autoFocus: autoFocus, "aria-label": label, "aria-describedby": label + "-hint", style: { display: "block", width: "100%", height: 46, boxSizing: "border-box", fontSize: 20, fontWeight: 700, textAlign: "center", letterSpacing: 1 } }),
             React.createElement("span", { id: label + "-hint", className: "punch-time-hint", style: { display: "block", marginTop: 6, textAlign: "center" } }, "\u0633\u0627\u0639\u062A \u0631\u0627 \u0628\u0647 \u0634\u06A9\u0644 \u06F2\u06F4 \u0633\u0627\u0639\u062A\u0647 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F")));
 }
 function PunchModalShell({ title, subtitle, children, onClose, actions }) {
