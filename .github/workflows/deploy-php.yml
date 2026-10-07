@@ -222,9 +222,9 @@ jobs:
             -A 'Khatyar-Deploy-Verify/1.0' \
             "${url}" > /tmp/live-panel.html
 
-          grep -q 'assets/panel-build-runtime-fix.js?v=20261007.263' /tmp/live-panel.html
-          grep -q 'assets/panel.bundle.js?v=20261007.263' /tmp/live-panel.html
-          grep -q 'complaints-panel-v257.js?v=20261007.263' /tmp/live-panel.html
+          grep -q 'assets/panel-build-runtime-fix.js?v=20261007.266' /tmp/live-panel.html
+          grep -q 'assets/panel.bundle.js?v=20261007.266' /tmp/live-panel.html
+          grep -q 'complaints-panel-v257.js?v=20261007.266' /tmp/live-panel.html
           grep -q 'نسخه 1.5.6' /tmp/live-panel.html
 
           echo "Public panel verification passed for ${GITHUB_SHA}."
@@ -241,7 +241,7 @@ jobs:
             -A 'Khatyar-Deploy-Verify/1.0' \
             "${url}" > /tmp/live-panel-bundle.js
 
-          grep -q 'complaints-panel-v257.js?v=20261007.263' /tmp/live-panel-bundle.js
+          grep -q 'complaints-panel-v257.js?v=20261007.266' /tmp/live-panel-bundle.js
           echo "Public panel bundle verification passed for ${GITHUB_SHA}."
 
       - name: Delete removed PHP files from FTP root
