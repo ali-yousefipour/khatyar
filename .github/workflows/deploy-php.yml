@@ -47,6 +47,10 @@ jobs:
           if [ "${EVENT_NAME}" = "push" ] && [ -n "${PUSH_BEFORE}" ] && [ "${PUSH_BEFORE}" != "0000000000000000000000000000000000000000" ]; then
             BASE_SHA="${PUSH_BEFORE}"
             git cat-file -e "${BASE_SHA}^{commit}"
+          elif [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            # Manual deployment explicitly reconciles production with the current main tree.
+            # Use the root diff so a workflow-only previous commit cannot yield an empty deploy.
+            BASE_SHA=""
           else
             BASE_SHA="$(git rev-parse "${HEAD_SHA}^" 2>/dev/null || true)"
           fi
