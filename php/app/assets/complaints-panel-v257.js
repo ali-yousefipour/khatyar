@@ -13,10 +13,16 @@ async function req(p,o={},ttl=0){
   return j;
 }
 const css=`
-#khComplaints{position:relative;width:100%;min-height:calc(100vh - 100px);background:#f4f7fb;overflow:hidden;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;color:#182230;display:flex}
-.khcLayout{display:grid;grid-template-columns:250px minmax(0,1fr);width:100%;height:100vh;min-height:0}.khcSide{background:#fff;border-left:1px solid #e2e8f0;box-shadow:-3px 0 14px #17203308;display:flex;flex-direction:column;min-height:0}.khcSideHead{padding:18px 16px;border-bottom:1px solid #edf0f4}.khcSideHead h2{margin:0;font-size:16px}.khcSideHead small{display:block;margin-top:5px;color:#667085;font-size:11px}.khcNav{padding:12px;overflow:auto;display:grid;gap:5px}.khcNav button{width:100%;border:0;background:transparent;color:#344054;border-radius:10px;padding:11px 12px;text-align:right;font:700 13px Vazirmatn,Tahoma;cursor:pointer}.khcNav button:hover{background:#f1f7f5}.khcNav button.khcOn{background:#eaf7f2;color:#087353}.khcSideFoot{margin-top:auto;padding:12px;border-top:1px solid #edf0f4}.khcCloseSide{width:100%;border:1px solid #d9e1ea;background:#fff;color:#475467;border-radius:10px;padding:9px 12px;font:700 12px Vazirmatn,Tahoma;cursor:pointer}.khcMain{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}.khcHead{position:sticky;top:0;background:linear-gradient(135deg,#0d7a5f,#095b49);color:#fff;padding:14px 22px;display:flex;gap:12px;align-items:center;z-index:5;box-shadow:0 4px 18px #0002}
+#khComplaints{position:relative;width:100%;min-height:calc(100vh - 100px);background:#f4f7fb;overflow:hidden;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;color:#182230}
+.khcLayout{display:block;width:100%;min-height:100%}
+.khcSide{display:none}
+.khcMain{width:100%;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.khcHead{position:relative;background:linear-gradient(135deg,#0d7a5f,#095b49);color:#fff;padding:14px 22px;display:flex;gap:12px;align-items:center;z-index:5;box-shadow:0 4px 18px #0002}
 .khcHead h2{margin:0;font-size:18px}.khcHead small{opacity:.8}.khcClose{margin-right:auto;background:#fff;color:#0d7a5f;border:0;border-radius:10px;padding:8px 14px;font-weight:800;cursor:pointer}
-.khcBody{padding:20px;max-width:1420px;width:100%;box-sizing:border-box;margin:0 auto;overflow:auto;min-height:0;flex:1}.khcTabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.khcBody{padding:20px;max-width:1420px;width:100%;box-sizing:border-box;margin:0 auto;overflow:auto;min-height:0;flex:1}
+.khcTabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px #17203308}
+.khcTabs button{min-width:120px}
+
 .khcTabs button,.khcBtn{border:1px solid #d9e1ea;background:#fff;border-radius:10px;padding:9px 14px;font:inherit;cursor:pointer;transition:.15s}
 .khcTabs button:hover,.khcBtn:hover{transform:translateY(-1px);box-shadow:0 4px 12px #17203312}.khcOn,.khcPrimary{background:#0d7a5f!important;color:#fff!important;border-color:#0d7a5f!important}
 .khcGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.khcCard{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;box-shadow:0 2px 10px #17203308}
@@ -29,7 +35,7 @@ const css=`
 .khcLoading{padding:28px;text-align:center;color:#667085}.khcSpin{display:inline-block;width:18px;height:18px;border:2px solid #dce5e0;border-top-color:#0d7a5f;border-radius:50%;animation:khspin .7s linear infinite;vertical-align:middle;margin-left:8px}@keyframes khspin{to{transform:rotate(360deg)}}
 .khcCheckGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px}
 .khcDateBox{display:flex;align-items:center;gap:6px;position:relative}.khcDateBox .khcInput{margin:5px 0}.khcDateBtn{border:1px solid #d9e1ea;background:#fff;border-radius:10px;padding:9px 11px;cursor:pointer;font-size:16px}.khcJp{position:absolute;top:58px;right:0;width:270px;background:#fff;border:1px solid #d9e1ea;border-radius:14px;box-shadow:0 12px 35px #17203322;padding:10px;z-index:20}.khcJpHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.khcJpHead button{border:0;background:#edf8f4;border-radius:8px;width:32px;height:30px;cursor:pointer}.khcJpWeek,.khcJpDays{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}.khcJpWeek{font-size:11px;color:#667085;margin-bottom:4px}.khcJpDays button{border:0;background:#f7f9fb;border-radius:7px;padding:7px 2px;cursor:pointer}.khcJpDays button:hover{background:#0d7a5f;color:#fff}.khcRole{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid #e4e7ec;border-radius:12px;background:#fff;cursor:pointer}.khcRole.on{border-color:#0d7a5f;background:#effaf6}.khcRole input{width:18px;height:18px}
-@media(max-width:900px){.khcLayout{grid-template-columns:210px minmax(0,1fr)}.khcGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.khcSplit,.khcRow{grid-template-columns:1fr}}@media(max-width:560px){.khcLayout{grid-template-columns:1fr}.khcSide{display:none}.khcGrid{grid-template-columns:1fr}.khcBody{padding:12px}}
+@media(max-width:900px){.khcGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.khcSplit,.khcRow{grid-template-columns:1fr}}@media(max-width:560px){.khcGrid{grid-template-columns:1fr}.khcBody{padding:12px}}
 `;
 function mountStyle(){if(document.getElementById('khc257-style'))return;const st=document.createElement('style');st.id='khc257-style';st.textContent=css;document.head.appendChild(st)}
 function loading(x){x.innerHTML='<div class="khcPanel khcLoading"><span class="khcSpin"></span>در حال دریافت اطلاعات…</div>'}
@@ -37,12 +43,12 @@ function tabs(active){return '<div class="khcTabs">'+[['dashboard','داشبور
 function open(host){
  mountStyle();if(document.getElementById('khComplaints'))return;
  const root=document.createElement('div');root.id='khComplaints';
- root.innerHTML='<div class="khcLayout"><aside class="khcSide"><div class="khcSideHead"><h2>شکایات تاکسیرانان</h2><small>مدیریت، ارجاع و گزارش‌گیری</small></div><nav class="khcNav">'+[['dashboard','داشبورد'],['register','ثبت شکایت'],['received','شکایات دریافتی'],['report','گزارشگیری'],['settings','تنظیمات']].map(a=>'<button data-nav="'+a[0]+'">'+a[1]+'</button>').join('')+'</nav><div class="khcSideFoot"><button class="khcCloseSide">بازگشت به پنل</button></div></aside><main class="khcMain"><div class="khcHead"><div><h2 id="khcTitle">مدیریت شکایات تاکسیرانان</h2><small>ثبت، ارجاع، پایش و گزارش‌گیری</small></div></div><div class="khcBody"><div id="khcApp"></div></div></main></div>';
- const mount=(host&&host.nodeType===1)?host:document.body;mount.innerHTML='';mount.appendChild(root);root.querySelector('.khcCloseSide').onclick=()=>root.remove();root.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>show(b.dataset.nav));show('dashboard');
+ root.innerHTML='<div class="khcLayout"><main class="khcMain"><div class="khcHead"><div><h2 id="khcTitle">مدیریت شکایات تاکسیرانان</h2><small>ثبت، ارجاع، پایش و گزارش‌گیری</small></div><button class="khcClose" type="button">بازگشت به پنل</button></div><div class="khcBody"><nav class="khcTabs" aria-label="تب‌های شکایات">'+[['dashboard','داشبورد'],['register','ثبت شکایت'],['received','شکایات دریافتی'],['report','گزارش‌گیری'],['settings','تنظیمات']].map(a=>'<button type="button" data-nav="'+a[0]+'">'+a[1]+'</button>').join('')+'</nav><div id="khcApp"></div></div></main></div>';
+ const mount=(host&&host.nodeType===1)?host:document.body;mount.innerHTML='';mount.appendChild(root);root.querySelector('.khcClose').onclick=()=>root.remove();root.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>show(b.dataset.nav));show('dashboard');
 }
 function rootNavSync(tab){const r=document.getElementById('khComplaints');if(!r)return;r.querySelectorAll('[data-nav]').forEach(b=>b.classList.toggle('khcOn',b.dataset.nav===tab));const titles={dashboard:'داشبورد شکایات',register:'ثبت شکایت',received:'شکایات دریافتی',report:'گزارش‌گیری حرفه‌ای شکایات',settings:'تنظیمات شکایات'};const t=r.querySelector('#khcTitle');if(t)t.textContent=titles[tab]||'مدیریت شکایات تاکسیرانان';}
 async function show(tab){
- const app=document.getElementById('khcApp');if(!app)return;app.innerHTML='<div id="khcTab"></div>';rootNavSync(tab);
+ const app=document.getElementById('khcApp');if(!app)return;app.innerHTML='<div id="khcTab"></div>';rootNavSync(tab);const root=document.getElementById('khComplaints');if(root)root.querySelectorAll('[data-nav]').forEach(b=>b.classList.toggle('khcOn',b.dataset.nav===tab));
  app.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>show(b.dataset.t));const x=document.getElementById('khcTab');
  try{
   if(tab==='dashboard')return dashboard(x);
