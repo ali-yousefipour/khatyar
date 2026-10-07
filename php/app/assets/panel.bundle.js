@@ -845,70 +845,7 @@ function Dashboard() {
                         r.last_name),
                     React.createElement("td", null, r.subject),
                     React.createElement("td", null,
-                        React.createElement("span", { className: "badge " + badgeCls(r.status) }, STATUS_FA[r.status] || r.status))))))),
-        React.createElement(WorkDashboard, null)));
-}
-// خلاصهٔ تجمیعی کارکرد ماهانه + نمودار برترین‌ها
-function WorkDashboard() {
-    const tj = todayJ();
-    const [jy, setJy] = useState(tj[0]);
-    const [jm, setJm] = useState(tj[1]);
-    const [d, setD] = useState(null);
-    const barRef = useRef();
-    const load = () => db.workDashboard(jy, jm).then(setD).catch(() => { });
-    useEffect(() => { load(); }, []);
-    useEffect(() => {
-        if (!d || !barRef.current || !d.top.length)
-            return;
-        const c = new Chart(barRef.current, { type: "bar", data: { labels: d.top.map(x => x.name),
-                datasets: [{ label: "کارکرد (ساعت)", data: d.top.map(x => Math.round(x.worked / 60 * 10) / 10), backgroundColor: "#0d7a5f", borderRadius: 6 },
-                    { label: "اضافه‌کار (ساعت)", data: d.top.map(x => Math.round(x.overtime / 60 * 10) / 10), backgroundColor: "#f6c324", borderRadius: 6 }] },
-            options: { plugins: { legend: { labels: { font: { family: "Vazirmatn" } } } }, scales: { y: { ticks: { font: { family: "Vazirmatn" } } }, x: { ticks: { font: { family: "Vazirmatn" }, autoSkip: false, maxRotation: 45 } } } } });
-        return () => c.destroy();
-    }, [d]);
-    const hm = (m) => `${fa(Math.floor((m || 0) / 60))}:${String((m || 0) % 60).padStart(2, "0")}`;
-    return (React.createElement("div", { className: "panel", style: { marginTop: 16 } },
-        React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 } },
-            React.createElement("h3", { style: { margin: 0 } }, "\u062E\u0644\u0627\u0635\u0647\u0654 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627"),
-            React.createElement("div", { className: "row", style: { gap: 6, alignItems: "center" } },
-                React.createElement("select", { className: "input", style: { maxWidth: 120 }, value: jm, onChange: e => setJm(+e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m))),
-                React.createElement("input", { className: "input", type: "number", style: { maxWidth: 90 }, value: jy, onChange: e => setJy(+e.target.value || tj[0]) }),
-                React.createElement("button", { className: "btn p", onClick: load }, "\u0646\u0645\u0627\u06CC\u0634"),
-                React.createElement("button", { className: "btn g", onClick: async () => { try {
-                        const res = await fetch(db.payrollExportUrl(jy, jm), { headers: tok() });
-                        if (!res.ok)
-                            throw new Error("خطا");
-                        const blob = await res.blob();
-                        const a = document.createElement("a");
-                        a.href = URL.createObjectURL(blob);
-                        a.download = `لیست_حقوق_${jy}_${jm}.csv`;
-                        a.click();
-                    }
-                    catch (e) {
-                        alert(e.message);
-                    } } }, "\u2913 \u0627\u06A9\u0633\u0644 \u0644\u06CC\u0633\u062A \u062D\u0642\u0648\u0642"))),
-        !d ? React.createElement("p", { className: "muted", style: { marginTop: 10 } }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : React.createElement(React.Fragment, null,
-            React.createElement("div", { className: "kpis", style: { marginTop: 12 } }, [["نیروهای دارای شیفت", d.sum.staff], ["مجموع کارکرد", hm(d.sum.worked)], ["مجموع اضافه‌کار", hm(d.sum.overtime)], ["مجموع کسری", hm(d.sum.shortage)], ["شب‌کاری", hm(d.sum.night)], ["درخواست در انتظار", d.pending_requests]].map(([l, n], i) => React.createElement("div", { className: "kpi", key: i },
-                React.createElement("div", { className: "n", style: { fontSize: 18 } }, typeof n === "number" ? fa(n) : n),
-                React.createElement("div", { className: "l" }, l)))),
-            React.createElement("div", { className: "row", style: { gap: 14, flexWrap: "wrap", marginTop: 6, fontSize: 12, color: "var(--muted)" } },
-                React.createElement("span", null,
-                    "\u062C\u0645\u0639\u0647\u200C\u06A9\u0627\u0631\u06CC: ",
-                    hm(d.sum.friday)),
-                React.createElement("span", null,
-                    "\u062A\u0639\u0637\u06CC\u0644\u200C\u06A9\u0627\u0631\u06CC: ",
-                    hm(d.sum.holiday)),
-                React.createElement("span", null,
-                    "\u0645\u0631\u062E\u0635\u06CC \u0627\u0633\u062A\u062D\u0642\u0627\u0642\u06CC: ",
-                    hm(d.sum.annual_min)),
-                React.createElement("span", null,
-                    "\u0645\u0631\u062E\u0635\u06CC \u0627\u0633\u062A\u0639\u0644\u0627\u062C\u06CC: ",
-                    hm(d.sum.sick_min)),
-                React.createElement("span", null,
-                    "\u0645\u0627\u0645\u0648\u0631\u06CC\u062A: ",
-                    hm(d.sum.mission_min))),
-            d.top.length > 0 ? React.createElement("div", { style: { marginTop: 14 } },
-                React.createElement("canvas", { ref: barRef, height: "140" })) : React.createElement("p", { className: "muted", style: { marginTop: 10 } }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0646\u06CC\u0633\u062A."))));
+                        React.createElement("span", { className: "badge " + badgeCls(r.status) }, STATUS_FA[r.status] || r.status)))))))));
 }
 const GROUP_COLORS = { supervisor: "#0d7a5f", operator: "#0891b2", admin_staff: "#2563eb", chief_inspector: "#7c3aed", inspector: "#d97706" };
 // نمایش پرکارترین/کم‌کارترین یک گروه نقش + پنجرهٔ بالنی جزئیات با کلیک روی نام
