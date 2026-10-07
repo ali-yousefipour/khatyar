@@ -13,7 +13,7 @@ async function req(p,o={},ttl=0){
   return j;
 }
 const css=`
-#khComplaints{position:fixed;inset:0;z-index:2147483000;background:#f4f7fb;overflow:hidden;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;color:#182230;display:flex}
+#khComplaints{position:relative;width:100%;min-height:calc(100vh - 100px);background:#f4f7fb;overflow:hidden;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;color:#182230;display:flex}
 .khcLayout{display:grid;grid-template-columns:250px minmax(0,1fr);width:100%;height:100vh;min-height:0}.khcSide{background:#fff;border-left:1px solid #e2e8f0;box-shadow:-3px 0 14px #17203308;display:flex;flex-direction:column;min-height:0}.khcSideHead{padding:18px 16px;border-bottom:1px solid #edf0f4}.khcSideHead h2{margin:0;font-size:16px}.khcSideHead small{display:block;margin-top:5px;color:#667085;font-size:11px}.khcNav{padding:12px;overflow:auto;display:grid;gap:5px}.khcNav button{width:100%;border:0;background:transparent;color:#344054;border-radius:10px;padding:11px 12px;text-align:right;font:700 13px Vazirmatn,Tahoma;cursor:pointer}.khcNav button:hover{background:#f1f7f5}.khcNav button.khcOn{background:#eaf7f2;color:#087353}.khcSideFoot{margin-top:auto;padding:12px;border-top:1px solid #edf0f4}.khcCloseSide{width:100%;border:1px solid #d9e1ea;background:#fff;color:#475467;border-radius:10px;padding:9px 12px;font:700 12px Vazirmatn,Tahoma;cursor:pointer}.khcMain{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}.khcHead{position:sticky;top:0;background:linear-gradient(135deg,#0d7a5f,#095b49);color:#fff;padding:14px 22px;display:flex;gap:12px;align-items:center;z-index:5;box-shadow:0 4px 18px #0002}
 .khcHead h2{margin:0;font-size:18px}.khcHead small{opacity:.8}.khcClose{margin-right:auto;background:#fff;color:#0d7a5f;border:0;border-radius:10px;padding:8px 14px;font-weight:800;cursor:pointer}
 .khcBody{padding:20px;max-width:1420px;width:100%;box-sizing:border-box;margin:0 auto;overflow:auto;min-height:0;flex:1}.khcTabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
@@ -34,11 +34,11 @@ const css=`
 function mountStyle(){if(document.getElementById('khc257-style'))return;const st=document.createElement('style');st.id='khc257-style';st.textContent=css;document.head.appendChild(st)}
 function loading(x){x.innerHTML='<div class="khcPanel khcLoading"><span class="khcSpin"></span>در حال دریافت اطلاعات…</div>'}
 function tabs(active){return '<div class="khcTabs">'+[['dashboard','داشبورد'],['register','ثبت شکایت'],['received','شکایات دریافتی'],['report','گزارشگیری'],['settings','تنظیمات']].map(a=>'<button data-t="'+a[0]+'" class="'+(a[0]===active?'khcOn':'')+'">'+a[1]+'</button>').join('')+'</div>'}
-function open(){
+function open(host){
  mountStyle();if(document.getElementById('khComplaints'))return;
  const root=document.createElement('div');root.id='khComplaints';
  root.innerHTML='<div class="khcLayout"><aside class="khcSide"><div class="khcSideHead"><h2>شکایات تاکسیرانان</h2><small>مدیریت، ارجاع و گزارش‌گیری</small></div><nav class="khcNav">'+[['dashboard','داشبورد'],['register','ثبت شکایت'],['received','شکایات دریافتی'],['report','گزارشگیری'],['settings','تنظیمات']].map(a=>'<button data-nav="'+a[0]+'">'+a[1]+'</button>').join('')+'</nav><div class="khcSideFoot"><button class="khcCloseSide">بازگشت به پنل</button></div></aside><main class="khcMain"><div class="khcHead"><div><h2 id="khcTitle">مدیریت شکایات تاکسیرانان</h2><small>ثبت، ارجاع، پایش و گزارش‌گیری</small></div></div><div class="khcBody"><div id="khcApp"></div></div></main></div>';
- document.body.appendChild(root);root.querySelector('.khcCloseSide').onclick=()=>root.remove();root.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>show(b.dataset.nav));show('dashboard');
+ const mount=(host&&host.nodeType===1)?host:document.body;mount.innerHTML='';mount.appendChild(root);root.querySelector('.khcCloseSide').onclick=()=>root.remove();root.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>show(b.dataset.nav));show('dashboard');
 }
 function rootNavSync(tab){const r=document.getElementById('khComplaints');if(!r)return;r.querySelectorAll('[data-nav]').forEach(b=>b.classList.toggle('khcOn',b.dataset.nav===tab));const titles={dashboard:'داشبورد شکایات',register:'ثبت شکایت',received:'شکایات دریافتی',report:'گزارش‌گیری حرفه‌ای شکایات',settings:'تنظیمات شکایات'};const t=r.querySelector('#khcTitle');if(t)t.textContent=titles[tab]||'مدیریت شکایات تاکسیرانان';}
 async function show(tab){
@@ -158,5 +158,4 @@ async function detail(id){
 }
 async function act(id,a,note){try{await req('/complaints/'+id+'/action',{method:'POST',body:JSON.stringify({action:a,note:note||''})});detail(id)}catch(e){alert(e.message)}}
 window.openComplaints=open;window.closeComplaints=()=>document.getElementById('khComplaints')?.remove();
-open();
 })();
