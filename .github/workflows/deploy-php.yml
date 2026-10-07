@@ -1,4 +1,5 @@
 name: Upload to Khatyar Host
+# DEPLOY-RECONCILE: 20261007-v270
 
 on:
   push:
@@ -42,7 +43,14 @@ jobs:
           BASE_SHA=""
 
           if [ "${EVENT_NAME}" = "push" ] && [ -n "${PUSH_BEFORE}" ] && [ "${PUSH_BEFORE}" != "0000000000000000000000000000000000000000" ]; then
-            BASE_SHA="${PUSH_BEFORE}"
+            # Include the immediately preceding commit in the diff as well.
+            # This reconciles a PHP commit if GitHub Actions did not start for that push.
+            PREVIOUS_PARENT="$(git rev-parse "${PUSH_BEFORE}^" 2>/dev/null || true)"
+            if [ -n "${PREVIOUS_PARENT}" ]; then
+              BASE_SHA="${PREVIOUS_PARENT}"
+            else
+              BASE_SHA="${PUSH_BEFORE}"
+            fi
             git cat-file -e "${BASE_SHA}^{commit}"
           elif [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
             # Manual deployment reconciles the last 10 commits on main.
@@ -171,7 +179,7 @@ jobs:
               remote_file="${remote_dir}/$(basename "${rel}")"
 
               printf 'mkdir -p %s\n' "${remote_dir}"
-              printf 'put -c %s -o %s\n' "${local_file}" "${remote_file}"
+              printf 'put %s -o %s\n' "${local_file}" "${remote_file}"
             done < <(find deploy-payload -type f -print | sort)
 
             echo 'bye'
