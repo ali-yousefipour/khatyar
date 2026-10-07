@@ -61,7 +61,7 @@ jobs:
             case "${status}" in
               A|M|T)
                 rel="${path1#php/}"
-                mkdir -p "deploy-payload/\$(dirname "${rel}")"
+                mkdir -p "deploy-payload/$(dirname "${rel}")"
                 cp "${path1}" "deploy-payload/${rel}"
                 ;;
               D)
@@ -70,7 +70,7 @@ jobs:
               R*|C*)
                 old_rel="${path1#php/}"
                 new_rel="${path2#php/}"
-                mkdir -p "deploy-payload/\$(dirname "${new_rel}")"
+                mkdir -p "deploy-payload/$(dirname "${new_rel}")"
                 cp "${path2}" "deploy-payload/${new_rel}"
                 printf '%s\n' "${old_rel}" >> deploy-deletions.txt
                 ;;
@@ -83,9 +83,9 @@ jobs:
 
           sort -u deploy-deletions.txt -o deploy-deletions.txt
 
-          payload_count="\$(find deploy-payload -type f | wc -l | tr -d ' ')"
-          deletion_count="\$(grep -c . deploy-deletions.txt || true)"
-          change_count="\$(grep -c . /tmp/php-diff.txt || true)"
+          payload_count="$(find deploy-payload -type f | wc -l | tr -d ' ')"
+          deletion_count="$(grep -c . deploy-deletions.txt || true)"
+          change_count="$(grep -c . /tmp/php-diff.txt || true)"
 
           echo "Deployment payload:"
           find deploy-payload -type f -print | sort || true
@@ -135,7 +135,7 @@ jobs:
             while IFS= read -r file; do
               [ -n "${file}" ] || continue
               rel="${file#deploy-payload/}"
-              dir="\$(dirname "${rel}")"
+              dir="$(dirname "${rel}")"
 
               if [ "${dir}" = "." ]; then
                 remote_dir="/"
@@ -144,7 +144,7 @@ jobs:
               fi
 
               printf 'mkdir -p "%s"\n' "${remote_dir}"
-              printf 'put -c "%s" -o "%s"\n' "${file}" "${remote_dir}/\$(basename "${rel}")"
+              printf 'put -c "%s" -o "%s"\n' "${file}" "${remote_dir}/$(basename "${rel}")"
             done < <(find deploy-payload -type f -print | sort)
 
             echo 'bye'
@@ -153,7 +153,7 @@ jobs:
           echo "Uploading changed PHP files:"
           find deploy-payload -type f -print | sort
 
-          lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "\$(cat /tmp/lftp-upload.cmd)"
+          lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-upload.cmd)"
 
       - name: Delete removed PHP files from FTP root
         if: ${{ hashFiles('deploy-deletions.txt') != '' }}
