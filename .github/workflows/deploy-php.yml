@@ -48,9 +48,16 @@ jobs:
             BASE_SHA="${PUSH_BEFORE}"
             git cat-file -e "${BASE_SHA}^{commit}"
           elif [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
-            # Manual deployment explicitly reconciles production with the current main tree.
-            # Use the root diff so a workflow-only previous commit cannot yield an empty deploy.
-            BASE_SHA=""
+            # Manual deployment reconciles the last 10 commits on main.
+            # Resolve the 11th commit as the diff base so the range contains exactly
+            # the latest 10 commits. If fewer than 10 commits exist, fall back to
+            # the root diff below.
+            TEN_COMMIT_BASE="$(git rev-list --max-count=11 "${HEAD_SHA}" | tail -n 1)"
+            if [ "$(git rev-list --count "${HEAD_SHA}")" -gt 10 ] && [ -n "${TEN_COMMIT_BASE}" ]; then
+              BASE_SHA="${TEN_COMMIT_BASE}"
+            else
+              BASE_SHA=""
+            fi
           else
             BASE_SHA="$(git rev-parse "${HEAD_SHA}^" 2>/dev/null || true)"
           fi
