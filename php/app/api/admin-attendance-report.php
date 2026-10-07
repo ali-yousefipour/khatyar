@@ -98,15 +98,16 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
       if (!$ownerJ || $ownerJ === $dayJ) $ownedPunches[] = $p;
     }
 
-    $shift = _active_user_shift_assignment($userId, $dayJ);
+    // همان منطق گزارش ماهانه و تایمر: در نبود تخصیص صریح، شیفت خودکار کاربر مبنای محاسبه باشد.
+    $shift = _active_user_shift_assignment($userId, $dayJ) ?: _auto_shift_for_user($userId);
     $dayRow = null;
     if ($shift && (($shift['type'] ?? '') === 'advanced')) {
       $dayRow = _shift_day_row($shift['shift_id'] ?? $shift['id'], $dayJ);
     }
-    $hol = (bool)Db::one(
+    $hol = ShiftCalc::effectiveHoliday($dayJ, (bool)Db::one(
       "SELECT jdate FROM holidays WHERE jdate IN (?,?) LIMIT 1",
       [$dayJ, str_replace('-','/',$dayJ)]
-    );
+    ));
 
     $rawSessions = [];
     foreach ($ownedPunches as $p) {
