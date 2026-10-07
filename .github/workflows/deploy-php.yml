@@ -1,5 +1,5 @@
 name: Upload to Khatyar Host
-# DEPLOY-RECONCILE: 20261007-v273
+# DEPLOY-RECONCILE: 20261007-v274
 
 on:
   push:
@@ -250,42 +250,6 @@ jobs:
             }
           done < <(find deploy-payload -type f -print | sort)
 
-      - name: Verify public panel after PHP upload
-        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/app/panel.html') != '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          url="https://app.yousefipour.ir/?deploy_verify=${GITHUB_SHA}"
-          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
-            -H 'Cache-Control: no-cache, no-store' \
-            -A 'Khatyar-Deploy-Verify/1.0' \
-            "${url}" > /tmp/live-panel.html
-
-          grep -q 'assets/panel-build-runtime-fix.js?v=20261007.268' /tmp/live-panel.html
-          grep -q 'assets/panel.bundle.js?v=20261007.268' /tmp/live-panel.html
-          grep -q 'assets/school-service-admin.js?v=20261007.252' /tmp/live-panel.html
-          grep -q 'نسخه 1.5.6' /tmp/live-panel.html
-          ! grep -q '/api/admin/complaints/dashboard' /tmp/live-panel.html
-          ! grep -q 'window.openComplaints=open;open();' /tmp/live-panel.html
-
-          echo "Public panel verification passed for ${GITHUB_SHA}."
-
-      - name: Verify public panel bundle after PHP upload
-        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/app/assets/panel.bundle.js') != '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          url="https://app.yousefipour.ir/assets/panel.bundle.js?deploy_verify=${GITHUB_SHA}"
-          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
-            -H 'Cache-Control: no-cache, no-store' \
-            -A 'Khatyar-Deploy-Verify/1.0' \
-            "${url}" > /tmp/live-panel-bundle.js
-
-          test -s /tmp/live-panel-bundle.js
-          grep -q 'React' /tmp/live-panel-bundle.js
-          echo "Public panel bundle verification passed for ${GITHUB_SHA}."
       - name: Delete removed PHP files from FTP root
         if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-deletions.txt') != '' }}
         shell: bash
@@ -314,3 +278,40 @@ jobs:
               echo "Warning: remote file may already be absent: /${rel}"
             }
           done < deploy-deletions.txt
+
+      - name: Verify public panel after PHP upload
+        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/app/panel.html') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          url="https://app.yousefipour.ir/?deploy_verify=${GITHUB_SHA}"
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+            -H 'Cache-Control: no-cache, no-store' \
+            -A 'Khatyar-Deploy-Verify/1.0' \
+            "${url}" > /tmp/live-panel.html
+
+          grep -q 'assets/panel-build-runtime-fix.js?v=20261007.268' /tmp/live-panel.html
+          grep -q 'assets/panel.bundle.js?v=20261007.269' /tmp/live-panel.html
+          grep -q 'assets/school-service-admin.js?v=20261007.252' /tmp/live-panel.html
+          grep -q 'نسخه 1.5.6' /tmp/live-panel.html
+          ! grep -q '/api/admin/complaints/dashboard' /tmp/live-panel.html
+          ! grep -q 'window.openComplaints=open;open();' /tmp/live-panel.html
+
+          echo "Public panel verification passed for ${GITHUB_SHA}."
+
+      - name: Verify public panel bundle after PHP upload
+        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/app/assets/panel.bundle.js') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          url="https://app.yousefipour.ir/assets/panel.bundle.js?deploy_verify=${GITHUB_SHA}"
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+            -H 'Cache-Control: no-cache, no-store' \
+            -A 'Khatyar-Deploy-Verify/1.0' \
+            "${url}" > /tmp/live-panel-bundle.js
+
+          test -s /tmp/live-panel-bundle.js
+          grep -q 'React' /tmp/live-panel-bundle.js
+          echo "Public panel bundle verification passed for ${GITHUB_SHA}."
