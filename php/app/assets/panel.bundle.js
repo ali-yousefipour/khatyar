@@ -9866,13 +9866,33 @@ function AttendanceReport() {
     const pout = (p) => { var _a, _b, _c, _e; return n(p && ((_e = (_c = (_b = (_a = p.out) !== null && _a !== void 0 ? _a : p.out_full) !== null && _b !== void 0 ? _b : p.check_out) !== null && _c !== void 0 ? _c : p.last_out) !== null && _e !== void 0 ? _e : p.last_exit)); };
     const mins = (v) => { const s = String(v == null ? "" : v).replace(/[۰-۹]/g, x => "۰۱۲۳۴۵۶۷۸۹".indexOf(x)); const m = s.match(/(\d+):([0-5]\d)/); return m ? (+m[1]) * 60 + (+m[2]) : 0; };
     const hm = (v) => { v = Math.max(0, parseInt(v, 10) || 0); return String(Math.floor(v / 60)).padStart(2, "0") + ":" + String(v % 60).padStart(2, "0"); };
-    const punchTimes = (d) => { const p = Array.isArray(d.punches) ? d.punches : []; return { ins: p.map(pin).filter(Boolean), outs: p.map(pout).filter(Boolean) }; };
+    const punchTimes = (d) => {
+        var _a, _b, _c, _e;
+        const p = Array.isArray(d.punches) ? d.punches : [];
+        const ins = p.map(pin).filter(Boolean);
+        const outs = p.map(pout).filter(Boolean);
+        // گزارش API ساعت واقعی روز را مستقیماً در d.in/d.out هم برمی‌گرداند.
+        // این مقادیر باید fallback اصلی باشند؛ چون بعضی رکوردهای قدیمی punches
+        // فقط metadata دارند و فیلد in/out در خود punch وجود ندارد.
+        if (!ins.length) {
+            const direct = n(d && (((_b = (_a = d.in) !== null && _a !== void 0 ? _a : d.first_in) !== null && _b !== void 0 ? _b : d.first_entry)));
+            if (direct)
+                ins.push(direct);
+        }
+        if (!outs.length) {
+            const direct = n(d && (((_e = (_c = d.out) !== null && _c !== void 0 ? _c : d.last_out) !== null && _e !== void 0 ? _e : d.last_exit)));
+            if (direct)
+                outs.push(direct);
+        }
+        return { ins, outs };
+    };
     const dayVal = (d, k) => {
+        var _a, _b, _c, _e;
         const { ins, outs } = punchTimes(d);
         if (k === "in")
-            return ins[0] || "--:--";
+            return n(d && (((_b = (_a = d.in) !== null && _a !== void 0 ? _a : d.first_in) !== null && _b !== void 0 ? _b : d.first_entry))) || ins[0] || "--:--";
         if (k === "out")
-            return outs.length ? outs[outs.length - 1] : "--:--";
+            return n(d && (((_e = (_c = d.out) !== null && _c !== void 0 ? _c : d.last_out) !== null && _e !== void 0 ? _e : d.last_exit))) || (outs.length ? outs[outs.length - 1] : "--:--");
         if (k === "in_station")
             return ((d.punches || []).find(p => p && p.in_station) || {}).in_station || "—";
         if (k === "out_station")
