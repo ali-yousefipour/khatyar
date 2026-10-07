@@ -1,4 +1,4 @@
-name: Deploy PHP backend to shared hosting
+name: Upload to Khatyar Host
 
 on:
   push:
@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   deploy-php:
-    name: FTP deploy changed PHP files
+    name: Upload changed PHP files to Khatyar Host
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
