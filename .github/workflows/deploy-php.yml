@@ -189,25 +189,16 @@ jobs:
               local_file="${GITHUB_WORKSPACE}/${file}"
               remote_file="${remote_dir}/$(basename "${rel}")"
 
-              printf 'mkdir -p %s\n' "${remote_dir}"
-              if [ "${rel}" = "lib/routes.php" ]; then
-                # The hosting FTP account can read the legacy /lib tree, but the
-                # existing routes.php may be read-only. Upload a temporary file
-                # first, then replace the target. chmod is best-effort.
-                printf 'site chmod 775 %s\n' "${remote_dir}"
-                temp_remote="${remote_dir}/.routes.php.deploy-${GITHUB_SHA}"
-                printf 'put %s -o %s\n' "${local_file}" "${temp_remote}"
-                printf 'rm %s\n' "${remote_file}"
-                printf 'mv %s %s\n' "${temp_remote}" "${remote_file}"
-              else
-                printf 'put %s -o %s\n' "${local_file}" "${remote_file}"
-              fi
+              # All production directories are pre-created on the cPanel host.
+              # Never issue MKDIR/MKDIR -p from GitHub Actions. This avoids 550
+              # permission failures on existing protected directories such as /lib.
+              printf 'put %s -o %s\n' "${local_file}" "${remote_file}"
             done < <(find deploy-payload -type f -print | sort)
 
             echo 'bye'
           } >> /tmp/lftp-upload.cmd
 
-          echo "Uploading changed PHP files:"
+          echo "Uploading changed PHP files without remote directory creation:"
           find deploy-payload -type f -print | sort
 
           lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-upload.cmd)"
