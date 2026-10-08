@@ -894,16 +894,31 @@ function jalali_to_gregorian_client(j,m,d){
 function gregorian_to_jalali_client(gy,gm,gd){const gdm=[0,31,59,90,120,151,181,212,243,273,304,334];let gy2=gy+100000,jy=979+33*Math.floor(gy2/33),r=gy2%33;let d=365*gy2+Math.floor((gy2+3)/4)-Math.floor((gy2+99)/100)+Math.floor((gy2+399)/400)+gd+gdm[gm-1];if(gm>2&&((gy%4===0&&gy%100!==0)||gy%400===0))d++;d-=79;let y=979+33*Math.floor(d/12053);d%=12053;y+=4*Math.floor(d/1461);d%=1461;if(d>365){y+=Math.floor((d-1)/365);d=(d-1)%365}const m=d<186?1+Math.floor(d/31):7+Math.floor((d-186)/30),day=1+(d<186?d%31:(d-186)%30);return[y,m,day];}
 function CheckInShiftTab(){
   const [data,setData]=useState(null); const [busy,setBusy]=useState(true);const [err,setErr]=useState('');
-  useEffect(()=>{let alive=true;(async()=>{try{const cached=await cachedValue('/my/shift-schedule?scope=current-month');if(alive&&cached)setData(cached);const fresh=await request('/my/shift-schedule?scope=current-month',{timeoutMs:8000,noStore:true});if(alive)setData(fresh)}catch(e){if(alive&& !data)setErr(e.message||'دریافت برنامه شیفت ناموفق بود.')}finally{if(alive)setBusy(false)}})();return()=>{alive=false}},[]);
-  if(busy)return <View style={s.center}><ActivityIndicator size={80} message="در حال دریافت شیفت کاری…"/></View>;
-  return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14}}>{err?<Text style={s.warnText}>{err}</Text>:null}<View style={s.shiftHero}><Text style={s.shiftHeroTitle}>{data?.shift?.title||'شیفت کاری'}</Text><Text style={s.shiftHeroSub}>برنامهٔ ماه جاری</Text></View>{(data?.days||[]).map(d=><View key={d.date} style={s.shiftCard}><View style={s.shiftAccent}/><View style={{flex:1}}><Text style={s.shiftDate}>{d.weekday} <Text style={s.shiftDateLight}>({d.date})</Text></Text><Text style={s.shiftMeta}>{d.is_off?'روز استراحت/بدون موظفی':d.is_holiday?`تعطیل: ${d.holiday_title||''}`:'شیفت کاری'}</Text></View><Text style={s.shiftMinutes}>{d.is_off?'—':`${faNum(d.minutes)} دقیقه`}</Text></View>)}</ScrollView>;
+  const loadSchedule=async()=>{
+    setBusy(true);setErr('');
+    try{
+      const nowG=new Date();
+      const todayTs=Date.UTC(nowG.getFullYear(),nowG.getMonth(),nowG.getDate(),12,0,0);
+      const fromG=new Date(todayTs-14*86400000);
+      const fromJ=gregorian_to_jalali_client(fromG.getUTCFullYear(),fromG.getUTCMonth()+1,fromG.getUTCDate());
+      const from=fromJ[0]+'-'+String(fromJ[1]).padStart(2,'0')+'-'+String(fromJ[2]).padStart(2,'0');
+      const cacheKey='/my/shift-schedule?from='+encodeURIComponent(from)+'&days=29';
+      const cached=await cachedValue(cacheKey);
+      if(cached?.days?.length) setData(cached);
+      const fresh=await request(cacheKey,{timeoutMs:10000,noStore:true});
+      if(fresh?.days?.length) setData(fresh);
+    }catch(e){if(!data)setErr(e.message||'دریافت برنامه شیفت ناموفق بود.')}
+    finally{setBusy(false)}
+  };
+  useEffect(()=>{loadSchedule()},[]);
+  if(busy&&!data)return <View style={s.center}><ActivityIndicator size={80} message="در حال دریافت شیفت کاری…"/></View>;
+  return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14,paddingBottom:32}}>
+    {err?<Text style={s.warnText}>{err}</Text>:null}
+    <View style={s.shiftHero}><Text style={s.shiftHeroTitle}>{data?.shift?.title||'شیفت کاری'}</Text><Text style={s.shiftHeroSub}>برنامهٔ ۱۴ روز قبل و ۱۴ روز بعد</Text></View>
+    {(data?.days||[]).map(d=><View key={d.date} style={s.shiftCard}><View style={[s.shiftAccent,d.is_today&&{backgroundColor:C.brand}]}/><View style={{flex:1}}><Text style={s.shiftDate}>{d.weekday} <Text style={s.shiftDateLight}>({d.date})</Text>{d.is_today?<Text style={{fontFamily:FONT.bold,color:C.brand,fontSize:11}}>  • امروز</Text>:null}</Text><Text style={s.shiftMeta}>{d.is_off?'روز استراحت/بدون موظفی':d.is_holiday?('تعطیل: '+(d.holiday_title||'')):'شیفت کاری'}</Text></View><Text style={s.shiftMinutes}>{d.is_off?'—':(faNum(d.minutes)+' دقیقه')}</Text></View>)}
+    {busy&&data?<ActivityIndicator size={42} message="در حال بروزرسانی…"/>:null}
+  </ScrollView>;
 }
-export default function CheckInScreen(){
-  const [tab,setTab]=useState('checkin');
-  return <View style={{flex:1,backgroundColor:C.paper}}><View style={s.checkTabs}>{[['checkin','ثبت حضور'],['performance','عملکرد روزانه'],['shift','شیفت کاری']].map(([k,l])=><TouchableOpacity key={k} style={[s.checkTab,tab===k&&s.checkTabOn]} onPress={()=>setTab(k)}><Text style={[s.checkTabTxt,tab===k&&s.checkTabTxtOn]}>{l}</Text></TouchableOpacity>)}</View>{tab==='checkin'?<CheckInCore/>:tab==='performance'?<CheckInPerformanceTab/>:<CheckInShiftTab/>}</View>;
-}
-
-// اسلایدر کشیدنی برای تأیید ورود/خروج (سازگار با چیدمان راست‌به‌چپ)
 function SlideButton({ mode, onComplete, disabled }) {
   const x = useRef(new Animated.Value(0)).current;   // مقدار مثبت = میزان پیشروی
   const widthRef = useRef(0);
