@@ -10167,6 +10167,82 @@ function AttendanceReport() {
                 setDayRequests((rows || []).filter(r => { const a = String(r.from_jdate || r.the_date || '').replace(/\\/ / g, '-'); const b = String(r.to_jdate || r.the_date || a).replace(/\\/ / g, '-'); return a <= ds && ds <= b; }));
             } }, onClose: () => setRequestModal(null) })));
 }
+function AttendanceConversionModal({ userId, mode, jdate, minutes, onSaved, onClose }) {
+    const [fromTime, setFromTime] = useState("");
+    const [toTime, setToTime] = useState("");
+    const [amount, setAmount] = useState(String(minutes || 0));
+    const [reason, setReason] = useState(mode === "surplus" ? "تأیید مدیر" : "تبدیل کسری کار به مرخصی استحقاقی ساعتی");
+    const [busy, setBusy] = useState(false);
+    const [err, setErr] = useState("");
+    const max = Math.max(0, Number(minutes) || 0);
+    const fmt = m => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+    const parseTime = v => { const m = String(v || "").match(/^(\d{2}):(\d{2})$/); return m ? (Number(m[1]) * 60 + Number(m[2])) : null; };
+    const submit = async () => {
+        setErr("");
+        const minsToConvert = Math.max(0, Math.min(max, parseInt(String(amount).replace(/\D/g, ""), 10) || 0));
+        if (!minsToConvert) {
+            setErr("مقدار تبدیل را وارد کنید.");
+            return;
+        }
+        setBusy(true);
+        try {
+            if (mode === "surplus") {
+                await db.attendanceSurplusConvert({ user_id: Number(userId), jdate, minutes: minsToConvert, reason: reason.trim() || "تأیید مدیر" });
+            }
+            else {
+                const a = parseTime(fromTime), b = parseTime(toTime);
+                if (a === null || b === null) {
+                    setErr("ساعت شروع و پایان را وارد کنید.");
+                    return;
+                }
+                if (b <= a) {
+                    setErr("ساعت پایان باید بعد از ساعت شروع باشد.");
+                    return;
+                }
+                if (b - a !== minsToConvert) {
+                    setErr("مدت بازه ساعت باید دقیقاً " + fmt(minsToConvert) + " باشد.");
+                    return;
+                }
+                await db.adminRequestCreate({ direct_approve: true, user_id: Number(userId), type: "annual", unit: "hourly", from_jdate: jdate, to_jdate: jdate, the_date: jdate, from_time: fromTime, to_time: toTime, minutes: minsToConvert, reason: reason.trim() || "تبدیل کسری کار به مرخصی استحقاقی ساعتی" });
+            }
+            await onSaved();
+        }
+        catch (e) {
+            setErr(e.message || "تبدیل انجام نشد");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    return React.createElement(PunchModalShell, { title: mode === "surplus" ? "تبدیل مازاد حضور به اضافه‌کار" : "تبدیل کسر کار به مرخصی استحقاقی ساعتی", subtitle: "تاریخ " + faPlain(String(jdate || "")), onClose: onClose, actions: React.createElement(React.Fragment, null,
+            React.createElement("button", { className: "btn g punch-action-secondary", onClick: onClose, disabled: busy }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
+            React.createElement("button", { className: "btn p punch-action-primary", onClick: submit, disabled: busy }, busy ? "در حال ثبت…" : "ثبت تبدیل")) },
+        React.createElement("div", { className: "punch-summary" },
+            React.createElement("span", null, mode === "surplus" ? "مازاد حضور قابل تبدیل" : "کسر کار قابل تبدیل"),
+            React.createElement("strong", null, fmt(max))),
+        React.createElement("div", { className: "punch-fields", style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 12 } },
+            React.createElement("div", { className: "punch-field" },
+                React.createElement("label", { className: "label" }, "\u0645\u0642\u062F\u0627\u0631 \u062A\u0628\u062F\u06CC\u0644 (\u062F\u0642\u06CC\u0642\u0647)"),
+                React.createElement("input", { className: "input", type: "number", min: "1", max: max, value: amount, onChange: e => setAmount(e.target.value) }),
+                React.createElement("small", { className: "muted" },
+                    "\u062D\u062F\u0627\u06A9\u062B\u0631 ",
+                    fmt(max))),
+            mode === "shortage" && React.createElement(React.Fragment, null,
+                React.createElement("div", { className: "punch-field" },
+                    React.createElement("label", { className: "label" }, "\u0627\u0632 \u0633\u0627\u0639\u062A"),
+                    React.createElement("input", { className: "input", type: "time", value: fromTime, onChange: e => setFromTime(e.target.value) })),
+                React.createElement("div", { className: "punch-field" },
+                    React.createElement("label", { className: "label" }, "\u062A\u0627 \u0633\u0627\u0639\u062A"),
+                    React.createElement("input", { className: "input", type: "time", value: toTime, onChange: e => setToTime(e.target.value) }),
+                    React.createElement("small", { className: "muted" },
+                        "\u0645\u062F\u062A \u0628\u0627\u06CC\u062F ",
+                        fmt(Math.max(0, Number(amount) || 0)),
+                        " \u0628\u0627\u0634\u062F."))),
+            React.createElement("div", { className: "punch-field", style: { gridColumn: "1 / -1" } },
+                React.createElement("label", { className: "label" }, "\u0639\u0644\u062A / \u062A\u0648\u0636\u06CC\u062D"),
+                React.createElement("textarea", { className: "input", rows: "3", value: reason, onChange: e => setReason(e.target.value) }))),
+        err && React.createElement("div", { style: { marginTop: 10, color: "var(--danger)", fontSize: 12 } }, err));
+}
 function AttendanceRequestModal({ userId, jdate, onSaved, onClose }) {
     const TYPES = [
         { value: "annual:daily", label: "مرخصی استحقاقی" },
