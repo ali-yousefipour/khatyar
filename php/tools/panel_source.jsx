@@ -5935,7 +5935,7 @@ function AttendanceReport(){
   const [dayRequests,setDayRequests]=useState([]);
 
   useEffect(()=>{ db.users().then(us=>setUsers(us||[])).catch(()=>{}); },[]);
-  const visibleUsers=users.filter(u=>{const q=String(personQuery||"").trim().toLowerCase();return !q||String((u.first_name||"")+" "+(u.last_name||"")).toLowerCase().includes(q)||String(u.username||"").includes(q);}).sort((a,b)=>{\n    const collator=new Intl.Collator("fa",{sensitivity:"base",numeric:false});\n    const an=String(a.last_name||"").trim(); const bn=String(b.last_name||"").trim();\n    const byLast=collator.compare(an,bn);\n    if(byLast!==0)return byLast;\n    const byFirst=collator.compare(String(a.first_name||"").trim(),String(b.first_name||"").trim());\n    if(byFirst!==0)return byFirst;\n    return collator.compare(String(a.username||a.id||""),String(b.username||b.id||""));\n  });
+  const visibleUsers=users.filter(u=>{const q=String(personQuery||"").trim().toLowerCase();return !q||String((u.first_name||"")+" "+(u.last_name||"")).toLowerCase().includes(q)||String(u.username||"").includes(q);}).sort((a,b)=>{\n    const collator=new Intl.Collator("fa",{sensitivity:"base",numeric:false});\n    const byFirst=collator.compare(String(a.first_name||"").trim(),String(b.first_name||"").trim());\n    if(byFirst!==0)return byFirst;\n    const byLast=collator.compare(String(a.last_name||"").trim(),String(b.last_name||"").trim());\n    if(byLast!==0)return byLast;\n    return collator.compare(String(a.username||a.id||""),String(b.username||b.id||""));\n  });
   const run=async()=>{
     if(!uid){alert("پرسنل را انتخاب کنید");return;}
     const fallback=attendanceDefaultRange();
