@@ -7,6 +7,8 @@ import { vpnStatus } from './device';
 import * as Location from 'expo-location';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 
+const GPS_WORK_WATCHDOG_MINUTES = 30;
+
 export async function headlessLocationRun() {
   try {
     // این task برای نگهبانی GPS کارکرد است و فقط وقتی حضور باز و تنظیم الزام GPS فعال باشد عمل می‌کند.
@@ -18,7 +20,7 @@ export async function headlessLocationRun() {
       let enabled=true;
       try { enabled=await Location.hasServicesEnabledAsync(); } catch (_) {}
       const at=new Date().toISOString();
-      await postOrQueue('/activity/telemetry',{kind:enabled?'gps_on':'gps_off',at,meta:{source:'background_watchdog',interval_minutes:30}}).catch(()=>{});
+      await postOrQueue('/activity/telemetry',{kind:enabled?'gps_on':'gps_off',at,meta:{source:'background_watchdog',interval_minutes:GPS_WORK_WATCHDOG_MINUTES}}).catch(()=>{});
       if (!enabled) {
         try {
           await setAudioModeAsync({shouldPlayInBackground:true,playsInSilentMode:true});
