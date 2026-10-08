@@ -3111,7 +3111,7 @@ function _attendance_report($userId,$fromJ,$toJ){
       // غیبت فقط وقتی معنا دارد که برای همان روز واقعاً موظفی وجود داشته باشد.
       // جمعه/تعطیل/روز آزاد موظفی صفر دارند و حتی با نبود تردد غیبت نمی‌سازند.
       'absent'=>(!$punches && !$isHol && !ShiftCalc::isFriday($jdateDash) && (int)($w['expected'] ?? 0)>0 && $approvedExempt<=0)?1:0,
-      'absence_shortage'=>$hm((int)($w['shortage']??0)+((!$punches && !$isHol && !ShiftCalc::isFriday($jdateDash) && (int)($w['expected']??0)>0 && $approvedExempt<=0)?(int)($w['expected']??0):0)),
+      'absence_shortage'=>$hm((int)($w['shortage']??0)),
       'mission'=>$hm($mission),
       'annual_leave'=>$hm($annualLeave),
       'sick_leave'=>$hm($sickLeave),
