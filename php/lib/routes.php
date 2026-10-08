@@ -7776,7 +7776,7 @@ route('GET', '/api/admin/users', function($p,$b,$u){
     (SELECT COUNT(*) FROM user_commitments uc WHERE uc.user_id=u.id) commitments_count,
     (SELECT device_type FROM user_sessions s WHERE s.user_id=u.id AND s.revoked_at IS NULL AND s.device_type='android' LIMIT 1) android_bound,
     (SELECT device_type FROM user_sessions s WHERE s.user_id=u.id AND s.revoked_at IS NULL AND s.device_type='web' LIMIT 1) web_bound
-    FROM users u JOIN roles r ON r.id=u.role_id $where ORDER BY r.level DESC, r.title ASC, u.last_name ASC, u.first_name ASC, u.id ASC", $pr);
+    FROM users u JOIN roles r ON r.id=u.role_id $where ORDER BY CASE WHEN u.rank_stars IS NOT NULL THEN u.rank_stars WHEN r.title LIKE '%سربازرس%' THEN 4 WHEN r.title LIKE '%بازرس%' THEN 2 WHEN r.title LIKE '%ناظر خط%' OR r.title LIKE '%اپراتور%' THEN 1 ELSE 0 END DESC, r.level DESC, r.title ASC, u.first_name ASC, u.last_name ASC, u.id ASC", $pr);
 });
 route('POST', '/api/admin/users', function($p,$b,$u){
   // اطمینان از وجود ستون تاریخ تولد در نسخه‌های ارتقایی
