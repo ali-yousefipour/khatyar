@@ -3815,6 +3815,26 @@ route('GET', '/api/admin/requests', function($p,$b,$u){
     $where ORDER BY r.id DESC LIMIT 500", $args);
 }, false, ADMIN);
 
+// عملیات مدیریتی گزارش درخواست‌ها: تأیید، رد و حذف
+route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
+  $id=(int)($p['id']??0); $status=(string)($b['status']??'');
+  if(!$id || !in_array($status,['approved','rejected'],true)) Http::error('عملیات درخواست نامعتبر است',400);
+  $req=Db::one("SELECT id,user_id,status,type FROM requests WHERE id=?",[$id]);
+  if(!$req) Http::error('درخواست یافت نشد',404);
+  if($req['status']===$status) Http::error('وضعیت این درخواست قبلاً ثبت شده است',409);
+  $note=trim((string)($b['note']??''))?:null;
+  Db::run("UPDATE requests SET status=?,approver_id=?,approver_note=?,decided_at=NOW() WHERE id=?",[$status,(int)$u['id'],$note,$id]);
+  if(function_exists('_req_notify_sms')){try{_req_notify_sms($req,$status,$note);}catch(Throwable $e){error_log('request decision notify: '.$e->getMessage());}}
+  return ['id'=>$id,'status'=>$status,'message'=>$status==='approved'?'درخواست با موفقیت تأیید شد.':'درخواست با موفقیت رد شد.'];
+}, false, ADMIN);
+
+route('DELETE', '/api/admin/requests/{id}', function($p,$b,$u){
+  $id=(int)($p['id']??0); if(!$id) Http::error('شناسه درخواست نامعتبر است',400);
+  $req=Db::one("SELECT id FROM requests WHERE id=?",[$id]); if(!$req) Http::error('درخواست یافت نشد',404);
+  Db::run("DELETE FROM requests WHERE id=?",[$id]);
+  return ['id'=>$id,'deleted'=>true];
+}, false, ADMIN);
+
 // خروجی اکسل گزارش درخواست‌ها (ادمین)
 route('GET', '/api/admin/requests/export', function($p,$b,$u){
   $cond=[]; $args=[];
