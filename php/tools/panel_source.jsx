@@ -113,27 +113,32 @@ const db = {
   // نکته: بدنهٔ ورود به‌جای JSON با فرم urlencoded ارسال می‌شود، چون WAF هاست درخواست‌های
   // POST با Content-Type: application/json را (به‌خصوص برای فیلدهای شبیه به فرم ورود) مسدود
   // می‌کند؛ با تست مستقیم روی سرور واقعی تأیید شد که فرم urlencoded بدون مشکل عبور می‌کند.
-  loginOtpRequest: async (username)=>{
-    const u=String(username||'').trim();
+  webLoginConfig: async()=> GET('/session/web-login-config',{ttl:0}),
+  loginPassword: async(username,password)=>{
+    const u=String(username||'').trim(), p=String(password||'');
     if(!u) throw new Error('نام کاربری را وارد کنید');
-    const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/otp-request',{method:'POST',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store'},body:JSON.stringify({username:u}),cache:'no-store'});
-    const d=await _readJsonResponse(r);
-    if(!r.ok) throw new Error(d.error||d.message||('ارسال کد ناموفق بود (HTTP '+r.status+')'));
-    return d;
+    if(!p) throw new Error('کلمه عبور را وارد کنید');
+    let deviceId=localStorage.getItem('kh_web_device_id');
+    if(!deviceId){ deviceId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('web-'+Date.now()+'-'+Math.random().toString(36).slice(2)); localStorage.setItem('kh_web_device_id',deviceId); }
+    const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/start',{method:'POST',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store'},body:JSON.stringify({username:u,password:p,device_id:deviceId,device_type:'web'}),cache:'no-store'});
+    const d=await _readJsonResponse(r); if(!r.ok) throw new Error(d.error||d.message||('ورود ناموفق بود (HTTP '+r.status+')'));
+    if(!d.access) throw new Error('پاسخ ورود ناقص است: توکن دریافت نشد.');
+    localStorage.token=d.access; if(d.refresh) localStorage.refresh_token=d.refresh; return d;
   },
-  loginOtpVerify: async (username,code)=>{
+  webLoginOtpRequest: async(username)=>{
+    const u=String(username||'').trim(); if(!u) throw new Error('نام کاربری را وارد کنید');
+    const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/web-login-request',{method:'POST',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store'},body:JSON.stringify({username:u}),cache:'no-store'});
+    const d=await _readJsonResponse(r); if(!r.ok) throw new Error(d.error||d.message||('ارسال کد ناموفق بود (HTTP '+r.status+')')); return d;
+  },
+  webLoginOtpVerify: async(username,code)=>{
     const u=String(username||'').trim(), c=String(code||'').trim();
     const latin=c.replace(/[۰-۹]/g,d=>'0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(d)]);
     if(!u) throw new Error('نام کاربری را وارد کنید');
-    if(!/^\d{6}$/.test(latin)) throw new Error('کد شش رقمی را وارد کنید');
+    if(!/^\d{6}$/.test(latin)) throw new Error('کد شش‌رقمی را وارد کنید');
     let deviceId=localStorage.getItem('kh_web_device_id');
-    if(!deviceId){
-      deviceId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('web-'+Date.now()+'-'+Math.random().toString(36).slice(2));
-      localStorage.setItem('kh_web_device_id',deviceId);
-    }
-    const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/otp-verify',{method:'POST',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store'},body:JSON.stringify({username:u,code:latin,device_id:deviceId,device_type:'web'}),cache:'no-store'});
-    const d=await _readJsonResponse(r);
-    if(!r.ok) throw new Error(d.error||d.message||('تأیید کد ناموفق بود (HTTP '+r.status+')'));
+    if(!deviceId){ deviceId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('web-'+Date.now()+'-'+Math.random().toString(36).slice(2)); localStorage.setItem('kh_web_device_id',deviceId); }
+    const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/web-login-verify',{method:'POST',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store'},body:JSON.stringify({username:u,code:latin,device_id:deviceId}),cache:'no-store'});
+    const d=await _readJsonResponse(r); if(!r.ok) throw new Error(d.error||d.message||('تأیید کد ناموفق بود (HTTP '+r.status+')'));
     if(!d.access) throw new Error('پاسخ ورود ناقص است: توکن دریافت نشد.');
     localStorage.token=d.access; if(d.refresh) localStorage.refresh_token=d.refresh; return d;
   },
@@ -8502,37 +8507,50 @@ const VIEWS={
 };
 
 function Login({onLogin,brand}){
-  const [username,setUsername]=useState(""); const [code,setCode]=useState(""); const [err,setErr]=useState("");
-  const [mode,setMode]=useState("request"); const [info,setInfo]=useState(""); const [busy,setBusy]=useState(false);
-  const [cooldown,setCooldown]=useState(0);
+  const [username,setUsername]=useState(""); const [password,setPassword]=useState(""); const [code,setCode]=useState("");
+  const [loginMethod,setLoginMethod]=useState("password"); const [mode,setMode]=useState("request");
+  const [err,setErr]=useState(""); const [info,setInfo]=useState(""); const [busy,setBusy]=useState(false); const [cooldown,setCooldown]=useState(0);
+  useEffect(()=>{ let active=true; db.webLoginConfig().then(x=>{if(active)setLoginMethod(x.method||"password");}).catch(()=>{}); return()=>{active=false}; },[]);
   useEffect(()=>{ if(cooldown<=0)return; const t=setInterval(()=>setCooldown(v=>Math.max(0,v-1)),1000); return()=>clearInterval(t); },[cooldown]);
+  const methodLabel=loginMethod==="sms_otp"?"پیامک":loginMethod==="bale_otp"?"ربات بله":"نام کاربری و کلمه عبور";
   const requestCode=async()=>{
     if(busy||cooldown>0)return; setBusy(true);setErr("");setInfo("");
-    try{ await db.loginOtpRequest(username); setMode("verify"); setCode(""); setCooldown(60); setInfo("کد یک‌بارمصرف به شماره همراه ثبت‌شده حساب کاربری ارسال شد."); }
-    catch(e){ setErr(e&&e.message?e.message:"ارسال کد ناموفق بود"); } finally{setBusy(false);}
+    try{ const d=await db.webLoginOtpRequest(username); setMode("verify"); setCode(""); setCooldown(60);
+      setInfo(d.channel==="bale"?"کد یک‌بارمصرف از طریق ربات بله ارسال شد.":"کد یک‌بارمصرف به شماره همراه ثبت‌شده حساب کاربری ارسال شد.");
+    }catch(e){setErr(e&&e.message?e.message:"ارسال کد ناموفق بود");}finally{setBusy(false);}
+  };
+  const passwordLogin=async()=>{
+    if(busy)return; setBusy(true);setErr("");setInfo("");
+    try{const d=await db.loginPassword(username,password);onLogin(d.user);}catch(e){setErr(e&&e.message?e.message:"ورود ناموفق بود");}finally{setBusy(false);}
   };
   const verify=async()=>{
     if(busy)return; setBusy(true);setErr("");setInfo("");
-    try{ const d=await db.loginOtpVerify(username,code); onLogin(d.user); }
-    catch(e){ setErr(e&&e.message?e.message:"کد واردشده صحیح نیست"); } finally{setBusy(false);}
+    try{const d=await db.webLoginOtpVerify(username,code);onLogin(d.user);}catch(e){setErr(e&&e.message?e.message:"کد واردشده صحیح نیست");}finally{setBusy(false);}
   };
+  const otp=loginMethod!=="password";
   return(<div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)"}}>
-    <div className="panel" style={{width:380}}>
+    <div className="panel" style={{width:380,maxWidth:"calc(100vw - 28px)"}}>
       <div style={{textAlign:"center",marginBottom:18}}>{brand?.logo?<img src={brand.logo} style={{margin:"0 auto 10px",width:58,height:58,borderRadius:14,objectFit:"contain",background:"#fff",padding:5,border:"1px solid var(--line)"}}/>:<img src="/brand-khatyar.png" style={{margin:"0 auto 10px",width:58,height:58,borderRadius:29,objectFit:"cover"}}/>}
         <h3 style={{justifyContent:"center"}}>ورود به {brand?.title||"خطیار"}</h3></div>
-      {mode==="request"&&<>
-        <p style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,marginBottom:10}}>نام کاربری خود را وارد کنید. شماره همراه به‌صورت خودکار از اطلاعات حساب کاربری خوانده می‌شود و کد یک‌بارمصرف به همان شماره ارسال خواهد شد.</p>
+      <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,marginBottom:12}}>روش ورود فعال: <b>{methodLabel}</b></div>
+      {otp&&mode==="request"&&<>
+        <p style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,marginBottom:10}}>نام کاربری خود را وارد کنید تا کد یک‌بارمصرف برای شما ارسال شود.</p>
         <input className="input" autoComplete="username" dir="ltr" placeholder="نام کاربری" value={username} onChange={e=>setUsername(e.target.value)} onKeyDown={e=>e.key==='Enter'&&requestCode()} />
         <button className="btn p" style={{width:"100%",marginTop:14}} onClick={requestCode} disabled={busy||cooldown>0}>{busy?'در حال ارسال…':cooldown>0?'ارسال مجدد ('+cooldown+')':'دریافت کد ورود'}</button>
       </>}
-      {mode==="verify"&&<>
-        <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,marginBottom:10}}>کد شش‌رقمی ارسال‌شده به شماره همراه ثبت‌شده حساب کاربری را وارد کنید.</div>
+      {otp&&mode==="verify"&&<>
+        <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,marginBottom:10}}>{loginMethod==="bale_otp"?"کد شش‌رقمی ارسال‌شده توسط ربات بله را وارد کنید.":"کد شش‌رقمی ارسال‌شده به شماره همراه ثبت‌شده حساب کاربری را وارد کنید."}</div>
         <input className="input" inputMode="numeric" autoComplete="one-time-code" dir="ltr" maxLength={6} placeholder="کد یک‌بارمصرف" value={code} onChange={e=>setCode(e.target.value.replace(/[^0-9۰-۹]/g,''))} onKeyDown={e=>e.key==='Enter'&&verify()} autoFocus />
         <button className="btn p" style={{width:"100%",marginTop:14}} onClick={verify} disabled={busy||code.length!==6}>{busy?'در حال بررسی…':'تأیید و ورود'}</button>
         <div className="row" style={{justifyContent:"space-between",marginTop:10}}>
           <a style={{fontSize:12,color:"var(--brand)",cursor:cooldown>0?"default":"pointer",opacity:cooldown>0?.5:1}} onClick={requestCode}>ارسال مجدد</a>
           <a style={{fontSize:12,color:"var(--muted)",cursor:"pointer"}} onClick={()=>{setMode("request");setCode("");setErr("");setInfo("");}}>تغییر نام کاربری</a>
         </div>
+      </>}
+      {!otp&&<>
+        <input className="input" autoComplete="username" dir="ltr" placeholder="نام کاربری" value={username} onChange={e=>setUsername(e.target.value)} onKeyDown={e=>e.key==='Enter'&&passwordLogin()} />
+        <input className="input" type="password" autoComplete="current-password" dir="ltr" placeholder="کلمه عبور" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==='Enter'&&passwordLogin()} style={{marginTop:10}} />
+        <button className="btn p" style={{width:"100%",marginTop:14}} onClick={passwordLogin} disabled={busy}>{busy?"در حال ورود…":"ورود"}</button>
       </>}
       {info&&<p style={{color:"var(--ok)",fontSize:12,marginTop:8}}>{info}</p>}
       {err&&<p style={{color:"var(--danger)",fontSize:12,marginTop:8}}>{err}</p>}
