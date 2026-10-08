@@ -321,6 +321,10 @@ $loginHandler = function ($p, $b) {
     if (array_key_exists($__bk, $b)) $b[$__bk] = $strBool($b[$__bk]);
   }
   $username = trim($b['username'] ?? ''); $password = $b['password'] ?? '';
+  // روش ورود وب از تنظیمات سامانه کنترل می‌شود؛ ورود با رمز فقط در حالت password مجاز است.
+  if ($dtype === 'web' && strtolower((string)_req_setting('web_login_method', 'password')) !== 'password') {
+    Http::error('ورود با نام کاربری و کلمه عبور در تنظیمات وب غیرفعال است.', 403);
+  }
   $dev = $b['device_id'] ?? ''; if (strlen($dev) < 6) Http::error('ورودی نامعتبر', 400);
   $dtype = (($b['device_type'] ?? 'web') === 'android') ? 'android' : 'web';
   // محدودیت ورود بر اساس IP با جدول ایندکس‌دار؛ از JSON_EXTRACT روی activity_logs در مسیر ورود استفاده نمی‌شود
@@ -482,6 +486,7 @@ route('POST', '/api/session/otp-request', function($p, $b) {
 }, true);
 // تأیید کد یک‌بارمصرف و صدور توکن ورود (دقیقاً مثل ورود عادی)
 route('POST', '/api/session/otp-verify', function($p, $b) {
+  // مسیر قدیمی OTP موبایلی برای سازگاری با کلاینت‌های قبلی حفظ شده است.
   _otp_tables();
   $mobile = preg_replace('/\D/', '', trim($b['mobile'] ?? ''));
   if (strpos($mobile, '0') !== 0) $mobile = '0' . ltrim($mobile, '0');
@@ -500,6 +505,7 @@ route('POST', '/api/session/otp-verify', function($p, $b) {
   Db::run("UPDATE login_otp SET consumed_at=NOW() WHERE id=?", [$row['id']]);
   $u = Db::one("SELECT u.*, r.title role_title, r.level FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.is_active=1", [$row['user_id']]);
   if (!$u) Http::error('حساب کاربری یافت نشد یا غیرفعال است', 401);
+  if ($dtype === 'web' && empty($u['allow_web'])) Http::error('ورود با وب‌اپلیکیشن برای این حساب مجاز نیست', 403);
   $securityExempt = (int)($u['security_exempt'] ?? 0) === 1;
   $t = issueTokens($u['id'], $dev, $dtype);
   Db::run("INSERT INTO activity_logs(user_id,event) VALUES(?, 'login_otp')", [$u['id']]);
@@ -564,6 +570,98 @@ route('GET', '/api/me/logout-status', function($p,$b,$u){
     'remaining' => $limit > 0 ? max(0, $limit - $used) : null,
   ];
 });
+/* ================= روش ورود وب قابل تنظیم ================= */
+function _web_login_method() {
+  $m = strtolower(trim((string)_req_setting('web_login_method', 'password')));
+  return in_array($m, ['password','sms_otp','bale_otp'], true) ? $m : 'password';
+}
+function _web_otp_table() {
+  _otp_tables();
+  try { Db::run("ALTER TABLE login_otp ADD COLUMN channel VARCHAR(20) NOT NULL DEFAULT 'sms' AFTER mobile"); } catch (Throwable $e) {}
+}
+function _web_login_user($username) {
+  $username = trim((string)$username);
+  if ($username === '') Http::error('نام کاربری را وارد کنید', 400);
+  $u = Db::one("SELECT u.*, r.title AS role_title, r.level, r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=? LIMIT 1", [$username]);
+  if (!$u || empty($u['is_active'])) Http::error('اطلاعات ورود صحیح نیست', 401);
+  if (empty($u['allow_web'])) Http::error('ورود با وب‌اپلیکیشن برای این حساب مجاز نیست', 403);
+  return $u;
+}
+function _web_login_result($u,$dev) {
+  if (strlen((string)$dev) < 6) Http::error('شناسه مرورگر نامعتبر است', 400);
+  if (empty($u['is_active']) || empty($u['allow_web'])) Http::error('ورود با وب‌اپلیکیشن برای این حساب مجاز نیست', 403);
+  if (empty($u['is_admin'])) {
+    $mcfg = _maintenance_status();
+    if (!empty($mcfg['enabled'])) Http::error($mcfg['message'] ?: 'نرم‌افزار موقتاً برای تعمیرات غیرفعال است.', 503);
+  }
+  $dtype='web';
+  $sess=Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=?",[$u['id'],$dtype]);
+  $unlimited=in_array($u['role_title'],['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'],true);
+  if(!$sess || $sess['revoked_at'] || $unlimited){
+    Db::run("INSERT INTO user_sessions(user_id,device_type,device_id,device_model) VALUES(?,?,?,?)
+      ON DUPLICATE KEY UPDATE device_id=VALUES(device_id),device_model=VALUES(device_model),revoked_at=NULL,created_at=NOW()",[$u['id'],$dtype,$dev,'Web Browser']);
+  } elseif($sess['device_id']!==$dev) {
+    Db::run("UPDATE user_sessions SET device_id=?,device_model=?,revoked_at=NULL,created_at=NOW() WHERE user_id=? AND device_type=?",[$dev,'Web Browser',$u['id'],$dtype]);
+  }
+  $t=issueTokens($u['id'],$dev,$dtype);
+  Db::run("INSERT INTO activity_logs(user_id,event) VALUES(?, 'login_web')",[$u['id']]);
+  return array_merge($t,['user'=>[
+    'id'=>(int)$u['id'],'username'=>$u['username'],'name'=>$u['first_name'].' '.$u['last_name'],
+    'role'=>$u['role_title'],'role_id'=>(int)$u['role_id'],'level'=>(int)$u['level'],'is_admin'=>(bool)$u['is_admin'],
+    'must_change_pw'=>(bool)($u['must_change_pw']??0),'email'=>$u['email'],
+    'photo'=>_user_photo_url($u['photo_path']??null,$u['photo']??null),'security_exempt'=>(bool)($u['security_exempt']??0),
+    'rank_stars'=>isset($u['rank_stars'])&&$u['rank_stars']!==null?(int)$u['rank_stars']:null,
+    'can_send_sms'=>(bool)$u['is_admin']||(bool)($u['can_send_sms']??0)
+  ]]);
+}
+route('GET','/api/session/web-login-config',function($p,$b,$u){
+  return ['method'=>_web_login_method()];
+},true);
+route('POST','/api/session/web-login-request',function($p,$b,$u){
+  $method=_web_login_method();
+  if($method==='password') Http::error('ورود با کلمه عبور فعال است.',409);
+  _web_otp_table();
+  $user=_web_login_user($b['username']??'');
+  $channel=$method==='bale_otp'?'bale':'sms';
+  $recent=Db::one("SELECT id FROM login_otp WHERE user_id=? AND channel=? AND consumed_at IS NULL AND created_at>DATE_SUB(NOW(),INTERVAL 60 SECOND)",[$user['id'],$channel]);
+  if($recent) Http::error('لطفاً ۶۰ ثانیه صبر کنید و دوباره تلاش کنید.',429);
+  $hourly=(int)(Db::one("SELECT COUNT(*) n FROM login_otp WHERE user_id=? AND channel=? AND created_at>DATE_SUB(NOW(),INTERVAL 1 HOUR)",[$user['id'],$channel])['n']??0);
+  if($hourly>=5) Http::error('تعداد درخواست‌های کد در این ساعت بیش از حد مجاز است.',429);
+  $code=str_pad((string)random_int(0,999999),6,'0',STR_PAD_LEFT);
+  $mobile=preg_replace('/\D/','',(string)($user['phone']??''));
+  Db::run("INSERT INTO login_otp(user_id,mobile,channel,code_hash,expires_at) VALUES(?,?,?,?,DATE_ADD(NOW(),INTERVAL 3 MINUTE))",[$user['id'],$mobile, $channel,hash('sha256',$code)]);
+  $text="کد ورود وب خطیار: {$code}\nاین کد تا ۳ دقیقه معتبر است.";
+  if($channel==='sms'){
+    if(strlen($mobile)<10) Http::error('شماره همراه برای این حساب ثبت نشده است.',400);
+    $r=Sms::send([$mobile],$text,'web_login_otp',null);
+    if(empty($r['ok'])) Http::error('ارسال پیامک ناموفق بود: '.($r['error']??'خطای نامشخص'),502);
+  } else {
+    $chat=BaleBot::findChatForUser((int)$user['id']);
+    if(!$chat) Http::error('حساب بله این کاربر به سامانه متصل نیست. ابتدا حساب را به ربات بله متصل کنید.',400);
+    $r=BaleBot::sendMessage($chat,$text,['target_type'=>'web_login_otp','target_id'=>$user['id']]);
+    if(empty($r['ok'])) Http::error('ارسال کد از طریق ربات بله ناموفق بود.',502);
+  }
+  return ['ok'=>true,'channel'=>$channel];
+},true);
+route('POST','/api/session/web-login-verify',function($p,$b,$u){
+  $method=_web_login_method();
+  if($method==='password') Http::error('ورود با کلمه عبور فعال است.',409);
+  _web_otp_table();
+  $user=_web_login_user($b['username']??'');
+  $code=preg_replace('/\D/','',(string)($b['code']??''));
+  if(!preg_match('/^\d{6}$/',$code)) Http::error('کد شش‌رقمی را وارد کنید.',400);
+  $row=Db::one("SELECT * FROM login_otp WHERE user_id=? AND channel=? AND consumed_at IS NULL ORDER BY id DESC LIMIT 1",[$user['id'],$method==='bale_otp'?'bale':'sms']);
+  if(!$row) Http::error('کدی برای این حساب یافت نشد. دوباره درخواست دهید.',400);
+  if(strtotime($row['expires_at'])<time()) Http::error('کد منقضی شده است. دوباره درخواست دهید.',400);
+  if((int)$row['attempts']>=5) Http::error('تعداد تلاش‌های مجاز تمام شده است. دوباره درخواست دهید.',429);
+  if(!hash_equals($row['code_hash'],hash('sha256',$code))){
+    Db::run("UPDATE login_otp SET attempts=attempts+1 WHERE id=?",[$row['id']]);
+    Http::error('کد واردشده صحیح نیست.',401);
+  }
+  Db::run("UPDATE login_otp SET consumed_at=NOW() WHERE id=?",[$row['id']]);
+  return _web_login_result($user,$b['device_id']??'');
+},true);
+
 // ---------------- صحت‌سنجی حضور ----------------
 
 function _presence_today_jdate() {
@@ -7720,7 +7818,7 @@ route('PUT', '/api/admin/settings', function($p,$b,$u){
 }, false, ADMIN);
 // تنظیمات عمومی (محدودیت آپلود هر بخش) برای اپ میدانی — فقط کلیدهای غیرحساس
 route('GET', '/api/settings/public', function($p,$b,$u){
-  $keys = ['upload_reports','upload_checklists','upload_notices','image_quality','image_max_width','image_max_height','thumbnail_size','thumbnail_quality','attachment_retention_days','form_attachment_retention_days','presence_retention_days','covert_selfie_retention_days','salary_slip_retention_days','company_request_retention_days','site_title','site_logo','org_title','org_logo','plate_ocr_enabled','plate_ocr_mode','plate_ocr_min_confidence','plate_ocr_require_confirm','plate_ocr_save_samples','plate_ocr_fixed_letter','plate_ocr_region_code','plate_ocr_crop_width','plate_ocr_crop_quality','cloud_ocr_enabled','cloud_ocr_provider','cloud_ocr_api_key','cloud_ocr_endpoint','cloud_ocr_connect_timeout','cloud_ocr_timeout'];
+  $keys = ['web_login_method','upload_reports','upload_checklists','upload_notices','image_quality','image_max_width','image_max_height','thumbnail_size','thumbnail_quality','attachment_retention_days','form_attachment_retention_days','presence_retention_days','covert_selfie_retention_days','salary_slip_retention_days','company_request_retention_days','site_title','site_logo','org_title','org_logo','plate_ocr_enabled','plate_ocr_mode','plate_ocr_min_confidence','plate_ocr_require_confirm','plate_ocr_save_samples','plate_ocr_fixed_letter','plate_ocr_region_code','plate_ocr_crop_width','plate_ocr_crop_quality','cloud_ocr_enabled','cloud_ocr_provider','cloud_ocr_api_key','cloud_ocr_endpoint','cloud_ocr_connect_timeout','cloud_ocr_timeout'];
   $out=[]; foreach (Db::all("SELECT `key`,value FROM app_settings WHERE `key` IN ('".implode("','",$keys)."')") as $r) $out[$r['key']] = json_decode($r['value'], true);
   return $out;
 }, true);
