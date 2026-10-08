@@ -2,9 +2,8 @@ import { AppRegistry, Platform } from 'react-native';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Notifications from 'expo-notifications';
 import { getTrackingPosition } from './location';
-import { postOrQueue, request } from './api';
+import { postOrQueue } from './api';
 import { vpnStatus } from './device';
-import * as Location from 'expo-location';
 import { runGpsWorkWatchdog } from './gpsWorkWatchdog';
 
 
