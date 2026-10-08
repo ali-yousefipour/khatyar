@@ -9929,7 +9929,7 @@ function AttendanceReport() {
     ];
     const exportExcel = () => { if (!data)
         return; const rows = [columns.map(x => x[0])]; (data.days || []).forEach(d => rows.push(columns.map(x => x[1](d)))); const ws = XLSX.utils.aoa_to_sheet(rows), wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "گزارش تردد ۲۹ ستونه"); XLSX.writeFile(wb, "گزارش تردد پرسنل - ۲۹ ستونه.xlsx"); };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel", translate: "no", "data-no-translate": "true" },
         React.createElement("h3", null, "\uD83D\uDD52 \u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F \u067E\u0631\u0633\u0646\u0644"),
         React.createElement("div", { className: "card-p", style: { marginBottom: 14 } },
             React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap", alignItems: "flex-end" } },
@@ -10062,9 +10062,26 @@ function AttendanceRequestModal({ userId, jdate, onSaved, onClose }) {
         { value: "mission:daily", label: "ماموریت روزانه" },
         { value: "mission:hourly", label: "ماموریت ساعتی" }
     ];
+    const normalizeJ = (v) => {
+        const s = String(v !== null && v !== void 0 ? v : "").trim()
+            .replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+            .replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+            .replace(/[\/\.]/g, "-").replace(/\s+/g, "");
+        const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+        if (!m)
+            return "";
+        const y = +m[1], mo = +m[2], d = +m[3];
+        if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d) || y < 1300 || y > 1500 || mo < 1 || mo > 12 || d < 1 || d > 31)
+            return "";
+        const g = jalaliToGreg(y, mo, d);
+        if (!g)
+            return "";
+        return y + "-" + String(mo).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+    };
+    const initial = normalizeJ(jdate) || "";
     const [kind, setKind] = useState("annual:daily");
-    const [fromDate, setFromDate] = useState(jdate || "");
-    const [toDate, setToDate] = useState(jdate || "");
+    const [fromDate, setFromDate] = useState(initial);
+    const [toDate, setToDate] = useState(initial);
     const [fromTime, setFromTime] = useState("");
     const [toTime, setToTime] = useState("");
     const [reason, setReason] = useState("");
@@ -10074,12 +10091,13 @@ function AttendanceRequestModal({ userId, jdate, onSaved, onClose }) {
     const hourly = unit === "hourly";
     const submit = async () => {
         setErr("");
-        if (!fromDate) {
-            setErr("تاریخ درخواست را انتخاب کنید.");
+        const from = normalizeJ(fromDate), to = normalizeJ(toDate);
+        if (!from) {
+            setErr("تاریخ شروع معتبر نیست.");
             return;
         }
-        if (!hourly && !toDate) {
-            setErr("تاریخ پایان را انتخاب کنید.");
+        if (!hourly && !to) {
+            setErr("تاریخ پایان معتبر نیست.");
             return;
         }
         if (hourly && (!fromTime || !toTime)) {
@@ -10090,7 +10108,7 @@ function AttendanceRequestModal({ userId, jdate, onSaved, onClose }) {
             setErr("ساعت پایان باید بعد از ساعت شروع باشد.");
             return;
         }
-        if (!hourly && toDate < fromDate) {
+        if (!hourly && to < from) {
             setErr("تاریخ پایان نباید قبل از تاریخ شروع باشد.");
             return;
         }
@@ -10099,8 +10117,8 @@ function AttendanceRequestModal({ userId, jdate, onSaved, onClose }) {
             await db.adminRequestCreate({
                 direct_approve: true,
                 type, unit,
-                from_jdate: fromDate, to_jdate: hourly ? fromDate : toDate,
-                the_date: fromDate,
+                from_jdate: from, to_jdate: hourly ? from : to,
+                the_date: from,
                 from_time: hourly ? fromTime : null, to_time: hourly ? toTime : null,
                 reason: reason.trim() || null
             });
@@ -10125,10 +10143,10 @@ function AttendanceRequestModal({ userId, jdate, onSaved, onClose }) {
                 React.createElement("select", { className: "input", value: kind, onChange: e => setKind(e.target.value) }, TYPES.map(x => React.createElement("option", { key: x.value, value: x.value }, x.label)))),
             React.createElement("div", { className: "punch-field" },
                 React.createElement("label", { className: "label" }, "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E"),
-                React.createElement("input", { className: "input", value: fromDate, onChange: e => setFromDate(e.target.value), placeholder: "\u06F1\u06F4\u06F0\u06F5-\u06F0\u06F7-\u06F1\u06F5" })),
+                React.createElement(JDate, { value: fromDate, onChange: setFromDate, jalali: true })),
             !hourly && React.createElement("div", { className: "punch-field" },
                 React.createElement("label", { className: "label" }, "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E"),
-                React.createElement("input", { className: "input", value: toDate, onChange: e => setToDate(e.target.value), placeholder: "\u06F1\u06F4\u06F0\u06F5-\u06F0\u06F7-\u06F1\u06F5" })),
+                React.createElement(JDate, { value: toDate, onChange: setToDate, jalali: true })),
             hourly && React.createElement(React.Fragment, null,
                 React.createElement("div", { className: "punch-field" },
                     React.createElement("label", { className: "label" }, "\u0627\u0632 \u0633\u0627\u0639\u062A"),
