@@ -6114,7 +6114,7 @@ function Settings() {
         return React.createElement("div", null, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026");
     const set = (k, val) => setV({ ...v, [k]: val });
     const save = async () => { await db.saveSettings(v); alert("تنظیمات ذخیره شد."); };
-    const TABS = [["general", "عمومی و موقعیت"], ["subscription", "اشتراک"], ["monitoring", "پایش و هشدارها"], ["dashboard", "داشبورد و محاسبهٔ عملکرد"], ["hr", "منابع انسانی"], ["fields", "فیلدهای پرسنل"], ["appitems", "آیتم‌های اپ هر سمت"], ["sms", "پیامک"], ["bale", "ربات‌ها"], ["security", "امنیت و نسخه اپ"], ["radio", "📻 تنظیمات بی‌سیم"], ["files", "پیوست‌ها و اعلان‌ها"], ["drivers", "بدهکاران"], ["print", "قالب چاپ"], ["access", "دسترسی‌ها"], ["backup", "پشتیبان‌گیری و پاکسازی"]];
+    const TABS = [["general", "⚙️", "عمومی و موقعیت"], ["subscription", "💳", "اشتراک"], ["monitoring", "⏱️", "پایش و هشدارها"], ["dashboard", "📊", "داشبورد و محاسبهٔ عملکرد"], ["hr", "👥", "منابع انسانی"], ["fields", "🧩", "فیلدهای پرسنل"], ["appitems", "📱", "آیتم‌های اپ هر سمت"], ["sms", "💬", "پیامک"], ["bale", "🤖", "ربات‌ها"], ["security", "🔐", "امنیت و نسخه اپ"], ["radio", "📻", "تنظیمات بی‌سیم"], ["files", "📎", "پیوست‌ها و اعلان‌ها"], ["drivers", "💰", "بدهکاران"], ["print", "🖨️", "قالب چاپ"], ["access", "🛡️", "دسترسی‌ها"], ["backup", "💾", "پشتیبان‌گیری و پاکسازی"]];
     const Field = (k, l) => {
         var _a;
         return React.createElement("div", { style: { marginBottom: 12 } },
@@ -6125,7 +6125,9 @@ function Settings() {
         React.createElement("span", { style: { fontSize: 13 } }, l),
         React.createElement("input", { type: "checkbox", checked: !!v[k], onChange: e => set(k, e.target.checked) }));
     return (React.createElement("div", null,
-        React.createElement("div", { className: "tabbar" }, TABS.map(([k, l]) => React.createElement("button", { key: k, className: "tabbtn" + (tab === k ? " on" : ""), onClick: () => setTab(k) }, l))),
+        React.createElement("div", { className: "tabbar" }, TABS.map(([k, ic, l]) => React.createElement("button", { key: k, className: "tabbtn" + (tab === k ? " on" : ""), onClick: () => setTab(k) },
+            React.createElement("span", { "aria-hidden": "true", style: { fontSize: 16, lineHeight: 1, marginLeft: 6 } }, ic),
+            React.createElement("span", null, l)))),
         React.createElement("div", { className: "grid2 settings-tabs tab-" + tab },
             React.createElement("div", { className: "panel t-general" },
                 React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0639\u0645\u0648\u0645\u06CC"),
