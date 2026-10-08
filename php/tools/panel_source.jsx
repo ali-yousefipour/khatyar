@@ -6150,7 +6150,11 @@ function AttendanceReport(){
             </div>
             <div style={{marginTop:12}}>
               {dayRequests.length===0?<div className="muted" style={{fontSize:12}}>درخواستی برای این روز ثبت نشده است.</div>:
-              <div style={{overflowX:"auto"}}><table style={{minWidth:620,width:"100%"}}><thead><tr><th>نوع درخواست</th><th>بازه</th><th>ساعت</th><th>مدت</th><th>وضعیت</th></tr></thead><tbody>{dayRequests.map(r=><tr key={r.id}><td>{{annual:"مرخصی استحقاقی",sick:"مرخصی استعلاجی",mission:"ماموریت",overtime:"اضافه‌کار"}[r.type]||r.type}</td><td>{faPlain(String(r.from_jdate||r.the_date||"—"))}{r.to_jdate&&r.to_jdate!==r.from_jdate?" تا "+faPlain(String(r.to_jdate)):""}</td><td>{r.from_time&&r.to_time?faPlain(r.from_time)+" تا "+faPlain(r.to_time):"—"}</td><td>{r.minutes?hm(r.minutes):"—"}</td><td>{({pending:"در انتظار تأیید",approved:"تأییدشده",rejected:"ردشده",canceled:"لغوشده"}[r.status]||r.status||"—")}</td></tr>)}</tbody></table></div>}
+              <div style={{overflowX:"auto"}}><table style={{minWidth:620,width:"100%"}}><thead><tr><th>نوع درخواست</th><th>بازه</th><th>ساعت</th><th>مدت</th><th>وضعیت</th></tr></thead><tbody>{dayRequests.map(r=><tr key={r.id}><td>{(()=>{
+  const labels={annual:"مرخصی استحقاقی",sick:"مرخصی استعلاجی",unpaid:"مرخصی بدون حقوق",mission:"ماموریت",overtime:"اضافه‌کار"};
+  const base=labels[r.type]||r.type||"—";
+  return r.unit==="hourly" ? base+" ساعتی" : base;
+})()}</td><td>{faPlain(String(r.from_jdate||r.the_date||"—"))}{r.to_jdate&&r.to_jdate!==r.from_jdate?" تا "+faPlain(String(r.to_jdate)):""}</td><td>{r.from_time&&r.to_time?faPlain(r.from_time)+" تا "+faPlain(r.to_time):"—"}</td><td>{r.minutes?hm(r.minutes):"—"}</td><td>{({pending:"در انتظار تأیید",approved:"تأییدشده",rejected:"ردشده",canceled:"لغوشده"}[r.status]||r.status||"—")}</td></tr>)}</tbody></table></div>}
             </div>
           </div>
         </div>
