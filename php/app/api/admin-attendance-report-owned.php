@@ -5,6 +5,17 @@
  * نباید به‌صورت continuation در روز بعد نمایش داده شود.
  */
 function attendance_report_owned_by_entry_date($userId, $from, $to) {
+  /*
+   * این helper از route قدیمی _attendance_report استفاده می‌کند، اما باید
+   * مستقل از ترتیب load فایل‌ها هم قابل اجرا باشد. در index معمولاً routes.php
+   * قبلاً load شده است؛ این require_once فقط در صورت نبود تابع اجرا می‌شود.
+   */
+  if (!function_exists('_attendance_report')) {
+    require_once dirname(__DIR__, 2) . '/lib/routes.php';
+  }
+  if (!function_exists('_attendance_report')) {
+    throw new RuntimeException('attendance report handler is unavailable');
+  }
   $report = _attendance_report($userId, $from, $to);
   if (empty($report['days']) || !is_array($report['days'])) return $report;
 
