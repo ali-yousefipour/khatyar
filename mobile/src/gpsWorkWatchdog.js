@@ -58,5 +58,5 @@ export async function runGpsWorkWatchdog({ force = false, source = 'foreground_w
   return { checked: true, gpsEnabled: true, penaltyMinutes: 0 };
 }
 
-// CI release trigger: GPS watchdog remains independent from location tracking.
+// CI release trigger: final attendance watchdog validation; no location-ping interval is added.
 export const GPS_WORK_WATCHDOG_INTERVAL_MS = WATCH_INTERVAL_MS;
