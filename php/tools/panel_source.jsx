@@ -6119,6 +6119,7 @@ function AttendanceRequestModal({userId,jdate,onSaved,onClose}){
     try{
       await db.adminRequestCreate({
         direct_approve:true,
+        user_id:Number(userId),
         type,unit,
         from_jdate:from,to_jdate:hourly?from:to,
         the_date:from,
