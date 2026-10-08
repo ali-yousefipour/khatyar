@@ -15,9 +15,9 @@ $get = function ($key, $default = null) {
     }
 };
 
-$latest = (string)$get('app_latest_version', '1.5.6');
+$latest = (string)$get('app_latest_version', '1.5.7');
 $min = (string)$get('app_min_version', '0.0.0');
-$url = trim((string)$get('app_apk_url', ''));
+$url = trim((string)$get('app_apk_url', 'https://raw.githubusercontent.com/ali-yousefipour/khatyar/main/mobile/release/khatyar-1.5.7.apk'));
 $sha = strtolower(trim((string)$get('app_apk_sha256', '')));
 $notes = (string)$get('app_update_notes', '');
 

@@ -44,6 +44,7 @@ function Get-NativeConfigHash() {
     $files = @(
         (Join-Path $Root 'app.config.js'),
         (Join-Path $Root 'plugins\withKhatyarRadio.js'),
+        (Join-Path $Root 'plugins\withPersistentBackground.js'),
         (Join-Path $Root 'plugins\withAndroidMavenMirrors.js')
     )
     $parts = foreach ($file in $files) { Get-FileHashSafe $file }

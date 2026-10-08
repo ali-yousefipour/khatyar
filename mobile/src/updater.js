@@ -4,6 +4,8 @@ import { request } from './api';
 
 const { KhatyarUpdater } = NativeModules;
 const TRUSTED_UPDATE_HOST = 'app.yousefipour.ir';
+const TRUSTED_GITHUB_RAW_HOST = 'raw.githubusercontent.com';
+const TRUSTED_GITHUB_RAW_PREFIX = '/ali-yousefipour/khatyar/main/mobile/release/';
 
 export function currentVersion() {
   return Constants.expoConfig?.version || '0.0.0';
@@ -23,7 +25,13 @@ function isNewer(a, b) {
 function validateUpdateUrl(value) {
   try {
     const u = new URL(String(value));
-    return u.protocol === 'https:' && u.hostname.toLowerCase() === TRUSTED_UPDATE_HOST && (!u.port || u.port === '443');
+    const host = u.hostname.toLowerCase();
+    const portOk = !u.port || u.port === '443';
+    if (u.protocol !== 'https:' || !portOk) return false;
+    if (host === TRUSTED_UPDATE_HOST) return true;
+    return host === TRUSTED_GITHUB_RAW_HOST &&
+      u.pathname.startsWith(TRUSTED_GITHUB_RAW_PREFIX) &&
+      /^khatyar-[0-9]+\\.[0-9]+\\.[0-9]+\\.apk$/.test(u.pathname.slice(TRUSTED_GITHUB_RAW_PREFIX.length));
   } catch (_) {
     return false;
   }

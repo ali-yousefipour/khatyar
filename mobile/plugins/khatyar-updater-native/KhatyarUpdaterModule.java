@@ -42,6 +42,8 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
     private static final String PREFS = "khatyar_updater";
     private static final String KEY_PENDING_URI = "pending_install_uri";
     private static final String TRUSTED_UPDATE_HOST = "app.yousefipour.ir";
+    private static final String TRUSTED_GITHUB_RAW_HOST = "raw.githubusercontent.com";
+    private static final String TRUSTED_GITHUB_RAW_PREFIX = "/ali-yousefipour/khatyar/main/mobile/release/";
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     public KhatyarUpdaterModule(ReactApplicationContext context) { super(context); }
@@ -61,9 +63,17 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
     }
 
     private void validateUpdateUrl(URL url) throws Exception {
-        if(url==null || !"https".equalsIgnoreCase(url.getProtocol()) || !TRUSTED_UPDATE_HOST.equalsIgnoreCase(url.getHost()) || (url.getPort()!=-1 && url.getPort()!=443)) {
-            throw new Exception("آدرس به‌روزرسانی مجاز نیست؛ فقط HTTPS روی سرور رسمی خطیار قابل استفاده است.");
+        if(url==null || !"https".equalsIgnoreCase(url.getProtocol()) || (url.getPort()!=-1 && url.getPort()!=443)) {
+            throw new Exception("آدرس به‌روزرسانی مجاز نیست؛ فقط HTTPS روی سرورهای تأییدشده خطیار قابل استفاده است.");
         }
+        String host = url.getHost();
+        if(TRUSTED_UPDATE_HOST.equalsIgnoreCase(host)) return;
+        if(TRUSTED_GITHUB_RAW_HOST.equalsIgnoreCase(host)) {
+            String path = url.getPath();
+            if(path != null && path.startsWith(TRUSTED_GITHUB_RAW_PREFIX) &&
+               path.substring(TRUSTED_GITHUB_RAW_PREFIX.length()).matches("khatyar-[0-9]+\\.[0-9]+\\.[0-9]+\\.apk")) return;
+        }
+        throw new Exception("آدرس به‌روزرسانی مجاز نیست؛ فقط APK رسمی خطیار قابل دریافت است.");
     }
 
     private String sha256(File file) throws Exception {
