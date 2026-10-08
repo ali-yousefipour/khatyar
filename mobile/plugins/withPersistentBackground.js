@@ -10,12 +10,13 @@ import android.content.Context
 import android.content.Intent
 import androidx.work.*
 import com.facebook.react.HeadlessJsTaskService
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.jstasks.HeadlessJsTaskConfig
 import java.util.concurrent.TimeUnit
 
 class KhatyarHeadlessService : HeadlessJsTaskService() {
   override fun getTaskConfig(intent: Intent?): HeadlessJsTaskConfig =
-    HeadlessJsTaskConfig("KhatyarHeadlessLocation", null, 60000, true)
+    HeadlessJsTaskConfig("KhatyarHeadlessLocation", Arguments.createMap(), 60000, true)
 }
 
 class KhatyarLocationWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
