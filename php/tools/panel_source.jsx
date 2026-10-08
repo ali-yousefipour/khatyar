@@ -3714,7 +3714,20 @@ function Settings(){
     <div className="panel t-general"><h3>لوگو و عنوان سایت و اداره</h3>
       <OrgBrandingSettings v={v} set={set} save={save}/></div>
     <div className="panel t-radio"><RadioSettings/></div>
-    <div className="panel t-security"><h3>قوانین امنیتی ورود</h3>{Toggle("require_gps","الزام روشن‌بودن GPS")}
+    <div className="panel t-security"><h3>🔐 قوانین امنیتی ورود</h3>
+      <div style={{padding:"12px",marginBottom:14,border:"1px solid var(--line)",borderRadius:12,background:"var(--brand-soft)"}}>
+        <label className="label">روش ورود به نسخه وب</label>
+        <select className="input" value={v.web_login_method||"password"} onChange={e=>set("web_login_method",e.target.value)} style={{marginTop:6}}>
+          <option value="password">نام کاربری و کلمه عبور</option>
+          <option value="sms_otp">نام کاربری + رمز یک‌بارمصرف پیامکی</option>
+          <option value="bale_otp">نام کاربری + رمز یک‌بارمصرف از طریق ربات بله</option>
+        </select>
+        <p style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,margin:"8px 0 0"}}>
+          این گزینه فقط روش ورود نسخه وب را تعیین می‌کند. در حالت پیامکی، کد به شماره همراه ثبت‌شده کاربر ارسال می‌شود؛ در حالت بله، حساب کاربر باید قبلاً به ربات بله متصل شده باشد.
+        </p>
+        <button className="btn p" style={{marginTop:10}} onClick={save}>ذخیره روش ورود وب</button>
+      </div>
+      {Toggle("require_gps","الزام روشن‌بودن GPS")}
       {Toggle("block_vpn","مسدودسازی هنگام VPN روشن")}{Toggle("block_dev_options","مسدودسازی هنگام Developer Options")}
       {Toggle("block_mock_location","مسدودسازی هنگام موقعیت جعلی (Mock)")}
       <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>این قوانین توسط اپ موبایل بررسی و توسط سرور اعمال می‌شوند.</p>
