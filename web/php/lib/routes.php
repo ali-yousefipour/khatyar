@@ -2379,6 +2379,7 @@ route('GET', '/api/my/work-timer', function($p,$b,$u){
   $phase = $remain>0 ? 'duty' : ($ot<$cap ? 'overtime' : 'surplus');
   return [
     'open'=>$open,'role_title'=>$role['title']??'','shift_title'=>$shift['title']??'شیفت خودکار',
+    'gps_work_required'=>_gps_work_required(),
     'expected_min'=>$expected,'ot_cap_min'=>$cap,'elapsed_min'=>$elapsed,'elapsed_sec'=>$elapsedSec,
     'remaining_min'=>$remain,'overtime_min'=>$ot,'surplus_min'=>$surplus,'phase'=>$phase,
     'server_now'=>date('c'),'server_now_ts'=>time(),'check_in_ts'=>$checkInTs,'check_in_at'=>$open['check_in']??null,
@@ -2754,7 +2755,7 @@ function _attendance_rows_for_jdate($userId,$jdate){
     FROM staff_attendance
     WHERE user_id=? AND check_in < ? AND COALESCE(check_out, NOW()) > ?
     ORDER BY check_in", [(int)$userId,$end,$start]);
-  foreach ($rows as &$r) { $r['_clip_start'] = $start; $r['_clip_end'] = $end; $r['_gdate'] = $g; $r['_gps_invalid'] = _gps_work_invalid_intervals($userId,strtotime($start),strtotime($end); }
+  foreach ($rows as &$r) { $r['_clip_start'] = $start; $r['_clip_end'] = $end; $r['_gdate'] = $g; $r['_gps_invalid'] = _gps_work_invalid_intervals($userId,strtotime($start),strtotime($end)); }
   return $rows;
 }
 
