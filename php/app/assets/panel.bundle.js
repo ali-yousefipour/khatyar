@@ -9845,14 +9845,6 @@ function AttendanceReport() {
     catch (e) {
         alert(e.message || "خطا");
     } };
-    const addPunch = async (jdate, ci, co) => { try {
-        await db.attendancePunchAdd({ user_id: +uid, jdate, check_in: ci, check_out: co || null });
-        setAddModal(null);
-        await refresh();
-    }
-    catch (e) {
-        alert(e.message || "خطا");
-    } };
     const n = (v) => { const s = String(v == null ? "" : v).replace(/[۰-۹]/g, x => "۰۱۲۳۴۵۶۷۸۹".indexOf(x)); const m = s.match(/(?:^|[ T])([01]?\d|2[0-3]):([0-5]\d)/); return m ? String(+m[1]).padStart(2, "0") + ":" + m[2] : ""; };
     const pin = (p) => { var _a, _b, _c, _e; return n(p && ((_e = (_c = (_b = (_a = p.in) !== null && _a !== void 0 ? _a : p.in_full) !== null && _b !== void 0 ? _b : p.check_in) !== null && _c !== void 0 ? _c : p.first_in) !== null && _e !== void 0 ? _e : p.first_entry)); };
     const pout = (p) => { var _a, _b, _c, _e; return n(p && ((_e = (_c = (_b = (_a = p.out) !== null && _a !== void 0 ? _a : p.out_full) !== null && _b !== void 0 ? _b : p.check_out) !== null && _c !== void 0 ? _c : p.last_out) !== null && _e !== void 0 ? _e : p.last_exit)); };
