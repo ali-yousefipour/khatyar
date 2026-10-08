@@ -10114,7 +10114,7 @@ function HmField({ label, value, onChange, optional = false, autoFocus = false }
             optional ? " — اختیاری" : ""),
         React.createElement("div", { className: "punch-time-control", dir: "rtl", style: { width: "100%" } },
             React.createElement("input", { className: "input punch-time-input", type: "text", inputMode: "numeric", dir: "ltr", value: text, onChange: handleChange, onBlur: handleBlur, placeholder: "\u06F0\u06F0:\u06F0\u06F0", maxLength: 5, autoFocus: autoFocus, "aria-label": label, "aria-describedby": label + "-hint", style: { width: "100%", height: 46, boxSizing: "border-box", fontSize: 20, fontWeight: 700, textAlign: "center", letterSpacing: 1 } }),
-            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 6, direction: "ltr" } },
+            React.createElement("div", { style: { display: "flex", flexDirection: "row", direction: "ltr", gap: 6, marginTop: 6, width: "100%" } },
                 React.createElement("select", { className: "input punch-time-select", dir: "rtl", value: hour, onChange: e => choosePart("hour", e.target.value), "aria-label": label + " ساعت" },
                     React.createElement("option", { value: "" }, "\u0633\u0627\u0639\u062A"),
                     Array.from({ length: 24 }, (_, h) => { const v = String(h).padStart(2, "0"); return React.createElement("option", { key: v, value: v }, toFaDigits(v)); })),
