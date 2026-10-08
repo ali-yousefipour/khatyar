@@ -5972,7 +5972,6 @@ function AttendanceReport(){
   };
   const savePunch=async(punch,ci,co)=>{ try{ await db.attendancePunchEdit(punch.id,{check_in:ci,check_out:co}); setEdit(null); await refresh(); }catch(e){alert(e.message||"خطا");} };
   const delPunch=async(punch)=>{ if(!confirm("این تردد حذف شود؟"))return; try{ await db.attendancePunchDelete(punch.id); await refresh(); }catch(e){alert(e.message||"خطا");} };
-  const addPunch=async(jdate,ci,co)=>{ try{ await db.attendancePunchAdd({user_id:+uid,jdate,check_in:ci,check_out:co||null}); setAddModal(null); await refresh(); }catch(e){alert(e.message||"خطا");} };
   const n=(v)=>{const s=String(v==null?"":v).replace(/[۰-۹]/g,x=>"۰۱۲۳۴۵۶۷۸۹".indexOf(x)); const m=s.match(/(?:^|[ T])([01]?\d|2[0-3]):([0-5]\d)/); return m?String(+m[1]).padStart(2,"0")+":"+m[2]:"";};
   const pin=(p)=>n(p&& (p.in??p.in_full??p.check_in??p.first_in??p.first_entry));
   const pout=(p)=>n(p&& (p.out??p.out_full??p.check_out??p.last_out??p.last_exit));
