@@ -2989,7 +2989,11 @@ function _attendance_report($userId,$fromJ,$toJ){
   // تاریخ‌های قدیمی ممکن است با «/» یا «-» ذخیره شده باشند.
   $approvedRequests=[];
   try {
-    $reqRows=Db::all("SELECT type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes FROM requests WHERE user_id=? AND status='approved' AND type IN ('annual','sick','unpaid','mission')",[$userId]);
+    // درخواست‌های کاملاً تکراری قدیمی نباید در گزارش دو برابر شوند.
+    $reqRows=Db::all("SELECT type,unit,from_jdate,to_jdate,the_date,from_time,to_time,MAX(minutes) AS minutes
+      FROM requests
+      WHERE user_id=? AND status='approved' AND type IN ('annual','sick','unpaid','mission')
+      GROUP BY type,unit,from_jdate,to_jdate,the_date,from_time,to_time",[$userId]);
     $normReqDate=function($v){
       $v=trim(str_replace('/','-',(string)$v));
       if(!preg_match('/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/',$v,$m)) return null;
@@ -3278,8 +3282,11 @@ function _req_notify_sms($req,$status,$note){
 
 // محاسبهٔ مصرف یک نوع درخواست در ماه/سال جاری (دقیقه و تعداد)
 function _req_usage($uid,$type,$unit,$jy,$jm){
-  $rows = Db::all("SELECT minutes, the_date, from_jdate, created_at FROM requests
-    WHERE user_id=? AND type=? AND (unit=? OR ?='') AND status IN('pending','approved')",
+  // درخواست‌های کاملاً تکراری قدیمی نیز فقط یک‌بار در مانده محاسبه شوند.
+  $rows = Db::all("SELECT MAX(minutes) AS minutes, the_date, from_jdate, unit
+    FROM requests
+    WHERE user_id=? AND type=? AND (unit=? OR ?='') AND status IN('pending','approved')
+    GROUP BY user_id,type,unit,the_date,from_jdate,to_jdate,from_time,to_time",
     [$uid,$type,$unit,$unit]);
   $monthMin=0;$yearMin=0;$monthCnt=0;$yearCnt=0;
   foreach($rows as $r){
@@ -3750,6 +3757,35 @@ route('POST', '/api/admin/requests', function($p,$b,$u){
     $minutes=max(1,(int)(($dt-$df)/86400)+1)*480;
   }
   $reason=trim((string)($b['reason']??''))?:null;
+
+  // جلوگیری قطعی از ثبت درخواست مرخصی تکراری برای همان پرسنل و همان بازه.
+  // درخواست‌های رد/لغوشده آزاد هستند؛ درخواست pending/approved همپوشان باید خطای 409 بدهد.
+  $duplicate = Db::one(
+    "SELECT id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes,status
+       FROM requests
+      WHERE user_id=?
+        AND type=?
+        AND status IN ('pending','approved')
+        AND COALESCE(NULLIF(from_jdate,''),NULLIF(the_date,'')) <= ?
+        AND COALESCE(NULLIF(to_jdate,''),NULLIF(the_date,''),NULLIF(from_jdate,'')) >= ?
+      ORDER BY id DESC LIMIT 1",
+    [$uid,$type,$to,$from]
+  );
+  if($duplicate){
+    $dupFrom=$duplicate['from_jdate'] ?: ($duplicate['the_date'] ?: $from);
+    $dupTo=$duplicate['to_jdate'] ?: ($duplicate['the_date'] ?: $dupFrom);
+    if($unit!=='hourly' || ($duplicate['unit']??'')!=='hourly'){
+      Http::error('برای این پرسنل در این تاریخ/بازه، درخواست مرخصی قبلاً ثبت شده است.',409);
+    }
+    // دو درخواست ساعتی فقط در صورت همپوشانی زمانی تکراری محسوب می‌شوند.
+    $dft=trim((string)($duplicate['from_time']??''));
+    $dtt=trim((string)($duplicate['to_time']??''));
+    if($dft!=='' && $dtt!=='' && $ft!=='' && $tt!==''){
+      $overlap=($ft<$dtt && $tt>$dft);
+      if($overlap) Http::error('برای این پرسنل در این تاریخ و بازهٔ ساعتی، درخواست قبلاً ثبت شده است.',409);
+    }
+  }
+
   if($directApprove){
     $id=Db::insert("INSERT INTO requests(user_id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes,reason,status,approver_id,approver_note,decided_at,pending_on)
       VALUES(?,?,?,?,?,?,?,?,?,?, 'approved', ?, ?, NOW(), NULL)",
