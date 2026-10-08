@@ -3468,8 +3468,44 @@ route('POST', '/api/my/requests', function($p,$b,$u){
   return ['id'=>$id,'minutes'=>$minutes];
 });
 
-// درخواست‌های من
-route('GET', '/api/my/requests', function($p,$b,$u){
+// ثبت درخواست از مودال جزئیات حضور ادمین — ثبت قطعی و تأیید فوری توسط همان کاربر نشست
+route('POST', '/api/admin/requests', function($p,$b,$u){
+  $type = $b['type'] ?? '';
+  if (!in_array($type,['annual','sick','mission','overtime'])) Http::error('نوع درخواست نامعتبر',400);
+  $unit = $b['unit'] ?? 'daily';
+  if (!in_array($unit,['daily','hourly'])) Http::error('واحد درخواست نامعتبر',400);
+  $from = str_replace('/','-',trim((string)($b['from_jdate'] ?? ($b['the_date'] ?? ''))));
+  $to = str_replace('/','-',trim((string)($b['to_jdate'] ?? ($b['the_date'] ?? $from))));
+  $theDate = str_replace('/','-',trim((string)($b['the_date'] ?? $from)));
+  if (!$from || !preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$from) || !$to || !preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$to)) Http::error('تاریخ درخواست نامعتبر است',422);
+  $minutes = 0;
+  if ($unit === 'hourly') {
+    $fromTime = trim((string)($b['from_time'] ?? ''));
+    $toTime = trim((string)($b['to_time'] ?? ''));
+    if (!preg_match('/^\\d{2}:\\d{2}$/',$fromTime) || !preg_match('/^\\d{2}:\\d{2}$/',$toTime)) Http::error('ساعت شروع و پایان نامعتبر است',422);
+    [$fh,$fm] = array_map('intval', explode(':',$fromTime)); [$th,$tm] = array_map('intval', explode(':',$toTime));
+    if ($fh>23 || $th>23 || $fm>59 || $tm>59) Http::error('ساعت نامعتبر است',422);
+    $minutes = ($th*60+$tm)-($fh*60+$fm);
+    if ($minutes <= 0) Http::error('ساعت پایان باید بعد از ساعت شروع باشد',422);
+  } else {
+    $df=j_to_ts($from); $dt=j_to_ts($to);
+    if ($df===null || $dt===null || $dt<$df) Http::error('بازهٔ تاریخ نامعتبر است',422);
+    $minutes=max(1,(int)(($dt-$df)/86400)+1)*480;
+  }
+  // هویت فقط از نشست جاری خوانده می‌شود؛ user_id ارسالی از کلاینت نادیده گرفته می‌شود.
+  $requesterId=(int)$u['id'];
+  $reason=trim((string)($b['reason']??''))?:null;
+  $id=Db::insert(
+    "INSERT INTO requests(user_id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes,reason,status,approver_id,approver_note,decided_at,pending_on)
+     VALUES(?,?,?,?,?,?,?,?,?,?, 'approved', ?, ?, NOW(), NULL)",
+    [$requesterId,$type,$unit,$from,$to,$theDate,
+     $unit==='hourly'?($b['from_time']??null):null,
+     $unit==='hourly'?($b['to_time']??null):null,
+     $minutes,$reason,$requesterId,'تأیید فوری توسط ثبت‌کننده']
+  );
+  return ['ok'=>true,'id'=>$id,'status'=>'approved','requester_id'=>$requesterId,'approver_id'=>$requesterId,'minutes'=>$minutes];
+});
+, function($p,$b,$u){
   // اطمینان از وجود ستون جایگزین
   $sel = "id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,manual_kind,in_time,out_time,minutes,reason,status,approver_note,created_at,attachment_name";
   $hasSub = false;
