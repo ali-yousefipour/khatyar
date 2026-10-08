@@ -275,6 +275,8 @@ const db = {
   plateTrainingSamples: (qs)=> GET('/admin/plate-training/samples'+(qs||'')),
   plateTrainingReview: (id,body)=> SEND('POST','/admin/plate-training/samples/'+id+'/review',body),
   adminRequests: (qs)=> GET('/admin/requests'+(qs||"")),
+  adminRequestDecision: (id,body)=> SEND('POST','/admin/requests/'+id+'/decision',body),
+  adminRequestDelete: (id)=> SEND('DELETE','/admin/requests/'+id,{}),
   userLeaveBalance: (id)=> GET('/admin/users/'+id+'/leave-balance'),
   leaveBalanceInitList: ()=> GET('/admin/leave-balance-init'),
   leaveBalanceInitSave: (items)=> SEND('POST','/admin/leave-balance-init',{items}),
@@ -6526,7 +6528,21 @@ function jFromIso(iso){ if(!iso)return ""; const d=new Date(iso); if(isNaN(d))re
 // گزارش درخواست‌ها برای ادمین (مرخصی/ماموریت/اضافه‌کار/تردد دستی)
 function AdminRequests(){
   const [users,setUsers]=useState([]); const [rows,setRows]=useState([]); const [loading,setLoading]=useState(false);
-  const [fUser,setFUser]=useState(""); const [fType,setFType]=useState(""); const [fStatus,setFStatus]=useState("");
+  const [fUser,setFUser]=useState(""); const [fType,setFType]=useState(""); const [fStatus,setFStatus]=useState(""); const [busyId,setBusyId]=useState(null);
+  const act=async(id,status)=>{
+    const row=rows.find(x=>+x.id===+id); if(!row)return;
+    const title=status==="approved"?"تأیید":"رد"; let note="";
+    if(status==="rejected") note=prompt("علت رد درخواست (اختیاری):","")||"";
+    if(!confirm("درخواست «"+(TY[row.type]||row.type)+"» برای «"+row.requester+"» "+title+" شود؟"))return;
+    setBusyId(id);
+    try{await db.adminRequestDecision(id,{status,note});await load();}catch(e){alert(e.message||"عملیات درخواست انجام نشد");}finally{setBusyId(null);}
+  };
+  const del=async(id)=>{
+    const row=rows.find(x=>+x.id===+id); if(!row)return;
+    if(!confirm("درخواست «"+(TY[row.type]||row.type)+"» برای «"+row.requester+"» حذف شود؟ این عملیات قابل بازگشت نیست."))return;
+    setBusyId(id);
+    try{await db.adminRequestDelete(id);await load();}catch(e){alert(e.message||"حذف درخواست انجام نشد");}finally{setBusyId(null);}
+  };
   const TY={annual:"مرخصی استحقاقی",sick:"مرخصی استعلاجی",mission:"ماموریت",overtime:"اضافه‌کار",manual:"تردد دستی"};
   const ST={pending:["در انتظار","b-pending"],approved:["تأییدشده","b-ok"],rejected:["ردشده","b-no"]};
   useEffect(()=>{ db.usersLite().then(u=>setUsers(u||[])).catch(()=>{}); load(); },[]);
@@ -6543,13 +6559,13 @@ function AdminRequests(){
       <button className="btn g" onClick={exportExcel}>⤓ خروجی اکسل</button>
     </div>
     {loading?<p className="muted">در حال بارگذاری…</p>:rows.length===0?<p className="muted">درخواستی یافت نشد.</p>:
-    <div style={{overflowX:"auto"}}><table style={{fontSize:12,minWidth:860}}><thead><tr><th>نیرو</th><th>نوع</th><th>واحد</th><th>تاریخ</th><th>ساعت</th><th>مدت</th><th>وضعیت</th><th>تأییدکننده</th><th>توضیحات</th></tr></thead><tbody>
+    <div style={{overflowX:"auto"}}><table style={{fontSize:12,minWidth:860}}><thead><tr><th>نیرو</th><th>نوع</th><th>واحد</th><th>تاریخ</th><th>ساعت</th><th>مدت</th><th>وضعیت</th><th>تأییدکننده</th><th>توضیحات</th><th>عملیات</th></tr></thead><tbody>
       {rows.map(r=>{ const st=ST[r.status]||["—","b-pending"]; return(<tr key={r.id}>
         <td>{r.requester}</td><td>{TY[r.type]||r.type}</td><td>{r.unit==="hourly"?"ساعتی":r.unit==="daily"?"روزانه":"—"}</td>
         <td style={{whiteSpace:"nowrap"}}>{r.the_date||r.from_jdate}{r.to_jdate&&r.to_jdate!==r.from_jdate?` تا ${r.to_jdate}`:""}</td>
         <td style={{whiteSpace:"nowrap"}}>{r.from_time?`${r.from_time}–${r.to_time}`:r.in_time?`${r.in_time}/${r.out_time||"—"}`:"—"}</td>
         <td>{hm(r.minutes)}</td><td><span className={"badge "+st[1]}>{st[0]}</span></td>
-        <td>{(r.approver||"").trim()||"—"}</td><td style={{maxWidth:200,fontSize:11,color:"var(--muted)"}}>{r.reason||""}{r.approver_note?` | پاسخ: ${r.approver_note}`:""}{r.attachment_name?" 📎":""}</td>
+        <td>{(r.approver||"").trim()||"—"}</td><td style={{maxWidth:200,fontSize:11,color:"var(--muted)"}}>{r.reason||""}{r.approver_note?` | پاسخ: ${r.approver_note}`:""}{r.attachment_name?" 📎":""}</td><td style={{whiteSpace:"nowrap"}}>{r.status==="pending"&&<><button className="btn p" style={{fontSize:11,padding:"3px 8px",marginInlineEnd:4}} disabled={+busyId===+r.id} onClick={()=>act(r.id,"approved")}>تأیید</button><button className="btn g" style={{fontSize:11,padding:"3px 8px",marginInlineEnd:4}} disabled={+busyId===+r.id} onClick={()=>act(r.id,"rejected")}>رد</button></>}<button className="btn g" style={{fontSize:11,padding:"3px 8px"}} disabled={+busyId===+r.id} onClick={()=>del(r.id)}>حذف</button></td>
       </tr>); })}
     </tbody></table></div>}
   </div>);
