@@ -47,7 +47,10 @@ jobs:
           set -euo pipefail
 
           git fetch origin main --force
-          git checkout -B main origin/main
+          # The panel build step intentionally regenerates panel.bundle.js in the
+          # working tree. Do not use checkout here because that fails when the
+          # concurrent bundle workflow has already committed a newer bundle.
+          git reset --hard origin/main
 
           HEAD_SHA="$(git rev-parse HEAD)"
           BASE_SHA=""
