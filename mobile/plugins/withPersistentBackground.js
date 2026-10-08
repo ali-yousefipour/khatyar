@@ -1,4 +1,4 @@
-const { withAndroidManifest, withAppBuildGradle, withDangerousMod } = require('@expo/config-plugins');
+const { withAndroidManifest, withAppBuildGradle, withDangerousMod, withMainApplication } = require('@expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
@@ -31,11 +31,7 @@ class KhatyarLocationWorker(ctx: Context, params: WorkerParameters) : Worker(ctx
 class KhatyarBootReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
-      val req = PeriodicWorkRequestBuilder<KhatyarLocationWorker>(15, TimeUnit.MINUTES)
-        .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-        .build()
-      WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-        "khatyar-location-watchdog", ExistingPeriodicWorkPolicy.UPDATE, req)
+      KhatyarLocationWorker.schedule(context)
     }
   }
 }
@@ -52,6 +48,20 @@ module.exports = function withPersistentBackground(config) {
     if (!app.service.some(x => x.$?.['android:name'] === '.background.KhatyarHeadlessService')) app.service.push({$: {'android:name': '.background.KhatyarHeadlessService','android:exported':'false','android:foregroundServiceType':'location'}});
     app.receiver = app.receiver || [];
     if (!app.receiver.some(x => x.$?.['android:name'] === '.background.KhatyarBootReceiver')) app.receiver.push({$: {'android:name': '.background.KhatyarBootReceiver','android:enabled':'true','android:exported':'true'}, 'intent-filter':[ { action:[{$:{'android:name':'android.intent.action.BOOT_COMPLETED'}},{$:{'android:name':'android.intent.action.MY_PACKAGE_REPLACED'}}] } ]});
+    return c;
+  });
+  config = withMainApplication(config, c => {
+    const lang = c.modResults.language;
+    const call = '    KhatyarLocationWorker.schedule(applicationContext)\\n';
+    if (lang === 'kt') {
+      if (!c.modResults.contents.includes('KhatyarLocationWorker.schedule(applicationContext)')) {
+        c.modResults.contents = c.modResults.contents.replace(/override fun onCreate\(\)\s*\{/, m => m+'\\n'+call);
+      }
+    } else {
+      if (!c.modResults.contents.includes('KhatyarLocationWorker.schedule(getApplicationContext())')) {
+        c.modResults.contents = c.modResults.contents.replace(/public void onCreate\(\)\s*\{/, m => m+'\\n    KhatyarLocationWorker.schedule(getApplicationContext());\\n');
+      }
+    }
     return c;
   });
   config = withAppBuildGradle(config, c => {

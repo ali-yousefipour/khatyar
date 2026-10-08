@@ -3801,6 +3801,10 @@ function Settings(){
       </div>}
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیره</button>
       <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>اگر این گزینه روشن باشد و برای خطوط، «ایستگاه» (محدودهٔ مکانی) تعریف شده باشد، ثبت حضور فقط داخل محدوده ممکن است. محدودیت‌های تعداد و فاصله از ثبت تکراری برای بالا بردن رتبه جلوگیری می‌کنند.</p></div>
+    <div className="panel t-hr"><h3>📍 محاسبهٔ کارکرد با GPS</h3>
+      <label className="row" style={{gap:8,marginBottom:8}}><input type="checkbox" checked={!!v.gps_work_required} onChange={e=>set("gps_work_required",e.target.checked)}/><b>محاسبه کارکرد تنها با روشن بودن GPS</b></label>
+      <p style={{fontSize:12.5,color:"var(--muted)",lineHeight:2,marginBottom:8}}>در صورت فعال بودن، کاربر هنگام ثبت ورود باید شیفت کاری فعال و GPS روشن داشته باشد. برنامه وضعیت GPS را در زمان حضور به‌صورت دوره‌ای بررسی می‌کند؛ اگر GPS خاموش تشخیص داده شود، بازهٔ ۳۰ دقیقهٔ اخیر کارکرد محاسبه نخواهد شد و هشدار صوتی <span dir="ltr">gpsoff.mp3</span> پخش می‌شود.</p>
+      <button className="btn p" onClick={save}>ذخیره تنظیمات GPS کارکرد</button></div>
     <div className="panel t-hr"><h3>محدودیت‌های ماهانهٔ کاربر</h3>
       <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:10}}>محدودیت تعداد دفعاتی که هر کاربر در ۳۰ روز اخیر می‌تواند از قابلیت‌های زیر استفاده کند. مقدار صفر = بدون محدودیت.</p>
       <label className="label">حداکثر دفعات «فراموشی ثبت تردد» در ماه</label>

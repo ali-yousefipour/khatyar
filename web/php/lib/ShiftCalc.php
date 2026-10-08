@@ -130,6 +130,29 @@ class ShiftCalc
         return is_array($segs) ? $segs : [];
     }
 
+    static function validSessionParts($s) {
+        if (empty($s['in'])) return [];
+        $rawIn=(int)$s['in'];
+        $rawOut=!empty($s['out'])?(int)$s['out']:0;
+        if (!$rawOut || $rawOut <= $rawIn) return [];
+        $in=!empty($s['clip_start'])?max($rawIn,(int)$s['clip_start']):$rawIn;
+        $out=!empty($s['clip_end'])?min($rawOut,(int)$s['clip_end']):$rawOut;
+        if (!$out || $out <= $in) return [];
+        $blocked=is_array($s['gps_invalid']??null)?$s['gps_invalid']:[];
+        if (!$blocked) return [[$in,$out]];
+        usort($blocked,fn($a,$b)=>(int)$a[0] <=>(int)$b[0]);
+        $parts=[];$cursor=$in;
+        foreach($blocked as $br){
+            $bs=max($in,(int)($br[0]??0)); $be=min($out,(int)($br[1]??0));
+            if($be <= $bs) continue;
+            if($bs > $cursor) $parts[]=[$cursor,$bs];
+            $cursor=max($cursor,$be);
+            if($cursor >= $out) break;
+        }
+        if($cursor < $out) $parts[]=[$cursor,$out];
+        return $parts;
+    }
+
     static function overlapMinutes($a1, $a2, $b1, $b2) {
         if (!$a1 || !$a2 || !$b1 || !$b2 || $a2 <= $a1 || $b2 <= $b1) return 0;
         return max(0, (int)floor((min($a2,$b2) - max($a1,$b1)) / 60));
@@ -185,13 +208,13 @@ class ShiftCalc
             $rawIn = (int)$s['in'];
             $rawOut = !empty($s['out']) ? (int)$s['out'] : ((self::normJdate($jdate) === $todayJ) ? $now : null);
             if (!$rawOut || $rawOut <= $rawIn) continue;
-            $in = !empty($s['clip_start']) ? max($rawIn, (int)$s['clip_start']) : $rawIn;
-            $out = !empty($s['clip_end']) ? min($rawOut, (int)$s['clip_end']) : $rawOut;
-            if (!$out || $out <= $in) continue;
-            $worked += max(0, (int)floor(($out - $in) / 60));
-            $night += self::nightMinutes($in, $out, $shift['night_start'] ?? '22:00', $shift['night_end'] ?? '06:00');
-            if ($inMin === null || $in < $inMin) $inMin = $in;
-            if ($outMax === null || $out > $outMax) $outMax = $out;
+            foreach (self::validSessionParts($s) as $part) {
+                [$in,$out]=$part;
+                $worked += max(0, (int)floor(($out - $in) / 60));
+                $night += self::nightMinutes($in, $out, $shift['night_start'] ?? '22:00', $shift['night_end'] ?? '06:00');
+                if ($inMin === null || $in < $inMin) $inMin = $in;
+                if ($outMax === null || $out > $outMax) $outMax = $out;
+            }
         }
         $isFri = self::isFriday($jdate);
         $countFriday = !isset($shift['friday_calc']) || !empty($shift['friday_calc']);
@@ -231,13 +254,13 @@ class ShiftCalc
             $rawIn = (int)$s['in'];
             $rawOut = !empty($s['out']) ? (int)$s['out'] : ((self::normJdate($jdate) === $todayJ) ? $now : null);
             if (!$rawOut || $rawOut <= $rawIn) continue;
-            $in = !empty($s['clip_start']) ? max($rawIn, (int)$s['clip_start']) : $rawIn;
-            $out = !empty($s['clip_end']) ? min($rawOut, (int)$s['clip_end']) : $rawOut;
-            if (!$out || $out <= $in) continue;
-            $worked += max(0, (int)floor(($out - $in) / 60));
-            $night += self::nightMinutes($in, $out, $shift['night_start'] ?? '22:00', $shift['night_end'] ?? '06:00');
-            if ($inMin === null || $in < $inMin) $inMin = $in;
-            if ($outMax === null || $out > $outMax) $outMax = $out;
+            foreach (self::validSessionParts($s) as $part) {
+                [$in,$out]=$part;
+                $worked += max(0, (int)floor(($out - $in) / 60));
+                $night += self::nightMinutes($in, $out, $shift['night_start'] ?? '22:00', $shift['night_end'] ?? '06:00');
+                if ($inMin === null || $in < $inMin) $inMin = $in;
+                if ($outMax === null || $out > $outMax) $outMax = $out;
+            }
         }
         $type = $shift['type'] ?? 'simple';
         $dayCfg = self::parseJson($dayRow['day_config'] ?? null);
@@ -250,9 +273,10 @@ class ShiftCalc
                 [$ss,$ee] = $win;
                 foreach ($sessions as $sx) {
                     if (empty($sx['in'])) continue;
-                    $so = !empty($sx['out']) ? (int)$sx['out'] : ((self::normJdate($jdate) === $todayJ) ? $now : null);
-                    if (!$so) continue;
-                    $inShift += self::overlapMinutes((int)$sx['in'], $so, $ss, $ee);
+                    foreach (self::validSessionParts($sx) as $part) {
+                        [$sxIn,$sxOut]=$part;
+                        $inShift += self::overlapMinutes($sxIn, $sxOut, $ss, $ee);
+                    }
                 }
             }
             $firstSeg = self::segmentWindow($segs[0], $jTs);

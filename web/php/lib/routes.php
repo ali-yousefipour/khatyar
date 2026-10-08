@@ -2315,7 +2315,7 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
     [$jy,$jm,$jd] = gregorian_to_jalali((int)date('Y',strtotime($open['check_in'])),(int)date('n',strtotime($open['check_in'])),(int)date('j',strtotime($open['check_in'])));
     $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
     $shift = _active_user_shift_assignment($u['id'], $jdate);
-    $sessions = [['in'=>strtotime($open['check_in']),'out'=>strtotime($now)]];
+    $sessions = [['in'=>strtotime($open['check_in']),'out'=>strtotime($now),'gps_invalid'=>_gps_work_invalid_intervals($u['id'],strtotime($open['check_in']),strtotime($now))]];
     $hol = (bool)Db::one("SELECT jdate FROM holidays WHERE jdate IN (?,?) LIMIT 1", [$jdate, str_replace('-','/',$jdate)]);
     $w = ShiftCalc::dayWork($shift,$jdate,null,$sessions,$hol);
     Db::run("UPDATE staff_attendance SET calc_json=? WHERE id=?", [json_encode($w,JSON_UNESCAPED_UNICODE), $open['id']]);
@@ -2754,7 +2754,7 @@ function _attendance_rows_for_jdate($userId,$jdate){
     FROM staff_attendance
     WHERE user_id=? AND check_in < ? AND COALESCE(check_out, NOW()) > ?
     ORDER BY check_in", [(int)$userId,$end,$start]);
-  foreach ($rows as &$r) { $r['_clip_start'] = $start; $r['_clip_end'] = $end; $r['_gdate'] = $g; }
+  foreach ($rows as &$r) { $r['_clip_start'] = $start; $r['_clip_end'] = $end; $r['_gdate'] = $g; $r['_gps_invalid'] = _gps_work_invalid_intervals($userId,strtotime($start),strtotime($end); }
   return $rows;
 }
 
@@ -2805,7 +2805,7 @@ function _shift_month_report($jy, $jm) {
         }
         continue;
       }
-      $sessions = array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00')], $rows);
+      $sessions = array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]], $rows);
       $w = ShiftCalc::dayWork($shift, $jdate, $dr, $sessions, $isHol);
       $adj = _attendance_adjusted_overtime($a['user_id'],$jdate);
       if ($adj > 0) { $use = min($adj, (int)($w['surplus'] ?? 0)); $w['overtime'] = (int)($w['overtime'] ?? 0) + $use; $w['surplus'] = max(0, (int)($w['surplus'] ?? 0) - $use); $w['adjusted_ot'] = $use; }
@@ -3440,6 +3440,45 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
   return ['ok'=>true,'status'=>'approved'];
 });
 
+// الزام محاسبهٔ کارکرد فقط در صورت روشن بودن GPS.
+function _gps_work_required() {
+  $r = Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required'");
+  if (!$r) return false;
+  $v = json_decode($r['value'], true);
+  return (bool)$v;
+}
+function _gps_work_invalid_intervals($userId,$fromTs,$toTs) {
+  if (!$fromTs || !$toTs || $toTs <= $fromTs || !_gps_work_required()) return [];
+  $enabledAtRow = Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required_enabled_at'");
+  $enabledAt = $enabledAtRow ? json_decode($enabledAtRow['value'], true) : null;
+  if ($enabledAt && strtotime((string)$enabledAt) > $fromTs) $fromTs = strtotime((string)$enabledAt);
+  if ($fromTs >= $toTs) return [];
+  $fromSql = date('Y-m-d H:i:s', $fromTs - 1800);
+  $toSql = date('Y-m-d H:i:s', $toTs);
+  $events = Db::all("SELECT kind,UNIX_TIMESTAMP(at) ts FROM user_activity
+    WHERE user_id=? AND at>=? AND at<=? AND kind IN('gps_off','gps_on') ORDER BY at ASC,id ASC",
+    [(int)$userId,$fromSql,$toSql]);
+  $ranges=[];
+  foreach ($events as $e) {
+    if (($e['kind'] ?? '') !== 'gps_off') continue;
+    $ts=(int)$e['ts'];
+    if (!$ts) continue;
+    $ranges[]=[max($fromTs,$ts-1800),min($toTs,$ts)];
+  }
+  if (!$ranges) return [];
+  usort($ranges,fn($a,$b)=>$a[0]<=>$b[0]);
+  $merged=[];
+  foreach($ranges as $r){
+    if(!$merged || $r[0] > $merged[count($merged)-1][1]) $merged[]=$r;
+    else $merged[count($merged)-1][1]=max($merged[count($merged)-1][1],$r[1]);
+  }
+  return $merged;
+}
+function _gps_work_invalid_intervals_for_jdate($userId,$jdate) {
+  [$start,$end] = _attendance_day_bounds($jdate);
+  return ($start && $end) ? _gps_work_invalid_intervals($userId,strtotime($start),strtotime($end)) : [];
+}
+
 // عملکرد روزانهٔ خودِ کاربر — مدل فینتو، برای تب «عملکرد روزانه» در اپ و وب‌اپ
 route('GET', '/api/my/daily-performance', function($p,$b,$u){
   [$ty,$tm,$td]=array_slice(gregorian_to_jalali(date('Y'),date('m'),date('d')),0,3);
@@ -3451,7 +3490,7 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   if(($shift['type']??'')==='advanced') $dayRow=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$jdate]);
   $hol=Db::one("SELECT jdate,title FROM holidays WHERE jdate=? LIMIT 1",[$jdate]);
   $rows=_attendance_rows_for_jdate($u['id'],$jdate);
-  $sessions=array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start']??'1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00')],$rows);
+  $sessions=array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start']??'1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]],$rows);
   $w=ShiftCalc::dayWork($shift,$jdate,$dayRow,$sessions,(bool)$hol);
   $weekday=_jweekday_name((int)substr($jdate,0,4),(int)substr($jdate,5,2),(int)substr($jdate,8,2));
   return ['date'=>$jdate,'weekday'=>$weekday,'shift_title'=>$shift['title']??'شیفت کاری','shift_type'=>$shift['type']??'','holiday'=>(bool)$hol,'holiday_title'=>$hol['title']??'', 'sessions'=>$rows,'data'=>$w];
@@ -7872,12 +7911,26 @@ route('PUT', '/api/admin/settings', function($p,$b,$u){
       if(array_key_exists($ak,$b)) $b[$ak]=max(0,(int)preg_replace('/[^0-9]/','',(string)$b[$ak]));
     }
   }
-  foreach ($b as $k=>$v) Db::run("INSERT INTO app_settings(`key`,value) VALUES(?,?) ON DUPLICATE KEY UPDATE value=VALUES(value),updated_at=NOW()", [$k, json_encode($v, JSON_UNESCAPED_UNICODE)]);
+    // ثبت زمان فعال‌سازی الزام GPS تا رویدادهای قدیمی قبل از فعال‌شدن تنظیم، در محاسبهٔ کارکرد اثر نگذارند.
+  if (array_key_exists('gps_work_required',$b)) {
+    $newGpsRequired = filter_var($b['gps_work_required'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    if ($newGpsRequired === null) $newGpsRequired = !empty($b['gps_work_required']);
+    $oldGpsRequiredRow = Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required'");
+    $oldGpsRequired = $oldGpsRequiredRow ? (bool)json_decode($oldGpsRequiredRow['value'], true) : false;
+    $b['gps_work_required'] = (bool)$newGpsRequired;
+    if ((bool)$newGpsRequired !== $oldGpsRequired) {
+      $b['gps_work_required_enabled_at'] = (bool)$newGpsRequired ? date('Y-m-d H:i:s') : null;
+    } elseif (!array_key_exists('gps_work_required_enabled_at',$b)) {
+      $existingAt = Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required_enabled_at'");
+      if (!$existingAt && $newGpsRequired) $b['gps_work_required_enabled_at'] = date('Y-m-d H:i:s');
+    }
+  }
+foreach ($b as $k=>$v) Db::run("INSERT INTO app_settings(`key`,value) VALUES(?,?) ON DUPLICATE KEY UPDATE value=VALUES(value),updated_at=NOW()", [$k, json_encode($v, JSON_UNESCAPED_UNICODE)]);
   return ['ok'=>true,'subscription'=>function_exists('_subscription_status_for_user')?_subscription_status_for_user($u):null];
 }, false, ADMIN);
 // تنظیمات عمومی (محدودیت آپلود هر بخش) برای اپ میدانی — فقط کلیدهای غیرحساس
 route('GET', '/api/settings/public', function($p,$b,$u){
-  $keys = ['web_login_method','upload_reports','upload_checklists','upload_notices','image_quality','image_max_width','image_max_height','thumbnail_size','thumbnail_quality','attachment_retention_days','form_attachment_retention_days','presence_retention_days','covert_selfie_retention_days','salary_slip_retention_days','company_request_retention_days','site_title','site_logo','org_title','org_logo','plate_ocr_enabled','plate_ocr_mode','plate_ocr_min_confidence','plate_ocr_require_confirm','plate_ocr_save_samples','plate_ocr_fixed_letter','plate_ocr_region_code','plate_ocr_crop_width','plate_ocr_crop_quality','cloud_ocr_enabled','cloud_ocr_provider','cloud_ocr_api_key','cloud_ocr_endpoint','cloud_ocr_connect_timeout','cloud_ocr_timeout'];
+  $keys = ['web_login_method','gps_work_required','gps_work_required_enabled_at','upload_reports','upload_checklists','upload_notices','image_quality','image_max_width','image_max_height','thumbnail_size','thumbnail_quality','attachment_retention_days','form_attachment_retention_days','presence_retention_days','covert_selfie_retention_days','salary_slip_retention_days','company_request_retention_days','site_title','site_logo','org_title','org_logo','plate_ocr_enabled','plate_ocr_mode','plate_ocr_min_confidence','plate_ocr_require_confirm','plate_ocr_save_samples','plate_ocr_fixed_letter','plate_ocr_region_code','plate_ocr_crop_width','plate_ocr_crop_quality','cloud_ocr_enabled','cloud_ocr_provider','cloud_ocr_api_key','cloud_ocr_endpoint','cloud_ocr_connect_timeout','cloud_ocr_timeout'];
   $out=[]; foreach (Db::all("SELECT `key`,value FROM app_settings WHERE `key` IN ('".implode("','",$keys)."')") as $r) $out[$r['key']] = json_decode($r['value'], true);
   return $out;
 }, true);

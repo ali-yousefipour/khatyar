@@ -537,7 +537,14 @@ function CheckInCore() {
           else await AsyncStorage.removeItem(PRESENCE_RANDOM_CACHE_KEY);
         }catch{}
       }
-      Alert.alert(r.queued ? 'آفلاین' : 'ثبت شد', r.queued ? 'ورود ذخیره شد و بعد از اتصال ارسال می‌شود.' : 'ورود شما ثبت شد.');
+      if (appCfg?.gps_work_required) {
+        Alert.alert(
+          'الزام GPS و شیفت کاری',
+          'حضور شما ملزم به روشن بودن GPS و شیفت کاری میباشد و نرم افزار هر سی دقیقه یکبار وضعیت GPS شما را بررسی مینماید و در صورتی که GPS شما خاموش باشد زمان کارکرد برای شما محاسبه نمیشود.'
+        );
+      } else {
+        Alert.alert(r.queued ? 'آفلاین' : 'ثبت شد', r.queued ? 'ورود ذخیره شد و بعد از اتصال ارسال می‌شود.' : 'ورود شما ثبت شد.');
+      }
       setProofVal('');
       if (!r.queued) {
         // پس از ورود مجدد، تایمر نباید از صفر یا از موظفی کامل روز شروع شود.
