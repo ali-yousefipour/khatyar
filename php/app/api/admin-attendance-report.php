@@ -230,23 +230,23 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
 
 try {
   $ROOT = __DIR__ . '/../../';
-  require "$ROOT/lib/Db.php";
-  require "$ROOT/lib/Jwt.php";
-  require "$ROOT/lib/Http.php";
-  require "$ROOT/lib/Push.php";
-  require "$ROOT/lib/Sms.php";
-  require "$ROOT/lib/Bale.php";
-  require "$ROOT/lib/MessengerBots.php";
-  if (is_file("$ROOT/lib/CloudOcr.php")) require "$ROOT/lib/CloudOcr.php";
-  require "$ROOT/lib/ShiftCalc.php";
-  require "$ROOT/lib/Media.php";
-  require "$ROOT/lib/XlsxWriter.php";
-  require "$ROOT/lib/Backup.php";
-  if (is_file("$ROOT/lib/DeliveryQueue.php")) require "$ROOT/lib/DeliveryQueue.php";
-  $CONFIG = require "$ROOT/config.php";
+  require_once "$ROOT/lib/Db.php";
+  require_once "$ROOT/lib/Jwt.php";
+  require_once "$ROOT/lib/Http.php";
+  require_once "$ROOT/lib/Push.php";
+  require_once "$ROOT/lib/Sms.php";
+  require_once "$ROOT/lib/Bale.php";
+  require_once "$ROOT/lib/MessengerBots.php";
+  if (is_file("$ROOT/lib/CloudOcr.php")) require_once "$ROOT/lib/CloudOcr.php";
+  require_once "$ROOT/lib/ShiftCalc.php";
+  require_once "$ROOT/lib/Media.php";
+  require_once "$ROOT/lib/XlsxWriter.php";
+  require_once "$ROOT/lib/Backup.php";
+  if (is_file("$ROOT/lib/DeliveryQueue.php")) require_once "$ROOT/lib/DeliveryQueue.php";
+  $CONFIG = require_once "$ROOT/config.php";
 
   if (!function_exists('route')) { function route($m, $p, $fn, $public = false, $minLevel = 99) {} }
-  require "$ROOT/lib/routes.php";
+  require_once "$ROOT/lib/routes.php";
 
   $token = Http::bearer();
   $payload = $token ? Jwt::verify($token, $CONFIG['jwt_secret']) : null;
