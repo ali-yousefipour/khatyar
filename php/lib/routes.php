@@ -3079,11 +3079,17 @@ function _attendance_report($userId,$fromJ,$toJ){
       'shortage'=>$hm($w['shortage']),
       'night'=>$hm($w['night']??0),
       'overtime'=>$hm($w['overtime']??0),
+      'holiday_overtime'=>$hm($w['holiday_overtime']??$w['holiday_work']??0),
+      'friday_overtime'=>$hm($w['friday_overtime']??$w['friday_work']??0),
+      'total_overtime'=>$hm($w['total_overtime']??(($w['overtime']??0)+($w['holiday_overtime']??0)+($w['friday_overtime']??0))),
+      'holiday_friday_overtime'=>$hm($w['holiday_friday_overtime']??(($w['holiday_overtime']??0)+($w['friday_overtime']??0))),
+      'friday_workday'=>(int)($w['friday_workday']??0),
       'surplus'=>$hm($w['surplus']??0),
       'adjusted_ot'=>$hm($w['adjusted_ot']??0),
       // غیبت فقط وقتی معنا دارد که برای همان روز واقعاً موظفی وجود داشته باشد.
-      // جمعه/تعطیل/روز آزاد با expected=00:00 نباید غیبت نمایش داده شود.
-      'absent'=>(!$punches && !$isHol && (int)($w['expected'] ?? 0)>0 && $approvedExempt<=0)?1:0,
+      // جمعه/تعطیل/روز آزاد موظفی صفر دارند و حتی با نبود تردد غیبت نمی‌سازند.
+      'absent'=>(!$punches && !$isHol && !ShiftCalc::isFriday($jdateDash) && (int)($w['expected'] ?? 0)>0 && $approvedExempt<=0)?1:0,
+      'absence_shortage'=>$hm((int)($w['shortage']??0)+((!$punches && !$isHol && !ShiftCalc::isFriday($jdateDash) && (int)($w['expected']??0)>0 && $approvedExempt<=0)?(int)($w['expected']??0):0)),
       'mission'=>$hm($mission),
       'annual_leave'=>$hm($annualLeave),
       'sick_leave'=>$hm($sickLeave),
