@@ -313,3 +313,28 @@
   @keyframes spin{to{transform:rotate(360deg)}}
 
 /* v140: monitoring tab selector retained; cache-busted in panel.html */
+
+/* ---- Madares-style collapsible desktop sidebar ---- */
+.layout.sidebar-collapsed{grid-template-columns:78px 1fr}
+.layout.sidebar-collapsed .side{padding-left:8px;padding-right:8px}
+.layout.sidebar-collapsed .brand{justify-content:center;font-size:0;margin-bottom:18px}
+.layout.sidebar-collapsed .brand img{width:38px}
+.layout.sidebar-collapsed .sidebar-toggle{width:42px;height:42px;padding:0;margin:0 auto 10px;display:grid;place-items:center}
+.layout.sidebar-collapsed .sidebar-toggle-label{display:none}
+.layout.sidebar-collapsed .navsec-head{display:none}
+.layout.sidebar-collapsed .navsec-body{max-height:none!important;opacity:1!important}
+.layout.sidebar-collapsed .navitem{justify-content:center;padding:12px 8px}
+.layout.sidebar-collapsed .navitem .ic{font-size:18px;width:auto}
+.layout.sidebar-collapsed .navlabel{display:none}
+.layout.sidebar-collapsed .apibar{display:none}
+.sidebar-toggle{width:100%;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.055);color:#fff;border-radius:12px;padding:9px;margin:0 0 12px;font-family:inherit;font-weight:900;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;transition:background .15s,transform .12s}
+.sidebar-toggle:hover{background:rgba(255,255,255,.12)}
+.sidebar-toggle:active{transform:translateY(1px)}
+@media(max-width:900px){
+  .layout.sidebar-collapsed{grid-template-columns:1fr}
+  .sidebar-toggle{display:none}
+  .layout.sidebar-collapsed .navsec-head{display:flex}
+  .layout.sidebar-collapsed .navsec-body{max-height:0!important;opacity:0!important}
+  .layout.sidebar-collapsed .navlabel{display:inline}
+  .layout.sidebar-collapsed .side{padding-left:16px;padding-right:16px}
+}
