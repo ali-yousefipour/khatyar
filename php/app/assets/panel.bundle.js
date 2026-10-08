@@ -184,7 +184,46 @@ const db = {
         if (!d.access)
             throw new Error('پاسخ ورود ناقص است: توکن دریافت نشد.');
         localStorage.token = d.access;
+        if (d.refresh)
+            localStorage.refresh_token = d.refresh;
         return d;
+    },
+    restoreSession: async () => {
+        const access = localStorage.token || '';
+        const refresh = localStorage.refresh_token || '';
+        if (!access && !refresh)
+            return null;
+        const me = async () => {
+            const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/auth/me', { headers: tok(), cache: 'no-store' });
+            const d = await _readJsonResponse(r);
+            if (!r.ok)
+                throw Object.assign(new Error(d.error || d.message || 'نشست نامعتبر است'), { status: r.status });
+            return d.user || null;
+        };
+        try {
+            return await me();
+        }
+        catch (e) {
+            if (e.status !== 401 || !refresh) {
+                localStorage.removeItem('token');
+                return null;
+            }
+            try {
+                const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/renew', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json' }, body: JSON.stringify({ refresh }), cache: 'no-store' });
+                const d = await _readJsonResponse(r);
+                if (!r.ok || !d.access)
+                    throw new Error(d.error || d.message || 'تمدید نشست ناموفق بود');
+                localStorage.token = d.access;
+                if (d.refresh)
+                    localStorage.refresh_token = d.refresh;
+                return await me();
+            }
+            catch (_) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('refresh_token');
+                return null;
+            }
+        }
     },
     stats: () => GET('/admin/stats'),
     systemHealthDashboard: () => GET('/admin/system-health-dashboard'),
@@ -10037,63 +10076,70 @@ function AttendanceReport() {
         data && React.createElement("div", { style: { marginTop: 8, fontSize: 11, color: "var(--muted)" } }, "\u06F2\u06F9 \u0633\u062A\u0648\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A\u061B \u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0627\u0632 \u062F\u0627\u062F\u0647 \u0648\u0627\u0642\u0639\u06CC \u062A\u0631\u062F\u062F \u062E\u0648\u0627\u0646\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
         openDay && data && (() => {
             const d = (data.days || []).find(x => x.jdate === openDay);
-            return d ? React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 900, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
-                React.createElement("div", { className: "card-p", style: { width: "min(760px,96vw)", maxHeight: "90vh", overflow: "auto" } },
-                    React.createElement("button", { className: "btn g", onClick: () => setOpenDay(null) }, "\u0628\u0633\u062A\u0646"),
-                    React.createElement("h3", null,
-                        "\u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F ",
-                        fa(d.jdate)),
-                    React.createElement("table", null,
-                        React.createElement("thead", null,
-                            React.createElement("tr", null,
-                                React.createElement("th", null, "\u0648\u0631\u0648\u062F"),
-                                React.createElement("th", null, "\u062E\u0631\u0648\u062C"),
-                                React.createElement("th", null, "\u0631\u0648\u0634 \u062B\u0628\u062A"),
-                                React.createElement("th", null, "\u062F\u0633\u062A\u06AF\u0627\u0647"),
-                                React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645"))),
-                        React.createElement("tbody", null, (d.punches || []).map(p => {
-                            const hasGps = Number.isFinite(Number(p.in_lat)) && Number.isFinite(Number(p.in_lng));
-                            return React.createElement("tr", { key: p.id },
-                                React.createElement("td", null, attendanceCell(pin(p) || "--:--")),
-                                React.createElement("td", null, attendanceCell(pout(p) || "--:--")),
-                                React.createElement("td", null, p.method || "—"),
-                                React.createElement("td", null, p.device || "—"),
-                                React.createElement("td", { style: { whiteSpace: "nowrap" } },
-                                    hasGps && React.createElement("button", { className: "btn g", onClick: () => setMapPunch(p) }, "\uD83D\uDCCD \u0646\u0645\u0627\u06CC\u0634 \u062F\u0631 \u0646\u0642\u0634\u0647"),
-                                    React.createElement("button", { className: "btn g", onClick: () => {
-                                            var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l, _m, _p, _q, _r, _u, _v;
-                                            setOpenDay(null);
-                                            setEdit({
-                                                ...p,
-                                                in: (_j = (_h = (_g = (_f = (_e = (_c = (_b = (_a = p === null || p === void 0 ? void 0 : p.in) !== null && _a !== void 0 ? _a : p === null || p === void 0 ? void 0 : p.in_full) !== null && _b !== void 0 ? _b : p === null || p === void 0 ? void 0 : p.check_in) !== null && _c !== void 0 ? _c : p === null || p === void 0 ? void 0 : p.first_in) !== null && _e !== void 0 ? _e : p === null || p === void 0 ? void 0 : p.first_entry) !== null && _f !== void 0 ? _f : d === null || d === void 0 ? void 0 : d.in) !== null && _g !== void 0 ? _g : d === null || d === void 0 ? void 0 : d.first_in) !== null && _h !== void 0 ? _h : d === null || d === void 0 ? void 0 : d.first_entry) !== null && _j !== void 0 ? _j : "",
-                                                out: (_v = (_u = (_r = (_q = (_p = (_m = (_l = (_k = p === null || p === void 0 ? void 0 : p.out) !== null && _k !== void 0 ? _k : p === null || p === void 0 ? void 0 : p.out_full) !== null && _l !== void 0 ? _l : p === null || p === void 0 ? void 0 : p.check_out) !== null && _m !== void 0 ? _m : p === null || p === void 0 ? void 0 : p.last_out) !== null && _p !== void 0 ? _p : p === null || p === void 0 ? void 0 : p.last_exit) !== null && _q !== void 0 ? _q : d === null || d === void 0 ? void 0 : d.out) !== null && _r !== void 0 ? _r : d === null || d === void 0 ? void 0 : d.last_out) !== null && _u !== void 0 ? _u : d === null || d === void 0 ? void 0 : d.last_exit) !== null && _v !== void 0 ? _v : ""
-                                            });
-                                        } }, "\u0627\u0635\u0644\u0627\u062D"),
-                                    React.createElement("button", { className: "btn g", onClick: () => delPunch(p) }, "\u062D\u0630\u0641")));
-                        }))),
-                    React.createElement("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line)" } },
-                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 } },
-                            React.createElement("b", null, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632"),
-                            React.createElement("button", { className: "btn p", onClick: () => setRequestModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
-                            React.createElement("button", { className: "btn g", onClick: () => setAddModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC")),
-                        dayRequests.length === 0 ? React.createElement("div", { className: "muted", style: { fontSize: 12 } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") :
-                            React.createElement("div", { style: { overflowX: "auto" } },
-                                React.createElement("table", null,
-                                    React.createElement("thead", null,
-                                        React.createElement("tr", null,
-                                            React.createElement("th", null, "\u0646\u0648\u0639 \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
-                                            React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
-                                            React.createElement("th", null, "\u0633\u0627\u0639\u062A"),
-                                            React.createElement("th", null, "\u0645\u062F\u062A"),
-                                            React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"))),
-                                    React.createElement("tbody", null, dayRequests.map(r => React.createElement("tr", { key: r.id },
-                                        React.createElement("td", null, { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", mission: "ماموریت", overtime: "اضافه‌کار" }[r.type] || r.type),
+            return d ? React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 900, background: "rgba(0,0,0,.48)", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(10px,2vw,24px)" } },
+                React.createElement("div", { className: "card-p", style: { width: "min(1080px,96vw)", maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", padding: 0 } },
+                    React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 18px", borderBottom: "1px solid var(--line)", flexShrink: 0 } },
+                        React.createElement("div", null,
+                            React.createElement("h3", { style: { margin: 0 } }, "\u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F"),
+                            React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 3 } },
+                                "\u062A\u0627\u0631\u06CC\u062E: ",
+                                fa(d.jdate))),
+                        React.createElement("button", { className: "btn g", onClick: () => setOpenDay(null) }, "\u0628\u0633\u062A\u0646")),
+                    React.createElement("div", { style: { overflowY: "auto", padding: "16px 18px" } },
+                        React.createElement("div", { style: { overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 } },
+                            React.createElement("table", { style: { width: "100%", minWidth: 720, tableLayout: "fixed" } },
+                                React.createElement("thead", null,
+                                    React.createElement("tr", null,
+                                        React.createElement("th", { style: { width: 90 } }, "\u0648\u0631\u0648\u062F"),
+                                        React.createElement("th", { style: { width: 90 } }, "\u062E\u0631\u0648\u062C"),
+                                        React.createElement("th", { style: { width: 100 } }, "\u0631\u0648\u0634 \u062B\u0628\u062A"),
+                                        React.createElement("th", { style: { minWidth: 180 } }, "\u062F\u0633\u062A\u06AF\u0627\u0647"),
+                                        React.createElement("th", { style: { width: 250 } }, "\u0627\u0642\u062F\u0627\u0645"))),
+                                React.createElement("tbody", null, (d.punches || []).map(p => {
+                                    const hasGps = Number.isFinite(Number(p.in_lat)) && Number.isFinite(Number(p.in_lng));
+                                    return React.createElement("tr", { key: p.id },
+                                        React.createElement("td", { style: { textAlign: "center", whiteSpace: "nowrap" } }, attendanceCell(pin(p) || "--:--")),
+                                        React.createElement("td", { style: { textAlign: "center", whiteSpace: "nowrap" } }, attendanceCell(pout(p) || "--:--")),
+                                        React.createElement("td", { style: { textAlign: "center", whiteSpace: "nowrap" } }, p.method || "—"),
+                                        React.createElement("td", { style: { wordBreak: "break-word" } }, p.device || "—"),
                                         React.createElement("td", null,
-                                            faPlain(String(r.from_jdate || r.the_date || "—")),
-                                            r.to_jdate && r.to_jdate !== r.from_jdate ? " تا " + faPlain(String(r.to_jdate)) : ""),
-                                        React.createElement("td", null, r.from_time && r.to_time ? faPlain(r.from_time) + " تا " + faPlain(r.to_time) : "—"),
-                                        React.createElement("td", null, r.minutes ? hm(r.minutes) : "—"),
-                                        React.createElement("td", null, ({ pending: "در انتظار تأیید", approved: "تأییدشده", rejected: "ردشده", canceled: "لغوشده" }[r.status] || r.status || "—")))))))))) : null;
+                                            React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+                                                hasGps && React.createElement("button", { className: "btn g", style: { padding: "5px 8px", fontSize: 11 }, onClick: () => setMapPunch(p) }, "\uD83D\uDCCD \u0646\u0645\u0627\u06CC\u0634 \u062F\u0631 \u0646\u0642\u0634\u0647"),
+                                                React.createElement("button", { className: "btn g", style: { padding: "5px 8px", fontSize: 11 }, onClick: () => {
+                                                        var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l, _m, _p, _q, _r, _u, _v;
+                                                        setOpenDay(null);
+                                                        setEdit({
+                                                            ...p,
+                                                            in: (_j = (_h = (_g = (_f = (_e = (_c = (_b = (_a = p === null || p === void 0 ? void 0 : p.in) !== null && _a !== void 0 ? _a : p === null || p === void 0 ? void 0 : p.in_full) !== null && _b !== void 0 ? _b : p === null || p === void 0 ? void 0 : p.check_in) !== null && _c !== void 0 ? _c : p === null || p === void 0 ? void 0 : p.first_in) !== null && _e !== void 0 ? _e : p === null || p === void 0 ? void 0 : p.first_entry) !== null && _f !== void 0 ? _f : d === null || d === void 0 ? void 0 : d.in) !== null && _g !== void 0 ? _g : d === null || d === void 0 ? void 0 : d.first_in) !== null && _h !== void 0 ? _h : d === null || d === void 0 ? void 0 : d.first_entry) !== null && _j !== void 0 ? _j : "",
+                                                            out: (_v = (_u = (_r = (_q = (_p = (_m = (_l = (_k = p === null || p === void 0 ? void 0 : p.out) !== null && _k !== void 0 ? _k : p === null || p === void 0 ? void 0 : p.out_full) !== null && _l !== void 0 ? _l : p === null || p === void 0 ? void 0 : p.check_out) !== null && _m !== void 0 ? _m : p === null || p === void 0 ? void 0 : p.last_out) !== null && _p !== void 0 ? _p : p === null || p === void 0 ? void 0 : p.last_exit) !== null && _q !== void 0 ? _q : d === null || d === void 0 ? void 0 : d.out) !== null && _r !== void 0 ? _r : d === null || d === void 0 ? void 0 : d.last_out) !== null && _u !== void 0 ? _u : d === null || d === void 0 ? void 0 : d.last_exit) !== null && _v !== void 0 ? _v : ""
+                                                        });
+                                                    } }, "\u0627\u0635\u0644\u0627\u062D"),
+                                                React.createElement("button", { className: "btn g", style: { padding: "5px 8px", fontSize: 11 }, onClick: () => delPunch(p) }, "\u062D\u0630\u0641"))));
+                                })))),
+                        React.createElement("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" } },
+                            React.createElement("div", { style: { marginBottom: 10 } },
+                                React.createElement("b", null, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632")),
+                            React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, width: "min(260px,100%)" } },
+                                React.createElement("button", { className: "btn p", style: { width: "100%" }, onClick: () => setRequestModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
+                                React.createElement("button", { className: "btn g", style: { width: "100%" }, onClick: () => setAddModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC")),
+                            React.createElement("div", { style: { marginTop: 12 } }, dayRequests.length === 0 ? React.createElement("div", { className: "muted", style: { fontSize: 12 } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") :
+                                React.createElement("div", { style: { overflowX: "auto" } },
+                                    React.createElement("table", { style: { minWidth: 620, width: "100%" } },
+                                        React.createElement("thead", null,
+                                            React.createElement("tr", null,
+                                                React.createElement("th", null, "\u0646\u0648\u0639 \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
+                                                React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
+                                                React.createElement("th", null, "\u0633\u0627\u0639\u062A"),
+                                                React.createElement("th", null, "\u0645\u062F\u062A"),
+                                                React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"))),
+                                        React.createElement("tbody", null, dayRequests.map(r => React.createElement("tr", { key: r.id },
+                                            React.createElement("td", null, { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", mission: "ماموریت", overtime: "اضافه‌کار" }[r.type] || r.type),
+                                            React.createElement("td", null,
+                                                faPlain(String(r.from_jdate || r.the_date || "—")),
+                                                r.to_jdate && r.to_jdate !== r.from_jdate ? " تا " + faPlain(String(r.to_jdate)) : ""),
+                                            React.createElement("td", null, r.from_time && r.to_time ? faPlain(r.from_time) + " تا " + faPlain(r.to_time) : "—"),
+                                            React.createElement("td", null, r.minutes ? hm(r.minutes) : "—"),
+                                            React.createElement("td", null, ({ pending: "در انتظار تأیید", approved: "تأییدشده", rejected: "ردشده", canceled: "لغوشده" }[r.status] || r.status || "—")))))))))))) : null;
         })(),
         mapPunch && (() => { const lat = Number(mapPunch.in_lat), lng = Number(mapPunch.in_lng); const delta = 0.002; const bbox = [lng - delta, lat - delta, lng + delta, lat + delta].join("%2C"); const mapSrc = "https://www.openstreetmap.org/export/embed.html?bbox=" + bbox + "&layer=mapnik&marker=" + lat + "%2C" + lng; return React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 100000, background: "rgba(0,0,0,.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }, onClick: () => setMapPunch(null) },
             React.createElement("div", { className: "card-p", style: { width: "min(900px,96vw)", height: "min(720px,92vh)", display: "flex", flexDirection: "column", gap: 10, overflow: "hidden" }, onClick: e => e.stopPropagation() },
@@ -14902,6 +14948,7 @@ function Login({ onLogin, brand }) {
 }
 function App() {
     const [me, setMe] = useState(null);
+    const [authReady, setAuthReady] = useState(false);
     const [v, setV] = useState("dashboard");
     const [allowed, setAllowed] = useState(null);
     const [drawer, setDrawer] = useState(false);
@@ -14919,9 +14966,14 @@ function App() {
     // منوهای اصلی در لود اولیه بسته باشند؛ کاربر فقط بخش موردنیاز را باز می‌کند.
     const [openSections, setOpenSections] = useState({ "داشبورد و پایش": false, "عملیات میدانی": false, "تاکسی و تاکسیران": false, "گزارش‌ها": false, "منابع انسانی": false, "ارتباطات": false, "مدیریت سامانه": false });
     useEffect(() => { db.publicSettings().then(s => { const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => { }); }, []);
+    useEffect(() => { let active = true; db.restoreSession().then(u => { if (active)
+        setMe(u); }).catch(() => { }).finally(() => { if (active)
+        setAuthReady(true); }); return () => { active = false; }; }, []);
     useEffect(() => { if (me && me.is_admin) {
         db.settings().then(s => { const all = s.role_perms || {}; const has = Object.prototype.hasOwnProperty.call(all, String(me.role_id)) || Object.prototype.hasOwnProperty.call(all, me.role_id); const rp = all[me.role_id]; setAllowed(has && Array.isArray(rp) ? rp : null); const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => setAllowed(null));
     } }, [me]);
+    if (!authReady)
+        return React.createElement("div", { style: { minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--paper)", color: "var(--muted)" } }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0631\u0631\u0633\u06CC \u0646\u0634\u0633\u062A\u2026");
     if (!me)
         return React.createElement(Login, { onLogin: setMe, brand: brand });
     if (!me.is_admin)
