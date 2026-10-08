@@ -3667,7 +3667,7 @@ function Settings(){
   if(!v)return <div>در حال بارگذاری…</div>;
   const set=(k,val)=>setV({...v,[k]:val});
   const save=async()=>{ await db.saveSettings(v); alert("تنظیمات ذخیره شد."); };
-  const TABS=[["general","عمومی و موقعیت"],["subscription","اشتراک"],["monitoring","پایش و هشدارها"],["dashboard","داشبورد و محاسبهٔ عملکرد"],["hr","منابع انسانی"],["fields","فیلدهای پرسنل"],["appitems","آیتم‌های اپ هر سمت"],["sms","پیامک"],["bale","ربات‌ها"],["security","امنیت و نسخه اپ"],["files","پیوست‌ها و اعلان‌ها"],["drivers","بدهکاران"],["print","قالب چاپ"],["access","دسترسی‌ها"],["backup","پشتیبان‌گیری و پاکسازی"]];
+  const TABS=[["general","عمومی و موقعیت"],["subscription","اشتراک"],["monitoring","پایش و هشدارها"],["dashboard","داشبورد و محاسبهٔ عملکرد"],["hr","منابع انسانی"],["fields","فیلدهای پرسنل"],["appitems","آیتم‌های اپ هر سمت"],["sms","پیامک"],["bale","ربات‌ها"],["security","امنیت و نسخه اپ"],["radio","📻 تنظیمات بی‌سیم"],["files","پیوست‌ها و اعلان‌ها"],["drivers","بدهکاران"],["print","قالب چاپ"],["access","دسترسی‌ها"],["backup","پشتیبان‌گیری و پاکسازی"]];
   const Field=(k,l)=><div style={{marginBottom:12}}><label style={{fontSize:13,color:"var(--muted)"}}>{l}</label>
     <input className="input" value={v[k]??""} onChange={e=>set(k,e.target.value)} style={{marginTop:5}}/></div>;
   const Toggle=(k,l)=><label className="row" style={{justifyContent:"space-between",padding:"8px 0",cursor:"pointer"}}>
@@ -3708,16 +3708,12 @@ function Settings(){
     </div>
     <div className="panel t-general"><h3>لوگو و عنوان سایت و اداره</h3>
       <OrgBrandingSettings v={v} set={set} save={save}/></div>
+    <div className="panel t-radio"><RadioSettings/></div>
     <div className="panel t-security"><h3>قوانین امنیتی ورود</h3>{Toggle("require_gps","الزام روشن‌بودن GPS")}
       {Toggle("block_vpn","مسدودسازی هنگام VPN روشن")}{Toggle("block_dev_options","مسدودسازی هنگام Developer Options")}
       {Toggle("block_mock_location","مسدودسازی هنگام موقعیت جعلی (Mock)")}
       <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>این قوانین توسط اپ موبایل بررسی و توسط سرور اعمال می‌شوند.</p>
       <MaintenanceModeSettings/>
-      <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid var(--line)"}}>
-        <h3 style={{margin:"0 0 8px"}}>📻 تنظیمات بی‌سیم</h3>
-        <p className="muted" style={{fontSize:12,marginBottom:10}}>مدیریت کانال‌های بی‌سیم، سطح دسترسی کانال‌ها و مدت نگهداری آرشیو از همین تب انجام می‌شود و صفحهٔ جداگانه‌ای در منوی سایت ندارد.</p>
-        <RadioSettings/>
-      </div>
     </div>
     <div className="panel t-general"><h3>تنظیمات موقعیت‌یابی</h3>
       {Field("location_interval_sec","فاصلهٔ ارسال موقعیت کاربران (ثانیه) — پیش‌فرض ۶۰")}
