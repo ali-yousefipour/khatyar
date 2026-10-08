@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAppConfig } from './appconfig';
+import { cachedValue } from './api';
 import * as Location from 'expo-location';
 import { postOrQueue, request } from './api';
 import { playSound } from './soundFx';
@@ -11,7 +13,22 @@ async function canRunWatchdog() {
     const timer = await request('/my/work-timer', { noStore: true, timeoutMs: 7000 });
     return { required: !!timer?.gps_work_required, open: !!timer?.open };
   } catch {
-    return { required: false, open: false };
+    // در قطعی اینترنت، نگهبان نباید به‌دلیل نبود پاسخ سرور از کار بیفتد.
+    // تنظیم GPS از کش app-config و جلسهٔ حضور از کش محلی/کش checkin خوانده می‌شود.
+    try {
+      const cfg = await getAppConfig(false);
+      let open = false;
+      try {
+        const local = await AsyncStorage.getItem('attendance_local_open_v1');
+        open = !!local && !!JSON.parse(local)?.check_in;
+      } catch {}
+      if (!open) {
+        try { open = !!(await cachedValue('/my/checkin-config'))?.open; } catch {}
+      }
+      return { required: !!cfg?.gps_work_required, open };
+    } catch {
+      return { required: false, open: false };
+    }
   }
 }
 
