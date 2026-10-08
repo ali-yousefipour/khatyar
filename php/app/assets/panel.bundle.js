@@ -9759,6 +9759,7 @@ function AttendanceReport() {
     const [mapPunch, setMapPunch] = useState(null);
     const [edit, setEdit] = useState(null);
     const [requestModal, setRequestModal] = useState(null);
+    const [dayRequests, setDayRequests] = useState([]);
     useEffect(() => { db.users().then(us => setUsers(us || [])).catch(() => { }); }, []);
     const visibleUsers = users.filter(u => { const q = String(personQuery || "").trim().toLowerCase(); return !q || String((u.first_name || "") + " " + (u.last_name || "")).toLowerCase().includes(q) || String(u.username || "").includes(q); });
     const run = async () => {
@@ -9802,6 +9803,20 @@ function AttendanceReport() {
             setBusy(false);
         }
     };
+    useEffect(() => {
+        if (!openDay || !uid) {
+            setDayRequests([]);
+            return;
+        }
+        db.adminRequests('?user_id=' + encodeURIComponent(uid)).then(rows => {
+            const ds = String(openDay).replace(/\\/ / g, '-');
+            setDayRequests((rows || []).filter(r => {
+                const a = String(r.from_jdate || r.the_date || '').replace(/\\/ / g, '-');
+                const b = String(r.to_jdate || r.the_date || a).replace(/\\/ / g, '-');
+                return a <= ds && ds <= b;
+            }));
+        }).catch(() => setDayRequests([]));
+    }, [openDay, uid]);
     const refresh = async () => {
         if (!uid)
             return;
@@ -10006,7 +10021,28 @@ function AttendanceReport() {
                                         } }, "\u0627\u0635\u0644\u0627\u062D"),
                                     React.createElement("button", { className: "btn g", onClick: () => delPunch(p) }, "\u062D\u0630\u0641")));
                         }))),
-                    React.createElement("button", { className: "btn p", onClick: () => setRequestModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A"))) : null;
+                    React.createElement("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line)" } },
+                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 } },
+                            React.createElement("b", null, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632"),
+                            React.createElement("button", { className: "btn p", onClick: () => setRequestModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A")),
+                        dayRequests.length === 0 ? React.createElement("div", { className: "muted", style: { fontSize: 12 } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") :
+                            React.createElement("div", { style: { overflowX: "auto" } },
+                                React.createElement("table", null,
+                                    React.createElement("thead", null,
+                                        React.createElement("tr", null,
+                                            React.createElement("th", null, "\u0646\u0648\u0639 \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
+                                            React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
+                                            React.createElement("th", null, "\u0633\u0627\u0639\u062A"),
+                                            React.createElement("th", null, "\u0645\u062F\u062A"),
+                                            React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"))),
+                                    React.createElement("tbody", null, dayRequests.map(r => React.createElement("tr", { key: r.id },
+                                        React.createElement("td", null, { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", mission: "ماموریت", overtime: "اضافه‌کار" }[r.type] || r.type),
+                                        React.createElement("td", null,
+                                            faPlain(String(r.from_jdate || r.the_date || "—")),
+                                            r.to_jdate && r.to_jdate !== r.from_jdate ? " تا " + faPlain(String(r.to_jdate)) : ""),
+                                        React.createElement("td", null, r.from_time && r.to_time ? faPlain(r.from_time) + " تا " + faPlain(r.to_time) : "—"),
+                                        React.createElement("td", null, r.minutes ? hm(r.minutes) : "—"),
+                                        React.createElement("td", null, ({ pending: "در انتظار تأیید", approved: "تأییدشده", rejected: "ردشده", canceled: "لغوشده" }[r.status] || r.status || "—")))))))))) : null;
         })(),
         mapPunch && (() => { const lat = Number(mapPunch.in_lat), lng = Number(mapPunch.in_lng); const delta = 0.002; const bbox = [lng - delta, lat - delta, lng + delta, lat + delta].join("%2C"); const mapSrc = "https://www.openstreetmap.org/export/embed.html?bbox=" + bbox + "&layer=mapnik&marker=" + lat + "%2C" + lng; return React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 100000, background: "rgba(0,0,0,.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }, onClick: () => setMapPunch(null) },
             React.createElement("div", { className: "card-p", style: { width: "min(900px,96vw)", height: "min(720px,92vh)", display: "flex", flexDirection: "column", gap: 10, overflow: "hidden" }, onClick: e => e.stopPropagation() },
@@ -10019,7 +10055,11 @@ function AttendanceReport() {
                 React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8 } },
                     React.createElement("a", { className: "btn g", href: "https://www.google.com/maps?q=" + lat + "," + lng, target: "_blank", rel: "noreferrer" }, "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u062F\u0631 Google Maps")))); })(),
         edit && React.createElement(PunchEditModal, { punch: edit, onSave: savePunch, onClose: () => setEdit(null) }),
-        requestModal && React.createElement(AttendanceRequestModal, { userId: uid, jdate: requestModal.jdate, onSaved: async () => { setRequestModal(null); await refresh(); }, onClose: () => setRequestModal(null) })));
+        requestModal && React.createElement(AttendanceRequestModal, { userId: uid, jdate: requestModal.jdate, onSaved: async () => { setRequestModal(null); await refresh(); if (openDay) {
+                const rows = await db.adminRequests('?user_id=' + encodeURIComponent(uid));
+                const ds = String(openDay).replace(/\\/ / g, '-');
+                setDayRequests((rows || []).filter(r => { const a = String(r.from_jdate || r.the_date || '').replace(/\\/ / g, '-'); const b = String(r.to_jdate || r.the_date || a).replace(/\\/ / g, '-'); return a <= ds && ds <= b; }));
+            } }, onClose: () => setRequestModal(null) })));
 }
 function AttendanceRequestModal({ userId, jdate, onSaved, onClose }) {
     const TYPES = [
