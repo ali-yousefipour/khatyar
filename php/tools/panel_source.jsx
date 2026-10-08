@@ -135,7 +135,24 @@ const db = {
     const d=await _readJsonResponse(r);
     if(!r.ok) throw new Error(d.error||d.message||('تأیید کد ناموفق بود (HTTP '+r.status+')'));
     if(!d.access) throw new Error('پاسخ ورود ناقص است: توکن دریافت نشد.');
-    localStorage.token=d.access; return d;
+    localStorage.token=d.access; if(d.refresh) localStorage.refresh_token=d.refresh; return d;
+  },
+  restoreSession: async()=>{
+    const access=localStorage.token||''; const refresh=localStorage.refresh_token||'';
+    if(!access&&!refresh) return null;
+    const me=async()=>{
+      const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/auth/me',{headers:tok(),cache:'no-store'});
+      const d=await _readJsonResponse(r); if(!r.ok) throw Object.assign(new Error(d.error||d.message||'نشست نامعتبر است'),{status:r.status}); return d.user||null;
+    };
+    try { return await me(); } catch(e) {
+      if(e.status!==401||!refresh) { localStorage.removeItem('token'); return null; }
+      try{
+        const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/renew',{method:'POST',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({refresh}),cache:'no-store'});
+        const d=await _readJsonResponse(r); if(!r.ok||!d.access) throw new Error(d.error||d.message||'تمدید نشست ناموفق بود');
+        localStorage.token=d.access; if(d.refresh) localStorage.refresh_token=d.refresh;
+        return await me();
+      }catch(_){ localStorage.removeItem('token'); localStorage.removeItem('refresh_token'); return null; }
+    }
   },
   stats: ()=> GET('/admin/stats'),
   systemHealthDashboard: ()=> GET('/admin/system-health-dashboard'),
@@ -6098,15 +6115,47 @@ function AttendanceReport(){
       </table>
     </div>}
     {data&&<div style={{marginTop:8,fontSize:11,color:"var(--muted)"}}>۲۹ ستون گزارش فعال است؛ ساعت ورود و خروج از داده واقعی تردد خوانده می‌شود.</div>}
-    {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div className="card-p" style={{width:"min(760px,96vw)",maxHeight:"90vh",overflow:"auto"}}><button className="btn g" onClick={()=>setOpenDay(null)}>بستن</button><h3>جزئیات تردد {fa(d.jdate)}</h3><table><thead><tr><th>ورود</th><th>خروج</th><th>روش ثبت</th><th>دستگاه</th><th>اقدام</th></tr></thead><tbody>{(d.punches||[]).map(p=>{const hasGps=Number.isFinite(Number(p.in_lat))&&Number.isFinite(Number(p.in_lng));return <tr key={p.id}><td>{attendanceCell(pin(p)||"--:--")}</td><td>{attendanceCell(pout(p)||"--:--")}</td><td>{p.method||"—"}</td><td>{p.device||"—"}</td><td style={{whiteSpace:"nowrap"}}>{hasGps&&<button className="btn g" onClick={()=>setMapPunch(p)}>📍 نمایش در نقشه</button>}<button className="btn g" onClick={()=>{setOpenDay(null);setEdit({
-  ...p,
-  in: p?.in ?? p?.in_full ?? p?.check_in ?? p?.first_in ?? p?.first_entry ?? d?.in ?? d?.first_in ?? d?.first_entry ?? "",
-  out: p?.out ?? p?.out_full ?? p?.check_out ?? p?.last_out ?? p?.last_exit ?? d?.out ?? d?.last_out ?? d?.last_exit ?? ""
-})}}>اصلاح</button><button className="btn g" onClick={()=>delPunch(p)}>حذف</button></td></tr>})}</tbody></table><div style={{marginTop:14,paddingTop:12,borderTop:"1px solid var(--line)"}}>
-  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:8}}><b>درخواست‌های این روز</b><button className="btn p" onClick={()=>setRequestModal({jdate:d.jdate})}>ثبت درخواست</button><button className="btn g" onClick={()=>setAddModal({jdate:d.jdate})}>ثبت تردد دستی</button></div>
-  {dayRequests.length===0?<div className="muted" style={{fontSize:12}}>درخواستی برای این روز ثبت نشده است.</div>:
-  <div style={{overflowX:"auto"}}><table><thead><tr><th>نوع درخواست</th><th>بازه</th><th>ساعت</th><th>مدت</th><th>وضعیت</th></tr></thead><tbody>{dayRequests.map(r=><tr key={r.id}><td>{{annual:"مرخصی استحقاقی",sick:"مرخصی استعلاجی",mission:"ماموریت",overtime:"اضافه‌کار"}[r.type]||r.type}</td><td>{faPlain(String(r.from_jdate||r.the_date||"—"))}{r.to_jdate&&r.to_jdate!==r.from_jdate?" تا "+faPlain(String(r.to_jdate)):""}</td><td>{r.from_time&&r.to_time?faPlain(r.from_time)+" تا "+faPlain(r.to_time):"—"}</td><td>{r.minutes?hm(r.minutes):"—"}</td><td>{({pending:"در انتظار تأیید",approved:"تأییدشده",rejected:"ردشده",canceled:"لغوشده"}[r.status]||r.status||"—")}</td></tr>)}</tbody></table></div>}
-</div></div></div>:null})()}
+    {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.48)",display:"flex",alignItems:"center",justifyContent:"center",padding:"clamp(10px,2vw,24px)"}}>
+      <div className="card-p" style={{width:"min(1080px,96vw)",maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",padding:0}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"14px 18px",borderBottom:"1px solid var(--line)",flexShrink:0}}>
+          <div><h3 style={{margin:0}}>جزئیات تردد</h3><div style={{fontSize:12,color:"var(--muted)",marginTop:3}}>تاریخ: {fa(d.jdate)}</div></div>
+          <button className="btn g" onClick={()=>setOpenDay(null)}>بستن</button>
+        </div>
+        <div style={{overflowY:"auto",padding:"16px 18px"}}>
+          <div style={{overflowX:"auto",border:"1px solid var(--line)",borderRadius:10}}>
+            <table style={{width:"100%",minWidth:720,tableLayout:"fixed"}}>
+              <thead><tr><th style={{width:90}}>ورود</th><th style={{width:90}}>خروج</th><th style={{width:100}}>روش ثبت</th><th style={{minWidth:180}}>دستگاه</th><th style={{width:250}}>اقدام</th></tr></thead>
+              <tbody>{(d.punches||[]).map(p=>{const hasGps=Number.isFinite(Number(p.in_lat))&&Number.isFinite(Number(p.in_lng));return <tr key={p.id}>
+                <td style={{textAlign:"center",whiteSpace:"nowrap"}}>{attendanceCell(pin(p)||"--:--")}</td>
+                <td style={{textAlign:"center",whiteSpace:"nowrap"}}>{attendanceCell(pout(p)||"--:--")}</td>
+                <td style={{textAlign:"center",whiteSpace:"nowrap"}}>{p.method||"—"}</td>
+                <td style={{wordBreak:"break-word"}}>{p.device||"—"}</td>
+                <td><div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                  {hasGps&&<button className="btn g" style={{padding:"5px 8px",fontSize:11}} onClick={()=>setMapPunch(p)}>📍 نمایش در نقشه</button>}
+                  <button className="btn g" style={{padding:"5px 8px",fontSize:11}} onClick={()=>{setOpenDay(null);setEdit({
+                    ...p,
+                    in: p?.in ?? p?.in_full ?? p?.check_in ?? p?.first_in ?? p?.first_entry ?? d?.in ?? d?.first_in ?? d?.first_entry ?? "",
+                    out: p?.out ?? p?.out_full ?? p?.check_out ?? p?.last_out ?? p?.last_exit ?? d?.out ?? d?.last_out ?? d?.last_exit ?? ""
+                  })}}>اصلاح</button>
+                  <button className="btn g" style={{padding:"5px 8px",fontSize:11}} onClick={()=>delPunch(p)}>حذف</button>
+                </div></td>
+              </tr>})}</tbody>
+            </table>
+          </div>
+          <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid var(--line)"}}>
+            <div style={{marginBottom:10}}><b>درخواست‌های این روز</b></div>
+            <div style={{display:"flex",flexDirection:"column",gap:7,width:"min(260px,100%)"}}>
+              <button className="btn p" style={{width:"100%"}} onClick={()=>setRequestModal({jdate:d.jdate})}>ثبت درخواست</button>
+              <button className="btn g" style={{width:"100%"}} onClick={()=>setAddModal({jdate:d.jdate})}>ثبت تردد دستی</button>
+            </div>
+            <div style={{marginTop:12}}>
+              {dayRequests.length===0?<div className="muted" style={{fontSize:12}}>درخواستی برای این روز ثبت نشده است.</div>:
+              <div style={{overflowX:"auto"}}><table style={{minWidth:620,width:"100%"}}><thead><tr><th>نوع درخواست</th><th>بازه</th><th>ساعت</th><th>مدت</th><th>وضعیت</th></tr></thead><tbody>{dayRequests.map(r=><tr key={r.id}><td>{{annual:"مرخصی استحقاقی",sick:"مرخصی استعلاجی",mission:"ماموریت",overtime:"اضافه‌کار"}[r.type]||r.type}</td><td>{faPlain(String(r.from_jdate||r.the_date||"—"))}{r.to_jdate&&r.to_jdate!==r.from_jdate?" تا "+faPlain(String(r.to_jdate)):""}</td><td>{r.from_time&&r.to_time?faPlain(r.from_time)+" تا "+faPlain(r.to_time):"—"}</td><td>{r.minutes?hm(r.minutes):"—"}</td><td>{({pending:"در انتظار تأیید",approved:"تأییدشده",rejected:"ردشده",canceled:"لغوشده"}[r.status]||r.status||"—")}</td></tr>)}</tbody></table></div>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>:null})()}
     {mapPunch&&(()=>{const lat=Number(mapPunch.in_lat),lng=Number(mapPunch.in_lng);const delta=0.002;const bbox=[lng-delta,lat-delta,lng+delta,lat+delta].join("%2C");const mapSrc="https://www.openstreetmap.org/export/embed.html?bbox="+bbox+"&layer=mapnik&marker="+lat+"%2C"+lng;return <div style={{position:"fixed",inset:0,zIndex:100000,background:"rgba(0,0,0,.62)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setMapPunch(null)}><div className="card-p" style={{width:"min(900px,96vw)",height:"min(720px,92vh)",display:"flex",flexDirection:"column",gap:10,overflow:"hidden"}} onClick={e=>e.stopPropagation()}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}><div><h3 style={{margin:0}}>مکان ثبت ورود با GPS</h3></div><button className="btn g" onClick={()=>setMapPunch(null)}>بستن</button></div><div style={{flex:1,minHeight:320,borderRadius:10,overflow:"hidden",border:"1px solid var(--line)"}}><iframe title="مکان ثبت ورود با GPS" src={mapSrc} style={{width:"100%",height:"100%",border:0}} loading="lazy"/></div><div style={{display:"flex",justifyContent:"flex-end",gap:8}}><a className="btn g" href={"https://www.google.com/maps?q="+lat+","+lng} target="_blank" rel="noreferrer">باز کردن در Google Maps</a></div></div></div>})()}
     {edit&&<PunchEditModal punch={edit} onSave={savePunch} onClose={()=>setEdit(null)}/>}
     {addModal&&<PunchAddModal jdate={addModal.jdate} onSave={addPunch} onClose={()=>setAddModal(null)}/>}
@@ -8446,13 +8495,15 @@ function Login({onLogin,brand}){
     </div></div>);
 }
 function App(){
-  const [me,setMe]=useState(null); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState(null); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
+  const [me,setMe]=useState(null); const [authReady,setAuthReady]=useState(false); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState(null); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
   const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>{ try{return localStorage.getItem("admin_sidebar_collapsed")==="1";}catch(e){return false;} });
   const toggleSidebarCollapsed=()=>setSidebarCollapsed(prev=>{const next=!prev;try{localStorage.setItem("admin_sidebar_collapsed",next?"1":"0");}catch(e){}return next;});
   // منوهای اصلی در لود اولیه بسته باشند؛ کاربر فقط بخش موردنیاز را باز می‌کند.
   const [openSections,setOpenSections]=useState({"داشبورد و پایش":false,"عملیات میدانی":false,"تاکسی و تاکسیران":false,"گزارش‌ها":false,"منابع انسانی":false,"ارتباطات":false,"مدیریت سامانه":false});
   useEffect(()=>{ db.publicSettings().then(s=>{ const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>{}); },[]);
+  useEffect(()=>{ let active=true; db.restoreSession().then(u=>{if(active)setMe(u);}).catch(()=>{}).finally(()=>{if(active)setAuthReady(true);}); return()=>{active=false}; },[]);
   useEffect(()=>{ if(me&&me.is_admin){ db.settings().then(s=>{ const all=s.role_perms||{}; const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id); const rp=all[me.role_id]; setAllowed(has&&Array.isArray(rp)?rp:null); const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>setAllowed(null)); } },[me]);
+  if(!authReady)return <div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)",color:"var(--muted)"}}>در حال بررسی نشست…</div>;
   if(!me)return <Login onLogin={setMe} brand={brand}/>;
   if(!me.is_admin) return (<div style={{minHeight:"100vh",display:"grid",placeItems:"center",textAlign:"center",padding:24}}>
     <div><h2 style={{color:"var(--danger)"}}>دسترسی مدیریتی ندارید</h2>
