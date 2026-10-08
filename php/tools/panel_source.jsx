@@ -5930,6 +5930,7 @@ function AttendanceReport(){
   const [mapPunch,setMapPunch]=useState(null);
   const [edit,setEdit]=useState(null);
   const [requestModal,setRequestModal]=useState(null);
+  const [dayRequests,setDayRequests]=useState([]);
 
   useEffect(()=>{ db.users().then(us=>setUsers(us||[])).catch(()=>{}); },[]);
   const visibleUsers=users.filter(u=>{const q=String(personQuery||"").trim().toLowerCase();return !q||String((u.first_name||"")+" "+(u.last_name||"")).toLowerCase().includes(q)||String(u.username||"").includes(q);});
@@ -5951,6 +5952,17 @@ function AttendanceReport(){
     catch(e){ alert(e.message||"خطا در دریافت گزارش"); }
     finally{ setBusy(false); }
   };
+  useEffect(()=>{
+    if(!openDay||!uid){setDayRequests([]);return;}
+    db.adminRequests('?user_id='+encodeURIComponent(uid)).then(rows=>{
+      const ds=String(openDay).replace(/\\//g,'-');
+      setDayRequests((rows||[]).filter(r=>{
+        const a=String(r.from_jdate||r.the_date||'').replace(/\\//g,'-');
+        const b=String(r.to_jdate||r.the_date||a).replace(/\\//g,'-');
+        return a<=ds&&ds<=b;
+      }));
+    }).catch(()=>setDayRequests([]));
+  },[openDay,uid]);
   const refresh=async()=>{
     if(!uid)return;
     const fallback=attendanceDefaultRange();
@@ -6052,10 +6064,14 @@ function AttendanceReport(){
   ...p,
   in: p?.in ?? p?.in_full ?? p?.check_in ?? p?.first_in ?? p?.first_entry ?? d?.in ?? d?.first_in ?? d?.first_entry ?? "",
   out: p?.out ?? p?.out_full ?? p?.check_out ?? p?.last_out ?? p?.last_exit ?? d?.out ?? d?.last_out ?? d?.last_exit ?? ""
-})}}>اصلاح</button><button className="btn g" onClick={()=>delPunch(p)}>حذف</button></td></tr>})}</tbody></table><button className="btn p" onClick={()=>setRequestModal({jdate:d.jdate})}>ثبت درخواست</button></div></div>:null})()}
+})}}>اصلاح</button><button className="btn g" onClick={()=>delPunch(p)}>حذف</button></td></tr>})}</tbody></table><div style={{marginTop:14,paddingTop:12,borderTop:"1px solid var(--line)"}}>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:8}}><b>درخواست‌های این روز</b><button className="btn p" onClick={()=>setRequestModal({jdate:d.jdate})}>ثبت درخواست</button></div>
+  {dayRequests.length===0?<div className="muted" style={{fontSize:12}}>درخواستی برای این روز ثبت نشده است.</div>:
+  <div style={{overflowX:"auto"}}><table><thead><tr><th>نوع درخواست</th><th>بازه</th><th>ساعت</th><th>مدت</th><th>وضعیت</th></tr></thead><tbody>{dayRequests.map(r=><tr key={r.id}><td>{{annual:"مرخصی استحقاقی",sick:"مرخصی استعلاجی",mission:"ماموریت",overtime:"اضافه‌کار"}[r.type]||r.type}</td><td>{faPlain(String(r.from_jdate||r.the_date||"—"))}{r.to_jdate&&r.to_jdate!==r.from_jdate?" تا "+faPlain(String(r.to_jdate)):""}</td><td>{r.from_time&&r.to_time?faPlain(r.from_time)+" تا "+faPlain(r.to_time):"—"}</td><td>{r.minutes?hm(r.minutes):"—"}</td><td>{({pending:"در انتظار تأیید",approved:"تأییدشده",rejected:"ردشده",canceled:"لغوشده"}[r.status]||r.status||"—")}</td></tr>)}</tbody></table></div>}
+</div></div></div>:null})()}
     {mapPunch&&(()=>{const lat=Number(mapPunch.in_lat),lng=Number(mapPunch.in_lng);const delta=0.002;const bbox=[lng-delta,lat-delta,lng+delta,lat+delta].join("%2C");const mapSrc="https://www.openstreetmap.org/export/embed.html?bbox="+bbox+"&layer=mapnik&marker="+lat+"%2C"+lng;return <div style={{position:"fixed",inset:0,zIndex:100000,background:"rgba(0,0,0,.62)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setMapPunch(null)}><div className="card-p" style={{width:"min(900px,96vw)",height:"min(720px,92vh)",display:"flex",flexDirection:"column",gap:10,overflow:"hidden"}} onClick={e=>e.stopPropagation()}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}><div><h3 style={{margin:0}}>مکان ثبت ورود با GPS</h3></div><button className="btn g" onClick={()=>setMapPunch(null)}>بستن</button></div><div style={{flex:1,minHeight:320,borderRadius:10,overflow:"hidden",border:"1px solid var(--line)"}}><iframe title="مکان ثبت ورود با GPS" src={mapSrc} style={{width:"100%",height:"100%",border:0}} loading="lazy"/></div><div style={{display:"flex",justifyContent:"flex-end",gap:8}}><a className="btn g" href={"https://www.google.com/maps?q="+lat+","+lng} target="_blank" rel="noreferrer">باز کردن در Google Maps</a></div></div></div>})()}
     {edit&&<PunchEditModal punch={edit} onSave={savePunch} onClose={()=>setEdit(null)}/>}
-    {requestModal&&<AttendanceRequestModal userId={uid} jdate={requestModal.jdate} onSaved={async()=>{setRequestModal(null);await refresh();}} onClose={()=>setRequestModal(null)}/>}
+    {requestModal&&<AttendanceRequestModal userId={uid} jdate={requestModal.jdate} onSaved={async()=>{setRequestModal(null);await refresh();if(openDay){const rows=await db.adminRequests('?user_id='+encodeURIComponent(uid));const ds=String(openDay).replace(/\\//g,'-');setDayRequests((rows||[]).filter(r=>{const a=String(r.from_jdate||r.the_date||'').replace(/\\//g,'-');const b=String(r.to_jdate||r.the_date||a).replace(/\\//g,'-');return a<=ds&&ds<=b;}));}}} onClose={()=>setRequestModal(null)}/>}
   </div>);
 }
 
