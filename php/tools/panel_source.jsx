@@ -8385,6 +8385,8 @@ function Login({onLogin,brand}){
 
 function App(){
   const [me,setMe]=useState(null); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState(null); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
+  const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>{ try{return localStorage.getItem("admin_sidebar_collapsed")==="1";}catch(e){return false;} });
+  const toggleSidebarCollapsed=()=>setSidebarCollapsed(prev=>{const next=!prev;try{localStorage.setItem("admin_sidebar_collapsed",next?"1":"0");}catch(e){}return next;});
   // منوهای اصلی در لود اولیه بسته باشند؛ کاربر فقط بخش موردنیاز را باز می‌کند.
   const [openSections,setOpenSections]=useState({"داشبورد و پایش":false,"عملیات میدانی":false,"تاکسی و تاکسیران":false,"گزارش‌ها":false,"منابع انسانی":false,"ارتباطات":false,"مدیریت سامانه":false});
   useEffect(()=>{ db.publicSettings().then(s=>{ const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>{}); },[]);
@@ -8422,16 +8424,17 @@ function App(){
   };
   const can=(k)=>!allowed||allowed.includes(k)||CORE.includes(k);
   const closeOnPick=(k)=>{ setV(k); setDrawer(false); };
-  return(<div className={"layout"+(drawer?" drawer-open":"")}>
+  return(<div className={"layout"+(drawer?" drawer-open":"")+(sidebarCollapsed?" sidebar-collapsed":"")}>
     <div className="scrim" onClick={()=>setDrawer(false)}></div>
     <aside className="side"><div className="brand">{brand.logo?<img src={brand.logo} style={{width:38,height:38,borderRadius:10,objectFit:"contain",background:"#fff",padding:3}}/>:<img src="/brand-khatyar.png" style={{width:38,height:38,borderRadius:19,objectFit:"cover"}}/>}<span>{brand.title||"خطیار"}</span></div>
+      <button type="button" className="sidebar-toggle" title={sidebarCollapsed?"بازگرداندن منوی کامل":"مینیمایز کردن منو"} aria-label={sidebarCollapsed?"بازگرداندن منوی کامل":"مینیمایز کردن منو"} onClick={toggleSidebarCollapsed}><span aria-hidden="true">{sidebarCollapsed?"⇥":"⇔"}</span><span className="sidebar-toggle-label">{sidebarCollapsed?"بازگشت منو":"مینیمایز منو"}</span></button>
       <nav className="nav" style={{flex:1}}>{SECTIONS.map(([title,keys])=>{ const ks=keys.filter(k=>VIEWS[k]&&can(k)); if(!ks.length)return null; const open=!!openSections[title];
         return(<div key={title} className={"navsec"+(open?" open":"")}>
           <button className="navsec-head" onClick={()=>setOpenSections(cur=>({...cur,[title]:!cur[title]}))} aria-expanded={open}>
             <span>{title}</span><span className="nav-chevron">‹</span>
           </button>
           <div className="navsec-body" style={{maxHeight:open?`${ks.length*60}px`:'0px',opacity:open?1:0}}>
-            {ks.map(k=><button key={k} className={"navitem "+(v===k?"on":"")} onClick={()=>closeOnPick(k)}><span className="ic">{I8(MENU_ICONS[k])}</span><span className="navlabel">{VIEWS[k].t}</span></button>)}
+            {ks.map(k=><button key={k} title={sidebarCollapsed?VIEWS[k].t:undefined} className={"navitem "+(v===k?"on":"")} onClick={()=>closeOnPick(k)}><span className="ic">{I8(MENU_ICONS[k])}</span><span className="navlabel">{VIEWS[k].t}</span></button>)}
           </div>
         </div>); })}
         <button className="navitem logout-item" onClick={()=>{localStorage.removeItem("token");setMe(null);}}><span className="ic">{I8('logout-door')}</span><span className="navlabel">خروج</span></button></nav>
