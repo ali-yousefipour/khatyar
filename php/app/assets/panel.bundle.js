@@ -155,29 +155,52 @@ const db = {
     // نکته: بدنهٔ ورود به‌جای JSON با فرم urlencoded ارسال می‌شود، چون WAF هاست درخواست‌های
     // POST با Content-Type: application/json را (به‌خصوص برای فیلدهای شبیه به فرم ورود) مسدود
     // می‌کند؛ با تست مستقیم روی سرور واقعی تأیید شد که فرم urlencoded بدون مشکل عبور می‌کند.
-    loginOtpRequest: async (username) => {
-        const u = String(username || '').trim();
+    webLoginConfig: async () => GET('/session/web-login-config', { ttl: 0 }),
+    loginPassword: async (username, password) => {
+        const u = String(username || '').trim(), p = String(password || '');
         if (!u)
             throw new Error('نام کاربری را وارد کنید');
-        const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/otp-request', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ username: u }), cache: 'no-store' });
-        const d = await _readJsonResponse(r);
-        if (!r.ok)
-            throw new Error(d.error || d.message || ('ارسال کد ناموفق بود (HTTP ' + r.status + ')'));
-        return d;
-    },
-    loginOtpVerify: async (username, code) => {
-        const u = String(username || '').trim(), c = String(code || '').trim();
-        const latin = c.replace(/[۰-۹]/g, d => '0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(d)]);
-        if (!u)
-            throw new Error('نام کاربری را وارد کنید');
-        if (!/^\d{6}$/.test(latin))
-            throw new Error('کد شش رقمی را وارد کنید');
+        if (!p)
+            throw new Error('کلمه عبور را وارد کنید');
         let deviceId = localStorage.getItem('kh_web_device_id');
         if (!deviceId) {
             deviceId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('web-' + Date.now() + '-' + Math.random().toString(36).slice(2));
             localStorage.setItem('kh_web_device_id', deviceId);
         }
-        const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/otp-verify', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ username: u, code: latin, device_id: deviceId, device_type: 'web' }), cache: 'no-store' });
+        const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/start', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ username: u, password: p, device_id: deviceId, device_type: 'web' }), cache: 'no-store' });
+        const d = await _readJsonResponse(r);
+        if (!r.ok)
+            throw new Error(d.error || d.message || ('ورود ناموفق بود (HTTP ' + r.status + ')'));
+        if (!d.access)
+            throw new Error('پاسخ ورود ناقص است: توکن دریافت نشد.');
+        localStorage.token = d.access;
+        if (d.refresh)
+            localStorage.refresh_token = d.refresh;
+        return d;
+    },
+    webLoginOtpRequest: async (username) => {
+        const u = String(username || '').trim();
+        if (!u)
+            throw new Error('نام کاربری را وارد کنید');
+        const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/web-login-request', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ username: u }), cache: 'no-store' });
+        const d = await _readJsonResponse(r);
+        if (!r.ok)
+            throw new Error(d.error || d.message || ('ارسال کد ناموفق بود (HTTP ' + r.status + ')'));
+        return d;
+    },
+    webLoginOtpVerify: async (username, code) => {
+        const u = String(username || '').trim(), c = String(code || '').trim();
+        const latin = c.replace(/[۰-۹]/g, d => '0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(d)]);
+        if (!u)
+            throw new Error('نام کاربری را وارد کنید');
+        if (!/^\d{6}$/.test(latin))
+            throw new Error('کد شش‌رقمی را وارد کنید');
+        let deviceId = localStorage.getItem('kh_web_device_id');
+        if (!deviceId) {
+            deviceId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('web-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+            localStorage.setItem('kh_web_device_id', deviceId);
+        }
+        const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/web-login-verify', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ username: u, code: latin, device_id: deviceId }), cache: 'no-store' });
         const d = await _readJsonResponse(r);
         if (!r.ok)
             throw new Error(d.error || d.message || ('تأیید کد ناموفق بود (HTTP ' + r.status + ')'));
@@ -6176,7 +6199,15 @@ function Settings() {
             React.createElement("div", { className: "panel t-radio" },
                 React.createElement(RadioSettings, null)),
             React.createElement("div", { className: "panel t-security" },
-                React.createElement("h3", null, "\u0642\u0648\u0627\u0646\u06CC\u0646 \u0627\u0645\u0646\u06CC\u062A\u06CC \u0648\u0631\u0648\u062F"),
+                React.createElement("h3", null, "\uD83D\uDD10 \u0642\u0648\u0627\u0646\u06CC\u0646 \u0627\u0645\u0646\u06CC\u062A\u06CC \u0648\u0631\u0648\u062F"),
+                React.createElement("div", { style: { padding: "12px", marginBottom: 14, border: "1px solid var(--line)", borderRadius: 12, background: "var(--brand-soft)" } },
+                    React.createElement("label", { className: "label" }, "\u0631\u0648\u0634 \u0648\u0631\u0648\u062F \u0628\u0647 \u0646\u0633\u062E\u0647 \u0648\u0628"),
+                    React.createElement("select", { className: "input", value: v.web_login_method || "password", onChange: e => set("web_login_method", e.target.value), style: { marginTop: 6 } },
+                        React.createElement("option", { value: "password" }, "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0648 \u06A9\u0644\u0645\u0647 \u0639\u0628\u0648\u0631"),
+                        React.createElement("option", { value: "sms_otp" }, "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC + \u0631\u0645\u0632 \u06CC\u06A9\u200C\u0628\u0627\u0631\u0645\u0635\u0631\u0641 \u067E\u06CC\u0627\u0645\u06A9\u06CC"),
+                        React.createElement("option", { value: "bale_otp" }, "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC + \u0631\u0645\u0632 \u06CC\u06A9\u200C\u0628\u0627\u0631\u0645\u0635\u0631\u0641 \u0627\u0632 \u0637\u0631\u06CC\u0642 \u0631\u0628\u0627\u062A \u0628\u0644\u0647")),
+                    React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", lineHeight: 1.9, margin: "8px 0 0" } }, "\u0627\u06CC\u0646 \u06AF\u0632\u06CC\u0646\u0647 \u0641\u0642\u0637 \u0631\u0648\u0634 \u0648\u0631\u0648\u062F \u0646\u0633\u062E\u0647 \u0648\u0628 \u0631\u0627 \u062A\u0639\u06CC\u06CC\u0646 \u0645\u06CC\u200C\u06A9\u0646\u062F. \u062F\u0631 \u062D\u0627\u0644\u062A \u067E\u06CC\u0627\u0645\u06A9\u06CC\u060C \u06A9\u062F \u0628\u0647 \u0634\u0645\u0627\u0631\u0647 \u0647\u0645\u0631\u0627\u0647 \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u06A9\u0627\u0631\u0628\u0631 \u0627\u0631\u0633\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u062F\u0631 \u062D\u0627\u0644\u062A \u0628\u0644\u0647\u060C \u062D\u0633\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631 \u0628\u0627\u06CC\u062F \u0642\u0628\u0644\u0627\u064B \u0628\u0647 \u0631\u0628\u0627\u062A \u0628\u0644\u0647 \u0645\u062A\u0635\u0644 \u0634\u062F\u0647 \u0628\u0627\u0634\u062F."),
+                    React.createElement("button", { className: "btn p", style: { marginTop: 10 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647 \u0631\u0648\u0634 \u0648\u0631\u0648\u062F \u0648\u0628")),
                 Toggle("require_gps", "الزام روشن‌بودن GPS"),
                 Toggle("block_vpn", "مسدودسازی هنگام VPN روشن"),
                 Toggle("block_dev_options", "مسدودسازی هنگام Developer Options"),
@@ -14961,14 +14992,19 @@ const VIEWS = {
 };
 function Login({ onLogin, brand }) {
     const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
     const [code, setCode] = useState("");
-    const [err, setErr] = useState("");
+    const [loginMethod, setLoginMethod] = useState("password");
     const [mode, setMode] = useState("request");
+    const [err, setErr] = useState("");
     const [info, setInfo] = useState("");
     const [busy, setBusy] = useState(false);
     const [cooldown, setCooldown] = useState(0);
+    useEffect(() => { let active = true; db.webLoginConfig().then(x => { if (active)
+        setLoginMethod(x.method || "password"); }).catch(() => { }); return () => { active = false; }; }, []);
     useEffect(() => { if (cooldown <= 0)
         return; const t = setInterval(() => setCooldown(v => Math.max(0, v - 1)), 1000); return () => clearInterval(t); }, [cooldown]);
+    const methodLabel = loginMethod === "sms_otp" ? "پیامک" : loginMethod === "bale_otp" ? "ربات بله" : "نام کاربری و کلمه عبور";
     const requestCode = async () => {
         if (busy || cooldown > 0)
             return;
@@ -14976,14 +15012,31 @@ function Login({ onLogin, brand }) {
         setErr("");
         setInfo("");
         try {
-            await db.loginOtpRequest(username);
+            const d = await db.webLoginOtpRequest(username);
             setMode("verify");
             setCode("");
             setCooldown(60);
-            setInfo("کد یک‌بارمصرف به شماره همراه ثبت‌شده حساب کاربری ارسال شد.");
+            setInfo(d.channel === "bale" ? "کد یک‌بارمصرف از طریق ربات بله ارسال شد." : "کد یک‌بارمصرف به شماره همراه ثبت‌شده حساب کاربری ارسال شد.");
         }
         catch (e) {
             setErr(e && e.message ? e.message : "ارسال کد ناموفق بود");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    const passwordLogin = async () => {
+        if (busy)
+            return;
+        setBusy(true);
+        setErr("");
+        setInfo("");
+        try {
+            const d = await db.loginPassword(username, password);
+            onLogin(d.user);
+        }
+        catch (e) {
+            setErr(e && e.message ? e.message : "ورود ناموفق بود");
         }
         finally {
             setBusy(false);
@@ -14996,7 +15049,7 @@ function Login({ onLogin, brand }) {
         setErr("");
         setInfo("");
         try {
-            const d = await db.loginOtpVerify(username, code);
+            const d = await db.webLoginOtpVerify(username, code);
             onLogin(d.user);
         }
         catch (e) {
@@ -15006,24 +15059,32 @@ function Login({ onLogin, brand }) {
             setBusy(false);
         }
     };
+    const otp = loginMethod !== "password";
     return (React.createElement("div", { style: { minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--paper)" } },
-        React.createElement("div", { className: "panel", style: { width: 380 } },
+        React.createElement("div", { className: "panel", style: { width: 380, maxWidth: "calc(100vw - 28px)" } },
             React.createElement("div", { style: { textAlign: "center", marginBottom: 18 } },
                 (brand === null || brand === void 0 ? void 0 : brand.logo) ? React.createElement("img", { src: brand.logo, style: { margin: "0 auto 10px", width: 58, height: 58, borderRadius: 14, objectFit: "contain", background: "#fff", padding: 5, border: "1px solid var(--line)" } }) : React.createElement("img", { src: "/brand-khatyar.png", style: { margin: "0 auto 10px", width: 58, height: 58, borderRadius: 29, objectFit: "cover" } }),
                 React.createElement("h3", { style: { justifyContent: "center" } },
                     "\u0648\u0631\u0648\u062F \u0628\u0647 ",
                     (brand === null || brand === void 0 ? void 0 : brand.title) || "خطیار")),
-            mode === "request" && React.createElement(React.Fragment, null,
-                React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", lineHeight: 1.9, marginBottom: 10 } }, "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u062E\u0648\u062F \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F. \u0634\u0645\u0627\u0631\u0647 \u0647\u0645\u0631\u0627\u0647 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u062E\u0648\u062F\u06A9\u0627\u0631 \u0627\u0632 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062D\u0633\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631\u06CC \u062E\u0648\u0627\u0646\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F \u0648 \u06A9\u062F \u06CC\u06A9\u200C\u0628\u0627\u0631\u0645\u0635\u0631\u0641 \u0628\u0647 \u0647\u0645\u0627\u0646 \u0634\u0645\u0627\u0631\u0647 \u0627\u0631\u0633\u0627\u0644 \u062E\u0648\u0627\u0647\u062F \u0634\u062F."),
+            React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", lineHeight: 1.9, marginBottom: 12 } },
+                "\u0631\u0648\u0634 \u0648\u0631\u0648\u062F \u0641\u0639\u0627\u0644: ",
+                React.createElement("b", null, methodLabel)),
+            otp && mode === "request" && React.createElement(React.Fragment, null,
+                React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", lineHeight: 1.9, marginBottom: 10 } }, "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u062E\u0648\u062F \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F \u062A\u0627 \u06A9\u062F \u06CC\u06A9\u200C\u0628\u0627\u0631\u0645\u0635\u0631\u0641 \u0628\u0631\u0627\u06CC \u0634\u0645\u0627 \u0627\u0631\u0633\u0627\u0644 \u0634\u0648\u062F."),
                 React.createElement("input", { className: "input", autoComplete: "username", dir: "ltr", placeholder: "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC", value: username, onChange: e => setUsername(e.target.value), onKeyDown: e => e.key === 'Enter' && requestCode() }),
                 React.createElement("button", { className: "btn p", style: { width: "100%", marginTop: 14 }, onClick: requestCode, disabled: busy || cooldown > 0 }, busy ? 'در حال ارسال…' : cooldown > 0 ? 'ارسال مجدد (' + cooldown + ')' : 'دریافت کد ورود')),
-            mode === "verify" && React.createElement(React.Fragment, null,
-                React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", lineHeight: 1.9, marginBottom: 10 } }, "\u06A9\u062F \u0634\u0634\u200C\u0631\u0642\u0645\u06CC \u0627\u0631\u0633\u0627\u0644\u200C\u0634\u062F\u0647 \u0628\u0647 \u0634\u0645\u0627\u0631\u0647 \u0647\u0645\u0631\u0627\u0647 \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u062D\u0633\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F."),
+            otp && mode === "verify" && React.createElement(React.Fragment, null,
+                React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", lineHeight: 1.9, marginBottom: 10 } }, loginMethod === "bale_otp" ? "کد شش‌رقمی ارسال‌شده توسط ربات بله را وارد کنید." : "کد شش‌رقمی ارسال‌شده به شماره همراه ثبت‌شده حساب کاربری را وارد کنید."),
                 React.createElement("input", { className: "input", inputMode: "numeric", autoComplete: "one-time-code", dir: "ltr", maxLength: 6, placeholder: "\u06A9\u062F \u06CC\u06A9\u200C\u0628\u0627\u0631\u0645\u0635\u0631\u0641", value: code, onChange: e => setCode(e.target.value.replace(/[^0-9۰-۹]/g, '')), onKeyDown: e => e.key === 'Enter' && verify(), autoFocus: true }),
                 React.createElement("button", { className: "btn p", style: { width: "100%", marginTop: 14 }, onClick: verify, disabled: busy || code.length !== 6 }, busy ? 'در حال بررسی…' : 'تأیید و ورود'),
                 React.createElement("div", { className: "row", style: { justifyContent: "space-between", marginTop: 10 } },
                     React.createElement("a", { style: { fontSize: 12, color: "var(--brand)", cursor: cooldown > 0 ? "default" : "pointer", opacity: cooldown > 0 ? .5 : 1 }, onClick: requestCode }, "\u0627\u0631\u0633\u0627\u0644 \u0645\u062C\u062F\u062F"),
                     React.createElement("a", { style: { fontSize: 12, color: "var(--muted)", cursor: "pointer" }, onClick: () => { setMode("request"); setCode(""); setErr(""); setInfo(""); } }, "\u062A\u063A\u06CC\u06CC\u0631 \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC"))),
+            !otp && React.createElement(React.Fragment, null,
+                React.createElement("input", { className: "input", autoComplete: "username", dir: "ltr", placeholder: "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC", value: username, onChange: e => setUsername(e.target.value), onKeyDown: e => e.key === 'Enter' && passwordLogin() }),
+                React.createElement("input", { className: "input", type: "password", autoComplete: "current-password", dir: "ltr", placeholder: "\u06A9\u0644\u0645\u0647 \u0639\u0628\u0648\u0631", value: password, onChange: e => setPassword(e.target.value), onKeyDown: e => e.key === 'Enter' && passwordLogin(), style: { marginTop: 10 } }),
+                React.createElement("button", { className: "btn p", style: { width: "100%", marginTop: 14 }, onClick: passwordLogin, disabled: busy }, busy ? "در حال ورود…" : "ورود")),
             info && React.createElement("p", { style: { color: "var(--ok)", fontSize: 12, marginTop: 8 } }, info),
             err && React.createElement("p", { style: { color: "var(--danger)", fontSize: 12, marginTop: 8 } }, err))));
 }
