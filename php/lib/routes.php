@@ -3670,18 +3670,30 @@ route('GET', '/api/admin/users/{id}/leave-balance', fn($p,$b,$u) => _req_balance
 
 // ثبت درخواست توسط مدیر/اپراتور برای پرسنل انتخاب‌شده
 route('POST', '/api/admin/requests', function($p,$b,$u){
-  // حالت مودال جزئیات حضور: درخواست برای خود کاربر نشست ثبت و همان لحظه تأیید می‌شود.
+  // مودال جزئیات گزارش تردد توسط مدیر برای پرسنل انتخاب‌شده ثبت می‌شود؛
+  // هویت ثبت‌کننده برای approver از نشست جاری خوانده می‌شود.
   $directApprove = !empty($b['direct_approve']);
-  $uid = $directApprove ? (int)$u['id'] : (int)($b['user_id']??0);
+  $uid = (int)($b['user_id']??0);
   if(!$uid || !Db::one("SELECT id FROM users WHERE id=? AND is_active=1",[$uid])) Http::error('پرسنل انتخاب‌شده معتبر نیست',422);
   $type=(string)($b['type']??'');
   if(!in_array($type,['annual','sick','mission','overtime'],true)) Http::error('نوع درخواست نامعتبر است',400);
   $unit=($b['unit']??'daily')==='hourly'?'hourly':'daily';
-  $from=trim((string)($b['from_jdate']??$b['the_date']??''));
-  $to=trim((string)($b['to_jdate']??$from));
-  $the=trim((string)($b['the_date']??$from));
-  if(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$from)) Http::error('تاریخ درخواست نامعتبر است',422);
-  if(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$to)) Http::error('تاریخ پایان درخواست نامعتبر است',422);
+  $normalizeReqJ=function($v){
+    $s=strtr(trim((string)$v),['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9','٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9']);
+    $s=str_replace(['/','.', '_',' '],'-',$s);
+    if(!preg_match('/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/',$s,$m)) return false;
+    $y=(int)$m[1];$mo=(int)$m[2];$d=(int)$m[3];
+    if($y<1300||$y>1500||$mo<1||$mo>12||$d<1||$d>31)return false;
+    $norm=sprintf('%04d-%02d-%02d',$y,$mo,$d);
+    $ts=j_to_ts($norm);
+    return ($ts===false||$ts===null)?false:$norm;
+  };
+  $from=$normalizeReqJ($b['from_jdate']??$b['the_date']??'');
+  $to=$normalizeReqJ($b['to_jdate']??$from);
+  $the=$normalizeReqJ($b['the_date']??$from);
+  if($from===false) Http::error('تاریخ درخواست نامعتبر است',422);
+  if($to===false) Http::error('تاریخ پایان درخواست نامعتبر است',422);
+  if($the===false) Http::error('تاریخ اصلی درخواست نامعتبر است',422);
   if($unit==='hourly'){
     $ft=trim((string)($b['from_time']??'')); $tt=trim((string)($b['to_time']??''));
     if(!preg_match('/^([01]\\d|2[0-3]):[0-5]\\d$/',$ft)||!preg_match('/^([01]\\d|2[0-3]):[0-5]\\d$/',$tt)) Http::error('ساعت شروع و پایان نامعتبر است',422);
@@ -3697,8 +3709,8 @@ route('POST', '/api/admin/requests', function($p,$b,$u){
   if($directApprove){
     $id=Db::insert("INSERT INTO requests(user_id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes,reason,status,approver_id,approver_note,decided_at,pending_on)
       VALUES(?,?,?,?,?,?,?,?,?,?, 'approved', ?, ?, NOW(), NULL)",
-      [$uid,$type,$unit,$from,$to,$the,$ft,$tt,$minutes,$reason,$u['id'],'تأیید فوری توسط ثبت‌کننده']);
-    return ['id'=>$id,'status'=>'approved','minutes'=>$minutes,'requester_id'=>(int)$u['id'],'approver_id'=>(int)$u['id']];
+      [$uid,$type,$unit,$from,$to,$the,$ft,$tt,$minutes,$reason,(int)$u['id'],'تأیید فوری توسط ثبت‌کننده']);
+    return ['id'=>$id,'status'=>'approved','minutes'=>$minutes,'requester_id'=>$uid,'approver_id'=>(int)$u['id']];
   }
   $approver=_req_approver($uid);
   $id=Db::insert("INSERT INTO requests(user_id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes,reason,pending_on)
