@@ -200,6 +200,7 @@ const db = {
     systemHealthIncidents: () => GET('/admin/system-health-incidents'),
     deviceHealth: (q = '') => GET('/admin/device-health?q=' + encodeURIComponent(q)),
     users: (params) => GET('/admin/users?' + new URLSearchParams(params || {}).toString()),
+    userCommitments: (id) => GET('/admin/user-commitments?user_id=' + encodeURIComponent(id)),
     orgChart: () => GET('/admin/org-chart'),
     salarySlipUsers: (q = '') => GET('/admin/salary-slips/users?q=' + encodeURIComponent(q)),
     salarySlipsForUser: (id) => GET('/admin/users/' + id + '/salary-slips'),
@@ -1829,6 +1830,7 @@ function Users() {
     const [edit, setEdit] = useState(null);
     const [lineModal, setLineModal] = useState(null);
     const [adding, setAdding] = useState(false);
+    const [commitmentsModal, setCommitmentsModal] = useState(null);
     const [f, setF] = useState({ q: "", role_id: "", zone_id: "", active: "" });
     const [pw, setPw] = useState("");
     const clean = o => { const x = { ...o }; Object.keys(x).forEach(k => (x[k] === "" || x[k] == null) && delete x[k]); return x; };
@@ -1933,7 +1935,13 @@ function Users() {
                 React.createElement("td", null, u.role_title || rt(u.role_id)),
                 React.createElement("td", { style: { whiteSpace: "nowrap", color: "#b7791f", fontWeight: 800 } }, starsForUser(u)),
                 React.createElement("td", { style: { direction: "ltr", textAlign: "right", fontSize: 12 } }, u.email || "—"),
-                React.createElement("td", { style: { textAlign: "center" } }, (u.commitments_count > 0) ? React.createElement("span", { className: "badge", style: { background: "#fde7c9", color: "#b45309" } }, fa(u.commitments_count)) : React.createElement("span", { style: { color: "var(--muted)" } }, "\u06F0")),
+                React.createElement("td", { style: { textAlign: "center" } }, (u.commitments_count > 0) ? React.createElement("button", { type: "button", className: "badge", style: { background: "#fde7c9", color: "#b45309", border: "1px solid #f3d39f", cursor: "pointer", fontFamily: "inherit", fontWeight: 800 }, onClick: async () => { try {
+                        const rows = await db.userCommitments(u.id);
+                        setCommitmentsModal({ user: u, rows: Array.isArray(rows) ? rows : [] });
+                    }
+                    catch (e) {
+                        alert(e.message || "خطا در دریافت تعهدات");
+                    } } }, fa(u.commitments_count)) : React.createElement("span", { style: { color: "var(--muted)" } }, "\u06F0")),
                 React.createElement("td", { style: { fontSize: 11 } },
                     u.android_bound ? "📱" : "—",
                     " ",
@@ -1946,6 +1954,36 @@ function Users() {
                         React.createElement("button", { className: "btn g", onClick: () => setLineModal(u) }, "\u062E\u0637\u0648\u0637"),
                         React.createElement("button", { className: "btn g", style: { color: 'var(--danger)' }, onClick: () => delUser(u) }, "\u062D\u0630\u0641"))))))),
         pg.Pager(),
+        commitmentsModal && React.createElement(Modal, { title: "تعهدات " + (commitmentsModal.user.first_name || "") + " " + (commitmentsModal.user.last_name || ""), onClose: () => setCommitmentsModal(null) },
+            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 12 } },
+                React.createElement("div", { style: { fontSize: 12, color: "var(--muted)" } },
+                    "\u062A\u0639\u062F\u0627\u062F \u062A\u0639\u0647\u062F\u0627\u062A: ",
+                    React.createElement("b", { style: { color: "#b45309" } }, fa(commitmentsModal.rows.length))),
+                React.createElement("span", { className: "badge", style: { background: "#fde7c9", color: "#b45309" } }, "\u062A\u0639\u0647\u062F\u0627\u062A \u0627\u0646\u0636\u0628\u0627\u0637\u06CC")),
+            commitmentsModal.rows.length ? React.createElement("div", { style: { display: "grid", gap: 10, maxHeight: "65vh", overflowY: "auto" } }, commitmentsModal.rows.map((c, i) => React.createElement("div", { key: c.id || i, style: { border: "1px solid var(--line)", borderRadius: 12, padding: 12, background: "var(--card,#fff)" } },
+                React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" } },
+                    React.createElement("b", null, c.title || "تعهد بدون عنوان"),
+                    React.createElement("span", { style: { fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" } }, c.commit_jdate || "—")),
+                c.reason_title && React.createElement("div", { style: { fontSize: 11, color: "var(--muted)", marginTop: 5 } },
+                    "\u062F\u0644\u06CC\u0644: ",
+                    c.reason_title),
+                c.description && React.createElement("div", { style: { fontSize: 12, lineHeight: 1.8, marginTop: 8, whiteSpace: "pre-wrap" } }, c.description),
+                React.createElement("div", { className: "row", style: { gap: 8, marginTop: 9, flexWrap: "wrap" } },
+                    c.created_by_name && React.createElement("span", { style: { fontSize: 10, color: "var(--muted)" } },
+                        "\u062B\u0628\u062A\u200C\u06A9\u0646\u0646\u062F\u0647: ",
+                        c.created_by_name),
+                    c.has_attachment ? React.createElement("button", { type: "button", className: "btn g", onClick: async () => { try {
+                            const a = await GET('/admin/user-commitments/' + c.id + '/attachment');
+                            if (a && a.attachment_data) {
+                                const w = window.open();
+                                if (w)
+                                    w.document.write('<iframe src="' + a.attachment_data.replace(/"/g, '&quot;') + '" style="border:0;width:100vw;height:100vh"></iframe>');
+                            }
+                        }
+                        catch (e) {
+                            alert(e.message || "خطا در دریافت پیوست");
+                        } } }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u067E\u06CC\u0648\u0633\u062A") : null)))) : React.createElement("p", { className: "muted", style: { textAlign: "center", padding: 12 } }, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0646\u06CC\u0631\u0648 \u062A\u0639\u0647\u062F\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
+            React.createElement("button", { className: "btn g", style: { marginTop: 14, width: "100%" }, onClick: () => setCommitmentsModal(null) }, "\u0628\u0633\u062A\u0646")),
         edit && React.createElement(Modal, { title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u06A9\u0627\u0631\u0628\u0631", onClose: () => { setEdit(null); setPw(""); } },
             React.createElement("div", { className: "row", style: { gap: 10, alignItems: "center" } },
                 edit.photo ? React.createElement("img", { src: edit.photo, style: { width: 60, height: 60, borderRadius: 12, objectFit: "cover" } }) : React.createElement("span", { className: "pf2", style: { width: 60, height: 60, fontSize: 24 } }, (edit.first_name || "؟")[0]),
