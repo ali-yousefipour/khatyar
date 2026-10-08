@@ -2684,7 +2684,7 @@ function _attendance_auto_close_stale($userId, $now=null){
     $jdate=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
     $shift=function_exists('_active_user_shift_assignment') ? _active_user_shift_assignment((int)$userId,$jdate) : null;
     $sessions=[['in'=>$inTs,'out'=>$autoOutTs]];
-    $hol=(bool)Db::one("SELECT jdate FROM holidays WHERE jdate IN (?,?) LIMIT 1",[$jdate,str_replace('-','/',$jdate)]);
+    $hol=ShiftCalc::effectiveHoliday($jdate);
     $w=ShiftCalc::dayWork($shift,$jdate,null,$sessions,$hol);
     Db::run("UPDATE staff_attendance SET check_out=?, client_check_out=?, calc_json=? WHERE id=? AND check_out IS NULL",
       [$autoOut,$autoOut,json_encode($w,JSON_UNESCAPED_UNICODE),(int)$open['id']]);
@@ -3635,12 +3635,13 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   if(!$shift) return ['date'=>$jdate,'data'=>null,'message'=>'برای شما شیفت فعالی تعریف نشده است.'];
   $dayRow=null;
   if(($shift['type']??'')==='advanced') $dayRow=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$jdate]);
-  $hol=Db::one("SELECT jdate,title FROM holidays WHERE jdate=? LIMIT 1",[$jdate]);
+  $cal=ShiftCalc::calendarDay($jdate);
   $rows=_attendance_rows_for_jdate($u['id'],$jdate);
   $sessions=array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start']??'1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00')],$rows);
-  $w=ShiftCalc::dayWork($shift,$jdate,$dayRow,$sessions,(bool)$hol);
+  $w=ShiftCalc::dayWork($shift,$jdate,$dayRow,$sessions,ShiftCalc::effectiveHoliday($jdate));
   $weekday=_jweekday_name((int)substr($jdate,0,4),(int)substr($jdate,5,2),(int)substr($jdate,8,2));
-  return ['date'=>$jdate,'weekday'=>$weekday,'shift_title'=>$shift['title']??'شیفت کاری','shift_type'=>$shift['type']??'','holiday'=>(bool)$hol,'holiday_title'=>$hol['title']??'', 'sessions'=>$rows,'data'=>$w];
+  $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
+  return ['date'=>$jdate,'weekday'=>$weekday,'shift_title'=>$shift['title']??'شیفت کاری','shift_type'=>$shift['type']??'','holiday'=>$isCalHoliday,'holiday_title'=>$cal['title']??'', 'sessions'=>$rows,'data'=>$w];
 });
 
 // برنامهٔ شیفت کاری کاربر — بازهٔ آینده برای تب «شیفت کاری»
@@ -3659,8 +3660,9 @@ route('GET', '/api/my/shift-schedule', function($p,$b,$u){
   for($i=0;$i<$daysCount;$i++){
     $gt=getdate($ts+($i*86400)); [$y,$m,$d]=array_slice(gregorian_to_jalali($gt['year'],$gt['mon'],$gt['mday']),0,3);$j=sprintf('%04d-%02d-%02d',$y,$m,$d);
     $dr=null;if(($shift['type']??'')==='advanced')$dr=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$j]);
-    $hol=Db::one("SELECT jdate,title FROM holidays WHERE jdate=? LIMIT 1",[$j]);$mins=ShiftCalc::expectedMinutes($shift,$j,$dr);
-    $days[]=['date'=>$j,'weekday'=>_jweekday_name($y,$m,$d),'shift_title'=>$shift['title']??'شیفت کاری','minutes'=>$mins,'is_off'=>(bool)($dr['is_off']??false)||($mins<=0),'is_holiday'=>(bool)$hol,'holiday_title'=>$hol['title']??''];
+    $cal=ShiftCalc::calendarDay($j);$mins=ShiftCalc::expectedMinutes($shift,$j,$dr);
+    $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
+    $days[]=['date'=>$j,'weekday'=>_jweekday_name($y,$m,$d),'shift_title'=>$shift['title']??'شیفت کاری','minutes'=>$mins,'is_off'=>(bool)($dr['is_off']??false)||($mins<=0),'is_holiday'=>$isCalHoliday,'is_friday'=>ShiftCalc::isFriday($j),'holiday_title'=>$cal['title']??''];
   }
   return ['shift'=>['id'=>(int)$shift['id'],'title'=>$shift['title']??'شیفت کاری','type'=>$shift['type']??''],'days'=>$days];
 });
@@ -10233,7 +10235,7 @@ function _phase6_work_calc($roleKey,$checkin,$checkout,$jdate=null){
   $ns=_phase6_to_minutes(substr((string)($rule['night_start']??'22:00'),0,5));
   $ne=_phase6_to_minutes(substr((string)($rule['night_end']??'06:00'),0,5));
   $night=_phase6_overlap_minutes($ci,$co,$ns??1320,$ne??360);
-  $isHoliday=false; if ($jdate) { try { $jdNorm = str_replace('/','-', (string)$jdate); $isHoliday=(bool)Db::one("SELECT id FROM holidays WHERE jdate IN (?,?) LIMIT 1", [$jdNorm, str_replace('-','/',$jdNorm)]); } catch (Throwable $e) {} }
+  $isHoliday=false; if ($jdate) { try { $cal=ShiftCalc::calendarDay($jdate); $isHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']); } catch (Throwable $e) {} }
   $isFriday=false; try { if ($jdate && class_exists('ShiftCalc')) $isFriday = ShiftCalc::isFriday($jdate); } catch (Throwable $e) { $isFriday=false; }
   return ['ok'=>true,'role_key'=>$roleKey,'presence_minutes'=>$presence,'duty_minutes'=>$duty,'overtime_minutes'=>$overtime,'surplus_minutes'=>$surplus,'night_minutes'=>$night,'holiday_minutes'=>$isHoliday?$presence:0,'friday_minutes'=>$isFriday?$presence:0,'rule'=>$rule];
 }
@@ -10778,7 +10780,7 @@ function _phase7p7_calc_for_attendance_row($row){
   [$jy,$jm,$jd]=gregorian_to_jalali($gy,$gm,$gd); $jdate=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
   $shift=_active_user_shift_assignment((int)$row['user_id'],$jdate);
   $dr=($shift && (($shift['type']??'')==='advanced')) ? _shift_day_row($shift['shift_id']??$shift['id'],$jdate) : null;
-  $hol=(bool)Db::one("SELECT jdate FROM holidays WHERE jdate IN (?,?) LIMIT 1",[$jdate,str_replace('-','/',$jdate)]);
+  $hol=ShiftCalc::effectiveHoliday($jdate);
   $sess=[['in'=>strtotime($row['check_in']),'out'=>!empty($row['check_out'])?strtotime($row['check_out']):null]];
   return ShiftCalc::dayWork($shift,$jdate,$dr,$sess,$hol);
 }
