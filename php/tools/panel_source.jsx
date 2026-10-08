@@ -6171,6 +6171,47 @@ function AttendanceReport(){
   </div>);
 }
 
+function AttendanceConversionModal({userId,mode,jdate,minutes,onSaved,onClose}){
+  const [fromTime,setFromTime]=useState("");
+  const [toTime,setToTime]=useState("");
+  const [amount,setAmount]=useState(String(minutes||0));
+  const [reason,setReason]=useState(mode==="surplus"?"تأیید مدیر":"تبدیل کسری کار به مرخصی استحقاقی ساعتی");
+  const [busy,setBusy]=useState(false);
+  const [err,setErr]=useState("");
+  const max=Math.max(0,Number(minutes)||0);
+  const fmt=m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+  const parseTime=v=>{const m=String(v||"").match(/^(\d{2}):(\d{2})$/);return m?(Number(m[1])*60+Number(m[2])):null;};
+  const submit=async()=>{
+    setErr("");
+    const minsToConvert=Math.max(0,Math.min(max,parseInt(String(amount).replace(/\D/g,""),10)||0));
+    if(!minsToConvert){setErr("مقدار تبدیل را وارد کنید.");return;}
+    setBusy(true);
+    try{
+      if(mode==="surplus"){
+        await db.attendanceSurplusConvert({user_id:Number(userId),jdate,minutes:minsToConvert,reason:reason.trim()||"تأیید مدیر"});
+      }else{
+        const a=parseTime(fromTime),b=parseTime(toTime);
+        if(a===null||b===null){setErr("ساعت شروع و پایان را وارد کنید.");return;}
+        if(b<=a){setErr("ساعت پایان باید بعد از ساعت شروع باشد.");return;}
+        if(b-a!==minsToConvert){setErr("مدت بازه ساعت باید دقیقاً "+fmt(minsToConvert)+" باشد.");return;}
+        await db.adminRequestCreate({direct_approve:true,user_id:Number(userId),type:"annual",unit:"hourly",from_jdate:jdate,to_jdate:jdate,the_date:jdate,from_time:fromTime,to_time:toTime,minutes:minsToConvert,reason:reason.trim()||"تبدیل کسری کار به مرخصی استحقاقی ساعتی"});
+      }
+      await onSaved();
+    }catch(e){setErr(e.message||"تبدیل انجام نشد");}
+    finally{setBusy(false);}
+  };
+  return <PunchModalShell title={mode==="surplus"?"تبدیل مازاد حضور به اضافه‌کار":"تبدیل کسر کار به مرخصی استحقاقی ساعتی"} subtitle={"تاریخ "+faPlain(String(jdate||""))} onClose={onClose}
+    actions={<><button className="btn g punch-action-secondary" onClick={onClose} disabled={busy}>انصراف</button><button className="btn p punch-action-primary" onClick={submit} disabled={busy}>{busy?"در حال ثبت…":"ثبت تبدیل"}</button></>}>
+    <div className="punch-summary"><span>{mode==="surplus"?"مازاد حضور قابل تبدیل":"کسر کار قابل تبدیل"}</span><strong>{fmt(max)}</strong></div>
+    <div className="punch-fields" style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:12}}>
+      <div className="punch-field"><label className="label">مقدار تبدیل (دقیقه)</label><input className="input" type="number" min="1" max={max} value={amount} onChange={e=>setAmount(e.target.value)} /><small className="muted">حداکثر {fmt(max)}</small></div>
+      {mode==="shortage"&&<><div className="punch-field"><label className="label">از ساعت</label><input className="input" type="time" value={fromTime} onChange={e=>setFromTime(e.target.value)} /></div><div className="punch-field"><label className="label">تا ساعت</label><input className="input" type="time" value={toTime} onChange={e=>setToTime(e.target.value)} /><small className="muted">مدت باید {fmt(Math.max(0,Number(amount)||0))} باشد.</small></div></>}
+      <div className="punch-field" style={{gridColumn:"1 / -1"}}><label className="label">علت / توضیح</label><textarea className="input" rows="3" value={reason} onChange={e=>setReason(e.target.value)} /></div>
+    </div>
+    {err&&<div style={{marginTop:10,color:"var(--danger)",fontSize:12}}>{err}</div>}
+  </PunchModalShell>;
+}
+
 function AttendanceRequestModal({userId,jdate,onSaved,onClose}){
   const TYPES=[
     {value:"annual:daily",label:"مرخصی استحقاقی"},
