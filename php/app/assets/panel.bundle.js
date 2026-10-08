@@ -10133,7 +10133,11 @@ function AttendanceReport() {
                                                 React.createElement("th", null, "\u0645\u062F\u062A"),
                                                 React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"))),
                                         React.createElement("tbody", null, dayRequests.map(r => React.createElement("tr", { key: r.id },
-                                            React.createElement("td", null, { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", mission: "ماموریت", overtime: "اضافه‌کار" }[r.type] || r.type),
+                                            React.createElement("td", null, (() => {
+                                                const labels = { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", unpaid: "مرخصی بدون حقوق", mission: "ماموریت", overtime: "اضافه‌کار" };
+                                                const base = labels[r.type] || r.type || "—";
+                                                return r.unit === "hourly" ? base + " ساعتی" : base;
+                                            })()),
                                             React.createElement("td", null,
                                                 faPlain(String(r.from_jdate || r.the_date || "—")),
                                                 r.to_jdate && r.to_jdate !== r.from_jdate ? " تا " + faPlain(String(r.to_jdate)) : ""),
