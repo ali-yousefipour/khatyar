@@ -10,17 +10,17 @@ import*as Location from'expo-location';
 import{FONT}from'./theme';
 import{useAuth}from'./auth';
 import{getAppConfig}from'./appconfig';
-import{postOrQueue}from'./api';
+import{postOrQueue,request}from'./api';
 
 export default function GpsGuard({children}){
  const{user}=useAuth();
  const exempt=Number(user?.security_exempt||0)===1||user?.security_exempt===true;
- const[gpsOff,setGpsOff]=useState(false),[checking,setChecking]=useState(false),[intervalMs]=useState(30*60*1000);
- const check=useCallback(async()=>{if(!user||exempt){setGpsOff(false);return}try{const enabled=await Location.hasServicesEnabledAsync();const off=!enabled;setGpsOff(off);if(off)postOrQueue('/activity/telemetry',{kind:'gps_off',at:new Date().toISOString()}).catch(()=>{})}catch{setGpsOff(false)}},[user?.id,exempt]);
+ const[gpsOff,setGpsOff]=useState(false),[checking,setChecking]=useState(false),[intervalMs]=useState(30*60*1000),[attendanceOpen,setAttendanceOpen]=useState(false);
+ const check=useCallback(async()=>{if(!user||exempt){setGpsOff(false);setAttendanceOpen(false);return}try{const timer=await request('/my/work-timer',{noStore:true,timeoutMs:7000});const required=!!timer?.gps_work_required;const open=!!timer?.open;setAttendanceOpen(required&&open);if(!required||!open){setGpsOff(false);return}const enabled=await Location.hasServicesEnabledAsync();const off=!enabled;setGpsOff(off);if(off)postOrQueue('/activity/telemetry',{kind:'gps_off',at:new Date().toISOString(),meta:{source:'foreground_watchdog',interval_minutes:30}}).catch(()=>{})}catch{setGpsOff(false)}},[user?.id,exempt]);
  // در الزام کارکرد با GPS، فاصلهٔ پایش دقیقاً ۳۰ دقیقه است؛ تنظیم پایش عمومی نباید آن را کوتاه یا بلند کند.
- useEffect(()=>{if(!user||exempt){setGpsOff(false);return undefined}check();const iv=setInterval(check,intervalMs);const sub=AppState.addEventListener('change',s=>{if(s==='active')check()});return()=>{clearInterval(iv);sub.remove()}},[check,user?.id,exempt,intervalMs]);
+ useEffect(()=>{if(!user||exempt){setGpsOff(false);setAttendanceOpen(false);return undefined}check();const iv=setInterval(check,intervalMs);const sub=AppState.addEventListener('change',s=>{if(s==='active')check()});return()=>{clearInterval(iv);sub.remove()}},[check,user?.id,exempt,intervalMs]);
  const recheck=async()=>{setChecking(true);await check();setChecking(false)};
- if(!user||exempt||!gpsOff)return children? <>{children}</>:null;
+ if(!user||exempt||!attendanceOpen||!gpsOff)return children? <>{children}</>:null;
  const openLocationSettings=async()=>{try{await IntentLauncher.startActivityAsync('android.settings.LOCATION_SOURCE_SETTINGS')}catch{try{await Linking.openSettings()}catch{}}};
  return <View style={s.overlay}><Text style={s.icon}>📍</Text><Text style={s.title}>سرویس موقعیت‌یابی خاموش است</Text><Text style={s.sub}>برای ادامه فعالیت لازم است Location/GPS دستگاه روشن باشد. پس از روشن کردن، برنامه به‌صورت خودکار بررسی می‌کند.</Text><TouchableOpacity style={s.btn} onPress={openLocationSettings}><Text style={s.btnTxt}>روشن کردن موقعیت‌یابی</Text></TouchableOpacity><TouchableOpacity style={[s.btn,s.btn2]} onPress={recheck} disabled={checking}><Text style={s.btnTxt}>{checking?'در حال بررسی…':'بررسی مجدد'}</Text></TouchableOpacity></View>
 }
