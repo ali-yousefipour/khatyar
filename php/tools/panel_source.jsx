@@ -5952,6 +5952,7 @@ function AttendanceReport(){
   const [mapPunch,setMapPunch]=useState(null);
   const [edit,setEdit]=useState(null);
   const [requestModal,setRequestModal]=useState(null);
+  const [addModal,setAddModal]=useState(null);
   const [dayRequests,setDayRequests]=useState([]);
 
   useEffect(()=>{ db.users().then(us=>setUsers(us||[])).catch(()=>{}); },[]);
@@ -6009,6 +6010,7 @@ function AttendanceReport(){
   };
   const savePunch=async(punch,ci,co)=>{ try{ await db.attendancePunchEdit(punch.id,{check_in:ci,check_out:co}); setEdit(null); await refresh(); }catch(e){alert(e.message||"خطا");} };
   const delPunch=async(punch)=>{ if(!confirm("این تردد حذف شود؟"))return; try{ await db.attendancePunchDelete(punch.id); await refresh(); }catch(e){alert(e.message||"خطا");} };
+  const addPunch=async(jdate,ci,co)=>{ try{ await db.attendancePunchAdd({user_id:+uid,jdate,check_in:ci,check_out:co||null}); setAddModal(null); await refresh(); }catch(e){alert(e.message||"خطا");} };
   const n=(v)=>{const s=String(v==null?"":v).replace(/[۰-۹]/g,x=>"۰۱۲۳۴۵۶۷۸۹".indexOf(x)); const m=s.match(/(?:^|[ T])([01]?\d|2[0-3]):([0-5]\d)/); return m?String(+m[1]).padStart(2,"0")+":"+m[2]:"";};
   const pin=(p)=>n(p&& (p.in??p.in_full??p.check_in??p.first_in??p.first_entry));
   const pout=(p)=>n(p&& (p.out??p.out_full??p.check_out??p.last_out??p.last_exit));
@@ -6101,12 +6103,13 @@ function AttendanceReport(){
   in: p?.in ?? p?.in_full ?? p?.check_in ?? p?.first_in ?? p?.first_entry ?? d?.in ?? d?.first_in ?? d?.first_entry ?? "",
   out: p?.out ?? p?.out_full ?? p?.check_out ?? p?.last_out ?? p?.last_exit ?? d?.out ?? d?.last_out ?? d?.last_exit ?? ""
 })}}>اصلاح</button><button className="btn g" onClick={()=>delPunch(p)}>حذف</button></td></tr>})}</tbody></table><div style={{marginTop:14,paddingTop:12,borderTop:"1px solid var(--line)"}}>
-  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:8}}><b>درخواست‌های این روز</b><button className="btn p" onClick={()=>setRequestModal({jdate:d.jdate})}>ثبت درخواست</button></div>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:8}}><b>درخواست‌های این روز</b><button className="btn p" onClick={()=>setRequestModal({jdate:d.jdate})}>ثبت درخواست</button><button className="btn g" onClick={()=>setAddModal({jdate:d.jdate})}>ثبت تردد دستی</button></div>
   {dayRequests.length===0?<div className="muted" style={{fontSize:12}}>درخواستی برای این روز ثبت نشده است.</div>:
   <div style={{overflowX:"auto"}}><table><thead><tr><th>نوع درخواست</th><th>بازه</th><th>ساعت</th><th>مدت</th><th>وضعیت</th></tr></thead><tbody>{dayRequests.map(r=><tr key={r.id}><td>{{annual:"مرخصی استحقاقی",sick:"مرخصی استعلاجی",mission:"ماموریت",overtime:"اضافه‌کار"}[r.type]||r.type}</td><td>{faPlain(String(r.from_jdate||r.the_date||"—"))}{r.to_jdate&&r.to_jdate!==r.from_jdate?" تا "+faPlain(String(r.to_jdate)):""}</td><td>{r.from_time&&r.to_time?faPlain(r.from_time)+" تا "+faPlain(r.to_time):"—"}</td><td>{r.minutes?hm(r.minutes):"—"}</td><td>{({pending:"در انتظار تأیید",approved:"تأییدشده",rejected:"ردشده",canceled:"لغوشده"}[r.status]||r.status||"—")}</td></tr>)}</tbody></table></div>}
 </div></div></div>:null})()}
     {mapPunch&&(()=>{const lat=Number(mapPunch.in_lat),lng=Number(mapPunch.in_lng);const delta=0.002;const bbox=[lng-delta,lat-delta,lng+delta,lat+delta].join("%2C");const mapSrc="https://www.openstreetmap.org/export/embed.html?bbox="+bbox+"&layer=mapnik&marker="+lat+"%2C"+lng;return <div style={{position:"fixed",inset:0,zIndex:100000,background:"rgba(0,0,0,.62)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setMapPunch(null)}><div className="card-p" style={{width:"min(900px,96vw)",height:"min(720px,92vh)",display:"flex",flexDirection:"column",gap:10,overflow:"hidden"}} onClick={e=>e.stopPropagation()}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}><div><h3 style={{margin:0}}>مکان ثبت ورود با GPS</h3></div><button className="btn g" onClick={()=>setMapPunch(null)}>بستن</button></div><div style={{flex:1,minHeight:320,borderRadius:10,overflow:"hidden",border:"1px solid var(--line)"}}><iframe title="مکان ثبت ورود با GPS" src={mapSrc} style={{width:"100%",height:"100%",border:0}} loading="lazy"/></div><div style={{display:"flex",justifyContent:"flex-end",gap:8}}><a className="btn g" href={"https://www.google.com/maps?q="+lat+","+lng} target="_blank" rel="noreferrer">باز کردن در Google Maps</a></div></div></div>})()}
     {edit&&<PunchEditModal punch={edit} onSave={savePunch} onClose={()=>setEdit(null)}/>}
+    {addModal&&<PunchAddModal jdate={addModal.jdate} onSave={addPunch} onClose={()=>setAddModal(null)}/>}
     {requestModal&&<AttendanceRequestModal userId={uid} jdate={requestModal.jdate} onSaved={async()=>{setRequestModal(null);await refresh();if(openDay){const rows=await db.adminRequests('?user_id='+encodeURIComponent(uid));const ds=String(openDay).replace(/\\//g,'-');setDayRequests((rows||[]).filter(r=>{const a=String(r.from_jdate||r.the_date||'').replace(/\\//g,'-');const b=String(r.to_jdate||r.the_date||a).replace(/\\//g,'-');return a<=ds&&ds<=b;}));}}} onClose={()=>setRequestModal(null)}/>}
   </div>);
 }
@@ -6324,6 +6327,25 @@ function PunchEditModal({punch,onSave,onClose}){
     {err?<div className="punch-error" role="alert">⚠ {err}</div>:<div className="punch-info">ℹ اگر خروج از ورود کوچک‌تر باشد، تردد به روز بعد محاسبه می‌شود (شیفت شب).</div>}
   </PunchModalShell>;
 }
+function PunchAddModal({jdate,onSave,onClose}){
+  const [ci,setCi]=useState(""); const [co,setCo]=useState(""); const [err,setErr]=useState("");
+  const submit=()=>{
+    const nci=normalizeHm(ci), nco=co.trim()?normalizeHm(co):"";
+    if(!nci){setErr("ساعت ورود الزامی است و باید بین ۰۰:۰۰ تا ۲۳:۵۹ باشد.");return;}
+    if(co.trim()&&!nco){setErr("ساعت خروج باید به شکل صحیح (۰۰:۰۰ تا ۲۳:۵۹) وارد شود.");return;}
+    setErr(""); onSave(jdate,nci,nco);
+  };
+  return <PunchModalShell title="ثبت تردد دستی" subtitle={"تاریخ: "+fa(jdate)} onClose={onClose}
+    actions={<><button className="btn g punch-action-secondary" onClick={onClose}>انصراف</button><button className="btn p punch-action-primary" onClick={submit}>ثبت تردد</button></>}>
+    <div className="punch-summary"><span>اطلاعات تردد</span><small>ورود الزامی · خروج اختیاری</small></div>
+    <div className="punch-fields">
+      <HmField label="ساعت ورود" value={ci} onChange={setCi} autoFocus/>
+      <HmField label="ساعت خروج" value={co} onChange={setCo} optional/>
+    </div>
+    {err&&<div className="punch-error" role="alert">⚠ {err}</div>}
+  </PunchModalShell>;
+}
+
 function ShiftReport(){
   const tj=todayJ();
   const [jy,setJy]=useState(tj[0]); const [jm,setJm]=useState(tj[1]); const [rows,setRows]=useState(null); const [busy,setBusy]=useState(false);
