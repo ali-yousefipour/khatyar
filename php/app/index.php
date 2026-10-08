@@ -46,21 +46,6 @@ if (strpos($path, '/api') !== 0) {
 }
 // IMPORTANT: do not reconcile substitute shifts in the global request bootstrap.\n// That routine performs schema writes and scans request data; running it before every\n// API request can block login and health checks. Reconciliation is handled by its\n// dedicated workflow instead of the authentication/request bootstrap.\n$routes = [];
 function route($m, $p, $fn, $public = false, $minLevel = 99) { global $routes; $routes[] = compact('m', 'p', 'fn', 'public', 'minLevel'); }
-/*
- * Attendance canonical endpoints:
- * گزارش تردد و ثبت/ویرایش/حذف تردد دستی نباید از route قدیمی
- * _attendance_report عبور کنند؛ آن مسیر برای شیفت شب punch را در
- * روز بعد نیز به‌صورت continuation وارد محاسبه می‌کرد.
- */
-if ($path === '/api/admin/attendance-report' || preg_match('#^/api/admin/attendance-punch/\\d+$#', $path) || $path === '/api/admin/attendance-punch') {
-  if ($path === '/api/admin/attendance-report') {
-    require __DIR__ . '/api/admin-attendance-report.php';
-  } else {
-    require __DIR__ . '/api/admin-attendance-punch.php';
-  }
-  exit;
-}
-
 function nid($v){ $s = preg_replace('/\D/', '', (string)$v); return $s === '' ? null : str_pad($s, 10, '0', STR_PAD_LEFT); }
 require "$ROOT/lib/routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; $body = Http::body();
 foreach ($routes as $r) {
