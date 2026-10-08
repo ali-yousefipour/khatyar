@@ -62,7 +62,9 @@ function toJ(date) {
   return `${jy}-${String(jm).padStart(2, '0')}-${String(jd).padStart(2, '0')}`;
 }
 
-export default function RequestsScreen() {
+export default function RequestsScreen({ route }) {
+  const initialType = route?.params?.initialType;
+  const initialDate = route?.params?.initialDate;
   const [tab, setTab] = useState('new');
   return (
     <View style={s.wrap}>
@@ -70,17 +72,17 @@ export default function RequestsScreen() {
         <TouchableOpacity style={[s.tab, tab === 'new' && s.tabOn]} onPress={() => setTab('new')}><Text style={[s.tabT, tab === 'new' && s.tabTOn]}>ثبت درخواست</Text></TouchableOpacity>
         <TouchableOpacity style={[s.tab, tab === 'list' && s.tabOn]} onPress={() => setTab('list')}><Text style={[s.tabT, tab === 'list' && s.tabTOn]}>درخواست‌های من</Text></TouchableOpacity>
       </View>
-      {tab === 'new' ? <NewRequest onDone={() => setTab('list')} /> : <MyRequests />}
+      {tab === 'new' ? <NewRequest onDone={() => setTab('list')} initialType={initialType} initialDate={initialDate} /> : <MyRequests />}
     </View>
   );
 }
 
-function NewRequest({ onDone }) {
-  const [type, setType] = useState('annual');
+function NewRequest({ onDone, initialType, initialDate }) {
+  const [type, setType] = useState(['annual','sick','mission','overtime','manual'].includes(initialType) ? initialType : 'annual');
   const [unit, setUnit] = useState('daily');
   const [fromJ, setFromJ] = useState('');
   const [toJd, setToJd] = useState('');
-  const [theDate, setTheDate] = useState('');
+  const [theDate, setTheDate] = useState(initialDate || '');
   const [fromTime, setFromTime] = useState('08:00');
   const [toTime, setToTime] = useState('12:00');
   const [inTime, setInTime] = useState('08:00');
@@ -96,6 +98,12 @@ function NewRequest({ onDone }) {
   const [reqSub, setReqSub] = useState(false);   // آیا جایگزین الزامی است
   const cfg = TYPES.find((t) => t.k === type);
   const needsSubstitute = ['annual', 'sick', 'mission'].includes(type);
+
+  // وقتی صفحه از «عملکرد روزانه» باز می‌شود، همان روز و نوع درخواست را مستقیماً آماده کن.
+  useEffect(() => {
+    if (initialType && ['annual','sick','mission','overtime','manual'].includes(initialType)) setType(initialType);
+    if (initialDate) { setTheDate(initialDate); setFromJ(initialDate); setToJd(initialDate); }
+  }, [initialType, initialDate]);
 
   // بارگذاری تنظیم الزام جایگزین
   useEffect(() => {
