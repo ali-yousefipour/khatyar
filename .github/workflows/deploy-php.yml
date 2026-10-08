@@ -290,8 +290,6 @@ jobs:
             echo "Host-side attendance PHP library installation completed."
           fi
 
-fi
-
       - name: Verify uploaded FTP files
         if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/**') != '' }}
         shell: bash
