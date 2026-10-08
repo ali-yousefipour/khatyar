@@ -1199,3 +1199,6 @@ const ss = StyleSheet.create({
   thumb: { position: 'absolute', right: 3, width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center' },
   thumbTxt: { color: '#fff', fontSize: 24, fontWeight: '700' },
 });
+
+
+export default CheckInCore;
