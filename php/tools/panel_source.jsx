@@ -6020,7 +6020,7 @@ function AttendanceReport(){
   ];
   const exportExcel=()=>{if(!data)return;const rows=[columns.map(x=>x[0])];(data.days||[]).forEach(d=>rows.push(columns.map(x=>x[1](d))));const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"گزارش تردد ۲۹ ستونه");XLSX.writeFile(wb,"گزارش تردد پرسنل - ۲۹ ستونه.xlsx");};
 
-  return(<div className="panel"><h3>🕒 گزارش تردد پرسنل</h3>
+  return(<div className="panel" translate="no" data-no-translate="true"><h3>🕒 گزارش تردد پرسنل</h3>
     <div className="card-p" style={{marginBottom:14}}>
       <div className="row" style={{gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
         <div style={{minWidth:280,flex:"1 1 280px"}}><label className="label">پرسنل</label>
@@ -6083,9 +6083,23 @@ function AttendanceRequestModal({userId,jdate,onSaved,onClose}){
     {value:"mission:daily",label:"ماموریت روزانه"},
     {value:"mission:hourly",label:"ماموریت ساعتی"}
   ];
+  const normalizeJ=(v)=>{
+    const s=String(v??"").trim()
+      .replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+      .replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d))
+      .replace(/[\/\.]/g,"-").replace(/\s+/g,"");
+    const m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if(!m)return "";
+    const y=+m[1],mo=+m[2],d=+m[3];
+    if(!Number.isFinite(y)||!Number.isFinite(mo)||!Number.isFinite(d)||y<1300||y>1500||mo<1||mo>12||d<1||d>31)return "";
+    const g=jalaliToGreg(y,mo,d);
+    if(!g)return "";
+    return y+"-"+String(mo).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+  };
+  const initial=normalizeJ(jdate)||"";
   const [kind,setKind]=useState("annual:daily");
-  const [fromDate,setFromDate]=useState(jdate||"");
-  const [toDate,setToDate]=useState(jdate||"");
+  const [fromDate,setFromDate]=useState(initial);
+  const [toDate,setToDate]=useState(initial);
   const [fromTime,setFromTime]=useState("");
   const [toTime,setToTime]=useState("");
   const [reason,setReason]=useState("");
@@ -6095,18 +6109,19 @@ function AttendanceRequestModal({userId,jdate,onSaved,onClose}){
   const hourly=unit==="hourly";
   const submit=async()=>{
     setErr("");
-    if(!fromDate){setErr("تاریخ درخواست را انتخاب کنید.");return;}
-    if(!hourly && !toDate){setErr("تاریخ پایان را انتخاب کنید.");return;}
+    const from=normalizeJ(fromDate), to=normalizeJ(toDate);
+    if(!from){setErr("تاریخ شروع معتبر نیست.");return;}
+    if(!hourly && !to){setErr("تاریخ پایان معتبر نیست.");return;}
     if(hourly && (!fromTime||!toTime)){setErr("ساعت شروع و پایان را وارد کنید.");return;}
     if(hourly && fromTime>=toTime){setErr("ساعت پایان باید بعد از ساعت شروع باشد.");return;}
-    if(!hourly && toDate<fromDate){setErr("تاریخ پایان نباید قبل از تاریخ شروع باشد.");return;}
+    if(!hourly && to<from){setErr("تاریخ پایان نباید قبل از تاریخ شروع باشد.");return;}
     setBusy(true);
     try{
       await db.adminRequestCreate({
         direct_approve:true,
         type,unit,
-        from_jdate:fromDate,to_jdate:hourly?fromDate:toDate,
-        the_date:fromDate,
+        from_jdate:from,to_jdate:hourly?from:to,
+        the_date:from,
         from_time:hourly?fromTime:null,to_time:hourly?toTime:null,
         reason:reason.trim()||null
       });
@@ -6124,8 +6139,8 @@ function AttendanceRequestModal({userId,jdate,onSaved,onClose}){
           {TYPES.map(x=><option key={x.value} value={x.value}>{x.label}</option>)}
         </select>
       </div>
-      <div className="punch-field"><label className="label">از تاریخ</label><input className="input" value={fromDate} onChange={e=>setFromDate(e.target.value)} placeholder="۱۴۰۵-۰۷-۱۵"/></div>
-      {!hourly&&<div className="punch-field"><label className="label">تا تاریخ</label><input className="input" value={toDate} onChange={e=>setToDate(e.target.value)} placeholder="۱۴۰۵-۰۷-۱۵"/></div>}
+      <div className="punch-field"><label className="label">از تاریخ</label><JDate value={fromDate} onChange={setFromDate} jalali/></div>
+      {!hourly&&<div className="punch-field"><label className="label">تا تاریخ</label><JDate value={toDate} onChange={setToDate} jalali/></div>}
       {hourly&&<><div className="punch-field"><label className="label">از ساعت</label><input className="input" type="time" value={fromTime} onChange={e=>setFromTime(e.target.value)} /></div><div className="punch-field"><label className="label">تا ساعت</label><input className="input" type="time" value={toTime} onChange={e=>setToTime(e.target.value)} /></div></>}
       <div className="punch-field" style={{gridColumn:"1 / -1"}}><label className="label">توضیحات</label><textarea className="input" rows="3" value={reason} onChange={e=>setReason(e.target.value)} placeholder="توضیحات درخواست (اختیاری)"/></div>
     </div>
