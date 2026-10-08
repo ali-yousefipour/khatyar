@@ -43,9 +43,7 @@ function aar_dedupe_sessions(array $sessions): array {
     if (!is_array($s) || empty($s['in'])) continue;
     $in = (int)$s['in'];
     $out = !empty($s['out']) ? (int)$s['out'] : null;
-    if ($in <= 0 || !$out) continue;
-    [$in,$out] = ShiftCalc::normalizeSessionPair($in,$out);
-    if ($out <= $in) continue;
+    if ($in <= 0 || !$out || $out <= $in) continue;
     $key = $in . ':' . $out;
     if (isset($seen[$key])) continue;
     $seen[$key] = true;
@@ -86,29 +84,19 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
   $sum['night_work'] = 0;
   $sum['present_days'] = 0;
 
-  /*
-   * منبع قطعی تردد برای بازسازی گزارش، خود جدول staff_attendance است.
-   * _attendance_report در بعضی مسیرها تردد شبانه را برای روز خروج نیز به‌صورت
-   * یک punch مشتق‌شده وارد می‌کند؛ اگر همان punches دوباره محاسبه شوند، یک
-   * تردد 23:00→06:00 هم در روز ورود و هم در روز بعد کارکرد می‌سازد.
-   *
-   * در این بازسازی فقط رکورد اصلی attendance را مالک روز ورود می‌دانیم:
-   * 23:00 روز D → 06:00 روز D+1 فقط در D محاسبه می‌شود.
-   */
-  $reportStartJ = null;
+  // منبع قطعی تردد برای بازسازی: رکورد اصلی staff_attendance.
+  // تردد شبانه متعلق به تاریخ ورود است و نباید از punch مشتق‌شدهٔ روز بعد دوباره محاسبه شود.
+  $reportStartJ = !empty($report['days'][0]['jdate']) ? aar_normalize_jdate($report['days'][0]['jdate']) : null;
   $reportEndJ = null;
-  if (!empty($report['days'][0]['jdate'])) {
-    $reportStartJ = aar_normalize_jdate($report['days'][0]['jdate']);
-  }
   if (!empty($report['days']) && is_array($report['days'])) {
     $lastReportDay = $report['days'][count($report['days']) - 1] ?? null;
     if (is_array($lastReportDay)) $reportEndJ = aar_normalize_jdate($lastReportDay['jdate'] ?? $lastReportDay['date'] ?? '');
   }
-
   $rawAttendanceByJdate = [];
   if ($reportStartJ && $reportEndJ) {
     $startTs = ShiftCalc::jdateToTs($reportStartJ);
-    $endTs = ShiftCalc::jdateToTs(ShiftCalc::jdateAddDays($reportEndJ, 1));
+    $endJ = ShiftCalc::jdateAddDays($reportEndJ, 1);
+    $endTs = $endJ ? ShiftCalc::jdateToTs($endJ) : null;
     if ($startTs !== null && $endTs !== null) {
       $rows = Db::all(
         "SELECT id,user_id,check_in,check_out,method,auto_closed
@@ -120,8 +108,7 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
       foreach ($rows as $ar) {
         if (empty($ar['check_in'])) continue;
         $ownerJ = aar_jdate_from_datetime($ar['check_in']);
-        if (!$ownerJ) continue;
-        $rawAttendanceByJdate[$ownerJ][] = $ar;
+        if ($ownerJ) $rawAttendanceByJdate[$ownerJ][] = $ar;
       }
     }
   }
@@ -133,20 +120,14 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
 
     $allPunches = is_array($day['punches'] ?? null) ? $day['punches'] : [];
     $ownedPunches = [];
-
-    /*
-     * فقط رکوردهای اصلی DB که check_in آنها متعلق به همین تاریخ شمسی است
-     * وارد محاسبه می‌شوند. punchهای مشتق‌شدهٔ روز بعد عمداً کنار گذاشته می‌شوند.
-     */
-    $baseAttendance = $rawAttendanceByJdate[$dayJ] ?? [];
-    foreach ($baseAttendance as $ar) {
+    // فقط رکوردهای اصلی DB که check_in آنها متعلق به همین تاریخ است.
+    foreach (($rawAttendanceByJdate[$dayJ] ?? []) as $ar) {
       $inFull = trim((string)($ar['check_in'] ?? ''));
-      $outFull = trim((string)($ar['check_out'] ?? ''));
       if ($inFull === '') continue;
       $ownedPunches[] = [
         'id' => (int)($ar['id'] ?? 0),
         'in_full' => $inFull,
-        'out_full' => $outFull,
+        'out_full' => trim((string)($ar['check_out'] ?? '')),
         'method' => $ar['method'] ?? null,
         'auto_closed' => (int)($ar['auto_closed'] ?? 0),
       ];
@@ -167,11 +148,8 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
     foreach ($ownedPunches as $p) {
       $in = !empty($p['in_full']) ? strtotime($p['in_full']) : null;
       $out = !empty($p['out_full']) ? strtotime($p['out_full']) : null;
-      if ($in && $out) {
-        [$in,$out] = ShiftCalc::normalizeSessionPair($in,$out);
-        if ($out > $in) {
-          $rawSessions[] = ['in'=>$in,'out'=>$out];
-        }
+      if ($in && $out && $out > $in) {
+        $rawSessions[] = ['in'=>$in,'out'=>$out];
       }
     }
     $sessions = aar_dedupe_sessions($rawSessions);
@@ -280,3 +258,14 @@ try {
   if (empty($u['is_admin'])) aar_error('دسترسی مدیریتی لازم است', 403);
 
   $uid = (int)($_GET['user_id'] ?? 0);
+  $from = trim((string)($_GET['from'] ?? ''));
+  $to = trim((string)($_GET['to'] ?? ''));
+  if (!$uid || !$from || !$to) aar_error('پرسنل و بازهٔ تاریخ را مشخص کنید', 400);
+
+  $report = _attendance_report($uid, $from, $to);
+  $report = aar_rebuild_overnight_report($report, $uid);
+  aar_json($report);
+} catch (Throwable $e) {
+  error_log('admin-attendance-report: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+  aar_error('خطای داخلی: ' . get_class($e) . ': ' . $e->getMessage() . ' (فایل: ' . basename($e->getFile()) . ' خط ' . $e->getLine() . ')', 500);
+}
