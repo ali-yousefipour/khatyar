@@ -28,6 +28,20 @@ $allowed = array_filter([$CONFIG['public_url'] ?: 'https://app.yousefipour.ir', 
 if ($origin && in_array($origin, $allowed, true)) header('Access-Control-Allow-Origin: ' . $origin); header('Vary: Origin'); header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With'); header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 $method = $_SERVER['REQUEST_METHOD']; $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); $path = rtrim($path, '/'); if ($path === '') $path = '/';
+/*
+ * Attendance canonical endpoints:
+ * گزارش تردد و ثبت/ویرایش/حذف تردد دستی نباید از route قدیمی
+ * _attendance_report عبور کنند؛ آن مسیر برای شیفت شب punch را در
+ * روز بعد نیز به‌صورت continuation وارد محاسبه می‌کرد.
+ */
+if ($path === '/api/admin/attendance-report' || preg_match('#^/api/admin/attendance-punch/\\d+$#', $path) || $path === '/api/admin/attendance-punch') {
+  if ($path === '/api/admin/attendance-report') {
+    require __DIR__ . '/api/admin-attendance-report.php';
+  } else {
+    require __DIR__ . '/api/admin-attendance-punch.php';
+  }
+  exit;
+}
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
   $siteV = '1.5.6'; $appV = '1.5.6';
