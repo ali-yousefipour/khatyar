@@ -1201,4 +1201,9 @@ const ss = StyleSheet.create({
 });
 
 
-export default CheckInCore;
+function CheckInScreen(){
+  const [tab,setTab]=useState('checkin');
+  return <View style={{flex:1,backgroundColor:C.paper}}><View style={s.checkTabs}>{[['checkin','ثبت حضور'],['performance','کارکرد روزانه'],['shift','شیفت کاری']].map(([k,l])=><TouchableOpacity key={k} style={[s.checkTab,tab===k&&s.checkTabOn]} onPress={()=>setTab(k)}><Text style={[s.checkTabTxt,tab===k&&s.checkTabTxtOn]}>{l}</Text></TouchableOpacity>)}</View>{tab==='checkin'?<CheckInCore/>:tab==='performance'?<CheckInPerformanceTab/>:<CheckInShiftTab/>}</View>;
+}
+
+export default CheckInScreen;
