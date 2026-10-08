@@ -3460,20 +3460,21 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
 // برنامهٔ شیفت کاری کاربر — بازهٔ آینده برای تب «شیفت کاری»
 route('GET', '/api/my/shift-schedule', function($p,$b,$u){
   [$gy,$gm,$gd]=[date('Y'),date('m'),date('d')]; [$jy,$jm,$jd]=array_slice(gregorian_to_jalali((int)$gy,(int)$gm,(int)$gd),0,3);
-  $start=preg_replace('/\//','-',trim((string)($_GET['from']??'')));
-  if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$start)) $start=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
+  $today=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
+  $start=preg_replace('/\\//','-',trim((string)($_GET['from']??'')));
+  if(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$start)) $start=$today;
   [$sy,$sm,$sd]=array_map('intval',explode('-',$start));
+  $count=max(1,min(62,(int)($_GET['days']??14)));
   $shift=_auto_shift_for_user($u['id']); if(!$shift)return ['shift'=>null,'days'=>[],'message'=>'برای شما شیفت فعالی تعریف نشده است.'];
   $days=[];$ts=mktime(12,0,0,...jalali_to_gregorian($sy,$sm,$sd));
-  for($i=0;$i<14;$i++){
+  for($i=0;$i<$count;$i++){
     $gt=getdate($ts+($i*86400)); [$y,$m,$d]=array_slice(gregorian_to_jalali($gt['year'],$gt['mon'],$gt['mday']),0,3);$j=sprintf('%04d-%02d-%02d',$y,$m,$d);
     $dr=null;if(($shift['type']??'')==='advanced')$dr=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$j]);
     $hol=Db::one("SELECT jdate,title FROM holidays WHERE jdate=? LIMIT 1",[$j]);$mins=ShiftCalc::expectedMinutes($shift,$j,$dr);
-    $days[]=['date'=>$j,'weekday'=>_jweekday_name($y,$m,$d),'shift_title'=>$shift['title']??'شیفت کاری','minutes'=>$mins,'is_off'=>(bool)($dr['is_off']??false)||($mins<=0),'is_holiday'=>(bool)$hol,'holiday_title'=>$hol['title']??''];
+    $days[]=['date'=>$j,'weekday'=>_jweekday_name($y,$m,$d),'shift_title'=>$shift['title']??'شیفت کاری','minutes'=>$mins,'is_off'=>(bool)($dr['is_off']??false)||($mins<=0),'is_holiday'=>(bool)$hol,'holiday_title'=>$hol['title']??'','is_today'=>$j===$today];
   }
-  return ['shift'=>['id'=>(int)$shift['id'],'title'=>$shift['title']??'شیفت کاری','type'=>$shift['type']??''],'days'=>$days];
+  return ['shift'=>['id'=>(int)$shift['id'],'title'=>$shift['title']??'شیفت کاری','type'=>$shift['type']??''],'days'=>$days,'from'=>$start,'days_count'=>$count,'today'=>$today];
 });
-
 // خلاصهٔ کارکرد ماهانهٔ خودِ کاربر (برای اپ)
 route('GET', '/api/my/work-summary', function($p,$b,$u){
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
