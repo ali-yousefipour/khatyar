@@ -3670,7 +3670,9 @@ route('GET', '/api/admin/users/{id}/leave-balance', fn($p,$b,$u) => _req_balance
 
 // ثبت درخواست توسط مدیر/اپراتور برای پرسنل انتخاب‌شده
 route('POST', '/api/admin/requests', function($p,$b,$u){
-  $uid=(int)($b['user_id']??0);
+  // حالت مودال جزئیات حضور: درخواست برای خود کاربر نشست ثبت و همان لحظه تأیید می‌شود.
+  $directApprove = !empty($b['direct_approve']);
+  $uid = $directApprove ? (int)$u['id'] : (int)($b['user_id']??0);
   if(!$uid || !Db::one("SELECT id FROM users WHERE id=? AND is_active=1",[$uid])) Http::error('پرسنل انتخاب‌شده معتبر نیست',422);
   $type=(string)($b['type']??'');
   if(!in_array($type,['annual','sick','mission','overtime'],true)) Http::error('نوع درخواست نامعتبر است',400);
@@ -3679,7 +3681,7 @@ route('POST', '/api/admin/requests', function($p,$b,$u){
   $to=trim((string)($b['to_jdate']??$from));
   $the=trim((string)($b['the_date']??$from));
   if(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$from)) Http::error('تاریخ درخواست نامعتبر است',422);
-  if(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$to)) Http::error('تاریخ پایان نامعتبر است',422);
+  if(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$to)) Http::error('تاریخ پایان درخواست نامعتبر است',422);
   if($unit==='hourly'){
     $ft=trim((string)($b['from_time']??'')); $tt=trim((string)($b['to_time']??''));
     if(!preg_match('/^([01]\\d|2[0-3]):[0-5]\\d$/',$ft)||!preg_match('/^([01]\\d|2[0-3]):[0-5]\\d$/',$tt)) Http::error('ساعت شروع و پایان نامعتبر است',422);
@@ -3691,8 +3693,14 @@ route('POST', '/api/admin/requests', function($p,$b,$u){
     if($df===false||$dt===false||$dt<$df) Http::error('بازه تاریخ نامعتبر است',422);
     $minutes=max(1,(int)(($dt-$df)/86400)+1)*480;
   }
-  $approver=_req_approver($uid);
   $reason=trim((string)($b['reason']??''))?:null;
+  if($directApprove){
+    $id=Db::insert("INSERT INTO requests(user_id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes,reason,status,approver_id,approver_note,decided_at,pending_on)
+      VALUES(?,?,?,?,?,?,?,?,?,?, 'approved', ?, ?, NOW(), NULL)",
+      [$uid,$type,$unit,$from,$to,$the,$ft,$tt,$minutes,$reason,$u['id'],'تأیید فوری توسط ثبت‌کننده']);
+    return ['id'=>$id,'status'=>'approved','minutes'=>$minutes,'requester_id'=>(int)$u['id'],'approver_id'=>(int)$u['id']];
+  }
+  $approver=_req_approver($uid);
   $id=Db::insert("INSERT INTO requests(user_id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes,reason,pending_on)
     VALUES(?,?,?,?,?,?,?,?,?,?,?)",[$uid,$type,$unit,$from,$to,$the,$ft,$tt,$minutes,$reason,$approver]);
   if($approver) Push::send([$approver],'درخواست جدید برای تأیید',['annual'=>'مرخصی استحقاقی','sick'=>'مرخصی استعلاجی','mission'=>'ماموریت','overtime'=>'اضافه‌کار'][$type]??'درخواست',['type'=>'request','request_id'=>$id]);
