@@ -477,17 +477,21 @@ function _otp_tables() {
 // درخواست ارسال کد یک‌بارمصرف به موبایل ثبت‌شدهٔ کاربر
 route('POST', '/api/session/otp-request', function($p, $b) {
   _otp_tables();
-  $mobile = preg_replace('/\D/', '', trim($b['mobile'] ?? ''));
-  if (strlen($mobile) < 10) Http::error('شمارهٔ موبایل نامعتبر است', 400);
+  $username = trim((string)($b['username'] ?? ''));
+  if ($username === '') Http::error('نام کاربری را وارد کنید', 400);
+  // شماره همراه فقط از اطلاعات کاربر خوانده می‌شود و هرگز از سمت مرورگر دریافت نمی‌شود.
+  $u = Db::one("SELECT id,is_active,phone FROM users WHERE username=? LIMIT 1", [$username]);
+  if (!$u || !$u['is_active']) return ['ok' => true];
+  $mobile = preg_replace('/\D/', '', trim((string)($u['phone'] ?? '')));
+  if (strlen($mobile) < 10) Http::error('برای این کاربر شماره همراه معتبر ثبت نشده است.', 400);
   if (strpos($mobile, '0') !== 0) $mobile = '0' . ltrim($mobile, '0');
-  $u = Db::one("SELECT id,is_active FROM users WHERE phone=? OR phone=?", [$mobile, ltrim($mobile, '0')]);
   // برای جلوگیری از افشای اینکه یک شماره در سامانه ثبت است یا نه، پاسخ همیشه یکسان است
   if (!$u || !$u['is_active']) return ['ok' => true];
   // حداکثر یک درخواست کد در هر ۶۰ ثانیه برای هر شماره (جلوگیری از سوءاستفاده/هزینهٔ پیامک)
-  $recent = Db::one("SELECT id FROM login_otp WHERE mobile=? AND created_at > DATE_SUB(NOW(), INTERVAL 60 SECOND)", [$mobile]);
+  $recent = Db::one("SELECT id FROM login_otp WHERE user_id=? AND created_at > DATE_SUB(NOW(), INTERVAL 60 SECOND)", [$u['id']]);
   if ($recent) Http::error('لطفاً ۶۰ ثانیه صبر کنید و دوباره تلاش کنید.', 429);
   // حداکثر ۵ درخواست کد در یک ساعت برای هر شماره
-  $hourly = (int)(Db::one("SELECT COUNT(*) n FROM login_otp WHERE mobile=? AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)", [$mobile])['n'] ?? 0);
+  $hourly = (int)(Db::one("SELECT COUNT(*) n FROM login_otp WHERE user_id=? AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)", [$u['id']])['n'] ?? 0);
   if ($hourly >= 5) Http::error('تعداد درخواست‌های کد در این ساعت بیش از حد مجاز است.', 429);
   $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
   Db::run("INSERT INTO login_otp(user_id,mobile,code_hash,expires_at) VALUES(?,?,?,DATE_ADD(NOW(), INTERVAL 3 MINUTE))",
@@ -504,13 +508,14 @@ route('POST', '/api/session/otp-request', function($p, $b) {
 // تأیید کد یک‌بارمصرف و صدور توکن ورود (دقیقاً مثل ورود عادی)
 route('POST', '/api/session/otp-verify', function($p, $b) {
   _otp_tables();
-  $mobile = preg_replace('/\D/', '', trim($b['mobile'] ?? ''));
-  if (strpos($mobile, '0') !== 0) $mobile = '0' . ltrim($mobile, '0');
-  $code = trim($b['code'] ?? '');
+  $username = trim((string)($b['username'] ?? ''));
+  $code = trim((string)($b['code'] ?? ''));
   $dev = $b['device_id'] ?? ''; if (strlen($dev) < 6) Http::error('ورودی نامعتبر', 400);
   $dtype = (($b['device_type'] ?? 'web') === 'android') ? 'android' : 'web';
-  if (!preg_match('/^\d{6}$/', $code)) Http::error('کد وارد‌شده نامعتبر است', 400);
-  $row = Db::one("SELECT * FROM login_otp WHERE mobile=? AND consumed_at IS NULL ORDER BY id DESC LIMIT 1", [$mobile]);
+  if ($username === '') Http::error('نام کاربری را وارد کنید', 400);
+  $uRef = Db::one("SELECT id,is_active FROM users WHERE username=? LIMIT 1", [$username]);
+  if (!$uRef || !$uRef['is_active']) Http::error('کد واردشده صحیح یا منقضی شده است.', 401);
+  $row = Db::one("SELECT * FROM login_otp WHERE user_id=? AND consumed_at IS NULL ORDER BY id DESC LIMIT 1", [$uRef['id']]);
   if (!$row) Http::error('کدی برای این شماره یافت نشد. دوباره درخواست بدهید.', 400);
   if (strtotime($row['expires_at']) < time()) Http::error('کد منقضی شده است. دوباره درخواست بدهید.', 400);
   if ((int)$row['attempts'] >= 5) Http::error('تعداد تلاش‌های مجاز تمام شده است. دوباره درخواست بدهید.', 429);
