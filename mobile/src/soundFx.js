@@ -16,6 +16,7 @@ const SOUND_FILES = {
   messageNew: require('../assets/sounds/message_new.mp3'),
   reportReceived: require('../assets/sounds/report_received.mp3'),
   reportSentSuccess: require('../assets/sounds/report_sent_success.mp3'),
+  gpsOff: require('../assets/gpsoff.mp3'),
   officialPresenceRegistered: require('../assets/sounds/official_presence_registered.mp3'),
 };
 
