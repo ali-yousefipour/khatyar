@@ -38,8 +38,28 @@ class IranCalendar {
         }
         $c=['year'=>$y,'source'=>'official-reference','synced_at'=>date('c'),'events'=>array_values($ref)];$f=self::file($y);if($force||!is_file($f))@file_put_contents($f,json_encode($c,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);self::$cache[$y]=$c;return true;}$f=self::file($y);$c=is_file($f)?json_decode((string)@file_get_contents($f),true):null;if(!$force&&is_array($c)&&isset($c['synced_at'])&&time()-strtotime($c['synced_at'])<86400){self::$cache[$y]=$c;return true;}$ep=self::env('KHATYAR_CALENDAR_ENDPOINT',self::ENDPOINT);$sep=strpos($ep,'?')===false?'?':'&';$all=[];for($m=0;$m<=12;$m++){$j=self::json($ep.$sep.'year='.$y.($m?'&month='.$m:''));if($j)self::walk($j,$y,$all);}if(!$all&&!empty($c['events'])){$c['source']=$c['source']??'official-cache';self::$cache[$y]=$c;return true;}if(!$all)return false;$c=['year'=>$y,'source'=>'official-service','synced_at'=>date('c'),'events'=>array_values($all)];@file_put_contents($f,json_encode($c,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);self::$cache[$y]=$c;return true;}
     public static function events($y,$force=false){$y=(int)$y;if(!$force&&isset(self::$cache[$y]['days']))return self::$cache[$y]['days'];self::syncYear($y,$force);$c=self::$cache[$y]??null;$days=[];for($m=1;$m<=12;$m++)for($d=1;$d<=self::monthLength($y,$m);$d++){$j=sprintf('%04d-%02d-%02d',$y,$m,$d);$days[$j]=['jdate'=>$j,'weekday_index'=>self::weekdayIndex($j),'weekday'=>self::weekday($j),'is_holiday'=>false,'title'=>null,'source'=>'calculated'];}foreach(($c['events']??[])as$e){$j=self::normalize($e['jdate']??'');if(!$j||!isset($days[$j]))continue;if(!empty($e['is_holiday']))$days[$j]['is_holiday']=true;$days[$j]['title']=$days[$j]['title']?($days[$j]['title'].' | '.$e['title']):$e['title'];$days[$j]['source']=$e['source']??'official';}self::$cache[$y]['days']=$days;return$days;}
-    private static function loadManualYear($y){$y=(int)$y;if(isset(self::$manualLoaded[$y])||!class_exists('Db'))return;self::$manualLoaded[$y]=true;try{$rows=Db::all('SELECT jdate,title FROM holidays WHERE jdate LIKE ? OR jdate LIKE ?',[$y.'-%',$y.'/%%']);foreach($rows as$r){$j=self::normalize($r['jdate']??'');if($j)self::$manualCache[$j]=trim((string)($r['title']??''));}}catch(Throwable$e){}}
-    public static function manualTitle($j){$j=self::normalize($j);if(!$j||!class_exists('Db'))return null;if(array_key_exists($j,self::$manualCache))return self::$manualCache[$j];self::loadManualYear((int)substr($j,0,4));return array_key_exists($j,self::$manualCache)?self::$manualCache[$j]:null;}
+    private static function loadManualYear($y){
+        $y=(int)$y;
+        if(isset(self::$manualLoaded[$y])||!class_exists('Db'))return;
+        self::$manualLoaded[$y]=true;
+        try{
+            $cols=[];foreach(Db::all('SHOW COLUMNS FROM holidays') as $cr)$cols[strtolower((string)$cr['Field'])]=true;
+            $where=['(jdate LIKE ? OR jdate LIKE ?)'];
+            $args=[$y.'-%',$y.'/%%'];
+            // فقط تعطیلات دستی باید از جدول holidays وارد محاسبه شوند.
+            // رکوردهای رسمی قدیمی/منقضی نباید دوباره به‌عنوان manual holiday
+            // باعث تعطیلی شوند؛ حتی اگر هنوز در جدول باقی مانده باشند.
+            if(isset($cols['source']))$where[]="COALESCE(source,'') NOT IN ('official','official-reference','official-service')";
+            if(isset($cols['is_official']))$where[]='COALESCE(is_official,0)=0';
+            if(isset($cols['official']))$where[]='COALESCE(official,0)=0';
+            $rows=Db::all('SELECT jdate,title FROM holidays WHERE '.implode(' AND ',$where),$args);
+            foreach($rows as$r){
+                $j=self::normalize($r['jdate']??'');
+                if($j)self::$manualCache[$j]=trim((string)($r['title']??''));
+            }
+        }catch(\Throwable$e){}
+    }
+public static function manualTitle($j){$j=self::normalize($j);if(!$j||!class_exists('Db'))return null;if(array_key_exists($j,self::$manualCache))return self::$manualCache[$j];self::loadManualYear((int)substr($j,0,4));return array_key_exists($j,self::$manualCache)?self::$manualCache[$j]:null;}
     public static function isManualHoliday($j){return self::manualTitle($j)!==null;}
     public static function holidays($y){$o=[];foreach(self::events($y)as$j=>$e){$m=self::manualTitle($j);if(!empty($e['is_holiday'])||$m!==null)$o[$j]=implode(' | ',array_unique(array_filter([$e['title']??null,$m])))?:'تعطیل';}ksort($o);return$o;}
     public static function isOfficialHoliday($j){return!empty(self::day($j)['is_official_holiday']);}
