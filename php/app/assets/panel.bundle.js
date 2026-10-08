@@ -155,7 +155,7 @@ const db = {
     // نکته: بدنهٔ ورود به‌جای JSON با فرم urlencoded ارسال می‌شود، چون WAF هاست درخواست‌های
     // POST با Content-Type: application/json را (به‌خصوص برای فیلدهای شبیه به فرم ورود) مسدود
     // می‌کند؛ با تست مستقیم روی سرور واقعی تأیید شد که فرم urlencoded بدون مشکل عبور می‌کند.
-    webLoginConfig: async () => GET('/session/web-login-config', { ttl: 0 }),
+    webLoginConfig: async () => ({ method: 'sms_otp' }),
     loginPassword: async (username, password) => {
         const u = String(username || '').trim(), p = String(password || '');
         if (!u)
@@ -182,7 +182,7 @@ const db = {
         const u = String(username || '').trim();
         if (!u)
             throw new Error('نام کاربری را وارد کنید');
-        const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/web-login-request', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ username: u }), cache: 'no-store' });
+        const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/otp-request', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ username: u }), cache: 'no-store' });
         const d = await _readJsonResponse(r);
         if (!r.ok)
             throw new Error(d.error || d.message || ('ارسال کد ناموفق بود (HTTP ' + r.status + ')'));
@@ -200,7 +200,7 @@ const db = {
             deviceId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('web-' + Date.now() + '-' + Math.random().toString(36).slice(2));
             localStorage.setItem('kh_web_device_id', deviceId);
         }
-        const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/web-login-verify', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ username: u, code: latin, device_id: deviceId }), cache: 'no-store' });
+        const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/otp-verify', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ username: u, code: latin, device_id: deviceId }), cache: 'no-store' });
         const d = await _readJsonResponse(r);
         if (!r.ok)
             throw new Error(d.error || d.message || ('تأیید کد ناموفق بود (HTTP ' + r.status + ')'));
