@@ -68,6 +68,28 @@ function attendance_report_owned_by_entry_date($userId, $from, $to) {
     }
 
     $hm = static fn($m) => sprintf('%02d:%02d',intdiv(max(0,(int)$m),60),max(0,(int)$m)%60);
+    // مرخصی تأییدشده باید همان‌طور که در گزارش اصلی محاسبه می‌شود،
+    // موظفی را تا سقف مقدار مرخصی پوشش دهد و برای بخش پوشش‌داده‌شده
+    // نه کسری کار و نه غیبت تولید شود.
+    $annualLeave = max(0, (int)($day['annual_leave_minutes'] ?? 0));
+    $sickLeave = max(0, (int)($day['sick_leave_minutes'] ?? 0));
+    $unpaidLeave = max(0, (int)($day['unpaid_leave_minutes'] ?? 0));
+    $missionLeave = max(0, (int)($day['mission_minutes'] ?? 0));
+    $annualText = trim((string)($day['annual_leave'] ?? '00:00'));
+    $sickText = trim((string)($day['sick_leave'] ?? '00:00'));
+    $unpaidText = trim((string)($day['unpaid_leave'] ?? '00:00'));
+    $missionText = trim((string)($day['mission'] ?? '00:00'));
+    $toMinutes = static function($v){
+      if (preg_match('/^(\d+):(\d{2})$/', (string)$v, $m)) return ((int)$m[1])*60+(int)$m[2];
+      return 0;
+    };
+    $annualLeave = $annualLeave ?: $toMinutes($annualText);
+    $sickLeave = $sickLeave ?: $toMinutes($sickText);
+    $unpaidLeave = $unpaidLeave ?: $toMinutes($unpaidText);
+    $missionLeave = $missionLeave ?: $toMinutes($missionText);
+    $approvedExempt = min((int)($w['expected'] ?? 0), $annualLeave + $sickLeave + $unpaidLeave + $missionLeave);
+    $w['shortage'] = max(0, (int)($w['shortage'] ?? 0) - $approvedExempt);
+
     $day['punches'] = $punches;
     $day['in_shift'] = $hm($w['in_shift'] ?? 0);
     $day['worked'] = $hm($w['worked'] ?? 0);
@@ -81,7 +103,7 @@ function attendance_report_owned_by_entry_date($userId, $from, $to) {
     $day['adjusted_ot'] = $hm($w['adjusted_ot'] ?? 0);
     $day['friday_work'] = $hm($w['friday_work'] ?? $w['friday'] ?? 0);
     $day['holiday_work'] = $hm($w['holiday_work'] ?? $w['holiday'] ?? 0);
-    $day['absent'] = (!$punches && !$isHol) ? 1 : 0;
+    $day['absent'] = (!$punches && !$isHol && !ShiftCalc::isFriday($j) && (int)($w['expected'] ?? 0) > 0 && $approvedExempt <= 0) ? 1 : 0;
   }
   unset($day);
   return $report;
