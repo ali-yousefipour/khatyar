@@ -41,4 +41,4 @@ function boot(){cleanSettings();cleanExcel();var n=0,t=setInterval(function(){cl
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
 
-/* DEPLOY-SYNC: 20261007-v269 */
+/* DEPLOY-SYNC: 20261008-attendance-absence-v270 */
