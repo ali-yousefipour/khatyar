@@ -155,21 +155,21 @@ const db = {
     // نکته: بدنهٔ ورود به‌جای JSON با فرم urlencoded ارسال می‌شود، چون WAF هاست درخواست‌های
     // POST با Content-Type: application/json را (به‌خصوص برای فیلدهای شبیه به فرم ورود) مسدود
     // می‌کند؛ با تست مستقیم روی سرور واقعی تأیید شد که فرم urlencoded بدون مشکل عبور می‌کند.
-    loginOtpRequest: async (mobile) => {
-        const m = String(mobile || '').trim();
-        if (!m)
-            throw new Error('شماره همراه را وارد کنید');
-        const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/otp-request', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ mobile: m }), cache: 'no-store' });
+    loginOtpRequest: async (username) => {
+        const u = String(username || '').trim();
+        if (!u)
+            throw new Error('نام کاربری را وارد کنید');
+        const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/otp-request', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ username: u }), cache: 'no-store' });
         const d = await _readJsonResponse(r);
         if (!r.ok)
             throw new Error(d.error || d.message || ('ارسال کد ناموفق بود (HTTP ' + r.status + ')'));
         return d;
     },
-    loginOtpVerify: async (mobile, code) => {
-        const m = String(mobile || '').trim(), c = String(code || '').trim();
+    loginOtpVerify: async (username, code) => {
+        const u = String(username || '').trim(), c = String(code || '').trim();
         const latin = c.replace(/[۰-۹]/g, d => '0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(d)]);
-        if (!m)
-            throw new Error('شماره همراه را وارد کنید');
+        if (!u)
+            throw new Error('نام کاربری را وارد کنید');
         if (!/^\d{6}$/.test(latin))
             throw new Error('کد شش رقمی را وارد کنید');
         let deviceId = localStorage.getItem('kh_web_device_id');
@@ -177,7 +177,7 @@ const db = {
             deviceId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('web-' + Date.now() + '-' + Math.random().toString(36).slice(2));
             localStorage.setItem('kh_web_device_id', deviceId);
         }
-        const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/otp-verify', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ mobile: m, code: latin, device_id: deviceId, device_type: 'web' }), cache: 'no-store' });
+        const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/otp-verify', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ username: u, code: latin, device_id: deviceId, device_type: 'web' }), cache: 'no-store' });
         const d = await _readJsonResponse(r);
         if (!r.ok)
             throw new Error(d.error || d.message || ('تأیید کد ناموفق بود (HTTP ' + r.status + ')'));
@@ -14792,7 +14792,7 @@ const VIEWS = {
     complaints: { t: "شکایات تاکسیرانان", ic: "chat-message", c: ComplaintsLauncher },
 };
 function Login({ onLogin, brand }) {
-    const [mobile, setMobile] = useState("");
+    const [username, setUsername] = useState("");
     const [code, setCode] = useState("");
     const [err, setErr] = useState("");
     const [mode, setMode] = useState("request");
@@ -14808,11 +14808,11 @@ function Login({ onLogin, brand }) {
         setErr("");
         setInfo("");
         try {
-            await db.loginOtpRequest(mobile);
+            await db.loginOtpRequest(username);
             setMode("verify");
             setCode("");
             setCooldown(60);
-            setInfo("کد یک‌بارمصرف به شماره همراه ثبت‌شده ارسال شد.");
+            setInfo("کد یک‌بارمصرف به شماره همراه ثبت‌شده حساب کاربری ارسال شد.");
         }
         catch (e) {
             setErr(e && e.message ? e.message : "ارسال کد ناموفق بود");
@@ -14828,7 +14828,7 @@ function Login({ onLogin, brand }) {
         setErr("");
         setInfo("");
         try {
-            const d = await db.loginOtpVerify(mobile, code);
+            const d = await db.loginOtpVerify(username, code);
             onLogin(d.user);
         }
         catch (e) {
@@ -14846,8 +14846,8 @@ function Login({ onLogin, brand }) {
                     "\u0648\u0631\u0648\u062F \u0628\u0647 ",
                     (brand === null || brand === void 0 ? void 0 : brand.title) || "خطیار")),
             mode === "request" && React.createElement(React.Fragment, null,
-                React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", lineHeight: 1.9, marginBottom: 10 } }, "\u0628\u0631\u0627\u06CC \u0648\u0631\u0648\u062F\u060C \u0634\u0645\u0627\u0631\u0647 \u0647\u0645\u0631\u0627\u0647 \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u062F\u0631 \u062D\u0633\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F. \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u062F\u06CC\u06AF\u0631 \u0628\u0631\u0627\u06CC \u0648\u0631\u0648\u062F \u0628\u0647 \u0633\u0627\u06CC\u062A \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
-                React.createElement("input", { className: "input", inputMode: "tel", autoComplete: "tel", dir: "ltr", placeholder: "\u0634\u0645\u0627\u0631\u0647 \u0647\u0645\u0631\u0627\u0647 (\u0645\u062B\u0644\u0627\u064B \u06F0\u06F9\u06F1\u06F2\u06F1\u06F2\u06F3\u06F4\u06F5\u06F6\u06F7)", value: mobile, onChange: e => setMobile(e.target.value), onKeyDown: e => e.key === 'Enter' && requestCode() }),
+                React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", lineHeight: 1.9, marginBottom: 10 } }, "\u0628\u0631\u0627\u06CC \u0648\u0631\u0648\u062F\u060C \u0634\u0645\u0627\u0631\u0647 \u0647\u0645\u0631\u0627\u0647 \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u062D\u0633\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631\u06CC \u062F\u0631 \u062D\u0633\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F. \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u062F\u06CC\u06AF\u0631 \u0628\u0631\u0627\u06CC \u0648\u0631\u0648\u062F \u0628\u0647 \u0633\u0627\u06CC\u062A \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
+                React.createElement("input", { className: "input", autoComplete: "username", dir: "ltr", placeholder: "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC", value: username, onChange: e => setUsername(e.target.value), onKeyDown: e => e.key === 'Enter' && requestCode() }),
                 React.createElement("button", { className: "btn p", style: { width: "100%", marginTop: 14 }, onClick: requestCode, disabled: busy || cooldown > 0 }, busy ? 'در حال ارسال…' : cooldown > 0 ? 'ارسال مجدد (' + cooldown + ')' : 'دریافت کد ورود')),
             mode === "verify" && React.createElement(React.Fragment, null,
                 React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", lineHeight: 1.9, marginBottom: 10 } },
@@ -14858,7 +14858,7 @@ function Login({ onLogin, brand }) {
                 React.createElement("button", { className: "btn p", style: { width: "100%", marginTop: 14 }, onClick: verify, disabled: busy || code.length !== 6 }, busy ? 'در حال بررسی…' : 'تأیید و ورود'),
                 React.createElement("div", { className: "row", style: { justifyContent: "space-between", marginTop: 10 } },
                     React.createElement("a", { style: { fontSize: 12, color: "var(--brand)", cursor: cooldown > 0 ? "default" : "pointer", opacity: cooldown > 0 ? .5 : 1 }, onClick: requestCode }, "\u0627\u0631\u0633\u0627\u0644 \u0645\u062C\u062F\u062F"),
-                    React.createElement("a", { style: { fontSize: 12, color: "var(--muted)", cursor: "pointer" }, onClick: () => { setMode("request"); setCode(""); setErr(""); setInfo(""); } }, "\u062A\u063A\u06CC\u06CC\u0631 \u0634\u0645\u0627\u0631\u0647"))),
+                    React.createElement("a", { style: { fontSize: 12, color: "var(--muted)", cursor: "pointer" }, onClick: () => { setMode("request"); setCode(""); setErr(""); setInfo(""); } }, "\u062A\u063A\u06CC\u06CC\u0631 \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC"))),
             info && React.createElement("p", { style: { color: "var(--ok)", fontSize: 12, marginTop: 8 } }, info),
             err && React.createElement("p", { style: { color: "var(--danger)", fontSize: 12, marginTop: 8 } }, err))));
 }
