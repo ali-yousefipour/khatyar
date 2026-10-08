@@ -5971,6 +5971,7 @@ function AttendanceReport(){
   const [requestModal,setRequestModal]=useState(null);
   const [addModal,setAddModal]=useState(null);
   const [dayRequests,setDayRequests]=useState([]);
+  const [conversionModal,setConversionModal]=useState(null);
 
   useEffect(()=>{ db.users().then(us=>setUsers(us||[])).catch(()=>{}); },[]);
   const visibleUsers=users
@@ -6106,7 +6107,9 @@ function AttendanceReport(){
               const fontWeight=(i<2&&red)?700:400;
               const textAlign=["ورود","خروج","اولین ورود","آخرین خروج"].includes(title)?"center":"right";
               return <td key={title} style={{whiteSpace:"nowrap",color:red?"var(--danger)":"inherit",fontWeight:fontWeight,textAlign:textAlign}}>
-                {attendanceCell(getter(d))}{title==="تاریخ"&&red&&<span style={{display:"block",fontSize:10}}>تعطیل</span>}
+                {(title==="مازاد حضور"&&mins(d.surplus)>0)||(title==="کسری کار"&&mins(d.shortage)>0)
+                  ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,cursor:"pointer",fontWeight:800}} title={title==="مازاد حضور"?"تبدیل مازاد حضور به اضافه‌کار":"تبدیل کسری کار به مرخصی استحقاقی ساعتی"} onClick={()=>setConversionModal({mode:title==="مازاد حضور"?"surplus":"shortage",jdate:d.jdate,minutes:mins(title==="مازاد حضور"?d.surplus:d.shortage),day:d})}>{attendanceCell(getter(d))}</button>
+                  : attendanceCell(getter(d))}{title==="تاریخ"&&red&&<span style={{display:"block",fontSize:10}}>تعطیل</span>}
                 {title==="تاریخ"&&<button type="button" className="btn g" style={{padding:"3px 6px",fontSize:10,marginInlineStart:5}} onClick={()=>setOpenDay(openDay===d.jdate?null:d.jdate)}>جزئیات</button>}
               </td>;
             })}
@@ -6115,6 +6118,7 @@ function AttendanceReport(){
       </table>
     </div>}
     {data&&<div style={{marginTop:8,fontSize:11,color:"var(--muted)"}}>۲۹ ستون گزارش فعال است؛ ساعت ورود و خروج از داده واقعی تردد خوانده می‌شود.</div>}
+    {conversionModal&&<AttendanceConversionModal userId={uid} mode={conversionModal.mode} jdate={conversionModal.jdate} minutes={conversionModal.minutes} day={conversionModal.day} onSaved={async()=>{setConversionModal(null);await refresh();}} onClose={()=>setConversionModal(null)}/>}
     {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.48)",display:"flex",alignItems:"center",justifyContent:"center",padding:"clamp(10px,2vw,24px)"}}>
       <div className="card-p" style={{width:"min(1080px,96vw)",maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",padding:0}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"14px 18px",borderBottom:"1px solid var(--line)",flexShrink:0}}>
