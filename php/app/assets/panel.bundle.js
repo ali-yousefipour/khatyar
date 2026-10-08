@@ -332,6 +332,8 @@ const db = {
     plateTrainingSamples: (qs) => GET('/admin/plate-training/samples' + (qs || '')),
     plateTrainingReview: (id, body) => SEND('POST', '/admin/plate-training/samples/' + id + '/review', body),
     adminRequests: (qs) => GET('/admin/requests' + (qs || "")),
+    adminRequestDecision: (id, body) => SEND('POST', '/admin/requests/' + id + '/decision', body),
+    adminRequestDelete: (id) => SEND('DELETE', '/admin/requests/' + id, {}),
     userLeaveBalance: (id) => GET('/admin/users/' + id + '/leave-balance'),
     leaveBalanceInitList: () => GET('/admin/leave-balance-init'),
     leaveBalanceInitSave: (items) => SEND('POST', '/admin/leave-balance-init', { items }),
@@ -10768,6 +10770,47 @@ function AdminRequests() {
     const [fUser, setFUser] = useState("");
     const [fType, setFType] = useState("");
     const [fStatus, setFStatus] = useState("");
+    const [busyId, setBusyId] = useState(null);
+    const act = async (id, status) => {
+        const row = rows.find(x => +x.id === +id);
+        if (!row)
+            return;
+        const title = status === "approved" ? "تأیید" : "رد";
+        let note = "";
+        if (status === "rejected")
+            note = prompt("علت رد درخواست (اختیاری):", "") || "";
+        if (!confirm("درخواست «" + (TY[row.type] || row.type) + "» برای «" + row.requester + "» " + title + " شود؟"))
+            return;
+        setBusyId(id);
+        try {
+            await db.adminRequestDecision(id, { status, note });
+            await load();
+        }
+        catch (e) {
+            alert(e.message || "عملیات درخواست انجام نشد");
+        }
+        finally {
+            setBusyId(null);
+        }
+    };
+    const del = async (id) => {
+        const row = rows.find(x => +x.id === +id);
+        if (!row)
+            return;
+        if (!confirm("درخواست «" + (TY[row.type] || row.type) + "» برای «" + row.requester + "» حذف شود؟ این عملیات قابل بازگشت نیست."))
+            return;
+        setBusyId(id);
+        try {
+            await db.adminRequestDelete(id);
+            await load();
+        }
+        catch (e) {
+            alert(e.message || "حذف درخواست انجام نشد");
+        }
+        finally {
+            setBusyId(null);
+        }
+    };
     const TY = { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", mission: "ماموریت", overtime: "اضافه‌کار", manual: "تردد دستی" };
     const ST = { pending: ["در انتظار", "b-pending"], approved: ["تأییدشده", "b-ok"], rejected: ["ردشده", "b-no"] };
     useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(() => { }); load(); }, []);
@@ -10822,7 +10865,8 @@ function AdminRequests() {
                             React.createElement("th", null, "\u0645\u062F\u062A"),
                             React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
                             React.createElement("th", null, "\u062A\u0623\u06CC\u06CC\u062F\u06A9\u0646\u0646\u062F\u0647"),
-                            React.createElement("th", null, "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A"))),
+                            React.createElement("th", null, "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A"),
+                            React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
                     React.createElement("tbody", null, rows.map(r => {
                         const st = ST[r.status] || ["—", "b-pending"];
                         return (React.createElement("tr", { key: r.id },
@@ -10840,7 +10884,12 @@ function AdminRequests() {
                             React.createElement("td", { style: { maxWidth: 200, fontSize: 11, color: "var(--muted)" } },
                                 r.reason || "",
                                 r.approver_note ? ` | پاسخ: ${r.approver_note}` : "",
-                                r.attachment_name ? " 📎" : "")));
+                                r.attachment_name ? " 📎" : ""),
+                            React.createElement("td", { style: { whiteSpace: "nowrap" } },
+                                r.status === "pending" && React.createElement(React.Fragment, null,
+                                    React.createElement("button", { className: "btn p", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: +busyId === +r.id, onClick: () => act(r.id, "approved") }, "\u062A\u0623\u06CC\u06CC\u062F"),
+                                    React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: +busyId === +r.id, onClick: () => act(r.id, "rejected") }, "\u0631\u062F")),
+                                React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px" }, disabled: +busyId === +r.id, onClick: () => del(r.id) }, "\u062D\u0630\u0641"))));
                     }))))));
 }
 // گزارش ثبت حضور نیروها (چک‌این/چک‌اوت)
