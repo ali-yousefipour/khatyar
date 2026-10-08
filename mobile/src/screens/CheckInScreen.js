@@ -490,6 +490,11 @@ function CheckInCore() {
       } catch (e) {
         if (String(e?.message || '').includes('جلسهٔ ورودِ باز') || String(e?.message || '').includes('خروج قبلی هنوز')) throw e;
       }
+      if (appCfg?.gps_work_required) {
+        let gpsEnabled = true;
+        try { gpsEnabled = await Location.hasServicesEnabledAsync(); } catch {}
+        if (!gpsEnabled) throw new Error('برای ثبت حضور، GPS باید روشن باشد.');
+      }
       const current = await getPositionForAttendance();
       if (!current?.lat || !current?.lng) throw new Error('موقعیت دستگاه در دسترس نیست؛ برای ثبت حضور GPS را روشن کنید.');
       const localLine = getLocalAuthorizedLine(current.lat, current.lng);
