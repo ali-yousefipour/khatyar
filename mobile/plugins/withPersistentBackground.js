@@ -52,13 +52,13 @@ module.exports = function withPersistentBackground(config) {
   });
   config = withMainApplication(config, c => {
     const lang = c.modResults.language;
-    const call = '    KhatyarLocationWorker.schedule(applicationContext)\n';
+    const call = '    ir.mashhad.taxicontrol.background.KhatyarLocationWorker.schedule(applicationContext)\n';
     if (lang === 'kt') {
       if (!c.modResults.contents.includes('KhatyarLocationWorker.schedule(applicationContext)')) {
         c.modResults.contents = c.modResults.contents.replace(/override fun onCreate\(\)\s*\{/, m => m+'\n'+call);
       }
     } else {
-      if (!c.modResults.contents.includes('KhatyarLocationWorker.schedule(getApplicationContext())')) {
+      if (!c.modResults.contents.includes('ir.mashhad.taxicontrol.background.KhatyarLocationWorker.schedule(getApplicationContext())')) {
         c.modResults.contents = c.modResults.contents.replace(/public void onCreate\(\)\s*\{/, m => m+'\n    KhatyarLocationWorker.schedule(getApplicationContext());\n');
       }
     }
