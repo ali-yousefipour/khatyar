@@ -9832,6 +9832,7 @@ function AttendanceReport() {
     const [requestModal, setRequestModal] = useState(null);
     const [addModal, setAddModal] = useState(null);
     const [dayRequests, setDayRequests] = useState([]);
+    const [conversionModal, setConversionModal] = useState(null);
     useEffect(() => { db.users().then(us => setUsers(us || [])).catch(() => { }); }, []);
     const visibleUsers = users
         .filter(u => {
@@ -10068,12 +10069,15 @@ function AttendanceReport() {
                         const fontWeight = (i < 2 && red) ? 700 : 400;
                         const textAlign = ["ورود", "خروج", "اولین ورود", "آخرین خروج"].includes(title) ? "center" : "right";
                         return React.createElement("td", { key: title, style: { whiteSpace: "nowrap", color: red ? "var(--danger)" : "inherit", fontWeight: fontWeight, textAlign: textAlign } },
-                            attendanceCell(getter(d)),
+                            (title === "مازاد حضور" && mins(d.surplus) > 0) || (title === "کسری کار" && mins(d.shortage) > 0)
+                                ? React.createElement("button", { type: "button", className: "btn g", style: { padding: "2px 6px", fontSize: 11, cursor: "pointer", fontWeight: 800 }, title: title === "مازاد حضور" ? "تبدیل مازاد حضور به اضافه‌کار" : "تبدیل کسری کار به مرخصی استحقاقی ساعتی", onClick: () => setConversionModal({ mode: title === "مازاد حضور" ? "surplus" : "shortage", jdate: d.jdate, minutes: mins(title === "مازاد حضور" ? d.surplus : d.shortage), day: d }) }, attendanceCell(getter(d)))
+                                : attendanceCell(getter(d)),
                             title === "تاریخ" && red && React.createElement("span", { style: { display: "block", fontSize: 10 } }, "\u062A\u0639\u0637\u06CC\u0644"),
                             title === "تاریخ" && React.createElement("button", { type: "button", className: "btn g", style: { padding: "3px 6px", fontSize: 10, marginInlineStart: 5 }, onClick: () => setOpenDay(openDay === d.jdate ? null : d.jdate) }, "\u062C\u0632\u0626\u06CC\u0627\u062A"));
                     }));
                 })))),
         data && React.createElement("div", { style: { marginTop: 8, fontSize: 11, color: "var(--muted)" } }, "\u06F2\u06F9 \u0633\u062A\u0648\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A\u061B \u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0627\u0632 \u062F\u0627\u062F\u0647 \u0648\u0627\u0642\u0639\u06CC \u062A\u0631\u062F\u062F \u062E\u0648\u0627\u0646\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+        conversionModal && React.createElement(AttendanceConversionModal, { userId: uid, mode: conversionModal.mode, jdate: conversionModal.jdate, minutes: conversionModal.minutes, day: conversionModal.day, onSaved: async () => { setConversionModal(null); await refresh(); }, onClose: () => setConversionModal(null) }),
         openDay && data && (() => {
             const d = (data.days || []).find(x => x.jdate === openDay);
             return d ? React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 900, background: "rgba(0,0,0,.48)", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(10px,2vw,24px)" } },
