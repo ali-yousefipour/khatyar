@@ -113,25 +113,25 @@ const db = {
   // نکته: بدنهٔ ورود به‌جای JSON با فرم urlencoded ارسال می‌شود، چون WAF هاست درخواست‌های
   // POST با Content-Type: application/json را (به‌خصوص برای فیلدهای شبیه به فرم ورود) مسدود
   // می‌کند؛ با تست مستقیم روی سرور واقعی تأیید شد که فرم urlencoded بدون مشکل عبور می‌کند.
-  loginOtpRequest: async (mobile)=>{
-    const m=String(mobile||'').trim();
-    if(!m) throw new Error('شماره همراه را وارد کنید');
-    const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/otp-request',{method:'POST',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store'},body:JSON.stringify({mobile:m}),cache:'no-store'});
+  loginOtpRequest: async (username)=>{
+    const u=String(username||'').trim();
+    if(!u) throw new Error('نام کاربری را وارد کنید');
+    const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/otp-request',{method:'POST',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store'},body:JSON.stringify({username:u}),cache:'no-store'});
     const d=await _readJsonResponse(r);
     if(!r.ok) throw new Error(d.error||d.message||('ارسال کد ناموفق بود (HTTP '+r.status+')'));
     return d;
   },
-  loginOtpVerify: async (mobile,code)=>{
-    const m=String(mobile||'').trim(), c=String(code||'').trim();
+  loginOtpVerify: async (username,code)=>{
+    const u=String(username||'').trim(), c=String(code||'').trim();
     const latin=c.replace(/[۰-۹]/g,d=>'0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(d)]);
-    if(!m) throw new Error('شماره همراه را وارد کنید');
+    if(!u) throw new Error('نام کاربری را وارد کنید');
     if(!/^\d{6}$/.test(latin)) throw new Error('کد شش رقمی را وارد کنید');
     let deviceId=localStorage.getItem('kh_web_device_id');
     if(!deviceId){
       deviceId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('web-'+Date.now()+'-'+Math.random().toString(36).slice(2));
       localStorage.setItem('kh_web_device_id',deviceId);
     }
-    const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/otp-verify',{method:'POST',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store'},body:JSON.stringify({mobile:m,code:latin,device_id:deviceId,device_type:'web'}),cache:'no-store'});
+    const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/otp-verify',{method:'POST',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store'},body:JSON.stringify({username:u,code:latin,device_id:deviceId,device_type:'web'}),cache:'no-store'});
     const d=await _readJsonResponse(r);
     if(!r.ok) throw new Error(d.error||d.message||('تأیید کد ناموفق بود (HTTP '+r.status+')'));
     if(!d.access) throw new Error('پاسخ ورود ناقص است: توکن دریافت نشد.');
@@ -8387,18 +8387,18 @@ const VIEWS={
 };
 
 function Login({onLogin,brand}){
-  const [mobile,setMobile]=useState(""); const [code,setCode]=useState(""); const [err,setErr]=useState("");
+  const [username,setUsername]=useState(""); const [code,setCode]=useState(""); const [err,setErr]=useState("");
   const [mode,setMode]=useState("request"); const [info,setInfo]=useState(""); const [busy,setBusy]=useState(false);
   const [cooldown,setCooldown]=useState(0);
   useEffect(()=>{ if(cooldown<=0)return; const t=setInterval(()=>setCooldown(v=>Math.max(0,v-1)),1000); return()=>clearInterval(t); },[cooldown]);
   const requestCode=async()=>{
     if(busy||cooldown>0)return; setBusy(true);setErr("");setInfo("");
-    try{ await db.loginOtpRequest(mobile); setMode("verify"); setCode(""); setCooldown(60); setInfo("کد یک‌بارمصرف به شماره همراه ثبت‌شده ارسال شد."); }
+    try{ await db.loginOtpRequest(username); setMode("verify"); setCode(""); setCooldown(60); setInfo("کد یک‌بارمصرف به شماره همراه ثبت‌شده حساب کاربری ارسال شد."); }
     catch(e){ setErr(e&&e.message?e.message:"ارسال کد ناموفق بود"); } finally{setBusy(false);}
   };
   const verify=async()=>{
     if(busy)return; setBusy(true);setErr("");setInfo("");
-    try{ const d=await db.loginOtpVerify(mobile,code); onLogin(d.user); }
+    try{ const d=await db.loginOtpVerify(username,code); onLogin(d.user); }
     catch(e){ setErr(e&&e.message?e.message:"کد واردشده صحیح نیست"); } finally{setBusy(false);}
   };
   return(<div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)"}}>
@@ -8406,8 +8406,8 @@ function Login({onLogin,brand}){
       <div style={{textAlign:"center",marginBottom:18}}>{brand?.logo?<img src={brand.logo} style={{margin:"0 auto 10px",width:58,height:58,borderRadius:14,objectFit:"contain",background:"#fff",padding:5,border:"1px solid var(--line)"}}/>:<img src="/brand-khatyar.png" style={{margin:"0 auto 10px",width:58,height:58,borderRadius:29,objectFit:"cover"}}/>}
         <h3 style={{justifyContent:"center"}}>ورود به {brand?.title||"خطیار"}</h3></div>
       {mode==="request"&&<>
-        <p style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,marginBottom:10}}>برای ورود، شماره همراه ثبت‌شده در حساب کاربری را وارد کنید. رمز عبور دیگر برای ورود به سایت استفاده نمی‌شود.</p>
-        <input className="input" inputMode="tel" autoComplete="tel" dir="ltr" placeholder="شماره همراه (مثلاً ۰۹۱۲۱۲۳۴۵۶۷)" value={mobile} onChange={e=>setMobile(e.target.value)} onKeyDown={e=>e.key==='Enter'&&requestCode()} />
+        <p style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,marginBottom:10}}>برای ورود، شماره همراه ثبت‌شده حساب کاربری در حساب کاربری را وارد کنید. رمز عبور دیگر برای ورود به سایت استفاده نمی‌شود.</p>
+        <input className="input" autoComplete="username" dir="ltr" placeholder="نام کاربری" value={username} onChange={e=>setUsername(e.target.value)} onKeyDown={e=>e.key==='Enter'&&requestCode()} />
         <button className="btn p" style={{width:"100%",marginTop:14}} onClick={requestCode} disabled={busy||cooldown>0}>{busy?'در حال ارسال…':cooldown>0?'ارسال مجدد ('+cooldown+')':'دریافت کد ورود'}</button>
       </>}
       {mode==="verify"&&<>
@@ -8416,7 +8416,7 @@ function Login({onLogin,brand}){
         <button className="btn p" style={{width:"100%",marginTop:14}} onClick={verify} disabled={busy||code.length!==6}>{busy?'در حال بررسی…':'تأیید و ورود'}</button>
         <div className="row" style={{justifyContent:"space-between",marginTop:10}}>
           <a style={{fontSize:12,color:"var(--brand)",cursor:cooldown>0?"default":"pointer",opacity:cooldown>0?.5:1}} onClick={requestCode}>ارسال مجدد</a>
-          <a style={{fontSize:12,color:"var(--muted)",cursor:"pointer"}} onClick={()=>{setMode("request");setCode("");setErr("");setInfo("");}}>تغییر شماره</a>
+          <a style={{fontSize:12,color:"var(--muted)",cursor:"pointer"}} onClick={()=>{setMode("request");setCode("");setErr("");setInfo("");}}>تغییر نام کاربری</a>
         </div>
       </>}
       {info&&<p style={{color:"var(--ok)",fontSize:12,marginTop:8}}>{info}</p>}
