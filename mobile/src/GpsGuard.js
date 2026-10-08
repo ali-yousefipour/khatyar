@@ -9,14 +9,13 @@ import*as IntentLauncher from'expo-intent-launcher';
 import*as Location from'expo-location';
 import{FONT}from'./theme';
 import{useAuth}from'./auth';
-import{getAppConfig}from'./appconfig';
-import{postOrQueue,request}from'./api';
+import { runGpsWorkWatchdog } from './gpsWorkWatchdog';
 
 export default function GpsGuard({children}){
  const{user}=useAuth();
  const exempt=Number(user?.security_exempt||0)===1||user?.security_exempt===true;
  const[gpsOff,setGpsOff]=useState(false),[checking,setChecking]=useState(false),[intervalMs]=useState(30*60*1000),[attendanceOpen,setAttendanceOpen]=useState(false);
- const check=useCallback(async()=>{if(!user||exempt){setGpsOff(false);setAttendanceOpen(false);return}try{const timer=await request('/my/work-timer',{noStore:true,timeoutMs:7000});const required=!!timer?.gps_work_required;const open=!!timer?.open;setAttendanceOpen(required&&open);if(!required||!open){setGpsOff(false);return}const enabled=await Location.hasServicesEnabledAsync();const off=!enabled;setGpsOff(off);if(off)postOrQueue('/activity/telemetry',{kind:'gps_off',at:new Date().toISOString(),meta:{source:'foreground_watchdog',interval_minutes:30}}).catch(()=>{})}catch{setGpsOff(false)}},[user?.id,exempt]);
+ const check=useCallback(async()=>{if(!user||exempt){setGpsOff(false);setAttendanceOpen(false);return}try{const result=await runGpsWorkWatchdog({source:'foreground_watchdog'});setAttendanceOpen(result.reason!=='inactive');setGpsOff(result.gpsEnabled===false&&result.checked===true);}catch{setGpsOff(false)}},[user?.id,exempt]);
  // در الزام کارکرد با GPS، فاصلهٔ پایش دقیقاً ۳۰ دقیقه است؛ تنظیم پایش عمومی نباید آن را کوتاه یا بلند کند.
  useEffect(()=>{if(!user||exempt){setGpsOff(false);setAttendanceOpen(false);return undefined}check();const iv=setInterval(check,intervalMs);const sub=AppState.addEventListener('change',s=>{if(s==='active')check()});return()=>{clearInterval(iv);sub.remove()}},[check,user?.id,exempt,intervalMs]);
  const recheck=async()=>{setChecking(true);await check();setChecking(false)};
