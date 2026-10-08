@@ -28,6 +28,23 @@ class KhatyarLocationWorker(ctx: Context, params: WorkerParameters) : Worker(ctx
     } catch (_: Throwable) { Result.retry() }
   }
 
+  companion object {
+    private const val WORK_NAME = "khatyar-gps-watchdog"
+
+    fun schedule(context: Context) {
+      val request = PeriodicWorkRequestBuilder<KhatyarLocationWorker>(30, TimeUnit.MINUTES)
+        .setInitialDelay(30, TimeUnit.MINUTES)
+        .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.NOT_REQUIRED).build())
+        .build()
+      WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+        WORK_NAME,
+        ExistingPeriodicWorkPolicy.UPDATE,
+        request
+      )
+    }
+  }
+}
+
 class KhatyarBootReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
