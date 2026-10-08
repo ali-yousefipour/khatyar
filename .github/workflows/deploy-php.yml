@@ -27,6 +27,16 @@ jobs:
           fetch-depth: 0
           ref: main
 
+      - name: Regenerate panel bundle before deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd php
+          npm install --no-save --no-package-lock typescript@5.9.3
+          bash ./tools/build_panel_bundle.sh
+          node --check app/assets/panel.bundle.js
+          grep -q "adminRequestDecision" app/assets/panel.bundle.js
+
       - name: Build deployment payload from this push
         shell: bash
         env:
