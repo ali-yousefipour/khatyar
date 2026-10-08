@@ -1,6 +1,6 @@
 # انتشار APK خطیار و لینک دانلود ثابت
 
-## نسخه 1.5.3
+## نسخه 1.5.7
 
 برای فایل APK، نام Asset همیشه باید:
 
@@ -16,9 +16,9 @@
 
 ### لینک نسخه مشخص
 
-برای نسخه 1.5.3:
+برای نسخه 1.5.7:
 
-`https://github.com/ali-yousefipour/khatyar/releases/download/v1.5.3/khatyar.apk`
+`https://github.com/ali-yousefipour/khatyar/releases/download/v1.5.7/khatyar.apk`
 
 ### انتشار
 
