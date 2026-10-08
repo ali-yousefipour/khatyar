@@ -4724,7 +4724,7 @@ function RadioSettings() {
         alert(e.message);
     } };
     const toggle = (key, id) => setForm(f => ({ ...f, rules: { ...f.rules, [key]: f.rules[key].includes(id) ? f.rules[key].filter(x => x !== id) : [...f.rules[key], id] } }));
-    return React.createElement("div", null,
+    return React.createElement("div", { className: "radio-settings-module" },
         React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645 \u0627\u06A9\u0646\u0648\u0646 \u0628\u062E\u0634\u06CC \u0627\u0632 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u0635\u0644\u06CC \u0633\u0627\u0645\u0627\u0646\u0647 \u0627\u0633\u062A. \u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0627\u0646\u0627\u0644\u200C\u0647\u0627 \u0648 \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0622\u0631\u0634\u06CC\u0648 \u0627\u0632 \u0647\u0645\u06CC\u0646 \u062A\u0628 \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F."),
         loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645\u2026") : null,
         loadErr ? React.createElement("div", { className: "panel", style: { borderColor: '#e23b54', background: '#fdeef0' } },
