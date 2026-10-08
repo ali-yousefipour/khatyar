@@ -31,7 +31,7 @@ RewriteRule ^api/presence-immediate-api\.php$ presence-immediate-api.php [QSA,L,
 RewriteRule ^presence-immediate-api\.php$ api/presence-immediate-api.php [QSA,L,NC]
 RewriteRule ^api/company-request-support\.php$ api/company-request-support.php [QSA,L,NC]
 
-# گزارش‌های مدیریتی از Router اصلی سامانه عبور می‌کنند؛ این مسیرها احراز هویت، نشست و مدیریت خطا را در index.php حفظ می‌کنند.
+RewriteRule ^api/admin/attendance-punch/?$ api/admin-attendance-punch.php [QSA,L,NC]\nRewriteRule ^api/admin/attendance-punch/(\\d+)/?$ api/admin-attendance-punch.php [QSA,L,NC]\n\n# گزارش‌های مدیریتی از Router اصلی سامانه عبور می‌کنند؛ این مسیرها احراز هویت، نشست و مدیریت خطا را در index.php حفظ می‌کنند.
 # عمداً هیچ Rewrite مستقیمی برای attendance-report و users/export وجود ندارد.
 
 RewriteCond %{QUERY_STRING} (^|&)op=capture-report(&|$) [NC]
