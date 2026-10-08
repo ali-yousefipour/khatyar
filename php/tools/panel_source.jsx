@@ -6103,7 +6103,7 @@ function AttendanceRequestModal({userId,jdate,onSaved,onClose}){
     setBusy(true);
     try{
       await db.adminRequestCreate({
-        user_id:+userId,type,unit,
+        type,unit,
         from_jdate:fromDate,to_jdate:hourly?fromDate:toDate,
         the_date:fromDate,
         from_time:hourly?fromTime:null,to_time:hourly?toTime:null,
