@@ -3722,10 +3722,16 @@ function Settings(){
           <option value="sms_otp">نام کاربری + رمز یک‌بارمصرف پیامکی</option>
           <option value="bale_otp">نام کاربری + رمز یک‌بارمصرف از طریق ربات بله</option>
         </select>
+        <label className="label" style={{display:"block",marginTop:14}}>روش ورود به اپلیکیشن اندروید</label>
+        <select className="input" value={v.app_login_method||"password"} onChange={e=>set("app_login_method",e.target.value)} style={{marginTop:6}}>
+          <option value="password">نام کاربری و کلمه عبور</option>
+          <option value="sms_otp">نام کاربری + رمز یک‌بارمصرف پیامکی</option>
+          <option value="bale_otp">نام کاربری + رمز یک‌بارمصرف از طریق ربات بله</option>
+        </select>
         <p style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,margin:"8px 0 0"}}>
-          این گزینه فقط روش ورود نسخه وب را تعیین می‌کند. در حالت پیامکی، کد به شماره همراه ثبت‌شده کاربر ارسال می‌شود؛ در حالت بله، حساب کاربر باید قبلاً به ربات بله متصل شده باشد.
+          روش وب و اپلیکیشن مستقل از یکدیگر قابل تنظیم هستند. در روش پیامکی، کد به شماره همراه ثبت‌شده کاربر ارسال می‌شود؛ در روش بله، حساب کاربر باید قبلاً به ربات بله متصل شده باشد.
         </p>
-        <button className="btn p" style={{marginTop:10}} onClick={save}>ذخیره روش ورود وب</button>
+        <button className="btn p" style={{marginTop:10}} onClick={save}>ذخیره روش‌های ورود</button>
       </div>
       {Toggle("require_gps","الزام روشن‌بودن GPS")}
       {Toggle("block_vpn","مسدودسازی هنگام VPN روشن")}{Toggle("block_dev_options","مسدودسازی هنگام Developer Options")}
