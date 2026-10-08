@@ -43,7 +43,9 @@ function aar_dedupe_sessions(array $sessions): array {
     if (!is_array($s) || empty($s['in'])) continue;
     $in = (int)$s['in'];
     $out = !empty($s['out']) ? (int)$s['out'] : null;
-    if ($in <= 0 || !$out || $out <= $in) continue;
+    if ($in <= 0 || !$out) continue;
+    [$in,$out] = ShiftCalc::normalizeSessionPair($in,$out);
+    if ($out <= $in) continue;
     $key = $in . ':' . $out;
     if (isset($seen[$key])) continue;
     $seen[$key] = true;
@@ -148,8 +150,9 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
     foreach ($ownedPunches as $p) {
       $in = !empty($p['in_full']) ? strtotime($p['in_full']) : null;
       $out = !empty($p['out_full']) ? strtotime($p['out_full']) : null;
-      if ($in && $out && $out > $in) {
-        $rawSessions[] = ['in'=>$in,'out'=>$out];
+      if ($in && $out) {
+        [$in,$out] = ShiftCalc::normalizeSessionPair($in,$out);
+        if ($out > $in) $rawSessions[] = ['in'=>$in,'out'=>$out];
       }
     }
     $sessions = aar_dedupe_sessions($rawSessions);
