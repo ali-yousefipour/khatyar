@@ -88,7 +88,12 @@ function attendance_report_owned_by_entry_date($userId, $from, $to) {
     $unpaidLeave = $unpaidLeave ?: $toMinutes($unpaidText);
     $missionLeave = $missionLeave ?: $toMinutes($missionText);
     $approvedExempt = min((int)($w['expected'] ?? 0), $annualLeave + $sickLeave + $unpaidLeave + $missionLeave);
-    $w['shortage'] = max(0, (int)($w['shortage'] ?? 0) - $approvedExempt);
+    $expectedMin = max(0, (int)($w['expected'] ?? 0));
+    $inShiftMin = max(0, (int)($w['in_shift'] ?? 0));
+    // کسری نهایی همیشه از موظفی و حضور در شیفت محاسبه می‌شود؛ بنابراین
+    // جلسهٔ ۲۲:۰۰ تا ۰۶:۰۰ پس از نرمال‌سازی شبانه، کسری ۰ دارد.
+    $w['shortage'] = max(0, $expectedMin - min($inShiftMin, $expectedMin));
+    if ($approvedExempt > 0) $w['shortage'] = max(0, $w['shortage'] - $approvedExempt);
 
     $day['punches'] = $punches;
     $day['in_shift'] = $hm($w['in_shift'] ?? 0);
@@ -104,6 +109,9 @@ function attendance_report_owned_by_entry_date($userId, $from, $to) {
     $day['friday_work'] = $hm($w['friday_work'] ?? $w['friday'] ?? 0);
     $day['holiday_work'] = $hm($w['holiday_work'] ?? $w['holiday'] ?? 0);
     $day['absent'] = (!$punches && !$isHol && !ShiftCalc::isFriday($j) && (int)($w['expected'] ?? 0) > 0 && $approvedExempt <= 0) ? 1 : 0;
+    // جمع غیبت و کسری = غیبتِ موظفی + کسریِ واقعی همان روز.
+    $absenceMin = $day['absent'] ? $expectedMin : 0;
+    $day['absence_shortage'] = $hm($absenceMin + (int)($w['shortage'] ?? 0));
   }
   unset($day);
   return $report;
