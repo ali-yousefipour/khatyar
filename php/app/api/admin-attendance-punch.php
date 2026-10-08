@@ -8,11 +8,11 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
 $ROOT=dirname(__DIR__,2);
-require $ROOT.'/lib/Db.php';
-require $ROOT.'/lib/Jwt.php';
-require $ROOT.'/lib/Http.php';
-require $ROOT.'/lib/IranCalendar.php';
-$CONFIG=require $ROOT.'/config.php';
+require_once $ROOT.'/lib/Db.php';
+require_once $ROOT.'/lib/Jwt.php';
+require_once $ROOT.'/lib/Http.php';
+require_once $ROOT.'/lib/IranCalendar.php';
+$CONFIG=require_once $ROOT.'/config.php';
 
 function apj($v,$status=200){http_response_code($status);echo json_encode($v,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
 function ape($m,$s=400){apj(['error'=>$m],$s);}
