@@ -2350,7 +2350,7 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
     // همان مبنای گزارش و تایمر: در نبود تخصیص صریح، شیفت خودکار استفاده شود.
     $shift = _active_user_shift_assignment($u['id'], $jdate) ?: _auto_shift_for_user($u['id']);
     $sessions = [['in'=>strtotime($open['check_in']),'out'=>strtotime($now)]];
-    $hol = ShiftCalc::effectiveHoliday($jdate, (bool)Db::one("SELECT jdate FROM holidays WHERE jdate IN (?,?) LIMIT 1", [$jdate, str_replace('-','/',$jdate)]));
+    $hol = ShiftCalc::effectiveHoliday($jdate);
     $w = $shift ? ShiftCalc::dayWork($shift,$jdate,null,$sessions,$hol) : ['worked'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'surplus'=>0];
     Db::run("UPDATE staff_attendance SET calc_json=? WHERE id=?", [json_encode($w,JSON_UNESCAPED_UNICODE), $open['id']]);
   } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
@@ -2902,7 +2902,7 @@ function _shift_month_report($jy, $jm) {
       if (!empty($a['to_jdate']) && strcmp($jdate, str_replace('/','-',$a['to_jdate'])) > 0) continue;
       $rows = _attendance_rows_for_jdate($a['user_id'], $jdate);
       $dr = $dayRows[$jdate] ?? null;
-      $isHol = ShiftCalc::effectiveHoliday($jdate, isset($holidaySet[$jdate]));
+      $isHol = ShiftCalc::effectiveHoliday($jdate);
       // محاسبهٔ روزهای بدون تردد نیز باید دقیقاً از همان موتور محاسبهٔ
       // روزهای دارای تردد عبور کند؛ مخصوصاً برای شیفت خودکار، جمعه، تعطیل
       // و روزهای بدون موظفی. در غیر این صورت گزارش ماهانه می‌توانست یک روز
@@ -3050,7 +3050,7 @@ function _attendance_report($userId,$fromJ,$toJ){
       ];
       $sessions[]=['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00')];
     }
-    $isHol=ShiftCalc::effectiveHoliday($jdateDash, isset($holidaySet[$jdateDash])||isset($holidaySet[$jdate]));
+    $isHol=ShiftCalc::effectiveHoliday($jdateDash);
     // همان منطق تایمر و گزارش ماهانه: اگر شیفت صریح وجود ندارد،
     // شیفت خودکار کاربر باید مبنای محاسبهٔ گزارش روزانه باشد.
     $shift = _active_user_shift_assignment($userId, $jdateDash) ?: _auto_shift_for_user($userId);
