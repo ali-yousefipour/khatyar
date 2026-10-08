@@ -2985,6 +2985,42 @@ function _attendance_report($userId,$fromJ,$toJ){
   $toTs  =j_to_ts(sprintf('%04d-%02d-%02d',$ty,$tm,$td));
   if($fromTs===null||$toTs===null) Http::error('بازهٔ تاریخ نامعتبر',400);
   $holidaySet = array_flip(array_column(Db::all("SELECT jdate FROM holidays"),'jdate'));
+  // درخواست‌های تأییدشدهٔ مرخصی/ماموریت باید مستقیماً در گزارش ۲۹ ستونه منعکس شوند.
+  // تاریخ‌های قدیمی ممکن است با «/» یا «-» ذخیره شده باشند.
+  $approvedRequests=[];
+  try {
+    $reqRows=Db::all("SELECT type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes FROM requests WHERE user_id=? AND status='approved' AND type IN ('annual','sick','unpaid','mission')",[$userId]);
+    $normReqDate=function($v){
+      $v=trim(str_replace('/','-',(string)$v));
+      if(!preg_match('/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/',$v,$m)) return null;
+      return sprintf('%04d-%02d-%02d',(int)$m[1],(int)$m[2],(int)$m[3]);
+    };
+    foreach($reqRows as $rr){
+      $rf=$normReqDate($rr['from_jdate']??'') ?: $normReqDate($rr['the_date']??'');
+      $rt=$normReqDate($rr['to_jdate']??'') ?: $rf;
+      if(!$rf||!$rt||$rf>$rt) continue;
+      if($rr['unit']==='hourly'){
+        $mins=(int)($rr['minutes']??0);
+        if($mins<=0 && !empty($rr['from_time']) && !empty($rr['to_time'])){
+          [$fh,$fm]=array_map('intval',explode(':',(string)$rr['from_time']));
+          [$th,$tm]=array_map('intval',explode(':',(string)$rr['to_time']));
+          $mins=max(0,($th*60+$tm)-($fh*60+$fm));
+        }
+        if($mins>0) $approvedRequests[$rf][$rr['type']]=($approvedRequests[$rf][$rr['type']]??0)+$mins;
+      } else {
+        $a=j_to_ts($rf); $z=j_to_ts($rt);
+        if($a===false||$a===null||$z===false||$z===null||$z<$a) continue;
+        $daysCount=max(1,(int)floor(($z-$a)/86400)+1);
+        $total=(int)($rr['minutes']??0); if($total<=0) $total=$daysCount*480;
+        $base=intdiv($total,$daysCount); $rem=$total%$daysCount; $idx=0;
+        for($dts=$a;$dts<=$z;$dts+=86400,$idx++){
+          [$ry,$rm,$rd]=gregorian_to_jalali((int)date('Y',$dts),(int)date('n',$dts),(int)date('j',$dts));
+          $rk=sprintf('%04d-%02d-%02d',$ry,$rm,$rd);
+          $approvedRequests[$rk][$rr['type']]=($approvedRequests[$rk][$rr['type']]??0)+$base+($idx<$rem?1:0);
+        }
+      }
+    }
+  } catch(Throwable $e) { error_log('attendance report approved requests: '.$e->getMessage()); }
   $days=[];
   for($ts=$fromTs; $ts<=$toTs; $ts+=86400){
     [$jy,$jm,$jd]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
@@ -3018,6 +3054,10 @@ function _attendance_report($userId,$fromJ,$toJ){
     $w = $shift ? ShiftCalc::dayWork($shift,$jdateDash,$dr,$sessions,$isHol) : ['worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'late_in'=>0,'early_out'=>0,'surplus'=>0];
     $adj = _attendance_adjusted_overtime($userId,$jdateDash);
     if ($adj > 0) { $use = min($adj, (int)($w['surplus'] ?? 0)); $w['overtime'] = (int)($w['overtime'] ?? 0) + $use; $w['surplus'] = max(0, (int)($w['surplus'] ?? 0) - $use); $w['adjusted_ot'] = $use; }
+    $rq=$approvedRequests[$jdateDash]??[];
+    $annualLeave=(int)($rq['annual']??0); $sickLeave=(int)($rq['sick']??0); $unpaidLeave=(int)($rq['unpaid']??0); $mission=(int)($rq['mission']??0);
+    $approvedExempt=min((int)($w['expected']??0),$annualLeave+$sickLeave+$unpaidLeave+$mission);
+    if($approvedExempt>0) $w['shortage']=max(0,(int)($w['shortage']??0)-$approvedExempt);
     $hm=fn($m)=>sprintf('%02d:%02d',intdiv(max(0,(int)$m),60),max(0,(int)$m)%60);
     $days[]=[
       'jdate'=>$jdate,
@@ -3039,7 +3079,11 @@ function _attendance_report($userId,$fromJ,$toJ){
       'adjusted_ot'=>$hm($w['adjusted_ot']??0),
       // غیبت فقط وقتی معنا دارد که برای همان روز واقعاً موظفی وجود داشته باشد.
       // جمعه/تعطیل/روز آزاد با expected=00:00 نباید غیبت نمایش داده شود.
-      'absent'=>(!$punches && !$isHol && (int)($w['expected'] ?? 0)>0)?1:0,
+      'absent'=>(!$punches && !$isHol && (int)($w['expected'] ?? 0)>0 && $approvedExempt<=0)?1:0,
+      'mission'=>$hm($mission),
+      'annual_leave'=>$hm($annualLeave),
+      'sick_leave'=>$hm($sickLeave),
+      'unpaid_leave'=>$hm($unpaidLeave),
     ];
   }
   return ['user'=>$u,'shift'=>$shift?['title'=>$shift['title']]:null,'from'=>$fromJ,'to'=>$toJ,'days'=>$days];
