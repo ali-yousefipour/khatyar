@@ -6270,25 +6270,6 @@ function PunchEditModal({punch,onSave,onClose}){
     {err?<div className="punch-error" role="alert">⚠ {err}</div>:<div className="punch-info">ℹ اگر خروج از ورود کوچک‌تر باشد، تردد به روز بعد محاسبه می‌شود (شیفت شب).</div>}
   </PunchModalShell>;
 }
-function PunchAddModal({jdate,onSave,onClose}){
-  const [ci,setCi]=useState(""); const [co,setCo]=useState(""); const [err,setErr]=useState("");
-  const submit=()=>{
-    const nci=normalizeHm(ci), nco=co.trim()?normalizeHm(co):"";
-    if(!nci){setErr("ساعت ورود الزامی است و باید بین ۰۰:۰۰ تا ۲۳:۵۹ باشد.");return;}
-    if(co.trim()&&!nco){setErr("ساعت خروج باید به شکل صحیح (۰۰:۰۰ تا ۲۳:۵۹) وارد شود.");return;}
-    setErr(""); onSave(jdate,nci,nco);
-  };
-  return <PunchModalShell title="ثبت تردد دستی" subtitle={"تاریخ: "+fa(jdate)} onClose={onClose}
-    actions={<><button className="btn g punch-action-secondary" onClick={onClose}>انصراف</button><button className="btn p punch-action-primary" onClick={submit}>ثبت تردد</button></>}>
-    <div className="punch-summary"><span>اطلاعات تردد</span><small>ورود الزامی · خروج اختیاری</small></div>
-    <div className="punch-fields">
-      <HmField label="ساعت ورود" value={ci} onChange={setCi} autoFocus/>
-      <HmField label="ساعت خروج" value={co} onChange={setCo} optional/>
-    </div>
-    {err&&<div className="punch-error" role="alert">⚠ {err}</div>}
-  </PunchModalShell>;
-}
-
 function ShiftReport(){
   const tj=todayJ();
   const [jy,setJy]=useState(tj[0]); const [jm,setJm]=useState(tj[1]); const [rows,setRows]=useState(null); const [busy,setBusy]=useState(false);
