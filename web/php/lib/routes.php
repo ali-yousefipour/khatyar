@@ -322,9 +322,12 @@ $loginHandler = function ($p, $b) {
   }
   $username = trim($b['username'] ?? ''); $password = $b['password'] ?? '';
   $dtype = (($b['device_type'] ?? 'web') === 'android') ? 'android' : 'web';
-  // روش ورود وب از تنظیمات سامانه کنترل می‌شود؛ ورود با رمز فقط در حالت password مجاز است.
+  // روش ورود وب و اپلیکیشن از تنظیمات سامانه کنترل می‌شود؛ ورود با رمز فقط در حالت password مجاز است.
   if ($dtype === 'web' && strtolower((string)_req_setting('web_login_method', 'password')) !== 'password') {
     Http::error('ورود با نام کاربری و کلمه عبور در تنظیمات وب غیرفعال است.', 403);
+  }
+  if ($dtype === 'android' && strtolower((string)_req_setting('app_login_method', 'password')) !== 'password') {
+    Http::error('ورود با نام کاربری و کلمه عبور در اپلیکیشن غیرفعال است.', 403);
   }
   $dev = $b['device_id'] ?? ''; if (strlen($dev) < 6) Http::error('ورودی نامعتبر', 400);
   // محدودیت ورود بر اساس IP با جدول ایندکس‌دار؛ از JSON_EXTRACT روی activity_logs در مسیر ورود استفاده نمی‌شود
