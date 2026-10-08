@@ -5,31 +5,14 @@ import { getTrackingPosition } from './location';
 import { postOrQueue, request } from './api';
 import { vpnStatus } from './device';
 import * as Location from 'expo-location';
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { runGpsWorkWatchdog } from './gpsWorkWatchdog';
 
-const GPS_WORK_WATCHDOG_MINUTES = 30;
 
 export async function headlessLocationRun() {
   try {
-    // این task برای نگهبانی GPS کارکرد است و فقط وقتی حضور باز و تنظیم الزام GPS فعال باشد عمل می‌کند.
-    let timer=null;
-    try { timer=await request('/my/work-timer',{noStore:true,timeoutMs:7000}); } catch (_) {}
-    const gpsRequired=!!timer?.gps_work_required;
-    const open=!!timer?.open;
-    if (gpsRequired && open) {
-      let enabled=true;
-      try { enabled=await Location.hasServicesEnabledAsync(); } catch (_) {}
-      const at=new Date().toISOString();
-      await postOrQueue('/activity/telemetry',{kind:enabled?'gps_on':'gps_off',at,meta:{source:'background_watchdog',interval_minutes:GPS_WORK_WATCHDOG_MINUTES}}).catch(()=>{});
-      if (!enabled) {
-        try {
-          await setAudioModeAsync({shouldPlayInBackground:true,playsInSilentMode:true});
-          const player=createAudioPlayer(require('../assets/gpsoff.mp3'));
-          player.play();
-          setTimeout(()=>{try{player.remove()}catch{}},15000);
-        } catch (_) {}
-      }
-    }
+    // نگهبان GPS کارکرد مستقل از منطق ارسال لوکیشن است؛
+    // فقط هر ۳۰ دقیقه یک بار وضعیت GPS را بررسی می‌کند و هیچ موقعیت جدیدی ارسال نمی‌کند.
+    await runGpsWorkWatchdog({source:'background_watchdog'});
     const p = await getTrackingPosition();
     if (!p) return;
     let vpn = { on: false, country: null };
