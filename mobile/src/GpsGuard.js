@@ -15,7 +15,7 @@ export default function GpsGuard({children}){
  const{user}=useAuth();
  const exempt=Number(user?.security_exempt||0)===1||user?.security_exempt===true;
  const[gpsOff,setGpsOff]=useState(false),[checking,setChecking]=useState(false),[intervalMs]=useState(30*60*1000),[attendanceOpen,setAttendanceOpen]=useState(false);
- const check=useCallback(async()=>{if(!user||exempt){setGpsOff(false);setAttendanceOpen(false);return}try{const result=await runGpsWorkWatchdog({source:'foreground_watchdog'});setAttendanceOpen(result.reason!=='inactive');setGpsOff(result.gpsEnabled===false&&result.checked===true);}catch{setGpsOff(false)}},[user?.id,exempt]);
+ const check=useCallback(async()=>{if(!user||exempt){setGpsOff(false);setAttendanceOpen(false);return}try{const result=await runGpsWorkWatchdog({source:'foreground_watchdog'});const active=result.reason!=='inactive';setAttendanceOpen(active);if(!active){setGpsOff(false);return}let enabled=result.gpsEnabled;if(!result.checked){try{enabled=await Location.hasServicesEnabledAsync()}catch{enabled=true}}setGpsOff(enabled===false);}catch{setGpsOff(false)}},[user?.id,exempt]);
  // در الزام کارکرد با GPS، فاصلهٔ پایش دقیقاً ۳۰ دقیقه است؛ تنظیم پایش عمومی نباید آن را کوتاه یا بلند کند.
  useEffect(()=>{if(!user||exempt){setGpsOff(false);setAttendanceOpen(false);return undefined}check();const iv=setInterval(check,intervalMs);const sub=AppState.addEventListener('change',s=>{if(s==='active')check()});return()=>{clearInterval(iv);sub.remove()}},[check,user?.id,exempt,intervalMs]);
  const recheck=async()=>{setChecking(true);await check();setChecking(false)};
