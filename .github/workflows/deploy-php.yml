@@ -189,7 +189,7 @@ jobs:
               [ -n "${file}" ] || continue
               rel="${file#deploy-payload/}"
 
-              if [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ]; then
+              if [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ]; then
                 continue
               fi
 
@@ -213,10 +213,9 @@ jobs:
 
           lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-upload.cmd)"
 
-          if [ -f deploy-payload/lib/routes.php ]; then
+          if [ -f deploy-payload/lib/routes.php ] || [ -f deploy-payload/lib/IranCalendar.php ] || [ -f deploy-payload/lib/ShiftCalc.php ]; then
             ROUTES_TOKEN="$(openssl rand -hex 32)"
-            STAGE_NAME=".routes-deploy-${GITHUB_SHA}.php"
-            INSTALLER_NAME=".routes-install-${GITHUB_SHA}.php"
+            INSTALLER_NAME=".attendance-lib-install-${GITHUB_SHA}.php"
 
             cat > "/tmp/${INSTALLER_NAME}" <<PHP
           <?php
@@ -226,33 +225,39 @@ jobs:
               http_response_code(403);
               exit('forbidden');
           }
-          \$src = __DIR__ . '/${STAGE_NAME}';
-          \$dst = dirname(__DIR__, 2) . '/lib/routes.php';
-          if (!is_file(\$src)) {
-              http_response_code(404);
-              exit('staged routes.php not found');
+          \$files = [
+              'routes.php' => 'routes.php',
+              'IranCalendar.php' => 'IranCalendar.php',
+              'ShiftCalc.php' => 'ShiftCalc.php',
+          ];
+          \$result = [];
+          foreach (\$files as \$name => \$canonical) {
+              \$src = __DIR__ . '/.attendance-deploy-' . \$name;
+              \$dst = dirname(__DIR__, 2) . '/lib/' . \$canonical;
+              if (!is_file(\$src)) continue;
+              if (!is_writable(\$dst)) {
+                  http_response_code(500);
+                  exit('target ' . \$canonical . ' is not writable by PHP');
+              }
+              if (!copy(\$src, \$dst)) {
+                  http_response_code(500);
+                  exit('copy to canonical ' . \$canonical . ' failed');
+              }
+              \$srcSha = hash_file('sha256', \$src);
+              \$dstSha = hash_file('sha256', \$dst);
+              if (!\$srcSha || !\$dstSha || !hash_equals(\$srcSha, \$dstSha)) {
+                  http_response_code(500);
+                  exit(\$canonical . ' checksum mismatch after host-side copy');
+              }
+              \$result[\$canonical] = \$dstSha;
+              @unlink(\$src);
           }
-          if (!is_writable(\$dst)) {
-              http_response_code(500);
-              exit('target routes.php is not writable by PHP');
-          }
-          if (!copy(\$src, \$dst)) {
-              http_response_code(500);
-              exit('copy to canonical routes.php failed');
-          }
-          \$srcSha = hash_file('sha256', \$src);
-          \$dstSha = hash_file('sha256', \$dst);
-          if (!\$srcSha || !\$dstSha || !hash_equals(\$srcSha, \$dstSha)) {
-              http_response_code(500);
-              exit('routes.php checksum mismatch after host-side copy');
-          }
-          @unlink(\$src);
           @unlink(__FILE__);
           header('Content-Type: application/json; charset=utf-8');
-          echo json_encode(['ok'=>true,'sha'=>\$dstSha], JSON_UNESCAPED_UNICODE);
+          echo json_encode(['ok'=>true,'files'=>\$result], JSON_UNESCAPED_UNICODE);
           PHP
 
-            : > /tmp/lftp-routes-stage.cmd
+            : > /tmp/attendance-lib-stage.cmd
             {
               echo 'set ftp:ssl-force false'
               echo 'set ftp:ssl-protect-data false'
@@ -260,25 +265,32 @@ jobs:
               echo 'set ftp:prefer-epsv false'
               echo 'set net:timeout 60'
               echo 'set net:max-retries 5'
-              echo 'set ftp:ssl-protect-data false'
               echo 'set ssl:verify-certificate no'
-              printf 'put %s -o %s\n' "${GITHUB_WORKSPACE}/deploy-payload/lib/routes.php" "/app/assets/${STAGE_NAME}"
+              for name in routes.php IranCalendar.php ShiftCalc.php; do
+                if [ -f "deploy-payload/lib/$name" ]; then
+                  printf 'put %s -o %s\n' "${GITHUB_WORKSPACE}/deploy-payload/lib/$name" "/app/assets/.attendance-deploy-$name"
+                fi
+              done
               printf 'put %s -o %s\n' "/tmp/${INSTALLER_NAME}" "/app/assets/${INSTALLER_NAME}"
               echo 'bye'
-            } >> /tmp/lftp-routes-stage.cmd
+            } >> /tmp/attendance-lib-stage.cmd
 
-            lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-routes-stage.cmd)"
+            lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/attendance-lib-stage.cmd)"
 
-            echo "Installing canonical /lib/routes.php through the host PHP process..."
+            echo "Installing protected attendance PHP libraries through the host PHP process..."
             install_url="https://app.yousefipour.ir/assets/${INSTALLER_NAME}"
-            curl --fail --silent --show-error --max-time 30 \
+            response="$(curl --fail --silent --show-error --max-time 30 \
               -X POST \
               --data-urlencode "token=${ROUTES_TOKEN}" \
-              "${install_url}"
+              "${install_url}")"
+            echo "${response}"
+            echo "${response}" | grep -q '"ok":true'
 
             echo
-            echo "Host-side routes.php installation completed."
+            echo "Host-side attendance PHP library installation completed."
           fi
+
+fi
 
       - name: Verify uploaded FTP files
         if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/**') != '' }}
@@ -293,8 +305,8 @@ jobs:
           while IFS= read -r file; do
             [ -n "${file}" ] || continue
             rel="${file#deploy-payload/}"
-            if [ "${rel}" = "lib/IranCalendar.php" ]; then
-              echo "FTP verify skipped for lib/IranCalendar.php (host FTP denies direct write); panel deployment continues."
+            if [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ]; then
+              echo "FTP verify skipped for ${rel} (host FTP denies direct write; host-side PHP installer verifies checksum)."
               continue
             fi
             remote="/${rel}"
