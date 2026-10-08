@@ -28,20 +28,6 @@ $allowed = array_filter([$CONFIG['public_url'] ?: 'https://app.yousefipour.ir', 
 if ($origin && in_array($origin, $allowed, true)) header('Access-Control-Allow-Origin: ' . $origin); header('Vary: Origin'); header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With'); header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 $method = $_SERVER['REQUEST_METHOD']; $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); $path = rtrim($path, '/'); if ($path === '') $path = '/';
-/*
- * Attendance canonical endpoints:
- * گزارش تردد و ثبت/ویرایش/حذف تردد دستی نباید از route قدیمی
- * _attendance_report عبور کنند؛ آن مسیر برای شیفت شب punch را در
- * روز بعد نیز به‌صورت continuation وارد محاسبه می‌کرد.
- */
-if ($path === '/api/admin/attendance-report' || preg_match('#^/api/admin/attendance-punch/\\d+$#', $path) || $path === '/api/admin/attendance-punch') {
-  if ($path === '/api/admin/attendance-report') {
-    require __DIR__ . '/api/admin-attendance-report.php';
-  } else {
-    require __DIR__ . '/api/admin-attendance-punch.php';
-  }
-  exit;
-}
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
   $siteV = '1.5.6'; $appV = '1.5.6';
@@ -60,6 +46,21 @@ if (strpos($path, '/api') !== 0) {
 }
 // IMPORTANT: do not reconcile substitute shifts in the global request bootstrap.\n// That routine performs schema writes and scans request data; running it before every\n// API request can block login and health checks. Reconciliation is handled by its\n// dedicated workflow instead of the authentication/request bootstrap.\n$routes = [];
 function route($m, $p, $fn, $public = false, $minLevel = 99) { global $routes; $routes[] = compact('m', 'p', 'fn', 'public', 'minLevel'); }
+/*
+ * Attendance canonical endpoints:
+ * گزارش تردد و ثبت/ویرایش/حذف تردد دستی نباید از route قدیمی
+ * _attendance_report عبور کنند؛ آن مسیر برای شیفت شب punch را در
+ * روز بعد نیز به‌صورت continuation وارد محاسبه می‌کرد.
+ */
+if ($path === '/api/admin/attendance-report' || preg_match('#^/api/admin/attendance-punch/\\d+$#', $path) || $path === '/api/admin/attendance-punch') {
+  if ($path === '/api/admin/attendance-report') {
+    require __DIR__ . '/api/admin-attendance-report.php';
+  } else {
+    require __DIR__ . '/api/admin-attendance-punch.php';
+  }
+  exit;
+}
+
 function nid($v){ $s = preg_replace('/\D/', '', (string)$v); return $s === '' ? null : str_pad($s, 10, '0', STR_PAD_LEFT); }
 require "$ROOT/lib/routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; $body = Http::body();
 foreach ($routes as $r) {
