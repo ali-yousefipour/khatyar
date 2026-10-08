@@ -1,8 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAppConfig } from './appconfig';
-import { cachedValue } from './api';
 import * as Location from 'expo-location';
-import { postOrQueue, request } from './api';
+import { cachedValue, postOrQueue, request } from './api';
 import { playSound } from './soundFx';
 
 const WATCH_INTERVAL_MS = 30 * 60 * 1000;
