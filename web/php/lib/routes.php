@@ -321,12 +321,12 @@ $loginHandler = function ($p, $b) {
     if (array_key_exists($__bk, $b)) $b[$__bk] = $strBool($b[$__bk]);
   }
   $username = trim($b['username'] ?? ''); $password = $b['password'] ?? '';
+  $dtype = (($b['device_type'] ?? 'web') === 'android') ? 'android' : 'web';
   // روش ورود وب از تنظیمات سامانه کنترل می‌شود؛ ورود با رمز فقط در حالت password مجاز است.
   if ($dtype === 'web' && strtolower((string)_req_setting('web_login_method', 'password')) !== 'password') {
     Http::error('ورود با نام کاربری و کلمه عبور در تنظیمات وب غیرفعال است.', 403);
   }
   $dev = $b['device_id'] ?? ''; if (strlen($dev) < 6) Http::error('ورودی نامعتبر', 400);
-  $dtype = (($b['device_type'] ?? 'web') === 'android') ? 'android' : 'web';
   // محدودیت ورود بر اساس IP با جدول ایندکس‌دار؛ از JSON_EXTRACT روی activity_logs در مسیر ورود استفاده نمی‌شود
   // تا جست‌وجوی نام‌کاربری در دیتابیس باعث کندی/هنگ شدن ورود نشود.
   $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
@@ -579,6 +579,43 @@ function _web_otp_table() {
   _otp_tables();
   try { Db::run("ALTER TABLE login_otp ADD COLUMN channel VARCHAR(20) NOT NULL DEFAULT 'sms' AFTER mobile"); } catch (Throwable $e) {}
 }
+function _app_login_method() {
+  $m = strtolower(trim((string)_req_setting('app_login_method', 'password')));
+  return in_array($m, ['password','sms_otp','bale_otp'], true) ? $m : 'password';
+}
+function _app_login_user($username) {
+  $username=trim((string)$username); if($username==='') Http::error('نام کاربری را وارد کنید',400);
+  $u=Db::one("SELECT u.*,r.title AS role_title,r.level,r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=? LIMIT 1",[$username]);
+  if(!$u||empty($u['is_active'])) Http::error('اطلاعات ورود صحیح نیست',401);
+  if(empty($u['allow_android'])) Http::error('ورود با اپ اندروید برای این حساب مجاز نیست',403);
+  return $u;
+}
+function _app_login_result($u,$dev,$signals=[]) {
+  if(strlen((string)$dev)<6) Http::error('شناسه دستگاه نامعتبر است',400);
+  if(empty($u['is_active'])||empty($u['allow_android'])) Http::error('ورود با اپ اندروید برای این حساب مجاز نیست',403);
+  $securityExempt=((int)($u['security_exempt']??0)===1);
+  if(!$securityExempt){
+    $sec=function($k,$d=true){$r=Db::one("SELECT value FROM app_settings WHERE `key`=?",[$k]);return $r?json_decode($r['value'],true):$d;};
+    $reason=null;
+    if($sec('block_vpn',true)&&!empty($signals['vpn_on']))$reason='VPN روشن است';
+    elseif($sec('block_dev_options',true)&&!empty($signals['dev_options_on']))$reason='حالت توسعه‌دهنده فعال است';
+    elseif($sec('block_mock_location',true)&&!empty($signals['mock_location']))$reason='موقعیت جعلی (Mock Location) فعال است';
+    elseif($sec('require_gps',true)&&array_key_exists('gps_on',$signals)&&$signals['gps_on']===false)$reason='GPS خاموش است';
+    if($reason!==null)Http::error("ورود مجاز نیست: $reason",403);
+  }
+  if(empty($u['is_admin'])){$mcfg=_maintenance_status();if(!empty($mcfg['enabled']))Http::error($mcfg['message']?:'نرم‌افزار موقتاً برای تعمیرات غیرفعال است.',503);}
+  if(empty($u['is_admin'])&&_req_setting('require_complete_profile_login',false)){
+    $missing=[];$req=Db::all("SELECT id,label FROM custom_fields WHERE is_active=1 AND required=1 ORDER BY sort_order,id");
+    if($req){$vals=Db::all("SELECT field_id,value FROM custom_field_values WHERE user_id=?",[$u['id']]);$map=[];foreach($vals as $x)$map[$x['field_id']]=$x['value'];foreach($req as $x)if(!isset($map[$x['id']])||trim((string)$map[$x['id']])==='')$missing[]=$x['label'];}
+    if(empty($u['signature_data']))$missing[]='امضای پرسنلی'; if($missing)Http::error('اطلاعات هویتی شما تکمیل نشده و امکان ورود وجود ندارد. موارد ناقص: '.implode('، ',$missing).'. برای تکمیل، به مدیر سامانه مراجعه کنید.',403);
+  }
+  $dtype='android';$sess=Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=?",[$u['id'],$dtype]);
+  $unlimited=in_array($u['role_title'],['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'],true);
+  if(!$sess||$sess['revoked_at']||$unlimited)Db::run("INSERT INTO user_sessions(user_id,device_type,device_id,device_model) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE device_id=VALUES(device_id),device_model=VALUES(device_model),revoked_at=NULL,created_at=NOW()",[$u['id'],$dtype,$dev,$signals['device_model']??'Android']);
+  elseif($sess['device_id']!==$dev){Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?, 'device_mismatch', ?)",[$u['id'],json_encode(['tried'=>$dev,'type'=>$dtype])]);Http::error('این حساب روی یک گوشی اندروید دیگر فعال است. برای تعویض، مدیر باید آن دستگاه را حذف کند.',409);}
+  $t=issueTokens($u['id'],$dev,$dtype);Db::run("INSERT INTO activity_logs(user_id,event) VALUES(?, 'login_android_otp')",[$u['id']]);
+  return array_merge($t,['user'=>['id'=>(int)$u['id'],'username'=>$u['username'],'name'=>$u['first_name'].' '.$u['last_name'],'role'=>$u['role_title'],'role_id'=>(int)$u['role_id'],'level'=>(int)$u['level'],'is_admin'=>(bool)$u['is_admin'],'must_change_pw'=>(bool)($u['must_change_pw']??0),'email'=>$u['email'],'photo'=>_user_photo_url($u['photo_path']??null,$u['photo']??null),'security_exempt'=>$securityExempt,'rank_stars'=>isset($u['rank_stars'])&&$u['rank_stars']!==null?(int)$u['rank_stars']:null,'can_send_sms'=>(bool)$u['is_admin']||(bool)($u['can_send_sms']??0)]]);
+}
 function _web_login_user($username) {
   $username = trim((string)$username);
   if ($username === '') Http::error('نام کاربری را وارد کنید', 400);
@@ -614,6 +651,24 @@ function _web_login_result($u,$dev) {
     'can_send_sms'=>(bool)$u['is_admin']||(bool)($u['can_send_sms']??0)
   ]]);
 }
+route('GET','/api/session/app-login-config',function($p,$b,$u){return ['method'=>_app_login_method()];},true);
+route('POST','/api/session/app-login-request',function($p,$b,$u){
+  $method=_app_login_method();if($method==='password')Http::error('ورود با کلمه عبور فعال است.',409);_web_otp_table();$user=_app_login_user($b['username']??'');$channel=$method==='bale_otp'?'bale':'sms';
+  $recent=Db::one("SELECT id FROM login_otp WHERE user_id=? AND channel=? AND consumed_at IS NULL AND created_at>DATE_SUB(NOW(),INTERVAL 60 SECOND)",[$user['id'],$channel]);if($recent)Http::error('لطفاً ۶۰ ثانیه صبر کنید و دوباره تلاش کنید.',429);
+  $hourly=(int)(Db::one("SELECT COUNT(*) n FROM login_otp WHERE user_id=? AND channel=? AND created_at>DATE_SUB(NOW(),INTERVAL 1 HOUR)",[$user['id'],$channel])['n']??0);if($hourly>=5)Http::error('تعداد درخواست‌های کد در این ساعت بیش از حد مجاز است.',429);
+  $code=str_pad((string)random_int(0,999999),6,'0',STR_PAD_LEFT);$mobile=preg_replace('/\D/','',(string)($user['phone']??''));Db::run("INSERT INTO login_otp(user_id,mobile,channel,code_hash,expires_at) VALUES(?,?,?,?,DATE_ADD(NOW(),INTERVAL 3 MINUTE))",[$user['id'],$mobile,$channel,hash('sha256',$code)]);
+  $text="کد ورود اپ خطیار: {$code}\nاین کد تا ۳ دقیقه معتبر است.";
+  if($channel==='sms'){if(strlen($mobile)<10)Http::error('شماره همراه برای این حساب ثبت نشده است.',400);$x=Sms::send([$mobile],$text,'app_login_otp',null);if(empty($x['ok']))Http::error('ارسال پیامک ناموفق بود: '.($x['error']??'خطای نامشخص'),502);}
+  else{$chat=BaleBot::findChatForUser((int)$user['id']);if(!$chat)Http::error('حساب بله این کاربر به سامانه متصل نیست. ابتدا حساب را به ربات بله متصل کنید.',400);$x=BaleBot::sendMessage($chat,$text,['target_type'=>'app_login_otp','target_id'=>$user['id']]);if(empty($x['ok']))Http::error('ارسال کد از طریق ربات بله ناموفق بود.',502);}
+  return ['ok'=>true,'channel'=>$channel];
+},true);
+route('POST','/api/session/app-login-verify',function($p,$b,$u){
+  $method=_app_login_method();if($method==='password')Http::error('ورود با کلمه عبور فعال است.',409);_web_otp_table();$user=_app_login_user($b['username']??'');$code=preg_replace('/\D/','',(string)($b['code']??''));if(!preg_match('/^\d{6}$/',$code))Http::error('کد شش‌رقمی را وارد کنید.',400);
+  $row=Db::one("SELECT * FROM login_otp WHERE user_id=? AND channel=? AND consumed_at IS NULL ORDER BY id DESC LIMIT 1",[$user['id'],$method==='bale_otp'?'bale':'sms']);if(!$row)Http::error('کدی برای این حساب یافت نشد. دوباره درخواست دهید.',400);
+  if(strtotime($row['expires_at'])<time())Http::error('کد منقضی شده است. دوباره درخواست دهید.',400);if((int)$row['attempts']>=5)Http::error('تعداد تلاش‌های مجاز تمام شده است.',429);
+  if(!hash_equals($row['code_hash'],hash('sha256',$code))){Db::run("UPDATE login_otp SET attempts=attempts+1 WHERE id=?",[$row['id']]);Http::error('کد واردشده صحیح نیست.',401);}
+  Db::run("UPDATE login_otp SET consumed_at=NOW() WHERE id=?",[$row['id']]);$signals=[];foreach(['vpn_on','dev_options_on','mock_location','gps_on','device_model'] as $k)if(array_key_exists($k,$b))$signals[$k]=$b[$k];return _app_login_result($user,$b['device_id']??'',$signals);
+},true);
 route('GET','/api/session/web-login-config',function($p,$b,$u){
   return ['method'=>_web_login_method()];
 },true);
