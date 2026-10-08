@@ -6238,13 +6238,13 @@ function HmField({label,value,onChange,optional=false,autoFocus=false}){
 }
 function PunchModalShell({title,subtitle,children,onClose,actions}){
   return <div className="modal-bg punch-modal-bg" style={{zIndex:99999}} onClick={onClose}>
-    <div className="modal punch-modal" role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()}>
+    <div className="modal punch-modal" role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()} style={{minHeight:"560px",maxHeight:"92vh",overflowY:"auto",display:"flex",flexDirection:"column"}}>
       <div className="punch-modal-head">
         <div><h3>{title}</h3>{subtitle&&<div className="punch-modal-sub">{subtitle}</div>}</div>
         <button type="button" className="punch-modal-close" onClick={onClose} aria-label="بستن">×</button>
       </div>
       {children}
-      <div className="punch-modal-actions">{actions}</div>
+      <div className="punch-modal-actions" style={{marginTop:"auto",position:"sticky",bottom:0,background:"var(--card,#fff)",paddingTop:12,paddingBottom:4,zIndex:2}}>{actions}</div>
     </div>
   </div>;
 }
