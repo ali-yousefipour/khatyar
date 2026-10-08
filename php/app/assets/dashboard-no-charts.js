@@ -17,8 +17,18 @@
     Array.prototype.forEach.call(document.querySelectorAll('a,button,[role="tab"],.nav-item,.navitem'),function(el){var t=norm(el.textContent);if(/^(📊\s*)?نمودارها$/.test(t)||t.indexOf('📊 نمودارها')>=0)el.setAttribute('data-khatyar-chart-tab','1');});
   }
   function collapseLive(){
-    var panel=Array.prototype.find.call(Array.prototype.slice.call(document.querySelectorAll('.panel,.card,section,article,div')),function(el){var t=norm(el.textContent);return t.length<1600&&/وضعیت لحظه.?ای حضور|حضور لحظه.?ای پرسنل|وضعیت حضور لحظه.?ای/.test(t);});
-    if(!panel||panel.getAttribute('data-khatyar-live-presence')==='1')return;
+    /* فقط کارت واقعی وضعیت لحظه‌ای را هدف بگیر؛ جست‌وجوی متن کل divهای والد
+       ممکن بود wrapper داشبورد را انتخاب و تمام داشبورد را مخفی کند. */
+    var heading=Array.prototype.find.call(document.querySelectorAll('h1,h2,h3,h4,h5,h6'),function(el){
+      var t=norm(el.textContent);
+      return /^(وضعیت لحظه.?ای حضور|حضور لحظه.?ای پرسنل|وضعیت حضور لحظه.?ای)$/.test(t);
+    });
+    if(!heading)return;
+    var panel=heading.closest('.panel,.card,section,article');
+    if(!panel||panel.id==='root'||panel.closest('#root')===panel)return;
+    var t=norm(panel.textContent);
+    if(t.length>1600||panel.querySelector('.layout,.side,.nav,.navitem,#root'))return;
+    if(panel.getAttribute('data-khatyar-live-presence')==='1')return;
     panel.setAttribute('data-khatyar-live-presence','1');
     var btn=document.createElement('button');btn.type='button';btn.className='khatyar-live-presence-toggle';btn.textContent='نمایش وضعیت لحظه‌ای حضور';
     btn.onclick=function(){var c=panel.classList.toggle('khatyar-live-presence-collapsed');btn.textContent=c?'نمایش وضعیت لحظه‌ای حضور':'پنهان کردن وضعیت لحظه‌ای حضور';};
