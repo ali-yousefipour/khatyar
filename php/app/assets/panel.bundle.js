@@ -10248,14 +10248,14 @@ function HmField({ label, value, onChange, optional = false, autoFocus = false }
 }
 function PunchModalShell({ title, subtitle, children, onClose, actions }) {
     return React.createElement("div", { className: "modal-bg punch-modal-bg", style: { zIndex: 99999 }, onClick: onClose },
-        React.createElement("div", { className: "modal punch-modal", role: "dialog", "aria-modal": "true", onClick: e => e.stopPropagation() },
+        React.createElement("div", { className: "modal punch-modal", role: "dialog", "aria-modal": "true", onClick: e => e.stopPropagation(), style: { minHeight: "560px", maxHeight: "92vh", overflowY: "auto", display: "flex", flexDirection: "column" } },
             React.createElement("div", { className: "punch-modal-head" },
                 React.createElement("div", null,
                     React.createElement("h3", null, title),
                     subtitle && React.createElement("div", { className: "punch-modal-sub" }, subtitle)),
                 React.createElement("button", { type: "button", className: "punch-modal-close", onClick: onClose, "aria-label": "\u0628\u0633\u062A\u0646" }, "\u00D7")),
             children,
-            React.createElement("div", { className: "punch-modal-actions" }, actions)));
+            React.createElement("div", { className: "punch-modal-actions", style: { marginTop: "auto", position: "sticky", bottom: 0, background: "var(--card,#fff)", paddingTop: 12, paddingBottom: 4, zIndex: 2 } }, actions)));
 }
 function PunchEditModal({ punch, onSave, onClose }) {
     var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l;
