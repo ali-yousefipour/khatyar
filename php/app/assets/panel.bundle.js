@@ -10097,6 +10097,7 @@ function AttendanceRequestModal({ userId, jdate, onSaved, onClose }) {
         setBusy(true);
         try {
             await db.adminRequestCreate({
+                direct_approve: true,
                 type, unit,
                 from_jdate: fromDate, to_jdate: hourly ? fromDate : toDate,
                 the_date: fromDate,
