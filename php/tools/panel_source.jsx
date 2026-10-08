@@ -3667,13 +3667,13 @@ function Settings(){
   if(!v)return <div>در حال بارگذاری…</div>;
   const set=(k,val)=>setV({...v,[k]:val});
   const save=async()=>{ await db.saveSettings(v); alert("تنظیمات ذخیره شد."); };
-  const TABS=[["general","عمومی و موقعیت"],["subscription","اشتراک"],["monitoring","پایش و هشدارها"],["dashboard","داشبورد و محاسبهٔ عملکرد"],["hr","منابع انسانی"],["fields","فیلدهای پرسنل"],["appitems","آیتم‌های اپ هر سمت"],["sms","پیامک"],["bale","ربات‌ها"],["security","امنیت و نسخه اپ"],["radio","📻 تنظیمات بی‌سیم"],["files","پیوست‌ها و اعلان‌ها"],["drivers","بدهکاران"],["print","قالب چاپ"],["access","دسترسی‌ها"],["backup","پشتیبان‌گیری و پاکسازی"]];
+  const TABS=[["general","⚙️","عمومی و موقعیت"],["subscription","💳","اشتراک"],["monitoring","⏱️","پایش و هشدارها"],["dashboard","📊","داشبورد و محاسبهٔ عملکرد"],["hr","👥","منابع انسانی"],["fields","🧩","فیلدهای پرسنل"],["appitems","📱","آیتم‌های اپ هر سمت"],["sms","💬","پیامک"],["bale","🤖","ربات‌ها"],["security","🔐","امنیت و نسخه اپ"],["radio","📻","تنظیمات بی‌سیم"],["files","📎","پیوست‌ها و اعلان‌ها"],["drivers","💰","بدهکاران"],["print","🖨️","قالب چاپ"],["access","🛡️","دسترسی‌ها"],["backup","💾","پشتیبان‌گیری و پاکسازی"]];
   const Field=(k,l)=><div style={{marginBottom:12}}><label style={{fontSize:13,color:"var(--muted)"}}>{l}</label>
     <input className="input" value={v[k]??""} onChange={e=>set(k,e.target.value)} style={{marginTop:5}}/></div>;
   const Toggle=(k,l)=><label className="row" style={{justifyContent:"space-between",padding:"8px 0",cursor:"pointer"}}>
     <span style={{fontSize:13}}>{l}</span><input type="checkbox" checked={!!v[k]} onChange={e=>set(k,e.target.checked)}/></label>;
   return(<div>
-    <div className="tabbar">{TABS.map(([k,l])=><button key={k} className={"tabbtn"+(tab===k?" on":"")} onClick={()=>setTab(k)}>{l}</button>)}</div>
+    <div className="tabbar">{TABS.map(([k,ic,l])=><button key={k} className={"tabbtn"+(tab===k?" on":"")} onClick={()=>setTab(k)}><span aria-hidden="true" style={{fontSize:16,lineHeight:1,marginLeft:6}}>{ic}</span><span>{l}</span></button>)}</div>
     <div className={"grid2 settings-tabs tab-"+tab}>
     <div className="panel t-general"><h3>تنظیمات عمومی</h3>{Field("org_name","نام سازمان")}{Field("deputy_name","معاونت نظارت و بازرسی")}
       {Field("inspection_head","رییس اداره بازرسی")}{Field("payment_base_url","آدرس پایهٔ درگاه پرداخت")}
