@@ -109,9 +109,9 @@ function attendance_report_owned_by_entry_date($userId, $from, $to) {
     $day['friday_work'] = $hm($w['friday_work'] ?? $w['friday'] ?? 0);
     $day['holiday_work'] = $hm($w['holiday_work'] ?? $w['holiday'] ?? 0);
     $day['absent'] = (!$punches && !$isHol && !ShiftCalc::isFriday($j) && (int)($w['expected'] ?? 0) > 0 && $approvedExempt <= 0) ? 1 : 0;
-    // جمع غیبت و کسری = غیبتِ موظفی + کسریِ واقعی همان روز.
-    $absenceMin = $day['absent'] ? $expectedMin : 0;
-    $day['absence_shortage'] = $hm($absenceMin + (int)($w['shortage'] ?? 0));
+    // در روز غیبت، کل موظفی قبلاً به‌عنوان کسری محاسبه شده است؛
+    // بنابراین نباید موظفیِ غیبت دوباره به کسری اضافه شود.
+    $day['absence_shortage'] = $hm((int)($w['shortage'] ?? 0));
   }
   unset($day);
   return $report;
