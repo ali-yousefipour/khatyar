@@ -326,6 +326,8 @@ const db = {
     attendancePunchEdit: (id, body) => SEND('PUT', '/admin/attendance-punch/' + id, body),
     attendancePunchDelete: (id) => SEND('DELETE', '/admin/attendance-punch/' + id),
     attendancePunchAdd: (body) => SEND('POST', '/admin/attendance-punch', body),
+    adminRequestCreate: (body) => SEND('POST', '/admin/requests', body),
+    adminRequests: (qs) => GET('/admin/requests' + (qs || '')),
     plateTrainingStatus: () => GET('/admin/plate-training/status'),
     plateTrainingSamples: (qs) => GET('/admin/plate-training/samples' + (qs || '')),
     plateTrainingReview: (id, body) => SEND('POST', '/admin/plate-training/samples/' + id + '/review', body),
@@ -9756,7 +9758,7 @@ function AttendanceReport() {
     const [openDay, setOpenDay] = useState(null);
     const [mapPunch, setMapPunch] = useState(null);
     const [edit, setEdit] = useState(null);
-    const [addModal, setAddModal] = useState(null);
+    const [requestModal, setRequestModal] = useState(null);
     useEffect(() => { db.users().then(us => setUsers(us || [])).catch(() => { }); }, []);
     const visibleUsers = users.filter(u => { const q = String(personQuery || "").trim().toLowerCase(); return !q || String((u.first_name || "") + " " + (u.last_name || "")).toLowerCase().includes(q) || String(u.username || "").includes(q); });
     const run = async () => {
@@ -10004,7 +10006,7 @@ function AttendanceReport() {
                                         } }, "\u0627\u0635\u0644\u0627\u062D"),
                                     React.createElement("button", { className: "btn g", onClick: () => delPunch(p) }, "\u062D\u0630\u0641")));
                         }))),
-                    React.createElement("button", { className: "btn p", onClick: () => setAddModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC"))) : null;
+                    React.createElement("button", { className: "btn p", onClick: () => setRequestModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A"))) : null;
         })(),
         mapPunch && (() => { const lat = Number(mapPunch.in_lat), lng = Number(mapPunch.in_lng); const delta = 0.002; const bbox = [lng - delta, lat - delta, lng + delta, lat + delta].join("%2C"); const mapSrc = "https://www.openstreetmap.org/export/embed.html?bbox=" + bbox + "&layer=mapnik&marker=" + lat + "%2C" + lng; return React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 100000, background: "rgba(0,0,0,.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }, onClick: () => setMapPunch(null) },
             React.createElement("div", { className: "card-p", style: { width: "min(900px,96vw)", height: "min(720px,92vh)", display: "flex", flexDirection: "column", gap: 10, overflow: "hidden" }, onClick: e => e.stopPropagation() },
@@ -10017,7 +10019,96 @@ function AttendanceReport() {
                 React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8 } },
                     React.createElement("a", { className: "btn g", href: "https://www.google.com/maps?q=" + lat + "," + lng, target: "_blank", rel: "noreferrer" }, "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u062F\u0631 Google Maps")))); })(),
         edit && React.createElement(PunchEditModal, { punch: edit, onSave: savePunch, onClose: () => setEdit(null) }),
-        addModal && React.createElement(PunchAddModal, { jdate: addModal.jdate, onSave: addPunch, onClose: () => setAddModal(null) })));
+        requestModal && React.createElement(AttendanceRequestModal, { userId: uid, jdate: requestModal.jdate, onSaved: async () => { setRequestModal(null); await refresh(); }, onClose: () => setRequestModal(null) })));
+}
+function AttendanceRequestModal({ userId, jdate, onSaved, onClose }) {
+    const TYPES = [
+        { value: "annual:daily", label: "مرخصی استحقاقی" },
+        { value: "sick:daily", label: "مرخصی استعلاجی روزانه" },
+        { value: "annual:hourly", label: "مرخصی ساعتی" },
+        { value: "overtime:hourly", label: "اضافه‌کار ساعتی" },
+        { value: "mission:daily", label: "ماموریت روزانه" },
+        { value: "mission:hourly", label: "ماموریت ساعتی" }
+    ];
+    const [kind, setKind] = useState("annual:daily");
+    const [fromDate, setFromDate] = useState(jdate || "");
+    const [toDate, setToDate] = useState(jdate || "");
+    const [fromTime, setFromTime] = useState("");
+    const [toTime, setToTime] = useState("");
+    const [reason, setReason] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [err, setErr] = useState("");
+    const [type, unit] = kind.split(":");
+    const hourly = unit === "hourly";
+    const submit = async () => {
+        setErr("");
+        if (!fromDate) {
+            setErr("تاریخ درخواست را انتخاب کنید.");
+            return;
+        }
+        if (!hourly && !toDate) {
+            setErr("تاریخ پایان را انتخاب کنید.");
+            return;
+        }
+        if (hourly && (!fromTime || !toTime)) {
+            setErr("ساعت شروع و پایان را وارد کنید.");
+            return;
+        }
+        if (hourly && fromTime >= toTime) {
+            setErr("ساعت پایان باید بعد از ساعت شروع باشد.");
+            return;
+        }
+        if (!hourly && toDate < fromDate) {
+            setErr("تاریخ پایان نباید قبل از تاریخ شروع باشد.");
+            return;
+        }
+        setBusy(true);
+        try {
+            await db.adminRequestCreate({
+                user_id: +userId, type, unit,
+                from_jdate: fromDate, to_jdate: hourly ? fromDate : toDate,
+                the_date: fromDate,
+                from_time: hourly ? fromTime : null, to_time: hourly ? toTime : null,
+                reason: reason.trim() || null
+            });
+            await onSaved();
+        }
+        catch (e) {
+            setErr(e.message || "ثبت درخواست انجام نشد");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    return React.createElement(PunchModalShell, { title: "\u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A", subtitle: "برای تاریخ " + faPlain(String(jdate || "")), onClose: onClose, actions: React.createElement(React.Fragment, null,
+            React.createElement("button", { className: "btn g punch-action-secondary", onClick: onClose, disabled: busy }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
+            React.createElement("button", { className: "btn p punch-action-primary", onClick: submit, disabled: busy }, busy ? "در حال ثبت…" : "ثبت درخواست")) },
+        React.createElement("div", { className: "punch-summary" },
+            React.createElement("span", null, "\u0646\u0648\u0639 \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
+            React.createElement("small", null, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u067E\u0633 \u0627\u0632 \u062B\u0628\u062A \u062F\u0631 \u06AF\u0632\u0627\u0631\u0634 \u0647\u0645\u0627\u0646 \u0631\u0648\u0632 \u0642\u0627\u0628\u0644 \u0645\u0634\u0627\u0647\u062F\u0647 \u0627\u0633\u062A.")),
+        React.createElement("div", { className: "punch-fields", style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 12 } },
+            React.createElement("div", { className: "punch-field", style: { gridColumn: "1 / -1" } },
+                React.createElement("label", { className: "label" }, "\u0646\u0648\u0639 \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
+                React.createElement("select", { className: "input", value: kind, onChange: e => setKind(e.target.value) }, TYPES.map(x => React.createElement("option", { key: x.value, value: x.value }, x.label)))),
+            React.createElement("div", { className: "punch-field" },
+                React.createElement("label", { className: "label" }, "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E"),
+                React.createElement("input", { className: "input", value: fromDate, onChange: e => setFromDate(e.target.value), placeholder: "\u06F1\u06F4\u06F0\u06F5-\u06F0\u06F7-\u06F1\u06F5" })),
+            !hourly && React.createElement("div", { className: "punch-field" },
+                React.createElement("label", { className: "label" }, "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E"),
+                React.createElement("input", { className: "input", value: toDate, onChange: e => setToDate(e.target.value), placeholder: "\u06F1\u06F4\u06F0\u06F5-\u06F0\u06F7-\u06F1\u06F5" })),
+            hourly && React.createElement(React.Fragment, null,
+                React.createElement("div", { className: "punch-field" },
+                    React.createElement("label", { className: "label" }, "\u0627\u0632 \u0633\u0627\u0639\u062A"),
+                    React.createElement("input", { className: "input", type: "time", value: fromTime, onChange: e => setFromTime(e.target.value) })),
+                React.createElement("div", { className: "punch-field" },
+                    React.createElement("label", { className: "label" }, "\u062A\u0627 \u0633\u0627\u0639\u062A"),
+                    React.createElement("input", { className: "input", type: "time", value: toTime, onChange: e => setToTime(e.target.value) }))),
+            React.createElement("div", { className: "punch-field", style: { gridColumn: "1 / -1" } },
+                React.createElement("label", { className: "label" }, "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A"),
+                React.createElement("textarea", { className: "input", rows: "3", value: reason, onChange: e => setReason(e.target.value), placeholder: "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)" }))),
+        err && React.createElement("div", { className: "punch-error", role: "alert" },
+            "\u26A0 ",
+            err));
 }
 // پاپ‌آپ لیست ورود و خروج یک روز
 function PunchPopup({ day, onClose, onEdit, onDel, onAdd }) {
