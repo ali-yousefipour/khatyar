@@ -15,9 +15,9 @@ import{postOrQueue}from'./api';
 export default function GpsGuard({children}){
  const{user}=useAuth();
  const exempt=Number(user?.security_exempt||0)===1||user?.security_exempt===true;
- const[gpsOff,setGpsOff]=useState(false),[checking,setChecking]=useState(false),[intervalMs,setIntervalMs]=useState(60000);
+ const[gpsOff,setGpsOff]=useState(false),[checking,setChecking]=useState(false),[intervalMs]=useState(30*60*1000);
  const check=useCallback(async()=>{if(!user||exempt){setGpsOff(false);return}try{const enabled=await Location.hasServicesEnabledAsync();const off=!enabled;setGpsOff(off);if(off)postOrQueue('/activity/telemetry',{kind:'gps_off',at:new Date().toISOString()}).catch(()=>{})}catch{setGpsOff(false)}},[user?.id,exempt]);
- useEffect(()=>{if(!user||exempt)return;getAppConfig(true).then(c=>setIntervalMs(Math.max(15000,Number(c?.gps_check_seconds||60)*1000))).catch(()=>{})},[user?.id,exempt]);
+ // در الزام کارکرد با GPS، فاصلهٔ پایش دقیقاً ۳۰ دقیقه است؛ تنظیم پایش عمومی نباید آن را کوتاه یا بلند کند.
  useEffect(()=>{if(!user||exempt){setGpsOff(false);return undefined}check();const iv=setInterval(check,intervalMs);const sub=AppState.addEventListener('change',s=>{if(s==='active')check()});return()=>{clearInterval(iv);sub.remove()}},[check,user?.id,exempt,intervalMs]);
  const recheck=async()=>{setChecking(true);await check();setChecking(false)};
  if(!user||exempt||!gpsOff)return children? <>{children}</>:null;
