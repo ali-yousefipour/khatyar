@@ -343,6 +343,7 @@ $loginHandler = function ($p, $b) {
   $username = trim($b['username'] ?? ''); $password = $b['password'] ?? '';
   $dev = $b['device_id'] ?? ''; if (strlen($dev) < 6) Http::error('ورودی نامعتبر', 400);
   $dtype = (($b['device_type'] ?? 'web') === 'android') ? 'android' : 'web';
+  if ($dtype === 'web') Http::error('ورود به سایت فقط با کد یک‌بارمصرف پیامکی امکان‌پذیر است.', 403);
   // محدودیت ورود بر اساس IP با جدول ایندکس‌دار؛ از JSON_EXTRACT روی activity_logs در مسیر ورود استفاده نمی‌شود
   // تا جست‌وجوی نام‌کاربری در دیتابیس باعث کندی/هنگ شدن ورود نشود.
   $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
@@ -518,10 +519,26 @@ route('POST', '/api/session/otp-verify', function($p, $b) {
     Http::error('کد وارد‌شده نادرست است', 401);
   }
   Db::run("UPDATE login_otp SET consumed_at=NOW() WHERE id=?", [$row['id']]);
-  $u = Db::one("SELECT u.*, r.title role_title, r.level FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.is_active=1", [$row['user_id']]);
+  $u = Db::one("SELECT u.*, r.title role_title, r.level, r.is_admin FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.is_active=1", [$row['user_id']]);
   if (!$u) Http::error('حساب کاربری یافت نشد یا غیرفعال است', 401);
+  if ($dtype !== 'web') Http::error('این مسیر فقط برای ورود وب است.', 403);
+  if (empty($u['allow_web'])) Http::error('ورود با وب‌اپلیکیشن برای این حساب مجاز نیست', 403);
+  if (empty($u['is_admin'])) {
+    $mcfg = _maintenance_status();
+    if (!empty($mcfg['enabled'])) Http::error($mcfg['message'] ?: 'نرم‌افزار موقتاً برای تعمیرات غیرفعال است.', 503);
+  }
+  $sess = Db::one("SELECT device_id, revoked_at FROM user_sessions WHERE user_id=? AND device_type='web'", [$u['id']]);
+  $unlimited = in_array($u['role_title'], ['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'], true);
+  if (!$sess || $sess['revoked_at'] || $unlimited) {
+    Db::run("INSERT INTO user_sessions(user_id,device_type,device_id,device_model) VALUES(?,?,?,?)
+             ON DUPLICATE KEY UPDATE device_id=VALUES(device_id),device_model=VALUES(device_model),revoked_at=NULL,created_at=NOW()",
+            [$u['id'], 'web', $dev, $b['device_model'] ?? null]);
+  } elseif ($sess['device_id'] !== $dev) {
+    Db::run("UPDATE user_sessions SET device_id=?, device_model=?, revoked_at=NULL, created_at=NOW() WHERE user_id=? AND device_type='web'",
+      [$dev, $b['device_model'] ?? null, $u['id']]);
+  }
   $securityExempt = (int)($u['security_exempt'] ?? 0) === 1;
-  $t = issueTokens($u['id'], $dev, $dtype);
+  $t = issueTokens($u['id'], $dev, 'web');
   Db::run("INSERT INTO activity_logs(user_id,event) VALUES(?, 'login_otp')", [$u['id']]);
   return array_merge($t, ['user' => [
     'id' => (int)$u['id'], 'username' => $u['username'], 'name' => $u['first_name'].' '.$u['last_name'],
