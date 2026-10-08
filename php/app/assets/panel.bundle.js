@@ -9791,6 +9791,7 @@ function AttendanceReport() {
     const [mapPunch, setMapPunch] = useState(null);
     const [edit, setEdit] = useState(null);
     const [requestModal, setRequestModal] = useState(null);
+    const [addModal, setAddModal] = useState(null);
     const [dayRequests, setDayRequests] = useState([]);
     useEffect(() => { db.users().then(us => setUsers(us || [])).catch(() => { }); }, []);
     const visibleUsers = users
@@ -9889,6 +9890,14 @@ function AttendanceReport() {
     const delPunch = async (punch) => { if (!confirm("این تردد حذف شود؟"))
         return; try {
         await db.attendancePunchDelete(punch.id);
+        await refresh();
+    }
+    catch (e) {
+        alert(e.message || "خطا");
+    } };
+    const addPunch = async (jdate, ci, co) => { try {
+        await db.attendancePunchAdd({ user_id: +uid, jdate, check_in: ci, check_out: co || null });
+        setAddModal(null);
         await refresh();
     }
     catch (e) {
@@ -10065,7 +10074,8 @@ function AttendanceReport() {
                     React.createElement("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line)" } },
                         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 } },
                             React.createElement("b", null, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632"),
-                            React.createElement("button", { className: "btn p", onClick: () => setRequestModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A")),
+                            React.createElement("button", { className: "btn p", onClick: () => setRequestModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
+                            React.createElement("button", { className: "btn g", onClick: () => setAddModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC")),
                         dayRequests.length === 0 ? React.createElement("div", { className: "muted", style: { fontSize: 12 } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") :
                             React.createElement("div", { style: { overflowX: "auto" } },
                                 React.createElement("table", null,
@@ -10096,6 +10106,7 @@ function AttendanceReport() {
                 React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", gap: 8 } },
                     React.createElement("a", { className: "btn g", href: "https://www.google.com/maps?q=" + lat + "," + lng, target: "_blank", rel: "noreferrer" }, "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u062F\u0631 Google Maps")))); })(),
         edit && React.createElement(PunchEditModal, { punch: edit, onSave: savePunch, onClose: () => setEdit(null) }),
+        addModal && React.createElement(PunchAddModal, { jdate: addModal.jdate, onSave: addPunch, onClose: () => setAddModal(null) }),
         requestModal && React.createElement(AttendanceRequestModal, { userId: uid, jdate: requestModal.jdate, onSaved: async () => { setRequestModal(null); await refresh(); if (openDay) {
                 const rows = await db.adminRequests('?user_id=' + encodeURIComponent(uid));
                 const ds = String(openDay).replace(/\\/ / g, '-');
@@ -10358,6 +10369,36 @@ function PunchEditModal({ punch, onSave, onClose }) {
         err ? React.createElement("div", { className: "punch-error", role: "alert" },
             "\u26A0 ",
             err) : React.createElement("div", { className: "punch-info" }, "\u2139 \u0627\u06AF\u0631 \u062E\u0631\u0648\u062C \u0627\u0632 \u0648\u0631\u0648\u062F \u06A9\u0648\u0686\u06A9\u200C\u062A\u0631 \u0628\u0627\u0634\u062F\u060C \u062A\u0631\u062F\u062F \u0628\u0647 \u0631\u0648\u0632 \u0628\u0639\u062F \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F (\u0634\u06CC\u0641\u062A \u0634\u0628)."));
+}
+function PunchAddModal({ jdate, onSave, onClose }) {
+    const [ci, setCi] = useState("");
+    const [co, setCo] = useState("");
+    const [err, setErr] = useState("");
+    const submit = () => {
+        const nci = normalizeHm(ci), nco = co.trim() ? normalizeHm(co) : "";
+        if (!nci) {
+            setErr("ساعت ورود الزامی است و باید بین ۰۰:۰۰ تا ۲۳:۵۹ باشد.");
+            return;
+        }
+        if (co.trim() && !nco) {
+            setErr("ساعت خروج باید به شکل صحیح (۰۰:۰۰ تا ۲۳:۵۹) وارد شود.");
+            return;
+        }
+        setErr("");
+        onSave(jdate, nci, nco);
+    };
+    return React.createElement(PunchModalShell, { title: "\u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC", subtitle: "تاریخ: " + fa(jdate), onClose: onClose, actions: React.createElement(React.Fragment, null,
+            React.createElement("button", { className: "btn g punch-action-secondary", onClick: onClose }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
+            React.createElement("button", { className: "btn p punch-action-primary", onClick: submit }, "\u062B\u0628\u062A \u062A\u0631\u062F\u062F")) },
+        React.createElement("div", { className: "punch-summary" },
+            React.createElement("span", null, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u0631\u062F\u062F"),
+            React.createElement("small", null, "\u0648\u0631\u0648\u062F \u0627\u0644\u0632\u0627\u0645\u06CC \u00B7 \u062E\u0631\u0648\u062C \u0627\u062E\u062A\u06CC\u0627\u0631\u06CC")),
+        React.createElement("div", { className: "punch-fields" },
+            React.createElement(HmField, { label: "\u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F", value: ci, onChange: setCi, autoFocus: true }),
+            React.createElement(HmField, { label: "\u0633\u0627\u0639\u062A \u062E\u0631\u0648\u062C", value: co, onChange: setCo, optional: true })),
+        err && React.createElement("div", { className: "punch-error", role: "alert" },
+            "\u26A0 ",
+            err));
 }
 function ShiftReport() {
     const tj = todayJ();
