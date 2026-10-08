@@ -15013,14 +15013,17 @@ function Login({ onLogin, brand }) {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [code, setCode] = useState("");
-    const [loginMethod, setLoginMethod] = useState("password");
+    const [loginMethod, setLoginMethod] = useState("sms_otp");
     const [mode, setMode] = useState("request");
     const [err, setErr] = useState("");
     const [info, setInfo] = useState("");
     const [busy, setBusy] = useState(false);
     const [cooldown, setCooldown] = useState(0);
-    useEffect(() => { let active = true; db.webLoginConfig().then(x => { if (active)
-        setLoginMethod(x.method || "password"); }).catch(() => { }); return () => { active = false; }; }, []);
+    useEffect(() => { let active = true; db.webLoginConfig().then(x => { if (active) {
+        const configured = String(x && x.method || "sms_otp");
+        setLoginMethod(configured === "password" ? "sms_otp" : configured);
+    } }).catch(() => { if (active)
+        setLoginMethod("sms_otp"); }); return () => { active = false; }; }, []);
     useEffect(() => { if (cooldown <= 0)
         return; const t = setInterval(() => setCooldown(v => Math.max(0, v - 1)), 1000); return () => clearInterval(t); }, [cooldown]);
     const methodLabel = loginMethod === "sms_otp" ? "پیامک" : loginMethod === "bale_otp" ? "ربات بله" : "نام کاربری و کلمه عبور";
