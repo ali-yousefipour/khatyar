@@ -146,6 +146,7 @@ const db = {
   systemHealthIncidents: ()=> GET('/admin/system-health-incidents'),
   deviceHealth: (q='')=> GET('/admin/device-health?q='+encodeURIComponent(q)),
   users: (params)=> GET('/admin/users?'+new URLSearchParams(params||{}).toString()),
+  userCommitments: (id)=> GET('/admin/user-commitments?user_id='+encodeURIComponent(id)),
   orgChart: ()=> GET('/admin/org-chart'),
   salarySlipUsers: (q='')=> GET('/admin/salary-slips/users?q='+encodeURIComponent(q)),
   salarySlipsForUser: (id)=> GET('/admin/users/'+id+'/salary-slips'),
@@ -1192,6 +1193,7 @@ function Users(){
   const [usersTab,setUsersTab]=useState("users");
   const [users,setUsers]=useState([]); const [roles,setRoles]=useState([]); const [zones,setZones]=useState([]);
   const [edit,setEdit]=useState(null); const [lineModal,setLineModal]=useState(null); const [adding,setAdding]=useState(false);
+  const [commitmentsModal,setCommitmentsModal]=useState(null);
   const [f,setF]=useState({q:"",role_id:"",zone_id:"",active:""}); const [pw,setPw]=useState("");
   const clean=o=>{const x={...o};Object.keys(x).forEach(k=>(x[k]===""||x[k]==null)&&delete x[k]);return x;};
   const reload=()=>db.users(clean(f)).then(us=>setUsers(us.map(u=>({...u,is_active:(u.is_active==1||u.is_active===true)})))).catch(()=>{});
@@ -1234,7 +1236,7 @@ function Users(){
       <td>{u.photo?<img src={u.photo} style={{width:34,height:34,borderRadius:8,objectFit:"cover"}}/>:<span className="pf2">{(u.first_name||"؟")[0]}</span>}</td>
       <td>{u.first_name} {u.last_name}</td><td style={{direction:"ltr",textAlign:"right"}}>{u.username||"—"}</td>
       <td>{u.role_title||rt(u.role_id)}</td><td style={{whiteSpace:"nowrap",color:"#b7791f",fontWeight:800}}>{starsForUser(u)}</td><td style={{direction:"ltr",textAlign:"right",fontSize:12}}>{u.email||"—"}</td>
-      <td style={{textAlign:"center"}}>{(u.commitments_count>0)?<span className="badge" style={{background:"#fde7c9",color:"#b45309"}}>{fa(u.commitments_count)}</span>:<span style={{color:"var(--muted)"}}>۰</span>}</td>
+      <td style={{textAlign:"center"}}>{(u.commitments_count>0)?<button type="button" className="badge" style={{background:"#fde7c9",color:"#b45309",border:"1px solid #f3d39f",cursor:"pointer",fontFamily:"inherit",fontWeight:800}} onClick={async()=>{try{const rows=await db.userCommitments(u.id);setCommitmentsModal({user:u,rows:Array.isArray(rows)?rows:[]});}catch(e){alert(e.message||"خطا در دریافت تعهدات");}}}>{fa(u.commitments_count)}</button>:<span style={{color:"var(--muted)"}}>۰</span>}</td>
       <td style={{fontSize:11}}>{u.android_bound?"📱":"—"} {u.web_bound?"🖥":""}</td>
       <td><span className={"badge "+(u.is_active?"b-ok":"b-no")}>{u.is_active?"فعال":"غیرفعال"}</span></td>
       <td><div className="row" style={{gap:6,flexWrap:"wrap"}}>
@@ -1242,6 +1244,27 @@ function Users(){
         <button className="btn g" onClick={()=>setLineModal(u)}>خطوط</button>
         <button className="btn g" style={{color:'var(--danger)'}} onClick={()=>delUser(u)}>حذف</button></div></td></tr>)}</tbody></table>
     {pg.Pager()}
+    {commitmentsModal&&<Modal title={"تعهدات "+(commitmentsModal.user.first_name||"")+" "+(commitmentsModal.user.last_name||"")} onClose={()=>setCommitmentsModal(null)}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:12}}>
+        <div style={{fontSize:12,color:"var(--muted)"}}>تعداد تعهدات: <b style={{color:"#b45309"}}>{fa(commitmentsModal.rows.length)}</b></div>
+        <span className="badge" style={{background:"#fde7c9",color:"#b45309"}}>تعهدات انضباطی</span>
+      </div>
+      {commitmentsModal.rows.length?<div style={{display:"grid",gap:10,maxHeight:"65vh",overflowY:"auto"}}>
+        {commitmentsModal.rows.map((c,i)=><div key={c.id||i} style={{border:"1px solid var(--line)",borderRadius:12,padding:12,background:"var(--card,#fff)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start"}}>
+            <b>{c.title||"تعهد بدون عنوان"}</b>
+            <span style={{fontSize:11,color:"var(--muted)",whiteSpace:"nowrap"}}>{c.commit_jdate||"—"}</span>
+          </div>
+          {c.reason_title&&<div style={{fontSize:11,color:"var(--muted)",marginTop:5}}>دلیل: {c.reason_title}</div>}
+          {c.description&&<div style={{fontSize:12,lineHeight:1.8,marginTop:8,whiteSpace:"pre-wrap"}}>{c.description}</div>}
+          <div className="row" style={{gap:8,marginTop:9,flexWrap:"wrap"}}>
+            {c.created_by_name&&<span style={{fontSize:10,color:"var(--muted)"}}>ثبت‌کننده: {c.created_by_name}</span>}
+            {c.has_attachment?<button type="button" className="btn g" onClick={async()=>{try{const a=await GET('/admin/user-commitments/'+c.id+'/attachment');if(a&&a.attachment_data){const w=window.open();if(w)w.document.write('<iframe src="'+a.attachment_data.replace(/"/g,'&quot;')+'" style="border:0;width:100vw;height:100vh"></iframe>');}}catch(e){alert(e.message||"خطا در دریافت پیوست");}}}>مشاهده پیوست</button>:null}
+          </div>
+        </div>)}
+      </div>:<p className="muted" style={{textAlign:"center",padding:12}}>برای این نیرو تعهدی ثبت نشده است.</p>}
+      <button className="btn g" style={{marginTop:14,width:"100%"}} onClick={()=>setCommitmentsModal(null)}>بستن</button>
+    </Modal>}
     {edit&&<Modal title="ویرایش کاربر" onClose={()=>{setEdit(null);setPw("");}}>
       <div className="row" style={{gap:10,alignItems:"center"}}>
         {edit.photo?<img src={edit.photo} style={{width:60,height:60,borderRadius:12,objectFit:"cover"}}/>:<span className="pf2" style={{width:60,height:60,fontSize:24}}>{(edit.first_name||"؟")[0]}</span>}
