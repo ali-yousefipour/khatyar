@@ -2267,6 +2267,7 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   [$jy,$jm,$jd] = gregorian_to_jalali(date('Y', strtotime($eventAt)),date('m', strtotime($eventAt)),date('d', strtotime($eventAt)));
   $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
   $shift = function_exists('_active_user_shift_assignment') ? _active_user_shift_assignment($u['id'], $jdate) : null;
+  if (_gps_work_required() && !$shift) Http::error('برای ثبت حضور، ابتدا باید شیفت کاری فعال برای شما تعریف شده باشد.', 422);
   if ($shift) {
     if (($shift['type'] ?? '') === 'auto') {
       if (empty($shift['auto_shift_enabled'])) Http::error('شیفت خودکار برای سمت شما غیرفعال است.', 422);
