@@ -6171,7 +6171,7 @@ function AttendanceRequestModal({userId,jdate,onSaved,onClose}){
   const TYPES=[
     {value:"annual:daily",label:"مرخصی استحقاقی"},
     {value:"sick:daily",label:"مرخصی استعلاجی روزانه"},
-    {value:"annual:hourly",label:"مرخصی ساعتی"},
+    {value:"annual:hourly",label:"مرخصی استحقاقی ساعتی"},
     {value:"overtime:hourly",label:"اضافه‌کار ساعتی"},
     {value:"mission:daily",label:"ماموریت روزانه"},
     {value:"mission:hourly",label:"ماموریت ساعتی"}
