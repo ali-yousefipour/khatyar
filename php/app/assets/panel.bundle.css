@@ -18,7 +18,7 @@
   .layout{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
 
   /* ---------- سایدبار / Material Design 3 ---------- */
-  .side{background:linear-gradient(180deg,var(--slate),var(--slate-2));color:#c7d2e3;
+  .side{background:linear-gradient(180deg,#0d7a5f 0%,#075b48 52%,#064638 100%);color:#e8fff7;
     padding:12px 10px 8px;position:sticky;top:0;height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;
     box-shadow:inset -1px 0 0 rgba(255,255,255,.04)}
   .brand{display:flex;align-items:center;gap:12px;color:#fff;font-weight:800;margin:4px 6px 12px;
@@ -31,18 +31,18 @@
   .nav::-webkit-scrollbar{width:6px}
   .nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.24);border-radius:99px}
   .nav::-webkit-scrollbar-track{background:transparent}
-  .navsec{border-radius:14px;overflow:hidden;background:rgba(255,255,255,.025);flex:0 0 auto}
+  .navsec{border-radius:14px;overflow:hidden;background:rgba(255,255,255,.075);flex:0 0 auto}
   .navsec-head{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:52px;padding:0 14px;border:0;cursor:pointer;
-    background:transparent;color:#d8e1ee;font:inherit;font-size:12.5px;font-weight:800;text-align:right;transition:background .2s,color .2s}
-  .navsec-head:hover,.navsec.open .navsec-head{background:rgba(255,255,255,.075);color:#fff}
+    background:transparent;color:#effff9;font:inherit;font-size:12.5px;font-weight:800;text-align:right;transition:background .2s,color .2s}
+  .navsec-head:hover,.navsec.open .navsec-head{background:rgba(255,255,255,.13);color:#fff}
   .nav-chevron{font-size:26px;line-height:1;color:var(--taxi);transition:transform .24s cubic-bezier(.2,.8,.2,1)}
   .navsec.open .nav-chevron{transform:rotate(-90deg)}
   .navsec-body{overflow:hidden;transition:max-height .24s cubic-bezier(.2,.8,.2,1),opacity .2s ease;padding:0 6px}
   .navitem{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;text-align:right;border:0;cursor:pointer;
-    background:transparent;color:#aebbd0;padding:0 12px;border-radius:12px;font:inherit;font-size:12.5px;
+    background:transparent;color:#d8f5ec;padding:0 12px;border-radius:12px;font:inherit;font-size:12.5px;
     transition:background .18s,color .18s,transform .18s;position:relative;margin:4px 0}
   .navitem:hover{color:#fff;background:rgba(255,255,255,.08);transform:translateX(-2px)}
-  .navitem.on{background:linear-gradient(90deg,rgba(14,138,106,.72),rgba(14,138,106,.18));color:#fff;font-weight:800}
+  .navitem.on{background:linear-gradient(90deg,rgba(255,255,255,.22),rgba(255,255,255,.08));color:#fff;font-weight:800}
   .navitem.on::before{content:"";position:absolute;right:0;top:8px;bottom:8px;width:4px;border-radius:99px;background:var(--taxi)}
   .ic{width:24px;height:24px;display:grid;place-items:center;flex:0 0 24px;font-size:18px;opacity:1}
   .ic img{width:24px!important;height:24px!important;object-fit:contain;display:block}
