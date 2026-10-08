@@ -3668,6 +3668,37 @@ route('GET', '/api/my/leave-balance', fn($p,$b,$u) => _req_balance($u['id']));
 // مانده مرخصی یک کاربر (ادمین)
 route('GET', '/api/admin/users/{id}/leave-balance', fn($p,$b,$u) => _req_balance((int)$p['id']), false, ADMIN);
 
+// ثبت درخواست توسط مدیر/اپراتور برای پرسنل انتخاب‌شده
+route('POST', '/api/admin/requests', function($p,$b,$u){
+  $uid=(int)($b['user_id']??0);
+  if(!$uid || !Db::one("SELECT id FROM users WHERE id=? AND is_active=1",[$uid])) Http::error('پرسنل انتخاب‌شده معتبر نیست',422);
+  $type=(string)($b['type']??'');
+  if(!in_array($type,['annual','sick','mission','overtime'],true)) Http::error('نوع درخواست نامعتبر است',400);
+  $unit=($b['unit']??'daily')==='hourly'?'hourly':'daily';
+  $from=trim((string)($b['from_jdate']??$b['the_date']??''));
+  $to=trim((string)($b['to_jdate']??$from));
+  $the=trim((string)($b['the_date']??$from));
+  if(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$from)) Http::error('تاریخ درخواست نامعتبر است',422);
+  if(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$to)) Http::error('تاریخ پایان نامعتبر است',422);
+  if($unit==='hourly'){
+    $ft=trim((string)($b['from_time']??'')); $tt=trim((string)($b['to_time']??''));
+    if(!preg_match('/^([01]\\d|2[0-3]):[0-5]\\d$/',$ft)||!preg_match('/^([01]\\d|2[0-3]):[0-5]\\d$/',$tt)) Http::error('ساعت شروع و پایان نامعتبر است',422);
+    if($ft>=$tt) Http::error('ساعت پایان باید بعد از ساعت شروع باشد',422);
+    $minutes=(int)substr($tt,0,2)*60+(int)substr($tt,3,2)-(int)substr($ft,0,2)*60-(int)substr($ft,3,2);
+  } else {
+    $ft=null; $tt=null; $minutes=480;
+    $df=j_to_ts($from); $dt=j_to_ts($to);
+    if($df===false||$dt===false||$dt<$df) Http::error('بازه تاریخ نامعتبر است',422);
+    $minutes=max(1,(int)(($dt-$df)/86400)+1)*480;
+  }
+  $approver=_req_approver($uid);
+  $reason=trim((string)($b['reason']??''))?:null;
+  $id=Db::insert("INSERT INTO requests(user_id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes,reason,pending_on)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?)",[$uid,$type,$unit,$from,$to,$the,$ft,$tt,$minutes,$reason,$approver]);
+  if($approver) Push::send([$approver],'درخواست جدید برای تأیید',['annual'=>'مرخصی استحقاقی','sick'=>'مرخصی استعلاجی','mission'=>'ماموریت','overtime'=>'اضافه‌کار'][$type]??'درخواست',['type'=>'request','request_id'=>$id]);
+  return ['id'=>$id,'status'=>'pending','minutes'=>$minutes];
+}, false, ADMIN);
+
 // گزارش درخواست‌ها برای ادمین (با فیلتر کاربر/نوع/وضعیت/بازه)
 route('GET', '/api/admin/requests', function($p,$b,$u){
   $cond=[]; $args=[];
