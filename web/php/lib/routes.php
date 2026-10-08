@@ -2118,6 +2118,7 @@ route('GET', '/api/my/app-config', function($p,$b,$u){
     'gsm_tracking_enabled'  => $g('gsm_tracking_enabled', true)!==false,
     'gsm_ping_minutes'      => max(1,min(60,(int)($g('gsm_ping_minutes', 2) ?: 2))), // فاصلهٔ پینگ GSM (دقیقه)
     'gps_check_seconds'     => max(15,min(3600,(int)($g('gps_check_seconds', 60) ?: 60))), // فاصلهٔ بررسی روشن بودن GPS (ثانیه)
+    'gps_work_required'     => $gb('gps_work_required', false), // محاسبهٔ کارکرد فقط با GPS روشن
     'vpn_check_seconds'     => max(15,min(3600,(int)($g('vpn_check_seconds', 60) ?: 60))),
     'station_check_seconds' => max(15,min(3600,(int)($g('station_check_seconds', 60) ?: 60))),
     'leave_require_substitute' => $g('leave_require_substitute', false) === true, // الزام معرفی جایگزین برای مرخصی
