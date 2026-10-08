@@ -8406,12 +8406,12 @@ function Login({onLogin,brand}){
       <div style={{textAlign:"center",marginBottom:18}}>{brand?.logo?<img src={brand.logo} style={{margin:"0 auto 10px",width:58,height:58,borderRadius:14,objectFit:"contain",background:"#fff",padding:5,border:"1px solid var(--line)"}}/>:<img src="/brand-khatyar.png" style={{margin:"0 auto 10px",width:58,height:58,borderRadius:29,objectFit:"cover"}}/>}
         <h3 style={{justifyContent:"center"}}>ورود به {brand?.title||"خطیار"}</h3></div>
       {mode==="request"&&<>
-        <p style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,marginBottom:10}}>برای ورود، شماره همراه ثبت‌شده حساب کاربری در حساب کاربری را وارد کنید. رمز عبور دیگر برای ورود به سایت استفاده نمی‌شود.</p>
+        <p style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,marginBottom:10}}>نام کاربری خود را وارد کنید. شماره همراه به‌صورت خودکار از اطلاعات حساب کاربری خوانده می‌شود و کد یک‌بارمصرف به همان شماره ارسال خواهد شد.</p>
         <input className="input" autoComplete="username" dir="ltr" placeholder="نام کاربری" value={username} onChange={e=>setUsername(e.target.value)} onKeyDown={e=>e.key==='Enter'&&requestCode()} />
         <button className="btn p" style={{width:"100%",marginTop:14}} onClick={requestCode} disabled={busy||cooldown>0}>{busy?'در حال ارسال…':cooldown>0?'ارسال مجدد ('+cooldown+')':'دریافت کد ورود'}</button>
       </>}
       {mode==="verify"&&<>
-        <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,marginBottom:10}}>کد شش‌رقمی ارسال‌شده به <b dir="ltr">{mobile}</b> را وارد کنید.</div>
+        <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,marginBottom:10}}>کد شش‌رقمی ارسال‌شده به شماره همراه ثبت‌شده حساب کاربری را وارد کنید.</div>
         <input className="input" inputMode="numeric" autoComplete="one-time-code" dir="ltr" maxLength={6} placeholder="کد یک‌بارمصرف" value={code} onChange={e=>setCode(e.target.value.replace(/[^0-9۰-۹]/g,''))} onKeyDown={e=>e.key==='Enter'&&verify()} autoFocus />
         <button className="btn p" style={{width:"100%",marginTop:14}} onClick={verify} disabled={busy||code.length!==6}>{busy?'در حال بررسی…':'تأیید و ورود'}</button>
         <div className="row" style={{justifyContent:"space-between",marginTop:10}}>
