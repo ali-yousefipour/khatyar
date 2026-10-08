@@ -6114,7 +6114,7 @@ function Settings() {
         return React.createElement("div", null, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026");
     const set = (k, val) => setV({ ...v, [k]: val });
     const save = async () => { await db.saveSettings(v); alert("تنظیمات ذخیره شد."); };
-    const TABS = [["general", "عمومی و موقعیت"], ["subscription", "اشتراک"], ["monitoring", "پایش و هشدارها"], ["dashboard", "داشبورد و محاسبهٔ عملکرد"], ["hr", "منابع انسانی"], ["fields", "فیلدهای پرسنل"], ["appitems", "آیتم‌های اپ هر سمت"], ["sms", "پیامک"], ["bale", "ربات‌ها"], ["security", "امنیت و نسخه اپ"], ["files", "پیوست‌ها و اعلان‌ها"], ["drivers", "بدهکاران"], ["print", "قالب چاپ"], ["access", "دسترسی‌ها"], ["backup", "پشتیبان‌گیری و پاکسازی"]];
+    const TABS = [["general", "عمومی و موقعیت"], ["subscription", "اشتراک"], ["monitoring", "پایش و هشدارها"], ["dashboard", "داشبورد و محاسبهٔ عملکرد"], ["hr", "منابع انسانی"], ["fields", "فیلدهای پرسنل"], ["appitems", "آیتم‌های اپ هر سمت"], ["sms", "پیامک"], ["bale", "ربات‌ها"], ["security", "امنیت و نسخه اپ"], ["radio", "📻 تنظیمات بی‌سیم"], ["files", "پیوست‌ها و اعلان‌ها"], ["drivers", "بدهکاران"], ["print", "قالب چاپ"], ["access", "دسترسی‌ها"], ["backup", "پشتیبان‌گیری و پاکسازی"]];
     const Field = (k, l) => {
         var _a;
         return React.createElement("div", { style: { marginBottom: 12 } },
@@ -6171,6 +6171,8 @@ function Settings() {
             React.createElement("div", { className: "panel t-general" },
                 React.createElement("h3", null, "\u0644\u0648\u06AF\u0648 \u0648 \u0639\u0646\u0648\u0627\u0646 \u0633\u0627\u06CC\u062A \u0648 \u0627\u062F\u0627\u0631\u0647"),
                 React.createElement(OrgBrandingSettings, { v: v, set: set, save: save })),
+            React.createElement("div", { className: "panel t-radio" },
+                React.createElement(RadioSettings, null)),
             React.createElement("div", { className: "panel t-security" },
                 React.createElement("h3", null, "\u0642\u0648\u0627\u0646\u06CC\u0646 \u0627\u0645\u0646\u06CC\u062A\u06CC \u0648\u0631\u0648\u062F"),
                 Toggle("require_gps", "الزام روشن‌بودن GPS"),
@@ -6178,11 +6180,7 @@ function Settings() {
                 Toggle("block_dev_options", "مسدودسازی هنگام Developer Options"),
                 Toggle("block_mock_location", "مسدودسازی هنگام موقعیت جعلی (Mock)"),
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 10 } }, "\u0627\u06CC\u0646 \u0642\u0648\u0627\u0646\u06CC\u0646 \u062A\u0648\u0633\u0637 \u0627\u067E \u0645\u0648\u0628\u0627\u06CC\u0644 \u0628\u0631\u0631\u0633\u06CC \u0648 \u062A\u0648\u0633\u0637 \u0633\u0631\u0648\u0631 \u0627\u0639\u0645\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
-                React.createElement(MaintenanceModeSettings, null),
-                React.createElement("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" } },
-                    React.createElement("h3", { style: { margin: "0 0 8px" } }, "\uD83D\uDCFB \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645"),
-                    React.createElement("p", { className: "muted", style: { fontSize: 12, marginBottom: 10 } }, "\u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0627\u0646\u0627\u0644\u200C\u0647\u0627\u06CC \u0628\u06CC\u200C\u0633\u06CC\u0645\u060C \u0633\u0637\u062D \u062F\u0633\u062A\u0631\u0633\u06CC \u06A9\u0627\u0646\u0627\u0644\u200C\u0647\u0627 \u0648 \u0645\u062F\u062A \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0622\u0631\u0634\u06CC\u0648 \u0627\u0632 \u0647\u0645\u06CC\u0646 \u062A\u0628 \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F \u0648 \u0635\u0641\u062D\u0647\u0654 \u062C\u062F\u0627\u06AF\u0627\u0646\u0647\u200C\u0627\u06CC \u062F\u0631 \u0645\u0646\u0648\u06CC \u0633\u0627\u06CC\u062A \u0646\u062F\u0627\u0631\u062F."),
-                    React.createElement(RadioSettings, null))),
+                React.createElement(MaintenanceModeSettings, null)),
             React.createElement("div", { className: "panel t-general" },
                 React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0645\u0648\u0642\u0639\u06CC\u062A\u200C\u06CC\u0627\u0628\u06CC"),
                 Field("location_interval_sec", "فاصلهٔ ارسال موقعیت کاربران (ثانیه) — پیش‌فرض ۶۰"),
