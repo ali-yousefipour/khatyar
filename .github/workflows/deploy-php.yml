@@ -387,10 +387,10 @@ jobs:
             -A 'Khatyar-Deploy-Verify/1.0' \
             "${url}" > /tmp/live-panel.html
 
-          grep -q 'assets/panel-build-runtime-fix.js?v=20261008.271' /tmp/live-panel.html
-          grep -q 'assets/panel.bundle.js?v=20261008.271' /tmp/live-panel.html
-          grep -q 'assets/school-service-admin.js?v=20261007.252' /tmp/live-panel.html
-          grep -q 'نسخه 1.5.6' /tmp/live-panel.html
+          grep -q 'assets/panel-build-runtime-fix.js?v=20261009.1' /tmp/live-panel.html
+          grep -q 'assets/panel.bundle.js?v=20261009.1' /tmp/live-panel.html
+          grep -q 'assets/school-service-admin.js?v=20261009.253' /tmp/live-panel.html
+          grep -q 'نسخه 1.5.7' /tmp/live-panel.html
           ! grep -q '/api/admin/complaints/dashboard' /tmp/live-panel.html
           ! grep -q 'window.openComplaints=open;open();' /tmp/live-panel.html
 
