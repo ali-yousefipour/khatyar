@@ -2,7 +2,7 @@ import React,{useEffect,useMemo,useRef,useState}from'react';
 import{Alert,Image,Modal,PanResponder,ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View}from'react-native';
 import{CameraView,useCameraPermissions}from'expo-camera';
 import*as ImageManipulator from'expo-image-manipulator';
-import{request,uploadFile}from'../api';import{C,FONT}from'../theme';import JDatePicker from'../components/JDatePicker';import ActivityIndicator from'../components/PulseLoadingIndicator';import{getImageConfig,compressToFile}from'../img';import{getAppConfig}from'../appconfig';import{getAppConfig}from'../appconfig';
+import{request,uploadFile}from'../api';import{C,FONT}from'../theme';import JDatePicker from'../components/JDatePicker';import ActivityIndicator from'../components/PulseLoadingIndicator';import{getImageConfig,compressToFile}from'../img';import{getAppConfig}from'../appconfig';
 const fa=n=>String(n??'').replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);const en=v=>String(v??'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 const CAR_PHOTOS=[['car_front','تصویر جلوی خودرو'],['car_back','تصویر پشت خودرو'],['car_right','تصویر سمت راست خودرو'],['car_left','تصویر سمت چپ خودرو'],['license_front','روی کارت گواهینامه'],['license_back','پشت کارت گواهینامه'],['vehicle_card_front','روی کارت خودرو'],['vehicle_card_back','پشت کارت خودرو'],['technical_inspection','تصویر معاینه فنی'],['insurance','تصویر بیمه‌نامه'],['green_card','تصویر برگ سبز']];
 const MOTOR_PHOTOS=[['motor_front','تصویر جلوی موتورسیکلت'],['motor_back','تصویر پشت موتورسیکلت'],['motor_right','تصویر سمت راست موتورسیکلت'],['motor_left','تصویر سمت چپ موتورسیکلت'],['motor_card_front','روی کارت موتورسیکلت'],['motor_card_back','پشت کارت موتورسیکلت'],['green_card','تصویر برگ سبز موتورسیکلت'],['insurance','تصویر بیمه‌نامه'],['license_front','روی گواهینامه'],['license_back','پشت گواهینامه']];
@@ -59,6 +59,7 @@ export default function PersonnelVehicleAssetScreen(){const[phase,setPhase]=useS
   finally{setSaving(false)}
  }
  if(phase==='loading')return <View style={s.center}><ActivityIndicator/></View>;if(phase==='error')return <View style={s.center}><Text style={s.denied}>{errorMsg}</Text><TouchableOpacity style={[s.btn,{marginTop:16,flex:0,paddingHorizontal:24}]} onPress={loadAccess}><Text style={s.btnTxt}>تلاش مجدد</Text></TouchableOpacity></View>;if(phase==='denied')return <View style={s.center}><Text style={s.denied}>برای شما خودرو یا موتورسیکلتی تخصیص داده نشده است. در صورت نیاز با مدیر سامانه هماهنگ کنید.</Text></View>;
+ const nextStep=()=>{if(step===0){if(!data.model_year)return Alert.alert('اطلاعات ناقص','ابتدا سال ساخت/مدل را انتخاب کنید.');if(motor&&(!data.motorcycle_plate_top&&!data.motorcycle_plate_bottom))return Alert.alert('اطلاعات ناقص','پلاک موتورسیکلت را وارد کنید.');if(!motor&&(!data.plate_part_right&&!data.plate_part_left))return Alert.alert('اطلاعات ناقص','پلاک خودرو را وارد کنید.');}setStep(x=>Math.min(3,x+1));};
  const years=access.years||[];
  const steps=motor?['مشخصات موتورسیکلت','گواهینامه','بیمه','تصاویر']:['مشخصات خودرو','گواهینامه','بیمه و معاینه فنی','تصاویر'];
  return <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
@@ -71,7 +72,7 @@ export default function PersonnelVehicleAssetScreen(){const[phase,setPhase]=useS
  {saving&&<View style={s.uploadNotice}><ActivityIndicator size={22}/><Text style={s.uploadNoticeTxt}>{uploadProgress||'در حال ذخیره…'}</Text></View>}
  <View style={s.wizardActions}>
   <TouchableOpacity style={[s.wizardBtn,s.wizardBack,(step===0||saving)&&s.wizardDisabled]} disabled={step===0||saving} onPress={()=>setStep(x=>Math.max(0,x-1))}><Text style={s.wizardBackTxt}>مرحله قبل</Text></TouchableOpacity>
-  {step<steps.length-1?<TouchableOpacity style={[s.wizardBtn,s.wizardNext,saving&&s.wizardDisabled]} disabled={saving} onPress={()=>setStep(x=>Math.min(steps.length-1,x+1))}><Text style={s.wizardNextTxt}>مرحله بعد</Text></TouchableOpacity>:<TouchableOpacity style={[s.wizardBtn,s.wizardNext,saving&&s.wizardDisabled]} disabled={saving} onPress={save}>{saving?<ActivityIndicator/>:<Text style={s.wizardNextTxt}>ذخیره و ارسال همه اطلاعات</Text>}</TouchableOpacity>}
+  {step<steps.length-1?<TouchableOpacity style={[s.wizardBtn,s.wizardNext,saving&&s.wizardDisabled]} disabled={saving} onPress={nextStep}><Text style={s.wizardNextTxt}>مرحله بعد</Text></TouchableOpacity>:<TouchableOpacity style={[s.wizardBtn,s.wizardNext,saving&&s.wizardDisabled]} disabled={saving} onPress={save}>{saving?<ActivityIndicator/>:<Text style={s.wizardNextTxt}>ذخیره و ارسال همه اطلاعات</Text>}</TouchableOpacity>}
  </View>
  <CropCapture visible={!!capture} title={capture?.title||''} onCancel={()=>setCapture(null)} onDone={(uri)=>{setPhotos(x=>({...x,[capture.key]:uri}));setCapture(null)}}/>
  <JDatePicker visible={!!date} onClose={()=>setDate(null)} onSelect={dateDone} initial={date&&data[date]?parseDate(data[date]):undefined}/>
