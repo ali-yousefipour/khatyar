@@ -88,6 +88,7 @@ try {
   Db::run("INSERT INTO personnel_vehicle_asset_photos(asset_id,photo_key,data_uri,crop_json) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE data_uri=VALUES(data_uri),crop_json=VALUES(crop_json),updated_at=CURRENT_TIMESTAMP",[$assetId,$photoKey,$publicUrl,$cropMeta!==''?$cropMeta:null]);
   pvu_json(['ok'=>true,'asset_id'=>$assetId,'photo_key'=>$photoKey,'data_uri'=>$publicUrl,'path'=>$relative,'bytes'=>$storedSize,'width'=>(int)$storedInfo[0],'height'=>(int)$storedInfo[1]]);
 } catch(Throwable $e) {
+  // جزئیات فنی فقط در لاگ سرور ثبت شود؛ پاسخ عمومی نباید مسیر فایل یا اطلاعات اتصال را افشا کند.
   error_log('personnel-vehicle-asset-upload: '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());
-  pvu_fail('خطای داخلی در ذخیره تصویر: '.$e->getMessage(),500);
+  pvu_fail('ذخیره تصویر در سرور ناموفق بود. لطفاً دوباره تلاش کنید؛ در صورت تکرار، گزارش خطای سرور بررسی شود.',500);
 }
