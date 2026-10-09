@@ -10,7 +10,6 @@ require "$ROOT/lib/Db.php";
 require "$ROOT/lib/Jwt.php";
 require "$ROOT/lib/Http.php";
 require "$ROOT/lib/LineImageCompressor.php";
-require "$ROOT/lib/LineImageCompressor.php";
 $CONFIG=require "$ROOT/config.php";
 
 function pvu_json($data,int $status=200): void { http_response_code($status); echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); exit; }
