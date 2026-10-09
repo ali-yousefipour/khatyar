@@ -2,7 +2,7 @@
 /* خطیار — پرونده خودرو/موتورسیکلت پرسنل + صحت‌سنجی و تاریخچه چک‌لیست */
 declare(strict_types=1);
 error_reporting(E_ALL);
-ini_set('display_errors','1'); // خطیار: موقتاً برای عیب‌یابی فعال شد؛ بعد از پیداکردن علت واقعی باید به '0' برگردد.
+ini_set('display_errors','0');
 date_default_timezone_set('Asia/Tehran');
 $ROOT=__DIR__.'/../../';
 require "$ROOT/lib/Db.php";
@@ -24,6 +24,59 @@ function pva_ensure_schema(): void {
     status ENUM('draft','pending','verified','needs_correction') NOT NULL DEFAULT 'pending',verified_by BIGINT UNSIGNED NULL,verified_at DATETIME NULL,checklist_note TEXT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY(id),UNIQUE KEY uq_personnel_asset_user_type(user_id,asset_type),KEY idx_personnel_asset_user(user_id),KEY idx_personnel_asset_status(status),KEY idx_personnel_asset_updated(updated_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  // CREATE TABLE IF NOT EXISTS does not reconcile older production tables.
+  // Read the actual table definition with SHOW COLUMNS (works even where INFORMATION_SCHEMA
+  // metadata visibility is restricted), then add only genuinely missing columns.
+  $assetSchema = [];
+  foreach (Db::all("SHOW COLUMNS FROM personnel_vehicle_assets") as $columnRow) {
+    $assetSchema[(string)$columnRow['Field']] = strtolower((string)$columnRow['Type']);
+  }
+  $assetColumns = [
+    'plate_part_right' => 'VARCHAR(3) NULL',
+    'plate_letter' => 'VARCHAR(2) NULL',
+    'plate_part_left' => 'VARCHAR(2) NULL',
+    'plate_iran' => 'VARCHAR(2) NULL',
+    'motorcycle_plate_top' => 'VARCHAR(3) NULL',
+    'motorcycle_plate_bottom' => 'VARCHAR(5) NULL',
+    'motorcycle_usage' => 'VARCHAR(20) NULL',
+    'motorcycle_system' => 'VARCHAR(80) NULL',
+    'cylinders' => 'TINYINT NULL',
+    'insurance_company' => 'VARCHAR(150) NULL',
+    'mobile_beacon' => 'TINYINT(1) NULL',
+    'heating_ok' => 'TINYINT(1) NULL',
+    'cooling_ok' => 'TINYINT(1) NULL',
+    'verified_by' => 'BIGINT UNSIGNED NULL',
+    'verified_at' => 'DATETIME NULL',
+    'checklist_note' => 'TEXT NULL'
+  ];
+  $addedAssetColumns = [];
+  foreach ($assetColumns as $column => $definition) {
+    if (!isset($assetSchema[$column])) {
+      Db::run("ALTER TABLE personnel_vehicle_assets ADD COLUMN `{$column}` {$definition}");
+      $assetSchema[$column] = strtolower($definition);
+      $addedAssetColumns[$column] = true;
+    }
+  }
+  // Preserve values from the legacy column names while the API uses its canonical names.
+  if (isset($addedAssetColumns['cylinders']) && isset($assetSchema['cylinder_count'])) {
+    Db::run("UPDATE personnel_vehicle_assets SET cylinders=CAST(NULLIF(cylinder_count,'') AS UNSIGNED) WHERE cylinders IS NULL AND NULLIF(cylinder_count,'') IS NOT NULL");
+  }
+  if (isset($addedAssetColumns['mobile_beacon']) && isset($assetSchema['movable_beacon'])) {
+    Db::run("UPDATE personnel_vehicle_assets SET mobile_beacon=movable_beacon WHERE mobile_beacon IS NULL");
+  }
+  if (isset($addedAssetColumns['heating_ok']) && isset($assetSchema['heating_healthy'])) {
+    Db::run("UPDATE personnel_vehicle_assets SET heating_ok=heating_healthy WHERE heating_ok IS NULL");
+  }
+  if (isset($addedAssetColumns['cooling_ok']) && isset($assetSchema['cooling_healthy'])) {
+    Db::run("UPDATE personnel_vehicle_assets SET cooling_ok=cooling_healthy WHERE cooling_ok IS NULL");
+  }
+  // The mobile app submits Jalali YYYY/MM/DD. DATE columns cannot store those values.
+  foreach (['license_issue_date','license_expiry_date','insurance_issue_date','insurance_expiry_date','technical_inspection_issue_date','technical_inspection_expiry_date'] as $dateColumn) {
+    if (isset($assetSchema[$dateColumn]) && preg_match('/^date(?:\\(|$)/i', $assetSchema[$dateColumn])) {
+      Db::run("ALTER TABLE personnel_vehicle_assets MODIFY COLUMN `{$dateColumn}` VARCHAR(10) NULL");
+      $assetSchema[$dateColumn] = 'varchar(10)';
+    }
+  }
   Db::run("CREATE TABLE IF NOT EXISTS personnel_vehicle_asset_photos (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,asset_id BIGINT UNSIGNED NOT NULL,photo_key VARCHAR(60) NOT NULL,data_uri LONGTEXT NOT NULL,crop_json TEXT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY(id),UNIQUE KEY uq_asset_photo(asset_id,photo_key),KEY idx_asset_photo_asset(asset_id)
@@ -71,7 +124,7 @@ function pva_list(bool $photos=false): array {
   foreach($rows as &$r){$r['photos']=$photos?Db::all('SELECT photo_key,data_uri,crop_json FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$r['id']]):[];$r['checklist_history']=[];} unset($r); return $rows;
 }
 function pva_admin_allowed(array $u): bool { return (bool)((int)($u['is_admin']??0) || pva_is_check_authorized($u)); }
-function pva_plate(array $r): string { if(($r['asset_type']??'')==='motorcycle')return trim(($r['motorcycle_plate_top']??'').' / '.($r['motorcycle_plate_bottom']??'')); return trim(($r['plate_part_right']??'').' '.($r['plate_letter']??'').' '.($r['plate_part_left']??'').' ایران '.($r['plate_iran']??'')); }
+function pva_plate(array $r): string { $stored=trim((string)($r['plate']??'')); if($stored!=='')return $stored; if(($r['asset_type']??'')==='motorcycle')return trim(($r['motorcycle_plate_top']??'').' / '.($r['motorcycle_plate_bottom']??'')); return trim(($r['plate_part_right']??'').' '.($r['plate_letter']??'').' '.($r['plate_part_left']??'').' ایران '.($r['plate_iran']??'')); }
 function pva_image_bytes($data): string { $data=(string)$data; if(strpos($data,'base64,')!==false)$data=substr($data,strpos($data,'base64,')+7);$data=preg_replace('/\s+/','',$data)??$data;$b=base64_decode($data,true);return $b===false?'':$b; }
 function pva_check_keys(string $type): array { return $type==='motorcycle'?['identity','plate','license','insurance','photos','numbers']:['identity','plate','license','insurance','technical','photos','equipment','numbers']; }
 /* خطیار: منبع اصلی تشخیص «این کاربر خودرو/موتورسیکلت تخصیص‌داده‌شده دارد یا نه» اکنون جدول واقعی تخصیص است
@@ -110,8 +163,9 @@ try {
     $years=pva_years();$year=(int)pva_norm($b['model_year']??0);if($year<1390||!in_array($year,$years,true))pva_fail('سال ساخت/مدل نامعتبر است');
     if($type==='car' && trim((string)($b['plate_part_right']??''))==='' && trim((string)($b['plate_part_left']??''))==='')pva_fail('پلاک خودرو را کامل وارد کنید');
     if($type==='motorcycle' && trim((string)($b['motorcycle_plate_top']??''))==='' && trim((string)($b['motorcycle_plate_bottom']??''))==='')pva_fail('پلاک موتورسیکلت را وارد کنید');
-    $cols=['asset_type','plate_part_right','plate_letter','plate_part_left','plate_iran','motorcycle_plate_top','motorcycle_plate_bottom','vehicle_type','fuel_type','color','model_year','chassis_number','engine_number','vin','motorcycle_usage','motorcycle_system','motorcycle_type','cylinders','license_number','license_issue_date','license_expiry_date','insurance_number','insurance_company','insurance_issue_date','insurance_expiry_date','technical_inspection_number','technical_inspection_issue_date','technical_inspection_expiry_date','fixed_beacon','mobile_beacon','heating_ok','cooling_ok','amplifier'];
-    $vals=[];foreach($cols as $c){$v=$b[$c]??null;if(is_string($v))$v=pva_norm($v);if(in_array($c,['model_year','cylinders','fixed_beacon','mobile_beacon','heating_ok','cooling_ok','amplifier'],true))$v=($v===''||$v===null)?null:(int)pva_norm($v);$vals[]=$v;}
+    $canonicalPlate=$type==='motorcycle'?trim(pva_norm($b['motorcycle_plate_top']??'').' / '.pva_norm($b['motorcycle_plate_bottom']??'')):trim(pva_norm($b['plate_part_right']??'').' '.pva_norm($b['plate_letter']??'').' '.pva_norm($b['plate_part_left']??'').' ایران '.pva_norm($b['plate_iran']??'')); 
+    $cols=['asset_type','plate','plate_part_right','plate_letter','plate_part_left','plate_iran','motorcycle_plate_top','motorcycle_plate_bottom','vehicle_type','fuel_type','color','model_year','chassis_number','engine_number','vin','motorcycle_usage','motorcycle_system','motorcycle_type','cylinders','license_number','license_issue_date','license_expiry_date','insurance_number','insurance_company','insurance_issue_date','insurance_expiry_date','technical_inspection_number','technical_inspection_issue_date','technical_inspection_expiry_date','fixed_beacon','mobile_beacon','heating_ok','cooling_ok','amplifier'];
+    $vals=[];foreach($cols as $c){$v=$c==='plate'?$canonicalPlate:($b[$c]??null);if(is_string($v))$v=pva_norm($v);if(in_array($c,['model_year','cylinders','fixed_beacon','mobile_beacon','heating_ok','cooling_ok','amplifier'],true))$v=($v===''||$v===null)?null:(int)pva_norm($v);$vals[]=$v;}
     Db::pdo()->beginTransaction(); try{
       $old=Db::one('SELECT id FROM personnel_vehicle_assets WHERE user_id=? AND asset_type=? LIMIT 1',[$u['id'],$type]);
       if($old){$sets=[];foreach($cols as $c)$sets[]="`$c`=?";$sets[]="status='pending'";$sets[]="verified_by=NULL";$sets[]="verified_at=NULL";Db::query('UPDATE personnel_vehicle_assets SET '.implode(',',$sets).' WHERE id=?',array_merge($vals,[(int)$old['id']]));$id=(int)$old['id'];}
