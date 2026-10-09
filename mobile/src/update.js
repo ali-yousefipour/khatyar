@@ -18,7 +18,7 @@ function validateUpdateUrl(value) {
     if (host !== TRUSTED_GITHUB_RAW_HOST) return false;
     return TRUSTED_GITHUB_RAW_PREFIXES.some(prefix =>
       u.pathname.startsWith(prefix) &&
-      /^khatyar-[0-9]+\\.[0-9]+\\.[0-9]+\\.apk$/.test(u.pathname.slice(prefix.length))
+      /^khatyar-[0-9]+\.[0-9]+\.[0-9]+\.apk$/.test(u.pathname.slice(prefix.length))
     );
   } catch (_) {
     return false;
