@@ -11,8 +11,22 @@ require "$ROOT/lib/Http.php";
 require "$ROOT/lib/XlsxWriter.php";
 $CONFIG=require "$ROOT/config.php";
 
-function pva_table_exists(string $table): bool { try { $r=Db::one("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? LIMIT 1",[$table]); return $r!==null; } catch(Throwable $e){ return false; } }
-function pva_column_exists(string $table,string $column): bool { try { $r=Db::one("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=? LIMIT 1",[$table,$column]); return $r!==null; } catch(Throwable $e){ return false; } }
+function pva_table_exists(string $table): bool {
+  if (!preg_match('/^[A-Za-z0-9_]+$/', $table)) return false;
+  try {
+    $rows = Db::all("SHOW TABLES LIKE " . Db::pdo()->quote($table));
+    return count($rows) > 0;
+  } catch (Throwable $e) { return false; }
+}
+function pva_column_exists(string $table,string $column): bool {
+  if (!preg_match('/^[A-Za-z0-9_]+$/', $table) || !preg_match('/^[A-Za-z0-9_]+$/', $column)) return false;
+  try {
+    foreach (Db::all("SHOW COLUMNS FROM `{$table}`") as $row) {
+      if ((string)($row['Field'] ?? '') === $column) return true;
+    }
+    return false;
+  } catch (Throwable $e) { return false; }
+}
 function pva_ensure_schema(): void {
   Db::run("CREATE TABLE IF NOT EXISTS personnel_vehicle_assets (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,user_id BIGINT UNSIGNED NOT NULL,asset_type ENUM('car','motorcycle') NOT NULL,
@@ -106,7 +120,7 @@ function pva_role_kind(string $title,$forChecklist=false){ $t=pva_norm($title); 
 function pva_is_check_authorized(array $u): bool { return (bool)((int)($u['is_admin']??0) || ((int)($u['role_level']??0)>=1 && (int)($u['role_level']??0)<=3) || pva_role_kind((string)($u['role_title']??''),true)); }
 function pva_years(): array { $y=(int)date('Y')-621; $a=[]; for($x=$y;$x>=1390;$x--)$a[]=$x; return $a; }
 function pva_asset(int $id): ?array { return Db::one('SELECT * FROM personnel_vehicle_assets WHERE id=? LIMIT 1',[$id]); }
-function pva_history(int $id): array { static $hasJson=null; if($hasJson===null){try{$hasJson=(bool)Db::one("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='personnel_vehicle_checklist_history' AND COLUMN_NAME='checks_json' LIMIT 1");}catch(Throwable $e){$hasJson=false;}} $json=$hasJson?',h.checks_json':''; return Db::all("SELECT h.id,h.result,h.note{$json},h.checked_at,h.checker_id,CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) checker_name FROM personnel_vehicle_checklist_history h LEFT JOIN users u ON u.id=h.checker_id WHERE h.asset_id=? ORDER BY h.checked_at DESC,h.id DESC",[$id]); }
+function pva_history(int $id): array { static $hasJson=null; if($hasJson===null)$hasJson=pva_column_exists('personnel_vehicle_checklist_history','checks_json'); $json=$hasJson?',h.checks_json':''; return Db::all("SELECT h.id,h.result,h.note{$json},h.checked_at,h.checker_id,CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) checker_name FROM personnel_vehicle_checklist_history h LEFT JOIN users u ON u.id=h.checker_id WHERE h.asset_id=? ORDER BY h.checked_at DESC,h.id DESC",[$id]); }
 function pva_photo_keys(string $type): array { return $type==='motorcycle'?['motor_front','motor_back','motor_right','motor_left','motor_card_front','motor_card_back','green_card','insurance','license_front','license_back']:['car_front','car_back','car_right','car_left','license_front','license_back','vehicle_card_front','vehicle_card_back','technical_inspection','insurance','green_card']; }
 function pva_load(int $id,bool $photos=true): ?array { $a=pva_asset($id); if(!$a)return null; if($photos)$a['photos']=Db::all('SELECT photo_key,data_uri,crop_json,created_at,updated_at FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$id]); else $a['photo_keys']=array_column(Db::all('SELECT photo_key FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$id]),'photo_key'); $a['checks']=Db::all('SELECT check_key,check_value,note,checker_id,updated_at FROM personnel_vehicle_asset_checks WHERE asset_id=? ORDER BY check_key',[$id]); $a['checklist_history']=pva_history($id); return $a; }
 function pva_list(bool $photos=false): array {
@@ -186,7 +200,7 @@ try {
     $status=$approved?'verified':'needs_correction';$note=pva_norm($b['note']??'');
     Db::pdo()->beginTransaction();try{
       foreach($checks as $k=>$v)Db::query("INSERT INTO personnel_vehicle_asset_checks(asset_id,checker_id,check_key,check_value,note) VALUES(?,?,?,?,?) ON DUPLICATE KEY UPDATE check_value=VALUES(check_value),note=VALUES(note),updated_at=CURRENT_TIMESTAMP",[$id,$u['id'],$k,$v['value']?1:0,$v['note']]);
-      if($hasJson=Db::one("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='personnel_vehicle_checklist_history' AND COLUMN_NAME='checks_json' LIMIT 1")){Db::query("INSERT INTO personnel_vehicle_checklist_history(asset_id,checker_id,result,note,checks_json,checked_at) VALUES(?,?,?,?,?,NOW())",[$id,$u['id'],$status,$note,json_encode($checks,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);}else{Db::query("INSERT INTO personnel_vehicle_checklist_history(asset_id,checker_id,result,note,checked_at) VALUES(?,?,?,?,NOW())",[$id,$u['id'],$status,$note]);}
+      if(pva_column_exists('personnel_vehicle_checklist_history','checks_json')){Db::query("INSERT INTO personnel_vehicle_checklist_history(asset_id,checker_id,result,note,checks_json,checked_at) VALUES(?,?,?,?,?,NOW())",[$id,$u['id'],$status,$note,json_encode($checks,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);}else{Db::query("INSERT INTO personnel_vehicle_checklist_history(asset_id,checker_id,result,note,checked_at) VALUES(?,?,?,?,NOW())",[$id,$u['id'],$status,$note]);}
       Db::query('UPDATE personnel_vehicle_assets SET status=?,verified_by=?,verified_at=NOW(),checklist_note=? WHERE id=?',[$status,$u['id'],$note,$id]);
       Db::pdo()->commit();
     }catch(Throwable $e){if(Db::pdo()->inTransaction())Db::pdo()->rollBack();throw $e;}
