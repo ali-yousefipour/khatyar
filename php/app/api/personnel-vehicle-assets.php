@@ -14,8 +14,10 @@ $CONFIG=require "$ROOT/config.php";
 function pva_table_exists(string $table): bool {
   if (!preg_match('/^[A-Za-z0-9_]+$/', $table)) return false;
   try {
-    $rows = Db::all("SHOW TABLES LIKE " . Db::pdo()->quote($table));
-    return count($rows) > 0;
+    foreach (Db::all("SHOW TABLES") as $row) {
+      if (in_array($table, array_values($row), true)) return true;
+    }
+    return false;
   } catch (Throwable $e) { return false; }
 }
 function pva_column_exists(string $table,string $column): bool {
