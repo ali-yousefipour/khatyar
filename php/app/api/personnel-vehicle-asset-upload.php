@@ -9,6 +9,8 @@ $ROOT=__DIR__.'/../../';
 require "$ROOT/lib/Db.php";
 require "$ROOT/lib/Jwt.php";
 require "$ROOT/lib/Http.php";
+require "$ROOT/lib/LineImageCompressor.php";
+require "$ROOT/lib/LineImageCompressor.php";
 $CONFIG=require "$ROOT/config.php";
 
 function pvu_json($data,int $status=200): void { http_response_code($status); echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); exit; }
@@ -66,7 +68,16 @@ try {
   if(!is_dir($root)&&!mkdir($root,0755,true)&&!is_dir($root))pvu_fail('ایجاد پوشه ذخیره تصویر ممکن نشد',500);
   $filename=(int)$assetId.'_'.$photoKey.'.jpg';
   $target=$root.'/'.$filename;
-  if(!move_uploaded_file($tmp,$target))pvu_fail('ذخیره فایل تصویر روی سرور انجام نشد',500);
+  // آخرین لایه فشرده‌سازی سمت سرور از همان تنظیمات تصویر سایت استفاده می‌کند؛
+  // بنابراین حتی اگر کلاینت تصویر بزرگ بفرستد، فایل نهایی از سقف ابعاد/کیفیت تنظیم‌شده عبور نمی‌کند.
+  if(!LineImageCompressor::fromUpload($tmp,$target))pvu_fail('فشرده‌سازی یا ذخیره تصویر روی سرور ناموفق بود',500);
+  clearstatcache(true,$target);
+  $storedSize=(int)(filesize($target)?:0);
+  $storedInfo=@getimagesize($target);
+  if($storedSize<=0||!is_array($storedInfo)||empty($storedInfo[0])||empty($storedInfo[1])){
+    @unlink($target);
+    pvu_fail('تصویر پس از فشرده‌سازی روی سرور معتبر نیست',500);
+  }
 
   $relative='/uploads/personnel-vehicle-assets/'.(int)$asset['user_id'].'/'.$filename;
   $base=pvu_public_base();
@@ -76,7 +87,7 @@ try {
   if($cropMeta!==''&&json_last_error()!==JSON_ERROR_NONE)$cropMeta='';
 
   Db::run("INSERT INTO personnel_vehicle_asset_photos(asset_id,photo_key,data_uri,crop_json) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE data_uri=VALUES(data_uri),crop_json=VALUES(crop_json),updated_at=CURRENT_TIMESTAMP",[$assetId,$photoKey,$publicUrl,$cropMeta!==''?$cropMeta:null]);
-  pvu_json(['ok'=>true,'asset_id'=>$assetId,'photo_key'=>$photoKey,'data_uri'=>$publicUrl,'path'=>$relative]);
+  pvu_json(['ok'=>true,'asset_id'=>$assetId,'photo_key'=>$photoKey,'data_uri'=>$publicUrl,'path'=>$relative,'bytes'=>$storedSize,'width'=>(int)$storedInfo[0],'height'=>(int)$storedInfo[1]]);
 } catch(Throwable $e) {
   error_log('personnel-vehicle-asset-upload: '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());
   pvu_fail('خطای داخلی در ذخیره تصویر: '.$e->getMessage(),500);
