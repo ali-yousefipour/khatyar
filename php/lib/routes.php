@@ -2126,9 +2126,12 @@ function _gps_work_record_event($userId, $kind, $at, $meta=[]) {
 }
 function _gps_work_invalid_intervals($userId, $fromTs, $toTs, $gracePending=false) {
   $fromTs=(int)$fromTs; $toTs=(int)$toTs;
+  $interval=1800;
+  // تأخیر چند دقیقه‌ای JobScheduler قابل قبول است، ولی فاصلهٔ طولانی هرگز اعتبار
+  // عقب‌گرد نمی‌گیرد؛ بازگشت بعد از Force Stop نمی‌تواند هشت ساعت را تأیید کند.
+  $tolerance=300;
   if (!$fromTs || !$toTs || $toTs <= $fromTs || !_gps_work_required()) return [];
 
-  // سابقهٔ قبل از روشن‌کردن تنظیم، مشمول کسر کار GPS نیست.
   try {
     $enabledRow=Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required_enabled_at'");
     $enabledValue=$enabledRow ? json_decode((string)$enabledRow['value'], true) : null;
@@ -2137,42 +2140,63 @@ function _gps_work_invalid_intervals($userId, $fromTs, $toTs, $gracePending=fals
   } catch (Throwable $e) {}
   if ($toTs <= $fromTs) return [];
 
-  // برای جلسهٔ باز، آخرین تأیید در کل جلسه لازم است تا فقط نیم‌ساعت جاری مهلت بگیرد.
-  $queryFromTs=$gracePending ? min($fromTs-1800,$toTs-86400) : ($fromTs-1800);
-  $queryFrom=date('Y-m-d H:i:s', max(1,$queryFromTs));
+  $queryFrom=date('Y-m-d H:i:s', max(1,$fromTs-$interval-$tolerance));
   $queryTo=date('Y-m-d H:i:s', $toTs);
   try {
-    $events=Db::all("SELECT kind,UNIX_TIMESTAMP(at) ts,meta FROM user_activity
+    // at را به‌صورت DATETIME می‌خوانیم و در PHP تبدیل می‌کنیم؛
+    // UNIX_TIMESTAMP در MySQL می‌تواند با timezone پردازش PHP تفاوت داشته باشد.
+    $events=Db::all("SELECT kind,at,meta FROM user_activity
       WHERE user_id=? AND at>=? AND at<=? AND kind IN ('gps_on','gps_off')
       ORDER BY at ASC,id ASC", [(int)$userId,$queryFrom,$queryTo]);
   } catch (Throwable $e) {
-    // اگر وضعیت تأیید GPS قابل خواندن نباشد، fail closed: بازه تأییدنشده اعتبار کارکرد ندارد.
     error_log('gps work verification query failed: '.$e->getMessage());
     return [[$fromTs,$toTs]];
   }
 
   $covered=[]; $forcedInvalid=[]; $lastOnTs=null;
   foreach ($events as $event) {
-    $ts=(int)($event['ts']??0);
+    $ts=strtotime((string)($event['at']??''));
     if (!$ts) continue;
+    $kind=(string)($event['kind']??'');
     $meta=json_decode((string)($event['meta']??''),true);
     $source=is_array($meta)?(string)($meta['source']??''):'';
-    if (($event['kind']??'')==='gps_off') {
-      $a=max($fromTs,$ts-1800); $b=min($toTs,$ts);
+
+    if ($kind==='gps_off') {
+      // خاموشی صریح GPS بر هر checkpoint هم‌پوشان اولویت دارد.
+      $a=max($fromTs,$ts-$interval); $b=min($toTs,$ts);
       if ($b>$a) $forcedInvalid[]=[$a,$b];
+      $lastOnTs=null;
       continue;
     }
-    if (($event['kind']??'')!=='gps_on') continue;
-    if ($lastOnTs===null || $ts>$lastOnTs) $lastOnTs=$ts;
-    // هر تأیید، فقط ۳۰ دقیقهٔ قبل از زمان ثبت را پوشش می‌دهد؛
-    // ثبت ورود به‌تنهایی ثابت نمی‌کند که GPS در نیم‌ساعت بعد روشن مانده است.
-    $a=max($fromTs,$ts-1800); $b=min($toTs,$ts);
-    if ($b>$a) $covered[]=[$a,$b];
+    if ($kind!=='gps_on') continue;
+
+    // ورود فقط نقطهٔ شروع زنجیره است و به‌تنهایی بازهٔ بعد از ورود را ثابت نمی‌کند.
+    if ($source==='attendance_checkin') {
+      $lastOnTs=$ts;
+      continue;
+    }
+
+    // فقط بررسی‌های واقعی GPS و موقعیت تأییدشده هنگام خروج را checkpoint بدان.
+    // رویداد خروج پس از یک شکاف طولانی، بازهٔ قبلی را به‌صورت معکوس تأیید نمی‌کند.
+    if (!in_array($source,['foreground_watchdog','location_task_watchdog','attendance_checkout'],true)) continue;
+
+    if ($lastOnTs!==null && $ts>$lastOnTs) {
+      $gap=$ts-$lastOnTs;
+      if ($gap <= $interval+$tolerance) {
+        // هر checkpoint حداکثر ۳۰ دقیقه اعتبار ایجاد می‌کند؛ چند دقیقه تأخیر
+        // مجاز است اما همان تأخیر نیز به‌عنوان کارکرد تأییدشده شمرده نمی‌شود.
+        $a=max($fromTs,$lastOnTs,$ts-$interval);
+        $b=min($toTs,$ts);
+        if ($b>$a) $covered[]=[$a,$b];
+      }
+    }
+    // بعد از یک شکاف، این رویداد فقط مبنای بررسی بعدی است.
+    $lastOnTs=$ts;
   }
 
-  $merge=function($ranges) {
+  $merge=static function($ranges) {
     if (!$ranges) return [];
-    usort($ranges,fn($a,$b)=>(int)$a[0]<=>(int)$b[0]);
+    usort($ranges,static fn($a,$b)=>(int)$a[0]<=>(int)$b[0]);
     $out=[];
     foreach($ranges as $range) {
       $a=(int)$range[0]; $b=(int)$range[1];
@@ -2186,7 +2210,7 @@ function _gps_work_invalid_intervals($userId, $fromTs, $toTs, $gracePending=fals
   $covered=$merge($covered);
   $forcedInvalid=$merge($forcedInvalid);
 
-  // نقاط خاموشی GPS بر هر تأیید هم‌پوشان اولویت دارند.
+  // بازه‌های خاموشی را از پوشش احتمالی حذف می‌کنیم.
   if ($forcedInvalid && $covered) {
     $remaining=[];
     foreach($covered as $c) {
@@ -2214,11 +2238,11 @@ function _gps_work_invalid_intervals($userId, $fromTs, $toTs, $gracePending=fals
   }
   if ($cursor<$toTs) $invalid[]=[$cursor,$toTs];
 
-  // در حضورِ باز، نیم‌ساعت بعد از آخرین تأیید تا کامل‌شدن مهلت بررسی هنوز در انتظار است.
-  // بعد از گذشت هر ۳۰ دقیقه، کل همان بازه به فهرست تأییدنشده افزوده می‌شود.
+  // فقط نیم‌ساعتِ ناتمامِ جلسهٔ باز مهلت دارد. بازه‌های کاملِ جاافتاده و gps_off
+  // بعد از این مرحله دوباره اعمال می‌شوند و از کسر کار حذف نمی‌شوند.
   if ($gracePending && $lastOnTs!==null && $toTs>$lastOnTs) {
-    $completedSlots=(int)floor(($toTs-$lastOnTs)/1800);
-    $pendingStart=min($toTs,$lastOnTs+$completedSlots*1800);
+    $completedSlots=(int)floor(($toTs-$lastOnTs)/$interval);
+    $pendingStart=min($toTs,$lastOnTs+$completedSlots*$interval);
     if ($pendingStart<$toTs) {
       $trimmed=[];
       foreach($invalid as $bad) {
@@ -2229,11 +2253,9 @@ function _gps_work_invalid_intervals($userId, $fromTs, $toTs, $gracePending=fals
       $invalid=$trimmed;
     }
   }
-  // خاموشی صریح GPS حتی در نیم‌ساعت جاری نیز فوراً مشمول کسر کار است.
   foreach($forcedInvalid as $bad) $invalid[]=$bad;
   return $merge($invalid);
 }
-
 route('GET', '/api/my/app-config', function($p,$b,$u){
   $g = function($k,$d=null){ $r=Db::one("SELECT value FROM app_settings WHERE `key`=?",[$k]); if(!$r)return $d; $v=json_decode($r['value'],true); return ($v===null||$v==='')?$d:$v; };
   $gb = function($k,$d=false) use ($g){
@@ -3832,6 +3854,15 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   $rows=_attendance_rows_for_jdate($u['id'],$jdate);
   $sessions=array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start']??'1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]],$rows);
   $w=ShiftCalc::dayWork($shift,$jdate,$dayRow,$sessions,ShiftCalc::effectiveHoliday($jdate));
+  $gpsInvalidSeconds=0;
+  foreach($rows as $gpsRow) {
+    foreach(($gpsRow['_gps_invalid']??[]) as $gpsRange) {
+      $gpsA=(int)($gpsRange[0]??0); $gpsB=(int)($gpsRange[1]??0);
+      if($gpsB>$gpsA) $gpsInvalidSeconds += $gpsB-$gpsA;
+    }
+  }
+  $w['gps_work_required']=_gps_work_required();
+  $w['gps_invalid_min']=(int)ceil(max(0,$gpsInvalidSeconds)/60);
   $weekday=_jweekday_name((int)substr($jdate,0,4),(int)substr($jdate,5,2),(int)substr($jdate,8,2));
   $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
   return ['date'=>$jdate,'weekday'=>$weekday,'shift_title'=>$shift['title']??'شیفت کاری','shift_type'=>$shift['type']??'','holiday'=>$isCalHoliday,'holiday_title'=>$cal['title']??'', 'sessions'=>$rows,'data'=>$w];
