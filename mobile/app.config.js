@@ -2,6 +2,7 @@
 try { require('dotenv').config(); } catch (e) {}
 let hasLocalAuth = false;
 try { require.resolve('expo-local-authentication'); hasLocalAuth = true; } catch (e) { hasLocalAuth = false; }
+// Android 1.5.9: GPS checkpoint gap validation, Jalali report navigation, and monthly shift schedule fixes.
 const APP_VERSION = '1.5.9';
 const APP_VERSION_CODE = 10509;
 module.exports = ({ config }) => ({
