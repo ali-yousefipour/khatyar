@@ -2097,22 +2097,24 @@ route('GET', '/api/cron/sms-expiry', function($p,$b,$u){
 function _gps_work_required() {
   try {
     $r = Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required'");
-    if (!$r) return false;
-    $v = json_decode((string)$r['value'], true);
-    if (is_bool($v)) $required=$v;
-    elseif (is_int($v) || is_float($v)) $required=((int)$v)!==0;
-    else $required=in_array(strtolower(trim((string)$v)), ['1','true','yes','on','enabled','فعال','بله'], true);
-    if (!$required) return false;
-    // تنظیمی که پیش از انتشار این اصلاح فعال شده، timestamp ندارد؛ از همین لحظه مبناگذاری کن
-    // تا سوابق قبل از فعال‌شدن قابل اتکا، به‌صورت عقب‌گرد کسر کار نخورد.
+  } catch (Throwable $e) { error_log('GPS work setting read failed: '.$e->getMessage()); return false; }
+  if (!$r) return false;
+  $v=json_decode((string)$r['value'],true);
+  if (is_bool($v)) $required=$v;
+  elseif (is_int($v) || is_float($v)) $required=((int)$v)!==0;
+  else $required=in_array(strtolower(trim((string)$v)),['1','true','yes','on','enabled','فعال','بله'],true);
+  if (!$required) return false;
+  // تنظیم فعالِ قدیمی timestamp ندارد؛ از اولین بررسی پس از انتشار مبنا بساز،
+  // بدون اینکه خطای ذخیره‌سازی timestamp الزام GPS را خاموش کند.
+  try {
     $activeRow=Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required_enabled_at'");
     $activeValue=$activeRow ? json_decode((string)$activeRow['value'],true) : null;
     if (!$activeValue) {
       $nowValue=json_encode(date('Y-m-d H:i:s'),JSON_UNESCAPED_UNICODE);
-      Db::run("INSERT INTO app_settings(`key`,value) VALUES('gps_work_required_enabled_at',?) ON DUPLICATE KEY UPDATE value=IF(value IS NULL OR value='null' OR value='',VALUES(value),value)", [$nowValue]);
+      Db::run("INSERT INTO app_settings(`key`,value) VALUES('gps_work_required_enabled_at',?) ON DUPLICATE KEY UPDATE value=IF(value IS NULL OR value='null' OR value='',VALUES(value),value)",[$nowValue]);
     }
-    return true;
-  } catch (Throwable $e) { return false; }
+  } catch (Throwable $e) { error_log('GPS work activation timestamp seed failed: '.$e->getMessage()); }
+  return true;
 }
 function _gps_work_record_event($userId, $kind, $at, $meta=[]) {
   if (!in_array($kind, ['gps_on','gps_off'], true)) return;
@@ -10966,7 +10968,8 @@ function _phase7p7_calc_for_attendance_row($row){
   $shift=_active_user_shift_assignment((int)$row['user_id'],$jdate);
   $dr=($shift && (($shift['type']??'')==='advanced')) ? _shift_day_row($shift['shift_id']??$shift['id'],$jdate) : null;
   $hol=ShiftCalc::effectiveHoliday($jdate);
-  $sess=[['in'=>strtotime($row['check_in']),'out'=>!empty($row['check_out'])?strtotime($row['check_out']):null]];
+  $sessIn=strtotime($row['check_in']); $sessOut=!empty($row['check_out'])?strtotime($row['check_out']):time();
+  $sess=[['in'=>$sessIn,'out'=>$sessOut,'gps_invalid'=>_gps_work_invalid_intervals((int)$row['user_id'],$sessIn,$sessOut)]];
   return ShiftCalc::dayWork($shift,$jdate,$dr,$sess,$hol);
 }
 route('POST', '/api/admin/attendance/recalculate', function($p,$b,$u){
