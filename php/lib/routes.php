@@ -3870,30 +3870,59 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
 
 // برنامهٔ شیفت کاری کاربر — بازهٔ آینده برای تب «شیفت کاری»
 route('GET', '/api/my/shift-schedule', function($p,$b,$u){
-  [$gy,$gm,$gd]=[date('Y'),date('m'),date('d')]; [$jy,$jm,$jd]=array_slice(gregorian_to_jalali((int)$gy,(int)$gm,(int)$gd),0,3);
-  $start=preg_replace('/\//','-',trim((string)($_GET['from']??'')));
-  if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$start)) $start=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
-  [$sy,$sm,$sd]=array_map('intval',explode('-',$start));
+  [$gy,$gm,$gd]=[date('Y'),date('m'),date('d')];
+  [$jy,$jm,$jd]=array_slice(gregorian_to_jalali((int)$gy,(int)$gm,(int)$gd),0,3);
   $todayJ=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
-  $shift=_active_user_shift_assignment($u['id'],$todayJ) ?: _auto_shift_for_user($u['id']); if(!$shift)return ['shift'=>null,'days'=>[],'message'=>'برای شما شیفت فعالی تعریف نشده است.'];
-  // «شیفت کاری» باید کل ماه جاری شمسی را نشان دهد، نه فقط ۱۴ روز از امروز.
-  // پارامتر from فقط برای سازگاری با کلاینت‌های قدیمی نگه داشته شده و ماه جاری مرجع نمایش است.
-  $days=[];$ts=mktime(12,0,0,...jalali_to_gregorian($jy,$jm,1));
-  $nextJy=$jy;$nextJm=$jm+1;if($nextJm>12){$nextJm=1;$nextJy++;}
-  $nextTs=mktime(12,0,0,...jalali_to_gregorian($nextJy,$nextJm,1));
-  $daysCount=max(1,(int)round(($nextTs-$ts)/86400));
-  for($i=0;$i<$daysCount;$i++){
-    $gt=getdate($ts+($i*86400)); [$y,$m,$d]=array_slice(gregorian_to_jalali($gt['year'],$gt['mon'],$gt['mday']),0,3);$j=sprintf('%04d-%02d-%02d',$y,$m,$d);
-    $dayShift=_active_user_shift_assignment($u['id'],$j) ?: $shift;
-    $dr=null;if(($dayShift['type']??'')==='advanced')$dr=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$dayShift['id'],$j]);
-    $cal=ShiftCalc::calendarDay($j);$mins=ShiftCalc::expectedMinutes($dayShift,$j,$dr);
-    $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
-    $days[]=['date'=>$j,'weekday'=>_jweekday_name($y,$m,$d),'is_today'=>($j===$todayJ),'shift_title'=>$dayShift['title']??'شیفت کاری','minutes'=>$mins,'is_off'=>(bool)($dr['is_off']??false)||($mins<=0),'is_holiday'=>$isCalHoliday,'is_friday'=>ShiftCalc::isFriday($j),'holiday_title'=>$cal['title']??''];
-  }
-  return ['shift'=>['id'=>(int)$shift['id'],'title'=>$shift['title']??'شیفت کاری','type'=>$shift['type']??''],'days'=>$days];
-});
 
-// خلاصهٔ کارکرد ماهانهٔ خودِ کاربر (برای اپ)
+  // MONTH_START_MKTIME_ORDER_FIX:
+  // jalali_to_gregorian returns [year, month, day], while mktime needs [month, day, year].
+  // Never spread [gy,gm,gd] directly into mktime; that previously collapsed the month range.
+  [$monthStartGy,$monthStartGm,$monthStartGd]=jalali_to_gregorian($jy,$jm,1);
+  $ts=mktime(12,0,0,(int)$monthStartGm,(int)$monthStartGd,(int)$monthStartGy);
+
+  $nextJy=$jy; $nextJm=$jm+1;
+  if($nextJm>12){$nextJm=1;$nextJy++;}
+  [$nextGy,$nextGm,$nextGd]=jalali_to_gregorian($nextJy,$nextJm,1);
+  $nextTs=mktime(12,0,0,(int)$nextGm,(int)$nextGd,(int)$nextGy);
+  $daysCount=max(1,(int)round(($nextTs-$ts)/86400));
+
+  $days=[]; $displayShift=null; $userId=(int)$u['id'];
+  for($i=0;$i<$daysCount;$i++){
+    $gt=getdate($ts+($i*86400));
+    [$y,$m,$d]=array_slice(gregorian_to_jalali($gt['year'],$gt['mon'],$gt['mday']),0,3);
+    $j=sprintf('%04d-%02d-%02d',$y,$m,$d);
+
+    // هر روز از روی انتساب معتبر همان تاریخ محاسبه می‌شود؛
+    // شیفت روز جاری به روزهایی که هیچ انتسابی ندارند تعمیم داده نمی‌شود.
+    $dayShift=_active_user_shift_assignment($userId,$j);
+    if($displayShift===null && $dayShift) $displayShift=$dayShift;
+    $dr=null;
+    if($dayShift && (($dayShift['type']??'')==='advanced')){
+      $dr=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$dayShift['id'],$j]);
+    }
+    $mins=$dayShift ? max(0,(int)ShiftCalc::expectedMinutes($dayShift,$j,$dr)) : 0;
+    $cal=ShiftCalc::calendarDay($j);
+    $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
+    $noShift=!$dayShift;
+    $days[]=[
+      'date'=>$j,
+      'weekday'=>_jweekday_name($y,$m,$d),
+      'is_today'=>($j===$todayJ),
+      'shift_title'=>$dayShift['title']??'',
+      'minutes'=>$mins,
+      'is_off'=>$noShift||(bool)($dr['is_off']??false)||$mins<=0,
+      'is_no_shift'=>$noShift,
+      'is_holiday'=>$isCalHoliday,
+      'is_friday'=>ShiftCalc::isFriday($j),
+      'holiday_title'=>$cal['title']??''
+    ];
+  }
+  return [
+    'shift'=>$displayShift?['id'=>(int)$displayShift['id'],'title'=>$displayShift['title']??'شیفت کاری','type'=>$displayShift['type']??'']:null,
+    'days'=>$days,
+    'message'=>$displayShift?null:'برای این ماه شیفت فعالی تعریف نشده است.'
+  ];
+});
 route('GET', '/api/my/work-summary', function($p,$b,$u){
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if(!$jy){ [$jy,$jm]=array_slice(gregorian_to_jalali(date('Y'),date('m'),date('d')),0,2); }
