@@ -11,7 +11,7 @@ export async function headlessLocationRun() {
   try {
     // نگهبان GPS کارکرد مستقل از منطق ارسال لوکیشن است؛
     // فقط هر ۳۰ دقیقه یک بار وضعیت GPS را بررسی می‌کند و هیچ موقعیت جدیدی ارسال نمی‌کند.
-    await runGpsWorkWatchdog({source:'background_watchdog'});
+    await runGpsWorkWatchdog({source:'location_task_watchdog'});
     const p = await getTrackingPosition();
     if (!p) return;
     let vpn = { on: false, country: null };
