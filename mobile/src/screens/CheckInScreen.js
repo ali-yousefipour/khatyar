@@ -8,6 +8,7 @@ import * as Location from 'expo-location';
 import { getAccuratePosition, getGsmPosition } from '../location';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { request, postOrQueue, cachedValue, flushQueuedRequests, hasPendingAttendanceCheckout } from '../api';
+import { resetGpsWorkWatchdogSchedule } from '../gpsWorkWatchdog';
 import { getAppConfig } from '../appconfig';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
@@ -522,6 +523,10 @@ function CheckInCore() {
           } else throw firstError;
         } else throw firstError;
       }
+      if (!r.queued) {
+        // Start the next GPS verification window from this entry, not from a poll before check-in.
+        try { await resetGpsWorkWatchdogSchedule(); } catch {}
+      }
       if (r.queued) {
         const localWorked = await readLocalWorked();
         const todayKey = String(body.client_time || '').slice(0,10);
@@ -656,7 +661,9 @@ function CheckInCore() {
         );
         const start = tehranTimeToEpochMs(open?.check_in);
         const end = tehranTimeToEpochMs(checkoutClientTime);
-        const sessionSec = start != null && end != null ? Math.max(0, Math.floor((end - start) / 1000)) : 0;
+        const sessionElapsedSec = start != null && end != null ? Math.max(0, Math.floor((end - start) / 1000)) : 0;
+        const gpsDeductionSec = !r?.queued && r?.gps_work_required ? Math.max(0, Number(r?.gps_invalid_min || 0)) * 60 : 0;
+        const sessionSec = Math.max(0, sessionElapsedSec - gpsDeductionSec);
         const workedSec = Math.max(0, baseSec + sessionSec);
         if (workedSec > 0) {
           await persistLocalWorked({
@@ -669,11 +676,15 @@ function CheckInCore() {
         }
       } catch {}
       const lineText = r?.checkout_line_code ? ` در خط ${faNum(String(r.checkout_line_code))}` : '';
+      const gpsPenaltyMin = Math.max(0, Number(r?.gps_invalid_min || 0));
+      const gpsWorkText = !r?.queued && r?.gps_work_required
+        ? `\nکسر کار ناشی از نبود تأیید GPS: ${faNum(gpsPenaltyMin)} دقیقه.\nکارکرد معتبر محاسبه‌شده: ${faNum(Number(r?.gps_worked_min || 0))} دقیقه.`
+        : '';
       Alert.alert(
         r.queued ? 'آفلاین' : 'ثبت شد',
         r.queued
           ? 'خروج ذخیره شد و بعد از اتصال، موقعیت شما در تمام خطوط مجاز بررسی و ثبت می‌شود.'
-          : `خروج شما${lineText} ثبت شد.`
+          : `خروج شما${lineText} ثبت شد.${gpsWorkText}`
       );
       // پاسخ موفق سرور کافی است؛ صفحه را بلافاصله از حالت «حضور باز» خارج کن.
       // بارگذاری مجدد وضعیت/موقعیت در پس‌زمینه انجام می‌شود تا دکمه خروج معطل GPS نشود.
@@ -926,7 +937,8 @@ function CheckInPerformanceTab(){
   const w=data?.data||{};
   const shortage=Math.max(0,Number(w.shortage||0));
   const absent=Math.max(0,Number(w.absent_min||0));
-  const hasAttendanceDeficit=shortage>0||absent>0;
+  const gpsUnverified=Math.max(0,Number(w.gps_unverified_min||0));
+  const hasAttendanceDeficit=shortage>0||absent>0||gpsUnverified>0;
   const cards=[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['کسری کار',w.shortage],['شب‌کاری',w.night]];
   const openRequest=(type)=>{if(!data?.date)return;navigation.navigate('Requests',{initialType:type,initialDate:data.date,returnToDailyPerformance:true});};
   return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14,paddingBottom:32}}>
@@ -944,7 +956,7 @@ function CheckInPerformanceTab(){
       {w.late_in>0?<Text style={s.perfHint}>تأخیر ورود: {faNum(w.late_in)} دقیقه</Text>:null}
       {w.early_out>0?<Text style={s.perfHint}>تعجیل خروج: {faNum(w.early_out)} دقیقه</Text>:null}
       {absent>0?<Text style={[s.perfHint,{color:C.danger,fontFamily:FONT.bold}]}>غیبت: {fmtMinFa(absent)}</Text>:null}
-      {shortage>0?<Text style={[s.perfHint,{color:'#b7791f',fontFamily:FONT.bold}]}>کسری کار: {fmtMinFa(shortage)}</Text>:null}
+      {shortage>0?<Text style={[s.perfHint,{color:'#b7791f',fontFamily:FONT.bold}]}>کسری کار: {fmtMinFa(shortage)}</Text>:null}{gpsUnverified>0?<Text style={[s.perfHint,{color:C.danger,fontFamily:FONT.bold}]}>بازهٔ فاقد تأیید GPS و مشمول کسر کار: {faNum(gpsUnverified)} دقیقه</Text>:null}
     </View>
     {hasAttendanceDeficit&&<View style={s.perfActions}><Text style={s.perfActionTitle}>اقدام برای اصلاح وضعیت این روز</Text><Text style={s.perfActionHint}>در صورت وجود غیبت یا کسری کار، می‌توانید درخواست مرتبط را برای همین تاریخ ثبت کنید.</Text><View style={s.perfActionRow}><TouchableOpacity style={s.perfActionLeave} onPress={()=>openRequest('annual')}><Text style={s.perfActionIcon}>🗓️</Text><Text style={s.perfActionLeaveTxt}>درخواست مرخصی</Text></TouchableOpacity><TouchableOpacity style={s.perfActionManual} onPress={()=>openRequest('manual')}><Text style={s.perfActionIcon}>🕒</Text><Text style={s.perfActionManualTxt}>ثبت تردد دستی</Text></TouchableOpacity></View></View>}
     {busy&&data?<ActivityIndicator size={42} message="در حال بروزرسانی…"/>:null}
@@ -962,7 +974,19 @@ function jalali_to_gregorian_client(j,m,d){
   while(gm<12&&dd>sal[gm]){dd-=sal[gm];gm++;}
   return [gy,gm+1,dd];
 }
-function gregorian_to_jalali_client(gy,gm,gd){const gdm=[0,31,59,90,120,151,181,212,243,273,304,334];let gy2=gy+100000,jy=979+33*Math.floor(gy2/33),r=gy2%33;let d=365*gy2+Math.floor((gy2+3)/4)-Math.floor((gy2+99)/100)+Math.floor((gy2+399)/400)+gd+gdm[gm-1];if(gm>2&&((gy%4===0&&gy%100!==0)||gy%400===0))d++;d-=79;let y=979+33*Math.floor(d/12053);d%=12053;y+=4*Math.floor(d/1461);d%=1461;if(d>365){y+=Math.floor((d-1)/365);d=(d-1)%365}const m=d<186?1+Math.floor(d/31):7+Math.floor((d-186)/30),day=1+(d<186?d%31:(d-186)%30);return[y,m,day];}
+function gregorian_to_jalali_client(gy,gm,gd){
+  const gdm=[0,31,59,90,120,151,181,212,243,273,304,334];
+  let jy;
+  if(gy>1600){jy=979;gy-=1600;}else{jy=0;gy-=621;}
+  const gy2=gm>2?gy+1:gy;
+  let days=365*gy+Math.floor((gy2+3)/4)-Math.floor((gy2+99)/100)+Math.floor((gy2+399)/400)-80+gd+gdm[gm-1];
+  jy+=33*Math.floor(days/12053);days%=12053;
+  jy+=4*Math.floor(days/1461);days%=1461;
+  if(days>365){jy+=Math.floor((days-1)/365);days=(days-1)%365;}
+  const jm=days<186?1+Math.floor(days/31):7+Math.floor((days-186)/30);
+  const jd=1+(days<186?days%31:(days-186)%30);
+  return [jy,jm,jd];
+}
 function CheckInShiftTab(){
   const [data,setData]=useState(null);
   const [busy,setBusy]=useState(true);
