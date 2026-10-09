@@ -1010,7 +1010,7 @@ function CheckInShiftTab(){
   return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14,paddingBottom:32}}>
     {err?<Text style={s.warnText}>{err}</Text>:null}
     <View style={s.shiftHero}>
-      <Text style={s.shiftHeroTitle}>{data?.shift?.title||'شیفت کاری'}</Text>
+      <Text style={s.shiftHeroTitle}>شیفت کاری</Text>
       <Text style={s.shiftHeroSub}>برنامهٔ کامل ماه جاری شمسی</Text>
     </View>
     {shiftMissing?<View style={[s.perfCardWide,{marginTop:4,alignItems:'center'}]}>
@@ -1020,7 +1020,7 @@ function CheckInShiftTab(){
       <View style={[s.shiftAccent,d.is_today&&{backgroundColor:C.brand}]}/>
       <View style={{flex:1}}>
         <Text style={s.shiftDate}>{d.weekday} <Text style={s.shiftDateLight}>({d.date})</Text>{d.is_today?<Text style={{fontFamily:FONT.bold,color:C.brand,fontSize:11}}>  • امروز</Text>:null}</Text>
-        <Text style={s.shiftMeta}>{d.is_off?'روز استراحت/بدون موظفی':d.is_holiday?('تعطیل: '+(d.holiday_title||'')):'شیفت کاری'}</Text>
+        <Text style={s.shiftMeta}>{d.is_holiday?('تعطیل: '+(d.holiday_title||'')):d.is_off?(d.is_no_shift?'بدون شیفت فعال':'روز استراحت/بدون موظفی'):(d.shift_title||'شیفت کاری')}</Text>
       </View>
       <Text style={s.shiftMinutes}>{d.is_off?'—':(faNum(d.minutes)+' دقیقه')}</Text>
     </View>)}
