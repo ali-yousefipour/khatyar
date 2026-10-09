@@ -2159,9 +2159,9 @@ function _gps_work_invalid_intervals($userId, $fromTs, $toTs) {
       continue;
     }
     if (($event['kind']??'')!=='gps_on') continue;
-    // ورود موفق، اولین نیم‌ساعت بعد از ثبت ورود را تأیید می‌کند.
-    if ($source==='attendance_checkin') { $a=max($fromTs,$ts); $b=min($toTs,$ts+1800); }
-    else { $a=max($fromTs,$ts-1800); $b=min($toTs,$ts); }
+    // هر تأیید، فقط ۳۰ دقیقهٔ قبل از زمان ثبت را پوشش می‌دهد؛
+    // ثبت ورود به‌تنهایی ثابت نمی‌کند که GPS در نیم‌ساعت بعد روشن مانده است.
+    $a=max($fromTs,$ts-1800); $b=min($toTs,$ts);
     if ($b>$a) $covered[]=[$a,$b];
   }
 
