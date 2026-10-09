@@ -90,7 +90,7 @@ function pva_ensure_schema(): void {
   }
   // The mobile app submits Jalali YYYY/MM/DD. DATE columns cannot store those values.
   foreach (['license_issue_date','license_expiry_date','insurance_issue_date','insurance_expiry_date','technical_inspection_issue_date','technical_inspection_expiry_date'] as $dateColumn) {
-    if (isset($assetSchema[$dateColumn]) && preg_match('/^date(?:\\(|$)/i', $assetSchema[$dateColumn])) {
+    if (isset($assetSchema[$dateColumn]) && preg_match('/^date(?:\(|$)/i', $assetSchema[$dateColumn])) {
       Db::run("ALTER TABLE personnel_vehicle_assets MODIFY COLUMN `{$dateColumn}` VARCHAR(10) NULL");
       $assetSchema[$dateColumn] = 'varchar(10)';
     }
