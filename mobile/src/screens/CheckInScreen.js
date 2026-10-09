@@ -894,15 +894,19 @@ function CheckInPerformanceTab(){
       const result=await request('/my/daily-performance'+q,{noStore:true,timeoutMs:12000});
       if(seq===requestSeq.current)setData(result||null);
     }catch(e){
-      if(seq===requestSeq.current)setErr(e.message||'دریافت عملکرد روزانه ناموفق بود.');
+      if(seq===requestSeq.current){
+        setErr(e.message||'دریافت عملکرد روزانه ناموفق بود.');
+        if(d && data?.date!==d)setData(null);
+      }
     }finally{
       if(seq===requestSeq.current)setBusy(false);
     }
   };
   useEffect(()=>{load()},[date]);
   const shiftDate=(delta)=>{
-    if(!data?.date||busy)return;
-    const [y,m,d]=data.date.split('-').map(Number);
+    const baseDate=data?.date||date;
+    if(!baseDate||busy)return;
+    const [y,m,d]=baseDate.split('-').map(Number);
     const g=jalali_to_gregorian_client(y,m,d);
     const t=new Date(Date.UTC(g[0],g[1]-1,g[2]+delta,12,0,0));
     const j=gregorian_to_jalali_client(t.getUTCFullYear(),t.getUTCMonth()+1,t.getUTCDate());
@@ -913,7 +917,7 @@ function CheckInPerformanceTab(){
     return <ScrollView contentContainerStyle={{padding:14,paddingBottom:32}}>
       <View style={s.perfNav}>
         <TouchableOpacity style={s.perfNavBtn} onPress={()=>shiftDate(1)} disabled={busy}><Text style={s.perfNavTxt}>روز بعد ›</Text></TouchableOpacity>
-        <Text style={s.perfDate}>{data?.weekday||''} {data?.date?('('+data.date+')'):''}</Text>
+        <Text style={s.perfDate}>{data?.weekday||''} {(data?.date||date)?('('+(data?.date||date)+')'):''}</Text>
         <TouchableOpacity style={s.perfNavBtn} onPress={()=>shiftDate(-1)} disabled={busy}><Text style={s.perfNavTxt}>‹ روز قبل</Text></TouchableOpacity>
       </View>
       <View style={[s.perfCardWide,{marginTop:12,alignItems:'center'}]}>
@@ -928,7 +932,7 @@ function CheckInPerformanceTab(){
   const absent=Math.max(0,Number(w.absent_min||0));
   const hasAttendanceDeficit=shortage>0||absent>0;
   const cards=[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['کسری کار',w.shortage],['شب‌کاری',w.night]];
-  if(w.gps_work_required)cards.push(['کسر کار GPS',w.gps_invalid_min]);
+  if(w.gps_work_required && w.gps_invalid_min!==undefined && w.gps_invalid_min!==null && Number.isFinite(Number(w.gps_invalid_min)))cards.push(['کسر کار GPS',w.gps_invalid_min]);
   const openRequest=(type)=>{if(!data?.date)return;navigation.navigate('Requests',{initialType:type,initialDate:data.date,returnToDailyPerformance:true});};
   return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14,paddingBottom:32}}>
     {err?<Text style={s.warnText}>{err}</Text>:null}
