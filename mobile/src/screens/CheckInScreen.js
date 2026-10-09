@@ -909,7 +909,7 @@ function CheckInPerformanceTab(){
     setDate(j[0]+'-'+String(j[1]).padStart(2,'0')+'-'+String(j[2]).padStart(2,'0'));
   };
   if(busy&&!data)return <View style={s.center}><ActivityIndicator size={80} message="در حال دریافت عملکرد…"/></View>;
-  if(data&&!data.data){
+  if(!busy&&(!data||!data.data)){
     return <ScrollView contentContainerStyle={{padding:14,paddingBottom:32}}>
       <View style={s.perfNav}>
         <TouchableOpacity style={s.perfNavBtn} onPress={()=>shiftDate(1)} disabled={busy}><Text style={s.perfNavTxt}>روز بعد ›</Text></TouchableOpacity>
