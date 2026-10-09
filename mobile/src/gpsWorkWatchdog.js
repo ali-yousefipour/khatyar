@@ -7,6 +7,12 @@ import { playSound } from './soundFx';
 const WATCH_INTERVAL_MS = 30 * 60 * 1000;
 const LAST_CHECK_KEY = 'gps_work_watchdog_last_check_v1';
 
+// Reset the throttle after an attendance entry so a stale poll from before entry
+// cannot suppress the first verification window of this session.
+export async function resetGpsWorkWatchdogSchedule() {
+  try { await AsyncStorage.removeItem(LAST_CHECK_KEY); } catch {}
+}
+
 async function canRunWatchdog() {
   try {
     const timer = await request('/my/work-timer', { noStore: true, timeoutMs: 7000 });
