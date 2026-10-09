@@ -26,7 +26,7 @@ function CropCapture({visible,title,onDone,onCancel}){
 function parseDate(v){const a=String(v||'').split('/').map(Number);return a.length===3?{jy:a[0],jm:a[1],jd:a[2]}:undefined}
 function DateButton({label,value,onPress}){return <><Text style={s.label}>{label}</Text><TouchableOpacity style={s.input} onPress={onPress}><Text style={value?s.date:s.placeholder}>{value?fa(value):'انتخاب تاریخ از تقویم'}</Text></TouchableOpacity></>}
 export default function PersonnelVehicleAssetScreen(){const[phase,setPhase]=useState('loading');const[errorMsg,setErrorMsg]=useState('');const[access,setAccess]=useState(null);const[data,setData]=useState({color:'سفید'}),[photos,setPhotos]=useState({}),[capture,setCapture]=useState(null),[date,setDate]=useState(null),[saving,setSaving]=useState(false),[step,setStep]=useState(0),[uploadProgress,setUploadProgress]=useState('');
- const loadAccess=React.useCallback(async()=>{setPhase('loading');try{await getAppConfig();const a=await request('/api/personnel-vehicle-assets.php?op=access',{noStore:true});if(!a?.allowed){setAccess(a);setPhase('denied');return}setAccess(a);try{const r=await request('/api/personnel-vehicle-assets.php?op=mine',{noStore:true});if(r?.asset){setData(r.asset);const p={};(r.asset.photos||[]).forEach(x=>p[x.photo_key]=x.data_uri);setPhotos(p)}}catch(e){}setPhase('ready')}catch(e){setErrorMsg(e.message||'خطا در دریافت اطلاعات');setPhase('error')}},[]);useEffect(()=>{loadAccess()},[loadAccess]);
+ const loadAccess=React.useCallback(async()=>{setPhase('loading');try{await getAppConfig();const a=await request('/personnel-vehicle-assets.php?op=access',{noStore:true});if(!a?.allowed){setAccess(a);setPhase('denied');return}setAccess(a);try{const r=await request('/personnel-vehicle-assets.php?op=mine',{noStore:true});if(r?.asset){setData(r.asset);const p={};(r.asset.photos||[]).forEach(x=>p[x.photo_key]=x.data_uri);setPhotos(p)}}catch(e){}setPhase('ready')}catch(e){setErrorMsg(e.message||'خطا در دریافت اطلاعات');setPhase('error')}},[]);useEffect(()=>{loadAccess()},[loadAccess]);
  const motor=access?.asset_type==='motorcycle';const fields=useMemo(()=>motor?MOTOR_PHOTOS:CAR_PHOTOS,[motor]);const set=(k,v)=>setData(x=>({...x,[k]:v}));const openDate=k=>setDate(k);const dateDone=v=>{if(!date)return;set(date,`${v.jy}/${String(v.jm).padStart(2,'0')}/${String(v.jd).padStart(2,'0')}`);setDate(null)};
  async function save(){
   if(saving)return;
@@ -36,7 +36,7 @@ export default function PersonnelVehicleAssetScreen(){const[phase,setPhase]=useS
   for(const[k,t]of fields)if(!photos[k]){setStep(3);return Alert.alert('تصویر ناقص',`«${t}» باید با دوربین ثبت شود.`)}
   setSaving(true);setUploadProgress('ذخیره مشخصات وسیله…');
   try{
-   const r=await request('/api/personnel-vehicle-assets.php?op=save',{method:'POST',body:{...data,asset_type:access.asset_type},queueIfOffline:false,forceNetwork:true,noStore:true});
+   const r=await request('/personnel-vehicle-assets.php?op=save',{method:'POST',body:{...data,asset_type:access.asset_type},queueIfOffline:false,forceNetwork:true,noStore:true});
    if(r?.queued)throw Error('ذخیره مشخصات در صف آفلاین قرار گرفت؛ برای ثبت هم‌زمان تصاویر به اتصال اینترنت نیاز است.');
    const assetId=Number(r?.asset?.id||r?.asset_id||r?.id||0);
    if(!assetId)throw Error(r?.error||'شناسه وسیله پس از ذخیره دریافت نشد؛ تصاویر ارسال نشدند.');
@@ -47,11 +47,11 @@ export default function PersonnelVehicleAssetScreen(){const[phase,setPhase]=useS
     setUploadProgress(`فشرده‌سازی و ارسال تصویر ${fa(i+1)} از ${fa(localPhotos.length)}…`);
     const compressed=await compressToFile(sourceUri,{maxW:cfg.maxWidth,quality:cfg.quality,maxBytes:cfg.maxBytes});
     if(!compressed)throw Error(`فشرده‌سازی تصویر «${photo_key}» ناموفق بود.`);
-    const uploaded=await uploadFile('/api/personnel-vehicle-asset-upload.php',{asset_id:assetId,asset_type:access.asset_type,photo_key},'file',compressed,`${photo_key}.jpg`,'image/jpeg',{queueIfOffline:false,timeoutMs:90000});
+    const uploaded=await uploadFile('/personnel-vehicle-asset-upload.php',{asset_id:assetId,asset_type:access.asset_type,photo_key},'file',compressed,`${photo_key}.jpg`,'image/jpeg',{queueIfOffline:false,timeoutMs:90000});
     if(!uploaded||uploaded.ok===false||String(uploaded.photo_key||'')!==photo_key||!uploaded.data_uri)throw Error(`سرور ذخیره تصویر «${photo_key}» را تأیید نکرد.`);
    }
    setUploadProgress('بررسی ثبت نهایی روی سرور…');
-   const fresh=await request('/api/personnel-vehicle-assets.php?op=mine',{noStore:true,forceNetwork:true,queueIfOffline:false});
+   const fresh=await request('/personnel-vehicle-assets.php?op=mine',{noStore:true,forceNetwork:true,queueIfOffline:false});
    if(!fresh?.asset||Number(fresh.asset.id)!==assetId)throw Error('مشخصات ذخیره شد، اما دریافت مجدد پرونده از سرور تأیید نشد.');
    const savedPhotos=new Set((fresh.asset.photos||[]).map(x=>x.photo_key));
    const missing=fields.filter(([k])=>!savedPhotos.has(k));
