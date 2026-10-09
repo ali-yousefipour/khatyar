@@ -29,7 +29,7 @@ function pva_column_exists(string $table,string $column): bool {
 }
 function pva_ensure_schema(): void {
   Db::run("CREATE TABLE IF NOT EXISTS personnel_vehicle_assets (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,user_id BIGINT UNSIGNED NOT NULL,asset_type ENUM('car','motorcycle') NOT NULL,
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,user_id BIGINT UNSIGNED NOT NULL,asset_type ENUM('car','motorcycle') NOT NULL,plate VARCHAR(100) NOT NULL DEFAULT '',
     plate_part_right VARCHAR(3) NULL,plate_letter VARCHAR(2) NULL,plate_part_left VARCHAR(2) NULL,plate_iran VARCHAR(2) NULL,
     motorcycle_plate_top VARCHAR(3) NULL,motorcycle_plate_bottom VARCHAR(5) NULL,vehicle_type VARCHAR(30) NULL,fuel_type VARCHAR(20) NULL,color VARCHAR(50) NULL,model_year SMALLINT NULL,
     chassis_number VARCHAR(80) NULL,engine_number VARCHAR(80) NULL,vin VARCHAR(80) NULL,motorcycle_usage VARCHAR(20) NULL,motorcycle_system VARCHAR(80) NULL,motorcycle_type VARCHAR(80) NULL,cylinders TINYINT NULL,
@@ -46,6 +46,7 @@ function pva_ensure_schema(): void {
     $assetSchema[(string)$columnRow['Field']] = strtolower((string)$columnRow['Type']);
   }
   $assetColumns = [
+    'plate' => "VARCHAR(100) NOT NULL DEFAULT ''",
     'plate_part_right' => 'VARCHAR(3) NULL',
     'plate_letter' => 'VARCHAR(2) NULL',
     'plate_part_left' => 'VARCHAR(2) NULL',
