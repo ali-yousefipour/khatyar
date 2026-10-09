@@ -5,7 +5,10 @@ import { request } from './api';
 const { KhatyarUpdater } = NativeModules;
 const TRUSTED_UPDATE_HOST = 'app.yousefipour.ir';
 const TRUSTED_GITHUB_RAW_HOST = 'raw.githubusercontent.com';
-const TRUSTED_GITHUB_RAW_PREFIX = '/ali-yousefipour/khatyar/main/mobile/release/';
+const TRUSTED_GITHUB_RAW_PREFIXES = [
+  '/ali-yousefipour/khatyar/main/mobile/release/',
+  '/ali-yousefipour/khatyar-releases/main/',
+];
 
 export function currentVersion() {
   return Constants.expoConfig?.version || '0.0.0';
@@ -29,9 +32,11 @@ function validateUpdateUrl(value) {
     const portOk = !u.port || u.port === '443';
     if (u.protocol !== 'https:' || !portOk) return false;
     if (host === TRUSTED_UPDATE_HOST) return true;
-    return host === TRUSTED_GITHUB_RAW_HOST &&
-      u.pathname.startsWith(TRUSTED_GITHUB_RAW_PREFIX) &&
-      /^khatyar-[0-9]+\.[0-9]+\.[0-9]+\.apk$/.test(u.pathname.slice(TRUSTED_GITHUB_RAW_PREFIX.length));
+    if (host !== TRUSTED_GITHUB_RAW_HOST) return false;
+    return TRUSTED_GITHUB_RAW_PREFIXES.some(prefix =>
+      u.pathname.startsWith(prefix) &&
+      /^khatyar-[0-9]+\\.[0-9]+\\.[0-9]+\\.apk$/.test(u.pathname.slice(prefix.length))
+    );
   } catch (_) {
     return false;
   }
