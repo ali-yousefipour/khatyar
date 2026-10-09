@@ -2124,7 +2124,7 @@ function _gps_work_record_event($userId, $kind, $at, $meta=[]) {
     (int)$userId, $kind, json_encode(is_array($meta) ? $meta : [], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES), date('Y-m-d H:i:s', $ts)
   ]);
 }
-function _gps_work_invalid_intervals($userId, $fromTs, $toTs) {
+function _gps_work_invalid_intervals($userId, $fromTs, $toTs, $gracePending=false) {
   $fromTs=(int)$fromTs; $toTs=(int)$toTs;
   if (!$fromTs || !$toTs || $toTs <= $fromTs || !_gps_work_required()) return [];
 
@@ -2137,7 +2137,9 @@ function _gps_work_invalid_intervals($userId, $fromTs, $toTs) {
   } catch (Throwable $e) {}
   if ($toTs <= $fromTs) return [];
 
-  $queryFrom=date('Y-m-d H:i:s', max(1,$fromTs-1800));
+  // برای جلسهٔ باز، آخرین تأیید در کل جلسه لازم است تا فقط نیم‌ساعت جاری مهلت بگیرد.
+  $queryFromTs=$gracePending ? min($fromTs-1800,$toTs-86400) : ($fromTs-1800);
+  $queryFrom=date('Y-m-d H:i:s', max(1,$queryFromTs));
   $queryTo=date('Y-m-d H:i:s', $toTs);
   try {
     $events=Db::all("SELECT kind,UNIX_TIMESTAMP(at) ts,meta FROM user_activity
@@ -2149,7 +2151,7 @@ function _gps_work_invalid_intervals($userId, $fromTs, $toTs) {
     return [[$fromTs,$toTs]];
   }
 
-  $covered=[]; $forcedInvalid=[];
+  $covered=[]; $forcedInvalid=[]; $lastOnTs=null;
   foreach ($events as $event) {
     $ts=(int)($event['ts']??0);
     if (!$ts) continue;
@@ -2161,6 +2163,7 @@ function _gps_work_invalid_intervals($userId, $fromTs, $toTs) {
       continue;
     }
     if (($event['kind']??'')!=='gps_on') continue;
+    if ($lastOnTs===null || $ts>$lastOnTs) $lastOnTs=$ts;
     // هر تأیید، فقط ۳۰ دقیقهٔ قبل از زمان ثبت را پوشش می‌دهد؛
     // ثبت ورود به‌تنهایی ثابت نمی‌کند که GPS در نیم‌ساعت بعد روشن مانده است.
     $a=max($fromTs,$ts-1800); $b=min($toTs,$ts);
@@ -2210,6 +2213,23 @@ function _gps_work_invalid_intervals($userId, $fromTs, $toTs) {
     $cursor=max($cursor,$valid[1]);
   }
   if ($cursor<$toTs) $invalid[]=[$cursor,$toTs];
+
+  // در حضورِ باز، نیم‌ساعت بعد از آخرین تأیید تا کامل‌شدن مهلت بررسی هنوز در انتظار است.
+  // بعد از گذشت هر ۳۰ دقیقه، کل همان بازه به فهرست تأییدنشده افزوده می‌شود.
+  if ($gracePending && $lastOnTs!==null && $toTs>$lastOnTs) {
+    $completedSlots=(int)floor(($toTs-$lastOnTs)/1800);
+    $pendingStart=min($toTs,$lastOnTs+$completedSlots*1800);
+    if ($pendingStart<$toTs) {
+      $trimmed=[];
+      foreach($invalid as $bad) {
+        $a=(int)$bad[0]; $b=(int)$bad[1];
+        if ($b<=$pendingStart || $a>=$toTs) { $trimmed[]=$bad; continue; }
+        if ($a<$pendingStart) $trimmed[]=[$a,$pendingStart];
+      }
+      $invalid=$trimmed;
+    }
+  }
+  // خاموشی صریح GPS حتی در نیم‌ساعت جاری نیز فوراً مشمول کسر کار است.
   foreach($forcedInvalid as $bad) $invalid[]=$bad;
   return $merge($invalid);
 }
@@ -3012,7 +3032,7 @@ function _attendance_rows_for_jdate($userId,$jdate){
     $rowOut=!empty($r['check_out'])?strtotime($r['check_out']):time();
     $gpsFrom=max(strtotime($start),$rowIn?:strtotime($start));
     $gpsTo=min(strtotime($end),$rowOut?:time());
-    $r['_gps_invalid']=$gpsTo>$gpsFrom?_gps_work_invalid_intervals((int)$userId,$gpsFrom,$gpsTo):[];
+    $r['_gps_invalid']=$gpsTo>$gpsFrom?_gps_work_invalid_intervals((int)$userId,$gpsFrom,$gpsTo,empty($r['check_out'])):[];
   }
   return $rows;
 }
@@ -10969,7 +10989,7 @@ function _phase7p7_calc_for_attendance_row($row){
   $dr=($shift && (($shift['type']??'')==='advanced')) ? _shift_day_row($shift['shift_id']??$shift['id'],$jdate) : null;
   $hol=ShiftCalc::effectiveHoliday($jdate);
   $sessIn=strtotime($row['check_in']); $sessOut=!empty($row['check_out'])?strtotime($row['check_out']):time();
-  $sess=[['in'=>$sessIn,'out'=>$sessOut,'gps_invalid'=>_gps_work_invalid_intervals((int)$row['user_id'],$sessIn,$sessOut)]];
+  $sess=[['in'=>$sessIn,'out'=>$sessOut,'gps_invalid'=>_gps_work_invalid_intervals((int)$row['user_id'],$sessIn,$sessOut,empty($row['check_out']))]];
   return ShiftCalc::dayWork($shift,$jdate,$dr,$sess,$hol);
 }
 route('POST', '/api/admin/attendance/recalculate', function($p,$b,$u){
