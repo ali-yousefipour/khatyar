@@ -144,7 +144,34 @@ function pva_years(): array { $y=(int)date('Y')-621; $a=[]; for($x=$y;$x>=1390;$
 function pva_asset(int $id): ?array { return Db::one('SELECT * FROM personnel_vehicle_assets WHERE id=? LIMIT 1',[$id]); }
 function pva_history(int $id): array { static $hasJson=null; if($hasJson===null)$hasJson=pva_column_exists('personnel_vehicle_checklist_history','checks_json'); $json=$hasJson?',h.checks_json':''; return Db::all("SELECT h.id,h.result,h.note{$json},h.checked_at,h.checker_id,CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) checker_name FROM personnel_vehicle_checklist_history h LEFT JOIN users u ON u.id=h.checker_id WHERE h.asset_id=? ORDER BY h.checked_at DESC,h.id DESC",[$id]); }
 function pva_photo_keys(string $type): array { return $type==='motorcycle'?['motor_front','motor_back','motor_right','motor_left','motor_card_front','motor_card_back','green_card','insurance','license_front','license_back']:['car_front','car_back','car_right','car_left','license_front','license_back','vehicle_card_front','vehicle_card_back','technical_inspection','insurance','green_card']; }
-function pva_load(int $id,bool $photos=true): ?array { $a=pva_asset($id); if(!$a)return null; if($photos)$a['photos']=Db::all('SELECT photo_key,data_uri,crop_json,created_at,updated_at FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$id]); else $a['photo_keys']=array_column(Db::all('SELECT photo_key FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$id]),'photo_key'); $a['checks']=Db::all('SELECT check_key,check_value,note,checker_id,updated_at FROM personnel_vehicle_asset_checks WHERE asset_id=? ORDER BY check_key',[$id]); $a['checklist_history']=pva_history($id); return $a; }
+/**
+ * uploads/.htaccess deliberately blocks direct HTTP access to uploaded files.
+ * Convert stored upload URLs to data URIs only after resolving the path inside
+ * our own vehicle-photo directory. This lets authenticated API consumers render
+ * photos without weakening the uploads directory's access-control rules.
+ */
+function pva_photo_display_value($value): string {
+  $value=trim((string)$value);
+  if($value===''||preg_match('#^data:image/(?:jpeg|jpg|png|webp);base64,#i',$value)) return $value;
+  $path=parse_url($value,PHP_URL_PATH);
+  if(!is_string($path)||strpos($path,'/uploads/personnel-vehicle-assets/')!==0||strpos($path,'..')!==false) return $value;
+  $base=realpath(dirname(__DIR__).'/uploads/personnel-vehicle-assets');
+  $file=realpath(dirname(__DIR__).$path);
+  if(!$base||!$file||strpos($file,$base.DIRECTORY_SEPARATOR)!==0||!is_file($file)) return '';
+  $size=@filesize($file);
+  if(!$size||$size>10*1024*1024) return '';
+  $bytes=@file_get_contents($file);
+  if(!is_string($bytes)||$bytes==='') return '';
+  $mime=function_exists('mime_content_type')?mime_content_type($file):'image/jpeg';
+  if(!in_array(strtolower((string)$mime),['image/jpeg','image/jpg','image/png','image/webp'],true)) return '';
+  return 'data:'.$mime.';base64,'.base64_encode($bytes);
+}
+function pva_resolve_photo_rows(array $rows): array {
+  foreach($rows as &$photo) if(array_key_exists('data_uri',$photo)) $photo['data_uri']=pva_photo_display_value($photo['data_uri']);
+  unset($photo);
+  return $rows;
+}
+function pva_load(int $id,bool $photos=true): ?array { $a=pva_asset($id); if(!$a)return null; if($photos)$a['photos']=pva_resolve_photo_rows(Db::all('SELECT photo_key,data_uri,crop_json,created_at,updated_at FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$id])); else $a['photo_keys']=array_column(Db::all('SELECT photo_key FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$id]),'photo_key'); $a['checks']=Db::all('SELECT check_key,check_value,note,checker_id,updated_at FROM personnel_vehicle_asset_checks WHERE asset_id=? ORDER BY check_key',[$id]); $a['checklist_history']=pva_history($id); return $a; }
 function pva_list(bool $photos=false): array {
   $rows=Db::all("SELECT a.*,u.first_name,u.last_name,u.username,u.phone,u.national_code,r.title role_title,
     h.checklist_first_at,h.checklist_last_at,h.checklist_count,h.checklist_dates,h.last_result,h.last_checker_name
@@ -157,7 +184,7 @@ function pva_list(bool $photos=false): array {
       SUBSTRING_INDEX(GROUP_CONCAT(COALESCE(CONCAT(COALESCE(c.first_name,''),' ',COALESCE(c.last_name,'')),'') ORDER BY x.checked_at DESC,x.id DESC SEPARATOR '||'),'||',1) last_checker_name
       FROM personnel_vehicle_checklist_history x LEFT JOIN users c ON c.id=x.checker_id GROUP BY x.asset_id) h ON h.asset_id=a.id
     ORDER BY CASE WHEN a.status='pending' THEN 0 WHEN a.status='needs_correction' THEN 1 ELSE 2 END,a.updated_at DESC,a.id DESC");
-  foreach($rows as &$r){$r['photos']=$photos?Db::all('SELECT photo_key,data_uri,crop_json FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$r['id']]):[];$r['checklist_history']=[];} unset($r); return $rows;
+  foreach($rows as &$r){$r['photos']=$photos?pva_resolve_photo_rows(Db::all('SELECT photo_key,data_uri,crop_json FROM personnel_vehicle_asset_photos WHERE asset_id=? ORDER BY id',[$r['id']])):[];$r['checklist_history']=[];} unset($r); return $rows;
 }
 function pva_admin_allowed(array $u): bool { return (bool)((int)($u['is_admin']??0) || pva_is_check_authorized($u)); }
 function pva_plate(array $r): string { $stored=trim((string)($r['plate']??'')); if($stored!=='')return $stored; if(($r['asset_type']??'')==='motorcycle')return trim(($r['motorcycle_plate_top']??'').' / '.($r['motorcycle_plate_bottom']??'')); return trim(($r['plate_part_right']??'').' '.($r['plate_letter']??'').' '.($r['plate_part_left']??'').' ایران '.($r['plate_iran']??'')); }
