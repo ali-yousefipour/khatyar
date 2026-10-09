@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   repair:
-    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'trigger: gps interval patch')
+    if: "${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'trigger: gps interval patch') }}"
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
