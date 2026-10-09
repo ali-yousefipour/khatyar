@@ -5,7 +5,7 @@ date_default_timezone_set('UTC');
 $path = dirname(__DIR__, 2) . '/php/lib/routes.php';
 $source = file_get_contents($path);
 $fnStart = strpos($source, 'function jalali_to_gregorian(');
-$fnEnd = strpos("\nfunction j_to_ts(", $source, $fnStart);
+$fnEnd = strpos($source, "\nfunction j_to_ts(", $fnStart);
 if ($fnStart === false || $fnEnd === false) throw new RuntimeException('Could not extract production Jalali converter');
 eval(substr($source, $fnStart, $fnEnd-$fnStart));
 
@@ -25,7 +25,7 @@ foreach($expected as [$y,$m,$want]){
   echo "PASS Jalali month {$y}/{$m}: {$got} days\n";
 }
 $start=strpos($source, "route('GET', '/api/my/shift-schedule'");
-$end=strpos("\nroute('GET', '/api/my/work-summary'", $source, $start);
+$end=strpos($source, "\nroute('GET', '/api/my/work-summary'", $start);
 if($start===false||$end===false)throw new RuntimeException('Shift schedule route not found');
 $route=substr($source,$start,$end-$start);
 if(strpos($route,'mktime(12,0,0,...jalali_to_gregorian')!==false)throw new RuntimeException('Broken mktime argument spread remains');
