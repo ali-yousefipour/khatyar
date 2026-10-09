@@ -2092,6 +2092,116 @@ route('GET', '/api/cron/sms-expiry', function($p,$b,$u){
 // ---------------- ثبت حضور شخصی (چک‌این/چک‌اوت) ----------------
 // پیکربندی صفحهٔ ثبت حضور: خطوط کاربر + محدوده‌ها + شناسه‌های جایگزین
 // تنظیمات جامع اپ موبایل
+// محاسبهٔ سمت سرور: هر تأیید GPS حداکثر ۳۰ دقیقه اعتبار می‌دهد.
+// بازه‌های بدون تأیید، حتی اگر Android Force Stop شده باشد، به‌عنوان کارکرد معتبر شمرده نمی‌شوند.
+function _gps_work_required() {
+  try {
+    $r = Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required'");
+    if (!$r) return false;
+    $v = json_decode((string)$r['value'], true);
+    if (is_bool($v)) return $v;
+    if (is_int($v) || is_float($v)) return ((int)$v) !== 0;
+    return in_array(strtolower(trim((string)$v)), ['1','true','yes','on','enabled','فعال','بله'], true);
+  } catch (Throwable $e) { return false; }
+}
+function _gps_work_record_event($userId, $kind, $at, $meta=[]) {
+  if (!in_array($kind, ['gps_on','gps_off'], true)) return;
+  $ts = is_numeric($at) ? (int)$at : strtotime((string)$at);
+  if (!$ts) $ts = time();
+  Db::run("INSERT INTO user_activity(user_id,kind,meta,at) VALUES(?,?,?,?)", [
+    (int)$userId, $kind, json_encode(is_array($meta) ? $meta : [], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES), date('Y-m-d H:i:s', $ts)
+  ]);
+}
+function _gps_work_invalid_intervals($userId, $fromTs, $toTs) {
+  $fromTs=(int)$fromTs; $toTs=(int)$toTs;
+  if (!$fromTs || !$toTs || $toTs <= $fromTs || !_gps_work_required()) return [];
+
+  // سابقهٔ قبل از روشن‌کردن تنظیم، مشمول کسر کار GPS نیست.
+  try {
+    $enabledRow=Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required_enabled_at'");
+    $enabledValue=$enabledRow ? json_decode((string)$enabledRow['value'], true) : null;
+    $enabledTs=$enabledValue ? strtotime((string)$enabledValue) : false;
+    if ($enabledTs && $enabledTs>$fromTs) $fromTs=$enabledTs;
+  } catch (Throwable $e) {}
+  if ($toTs <= $fromTs) return [];
+
+  $queryFrom=date('Y-m-d H:i:s', max(1,$fromTs-1800));
+  $queryTo=date('Y-m-d H:i:s', $toTs);
+  try {
+    $events=Db::all("SELECT kind,UNIX_TIMESTAMP(at) ts,meta FROM user_activity
+      WHERE user_id=? AND at>=? AND at<=? AND kind IN ('gps_on','gps_off')
+      ORDER BY at ASC,id ASC", [(int)$userId,$queryFrom,$queryTo]);
+  } catch (Throwable $e) {
+    // اگر وضعیت تأیید GPS قابل خواندن نباشد، fail closed: بازه تأییدنشده اعتبار کارکرد ندارد.
+    error_log('gps work verification query failed: '.$e->getMessage());
+    return [[$fromTs,$toTs]];
+  }
+
+  $covered=[]; $forcedInvalid=[];
+  foreach ($events as $event) {
+    $ts=(int)($event['ts']??0);
+    if (!$ts) continue;
+    $meta=json_decode((string)($event['meta']??''),true);
+    $source=is_array($meta)?(string)($meta['source']??''):'';
+    if (($event['kind']??'')==='gps_off') {
+      $a=max($fromTs,$ts-1800); $b=min($toTs,$ts);
+      if ($b>$a) $forcedInvalid[]=[$a,$b];
+      continue;
+    }
+    if (($event['kind']??'')!=='gps_on') continue;
+    // ورود موفق، اولین نیم‌ساعت بعد از ثبت ورود را تأیید می‌کند.
+    if ($source==='attendance_checkin') { $a=max($fromTs,$ts); $b=min($toTs,$ts+1800); }
+    else { $a=max($fromTs,$ts-1800); $b=min($toTs,$ts); }
+    if ($b>$a) $covered[]=[$a,$b];
+  }
+
+  $merge=function($ranges) {
+    if (!$ranges) return [];
+    usort($ranges,fn($a,$b)=>(int)$a[0]<=>(int)$b[0]);
+    $out=[];
+    foreach($ranges as $range) {
+      $a=(int)$range[0]; $b=(int)$range[1];
+      if ($b<=$a) continue;
+      $last=count($out)-1;
+      if ($last<0 || $a>$out[$last][1]) $out[]=[$a,$b];
+      else $out[$last][1]=max($out[$last][1],$b);
+    }
+    return $out;
+  };
+  $covered=$merge($covered);
+  $forcedInvalid=$merge($forcedInvalid);
+
+  // نقاط خاموشی GPS بر هر تأیید هم‌پوشان اولویت دارند.
+  if ($forcedInvalid && $covered) {
+    $remaining=[];
+    foreach($covered as $c) {
+      $parts=[$c];
+      foreach($forcedInvalid as $bad) {
+        $next=[];
+        foreach($parts as $p) {
+          if ($bad[1]<=$p[0] || $bad[0]>=$p[1]) { $next[]=$p; continue; }
+          if ($bad[0]>$p[0]) $next[]=[$p[0],min($bad[0],$p[1])];
+          if ($bad[1]<$p[1]) $next[]=[max($bad[1],$p[0]),$p[1]];
+        }
+        $parts=$next;
+        if (!$parts) break;
+      }
+      foreach($parts as $p) if($p[1]>$p[0]) $remaining[]=$p;
+    }
+    $covered=$merge($remaining);
+  }
+
+  // مکمل بازه‌های تأییدشده، کارکرد غیرقابل‌اعتبارسنجی است.
+  $invalid=[]; $cursor=$fromTs;
+  foreach($covered as $valid) {
+    if ($valid[0]>$cursor) $invalid[]=[$cursor,$valid[0]];
+    $cursor=max($cursor,$valid[1]);
+  }
+  if ($cursor<$toTs) $invalid[]=[$cursor,$toTs];
+  foreach($forcedInvalid as $bad) $invalid[]=$bad;
+  return $merge($invalid);
+}
+
 route('GET', '/api/my/app-config', function($p,$b,$u){
   $g = function($k,$d=null){ $r=Db::one("SELECT value FROM app_settings WHERE `key`=?",[$k]); if(!$r)return $d; $v=json_decode($r['value'],true); return ($v===null||$v==='')?$d:$v; };
   $gb = function($k,$d=false) use ($g){
@@ -2160,6 +2270,7 @@ route('GET', '/api/my/app-config', function($p,$b,$u){
     // ردیابی موقعیت از طریق GSM (وقتی GPS خاموش است)
     'gsm_tracking_enabled'  => $g('gsm_tracking_enabled', true)!==false,
     'gsm_ping_minutes'      => max(1,min(60,(int)($g('gsm_ping_minutes', 2) ?: 2))), // فاصلهٔ پینگ GSM (دقیقه)
+    'gps_work_required'     => $gb('gps_work_required', false),
     'gps_check_seconds'     => max(15,min(3600,(int)($g('gps_check_seconds', 60) ?: 60))), // فاصلهٔ بررسی روشن بودن GPS (ثانیه)
     'vpn_check_seconds'     => max(15,min(3600,(int)($g('vpn_check_seconds', 60) ?: 60))),
     'station_check_seconds' => max(15,min(3600,(int)($g('station_check_seconds', 60) ?: 60))),
@@ -2311,6 +2422,10 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   $inStation = ($st['name'] ?? null) ?: _station_name_at($lat, $lng, $lineIds);
   $id = Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,check_in,in_lat,in_lng,in_station,client_check_in) VALUES(?,?,?,?,?,?,?,?)",
     [$u['id'], $lineId ?: null, $method, $eventAt, $lat, $lng, $inStation, $eventAt]);
+  if (_gps_work_required() && $lat !== null && $lng !== null) {
+    try { _gps_work_record_event((int)$u['id'], 'gps_on', $eventAt, ['source'=>'attendance_checkin','attendance_id'=>(int)$id,'interval_minutes'=>30]); }
+    catch (Throwable $e) { error_log('GPS check-in verification event failed: '.$e->getMessage()); }
+  }
   $presenceSchedule=[];
   try{
     $pcRow=Db::one("SELECT value FROM app_settings WHERE `key`='presence_check'");
@@ -2364,6 +2479,10 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
   $outStation = $outFence['name'] ?? _station_name_at($lat, $lng, $lineIds);
   $now = $eventAt;
   if (strtotime($now) <= strtotime($open['check_in'])) $now = date('Y-m-d H:i:s', strtotime($open['check_in']) + 60);
+  if (_gps_work_required()) {
+    try { _gps_work_record_event((int)$u['id'], 'gps_on', $now, ['source'=>'attendance_checkout','attendance_id'=>(int)$open['id'],'interval_minutes'=>30]); }
+    catch (Throwable $e) { error_log('GPS checkout verification event failed: '.$e->getMessage()); }
+  }
 
   Db::run("UPDATE staff_attendance SET check_out=?, out_lat=?, out_lng=?, out_station=?, out_line_id=?, client_check_out=? WHERE id=?", [$now, $lat, $lng, $outStation, $outLineId ?: null, $now, $open['id']]);
   try {
@@ -2371,7 +2490,7 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
     $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
     // همان مبنای گزارش و تایمر: در نبود تخصیص صریح، شیفت خودکار استفاده شود.
     $shift = _active_user_shift_assignment($u['id'], $jdate) ?: _auto_shift_for_user($u['id']);
-    $sessions = [['in'=>strtotime($open['check_in']),'out'=>strtotime($now)]];
+    $sessions = [['in'=>strtotime($open['check_in']),'out'=>strtotime($now),'gps_invalid'=>_gps_work_invalid_intervals((int)$u['id'],strtotime($open['check_in']),strtotime($now))]];
     $hol = ShiftCalc::effectiveHoliday($jdate);
     $w = $shift ? ShiftCalc::dayWork($shift,$jdate,null,$sessions,$hol) : ['worked'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'surplus'=>0];
     Db::run("UPDATE staff_attendance SET calc_json=? WHERE id=?", [json_encode($w,JSON_UNESCAPED_UNICODE), $open['id']]);
@@ -2439,6 +2558,11 @@ route('GET', '/api/my/work-timer', function($p,$b,$u){
     $segIn = max($inTs, $startTs ?: $inTs);
     $segOut = min($outTs, $endTs ?: $outTs);
     $sec = max(0, $segOut - $segIn);
+    foreach (($row['_gps_invalid'] ?? []) as $bad) {
+      $badFrom=(int)($bad[0]??0); $badTo=(int)($bad[1]??0);
+      if ($badTo>$badFrom) $sec -= max(0,min($segOut,$badTo)-max($segIn,$badFrom));
+    }
+    $sec=max(0,$sec);
     $workedSec += $sec;
     if (empty($row['check_out'])) $openElapsedSec += $sec;
     else $completedSec += $sec;
@@ -2460,6 +2584,7 @@ route('GET', '/api/my/work-timer', function($p,$b,$u){
 
   return [
     'open'=>$open,'auto_closed'=>$autoClosed ? true : false,'auto_closed_at'=>$autoClosed['check_out'] ?? null,'auto_close_reason'=>$autoClosed['reason'] ?? null,
+    'gps_work_required'=>_gps_work_required(),
     'role_title'=>$role['title']??'','shift_title'=>$shift['title']??'',
     'expected_min'=>$expected,'ot_cap_min'=>$cap,'elapsed_min'=>$elapsed,'elapsed_sec'=>$elapsedSec,
     'worked_min'=>$elapsed,'worked_sec'=>$elapsedSec,'completed_min'=>(int)floor($completedSec/60),'completed_sec'=>(int)$completedSec,
@@ -2705,7 +2830,7 @@ function _attendance_auto_close_stale($userId, $now=null){
     [$jy,$jm,$jd] = gregorian_to_jalali($gy,$gm,$gd);
     $jdate=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
     $shift=function_exists('_active_user_shift_assignment') ? _active_user_shift_assignment((int)$userId,$jdate) : null;
-    $sessions=[['in'=>$inTs,'out'=>$autoOutTs]];
+    $sessions=[['in'=>$inTs,'out'=>$autoOutTs,'gps_invalid'=>_gps_work_invalid_intervals((int)$userId,$inTs,$autoOutTs)]];
     $hol=ShiftCalc::effectiveHoliday($jdate);
     $w=ShiftCalc::dayWork($shift,$jdate,null,$sessions,$hol);
     Db::run("UPDATE staff_attendance SET check_out=?, client_check_out=?, calc_json=? WHERE id=? AND check_out IS NULL",
@@ -2869,7 +2994,14 @@ function _attendance_rows_for_jdate($userId,$jdate){
     FROM staff_attendance
     WHERE user_id=? AND check_in < ? AND COALESCE(check_out, NOW()) > ?
     ORDER BY check_in", [(int)$userId,$end,$start]);
-  foreach ($rows as &$r) { $r['_clip_start'] = $start; $r['_clip_end'] = $end; $r['_gdate'] = $g; }
+  foreach ($rows as &$r) {
+    $r['_clip_start'] = $start; $r['_clip_end'] = $end; $r['_gdate'] = $g;
+    $rowIn=strtotime($r['check_in']??'');
+    $rowOut=!empty($r['check_out'])?strtotime($r['check_out']):time();
+    $gpsFrom=max(strtotime($start),$rowIn?:strtotime($start));
+    $gpsTo=min(strtotime($end),$rowOut?:time());
+    $r['_gps_invalid']=$gpsTo>$gpsFrom?_gps_work_invalid_intervals((int)$userId,$gpsFrom,$gpsTo):[];
+  }
   return $rows;
 }
 
@@ -2929,7 +3061,7 @@ function _shift_month_report($jy, $jm) {
       // روزهای دارای تردد عبور کند؛ مخصوصاً برای شیفت خودکار، جمعه، تعطیل
       // و روزهای بدون موظفی. در غیر این صورت گزارش ماهانه می‌توانست یک روز
       // آزاد را به اشتباه غیبت ۷:۳۳ ثبت کند.
-      $sessions = array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00')], $rows);
+      $sessions = array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]], $rows);
       $w = ShiftCalc::dayWork($shift, $jdate, $dr, $sessions, $isHol);
 
       if (!$rows) {
@@ -3070,7 +3202,7 @@ function _attendance_report($userId,$fromJ,$toJ){
         'device'=>$u['device_model']?:null,
         'in_lat'=>$r['in_lat'],'in_lng'=>$r['in_lng'],'out_lat'=>$r['out_lat'],'out_lng'=>$r['out_lng'],
       ];
-      $sessions[]=['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00')];
+      $sessions[]=['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]];
     }
     $isHol=ShiftCalc::effectiveHoliday($jdateDash);
     // همان منطق تایمر و گزارش ماهانه: اگر شیفت صریح وجود ندارد،
@@ -3659,13 +3791,13 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   [$ty,$tm,$td]=array_slice(gregorian_to_jalali(date('Y'),date('m'),date('d')),0,3);
   $jdate=preg_replace('/\//','-',trim((string)($_GET['date']??'')));
   if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$jdate)) $jdate=sprintf('%04d-%02d-%02d',$ty,$tm,$td);
-  $shift=_auto_shift_for_user($u['id']);
+  $shift=_active_user_shift_assignment($u['id'],$jdate) ?: _auto_shift_for_user($u['id']);
   if(!$shift) return ['date'=>$jdate,'data'=>null,'message'=>'برای شما شیفت فعالی تعریف نشده است.'];
   $dayRow=null;
   if(($shift['type']??'')==='advanced') $dayRow=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$jdate]);
   $cal=ShiftCalc::calendarDay($jdate);
   $rows=_attendance_rows_for_jdate($u['id'],$jdate);
-  $sessions=array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start']??'1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00')],$rows);
+  $sessions=array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start']??'1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]],$rows);
   $w=ShiftCalc::dayWork($shift,$jdate,$dayRow,$sessions,ShiftCalc::effectiveHoliday($jdate));
   $weekday=_jweekday_name((int)substr($jdate,0,4),(int)substr($jdate,5,2),(int)substr($jdate,8,2));
   $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
@@ -3678,7 +3810,8 @@ route('GET', '/api/my/shift-schedule', function($p,$b,$u){
   $start=preg_replace('/\//','-',trim((string)($_GET['from']??'')));
   if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$start)) $start=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
   [$sy,$sm,$sd]=array_map('intval',explode('-',$start));
-  $shift=_auto_shift_for_user($u['id']); if(!$shift)return ['shift'=>null,'days'=>[],'message'=>'برای شما شیفت فعالی تعریف نشده است.'];
+  $todayJ=sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
+  $shift=_active_user_shift_assignment($u['id'],$todayJ) ?: _auto_shift_for_user($u['id']); if(!$shift)return ['shift'=>null,'days'=>[],'message'=>'برای شما شیفت فعالی تعریف نشده است.'];
   // «شیفت کاری» باید کل ماه جاری شمسی را نشان دهد، نه فقط ۱۴ روز از امروز.
   // پارامتر from فقط برای سازگاری با کلاینت‌های قدیمی نگه داشته شده و ماه جاری مرجع نمایش است.
   $days=[];$ts=mktime(12,0,0,...jalali_to_gregorian($jy,$jm,1));
@@ -3687,10 +3820,11 @@ route('GET', '/api/my/shift-schedule', function($p,$b,$u){
   $daysCount=max(1,(int)round(($nextTs-$ts)/86400));
   for($i=0;$i<$daysCount;$i++){
     $gt=getdate($ts+($i*86400)); [$y,$m,$d]=array_slice(gregorian_to_jalali($gt['year'],$gt['mon'],$gt['mday']),0,3);$j=sprintf('%04d-%02d-%02d',$y,$m,$d);
-    $dr=null;if(($shift['type']??'')==='advanced')$dr=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$j]);
-    $cal=ShiftCalc::calendarDay($j);$mins=ShiftCalc::expectedMinutes($shift,$j,$dr);
+    $dayShift=_active_user_shift_assignment($u['id'],$j) ?: $shift;
+    $dr=null;if(($dayShift['type']??'')==='advanced')$dr=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$dayShift['id'],$j]);
+    $cal=ShiftCalc::calendarDay($j);$mins=ShiftCalc::expectedMinutes($dayShift,$j,$dr);
     $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
-    $days[]=['date'=>$j,'weekday'=>_jweekday_name($y,$m,$d),'shift_title'=>$shift['title']??'شیفت کاری','minutes'=>$mins,'is_off'=>(bool)($dr['is_off']??false)||($mins<=0),'is_holiday'=>$isCalHoliday,'is_friday'=>ShiftCalc::isFriday($j),'holiday_title'=>$cal['title']??''];
+    $days[]=['date'=>$j,'weekday'=>_jweekday_name($y,$m,$d),'shift_title'=>$dayShift['title']??'شیفت کاری','minutes'=>$mins,'is_off'=>(bool)($dr['is_off']??false)||($mins<=0),'is_holiday'=>$isCalHoliday,'is_friday'=>ShiftCalc::isFriday($j),'holiday_title'=>$cal['title']??''];
   }
   return ['shift'=>['id'=>(int)$shift['id'],'title'=>$shift['title']??'شیفت کاری','type'=>$shift['type']??''],'days'=>$days];
 });
@@ -8202,12 +8336,25 @@ route('PUT', '/api/admin/settings', function($p,$b,$u){
       if(array_key_exists($ak,$b)) $b[$ak]=max(0,(int)preg_replace('/[^0-9]/','',(string)$b[$ak]));
     }
   }
+  if (array_key_exists('gps_work_required',$b)) {
+    $newGpsRequired=filter_var($b['gps_work_required'],FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE);
+    if ($newGpsRequired===null) $newGpsRequired=!empty($b['gps_work_required']);
+    $oldRow=Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required'");
+    $oldGpsRequired=$oldRow ? filter_var(json_decode((string)$oldRow['value'],true),FILTER_VALIDATE_BOOLEAN) : false;
+    $b['gps_work_required']=(bool)$newGpsRequired;
+    if ((bool)$newGpsRequired !== (bool)$oldGpsRequired) {
+      $b['gps_work_required_enabled_at']=$newGpsRequired ? date('Y-m-d H:i:s') : null;
+    } elseif ($newGpsRequired) {
+      $activeRow=Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required_enabled_at'");
+      if (!$activeRow) $b['gps_work_required_enabled_at']=date('Y-m-d H:i:s');
+    }
+  }
   foreach ($b as $k=>$v) Db::run("INSERT INTO app_settings(`key`,value) VALUES(?,?) ON DUPLICATE KEY UPDATE value=VALUES(value),updated_at=NOW()", [$k, json_encode($v, JSON_UNESCAPED_UNICODE)]);
   return ['ok'=>true,'subscription'=>function_exists('_subscription_status_for_user')?_subscription_status_for_user($u):null];
 }, false, ADMIN);
 // تنظیمات عمومی (محدودیت آپلود هر بخش) برای اپ میدانی — فقط کلیدهای غیرحساس
 route('GET', '/api/settings/public', function($p,$b,$u){
-  $keys = ['upload_reports','upload_checklists','upload_notices','image_quality','image_max_width','image_max_height','thumbnail_size','thumbnail_quality','attachment_retention_days','form_attachment_retention_days','presence_retention_days','covert_selfie_retention_days','salary_slip_retention_days','company_request_retention_days','site_title','site_logo','org_title','org_logo','plate_ocr_enabled','plate_ocr_mode','plate_ocr_min_confidence','plate_ocr_require_confirm','plate_ocr_save_samples','plate_ocr_fixed_letter','plate_ocr_region_code','plate_ocr_crop_width','plate_ocr_crop_quality','cloud_ocr_enabled','cloud_ocr_provider','cloud_ocr_api_key','cloud_ocr_endpoint','cloud_ocr_connect_timeout','cloud_ocr_timeout'];
+  $keys = ['gps_work_required','gps_work_required_enabled_at','upload_reports','upload_checklists','upload_notices','image_quality','image_max_width','image_max_height','thumbnail_size','thumbnail_quality','attachment_retention_days','form_attachment_retention_days','presence_retention_days','covert_selfie_retention_days','salary_slip_retention_days','company_request_retention_days','site_title','site_logo','org_title','org_logo','plate_ocr_enabled','plate_ocr_mode','plate_ocr_min_confidence','plate_ocr_require_confirm','plate_ocr_save_samples','plate_ocr_fixed_letter','plate_ocr_region_code','plate_ocr_crop_width','plate_ocr_crop_quality','cloud_ocr_enabled','cloud_ocr_provider','cloud_ocr_api_key','cloud_ocr_endpoint','cloud_ocr_connect_timeout','cloud_ocr_timeout'];
   $out=[]; try { foreach (Db::all("SELECT `key`,value FROM app_settings WHERE `key` IN ('".implode("','",$keys)."')") as $r) $out[$r['key']] = json_decode($r['value'], true); } catch (Throwable $e) { error_log('settings/public fallback: '.$e->getMessage()); }
   return $out;
 }, true);
