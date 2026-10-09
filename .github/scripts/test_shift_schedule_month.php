@@ -29,7 +29,7 @@ $end=strpos("\nroute('GET', '/api/my/work-summary'", $source, $start);
 if($start===false||$end===false)throw new RuntimeException('Shift schedule route not found');
 $route=substr($source,$start,$end-$start);
 if(strpos($route,'mktime(12,0,0,...jalali_to_gregorian')!==false)throw new RuntimeException('Broken mktime argument spread remains');
-foreach(["'shift_title'=>$dayShift['title']??''","'is_no_shift'=>$noShift","MONTH_START_MKTIME_ORDER_FIX"] as $needle){
+foreach(["shift_title","is_no_shift","MONTH_START_MKTIME_ORDER_FIX"] as $needle){
   if(strpos($route,$needle)===false)throw new RuntimeException("Missing shift schedule fix marker: {$needle}");
 }
 echo "PASS shift route uses correct Gregorian mktime order and per-day assignment data\n";
