@@ -1,0 +1,64 @@
+name: One-shot GPS interval repair
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  repair:
+    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'trigger: gps interval patch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Set up PHP for syntax validation
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: none
+
+      - name: Patch canonical attendance API and calculate GPS deduction diagnostics
+        run: python3 .github/scripts/patch_gps_work_verification.py
+
+      - name: Verify PHP syntax and GPS interval scenarios
+        run: |
+          php -l php/lib/routes.php
+          php .github/scripts/test_gps_work_intervals.php
+          git diff --check
+
+      - name: Commit server fix
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add php/lib/routes.php
+          git diff --cached --quiet && { echo "No server changes to commit"; exit 1; }
+          git commit -m "fix(attendance): validate consecutive GPS checkpoints before crediting work"
+          git push origin HEAD:main
+
+      - name: Dispatch production PHP deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          gh workflow run deploy-php.yml --ref main
+          run_id=""
+          for attempt in $(seq 1 30); do
+            run_id="$(gh run list --workflow deploy-php.yml --branch main --limit 10 --json databaseId,createdAt,event --jq '[.[] | select(.event == "workflow_dispatch" and .createdAt >= "'"$started_at"'")] | sort_by(.createdAt) | last | .databaseId // empty')"
+            [ -n "$run_id" ] && break
+            sleep 3
+          done
+          [ -n "$run_id" ] || { echo "Could not locate dispatched PHP deployment run" >&2; exit 1; }
+          echo "Waiting for PHP deployment run $run_id"
+          gh run watch "$run_id" --exit-status
