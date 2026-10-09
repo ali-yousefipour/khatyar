@@ -76,7 +76,7 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
             if(path != null) {
                 for(String prefix : TRUSTED_GITHUB_RAW_PREFIXES) {
                     if(path.startsWith(prefix) &&
-                       path.substring(prefix.length()).matches("khatyar-[0-9]+\.[0-9]+\.[0-9]+\.apk")) return;
+                       path.substring(prefix.length()).matches("khatyar-[0-9]+\\.[0-9]+\\.[0-9]+\\.apk")) return;
                 }
             }
         }
