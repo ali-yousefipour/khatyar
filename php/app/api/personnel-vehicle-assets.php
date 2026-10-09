@@ -58,6 +58,7 @@ function pva_ensure_schema(): void {
     'motorcycle_usage' => 'VARCHAR(20) NULL',
     'motorcycle_system' => 'VARCHAR(80) NULL',
     'cylinders' => 'TINYINT NULL',
+    'license_number' => 'VARCHAR(80) NULL',
     'insurance_company' => 'VARCHAR(150) NULL',
     'mobile_beacon' => 'TINYINT(1) NULL',
     'heating_ok' => 'TINYINT(1) NULL',
@@ -182,7 +183,11 @@ try {
     if($type==='motorcycle' && trim((string)($b['motorcycle_plate_top']??''))==='' && trim((string)($b['motorcycle_plate_bottom']??''))==='')pva_fail('پلاک موتورسیکلت را وارد کنید');
     $canonicalPlate=$type==='motorcycle'?trim(pva_norm($b['motorcycle_plate_top']??'').' / '.pva_norm($b['motorcycle_plate_bottom']??'')):trim(pva_norm($b['plate_part_right']??'').' '.pva_norm($b['plate_letter']??'').' '.pva_norm($b['plate_part_left']??'').' ایران '.pva_norm($b['plate_iran']??'')); 
     $cols=['asset_type','plate','plate_part_right','plate_letter','plate_part_left','plate_iran','motorcycle_plate_top','motorcycle_plate_bottom','vehicle_type','fuel_type','color','model_year','chassis_number','engine_number','vin','motorcycle_usage','motorcycle_system','motorcycle_type','cylinders','license_number','license_issue_date','license_expiry_date','insurance_number','insurance_company','insurance_issue_date','insurance_expiry_date','technical_inspection_number','technical_inspection_issue_date','technical_inspection_expiry_date','fixed_beacon','mobile_beacon','heating_ok','cooling_ok','amplifier'];
-    $vals=[];foreach($cols as $c){$v=$c==='plate'?$canonicalPlate:($b[$c]??null);if(is_string($v))$v=pva_norm($v);if(in_array($c,['model_year','cylinders'],true))$v=($v===''||$v===null)?null:(int)pva_norm($v);elseif(in_array($c,['fixed_beacon','mobile_beacon','heating_ok','cooling_ok','amplifier'],true))$v=($v===''||$v===null)?0:(int)pva_norm($v);$vals[]=$v;}
+    // Older installations retain legacy NOT NULL columns. Include them in writes when present,
+    // mapping the canonical form values so MySQL cannot fail on omitted legacy equipment fields.
+    $legacyAliases=['cylinder_count'=>'cylinders','movable_beacon'=>'mobile_beacon','heating_healthy'=>'heating_ok','cooling_healthy'=>'cooling_ok'];
+    foreach($legacyAliases as $legacy=>$canonical){if(pva_column_exists('personnel_vehicle_assets',$legacy)&&!in_array($legacy,$cols,true))$cols[]=$legacy;}
+    $vals=[];foreach($cols as $c){$source=$legacyAliases[$c]??$c;$v=$c==='plate'?$canonicalPlate:($b[$source]??null);if(is_string($v))$v=pva_norm($v);if(in_array($source,['model_year','cylinders','cylinder_count'],true))$v=($v===''||$v===null)?null:(int)pva_norm($v);elseif(in_array($source,['fixed_beacon','mobile_beacon','movable_beacon','heating_ok','heating_healthy','cooling_ok','cooling_healthy','amplifier'],true))$v=($v===''||$v===null)?0:(int)pva_norm($v);$vals[]=$v;}
     Db::pdo()->beginTransaction(); try{
       $old=Db::one('SELECT id FROM personnel_vehicle_assets WHERE user_id=? AND asset_type=? LIMIT 1',[$u['id'],$type]);
       if($old){$sets=[];foreach($cols as $c)$sets[]="`$c`=?";$sets[]="status='pending'";$sets[]="verified_by=NULL";$sets[]="verified_at=NULL";Db::query('UPDATE personnel_vehicle_assets SET '.implode(',',$sets).' WHERE id=?',array_merge($vals,[(int)$old['id']]));$id=(int)$old['id'];}
