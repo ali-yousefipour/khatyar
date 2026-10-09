@@ -43,7 +43,10 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
     private static final String KEY_PENDING_URI = "pending_install_uri";
     private static final String TRUSTED_UPDATE_HOST = "app.yousefipour.ir";
     private static final String TRUSTED_GITHUB_RAW_HOST = "raw.githubusercontent.com";
-    private static final String TRUSTED_GITHUB_RAW_PREFIX = "/ali-yousefipour/khatyar/main/mobile/release/";
+    private static final String[] TRUSTED_GITHUB_RAW_PREFIXES = {
+        "/ali-yousefipour/khatyar/main/mobile/release/",
+        "/ali-yousefipour/khatyar-releases/main/"
+    };
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     public KhatyarUpdaterModule(ReactApplicationContext context) { super(context); }
@@ -70,8 +73,12 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
         if(TRUSTED_UPDATE_HOST.equalsIgnoreCase(host)) return;
         if(TRUSTED_GITHUB_RAW_HOST.equalsIgnoreCase(host)) {
             String path = url.getPath();
-            if(path != null && path.startsWith(TRUSTED_GITHUB_RAW_PREFIX) &&
-               path.substring(TRUSTED_GITHUB_RAW_PREFIX.length()).matches("khatyar-[0-9]+\\.[0-9]+\\.[0-9]+\\.apk")) return;
+            if(path != null) {
+                for(String prefix : TRUSTED_GITHUB_RAW_PREFIXES) {
+                    if(path.startsWith(prefix) &&
+                       path.substring(prefix.length()).matches("khatyar-[0-9]+\.[0-9]+\.[0-9]+\.apk")) return;
+                }
+            }
         }
         throw new Exception("آدرس به‌روزرسانی مجاز نیست؛ فقط APK رسمی خطیار قابل دریافت است.");
     }
