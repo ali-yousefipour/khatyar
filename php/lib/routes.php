@@ -2099,9 +2099,19 @@ function _gps_work_required() {
     $r = Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required'");
     if (!$r) return false;
     $v = json_decode((string)$r['value'], true);
-    if (is_bool($v)) return $v;
-    if (is_int($v) || is_float($v)) return ((int)$v) !== 0;
-    return in_array(strtolower(trim((string)$v)), ['1','true','yes','on','enabled','فعال','بله'], true);
+    if (is_bool($v)) $required=$v;
+    elseif (is_int($v) || is_float($v)) $required=((int)$v)!==0;
+    else $required=in_array(strtolower(trim((string)$v)), ['1','true','yes','on','enabled','فعال','بله'], true);
+    if (!$required) return false;
+    // تنظیمی که پیش از انتشار این اصلاح فعال شده، timestamp ندارد؛ از همین لحظه مبناگذاری کن
+    // تا سوابق قبل از فعال‌شدن قابل اتکا، به‌صورت عقب‌گرد کسر کار نخورد.
+    $activeRow=Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required_enabled_at'");
+    $activeValue=$activeRow ? json_decode((string)$activeRow['value'],true) : null;
+    if (!$activeValue) {
+      $nowValue=json_encode(date('Y-m-d H:i:s'),JSON_UNESCAPED_UNICODE);
+      Db::run("INSERT INTO app_settings(`key`,value) VALUES('gps_work_required_enabled_at',?) ON DUPLICATE KEY UPDATE value=IF(value IS NULL OR value='null' OR value='',VALUES(value),value)", [$nowValue]);
+    }
+    return true;
   } catch (Throwable $e) { return false; }
 }
 function _gps_work_record_event($userId, $kind, $at, $meta=[]) {
@@ -3824,7 +3834,7 @@ route('GET', '/api/my/shift-schedule', function($p,$b,$u){
     $dr=null;if(($dayShift['type']??'')==='advanced')$dr=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$dayShift['id'],$j]);
     $cal=ShiftCalc::calendarDay($j);$mins=ShiftCalc::expectedMinutes($dayShift,$j,$dr);
     $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
-    $days[]=['date'=>$j,'weekday'=>_jweekday_name($y,$m,$d),'shift_title'=>$dayShift['title']??'شیفت کاری','minutes'=>$mins,'is_off'=>(bool)($dr['is_off']??false)||($mins<=0),'is_holiday'=>$isCalHoliday,'is_friday'=>ShiftCalc::isFriday($j),'holiday_title'=>$cal['title']??''];
+    $days[]=['date'=>$j,'weekday'=>_jweekday_name($y,$m,$d),'is_today'=>($j===$todayJ),'shift_title'=>$dayShift['title']??'شیفت کاری','minutes'=>$mins,'is_off'=>(bool)($dr['is_off']??false)||($mins<=0),'is_holiday'=>$isCalHoliday,'is_friday'=>ShiftCalc::isFriday($j),'holiday_title'=>$cal['title']??''];
   }
   return ['shift'=>['id'=>(int)$shift['id'],'title'=>$shift['title']??'شیفت کاری','type'=>$shift['type']??''],'days'=>$days];
 });
