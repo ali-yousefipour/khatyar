@@ -3032,7 +3032,8 @@ function _attendance_rows_for_jdate($userId,$jdate){
     $rowOut=!empty($r['check_out'])?strtotime($r['check_out']):time();
     $gpsFrom=max(strtotime($start),$rowIn?:strtotime($start));
     $gpsTo=min(strtotime($end),$rowOut?:time());
-    $r['_gps_invalid']=$gpsTo>$gpsFrom?_gps_work_invalid_intervals((int)$userId,$gpsFrom,$gpsTo,empty($r['check_out'])):[];
+    $pendingGpsGrace=empty($r['check_out']) && $gpsTo>=time()-60; // مهلت فقط برای نیم‌ساعت جاری؛ روزهای بسته‌شده دیگر مهلت ندارند.
+    $r['_gps_invalid']=$gpsTo>$gpsFrom?_gps_work_invalid_intervals((int)$userId,$gpsFrom,$gpsTo,$pendingGpsGrace):[];
   }
   return $rows;
 }
