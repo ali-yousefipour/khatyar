@@ -928,6 +928,7 @@ function CheckInPerformanceTab(){
   const absent=Math.max(0,Number(w.absent_min||0));
   const hasAttendanceDeficit=shortage>0||absent>0;
   const cards=[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['کسری کار',w.shortage],['شب‌کاری',w.night]];
+  if(w.gps_work_required)cards.push(['کسر کار GPS',w.gps_invalid_min]);
   const openRequest=(type)=>{if(!data?.date)return;navigation.navigate('Requests',{initialType:type,initialDate:data.date,returnToDailyPerformance:true});};
   return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14,paddingBottom:32}}>
     {err?<Text style={s.warnText}>{err}</Text>:null}
@@ -962,7 +963,26 @@ function jalali_to_gregorian_client(j,m,d){
   while(gm<12&&dd>sal[gm]){dd-=sal[gm];gm++;}
   return [gy,gm+1,dd];
 }
-function gregorian_to_jalali_client(gy,gm,gd){const gdm=[0,31,59,90,120,151,181,212,243,273,304,334];let gy2=gy+100000,jy=979+33*Math.floor(gy2/33),r=gy2%33;let d=365*gy2+Math.floor((gy2+3)/4)-Math.floor((gy2+99)/100)+Math.floor((gy2+399)/400)+gd+gdm[gm-1];if(gm>2&&((gy%4===0&&gy%100!==0)||gy%400===0))d++;d-=79;let y=979+33*Math.floor(d/12053);d%=12053;y+=4*Math.floor(d/1461);d%=1461;if(d>365){y+=Math.floor((d-1)/365);d=(d-1)%365}const m=d<186?1+Math.floor(d/31):7+Math.floor((d-186)/30),day=1+(d<186?d%31:(d-186)%30);return[y,m,day];}
+function gregorian_to_jalali_client(gy,gm,gd){
+  gy=Number(gy);gm=Number(gm);gd=Number(gd);
+  const gdm=[0,31,59,90,120,151,181,212,243,273,304,334];
+  const leap=(gy%4===0&&gy%100!==0)||gy%400===0;
+  const gy2=gy-1600;
+  let gDayNo=365*gy2+Math.floor((gy2+3)/4)-Math.floor((gy2+99)/100)+Math.floor((gy2+399)/400);
+  gDayNo+=gdm[gm-1];
+  if(gm>2&&leap)gDayNo++;
+  gDayNo+=gd-1;
+  let jDayNo=gDayNo-79;
+  const jNp=Math.floor(jDayNo/12053);
+  jDayNo%=12053;
+  let jy=979+33*jNp+4*Math.floor(jDayNo/1461);
+  jDayNo%=1461;
+  if(jDayNo>=366){jy+=Math.floor((jDayNo-1)/365);jDayNo=(jDayNo-1)%365;}
+  const monthDays=[31,31,31,31,31,31,30,30,30,30,30,29];
+  let jm=0;
+  while(jm<11&&jDayNo>=monthDays[jm]){jDayNo-=monthDays[jm];jm++;}
+  return [jy,jm+1,jDayNo+1];
+}
 function CheckInShiftTab(){
   const [data,setData]=useState(null);
   const [busy,setBusy]=useState(true);
