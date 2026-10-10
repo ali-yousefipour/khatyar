@@ -897,7 +897,7 @@ function CheckInCore() {
                   const allowed = Array.isArray(l.checkin_methods) ? l.checkin_methods.filter((x) => !['qr', 'nfc', 'rfid', 'bt', 'bluetooth'].includes(String(x).toLowerCase())) : [];
                   return ((!allowed.length || allowed.includes('wifi')) && (l.idents || []).some((ident) => String(ident.kind || '').toLowerCase() === 'wifi' && normalizeBssid(ident.value)));
                 });
-                const allowed = Array.isArray(line?.checkin_methods) ? line.checkin_methods.filter((x) => !['qr', 'nfc', 'rfid'].includes(String(x).toLowerCase())) : [];
+                const allowed = Array.isArray(line?.checkin_methods) ? line.checkin_methods.filter((x) => !['qr', 'nfc', 'rfid', 'bt', 'bluetooth'].includes(String(x).toLowerCase())) : [];
                 return !line || !allowed.length || allowed.includes(k);
               })
               .map(([k, t]) => (
