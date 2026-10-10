@@ -2393,7 +2393,7 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   if ($open) Http::error('شما قبلاً ثبت ورود کرده‌اید. ابتدا خروج بزنید.', 400);
   $lineId = (int)($b['line_id'] ?? 0);
   $method = strtolower((string)($b['method'] ?? 'gps'));
-  if (in_array($method, ['qr','nfc','rfid'], true)) Http::error('ثبت حضور با QR یا RFID دیگر پشتیبانی نمی‌شود.', 422);
+  if (in_array($method, ['qr','nfc','rfid','bt','bluetooth'], true)) Http::error('این روش ثبت حضور پشتیبانی نمی‌شود. از GPS، Wi-Fi یا GSM استفاده کنید.', 422);
   $lineIds = user_line_ids($u);
   // انتخاب خط از اپ حذف شده است؛ اگر کلاینت قدیمی line_id بفرستد، فقط وقتی می‌پذیریم که جزو خطوط مجاز کاربر باشد.
   if ($lineId && (!is_array($lineIds) || !in_array($lineId, array_map('intval', $lineIds), true))) $lineId = 0;
@@ -2402,9 +2402,9 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
     $lrow = Db::one("SELECT checkin_methods FROM `lines` WHERE id=?", [$lineId]);
     if ($lrow && !empty($lrow['checkin_methods'])) {
       $allowed = json_decode($lrow['checkin_methods'], true);
-      if (is_array($allowed)) $allowed = array_values(array_filter($allowed, fn($m)=>!in_array(strtolower((string)$m), ['qr','nfc','rfid'], true)));
+      if (is_array($allowed)) $allowed = array_values(array_filter($allowed, fn($m)=>!in_array(strtolower((string)$m), ['qr','nfc','rfid','bt','bluetooth'], true)));
       if (is_array($allowed) && $allowed && !in_array($method, $allowed, true)) {
-        $names = ['gps'=>'موقعیت (GPS)','qr'=>'QR','wifi'=>'WiFi','nfc'=>'NFC','bt'=>'بلوتوث','gsm'=>'آنتن GSM'];
+        $names = ['gps'=>'موقعیت (GPS)','wifi'=>'WiFi','gsm'=>'آنتن GSM'];
         $allowedFa = implode('، ', array_map(fn($m)=>$names[$m]??$m, $allowed));
         Http::error("روش انتخابی برای این خط مجاز نیست. روش‌های مجاز: {$allowedFa}", 422);
       }
@@ -2440,7 +2440,7 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
     }
     if (!$ok) $err = 'آنتن GSM فعلی شما با دکل‌های ثبت‌شدهٔ این خط مطابقت ندارد. (در محدودهٔ خط نیستید)';
   } else {
-    // wifi / qr / nfc / bt — مقدار ارائه‌شده باید با شناسه‌های خط مطابقت کند
+    // Wi-Fi — مقدار ارائه‌شده باید با شناسه‌های خط مطابقت کند
     $proof = trim((string)($b['proof'] ?? ''));
     if ($proof === '') Http::error('شناسهٔ تأیید ارسال نشده است.', 400);
     $norm = strtolower(str_replace([' ',':','-'],'',$proof));
@@ -2458,9 +2458,9 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
     $lrow = Db::one("SELECT checkin_methods FROM `lines` WHERE id=?", [$lineId]);
     if ($lrow && !empty($lrow['checkin_methods'])) {
       $allowed = json_decode($lrow['checkin_methods'], true);
-      if (is_array($allowed)) $allowed = array_values(array_filter($allowed, fn($m)=>!in_array(strtolower((string)$m), ['qr','nfc','rfid'], true)));
+      if (is_array($allowed)) $allowed = array_values(array_filter($allowed, fn($m)=>!in_array(strtolower((string)$m), ['qr','nfc','rfid','bt','bluetooth'], true)));
       if (is_array($allowed) && $allowed && !in_array($method, $allowed, true)) {
-        $names = ['gps'=>'موقعیت (GPS)','qr'=>'QR','wifi'=>'WiFi','nfc'=>'NFC','bt'=>'بلوتوث','gsm'=>'آنتن GSM'];
+        $names = ['gps'=>'موقعیت (GPS)','wifi'=>'WiFi','gsm'=>'آنتن GSM'];
         $allowedFa = implode('، ', array_map(fn($m)=>$names[$m]??$m, $allowed));
         $msg = "روش انتخابی برای خط تشخیص‌داده‌شده مجاز نیست. روش‌های مجاز: {$allowedFa}";
         _attendance_reject_log((int)$u['id'],$lineId,$method,$lat,$lng,$b['accuracy'] ?? null,$msg,['line_ids'=>$lineIds,'auto_line'=>true]);
@@ -5697,7 +5697,7 @@ function _notify_attendance_action($kind,$userId,$lineId,$method,$station,$event
   $isIn=$kind==='checkin';
   $title=$isIn?'ثبت ورود از حضور من':'ثبت خروج از حضور من';
   $verb=$isIn?'ورود خود را ثبت کرد':'خروج خود را ثبت کرد';
-  $methodNames=['gps'=>'GPS','qr'=>'QR','wifi'=>'WiFi','nfc'=>'NFC','bt'=>'بلوتوث','gsm'=>'GSM'];
+  $methodNames=['gps'=>'GPS','wifi'=>'WiFi','gsm'=>'GSM'];
   $m=$methodNames[$method]??$method;
   $body="کاربر {$name} در {$when} {$verb}.\nشماره خط: {$lineCode}\nمبدأ و مقصد خط: {$lineDesc}\nایستگاه: {$stationText}\nروش ثبت: {$m}";
   Push::notify($targets,$title,$body,['type'=>$isIn?'attendance_checkin':'attendance_checkout','user_id'=>$userId,'line_id'=>$lineId,'event_at'=>$eventAt,'method'=>$method]);
@@ -6699,12 +6699,12 @@ route('GET', '/api/my/dashboard', function($p, $b, $u) {
   ];
 });
 
-// شناسه‌های جایگزین GPS برای یک خط (WiFi BSSID / QR / NFC / Bluetooth MAC)
+// شناسه‌های جایگزین ثبت حضور برای یک خط (WiFi BSSID / GSM Cell ID)
 route('GET', '/api/admin/lines/{id}/idents', fn($p,$b,$u) =>
-  Db::all("SELECT id, line_id, kind, value, label FROM line_idents WHERE line_id=? ORDER BY kind", [$p['id']]), false, ADMIN);
+  Db::all("SELECT id, line_id, kind, value, label FROM line_idents WHERE line_id=? AND kind NOT IN ('bt','bluetooth') ORDER BY kind", [$p['id']]), false, ADMIN);
 route('POST', '/api/admin/lines/{id}/idents', function($p,$b,$u){
   $kind = $b['kind'] ?? ''; $value = trim($b['value'] ?? '');
-  if (!in_array($kind, ['wifi','bt'])) Http::error('نوع شناسه نامعتبر است؛ ثبت حضور با QR و RFID پشتیبانی نمی‌شود.', 400);
+  if (!in_array($kind, ['wifi','gsm'], true)) Http::error('نوع شناسه نامعتبر است؛ فقط شناسهٔ Wi-Fi یا GSM پشتیبانی می‌شود.', 400);
   if ($value === '') Http::error('مقدار شناسه را وارد کنید', 400);
   $id = Db::insert("INSERT INTO line_idents(line_id,kind,value,label) VALUES(?,?,?,?)",
     [$p['id'], $kind, $value, $b['label'] ?? null]);
@@ -6756,7 +6756,7 @@ route('GET', '/api/admin/staff-attendance/export', function($p,$b,$u){
     FROM staff_attendance sa JOIN users us ON us.id=sa.user_id LEFT JOIN roles r ON r.id=us.role_id
     LEFT JOIN `lines` l ON l.id=sa.line_id WHERE $where ORDER BY sa.check_in DESC LIMIT 10000",
     array_merge([$from.' 00:00:00', $toExclusive], $args));
-  $methodFa = ['gps'=>'GPS','qr'=>'QR','wifi'=>'WiFi','nfc'=>'NFC','bt'=>'بلوتوث','manual'=>'دستی'];
+  $methodFa = ['gps'=>'GPS','qr'=>'QR','wifi'=>'WiFi','nfc'=>'NFC','manual'=>'دستی'];
   header('Content-Type: text/csv; charset=UTF-8');
   header('Content-Disposition: attachment; filename="staff_attendance.csv"');
   echo "\xEF\xBB\xBF"; $out=fopen('php://output','w');
@@ -8155,10 +8155,10 @@ route('POST', '/api/admin/zones', fn($p,$b,$u) => ['id'=>Db::insert("INSERT INTO
 route('PUT', '/api/admin/zones/{id}', function($p,$b,$u){ Db::run("UPDATE zones SET name=? WHERE id=?", [$b['name'], $p['id']]); return ['ok'=>true]; }, false, ADMIN);
 route('DELETE', '/api/admin/zones/{id}', function($p,$b,$u){ Db::run("UPDATE users SET zone_id=NULL WHERE zone_id=?", [$p['id']]); Db::run("DELETE FROM zones WHERE id=?", [$p['id']]); return ['ok'=>true]; }, false, ADMIN);
 route('GET', '/api/admin/lines', fn($p,$b,$u) => Db::all("SELECT id,code,origin,destination,status,checkin_methods FROM `lines` ORDER BY code"));
-// تنظیم روش‌های مجاز ثبت حضور یک خط (آرایه‌ای از gps/qr/wifi/nfc/bt یا null برای همه)
+// تنظیم روش‌های مجاز ثبت حضور یک خط (آرایه‌ای از gps/wifi/gsm یا null برای همه)
 route('PUT', '/api/admin/lines/{id}/checkin-methods', function($p,$b,$u){
   $methods = $b['methods'] ?? null;
-  if (is_array($methods)) $methods = array_values(array_filter($methods, fn($m)=>!in_array(strtolower((string)$m), ['qr','nfc','rfid'], true)));
+  if (is_array($methods)) $methods = array_values(array_filter($methods, fn($m)=>!in_array(strtolower((string)$m), ['qr','nfc','rfid','bt','bluetooth'], true)));
   $val = (is_array($methods) && $methods) ? json_encode(array_values($methods)) : null;
   Db::run("UPDATE `lines` SET checkin_methods=? WHERE id=?", [$val, $p['id']]);
   return ['ok'=>true];
@@ -10699,7 +10699,7 @@ function _phase7p4_process_offline_item($it,$u,$uuid){
 function _phase7p4_offline_checkin($b,$u,$uuid,$it){
   if (Db::one("SELECT id FROM staff_attendance WHERE client_uuid=? LIMIT 1", [$uuid])) return ['ok'=>true,'duplicate'=>true,'kind'=>'checkin'];
   $method = strtolower((string)($b['method'] ?? 'gps'));
-  if (in_array($method, ['qr','nfc','rfid'], true)) throw new Exception('ثبت حضور با QR یا RFID دیگر پشتیبانی نمی‌شود');
+  if (in_array($method, ['qr','nfc','rfid','bt','bluetooth'], true)) throw new Exception('این روش ثبت حضور پشتیبانی نمی‌شود. از GPS، Wi-Fi یا GSM استفاده کنید.');
   [$lat,$lng] = validGeo($b['lat'] ?? null, $b['lng'] ?? null);
   if (($lat === null || $lng === null) && $method !== 'wifi') throw new Exception('موقعیت ثبت ورود آفلاین وجود ندارد');
   $lineId = (int)($b['line_id'] ?? 0);
@@ -10748,7 +10748,7 @@ function _phase7p4_offline_checkin($b,$u,$uuid,$it){
   $lrow = Db::one("SELECT checkin_methods FROM `lines` WHERE id=?", [$lineId]);
   if ($lrow && !empty($lrow['checkin_methods'])) {
     $allowed = json_decode($lrow['checkin_methods'], true);
-      if (is_array($allowed)) $allowed = array_values(array_filter($allowed, fn($m)=>!in_array(strtolower((string)$m), ['qr','nfc','rfid'], true)));
+      if (is_array($allowed)) $allowed = array_values(array_filter($allowed, fn($m)=>!in_array(strtolower((string)$m), ['qr','nfc','rfid','bt','bluetooth'], true)));
     if (is_array($allowed) && $allowed && !in_array($method, $allowed, true)) throw new Exception('روش ثبت حضور برای خط تشخیص‌داده‌شده مجاز نیست');
   }
   $clientTime = _phase7p4_client_time($b['client_time'] ?? $it['queued_at'] ?? null);
