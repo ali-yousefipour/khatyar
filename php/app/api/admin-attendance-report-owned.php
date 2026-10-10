@@ -95,6 +95,28 @@ function attendance_report_owned_by_entry_date($userId, $from, $to) {
     $w['shortage'] = max(0, $expectedMin - min($inShiftMin, $expectedMin));
     if ($approvedExempt > 0) $w['shortage'] = max(0, $w['shortage'] - $approvedExempt);
 
+    // محاسبهٔ مستقل زمان‌های فاقد تأیید فعال بودن برنامه/GPS برای ستون جداگانهٔ گزارش تردد.
+    $gpsInvalidSeconds = 0;
+    if (function_exists('_attendance_rows_for_jdate')) {
+      $gpsRows = _attendance_rows_for_jdate((int)$userId, $j);
+      $gpsRanges = [];
+      foreach ($gpsRows as $gpsRow) {
+        foreach (($gpsRow['_gps_invalid'] ?? []) as $range) {
+          $a = (int)($range[0] ?? 0); $b = (int)($range[1] ?? 0);
+          if ($b > $a) $gpsRanges[] = [$a, $b];
+        }
+      }
+      usort($gpsRanges, static function($a, $b) { return $a[0] <=> $b[0]; });
+      $gpsStart = null; $gpsEnd = null;
+      foreach ($gpsRanges as $range) {
+        if ($gpsStart === null) { $gpsStart = $range[0]; $gpsEnd = $range[1]; continue; }
+        if ($range[0] <= $gpsEnd) $gpsEnd = max($gpsEnd, $range[1]);
+        else { $gpsInvalidSeconds += max(0, $gpsEnd - $gpsStart); $gpsStart = $range[0]; $gpsEnd = $range[1]; }
+      }
+      if ($gpsStart !== null) $gpsInvalidSeconds += max(0, $gpsEnd - $gpsStart);
+    }
+    $day['gps_inactive_minutes'] = (int)ceil(max(0, $gpsInvalidSeconds) / 60);
+
     $day['punches'] = $punches;
     $day['in_shift'] = $hm($w['in_shift'] ?? 0);
     $day['worked'] = $hm($w['worked'] ?? 0);
