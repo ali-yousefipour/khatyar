@@ -529,7 +529,7 @@ function LiveStaffDashboard(){
   const [live,setLive]=useState(null); const [tab,setTab]=useState("present");
   const load=()=>db.workDashboard(tj[0],tj[1]).then(x=>setLive(x&&x.live?x.live:null)).catch(()=>setLive(null));
   useEffect(()=>{load(); const iv=setInterval(load,60000); return()=>clearInterval(iv);},[]);
-  const methodFa={gps:"GPS",qr:"QR",wifi:"Wi‑Fi",manual:"دستی",nfc:"NFC",bluetooth:"بلوتوث",gsm:"GSM"};
+  const methodFa={gps:"GPS",wifi:"Wi‑Fi",manual:"دستی",gsm:"GSM"};
   if(!live)return <div className="panel" style={{margin:"14px 0"}}><span className="muted">در حال دریافت وضعیت حضور پرسنل…</span></div>;
   const rows=tab==="present"?(live.present_list||[]):tab==="leave"?(live.leave_list||[]):(live.absent_list||[]);
   return <div className="panel" style={{margin:"14px 0"}}>
@@ -4357,8 +4357,8 @@ function Messages(){
 
 // تعیین روش‌های مجاز ثبت حضور برای یک خط
 function LineMethods({line,onClose}){
-  const ALL=[["gps","موقعیت (GPS)"],["gsm","آنتن GSM (دکل مخابراتی)"],["wifi","WiFi"],["bt","بلوتوث"]];
-  const init=()=>{ try{ const m=line.checkin_methods; if(!m)return null; const parsed=Array.isArray(m)?m:JSON.parse(m); const filtered=Array.isArray(parsed)?parsed.filter(k=>!["qr","nfc","rfid"].includes(String(k).toLowerCase())):[]; return filtered.length?filtered:null; }catch(e){return null;} };
+  const ALL=[["gps","موقعیت (GPS)"],["gsm","آنتن GSM (دکل مخابراتی)"],["wifi","WiFi"]];
+  const init=()=>{ try{ const m=line.checkin_methods; if(!m)return null; const parsed=Array.isArray(m)?m:JSON.parse(m); const filtered=Array.isArray(parsed)?parsed.filter(k=>!["qr","nfc","rfid","bt","bluetooth"].includes(String(k).toLowerCase())):[]; return filtered.length?filtered:null; }catch(e){return null;} };
   const [sel,setSel]=useState(init()); // null = همه مجاز
   const [busy,setBusy]=useState(false);
   const toggle=(k)=>{ const cur=sel?[...sel]:ALL.map(x=>x[0]); const i=cur.indexOf(k); i>=0?cur.splice(i,1):cur.push(k); setSel(cur); };
@@ -4607,15 +4607,15 @@ function Lines(){
 
 // مدیریت شناسه‌های جایگزین GPS برای یک خط
 function LineIdents({line,onClose}){
-  const KINDS=[["wifi","WiFi (BSSID)","مثلاً a1:b2:c3:d4:e5:f6"],["gsm","آنتن GSM (Cell ID)","مثلاً 432-11-1234-5678"],["bt","بلوتوث (MAC)","مثلاً 00:11:22:33:44:55"]];
+  const KINDS=[["wifi","WiFi (BSSID)","مثلاً a1:b2:c3:d4:e5:f6"],["gsm","آنتن GSM (Cell ID)","مثلاً 432-11-1234-5678"]];
   const [items,setItems]=useState([]); const [kind,setKind]=useState("wifi"); const [value,setValue]=useState(""); const [label,setLabel]=useState("");
   const load=()=>db.lineIdents(line.id).then(setItems).catch(()=>{});
   useEffect(()=>{load();},[]);
   const add=async()=>{ if(!value.trim())return alert("مقدار شناسه را وارد کنید"); await db.addLineIdent(line.id,{kind,value:value.trim(),label:label.trim()||null}); setValue("");setLabel(""); load(); };
   const del=async(id)=>{ if(!confirm("حذف این شناسه؟"))return; await db.delLineIdent(id); load(); };
-  const KL={wifi:"WiFi",gsm:"GSM",bt:"بلوتوث"};
+  const KL={wifi:"WiFi",gsm:"GSM"};
   return(<Modal title={`شناسه‌های حضور — خط ${line.code}`} onClose={onClose}>
-    <p style={{fontSize:12,color:"var(--muted)",marginBottom:10}}>برای هر خط می‌توانید BSSIDهای مجاز Wi-Fi و شناسهٔ بلوتوث تعریف کنید تا کاربر در صورت اختلال GPS از روش جایگزین استفاده کند.</p>
+    <p style={{fontSize:12,color:"var(--muted)",marginBottom:10}}>برای هر خط می‌توانید BSSIDهای مجاز Wi-Fi و شناسهٔ آنتن GSM تعریف کنید تا کاربر در صورت اختلال GPS از روش جایگزین استفاده کند.</p>
     <div className="row" style={{gap:8,flexWrap:"wrap",alignItems:"flex-end",marginBottom:12}}>
       <div><label className="label">نوع</label><select className="input" style={{maxWidth:150}} value={kind} onChange={e=>setKind(e.target.value)}>{KINDS.map(([k,t])=><option key={k} value={k}>{t}</option>)}</select></div>
       <div style={{flex:1,minWidth:160}}><label className="label">مقدار</label><input className="input" dir="ltr" placeholder={KINDS.find(x=>x[0]===kind)[2]} value={value} onChange={e=>setValue(e.target.value)}/></div>
@@ -6761,7 +6761,7 @@ function StaffAttendance(){
   const [from,setFrom]=useState(today); const [to,setTo]=useState(today); const [rows,setRows]=useState([]); const [loading,setLoading]=useState(false);
   const [fUser,setFUser]=useState(""); const [fLine,setFLine]=useState(""); const [fRole,setFRole]=useState(""); const [fMethod,setFMethod]=useState("");
   const [users,setUsers]=useState([]); const [lines,setLines]=useState([]); const [roles,setRoles]=useState([]);
-  const M={gps:"موقعیت",wifi:"WiFi",qr:"QR",nfc:"NFC",bt:"بلوتوث",manual:"دستی"};
+  const M={gps:"موقعیت",wifi:"WiFi",manual:"دستی"};
   const qs=()=>{ const p=[]; const f=jFromIso?jFromIso(from):from, t2=jFromIso?jFromIso(to):to;
     p.push("from="+(f||from)); p.push("to="+(t2||to));
     if(fUser)p.push("user_id="+fUser); if(fLine)p.push("line_id="+fLine); if(fRole)p.push("role_id="+fRole); if(fMethod)p.push("method="+fMethod);
@@ -6785,7 +6785,7 @@ function StaffAttendance(){
       <select className="input" style={{maxWidth:130}} value={fLine} onChange={e=>setFLine(e.target.value)}>
         <option value="">همهٔ خطوط</option>{lines.map(l=><option key={l.id} value={l.id}>خط {l.code}</option>)}</select>
       <select className="input" style={{maxWidth:120}} value={fMethod} onChange={e=>setFMethod(e.target.value)}>
-        <option value="">همهٔ روش‌ها</option><option value="gps">موقعیت</option><option value="wifi">WiFi</option><option value="bt">بلوتوث</option></select>
+        <option value="">همهٔ روش‌ها</option><option value="gps">موقعیت</option><option value="wifi">WiFi</option></select>
       <button className="btn p" onClick={load}>اعمال فیلتر</button>
       <button className="btn g" onClick={exportExcel}>⤓ خروجی اکسل</button>
     </div>
