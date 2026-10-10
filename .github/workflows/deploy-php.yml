@@ -411,3 +411,30 @@ jobs:
           test -s /tmp/live-panel-bundle.js
           grep -q 'React' /tmp/live-panel-bundle.js
           echo "Public panel bundle verification passed for ${GITHUB_SHA}."
+
+      - name: Smoke-test production API and login routes
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          base="https://app.yousefipour.ir"
+          echo "Checking production API health..."
+          health_code="$(curl --silent --show-error --location --max-time 25 -H 'Cache-Control: no-cache, no-store' -o /tmp/khatyar-health.json -w '%{http_code}' "${base}/api/health?smoke=${GITHUB_SHA}" || true)"
+          echo "GET /api/health HTTP ${health_code}"
+          cat /tmp/khatyar-health.json 2>/dev/null || true
+          echo
+          if [ "${health_code}" -ge 500 ] || [ "${health_code}" = "000" ]; then
+            echo "ERROR: production API health endpoint failed." >&2
+            exit 1
+          fi
+          for route in /api/session/start /api/auth/login; do
+            code="$(curl --silent --show-error --location --max-time 25 -X POST -H 'Content-Type: application/json' -H 'Cache-Control: no-cache, no-store' --data '{}' -o /tmp/khatyar-login-response.json -w '%{http_code}' "${base}${route}" || true)"
+            echo "POST ${route} with empty JSON -> HTTP ${code}"
+            cat /tmp/khatyar-login-response.json 2>/dev/null || true
+            echo
+            if [ "${code}" = "000" ] || [ "${code}" -ge 500 ]; then
+              echo "ERROR: production login route returned a server/network error: ${route}" >&2
+              exit 1
+            fi
+          done
+          echo "Production API/login smoke tests passed (empty credentials are expected to be rejected)."
