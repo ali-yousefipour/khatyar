@@ -2402,6 +2402,7 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
     $lrow = Db::one("SELECT checkin_methods FROM `lines` WHERE id=?", [$lineId]);
     if ($lrow && !empty($lrow['checkin_methods'])) {
       $allowed = json_decode($lrow['checkin_methods'], true);
+      if (is_array($allowed)) $allowed = array_values(array_filter($allowed, fn($m)=>!in_array(strtolower((string)$m), ['qr','nfc','rfid'], true)));
       if (is_array($allowed) && $allowed && !in_array($method, $allowed, true)) {
         $names = ['gps'=>'موقعیت (GPS)','qr'=>'QR','wifi'=>'WiFi','nfc'=>'NFC','bt'=>'بلوتوث','gsm'=>'آنتن GSM'];
         $allowedFa = implode('، ', array_map(fn($m)=>$names[$m]??$m, $allowed));
@@ -2457,6 +2458,7 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
     $lrow = Db::one("SELECT checkin_methods FROM `lines` WHERE id=?", [$lineId]);
     if ($lrow && !empty($lrow['checkin_methods'])) {
       $allowed = json_decode($lrow['checkin_methods'], true);
+      if (is_array($allowed)) $allowed = array_values(array_filter($allowed, fn($m)=>!in_array(strtolower((string)$m), ['qr','nfc','rfid'], true)));
       if (is_array($allowed) && $allowed && !in_array($method, $allowed, true)) {
         $names = ['gps'=>'موقعیت (GPS)','qr'=>'QR','wifi'=>'WiFi','nfc'=>'NFC','bt'=>'بلوتوث','gsm'=>'آنتن GSM'];
         $allowedFa = implode('، ', array_map(fn($m)=>$names[$m]??$m, $allowed));
@@ -10746,6 +10748,7 @@ function _phase7p4_offline_checkin($b,$u,$uuid,$it){
   $lrow = Db::one("SELECT checkin_methods FROM `lines` WHERE id=?", [$lineId]);
   if ($lrow && !empty($lrow['checkin_methods'])) {
     $allowed = json_decode($lrow['checkin_methods'], true);
+      if (is_array($allowed)) $allowed = array_values(array_filter($allowed, fn($m)=>!in_array(strtolower((string)$m), ['qr','nfc','rfid'], true)));
     if (is_array($allowed) && $allowed && !in_array($method, $allowed, true)) throw new Exception('روش ثبت حضور برای خط تشخیص‌داده‌شده مجاز نیست');
   }
   $clientTime = _phase7p4_client_time($b['client_time'] ?? $it['queued_at'] ?? null);
