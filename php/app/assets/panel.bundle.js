@@ -10036,6 +10036,8 @@ function AttendanceReport() {
             return n(d.first_in) || ins[0] || "--:--";
         if (k === "last_out")
             return n(d.last_out) || (outs.length ? outs[outs.length - 1] : "--:--");
+        if (k === "gps_inactive_minutes")
+            return hm(d.gps_inactive_minutes || 0);
         const v = d[k];
         return v == null || v === "" ? "00:00" : v;
     };
@@ -10061,7 +10063,7 @@ function AttendanceReport() {
     const columns = [
         ["تاریخ", d => d.jdate || "—"], ["روز هفته", d => d.weekday || "—"], ["ورود", d => dayVal(d, "in")], ["خروج", d => dayVal(d, "out")],
         ["محل ورود", d => dayVal(d, "in_station")], ["محل خروج", d => dayVal(d, "out_station")], ["حضور در شیفت", d => dayVal(d, "in_shift")],
-        ["کسری کار", d => dayVal(d, "shortage")], ["غیبت", d => { var _a; return String((_a = d.absent) !== null && _a !== void 0 ? _a : 0); }], ["جمع غیبت و کسری کار", d => dayVal(d, "absence_shortage")],
+        ["کسری کار", d => dayVal(d, "shortage")], ["کسر کار غیر فعال کردن برنامه", d => dayVal(d, "gps_inactive_minutes")], ["غیبت", d => { var _a; return String((_a = d.absent) !== null && _a !== void 0 ? _a : 0); }], ["جمع غیبت و کسری کار", d => dayVal(d, "absence_shortage")],
         ["شب کاری", d => dayVal(d, "night")], ["اضافه کاری", d => dayVal(d, "overtime")], ["موظفی", d => dayVal(d, "expected")],
         ["ماموریت", d => dayVal(d, "mission")], ["مرخصی استحقاقی", d => dayVal(d, "annual_leave")], ["مرخصی استعلاجی", d => dayVal(d, "sick_leave")],
         ["مرخصی بدون حقوق", d => dayVal(d, "unpaid_leave")], ["مازاد حضور", d => dayVal(d, "surplus")], ["کل حضور", d => dayVal(d, "worked")],
@@ -10070,7 +10072,7 @@ function AttendanceReport() {
         ["تهاتر مازاد حضور", d => dayVal(d, "adjusted_surplus")], ["تهاتر کسری کار", d => dayVal(d, "adjusted_shortage")], ["اولین ورود", d => dayVal(d, "first_in")], ["آخرین خروج", d => dayVal(d, "last_out")]
     ];
     const exportExcel = () => { if (!data)
-        return; const rows = [columns.map(x => x[0])]; (data.days || []).forEach(d => rows.push(columns.map(x => x[1](d)))); const ws = XLSX.utils.aoa_to_sheet(rows), wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "گزارش تردد ۲۹ ستونه"); XLSX.writeFile(wb, "گزارش تردد پرسنل - ۲۹ ستونه.xlsx"); };
+        return; const rows = [columns.map(x => x[0])]; (data.days || []).forEach(d => rows.push(columns.map(x => x[1](d)))); const ws = XLSX.utils.aoa_to_sheet(rows), wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "گزارش تردد ۳۰ ستونه"); XLSX.writeFile(wb, "گزارش تردد پرسنل - ۳۰ ستونه.xlsx"); };
     return (React.createElement("div", { className: "panel", translate: "no", "data-no-translate": "true" },
         React.createElement("h3", null, "\uD83D\uDD52 \u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F \u067E\u0631\u0633\u0646\u0644"),
         React.createElement("div", { className: "card-p", style: { marginBottom: 14 } },
@@ -10102,7 +10104,7 @@ function AttendanceReport() {
                 " \u062A\u0627 ",
                 fa(data.to || to || "—"))),
         data && React.createElement("div", { style: { overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 } },
-            React.createElement("table", { className: "khar-attendance-native", style: { fontSize: 12, minWidth: 2400 } },
+            React.createElement("table", { className: "khar-attendance-native", style: { fontSize: 12, minWidth: 2600 } },
                 React.createElement("thead", null,
                     React.createElement("tr", null, columns.map(([title], i) => React.createElement("th", { key: title, style: { whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2 } }, title)))),
                 React.createElement("tbody", null, (data.days || []).map(d => {
