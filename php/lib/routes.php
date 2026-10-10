@@ -2473,7 +2473,7 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='in_station'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN in_station VARCHAR(150) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='out_station'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN out_station VARCHAR(150) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   // نام محل ورود از روی مختصات (نزدیک‌ترین ایستگاه/محدودهٔ خط)
-  $inStation = ($st['name'] ?? null) ?: _station_name_at($lat, $lng, $lineIds);
+  $inStation = $method === 'wifi' ? null : (($st['name'] ?? null) ?: _station_name_at($lat, $lng, $lineIds));
   $id = Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,check_in,in_lat,in_lng,in_station,client_check_in) VALUES(?,?,?,?,?,?,?,?)",
     [$u['id'], $lineId ?: null, $method, $eventAt, $lat, $lng, $inStation, $eventAt]);
   if (_gps_work_required() && $lat !== null && $lng !== null) {
@@ -10694,9 +10694,9 @@ function _phase7p4_process_offline_item($it,$u,$uuid){
 }
 function _phase7p4_offline_checkin($b,$u,$uuid,$it){
   if (Db::one("SELECT id FROM staff_attendance WHERE client_uuid=? LIMIT 1", [$uuid])) return ['ok'=>true,'duplicate'=>true,'kind'=>'checkin'];
-  [$lat,$lng] = validGeo($b['lat'] ?? null, $b['lng'] ?? null);
-  if ($lat === null || $lng === null) throw new Exception('موقعیت ثبت ورود آفلاین وجود ندارد');
   $method = (string)($b['method'] ?? 'gps');
+  [$lat,$lng] = validGeo($b['lat'] ?? null, $b['lng'] ?? null);
+  if (($lat === null || $lng === null) && $method !== 'wifi') throw new Exception('موقعیت ثبت ورود آفلاین وجود ندارد');
   $lineId = (int)($b['line_id'] ?? 0);
   $lineIds = user_line_ids($u);
   if ($lineId && (!is_array($lineIds) || !in_array($lineId, array_map('intval', $lineIds), true))) $lineId = 0;
@@ -10715,7 +10715,19 @@ function _phase7p4_offline_checkin($b,$u,$uuid,$it){
     }
     $lineId = (int)($st['line_id'] ?? $lineId);
   }
-  if (!$lineId && $method !== 'gps') {
+  if ($method === 'wifi') {
+    // Always validate Wi-Fi proof against every assigned line; never trust client line_id alone.
+    $proof = trim((string)($b['proof'] ?? ''));
+    if ($proof === '' || !is_array($lineIds) || !$lineIds) throw new Exception('شناسهٔ Wi-Fi برای ثبت آفلاین موجود نیست');
+    $norm = strtolower(str_replace([' ',':','-'],'',$proof));
+    $cond = "line_id IN (".implode(',',array_fill(0,count($lineIds),'?')).")";
+    $cands = Db::all("SELECT line_id, value FROM line_idents WHERE kind='wifi' AND ($cond)", $lineIds);
+    $matchedLineId = 0;
+    foreach ($cands as $c) { if (strtolower(str_replace([' ',':','-'],'',$c['value'])) === $norm) { $matchedLineId = (int)$c['line_id']; break; } }
+    if (!$matchedLineId) throw new Exception('BSSID اسکن‌شده با هیچ‌یک از خطوط مجاز شما مطابقت ندارد');
+    $lineId = $matchedLineId;
+  }
+  if (!$lineId && $method !== 'gps' && $method !== 'wifi') {
     $proof = trim((string)($b['proof'] ?? ''));
     if ($proof !== '' && is_array($lineIds) && $lineIds) {
       $norm = strtolower(str_replace([' ',':','-'],'',$proof));
@@ -10736,7 +10748,7 @@ function _phase7p4_offline_checkin($b,$u,$uuid,$it){
   $clientTime = _phase7p4_client_time($b['client_time'] ?? $it['queued_at'] ?? null);
   $open = Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
   if ($open) return ['ok'=>true,'already_open'=>true,'attendance_id'=>(int)$open['id'],'kind'=>'checkin'];
-  $station = ($st['name'] ?? null) ?: _station_name_at($lat,$lng,$lineIds);
+  $station = $method === 'wifi' ? null : (($st['name'] ?? null) ?: _station_name_at($lat,$lng,$lineIds));
   $id = Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,check_in,in_lat,in_lng,in_station,client_uuid,offline_synced,client_check_in) VALUES(?,?,?,?,?,?,?,?,1,?)",
     [$u['id'],$lineId,$method,$clientTime,$lat,$lng,$station,$uuid,$clientTime]);
   try { _notify_attendance_action('checkin',(int)$u['id'],$lineId,$method,$station,$clientTime); } catch (\Throwable $e) { error_log('offline attendance checkin alert failed: '.$e->getMessage()); }

@@ -14,9 +14,12 @@ import ActivityIndicator from '../components/PulseLoadingIndicator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import NetInfo from '@react-native-community/netinfo';
+import WifiManager from 'react-native-wifi-reborn';
 import { isTileCached, loadLocalTilesAround } from '../mapCache';
 
 // فاصلهٔ هاورساین به متر
+const WIFI_BSSID_CACHE_KEY = 'wifi_authorized_bssids_v1';
+function normalizeBssid(value) { return String(value || '').toLowerCase().replace(/[\s:-]/g, ''); }
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000, toR = (d) => (d * Math.PI) / 180;
   const dLat = toR(lat2 - lat1), dLon = toR(lon2 - lon1);
@@ -90,6 +93,8 @@ function CheckInCore() {
   const attendanceStateEpochRef = useRef(0);
   const [scanOpen, setScanOpen] = useState(false);
   const [proofVal, setProofVal] = useState('');
+  const [wifiScanStatus, setWifiScanStatus] = useState('');
+  const [wifiMatch, setWifiMatch] = useState(null);
   const [exitReminder, setExitReminder] = useState(false);
   const exitReminderIdRef = useRef(null);
   const exitReminderAlertRef = useRef(false);
@@ -107,6 +112,65 @@ function CheckInCore() {
   const readLocalWorked = async () => { try { const raw = await AsyncStorage.getItem(LOCAL_WORKED_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } };
   const persistLocalWorked = async (value) => { try { if (value) await AsyncStorage.setItem(LOCAL_WORKED_KEY, JSON.stringify(value)); else await AsyncStorage.removeItem(LOCAL_WORKED_KEY); } catch {} };
 
+  const cacheAuthorizedWifi = async (config) => {
+    try {
+      const entries = (config?.lines || []).flatMap((l) => (l.idents || [])
+        .filter((ident) => String(ident.kind || '').toLowerCase() === 'wifi' && normalizeBssid(ident.value) && (!Array.isArray(l.checkin_methods) || !l.checkin_methods.length || l.checkin_methods.includes('wifi')))
+        .map((ident) => ({ line_id: Number(l.id), line_code: String(l.code || l.id), bssid: normalizeBssid(ident.value), label: String(ident.label || '') })));
+      await AsyncStorage.setItem(WIFI_BSSID_CACHE_KEY, JSON.stringify({ entries, cached_at: Date.now() }));
+    } catch {}
+  };
+  const getAuthorizedWifi = async () => {
+    let config = cfg;
+    if (!config?.lines?.length) { try { config = await cachedValue('/my/checkin-config'); } catch {} }
+    if (config?.lines?.length) {
+      const entries = (config.lines || []).flatMap((l) => (l.idents || [])
+        .filter((ident) => String(ident.kind || '').toLowerCase() === 'wifi' && normalizeBssid(ident.value) && (!Array.isArray(l.checkin_methods) || !l.checkin_methods.length || l.checkin_methods.includes('wifi')))
+        .map((ident) => ({ line: l, line_id: Number(l.id), line_code: String(l.code || l.id), bssid: normalizeBssid(ident.value), label: String(ident.label || '') })));
+      if (entries.length) return entries;
+    }
+    try {
+      const raw = await AsyncStorage.getItem(WIFI_BSSID_CACHE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return (parsed?.entries || []).map((e) => ({ ...e, line: (config?.lines || []).find((l) => Number(l.id) === Number(e.line_id)) || { id: Number(e.line_id), code: e.line_code } }));
+    } catch { return []; }
+  };
+  const scanNearbyWifi = async ({ quiet = false } = {}) => {
+    setWifiScanStatus('در حال اسکن شبکه‌های اطراف…');
+    try {
+      if (Platform.OS !== 'android') throw new Error('اسکن شبکه‌های اطراف برای ثبت حضور در حال حاضر فقط در نسخه اندروید پشتیبانی می‌شود.');
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') throw new Error('برای اسکن Wi-Fi، مجوز موقعیت مکانی اندروید لازم است؛ مختصات GPS برای تعیین خط استفاده نمی‌شود.');
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled) throw new Error('برای اسکن Wi-Fi، سرویس موقعیت مکانی اندروید باید روشن باشد؛ نیازی به دریافت مختصات GPS نیست.');
+      const wifiEnabled = await WifiManager.isEnabled();
+      if (!wifiEnabled) throw new Error('Wi-Fi گوشی خاموش است. آن را روشن کنید؛ لازم نیست به شبکه متصل شوید.');
+      let networks = [];
+      try { networks = await WifiManager.reScanAndLoadWifiList(); } catch { networks = await WifiManager.loadWifiList(); }
+      const authorized = await getAuthorizedWifi();
+      if (!authorized.length) throw new Error('شناسه‌های Wi-Fi خطوط مجاز در حافظه موجود نیست. برنامه را یک‌بار با اینترنت باز کنید تا فهرست دریافت شود.');
+      const found = [];
+      for (const network of (Array.isArray(networks) ? networks : [])) {
+        const bssid = normalizeBssid(network?.BSSID || network?.bssid);
+        if (!bssid || bssid === '020000000000' || bssid === '000000000000') continue;
+        const allowed = authorized.find((item) => item.bssid === bssid);
+        if (allowed) found.push({ ...allowed, bssid, ssid: String(network?.SSID || ''), level: Number(network?.level || -100) });
+      }
+      found.sort((a, b) => b.level - a.level);
+      if (!found.length) throw new Error('هیچ‌یک از BSSIDهای خطوط مجاز در محدوده اسکن دیده نشد. نزدیک‌تر شوید و دوباره اسکن کنید.');
+      const match = found[0];
+      setWifiMatch(match);
+      if (match.line?.id) setLineId(Number(match.line.id));
+      setWifiScanStatus('شبکه مجاز شناسایی شد' + (match.ssid ? ': ' + match.ssid : ''));
+      return match;
+    } catch (e) {
+      setWifiMatch(null);
+      setWifiScanStatus(e?.message || 'اسکن شبکه‌های Wi-Fi ناموفق بود.');
+      if (!quiet) Alert.alert('اسکن Wi-Fi', e?.message || 'اسکن شبکه‌های Wi-Fi ناموفق بود.');
+      throw e;
+    }
+  };
+
   const load = async () => {
     const loadEpoch = attendanceStateEpochRef.current;
     setLoadError(null);
@@ -116,6 +180,7 @@ function CheckInCore() {
       const cachedCfg = await cachedValue('/my/checkin-config');
       if (cachedCfg && typeof cachedCfg === 'object' && loadEpoch === attendanceStateEpochRef.current) {
         setCfg(cachedCfg);
+        await cacheAuthorizedWifi(cachedCfg);
         const localOpen = await readLocalOpen();
         setOpen(localOpen || cachedCfg.open || null);
       }
@@ -151,6 +216,7 @@ function CheckInCore() {
       if (loadEpoch !== attendanceStateEpochRef.current) return;
       const fresh = cfgResult.value;
       setCfg(fresh);
+      await cacheAuthorizedWifi(fresh);
       // وقتی API آنلاین با موفقیت پاسخ داده، وضعیت جلسهٔ سرور مرجع قطعی است.
       // نباید جلسهٔ قدیمیِ کش‌شده بعد از Auto-close دوباره به‌عنوان جلسهٔ باز نمایش داده شود.
       const serverOpen = fresh.open || null;
@@ -495,17 +561,22 @@ function CheckInCore() {
         try { gpsEnabled = await Location.hasServicesEnabledAsync(); } catch {}
         if (!gpsEnabled) throw new Error('برای ثبت حضور، GPS باید روشن باشد.');
       }
-      const current = await getPositionForAttendance();
-      if (!current?.lat || !current?.lng) throw new Error('موقعیت دستگاه در دسترس نیست؛ برای ثبت حضور GPS را روشن کنید.');
-      const localLine = getLocalAuthorizedLine(current.lat, current.lng);
-      if (!localLine) {
-        throw new Error('شما در محدوده هیچ‌یک از خطوط مجاز خود قرار ندارید؛ ثبت حضور انجام نشد.');
+      let localLine = null;
+      let body = null;
+      if (method === 'wifi') {
+        // Wi-Fi attendance uses nearby scan results and cached assigned BSSIDs, not GPS/geofences.
+        const match = await scanNearbyWifi({ quiet: true });
+        if (!match?.line_id) throw new Error('خط متناظر با شبکه Wi-Fi مجاز مشخص نشد.');
+        localLine = { line: match.line };
+        body = { method, line_id: Number(match.line_id), proof: match.bssid };
+      } else {
+        const current = await getPositionForAttendance();
+        if (current?.lat == null || current?.lng == null) throw new Error('موقعیت دستگاه در دسترس نیست؛ برای این روش ثبت حضور GPS را روشن کنید.');
+        localLine = getLocalAuthorizedLine(current.lat, current.lng);
+        if (!localLine) throw new Error('شما در محدوده هیچ‌یک از خطوط مجاز خود قرار ندارید؛ ثبت حضور انجام نشد.');
+        body = { method, lat: current.lat, lng: current.lng, accuracy: current.acc || undefined, line_id: Number(localLine.line.id) };
+        if (method !== 'gps') body.proof = proof != null ? proof : proofVal;
       }
-      const lat = current.lat, lng = current.lng;
-      const body = { method, lat, lng, accuracy: current.acc || undefined, line_id: Number(localLine.line.id) };
-      // خط انتخابی توسط کاربر ارسال نمی‌شود؛ برنامه خودش محدوده را کنترل کرده و
-      // سرور نیز برای جلوگیری از دستکاری، همان کنترل را مستقل تکرار می‌کند.
-      if (method !== 'gps') body.proof = proof != null ? proof : proofVal;
       body.client_time = new Date().toISOString();
       body.client_uuid = 'checkin_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
       let r;
@@ -691,18 +762,6 @@ function CheckInCore() {
   }
 
   // خواندن خودکار BSSID شبکهٔ WiFi متصل (نیازمند مجوز موقعیت و روشن‌بودن GPS در اندروید)
-  const readWifi = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') { Alert.alert('مجوز لازم', 'برای خواندن مشخصات WiFi، دسترسی موقعیت لازم است.'); return; }
-      const NetInfo = require('@react-native-community/netinfo').default;
-      const st = await NetInfo.fetch();
-      const bssid = st?.details?.bssid;
-      if (bssid && bssid !== '02:00:00:00:00:00') { setProofVal(bssid); Alert.alert('شناسه خوانده شد', 'BSSID: ' + bssid + '\nاکنون اسلایدر را بکشید.'); }
-      else Alert.alert('ناموفق', 'BSSID خوانده نشد. مطمئن شوید به WiFi متصل و موقعیت مکانی روشن است، یا مقدار را دستی وارد کنید.');
-    } catch (e) { Alert.alert('خطا', 'خواندن WiFi ممکن نشد. مقدار را دستی وارد کنید.'); }
-  };
-
   async function startHandover() {
     setBusy(true);
     try {
@@ -727,6 +786,7 @@ function CheckInCore() {
   // وقتی اسلایدر کامل کشیده شد
   const onSlideComplete = () => {
     if (open) { doCheckout(); return; }
+    if (method === 'wifi') { doCheckin(); return; }
     if (method === 'gps') {
       // تصمیم نهایی با سرور است. سرور همهٔ خطوط تعریف‌شده برای کاربر را بررسی می‌کند و اگر کاربر داخل هرکدام باشد همان خط را ثبت می‌کند.
       doCheckin();
@@ -832,23 +892,25 @@ function CheckInCore() {
           <Text style={s.label}>روش ثبت حضور</Text>
           <View style={s.methodRow}>
             {[['gps', 'موقعیت (GPS)'], ['qr', 'اسکن QR'], ['wifi', 'WiFi'], ['bt', 'بلوتوث']]
-              .filter(([k]) => !line || !line.checkin_methods || !Array.isArray(line.checkin_methods) || line.checkin_methods.length === 0 || line.checkin_methods.includes(k))
+              .filter(([k]) => k === 'wifi' ? (cfg?.lines || []).some((l) => ((!Array.isArray(l.checkin_methods) || !l.checkin_methods.length || l.checkin_methods.includes('wifi')) && (l.idents || []).some((ident) => String(ident.kind || '').toLowerCase() === 'wifi' && normalizeBssid(ident.value)))) : (!line || !line.checkin_methods || !Array.isArray(line.checkin_methods) || line.checkin_methods.length === 0 || line.checkin_methods.includes(k)))
               .map(([k, t]) => (
-              <TouchableOpacity key={k} style={[s.mChip, method === k && s.mChipOn]} onPress={() => setMethod(k)}>
+              <TouchableOpacity key={k} style={[s.mChip, method === k && s.mChipOn]} onPress={() => { setMethod(k); if (k === 'wifi') scanNearbyWifi().catch(() => {}); }}>
                 <Text style={[s.mChipTxt, method === k && s.mChipTxtOn]}>{t}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          {(method === 'wifi' || method === 'bt') && (
-            <TextInput style={s.input} value={proofVal} onChangeText={setProofVal} autoCapitalize="none"
-              placeholder={method === 'wifi' ? 'BSSID وای‌فای (مثلاً a1:b2:c3:d4:e5:f6)' : 'MAC بلوتوث'} placeholderTextColor={C.muted} />
+          {method === 'bt' && (
+            <TextInput style={s.input} value={proofVal} onChangeText={setProofVal} autoCapitalize="none" placeholder="MAC بلوتوث" placeholderTextColor={C.muted} />
           )}
           {method === 'wifi' && (
-            <TouchableOpacity style={s.readBtn} onPress={readWifi}><Text style={s.readBtnTxt}>📶 خواندن خودکار شبکهٔ متصل</Text></TouchableOpacity>
+            <>
+              <TouchableOpacity style={s.readBtn} onPress={() => scanNearbyWifi().catch(() => {})}><Text style={s.readBtnTxt}>📶 اسکن شبکه‌های Wi-Fi اطراف</Text></TouchableOpacity>
+              {!!wifiScanStatus && <Text style={[s.hint, wifiMatch ? { color: C.ok } : null]}>{wifiScanStatus}</Text>}
+              {wifiMatch ? <Text style={s.hint}>خط شناسایی‌شده: {faNum(String(wifiMatch.line?.code || wifiMatch.line_id))} · قدرت سیگنال: {faNum(String(wifiMatch.level))} dBm</Text> : null}
+              <Text style={s.hint}>نیازی به اتصال به Wi-Fi یا حضور در محدوده GPS خط نیست. برنامه BSSIDهای مجاز را خودکار اسکن و تطبیق می‌دهد. اندروید برای اسکن ممکن است روشن بودن سرویس موقعیت مکانی را الزامی کند، اما مختصات GPS برای ثبت استفاده نمی‌شود.</Text>
+            </>
           )}
-          {(method === 'wifi' || method === 'bt') && (
-            <Text style={s.hint}>این مقدار باید با یکی از شناسه‌های تعریف‌شدهٔ خط در پنل مطابقت داشته باشد. برای WiFi باید به شبکهٔ همان ایستگاه متصل باشید و موقعیت مکانی روشن باشد. برای بلوتوث، MAC دستگاه ثابت ایستگاه را وارد کنید.</Text>
-          )}
+          {method === 'bt' && <Text style={s.hint}>برای بلوتوث، MAC دستگاه ثابت ایستگاه را وارد کنید.</Text>}
         </>
       )}
 
