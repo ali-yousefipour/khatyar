@@ -751,7 +751,7 @@ function LiveStaffDashboard() {
     const [tab, setTab] = useState("present");
     const load = () => db.workDashboard(tj[0], tj[1]).then(x => setLive(x && x.live ? x.live : null)).catch(() => setLive(null));
     useEffect(() => { load(); const iv = setInterval(load, 60000); return () => clearInterval(iv); }, []);
-    const methodFa = { gps: "GPS", qr: "QR", wifi: "Wi‑Fi", manual: "دستی", nfc: "NFC", bluetooth: "بلوتوث", gsm: "GSM" };
+    const methodFa = { gps: "GPS", wifi: "Wi‑Fi", manual: "دستی", gsm: "GSM" };
     if (!live)
         return React.createElement("div", { className: "panel", style: { margin: "14px 0" } },
             React.createElement("span", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0648\u0636\u0639\u06CC\u062A \u062D\u0636\u0648\u0631 \u067E\u0631\u0633\u0646\u0644\u2026"));
@@ -7240,13 +7240,13 @@ function Messages() {
 }
 // تعیین روش‌های مجاز ثبت حضور برای یک خط
 function LineMethods({ line, onClose }) {
-    const ALL = [["gps", "موقعیت (GPS)"], ["gsm", "آنتن GSM (دکل مخابراتی)"], ["wifi", "WiFi"], ["bt", "بلوتوث"]];
+    const ALL = [["gps", "موقعیت (GPS)"], ["gsm", "آنتن GSM (دکل مخابراتی)"], ["wifi", "WiFi"]];
     const init = () => { try {
         const m = line.checkin_methods;
         if (!m)
             return null;
         const parsed = Array.isArray(m) ? m : JSON.parse(m);
-        const filtered = Array.isArray(parsed) ? parsed.filter(k => !["qr", "nfc", "rfid"].includes(String(k).toLowerCase())) : [];
+        const filtered = Array.isArray(parsed) ? parsed.filter(k => !["qr", "nfc", "rfid", "bt", "bluetooth"].includes(String(k).toLowerCase())) : [];
         return filtered.length ? filtered : null;
     }
     catch (e) {
@@ -7650,7 +7650,7 @@ function Lines() {
 }
 // مدیریت شناسه‌های جایگزین GPS برای یک خط
 function LineIdents({ line, onClose }) {
-    const KINDS = [["wifi", "WiFi (BSSID)", "مثلاً a1:b2:c3:d4:e5:f6"], ["gsm", "آنتن GSM (Cell ID)", "مثلاً 432-11-1234-5678"], ["bt", "بلوتوث (MAC)", "مثلاً 00:11:22:33:44:55"]];
+    const KINDS = [["wifi", "WiFi (BSSID)", "مثلاً a1:b2:c3:d4:e5:f6"], ["gsm", "آنتن GSM (Cell ID)", "مثلاً 432-11-1234-5678"]];
     const [items, setItems] = useState([]);
     const [kind, setKind] = useState("wifi");
     const [value, setValue] = useState("");
@@ -7661,9 +7661,9 @@ function LineIdents({ line, onClose }) {
         return alert("مقدار شناسه را وارد کنید"); await db.addLineIdent(line.id, { kind, value: value.trim(), label: label.trim() || null }); setValue(""); setLabel(""); load(); };
     const del = async (id) => { if (!confirm("حذف این شناسه؟"))
         return; await db.delLineIdent(id); load(); };
-    const KL = { wifi: "WiFi", gsm: "GSM", bt: "بلوتوث" };
+    const KL = { wifi: "WiFi", gsm: "GSM" };
     return (React.createElement(Modal, { title: `شناسه‌های حضور — خط ${line.code}`, onClose: onClose },
-        React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginBottom: 10 } }, "\u0628\u0631\u0627\u06CC \u0647\u0631 \u062E\u0637 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F BSSID\u0647\u0627\u06CC \u0645\u062C\u0627\u0632 Wi-Fi \u0648 \u0634\u0646\u0627\u0633\u0647\u0654 \u0628\u0644\u0648\u062A\u0648\u062B \u062A\u0639\u0631\u06CC\u0641 \u06A9\u0646\u06CC\u062F \u062A\u0627 \u06A9\u0627\u0631\u0628\u0631 \u062F\u0631 \u0635\u0648\u0631\u062A \u0627\u062E\u062A\u0644\u0627\u0644 GPS \u0627\u0632 \u0631\u0648\u0634 \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u062F."),
+        React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginBottom: 10 } }, "\u0628\u0631\u0627\u06CC \u0647\u0631 \u062E\u0637 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F BSSID\u0647\u0627\u06CC \u0645\u062C\u0627\u0632 Wi-Fi \u0648 \u0634\u0646\u0627\u0633\u0647\u0654 \u0622\u0646\u062A\u0646 GSM \u062A\u0639\u0631\u06CC\u0641 \u06A9\u0646\u06CC\u062F \u062A\u0627 \u06A9\u0627\u0631\u0628\u0631 \u062F\u0631 \u0635\u0648\u0631\u062A \u0627\u062E\u062A\u0644\u0627\u0644 GPS \u0627\u0632 \u0631\u0648\u0634 \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u062F."),
         React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 12 } },
             React.createElement("div", null,
                 React.createElement("label", { className: "label" }, "\u0646\u0648\u0639"),
@@ -11172,7 +11172,7 @@ function StaffAttendance() {
     const [users, setUsers] = useState([]);
     const [lines, setLines] = useState([]);
     const [roles, setRoles] = useState([]);
-    const M = { gps: "موقعیت", wifi: "WiFi", qr: "QR", nfc: "NFC", bt: "بلوتوث", manual: "دستی" };
+    const M = { gps: "موقعیت", wifi: "WiFi", manual: "دستی" };
     const qs = () => {
         const p = [];
         const f = jFromIso ? jFromIso(from) : from, t2 = jFromIso ? jFromIso(to) : to;
@@ -11221,8 +11221,7 @@ function StaffAttendance() {
             React.createElement("select", { className: "input", style: { maxWidth: 120 }, value: fMethod, onChange: e => setFMethod(e.target.value) },
                 React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0631\u0648\u0634\u200C\u0647\u0627"),
                 React.createElement("option", { value: "gps" }, "\u0645\u0648\u0642\u0639\u06CC\u062A"),
-                React.createElement("option", { value: "wifi" }, "WiFi"),
-                React.createElement("option", { value: "bt" }, "\u0628\u0644\u0648\u062A\u0648\u062B")),
+                React.createElement("option", { value: "wifi" }, "WiFi")),
             React.createElement("button", { className: "btn p", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
             React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
         loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : rows.length ? (React.createElement("table", null,
