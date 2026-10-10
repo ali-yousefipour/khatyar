@@ -2392,7 +2392,8 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   $open = Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL", [$u['id']]);
   if ($open) Http::error('شما قبلاً ثبت ورود کرده‌اید. ابتدا خروج بزنید.', 400);
   $lineId = (int)($b['line_id'] ?? 0);
-  $method = $b['method'] ?? 'gps';
+  $method = strtolower((string)($b['method'] ?? 'gps'));
+  if (in_array($method, ['qr','nfc','rfid'], true)) Http::error('ثبت حضور با QR یا RFID دیگر پشتیبانی نمی‌شود.', 422);
   $lineIds = user_line_ids($u);
   // انتخاب خط از اپ حذف شده است؛ اگر کلاینت قدیمی line_id بفرستد، فقط وقتی می‌پذیریم که جزو خطوط مجاز کاربر باشد.
   if ($lineId && (!is_array($lineIds) || !in_array($lineId, array_map('intval', $lineIds), true))) $lineId = 0;
@@ -6701,7 +6702,7 @@ route('GET', '/api/admin/lines/{id}/idents', fn($p,$b,$u) =>
   Db::all("SELECT id, line_id, kind, value, label FROM line_idents WHERE line_id=? ORDER BY kind", [$p['id']]), false, ADMIN);
 route('POST', '/api/admin/lines/{id}/idents', function($p,$b,$u){
   $kind = $b['kind'] ?? ''; $value = trim($b['value'] ?? '');
-  if (!in_array($kind, ['wifi','qr','nfc','bt'])) Http::error('نوع شناسه نامعتبر است', 400);
+  if (!in_array($kind, ['wifi','bt'])) Http::error('نوع شناسه نامعتبر است؛ ثبت حضور با QR و RFID پشتیبانی نمی‌شود.', 400);
   if ($value === '') Http::error('مقدار شناسه را وارد کنید', 400);
   $id = Db::insert("INSERT INTO line_idents(line_id,kind,value,label) VALUES(?,?,?,?)",
     [$p['id'], $kind, $value, $b['label'] ?? null]);
@@ -8155,6 +8156,7 @@ route('GET', '/api/admin/lines', fn($p,$b,$u) => Db::all("SELECT id,code,origin,
 // تنظیم روش‌های مجاز ثبت حضور یک خط (آرایه‌ای از gps/qr/wifi/nfc/bt یا null برای همه)
 route('PUT', '/api/admin/lines/{id}/checkin-methods', function($p,$b,$u){
   $methods = $b['methods'] ?? null;
+  if (is_array($methods)) $methods = array_values(array_filter($methods, fn($m)=>!in_array(strtolower((string)$m), ['qr','nfc','rfid'], true)));
   $val = (is_array($methods) && $methods) ? json_encode(array_values($methods)) : null;
   Db::run("UPDATE `lines` SET checkin_methods=? WHERE id=?", [$val, $p['id']]);
   return ['ok'=>true];
@@ -10694,7 +10696,8 @@ function _phase7p4_process_offline_item($it,$u,$uuid){
 }
 function _phase7p4_offline_checkin($b,$u,$uuid,$it){
   if (Db::one("SELECT id FROM staff_attendance WHERE client_uuid=? LIMIT 1", [$uuid])) return ['ok'=>true,'duplicate'=>true,'kind'=>'checkin'];
-  $method = (string)($b['method'] ?? 'gps');
+  $method = strtolower((string)($b['method'] ?? 'gps'));
+  if (in_array($method, ['qr','nfc','rfid'], true)) throw new Exception('ثبت حضور با QR یا RFID دیگر پشتیبانی نمی‌شود');
   [$lat,$lng] = validGeo($b['lat'] ?? null, $b['lng'] ?? null);
   if (($lat === null || $lng === null) && $method !== 'wifi') throw new Exception('موقعیت ثبت ورود آفلاین وجود ندارد');
   $lineId = (int)($b['line_id'] ?? 0);

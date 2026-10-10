@@ -461,8 +461,10 @@ function CheckInCore() {
   // اگر روش فعلی برای خط انتخابی مجاز نباشد، به اولین روش مجاز سوییچ کن
   useEffect(() => {
     if (!line) return;
-    const allowed = (line.checkin_methods && Array.isArray(line.checkin_methods) && line.checkin_methods.length) ? line.checkin_methods : null;
-    if (allowed && !allowed.includes(method)) setMethod(allowed[0]);
+    const configured = Array.isArray(line.checkin_methods) ? line.checkin_methods : [];
+    const allowed = configured.filter((k) => !['qr', 'nfc', 'rfid'].includes(String(k).toLowerCase()));
+    if (['qr', 'nfc', 'rfid'].includes(String(method).toLowerCase())) setMethod(allowed[0] || 'gps');
+    else if (allowed.length && !allowed.includes(method)) setMethod(allowed[0] || 'gps');
   }, [lineId]);
   // نزدیک‌ترین فاصله تا محدودهٔ خط انتخاب‌شده
   const toleranceM = appCfg?.checkin_error_radius_m || 0;
@@ -790,8 +792,6 @@ function CheckInCore() {
     if (method === 'gps') {
       // تصمیم نهایی با سرور است. سرور همهٔ خطوط تعریف‌شده برای کاربر را بررسی می‌کند و اگر کاربر داخل هرکدام باشد همان خط را ثبت می‌کند.
       doCheckin();
-    } else if (method === 'qr') {
-      if (!perm?.granted) requestPerm().then((r) => { if (r.granted) setScanOpen(true); }); else setScanOpen(true);
     } else {
       if (!proofVal.trim()) { Alert.alert('توجه', 'مقدار شناسه را وارد کنید یا با دکمهٔ خواندن خودکار/اسکن دریافت کنید.'); return; }
       doCheckin(proofVal.trim());
@@ -891,8 +891,15 @@ function CheckInCore() {
         <>
           <Text style={s.label}>روش ثبت حضور</Text>
           <View style={s.methodRow}>
-            {[['gps', 'موقعیت (GPS)'], ['qr', 'اسکن QR'], ['wifi', 'WiFi'], ['bt', 'بلوتوث']]
-              .filter(([k]) => k === 'wifi' ? (cfg?.lines || []).some((l) => ((!Array.isArray(l.checkin_methods) || !l.checkin_methods.length || l.checkin_methods.includes('wifi')) && (l.idents || []).some((ident) => String(ident.kind || '').toLowerCase() === 'wifi' && normalizeBssid(ident.value)))) : (!line || !line.checkin_methods || !Array.isArray(line.checkin_methods) || line.checkin_methods.length === 0 || line.checkin_methods.includes(k)))
+            {[['gps', 'موقعیت (GPS)'], ['wifi', 'WiFi'], ['bt', 'بلوتوث']]
+              .filter(([k]) => {
+                if (k === 'wifi') return (cfg?.lines || []).some((l) => {
+                  const allowed = Array.isArray(l.checkin_methods) ? l.checkin_methods.filter((x) => !['qr', 'nfc', 'rfid'].includes(String(x).toLowerCase())) : [];
+                  return ((!allowed.length || allowed.includes('wifi')) && (l.idents || []).some((ident) => String(ident.kind || '').toLowerCase() === 'wifi' && normalizeBssid(ident.value)));
+                });
+                const allowed = Array.isArray(line?.checkin_methods) ? line.checkin_methods.filter((x) => !['qr', 'nfc', 'rfid'].includes(String(x).toLowerCase())) : [];
+                return !line || !allowed.length || allowed.includes(k);
+              })
               .map(([k, t]) => (
               <TouchableOpacity key={k} style={[s.mChip, method === k && s.mChipOn]} onPress={() => { setMethod(k); if (k === 'wifi') scanNearbyWifi().catch(() => {}); }}>
                 <Text style={[s.mChipTxt, method === k && s.mChipTxtOn]}>{t}</Text>
