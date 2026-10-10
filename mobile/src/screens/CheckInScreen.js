@@ -462,7 +462,7 @@ function CheckInCore() {
   useEffect(() => {
     if (!line) return;
     const configured = Array.isArray(line.checkin_methods) ? line.checkin_methods : [];
-    const allowed = configured.filter((k) => !['qr', 'nfc', 'rfid'].includes(String(k).toLowerCase()));
+    const allowed = configured.filter((k) => !['qr', 'nfc', 'rfid', 'bt', 'bluetooth'].includes(String(k).toLowerCase()));
     if (['qr', 'nfc', 'rfid', 'bt', 'bluetooth'].includes(String(method).toLowerCase())) setMethod(allowed[0] || 'gps');
     else if (allowed.length && !allowed.includes(method)) setMethod(allowed[0] || 'gps');
   }, [lineId]);
