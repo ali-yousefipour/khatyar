@@ -6088,6 +6088,7 @@ function AttendanceReport(){
     if(k==="out_station")return (((d.punches||[]).slice().reverse().find(p=>p&&p.out_station))||{}).out_station||"—";
     if(k==="first_in")return n(d.first_in)||ins[0]||"--:--";
     if(k==="last_out")return n(d.last_out)||(outs.length?outs[outs.length-1]:"--:--");
+    if(k==="gps_inactive_minutes")return hm(d.gps_inactive_minutes||0);
     const v=d[k]; return v==null||v===""?"00:00":v;
   };
   const convertSurplus=async(d)=>{ const surplus=mins(d.surplus); if(!surplus){alert("مازاد حضوری برای تبدیل وجود ندارد");return;} const val=prompt("چند دقیقه از مازاد حضور به اضافه‌کار تبدیل شود؟",String(surplus)); if(val===null)return; const minutes=Math.max(0,Math.min(surplus,parseInt(String(val).replace(/\D/g,""),10)||0)); const reason=prompt("علت/توضیح تأیید مازاد حضور:","تأیید مدیر"); try{await db.attendanceSurplusConvert({user_id:+uid,jdate:d.jdate,minutes,reason:reason||""});await refresh();}catch(e){alert(e.message||"خطا در تبدیل مازاد حضور");} };
@@ -6095,7 +6096,7 @@ function AttendanceReport(){
   const columns=[
     ["تاریخ",d=>d.jdate||"—"],["روز هفته",d=>d.weekday||"—"],["ورود",d=>dayVal(d,"in")],["خروج",d=>dayVal(d,"out")],
     ["محل ورود",d=>dayVal(d,"in_station")],["محل خروج",d=>dayVal(d,"out_station")],["حضور در شیفت",d=>dayVal(d,"in_shift")],
-    ["کسری کار",d=>dayVal(d,"shortage")],["غیبت",d=>String(d.absent??0)],["جمع غیبت و کسری کار",d=>dayVal(d,"absence_shortage")],
+    ["کسری کار",d=>dayVal(d,"shortage")],["کسر کار غیر فعال کردن برنامه",d=>dayVal(d,"gps_inactive_minutes")],["غیبت",d=>String(d.absent??0)],["جمع غیبت و کسری کار",d=>dayVal(d,"absence_shortage")],
     ["شب کاری",d=>dayVal(d,"night")],["اضافه کاری",d=>dayVal(d,"overtime")],["موظفی",d=>dayVal(d,"expected")],
     ["ماموریت",d=>dayVal(d,"mission")],["مرخصی استحقاقی",d=>dayVal(d,"annual_leave")],["مرخصی استعلاجی",d=>dayVal(d,"sick_leave")],
     ["مرخصی بدون حقوق",d=>dayVal(d,"unpaid_leave")],["مازاد حضور",d=>dayVal(d,"surplus")],["کل حضور",d=>dayVal(d,"worked")],
@@ -6103,7 +6104,7 @@ function AttendanceReport(){
     ["اضافه کاری تعطیل و جمعه",d=>dayVal(d,"holiday_friday_overtime")],["جمعه کاری",d=>dayVal(d,"friday_work")],["روزکارکرد جمعه",d=>dayVal(d,"friday_workday")],
     ["تهاتر مازاد حضور",d=>dayVal(d,"adjusted_surplus")],["تهاتر کسری کار",d=>dayVal(d,"adjusted_shortage")],["اولین ورود",d=>dayVal(d,"first_in")],["آخرین خروج",d=>dayVal(d,"last_out")]
   ];
-  const exportExcel=()=>{if(!data)return;const rows=[columns.map(x=>x[0])];(data.days||[]).forEach(d=>rows.push(columns.map(x=>x[1](d))));const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"گزارش تردد ۲۹ ستونه");XLSX.writeFile(wb,"گزارش تردد پرسنل - ۲۹ ستونه.xlsx");};
+  const exportExcel=()=>{if(!data)return;const rows=[columns.map(x=>x[0])];(data.days||[]).forEach(d=>rows.push(columns.map(x=>x[1](d))));const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"گزارش تردد ۳۰ ستونه");XLSX.writeFile(wb,"گزارش تردد پرسنل - ۳۰ ستونه.xlsx");};
 
   return(<div className="panel" translate="no" data-no-translate="true"><h3>🕒 گزارش تردد پرسنل</h3>
     <div className="card-p" style={{marginBottom:14}}>
@@ -6124,7 +6125,7 @@ function AttendanceReport(){
       <b>{data.user?.name||"—"}</b><span style={{color:"var(--muted)",fontSize:12}}>کد پرسنلی: {fa(data.user?.pcode||"—")} | از {fa(data.from||from||"—")} تا {fa(data.to||to||"—")}</span>
     </div>}
     {data&&<div style={{overflowX:"auto",border:"1px solid var(--line)",borderRadius:10}}>
-      <table className="khar-attendance-native" style={{fontSize:12,minWidth:2400}}>
+      <table className="khar-attendance-native" style={{fontSize:12,minWidth:2600}}>
         <thead><tr>{columns.map(([title],i)=><th key={title} style={{whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2}}>{title}</th>)}</tr></thead>
         <tbody>{(data.days||[]).map(d=>{
           const red=!!d.is_holiday||!!d.is_friday||d.weekday==="جمعه";
