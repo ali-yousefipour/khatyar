@@ -463,7 +463,7 @@ function CheckInCore() {
     if (!line) return;
     const configured = Array.isArray(line.checkin_methods) ? line.checkin_methods : [];
     const allowed = configured.filter((k) => !['qr', 'nfc', 'rfid'].includes(String(k).toLowerCase()));
-    if (['qr', 'nfc', 'rfid'].includes(String(method).toLowerCase())) setMethod(allowed[0] || 'gps');
+    if (['qr', 'nfc', 'rfid', 'bt', 'bluetooth'].includes(String(method).toLowerCase())) setMethod(allowed[0] || 'gps');
     else if (allowed.length && !allowed.includes(method)) setMethod(allowed[0] || 'gps');
   }, [lineId]);
   // نزدیک‌ترین فاصله تا محدودهٔ خط انتخاب‌شده
@@ -891,10 +891,10 @@ function CheckInCore() {
         <>
           <Text style={s.label}>روش ثبت حضور</Text>
           <View style={s.methodRow}>
-            {[['gps', 'موقعیت (GPS)'], ['wifi', 'WiFi'], ['bt', 'بلوتوث']]
+            {[['gps', 'موقعیت (GPS)'], ['wifi', 'WiFi']]
               .filter(([k]) => {
                 if (k === 'wifi') return (cfg?.lines || []).some((l) => {
-                  const allowed = Array.isArray(l.checkin_methods) ? l.checkin_methods.filter((x) => !['qr', 'nfc', 'rfid'].includes(String(x).toLowerCase())) : [];
+                  const allowed = Array.isArray(l.checkin_methods) ? l.checkin_methods.filter((x) => !['qr', 'nfc', 'rfid', 'bt', 'bluetooth'].includes(String(x).toLowerCase())) : [];
                   return ((!allowed.length || allowed.includes('wifi')) && (l.idents || []).some((ident) => String(ident.kind || '').toLowerCase() === 'wifi' && normalizeBssid(ident.value)));
                 });
                 const allowed = Array.isArray(line?.checkin_methods) ? line.checkin_methods.filter((x) => !['qr', 'nfc', 'rfid'].includes(String(x).toLowerCase())) : [];
@@ -906,9 +906,6 @@ function CheckInCore() {
               </TouchableOpacity>
             ))}
           </View>
-          {method === 'bt' && (
-            <TextInput style={s.input} value={proofVal} onChangeText={setProofVal} autoCapitalize="none" placeholder="MAC بلوتوث" placeholderTextColor={C.muted} />
-          )}
           {method === 'wifi' && (
             <>
               <TouchableOpacity style={s.readBtn} onPress={() => scanNearbyWifi().catch(() => {})}><Text style={s.readBtnTxt}>📶 اسکن شبکه‌های Wi-Fi اطراف</Text></TouchableOpacity>
@@ -917,7 +914,6 @@ function CheckInCore() {
               <Text style={s.hint}>نیازی به اتصال به Wi-Fi یا حضور در محدوده GPS خط نیست. برنامه BSSIDهای مجاز را خودکار اسکن و تطبیق می‌دهد. اندروید برای اسکن ممکن است روشن بودن سرویس موقعیت مکانی را الزامی کند، اما مختصات GPS برای ثبت استفاده نمی‌شود.</Text>
             </>
           )}
-          {method === 'bt' && <Text style={s.hint}>برای بلوتوث، MAC دستگاه ثابت ایستگاه را وارد کنید.</Text>}
         </>
       )}
 
