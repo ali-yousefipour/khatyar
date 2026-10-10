@@ -56,7 +56,7 @@ route('GET', '/api/admin/attendance-report', function($p,$b,$u){
   if(!$uid||!$from||!$to) Http::error('پرسنل و بازهٔ تاریخ را مشخص کنید',400);
   return attendance_report_owned_by_entry_date($uid,$from,$to);
 }, false, 3);
-require "$ROOT/lib/routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; $body = Http::body();
+require __DIR__ . '/api/daily-performance-gps-separate.php'; require "$ROOT/lib/routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; $body = Http::body();
 foreach ($routes as $r) {
   if ($r['m'] !== $method) continue; $regex = '#^' . preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $r['p']) . '$#'; if (!preg_match($regex, $path, $mm)) continue; $params = array_filter($mm, 'is_string', ARRAY_FILTER_USE_KEY); $user = null;
   if (!$r['public']) {
