@@ -73,7 +73,7 @@ try{
       $checkOut=dateTimeFromJTime($jdate,$co);
       $ciMin=((int)substr($ci,0,2))*60+(int)substr($ci,3,2);
       $coMin=((int)substr($co,0,2))*60+(int)substr($co,3,2);
-      if($coMin<$ciMin)$checkOut=addOneDay($checkOut);
+      if($coMin<=$ciMin)$checkOut=addOneDay($checkOut);
       if($checkOut<=$checkIn)ape('ساعت خروج باید بعد از ورود باشد',422);
     }
     $id=Db::insert("INSERT INTO staff_attendance
@@ -103,7 +103,7 @@ try{
         $checkOut=$base->format('Y-m-d').' '.$co.':00';
         $ciMin=((int)substr($ci,0,2))*60+(int)substr($ci,3,2);
         $coMin=((int)substr($co,0,2))*60+(int)substr($co,3,2);
-        if($coMin<$ciMin)$checkOut=addOneDay($checkOut);
+        if($coMin<=$ciMin)$checkOut=addOneDay($checkOut);
         if($checkOut<=$checkIn)ape('ساعت خروج باید بعد از ورود باشد',422);
       }
       Db::run("UPDATE staff_attendance SET check_in=?,check_out=?,client_check_in=?,client_check_out=?,method='manual',auto_closed=0 WHERE id=?",
