@@ -14552,6 +14552,8 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             trigger.disabled = false; });
     }
     function mountInspectionMap(container, rows, districtBoundaries) {
+        if (!container || !container.isConnected)
+            return;
         if (S.schoolInspectionMap && S.schoolInspectionMap.remove) {
             try {
                 S.schoolInspectionMap.remove();
@@ -14560,6 +14562,8 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
         }
         container.innerHTML = '<div class="ssv-map-wrap"><div><div class="ssv-map-legend"><span class="ssv-map-stat">مدارس دارای بازدید: ' + ssvFa((rows || []).length) + '</span><span class="ssv-map-stat">مرز ۸ ناحیه آموزش‌وپرورش</span></div><div id="ssv-inspection-map" class="ssv-map"></div></div><div class="ssv-map-info"><b>مدارس بازدیدشده</b><div id="ssv-inspection-points" style="margin-top:10px"></div></div></div>';
         const mapEl = container.querySelector('#ssv-inspection-map');
+        if (!mapEl)
+            return;
         if (!window.L) {
             mapEl.innerHTML = '<div class="ssv-map-empty">کتابخانه نقشه در دسترس نیست.</div>';
             return;
@@ -14567,7 +14571,17 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
         const map = L.map(mapEl, { zoomControl: true, attributionControl: true }).setView([36.2972, 59.6067], 11);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
         S.schoolInspectionMap = map;
-        const list = container.querySelector('#ssv-inspection-points'), bounds = [];
+        const list = container.querySelector('#ssv-inspection-points');
+        if (!list) {
+            try {
+                map.remove();
+            }
+            catch (_) { }
+            if (S.schoolInspectionMap === map)
+                S.schoolInspectionMap = null;
+            return;
+        }
+        const bounds = [];
         (districtBoundaries || []).forEach(d => {
             const pts = (d.points || []).map(p => [Number(p === null || p === void 0 ? void 0 : p[0]), Number(p === null || p === void 0 ? void 0 : p[1])]).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
             if (pts.length < 3)
@@ -14635,7 +14649,7 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
     } }); await render('dashboard'); }
     function close() { var _a; (_a = S.root) === null || _a === void 0 ? void 0 : _a.remove(); S.root = null; }
     async function render(t) {
-        var _a, _b, _c, _e;
+        var _a, _b, _c, _e, _f, _g;
         const root = S.root;
         if (!root || !root.isConnected)
             return;
@@ -14841,7 +14855,11 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             }
             if (t === 'map') {
                 const d = await api('/api/school-service/inspection-map');
+                if (!S.root || !S.root.isConnected || S.root.querySelector('.ssv-body') !== b || !((_f = S.root.querySelector('[data-t="map"]')) === null || _f === void 0 ? void 0 : _f.classList.contains('on')))
+                    return;
                 const boot = await api('/api/school-service/bootstrap');
+                if (!S.root || !S.root.isConnected || S.root.querySelector('.ssv-body') !== b || !((_g = S.root.querySelector('[data-t="map"]')) === null || _g === void 0 ? void 0 : _g.classList.contains('on')))
+                    return;
                 d.district_boundaries = boot.district_boundaries || [];
                 b.innerHTML = '<div class="ssv-card"><h3>نقشه مدارس بازدیدشده و بازرسی‌شده</h3><p style="font-size:11px;color:#667085">در این نقشه فقط مدارسی نمایش داده می‌شوند که حداقل یک بازدید/بازرسی سرویس مدارس برای آن‌ها ثبت شده و مختصات جغرافیایی معتبر دارند.</p><div id="ssv-inspection-map-block"></div></div>';
                 mountInspectionMap(b.querySelector('#ssv-inspection-map-block'), d.items || [], d.district_boundaries || []);
