@@ -753,11 +753,41 @@ function LiveStaffDashboard() {
     const load = () => db.workDashboard(tj[0], tj[1]).then(x => setLive(x && x.live ? x.live : null)).catch(() => setLive(null));
     useEffect(() => { load(); const iv = setInterval(load, 60000); return () => clearInterval(iv); }, []);
     const methodFa = { gps: "GPS", wifi: "Wi‑Fi", manual: "دستی", gsm: "GSM" };
+    const [sortConfig, setSortConfig] = useState({ key: "check_in", direction: "asc" });
     if (!live)
         return React.createElement("div", { className: "panel", style: { margin: "14px 0" } },
             React.createElement("span", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0648\u0636\u0639\u06CC\u062A \u062D\u0636\u0648\u0631 \u067E\u0631\u0633\u0646\u0644\u2026"));
-    const rows = tab === "present" ? [...(live.present_list || [])].sort((a, b) => { const timeOf = v => { const raw = String(v && v.check_in || "").trim(); const stamp = Date.parse(raw); if (Number.isFinite(stamp))
-        return stamp; const m = raw.match(/(?:^|T|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?/); return m ? (Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3] || 0)) : Number.MAX_SAFE_INTEGER; }; return timeOf(a) - timeOf(b); }) : tab === "leave" ? (live.leave_list || []) : (live.absent_list || []);
+    const baseRows = tab === "present" ? [...(live.present_list || [])] : tab === "leave" ? (live.leave_list || []) : (live.absent_list || []);
+    const sortValue = (r, key) => {
+        var _a, _b;
+        if (key === "check_in") {
+            const raw = String(r.check_in || "").trim();
+            const m = raw.match(/(?:^|T|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+            if (m)
+                return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3] || 0);
+            const stamp = Date.parse(raw);
+            return Number.isFinite(stamp) ? stamp : Number.MAX_SAFE_INTEGER;
+        }
+        if (key === "line_code") {
+            const raw = String((_a = r.line_code) !== null && _a !== void 0 ? _a : "").trim(), n = Number(raw);
+            return raw !== "" && Number.isFinite(n) ? n : raw;
+        }
+        if (key === "is_open")
+            return r.is_open ? 1 : 0;
+        if (key === "method")
+            return String(methodFa[r.method] || r.method || "");
+        return String((_b = r[key]) !== null && _b !== void 0 ? _b : "");
+    };
+    const rows = tab === "present" ? [...baseRows].sort((a, b) => {
+        const av = sortValue(a, sortConfig.key), bv = sortValue(b, sortConfig.key);
+        let cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv), "fa", { numeric: true, sensitivity: "base" });
+        if (sortConfig.key === "check_in" && av === Number.MAX_SAFE_INTEGER && bv !== Number.MAX_SAFE_INTEGER)
+            cmp = 1;
+        else if (sortConfig.key === "check_in" && bv === Number.MAX_SAFE_INTEGER && av !== Number.MAX_SAFE_INTEGER)
+            cmp = -1;
+        return sortConfig.direction === "asc" ? cmp : -cmp;
+    }) : baseRows;
+    const sortButton = (key, label) => React.createElement("button", { type: "button", className: "btn g", onClick: () => setSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc" })), "aria-label": "مرتب‌سازی " + label, title: "مرتب‌سازی " + label, style: { padding: "2px 6px", marginInlineStart: 5, fontSize: 11, lineHeight: 1.4, whiteSpace: "nowrap" } }, sortConfig.key === key ? (sortConfig.direction === "asc" ? "↑" : "↓") : "↕");
     return React.createElement("div", { className: "panel", style: { margin: "14px 0" } },
         React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" } },
             React.createElement("div", null,
@@ -775,13 +805,25 @@ function LiveStaffDashboard() {
             React.createElement("table", null,
                 React.createElement("thead", null,
                     React.createElement("tr", null,
-                        React.createElement("th", null, "\u0646\u0627\u0645"),
-                        React.createElement("th", null, "\u0633\u0645\u062A"),
+                        React.createElement("th", null,
+                            "\u0646\u0627\u0645 ",
+                            tab === "present" && sortButton("name", "نام")),
+                        React.createElement("th", null,
+                            "\u0633\u0645\u062A ",
+                            tab === "present" && sortButton("role_title", "سمت")),
                         tab === "present" && React.createElement(React.Fragment, null,
-                            React.createElement("th", null, "\u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F"),
-                            React.createElement("th", null, "\u062E\u0637"),
-                            React.createElement("th", null, "\u0631\u0648\u0634"),
-                            React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A")))),
+                            React.createElement("th", null,
+                                "\u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F ",
+                                sortButton("check_in", "ساعت ورود")),
+                            React.createElement("th", null,
+                                "\u062E\u0637 ",
+                                sortButton("line_code", "خط")),
+                            React.createElement("th", null,
+                                "\u0631\u0648\u0634 ",
+                                sortButton("method", "روش")),
+                            React.createElement("th", null,
+                                "\u0648\u0636\u0639\u06CC\u062A ",
+                                sortButton("is_open", "وضعیت"))))),
                 React.createElement("tbody", null, rows.map((r, i) => React.createElement("tr", { key: r.user_id || i },
                     React.createElement("td", null, r.name || "—"),
                     React.createElement("td", null, r.role_title || "—"),
