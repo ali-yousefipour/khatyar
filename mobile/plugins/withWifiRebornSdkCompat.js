@@ -76,8 +76,7 @@ module.exports = function withWifiRebornSdkCompat(config) {
     ];
     const sourcePath = candidates.find((candidate) => fs.existsSync(candidate));
     if (!sourcePath) {
-      console.log('[withWifiRebornSdkCompat] Expo publication source not present; no publication patch required.');
-      return cfg;
+      throw new Error('[withWifiRebornSdkCompat] Expo Gradle publication source was not found; cannot verify the release-component compatibility fix.');
     }
 
     const source = fs.readFileSync(sourcePath, 'utf8');
