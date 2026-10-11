@@ -437,6 +437,7 @@ const db = {
     staffAttendance: (from, to) => GET('/admin/staff-attendance?from=' + from + '&to=' + to),
     setOrg: (id, b) => SEND('PUT', '/admin/users/' + id + '/org', b),
     assignLines: (id, ids) => SEND('PUT', '/admin/users/' + id + '/lines', { line_ids: ids }),
+    assignCheckinLines: (id, ids) => SEND('PUT', '/admin/users/' + id + '/checkin-lines', { line_ids: ids }),
     revokeDevice: (id, type) => SEND('POST', '/admin/users/' + id + '/revoke-device', type ? { device_type: type } : {}),
     deleteUser: (id) => SEND('DELETE', '/admin/users/' + id),
     resetPassword: (id, password) => SEND('POST', '/admin/users/' + id + '/reset-password', { password }),
@@ -778,7 +779,6 @@ function LiveStaffDashboard() {
                         React.createElement("th", null, "\u0633\u0645\u062A"),
                         tab === "present" && React.createElement(React.Fragment, null,
                             React.createElement("th", null, "\u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F"),
-                            React.createElement("th", null, "\u0645\u062D\u0644 \u062B\u0628\u062A"),
                             React.createElement("th", null, "\u062E\u0637"),
                             React.createElement("th", null, "\u0631\u0648\u0634"),
                             React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A")))),
@@ -787,7 +787,6 @@ function LiveStaffDashboard() {
                     React.createElement("td", null, r.role_title || "—"),
                     tab === "present" && React.createElement(React.Fragment, null,
                         React.createElement("td", null, r.check_in ? faTime(r.check_in) : "—"),
-                        React.createElement("td", null, r.location || "—"),
                         React.createElement("td", null, r.line_code ? ("خط " + fa(r.line_code) + (r.line_description ? " — " + r.line_description : "")) : "—"),
                         React.createElement("td", null, methodFa[r.method] || r.method || "—"),
                         React.createElement("td", null,
@@ -2205,33 +2204,73 @@ function AddUser({ roles, zones, onClose, onSave }) {
 function LineAssign({ user, onClose }) {
     const [lines, setLines] = useState([]);
     const [sel, setSel] = useState([]);
+    const [checkinSel, setCheckinSel] = useState([]);
     const [q, setQ] = useState("");
-    useEffect(() => { db.lines().then(setLines).catch(() => { }); db.userLines(user.id).then(ls => setSel(ls.map(l => l.id))).catch(() => { }); }, []);
-    const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
-    const save = async () => { await db.assignLines(user.id, sel); onClose(); };
-    const flt = lines.filter(l => { const s = (l.code + " " + (l.origin || "") + " " + (l.destination || "")); return !q || s.indexOf(q) >= 0; });
+    useEffect(() => {
+        let alive = true;
+        Promise.all([db.lines(), db.userLines(user.id)]).then(([all, assigned]) => {
+            if (!alive)
+                return;
+            setLines(all);
+            setSel(assigned.map(l => Number(l.id)));
+            setCheckinSel(assigned.filter(l => Number(l.checkin_allowed) === 1).map(l => Number(l.id)));
+        }).catch(() => { });
+        return () => { alive = false; };
+    }, [user.id]);
+    const toggle = id => {
+        id = Number(id);
+        const wasSelected = sel.includes(id);
+        setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+        if (wasSelected)
+            setCheckinSel(s => s.filter(x => x !== id));
+    };
+    const toggleCheckin = id => { id = Number(id); setCheckinSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]); };
+    const save = async () => {
+        const visibleIds = sel.map(Number);
+        await db.assignLines(user.id, visibleIds);
+        await db.assignCheckinLines(user.id, checkinSel.filter(id => visibleIds.includes(Number(id))));
+        onClose();
+    };
+    const flt = lines.filter(l => { const s = (l.code + " " + (l.origin || "") + " " + (l.destination || "")); return !q || s.indexOf(q) >= 0; })
+        .sort((a, b) => Number(sel.includes(Number(b.id))) - Number(sel.includes(Number(a.id))) || lines.indexOf(a) - lines.indexOf(b));
     return (React.createElement(Modal, { title: `خطوط مجاز — ${user.first_name} ${user.last_name}`, onClose: onClose },
-        React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginBottom: 10 } }, "\u062E\u0637\u0648\u0637\u06CC \u06A9\u0647 \u0627\u06CC\u0646 \u0646\u06CC\u0631\u0648 \u0645\u062C\u0627\u0632 \u0628\u0647 \u0641\u0639\u0627\u0644\u06CC\u062A \u0631\u0648\u06CC \u0622\u0646\u0647\u0627\u0633\u062A \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F."),
+        React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginBottom: 10 } }, "\u062E\u0637\u0648\u0637\u06CC \u06A9\u0647 \u0627\u06CC\u0646 \u0646\u06CC\u0631\u0648 \u0645\u062C\u0627\u0632 \u0628\u0647 \u0645\u0634\u0627\u0647\u062F\u0647\u0654 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0622\u0646\u0647\u0627\u0633\u062A \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F. \u0645\u062C\u0648\u0632 \u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u062F\u0631 \u0633\u062A\u0648\u0646 \u062C\u062F\u0627\u06AF\u0627\u0646\u0647 \u062A\u0639\u06CC\u06CC\u0646 \u0645\u06CC\u200C\u0634\u0648\u062F."),
         React.createElement("input", { className: "input", placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u062E\u0637 (\u06A9\u062F \u06CC\u0627 \u0645\u0628\u062F\u0623/\u0645\u0642\u0635\u062F)\u2026", value: q, onChange: e => setQ(e.target.value), style: { marginBottom: 8 } }),
-        React.createElement("div", { className: "row", style: { justifyContent: "space-between", marginBottom: 6 } },
-            React.createElement("button", { className: "btn g", onClick: () => setSel(flt.map(l => l.id)) }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0647\u0645\u0647\u0654 \u0646\u062A\u0627\u06CC\u062C"),
-            React.createElement("button", { className: "btn g", onClick: () => setSel([]) }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0647\u0627"),
+        React.createElement("div", { className: "row", style: { justifyContent: "space-between", marginBottom: 6, flexWrap: "wrap" } },
+            React.createElement("button", { className: "btn g", onClick: () => setSel(s => Array.from(new Set([...s, ...flt.map(l => Number(l.id))]))) }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0647\u0645\u0647\u0654 \u0646\u062A\u0627\u06CC\u062C"),
+            React.createElement("button", { className: "btn g", onClick: () => { setSel([]); setCheckinSel([]); } }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0647\u0627"),
             React.createElement("span", { className: "muted", style: { fontSize: 12 } },
                 fa(sel.length),
-                " \u062E\u0637 \u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u062F\u0647")),
-        React.createElement("div", { style: { maxHeight: 320, overflow: "auto" } }, flt.map(l => React.createElement("label", { key: l.id, className: "row", style: { justifyContent: "space-between", padding: "9px 11px", border: "1px solid var(--line)", borderRadius: 11, marginBottom: 7, cursor: "pointer" } },
-            React.createElement("span", { style: { fontSize: 13 } },
-                "\u062E\u0637 ",
-                l.code,
-                " \u2014 ",
-                l.origin,
-                " \u0628\u0647 ",
-                l.destination),
-            React.createElement("input", { type: "checkbox", checked: sel.includes(l.id), onChange: () => toggle(l.id) })))),
+                " \u062E\u0637 \u062F\u0627\u0631\u0627\u06CC \u062F\u0633\u062A\u0631\u0633\u06CC \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u00B7 ",
+                fa(checkinSel.filter(id => sel.includes(Number(id))).length),
+                " \u062E\u0637 \u0645\u062C\u0627\u0632 \u062B\u0628\u062A \u062D\u0636\u0648\u0631")),
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) 94px 94px", gap: 8, padding: "8px 10px", fontSize: 11, fontWeight: 800, color: "var(--muted)", borderBottom: "1px solid var(--line)" } },
+            React.createElement("span", null, "\u062E\u0637"),
+            React.createElement("span", { style: { textAlign: "center" } }, "\u062F\u0633\u062A\u0631\u0633\u06CC \u0627\u0637\u0644\u0627\u0639\u0627\u062A"),
+            React.createElement("span", { style: { textAlign: "center" } }, "\u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u0645\u0646")),
+        React.createElement("div", { style: { maxHeight: 340, overflow: "auto" } }, flt.map(l => {
+            const id = Number(l.id), selected = sel.includes(id), checkin = checkinSel.includes(id);
+            return React.createElement("div", { key: l.id, style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) 94px 94px", gap: 8, alignItems: "center", padding: "9px 10px", border: "1px solid var(--line)", borderRadius: 10, marginBottom: 6 } },
+                React.createElement("span", { style: { fontSize: 13 } },
+                    "\u062E\u0637 ",
+                    l.code,
+                    " \u2014 ",
+                    l.origin,
+                    " \u0628\u0647 ",
+                    l.destination),
+                React.createElement("label", { style: { display: "flex", justifyContent: "center", alignItems: "center", gap: 5, fontSize: 11, cursor: "pointer" } },
+                    React.createElement("input", { type: "checkbox", checked: selected, onChange: () => toggle(id) }),
+                    React.createElement("span", null, "\u0645\u062C\u0627\u0632")),
+                React.createElement("label", { style: { display: "flex", justifyContent: "center", alignItems: "center", gap: 5, fontSize: 11, cursor: selected ? "pointer" : "not-allowed", opacity: selected ? 1 : .45 } },
+                    React.createElement("input", { type: "checkbox", checked: selected && checkin, disabled: !selected, onChange: () => toggleCheckin(id) }),
+                    React.createElement("span", null, "\u0645\u062C\u0627\u0632")));
+        })),
         React.createElement("button", { className: "btn p", style: { marginTop: 12, width: "100%" }, onClick: save },
-            "\u0630\u062E\u06CC\u0631\u0647\u0654 \u062E\u0637\u0648\u0637 (",
+            "\u0630\u062E\u06CC\u0631\u0647\u0654 \u0645\u062C\u0648\u0632\u0647\u0627 (",
             fa(sel.length),
-            ")")));
+            " \u062E\u0637 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u00B7 ",
+            fa(checkinSel.filter(id => sel.includes(Number(id))).length),
+            " \u062E\u0637 \u062B\u0628\u062A \u062D\u0636\u0648\u0631)")));
 }
 function Zones() {
     const [users, setUsers] = useState([]);
