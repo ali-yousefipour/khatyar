@@ -71,24 +71,30 @@ route('GET','/api/school-service/dashboard',function($p,$b,$u){
  }
  $districtSchools=Db::all("SELECT COALESCE(NULLIF(TRIM(educational_district),''),'نامشخص') label,COUNT(*) n,COALESCE(SUM(student_count),0) students FROM school_service_schools WHERE is_active=1 GROUP BY educational_district ORDER BY n DESC");
  $activeInspectors=[];$activeInspectorCount=0;
- // شمارنده و فهرست از یک بازه و یک مجموعهٔ بازدید مشترک ساخته می‌شوند؛ نبودن پروفایل/نقش کاربر نباید بازرس را حذف کند.
- try{
-   $activeInspectorCount=(int)(Db::one("SELECT COUNT(DISTINCT i.inspector_user_id) n FROM school_service_inspections i WHERE i.inspector_user_id IS NOT NULL AND i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) AND $where",$a)['n']??0);
- }catch(Throwable $e){error_log('School service active inspector count failed: '.$e->getMessage());}
- try{
-   $activeInspectors=Db::all("SELECT i.inspector_user_id id,
-     COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))),''),CONCAT('بازرس #',i.inspector_user_id)) name,
-     COALESCE(r.title,'') role_title,
-     COUNT(*) inspection_count,
-     SUM(CASE WHEN i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) THEN 1 ELSE 0 END) inspection_count_30d
-     FROM school_service_inspections i
-     LEFT JOIN users u ON u.id=i.inspector_user_id
-     LEFT JOIN roles r ON r.id=u.role_id
-     WHERE i.inspector_user_id IS NOT NULL AND i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) AND $where
-     GROUP BY i.inspector_user_id,u.first_name,u.last_name,r.title
-     ORDER BY inspection_count_30d DESC,inspection_count DESC,name ASC",$a);
-   if(!$activeInspectorCount)$activeInspectorCount=count($activeInspectors);
- }catch(Throwable $e){$activeInspectors=[];error_log('School service active inspector list failed: '.$e->getMessage());}
+ // در دیتابیس‌های قدیمی شناسهٔ ثبت‌کننده ممکن است با نام دیگری ذخیره شده باشد؛ ستون موجود را از خود schema تشخیص بده.
+ $inspectionColumns=[];
+ try{foreach(Db::all("SHOW COLUMNS FROM school_service_inspections") as $column){$field=(string)($column['Field']??$column['field']??'');if($field!=='')$inspectionColumns[$field]=true;}}catch(Throwable $e){error_log('School service inspector schema inspection failed: '.$e->getMessage());}
+ $inspectorFields=[];
+ foreach(['inspector_user_id','inspector_id','user_id','created_by_user_id','created_by'] as $field){if(isset($inspectionColumns[$field]))$inspectorFields[]='NULLIF(i.`'.$field.'`,0)';}
+ $inspectorExpr=count($inspectorFields)?'COALESCE('.implode(',',$inspectorFields).')':'NULL';
+ if($inspectorExpr!=='NULL'){
+   try{
+     $activeInspectorCount=(int)(Db::one("SELECT COUNT(DISTINCT $inspectorExpr) n FROM school_service_inspections i WHERE $inspectorExpr IS NOT NULL AND i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) AND $where",$a)['n']??0);
+   }catch(Throwable $e){error_log('School service active inspector count failed: '.$e->getMessage());}
+   try{
+     $activeInspectors=Db::all("SELECT $inspectorExpr id,
+       COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))),''),CONCAT('بازرس #',$inspectorExpr)) name,
+       COALESCE(r.title,'') role_title,COUNT(*) inspection_count,
+       SUM(CASE WHEN i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) THEN 1 ELSE 0 END) inspection_count_30d
+       FROM school_service_inspections i
+       LEFT JOIN users u ON u.id=$inspectorExpr
+       LEFT JOIN roles r ON r.id=u.role_id
+       WHERE $inspectorExpr IS NOT NULL AND i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) AND $where
+       GROUP BY $inspectorExpr,u.first_name,u.last_name,r.title
+       ORDER BY inspection_count_30d DESC,inspection_count DESC,name ASC",$a);
+     if(!$activeInspectorCount)$activeInspectorCount=count($activeInspectors);
+   }catch(Throwable $e){$activeInspectors=[];error_log('School service active inspector list failed: '.$e->getMessage());}
+ }
  return ['cards'=>['active_schools'=>$activeSchools,'students'=>$studentTotal,'active_companies'=>$activeCompanies,'active_vehicles'=>$activeVehicles,'inspections'=>$inspections,'inspections_30d'=>$inspections30,'active_inspectors'=>$activeInspectorCount,'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol],
    'by_district'=>$byDistrict,'by_company'=>$byCompany,'by_violation'=>$byViolation,'by_school'=>$bySchool,'vehicle_types'=>$vehicleTypes,'certificates'=>$certificates,'trend'=>$trend,'district_schools'=>$districtSchools,'active_inspectors'=>$activeInspectors,'generated_at'=>date('Y-m-d H:i:s')];
 });
