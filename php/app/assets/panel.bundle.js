@@ -757,7 +757,9 @@ function LiveStaffDashboard() {
     if (!live)
         return React.createElement("div", { className: "panel", style: { margin: "14px 0" } },
             React.createElement("span", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0648\u0636\u0639\u06CC\u062A \u062D\u0636\u0648\u0631 \u067E\u0631\u0633\u0646\u0644\u2026"));
-    const baseRows = tab === "present" ? [...(live.present_list || [])] : tab === "leave" ? (live.leave_list || []) : (live.absent_list || []);
+    const isOpenSession = (r) => { var _a; return r.is_open === true || r.is_open === 1 || ["1", "true", "open"].includes(String((_a = r.is_open) !== null && _a !== void 0 ? _a : "").trim().toLowerCase()); };
+    const baseRows = tab === "present" ? [...(live.present_list || [])].filter(isOpenSession) : tab === "leave" ? (live.leave_list || []) : (live.absent_list || []);
+    const absenceReason = (r) => String(r.absence_reason || r.reason || r.absent_reason || r.status_reason || r.reason_text || r.leave_reason || r.request_reason || r.note || "ثبت نشده").trim();
     const sortValue = (r, key) => {
         var _a, _b;
         if (key === "check_in") {
@@ -773,7 +775,7 @@ function LiveStaffDashboard() {
             return raw !== "" && Number.isFinite(n) ? n : raw;
         }
         if (key === "is_open")
-            return r.is_open ? 1 : 0;
+            return isOpenSession(r) ? 1 : 0;
         if (key === "method")
             return String(methodFa[r.method] || r.method || "");
         return String((_b = r[key]) !== null && _b !== void 0 ? _b : "");
@@ -811,6 +813,7 @@ function LiveStaffDashboard() {
                         React.createElement("th", null,
                             "\u0633\u0645\u062A ",
                             tab === "present" && sortButton("role_title", "سمت")),
+                        tab === "absent" && React.createElement("th", null, "\u0639\u0644\u062A \u063A\u06CC\u0628\u062A"),
                         tab === "present" && React.createElement(React.Fragment, null,
                             React.createElement("th", null,
                                 "\u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F ",
@@ -827,12 +830,13 @@ function LiveStaffDashboard() {
                 React.createElement("tbody", null, rows.map((r, i) => React.createElement("tr", { key: r.user_id || i },
                     React.createElement("td", null, r.name || "—"),
                     React.createElement("td", null, r.role_title || "—"),
+                    tab === "absent" && React.createElement("td", null, absenceReason(r)),
                     tab === "present" && React.createElement(React.Fragment, null,
                         React.createElement("td", null, r.check_in ? faTime(r.check_in) : "—"),
                         React.createElement("td", null, r.line_code ? ("خط " + fa(r.line_code) + (r.line_description ? " — " + r.line_description : "")) : "—"),
                         React.createElement("td", null, methodFa[r.method] || r.method || "—"),
                         React.createElement("td", null,
-                            React.createElement("span", { className: "badge " + (r.is_open ? "ok" : "muted") }, r.is_open ? "داخل شیفت" : "خروج ثبت شده")))))))));
+                            React.createElement("span", { className: "badge " + (isOpenSession(r) ? "ok" : "muted") }, isOpenSession(r) ? "داخل شیفت" : "خروج ثبت شده")))))))));
 }
 function Dashboard() {
     const [s, setS] = useState(null);
