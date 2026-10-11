@@ -533,7 +533,9 @@ function LiveStaffDashboard(){
   const methodFa={gps:"GPS",wifi:"Wi‑Fi",manual:"دستی",gsm:"GSM"};
   const [sortConfig,setSortConfig]=useState({key:"check_in",direction:"asc"});
   if(!live)return <div className="panel" style={{margin:"14px 0"}}><span className="muted">در حال دریافت وضعیت حضور پرسنل…</span></div>;
-  const baseRows=tab==="present"?[...(live.present_list||[])]:tab==="leave"?(live.leave_list||[]):(live.absent_list||[]);
+  const isOpenSession=(r)=>r.is_open===true||r.is_open===1||["1","true","open"].includes(String(r.is_open??"").trim().toLowerCase());
+  const baseRows=tab==="present"?[...(live.present_list||[])].filter(isOpenSession):tab==="leave"?(live.leave_list||[]):(live.absent_list||[]);
+  const absenceReason=(r)=>String(r.absence_reason||r.reason||r.absent_reason||r.status_reason||r.reason_text||r.leave_reason||r.request_reason||r.note||"ثبت نشده").trim();
   const sortValue=(r,key)=>{
     if(key==="check_in"){
       const raw=String(r.check_in||"").trim();
@@ -545,7 +547,7 @@ function LiveStaffDashboard(){
       const raw=String(r.line_code??"").trim(),n=Number(raw);
       return raw!==""&&Number.isFinite(n)?n:raw;
     }
-    if(key==="is_open")return r.is_open?1:0;
+    if(key==="is_open")return isOpenSession(r)?1:0;
     if(key==="method")return String(methodFa[r.method]||r.method||"");
     return String(r[key]??"");
   };
@@ -568,8 +570,8 @@ function LiveStaffDashboard(){
     <div className="tabbar" style={{display:"flex",gap:6,margin:"12px 0",borderBottom:"1px solid var(--line)",flexWrap:"wrap"}}>
       {[["present","حاضرین"],["absent","غایبین"],["leave","مرخصی و ماموریت"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{background:"none",border:"none",borderBottom:tab===k?"3px solid var(--brand)":"3px solid transparent",padding:"8px 12px",fontFamily:"inherit",fontWeight:tab===k?800:500,cursor:"pointer",color:tab===k?"var(--brand)":"var(--muted)"}}>{l}</button>)}
     </div>
-    {rows.length===0?<p className="muted">موردی برای نمایش وجود ندارد.</p>:<div style={{overflowX:"auto"}}><table><thead><tr><th>نام {tab==="present"&&sortButton("name","نام")}</th><th>سمت {tab==="present"&&sortButton("role_title","سمت")}</th>{tab==="present"&&<><th>ساعت ورود {sortButton("check_in","ساعت ورود")}</th><th>خط {sortButton("line_code","خط")}</th><th>روش {sortButton("method","روش")}</th><th>وضعیت {sortButton("is_open","وضعیت")}</th></>}</tr></thead><tbody>
-      {rows.map((r,i)=><tr key={r.user_id||i}><td>{r.name||"—"}</td><td>{r.role_title||"—"}</td>{tab==="present"&&<><td>{r.check_in?faTime(r.check_in):"—"}</td><td>{r.line_code?("خط "+fa(r.line_code)+(r.line_description?" — "+r.line_description:"")):"—"}</td><td>{methodFa[r.method]||r.method||"—"}</td><td><span className={"badge "+(r.is_open?"ok":"muted")}>{r.is_open?"داخل شیفت":"خروج ثبت شده"}</span></td></>}</tr>)}
+    {rows.length===0?<p className="muted">موردی برای نمایش وجود ندارد.</p>:<div style={{overflowX:"auto"}}><table><thead><tr><th>نام {tab==="present"&&sortButton("name","نام")}</th><th>سمت {tab==="present"&&sortButton("role_title","سمت")}</th>{tab==="absent"&&<th>علت غیبت</th>}{tab==="present"&&<><th>ساعت ورود {sortButton("check_in","ساعت ورود")}</th><th>خط {sortButton("line_code","خط")}</th><th>روش {sortButton("method","روش")}</th><th>وضعیت {sortButton("is_open","وضعیت")}</th></>}</tr></thead><tbody>
+      {rows.map((r,i)=><tr key={r.user_id||i}><td>{r.name||"—"}</td><td>{r.role_title||"—"}</td>{tab==="absent"&&<td>{absenceReason(r)}</td>}{tab==="present"&&<><td>{r.check_in?faTime(r.check_in):"—"}</td><td>{r.line_code?("خط "+fa(r.line_code)+(r.line_description?" — "+r.line_description:"")):"—"}</td><td>{methodFa[r.method]||r.method||"—"}</td><td><span className={"badge "+(isOpenSession(r)?"ok":"muted")}>{isOpenSession(r)?"داخل شیفت":"خروج ثبت شده"}</span></td></>}</tr>)}
     </tbody></table></div>}
   </div>;
 }
