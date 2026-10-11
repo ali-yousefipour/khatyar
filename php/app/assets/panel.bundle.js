@@ -1,5 +1,5 @@
 const KH_COMPLAINTS_BUILD = "2026-10-06-v257";
-// PANEL BUILD TARGET: 2026-10-06-v248
+// PANEL BUILD TARGET: 2026-10-11-v255
 // Build sync: keep generated panel bundle aligned with panel_source changes.
 const { useState, useEffect, useRef } = React;
 const I8 = (name) => React.createElement("img", { src: `/assets/icons3d/${name}.png`, alt: "", width: "30", height: "30", loading: "eager", decoding: "async", style: { objectFit: 'contain' }, onError: e => { e.currentTarget.style.display = 'none'; } });
@@ -15345,7 +15345,7 @@ function App() {
                     React.createElement("div", { className: "av" }, (me.name || "؟")[0]))),
             React.createElement(View, null))));
 }
-const PANEL_BUILD_VERSION = "1.5.6";
+const PANEL_BUILD_VERSION = "1.5.7";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
@@ -15390,7 +15390,7 @@ async function khForceFreshReloadAfterLogin() {
         return;
     }
     await khEnsureFreshBuild();
-    console.log("PANEL BUILD: 1.5.6 (panel-native-radio-school-service)");
+    console.log("PANEL BUILD: 1.5.7 (panel-native-radio-school-service)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
     requestAnimationFrame(() => requestAnimationFrame(() => { const loader = document.getElementById("kh-initial-loader"); if (loader)
         loader.classList.add("kh-loader-hide"); }));
