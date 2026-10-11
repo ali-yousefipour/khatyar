@@ -208,41 +208,53 @@ function Ensure-AndroidSdk() {
     if ($env:PATH -notlike "*$sdkBin*") { $env:PATH = "$sdkBin;$([IO.Path]::GetDirectoryName($sdkManager));$env:PATH" }
     if (-not (Test-Path -LiteralPath $sdkManager)) { Fail "sdkmanager was not installed: $sdkManager" }
 
-    Stage 18 'Installing required Android SDK components from public mirrors'
+    Stage 18 'Installing required Android SDK components from configured repository mirrors'
     $components = @('platform-tools','platforms;android-36','build-tools;36.0.0','ndk;27.3.13750724')
     $sdkLog = Join-Path $env:TEMP ('khatyar-sdkmanager-' + [guid]::NewGuid().ToString('N') + '.log')
+    $repositoriesConfig = Join-Path $env:ANDROID_USER_HOME 'repositories.cfg'
     $installed = $false
     try {
-        $licenseInput = ('y' + [Environment]::NewLine) * 100
         foreach ($mirror in $repositoryMirrors) {
-            # SDK Manager uses this test/mirror base URL in builds that support SDK repository
-            # overrides. Keep the value scoped to this process and try each mirror independently.
-            $env:SDK_TEST_BASE_URL = $mirror
-            Write-Host "    Trying SDK package mirror: $mirror" -ForegroundColor Cyan
+            # sdkmanager does not reliably honor SDK_TEST_BASE_URL. Register the mirror's
+            # actual repository XML in repositories.cfg instead, as documented by mirror operators.
+            $repositoryXml = $mirror.TrimEnd('/') + '/repository2-1.xml'
+            Write-Host "    Testing SDK repository: $repositoryXml" -ForegroundColor Cyan
             try {
-                $licenseInput | & $sdkManager "--sdk_root=$sdk" --licenses 2>&1 | Tee-Object -FilePath $sdkLog | Out-Host
+                @(
+                    '### Khatyar Android SDK mirror configuration'
+                    $repositoryXml
+                ) | Set-Content -LiteralPath $repositoriesConfig -Encoding ASCII
+
+                $listOutput = & $sdkManager "--sdk_root=$sdk" --list --verbose 2>&1
+                $listExit = $LASTEXITCODE
+                $listText = ($listOutput | Out-String)
+                $listText | Set-Content -LiteralPath $sdkLog -Encoding UTF8
+                if ($listExit -ne 0 -or $listText -match '(?i)Failed to download any source lists|IO exception while downloading manifest|Still waiting for package manifests') {
+                    throw 'sdkmanager could not load the mirror repository manifest.'
+                }
+
+                $licenseInput = ('y' + [Environment]::NewLine) * 100
+                $licenseInput | & $sdkManager "--sdk_root=$sdk" --licenses 2>&1 | Tee-Object -FilePath $sdkLog -Append | Out-Host
                 if ($LASTEXITCODE -ne 0) { throw 'License acceptance command failed.' }
+
                 & $sdkManager "--sdk_root=$sdk" @components 2>&1 | Tee-Object -FilePath $sdkLog -Append | Out-Host
                 if ($LASTEXITCODE -ne 0) { throw 'One or more SDK components failed to install from this mirror.' }
                 $installed = $true
                 break
             } catch {
-                Write-Host "    SDK mirror failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                Write-Host "    SDK repository failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                if (Test-Path -LiteralPath $sdkLog) {
+                    Get-Content -LiteralPath $sdkLog -Tail 12 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "      $_" -ForegroundColor DarkYellow }
+                }
             }
         }
     } finally {
-        Remove-Item Env:\SDK_TEST_BASE_URL -ErrorAction SilentlyContinue
         if (Test-Path -LiteralPath $sdkLog) {
-            $sdkLogText = Get-Content -LiteralPath $sdkLog -Raw -ErrorAction SilentlyContinue
-            if ($sdkLogText -and $sdkLogText -match '(?i)failed|error|exception') {
-                Write-Host "    SDK Manager diagnostics: $sdkLog" -ForegroundColor Yellow
-            } else {
-                Remove-Item -LiteralPath $sdkLog -Force -ErrorAction SilentlyContinue
-            }
+            Write-Host "    SDK Manager diagnostics: $sdkLog" -ForegroundColor Yellow
         }
     }
     if (-not $installed) {
-        Fail "Could not install Android SDK components from the configured non-Google mirrors. See SDK Manager log if retained: $sdkLog. Google download endpoints are intentionally not used."
+        Fail "Could not install Android SDK components from the configured non-Google mirrors. Mirror repository URLs were registered in $repositoriesConfig. See diagnostics: $sdkLog. Google download endpoints are intentionally not used as a fallback."
     }
 
     $required = @(
