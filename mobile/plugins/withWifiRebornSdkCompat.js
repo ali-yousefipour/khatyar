@@ -80,20 +80,26 @@ module.exports = function withWifiRebornSdkCompat(config) {
     }
 
     const source = fs.readFileSync(sourcePath, 'utf8');
+    // Prebuild can run repeatedly without reinstalling node_modules. Treat our
+    // earlier successful patch as already applied instead of applying it twice.
+    if (source.includes('release SoftwareComponent is unavailable during configuration.')) {
+      console.log('[withWifiRebornSdkCompat] Expo publication guard is already applied.');
+      return cfg;
+    }
     if (source.includes('components.matching { it.name == "release" }')) {
       console.log('[withWifiRebornSdkCompat] Expo publication hook already waits for the release component.');
       return cfg;
     }
 
-    const anchor = /afterEvaluate\s*\{\s*(?=val publicationInfo\s*=\s*PublicationInfo\(this\))/;
+    const anchor = /afterEvaluate\\s*\\{\\s*(?=val publicationInfo\\s*=\\s*PublicationInfo\\(this\\))/;
     if (!anchor.test(source)) {
       throw new Error('[withWifiRebornSdkCompat] Expo Gradle publication source has an unknown layout; refusing an unverified patch.');
     }
-    const guard = 'afterEvaluate {\n' +
-      '    if (components.findByName("release") == null) {\n' +
-      '      logger.warn("Skipping optional Expo Maven publication for ${project.path}: release SoftwareComponent is unavailable during configuration.")\n' +
-      '      return@afterEvaluate\n' +
-      '    }\n' +
+    const guard = 'afterEvaluate {\\n' +
+      '    if (components.findByName("release") == null) {\\n' +
+      '      logger.warn("Skipping optional Expo Maven publication for ${project.path}: release SoftwareComponent is unavailable during configuration.")\\n' +
+      '      return@afterEvaluate\\n' +
+      '    }\\n' +
       '    ';
     const patched = source.replace(anchor, guard);
     if (patched === source || !patched.includes('release SoftwareComponent is unavailable')) {
