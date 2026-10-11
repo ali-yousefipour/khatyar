@@ -211,20 +211,16 @@ function Ensure-AndroidSdk() {
     Stage 18 'Installing required Android SDK components from configured repository mirrors'
     $components = @('platform-tools','platforms;android-36','build-tools;36.0.0','ndk;27.3.13750724')
     $sdkLog = Join-Path $env:TEMP ('khatyar-sdkmanager-' + [guid]::NewGuid().ToString('N') + '.log')
-    $repositoriesConfig = Join-Path $env:ANDROID_USER_HOME 'repositories.cfg'
+    $previousSdkTestBaseUrl = $env:SDK_TEST_BASE_URL
     $installed = $false
     try {
         foreach ($mirror in $repositoryMirrors) {
-            # sdkmanager does not reliably honor SDK_TEST_BASE_URL. Register the mirror's
-            # actual repository XML in repositories.cfg instead, as documented by mirror operators.
+            # sdkmanager's supported mirror override is SDK_TEST_BASE_URL. repositories.cfg
+            # stores user-added sources; placing a bare URL there does not replace the primary repo.
             $repositoryXml = $mirror.TrimEnd('/') + '/repository2-1.xml'
             Write-Host "    Testing SDK repository: $repositoryXml" -ForegroundColor Cyan
             try {
-                @(
-                    '### Khatyar Android SDK mirror configuration'
-                    $repositoryXml
-                ) | Set-Content -LiteralPath $repositoriesConfig -Encoding ASCII
-
+                $env:SDK_TEST_BASE_URL = $mirror
                 $listOutput = & $sdkManager "--sdk_root=$sdk" --list --verbose 2>&1
                 $listExit = $LASTEXITCODE
                 $listText = ($listOutput | Out-String)
@@ -249,12 +245,13 @@ function Ensure-AndroidSdk() {
             }
         }
     } finally {
+        $env:SDK_TEST_BASE_URL = $previousSdkTestBaseUrl
         if (Test-Path -LiteralPath $sdkLog) {
             Write-Host "    SDK Manager diagnostics: $sdkLog" -ForegroundColor Yellow
         }
     }
     if (-not $installed) {
-        Fail "Could not install Android SDK components from the configured non-Google mirrors. Mirror repository URLs were registered in $repositoriesConfig. See diagnostics: $sdkLog. Google download endpoints are intentionally not used as a fallback."
+        Fail "Could not install Android SDK components from the configured non-Google mirrors. See diagnostics: $sdkLog. Google download endpoints are intentionally not used as a fallback."
     }
 
     $required = @(
