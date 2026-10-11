@@ -755,7 +755,8 @@ function LiveStaffDashboard() {
     if (!live)
         return React.createElement("div", { className: "panel", style: { margin: "14px 0" } },
             React.createElement("span", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0648\u0636\u0639\u06CC\u062A \u062D\u0636\u0648\u0631 \u067E\u0631\u0633\u0646\u0644\u2026"));
-    const rows = tab === "present" ? (live.present_list || []) : tab === "leave" ? (live.leave_list || []) : (live.absent_list || []);
+    const rows = tab === "present" ? [...(live.present_list || [])].sort((a, b) => { const timeOf = v => { const raw = String(v && v.check_in || "").trim(); const stamp = Date.parse(raw); if (Number.isFinite(stamp))
+        return stamp; const m = raw.match(/(?:^|T|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?/); return m ? (Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3] || 0)) : Number.MAX_SAFE_INTEGER; }; return timeOf(a) - timeOf(b); }) : tab === "leave" ? (live.leave_list || []) : (live.absent_list || []);
     return React.createElement("div", { className: "panel", style: { margin: "14px 0" } },
         React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" } },
             React.createElement("div", null,
