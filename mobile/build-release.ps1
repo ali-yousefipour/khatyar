@@ -137,26 +137,26 @@ function Remove-LockedAndroidDirectory([string]$Android) {
 
 
 function Get-SdkArchiveRecord([object[]]$Rows,[string]$PackagePath) {
-    $matches = @($Rows | Where-Object { ([string]$_.package_path).Trim() -eq $PackagePath })
-    if ($matches.Count -eq 0) {
+    $packageRows = @($Rows | Where-Object { ([string]$_.package_path).Trim() -eq $PackagePath })
+    if ($packageRows.Count -eq 0) {
         Fail "Myket SDK archive index has no row for '$PackagePath'."
     }
 
     # The Myket index may list one package path for multiple host OS archives.
     # Prefer the Windows archive explicitly; never select an arbitrary duplicate.
-    if ($matches.Count -gt 1) {
-        $windowsMatches = @($matches | Where-Object {
+    if ($packageRows.Count -gt 1) {
+        $windowsRows = @($packageRows | Where-Object {
             ([string]$_.archive_url) -match '(?i)(windows|win)(?:[-_.]|/|$)'
         })
-        if ($windowsMatches.Count -eq 1) {
-            $matches = $windowsMatches
+        if ($windowsRows.Count -eq 1) {
+            $packageRows = $windowsRows
         } else {
-            $urls = ($matches | ForEach-Object { [string]$_.archive_url }) -join '; '
-            Fail "Myket SDK archive index has $($matches.Count) rows for '$PackagePath' and could not identify exactly one Windows archive. Candidate URLs: $urls"
+            $urls = ($packageRows | ForEach-Object { [string]$_.archive_url }) -join '; '
+            Fail "Myket SDK archive index has $($packageRows.Count) rows for '$PackagePath' and could not identify exactly one Windows archive. Candidate URLs: $urls"
         }
     }
 
-    $row = $matches[0]
+    $row = $packageRows[0]
     foreach ($field in @('archive_url','archive_size','archive_checksum')) {
         if ([string]::IsNullOrWhiteSpace([string]$row.$field)) {
             Fail "Myket SDK archive index has an empty '$field' for '$PackagePath'."
