@@ -2578,12 +2578,17 @@ route('POST', '/api/my/shift-handover/accept', function($p,$b,$u){
   $h = Db::one("SELECT * FROM shift_handovers WHERE token=? AND status='pending' AND expires_at>=NOW()", [$token]);
   if (!$h) Http::error('کد تحویل شیفت منقضی یا نامعتبر است.', 404);
   if ((int)$h['from_user_id'] === (int)$u['id']) Http::error('تحویل‌گیرنده نمی‌تواند همان تحویل‌دهنده باشد.', 422);
+  $handoverLineId=(int)($h['line_id']??0);
+  if($handoverLineId<=0) Http::error('خط حضور تحویل‌شده مشخص نیست؛ ثبت حضور عادی را انجام دهید.',422);
+  $checkinLineIds=user_checkin_line_ids($u);
+  if(is_array($checkinLineIds) && !in_array($handoverLineId,array_map('intval',$checkinLineIds),true))
+    Http::error('برای ثبت حضور روی خط تحویل‌شده مجوز ثبت حضور ندارید.',403);
   $myOpen = Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", [$u['id']]);
   if ($myOpen) Http::error('شما یک حضور باز دارید. ابتدا خروج خود را ثبت کنید.', 400);
   [$lat,$lng] = validGeo($b['lat'] ?? null, $b['lng'] ?? null);
-  $station = _station_name_at($lat,$lng,user_line_ids($u));
+  $station = _station_name_at($lat,$lng,$checkinLineIds);
   Db::run("UPDATE staff_attendance SET check_out=NOW(), out_lat=?, out_lng=?, out_station=?, handover_id=? WHERE id=? AND check_out IS NULL", [$lat,$lng,$station,$h['id'],$h['attendance_id']]);
-  $newId = Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,in_lat,in_lng,in_station,handover_id) VALUES(?,?,?,?,?,'تحویل شیفت',?)", [$u['id'],$h['line_id'],'handover_qr',$lat,$lng,$h['id']]);
+  $newId = Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,in_lat,in_lng,in_station,handover_id) VALUES(?,?,?,?,?,'تحویل شیفت',?)", [$u['id'],$handoverLineId,'handover_qr',$lat,$lng,$h['id']]);
   Db::run("UPDATE shift_handovers SET status='accepted', to_user_id=?, accepted_at=NOW() WHERE id=?", [$u['id'],$h['id']]);
   return ['ok'=>true,'checkin_id'=>$newId,'line_id'=>(int)$h['line_id']];
 });
@@ -10745,7 +10750,7 @@ function _phase7p4_offline_checkin($b,$u,$uuid,$it){
   [$lat,$lng] = validGeo($b['lat'] ?? null, $b['lng'] ?? null);
   if (($lat === null || $lng === null) && $method !== 'wifi') throw new Exception('موقعیت ثبت ورود آفلاین وجود ندارد');
   $lineId = (int)($b['line_id'] ?? 0);
-  $lineIds = user_line_ids($u);
+  $lineIds = user_checkin_line_ids($u);
   if ($lineId && (!is_array($lineIds) || !in_array($lineId, array_map('intval', $lineIds), true))) $lineId = 0;
   $acc = isset($b['accuracy']) ? max(0, min(150, (float)$b['accuracy'])) : 0;
   $extraR = max(0, (int)_req_setting('checkin_error_radius_m', 0)) + (int)ceil(min(80, $acc * 0.75));
