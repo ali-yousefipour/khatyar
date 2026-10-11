@@ -9565,8 +9565,10 @@ function user_line_ids($u) {
 }
 function user_checkin_line_ids($u) {
   _ensure_user_line_checkin_permissions_schema();
+  $viewIds=array_column(Db::all("SELECT line_id FROM user_lines WHERE user_id=?",[$u['id']]),'line_id');
   $ids=array_column(Db::all("SELECT line_id FROM user_line_checkin_permissions WHERE user_id=?",[$u['id']]),'line_id');
-  if($ids) return array_map('intval',$ids);
+  // اگر برای کاربر خطوط اطلاعات مشخص شده، فهرست ثبت حضور نیز دقیقاً از همان محدوده پیروی می‌کند؛ حتی اگر خالی باشد.
+  if($viewIds) return array_map('intval',$ids);
   return empty($u['is_admin']) ? [] : null;
 }
 // تبدیل عکس کاربر به URL: اگر photo_path باشد URL فایل، وگرنه photo قدیمی (base64)

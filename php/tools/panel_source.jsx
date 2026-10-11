@@ -1375,8 +1375,9 @@ function LineAssign({user,onClose}){
   },[user.id]);
   const toggle=id=>{
     id=Number(id);
+    const wasSelected=sel.includes(id);
     setSel(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
-    setCheckinSel(s=>s.filter(x=>x!==id));
+    if(wasSelected)setCheckinSel(s=>s.filter(x=>x!==id));
   };
   const toggleCheckin=id=>{id=Number(id);setCheckinSel(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);};
   const save=async()=>{
