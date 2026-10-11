@@ -91,15 +91,15 @@ module.exports = function withWifiRebornSdkCompat(config) {
       return cfg;
     }
 
-    const anchor = /afterEvaluate\\s*\\{\\s*(?=val publicationInfo\\s*=\\s*PublicationInfo\\(this\\))/;
+    const anchor = /afterEvaluate\s*\{\s*(?=val publicationInfo\s*=\s*PublicationInfo\(this\))/;
     if (!anchor.test(source)) {
       throw new Error('[withWifiRebornSdkCompat] Expo Gradle publication source has an unknown layout; refusing an unverified patch.');
     }
-    const guard = 'afterEvaluate {\\n' +
-      '    if (components.findByName("release") == null) {\\n' +
-      '      logger.warn("Skipping optional Expo Maven publication for ${project.path}: release SoftwareComponent is unavailable during configuration.")\\n' +
-      '      return@afterEvaluate\\n' +
-      '    }\\n' +
+    const guard = 'afterEvaluate {\n' +
+      '    if (components.findByName("release") == null) {\n' +
+      '      logger.warn("Skipping optional Expo Maven publication for \${project.path}: release SoftwareComponent is unavailable during configuration.")\n' +
+      '      return@afterEvaluate\n' +
+      '    }\n' +
       '    ';
     const patched = source.replace(anchor, guard);
     if (patched === source || !patched.includes('release SoftwareComponent is unavailable')) {
