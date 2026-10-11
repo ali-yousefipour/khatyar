@@ -345,6 +345,7 @@ const db = {
   staffAttendance: (from,to)=> GET('/admin/staff-attendance?from='+from+'&to='+to),
   setOrg: (id,b)=> SEND('PUT','/admin/users/'+id+'/org',b),
   assignLines: (id,ids)=> SEND('PUT','/admin/users/'+id+'/lines',{line_ids:ids}),
+  assignCheckinLines: (id,ids)=> SEND('PUT','/admin/users/'+id+'/checkin-lines',{line_ids:ids}),
   revokeDevice: (id,type)=> SEND('POST','/admin/users/'+id+'/revoke-device',type?{device_type:type}:{}),
   deleteUser: (id)=> SEND('DELETE','/admin/users/'+id),
   resetPassword: (id,password)=> SEND('POST','/admin/users/'+id+'/reset-password',{password}),
@@ -543,8 +544,8 @@ function LiveStaffDashboard(){
     <div className="tabbar" style={{display:"flex",gap:6,margin:"12px 0",borderBottom:"1px solid var(--line)",flexWrap:"wrap"}}>
       {[["present","حاضرین"],["absent","غایبین"],["leave","مرخصی و ماموریت"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{background:"none",border:"none",borderBottom:tab===k?"3px solid var(--brand)":"3px solid transparent",padding:"8px 12px",fontFamily:"inherit",fontWeight:tab===k?800:500,cursor:"pointer",color:tab===k?"var(--brand)":"var(--muted)"}}>{l}</button>)}
     </div>
-    {rows.length===0?<p className="muted">موردی برای نمایش وجود ندارد.</p>:<div style={{overflowX:"auto"}}><table><thead><tr><th>نام</th><th>سمت</th>{tab==="present"&&<><th>ساعت ورود</th><th>محل ثبت</th><th>خط</th><th>روش</th><th>وضعیت</th></>}</tr></thead><tbody>
-      {rows.map((r,i)=><tr key={r.user_id||i}><td>{r.name||"—"}</td><td>{r.role_title||"—"}</td>{tab==="present"&&<><td>{r.check_in?faTime(r.check_in):"—"}</td><td>{r.location||"—"}</td><td>{r.line_code?("خط "+fa(r.line_code)+(r.line_description?" — "+r.line_description:"")):"—"}</td><td>{methodFa[r.method]||r.method||"—"}</td><td><span className={"badge "+(r.is_open?"ok":"muted")}>{r.is_open?"داخل شیفت":"خروج ثبت شده"}</span></td></>}</tr>)}
+    {rows.length===0?<p className="muted">موردی برای نمایش وجود ندارد.</p>:<div style={{overflowX:"auto"}}><table><thead><tr><th>نام</th><th>سمت</th>{tab==="present"&&<><th>ساعت ورود</th><th>خط</th><th>روش</th><th>وضعیت</th></>}</tr></thead><tbody>
+      {rows.map((r,i)=><tr key={r.user_id||i}><td>{r.name||"—"}</td><td>{r.role_title||"—"}</td>{tab==="present"&&<><td>{r.check_in?faTime(r.check_in):"—"}</td><td>{r.line_code?("خط "+fa(r.line_code)+(r.line_description?" — "+r.line_description:"")):"—"}</td><td>{methodFa[r.method]||r.method||"—"}</td><td><span className={"badge "+(r.is_open?"ok":"muted")}>{r.is_open?"داخل شیفت":"خروج ثبت شده"}</span></td></>}</tr>)}
     </tbody></table></div>}
   </div>;
 }
@@ -1361,25 +1362,54 @@ function AddUser({roles,zones,onClose,onSave}){
 }
 
 function LineAssign({user,onClose}){
-  const [lines,setLines]=useState([]); const [sel,setSel]=useState([]); const [q,setQ]=useState("");
-  useEffect(()=>{ db.lines().then(setLines).catch(()=>{}); db.userLines(user.id).then(ls=>setSel(ls.map(l=>l.id))).catch(()=>{}); },[]);
-  const toggle=id=>setSel(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
-  const save=async()=>{ await db.assignLines(user.id,sel); onClose(); };
-  const flt=lines.filter(l=>{ const s=(l.code+" "+(l.origin||"")+" "+(l.destination||"")); return !q||s.indexOf(q)>=0; });
+  const [lines,setLines]=useState([]); const [sel,setSel]=useState([]); const [checkinSel,setCheckinSel]=useState([]); const [q,setQ]=useState("");
+  useEffect(()=>{
+    let alive=true;
+    Promise.all([db.lines(),db.userLines(user.id)]).then(([all,assigned])=>{
+      if(!alive)return;
+      setLines(all);
+      setSel(assigned.map(l=>Number(l.id)));
+      setCheckinSel(assigned.filter(l=>Number(l.checkin_allowed)===1).map(l=>Number(l.id)));
+    }).catch(()=>{});
+    return()=>{alive=false};
+  },[user.id]);
+  const toggle=id=>{
+    id=Number(id);
+    const wasSelected=sel.includes(id);
+    setSel(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
+    if(wasSelected)setCheckinSel(s=>s.filter(x=>x!==id));
+  };
+  const toggleCheckin=id=>{id=Number(id);setCheckinSel(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);};
+  const save=async()=>{
+    const visibleIds=sel.map(Number);
+    await db.assignLines(user.id,visibleIds);
+    await db.assignCheckinLines(user.id,checkinSel.filter(id=>visibleIds.includes(Number(id))));
+    onClose();
+  };
+  const flt=lines.filter(l=>{const s=(l.code+" "+(l.origin||"")+" "+(l.destination||""));return !q||s.indexOf(q)>=0;})
+    .sort((a,b)=>Number(sel.includes(Number(b.id)))-Number(sel.includes(Number(a.id)))||lines.indexOf(a)-lines.indexOf(b));
   return(<Modal title={`خطوط مجاز — ${user.first_name} ${user.last_name}`} onClose={onClose}>
-    <p style={{fontSize:12,color:"var(--muted)",marginBottom:10}}>خطوطی که این نیرو مجاز به فعالیت روی آنهاست را انتخاب کنید.</p>
+    <p style={{fontSize:12,color:"var(--muted)",marginBottom:10}}>خطوطی که این نیرو مجاز به مشاهدهٔ اطلاعات آنهاست را انتخاب کنید. مجوز ثبت حضور در ستون جداگانه تعیین می‌شود.</p>
     <input className="input" placeholder="جستجوی خط (کد یا مبدأ/مقصد)…" value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:8}}/>
-    <div className="row" style={{justifyContent:"space-between",marginBottom:6}}>
-      <button className="btn g" onClick={()=>setSel(flt.map(l=>l.id))}>انتخاب همهٔ نتایج</button>
-      <button className="btn g" onClick={()=>setSel([])}>پاک‌کردن انتخاب‌ها</button>
-      <span className="muted" style={{fontSize:12}}>{fa(sel.length)} خط انتخاب شده</span></div>
-    <div style={{maxHeight:320,overflow:"auto"}}>{flt.map(l=>
-      <label key={l.id} className="row" style={{justifyContent:"space-between",padding:"9px 11px",border:"1px solid var(--line)",borderRadius:11,marginBottom:7,cursor:"pointer"}}>
+    <div className="row" style={{justifyContent:"space-between",marginBottom:6,flexWrap:"wrap"}}>
+      <button className="btn g" onClick={()=>setSel(s=>Array.from(new Set([...s,...flt.map(l=>Number(l.id))])))}>انتخاب همهٔ نتایج</button>
+      <button className="btn g" onClick={()=>{setSel([]);setCheckinSel([]);}}>پاک‌کردن انتخاب‌ها</button>
+      <span className="muted" style={{fontSize:12}}>{fa(sel.length)} خط دارای دسترسی اطلاعات · {fa(checkinSel.filter(id=>sel.includes(Number(id))).length)} خط مجاز ثبت حضور</span>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 94px 94px",gap:8,padding:"8px 10px",fontSize:11,fontWeight:800,color:"var(--muted)",borderBottom:"1px solid var(--line)"}}>
+      <span>خط</span><span style={{textAlign:"center"}}>دسترسی اطلاعات</span><span style={{textAlign:"center"}}>ثبت حضور من</span>
+    </div>
+    <div style={{maxHeight:340,overflow:"auto"}}>{flt.map(l=>{
+      const id=Number(l.id),selected=sel.includes(id),checkin=checkinSel.includes(id);
+      return <div key={l.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 94px 94px",gap:8,alignItems:"center",padding:"9px 10px",border:"1px solid var(--line)",borderRadius:10,marginBottom:6}}>
         <span style={{fontSize:13}}>خط {l.code} — {l.origin} به {l.destination}</span>
-        <input type="checkbox" checked={sel.includes(l.id)} onChange={()=>toggle(l.id)}/></label>)}</div>
-    <button className="btn p" style={{marginTop:12,width:"100%"}} onClick={save}>ذخیرهٔ خطوط ({fa(sel.length)})</button></Modal>);
+        <label style={{display:"flex",justifyContent:"center",alignItems:"center",gap:5,fontSize:11,cursor:"pointer"}}><input type="checkbox" checked={selected} onChange={()=>toggle(id)}/><span>مجاز</span></label>
+        <label style={{display:"flex",justifyContent:"center",alignItems:"center",gap:5,fontSize:11,cursor:selected?"pointer":"not-allowed",opacity:selected?1:.45}}><input type="checkbox" checked={selected&&checkin} disabled={!selected} onChange={()=>toggleCheckin(id)}/><span>مجاز</span></label>
+      </div>;
+    })}</div>
+    <button className="btn p" style={{marginTop:12,width:"100%"}} onClick={save}>ذخیرهٔ مجوزها ({fa(sel.length)} خط اطلاعات · {fa(checkinSel.filter(id=>sel.includes(Number(id))).length)} خط ثبت حضور)</button>
+  </Modal>);
 }
-
 function Zones(){
   const [users,setUsers]=useState([]); const [zones,setZones]=useState([]); const [over,setOver]=useState(null); const [nz,setNz]=useState("");
   useEffect(()=>{db.users().then(setUsers).catch(()=>{}); db.zones().then(setZones).catch(()=>{})},[]);

@@ -2394,7 +2394,7 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   $lineId = (int)($b['line_id'] ?? 0);
   $method = strtolower((string)($b['method'] ?? 'gps'));
   if (in_array($method, ['qr','nfc','rfid','bt','bluetooth'], true)) Http::error('این روش ثبت حضور پشتیبانی نمی‌شود. از GPS، Wi-Fi یا GSM استفاده کنید.', 422);
-  $lineIds = user_line_ids($u);
+  $lineIds = user_checkin_line_ids($u);
   // انتخاب خط از اپ حذف شده است؛ اگر کلاینت قدیمی line_id بفرستد، فقط وقتی می‌پذیریم که جزو خطوط مجاز کاربر باشد.
   if ($lineId && (!is_array($lineIds) || !in_array($lineId, array_map('intval', $lineIds), true))) $lineId = 0;
   // بررسی مجاز بودن روش ثبت حضور برای این خط (در صورت تعریف محدودیت)؛ برای حالت خودکار، پس از تشخیص خط نیز دوباره کنترل می‌شود.
@@ -4131,9 +4131,11 @@ function _live_staff_dashboard(){
     WHERE u.is_active=1 ORDER BY name");
 
   $att = Db::all("SELECT a.id,a.user_id,a.check_in,a.check_out,a.method,a.in_station,a.in_lat,a.in_lng,
-      COALESCE(l.code,'') line_code, TRIM(CONCAT(COALESCE(l.origin,''), CASE WHEN COALESCE(l.origin,'')<>'' AND COALESCE(l.destination,'')<>'' THEN ' ← ' ELSE '' END, COALESCE(l.destination,''))) line_description
+      a.line_id AS attendance_line_id,
+      COALESCE(l.code,'') line_code,
+      TRIM(CONCAT(COALESCE(l.origin,''), CASE WHEN COALESCE(l.origin,'')<>'' AND COALESCE(l.destination,'')<>'' THEN ' ← ' ELSE '' END, COALESCE(l.destination,''))) line_description
     FROM staff_attendance a
-    LEFT JOIN `lines` l ON l.id=(SELECT ul.line_id FROM user_lines ul WHERE ul.user_id=a.user_id ORDER BY ul.line_id LIMIT 1)
+    LEFT JOIN `lines` l ON l.id=a.line_id
     WHERE a.check_in>=? AND a.check_in<? ORDER BY a.check_in DESC",[$dayStart,$dayEnd]);
   $byUser=[];
   foreach($att as $a){ if(!isset($byUser[(int)$a['user_id']])) $byUser[(int)$a['user_id']]=$a; }
@@ -4149,15 +4151,10 @@ function _live_staff_dashboard(){
     $uid=(int)$st['id'];
     if(isset($byUser[$uid])){
       $a=$byUser[$uid];
-      $loc=trim((string)($a['in_station']??''));
-      if($loc===''){
-        if($a['in_lat']!==null && $a['in_lng']!==null) $loc='مختصات '.round((float)$a['in_lat'],5).', '.round((float)$a['in_lng'],5);
-        else $loc='ثبت نشده';
-      }
       $present[]=[
         'user_id'=>$uid,'name'=>$st['name'],'role_title'=>$st['role_title'],
         'check_in'=>$a['check_in'],'check_out'=>$a['check_out'],'method'=>$a['method'],
-        'location'=>$loc,'line_code'=>$a['line_code'],'line_description'=>$a['line_description'],
+        'line_code'=>$a['line_code'],'line_description'=>$a['line_description'],
         'is_open'=>empty($a['check_out'])
       ];
     } elseif(isset($leaveSet[$uid])) $leave[]=$st;
@@ -8125,13 +8122,33 @@ route('PUT', '/api/admin/users/{id}/org', function($p,$b,$u){
   if ($sets) { $args[] = $p['id']; Db::run("UPDATE users SET ".implode(',', $sets)." WHERE id=?", $args); }
   return ['ok'=>true];
 }, false, ADMIN);
-route('GET', '/api/admin/users/{id}/lines', fn($p,$b,$u) => Db::all(
-  "SELECT l.id,l.code,l.origin,l.destination FROM user_lines ul JOIN `lines` l ON l.id=ul.line_id WHERE ul.user_id=?", [$p['id']]));
+route('GET', '/api/admin/users/{id}/lines', function($p,$b,$u){
+  _ensure_user_line_checkin_permissions_schema();
+  return Db::all("SELECT l.id,l.code,l.origin,l.destination,
+      EXISTS(SELECT 1 FROM user_line_checkin_permissions cp WHERE cp.user_id=ul.user_id AND cp.line_id=ul.line_id) AS checkin_allowed
+    FROM user_lines ul JOIN `lines` l ON l.id=ul.line_id WHERE ul.user_id=? ORDER BY l.code+0,l.code", [$p['id']]);
+});
 route('PUT', '/api/admin/users/{id}/lines', function($p,$b,$u){
+  _ensure_user_line_checkin_permissions_schema();
+  $lineIds=$b['line_ids']??[];
+  if(!is_array($lineIds)) Http::error('فهرست خطوط نامعتبر است',422);
+  $lineIds=array_values(array_unique(array_filter(array_map('intval',$lineIds),fn($id)=>$id>0)));
   Db::run("DELETE FROM user_lines WHERE user_id=?", [$p['id']]);
-  foreach (($b['line_ids'] ?? []) as $lid) Db::run("INSERT IGNORE INTO user_lines(user_id,line_id) VALUES(?,?)", [$p['id'], $lid]);
+  foreach ($lineIds as $lid) Db::run("INSERT IGNORE INTO user_lines(user_id,line_id) VALUES(?,?)", [$p['id'], $lid]);
+  Db::run("DELETE cp FROM user_line_checkin_permissions cp LEFT JOIN user_lines ul ON ul.user_id=cp.user_id AND ul.line_id=cp.line_id WHERE cp.user_id=? AND ul.line_id IS NULL",[$p['id']]);
   return ['ok'=>true];
 });
+route('PUT', '/api/admin/users/{id}/checkin-lines', function($p,$b,$u){
+  _ensure_user_line_checkin_permissions_schema();
+  $lineIds=$b['line_ids']??[];
+  if(!is_array($lineIds)) Http::error('فهرست خطوط ثبت حضور نامعتبر است',422);
+  $lineIds=array_values(array_unique(array_filter(array_map('intval',$lineIds),fn($id)=>$id>0)));
+  $assigned=array_map('intval',array_column(Db::all("SELECT line_id FROM user_lines WHERE user_id=?",[$p['id']]),'line_id'));
+  if(array_diff($lineIds,$assigned)) Http::error('ثبت حضور فقط برای خطوطی مجاز است که دسترسی اطلاعات آنها به کاربر داده شده باشد.',422);
+  Db::run("DELETE FROM user_line_checkin_permissions WHERE user_id=?",[$p['id']]);
+  foreach($lineIds as $lid) Db::run("INSERT IGNORE INTO user_line_checkin_permissions(user_id,line_id) VALUES(?,?)",[$p['id'],$lid]);
+  return ['ok'=>true,'count'=>count($lineIds)];
+}, false, ADMIN);
 route('GET', '/api/admin/roles', fn($p,$b,$u) => Db::all("SELECT id,title,level,is_admin FROM roles ORDER BY level DESC"));
 route('POST', '/api/admin/roles', function($p,$b,$u){
   if (empty($b['title'])) Http::error('عنوان نقش لازم است',400);
@@ -9524,10 +9541,35 @@ function _user_managers($uid) {
   return ($m && $m['manager_id']) ? [(int)$m['manager_id']] : [];
 }
 
+function _ensure_user_line_checkin_permissions_schema(){
+  static $ready=false;
+  if($ready) return;
+  $exists=Db::one("SHOW TABLES LIKE 'user_line_checkin_permissions'");
+  if(!$exists){
+    Db::run("CREATE TABLE IF NOT EXISTS user_line_checkin_permissions (
+      user_id INT NOT NULL,
+      line_id INT NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id,line_id),
+      KEY idx_ulcp_line (line_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // انتقال یک‌بارهٔ مجوزهای قبلی برای حفظ رفتار کاربران موجود؛ حذف مجوزها در دفعات بعد برنمی‌گردد.
+    Db::run("INSERT IGNORE INTO user_line_checkin_permissions(user_id,line_id) SELECT user_id,line_id FROM user_lines");
+  }
+  $ready=true;
+}
 function user_line_ids($u) {
   $ids = array_column(Db::all("SELECT line_id FROM user_lines WHERE user_id=?", [$u['id']]), 'line_id');
-  if ($ids) return $ids;                              // هر کاربری که خط مجاز دارد → فقط همان خطوط
-  return empty($u['is_admin']) ? [] : null;           // بدون خط: ادمین=همه، غیرادمین=هیچ
+  if ($ids) return array_map('intval',$ids);           // دسترسی اطلاعات خطوط
+  return empty($u['is_admin']) ? [] : null;            // بدون خط: ادمین=همه، غیرادمین=هیچ
+}
+function user_checkin_line_ids($u) {
+  _ensure_user_line_checkin_permissions_schema();
+  $viewIds=array_column(Db::all("SELECT line_id FROM user_lines WHERE user_id=?",[$u['id']]),'line_id');
+  $ids=array_column(Db::all("SELECT line_id FROM user_line_checkin_permissions WHERE user_id=?",[$u['id']]),'line_id');
+  // اگر برای کاربر خطوط اطلاعات مشخص شده، فهرست ثبت حضور نیز دقیقاً از همان محدوده پیروی می‌کند؛ حتی اگر خالی باشد.
+  if($viewIds) return array_map('intval',$ids);
+  return empty($u['is_admin']) ? [] : null;
 }
 // تبدیل عکس کاربر به URL: اگر photo_path باشد URL فایل، وگرنه photo قدیمی (base64)
 function _user_photo_url($photoPath, $photoData) {
