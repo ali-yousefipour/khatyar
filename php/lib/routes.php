@@ -14302,6 +14302,7 @@ route('GET','/api/school-service/bootstrap',function($p,$b,$u){
   $schools=Db::all("SELECT s.id,s.code,s.name,s.educational_district,s.gender,s.address,s.latitude,s.longitude,s.location_registered_at,(SELECT scx.company_id FROM school_service_school_companies scx WHERE scx.school_id=s.id ORDER BY scx.is_primary DESC,scx.company_id ASC LIMIT 1) company_id,GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') company_names FROM school_service_schools s LEFT JOIN school_service_school_companies sc ON sc.school_id=s.id LEFT JOIN school_service_companies c ON c.id=sc.company_id WHERE s.is_active=1 GROUP BY s.id ORDER BY s.name");
   return ['version'=>1,'generated_at'=>date('c'),'meta'=>$meta,'companies'=>$companies,'schools'=>$schools,'counts'=>['districts'=>count($districts),'companies'=>count($companies),'schools'=>count($schools)]];
 });
+// Canonical school-service dashboard route; this definition runs before routes_extra.php.
 route('GET','/api/school-service/dashboard',function($p,$b,$u){
  _ssv_need($u,'view');_ssv_tables();_ssv_autoseed_schools();
  $district=_ssv_district_key($_GET['district']??'');$company=(int)($_GET['company_id']??0);$w=['1=1'];$a=[];
