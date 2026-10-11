@@ -365,6 +365,28 @@ function Ensure-AndroidSdk() {
         -not ($rows[0].PSObject.Properties.Name -contains 'archive_checksum')) {
         Fail "Invalid Myket SDK archive index: $indexPath"
     }
+
+    # Myket has used different names for the archive URL column in index revisions.
+    # Normalize it from the actual URL value instead of assuming a specific header.
+    foreach ($row in $rows) {
+        if (-not ($row.PSObject.Properties.Name -contains 'archive_url')) {
+            $urlValue = $null
+            foreach ($property in $row.PSObject.Properties) {
+                $candidate = ([string]$property.Value).Trim()
+                if ($candidate -match '^https://maven\.myket\.ir/android-sdk/') {
+                    $urlValue = $candidate
+                    break
+                }
+            }
+            if (-not [string]::IsNullOrWhiteSpace($urlValue)) {
+                $row | Add-Member -NotePropertyName archive_url -NotePropertyValue $urlValue
+            }
+        }
+    }
+    if (-not ($rows[0].PSObject.Properties.Name -contains 'archive_url')) {
+        $headers = $rows[0].PSObject.Properties.Name -join ', '
+        Fail "Myket SDK archive index has no recognized archive URL column. CSV headers: $headers"
+    }
     Write-Host ("    Archive index: " + $(if ($indexLoaded) { 'updated' } else { 'cached fallback' })) -ForegroundColor DarkGray
 
     $packages = @(
