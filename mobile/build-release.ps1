@@ -45,7 +45,8 @@ function Get-NativeConfigHash() {
         (Join-Path $Root 'app.config.js'),
         (Join-Path $Root 'plugins\withKhatyarRadio.js'),
         (Join-Path $Root 'plugins\withPersistentBackground.js'),
-        (Join-Path $Root 'plugins\withAndroidMavenMirrors.js')
+        (Join-Path $Root 'plugins\withAndroidMavenMirrors.js'),
+        (Join-Path $Root 'plugins\withWifiRebornSdkCompat.js')
     )
     $parts = foreach ($file in $files) { Get-FileHashSafe $file }
     return (($parts -join ':') | ForEach-Object { $_ })
@@ -121,6 +122,100 @@ function Remove-LockedAndroidDirectory([string]$Android) {
             Start-Sleep -Seconds 1
         }
     }
+}
+
+
+function Ensure-AndroidSdk() {
+    # Keep Android SDK installation self-contained and user-writable on Windows.
+    # Android SDK components come from Google's official repository; Maven dependency
+    # mirrors remain controlled by gradle-mirror.init.gradle (Myket-first).
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+    $candidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($env:ANDROID_SDK_ROOT)) { $candidates += $env:ANDROID_SDK_ROOT }
+    if (-not [string]::IsNullOrWhiteSpace($env:ANDROID_HOME)) { $candidates += $env:ANDROID_HOME }
+    if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { $candidates += (Join-Path $env:LOCALAPPDATA 'Android\Sdk') }
+    $sdk = $null
+    foreach ($candidate in $candidates) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+        $full = [IO.Path]::GetFullPath($candidate)
+        if ((Test-Path -LiteralPath $full) -or $candidate -eq $candidates[-1]) { $sdk = $full; break }
+    }
+    if (-not $sdk) { Fail 'Unable to determine a writable Android SDK path. Set ANDROID_SDK_ROOT or ANDROID_HOME.' }
+    [void](Ensure-Directory $sdk)
+    $env:ANDROID_HOME = $sdk
+    $env:ANDROID_SDK_ROOT = $sdk
+    $env:ANDROID_USER_HOME = Join-Path $env:USERPROFILE '.android'
+    [void](Ensure-Directory $env:ANDROID_USER_HOME)
+
+    $sdkManager = Join-Path $sdk 'cmdline-tools\latest\bin\sdkmanager.bat'
+    if (-not (Test-Path -LiteralPath $sdkManager)) {
+        Stage 15 'Downloading Android SDK command-line tools'
+        $toolsRoot = Join-Path $sdk 'cmdline-tools'
+        [void](Ensure-Directory $toolsRoot)
+        $zip = Join-Path $env:TEMP ('khatyar-android-cmdline-tools-' + [guid]::NewGuid().ToString('N') + '.zip')
+        $extract = Join-Path $env:TEMP ('khatyar-android-cmdline-tools-' + [guid]::NewGuid().ToString('N'))
+        $url = 'https://dl.google.com/android/repository/commandlinetools-win-11076708_latest.zip'
+        try {
+            Write-Host "    Downloading official Android command-line tools from Google." -ForegroundColor Cyan
+            Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing -TimeoutSec 600
+            if (-not (Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 10MB) {
+                Fail 'Downloaded Android command-line tools archive is missing or unexpectedly small.'
+            }
+            Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force
+            $extractedBin = Join-Path $extract 'cmdline-tools\bin'
+            if (-not (Test-Path -LiteralPath (Join-Path $extractedBin 'sdkmanager.bat'))) {
+                Fail 'Google Android command-line tools archive did not contain sdkmanager.bat.'
+            }
+            $latest = Join-Path $toolsRoot 'latest'
+            if (Test-Path -LiteralPath $latest) { Remove-Item -LiteralPath $latest -Recurse -Force }
+            Move-Item -LiteralPath (Join-Path $extract 'cmdline-tools') -Destination $latest
+        } catch {
+            Fail "Unable to install Android SDK command-line tools automatically: $($_.Exception.Message)"
+        } finally {
+            Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $sdkBin = Join-Path $sdk 'platform-tools'
+    if ($env:PATH -notlike "*$sdkBin*") { $env:PATH = "$sdkBin;$([IO.Path]::GetDirectoryName($sdkManager));$env:PATH" }
+    if (-not (Test-Path -LiteralPath $sdkManager)) { Fail "sdkmanager was not installed: $sdkManager" }
+
+    Stage 18 'Installing required Android SDK components'
+    $components = @('platform-tools','platforms;android-36','build-tools;36.0.0','ndk;27.3.13750724')
+    $sdkLog = Join-Path $env:TEMP ('khatyar-sdkmanager-' + [guid]::NewGuid().ToString('N') + '.log')
+    try {
+        # Accept licenses non-interactively; SDK Manager still validates each package download.
+        $licenseInput = ('y' + [Environment]::NewLine) * 100
+        $licenseInput | & $sdkManager --sdk_root=$sdk --licenses 2>&1 | Tee-Object -FilePath $sdkLog | Out-Host
+        if ($LASTEXITCODE -ne 0) { Fail "Android SDK license acceptance failed. Log: $sdkLog" }
+
+        & $sdkManager --sdk_root=$sdk @components 2>&1 | Tee-Object -FilePath $sdkLog -Append | Out-Host
+        if ($LASTEXITCODE -ne 0) { Fail "Android SDK component installation failed. Log: $sdkLog" }
+    } finally {
+        # Keep the detailed SDK manager log when an installation fails for diagnosis.
+        if (Test-Path -LiteralPath $sdkLog) {
+            $sdkLogText = Get-Content -LiteralPath $sdkLog -Raw -ErrorAction SilentlyContinue
+            if ($sdkLogText -and $sdkLogText -match '(?i)failed|error') {
+                Write-Host "    SDK Manager diagnostics: $sdkLog" -ForegroundColor Yellow
+            } else {
+                Remove-Item -LiteralPath $sdkLog -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    $required = @(
+        (Join-Path $sdk 'platforms\android-36\android.jar'),
+        (Join-Path $sdk 'build-tools\36.0.0\aapt.exe'),
+        (Join-Path $sdk 'platform-tools\adb.exe'),
+        (Join-Path $sdk 'ndk\27.3.13750724\source.properties')
+    )
+    foreach ($file in $required) {
+        if (-not (Test-Path -LiteralPath $file)) { Fail "Android SDK component verification failed; missing: $file" }
+    }
+    Write-Host "    Android SDK ready: $sdk" -ForegroundColor Green
+    Write-Host '    Installed: platform-tools, Android API 36, Build Tools 36.0.0, NDK 27.3.13750724' -ForegroundColor Green
 }
 
 function Ensure-Directory([string]$Path) {
@@ -311,6 +406,8 @@ try {
     Invoke-Checked 'cmd.exe' @('/d','/c','npm.cmd --version')
     Invoke-Checked 'cmd.exe' @('/d','/c','java.exe -version 2>&1')
     Invoke-Checked 'cmd.exe' @('/d','/c','git.exe --version')
+
+    Ensure-AndroidSdk
 
     $expoAutolinkingContaminated = -not (Test-ExpoAutolinkingPackageClean)
     if ($Fresh -or $expoAutolinkingContaminated) {
