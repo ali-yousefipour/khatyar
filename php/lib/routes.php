@@ -14303,28 +14303,91 @@ route('GET','/api/school-service/bootstrap',function($p,$b,$u){
   return ['version'=>1,'generated_at'=>date('c'),'meta'=>$meta,'companies'=>$companies,'schools'=>$schools,'counts'=>['districts'=>count($districts),'companies'=>count($companies),'schools'=>count($schools)]];
 });
 route('GET','/api/school-service/dashboard',function($p,$b,$u){
-  _ssv_need($u,'view'); _ssv_tables(); _ssv_autoseed_schools();
-  $activeSchools=(int)(Db::one("SELECT COUNT(*) n FROM school_service_schools WHERE is_active=1")['n']??0);
-  $studentTotal=(int)(Db::one("SELECT COALESCE(SUM(student_count),0) n FROM school_service_schools WHERE is_active=1")['n']??0);
-  $activeCompanies=(int)(Db::one("SELECT COUNT(*) n FROM school_service_companies WHERE is_active=1")['n']??0);
-  $activeVehicles=(int)(Db::one("SELECT COUNT(*) n FROM school_service_vehicles WHERE is_active=1")['n']??0);
-  $inspections=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections")['n']??0);
-  $inspections30=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections WHERE created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)")['n']??0);
-  $violations=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspection_violations")['n']??0);
-  $invalidCert=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections WHERE certificate_status IN ('نامعتبر','ارائه نشد')")['n']??0);
-  $avgViol=$inspections>0?round($violations/$inspections,2):0;
-  $byDistrict=Db::all("SELECT COALESCE(NULLIF(TRIM(i.educational_district),''),'نامشخص') label,COUNT(*) n FROM school_service_inspections i GROUP BY i.educational_district ORDER BY n DESC");
-  $byCompany=Db::all("SELECT COALESCE(NULLIF(TRIM(c.name),''),'نامشخص') label,COUNT(i.id) n FROM school_service_inspections i LEFT JOIN school_service_companies c ON c.id=i.company_id GROUP BY c.id,c.name ORDER BY n DESC LIMIT 12");
-  $byViolation=Db::all("SELECT COALESCE(NULLIF(TRIM(v.title),''),'نامشخص') label,COUNT(iv.inspection_id) n FROM school_service_inspection_violations iv LEFT JOIN school_service_violation_types v ON v.id=iv.violation_type_id GROUP BY v.id,v.title ORDER BY n DESC LIMIT 10");
-  $bySchool=Db::all("SELECT COALESCE(NULLIF(TRIM(s.name),''),'نامشخص') label,COUNT(i.id) n FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id GROUP BY s.id,s.name ORDER BY n DESC LIMIT 10");
-  $vehicleTypes=Db::all("SELECT COALESCE(NULLIF(TRIM(vehicle_type),''),'نامشخص') label,COUNT(*) n FROM school_service_vehicles WHERE is_active=1 GROUP BY vehicle_type ORDER BY n DESC LIMIT 10");
-  $certificates=Db::all("SELECT certificate_status label,COUNT(*) n FROM school_service_inspections GROUP BY certificate_status ORDER BY n DESC");
-  $trend=Db::all("SELECT DATE_FORMAT(created_at,'%Y-%m') ym,COUNT(*) n FROM school_service_inspections WHERE created_at>=DATE_SUB(CURDATE(),INTERVAL 5 MONTH) GROUP BY DATE_FORMAT(created_at,'%Y-%m') ORDER BY ym ASC");
-  $districtSchools=Db::all("SELECT COALESCE(NULLIF(TRIM(educational_district),''),'نامشخص') label,COUNT(*) n,COALESCE(SUM(student_count),0) students FROM school_service_schools WHERE is_active=1 GROUP BY educational_district ORDER BY n DESC");
-  return ['cards'=>[
-    'active_schools'=>$activeSchools,'students'=>$studentTotal,'active_companies'=>$activeCompanies,'active_vehicles'=>$activeVehicles,
-    'inspections'=>$inspections,'inspections_30d'=>$inspections30,'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol
-  ],'by_district'=>$byDistrict,'by_company'=>$byCompany,'by_violation'=>$byViolation,'by_school'=>$bySchool,'vehicle_types'=>$vehicleTypes,'certificates'=>$certificates,'trend'=>$trend,'district_schools'=>$districtSchools,'generated_at'=>date('Y-m-d H:i:s')];
+ _ssv_need($u,'view');_ssv_tables();_ssv_autoseed_schools();
+ $district=_ssv_district_key($_GET['district']??'');$company=(int)($_GET['company_id']??0);$w=['1=1'];$a=[];
+ if($district!==''){$w[]=_ssv_district_sql('i.educational_district').'=?';$a[]=$district;}
+ if($company){$w[]='i.company_id=?';$a[]=$company;}
+ $where=implode(' AND ',$w);
+ $activeSchools=(int)(Db::one("SELECT COUNT(*) n FROM school_service_schools WHERE is_active=1")['n']??0);
+ $studentTotal=(int)(Db::one("SELECT COALESCE(SUM(student_count),0) n FROM school_service_schools WHERE is_active=1")['n']??0);
+ $activeCompanies=(int)(Db::one("SELECT COUNT(*) n FROM school_service_companies WHERE is_active=1")['n']??0);
+ $activeVehicles=(int)(Db::one("SELECT COUNT(*) n FROM school_service_vehicles WHERE is_active=1")['n']??0);
+ $inspections=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections i WHERE $where",$a)['n']??0);
+ $inspections30=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections i WHERE i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) AND $where",$a)['n']??0);
+ $violations=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspection_violations x JOIN school_service_inspections i ON i.id=x.inspection_id JOIN school_service_violation_types v ON v.id=x.violation_type_id WHERE $where AND v.is_active=1",$a)['n']??0);
+ $invalidCert=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections i WHERE i.certificate_status IN ('نامعتبر','ارائه نشد') AND $where",$a)['n']??0);
+ $avgViol=$inspections>0?round($violations/$inspections,2):0;
+ $byDistrict=Db::all("SELECT COALESCE(NULLIF(TRIM(i.educational_district),''),'نامشخص') label,COUNT(*) n FROM school_service_inspections i WHERE $where GROUP BY i.educational_district ORDER BY n DESC",$a);
+ $byCompany=Db::all("SELECT COALESCE(NULLIF(TRIM(c.name),''),'نامشخص') label,COUNT(i.id) n FROM school_service_inspections i LEFT JOIN school_service_companies c ON c.id=i.company_id WHERE $where GROUP BY c.id,c.name ORDER BY n DESC LIMIT 12",$a);
+ $byViolation=Db::all("SELECT COALESCE(NULLIF(TRIM(v.title),''),'نامشخص') label,COUNT(iv.inspection_id) n FROM school_service_inspection_violations iv JOIN school_service_violation_types v ON v.id=iv.violation_type_id JOIN school_service_inspections i ON i.id=iv.inspection_id WHERE $where AND v.is_active=1 GROUP BY v.id,v.title ORDER BY n DESC LIMIT 20",$a);
+ $byViolation=array_values(array_filter($byViolation,function($row){return !_ssv_is_certificate_violation_title($row['label']??'');}));
+ $bySchool=Db::all("SELECT COALESCE(NULLIF(TRIM(s.name),''),'نامشخص') label,COUNT(i.id) n FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id WHERE $where GROUP BY s.id,s.name ORDER BY n DESC LIMIT 12",$a);
+ $vehicleTypes=Db::all("SELECT COALESCE(NULLIF(TRIM(vehicle_type),''),'نامشخص') label,COUNT(*) n FROM school_service_vehicles WHERE is_active=1 GROUP BY vehicle_type ORDER BY n DESC LIMIT 10");
+ $certificates=Db::all("SELECT i.certificate_status label,COUNT(*) n FROM school_service_inspections i WHERE $where GROUP BY i.certificate_status ORDER BY n DESC",$a);
+ // بازهٔ نمودار بر اساس ماه شمسی جاری تعیین می‌شود، نه ماه میلادی.
+ $today=new DateTimeImmutable('today');
+ $jalaliParts=function(DateTimeImmutable $date){
+   $gy=(int)$date->format('Y');$gm=(int)$date->format('n');$gd=(int)$date->format('j');
+   $gdm=[0,31,59,90,120,151,181,212,243,273,304,334];
+   if($gy>1600){$jy=979;$gy-=1600;}else{$jy=0;$gy-=621;}
+   $gy2=$gm>2?$gy+1:$gy;
+   $days=365*$gy+(int)floor(($gy2+3)/4)-(int)floor(($gy2+99)/100)+(int)floor(($gy2+399)/400)-80+$gd+$gdm[$gm-1];
+   $jy+=33*(int)floor($days/12053);$days%=12053;
+   $jy+=4*(int)floor($days/1461);$days%=1461;
+   if($days>365){$jy+=(int)floor(($days-1)/365);$days=($days-1)%365;}
+   $jm=$days<186?1+(int)floor($days/31):7+(int)floor(($days-186)/30);
+   $jd=1+($days<186?$days%31:($days-186)%30);
+   return [$jy,$jm,$jd];
+ };
+ [$currentJYear,$currentJMonth]=$jalaliParts($today);
+ $monthStart=$today;
+ for($step=0;$step<31;$step++){
+   $prev=$monthStart->modify('-1 day');[$py,$pm]=$jalaliParts($prev);
+   if($py!==$currentJYear||$pm!==$currentJMonth)break;
+   $monthStart=$prev;
+ }
+ $monthEnd=$today;
+ for($step=0;$step<31;$step++){
+   $next=$monthEnd->modify('+1 day');[$ny,$nm]=$jalaliParts($next);
+   if($ny!==$currentJYear||$nm!==$currentJMonth)break;
+   $monthEnd=$next;
+ }
+ $trendRows=Db::all("SELECT DATE(i.created_at) day_key,COUNT(*) n FROM school_service_inspections i WHERE i.created_at>=? AND i.created_at<? AND $where GROUP BY DATE(i.created_at) ORDER BY day_key ASC",array_merge([$monthStart->format('Y-m-d 00:00:00'),$monthEnd->modify('+1 day')->format('Y-m-d 00:00:00')],$a));
+ $trendCounts=[];
+ foreach($trendRows as $tr){$trendCounts[(string)$tr['day_key']]=(int)$tr['n'];}
+ $trend=[];
+ for($day=$monthStart;$day<=$monthEnd;$day=$day->modify('+1 day')){
+   $key=$day->format('Y-m-d');
+   $trend[]=['ym'=>$key,'n'=>$trendCounts[$key]??0];
+ }
+ $districtSchools=Db::all("SELECT COALESCE(NULLIF(TRIM(educational_district),''),'نامشخص') label,COUNT(*) n,COALESCE(SUM(student_count),0) students FROM school_service_schools WHERE is_active=1 GROUP BY educational_district ORDER BY n DESC");
+ $activeInspectors=[];$activeInspectorCount=0;
+ // در دیتابیس‌های قدیمی شناسهٔ ثبت‌کننده ممکن است با نام دیگری ذخیره شده باشد؛ ستون موجود را از خود schema تشخیص بده.
+ $inspectionColumns=[];
+ try{foreach(Db::all("SHOW COLUMNS FROM school_service_inspections") as $column){$field=(string)($column['Field']??$column['field']??'');if($field!=='')$inspectionColumns[$field]=true;}}catch(Throwable $e){error_log('School service inspector schema inspection failed: '.$e->getMessage());}
+ $inspectorFields=[];
+ foreach(['inspector_user_id','inspector_id','user_id','created_by_user_id','created_by'] as $field){if(isset($inspectionColumns[$field]))$inspectorFields[]='NULLIF(i.`'.$field.'`,0)';}
+ $inspectorExpr=count($inspectorFields)?'COALESCE('.implode(',',$inspectorFields).')':'NULL';
+ if($inspectorExpr!=='NULL'){
+   try{
+     $activeInspectorCount=(int)(Db::one("SELECT COUNT(DISTINCT $inspectorExpr) n FROM school_service_inspections i WHERE $inspectorExpr IS NOT NULL AND i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) AND $where",$a)['n']??0);
+   }catch(Throwable $e){error_log('School service active inspector count failed: '.$e->getMessage());}
+   try{
+     $activeInspectors=Db::all("SELECT $inspectorExpr id,
+       COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))),''),CONCAT('بازرس #',$inspectorExpr)) name,
+       COALESCE(r.title,'') role_title,COUNT(*) inspection_count,
+       SUM(CASE WHEN i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) THEN 1 ELSE 0 END) inspection_count_30d
+       FROM school_service_inspections i
+       LEFT JOIN users u ON u.id=$inspectorExpr
+       LEFT JOIN roles r ON r.id=u.role_id
+       WHERE $inspectorExpr IS NOT NULL AND i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) AND $where
+       GROUP BY $inspectorExpr,u.first_name,u.last_name,r.title
+       ORDER BY inspection_count_30d DESC,inspection_count DESC,name ASC",$a);
+     if(!$activeInspectorCount)$activeInspectorCount=count($activeInspectors);
+   }catch(Throwable $e){$activeInspectors=[];error_log('School service active inspector list failed: '.$e->getMessage());}
+ }
+ return ['cards'=>['active_schools'=>$activeSchools,'students'=>$studentTotal,'active_companies'=>$activeCompanies,'active_vehicles'=>$activeVehicles,'inspections'=>$inspections,'inspections_30d'=>$inspections30,'active_inspectors'=>$activeInspectorCount,'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol],
+   'by_district'=>$byDistrict,'by_company'=>$byCompany,'by_violation'=>$byViolation,'by_school'=>$bySchool,'vehicle_types'=>$vehicleTypes,'certificates'=>$certificates,'trend'=>$trend,'district_schools'=>$districtSchools,'active_inspectors'=>$activeInspectors,'generated_at'=>date('Y-m-d H:i:s')];
 });
 route('GET','/api/school-service/meta',function($p,$b,$u){
   _ssv_need($u,'view'); _ssv_tables();
