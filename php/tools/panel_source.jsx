@@ -532,7 +532,31 @@ function LiveStaffDashboard(){
   useEffect(()=>{load(); const iv=setInterval(load,60000); return()=>clearInterval(iv);},[]);
   const methodFa={gps:"GPS",wifi:"Wi‑Fi",manual:"دستی",gsm:"GSM"};
   if(!live)return <div className="panel" style={{margin:"14px 0"}}><span className="muted">در حال دریافت وضعیت حضور پرسنل…</span></div>;
-  const rows=tab==="present"?[...(live.present_list||[])].sort((a,b)=>{const timeOf=v=>{const raw=String(v&&v.check_in||"").trim();const stamp=Date.parse(raw);if(Number.isFinite(stamp))return stamp;const m=raw.match(/(?:^|T|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?/);return m?(Number(m[1])*3600+Number(m[2])*60+Number(m[3]||0)):Number.MAX_SAFE_INTEGER;};return timeOf(a)-timeOf(b);}):tab==="leave"?(live.leave_list||[]):(live.absent_list||[]);
+  const [sortConfig,setSortConfig]=useState({key:"check_in",direction:"asc"});
+  const baseRows=tab==="present"?[...(live.present_list||[])]:tab==="leave"?(live.leave_list||[]):(live.absent_list||[]);
+  const sortValue=(r,key)=>{
+    if(key==="check_in"){
+      const raw=String(r.check_in||"").trim();
+      const m=raw.match(/(?:^|T|\\s)(\\d{1,2}):(\\d{2})(?::(\\d{2}))?/);
+      if(m)return Number(m[1])*3600+Number(m[2])*60+Number(m[3]||0);
+      const stamp=Date.parse(raw);return Number.isFinite(stamp)?stamp:Number.MAX_SAFE_INTEGER;
+    }
+    if(key==="line_code"){
+      const raw=String(r.line_code??"").trim(),n=Number(raw);
+      return raw!==""&&Number.isFinite(n)?n:raw;
+    }
+    if(key==="is_open")return r.is_open?1:0;
+    if(key==="method")return String(methodFa[r.method]||r.method||"");
+    return String(r[key]??"");
+  };
+  const rows=tab==="present"?[...baseRows].sort((a,b)=>{
+    const av=sortValue(a,sortConfig.key),bv=sortValue(b,sortConfig.key);
+    let cmp=typeof av==="number"&&typeof bv==="number"?av-bv:String(av).localeCompare(String(bv),"fa",{numeric:true,sensitivity:"base"});
+    if(sortConfig.key==="check_in"&&av===Number.MAX_SAFE_INTEGER&&bv!==Number.MAX_SAFE_INTEGER)cmp=1;
+    else if(sortConfig.key==="check_in"&&bv===Number.MAX_SAFE_INTEGER&&av!==Number.MAX_SAFE_INTEGER)cmp=-1;
+    return sortConfig.direction==="asc"?cmp:-cmp;
+  }):baseRows;
+  const sortButton=(key,label)=><button type="button" className="btn g" onClick={()=>setSortConfig(prev=>({key,direction:prev.key===key&&prev.direction==="asc"?"desc":"asc"}))} aria-label={"مرتب‌سازی "+label} title={"مرتب‌سازی "+label} style={{padding:"2px 6px",marginInlineStart:5,fontSize:11,lineHeight:1.4,whiteSpace:"nowrap"}}>{sortConfig.key===key?(sortConfig.direction==="asc"?"↑":"↓"):"↕"}</button>;
   return <div className="panel" style={{margin:"14px 0"}}>
     <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
       <div><h3 style={{margin:0}}>وضعیت لحظه‌ای حضور پرسنل</h3><div className="muted" style={{fontSize:12,marginTop:4}}>امروز {faPlain(live.jdate||"")} · بروزرسانی خودکار هر ۶۰ ثانیه</div></div>
@@ -544,7 +568,7 @@ function LiveStaffDashboard(){
     <div className="tabbar" style={{display:"flex",gap:6,margin:"12px 0",borderBottom:"1px solid var(--line)",flexWrap:"wrap"}}>
       {[["present","حاضرین"],["absent","غایبین"],["leave","مرخصی و ماموریت"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{background:"none",border:"none",borderBottom:tab===k?"3px solid var(--brand)":"3px solid transparent",padding:"8px 12px",fontFamily:"inherit",fontWeight:tab===k?800:500,cursor:"pointer",color:tab===k?"var(--brand)":"var(--muted)"}}>{l}</button>)}
     </div>
-    {rows.length===0?<p className="muted">موردی برای نمایش وجود ندارد.</p>:<div style={{overflowX:"auto"}}><table><thead><tr><th>نام</th><th>سمت</th>{tab==="present"&&<><th>ساعت ورود</th><th>خط</th><th>روش</th><th>وضعیت</th></>}</tr></thead><tbody>
+    {rows.length===0?<p className="muted">موردی برای نمایش وجود ندارد.</p>:<div style={{overflowX:"auto"}}><table><thead><tr><th>نام {tab==="present"&&sortButton("name","نام")}</th><th>سمت {tab==="present"&&sortButton("role_title","سمت")}</th>{tab==="present"&&<><th>ساعت ورود {sortButton("check_in","ساعت ورود")}</th><th>خط {sortButton("line_code","خط")}</th><th>روش {sortButton("method","روش")}</th><th>وضعیت {sortButton("is_open","وضعیت")}</th></>}</tr></thead><tbody>
       {rows.map((r,i)=><tr key={r.user_id||i}><td>{r.name||"—"}</td><td>{r.role_title||"—"}</td>{tab==="present"&&<><td>{r.check_in?faTime(r.check_in):"—"}</td><td>{r.line_code?("خط "+fa(r.line_code)+(r.line_description?" — "+r.line_description:"")):"—"}</td><td>{methodFa[r.method]||r.method||"—"}</td><td><span className={"badge "+(r.is_open?"ok":"muted")}>{r.is_open?"داخل شیفت":"خروج ثبت شده"}</span></td></>}</tr>)}
     </tbody></table></div>}
   </div>;
