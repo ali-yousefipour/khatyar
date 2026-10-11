@@ -531,13 +531,13 @@ function LiveStaffDashboard(){
   const load=()=>db.workDashboard(tj[0],tj[1]).then(x=>setLive(x&&x.live?x.live:null)).catch(()=>setLive(null));
   useEffect(()=>{load(); const iv=setInterval(load,60000); return()=>clearInterval(iv);},[]);
   const methodFa={gps:"GPS",wifi:"Wi‑Fi",manual:"دستی",gsm:"GSM"};
-  if(!live)return <div className="panel" style={{margin:"14px 0"}}><span className="muted">در حال دریافت وضعیت حضور پرسنل…</span></div>;
   const [sortConfig,setSortConfig]=useState({key:"check_in",direction:"asc"});
+  if(!live)return <div className="panel" style={{margin:"14px 0"}}><span className="muted">در حال دریافت وضعیت حضور پرسنل…</span></div>;
   const baseRows=tab==="present"?[...(live.present_list||[])]:tab==="leave"?(live.leave_list||[]):(live.absent_list||[]);
   const sortValue=(r,key)=>{
     if(key==="check_in"){
       const raw=String(r.check_in||"").trim();
-      const m=raw.match(/(?:^|T|\\s)(\\d{1,2}):(\\d{2})(?::(\\d{2}))?/);
+      const m=raw.match(/(?:^|T|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?/);
       if(m)return Number(m[1])*3600+Number(m[2])*60+Number(m[3]||0);
       const stamp=Date.parse(raw);return Number.isFinite(stamp)?stamp:Number.MAX_SAFE_INTEGER;
     }
