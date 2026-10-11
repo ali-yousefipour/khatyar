@@ -531,7 +531,7 @@ function LiveStaffDashboard(){
   useEffect(()=>{load(); const iv=setInterval(load,60000); return()=>clearInterval(iv);},[]);
   const methodFa={gps:"GPS",wifi:"Wi‑Fi",manual:"دستی",gsm:"GSM"};
   if(!live)return <div className="panel" style={{margin:"14px 0"}}><span className="muted">در حال دریافت وضعیت حضور پرسنل…</span></div>;
-  const rows=tab==="present"?(live.present_list||[]):tab==="leave"?(live.leave_list||[]):(live.absent_list||[]);
+  const rows=tab==="present"?[...(live.present_list||[])].sort((a,b)=>{const timeOf=v=>{const raw=String(v&&v.check_in||"").trim();const stamp=Date.parse(raw);if(Number.isFinite(stamp))return stamp;const m=raw.match(/(?:^|T|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?/);return m?(Number(m[1])*3600+Number(m[2])*60+Number(m[3]||0)):Number.MAX_SAFE_INTEGER;};return timeOf(a)-timeOf(b);}):tab==="leave"?(live.leave_list||[]):(live.absent_list||[]);
   return <div className="panel" style={{margin:"14px 0"}}>
     <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
       <div><h3 style={{margin:0}}>وضعیت لحظه‌ای حضور پرسنل</h3><div className="muted" style={{fontSize:12,marginTop:4}}>امروز {faPlain(live.jdate||"")} · بروزرسانی خودکار هر ۶۰ ثانیه</div></div>
