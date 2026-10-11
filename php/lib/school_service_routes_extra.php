@@ -102,6 +102,7 @@ route('GET','/api/school-service/inspection-map',function($p,$b,$u){
  return ['items'=>$rows,'total'=>count($rows),'district_boundaries'=>$boundaries,'generated_at'=>date('Y-m-d H:i:s')];
 });
 // API سوابق بازدید هر مدرسه؛ برای دکمه «سوابق بازدید» در پنجرهٔ نقشه.
+// این کتابخانه در استقرار تولید از مسیر نصب امن سمت PHP و کنترل checksum به‌روزرسانی می‌شود.
 route('GET','/api/school-service/schools/{id}/inspections',function($p,$b,$u){
  _ssv_need($u,'view');_ssv_tables();$schoolId=(int)$p['id'];
  $school=Db::one("SELECT id,name,educational_district FROM school_service_schools WHERE id=? AND is_active=1",[$schoolId]);
