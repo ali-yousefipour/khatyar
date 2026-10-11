@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { withDangerousMod, withAppBuildGradle, withGradleProperties } = require('@expo/config-plugins');
+const { withDangerousMod, withAppBuildGradle, withGradleProperties, withProjectBuildGradle } = require('@expo/config-plugins');
 
 const REQUIRED_NDK_VERSION = '27.3.13750724';
 
@@ -103,6 +103,35 @@ module.exports = function withWifiRebornSdkCompat(config) {
     console.log('[withWifiRebornSdkCompat] Expo Maven publication now skips safely when the release component is unavailable.');
     return cfg;
   }]);
+  // React Native native dependencies (including react-native-worklets) read
+  // rootProject.ext.ndkVersion. Gradle properties and app/build.gradle alone
+  // do not configure that root extra property.
+  config = withProjectBuildGradle(config, (cfg) => {
+    const original = cfg.modResults.contents;
+    const patterns = [
+      /(\\bndkVersion\\s*=\\s*)['"][^'"]+['"]/,
+      /(\\bndkVersion\\s+)['"][^'"]+['"]/,
+      /(\\bndkVersion\\s*=\\s*)\\d+\\.\\d+\\.\\d+/
+    ];
+    let updated = original;
+    for (const pattern of patterns) {
+      if (pattern.test(updated)) {
+        updated = updated.replace(pattern, '$1"' + REQUIRED_NDK_VERSION + '"');
+        break;
+      }
+    }
+    if (!updated.includes(REQUIRED_NDK_VERSION)) {
+      throw new Error('[withWifiRebornSdkCompat] Root android/build.gradle has no recognizable ndkVersion in its ext block; cannot configure native dependency projects safely.');
+    }
+    if (updated !== original) {
+      cfg.modResults.contents = updated;
+      console.log('[withWifiRebornSdkCompat] Root project ndkVersion pinned to ' + REQUIRED_NDK_VERSION + ' for native dependency projects.');
+    } else {
+      console.log('[withWifiRebornSdkCompat] Root project ndkVersion already pinned to ' + REQUIRED_NDK_VERSION + '.');
+    }
+    return cfg;
+  });
+
   // Keep the app module pinned too; this is useful for app-owned native CMake
   // targets, while the root property above covers dependency projects.
   config = withAppBuildGradle(config, (cfg) => {
