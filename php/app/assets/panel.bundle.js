@@ -14537,9 +14537,12 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             bounds.push([lat, lng]);
             const marker = L.marker([lat, lng]).addTo(map);
             const popup = '<div dir="rtl" style="font-family:Vazirmatn,Tahoma;min-width:230px"><b>' + esc(r.name || 'مدرسه') + '</b><div>ناحیه: ' + esc(r.educational_district || 'نامشخص') + '</div><div>تعداد بازدید: ' + ssvFa(r.inspection_count) + '</div><div>آخرین بازرس: ' + esc(r.last_inspector || 'نامشخص') + '</div><div>آخرین بازدید: ' + esc(r.last_inspection_at || 'نامشخص') + '</div><button type="button" class="ssv-row-btn primary" style="margin-top:8px" data-map-inspection-school="' + r.id + '">سوابق بازدید</button></div>';
-            marker.bindPopup(popup);
-            marker.on('popupopen', ev => { var _a; const historyBtn = (_a = ev.popup.getElement()) === null || _a === void 0 ? void 0 : _a.querySelector('[data-map-inspection-school]'); if (historyBtn)
-                historyBtn.onclick = event => { event.preventDefault(); event.stopPropagation(); ssvShowSchoolHistory(r.id, historyBtn); }; });
+            marker.bindPopup(popup, { closeButton: true, autoClose: false, closeOnClick: false });
+            marker.on('popupopen', ev => { const popupEl = ev.popup.getElement(); const historyBtn = popupEl === null || popupEl === void 0 ? void 0 : popupEl.querySelector('[data-map-inspection-school]'); if (!historyBtn || historyBtn.dataset.historyBound === '1')
+                return; historyBtn.dataset.historyBound = '1'; historyBtn.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); if (window.L && L.DomEvent) {
+                L.DomEvent.preventDefault(event);
+                L.DomEvent.stopPropagation(event);
+            } ssvShowSchoolHistory(historyBtn.getAttribute('data-map-inspection-school'), historyBtn); }); });
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'ssv-school-pick';
