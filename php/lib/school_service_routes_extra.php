@@ -44,19 +44,18 @@ route('GET','/api/school-service/dashboard',function($p,$b,$u){
    $trend[]=['ym'=>$key,'n'=>$trendCounts[$key]??0];
  }
  $districtSchools=Db::all("SELECT COALESCE(NULLIF(TRIM(educational_district),''),'نامشخص') label,COUNT(*) n,COALESCE(SUM(student_count),0) students FROM school_service_schools WHERE is_active=1 GROUP BY educational_district ORDER BY n DESC");
- $activeInspectors=[];
+ $activeInspectors=[];$activeInspectorCount=0;
  try{
-   // فعال‌بودن در این شاخص بر اساس ثبت واقعی بازدید در ۳۰ روز اخیر است؛
-   // محدودکردن به عنوان فارسی نقش باعث حذف کاربران با عنوان نقش متفاوت می‌شد.
+   // شمارش بر اساس افراد یکتایی است که در ۳۰ روز اخیر واقعاً بازدید ثبت کرده‌اند؛ عنوان نقش و وضعیت حساب در شمارش دخالت ندارند.
+   $activeInspectorCount=(int)(Db::one("SELECT COUNT(DISTINCT inspector_user_id) n FROM school_service_inspections WHERE inspector_user_id IS NOT NULL AND created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)")['n']??0);
    $activeInspectors=Db::all("SELECT u.id,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) name,COALESCE(r.title,'') role_title,
      (SELECT COUNT(*) FROM school_service_inspections ii WHERE ii.inspector_user_id=u.id) inspection_count,
      (SELECT COUNT(*) FROM school_service_inspections ii WHERE ii.inspector_user_id=u.id AND ii.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)) inspection_count_30d
      FROM users u JOIN (SELECT DISTINCT inspector_user_id FROM school_service_inspections WHERE inspector_user_id IS NOT NULL AND created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)) recent ON recent.inspector_user_id=u.id
      LEFT JOIN roles r ON r.id=u.role_id
-     WHERE u.is_active=1
      ORDER BY inspection_count_30d DESC,inspection_count DESC,name ASC");
- }catch(Throwable $e){$activeInspectors=[];}
- return ['cards'=>['active_schools'=>$activeSchools,'students'=>$studentTotal,'active_companies'=>$activeCompanies,'active_vehicles'=>$activeVehicles,'inspections'=>$inspections,'inspections_30d'=>$inspections30,'active_inspectors'=>count($activeInspectors),'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol],
+ }catch(Throwable $e){$activeInspectors=[];$activeInspectorCount=0;}
+ return ['cards'=>['active_schools'=>$activeSchools,'students'=>$studentTotal,'active_companies'=>$activeCompanies,'active_vehicles'=>$activeVehicles,'inspections'=>$inspections,'inspections_30d'=>$inspections30,'active_inspectors'=>$activeInspectorCount,'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol],
    'by_district'=>$byDistrict,'by_company'=>$byCompany,'by_violation'=>$byViolation,'by_school'=>$bySchool,'vehicle_types'=>$vehicleTypes,'certificates'=>$certificates,'trend'=>$trend,'district_schools'=>$districtSchools,'active_inspectors'=>$activeInspectors,'generated_at'=>date('Y-m-d H:i:s')];
 });
 route('GET','/api/school-service/inspections/{id}',function($p,$b,$u){
