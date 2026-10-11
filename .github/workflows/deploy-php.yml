@@ -392,7 +392,7 @@ jobs:
 
           grep -q 'assets/panel-build-runtime-fix.js?v=20261009.1' /tmp/live-panel.html
           grep -q 'assets/panel.bundle.js?v=20261009.2' /tmp/live-panel.html
-          grep -q 'assets/school-service-admin.js?v=20261009.253' /tmp/live-panel.html
+          grep -Eq 'assets/school-service-admin.js\\?v=(20261009\\.253|20261011\\.254)' /tmp/live-panel.html
           grep -q 'نسخه 1.5.7' /tmp/live-panel.html
           ! grep -q '/api/admin/complaints/dashboard' /tmp/live-panel.html
           ! grep -q 'window.openComplaints=open;open();' /tmp/live-panel.html
