@@ -1,17 +1,13 @@
 const fs = require('fs');
 const path = require('path');
-const { withDangerousMod } = require('@expo/config-plugins');
+const { withDangerousMod, withAppBuildGradle } = require('@expo/config-plugins');
 
 const REQUIRED_NDK_VERSION = '27.3.13750724';
 
-// react-native-wifi-reborn 4.13.6 may use a numeric compile SDK fallback
-// or inherit compileSdkVersion from the root Android project. Also align the
-// generated root project's NDK fallback with the NDK installed by build-release.ps1.
 module.exports = function withWifiRebornSdkCompat(config) {
-  return withDangerousMod(config, ['android', async (cfg) => {
-    const projectRoot = cfg.modRequest.projectRoot;
+  config = withDangerousMod(config, ['android', async (cfg) => {
     const gradleFile = path.join(
-      projectRoot,
+      cfg.modRequest.projectRoot,
       'node_modules',
       'react-native-wifi-reborn',
       'android',
@@ -52,34 +48,38 @@ module.exports = function withWifiRebornSdkCompat(config) {
       console.log('[withWifiRebornSdkCompat] react-native-wifi-reborn compileSdkVersion is API 36 or inherited from the root project.');
     }
 
-    // Expo prebuild regenerates android/ from scratch. Patch its root NDK
-    // fallback explicitly because the installed SDK contains r27d (27.3),
-    // while the React Native template may still request 27.0.12077973.
-    const rootBuildFile = path.join(cfg.modRequest.platformProjectRoot, 'build.gradle');
-    if (!fs.existsSync(rootBuildFile)) {
-      throw new Error('[withWifiRebornSdkCompat] Generated android/build.gradle was not found.');
-    }
-
-    const rootOriginal = fs.readFileSync(rootBuildFile, 'utf8');
-    const ndkFallbackPattern = /(\bndkVersion\s*=\s*[^\r\n]*?['"])(\d+\.\d+\.\d+)(['"])/g;
-    const rootUpdated = rootOriginal.replace(ndkFallbackPattern, (match, prefix, version, suffix) => {
-      // Only align an NDK version property/fallback; leave unrelated version strings untouched.
-      return prefix + REQUIRED_NDK_VERSION + suffix;
-    });
-
-    if (!/\bndkVersion\s*=/.test(rootUpdated)) {
-      throw new Error('[withWifiRebornSdkCompat] Generated root build.gradle has no recognizable ndkVersion assignment.');
-    }
-    if (!rootUpdated.includes(REQUIRED_NDK_VERSION)) {
-      throw new Error('[withWifiRebornSdkCompat] Could not align generated root NDK version with installed NDK ' + REQUIRED_NDK_VERSION + '.');
-    }
-    if (rootUpdated !== rootOriginal) {
-      fs.writeFileSync(rootBuildFile, rootUpdated, 'utf8');
-      console.log('[withWifiRebornSdkCompat] Generated root NDK version aligned to ' + REQUIRED_NDK_VERSION + '.');
-    } else {
-      console.log('[withWifiRebornSdkCompat] Generated root NDK version already aligned to ' + REQUIRED_NDK_VERSION + '.');
-    }
-
     return cfg;
   }]);
+
+  // Set the NDK version on the app module itself. The root template in this
+  // Expo/RN combination may not declare ndkVersion, so editing root build.gradle
+  // is not reliable. Expo prebuild recreates app/build.gradle on every clean run.
+  config = withAppBuildGradle(config, (cfg) => {
+    const original = cfg.modResults.contents;
+    const assignment = /\bndkVersion\s*(?:=\s*)?(?:rootProject\.ext\.ndkVersion|['"][^'"]+['"]|\d+\.\d+\.\d+)/;
+    let updated;
+
+    if (assignment.test(original)) {
+      updated = original.replace(assignment, 'ndkVersion "' + REQUIRED_NDK_VERSION + '"');
+    } else {
+      const androidBlock = /\bandroid\s*\{/;
+      if (!androidBlock.test(original)) {
+        throw new Error('[withWifiRebornSdkCompat] app/build.gradle has no recognizable android block; cannot pin NDK safely.');
+      }
+      updated = original.replace(androidBlock, (match) => match + '\n    ndkVersion "' + REQUIRED_NDK_VERSION + '"');
+    }
+
+    if (!updated.includes(REQUIRED_NDK_VERSION)) {
+      throw new Error('[withWifiRebornSdkCompat] Could not pin app NDK version to ' + REQUIRED_NDK_VERSION + '.');
+    }
+    if (updated !== original) {
+      cfg.modResults.contents = updated;
+      console.log('[withWifiRebornSdkCompat] App module NDK version pinned to ' + REQUIRED_NDK_VERSION + '.');
+    } else {
+      console.log('[withWifiRebornSdkCompat] App module NDK version already pinned to ' + REQUIRED_NDK_VERSION + '.');
+    }
+    return cfg;
+  });
+
+  return config;
 };
