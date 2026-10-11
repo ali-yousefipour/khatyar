@@ -19,7 +19,18 @@ $Start = Get-Date
 $FinalStage = 'Starting'
 $ExitCode = 1
 $InitScript = Join-Path $Root 'gradle-mirror.init.gradle'
-$PersistentGradleHome = 'F:\taxi-system\.gradle-cache'
+$WorkspaceDriveRoot = 'F:\taxi-system'
+$PersistentGradleHome = Join-Path $WorkspaceDriveRoot '.gradle-cache'
+$BuildTempRoot = Join-Path $WorkspaceDriveRoot '.build-temp'
+$NpmCacheRoot = Join-Path $WorkspaceDriveRoot '.npm-cache'
+$AndroidSdkRoot = Join-Path $WorkspaceDriveRoot 'android-sdk'
+$AndroidUserHome = Join-Path $WorkspaceDriveRoot '.android'
+[void][IO.Directory]::CreateDirectory($BuildTempRoot)
+[void][IO.Directory]::CreateDirectory($NpmCacheRoot)
+[void][IO.Directory]::CreateDirectory($AndroidUserHome)
+$env:TEMP = $BuildTempRoot
+$env:TMP = $BuildTempRoot
+$env:npm_config_cache = $NpmCacheRoot
 $PrebuildMarker = Join-Path $Root 'android\.khatyar-prebuild.json'
 
 function Stage([int]$Percent,[string]$Name) {
@@ -130,22 +141,16 @@ function Ensure-AndroidSdk() {
     # Maven dependency mirrors remain independently controlled by gradle-mirror.init.gradle (Myket-first).
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-    $candidates = @()
-    if (-not [string]::IsNullOrWhiteSpace($env:ANDROID_SDK_ROOT)) { $candidates += $env:ANDROID_SDK_ROOT }
-    if (-not [string]::IsNullOrWhiteSpace($env:ANDROID_HOME)) { $candidates += $env:ANDROID_HOME }
-    if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { $candidates += (Join-Path $env:LOCALAPPDATA 'Android\Sdk') }
-    $sdk = $null
-    foreach ($candidate in $candidates) {
-        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
-        $full = [IO.Path]::GetFullPath($candidate)
-        if ((Test-Path -LiteralPath $full) -or $candidate -eq $candidates[-1]) { $sdk = $full; break }
-    }
-    if (-not $sdk) { Fail 'Unable to determine a writable Android SDK path. Set ANDROID_SDK_ROOT or ANDROID_HOME.' }
+    # Pin all SDK and Android user metadata to the F: workspace, ignoring C: defaults.
+    $sdk = [IO.Path]::GetFullPath($AndroidSdkRoot)
     [void](Ensure-Directory $sdk)
     $env:ANDROID_HOME = $sdk
     $env:ANDROID_SDK_ROOT = $sdk
-    $env:ANDROID_USER_HOME = Join-Path $env:USERPROFILE '.android'
+    $env:ANDROID_USER_HOME = [IO.Path]::GetFullPath($AndroidUserHome)
     [void](Ensure-Directory $env:ANDROID_USER_HOME)
+    Write-Host "    SDK install path: $sdk" -ForegroundColor Cyan
+    Write-Host "    Android user data: $env:ANDROID_USER_HOME" -ForegroundColor Cyan
+    Write-Host "    Temporary downloads: $env:TEMP" -ForegroundColor Cyan
 
     # TUNA and Huawei are tried before Tencent; the official Google endpoint is deliberately
     # not used by this local script. Mirrors can be changed without editing this function.
