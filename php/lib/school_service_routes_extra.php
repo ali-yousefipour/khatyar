@@ -38,10 +38,11 @@ route('GET','/api/school-service/dashboard',function($p,$b,$u){
  $activeInspectors=[];
  try{
    $activeInspectors=Db::all("SELECT u.id,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) name,COALESCE(r.title,'') role_title,
+     (SELECT COUNT(*) FROM school_service_inspections ii WHERE ii.inspector_user_id=u.id) inspection_count,
      (SELECT COUNT(*) FROM school_service_inspections ii WHERE ii.inspector_user_id=u.id AND ii.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)) inspection_count_30d
      FROM users u LEFT JOIN roles r ON r.id=u.role_id
      WHERE u.is_active=1 AND (r.title LIKE '%بازرس%' OR r.title LIKE '%بازرسی%' OR r.title LIKE '%سربازرس%' OR r.title LIKE '%گشت خودرویی%' OR r.title LIKE '%گشت موتوری%')
-     ORDER BY inspection_count_30d DESC,name ASC");
+     ORDER BY inspection_count DESC,inspection_count_30d DESC,name ASC");
  }catch(Throwable $e){$activeInspectors=[];}
  return ['cards'=>['active_schools'=>$activeSchools,'students'=>$studentTotal,'active_companies'=>$activeCompanies,'active_vehicles'=>$activeVehicles,'inspections'=>$inspections,'inspections_30d'=>$inspections30,'active_inspectors'=>count($activeInspectors),'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol],
    'by_district'=>$byDistrict,'by_company'=>$byCompany,'by_violation'=>$byViolation,'by_school'=>$bySchool,'vehicle_types'=>$vehicleTypes,'certificates'=>$certificates,'trend'=>$trend,'district_schools'=>$districtSchools,'active_inspectors'=>$activeInspectors,'generated_at'=>date('Y-m-d H:i:s')];
@@ -99,6 +100,19 @@ route('GET','/api/school-service/inspection-map',function($p,$b,$u){
    if(count($clean)>=3)$boundaries[]=['district_id'=>(int)$bb['district_id'],'title'=>(string)$bb['title'],'points'=>$clean,'updated_at'=>$bb['updated_at']];
  }
  return ['items'=>$rows,'total'=>count($rows),'district_boundaries'=>$boundaries,'generated_at'=>date('Y-m-d H:i:s')];
+});
+route('GET','/api/school-service/schools/{id}/inspections',function($p,$b,$u){
+ _ssv_need($u,'view');_ssv_tables();$schoolId=(int)$p['id'];
+ $school=Db::one("SELECT id,name,educational_district FROM school_service_schools WHERE id=? AND is_active=1",[$schoolId]);
+ if(!$school)Http::error('مدرسه پیدا نشد.',404);
+ $total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections WHERE school_id=?",[$schoolId])['n']??0);
+ $items=Db::all("SELECT i.id,i.school_id,i.educational_district,i.plate_three,i.plate_letter,i.plate_two,i.plate_region_code,i.violation_date,i.violation_time,i.created_at,i.company_id,c.name company_name,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) inspector_name FROM school_service_inspections i LEFT JOIN school_service_companies c ON c.id=i.company_id LEFT JOIN users u ON u.id=i.inspector_user_id WHERE i.school_id=? ORDER BY i.id DESC LIMIT 500",[$schoolId]);
+ foreach($items as &$item){
+  $item['plate']=trim(($item['plate_three']??'').' '.($item['plate_letter']??'').' '.($item['plate_two']??'').' ایران '.($item['plate_region_code']??''));
+  $item['violations']=array_column(_ssv_filter_violation_rows(Db::all("SELECT v.id,v.title FROM school_service_inspection_violations x JOIN school_service_violation_types v ON v.id=x.violation_type_id WHERE x.inspection_id=? ORDER BY v.sort_order,v.id",[(int)$item['id']])),'title');
+ }
+ unset($item);
+ return ['school'=>$school,'items'=>$items,'total'=>$total];
 });
 route('POST','/api/school-service/schools/{id}/location',function($p,$b,$u){_ssv_need($u,'create');_ssv_tables();$id=(int)$p['id'];$s=Db::one("SELECT id FROM school_service_schools WHERE id=? AND is_active=1",[$id]);if(!$s)Http::error('مدرسه یافت نشد',404);[$lat,$lng]=validGeo($b['latitude']??null,$b['longitude']??null);if($lat===null||$lng===null)Http::error('مختصات مدرسه معتبر نیست.',422);Db::run("UPDATE school_service_schools SET latitude=?,longitude=?,location_registered_at=? WHERE id=?",[$lat,$lng,date('Y-m-d H:i:s'),$id]);return ['ok'=>true,'id'=>$id,'latitude'=>$lat,'longitude'=>$lng,'location_registered_at'=>date('Y-m-d H:i:s')];},false,99);
 route('POST','/api/school-service/inspections-with-photo',function($p,$b,$u){
