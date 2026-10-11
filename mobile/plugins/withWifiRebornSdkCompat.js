@@ -2,10 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const { withDangerousMod } = require('@expo/config-plugins');
 
-// react-native-wifi-reborn 4.13.6 falls back to API 31 when the root
-// Gradle project does not expose compileSdkVersion through ext. That fallback
-// makes Gradle require platforms;android-31 even when the project uses a fixed
-// SDK. Pin this module to the repository's agreed Android API 34 toolchain.
+// react-native-wifi-reborn 4.13.6 uses safeExtGet(compileSdkVersion, 31)
+// without quotes around the property name. Pin its fallback to API 34 so the
+// build does not require the legacy platforms;android-31 SDK package.
 module.exports = function withWifiRebornSdkCompat(config) {
   return withDangerousMod(config, ['android', async (cfg) => {
     const gradleFile = path.join(
@@ -22,7 +21,7 @@ module.exports = function withWifiRebornSdkCompat(config) {
 
     const original = fs.readFileSync(gradleFile, 'utf8');
     const patterns = [
-      /(safeExtGet\(['"]compileSdkVersion['"],\s*)31(\s*\))/g,
+      /(safeExtGet\(\s*['"]?compileSdkVersion['"]?\s*,\s*)31(\s*\))/g,
       /(compileSdkVersion\s*=\s*)31\b/g,
       /(compileSdkVersion\s+)31\b/g
     ];
@@ -31,7 +30,7 @@ module.exports = function withWifiRebornSdkCompat(config) {
       updated = updated.replace(pattern, (match, prefix, suffix = '') => prefix + '34' + suffix);
     }
 
-    if (/safeExtGet\(['"]compileSdkVersion['"],\s*31\s*\)/.test(updated) ||
+    if (/safeExtGet\(\s*['"]?compileSdkVersion['"]?\s*,\s*31\s*\)/.test(updated) ||
         /compileSdkVersion(?:\s*=)?\s+31\b/.test(updated)) {
       throw new Error('[withWifiRebornSdkCompat] Unable to replace the legacy API 31 fallback.');
     }
