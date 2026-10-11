@@ -390,9 +390,12 @@ function Ensure-AndroidSdk() {
         }
     }
 
+    $requiredPackagePaths = @('ndk;27.3.13750724','platform-tools','build-tools;36.0.0','platforms;android-36')
     $missingUrlRows = @($rows | Where-Object {
-        ([string]$_.package_path).Trim() -in @('ndk;27.3.13750724','platform-tools','build-tools;36.0.0','platforms;android-36') -and
-        ([string]$_.PSObject.Properties['archive_url'].Value) -notmatch '^https://maven\.myket\.ir/android-sdk/'
+        $packagePath = ([string]$_.package_path).Trim()
+        $urlProperty = $_.PSObject.Properties['archive_url']
+        ($requiredPackagePaths -contains $packagePath) -and
+        (($null -eq $urlProperty) -or ([string]$urlProperty.Value) -notmatch '^https://maven\.myket\.ir/android-sdk/')
     })
     if ($missingUrlRows.Count -gt 0) {
         $headers = $rows[0].PSObject.Properties.Name -join ', '
