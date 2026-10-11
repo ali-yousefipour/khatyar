@@ -55,12 +55,8 @@ route('GET','/api/school-service/dashboard',function($p,$b,$u){
    if($py!==$currentJYear||$pm!==$currentJMonth)break;
    $monthStart=$prev;
  }
+ // نمودار فقط از ابتدای ماه شمسی تا امروز را نمایش می‌دهد؛ روزهای آینده عمداً حذف می‌شوند.
  $monthEnd=$today;
- for($step=0;$step<31;$step++){
-   $next=$monthEnd->modify('+1 day');[$ny,$nm]=$jalaliParts($next);
-   if($ny!==$currentJYear||$nm!==$currentJMonth)break;
-   $monthEnd=$next;
- }
  $trendRows=Db::all("SELECT DATE(i.created_at) day_key,COUNT(*) n FROM school_service_inspections i WHERE i.created_at>=? AND i.created_at<? AND $where GROUP BY DATE(i.created_at) ORDER BY day_key ASC",array_merge([$monthStart->format('Y-m-d 00:00:00'),$monthEnd->modify('+1 day')->format('Y-m-d 00:00:00')],$a));
  $trendCounts=[];
  foreach($trendRows as $tr){$trendCounts[(string)$tr['day_key']]=(int)$tr['n'];}
