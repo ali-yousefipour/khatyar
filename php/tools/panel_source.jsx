@@ -8364,11 +8364,12 @@ function ssvShowSchoolHistory(schoolId,trigger){
  }).catch(err=>alert(err.message||'دریافت سوابق بازدید مدرسه ناموفق بود.')).finally(()=>{if(trigger&&trigger.isConnected)trigger.disabled=false});
 }
 function mountInspectionMap(container,rows,districtBoundaries){
+ if(!container||!container.isConnected)return;
  if(S.schoolInspectionMap&&S.schoolInspectionMap.remove){try{S.schoolInspectionMap.remove()}catch(_){}}
  container.innerHTML='<div class="ssv-map-wrap"><div><div class="ssv-map-legend"><span class="ssv-map-stat">مدارس دارای بازدید: '+ssvFa((rows||[]).length)+'</span><span class="ssv-map-stat">مرز ۸ ناحیه آموزش‌وپرورش</span></div><div id="ssv-inspection-map" class="ssv-map"></div></div><div class="ssv-map-info"><b>مدارس بازدیدشده</b><div id="ssv-inspection-points" style="margin-top:10px"></div></div></div>';
- const mapEl=container.querySelector('#ssv-inspection-map');if(!window.L){mapEl.innerHTML='<div class="ssv-map-empty">کتابخانه نقشه در دسترس نیست.</div>';return}
+ const mapEl=container.querySelector('#ssv-inspection-map');if(!mapEl)return;if(!window.L){mapEl.innerHTML='<div class="ssv-map-empty">کتابخانه نقشه در دسترس نیست.</div>';return}
  const map=L.map(mapEl,{zoomControl:true,attributionControl:true}).setView([36.2972,59.6067],11);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);S.schoolInspectionMap=map;
- const list=container.querySelector('#ssv-inspection-points'),bounds=[];
+ const list=container.querySelector('#ssv-inspection-points');if(!list){try{map.remove()}catch(_){}if(S.schoolInspectionMap===map)S.schoolInspectionMap=null;return}const bounds=[];
  (districtBoundaries||[]).forEach(d=>{
    const pts=(d.points||[]).map(p=>[Number(p?.[0]),Number(p?.[1])]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
    if(pts.length<3)return;
@@ -8430,7 +8431,7 @@ if(t==='config'){if(!(await api('/api/school-service/access')).can_edit){b.inner
  b.querySelectorAll('[data-cfg-add]').forEach(btn=>btn.onclick=async()=>{const inp=b.querySelector('[data-cfg-input="'+btn.dataset.cfgAdd+'"]');if(!inp.value.trim())return;await api('/api/school-service/config',{method:'POST',body:{type:btn.dataset.cfgAdd,title:inp.value.trim()}});render('config')});b.querySelectorAll('[data-cfg-del]').forEach(btn=>btn.onclick=()=>ssvConfirm('غیرفعال‌سازی گزینه','این گزینه در ثبت‌های جدید نمایش داده نخواهد شد.',async()=>{await api('/api/school-service/config?type='+encodeURIComponent(btn.dataset.cfgDel)+'&id='+btn.dataset.id,{method:'DELETE'});render('config')}));return}
 if(t==='permissions'){const d=await api('/api/school-service/permissions');b.innerHTML='<div class="ssv-card"><h3>دسترسی سمت‌ها</h3><table class="ssv-table"><thead><tr><th>سمت</th><th>مشاهده</th><th>ثبت</th><th>ویرایش</th><th>حذف</th><th>Excel</th><th>گزارش</th><th></th></tr></thead><tbody>'+d.items.map(r=>'<tr data-role="'+r.id+'"><td>'+esc(r.title)+'</td>'+['view','create','edit','delete','import','report'].map(k=>'<td><input type="checkbox" data-k="'+k+'" '+(r['can_'+k]?'checked':'')+'></td>').join('')+'<td><button class="ssv-save-perm">ذخیره</button></td></tr>').join('')+'</tbody></table></div>';b.querySelectorAll('.ssv-save-perm').forEach(btn=>btn.onclick=async()=>{const tr=btn.closest('tr'),body={};tr.querySelectorAll('[data-k]').forEach(x=>body['can_'+x.dataset.k]=x.checked?1:0);await api('/api/school-service/permissions/'+tr.dataset.role,{method:'POST',body});btn.textContent='ذخیره شد';setTimeout(()=>btn.textContent='ذخیره',1200)});return}
 if(t==='map'){
- const d=await api('/api/school-service/inspection-map'); const boot=await api('/api/school-service/bootstrap'); d.district_boundaries=boot.district_boundaries||[];
+ const d=await api('/api/school-service/inspection-map');if(!S.root||!S.root.isConnected||S.root.querySelector('.ssv-body')!==b||!S.root.querySelector('[data-t="map"]')?.classList.contains('on'))return;const boot=await api('/api/school-service/bootstrap');if(!S.root||!S.root.isConnected||S.root.querySelector('.ssv-body')!==b||!S.root.querySelector('[data-t="map"]')?.classList.contains('on'))return;d.district_boundaries=boot.district_boundaries||[];
  b.innerHTML='<div class="ssv-card"><h3>نقشه مدارس بازدیدشده و بازرسی‌شده</h3><p style="font-size:11px;color:#667085">در این نقشه فقط مدارسی نمایش داده می‌شوند که حداقل یک بازدید/بازرسی سرویس مدارس برای آن‌ها ثبت شده و مختصات جغرافیایی معتبر دارند.</p><div id="ssv-inspection-map-block"></div></div>';
  mountInspectionMap(b.querySelector('#ssv-inspection-map-block'),d.items||[],d.district_boundaries||[]);
  return;
