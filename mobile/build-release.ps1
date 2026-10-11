@@ -126,9 +126,8 @@ function Remove-LockedAndroidDirectory([string]$Android) {
 
 
 function Ensure-AndroidSdk() {
-    # Keep Android SDK installation self-contained and user-writable on Windows.
-    # Android SDK components come from Google's official repository; Maven dependency
-    # mirrors remain controlled by gradle-mirror.init.gradle (Myket-first).
+    # Prefer public mirrors that do not rely on Google's download endpoints.
+    # Maven dependency mirrors remain independently controlled by gradle-mirror.init.gradle (Myket-first).
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
     $candidates = @()
@@ -148,30 +147,52 @@ function Ensure-AndroidSdk() {
     $env:ANDROID_USER_HOME = Join-Path $env:USERPROFILE '.android'
     [void](Ensure-Directory $env:ANDROID_USER_HOME)
 
+    # TUNA and Huawei are tried before Tencent; the official Google endpoint is deliberately
+    # not used by this local script. Mirrors can be changed without editing this function.
+    $repositoryMirrors = @(
+        'https://mirrors.tuna.tsinghua.edu.cn/android/repository/',
+        'https://mirrors.huaweicloud.com/android/repository/',
+        'https://mirrors.cloud.tencent.com/AndroidSDK/'
+    )
+    $toolsArchiveName = 'commandlinetools-win-11076708_latest.zip'
     $sdkManager = Join-Path $sdk 'cmdline-tools\latest\bin\sdkmanager.bat'
     if (-not (Test-Path -LiteralPath $sdkManager)) {
-        Stage 15 'Downloading Android SDK command-line tools'
+        Stage 15 'Downloading Android SDK command-line tools from public mirrors'
         $toolsRoot = Join-Path $sdk 'cmdline-tools'
         [void](Ensure-Directory $toolsRoot)
         $zip = Join-Path $env:TEMP ('khatyar-android-cmdline-tools-' + [guid]::NewGuid().ToString('N') + '.zip')
         $extract = Join-Path $env:TEMP ('khatyar-android-cmdline-tools-' + [guid]::NewGuid().ToString('N'))
-        $url = 'https://dl.google.com/android/repository/commandlinetools-win-11076708_latest.zip'
+        $downloaded = $false
         try {
-            Write-Host "    Downloading official Android command-line tools from Google." -ForegroundColor Cyan
-            Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing -TimeoutSec 600
-            if (-not (Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 10MB) {
-                Fail 'Downloaded Android command-line tools archive is missing or unexpectedly small.'
+            foreach ($mirror in $repositoryMirrors) {
+                $url = $mirror.TrimEnd('/') + '/' + $toolsArchiveName
+                try {
+                    Write-Host "    Trying SDK mirror: $mirror" -ForegroundColor Cyan
+                    Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing -TimeoutSec 600
+                    if ((Test-Path -LiteralPath $zip) -and (Get-Item -LiteralPath $zip).Length -gt 10MB) {
+                        $downloaded = $true
+                        break
+                    }
+                    Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
+                    Write-Host '    Mirror returned an incomplete or unexpected archive; trying next mirror.' -ForegroundColor Yellow
+                } catch {
+                    Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
+                    Write-Host "    Mirror failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                }
+            }
+            if (-not $downloaded) {
+                Fail 'Could not download Android command-line tools from the configured non-Google mirrors. Check mirror availability or set up a reachable mirror; Google download endpoints are intentionally not used.'
             }
             Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force
             $extractedBin = Join-Path $extract 'cmdline-tools\bin'
             if (-not (Test-Path -LiteralPath (Join-Path $extractedBin 'sdkmanager.bat'))) {
-                Fail 'Google Android command-line tools archive did not contain sdkmanager.bat.'
+                Fail 'Downloaded command-line tools archive does not contain sdkmanager.bat.'
             }
             $latest = Join-Path $toolsRoot 'latest'
             if (Test-Path -LiteralPath $latest) { Remove-Item -LiteralPath $latest -Recurse -Force }
             Move-Item -LiteralPath (Join-Path $extract 'cmdline-tools') -Destination $latest
         } catch {
-            Fail "Unable to install Android SDK command-line tools automatically: $($_.Exception.Message)"
+            Fail "Unable to install Android SDK command-line tools from public mirrors: $($_.Exception.Message)"
         } finally {
             Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue
@@ -182,27 +203,41 @@ function Ensure-AndroidSdk() {
     if ($env:PATH -notlike "*$sdkBin*") { $env:PATH = "$sdkBin;$([IO.Path]::GetDirectoryName($sdkManager));$env:PATH" }
     if (-not (Test-Path -LiteralPath $sdkManager)) { Fail "sdkmanager was not installed: $sdkManager" }
 
-    Stage 18 'Installing required Android SDK components'
+    Stage 18 'Installing required Android SDK components from public mirrors'
     $components = @('platform-tools','platforms;android-36','build-tools;36.0.0','ndk;27.3.13750724')
     $sdkLog = Join-Path $env:TEMP ('khatyar-sdkmanager-' + [guid]::NewGuid().ToString('N') + '.log')
+    $installed = $false
     try {
-        # Accept licenses non-interactively; SDK Manager still validates each package download.
         $licenseInput = ('y' + [Environment]::NewLine) * 100
-        $licenseInput | & $sdkManager --sdk_root=$sdk --licenses 2>&1 | Tee-Object -FilePath $sdkLog | Out-Host
-        if ($LASTEXITCODE -ne 0) { Fail "Android SDK license acceptance failed. Log: $sdkLog" }
-
-        & $sdkManager --sdk_root=$sdk @components 2>&1 | Tee-Object -FilePath $sdkLog -Append | Out-Host
-        if ($LASTEXITCODE -ne 0) { Fail "Android SDK component installation failed. Log: $sdkLog" }
+        foreach ($mirror in $repositoryMirrors) {
+            # SDK Manager uses this test/mirror base URL in builds that support SDK repository
+            # overrides. Keep the value scoped to this process and try each mirror independently.
+            $env:SDK_TEST_BASE_URL = $mirror
+            Write-Host "    Trying SDK package mirror: $mirror" -ForegroundColor Cyan
+            try {
+                $licenseInput | & $sdkManager "--sdk_root=$sdk" --licenses 2>&1 | Tee-Object -FilePath $sdkLog | Out-Host
+                if ($LASTEXITCODE -ne 0) { throw 'License acceptance command failed.' }
+                & $sdkManager "--sdk_root=$sdk" @components 2>&1 | Tee-Object -FilePath $sdkLog -Append | Out-Host
+                if ($LASTEXITCODE -ne 0) { throw 'One or more SDK components failed to install from this mirror.' }
+                $installed = $true
+                break
+            } catch {
+                Write-Host "    SDK mirror failed: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
     } finally {
-        # Keep the detailed SDK manager log when an installation fails for diagnosis.
+        Remove-Item Env:\SDK_TEST_BASE_URL -ErrorAction SilentlyContinue
         if (Test-Path -LiteralPath $sdkLog) {
             $sdkLogText = Get-Content -LiteralPath $sdkLog -Raw -ErrorAction SilentlyContinue
-            if ($sdkLogText -and $sdkLogText -match '(?i)failed|error') {
+            if ($sdkLogText -and $sdkLogText -match '(?i)failed|error|exception') {
                 Write-Host "    SDK Manager diagnostics: $sdkLog" -ForegroundColor Yellow
             } else {
                 Remove-Item -LiteralPath $sdkLog -Force -ErrorAction SilentlyContinue
             }
         }
+    }
+    if (-not $installed) {
+        Fail "Could not install Android SDK components from the configured non-Google mirrors. See SDK Manager log if retained: $sdkLog. Google download endpoints are intentionally not used."
     }
 
     $required = @(
@@ -217,7 +252,6 @@ function Ensure-AndroidSdk() {
     Write-Host "    Android SDK ready: $sdk" -ForegroundColor Green
     Write-Host '    Installed: platform-tools, Android API 36, Build Tools 36.0.0, NDK 27.3.13750724' -ForegroundColor Green
 }
-
 function Ensure-Directory([string]$Path) {
     if ([string]::IsNullOrWhiteSpace($Path)) { Fail 'Directory path is empty.' }
     $full = [IO.Path]::GetFullPath($Path)
