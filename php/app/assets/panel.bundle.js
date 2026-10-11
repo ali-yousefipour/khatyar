@@ -14503,28 +14503,66 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
         return '<div class="ssv-empty-chart">هنوز سابقه‌ای ثبت نشده است.</div>'; const mx = Math.max(1, ...a.map(x => Number(x.n) || 0)); return '<div class="ssv-trend">' + a.map(x => '<div class="ssv-trend-col"><b>' + ssvFa(x.n) + '</b><div class="ssv-trend-bar" style="height:' + Math.max(3, Math.round((Number(x.n) || 0) / mx * 135)) + 'px"></div><small>' + esc(String(x.ym || '').replace(/^(\\d{4})-/, '$1/')) + '</small></div>').join('') + '</div>'; }
     function ssvDonut(items) { const a = (items || []).slice(0, 6); if (!a.length)
         return '<div class="ssv-empty-chart">داده‌ای برای نمایش وجود ندارد.</div>'; const total = Math.max(1, a.reduce((s, x) => s + (Number(x.n) || 0), 0)); const colors = ['#0d7a5f', '#126e8f', '#d99a16', '#b54b68', '#6f56a8', '#718096']; let start = 0; const stops = a.map((x, i) => { const end = start + (Number(x.n) || 0) / total * 360; const z = colors[i % colors.length] + ' ' + start + 'deg ' + end + 'deg'; start = end; return z; }).join(','); return '<div class="ssv-donut-wrap"><div class="ssv-donut" style="background:conic-gradient(' + stops + ')"></div><div class="ssv-legend">' + a.map((x, i) => '<div><i style="background:' + colors[i % colors.length] + '"></i>' + esc(x.label || 'نامشخص') + ' <b>' + ssvFa(x.n) + '</b></div>').join('') + '</div></div>'; }
-    async function open(target, onClose) { if (S.root)
-        return; const a = await api('/api/school-service/access'); if (!a.allowed)
-        throw Error('دسترسی به سرویس مدارس برای حساب شما فعال نیست.'); S.access = a; const resolved = resolveSchoolPageHost(target); const host = resolved.host; const m = document.createElement('div'); m.className = 'ssv-inline-page'; m.innerHTML = '<div class="ssv-box"><div class="ssv-head"><b>سرویس مدارس</b><button class="ssv-close">بستن</button></div><div class="ssv-tabs"><button data-t="dashboard" class="on">داشبورد</button><button data-t="create">ثبت بازدید</button><button data-t="inspections">بازدیدها و تخلفات</button><button data-t="map">نقشه بازدیدها</button><button data-t="vehicles">خودروها</button><button data-t="schools">مدارس</button><button data-t="companies">شرکت‌ها</button><button data-t="import">ورود Excel</button><button data-t="reports">گزارش‌ها</button><button data-t="config">تنظیمات</button><button data-t="permissions">دسترسی‌ها</button></div><div class="ssv-body"></div></div>'; host.appendChild(m); S.root = m; const close = () => { try {
-        m.remove();
-    }
-    catch (_) { } if (resolved.owned) {
-        try {
-            host.remove();
+    async function open(target, onClose) {
+        if (S.root)
+            return;
+        const a = await api('/api/school-service/access');
+        if (!a.allowed)
+            throw Error('دسترسی به سرویس مدارس برای حساب شما فعال نیست.');
+        S.access = a;
+        const resolved = resolveSchoolPageHost(target);
+        const host = resolved.host;
+        const m = document.createElement('div');
+        m.className = 'ssv-inline-page';
+        m.innerHTML = '<div class="ssv-box"><div class="ssv-head"><b>سرویس مدارس</b><button class="ssv-close">بستن</button></div><div class="ssv-tabs"><button data-t="dashboard" class="on">داشبورد</button><button data-t="create">ثبت بازدید</button><button data-t="inspections">بازدیدها و تخلفات</button><button data-t="map">نقشه بازدیدها</button><button data-t="vehicles">خودروها</button><button data-t="schools">مدارس</button><button data-t="companies">شرکت‌ها</button><button data-t="import">ورود Excel</button><button data-t="reports">گزارش‌ها</button><button data-t="config">تنظیمات</button><button data-t="permissions">دسترسی‌ها</button></div><div class="ssv-body"></div></div>';
+        host.appendChild(m);
+        S.root = m;
+        const close = () => { try {
+            m.remove();
         }
-        catch (_) { }
-    } S.root = null; try {
-        onClose && onClose();
+        catch (_) { } if (resolved.owned) {
+            try {
+                host.remove();
+            }
+            catch (_) { }
+        } S.root = null; try {
+            onClose && onClose();
+        }
+        catch (_) { } };
+        m.querySelectorAll('[data-t]').forEach(x => { const k = x.dataset.t; if (k === 'config' && !a.can_edit)
+            x.style.display = 'none'; if (k === 'create' && !a.can_create)
+            x.style.display = 'none'; if (k === 'import' && !a.can_import)
+            x.style.display = 'none'; if (k === 'reports' && !a.can_report)
+            x.style.display = 'none'; });
+        m.querySelector('.ssv-close').onclick = close;
+        m.addEventListener('click', e => {
+            const historyBtn = e.target.closest('[data-map-inspection-school]');
+            if (historyBtn) {
+                const schoolId = Number(historyBtn.dataset.mapInspectionSchool || 0);
+                if (!schoolId)
+                    return;
+                historyBtn.disabled = true;
+                api('/api/school-service/schools/' + schoolId + '/inspections').then(data => {
+                    var _a;
+                    const items = data.items || [];
+                    const html = items.length ? '<div style="display:grid;gap:8px">' + items.map(r => '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border:1px solid #e4e8ee;border-radius:10px"><div><b>' + esc((r.violation_date || 'بدون تاریخ') + ' ' + (r.violation_time || '')) + '</b><div style="font-size:11px;color:#667085;margin-top:4px">پلاک: ' + esc(r.plate || 'نامشخص') + ' · بازرس: ' + esc(r.inspector_name || 'نامشخص') + '</div><div style="font-size:11px;color:#667085;margin-top:3px">تخلفات: ' + esc((r.violations || []).map(v => typeof v === 'string' ? v : (v.title || '')).filter(Boolean).join('، ') || 'بدون تخلف ثبت‌شده') + '</div></div><button type="button" class="ssv-row-btn primary" data-map-history-detail="' + r.id + '">جزئیات</button></div>').join('') + '</div>' : '<div class="ssv-msg">برای این مدرسه سابقهٔ بازدیدی ثبت نشده است.</div>';
+                    const modal = ssvModal('سوابق بازدید مدرسه — ' + (((_a = data.school) === null || _a === void 0 ? void 0 : _a.name) || ''), html, async () => true);
+                    modal.querySelector('.ssv-submit').textContent = 'بستن';
+                    modal.querySelector('.ssv-cancel').style.display = 'none';
+                    modal.querySelectorAll('[data-map-history-detail]').forEach(btn => btn.onclick = () => { const id = btn.dataset.mapHistoryDetail; modal.remove(); ssvShowInspection(id); });
+                }).catch(err => alert(err.message || 'دریافت سوابق بازدید مدرسه ناموفق بود.')).finally(() => { if (historyBtn.isConnected)
+                    historyBtn.disabled = false; });
+                return;
+            }
+            const b = e.target.closest('[data-t]');
+            if (b) {
+                m.querySelectorAll('[data-t]').forEach(x => x.classList.remove('on'));
+                b.classList.add('on');
+                render(b.dataset.t);
+            }
+        });
+        await render('dashboard');
     }
-    catch (_) { } }; m.querySelectorAll('[data-t]').forEach(x => { const k = x.dataset.t; if (k === 'config' && !a.can_edit)
-        x.style.display = 'none'; if (k === 'create' && !a.can_create)
-        x.style.display = 'none'; if (k === 'import' && !a.can_import)
-        x.style.display = 'none'; if (k === 'reports' && !a.can_report)
-        x.style.display = 'none'; }); m.querySelector('.ssv-close').onclick = close; m.addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) {
-        m.querySelectorAll('[data-t]').forEach(x => x.classList.remove('on'));
-        b.classList.add('on');
-        render(b.dataset.t);
-    } }); await render('dashboard'); }
     function close() { var _a; (_a = S.root) === null || _a === void 0 ? void 0 : _a.remove(); S.root = null; }
     async function render(t) {
         var _a, _b, _c, _e;
@@ -14570,7 +14608,7 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             if (t === 'dashboard') {
                 const d = await api('/api/school-service/dashboard');
                 const c = d.cards || {};
-                b.innerHTML = '<div class="ssv-dash"><div class="ssv-dash-head"><div><h2>داشبورد مدیریتی سرویس مدارس</h2><p>تصویر لحظه‌ای از پوشش مدارس، بازرسی، تخلفات و وضعیت ناوگان</p></div><button id="ssv-dash-refresh" class="ssv-dash-refresh">↻ بروزرسانی</button></div><div class="ssv-kpis"><div class="ssv-kpi"><small>مدارس فعال</small><strong>' + ssvFa(c.active_schools) + '</strong><span>پوشش فعال</span></div><div class="ssv-kpi"><small>دانش‌آموزان سرویس‌شده</small><strong>' + ssvFa(c.students) + '</strong><span>مجموع ثبت‌شده</span></div><div class="ssv-kpi"><small>شرکت‌های فعال</small><strong>' + ssvFa(c.active_companies) + '</strong><span>مجریان سرویس</span></div><div class="ssv-kpi"><small>خودروهای فعال</small><strong>' + ssvFa(c.active_vehicles) + '</strong><span>ناوگان بازرسی‌شده</span></div><div class="ssv-kpi"><small>بازدید ۳۰ روز اخیر</small><strong>' + ssvFa(c.inspections_30d) + '</strong><span>از ' + ssvFa(c.inspections) + ' بازدید کل</span></div><div class="ssv-kpi"><small>بازرسان فعال</small><strong>' + ssvFa(c.active_inspectors || 0) + '</strong><span>بازرس دارای وضعیت فعال</span></div></div><div class="ssv-chart-grid"><div class="ssv-chart-card"><h3>روند بازدیدهای ماهانه</h3>' + ssvTrend(d.trend) + '</div><div class="ssv-chart-card"><h3>وضعیت گواهی خودروها</h3>' + ssvDonut(d.certificates) + '</div><div class="ssv-chart-card"><h3>بازدید به تفکیک ناحیه</h3>' + ssvBars(d.by_district, 8) + '</div><div class="ssv-chart-card"><h3>تعداد مدارس و دانش‌آموزان به تفکیک ناحیه</h3>' + ssvBars((d.district_schools || []).map(x => ({ label: x.label, n: x.students })), 8) + '</div><div class="ssv-chart-card"><h3>شرکت‌های دارای بیشترین بازدید</h3>' + ssvBars(d.by_company, 8) + '</div><div class="ssv-chart-card"><h3>پرتکرارترین تخلفات</h3>' + ssvBars((d.by_violation || []).filter(x => !isCertificateViolation(x.label)), 8) + '</div><div class="ssv-chart-card"><h3>انواع خودروهای فعال</h3>' + ssvBars(d.vehicle_types, 8) + '</div><div class="ssv-chart-card"><h3>مدارس با بیشترین بازدید</h3>' + ssvBars(d.by_school, 8) + '</div><div class="ssv-chart-card"><h3>بازرسان فعال</h3><div class="ssv-inspector-list">' + (d.active_inspectors || []).map(x => '<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #edf1f0"><span><b>' + esc(x.name || 'نامشخص') + '</b><small style="display:block;color:#6b7280">' + esc(x.role_title || '') + '</small></span><b>' + ssvFa(x.inspection_count_30d || 0) + '</b></div>').join('') + '</div></div></div><div class="ssv-card"><b>شاخص تخلف:</b> میانگین ' + ssvFa(c.avg_violations_per_inspection) + ' مورد تخلف به ازای هر بازدید · <b>موارد دارای گواهی نامعتبر/ارائه‌نشده:</b> ' + ssvFa(c.invalid_certificates) + ' · <b>کل تخلفات:</b> ' + ssvFa(c.violations) + '</div></div>';
+                b.innerHTML = '<div class="ssv-dash"><div class="ssv-dash-head"><div><h2>داشبورد مدیریتی سرویس مدارس</h2><p>تصویر لحظه‌ای از پوشش مدارس، بازرسی، تخلفات و وضعیت ناوگان</p></div><button id="ssv-dash-refresh" class="ssv-dash-refresh">↻ بروزرسانی</button></div><div class="ssv-kpis"><div class="ssv-kpi"><small>مدارس فعال</small><strong>' + ssvFa(c.active_schools) + '</strong><span>پوشش فعال</span></div><div class="ssv-kpi"><small>دانش‌آموزان سرویس‌شده</small><strong>' + ssvFa(c.students) + '</strong><span>مجموع ثبت‌شده</span></div><div class="ssv-kpi"><small>شرکت‌های فعال</small><strong>' + ssvFa(c.active_companies) + '</strong><span>مجریان سرویس</span></div><div class="ssv-kpi"><small>خودروهای فعال</small><strong>' + ssvFa(c.active_vehicles) + '</strong><span>ناوگان بازرسی‌شده</span></div><div class="ssv-kpi"><small>بازدید ۳۰ روز اخیر</small><strong>' + ssvFa(c.inspections_30d) + '</strong><span>از ' + ssvFa(c.inspections) + ' بازدید کل</span></div><div class="ssv-kpi"><small>بازرسان فعال</small><strong>' + ssvFa(c.active_inspectors || 0) + '</strong><span>بازرس دارای وضعیت فعال</span></div></div><div class="ssv-chart-grid"><div class="ssv-chart-card"><h3>روند بازدیدهای ماهانه</h3>' + ssvTrend(d.trend) + '</div><div class="ssv-chart-card"><h3>وضعیت گواهی خودروها</h3>' + ssvDonut(d.certificates) + '</div><div class="ssv-chart-card"><h3>بازدید به تفکیک ناحیه</h3>' + ssvBars(d.by_district, 8) + '</div><div class="ssv-chart-card"><h3>تعداد مدارس و دانش‌آموزان به تفکیک ناحیه</h3>' + ssvBars((d.district_schools || []).map(x => ({ label: x.label, n: x.students })), 8) + '</div><div class="ssv-chart-card"><h3>شرکت‌های دارای بیشترین بازدید</h3>' + ssvBars(d.by_company, 8) + '</div><div class="ssv-chart-card"><h3>پرتکرارترین تخلفات</h3>' + ssvBars((d.by_violation || []).filter(x => !isCertificateViolation(x.label)), 8) + '</div><div class="ssv-chart-card"><h3>انواع خودروهای فعال</h3>' + ssvBars(d.vehicle_types, 8) + '</div><div class="ssv-chart-card"><h3>مدارس با بیشترین بازدید</h3>' + ssvBars(d.by_school, 8) + '</div><div class="ssv-chart-card"><h3>بازرسان فعال</h3><div class="ssv-inspector-list">' + (d.active_inspectors || []).map(x => '<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #edf1f0"><span><b>' + esc(x.name || 'نامشخص') + '</b><small style="display:block;color:#6b7280">' + esc(x.role_title || '') + '</small></span><b>' + ssvFa(x.inspection_count || 0) + '</b><small style="display:block;color:#667085;margin-top:3px">۳۰ روز اخیر: ' + ssvFa(x.inspection_count_30d || 0) + '</small></div>').join('') + '</div></div></div><div class="ssv-card"><b>شاخص تخلف:</b> میانگین ' + ssvFa(c.avg_violations_per_inspection) + ' مورد تخلف به ازای هر بازدید · <b>موارد دارای گواهی نامعتبر/ارائه‌نشده:</b> ' + ssvFa(c.invalid_certificates) + ' · <b>کل تخلفات:</b> ' + ssvFa(c.violations) + '</div></div>';
                 b.querySelector('#ssv-dash-refresh').onclick = () => render('dashboard');
                 return;
             }
@@ -14832,7 +14870,7 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
                 else if (t === 'schools')
                     b.querySelector('#ssv-list').innerHTML = '<div id="ssv-schools-map-block"></div><table class="ssv-table"><thead><tr><th>ردیف</th><th>مدرسه</th><th>کد</th><th>ناحیه</th><th>نوع</th><th>شرکت</th><th>موقعیت</th><th>عملیات</th></tr></thead><tbody>' + rows.map((r, i) => '<tr><td>' + ((page - 1) * 25 + i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.code || '') + '</td><td>' + esc(r.educational_district) + '</td><td>' + esc(r.gender) + '</td><td>' + esc(r.company_names || 'نامشخص') + '</td><td>' + ((Number.isFinite(Number(r.latitude)) && Number.isFinite(Number(r.longitude))) ? 'ثبت شده' : 'ثبت نشده') + '</td><td><div class="ssv-row-actions"><button class="ssv-row-btn primary" data-edit-s="' + r.id + '">ویرایش</button><button class="ssv-row-btn danger" data-del-s="' + r.id + '">حذف</button></div></td></tr>').join('') + '</tbody></table>';
                 else
-                    b.querySelector('#ssv-list').innerHTML = '<table class="ssv-table"><thead><tr><th>ردیف</th><th>ناحیه</th><th>شرکت</th><th>مدرسه</th><th>پلاک</th><th>بازرس ثبت‌کننده</th><th>تخلفات</th><th>تاریخ</th><th>عملیات</th></tr></thead><tbody>' + rows.map((r, i) => '<tr><td>' + ((page - 1) * 25 + i + 1) + '</td><td>' + esc(r.educational_district) + '</td><td>' + esc(r.company_name || 'نامشخص') + '</td><td>' + esc(r.school_name || 'نامشخص') + '</td><td>' + esc(r.plate) + '</td><td>' + esc(r.inspector_name || 'نامشخص') + '</td><td>' + esc((r.violations || []).filter(v => !isCertificateViolation(v)).join('، ')) + '</td><td>' + esc(r.violation_date) + ' ' + esc(r.violation_time) + '</td><td><div class="ssv-row-actions"><button class="ssv-row-btn" data-view="' + r.id + '">جزئیات</button><button class="ssv-row-btn primary" data-edit="' + r.id + '">ویرایش</button><button class="ssv-row-btn danger" data-del="' + r.id + '">حذف</button></div></td></tr>').join('') + '</tbody></table>';
+                    b.querySelector('#ssv-list').innerHTML = '<table class="ssv-table"><thead><tr><th>ردیف</th><th>ناحیه</th><th>شرکت</th><th>مدرسه</th><th>پلاک</th><th>بازرس ثبت‌کننده</th><th>تخلفات</th><th>تاریخ</th><th>عملیات</th></tr></thead><tbody>' + rows.map((r, i) => '<tr><td>' + ((page - 1) * 25 + i + 1) + '</td><td>' + esc(r.educational_district) + '</td><td>' + esc(r.company_name || 'نامشخص') + '</td><td>' + esc(r.school_name || 'نامشخص') + '</td><td>' + [r.plate_three, r.plate_letter, r.plate_two, 'ایران', r.plate_region_code].filter(Boolean).join(' ') + '</td><td>' + esc(r.inspector_name || 'نامشخص') + '</td><td>' + esc((r.violations || []).filter(v => !isCertificateViolation(v)).join('، ')) + '</td><td>' + esc(r.violation_date) + ' ' + esc(r.violation_time) + '</td><td><div class="ssv-row-actions"><button class="ssv-row-btn" data-view="' + r.id + '">جزئیات</button><button class="ssv-row-btn primary" data-edit="' + r.id + '">ویرایش</button><button class="ssv-row-btn danger" data-del="' + r.id + '">حذف</button></div></td></tr>').join('') + '</tbody></table>';
                 if (t === 'schools') {
                     const mapBlock = b.querySelector('#ssv-schools-map-block');
                     if (mapBlock)
