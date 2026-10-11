@@ -83,7 +83,38 @@ if (reactNative !== REQUIRED_RN) fail(`React Native is ${reactNative}; expected 
 if (react !== REQUIRED_REACT) fail(`React is ${react}; expected ${REQUIRED_REACT}.`);
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-if (!fs.existsSync(path.join(root, 'node_modules'))) fail('node_modules is missing. Install dependencies before the Android prebuild.');
+const nodeModules = path.join(root, 'node_modules');
+if (!fs.existsSync(nodeModules)) fail('node_modules is missing. Install dependencies before the Android prebuild.');
+
+// A previous build can leave Expo installed while a declared native dependency is
+// absent. Expo config-plugin resolution happens before Gradle and fails in that case.
+// Repair the incomplete install from the committed lockfile without changing versions.
+const requiredNativePackages = ['react-native-wifi-reborn'];
+const missingNativePackages = requiredNativePackages.filter((name) => {
+  try {
+    require.resolve(name + '/package.json', { paths: [root] });
+    return false;
+  } catch (_) {
+    try {
+      require.resolve(name, { paths: [root] });
+      return false;
+    } catch (_) {
+      return true;
+    }
+  }
+});
+if (missingNativePackages.length > 0) {
+  console.warn('[android-prebuild] Missing declared native package(s): ' + missingNativePackages.join(', '));
+  console.warn('[android-prebuild] Restoring dependencies with npm ci from package-lock.json; package versions remain locked.');
+  run(npm, ['ci', '--no-audit', '--no-fund', '--legacy-peer-deps', '--include=dev']);
+  for (const name of missingNativePackages) {
+    try {
+      require.resolve(name, { paths: [root] });
+    } catch (_) {
+      fail('Native dependency ' + name + ' is still unavailable after npm ci. Check npm registry/network logs.');
+    }
+  }
+}
 
 run(npm, ['exec', '--', 'expo', 'prebuild', '--platform', 'android', '--clean']);
 
