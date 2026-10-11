@@ -114,26 +114,30 @@ module.exports = function withWifiRebornSdkCompat(config) {
   // do not configure that root extra property.
   config = withProjectBuildGradle(config, (cfg) => {
     const original = cfg.modResults.contents;
-    const patterns = [
-      /(\bndkVersion\s*=\s*)['"][^'"]+['"]/,
-      /(\bndkVersion\s+)['"][^'"]+['"]/,
-      /(\bndkVersion\s*=\s*)\d+\.\d+\.\d+/
-    ];
     let updated = original;
-    for (const pattern of patterns) {
-      if (pattern.test(updated)) {
-        updated = updated.replace(pattern, '$1"' + REQUIRED_NDK_VERSION + '"');
-        break;
+
+    // Expo/RN templates differ: some assign ndkVersion directly in ext {},
+    // while others derive it from findProperty(). Replace the entire assignment
+    // line when present; otherwise inject a root extra property into ext {}.
+    const ndkAssignment = /^[ \t]*ndkVersion[ \t]*=[^\r\n]*$/m;
+    if (ndkAssignment.test(updated)) {
+      updated = updated.replace(ndkAssignment, '    ndkVersion = "' + REQUIRED_NDK_VERSION + '"');
+    } else {
+      const extBlock = /\bext\s*\{/;
+      if (extBlock.test(updated)) {
+        updated = updated.replace(extBlock, (match) => match + '\n    ndkVersion = "' + REQUIRED_NDK_VERSION + '"');
+      } else {
+        updated = 'ext {\n    ndkVersion = "' + REQUIRED_NDK_VERSION + '"\n}\n\n' + updated;
       }
     }
-    if (!updated.includes(REQUIRED_NDK_VERSION)) {
-      throw new Error('[withWifiRebornSdkCompat] Root android/build.gradle has no recognizable ndkVersion in its ext block; cannot configure native dependency projects safely.');
+
+    const finalAssignment = /^[ \t]*ndkVersion[ \t]*=[ \t]*['"]27\.3\.13750724['"][ \t]*$/m;
+    if (!finalAssignment.test(updated)) {
+      throw new Error('[withWifiRebornSdkCompat] Could not inject a verifiable root ndkVersion assignment into android/build.gradle.');
     }
     if (updated !== original) {
       cfg.modResults.contents = updated;
-      console.log('[withWifiRebornSdkCompat] Root project ndkVersion pinned to ' + REQUIRED_NDK_VERSION + ' for native dependency projects.');
-    } else {
-      console.log('[withWifiRebornSdkCompat] Root project ndkVersion already pinned to ' + REQUIRED_NDK_VERSION + '.');
+      console.log('[withWifiRebornSdkCompat] Root project ndkVersion explicitly set to ' + REQUIRED_NDK_VERSION + ' for native dependency projects.');
     }
     return cfg;
   });
