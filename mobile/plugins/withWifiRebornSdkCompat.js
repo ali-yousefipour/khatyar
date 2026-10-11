@@ -117,7 +117,7 @@ module.exports = function withWifiRebornSdkCompat(config) {
     const patterns = [
       /(\bndkVersion\s*=\s*)['"][^'"]+['"]/,
       /(\bndkVersion\s+)['"][^'"]+['"]/,
-      /(\bndkVersion\s*=\s*)\d+\\.\d+\\.\d+/
+      /(\bndkVersion\s*=\s*)\d+\.\d+\.\d+/
     ];
     let updated = original;
     for (const pattern of patterns) {
