@@ -14448,6 +14448,23 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             map.fitBounds(bounds, { padding: [25, 25], maxZoom: 16 });
         setTimeout(() => map.invalidateSize(), 250);
     }
+    function ssvShowSchoolHistory(schoolId, trigger) {
+        const id = Number(schoolId || 0);
+        if (!id)
+            return;
+        if (trigger)
+            trigger.disabled = true;
+        api('/api/school-service/schools/' + id + '/inspections').then(data => {
+            var _a;
+            const items = data.items || [];
+            const html = items.length ? '<div style="display:grid;gap:8px">' + items.map(r => '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border:1px solid #e4e8ee;border-radius:10px"><div><b>' + esc((r.violation_date || 'بدون تاریخ') + ' ' + (r.violation_time || '')) + '</b><div style="font-size:11px;color:#667085;margin-top:4px">پلاک: ' + esc(r.plate || 'نامشخص') + ' · بازرس: ' + esc(r.inspector_name || 'نامشخص') + '</div><div style="font-size:11px;color:#667085;margin-top:3px">تخلفات: ' + esc((r.violations || []).join('، ') || 'بدون تخلف ثبت‌شده') + '</div></div><button type="button" class="ssv-row-btn primary" data-map-history-detail="' + r.id + '">جزئیات</button></div>').join('') + '</div>' : '<div class="ssv-msg">برای این مدرسه سابقهٔ بازدیدی ثبت نشده است.</div>';
+            const modal = ssvModal('سوابق بازدید مدرسه — ' + (((_a = data.school) === null || _a === void 0 ? void 0 : _a.name) || ''), html, async () => true);
+            modal.querySelector('.ssv-submit').textContent = 'بستن';
+            modal.querySelector('.ssv-cancel').style.display = 'none';
+            modal.querySelectorAll('[data-map-history-detail]').forEach(btn => btn.onclick = () => { const inspectionId = btn.dataset.mapHistoryDetail; modal.remove(); ssvShowInspection(inspectionId); });
+        }).catch(err => alert(err.message || 'دریافت سوابق بازدید مدرسه ناموفق بود.')).finally(() => { if (trigger && trigger.isConnected)
+            trigger.disabled = false; });
+    }
     function mountInspectionMap(container, rows, districtBoundaries) {
         if (S.schoolInspectionMap && S.schoolInspectionMap.remove) {
             try {
@@ -14481,6 +14498,8 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             const marker = L.marker([lat, lng]).addTo(map);
             const popup = '<div dir="rtl" style="font-family:Vazirmatn,Tahoma;min-width:230px"><b>' + esc(r.name || 'مدرسه') + '</b><div>ناحیه: ' + esc(r.educational_district || 'نامشخص') + '</div><div>تعداد بازدید: ' + ssvFa(r.inspection_count) + '</div><div>آخرین بازرس: ' + esc(r.last_inspector || 'نامشخص') + '</div><div>آخرین بازدید: ' + esc(r.last_inspection_at || 'نامشخص') + '</div><button type="button" class="ssv-row-btn primary" style="margin-top:8px" data-map-inspection-school="' + r.id + '">سوابق بازدید</button></div>';
             marker.bindPopup(popup);
+            marker.on('popupopen', ev => { var _a; const historyBtn = (_a = ev.popup.getElement()) === null || _a === void 0 ? void 0 : _a.querySelector('[data-map-inspection-school]'); if (historyBtn)
+                historyBtn.onclick = event => { event.preventDefault(); event.stopPropagation(); ssvShowSchoolHistory(r.id, historyBtn); }; });
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'ssv-school-pick';
@@ -14503,66 +14522,28 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
         return '<div class="ssv-empty-chart">هنوز سابقه‌ای ثبت نشده است.</div>'; const mx = Math.max(1, ...a.map(x => Number(x.n) || 0)); return '<div class="ssv-trend">' + a.map(x => '<div class="ssv-trend-col"><b>' + ssvFa(x.n) + '</b><div class="ssv-trend-bar" style="height:' + Math.max(3, Math.round((Number(x.n) || 0) / mx * 135)) + 'px"></div><small>' + esc(String(x.ym || '').replace(/^(\\d{4})-/, '$1/')) + '</small></div>').join('') + '</div>'; }
     function ssvDonut(items) { const a = (items || []).slice(0, 6); if (!a.length)
         return '<div class="ssv-empty-chart">داده‌ای برای نمایش وجود ندارد.</div>'; const total = Math.max(1, a.reduce((s, x) => s + (Number(x.n) || 0), 0)); const colors = ['#0d7a5f', '#126e8f', '#d99a16', '#b54b68', '#6f56a8', '#718096']; let start = 0; const stops = a.map((x, i) => { const end = start + (Number(x.n) || 0) / total * 360; const z = colors[i % colors.length] + ' ' + start + 'deg ' + end + 'deg'; start = end; return z; }).join(','); return '<div class="ssv-donut-wrap"><div class="ssv-donut" style="background:conic-gradient(' + stops + ')"></div><div class="ssv-legend">' + a.map((x, i) => '<div><i style="background:' + colors[i % colors.length] + '"></i>' + esc(x.label || 'نامشخص') + ' <b>' + ssvFa(x.n) + '</b></div>').join('') + '</div></div>'; }
-    async function open(target, onClose) {
-        if (S.root)
-            return;
-        const a = await api('/api/school-service/access');
-        if (!a.allowed)
-            throw Error('دسترسی به سرویس مدارس برای حساب شما فعال نیست.');
-        S.access = a;
-        const resolved = resolveSchoolPageHost(target);
-        const host = resolved.host;
-        const m = document.createElement('div');
-        m.className = 'ssv-inline-page';
-        m.innerHTML = '<div class="ssv-box"><div class="ssv-head"><b>سرویس مدارس</b><button class="ssv-close">بستن</button></div><div class="ssv-tabs"><button data-t="dashboard" class="on">داشبورد</button><button data-t="create">ثبت بازدید</button><button data-t="inspections">بازدیدها و تخلفات</button><button data-t="map">نقشه بازدیدها</button><button data-t="vehicles">خودروها</button><button data-t="schools">مدارس</button><button data-t="companies">شرکت‌ها</button><button data-t="import">ورود Excel</button><button data-t="reports">گزارش‌ها</button><button data-t="config">تنظیمات</button><button data-t="permissions">دسترسی‌ها</button></div><div class="ssv-body"></div></div>';
-        host.appendChild(m);
-        S.root = m;
-        const close = () => { try {
-            m.remove();
-        }
-        catch (_) { } if (resolved.owned) {
-            try {
-                host.remove();
-            }
-            catch (_) { }
-        } S.root = null; try {
-            onClose && onClose();
-        }
-        catch (_) { } };
-        m.querySelectorAll('[data-t]').forEach(x => { const k = x.dataset.t; if (k === 'config' && !a.can_edit)
-            x.style.display = 'none'; if (k === 'create' && !a.can_create)
-            x.style.display = 'none'; if (k === 'import' && !a.can_import)
-            x.style.display = 'none'; if (k === 'reports' && !a.can_report)
-            x.style.display = 'none'; });
-        m.querySelector('.ssv-close').onclick = close;
-        m.addEventListener('click', e => {
-            const historyBtn = e.target.closest('[data-map-inspection-school]');
-            if (historyBtn) {
-                const schoolId = Number(historyBtn.dataset.mapInspectionSchool || 0);
-                if (!schoolId)
-                    return;
-                historyBtn.disabled = true;
-                api('/api/school-service/schools/' + schoolId + '/inspections').then(data => {
-                    var _a;
-                    const items = data.items || [];
-                    const html = items.length ? '<div style="display:grid;gap:8px">' + items.map(r => '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border:1px solid #e4e8ee;border-radius:10px"><div><b>' + esc((r.violation_date || 'بدون تاریخ') + ' ' + (r.violation_time || '')) + '</b><div style="font-size:11px;color:#667085;margin-top:4px">پلاک: ' + esc(r.plate || 'نامشخص') + ' · بازرس: ' + esc(r.inspector_name || 'نامشخص') + '</div><div style="font-size:11px;color:#667085;margin-top:3px">تخلفات: ' + esc((r.violations || []).map(v => typeof v === 'string' ? v : (v.title || '')).filter(Boolean).join('، ') || 'بدون تخلف ثبت‌شده') + '</div></div><button type="button" class="ssv-row-btn primary" data-map-history-detail="' + r.id + '">جزئیات</button></div>').join('') + '</div>' : '<div class="ssv-msg">برای این مدرسه سابقهٔ بازدیدی ثبت نشده است.</div>';
-                    const modal = ssvModal('سوابق بازدید مدرسه — ' + (((_a = data.school) === null || _a === void 0 ? void 0 : _a.name) || ''), html, async () => true);
-                    modal.querySelector('.ssv-submit').textContent = 'بستن';
-                    modal.querySelector('.ssv-cancel').style.display = 'none';
-                    modal.querySelectorAll('[data-map-history-detail]').forEach(btn => btn.onclick = () => { const id = btn.dataset.mapHistoryDetail; modal.remove(); ssvShowInspection(id); });
-                }).catch(err => alert(err.message || 'دریافت سوابق بازدید مدرسه ناموفق بود.')).finally(() => { if (historyBtn.isConnected)
-                    historyBtn.disabled = false; });
-                return;
-            }
-            const b = e.target.closest('[data-t]');
-            if (b) {
-                m.querySelectorAll('[data-t]').forEach(x => x.classList.remove('on'));
-                b.classList.add('on');
-                render(b.dataset.t);
-            }
-        });
-        await render('dashboard');
+    async function open(target, onClose) { if (S.root)
+        return; const a = await api('/api/school-service/access'); if (!a.allowed)
+        throw Error('دسترسی به سرویس مدارس برای حساب شما فعال نیست.'); S.access = a; const resolved = resolveSchoolPageHost(target); const host = resolved.host; const m = document.createElement('div'); m.className = 'ssv-inline-page'; m.innerHTML = '<div class="ssv-box"><div class="ssv-head"><b>سرویس مدارس</b><button class="ssv-close">بستن</button></div><div class="ssv-tabs"><button data-t="dashboard" class="on">داشبورد</button><button data-t="create">ثبت بازدید</button><button data-t="inspections">بازدیدها و تخلفات</button><button data-t="map">نقشه بازدیدها</button><button data-t="vehicles">خودروها</button><button data-t="schools">مدارس</button><button data-t="companies">شرکت‌ها</button><button data-t="import">ورود Excel</button><button data-t="reports">گزارش‌ها</button><button data-t="config">تنظیمات</button><button data-t="permissions">دسترسی‌ها</button></div><div class="ssv-body"></div></div>'; host.appendChild(m); S.root = m; const close = () => { try {
+        m.remove();
     }
+    catch (_) { } if (resolved.owned) {
+        try {
+            host.remove();
+        }
+        catch (_) { }
+    } S.root = null; try {
+        onClose && onClose();
+    }
+    catch (_) { } }; m.querySelectorAll('[data-t]').forEach(x => { const k = x.dataset.t; if (k === 'config' && !a.can_edit)
+        x.style.display = 'none'; if (k === 'create' && !a.can_create)
+        x.style.display = 'none'; if (k === 'import' && !a.can_import)
+        x.style.display = 'none'; if (k === 'reports' && !a.can_report)
+        x.style.display = 'none'; }); m.querySelector('.ssv-close').onclick = close; m.addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) {
+        m.querySelectorAll('[data-t]').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        render(b.dataset.t);
+    } }); await render('dashboard'); }
     function close() { var _a; (_a = S.root) === null || _a === void 0 ? void 0 : _a.remove(); S.root = null; }
     async function render(t) {
         var _a, _b, _c, _e;
