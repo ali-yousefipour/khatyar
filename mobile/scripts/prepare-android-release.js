@@ -163,4 +163,4 @@ console.log(`[android-prebuild] Gradle wrapper: ${REQUIRED_GRADLE}`);
 console.log('[android-prebuild] Standard Android release build: no Myket store/signing integration.');
 console.log('[android-prebuild] Maven policy: local -> Myket -> Runflare -> official.');
 console.log('[android-prebuild] Gradle wrapper policy: local F:\\gradle-cache -> Myket -> Runflare -> official.');
-console.log('[android-prebuild] Expected Android toolchain: AGP 8.12.x / Gradle 8.13 / JDK 17 / compileSdk 36 / NDK 27.1.12297006.');
+console.log('[android-prebuild] Expected Android toolchain: AGP 8.12.x / Gradle 8.13 / JDK 17 / compileSdk 34 / targetSdk 34 / Build Tools 34.0.0 / NDK 27.3.13750724.');
