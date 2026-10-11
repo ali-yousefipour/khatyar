@@ -136,37 +136,7 @@ function Remove-LockedAndroidDirectory([string]$Android) {
 }
 
 
-function Get-SdkArchiveRecord([object[]]$Rows,[string]$PackagePath) {
-    $packageRows = @($Rows | Where-Object { ([string]$_.package_path).Trim() -eq $PackagePath })
-    if ($packageRows.Count -eq 0) {
-        Fail "Myket SDK archive index has no row for '$PackagePath'."
-    }
 
-    # The Myket index may list one package path for multiple host OS archives.
-    # Prefer the Windows archive explicitly; never select an arbitrary duplicate.
-    if ($packageRows.Count -gt 1) {
-        $windowsRows = @($packageRows | Where-Object {
-            ([string]$_.archive_url) -match '(?i)(windows|win)(?:[-_.]|/|$)'
-        })
-        if ($windowsRows.Count -eq 1) {
-            $packageRows = $windowsRows
-        } else {
-            $urls = ($packageRows | ForEach-Object { [string]$_.archive_url }) -join '; '
-            Fail "Myket SDK archive index has $($packageRows.Count) rows for '$PackagePath' and could not identify exactly one Windows archive. Candidate URLs: $urls"
-        }
-    }
-
-    $row = $packageRows[0]
-    foreach ($field in @('archive_url','archive_size','archive_checksum')) {
-        if ([string]::IsNullOrWhiteSpace([string]$row.$field)) {
-            Fail "Myket SDK archive index has an empty '$field' for '$PackagePath'."
-        }
-    }
-    if ([string]$row.archive_url -notmatch '^https://maven\.myket\.ir/android-sdk/') {
-        Fail "Unexpected SDK archive URL for '$PackagePath': $($row.archive_url)"
-    }
-    return $row
-}
 function Get-SdkArchiveSha1([string]$Path) {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA1).Hash.ToLowerInvariant()
 }
