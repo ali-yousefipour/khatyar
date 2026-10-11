@@ -65,9 +65,9 @@ module.exports = function withWifiRebornSdkCompat(config) {
     return cfg;
   });
 
-  // Expo's Gradle publication hook may evaluate before AGP has registered the
+  // Expo's Gradle publication hook can run before AGP has registered the
   // release SoftwareComponent. APK assembly does not need Maven publication;
-  // skip only that optional publication hook when the component is absent.
+  // skip only that optional hook when the component is unavailable.
   config = withDangerousMod(config, ['android', async (cfg) => {
     const projectRoot = cfg.modRequest.projectRoot;
     const candidates = [
@@ -76,7 +76,7 @@ module.exports = function withWifiRebornSdkCompat(config) {
     ];
     const sourcePath = candidates.find((candidate) => fs.existsSync(candidate));
     if (!sourcePath) {
-      console.log('[withWifiRebornSdkCompat] Expo publication guard not needed: Gradle plugin source is not present in this package layout.');
+      console.log('[withWifiRebornSdkCompat] Expo publication source not present; no publication patch required.');
       return cfg;
     }
 
@@ -86,45 +86,16 @@ module.exports = function withWifiRebornSdkCompat(config) {
       return cfg;
     }
 
-    const anchor = /afterEvaluate\\s*\\{\\s*(?=val publicationInfo\\s*=\\s*PublicationInfo\\(this\\))/;
+    const anchor = /afterEvaluate\s*\{\s*(?=val publicationInfo\s*=\s*PublicationInfo\(this\))/;
     if (!anchor.test(source)) {
-      throw new Error('[withWifiRebornSdkCompat] Expo Gradle publication source has an unknown layout; refusing to apply an unverified patch.');
+      throw new Error('[withWifiRebornSdkCompat] Expo Gradle publication source has an unknown layout; refusing an unverified patch.');
     }
-    const guard = `afterEvaluate {
-    if (components.findByName("release") == null) {
-      logger.warn("Skipping optional Expo Maven publication for ${'
-    const original = cfg.modResults.contents;
-    const assignment = /\bndkVersion\s*(?:=\s*)?(?:rootProject\.ext\.ndkVersion|['"][^'"]+['"]|\d+\.\d+\.\d+)/;
-    let updated;
-
-    if (assignment.test(original)) {
-      updated = original.replace(assignment, 'ndkVersion "' + REQUIRED_NDK_VERSION + '"');
-    } else {
-      const androidBlock = /\bandroid\s*\{/;
-      if (!androidBlock.test(original)) {
-        throw new Error('[withWifiRebornSdkCompat] app/build.gradle has no recognizable android block; cannot pin NDK safely.');
-      }
-      updated = original.replace(androidBlock, (match) => match + '\n    ndkVersion "' + REQUIRED_NDK_VERSION + '"');
-    }
-
-    if (!updated.includes(REQUIRED_NDK_VERSION)) {
-      throw new Error('[withWifiRebornSdkCompat] Could not pin app NDK version to ' + REQUIRED_NDK_VERSION + '.');
-    }
-    if (updated !== original) {
-      cfg.modResults.contents = updated;
-      console.log('[withWifiRebornSdkCompat] App module NDK version pinned to ' + REQUIRED_NDK_VERSION + '.');
-    } else {
-      console.log('[withWifiRebornSdkCompat] App module NDK version already pinned to ' + REQUIRED_NDK_VERSION + '.');
-    }
-    return cfg;
-  });
-
-  return config;
-};
-}{project.path}: release SoftwareComponent is unavailable during configuration.")
-      return@afterEvaluate
-    }
-    `;
+    const guard = 'afterEvaluate {\n' +
+      '    if (components.findByName("release") == null) {\n' +
+      '      logger.warn("Skipping optional Expo Maven publication for ${project.path}: release SoftwareComponent is unavailable during configuration.")\n' +
+      '      return@afterEvaluate\n' +
+      '    }\n' +
+      '    ';
     const patched = source.replace(anchor, guard);
     if (patched === source || !patched.includes('release SoftwareComponent is unavailable')) {
       throw new Error('[withWifiRebornSdkCompat] Failed to apply the guarded Expo publication patch.');
@@ -133,7 +104,6 @@ module.exports = function withWifiRebornSdkCompat(config) {
     console.log('[withWifiRebornSdkCompat] Expo Maven publication now skips safely when the release component is unavailable.');
     return cfg;
   }]);
-
   // Keep the app module pinned too; this is useful for app-owned native CMake
   // targets, while the root property above covers dependency projects.
   config = withAppBuildGradle(config, (cfg) => {
