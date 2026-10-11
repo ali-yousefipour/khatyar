@@ -231,7 +231,7 @@ jobs:
               'routes.php' => 'routes.php',
               'IranCalendar.php' => 'IranCalendar.php',
               'ShiftCalc.php' => 'ShiftCalc.php',
-    'school_service_routes_extra.php' => 'school_service_routes_extra.php',
+              'school_service_routes_extra.php' => 'school_service_routes_extra.php',
           ];
           \$result = [];
           foreach (\$files as \$name => \$canonical) {
@@ -442,7 +442,7 @@ jobs:
             [ -n "${status:-}" ] || continue
 
             if [ "${path1:-}" = "php/tools/panel_source.jsx" ] || [ "${path2:-}" = "php/tools/panel_source.jsx" ]; then
-              echo "Skipping build-only panel source from host deployment: ${path1:-${path2:-}}"
+              echo "Skipping build-only panel source from host deployment"
               continue
             fi
 
@@ -575,7 +575,7 @@ jobs:
               'routes.php' => 'routes.php',
               'IranCalendar.php' => 'IranCalendar.php',
               'ShiftCalc.php' => 'ShiftCalc.php',
-    'school_service_routes_extra.php' => 'school_service_routes_extra.php',
+              'school_service_routes_extra.php' => 'school_service_routes_extra.php',
           ];
           \$result = [];
           foreach (\$files as \$name => \$canonical) {
