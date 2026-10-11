@@ -33,16 +33,28 @@ route('GET','/api/school-service/dashboard',function($p,$b,$u){
  $bySchool=Db::all("SELECT COALESCE(NULLIF(TRIM(s.name),''),'نامشخص') label,COUNT(i.id) n FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id WHERE $where GROUP BY s.id,s.name ORDER BY n DESC LIMIT 12",$a);
  $vehicleTypes=Db::all("SELECT COALESCE(NULLIF(TRIM(vehicle_type),''),'نامشخص') label,COUNT(*) n FROM school_service_vehicles WHERE is_active=1 GROUP BY vehicle_type ORDER BY n DESC LIMIT 10");
  $certificates=Db::all("SELECT certificate_status label,COUNT(*) n FROM school_service_inspections WHERE $where GROUP BY certificate_status ORDER BY n DESC",$a);
- $trend=Db::all("SELECT DATE_FORMAT(i.created_at,'%Y-%m') ym,COUNT(*) n FROM school_service_inspections i WHERE i.created_at>=DATE_SUB(CURDATE(),INTERVAL 5 MONTH) AND $where GROUP BY DATE_FORMAT(i.created_at,'%Y-%m') ORDER BY ym ASC",$a);
+ $trendRows=Db::all("SELECT DATE(i.created_at) day_key,COUNT(*) n FROM school_service_inspections i WHERE i.created_at>=DATE_FORMAT(CURDATE(),'%Y-%m-01') AND i.created_at<DATE_ADD(CURDATE(),INTERVAL 1 DAY) AND $where GROUP BY DATE(i.created_at) ORDER BY day_key ASC",$a);
+ $trendCounts=[];
+ foreach($trendRows as $tr){$trendCounts[(string)$tr['day_key']]=(int)$tr['n'];}
+ $trend=[];
+ $monthStart=new DateTimeImmutable(date('Y-m-01'));
+ $today=new DateTimeImmutable(date('Y-m-d'));
+ for($day=$monthStart;$day<=$today;$day=$day->modify('+1 day')){
+   $key=$day->format('Y-m-d');
+   $trend[]=['ym'=>$key,'n'=>$trendCounts[$key]??0];
+ }
  $districtSchools=Db::all("SELECT COALESCE(NULLIF(TRIM(educational_district),''),'نامشخص') label,COUNT(*) n,COALESCE(SUM(student_count),0) students FROM school_service_schools WHERE is_active=1 GROUP BY educational_district ORDER BY n DESC");
  $activeInspectors=[];
  try{
+   // فعال‌بودن در این شاخص بر اساس ثبت واقعی بازدید در ۳۰ روز اخیر است؛
+   // محدودکردن به عنوان فارسی نقش باعث حذف کاربران با عنوان نقش متفاوت می‌شد.
    $activeInspectors=Db::all("SELECT u.id,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) name,COALESCE(r.title,'') role_title,
      (SELECT COUNT(*) FROM school_service_inspections ii WHERE ii.inspector_user_id=u.id) inspection_count,
      (SELECT COUNT(*) FROM school_service_inspections ii WHERE ii.inspector_user_id=u.id AND ii.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)) inspection_count_30d
-     FROM users u LEFT JOIN roles r ON r.id=u.role_id
-     WHERE u.is_active=1 AND (r.title LIKE '%بازرس%' OR r.title LIKE '%بازرسی%' OR r.title LIKE '%سربازرس%' OR r.title LIKE '%گشت خودرویی%' OR r.title LIKE '%گشت موتوری%')
-     ORDER BY inspection_count DESC,inspection_count_30d DESC,name ASC");
+     FROM users u JOIN (SELECT DISTINCT inspector_user_id FROM school_service_inspections WHERE inspector_user_id IS NOT NULL AND created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)) recent ON recent.inspector_user_id=u.id
+     LEFT JOIN roles r ON r.id=u.role_id
+     WHERE u.is_active=1
+     ORDER BY inspection_count_30d DESC,inspection_count DESC,name ASC");
  }catch(Throwable $e){$activeInspectors=[];}
  return ['cards'=>['active_schools'=>$activeSchools,'students'=>$studentTotal,'active_companies'=>$activeCompanies,'active_vehicles'=>$activeVehicles,'inspections'=>$inspections,'inspections_30d'=>$inspections30,'active_inspectors'=>count($activeInspectors),'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol],
    'by_district'=>$byDistrict,'by_company'=>$byCompany,'by_violation'=>$byViolation,'by_school'=>$bySchool,'vehicle_types'=>$vehicleTypes,'certificates'=>$certificates,'trend'=>$trend,'district_schools'=>$districtSchools,'active_inspectors'=>$activeInspectors,'generated_at'=>date('Y-m-d H:i:s')];
