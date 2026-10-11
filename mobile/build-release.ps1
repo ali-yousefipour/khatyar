@@ -366,11 +366,13 @@ function Ensure-AndroidSdk() {
         Fail "Invalid Myket SDK archive index: $indexPath"
     }
 
-    # Myket has used different names for the archive URL column in index revisions.
-    # Normalize it from the actual URL value instead of assuming a specific header.
+    # Normalize URL data row-by-row. Some index revisions have an archive_url
+    # header that is empty while the actual URL is stored under a differently named column.
     foreach ($row in $rows) {
-        if (-not ($row.PSObject.Properties.Name -contains 'archive_url')) {
-            $urlValue = $null
+        $urlProperty = $row.PSObject.Properties['archive_url']
+        $urlValue = if ($null -ne $urlProperty) { ([string]$urlProperty.Value).Trim() } else { '' }
+        if ($urlValue -notmatch '^https://maven\.myket\.ir/android-sdk/') {
+            $urlValue = ''
             foreach ($property in $row.PSObject.Properties) {
                 $candidate = ([string]$property.Value).Trim()
                 if ($candidate -match '^https://maven\.myket\.ir/android-sdk/') {
@@ -378,14 +380,26 @@ function Ensure-AndroidSdk() {
                     break
                 }
             }
-            if (-not [string]::IsNullOrWhiteSpace($urlValue)) {
+        }
+        if (-not [string]::IsNullOrWhiteSpace($urlValue)) {
+            if ($null -eq $urlProperty) {
                 $row | Add-Member -NotePropertyName archive_url -NotePropertyValue $urlValue
+            } else {
+                $urlProperty.Value = $urlValue
             }
         }
     }
-    if (-not ($rows[0].PSObject.Properties.Name -contains 'archive_url')) {
+
+    $missingUrlRows = @($rows | Where-Object {
+        ([string]$_.package_path).Trim() -in @('ndk;27.3.13750724','platform-tools','build-tools;36.0.0','platforms;android-36') -and
+        ([string]$_.PSObject.Properties['archive_url'].Value) -notmatch '^https://maven\.myket\.ir/android-sdk/'
+    })
+    if ($missingUrlRows.Count -gt 0) {
         $headers = $rows[0].PSObject.Properties.Name -join ', '
-        Fail "Myket SDK archive index has no recognized archive URL column. CSV headers: $headers"
+        $sample = ($missingUrlRows | Select-Object -First 3 | ForEach-Object {
+            'package_path=' + [string]$_.package_path + '; fields=' + (($_.PSObject.Properties | ForEach-Object { $_.Name + '=' + [string]$_.Value }) -join ' | ')
+        }) -join ' || '
+        Fail "Myket SDK archive index contains required package rows without a recognized HTTPS archive URL. CSV headers: $headers. Sample rows: $sample"
     }
     Write-Host ("    Archive index: " + $(if ($indexLoaded) { 'updated' } else { 'cached fallback' })) -ForegroundColor DarkGray
 
