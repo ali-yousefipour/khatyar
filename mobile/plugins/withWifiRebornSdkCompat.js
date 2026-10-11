@@ -20,24 +20,24 @@ module.exports = function withWifiRebornSdkCompat(config) {
 
     const original = fs.readFileSync(gradleFile, 'utf8');
     const patterns = [
-      /(safeExtGet\\(\\s*['"]?compileSdkVersion['"]?\\s*,\\s*)31(\\s*\\))/g,
-      /(compileSdkVersion\\s*=\\s*)31\\b/g,
-      /(compileSdkVersion\\s+)31\\b/g
+      /(safeExtGet\(\s*['"]?compileSdkVersion['"]?\s*,\s*)31(\s*\))/g,
+      /(compileSdkVersion\s*=\s*)31\b/g,
+      /(compileSdkVersion\s+)31\b/g
     ];
     let updated = original;
     for (const pattern of patterns) {
       updated = updated.replace(pattern, (match, prefix, suffix = '') => prefix + '36' + suffix);
     }
 
-    if (/safeExtGet\\(\\s*['"]?compileSdkVersion['"]?\\s*,\\s*31\\s*\\)/.test(updated) ||
-        /compileSdkVersion(?:\\s*=)?\\s+31\\b/.test(updated)) {
+    if (/safeExtGet\(\s*['"]?compileSdkVersion['"]?\s*,\s*31\s*\)/.test(updated) ||
+        /compileSdkVersion(?:\s*=)?\s+31\b/.test(updated)) {
       throw new Error('[withWifiRebornSdkCompat] Unable to replace the legacy API 31 fallback.');
     }
 
     if (updated !== original) {
       fs.writeFileSync(gradleFile, updated, 'utf8');
       console.log('[withWifiRebornSdkCompat] react-native-wifi-reborn compile SDK fallback pinned to API 36.');
-    } else if (!/compileSdkVersion[^\\n]*36/.test(updated)) {
+    } else if (!/compileSdkVersion[^\n]*36/.test(updated)) {
       throw new Error('[withWifiRebornSdkCompat] Expected compileSdkVersion declaration was not recognized; refusing an unverified build.');
     }
 
