@@ -12,7 +12,9 @@ permissions:
 
 concurrency:
   group: php-production-deploy
-  cancel-in-progress: true
+  # Never cancel an active FTP transfer: cancellation can leave a partially completed upload
+  # racing with the next deployment and cause checksum mismatches.
+  cancel-in-progress: false
 
 jobs:
   deploy-php:
