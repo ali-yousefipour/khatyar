@@ -33,29 +33,61 @@ route('GET','/api/school-service/dashboard',function($p,$b,$u){
  $bySchool=Db::all("SELECT COALESCE(NULLIF(TRIM(s.name),''),'نامشخص') label,COUNT(i.id) n FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id WHERE $where GROUP BY s.id,s.name ORDER BY n DESC LIMIT 12",$a);
  $vehicleTypes=Db::all("SELECT COALESCE(NULLIF(TRIM(vehicle_type),''),'نامشخص') label,COUNT(*) n FROM school_service_vehicles WHERE is_active=1 GROUP BY vehicle_type ORDER BY n DESC LIMIT 10");
  $certificates=Db::all("SELECT i.certificate_status label,COUNT(*) n FROM school_service_inspections i WHERE $where GROUP BY i.certificate_status ORDER BY n DESC",$a);
- $trendRows=Db::all("SELECT DATE(i.created_at) day_key,COUNT(*) n FROM school_service_inspections i WHERE i.created_at>=DATE_FORMAT(CURDATE(),'%Y-%m-01') AND i.created_at<DATE_ADD(CURDATE(),INTERVAL 1 DAY) AND $where GROUP BY DATE(i.created_at) ORDER BY day_key ASC",$a);
+ // بازهٔ نمودار بر اساس ماه شمسی جاری تعیین می‌شود، نه ماه میلادی.
+ $today=new DateTimeImmutable('today');
+ $jalaliParts=function(DateTimeImmutable $date){
+   $gy=(int)$date->format('Y');$gm=(int)$date->format('n');$gd=(int)$date->format('j');
+   $gdm=[0,31,59,90,120,151,181,212,243,273,304,334];
+   if($gy>1600){$jy=979;$gy-=1600;}else{$jy=0;$gy-=621;}
+   $gy2=$gm>2?$gy+1:$gy;
+   $days=365*$gy+(int)floor(($gy2+3)/4)-(int)floor(($gy2+99)/100)+(int)floor(($gy2+399)/400)-80+$gd+$gdm[$gm-1];
+   $jy+=33*(int)floor($days/12053);$days%=12053;
+   $jy+=4*(int)floor($days/1461);$days%=1461;
+   if($days>365){$jy+=(int)floor(($days-1)/365);$days=($days-1)%365;}
+   $jm=$days<186?1+(int)floor($days/31):7+(int)floor(($days-186)/30);
+   $jd=1+($days<186?$days%31:($days-186)%30);
+   return [$jy,$jm,$jd];
+ };
+ [$currentJYear,$currentJMonth]=$jalaliParts($today);
+ $monthStart=$today;
+ for($step=0;$step<31;$step++){
+   $prev=$monthStart->modify('-1 day');[$py,$pm]=$jalaliParts($prev);
+   if($py!==$currentJYear||$pm!==$currentJMonth)break;
+   $monthStart=$prev;
+ }
+ $monthEnd=$today;
+ for($step=0;$step<31;$step++){
+   $next=$monthEnd->modify('+1 day');[$ny,$nm]=$jalaliParts($next);
+   if($ny!==$currentJYear||$nm!==$currentJMonth)break;
+   $monthEnd=$next;
+ }
+ $trendRows=Db::all("SELECT DATE(i.created_at) day_key,COUNT(*) n FROM school_service_inspections i WHERE i.created_at>=? AND i.created_at<? AND $where GROUP BY DATE(i.created_at) ORDER BY day_key ASC",array_merge([$monthStart->format('Y-m-d 00:00:00'),$monthEnd->modify('+1 day')->format('Y-m-d 00:00:00')],$a));
  $trendCounts=[];
  foreach($trendRows as $tr){$trendCounts[(string)$tr['day_key']]=(int)$tr['n'];}
  $trend=[];
- $monthStart=new DateTimeImmutable(date('Y-m-01'));
- $today=new DateTimeImmutable(date('Y-m-d'));
- for($day=$monthStart;$day<=$today;$day=$day->modify('+1 day')){
+ for($day=$monthStart;$day<=$monthEnd;$day=$day->modify('+1 day')){
    $key=$day->format('Y-m-d');
    $trend[]=['ym'=>$key,'n'=>$trendCounts[$key]??0];
  }
  $districtSchools=Db::all("SELECT COALESCE(NULLIF(TRIM(educational_district),''),'نامشخص') label,COUNT(*) n,COALESCE(SUM(student_count),0) students FROM school_service_schools WHERE is_active=1 GROUP BY educational_district ORDER BY n DESC");
  $activeInspectors=[];$activeInspectorCount=0;
- // شمارنده مستقل از کوئری فهرست است؛ خطای JOIN نام/نقش نباید شمارنده را به صفر تبدیل کند.
+ // شمارنده و فهرست از یک بازه و یک مجموعهٔ بازدید مشترک ساخته می‌شوند؛ نبودن پروفایل/نقش کاربر نباید بازرس را حذف کند.
  try{
-   $activeInspectorCount=(int)(Db::one("SELECT COUNT(DISTINCT inspector_user_id) n FROM school_service_inspections WHERE inspector_user_id IS NOT NULL AND created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)")['n']??0);
+   $activeInspectorCount=(int)(Db::one("SELECT COUNT(DISTINCT i.inspector_user_id) n FROM school_service_inspections i WHERE i.inspector_user_id IS NOT NULL AND i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) AND $where",$a)['n']??0);
  }catch(Throwable $e){error_log('School service active inspector count failed: '.$e->getMessage());}
  try{
-   $activeInspectors=Db::all("SELECT u.id,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) name,COALESCE(r.title,'') role_title,
-     (SELECT COUNT(*) FROM school_service_inspections ii WHERE ii.inspector_user_id=u.id) inspection_count,
-     (SELECT COUNT(*) FROM school_service_inspections ii WHERE ii.inspector_user_id=u.id AND ii.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)) inspection_count_30d
-     FROM users u JOIN (SELECT DISTINCT inspector_user_id FROM school_service_inspections WHERE inspector_user_id IS NOT NULL AND created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY)) recent ON recent.inspector_user_id=u.id
+   $activeInspectors=Db::all("SELECT i.inspector_user_id id,
+     COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))),''),CONCAT('بازرس #',i.inspector_user_id)) name,
+     COALESCE(r.title,'') role_title,
+     COUNT(*) inspection_count,
+     SUM(CASE WHEN i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) THEN 1 ELSE 0 END) inspection_count_30d
+     FROM school_service_inspections i
+     LEFT JOIN users u ON u.id=i.inspector_user_id
      LEFT JOIN roles r ON r.id=u.role_id
-     ORDER BY inspection_count_30d DESC,inspection_count DESC,name ASC");
+     WHERE i.inspector_user_id IS NOT NULL AND i.created_at>=DATE_SUB(NOW(),INTERVAL 30 DAY) AND $where
+     GROUP BY i.inspector_user_id,u.first_name,u.last_name,r.title
+     ORDER BY inspection_count_30d DESC,inspection_count DESC,name ASC",$a);
+   if(!$activeInspectorCount)$activeInspectorCount=count($activeInspectors);
  }catch(Throwable $e){$activeInspectors=[];error_log('School service active inspector list failed: '.$e->getMessage());}
  return ['cards'=>['active_schools'=>$activeSchools,'students'=>$studentTotal,'active_companies'=>$activeCompanies,'active_vehicles'=>$activeVehicles,'inspections'=>$inspections,'inspections_30d'=>$inspections30,'active_inspectors'=>$activeInspectorCount,'violations'=>$violations,'invalid_certificates'=>$invalidCert,'avg_violations_per_inspection'=>$avgViol],
    'by_district'=>$byDistrict,'by_company'=>$byCompany,'by_violation'=>$byViolation,'by_school'=>$bySchool,'vehicle_types'=>$vehicleTypes,'certificates'=>$certificates,'trend'=>$trend,'district_schools'=>$districtSchools,'active_inspectors'=>$activeInspectors,'generated_at'=>date('Y-m-d H:i:s')];
