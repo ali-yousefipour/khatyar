@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { withDangerousMod, withAppBuildGradle } = require('@expo/config-plugins');
+const { withDangerousMod, withAppBuildGradle, withGradleProperties } = require('@expo/config-plugins');
 
 const REQUIRED_NDK_VERSION = '27.3.13750724';
 
@@ -51,9 +51,91 @@ module.exports = function withWifiRebornSdkCompat(config) {
     return cfg;
   }]);
 
-  // Set the NDK version on the app module itself. The root template in this
-  // Expo/RN combination may not declare ndkVersion, so editing root build.gradle
-  // is not reliable. Expo prebuild recreates app/build.gradle on every clean run.
+  // Pin the root Android SDK property as well as app/build.gradle. Native library
+  // projects such as react-native-worklets resolve NDK from the root project,
+  // not from the app module's android.ndkVersion.
+  config = withGradleProperties(config, (cfg) => {
+    const key = 'android.ndkVersion';
+    const existing = cfg.modResults.find((item) => item.type === 'property' && item.key === key);
+    if (existing) {
+      existing.value = REQUIRED_NDK_VERSION;
+    } else {
+      cfg.modResults.push({ type: 'property', key, value: REQUIRED_NDK_VERSION });
+    }
+    return cfg;
+  });
+
+  // Expo's Gradle publication hook may evaluate before AGP has registered the
+  // release SoftwareComponent. APK assembly does not need Maven publication;
+  // skip only that optional publication hook when the component is absent.
+  config = withDangerousMod(config, ['android', async (cfg) => {
+    const projectRoot = cfg.modRequest.projectRoot;
+    const candidates = [
+      path.join(projectRoot, 'node_modules', 'expo-modules-core', 'expo-module-gradle-plugin', 'src', 'main', 'kotlin', 'expo', 'modules', 'plugin', 'ProjectConfiguration.kt'),
+      path.join(projectRoot, 'node_modules', 'expo-modules-core', 'expo-module-gradle-plugin', 'src', 'main', 'kotlin', 'expo', 'modules', 'plugin', 'android', 'ProjectConfiguration.kt')
+    ];
+    const sourcePath = candidates.find((candidate) => fs.existsSync(candidate));
+    if (!sourcePath) {
+      console.log('[withWifiRebornSdkCompat] Expo publication guard not needed: Gradle plugin source is not present in this package layout.');
+      return cfg;
+    }
+
+    const source = fs.readFileSync(sourcePath, 'utf8');
+    if (source.includes('components.matching { it.name == "release" }')) {
+      console.log('[withWifiRebornSdkCompat] Expo publication hook already waits for the release component.');
+      return cfg;
+    }
+
+    const anchor = /afterEvaluate\\s*\\{\\s*(?=val publicationInfo\\s*=\\s*PublicationInfo\\(this\\))/;
+    if (!anchor.test(source)) {
+      throw new Error('[withWifiRebornSdkCompat] Expo Gradle publication source has an unknown layout; refusing to apply an unverified patch.');
+    }
+    const guard = `afterEvaluate {
+    if (components.findByName("release") == null) {
+      logger.warn("Skipping optional Expo Maven publication for ${'
+    const original = cfg.modResults.contents;
+    const assignment = /\bndkVersion\s*(?:=\s*)?(?:rootProject\.ext\.ndkVersion|['"][^'"]+['"]|\d+\.\d+\.\d+)/;
+    let updated;
+
+    if (assignment.test(original)) {
+      updated = original.replace(assignment, 'ndkVersion "' + REQUIRED_NDK_VERSION + '"');
+    } else {
+      const androidBlock = /\bandroid\s*\{/;
+      if (!androidBlock.test(original)) {
+        throw new Error('[withWifiRebornSdkCompat] app/build.gradle has no recognizable android block; cannot pin NDK safely.');
+      }
+      updated = original.replace(androidBlock, (match) => match + '\n    ndkVersion "' + REQUIRED_NDK_VERSION + '"');
+    }
+
+    if (!updated.includes(REQUIRED_NDK_VERSION)) {
+      throw new Error('[withWifiRebornSdkCompat] Could not pin app NDK version to ' + REQUIRED_NDK_VERSION + '.');
+    }
+    if (updated !== original) {
+      cfg.modResults.contents = updated;
+      console.log('[withWifiRebornSdkCompat] App module NDK version pinned to ' + REQUIRED_NDK_VERSION + '.');
+    } else {
+      console.log('[withWifiRebornSdkCompat] App module NDK version already pinned to ' + REQUIRED_NDK_VERSION + '.');
+    }
+    return cfg;
+  });
+
+  return config;
+};
+}{project.path}: release SoftwareComponent is unavailable during configuration.")
+      return@afterEvaluate
+    }
+    `;
+    const patched = source.replace(anchor, guard);
+    if (patched === source || !patched.includes('release SoftwareComponent is unavailable')) {
+      throw new Error('[withWifiRebornSdkCompat] Failed to apply the guarded Expo publication patch.');
+    }
+    fs.writeFileSync(sourcePath, patched, 'utf8');
+    console.log('[withWifiRebornSdkCompat] Expo Maven publication now skips safely when the release component is unavailable.');
+    return cfg;
+  }]);
+
+  // Keep the app module pinned too; this is useful for app-owned native CMake
+  // targets, while the root property above covers dependency projects.
   config = withAppBuildGradle(config, (cfg) => {
     const original = cfg.modResults.contents;
     const assignment = /\bndkVersion\s*(?:=\s*)?(?:rootProject\.ext\.ndkVersion|['"][^'"]+['"]|\d+\.\d+\.\d+)/;
