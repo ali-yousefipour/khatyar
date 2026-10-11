@@ -136,12 +136,184 @@ function Remove-LockedAndroidDirectory([string]$Android) {
 }
 
 
-function Ensure-AndroidSdk() {
-    # Prefer public mirrors that do not rely on Google's download endpoints.
-    # Maven dependency mirrors remain independently controlled by gradle-mirror.init.gradle (Myket-first).
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+function Get-SdkArchiveRecord([object[]]$Rows,[string]$PackagePath) {
+    $matches = @($Rows | Where-Object { ([string]$_.package_path).Trim() -eq $PackagePath })
+    if ($matches.Count -ne 1) {
+        Fail "Myket SDK archive index must contain exactly one row for '$PackagePath'; found $($matches.Count)."
+    }
+    $row = $matches[0]
+    foreach ($field in @('archive_url','archive_size','archive_checksum')) {
+        if ([string]::IsNullOrWhiteSpace([string]$row.$field)) {
+            Fail "Myket SDK archive index has an empty '$field' for '$PackagePath'."
+        }
+    }
+    if ([string]$row.archive_url -notmatch '^https://maven\.myket\.ir/android-sdk/') {
+        Fail "Unexpected SDK archive URL for '$PackagePath': $($row.archive_url)"
+    }
+    return $row
+}
+function Get-SdkArchiveSha1([string]$Path) {
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA1).Hash.ToLowerInvariant()
+}
+function Ensure-SdkArchive([object]$Record,[string]$LocalName,[string[]]$LegacyNames) {
+    $archiveDir = Ensure-Directory $BuildTempRoot
+    $canonicalPath = Join-Path $archiveDir $LocalName
+    $expectedSize = [int64]$Record.archive_size
+    $expectedSha1 = ([string]$Record.archive_checksum).Trim().ToLowerInvariant()
+    $candidates = @($canonicalPath)
+    foreach ($legacy in $LegacyNames) {
+        if (-not [string]::IsNullOrWhiteSpace($legacy)) {
+            $candidates += (Join-Path $archiveDir $legacy)
+        }
+    }
 
-    # Pin all SDK and Android user metadata to the F: workspace, ignoring C: defaults.
+    foreach ($candidate in ($candidates | Select-Object -Unique)) {
+        if (-not (Test-Path -LiteralPath $candidate)) { continue }
+        $item = Get-Item -LiteralPath $candidate
+        if ($item.Length -eq $expectedSize) {
+            $actualSha1 = Get-SdkArchiveSha1 $candidate
+            if ($actualSha1 -eq $expectedSha1) {
+                Write-Host "    Reusing checksum-verified archive: $candidate" -ForegroundColor Green
+                return $candidate
+            }
+        }
+        Write-Host "    Cached archive failed size/SHA-1 verification; it will not be installed: $candidate" -ForegroundColor Yellow
+    }
+
+    $partial = $canonicalPath + '.download'
+    Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
+    try {
+        Write-Host "    Downloading verified Myket SDK archive: $($Record.archive_url)" -ForegroundColor Cyan
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri ([string]$Record.archive_url) -OutFile $partial -UseBasicParsing -TimeoutSec 1800
+        if (-not (Test-Path -LiteralPath $partial)) { Fail "Download did not create a file for $LocalName." }
+        $downloaded = Get-Item -LiteralPath $partial
+        if ($downloaded.Length -ne $expectedSize) {
+            Fail "SDK archive size mismatch for $LocalName. Expected $expectedSize bytes; received $($downloaded.Length)."
+        }
+        $actualSha1 = Get-SdkArchiveSha1 $partial
+        if ($actualSha1 -ne $expectedSha1) {
+            Fail "SDK archive SHA-1 mismatch for $LocalName. Expected $expectedSha1; received $actualSha1."
+        }
+        Move-Item -LiteralPath $partial -Destination $canonicalPath -Force
+        Write-Host "    Download size and SHA-1 verified: $canonicalPath" -ForegroundColor Green
+        return $canonicalPath
+    } finally {
+        Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
+        $ProgressPreference = 'Continue'
+    }
+}
+function Test-SdkPackageReady([string]$PackagePath,[string]$PackageKind) {
+    $dir = Join-Path $AndroidSdkRoot $PackagePath
+    if (-not (Test-Path -LiteralPath (Join-Path $dir 'source.properties'))) { return $false }
+    $props = Get-Content -LiteralPath (Join-Path $dir 'source.properties') -Raw
+    switch ($PackageKind) {
+        'ndk' {
+            return ($props -match '(?m)^\s*Pkg\.Revision\s*=\s*27\.3\.13750724\s*$' -and
+                (Test-Path -LiteralPath (Join-Path $dir 'ndk-build.cmd')) -and
+                (Test-Path -LiteralPath (Join-Path $dir 'toolchains\llvm\prebuilt\windows-x86_64\bin\clang.exe')))
+        }
+        'platform-tools' {
+            return ($props -match '(?m)^\s*Pkg\.Revision\s*=\s*37\.0\.1\s*$' -and
+                (Test-Path -LiteralPath (Join-Path $dir 'adb.exe')) -and
+                (Test-Path -LiteralPath (Join-Path $dir 'fastboot.exe')))
+        }
+        'build-tools' {
+            return ($props -match '(?m)^\s*Pkg\.Revision\s*=\s*36\.0\.0\s*$' -and
+                (Test-Path -LiteralPath (Join-Path $dir 'aapt2.exe')) -and
+                (Test-Path -LiteralPath (Join-Path $dir 'd8.bat')) -and
+                (Test-Path -LiteralPath (Join-Path $dir 'zipalign.exe')) -and
+                (Test-Path -LiteralPath (Join-Path $dir 'aidl.exe')))
+        }
+        'platform' {
+            return ($props -match '(?m)^\s*AndroidVersion\.ApiLevel\s*=\s*36\s*$' -and
+                (Test-Path -LiteralPath (Join-Path $dir 'android.jar')) -and
+                (Test-Path -LiteralPath (Join-Path $dir 'framework.aidl')))
+        }
+        default { return $false }
+    }
+}
+function Install-SdkArchivePackage([object]$Record,[string]$ArchiveName,[string[]]$LegacyNames,[string]$ArchiveRoot,[string]$TargetRelative,[string]$PackageKind) {
+    $target = Join-Path $AndroidSdkRoot $TargetRelative
+    if (Test-SdkPackageReady $TargetRelative $PackageKind) {
+        Write-Host "    Already installed and validated: $TargetRelative" -ForegroundColor Green
+        return
+    }
+
+    $archive = Ensure-SdkArchive $Record $ArchiveName $LegacyNames
+    $extractRoot = Join-Path $BuildTempRoot ('sdk-extract-' + [guid]::NewGuid().ToString('N'))
+    $stagedPackage = Join-Path $extractRoot $ArchiveRoot
+    $backupRoot = Join-Path $BuildTempRoot ('sdk-backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
+    $backupPath = Join-Path $backupRoot $TargetRelative
+    try {
+        [void][IO.Directory]::CreateDirectory($extractRoot)
+        Expand-Archive -LiteralPath $archive -DestinationPath $extractRoot -Force
+        if (-not (Test-Path -LiteralPath $stagedPackage)) {
+            Fail "Archive '$ArchiveName' did not contain expected root '$ArchiveRoot'."
+        }
+        $propsPath = Join-Path $stagedPackage 'source.properties'
+        if (-not (Test-Path -LiteralPath $propsPath)) {
+            Fail "Archive '$ArchiveName' does not contain source.properties."
+        }
+        $props = Get-Content -LiteralPath $propsPath -Raw
+        switch ($PackageKind) {
+            'ndk' {
+                if ($props -notmatch '(?m)^\s*Pkg\.Revision\s*=\s*27\.3\.13750724\s*$') { Fail 'Downloaded NDK revision is not 27.3.13750724.' }
+                foreach ($rel in @('ndk-build.cmd','toolchains\llvm\prebuilt\windows-x86_64\bin\clang.exe')) {
+                    if (-not (Test-Path -LiteralPath (Join-Path $stagedPackage $rel))) { Fail "NDK archive is missing $rel." }
+                }
+            }
+            'platform-tools' {
+                if ($props -notmatch '(?m)^\s*Pkg\.Revision\s*=\s*37\.0\.1\s*$') { Fail 'Downloaded Platform Tools revision is not 37.0.1.' }
+                foreach ($rel in @('adb.exe','fastboot.exe')) {
+                    if (-not (Test-Path -LiteralPath (Join-Path $stagedPackage $rel))) { Fail "Platform Tools archive is missing $rel." }
+                }
+            }
+            'build-tools' {
+                if ($props -notmatch '(?m)^\s*Pkg\.Revision\s*=\s*36\.0\.0\s*$') { Fail 'Downloaded Build Tools revision is not 36.0.0.' }
+                foreach ($rel in @('aapt2.exe','d8.bat','zipalign.exe','aidl.exe','core-lambda-stubs.jar')) {
+                    if (-not (Test-Path -LiteralPath (Join-Path $stagedPackage $rel))) { Fail "Build Tools archive is missing $rel." }
+                }
+            }
+            'platform' {
+                # Myket's API 36 archive reports Platform.Version=16 in source.properties;
+                # use AndroidVersion.ApiLevel=36 as the authoritative platform check.
+                if ($props -notmatch '(?m)^\s*AndroidVersion\.ApiLevel\s*=\s*36\s*$') { Fail 'Downloaded Android platform is not API 36.' }
+                foreach ($rel in @('android.jar','framework.aidl')) {
+                    if (-not (Test-Path -LiteralPath (Join-Path $stagedPackage $rel))) { Fail "Android Platform archive is missing $rel." }
+                }
+            }
+        }
+
+        $parent = Split-Path -LiteralPath $target -Parent
+        [void][IO.Directory]::CreateDirectory($parent)
+        if (Test-Path -LiteralPath $target) {
+            [void][IO.Directory]::CreateDirectory((Split-Path -LiteralPath $backupPath -Parent))
+            Move-Item -LiteralPath $target -Destination $backupPath
+            Write-Host "    Previous package backed up: $backupPath" -ForegroundColor Yellow
+        }
+        try {
+            Move-Item -LiteralPath $stagedPackage -Destination $target
+        } catch {
+            if ((Test-Path -LiteralPath $backupPath) -and -not (Test-Path -LiteralPath $target)) {
+                Move-Item -LiteralPath $backupPath -Destination $target
+            }
+            throw
+        }
+        if (-not (Test-SdkPackageReady $TargetRelative $PackageKind)) {
+            if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force }
+            if (Test-Path -LiteralPath $backupPath) { Move-Item -LiteralPath $backupPath -Destination $target }
+            Fail "Post-install verification failed for $TargetRelative; previous package restored when available."
+        }
+        Write-Host "    Installed and verified: $target" -ForegroundColor Green
+    } finally {
+        Remove-Item -LiteralPath $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+function Ensure-AndroidSdk() {
+    # Install SDK packages directly from Myket's archive index instead of sdkmanager.
+    # Local Gradle/Maven mirrors remain controlled by gradle-mirror.init.gradle (Myket-first).
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $sdk = [IO.Path]::GetFullPath($AndroidSdkRoot)
     [void](Ensure-Directory $sdk)
     $env:ANDROID_HOME = $sdk
@@ -152,119 +324,60 @@ function Ensure-AndroidSdk() {
     Write-Host "    Android user data: $env:ANDROID_USER_HOME" -ForegroundColor Cyan
     Write-Host "    Temporary downloads: $env:TEMP" -ForegroundColor Cyan
 
-    # TUNA and Huawei are tried before Tencent; the official Google endpoint is deliberately
-    # not used by this local script. Mirrors can be changed without editing this function.
-    $repositoryMirrors = @(
-        'https://mirrors.tuna.tsinghua.edu.cn/android/repository/',
-        'https://mirrors.huaweicloud.com/android/repository/',
-        'https://mirrors.cloud.tencent.com/AndroidSDK/'
-    )
-    $toolsArchiveName = 'commandlinetools-win-11076708_latest.zip'
-    $sdkManager = Join-Path $sdk 'cmdline-tools\latest\bin\sdkmanager.bat'
-    if (-not (Test-Path -LiteralPath $sdkManager)) {
-        Stage 15 'Downloading Android SDK command-line tools from public mirrors'
-        $toolsRoot = Join-Path $sdk 'cmdline-tools'
-        [void](Ensure-Directory $toolsRoot)
-        $zip = Join-Path $env:TEMP ('khatyar-android-cmdline-tools-' + [guid]::NewGuid().ToString('N') + '.zip')
-        $extract = Join-Path $env:TEMP ('khatyar-android-cmdline-tools-' + [guid]::NewGuid().ToString('N'))
-        $downloaded = $false
-        try {
-            foreach ($mirror in $repositoryMirrors) {
-                $url = $mirror.TrimEnd('/') + '/' + $toolsArchiveName
-                try {
-                    Write-Host "    Trying SDK mirror: $mirror" -ForegroundColor Cyan
-                    Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing -TimeoutSec 600
-                    if ((Test-Path -LiteralPath $zip) -and (Get-Item -LiteralPath $zip).Length -gt 10MB) {
-                        $downloaded = $true
-                        break
-                    }
-                    Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
-                    Write-Host '    Mirror returned an incomplete or unexpected archive; trying next mirror.' -ForegroundColor Yellow
-                } catch {
-                    Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
-                    Write-Host "    Mirror failed: $($_.Exception.Message)" -ForegroundColor Yellow
-                }
-            }
-            if (-not $downloaded) {
-                Fail 'Could not download Android command-line tools from the configured non-Google mirrors. Check mirror availability or set up a reachable mirror; Google download endpoints are intentionally not used.'
-            }
-            Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force
-            $extractedBin = Join-Path $extract 'cmdline-tools\bin'
-            if (-not (Test-Path -LiteralPath (Join-Path $extractedBin 'sdkmanager.bat'))) {
-                Fail 'Downloaded command-line tools archive does not contain sdkmanager.bat.'
-            }
-            $latest = Join-Path $toolsRoot 'latest'
-            if (Test-Path -LiteralPath $latest) { Remove-Item -LiteralPath $latest -Recurse -Force }
-            Move-Item -LiteralPath (Join-Path $extract 'cmdline-tools') -Destination $latest
-        } catch {
-            Fail "Unable to install Android SDK command-line tools from public mirrors: $($_.Exception.Message)"
-        } finally {
-            Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
-            Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    $sdkBin = Join-Path $sdk 'platform-tools'
-    if ($env:PATH -notlike "*$sdkBin*") { $env:PATH = "$sdkBin;$([IO.Path]::GetDirectoryName($sdkManager));$env:PATH" }
-    if (-not (Test-Path -LiteralPath $sdkManager)) { Fail "sdkmanager was not installed: $sdkManager" }
-
-    Stage 18 'Installing required Android SDK components from configured repository mirrors'
-    $components = @('platform-tools','platforms;android-36','build-tools;36.0.0','ndk;27.3.13750724')
-    $sdkLog = Join-Path $env:TEMP ('khatyar-sdkmanager-' + [guid]::NewGuid().ToString('N') + '.log')
-    $previousSdkTestBaseUrl = $env:SDK_TEST_BASE_URL
-    $installed = $false
+    $indexPath = Join-Path $BuildTempRoot 'sdk-archives.csv'
+    $indexUrl = 'https://maven.myket.ir/sdk-archives.csv'
+    $indexLoaded = $false
     try {
-        foreach ($mirror in $repositoryMirrors) {
-            # sdkmanager's supported mirror override is SDK_TEST_BASE_URL. repositories.cfg
-            # stores user-added sources; placing a bare URL there does not replace the primary repo.
-            $repositoryXml = $mirror.TrimEnd('/') + '/repository2-1.xml'
-            Write-Host "    Testing SDK repository: $repositoryXml" -ForegroundColor Cyan
-            try {
-                $env:SDK_TEST_BASE_URL = $mirror
-                $listOutput = & $sdkManager "--sdk_root=$sdk" --list --verbose 2>&1
-                $listExit = $LASTEXITCODE
-                $listText = ($listOutput | Out-String)
-                $listText | Set-Content -LiteralPath $sdkLog -Encoding UTF8
-                if ($listExit -ne 0 -or $listText -match '(?i)Failed to download any source lists|IO exception while downloading manifest|Still waiting for package manifests') {
-                    throw 'sdkmanager could not load the mirror repository manifest.'
-                }
-
-                $licenseInput = ('y' + [Environment]::NewLine) * 100
-                $licenseInput | & $sdkManager "--sdk_root=$sdk" --licenses 2>&1 | Tee-Object -FilePath $sdkLog -Append | Out-Host
-                if ($LASTEXITCODE -ne 0) { throw 'License acceptance command failed.' }
-
-                & $sdkManager "--sdk_root=$sdk" @components 2>&1 | Tee-Object -FilePath $sdkLog -Append | Out-Host
-                if ($LASTEXITCODE -ne 0) { throw 'One or more SDK components failed to install from this mirror.' }
-                $installed = $true
-                break
-            } catch {
-                Write-Host "    SDK repository failed: $($_.Exception.Message)" -ForegroundColor Yellow
-                if (Test-Path -LiteralPath $sdkLog) {
-                    Get-Content -LiteralPath $sdkLog -Tail 12 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "      $_" -ForegroundColor DarkYellow }
-                }
-            }
+        Write-Host "    Updating Myket SDK archive index: $indexUrl" -ForegroundColor Cyan
+        Invoke-WebRequest -Uri $indexUrl -OutFile ($indexPath + '.download') -UseBasicParsing -TimeoutSec 120
+        if (-not (Test-Path -LiteralPath ($indexPath + '.download')) -or
+            (Get-Item -LiteralPath ($indexPath + '.download')).Length -lt 1000) {
+            throw 'Downloaded SDK archive index is empty or unexpectedly small.'
         }
-    } finally {
-        $env:SDK_TEST_BASE_URL = $previousSdkTestBaseUrl
-        if (Test-Path -LiteralPath $sdkLog) {
-            Write-Host "    SDK Manager diagnostics: $sdkLog" -ForegroundColor Yellow
+        Move-Item -LiteralPath ($indexPath + '.download') -Destination $indexPath -Force
+        $indexLoaded = $true
+    } catch {
+        Remove-Item -LiteralPath ($indexPath + '.download') -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $indexPath) {
+            Write-Host "    Myket index refresh failed; using cached index: $($_.Exception.Message)" -ForegroundColor Yellow
+        } else {
+            Fail "Could not download Myket SDK archive index and no cached copy exists: $($_.Exception.Message)"
         }
     }
-    if (-not $installed) {
-        Fail "Could not install Android SDK components from the configured non-Google mirrors. See diagnostics: $sdkLog. Google download endpoints are intentionally not used as a fallback."
+    $rows = @(Import-Csv -LiteralPath $indexPath)
+    if ($rows.Count -lt 1 -or
+        -not ($rows[0].PSObject.Properties.Name -contains 'package_path') -or
+        -not ($rows[0].PSObject.Properties.Name -contains 'archive_checksum')) {
+        Fail "Invalid Myket SDK archive index: $indexPath"
+    }
+    Write-Host ("    Archive index: " + $(if ($indexLoaded) { 'updated' } else { 'cached fallback' })) -ForegroundColor DarkGray
+
+    $packages = @(
+        @{ Path='ndk;27.3.13750724'; Archive='android-ndk-r27d-windows.zip'; Legacy=@('android-ndk-r27d-windows.zip'); Root='android-ndk-r27d'; Target='ndk\27.3.13750724'; Kind='ndk' },
+        @{ Path='platform-tools'; Archive='platform-tools_r37.0.1-win.zip'; Legacy=@('platform-tools.zip'); Root='platform-tools'; Target='platform-tools'; Kind='platform-tools' },
+        @{ Path='build-tools;36.0.0'; Archive='build-tools_r36_windows.zip'; Legacy=@('build-tools-36.0.0.zip'); Root='android-16'; Target='build-tools\36.0.0'; Kind='build-tools' },
+        @{ Path='platforms;android-36'; Archive='platform-36_r02.zip'; Legacy=@('platform-android-36.zip'); Root='android-36'; Target='platforms\android-36'; Kind='platform' }
+    )
+
+    Stage 18 'Installing verified Android SDK archives from Myket'
+    foreach ($p in $packages) {
+        $record = Get-SdkArchiveRecord $rows $p.Path
+        Install-SdkArchivePackage $record $p.Archive $p.Legacy $p.Root $p.Target $p.Kind
     }
 
     $required = @(
         (Join-Path $sdk 'platforms\android-36\android.jar'),
-        (Join-Path $sdk 'build-tools\36.0.0\aapt.exe'),
+        (Join-Path $sdk 'build-tools\36.0.0\aapt2.exe'),
+        (Join-Path $sdk 'build-tools\36.0.0\zipalign.exe'),
         (Join-Path $sdk 'platform-tools\adb.exe'),
         (Join-Path $sdk 'ndk\27.3.13750724\source.properties')
     )
     foreach ($file in $required) {
         if (-not (Test-Path -LiteralPath $file)) { Fail "Android SDK component verification failed; missing: $file" }
     }
+
     Write-Host "    Android SDK ready: $sdk" -ForegroundColor Green
-    Write-Host '    Installed: platform-tools, Android API 36, Build Tools 36.0.0, NDK 27.3.13750724' -ForegroundColor Green
+    Write-Host '    Installed: Platform Tools 37.0.1, Android API 36, Build Tools 36.0.0, NDK 27.3.13750724' -ForegroundColor Green
 }
 function Ensure-Directory([string]$Path) {
     if ([string]::IsNullOrWhiteSpace($Path)) { Fail 'Directory path is empty.' }
