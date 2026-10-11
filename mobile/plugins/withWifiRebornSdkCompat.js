@@ -20,9 +20,9 @@ module.exports = function withWifiRebornSdkCompat(config) {
 
     const original = fs.readFileSync(gradleFile, 'utf8');
     const patterns = [
-      /(safeExtGet\(\s*['"]?compileSdkVersion['"]?\s*,\s*)\d+(\s*\))/g,
-      /(\bcompileSdkVersion\s*=\s*)\d+\b/g,
-      /(\bcompileSdkVersion\s+)\d+\b/g
+      /(\bndkVersion\s*=\s*)['"][^'"]+['"]/ ,
+      /(\bndkVersion\s+)['"][^'"]+['"]/ ,
+      /(\bndkVersion\s*=\s*)\d+\.\d+\.\d+/
     ];
 
     let updated = original;
