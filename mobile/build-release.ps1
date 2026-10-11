@@ -326,8 +326,8 @@ function Install-SdkArchivePackage([object]$Record,[string]$ArchiveName,[string[
     }
 }
 function Ensure-AndroidSdk() {
-    # Install SDK packages directly from Myket's archive index instead of sdkmanager.
-    # Local Gradle/Maven mirrors remain controlled by gradle-mirror.init.gradle (Myket-first).
+    # Prefer already-installed SDK packages, then verified local archives in .build-temp.
+    # Download only a missing/invalid archive; no SDK archive-index request is needed.
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $sdk = [IO.Path]::GetFullPath($AndroidSdkRoot)
     [void](Ensure-Directory $sdk)
@@ -337,86 +337,49 @@ function Ensure-AndroidSdk() {
     [void](Ensure-Directory $env:ANDROID_USER_HOME)
     Write-Host "    SDK install path: $sdk" -ForegroundColor Cyan
     Write-Host "    Android user data: $env:ANDROID_USER_HOME" -ForegroundColor Cyan
-    Write-Host "    Temporary downloads: $env:TEMP" -ForegroundColor Cyan
-
-    $indexPath = Join-Path $BuildTempRoot 'sdk-archives.csv'
-    $indexUrl = 'https://maven.myket.ir/sdk-archives.csv'
-    $indexLoaded = $false
-    try {
-        Write-Host "    Updating Myket SDK archive index: $indexUrl" -ForegroundColor Cyan
-        Invoke-WebRequest -Uri $indexUrl -OutFile ($indexPath + '.download') -UseBasicParsing -TimeoutSec 120
-        if (-not (Test-Path -LiteralPath ($indexPath + '.download')) -or
-            (Get-Item -LiteralPath ($indexPath + '.download')).Length -lt 1000) {
-            throw 'Downloaded SDK archive index is empty or unexpectedly small.'
-        }
-        Move-Item -LiteralPath ($indexPath + '.download') -Destination $indexPath -Force
-        $indexLoaded = $true
-    } catch {
-        Remove-Item -LiteralPath ($indexPath + '.download') -Force -ErrorAction SilentlyContinue
-        if (Test-Path -LiteralPath $indexPath) {
-            Write-Host "    Myket index refresh failed; using cached index: $($_.Exception.Message)" -ForegroundColor Yellow
-        } else {
-            Fail "Could not download Myket SDK archive index and no cached copy exists: $($_.Exception.Message)"
-        }
-    }
-    $rows = @(Import-Csv -LiteralPath $indexPath)
-    if ($rows.Count -lt 1 -or
-        -not ($rows[0].PSObject.Properties.Name -contains 'package_path') -or
-        -not ($rows[0].PSObject.Properties.Name -contains 'archive_checksum')) {
-        Fail "Invalid Myket SDK archive index: $indexPath"
-    }
-
-    # Normalize URL data row-by-row. Some index revisions have an archive_url
-    # header that is empty while the actual URL is stored under a differently named column.
-    foreach ($row in $rows) {
-        $urlProperty = $row.PSObject.Properties['archive_url']
-        $urlValue = if ($null -ne $urlProperty) { ([string]$urlProperty.Value).Trim() } else { '' }
-        if ($urlValue -notmatch '^https://maven\.myket\.ir/android-sdk/') {
-            $urlValue = ''
-            foreach ($property in $row.PSObject.Properties) {
-                $candidate = ([string]$property.Value).Trim()
-                if ($candidate -match '^https://maven\.myket\.ir/android-sdk/') {
-                    $urlValue = $candidate
-                    break
-                }
-            }
-        }
-        if (-not [string]::IsNullOrWhiteSpace($urlValue)) {
-            if ($null -eq $urlProperty) {
-                $row | Add-Member -NotePropertyName archive_url -NotePropertyValue $urlValue
-            } else {
-                $urlProperty.Value = $urlValue
-            }
-        }
-    }
-
-    $requiredPackagePaths = @('ndk;27.3.13750724','platform-tools','build-tools;36.0.0','platforms;android-36')
-    $missingUrlRows = @($rows | Where-Object {
-        $packagePath = ([string]$_.package_path).Trim()
-        $urlProperty = $_.PSObject.Properties['archive_url']
-        ($requiredPackagePaths -contains $packagePath) -and
-        (($null -eq $urlProperty) -or ([string]$urlProperty.Value) -notmatch '^https://maven\.myket\.ir/android-sdk/')
-    })
-    if ($missingUrlRows.Count -gt 0) {
-        $headers = $rows[0].PSObject.Properties.Name -join ', '
-        $sample = ($missingUrlRows | Select-Object -First 3 | ForEach-Object {
-            'package_path=' + [string]$_.package_path + '; fields=' + (($_.PSObject.Properties | ForEach-Object { $_.Name + '=' + [string]$_.Value }) -join ' | ')
-        }) -join ' || '
-        Fail "Myket SDK archive index contains required package rows without a recognized HTTPS archive URL. CSV headers: $headers. Sample rows: $sample"
-    }
-    Write-Host ("    Archive index: " + $(if ($indexLoaded) { 'updated' } else { 'cached fallback' })) -ForegroundColor DarkGray
+    Write-Host "    SDK archive cache: $BuildTempRoot" -ForegroundColor Cyan
 
     $packages = @(
-        @{ Path='ndk;27.3.13750724'; Archive='android-ndk-r27d-windows.zip'; Legacy=@('android-ndk-r27d-windows.zip'); Root='android-ndk-r27d'; Target='ndk\27.3.13750724'; Kind='ndk' },
-        @{ Path='platform-tools'; Archive='platform-tools_r37.0.1-win.zip'; Legacy=@('platform-tools.zip'); Root='platform-tools'; Target='platform-tools'; Kind='platform-tools' },
-        @{ Path='build-tools;36.0.0'; Archive='build-tools_r36_windows.zip'; Legacy=@('build-tools-36.0.0.zip'); Root='android-16'; Target='build-tools\36.0.0'; Kind='build-tools' },
-        @{ Path='platforms;android-36'; Archive='platform-36_r02.zip'; Legacy=@('platform-android-36.zip'); Root='android-36'; Target='platforms\android-36'; Kind='platform' }
+        @{
+            Path='ndk;27.3.13750724'; Archive='android-ndk-r27d-windows.zip'; Legacy=@('android-ndk-r27d-windows.zip')
+            Root='android-ndk-r27d'; Target='ndk\27.3.13750724'; Kind='ndk'
+            Url='https://maven.myket.ir/android-sdk/android-ndk-r27d-windows.zip'
+            Size=[int64]781506724; Sha1='56607cbccd3642d4a1991f6bb3114a00f884f426'
+        },
+        @{
+            Path='platform-tools'; Archive='platform-tools_r37.0.1-win.zip'; Legacy=@('platform-tools.zip')
+            Root='platform-tools'; Target='platform-tools'; Kind='platform-tools'
+            Url='https://maven.myket.ir/android-sdk/platform-tools_r37.0.1-win.zip'
+            Size=[int64]8044989; Sha1='e03e78b1d80b396f1c3358e31251cb31740e1110'
+        },
+        @{
+            Path='build-tools;36.0.0'; Archive='build-tools_r36_windows.zip'; Legacy=@('build-tools-36.0.0.zip')
+            Root='android-16'; Target='build-tools\36.0.0'; Kind='build-tools'
+            Url='https://maven.myket.ir/android-sdk/build-tools_r36_windows.zip'
+            Size=[int64]58699878; Sha1='f16ccffd34de8790dede813a6c7d8e2c11a27b50'
+        },
+        @{
+            Path='platforms;android-36'; Archive='platform-36_r02.zip'; Legacy=@('platform-android-36.zip')
+            Root='android-36'; Target='platforms\android-36'; Kind='platform'
+            Url='https://maven.myket.ir/android-sdk/platform-36_r02.zip'
+            Size=[int64]65878410; Sha1='2c1a80dd4d9f7d0e6dd336ec603d9b5c55a6f576'
+        }
     )
 
-    Stage 18 'Installing verified Android SDK archives from Myket'
-    foreach ($p in $packages) {
-        $record = Get-SdkArchiveRecord $rows $p.Path
-        Install-SdkArchivePackage $record $p.Archive $p.Legacy $p.Root $p.Target $p.Kind
+    $missingPackages = @($packages | Where-Object { -not (Test-SdkPackageReady $_.Target $_.Kind) })
+    if ($missingPackages.Count -eq 0) {
+        Write-Host '    All required Android SDK packages already exist and passed validation; no download required.' -ForegroundColor Green
+    } else {
+        Write-Host ("    Packages requiring installation: " + (($missingPackages | ForEach-Object { $_.Target }) -join ', ')) -ForegroundColor Cyan
+        foreach ($p in $missingPackages) {
+            $record = [pscustomobject]@{
+                package_path = $p.Path
+                archive_url = $p.Url
+                archive_size = [string]$p.Size
+                archive_checksum = $p.Sha1
+            }
+            Install-SdkArchivePackage $record $p.Archive $p.Legacy $p.Root $p.Target $p.Kind
+        }
     }
 
     $required = @(
