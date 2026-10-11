@@ -32,7 +32,7 @@ route('GET','/api/school-service/dashboard',function($p,$b,$u){
  $byViolation=array_values(array_filter($byViolation,function($row){return !_ssv_is_certificate_violation_title($row['label']??'');}));
  $bySchool=Db::all("SELECT COALESCE(NULLIF(TRIM(s.name),''),'نامشخص') label,COUNT(i.id) n FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id WHERE $where GROUP BY s.id,s.name ORDER BY n DESC LIMIT 12",$a);
  $vehicleTypes=Db::all("SELECT COALESCE(NULLIF(TRIM(vehicle_type),''),'نامشخص') label,COUNT(*) n FROM school_service_vehicles WHERE is_active=1 GROUP BY vehicle_type ORDER BY n DESC LIMIT 10");
- $certificates=Db::all("SELECT certificate_status label,COUNT(*) n FROM school_service_inspections WHERE $where GROUP BY certificate_status ORDER BY n DESC",$a);
+ $certificates=Db::all("SELECT i.certificate_status label,COUNT(*) n FROM school_service_inspections i WHERE $where GROUP BY i.certificate_status ORDER BY n DESC",$a);
  $trendRows=Db::all("SELECT DATE(i.created_at) day_key,COUNT(*) n FROM school_service_inspections i WHERE i.created_at>=DATE_FORMAT(CURDATE(),'%Y-%m-01') AND i.created_at<DATE_ADD(CURDATE(),INTERVAL 1 DAY) AND $where GROUP BY DATE(i.created_at) ORDER BY day_key ASC",$a);
  $trendCounts=[];
  foreach($trendRows as $tr){$trendCounts[(string)$tr['day_key']]=(int)$tr['n'];}
