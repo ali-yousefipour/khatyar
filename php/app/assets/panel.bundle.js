@@ -9943,6 +9943,7 @@ function Holidays() {
 function AttendanceReport() {
     var _a, _b;
     const [users, setUsers] = useState([]);
+    const [usersLoading, setUsersLoading] = useState(true);
     const [uid, setUid] = useState("");
     const [personQuery, setPersonQuery] = useState("");
     // API گزارش تردد بازهٔ کامل را الزامی می‌کند؛ پیش‌فرض را روی کل ماه جاری شمسی می‌گذاریم.
@@ -9967,7 +9968,8 @@ function AttendanceReport() {
     const [dayRequests, setDayRequests] = useState([]);
     const [conversionModal, setConversionModal] = useState(null);
     useEffect(() => { let active = true; db.usersLite().then(us => { if (active)
-        setUsers(Array.isArray(us) ? us : []); }).catch(() => { }); return () => { active = false; }; }, []);
+        setUsers(Array.isArray(us) ? us : []); }).catch(() => { }).finally(() => { if (active)
+        setUsersLoading(false); }); return () => { active = false; }; }, []);
     useEffect(() => {
         if (!mapPunch || !mapContainerRef.current || !window.L)
             return;
@@ -10020,24 +10022,26 @@ function AttendanceReport() {
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [mapPunch, openDay]);
-    const visibleUsers = useMemo(() => users
-        .filter(u => {
+    const visibleUsers = useMemo(() => {
         const q = String(personQuery || "").trim().toLowerCase();
-        return !q
-            || String((u.first_name || "") + " " + (u.last_name || "")).toLowerCase().includes(q)
-            || String(u.username || "").includes(q);
-    })
-        .sort((a, b) => {
-        const collator = new Intl.Collator("fa", { sensitivity: "base", numeric: false });
-        // گزارش تردد قبلاً بر اساس «نام» مرتب می‌شد؛ نام خانوادگی فقط معیار دوم است.
-        const byFirst = collator.compare(String(a.first_name || "").trim(), String(b.first_name || "").trim());
-        if (byFirst !== 0)
-            return byFirst;
-        const byLast = collator.compare(String(a.last_name || "").trim(), String(b.last_name || "").trim());
-        if (byLast !== 0)
-            return byLast;
-        return collator.compare(String(a.username || a.id || ""), String(b.username || b.id || ""));
-    }), [users, personQuery]);
+        // از رندر هم‌زمان هزاران option جلوگیری می‌شود؛ جست‌وجو همچنان کل فهرست را بررسی می‌کند.
+        let result = q ? users.filter(u => String((u.first_name || "") + " " + (u.last_name || "")).toLowerCase().includes(q)
+            || String(u.username || "").toLowerCase().includes(q)
+            || String(u.pcode || "").toLowerCase().includes(q)) : users.slice(0, 80);
+        if (q) {
+            const collator = new Intl.Collator("fa", { sensitivity: "base", numeric: false });
+            result = result.sort((a, b) => {
+                const byFirst = collator.compare(String(a.first_name || "").trim(), String(b.first_name || "").trim());
+                if (byFirst !== 0)
+                    return byFirst;
+                const byLast = collator.compare(String(a.last_name || "").trim(), String(b.last_name || "").trim());
+                if (byLast !== 0)
+                    return byLast;
+                return collator.compare(String(a.username || a.id || ""), String(b.username || b.id || ""));
+            }).slice(0, 80);
+        }
+        return result;
+    }, [users, personQuery]);
     const run = async () => {
         if (!uid) {
             alert("پرسنل را انتخاب کنید");
@@ -10223,11 +10227,16 @@ function AttendanceReport() {
                     React.createElement("label", { className: "label" }, "\u067E\u0631\u0633\u0646\u0644"),
                     React.createElement("input", { className: "input", value: personQuery, onChange: e => setPersonQuery(e.target.value), placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645\u060C \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u06CC\u0627 \u06A9\u062F \u067E\u0631\u0633\u0646\u0644\u06CC", style: { marginBottom: 6 } }),
                     React.createElement("select", { className: "input", value: uid, onChange: e => setUid(e.target.value) },
-                        React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0633\u0646\u0644\u2026"),
+                        React.createElement("option", { value: "" }, usersLoading ? "در حال دریافت فهرست نیروها…" : (personQuery.trim() ? "انتخاب از نتایج جست‌وجو…" : "انتخاب پرسنل…")),
+                        uid && !visibleUsers.some(u => String(u.id) === String(uid)) && users.filter(u => String(u.id) === String(uid)).map(u => React.createElement("option", { key: u.id, value: u.id },
+                            u.first_name,
+                            " ",
+                            u.last_name)),
                         visibleUsers.map(u => React.createElement("option", { key: u.id, value: u.id },
                             u.first_name,
                             " ",
-                            u.last_name)))),
+                            u.last_name))),
+                    React.createElement("div", { style: { fontSize: 11, color: "var(--muted)", marginTop: 4 } }, usersLoading ? "فهرست در حال بارگذاری است…" : (personQuery.trim() ? "نتایج جست‌وجو: " + visibleUsers.length + " (حداکثر ۸۰ نتیجه نمایش داده می‌شود)" : users.length.toLocaleString("fa-IR") + " نیرو بارگذاری شد؛ برای یافتن سایر نیروها نام یا کد پرسنلی را جست‌وجو کنید."))),
                 React.createElement("div", null,
                     React.createElement("label", { className: "label" }, "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E"),
                     React.createElement(JDate, { value: from, onChange: setFrom, jalali: true })),
@@ -10349,7 +10358,7 @@ function AttendanceReport() {
                             " \u00B7 ",
                             hasOut ? "نقطه خروج ثبت شده" : "مختصات خروج ثبت نشده")),
                     React.createElement("button", { className: "btn g", onClick: () => setMapPunch(null) }, "\u0628\u0633\u062A\u0646")),
-                React.createElement("div", { ref: mapContainerRef, style: { flex: 1, minHeight: 320, borderRadius: 10, overflow: "hidden", border: "1px solid var(--line)" }, "aria-label": "\u0646\u0642\u0634\u0647 \u0646\u0642\u0627\u0637 \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C" }),
+                React.createElement("div", { ref: mapContainerRef, style: { display: "block", position: "relative", width: "100%", height: "clamp(320px, 52vh, 460px)", minHeight: 320, maxHeight: 460, flex: "0 0 auto", background: "#e8edf0", borderRadius: 10, overflow: "hidden", border: "1px solid var(--line)" }, "aria-label": "\u0646\u0642\u0634\u0647 \u0646\u0642\u0627\u0637 \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C" }),
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" } },
                     React.createElement("div", { style: { fontSize: 12, color: "var(--muted)" } },
                         hasIn ? "ورود: " + mapPunch.in_lat + ", " + mapPunch.in_lng : "ورود: ثبت نشده",
