@@ -116,7 +116,7 @@ function CheckInCore() {
   const cacheAuthorizedWifi = async (config) => {
     try {
       const entries = (config?.lines || []).flatMap((l) => (l.idents || [])
-        .filter((ident) => String(ident.kind || '').toLowerCase() === 'wifi' && normalizeBssid(ident.value) && (!Array.isArray(l.checkin_methods) || !l.checkin_methods.length || l.checkin_methods.includes('wifi')))
+        .filter((ident) => String(ident.kind || '').trim().toLowerCase() === 'wifi' && normalizeBssid(ident.value) && (!Array.isArray(l.checkin_methods) || !l.checkin_methods.length || l.checkin_methods.some((m) => String(m || '').trim().toLowerCase() === 'wifi')))
         .map((ident) => ({ line_id: Number(l.id), line_code: String(l.code || l.id), bssid: normalizeBssid(ident.value), label: String(ident.label || '') })));
       await AsyncStorage.setItem(WIFI_BSSID_CACHE_KEY, JSON.stringify({ entries, cached_at: Date.now() }));
     } catch {}
@@ -126,7 +126,7 @@ function CheckInCore() {
     if (!config?.lines?.length) { try { config = await cachedValue('/my/checkin-config'); } catch {} }
     if (config?.lines?.length) {
       const entries = (config.lines || []).flatMap((l) => (l.idents || [])
-        .filter((ident) => String(ident.kind || '').toLowerCase() === 'wifi' && normalizeBssid(ident.value) && (!Array.isArray(l.checkin_methods) || !l.checkin_methods.length || l.checkin_methods.includes('wifi')))
+        .filter((ident) => String(ident.kind || '').trim().toLowerCase() === 'wifi' && normalizeBssid(ident.value) && (!Array.isArray(l.checkin_methods) || !l.checkin_methods.length || l.checkin_methods.some((m) => String(m || '').trim().toLowerCase() === 'wifi')))
         .map((ident) => ({ line: l, line_id: Number(l.id), line_code: String(l.code || l.id), bssid: normalizeBssid(ident.value), label: String(ident.label || '') })));
       if (entries.length) return entries;
     }
@@ -258,8 +258,28 @@ function CheckInCore() {
         const allowed = authorized.find((item) => item.bssid === bssid);
         if (allowed) found.push({ ...allowed, bssid, ssid: String(network?.SSID || ''), level: Number(network?.level || -100) });
       }
+      // اگر اسکن فهرست اطراف به‌دلیل محدودیت Android خالی/قدیمی بود، BSSID شبکهٔ متصل را هم بررسی کن.
+      // این مسیر فقط یک منبع کمکی است؛ ثبت همچنان باید با شناسهٔ مجاز تطبیق داشته باشد.
+      if (!found.length) {
+        try {
+          const connectedBssid = normalizeBssid(await WifiManager.getBSSID());
+          if (connectedBssid && connectedBssid !== '020000000000' && connectedBssid !== '000000000000') {
+            const allowed = authorized.find((item) => item.bssid === connectedBssid);
+            if (allowed) {
+              let connectedSsid = '';
+              try { connectedSsid = String(await WifiManager.getSSID() || ''); } catch {}
+              found.push({ ...allowed, bssid: connectedBssid, ssid: connectedSsid, level: -1 });
+            }
+          }
+        } catch {}
+      }
       found.sort((a, b) => b.level - a.level);
-      if (!found.length) throw new Error('هیچ‌یک از BSSIDهای خطوط مجاز در محدوده اسکن دیده نشد. نزدیک‌تر شوید و دوباره اسکن کنید.');
+      if (!found.length) {
+        const scannedCount = Array.isArray(networks) ? networks.length : 0;
+        throw new Error(scannedCount
+          ? `شبکه‌های اطراف اسکن شدند، اما BSSID آن‌ها با شناسه‌های مجاز خطوط شما تطبیق ندارد (شبکه‌های دیده‌شده: ${scannedCount}، شناسه‌های مجاز: ${authorized.length}). BSSID ثبت‌شده در تنظیمات خط را با BSSID واقعی روتر بررسی کنید.`
+          : `اندروید فهرست شبکه‌های Wi-Fi را برنگرداند (شناسه‌های مجاز: ${authorized.length}). موقعیت مکانی و مجوزهای Wi-Fi نزدیک را روشن کنید، چند ثانیه صبر کنید و دوباره اسکن کنید.`);
+      }
       const match = found[0];
       setWifiMatch(match);
       if (match.line?.id) setLineId(Number(match.line.id));
@@ -1117,7 +1137,8 @@ function CheckInPerformanceTab(){
   const absent=Math.max(0,Number(w.absent_min||0));
   const hasAttendanceDeficit=shortage>0||absent>0;
   const cards=[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['کسری کار',w.shortage],['شب‌کاری',w.night]];
-  // این ردیف باید همیشه در کارکرد روزانه قابل مشاهده باشد؛ مقدار صفر یعنی برای این روز بازه‌ای از سمت سرور گزارش نشده است.\n  if(w.gps_invalid_min!==undefined && w.gps_invalid_min!==null && Number.isFinite(Number(w.gps_invalid_min)))cards.push(['کسر کار خاموشی GPS/توقف برنامه',w.gps_invalid_min]);
+  // این ردیف باید همیشه در کارکرد روزانه قابل مشاهده باشد؛ مقدار صفر یعنی برای این روز بازه‌ای از سمت سرور گزارش نشده است.
+  if(w.gps_invalid_min!==undefined && w.gps_invalid_min!==null && Number.isFinite(Number(w.gps_invalid_min)))cards.push(['کسر کار خاموشی GPS/توقف برنامه',w.gps_invalid_min]);
   const openRequest=(type)=>{if(!data?.date)return;navigation.navigate('Requests',{initialType:type,initialDate:data.date,returnToDailyPerformance:true});};
   return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14,paddingBottom:32}}>
     {err?<Text style={s.warnText}>{err}</Text>:null}
