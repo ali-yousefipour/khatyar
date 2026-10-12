@@ -2,9 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { faNum } from '../num';
 import { tehranTimeToEpochMs } from '../jdate';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, PanResponder, Animated, TextInput, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, PanResponder, Animated, TextInput, Modal, Platform, PermissionsAndroid, Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { getAccuratePosition, getGsmPosition } from '../location';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { request, postOrQueue, cachedValue, flushQueuedRequests, hasPendingAttendanceCheckout } from '../api';
@@ -135,16 +136,102 @@ function CheckInCore() {
       return (parsed?.entries || []).map((e) => ({ ...e, line: (config?.lines || []).find((l) => Number(l.id) === Number(e.line_id)) || { id: Number(e.line_id), code: e.line_code } }));
     } catch { return []; }
   };
+  const ensureWifiScanPermissions = async () => {
+    const granted = PermissionsAndroid.RESULTS.GRANTED;
+    const fineLocation = PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION || 'android.permission.ACCESS_FINE_LOCATION';
+    const coarseLocation = PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION || 'android.permission.ACCESS_COARSE_LOCATION';
+    const nearbyWifi = 'android.permission.NEARBY_WIFI_DEVICES';
+
+    // Wi-Fi scan results require fine location permission even though this
+    // attendance method uses the BSSID only and does not use GPS coordinates.
+    let fineGranted = await PermissionsAndroid.check(fineLocation);
+    if (!fineGranted) {
+      const result = await PermissionsAndroid.requestMultiple([coarseLocation, fineLocation]);
+      fineGranted = result[fineLocation] === granted || await PermissionsAndroid.check(fineLocation);
+      if (!fineGranted) {
+        const permanentlyDenied = result[fineLocation] === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN
+          || result[coarseLocation] === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
+        const error = new Error(permanentlyDenied
+          ? 'مجوز لازم برای اسکن شبکه‌های Wi-Fi داده نشده است. از تنظیمات برنامه، دسترسی موقعیت مکانی را فعال کنید.'
+          : 'برای اسکن شبکه‌های اطراف، دسترسی موقعیت مکانی دقیق را در درخواست اندروید تأیید کنید.');
+        if (permanentlyDenied) error.wifiSettingsAction = 'app';
+        throw error;
+      }
+    }
+
+    // Android 13+ has an additional runtime permission for nearby Wi-Fi devices.
+    if (Number(Platform.Version) >= 33) {
+      const nearbyGranted = await PermissionsAndroid.check(nearbyWifi);
+      if (!nearbyGranted) {
+        const result = await PermissionsAndroid.request(nearbyWifi, {
+          title: 'اجازه اسکن شبکه‌های Wi-Fi اطراف',
+          message: 'برای شناسایی BSSID خط مجاز و ثبت حضور با Wi-Fi، اجازه دسترسی به دستگاه‌های Wi-Fi نزدیک را بدهید. برنامه از مختصات GPS برای این روش استفاده نمی‌کند.',
+          buttonPositive: 'اجازه دادن',
+          buttonNegative: 'انصراف',
+        });
+        if (result !== granted) {
+          const permanentlyDenied = result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
+          const error = new Error(permanentlyDenied
+            ? 'مجوز اسکن Wi-Fi اطراف غیرفعال است. از تنظیمات برنامه، دسترسی دستگاه‌های نزدیک را فعال کنید.'
+            : 'برای ثبت حضور با Wi-Fi، اجازه دسترسی به دستگاه‌های Wi-Fi نزدیک را تأیید کنید.');
+          if (permanentlyDenied) error.wifiSettingsAction = 'app';
+          throw error;
+        }
+      }
+    }
+  };
+
+  const showWifiPrerequisiteAlert = (error) => {
+    const action = error?.wifiSettingsAction;
+    if (!action) return false;
+    const title = action === 'app'
+      ? 'اجازه دسترسی لازم است'
+      : action === IntentLauncher.ActivityAction.LOCATION_SOURCE_SETTINGS
+        ? 'موقعیت مکانی خاموش است'
+        : 'Wi-Fi خاموش است';
+    const buttonLabel = action === 'app'
+      ? 'تنظیمات برنامه'
+      : action === IntentLauncher.ActivityAction.LOCATION_SOURCE_SETTINGS
+        ? 'روشن کردن موقعیت مکانی'
+        : 'روشن کردن Wi-Fi';
+    Alert.alert(title, error.message, [
+      { text: 'انصراف', style: 'cancel' },
+      {
+        text: buttonLabel,
+        onPress: async () => {
+          try {
+            if (action === 'app') await Linking.openSettings();
+            else await IntentLauncher.startActivityAsync(action);
+          } catch {
+            Alert.alert('تنظیمات دستگاه', 'تنظیمات مربوطه را باز کنید، دسترسی یا Wi-Fi را فعال کنید و دوباره گزینه Wi-Fi را بزنید.');
+            return;
+          }
+          // The settings activity returns to this screen. Re-check permissions and
+          // radio state, then continue scanning if the user enabled the requirement.
+          try { await scanNearbyWifi({ quiet: false }); } catch {}
+        },
+      },
+    ]);
+    return true;
+  };
+
   const scanNearbyWifi = async ({ quiet = false } = {}) => {
-    setWifiScanStatus('در حال اسکن شبکه‌های اطراف…');
+    setWifiScanStatus('در حال بررسی مجوزها و اسکن شبکه‌های اطراف…');
     try {
       if (Platform.OS !== 'android') throw new Error('اسکن شبکه‌های اطراف برای ثبت حضور در حال حاضر فقط در نسخه اندروید پشتیبانی می‌شود.');
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== 'granted') throw new Error('برای اسکن Wi-Fi، مجوز موقعیت مکانی اندروید لازم است؛ مختصات GPS برای تعیین خط استفاده نمی‌شود.');
+      await ensureWifiScanPermissions();
       const servicesEnabled = await Location.hasServicesEnabledAsync();
-      if (!servicesEnabled) throw new Error('برای اسکن Wi-Fi، سرویس موقعیت مکانی اندروید باید روشن باشد؛ نیازی به دریافت مختصات GPS نیست.');
+      if (!servicesEnabled) {
+        const error = new Error('برای اسکن شبکه‌های اطراف، سرویس موقعیت مکانی اندروید را روشن کنید. برای این روش نیازی به ثبت مختصات GPS نیست.');
+        error.wifiSettingsAction = IntentLauncher.ActivityAction.LOCATION_SOURCE_SETTINGS;
+        throw error;
+      }
       const wifiEnabled = await WifiManager.isEnabled();
-      if (!wifiEnabled) throw new Error('Wi-Fi گوشی خاموش است. آن را روشن کنید؛ لازم نیست به شبکه متصل شوید.');
+      if (!wifiEnabled) {
+        const error = new Error('Wi-Fi گوشی خاموش است. تنظیمات Wi-Fi را باز کنید و Wi-Fi را روشن کنید؛ اتصال به شبکه لازم نیست.');
+        error.wifiSettingsAction = IntentLauncher.ActivityAction.WIFI_SETTINGS;
+        throw error;
+      }
       let networks = [];
       // react-native-wifi-reborn may resolve a status string instead of rejecting
       // when Android declines/throttles a fresh scan. Only arrays are scan results.
@@ -181,7 +268,11 @@ function CheckInCore() {
     } catch (e) {
       setWifiMatch(null);
       setWifiScanStatus(e?.message || 'اسکن شبکه‌های Wi-Fi ناموفق بود.');
-      if (!quiet) Alert.alert('اسکن Wi-Fi', e?.message || 'اسکن شبکه‌های Wi-Fi ناموفق بود.');
+      if (e?.wifiSettingsAction) {
+        if (!quiet) showWifiPrerequisiteAlert(e);
+      } else if (!quiet) {
+        Alert.alert('اسکن Wi-Fi', e?.message || 'اسکن شبکه‌های Wi-Fi ناموفق بود.');
+      }
       throw e;
     }
   };
@@ -683,7 +774,10 @@ function CheckInCore() {
           await load();
         }
       }
-    } catch (e) { Alert.alert('خطا', e.message || 'ثبت ورود ناموفق'); }
+    } catch (e) {
+      if (e?.wifiSettingsAction) showWifiPrerequisiteAlert(e);
+      else Alert.alert('خطا', e.message || 'ثبت ورود ناموفق');
+    }
     finally { setBusy(false); }
   }
   async function doCheckout() {
