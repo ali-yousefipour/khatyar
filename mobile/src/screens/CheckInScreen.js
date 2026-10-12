@@ -146,7 +146,22 @@ function CheckInCore() {
       const wifiEnabled = await WifiManager.isEnabled();
       if (!wifiEnabled) throw new Error('Wi-Fi گوشی خاموش است. آن را روشن کنید؛ لازم نیست به شبکه متصل شوید.');
       let networks = [];
-      try { networks = await WifiManager.reScanAndLoadWifiList(); } catch { networks = await WifiManager.loadWifiList(); }
+      // react-native-wifi-reborn may resolve a status string instead of rejecting
+      // when Android declines/throttles a fresh scan. Only arrays are scan results.
+      try {
+        const freshNetworks = await WifiManager.reScanAndLoadWifiList();
+        if (Array.isArray(freshNetworks)) networks = freshNetworks;
+      } catch {}
+      // If a fresh scan was rejected or returned no rows, fall back to the most
+      // recent platform scan cache instead of interpreting the status string as
+      // an empty scan. Android can throttle repeated scans in a short window.
+      if (!Array.isArray(networks) || networks.length === 0) {
+        try {
+          const cachedNetworks = await WifiManager.loadWifiList();
+          if (Array.isArray(cachedNetworks) && cachedNetworks.length > 0) networks = cachedNetworks;
+        } catch {}
+      }
+      if (!Array.isArray(networks)) networks = [];
       const authorized = await getAuthorizedWifi();
       if (!authorized.length) throw new Error('شناسه‌های Wi-Fi خطوط مجاز در حافظه موجود نیست. برنامه را یک‌بار با اینترنت باز کنید تا فهرست دریافت شود.');
       const found = [];
@@ -602,13 +617,21 @@ function CheckInCore() {
           ? Math.max(0, Number(localWorked?.worked_sec || 0))
           : 0;
         const localOpen = { id: `local_${Date.now()}`, line_id: Number(localLine.line.id), check_in: body.client_time, check_out: null, method };
-        await persistLocalOpen(localOpen);
+        // A load started while the check-in request was in flight must not replace
+        // this newly-created local session with its older server snapshot.
+        attendanceStateEpochRef.current += 1;
         setOpen(localOpen);
+        await persistLocalOpen(localOpen);
         setTimerInfo({ completed_sec: completedSec, elapsed_sec: completedSec });
         setElapsed(completedSec);
         await scheduleExitReminder(localOpen.check_in, completedSec);
       } else {
-        await persistLocalOpen(r.open || { id: r.id, line_id: Number(r.line_id || localLine.line.id), check_in: r.check_in || body.client_time, check_out: null, method });
+        const confirmedOpen = r.open || { id: r.id, line_id: Number(r.line_id || localLine.line.id), check_in: r.check_in || body.client_time, check_out: null, method };
+        // Update the UI as soon as check-in is accepted; do not wait for work-timer.
+        // This also invalidates any load whose response was captured before the write.
+        attendanceStateEpochRef.current += 1;
+        setOpen(confirmedOpen);
+        await persistLocalOpen(confirmedOpen);
         try{
           const schedule=Array.isArray(r.presence_random_schedule)?r.presence_random_schedule:[];
           if(schedule.length) await AsyncStorage.setItem(PRESENCE_RANDOM_CACHE_KEY,JSON.stringify({attendance_id:Number(r.id||0),items:schedule,cached_at:Date.now()}));
@@ -634,7 +657,7 @@ function CheckInCore() {
           if (wt) {
             setTimerInfo(wt);
             const previousCompleted = Math.max(0, Number(wt.completed_sec || 0));
-            const currentOpen = wt.open || r.open || {
+            const currentOpen = r.open || wt.open || {
               id: r.id,
               line_id: Number(r.line_id || localLine.line.id),
               check_in: r.check_in || body.client_time,
@@ -701,9 +724,10 @@ function CheckInCore() {
       // تبدیل شود. همچنین زمان را با checkoutClientTime دوباره محاسبه نمی‌کنیم تا
       // کارکرد محلی از سقف ۱۴ ساعت عبور نکند.
       if (r?.auto_closed) {
+        attendanceStateEpochRef.current += 1;
+        setOpen(null);
         await persistLocalOpen(null);
         try { await AsyncStorage.removeItem(PRESENCE_RANDOM_CACHE_KEY); } catch {}
-        setOpen(null);
         setElapsed(0);
         setTimerInfo(null);
         Alert.alert('ثبت حضور بسته شد', 'این جلسه به‌دلیل عبور از ۱۴ ساعت به‌صورت خودکار بسته شد. اکنون می‌توانید حضور جدید ثبت کنید.');
@@ -750,9 +774,10 @@ function CheckInCore() {
       );
       // پاسخ موفق سرور کافی است؛ صفحه را بلافاصله از حالت «حضور باز» خارج کن.
       // بارگذاری مجدد وضعیت/موقعیت در پس‌زمینه انجام می‌شود تا دکمه خروج معطل GPS نشود.
+      attendanceStateEpochRef.current += 1;
+      setOpen(null);
       await persistLocalOpen(null);
       try { await AsyncStorage.removeItem(PRESENCE_RANDOM_CACHE_KEY); } catch {}
-      setOpen(null);
       setElapsed(0);
       if (!r.queued) {
         // پاسخ آنلاین و سپس load() مرجع نهایی سرور برای مجموع کارکرد روز است.
