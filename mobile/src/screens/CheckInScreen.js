@@ -1117,7 +1117,7 @@ function CheckInPerformanceTab(){
   const absent=Math.max(0,Number(w.absent_min||0));
   const hasAttendanceDeficit=shortage>0||absent>0;
   const cards=[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['کسری کار',w.shortage],['شب‌کاری',w.night]];
-  if(w.gps_work_required && w.gps_invalid_min!==undefined && w.gps_invalid_min!==null && Number.isFinite(Number(w.gps_invalid_min)))cards.push(['کسر کار غیر فعال کردن برنامه',w.gps_invalid_min]);
+  if(w.gps_work_required && w.gps_invalid_min!==undefined && w.gps_invalid_min!==null && Number.isFinite(Number(w.gps_invalid_min)))cards.push(['کسر کار GPS/بسته‌بودن برنامه',w.gps_invalid_min]);
   const openRequest=(type)=>{if(!data?.date)return;navigation.navigate('Requests',{initialType:type,initialDate:data.date,returnToDailyPerformance:true});};
   return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14,paddingBottom:32}}>
     {err?<Text style={s.warnText}>{err}</Text>:null}
@@ -1128,6 +1128,7 @@ function CheckInPerformanceTab(){
     </View>
     <View style={s.perfHero}><Text style={s.perfTitle}>عملکرد روزانه</Text><Text style={s.perfShift}>{data?.shift_title||'شیفت کاری'}</Text></View>
     <View style={s.perfGrid}>{cards.map(([l,v])=><View key={l} style={s.perfCard}><Text style={s.perfValue}>{fmtMinFa(v)}</Text><Text style={s.perfLabel}>{l}</Text></View>)}</View>
+    {w.gps_work_required ? <Text style={s.perfHint}>کسر کار GPS/برنامه بخشی از «کسری کار» کل است و دوباره به آن اضافه نمی‌شود؛ بازه‌های بدون تأیید معتبر، از کارکرد محاسبه‌شده حذف می‌شوند.</Text> : null}
     <View style={s.perfCardWide}>
       <Text style={s.perfLabel}>وضعیت این روز</Text>
       <Text style={s.perfStatus}>{data?.holiday?'تعطیل: '+(data.holiday_title||'رسمی'):(w.is_off?'روز بدون شیفت':(w.worked>0?'حضور ثبت شده':'هنوز حضوری ثبت نشده'))}</Text>

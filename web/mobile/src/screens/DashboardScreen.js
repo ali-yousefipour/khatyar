@@ -9,7 +9,6 @@ import { C, FONT } from '../theme';
 import { todayFaLong } from '../jdate';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import FieldStatusBanner from '../components/FieldStatusBanner';
 
 export default function DashboardScreen({ navigation }) {
   const { user } = useAuth();
@@ -241,7 +240,7 @@ export default function DashboardScreen({ navigation }) {
         ))}
       </View>
 
-      <FieldStatusBanner />
+      
 
       {lead && lead.groups && lead.groups.some(g => (g.top || []).length > 0) ? (
         <View>

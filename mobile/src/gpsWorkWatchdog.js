@@ -43,10 +43,14 @@ export async function runGpsWorkWatchdog({ force = false, source = 'foreground_w
     } catch {}
   }
 
-  let enabled = true;
+  let enabled = null;
   try { enabled = await Location.hasServicesEnabledAsync(); } catch {}
+  if (typeof enabled !== 'boolean') {
+    // An unreadable GPS state is not proof that GPS was on. Do not emit a gps_on
+    // checkpoint or advance the check window; the server will treat the gap as unverified.
+    return { checked: false, reason: 'gps_check_failed', gpsEnabled: null, penaltyMinutes: 30 };
+  }
   const at = new Date().toISOString();
-
   try { await AsyncStorage.setItem(LAST_CHECK_KEY, String(now)); } catch {}
 
   if (!enabled) {

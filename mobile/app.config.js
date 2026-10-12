@@ -2,9 +2,9 @@
 try { require('dotenv').config(); } catch (e) {}
 let hasLocalAuth = false;
 try { require.resolve('expo-local-authentication'); hasLocalAuth = true; } catch (e) { hasLocalAuth = false; }
-// Android 1.5.7: GPS verification gap handling and attendance report fixes.
-const APP_VERSION = '1.5.7';
-const APP_VERSION_CODE = 10507;
+// Android 1.5.8: GPS/app-stop work deduction and daily performance accounting.
+const APP_VERSION = '1.5.8';
+const APP_VERSION_CODE = 10508;
 module.exports = ({ config }) => ({
   ...config,
   name: process.env.APP_NAME || 'خطیار', slug: 'khatyar-mobile', version: APP_VERSION, orientation: 'portrait', newArchEnabled: true, icon: './assets/icon.png', userInterfaceStyle: 'light', assetBundlePatterns: ['**/*'],

@@ -3,8 +3,8 @@
 const ADMIN = 3; // سطح ۳ و بالاتر = مدیریتی
 // از این نسخه به بعد، به‌درخواست کارفرما، شمارهٔ نسخهٔ سایت و اپ اندروید و نام فایل زیپ پروژه
 // همیشه یکسان و هماهنگ نگه داشته می‌شوند (به‌جای دو شمارندهٔ جداگانه مثل قبل).
-const SITE_VERSION = '1.5.6';   // نسخهٔ سایت — همیشه با نسخهٔ اپ و نام فایل پروژه یکی است
-const APP_VERSION = '1.5.6'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
+const SITE_VERSION = '1.5.8';   // نسخهٔ سایت — همیشه با نسخهٔ اپ و نام فایل پروژه یکی است
+const APP_VERSION = '1.5.8'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
 
 
 /* Phase 7.8 — زمان واقعی ثبت کلاینت برای عملیات آفلاین/آنلاین */
@@ -5848,36 +5848,6 @@ route('POST', '/api/locations', function($p, $b, $u) {
   }
   return ['saved'=>$n];
 });
-route('GET','/api/my/field-status',function($p,$b,$u){
-  $uid=(int)$u['id'];
-  $net=null; $st=null; $gps=null; $vpnSince=null; $outsideSince=null;
-  try { $net=Db::one("SELECT vpn_on,updated_at FROM user_net_state WHERE user_id=?",[$uid]); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  try {
-    $ve=Db::one("SELECT state,created_at FROM vpn_events WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT 1",[$uid]);
-    if ($ve && (int)$ve['state']===1) $vpnSince=$ve['created_at'];
-  } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  if (!$vpnSince && !empty($net['vpn_on'])) $vpnSince=$net['updated_at']??null;
-
-  try { $st=Db::one("SELECT geofence_id,updated_at FROM user_station_state WHERE user_id=?",[$uid]); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  if ($st && $st['geofence_id']===null) {
-    try {
-      $se=Db::one("SELECT exited_at FROM station_exits WHERE user_id=? ORDER BY exited_at DESC,id DESC LIMIT 1",[$uid]);
-      $outsideSince=$se['exited_at']??($st['updated_at']??null);
-    } catch (\Throwable $e) { $outsideSince=$st['updated_at']??null; }
-  }
-
-  try { $gps=Db::one("SELECT kind,at FROM user_activity WHERE user_id=? AND kind IN ('gps_on','gps_off') ORDER BY at DESC,id DESC LIMIT 1",[$uid]); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-
-  return [
-    'vpn_on'=>!empty($net['vpn_on']),
-    'vpn_since'=>$vpnSince,
-    'outside_station'=>$st ? ($st['geofence_id']===null) : false,
-    'outside_since'=>$outsideSince,
-    'gps_off'=>($gps && $gps['kind']==='gps_off'),
-    'gps_since'=>$gps['at']??null,
-    'checked_at'=>date('Y-m-d H:i:s')
-  ];
-});
 route('GET', '/api/admin/station-exits', function($p,$b,$u){
   $since = $_GET['since'] ?? date('Y-m-d 00:00:00');
   return Db::all("SELECT se.id, se.user_id, CONCAT(us.first_name,' ',us.last_name) name, r.title role, se.station_name, l.code line_code, se.lat, se.lng, se.exited_at
@@ -5944,10 +5914,16 @@ route('GET', '/api/locations/track', function($p,$b,$u){
 // بررسی نسخهٔ اپ اندروید (عمومی) — اپ هنگام شروع این را می‌خواند
 route('GET', '/api/app/version', function($p,$b,$u){
   $get = function($k,$d=null){ $r = Db::one("SELECT value FROM app_settings WHERE `key`=?", [$k]); return $r ? json_decode($r['value'], true) : $d; };
+  $configuredLatest = $get('app_latest_version', APP_VERSION);
+  if (!is_scalar($configuredLatest)) $configuredLatest = APP_VERSION;
+  $latestVersion = version_compare((string)$configuredLatest, APP_VERSION, '<') ? APP_VERSION : (string)$configuredLatest;
+  $defaultApkUrl = 'https://github.com/ali-yousefipour/khatyar/releases/latest/download/khatyar.apk';
+  $apkUrl = trim((string)$get('app_apk_url', $defaultApkUrl));
+  if ($apkUrl === '' || strpos($apkUrl, 'khatyar-1.5.7.apk') !== false) $apkUrl = $defaultApkUrl;
   return [
-    'latest_version' => $get('app_latest_version', APP_VERSION),
+    'latest_version' => $latestVersion,
     'min_version'    => $get('app_min_version', '0.0.0'),
-    'apk_url'        => $get('app_apk_url', 'https://github.com/ali-yousefipour/khatyar/releases/latest/download/khatyar.apk'),
+    'apk_url'        => $apkUrl,
     'release_url'    => 'https://github.com/ali-yousefipour/khatyar/releases/latest',
     'apk_asset'     => 'khatyar.apk',
     'notes'          => $get('app_update_notes', ''),

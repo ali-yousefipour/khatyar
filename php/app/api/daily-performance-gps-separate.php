@@ -2,9 +2,9 @@
 /**
  * عملکرد روزانهٔ شخصی با تفکیک کسری کار واقعی از جریمهٔ عدم فعالیت/خاموشی GPS.
  *
- * این route پیش از route قدیمی ثبت می‌شود. کسری کار عادی با زمان حضور خام
- * محاسبه می‌شود؛ بازه‌های فاقد تأیید برنامه/GPS فقط در gps_invalid_min گزارش
- * می‌شوند و به shortage اضافه نمی‌شوند.
+ * این route پیش از route قدیمی ثبت می‌شود. بازه‌های بدون تأیید GPS/برنامه به‌عنوان
+ * زمان غیرقابل‌اعتبار به ShiftCalc داده می‌شوند تا کارکرد معتبر و کسری کار محاسبه شوند؛
+ * gps_invalid_min همان بخش را جداگانه برای شفافیت نشان می‌دهد.
  */
 route('GET', '/api/my/daily-performance', function($p,$b,$u){
   [$ty,$tm,$td]=array_slice(gregorian_to_jalali(date('Y'),date('m'),date('d')),0,3);
@@ -22,13 +22,14 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   $cal=ShiftCalc::calendarDay($jdate);
   $rows=_attendance_rows_for_jdate($u['id'],$jdate);
 
-  // عمداً gps_invalid را به ShiftCalc نمی‌دهیم؛ کسری کار واقعی باید مستقل
-  // از جریمهٔ عدم فعالیت برنامه محاسبه شود.
+  // بازه‌های فاقد تأیید GPS/برنامه باید از زمان معتبر حذف شوند؛
+  // ShiftCalc از gps_invalid برای محاسبهٔ کارکرد و shortage استفاده می‌کند.
   $sessions=array_map(fn($r)=>[
     'in'=>strtotime($r['check_in']),
     'out'=>$r['check_out']?strtotime($r['check_out']):null,
     'clip_start'=>strtotime($r['_clip_start']??'1970-01-01 00:00:00'),
-    'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00')
+    'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00'),
+    'gps_invalid'=>$r['_gps_invalid']??[]
   ],$rows);
   $w=ShiftCalc::dayWork($shift,$jdate,$dayRow,$sessions,ShiftCalc::effectiveHoliday($jdate));
 
