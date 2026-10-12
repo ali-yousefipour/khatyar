@@ -6034,6 +6034,7 @@ function Holidays(){
 // گزارش تردد پرسنل (مدل فینتو) — سطر روزانه + پاپ‌آپ لیست ورود/خروج + ویرایش ساعت توسط ادمین
 function AttendanceReport(){
   const [users,setUsers]=useState([]);
+  const [usersLoading,setUsersLoading]=useState(true);
   const [uid,setUid]=useState("");
   const [personQuery,setPersonQuery]=useState("");
   // API گزارش تردد بازهٔ کامل را الزامی می‌کند؛ پیش‌فرض را روی کل ماه جاری شمسی می‌گذاریم.
@@ -6058,7 +6059,7 @@ function AttendanceReport(){
   const [dayRequests,setDayRequests]=useState([]);
   const [conversionModal,setConversionModal]=useState(null);
 
-  useEffect(()=>{ let active=true; db.usersLite().then(us=>{if(active)setUsers(Array.isArray(us)?us:[])}).catch(()=>{}); return ()=>{active=false}; },[]);
+  useEffect(()=>{ let active=true; db.usersLite().then(us=>{if(active)setUsers(Array.isArray(us)?us:[])}).catch(()=>{}).finally(()=>{if(active)setUsersLoading(false)}); return ()=>{active=false}; },[]);
   useEffect(()=>{
     if(!mapPunch||!mapContainerRef.current||!window.L)return;
     const L=window.L;
@@ -6087,22 +6088,26 @@ function AttendanceReport(){
     window.addEventListener("keydown",onKeyDown);
     return ()=>window.removeEventListener("keydown",onKeyDown);
   },[mapPunch,openDay]);
-  const visibleUsers=useMemo(()=>users
-    .filter(u=>{
-      const q=String(personQuery||"").trim().toLowerCase();
-      return !q
-        || String((u.first_name||"")+" "+(u.last_name||"")).toLowerCase().includes(q)
-        || String(u.username||"").includes(q);
-    })
-    .sort((a,b)=>{
+  const visibleUsers=useMemo(()=>{
+    const q=String(personQuery||"").trim().toLowerCase();
+    // از رندر هم‌زمان هزاران option جلوگیری می‌شود؛ جست‌وجو همچنان کل فهرست را بررسی می‌کند.
+    let result=q?users.filter(u=>
+      String((u.first_name||"")+" "+(u.last_name||"")).toLowerCase().includes(q)
+      ||String(u.username||"").toLowerCase().includes(q)
+      ||String(u.pcode||"").toLowerCase().includes(q)
+    ):users.slice(0,80);
+    if(q){
       const collator=new Intl.Collator("fa",{sensitivity:"base",numeric:false});
-      // گزارش تردد قبلاً بر اساس «نام» مرتب می‌شد؛ نام خانوادگی فقط معیار دوم است.
-      const byFirst=collator.compare(String(a.first_name||"").trim(),String(b.first_name||"").trim());
-      if(byFirst!==0)return byFirst;
-      const byLast=collator.compare(String(a.last_name||"").trim(),String(b.last_name||"").trim());
-      if(byLast!==0)return byLast;
-      return collator.compare(String(a.username||a.id||""),String(b.username||b.id||""));
-    }),[users,personQuery]);
+      result=result.sort((a,b)=>{
+        const byFirst=collator.compare(String(a.first_name||"").trim(),String(b.first_name||"").trim());
+        if(byFirst!==0)return byFirst;
+        const byLast=collator.compare(String(a.last_name||"").trim(),String(b.last_name||"").trim());
+        if(byLast!==0)return byLast;
+        return collator.compare(String(a.username||a.id||""),String(b.username||b.id||""));
+      }).slice(0,80);
+    }
+    return result;
+  },[users,personQuery]);
   const run=async()=>{
     if(!uid){alert("پرسنل را انتخاب کنید");return;}
     const fallback=attendanceDefaultRange();
@@ -6197,8 +6202,11 @@ function AttendanceReport(){
         <div style={{minWidth:280,flex:"1 1 280px"}}><label className="label">پرسنل</label>
           <input className="input" value={personQuery} onChange={e=>setPersonQuery(e.target.value)} placeholder="جستجوی نام، نام خانوادگی یا کد پرسنلی" style={{marginBottom:6}}/>
           <select className="input" value={uid} onChange={e=>setUid(e.target.value)}>
-            <option value="">انتخاب پرسنل…</option>{visibleUsers.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+            <option value="">{usersLoading?"در حال دریافت فهرست نیروها…":(personQuery.trim()?"انتخاب از نتایج جست‌وجو…":"انتخاب پرسنل…")}</option>
+            {uid&&!visibleUsers.some(u=>String(u.id)===String(uid))&&users.filter(u=>String(u.id)===String(uid)).map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+            {visibleUsers.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
           </select>
+          <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>{usersLoading?"فهرست در حال بارگذاری است…":(personQuery.trim()?"نتایج جست‌وجو: "+visibleUsers.length+" (حداکثر ۸۰ نتیجه نمایش داده می‌شود)":users.length.toLocaleString("fa-IR")+" نیرو بارگذاری شد؛ برای یافتن سایر نیروها نام یا کد پرسنلی را جست‌وجو کنید.")}</div>
         </div>
         <div><label className="label">از تاریخ</label><JDate value={from} onChange={setFrom} jalali/></div>
         <div><label className="label">تا تاریخ</label><JDate value={to} onChange={setTo} jalali/></div>
@@ -6278,7 +6286,7 @@ function AttendanceReport(){
         </div>
       </div>
     </div>:null})()}
-    {mapPunch&&(()=>{const valid=(a,b)=>a!==null&&a!==undefined&&a!==""&&b!==null&&b!==undefined&&b!==""&&Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Math.abs(Number(a))<=90&&Math.abs(Number(b))<=180;const hasIn=valid(mapPunch.in_lat,mapPunch.in_lng),hasOut=valid(mapPunch.out_lat,mapPunch.out_lng);const routeUrl=hasIn&&hasOut?"https://www.google.com/maps/dir/?api=1&origin="+encodeURIComponent(mapPunch.in_lat+","+mapPunch.in_lng)+"&destination="+encodeURIComponent(mapPunch.out_lat+","+mapPunch.out_lng):"https://www.google.com/maps?q="+encodeURIComponent((hasIn?mapPunch.in_lat+","+mapPunch.in_lng:mapPunch.out_lat+","+mapPunch.out_lng));return <div style={{position:"fixed",inset:0,zIndex:100000,background:"rgba(0,0,0,.62)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setMapPunch(null)}><div className="card-p" style={{width:"min(900px,96vw)",height:"min(720px,92vh)",display:"flex",flexDirection:"column",gap:10,overflow:"hidden"}} onClick={e=>e.stopPropagation()}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}><div><h3 style={{margin:0}}>موقعیت ورود و خروج با GPS</h3><div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>{hasIn?"نقطه ورود ثبت شده":"مختصات ورود ثبت نشده"} · {hasOut?"نقطه خروج ثبت شده":"مختصات خروج ثبت نشده"}</div></div><button className="btn g" onClick={()=>setMapPunch(null)}>بستن</button></div><div ref={mapContainerRef} style={{flex:1,minHeight:320,borderRadius:10,overflow:"hidden",border:"1px solid var(--line)"}} aria-label="نقشه نقاط ورود و خروج"/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}><div style={{fontSize:12,color:"var(--muted)"}}>{hasIn?"ورود: "+mapPunch.in_lat+", "+mapPunch.in_lng:"ورود: ثبت نشده"} · {hasOut?"خروج: "+mapPunch.out_lat+", "+mapPunch.out_lng:"خروج: ثبت نشده"}</div><a className="btn g" href={routeUrl} target="_blank" rel="noreferrer">{hasIn&&hasOut?"نمایش مسیر ورود تا خروج در Google Maps":"باز کردن نقطه ثبت‌شده در Google Maps"}</a></div></div></div>})()}
+    {mapPunch&&(()=>{const valid=(a,b)=>a!==null&&a!==undefined&&a!==""&&b!==null&&b!==undefined&&b!==""&&Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Math.abs(Number(a))<=90&&Math.abs(Number(b))<=180;const hasIn=valid(mapPunch.in_lat,mapPunch.in_lng),hasOut=valid(mapPunch.out_lat,mapPunch.out_lng);const routeUrl=hasIn&&hasOut?"https://www.google.com/maps/dir/?api=1&origin="+encodeURIComponent(mapPunch.in_lat+","+mapPunch.in_lng)+"&destination="+encodeURIComponent(mapPunch.out_lat+","+mapPunch.out_lng):"https://www.google.com/maps?q="+encodeURIComponent((hasIn?mapPunch.in_lat+","+mapPunch.in_lng:mapPunch.out_lat+","+mapPunch.out_lng));return <div style={{position:"fixed",inset:0,zIndex:100000,background:"rgba(0,0,0,.62)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setMapPunch(null)}><div className="card-p" style={{width:"min(900px,96vw)",height:"min(720px,92vh)",display:"flex",flexDirection:"column",gap:10,overflow:"hidden"}} onClick={e=>e.stopPropagation()}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}><div><h3 style={{margin:0}}>موقعیت ورود و خروج با GPS</h3><div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>{hasIn?"نقطه ورود ثبت شده":"مختصات ورود ثبت نشده"} · {hasOut?"نقطه خروج ثبت شده":"مختصات خروج ثبت نشده"}</div></div><button className="btn g" onClick={()=>setMapPunch(null)}>بستن</button></div><div ref={mapContainerRef} style={{display:"block",position:"relative",width:"100%",height:"clamp(320px, 52vh, 460px)",minHeight:320,maxHeight:460,flex:"0 0 auto",background:"#e8edf0",borderRadius:10,overflow:"hidden",border:"1px solid var(--line)"}} aria-label="نقشه نقاط ورود و خروج"/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}><div style={{fontSize:12,color:"var(--muted)"}}>{hasIn?"ورود: "+mapPunch.in_lat+", "+mapPunch.in_lng:"ورود: ثبت نشده"} · {hasOut?"خروج: "+mapPunch.out_lat+", "+mapPunch.out_lng:"خروج: ثبت نشده"}</div><a className="btn g" href={routeUrl} target="_blank" rel="noreferrer">{hasIn&&hasOut?"نمایش مسیر ورود تا خروج در Google Maps":"باز کردن نقطه ثبت‌شده در Google Maps"}</a></div></div></div>})()}
     {edit&&<PunchEditModal punch={edit} onSave={savePunch} onClose={()=>setEdit(null)}/>}
     {addModal&&<PunchAddModal jdate={addModal.jdate} onSave={addPunch} onClose={()=>setAddModal(null)}/>}
     {requestModal&&<AttendanceRequestModal userId={uid} jdate={requestModal.jdate} onSaved={async()=>{setRequestModal(null);await refresh();if(openDay){const rows=await db.adminRequests('?user_id='+encodeURIComponent(uid));const ds=String(openDay).replace(/\\//g,'-');setDayRequests((rows||[]).filter(r=>{const a=String(r.from_jdate||r.the_date||'').replace(/\\//g,'-');const b=String(r.to_jdate||r.the_date||a).replace(/\\//g,'-');return a<=ds&&ds<=b;}));}}} onClose={()=>setRequestModal(null)}/>}
