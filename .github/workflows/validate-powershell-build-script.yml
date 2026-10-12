@@ -41,3 +41,39 @@ jobs:
           }
 
           Write-Host "PASS: mobile/build-release.ps1 parses successfully in Windows PowerShell."
+
+      - name: Test checksum selection under StrictMode
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+
+          $cases = @(
+            @{ Name = 'SHA1'; Sha1 = 'expected-sha1' },
+            @{ Name = 'SHA256'; Sha256 = 'expected-sha256' }
+          )
+          $results = @()
+          foreach ($p in $cases) {
+            $checksumAlgorithm = 'SHA1'
+            $checksumValue = $p['Sha1']
+            if ($p.ContainsKey('Sha256') -and -not [string]::IsNullOrWhiteSpace([string]$p['Sha256'])) {
+              $checksumAlgorithm = 'SHA256'
+              $checksumValue = $p['Sha256']
+            }
+            if ([string]::IsNullOrWhiteSpace([string]$checksumValue)) {
+              throw "Checksum selection returned an empty value for $($p.Name)."
+            }
+            $results += [pscustomobject]@{
+              Name = $p.Name
+              Algorithm = $checksumAlgorithm
+              Checksum = $checksumValue
+            }
+          }
+
+          if ($results[0].Algorithm -ne 'SHA1' -or $results[0].Checksum -ne 'expected-sha1') {
+            throw 'SHA1-only package checksum selection failed.'
+          }
+          if ($results[1].Algorithm -ne 'SHA256' -or $results[1].Checksum -ne 'expected-sha256') {
+            throw 'SHA256-only package checksum selection failed.'
+          }
+          Write-Host 'PASS: SHA1-only and SHA256-only package records work under StrictMode.'
