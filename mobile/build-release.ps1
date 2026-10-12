@@ -410,12 +410,24 @@ function Ensure-AndroidSdk() {
     } else {
         Write-Host ("    Packages requiring installation: " + (($missingPackages | ForEach-Object { $_.Target }) -join ', ')) -ForegroundColor Cyan
         foreach ($p in $missingPackages) {
+            # Package records are hashtables and use either SHA1 or SHA256.
+            # Under StrictMode, accessing a missing hashtable key as a property throws,
+            # so check the key before selecting the checksum algorithm.
+            $checksumAlgorithm = 'SHA1'
+            $checksumValue = $p['Sha1']
+            if ($p.ContainsKey('Sha256') -and -not [string]::IsNullOrWhiteSpace([string]$p['Sha256'])) {
+                $checksumAlgorithm = 'SHA256'
+                $checksumValue = $p['Sha256']
+            }
+            if ([string]::IsNullOrWhiteSpace([string]$checksumValue)) {
+                Fail "SDK package '$($p.Path)' has no configured checksum."
+            }
             $record = [pscustomobject]@{
                 package_path = $p.Path
                 archive_url = $p.Url
                 archive_size = [string]$p.Size
-                archive_checksum = [string]$(if ($p.Sha256) { $p.Sha256 } else { $p.Sha1 })
-                archive_checksum_algorithm = [string]$(if ($p.Sha256) { 'SHA256' } else { 'SHA1' })
+                archive_checksum = [string]$checksumValue
+                archive_checksum_algorithm = $checksumAlgorithm
             }
             Install-SdkArchivePackage $record $p.Archive $p.Legacy $p.Root $p.Target $p.Kind
         }
