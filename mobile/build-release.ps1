@@ -281,10 +281,10 @@ function Install-SdkArchivePackage([object]$Record,[string]$ArchiveName,[string[
             }
         }
 
-        $parent = Split-Path -LiteralPath $target -Parent
+        $parent = Split-Path -Path $target -Parent
         [void][IO.Directory]::CreateDirectory($parent)
         if (Test-Path -LiteralPath $target) {
-            [void][IO.Directory]::CreateDirectory((Split-Path -LiteralPath $backupPath -Parent))
+            [void][IO.Directory]::CreateDirectory((Split-Path -Path $backupPath -Parent))
             Move-Item -LiteralPath $target -Destination $backupPath
             Write-Host "    Previous package backed up: $backupPath" -ForegroundColor Yellow
         }
