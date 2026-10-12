@@ -3882,13 +3882,22 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   $rows=_attendance_rows_for_jdate($u['id'],$jdate);
   $sessions=array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start']??'1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]],$rows);
   $w=ShiftCalc::dayWork($shift,$jdate,$dayRow,$sessions,ShiftCalc::effectiveHoliday($jdate));
-  $gpsInvalidSeconds=0;
+  // بازه‌های نامعتبر را به‌صورت اجتماع بازه‌ها حساب کن؛ هم‌پوشانی جلسات/رویدادها نباید دوبار کسر شود.
+  $gpsInvalidRanges=[];
   foreach($rows as $gpsRow) {
     foreach(($gpsRow['_gps_invalid']??[]) as $gpsRange) {
       $gpsA=(int)($gpsRange[0]??0); $gpsB=(int)($gpsRange[1]??0);
-      if($gpsB>$gpsA) $gpsInvalidSeconds += $gpsB-$gpsA;
+      if($gpsB>$gpsA) $gpsInvalidRanges[]=[$gpsA,$gpsB];
     }
   }
+  usort($gpsInvalidRanges,static fn($a,$b)=>(int)$a[0]<=>(int)$b[0]);
+  $gpsInvalidSeconds=0; $gpsRangeStart=null; $gpsRangeEnd=null;
+  foreach($gpsInvalidRanges as $gpsRange) {
+    if($gpsRangeStart===null) { $gpsRangeStart=$gpsRange[0]; $gpsRangeEnd=$gpsRange[1]; continue; }
+    if($gpsRange[0]<=$gpsRangeEnd) $gpsRangeEnd=max($gpsRangeEnd,$gpsRange[1]);
+    else { $gpsInvalidSeconds+=max(0,$gpsRangeEnd-$gpsRangeStart); $gpsRangeStart=$gpsRange[0]; $gpsRangeEnd=$gpsRange[1]; }
+  }
+  if($gpsRangeStart!==null) $gpsInvalidSeconds+=max(0,$gpsRangeEnd-$gpsRangeStart);
   $w['gps_work_required']=_gps_work_required();
   $w['gps_invalid_min']=(int)ceil(max(0,$gpsInvalidSeconds)/60);
   $weekday=_jweekday_name((int)substr($jdate,0,4),(int)substr($jdate,5,2),(int)substr($jdate,8,2));
