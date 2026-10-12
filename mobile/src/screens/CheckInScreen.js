@@ -970,7 +970,7 @@ function CheckInCore() {
       <View style={s.distRow}>
         {distance == null ? <Text style={s.muted}>{open ? 'هیچ محدوده‌ای برای خطوط مجاز تعریف نشده یا موقعیت در دسترس نیست.' : 'محدوده‌ای برای این خط تعریف نشده یا موقعیت در دسترس نیست.'}</Text> :
           inArea ? <Text style={[s.distTxt, { color: C.ok }]}>✓ {open ? 'شما داخل محدودهٔ یکی از خطوط مجاز برای خروج هستید' : 'شما داخل محدودهٔ ایستگاه هستید'}</Text> :
-            <Text style={s.distTxt}>{!open ? 'شما مجاز به ثبت حضور در این خط نیستید. ' : ''}فاصله تا نزدیک‌ترین محدوده: <Text style={{ color: C.danger, fontFamily: FONT.bold }}>{faNum(Math.round(distance))} متر</Text></Text>}
+            <Text style={s.distTxt}>فاصله تا نزدیک‌ترین محدوده: <Text style={{ color: C.danger, fontFamily: FONT.bold }}>{faNum(Math.round(distance))} متر</Text></Text>}
       </View>
 
       {/* تایمر حضور */}
