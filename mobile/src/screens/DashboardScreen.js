@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAudioPlayer } from 'expo-audio';
 import { openDrawer as khOpenDrawer } from '../drawerControl';
-import { Alert, Animated, Image, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Alert, Animated, Image, Linking, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
@@ -17,6 +17,20 @@ import { useRadio } from '../radio/RadioContext';
 function RadioHeaderToggle({ navigation }) {
   const { enabled, busy } = useRadio();
   return <TouchableOpacity onPress={() => navigation.navigate('Radio')} style={s.headerIcon} hitSlop={6}><Text style={s.headerIconText}>{enabled ? (busy ? '📻' : '📡') : '📻̸'}</Text></TouchableOpacity>;
+}
+
+function weatherPresentation(code, isDay = true) {
+  const c = Number(code);
+  if (c === 0) return { icon: isDay ? '☀️' : '🌙', label: 'صاف' };
+  if (c === 1) return { icon: isDay ? '🌤️' : '🌙', label: 'عمدتاً صاف' };
+  if (c === 2) return { icon: '⛅', label: 'کمی ابری' };
+  if (c === 3) return { icon: '☁️', label: 'ابری' };
+  if (c === 45 || c === 48) return { icon: '🌫️', label: 'مه‌آلود' };
+  if ([51, 53, 55, 56, 57].includes(c)) return { icon: '🌦️', label: 'نم‌نم باران' };
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(c)) return { icon: '🌧️', label: 'بارانی' };
+  if ([71, 73, 75, 77, 85, 86].includes(c)) return { icon: '❄️', label: 'برفی' };
+  if ([95, 96, 99].includes(c)) return { icon: '⛈️', label: 'رعدوبرق' };
+  return { icon: '🌡️', label: 'وضعیت هوا' };
 }
 
 function RankInsignia({ count = 0 }) {
@@ -52,6 +66,7 @@ export default function DashboardScreen({ navigation }) {
   const [menuSearch, setMenuSearch] = useState('');
   const [myPhoto, setMyPhoto] = useState(user?.photo || null);
   const [orgContext, setOrgContext] = useState({ zoneName: '', chiefName: '' });
+  const [weather, setWeather] = useState(null);
   const [menuTab, setMenuTab] = useState('all');
   const [syncing, setSyncing] = useState(false);
   const [syncDetail, setSyncDetail] = useState('');
@@ -80,6 +95,20 @@ export default function DashboardScreen({ navigation }) {
     refreshUnreadCounts();
     return off;
   }, [user?.id]);
+
+  useEffect(() => {
+    let active = true;
+    const loadWeather = () => {
+      request('/weather.php', { auth: false, noStore: true, timeoutMs: 8000, queueIfOffline: false })
+        .then((data) => {
+          if (active && data?.ok && Number.isFinite(Number(data.temperature))) setWeather(data);
+        })
+        .catch(() => {});
+    };
+    loadWeather();
+    const timer = setInterval(loadWeather, 30 * 60 * 1000);
+    return () => { active = false; clearInterval(timer); };
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -207,7 +236,7 @@ export default function DashboardScreen({ navigation }) {
   const visibleMenu = orderedMenu.filter((m) => (m.r !== 'Sms' && m.r !== 'MySms' && m.r !== 'BotMessages') || !!user?.can_send_sms || m.r === 'BotMessages').filter(canShow).filter((m) => menuTab === 'all' || categoryOf(m.r) === menuTab).filter((m) => { const q = String(menuSearch || '').trim().toLocaleLowerCase(); return !q || String(m.t || '').toLocaleLowerCase().includes(q); });
   const KPIS = [['رانندگان خطوط شما', myStats.drivers], ['خودروهای خطوط شما', myStats.vehicles], ['حضور امروز', stats.today], ['چک‌لیست این ماه', stats.checklists]];
 
-  return <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text style={s.syncText}>{syncDetail}</Text></View> : null}<View style={s.top}><View style={s.topInfo}><Text style={s.hi}>روز بخیر،</Text><View style={s.nameRow}>{rankCount > 0 ? <RankInsignia count={rankCount} /> : null}<Text style={s.nm}>{user?.name || '—'}</Text></View><Text style={s.todayTxt}>{todayFaLong()}</Text>{user?.role ? <View style={s.roleChip}><Text style={s.roleTxt}>{user.role}</Text></View> : null}{orgContext.zoneName ? <Text style={s.orgTxt}>منطقه: {orgContext.zoneName}</Text> : null}{orgContext.chiefName ? <Text style={s.orgTxt}>سربازرس منطقه شما جناب آقای: {orgContext.chiefName}</Text> : null}</View>{myPhoto ? <Image source={imageSource(myPhoto)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}</View><View style={s.kpis}>{KPIS.map(([l, n], i) => <View style={[s.kpi, { width: cardW }]} key={i}><Text style={s.kpiN}>{faNum(Number(n))}</Text><Text style={s.kpiL}>{l}</Text></View>)}</View><Text style={s.sectionTitle}>دسترسی سریع</Text><TextInput value={menuSearch} onChangeText={setMenuSearch} placeholder="جستجو در آیتم‌های داشبورد" placeholderTextColor={C.muted} style={s.menuSearch} returnKeyType="search"/><View style={s.orderBar}><Text style={s.orderHint}>ترتیب آیتم‌ها برای حساب کاربری شما ذخیره می‌شود.</Text><TouchableOpacity style={s.orderBtn} onPress={() => setOrderModal(true)}><Text style={s.orderBtnTxt}>☷ تنظیم ترتیب</Text></TouchableOpacity></View><ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.menuTabs}>{MENU_TABS.map(([k, l]) => <TouchableOpacity key={k} style={[s.menuTab, menuTab === k && s.menuTabOn]} onPress={() => setMenuTab(k)}><Text style={[s.menuTabTxt, menuTab === k && s.menuTabTxtOn]}>{l}</Text></TouchableOpacity>)}</ScrollView><View style={s.grid}>{visibleMenu.map((m) => <TouchableOpacity key={m.r} style={s.card} activeOpacity={0.85} onPress={() => navigation.navigate(m.r)}><View style={[s.iconWrap, { backgroundColor: m.bg }]}>{m.glyph ? <Text style={s.glyph}>{m.glyph}</Text> : <Image source={m.icon3d} style={s.icon3d} resizeMode="contain" />}</View><View style={s.cardTxtWrap}><Text style={s.cardTxt} numberOfLines={2}>{m.t}</Text></View></TouchableOpacity>)}</View><Modal visible={orderModal} transparent animationType="slide" onRequestClose={() => setOrderModal(false)}><View style={s.orderBg}><View style={s.orderCard}><View style={s.orderHead}><Text style={s.orderTitle}>مرتب‌سازی داشبورد</Text><TouchableOpacity onPress={() => setOrderModal(false)}><Text style={s.orderClose}>✕</Text></TouchableOpacity></View><View style={s.orderActions}><TouchableOpacity style={s.orderAction} onPress={sortMenuOrder}><Text style={s.orderActionTxt}>مرتب‌سازی الفبایی</Text></TouchableOpacity><TouchableOpacity style={s.orderAction} onPress={resetMenuOrder}><Text style={s.orderActionTxt}>بازگردانی ترتیب پیش‌فرض</Text></TouchableOpacity></View><ScrollView style={s.orderList} contentContainerStyle={s.orderListContent} showsVerticalScrollIndicator={false}>{(menuOrder.length ? menuOrder : MENU.map((m) => m.r)).map((route, i, arr) => { const m = MENU.find((x) => x.r === route); if (!m) return null; const dragging = dragRoute === route; const responder = dragResponder(route); return <Animated.View key={route} style={[s.orderRow, dragging && s.orderRowDragging, dragging && { transform: [{ translateY: dragDy }] }]}><View style={s.orderIndex}><Text style={s.orderIndexTxt}>{faNum(i + 1)}</Text></View><View style={s.orderName}><Text style={s.orderNameTxt} numberOfLines={1}>{m.t}</Text></View><View style={s.dragHandle} {...responder.panHandlers} accessibilityRole="button" accessibilityLabel="جابجایی آیتم"><Text style={s.dragHandleDots}>☷</Text></View><TouchableOpacity style={s.moveBtn} disabled={i === 0} onPress={() => moveMenuItem(route, -1)} accessibilityLabel="انتقال به بالا"><Text style={[s.moveTxt, i === 0 && s.moveDisabled]}>▲</Text></TouchableOpacity><TouchableOpacity style={s.moveBtn} disabled={i === arr.length - 1} onPress={() => moveMenuItem(route, 1)} accessibilityLabel="انتقال به پایین"><Text style={[s.moveTxt, i === arr.length - 1 && s.moveDisabled]}>▼</Text></TouchableOpacity></Animated.View>; })}</ScrollView><TouchableOpacity style={s.orderDone} onPress={() => setOrderModal(false)}><Text style={s.orderDoneTxt}>ذخیره و بستن</Text></TouchableOpacity></View></View></Modal><Modal visible={!!pop} transparent animationType="fade" onRequestClose={() => setPop(null)}><TouchableOpacity style={s.popBg} activeOpacity={1} onPress={() => setPop(null)}><View style={s.popCard}><TouchableOpacity style={s.popBtn} onPress={() => setPop(null)}><Text style={s.popBtnTxt}>بستن</Text></TouchableOpacity></View></TouchableOpacity></Modal></View></ScrollView>;
+  return <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text style={s.syncText}>{syncDetail}</Text></View> : null}<View style={s.top}><View style={s.topInfo}><View style={s.topSummaryRow}><View style={s.topIdentity}><Text style={s.hi}>روز بخیر،</Text><View style={s.nameRow}>{rankCount > 0 ? <RankInsignia count={rankCount} /> : null}<Text style={s.nm}>{user?.name || '—'}</Text></View>{user?.role ? <View style={s.roleChip}><Text style={s.roleTxt}>{user.role}</Text></View> : null}{orgContext.zoneName ? <Text style={s.orgTxt}>منطقه: {orgContext.zoneName}</Text> : null}{orgContext.chiefName ? <Text style={s.orgTxt}>سربازرس منطقه شما جناب آقای: {orgContext.chiefName}</Text> : null}</View><View style={s.weatherBox}><Text style={s.todayTxt} numberOfLines={2}>{todayFaLong()}</Text>{weather ? <><View style={s.weatherNow}><Text style={s.weatherIcon}>{weatherPresentation(weather.weather_code, Number(weather.is_day) !== 0).icon}</Text><Text style={s.weatherTemp}>{faNum(Math.round(Number(weather.temperature)))}°</Text></View><Text style={s.weatherLabel} numberOfLines={1}>{weatherPresentation(weather.weather_code, Number(weather.is_day) !== 0).label}</Text><Text style={s.weatherCity}>مشهد</Text><Text style={s.weatherSource} onPress={() => Linking.openURL('https://open-meteo.com/').catch(() => {})}>Open-Meteo</Text></> : <Text style={s.weatherUnavailable}>آب‌وهوا ناموجود</Text>}</View></View></View>{myPhoto ? <Image source={imageSource(myPhoto)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}</View><View style={s.kpis}>{KPIS.map(([l, n], i) => <View style={[s.kpi, { width: cardW }]} key={i}><Text style={s.kpiN}>{faNum(Number(n))}</Text><Text style={s.kpiL}>{l}</Text></View>)}</View><Text style={s.sectionTitle}>دسترسی سریع</Text><TextInput value={menuSearch} onChangeText={setMenuSearch} placeholder="جستجو در آیتم‌های داشبورد" placeholderTextColor={C.muted} style={s.menuSearch} returnKeyType="search"/><View style={s.orderBar}><Text style={s.orderHint}>ترتیب آیتم‌ها برای حساب کاربری شما ذخیره می‌شود.</Text><TouchableOpacity style={s.orderBtn} onPress={() => setOrderModal(true)}><Text style={s.orderBtnTxt}>☷ تنظیم ترتیب</Text></TouchableOpacity></View><ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.menuTabs}>{MENU_TABS.map(([k, l]) => <TouchableOpacity key={k} style={[s.menuTab, menuTab === k && s.menuTabOn]} onPress={() => setMenuTab(k)}><Text style={[s.menuTabTxt, menuTab === k && s.menuTabTxtOn]}>{l}</Text></TouchableOpacity>)}</ScrollView><View style={s.grid}>{visibleMenu.map((m) => <TouchableOpacity key={m.r} style={s.card} activeOpacity={0.85} onPress={() => navigation.navigate(m.r)}><View style={[s.iconWrap, { backgroundColor: m.bg }]}>{m.glyph ? <Text style={s.glyph}>{m.glyph}</Text> : <Image source={m.icon3d} style={s.icon3d} resizeMode="contain" />}</View><View style={s.cardTxtWrap}><Text style={s.cardTxt} numberOfLines={2}>{m.t}</Text></View></TouchableOpacity>)}</View><Modal visible={orderModal} transparent animationType="slide" onRequestClose={() => setOrderModal(false)}><View style={s.orderBg}><View style={s.orderCard}><View style={s.orderHead}><Text style={s.orderTitle}>مرتب‌سازی داشبورد</Text><TouchableOpacity onPress={() => setOrderModal(false)}><Text style={s.orderClose}>✕</Text></TouchableOpacity></View><View style={s.orderActions}><TouchableOpacity style={s.orderAction} onPress={sortMenuOrder}><Text style={s.orderActionTxt}>مرتب‌سازی الفبایی</Text></TouchableOpacity><TouchableOpacity style={s.orderAction} onPress={resetMenuOrder}><Text style={s.orderActionTxt}>بازگردانی ترتیب پیش‌فرض</Text></TouchableOpacity></View><ScrollView style={s.orderList} contentContainerStyle={s.orderListContent} showsVerticalScrollIndicator={false}>{(menuOrder.length ? menuOrder : MENU.map((m) => m.r)).map((route, i, arr) => { const m = MENU.find((x) => x.r === route); if (!m) return null; const dragging = dragRoute === route; const responder = dragResponder(route); return <Animated.View key={route} style={[s.orderRow, dragging && s.orderRowDragging, dragging && { transform: [{ translateY: dragDy }] }]}><View style={s.orderIndex}><Text style={s.orderIndexTxt}>{faNum(i + 1)}</Text></View><View style={s.orderName}><Text style={s.orderNameTxt} numberOfLines={1}>{m.t}</Text></View><View style={s.dragHandle} {...responder.panHandlers} accessibilityRole="button" accessibilityLabel="جابجایی آیتم"><Text style={s.dragHandleDots}>☷</Text></View><TouchableOpacity style={s.moveBtn} disabled={i === 0} onPress={() => moveMenuItem(route, -1)} accessibilityLabel="انتقال به بالا"><Text style={[s.moveTxt, i === 0 && s.moveDisabled]}>▲</Text></TouchableOpacity><TouchableOpacity style={s.moveBtn} disabled={i === arr.length - 1} onPress={() => moveMenuItem(route, 1)} accessibilityLabel="انتقال به پایین"><Text style={[s.moveTxt, i === arr.length - 1 && s.moveDisabled]}>▼</Text></TouchableOpacity></Animated.View>; })}</ScrollView><TouchableOpacity style={s.orderDone} onPress={() => setOrderModal(false)}><Text style={s.orderDoneTxt}>ذخیره و بستن</Text></TouchableOpacity></View></View></Modal><Modal visible={!!pop} transparent animationType="fade" onRequestClose={() => setPop(null)}><TouchableOpacity style={s.popBg} activeOpacity={1} onPress={() => setPop(null)}><View style={s.popCard}><TouchableOpacity style={s.popBtn} onPress={() => setPop(null)}><Text style={s.popBtnTxt}>بستن</Text></TouchableOpacity></View></TouchableOpacity></Modal></View></ScrollView>;
 }
 
 const s = StyleSheet.create({
@@ -226,13 +255,23 @@ const s = StyleSheet.create({
   unreadBadge: { position: 'absolute', top: -2, right: -3, minWidth: 19, height: 19, paddingHorizontal: 4, borderRadius: 10, backgroundColor: '#e53935', borderWidth: 2, borderColor: C.brand, alignItems: 'center', justifyContent: 'center' },
   unreadBadgeText: { color: '#fff', fontFamily: FONT.bold, fontSize: 8, lineHeight: 10, textAlign: 'center', writingDirection: 'rtl' },
   top: { backgroundColor: C.brand, padding: 20, paddingTop: 28, paddingBottom: 22, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, flexDirection: 'row-reverse', alignItems: 'center' },
-  topInfo: { flex: 1, minWidth: 0, alignSelf: 'stretch', alignItems: 'flex-end' },
+  topInfo: { flex: 1, minWidth: 0, alignSelf: 'stretch' },
+  topSummaryRow: { width: '100%', flexDirection: 'row-reverse', alignItems: 'flex-start' },
+  topIdentity: { flex: 1, minWidth: 0, alignItems: 'flex-end' },
   hi: { width: '100%', color: '#fff', opacity: 0.85, fontFamily: FONT.regular, textAlign: 'right', writingDirection: 'rtl', fontSize: 13 },
   nameRow: { width: '100%', flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'flex-start' },
   nm: { flex: 1, color: '#fff', fontFamily: FONT.bold, fontSize: 19, textAlign: 'right', writingDirection: 'rtl' },
   rankInsignia: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 4, marginLeft: 8, height: 20 },
   rankBar: { width: 3, height: 17, borderRadius: 1.5, backgroundColor: '#ffd24a' },
-  todayTxt: { width: '100%', color: '#fff', opacity: 0.9, fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', writingDirection: 'rtl', marginTop: 4 },
+  todayTxt: { width: '100%', color: '#fff', opacity: 0.92, fontFamily: FONT.regular, fontSize: 10, lineHeight: 16, textAlign: 'center', writingDirection: 'rtl', marginBottom: 3 },
+  weatherBox: { width: 104, flexShrink: 0, alignItems: 'center', justifyContent: 'flex-start', paddingRight: 7, marginRight: 7, borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,.25)', minHeight: 90 },
+  weatherNow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 2 },
+  weatherIcon: { fontSize: 21 },
+  weatherTemp: { color: '#fff', fontFamily: FONT.bold, fontSize: 21, writingDirection: 'rtl' },
+  weatherLabel: { width: '100%', color: '#fff', fontFamily: FONT.regular, fontSize: 10, textAlign: 'center', writingDirection: 'rtl', marginTop: 1 },
+  weatherCity: { color: '#fff', opacity: 0.9, fontFamily: FONT.regular, fontSize: 10, marginTop: 1 },
+  weatherSource: { color: '#fff', opacity: 0.72, textDecorationLine: 'underline', fontFamily: FONT.regular, fontSize: 8, marginTop: 2 },
+  weatherUnavailable: { color: '#fff', opacity: 0.75, fontFamily: FONT.regular, fontSize: 9, textAlign: 'center', writingDirection: 'rtl', marginTop: 6 },
   avatar: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: 'rgba(255,255,255,.6)', marginLeft: 12 },
   avatarPh: { width: 74, height: 74, borderRadius: 37, backgroundColor: 'rgba(255,255,255,.25)', alignItems: 'center', justifyContent: 'center', marginLeft: 12 },
   avatarTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 28, textAlign: 'center', writingDirection: 'rtl' },
