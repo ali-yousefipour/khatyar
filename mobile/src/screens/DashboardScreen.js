@@ -3,8 +3,6 @@ import { useAudioPlayer } from 'expo-audio';
 import { openDrawer as khOpenDrawer } from '../drawerControl';
 import { Alert, Animated, Image, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Device from 'expo-device';
-import { Platform } from 'react-native';
 import { useAuth } from '../auth';
 import { request, swr, imageSource, flushQueuedRequests } from '../api';
 import { registerPush } from '../push';
@@ -90,11 +88,6 @@ export default function DashboardScreen({ navigation }) {
   useEffect(() => {
     if (!user) return;
     request('/school-service/access', { noStore: true }).then((r) => setSchoolServiceAllowed(r?.allowed === true)).catch(() => setSchoolServiceAllowed(false));
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!user) return;
-    request('/my/device-info', { method: 'POST', body: { device_model: [Device.manufacturer, Device.modelName].filter(Boolean).join(' ') || Device.deviceName || '', android_version: Platform.OS === 'android' ? `Android ${Device.osVersion || ''}` : Device.osVersion || '', app_version: require('expo-constants').default?.expoConfig?.version || '' } }).catch(() => {});
   }, [user?.id]);
 
   const load = () => { swr('/my/dashboard', setStats); swr('/my/stats', setMyStats); swr('/my/app-items', (r) => setAllowed(Array.isArray(r?.items) ? r.items : null)); };
