@@ -6051,6 +6051,7 @@ function AttendanceReport(){
   const [busy,setBusy]=useState(false);
   const [openDay,setOpenDay]=useState(null);
   const [mapPunch,setMapPunch]=useState(null);
+  const mapContainerRef=useRef(null);
   const [edit,setEdit]=useState(null);
   const [requestModal,setRequestModal]=useState(null);
   const [addModal,setAddModal]=useState(null);
@@ -6058,6 +6059,27 @@ function AttendanceReport(){
   const [conversionModal,setConversionModal]=useState(null);
 
   useEffect(()=>{ db.users().then(us=>setUsers(us||[])).catch(()=>{}); },[]);
+  useEffect(()=>{
+    if(!mapPunch||!mapContainerRef.current||!window.L)return;
+    const L=window.L;
+    const points=[];
+    const valid=(a,b)=>a!==null&&a!==undefined&&a!==""&&b!==null&&b!==undefined&&b!==""&&Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Math.abs(Number(a))<=90&&Math.abs(Number(b))<=180;
+    if(valid(mapPunch.in_lat,mapPunch.in_lng))points.push({lat:Number(mapPunch.in_lat),lng:Number(mapPunch.in_lng),label:"نقطه ورود"});
+    if(valid(mapPunch.out_lat,mapPunch.out_lng))points.push({lat:Number(mapPunch.out_lat),lng:Number(mapPunch.out_lng),label:"نقطه خروج"});
+    if(!points.length)return;
+    const map=L.map(mapContainerRef.current,{scrollWheelZoom:true,preferCanvas:true});
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+    points.forEach(p=>L.marker([p.lat,p.lng]).addTo(map).bindPopup(p.label));
+    if(points.length===2)L.polyline(points.map(p=>[p.lat,p.lng]),{color:"#0d7a5f",weight:4,dashArray:"8 6"}).addTo(map);
+    if(points.length===2)map.fitBounds(points.map(p=>[p.lat,p.lng]),{padding:[36,36],maxZoom:16});else map.setView([points[0].lat,points[0].lng],16);
+    setTimeout(()=>map.invalidateSize(),0);
+    return ()=>map.remove();
+  },[mapPunch]);
+  useEffect(()=>{
+    const onKeyDown=e=>{if(e.key!=="Escape"&&e.key!=="Esc")return;if(mapPunch){setMapPunch(null);e.preventDefault();return;}if(openDay){setOpenDay(null);e.preventDefault();}};
+    window.addEventListener("keydown",onKeyDown);
+    return ()=>window.removeEventListener("keydown",onKeyDown);
+  },[mapPunch,openDay]);
   const visibleUsers=users
     .filter(u=>{
       const q=String(personQuery||"").trim().toLowerCase();
@@ -6214,13 +6236,13 @@ function AttendanceReport(){
           <div style={{overflowX:"auto",border:"1px solid var(--line)",borderRadius:10}}>
             <table style={{width:"100%",minWidth:720,tableLayout:"fixed"}}>
               <thead><tr><th style={{width:90}}>ورود</th><th style={{width:90}}>خروج</th><th style={{width:100}}>روش ثبت</th><th style={{minWidth:180}}>دستگاه</th><th style={{width:250}}>اقدام</th></tr></thead>
-              <tbody>{(d.punches||[]).map(p=>{const hasGps=Number.isFinite(Number(p.in_lat))&&Number.isFinite(Number(p.in_lng));return <tr key={p.id}>
+              <tbody>{(d.punches||[]).map(p=>{const hasGpsIn=p.in_lat!==null&&p.in_lat!==undefined&&p.in_lat!==""&&p.in_lng!==null&&p.in_lng!==undefined&&p.in_lng!==""&&Number.isFinite(Number(p.in_lat))&&Number.isFinite(Number(p.in_lng));const hasGpsOut=p.out_lat!==null&&p.out_lat!==undefined&&p.out_lat!==""&&p.out_lng!==null&&p.out_lng!==undefined&&p.out_lng!==""&&Number.isFinite(Number(p.out_lat))&&Number.isFinite(Number(p.out_lng));const hasGps=hasGpsIn||hasGpsOut;return <tr key={p.id}>
                 <td style={{textAlign:"center",whiteSpace:"nowrap"}}>{attendanceCell(pin(p)||"--:--")}</td>
                 <td style={{textAlign:"center",whiteSpace:"nowrap"}}>{attendanceCell(pout(p)||"--:--")}</td>
                 <td style={{textAlign:"center",whiteSpace:"nowrap"}}>{p.method||"—"}</td>
                 <td style={{wordBreak:"break-word"}}>{p.device||"—"}</td>
                 <td><div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                  {hasGps&&<button className="btn g" style={{padding:"5px 8px",fontSize:11}} onClick={()=>setMapPunch(p)}>📍 نمایش در نقشه</button>}
+                  {hasGps&&<button className="btn g" style={{padding:"5px 8px",fontSize:11}} onClick={()=>setMapPunch(p)}>📍 نمایش ورود و خروج در نقشه</button>}
                   <button className="btn g" style={{padding:"5px 8px",fontSize:11}} onClick={()=>{setOpenDay(null);setEdit({
                     ...p,
                     in: p?.in ?? p?.in_full ?? p?.check_in ?? p?.first_in ?? p?.first_entry ?? d?.in ?? d?.first_in ?? d?.first_entry ?? "",
@@ -6249,7 +6271,7 @@ function AttendanceReport(){
         </div>
       </div>
     </div>:null})()}
-    {mapPunch&&(()=>{const lat=Number(mapPunch.in_lat),lng=Number(mapPunch.in_lng);const delta=0.002;const bbox=[lng-delta,lat-delta,lng+delta,lat+delta].join("%2C");const mapSrc="https://www.openstreetmap.org/export/embed.html?bbox="+bbox+"&layer=mapnik&marker="+lat+"%2C"+lng;return <div style={{position:"fixed",inset:0,zIndex:100000,background:"rgba(0,0,0,.62)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setMapPunch(null)}><div className="card-p" style={{width:"min(900px,96vw)",height:"min(720px,92vh)",display:"flex",flexDirection:"column",gap:10,overflow:"hidden"}} onClick={e=>e.stopPropagation()}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}><div><h3 style={{margin:0}}>مکان ثبت ورود با GPS</h3></div><button className="btn g" onClick={()=>setMapPunch(null)}>بستن</button></div><div style={{flex:1,minHeight:320,borderRadius:10,overflow:"hidden",border:"1px solid var(--line)"}}><iframe title="مکان ثبت ورود با GPS" src={mapSrc} style={{width:"100%",height:"100%",border:0}} loading="lazy"/></div><div style={{display:"flex",justifyContent:"flex-end",gap:8}}><a className="btn g" href={"https://www.google.com/maps?q="+lat+","+lng} target="_blank" rel="noreferrer">باز کردن در Google Maps</a></div></div></div>})()}
+    {mapPunch&&(()=>{const valid=(a,b)=>a!==null&&a!==undefined&&a!==""&&b!==null&&b!==undefined&&b!==""&&Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Math.abs(Number(a))<=90&&Math.abs(Number(b))<=180;const hasIn=valid(mapPunch.in_lat,mapPunch.in_lng),hasOut=valid(mapPunch.out_lat,mapPunch.out_lng);const routeUrl=hasIn&&hasOut?"https://www.google.com/maps/dir/?api=1&origin="+encodeURIComponent(mapPunch.in_lat+","+mapPunch.in_lng)+"&destination="+encodeURIComponent(mapPunch.out_lat+","+mapPunch.out_lng):"https://www.google.com/maps?q="+encodeURIComponent((hasIn?mapPunch.in_lat+","+mapPunch.in_lng:mapPunch.out_lat+","+mapPunch.out_lng));return <div style={{position:"fixed",inset:0,zIndex:100000,background:"rgba(0,0,0,.62)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setMapPunch(null)}><div className="card-p" style={{width:"min(900px,96vw)",height:"min(720px,92vh)",display:"flex",flexDirection:"column",gap:10,overflow:"hidden"}} onClick={e=>e.stopPropagation()}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}><div><h3 style={{margin:0}}>موقعیت ورود و خروج با GPS</h3><div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>{hasIn?"نقطه ورود ثبت شده":"مختصات ورود ثبت نشده"} · {hasOut?"نقطه خروج ثبت شده":"مختصات خروج ثبت نشده"}</div></div><button className="btn g" onClick={()=>setMapPunch(null)}>بستن</button></div><div ref={mapContainerRef} style={{flex:1,minHeight:320,borderRadius:10,overflow:"hidden",border:"1px solid var(--line)"}} aria-label="نقشه نقاط ورود و خروج"/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}><div style={{fontSize:12,color:"var(--muted)"}}>{hasIn?"ورود: "+mapPunch.in_lat+", "+mapPunch.in_lng:"ورود: ثبت نشده"} · {hasOut?"خروج: "+mapPunch.out_lat+", "+mapPunch.out_lng:"خروج: ثبت نشده"}</div><a className="btn g" href={routeUrl} target="_blank" rel="noreferrer">{hasIn&&hasOut?"نمایش مسیر ورود تا خروج در Google Maps":"باز کردن نقطه ثبت‌شده در Google Maps"}</a></div></div></div>})()}
     {edit&&<PunchEditModal punch={edit} onSave={savePunch} onClose={()=>setEdit(null)}/>}
     {addModal&&<PunchAddModal jdate={addModal.jdate} onSave={addPunch} onClose={()=>setAddModal(null)}/>}
     {requestModal&&<AttendanceRequestModal userId={uid} jdate={requestModal.jdate} onSaved={async()=>{setRequestModal(null);await refresh();if(openDay){const rows=await db.adminRequests('?user_id='+encodeURIComponent(uid));const ds=String(openDay).replace(/\\//g,'-');setDayRequests((rows||[]).filter(r=>{const a=String(r.from_jdate||r.the_date||'').replace(/\\//g,'-');const b=String(r.to_jdate||r.the_date||a).replace(/\\//g,'-');return a<=ds&&ds<=b;}));}}} onClose={()=>setRequestModal(null)}/>}
