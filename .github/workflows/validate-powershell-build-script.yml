@@ -1,0 +1,43 @@
+name: Validate Windows Android build script
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "mobile/build-release.ps1"
+      - ".github/workflows/validate-powershell-build-script.yml"
+  pull_request:
+    paths:
+      - "mobile/build-release.ps1"
+      - ".github/workflows/validate-powershell-build-script.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  powershell-syntax:
+    name: Parse build-release.ps1 with Windows PowerShell
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Validate PowerShell syntax
+        shell: powershell
+        run: |
+          $parseTokens = $null
+          $parseErrors = $null
+          $scriptPath = (Resolve-Path 'mobile/build-release.ps1').Path
+
+          [System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$parseTokens, [ref]$parseErrors) | Out-Null
+
+          if ($parseErrors -and $parseErrors.Count -gt 0) {
+            foreach ($parseError in $parseErrors) {
+              Write-Host ("Parser error at line {0}, column {1}: {2}" -f $parseError.Extent.StartLineNumber, $parseError.Extent.StartColumnNumber, $parseError.Message)
+            }
+            exit 1
+          }
+
+          Write-Host "PASS: mobile/build-release.ps1 parses successfully in Windows PowerShell."
