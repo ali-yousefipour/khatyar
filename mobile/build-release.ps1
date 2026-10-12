@@ -137,14 +137,17 @@ function Remove-LockedAndroidDirectory([string]$Android) {
 
 
 
-function Get-SdkArchiveSha1([string]$Path) {
-    return (Get-FileHash -LiteralPath $Path -Algorithm SHA1).Hash.ToLowerInvariant()
+function Get-SdkArchiveChecksum([string]$Path,[string]$Algorithm='SHA1') {
+    if ($Algorithm -notin @('SHA1','SHA256')) { Fail "Unsupported SDK archive checksum algorithm: $Algorithm" }
+    return (Get-FileHash -LiteralPath $Path -Algorithm $Algorithm).Hash.ToLowerInvariant()
 }
 function Ensure-SdkArchive([object]$Record,[string]$LocalName,[string[]]$LegacyNames) {
     $archiveDir = Ensure-Directory $BuildTempRoot
     $canonicalPath = Join-Path $archiveDir $LocalName
     $expectedSize = [int64]$Record.archive_size
-    $expectedSha1 = ([string]$Record.archive_checksum).Trim().ToLowerInvariant()
+    $expectedChecksum = ([string]$Record.archive_checksum).Trim().ToLowerInvariant()
+    $checksumAlgorithm = [string]$Record.archive_checksum_algorithm
+    if ([string]::IsNullOrWhiteSpace($checksumAlgorithm)) { $checksumAlgorithm = 'SHA1' }
     $candidates = @($canonicalPath)
     foreach ($legacy in $LegacyNames) {
         if (-not [string]::IsNullOrWhiteSpace($legacy)) {
@@ -155,14 +158,15 @@ function Ensure-SdkArchive([object]$Record,[string]$LocalName,[string[]]$LegacyN
     foreach ($candidate in ($candidates | Select-Object -Unique)) {
         if (-not (Test-Path -LiteralPath $candidate)) { continue }
         $item = Get-Item -LiteralPath $candidate
-        if ($item.Length -eq $expectedSize) {
-            $actualSha1 = Get-SdkArchiveSha1 $candidate
-            if ($actualSha1 -eq $expectedSha1) {
-                Write-Host "    Reusing checksum-verified archive: $candidate" -ForegroundColor Green
+        $sizeMatches = ($expectedSize -le 0 -or $item.Length -eq $expectedSize)
+        if ($sizeMatches) {
+            $actualChecksum = Get-SdkArchiveChecksum $candidate $checksumAlgorithm
+            if ($actualChecksum -eq $expectedChecksum) {
+                Write-Host "    Reusing checksum-verified archive ($checksumAlgorithm): $candidate" -ForegroundColor Green
                 return $candidate
             }
         }
-        Write-Host "    Cached archive failed size/SHA-1 verification; it will not be installed: $candidate" -ForegroundColor Yellow
+        Write-Host "    Cached archive failed size/checksum verification; it will not be installed: $candidate" -ForegroundColor Yellow
     }
 
     $partial = $canonicalPath + '.download'
@@ -173,15 +177,15 @@ function Ensure-SdkArchive([object]$Record,[string]$LocalName,[string[]]$LegacyN
         Invoke-WebRequest -Uri ([string]$Record.archive_url) -OutFile $partial -UseBasicParsing -TimeoutSec 1800
         if (-not (Test-Path -LiteralPath $partial)) { Fail "Download did not create a file for $LocalName." }
         $downloaded = Get-Item -LiteralPath $partial
-        if ($downloaded.Length -ne $expectedSize) {
+        if ($expectedSize -gt 0 -and $downloaded.Length -ne $expectedSize) {
             Fail "SDK archive size mismatch for $LocalName. Expected $expectedSize bytes; received $($downloaded.Length)."
         }
-        $actualSha1 = Get-SdkArchiveSha1 $partial
-        if ($actualSha1 -ne $expectedSha1) {
-            Fail "SDK archive SHA-1 mismatch for $LocalName. Expected $expectedSha1; received $actualSha1."
+        $actualChecksum = Get-SdkArchiveChecksum $partial $checksumAlgorithm
+        if ($actualChecksum -ne $expectedChecksum) {
+            Fail "SDK archive $checksumAlgorithm mismatch for $LocalName. Expected $expectedChecksum; received $actualChecksum."
         }
         Move-Item -LiteralPath $partial -Destination $canonicalPath -Force
-        Write-Host "    Download size and SHA-1 verified: $canonicalPath" -ForegroundColor Green
+        Write-Host "    Download checksum verified ($checksumAlgorithm): $canonicalPath" -ForegroundColor Green
         return $canonicalPath
     } finally {
         Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
@@ -210,6 +214,13 @@ function Test-SdkPackageReady([string]$PackagePath,[string]$PackageKind) {
         }
         'build-tools' {
             return ($props -match '(?m)^\s*Pkg\.Revision\s*=\s*36\.0\.0\s*$' -and
+                (Test-Path -LiteralPath (Join-Path $dir 'aapt2.exe')) -and
+                (Test-Path -LiteralPath (Join-Path $dir 'd8.bat')) -and
+                (Test-Path -LiteralPath (Join-Path $dir 'zipalign.exe')) -and
+                (Test-Path -LiteralPath (Join-Path $dir 'aidl.exe')))
+        }
+        'build-tools-35' {
+            return ($props -match '(?m)^\s*Pkg\.Revision\s*=\s*35\.0\.0\s*$' -and
                 (Test-Path -LiteralPath (Join-Path $dir 'aapt2.exe')) -and
                 (Test-Path -LiteralPath (Join-Path $dir 'd8.bat')) -and
                 (Test-Path -LiteralPath (Join-Path $dir 'zipalign.exe')) -and
@@ -267,6 +278,12 @@ function Install-SdkArchivePackage([object]$Record,[string]$ArchiveName,[string[
             }
             'build-tools' {
                 if ($props -notmatch '(?m)^\s*Pkg\.Revision\s*=\s*36\.0\.0\s*$') { Fail 'Downloaded Build Tools revision is not 36.0.0.' }
+                foreach ($rel in @('aapt2.exe','d8.bat','zipalign.exe','aidl.exe','core-lambda-stubs.jar')) {
+                    if (-not (Test-Path -LiteralPath (Join-Path $stagedPackage $rel))) { Fail "Build Tools archive is missing $rel." }
+                }
+            }
+            'build-tools-35' {
+                if ($props -notmatch '(?m)^\s*Pkg\.Revision\s*=\s*35\.0\.0\s*$') { Fail 'Downloaded Build Tools revision is not 35.0.0.' }
                 foreach ($rel in @('aapt2.exe','d8.bat','zipalign.exe','aidl.exe','core-lambda-stubs.jar')) {
                     if (-not (Test-Path -LiteralPath (Join-Path $stagedPackage $rel))) { Fail "Build Tools archive is missing $rel." }
                 }
@@ -340,6 +357,12 @@ function Ensure-AndroidSdk() {
             Size=[int64]8044989; Sha1='e03e78b1d80b396f1c3358e31251cb31740e1110'
         },
         @{
+            Path='build-tools;35.0.0'; Archive='build-tools_r35_windows.zip'; Legacy=@('build-tools-35.0.0.zip')
+            Root='android-15'; Target='build-tools\35.0.0'; Kind='build-tools-35'
+            Url='https://maven.myket.ir/android-sdk/build-tools_r35_windows.zip'
+            Size=[int64]0; Sha256='5753c679a1b90bcf6fbc9945a2ce39dfb9e74f1df0831a1e1866ae5b594326f0'
+        },
+        @{
             Path='build-tools;36.0.0'; Archive='build-tools_r36_windows.zip'; Legacy=@('build-tools-36.0.0.zip')
             Root='android-16'; Target='build-tools\36.0.0'; Kind='build-tools'
             Url='https://maven.myket.ir/android-sdk/build-tools_r36_windows.zip'
@@ -363,7 +386,8 @@ function Ensure-AndroidSdk() {
                 package_path = $p.Path
                 archive_url = $p.Url
                 archive_size = [string]$p.Size
-                archive_checksum = $p.Sha1
+                archive_checksum = [string]$(if ($p.Sha256) { $p.Sha256 } else { $p.Sha1 })
+                archive_checksum_algorithm = [string]$(if ($p.Sha256) { 'SHA256' } else { 'SHA1' })
             }
             Install-SdkArchivePackage $record $p.Archive $p.Legacy $p.Root $p.Target $p.Kind
         }
@@ -371,6 +395,8 @@ function Ensure-AndroidSdk() {
 
     $required = @(
         (Join-Path $sdk 'platforms\android-36\android.jar'),
+        (Join-Path $sdk 'build-tools\35.0.0\aapt2.exe'),
+        (Join-Path $sdk 'build-tools\35.0.0\zipalign.exe'),
         (Join-Path $sdk 'build-tools\36.0.0\aapt2.exe'),
         (Join-Path $sdk 'build-tools\36.0.0\zipalign.exe'),
         (Join-Path $sdk 'platform-tools\adb.exe'),
@@ -382,7 +408,7 @@ function Ensure-AndroidSdk() {
     }
 
     Write-Host "    Android SDK ready: $sdk" -ForegroundColor Green
-    Write-Host '    Installed: Platform Tools 37.0.1, Android API 36, Build Tools 36.0.0, NDK 27.3.13750724 + 27.0.12077973 (expo-updates)' -ForegroundColor Green
+    Write-Host '    Installed: Platform Tools 37.0.1, Android API 36, Build Tools 35.0.0 + 36.0.0, NDK 27.3.13750724 + 27.0.12077973' -ForegroundColor Green
 }
 function Ensure-Directory([string]$Path) {
     if ([string]::IsNullOrWhiteSpace($Path)) { Fail 'Directory path is empty.' }
