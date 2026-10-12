@@ -198,6 +198,11 @@ function Test-SdkPackageReady([string]$PackagePath,[string]$PackageKind) {
                 (Test-Path -LiteralPath (Join-Path $dir 'ndk-build.cmd')) -and
                 (Test-Path -LiteralPath (Join-Path $dir 'toolchains\llvm\prebuilt\windows-x86_64\bin\clang.exe')))
         }
+        'ndk-27.0' {
+            return ($props -match '(?m)^\s*Pkg\.Revision\s*=\s*27\.0\.12077973\s*$' -and
+                (Test-Path -LiteralPath (Join-Path $dir 'ndk-build.cmd')) -and
+                (Test-Path -LiteralPath (Join-Path $dir 'toolchains\llvm\prebuilt\windows-x86_64\bin\clang.exe')))
+        }
         'platform-tools' {
             return ($props -match '(?m)^\s*Pkg\.Revision\s*=\s*37\.0\.1\s*$' -and
                 (Test-Path -LiteralPath (Join-Path $dir 'adb.exe')) -and
@@ -244,6 +249,12 @@ function Install-SdkArchivePackage([object]$Record,[string]$ArchiveName,[string[
         switch ($PackageKind) {
             'ndk' {
                 if ($props -notmatch '(?m)^\s*Pkg\.Revision\s*=\s*27\.3\.13750724\s*$') { Fail 'Downloaded NDK revision is not 27.3.13750724.' }
+                foreach ($rel in @('ndk-build.cmd','toolchains\llvm\prebuilt\windows-x86_64\bin\clang.exe')) {
+                    if (-not (Test-Path -LiteralPath (Join-Path $stagedPackage $rel))) { Fail "NDK archive is missing $rel." }
+                }
+            }
+            'ndk-27.0' {
+                if ($props -notmatch '(?m)^\s*Pkg\.Revision\s*=\s*27\.0\.12077973\s*$') { Fail 'Downloaded NDK revision is not 27.0.12077973.' }
                 foreach ($rel in @('ndk-build.cmd','toolchains\llvm\prebuilt\windows-x86_64\bin\clang.exe')) {
                     if (-not (Test-Path -LiteralPath (Join-Path $stagedPackage $rel))) { Fail "NDK archive is missing $rel." }
                 }
@@ -317,6 +328,12 @@ function Ensure-AndroidSdk() {
             Size=[int64]781506724; Sha1='56607cbccd3642d4a1991f6bb3114a00f884f426'
         },
         @{
+            Path='ndk;27.0.12077973'; Archive='android-ndk-r27-windows.zip'; Legacy=@('android-ndk-r27-windows.zip')
+            Root='android-ndk-r27'; Target='ndk\27.0.12077973'; Kind='ndk-27.0'
+            Url='https://maven.myket.ir/android-sdk/android-ndk-r27-windows.zip'
+            Size=[int64]781482169; Sha1='0ea2756e6815356831bda3af358cce4cdb6a981e'
+        },
+        @{
             Path='platform-tools'; Archive='platform-tools_r37.0.1-win.zip'; Legacy=@('platform-tools.zip')
             Root='platform-tools'; Target='platform-tools'; Kind='platform-tools'
             Url='https://maven.myket.ir/android-sdk/platform-tools_r37.0.1-win.zip'
@@ -358,13 +375,14 @@ function Ensure-AndroidSdk() {
         (Join-Path $sdk 'build-tools\36.0.0\zipalign.exe'),
         (Join-Path $sdk 'platform-tools\adb.exe'),
         (Join-Path $sdk 'ndk\27.3.13750724\source.properties')
+        (Join-Path $sdk 'ndk\27.0.12077973\source.properties'),
     )
     foreach ($file in $required) {
         if (-not (Test-Path -LiteralPath $file)) { Fail "Android SDK component verification failed; missing: $file" }
     }
 
     Write-Host "    Android SDK ready: $sdk" -ForegroundColor Green
-    Write-Host '    Installed: Platform Tools 37.0.1, Android API 36, Build Tools 36.0.0, NDK 27.3.13750724' -ForegroundColor Green
+    Write-Host '    Installed: Platform Tools 37.0.1, Android API 36, Build Tools 36.0.0, NDK 27.3.13750724 + 27.0.12077973 (expo-updates)' -ForegroundColor Green
 }
 function Ensure-Directory([string]$Path) {
     if ([string]::IsNullOrWhiteSpace($Path)) { Fail 'Directory path is empty.' }
