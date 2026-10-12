@@ -2423,9 +2423,29 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
     if (!$st && $lineId && is_array($lineIds)) $st = station_at_point($lat, $lng, $lineIds, $extraR);
     if ($st) { $ok = true; $lineId = (int)($st['line_id'] ?? $lineId ?: 0); }
     else {
+      // کاربر ممکن است دسترسی مشاهدهٔ اطلاعات یک خط را داشته باشد اما مجوز ثبت حضور در آن خط را نداشته باشد.
+      // فقط اگر مختصات داخل محدودهٔ یکی از خطوطِ بدون مجوز ثبت حضور باشد، پیام اختصاصی نمایش بده؛
+      // خارج بودن از همهٔ خطوط یا صرفاً نزدیک بودن به یک خط، نباید این پیام را فعال کند.
+      $viewLineIds = user_line_ids($u);
+      $deniedLineIds = [];
+      if (is_array($viewLineIds) && is_array($lineIds)) {
+        $deniedLineIds = array_values(array_diff(array_map('intval', $viewLineIds), array_map('intval', $lineIds)));
+      }
+      $deniedStation = $deniedLineIds ? station_at_point($lat, $lng, $deniedLineIds, $extraR) : null;
       $near = _nearest_station($lat, $lng, is_array($lineIds) ? $lineIds : ($lineId ? [$lineId] : $lineIds));
-      if ($near) $err = 'شما در محدودهٔ ایستگاه نیستید. نزدیک‌ترین ایستگاه «'.$near['name'].'» در '.number_format($near['distance_m']).' متری شماست' . ($extraR > 0 ? " (محدودهٔ خطای مجاز: {$extraR} متر)" : '') . '.';
-      else $err = 'شما در محدودهٔ ایستگاه نیستید.' . ($extraR > 0 ? " (محدودهٔ خطا: {$extraR} متر)" : '');
+      if ($deniedStation) {
+        $err = 'شما مجاز به ثبت حضور در این خط نیستید.';
+        if ($near) {
+          $err .= ' نزدیک‌ترین ایستگاه از خطوط مجاز «'.$near['name'].'» در فاصلهٔ '.number_format($near['distance_m']).' متری شماست'
+            . ($extraR > 0 ? " (محدودهٔ خطای مجاز: {$extraR} متر)" : '') . '.';
+        } else {
+          $err .= ' برای خطوط مجاز شما محدوده‌ای برای ثبت حضور تعریف نشده است؛ با مدیر سیستم تماس بگیرید.';
+        }
+      } elseif ($near) {
+        $err = 'شما در محدودهٔ ایستگاه نیستید. نزدیک‌ترین ایستگاه «'.$near['name'].'» در '.number_format($near['distance_m']).' متری شماست' . ($extraR > 0 ? " (محدودهٔ خطای مجاز: {$extraR} متر)" : '') . '.';
+      } else {
+        $err = 'شما در محدودهٔ ایستگاه نیستید.' . ($extraR > 0 ? " (محدودهٔ خطا: {$extraR} متر)" : '');
+      }
     }
   } elseif ($method === 'gsm') {
     // تشخیص حضور با آنتن GSM: شناسهٔ سلول (Cell ID/LAC/MCC/MNC) ارسالی باید با شناسه‌های ثبت‌شدهٔ خط مطابقت کند
