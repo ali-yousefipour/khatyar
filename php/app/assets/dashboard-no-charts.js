@@ -34,7 +34,18 @@
     btn.onclick=function(){var c=panel.classList.toggle('khatyar-live-presence-collapsed');btn.textContent=c?'نمایش وضعیت لحظه‌ای حضور':'پنهان کردن وضعیت لحظه‌ای حضور';};
     panel.insertBefore(btn,panel.firstChild);panel.classList.add('khatyar-live-presence-collapsed');
   }
-  function apply(){if(!document.body)return;ensureStyle();var dash=isDashboard();document.body.classList.toggle('kh-hide-dashboard-charts',dash);if(dash)hideChartTab();collapseLive();}
+
+  function removeDeviceSafetyCard(){
+    var headings=Array.prototype.slice.call(document.querySelectorAll('h1,h2,h3,h4,h5,h6,[role="heading"],.card-title,.panel-title'));
+    var heading=headings.find(function(el){return /وضعیت\s*ایمنی\s*و\s*موقعیت\s*دستگاه/.test(norm(el.textContent));});
+    if(!heading)return;
+    var panel=heading.closest('.panel,.card,section,article,[class*="widget"],[class*="tile"]');
+    if(!panel||panel.id==='root'||panel.closest('#root')===panel)return;
+    var text=norm(panel.textContent);
+    if(text.length>900)return;
+    panel.remove();
+  }
+  function apply(){if(!document.body)return;ensureStyle();var dash=isDashboard();document.body.classList.toggle('kh-hide-dashboard-charts',dash);if(dash)hideChartTab();collapseLive();removeDeviceSafetyCard();}
   var timer=0;function queue(){if(timer)return;timer=setTimeout(function(){timer=0;apply();},100);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply,{once:true});else apply();
   new MutationObserver(queue).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','aria-current']});
