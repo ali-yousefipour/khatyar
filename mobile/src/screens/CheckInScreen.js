@@ -572,6 +572,7 @@ function CheckInCore() {
     if (['qr', 'nfc', 'rfid', 'bt', 'bluetooth'].includes(String(method).toLowerCase())) setMethod(allowed[0] || 'gps');
     else if (allowed.length && !allowed.includes(method)) setMethod(allowed[0] || 'gps');
   }, [lineId]);
+  // فاصلهٔ این بخش فقط وضعیت جغرافیایی محدوده را نشان می‌دهد؛ منع مجوز ثبت حضور در محدودهٔ خط، جداگانه از پاسخ ثبت حضور اعلام می‌شود.
   // نزدیک‌ترین فاصله تا محدودهٔ خط انتخاب‌شده
   const toleranceM = appCfg?.checkin_error_radius_m || 0;
   let distance = null;
