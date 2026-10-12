@@ -252,7 +252,13 @@ function Install-SdkArchivePackage([object]$Record,[string]$ArchiveName,[string[
 
     $archive = Ensure-SdkArchive $Record $ArchiveName $LegacyNames
     $extractRoot = Join-Path $BuildTempRoot ('sdk-extract-' + [guid]::NewGuid().ToString('N'))
-    $stagedPackage = Join-Path $extractRoot $ArchiveRoot
+    # CMake's official SDK ZIP contains the package files directly at archive root.
+    # A root marker of '.' means the extraction directory itself is the staged package.
+    if ($ArchiveRoot -eq '.') {
+        $stagedPackage = $extractRoot
+    } else {
+        $stagedPackage = Join-Path $extractRoot $ArchiveRoot
+    }
     $backupRoot = Join-Path $BuildTempRoot ('sdk-backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
     $backupPath = Join-Path $backupRoot $TargetRelative
     try {
@@ -374,7 +380,7 @@ function Ensure-AndroidSdk() {
         },
         @{
             Path='cmake;3.22.1'; Archive='cmake-3.22.1-windows.zip'; Legacy=@('cmake-3.22.1-windows.zip')
-            Root='cmake-3.22.1'; Target='cmake\3.22.1'; Kind='cmake'
+            Root='.'; Target='cmake\3.22.1'; Kind='cmake'
             Url='https://maven.myket.ir/android-sdk/cmake-3.22.1-windows.zip'
             Size=[int64]16116742; Sha1='292778f32a7d5183e1c49c7897b870653f2d2c1b'
         },
