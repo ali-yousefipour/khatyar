@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAudioPlayer } from 'expo-audio';
 import { openDrawer as khOpenDrawer } from '../drawerControl';
-import { Alert, Animated, Image, Linking, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Alert, Animated, AppState, Image, Linking, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
@@ -115,7 +115,8 @@ export default function DashboardScreen({ navigation }) {
     };
     loadWeather();
     const timer = setInterval(loadWeather, 30 * 60 * 1000);
-    return () => { active = false; clearInterval(timer); };
+    const appStateSub = AppState.addEventListener('change', (state) => { if (state === 'active') loadWeather(); });
+    return () => { active = false; clearInterval(timer); try { appStateSub.remove(); } catch (_) {} };
   }, []);
 
   useEffect(() => {
