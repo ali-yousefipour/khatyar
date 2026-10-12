@@ -98,10 +98,18 @@ export default function DashboardScreen({ navigation }) {
 
   useEffect(() => {
     let active = true;
+    const cacheKey = 'dashboard:weather:v1';
+    // ابتدا کش محلی را نمایش بده؛ دریافت شبکه در پس‌زمینه انجام می‌شود.
+    AsyncStorage.getItem(cacheKey).then((raw) => {
+      if (!active || !raw) return;
+      try { const cached = JSON.parse(raw)?.data; if (cached?.ok && Number.isFinite(Number(cached.temperature))) setWeather(cached); } catch (_) {}
+    }).catch(() => {});
     const loadWeather = () => {
-      request('/weather.php', { auth: false, noStore: true, timeoutMs: 8000, queueIfOffline: false })
-        .then((data) => {
-          if (active && data?.ok && Number.isFinite(Number(data.temperature))) setWeather(data);
+      request('/weather.php', { auth: false, noStore: true, timeoutMs: 10000, queueIfOffline: false })
+        .then(async (data) => {
+          if (!active || !data?.ok || !Number.isFinite(Number(data.temperature))) return;
+          setWeather(data);
+          await AsyncStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), data })).catch(() => {});
         })
         .catch(() => {});
     };
@@ -111,10 +119,26 @@ export default function DashboardScreen({ navigation }) {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    request('/me/full-profile').then((p) => { if (p?.photo) setMyPhoto(p.photo); setOrgContext({ zoneName: String(p?.zone_name || '').trim(), chiefName: String(p?.zone_chief_inspector_name || '').trim() }); }).catch(() => {});
+    if (!user?.id) return;
+    let active = true;
+    const profileCacheKey = 'dashboard:profile:v1:' + user.id;
+    const applyProfile = (p) => {
+      if (!active || !p || typeof p !== 'object') return;
+      if (p.photo) setMyPhoto(p.photo);
+      setOrgContext({ zoneName: String(p.zone_name || '').trim(), chiefName: String(p.zone_chief_inspector_name || '').trim() });
+    };
+    // اطلاعات منطقه و سربازرس از کش بلافاصله پس از بازشدن داشبورد خوانده می‌شود.
+    AsyncStorage.getItem(profileCacheKey).then((raw) => {
+      if (!active || !raw) return;
+      try { applyProfile(JSON.parse(raw)?.data); } catch (_) {}
+    }).catch(() => {});
+    request('/me/full-profile', { noStore: true, timeoutMs: 10000 }).then(async (p) => {
+      applyProfile(p);
+      if (p && typeof p === 'object') await AsyncStorage.setItem(profileCacheKey, JSON.stringify({ savedAt: Date.now(), data: p })).catch(() => {});
+    }).catch(() => {});
     const isAdmin = !!(user.is_admin || (user.level || 0) >= 3);
     request('/my/app-config').then((c) => setAccess({ welfare: isAdmin || !!c?.can_welfare, cultural: isAdmin || !!c?.can_cultural, temp: isAdmin || !!c?.can_manage_temp_drivers })).catch(() => setAccess({ welfare: isAdmin, cultural: isAdmin, temp: isAdmin }));
+    return () => { active = false; };
   }, [user?.id]);
 
   useEffect(() => {
