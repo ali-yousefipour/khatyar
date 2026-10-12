@@ -1,0 +1,228 @@
+name: Upload to Challi
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'php/**'
+      - '.github/workflows/upload-to-challi.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: challi-ftp-deploy
+  cancel-in-progress: false
+
+jobs:
+  upload-to-challi:
+    name: Upload changed PHP files to Challi hosting
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Build changed-file deployment payload
+        shell: bash
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          HEAD_SHA="$(git rev-parse HEAD)"
+          BASE_SHA=""
+
+          if [ "${EVENT_NAME}" = "push" ] && [ -n "${PUSH_BEFORE}" ] && [ "${PUSH_BEFORE}" != "0000000000000000000000000000000000000000" ]; then
+            if git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
+              BASE_SHA="${PUSH_BEFORE}"
+            fi
+          fi
+
+          if [ -z "${BASE_SHA}" ]; then
+            BASE_SHA="$(git rev-parse "${HEAD_SHA}^" 2>/dev/null || true)"
+          fi
+
+          rm -rf deploy-payload
+          mkdir -p deploy-payload
+          : > deploy-deletions.txt
+          : > /tmp/challi-diff.txt
+
+          if [ -n "${BASE_SHA}" ]; then
+            git diff --name-status --find-renames "${BASE_SHA}" "${HEAD_SHA}" -- php/ > /tmp/challi-diff.txt
+          else
+            git diff-tree --root --no-commit-id --name-status --find-renames -r "${HEAD_SHA}" -- php/ > /tmp/challi-diff.txt
+          fi
+
+          while IFS=$'\t' read -r status path1 path2; do
+            [ -n "${status:-}" ] || continue
+            case "${status}" in
+              A|M|T)
+                rel="${path1#php/}"
+                mkdir -p "deploy-payload/$(dirname "${rel}")"
+                cp "${path1}" "deploy-payload/${rel}"
+                ;;
+              D)
+                printf '%s\n' "${path1#php/}" >> deploy-deletions.txt
+                ;;
+              R*)
+                old_rel="${path1#php/}"
+                new_rel="${path2#php/}"
+                mkdir -p "deploy-payload/$(dirname "${new_rel}")"
+                cp "${path2}" "deploy-payload/${new_rel}"
+                printf '%s\n' "${old_rel}" >> deploy-deletions.txt
+                ;;
+              *)
+                echo "Unsupported diff status: ${status}" >&2
+                exit 1
+                ;;
+            esac
+          done < /tmp/challi-diff.txt
+
+          sort -u deploy-deletions.txt -o deploy-deletions.txt
+          echo "Files to upload:"
+          find deploy-payload -type f -print | sort || true
+          echo "Files to delete:"
+          cat deploy-deletions.txt || true
+
+          if [ ! -s /tmp/challi-diff.txt ]; then
+            echo "No PHP changes detected."
+            echo "SKIP_UPLOAD=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install lftp
+        if: ${{ env.SKIP_UPLOAD != 'true' }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+          lftp --version | head -n 1
+
+      - name: Upload changed files to Challi FTP root
+        if: ${{ env.SKIP_UPLOAD != 'true' && hashFiles('deploy-payload/**') != '' }}
+        shell: bash
+        env:
+          FTP_HOST: 2450773184.cloudylink.com
+          FTP_USER: ${{ secrets.CHALLI_FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.CHALLI_FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          : "${FTP_USER:?Add CHALLI_FTP_USERNAME in GitHub Actions secrets}"
+          : "${FTP_PASS:?Add CHALLI_FTP_PASSWORD in GitHub Actions secrets}"
+
+          # These libraries are specially installed by the existing Khatyar
+          # deployment workflow; do not overwrite them directly on this host.
+          : > /tmp/challi-upload.cmd
+          {
+            echo 'set ftp:ssl-force false'
+            echo 'set ftp:ssl-protect-data false'
+            echo 'set ftp:passive-mode true'
+            echo 'set ftp:prefer-epsv false'
+            echo 'set net:timeout 60'
+            echo 'set net:max-retries 5'
+            echo 'set net:reconnect-interval-base 2'
+            echo 'set ssl:verify-certificate no'
+
+            while IFS= read -r file; do
+              [ -n "${file}" ] || continue
+              rel="${file#deploy-payload/}"
+              case "${rel}" in
+                lib/routes.php|lib/IranCalendar.php|lib/ShiftCalc.php|lib/school_service_routes_extra.php)
+                  echo "Skipping protected library: ${rel}"
+                  continue
+                  ;;
+              esac
+              dir="$(dirname "${rel}")"
+              if [ "${dir}" = "." ]; then remote_dir="/"; else remote_dir="/${dir}"; fi
+              printf 'mkdir -p %s\n' "${remote_dir}"
+              printf 'put %s -o %s\n' "${GITHUB_WORKSPACE}/${file}" "${remote_dir}/$(basename "${rel}")"
+            done < <(find deploy-payload -type f -print | sort)
+            echo 'bye'
+          } > /tmp/challi-upload.cmd
+
+          lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/challi-upload.cmd)"
+
+      - name: Verify uploaded files by downloading and comparing SHA-256
+        if: ${{ env.SKIP_UPLOAD != 'true' && hashFiles('deploy-payload/**') != '' }}
+        shell: bash
+        env:
+          FTP_HOST: 2450773184.cloudylink.com
+          FTP_USER: ${{ secrets.CHALLI_FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.CHALLI_FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          : "${FTP_USER:?Add CHALLI_FTP_USERNAME in GitHub Actions secrets}"
+          : "${FTP_PASS:?Add CHALLI_FTP_PASSWORD in GitHub Actions secrets}"
+
+          while IFS= read -r file; do
+            [ -n "${file}" ] || continue
+            rel="${file#deploy-payload/}"
+            case "${rel}" in
+              lib/routes.php|lib/IranCalendar.php|lib/ShiftCalc.php|lib/school_service_routes_extra.php)
+                echo "Verification skipped for protected library: ${rel}"
+                continue
+                ;;
+            esac
+            verify_dir="${RUNNER_TEMP}/challi-verify"
+            rm -rf "${verify_dir}"
+            mkdir -p "${verify_dir}"
+            remote="/${rel}"
+            lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "
+              set ftp:ssl-force false;
+              set ftp:ssl-protect-data false;
+              set ftp:passive-mode true;
+              set ftp:prefer-epsv false;
+              set net:timeout 60;
+              set net:max-retries 3;
+              set ssl:verify-certificate no;
+              lcd \"${verify_dir}\";
+              get \"${remote}\" -o \"${verify_dir}/$(basename "${rel}")\";
+              bye
+            "
+            local_sha="$(sha256sum "${file}" | awk '{print $1}')"
+            remote_file="${verify_dir}/$(basename "${rel}")"
+            test -f "${remote_file}"
+            remote_sha="$(sha256sum "${remote_file}" | awk '{print $1}')"
+            echo "${rel}: local=${local_sha} remote=${remote_sha}"
+            test "${local_sha}" = "${remote_sha}"
+          done < <(find deploy-payload -type f -print | sort)
+
+      - name: Delete removed files from Challi FTP root
+        if: ${{ env.SKIP_UPLOAD != 'true' && hashFiles('deploy-deletions.txt') != '' }}
+        shell: bash
+        env:
+          FTP_HOST: 2450773184.cloudylink.com
+          FTP_USER: ${{ secrets.CHALLI_FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.CHALLI_FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          : "${FTP_USER:?Add CHALLI_FTP_USERNAME in GitHub Actions secrets}"
+          : "${FTP_PASS:?Add CHALLI_FTP_PASSWORD in GitHub Actions secrets}"
+
+          while IFS= read -r rel; do
+            [ -n "${rel}" ] || continue
+            case "${rel}" in
+              lib/routes.php|lib/IranCalendar.php|lib/ShiftCalc.php|lib/school_service_routes_extra.php)
+                echo "Skipping protected library deletion: ${rel}"
+                continue
+                ;;
+            esac
+            echo "Deleting remote file: /${rel}"
+            lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "
+              set ftp:ssl-force false;
+              set ftp:ssl-protect-data false;
+              set ftp:passive-mode true;
+              set ftp:prefer-epsv false;
+              set net:timeout 30;
+              set net:max-retries 2;
+              set ssl:verify-certificate no;
+              rm \"/${rel}\";
+              bye
+            " || echo "Warning: remote file may already be absent: /${rel}"
+          done < deploy-deletions.txt
