@@ -1136,9 +1136,8 @@ function CheckInPerformanceTab(){
   const shortage=Math.max(0,Number(w.shortage||0));
   const absent=Math.max(0,Number(w.absent_min||0));
   const hasAttendanceDeficit=shortage>0||absent>0;
-  const cards=[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['کسری کار',w.shortage],['شب‌کاری',w.night]];
-  // این ردیف باید همیشه در کارکرد روزانه قابل مشاهده باشد؛ مقدار صفر یعنی برای این روز بازه‌ای از سمت سرور گزارش نشده است.
-  if(w.gps_invalid_min!==undefined && w.gps_invalid_min!==null && Number.isFinite(Number(w.gps_invalid_min)))cards.push(['کسر کار خاموشی GPS/توقف برنامه',w.gps_invalid_min]);
+  const hasGpsInvalidMinutes=w.gps_invalid_min!==undefined && w.gps_invalid_min!==null && Number.isFinite(Number(w.gps_invalid_min));
+  const cards=[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['کسری کار',w.shortage],['شب‌کاری',w.night],['کسر کار خاموشی GPS/توقف برنامه',hasGpsInvalidMinutes?Number(w.gps_invalid_min):null]];
   const openRequest=(type)=>{if(!data?.date)return;navigation.navigate('Requests',{initialType:type,initialDate:data.date,returnToDailyPerformance:true});};
   return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14,paddingBottom:32}}>
     {err?<Text style={s.warnText}>{err}</Text>:null}
@@ -1148,8 +1147,8 @@ function CheckInPerformanceTab(){
       <TouchableOpacity style={s.perfNavBtn} onPress={()=>shiftDate(-1)} disabled={busy}><Text style={[s.perfNavTxt,busy&&{opacity:.5}]}>‹ روز قبل</Text></TouchableOpacity>
     </View>
     <View style={s.perfHero}><Text style={s.perfTitle}>عملکرد روزانه</Text><Text style={s.perfShift}>{data?.shift_title||'شیفت کاری'}</Text></View>
-    <View style={s.perfGrid}>{cards.map(([l,v])=><View key={l} style={s.perfCard}><Text style={s.perfValue}>{fmtMinFa(v)}</Text><Text style={s.perfLabel}>{l}</Text></View>)}</View>
-    {w.gps_invalid_min!==undefined && w.gps_invalid_min!==null ? <Text style={s.perfHint}>{w.gps_work_required ? 'کسر کار خاموشی GPS/توقف برنامه بخشی از «کسری کار» کل است و دوباره به آن اضافه نمی‌شود؛ بازه‌های بدون تأیید معتبر از کارکرد محاسبه‌شده حذف می‌شوند.' : 'محاسبهٔ کسر کار GPS/توقف برنامه در تنظیمات کارکرد GPS فعال نیست؛ برای اعمال آن، تنظیم مربوطه در بک‌اند باید فعال باشد.'}</Text> : null}
+    <View style={s.perfGrid}>{cards.map(([l,v])=><View key={l} style={s.perfCard}><Text style={s.perfValue}>{l==='کسر کار خاموشی GPS/توقف برنامه'&&!hasGpsInvalidMinutes?'—':fmtMinFa(v)}</Text><Text style={s.perfLabel}>{l}</Text></View>)}</View>
+    {!hasGpsInvalidMinutes ? <Text style={[s.perfHint,{color:C.danger}]}>سرور مقدار کسرکار GPS/توقف برنامه را برای این روز برنگرداند؛ عدد «—» به معنی صفر بودن کسرکار نیست. تنظیم کارکرد GPS و پاسخ API باید بررسی شود.</Text> : <Text style={s.perfHint}>{w.gps_work_required ? 'کسر کار خاموشی GPS/توقف برنامه بخشی از «کسری کار» کل است و دوباره به آن اضافه نمی‌شود؛ بازه‌های بدون تأیید معتبر از کارکرد محاسبه‌شده حذف می‌شوند.' : 'محاسبهٔ کسر کار GPS/توقف برنامه در تنظیمات کارکرد GPS فعال نیست؛ برای اعمال آن، تنظیم مربوطه در بک‌اند باید فعال باشد.'}</Text>}
     <View style={s.perfCardWide}>
       <Text style={s.perfLabel}>وضعیت این روز</Text>
       <Text style={s.perfStatus}>{data?.holiday?'تعطیل: '+(data.holiday_title||'رسمی'):(w.is_off?'روز بدون شیفت':(w.worked>0?'حضور ثبت شده':'هنوز حضوری ثبت نشده'))}</Text>
