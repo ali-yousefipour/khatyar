@@ -374,8 +374,8 @@ function Ensure-AndroidSdk() {
         (Join-Path $sdk 'build-tools\36.0.0\aapt2.exe'),
         (Join-Path $sdk 'build-tools\36.0.0\zipalign.exe'),
         (Join-Path $sdk 'platform-tools\adb.exe'),
-        (Join-Path $sdk 'ndk\27.3.13750724\source.properties')
-        (Join-Path $sdk 'ndk\27.0.12077973\source.properties'),
+        (Join-Path $sdk 'ndk\27.3.13750724\source.properties'),
+        (Join-Path $sdk 'ndk\27.0.12077973\source.properties')
     )
     foreach ($file in $required) {
         if (-not (Test-Path -LiteralPath $file)) { Fail "Android SDK component verification failed; missing: $file" }
