@@ -1,7 +1,7 @@
 const KH_COMPLAINTS_BUILD="2026-10-06-v257";
 // PANEL BUILD TARGET: 2026-10-11-v255
 // Build sync: keep generated panel bundle aligned with panel_source changes.
-const {useState,useEffect,useRef} = React;
+const {useState,useEffect,useRef,useMemo} = React;
 const I8=(name)=><img src={`/assets/icons3d/${name}.png`} alt="" width="30" height="30" loading="eager" decoding="async" style={{objectFit:'contain'}} onError={e=>{e.currentTarget.style.display='none'}}/>;
 
 // چاپ حرفه‌ای با سربرگ (لوگو + عنوان سازمان + تاریخ تولید) — برای استفادهٔ مشترک در همهٔ گزارش‌ها
@@ -6058,7 +6058,7 @@ function AttendanceReport(){
   const [dayRequests,setDayRequests]=useState([]);
   const [conversionModal,setConversionModal]=useState(null);
 
-  useEffect(()=>{ db.users().then(us=>setUsers(us||[])).catch(()=>{}); },[]);
+  useEffect(()=>{ let active=true; db.usersLite().then(us=>{if(active)setUsers(Array.isArray(us)?us:[])}).catch(()=>{}); return ()=>{active=false}; },[]);
   useEffect(()=>{
     if(!mapPunch||!mapContainerRef.current||!window.L)return;
     const L=window.L;
@@ -6067,20 +6067,27 @@ function AttendanceReport(){
     if(valid(mapPunch.in_lat,mapPunch.in_lng))points.push({lat:Number(mapPunch.in_lat),lng:Number(mapPunch.in_lng),label:"نقطه ورود"});
     if(valid(mapPunch.out_lat,mapPunch.out_lng))points.push({lat:Number(mapPunch.out_lat),lng:Number(mapPunch.out_lng),label:"نقطه خروج"});
     if(!points.length)return;
-    const map=L.map(mapContainerRef.current,{scrollWheelZoom:true,preferCanvas:true});
+    const container=mapContainerRef.current;
+    if(container._attendanceMap){try{container._attendanceMap.remove()}catch(_){}}
+    const map=L.map(container,{scrollWheelZoom:true,preferCanvas:true,zoomControl:true});
+    container._attendanceMap=map;
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
     points.forEach(p=>L.marker([p.lat,p.lng]).addTo(map).bindPopup(p.label));
     if(points.length===2)L.polyline(points.map(p=>[p.lat,p.lng]),{color:"#0d7a5f",weight:4,dashArray:"8 6"}).addTo(map);
-    if(points.length===2)map.fitBounds(points.map(p=>[p.lat,p.lng]),{padding:[36,36],maxZoom:16});else map.setView([points[0].lat,points[0].lng],16);
-    setTimeout(()=>map.invalidateSize(),0);
-    return ()=>map.remove();
+    const fit=()=>{
+      map.invalidateSize({pan:false});
+      if(points.length===2)map.fitBounds(points.map(p=>[p.lat,p.lng]),{padding:[36,36],maxZoom:16});
+      else map.setView([points[0].lat,points[0].lng],16);
+    };
+    requestAnimationFrame(()=>{fit();setTimeout(fit,180);setTimeout(fit,450);});
+    return ()=>{try{map.remove()}catch(_){}if(container._attendanceMap===map)delete container._attendanceMap;};
   },[mapPunch]);
   useEffect(()=>{
     const onKeyDown=e=>{if(e.key!=="Escape"&&e.key!=="Esc")return;if(mapPunch){setMapPunch(null);e.preventDefault();return;}if(openDay){setOpenDay(null);e.preventDefault();}};
     window.addEventListener("keydown",onKeyDown);
     return ()=>window.removeEventListener("keydown",onKeyDown);
   },[mapPunch,openDay]);
-  const visibleUsers=users
+  const visibleUsers=useMemo(()=>users
     .filter(u=>{
       const q=String(personQuery||"").trim().toLowerCase();
       return !q
@@ -6095,7 +6102,7 @@ function AttendanceReport(){
       const byLast=collator.compare(String(a.last_name||"").trim(),String(b.last_name||"").trim());
       if(byLast!==0)return byLast;
       return collator.compare(String(a.username||a.id||""),String(b.username||b.id||""));
-    });
+    }),[users,personQuery]);
   const run=async()=>{
     if(!uid){alert("پرسنل را انتخاب کنید");return;}
     const fallback=attendanceDefaultRange();
