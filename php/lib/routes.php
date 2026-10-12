@@ -9332,7 +9332,17 @@ route('PUT', '/api/me/profile', function($p,$b,$u){
   return ['ok'=>true];
 });
 route('GET', '/api/me/full-profile', function($p,$b,$u){
-  $r = Db::one("SELECT id,username,first_name,last_name,email,mobile,address,marital_status,children_count,birth_date,national_code,rank_stars,signature_data,CASE WHEN photo_path IS NOT NULL AND photo_path<>'' THEN CONCAT('/api/media?path=', photo_path) ELSE photo END AS photo FROM users WHERE id=?", [$u['id']]);
+  $r = Db::one("SELECT id,username,first_name,last_name,email,mobile,address,marital_status,children_count,birth_date,national_code,rank_stars,signature_data,
+     (SELECT z.name FROM zones z WHERE z.id=users.zone_id LIMIT 1) AS zone_name,
+     (SELECT TRIM(CONCAT(COALESCE(ci.first_name,''),' ',COALESCE(ci.last_name,'')))
+       FROM users ci JOIN roles cr ON cr.id=ci.role_id
+       WHERE ci.zone_id=users.zone_id AND ci.is_active=1
+         AND (cr.title LIKE '%سربازرس%' OR cr.level>=4)
+         AND cr.title NOT LIKE '%نیروی اداری%'
+       ORDER BY CASE WHEN cr.title LIKE '%سربازرس%' THEN 0 ELSE 1 END, cr.level DESC, ci.id ASC
+       LIMIT 1) AS zone_chief_inspector_name,
+     CASE WHEN photo_path IS NOT NULL AND photo_path<>'' THEN CONCAT('/api/media?path=', photo_path) ELSE photo END AS photo
+     FROM users WHERE id=?", [$u['id']]);
   return $r ?: [];
 });
 
