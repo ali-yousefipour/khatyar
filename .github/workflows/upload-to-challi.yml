@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
           ref: main
 
-      - name: Build changed-file deployment payload
+      - name: Build full or changed PHP deployment payload
         shell: bash
         env:
           PUSH_BEFORE: ${{ github.event.before }}
@@ -39,63 +39,70 @@ jobs:
           HEAD_SHA="$(git rev-parse HEAD)"
           BASE_SHA=""
 
-          if [ "${EVENT_NAME}" = "push" ] && [ -n "${PUSH_BEFORE}" ] && [ "${PUSH_BEFORE}" != "0000000000000000000000000000000000000000" ]; then
-            if git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
-              BASE_SHA="${PUSH_BEFORE}"
-            fi
-          fi
-
-          if [ -z "${BASE_SHA}" ]; then
-            BASE_SHA="$(git rev-parse "${HEAD_SHA}^" 2>/dev/null || true)"
-          fi
-
           rm -rf deploy-payload
           mkdir -p deploy-payload
           : > deploy-deletions.txt
           : > /tmp/challi-diff.txt
 
-          if [ -n "${BASE_SHA}" ]; then
-            git diff --name-status --find-renames "${BASE_SHA}" "${HEAD_SHA}" -- php/ > /tmp/challi-diff.txt
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            echo "Manual run: full PHP deployment."
+            while IFS= read -r path; do
+              [ -n "${path}" ] || continue
+              rel="${path#php/}"
+              mkdir -p "deploy-payload/$(dirname "${rel}")"
+              cp "${path}" "deploy-payload/${rel}"
+            done < <(git ls-files -z php/ | tr '\0' '\n' | sort)
+            echo "FULL_SYNC=true" >> "$GITHUB_ENV"
           else
-            git diff-tree --root --no-commit-id --name-status --find-renames -r "${HEAD_SHA}" -- php/ > /tmp/challi-diff.txt
-          fi
+            if [ -n "${PUSH_BEFORE}" ] && [ "${PUSH_BEFORE}" != "0000000000000000000000000000000000000000" ] && git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
+              BASE_SHA="${PUSH_BEFORE}"
+            else
+              BASE_SHA="$(git rev-parse "${HEAD_SHA}^" 2>/dev/null || true)"
+            fi
 
-          while IFS=$'\t' read -r status path1 path2; do
-            [ -n "${status:-}" ] || continue
-            case "${status}" in
-              A|M|T)
-                rel="${path1#php/}"
-                mkdir -p "deploy-payload/$(dirname "${rel}")"
-                cp "${path1}" "deploy-payload/${rel}"
-                ;;
-              D)
-                printf '%s\n' "${path1#php/}" >> deploy-deletions.txt
-                ;;
-              R*)
-                old_rel="${path1#php/}"
-                new_rel="${path2#php/}"
-                mkdir -p "deploy-payload/$(dirname "${new_rel}")"
-                cp "${path2}" "deploy-payload/${new_rel}"
-                printf '%s\n' "${old_rel}" >> deploy-deletions.txt
-                ;;
-              *)
-                echo "Unsupported diff status: ${status}" >&2
-                exit 1
-                ;;
-            esac
-          done < /tmp/challi-diff.txt
+            if [ -n "${BASE_SHA}" ]; then
+              git diff --name-status --find-renames "${BASE_SHA}" "${HEAD_SHA}" -- php/ > /tmp/challi-diff.txt
+            else
+              git diff-tree --root --no-commit-id --name-status --find-renames -r "${HEAD_SHA}" -- php/ > /tmp/challi-diff.txt
+            fi
+
+            while IFS=$'\t' read -r status path1 path2; do
+              [ -n "${status:-}" ] || continue
+              case "${status}" in
+                A|M|T)
+                  rel="${path1#php/}"
+                  mkdir -p "deploy-payload/$(dirname "${rel}")"
+                  cp "${path1}" "deploy-payload/${rel}"
+                  ;;
+                D)
+                  printf '%s\n' "${path1#php/}" >> deploy-deletions.txt
+                  ;;
+                R*)
+                  old_rel="${path1#php/}"
+                  new_rel="${path2#php/}"
+                  mkdir -p "deploy-payload/$(dirname "${new_rel}")"
+                  cp "${path2}" "deploy-payload/${new_rel}"
+                  printf '%s\n' "${old_rel}" >> deploy-deletions.txt
+                  ;;
+                *)
+                  echo "Unsupported diff status: ${status}" >&2
+                  exit 1
+                  ;;
+              esac
+            done < /tmp/challi-diff.txt
+
+            if [ ! -s /tmp/challi-diff.txt ]; then
+              echo "No PHP changes detected."
+              echo "SKIP_UPLOAD=true" >> "$GITHUB_ENV"
+            fi
+          fi
 
           sort -u deploy-deletions.txt -o deploy-deletions.txt
           echo "Files to upload:"
           find deploy-payload -type f -print | sort || true
           echo "Files to delete:"
           cat deploy-deletions.txt || true
-
-          if [ ! -s /tmp/challi-diff.txt ]; then
-            echo "No PHP changes detected."
-            echo "SKIP_UPLOAD=true" >> "$GITHUB_ENV"
-          fi
-
+          echo "Total upload files: $(find deploy-payload -type f | wc -l)"
       - name: Install lftp
         if: ${{ env.SKIP_UPLOAD != 'true' }}
         run: |
