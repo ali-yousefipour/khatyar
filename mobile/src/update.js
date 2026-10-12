@@ -49,8 +49,8 @@ export async function checkVersion() {
     const apkSha256 = d.apk_sha256 || d.sha256 || '';
     const validUrl = !url || validateUpdateUrl(url);
     const hasUpdate = cmp(latest, current) > 0;
-    // حداقل نسخه اجباری قبلی حفظ شده است؛ هر نسخه جدید نیز از همین صفحه درون‌برنامه‌ای دریافت می‌شود.
-    const required = cmp(current, min) < 0 || hasUpdate;
+    // Only the backend-configured minimum version may block use. A newer latest_version is optional.
+    const required = cmp(current, min) < 0;
     if (hasUpdate && !validUrl) return { required: true, hasUpdate: true, latest, min, url: '', apkSha256: '', current };
     return { required, hasUpdate, latest, min, url, apkSha256, current };
   } catch (e) {
