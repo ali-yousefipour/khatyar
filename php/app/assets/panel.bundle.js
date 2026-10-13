@@ -34,7 +34,7 @@ function printLetterhead(reportTitle, bodyHtml, opts) {
    و اگر فایل به‌تنهایی باز شود، به حالت دموی نمونه برمی‌گردد.
    ============================================================ */
 const API_BASE = '/api';
-const tok = () => ({ Authorization: 'Bearer ' + (localStorage.token || '') });
+const tok = () => { const token = localStorage.token || ''; return { Authorization: 'Bearer ' + token, 'X-Access-Token': token }; };
 // کش کوتاه‌مدت برای کاهش درخواست‌های تکراری (لیست کاربران/خطوط و …) → سرعت بیشتر
 const _cache = {};
 const _cacheTTL = {
