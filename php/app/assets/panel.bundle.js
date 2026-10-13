@@ -750,8 +750,20 @@ function LiveStaffDashboard() {
     const tj = todayJ();
     const [live, setLive] = useState(null);
     const [tab, setTab] = useState("present");
+    const [refreshCountdown, setRefreshCountdown] = useState(60);
     const load = () => db.workDashboard(tj[0], tj[1]).then(x => setLive(x && x.live ? x.live : null)).catch(() => setLive(null));
-    useEffect(() => { load(); const iv = setInterval(load, 60000); return () => clearInterval(iv); }, []);
+    const refreshNow = () => { setRefreshCountdown(60); load(); };
+    useEffect(() => {
+        load();
+        const iv = setInterval(() => setRefreshCountdown(prev => {
+            if (prev <= 1) {
+                load();
+                return 60;
+            }
+            return prev - 1;
+        }), 1000);
+        return () => clearInterval(iv);
+    }, []);
     const methodFa = { gps: "GPS", wifi: "Wi‑Fi", manual: "دستی", gsm: "GSM" };
     const [sortConfig, setSortConfig] = useState({ key: "check_in", direction: "asc" });
     if (!live)
@@ -797,8 +809,10 @@ function LiveStaffDashboard() {
                 React.createElement("div", { className: "muted", style: { fontSize: 12, marginTop: 4 } },
                     "\u0627\u0645\u0631\u0648\u0632 ",
                     faPlain(live.jdate || ""),
-                    " \u00B7 \u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631 \u0647\u0631 \u06F6\u06F0 \u062B\u0627\u0646\u06CC\u0647")),
-            React.createElement("button", { className: "btn g", onClick: load }, "\u21BB \u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC")),
+                    " \u00B7 \u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631 \u062A\u0627 ",
+                    fa(refreshCountdown),
+                    " \u062B\u0627\u0646\u06CC\u0647 \u062F\u06CC\u06AF\u0631")),
+            React.createElement("button", { className: "btn g", onClick: refreshNow }, "\u21BB \u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC")),
         React.createElement("div", { className: "kpis", style: { marginTop: 12 } }, [["کل پرسنل", live.total], ["حاضر در شیفت", live.present], ["غایب", live.absent], ["مرخصی/ماموریت", live.leave]].map(([l, n], i) => React.createElement("div", { className: "kpi", key: i },
             React.createElement("div", { className: "n" }, fa(n || 0)),
             React.createElement("div", { className: "l" }, l)))),
