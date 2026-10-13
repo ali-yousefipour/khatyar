@@ -751,17 +751,19 @@ function LiveStaffDashboard() {
     const [live, setLive] = useState(null);
     const [tab, setTab] = useState("present");
     const [refreshCountdown, setRefreshCountdown] = useState(60);
+    const countdownRef = useRef(60);
     const load = () => db.workDashboard(tj[0], tj[1]).then(x => setLive(x && x.live ? x.live : null)).catch(() => setLive(null));
-    const refreshNow = () => { setRefreshCountdown(60); load(); };
+    const refreshNow = () => { countdownRef.current = 60; setRefreshCountdown(60); load(); };
     useEffect(() => {
         load();
-        const iv = setInterval(() => setRefreshCountdown(prev => {
-            if (prev <= 1) {
+        const iv = setInterval(() => {
+            countdownRef.current -= 1;
+            if (countdownRef.current <= 0) {
+                countdownRef.current = 60;
                 load();
-                return 60;
             }
-            return prev - 1;
-        }), 1000);
+            setRefreshCountdown(countdownRef.current);
+        }, 1000);
         return () => clearInterval(iv);
     }, []);
     const methodFa = { gps: "GPS", wifi: "Wi‑Fi", manual: "دستی", gsm: "GSM" };
