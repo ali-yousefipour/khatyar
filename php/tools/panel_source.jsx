@@ -528,8 +528,17 @@ function usePager(items, initial){
 function LiveStaffDashboard(){
   const tj=todayJ();
   const [live,setLive]=useState(null); const [tab,setTab]=useState("present");
+  const [refreshCountdown,setRefreshCountdown]=useState(60);
   const load=()=>db.workDashboard(tj[0],tj[1]).then(x=>setLive(x&&x.live?x.live:null)).catch(()=>setLive(null));
-  useEffect(()=>{load(); const iv=setInterval(load,60000); return()=>clearInterval(iv);},[]);
+  const refreshNow=()=>{setRefreshCountdown(60);load();};
+  useEffect(()=>{
+    load();
+    const iv=setInterval(()=>setRefreshCountdown(prev=>{
+      if(prev<=1){load();return 60;}
+      return prev-1;
+    }),1000);
+    return()=>clearInterval(iv);
+  },[]);
   const methodFa={gps:"GPS",wifi:"Wi‑Fi",manual:"دستی",gsm:"GSM"};
   const [sortConfig,setSortConfig]=useState({key:"check_in",direction:"asc"});
   if(!live)return <div className="panel" style={{margin:"14px 0"}}><span className="muted">در حال دریافت وضعیت حضور پرسنل…</span></div>;
@@ -561,8 +570,8 @@ function LiveStaffDashboard(){
   const sortButton=(key,label)=><button type="button" className="btn g" onClick={()=>setSortConfig(prev=>({key,direction:prev.key===key&&prev.direction==="asc"?"desc":"asc"}))} aria-label={"مرتب‌سازی "+label} title={"مرتب‌سازی "+label} style={{padding:"2px 6px",marginInlineStart:5,fontSize:11,lineHeight:1.4,whiteSpace:"nowrap"}}>{sortConfig.key===key?(sortConfig.direction==="asc"?"↑":"↓"):"↕"}</button>;
   return <div className="panel" style={{margin:"14px 0"}}>
     <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-      <div><h3 style={{margin:0}}>وضعیت لحظه‌ای حضور پرسنل</h3><div className="muted" style={{fontSize:12,marginTop:4}}>امروز {faPlain(live.jdate||"")} · بروزرسانی خودکار هر ۶۰ ثانیه</div></div>
-      <button className="btn g" onClick={load}>↻ بروزرسانی</button>
+      <div><h3 style={{margin:0}}>وضعیت لحظه‌ای حضور پرسنل</h3><div className="muted" style={{fontSize:12,marginTop:4}}>امروز {faPlain(live.jdate||"")} · بروزرسانی خودکار تا {fa(refreshCountdown)} ثانیه دیگر</div></div>
+      <button className="btn g" onClick={refreshNow}>↻ بروزرسانی</button>
     </div>
     <div className="kpis" style={{marginTop:12}}>
       {[["کل پرسنل",live.total],["حاضر در شیفت",live.present],["غایب",live.absent],["مرخصی/ماموریت",live.leave]].map(([l,n],i)=><div className="kpi" key={i}><div className="n">{fa(n||0)}</div><div className="l">{l}</div></div>)}
