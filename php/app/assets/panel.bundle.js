@@ -62,12 +62,35 @@ async function _readJsonResponse(r) {
         throw new Error('پاسخ JSON معتبر از سرور دریافت نشد' + (clean ? ' — ' + clean : ''));
     }
 }
+async function _fetchWithAuth(url, options) {
+    const rawFetch = window.__KHATYAR_NATIVE_FETCH__ || fetch;
+    const init = { ...options, headers: { ...(options && options.headers || {}), ...tok() } };
+    let r = await rawFetch(url, init);
+    if (r.status !== 401 || String(url).includes('/session/'))
+        return r;
+    const refresh = localStorage.refresh_token || '';
+    if (!refresh)
+        return r;
+    try {
+        const rr = await rawFetch(API_BASE + '/session/renew', { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json', 'cache-control': 'no-store' }, body: JSON.stringify({ refresh }), cache: 'no-store' });
+        const d = await _readJsonResponse(rr);
+        if (!rr.ok || !d.access)
+            return r;
+        localStorage.token = d.access;
+        if (d.refresh)
+            localStorage.refresh_token = d.refresh;
+        return await rawFetch(url, { ...options, headers: { ...(options && options.headers || {}), ...tok() } });
+    }
+    catch (_) {
+        return r;
+    }
+}
 async function GET(p, opts) {
     const ttl = (opts && opts.ttl) || _cacheTtlFor(p);
     const key = p;
     if (ttl && _cache[key] && (Date.now() - _cache[key].t) < ttl)
         return _cache[key].v;
-    const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + p, { headers: tok(), cache: 'no-store' });
+    const r = await _fetchWithAuth(API_BASE + p, { cache: 'no-store' });
     const v = await _readJsonResponse(r);
     if (!r.ok)
         throw new Error(v.error || v.message || 'خطای سرور');
@@ -105,7 +128,7 @@ function exportXlsx(rows, sheetName, filename) {
     XLSX.writeFile(wb, filename);
 }
 async function SEND(method, p, body) {
-    const r = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + p, { method, headers: { 'content-type': 'application/json', ...tok() }, body: body ? JSON.stringify(body) : undefined });
+    const r = await _fetchWithAuth(API_BASE + p, { method, headers: { 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
     const v = await _readJsonResponse(r);
     if (!r.ok)
         throw new Error(v.error || v.message || 'خطای سرور');
@@ -176,6 +199,9 @@ const db = {
         localStorage.token = d.access;
         if (d.refresh)
             localStorage.refresh_token = d.refresh;
+        else
+            localStorage.removeItem('refresh_token');
+        _invalidateCache();
         return d;
     },
     webLoginOtpRequest: async (username) => {
@@ -209,6 +235,9 @@ const db = {
         localStorage.token = d.access;
         if (d.refresh)
             localStorage.refresh_token = d.refresh;
+        else
+            localStorage.removeItem('refresh_token');
+        _invalidateCache();
         return d;
     },
     restoreSession: async () => {
