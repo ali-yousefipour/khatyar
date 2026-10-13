@@ -103,7 +103,13 @@ class Http {
   public static function bearer() {
     $h = $_SERVER['HTTP_AUTHORIZATION'] ?? ($_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
     if (!$h && function_exists('apache_request_headers')) { $hdrs = apache_request_headers(); $h = $hdrs['Authorization'] ?? ($hdrs['authorization'] ?? ''); }
-    if (stripos($h, 'Bearer ') === 0) return substr($h, 7);
+    if (stripos($h, 'Bearer ') === 0) return trim(substr($h, 7));
+    $alt = trim((string)($_SERVER['HTTP_X_ACCESS_TOKEN'] ?? ''));
+    if (!$alt && function_exists('apache_request_headers')) {
+      $headers = apache_request_headers();
+      $alt = trim((string)($headers['X-Access-Token'] ?? ($headers['x-access-token'] ?? '')));
+    }
+    if ($alt !== '') return $alt;
     if (!empty($_GET['token'])) {
       $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
       $allowed = ['#^/api/admin/[^/]+/export$#', '#^/api/admin/.*/export$#', '#^/api/reports/export$#', '#^/api/admin/backup$#', '#^/api/admin/backup-json$#', '#^/api/media$#'];
