@@ -6086,6 +6086,13 @@ function AttendanceReport(){
   const [dayRequests,setDayRequests]=useState([]);
   const [conversionModal,setConversionModal]=useState(null);
   const [gpsDeficitModal,setGpsDeficitModal]=useState(null);
+  const attendanceColumnStorageKey="khatyar.attendance.report.visible-columns.v1";
+  const [columnSettingsOpen,setColumnSettingsOpen]=useState(false);
+  const [visibleColumnIndexes,setVisibleColumnIndexes]=useState(()=>{
+    try{const saved=JSON.parse(localStorage.getItem(attendanceColumnStorageKey)||"null");return Array.isArray(saved)?saved.filter(i=>Number.isInteger(i)&&i>=0&&i<30):Array.from({length:30},(_,i)=>i)}
+    catch(_){return Array.from({length:30},(_,i)=>i)}
+  });
+  const [draftColumnIndexes,setDraftColumnIndexes]=useState(visibleColumnIndexes);
 
   useEffect(()=>{ let active=true; db.usersLite().then(us=>{if(active)setUsers(Array.isArray(us)?us:[])}).catch(()=>{}).finally(()=>{if(active)setUsersLoading(false)}); return ()=>{active=false}; },[]);
   useEffect(()=>{
@@ -6117,13 +6124,10 @@ function AttendanceReport(){
     return ()=>window.removeEventListener("keydown",onKeyDown);
   },[gpsDeficitModal,mapPunch,openDay]);
   const visibleUsers=useMemo(()=>{
-    const q=String(personQuery||"").trim().toLowerCase();
+    const normalizeSearch=value=>String(value||"").normalize("NFKC").replace(/[يى]/g,"ی").replace(/ك/g,"ک").replace(/[\u200c\u200e\u200f]/g," ").replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/\s+/g," ").trim().toLowerCase();
+    const q=normalizeSearch(personQuery);
     // از رندر هم‌زمان هزاران option جلوگیری می‌شود؛ جست‌وجو همچنان کل فهرست را بررسی می‌کند.
-    let result=q?users.filter(u=>
-      String((u.first_name||"")+" "+(u.last_name||"")).toLowerCase().includes(q)
-      ||String(u.username||"").toLowerCase().includes(q)
-      ||String(u.pcode||"").toLowerCase().includes(q)
-    ):users.slice(0,80);
+    let result=q?users.filter(u=>[u.first_name,u.last_name,(u.first_name||"")+" "+(u.last_name||""),u.username,u.pcode,u.mobile,u.phone].some(v=>normalizeSearch(v).includes(q))):users.slice(0,80);
     if(q){
       const collator=new Intl.Collator("fa",{sensitivity:"base",numeric:false});
       result=result.sort((a,b)=>{
@@ -6222,7 +6226,9 @@ function AttendanceReport(){
     ["اضافه کاری تعطیل و جمعه",d=>dayVal(d,"holiday_friday_overtime")],["جمعه کاری",d=>dayVal(d,"friday_work")],["روزکارکرد جمعه",d=>dayVal(d,"friday_workday")],
     ["تهاتر مازاد حضور",d=>dayVal(d,"adjusted_surplus")],["تهاتر کسری کار",d=>dayVal(d,"adjusted_shortage")],["اولین ورود",d=>dayVal(d,"first_in")],["آخرین خروج",d=>dayVal(d,"last_out")]
   ];
-  const exportExcel=()=>{if(!data)return;const rows=[columns.map(x=>x[0])];(data.days||[]).forEach(d=>rows.push(columns.map(x=>x[1](d))));const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"گزارش تردد ۳۰ ستونه");XLSX.writeFile(wb,"گزارش تردد پرسنل - ۳۰ ستونه.xlsx");};
+  const selectedColumns=columns.filter((_,i)=>visibleColumnIndexes.includes(i));
+  const saveColumnSettings=()=>{const next=Array.from(new Set(draftColumnIndexes)).filter(i=>Number.isInteger(i)&&i>=0&&i<columns.length);if(!next.includes(0))next.unshift(0);setVisibleColumnIndexes(next);try{localStorage.setItem(attendanceColumnStorageKey,JSON.stringify(next));}catch(_){}setColumnSettingsOpen(false);};
+  const exportExcel=()=>{if(!data)return;const rows=[selectedColumns.map(x=>x[0])];(data.days||[]).forEach(d=>rows.push(selectedColumns.map(x=>x[1](d))));const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"گزارش تردد");XLSX.writeFile(wb,"گزارش تردد پرسنل.xlsx");};
 
   return(<div className="panel" translate="no" data-no-translate="true"><h3>🕒 گزارش تردد پرسنل</h3>
     <div className="card-p" style={{marginBottom:14}}>
@@ -6231,8 +6237,8 @@ function AttendanceReport(){
           <input className="input" value={personQuery} onChange={e=>setPersonQuery(e.target.value)} placeholder="جستجوی نام، نام خانوادگی یا کد پرسنلی" style={{marginBottom:6}}/>
           <select className="input" value={uid} onChange={e=>setUid(e.target.value)}>
             <option value="">{usersLoading?"در حال دریافت فهرست نیروها…":(personQuery.trim()?"انتخاب از نتایج جست‌وجو…":"انتخاب پرسنل…")}</option>
-            {uid&&!visibleUsers.some(u=>String(u.id)===String(uid))&&users.filter(u=>String(u.id)===String(uid)).map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
-            {visibleUsers.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
+            {uid&&!visibleUsers.some(u=>String(u.id)===String(uid))&&users.filter(u=>String(u.id)===String(uid)).map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}{u.pcode?` · ${u.pcode}`:""}</option>)}
+            {visibleUsers.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}{u.pcode?` · ${u.pcode}`:""}</option>)}
           </select>
           <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>{usersLoading?"فهرست در حال بارگذاری است…":(personQuery.trim()?"نتایج جست‌وجو: "+visibleUsers.length+" (حداکثر ۸۰ نتیجه نمایش داده می‌شود)":users.length.toLocaleString("fa-IR")+" نیرو بارگذاری شد؛ برای یافتن سایر نیروها نام یا کد پرسنلی را جست‌وجو کنید.")}</div>
         </div>
@@ -6240,18 +6246,27 @@ function AttendanceReport(){
         <div><label className="label">تا تاریخ</label><JDate value={to} onChange={setTo} jalali/></div>
         <button className="btn p" onClick={run} disabled={busy}>{busy?"…":"🔍 مشاهده گزارش"}</button>
         <button className="btn g" onClick={exportExcel} disabled={!data}>⤓ دانلود گزارش</button>
+        {data&&<button className="btn g" type="button" onClick={()=>{setDraftColumnIndexes(visibleColumnIndexes.slice());setColumnSettingsOpen(true);}}>⚙ تنظیم ستون‌ها</button>}
       </div>
     </div>
     {data&&<div className="card-p" style={{marginBottom:10,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
       <b>{data.user?.name||"—"}</b><span style={{color:"var(--muted)",fontSize:12}}>کد پرسنلی: {fa(data.user?.pcode||"—")} | از {fa(data.from||from||"—")} تا {fa(data.to||to||"—")}</span>
     </div>}
+    {columnSettingsOpen&&<div role="presentation" onClick={e=>{if(e.target===e.currentTarget)setColumnSettingsOpen(false);}} style={{position:"fixed",inset:0,zIndex:100500,background:"rgba(0,0,0,.48)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div className="card-p" role="dialog" aria-modal="true" aria-labelledby="attendance-columns-title" style={{width:"min(760px,96vw)",maxHeight:"88vh",overflow:"auto",padding:20,boxShadow:"0 18px 55px rgba(0,0,0,.22)"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}><h3 id="attendance-columns-title" style={{margin:0}}>تنظیم ستون‌های گزارش</h3><button type="button" className="btn g" onClick={()=>setColumnSettingsOpen(false)} aria-label="بستن">×</button></div>
+        <p style={{color:"var(--muted)",fontSize:12,margin:"8px 0 12px"}}>ستون‌های موردنیاز را انتخاب کنید؛ تاریخ برای تشخیص روز ثابت می‌ماند.</p>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(210px,1fr))",gap:8}}>{columns.map(([title],i)=><label key={title} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",border:"1px solid var(--line)",borderRadius:9,cursor:"pointer"}}><input type="checkbox" checked={draftColumnIndexes.includes(i)} disabled={i===0} onChange={e=>setDraftColumnIndexes(prev=>e.target.checked?Array.from(new Set([...prev,i])):prev.filter(x=>x!==i))}/><span>{title}</span></label>)}</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:14}}><button className="btn g" type="button" onClick={()=>setDraftColumnIndexes(columns.map((_,i)=>i))}>نمایش همه</button><button className="btn g" type="button" onClick={()=>setDraftColumnIndexes([0])}>فقط تاریخ</button><button className="btn p" type="button" onClick={saveColumnSettings}>ذخیره تنظیم</button><button className="btn g" type="button" onClick={()=>setColumnSettingsOpen(false)}>انصراف</button></div>
+      </div>
+    </div>}
     {data&&<div style={{overflowX:"auto",border:"1px solid var(--line)",borderRadius:10}}>
-      <table className="khar-attendance-native" style={{fontSize:12,minWidth:2600}}>
-        <thead><tr>{columns.map(([title],i)=><th key={title} style={{whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2}}>{title}</th>)}</tr></thead>
+      <table className="khar-attendance-native" style={{fontSize:12,minWidth:Math.max(700,selectedColumns.length*112)}}>
+        <thead><tr>{selectedColumns.map(([title],i)=><th key={title} style={{whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2}}>{title}</th>)}</tr></thead>
         <tbody>{(data.days||[]).map(d=>{
           const red=!!d.is_holiday||!!d.is_friday||d.weekday==="جمعه";
           return <tr key={d.jdate}>
-            {columns.map((col,i)=>{
+            {selectedColumns.map((col,i)=>{
               const title=col[0];
               const getter=col[1];
               const fontWeight=(i<2&&red)?700:400;
