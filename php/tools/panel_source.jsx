@@ -6065,6 +6065,8 @@ function AttendanceReport(){
   const [uid,setUid]=useState("");
   const [personNameQuery,setPersonNameQuery]=useState("");
   const [personIdentifierQuery,setPersonIdentifierQuery]=useState("");
+  const [personPickerOpen,setPersonPickerOpen]=useState(false);
+  const [personActiveIndex,setPersonActiveIndex]=useState(-1);
   // API گزارش تردد بازهٔ کامل را الزامی می‌کند؛ پیش‌فرض را روی کل ماه جاری شمسی می‌گذاریم.
   const attendanceDefaultRange=()=>{
     const [y,m]=todayJ();
@@ -6147,6 +6149,28 @@ function AttendanceReport(){
     }
     return result;
   },[users,personNameQuery,personIdentifierQuery]);
+  const selectAttendancePerson=(person)=>{
+    if(!person)return;
+    setData(null);
+    setUid(String(person.id));
+    setPersonNameQuery(((person.first_name||"")+" "+(person.last_name||"")).trim());
+    setPersonPickerOpen(false);
+    setPersonActiveIndex(-1);
+  };
+  const handlePersonnelSearchKeyDown=e=>{
+    if(e.key==="Escape"){setPersonPickerOpen(false);setPersonActiveIndex(-1);return;}
+    if(e.key==="ArrowDown"){
+      e.preventDefault();setPersonPickerOpen(true);
+      setPersonActiveIndex(i=>Math.min(Math.max(visibleUsers.length-1,0),i+1));return;
+    }
+    if(e.key==="ArrowUp"){
+      e.preventDefault();setPersonPickerOpen(true);
+      setPersonActiveIndex(i=>Math.max(0,i-1));return;
+    }
+    if(e.key==="Enter"&&personPickerOpen&&visibleUsers.length){
+      e.preventDefault();selectAttendancePerson(visibleUsers[Math.max(0,Math.min(personActiveIndex,visibleUsers.length-1))]);
+    }
+  };
   const run=async()=>{
     if(!uid){alert("پرسنل را انتخاب کنید");return;}
     const fallback=attendanceDefaultRange();
@@ -6242,14 +6266,14 @@ function AttendanceReport(){
       <div className="row" style={{gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
         <div style={{minWidth:280,flex:"1 1 280px"}}>
           <label className="label" htmlFor="attendance-person-name-search">جستجوی نام پرسنل</label>
-          <input id="attendance-person-name-search" className="input" value={personNameQuery} onChange={e=>setPersonNameQuery(e.target.value)} placeholder="نام یا نام خانوادگی" style={{marginBottom:6}}/>
+          <div style={{position:"relative",marginBottom:8}}>
+            <input id="attendance-person-name-search" className="input" role="combobox" aria-autocomplete="list" aria-expanded={personPickerOpen&&!!(personNameQuery.trim()||personIdentifierQuery.trim())} aria-controls={personPickerOpen&&(personNameQuery.trim()||personIdentifierQuery.trim())?"attendance-person-suggestions":undefined} aria-activedescendant={personPickerOpen&&visibleUsers[personActiveIndex]?`attendance-person-option-${visibleUsers[personActiveIndex].id}`:undefined} autoComplete="off" value={personNameQuery} onFocus={()=>setPersonPickerOpen(true)} onBlur={e=>{if(!e.currentTarget.parentElement.contains(e.relatedTarget))setPersonPickerOpen(false);}} onKeyDown={handlePersonnelSearchKeyDown} onChange={e=>{setPersonNameQuery(e.target.value);setUid("");setData(null);setPersonActiveIndex(-1);setPersonPickerOpen(true);}} placeholder="نام یا نام خانوادگی را تایپ کنید"/>
+            {personPickerOpen&&(personNameQuery.trim()||personIdentifierQuery.trim())&&<div id="attendance-person-suggestions" role="listbox" aria-label="نتایج جستجوی پرسنل" style={{position:"absolute",top:"calc(100% + 4px)",insetInline:0,zIndex:100510,maxHeight:280,overflowY:"auto",background:"var(--card,#fff)",border:"1px solid var(--line)",borderRadius:10,boxShadow:"0 10px 28px rgba(0,0,0,.16)",padding:4}}>
+              {usersLoading?<div className="muted" style={{padding:10}}>در حال دریافت فهرست نیروها…</div>:visibleUsers.length?visibleUsers.map((person,index)=><button id={`attendance-person-option-${person.id}`} key={person.id} type="button" role="option" aria-selected={index===personActiveIndex} onMouseEnter={()=>setPersonActiveIndex(index)} onPointerDown={e=>e.preventDefault()} onClick={()=>selectAttendancePerson(person)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",width:"100%",gap:10,textAlign:"right",padding:"9px 10px",border:0,borderRadius:7,background:index===personActiveIndex?"var(--soft,#eef6f3)":"transparent",color:"inherit",cursor:"pointer"}}><span>{person.first_name} {person.last_name}</span><small style={{color:"var(--muted)",whiteSpace:"nowrap"}}>{person.pcode?`کد ${person.pcode}`:`شناسه ${person.id}`}</small></button>):<div className="muted" style={{padding:10}}>پرسنلی با این مشخصات پیدا نشد.</div>}
+            </div>}
+          </div>
           <label className="label" htmlFor="attendance-person-identifier-search">جستجوی کد و شناسه</label>
-          <input id="attendance-person-identifier-search" className="input" dir="auto" value={personIdentifierQuery} onChange={e=>setPersonIdentifierQuery(e.target.value)} placeholder="کد پرسنلی، نام کاربری یا تلفن" style={{marginBottom:6}}/>
-          <select className="input" value={uid} onChange={e=>setUid(e.target.value)}>
-            <option value="">{usersLoading?"در حال دریافت فهرست نیروها…":(personNameQuery.trim()||personIdentifierQuery.trim()?"انتخاب از نتایج جست‌وجو…":"انتخاب پرسنل…")}</option>
-            {uid&&!visibleUsers.some(u=>String(u.id)===String(uid))&&users.filter(u=>String(u.id)===String(uid)).map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}{u.pcode?` · ${u.pcode}`:""}</option>)}
-            {visibleUsers.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}{u.pcode?` · ${u.pcode}`:""}</option>)}
-          </select>
+          <input id="attendance-person-identifier-search" className="input" dir="auto" value={personIdentifierQuery} onFocus={()=>setPersonPickerOpen(true)} onBlur={()=>setPersonPickerOpen(false)} onKeyDown={handlePersonnelSearchKeyDown} onChange={e=>{setPersonIdentifierQuery(e.target.value);setUid("");setData(null);setPersonActiveIndex(-1);setPersonPickerOpen(true);}} placeholder="کد پرسنلی، نام کاربری یا تلفن" style={{marginBottom:6}}/>
           <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>{usersLoading?"فهرست در حال بارگذاری است…":(personNameQuery.trim()||personIdentifierQuery.trim()?"نتایج مطابق هر دو کادر: "+visibleUsers.length+" (حداکثر ۸۰ نتیجه)":users.length.toLocaleString("fa-IR")+" نیرو بارگذاری شد؛ نام یا کد را در کادر جداگانه جست‌وجو کنید.")}</div>
         </div>
         <div><label className="label">از تاریخ</label><JDate value={from} onChange={setFrom} jalali/></div>

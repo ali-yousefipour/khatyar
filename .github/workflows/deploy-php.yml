@@ -401,7 +401,7 @@ jobs:
             "${url}" > /tmp/live-panel.html
 
           grep -q 'assets/panel-build-runtime-fix.js?v=20261011.2' /tmp/live-panel.html
-          grep -q 'assets/panel.bundle.js?v=20261014.1' /tmp/live-panel.html
+          grep -q 'assets/panel.bundle.js?v=20261014.2' /tmp/live-panel.html
           grep -Eq 'assets/school-service-admin.js.v=20261011.256' /tmp/live-panel.html
           grep -q 'نسخه 1.5.8' /tmp/live-panel.html
           grep -q 'AUTO DEPLOY VERIFY: 2026-10-14-attendance-controls-v5' /tmp/live-panel.html
@@ -427,6 +427,9 @@ jobs:
           grep -q 'khatyar.attendance.report.visible-columns.v1' /tmp/live-panel-bundle.js
           grep -q 'columnSettingsOpen' /tmp/live-panel-bundle.js
           grep -q 'selectedColumns' /tmp/live-panel-bundle.js
+          grep -q 'attendance-person-suggestions' /tmp/live-panel-bundle.js
+          grep -q 'attendance-person-option-' /tmp/live-panel-bundle.js
+          grep -q 'aria-autocomplete' /tmp/live-panel-bundle.js
           echo "Public panel bundle verification passed for ${GITHUB_SHA}."
 
       - name: Smoke-test production API and login routes
