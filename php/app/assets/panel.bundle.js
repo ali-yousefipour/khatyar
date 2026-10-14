@@ -10322,14 +10322,15 @@ function AttendanceReport() {
         conversionModal && React.createElement(AttendanceConversionModal, { userId: uid, mode: conversionModal.mode, jdate: conversionModal.jdate, minutes: conversionModal.minutes, day: conversionModal.day, onSaved: async () => { setConversionModal(null); await refresh(); }, onClose: () => setConversionModal(null) }),
         openDay && data && (() => {
             const d = (data.days || []).find(x => x.jdate === openDay);
-            return d ? React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 900, background: "rgba(0,0,0,.48)", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(10px,2vw,24px)" } },
-                React.createElement("div", { className: "card-p", style: { width: "min(1080px,96vw)", maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", padding: 0 } },
+            return d ? React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 900, background: "rgba(0,0,0,.48)", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(10px,2vw,24px)" }, onClick: e => { if (e.target === e.currentTarget)
+                    setOpenDay(null); } },
+                React.createElement("div", { className: "card-p", onClick: e => e.stopPropagation(), style: { width: "min(1080px,96vw)", maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", padding: 0 } },
                     React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 18px", borderBottom: "1px solid var(--line)", flexShrink: 0 } },
                         React.createElement("div", null,
                             React.createElement("h3", { style: { margin: 0 } }, "\u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F"),
                             React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 3 } },
                                 "\u062A\u0627\u0631\u06CC\u062E: ",
-                                fa(d.jdate))),
+                                faPlain(String(d.jdate || d.date || openDay || "—")))),
                         React.createElement("button", { className: "btn g", onClick: () => setOpenDay(null) }, "\u0628\u0633\u062A\u0646")),
                     React.createElement("div", { style: { overflowY: "auto", padding: "16px 18px" } },
                         React.createElement("div", { style: { overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 } },
@@ -10348,7 +10349,7 @@ function AttendanceReport() {
                                     return React.createElement("tr", { key: p.id },
                                         React.createElement("td", { style: { textAlign: "center", whiteSpace: "nowrap" } }, attendanceCell(pin(p) || "--:--")),
                                         React.createElement("td", { style: { textAlign: "center", whiteSpace: "nowrap" } }, attendanceCell(pout(p) || "--:--")),
-                                        React.createElement("td", { style: { textAlign: "center", whiteSpace: "nowrap" } }, p.method || "—"),
+                                        React.createElement("td", { style: { textAlign: "center", whiteSpace: "nowrap" } }, (({ manual: "دستی", admin: "ثبت مدیریتی", web: "پنل وب", mobile: "برنامه موبایل", app: "برنامه موبایل", gps: "موقعیت مکانی", wifi: "وای‌فای", offline: "آفلاین" })[String(p.method || "").toLowerCase()] || p.method || "—")),
                                         React.createElement("td", { style: { wordBreak: "break-word" } }, p.device || "—"),
                                         React.createElement("td", null,
                                             React.createElement("div", { style: { display: "flex", justifyContent: "center", alignItems: "center", gap: 6, flexWrap: "wrap" } },
