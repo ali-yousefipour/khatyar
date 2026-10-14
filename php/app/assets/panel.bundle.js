@@ -9784,40 +9784,41 @@ function AdvancedCalendar({ shift }) {
     const [sel, setSel] = useState(null);
     const [clip, setClip] = useState(null);
     const [advDay, setAdvDay] = useState(null);
+    const [patternMode, setPatternMode] = useState(false);
+    const [patternKeys, setPatternKeys] = useState([]);
     useEffect(() => { db.shift(shift.id).then(full => { const map = {}; (full.days || []).forEach(d => { map[d.jdate] = { segments: typeof d.segments === "string" ? JSON.parse(d.segments || "[]") : (d.segments || []), is_off: !!d.is_off, day_config: typeof d.day_config === "string" ? JSON.parse(d.day_config || "null") : (d.day_config || null) }; }); setDays(map); }).catch(() => { }); }, [shift.id]);
     const dim = (jm <= 6) ? 31 : (jm <= 11 ? 30 : 29);
     const jd2 = (d) => `${jy}-${String(jm).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const setDay = (key, val) => setDays(p => ({ ...p, [key]: val }));
     const saveAll = async () => { const arr = Object.entries(days).map(([jdate, v]) => ({ jdate, segments: v.segments || [], is_off: v.is_off ? 1 : 0, day_config: v.day_config || null })); await db.saveShiftDays(shift.id, arr); alert("تقویم شیفت ذخیره شد."); };
-    // تکرار الگوی روزهای هفته‌ی ماه جاری روی کل سال جاری: برای هر روز هفته، اولین روزِ تنظیم‌شده در ماه را الگو می‌گیرد
+    // الگوی چندروزه: نمونه‌ها به ترتیب تاریخ مرتب می‌شوند و چرخه از روز بعد از آخرین نمونه تا پایان سال تکرار می‌شود.
     const repeatPattern = () => {
-        if (!confirm("الگوی روزهای این ماه بر اساس روزِ هفته، روی تمام ماه‌های سال " + fa(jy) + " اعمال شود؟ (روزهای تنظیم‌نشده تغییری نمی‌کنند)"))
+        const samples = patternKeys.filter(k => k.startsWith(String(jy) + "-")).sort();
+        if (samples.length < 2)
+            return alert("برای ساخت الگوی چرخشی، دست‌کم دو روز نمونه از همین سال انتخاب کنید.");
+        const pattern = samples.map(k => days[k] || { segments: [], is_off: false, day_config: null });
+        const yearDays = [];
+        const monthDays = m => (m <= 6 ? 31 : m <= 11 ? 30 : (((jy % 33) % 4 === 1) ? 30 : 29));
+        for (let m = 1; m <= 12; m++)
+            for (let d = 1; d <= monthDays(m); d++)
+                yearDays.push(`${jy}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+        const start = yearDays.indexOf(samples[samples.length - 1]) + 1;
+        if (start <= 0 || start >= yearDays.length)
+            return alert("آخرین روز نمونه باید قبل از پایان سال باشد.");
+        if (!confirm("الگوی " + fa(samples.length) + " روز نمونه، از روز بعد از آخرین نمونه تا پایان سال " + fa(jy) + " به‌صورت چرخه‌ای تکرار شود؟ روزهای این بازه بازنویسی خواهند شد."))
             return;
-        // برای هر روزِ هفته (۰..۶) یک الگو از ماه جاری انتخاب کن
-        const wkPattern = {};
-        for (let d = 1; d <= dim; d++) {
-            const key = jd2(d);
-            const v = days[key];
-            if (!v)
-                continue;
-            const wd = gregToJalaliWeekday(jy, jm, d);
-            if (wkPattern[wd] === undefined)
-                wkPattern[wd] = v;
-        }
         const next = { ...days };
-        for (let m = 1; m <= 12; m++) {
-            const dm = (m <= 6) ? 31 : (m <= 11 ? 30 : (((jy % 33) % 4 === 1) ? 30 : 29));
-            for (let d = 1; d <= dm; d++) {
-                const wd = gregToJalaliWeekday(jy, m, d);
-                const pat = wkPattern[wd];
-                if (pat === undefined)
-                    continue;
-                const key = `${jy}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-                next[key] = JSON.parse(JSON.stringify(pat));
-            }
-        }
+        for (let i = start; i < yearDays.length; i++)
+            next[yearDays[i]] = JSON.parse(JSON.stringify(pattern[(i - start) % pattern.length]));
         setDays(next);
-        alert("الگو روی کل سال اعمال شد. برای ذخیره، «ذخیرهٔ تقویم» را بزنید.");
+        setPatternMode(false);
+        setPatternKeys([]);
+        alert("الگوی چندروزه تا پایان سال اعمال شد. برای ثبت نهایی، «ذخیرهٔ تقویم» را بزنید.");
+    };
+    const togglePatternDay = key => {
+        if (!key.startsWith(String(jy) + "-"))
+            return alert("روزهای نمونه باید از یک سال شمسی انتخاب شوند.");
+        setPatternKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
     };
     // کپی کل تقویم سال جاری به سال بعد
     const copyNextYear = async () => {
@@ -9860,9 +9861,19 @@ function AdvancedCalendar({ shift }) {
                 }
                 else
                     setJm(jm + 1); } }, "\u0645\u0627\u0647 \u0628\u0639\u062F \u203A"),
-            React.createElement("button", { className: "btn g", onClick: repeatPattern }, "\u27F3 \u062A\u06A9\u0631\u0627\u0631 \u0627\u0644\u06AF\u0648 \u0631\u0648\u06CC \u06A9\u0644 \u0633\u0627\u0644"),
+            React.createElement("button", { className: patternMode ? "btn p" : "btn g", onClick: () => { setPatternMode(v => !v); if (patternMode)
+                    setPatternKeys([]); } },
+                "\u2637 \u0627\u0646\u062A\u062E\u0627\u0628 \u0631\u0648\u0632\u0647\u0627\u06CC \u0627\u0644\u06AF\u0648",
+                patternKeys.length ? " (" + fa(patternKeys.length) + ")" : ""),
+            React.createElement("button", { className: "btn g", onClick: repeatPattern, disabled: !patternKeys.length }, "\u27F3 \u062A\u06A9\u0631\u0627\u0631 \u0627\u0644\u06AF\u0648 \u0631\u0648\u06CC \u06A9\u0644 \u0633\u0627\u0644"),
             React.createElement("button", { className: "btn g", onClick: copyNextYear }, "\u2295 \u06A9\u067E\u06CC \u0628\u0647 \u0633\u0627\u0644 \u0628\u0639\u062F"),
             React.createElement("button", { className: "btn p", style: { marginInlineStart: "auto" }, onClick: saveAll }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0642\u0648\u06CC\u0645")),
+        patternMode && React.createElement("div", { role: "status", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10, padding: "9px 12px", border: "1px solid var(--line)", borderRadius: 10, fontSize: 12 } },
+            React.createElement("span", null, "\u062D\u0627\u0644\u062A \u0627\u0646\u062A\u062E\u0627\u0628 \u0627\u0644\u06AF\u0648 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A\u061B \u0686\u0646\u062F \u0631\u0648\u0632 \u0646\u0645\u0648\u0646\u0647 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F. \u062A\u0631\u062A\u06CC\u0628 \u0627\u0644\u06AF\u0648 \u0628\u0631 \u0627\u0633\u0627\u0633 \u062A\u0627\u0631\u06CC\u062E \u0627\u0633\u062A \u0648 \u062A\u06A9\u0631\u0627\u0631 \u0627\u0632 \u0631\u0648\u0632 \u0628\u0639\u062F \u0627\u0632 \u0622\u062E\u0631\u06CC\u0646 \u0646\u0645\u0648\u0646\u0647 \u062A\u0627 \u067E\u0627\u06CC\u0627\u0646 \u0633\u0627\u0644 \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+            React.createElement("button", { type: "button", className: "btn g", onClick: () => { setPatternMode(false); setPatternKeys([]); } }, "\u067E\u0627\u06CC\u0627\u0646 \u0627\u0646\u062A\u062E\u0627\u0628")),
+        patternKeys.length > 0 && React.createElement("div", { style: { fontSize: 12, marginBottom: 8, color: "var(--brand)" } },
+            "\u0631\u0648\u0632\u0647\u0627\u06CC \u0646\u0645\u0648\u0646\u0647: ",
+            patternKeys.slice().sort().map(k => k.replace(/-/g, "/")).join("، ")),
         clip && React.createElement("div", { className: "shift-paste-mode", role: "status", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10, padding: "9px 12px", border: "1px solid #b7dfc8", borderRadius: 10, background: "#effaf3", color: "#17663b", fontSize: 12 } },
             React.createElement("span", null, "\u062D\u0627\u0644\u062A \u067E\u06CC\u0633\u062A \u0641\u0639\u0627\u0644 \u0627\u0633\u062A\u061B \u0628\u0631\u0627\u06CC \u067E\u06CC\u0633\u062A \u0631\u0648\u06CC \u0647\u0631 \u0631\u0648\u0632 \u0645\u0642\u0635\u062F \u0631\u0627\u0633\u062A\u200C\u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F. \u067E\u0633 \u0627\u0632 \u067E\u0627\u06CC\u0627\u0646\u060C \u062F\u06A9\u0645\u0647\u0654 \u00AB\u0627\u062A\u0645\u0627\u0645 \u067E\u06CC\u0633\u062A\u00BB \u0631\u0627 \u0628\u0632\u0646\u06CC\u062F."),
             React.createElement("button", { type: "button", className: "btn g", onClick: () => setClip(null), style: { fontSize: 11, padding: "4px 10px", whiteSpace: "nowrap" } }, "\u0627\u062A\u0645\u0627\u0645 \u067E\u06CC\u0633\u062A")),
@@ -9877,10 +9888,15 @@ function AdvancedCalendar({ shift }) {
                 const off = v && v.is_off;
                 const shiftTimes = has ? (v.segments || []).map(seg => seg.s && seg.e ? `${seg.s}–${seg.e}` : null).filter(Boolean) : [];
                 const showPaste = !!clip && clip.source !== key;
-                return (React.createElement("div", { key: key, className: "cal-d" + (sel === key ? " sel" : "") + (has ? " has" : "") + (off ? " off" : ""), title: clip && clip.source !== key ? "برای پیست شیفت روی این روز کلیک راست کنید" : undefined, onClick: () => setSel(key), onContextMenu: e => { if (!clip)
+                const inPattern = patternKeys.includes(key);
+                return (React.createElement("div", { key: key, className: "cal-d" + (sel === key ? " sel" : "") + (has ? " has" : "") + (off ? " off" : "") + (inPattern ? " shift-pattern-selected" : ""), title: patternMode ? "برای افزودن/حذف از الگوی چرخشی کلیک کنید" : (clip && clip.source !== key ? "برای پیست شیفت روی این روز راست‌کلیک کنید" : undefined), onClick: () => { if (patternMode) {
+                        togglePatternDay(key);
+                        return;
+                    } setSel(key); }, onContextMenu: e => { if (!clip || patternMode)
                         return; e.preventDefault(); if (clip.source !== key)
                         pasteShiftDay(key); } },
                     React.createElement("span", { className: "cal-n" }, fa(d)),
+                    inPattern && React.createElement("span", { title: "\u0631\u0648\u0632 \u0646\u0645\u0648\u0646\u0647 \u0627\u0644\u06AF\u0648\u06CC \u0686\u0631\u062E\u0634\u06CC", style: { position: "absolute", top: 2, insetInlineStart: 3, fontSize: 11, fontWeight: 800, color: "var(--brand)" } }, "\u2713"),
                     has && !clip && React.createElement("button", { type: "button", title: "\u06A9\u067E\u06CC \u0634\u06CC\u0641\u062A \u0627\u06CC\u0646 \u0631\u0648\u0632", "aria-label": `کپی شیفت ${key}`, onClick: e => { e.stopPropagation(); copyShiftDay(key); }, style: { position: "absolute", top: 2, insetInlineEnd: 3, border: 0, background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 2 } }, "\u29C9"),
                     showPaste && React.createElement("button", { type: "button", className: "attendance-shift-day-paste", title: "\u067E\u06CC\u0633\u062A \u0634\u06CC\u0641\u062A \u062F\u0631 \u0627\u06CC\u0646 \u0631\u0648\u0632", "aria-label": `پیست شیفت در ${key}`, onClick: e => { e.stopPropagation(); pasteShiftDay(key); }, style: { position: "absolute", top: 2, insetInlineStart: 3, border: 0, background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: 2 } }, "\u25A3"),
                     shiftTimes.length > 0 ? React.createElement("span", { className: "cal-shift-times", style: { position: "absolute", bottom: 3, insetInline: 3, textAlign: "center", fontSize: 9, lineHeight: 1.25, color: "var(--ink)", direction: "ltr", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", boxSizing: "border-box" } }, shiftTimes.join(" · ")) : off ? React.createElement("span", { className: "cal-tag" }, "\u062A\u0639\u0637\u06CC\u0644") : null));
