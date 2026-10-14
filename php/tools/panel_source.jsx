@@ -5974,6 +5974,10 @@ function AdvancedCalendar({shift}){
       <button className="btn g" onClick={copyNextYear}>⊕ کپی به سال بعد</button>
       <button className="btn p" style={{marginInlineStart:"auto"}} onClick={saveAll}>ذخیرهٔ تقویم</button>
     </div>
+    {clip&&<div className="shift-paste-mode" role="status" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap",marginBottom:10,padding:"9px 12px",border:"1px solid #b7dfc8",borderRadius:10,background:"#effaf3",color:"#17663b",fontSize:12}}>
+      <span>حالت پیست فعال است؛ برای پیست روی هر روز مقصد راست‌کلیک کنید. پس از پایان، دکمهٔ «اتمام پیست» را بزنید.</span>
+      <button type="button" className="btn g" onClick={()=>setClip(null)} style={{fontSize:11,padding:"4px 10px",whiteSpace:"nowrap"}}>اتمام پیست</button>
+    </div>}
     <div className="cal-grid">
       {WD.map(w=><div key={w} className="cal-h">{w}</div>)}
       {Array.from({length:firstWd}).map((_,i)=><div key={"e"+i}/>)}
