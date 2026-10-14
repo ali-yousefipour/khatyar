@@ -2,7 +2,7 @@ name: build-android-release
 
 # CI trigger: 1.5.8 / versionCode 10508 release build
 # CI release rerun: official npmjs.org + official Google/Maven Central only
-# CI trigger: Android APK build requested 2026-10-14 after attendance cache fix
+# CI trigger: Android APK build requested 2026-10-14 with normalized npm lockfile
 on:
   workflow_dispatch:
     inputs:
