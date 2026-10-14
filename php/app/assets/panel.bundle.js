@@ -7433,6 +7433,17 @@ function authImg(url) {
         return url;
     return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'access_token=' + encodeURIComponent(t);
 }
+// تگ <img> نمی‌تواند هدر Authorization بفرستد؛ endpoint رسانه فقط پارامتر token را می‌پذیرد.
+function userPhotoImg(url) {
+    if (!url)
+        return '';
+    if (!/^\/?api\/media(?:\?|$)/.test(String(url).replace(/^\//, '')))
+        return url;
+    const token = localStorage.token || '';
+    if (!token)
+        return url;
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'token=' + encodeURIComponent(token);
+}
 function validCoord(lat, lon) { lat = Number(lat); lon = Number(lon); return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180; }
 function LineStationDetailModal({ line, onClose }) {
     const [data, setData] = useState(null);
@@ -15818,7 +15829,10 @@ function App() {
                         " \u2014 ",
                         me.role,
                         me.rank_stars ? " · " + "★".repeat(Math.max(0, Math.min(5, +me.rank_stars))) : ""),
-                    React.createElement("div", { className: "av" }, (me.name || "؟")[0]))),
+                    React.createElement("div", { className: "av" }, me.photo ? React.createElement(React.Fragment, null,
+                        React.createElement("img", { src: userPhotoImg(me.photo), alt: "تصویر " + (me.name || "کاربر"), onError: e => { e.currentTarget.style.display = "none"; if (e.currentTarget.nextSibling)
+                                e.currentTarget.nextSibling.style.display = "grid"; } }),
+                        React.createElement("span", { className: "av-fallback", style: { display: "none" } }, (me.name || "؟")[0])) : React.createElement("span", null, (me.name || "؟")[0])))),
             React.createElement(View, null))));
 }
 const PANEL_BUILD_VERSION = "1.5.8";
