@@ -2149,8 +2149,10 @@ function _gps_work_invalid_intervals($userId, $fromTs, $toTs, $gracePending=fals
       WHERE user_id=? AND at>=? AND at<=? AND kind IN ('gps_on','gps_off')
       ORDER BY at ASC,id ASC", [(int)$userId,$queryFrom,$queryTo]);
   } catch (Throwable $e) {
-    error_log('gps work verification query failed: '.$e->getMessage());
-    return [[$fromTs,$toTs]];
+    // خطای خواندن لاگ‌ها شاهد خاموشی GPS یا توقف برنامه نیست؛
+    // بازه را جریمه نکن تا خطای دیتابیس به کسری کار کاذب تبدیل نشود.
+    error_log('gps work verification query failed; no penalty without evidence: '.$e->getMessage());
+    return [];
   }
 
   $covered=[]; $forcedInvalid=[]; $lastOnTs=null;
