@@ -407,10 +407,10 @@ jobs:
             "${url}" > /tmp/live-panel.html
 
           grep -q 'assets/panel-build-runtime-fix.js?v=20261011.2' /tmp/live-panel.html
-          grep -q 'assets/panel.bundle.js?v=20261014.8' /tmp/live-panel.html
+          grep -q 'assets/panel.bundle.js?v=20261014.9' /tmp/live-panel.html
           grep -Eq 'assets/school-service-admin.js.v=20261011.256' /tmp/live-panel.html
           grep -q '1.5.8' /tmp/live-panel.html
-          grep -q 'AUTO DEPLOY VERIFY: 2026-10-14-advanced-shifts-copy-assignment-fix-v4' /tmp/live-panel.html
+          grep -q 'AUTO DEPLOY VERIFY: 2026-10-14-shift-time-input-fix-v5' /tmp/live-panel.html
           ! grep -q '/api/admin/complaints/dashboard' /tmp/live-panel.html
           ! grep -q 'window.openComplaints=open;open();' /tmp/live-panel.html
 

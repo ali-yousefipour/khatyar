@@ -5789,7 +5789,26 @@ function RotatingShiftEditor({s,set}){
   </div>);
 }
 
-function TimeField({label,v,on}){ return(<span className="tf"><span className="tf-l">{label}</span><input className="input tf-i" type="time" value={v||""} onChange={e=>on(e.target.value)}/></span>); }
+function shiftAsciiDigits(value){return String(value||"").replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));}
+function formatShiftClockInput(value){
+  const digits=shiftAsciiDigits(value).replace(/\D/g,"").slice(0,4);
+  if(digits.length<=2)return digits;
+  return digits.length===3?digits.slice(0,1)+":"+digits.slice(1):digits.slice(0,2)+":"+digits.slice(2);
+}
+function ShiftClockInput({value,onChange,className="input",style}){
+  const display=formatShiftClockInput(value);
+  const commit=()=>{
+    if(!display){onChange("");return;}
+    const match=display.match(/^(\d{1,2}):(\d{2})$/);
+    if(!match){onChange("");return;}
+    const hour=Number(match[1]),minute=Number(match[2]);
+    onChange(hour<=23&&minute<=59?String(hour).padStart(2,"0")+":"+String(minute).padStart(2,"0"):"");
+  };
+  return <span className="shift-clock-wrap"><input className={className+" shift-clock-input"} type="text" inputMode="numeric" dir="ltr" autoComplete="off" maxLength={5} placeholder="HH:MM" aria-label="ساعت ۲۴ ساعته، ساعت و دقیقه" style={style} value={display} onChange={e=>onChange(formatShiftClockInput(e.target.value))} onBlur={commit}/><span className="shift-clock-hint">۲۴ ساعته</span></span>;
+}
+function TimeField({label,v,on}){ return(<span className="tf"><span className="tf-l">{label}</span><ShiftClockInput className="input tf-i" value={v} onChange={on}/></span>); }
+function ShiftModalTimeField({label,value,onChange,hint}){return <div style={{marginBottom:12}}><label className="label">{label} {hint&&<span title={hint} style={{cursor:"help",color:"var(--muted)"}}>ⓘ</span>}</label><ShiftClockInput value={value} onChange={onChange}/></div>;}
+function ShiftMinuteField({label,value,onChange,hint}){return <div style={{marginBottom:12}}><label className="label">{label} {hint&&<span title={hint} style={{cursor:"help",color:"var(--muted)"}}>ⓘ</span>}</label><input className="input shift-minute-input" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="دقیقه" dir="ltr" value={value} onChange={e=>onChange(shiftAsciiDigits(e.target.value).replace(/\D/g,""))}/></div>; }
 
 // مودال ویرایش مشخصات شیفت روز (مدل فینتو)
 function ShiftDayModal({day, jdate, onSave, onClose}){
@@ -5845,15 +5864,6 @@ function ShiftDayModal({day, jdate, onSave, onClose}){
     onSave({jdate, day_config:cfg, segments:segs, is_off:false});
   };
 
-  const Time=({label,value,onChange,hint})=>(<div style={{marginBottom:12}}>
-    <label className="label">{label} {hint&&<span title={hint} style={{cursor:"help",color:"var(--muted)"}}>ⓘ</span>}</label>
-    <input className="input" type="time" value={value} onChange={e=>onChange(e.target.value)}/>
-  </div>);
-  const MinF=({label,value,onChange,hint})=>(<div style={{marginBottom:12}}>
-    <label className="label">{label} {hint&&<span title={hint} style={{cursor:"help",color:"var(--muted)"}}>ⓘ</span>}</label>
-    <input className="input" type="number" min="0" placeholder="دقیقه" value={value} onChange={e=>onChange(e.target.value)}/>
-  </div>);
-
   return(<div className="modal-bg" onClick={onClose}>
     <div className="modal" style={{maxWidth:560,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
       <div className="row" style={{justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -5867,9 +5877,9 @@ function ShiftDayModal({day, jdate, onSave, onClose}){
         <label className="row" style={{gap:6}}><input type="radio" checked={type==="floating"} onChange={()=>setType("floating")}/>شناور</label>
       </div>
 
-      {type==="floating"&&<MinF label="زمان شناوری" hint="مدت زمانی که کاربر می‌تواند دیرتر از شروع شیفت بیاید" value={float_min} onChange={setFloatMin}/>}
-      <MinF label="مدت زمان موظفی روزانه" hint="مجموع دقایقی که کاربر باید کار کند" value={duty_min} onChange={setDuty}/>
-      <MinF label="سقف اضافه کاری روزانه" value={daily_ot} onChange={setDailyOt}/>
+      {type==="floating"&&<ShiftMinuteField label="زمان شناوری" hint="مدت زمانی که کاربر می‌تواند دیرتر از شروع شیفت بیاید" value={float_min} onChange={setFloatMin}/>}
+      <ShiftMinuteField label="مدت زمان موظفی روزانه" hint="مجموع دقایقی که کاربر باید کار کند" value={duty_min} onChange={setDuty}/>
+      <ShiftMinuteField label="سقف اضافه کاری روزانه" value={daily_ot} onChange={setDailyOt}/>
 
       <div className="row" style={{justifyContent:"space-between",alignItems:"center",margin:"14px 0 10px",borderTop:"1px solid var(--line)",paddingTop:12}}>
         <b style={{color:"var(--brand)"}}>تنظیمات پیشرفته</b>
@@ -5878,35 +5888,35 @@ function ShiftDayModal({day, jdate, onSave, onClose}){
 
       {adv&&<div>
         {type==="floating"&&<>
-          <MinF label="اضافه کار از ابتدای شیفت" value={ot_begin} onChange={setOtBegin}/>
-          <MinF label="اضافه کار در میانه شیفت" value={ot_middle} onChange={setOtMiddle}/>
-          <MinF label="اضافه کار از انتهای شیفت" value={ot_end} onChange={setOtEnd}/>
-          <MinF label="شناوری قبل شیفت" value={float_before} onChange={setFloatBefore}/>
+          <ShiftMinuteField label="اضافه کار از ابتدای شیفت" value={ot_begin} onChange={setOtBegin}/>
+          <ShiftMinuteField label="اضافه کار در میانه شیفت" value={ot_middle} onChange={setOtMiddle}/>
+          <ShiftMinuteField label="اضافه کار از انتهای شیفت" value={ot_end} onChange={setOtEnd}/>
+          <ShiftMinuteField label="شناوری قبل شیفت" value={float_before} onChange={setFloatBefore}/>
         </>}
-        <Time label="شروع بازه مجاز ثبت تردد" hint="زودترین زمانی که ثبت تردد پذیرفته می‌شود" value={traffic_start} onChange={setTrafficStart}/>
-        <Time label="پایان بازه مجاز ثبت تردد" hint="دیرترین زمانی که ثبت تردد پذیرفته می‌شود" value={traffic_end} onChange={setTrafficEnd}/>
-        <MinF label="تاخیر مجاز" value={late_ok} onChange={setLateOk}/>
-        <MinF label="تعجیل مجاز" value={early_ok} onChange={setEarlyOk}/>
+        <ShiftModalTimeField label="شروع بازه مجاز ثبت تردد" hint="زودترین زمانی که ثبت تردد پذیرفته می‌شود" value={traffic_start} onChange={setTrafficStart}/>
+        <ShiftModalTimeField label="پایان بازه مجاز ثبت تردد" hint="دیرترین زمانی که ثبت تردد پذیرفته می‌شود" value={traffic_end} onChange={setTrafficEnd}/>
+        <ShiftMinuteField label="تاخیر مجاز" value={late_ok} onChange={setLateOk}/>
+        <ShiftMinuteField label="تعجیل مجاز" value={early_ok} onChange={setEarlyOk}/>
 
         <label className="label" style={{marginTop:10}}>شب کاری:</label>
         <label className="row" style={{gap:6,marginBottom:10}}><input type="checkbox" checked={is_night} onChange={e=>setIsNight(e.target.checked)}/>انتهای این شیفت در روز بعد است</label>
         {is_night&&<>
-          <Time label="شروع شب کاری" value={night_start} onChange={setNightStart}/>
-          <div style={{marginBottom:12}}><label className="label">مدت زمان شب کاری</label><input className="input" type="time" value={night_dur} onChange={e=>setNightDur(e.target.value)}/></div>
+          <ShiftModalTimeField label="شروع شب کاری" value={night_start} onChange={setNightStart}/>
+          <div style={{marginBottom:12}}><label className="label">مدت زمان شب کاری</label><ShiftClockInput value={night_dur} onChange={setNightDur}/></div>
         </>}
 
         <div style={{borderTop:"1px solid var(--line)",margin:"14px 0",paddingTop:12}}>
           <label className="row" style={{gap:8,marginBottom:10}}><input type="checkbox" checked={p1} onChange={e=>setP1(e.target.checked)}/><b>قسمت اول روز</b></label>
           {p1&&<div className="row" style={{gap:10}}>
-            <div style={{flex:1}}><label className="label">زمان شروع</label><input className="input" type="time" value={p1s} onChange={e=>setP1s(e.target.value)}/></div>
-            <div style={{flex:1}}><label className="label">زمان پایان</label><input className="input" type="time" value={p1e} onChange={e=>setP1e(e.target.value)}/></div>
+            <div style={{flex:1}}><label className="label">زمان شروع</label><ShiftClockInput value={p1s} onChange={setP1s}/></div>
+            <div style={{flex:1}}><label className="label">زمان پایان</label><ShiftClockInput value={p1e} onChange={setP1e}/></div>
           </div>}
         </div>
         <div style={{borderTop:"1px solid var(--line)",paddingTop:12}}>
           <label className="row" style={{gap:8,marginBottom:10}}><input type="checkbox" checked={p2} onChange={e=>setP2(e.target.checked)}/><b>قسمت دوم روز</b></label>
           {p2&&<div className="row" style={{gap:10}}>
-            <div style={{flex:1}}><label className="label">زمان شروع</label><input className="input" type="time" value={p2s} onChange={e=>setP2s(e.target.value)}/></div>
-            <div style={{flex:1}}><label className="label">زمان پایان</label><input className="input" type="time" value={p2e} onChange={e=>setP2e(e.target.value)}/></div>
+            <div style={{flex:1}}><label className="label">زمان شروع</label><ShiftClockInput value={p2s} onChange={setP2s}/></div>
+            <div style={{flex:1}}><label className="label">زمان پایان</label><ShiftClockInput value={p2e} onChange={setP2e}/></div>
           </div>}
         </div>
       </div>}

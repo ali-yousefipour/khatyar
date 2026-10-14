@@ -9607,9 +9607,47 @@ function RotatingShiftEditor({ s, set }) {
                 React.createElement(TimeField, { label: "\u062E\u0631\u0648\u062C \u062A\u0627", v: (_p = (_m = c.segments) === null || _m === void 0 ? void 0 : _m[0]) === null || _p === void 0 ? void 0 : _p.le, on: x => updSeg(i, "le", x) }));
         })));
 }
+function shiftAsciiDigits(value) { return String(value || "").replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))); }
+function formatShiftClockInput(value) {
+    const digits = shiftAsciiDigits(value).replace(/\D/g, "").slice(0, 4);
+    if (digits.length <= 2)
+        return digits;
+    return digits.length === 3 ? digits.slice(0, 1) + ":" + digits.slice(1) : digits.slice(0, 2) + ":" + digits.slice(2);
+}
+function ShiftClockInput({ value, onChange, className = "input", style }) {
+    const display = formatShiftClockInput(value);
+    const commit = () => {
+        if (!display) {
+            onChange("");
+            return;
+        }
+        const match = display.match(/^(\d{1,2}):(\d{2})$/);
+        if (!match) {
+            onChange("");
+            return;
+        }
+        const hour = Number(match[1]), minute = Number(match[2]);
+        onChange(hour <= 23 && minute <= 59 ? String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0") : "");
+    };
+    return React.createElement("span", { className: "shift-clock-wrap" },
+        React.createElement("input", { className: className + " shift-clock-input", type: "text", inputMode: "numeric", dir: "ltr", autoComplete: "off", maxLength: 5, placeholder: "HH:MM", "aria-label": "\u0633\u0627\u0639\u062A \u06F2\u06F4 \u0633\u0627\u0639\u062A\u0647\u060C \u0633\u0627\u0639\u062A \u0648 \u062F\u0642\u06CC\u0642\u0647", style: style, value: display, onChange: e => onChange(formatShiftClockInput(e.target.value)), onBlur: commit }),
+        React.createElement("span", { className: "shift-clock-hint" }, "\u06F2\u06F4 \u0633\u0627\u0639\u062A\u0647"));
+}
 function TimeField({ label, v, on }) { return (React.createElement("span", { className: "tf" },
     React.createElement("span", { className: "tf-l" }, label),
-    React.createElement("input", { className: "input tf-i", type: "time", value: v || "", onChange: e => on(e.target.value) }))); }
+    React.createElement(ShiftClockInput, { className: "input tf-i", value: v, onChange: on }))); }
+function ShiftModalTimeField({ label, value, onChange, hint }) { return React.createElement("div", { style: { marginBottom: 12 } },
+    React.createElement("label", { className: "label" },
+        label,
+        " ",
+        hint && React.createElement("span", { title: hint, style: { cursor: "help", color: "var(--muted)" } }, "\u24D8")),
+    React.createElement(ShiftClockInput, { value: value, onChange: onChange })); }
+function ShiftMinuteField({ label, value, onChange, hint }) { return React.createElement("div", { style: { marginBottom: 12 } },
+    React.createElement("label", { className: "label" },
+        label,
+        " ",
+        hint && React.createElement("span", { title: hint, style: { cursor: "help", color: "var(--muted)" } }, "\u24D8")),
+    React.createElement("input", { className: "input shift-minute-input", type: "text", inputMode: "numeric", pattern: "[0-9]*", placeholder: "\u062F\u0642\u06CC\u0642\u0647", dir: "ltr", value: value, onChange: e => onChange(shiftAsciiDigits(e.target.value).replace(/\D/g, "")) })); }
 // مودال ویرایش مشخصات شیفت روز (مدل فینتو)
 function ShiftDayModal({ day, jdate, onSave, onClose }) {
     const init = day && day.day_config ? day.day_config : {};
@@ -9667,18 +9705,6 @@ function ShiftDayModal({ day, jdate, onSave, onClose }) {
             segs.push(mkSeg(p2s, p2e));
         onSave({ jdate, day_config: cfg, segments: segs, is_off: false });
     };
-    const Time = ({ label, value, onChange, hint }) => (React.createElement("div", { style: { marginBottom: 12 } },
-        React.createElement("label", { className: "label" },
-            label,
-            " ",
-            hint && React.createElement("span", { title: hint, style: { cursor: "help", color: "var(--muted)" } }, "\u24D8")),
-        React.createElement("input", { className: "input", type: "time", value: value, onChange: e => onChange(e.target.value) })));
-    const MinF = ({ label, value, onChange, hint }) => (React.createElement("div", { style: { marginBottom: 12 } },
-        React.createElement("label", { className: "label" },
-            label,
-            " ",
-            hint && React.createElement("span", { title: hint, style: { cursor: "help", color: "var(--muted)" } }, "\u24D8")),
-        React.createElement("input", { className: "input", type: "number", min: "0", placeholder: "\u062F\u0642\u06CC\u0642\u0647", value: value, onChange: e => onChange(e.target.value) })));
     return (React.createElement("div", { className: "modal-bg", onClick: onClose },
         React.createElement("div", { className: "modal", style: { maxWidth: 560, maxHeight: "90vh", overflowY: "auto" }, onClick: e => e.stopPropagation() },
             React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center", marginBottom: 14 } },
@@ -9695,31 +9721,31 @@ function ShiftDayModal({ day, jdate, onSave, onClose }) {
                 React.createElement("label", { className: "row", style: { gap: 6 } },
                     React.createElement("input", { type: "radio", checked: type === "floating", onChange: () => setType("floating") }),
                     "\u0634\u0646\u0627\u0648\u0631")),
-            type === "floating" && React.createElement(MinF, { label: "\u0632\u0645\u0627\u0646 \u0634\u0646\u0627\u0648\u0631\u06CC", hint: "\u0645\u062F\u062A \u0632\u0645\u0627\u0646\u06CC \u06A9\u0647 \u06A9\u0627\u0631\u0628\u0631 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u062F\u06CC\u0631\u062A\u0631 \u0627\u0632 \u0634\u0631\u0648\u0639 \u0634\u06CC\u0641\u062A \u0628\u06CC\u0627\u06CC\u062F", value: float_min, onChange: setFloatMin }),
-            React.createElement(MinF, { label: "\u0645\u062F\u062A \u0632\u0645\u0627\u0646 \u0645\u0648\u0638\u0641\u06CC \u0631\u0648\u0632\u0627\u0646\u0647", hint: "\u0645\u062C\u0645\u0648\u0639 \u062F\u0642\u0627\u06CC\u0642\u06CC \u06A9\u0647 \u06A9\u0627\u0631\u0628\u0631 \u0628\u0627\u06CC\u062F \u06A9\u0627\u0631 \u06A9\u0646\u062F", value: duty_min, onChange: setDuty }),
-            React.createElement(MinF, { label: "\u0633\u0642\u0641 \u0627\u0636\u0627\u0641\u0647 \u06A9\u0627\u0631\u06CC \u0631\u0648\u0632\u0627\u0646\u0647", value: daily_ot, onChange: setDailyOt }),
+            type === "floating" && React.createElement(ShiftMinuteField, { label: "\u0632\u0645\u0627\u0646 \u0634\u0646\u0627\u0648\u0631\u06CC", hint: "\u0645\u062F\u062A \u0632\u0645\u0627\u0646\u06CC \u06A9\u0647 \u06A9\u0627\u0631\u0628\u0631 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u062F\u06CC\u0631\u062A\u0631 \u0627\u0632 \u0634\u0631\u0648\u0639 \u0634\u06CC\u0641\u062A \u0628\u06CC\u0627\u06CC\u062F", value: float_min, onChange: setFloatMin }),
+            React.createElement(ShiftMinuteField, { label: "\u0645\u062F\u062A \u0632\u0645\u0627\u0646 \u0645\u0648\u0638\u0641\u06CC \u0631\u0648\u0632\u0627\u0646\u0647", hint: "\u0645\u062C\u0645\u0648\u0639 \u062F\u0642\u0627\u06CC\u0642\u06CC \u06A9\u0647 \u06A9\u0627\u0631\u0628\u0631 \u0628\u0627\u06CC\u062F \u06A9\u0627\u0631 \u06A9\u0646\u062F", value: duty_min, onChange: setDuty }),
+            React.createElement(ShiftMinuteField, { label: "\u0633\u0642\u0641 \u0627\u0636\u0627\u0641\u0647 \u06A9\u0627\u0631\u06CC \u0631\u0648\u0632\u0627\u0646\u0647", value: daily_ot, onChange: setDailyOt }),
             React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center", margin: "14px 0 10px", borderTop: "1px solid var(--line)", paddingTop: 12 } },
                 React.createElement("b", { style: { color: "var(--brand)" } }, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u067E\u06CC\u0634\u0631\u0641\u062A\u0647"),
                 React.createElement("button", { className: "btn g", style: { padding: "2px 10px" }, onClick: () => setAdv(!adv) }, adv ? "−" : "+")),
             adv && React.createElement("div", null,
                 type === "floating" && React.createElement(React.Fragment, null,
-                    React.createElement(MinF, { label: "\u0627\u0636\u0627\u0641\u0647 \u06A9\u0627\u0631 \u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0634\u06CC\u0641\u062A", value: ot_begin, onChange: setOtBegin }),
-                    React.createElement(MinF, { label: "\u0627\u0636\u0627\u0641\u0647 \u06A9\u0627\u0631 \u062F\u0631 \u0645\u06CC\u0627\u0646\u0647 \u0634\u06CC\u0641\u062A", value: ot_middle, onChange: setOtMiddle }),
-                    React.createElement(MinF, { label: "\u0627\u0636\u0627\u0641\u0647 \u06A9\u0627\u0631 \u0627\u0632 \u0627\u0646\u062A\u0647\u0627\u06CC \u0634\u06CC\u0641\u062A", value: ot_end, onChange: setOtEnd }),
-                    React.createElement(MinF, { label: "\u0634\u0646\u0627\u0648\u0631\u06CC \u0642\u0628\u0644 \u0634\u06CC\u0641\u062A", value: float_before, onChange: setFloatBefore })),
-                React.createElement(Time, { label: "\u0634\u0631\u0648\u0639 \u0628\u0627\u0632\u0647 \u0645\u062C\u0627\u0632 \u062B\u0628\u062A \u062A\u0631\u062F\u062F", hint: "\u0632\u0648\u062F\u062A\u0631\u06CC\u0646 \u0632\u0645\u0627\u0646\u06CC \u06A9\u0647 \u062B\u0628\u062A \u062A\u0631\u062F\u062F \u067E\u0630\u06CC\u0631\u0641\u062A\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F", value: traffic_start, onChange: setTrafficStart }),
-                React.createElement(Time, { label: "\u067E\u0627\u06CC\u0627\u0646 \u0628\u0627\u0632\u0647 \u0645\u062C\u0627\u0632 \u062B\u0628\u062A \u062A\u0631\u062F\u062F", hint: "\u062F\u06CC\u0631\u062A\u0631\u06CC\u0646 \u0632\u0645\u0627\u0646\u06CC \u06A9\u0647 \u062B\u0628\u062A \u062A\u0631\u062F\u062F \u067E\u0630\u06CC\u0631\u0641\u062A\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F", value: traffic_end, onChange: setTrafficEnd }),
-                React.createElement(MinF, { label: "\u062A\u0627\u062E\u06CC\u0631 \u0645\u062C\u0627\u0632", value: late_ok, onChange: setLateOk }),
-                React.createElement(MinF, { label: "\u062A\u0639\u062C\u06CC\u0644 \u0645\u062C\u0627\u0632", value: early_ok, onChange: setEarlyOk }),
+                    React.createElement(ShiftMinuteField, { label: "\u0627\u0636\u0627\u0641\u0647 \u06A9\u0627\u0631 \u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0634\u06CC\u0641\u062A", value: ot_begin, onChange: setOtBegin }),
+                    React.createElement(ShiftMinuteField, { label: "\u0627\u0636\u0627\u0641\u0647 \u06A9\u0627\u0631 \u062F\u0631 \u0645\u06CC\u0627\u0646\u0647 \u0634\u06CC\u0641\u062A", value: ot_middle, onChange: setOtMiddle }),
+                    React.createElement(ShiftMinuteField, { label: "\u0627\u0636\u0627\u0641\u0647 \u06A9\u0627\u0631 \u0627\u0632 \u0627\u0646\u062A\u0647\u0627\u06CC \u0634\u06CC\u0641\u062A", value: ot_end, onChange: setOtEnd }),
+                    React.createElement(ShiftMinuteField, { label: "\u0634\u0646\u0627\u0648\u0631\u06CC \u0642\u0628\u0644 \u0634\u06CC\u0641\u062A", value: float_before, onChange: setFloatBefore })),
+                React.createElement(ShiftModalTimeField, { label: "\u0634\u0631\u0648\u0639 \u0628\u0627\u0632\u0647 \u0645\u062C\u0627\u0632 \u062B\u0628\u062A \u062A\u0631\u062F\u062F", hint: "\u0632\u0648\u062F\u062A\u0631\u06CC\u0646 \u0632\u0645\u0627\u0646\u06CC \u06A9\u0647 \u062B\u0628\u062A \u062A\u0631\u062F\u062F \u067E\u0630\u06CC\u0631\u0641\u062A\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F", value: traffic_start, onChange: setTrafficStart }),
+                React.createElement(ShiftModalTimeField, { label: "\u067E\u0627\u06CC\u0627\u0646 \u0628\u0627\u0632\u0647 \u0645\u062C\u0627\u0632 \u062B\u0628\u062A \u062A\u0631\u062F\u062F", hint: "\u062F\u06CC\u0631\u062A\u0631\u06CC\u0646 \u0632\u0645\u0627\u0646\u06CC \u06A9\u0647 \u062B\u0628\u062A \u062A\u0631\u062F\u062F \u067E\u0630\u06CC\u0631\u0641\u062A\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F", value: traffic_end, onChange: setTrafficEnd }),
+                React.createElement(ShiftMinuteField, { label: "\u062A\u0627\u062E\u06CC\u0631 \u0645\u062C\u0627\u0632", value: late_ok, onChange: setLateOk }),
+                React.createElement(ShiftMinuteField, { label: "\u062A\u0639\u062C\u06CC\u0644 \u0645\u062C\u0627\u0632", value: early_ok, onChange: setEarlyOk }),
                 React.createElement("label", { className: "label", style: { marginTop: 10 } }, "\u0634\u0628 \u06A9\u0627\u0631\u06CC:"),
                 React.createElement("label", { className: "row", style: { gap: 6, marginBottom: 10 } },
                     React.createElement("input", { type: "checkbox", checked: is_night, onChange: e => setIsNight(e.target.checked) }),
                     "\u0627\u0646\u062A\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0634\u06CC\u0641\u062A \u062F\u0631 \u0631\u0648\u0632 \u0628\u0639\u062F \u0627\u0633\u062A"),
                 is_night && React.createElement(React.Fragment, null,
-                    React.createElement(Time, { label: "\u0634\u0631\u0648\u0639 \u0634\u0628 \u06A9\u0627\u0631\u06CC", value: night_start, onChange: setNightStart }),
+                    React.createElement(ShiftModalTimeField, { label: "\u0634\u0631\u0648\u0639 \u0634\u0628 \u06A9\u0627\u0631\u06CC", value: night_start, onChange: setNightStart }),
                     React.createElement("div", { style: { marginBottom: 12 } },
                         React.createElement("label", { className: "label" }, "\u0645\u062F\u062A \u0632\u0645\u0627\u0646 \u0634\u0628 \u06A9\u0627\u0631\u06CC"),
-                        React.createElement("input", { className: "input", type: "time", value: night_dur, onChange: e => setNightDur(e.target.value) }))),
+                        React.createElement(ShiftClockInput, { value: night_dur, onChange: setNightDur }))),
                 React.createElement("div", { style: { borderTop: "1px solid var(--line)", margin: "14px 0", paddingTop: 12 } },
                     React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 10 } },
                         React.createElement("input", { type: "checkbox", checked: p1, onChange: e => setP1(e.target.checked) }),
@@ -9727,10 +9753,10 @@ function ShiftDayModal({ day, jdate, onSave, onClose }) {
                     p1 && React.createElement("div", { className: "row", style: { gap: 10 } },
                         React.createElement("div", { style: { flex: 1 } },
                             React.createElement("label", { className: "label" }, "\u0632\u0645\u0627\u0646 \u0634\u0631\u0648\u0639"),
-                            React.createElement("input", { className: "input", type: "time", value: p1s, onChange: e => setP1s(e.target.value) })),
+                            React.createElement(ShiftClockInput, { value: p1s, onChange: setP1s })),
                         React.createElement("div", { style: { flex: 1 } },
                             React.createElement("label", { className: "label" }, "\u0632\u0645\u0627\u0646 \u067E\u0627\u06CC\u0627\u0646"),
-                            React.createElement("input", { className: "input", type: "time", value: p1e, onChange: e => setP1e(e.target.value) })))),
+                            React.createElement(ShiftClockInput, { value: p1e, onChange: setP1e })))),
                 React.createElement("div", { style: { borderTop: "1px solid var(--line)", paddingTop: 12 } },
                     React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 10 } },
                         React.createElement("input", { type: "checkbox", checked: p2, onChange: e => setP2(e.target.checked) }),
@@ -9738,10 +9764,10 @@ function ShiftDayModal({ day, jdate, onSave, onClose }) {
                     p2 && React.createElement("div", { className: "row", style: { gap: 10 } },
                         React.createElement("div", { style: { flex: 1 } },
                             React.createElement("label", { className: "label" }, "\u0632\u0645\u0627\u0646 \u0634\u0631\u0648\u0639"),
-                            React.createElement("input", { className: "input", type: "time", value: p2s, onChange: e => setP2s(e.target.value) })),
+                            React.createElement(ShiftClockInput, { value: p2s, onChange: setP2s })),
                         React.createElement("div", { style: { flex: 1 } },
                             React.createElement("label", { className: "label" }, "\u0632\u0645\u0627\u0646 \u067E\u0627\u06CC\u0627\u0646"),
-                            React.createElement("input", { className: "input", type: "time", value: p2e, onChange: e => setP2e(e.target.value) }))))),
+                            React.createElement(ShiftClockInput, { value: p2e, onChange: setP2e }))))),
             React.createElement("button", { className: "btn p", style: { width: "100%", marginTop: 16 }, onClick: save }, "\u062B\u0628\u062A"))));
 }
 // تقویم شمسی شیفت پیشرفته با کپی/پیست روز

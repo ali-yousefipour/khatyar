@@ -57,6 +57,12 @@
   .tf{display:flex;flex-direction:column;gap:2px}
   .tf-l{font-size:10.5px;color:var(--muted)}
   .tf-i{padding:4px 6px!important;max-width:104px;font-size:12px}
+  .shift-clock-wrap{display:flex;align-items:center;gap:8px;min-width:0}
+  .shift-clock-input{font-variant-numeric:tabular-nums;font-family:ui-monospace,Consolas,monospace;letter-spacing:.06em;text-align:center;direction:ltr;max-width:150px;border-color:#cbd5e1!important;background:linear-gradient(180deg,#fff,#f8fafc)!important;box-shadow:inset 0 1px 2px rgba(15,23,42,.04);transition:border-color .15s,box-shadow .15s}
+  .shift-clock-input:focus,.shift-minute-input:focus{border-color:var(--brand)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 16%,transparent),inset 0 1px 2px rgba(15,23,42,.04)!important;outline:0}
+  .shift-clock-input::placeholder{color:#94a3b8;letter-spacing:.04em}
+  .shift-clock-hint{font-size:10px;color:var(--muted);white-space:nowrap}
+  .shift-minute-input{max-width:180px;font-variant-numeric:tabular-nums;text-align:left;direction:ltr}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
   .cal-h{text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:4px 0}
   .cal-d{min-height:54px;border:1px solid var(--line);border-radius:8px;padding:4px;cursor:pointer;position:relative;background:#fff;transition:.15s}
