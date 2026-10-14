@@ -28,8 +28,8 @@ jobs:
           set -euo pipefail
           target='/db/production_schema_snapshot_2026-10-15.sql'
           lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "set ftp:ssl-force false; set ftp:ssl-protect-data false; set ssl:verify-certificate no; set ftp:passive-mode true; set ftp:prefer-epsv false; set net:timeout 30; set net:max-retries 2; set cmd:fail-exit true; rm \"${target}\"; bye"
-          listing="$(lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "set ftp:ssl-force false; set ftp:ssl-protect-data false; set ssl:verify-certificate no; set ftp:passive-mode true; set ftp:prefer-epsv false; set net:timeout 30; set net:max-retries 2; cls -1 \"${target}\"; bye" 2>&1 || true)"
-          if grep -Fq 'production_schema_snapshot_2026-10-15.sql' <<<"${listing}"; then
+          listing="$(lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "set ftp:ssl-force false; set ftp:ssl-protect-data false; set ssl:verify-certificate no; set ftp:passive-mode true; set ftp:prefer-epsv false; set net:timeout 30; set net:max-retries 2; cls -1 /db; bye" 2>&1 || true)"
+          if grep -Eq '(^|/)production_schema_snapshot_2026-10-15\.sql$' <<<"${listing}"; then
             echo 'Schema snapshot still exists on the production host.' >&2
             exit 1
           fi
