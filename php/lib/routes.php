@@ -3001,7 +3001,7 @@ function _attendance_rows_for_jdate($userId,$jdate){
 
 // گزارش تجمیعی کارکرد ماهانه (شبیه فینتو) — بر اساس staff_attendance و شیفت کاربر
 // پارامترها: ?year=1404&month=6  (یا from/to جلالی)
-function _shift_month_report($jy, $jm) {
+function _shift_month_report($jy, $jm, $throughJdate=null) {
   // رکوردهای بازِ قدیمی باید قبل از گزارش مطابق سیاست Auto-Close بسته شوند؛
   // وگرنه گزارش ماه‌های گذشته ممکن است یک جلسهٔ باز را صفر محاسبه کند.
   try {
@@ -3013,6 +3013,9 @@ function _shift_month_report($jy, $jm) {
   $prefix = "$jy-$jmStr-";
   // تعداد روزهای ماه شمسی: ۱..۶ ⇒۳۱، ۷..۱۱⇒۳۰، ۱۲⇒۲۹/۳۰
   $days = ShiftCalc::jMonthDays($jy, $jm);
+  $throughJdate=$throughJdate?ShiftCalc::normJdate($throughJdate):null;
+  $lastDay=ShiftCalc::monthReportLastDay($jy,$jm,$throughJdate);
+  $reportNow=time();
   $holidays = array_column(Db::all("SELECT jdate FROM holidays WHERE jdate LIKE ?", [$prefix.'%']), 'jdate');
   $holidaySet = array_flip($holidays);
   // کاربرانی که در بخشی از ماه شیفت فعال دارند
@@ -3042,9 +3045,41 @@ function _shift_month_report($jy, $jm) {
       foreach (Db::all("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate LIKE ?", [$a['shift_id'], $prefix.'%']) as $dr)
         $dayRows[$dr['jdate']] = $dr;
     }
+    // مرخصی/ماموریت تأییدشده باید از کسری همان روز کم شود؛ بازه‌های چندروزه
+    // مطابق گزارش روزانه بین روزهای بازه تقسیم می‌شوند.
+    $reqAgg = ['annual_min'=>0,'sick_min'=>0,'mission_min'=>0,'ot_req_min'=>0];
+    $approvedExemptByJdate=[];
+    $rqs=Db::all("SELECT type,unit,from_jdate,to_jdate,the_date,from_time,to_time,MAX(minutes) AS minutes
+      FROM requests WHERE user_id=? AND status='approved' AND type IN('annual','sick','unpaid','mission','overtime')
+      GROUP BY type,unit,from_jdate,to_jdate,the_date,from_time,to_time",[$a['user_id']]);
+    $normSummaryDate=static function($v){$v=trim(str_replace('/','-',(string)$v));if(!preg_match('/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/',$v,$m))return null;return sprintf('%04d-%02d-%02d',(int)$m[1],(int)$m[2],(int)$m[3]);};
+    foreach($rqs as $rq){
+      $from=$normSummaryDate($rq['from_jdate']??'')?:$normSummaryDate($rq['the_date']??'');
+      $to=$normSummaryDate($rq['to_jdate']??'')?:$normSummaryDate($rq['the_date']??'')?:$from;
+      if(!$from||!$to||$to<$from)continue;
+      $fromTs=j_to_ts($from);$toTs=j_to_ts($to);
+      if($fromTs===false||$fromTs===null||$toTs===false||$toTs===null||$toTs<$fromTs)continue;
+      if(($rq['unit']??'')==='hourly'){
+        $mins=(int)($rq['minutes']??0);
+        if($mins<=0&&!empty($rq['from_time'])&&!empty($rq['to_time'])){[$fh,$fm]=array_map('intval',explode(':',(string)$rq['from_time']));[$th,$tm]=array_map('intval',explode(':',(string)$rq['to_time']));$mins=max(0,$th*60+$tm-$fh*60-$fm);}
+        $reqDays=[$from=>$mins];
+      }else{
+        $dayCount=max(1,(int)floor(($toTs-$fromTs)/86400)+1);$total=(int)($rq['minutes']??0);if($total<=0)$total=$dayCount*480;$base=intdiv($total,$dayCount);$rem=$total%$dayCount;$reqDays=[];
+        for($dts=$fromTs,$i=0;$dts<=$toTs;$dts+=86400,$i++){[$ry,$rm,$rd]=gregorian_to_jalali((int)date('Y',$dts),(int)date('n',$dts),(int)date('j',$dts));$reqDays[sprintf('%04d-%02d-%02d',$ry,$rm,$rd)]=$base+($i<$rem?1:0);}
+      }
+      foreach($reqDays as $reqDate=>$mins){
+        if(strpos($reqDate,$prefix)!==0)continue;
+        if($throughJdate!==null&&strcmp($reqDate,$throughJdate)>0)continue;
+        if($rq['type']==='annual')$reqAgg['annual_min']+=$mins;
+        elseif($rq['type']==='sick')$reqAgg['sick_min']+=$mins;
+        elseif($rq['type']==='mission')$reqAgg['mission_min']+=$mins;
+        elseif($rq['type']==='overtime')$reqAgg['ot_req_min']+=$mins;
+        if(in_array($rq['type'],['annual','sick','unpaid','mission'],true))$approvedExemptByJdate[$reqDate]=($approvedExemptByJdate[$reqDate]??0)+$mins;
+      }
+    }
     // جلسات ثبت‌حضور کاربر در این ماه (بر اساس تاریخ میلادیِ متناظر با هر روز شمسی)
     $tot = ['worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'friday'=>0,'holiday'=>0,'late_in'=>0,'early_out'=>0,'surplus'=>0,'adjusted_ot'=>0,'present_days'=>0,'absent_min'=>0];
-    for ($d=1; $d<=$days; $d++) {
+    for ($d=1; $d<=$lastDay; $d++) {
       $jdate = $prefix.str_pad($d,2,'0',STR_PAD_LEFT);
       if (!empty($a['from_jdate']) && strcmp($jdate, str_replace('/','-',$a['from_jdate'])) < 0) continue;
       if (!empty($a['to_jdate']) && strcmp($jdate, str_replace('/','-',$a['to_jdate'])) > 0) continue;
@@ -3055,38 +3090,37 @@ function _shift_month_report($jy, $jm) {
       // روزهای دارای تردد عبور کند؛ مخصوصاً برای شیفت خودکار، جمعه، تعطیل
       // و روزهای بدون موظفی. در غیر این صورت گزارش ماهانه می‌توانست یک روز
       // آزاد را به اشتباه غیبت ۷:۳۳ ثبت کند.
-      $sessions = array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]], $rows);
+      $sessions = array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):($throughJdate!==null?$reportNow:null),'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]], $rows);
       $w = ShiftCalc::dayWork($shift, $jdate, $dr, $sessions, $isHol);
+      $hasOpenSession=(bool)array_filter($rows,static fn($r)=>empty($r['check_out']));
+      $isInCurrentReport=$throughJdate!==null&&strcmp($jdate,$throughJdate)<=0;
+      $fullExpected=max(0,(int)($w['expected']??0));
+      $elapsedExpected=$isInCurrentReport?ShiftCalc::elapsedExpectedMinutes($shift,$jdate,$dr,$reportNow):null;
+      $isAsOfDay=$isInCurrentReport&&($jdate===$throughJdate||$hasOpenSession||($elapsedExpected!==null&&$elapsedExpected<$fullExpected));
+      if($isInCurrentReport&&$elapsedExpected!==null)$w['expected']=$elapsedExpected;
 
       if (!$rows) {
         // موظفی ماهانه باید حتی در روز غیبت هم در مجموع ثبت شود.
         // غیبت همان موظفیِ انجام‌نشده است؛ بنابراین حذف expected از
         // این روزها باعث کم‌نمایی موظفی ماهانه می‌شد.
         $dayExpected = max(0, (int)($w['expected'] ?? 0));
+        $dayExempt=min($dayExpected,max(0,(int)($approvedExemptByJdate[$jdate]??0)));
+        $dayAbsent=($isAsOfDay&&$elapsedExpected===null)?0:max(0,$dayExpected-$dayExempt);
         $tot['expected'] += $dayExpected;
-        $tot['absent_min'] += $dayExpected;
+        $tot['absent_min'] += $dayAbsent;
         continue;
       }
+      if($isAsOfDay)$w['shortage']=$elapsedExpected===null?0:max(0,$elapsedExpected-min((int)($w['in_shift']??0),$elapsedExpected));
+      if($isAsOfDay&&$hasOpenSession)$w['early_out']=0;
+      $dayExempt=min(max(0,(int)($w['expected']??0)),max(0,(int)($approvedExemptByJdate[$jdate]??0)));
+      if($dayExempt>0)$w['shortage']=max(0,(int)($w['shortage']??0)-$dayExempt);
       $adj = _attendance_adjusted_overtime($a['user_id'],$jdate);
       if ($adj > 0) { $use = min($adj, (int)($w['surplus'] ?? 0)); $w['overtime'] = (int)($w['overtime'] ?? 0) + $use; $w['surplus'] = max(0, (int)($w['surplus'] ?? 0) - $use); $w['adjusted_ot'] = $use; }
       foreach (['worked','in_shift','expected','overtime','shortage','night','friday','holiday','late_in','early_out','surplus','adjusted_ot'] as $k) $tot[$k]+=($w[$k] ?? 0);
       if ($w['worked']>0) $tot['present_days']++;
     }
     if (!empty($shift['monthly_ot_cap'])) $tot['overtime']=min($tot['overtime'],(int)$shift['monthly_ot_cap']);
-    // تجمیع درخواست‌های تأییدشدهٔ این ماه (مرخصی/ماموریت/اضافه‌کار)
-    $reqAgg = ['annual_min'=>0,'sick_min'=>0,'mission_min'=>0,'ot_req_min'=>0];
-    $rqs = Db::all("SELECT type, minutes, the_date, from_jdate FROM requests
-      WHERE user_id=? AND status='approved' AND type IN('annual','sick','mission','overtime')", [$a['user_id']]);
-    foreach ($rqs as $rq) {
-      $d = $rq['the_date'] ?: $rq['from_jdate'];
-      if (!$d || strpos($d, $prefix) !== 0) continue;
-      $mins = (int)$rq['minutes'];
-      if ($rq['type']==='annual') $reqAgg['annual_min']+=$mins;
-      elseif ($rq['type']==='sick') $reqAgg['sick_min']+=$mins;
-      elseif ($rq['type']==='mission') $reqAgg['mission_min']+=$mins;
-      elseif ($rq['type']==='overtime') $reqAgg['ot_req_min']+=$mins;
-    }
-    $out[] = array_merge(['user_id'=>$a['user_id'],'name'=>$a['name'],'role'=>$a['role'],'shift'=>$shift['title']], $tot, $reqAgg);
+    $out[] = array_merge(['user_id'=>$a['user_id'],'name'=>$a['name'],'role'=>$a['role'],'shift'=>$shift['title'],'shift_type'=>$shift['type']??'auto'], $tot, $reqAgg);
   }
   return $out;
 }
@@ -3913,10 +3947,14 @@ route('GET', '/api/my/shift-schedule', function($p,$b,$u){
 });
 route('GET', '/api/my/work-summary', function($p,$b,$u){
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
-  if(!$jy){ [$jy,$jm]=array_slice(gregorian_to_jalali(date('Y'),date('m'),date('d')),0,2); }
-  $rows = _shift_month_report($jy,$jm);
-  foreach($rows as $r) if($r['user_id']==$u['id']) return ['year'=>$jy,'month'=>$jm,'data'=>$r];
-  return ['year'=>$jy,'month'=>$jm,'data'=>null];
+  [$todayY,$todayM,$todayD]=array_slice(gregorian_to_jalali((int)date('Y'),(int)date('m'),(int)date('d')),0,3);
+  if(!$jy){$jy=$todayY;$jm=$todayM;}
+  $todayJ=sprintf('%04d-%02d-%02d',$todayY,$todayM,$todayD);
+  $throughJdate=($jy===$todayY&&$jm===$todayM)?$todayJ:null;
+  $rows = _shift_month_report($jy,$jm,$throughJdate);
+  $throughDate=$throughJdate?:sprintf('%04d-%02d-%02d',$jy,$jm,ShiftCalc::jMonthDays($jy,$jm));
+  foreach($rows as $r) if($r['user_id']==$u['id']) return ['year'=>$jy,'month'=>$jm,'through_jdate'=>$throughDate,'data'=>$r];
+  return ['year'=>$jy,'month'=>$jm,'through_jdate'=>$throughDate,'data'=>null];
 });
 
 // مانده مرخصی/ماموریت/اضافه‌کار یک کاربر (سقف منهای مصرف)

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, TextInput, Image, Linking } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -67,12 +68,24 @@ export function WorkSummaryScreen() {
   const [ym, setYm] = useState(null);
   const [slip, setSlip] = useState(null);
   const [company, setCompany] = useState({});
-  const load = () => {
-    request('/my/work-summary').then((r) => { setData(r.data); setYm([r.year, r.month]); }).catch(() => setData(null));
-    request('/my/payslip').then(setSlip).catch(() => {});
-    request('/my/company-info').then(setCompany).catch(() => {});
-  };
-  useEffect(() => { load(); }, []);
+  const [loadError, setLoadError] = useState('');
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setData(undefined);
+    setLoadError('');
+    request('/my/work-summary', { noStore: true }).then((r) => {
+      if (!active) return;
+      setData(r.data ? { ...r.data, through_jdate: r.through_jdate } : null);
+      setYm([r.year, r.month]);
+    }).catch((e) => {
+      if (!active) return;
+      setData(null);
+      setLoadError(e.message || 'دریافت کارکرد ناموفق بود.');
+    });
+    request('/my/payslip', { noStore: true }).then((r) => { if (active) setSlip(r); }).catch(() => {});
+    request('/my/company-info', { noStore: true }).then((r) => { if (active) setCompany(r); }).catch(() => {});
+    return () => { active = false; };
+  }, []));
   const hm = (m) => faNum(`${Math.floor((m || 0) / 60)}:${String((m || 0) % 60).padStart(2, '0')}`);
   const money = (n) => faNum(Number(n || 0).toLocaleString());
   const J = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
@@ -125,11 +138,14 @@ table{width:100%;border-collapse:collapse;font-size:12px}td{padding:6px 4px;bord
   return (
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       {ym && <Text style={s.month}>{J[ym[1] - 1]} {ym[0]}</Text>}
-      {!data ? <Text style={[s.muted, { marginTop: 20 }]}>برای این ماه شیفت یا ترددی ثبت نشده است.</Text> : (
+      {data?.through_jdate ? <Text style={s.summaryThrough}>محاسبه تا {faNum(data.through_jdate.replace(/-/g, '/'))}</Text> : null}
+      {data && <Text style={s.summaryHint}>{['auto', 'floating'].includes(data.shift_type) ? 'کسر کار روز جاری برای شیفت‌های بدون ساعت‌بندی پس از پایان روز نهایی می‌شود.' : 'کسر کار روز جاری فقط بر پایهٔ زمان سپری‌شده از بازه‌های شیفت محاسبه می‌شود.'}</Text>}
+      {!data ? <Text style={[s.muted, { marginTop: 20 }]}>{loadError || 'برای این ماه شیفت یا ترددی ثبت نشده است.'}</Text> : (
         <View>
           <Row l="روزهای حضور" v={`${faNum(data.present_days || 0)} روز`} />
           <Row l="کارکرد" v={hm(data.worked)} hl />
           <Row l="موظفی" v={hm(data.expected)} />
+          <Row l="غیبت" v={hm(data.absent_min)} color={C.danger} />
           <Row l="اضافه‌کار" v={hm(data.overtime)} color={C.ok} />
           <Row l="مازاد حضور" v={hm(data.surplus)} color={C.danger} />
           <Row l="مازاد تبدیل‌شده به اضافه‌کار" v={hm(data.adjusted_ot)} color={C.ok} />
@@ -185,6 +201,8 @@ const s = StyleSheet.create({
   no: { flex: 1, backgroundColor: '#fdeef0', borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
   noT: { color: C.danger, fontFamily: FONT.bold, fontSize: 14 },
   month: { fontFamily: FONT.bold, fontSize: 18, color: C.ink, textAlign: 'center', marginBottom: 14 },
+  summaryThrough: { fontFamily: FONT.bold, fontSize: 12, color: C.brand, textAlign: 'center', marginTop: -7, marginBottom: 7 },
+  summaryHint: { fontFamily: FONT.regular, fontSize: 11, lineHeight: 18, color: C.muted, textAlign: 'center', marginBottom: 12 },
   slipTitle: { fontFamily: FONT.bold, fontSize: 16, color: C.ink, textAlign: 'center', marginBottom: 10, marginTop: 6 },
   printBtn: { backgroundColor: C.brand, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginTop: 14 },
   printBtnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 14 },
