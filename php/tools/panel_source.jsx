@@ -5980,7 +5980,7 @@ function AdvancedCalendar({shift}){
       {Array.from({length:dim}).map((_,i)=>{ const d=i+1; const key=jd2(d); const v=days[key]; const has=v&&!v.is_off&&(v.segments||[]).length; const off=v&&v.is_off;
         const shiftTimes=has?(v.segments||[]).map(seg=>seg.s&&seg.e?`${seg.s}–${seg.e}`:null).filter(Boolean):[];
         const showPaste=!!clip&&clip.source!==key;
-        return(<div key={key} className={"cal-d"+(sel===key?" sel":"")+(has?" has":"")+(off?" off":"")} onClick={()=>setSel(key)}>
+        return(<div key={key} className={"cal-d"+(sel===key?" sel":"")+(has?" has":"")+(off?" off":"")} title={clip&&clip.source!==key?"برای پیست شیفت روی این روز کلیک راست کنید":undefined} onClick={()=>setSel(key)} onContextMenu={e=>{if(!clip)return;e.preventDefault();if(clip.source!==key)pasteShiftDay(key);}}>
           <span className="cal-n">{fa(d)}</span>
           {has&&!clip&&<button type="button" title="کپی شیفت این روز" aria-label={`کپی شیفت ${key}`} onClick={e=>{e.stopPropagation();copyShiftDay(key);}} style={{position:"absolute",top:2,insetInlineEnd:3,border:0,background:"transparent",color:"var(--brand)",cursor:"pointer",fontSize:16,lineHeight:1,padding:2}}>⧉</button>}
           {showPaste&&<button type="button" className="attendance-shift-day-paste" title="پیست شیفت در این روز" aria-label={`پیست شیفت در ${key}`} onClick={e=>{e.stopPropagation();pasteShiftDay(key);}} style={{position:"absolute",top:2,insetInlineStart:3,border:0,background:"transparent",color:"var(--brand)",cursor:"pointer",fontSize:15,lineHeight:1,padding:2}}>▣</button>}

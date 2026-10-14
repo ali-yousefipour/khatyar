@@ -9869,7 +9869,9 @@ function AdvancedCalendar({ shift }) {
                 const off = v && v.is_off;
                 const shiftTimes = has ? (v.segments || []).map(seg => seg.s && seg.e ? `${seg.s}–${seg.e}` : null).filter(Boolean) : [];
                 const showPaste = !!clip && clip.source !== key;
-                return (React.createElement("div", { key: key, className: "cal-d" + (sel === key ? " sel" : "") + (has ? " has" : "") + (off ? " off" : ""), onClick: () => setSel(key) },
+                return (React.createElement("div", { key: key, className: "cal-d" + (sel === key ? " sel" : "") + (has ? " has" : "") + (off ? " off" : ""), title: clip && clip.source !== key ? "برای پیست شیفت روی این روز کلیک راست کنید" : undefined, onClick: () => setSel(key), onContextMenu: e => { if (!clip)
+                        return; e.preventDefault(); if (clip.source !== key)
+                        pasteShiftDay(key); } },
                     React.createElement("span", { className: "cal-n" }, fa(d)),
                     has && !clip && React.createElement("button", { type: "button", title: "\u06A9\u067E\u06CC \u0634\u06CC\u0641\u062A \u0627\u06CC\u0646 \u0631\u0648\u0632", "aria-label": `کپی شیفت ${key}`, onClick: e => { e.stopPropagation(); copyShiftDay(key); }, style: { position: "absolute", top: 2, insetInlineEnd: 3, border: 0, background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 2 } }, "\u29C9"),
                     showPaste && React.createElement("button", { type: "button", className: "attendance-shift-day-paste", title: "\u067E\u06CC\u0633\u062A \u0634\u06CC\u0641\u062A \u062F\u0631 \u0627\u06CC\u0646 \u0631\u0648\u0632", "aria-label": `پیست شیفت در ${key}`, onClick: e => { e.stopPropagation(); pasteShiftDay(key); }, style: { position: "absolute", top: 2, insetInlineStart: 3, border: 0, background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: 2 } }, "\u25A3"),
