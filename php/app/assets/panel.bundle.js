@@ -10012,6 +10012,7 @@ function AttendanceReport() {
     const [addModal, setAddModal] = useState(null);
     const [dayRequests, setDayRequests] = useState([]);
     const [conversionModal, setConversionModal] = useState(null);
+    const [gpsDeficitModal, setGpsDeficitModal] = useState(null);
     useEffect(() => { let active = true; db.usersLite().then(us => { if (active)
         setUsers(Array.isArray(us) ? us : []); }).catch(() => { }).finally(() => { if (active)
         setUsersLoading(false); }); return () => { active = false; }; }, []);
@@ -10056,7 +10057,11 @@ function AttendanceReport() {
     }, [mapPunch]);
     useEffect(() => {
         const onKeyDown = e => { if (e.key !== "Escape" && e.key !== "Esc")
-            return; if (mapPunch) {
+            return; if (gpsDeficitModal) {
+            setGpsDeficitModal(null);
+            e.preventDefault();
+            return;
+        } if (mapPunch) {
             setMapPunch(null);
             e.preventDefault();
             return;
@@ -10066,7 +10071,7 @@ function AttendanceReport() {
         } };
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, [mapPunch, openDay]);
+    }, [gpsDeficitModal, mapPunch, openDay]);
     const visibleUsers = useMemo(() => {
         const q = String(personQuery || "").trim().toLowerCase();
         // از رندر هم‌زمان هزاران option جلوگیری می‌شود؛ جست‌وجو همچنان کل فهرست را بررسی می‌کند.
@@ -10311,14 +10316,59 @@ function AttendanceReport() {
                         const fontWeight = (i < 2 && red) ? 700 : 400;
                         const textAlign = ["ورود", "خروج", "اولین ورود", "آخرین خروج"].includes(title) ? "center" : "right";
                         return React.createElement("td", { key: title, style: { whiteSpace: "nowrap", color: red ? "var(--danger)" : "inherit", fontWeight: fontWeight, textAlign: textAlign } },
-                            (title === "مازاد حضور" && mins(d.surplus) > 0) || (title === "کسری کار" && mins(d.shortage) > 0)
-                                ? React.createElement("button", { type: "button", className: "btn g", style: { padding: "2px 6px", fontSize: 11, cursor: "pointer", fontWeight: 800 }, title: title === "مازاد حضور" ? "تبدیل مازاد حضور به اضافه‌کار" : "تبدیل کسری کار به مرخصی استحقاقی ساعتی", onClick: () => setConversionModal({ mode: title === "مازاد حضور" ? "surplus" : "shortage", jdate: d.jdate, minutes: mins(title === "مازاد حضور" ? d.surplus : d.shortage), day: d }) }, attendanceCell(getter(d)))
-                                : attendanceCell(getter(d)),
+                            title === "کسر کار غیر فعال کردن برنامه" && mins(getter(d)) > 0
+                                ? React.createElement("button", { type: "button", className: "btn g", style: { padding: "2px 6px", fontSize: 11, cursor: "pointer", fontWeight: 800 }, title: "\u0646\u0645\u0627\u06CC\u0634 \u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631\u06CC GPS/\u0628\u0631\u0646\u0627\u0645\u0647", onClick: () => setGpsDeficitModal({ jdate: d.jdate, minutes: mins(getter(d)), details: Array.isArray(d.gps_inactive_details) ? d.gps_inactive_details : [] }) }, attendanceCell(getter(d)))
+                                : (title === "مازاد حضور" && mins(d.surplus) > 0) || (title === "کسری کار" && mins(d.shortage) > 0)
+                                    ? React.createElement("button", { type: "button", className: "btn g", style: { padding: "2px 6px", fontSize: 11, cursor: "pointer", fontWeight: 800 }, title: title === "مازاد حضور" ? "تبدیل مازاد حضور به اضافه‌کار" : "تبدیل کسری کار به مرخصی استحقاقی ساعتی", onClick: () => setConversionModal({ mode: title === "مازاد حضور" ? "surplus" : "shortage", jdate: d.jdate, minutes: mins(title === "مازاد حضور" ? d.surplus : d.shortage), day: d }) }, attendanceCell(getter(d)))
+                                    : attendanceCell(getter(d)),
                             title === "تاریخ" && red && React.createElement("span", { style: { display: "block", fontSize: 10 } }, "\u062A\u0639\u0637\u06CC\u0644"),
                             title === "تاریخ" && React.createElement("button", { type: "button", className: "btn g", style: { padding: "3px 6px", fontSize: 10, marginInlineStart: 5 }, onClick: () => setOpenDay(openDay === d.jdate ? null : d.jdate) }, "\u062C\u0632\u0626\u06CC\u0627\u062A"));
                     }));
                 })))),
         data && React.createElement("div", { style: { marginTop: 8, fontSize: 11, color: "var(--muted)" } }, "\u06F2\u06F9 \u0633\u062A\u0648\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A\u061B \u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0627\u0632 \u062F\u0627\u062F\u0647 \u0648\u0627\u0642\u0639\u06CC \u062A\u0631\u062F\u062F \u062E\u0648\u0627\u0646\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+        gpsDeficitModal && React.createElement("div", { role: "presentation", onClick: e => { if (e.target === e.currentTarget)
+                setGpsDeficitModal(null); }, style: { position: "fixed", inset: 0, zIndex: 100500, background: "rgba(0,0,0,.58)", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(10px,2vw,24px)" } },
+            React.createElement("div", { className: "card-p", role: "dialog", "aria-modal": "true", "aria-label": "\u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631 \u06A9\u0627\u0631 GPS \u0648 \u0628\u0631\u0646\u0627\u0645\u0647", onClick: e => e.stopPropagation(), style: { width: "min(900px,96vw)", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", padding: 0 } },
+                React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 18px", borderBottom: "1px solid var(--line)", flexShrink: 0 } },
+                    React.createElement("div", null,
+                        React.createElement("h3", { style: { margin: 0 } }, "\u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631 \u06A9\u0627\u0631 GPS / \u0628\u0631\u0646\u0627\u0645\u0647"),
+                        React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 4 } },
+                            "\u062A\u0627\u0631\u06CC\u062E \u0648\u0631\u0648\u062F: ",
+                            faPlain(String(gpsDeficitModal.jdate || "—")),
+                            " \u00B7 \u0645\u062F\u062A \u062B\u0628\u062A\u200C\u0634\u062F\u0647: ",
+                            hm(gpsDeficitModal.minutes),
+                            " \u0633\u0627\u0639\u062A")),
+                    React.createElement("button", { className: "btn g", onClick: () => setGpsDeficitModal(null) }, "\u0628\u0633\u062A\u0646")),
+                React.createElement("div", { style: { overflowY: "auto", padding: "16px 18px" } },
+                    gpsDeficitModal.details.length === 0
+                        ? React.createElement("div", { className: "muted", style: { fontSize: 13, padding: 12 } }, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u06A9\u0633\u0631\u06CC\u060C \u0628\u0627\u0632\u0647 \u0648 \u0639\u0644\u062A \u062C\u0632\u0626\u06CC \u062F\u0631 \u0633\u0648\u0627\u0628\u0642 \u0642\u0627\u0628\u0644 \u062F\u0633\u062A\u0631\u0633\u06CC \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F. \u0627\u06CC\u0646 \u0645\u0648\u0631\u062F \u0628\u0647\u200C\u062A\u0646\u0647\u0627\u06CC\u06CC \u0627\u062B\u0628\u0627\u062A \u0646\u0645\u06CC\u200C\u06A9\u0646\u062F \u06A9\u0647 \u0628\u0631\u0646\u0627\u0645\u0647 \u0628\u0633\u062A\u0647 \u06CC\u0627 GPS \u062E\u0627\u0645\u0648\u0634 \u0628\u0648\u062F\u0647 \u0627\u0633\u062A.")
+                        : React.createElement("div", { style: { overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 } },
+                            React.createElement("table", { style: { width: "100%", minWidth: 650 } },
+                                React.createElement("thead", null,
+                                    React.createElement("tr", null,
+                                        React.createElement("th", null, "\u0627\u0632 \u0633\u0627\u0639\u062A"),
+                                        React.createElement("th", null, "\u062A\u0627 \u0633\u0627\u0639\u062A"),
+                                        React.createElement("th", null, "\u0645\u062F\u062A"),
+                                        React.createElement("th", null, "\u0639\u0644\u062A / \u0634\u0648\u0627\u0647\u062F \u062B\u0628\u062A\u200C\u0634\u062F\u0647"))),
+                                React.createElement("tbody", null, gpsDeficitModal.details.map((r, i) => {
+                                    const start = String(r.start_at || "");
+                                    const end = String(r.end_at || "");
+                                    const startTime = start.slice(11, 16) || "—";
+                                    const endTime = end.slice(11, 16) || "—";
+                                    const nextDay = start.slice(0, 10) !== end.slice(0, 10);
+                                    return React.createElement("tr", { key: i },
+                                        React.createElement("td", { style: { whiteSpace: "nowrap" } }, faPlain(startTime)),
+                                        React.createElement("td", { style: { whiteSpace: "nowrap" } },
+                                            faPlain(endTime),
+                                            nextDay ? React.createElement("span", { style: { fontSize: 10, display: "block", color: "var(--muted)" } }, "\u0631\u0648\u0632 \u0628\u0639\u062F") : null),
+                                        React.createElement("td", { style: { whiteSpace: "nowrap" } }, hm(r.minutes || 0)),
+                                        React.createElement("td", { style: { whiteSpace: "normal", minWidth: 260 } },
+                                            React.createElement("div", null, r.reason || "علت مشخص نیست"),
+                                            React.createElement("div", { style: { fontSize: 10, color: "var(--muted)", marginTop: 3 } },
+                                                "\u0634\u0627\u0647\u062F: ",
+                                                r.evidence || "—")));
+                                })))),
+                    React.createElement("div", { style: { fontSize: 11, color: "var(--muted)", marginTop: 12 } }, "\u0646\u06A9\u062A\u0647: \u00AB\u0646\u0628\u0648\u062F \u062A\u0623\u06CC\u06CC\u062F \u062F\u0648\u0631\u0647\u200C\u0627\u06CC\u00BB \u0628\u0627 \u00AB\u062E\u0627\u0645\u0648\u0634\u06CC \u0635\u0631\u06CC\u062D GPS\u00BB \u06CC\u06A9\u0633\u0627\u0646 \u0646\u06CC\u0633\u062A\u061B \u0639\u0644\u062A \u0642\u0637\u0639\u06CC \u0641\u0642\u0637 \u062F\u0631 \u0635\u0648\u0631\u062A \u0648\u062C\u0648\u062F \u0631\u0648\u06CC\u062F\u0627\u062F \u0642\u0627\u0628\u0644 \u0627\u062B\u0628\u0627\u062A \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F.")))),
         conversionModal && React.createElement(AttendanceConversionModal, { userId: uid, mode: conversionModal.mode, jdate: conversionModal.jdate, minutes: conversionModal.minutes, day: conversionModal.day, onSaved: async () => { setConversionModal(null); await refresh(); }, onClose: () => setConversionModal(null) }),
         openDay && data && (() => {
             const d = (data.days || []).find(x => x.jdate === openDay);
