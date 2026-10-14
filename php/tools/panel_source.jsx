@@ -6268,10 +6268,10 @@ function AttendanceReport(){
     </div>}
     {data&&<div style={{marginTop:8,fontSize:11,color:"var(--muted)"}}>۲۹ ستون گزارش فعال است؛ ساعت ورود و خروج از داده واقعی تردد خوانده می‌شود.</div>}
     {conversionModal&&<AttendanceConversionModal userId={uid} mode={conversionModal.mode} jdate={conversionModal.jdate} minutes={conversionModal.minutes} day={conversionModal.day} onSaved={async()=>{setConversionModal(null);await refresh();}} onClose={()=>setConversionModal(null)}/>}
-    {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.48)",display:"flex",alignItems:"center",justifyContent:"center",padding:"clamp(10px,2vw,24px)"}}>
-      <div className="card-p" style={{width:"min(1080px,96vw)",maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",padding:0}}>
+    {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.48)",display:"flex",alignItems:"center",justifyContent:"center",padding:"clamp(10px,2vw,24px)"}} onClick={e=>{if(e.target===e.currentTarget)setOpenDay(null);}}>
+      <div className="card-p" onClick={e=>e.stopPropagation()} style={{width:"min(1080px,96vw)",maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",padding:0}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"14px 18px",borderBottom:"1px solid var(--line)",flexShrink:0}}>
-          <div><h3 style={{margin:0}}>جزئیات تردد</h3><div style={{fontSize:12,color:"var(--muted)",marginTop:3}}>تاریخ: {fa(d.jdate)}</div></div>
+          <div><h3 style={{margin:0}}>جزئیات تردد</h3><div style={{fontSize:12,color:"var(--muted)",marginTop:3}}>تاریخ: {faPlain(String(d.jdate||d.date||openDay||"—"))}</div></div>
           <button className="btn g" onClick={()=>setOpenDay(null)}>بستن</button>
         </div>
         <div style={{overflowY:"auto",padding:"16px 18px"}}>
@@ -6281,7 +6281,7 @@ function AttendanceReport(){
               <tbody>{(d.punches||[]).map(p=>{const hasGpsIn=p.in_lat!==null&&p.in_lat!==undefined&&p.in_lat!==""&&p.in_lng!==null&&p.in_lng!==undefined&&p.in_lng!==""&&Number.isFinite(Number(p.in_lat))&&Number.isFinite(Number(p.in_lng));const hasGpsOut=p.out_lat!==null&&p.out_lat!==undefined&&p.out_lat!==""&&p.out_lng!==null&&p.out_lng!==undefined&&p.out_lng!==""&&Number.isFinite(Number(p.out_lat))&&Number.isFinite(Number(p.out_lng));const hasGps=hasGpsIn||hasGpsOut;return <tr key={p.id}>
                 <td style={{textAlign:"center",whiteSpace:"nowrap"}}>{attendanceCell(pin(p)||"--:--")}</td>
                 <td style={{textAlign:"center",whiteSpace:"nowrap"}}>{attendanceCell(pout(p)||"--:--")}</td>
-                <td style={{textAlign:"center",whiteSpace:"nowrap"}}>{p.method||"—"}</td>
+                <td style={{textAlign:"center",whiteSpace:"nowrap"}}>{(({manual:"دستی",admin:"ثبت مدیریتی",web:"پنل وب",mobile:"برنامه موبایل",app:"برنامه موبایل",gps:"موقعیت مکانی",wifi:"وای‌فای",offline:"آفلاین"})[String(p.method||"").toLowerCase()]||p.method||"—")}</td>
                 <td style={{wordBreak:"break-word"}}>{p.device||"—"}</td>
                 <td><div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                   {hasGps&&<button className="btn g" style={{padding:"5px 8px",fontSize:11}} onClick={()=>setMapPunch(p)}>📍 نمایش ورود و خروج در نقشه</button>}
