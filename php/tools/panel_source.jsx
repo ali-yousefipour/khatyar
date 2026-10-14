@@ -635,7 +635,7 @@ function Dashboard(){
   if(loadErr&&!s)return <div className="panel" style={{margin:"14px 0",border:"1px solid #f0caca"}}><h3 style={{marginTop:0}}>اطلاعات داشبورد دریافت نشد</h3><p style={{color:"var(--danger)",fontSize:13,lineHeight:1.9}}>{loadErr}</p><button className="btn p" onClick={loadStats}>تلاش مجدد</button></div>;
   if(!s)return <div className="panel" style={{margin:"14px 0"}}>اطلاعات داشبورد در دسترس نیست.</div>;
   const K=[["راننده فعال",s.drivers],["خط فعال",s.lines],["حضور امروز",s.today_attendance],["فیش پرداخت‌نشده",s.unpaid_bills],["تذکر این ماه",s.notices_month]];
-  return(<>
+  return(<div className="dashboard-page">
     <div className="kpis">{K.map(([l,n],i)=><div className="kpi" key={i}><div className="n">{fa(n)}</div><div className="l">{l}</div></div>)}</div>
     <LiveStaffDashboard/>
     {bdays&&bdays.people&&bdays.people.length>0&&<div style={{background:"linear-gradient(135deg,#fff5f8,#fef9ee)",border:"1px solid #f5d5e0",borderRadius:14,padding:16,margin:"14px 0"}}>
@@ -681,7 +681,7 @@ function Dashboard(){
       <table><tbody>{rep.map(r=><tr key={r.id}><td>{r.first_name} {r.last_name}</td><td>{r.subject}</td>
         <td><span className={"badge "+badgeCls(r.status)}>{STATUS_FA[r.status]||r.status}</span></td></tr>)}</tbody></table>
     </div>}
-  </>);
+  </div>);
 }
 
 const GROUP_COLORS={supervisor:"#0d7a5f",operator:"#0891b2",admin_staff:"#2563eb",chief_inspector:"#7c3aed",inspector:"#d97706"};
@@ -6307,7 +6307,7 @@ function AttendanceReport(){
   const saveColumnSettings=()=>{const next=Array.from(new Set(draftColumnIndexes)).filter(i=>Number.isInteger(i)&&i>=0&&i<columns.length);if(!next.includes(0))next.unshift(0);setVisibleColumnIndexes(next);try{localStorage.setItem(attendanceColumnStorageKey,JSON.stringify(next));}catch(_){}setColumnSettingsOpen(false);};
   const exportExcel=async()=>{if(!data)return;try{const rows=[columns.map(x=>x[0])];(data.days||[]).forEach(d=>rows.push(columns.map(x=>x[1](d))));const response=await _fetchWithAuth("/api/admin-attendance-xlsx.php",{method:"POST",headers:{"content-type":"application/json","accept":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},body:JSON.stringify({rows}),cache:"no-store"});if(!response.ok){let message="خطا در ساخت فایل Excel";try{const result=await response.json();message=result.error||result.message||message}catch(_){}throw new Error(message)}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`گزارش_تردد_${String(uid)}_${String(from).replace(/\//g,"-")}_${String(to).replace(/\//g,"-")}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}catch(e){alert(e.message||"خطا در دریافت خروجی گزارش")}};
 
-  return(<div className="panel" translate="no" data-no-translate="true"><h3>🕒 گزارش تردد پرسنل</h3>
+  return(<div className="panel attendance-report-page" translate="no" data-no-translate="true"><h3>🕒 گزارش تردد پرسنل</h3>
     <div className="card-p" style={{marginBottom:14}}>
       <div className="row" style={{gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
         <div style={{minWidth:280,flex:"1 1 280px"}}>
@@ -6384,10 +6384,10 @@ function AttendanceReport(){
       </div>
     </div>}
     {conversionModal&&<AttendanceConversionModal userId={uid} mode={conversionModal.mode} jdate={conversionModal.jdate} minutes={conversionModal.minutes} day={conversionModal.day} onSaved={async()=>{setConversionModal(null);await refresh();}} onClose={()=>setConversionModal(null)}/>}
-    {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.48)",display:"flex",alignItems:"center",justifyContent:"center",padding:"clamp(10px,2vw,24px)"}} onClick={e=>{if(e.target===e.currentTarget)setOpenDay(null);}}>
-      <div className="card-p" onClick={e=>e.stopPropagation()} style={{width:"min(1080px,96vw)",maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",padding:0}}>
+    {openDay&&data&&(()=>{const d=(data.days||[]).find(x=>x.jdate===openDay);return d?<div className="attendance-detail-overlay" style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.48)",display:"flex",alignItems:"center",justifyContent:"center",padding:"clamp(10px,2vw,24px)"}} onClick={e=>{if(e.target===e.currentTarget)setOpenDay(null);}}>
+      <div className="card-p attendance-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="attendance-detail-title" onClick={e=>e.stopPropagation()} style={{width:"min(1080px,96vw)",maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",padding:0}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"14px 18px",borderBottom:"1px solid var(--line)",flexShrink:0}}>
-          <div><h3 style={{margin:0}}>جزئیات تردد</h3><div style={{fontSize:12,color:"var(--muted)",marginTop:3}}>تاریخ: {faPlain(String(d.jdate||d.date||openDay||"—"))}</div></div>
+          <div><h3 id="attendance-detail-title" style={{margin:0}}>جزئیات تردد</h3><div style={{fontSize:12,color:"var(--muted)",marginTop:3}}>تاریخ: {faPlain(String(d.jdate||d.date||openDay||"—"))}</div></div>
           <button className="btn g" onClick={()=>setOpenDay(null)}>بستن</button>
         </div>
         <div style={{overflowY:"auto",padding:"16px 18px"}}>
@@ -6413,7 +6413,7 @@ function AttendanceReport(){
           </div>
           <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid var(--line)"}}>
             <div style={{marginBottom:10}}><b>درخواست‌های این روز</b></div>
-            <div style={{display:"flex",flexDirection:"column",gap:7,width:"min(260px,100%)"}}>
+            <div className="attendance-day-actions">
               <button className="btn p" style={{width:"100%"}} onClick={()=>setRequestModal({jdate:d.jdate})}>ثبت درخواست</button>
               <button className="btn g" style={{width:"100%"}} onClick={()=>setAddModal({jdate:d.jdate})}>ثبت تردد دستی</button>
             </div>
@@ -6658,7 +6658,7 @@ function HmField({label,value,onChange,optional=false,autoFocus=false}){
 }
 function PunchModalShell({title,subtitle,children,onClose,actions}){
   return <div className="modal-bg punch-modal-bg" style={{zIndex:99999}} onClick={onClose}>
-    <div className="modal punch-modal" role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()} style={{minHeight:"560px",maxHeight:"92vh",overflowY:"auto",display:"flex",flexDirection:"column"}}>
+    <div className="modal punch-modal" role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()} style={{maxHeight:"92vh",overflowY:"auto",display:"flex",flexDirection:"column"}}>
       <div className="punch-modal-head">
         <div><h3>{title}</h3>{subtitle&&<div className="punch-modal-sub">{subtitle}</div>}</div>
         <button type="button" className="punch-modal-close" onClick={onClose} aria-label="بستن">×</button>

@@ -934,7 +934,7 @@ function Dashboard() {
     if (!s)
         return React.createElement("div", { className: "panel", style: { margin: "14px 0" } }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0646\u06CC\u0633\u062A.");
     const K = [["راننده فعال", s.drivers], ["خط فعال", s.lines], ["حضور امروز", s.today_attendance], ["فیش پرداخت‌نشده", s.unpaid_bills], ["تذکر این ماه", s.notices_month]];
-    return (React.createElement(React.Fragment, null,
+    return (React.createElement("div", { className: "dashboard-page" },
         React.createElement("div", { className: "kpis" }, K.map(([l, n], i) => React.createElement("div", { className: "kpi", key: i },
             React.createElement("div", { className: "n" }, fa(n)),
             React.createElement("div", { className: "l" }, l)))),
@@ -10422,7 +10422,7 @@ function AttendanceReport() {
     catch (e) {
         alert(e.message || "خطا در دریافت خروجی گزارش");
     } };
-    return (React.createElement("div", { className: "panel", translate: "no", "data-no-translate": "true" },
+    return (React.createElement("div", { className: "panel attendance-report-page", translate: "no", "data-no-translate": "true" },
         React.createElement("h3", null, "\uD83D\uDD52 \u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F \u067E\u0631\u0633\u0646\u0644"),
         React.createElement("div", { className: "card-p", style: { marginBottom: 14 } },
             React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap", alignItems: "flex-end" } },
@@ -10545,12 +10545,12 @@ function AttendanceReport() {
         conversionModal && React.createElement(AttendanceConversionModal, { userId: uid, mode: conversionModal.mode, jdate: conversionModal.jdate, minutes: conversionModal.minutes, day: conversionModal.day, onSaved: async () => { setConversionModal(null); await refresh(); }, onClose: () => setConversionModal(null) }),
         openDay && data && (() => {
             const d = (data.days || []).find(x => x.jdate === openDay);
-            return d ? React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 900, background: "rgba(0,0,0,.48)", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(10px,2vw,24px)" }, onClick: e => { if (e.target === e.currentTarget)
+            return d ? React.createElement("div", { className: "attendance-detail-overlay", style: { position: "fixed", inset: 0, zIndex: 900, background: "rgba(0,0,0,.48)", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(10px,2vw,24px)" }, onClick: e => { if (e.target === e.currentTarget)
                     setOpenDay(null); } },
-                React.createElement("div", { className: "card-p", onClick: e => e.stopPropagation(), style: { width: "min(1080px,96vw)", maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", padding: 0 } },
+                React.createElement("div", { className: "card-p attendance-detail-dialog", role: "dialog", "aria-modal": "true", "aria-labelledby": "attendance-detail-title", onClick: e => e.stopPropagation(), style: { width: "min(1080px,96vw)", maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", padding: 0 } },
                     React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 18px", borderBottom: "1px solid var(--line)", flexShrink: 0 } },
                         React.createElement("div", null,
-                            React.createElement("h3", { style: { margin: 0 } }, "\u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F"),
+                            React.createElement("h3", { id: "attendance-detail-title", style: { margin: 0 } }, "\u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F"),
                             React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 3 } },
                                 "\u062A\u0627\u0631\u06CC\u062E: ",
                                 faPlain(String(d.jdate || d.date || openDay || "—")))),
@@ -10591,7 +10591,7 @@ function AttendanceReport() {
                         React.createElement("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" } },
                             React.createElement("div", { style: { marginBottom: 10 } },
                                 React.createElement("b", null, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632")),
-                            React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, width: "min(260px,100%)" } },
+                            React.createElement("div", { className: "attendance-day-actions" },
                                 React.createElement("button", { className: "btn p", style: { width: "100%" }, onClick: () => setRequestModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
                                 React.createElement("button", { className: "btn g", style: { width: "100%" }, onClick: () => setAddModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC")),
                             React.createElement("div", { style: { marginTop: 12 } }, dayRequests.length === 0 ? React.createElement("div", { className: "muted", style: { fontSize: 12 } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") :
@@ -10933,7 +10933,7 @@ function HmField({ label, value, onChange, optional = false, autoFocus = false }
 }
 function PunchModalShell({ title, subtitle, children, onClose, actions }) {
     return React.createElement("div", { className: "modal-bg punch-modal-bg", style: { zIndex: 99999 }, onClick: onClose },
-        React.createElement("div", { className: "modal punch-modal", role: "dialog", "aria-modal": "true", onClick: e => e.stopPropagation(), style: { minHeight: "560px", maxHeight: "92vh", overflowY: "auto", display: "flex", flexDirection: "column" } },
+        React.createElement("div", { className: "modal punch-modal", role: "dialog", "aria-modal": "true", onClick: e => e.stopPropagation(), style: { maxHeight: "92vh", overflowY: "auto", display: "flex", flexDirection: "column" } },
             React.createElement("div", { className: "punch-modal-head" },
                 React.createElement("div", null,
                     React.createElement("h3", null, title),

@@ -345,3 +345,63 @@
   .layout.sidebar-collapsed .navlabel{display:inline}
   .layout.sidebar-collapsed .side{padding-left:16px;padding-right:16px}
 }
+
+/* خوانایی و تراکم بهتر پنل، داشبورد و گزارش تردد */
+body{font-size:14px;line-height:1.8}
+.layout,.main,.side{min-width:0}
+.main{width:100%}
+.btn{font-size:13.5px}
+.label{font-size:13px}
+table{font-size:13px}
+.dashboard-page{display:flex;flex-direction:column;gap:14px;min-width:0;font-size:14px}
+.dashboard-page>.kpis{gap:14px}
+.dashboard-page .kpi{min-height:100px;padding:19px 21px;border-radius:18px}
+.dashboard-page .kpi .n{font-size:29px;line-height:1.4}
+.dashboard-page .kpi .l{font-size:13px;margin-top:5px}
+.dashboard-page .panel{padding:22px}
+.dashboard-page .panel h3{font-size:16px;margin-bottom:14px}
+.attendance-report-page{width:100%;min-width:0;font-size:14px;padding:22px}
+.attendance-report-page>h3{font-size:18px;margin-bottom:16px}
+.attendance-report-page .label{font-size:13px!important;margin-bottom:4px}
+.attendance-report-page .input,.attendance-report-page select.input{font-size:13.5px;min-height:44px}
+.attendance-report-page .btn{min-height:42px}
+.attendance-report-page .attendance-report-table-scroll{width:100%;max-width:100%;overscroll-behavior:contain}
+.attendance-report-page .khar-attendance-native{font-size:13px!important}
+.attendance-report-page .khar-attendance-native th{font-size:12.5px;padding:11px 9px!important;line-height:1.7}
+.attendance-report-page .khar-attendance-native td{font-size:13px;padding:9px!important}
+.attendance-report-page .attendance-report-table-scroll .btn{font-size:12px!important;padding:6px 9px!important;min-height:34px}
+.attendance-detail-dialog{font-size:14px}
+.attendance-detail-dialog h3{font-size:18px!important}
+.attendance-detail-dialog table{font-size:13.5px}
+.attendance-detail-dialog th,.attendance-detail-dialog td{padding:10px 9px}
+.attendance-detail-dialog .btn{font-size:12.5px!important;min-height:38px}
+.attendance-day-actions{display:flex;flex-wrap:wrap;gap:10px;width:min(520px,100%)}
+.attendance-day-actions .btn{flex:1 1 200px;min-height:44px}
+.punch-modal{width:min(520px,96vw)!important;max-width:520px!important;min-height:0!important;max-height:88vh!important;height:auto;overflow-y:auto!important}
+.punch-modal-head h3{font-size:18px!important}
+.punch-modal-sub{font-size:13px}
+.punch-summary{font-size:14px;padding:11px 13px}
+.punch-summary small{font-size:12px}
+.punch-field .label{font-size:13px}
+.punch-field .input,.punch-field select{font-size:14px}
+.punch-time-hint{font-size:11.5px}
+.punch-info,.punch-error{font-size:12.5px;line-height:1.9}
+.punch-modal-actions .btn{font-size:13.5px;min-height:44px}
+@media(max-width:700px){
+  .dashboard-page .kpi{padding:15px}
+  .dashboard-page .kpi .n{font-size:25px}
+  .dashboard-page .panel{padding:16px}
+  .attendance-report-page{padding:15px}
+  .attendance-day-actions{width:100%;flex-direction:column}
+  .attendance-day-actions .btn{flex:1 1 auto;width:100%}
+  .attendance-detail-dialog{width:100%!important;max-height:calc(100dvh - 20px)!important}
+}
+@media(max-width:420px){
+  body{font-size:13.5px}
+  .dashboard-page .kpis{gap:9px}
+  .dashboard-page .kpi{min-height:88px;padding:12px}
+  .dashboard-page .kpi .n{font-size:23px}
+  .attendance-report-page{padding:12px}
+  .attendance-report-page .khar-attendance-native th{font-size:12px}
+  .attendance-report-page .khar-attendance-native td{font-size:12.5px}
+}
