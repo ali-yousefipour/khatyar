@@ -6064,7 +6064,6 @@ function AttendanceReport(){
   const [usersLoading,setUsersLoading]=useState(true);
   const [uid,setUid]=useState("");
   const [personNameQuery,setPersonNameQuery]=useState("");
-  const [personIdentifierQuery,setPersonIdentifierQuery]=useState("");
   const [personPickerOpen,setPersonPickerOpen]=useState(false);
   const [personActiveIndex,setPersonActiveIndex]=useState(-1);
   // API گزارش تردد بازهٔ کامل را الزامی می‌کند؛ پیش‌فرض را روی کل ماه جاری شمسی می‌گذاریم.
@@ -6129,26 +6128,20 @@ function AttendanceReport(){
   const visibleUsers=useMemo(()=>{
     const normalizeSearch=value=>String(value||"").normalize("NFKC").replace(/[يى]/g,"ی").replace(/ك/g,"ک").replace(/[\u200c\u200e\u200f]/g," ").replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/\s+/g," ").trim().toLowerCase();
     const nameQuery=normalizeSearch(personNameQuery);
-    const identifierQuery=normalizeSearch(personIdentifierQuery);
     // از رندر هم‌زمان هزاران option جلوگیری می‌شود؛ جست‌وجو همچنان کل فهرست را بررسی می‌کند.
-    let result=(nameQuery||identifierQuery)?users.filter(u=>{
+    let result=nameQuery?users.filter(u=>{
       const fullName=normalizeSearch((u.first_name||"")+" "+(u.last_name||""));
-      const nameMatches=!nameQuery||fullName.includes(nameQuery);
-      const identifierMatches=!identifierQuery||[u.pcode,u.username,u.phone].some(v=>normalizeSearch(v).includes(identifierQuery));
-      return nameMatches&&identifierMatches;
-    }):users.slice(0,80);
-    if(nameQuery||identifierQuery){
-      const collator=new Intl.Collator("fa",{sensitivity:"base",numeric:false});
-      result=result.sort((a,b)=>{
-        const byFirst=collator.compare(String(a.first_name||"").trim(),String(b.first_name||"").trim());
-        if(byFirst!==0)return byFirst;
-        const byLast=collator.compare(String(a.last_name||"").trim(),String(b.last_name||"").trim());
-        if(byLast!==0)return byLast;
-        return collator.compare(String(a.username||a.id||""),String(b.username||b.id||""));
-      }).slice(0,80);
-    }
-    return result;
-  },[users,personNameQuery,personIdentifierQuery]);
+      return fullName.includes(nameQuery);
+    }):users.slice();
+    const collator=new Intl.Collator("fa",{sensitivity:"base",numeric:false});
+    return result.sort((a,b)=>{
+      const byLast=collator.compare(String(a.last_name||"").trim(),String(b.last_name||"").trim());
+      if(byLast!==0)return byLast;
+      const byFirst=collator.compare(String(a.first_name||"").trim(),String(b.first_name||"").trim());
+      if(byFirst!==0)return byFirst;
+      return Number(a.id||0)-Number(b.id||0);
+    }).slice(0,80);
+  },[users,personNameQuery]);
   const selectAttendancePerson=(person)=>{
     if(!person)return;
     setData(null);
@@ -6267,14 +6260,12 @@ function AttendanceReport(){
         <div style={{minWidth:280,flex:"1 1 280px"}}>
           <label className="label" htmlFor="attendance-person-name-search">جستجوی نام پرسنل</label>
           <div style={{position:"relative",marginBottom:8}}>
-            <input id="attendance-person-name-search" className="input" role="combobox" aria-autocomplete="list" aria-expanded={personPickerOpen&&!!(personNameQuery.trim()||personIdentifierQuery.trim())} aria-controls={personPickerOpen&&(personNameQuery.trim()||personIdentifierQuery.trim())?"attendance-person-suggestions":undefined} aria-activedescendant={personPickerOpen&&visibleUsers[personActiveIndex]?`attendance-person-option-${visibleUsers[personActiveIndex].id}`:undefined} autoComplete="off" value={personNameQuery} onFocus={()=>setPersonPickerOpen(true)} onBlur={e=>{if(!e.currentTarget.parentElement.contains(e.relatedTarget))setPersonPickerOpen(false);}} onKeyDown={handlePersonnelSearchKeyDown} onChange={e=>{setPersonNameQuery(e.target.value);setUid("");setData(null);setPersonActiveIndex(-1);setPersonPickerOpen(true);}} placeholder="نام یا نام خانوادگی را تایپ کنید"/>
-            {personPickerOpen&&(personNameQuery.trim()||personIdentifierQuery.trim())&&<div id="attendance-person-suggestions" role="listbox" aria-label="نتایج جستجوی پرسنل" style={{position:"absolute",top:"calc(100% + 4px)",insetInline:0,zIndex:100510,maxHeight:280,overflowY:"auto",background:"var(--card,#fff)",border:"1px solid var(--line)",borderRadius:10,boxShadow:"0 10px 28px rgba(0,0,0,.16)",padding:4}}>
+            <input id="attendance-person-name-search" className="input" role="combobox" aria-autocomplete="list" aria-expanded={personPickerOpen} aria-controls={personPickerOpen?"attendance-person-suggestions":undefined} aria-activedescendant={personPickerOpen&&visibleUsers[personActiveIndex]?`attendance-person-option-${visibleUsers[personActiveIndex].id}`:undefined} autoComplete="off" value={personNameQuery} onFocus={()=>{setPersonActiveIndex(-1);setPersonPickerOpen(true);}} onBlur={e=>{if(!e.currentTarget.parentElement.contains(e.relatedTarget))setPersonPickerOpen(false);}} onKeyDown={handlePersonnelSearchKeyDown} onChange={e=>{setPersonNameQuery(e.target.value);setUid("");setData(null);setPersonActiveIndex(-1);setPersonPickerOpen(true);}} placeholder="نام یا نام خانوادگی را تایپ کنید"/>
+            {personPickerOpen&&<div id="attendance-person-suggestions" role="listbox" aria-label="نتایج جستجوی پرسنل" style={{position:"absolute",top:"calc(100% + 4px)",insetInline:0,zIndex:100510,maxHeight:280,overflowY:"auto",background:"var(--card,#fff)",border:"1px solid var(--line)",borderRadius:10,boxShadow:"0 10px 28px rgba(0,0,0,.16)",padding:4}}>
               {usersLoading?<div className="muted" style={{padding:10}}>در حال دریافت فهرست نیروها…</div>:visibleUsers.length?visibleUsers.map((person,index)=><button id={`attendance-person-option-${person.id}`} key={person.id} type="button" role="option" aria-selected={index===personActiveIndex} onMouseEnter={()=>setPersonActiveIndex(index)} onPointerDown={e=>e.preventDefault()} onClick={()=>selectAttendancePerson(person)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",width:"100%",gap:10,textAlign:"right",padding:"9px 10px",border:0,borderRadius:7,background:index===personActiveIndex?"var(--soft,#eef6f3)":"transparent",color:"inherit",cursor:"pointer"}}><span>{person.first_name} {person.last_name}</span><small style={{color:"var(--muted)",whiteSpace:"nowrap"}}>{person.pcode?`کد ${person.pcode}`:`شناسه ${person.id}`}</small></button>):<div className="muted" style={{padding:10}}>پرسنلی با این مشخصات پیدا نشد.</div>}
             </div>}
           </div>
-          <label className="label" htmlFor="attendance-person-identifier-search">جستجوی کد و شناسه</label>
-          <input id="attendance-person-identifier-search" className="input" dir="auto" value={personIdentifierQuery} onFocus={()=>setPersonPickerOpen(true)} onBlur={()=>setPersonPickerOpen(false)} onKeyDown={handlePersonnelSearchKeyDown} onChange={e=>{setPersonIdentifierQuery(e.target.value);setUid("");setData(null);setPersonActiveIndex(-1);setPersonPickerOpen(true);}} placeholder="کد پرسنلی، نام کاربری یا تلفن" style={{marginBottom:6}}/>
-          <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>{usersLoading?"فهرست در حال بارگذاری است…":(personNameQuery.trim()||personIdentifierQuery.trim()?"نتایج مطابق هر دو کادر: "+visibleUsers.length+" (حداکثر ۸۰ نتیجه)":users.length.toLocaleString("fa-IR")+" نیرو بارگذاری شد؛ نام یا کد را در کادر جداگانه جست‌وجو کنید.")}</div>
+          <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>{usersLoading?"فهرست در حال بارگذاری است…":personNameQuery.trim()?"نتایج جست‌وجو: "+visibleUsers.length+" (حداکثر ۸۰ نتیجه)":users.length.toLocaleString("fa-IR")+" نیرو؛ فهرست بر اساس نام خانوادگی مرتب شده است."}</div>
         </div>
         <div><label className="label">از تاریخ</label><JDate value={from} onChange={setFrom} jalali/></div>
         <div><label className="label">تا تاریخ</label><JDate value={to} onChange={setTo} jalali/></div>
