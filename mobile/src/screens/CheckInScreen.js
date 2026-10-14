@@ -8,7 +8,7 @@ import * as Location from 'expo-location';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { getAccuratePosition, getGsmPosition } from '../location';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { request, postOrQueue, cachedValue, flushQueuedRequests, hasPendingAttendanceCheckout } from '../api';
+import { request, postOrQueue, cachedValue, flushQueuedRequests, hasPendingAttendanceCheckout, invalidateCachedValue } from '../api';
 import { getAppConfig } from '../appconfig';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
@@ -743,6 +743,7 @@ function CheckInCore() {
         // Update the UI as soon as check-in is accepted; do not wait for work-timer.
         // This also invalidates any load whose response was captured before the write.
         attendanceStateEpochRef.current += 1;
+        await invalidateCachedValue('/my/checkin-config');
         setOpen(confirmedOpen);
         await persistLocalOpen(confirmedOpen);
         try{
@@ -891,6 +892,7 @@ function CheckInCore() {
       // پاسخ موفق سرور کافی است؛ صفحه را بلافاصله از حالت «حضور باز» خارج کن.
       // بارگذاری مجدد وضعیت/موقعیت در پس‌زمینه انجام می‌شود تا دکمه خروج معطل GPS نشود.
       attendanceStateEpochRef.current += 1;
+      await invalidateCachedValue('/my/checkin-config');
       setOpen(null);
       await persistLocalOpen(null);
       try { await AsyncStorage.removeItem(PRESENCE_RANDOM_CACHE_KEY); } catch {}
