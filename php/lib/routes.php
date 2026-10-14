@@ -2761,9 +2761,9 @@ route('POST', '/api/admin/user-shifts', function($p,$b,$u){
   if ($from && !preg_match('/^\d{4}-\d{2}-\d{2}$/',$from)) Http::error('تاریخ شروع تخصیص نامعتبر است',422);
   if ($to && !preg_match('/^\d{4}-\d{2}-\d{2}$/',$to)) Http::error('تاریخ پایان تخصیص نامعتبر است',422);
   if ($from && $to && strcmp($to,$from)<0) Http::error('تاریخ پایان نباید قبل از تاریخ شروع باشد',422);
-  $over = Db::one("SELECT us.user_id,us.shift_id,s.title FROM user_shifts us LEFT JOIN shifts s ON s.id=us.shift_id
-    WHERE us.user_id=? AND us.shift_id<>? AND (COALESCE(us.from_jdate,'0000-00-00') <= COALESCE(?,'9999-12-31')) AND (COALESCE(us.to_jdate,'9999-12-31') >= COALESCE(?,'0000-00-00')) LIMIT 1", [$uid,$sid,$to,$from]);
-  if ($over) Http::error('این کاربر در همین بازه شیفت فعال دیگری دارد: '.($over['title'] ?? $over['shift_id']),422);
+  // user_shifts has UNIQUE(user_id): assigning a different shift replaces the existing
+  // assignment atomically. The former overlap check incorrectly rejected every edit.
+  $previous = Db::one("SELECT shift_id,from_jdate,to_jdate FROM user_shifts WHERE user_id=?", [$uid]);
   Db::run("INSERT INTO user_shifts(user_id,shift_id,from_jdate,to_jdate) VALUES(?,?,?,?)
            ON DUPLICATE KEY UPDATE shift_id=VALUES(shift_id), from_jdate=VALUES(from_jdate), to_jdate=VALUES(to_jdate)",
     [$uid,$sid,$from,$to]);
