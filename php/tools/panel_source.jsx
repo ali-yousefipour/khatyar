@@ -2863,6 +2863,7 @@ function ReportsCenter(){
     {t:"پرسنل و حضور",items:[
       ["perfreport","🏆","عملکرد پرسنل","امتیازدهی و رتبه‌بندی ماهانهٔ نیروها بر اساس شاخص‌های کاری"],
       ["attreport","🕒","تردد پرسنل","ورود/خروج و ساعات کاری ثبت‌شده"],
+      ["leavereport","🌴","گزارش مرخصی پرسنل","مانده و مصرف مرخصی دوره‌ای و جزئیات درخواست‌های ثبت‌شده"],
       ["useract","⏱","فعالیت کاربران","لاگ کامل اقدامات هر کاربر در سامانه"],
       ["commitments","📋","تعهدات انضباطی","سوابق تعهدنامه و برخورد انضباطی پرسنل"],
       ["shifts","🗓","شیفت و کارکرد","برنامهٔ شیفت‌ها و محاسبهٔ کارکرد"],
@@ -5118,7 +5119,7 @@ function DashboardConfig(){
 }
 
 function RolePerms(){
-  const MENU=[["dashboard","داشبورد"],["reportscenter","مرکز گزارش‌ها"],["health","سلامت سامانه"],["map","نقشهٔ زنده"],["present","آمار حاضرین"],["presentchart","نمودار زندهٔ حاضرین"],["missiondashboard","داشبورد عملیات میدانی"],["citydashboard","داشبورد مدیریتی کل‌شهر"],["missiontemplates","موتور مأموریت — الگوها و تنظیمات"],["scoreengine","موتور امتیازدهی"],["driverservicereport","عملکرد و تذکرات تاکسیران"],["officials","حضور مسئولین"],["covertselfies","سلفی‌های نامحسوس"],["messages","پیام‌رسانی"],["messengercenter","مرکز ارسال ربات‌ها"],["companyrequests","مدارک ارسالی شرکت"],["salaryslips","بارگذاری فیش حقوقی"],["users","کاربران"],["zones","منطقه‌بندی"],["org","چارت سازمانی"],["drivers","رانندگان"],["platetraining","پلاک‌خوان"],["lines","خطوط"],["bills","آبونمان"],["config","تذکر/چک‌لیست"],["forms","فرم‌ساز"],["reports","گردش گزارش"],["report","گزارش‌گیری"],["perfreport","گزارش عملکرد پرسنل"],["welfare","رفاهیات روابط عمومی"],["cultural","فعالیت‌های فرهنگی"],["excel","ورود اکسل"],["logs","لاگ"],["useract","فعالیت کاربران"],["commitments","تعهدات انضباطی"],["tempdrivers","رانندگان موقت"],["presence","صحت‌سنجی حضور"],["attendance","حضور نیروها"],["shifts","شیفت و کارکرد"],["attreport","گزارش تردد پرسنل"],["workpolicy","سیاست کاری"],["requests","گزارش درخواست‌ها"],["outages","قطعی سیستم نوبت‌دهی"],["customfields","فیلدهای سفارشی"],["inventory","اقلام تحویلی"],["sms","ارسال پیامک"],["smslog","تاریخچهٔ پیامک"],["appitems","آیتم‌های اپ هر سمت"],["cronstatus","پایش سلامت کرون‌ها"],["activesessions","جلسات فعال کاربران"],["radiocenter","مرکز بی‌سیم"],["vehicleassets","ماشین‌آلات و وسایل مأموریتی"],["vehiclechecklist","چک‌لیست خودرویی و موتوری"],["settings","تنظیمات"]];
+  const MENU=[["dashboard","داشبورد"],["reportscenter","مرکز گزارش‌ها"],["health","سلامت سامانه"],["map","نقشهٔ زنده"],["present","آمار حاضرین"],["presentchart","نمودار زندهٔ حاضرین"],["missiondashboard","داشبورد عملیات میدانی"],["citydashboard","داشبورد مدیریتی کل‌شهر"],["missiontemplates","موتور مأموریت — الگوها و تنظیمات"],["scoreengine","موتور امتیازدهی"],["driverservicereport","عملکرد و تذکرات تاکسیران"],["officials","حضور مسئولین"],["covertselfies","سلفی‌های نامحسوس"],["messages","پیام‌رسانی"],["messengercenter","مرکز ارسال ربات‌ها"],["companyrequests","مدارک ارسالی شرکت"],["salaryslips","بارگذاری فیش حقوقی"],["users","کاربران"],["zones","منطقه‌بندی"],["org","چارت سازمانی"],["drivers","رانندگان"],["platetraining","پلاک‌خوان"],["lines","خطوط"],["bills","آبونمان"],["config","تذکر/چک‌لیست"],["forms","فرم‌ساز"],["reports","گردش گزارش"],["report","گزارش‌گیری"],["perfreport","گزارش عملکرد پرسنل"],["attreport","گزارش تردد پرسنل"],["leavereport","گزارش مرخصی پرسنل"],["welfare","رفاهیات روابط عمومی"],["cultural","فعالیت‌های فرهنگی"],["excel","ورود اکسل"],["logs","لاگ"],["useract","فعالیت کاربران"],["commitments","تعهدات انضباطی"],["tempdrivers","رانندگان موقت"],["presence","صحت‌سنجی حضور"],["attendance","حضور نیروها"],["shifts","شیفت و کارکرد"],["workpolicy","سیاست کاری"],["requests","گزارش درخواست‌ها"],["outages","قطعی سیستم نوبت‌دهی"],["customfields","فیلدهای سفارشی"],["inventory","اقلام تحویلی"],["sms","ارسال پیامک"],["smslog","تاریخچهٔ پیامک"],["appitems","آیتم‌های اپ هر سمت"],["cronstatus","پایش سلامت کرون‌ها"],["activesessions","جلسات فعال کاربران"],["radiocenter","مرکز بی‌سیم"],["vehicleassets","ماشین‌آلات و وسایل مأموریتی"],["vehiclechecklist","چک‌لیست خودرویی و موتوری"],["settings","تنظیمات"]];
   const [roles,setRoles]=useState([]); const [perms,setPerms]=useState({}); const [sel,setSel]=useState(null);
   useEffect(()=>{ db.roles().then(rs=>{setRoles(rs);}).catch(()=>{}); db.settings().then(s=>setPerms(s.role_perms||{})).catch(()=>{}); },[]);
   const allowed=sel!=null?(perms[sel]||MENU.map(m=>m[0])):[];
@@ -8724,6 +8725,46 @@ function ComplaintsLauncher(){
 }
 
 
+function PersonnelLeaveReport(){
+  const [data,setData]=useState({rows:[],periods:[],requests:[]});
+  const [period,setPeriod]=useState(""); const [tab,setTab]=useState("all");
+  const [selectedId,setSelectedId]=useState(0); const [query,setQuery]=useState("");
+  const [busy,setBusy]=useState(false); const [error,setError]=useState("");
+  const load=async(nextPeriod)=>{
+    setBusy(true);setError("");
+    try{const qs=nextPeriod?"?"+nextPeriod:"";const d=await GET("/admin/personnel-leave-report"+qs,{ttl:0});
+      setData(d);const chosen=nextPeriod||(d.year&&d.month?`year=${d.year}&month=${d.month}`:"");setPeriod(chosen);
+      if(selectedId&&!(d.rows||[]).some(x=>+x.snapshot_id===+selectedId))setSelectedId(0);
+    }catch(e){setError(e.message||"دریافت گزارش مرخصی ناموفق بود")}finally{setBusy(false)}
+  };
+  useEffect(()=>{load("")},[]);
+  const selectPeriod=(v)=>{setSelectedId(0);setTab("all");load(v)};
+  const selectPerson=async(row)=>{setSelectedId(+row.snapshot_id);setTab("detail");setBusy(true);setError("");
+    try{const q=`?year=${encodeURIComponent(row.period_year)}&month=${encodeURIComponent(row.period_month)}&snapshot_id=${encodeURIComponent(row.snapshot_id)}`;setData(await GET("/admin/personnel-leave-report"+q,{ttl:0}))}
+    catch(e){setError(e.message||"دریافت جزئیات ناموفق بود")}finally{setBusy(false)}
+  };
+  const rows=data.rows||[];const selected=data.selected||rows.find(x=>+x.snapshot_id===selectedId)||null;
+  const filtered=rows.filter(r=>`${r.name||r.personnel_name} ${r.personnel_code} ${r.role_title||""}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  const mins=v=>{const n=Number(v||0),sign=n<0?"−":"",a=Math.abs(n);return sign+String(Math.floor(a/60)).padStart(2,"0")+":"+String(a%60).padStart(2,"0")};
+  const count=v=>fa(Number(v||0));
+  const exportAll=()=>{try{exportXlsx(filtered.map(r=>({"نام و نام خانوادگی":r.name||r.personnel_name,"کد پرسنلی":r.personnel_code,"سمت":r.role_title||"","مجاز ماهانه (ساعت:دقیقه)":mins(r.monthly_allowed_min),"مصرف ماهانه (ساعت:دقیقه)":mins(r.monthly_used_min),"تعداد مرخصی ماهانه":Number(r.monthly_used_count||0),"مانده ماهانه (ساعت:دقیقه)":mins(r.monthly_balance_min),"مجاز سالانه (ساعت:دقیقه)":mins(r.yearly_allowed_min),"مصرف سالانه (ساعت:دقیقه)":mins(r.yearly_used_min),"تعداد مرخصی سالانه":Number(r.yearly_used_count||0),"مانده سالانه (ساعت:دقیقه)":mins(r.yearly_balance_min)})),"گزارش کلی",`گزارش_مرخصی_${data.year}_${data.month}.xlsx`)}catch(e){setError(e.message)}};
+  const exportDetail=()=>{if(!selected)return;try{const overview={"نام و نام خانوادگی":selected.name||selected.personnel_name,"کد پرسنلی":selected.personnel_code,"مجاز ماهانه":mins(selected.monthly_allowed_min),"مصرف ماهانه":mins(selected.monthly_used_min),"تعداد مرخصی ماهانه":Number(selected.monthly_used_count||0),"مانده ماهانه":mins(selected.monthly_balance_min),"مجاز سالانه":mins(selected.yearly_allowed_min),"مصرف سالانه":mins(selected.yearly_used_min),"تعداد مرخصی سالانه":Number(selected.yearly_used_count||0),"مانده سالانه":mins(selected.yearly_balance_min)};
+      const req=(data.requests||[]).map(x=>({"نوع":({annual:"استحقاقی",sick:"استعلاجی",unpaid:"بدون حقوق"})[x.type]||x.type,"از تاریخ":x.from_jdate||x.the_date||"","تا تاریخ":x.to_jdate||x.the_date||"","از ساعت":x.from_time||"","تا ساعت":x.to_time||"","مدت (دقیقه)":Number(x.minutes||0),"وضعیت":x.status||"","دلیل":x.reason||"","یادداشت تأیید":x.approver_note||"","ثبت":x.created_at||""}));
+      const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([overview]),"خلاصه");XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(req),"درخواست‌ها");XLSX.writeFile(wb,`جزئیات_مرخصی_${selected.personnel_code}_${data.year}_${data.month}.xlsx`)
+    }catch(e){setError(e.message)}};
+  const th={padding:"9px 8px",borderBottom:"2px solid var(--line)",whiteSpace:"nowrap",fontSize:12,textAlign:"right"};
+  const td={padding:"8px",borderBottom:"1px solid var(--line)",fontSize:12,whiteSpace:"nowrap"};
+  const headers=["نام و نام خانوادگی","کد پرسنلی","سمت","مجاز ماهانه","مصرف ماهانه","تعداد ماهانه","مانده ماهانه","مجاز سالانه","مصرف سالانه","تعداد سالانه","مانده سالانه"];
+  const valueRow=r=>[r.name||r.personnel_name,r.personnel_code,r.role_title||"—",mins(r.monthly_allowed_min),mins(r.monthly_used_min),count(r.monthly_used_count),mins(r.monthly_balance_min),mins(r.yearly_allowed_min),mins(r.yearly_used_min),count(r.yearly_used_count),mins(r.yearly_balance_min)];
+  return <div className="panel"><div className="row" style={{justifyContent:"space-between",gap:10,flexWrap:"wrap"}}><div><h3>🌴 گزارش مرخصی پرسنل</h3><p className="muted" style={{fontSize:12,marginTop:5}}>آمار فایل مبنا تا {data.through_jdate||"—"}؛ مدت‌ها به‌صورت ساعت:دقیقه</p></div><div className="row" style={{gap:8}}><select className="input" value={period} onChange={e=>selectPeriod(e.target.value)} style={{minWidth:190}}>{data.periods.map(p=>{const v=`year=${p.year}&month=${p.month}`;return <option key={v} value={v}>{fa(p.year)}/{fa(String(p.month).padStart(2,"0"))} · تا {p.through_jdate}</option>})}</select><button className="btn" onClick={()=>load(period)}>بازخوانی</button></div></div>
+    <div className="row" style={{gap:8,marginTop:14,flexWrap:"wrap"}}><button className={`btn ${tab==="all"?"p":""}`} onClick={()=>setTab("all")}>گزارش کلی همهٔ نیروها ({count(rows.length)})</button><button className={`btn ${tab==="detail"?"p":""}`} onClick={()=>setTab("detail")} disabled={!selected}>جزئیات مرخصی یک پرسنل</button>{tab==="all"?<><input className="input" placeholder="جستجوی نام یا کد پرسنلی" value={query} onChange={e=>setQuery(e.target.value)} style={{maxWidth:260}}/><button className="btn" onClick={exportAll} disabled={!filtered.length}>دانلود Excel کلی</button></>:<button className="btn" onClick={exportDetail} disabled={!selected}>دانلود Excel جزئیات</button>}</div>
+    {error&&<div style={{color:"var(--danger)",marginTop:10,fontSize:13}}>{error}</div>}{busy&&<div className="muted" style={{marginTop:10}}>در حال دریافت…</div>}
+    {tab==="all"&&<div style={{overflow:"auto",maxHeight:"calc(100vh - 330px)",marginTop:12}}><table style={{borderCollapse:"collapse",width:"100%",minWidth:1120}}><thead style={{position:"sticky",top:0,background:"var(--paper)",zIndex:1}}><tr>{headers.map(h=><th key={h} style={th}>{h}</th>)}</tr></thead><tbody>{filtered.map(r=><tr key={r.snapshot_id} onClick={()=>selectPerson(r)} style={{cursor:"pointer",background:+r.snapshot_id===selectedId?"var(--brand-soft)":""}}>{valueRow(r).map((v,i)=><td key={i} style={td}>{v}</td>)}</tr>)}</tbody></table>{!filtered.length&&!busy&&<p className="muted" style={{padding:16}}>برای این دوره داده‌ای ثبت نشده است. فایل SQL خصوصی را در phpMyAdmin اجرا کنید.</p>}</div>}
+    {tab==="detail"&&<div style={{marginTop:14}}>{!selected?<p className="muted">برای مشاهدهٔ جزئیات، یک نفر را از تب گزارش کلی انتخاب کنید.</p>:<><div className="row" style={{justifyContent:"space-between",flexWrap:"wrap",gap:10}}><div><b>{selected.name||selected.personnel_name}</b><span className="muted" style={{marginRight:10}}>کد {selected.personnel_code} · {selected.role_title||"سمت نامشخص"}</span></div>{!data.requests_available&&<span className="muted" style={{fontSize:12}}>این ردیف هنوز به حساب کاربری یکتا متصل نیست؛ سوابق درخواست سامانه در دسترس نیست.</span>}</div><div style={{overflow:"auto",marginTop:10}}><table style={{borderCollapse:"collapse",width:"100%"}}><thead><tr>{headers.slice(3).map(h=><th key={h} style={th}>{h}</th>)}</tr></thead><tbody><tr>{valueRow(selected).slice(3).map((v,i)=><td key={i} style={td}>{v}</td>)}</tr></tbody></table></div><h4 style={{marginTop:18}}>درخواست‌های ثبت‌شده در سامانه تا تاریخ مبنا</h4>{!data.requests_available?<p className="muted" style={{fontSize:12}}>برای مشاهدهٔ سوابق درخواست، این پرسنل باید در فایل SQL به حساب کاربری یکتا متصل شود.</p>:<div style={{overflow:"auto",maxHeight:360,marginTop:8}}><table style={{borderCollapse:"collapse",width:"100%",minWidth:850}}><thead style={{position:"sticky",top:0,background:"var(--paper)"}}><tr>{["نوع","از تاریخ","تا تاریخ","ساعت","مدت (دقیقه)","وضعیت","دلیل"].map(h=><th key={h} style={th}>{h}</th>)}</tr></thead><tbody>{(data.requests||[]).map(x=><tr key={x.id}>{[({annual:"استحقاقی",sick:"استعلاجی",unpaid:"بدون حقوق"})[x.type]||x.type,x.from_jdate||x.the_date||"—",x.to_jdate||x.the_date||"—",[x.from_time,x.to_time].filter(Boolean).join(" تا ")||"—",count(x.minutes),x.status||"—",x.reason||"—"].map((v,i)=><td key={i} style={td}>{v}</td>)}</tr>)}</tbody></table>{!data.requests?.length&&<p className="muted" style={{padding:12}}>درخواست مرخصی ثبت‌شده‌ای در سامانه برای این بازه یافت نشد.</p>}</div>}</>}</div>}
+    <p className="muted" style={{fontSize:11,marginTop:12}}>«مجاز» از جمع مصرف و مانده در فایل مبنا محاسبه می‌شود؛ سوابق درخواست فقط از درخواست‌های ثبت‌شده و مرتبط در سامانه می‌آید. مقادیر منفی عیناً حفظ شده‌اند.</p>
+  </div>;
+}
+
 const VIEWS={
   covertselfies:{t:"سلفی‌های نامحسوس",ic:"📸",c:CovertSelfies},
   dashboard:{t:"داشبورد مدیریت",ic:"▦",c:Dashboard},
@@ -8763,6 +8804,7 @@ const VIEWS={
   attendance:{t:"حضور نیروها",ic:"🕒",c:StaffAttendance},
   shifts:{t:"شیفت و کارکرد",ic:"🗓",c:ShiftManager},
   attreport:{t:"گزارش تردد پرسنل",ic:"🕒",c:AttendanceReport},
+  leavereport:{t:"گزارش مرخصی پرسنل",ic:"🌴",c:PersonnelLeaveReport},
   workpolicy:{t:"سیاست کاری",ic:"📐",c:WorkPolicy},
   requests:{t:"گزارش درخواست‌ها",ic:"📋",c:AdminRequests},
   outages:{t:"قطعی سیستم نوبت‌دهی",ic:"⛔",c:OutageReport},
@@ -8857,7 +8899,7 @@ function App(){
     ["داشبورد و پایش",["dashboard","reportscenter","health","map","present","presentchart"]],
     ["عملیات میدانی",["missiondashboard","citydashboard","missiontemplates","scoreengine","officials","presence","attendance","companyrequests","outages","covertselfies","schoolservice"]],
     ["تاکسی و تاکسیران",["drivers","driverservicereport","tempdrivers","platetraining","lines","zones","bills","complaints"]],
-    ["گزارش‌ها",["reports","report","perfreport","attreport","useract"]],
+    ["گزارش‌ها",["reports","report","perfreport","attreport","leavereport","useract"]],
     ["منابع انسانی",["shifts","workpolicy","requests","salaryslips","commitments","welfare","cultural","vehicleassets","vehiclechecklist"]],
     ["ارتباطات",["messages","sms","smslog","messengercenter","radiocenter"]],
     ["مدیریت سامانه",["users","org","forms","config","customfields","inventory","excel","appitems","cronstatus","activesessions","logs","settings"]],
@@ -8868,7 +8910,7 @@ function App(){
     missiondashboard:'performance-gauge', citydashboard:'city-map', missiontemplates:'dashboard-layout', scoreengine:'live-chart',
     officials:'official-badge', presence:'self-checkin', attendance:'attendance-register', companyrequests:'company-envelope', outages:'service-outage', covertselfies:'covert-camera',
     drivers:'driver-id', driverservicereport:'driver-service-chart', tempdrivers:'temporary-driver-clock', lines:'route-line', zones:'zone-grid', bills:'billing-receipt', platetraining:'search-taxi',
-    reports:'report-card', report:'report-send', perfreport:'checked-user-male', attreport:'attendance-calendar', useract:'user-activity',
+    reports:'report-card', report:'report-send', perfreport:'checked-user-male', attreport:'attendance-calendar', leavereport:'attendance-calendar', useract:'user-activity',
     shifts:'shift-cycle', workpolicy:'work-policy', requests:'request-form', salaryslips:'salary-slip', commitments:'commitment-sign', welfare:'welfare-gift', cultural:'cultural-book',
     messages:'messages-mail', sms:'sms-phone', smslog:'sms-history', messengercenter:'messenger-bot', radiocenter:'radio-tower', users:'users-admin', org:'organization-tree', forms:'forms-pen',
     config:'system-config', customfields:'custom-fields', inventory:'request-box', excel:'excel-upload', appitems:'app-menu', cronstatus:'activity-wave', activesessions:'security-lock', logs:'audit-logs', settings:'settings-gears',

@@ -3957,6 +3957,77 @@ route('GET', '/api/my/work-summary', function($p,$b,$u){
   return ['year'=>$jy,'month'=>$jm,'through_jdate'=>$throughDate,'data'=>null];
 });
 
+// گزارش مرخصی پرسنل بر اساس snapshot رسمی اکسل و سوابق درخواست سامانه.
+function _ensure_personnel_leave_snapshots(){
+  Db::run("CREATE TABLE IF NOT EXISTS personnel_leave_snapshots (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    personnel_code VARCHAR(40) NOT NULL,
+    personnel_name VARCHAR(160) NOT NULL,
+    period_year SMALLINT UNSIGNED NOT NULL,
+    period_month TINYINT UNSIGNED NOT NULL,
+    through_jdate VARCHAR(10) NOT NULL,
+    source_reported_at VARCHAR(20) NULL,
+    monthly_used_min INT NOT NULL DEFAULT 0,
+    monthly_used_count INT NOT NULL DEFAULT 0,
+    yearly_used_min INT NOT NULL DEFAULT 0,
+    yearly_used_count INT NOT NULL DEFAULT 0,
+    monthly_balance_min INT NOT NULL DEFAULT 0,
+    yearly_balance_min INT NOT NULL DEFAULT 0,
+    monthly_allowed_min INT NOT NULL DEFAULT 0,
+    yearly_allowed_min INT NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_personnel_leave_snapshot (period_year,period_month,personnel_code,personnel_name),
+    KEY idx_personnel_leave_user_period (user_id,period_year,period_month),
+    KEY idx_personnel_leave_period (period_year,period_month)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+}
+
+function _personnel_leave_report_need($u){
+  $row=Db::one("SELECT value FROM app_settings WHERE `key`='role_perms' LIMIT 1");
+  if(!$row)return; // بدون پیکربندی، همانند منوی پنل، همهٔ آیتم‌ها در دسترس‌اند.
+  $cfg=json_decode((string)$row['value'],true);$rid=(string)($u['role_id']??'');
+  if(!is_array($cfg)||!array_key_exists($rid,$cfg))return;
+  $items=is_array($cfg[$rid])?$cfg[$rid]:[];
+  if(!in_array('leavereport',$items,true))Http::error('دسترسی گزارش مرخصی برای سمت شما فعال نیست',403);
+}
+
+route('GET', '/api/admin/personnel-leave-report', function($p,$b,$u){
+  _personnel_leave_report_need($u);
+  _ensure_personnel_leave_snapshots();
+  $periods=Db::all("SELECT period_year AS year,period_month AS month,MAX(through_jdate) AS through_jdate,MAX(source_reported_at) AS source_reported_at
+    FROM personnel_leave_snapshots GROUP BY period_year,period_month ORDER BY period_year DESC,period_month DESC");
+  $year=(int)($_GET['year']??0);$month=(int)($_GET['month']??0);
+  if(($year===0)!==($month===0))Http::error('سال و ماه گزارش را با هم مشخص کنید',422);
+  if($year===0&&$periods){$year=(int)$periods[0]['year'];$month=(int)$periods[0]['month'];}
+  if($year&&($year<1300||$year>1500||$month<1||$month>12))Http::error('دورهٔ گزارش نامعتبر است',422);
+  $sql="SELECT s.id AS snapshot_id,s.user_id,s.personnel_code,s.personnel_name,
+      COALESCE(NULLIF(CONCAT_WS(' ',u.first_name,u.last_name),''),s.personnel_name) AS name,
+      r.title AS role_title,s.period_year,s.period_month,s.through_jdate,s.source_reported_at,
+      s.monthly_used_min,s.monthly_used_count,s.yearly_used_min,s.yearly_used_count,
+      s.monthly_balance_min,s.yearly_balance_min,s.monthly_allowed_min,s.yearly_allowed_min
+    FROM personnel_leave_snapshots s LEFT JOIN users u ON u.id=s.user_id LEFT JOIN roles r ON r.id=u.role_id
+    WHERE s.period_year=? AND s.period_month=?";
+  $args=[$year,$month];$snapshotId=(int)($_GET['snapshot_id']??0);
+  if($snapshotId>0){$sql.=" AND s.id=?";$args[]=$snapshotId;}
+  $sql.=" ORDER BY COALESCE(u.last_name,s.personnel_name),s.personnel_code,s.id";
+  $rows=$year?Db::all($sql,$args):[];
+  $details=[];$selected=$rows?($rows[0]):null;
+  if($snapshotId>0&&$selected&&!empty($selected['user_id'])){
+    $yearStart=sprintf('%04d-01-01',$year);$through=ShiftCalc::normJdate($selected['through_jdate'])?:sprintf('%04d-%02d-31',$year,$month);
+    $details=Db::all("SELECT id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes,status,reason,approver_note,created_at,decided_at
+      FROM requests WHERE user_id=? AND type IN('annual','sick','unpaid')
+        AND COALESCE(NULLIF(REPLACE(from_jdate,'/','-'),''),NULLIF(REPLACE(the_date,'/','-'),''))<=?
+        AND COALESCE(NULLIF(REPLACE(to_jdate,'/','-'),''),NULLIF(REPLACE(the_date,'/','-'),''),NULLIF(REPLACE(from_jdate,'/','-'),''))>=?
+      ORDER BY COALESCE(NULLIF(REPLACE(from_jdate,'/','-'),''),NULLIF(REPLACE(the_date,'/','-'),'')) DESC,id DESC LIMIT 500",
+      [(int)$selected['user_id'],$through,$yearStart]);
+  }
+  return ['year'=>$year,'month'=>$month,'periods'=>$periods,'through_jdate'=>$selected['through_jdate']??($periods[0]['through_jdate']??null),
+    'source_reported_at'=>$selected['source_reported_at']??($periods[0]['source_reported_at']??null),'rows'=>$rows,
+    'selected'=>$selected,'requests'=>$details,'requests_available'=>!empty($selected['user_id'])];
+},false,ADMIN);
+
 // مانده مرخصی/ماموریت/اضافه‌کار یک کاربر (سقف منهای مصرف)
 function _req_balance($uid){
   [$jy,$jm] = array_slice(gregorian_to_jalali(date('Y'),date('m'),date('d')),0,2);

@@ -143,3 +143,4 @@ dmypy.json
 
 # Runtime calendar cache
 php/cache/calendar/
+php/db/private_import_vacation_report_1405_06.sql

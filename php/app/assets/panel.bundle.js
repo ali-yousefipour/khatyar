@@ -4661,6 +4661,7 @@ function ReportsCenter() {
         { t: "پرسنل و حضور", items: [
                 ["perfreport", "🏆", "عملکرد پرسنل", "امتیازدهی و رتبه‌بندی ماهانهٔ نیروها بر اساس شاخص‌های کاری"],
                 ["attreport", "🕒", "تردد پرسنل", "ورود/خروج و ساعات کاری ثبت‌شده"],
+                ["leavereport", "🌴", "گزارش مرخصی پرسنل", "مانده و مصرف مرخصی دوره‌ای و جزئیات درخواست‌های ثبت‌شده"],
                 ["useract", "⏱", "فعالیت کاربران", "لاگ کامل اقدامات هر کاربر در سامانه"],
                 ["commitments", "📋", "تعهدات انضباطی", "سوابق تعهدنامه و برخورد انضباطی پرسنل"],
                 ["shifts", "🗓", "شیفت و کارکرد", "برنامهٔ شیفت‌ها و محاسبهٔ کارکرد"],
@@ -8475,7 +8476,7 @@ function DashboardConfig() {
             saved && React.createElement("span", { style: { color: "var(--ok)", fontSize: 13 } }, "\u2713 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"))));
 }
 function RolePerms() {
-    const MENU = [["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["officials", "حضور مسئولین"], ["covertselfies", "سلفی‌های نامحسوس"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "شیفت و کارکرد"], ["attreport", "گزارش تردد پرسنل"], ["workpolicy", "سیاست کاری"], ["requests", "گزارش درخواست‌ها"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["radiocenter", "مرکز بی‌سیم"], ["vehicleassets", "ماشین‌آلات و وسایل مأموریتی"], ["vehiclechecklist", "چک‌لیست خودرویی و موتوری"], ["settings", "تنظیمات"]];
+    const MENU = [["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["officials", "حضور مسئولین"], ["covertselfies", "سلفی‌های نامحسوس"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["attreport", "گزارش تردد پرسنل"], ["leavereport", "گزارش مرخصی پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "شیفت و کارکرد"], ["workpolicy", "سیاست کاری"], ["requests", "گزارش درخواست‌ها"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["radiocenter", "مرکز بی‌سیم"], ["vehicleassets", "ماشین‌آلات و وسایل مأموریتی"], ["vehiclechecklist", "چک‌لیست خودرویی و موتوری"], ["settings", "تنظیمات"]];
     const [roles, setRoles] = useState([]);
     const [perms, setPerms] = useState({});
     const [sel, setSel] = useState(null);
@@ -15415,6 +15416,140 @@ function ComplaintsLauncher() {
     }, []);
     return React.createElement("div", { ref: hostRef, className: "khc-page-host", style: { minHeight: "calc(100vh - 100px)" } }, error ? React.createElement("div", { className: "ssv-msg" }, error) : null);
 }
+function PersonnelLeaveReport() {
+    var _a;
+    const [data, setData] = useState({ rows: [], periods: [], requests: [] });
+    const [period, setPeriod] = useState("");
+    const [tab, setTab] = useState("all");
+    const [selectedId, setSelectedId] = useState(0);
+    const [query, setQuery] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const load = async (nextPeriod) => {
+        setBusy(true);
+        setError("");
+        try {
+            const qs = nextPeriod ? "?" + nextPeriod : "";
+            const d = await GET("/admin/personnel-leave-report" + qs, { ttl: 0 });
+            setData(d);
+            const chosen = nextPeriod || (d.year && d.month ? `year=${d.year}&month=${d.month}` : "");
+            setPeriod(chosen);
+            if (selectedId && !(d.rows || []).some(x => +x.snapshot_id === +selectedId))
+                setSelectedId(0);
+        }
+        catch (e) {
+            setError(e.message || "دریافت گزارش مرخصی ناموفق بود");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    useEffect(() => { load(""); }, []);
+    const selectPeriod = (v) => { setSelectedId(0); setTab("all"); load(v); };
+    const selectPerson = async (row) => {
+        setSelectedId(+row.snapshot_id);
+        setTab("detail");
+        setBusy(true);
+        setError("");
+        try {
+            const q = `?year=${encodeURIComponent(row.period_year)}&month=${encodeURIComponent(row.period_month)}&snapshot_id=${encodeURIComponent(row.snapshot_id)}`;
+            setData(await GET("/admin/personnel-leave-report" + q, { ttl: 0 }));
+        }
+        catch (e) {
+            setError(e.message || "دریافت جزئیات ناموفق بود");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    const rows = data.rows || [];
+    const selected = data.selected || rows.find(x => +x.snapshot_id === selectedId) || null;
+    const filtered = rows.filter(r => `${r.name || r.personnel_name} ${r.personnel_code} ${r.role_title || ""}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+    const mins = v => { const n = Number(v || 0), sign = n < 0 ? "−" : "", a = Math.abs(n); return sign + String(Math.floor(a / 60)).padStart(2, "0") + ":" + String(a % 60).padStart(2, "0"); };
+    const count = v => fa(Number(v || 0));
+    const exportAll = () => { try {
+        exportXlsx(filtered.map(r => ({ "نام و نام خانوادگی": r.name || r.personnel_name, "کد پرسنلی": r.personnel_code, "سمت": r.role_title || "", "مجاز ماهانه (ساعت:دقیقه)": mins(r.monthly_allowed_min), "مصرف ماهانه (ساعت:دقیقه)": mins(r.monthly_used_min), "تعداد مرخصی ماهانه": Number(r.monthly_used_count || 0), "مانده ماهانه (ساعت:دقیقه)": mins(r.monthly_balance_min), "مجاز سالانه (ساعت:دقیقه)": mins(r.yearly_allowed_min), "مصرف سالانه (ساعت:دقیقه)": mins(r.yearly_used_min), "تعداد مرخصی سالانه": Number(r.yearly_used_count || 0), "مانده سالانه (ساعت:دقیقه)": mins(r.yearly_balance_min) })), "گزارش کلی", `گزارش_مرخصی_${data.year}_${data.month}.xlsx`);
+    }
+    catch (e) {
+        setError(e.message);
+    } };
+    const exportDetail = () => {
+        if (!selected)
+            return;
+        try {
+            const overview = { "نام و نام خانوادگی": selected.name || selected.personnel_name, "کد پرسنلی": selected.personnel_code, "مجاز ماهانه": mins(selected.monthly_allowed_min), "مصرف ماهانه": mins(selected.monthly_used_min), "تعداد مرخصی ماهانه": Number(selected.monthly_used_count || 0), "مانده ماهانه": mins(selected.monthly_balance_min), "مجاز سالانه": mins(selected.yearly_allowed_min), "مصرف سالانه": mins(selected.yearly_used_min), "تعداد مرخصی سالانه": Number(selected.yearly_used_count || 0), "مانده سالانه": mins(selected.yearly_balance_min) };
+            const req = (data.requests || []).map(x => ({ "نوع": ({ annual: "استحقاقی", sick: "استعلاجی", unpaid: "بدون حقوق" })[x.type] || x.type, "از تاریخ": x.from_jdate || x.the_date || "", "تا تاریخ": x.to_jdate || x.the_date || "", "از ساعت": x.from_time || "", "تا ساعت": x.to_time || "", "مدت (دقیقه)": Number(x.minutes || 0), "وضعیت": x.status || "", "دلیل": x.reason || "", "یادداشت تأیید": x.approver_note || "", "ثبت": x.created_at || "" }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([overview]), "خلاصه");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(req), "درخواست‌ها");
+            XLSX.writeFile(wb, `جزئیات_مرخصی_${selected.personnel_code}_${data.year}_${data.month}.xlsx`);
+        }
+        catch (e) {
+            setError(e.message);
+        }
+    };
+    const th = { padding: "9px 8px", borderBottom: "2px solid var(--line)", whiteSpace: "nowrap", fontSize: 12, textAlign: "right" };
+    const td = { padding: "8px", borderBottom: "1px solid var(--line)", fontSize: 12, whiteSpace: "nowrap" };
+    const headers = ["نام و نام خانوادگی", "کد پرسنلی", "سمت", "مجاز ماهانه", "مصرف ماهانه", "تعداد ماهانه", "مانده ماهانه", "مجاز سالانه", "مصرف سالانه", "تعداد سالانه", "مانده سالانه"];
+    const valueRow = r => [r.name || r.personnel_name, r.personnel_code, r.role_title || "—", mins(r.monthly_allowed_min), mins(r.monthly_used_min), count(r.monthly_used_count), mins(r.monthly_balance_min), mins(r.yearly_allowed_min), mins(r.yearly_used_min), count(r.yearly_used_count), mins(r.yearly_balance_min)];
+    return React.createElement("div", { className: "panel" },
+        React.createElement("div", { className: "row", style: { justifyContent: "space-between", gap: 10, flexWrap: "wrap" } },
+            React.createElement("div", null,
+                React.createElement("h3", null, "\uD83C\uDF34 \u06AF\u0632\u0627\u0631\u0634 \u0645\u0631\u062E\u0635\u06CC \u067E\u0631\u0633\u0646\u0644"),
+                React.createElement("p", { className: "muted", style: { fontSize: 12, marginTop: 5 } },
+                    "\u0622\u0645\u0627\u0631 \u0641\u0627\u06CC\u0644 \u0645\u0628\u0646\u0627 \u062A\u0627 ",
+                    data.through_jdate || "—",
+                    "\u061B \u0645\u062F\u062A\u200C\u0647\u0627 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u0633\u0627\u0639\u062A:\u062F\u0642\u06CC\u0642\u0647")),
+            React.createElement("div", { className: "row", style: { gap: 8 } },
+                React.createElement("select", { className: "input", value: period, onChange: e => selectPeriod(e.target.value), style: { minWidth: 190 } }, data.periods.map(p => { const v = `year=${p.year}&month=${p.month}`; return React.createElement("option", { key: v, value: v },
+                    fa(p.year),
+                    "/",
+                    fa(String(p.month).padStart(2, "0")),
+                    " \u00B7 \u062A\u0627 ",
+                    p.through_jdate); })),
+                React.createElement("button", { className: "btn", onClick: () => load(period) }, "\u0628\u0627\u0632\u062E\u0648\u0627\u0646\u06CC"))),
+        React.createElement("div", { className: "row", style: { gap: 8, marginTop: 14, flexWrap: "wrap" } },
+            React.createElement("button", { className: `btn ${tab === "all" ? "p" : ""}`, onClick: () => setTab("all") },
+                "\u06AF\u0632\u0627\u0631\u0634 \u06A9\u0644\u06CC \u0647\u0645\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627 (",
+                count(rows.length),
+                ")"),
+            React.createElement("button", { className: `btn ${tab === "detail" ? "p" : ""}`, onClick: () => setTab("detail"), disabled: !selected }, "\u062C\u0632\u0626\u06CC\u0627\u062A \u0645\u0631\u062E\u0635\u06CC \u06CC\u06A9 \u067E\u0631\u0633\u0646\u0644"),
+            tab === "all" ? React.createElement(React.Fragment, null,
+                React.createElement("input", { className: "input", placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u06CC\u0627 \u06A9\u062F \u067E\u0631\u0633\u0646\u0644\u06CC", value: query, onChange: e => setQuery(e.target.value), style: { maxWidth: 260 } }),
+                React.createElement("button", { className: "btn", onClick: exportAll, disabled: !filtered.length }, "\u062F\u0627\u0646\u0644\u0648\u062F Excel \u06A9\u0644\u06CC")) : React.createElement("button", { className: "btn", onClick: exportDetail, disabled: !selected }, "\u062F\u0627\u0646\u0644\u0648\u062F Excel \u062C\u0632\u0626\u06CC\u0627\u062A")),
+        error && React.createElement("div", { style: { color: "var(--danger)", marginTop: 10, fontSize: 13 } }, error),
+        busy && React.createElement("div", { className: "muted", style: { marginTop: 10 } }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A\u2026"),
+        tab === "all" && React.createElement("div", { style: { overflow: "auto", maxHeight: "calc(100vh - 330px)", marginTop: 12 } },
+            React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", minWidth: 1120 } },
+                React.createElement("thead", { style: { position: "sticky", top: 0, background: "var(--paper)", zIndex: 1 } },
+                    React.createElement("tr", null, headers.map(h => React.createElement("th", { key: h, style: th }, h)))),
+                React.createElement("tbody", null, filtered.map(r => React.createElement("tr", { key: r.snapshot_id, onClick: () => selectPerson(r), style: { cursor: "pointer", background: +r.snapshot_id === selectedId ? "var(--brand-soft)" : "" } }, valueRow(r).map((v, i) => React.createElement("td", { key: i, style: td }, v)))))),
+            !filtered.length && !busy && React.createElement("p", { className: "muted", style: { padding: 16 } }, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062F\u0648\u0631\u0647 \u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0641\u0627\u06CC\u0644 SQL \u062E\u0635\u0648\u0635\u06CC \u0631\u0627 \u062F\u0631 phpMyAdmin \u0627\u062C\u0631\u0627 \u06A9\u0646\u06CC\u062F.")),
+        tab === "detail" && React.createElement("div", { style: { marginTop: 14 } }, !selected ? React.createElement("p", { className: "muted" }, "\u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647\u0654 \u062C\u0632\u0626\u06CC\u0627\u062A\u060C \u06CC\u06A9 \u0646\u0641\u0631 \u0631\u0627 \u0627\u0632 \u062A\u0628 \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0644\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F.") : React.createElement(React.Fragment, null,
+            React.createElement("div", { className: "row", style: { justifyContent: "space-between", flexWrap: "wrap", gap: 10 } },
+                React.createElement("div", null,
+                    React.createElement("b", null, selected.name || selected.personnel_name),
+                    React.createElement("span", { className: "muted", style: { marginRight: 10 } },
+                        "\u06A9\u062F ",
+                        selected.personnel_code,
+                        " \u00B7 ",
+                        selected.role_title || "سمت نامشخص")),
+                !data.requests_available && React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u0627\u06CC\u0646 \u0631\u062F\u06CC\u0641 \u0647\u0646\u0648\u0632 \u0628\u0647 \u062D\u0633\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631\u06CC \u06CC\u06A9\u062A\u0627 \u0645\u062A\u0635\u0644 \u0646\u06CC\u0633\u062A\u061B \u0633\u0648\u0627\u0628\u0642 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0633\u0627\u0645\u0627\u0646\u0647 \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0646\u06CC\u0633\u062A.")),
+            React.createElement("div", { style: { overflow: "auto", marginTop: 10 } },
+                React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null, headers.slice(3).map(h => React.createElement("th", { key: h, style: th }, h)))),
+                    React.createElement("tbody", null,
+                        React.createElement("tr", null, valueRow(selected).slice(3).map((v, i) => React.createElement("td", { key: i, style: td }, v)))))),
+            React.createElement("h4", { style: { marginTop: 18 } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u062F\u0631 \u0633\u0627\u0645\u0627\u0646\u0647 \u062A\u0627 \u062A\u0627\u0631\u06CC\u062E \u0645\u0628\u0646\u0627"),
+            !data.requests_available ? React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647\u0654 \u0633\u0648\u0627\u0628\u0642 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u060C \u0627\u06CC\u0646 \u067E\u0631\u0633\u0646\u0644 \u0628\u0627\u06CC\u062F \u062F\u0631 \u0641\u0627\u06CC\u0644 SQL \u0628\u0647 \u062D\u0633\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631\u06CC \u06CC\u06A9\u062A\u0627 \u0645\u062A\u0635\u0644 \u0634\u0648\u062F.") : React.createElement("div", { style: { overflow: "auto", maxHeight: 360, marginTop: 8 } },
+                React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", minWidth: 850 } },
+                    React.createElement("thead", { style: { position: "sticky", top: 0, background: "var(--paper)" } },
+                        React.createElement("tr", null, ["نوع", "از تاریخ", "تا تاریخ", "ساعت", "مدت (دقیقه)", "وضعیت", "دلیل"].map(h => React.createElement("th", { key: h, style: th }, h)))),
+                    React.createElement("tbody", null, (data.requests || []).map(x => React.createElement("tr", { key: x.id }, [({ annual: "استحقاقی", sick: "استعلاجی", unpaid: "بدون حقوق" })[x.type] || x.type, x.from_jdate || x.the_date || "—", x.to_jdate || x.the_date || "—", [x.from_time, x.to_time].filter(Boolean).join(" تا ") || "—", count(x.minutes), x.status || "—", x.reason || "—"].map((v, i) => React.createElement("td", { key: i, style: td }, v)))))),
+                !((_a = data.requests) === null || _a === void 0 ? void 0 : _a.length) && React.createElement("p", { className: "muted", style: { padding: 12 } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0645\u0631\u062E\u0635\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647\u200C\u0627\u06CC \u062F\u0631 \u0633\u0627\u0645\u0627\u0646\u0647 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")))),
+        React.createElement("p", { className: "muted", style: { fontSize: 11, marginTop: 12 } }, "\u00AB\u0645\u062C\u0627\u0632\u00BB \u0627\u0632 \u062C\u0645\u0639 \u0645\u0635\u0631\u0641 \u0648 \u0645\u0627\u0646\u062F\u0647 \u062F\u0631 \u0641\u0627\u06CC\u0644 \u0645\u0628\u0646\u0627 \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u0633\u0648\u0627\u0628\u0642 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0641\u0642\u0637 \u0627\u0632 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u0648 \u0645\u0631\u062A\u0628\u0637 \u062F\u0631 \u0633\u0627\u0645\u0627\u0646\u0647 \u0645\u06CC\u200C\u0622\u06CC\u062F. \u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0646\u0641\u06CC \u0639\u06CC\u0646\u0627\u064B \u062D\u0641\u0638 \u0634\u062F\u0647\u200C\u0627\u0646\u062F."));
+}
 const VIEWS = {
     covertselfies: { t: "سلفی‌های نامحسوس", ic: "📸", c: CovertSelfies },
     dashboard: { t: "داشبورد مدیریت", ic: "▦", c: Dashboard },
@@ -15454,6 +15589,7 @@ const VIEWS = {
     attendance: { t: "حضور نیروها", ic: "🕒", c: StaffAttendance },
     shifts: { t: "شیفت و کارکرد", ic: "🗓", c: ShiftManager },
     attreport: { t: "گزارش تردد پرسنل", ic: "🕒", c: AttendanceReport },
+    leavereport: { t: "گزارش مرخصی پرسنل", ic: "🌴", c: PersonnelLeaveReport },
     workpolicy: { t: "سیاست کاری", ic: "📐", c: WorkPolicy },
     requests: { t: "گزارش درخواست‌ها", ic: "📋", c: AdminRequests },
     outages: { t: "قطعی سیستم نوبت‌دهی", ic: "⛔", c: OutageReport },
@@ -15620,7 +15756,7 @@ function App() {
         ["داشبورد و پایش", ["dashboard", "reportscenter", "health", "map", "present", "presentchart"]],
         ["عملیات میدانی", ["missiondashboard", "citydashboard", "missiontemplates", "scoreengine", "officials", "presence", "attendance", "companyrequests", "outages", "covertselfies", "schoolservice"]],
         ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "platetraining", "lines", "zones", "bills", "complaints"]],
-        ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "useract"]],
+        ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "leavereport", "useract"]],
         ["منابع انسانی", ["shifts", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural", "vehicleassets", "vehiclechecklist"]],
         ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
         ["مدیریت سامانه", ["users", "org", "forms", "config", "customfields", "inventory", "excel", "appitems", "cronstatus", "activesessions", "logs", "settings"]],
@@ -15631,7 +15767,7 @@ function App() {
         missiondashboard: 'performance-gauge', citydashboard: 'city-map', missiontemplates: 'dashboard-layout', scoreengine: 'live-chart',
         officials: 'official-badge', presence: 'self-checkin', attendance: 'attendance-register', companyrequests: 'company-envelope', outages: 'service-outage', covertselfies: 'covert-camera',
         drivers: 'driver-id', driverservicereport: 'driver-service-chart', tempdrivers: 'temporary-driver-clock', lines: 'route-line', zones: 'zone-grid', bills: 'billing-receipt', platetraining: 'search-taxi',
-        reports: 'report-card', report: 'report-send', perfreport: 'checked-user-male', attreport: 'attendance-calendar', useract: 'user-activity',
+        reports: 'report-card', report: 'report-send', perfreport: 'checked-user-male', attreport: 'attendance-calendar', leavereport: 'attendance-calendar', useract: 'user-activity',
         shifts: 'shift-cycle', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
         messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', radiocenter: 'radio-tower', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen',
         config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'activity-wave', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
