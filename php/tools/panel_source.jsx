@@ -1,5 +1,5 @@
 const KH_COMPLAINTS_BUILD="2026-10-06-v257";
-// PANEL BUILD TARGET: 2026-10-11-v255
+// PANEL BUILD TARGET: 2026-10-14-v1
 // Build sync: keep generated panel bundle aligned with panel_source changes.
 const {useState,useEffect,useRef,useMemo} = React;
 const I8=(name)=><img src={`/assets/icons3d/${name}.png`} alt="" width="30" height="30" loading="eager" decoding="async" style={{objectFit:'contain'}} onError={e=>{e.currentTarget.style.display='none'}}/>;
@@ -8824,7 +8824,7 @@ function App(){
       <View/></main></div>);
 }
 
-const PANEL_BUILD_VERSION = "1.5.7";
+const PANEL_BUILD_VERSION = "1.5.8";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
@@ -8850,7 +8850,7 @@ async function khForceFreshReloadAfterLogin(){
   const root = document.getElementById("root");
   if(!ok){ const loader=document.getElementById("kh-initial-loader"); if(loader) loader.classList.add("kh-loader-hide"); root.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px;font-family:Vazirmatn"><div><h2 style="color:#e23b54">اتصال به سرور برقرار نشد</h2><p style="color:#6b7890;max-width:420px;line-height:2">این پنل باید از آدرس سرور باز شود (مثل https://app.yousefipour.ir/). لطفاً آدرس <b>/api/health</b> را بررسی کنید و مطمئن شوید نصب کامل شده است.</p></div></div>'; return; }
   await khEnsureFreshBuild();
-  console.log("PANEL BUILD: 1.5.7 (panel-native-radio-school-service)");
+  console.log("PANEL BUILD: 1.5.8 (attendance-report-controls)");
   ReactDOM.createRoot(root).render(<App/>); requestAnimationFrame(()=>requestAnimationFrame(()=>{const loader=document.getElementById("kh-initial-loader");if(loader)loader.classList.add("kh-loader-hide");}));
 })();
 
