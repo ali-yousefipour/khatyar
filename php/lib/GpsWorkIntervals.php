@@ -2,7 +2,8 @@
 
 /**
  * Build work-deduction ranges only from explicit GPS-off records.
- * Missing checkpoints and app lifecycle events are not evidence by themselves.
+ * Each record covers at most one GPS polling interval ending at its timestamp;
+ * missing checkpoints and app lifecycle events are not evidence by themselves.
  */
 function gps_work_explicit_off_intervals(array $events, int $fromTs, int $toTs, int $interval = 1800, int $enabledAtTs = 0): array {
   if ($enabledAtTs > $fromTs) $fromTs = $enabledAtTs;
