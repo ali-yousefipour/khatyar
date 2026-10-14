@@ -24,6 +24,8 @@ jobs:
         run: |
           php -v
           php -l php/lib/routes.php
+          php -l php/lib/ShiftCalc.php
+          php php/tests/work_summary_cutoff_test.php
           php -l php/lib/GpsWorkIntervals.php
           php -l php/app/api/admin-attendance-report-owned.php
           php -l php/app/api/admin-attendance-xlsx.php
