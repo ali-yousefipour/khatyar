@@ -235,7 +235,12 @@ jobs:
         shell: bash
         run: |
           test -f gradle/wrapper/gradle-wrapper.properties
-          grep -Eq 'gradle-8\.13-(bin|all)\.zip' gradle/wrapper/gradle-wrapper.properties
+          echo "Generated Gradle wrapper:"
+          cat gradle/wrapper/gradle-wrapper.properties
+          if ! grep -Eq 'gradle-[0-9]+(\\.[0-9]+)*-(bin|all)\\.zip' gradle/wrapper/gradle-wrapper.properties; then
+            echo "::error::Unrecognized Gradle distribution URL"
+            exit 1
+          fi
           if grep -RniE 'maven\.myket\.ir|mirror-maven\.runflare\.com' settings.gradle* build.gradle* app/build.gradle* gradle.properties 2>/dev/null; then
             echo "::error::Iranian Maven mirrors were injected into the GitHub Actions Android project."
             exit 1
