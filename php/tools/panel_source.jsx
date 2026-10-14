@@ -5939,23 +5939,31 @@ function ShiftDayModal({day, jdate, onSave, onClose}){
 function AdvancedCalendar({shift}){
   const [tj]=useState(todayJ()); const [jy,setJy]=useState(tj[0]); const [jm,setJm]=useState(tj[1]);
   const [days,setDays]=useState({}); const [sel,setSel]=useState(null); const [clip,setClip]=useState(null); const [advDay,setAdvDay]=useState(null);
+  const [patternMode,setPatternMode]=useState(false); const [patternKeys,setPatternKeys]=useState([]);
   useEffect(()=>{ db.shift(shift.id).then(full=>{ const map={}; (full.days||[]).forEach(d=>{ map[d.jdate]={segments:typeof d.segments==="string"?JSON.parse(d.segments||"[]"):(d.segments||[]),is_off:!!d.is_off,day_config:typeof d.day_config==="string"?JSON.parse(d.day_config||"null"):(d.day_config||null)}; }); setDays(map); }).catch(()=>{}); },[shift.id]);
   const dim=(jm<=6)?31:(jm<=11?30:29);
   const jd2=(d)=>`${jy}-${String(jm).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
   const setDay=(key,val)=>setDays(p=>({...p,[key]:val}));
   const saveAll=async()=>{ const arr=Object.entries(days).map(([jdate,v])=>({jdate,segments:v.segments||[],is_off:v.is_off?1:0,day_config:v.day_config||null})); await db.saveShiftDays(shift.id,arr); alert("تقویم شیفت ذخیره شد."); };
-  // تکرار الگوی روزهای هفته‌ی ماه جاری روی کل سال جاری: برای هر روز هفته، اولین روزِ تنظیم‌شده در ماه را الگو می‌گیرد
+  // الگوی چندروزه: نمونه‌ها به ترتیب تاریخ مرتب می‌شوند و چرخه از روز بعد از آخرین نمونه تا پایان سال تکرار می‌شود.
   const repeatPattern=()=>{
-    if(!confirm("الگوی روزهای این ماه بر اساس روزِ هفته، روی تمام ماه‌های سال "+fa(jy)+" اعمال شود؟ (روزهای تنظیم‌نشده تغییری نمی‌کنند)")) return;
-    // برای هر روزِ هفته (۰..۶) یک الگو از ماه جاری انتخاب کن
-    const wkPattern={};
-    for(let d=1; d<=dim; d++){ const key=jd2(d); const v=days[key]; if(!v) continue; const wd=gregToJalaliWeekday(jy,jm,d); if(wkPattern[wd]===undefined) wkPattern[wd]=v; }
+    const samples=patternKeys.filter(k=>k.startsWith(String(jy)+"-")).sort();
+    if(samples.length<2) return alert("برای ساخت الگوی چرخشی، دست‌کم دو روز نمونه از همین سال انتخاب کنید.");
+    const pattern=samples.map(k=>days[k]||{segments:[],is_off:false,day_config:null});
+    const yearDays=[];
+    const monthDays=m=>(m<=6?31:m<=11?30:(((jy%33)%4===1)?30:29));
+    for(let m=1;m<=12;m++)for(let d=1;d<=monthDays(m);d++)yearDays.push(`${jy}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`);
+    const start=yearDays.indexOf(samples[samples.length-1])+1;
+    if(start<=0||start>=yearDays.length) return alert("آخرین روز نمونه باید قبل از پایان سال باشد.");
+    if(!confirm("الگوی "+fa(samples.length)+" روز نمونه، از روز بعد از آخرین نمونه تا پایان سال "+fa(jy)+" به‌صورت چرخه‌ای تکرار شود؟ روزهای این بازه بازنویسی خواهند شد.")) return;
     const next={...days};
-    for(let m=1;m<=12;m++){ const dm=(m<=6)?31:(m<=11?30:(((jy%33)%4===1)?30:29));
-      for(let d=1; d<=dm; d++){ const wd=gregToJalaliWeekday(jy,m,d); const pat=wkPattern[wd]; if(pat===undefined) continue;
-        const key=`${jy}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-        next[key]=JSON.parse(JSON.stringify(pat)); } }
-    setDays(next); alert("الگو روی کل سال اعمال شد. برای ذخیره، «ذخیرهٔ تقویم» را بزنید.");
+    for(let i=start;i<yearDays.length;i++)next[yearDays[i]]=JSON.parse(JSON.stringify(pattern[(i-start)%pattern.length]));
+    setDays(next);setPatternMode(false);setPatternKeys([]);
+    alert("الگوی چندروزه تا پایان سال اعمال شد. برای ثبت نهایی، «ذخیرهٔ تقویم» را بزنید.");
+  };
+  const togglePatternDay=key=>{
+    if(!key.startsWith(String(jy)+"-")) return alert("روزهای نمونه باید از یک سال شمسی انتخاب شوند.");
+    setPatternKeys(prev=>prev.includes(key)?prev.filter(k=>k!==key):[...prev,key]);
   };
   // کپی کل تقویم سال جاری به سال بعد
   const copyNextYear=async()=>{
@@ -5979,10 +5987,16 @@ function AdvancedCalendar({shift}){
       <button className="btn g" onClick={()=>{ if(jm===1){setJy(jy-1);setJm(12);}else setJm(jm-1); }}>‹ ماه قبل</button>
       <b>{J_MONTHS[jm-1]} {fa(jy)}</b>
       <button className="btn g" onClick={()=>{ if(jm===12){setJy(jy+1);setJm(1);}else setJm(jm+1); }}>ماه بعد ›</button>
-      <button className="btn g" onClick={repeatPattern}>⟳ تکرار الگو روی کل سال</button>
+      <button className={patternMode?"btn p":"btn g"} onClick={()=>{setPatternMode(v=>!v);if(patternMode)setPatternKeys([]);}}>☷ انتخاب روزهای الگو{patternKeys.length?" ("+fa(patternKeys.length)+")":""}</button>
+      <button className="btn g" onClick={repeatPattern} disabled={!patternKeys.length}>⟳ تکرار الگو روی کل سال</button>
       <button className="btn g" onClick={copyNextYear}>⊕ کپی به سال بعد</button>
       <button className="btn p" style={{marginInlineStart:"auto"}} onClick={saveAll}>ذخیرهٔ تقویم</button>
     </div>
+    {patternMode&&<div role="status" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap",marginBottom:10,padding:"9px 12px",border:"1px solid var(--line)",borderRadius:10,fontSize:12}}>
+      <span>حالت انتخاب الگو فعال است؛ چند روز نمونه را انتخاب کنید. ترتیب الگو بر اساس تاریخ است و تکرار از روز بعد از آخرین نمونه تا پایان سال انجام می‌شود.</span>
+      <button type="button" className="btn g" onClick={()=>{setPatternMode(false);setPatternKeys([]);}}>پایان انتخاب</button>
+    </div>}
+    {patternKeys.length>0&&<div style={{fontSize:12,marginBottom:8,color:"var(--brand)"}}>روزهای نمونه: {patternKeys.slice().sort().map(k=>k.replace(/-/g,"/")).join("، ")}</div>}
     {clip&&<div className="shift-paste-mode" role="status" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap",marginBottom:10,padding:"9px 12px",border:"1px solid #b7dfc8",borderRadius:10,background:"#effaf3",color:"#17663b",fontSize:12}}>
       <span>حالت پیست فعال است؛ برای پیست روی هر روز مقصد راست‌کلیک کنید. پس از پایان، دکمهٔ «اتمام پیست» را بزنید.</span>
       <button type="button" className="btn g" onClick={()=>setClip(null)} style={{fontSize:11,padding:"4px 10px",whiteSpace:"nowrap"}}>اتمام پیست</button>
@@ -5993,8 +6007,10 @@ function AdvancedCalendar({shift}){
       {Array.from({length:dim}).map((_,i)=>{ const d=i+1; const key=jd2(d); const v=days[key]; const has=v&&!v.is_off&&(v.segments||[]).length; const off=v&&v.is_off;
         const shiftTimes=has?(v.segments||[]).map(seg=>seg.s&&seg.e?`${seg.s}–${seg.e}`:null).filter(Boolean):[];
         const showPaste=!!clip&&clip.source!==key;
-        return(<div key={key} className={"cal-d"+(sel===key?" sel":"")+(has?" has":"")+(off?" off":"")} title={clip&&clip.source!==key?"برای پیست شیفت روی این روز کلیک راست کنید":undefined} onClick={()=>setSel(key)} onContextMenu={e=>{if(!clip)return;e.preventDefault();if(clip.source!==key)pasteShiftDay(key);}}>
+        const inPattern=patternKeys.includes(key);
+        return(<div key={key} className={"cal-d"+(sel===key?" sel":"")+(has?" has":"")+(off?" off":"")+(inPattern?" shift-pattern-selected":"")} title={patternMode?"برای افزودن/حذف از الگوی چرخشی کلیک کنید":(clip&&clip.source!==key?"برای پیست شیفت روی این روز راست‌کلیک کنید":undefined)} onClick={()=>{if(patternMode){togglePatternDay(key);return;}setSel(key);}} onContextMenu={e=>{if(!clip||patternMode)return;e.preventDefault();if(clip.source!==key)pasteShiftDay(key);}}>
           <span className="cal-n">{fa(d)}</span>
+          {inPattern&&<span title="روز نمونه الگوی چرخشی" style={{position:"absolute",top:2,insetInlineStart:3,fontSize:11,fontWeight:800,color:"var(--brand)"}}>✓</span>}
           {has&&!clip&&<button type="button" title="کپی شیفت این روز" aria-label={`کپی شیفت ${key}`} onClick={e=>{e.stopPropagation();copyShiftDay(key);}} style={{position:"absolute",top:2,insetInlineEnd:3,border:0,background:"transparent",color:"var(--brand)",cursor:"pointer",fontSize:16,lineHeight:1,padding:2}}>⧉</button>}
           {showPaste&&<button type="button" className="attendance-shift-day-paste" title="پیست شیفت در این روز" aria-label={`پیست شیفت در ${key}`} onClick={e=>{e.stopPropagation();pasteShiftDay(key);}} style={{position:"absolute",top:2,insetInlineStart:3,border:0,background:"transparent",color:"var(--brand)",cursor:"pointer",fontSize:15,lineHeight:1,padding:2}}>▣</button>}
           {shiftTimes.length>0?<span className="cal-shift-times" style={{position:"absolute",bottom:3,insetInline:3,textAlign:"center",fontSize:9,lineHeight:1.25,color:"var(--ink)",direction:"ltr",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",boxSizing:"border-box"}}>{shiftTimes.join(" · ")}</span>:off?<span className="cal-tag">تعطیل</span>:null}
