@@ -122,37 +122,47 @@ function attendance_report_owned_by_entry_date($userId, $from, $to) {
         if (in_array($kind,['app_background','session_end','offline'],true)) $appSignals[] = ['kind'=>$kind,'at'=>$eventTs];
       }
       foreach ($badRanges as $bad) {
-        $a=(int)($bad[0]??0); $b=(int)($bad[1]??0);
-        if ($b <= $a) continue;
-        $gpsOffEvidence = false;
+        $rangeA=(int)($bad[0]??0); $rangeB=(int)($bad[1]??0);
+        if ($rangeB <= $rangeA) continue;
+        $gpsRanges[]=[$rangeA,$rangeB];
+        // بازه را در مرزهای رویداد GPS-off می‌شکنیم تا یک خاموشی کوتاه،
+        // کل چند ساعتِ بدون checkpoint را به‌اشتباه به GPS-off نسبت ندهد.
+        $cuts=[$rangeA,$rangeB];
         foreach ($gpsOffTs as $eventTs) {
-          // الگوریتم محاسبه، بازهٔ ۳۰ دقیقهٔ منتهی به رویداد خاموشی صریح GPS را نامعتبر می‌کند.
-          if ($eventTs > $a && $eventTs <= $b + 1800 && $eventTs - 1800 < $b && $eventTs > $a) { $gpsOffEvidence=true; break; }
+          foreach ([$eventTs-1800,$eventTs] as $cut) if ($cut>$rangeA && $cut<$rangeB) $cuts[]=$cut;
         }
-        $nearAppSignal = null;
-        foreach ($appSignals as $signal) {
-          if ($signal['at'] >= $a-300 && $signal['at'] <= $b+300) { $nearAppSignal=$signal; break; }
+        $cuts=array_values(array_unique($cuts)); sort($cuts,SORT_NUMERIC);
+        for ($ci=0;$ci<count($cuts)-1;$ci++) {
+          $a=(int)$cuts[$ci]; $b=(int)$cuts[$ci+1];
+          if ($b<=$a) continue;
+          $mid=(int)floor(($a+$b)/2);
+          $gpsOffEvidence=false;
+          foreach ($gpsOffTs as $eventTs) if ($mid >= $eventTs-1800 && $mid < $eventTs) { $gpsOffEvidence=true; break; }
+          $nearAppSignal=null;
+          foreach ($appSignals as $signal) if ($signal['at'] >= $a-300 && $signal['at'] <= $b+300) { $nearAppSignal=$signal; break; }
+          if ($gpsOffEvidence) {
+            $reasonCode='gps_off';
+            $reason='ثبت صریح خاموش بودن GPS در سوابق دستگاه';
+            $evidence='رویداد gps_off ثبت‌شده';
+          } elseif ($nearAppSignal) {
+            $reasonCode='app_state_signal';
+            $signalLabels=['app_background'=>'برنامه وارد پس‌زمینه شده است','session_end'=>'رویداد پایان نشست ثبت شده است','offline'=>'رویداد قطع ارتباط ثبت شده است'];
+            $reason=($signalLabels[$nearAppSignal['kind']]??'تغییر وضعیت برنامه/ارتباط ثبت شده است').'؛ این رویداد به‌تنهایی اثبات قطعی بسته‌شدن اجباری برنامه نیست';
+            $evidence=$nearAppSignal['kind'];
+          } else {
+            $reasonCode='missing_checkpoint';
+            $reason='تأیید دوره‌ای GPS/فعالیت در این بازه دریافت نشده است؛ علت قطعی بسته‌شدن برنامه از سوابق موجود قابل اثبات نیست';
+            $evidence='نبود checkpoint معتبر در بازه';
+          }
+          $gpsDetails[]=[
+            'start_at'=>date('Y-m-d H:i:s',$a),
+            'end_at'=>date('Y-m-d H:i:s',$b),
+            'minutes'=>(int)ceil(($b-$a)/60),
+            'reason_code'=>$reasonCode,
+            'reason'=>$reason,
+            'evidence'=>$evidence
+          ];
         }
-        if ($gpsOffEvidence) {
-          $reasonCode='gps_off';
-          $reason='ثبت صریح خاموش بودن GPS در سوابق دستگاه';
-        } elseif ($nearAppSignal) {
-          $reasonCode='app_state_signal';
-          $signalLabels=['app_background'=>'برنامه وارد پس‌زمینه شده است','session_end'=>'رویداد پایان نشست ثبت شده است','offline'=>'رویداد قطع ارتباط ثبت شده است'];
-          $reason=($signalLabels[$nearAppSignal['kind']]??'تغییر وضعیت برنامه/ارتباط ثبت شده است').'؛ به‌تنهایی اثبات قطعی بسته‌شدن اجباری برنامه نیست';
-        } else {
-          $reasonCode='missing_checkpoint';
-          $reason='تأیید دوره‌ای GPS/فعالیت در این بازه دریافت نشده است؛ علت قطعی بسته‌شدن برنامه از سوابق موجود قابل اثبات نیست';
-        }
-        $gpsRanges[]=[$a,$b];
-        $gpsDetails[]=[
-          'start_at'=>date('Y-m-d H:i:s',$a),
-          'end_at'=>date('Y-m-d H:i:s',$b),
-          'minutes'=>(int)ceil(($b-$a)/60),
-          'reason_code'=>$reasonCode,
-          'reason'=>$reason,
-          'evidence'=>$reasonCode==='gps_off'?'رویداد gps_off ثبت‌شده':($nearAppSignal?$nearAppSignal['kind']:'نبود checkpoint معتبر در بازه')
-        ];
       }
     }
     // بازه‌های هم‌پوشان فقط یک بار در جمع دقیقه‌ها محاسبه شوند.
