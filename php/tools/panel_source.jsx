@@ -6252,7 +6252,7 @@ function AttendanceReport(){
   ];
   const selectedColumns=columns.filter((_,i)=>visibleColumnIndexes.includes(i));
   const saveColumnSettings=()=>{const next=Array.from(new Set(draftColumnIndexes)).filter(i=>Number.isInteger(i)&&i>=0&&i<columns.length);if(!next.includes(0))next.unshift(0);setVisibleColumnIndexes(next);try{localStorage.setItem(attendanceColumnStorageKey,JSON.stringify(next));}catch(_){}setColumnSettingsOpen(false);};
-  const exportExcel=()=>{if(!data)return;const rows=[selectedColumns.map(x=>x[0])];(data.days||[]).forEach(d=>rows.push(selectedColumns.map(x=>x[1](d))));const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"گزارش تردد");XLSX.writeFile(wb,"گزارش تردد پرسنل.xlsx");};
+  const exportExcel=async()=>{if(!data)return;try{const rows=[columns.map(x=>x[0])];(data.days||[]).forEach(d=>rows.push(columns.map(x=>x[1](d))));const response=await _fetchWithAuth("/api/admin-attendance-xlsx.php",{method:"POST",headers:{"content-type":"application/json","accept":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},body:JSON.stringify({rows}),cache:"no-store"});if(!response.ok){let message="خطا در ساخت فایل Excel";try{const result=await response.json();message=result.error||result.message||message}catch(_){}throw new Error(message)}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`گزارش_تردد_${String(uid)}_${String(from).replace(/\//g,"-")}_${String(to).replace(/\//g,"-")}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}catch(e){alert(e.message||"خطا در دریافت خروجی گزارش")}};
 
   return(<div className="panel" translate="no" data-no-translate="true"><h3>🕒 گزارش تردد پرسنل</h3>
     <div className="card-p" style={{marginBottom:14}}>
@@ -6285,18 +6285,18 @@ function AttendanceReport(){
         <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:14}}><button className="btn g" type="button" onClick={()=>setDraftColumnIndexes(columns.map((_,i)=>i))}>نمایش همه</button><button className="btn g" type="button" onClick={()=>setDraftColumnIndexes([0])}>فقط تاریخ</button><button className="btn p" type="button" onClick={saveColumnSettings}>ذخیره تنظیم</button><button className="btn g" type="button" onClick={()=>setColumnSettingsOpen(false)}>انصراف</button></div>
       </div>
     </div>}
-    {data&&<div style={{overflowX:"auto",border:"1px solid var(--line)",borderRadius:10}}>
-      <table className="khar-attendance-native" style={{fontSize:12,minWidth:Math.max(700,selectedColumns.length*112)}}>
-        <thead><tr>{selectedColumns.map(([title],i)=><th key={title} style={{whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2}}>{title}</th>)}</tr></thead>
-        <tbody>{(data.days||[]).map(d=>{
+    {data&&<div className="attendance-report-table-scroll" style={{height:"calc(100vh - 360px)",maxHeight:"calc(100dvh - 260px)",minHeight:220,overflow:"auto",border:"1px solid var(--line)",borderRadius:10,position:"relative",overscrollBehavior:"contain"}}>
+      <table className="khar-attendance-native" style={{fontSize:12,width:"max-content",tableLayout:"auto",borderCollapse:"separate",borderSpacing:0}}>
+        <thead><tr>{selectedColumns.map(([title],i)=><th key={title} style={{whiteSpace:"normal",overflowWrap:"anywhere",maxWidth:180,minWidth:64,position:"sticky",top:0,zIndex:3,background:"#eaf5f0",borderBottom:"2px solid #0d7a5f",borderInlineStart:"1px solid #d7e5dd",padding:"10px 8px",verticalAlign:"middle"}}>{title}</th>)}</tr></thead>
+        <tbody>{(data.days||[]).map((d,rowIndex)=>{
           const red=!!d.is_holiday||!!d.is_friday||d.weekday==="جمعه";
-          return <tr key={d.jdate}>
+          return <tr key={d.jdate} style={{background:rowIndex%2===0?"#fff":"#f0f8f3"}}>
             {selectedColumns.map((col,i)=>{
               const title=col[0];
               const getter=col[1];
               const fontWeight=(i<2&&red)?700:400;
               const textAlign=["ورود","خروج","اولین ورود","آخرین خروج"].includes(title)?"center":"right";
-              return <td key={title} style={{whiteSpace:"nowrap",color:red?"var(--danger)":"inherit",fontWeight:fontWeight,textAlign:textAlign}}>
+              return <td key={title} style={{whiteSpace:"nowrap",color:red?"var(--danger)":"inherit",fontWeight:fontWeight,textAlign:textAlign,padding:"8px",background:rowIndex%2===0?"#fff":"#f0f8f3",borderBottom:"1px solid #e2e9e4",borderInlineStart:"1px solid #e2e9e4",verticalAlign:"middle"}}>
                 {title==="کسر کار غیر فعال کردن برنامه"&&mins(getter(d))>0
                   ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,cursor:"pointer",fontWeight:800}} title="نمایش دلایل کسری GPS/برنامه" onClick={()=>setGpsDeficitModal({jdate:d.jdate,minutes:mins(getter(d)),details:Array.isArray(d.gps_inactive_details)?d.gps_inactive_details:[]})}>{attendanceCell(getter(d))}</button>
                   : (title==="مازاد حضور"&&mins(d.surplus)>0)||(title==="کسری کار"&&mins(d.shortage)>0)
@@ -6308,8 +6308,8 @@ function AttendanceReport(){
           </tr>;
         })}</tbody>
       </table>
+      <div style={{padding:"7px 10px",fontSize:11,color:"var(--muted)",borderTop:"1px solid var(--line)",background:"#fff"}}>نمایش صفحه: {fa(selectedColumns.length)} ستون · فایل Excel: همهٔ {fa(columns.length)} ستون</div>
     </div>}
-    {data&&<div style={{marginTop:8,fontSize:11,color:"var(--muted)"}}>۲۹ ستون گزارش فعال است؛ ساعت ورود و خروج از داده واقعی تردد خوانده می‌شود.</div>}
     {gpsDeficitModal&&<div role="presentation" onClick={e=>{if(e.target===e.currentTarget)setGpsDeficitModal(null);}} style={{position:"fixed",inset:0,zIndex:100500,background:"rgba(0,0,0,.58)",display:"flex",alignItems:"center",justifyContent:"center",padding:"clamp(10px,2vw,24px)"}}>
       <div className="card-p" role="dialog" aria-modal="true" aria-label="دلایل کسر کار GPS و برنامه" onClick={e=>e.stopPropagation()} style={{width:"min(900px,96vw)",maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",padding:0}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"14px 18px",borderBottom:"1px solid var(--line)",flexShrink:0}}>

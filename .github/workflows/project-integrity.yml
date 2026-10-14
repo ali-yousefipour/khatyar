@@ -14,6 +14,7 @@ jobs:
           php -l php/lib/routes.php
           php -l php/lib/GpsWorkIntervals.php
           php -l php/app/api/admin-attendance-report-owned.php
+          php -l php/app/api/admin-attendance-xlsx.php
           php php/tests/gps_work_intervals_test.php
           php -l php/lib/school_service_routes_extra.php
           php -l php/lib/complaints_routes_extra.php
