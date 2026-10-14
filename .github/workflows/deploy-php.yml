@@ -37,6 +37,7 @@ jobs:
           npm install --no-save --no-package-lock typescript@5.9.3
           bash ./tools/build_panel_bundle.sh
           node --check app/assets/panel.bundle.js
+          grep -q 'leavereport' app/assets/panel.bundle.js
           grep -q "adminRequestDecision" app/assets/panel.bundle.js
           grep -q 'cal-shift-times' app/assets/panel.bundle.js
           grep -q 'attendance-shift-day-paste' app/assets/panel.bundle.js
@@ -410,7 +411,7 @@ jobs:
             "${url}" > /tmp/live-panel.html
 
           grep -q 'assets/panel-build-runtime-fix.js?v=20261011.2' /tmp/live-panel.html
-          grep -q 'assets/panel.bundle.js?v=20261015.1' /tmp/live-panel.html
+          grep -q 'assets/panel.bundle.js?v=20261015.2' /tmp/live-panel.html
           grep -Eq 'assets/school-service-admin.js.v=20261011.256' /tmp/live-panel.html
           grep -q '1.5.8' /tmp/live-panel.html
           grep -q 'AUTO DEPLOY VERIFY: 2026-10-14-calendar-context-paste-controls-v7' /tmp/live-panel.html
@@ -432,6 +433,7 @@ jobs:
             "${url}" > /tmp/live-panel-bundle.js
 
           test -s /tmp/live-panel-bundle.js
+          grep -q 'leavereport' /tmp/live-panel-bundle.js
           grep -q 'PANEL BUILD: 1.5.8 (attendance-report-controls)' /tmp/live-panel-bundle.js
           grep -q 'khatyar.attendance.report.visible-columns.v1' /tmp/live-panel-bundle.js
           grep -q 'columnSettingsOpen' /tmp/live-panel-bundle.js
