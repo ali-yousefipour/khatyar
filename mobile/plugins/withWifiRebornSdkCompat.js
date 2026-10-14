@@ -24,7 +24,7 @@ module.exports = function withWifiRebornSdkCompat(config) {
     let updated = original;
     let seenCompileSdk = false;
     updated = updated.split(/(\\r?\\n)/).map((line) => {
-      if (/^\\r?\\n$/.test(line) || /^\\s*(?:\\/\\/|\\*|#)/.test(line)) return line;
+      if (!line.trim() || line.trimStart().startsWith('//') || line.trimStart().startsWith('*') || line.trimStart().startsWith('#')) return line;
       if (!/\\bcompileSdkVersion\\b/.test(line)) return line;
       seenCompileSdk = true;
       let result = line.replace(
