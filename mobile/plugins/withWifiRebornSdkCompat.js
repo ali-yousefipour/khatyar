@@ -19,16 +19,17 @@ module.exports = function withWifiRebornSdkCompat(config) {
     }
 
     const original = fs.readFileSync(gradleFile, 'utf8');
-    const patterns = [
-      /(\bndkVersion\s*=\s*)['"][^'"]+['"]/ ,
-      /(\bndkVersion\s+)['"][^'"]+['"]/ ,
-      /(\bndkVersion\s*=\s*)\d+\.\d+\.\d+/
-    ];
-
+    // Only adjust compileSdkVersion fallbacks. Never rewrite ndkVersion:
+    // it is a separate dotted toolchain version (e.g. 27.3.13750724).
     let updated = original;
-    for (const pattern of patterns) {
-      updated = updated.replace(pattern, (match, prefix, suffix = '') => prefix + '36' + suffix);
-    }
+    updated = updated.replace(
+      /(safeExtGet\\(\\s*['"]?compileSdkVersion['"]?\\s*,\\s*)(\\d+)(\\s*\\))/g,
+      (match, prefix, version, suffix) => Number(version) < 36 ? prefix + '36' + suffix : match
+    );
+    updated = updated.replace(
+      /(\\bcompileSdkVersion\\s*(?:=\\s*|\\s+))(\\d+)\\b/g,
+      (match, prefix, version) => Number(version) < 36 ? prefix + '36' : match
+    );
 
     const legacyNumericSdk =
       /safeExtGet\(\s*['"]?compileSdkVersion['"]?\s*,\s*(?:[0-9]|[12]\d|3[0-5])\s*\)/.test(updated) ||
