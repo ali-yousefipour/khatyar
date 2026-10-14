@@ -5,7 +5,7 @@
 - منبع: فایل `h301194_app.sql` ارائه‌شده در ۲۰۲۶-۱۰-۱۵
 - محتوای snapshot: فقط `CREATE TABLE`؛ هیچ رکوردی از کاربران یا برنامه ذخیره نشده است.
 - کاربرد: مرجع مطالعه و تطبیق کد با ساختار پایگاه داده؛ برای نصب یا migration اجرا نشود.
-- فایل مرجع: [`php/db/production_schema_snapshot_2026-10-15.sql`](../../php/db/production_schema_snapshot_2026-10-15.sql)
+- فایل مرجع: [`docs/database-schema-2026-10-15.sql`](database-schema-2026-10-15.sql)
 - فایل‌های نصب و ارتقا همچنان مرجع اجرای تغییرات schema هستند: `php/db/mysql_schema.sql` و فایل‌های upgrade.
 
 ## فهرست جدول‌ها و ستون‌ها
