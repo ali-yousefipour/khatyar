@@ -159,7 +159,7 @@ jobs:
               throw new Error('Mirror URL remains in ' + name);
             }
           }
-          fs.writeFileSync(file, JSON.stringify(lock, null, 2) + '\\n');
+          fs.writeFileSync(file, JSON.stringify(lock, null, 2) + '\n');
           console.log('Normalized ' + changed + ' Runflare tarball URLs to official npm registry.');
           NODE
 
