@@ -4551,7 +4551,7 @@ route('GET', '/api/admin/users/export', function($p,$b,$u){
   $xw->setTextCol(4); // کد پرسنلی باید با صفرهای ابتدایی و تمام رقم‌ها حفظ شود
   foreach ([0=>7,1=>15,2=>16,3=>18,4=>14,5=>15,6=>14,7=>13,8=>10,9=>16,10=>28,11=>34,12=>20,13=>14,
             14=>12,15=>13,16=>20,17=>15,18=>15,19=>17,20=>10,21=>20] as $colIdx=>$width) $xw->setColWidth($colIdx, $width);
-  $xw->setColWidth($photoColIdx, 13);
+  $xw->setColWidth($photoColIdx, 15);
   $xw->setColWidth($sigColIdx, 16);
 
   foreach($users as $userIndex=>$usr){
