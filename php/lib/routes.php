@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__.'/GpsWorkIntervals.php';
 // ============ تعریف همهٔ مسیرهای API ============
 const ADMIN = 3; // سطح ۳ و بالاتر = مدیریتی
 // از این نسخه به بعد، به‌درخواست کارفرما، شمارهٔ نسخهٔ سایت و اپ اندروید و نام فایل زیپ پروژه
@@ -2092,8 +2093,7 @@ route('GET', '/api/cron/sms-expiry', function($p,$b,$u){
 // ---------------- ثبت حضور شخصی (چک‌این/چک‌اوت) ----------------
 // پیکربندی صفحهٔ ثبت حضور: خطوط کاربر + محدوده‌ها + شناسه‌های جایگزین
 // تنظیمات جامع اپ موبایل
-// محاسبهٔ سمت سرور: هر تأیید GPS حداکثر ۳۰ دقیقه اعتبار می‌دهد.
-// بازه‌های بدون تأیید، حتی اگر Android Force Stop شده باشد، به‌عنوان کارکرد معتبر شمرده نمی‌شوند.
+// محاسبهٔ کسر فقط بر پایهٔ رویداد صریح gps_off است؛ نبود checkpoint یا app_background شاهد خاموشی GPS/بسته‌شدن کامل برنامه نیست.
 function _gps_work_required() {
   try {
     $r = Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required'");
@@ -2125,138 +2125,28 @@ function _gps_work_record_event($userId, $kind, $at, $meta=[]) {
   ]);
 }
 function _gps_work_invalid_intervals($userId, $fromTs, $toTs, $gracePending=false) {
-  $fromTs=(int)$fromTs; $toTs=(int)$toTs;
-  $interval=1800;
-  // تأخیر چند دقیقه‌ای JobScheduler قابل قبول است، ولی فاصلهٔ طولانی هرگز اعتبار
-  // عقب‌گرد نمی‌گیرد؛ بازگشت بعد از Force Stop نمی‌تواند هشت ساعت را تأیید کند.
-  $tolerance=300;
+  $fromTs=(int)$fromTs; $toTs=(int)$toTs; $interval=1800;
   if (!$fromTs || !$toTs || $toTs <= $fromTs || !_gps_work_required()) return [];
-
+  $enabledTs=0;
   try {
     $enabledRow=Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required_enabled_at'");
-    $enabledValue=$enabledRow ? json_decode((string)$enabledRow['value'], true) : null;
-    $enabledTs=$enabledValue ? strtotime((string)$enabledValue) : false;
-    if ($enabledTs && $enabledTs>$fromTs) $fromTs=$enabledTs;
+    $enabledValue=$enabledRow ? json_decode((string)$enabledRow['value'],true) : null;
+    $enabledTs=$enabledValue ? (int)strtotime((string)$enabledValue) : 0;
   } catch (Throwable $e) {}
+  if ($enabledTs > $fromTs) $fromTs=$enabledTs;
   if ($toTs <= $fromTs) return [];
 
-  $queryFrom=date('Y-m-d H:i:s', max(1,$fromTs-$interval-$tolerance));
-  $queryTo=date('Y-m-d H:i:s', $toTs);
   try {
-    // at را به‌صورت DATETIME می‌خوانیم و در PHP تبدیل می‌کنیم؛
-    // UNIX_TIMESTAMP در MySQL می‌تواند با timezone پردازش PHP تفاوت داشته باشد.
-    $events=Db::all("SELECT kind,at,meta FROM user_activity
-      WHERE user_id=? AND at>=? AND at<=? AND kind IN ('gps_on','gps_off')
-      ORDER BY at ASC,id ASC", [(int)$userId,$queryFrom,$queryTo]);
+    $queryFrom=date('Y-m-d H:i:s',max(1,$fromTs-$interval));
+    $queryTo=date('Y-m-d H:i:s',$toTs);
+    $events=Db::all("SELECT kind,at FROM user_activity
+      WHERE user_id=? AND kind='gps_off' AND at>=? AND at<=?
+      ORDER BY at ASC,id ASC",[(int)$userId,$queryFrom,$queryTo]);
   } catch (Throwable $e) {
-    // خطای خواندن لاگ‌ها شاهد خاموشی GPS یا توقف برنامه نیست؛
-    // بازه را جریمه نکن تا خطای دیتابیس به کسری کار کاذب تبدیل نشود.
-    error_log('gps work verification query failed; no penalty without evidence: '.$e->getMessage());
+    error_log('gps work explicit-off query failed; no penalty without evidence: '.$e->getMessage());
     return [];
   }
-
-  $covered=[]; $forcedInvalid=[]; $lastOnTs=null;
-  foreach ($events as $event) {
-    $ts=strtotime((string)($event['at']??''));
-    if (!$ts) continue;
-    $kind=(string)($event['kind']??'');
-    $meta=json_decode((string)($event['meta']??''),true);
-    $source=is_array($meta)?(string)($meta['source']??''):'';
-
-    if ($kind==='gps_off') {
-      // خاموشی صریح GPS بر هر checkpoint هم‌پوشان اولویت دارد.
-      $a=max($fromTs,$ts-$interval); $b=min($toTs,$ts);
-      if ($b>$a) $forcedInvalid[]=[$a,$b];
-      $lastOnTs=null;
-      continue;
-    }
-    if ($kind!=='gps_on') continue;
-
-    // ورود فقط نقطهٔ شروع زنجیره است و به‌تنهایی بازهٔ بعد از ورود را ثابت نمی‌کند.
-    if ($source==='attendance_checkin') {
-      $lastOnTs=$ts;
-      continue;
-    }
-
-    // فقط بررسی‌های واقعی GPS و موقعیت تأییدشده هنگام خروج را checkpoint بدان.
-    // رویداد خروج پس از یک شکاف طولانی، بازهٔ قبلی را به‌صورت معکوس تأیید نمی‌کند.
-    if (!in_array($source,['foreground_watchdog','location_task_watchdog','attendance_checkout'],true)) continue;
-
-    if ($lastOnTs!==null && $ts>$lastOnTs) {
-      $gap=$ts-$lastOnTs;
-      if ($gap <= $interval+$tolerance) {
-        // هر checkpoint حداکثر ۳۰ دقیقه اعتبار ایجاد می‌کند؛ چند دقیقه تأخیر
-        // مجاز است اما همان تأخیر نیز به‌عنوان کارکرد تأییدشده شمرده نمی‌شود.
-        $a=max($fromTs,$lastOnTs,$ts-$interval);
-        $b=min($toTs,$ts);
-        if ($b>$a) $covered[]=[$a,$b];
-      }
-    }
-    // بعد از یک شکاف، این رویداد فقط مبنای بررسی بعدی است.
-    $lastOnTs=$ts;
-  }
-
-  $merge=static function($ranges) {
-    if (!$ranges) return [];
-    usort($ranges,static fn($a,$b)=>(int)$a[0]<=>(int)$b[0]);
-    $out=[];
-    foreach($ranges as $range) {
-      $a=(int)$range[0]; $b=(int)$range[1];
-      if ($b<=$a) continue;
-      $last=count($out)-1;
-      if ($last<0 || $a>$out[$last][1]) $out[]=[$a,$b];
-      else $out[$last][1]=max($out[$last][1],$b);
-    }
-    return $out;
-  };
-  $covered=$merge($covered);
-  $forcedInvalid=$merge($forcedInvalid);
-
-  // بازه‌های خاموشی را از پوشش احتمالی حذف می‌کنیم.
-  if ($forcedInvalid && $covered) {
-    $remaining=[];
-    foreach($covered as $c) {
-      $parts=[$c];
-      foreach($forcedInvalid as $bad) {
-        $next=[];
-        foreach($parts as $p) {
-          if ($bad[1]<=$p[0] || $bad[0]>=$p[1]) { $next[]=$p; continue; }
-          if ($bad[0]>$p[0]) $next[]=[$p[0],min($bad[0],$p[1])];
-          if ($bad[1]<$p[1]) $next[]=[max($bad[1],$p[0]),$p[1]];
-        }
-        $parts=$next;
-        if (!$parts) break;
-      }
-      foreach($parts as $p) if($p[1]>$p[0]) $remaining[]=$p;
-    }
-    $covered=$merge($remaining);
-  }
-
-  // مکمل بازه‌های تأییدشده، کارکرد غیرقابل‌اعتبارسنجی است.
-  $invalid=[]; $cursor=$fromTs;
-  foreach($covered as $valid) {
-    if ($valid[0]>$cursor) $invalid[]=[$cursor,$valid[0]];
-    $cursor=max($cursor,$valid[1]);
-  }
-  if ($cursor<$toTs) $invalid[]=[$cursor,$toTs];
-
-  // فقط نیم‌ساعتِ ناتمامِ جلسهٔ باز مهلت دارد. بازه‌های کاملِ جاافتاده و gps_off
-  // بعد از این مرحله دوباره اعمال می‌شوند و از کسر کار حذف نمی‌شوند.
-  if ($gracePending && $lastOnTs!==null && $toTs>$lastOnTs) {
-    $completedSlots=(int)floor(($toTs-$lastOnTs)/$interval);
-    $pendingStart=min($toTs,$lastOnTs+$completedSlots*$interval);
-    if ($pendingStart<$toTs) {
-      $trimmed=[];
-      foreach($invalid as $bad) {
-        $a=(int)$bad[0]; $b=(int)$bad[1];
-        if ($b<=$pendingStart || $a>=$toTs) { $trimmed[]=$bad; continue; }
-        if ($a<$pendingStart) $trimmed[]=[$a,$pendingStart];
-      }
-      $invalid=$trimmed;
-    }
-  }
-  foreach($forcedInvalid as $bad) $invalid[]=$bad;
-  return $merge($invalid);
+  return gps_work_explicit_off_intervals($events,$fromTs,$toTs,$interval);
 }
 route('GET', '/api/my/app-config', function($p,$b,$u){
   $g = function($k,$d=null){ $r=Db::one("SELECT value FROM app_settings WHERE `key`=?",[$k]); if(!$r)return $d; $v=json_decode($r['value'],true); return ($v===null||$v==='')?$d:$v; };

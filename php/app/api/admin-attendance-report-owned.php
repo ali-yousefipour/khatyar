@@ -105,75 +105,19 @@ function attendance_report_owned_by_entry_date($userId, $from, $to) {
       if (!$sessionIn || !$sessionOut || $sessionOut <= $sessionIn) continue;
       $badRanges = _gps_work_invalid_intervals((int)$userId, $sessionIn, $sessionOut, empty($attendanceRow['check_out']));
       if (!$badRanges) continue;
-      $eventRows = [];
-      try {
-        $eventRows = Db::all(
-          "SELECT kind,at,meta FROM user_activity WHERE user_id=? AND at>=? AND at<=? AND kind IN ('gps_on','gps_off','app_foreground','app_background','session_start','session_end','online','offline') ORDER BY at ASC,id ASC",
-          [(int)$userId,date('Y-m-d H:i:s',$sessionIn-1800),date('Y-m-d H:i:s',$sessionOut)]
-        );
-      } catch (Throwable $e) { error_log('attendance GPS detail events: '.$e->getMessage()); }
-      $gpsOffTs = [];
-      $appSignals = [];
-      foreach ($eventRows as $eventRow) {
-        $eventTs = strtotime((string)($eventRow['at'] ?? ''));
-        if (!$eventTs) continue;
-        $kind = (string)($eventRow['kind'] ?? '');
-        if ($kind === 'gps_off') $gpsOffTs[] = $eventTs;
-        if (in_array($kind,['app_background','session_end','offline'],true)) $appSignals[] = ['kind'=>$kind,'at'=>$eventTs];
-      }
       foreach ($badRanges as $bad) {
         $rangeA=(int)($bad[0]??0); $rangeB=(int)($bad[1]??0);
-        if ($rangeB <= $rangeA) continue;
-        $gpsRanges[]=[$rangeA,$rangeB];
-        // بازه را در مرزهای رویداد GPS-off می‌شکنیم تا یک خاموشی کوتاه،
-        // کل چند ساعتِ بدون checkpoint را به‌اشتباه به GPS-off نسبت ندهد.
-        $cuts=[$rangeA,$rangeB];
-        foreach ($gpsOffTs as $eventTs) {
-          foreach ([$eventTs-1800,$eventTs] as $cut) if ($cut>$rangeA && $cut<$rangeB) $cuts[]=$cut;
-        }
-        $cuts=array_values(array_unique($cuts)); sort($cuts,SORT_NUMERIC);
-        for ($ci=0;$ci<count($cuts)-1;$ci++) {
-          $a=(int)$cuts[$ci]; $b=(int)$cuts[$ci+1];
-          if ($b<=$a) continue;
-          $mid=(int)floor(($a+$b)/2);
-          $gpsOffEvidence=false;
-          foreach ($gpsOffTs as $eventTs) if ($mid >= $eventTs-1800 && $mid < $eventTs) { $gpsOffEvidence=true; break; }
-          $nearAppSignal=null;
-          foreach ($appSignals as $signal) if ($signal['at'] >= $a-300 && $signal['at'] <= $b+300) { $nearAppSignal=$signal; break; }
-          if ($gpsOffEvidence) {
-            $reasonCode='gps_off';
-            $reason='ثبت صریح خاموش بودن GPS در سوابق دستگاه';
-            $evidence='رویداد gps_off ثبت‌شده';
-          } elseif ($nearAppSignal) {
-            $reasonCode='app_state_signal';
-            $signalLabels=['app_background'=>'برنامه وارد پس‌زمینه شده است','session_end'=>'رویداد پایان نشست ثبت شده است','offline'=>'رویداد قطع ارتباط ثبت شده است'];
-            $reason=($signalLabels[$nearAppSignal['kind']]??'تغییر وضعیت برنامه/ارتباط ثبت شده است').'؛ این رویداد به‌تنهایی اثبات قطعی بسته‌شدن اجباری برنامه نیست';
-            $evidence=$nearAppSignal['kind'];
-          } else {
-            $reasonCode='missing_checkpoint';
-            $reason='تأیید دوره‌ای GPS/فعالیت در این بازه دریافت نشده است؛ علت قطعی بسته‌شدن برنامه از سوابق موجود قابل اثبات نیست';
-            $evidence='نبود checkpoint معتبر در بازه';
-          }
-          $gpsDetails[]=[
-            'start_at'=>date('Y-m-d H:i:s',$a),
-            'end_at'=>date('Y-m-d H:i:s',$b),
-            'minutes'=>(int)ceil(($b-$a)/60),
-            'reason_code'=>$reasonCode,
-            'reason'=>$reason,
-            'evidence'=>$evidence
-          ];
-        }
+        if ($rangeB > $rangeA) $gpsRanges[]=[$rangeA,$rangeB];
       }
     }
-    // بازه‌های هم‌پوشان فقط یک بار در جمع دقیقه‌ها محاسبه شوند.
     usort($gpsRanges,static fn($a,$b)=>(int)$a[0]<=>(int)$b[0]);
     $gpsInvalidSeconds=0; $gpsStart=null; $gpsEnd=null;
     foreach($gpsRanges as $range) {
       if($gpsStart===null) { $gpsStart=$range[0]; $gpsEnd=$range[1]; continue; }
       if($range[0]<=$gpsEnd) $gpsEnd=max($gpsEnd,$range[1]);
-      else { $gpsInvalidSeconds+=max(0,$gpsEnd-$gpsStart); $gpsStart=$range[0]; $gpsEnd=$range[1]; }
+      else { $gpsInvalidSeconds+=max(0,$gpsEnd-$gpsStart); $gpsDetails[]=['start_at'=>date('Y-m-d H:i:s',$gpsStart),'end_at'=>date('Y-m-d H:i:s',$gpsEnd),'minutes'=>(int)ceil(($gpsEnd-$gpsStart)/60),'reason_code'=>'gps_off','reason'=>'ثبت صریح خاموش بودن GPS در سوابق دستگاه','evidence'=>'رویداد gps_off ثبت‌شده']; $gpsStart=$range[0]; $gpsEnd=$range[1]; }
     }
-    if($gpsStart!==null) $gpsInvalidSeconds+=max(0,$gpsEnd-$gpsStart);
+    if($gpsStart!==null) { $gpsInvalidSeconds+=max(0,$gpsEnd-$gpsStart); $gpsDetails[]=['start_at'=>date('Y-m-d H:i:s',$gpsStart),'end_at'=>date('Y-m-d H:i:s',$gpsEnd),'minutes'=>(int)ceil(($gpsEnd-$gpsStart)/60),'reason_code'=>'gps_off','reason'=>'ثبت صریح خاموش بودن GPS در سوابق دستگاه','evidence'=>'رویداد gps_off ثبت‌شده']; }
     usort($gpsDetails,static fn($a,$b)=>strcmp($a['start_at'],$b['start_at']));
     $day['gps_inactive_minutes']=(int)ceil(max(0,$gpsInvalidSeconds)/60);
     $day['gps_inactive_details']=$gpsDetails;

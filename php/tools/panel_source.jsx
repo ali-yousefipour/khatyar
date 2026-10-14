@@ -3888,8 +3888,8 @@ function Settings(){
       <label className="row" style={{gap:8,marginBottom:8}}><input type="checkbox" checked={!!v.gps_work_required} onChange={e=>set("gps_work_required",e.target.checked)}/><b>محاسبه کارکرد تنها با روشن بودن GPS</b></label>
       <div style={{fontSize:12.5,color:"var(--muted)",lineHeight:2,marginBottom:8}}>
         <p>🟢 با فعال بودن این گزینه، کنترل GPS فقط پس از آن آغاز می‌شود که کاربر در نرم‌افزار اندروید دکمهٔ «ورود» را بزند و ورود او با موفقیت ثبت شود.</p>
-        <p>📱 برنامه هر ۳۰ دقیقه برای ثبت تأیید GPS تلاش می‌کند؛ زمان‌بندی پس‌زمینه ممکن است به محدودیت‌های اندروید وابسته باشد، اما معیار محاسبه، تأیید ثبت‌شده در سرور است. اگر برنامه فورس‌استاپ شود یا بررسی دوره‌ای ثبت نشود، آن بازه معتبر فرض نمی‌شود.</p>
-        <p>📍 بازه‌ای که GPS خاموش باشد یا تأیید موفق GPS برای آن ثبت نشود، از کارکرد معتبر حذف می‌شود؛ این قانون در محاسبهٔ خروج، تایمر و گزارش کارکرد نیز اعمال می‌شود.</p>
+        <p>📱 برنامه برای بررسی GPS تلاش دوره‌ای انجام می‌دهد؛ زمان‌بندی پس‌زمینه ممکن است به محدودیت‌های اندروید وابسته باشد.</p>
+        <p>📍 فقط رویداد صریح gps_off مبنای کسر کار GPS است. app_background، قطع ارتباط و نبود تأیید دوره‌ای به‌تنهایی کسر کار ایجاد نمی‌کنند. بسته‌شدن کامل برنامه فعلاً رویداد مستقل و قابل‌اثباتی ندارد و از روی نبود checkpoint جریمه نمی‌شود.</p>
         <p>ℹ️ برای آغاز کنترل، ابتدا GPS گوشی را روشن کنید و سپس ورود را ثبت نمایید. این قابلیت جایگزین ثبت موقعیت عادی یا رهگیری لحظه‌ای نیست.</p>
       </div>
       <button className="btn p" onClick={save}>💾 ذخیره تنظیمات GPS کارکرد</button></div>
@@ -6310,7 +6310,7 @@ function AttendanceReport(){
                   <td style={{whiteSpace:"nowrap"}}>{faPlain(startTime)}</td><td style={{whiteSpace:"nowrap"}}>{faPlain(endTime)}{nextDay?<span style={{fontSize:10,display:"block",color:"var(--muted)"}}>روز بعد</span>:null}</td><td style={{whiteSpace:"nowrap"}}>{hm(r.minutes||0)}</td><td style={{whiteSpace:"normal",minWidth:260}}><div>{r.reason||"علت مشخص نیست"}</div><div style={{fontSize:10,color:"var(--muted)",marginTop:3}}>شاهد: {r.evidence||"—"}</div></td>
                 </tr>})}</tbody>
               </table></div>}
-          <div style={{fontSize:11,color:"var(--muted)",marginTop:12}}>نکته: «نبود تأیید دوره‌ای» با «خاموشی صریح GPS» یکسان نیست؛ علت قطعی فقط در صورت وجود رویداد قابل اثبات نمایش داده می‌شود.</div>
+          <div style={{fontSize:11,color:"var(--muted)",marginTop:12}}>نبود تأیید دوره‌ای، ورود به پس‌زمینه یا قطع ارتباط به‌تنهایی علت کسر کار نیست؛ این گزارش فقط بازه‌های دارای رویداد صریح gps_off را نشان می‌دهد.</div>
         </div>
       </div>
     </div>}
