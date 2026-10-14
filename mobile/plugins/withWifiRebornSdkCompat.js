@@ -19,31 +19,34 @@ module.exports = function withWifiRebornSdkCompat(config) {
     }
 
     const original = fs.readFileSync(gradleFile, 'utf8');
-    // Patch only executable Gradle lines, never comments or NDK settings.
-    // The previous broad check could falsely match comments or other references.
+    // Match executable Gradle SDK declarations without modifying NDK settings.
     let updated = original;
     let seenCompileSdk = false;
-    updated = updated.split(/(\\r?\\n)/).map((line) => {
-      if (!line.trim() || line.trimStart().startsWith('//') || line.trimStart().startsWith('*') || line.trimStart().startsWith('#')) return line;
-      if (!/\\bcompileSdkVersion\\b/.test(line)) return line;
+    updated = updated.split(/(\r?\n)/).map((line) => {
+      if (!line.trim() || line.trimStart().startsWith('//') ||
+          line.trimStart().startsWith('*') || line.trimStart().startsWith('#')) return line;
+      if (!/\bcompileSdkVersion\b/.test(line)) return line;
       seenCompileSdk = true;
       let result = line.replace(
-        /(safeExtGet\\(\\s*['"]?compileSdkVersion['"]?\\s*,\\s*)(\\d+)(\\s*\\))/g,
+        /(safeExtGet\(\s*['"]?compileSdkVersion['"]?\s*,\s*)(\d+)(\s*\))/g,
         (match, prefix, number, suffix) => Number(number) < 36 ? prefix + '36' + suffix : match
       );
       result = result.replace(
-        /(\\bcompileSdkVersion\\s*(?:=\\s*|\\s+))(\\d+)\\b/g,
+        /(\bcompileSdkVersion\s*(?:=\s*|\s+))(\d+)\b/g,
         (match, prefix, number) => Number(number) < 36 ? prefix + '36' : match
       );
-      const invalid = result.match(/safeExtGet\\(\\s*['"]?compileSdkVersion['"]?\\s*,\\s*(\\d+)\\s*\\)/) ||
-        result.match(/\\bcompileSdkVersion\\s*(?:=\\s*|\\s+)(\\d+)\\b/);
-      if (invalid && Number(invalid[1]) < 36) {
+      const fallback = result.match(/safeExtGet\(\s*['"]?compileSdkVersion['"]?\s*,\s*(\d+)\s*\)/);
+      const declaration = result.match(/\bcompileSdkVersion\s*(?:=\s*|\s+)(\d+)\b/);
+      if ((fallback && Number(fallback[1]) < 36) ||
+          (declaration && Number(declaration[1]) < 36)) {
         throw new Error('[withWifiRebornSdkCompat] Unsupported compileSdk fallback: ' + result.trim());
       }
       return result;
     }).join('');
     if (!seenCompileSdk) {
-      throw new Error('[withWifiRebornSdkCompat] No compileSdkVersion reference found in Wi-Fi Gradle file.');
+      // Some library releases inherit the root compileSdk without mentioning
+      // compileSdkVersion. Do not manufacture a declaration or fail prebuild.
+      console.log('[withWifiRebornSdkCompat] Wi-Fi library inherits compileSdk from Android root.');
     }
 
     if (updated !== original) {
