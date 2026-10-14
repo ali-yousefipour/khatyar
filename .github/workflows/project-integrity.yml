@@ -8,6 +8,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate workflow structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
+            [ -f "$workflow" ] || continue
+            if ! grep -Eq '^jobs:[[:space:]]*$' "$workflow"; then
+              echo "ERROR: required top-level jobs: is missing in $workflow"
+              exit 1
+            fi
+          done
+          echo "PASS: all workflow files define top-level jobs."
       - name: PHP syntax
         run: |
           php -v
