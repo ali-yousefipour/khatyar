@@ -138,6 +138,31 @@ jobs:
           console.log('Dependency tarball hosts:', JSON.stringify(hosts, null, 2));
           NODE
 
+      - name: Normalize CI lockfile tarball URLs
+        working-directory: mobile
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const file = 'package-lock.json';
+          const lock = JSON.parse(fs.readFileSync(file, 'utf8'));
+          let changed = 0;
+          for (const [name, pkg] of Object.entries(lock.packages || {})) {
+            if (!pkg.resolved || typeof pkg.resolved !== 'string') continue;
+            const u = new URL(pkg.resolved);
+            if (u.hostname === 'mirror-npm.runflare.com') {
+              u.hostname = 'registry.npmjs.org';
+              pkg.resolved = u.toString();
+              changed++;
+            }
+            if (pkg.resolved.startsWith('https://mirror-npm.runflare.com/')) {
+              throw new Error('Mirror URL remains in ' + name);
+            }
+          }
+          fs.writeFileSync(file, JSON.stringify(lock, null, 2) + '\\n');
+          console.log('Normalized ' + changed + ' Runflare tarball URLs to official npm registry.');
+          NODE
+
       - name: Install locked mobile dependencies
         working-directory: mobile
         timeout-minutes: 12
