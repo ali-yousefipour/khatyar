@@ -250,7 +250,8 @@ jobs:
               \$src = __DIR__ . '/.attendance-deploy-' . \$name;
               \$dst = dirname(__DIR__, 2) . '/lib/' . \$canonical;
               if (!is_file(\$src)) continue;
-              if (!is_writable(\$dst)) {
+              \$targetWritable = is_file(\$dst) ? is_writable(\$dst) : is_writable(dirname(\$dst));
+              if (!\$targetWritable) {
                   http_response_code(500);
                   exit('target ' . \$canonical . ' is not writable by PHP');
               }
