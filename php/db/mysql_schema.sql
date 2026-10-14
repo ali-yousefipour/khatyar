@@ -144,6 +144,35 @@ CREATE TABLE IF NOT EXISTS notices (
   attachment_name VARCHAR(255) NULL, attachment_data MEDIUMTEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS requests (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  type VARCHAR(20) NOT NULL,
+  unit VARCHAR(8) NULL,
+  from_jdate VARCHAR(10) NULL,
+  to_jdate VARCHAR(10) NULL,
+  the_date VARCHAR(10) NULL,
+  from_time VARCHAR(5) NULL,
+  to_time VARCHAR(5) NULL,
+  manual_kind VARCHAR(6) NULL,
+  in_time VARCHAR(5) NULL,
+  out_time VARCHAR(5) NULL,
+  minutes INT NULL,
+  reason TEXT NULL,
+  attachment_name VARCHAR(255) NULL,
+  attachment_data LONGTEXT NULL,
+  selfie_data LONGTEXT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  approver_id INT NULL,
+  approver_note TEXT NULL,
+  decided_at DATETIME NULL,
+  pending_on INT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_req_user (user_id, created_at),
+  INDEX idx_req_status (status),
+  INDEX idx_req_pending (pending_on)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS reports (
   id INT AUTO_INCREMENT PRIMARY KEY, sender_id INT NOT NULL,
   subject VARCHAR(300), body TEXT, status VARCHAR(20) NOT NULL DEFAULT 'sent',

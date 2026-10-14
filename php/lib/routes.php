@@ -3583,7 +3583,46 @@ route('POST', '/api/my/check-leave-window', function($p,$b,$u){
   ];
 });
 
+function _ensure_requests_table(){
+  static $ready = false;
+  if ($ready) return;
+  if (Db::one("SHOW TABLES LIKE 'requests'")) {
+    $ready = true;
+    return;
+  }
+  Db::run("CREATE TABLE IF NOT EXISTS requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    unit VARCHAR(8) NULL,
+    from_jdate VARCHAR(10) NULL,
+    to_jdate VARCHAR(10) NULL,
+    the_date VARCHAR(10) NULL,
+    from_time VARCHAR(5) NULL,
+    to_time VARCHAR(5) NULL,
+    manual_kind VARCHAR(6) NULL,
+    in_time VARCHAR(5) NULL,
+    out_time VARCHAR(5) NULL,
+    minutes INT NULL,
+    reason TEXT NULL,
+    attachment_name VARCHAR(255) NULL,
+    attachment_data LONGTEXT NULL,
+    selfie_data LONGTEXT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    approver_id INT NULL,
+    approver_note TEXT NULL,
+    decided_at DATETIME NULL,
+    pending_on INT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_req_user (user_id, created_at),
+    INDEX idx_req_status (status),
+    INDEX idx_req_pending (pending_on)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  $ready = true;
+}
+
 route('POST', '/api/my/requests', function($p,$b,$u){
+  _ensure_requests_table();
   $type = $b['type'] ?? ''; // annual / sick / mission / overtime / manual
   if (!in_array($type,['annual','sick','mission','overtime','manual'])) Http::error('نوع درخواست نامعتبر',400);
   $unit = $b['unit'] ?? 'daily';
@@ -3675,6 +3714,7 @@ route('POST', '/api/my/requests', function($p,$b,$u){
 
 // درخواست‌های من
 route('GET', '/api/my/requests', function($p,$b,$u){
+  _ensure_requests_table();
   // اطمینان از وجود ستون جایگزین
   $sel = "id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,manual_kind,in_time,out_time,minutes,reason,status,approver_note,created_at,attachment_name";
   $hasSub = false;
