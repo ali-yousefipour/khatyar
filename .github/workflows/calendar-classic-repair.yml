@@ -3,6 +3,13 @@ name: Calendar classic bundle repair
 on:
   workflow_dispatch:
 
-# Historical one-time repair workflow retained for reference only.
-# Normal calendar maintenance is performed in php/tools/panel_source.jsx
-# and the normal panel build pipeline.
+jobs:
+  legacy-workflow-notice:
+    name: Legacy workflow notice
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain current maintenance path
+        run: |
+          echo "This historical repair workflow is intentionally retired."
+          echo "Calendar maintenance is handled in php/tools/panel_source.jsx and the normal panel build pipeline."
+          echo "No source files are changed by this workflow."
