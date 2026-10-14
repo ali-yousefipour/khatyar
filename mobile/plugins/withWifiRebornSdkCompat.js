@@ -19,27 +19,31 @@ module.exports = function withWifiRebornSdkCompat(config) {
     }
 
     const original = fs.readFileSync(gradleFile, 'utf8');
-    // Only adjust compileSdkVersion fallbacks. Never rewrite ndkVersion:
-    // it is a separate dotted toolchain version (e.g. 27.3.13750724).
+    // Patch only executable Gradle lines, never comments or NDK settings.
+    // The previous broad check could falsely match comments or other references.
     let updated = original;
-    updated = updated.replace(
-      /(safeExtGet\\(\\s*['"]?compileSdkVersion['"]?\\s*,\\s*)(\\d+)(\\s*\\))/g,
-      (match, prefix, version, suffix) => Number(version) < 36 ? prefix + '36' + suffix : match
-    );
-    updated = updated.replace(
-      /(\\bcompileSdkVersion\\s*(?:=\\s*|\\s+))(\\d+)\\b/g,
-      (match, prefix, version) => Number(version) < 36 ? prefix + '36' : match
-    );
-
-    const legacyNumericSdk =
-      /safeExtGet\(\s*['"]?compileSdkVersion['"]?\s*,\s*(?:[0-9]|[12]\d|3[0-5])\s*\)/.test(updated) ||
-      /\bcompileSdkVersion(?:\s*=)?\s+(?:[0-9]|[12]\d|3[0-5])\b/.test(updated);
-
-    if (legacyNumericSdk) {
-      throw new Error('[withWifiRebornSdkCompat] A numeric compileSdkVersion below API 36 remains after compatibility patching.');
-    }
-    if (!/\bcompileSdkVersion\b/.test(updated)) {
-      throw new Error('[withWifiRebornSdkCompat] No compileSdkVersion declaration/reference was found; refusing an unverified build.');
+    let seenCompileSdk = false;
+    updated = updated.split(/(\\r?\\n)/).map((line) => {
+      if (/^\\r?\\n$/.test(line) || /^\\s*(?:\\/\\/|\\*|#)/.test(line)) return line;
+      if (!/\\bcompileSdkVersion\\b/.test(line)) return line;
+      seenCompileSdk = true;
+      let result = line.replace(
+        /(safeExtGet\\(\\s*['"]?compileSdkVersion['"]?\\s*,\\s*)(\\d+)(\\s*\\))/g,
+        (match, prefix, number, suffix) => Number(number) < 36 ? prefix + '36' + suffix : match
+      );
+      result = result.replace(
+        /(\\bcompileSdkVersion\\s*(?:=\\s*|\\s+))(\\d+)\\b/g,
+        (match, prefix, number) => Number(number) < 36 ? prefix + '36' : match
+      );
+      const invalid = result.match(/safeExtGet\\(\\s*['"]?compileSdkVersion['"]?\\s*,\\s*(\\d+)\\s*\\)/) ||
+        result.match(/\\bcompileSdkVersion\\s*(?:=\\s*|\\s+)(\\d+)\\b/);
+      if (invalid && Number(invalid[1]) < 36) {
+        throw new Error('[withWifiRebornSdkCompat] Unsupported compileSdk fallback: ' + result.trim());
+      }
+      return result;
+    }).join('');
+    if (!seenCompileSdk) {
+      throw new Error('[withWifiRebornSdkCompat] No compileSdkVersion reference found in Wi-Fi Gradle file.');
     }
 
     if (updated !== original) {
