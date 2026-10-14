@@ -53,6 +53,36 @@ const TYPES = [
   { k: 'overtime', t: 'اضافه‌کار', units: true },
   { k: 'manual', t: 'تردد دستی', manual: true },
 ];
+
+// A workday for annual leave is 7h 33m (453 minutes).
+const ANNUAL_DAY_MINUTES = 453;
+const annualMinutes = (days, hours) => Math.round((Number(days) || 0) * ANNUAL_DAY_MINUTES + (Number(hours) || 0) * 60);
+const annualDuration = (minutes) => {
+  const m = Math.max(0, Math.round(minutes));
+  return `${Math.floor(m / 60)} ساعت و ${String(m % 60).padStart(2, '0')} دقیقه — معادل ${(m / ANNUAL_DAY_MINUTES).toLocaleString('fa-IR', { maximumFractionDigits: 2 })} روز`;
+};
+function AnnualLeaveStatus({ balance }) {
+  const daily = balance?.balance?.annual_daily || {};
+  const hourly = balance?.balance?.annual_hourly || {};
+  const hasLimit = [daily.cap_year, hourly.cap_year].some((v) => v != null && Number(v) > 0);
+  if (!hasLimit) return <Text style={s.muted}>سهمیه مرخصی استحقاقی در تنظیمات سامانه تعریف نشده یا قابل دریافت نیست.</Text>;
+  const cap = annualMinutes(daily.cap_year, hourly.cap_year);
+  const remaining = annualMinutes(daily.left_year, hourly.left_year);
+  const used = Math.max(0, cap - remaining);
+  const monthly = annualMinutes(daily.left_month, hourly.left_month);
+  return (
+    <View>
+      <Text style={s.label}>مرخصی استحقاقی استفاده‌شده در سال جاری</Text>
+      <Text style={s.cardReason}>{annualDuration(used)}</Text>
+      <Text style={s.label}>مرخصی استحقاقی باقیمانده طبق سهمیه سالانه</Text>
+      <Text style={s.cardReason}>{annualDuration(remaining)}</Text>
+      <Text style={s.label}>مرخصی مجاز قابل استفاده طبق تنظیمات سامانه</Text>
+      <Text style={s.cardReason}>مانده مجاز ماه جاری: {annualDuration(monthly)}</Text>
+      <Text style={s.modalHint}>اطلاعات از سقف و مانده مرخصی ثبت‌شده در سرور دریافت می‌شود. این ارقام الزاماً استحقاق انباشته تا امروز نیستند.</Text>
+    </View>
+  );
+}
+
 const STATUS = { pending: ['در انتظار', '#cc7a14'], approved: ['تأییدشده', '#0d7a5f'], rejected: ['ردشده', '#d63b54'] };
 
 // تبدیل Date → رشتهٔ شمسی YYYY-MM-DD بدون وابستگی به Intl/Hermes
@@ -95,6 +125,18 @@ function NewRequest({ onDone, initialType, initialDate }) {
   const [sub, setSub] = useState(null);          // جایگزین انتخاب‌شده
   const [subOpen, setSubOpen] = useState(false);
   const [subLoading, setSubLoading] = useState(false);
+  const [leaveStatusOpen, setLeaveStatusOpen] = useState(false);
+  const [leaveBalance, setLeaveBalance] = useState(null);
+  const [leaveBalanceLoading, setLeaveBalanceLoading] = useState(false);
+  const [leaveBalanceError, setLeaveBalanceError] = useState('');
+  const openLeaveStatus = async () => {
+    setLeaveStatusOpen(true);
+    setLeaveBalanceLoading(true);
+    setLeaveBalanceError('');
+    try { setLeaveBalance(await request('/my/leave-balance')); }
+    catch (e) { setLeaveBalance(null); setLeaveBalanceError(e.message || 'دریافت وضعیت مرخصی ناموفق بود.'); }
+    finally { setLeaveBalanceLoading(false); }
+  };
   const [reqSub, setReqSub] = useState(false);   // آیا جایگزین الزامی است
   const cfg = TYPES.find((t) => t.k === type);
   const needsSubstitute = ['annual', 'sick', 'mission'].includes(type);
