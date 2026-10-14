@@ -9800,6 +9800,17 @@ function AdvancedCalendar({ shift }) {
         alert("تقویم به سال بعد کپی شد. برای ذخیره، «ذخیرهٔ تقویم» را بزنید.");
     };
     const firstWd = gregToJalaliWeekday(jy, jm, 1);
+    const copyShiftDay = (key) => {
+        const value = days[key];
+        if (!value || value.is_off || !(value.segments || []).length)
+            return;
+        setClip({ source: key, value: JSON.parse(JSON.stringify(value)) });
+    };
+    const pasteShiftDay = (key) => {
+        if (!clip || clip.source === key)
+            return;
+        setDay(key, JSON.parse(JSON.stringify(clip.value)));
+    };
     return (React.createElement("div", null,
         React.createElement("div", { className: "row", style: { gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" } },
             React.createElement("button", { className: "btn g", onClick: () => { if (jm === 1) {
@@ -9830,17 +9841,18 @@ function AdvancedCalendar({ shift }) {
                 const v = days[key];
                 const has = v && !v.is_off && (v.segments || []).length;
                 const off = v && v.is_off;
+                const shiftTimes = has ? (v.segments || []).map(seg => seg.s && seg.e ? `${seg.s}–${seg.e}` : null).filter(Boolean) : [];
+                const showPaste = !!clip && clip.source !== key;
                 return (React.createElement("div", { key: key, className: "cal-d" + (sel === key ? " sel" : "") + (has ? " has" : "") + (off ? " off" : ""), onClick: () => setSel(key) },
                     React.createElement("span", { className: "cal-n" }, fa(d)),
-                    has ? React.createElement("span", { className: "cal-tag" },
-                        fa((v.segments || []).length),
-                        " \u0642\u0637\u0639\u0647") : off ? React.createElement("span", { className: "cal-tag" }, "\u062A\u0639\u0637\u06CC\u0644") : null));
+                    has && !clip && React.createElement("button", { type: "button", title: "\u06A9\u067E\u06CC \u0634\u06CC\u0641\u062A \u0627\u06CC\u0646 \u0631\u0648\u0632", "aria-label": `کپی شیفت ${key}`, onClick: e => { e.stopPropagation(); copyShiftDay(key); }, style: { position: "absolute", top: 2, insetInlineEnd: 3, border: 0, background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 2 } }, "\u29C9"),
+                    showPaste && React.createElement("button", { type: "button", className: "attendance-shift-day-paste", title: "\u067E\u06CC\u0633\u062A \u0634\u06CC\u0641\u062A \u062F\u0631 \u0627\u06CC\u0646 \u0631\u0648\u0632", "aria-label": `پیست شیفت در ${key}`, onClick: e => { e.stopPropagation(); pasteShiftDay(key); }, style: { position: "absolute", top: 2, insetInlineStart: 3, border: 0, background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: 2 } }, "\u25A3"),
+                    shiftTimes.length > 0 ? React.createElement("span", { className: "cal-shift-times", style: { position: "absolute", bottom: 3, insetInline: 3, textAlign: "center", fontSize: 9, lineHeight: 1.25, color: "var(--ink)", direction: "ltr", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", boxSizing: "border-box" } }, shiftTimes.join(" · ")) : off ? React.createElement("span", { className: "cal-tag" }, "\u062A\u0639\u0637\u06CC\u0644") : null));
             })),
-        sel && React.createElement(DayEditor, { jdate: sel, val: days[sel] || { segments: [], is_off: false }, onChange: v => setDay(sel, v), onCopy: () => { setClip(JSON.stringify(days[sel] || { segments: [], is_off: false })); alert("روز کپی شد."); }, onPaste: () => { if (!clip)
-                return alert("ابتدا یک روز را کپی کنید"); setDay(sel, JSON.parse(clip)); }, onAdvanced: () => setAdvDay(sel) }),
+        sel && React.createElement(DayEditor, { jdate: sel, val: days[sel] || { segments: [], is_off: false }, onChange: v => setDay(sel, v), onAdvanced: () => setAdvDay(sel) }),
         advDay && React.createElement(ShiftDayModal, { jdate: advDay, day: days[advDay], onClose: () => setAdvDay(null), onSave: (v) => { setDay(advDay, { segments: v.segments || [], is_off: !!v.is_off, day_config: v.day_config }); setAdvDay(null); } })));
 }
-function DayEditor({ jdate, val, onChange, onCopy, onPaste, onAdvanced }) {
+function DayEditor({ jdate, val, onChange, onAdvanced }) {
     const segs = val.segments || [];
     const upd = (i, k, v) => { const c = [...segs]; c[i] = { ...c[i], [k]: v }; onChange({ ...val, segments: c, is_off: false }); };
     const add = () => { if (segs.length >= 2)
@@ -9851,8 +9863,6 @@ function DayEditor({ jdate, val, onChange, onCopy, onPaste, onAdvanced }) {
             React.createElement("b", null, jLabel(isoFromJ(...jdate.split("-"))) || jdate),
             React.createElement("span", { className: "row", style: { gap: 6 } },
                 onAdvanced && React.createElement("button", { className: "btn p", style: { fontSize: 11, padding: "2px 10px" }, onClick: onAdvanced }, "\u2699 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u067E\u06CC\u0634\u0631\u0641\u062A\u0647"),
-                React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "2px 8px" }, onClick: onCopy }, "\u06A9\u067E\u06CC \u0631\u0648\u0632"),
-                React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "2px 8px" }, onClick: onPaste }, "\u067E\u06CC\u0633\u062A \u0631\u0648\u0632"),
                 React.createElement("label", { className: "row", style: { gap: 4, fontSize: 12 } },
                     React.createElement("input", { type: "checkbox", checked: !!val.is_off, onChange: e => onChange({ ...val, is_off: e.target.checked, segments: e.target.checked ? [] : segs }) }),
                     "\u062A\u0639\u0637\u06CC\u0644"),
@@ -9883,17 +9893,30 @@ function ShiftAssign() {
     const [shifts, setShifts] = useState([]);
     const [assigns, setAssigns] = useState([]);
     const [q, setQ] = useState("");
+    const [error, setError] = useState("");
+    const [busyUser, setBusyUser] = useState(null);
     const load = () => db.userShifts().then(a => setAssigns(a || [])).catch(() => { });
     useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(() => { }); db.shifts().then(s => setShifts(s || [])).catch(() => { }); load(); }, []);
-    const cur = (uid) => assigns.find(a => a.user_id === uid);
-    const setShift = async (uid, sid) => { if (!sid) {
-        await db.delUserShift(uid);
+    const cur = (uid) => assigns.find(a => Number(a.user_id) === Number(uid));
+    const setShift = async (uid, sid) => { setError(""); setBusyUser(uid); try {
+        if (!sid) {
+            await db.delUserShift(uid);
+        }
+        else {
+            await db.setUserShift({ user_id: uid, shift_id: +sid });
+        }
+        await load();
     }
-    else {
-        await db.setUserShift({ user_id: uid, shift_id: +sid });
-    } load(); };
+    catch (e) {
+        setError(e.message || "ذخیرهٔ تخصیص شیفت انجام نشد.");
+        await load();
+    }
+    finally {
+        setBusyUser(null);
+    } };
     const filtered = q.trim() ? users.filter(u => ((u.first_name || "") + " " + (u.last_name || "")).includes(q.trim())) : users;
     return (React.createElement("div", null,
+        error && React.createElement("div", { className: "attendance-shift-assignment-error", role: "alert", style: { padding: "9px 12px", marginBottom: 10, borderRadius: 9, background: "#fdeef0", color: "#a61b29", fontSize: 12 } }, error),
         React.createElement("input", { className: "input", style: { maxWidth: 240, marginBottom: 10 }, placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u06CC\u0631\u0648\u2026", value: q, onChange: e => setQ(e.target.value) }),
         React.createElement("table", null,
             React.createElement("thead", null,
@@ -9908,7 +9931,7 @@ function ShiftAssign() {
                         " ",
                         u.last_name),
                     React.createElement("td", null,
-                        React.createElement("select", { className: "input", style: { maxWidth: 240 }, value: c ? c.shift_id : "", onChange: e => setShift(u.id, e.target.value) },
+                        React.createElement("select", { className: "input", style: { maxWidth: 240 }, value: c ? c.shift_id : "", disabled: Number(busyUser) === Number(u.id), onChange: e => setShift(u.id, e.target.value) },
                             React.createElement("option", { value: "" }, "\u2014 \u0628\u062F\u0648\u0646 \u0634\u06CC\u0641\u062A \u2014"),
                             shifts.map(s => React.createElement("option", { key: s.id, value: s.id }, s.title))))));
             })))));

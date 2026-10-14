@@ -5946,6 +5946,15 @@ function AdvancedCalendar({shift}){
     setDays(next); alert("تقویم به سال بعد کپی شد. برای ذخیره، «ذخیرهٔ تقویم» را بزنید.");
   };
   const firstWd=gregToJalaliWeekday(jy,jm,1);
+  const copyShiftDay=(key)=>{
+    const value=days[key];
+    if(!value||value.is_off||!(value.segments||[]).length)return;
+    setClip({source:key,value:JSON.parse(JSON.stringify(value))});
+  };
+  const pasteShiftDay=(key)=>{
+    if(!clip||clip.source===key)return;
+    setDay(key,JSON.parse(JSON.stringify(clip.value)));
+  };
   return(<div>
     <div className="row" style={{gap:8,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
       <button className="btn g" onClick={()=>{ if(jm===1){setJy(jy-1);setJm(12);}else setJm(jm-1); }}>‹ ماه قبل</button>
@@ -5959,20 +5968,22 @@ function AdvancedCalendar({shift}){
       {WD.map(w=><div key={w} className="cal-h">{w}</div>)}
       {Array.from({length:firstWd}).map((_,i)=><div key={"e"+i}/>)}
       {Array.from({length:dim}).map((_,i)=>{ const d=i+1; const key=jd2(d); const v=days[key]; const has=v&&!v.is_off&&(v.segments||[]).length; const off=v&&v.is_off;
+        const shiftTimes=has?(v.segments||[]).map(seg=>seg.s&&seg.e?`${seg.s}–${seg.e}`:null).filter(Boolean):[];
+        const showPaste=!!clip&&clip.source!==key;
         return(<div key={key} className={"cal-d"+(sel===key?" sel":"")+(has?" has":"")+(off?" off":"")} onClick={()=>setSel(key)}>
           <span className="cal-n">{fa(d)}</span>
-          {has?<span className="cal-tag">{fa((v.segments||[]).length)} قطعه</span>:off?<span className="cal-tag">تعطیل</span>:null}
+          {has&&!clip&&<button type="button" title="کپی شیفت این روز" aria-label={`کپی شیفت ${key}`} onClick={e=>{e.stopPropagation();copyShiftDay(key);}} style={{position:"absolute",top:2,insetInlineEnd:3,border:0,background:"transparent",color:"var(--brand)",cursor:"pointer",fontSize:16,lineHeight:1,padding:2}}>⧉</button>}
+          {showPaste&&<button type="button" className="attendance-shift-day-paste" title="پیست شیفت در این روز" aria-label={`پیست شیفت در ${key}`} onClick={e=>{e.stopPropagation();pasteShiftDay(key);}} style={{position:"absolute",top:2,insetInlineStart:3,border:0,background:"transparent",color:"var(--brand)",cursor:"pointer",fontSize:15,lineHeight:1,padding:2}}>▣</button>}
+          {shiftTimes.length>0?<span className="cal-shift-times" style={{position:"absolute",bottom:3,insetInline:3,textAlign:"center",fontSize:9,lineHeight:1.25,color:"var(--ink)",direction:"ltr",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",boxSizing:"border-box"}}>{shiftTimes.join(" · ")}</span>:off?<span className="cal-tag">تعطیل</span>:null}
         </div>); })}
     </div>
     {sel&&<DayEditor jdate={sel} val={days[sel]||{segments:[],is_off:false}} onChange={v=>setDay(sel,v)}
-      onCopy={()=>{ setClip(JSON.stringify(days[sel]||{segments:[],is_off:false})); alert("روز کپی شد."); }}
-      onPaste={()=>{ if(!clip)return alert("ابتدا یک روز را کپی کنید"); setDay(sel,JSON.parse(clip)); }}
       onAdvanced={()=>setAdvDay(sel)}/>}
     {advDay&&<ShiftDayModal jdate={advDay} day={days[advDay]} onClose={()=>setAdvDay(null)}
       onSave={(v)=>{ setDay(advDay,{segments:v.segments||[],is_off:!!v.is_off,day_config:v.day_config}); setAdvDay(null); }}/>}
   </div>);
 }
-function DayEditor({jdate,val,onChange,onCopy,onPaste,onAdvanced}){
+function DayEditor({jdate,val,onChange,onAdvanced}){
   const segs=val.segments||[];
   const upd=(i,k,v)=>{ const c=[...segs]; c[i]={...c[i],[k]:v}; onChange({...val,segments:c,is_off:false}); };
   const add=()=>{ if(segs.length>=2)return alert("حداکثر دو قطعه"); onChange({...val,is_off:false,segments:[...segs,emptySeg()]}); };
@@ -5982,8 +5993,6 @@ function DayEditor({jdate,val,onChange,onCopy,onPaste,onAdvanced}){
       <b>{jLabel(isoFromJ(...jdate.split("-")))||jdate}</b>
       <span className="row" style={{gap:6}}>
         {onAdvanced&&<button className="btn p" style={{fontSize:11,padding:"2px 10px"}} onClick={onAdvanced}>⚙ ویرایش پیشرفته</button>}
-        <button className="btn g" style={{fontSize:11,padding:"2px 8px"}} onClick={onCopy}>کپی روز</button>
-        <button className="btn g" style={{fontSize:11,padding:"2px 8px"}} onClick={onPaste}>پیست روز</button>
         <label className="row" style={{gap:4,fontSize:12}}><input type="checkbox" checked={!!val.is_off} onChange={e=>onChange({...val,is_off:e.target.checked,segments:e.target.checked?[]:segs})}/>تعطیل</label>
         <button className="btn g" style={{fontSize:11,padding:"2px 8px"}} onClick={add}>+ قطعه</button>
       </span>
@@ -6008,18 +6017,19 @@ function gregToJalaliWeekday(jy,jm,jd){ const [gy,gm,gd]=jalaliToGreg(jy,jm,jd);
 
 // تخصیص شیفت به نیروها
 function ShiftAssign(){
-  const [users,setUsers]=useState([]); const [shifts,setShifts]=useState([]); const [assigns,setAssigns]=useState([]); const [q,setQ]=useState("");
+  const [users,setUsers]=useState([]); const [shifts,setShifts]=useState([]); const [assigns,setAssigns]=useState([]); const [q,setQ]=useState(""); const [error,setError]=useState(""); const [busyUser,setBusyUser]=useState(null);
   const load=()=>db.userShifts().then(a=>setAssigns(a||[])).catch(()=>{});
   useEffect(()=>{ db.usersLite().then(u=>setUsers(u||[])).catch(()=>{}); db.shifts().then(s=>setShifts(s||[])).catch(()=>{}); load(); },[]);
-  const cur=(uid)=>assigns.find(a=>a.user_id===uid);
-  const setShift=async(uid,sid)=>{ if(!sid){ await db.delUserShift(uid); } else { await db.setUserShift({user_id:uid,shift_id:+sid}); } load(); };
+  const cur=(uid)=>assigns.find(a=>Number(a.user_id)===Number(uid));
+  const setShift=async(uid,sid)=>{ setError("");setBusyUser(uid);try{if(!sid){await db.delUserShift(uid);}else{await db.setUserShift({user_id:uid,shift_id:+sid});}await load();}catch(e){setError(e.message||"ذخیرهٔ تخصیص شیفت انجام نشد.");await load();}finally{setBusyUser(null);} };
   const filtered=q.trim()?users.filter(u=>((u.first_name||"")+" "+(u.last_name||"")).includes(q.trim())):users;
   return(<div>
+    {error&&<div className="attendance-shift-assignment-error" role="alert" style={{padding:"9px 12px",marginBottom:10,borderRadius:9,background:"#fdeef0",color:"#a61b29",fontSize:12}}>{error}</div>}
     <input className="input" style={{maxWidth:240,marginBottom:10}} placeholder="جستجوی نیرو…" value={q} onChange={e=>setQ(e.target.value)}/>
     <table><thead><tr><th>نیرو</th><th>شیفت تخصیص‌یافته</th></tr></thead><tbody>
       {filtered.map(u=>{ const c=cur(u.id); return(<tr key={u.id}>
         <td>{u.first_name} {u.last_name}</td>
-        <td><select className="input" style={{maxWidth:240}} value={c?c.shift_id:""} onChange={e=>setShift(u.id,e.target.value)}>
+        <td><select className="input" style={{maxWidth:240}} value={c?c.shift_id:""} disabled={Number(busyUser)===Number(u.id)} onChange={e=>setShift(u.id,e.target.value)}>
           <option value="">— بدون شیفت —</option>
           {shifts.map(s=><option key={s.id} value={s.id}>{s.title}</option>)}
         </select></td>

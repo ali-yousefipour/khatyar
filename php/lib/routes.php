@@ -2662,6 +2662,21 @@ route('POST', '/api/admin/leave-balance-init', function($p,$b,$u){
 
 // ==================== سیستم شیفت کاری ====================
 // فهرست شیفت‌ها
+function _ensure_user_shifts_schema(){
+  Db::run("CREATE TABLE IF NOT EXISTS user_shifts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    shift_id INT NOT NULL,
+    from_jdate VARCHAR(10) NULL,
+    to_jdate VARCHAR(10) NULL,
+    UNIQUE KEY uq_us (user_id),
+    INDEX idx_us_shift (shift_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  foreach(['from_jdate','to_jdate'] as $column){
+    if(!Db::one("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_shifts' AND COLUMN_NAME=?",[$column]))
+      Db::run("ALTER TABLE user_shifts ADD COLUMN `$column` VARCHAR(10) NULL");
+  }
+}
 route('GET', '/api/admin/shifts', fn($p,$b,$u) => Db::all(
   "SELECT id,title,type,weekly,float_minutes,allow_offday,daily_ot_cap,monthly_ot_cap,night_calc,friday_calc,holiday_calc,advanced,is_active
    FROM shifts WHERE is_active=1 ORDER BY id DESC"), false, ADMIN);
@@ -2730,10 +2745,13 @@ route('DELETE', '/api/admin/shifts/{id}/days/{jdate}', function($p,$b,$u){
 }, false, ADMIN);
 
 // تخصیص شیفت به کاربر
-route('GET', '/api/admin/user-shifts', fn($p,$b,$u) => Db::all(
-  "SELECT us.user_id, us.shift_id, s.title, s.type, us.from_jdate, us.to_jdate
-   FROM user_shifts us JOIN shifts s ON s.id=us.shift_id"), false, ADMIN);
+route('GET', '/api/admin/user-shifts', function($p,$b,$u){
+  _ensure_user_shifts_schema();
+  return Db::all("SELECT us.user_id, us.shift_id, s.title, s.type, us.from_jdate, us.to_jdate
+    FROM user_shifts us JOIN shifts s ON s.id=us.shift_id");
+}, false, ADMIN);
 route('POST', '/api/admin/user-shifts', function($p,$b,$u){
+  _ensure_user_shifts_schema();
   _ensure_role_work_rules();
   $uid=(int)($b['user_id']??0); $sid=(int)($b['shift_id']??0);
   if (!$uid||!$sid) Http::error('کاربر و شیفت را مشخص کنید',400);
@@ -2753,6 +2771,7 @@ route('POST', '/api/admin/user-shifts', function($p,$b,$u){
   return ['ok'=>true];
 }, false, ADMIN);
 route('DELETE', '/api/admin/user-shifts/{id}', function($p,$b,$u){
+  _ensure_user_shifts_schema();
   _ensure_role_work_rules();
   $old = Db::one("SELECT * FROM user_shifts WHERE user_id=?", [$p['id']]);
   Db::run("DELETE FROM user_shifts WHERE user_id=?", [$p['id']]);
