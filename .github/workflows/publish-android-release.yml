@@ -17,6 +17,7 @@ on:
   push:
     branches:
       - "main"
+      - "test/expo57-hermes-dependency-alignment"
     tags:
       - "v*"
 
@@ -31,14 +32,14 @@ concurrency:
 jobs:
   release:
     name: Build and publish Android release
-    if: github.event_name != 'push' || github.ref_type == 'tag' || startsWith(github.event.head_commit.message, 'ci(android-release):')
+    if: github.event_name != 'push' || github.ref_type == 'tag' || startsWith(github.event.head_commit.message, 'ci(android-release):') || github.ref == 'refs/heads/test/expo57-hermes-dependency-alignment'
     runs-on: ubuntu-latest
     env:
       NODE_VERSION: "22.23.1"
       JAVA_VERSION: "17"
       EXPECTED_GRADLE: "8.13"
-      EXPECTED_EXPO: "57.0.6"
-      EXPECTED_REACT_NATIVE: "0.86.0"
+      EXPECTED_EXPO: "57.0.29"
+      EXPECTED_REACT_NATIVE: "0.86.3"
       EXPECTED_REACT: "19.2.3"
     steps:
       - name: Checkout source
@@ -107,8 +108,8 @@ jobs:
           const checks = [
             ['package.json version', pkg.version, expected],
             ['package-lock root version', root?.version, expected],
-            ['Expo SDK', pkg.dependencies?.expo, '~57.0.6'],
-            ['React Native', pkg.dependencies?.['react-native'], '0.86.0'],
+            ['Expo SDK', pkg.dependencies?.expo, '~57.0.29'],
+            ['React Native', pkg.dependencies?.['react-native'], '0.86.3'],
             ['React', pkg.dependencies?.react, '19.2.3'],
           ];
           for (const [name, actual, wanted] of checks) {
@@ -162,6 +163,18 @@ jobs:
           fs.writeFileSync(file, JSON.stringify(lock, null, 2) + '\n');
           console.log('Normalized ' + changed + ' Runflare tarball URLs to official npm registry.');
           NODE
+
+      - name: Regenerate experimental dependency lockfile
+        if: github.ref == 'refs/heads/test/expo57-hermes-dependency-alignment'
+        working-directory: mobile
+        timeout-minutes: 12
+        env:
+          NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
+        shell: bash
+        run: |
+          npm install --package-lock-only --legacy-peer-deps --no-audit --no-fund --ignore-scripts
+          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); for(const [k,v] of Object.entries(p.dependencies)) if(l.packages[''].dependencies[k]!==v) throw Error('lock mismatch '+k)"
+          echo "Experimental lockfile regenerated; no changes pushed to main."
 
       - name: Install locked mobile dependencies
         working-directory: mobile
