@@ -4526,7 +4526,7 @@ route('POST', '/api/my/device-info', function($p,$b,$u){
 
 // خروجی کامل اطلاعات کاربران (شامل فیلدهای سفارشی و اطلاعات دستگاه)
 route('GET', '/api/admin/users/export', function($p,$b,$u){
-  $users = Db::all("SELECT u.id,u.username,u.first_name,u.last_name,r.title role_title,u.phone,u.email,u.national_code,
+  $users = Db::all("SELECT u.id,u.username,u.first_name,u.last_name,r.title role_title,u.phone,u.email,u.national_code,u.personnel_code,
       u.birth_date,u.marital_status,u.children_count,u.address,u.seniority_start,u.is_active,u.can_send_sms,u.device_model,u.android_version,u.app_version,
       u.signature_data,CASE WHEN u.photo_path IS NOT NULL AND u.photo_path<>'' THEN NULL ELSE u.photo END AS photo_b64,u.photo_path
     FROM users u LEFT JOIN roles r ON r.id=u.role_id ORDER BY u.id");
@@ -4540,24 +4540,25 @@ route('GET', '/api/admin/users/export', function($p,$b,$u){
     foreach (Db::all("SELECT user_id, COUNT(*) c FROM user_commitments GROUP BY user_id") as $cm) $commitMap[$cm['user_id']] = (int)$cm['c'];
   } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
 
-  $head=['شناسه','نام کاربری','نام','نام خانوادگی','سمت','موبایل','ایمیل','کد ملی','تاریخ تولد','وضعیت تأهل','تعداد فرزند','آدرس','شروع سنوات','فعال','اجازهٔ پیامک','مدل گوشی','نسخهٔ اندروید','نسخهٔ برنامه','تعداد تعهدات انضباطی'];
-  $photoColIdx = count($head); $head[] = 'عکس پرسنلی';
-  $sigColIdx = count($head); $head[] = 'امضا';
+  $head=['ردیف','عکس پرسنلی','نام','نام خانوادگی','کد پرسنلی','کد ملی','تاریخ تولد','وضعیت تأهل','تعداد فرزند',
+    'موبایل','ایمیل','آدرس','سمت','شروع سنوات','وضعیت حساب','اجازهٔ پیامک','مدل گوشی','نسخهٔ اندروید','نسخهٔ برنامه',
+    'تعداد تعهدات انضباطی','شناسه کاربر','نام کاربری','امضا'];
+  $photoColIdx = 1; $sigColIdx = array_search('امضا', $head, true);
   foreach($fields as $f) $head[]=$f['label'];
 
   $xw = new XlsxWriter($head);
-  foreach (['id'=>6,'username'=>12,'first_name'=>12,'last_name'=>14,'role_title'=>16,'phone'=>13,'email'=>18,'national_code'=>12,
-            'birth_date'=>11,'marital_status'=>10,'children_count'=>8,'address'=>26,'seniority_start'=>11,'is_active'=>8,
-            'can_send_sms'=>9,'device_model'=>14,'android_version'=>10,'app_version'=>10,'commitments'=>10] as $i2=>$w2) { static $ci=0; $xw->setColWidth($ci++, $w2); }
+  $xw->setProfessionalStyle();
+  $xw->setTextCol(4); // کد پرسنلی باید با صفرهای ابتدایی و تمام رقم‌ها حفظ شود
+  foreach ([0=>7,1=>15,2=>16,3=>18,4=>14,5=>15,6=>14,7=>13,8=>10,9=>16,10=>28,11=>34,12=>20,13=>14,
+            14=>12,15=>13,16=>20,17=>15,18=>15,19=>17,20=>10,21=>20] as $colIdx=>$width) $xw->setColWidth($colIdx, $width);
   $xw->setColWidth($photoColIdx, 13);
   $xw->setColWidth($sigColIdx, 16);
 
-  foreach($users as $usr){
-    $row=[$usr['id'],$usr['username'],$usr['first_name'],$usr['last_name'],$usr['role_title'],$usr['phone'],$usr['email'],$usr['national_code'],$usr['birth_date'],
-      $usr['marital_status'],$usr['children_count'],$usr['address'],$usr['seniority_start'],$usr['is_active']?'فعال':'غیرفعال',$usr['can_send_sms']?'بله':'خیر',
-      $usr['device_model'],$usr['android_version'],$usr['app_version'],$commitMap[$usr['id']] ?? 0,
-      '', // ستون عکس (خالی؛ خود تصویر بعداً جاسازی می‌شود)
-      '', // ستون امضا
+  foreach($users as $userIndex=>$usr){
+    $row=[$userIndex+1,'',$usr['first_name'],$usr['last_name'],$usr['personnel_code'],$usr['national_code'],$usr['birth_date'],
+      $usr['marital_status'],$usr['children_count'],$usr['phone'],$usr['email'],$usr['address'],$usr['role_title'],$usr['seniority_start'],
+      $usr['is_active']?'فعال':'غیرفعال',$usr['can_send_sms']?'بله':'خیر',$usr['device_model'],$usr['android_version'],$usr['app_version'],
+      $commitMap[$usr['id']] ?? 0,$usr['id'],$usr['username'],'', // عکس و امضا به‌صورت تصویر جاسازی می‌شوند
     ];
     foreach($fields as $f){ $row[]= $valMap[$usr['id']][$f['id']] ?? ''; }
     $rIdx = $xw->addRow($row);

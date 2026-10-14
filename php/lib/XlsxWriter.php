@@ -16,12 +16,18 @@ class XlsxWriter {
   private $headers;
   private $rows = [];
   private $colWidths = [];   // colIdx(0-based) => width (کاراکتر)
+  private $textCols = [];    // colIdx(0-based) => force values to remain text (IDs/codes with leading zeros)
   private $images = [];      // rowIdx(0-based داده، بدون سرستون) => [colIdx => ['data'=>bytes,'w'=>px,'h'=>px]]
   private $imageRowIdx = []; // ردیف‌هایی که حاوی تصویر هستند => ارتفاع لازم (pt)
+  private $professionalStyle = false;
 
   function __construct(array $headers) { $this->headers = array_values($headers); }
 
   function setColWidth($idx, $chars) { $this->colWidths[$idx] = $chars; }
+  function setTextCol($idx) { $this->textCols[$idx] = true; }
+
+  /** قالب خواناتر ویژهٔ خروجی‌های مدیریتی: سرستون رنگی، ردیف‌های راه‌راه، فیلتر و تثبیت سرستون. */
+  function setProfessionalStyle($enabled = true) { $this->professionalStyle = (bool)$enabled; }
 
   /** یک ردیف دادهٔ متنی/عددی اضافه می‌کند و شمارهٔ ردیف (0-based، بدون احتساب سرستون) را برمی‌گرداند. */
   function addRow(array $cells) { $this->rows[] = array_values($cells); return count($this->rows) - 1; }
@@ -106,13 +112,16 @@ class XlsxWriter {
     $zip->addFromString('xl/styles.xml',
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'.
       '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'.
-      '<fonts count="2"><font><sz val="11"/><name val="Tahoma"/></font><font><b/><sz val="11"/><name val="Tahoma"/></font></fonts>'.
-      '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'.
-      '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'.
+      '<fonts count="3"><font><sz val="11"/><name val="Tahoma"/></font><font><b/><sz val="11"/><name val="Tahoma"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Tahoma"/></font></fonts>'.
+      '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF087F5B"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF1F8F4"/><bgColor indexed="64"/></patternFill></fill></fills>'.
+      '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFD7E5DE"/></left><right style="thin"><color rgb="FFD7E5DE"/></right><top style="thin"><color rgb="FFD7E5DE"/></top><bottom style="thin"><color rgb="FFD7E5DE"/></bottom><diagonal/></border></borders>'.
       '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'.
-      '<cellXfs count="2">'.
+      '<cellXfs count="5">'.
       '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'.
       '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'.
+      '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'.
+      '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'.
+      '<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'.
       '</cellXfs>'.
       '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'.
       '</styleSheet>');
@@ -128,13 +137,14 @@ class XlsxWriter {
 
     $sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'.
       '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'.
-      '<sheetViews><sheetView rightToLeft="1" workbookViewId="0"/></sheetViews>'.
+      '<sheetViews><sheetView rightToLeft="1" workbookViewId="0">'.($this->professionalStyle ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' : '').'</sheetView></sheetViews>'.
       $cols.'<sheetData>';
 
     // سرستون
-    $sheetXml .= '<row r="1" ht="20" customHeight="1">';
+    $headerHeight = $this->professionalStyle ? '34' : '20';
+    $sheetXml .= '<row r="1" ht="'.$headerHeight.'" customHeight="1">';
     foreach ($this->headers as $c => $h) {
-      $sheetXml .= '<c r="'.self::colLetter($c).'1" s="1" t="inlineStr"><is><t xml:space="preserve">'.self::xmlEsc($h).'</t></is></c>';
+      $sheetXml .= '<c r="'.self::colLetter($c).'1" s="'.($this->professionalStyle ? '3' : '1').'" t="inlineStr"><is><t xml:space="preserve">'.self::xmlEsc($h).'</t></is></c>';
     }
     $sheetXml .= '</row>';
 
@@ -143,15 +153,18 @@ class XlsxWriter {
       $ht = isset($this->imageRowIdx[$ri]) ? ' ht="'.$this->imageRowIdx[$ri].'" customHeight="1"' : '';
       $sheetXml .= '<row r="'.$excelRow.'"'.$ht.'>';
       foreach ($row as $c => $v) {
-        if (is_numeric($v) && $v !== '' && !preg_match('/^0\d/', (string)$v)) {
-          $sheetXml .= '<c r="'.self::colLetter($c).$excelRow.'"><v>'.self::xmlEsc($v).'</v></c>';
+        if (is_numeric($v) && $v !== '' && empty($this->textCols[$c]) && !preg_match('/^0\d/', (string)$v)) {
+        $cellStyle = $this->professionalStyle ? (($ri % 2) ? '4' : '2') : '0';
+        $sheetXml .= '<c r="'.self::colLetter($c).$excelRow.'"'.($cellStyle !== '0' ? ' s="'.$cellStyle.'"' : '').'><v>'.self::xmlEsc($v).'</v></c>';
         } else {
-          $sheetXml .= '<c r="'.self::colLetter($c).$excelRow.'" t="inlineStr"><is><t xml:space="preserve">'.self::xmlEsc($v).'</t></is></c>';
+        $cellStyle = $this->professionalStyle ? (($ri % 2) ? '4' : '2') : '0';
+        $sheetXml .= '<c r="'.self::colLetter($c).$excelRow.'"'.($cellStyle !== '0' ? ' s="'.$cellStyle.'"' : '').' t="inlineStr"><is><t xml:space="preserve">'.self::xmlEsc($v).'</t></is></c>';
         }
       }
       $sheetXml .= '</row>';
     }
     $sheetXml .= '</sheetData>';
+    if ($this->professionalStyle && $maxCol > 0 && count($this->rows) > 0) $sheetXml .= '<autoFilter ref="A1:'.self::colLetter($maxCol-1).(count($this->rows)+1).'"/>';
     if ($this->images) $sheetXml .= '<drawing r:id="rIdDrawing1"/>';
     $sheetXml .= '</worksheet>';
     $zip->addFromString('xl/worksheets/sheet1.xml', $sheetXml);
