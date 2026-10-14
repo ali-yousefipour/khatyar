@@ -13,6 +13,11 @@ jobs:
   remove-schema-snapshot:
     runs-on: ubuntu-latest
     steps:
+      - name: Install lftp
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
       - name: Remove accidentally published schema snapshot and verify absence
         shell: bash
         env:
