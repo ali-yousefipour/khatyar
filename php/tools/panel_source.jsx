@@ -5850,7 +5850,9 @@ function ShiftDayModal({day, jdate, onSave, onClose}){
       ot_middle:ot_middle===""?null:+ot_middle, ot_end:ot_end===""?null:+ot_end,
       late_ok:late_ok===""?null:+late_ok, early_ok:early_ok===""?null:+early_ok,
       float_before:float_before===""?null:+float_before,
-      p1_on:p1, p1_start:p1s, p1_end:p1e, p2_on:p2, p2_start:p2s, p2_end:p2e };
+      // بازه‌های روز فقط برای شیفت ساده معتبرند؛ شناور نباید تنظیمات فعال روز داشته باشد.
+      p1_on:type==="simple"?p1:false, p1_start:type==="simple"?p1s:"", p1_end:type==="simple"?p1e:"",
+      p2_on:type==="simple"?p2:false, p2_start:type==="simple"?p2s:"", p2_end:type==="simple"?p2e:"" };
     // segments به فرمت آبجکت برای محاسبهٔ آستانهٔ ورود/خروج (سازگار با ShiftCalc سرور)
     // با اعمال تاخیر مجاز (late_ok) و تعجیل مجاز (early_ok)
     const addMin=(t,d)=>{ if(!t)return t; const[h,m]=t.split(":").map(Number); let x=h*60+m+d; x=((x%1440)+1440)%1440; return String(Math.floor(x/60)).padStart(2,"0")+":"+String(x%60).padStart(2,"0"); };
@@ -5860,7 +5862,11 @@ function ShiftDayModal({day, jdate, onSave, onClose}){
       ls: addMin(s, lo),     // ورود تا: تاخیر مجاز بعد از شروع
       ee: addMin(e,-eo),     // خروج از: تعجیل مجاز قبل از پایان
       le: addMin(e, lo) });  // خروج تا: تاخیر مجاز بعد از پایان
-    const segs=[]; if(p1&&p1s&&p1e)segs.push(mkSeg(p1s,p1e)); if(p2&&p2s&&p2e)segs.push(mkSeg(p2s,p2e));
+    const segs=[];
+    if(type==="simple"){
+      if(p1&&p1s&&p1e)segs.push(mkSeg(p1s,p1e));
+      if(p2&&p2s&&p2e)segs.push(mkSeg(p2s,p2e));
+    }
     onSave({jdate, day_config:cfg, segments:segs, is_off:false});
   };
 
@@ -5887,7 +5893,7 @@ function ShiftDayModal({day, jdate, onSave, onClose}){
       </div>
 
       {adv&&<div>
-        {type==="floating"&&<>
+        {type==="simple"&&<>
           <ShiftMinuteField label="اضافه کار از ابتدای شیفت" value={ot_begin} onChange={setOtBegin}/>
           <ShiftMinuteField label="اضافه کار در میانه شیفت" value={ot_middle} onChange={setOtMiddle}/>
           <ShiftMinuteField label="اضافه کار از انتهای شیفت" value={ot_end} onChange={setOtEnd}/>
@@ -5905,6 +5911,7 @@ function ShiftDayModal({day, jdate, onSave, onClose}){
           <div style={{marginBottom:12}}><label className="label">مدت زمان شب کاری</label><ShiftClockInput value={night_dur} onChange={setNightDur}/></div>
         </>}
 
+        {type==="simple"&&<>
         <div style={{borderTop:"1px solid var(--line)",margin:"14px 0",paddingTop:12}}>
           <label className="row" style={{gap:8,marginBottom:10}}><input type="checkbox" checked={p1} onChange={e=>setP1(e.target.checked)}/><b>قسمت اول روز</b></label>
           {p1&&<div className="row" style={{gap:10}}>
@@ -5919,6 +5926,8 @@ function ShiftDayModal({day, jdate, onSave, onClose}){
             <div style={{flex:1}}><label className="label">زمان پایان</label><ShiftClockInput value={p2e} onChange={setP2e}/></div>
           </div>}
         </div>
+
+        </>}
       </div>}
 
       <button className="btn p" style={{width:"100%",marginTop:16}} onClick={save}>ثبت</button>
