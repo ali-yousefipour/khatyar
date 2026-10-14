@@ -487,7 +487,7 @@ const db = {
     createLine: (l) => SEND('POST', '/admin/lines', l),
     userLeaderboard: () => GET('/admin/user-leaderboard'),
     topWorkers: () => GET('/admin/top-workers'),
-    usersLite: () => GET('/admin/users-lite'),
+    usersLite: (attendanceSearch = false) => GET('/admin/users-lite' + (attendanceSearch ? '?attendance_search=1' : '')),
     userActivity: (uid, date) => GET('/admin/user-activity?user_id=' + uid + '&date=' + date),
     presence: () => GET('/admin/presence'),
     driversSearch: (q) => GET('/admin/drivers-search?q=' + encodeURIComponent(q)),
@@ -9990,7 +9990,8 @@ function AttendanceReport() {
     const [users, setUsers] = useState([]);
     const [usersLoading, setUsersLoading] = useState(true);
     const [uid, setUid] = useState("");
-    const [personQuery, setPersonQuery] = useState("");
+    const [personNameQuery, setPersonNameQuery] = useState("");
+    const [personIdentifierQuery, setPersonIdentifierQuery] = useState("");
     // API گزارش تردد بازهٔ کامل را الزامی می‌کند؛ پیش‌فرض را روی کل ماه جاری شمسی می‌گذاریم.
     const attendanceDefaultRange = () => {
         const [y, m] = todayJ();
@@ -10025,7 +10026,7 @@ function AttendanceReport() {
         }
     });
     const [draftColumnIndexes, setDraftColumnIndexes] = useState(visibleColumnIndexes);
-    useEffect(() => { let active = true; db.usersLite().then(us => { if (active)
+    useEffect(() => { let active = true; db.usersLite(true).then(us => { if (active)
         setUsers(Array.isArray(us) ? us : []); }).catch(() => { }).finally(() => { if (active)
         setUsersLoading(false); }); return () => { active = false; }; }, []);
     useEffect(() => {
@@ -10086,10 +10087,16 @@ function AttendanceReport() {
     }, [gpsDeficitModal, mapPunch, openDay]);
     const visibleUsers = useMemo(() => {
         const normalizeSearch = value => String(value || "").normalize("NFKC").replace(/[يى]/g, "ی").replace(/ك/g, "ک").replace(/[\u200c\u200e\u200f]/g, " ").replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/\s+/g, " ").trim().toLowerCase();
-        const q = normalizeSearch(personQuery);
+        const nameQuery = normalizeSearch(personNameQuery);
+        const identifierQuery = normalizeSearch(personIdentifierQuery);
         // از رندر هم‌زمان هزاران option جلوگیری می‌شود؛ جست‌وجو همچنان کل فهرست را بررسی می‌کند.
-        let result = q ? users.filter(u => [u.first_name, u.last_name, (u.first_name || "") + " " + (u.last_name || ""), u.username, u.pcode, u.mobile, u.phone].some(v => normalizeSearch(v).includes(q))) : users.slice(0, 80);
-        if (q) {
+        let result = (nameQuery || identifierQuery) ? users.filter(u => {
+            const fullName = normalizeSearch((u.first_name || "") + " " + (u.last_name || ""));
+            const nameMatches = !nameQuery || fullName.includes(nameQuery);
+            const identifierMatches = !identifierQuery || [u.pcode, u.username, u.phone].some(v => normalizeSearch(v).includes(identifierQuery));
+            return nameMatches && identifierMatches;
+        }) : users.slice(0, 80);
+        if (nameQuery || identifierQuery) {
             const collator = new Intl.Collator("fa", { sensitivity: "base", numeric: false });
             result = result.sort((a, b) => {
                 const byFirst = collator.compare(String(a.first_name || "").trim(), String(b.first_name || "").trim());
@@ -10102,7 +10109,7 @@ function AttendanceReport() {
             }).slice(0, 80);
         }
         return result;
-    }, [users, personQuery]);
+    }, [users, personNameQuery, personIdentifierQuery]);
     const run = async () => {
         if (!uid) {
             alert("پرسنل را انتخاب کنید");
@@ -10291,10 +10298,12 @@ function AttendanceReport() {
         React.createElement("div", { className: "card-p", style: { marginBottom: 14 } },
             React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap", alignItems: "flex-end" } },
                 React.createElement("div", { style: { minWidth: 280, flex: "1 1 280px" } },
-                    React.createElement("label", { className: "label" }, "\u067E\u0631\u0633\u0646\u0644"),
-                    React.createElement("input", { className: "input", value: personQuery, onChange: e => setPersonQuery(e.target.value), placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645\u060C \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u06CC\u0627 \u06A9\u062F \u067E\u0631\u0633\u0646\u0644\u06CC", style: { marginBottom: 6 } }),
+                    React.createElement("label", { className: "label", htmlFor: "attendance-person-name-search" }, "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u067E\u0631\u0633\u0646\u0644"),
+                    React.createElement("input", { id: "attendance-person-name-search", className: "input", value: personNameQuery, onChange: e => setPersonNameQuery(e.target.value), placeholder: "\u0646\u0627\u0645 \u06CC\u0627 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC", style: { marginBottom: 6 } }),
+                    React.createElement("label", { className: "label", htmlFor: "attendance-person-identifier-search" }, "\u062C\u0633\u062A\u062C\u0648\u06CC \u06A9\u062F \u0648 \u0634\u0646\u0627\u0633\u0647"),
+                    React.createElement("input", { id: "attendance-person-identifier-search", className: "input", dir: "auto", value: personIdentifierQuery, onChange: e => setPersonIdentifierQuery(e.target.value), placeholder: "\u06A9\u062F \u067E\u0631\u0633\u0646\u0644\u06CC\u060C \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u06CC\u0627 \u062A\u0644\u0641\u0646", style: { marginBottom: 6 } }),
                     React.createElement("select", { className: "input", value: uid, onChange: e => setUid(e.target.value) },
-                        React.createElement("option", { value: "" }, usersLoading ? "در حال دریافت فهرست نیروها…" : (personQuery.trim() ? "انتخاب از نتایج جست‌وجو…" : "انتخاب پرسنل…")),
+                        React.createElement("option", { value: "" }, usersLoading ? "در حال دریافت فهرست نیروها…" : (personNameQuery.trim() || personIdentifierQuery.trim() ? "انتخاب از نتایج جست‌وجو…" : "انتخاب پرسنل…")),
                         uid && !visibleUsers.some(u => String(u.id) === String(uid)) && users.filter(u => String(u.id) === String(uid)).map(u => React.createElement("option", { key: u.id, value: u.id },
                             u.first_name,
                             " ",
@@ -10305,7 +10314,7 @@ function AttendanceReport() {
                             " ",
                             u.last_name,
                             u.pcode ? ` · ${u.pcode}` : ""))),
-                    React.createElement("div", { style: { fontSize: 11, color: "var(--muted)", marginTop: 4 } }, usersLoading ? "فهرست در حال بارگذاری است…" : (personQuery.trim() ? "نتایج جست‌وجو: " + visibleUsers.length + " (حداکثر ۸۰ نتیجه نمایش داده می‌شود)" : users.length.toLocaleString("fa-IR") + " نیرو بارگذاری شد؛ برای یافتن سایر نیروها نام یا کد پرسنلی را جست‌وجو کنید."))),
+                    React.createElement("div", { style: { fontSize: 11, color: "var(--muted)", marginTop: 4 } }, usersLoading ? "فهرست در حال بارگذاری است…" : (personNameQuery.trim() || personIdentifierQuery.trim() ? "نتایج مطابق هر دو کادر: " + visibleUsers.length + " (حداکثر ۸۰ نتیجه)" : users.length.toLocaleString("fa-IR") + " نیرو بارگذاری شد؛ نام یا کد را در کادر جداگانه جست‌وجو کنید."))),
                 React.createElement("div", null,
                     React.createElement("label", { className: "label" }, "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E"),
                     React.createElement(JDate, { value: from, onChange: setFrom, jalali: true })),

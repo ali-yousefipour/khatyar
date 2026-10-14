@@ -6125,10 +6125,28 @@ route('GET', '/api/admin/top-workers', function($p,$b,$u){
 }, false, ADMIN);
 // نسخهٔ قابل‌دسترس برای اپ موبایل (هر کاربر واردشده): پرکار/کم‌کار ناظر و اپراتور
 // فهرست سبک کاربران برای انتخابگرها (بدون عکس → سریع)
-route('GET', '/api/admin/users-lite', fn($p,$b,$u) => Db::all(
-  "SELECT u.id, u.first_name, u.last_name, u.role_id, r.title role_title
-   FROM users u LEFT JOIN roles r ON r.id=u.role_id
-   WHERE u.is_active=1 ORDER BY u.first_name, u.last_name"), false, ADMIN);
+route('GET', '/api/admin/users-lite', function($p,$b,$u){
+  if (($_GET['attendance_search'] ?? '') === '1') {
+    // این فیلدهای جست‌وجو فقط برای انتخابگر گزارش تردد لازم‌اند؛ سایر مصرف‌کننده‌های users-lite همان payload سبک قبلی را می‌گیرند.
+    $pcodeExpr = 'CAST(u.id AS CHAR)';
+    try {
+      if (Db::one("SHOW COLUMNS FROM users WHERE Field='personnel_code'")) {
+        $pcodeExpr = "COALESCE(NULLIF(u.personnel_code,''),CAST(u.id AS CHAR))";
+      }
+    } catch (Throwable $e) { error_log('attendance users-lite personnel code lookup: '.$e->getMessage()); }
+    return Db::all(
+      "SELECT u.id, u.first_name, u.last_name, u.role_id, r.title role_title,
+              u.username, u.phone, $pcodeExpr pcode
+       FROM users u LEFT JOIN roles r ON r.id=u.role_id
+       WHERE u.is_active=1 ORDER BY u.first_name, u.last_name"
+    );
+  }
+  return Db::all(
+    "SELECT u.id, u.first_name, u.last_name, u.role_id, r.title role_title
+     FROM users u LEFT JOIN roles r ON r.id=u.role_id
+     WHERE u.is_active=1 ORDER BY u.first_name, u.last_name"
+  );
+}, false, ADMIN);
 
 route('GET', '/api/my/leaderboard', function($p,$b,$u){
   return _dashboard_groups((int)($u['role_id']??0), _viewer_zone($u), 'app');
@@ -14512,4 +14530,4 @@ try {
   // A failure in the optional school-service extension must never take down
   // authentication, public settings, health, or the rest of the API.
   error_log('school-service routes bootstrap failed: '.$e->getMessage().' @ '.basename($e->getFile()).':'.$e->getLine());
-}
+}

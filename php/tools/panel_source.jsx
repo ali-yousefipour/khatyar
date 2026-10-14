@@ -382,7 +382,7 @@ const db = {
   createLine: (l)=> SEND('POST','/admin/lines',l),
   userLeaderboard: ()=> GET('/admin/user-leaderboard'),
   topWorkers: ()=> GET('/admin/top-workers'),
-  usersLite: ()=> GET('/admin/users-lite'),
+  usersLite: (attendanceSearch=false)=> GET('/admin/users-lite'+(attendanceSearch?'?attendance_search=1':'')),
   userActivity: (uid,date)=> GET('/admin/user-activity?user_id='+uid+'&date='+date),
   presence: ()=> GET('/admin/presence'),
   driversSearch: (q)=> GET('/admin/drivers-search?q='+encodeURIComponent(q)),
@@ -6063,7 +6063,8 @@ function AttendanceReport(){
   const [users,setUsers]=useState([]);
   const [usersLoading,setUsersLoading]=useState(true);
   const [uid,setUid]=useState("");
-  const [personQuery,setPersonQuery]=useState("");
+  const [personNameQuery,setPersonNameQuery]=useState("");
+  const [personIdentifierQuery,setPersonIdentifierQuery]=useState("");
   // API گزارش تردد بازهٔ کامل را الزامی می‌کند؛ پیش‌فرض را روی کل ماه جاری شمسی می‌گذاریم.
   const attendanceDefaultRange=()=>{
     const [y,m]=todayJ();
@@ -6094,7 +6095,7 @@ function AttendanceReport(){
   });
   const [draftColumnIndexes,setDraftColumnIndexes]=useState(visibleColumnIndexes);
 
-  useEffect(()=>{ let active=true; db.usersLite().then(us=>{if(active)setUsers(Array.isArray(us)?us:[])}).catch(()=>{}).finally(()=>{if(active)setUsersLoading(false)}); return ()=>{active=false}; },[]);
+  useEffect(()=>{ let active=true; db.usersLite(true).then(us=>{if(active)setUsers(Array.isArray(us)?us:[])}).catch(()=>{}).finally(()=>{if(active)setUsersLoading(false)}); return ()=>{active=false}; },[]);
   useEffect(()=>{
     if(!mapPunch||!mapContainerRef.current||!window.L)return;
     const L=window.L;
@@ -6125,10 +6126,16 @@ function AttendanceReport(){
   },[gpsDeficitModal,mapPunch,openDay]);
   const visibleUsers=useMemo(()=>{
     const normalizeSearch=value=>String(value||"").normalize("NFKC").replace(/[يى]/g,"ی").replace(/ك/g,"ک").replace(/[\u200c\u200e\u200f]/g," ").replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/\s+/g," ").trim().toLowerCase();
-    const q=normalizeSearch(personQuery);
+    const nameQuery=normalizeSearch(personNameQuery);
+    const identifierQuery=normalizeSearch(personIdentifierQuery);
     // از رندر هم‌زمان هزاران option جلوگیری می‌شود؛ جست‌وجو همچنان کل فهرست را بررسی می‌کند.
-    let result=q?users.filter(u=>[u.first_name,u.last_name,(u.first_name||"")+" "+(u.last_name||""),u.username,u.pcode,u.mobile,u.phone].some(v=>normalizeSearch(v).includes(q))):users.slice(0,80);
-    if(q){
+    let result=(nameQuery||identifierQuery)?users.filter(u=>{
+      const fullName=normalizeSearch((u.first_name||"")+" "+(u.last_name||""));
+      const nameMatches=!nameQuery||fullName.includes(nameQuery);
+      const identifierMatches=!identifierQuery||[u.pcode,u.username,u.phone].some(v=>normalizeSearch(v).includes(identifierQuery));
+      return nameMatches&&identifierMatches;
+    }):users.slice(0,80);
+    if(nameQuery||identifierQuery){
       const collator=new Intl.Collator("fa",{sensitivity:"base",numeric:false});
       result=result.sort((a,b)=>{
         const byFirst=collator.compare(String(a.first_name||"").trim(),String(b.first_name||"").trim());
@@ -6139,7 +6146,7 @@ function AttendanceReport(){
       }).slice(0,80);
     }
     return result;
-  },[users,personQuery]);
+  },[users,personNameQuery,personIdentifierQuery]);
   const run=async()=>{
     if(!uid){alert("پرسنل را انتخاب کنید");return;}
     const fallback=attendanceDefaultRange();
@@ -6233,14 +6240,17 @@ function AttendanceReport(){
   return(<div className="panel" translate="no" data-no-translate="true"><h3>🕒 گزارش تردد پرسنل</h3>
     <div className="card-p" style={{marginBottom:14}}>
       <div className="row" style={{gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
-        <div style={{minWidth:280,flex:"1 1 280px"}}><label className="label">پرسنل</label>
-          <input className="input" value={personQuery} onChange={e=>setPersonQuery(e.target.value)} placeholder="جستجوی نام، نام خانوادگی یا کد پرسنلی" style={{marginBottom:6}}/>
+        <div style={{minWidth:280,flex:"1 1 280px"}}>
+          <label className="label" htmlFor="attendance-person-name-search">جستجوی نام پرسنل</label>
+          <input id="attendance-person-name-search" className="input" value={personNameQuery} onChange={e=>setPersonNameQuery(e.target.value)} placeholder="نام یا نام خانوادگی" style={{marginBottom:6}}/>
+          <label className="label" htmlFor="attendance-person-identifier-search">جستجوی کد و شناسه</label>
+          <input id="attendance-person-identifier-search" className="input" dir="auto" value={personIdentifierQuery} onChange={e=>setPersonIdentifierQuery(e.target.value)} placeholder="کد پرسنلی، نام کاربری یا تلفن" style={{marginBottom:6}}/>
           <select className="input" value={uid} onChange={e=>setUid(e.target.value)}>
-            <option value="">{usersLoading?"در حال دریافت فهرست نیروها…":(personQuery.trim()?"انتخاب از نتایج جست‌وجو…":"انتخاب پرسنل…")}</option>
+            <option value="">{usersLoading?"در حال دریافت فهرست نیروها…":(personNameQuery.trim()||personIdentifierQuery.trim()?"انتخاب از نتایج جست‌وجو…":"انتخاب پرسنل…")}</option>
             {uid&&!visibleUsers.some(u=>String(u.id)===String(uid))&&users.filter(u=>String(u.id)===String(uid)).map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}{u.pcode?` · ${u.pcode}`:""}</option>)}
             {visibleUsers.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}{u.pcode?` · ${u.pcode}`:""}</option>)}
           </select>
-          <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>{usersLoading?"فهرست در حال بارگذاری است…":(personQuery.trim()?"نتایج جست‌وجو: "+visibleUsers.length+" (حداکثر ۸۰ نتیجه نمایش داده می‌شود)":users.length.toLocaleString("fa-IR")+" نیرو بارگذاری شد؛ برای یافتن سایر نیروها نام یا کد پرسنلی را جست‌وجو کنید.")}</div>
+          <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>{usersLoading?"فهرست در حال بارگذاری است…":(personNameQuery.trim()||personIdentifierQuery.trim()?"نتایج مطابق هر دو کادر: "+visibleUsers.length+" (حداکثر ۸۰ نتیجه)":users.length.toLocaleString("fa-IR")+" نیرو بارگذاری شد؛ نام یا کد را در کادر جداگانه جست‌وجو کنید.")}</div>
         </div>
         <div><label className="label">از تاریخ</label><JDate value={from} onChange={setFrom} jalali/></div>
         <div><label className="label">تا تاریخ</label><JDate value={to} onChange={setTo} jalali/></div>
