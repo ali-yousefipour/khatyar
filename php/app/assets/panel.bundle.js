@@ -10013,16 +10013,6 @@ function AttendanceReport() {
     const [dayRequests, setDayRequests] = useState([]);
     const [conversionModal, setConversionModal] = useState(null);
     const [gpsDeficitModal, setGpsDeficitModal] = useState(null);
-    const attendanceColumnStorageKey = "khatyar.attendance.report.visible-columns.v1";
-    const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
-    const [visibleColumnIndexes, setVisibleColumnIndexes] = useState(() => {
-        try {
-            const saved = JSON.parse(localStorage.getItem(attendanceColumnStorageKey) || "null");
-            return Array.isArray(saved) ? saved.filter(i => Number.isInteger(i) && i >= 0 && i < 30) : Array.from({ length: 30 }, (_, i) => i);
-        }
-        catch (_) { return Array.from({ length: 30 }, (_, i) => i); }
-    });
-    const [draftColumnIndexes, setDraftColumnIndexes] = useState(visibleColumnIndexes);
     useEffect(() => { let active = true; db.usersLite().then(us => { if (active)
         setUsers(Array.isArray(us) ? us : []); }).catch(() => { }).finally(() => { if (active)
         setUsersLoading(false); }); return () => { active = false; }; }, []);
@@ -10083,10 +10073,11 @@ function AttendanceReport() {
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [gpsDeficitModal, mapPunch, openDay]);
     const visibleUsers = useMemo(() => {
-        const normalizeSearch = value => String(value || "").normalize("NFKC").replace(/[يى]/g, "ی").replace(/ك/g, "ک").replace(/[\u200c\u200e\u200f]/g, " ").replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/\s+/g, " ").trim().toLowerCase();
-        const q = normalizeSearch(personQuery);
+        const q = String(personQuery || "").trim().toLowerCase();
         // از رندر هم‌زمان هزاران option جلوگیری می‌شود؛ جست‌وجو همچنان کل فهرست را بررسی می‌کند.
-        let result = q ? users.filter(u => [u.first_name, u.last_name, (u.first_name || "") + " " + (u.last_name || ""), u.username, u.pcode, u.mobile, u.phone].some(v => normalizeSearch(v).includes(q))) : users.slice(0, 80);
+        let result = q ? users.filter(u => String((u.first_name || "") + " " + (u.last_name || "")).toLowerCase().includes(q)
+            || String(u.username || "").toLowerCase().includes(q)
+            || String(u.pcode || "").toLowerCase().includes(q)) : users.slice(0, 80);
         if (q) {
             const collator = new Intl.Collator("fa", { sensitivity: "base", numeric: false });
             result = result.sort((a, b) => {
@@ -10276,10 +10267,8 @@ function AttendanceReport() {
         ["اضافه کاری تعطیل و جمعه", d => dayVal(d, "holiday_friday_overtime")], ["جمعه کاری", d => dayVal(d, "friday_work")], ["روزکارکرد جمعه", d => dayVal(d, "friday_workday")],
         ["تهاتر مازاد حضور", d => dayVal(d, "adjusted_surplus")], ["تهاتر کسری کار", d => dayVal(d, "adjusted_shortage")], ["اولین ورود", d => dayVal(d, "first_in")], ["آخرین خروج", d => dayVal(d, "last_out")]
     ];
-    const selectedColumns = columns.filter((_, i) => visibleColumnIndexes.includes(i));
-    const saveColumnSettings = () => { const next = Array.from(new Set(draftColumnIndexes)).filter(i => Number.isInteger(i) && i >= 0 && i < columns.length); if (!next.includes(0)) next.unshift(0); setVisibleColumnIndexes(next); try { localStorage.setItem(attendanceColumnStorageKey, JSON.stringify(next)); } catch (_) {} setColumnSettingsOpen(false); };
     const exportExcel = () => { if (!data)
-        return; const rows = [selectedColumns.map(x => x[0])]; (data.days || []).forEach(d => rows.push(selectedColumns.map(x => x[1](d)))); const ws = XLSX.utils.aoa_to_sheet(rows), wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "گزارش تردد"); XLSX.writeFile(wb, "گزارش تردد پرسنل.xlsx"); };
+        return; const rows = [columns.map(x => x[0])]; (data.days || []).forEach(d => rows.push(columns.map(x => x[1](d)))); const ws = XLSX.utils.aoa_to_sheet(rows), wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "گزارش تردد ۳۰ ستونه"); XLSX.writeFile(wb, "گزارش تردد پرسنل - ۳۰ ستونه.xlsx"); };
     return (React.createElement("div", { className: "panel", translate: "no", "data-no-translate": "true" },
         React.createElement("h3", null, "\uD83D\uDD52 \u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F \u067E\u0631\u0633\u0646\u0644"),
         React.createElement("div", { className: "card-p", style: { marginBottom: 14 } },
@@ -10292,13 +10281,11 @@ function AttendanceReport() {
                         uid && !visibleUsers.some(u => String(u.id) === String(uid)) && users.filter(u => String(u.id) === String(uid)).map(u => React.createElement("option", { key: u.id, value: u.id },
                             u.first_name,
                             " ",
-                            u.last_name,
-                            u.pcode ? " · " + u.pcode : "")),
+                            u.last_name)),
                         visibleUsers.map(u => React.createElement("option", { key: u.id, value: u.id },
                             u.first_name,
                             " ",
-                            u.last_name,
-                            u.pcode ? " · " + u.pcode : ""))),
+                            u.last_name))),
                     React.createElement("div", { style: { fontSize: 11, color: "var(--muted)", marginTop: 4 } }, usersLoading ? "فهرست در حال بارگذاری است…" : (personQuery.trim() ? "نتایج جست‌وجو: " + visibleUsers.length + " (حداکثر ۸۰ نتیجه نمایش داده می‌شود)" : users.length.toLocaleString("fa-IR") + " نیرو بارگذاری شد؛ برای یافتن سایر نیروها نام یا کد پرسنلی را جست‌وجو کنید."))),
                 React.createElement("div", null,
                     React.createElement("label", { className: "label" }, "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E"),
@@ -10307,8 +10294,7 @@ function AttendanceReport() {
                     React.createElement("label", { className: "label" }, "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E"),
                     React.createElement(JDate, { value: to, onChange: setTo, jalali: true })),
                 React.createElement("button", { className: "btn p", onClick: run, disabled: busy }, busy ? "…" : "🔍 مشاهده گزارش"),
-        React.createElement("button", { className: "btn g", onClick: exportExcel, disabled: !data }, "\u2913 \u062F\u0627\u0646\u0644\u0648\u062F \u06AF\u0632\u0627\u0631\u0634"),
-                data && React.createElement("button", { className: "btn g", type: "button", onClick: () => { setDraftColumnIndexes(visibleColumnIndexes.slice()); setColumnSettingsOpen(true); } }, "\u2699 \u062A\u0646\u0638\u06CC\u0645 \u0633\u062A\u0648\u0646\u200c\u0647\u0627"))),
+                React.createElement("button", { className: "btn g", onClick: exportExcel, disabled: !data }, "\u2913 \u062F\u0627\u0646\u0644\u0648\u062F \u06AF\u0632\u0627\u0631\u0634"))),
         data && React.createElement("div", { className: "card-p", style: { marginBottom: 10, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 } },
             React.createElement("b", null, ((_a = data.user) === null || _a === void 0 ? void 0 : _a.name) || "—"),
             React.createElement("span", { style: { color: "var(--muted)", fontSize: 12 } },
@@ -10318,19 +10304,13 @@ function AttendanceReport() {
                 fa(data.from || from || "—"),
                 " \u062A\u0627 ",
                 fa(data.to || to || "—"))),
-        columnSettingsOpen && React.createElement("div", { role: "presentation", onClick: e => { if (e.target === e.currentTarget) setColumnSettingsOpen(false); }, style: { position: "fixed", inset: 0, zIndex: 100500, background: "rgba(0,0,0,.48)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
-            React.createElement("div", { className: "card-p", role: "dialog", "aria-modal": "true", "aria-labelledby": "attendance-columns-title", style: { width: "min(760px,96vw)", maxHeight: "88vh", overflow: "auto", padding: 20, boxShadow: "0 18px 55px rgba(0,0,0,.22)" } },
-                React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 } }, React.createElement("h3", { id: "attendance-columns-title", style: { margin: 0 } }, "\u062A\u0646\u0638\u06CC\u0645 \u0633\u062A\u0648\u0646\u200c\u0647\u0627\u06CC \u06AF\u0632\u0627\u0631\u0634"), React.createElement("button", { type: "button", className: "btn g", onClick: () => setColumnSettingsOpen(false), "aria-label": "\u0628\u0633\u062A\u0646" }, "\u00D7")),
-                React.createElement("p", { style: { color: "var(--muted)", fontSize: 12, margin: "8px 0 12px" } }, "\u0633\u062A\u0648\u0646\u200c\u0647\u0627\u06CC \u0645\u0648\u0631\u062F\u0646\u06CC\u0627\u0632 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F\u061B \u062A\u0627\u0631\u06CC\u062E \u0628\u0631\u0627\u06CC \u062A\u0634\u062E\u06CC\u0635 \u0631\u0648\u0632 \u062B\u0627\u0628\u062A \u0645\u06CC\u200c\u0645\u0627\u0646\u062F."),
-                React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 8 } }, columns.map(([title], i) => React.createElement("label", { key: title, style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 9, cursor: "pointer" } }, React.createElement("input", { type: "checkbox", checked: draftColumnIndexes.includes(i), disabled: i === 0, onChange: e => setDraftColumnIndexes(prev => e.target.checked ? Array.from(new Set([...prev, i])) : prev.filter(x => x !== i)) }), React.createElement("span", null, title)))),
-                React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 } }, React.createElement("button", { className: "btn g", type: "button", onClick: () => setDraftColumnIndexes(columns.map((_, i) => i)) }, "\u0646\u0645\u0627\u06CC\u0634 \u0647\u0645\u0647"), React.createElement("button", { className: "btn g", type: "button", onClick: () => setDraftColumnIndexes([0]) }, "\u0641\u0642\u0637 \u062A\u0627\u0631\u06CC\u062E"), React.createElement("button", { className: "btn p", type: "button", onClick: saveColumnSettings }, "\u0630\u062E\u06CC\u0631\u0647 \u062A\u0646\u0638\u06CC\u0645"), React.createElement("button", { className: "btn g", type: "button", onClick: () => setColumnSettingsOpen(false) }, "\u0627\u0646\u0635\u0631\u0627\u0641")))),
         data && React.createElement("div", { style: { overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 } },
-            React.createElement("table", { className: "khar-attendance-native", style: { fontSize: 12, minWidth: Math.max(700, selectedColumns.length * 112) } },
+            React.createElement("table", { className: "khar-attendance-native", style: { fontSize: 12, minWidth: 2600 } },
                 React.createElement("thead", null,
-                    React.createElement("tr", null, selectedColumns.map(([title], i) => React.createElement("th", { key: title, style: { whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2 } }, title)))),
+                    React.createElement("tr", null, columns.map(([title], i) => React.createElement("th", { key: title, style: { whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2 } }, title)))),
                 React.createElement("tbody", null, (data.days || []).map(d => {
                     const red = !!d.is_holiday || !!d.is_friday || d.weekday === "جمعه";
-                    return React.createElement("tr", { key: d.jdate }, selectedColumns.map((col, i) => {
+                    return React.createElement("tr", { key: d.jdate }, columns.map((col, i) => {
                         const title = col[0];
                         const getter = col[1];
                         const fontWeight = (i < 2 && red) ? 700 : 400;
@@ -10345,7 +10325,7 @@ function AttendanceReport() {
                             title === "تاریخ" && React.createElement("button", { type: "button", className: "btn g", style: { padding: "3px 6px", fontSize: 10, marginInlineStart: 5 }, onClick: () => setOpenDay(openDay === d.jdate ? null : d.jdate) }, "\u062C\u0632\u0626\u06CC\u0627\u062A"));
                     }));
                 })))),
-        data && React.createElement("div", { style: { marginTop: 8, fontSize: 11, color: "var(--muted)" } }, selectedColumns.length.toLocaleString("fa-IR"), " \u0633\u062A\u0648\u0646 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200c\u0634\u0648\u062F\u061B \u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0627\u0632 \u062F\u0627\u062F\u0647 \u0648\u0627\u0642\u0639\u06CC \u062A\u0631\u062F\u062F \u062E\u0648\u0627\u0646\u062F\u0647 \u0645\u06CC\u200c\u0634\u0648\u062F."),
+        data && React.createElement("div", { style: { marginTop: 8, fontSize: 11, color: "var(--muted)" } }, "\u06F2\u06F9 \u0633\u062A\u0648\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A\u061B \u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u0627\u0632 \u062F\u0627\u062F\u0647 \u0648\u0627\u0642\u0639\u06CC \u062A\u0631\u062F\u062F \u062E\u0648\u0627\u0646\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
         gpsDeficitModal && React.createElement("div", { role: "presentation", onClick: e => { if (e.target === e.currentTarget)
                 setGpsDeficitModal(null); }, style: { position: "fixed", inset: 0, zIndex: 100500, background: "rgba(0,0,0,.58)", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(10px,2vw,24px)" } },
             React.createElement("div", { className: "card-p", role: "dialog", "aria-modal": "true", "aria-label": "\u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631 \u06A9\u0627\u0631 GPS \u0648 \u0628\u0631\u0646\u0627\u0645\u0647", onClick: e => e.stopPropagation(), style: { width: "min(900px,96vw)", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", padding: 0 } },
