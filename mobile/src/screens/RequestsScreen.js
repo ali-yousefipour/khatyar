@@ -139,7 +139,7 @@ function NewRequest({ onDone, initialType, initialDate }) {
   };
   const [reqSub, setReqSub] = useState(false);   // آیا جایگزین الزامی است
   const cfg = TYPES.find((t) => t.k === type);
-  const needsSubstitute = ['annual', 'sick', 'mission'].includes(type);
+  const needsSubstitute = type === 'annual';
 
   // وقتی صفحه از «عملکرد روزانه» باز می‌شود، همان روز و نوع درخواست را مستقیماً آماده کن.
   useEffect(() => {
@@ -219,6 +219,11 @@ function NewRequest({ onDone, initialType, initialDate }) {
         ))}
       </View>
 
+      {type === 'annual' && (
+        <TouchableOpacity style={s.attachBtn} onPress={openLeaveStatus}>
+          <Text style={s.attachT}>وضعیت استحقاق مرخصی</Text>
+        </TouchableOpacity>
+      )}
       {!cfg.manual && (
         <>
           <Text style={s.label}>واحد</Text>
@@ -278,6 +283,19 @@ function NewRequest({ onDone, initialType, initialDate }) {
         <Text style={s.btnT}>{busy ? 'در حال ارسال…' : 'ارسال درخواست'}</Text>
       </TouchableOpacity>
 
+      <Modal visible={leaveStatusOpen} transparent animationType="slide" onRequestClose={() => setLeaveStatusOpen(false)}>
+        <View style={s.modalWrap}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>وضعیت استحقاق مرخصی</Text>
+            {leaveBalanceLoading ? <ActivityIndicator color={C.brand} /> :
+              leaveBalanceError ? <Text style={s.subWarn}>{leaveBalanceError}</Text> :
+              <AnnualLeaveStatus balance={leaveBalance} />}
+            <TouchableOpacity style={s.modalClose} onPress={() => setLeaveStatusOpen(false)}>
+              <Text style={s.modalCloseT}>بستن</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       <Modal visible={subOpen} transparent animationType="slide" onRequestClose={() => setSubOpen(false)}>
         <View style={s.modalWrap}>
           <View style={s.modalCard}>
@@ -312,8 +330,24 @@ function NewRequest({ onDone, initialType, initialDate }) {
 function MyRequests() {
   const [rows, setRows] = useState(null);
   const [bal, setBal] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const load = async () => {
+    setLoadError('');
+    try {
+      const response = await request('/my/requests');
+      const items = Array.isArray(response) ? response :
+        (Array.isArray(response?.requests) ? response.requests :
+        (Array.isArray(response?.rows) ? response.rows :
+        (Array.isArray(response?.data) ? response.data : null)));
+      if (!items) throw new Error('ساختار پاسخ فهرست درخواست‌ها نامعتبر است.');
+      setRows(items);
+    } catch (error) {
+      setLoadError(error?.message || 'دریافت درخواست‌ها ناموفق بود.');
+      setRows([]);
+    }
+  };
   useEffect(() => {
-    request('/my/requests').then(setRows).catch(() => setRows([]));
+    load();
     request('/my/leave-balance').then(setBal).catch(() => {});
   }, []);
   if (!rows) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
@@ -337,7 +371,8 @@ function MyRequests() {
           {!['annual_daily', 'annual_hourly', 'sick_daily', 'sick_hourly'].some((k) => { const b = (bal.balance || {})[k] || {}; return b.cap_month || b.cap_year; }) && <Text style={s.muted}>سقفی تعریف نشده (نامحدود).</Text>}
         </View>
       )}
-      {!rows.length ? <Text style={[s.muted, { padding: 20 }]}>درخواستی ثبت نکرده‌اید.</Text> : rows.map((r) => {
+      {loadError ? <View><Text style={s.subWarn}>خطا در دریافت درخواست‌ها: {loadError}</Text><TouchableOpacity style={s.attachBtn} onPress={load}><Text style={s.attachT}>تلاش مجدد</Text></TouchableOpacity></View> : null}
+      {!loadError && !rows.length ? <Text style={[s.muted, { padding: 20 }]}>درخواستی ثبت نکرده‌اید.</Text> : rows.map((r) => {
         const st = STATUS[r.status] || ['—', C.muted];
         return (
           <View key={r.id} style={s.card}>

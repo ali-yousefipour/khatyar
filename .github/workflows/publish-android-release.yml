@@ -17,6 +17,7 @@ on:
   push:
     branches:
       - "main"
+      - "test/expo57-hermes-dependency-alignment"
     tags:
       - "v*"
 
@@ -31,14 +32,14 @@ concurrency:
 jobs:
   release:
     name: Build and publish Android release
-    if: github.event_name != 'push' || github.ref_type == 'tag' || startsWith(github.event.head_commit.message, 'ci(android-release):')
+    if: github.event_name != 'push' || github.ref_type == 'tag' || startsWith(github.event.head_commit.message, 'ci(android-release):') || github.ref == 'refs/heads/test/expo57-hermes-dependency-alignment'
     runs-on: ubuntu-latest
     env:
       NODE_VERSION: "22.23.1"
       JAVA_VERSION: "17"
       EXPECTED_GRADLE: "8.13"
-      EXPECTED_EXPO: "57.0.6"
-      EXPECTED_REACT_NATIVE: "0.86.0"
+      EXPECTED_EXPO: "57.0.29"
+      EXPECTED_REACT_NATIVE: "0.86.3"
       EXPECTED_REACT: "19.2.3"
     steps:
       - name: Checkout source
@@ -107,8 +108,8 @@ jobs:
           const checks = [
             ['package.json version', pkg.version, expected],
             ['package-lock root version', root?.version, expected],
-            ['Expo SDK', pkg.dependencies?.expo, '~57.0.6'],
-            ['React Native', pkg.dependencies?.['react-native'], '0.86.0'],
+            ['Expo SDK', pkg.dependencies?.expo, '~57.0.29'],
+            ['React Native', pkg.dependencies?.['react-native'], '0.86.3'],
             ['React', pkg.dependencies?.react, '19.2.3'],
           ];
           for (const [name, actual, wanted] of checks) {
@@ -163,6 +164,18 @@ jobs:
           console.log('Normalized ' + changed + ' Runflare tarball URLs to official npm registry.');
           NODE
 
+      - name: Regenerate experimental dependency lockfile
+        if: github.ref == 'refs/heads/test/expo57-hermes-dependency-alignment'
+        working-directory: mobile
+        timeout-minutes: 12
+        env:
+          NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
+        shell: bash
+        run: |
+          npm install --package-lock-only --legacy-peer-deps --no-audit --no-fund --ignore-scripts
+          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); for(const [k,v] of Object.entries(p.dependencies)) if(l.packages[''].dependencies[k]!==v) throw Error('lock mismatch '+k)"
+          echo "Experimental lockfile regenerated; no changes pushed to main."
+
       - name: Install locked mobile dependencies
         working-directory: mobile
         timeout-minutes: 12
@@ -203,6 +216,13 @@ jobs:
           fi
           echo "Expo Doctor completed at $(date -u +%FT%TZ)"
 
+      - name: Validate native config plugin syntax
+        working-directory: mobile
+        shell: bash
+        run: |
+          node --check plugins/withWifiRebornSdkCompat.js
+          node --check app.config.js
+
       - name: Generate clean Android project
         working-directory: mobile
         env:
@@ -215,7 +235,12 @@ jobs:
         shell: bash
         run: |
           test -f gradle/wrapper/gradle-wrapper.properties
-          grep -Eq 'gradle-8\.13-(bin|all)\.zip' gradle/wrapper/gradle-wrapper.properties
+          echo "Generated Gradle wrapper:"
+          cat gradle/wrapper/gradle-wrapper.properties
+          if ! grep -Fq 'gradle-9.3.1-bin.zip' gradle/wrapper/gradle-wrapper.properties; then
+            echo "::error::Unexpected Gradle wrapper version; expected Expo 57 generated Gradle 9.3.1."
+            exit 1
+          fi
           if grep -RniE 'maven\.myket\.ir|mirror-maven\.runflare\.com' settings.gradle* build.gradle* app/build.gradle* gradle.properties 2>/dev/null; then
             echo "::error::Iranian Maven mirrors were injected into the GitHub Actions Android project."
             exit 1
@@ -255,7 +280,7 @@ jobs:
           retention-days: 30
 
       - name: Create or update GitHub Release
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref != 'refs/heads/test/expo57-hermes-dependency-alignment' && inputs.target != 'test/expo57-hermes-dependency-alignment'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
