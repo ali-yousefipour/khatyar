@@ -6066,13 +6066,10 @@ function AttendanceReport(){
   const [personNameQuery,setPersonNameQuery]=useState("");
   const [personPickerOpen,setPersonPickerOpen]=useState(false);
   const [personActiveIndex,setPersonActiveIndex]=useState(-1);
-  // API گزارش تردد بازهٔ کامل را الزامی می‌کند؛ پیش‌فرض را روی کل ماه جاری شمسی می‌گذاریم.
+  // API گزارش تردد بازهٔ کامل را الزامی می‌کند؛ پیش‌فرض از ابتدای ماه تا امروز است.
   const attendanceDefaultRange=()=>{
-    const [y,m]=todayJ();
-    const a=jalaliToGreg(y,m,1);
-    const b=jalaliToGreg(m===12?y+1:y,m===12?1:m+1,1);
-    const days=a&&b?Math.round((Date.UTC(b[0],b[1]-1,b[2])-Date.UTC(a[0],a[1]-1,a[2]))/86400000):30;
-    return {from:`${y}/${String(m).padStart(2,"0")}/01`,to:`${y}/${String(m).padStart(2,"0")}/${String(days).padStart(2,"0")}`};
+    const [y,m,d]=todayJ();
+    return {from:`${y}/${String(m).padStart(2,"0")}/01`,to:`${y}/${String(m).padStart(2,"0")}/${String(d).padStart(2,"0")}`};
   };
   const attendanceInitialRange=attendanceDefaultRange();
   const [from,setFrom]=useState(attendanceInitialRange.from);
@@ -6149,6 +6146,7 @@ function AttendanceReport(){
     setPersonNameQuery(((person.first_name||"")+" "+(person.last_name||"")).trim());
     setPersonPickerOpen(false);
     setPersonActiveIndex(-1);
+    run(String(person.id));
   };
   const handlePersonnelSearchKeyDown=e=>{
     if(e.key==="Escape"){setPersonPickerOpen(false);setPersonActiveIndex(-1);return;}
@@ -6164,8 +6162,8 @@ function AttendanceReport(){
       e.preventDefault();selectAttendancePerson(visibleUsers[Math.max(0,Math.min(personActiveIndex,visibleUsers.length-1))]);
     }
   };
-  const run=async()=>{
-    if(!uid){alert("پرسنل را انتخاب کنید");return;}
+  const run=async(reportUserId=uid)=>{
+    if(!reportUserId){alert("پرسنل را انتخاب کنید");return;}
     const fallback=attendanceDefaultRange();
     const rangeFrom=String(from||fallback.from).trim();
     const rangeTo=String(to||fallback.to).trim();
@@ -6178,7 +6176,7 @@ function AttendanceReport(){
     if(from!==rangeFrom)setFrom(rangeFrom);
     if(to!==rangeTo)setTo(rangeTo);
     setBusy(true); setData(null); setOpenDay(null);
-    try{ const r=await db.attendanceReport(uid,rangeFrom,rangeTo); setData(r); }
+    try{ const r=await db.attendanceReport(reportUserId,rangeFrom,rangeTo); setData(r); }
     catch(e){ alert(e.message||"خطا در دریافت گزارش"); }
     finally{ setBusy(false); }
   };

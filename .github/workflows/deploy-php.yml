@@ -38,6 +38,8 @@ jobs:
           bash ./tools/build_panel_bundle.sh
           node --check app/assets/panel.bundle.js
           grep -q "adminRequestDecision" app/assets/panel.bundle.js
+          grep -q 'run(String(person.id))' app/assets/panel.bundle.js
+          grep -q 'FF000000' app/api/admin-attendance-xlsx.php
 
       - name: Build deployment payload from this push
         shell: bash
@@ -401,10 +403,10 @@ jobs:
             "${url}" > /tmp/live-panel.html
 
           grep -q 'assets/panel-build-runtime-fix.js?v=20261011.2' /tmp/live-panel.html
-          grep -q 'assets/panel.bundle.js?v=20261014.6' /tmp/live-panel.html
+          grep -q 'assets/panel.bundle.js?v=20261014.7' /tmp/live-panel.html
           grep -Eq 'assets/school-service-admin.js.v=20261011.256' /tmp/live-panel.html
           grep -q '1.5.8' /tmp/live-panel.html
-          grep -q 'AUTO DEPLOY VERIFY: 2026-10-14-attendance-columns-three-grid-v2' /tmp/live-panel.html
+          grep -q 'AUTO DEPLOY VERIFY: 2026-10-14-attendance-defaults-excel-header-v3' /tmp/live-panel.html
           ! grep -q '/api/admin/complaints/dashboard' /tmp/live-panel.html
           ! grep -q 'window.openComplaints=open;open();' /tmp/live-panel.html
 
@@ -430,6 +432,8 @@ jobs:
           grep -q 'attendance-person-suggestions' /tmp/live-panel-bundle.js
           grep -q 'attendance-person-option-' /tmp/live-panel-bundle.js
           grep -q 'attendance-report-columns-grid' /tmp/live-panel-bundle.js
+          grep -q 'run(String(person.id))' /tmp/live-panel-bundle.js
+          grep -Fq '`${y}/${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}`' /tmp/live-panel-bundle.js
           grep -q 'repeat(3,minmax(0,1fr))' /tmp/live-panel-bundle.js
           grep -q 'max-width:760px' /tmp/live-panel-bundle.js
           grep -q 'attendance-report-table-scroll' /tmp/live-panel-bundle.js
