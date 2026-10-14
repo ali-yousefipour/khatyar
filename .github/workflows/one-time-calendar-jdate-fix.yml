@@ -3,5 +3,13 @@ name: One-time React JDate migration
 on:
   workflow_dispatch:
 
-# Retained only as historical documentation. The calendar migration is already
-# integrated into the main panel source and bundle. Do not re-run automatically.
+jobs:
+  legacy-workflow-notice:
+    name: Legacy workflow notice
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain current migration status
+        run: |
+          echo "This historical one-time migration is already integrated into the main panel source and bundle."
+          echo "This workflow is intentionally a no-op and must not re-run the migration."
+          echo "No source files are changed by this workflow."
