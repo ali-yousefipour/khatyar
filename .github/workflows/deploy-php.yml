@@ -410,7 +410,7 @@ jobs:
             "${url}" > /tmp/live-panel.html
 
           grep -q 'assets/panel-build-runtime-fix.js?v=20261011.2' /tmp/live-panel.html
-          grep -q 'assets/panel.bundle.js?v=20261014.11' /tmp/live-panel.html
+          grep -q 'assets/panel.bundle.js?v=20261015.1' /tmp/live-panel.html
           grep -Eq 'assets/school-service-admin.js.v=20261011.256' /tmp/live-panel.html
           grep -q '1.5.8' /tmp/live-panel.html
           grep -q 'AUTO DEPLOY VERIFY: 2026-10-14-calendar-context-paste-controls-v7' /tmp/live-panel.html
