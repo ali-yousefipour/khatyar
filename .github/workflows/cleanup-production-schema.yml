@@ -1,0 +1,31 @@
+name: Remove schema snapshot from production host
+
+on:
+  push:
+    paths:
+      - .github/workflows/cleanup-production-schema.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  remove-schema-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove accidentally published schema snapshot and verify absence
+        shell: bash
+        env:
+          FTP_HOST: 2870352177.cloudylink.com
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          target='/db/production_schema_snapshot_2026-10-15.sql'
+          lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "set ftp:ssl-force false; set ftp:ssl-protect-data false; set ftp:passive-mode true; set ftp:prefer-epsv false; set net:timeout 30; set net:max-retries 2; set cmd:fail-exit true; rm \"${target}\"; bye"
+          listing="$(lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "set ftp:ssl-force false; set ftp:ssl-protect-data false; set ftp:passive-mode true; set ftp:prefer-epsv false; set net:timeout 30; set net:max-retries 2; cls -1 \"${target}\"; bye" 2>&1 || true)"
+          if grep -Fq 'production_schema_snapshot_2026-10-15.sql' <<<"${listing}"; then
+            echo 'Schema snapshot still exists on the production host.' >&2
+            exit 1
+          fi
+          echo 'Schema snapshot is absent from the production host.'
