@@ -308,11 +308,11 @@ function CheckInCore() {
         setCfg(cachedCfg);
         await cacheAuthorizedWifi(cachedCfg);
         const localOpen = await readLocalOpen();
-        setOpen(localOpen || cachedCfg.open || null);
+        if (loadEpoch === attendanceStateEpochRef.current) setOpen(localOpen || null);
       }
     } catch {}
     const [cfgResult, timerResult] = await Promise.allSettled([
-      request('/my/checkin-config', { timeoutMs: 8000 }),
+      request('/my/checkin-config', { noStore: true, timeoutMs: 8000 }),
       request('/my/work-timer', { noStore: true, timeoutMs: 8000 }),
     ]);
     if (loadEpoch !== attendanceStateEpochRef.current) return;
@@ -343,6 +343,7 @@ function CheckInCore() {
       const fresh = cfgResult.value;
       setCfg(fresh);
       await cacheAuthorizedWifi(fresh);
+      if (loadEpoch !== attendanceStateEpochRef.current) return;
       // وقتی API آنلاین با موفقیت پاسخ داده، وضعیت جلسهٔ سرور مرجع قطعی است.
       // نباید جلسهٔ قدیمیِ کش‌شده بعد از Auto-close دوباره به‌عنوان جلسهٔ باز نمایش داده شود.
       const serverOpen = fresh.open || null;
