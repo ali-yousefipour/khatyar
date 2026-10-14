@@ -182,7 +182,22 @@ jobs:
 
       - name: Verify Expo dependency tree
         working-directory: mobile
-        run: npx expo-doctor
+        timeout-minutes: 5
+        shell: bash
+        env:
+          CI: "true"
+          EXPO_OFFLINE: "1"
+          NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
+        run: |
+          set -o pipefail
+          echo "Expo Doctor started at $(date -u +%FT%TZ)"
+          echo "Node: $(node --version); npm: $(npm --version)"
+          echo "Registry: $(npm config get registry)"
+          test -x node_modules/.bin/expo-doctor || { echo "::error::expo-doctor is not installed locally"; exit 1; }
+          node_modules/.bin/expo-doctor 2>&1 | while IFS= read -r line; do
+            printf '[%s] %s\\n' "$(date -u +%FT%TZ)" "$line"
+          done
+          echo "Expo Doctor completed at $(date -u +%FT%TZ)"
 
       - name: Generate clean Android project
         working-directory: mobile
