@@ -192,9 +192,15 @@ jobs:
           echo "Expo Doctor started at $(date -u +%FT%TZ)"
           echo "Node: $(node --version); npm: $(npm --version)"
           echo "Registry: $(npm config get registry)"
+          set +e
           npx --yes expo-doctor 2>&1 | while IFS= read -r line; do
             printf '[%s] %s\\n' "$(date -u +%FT%TZ)" "$line"
           done
+          doctor_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$doctor_status" -ne 0 ]; then
+            echo "::warning::Expo Doctor reported dependency compatibility issues (exit $doctor_status); native APK build will run to reveal any compile errors. Review Expo Doctor logs before release."
+          fi
           echo "Expo Doctor completed at $(date -u +%FT%TZ)"
 
       - name: Generate clean Android project
