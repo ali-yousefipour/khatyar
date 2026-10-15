@@ -1,8 +1,9 @@
 import * as ImageManipulator from 'expo-image-manipulator';
+import { Image } from 'react-native';
 
 // تنظیمات فشرده‌سازی که از سرور (app-config) خوانده می‌شود
 // quality: درصد (۱۰..۱۰۰) — maxWidth: پیکسل
-let IMG_CFG = { quality: 45, maxWidth: 1024, maxBytes: 0 };
+let IMG_CFG = { quality: 45, maxWidth: 1024, maxHeight: 1920, maxBytes: 0 };
 
 // به‌روزرسانی تنظیمات از app-config (مقادیر سرور درصد هستند؛ به نسبت ۰..۱ تبدیل می‌شوند)
 export function setImageConfig(cfg) {
@@ -15,6 +16,8 @@ export function setImageConfig(cfg) {
     const w = Number(cfg.image_max_width);
     if (!isNaN(w) && w >= 240 && w <= 4096) IMG_CFG.maxWidth = w;
   }
+  const height = Number(cfg.image_max_height);
+  if (Number.isFinite(height) && height >= 240 && height <= 4096) IMG_CFG.maxHeight = height;
   const rawBytes = cfg.image_max_bytes ?? cfg.image_max_size ?? cfg.max_image_bytes ?? cfg.max_image_size ?? cfg.image_max_kb;
   if (rawBytes != null) { let b=Number(rawBytes); if (b>0 && b<10000) b*=1024; if (!isNaN(b) && b>=64*1024) IMG_CFG.maxBytes=b; }
 }
@@ -29,6 +32,17 @@ function resolveWidth(override) {
   return override != null ? override : IMG_CFG.maxWidth;
 }
 
+async function resizeActions(uri, maxWidth, maxHeight) {
+  const dimensions = await new Promise((resolve, reject) => Image.getSize(uri,
+    (width, height) => resolve({ width, height }), reject));
+  if (!(dimensions.width > 0 && dimensions.height > 0)) throw new Error('invalid_image_dimensions');
+  const scale = Math.min(1, maxWidth / dimensions.width, maxHeight / dimensions.height);
+  return scale < 1 ? [{ resize: {
+    width: Math.max(1, Math.round(dimensions.width * scale)),
+    height: Math.max(1, Math.round(dimensions.height * scale)),
+  } }] : [];
+}
+
 // فشرده‌سازی و کوچک‌کردن تصویر برای کاهش حجم بارگذاری
 // خروجی: رشتهٔ data:image/jpeg;base64 با حجم بسیار کمتر
 // اگر maxW/quality داده نشود، از تنظیمات سرور استفاده می‌شود
@@ -37,13 +51,14 @@ function resolveWidth(override) {
 // مثل بسیاری از گوشی‌های اندروید ۱۶) پردازش تصویر با ابعاد/تنظیمات پیش‌فرض ممکن است
 // به دلیل فشار حافظه ناموفق شود. در این حالت به‌جای شکست کامل، یک تلاش دوم با ابعاد و
 // کیفیت بسیار محافظه‌کارانه‌تر انجام می‌شود که احتمال موفقیتش بسیار بیشتر است.
-export async function compressToDataUri(uri, { maxW, quality } = {}) {
+export async function compressToDataUri(uri, { maxW, maxH, quality } = {}) {
   const attempt = async (w, q) => {
     const res = await ImageManipulator.manipulateAsync(
       uri,
-      [{ resize: { width: w } }],
+      await resizeActions(uri, w, maxH ?? IMG_CFG.maxHeight),
       { compress: q, format: ImageManipulator.SaveFormat.JPEG, base64: true }
     );
+    if (!res.base64) throw new Error('image_base64_missing');
     return 'data:image/jpeg;base64,' + res.base64;
   };
   try {
@@ -61,13 +76,13 @@ export async function compressToDataUri(uri, { maxW, quality } = {}) {
 }
 
 // فشرده‌سازی تصویر و بازگرداندن URI فایل فشرده‌شده (برای آپلود multipart)
-export async function compressToFile(uri, { maxW, quality, maxBytes } = {}) {
+export async function compressToFile(uri, { maxW, maxH, quality, maxBytes } = {}) {
   const targetBytes = Number(maxBytes || IMG_CFG.maxBytes || 0);
   let w = Number(resolveWidth(maxW)), q = Number(resolveQuality(quality));
   const attempts = [];
   for (let i=0;i<5;i++) {
     try {
-      const res = await ImageManipulator.manipulateAsync(uri,[{ resize:{ width:Math.max(240,Math.round(w)) } }],{compress:Math.max(.1,Math.min(1,q)),format:ImageManipulator.SaveFormat.JPEG});
+      const res = await ImageManipulator.manipulateAsync(uri,await resizeActions(uri,Math.max(240,Math.round(w)),maxH ?? IMG_CFG.maxHeight),{compress:Math.max(.1,Math.min(1,q)),format:ImageManipulator.SaveFormat.JPEG});
       if (!targetBytes) return res.uri;
       try {
         const info = await (await import('expo-file-system/legacy')).getInfoAsync(res.uri);

@@ -776,6 +776,11 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
   $ex = Db::one("SELECT id FROM presence_checks WHERE user_id=? AND slot_date=? AND slot=?", [$u['id'],$date,$slot]);
   $_selfiePath = Media::saveBase64($selfie, 'presence', 960, 65);
   $_vehPath = Media::saveBase64($veh, 'presence', 1280, 68);
+  if (!$_selfiePath || !$_vehPath) {
+    if ($_selfiePath) Media::delete($_selfiePath);
+    if ($_vehPath) Media::delete($_vehPath);
+    Http::error('ذخیره تصاویر صحت‌سنجی انجام نشد. دوباره تلاش کنید.', 500);
+  }
   if ($ex) {
     Db::run("UPDATE presence_checks SET selfie_path=?, vehicles_photo_path=?, lat=?, lng=?, captured_at=NOW() WHERE id=?",
       [$_selfiePath, $_vehPath, $b['lat']??null, $b['lng']??null, $ex['id']]);
@@ -2206,6 +2211,7 @@ route('GET', '/api/my/app-config', function($p,$b,$u){
     // کیفیت و رزولوشن تصاویر ارسالی از موبایل برای گزارشات (قابل تنظیم در پنل)
     'image_quality'        => max(10, min(100, (int)($g('image_quality', 45) ?: 45))),     // درصد فشرده‌سازی JPEG
     'image_max_width'      => max(240, min(4096, (int)($g('image_max_width', 1024) ?: 1024))), // حداکثر عرض تصویر (پیکسل)
+    'image_max_height'     => max(240, min(4096, (int)($g('image_max_height', 1920) ?: 1920))),
     // محدودیت‌های ماهانه
     'forget_checkin_monthly_limit' => (int)($g('forget_checkin_monthly_limit', 0) ?: 0), // 0 = بدون محدودیت
     'logout_monthly_limit'  => (int)($g('logout_monthly_limit', 0) ?: 0), // 0 = بدون محدودیت

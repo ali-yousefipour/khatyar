@@ -1,12 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, useWindowDimensions, Linking } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { C, FONT } from './theme';
 import ActivityIndicator from './components/PulseLoadingIndicator';
-import { getImageConfig } from './img';
-
-let ImageManipulator = null;
-try { ImageManipulator = require('expo-image-manipulator'); } catch (_error) { ImageManipulator = null; }
+import { compressToDataUri } from './img';
+import { getAppConfig } from './appconfig';
+import { useCameraSession } from './cameraSession';
 
 // دوربین سلفی مشترک برای تغییر عکس پروفایل و صحت‌سنجی حضور.
 // انتخاب از گالری عمداً در این مسیر وجود ندارد؛ تصویر فقط از CameraView گرفته می‌شود.
@@ -26,43 +25,31 @@ export default function PersonalPhotoCapture({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(instruction);
   const [preview, setPreview] = useState(null);
+  const { cameraActive, cameraKey, restartCamera } = useCameraSession(!!permission?.granted && !preview);
+  useEffect(() => { if (!cameraActive) setReady(false); }, [cameraActive]);
 
   useEffect(() => {
-    if (permission && !permission.granted && permission.canAskAgain) requestPermission();
+    if (permission && !permission.granted && permission.canAskAgain) requestPermission().catch(() => setMessage('دسترسی دوربین برقرار نشد.'));
   }, [permission?.granted]);
 
   async function takePhoto() {
-    if (!cameraRef.current || !ready || busy) return;
+    if (!cameraRef.current || !cameraActive || !ready || busy) return;
     setBusy(true);
     setMessage('در حال ثبت تصویر…');
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        quality: getImageConfig().quality / 100,
-        base64: true,
+        quality: 1,
         skipProcessing: false,
         exif: false,
         shutterSound: false,
       });
       if (!photo?.uri) throw new Error('camera_empty_result');
 
-      let uri = photo.uri;
-      let base64 = photo.base64 || null;
-      if (ImageManipulator?.manipulateAsync) {
-        const result = await ImageManipulator.manipulateAsync(
-          photo.uri,
-          [{ resize: { width: getImageConfig().maxWidth } }],
-          {
-            compress: getImageConfig().quality / 100,
-            format: ImageManipulator.SaveFormat.JPEG,
-            base64: true,
-          },
-        );
-        uri = result?.uri || uri;
-        base64 = result?.base64 || base64;
-      }
-      if (!base64) throw new Error('camera_base64_missing');
-
-      setPreview({ uri, dataUrl: `data:image/jpeg;base64,${base64}` });
+      await getAppConfig(true);
+      const dataUrl = await compressToDataUri(photo.uri);
+      if (!dataUrl) throw new Error('camera_base64_missing');
+      setReady(false);
+      setPreview({ uri: photo.uri, dataUrl });
       setMessage('تصویر را بررسی و سپس تأیید کنید.');
     } catch (_error) {
       setMessage('ثبت تصویر انجام نشد. دوربین را ثابت نگه دارید و دوباره تلاش کنید.');
@@ -79,7 +66,7 @@ export default function PersonalPhotoCapture({
     return (
       <View style={styles.center}>
         <Text style={styles.permissionText}>برای گرفتن تصویر سلفی، دسترسی دوربین لازم است.</Text>
-        <TouchableOpacity style={styles.primaryButton} onPress={requestPermission}>
+        <TouchableOpacity style={styles.primaryButton} onPress={() => permission.canAskAgain ? requestPermission().catch(() => setMessage('دسترسی دوربین برقرار نشد.')) : Linking.openSettings()}>
           <Text style={styles.primaryButtonText}>فعال‌کردن دوربین</Text>
         </TouchableOpacity>
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={styles.cancelText}>انصراف</Text></TouchableOpacity> : null}
@@ -120,8 +107,8 @@ export default function PersonalPhotoCapture({
 
   return (
     <View style={styles.page}>
-      <CameraView
-        key={`selfie-camera-${facing}`}
+      {cameraActive && <CameraView
+        key={`selfie-camera-${facing}-${cameraKey}`}
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
         facing={facing === 'back' ? 'back' : 'front'}
@@ -132,7 +119,7 @@ export default function PersonalPhotoCapture({
           setReady(false);
           setMessage(event?.message || 'دوربین آماده نشد. یک‌بار از صفحه خارج و دوباره وارد شوید.');
         }}
-      />
+      />}
 
       <View style={styles.topShade} pointerEvents="none">
         <Text style={styles.cameraTitle}>{title}</Text>
@@ -140,7 +127,8 @@ export default function PersonalPhotoCapture({
 
       <View style={styles.controls}>
         {uniformNotice ? <Text style={styles.uniformNotice}>⚠ تصویر باید با لباس فرم سازمانی گرفته شود</Text> : null}
-        <Text style={styles.instruction}>{ready ? message : 'در حال آماده‌سازی دوربین سلفی…'}</Text>
+        <Text style={styles.instruction}>{message}</Text>
+        {!ready && <TouchableOpacity onPress={() => { setReady(false); restartCamera(); }}><Text style={styles.cancelText}>راه‌اندازی دوباره دوربین</Text></TouchableOpacity>}
         <TouchableOpacity
           style={[styles.shutter, (!ready || busy) && styles.disabled]}
           onPress={takePhoto}

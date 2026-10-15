@@ -55,7 +55,7 @@ export default function PresenceCheckWizard(){
  },[navigation,step]);
 
  useEffect(()=>{
-   if(['submitting','done','expired'].includes(step))return;
+   if(sending||['submitting','done','expired'].includes(step))return;
    const timer=setInterval(()=>{
      setSecs(x=>{
        if(x<=1){
@@ -71,7 +71,7 @@ export default function PresenceCheckWizard(){
      });
    },1000);
    return()=>clearInterval(timer);
- },[step]);
+ },[step,sending]);
 
  const closeWizard=()=>{
    allowExitRef.current=true;
@@ -83,7 +83,6 @@ export default function PresenceCheckWizard(){
    coordsRef.current=coords||coordsRef.current;
    setError('');
    setSending(true);
-   setStep('submitting');
    try{
      const r=await request('/my/presence-check',{
        method:'POST',
@@ -122,7 +121,7 @@ export default function PresenceCheckWizard(){
  const ss=String(secs%60).padStart(2,'0');
 
  if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/></View>;
- if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture onCapture={(url,coords)=>{coordsRef.current=coords;submit(url,coords)}}/></View>;
+ if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/></View>;
 
  return <View style={s.page}>
    <View style={s.header}>

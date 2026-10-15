@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { faNum } from './num';
-import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, useWindowDimensions, Linking } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { captureRef } from 'react-native-view-shot';
@@ -10,6 +10,7 @@ import ActivityIndicator from './components/PulseLoadingIndicator';
 import { getImageConfig, compressToDataUri } from './img';
 import { getAppConfig } from './appconfig';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCameraSession } from './cameraSession';
 
 export default function VehiclesPhotoCapture({ onCapture, onCancel, station = null }) {
   const [perm, requestPerm] = useCameraPermissions();
@@ -24,6 +25,12 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   const [stamp, setStamp] = useState({ date: '', coords: 'در حال دریافت موقعیت…', street: '', dist: '' });
   const [coords, setCoords] = useState(null);
   const [error, setError] = useState('');
+  const [imageReady, setImageReady] = useState(false);
+  const captureGeneration = useRef(0);
+  const { cameraActive, cameraKey, restartCamera } = useCameraSession(!!perm?.granted && !shot);
+
+  useEffect(() => { if (!cameraActive) setCameraReady(false); }, [cameraActive]);
+  useEffect(() => () => { captureGeneration.current += 1; }, []);
 
   useEffect(() => {
     getAppConfig(true).catch(() => {});
@@ -70,21 +77,28 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   }
 
   async function snap() {
-    if (!camRef.current || !cameraReady || busy) return;
+    if (!camRef.current || !cameraActive || !cameraReady || busy) return;
+    const generation = ++captureGeneration.current;
     setBusy(true);
     setError('');
     try {
       // عکس باید بلافاصله بعد از لمس شاتر گرفته شود؛ GPS و Reverse Geocode نباید
       // کاربر را قبل از ثبت عکس منتظر نگه دارند.
       const photoPromise = camRef.current.takePictureAsync({
-        quality: getImageConfig().quality / 100,
+        quality: 1,
         exif: false,
         skipProcessing: false,
       });
-      const locationPromise = readLocation();
+      let locationTimer;
+      const locationPromise = Promise.race([readLocation(), new Promise(resolve => {
+        locationTimer = setTimeout(() => resolve({ lat: null, lng: null, street: '', dist: '' }), 12000);
+      })]).finally(() => clearTimeout(locationTimer));
       const photo = await photoPromise;
       if (!photo?.uri) throw new Error('camera_empty_result');
 
+      setImageReady(false);
+      setCameraReady(false);
+      setCoords(null);
       setShot(photo.uri);
       setStamp({
         date: fjDateTime(new Date()),
@@ -97,6 +111,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
       // متادیتای موقعیت بعد از نمایش عکس تکمیل می‌شود؛ بنابراین دوربین سریعاً
       // وارد مرحله تأیید می‌شود و reverse geocoding مسیر UI را قفل نمی‌کند.
       locationPromise.then((loc) => {
+        if (generation !== captureGeneration.current) return;
         setCoords({ lat: loc.lat, lng: loc.lng });
         setStamp((prev) => ({
           ...prev,
@@ -107,9 +122,10 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
           dist: loc.dist || '',
         }));
       }).catch(() => {
+        if (generation !== captureGeneration.current) return;
         setCoords(null);
         setStamp((prev) => ({ ...prev, coords: 'موقعیت نامشخص' }));
-      }).finally(() => setMetaBusy(false));
+      }).finally(() => { if (generation === captureGeneration.current) setMetaBusy(false); });
     } catch (_) {
       setError('ثبت تصویر انجام نشد. دوربین را ثابت نگه دارید و دوباره تلاش کنید.');
     } finally {
@@ -118,17 +134,18 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   }
 
   async function confirm() {
-    if (!shot || busy) return;
+    if (!shot || !imageReady || metaBusy || busy) return;
     setBusy(true);
     setError('');
     try {
-      const stamped = await captureRef(shotRef, { format: 'jpg', quality: 0.92 });
+      await getAppConfig(true);
+      const stamped = await captureRef(shotRef, { format: 'jpg', quality: 1 });
       const data = await compressToDataUri(stamped, {
         maxW: getImageConfig().maxWidth,
         quality: getImageConfig().quality,
       });
       if (!data) throw new Error('image_compression_failed');
-      onCapture(data, coords);
+      await onCapture(data, coords);
     } catch (_) {
       try {
         const data = await compressToDataUri(shot, {
@@ -136,7 +153,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
           quality: getImageConfig().quality,
         });
         if (!data) throw new Error('image_compression_failed');
-        onCapture(data, coords);
+        await onCapture(data, coords);
       } catch (_) {
         setError('آماده‌سازی تصویر انجام نشد. دوباره تلاش کنید.');
       }
@@ -151,9 +168,10 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
     return (
       <View style={s.center}>
         <Text style={s.hint}>برای گرفتن عکس، اجازهٔ دوربین لازم است.</Text>
-        <TouchableOpacity style={s.btn} onPress={requestPerm}>
+        <TouchableOpacity style={s.btn} onPress={() => perm.canAskAgain ? requestPerm().catch(() => setError('دسترسی دوربین برقرار نشد.')) : Linking.openSettings()}>
           <Text style={s.btnTxt}>اجازهٔ دوربین</Text>
         </TouchableOpacity>
+        {!!error && <Text style={s.error}>{error}</Text>}
       </View>
     );
   }
@@ -174,7 +192,9 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
             collapsable={false}
             style={[s.shotBox, { height: shotHeight }]}
           >
-            <Image source={{ uri: shot }} style={s.shotImg} resizeMode="contain" />
+            <Image source={{ uri: shot }} style={s.shotImg} resizeMode="contain"
+              onLoad={() => setImageReady(true)}
+              onError={() => { setImageReady(false); setError('نمایش عکس انجام نشد. دوباره عکس بگیرید.'); }} />
             <View style={s.stampBox}>
               <Text style={s.stampTxt}>{stamp.date}</Text>
               <Text style={s.stampTxt}>📍 {stamp.coords}</Text>
@@ -189,10 +209,10 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
           {error ? <Text style={s.error}>{error}</Text> : null}
 
           <View style={s.rowBtns}>
-            <TouchableOpacity style={[s.btn, s.outline]} onPress={() => { setShot(null); setError(''); setMetaBusy(false); }}>
+            <TouchableOpacity style={[s.btn, s.outline]} disabled={busy} onPress={() => { captureGeneration.current += 1; setCameraReady(false); setImageReady(false); setCoords(null); setShot(null); setError(''); setMetaBusy(false); }}>
               <Text style={[s.btnTxt, { color: C.brand }]}>دوباره</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={s.btn} onPress={confirm} disabled={busy}>
+            <TouchableOpacity style={[s.btn, (!imageReady || metaBusy) && s.disabled]} onPress={confirm} disabled={busy || !imageReady || metaBusy}>
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>تأیید و ارسال</Text>}
             </TouchableOpacity>
           </View>
@@ -203,7 +223,8 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
 
   return (
     <View style={s.camWrap}>
-      <CameraView
+      {cameraActive && <CameraView
+        key={cameraKey}
         ref={camRef}
         style={s.cam}
         facing="back"
@@ -214,10 +235,11 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
           setCameraReady(false);
           setError(event?.message || 'دوربین آماده نشد.');
         }}
-      />
+      />}
       <View style={[s.bottom, { paddingBottom: Math.max(20, insets.bottom + 12) }]}>
         <Text style={s.hint}>با دوربین پشت، از خودروهای حاضر در خط عکس بگیرید. تاریخ، ساعت و موقعیت به‌صورت خودکار روی عکس درج می‌شود.</Text>
         {error ? <Text style={s.error}>{error}</Text> : null}
+        {!cameraReady && <TouchableOpacity onPress={() => { setCameraReady(false); setError(''); restartCamera(); }}><Text style={s.cancel}>راه‌اندازی دوباره دوربین</Text></TouchableOpacity>}
         <TouchableOpacity style={[s.shutter, (!cameraReady || busy) && s.disabled]} onPress={snap} disabled={!cameraReady || busy}>
           {busy ? <ActivityIndicator color="#fff" /> : <View style={s.shutterInner} />}
         </TouchableOpacity>
