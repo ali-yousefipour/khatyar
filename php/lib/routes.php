@@ -6895,7 +6895,8 @@ route('GET', '/api/admin/staff-attendance/export', function($p,$b,$u){
 
 // دادهٔ یکپارچهٔ چارت سازمانی؛ هر فرد فقط یک‌بار نمایش داده می‌شود و تمام ارتباط‌های چندمدیره بازگردانده می‌شوند
 route('GET', '/api/admin/org-chart', function($p,$b,$u){
-  $users = Db::all("SELECT u.id,u.first_name,u.last_name,u.role_id,u.zone_id,u.manager_id,u.is_active,r.title role_title FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 ORDER BY r.level DESC,u.last_name,u.first_name");
+  require_once __DIR__.'/OrgChart.php';
+  $users = Db::all("SELECT u.id,u.first_name,u.last_name,u.role_id,u.zone_id,u.manager_id,u.is_active,r.title role_title,z.name zone_name FROM users u LEFT JOIN roles r ON r.id=u.role_id LEFT JOIN zones z ON z.id=u.zone_id WHERE u.is_active=1 ORDER BY r.level DESC,u.last_name,u.first_name");
   $edges = [];
   try {
     $multi = Db::all("SELECT user_id,manager_id FROM user_managers");
@@ -6905,7 +6906,8 @@ route('GET', '/api/admin/org-chart', function($p,$b,$u){
     $k=(int)$x['id'].':'.(int)$x['manager_id'];
     $edges[$k]=['user_id'=>(int)$x['id'],'manager_id'=>(int)$x['manager_id'],'primary'=>1];
   }
-  return ['users'=>$users,'edges'=>array_values($edges)];
+  return ['users'=>$users,'edges'=>array_values($edges),'default_edges'=>OrgChart::defaultEdges($users, array_values($edges)),
+    'zones'=>Db::all("SELECT id,name,parent_id FROM zones ORDER BY id")];
 }, false, ADMIN);
 
 // مدیریت چند مقام بالاسری برای یک نیرو
@@ -8297,9 +8299,37 @@ route('DELETE', '/api/admin/roles/{id}', function($p,$b,$u){
   return ['ok'=>true];
 }, false, ADMIN);
 route('GET', '/api/admin/zones', fn($p,$b,$u) => Db::all("SELECT * FROM zones ORDER BY id"));
-route('POST', '/api/admin/zones', fn($p,$b,$u) => ['id'=>Db::insert("INSERT INTO zones(name,parent_id) VALUES(?,?)", [$b['name'], $b['parent_id'] ?? null]), 'name'=>$b['name']], false, ADMIN);
-route('PUT', '/api/admin/zones/{id}', function($p,$b,$u){ Db::run("UPDATE zones SET name=? WHERE id=?", [$b['name'], $p['id']]); return ['ok'=>true]; }, false, ADMIN);
-route('DELETE', '/api/admin/zones/{id}', function($p,$b,$u){ Db::run("UPDATE users SET zone_id=NULL WHERE zone_id=?", [$p['id']]); Db::run("DELETE FROM zones WHERE id=?", [$p['id']]); return ['ok'=>true]; }, false, ADMIN);
+route('POST', '/api/admin/zones', function($p,$b,$u){
+  $name = trim((string)($b['name'] ?? ''));
+  if ($name === '' || mb_strlen($name) > 150) Http::error('نام منطقه باید بین ۱ تا ۱۵۰ نویسه باشد.', 422);
+  $id = Db::insert("INSERT INTO zones(name,parent_id) VALUES(?,?)", [$name, $b['parent_id'] ?? null]);
+  return ['id'=>$id,'name'=>$name];
+}, false, ADMIN);
+route('PUT', '/api/admin/zones/{id}', function($p,$b,$u){
+  $name = trim((string)($b['name'] ?? ''));
+  if ($name === '' || mb_strlen($name) > 150) Http::error('نام منطقه باید بین ۱ تا ۱۵۰ نویسه باشد.', 422);
+  if (!Db::one("SELECT id FROM zones WHERE id=?", [$p['id']])) Http::error('منطقه یافت نشد.', 404);
+  Db::run("UPDATE zones SET name=? WHERE id=?", [$name, $p['id']]);
+  return ['ok'=>true];
+}, false, ADMIN);
+route('DELETE', '/api/admin/zones/{id}', function($p,$b,$u){
+  $connection = Db::pdo();
+  $connection->beginTransaction();
+  try {
+    if (!Db::one("SELECT id FROM zones WHERE id=? FOR UPDATE", [$p['id']])) {
+      $connection->rollBack();
+      Http::error('منطقه یافت نشد.', 404);
+    }
+    Db::run("UPDATE users SET zone_id=NULL WHERE zone_id=?", [$p['id']]);
+    Db::run("UPDATE zones SET parent_id=NULL WHERE parent_id=?", [$p['id']]);
+    Db::run("DELETE FROM zones WHERE id=?", [$p['id']]);
+    $connection->commit();
+  } catch (\Throwable $error) {
+    if ($connection->inTransaction()) $connection->rollBack();
+    throw $error;
+  }
+  return ['ok'=>true];
+}, false, ADMIN);
 route('GET', '/api/admin/lines', fn($p,$b,$u) => Db::all("SELECT id,code,origin,destination,status,checkin_methods FROM `lines` ORDER BY code"));
 // تنظیم روش‌های مجاز ثبت حضور یک خط (آرایه‌ای از gps/wifi/gsm یا null برای همه)
 route('PUT', '/api/admin/lines/{id}/checkin-methods', function($p,$b,$u){

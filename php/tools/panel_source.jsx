@@ -366,6 +366,8 @@ const db = {
   deleteUser: (id)=> SEND('DELETE','/admin/users/'+id),
   resetPassword: (id,password)=> SEND('POST','/admin/users/'+id+'/reset-password',{password}),
   createZone: (name)=> SEND('POST','/admin/zones',{name}),
+  updateZone: (id,name)=> SEND('PUT','/admin/zones/'+id,{name}),
+  deleteZone: (id)=> SEND('DELETE','/admin/zones/'+id,{}),
   addReason: (title)=> SEND('POST','/admin/notice-reasons',{title}),
   delReason: (id)=> SEND('DELETE','/admin/notice-reasons/'+id),
   saveChecklist: (title,items)=> SEND('POST','/admin/checklist-templates',{title,items}),
@@ -1495,35 +1497,47 @@ function LineAssign({user,onClose}){
 }
 function Zones(){
   const [users,setUsers]=useState([]); const [zones,setZones]=useState([]); const [over,setOver]=useState(null); const [nz,setNz]=useState("");
-  useEffect(()=>{db.users().then(setUsers).catch(()=>{}); db.zones().then(setZones).catch(()=>{})},[]);
-  const assign=async(uid,zid)=>{ setUsers(us=>us.map(u=>u.id===uid?{...u,zone_id:zid}:u)); await db.setOrg(uid,{zone_id:zid}); };
-  const addZone=async()=>{ if(!nz)return; const z=await db.createZone(nz); setZones([...zones,z]); setNz(""); };
-  const Card=u=><div className="card-p" key={u.id} draggable onDragStart={e=>e.dataTransfer.setData("uid",u.id)}>
+  const [busy,setBusy]=useState(false); const [error,setError]=useState(""); const [editing,setEditing]=useState(null); const [editName,setEditName]=useState("");
+  const mutation=useRef(false);
+  const reload=async()=>{const [nextUsers,nextZones]=await Promise.all([db.users(),db.zones()]);setUsers(nextUsers);setZones(nextZones);};
+  useEffect(()=>{reload().catch(failure=>setError(failure.message||'بارگذاری مناطق انجام نشد.'))},[]);
+  const mutate=async action=>{if(mutation.current)return;mutation.current=true;setBusy(true);setError("");try{await action();}catch(failure){setError(failure.message||'ذخیره تغییرات انجام نشد.');}finally{mutation.current=false;setBusy(false);}};
+  const assign=(uid,zid)=>{if(!users.some(user=>+user.id===+uid))return;return mutate(async()=>{await db.setOrg(uid,{zone_id:zid});setUsers(current=>current.map(user=>+user.id===+uid?{...user,zone_id:zid}:user));});};
+  const addZone=()=>{const name=nz.trim();if(!name)return;return mutate(async()=>{const zone=await db.createZone(name);setZones(current=>[...current,zone]);setNz("");});};
+  const saveZone=()=>{const name=editName.trim();if(!name||!editing)return;return mutate(async()=>{await db.updateZone(editing.id,name);setZones(current=>current.map(zone=>+zone.id===+editing.id?{...zone,name}:zone));setEditing(null);});};
+  const removeZone=zone=>{if(busy||!confirm(`منطقهٔ «${zone.name}» حذف شود؟ نیروهای آن حذف نمی‌شوند و به «بدون منطقه» منتقل می‌شوند.`))return;return mutate(async()=>{await db.deleteZone(zone.id);setZones(current=>current.filter(item=>+item.id!==+zone.id).map(item=>+item.parent_id===+zone.id?{...item,parent_id:null}:item));setUsers(current=>current.map(user=>+user.zone_id===+zone.id?{...user,zone_id:null}:user));});};
+  const Card=u=><div className="card-p" key={u.id} draggable={!busy} onDragStart={e=>e.dataTransfer.setData("uid",u.id)}>
     <span>{u.first_name} {u.last_name}</span><small>{u.role_title}</small></div>;
   const Col=(title,zid)=><div className={"col"+(over===zid?" over":"")} key={zid||"none"}
     onDragOver={e=>{e.preventDefault();setOver(zid)}} onDragLeave={()=>setOver(null)}
     onDrop={e=>{assign(+e.dataTransfer.getData("uid"),zid);setOver(null)}}>
-    <h4>{title}</h4>{users.filter(u=>u.zone_id===zid).map(Card)}</div>;
+    <h4 className="row" style={{justifyContent:"space-between",gap:8}}><span>{title}</span>{zid!=null&&<span className="row" style={{gap:5}}><button className="btn g" disabled={busy} onClick={()=>{const zone=zones.find(item=>+item.id===+zid);setEditing(zone);setEditName(zone.name);}}>ویرایش</button><button className="btn d" disabled={busy} onClick={()=>removeZone(zones.find(item=>+item.id===+zid))}>حذف</button></span>}</h4>{users.filter(u=>zid==null?!u.zone_id:+u.zone_id===+zid).map(Card)}</div>;
   return(<div className="panel"><h3>منطقه‌بندی نیروها — کارت‌ها را در منطقهٔ موردنظر رها کنید
-    <span className="row" style={{gap:8}}><input className="input" style={{padding:"6px 10px",width:160}} placeholder="نام منطقهٔ جدید" value={nz} onChange={e=>setNz(e.target.value)}/>
-      <button className="btn p" onClick={addZone}>+ منطقه</button></span></h3>
-    <div className="org">{Col("بدون منطقه",null)}{zones.map(z=>Col(z.name,z.id))}</div></div>);
+    <span className="row" style={{gap:8}}><input className="input" maxLength={150} style={{padding:"6px 10px",width:160}} placeholder="نام منطقهٔ جدید" value={nz} onChange={e=>setNz(e.target.value)}/>
+      <button className="btn p" disabled={busy||!nz.trim()} onClick={addZone}>+ منطقه</button></span></h3>
+    {error&&<p role="alert" style={{color:"var(--danger)"}}>{error}</p>}
+    <div className="org">{Col("بدون منطقه",null)}{zones.map(z=>Col(z.name,z.id))}</div>
+    {editing&&<Modal title="ویرایش منطقه" onClose={()=>{if(!busy)setEditing(null);}}><label>نام منطقه</label><input className="input" maxLength={150} value={editName} onChange={event=>setEditName(event.target.value)}/>{error&&<p role="alert" style={{color:"var(--danger)"}}>{error}</p>}<button className="btn p" disabled={busy||!editName.trim()} onClick={saveZone}>ذخیرهٔ منطقه</button></Modal>}
+    </div>);
 }
 
 function OrgChart(){
-  const [data,setData]=useState({users:[],edges:[]});
+  const [data,setData]=useState({users:[],edges:[],default_edges:[],zones:[]});
+  const [mode,setMode]=useState("regional"); const [zoneFilter,setZoneFilter]=useState(""); const [error,setError]=useState("");
   const [expanded,setExpanded]=useState(()=>new Set());
   const [zoom,setZoom]=useState(1); const [pan,setPan]=useState({x:30,y:25});
   const [dragPan,setDragPan]=useState(null); const [dragUser,setDragUser]=useState(null); const [over,setOver]=useState(null);
   const [multiUser,setMultiUser]=useState(null); const [query,setQuery]=useState(""); const [fitKey,setFitKey]=useState(0);
   const viewport=useRef(null);
   const lastCanvas=useRef({w:0,h:0});
-  const reload=()=>db.orgChart().then(x=>setData({users:x.users||[],edges:x.edges||[]})).catch(()=>db.users().then(users=>setData({users,edges:users.filter(u=>u.manager_id).map(u=>({manager_id:+u.manager_id,user_id:+u.id,primary:1}))})));
+  const reload=()=>db.orgChart().then(next=>{setError("");setData({users:next.users||[],edges:next.edges||[],default_edges:next.default_edges||[],zones:next.zones||[]});}).catch(failure=>setError(failure.message||'بارگذاری چارت انجام نشد.'));
   useEffect(()=>{reload()},[]);
-  const users=data.users, edges=data.edges;
+  const users=data.users, edges=mode==="regional"?data.default_edges:data.edges;
   const byId=Object.fromEntries(users.map(u=>[+u.id,u]));
-  const parents=id=>edges.filter(e=>+e.user_id===+id).map(e=>+e.manager_id).filter(x=>byId[x]);
-  const children=id=>[...new Set(edges.filter(e=>+e.manager_id===+id).map(e=>+e.user_id))].filter(x=>byId[x]);
+  const parentMap={},childMap={};
+  edges.forEach(edge=>{const user=+edge.user_id,manager=+edge.manager_id;if(user===manager||!byId[user]||!byId[manager])return;(parentMap[user]||(parentMap[user]=new Set())).add(manager);(childMap[manager]||(childMap[manager]=new Set())).add(user);});
+  const parents=id=>[...(parentMap[+id]||[])];
+  const children=id=>[...(childMap[+id]||[])];
   const naturalRoots=users.filter(u=>parents(u.id).length===0).map(u=>+u.id);
   // گراف سازمانی ممکن است چندوالدی، دارای چرخهٔ داده‌ای یا بخش‌های جداافتاده باشد.
   // برای جلوگیری از خالی‌شدن چارت، همهٔ مؤلفه‌ها یک ریشهٔ نمایشی امن دریافت می‌کنند.
@@ -1534,16 +1548,24 @@ function OrgChart(){
     return [...new Set(out)];
   })();
   const visible=(()=>{ const out=new Set(roots), q=[...roots]; while(q.length){const id=q.shift(); if(!expanded.has(id))continue; children(id).forEach(c=>{if(!out.has(c)){out.add(c);q.push(c)}})} return out; })();
-  const filtered=query.trim()?new Set(users.filter(u=>((u.first_name||'')+' '+(u.last_name||'')+' '+(u.role_title||'')).includes(query.trim())).map(u=>+u.id)):null;
+  const filtered=query.trim()||zoneFilter!==""?new Set(users.filter(user=>(!query.trim()||((user.first_name||'')+' '+(user.last_name||'')+' '+(user.role_title||'')+' '+(user.zone_name||'')).includes(query.trim()))&&(zoneFilter===""||(zoneFilter==="none"?!user.zone_id:+user.zone_id===+zoneFilter))).map(user=>+user.id)):null;
   if(filtered){ [...filtered].forEach(id=>{ let q=[id],seen=new Set(); while(q.length){let x=q.shift(); parents(x).forEach(p=>{if(!seen.has(p)){seen.add(p);filtered.add(p);q.push(p)}})} }); }
-  const shown=[...visible].filter(id=>!filtered||filtered.has(id));
-  // تعیین سطح با کوتاه‌ترین مسیر و فقط یک‌بار؛ چرخه‌ها دیگر باعث ارتفاع نجومی Canvas نمی‌شوند.
-  const level={}; const q=roots.filter(id=>shown.includes(id)); q.forEach(id=>level[id]=0);
-  while(q.length){const id=q.shift(); children(id).filter(c=>shown.includes(c)).forEach(c=>{if(level[c]===undefined){level[c]=(level[id]||0)+1;q.push(c)}})}
-  shown.forEach(id=>{if(level[id]===undefined)level[id]=0});
+  const shown=filtered?[...filtered].filter(id=>byId[id]):[...visible];
+  const shownSet=new Set(shown);
+  const level={};
+  if(mode==="regional"){
+    const incoming=Object.fromEntries(shown.map(id=>[id,parents(id).filter(parent=>shownSet.has(parent)).length]));
+    const pending=shown.filter(id=>incoming[id]===0);
+    shown.forEach(id=>level[id]=0);
+    while(pending.length){const manager=pending.shift();children(manager).filter(child=>shownSet.has(child)).forEach(child=>{level[child]=Math.max(level[child],level[manager]+1);incoming[child]-=1;if(incoming[child]===0)pending.push(child);});}
+  }else{
+    const pending=roots.filter(id=>shownSet.has(id));pending.forEach(id=>level[id]=0);
+    while(pending.length){const manager=pending.shift();children(manager).filter(child=>shownSet.has(child)).forEach(child=>{if(level[child]===undefined){level[child]=level[manager]+1;pending.push(child);}});}
+    shown.forEach(id=>{if(level[id]===undefined)level[id]=0;});
+  }
   const groups={}; shown.forEach(id=>(groups[level[id]]||(groups[level[id]]=[])).push(id));
-  Object.values(groups).forEach(a=>a.sort((a,b)=>((byId[a].role_title||'')+(byId[a].last_name||'')).localeCompare((byId[b].role_title||'')+(byId[b].last_name||''),'fa')));
-  const cardW=205,cardH=104,gapX=30,gapY=62,pad=45,maxPerRow=8; const pos={};
+  Object.values(groups).forEach(a=>a.sort((a,b)=>((byId[a].zone_name||'')+(byId[a].role_title||'')+(byId[a].last_name||'')).localeCompare((byId[b].zone_name||'')+(byId[b].role_title||'')+(byId[b].last_name||''),'fa')));
+  const cardW=205,cardH=124,gapX=30,gapY=62,pad=45,maxPerRow=8; const pos={};
   const levels=Object.keys(groups).map(Number).sort((a,b)=>a-b);
   const canvasW=Math.max(900,pad*2+maxPerRow*cardW+(maxPerRow-1)*gapX);
   let cursorY=pad;
@@ -1553,8 +1575,8 @@ function OrgChart(){
     cursorY+=18;
   });
   const canvasH=Math.max(420,cursorY+pad);
-  const setMgr=async(uid,mid)=>{await db.setOrg(uid,{manager_id:mid||null});reload()};
-  const onUserDrop=async(target)=>{const d=dragUser;setDragUser(null);setOver(null);if(!d||d.id===target.id)return; if(parents(target.id).includes(+d.id)){alert('این ارتباط باعث ایجاد چرخه می‌شود.');return;} await setMgr(d.id,target.id)};
+  const setMgr=async(uid,mid)=>{try{await db.setOrg(uid,{manager_id:mid||null});reload();}catch(failure){setError(failure.message||'ذخیره ارتباط انجام نشد.');}};
+  const onUserDrop=async(target)=>{if(mode!=="saved")return;const d=dragUser;setDragUser(null);setOver(null);if(!d||d.id===target.id)return; if(parents(target.id).includes(+d.id)){alert('این ارتباط باعث ایجاد چرخه می‌شود.');return;} await setMgr(d.id,target.id)};
   const centerAt=(z=zoom)=>{const el=viewport.current;if(!el)return;setPan({x:(el.clientWidth-canvasW*z)/2,y:Math.max(18,(el.clientHeight-canvasH*z)/2)});};
   const fit=()=>{const el=viewport.current;if(!el)return;const z=Math.min((el.clientWidth-36)/canvasW,(el.clientHeight-36)/canvasH,1.25);const nz=Math.max(.06,z);setZoom(nz);setPan({x:(el.clientWidth-canvasW*nz)/2,y:Math.max(18,(el.clientHeight-canvasH*nz)/2)});};
   const reset=()=>{setZoom(1);requestAnimationFrame(()=>centerAt(1))};
@@ -1579,13 +1601,17 @@ function OrgChart(){
   },[]);
   return(<div className="panel" style={{padding:0,overflow:"hidden"}}>
     <div style={{padding:"16px 18px 12px",borderBottom:"1px solid var(--line)",background:"linear-gradient(180deg,var(--card),rgba(13,122,95,.035))"}}>
-      <div className="row" style={{justifyContent:"space-between",gap:10,flexWrap:"wrap"}}><div><h3 style={{margin:0}}>چارت سازمانی نیروها</h3><p className="muted" style={{margin:"5px 0 0",fontSize:12}}>زیرمجموعه‌ها به‌صورت پیش‌فرض بسته‌اند. برای نمایش هر شاخه روی دکمهٔ + بزنید. خطوط چندگانه، تمام مسئولان بالادستی هر فرد را نشان می‌دهند.</p></div>
+      <div className="row" style={{justifyContent:"space-between",gap:10,flexWrap:"wrap"}}><div><h3 style={{margin:0}}>چارت سازمانی نیروها</h3><p className="muted" style={{margin:"5px 0 0",fontSize:12}}>چارت پیش‌فرض از منطقه و سمت نیروها ساخته می‌شود. گشت‌های موتوری مستقیماً زیر نظر سربازرس ارشد هستند. برای ویرایش ارتباط‌های دستی، نمای «روابط ثبت‌شده» را انتخاب کنید. با + هر شاخه را باز کنید.</p></div>
       <div className="row" style={{gap:6,flexWrap:"wrap"}}><button className="btn g" onClick={collapseAll}>بستن همه</button><button className="btn g" onClick={expandAll}>بازکردن همه</button><button className="btn g" onClick={fit}>جا دادن در صفحه</button><button className="btn g" onClick={()=>centerAt()}>مرکز کردن</button><button className="btn p" onClick={printChart}>🖨 چاپ چارت</button></div></div>
       <div className="row" style={{gap:8,marginTop:12,flexWrap:"wrap"}}>
+        <select className="input" style={{maxWidth:220}} aria-label="نوع چارت" value={mode} onChange={event=>{setMode(event.target.value);setExpanded(new Set());}}><option value="regional">پیش‌فرض منطقه‌بندی</option><option value="saved">روابط ثبت‌شده</option></select>
+        <select className="input" style={{maxWidth:220}} aria-label="منطقه چارت" value={zoneFilter} onChange={event=>setZoneFilter(event.target.value)}><option value="">همهٔ مناطق</option><option value="none">بدون منطقه</option>{data.zones.map(zone=><option key={zone.id} value={zone.id}>{zone.name}</option>)}</select>
         <input className="input" style={{maxWidth:280}} placeholder="جستجوی نام یا سمت…" value={query} onChange={e=>setQuery(e.target.value)}/>
+        <button className="btn g" onClick={reload}>تازه‌سازی</button>
         <button className="btn g" title="بزرگ‌نمایی" onClick={()=>setZoom(z=>Math.min(2.2,z+.15))}>＋</button><button className="btn g" title="کوچک‌نمایی" onClick={()=>setZoom(z=>Math.max(.06,z-.15))}>−</button><button className="btn g" onClick={reset}>۱۰۰٪</button>
         <span className="muted" style={{fontSize:12}}>بزرگ‌نمایی: {fa(Math.round(zoom*100))}٪ · {fa(shown.length)} نفر</span>
       </div>
+      {error&&<p role="alert" style={{color:"var(--danger)"}}>{error}</p>}
     </div>
     <div ref={viewport} onMouseDown={e=>{if(e.target===e.currentTarget||e.target.closest('.org-canvas'))setDragPan({x:e.clientX-pan.x,y:e.clientY-pan.y})}} onMouseMove={e=>{if(dragPan)setPan({x:e.clientX-dragPan.x,y:e.clientY-dragPan.y})}} onMouseUp={()=>setDragPan(null)} onMouseLeave={()=>setDragPan(null)}
       style={{height:"calc(100vh - 245px)",minHeight:520,overflow:"hidden",position:"relative",cursor:dragPan?"grabbing":"grab",backgroundImage:"radial-gradient(var(--line) 1px, transparent 1px)",backgroundSize:"22px 22px",userSelect:"none"}}>
@@ -1594,11 +1620,12 @@ function OrgChart(){
           <defs><marker id="orgArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--brand)"/></marker></defs>
           {edges.filter(e=>pos[+e.manager_id]&&pos[+e.user_id]).map((e,i)=>{const a=pos[+e.manager_id],b=pos[+e.user_id],x1=a.x+cardW/2,y1=a.y+cardH,x2=b.x+cardW/2,y2=b.y,mid=(y1+y2)/2;return <path key={i} d={`M${x1},${y1} C${x1},${mid} ${x2},${mid} ${x2},${y2}`} fill="none" stroke={e.primary?"var(--brand)":"var(--muted)"} strokeWidth={e.primary?2.4:1.7} strokeDasharray={e.primary?"":"6 5"} opacity={.8} markerEnd="url(#orgArrow)"/>})}
         </svg>
-        {shown.map(id=>{const u=byId[id],p=pos[id],kids=children(id),isOpen=expanded.has(id),parentCount=parents(id).length;return <div key={id} draggable onDragStart={e=>{e.stopPropagation();setDragUser(u)}} onDragOver={e=>{e.preventDefault();e.stopPropagation();setOver(id)}} onDragLeave={()=>setOver(null)} onDrop={e=>{e.preventDefault();e.stopPropagation();onUserDrop(u)}}
+        {shown.map(id=>{const u=byId[id],p=pos[id],kids=children(id),isOpen=expanded.has(id),parentCount=parents(id).length;return <div key={id} draggable={mode==="saved"} onDragStart={e=>{e.stopPropagation();setDragUser(u)}} onDragOver={e=>{if(mode!=="saved")return;e.preventDefault();e.stopPropagation();setOver(id)}} onDragLeave={()=>setOver(null)} onDrop={e=>{e.preventDefault();e.stopPropagation();onUserDrop(u)}}
           style={{position:"absolute",left:p.x,top:p.y,width:cardW,height:cardH,border:`${over===id?2:1}px solid ${over===id?'var(--brand)':'var(--line)'}`,borderRadius:16,background:"var(--card)",boxShadow:"0 6px 18px rgba(15,27,45,.10)",padding:"11px 12px",cursor:"grab",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
           <div className="row" style={{gap:8,alignItems:"flex-start"}}><div style={{width:38,height:38,borderRadius:12,background:"var(--brand-soft)",display:"grid",placeItems:"center",fontWeight:800,color:"var(--brand)"}}>{(u.first_name||'?').charAt(0)}</div><div style={{minWidth:0,flex:1}}><b style={{display:"block",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{u.first_name} {u.last_name}</b><small className="muted" style={{display:"block",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{u.role_title||'بدون سمت'}</small></div>
           {kids.length>0&&<button className="btn g" onClick={e=>{e.stopPropagation();toggle(id)}} style={{padding:0,width:28,height:28,borderRadius:9,fontSize:18,lineHeight:1}} title={isOpen?'بستن زیرمجموعه‌ها':'نمایش زیرمجموعه‌ها'}>{isOpen?'−':'+'}</button>}</div>
-          <div className="row" style={{justifyContent:"space-between",gap:5}}><span className="muted" style={{fontSize:10.5}}>{kids.length?fa(kids.length)+' زیرمجموعه':'بدون زیرمجموعه'}{parentCount>1?' · '+fa(parentCount)+' مسئول':''}</span><button className="btn g" style={{padding:"3px 7px",fontSize:10.5}} onClick={e=>{e.stopPropagation();setMultiUser(u)}}>تنظیم ارتباط‌ها</button></div>
+          <small className="muted" style={{fontSize:11}}>{u.zone_name||'بدون منطقه'}</small>
+          <div className="row" style={{justifyContent:"space-between",gap:5}}><span className="muted" style={{fontSize:10.5}}>{kids.length?fa(kids.length)+' زیرمجموعه':'بدون زیرمجموعه'}{parentCount>1?' · '+fa(parentCount)+' مسئول':''}</span>{mode==="saved"&&<button className="btn g" style={{padding:"3px 7px",fontSize:10.5}} onClick={e=>{e.stopPropagation();setMultiUser(u)}}>تنظیم ارتباط‌ها</button>}</div>
         </div>})}
       </div>
       {!shown.length&&<div style={{position:"absolute",inset:0,display:"grid",placeItems:"center"}}><div className="muted">نتیجه‌ای برای نمایش وجود ندارد.</div></div>}
