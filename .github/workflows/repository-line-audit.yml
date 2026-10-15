@@ -1,0 +1,46 @@
+name: Repository line audit
+on:
+  push:
+    branches:
+      - audit/count-repository-lines-20261015
+permissions:
+  contents: read
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Count tracked file lines
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import subprocess, pathlib, collections, json
+          paths=subprocess.check_output(['git','ls-files','-z']).decode().split('\0')
+          paths=[p for p in paths if p]
+          source_ext={'.js','.jsx','.ts','.tsx','.php','.py','.java','.kt','.kts','.sql','.css','.scss','.html','.htm','.sh','.ps1','.bat','.gradle','.yml','.yaml','.xml','.c','.cpp','.h'}
+          data_ext={'.json','.md'}
+          total=source=with_data=0
+          textfiles=binary=0
+          ext_counts=collections.defaultdict(lambda:[0,0])
+          errors=[]
+          for p in paths:
+            try:
+              data=pathlib.Path(p).read_bytes()
+              if b'\0' in data[:8192]:
+                binary+=1
+                continue
+              data.decode('utf-8')
+              n=data.count(b'\n')+(1 if data and not data.endswith(b'\n') else 0)
+              total+=n
+              textfiles+=1
+              suffix=pathlib.Path(p).suffix.lower()
+              ext_counts[suffix][0]+=1
+              ext_counts[suffix][1]+=n
+              if suffix in source_ext:
+                source+=n
+              if suffix in source_ext|data_ext:
+                with_data+=n
+            except Exception as e:
+              errors.append([p,str(e)])
+          print('AUDIT_RESULT='+json.dumps(dict(tracked_files=len(paths),text_files=textfiles,binary_files=binary,all_text_lines=total,source_lines=source,source_plus_json_markdown_lines=with_data,errors=errors,extensions=sorted(ext_counts.items(),key=lambda x:-x[1][1])[:30]),ensure_ascii=False))
+          PY
