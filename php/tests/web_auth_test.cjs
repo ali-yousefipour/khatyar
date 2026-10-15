@@ -64,6 +64,15 @@ async function run() {
   });
   await assert.rejects(vm.runInContext('api("/auth/login",{method:"POST",body:"{}"})', login.context), /wrong password/);
   assert.equal(login.logouts(), 0);
+  for (const route of ['/session/otp-request', '/session/otp-verify']) {
+    const otp = setup(async (url, options) => {
+      assert.equal(url, '/api' + route);
+      assert.equal(options.headers.has('Authorization'), false);
+      return reply(401, { error: 'invalid OTP' });
+    }, false);
+    await assert.rejects(vm.runInContext(`api(${JSON.stringify(route)},{method:"POST",body:"{}"})`, otp.context), /invalid OTP/);
+    assert.equal(otp.logouts(), 0);
+  }
 
   let releaseRenewal;
   const changed = setup(async url => url === '/api/session/renew'

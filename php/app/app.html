@@ -7,14 +7,8 @@
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <title>مدیریت خطوط تاکسیرانی</title>
-<link href="vendor/vazirmatn/Vazirmatn-font-face.css" rel="stylesheet" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css'">
-<script>
-(function(){ try{
-  fetch('vendor/vazirmatn/Vazirmatn-font-face.css', {method:'HEAD', cache:'no-store'})
-    .then(function(r){ if(!r.ok){ fetch('setup-libs.php?auto=1').catch(function(){}); } })
-    .catch(function(){});
-}catch(e){} })();
-</script><style>
+<link href="/vendor/vazirmatn/Vazirmatn-font-face.css" rel="stylesheet" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css'">
+<style>
   :root{--ink:#0f1b2d;--paper:#f4f6fb;--line:#e4e9f2;--muted:#6b7890;--brand:#0d7a5f;--brand2:#0a5f4a;--taxi:#f6c324;--taxiInk:#5a4500;--danger:#e23b54;--ok:#16a06a;--win:#b4e1eb}
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   body{font-family:Vazirmatn,system-ui,sans-serif;background:var(--paper);color:var(--ink);max-width:480px;margin:0 auto;min-height:100vh}
@@ -139,7 +133,7 @@ async function renewSession(){
 async function authenticatedFetch(url,opt={}){
   const target=new URL(url,location.href);
   if(target.origin!==location.origin||!target.pathname.startsWith('/api/'))return fetch(url,opt);
-  const publicPath=/^\/api\/(?:settings\/public|auth\/(?:login|forgot-password|reset-password)|session\/(?:start|renew))\/?$/.test(target.pathname);
+  const publicPath=/^\/api\/(?:settings\/public|auth\/(?:login|forgot-password|reset-password)|session\/(?:start|renew|otp-request|otp-verify))\/?$/.test(target.pathname);
   const sentToken=publicPath?'':accessToken();
   if(!publicPath&&!sentToken){if(USER)logout();throw new Error('برای ادامه وارد حساب شوید.');}
   const send=()=>{
@@ -219,17 +213,40 @@ function toast(m){const t=document.getElementById('toast');t.textContent=m;t.cla
 function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ---- auth ----
-async function doLogin(){
-  const u=document.getElementById('u').value.trim(), p=document.getElementById('p').value, e=document.getElementById('err');
-  e.textContent='در حال بررسی موقعیت…';
-  const gps=await gpsAvailable();
-  if(!gps){ e.textContent='برای ورود باید دسترسی موقعیت (GPS) را اجازه دهید.'; return; }
-  e.textContent='در حال ورود…';
+let webLogin={username:'',codeRequested:false,busy:false,resendAt:0};
+function loginDigits(value){return String(value||'').trim().replace(/[۰-۹]/g,digit=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)).replace(/[٠-٩]/g,digit=>'٠١٢٣٤٥٦٧٨٩'.indexOf(digit));}
+function changeLoginUser(){if(webLogin.busy)return;webLogin.codeRequested=false;render();}
+async function doLogin(resend=false){
+  if(webLogin.busy)return;
+  const error=document.getElementById('err');
+  const username=webLogin.codeRequested?webLogin.username:loginDigits(document.getElementById('u').value);
+  const verifying=webLogin.codeRequested&&!resend;
+  const code=verifying?loginDigits(document.getElementById('login-code').value):'';
+  if(!username){error.textContent='کد ملی را وارد کنید.';return;}
+  if(verifying&&!/^\d{6}$/.test(code)){error.textContent='کد شش‌رقمی پیامک‌شده را وارد کنید.';return;}
+  if(!verifying&&username===webLogin.username&&Date.now()<webLogin.resendAt){if(!resend){webLogin.codeRequested=true;await render();return;}error.textContent='برای ارسال مجدد '+toFa(Math.ceil((webLogin.resendAt-Date.now())/1000))+' ثانیه صبر کنید.';return;}
+  webLogin.busy=true;
+  const button=document.getElementById('login-submit');
+  button.disabled=true;
+  error.textContent='در حال بررسی موقعیت…';
   try{
-    const d=await POST('/auth/login',{username:u,password:p,device_id:store.get('device_id'),gps_on:true,vpn_on:false,dev_options_on:false,device_type:'web',device_model:'WebApp '+navigator.platform});
-    _clearApiCache();store.set('token',d.access); store.set('refresh',d.refresh); store.set('user',JSON.stringify(d.user)); USER=d.user;window.dispatchEvent(new Event('khatyar-session-changed'));
+    if(!(await gpsAvailable()))throw new Error('برای ورود باید دسترسی موقعیت (GPS) را اجازه دهید.');
+    if(!verifying){
+      error.textContent='در حال ارسال کد…';
+      await POST('/session/otp-request',{username});
+      webLogin.username=username;webLogin.codeRequested=true;webLogin.resendAt=Date.now()+60000;
+      await render();
+      return;
+    }
+    error.textContent='در حال تأیید کد…';
+    const data=await POST('/session/otp-verify',{username,code,device_id:store.get('device_id'),device_type:'web',device_model:'WebApp '+navigator.platform});
+    if(!data.access||!data.refresh||!data.user)throw new Error('پاسخ ورود کامل نیست؛ دوباره تلاش کنید.');
+    _clearApiCache();store.set('token',data.access);store.set('refresh',data.refresh);store.set('user',JSON.stringify(data.user));USER=data.user;
+    webLogin={username:'',codeRequested:false,busy:false,resendAt:0};
+    window.dispatchEvent(new Event('khatyar-session-changed'));
     nav('dashboard');
-  }catch(err){ e.textContent=err.message; }
+  }catch(failure){error.textContent=failure.message;}
+  finally{webLogin.busy=false;const activeButton=document.getElementById('login-submit');if(activeButton)activeButton.disabled=false;}
 }
 let _resetUser='';
 async function doForgot(){ const v=document.getElementById('fu').value.trim(); const e=document.getElementById('ferr'); if(!v){e.textContent='نام کاربری را وارد کنید';return;} e.textContent='در حال ارسال…'; try{ await POST('/auth/forgot-password',{username:v}); _resetUser=v; e.textContent='کد بازیابی پیامک شد.'; nav('reset'); }catch(err){ e.textContent=err.message; } }
@@ -272,11 +289,12 @@ const screens={
 
   login:async()=>{ chrome(false); return `<div class="center"><div>${BRAND.logo?`<img src="${esc(BRAND.logo)}" style="width:64px;height:64px;object-fit:contain;border-radius:16px;background:#fff;padding:5px;border:1px solid var(--line)">`:`<div class="lg">ت</div>`}
     <h3 style="margin-top:14px">${esc(BRAND.title||'مدیریت خطوط تاکسیرانی')}</h3><p class="muted">مشهد — نسخهٔ وب</p></div></div>
-    <label class="label">نام کاربری (کد ملی)</label><input class="inp" id="u" inputmode="numeric">
-    <label class="label">رمز عبور</label><input class="inp" id="p" type="password">
+    <form onsubmit="event.preventDefault();doLogin()">
+    ${webLogin.codeRequested?`<p class="muted" style="text-align:center">اگر حساب فعال و شماره همراه ثبت‌شده داشته باشید، کد ورود پیامک می‌شود. کد تا ۳ دقیقه معتبر است.</p><label class="label">کد شش‌رقمی پیامک‌شده</label><input class="inp" id="login-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr" required>`:`<label class="label">نام کاربری (کد ملی)</label><input class="inp" id="u" inputmode="numeric" autocomplete="username" value="${esc(webLogin.username)}" required><p class="muted" style="text-align:center;margin-top:8px">کد ورود به شماره همراه ثبت‌شده در سامانه پیامک می‌شود.</p>`}
     <div id="err" style="color:var(--danger);font-size:12.5px;margin-top:8px;text-align:center"></div>
-    <button class="btn" onclick="doLogin()">ورود</button>
-    <button class="btn ghost" onclick="nav('forgot')" style="margin-top:8px">رمز عبور را فراموش کرده‌ام</button>
+    <button class="btn" id="login-submit" type="submit">${webLogin.codeRequested?'تأیید کد و ورود':'دریافت کد ورود'}</button>
+    ${webLogin.codeRequested?'<button class="btn ghost" type="button" onclick="doLogin(true)" style="margin-top:8px">ارسال مجدد کد (پس از ۶۰ ثانیه)</button><button class="btn ghost" type="button" onclick="changeLoginUser()" style="margin-top:8px">تغییر کد ملی</button>':''}
+    </form>
     <p class="muted" style="text-align:center;margin-top:14px">ورود نیازمند روشن‌بودن موقعیت (GPS) است.</p>`; },
 
   dashboard:async()=>{ chrome(true,'داشبورد','menu'); await loadAppAllowed();
