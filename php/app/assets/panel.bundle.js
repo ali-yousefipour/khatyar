@@ -984,7 +984,6 @@ function Dashboard() {
             React.createElement("div", { className: "n" }, fa(n)),
             React.createElement("div", { className: "l" }, l)))),
         React.createElement(PersonnelDistributionDashboard, null),
-        "\\n    ",
         React.createElement(LiveStaffDashboard, null),
         bdays && bdays.people && bdays.people.length > 0 && React.createElement("div", { style: { background: "linear-gradient(135deg,#fff5f8,#fef9ee)", border: "1px solid #f5d5e0", borderRadius: 14, padding: 16, margin: "14px 0" } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } },
