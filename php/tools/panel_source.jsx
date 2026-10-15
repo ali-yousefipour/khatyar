@@ -594,6 +594,31 @@ function LiveStaffDashboard(){
     <div className="kpis" style={{marginTop:12}}>
       {[["کل پرسنل",live.total],["حاضر در شیفت",live.present],["غایب",live.absent],["مرخصی/ماموریت",live.leave]].map(([l,n],i)=><div className="kpi" key={i}><div className="n">{fa(n||0)}</div><div className="l">{l}</div></div>)}
     </div>
+    {(()=>{
+      const people=new Map();
+      for(const [status,list] of [["present",live.present_list],["absent",live.absent_list],["leave",live.leave_list]]){
+        for(const person of (Array.isArray(list)?list:[])){
+          if(status==="present"&&!isOpenSession(person))continue;
+          const id=person.user_id??person.id;
+          if(id===null||id===undefined)continue;
+          people.set(String(id),{...(people.get(String(id))||{}),...person,_status:status});
+        }
+      }
+      const grouped=(getName)=>{
+        const counts=new Map();
+        for(const person of people.values()){
+          const name=String(getName(person)||"").trim();
+          if(!name||name==="—")continue;
+          const entry=counts.get(name)||{total:0,present:0,absent:0,leave:0};
+          entry.total++;entry[person._status]++;counts.set(name,entry);
+        }
+        return [...counts.entries()].filter(([,v])=>v.total>0).sort((a,b)=>b[1].total-a[1].total||a[0].localeCompare(b[0],"fa"));
+      };
+      const render=(title,items)=><div style={{marginTop:14}}><h4 style={{margin:"0 0 8px"}}>{title}</h4><div className="kpis">{items.map(([name,v])=><div className="kpi" key={name}><div className="n">{fa(v.total)}</div><div className="l">{name}</div><div className="muted" style={{fontSize:11,marginTop:5}}>حاضر: {fa(v.present)} · غایب: {fa(v.absent)} · مرخصی/ماموریت: {fa(v.leave)}</div></div>)}</div></div>;
+      const roles=grouped(p=>p.role_title||p.role_name);
+      const regions=grouped(p=>p.region_title||p.region_name||p.region_label);
+      return <>{roles.length>0&&render("آمار نیروها به تفکیک سمت",roles)}{regions.length>0&&render("آمار نیروها به تفکیک منطقه",regions)}</>;
+    })()}
     <div className="tabbar" style={{display:"flex",gap:6,margin:"12px 0",borderBottom:"1px solid var(--line)",flexWrap:"wrap"}}>
       {[["present","حاضرین"],["absent","غایبین"],["leave","مرخصی و ماموریت"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{background:"none",border:"none",borderBottom:tab===k?"3px solid var(--brand)":"3px solid transparent",padding:"8px 12px",fontFamily:"inherit",fontWeight:tab===k?800:500,cursor:"pointer",color:tab===k?"var(--brand)":"var(--muted)"}}>{l}</button>)}
     </div>
