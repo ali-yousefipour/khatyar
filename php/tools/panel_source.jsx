@@ -594,31 +594,6 @@ function LiveStaffDashboard(){
     <div className="kpis" style={{marginTop:12}}>
       {[["کل پرسنل",live.total],["حاضر در شیفت",live.present],["غایب",live.absent],["مرخصی/ماموریت",live.leave]].map(([l,n],i)=><div className="kpi" key={i}><div className="n">{fa(n||0)}</div><div className="l">{l}</div></div>)}
     </div>
-    {(()=>{
-      const people=new Map();
-      for(const [status,list] of [["present",live.present_list],["absent",live.absent_list],["leave",live.leave_list]]){
-        for(const person of (Array.isArray(list)?list:[])){
-          if(status==="present"&&!isOpenSession(person))continue;
-          const id=person.user_id??person.id;
-          if(id===null||id===undefined)continue;
-          people.set(String(id),{...(people.get(String(id))||{}),...person,_status:status});
-        }
-      }
-      const grouped=(getName)=>{
-        const counts=new Map();
-        for(const person of people.values()){
-          const name=String(getName(person)||"").trim();
-          if(!name||name==="—")continue;
-          const entry=counts.get(name)||{total:0,present:0,absent:0,leave:0};
-          entry.total++;entry[person._status]++;counts.set(name,entry);
-        }
-        return [...counts.entries()].filter(([,v])=>v.total>0).sort((a,b)=>b[1].total-a[1].total||a[0].localeCompare(b[0],"fa"));
-      };
-      const render=(title,items)=><div style={{marginTop:14}}><h4 style={{margin:"0 0 8px"}}>{title}</h4><div className="kpis">{items.map(([name,v])=><div className="kpi" key={name}><div className="n">{fa(v.total)}</div><div className="l">{name}</div><div className="muted" style={{fontSize:11,marginTop:5}}>حاضر: {fa(v.present)} · غایب: {fa(v.absent)} · مرخصی/ماموریت: {fa(v.leave)}</div></div>)}</div></div>;
-      const roles=grouped(p=>p.role_title||p.role_name);
-      const regions=grouped(p=>p.region_title||p.region_name||p.region_label);
-      return <>{roles.length>0&&render("آمار نیروها به تفکیک سمت",roles)}{regions.length>0&&render("آمار نیروها به تفکیک منطقه",regions)}</>;
-    })()}
     <div className="tabbar" style={{display:"flex",gap:6,margin:"12px 0",borderBottom:"1px solid var(--line)",flexWrap:"wrap"}}>
       {[["present","حاضرین"],["absent","غایبین"],["leave","مرخصی و ماموریت"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{background:"none",border:"none",borderBottom:tab===k?"3px solid var(--brand)":"3px solid transparent",padding:"8px 12px",fontFamily:"inherit",fontWeight:tab===k?800:500,cursor:"pointer",color:tab===k?"var(--brand)":"var(--muted)"}}>{l}</button>)}
     </div>
@@ -626,6 +601,35 @@ function LiveStaffDashboard(){
       {rows.map((r,i)=><tr key={r.user_id||i}><td>{r.name||"—"}</td><td>{r.role_title||"—"}</td>{tab==="absent"&&<td>{absenceReason(r)}</td>}{tab==="present"&&<><td>{r.check_in?faTime(r.check_in):"—"}</td><td>{r.line_code?("خط "+fa(r.line_code)+(r.line_description?" — "+r.line_description:"")):"—"}</td><td>{methodFa[r.method]||r.method||"—"}</td><td><span className={"badge "+(isOpenSession(r)?"ok":"muted")}>{isOpenSession(r)?"داخل شیفت":"خروج ثبت شده"}</span></td></>}</tr>)}
     </tbody></table></div>}
   </div>;
+}
+
+function PersonnelDistributionDashboard(){
+  const [data,setData]=useState(null);
+  const [error,setError]=useState("");
+  useEffect(()=>{
+    let active=true;
+    Promise.all([db.users(),db.roles(),db.zones()]).then(([users,roles,zones])=>{
+      if(active)setData({users:Array.isArray(users)?users:[],roles:Array.isArray(roles)?roles:[],zones:Array.isArray(zones)?zones:[]});
+    }).catch(e=>{if(active)setError(e?.message||"دریافت اطلاعات پرسنل ناموفق بود");});
+    return()=>{active=false};
+  },[]);
+  if(error)return <div className="panel" style={{margin:"14px 0"}}><span className="muted">آمار نیروها در دسترس نیست: {error}</span></div>;
+  if(!data)return <div className="panel" style={{margin:"14px 0"}}><span className="muted">در حال دریافت آمار نیروها…</span></div>;
+  const {users,roles,zones}=data;
+  const roleName=new Map(roles.map(r=>[String(r.id),r.title||r.name]));
+  const zoneName=new Map(zones.map(z=>[String(z.id),z.name||z.title]));
+  const countBy=getName=>{
+    const counts=new Map();
+    for(const u of users){
+      const name=String(getName(u)||"").trim();
+      if(name&&name!=="—")counts.set(name,(counts.get(name)||0)+1);
+    }
+    return [...counts.entries()].filter(([,count])=>count>0).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],"fa"));
+  };
+  const roleCounts=countBy(u=>roleName.get(String(u.role_id))||u.role_title||u.role_name);
+  const zoneCounts=countBy(u=>zoneName.get(String(u.zone_id??u.region_id))||u.zone_name||u.region_name);
+  const cards=(items)=><div className="kpis" style={{marginTop:10}}>{items.map(([name,count])=><div className="kpi" key={name}><div className="n">{fa(count)}</div><div className="l">{name}</div></div>)}</div>;
+  return <div className="panel" style={{margin:"14px 0"}}><h3 style={{margin:"0 0 8px"}}>آمار نیروها</h3><div className="muted" style={{fontSize:12}}>بر اساس فهرست پرسنل، مستقل از وضعیت حضور و غیاب</div><h4 style={{margin:"14px 0 0"}}>تعداد نیروها به تفکیک سمت</h4>{cards(roleCounts)}<h4 style={{margin:"16px 0 0"}}>تعداد نیروها به تفکیک منطقه</h4>{cards(zoneCounts)}</div>;
 }
 
 function Dashboard(){
@@ -662,7 +666,7 @@ function Dashboard(){
   const K=[["راننده فعال",s.drivers],["خط فعال",s.lines],["حضور امروز",s.today_attendance],["فیش پرداخت‌نشده",s.unpaid_bills],["تذکر این ماه",s.notices_month]];
   return(<div className="dashboard-page">
     <div className="kpis">{K.map(([l,n],i)=><div className="kpi" key={i}><div className="n">{fa(n)}</div><div className="l">{l}</div></div>)}</div>
-    <LiveStaffDashboard/>
+    <PersonnelDistributionDashboard/>\n    <LiveStaffDashboard/>
     {bdays&&bdays.people&&bdays.people.length>0&&<div style={{background:"linear-gradient(135deg,#fff5f8,#fef9ee)",border:"1px solid #f5d5e0",borderRadius:14,padding:16,margin:"14px 0"}}>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
         <span style={{fontSize:22}}>🎂</span>
