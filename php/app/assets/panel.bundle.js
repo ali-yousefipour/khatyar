@@ -847,6 +847,50 @@ function LiveStaffDashboard() {
         React.createElement("div", { className: "kpis", style: { marginTop: 12 } }, [["کل پرسنل", live.total], ["حاضر در شیفت", live.present], ["غایب", live.absent], ["مرخصی/ماموریت", live.leave]].map(([l, n], i) => React.createElement("div", { className: "kpi", key: i },
             React.createElement("div", { className: "n" }, fa(n || 0)),
             React.createElement("div", { className: "l" }, l)))),
+        (() => {
+            var _a;
+            const people = new Map();
+            for (const [status, list] of [["present", live.present_list], ["absent", live.absent_list], ["leave", live.leave_list]]) {
+                for (const person of (Array.isArray(list) ? list : [])) {
+                    if (status === "present" && !isOpenSession(person))
+                        continue;
+                    const id = (_a = person.user_id) !== null && _a !== void 0 ? _a : person.id;
+                    if (id === null || id === undefined)
+                        continue;
+                    people.set(String(id), { ...(people.get(String(id)) || {}), ...person, _status: status });
+                }
+            }
+            const grouped = (getName) => {
+                const counts = new Map();
+                for (const person of people.values()) {
+                    const name = String(getName(person) || "").trim();
+                    if (!name || name === "—")
+                        continue;
+                    const entry = counts.get(name) || { total: 0, present: 0, absent: 0, leave: 0 };
+                    entry.total++;
+                    entry[person._status]++;
+                    counts.set(name, entry);
+                }
+                return [...counts.entries()].filter(([, v]) => v.total > 0).sort((a, b) => b[1].total - a[1].total || a[0].localeCompare(b[0], "fa"));
+            };
+            const render = (title, items) => React.createElement("div", { style: { marginTop: 14 } },
+                React.createElement("h4", { style: { margin: "0 0 8px" } }, title),
+                React.createElement("div", { className: "kpis" }, items.map(([name, v]) => React.createElement("div", { className: "kpi", key: name },
+                    React.createElement("div", { className: "n" }, fa(v.total)),
+                    React.createElement("div", { className: "l" }, name),
+                    React.createElement("div", { className: "muted", style: { fontSize: 11, marginTop: 5 } },
+                        "\u062D\u0627\u0636\u0631: ",
+                        fa(v.present),
+                        " \u00B7 \u063A\u0627\u06CC\u0628: ",
+                        fa(v.absent),
+                        " \u00B7 \u0645\u0631\u062E\u0635\u06CC/\u0645\u0627\u0645\u0648\u0631\u06CC\u062A: ",
+                        fa(v.leave))))));
+            const roles = grouped(p => p.role_title || p.role_name);
+            const regions = grouped(p => p.region_title || p.region_name || p.region_label);
+            return React.createElement(React.Fragment, null,
+                roles.length > 0 && render("آمار نیروها به تفکیک سمت", roles),
+                regions.length > 0 && render("آمار نیروها به تفکیک منطقه", regions));
+        })(),
         React.createElement("div", { className: "tabbar", style: { display: "flex", gap: 6, margin: "12px 0", borderBottom: "1px solid var(--line)", flexWrap: "wrap" } }, [["present", "حاضرین"], ["absent", "غایبین"], ["leave", "مرخصی و ماموریت"]].map(([k, l]) => React.createElement("button", { key: k, onClick: () => setTab(k), style: { background: "none", border: "none", borderBottom: tab === k ? "3px solid var(--brand)" : "3px solid transparent", padding: "8px 12px", fontFamily: "inherit", fontWeight: tab === k ? 800 : 500, cursor: "pointer", color: tab === k ? "var(--brand)" : "var(--muted)" } }, l))),
         rows.length === 0 ? React.createElement("p", { className: "muted" }, "\u0645\u0648\u0631\u062F\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F.") : React.createElement("div", { style: { overflowX: "auto" } },
             React.createElement("table", null,
