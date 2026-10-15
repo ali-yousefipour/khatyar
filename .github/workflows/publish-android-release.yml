@@ -1,6 +1,6 @@
 name: build-android-release
 
-# CI trigger: 1.5.9 / versionCode 10509 release build
+# CI trigger: 1.5.10 / versionCode 10510 release build
 # CI release rerun: official npmjs.org + official Google/Maven Central only
 # CI trigger: Android APK build requested 2026-10-15 after validated test-branch merge
 on:
@@ -9,7 +9,7 @@ on:
       version:
         description: "نسخه انتشار؛ باید با package.json و app.config.js یکسان باشد"
         required: true
-        default: "1.5.9"
+        default: "1.5.10"
       target:
         description: "شاخه/commit مبنای انتشار"
         required: true

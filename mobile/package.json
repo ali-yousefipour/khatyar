@@ -1,7 +1,7 @@
 {
   "name": "khatyar-mobile",
-  "version": "1.5.9",
-  "description": "خطیار — نسخه 1.5.9",
+  "version": "1.5.10",
+  "description": "خطیار — نسخه 1.5.10",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",

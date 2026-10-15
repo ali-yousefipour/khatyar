@@ -15835,7 +15835,7 @@ function App() {
                         React.createElement("span", { className: "av-fallback", style: { display: "none" } }, (me.name || "؟")[0])) : React.createElement("span", null, (me.name || "؟")[0])))),
             React.createElement(View, null))));
 }
-const PANEL_BUILD_VERSION = "1.5.9";
+const PANEL_BUILD_VERSION = "1.5.10";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
@@ -15880,7 +15880,7 @@ async function khForceFreshReloadAfterLogin() {
         return;
     }
     await khEnsureFreshBuild();
-    console.log("PANEL BUILD: 1.5.9 (attendance-leave-request-fix)");
+    console.log("PANEL BUILD: 1.5.10 (update-min-version-policy)");
     ReactDOM.createRoot(root).render(React.createElement(App, null));
     requestAnimationFrame(() => requestAnimationFrame(() => { const loader = document.getElementById("kh-initial-loader"); if (loader)
         loader.classList.add("kh-loader-hide"); }));

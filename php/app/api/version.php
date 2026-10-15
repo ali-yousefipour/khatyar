@@ -15,10 +15,10 @@ $get = function ($key, $default = null) {
     }
 };
 
-$latest = (string)$get('app_latest_version', '1.5.9');
-if (!preg_match('/^\d+\.\d+\.\d+$/', $latest)) $latest = '1.5.9';
+$latest = (string)$get('app_latest_version', '1.5.10');
+if (!preg_match('/^\d+\.\d+\.\d+$/', $latest)) $latest = '1.5.10';
 $min = (string)$get('app_min_version', '0.0.0');
-if (version_compare($latest, '1.5.9', '<')) $latest = '1.5.9';
+if (version_compare($latest, '1.5.10', '<')) $latest = '1.5.10';
 $defaultApkUrl = 'https://github.com/ali-yousefipour/khatyar/releases/latest/download/khatyar.apk';
 $url = trim((string)$get('app_apk_url', $defaultApkUrl));
 if ($url === '' || strpos($url, 'khatyar-1.5.7.apk') !== false) $url = $defaultApkUrl;

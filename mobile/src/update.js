@@ -2,6 +2,7 @@ import * as Application from 'expo-application';
 import { request } from './api';
 
 const TRUSTED_UPDATE_HOST = 'app.yousefipour.ir';
+const TRUSTED_GITHUB_RELEASE_HOST = 'github.com';
 const TRUSTED_GITHUB_RAW_HOST = 'raw.githubusercontent.com';
 const TRUSTED_GITHUB_RAW_PREFIXES = [
   '/ali-yousefipour/khatyar/main/mobile/release/',
@@ -15,6 +16,9 @@ function validateUpdateUrl(value) {
     const portOk = !u.port || u.port === '443';
     if (u.protocol !== 'https:' || !portOk) return false;
     if (host === TRUSTED_UPDATE_HOST) return true;
+    if (host === TRUSTED_GITHUB_RELEASE_HOST) {
+      return /^\/ali-yousefipour\/khatyar\/releases\/(?:latest\/download|download\/v\d+\.\d+\.\d+)\/khatyar\.apk$/.test(u.pathname);
+    }
     if (host !== TRUSTED_GITHUB_RAW_HOST) return false;
     return TRUSTED_GITHUB_RAW_PREFIXES.some(prefix =>
       u.pathname.startsWith(prefix) &&
@@ -51,8 +55,8 @@ export async function checkVersion() {
     const hasUpdate = cmp(latest, current) > 0;
     // Only the backend-configured minimum version may block use. A newer latest_version is optional.
     const required = cmp(current, min) < 0;
-    if (hasUpdate && !validUrl) return { required: true, hasUpdate: true, latest, min, url: '', apkSha256: '', current };
-    return { required, hasUpdate, latest, min, url, apkSha256, current };
+    // A bad/missing optional APK link must never turn an optional update into a forced one.
+    return { required, hasUpdate, latest, min, url: validUrl ? url : '', apkSha256: validUrl ? apkSha256 : '', current };
   } catch (e) {
     return { required: false, hasUpdate: false, latest: current, url: '', apkSha256: '', current };
   }
