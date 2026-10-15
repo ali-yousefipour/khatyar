@@ -2249,7 +2249,12 @@ route('GET', '/api/my/search-cache', function($p,$b,$u){
 
 route('GET', '/api/my/checkin-config', function($p,$b,$u){
   _attendance_auto_close_stale((int)$u['id']);
-  $ids = user_line_ids($u);
+  // The app must display only Wi-Fi identifiers accepted by POST /my/checkin.
+  // Previously config used viewable lines while attendance validation used
+  // the narrower check-in permission list, so the UI could advertise a BSSID
+  // that the server would later reject.
+  $ids = user_checkin_line_ids($u);
+  if ($ids === null) $ids = array_map('intval', array_column(Db::all("SELECT id FROM `lines`"), 'id'));
   $lines = [];
   if (is_array($ids) && $ids) {
     $in = implode(',', array_fill(0, count($ids), '?'));
@@ -2287,6 +2292,7 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   $method = strtolower((string)($b['method'] ?? 'gps'));
   if (in_array($method, ['qr','nfc','rfid','bt','bluetooth'], true)) Http::error('این روش ثبت حضور پشتیبانی نمی‌شود. از GPS، Wi-Fi یا GSM استفاده کنید.', 422);
   $lineIds = user_checkin_line_ids($u);
+  if ($lineIds === null) $lineIds = array_map('intval', array_column(Db::all("SELECT id FROM `lines`"), 'id'));
   // انتخاب خط از اپ حذف شده است؛ اگر کلاینت قدیمی line_id بفرستد، فقط وقتی می‌پذیریم که جزو خطوط مجاز کاربر باشد.
   if ($lineId && (!is_array($lineIds) || !in_array($lineId, array_map('intval', $lineIds), true))) $lineId = 0;
   // بررسی مجاز بودن روش ثبت حضور برای این خط (در صورت تعریف محدودیت)؛ برای حالت خودکار، پس از تشخیص خط نیز دوباره کنترل می‌شود.
@@ -2355,12 +2361,13 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
     // Wi-Fi — مقدار ارائه‌شده باید با شناسه‌های خط مطابقت کند
     $proof = trim((string)($b['proof'] ?? ''));
     if ($proof === '') Http::error('شناسهٔ تأیید ارسال نشده است.', 400);
-    $norm = strtolower(str_replace([' ',':','-'],'',$proof));
+    $norm = _attendance_normalize_bssid($proof);
+    if ($norm === '') Http::error('قالب BSSID ارسالی معتبر نیست.', 400);
     $cond = $lineId ? "line_id=?" : ($lineIds ? "line_id IN (".implode(',',array_fill(0,count($lineIds),'?')).")" : "1=0");
     $args = $lineId ? [$lineId] : ($lineIds ?: []);
     $cands = Db::all("SELECT line_id, kind, value FROM line_idents WHERE kind=? AND ($cond)", array_merge([$method], $args));
     foreach ($cands as $c) {
-      if (strtolower(str_replace([' ',':','-'],'',$c['value'])) === $norm) { $ok = true; if(!$lineId) $lineId = (int)$c['line_id']; break; }
+      if (_attendance_normalize_bssid($c['value']) === $norm) { $ok = true; if(!$lineId) $lineId = (int)$c['line_id']; break; }
     }
     if (!$ok) $err = 'شناسهٔ ارائه‌شده با هیچ‌یک از شناسه‌های این خط مطابقت ندارد.';
   }
@@ -9697,6 +9704,12 @@ function user_checkin_line_ids($u) {
   if($viewIds) return array_map('intval',$ids);
   return empty($u['is_admin']) ? [] : null;
 }
+function _attendance_normalize_bssid($value) {
+  $raw = trim((string)$value);
+  if (!preg_match('/(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}|(?:[0-9a-f]{4}\.){2}[0-9a-f]{4}|\b[0-9a-f]{12}\b/i', $raw, $match)) return '';
+  $normalized = strtolower((string)preg_replace('/[^0-9a-f]/i', '', $match[0]));
+  return preg_match('/^[0-9a-f]{12}$/', $normalized) ? $normalized : '';
+}
 // تبدیل عکس کاربر به URL: اگر photo_path باشد URL فایل، وگرنه photo قدیمی (base64)
 function _user_photo_url($photoPath, $photoData) {
   if (!empty($photoPath)) return '/api/media?path=' . urlencode($photoPath);
@@ -10872,6 +10885,7 @@ function _phase7p4_offline_checkin($b,$u,$uuid,$it){
   if (($lat === null || $lng === null) && $method !== 'wifi') throw new Exception('موقعیت ثبت ورود آفلاین وجود ندارد');
   $lineId = (int)($b['line_id'] ?? 0);
   $lineIds = user_checkin_line_ids($u);
+  if ($lineIds === null) $lineIds = array_map('intval', array_column(Db::all("SELECT id FROM `lines`"), 'id'));
   if ($lineId && (!is_array($lineIds) || !in_array($lineId, array_map('intval', $lineIds), true))) $lineId = 0;
   $acc = isset($b['accuracy']) ? max(0, min(150, (float)$b['accuracy'])) : 0;
   $extraR = max(0, (int)_req_setting('checkin_error_radius_m', 0)) + (int)ceil(min(80, $acc * 0.75));
@@ -10892,11 +10906,12 @@ function _phase7p4_offline_checkin($b,$u,$uuid,$it){
     // Always validate Wi-Fi proof against every assigned line; never trust client line_id alone.
     $proof = trim((string)($b['proof'] ?? ''));
     if ($proof === '' || !is_array($lineIds) || !$lineIds) throw new Exception('شناسهٔ Wi-Fi برای ثبت آفلاین موجود نیست');
-    $norm = strtolower(str_replace([' ',':','-'],'',$proof));
+    $norm = _attendance_normalize_bssid($proof);
+    if ($norm === '') throw new Exception('قالب BSSID ارسالی معتبر نیست');
     $cond = "line_id IN (".implode(',',array_fill(0,count($lineIds),'?')).")";
     $cands = Db::all("SELECT line_id, value FROM line_idents WHERE kind='wifi' AND ($cond)", $lineIds);
     $matchedLineId = 0;
-    foreach ($cands as $c) { if (strtolower(str_replace([' ',':','-'],'',$c['value'])) === $norm) { $matchedLineId = (int)$c['line_id']; break; } }
+    foreach ($cands as $c) { if (_attendance_normalize_bssid($c['value']) === $norm) { $matchedLineId = (int)$c['line_id']; break; } }
     if (!$matchedLineId) throw new Exception('BSSID اسکن‌شده با هیچ‌یک از خطوط مجاز شما مطابقت ندارد');
     $lineId = $matchedLineId;
   }

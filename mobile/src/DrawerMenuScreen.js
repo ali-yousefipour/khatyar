@@ -1,9 +1,12 @@
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { DrawerActions } from '@react-navigation/native';
 import { C, FONT } from './theme';
 import { useAuth } from './auth';
-import { request, flushQueuedRequests } from './api';
+import { request, uploadFile, flushQueuedRequests, imageSource } from './api';
 import { pending as pendingOfflineQueue } from './offline';
 import { subscribeUnreadCounts, refreshUnreadCounts, unreadLabel } from './unread';
 
@@ -39,7 +42,10 @@ function isUserQueueItem(item) {
 }
 
 export default function DrawerMenuScreen({ navigation }) {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
+  const [photo, setPhoto] = React.useState(user?.photo || null);
+  const [photoOpen, setPhotoOpen] = React.useState(false);
+  const [photoBusy, setPhotoBusy] = React.useState(false);
   const [access, setAccess] = React.useState(null);
   const [schoolServiceAllowed, setSchoolServiceAllowed] = React.useState(false);
   const [unread, setUnread] = React.useState({ messages: 0, reports: 0 });
@@ -111,6 +117,63 @@ export default function DrawerMenuScreen({ navigation }) {
     ]);
   };
 
+  React.useEffect(() => { setPhoto(user?.photo || null); }, [user?.photo]);
+
+  const changePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) return Alert.alert('دسترسی به تصاویر', 'برای انتخاب عکس پروفایل، دسترسی به تصاویر را فعال کنید.');
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.86 });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      setPhotoBusy(true);
+      const uploaded = await uploadFile('/me/photo', {}, 'photo', asset.uri, asset.fileName || 'profile.jpg', asset.mimeType || 'image/jpeg', { queueIfOffline: false });
+      if (!uploaded?.ok && !uploaded?.path) throw new Error('سرور عکس را ذخیره نکرد.');
+      const profile = await request('/me/full-profile', { noStore: true });
+      if (profile?.photo) setPhoto(profile.photo);
+      await refreshUser?.();
+      Alert.alert('عکس به‌روز شد', 'تصویر حساب کاربری با موفقیت تغییر کرد.');
+    } catch (error) {
+      Alert.alert('تغییر عکس ناموفق بود', error?.message || 'لطفاً دوباره تلاش کنید.');
+    } finally { setPhotoBusy(false); }
+  };
+
+  const savePhoto = async () => {
+    if (!photo || photoBusy) return;
+    setPhotoBusy(true);
+    try {
+      const source = imageSource(photo);
+      const uri = typeof source === 'object' ? source.uri : source;
+      if (!uri) throw new Error('آدرس عکس در دسترس نیست.');
+      let localUri = uri;
+      if (/^https?:\/\//i.test(uri)) {
+        const ext = /\.png(?:[?#]|$)/i.test(uri) ? 'png' : 'jpg';
+        localUri = `${FileSystem.cacheDirectory}khatyar-profile-${Date.now()}.${ext}`;
+        const headers = typeof source === 'object' ? source.headers : undefined;
+        const result = await FileSystem.downloadAsync(uri, localUri, headers ? { headers } : undefined);
+        localUri = result.uri;
+      } else if (uri.startsWith('data:image/')) {
+        const match = uri.match(/^data:image\/[^;]+;base64,(.+)$/i);
+        if (!match) throw new Error('قالب عکس پشتیبانی نمی‌شود.');
+        localUri = `${FileSystem.cacheDirectory}khatyar-profile-${Date.now()}.jpg`;
+        await FileSystem.writeAsStringAsync(localUri, match[1], { encoding: FileSystem.EncodingType.Base64 });
+      }
+      if (Platform.OS === 'android') {
+        const access = FileSystem.StorageAccessFramework;
+        const permission = await access.requestDirectoryPermissionsAsync(access.getUriForDirectoryInRoot('Download'));
+        if (!permission.granted) return;
+        const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+        const savedUri = await access.createFileAsync(permission.directoryUri, `khatyar-profile-${Date.now()}.jpg`, 'image/jpeg');
+        await FileSystem.writeAsStringAsync(savedUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+        Alert.alert('ذخیره شد', 'عکس در پوشه‌ای که انتخاب کردید ذخیره شد.');
+      } else {
+        await Sharing.shareAsync(localUri, { mimeType: 'image/jpeg', dialogTitle: 'ذخیره یا اشتراک عکس کاربر' });
+      }
+    } catch (error) {
+      Alert.alert('ذخیره عکس ناموفق بود', error?.message || 'دسترسی گالری را بررسی کنید.');
+    } finally { setPhotoBusy(false); }
+  };
+
   const items = [
     ...ITEMS,
     ...(schoolServiceAllowed ? [['SchoolService', 'سرویس مدارس', '🏫']] : []),
@@ -127,8 +190,8 @@ export default function DrawerMenuScreen({ navigation }) {
   return (
     <View style={s.page}>
       <View style={s.header}>
-        <View style={s.brandRow}><View style={s.brandMark}><Text style={s.brandMarkText}>🚕</Text></View><View style={s.brandTextWrap}><Text style={s.brand}>خطیار</Text><Text style={s.title}>منوی برنامه</Text></View></View>
-        <View style={s.profileRow}><View style={s.profileAvatar}><Text style={s.profileInitial}>{String(user?.name || "؟").trim().charAt(0) || "؟"}</Text></View><View style={s.profileTextWrap}><Text style={s.profileName} numberOfLines={1}>{user?.name || "کاربر خطیار"}</Text><Text style={s.profileRole} numberOfLines={1}>{user?.role_title || user?.role || "حساب کاربری"}</Text></View></View>
+        <View style={s.brandRow}><View style={s.brandMark}><Image source={require('../assets/icon.png')} style={s.brandLogo} resizeMode="contain" /></View><View style={s.brandTextWrap}><Text style={s.brand}>خطیار</Text><Text style={s.title}>منوی برنامه</Text></View></View>
+        <View style={s.profileRow}><TouchableOpacity onPress={() => setPhotoOpen(true)} activeOpacity={0.8} accessibilityRole="imagebutton" accessibilityLabel="نمایش تمام‌صفحه و مدیریت عکس کاربر"><View style={s.profileAvatar}>{photo ? <Image source={imageSource(photo)} style={s.profileImage} /> : <Text style={s.profileInitial}>{String(user?.name || "؟").trim().charAt(0) || "؟"}</Text>}</View></TouchableOpacity><View style={s.profileTextWrap}><Text style={s.profileName} numberOfLines={1}>{user?.name || "کاربر خطیار"}</Text><Text style={s.profileRole} numberOfLines={1}>{user?.role_title || user?.role || "حساب کاربری"}</Text></View></View>
       </View>
       <ScrollView persistentScrollbar={true} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {items.map(([route, title, glyph]) => (
@@ -142,6 +205,16 @@ export default function DrawerMenuScreen({ navigation }) {
           <View style={s.itemTextWrap}><Text style={[s.itemText, s.logoutText]}>خروج از حساب</Text></View>
         </TouchableOpacity>
       </ScrollView>
+      <Modal visible={photoOpen} transparent animationType="fade" onRequestClose={() => setPhotoOpen(false)}>
+        <View style={s.photoModal}>
+          <TouchableOpacity style={s.photoClose} onPress={() => setPhotoOpen(false)} accessibilityLabel="بستن تصویر"><Text style={s.photoCloseText}>×</Text></TouchableOpacity>
+          {photo ? <Image source={imageSource(photo)} style={s.photoFull} resizeMode="contain" /> : <View style={s.photoEmpty}><Text style={s.photoInitial}>{String(user?.name || '؟').trim().charAt(0) || '؟'}</Text><Text style={s.photoEmptyText}>برای این حساب عکسی ثبت نشده است.</Text></View>}
+          <View style={s.photoActions}>
+            <TouchableOpacity style={s.photoAction} onPress={changePhoto} disabled={photoBusy}><Text style={s.photoActionText}>{photoBusy ? 'در حال انجام…' : 'تغییر عکس'}</Text></TouchableOpacity>
+            {photo ? <TouchableOpacity style={s.photoAction} onPress={savePhoto} disabled={photoBusy}><Text style={s.photoActionText}>ذخیره در گالری</Text></TouchableOpacity> : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -151,12 +224,14 @@ const s = StyleSheet.create({
   header: { backgroundColor: C.brand2, paddingTop: 48, paddingHorizontal: 18, paddingBottom: 18, borderBottomLeftRadius: 24, shadowColor: '#062f26', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
   brandRow: { width: '100%', flexDirection: 'row-reverse', alignItems: 'center' },
   brandMark: { width: 44, height: 44, borderRadius: 15, backgroundColor: 'rgba(255,255,255,.15)', alignItems: 'center', justifyContent: 'center', marginLeft: 11 },
+  brandLogo: { width: 36, height: 36, borderRadius: 10 },
   brandMarkText: { fontSize: 23, textAlign: 'center', writingDirection: 'ltr' },
   brandTextWrap: { flex: 1, alignItems: 'flex-end' },
   brand: { width: '100%', color: '#fff', fontFamily: FONT.bold, fontSize: 24, textAlign: 'right', writingDirection: 'rtl' },
   title: { width: '100%', color: '#dcefe9', fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', writingDirection: 'rtl', marginTop: 2 },
   profileRow: { width: '100%', minHeight: 56, backgroundColor: 'rgba(255,255,255,.11)', borderRadius: 16, padding: 9, marginTop: 14, flexDirection: 'row-reverse', alignItems: 'center' },
-  profileAvatar: { width: 38, height: 38, borderRadius: 13, backgroundColor: C.taxi, alignItems: 'center', justifyContent: 'center', marginLeft: 10 },
+  profileAvatar: { width: 46, height: 46, overflow: 'hidden', borderRadius: 23, backgroundColor: C.taxi, alignItems: 'center', justifyContent: 'center', marginLeft: 10, borderWidth: 2, borderColor: 'rgba(255,255,255,.65)' },
+  profileImage: { width: '100%', height: '100%' },
   profileInitial: { color: C.brand2, fontFamily: FONT.bold, fontSize: 18, textAlign: 'center' },
   profileTextWrap: { flex: 1, minWidth: 0, alignItems: 'flex-end' },
   profileName: { width: '100%', color: '#fff', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
@@ -173,4 +248,14 @@ const s = StyleSheet.create({
   logoutItem: { marginTop: 14, borderColor: '#e3403e' },
   logoutIcon: { backgroundColor: '#fde8e7' },
   logoutText: { color: '#e3403e' },
+  photoModal: { flex: 1, backgroundColor: 'rgba(3,10,16,.96)', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  photoClose: { position: 'absolute', top: 42, right: 22, zIndex: 2, width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,.14)', alignItems: 'center', justifyContent: 'center' },
+  photoCloseText: { color: '#fff', fontSize: 32, lineHeight: 36 },
+  photoFull: { width: '100%', height: '76%' },
+  photoEmpty: { width: 220, height: 220, borderRadius: 110, backgroundColor: C.taxi, alignItems: 'center', justifyContent: 'center' },
+  photoInitial: { color: C.brand2, fontFamily: FONT.bold, fontSize: 76 },
+  photoEmptyText: { color: '#fff', fontFamily: FONT.regular, fontSize: 12, marginTop: 18 },
+  photoActions: { width: '100%', flexDirection: 'row-reverse', justifyContent: 'center', gap: 12, marginTop: 24 },
+  photoAction: { minWidth: 132, backgroundColor: C.brand, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 16, alignItems: 'center' },
+  photoActionText: { color: '#fff', fontFamily: FONT.bold, fontSize: 13 },
 });

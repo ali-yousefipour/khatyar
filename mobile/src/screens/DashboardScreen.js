@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAudioPlayer } from 'expo-audio';
 import { openDrawer as khOpenDrawer } from '../drawerControl';
-import { Alert, Animated, AppState, Image, Linking, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Alert, Animated, AppState, DeviceEventEmitter, Image, Linking, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
@@ -13,6 +13,7 @@ import { C, FONT } from '../theme';
 import { subscribeUnreadCounts, refreshUnreadCounts, unreadLabel } from '../unread';
 import { todayFaLong } from '../jdate';
 import { useRadio } from '../radio/RadioContext';
+import { getLockConfig, lockAppNow } from '../AppLock';
 
 function RadioHeaderToggle({ navigation }) {
   const { enabled, busy } = useRadio();
@@ -72,6 +73,7 @@ export default function DashboardScreen({ navigation }) {
   const [menuTab, setMenuTab] = useState('all');
   const [syncing, setSyncing] = useState(false);
   const [syncDetail, setSyncDetail] = useState('');
+  const [appLockEnabled, setAppLockEnabled] = useState(false);
   const [pop, setPop] = useState(null);
   const [menuOrder, setMenuOrder] = useState([]);
   const [orderModal, setOrderModal] = useState(false);
@@ -142,7 +144,7 @@ export default function DashboardScreen({ navigation }) {
     const isAdmin = !!(user.is_admin || (user.level || 0) >= 3);
     request('/my/app-config').then((c) => setAccess({ welfare: isAdmin || !!c?.can_welfare, cultural: isAdmin || !!c?.can_cultural, temp: isAdmin || !!c?.can_manage_temp_drivers })).catch(() => setAccess({ welfare: isAdmin, cultural: isAdmin, temp: isAdmin }));
     return () => { active = false; };
-  }, [user?.id]);
+  }, [user?.id, user?.photo]);
 
   useEffect(() => {
     if (!user) return;
@@ -249,6 +251,15 @@ export default function DashboardScreen({ navigation }) {
   const orderedMenu = (menuOrder.length ? menuOrder : MENU.map((m) => m.r)).map((r) => MENU.find((m) => m.r === r)).filter(Boolean);
   useEffect(() => { flushQueuedRequests(); registerPush(); load(); const unsub = navigation.addListener('focus', load); return unsub; }, [navigation]);
 
+  useEffect(() => {
+    let active = true;
+    const readLockState = () => getLockConfig().then((config) => { if (active) setAppLockEnabled(!!config.enabled); }).catch(() => {});
+    readLockState();
+    const configSub = DeviceEventEmitter.addListener('khatyar.appLock.configChanged', (config) => setAppLockEnabled(!!config?.enabled));
+    const focusSub = navigation.addListener('focus', readLockState);
+    return () => { active = false; configSub.remove(); focusSub(); };
+  }, [navigation]);
+
   const manualSync = async () => {
     if (syncing) return;
     setSyncing(true);
@@ -256,8 +267,8 @@ export default function DashboardScreen({ navigation }) {
   };
 
   useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: true, headerBackVisible: false, headerLeft: () => <View style={s.headerBar}><View style={s.headerActions}><TouchableOpacity onPress={manualSync} disabled={syncing} style={s.headerIcon} hitSlop={8}><Text style={s.headerIconText}>{syncing ? '⏳' : '↻'}</Text></TouchableOpacity>{(allowed === null || allowed.includes('Radio')) && <RadioHeaderToggle navigation={navigation} />}<TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={s.headerIcon} hitSlop={8}><View style={s.bellWrap}><Text style={s.headerIconText}>🔔</Text>{stats.unread > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{stats.unread > 99 ? '+۹۹' : faNum(Number(stats.unread))}</Text></View> : null}</View></TouchableOpacity><TouchableOpacity onPress={() => { navigation.navigate('InboxReports'); refreshUnreadCounts(); }} style={s.headerIcon} hitSlop={8}><View style={s.bellWrap}><Text style={s.headerIconText}>📥</Text>{unreadCounts.reports > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{unreadLabel(unreadCounts.reports)}</Text></View> : null}</View></TouchableOpacity><TouchableOpacity onPress={() => { navigation.navigate('Messages'); refreshUnreadCounts(); }} style={s.headerIcon} hitSlop={8}><View style={s.bellWrap}><Text style={s.headerIconText}>💬</Text>{unreadCounts.messages > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{unreadLabel(unreadCounts.messages)}</Text></View> : null}</View></TouchableOpacity></View><TouchableOpacity onPress={() => khOpenDrawer()} style={s.headerMenuButton} hitSlop={8}><Text style={s.headerMenuText}>☰</Text></TouchableOpacity></View>, headerRight: undefined });
-  }, [navigation, stats.unread, syncing]);
+    navigation.setOptions({ headerShown: true, headerBackVisible: false, headerLeft: () => <View style={s.headerBar}><View style={s.headerActions}><TouchableOpacity onPress={manualSync} disabled={syncing} style={s.headerIcon} hitSlop={8} accessibilityRole="button" accessibilityLabel="بروزرسانی اطلاعات و پاک‌سازی کش"><Image source={require('../../assets/icons3d/app-update.png')} style={[s.headerActionImage, syncing && { opacity: 0.5 }]} resizeMode="contain" /></TouchableOpacity>{appLockEnabled ? <TouchableOpacity onPress={lockAppNow} style={s.headerIcon} hitSlop={8} accessibilityRole="button" accessibilityLabel="قفل کردن برنامه"><Image source={require('../../assets/icons3d/app-lock.png')} style={s.headerActionImage} resizeMode="contain" /></TouchableOpacity> : null}{(allowed === null || allowed.includes('Radio')) && <RadioHeaderToggle navigation={navigation} />}<TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={s.headerIcon} hitSlop={8}><View style={s.bellWrap}><Text style={s.headerIconText}>🔔</Text>{stats.unread > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{stats.unread > 99 ? '+۹۹' : faNum(Number(stats.unread))}</Text></View> : null}</View></TouchableOpacity><TouchableOpacity onPress={() => { navigation.navigate('InboxReports'); refreshUnreadCounts(); }} style={s.headerIcon} hitSlop={8}><View style={s.bellWrap}><Text style={s.headerIconText}>📥</Text>{unreadCounts.reports > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{unreadLabel(unreadCounts.reports)}</Text></View> : null}</View></TouchableOpacity><TouchableOpacity onPress={() => { navigation.navigate('Messages'); refreshUnreadCounts(); }} style={s.headerIcon} hitSlop={8}><View style={s.bellWrap}><Text style={s.headerIconText}>💬</Text>{unreadCounts.messages > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{unreadLabel(unreadCounts.messages)}</Text></View> : null}</View></TouchableOpacity></View><TouchableOpacity onPress={() => khOpenDrawer()} style={s.headerMenuButton} hitSlop={8}><Text style={s.headerMenuText}>☰</Text></TouchableOpacity></View>, headerRight: undefined });
+  }, [navigation, stats.unread, syncing, appLockEnabled]);
 
   const canShow = (m) => { if (m.r === 'Complaints') return true; if (m.r === 'Help') return false; if (m.needs === 'schoolservice') return schoolServiceAllowed; if (m.needs && !access[m.needs]) return false; if (allowed === null) return true; if (m.r === 'StationCapture' || m.r === 'MyStations') return ['StationCapture', 'MyStations', 'LineLocation'].some((k) => allowed.includes(k)); return allowed.includes(m.r); };
   const visibleMenu = orderedMenu.filter((m) => (m.r !== 'Sms' && m.r !== 'MySms' && m.r !== 'BotMessages') || !!user?.can_send_sms || m.r === 'BotMessages').filter(canShow).filter((m) => menuTab === 'all' || categoryOf(m.r) === menuTab).filter((m) => { const q = String(menuSearch || '').trim().toLocaleLowerCase(); return !q || String(m.t || '').toLocaleLowerCase().includes(q); });
@@ -276,6 +287,7 @@ const s = StyleSheet.create({
   headerActions: { height: 44, flexDirection: 'row-reverse', alignItems: 'center' },
   headerIcon: { width: 36, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerIconText: { color: '#fff', fontSize: 18, textAlign: 'center', writingDirection: 'ltr' },
+  headerActionImage: { width: 25, height: 25 },
   headerMenuButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerMenuText: { color: '#fff', fontSize: 24, textAlign: 'center', writingDirection: 'ltr' },
   bellWrap: { width: 34, height: 40, alignItems: 'center', justifyContent: 'center', position: 'relative' },

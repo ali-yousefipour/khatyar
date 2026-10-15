@@ -20,7 +20,11 @@ import { isTileCached, loadLocalTilesAround } from '../mapCache';
 
 // فاصلهٔ هاورساین به متر
 const WIFI_BSSID_CACHE_KEY = 'wifi_authorized_bssids_v1';
-function normalizeBssid(value) { return String(value || '').toLowerCase().replace(/[\s:-]/g, ''); }
+function normalizeBssid(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}|(?:[0-9a-f]{4}\.){2}[0-9a-f]{4}|\b[0-9a-f]{12}\b/i);
+  return match ? match[0].replace(/[^0-9a-f]/gi, '').toLowerCase() : '';
+}
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000, toR = (d) => (d * Math.PI) / 180;
   const dLat = toR(lat2 - lat1), dLon = toR(lon2 - lon1);
@@ -122,13 +126,22 @@ function CheckInCore() {
     } catch {}
   };
   const getAuthorizedWifi = async () => {
-    let config = cfg;
-    if (!config?.lines?.length) { try { config = await cachedValue('/my/checkin-config'); } catch {} }
-    if (config?.lines?.length) {
-      const entries = (config.lines || []).flatMap((l) => (l.idents || [])
+    let config = null;
+    let freshConfigLoaded = false;
+    try {
+      config = await request('/my/checkin-config', { noStore: true, timeoutMs: 10000 });
+      freshConfigLoaded = true;
+      if (config && typeof config === 'object') await cacheAuthorizedWifi(config);
+    } catch {
+      config = cfg;
+      if (!config?.lines?.length) { try { config = await cachedValue('/my/checkin-config'); } catch {} }
+    }
+    if (Array.isArray(config?.lines)) {
+      const entries = config.lines.flatMap((l) => (l.idents || [])
         .filter((ident) => String(ident.kind || '').trim().toLowerCase() === 'wifi' && normalizeBssid(ident.value) && (!Array.isArray(l.checkin_methods) || !l.checkin_methods.length || l.checkin_methods.some((m) => String(m || '').trim().toLowerCase() === 'wifi')))
         .map((ident) => ({ line: l, line_id: Number(l.id), line_code: String(l.code || l.id), bssid: normalizeBssid(ident.value), label: String(ident.label || '') })));
       if (entries.length) return entries;
+      if (freshConfigLoaded) return [];
     }
     try {
       const raw = await AsyncStorage.getItem(WIFI_BSSID_CACHE_KEY);
