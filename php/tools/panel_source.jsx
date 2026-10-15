@@ -666,7 +666,8 @@ function Dashboard(){
   const K=[["راننده فعال",s.drivers],["خط فعال",s.lines],["حضور امروز",s.today_attendance],["فیش پرداخت‌نشده",s.unpaid_bills],["تذکر این ماه",s.notices_month]];
   return(<div className="dashboard-page">
     <div className="kpis">{K.map(([l,n],i)=><div className="kpi" key={i}><div className="n">{fa(n)}</div><div className="l">{l}</div></div>)}</div>
-    <PersonnelDistributionDashboard/>\n    <LiveStaffDashboard/>
+    <PersonnelDistributionDashboard/>
+    <LiveStaffDashboard/>
     {bdays&&bdays.people&&bdays.people.length>0&&<div style={{background:"linear-gradient(135deg,#fff5f8,#fef9ee)",border:"1px solid #f5d5e0",borderRadius:14,padding:16,margin:"14px 0"}}>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
         <span style={{fontSize:22}}>🎂</span>
