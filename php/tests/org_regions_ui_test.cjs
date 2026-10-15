@@ -118,6 +118,8 @@ async function testChart() {
   let shown = cards();
   assert.deepEqual(shown.map(node => node.props.key).sort((first, second) => first - second), [1,2,3,4,5,6,7]);
   assert.ok(shown.every(node => node.props.draggable === false));
+  assert.equal(button(tree, 'بستن همه').props.disabled, true);
+  assert.equal(button(tree, 'بازکردن همه').props.disabled, true);
   const field = shown.find(node => node.props.key === 7);
   assert.ok(field.props.style.top > shown.find(node => node.props.key === 5).props.style.top);
   assert.ok(field.props.style.top > shown.find(node => node.props.key === 6).props.style.top);
