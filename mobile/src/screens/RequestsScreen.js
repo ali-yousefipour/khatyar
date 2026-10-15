@@ -54,31 +54,55 @@ const TYPES = [
   { k: 'manual', t: 'تردد دستی', manual: true },
 ];
 
-// A workday for annual leave is 7h 33m (453 minutes).
-const ANNUAL_DAY_MINUTES = 453;
-const annualMinutes = (days, hours) => Math.round((Number(days) || 0) * ANNUAL_DAY_MINUTES + (Number(hours) || 0) * 60);
-const annualDuration = (minutes) => {
-  const m = Math.max(0, Math.round(minutes));
-  return `${Math.floor(m / 60)} ساعت و ${String(m % 60).padStart(2, '0')} دقیقه — معادل ${(m / ANNUAL_DAY_MINUTES).toLocaleString('fa-IR', { maximumFractionDigits: 2 })} روز`;
-};
 function AnnualLeaveStatus({ balance }) {
   const daily = balance?.balance?.annual_daily || {};
   const hourly = balance?.balance?.annual_hourly || {};
-  const hasLimit = [daily.cap_year, hourly.cap_year].some((v) => v != null && Number(v) > 0);
-  if (!hasLimit) return <Text style={s.muted}>سهمیه مرخصی استحقاقی در تنظیمات سامانه تعریف نشده یا قابل دریافت نیست.</Text>;
-  const cap = annualMinutes(daily.cap_year, hourly.cap_year);
-  const remaining = annualMinutes(daily.left_year, hourly.left_year);
-  const used = Math.max(0, cap - remaining);
-  const monthly = annualMinutes(daily.left_month, hourly.left_month);
+  const snapshot = balance?.official_snapshot;
+  const hasDailyLimit = [daily.cap_month, daily.cap_year].some((v) => v != null && Number(v) > 0);
+  const hasHourlyLimit = [hourly.cap_month, hourly.cap_year].some((v) => v != null && Number(v) > 0);
+  const fmt = (value, unit) => value == null ? 'نامحدود' : `${Number(value).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} ${unit}`;
+  const fmtDuration = (value) => {
+    if (value == null || !Number.isFinite(Number(value))) return '—';
+    const minutes = Math.round(Number(value));
+    const absolute = Math.abs(minutes);
+    const sign = minutes < 0 ? 'منفی ' : '';
+    return `${sign}${Math.floor(absolute / 60).toLocaleString('fa-IR')} ساعت و ${String(absolute % 60).padStart(2, '0')} دقیقه`;
+  };
+  const unitSummary = (label, data, unit) => (
+    <View key={label} style={s.leaveUnit}>
+      <Text style={s.leaveUnitTitle}>{label}</Text>
+      <Text style={s.leaveLine}>مصرف قطعی ماه جاری: <Text style={s.leaveValue}>{fmt(data.used_month, unit)}</Text></Text>
+      <Text style={s.leaveLine}>در انتظار تأیید این ماه: <Text style={s.leavePending}>{fmt(data.pending_month || 0, unit)}</Text></Text>
+      <Text style={s.leaveLine}>مصرف قطعی سال: <Text style={s.leaveValue}>{fmt(data.used_year, unit)}</Text></Text>
+      <Text style={s.leaveLine}>در انتظار تأیید: <Text style={s.leavePending}>{fmt(data.pending_year || 0, unit)}</Text></Text>
+      <Text style={s.leaveLine}>مانده سهمیه سال: <Text style={s.leaveValue}>{fmt(data.left_year, unit)}</Text></Text>
+      <Text style={s.leaveLine}>مانده مجاز ماه جاری: <Text style={s.leaveValue}>{fmt(data.left_month, unit)}</Text></Text>
+    </View>
+  );
+  const hasLimit = hasDailyLimit || hasHourlyLimit;
+  if (!hasLimit && !snapshot) return <Text style={s.muted}>گزارش رسمی مرخصی یا سهمیهٔ قابل دریافت برای این کاربر وجود ندارد.</Text>;
   return (
     <View>
-      <Text style={s.label}>مرخصی استحقاقی استفاده‌شده در سال جاری</Text>
-      <Text style={s.cardReason}>{annualDuration(used)}</Text>
-      <Text style={s.label}>مرخصی استحقاقی باقیمانده طبق سهمیه سالانه</Text>
-      <Text style={s.cardReason}>{annualDuration(remaining)}</Text>
-      <Text style={s.label}>مرخصی مجاز قابل استفاده طبق تنظیمات سامانه</Text>
-      <Text style={s.cardReason}>مانده مجاز ماه جاری: {annualDuration(monthly)}</Text>
-      <Text style={s.modalHint}>اطلاعات از سقف و مانده مرخصی ثبت‌شده در سرور دریافت می‌شود. این ارقام الزاماً استحقاق انباشته تا امروز نیستند.</Text>
+      {snapshot ? (
+        <View style={s.leaveUnit}>
+          <Text style={s.leaveUnitTitle}>آخرین گزارش رسمی مرخصی</Text>
+          <Text style={s.leaveLine}>پوشش گزارش: تا {String(snapshot.through_jdate || '—').replace(/-/g, '/')}</Text>
+          <Text style={s.leaveLine}>ماه گزارش: {Number(snapshot.period_year).toLocaleString('fa-IR')}/{Number(snapshot.period_month).toLocaleString('fa-IR', { minimumIntegerDigits: 2, useGrouping: false })}</Text>
+          <Text style={s.leaveLine}>ماه — مجاز: <Text style={s.leaveValue}>{fmtDuration(snapshot.monthly_allowed_min)}</Text></Text>
+          <Text style={s.leaveLine}>ماه — مصرف‌شده: <Text style={s.leaveValue}>{fmtDuration(snapshot.monthly_used_min)}</Text> · مانده: <Text style={s.leaveValue}>{fmtDuration(snapshot.monthly_balance_min)}</Text></Text>
+          <Text style={s.leaveLine}>سال — مجاز: <Text style={s.leaveValue}>{fmtDuration(snapshot.yearly_allowed_min)}</Text></Text>
+          <Text style={s.leaveLine}>سال — مصرف‌شده: <Text style={s.leaveValue}>{fmtDuration(snapshot.yearly_used_min)}</Text> · مانده: <Text style={s.leaveValue}>{fmtDuration(snapshot.yearly_balance_min)}</Text></Text>
+          {snapshot.source_reported_at ? <Text style={s.modalHint}>زمان ثبت فایل مبنا: {snapshot.source_reported_at}</Text> : null}
+        </View>
+      ) : null}
+      {hasLimit ? (
+        <View>
+          <Text style={s.modalHint}>وضعیت درخواست‌ها بر اساس سهمیه‌های جاری سامانه</Text>
+          {hasDailyLimit ? unitSummary('سهمیه روزانه', daily, 'روز') : null}
+          {hasHourlyLimit ? unitSummary('سهمیه ساعتی', hourly, 'ساعت') : null}
+          <Text style={s.modalHint}>مصرف قطعی فقط درخواست‌های تأییدشده است؛ درخواست‌های در انتظار جدا نمایش داده می‌شوند و در محاسبهٔ ماندهٔ سهمیهٔ سامانه لحاظ شده‌اند.</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -133,7 +157,7 @@ function NewRequest({ onDone, initialType, initialDate }) {
     setLeaveStatusOpen(true);
     setLeaveBalanceLoading(true);
     setLeaveBalanceError('');
-    try { setLeaveBalance(await request('/my/leave-balance')); }
+    try { setLeaveBalance(await request('/my/leave-balance', { noStore: true, forceNetwork: true, queueIfOffline: false })); }
     catch (e) { setLeaveBalance(null); setLeaveBalanceError(e.message || 'دریافت وضعیت مرخصی ناموفق بود.'); }
     finally { setLeaveBalanceLoading(false); }
   };
@@ -334,7 +358,8 @@ function MyRequests() {
   const load = async () => {
     setLoadError('');
     try {
-      const response = await request('/my/requests');
+      // Do not render stale offline cache as if it were a current server response.
+      const response = await request('/my/requests', { noStore: true, forceNetwork: true, queueIfOffline: false });
       const items = Array.isArray(response) ? response :
         (Array.isArray(response?.requests) ? response.requests :
         (Array.isArray(response?.rows) ? response.rows :
@@ -348,7 +373,7 @@ function MyRequests() {
   };
   useEffect(() => {
     load();
-    request('/my/leave-balance').then(setBal).catch(() => {});
+    request('/my/leave-balance', { noStore: true, forceNetwork: true, queueIfOffline: false }).then(setBal).catch(() => {});
   }, []);
   if (!rows) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
   const TY = { annual: 'مرخصی استحقاقی', sick: 'مرخصی استعلاجی', mission: 'ماموریت', overtime: 'اضافه‌کار', manual: 'تردد دستی' };
@@ -446,4 +471,9 @@ const s = StyleSheet.create({
   balRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 5, borderTopWidth: 1, borderTopColor: C.line },
   balL: { fontFamily: FONT.regular, color: C.slate, fontSize: 12.5 },
   balV: { fontFamily: FONT.regular, color: C.muted, fontSize: 12 },
+  leaveUnit: { backgroundColor: '#f7fafc', borderColor: C.line, borderWidth: 1, borderRadius: 10, padding: 10, marginBottom: 9 },
+  leaveUnitTitle: { fontFamily: FONT.bold, color: C.brand, fontSize: 13, textAlign: 'right', marginBottom: 5 },
+  leaveLine: { fontFamily: FONT.regular, color: C.slate, fontSize: 12, textAlign: 'right', paddingVertical: 2 },
+  leaveValue: { fontFamily: FONT.bold, color: C.ok },
+  leavePending: { fontFamily: FONT.bold, color: '#b36a00' },
 });

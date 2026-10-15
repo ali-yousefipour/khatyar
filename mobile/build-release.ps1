@@ -638,7 +638,7 @@ try {
     if (-not (Test-Path -LiteralPath $InitScript)) { Fail 'gradle-mirror.init.gradle is missing.' }
     $package = Get-Content -LiteralPath $packagePath -Raw | ConvertFrom-Json
     if ([string]$package.dependencies.expo -notmatch '^~?57\.') { Fail "Expo dependency is $($package.dependencies.expo); SDK 57 baseline required." }
-    if ([string]$package.dependencies.'react-native' -ne '0.86.0') { Fail 'React Native 0.86.0 baseline required.' }
+    if ([string]$package.dependencies.'react-native' -ne '0.86.3') { Fail 'React Native 0.86.3 baseline required.' }
     if ([string]$package.dependencies.react -ne '19.2.3') { Fail 'React 19.2.3 baseline required.' }
     $packageHash = Get-FileHashSafe $packagePath
     $nativeConfigHash = Get-NativeConfigHash

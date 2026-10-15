@@ -43,6 +43,8 @@ jobs:
           grep -q 'attendance-shift-day-paste' app/assets/panel.bundle.js
           grep -q 'shift-paste-mode' app/assets/panel.bundle.js
           grep -q 'onContextMenu' app/assets/panel.bundle.js
+          grep -q 'type === "simple" && React.createElement(React.Fragment, null' app/assets/panel.bundle.js
+          grep -q 'if (type === "simple") {' app/assets/panel.bundle.js
           grep -q 'attendance-shift-assignment-error' app/assets/panel.bundle.js
           grep -q '_ensure_user_shifts_schema' lib/routes.php
           grep -q 'run(String(person.id))' app/assets/panel.bundle.js
@@ -411,10 +413,10 @@ jobs:
             "${url}" > /tmp/live-panel.html
 
           grep -q 'assets/panel-build-runtime-fix.js?v=20261011.2' /tmp/live-panel.html
-          grep -q 'assets/panel.bundle.js?v=20261015.2' /tmp/live-panel.html
+          grep -q 'assets/panel.bundle.js?v=20261015.3' /tmp/live-panel.html
           grep -Eq 'assets/school-service-admin.js.v=20261011.256' /tmp/live-panel.html
-          grep -q '1.5.8' /tmp/live-panel.html
-          grep -q 'AUTO DEPLOY VERIFY: 2026-10-14-calendar-context-paste-controls-v7' /tmp/live-panel.html
+          grep -q '1.5.9' /tmp/live-panel.html
+          grep -q 'AUTO DEPLOY VERIFY: 2026-10-14-advanced-shift-mode-fields-v8' /tmp/live-panel.html
           ! grep -q '/api/admin/complaints/dashboard' /tmp/live-panel.html
           ! grep -q 'window.openComplaints=open;open();' /tmp/live-panel.html
 
@@ -433,8 +435,8 @@ jobs:
             "${url}" > /tmp/live-panel-bundle.js
 
           test -s /tmp/live-panel-bundle.js
+          grep -q 'PANEL BUILD: 1.5.9 (attendance-leave-request-fix)' /tmp/live-panel-bundle.js
           grep -q 'leavereport' /tmp/live-panel-bundle.js
-          grep -q 'PANEL BUILD: 1.5.8 (attendance-report-controls)' /tmp/live-panel-bundle.js
           grep -q 'khatyar.attendance.report.visible-columns.v1' /tmp/live-panel-bundle.js
           grep -q 'columnSettingsOpen' /tmp/live-panel-bundle.js
           grep -q 'selectedColumns' /tmp/live-panel-bundle.js
@@ -445,6 +447,8 @@ jobs:
           grep -q 'attendance-shift-day-paste' /tmp/live-panel-bundle.js
           grep -q 'shift-paste-mode' /tmp/live-panel-bundle.js
           grep -q 'onContextMenu' /tmp/live-panel-bundle.js
+          grep -q 'type === "simple" && React.createElement(React.Fragment, null' /tmp/live-panel-bundle.js
+          grep -q 'if (type === "simple") {' /tmp/live-panel-bundle.js
           grep -q 'attendance-shift-assignment-error' /tmp/live-panel-bundle.js
           grep -q 'run(String(person.id))' /tmp/live-panel-bundle.js
           grep -Fq '`${y}/${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}`' /tmp/live-panel-bundle.js

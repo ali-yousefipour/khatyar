@@ -10,7 +10,7 @@ const android = path.join(root, 'android');
 const wrapperProperties = path.join(android, 'gradle', 'wrapper', 'gradle-wrapper.properties');
 const configureWrapper = path.join(__dirname, 'configure-gradle-wrapper.js');
 const REQUIRED_GRADLE = '8.13';
-const REQUIRED_RN = '0.86.0';
+const REQUIRED_RN = '0.86.3';
 const REQUIRED_REACT = '19.2.3';
 const MAVEN_MARKER = 'KHATYAR_ANDROID_MAVEN_MIRRORS';
 

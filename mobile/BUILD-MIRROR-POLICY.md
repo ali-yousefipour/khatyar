@@ -94,7 +94,7 @@ metadataSources { mavenPom(); artifact() }
 
 ```text
 Expo SDK       57
-React Native   0.86.0
+React Native   0.86.3
 Gradle         8.13
 JDK            17
 ```
@@ -164,8 +164,8 @@ Windows دائمی:
 ## وضعیت فعلی پروژه
 
 ```text
-Expo             ~57.0.6
-React Native     0.86.0
+Expo             ~57.0.29
+React Native     0.86.3
 React            19.2.3
 Gradle           8.13
 JDK              17

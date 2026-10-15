@@ -1,7 +1,7 @@
 {
   "name": "khatyar-mobile",
-  "version": "1.5.8",
-  "description": "خطیار — نسخه 1.5.8",
+  "version": "1.5.9",
+  "description": "خطیار — نسخه 1.5.9",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
@@ -66,6 +66,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
-    "babel-preset-expo": "~57.0.3"
+    "babel-preset-expo": "~57.0.3",
+    "@expo/config-plugins": "~57.0.9"
   }
 }

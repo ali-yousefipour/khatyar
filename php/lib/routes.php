@@ -4,8 +4,8 @@ require_once __DIR__.'/GpsWorkIntervals.php';
 const ADMIN = 3; // سطح ۳ و بالاتر = مدیریتی
 // از این نسخه به بعد، به‌درخواست کارفرما، شمارهٔ نسخهٔ سایت و اپ اندروید و نام فایل زیپ پروژه
 // همیشه یکسان و هماهنگ نگه داشته می‌شوند (به‌جای دو شمارندهٔ جداگانه مثل قبل).
-const SITE_VERSION = '1.5.8';   // نسخهٔ سایت — همیشه با نسخهٔ اپ و نام فایل پروژه یکی است
-const APP_VERSION = '1.5.8'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
+const SITE_VERSION = '1.5.9';   // نسخهٔ سایت — همیشه با نسخهٔ اپ و نام فایل پروژه یکی است
+const APP_VERSION = '1.5.9'; // نسخهٔ اپ اندروید — با هر تغییر افزایش می‌یابد
 
 
 /* Phase 7.8 — زمان واقعی ثبت کلاینت برای عملیات آفلاین/آنلاین */
@@ -3471,19 +3471,27 @@ function _req_notify_sms($req,$status,$note){
 // محاسبهٔ مصرف یک نوع درخواست در ماه/سال جاری (دقیقه و تعداد)
 function _req_usage($uid,$type,$unit,$jy,$jm){
   // درخواست‌های کاملاً تکراری قدیمی نیز فقط یک‌بار در مانده محاسبه شوند.
-  $rows = Db::all("SELECT MAX(minutes) AS minutes, the_date, from_jdate, unit
+  $rows = Db::all("SELECT MAX(minutes) AS minutes, the_date, from_jdate, unit,
+      CASE WHEN MAX(status='approved')=1 THEN 'approved' ELSE 'pending' END AS balance_status
     FROM requests
     WHERE user_id=? AND type=? AND (unit=? OR ?='') AND status IN('pending','approved')
     GROUP BY user_id,type,unit,the_date,from_jdate,to_jdate,from_time,to_time",
     [$uid,$type,$unit,$unit]);
   $monthMin=0;$yearMin=0;$monthCnt=0;$yearCnt=0;
+  $approvedMonthMin=0;$approvedYearMin=0;$pendingMonthMin=0;$pendingYearMin=0;
   foreach($rows as $r){
     $d = $r['the_date'] ?: $r['from_jdate'];
     if(!$d || !preg_match('/^(\d{4})-(\d{2})/',$d,$m)) continue;
     $ry=(int)$m[1]; $rm=(int)$m[2];
-    if($ry==$jy){ $yearMin+=(int)$r['minutes']; $yearCnt++; if($rm==$jm){ $monthMin+=(int)$r['minutes']; $monthCnt++; } }
+    if($ry==$jy){
+      $minutes=(int)$r['minutes'];$yearMin+=$minutes;$yearCnt++;
+      if($r['balance_status']==='approved')$approvedYearMin+=$minutes;else$pendingYearMin+=$minutes;
+      if($rm==$jm){$monthMin+=$minutes;$monthCnt++;if($r['balance_status']==='approved')$approvedMonthMin+=$minutes;else$pendingMonthMin+=$minutes;}
+    }
   }
-  return ['month_min'=>$monthMin,'year_min'=>$yearMin,'month_cnt'=>$monthCnt,'year_cnt'=>$yearCnt];
+  return ['month_min'=>$monthMin,'year_min'=>$yearMin,'month_cnt'=>$monthCnt,'year_cnt'=>$yearCnt,
+    'approved_month_min'=>$approvedMonthMin,'approved_year_min'=>$approvedYearMin,
+    'pending_month_min'=>$pendingMonthMin,'pending_year_min'=>$pendingYearMin];
 }
 
 // تعیین مقام تأییدکننده (سلسله‌مراتبی یا مسئول خاص)
@@ -3754,7 +3762,8 @@ route('GET', '/api/my/requests', function($p,$b,$u){
   $hasSub = false;
   try { $hasSub = (bool)Db::one("SHOW COLUMNS FROM requests WHERE Field='substitute_user_id'"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   if ($hasSub) {
-    return Db::all("SELECT r.$sel, r.substitute_user_id,
+    return Db::all("SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,
+        r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name,r.substitute_user_id,
         TRIM(CONCAT(COALESCE(su.first_name,''),' ',COALESCE(su.last_name,''))) substitute_name
       FROM requests r LEFT JOIN users su ON su.id=r.substitute_user_id
       WHERE r.user_id=? ORDER BY r.id DESC LIMIT 100", [$u['id']]);
@@ -4030,7 +4039,23 @@ route('GET', '/api/admin/personnel-leave-report', function($p,$b,$u){
 
 // مانده مرخصی/ماموریت/اضافه‌کار یک کاربر (سقف منهای مصرف)
 function _req_balance($uid){
+  _ensure_requests_table();
   [$jy,$jm] = array_slice(gregorian_to_jalali(date('Y'),date('m'),date('d')),0,2);
+  $officialSnapshot = null;
+  try {
+    _ensure_personnel_leave_snapshots();
+    $officialSnapshot = Db::one("SELECT period_year,period_month,through_jdate,source_reported_at,
+        monthly_used_min,monthly_balance_min,monthly_allowed_min,
+        yearly_used_min,yearly_balance_min,yearly_allowed_min
+      FROM personnel_leave_snapshots
+      WHERE user_id=? AND period_year<=?
+      ORDER BY period_year DESC,period_month DESC,id DESC LIMIT 1", [(int)$uid,$jy]);
+    if ($officialSnapshot) {
+      foreach (['period_year','period_month','monthly_used_min','monthly_balance_min','monthly_allowed_min','yearly_used_min','yearly_balance_min','yearly_allowed_min'] as $key) {
+        $officialSnapshot[$key] = (int)$officialSnapshot[$key];
+      }
+    }
+  } catch (\Throwable $e) { error_log('leave balance snapshot lookup failed: '.$e->getMessage()); }
   $out = [];
   // مرخصی استحقاقی و استعلاجی (ساعتی/روزانه)
   foreach (['annual','sick'] as $type) {
@@ -4041,8 +4066,10 @@ function _req_balance($uid){
       $unitMin = $unit==='hourly'?60:480;
       $out["{$type}_{$unit}"] = [
         'cap_month'=>$capM,'cap_year'=>$capY,
-        'used_month'=> $unitMin? round($u['month_min']/$unitMin,1):0,
-        'used_year'=> $unitMin? round($u['year_min']/$unitMin,1):0,
+        'used_month'=> $unitMin? round($u['approved_month_min']/$unitMin,1):0,
+        'used_year'=> $unitMin? round($u['approved_year_min']/$unitMin,1):0,
+        'pending_month'=> $unitMin? round($u['pending_month_min']/$unitMin,1):0,
+        'pending_year'=> $unitMin? round($u['pending_year_min']/$unitMin,1):0,
         'left_month'=> $capM? max(0,$capM - ($unitMin?$u['month_min']/$unitMin:0)):null,
         'left_year'=> $capY? max(0,$capY - ($unitMin?$u['year_min']/$unitMin:0)):null,
       ];
@@ -4064,7 +4091,7 @@ function _req_balance($uid){
     'used_count_month'=>$um['month_cnt'],'used_min_month'=>$um['month_min'],
     'used_count_year'=>$um['year_cnt'],'used_min_year'=>$um['year_min'],
   ];
-  return ['year'=>$jy,'month'=>$jm,'balance'=>$out];
+  return ['year'=>$jy,'month'=>$jm,'balance'=>$out,'official_snapshot'=>$officialSnapshot];
 }
 
 // مانده مرخصی خودِ کاربر (اپ)
