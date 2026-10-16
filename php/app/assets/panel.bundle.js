@@ -14093,7 +14093,311 @@ function MessengerCenterPanel() {
                     _a.title,
                     " \u0645\u0634\u062A\u0631\u06A9\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))));
 }
+function payrollEscape(value) { return String(value !== null && value !== void 0 ? value : '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }
+function payrollNumber(value, decimals = 0) { return value === null || value === undefined || value === '' ? '—' : Number(value).toLocaleString('fa-IR', { maximumFractionDigits: decimals }); }
+function payrollSlipHtml(row, layout) {
+    const months = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+    const bindings = { 'نام': 'first_name', 'نام خانوادگی': 'last_name', 'کد ملی': 'national_code', 'سمت': 'role', 'صفر مجرد - یک متاهل': 'married', 'تعداد فرزند': 'children', 'روز کارکرد کل': 'days', 'مرخصی': 'leave_days', 'غیبت': 'absence_days', 'استعلاجی': 'sick_days', 'روز کارکرد موثر': 'effective_days', 'دستمزد  روزانه': 'daily_wage', 'مزد سنوات': 'seniority_wage', 'مزد شغل': 'job_wage', 'حقوق ماهیانه': 'monthly_wage', 'حق تاهل': 'marriage', 'حق اولاد': 'child_allowance', 'ساعت جمعه کاری': 'friday_hours', 'جمعه کاری': 'friday_amount', 'ساعت تعطیل کاری': 'holiday_hours', 'تعطیل کاری': 'holiday_amount', 'ساعت شب کاری': 'night_hours', 'شب کاری': 'night_amount', 'درصد نوبت کاری': 'shift_percent', 'مبلغ نوبت کاری': 'shift_amount', 'ساعت اضافه کار': 'overtime_hours', 'اضافه کار': 'overtime_amount', 'حق مسکن': 'housing', 'حق بن': 'food', 'متفرقه': 'other', 'جمع حقوق و مزایا': 'gross', 'مساعده/سایر کسورات': 'advance', 'بیمه تامین اجتماعی': 'insurance', 'مالیات': 'tax', 'خالص پرداختی': 'net' };
+    const cells = layout.controls.map(control => {
+        const position = `left:${Number(control.Left || 0) / layout.width * 100}%;top:${Number(control.Top || 0) / layout.height * 100}%;width:${Number(control.Width || 0) / layout.width * 100}%;height:${Number(control.Height || 0) / layout.height * 100}%;`;
+        if (control.kind === 'Rectangle' || control.kind === 'Line')
+            return `<div class="${control.kind === 'Line' ? 'divider' : 'frame'}" style="${position}"></div>`;
+        if (control.kind === 'Image')
+            return `<img alt="نشان شرکت" src="${payrollEscape(layout.logo)}" style="${position}object-fit:contain">`;
+        const field = bindings[control.ControlSource];
+        const value = control.kind === 'TextBox' ? (field ? row.data[field] : null) : (control.Name === 'Label86' ? `${months[Number(row.period_jm) - 1]}ماه ${Number(row.period_jy).toLocaleString('fa-IR', { useGrouping: false })}` : control.Caption);
+        const text = control.kind === 'TextBox' && !['first_name', 'last_name', 'national_code', 'role'].includes(field) ? (value === null || value === undefined ? '' : payrollNumber(value, control.Format === 'General Number' ? 6 : 0)) : value;
+        const boxed = control.kind === 'TextBox' || ['Label87', 'Label88', 'Label89'].includes(control.Name);
+        return `<div class="cell ${boxed ? 'boxed' : ''}" style="${position}font-size:${Number(control.FontSize || 10)}pt;font-weight:${Number(control.FontWeight || 400)}">${payrollEscape(text)}</div>`;
+    }).join('');
+    return `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>فیش حقوقی ${payrollEscape(row.period_jy + '/' + row.period_jm)}</title><link rel="stylesheet" href="/vendor/vazirmatn/Vazirmatn-font-face.css"><style>@page{size:A5 landscape;margin:5mm}*{box-sizing:border-box}body{margin:0;background:white;color:black;font-family:'B Homa',Vazirmatn,Tahoma,sans-serif}.slip{position:relative;direction:ltr;width:200mm;height:${200 * layout.height / layout.width}mm}.slip>*{position:absolute}.cell{direction:rtl;display:flex;align-items:center;justify-content:center;white-space:nowrap;line-height:1.1}.boxed{border:.2mm solid black;background:white}.frame{border:.2mm solid #999;pointer-events:none}.divider{border-left:.2mm solid #aaa;pointer-events:none}.actions{padding:12px;text-align:center}@media print{.actions{display:none}body{width:200mm}}</style></head><body><div class="actions"><button onclick="window.print()">چاپ فیش A5</button> — مقیاس ۱۰۰٪، بدون سربرگ مرورگر</div><main class="slip">${cells}</main></body></html>`;
+}
+async function payrollPrint(id) {
+    const popup = window.open('', '_blank');
+    if (!popup) {
+        alert('برای چاپ، اجازهٔ باز شدن پنجره را بدهید.');
+        return;
+    }
+    popup.document.write('<p dir="rtl">در حال آماده‌سازی فیش…</p>');
+    try {
+        const [detail, response] = await Promise.all([GET('/admin/payroll/' + id), fetch('/assets/payroll-access-layout.json')]);
+        if (!response.ok)
+            throw new Error('قالب چاپ بارگذاری نشد');
+        const layout = await response.json();
+        popup.document.open();
+        popup.document.write(payrollSlipHtml(detail.row, layout));
+        popup.document.close();
+        await popup.document.fonts.ready;
+        popup.document.querySelectorAll('.cell').forEach(cell => { if (cell.scrollWidth > cell.clientWidth) {
+            const size = parseFloat(popup.getComputedStyle(cell).fontSize);
+            cell.style.fontSize = Math.max(8, size * cell.clientWidth / cell.scrollWidth) + 'px';
+        } });
+        await Promise.all(Array.from(popup.document.images).map(image => image.complete ? Promise.resolve() : new Promise(resolve => { image.onload = resolve; image.onerror = resolve; })));
+        if (!popup.closed) {
+            popup.focus();
+            popup.print();
+        }
+    }
+    catch (error) {
+        if (!popup.closed)
+            popup.close();
+        alert(error.message || 'آماده‌سازی چاپ ناموفق بود');
+    }
+}
+function CompanyPayrollUpload() {
+    const [jy, jm] = todayJ();
+    const [form, setForm] = useState({ period_jy: jy, period_jm: jm });
+    const [file, setFile] = useState(null);
+    const [preview, setPreview] = useState(null);
+    const [replace, setReplace] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [message, setMessage] = useState('');
+    const lock = useRef(false);
+    const reset = () => { setPreview(null); setReplace(false); setMessage(''); };
+    const submit = async (commit) => {
+        if (lock.current)
+            return;
+        if (!file) {
+            setMessage('فایل XLSX شرکت را انتخاب کنید.');
+            return;
+        }
+        if (commit && (!preview || (preview.revision && !replace))) {
+            setMessage('پیش‌نمایش و تأیید جایگزینی لازم است.');
+            return;
+        }
+        lock.current = true;
+        setBusy(true);
+        setMessage('');
+        try {
+            const body = new FormData();
+            body.append('file', file);
+            Object.entries(form).forEach(([key, value]) => body.append(key, String(value)));
+            body.append('mode', commit ? 'commit' : 'preview');
+            if (commit) {
+                body.append('token', preview.token);
+                body.append('replace', replace ? '1' : '0');
+            }
+            const response = await _fetchWithAuth(API_BASE + '/admin/payroll/import', { method: 'POST', body });
+            const result = await _readJsonResponse(response);
+            if (!response.ok)
+                throw new Error(result.error || 'بارگذاری ناموفق بود');
+            if (commit) {
+                _invalidateCache();
+                setPreview(null);
+                setReplace(false);
+                setMessage('✓ ' + result.count + ' ردیف ثبت شد؛ فیش‌های تطبیق‌یافته در اندروید قابل مشاهده‌اند.');
+            }
+            else
+                setPreview(result);
+        }
+        catch (error) {
+            setMessage(error.message);
+            if (commit) {
+                setPreview(null);
+                setReplace(false);
+            }
+        }
+        finally {
+            lock.current = false;
+            setBusy(false);
+        }
+    };
+    return React.createElement("div", { className: "card-p" },
+        React.createElement("h3", null, "\u0628\u0627\u0631\u06AF\u0632\u0627\u0631\u06CC \u0641\u0627\u06CC\u0644 \u062D\u0642\u0648\u0642 \u0627\u0632 \u0634\u0631\u06A9\u062A"),
+        React.createElement("p", { className: "muted" }, "\u0641\u0642\u0637 XLSX \u0645\u0637\u0627\u0628\u0642 \u0646\u0645\u0648\u0646\u0647\u0654 \u0634\u0631\u06A9\u062A\u061B \u0648\u0627\u062D\u062F \u0645\u0628\u0627\u0644\u063A \u0631\u06CC\u0627\u0644 \u0627\u0633\u062A. \u0627\u0628\u062A\u062F\u0627 \u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u0648 \u0633\u067E\u0633 \u062B\u0628\u062A \u0646\u0647\u0627\u06CC\u06CC \u06A9\u0646\u06CC\u062F. \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0627\u06CC\u0646 \u0641\u0627\u06CC\u0644\u060C \u062A\u0623\u06CC\u06CC\u062F \u0628\u0627\u0646\u06A9\u06CC \u0648\u0627\u0631\u06CC\u0632 \u0646\u06CC\u0633\u062A."),
+        React.createElement("div", { className: "row", style: { gap: 10, flexWrap: 'wrap', marginTop: 14 } },
+            React.createElement("label", null,
+                "\u0633\u0627\u0644 ",
+                React.createElement("input", { "aria-label": "\u0633\u0627\u0644 \u062D\u0642\u0648\u0642", className: "input", type: "number", min: "1300", max: "1500", disabled: busy, value: form.period_jy, onChange: event => { reset(); setForm({ ...form, period_jy: event.target.value }); } })),
+            React.createElement("label", null,
+                "\u0645\u0627\u0647 ",
+                React.createElement("select", { "aria-label": "\u0645\u0627\u0647 \u062D\u0642\u0648\u0642", className: "input", disabled: busy, value: form.period_jm, onChange: event => { reset(); setForm({ ...form, period_jm: event.target.value }); } }, Array.from({ length: 12 }, (_, index) => React.createElement("option", { key: index + 1, value: index + 1 }, index + 1)))),
+            React.createElement("input", { "aria-label": "\u0641\u0627\u06CC\u0644 \u062D\u0642\u0648\u0642 \u0634\u0631\u06A9\u062A", type: "file", accept: ".xlsx", disabled: busy, onChange: event => { var _a; reset(); setFile(((_a = event.target.files) === null || _a === void 0 ? void 0 : _a[0]) || null); } }),
+            React.createElement("button", { className: "btn p", disabled: busy || !file, onClick: () => submit(false) }, busy ? 'در حال پردازش…' : 'بررسی و پیش‌نمایش')),
+        message && React.createElement("p", { role: "status" }, message),
+        preview && React.createElement("div", { style: { marginTop: 16 } },
+            React.createElement("p", null,
+                React.createElement("b", null,
+                    preview.count,
+                    " \u0631\u062F\u06CC\u0641\u061B ",
+                    preview.matched,
+                    " \u062A\u0637\u0628\u06CC\u0642 \u06CC\u06A9\u062A\u0627\u061B ",
+                    preview.count - preview.matched,
+                    " \u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u062A\u0637\u0628\u06CC\u0642 \u062F\u0633\u062A\u06CC")),
+            React.createElement("p", { className: "muted" }, "\u0631\u062F\u06CC\u0641\u200C\u0647\u0627\u06CC \u0646\u0627\u0645\u0646\u0637\u0628\u0642 \u0628\u0631\u0627\u06CC \u0645\u062F\u06CC\u0631 \u062D\u0641\u0638 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F \u0648 \u0628\u0647 \u0647\u06CC\u0686 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u0628\u0631\u0627\u06CC \u062A\u0637\u0628\u06CC\u0642 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
+            preview.revision > 0 && React.createElement("label", null,
+                React.createElement("input", { type: "checkbox", checked: replace, onChange: event => setReplace(event.target.checked), disabled: busy }),
+                " \u062A\u0623\u06CC\u06CC\u062F \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646\u06CC \u0646\u0633\u062E\u0647\u0654 \u0641\u0639\u0627\u0644 \u0627\u06CC\u0646 \u0645\u0627\u0647\u061B \u0646\u0633\u062E\u0647\u0654 \u0642\u0628\u0644\u06CC \u062F\u0631 \u0633\u0627\u0628\u0642\u0647\u0654 \u0633\u0631\u0648\u0631 \u062D\u0641\u0638 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+            React.createElement("div", { style: { overflow: 'auto', maxHeight: 420 } },
+                React.createElement("table", { className: "tbl" },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0631\u062F\u06CC\u0641 \u0627\u06A9\u0633\u0644"),
+                            React.createElement("th", null, "\u067E\u0631\u0633\u0646\u0644"),
+                            React.createElement("th", null, "\u06A9\u062F \u0645\u0644\u06CC"),
+                            React.createElement("th", null, "\u062E\u0627\u0644\u0635 \u067E\u0631\u062F\u0627\u062E\u062A\u06CC (\u0631\u06CC\u0627\u0644)"),
+                            React.createElement("th", null, "\u062A\u0637\u0628\u06CC\u0642"),
+                            React.createElement("th", null, "\u0647\u0634\u062F\u0627\u0631"))),
+                    React.createElement("tbody", null, preview.rows.map(row => React.createElement("tr", { key: row.source_row },
+                        React.createElement("td", null, row.source_row),
+                        React.createElement("td", null,
+                            row.data.first_name,
+                            " ",
+                            row.data.last_name),
+                        React.createElement("td", null, row.data.national_code),
+                        React.createElement("td", null, payrollNumber(row.data.net)),
+                        React.createElement("td", null, row.user_id ? 'کاربر #' + row.user_id : row.match_status === 'conflict' ? 'تعارض شناسه' : 'نیازمند تطبیق'),
+                        React.createElement("td", null, row.warnings.join(' '))))))),
+            React.createElement("button", { className: "btn p", style: { marginTop: 14 }, disabled: busy || (preview.revision > 0 && !replace), onClick: () => submit(true) }, "\u062B\u0628\u062A \u0646\u0647\u0627\u06CC\u06CC \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062D\u0642\u0648\u0642")));
+}
+function CompanyPayrollList() {
+    const [filters, setFilters] = useState({ year: '', month: '', q: '', status: '', page: 1 });
+    const [result, setResult] = useState(null);
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [refresh, setRefresh] = useState(0);
+    const [detail, setDetail] = useState(null);
+    const [mapping, setMapping] = useState(null);
+    const [query, setQuery] = useState('');
+    const [users, setUsers] = useState([]);
+    const [userId, setUserId] = useState('');
+    const generation = useRef(0);
+    const action = useRef(false);
+    useEffect(() => { const version = ++generation.current; setBusy(true); setError(''); const timer = setTimeout(() => { GET('/admin/payroll?' + new URLSearchParams(filters)).then(value => { if (version === generation.current)
+        setResult(value); }).catch(failure => { if (version === generation.current) {
+        setResult(null);
+        setError(failure.message);
+    } }).finally(() => { if (version === generation.current)
+        setBusy(false); }); }, 250); return () => { clearTimeout(timer); generation.current++; }; }, [filters, refresh]);
+    const filter = (key, value) => setFilters(previous => ({ ...previous, [key]: value, page: 1 }));
+    const showDetail = async (id) => { if (action.current)
+        return; action.current = true; try {
+        setDetail(await GET('/admin/payroll/' + id));
+    }
+    catch (failure) {
+        setError(failure.message);
+    }
+    finally {
+        action.current = false;
+    } };
+    const searchUsers = async () => { if (action.current)
+        return; action.current = true; try {
+        const value = await db.salarySlipUsers(query);
+        setUsers(value.rows || []);
+    }
+    catch (failure) {
+        setError(failure.message);
+    }
+    finally {
+        action.current = false;
+    } };
+    const match = async () => { const selected = users.find(user => String(user.id) === String(userId)); if (!selected || !mapping || action.current)
+        return; if (!confirm(`تطبیق دستی «${mapping.employee_name}» با «${selected.name || selected.username}»؟ این فیش به این حساب نمایش داده خواهد شد.`))
+        return; action.current = true; try {
+        await SEND('PUT', '/admin/payroll/' + mapping.id + '/match', { user_id: Number(userId) });
+        setMapping(null);
+        setRefresh(value => value + 1);
+    }
+    catch (failure) {
+        setError(failure.message);
+    }
+    finally {
+        action.current = false;
+    } };
+    return React.createElement("div", { className: "card-p" },
+        React.createElement("h3", null, "\u0641\u06CC\u0634\u0647\u0627\u06CC \u062D\u0642\u0648\u0642\u06CC \u067E\u0631\u0633\u0646\u0644"),
+        React.createElement("p", { className: "muted" }, "\u0645\u0628\u0627\u0644\u063A \u0637\u0628\u0642 \u0641\u0627\u06CC\u0644 \u0634\u0631\u06A9\u062A (\u0631\u06CC\u0627\u0644)\u061B \u0627\u06CC\u0646 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0628\u0647\u200C\u062A\u0646\u0647\u0627\u06CC\u06CC \u0631\u0633\u06CC\u062F \u0628\u0627\u0646\u06A9\u06CC \u0648\u0627\u0631\u06CC\u0632 \u0645\u062D\u0633\u0648\u0628 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
+        React.createElement("div", { className: "row", style: { gap: 8, flexWrap: 'wrap' } },
+            React.createElement("input", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0633\u0627\u0644", type: "number", placeholder: "\u0647\u0645\u0647\u0654 \u0633\u0627\u0644\u200C\u0647\u0627", value: filters.year, onChange: event => filter('year', event.target.value) }),
+            React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0645\u0627\u0647", value: filters.month, onChange: event => filter('month', event.target.value) },
+                React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0645\u0627\u0647\u200C\u0647\u0627"),
+                Array.from({ length: 12 }, (_, index) => React.createElement("option", { key: index, value: index + 1 }, index + 1))),
+            React.createElement("input", { className: "input", placeholder: "\u0646\u0627\u0645\u060C \u06A9\u062F \u0645\u0644\u06CC\u060C \u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC \u06CC\u0627 \u0633\u0645\u062A", value: filters.q, onChange: event => filter('q', event.target.value) }),
+            React.createElement("select", { className: "input", "aria-label": "\u0648\u0636\u0639\u06CC\u062A \u062A\u0637\u0628\u06CC\u0642", value: filters.status, onChange: event => filter('status', event.target.value) },
+                React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0631\u062F\u06CC\u0641\u200C\u0647\u0627"),
+                React.createElement("option", { value: "pending" }, "\u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u062A\u0637\u0628\u06CC\u0642 \u062F\u0633\u062A\u06CC")),
+            React.createElement("button", { className: "btn", onClick: () => setRefresh(value => value + 1) }, "\u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC")),
+        error && React.createElement("p", { role: "alert" }, error),
+        busy ? React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A\u2026") : result && React.createElement(React.Fragment, null,
+            React.createElement("p", null,
+                result.summary.count,
+                " \u0641\u06CC\u0634 \u00B7 \u062C\u0645\u0639 \u062E\u0627\u0644\u0635: ",
+                payrollNumber(result.summary.total_net),
+                " \u0631\u06CC\u0627\u0644 \u00B7 \u0646\u0627\u0645\u0646\u0637\u0628\u0642: ",
+                result.summary.pending || 0),
+            React.createElement("div", { style: { overflow: 'auto' } },
+                React.createElement("table", { className: "tbl" },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0645\u0627\u0647"),
+                            React.createElement("th", null, "\u067E\u0631\u0633\u0646\u0644"),
+                            React.createElement("th", null, "\u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC"),
+                            React.createElement("th", null, "\u0633\u0645\u062A"),
+                            React.createElement("th", null, "\u062E\u0627\u0644\u0635 (\u0631\u06CC\u0627\u0644)"),
+                            React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
+                    React.createElement("tbody", null, result.rows.map(row => React.createElement("tr", { key: row.id },
+                        React.createElement("td", null,
+                            row.period_jy,
+                            "/",
+                            String(row.period_jm).padStart(2, '0')),
+                        React.createElement("td", null, row.employee_name),
+                        React.createElement("td", null, row.personnel_code || '—'),
+                        React.createElement("td", null, row.role_title),
+                        React.createElement("td", null, payrollNumber(row.net)),
+                        React.createElement("td", null,
+                            React.createElement("button", { className: "btn", onClick: () => showDetail(row.id) }, "\u062C\u0632\u0626\u06CC\u0627\u062A"),
+                            " ",
+                            React.createElement("button", { className: "btn", onClick: () => payrollPrint(row.id) }, "\u0686\u0627\u067E \u0641\u06CC\u0634 \u062D\u0642\u0648\u0642"),
+                            !row.user_id && React.createElement("button", { className: "btn", onClick: () => { setMapping(row); setUsers([]); setQuery(''); setUserId(''); } }, "\u062A\u0637\u0628\u06CC\u0642 \u062F\u0633\u062A\u06CC")))))),
+                !result.rows.length && React.createElement("p", null, "\u0641\u06CC\u0634\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")),
+            React.createElement("div", { className: "row", style: { gap: 12, marginTop: 12 } },
+                React.createElement("button", { className: "btn", disabled: filters.page <= 1, onClick: () => setFilters(previous => ({ ...previous, page: previous.page - 1 })) }, "\u0642\u0628\u0644\u06CC"),
+                React.createElement("span", null,
+                    "\u0635\u0641\u062D\u0647\u0654 ",
+                    filters.page),
+                React.createElement("button", { className: "btn", disabled: filters.page * result.page_size >= Number(result.summary.count), onClick: () => setFilters(previous => ({ ...previous, page: previous.page + 1 })) }, "\u0628\u0639\u062F\u06CC"))),
+        detail && React.createElement(Modal, { title: "\u062C\u0632\u0626\u06CC\u0627\u062A \u062D\u0642\u0648\u0642 \u0627\u0639\u0644\u0627\u0645\u06CC \u0634\u0631\u06A9\u062A \u2014 \u0631\u06CC\u0627\u0644", onClose: () => setDetail(null) },
+            React.createElement("p", null,
+                detail.row.employee_name,
+                " \u2014 ",
+                detail.row.period_jy,
+                "/",
+                detail.row.period_jm),
+            React.createElement("p", { className: "muted" },
+                "\u0646\u0633\u062E\u0647\u0654 ",
+                detail.row.revision,
+                " \u00B7 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC: ",
+                detail.row.created_at),
+            detail.row.warnings.map((warning, index) => React.createElement("p", { key: index }, warning)),
+            React.createElement("div", { style: { maxHeight: '60vh', overflow: 'auto' } }, detail.fields.map((field, index) => React.createElement("div", { className: "row", key: field, style: { justifyContent: 'space-between', borderBottom: '1px solid #eee', padding: 8 } },
+                React.createElement("b", null, detail.labels[index]),
+                React.createElement("span", null, index < 7 ? detail.row.data[field] || '—' : detail.row.data[field] === null ? '—' : payrollNumber(detail.row.data[field], 6))))),
+            React.createElement("button", { className: "btn p", onClick: () => payrollPrint(detail.row.id) }, "\u0686\u0627\u067E \u0641\u06CC\u0634 \u062D\u0642\u0648\u0642 A5")),
+        mapping && React.createElement(Modal, { title: 'تطبیق دستی ' + mapping.employee_name, onClose: () => setMapping(null) },
+            React.createElement("p", null,
+                "\u06A9\u062F \u0645\u0644\u06CC \u0641\u0627\u06CC\u0644: ",
+                mapping.national_code,
+                " \u00B7 \u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC: ",
+                mapping.personnel_code),
+            React.createElement("input", { className: "input", value: query, onChange: event => setQuery(event.target.value), placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u06CC\u0627 \u06A9\u062F \u0645\u0644\u06CC \u06A9\u0627\u0631\u0628\u0631" }),
+            React.createElement("button", { className: "btn", onClick: searchUsers }, "\u062C\u0633\u062A\u062C\u0648\u06CC \u06A9\u0627\u0631\u0628\u0631"),
+            React.createElement("select", { className: "input", value: userId, onChange: event => setUserId(event.target.value) },
+                React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631"),
+                users.map(user => React.createElement("option", { key: user.id, value: user.id },
+                    user.name || user.username,
+                    " \u2014 ",
+                    user.national_code,
+                    " \u2014 #",
+                    user.id))),
+            React.createElement("button", { className: "btn p", disabled: !userId, onClick: match }, "\u062A\u0623\u06CC\u06CC\u062F \u062A\u0637\u0628\u06CC\u0642 \u062F\u0633\u062A\u06CC")));
+}
 function SalarySlipsAdmin() {
+    const [tab, setTab] = useState('attachments');
+    return React.createElement("div", { className: "panel" },
+        React.createElement("div", { role: "tablist", "aria-label": "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0641\u06CC\u0634 \u062D\u0642\u0648\u0642\u06CC", className: "row", style: { gap: 8, flexWrap: 'wrap', marginBottom: 16 } }, [['attachments', 'فیش‌های پیوستی'], ['upload', 'بارگزاری فایل حقوق از شرکت'], ['payroll', 'فیشهای حقوقی پرسنل']].map(([key, title]) => React.createElement("button", { role: "tab", "aria-selected": tab === key, className: 'btn ' + (tab === key ? 'p' : ''), key: key, onClick: () => setTab(key) }, title))),
+        React.createElement("div", { role: "tabpanel", key: tab }, tab === 'upload' ? React.createElement(CompanyPayrollUpload, null) : tab === 'payroll' ? React.createElement(CompanyPayrollList, null) : React.createElement(SalarySlipAttachmentsAdmin, null)));
+}
+function SalarySlipAttachmentsAdmin() {
     const months = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
     const [q, setQ] = useState('');
     const [users, setUsers] = useState([]);

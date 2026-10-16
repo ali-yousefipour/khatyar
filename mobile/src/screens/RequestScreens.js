@@ -9,6 +9,7 @@ import { faNum } from '../num';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import ImageViewer from '../components/ImageViewer';
+import CompanyPayrollHistory from './CompanyPayrollHistory';
 
 const TY = { annual: 'مرخصی استحقاقی', sick: 'مرخصی استعلاجی', mission: 'ماموریت', overtime: 'اضافه‌کار', manual: 'تردد دستی' };
 
@@ -214,6 +215,10 @@ const s = StyleSheet.create({
 
 // فیش‌های حقوقی PDF پیوست‌شده توسط مدیر
 export function SalarySlipsScreen() {
+  const [tab, setTab] = useState('attachments');
+  return <View style={{flex:1,backgroundColor:C.paper}}><View accessibilityRole="tablist" style={{flexDirection:'row-reverse',padding:12,gap:8}}>{[['attachments','فیش‌های پیوستی'],['company','وضعیت حقوق ماهانه']].map(([key,label])=><TouchableOpacity key={key} accessibilityRole="tab" accessibilityState={{selected:tab===key}} onPress={()=>setTab(key)} style={{flex:1,minHeight:48,padding:12,borderRadius:10,backgroundColor:tab===key?C.brand:'#e8edf2',justifyContent:'center'}}><Text style={{fontFamily:FONT.bold,textAlign:'center',color:tab===key?'#fff':C.ink}}>{label}</Text></TouchableOpacity>)}</View>{tab==='company'?<CompanyPayrollHistory/>:<SalarySlipAttachmentsScreen/>}</View>;
+}
+function SalarySlipAttachmentsScreen() {
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState(null);
   const [viewerUri, setViewerUri] = useState(null);
@@ -224,7 +229,7 @@ export function SalarySlipsScreen() {
     return apiBase().replace(/\/api$/, '') + r.download_url;
   };
   const safeName = (r) => {
-    const ext = r.file_type === 'image' ? (String(r.file_name||'').toLowerCase().endsWith('.png') ? 'png' : 'jpg') : 'pdf';
+    const ext = r.file_type === 'image' ? (r.mime_type === 'image/png' ? 'png' : 'jpg') : 'pdf';
     return `salary-slip-${r.period_jy || ''}-${String(r.period_jm || '').padStart(2,'0')}-${r.id}.${ext}`;
   };
   const openSlip = async (r) => {

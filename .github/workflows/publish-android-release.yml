@@ -221,6 +221,7 @@ jobs:
         run: |
           node --check plugins/withWifiRebornSdkCompat.js
           node --check app.config.js
+          node scripts/test-company-payroll.cjs
 
       - name: Generate clean Android project
         working-directory: mobile
