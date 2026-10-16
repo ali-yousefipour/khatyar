@@ -3475,7 +3475,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if($jy<1300||$jy>1500||$jm<1||$jm>12)Http::error('ماه و سال نامعتبر است',422);
   $rows=_shift_month_report($jy,$jm);
-  $users=Db::all("SELECT id,first_name,last_name,personnel_code FROM users");
+  $users=Db::all("SELECT u.id,u.first_name,u.last_name,u.personnel_code,u.zone_id,z.name AS zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id");
   $byId=[];foreach($users as $person)$byId[(int)$person['id']]=$person;
   $headers=['ردیف','محل خدمت','سمت','ردیف گروه','نام','نام خانوادگی','شماره پرسنلی','ساعت جمعه کاری (ارسالی)','ساعت تعطیل کاری (ارسالی)','اضافه کاری (ارسالی)'];
   $xw=new XlsxWriter($headers);$xw->setProfessionalStyle(true);
@@ -3492,7 +3492,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
     // is added unless it is separately available in the canonical monthly result.
     $friOt=(int)($r['friday_overtime']??0);
     $net=$o+$mission-$short;
-    $i++;$row=$xw->addRow([$i,'',($r['role']??''),$i,$person['first_name']??'', $person['last_name']??'',(string)($person['personnel_code']??''),round(($fri+$friOt)/60,6),round($hol/60,6),round($net/60,6)]);
+    $i++;$row=$xw->addRow([$i,(string)($person['zone_name']??''),($r['role']??''),$i,$person['first_name']??'', $person['last_name']??'',(string)($person['personnel_code']??''),round(($fri+$friOt)/60,6),round($hol/60,6),round($net/60,6)]);
     $xw->setComment($row,7,'جمعه کاری: '.$hm($fri).' ساعت'."\n".'اضافه کاری جمعه: '.$hm($friOt).' ساعت'."\n".'مجموع جمعه کاری: '.$hm($fri+$friOt).' ساعت');
     $xw->setComment($row,8,'مجموع تعطیل کاری: '.$hm($hol).' ساعت');
     $xw->setComment($row,9,'اضافه کاری: '.$hm($o).' ساعت'."\n".'ماموریت: '.$hm($mission).' ساعت'."\n".'کسری کار: '.$hm($short).' ساعت (کسر شده)'."\n".'نهایی = '.($net<0?'-':'').$hm($net).' ساعت');
