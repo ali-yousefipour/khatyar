@@ -3036,7 +3036,7 @@ function ReportsCenter(){
       ["leavereport","🌴","گزارش مرخصی پرسنل","مانده و مصرف مرخصی دوره‌ای و جزئیات درخواست‌های ثبت‌شده"],
       ["useract","⏱","فعالیت کاربران","لاگ کامل اقدامات هر کاربر در سامانه"],
       ["commitments","📋","تعهدات انضباطی","سوابق تعهدنامه و برخورد انضباطی پرسنل"],
-      ["shifts","🗓","شیفت و کارکرد","برنامهٔ شیفت‌ها و محاسبهٔ کارکرد"],
+      ["shifts","🗓","تنظیمات شیفت کاری","برنامهٔ شیفت‌ها و محاسبهٔ کارکرد"],
       ["monthlyworkreport","📅","گزارش کارکرد ماهانه","گزارش کامل ماهانه و خروجی اکسل"],
     ]},
     {t:"تاکسیرانی",items:[
@@ -5272,7 +5272,7 @@ function DashboardConfig(){
 }
 
 function RolePerms(){
-  const MENU=[["seniority","سنوات نیروها"],["dashboard","داشبورد"],["reportscenter","مرکز گزارش‌ها"],["health","سلامت سامانه"],["map","نقشهٔ زنده"],["present","آمار حاضرین"],["presentchart","نمودار زندهٔ حاضرین"],["missiondashboard","داشبورد عملیات میدانی"],["citydashboard","داشبورد مدیریتی کل‌شهر"],["missiontemplates","موتور مأموریت — الگوها و تنظیمات"],["scoreengine","موتور امتیازدهی"],["driverservicereport","عملکرد و تذکرات تاکسیران"],["officials","حضور مسئولین"],["covertselfies","سلفی‌های نامحسوس"],["messages","پیام‌رسانی"],["messengercenter","مرکز ارسال ربات‌ها"],["companyrequests","مدارک ارسالی شرکت"],["salaryslips","بارگذاری فیش حقوقی"],["users","کاربران"],["zones","منطقه‌بندی"],["org","چارت سازمانی"],["drivers","رانندگان"],["platetraining","پلاک‌خوان"],["lines","خطوط"],["bills","آبونمان"],["config","تذکر/چک‌لیست"],["forms","فرم‌ساز"],["reports","گردش گزارش"],["report","گزارش‌گیری"],["perfreport","گزارش عملکرد پرسنل"],["attreport","گزارش تردد پرسنل"],["leavereport","گزارش مرخصی پرسنل"],["welfare","رفاهیات روابط عمومی"],["cultural","فعالیت‌های فرهنگی"],["excel","ورود اکسل"],["logs","لاگ"],["useract","فعالیت کاربران"],["commitments","تعهدات انضباطی"],["tempdrivers","رانندگان موقت"],["presence","صحت‌سنجی حضور"],["attendance","حضور نیروها"],["shifts","شیفت و کارکرد"],["monthlyworkreport","گزارش کارکرد ماهانه"],["workpolicy","سیاست کاری"],["requests","گزارش درخواست‌ها"],["outages","قطعی سیستم نوبت‌دهی"],["customfields","فیلدهای سفارشی"],["inventory","اقلام تحویلی"],["sms","ارسال پیامک"],["smslog","تاریخچهٔ پیامک"],["appitems","آیتم‌های اپ هر سمت"],["cronstatus","پایش سلامت کرون‌ها"],["activesessions","جلسات فعال کاربران"],["radiocenter","مرکز بی‌سیم"],["vehicleassets","ماشین‌آلات و وسایل مأموریتی"],["vehiclechecklist","چک‌لیست خودرویی و موتوری"],["settings","تنظیمات"]];
+  const MENU=[["seniority","سنوات نیروها"],["dashboard","داشبورد"],["reportscenter","مرکز گزارش‌ها"],["health","سلامت سامانه"],["map","نقشهٔ زنده"],["present","آمار حاضرین"],["presentchart","نمودار زندهٔ حاضرین"],["missiondashboard","داشبورد عملیات میدانی"],["citydashboard","داشبورد مدیریتی کل‌شهر"],["missiontemplates","موتور مأموریت — الگوها و تنظیمات"],["scoreengine","موتور امتیازدهی"],["driverservicereport","عملکرد و تذکرات تاکسیران"],["officials","حضور مسئولین"],["covertselfies","سلفی‌های نامحسوس"],["messages","پیام‌رسانی"],["messengercenter","مرکز ارسال ربات‌ها"],["companyrequests","مدارک ارسالی شرکت"],["salaryslips","بارگذاری فیش حقوقی"],["users","کاربران"],["zones","منطقه‌بندی"],["org","چارت سازمانی"],["drivers","رانندگان"],["platetraining","پلاک‌خوان"],["lines","خطوط"],["bills","آبونمان"],["config","تذکر/چک‌لیست"],["forms","فرم‌ساز"],["reports","گردش گزارش"],["report","گزارش‌گیری"],["perfreport","گزارش عملکرد پرسنل"],["attreport","گزارش تردد پرسنل"],["leavereport","گزارش مرخصی پرسنل"],["welfare","رفاهیات روابط عمومی"],["cultural","فعالیت‌های فرهنگی"],["excel","ورود اکسل"],["logs","لاگ"],["useract","فعالیت کاربران"],["commitments","تعهدات انضباطی"],["tempdrivers","رانندگان موقت"],["presence","صحت‌سنجی حضور"],["attendance","حضور نیروها"],["shifts","تنظیمات شیفت کاری"],["monthlyworkreport","گزارش کارکرد ماهانه"],["workpolicy","سیاست کاری"],["requests","گزارش درخواست‌ها"],["outages","قطعی سیستم نوبت‌دهی"],["customfields","فیلدهای سفارشی"],["inventory","اقلام تحویلی"],["sms","ارسال پیامک"],["smslog","تاریخچهٔ پیامک"],["appitems","آیتم‌های اپ هر سمت"],["cronstatus","پایش سلامت کرون‌ها"],["activesessions","جلسات فعال کاربران"],["radiocenter","مرکز بی‌سیم"],["vehicleassets","ماشین‌آلات و وسایل مأموریتی"],["vehiclechecklist","چک‌لیست خودرویی و موتوری"],["settings","تنظیمات"]];
   const [roles,setRoles]=useState([]); const [perms,setPerms]=useState({}); const [sel,setSel]=useState(null);
   useEffect(()=>{ db.roles().then(rs=>{setRoles(rs);}).catch(()=>{}); db.settings().then(s=>setPerms(s.role_perms||{})).catch(()=>{}); },[]);
   const allowed=sel!=null?(perms[sel]||MENU.map(m=>m[0])):[];
@@ -9013,7 +9013,7 @@ const VIEWS={
   sms:{t:"ارسال پیامک",ic:"✉",c:SmsSend},
   smslog:{t:"تاریخچهٔ پیامک",ic:"📜",c:SmsLog},
   attendance:{t:"حضور نیروها",ic:"🕒",c:StaffAttendance},
-  shifts:{t:"شیفت و کارکرد",ic:"🗓",c:ShiftManager},
+  shifts:{t:"تنظیمات شیفت کاری",ic:"🗓",c:ShiftManager},
   monthlyworkreport:{t:"گزارش کارکرد ماهانه",ic:"📅",c:ShiftReport},
   attreport:{t:"گزارش تردد پرسنل",ic:"🕒",c:AttendanceReport},
   leavereport:{t:"گزارش مرخصی پرسنل",ic:"🌴",c:PersonnelLeaveReport},
