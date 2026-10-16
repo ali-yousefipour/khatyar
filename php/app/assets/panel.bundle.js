@@ -11530,6 +11530,7 @@ function PunchAddModal({ jdate, onSave, onClose }) {
             err));
 }
 function ShiftReport() {
+    const [reportTab, setReportTab] = useState("monthly");
     const tj = todayJ();
     const [jy, setJy] = useState(tj[0]);
     const [jm, setJm] = useState(tj[1]);
@@ -11556,51 +11557,79 @@ function ShiftReport() {
     catch (e) {
         alert(e.message);
     } };
+    const exportOrganization = async () => { try {
+        const res = await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}`, { headers: tok() });
+        if (!res.ok)
+            throw new Error(res.status === 403 ? "دسترسی مجاز نیست" : "خطا در تولید فایل سازمان");
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `کارکرد-سازمان-${jy}-${jm}.xlsx`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    }
+    catch (e) {
+        alert(e.message || "خطا");
+    } };
     return (React.createElement("div", null,
-        React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "flex-end" } },
-            React.createElement("div", null,
-                React.createElement("label", { className: "label" }, "\u0633\u0627\u0644"),
-                React.createElement("input", { className: "input", type: "number", style: { maxWidth: 100 }, value: jy, onChange: e => setJy(+e.target.value || tj[0]) })),
-            React.createElement("div", null,
-                React.createElement("label", { className: "label" }, "\u0645\u0627\u0647"),
-                React.createElement("select", { className: "input", style: { maxWidth: 130 }, value: jm, onChange: e => setJm(+e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
-            React.createElement("button", { className: "btn p", disabled: busy, onClick: run }, busy ? "…" : "محاسبه"),
-            rows && rows.length > 0 && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644"),
-            React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u0634\u06CC\u0641\u062A \u0634\u0628\u060C \u0627\u0633\u0641\u0646\u062F \u06A9\u0628\u06CC\u0633\u0647\u060C \u0628\u0627\u0632\u0647 \u062A\u062E\u0635\u06CC\u0635\u060C \u062A\u0627\u062E\u06CC\u0631 \u0648 \u062A\u0639\u062C\u06CC\u0644 \u062E\u0631\u0648\u062C \u062F\u0631 \u0645\u062D\u0627\u0633\u0628\u0647 \u0644\u062D\u0627\u0638 \u0645\u06CC\u200C\u0634\u0648\u062F.")),
-        rows && (rows.length === 0 ? React.createElement("p", { className: "muted" }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0646\u06CC\u0633\u062A (\u0646\u06CC\u0631\u0648\u06CC\u06CC \u0634\u06CC\u0641\u062A \u0646\u062F\u0627\u0631\u062F \u06CC\u0627 \u062A\u0631\u062F\u062F\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647).") :
-            React.createElement("div", { style: { overflowX: "auto" } },
-                React.createElement("table", { style: { fontSize: 12, minWidth: 1280 } },
-                    React.createElement("thead", null,
-                        React.createElement("tr", null,
-                            React.createElement("th", null, "\u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC"),
-                            React.createElement("th", null, "\u0645\u0648\u0638\u0641\u06CC"),
-                            React.createElement("th", null, "\u062D\u0636\u0648\u0631 \u06A9\u0644"),
-                            React.createElement("th", null, "\u062D\u0636\u0648\u0631 \u062F\u0631 \u0634\u06CC\u0641\u062A"),
-                            React.createElement("th", null, "\u062A\u0627\u062E\u06CC\u0631 \u0648\u0631\u0648\u062F"),
-                            React.createElement("th", null, "\u062A\u0639\u062C\u06CC\u0644 \u062E\u0631\u0648\u062C"),
-                            React.createElement("th", null, "\u06A9\u0633\u0631\u06CC \u06A9\u0627\u0631"),
-                            React.createElement("th", null, "\u063A\u06CC\u0628\u062A"),
-                            React.createElement("th", null, "\u062C\u0645\u0639 \u063A\u06CC\u0628\u062A \u0648 \u06A9\u0633\u0631\u06CC"),
-                            React.createElement("th", null, "\u0634\u0628 \u06A9\u0627\u0631\u06CC"),
-                            React.createElement("th", null, "\u0627\u0636\u0627\u0641\u0647 \u06A9\u0627\u0631\u06CC"),
-                            React.createElement("th", null, "\u0645\u0627\u0645\u0648\u0631\u06CC\u062A"),
-                            React.createElement("th", null, "\u0645.\u0627\u0633\u062A\u062D\u0642\u0627\u0642\u06CC"),
-                            React.createElement("th", null, "\u0645.\u0627\u0633\u062A\u0639\u0644\u0627\u062C\u06CC"))),
-                    React.createElement("tbody", null, rows.map((r, i) => { const gh = (r.absent_min || 0) + (r.shortage || 0); return (React.createElement("tr", { key: i },
-                        React.createElement("td", { style: { fontWeight: 700 } }, r.name),
-                        React.createElement("td", null, hm(r.expected)),
-                        React.createElement("td", null, hm(r.worked)),
-                        React.createElement("td", null, hm(r.in_shift || r.worked)),
-                        React.createElement("td", { style: { color: r.late_in ? "var(--danger)" : "inherit" } }, hm(r.late_in || 0)),
-                        React.createElement("td", { style: { color: r.early_out ? "var(--danger)" : "inherit" } }, hm(r.early_out || 0)),
-                        React.createElement("td", { style: { color: r.shortage ? "var(--danger)" : "inherit" } }, hm(r.shortage)),
-                        React.createElement("td", { style: { color: r.absent_min ? "var(--danger)" : "inherit" } }, hm(r.absent_min || 0)),
-                        React.createElement("td", null, hm(gh)),
-                        React.createElement("td", null, hm(r.night)),
-                        React.createElement("td", { style: { color: "var(--ok)" } }, hm(r.overtime)),
-                        React.createElement("td", null, hm(r.mission_min || 0)),
-                        React.createElement("td", null, hm(r.annual_min || 0)),
-                        React.createElement("td", null, hm(r.sick_min || 0)))); })))))));
+        React.createElement("div", { className: "tabbar", style: { marginBottom: 12 } },
+            React.createElement("button", { className: "tabbtn" + (reportTab === "monthly" ? " on" : ""), onClick: () => setReportTab("monthly") }, "\u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647\u0627\u0646\u0647"),
+            React.createElement("button", { className: "tabbtn" + (reportTab === "organization" ? " on" : ""), onClick: () => setReportTab("organization") }, "\u062A\u0648\u0644\u06CC\u062F \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u0628\u0647 \u0633\u0627\u0632\u0645\u0627\u0646")),
+        reportTab === "organization" ? React.createElement("div", { className: "panel" },
+            React.createElement("h4", null, "\u062A\u0648\u0644\u06CC\u062F \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u0628\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
+            React.createElement("p", { className: "muted" }, "\u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631\u06CC = \u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631 + \u0645\u0623\u0645\u0648\u0631\u06CC\u062A \u2212 \u06A9\u0633\u0631 \u06A9\u0627\u0631\u061B \u062A\u0639\u0637\u06CC\u0644\u200C\u06A9\u0627\u0631\u06CC \u0648 \u062C\u0645\u0639\u0647\u200C\u06A9\u0627\u0631\u06CC \u0627\u0632 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0647\u0645\u0627\u0646 \u0645\u0627\u0647 \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u062C\u0632\u0626\u06CC\u0627\u062A \u0645\u062D\u0627\u0633\u0628\u0627\u062A \u062F\u0631 \u06CC\u0627\u062F\u062F\u0627\u0634\u062A \u0633\u0644\u0648\u0644\u200C\u0647\u0627\u06CC \u0627\u06A9\u0633\u0644 \u062F\u0631\u062C \u0645\u06CC\u200C\u0634\u0648\u062F."),
+            React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },
+                React.createElement("label", null,
+                    "\u0633\u0627\u0644 ",
+                    React.createElement("input", { className: "input", type: "number", value: jy, onChange: e => setJy(+e.target.value || tj[0]) })),
+                React.createElement("label", null,
+                    "\u0645\u0627\u0647 ",
+                    React.createElement("select", { className: "input", value: jm, onChange: e => setJm(+e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
+                React.createElement("button", { className: "btn p", onClick: exportOrganization }, "\u2913 \u062A\u0648\u0644\u06CC\u062F \u0641\u0627\u06CC\u0644 \u0627\u06A9\u0633\u0644 \u0633\u0627\u0632\u0645\u0627\u0646"))) : React.createElement(React.Fragment, null,
+            React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "flex-end" } },
+                React.createElement("div", null,
+                    React.createElement("label", { className: "label" }, "\u0633\u0627\u0644"),
+                    React.createElement("input", { className: "input", type: "number", style: { maxWidth: 100 }, value: jy, onChange: e => setJy(+e.target.value || tj[0]) })),
+                React.createElement("div", null,
+                    React.createElement("label", { className: "label" }, "\u0645\u0627\u0647"),
+                    React.createElement("select", { className: "input", style: { maxWidth: 130 }, value: jm, onChange: e => setJm(+e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
+                React.createElement("button", { className: "btn p", disabled: busy, onClick: run }, busy ? "…" : "محاسبه"),
+                rows && rows.length > 0 && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644"),
+                React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u0634\u06CC\u0641\u062A \u0634\u0628\u060C \u0627\u0633\u0641\u0646\u062F \u06A9\u0628\u06CC\u0633\u0647\u060C \u0628\u0627\u0632\u0647 \u062A\u062E\u0635\u06CC\u0635\u060C \u062A\u0627\u062E\u06CC\u0631 \u0648 \u062A\u0639\u062C\u06CC\u0644 \u062E\u0631\u0648\u062C \u062F\u0631 \u0645\u062D\u0627\u0633\u0628\u0647 \u0644\u062D\u0627\u0638 \u0645\u06CC\u200C\u0634\u0648\u062F.")),
+            rows && (rows.length === 0 ? React.createElement("p", { className: "muted" }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0646\u06CC\u0633\u062A (\u0646\u06CC\u0631\u0648\u06CC\u06CC \u0634\u06CC\u0641\u062A \u0646\u062F\u0627\u0631\u062F \u06CC\u0627 \u062A\u0631\u062F\u062F\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647).") :
+                React.createElement("div", { style: { overflowX: "auto" } },
+                    React.createElement("table", { style: { fontSize: 12, minWidth: 1280 } },
+                        React.createElement("thead", null,
+                            React.createElement("tr", null,
+                                React.createElement("th", null, "\u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC"),
+                                React.createElement("th", null, "\u0645\u0648\u0638\u0641\u06CC"),
+                                React.createElement("th", null, "\u062D\u0636\u0648\u0631 \u06A9\u0644"),
+                                React.createElement("th", null, "\u062D\u0636\u0648\u0631 \u062F\u0631 \u0634\u06CC\u0641\u062A"),
+                                React.createElement("th", null, "\u062A\u0627\u062E\u06CC\u0631 \u0648\u0631\u0648\u062F"),
+                                React.createElement("th", null, "\u062A\u0639\u062C\u06CC\u0644 \u062E\u0631\u0648\u062C"),
+                                React.createElement("th", null, "\u06A9\u0633\u0631\u06CC \u06A9\u0627\u0631"),
+                                React.createElement("th", null, "\u063A\u06CC\u0628\u062A"),
+                                React.createElement("th", null, "\u062C\u0645\u0639 \u063A\u06CC\u0628\u062A \u0648 \u06A9\u0633\u0631\u06CC"),
+                                React.createElement("th", null, "\u0634\u0628 \u06A9\u0627\u0631\u06CC"),
+                                React.createElement("th", null, "\u0627\u0636\u0627\u0641\u0647 \u06A9\u0627\u0631\u06CC"),
+                                React.createElement("th", null, "\u0645\u0627\u0645\u0648\u0631\u06CC\u062A"),
+                                React.createElement("th", null, "\u0645.\u0627\u0633\u062A\u062D\u0642\u0627\u0642\u06CC"),
+                                React.createElement("th", null, "\u0645.\u0627\u0633\u062A\u0639\u0644\u0627\u062C\u06CC"))),
+                        React.createElement("tbody", null, rows.map((r, i) => { const gh = (r.absent_min || 0) + (r.shortage || 0); return (React.createElement("tr", { key: i },
+                            React.createElement("td", { style: { fontWeight: 700 } }, r.name),
+                            React.createElement("td", null, hm(r.expected)),
+                            React.createElement("td", null, hm(r.worked)),
+                            React.createElement("td", null, hm(r.in_shift || r.worked)),
+                            React.createElement("td", { style: { color: r.late_in ? "var(--danger)" : "inherit" } }, hm(r.late_in || 0)),
+                            React.createElement("td", { style: { color: r.early_out ? "var(--danger)" : "inherit" } }, hm(r.early_out || 0)),
+                            React.createElement("td", { style: { color: r.shortage ? "var(--danger)" : "inherit" } }, hm(r.shortage)),
+                            React.createElement("td", { style: { color: r.absent_min ? "var(--danger)" : "inherit" } }, hm(r.absent_min || 0)),
+                            React.createElement("td", null, hm(gh)),
+                            React.createElement("td", null, hm(r.night)),
+                            React.createElement("td", { style: { color: "var(--ok)" } }, hm(r.overtime)),
+                            React.createElement("td", null, hm(r.mission_min || 0)),
+                            React.createElement("td", null, hm(r.annual_min || 0)),
+                            React.createElement("td", null, hm(r.sick_min || 0)))); }))))))));
 }
 // تنظیم پایهٔ حقوق و مشاهدهٔ فیش حقوقی یک کاربر
 function PayrollEditor({ userId, userName }) {
