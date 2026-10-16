@@ -3321,6 +3321,14 @@ route('GET', '/api/admin/attendance-report', function($p,$b,$u){
   $uid=(int)($_GET['user_id']??0);
   $from=trim($_GET['from']??''); $to=trim($_GET['to']??'');
   if(!$uid||!$from||!$to) Http::error('پرسنل و بازهٔ تاریخ را مشخص کنید',400);
+  $a=ShiftCalc::normJdate($from);$z=ShiftCalc::normJdate($to);
+  if($a&&$z&&substr($a,0,7)===substr($z,0,7)){
+    [$y,$m]=array_map('intval',explode('-',substr($a,0,7)));
+    $f=_final_work_month($y,$m);
+    if($f){$all=json_decode($f['daily_json'],true)?:[];if(isset($all[$uid])){
+      $report=$all[$uid];$report['days']=array_values(array_filter($report['days']??[],static function($d)use($a,$z){$date=ShiftCalc::normJdate($d['jdate']??$d['date']??'');return $date&&$date>=$a&&$date<=$z;}));return $report;
+    }}
+  }
   return _attendance_report($uid,$from,$to);
 }, false, ADMIN);
 
