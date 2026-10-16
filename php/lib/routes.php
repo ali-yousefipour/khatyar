@@ -3093,7 +3093,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
       }
     }
     // جلسات ثبت‌حضور کاربر در این ماه (بر اساس تاریخ میلادیِ متناظر با هر روز شمسی)
-    $tot = ['worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'friday'=>0,'holiday'=>0,'late_in'=>0,'early_out'=>0,'surplus'=>0,'adjusted_ot'=>0,'present_days'=>0,'absent_min'=>0];
+    $tot = ['friday_overtime'=>0,'worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'friday'=>0,'holiday'=>0,'late_in'=>0,'early_out'=>0,'surplus'=>0,'adjusted_ot'=>0,'present_days'=>0,'absent_min'=>0];
     for ($d=1; $d<=$lastDay; $d++) {
       $jdate = $prefix.str_pad($d,2,'0',STR_PAD_LEFT);
       if (!empty($a['from_jdate']) && strcmp($jdate, str_replace('/','-',$a['from_jdate'])) < 0) continue;
@@ -3132,6 +3132,8 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
       $adj = _attendance_adjusted_overtime($a['user_id'],$jdate);
       if ($adj > 0) { $use = min($adj, (int)($w['surplus'] ?? 0)); $w['overtime'] = (int)($w['overtime'] ?? 0) + $use; $w['surplus'] = max(0, (int)($w['surplus'] ?? 0) - $use); $w['adjusted_ot'] = $use; }
       foreach (['worked','in_shift','expected','overtime','shortage','night','friday','holiday','late_in','early_out','surplus','adjusted_ot'] as $k) $tot[$k]+=($w[$k] ?? 0);
+      // جمعه کاری اضافه بر ساعت موظفی، مستقل از جمعه کاری پایه در گزارش سازمانی.
+      if ((int)date('w',j_to_ts($jdate))===5) $tot['friday_overtime']+=max(0,(int)($w['overtime']??0));
       if ($w['worked']>0) $tot['present_days']++;
     }
     if (!empty($shift['monthly_ot_cap'])) $tot['overtime']=min($tot['overtime'],(int)$shift['monthly_ot_cap']);
