@@ -30,9 +30,9 @@ class IranCalendar {
                 if($markers){
                     $officialWhere='('.implode(' OR ',$markers).')';
                     $rows=Db::all('SELECT id,jdate FROM holidays WHERE jdate LIKE ? AND '.$officialWhere,[$y.'-%']);
-                    foreach($rows as $hr){$j=self::normalize($hr['jdate']??'');if($j && !isset($ref[$j]))Db::run('DELETE FROM holidays WHERE id=?',[(int)$hr['id']]);}
+                    foreach($rows as $hr){$j=self::normalize($hr['jdate']??'');if($j && !in_array($j,array_column($ref,'jdate'),true))Db::run('DELETE FROM holidays WHERE id=?',[(int)$hr['id']]);}
                     $rows=Db::all('SELECT id,jdate FROM holidays WHERE jdate LIKE ? AND '.$officialWhere,[$y.'/%%']);
-                    foreach($rows as $hr){$j=self::normalize($hr['jdate']??'');if($j && !isset($ref[$j]))Db::run('DELETE FROM holidays WHERE id=?',[(int)$hr['id']]);}
+                    foreach($rows as $hr){$j=self::normalize($hr['jdate']??'');if($j && !in_array($j,array_column($ref,'jdate'),true))Db::run('DELETE FROM holidays WHERE id=?',[(int)$hr['id']]);}
                 }
             }catch(Throwable $e){error_log('IranCalendar official reconciliation: '.$e->getMessage());}
         }
