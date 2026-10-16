@@ -6218,7 +6218,7 @@ function ShiftAssign(){
   const load=()=>db.userShifts().then(a=>setAssigns(a||[])).catch(()=>{});
   useEffect(()=>{ db.usersLite().then(u=>setUsers(u||[])).catch(()=>{}); db.shifts().then(s=>setShifts(s||[])).catch(()=>{}); load(); },[]);
   const cur=(uid)=>assigns.find(a=>Number(a.user_id)===Number(uid));
-  const setShift=async(uid,sid)=>{ setError("");setBusyUser(uid);try{if(!sid){await db.delUserShift(uid);}else{await db.setUserShift({user_id:uid,shift_id:+sid});}await load();}catch(e){setError(e.message||"ذخیرهٔ تخصیص شیفت انجام نشد.");await load();}finally{setBusyUser(null);} };
+  const setShift=async(uid,sid)=>{ setError("");setBusyUser(uid);try{if(sid===""){await db.delUserShift(uid);}else{await db.setUserShift({user_id:uid,shift_id:+sid});}await load();}catch(e){setError(e.message||"ذخیرهٔ تخصیص شیفت انجام نشد.");await load();}finally{setBusyUser(null);} };
   const filtered=q.trim()?users.filter(u=>((u.first_name||"")+" "+(u.last_name||"")).includes(q.trim())):users;
   return(<div>
     {error&&<div className="attendance-shift-assignment-error" role="alert" style={{padding:"9px 12px",marginBottom:10,borderRadius:9,background:"#fdeef0",color:"#a61b29",fontSize:12}}>{error}</div>}
@@ -6226,8 +6226,9 @@ function ShiftAssign(){
     <table><thead><tr><th>نیرو</th><th>شیفت تخصیص‌یافته</th></tr></thead><tbody>
       {filtered.map(u=>{ const c=cur(u.id); return(<tr key={u.id}>
         <td>{u.first_name} {u.last_name}</td>
-        <td><select className="input" style={{maxWidth:240}} value={c?c.shift_id:""} disabled={Number(busyUser)===Number(u.id)} onChange={e=>setShift(u.id,e.target.value)}>
+        <td><select className="input" style={{maxWidth:240}} value={c?String(c.shift_id):""} disabled={Number(busyUser)===Number(u.id)} onChange={e=>setShift(u.id,e.target.value)}>
           <option value="">— بدون شیفت —</option>
+          <option value="0">شیفت خودکار</option>
           {shifts.map(s=><option key={s.id} value={s.id}>{s.title}</option>)}
         </select></td>
       </tr>); })}
