@@ -11532,6 +11532,32 @@ function PunchAddModal({ jdate, onSave, onClose }) {
 }
 function ShiftReport() {
     const [reportTab, setReportTab] = useState("monthly");
+    const [finalStatus, setFinalStatus] = useState(null);
+    const [finalBusy, setFinalBusy] = useState(false);
+    const loadFinalStatus = async () => { try {
+        const res = await fetch(`${API_BASE}/admin/shift-report/finalization?year=${jy}&month=${jm}`, { headers: tok() });
+        if (!res.ok)
+            throw Error("خطا در دریافت وضعیت");
+        setFinalStatus(await res.json());
+    }
+    catch (e) {
+        alert(e.message);
+    } };
+    const finalizeMonth = async () => { if (!window.confirm(`کارکرد ${J_MONTHS[jm - 1]} ${jy} برای همیشه ثابت شود؟ این عملیات قابل بازگشت نیست.`))
+        return; setFinalBusy(true); try {
+        const res = await fetch(`${API_BASE}/admin/shift-report/finalization`, { method: "POST", headers: { "Content-Type": "application/json", ...tok() }, body: JSON.stringify({ year: jy, month: jm }) });
+        const data = await res.json();
+        if (!res.ok)
+            throw Error(data.error || data.message || "نهایی‌سازی ناموفق بود");
+        await loadFinalStatus();
+        alert("کارکرد ماه نهایی شد.");
+    }
+    catch (e) {
+        alert(e.message);
+    }
+    finally {
+        setFinalBusy(false);
+    } };
     const tj = todayJ();
     const [jy, setJy] = useState(tj[0]);
     const [jm, setJm] = useState(tj[1]);
@@ -11575,8 +11601,21 @@ function ShiftReport() {
     return (React.createElement("div", null,
         React.createElement("div", { className: "tabbar", style: { marginBottom: 12 } },
             React.createElement("button", { className: "tabbtn" + (reportTab === "monthly" ? " on" : ""), onClick: () => setReportTab("monthly") }, "\u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647\u0627\u0646\u0647"),
-            React.createElement("button", { className: "tabbtn" + (reportTab === "organization" ? " on" : ""), onClick: () => setReportTab("organization") }, "\u062A\u0648\u0644\u06CC\u062F \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u0628\u0647 \u0633\u0627\u0632\u0645\u0627\u0646")),
-        reportTab === "organization" ? React.createElement("div", { className: "panel" },
+            React.createElement("button", { className: "tabbtn" + (reportTab === "organization" ? " on" : ""), onClick: () => setReportTab("organization") }, "\u062A\u0648\u0644\u06CC\u062F \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u0628\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
+            React.createElement("button", { className: "tabbtn" + (reportTab === "finalize" ? " on" : ""), onClick: () => { setReportTab("finalize"); setFinalStatus(null); } }, "\u0646\u0647\u0627\u06CC\u06CC \u06A9\u0631\u062F\u0646 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627")),
+        reportTab === "finalize" ? React.createElement("div", { className: "panel" },
+            React.createElement("h4", null, "\u0646\u0647\u0627\u06CC\u06CC \u06A9\u0631\u062F\u0646 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627"),
+            React.createElement("p", { className: "muted" }, "\u067E\u0633 \u0627\u0632 \u0646\u0647\u0627\u06CC\u06CC\u200C\u0633\u0627\u0632\u06CC\u060C \u06AF\u0632\u0627\u0631\u0634 \u0645\u0627\u0647\u0627\u0646\u0647 \u0648 \u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F\u0647 \u0648 \u062A\u063A\u06CC\u06CC\u0631 \u0634\u06CC\u0641\u062A \u06CC\u0627 \u0645\u0648\u062A\u0648\u0631 \u0645\u062D\u0627\u0633\u0628\u0627\u062A \u0627\u0639\u062F\u0627\u062F \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0645\u06CC\u200C\u062F\u0647\u062F."),
+            React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },
+                React.createElement("label", null,
+                    "\u0633\u0627\u0644 ",
+                    React.createElement("input", { className: "input", type: "number", value: jy, onChange: e => { setJy(+e.target.value || tj[0]); setFinalStatus(null); } })),
+                React.createElement("label", null,
+                    "\u0645\u0627\u0647 ",
+                    React.createElement("select", { className: "input", value: jm, onChange: e => { setJm(+e.target.value); setFinalStatus(null); } }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
+                React.createElement("button", { className: "btn g", onClick: loadFinalStatus }, "\u0628\u0631\u0631\u0633\u06CC \u0648\u0636\u0639\u06CC\u062A"),
+                React.createElement("button", { className: "btn p", disabled: finalBusy || (finalStatus === null || finalStatus === void 0 ? void 0 : finalStatus.finalized), onClick: finalizeMonth }, finalBusy ? "در حال ثبت…" : "نهایی کردن کارکرد")),
+            finalStatus && React.createElement("p", null, finalStatus.finalized ? "این ماه نهایی شده است. تاریخ: " + finalStatus.finalized_at : "این ماه هنوز نهایی نشده است.")) : reportTab === "organization" ? React.createElement("div", { className: "panel" },
             React.createElement("h4", null, "\u062A\u0648\u0644\u06CC\u062F \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u0628\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
             React.createElement("p", { className: "muted" }, "\u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631\u06CC = \u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631 + \u0645\u0623\u0645\u0648\u0631\u06CC\u062A \u2212 \u06A9\u0633\u0631 \u06A9\u0627\u0631\u061B \u062A\u0639\u0637\u06CC\u0644\u200C\u06A9\u0627\u0631\u06CC \u0648 \u062C\u0645\u0639\u0647\u200C\u06A9\u0627\u0631\u06CC \u0627\u0632 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0647\u0645\u0627\u0646 \u0645\u0627\u0647 \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u062C\u0632\u0626\u06CC\u0627\u062A \u0645\u062D\u0627\u0633\u0628\u0627\u062A \u062F\u0631 \u06CC\u0627\u062F\u062F\u0627\u0634\u062A \u0633\u0644\u0648\u0644\u200C\u0647\u0627\u06CC \u0627\u06A9\u0633\u0644 \u062F\u0631\u062C \u0645\u06CC\u200C\u0634\u0648\u062F."),
             React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },
