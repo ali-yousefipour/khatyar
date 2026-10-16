@@ -3098,8 +3098,12 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
       $jdate = $prefix.str_pad($d,2,'0',STR_PAD_LEFT);
       if (!empty($a['from_jdate']) && strcmp($jdate, str_replace('/','-',$a['from_jdate'])) < 0) continue;
       if (!empty($a['to_jdate']) && strcmp($jdate, str_replace('/','-',$a['to_jdate'])) > 0) continue;
+      // Resolve the effective assignment on each date, including substitute shifts.
+      // A single month may span several shift assignments.
+      $dayShift = _active_user_shift_assignment($a['user_id'], $jdate);
+      if ($dayShift) $shift = $dayShift;
       $rows = _attendance_rows_for_jdate($a['user_id'], $jdate);
-      $dr = $dayRows[$jdate] ?? null;
+      $dr = (($shift['type']??'')==='advanced') ? _shift_day_row($shift['shift_id']??$shift['id'], $jdate) : null;
       $isHol = ShiftCalc::effectiveHoliday($jdate);
       // محاسبهٔ روزهای بدون تردد نیز باید دقیقاً از همان موتور محاسبهٔ
       // روزهای دارای تردد عبور کند؛ مخصوصاً برای شیفت خودکار، جمعه، تعطیل
