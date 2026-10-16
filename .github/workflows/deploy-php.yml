@@ -418,7 +418,9 @@ jobs:
             "${url}" > /tmp/live-panel.html
 
           grep -q 'assets/panel-build-runtime-fix.js?v=20261011.2' /tmp/live-panel.html
-          grep -q 'assets/panel.bundle.js?v=20261015.4' /tmp/live-panel.html
+          bundle_reference="$(grep -oE 'assets/panel[.]bundle[.]js[?]v=[^"]+' deploy-payload/app/panel.html | head -n 1)"
+          [ -n "$bundle_reference" ]
+          grep -Fq "$bundle_reference" /tmp/live-panel.html
           grep -Eq 'assets/school-service-admin.js.v=20261011.256' /tmp/live-panel.html
           grep -q '1.5.10' /tmp/live-panel.html
           grep -q 'AUTO DEPLOY VERIFY: 2026-10-15-version-policy-min-only-v9' /tmp/live-panel.html

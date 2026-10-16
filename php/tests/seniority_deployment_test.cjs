@@ -12,6 +12,9 @@ assert.ok(lines.find(line => line.includes('for name in Http.php')).includes('Se
 assert.ok(workflow.indexOf("'Seniority.php' => 'Seniority.php'") < workflow.indexOf("'routes.php' => 'routes.php'"));
 assert.ok(workflow.includes('node tests/seniority_ui_test.cjs'));
 assert.ok(workflow.includes('php tests/seniority_test.php'));
+assert.ok(workflow.includes('grep -Fq "$bundle_reference" /tmp/live-panel.html'));
+assert.ok(workflow.includes('deploy-payload/app/panel.html | head -n 1'));
+assert.ok(!workflow.includes("grep -q 'assets/panel.bundle.js?v=20261015.4'"));
 const html = fs.readFileSync(path.join(root, 'php/app/panel.html'), 'utf8');
 assert.ok(html.includes('assets/panel.bundle.js?v=20261016.seniority'));
 const source = fs.readFileSync(path.join(root, 'php/tools/panel_source.jsx'), 'utf8');
