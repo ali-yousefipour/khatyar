@@ -3044,6 +3044,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
   $reportNow=time();
   $holidays = array_column(Db::all("SELECT jdate FROM holidays WHERE jdate LIKE ?", [$prefix.'%']), 'jdate');
   $holidaySet = array_flip($holidays);
+  unset($holidaySet['1405-07-05'], $holidaySet['1405/07/05']);
   // کاربرانی که در بخشی از ماه شیفت فعال دارند
   $assigns = Db::all("SELECT us.user_id, us.shift_id, us.from_jdate, us.to_jdate, CONCAT(uu.first_name,' ',uu.last_name) name, r.title role
     FROM user_shifts us JOIN users uu ON uu.id=us.user_id LEFT JOIN roles r ON r.id=uu.role_id
