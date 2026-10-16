@@ -147,4 +147,20 @@ async function testChart() {
   console.log('PASS compiled OrgChart UI: regional default, zone labels/filter, visible ancestors under collapsed branches, longest-path levels, single cards, and preserved manual editing');
 }
 
-testZones().then(testChart).catch(error => { console.error(error); process.exitCode = 1; });
+async function testLeaders(){
+  const users=[{id:10,first_name:'سربازرس',last_name:'منطقه',role_title:'سربازرس',is_active:1,zone_id:3},{id:11,first_name:'بازرس',last_name:'زیرمنطقه',role_title:'بازرس مقیم',is_active:1,zone_id:4},{id:12,first_name:'ارشد',last_name:'بازرسی',role_title:'سربازرس ارشد',is_active:1},{id:13,first_name:'نیرو',role_title:'اپراتور',is_active:1}];
+  const zones=[{id:1,name:'منطقه',parent_id:null,senior_user_id:null,inspector_ids:[]}];
+  const writes=[];let fail=false;
+  const app=harness('Zones',{users:async()=>users,zones:async()=>zones,zoneLeaders:async(id,fields)=>{writes.push({id,fields});if(fail)throw Error('save failure');return {ok:true,...fields};}});
+  app.render();await settle();let tree=app.render();
+  button(column(tree,1),'تعیین مسئولان').props.onClick();tree=app.render();
+  const select=nodes(tree,node=>node.type==='select'&&node.props['aria-label']==='سربازرس منطقه')[0];
+  assert.ok(!text(select).includes('ارشد بازرسی'));
+  select.props.onChange({target:{value:'10'}});
+  nodes(tree,node=>node.type==='input'&&node.props.type==='checkbox')[0].props.onChange({target:{checked:true}});tree=app.render();
+  fail=true;await button(tree,'ذخیره مسئولان').props.onClick();tree=app.render();assert.match(text(tree),/save failure/);assert.equal(nodes(tree,node=>node.type==='Modal').length,1);
+  fail=false;await button(tree,'ذخیره مسئولان').props.onClick();tree=app.render();assert.equal(nodes(tree,node=>node.type==='Modal').length,0);assert.match(text(column(tree,1)),/سربازرس منطقه/);assert.match(text(column(tree,1)),/بازرس زیرمنطقه/);
+  assert.equal(writes[1].fields.senior_user_id,10);assert.deepEqual(Array.from(writes[1].fields.inspector_ids),[11]);assert.equal(users[0].zone_id,3);assert.equal(users[1].zone_id,4);
+  console.log('PASS region leadership UI: explicit senior/inspectors, role filtering, retained edits on failure, saved labels and unchanged membership');
+}
+testZones().then(testChart).then(testLeaders).catch(error => { console.error(error); process.exitCode = 1; });

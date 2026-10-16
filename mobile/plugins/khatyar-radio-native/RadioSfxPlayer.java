@@ -11,7 +11,7 @@ import java.util.concurrent.Executors;
 /** Small dependency-free native radio sound-effect player. */
 public final class RadioSfxPlayer {
   private static final int SAMPLE_RATE = 8000;
-  private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool();
+  private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
 
   private RadioSfxPlayer() {}
 
@@ -27,14 +27,6 @@ public final class RadioSfxPlayer {
 
     AudioTrack track = null;
     try {
-      AudioManager am = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-      if (am != null) {
-        int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        if (max > 0) {
-          try { am.setStreamVolume(AudioManager.STREAM_MUSIC, max, 0); } catch (Throwable ignored) {}
-        }
-      }
-
       int min = AudioTrack.getMinBufferSize(
           SAMPLE_RATE,
           AudioFormat.CHANNEL_OUT_MONO,
@@ -51,7 +43,7 @@ public final class RadioSfxPlayer {
       track.write(pcm, 0, pcm.length);
       track.setVolume(1.0f);
       track.play();
-      try { Thread.sleep((pcm.length / 2L) * 1000L / SAMPLE_RATE + 35L); }
+      try { Thread.sleep((pcm.length / 2L) * 1000L / SAMPLE_RATE + 10L); }
       catch (InterruptedException e) { Thread.currentThread().interrupt(); }
     } catch (Throwable ignored) {
     } finally {
@@ -63,51 +55,31 @@ public final class RadioSfxPlayer {
   }
 
   private static byte[] buildPcm(String kind) {
-    int totalMs;
-    if ("receive_leadin".equals(kind)) totalMs = 250;
-    else if ("receive_tail".equals(kind)) totalMs = 150;
-    else if ("ptt_press".equals(kind)) totalMs = 70;
-    else if ("talk_start".equals(kind)) totalMs = 100;
-    else if ("roger".equals(kind) || "eot".equals(kind)) totalMs = 120;
-    else if ("release_click".equals(kind)) totalMs = 75;
+    int duration;
+    if ("receive_leadin".equals(kind)) duration=70;
+    else if ("receive_tail".equals(kind)) duration=85;
+    else if ("ptt_press".equals(kind)||"talk_start".equals(kind)) duration=60;
+    else if ("roger".equals(kind)) duration=90;
+    else if ("eot".equals(kind)) duration=110;
+    else if ("release_click".equals(kind)) duration=25;
     else return new byte[0];
-
-    short[] out = new short[Math.max(1, SAMPLE_RATE * totalMs / 1000)];
-    java.util.Random random = new java.util.Random();
-
-    for (int i = 0; i < out.length; i++) {
-      double ms = i * 1000.0 / SAMPLE_RATE;
-      double sample = 0.0;
-
-      if ("receive_leadin".equals(kind)) {
-        if (ms < 65) sample += tone(1450.0, i, 0.22);
-        else if (ms < 185) sample += noise(random, 0.16);
-        else sample += tone(900.0, i, 0.10) * envelope(ms - 185, 65);
-      } else if ("receive_tail".equals(kind)) {
-        if (ms < 75) sample += noise(random, 0.13);
-        else sample += tone(900.0, i, 0.15) * envelope(ms - 75, 75);
-      } else if ("ptt_press".equals(kind)) {
-        sample += tone(1850.0, i, 0.24) * envelope(ms, 70);
-      } else if ("talk_start".equals(kind)) {
-        sample += tone(1180.0, i, 0.18) * envelope(ms, 100);
-        sample += tone(1820.0, i, 0.10) * envelope(ms - 25, 75);
-      } else if ("roger".equals(kind)) {
-        sample += tone(1250.0, i, 0.19) * envelope(ms, 55);
-        sample += tone(1750.0, i, 0.15) * envelope(ms - 45, 75);
-      } else if ("eot".equals(kind)) {
-        sample += tone(1750.0, i, 0.15) * envelope(ms, 50);
-        sample += tone(900.0, i, 0.19) * envelope(ms - 40, 80);
-      } else if ("release_click".equals(kind)) {
-        sample += noise(random, 0.30) * envelope(ms, 75);
-      }
-
-      out[i] = (short)Math.max(-32767, Math.min(32767, Math.round((float)(sample * 32767.0))));
-    }
-
-    byte[] bytes = new byte[out.length * 2];
-    for (int i = 0; i < out.length; i++) {
-      bytes[i * 2] = (byte)(out[i] & 0xff);
-      bytes[i * 2 + 1] = (byte)((out[i] >> 8) & 0xff);
+    int count=SAMPLE_RATE*duration/1000;
+    byte[] bytes=new byte[count*2];
+    java.util.Random random=new java.util.Random(8241L);
+    double low=0.0,high=0.0,previousLow=0.0;
+    for(int index=0;index<count;index++){
+      double milliseconds=index*1000.0/SAMPLE_RATE;
+      low+=0.65*((random.nextDouble()*2.0-1.0)-low);
+      high=0.84*(high+low-previousLow);previousLow=low;
+      double sample;
+      if("receive_leadin".equals(kind))sample=high*0.16*Math.exp(-milliseconds/22.0);
+      else if("receive_tail".equals(kind))sample=high*0.20*Math.exp(-milliseconds/28.0);
+      else if("release_click".equals(kind))sample=high*0.18*Math.exp(-milliseconds/7.0);
+      else if("eot".equals(kind))sample=milliseconds<40?tone(950,index,0.10):(milliseconds>65?tone(700,index,0.08):0.0);
+      else sample=tone("roger".equals(kind)?1200:950,index,0.10);
+      double edge=Math.max(0.0,Math.min(1.0,Math.min(milliseconds/4.0,(duration-milliseconds)/6.0)));
+      short value=(short)Math.round(Math.max(-0.25,Math.min(0.25,sample*edge))*32767.0);
+      bytes[index*2]=(byte)(value&0xff);bytes[index*2+1]=(byte)((value>>8)&0xff);
     }
     return bytes;
   }

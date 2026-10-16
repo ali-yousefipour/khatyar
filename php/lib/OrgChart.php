@@ -1,5 +1,32 @@
 <?php
 class OrgChart {
+  static function ensureZoneLeaders() {
+    Db::run("CREATE TABLE IF NOT EXISTS zone_leadership (zone_id INT NOT NULL PRIMARY KEY, senior_user_id INT NULL, inspector_ids TEXT NOT NULL, updated_by INT NULL, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  }
+  static function withZoneLeaders($zones) {
+    self::ensureZoneLeaders();$leaders=[];
+    foreach(Db::all('SELECT zone_id,senior_user_id,inspector_ids FROM zone_leadership') as $row)$leaders[(int)$row['zone_id']]=$row;
+    foreach($zones as &$zone){$row=$leaders[(int)$zone['id']]??null;$zone['senior_user_id']=empty($row['senior_user_id'])?null:(int)$row['senior_user_id'];$zone['inspector_ids']=array_values(array_unique(array_map('intval',json_decode($row['inspector_ids']??'[]',true)?:[])));}unset($zone);
+    return $zones;
+  }
+  static function saveZoneLeaders($zoneId,$senior,$inspectors,$actor) {
+    self::ensureZoneLeaders();
+    if($senior===null || $senior==='')$senior=null;
+    elseif(filter_var($senior,FILTER_VALIDATE_INT)===false || (int)$senior<1)Http::error('سربازرس منطقه نامعتبر است',422);
+    else $senior=(int)$senior;
+    if(!is_array($inspectors) || count($inspectors)>200)Http::error('فهرست بازرس‌ها نامعتبر است',422);
+    foreach($inspectors as $id)if(filter_var($id,FILTER_VALIDATE_INT)===false || (int)$id<1)Http::error('شناسهٔ بازرس نامعتبر است',422);
+    $inspectors=array_values(array_unique(array_map('intval',$inspectors)));
+    $connection=Db::pdo();$connection->beginTransaction();
+    try{
+      if(!Db::one('SELECT id FROM zones WHERE id=? FOR UPDATE',[(int)$zoneId]))Http::error('منطقه یافت نشد',404);
+      $users=Db::all('SELECT u.id,u.is_active,r.title role_title FROM users u LEFT JOIN roles r ON r.id=u.role_id FOR UPDATE');$byId=[];foreach($users as $user)$byId[(int)$user['id']]=$user;
+      if($senior!==null && (empty($byId[$senior]['is_active']) || self::roleKey($byId[$senior]['role_title']??'')!=='senior'))Http::error('سربازرس باید کاربر فعال با سمت سربازرس منطقه باشد',422);
+      foreach($inspectors as $id){$user=$byId[$id]??null;$role=self::roleKey($user['role_title']??'');if(!$user || empty($user['is_active']) || !in_array($role,['inspector','motor'],true) || !str_contains(strtr($user['role_title'],['ي'=>'ی','ك'=>'ک']),'بازرس'))Http::error('بازرس انتخاب‌شده باید فعال و دارای سمت بازرس باشد',422);}
+      Db::run('INSERT INTO zone_leadership(zone_id,senior_user_id,inspector_ids,updated_by) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE senior_user_id=VALUES(senior_user_id),inspector_ids=VALUES(inspector_ids),updated_by=VALUES(updated_by)',[(int)$zoneId,$senior,json_encode($inspectors),$actor]);$connection->commit();
+    }catch(Throwable $error){if($connection->inTransaction())$connection->rollBack();throw $error;}
+    return ['ok'=>true,'senior_user_id'=>$senior,'inspector_ids'=>$inspectors];
+  }
   static function roleKey($title) {
     $title = strtr((string)$title, ['ي'=>'ی','ك'=>'ک','ئ'=>'ی']);
     $title = preg_replace('/[\s\x{200c}\x{200d}\x{0640}]+/u', '', $title);
@@ -17,8 +44,8 @@ class OrgChart {
   }
 
   static function defaultEdges($users, $savedEdges = [], $zones = []) {
-    $zoneParents=[];
-    foreach($zones as $zone)$zoneParents[(int)$zone['id']]=(int)($zone['parent_id']??0);
+    $zoneParents=[];$zoneLeaders=[];$inspectorZones=[];
+    foreach($zones as $zone){$zoneId=(int)$zone['id'];$zoneParents[$zoneId]=(int)($zone['parent_id']??0);$zoneLeaders[$zoneId]=$zone;foreach($zone['inspector_ids']??[] as $id)$inspectorZones[(int)$id][]=$zoneId;}
     $active = [];
     $keys = [];
     foreach ($users as $user) {
@@ -38,23 +65,36 @@ class OrgChart {
       $role = $keys[$userId];
       $zoneId = (int)($user['zone_id'] ?? 0);
       $regional = in_array($role, ['field','inspector'], true);
-      if ($regional && $zoneId <= 0) continue;
+      $responsibilityZones=$role==='inspector'?($inspectorZones[$userId]??[$zoneId]):[$zoneId];
+      if ($regional && !$zoneId && empty($inspectorZones[$userId])) continue;
       $primary = 1;
       $candidates = [];
       foreach ($rules[$role] ?? [] as $managerRole) $candidates += $groups[$managerRole] ?? [];
-      $managerZone=$zoneId;
+      $managerZone=$zoneId;$chosenManagers=[];
       if ($regional) {
-        $seenZones=[];
+        foreach($responsibilityZones as $responsibilityZone){
+        $managerZone=$responsibilityZone;
+        $seenZones=[];$designated=[];
+        while($managerZone>0&&!isset($seenZones[$managerZone])) {
+          $seenZones[$managerZone]=true;
+          $explicit=$role==='field'?($zoneLeaders[$managerZone]['inspector_ids']??[]):array_filter([$zoneLeaders[$managerZone]['senior_user_id']??null]);
+          $designated=array_intersect_key($candidates,array_flip(array_map('intval',$explicit)));
+          if($designated){$chosenManagers+=$designated;break;}
+          $managerZone=$zoneParents[$managerZone]??0;
+        }
+        if($designated)continue;
+        $managerZone=$responsibilityZone;$seenZones=[];
         while($managerZone>0&&!isset($seenZones[$managerZone])) {
           $seenZones[$managerZone]=true;
           $regionalManagers=array_filter($candidates,fn($manager)=>(int)($manager['zone_id']??0)===$managerZone);
-          if ($regionalManagers) break;
+          if ($regionalManagers){$chosenManagers+=$regionalManagers;break;}
           $managerZone=$zoneParents[$managerZone]??0;
         }
+        }
+        $candidates=$chosenManagers;
       }
       foreach ($candidates as $managerId => $manager) {
         if ($managerId === $userId) continue;
-        if ($regional && ($managerZone<=0 || (int)($manager['zone_id'] ?? 0) !== $managerZone)) continue;
         $edges[$userId.':'.$managerId] = ['user_id'=>$userId,'manager_id'=>$managerId,'primary'=>$primary,'source'=>'regional_default'];
         $children[$managerId][] = $userId;
         $primary = 0;

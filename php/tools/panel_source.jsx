@@ -367,6 +367,7 @@ const db = {
   resetPassword: (id,password)=> SEND('POST','/admin/users/'+id+'/reset-password',{password}),
   createZone: (name,parentId=null)=> SEND('POST','/admin/zones',{name,parent_id:parentId}),
   updateZone: (id,name,parentId)=> SEND('PUT','/admin/zones/'+id,{name,...(parentId===undefined?{}:{parent_id:parentId})}),
+  zoneLeaders: (id,fields)=>SEND('PUT','/admin/zones/'+id+'/leaders',fields),
   deleteZone: (id)=> SEND('DELETE','/admin/zones/'+id,{}),
   addReason: (title)=> SEND('POST','/admin/notice-reasons',{title}),
   delReason: (id)=> SEND('DELETE','/admin/notice-reasons/'+id),
@@ -1596,6 +1597,14 @@ function Zones(){
   const [busy,setBusy]=useState(false); const [error,setError]=useState(""); const [editing,setEditing]=useState(null); const [editName,setEditName]=useState("");
   const mutation=useRef(false);
   const [newParent,setNewParent]=useState(''),[editParent,setEditParent]=useState(''),[child,setChild]=useState(null),[childName,setChildName]=useState('');
+  const [leadership,setLeadership]=useState(null),[senior,setSenior]=useState(''),[inspectors,setInspectors]=useState([]);
+  const roleOf=user=>String(user.role_title||'').replace(/[يكئ]/g,character=>character==='ك'?'ک':'ی').replace(/[\s\u200c\u200dـ]/g,'');
+  const leaderKind=user=>{const role=roleOf(user);if(role.includes('صدورپروانه')||role.includes('مدیراجرایی')||(role.includes('معاون')&&role.includes('بازرسی'))||(role.includes('رییساداره')&&role.includes('بازرسی'))||role.includes('سربازرسارشد'))return '';if(role.includes('سربازرس'))return 'senior';if(role.includes('گشت')&&role.includes('موتور'))return role.includes('بازرس')?'inspector':'';if(role.includes('اداری'))return '';return role.includes('بازرس')?'inspector':'';};
+  const seniorUsers=users.filter(user=>Number(user.is_active)!==0&&leaderKind(user)==='senior');
+  const inspectorUsers=users.filter(user=>Number(user.is_active)!==0&&leaderKind(user)==='inspector');
+  const userName=id=>{const user=users.find(item=>+item.id===+id);return user?`${user.first_name||''} ${user.last_name||''}`.trim()||user.username:'#'+id;};
+  const openLeaders=zone=>{setLeadership(zone);setSenior(zone.senior_user_id?String(zone.senior_user_id):'');setInspectors((zone.inspector_ids||[]).map(Number));setError('');};
+  const saveLeaders=()=>mutate(async()=>{const result=await db.zoneLeaders(leadership.id,{senior_user_id:senior?+senior:null,inspector_ids:inspectors});setZones(current=>current.map(zone=>+zone.id===+leadership.id?{...zone,senior_user_id:result.senior_user_id,inspector_ids:result.inspector_ids}:zone));setLeadership(null);});
   const pathFor=zone=>{const parts=[],seen=new Set();let current=zone;while(current&&!seen.has(+current.id)){seen.add(+current.id);parts.unshift(current.name);current=zones.find(item=>+item.id===+current.parent_id);}return parts.join(' / ');};
   const isDescendant=(candidate,ancestor)=>{const seen=new Set();let current=candidate;while(current&&!seen.has(+current.id)){if(+current.id===+ancestor)return true;seen.add(+current.id);current=zones.find(item=>+item.id===+current.parent_id);}return false;};
   const ordered=zones.slice().sort((left,right)=>pathFor(left).localeCompare(pathFor(right),'fa'));
@@ -1612,12 +1621,13 @@ function Zones(){
   const Col=(title,zid)=><div className={"col"+(over===zid?" over":"")} key={zid||"none"}
     onDragOver={e=>{e.preventDefault();setOver(zid)}} onDragLeave={()=>setOver(null)}
     onDrop={e=>{assign(+e.dataTransfer.getData("uid"),zid);setOver(null)}}>
-    <h4 className="row" style={{justifyContent:"space-between",gap:8,flexWrap:'wrap'}}><span>{title}</span>{zid!=null&&<span className="row" style={{gap:5,flexWrap:'wrap'}}><button className="btn g" disabled={busy} onClick={()=>{const zone=zones.find(item=>+item.id===+zid);setChild(zone);setChildName('');}}>+ زیرمنطقه</button><button className="btn g" disabled={busy} onClick={()=>{const zone=zones.find(item=>+item.id===+zid);setEditing(zone);setEditName(zone.name);setEditParent(zone.parent_id?String(zone.parent_id):'');}}>ویرایش</button><button className="btn d" disabled={busy} onClick={()=>removeZone(zones.find(item=>+item.id===+zid))}>حذف</button></span>}</h4>{zid!=null&&<small style={{display:'block',color:'var(--muted)',marginBottom:10}}>{pathFor(zones.find(item=>+item.id===+zid))}</small>}{users.filter(u=>zid==null?!u.zone_id:+u.zone_id===+zid).map(Card)}</div>;
+    <h4 className="row" style={{justifyContent:"space-between",gap:8,flexWrap:'wrap'}}><span>{title}</span>{zid!=null&&<span className="row" style={{gap:5,flexWrap:'wrap'}}><button className="btn g" disabled={busy} onClick={()=>openLeaders(zones.find(item=>+item.id===+zid))}>تعیین مسئولان</button><button className="btn g" disabled={busy} onClick={()=>{const zone=zones.find(item=>+item.id===+zid);setChild(zone);setChildName('');}}>+ زیرمنطقه</button><button className="btn g" disabled={busy} onClick={()=>{const zone=zones.find(item=>+item.id===+zid);setEditing(zone);setEditName(zone.name);setEditParent(zone.parent_id?String(zone.parent_id):'');}}>ویرایش</button><button className="btn d" disabled={busy} onClick={()=>removeZone(zones.find(item=>+item.id===+zid))}>حذف</button></span>}</h4>{zid!=null&&(()=>{const zone=zones.find(item=>+item.id===+zid);return <div style={{fontSize:12,lineHeight:2,marginBottom:10}}><div className="muted">{pathFor(zone)}</div><div>سربازرس: {zone.senior_user_id?userName(zone.senior_user_id):'پیش‌فرض منطقه / منطقهٔ والد'}</div><div>بازرس‌ها: {(zone.inspector_ids||[]).length?zone.inspector_ids.map(userName).join('، '):'پیش‌فرض منطقه / منطقهٔ والد'}</div></div>;})()}{users.filter(u=>zid==null?!u.zone_id:+u.zone_id===+zid).map(Card)}</div>;
   return(<div className="panel"><h3>منطقه‌بندی نیروها — کارت‌ها را در منطقهٔ موردنظر رها کنید
     <span className="row" style={{gap:8}}><input className="input" maxLength={150} style={{padding:"6px 10px",width:160}} placeholder="نام منطقهٔ جدید" value={nz} onChange={e=>setNz(e.target.value)}/>
       <select aria-label="منطقه والد برای منطقه جدید" className="input" style={{maxWidth:230}} value={newParent} onChange={event=>setNewParent(event.target.value)}><option value="">منطقه مستقل (بدون والد)</option>{ordered.map(zone=><option key={zone.id} value={zone.id}>{pathFor(zone)}</option>)}</select><button className="btn p" disabled={busy||!nz.trim()} onClick={addZone}>+ منطقه</button></span></h3>
     {error&&<p role="alert" style={{color:"var(--danger)"}}>{error}</p>}
     <div className="org">{Col("بدون منطقه",null)}{ordered.map(z=>Col(z.name,z.id))}</div>
+    {leadership&&<Modal title={'مسئولان '+pathFor(leadership)} onClose={()=>{if(!busy)setLeadership(null);}}><p className="muted">انتخاب مسئول، منطقهٔ عضویت نیرو را تغییر نمی‌دهد. انتخاب خالی، چارت پیش‌فرض منطقه و نزدیک‌ترین والد را حفظ می‌کند.</p><label>سربازرس منطقه</label><select aria-label="سربازرس منطقه" className="input" value={senior} disabled={busy} onChange={event=>setSenior(event.target.value)}><option value="">پیش‌فرض منطقه / والد</option>{senior&&!seniorUsers.some(user=>String(user.id)===senior)&&<option value={senior}>انتخاب قبلی نامعتبر: {userName(senior)}</option>}{seniorUsers.map(user=><option key={user.id} value={user.id}>{userName(user.id)} — {user.role_title}</option>)}</select><h4 style={{marginTop:14}}>بازرس‌های منطقه / زیرمنطقه</h4><div style={{maxHeight:260,overflow:'auto'}}>{[...inspectorUsers,...inspectors.filter(id=>!inspectorUsers.some(user=>+user.id===id)).map(id=>({id,role_title:'انتخاب قبلی نامعتبر؛ برای حذف تیک را بردارید'}))].map(user=><label key={user.id} style={{display:'block',padding:8}}><input type="checkbox" disabled={busy} checked={inspectors.includes(+user.id)} onChange={event=>setInspectors(current=>event.target.checked?[...current,+user.id]:current.filter(id=>id!==+user.id))}/> {userName(user.id)} — {user.role_title}</label>)}</div>{error&&<p role="alert" style={{color:'var(--danger)'}}>{error}</p>}<button className="btn p" disabled={busy} onClick={saveLeaders}>ذخیره مسئولان</button></Modal>}
     {child&&<Modal title={'تعریف زیرمنطقه برای '+child.name} onClose={()=>{if(!busy)setChild(null);}}><p style={{lineHeight:2}}>منطقه والد: {pathFor(child)}</p><label>نام زیرمنطقه</label><input aria-label="نام زیرمنطقه" className="input" maxLength={150} value={childName} onChange={event=>setChildName(event.target.value)}/>{error&&<p role="alert" style={{color:'var(--danger)'}}>{error}</p>}<div className="row" style={{gap:8,marginTop:12}}><button className="btn p" disabled={busy||!childName.trim()} onClick={addChild}>ذخیره زیرمنطقه</button><button className="btn g" disabled={busy} onClick={()=>setChild(null)}>انصراف</button></div></Modal>}
     {editing&&<Modal title="ویرایش منطقه" onClose={()=>{if(!busy)setEditing(null);}}><label>نام منطقه</label><input className="input" maxLength={150} value={editName} onChange={event=>setEditName(event.target.value)}/><label>منطقه والد</label><select aria-label="منطقه والد" className="input" value={editParent} onChange={event=>setEditParent(event.target.value)}><option value="">منطقه مستقل (بدون والد)</option>{ordered.filter(zone=>!isDescendant(zone,editing.id)).map(zone=><option key={zone.id} value={zone.id}>{pathFor(zone)}</option>)}</select>{error&&<p role="alert" style={{color:"var(--danger)"}}>{error}</p>}<button className="btn p" disabled={busy||!editName.trim()} onClick={saveZone}>ذخیرهٔ منطقه</button></Modal>}
     </div>);
@@ -3202,77 +3212,47 @@ function RadioCenter(){
 }
 
 function RadioLiveTab({api,channels,cid,setCid}){
-  const [items,setItems]=useState([]); // پیام‌های دریافت‌شده از زمان ورود به این تب
-  const [playingId,setPlayingId]=useState(0);
-  const [listening,setListening]=useState(false);
-  const afterRef=React.useRef(0);
-  const channelRef=React.useRef(cid);
-  const queueRef=React.useRef([]); // صف پخش خودکار
-  const playingRef=React.useRef(false);
-  const audioElRef=React.useRef(null);
-  const pollingRef=React.useRef(false);
-
-  useEffect(()=>{channelRef.current=cid;},[cid]);
-
-  // به‌محض تغییر کانال، صف/تاریخچهٔ نمایش را پاک می‌کنیم و از آخرین پیام موجود همان کانال شروع می‌کنیم
-  // تا پیام‌های قدیمیِ کانال قبلی هرگز با تعویض کانال پشت‌سرهم پخش نشوند.
-  useEffect(()=>{
-    const c=channels.find(x=>Number(x.id)===Number(cid));
-    afterRef.current=Number(c?.last_message_id||0);
-    queueRef.current=[];
-    setItems([]);
-    setPlayingId(0);
-    if(audioElRef.current){try{audioElRef.current.pause();}catch(e){}}
-  },[cid,channels]);
-
+  const [items,setItems]=useState([]),[playingId,setPlayingId]=useState(0),[listening,setListening]=useState(false),[error,setError]=useState(''),[blocked,setBlocked]=useState(false);
+  const afterRef=useRef(0),channelRef=useRef(cid),queueRef=useRef([]),playingRef=useRef(false),audioElRef=useRef(null),pollingRef=useRef(null),sessionRef=useRef(0),readyRef=useRef(false),blockedRef=useRef(false);
+  const stopAudio=()=>{const audio=audioElRef.current;audioElRef.current=null;playingRef.current=false;if(audio){audio.onended=null;audio.onerror=null;try{audio.pause();audio.removeAttribute?.('src');audio.load?.();}catch(failure){}}};
+  const reset=()=>{sessionRef.current++;readyRef.current=false;queueRef.current=[];blockedRef.current=false;stopAudio();setItems([]);setPlayingId(0);setListening(false);setBlocked(false);setError('');};
   const playNext=()=>{
-    if(playingRef.current)return;
-    const next=queueRef.current.shift();
-    if(!next){setPlayingId(0);return;}
-    playingRef.current=true;
-    setPlayingId(next.id);
-    const a=new Audio(next.audio_url);
-    audioElRef.current=a;
-    const done=()=>{playingRef.current=false;audioElRef.current=null;playNext();};
-    a.addEventListener('ended',done);
-    a.addEventListener('error',done);
-    a.play().catch(done); // اگر مرورگر پخش خودکار را رد کند (نبود تعامل کاربر)، به پیام بعدی می‌رویم و خطا را می‌بلعیم
+    if(playingRef.current||blockedRef.current||!readyRef.current)return;
+    const next=queueRef.current.shift();if(!next){setPlayingId(0);return;}
+    const generation=sessionRef.current,audio=new Audio(next.audio_url);let finished=false;
+    audioElRef.current=audio;playingRef.current=true;setPlayingId(next.id);
+    const finish=(failed,message)=>{
+      if(finished)return;finished=true;
+      if(generation!==sessionRef.current||audioElRef.current!==audio)return;
+      audioElRef.current=null;playingRef.current=false;setPlayingId(0);
+      if(failed){queueRef.current.unshift(next);blockedRef.current=true;setBlocked(true);setError(message);return;}
+      playNext();
+    };
+    audio.onended=()=>finish(false);audio.onerror=()=>finish(true,'دریافت صدا ناموفق بود؛ برای تلاش مجدد دکمهٔ پخش را بزنید.');
+    try{Promise.resolve(audio.play()).catch(()=>finish(true,'پخش خودکار توسط مرورگر متوقف شد؛ فعال‌کردن صدا را بزنید.'));}catch(failure){finish(true,failure.message);}
   };
-
   const poll=async()=>{
-    if(pollingRef.current||!channelRef.current)return;
-    pollingRef.current=true;
-    const requestedChannel=Number(channelRef.current);
+    const channel=Number(channelRef.current),generation=sessionRef.current;if(!channel||pollingRef.current?.generation===generation)return;
+    const requestScope={generation};pollingRef.current=requestScope;
     try{
-      const d=await api(`monitor&channel_id=${requestedChannel}&after=${afterRef.current}`);
-      if(requestedChannel!==Number(channelRef.current))return; // کانال حین درخواست عوض شده؛ این پاسخ متعلق به کانال قبلی است
-      const msgs=d.messages||[];
-      if(msgs.length){
-        afterRef.current=Math.max(afterRef.current,...msgs.map(x=>Number(x.id)));
-        setItems(prev=>[...msgs,...prev].slice(0,60));
-        queueRef.current.push(...msgs);
-        playNext();
-      }
-    }catch(e){/* خطای موقت شبکه؛ در دور بعدی دوباره تلاش می‌شود */}
-    finally{pollingRef.current=false;}
+      const initializing=!readyRef.current,response=await api(`monitor&channel_id=${channel}&after=${afterRef.current}${initializing?'&initialize=1':''}`);
+      if(generation!==sessionRef.current)return;
+      if(initializing){const cursor=Number(response.last_message_id);if(!Number.isSafeInteger(cursor)||cursor<0)throw Error('همگام‌سازی کانال ناموفق بود');afterRef.current=cursor;readyRef.current=true;setListening(true);setError('');return;}
+      const messages=(response.messages||[]).filter(message=>Number(message.channel_id)===channel&&Number(message.id)>afterRef.current);
+      if(messages.length){afterRef.current=Math.max(afterRef.current,...messages.map(message=>Number(message.id)));setItems(previous=>[...messages,...previous].slice(0,60));queueRef.current.push(...messages);if(queueRef.current.length>60)queueRef.current=queueRef.current.slice(-60);playNext();}
+    }catch(failure){if(generation===sessionRef.current)setError(failure.message||'دریافت بی‌سیم ناموفق بود');}
+    finally{if(pollingRef.current===requestScope)pollingRef.current=null;}
   };
-
-  useEffect(()=>{
-    if(!cid)return;
-    setListening(true);
-    poll();
-    const t=setInterval(poll,1800);
-    return()=>{clearInterval(t);setListening(false);if(audioElRef.current){try{audioElRef.current.pause();}catch(e){}}playingRef.current=false;queueRef.current=[];};
-  },[cid]);
-
+  useEffect(()=>{reset();channelRef.current=cid;afterRef.current=0;if(cid)poll();const timer=setInterval(poll,1800);return()=>{sessionRef.current++;readyRef.current=false;clearInterval(timer);queueRef.current=[];stopAudio();};},[cid]);
   return <>
     <div className="panel"><div className="row" style={{gap:8,alignItems:'center',flexWrap:'wrap'}}>
       <label className="label">کانال</label>
-      <select className="input" style={{maxWidth:280}} value={cid} onChange={e=>setCid(Number(e.target.value))}>
+      <select className="input" style={{maxWidth:280}} value={cid} onChange={e=>{reset();setCid(Number(e.target.value));}}>
         {channels.map(c=><option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}
       </select>
       <span className="muted">{listening?'در حال شنود زنده… پیام‌های تازه خودکار پخش می‌شوند':'—'}</span>
     </div></div>
+    {error&&<p role="alert" style={{color:"var(--danger)"}}>{error}</p>}{blocked&&<button className="btn p" onClick={()=>{blockedRef.current=false;setBlocked(false);setError('');playNext();}}>فعال‌کردن صدا / تلاش مجدد</button>}
     <div className="panel">
       <h3>پخش زنده</h3>
       <p className="muted" style={{marginBottom:8}}>پیام‌هایی که از این لحظه به بعد در این کانال ارسال شوند، همین‌جا و به‌صورت خودکار (یکی پس از دیگری) پخش می‌شوند. پیام‌های قبل‌تر را در تب «آرشیو پیام‌ها» ببینید.</p>
@@ -3290,17 +3270,22 @@ function RadioArchiveTab({api,channels,cid,setCid}){
   const [messages,setMessages]=useState(null);
   const [hours,setHours]=useState(24);
   const [retention,setRetention]=useState(24);
+  const requestRef=useRef(0),audioContainer=useRef(null);
+  const [error,setError]=useState('');
 
   const load=async()=>{
+    const generation=++requestRef.current;setError('');
+    audioContainer.current?.querySelectorAll('audio').forEach(audio=>audio.pause());
     if(!cid){setMessages([]);return;}
     setMessages(null);
     try{
       const d=await api(`archive&channel_id=${cid}&hours=${hours}&limit=200`);
+      if(generation!==requestRef.current)return;
       setMessages(d.messages||[]);
       setRetention(d.retention_hours||24);
-    }catch(e){setMessages([]);}
+    }catch(e){if(generation===requestRef.current){setMessages([]);setError(e.message||'دریافت آرشیو ناموفق بود');}}
   };
-  useEffect(()=>{load();},[cid,hours]);
+  useEffect(()=>{load();return()=>{requestRef.current++;audioContainer.current?.querySelectorAll('audio').forEach(audio=>audio.pause());};},[cid,hours]);
 
   return <>
     <div className="panel"><div className="row" style={{gap:8,alignItems:'center',flexWrap:'wrap'}}>
@@ -3316,8 +3301,8 @@ function RadioArchiveTab({api,channels,cid,setCid}){
       </select>
       <span className="muted">مدت نگهداری آرشیو روی سرور: {fa(retention)} ساعت</span>
     </div></div>
-    <div className="panel">
-      <h3>آرشیو پیام‌های صوتی</h3>
+    <div className="panel" ref={audioContainer}>
+      <h3>آرشیو پیام‌های صوتی</h3>{error&&<p role="alert" style={{color:"var(--danger)"}}>{error}</p>}
       {messages===null?<p className="muted">در حال بارگذاری…</p>:
        messages.length?messages.map(m=><div key={m.id} className="row" style={{justifyContent:'space-between',gap:10,padding:'10px 0',borderBottom:'1px solid var(--line)',alignItems:'center',flexWrap:'wrap'}}>
         <div><b>{m.sender_name||'کاربر'}</b>

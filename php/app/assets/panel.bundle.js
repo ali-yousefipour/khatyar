@@ -472,6 +472,7 @@ const db = {
     resetPassword: (id, password) => SEND('POST', '/admin/users/' + id + '/reset-password', { password }),
     createZone: (name, parentId = null) => SEND('POST', '/admin/zones', { name, parent_id: parentId }),
     updateZone: (id, name, parentId) => SEND('PUT', '/admin/zones/' + id, { name, ...(parentId === undefined ? {} : { parent_id: parentId }) }),
+    zoneLeaders: (id, fields) => SEND('PUT', '/admin/zones/' + id + '/leaders', fields),
     deleteZone: (id) => SEND('DELETE', '/admin/zones/' + id, {}),
     addReason: (title) => SEND('POST', '/admin/notice-reasons', { title }),
     delReason: (id) => SEND('DELETE', '/admin/notice-reasons/' + id),
@@ -2707,6 +2708,18 @@ function Zones() {
     const [editName, setEditName] = useState("");
     const mutation = useRef(false);
     const [newParent, setNewParent] = useState(''), [editParent, setEditParent] = useState(''), [child, setChild] = useState(null), [childName, setChildName] = useState('');
+    const [leadership, setLeadership] = useState(null), [senior, setSenior] = useState(''), [inspectors, setInspectors] = useState([]);
+    const roleOf = user => String(user.role_title || '').replace(/[يكئ]/g, character => character === 'ك' ? 'ک' : 'ی').replace(/[\s\u200c\u200dـ]/g, '');
+    const leaderKind = user => { const role = roleOf(user); if (role.includes('صدورپروانه') || role.includes('مدیراجرایی') || (role.includes('معاون') && role.includes('بازرسی')) || (role.includes('رییساداره') && role.includes('بازرسی')) || role.includes('سربازرسارشد'))
+        return ''; if (role.includes('سربازرس'))
+        return 'senior'; if (role.includes('گشت') && role.includes('موتور'))
+        return role.includes('بازرس') ? 'inspector' : ''; if (role.includes('اداری'))
+        return ''; return role.includes('بازرس') ? 'inspector' : ''; };
+    const seniorUsers = users.filter(user => Number(user.is_active) !== 0 && leaderKind(user) === 'senior');
+    const inspectorUsers = users.filter(user => Number(user.is_active) !== 0 && leaderKind(user) === 'inspector');
+    const userName = id => { const user = users.find(item => +item.id === +id); return user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : '#' + id; };
+    const openLeaders = zone => { setLeadership(zone); setSenior(zone.senior_user_id ? String(zone.senior_user_id) : ''); setInspectors((zone.inspector_ids || []).map(Number)); setError(''); };
+    const saveLeaders = () => mutate(async () => { const result = await db.zoneLeaders(leadership.id, { senior_user_id: senior ? +senior : null, inspector_ids: inspectors }); setZones(current => current.map(zone => +zone.id === +leadership.id ? { ...zone, senior_user_id: result.senior_user_id, inspector_ids: result.inspector_ids } : zone)); setLeadership(null); });
     const pathFor = zone => { const parts = [], seen = new Set(); let current = zone; while (current && !seen.has(+current.id)) {
         seen.add(+current.id);
         parts.unshift(current.name);
@@ -2752,10 +2765,18 @@ function Zones() {
         React.createElement("h4", { className: "row", style: { justifyContent: "space-between", gap: 8, flexWrap: 'wrap' } },
             React.createElement("span", null, title),
             zid != null && React.createElement("span", { className: "row", style: { gap: 5, flexWrap: 'wrap' } },
+                React.createElement("button", { className: "btn g", disabled: busy, onClick: () => openLeaders(zones.find(item => +item.id === +zid)) }, "\u062A\u0639\u06CC\u06CC\u0646 \u0645\u0633\u0626\u0648\u0644\u0627\u0646"),
                 React.createElement("button", { className: "btn g", disabled: busy, onClick: () => { const zone = zones.find(item => +item.id === +zid); setChild(zone); setChildName(''); } }, "+ \u0632\u06CC\u0631\u0645\u0646\u0637\u0642\u0647"),
                 React.createElement("button", { className: "btn g", disabled: busy, onClick: () => { const zone = zones.find(item => +item.id === +zid); setEditing(zone); setEditName(zone.name); setEditParent(zone.parent_id ? String(zone.parent_id) : ''); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
                 React.createElement("button", { className: "btn d", disabled: busy, onClick: () => removeZone(zones.find(item => +item.id === +zid)) }, "\u062D\u0630\u0641"))),
-        zid != null && React.createElement("small", { style: { display: 'block', color: 'var(--muted)', marginBottom: 10 } }, pathFor(zones.find(item => +item.id === +zid))),
+        zid != null && (() => { const zone = zones.find(item => +item.id === +zid); return React.createElement("div", { style: { fontSize: 12, lineHeight: 2, marginBottom: 10 } },
+            React.createElement("div", { className: "muted" }, pathFor(zone)),
+            React.createElement("div", null,
+                "\u0633\u0631\u0628\u0627\u0632\u0631\u0633: ",
+                zone.senior_user_id ? userName(zone.senior_user_id) : 'پیش‌فرض منطقه / منطقهٔ والد'),
+            React.createElement("div", null,
+                "\u0628\u0627\u0632\u0631\u0633\u200C\u0647\u0627: ",
+                (zone.inspector_ids || []).length ? zone.inspector_ids.map(userName).join('، ') : 'پیش‌فرض منطقه / منطقهٔ والد')); })(),
         users.filter(u => zid == null ? !u.zone_id : +u.zone_id === +zid).map(Card));
     return (React.createElement("div", { className: "panel" },
         React.createElement("h3", null,
@@ -2770,6 +2791,28 @@ function Zones() {
         React.createElement("div", { className: "org" },
             Col("بدون منطقه", null),
             ordered.map(z => Col(z.name, z.id))),
+        leadership && React.createElement(Modal, { title: 'مسئولان ' + pathFor(leadership), onClose: () => { if (!busy)
+                setLeadership(null); } },
+            React.createElement("p", { className: "muted" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0645\u0633\u0626\u0648\u0644\u060C \u0645\u0646\u0637\u0642\u0647\u0654 \u0639\u0636\u0648\u06CC\u062A \u0646\u06CC\u0631\u0648 \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0645\u06CC\u200C\u062F\u0647\u062F. \u0627\u0646\u062A\u062E\u0627\u0628 \u062E\u0627\u0644\u06CC\u060C \u0686\u0627\u0631\u062A \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u0645\u0646\u0637\u0642\u0647 \u0648 \u0646\u0632\u062F\u06CC\u06A9\u200C\u062A\u0631\u06CC\u0646 \u0648\u0627\u0644\u062F \u0631\u0627 \u062D\u0641\u0638 \u0645\u06CC\u200C\u06A9\u0646\u062F."),
+            React.createElement("label", null, "\u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0645\u0646\u0637\u0642\u0647"),
+            React.createElement("select", { "aria-label": "\u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0645\u0646\u0637\u0642\u0647", className: "input", value: senior, disabled: busy, onChange: event => setSenior(event.target.value) },
+                React.createElement("option", { value: "" }, "\u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u0645\u0646\u0637\u0642\u0647 / \u0648\u0627\u0644\u062F"),
+                senior && !seniorUsers.some(user => String(user.id) === senior) && React.createElement("option", { value: senior },
+                    "\u0627\u0646\u062A\u062E\u0627\u0628 \u0642\u0628\u0644\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: ",
+                    userName(senior)),
+                seniorUsers.map(user => React.createElement("option", { key: user.id, value: user.id },
+                    userName(user.id),
+                    " \u2014 ",
+                    user.role_title))),
+            React.createElement("h4", { style: { marginTop: 14 } }, "\u0628\u0627\u0632\u0631\u0633\u200C\u0647\u0627\u06CC \u0645\u0646\u0637\u0642\u0647 / \u0632\u06CC\u0631\u0645\u0646\u0637\u0642\u0647"),
+            React.createElement("div", { style: { maxHeight: 260, overflow: 'auto' } }, [...inspectorUsers, ...inspectors.filter(id => !inspectorUsers.some(user => +user.id === id)).map(id => ({ id, role_title: 'انتخاب قبلی نامعتبر؛ برای حذف تیک را بردارید' }))].map(user => React.createElement("label", { key: user.id, style: { display: 'block', padding: 8 } },
+                React.createElement("input", { type: "checkbox", disabled: busy, checked: inspectors.includes(+user.id), onChange: event => setInspectors(current => event.target.checked ? [...current, +user.id] : current.filter(id => id !== +user.id)) }),
+                " ",
+                userName(user.id),
+                " \u2014 ",
+                user.role_title))),
+            error && React.createElement("p", { role: "alert", style: { color: 'var(--danger)' } }, error),
+            React.createElement("button", { className: "btn p", disabled: busy, onClick: saveLeaders }, "\u0630\u062E\u06CC\u0631\u0647 \u0645\u0633\u0626\u0648\u0644\u0627\u0646")),
         child && React.createElement(Modal, { title: 'تعریف زیرمنطقه برای ' + child.name, onClose: () => { if (!busy)
                 setChild(null); } },
             React.createElement("p", { style: { lineHeight: 2 } },
@@ -5438,93 +5481,113 @@ function RadioCenter() {
             : React.createElement(RadioArchiveTab, { api: api, channels: channels, cid: cid, setCid: setCid }));
 }
 function RadioLiveTab({ api, channels, cid, setCid }) {
-    const [items, setItems] = useState([]); // پیام‌های دریافت‌شده از زمان ورود به این تب
-    const [playingId, setPlayingId] = useState(0);
-    const [listening, setListening] = useState(false);
-    const afterRef = React.useRef(0);
-    const channelRef = React.useRef(cid);
-    const queueRef = React.useRef([]); // صف پخش خودکار
-    const playingRef = React.useRef(false);
-    const audioElRef = React.useRef(null);
-    const pollingRef = React.useRef(false);
-    useEffect(() => { channelRef.current = cid; }, [cid]);
-    // به‌محض تغییر کانال، صف/تاریخچهٔ نمایش را پاک می‌کنیم و از آخرین پیام موجود همان کانال شروع می‌کنیم
-    // تا پیام‌های قدیمیِ کانال قبلی هرگز با تعویض کانال پشت‌سرهم پخش نشوند.
-    useEffect(() => {
-        const c = channels.find(x => Number(x.id) === Number(cid));
-        afterRef.current = Number((c === null || c === void 0 ? void 0 : c.last_message_id) || 0);
-        queueRef.current = [];
-        setItems([]);
-        setPlayingId(0);
-        if (audioElRef.current) {
-            try {
-                audioElRef.current.pause();
-            }
-            catch (e) { }
+    const [items, setItems] = useState([]), [playingId, setPlayingId] = useState(0), [listening, setListening] = useState(false), [error, setError] = useState(''), [blocked, setBlocked] = useState(false);
+    const afterRef = useRef(0), channelRef = useRef(cid), queueRef = useRef([]), playingRef = useRef(false), audioElRef = useRef(null), pollingRef = useRef(null), sessionRef = useRef(0), readyRef = useRef(false), blockedRef = useRef(false);
+    const stopAudio = () => { var _a, _b; const audio = audioElRef.current; audioElRef.current = null; playingRef.current = false; if (audio) {
+        audio.onended = null;
+        audio.onerror = null;
+        try {
+            audio.pause();
+            (_a = audio.removeAttribute) === null || _a === void 0 ? void 0 : _a.call(audio, 'src');
+            (_b = audio.load) === null || _b === void 0 ? void 0 : _b.call(audio);
         }
-    }, [cid, channels]);
+        catch (failure) { }
+    } };
+    const reset = () => { sessionRef.current++; readyRef.current = false; queueRef.current = []; blockedRef.current = false; stopAudio(); setItems([]); setPlayingId(0); setListening(false); setBlocked(false); setError(''); };
     const playNext = () => {
-        if (playingRef.current)
+        if (playingRef.current || blockedRef.current || !readyRef.current)
             return;
         const next = queueRef.current.shift();
         if (!next) {
             setPlayingId(0);
             return;
         }
+        const generation = sessionRef.current, audio = new Audio(next.audio_url);
+        let finished = false;
+        audioElRef.current = audio;
         playingRef.current = true;
         setPlayingId(next.id);
-        const a = new Audio(next.audio_url);
-        audioElRef.current = a;
-        const done = () => { playingRef.current = false; audioElRef.current = null; playNext(); };
-        a.addEventListener('ended', done);
-        a.addEventListener('error', done);
-        a.play().catch(done); // اگر مرورگر پخش خودکار را رد کند (نبود تعامل کاربر)، به پیام بعدی می‌رویم و خطا را می‌بلعیم
+        const finish = (failed, message) => {
+            if (finished)
+                return;
+            finished = true;
+            if (generation !== sessionRef.current || audioElRef.current !== audio)
+                return;
+            audioElRef.current = null;
+            playingRef.current = false;
+            setPlayingId(0);
+            if (failed) {
+                queueRef.current.unshift(next);
+                blockedRef.current = true;
+                setBlocked(true);
+                setError(message);
+                return;
+            }
+            playNext();
+        };
+        audio.onended = () => finish(false);
+        audio.onerror = () => finish(true, 'دریافت صدا ناموفق بود؛ برای تلاش مجدد دکمهٔ پخش را بزنید.');
+        try {
+            Promise.resolve(audio.play()).catch(() => finish(true, 'پخش خودکار توسط مرورگر متوقف شد؛ فعال‌کردن صدا را بزنید.'));
+        }
+        catch (failure) {
+            finish(true, failure.message);
+        }
     };
     const poll = async () => {
-        if (pollingRef.current || !channelRef.current)
+        var _a;
+        const channel = Number(channelRef.current), generation = sessionRef.current;
+        if (!channel || ((_a = pollingRef.current) === null || _a === void 0 ? void 0 : _a.generation) === generation)
             return;
-        pollingRef.current = true;
-        const requestedChannel = Number(channelRef.current);
+        const requestScope = { generation };
+        pollingRef.current = requestScope;
         try {
-            const d = await api(`monitor&channel_id=${requestedChannel}&after=${afterRef.current}`);
-            if (requestedChannel !== Number(channelRef.current))
-                return; // کانال حین درخواست عوض شده؛ این پاسخ متعلق به کانال قبلی است
-            const msgs = d.messages || [];
-            if (msgs.length) {
-                afterRef.current = Math.max(afterRef.current, ...msgs.map(x => Number(x.id)));
-                setItems(prev => [...msgs, ...prev].slice(0, 60));
-                queueRef.current.push(...msgs);
+            const initializing = !readyRef.current, response = await api(`monitor&channel_id=${channel}&after=${afterRef.current}${initializing ? '&initialize=1' : ''}`);
+            if (generation !== sessionRef.current)
+                return;
+            if (initializing) {
+                const cursor = Number(response.last_message_id);
+                if (!Number.isSafeInteger(cursor) || cursor < 0)
+                    throw Error('همگام‌سازی کانال ناموفق بود');
+                afterRef.current = cursor;
+                readyRef.current = true;
+                setListening(true);
+                setError('');
+                return;
+            }
+            const messages = (response.messages || []).filter(message => Number(message.channel_id) === channel && Number(message.id) > afterRef.current);
+            if (messages.length) {
+                afterRef.current = Math.max(afterRef.current, ...messages.map(message => Number(message.id)));
+                setItems(previous => [...messages, ...previous].slice(0, 60));
+                queueRef.current.push(...messages);
+                if (queueRef.current.length > 60)
+                    queueRef.current = queueRef.current.slice(-60);
                 playNext();
             }
         }
-        catch (e) { /* خطای موقت شبکه؛ در دور بعدی دوباره تلاش می‌شود */ }
+        catch (failure) {
+            if (generation === sessionRef.current)
+                setError(failure.message || 'دریافت بی‌سیم ناموفق بود');
+        }
         finally {
-            pollingRef.current = false;
+            if (pollingRef.current === requestScope)
+                pollingRef.current = null;
         }
     };
-    useEffect(() => {
-        if (!cid)
-            return;
-        setListening(true);
-        poll();
-        const t = setInterval(poll, 1800);
-        return () => { clearInterval(t); setListening(false); if (audioElRef.current) {
-            try {
-                audioElRef.current.pause();
-            }
-            catch (e) { }
-        } playingRef.current = false; queueRef.current = []; };
-    }, [cid]);
+    useEffect(() => { reset(); channelRef.current = cid; afterRef.current = 0; if (cid)
+        poll(); const timer = setInterval(poll, 1800); return () => { sessionRef.current++; readyRef.current = false; clearInterval(timer); queueRef.current = []; stopAudio(); }; }, [cid]);
     return React.createElement(React.Fragment, null,
         React.createElement("div", { className: "panel" },
             React.createElement("div", { className: "row", style: { gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
                 React.createElement("label", { className: "label" }, "\u06A9\u0627\u0646\u0627\u0644"),
-                React.createElement("select", { className: "input", style: { maxWidth: 280 }, value: cid, onChange: e => setCid(Number(e.target.value)) }, channels.map(c => React.createElement("option", { key: c.id, value: c.id },
+                React.createElement("select", { className: "input", style: { maxWidth: 280 }, value: cid, onChange: e => { reset(); setCid(Number(e.target.value)); } }, channels.map(c => React.createElement("option", { key: c.id, value: c.id },
                     c.name,
                     " (",
                     c.code,
                     ")"))),
                 React.createElement("span", { className: "muted" }, listening ? 'در حال شنود زنده… پیام‌های تازه خودکار پخش می‌شوند' : '—'))),
+        error && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } }, error),
+        blocked && React.createElement("button", { className: "btn p", onClick: () => { blockedRef.current = false; setBlocked(false); setError(''); playNext(); } }, "\u0641\u0639\u0627\u0644\u200C\u06A9\u0631\u062F\u0646 \u0635\u062F\u0627 / \u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F"),
         React.createElement("div", { className: "panel" },
             React.createElement("h3", null, "\u067E\u062E\u0634 \u0632\u0646\u062F\u0647"),
             React.createElement("p", { className: "muted", style: { marginBottom: 8 } }, "\u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u06CC\u06CC \u06A9\u0647 \u0627\u0632 \u0627\u06CC\u0646 \u0644\u062D\u0638\u0647 \u0628\u0647 \u0628\u0639\u062F \u062F\u0631 \u0627\u06CC\u0646 \u06A9\u0627\u0646\u0627\u0644 \u0627\u0631\u0633\u0627\u0644 \u0634\u0648\u0646\u062F\u060C \u0647\u0645\u06CC\u0646\u200C\u062C\u0627 \u0648 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u062E\u0648\u062F\u06A9\u0627\u0631 (\u06CC\u06A9\u06CC \u067E\u0633 \u0627\u0632 \u062F\u06CC\u06AF\u0631\u06CC) \u067E\u062E\u0634 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u06CC \u0642\u0628\u0644\u200C\u062A\u0631 \u0631\u0627 \u062F\u0631 \u062A\u0628 \u00AB\u0622\u0631\u0634\u06CC\u0648 \u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u00BB \u0628\u0628\u06CC\u0646\u06CC\u062F."),
@@ -5543,7 +5606,13 @@ function RadioArchiveTab({ api, channels, cid, setCid }) {
     const [messages, setMessages] = useState(null);
     const [hours, setHours] = useState(24);
     const [retention, setRetention] = useState(24);
+    const requestRef = useRef(0), audioContainer = useRef(null);
+    const [error, setError] = useState('');
     const load = async () => {
+        var _a;
+        const generation = ++requestRef.current;
+        setError('');
+        (_a = audioContainer.current) === null || _a === void 0 ? void 0 : _a.querySelectorAll('audio').forEach(audio => audio.pause());
         if (!cid) {
             setMessages([]);
             return;
@@ -5551,14 +5620,19 @@ function RadioArchiveTab({ api, channels, cid, setCid }) {
         setMessages(null);
         try {
             const d = await api(`archive&channel_id=${cid}&hours=${hours}&limit=200`);
+            if (generation !== requestRef.current)
+                return;
             setMessages(d.messages || []);
             setRetention(d.retention_hours || 24);
         }
         catch (e) {
-            setMessages([]);
+            if (generation === requestRef.current) {
+                setMessages([]);
+                setError(e.message || 'دریافت آرشیو ناموفق بود');
+            }
         }
     };
-    useEffect(() => { load(); }, [cid, hours]);
+    useEffect(() => { load(); return () => { var _a; requestRef.current++; (_a = audioContainer.current) === null || _a === void 0 ? void 0 : _a.querySelectorAll('audio').forEach(audio => audio.pause()); }; }, [cid, hours]);
     return React.createElement(React.Fragment, null,
         React.createElement("div", { className: "panel" },
             React.createElement("div", { className: "row", style: { gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
@@ -5577,8 +5651,9 @@ function RadioArchiveTab({ api, channels, cid, setCid }) {
                     "\u0645\u062F\u062A \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0622\u0631\u0634\u06CC\u0648 \u0631\u0648\u06CC \u0633\u0631\u0648\u0631: ",
                     fa(retention),
                     " \u0633\u0627\u0639\u062A"))),
-        React.createElement("div", { className: "panel" },
+        React.createElement("div", { className: "panel", ref: audioContainer },
             React.createElement("h3", null, "\u0622\u0631\u0634\u06CC\u0648 \u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u06CC \u0635\u0648\u062A\u06CC"),
+            error && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } }, error),
             messages === null ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") :
                 messages.length ? messages.map(m => React.createElement("div", { key: m.id, className: "row", style: { justifyContent: 'space-between', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--line)', alignItems: 'center', flexWrap: 'wrap' } },
                     React.createElement("div", null,

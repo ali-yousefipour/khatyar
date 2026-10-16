@@ -6936,7 +6936,7 @@ route('GET', '/api/admin/org-chart', function($p,$b,$u){
     $k=(int)$x['id'].':'.(int)$x['manager_id'];
     $edges[$k]=['user_id'=>(int)$x['id'],'manager_id'=>(int)$x['manager_id'],'primary'=>1];
   }
-  $zones=Db::all("SELECT id,name,parent_id FROM zones ORDER BY id");
+  $zones=OrgChart::withZoneLeaders(Db::all("SELECT id,name,parent_id FROM zones ORDER BY id"));
   return ['users'=>$users,'edges'=>array_values($edges),'default_edges'=>OrgChart::defaultEdges($users, array_values($edges),$zones),
     'zones'=>$zones];
 }, false, ADMIN);
@@ -8329,7 +8329,8 @@ route('DELETE', '/api/admin/roles/{id}', function($p,$b,$u){
   Db::run("DELETE FROM roles WHERE id=?", [$p['id']]);
   return ['ok'=>true];
 }, false, ADMIN);
-route('GET', '/api/admin/zones', fn($p,$b,$u) => Db::all("SELECT * FROM zones ORDER BY id"));
+route('GET', '/api/admin/zones', function(){require_once __DIR__.'/OrgChart.php';return OrgChart::withZoneLeaders(Db::all("SELECT * FROM zones ORDER BY id"));});
+route('PUT', '/api/admin/zones/{id}/leaders', function($p,$b,$u){require_once __DIR__.'/OrgChart.php';return OrgChart::saveZoneLeaders($p['id'],$b['senior_user_id']??null,$b['inspector_ids']??[],$u['id']);},false,ADMIN);
 function _validated_zone_parent($value,$zoneId=0) {
   if ($value===null || $value==='') return null;
   $parent=filter_var($value,FILTER_VALIDATE_INT);
@@ -8370,6 +8371,8 @@ route('PUT', '/api/admin/zones/{id}', function($p,$b,$u){
   return ['ok'=>true];
 }, false, ADMIN);
 route('DELETE', '/api/admin/zones/{id}', function($p,$b,$u){
+  if(!class_exists('OrgChart'))require_once __DIR__.'/OrgChart.php';
+  OrgChart::ensureZoneLeaders();
   $connection = Db::pdo();
   $connection->beginTransaction();
   try {
@@ -8379,6 +8382,7 @@ route('DELETE', '/api/admin/zones/{id}', function($p,$b,$u){
     }
     Db::run("UPDATE users SET zone_id=NULL WHERE zone_id=?", [$p['id']]);
     Db::run("UPDATE zones SET parent_id=NULL WHERE parent_id=?", [$p['id']]);
+    Db::run('DELETE FROM zone_leadership WHERE zone_id=?',[$p['id']]);
     Db::run("DELETE FROM zones WHERE id=?", [$p['id']]);
     $connection->commit();
   } catch (\Throwable $error) {

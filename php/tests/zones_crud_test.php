@@ -19,7 +19,8 @@ class Db {
   static function one($query,$params) { return self::$zones[(int)$params[0]] ?? null; }
   static function all($query,$params=[]) { return array_values(self::$zones); }
   static function insert($query,$params) { self::$zones[3] = ['id'=>3,'name'=>$params[0],'parent_id'=>$params[1]]; return 3; }
-  static function run($query,$params) {
+  static function run($query,$params=[]) {
+    if(strpos($query,'CREATE TABLE IF NOT EXISTS zone_leadership')===0 || strpos($query,'DELETE FROM zone_leadership')===0)return;
     if (strpos($query,'UPDATE users')===0) {
       foreach (self::$users as &$user) if ($user['zone_id']==$params[0]) $user['zone_id']=null;
       unset($user);
@@ -42,6 +43,7 @@ function route($method,$path,$handler,$public=false,$level=null) {
   $handlers[$method] = $handler;
 }
 $source = file_get_contents(__DIR__.'/../lib/routes.php');
+require_once __DIR__.'/../lib/OrgChart.php';
 $helperStart=strpos($source,'function _validated_zone_parent(');
 $helperEnd=strpos($source,"route('POST', '/api/admin/zones'",$helperStart);
 eval(substr($source,$helperStart,$helperEnd-$helperStart));

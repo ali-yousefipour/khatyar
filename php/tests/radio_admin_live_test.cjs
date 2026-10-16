@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const vm=require('node:vm');
+const source=fs.readFileSync(path.join(__dirname,'../app/radio-admin.js'),'utf8');
+const portion=source.slice(0,source.indexOf('async function loadArchive('));
+const deferred=()=>{let resolve;const promise=new Promise(callback=>{resolve=callback;});return {promise,resolve};};
+const settle=()=>new Promise(resolve=>setImmediate(resolve));
+let response=async()=>({last_message_id:200,messages:[]});const calls=[];
+const rows={children:[],querySelectorAll:()=>[],prepend(row){this.children.unshift(row);}};
+Object.defineProperty(rows,'innerHTML',{set(){this.children=[];}});
+const elements={'live-channel':{value:'2'},'live-status':{value:''},'live-rows':rows};
+const context=vm.createContext({liveTimer:null,liveAfter:{},document:{getElementById:id=>elements[id],createElement:()=>({})},esc:String,api:async query=>{calls.push(query);return response(query);},setInterval:()=>1,clearInterval(){}});
+vm.runInContext(portion,context);
+context.api=async query=>{calls.push(query);return response(query);};
+(async()=>{
+  context.startLive();await settle();assert.ok(calls[0].includes('initialize=1'));
+  response=async()=>({messages:[{id:180,channel_id:2},{id:201,channel_id:2,sender_name:'test',created_at:'now',audio_url:'/audio',duration_ms:1000}]});
+  await context.renderLive();assert.ok(calls[1].includes('after=200'));assert.equal(rows.children.length,1,'only new messages displayed');
+  const previous=deferred(),latest=deferred();response=query=>query.includes('channel_id=2')?previous.promise:latest.promise;
+  context.startLive();elements['live-channel'].value='3';context.startLive();latest.resolve({last_message_id:300,messages:[]});await settle();previous.resolve({last_message_id:20,messages:[]});await settle();
+  response=async()=>({messages:[]});await context.renderLive();assert.ok(calls.at(-1).includes('channel_id=3&after=300'),'old channel reply cannot replace cursor');
+  const pending=deferred();response=()=>pending.promise;const request=context.renderLive();context.stopLive();pending.resolve({messages:[{id:301,channel_id:3}]});await request;assert.equal(rows.children.length,0,'stop invalidates in-flight replies');
+  console.log('Radio admin live: fresh baseline, no archive replay, channel races and stop isolation passed');
+})().catch(error=>{console.error(error);process.exitCode=1;});

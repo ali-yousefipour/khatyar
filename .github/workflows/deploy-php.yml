@@ -59,6 +59,10 @@ jobs:
           php -l lib/Payroll.php
           php tests/payroll_test.php
           node tests/payroll_ui_test.cjs
+          php tests/zone_leadership_test.php
+          php tests/radio_live_test.php
+          node tests/radio_admin_live_test.cjs
+          node tests/radio_panel_live_test.cjs
 
       - name: Build deployment payload from this push
         shell: bash
