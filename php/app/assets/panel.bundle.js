@@ -2014,6 +2014,260 @@ function Modal({ title, onClose, children }) {
             React.createElement("h3", null, title),
             children)));
 }
+function seniorityEn(value) { return String(value !== null && value !== void 0 ? value : '').replace(/[۰-۹]/g, digit => '۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)).replace(/[٠-٩]/g, digit => '٠١٢٣٤٥٦٧٨٩'.indexOf(digit)); }
+function seniorityFilter(rows, filters) {
+    const normalize = value => seniorityEn(value).replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/\s+/g, ' ').trim().toLowerCase();
+    const query = normalize(filters.q);
+    return rows.filter(row => (!query || normalize([row.first_name, row.last_name, row.username, row.national_code, row.personnel_code].join(' ')).includes(query)) && (!filters.role || String(row.role_id) === filters.role) && (!filters.zone || String(row.zone_id) === filters.zone) && (filters.active === '' || Number(row.is_active) === Number(filters.active)) && (!filters.initialized || String(Number(row.initialized)) === filters.initialized));
+}
+function seniorityExportRows(rows, period) {
+    const safe = value => /^[=+\-@\t\r]/.test(String(value !== null && value !== void 0 ? value : '')) ? "'" + String(value) : value !== null && value !== void 0 ? value : '';
+    return rows.map(row => { var _a, _b, _c, _e; return ({ "نام": safe(row.first_name), "نام خانوادگی": safe(row.last_name), "شماره پرسنلی": safe(row.personnel_code), "کد ملی": safe(row.national_code || row.username), "سمت": safe(row.role_title), "منطقه": safe(row.zone_name), "فعال": Number(row.is_active) ? 'بله' : 'خیر', "مبنای سنوات (روز)": (_a = row.base_days) !== null && _a !== void 0 ? _a : '', "تاریخ مبنا": row.base_through_jdate || '', "اصلاح دستی": (_b = row.adjustment_days) !== null && _b !== void 0 ? _b : '', "جمع ماه‌ها": row.monthly_days, "ماه گزارش": period, "سهم ماه جاری": row.current_month_days, "غیبت ماه جاری": (_c = row.current_month_absent) !== null && _c !== void 0 ? _c : '', "میزان سنوات شخص (روز)": (_e = row.seniority_days) !== null && _e !== void 0 ? _e : '', "وضعیت": row.initialized ? 'ثبت‌شده' : 'نیازمند ثبت مبنا' }); });
+}
+async function seniorityBatchUpdate(rows, period, update, onProgress) {
+    const results = [];
+    for (const row of rows) {
+        try {
+            results.push({ id: row.id, name: [row.first_name, row.last_name].join(' '), ok: true, ...await update(row.id, period) });
+        }
+        catch (error) {
+            results.push({ id: row.id, name: [row.first_name, row.last_name].join(' '), ok: false, error: error.message || 'به‌روزرسانی انجام نشد' });
+        }
+        onProgress(results.length, rows.length);
+    }
+    return results;
+}
+function PersonnelSeniority() {
+    const [data, setData] = useState(null), [error, setError] = useState(''), [loading, setLoading] = useState(false);
+    const [filters, setFilters] = useState({ q: '', role: '', zone: '', active: '1', initialized: '' });
+    const [editing, setEditing] = useState(null), [days, setDays] = useState(''), [reason, setReason] = useState(''), [baseline, setBaseline] = useState('1405-06-31');
+    const [busy, setBusy] = useState(false), [progress, setProgress] = useState(''), [results, setResults] = useState(null), [history, setHistory] = useState(null);
+    const mutation = useRef(false), generation = useRef(0);
+    const load = async () => {
+        const current = ++generation.current;
+        setLoading(true);
+        setError('');
+        try {
+            const next = await GET('/admin/seniority');
+            if (!Array.isArray(next === null || next === void 0 ? void 0 : next.rows))
+                throw new Error('فهرست سنوات معتبر نیست.');
+            if (generation.current === current)
+                setData(next);
+        }
+        catch (failure) {
+            if (generation.current === current)
+                setError(failure.message || 'دریافت سنوات ناموفق بود.');
+        }
+        finally {
+            if (generation.current === current)
+                setLoading(false);
+        }
+    };
+    useEffect(() => { load(); return () => { generation.current++; }; }, []);
+    const rows = useMemo(() => seniorityFilter((data === null || data === void 0 ? void 0 : data.rows) || [], filters), [data, filters]);
+    const pager = usePager(rows, 25);
+    const roles = Array.from(new Map(((data === null || data === void 0 ? void 0 : data.rows) || []).filter(row => row.role_id).map(row => [String(row.role_id), row.role_title])).entries());
+    const zones = Array.from(new Map(((data === null || data === void 0 ? void 0 : data.rows) || []).filter(row => row.zone_id).map(row => [String(row.zone_id), row.zone_name])).entries());
+    const totals = rows.reduce((sum, row) => ({ days: sum.days + (Number(row.seniority_days) || 0), initialized: sum.initialized + (row.initialized ? 1 : 0) }), { days: 0, initialized: 0 });
+    const openEdit = row => { setEditing(row); setDays(row.seniority_days == null ? '' : String(row.seniority_days)); setReason(''); setBaseline(row.base_through_jdate || (data === null || data === void 0 ? void 0 : data.baseline) || '1405-06-31'); };
+    const save = async () => {
+        if (mutation.current)
+            return;
+        const value = seniorityEn(days).trim();
+        if (!/^\d+$/.test(value) || Number(value) > 1000000 || !reason.trim())
+            return alert('تعداد روز صحیح و غیرمنفی و دلیل تغییر الزامی است.');
+        mutation.current = true;
+        setBusy(true);
+        try {
+            await SEND('PUT', '/admin/seniority/' + editing.id, { seniority_days: Number(value), revision: editing.revision, reason: reason.trim(), base_through_jdate: seniorityEn(baseline).replace(/\//g, '-') });
+            setEditing(null);
+            await load();
+        }
+        catch (failure) {
+            alert(failure.message || 'ذخیره سنوات ناموفق بود.');
+        }
+        finally {
+            mutation.current = false;
+            setBusy(false);
+        }
+    };
+    const recalculate = async () => {
+        if (mutation.current || !data)
+            return;
+        const targets = rows.filter(row => row.initialized && Number(row.is_active) === 1);
+        if (!targets.length)
+            return alert('در فهرست فعلی نیروی فعالِ دارای سنوات مبنا وجود ندارد.');
+        if (!confirm('سنوات ' + fa(targets.length) + ' نفر از نیروهای فعالِ نمایش‌داده‌شده تا پایان ' + faPlain(data.period) + ' محاسبه شود؟ سهم قبلی همین ماه جایگزین می‌شود، نه اینکه دوباره جمع شود.'))
+            return;
+        mutation.current = true;
+        setBusy(true);
+        setResults(null);
+        try {
+            setResults(await seniorityBatchUpdate(targets, data.period, (id, period) => SEND('POST', '/admin/seniority/' + id + '/recalculate', { period }), (done, total) => setProgress('بررسی ' + fa(done) + ' از ' + fa(total))));
+            await load();
+        }
+        finally {
+            setProgress('');
+            mutation.current = false;
+            setBusy(false);
+        }
+    };
+    const showHistory = async (row) => {
+        if (mutation.current)
+            return;
+        mutation.current = true;
+        setBusy(true);
+        try {
+            const response = await GET('/admin/seniority/' + row.id + '/history');
+            setHistory({ person: row, rows: response.rows || [] });
+        }
+        catch (failure) {
+            alert(failure.message || 'دریافت تاریخچه ناموفق بود.');
+        }
+        finally {
+            mutation.current = false;
+            setBusy(false);
+        }
+    };
+    const exportReport = () => { try {
+        exportXlsx(seniorityExportRows(rows, data.period), 'سنوات نیروها', 'seniority-' + data.period + '.xlsx');
+    }
+    catch (failure) {
+        alert(failure.message);
+    } };
+    const printReport = () => {
+        const headers = ['نام و نام خانوادگی', 'شماره پرسنلی', 'سمت', 'منطقه', 'مبنای سنوات', 'اصلاح دستی', 'جمع ماه‌ها', 'سنوات کل (روز)'];
+        const body = '<table style="width:100%;border-collapse:collapse;text-align:right"><thead><tr>' + headers.map(title => '<th style="padding:8px;border:1px solid #ddd">' + esc(title) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(row => { var _a; return '<tr>' + [[row.first_name, row.last_name].join(' '), row.personnel_code, row.role_title, row.zone_name, row.base_days, row.adjustment_days, row.monthly_days, (_a = row.seniority_days) !== null && _a !== void 0 ? _a : 'ثبت نشده'].map(value => '<td style="padding:8px;border:1px solid #ddd">' + esc(value) + '</td>').join('') + '</tr>'; }).join('') + '</tbody></table>';
+        printLetterhead('سنوات نیروها — ' + faPlain(data.period), body, { subtitle: 'واحد: روز؛ سهم ماه جاری تا پایان ماه و به‌صورت علی‌الحساب است.' });
+    };
+    return React.createElement("div", { className: "panel", "data-testid": "personnel-seniority" },
+        React.createElement("div", { className: "row", style: { justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' } },
+            React.createElement("div", null,
+                React.createElement("h3", null, "\u0633\u0646\u0648\u0627\u062A \u0646\u06CC\u0631\u0648\u0647\u0627"),
+                React.createElement("p", { style: { color: 'var(--muted)', lineHeight: 2 } }, "\u0645\u06CC\u0632\u0627\u0646 \u0633\u0646\u0648\u0627\u062A \u0634\u062E\u0635 \u0628\u0631 \u0627\u0633\u0627\u0633 \u062A\u0639\u062F\u0627\u062F \u0631\u0648\u0632\u061B \u0645\u0628\u0646\u0627\u06CC \u0627\u06A9\u0633\u0644 \u062A\u0627 \u067E\u0627\u06CC\u0627\u0646 \u0634\u0647\u0631\u06CC\u0648\u0631 \u06F1\u06F4\u06F0\u06F5.")),
+            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: 'wrap' } },
+                React.createElement("button", { className: "btn g", disabled: loading || busy, onClick: load }, "\u0628\u0627\u0632\u062E\u0648\u0627\u0646\u06CC"),
+                React.createElement("button", { className: "btn g", disabled: !rows.length || busy, onClick: exportReport }, "\u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644"),
+                React.createElement("button", { className: "btn g", disabled: !rows.length || busy, onClick: printReport }, "\u0686\u0627\u067E \u06AF\u0632\u0627\u0631\u0634"),
+                React.createElement("button", { className: "btn p", disabled: !data || busy || loading, onClick: recalculate }, busy && progress ? progress : 'به‌روزرسانی تا انتهای ماه'))),
+        React.createElement("div", { role: "note", style: { background: '#edf8f4', border: '1px solid var(--line)', borderRadius: 14, padding: 14, lineHeight: 2, margin: '16px 0' } },
+            "\u0645\u0627\u0647 \u062C\u0627\u0631\u06CC: ",
+            React.createElement("b", null, faPlain((data === null || data === void 0 ? void 0 : data.period) || '—')),
+            " \u00B7 \u062A\u0639\u062F\u0627\u062F \u0631\u0648\u0632\u0647\u0627\u06CC \u0645\u0627\u0647: ",
+            fa((data === null || data === void 0 ? void 0 : data.month_days) || '—'),
+            React.createElement("br", null),
+            "\u0645\u062D\u0627\u0633\u0628\u0647: \u062A\u0645\u0627\u0645 \u0631\u0648\u0632\u0647\u0627\u06CC \u0645\u0627\u0647 \u0645\u0646\u0647\u0627\u06CC \u063A\u06CC\u0628\u062A\u0650 \u0631\u0648\u0632\u0647\u0627\u06CC \u067E\u0627\u06CC\u0627\u0646\u200C\u06CC\u0627\u0641\u062A\u0647\u060C \u0645\u0637\u0627\u0628\u0642 \u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F. \u062C\u0645\u0639\u0647\u060C \u062A\u0639\u0637\u06CC\u0644\u06CC \u0648 \u0645\u0631\u062E\u0635\u06CC\u0650 \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647 \u063A\u06CC\u0628\u062A \u0645\u062D\u0633\u0648\u0628 \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u0631\u0648\u0632\u0647\u0627\u06CC \u0622\u06CC\u0646\u062F\u0647 \u0639\u0644\u06CC\u200C\u0627\u0644\u062D\u0633\u0627\u0628 \u0645\u0646\u0638\u0648\u0631 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F \u0648 \u0628\u0627 \u0627\u0635\u0644\u0627\u062D \u062A\u0631\u062F\u062F\u060C \u0633\u0647\u0645 \u0647\u0645\u06CC\u0646 \u0645\u0627\u0647 \u0627\u0635\u0644\u0627\u062D \u062E\u0648\u0627\u0647\u062F \u0634\u062F\u061B \u0645\u0627\u0647\u200C\u0647\u0627\u06CC \u0642\u0628\u0644 \u062F\u0648\u0628\u0627\u0631\u0647 \u0627\u0641\u0632\u0648\u062F\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0645\u0628\u0646\u0627 \u0648 \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0645\u062D\u0627\u0633\u0628\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
+        error && React.createElement("div", { role: "alert", style: { color: 'var(--danger)', padding: 12 } },
+            error,
+            " ",
+            React.createElement("button", { className: "btn g", disabled: loading || busy, onClick: load }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")),
+        React.createElement("div", { className: "row", style: { gap: 10, flexWrap: 'wrap', marginBottom: 16 } },
+            React.createElement("input", { "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u067E\u0631\u0633\u0646\u0644", placeholder: "\u0646\u0627\u0645\u060C \u06A9\u062F \u0645\u0644\u06CC \u06CC\u0627 \u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC", value: filters.q, onChange: event => setFilters({ ...filters, q: event.target.value }) }),
+            React.createElement("select", { "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0633\u0645\u062A", value: filters.role, onChange: event => setFilters({ ...filters, role: event.target.value }) },
+                React.createElement("option", { value: "" }, "\u0647\u0645\u0647 \u0633\u0645\u062A\u200C\u0647\u0627"),
+                roles.map(([id, title]) => React.createElement("option", { key: id, value: id }, title))),
+            React.createElement("select", { "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0645\u0646\u0637\u0642\u0647", value: filters.zone, onChange: event => setFilters({ ...filters, zone: event.target.value }) },
+                React.createElement("option", { value: "" }, "\u0647\u0645\u0647 \u0645\u0646\u0627\u0637\u0642"),
+                zones.map(([id, title]) => React.createElement("option", { key: id, value: id }, title))),
+            React.createElement("select", { "aria-label": "\u0648\u0636\u0639\u06CC\u062A \u0646\u06CC\u0631\u0648", value: filters.active, onChange: event => setFilters({ ...filters, active: event.target.value }) },
+                React.createElement("option", { value: "" }, "\u0641\u0639\u0627\u0644 \u0648 \u063A\u06CC\u0631\u0641\u0639\u0627\u0644"),
+                React.createElement("option", { value: "1" }, "\u0641\u0639\u0627\u0644"),
+                React.createElement("option", { value: "0" }, "\u063A\u06CC\u0631\u0641\u0639\u0627\u0644")),
+            React.createElement("select", { "aria-label": "\u0648\u0636\u0639\u06CC\u062A \u0633\u0646\u0648\u0627\u062A", value: filters.initialized, onChange: event => setFilters({ ...filters, initialized: event.target.value }) },
+                React.createElement("option", { value: "" }, "\u0647\u0645\u0647 \u0648\u0636\u0639\u06CC\u062A\u200C\u0647\u0627"),
+                React.createElement("option", { value: "1" }, "\u0645\u0628\u0646\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647"),
+                React.createElement("option", { value: "0" }, "\u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u062B\u0628\u062A \u0645\u0628\u0646\u0627"))),
+        React.createElement("div", { className: "row", style: { gap: 16, flexWrap: 'wrap', marginBottom: 14 } },
+            React.createElement("b", null,
+                fa(rows.length),
+                " \u0646\u0641\u0631"),
+            React.createElement("span", null,
+                fa(totals.initialized),
+                " \u0646\u0641\u0631 \u062F\u0627\u0631\u0627\u06CC \u0645\u0628\u0646\u0627"),
+            React.createElement("span", null,
+                "\u062C\u0645\u0639 \u0633\u0646\u0648\u0627\u062A \u0641\u0647\u0631\u0633\u062A: ",
+                React.createElement("b", null,
+                    fa(totals.days),
+                    " \u0631\u0648\u0632")),
+            React.createElement("span", { style: { color: 'var(--danger)' } },
+                fa(rows.length - totals.initialized),
+                " \u0646\u0641\u0631 \u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u062A\u0637\u0628\u06CC\u0642 \u06CC\u0627 \u062B\u0628\u062A \u0645\u0628\u0646\u0627")),
+        loading && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A\u2026"),
+        React.createElement("div", { style: { overflowX: 'auto', border: '1px solid var(--line)', borderRadius: 14 } },
+            React.createElement("table", { className: "tbl", style: { minWidth: 1100, width: '100%' } },
+                React.createElement("thead", null,
+                    React.createElement("tr", null, ['نام و نام خانوادگی', 'شماره پرسنلی', 'سمت / منطقه', 'مبنا (روز)', 'تا تاریخ', 'اصلاح دستی', 'جمع ماه‌ها', 'سهم ماه جاری', 'غیبت ماه جاری', 'میزان سنوات شخص (روز)', 'عملیات'].map(title => React.createElement("th", { key: title }, title)))),
+                React.createElement("tbody", null,
+                    pager.slice.map(row => { var _a, _b, _c; return React.createElement("tr", { key: row.id },
+                        React.createElement("td", null,
+                            row.first_name,
+                            " ",
+                            row.last_name,
+                            React.createElement("small", { style: { display: 'block', color: 'var(--muted)' } }, row.national_code || row.username)),
+                        React.createElement("td", null, fa(row.personnel_code || '—')),
+                        React.createElement("td", null,
+                            row.role_title || '—',
+                            React.createElement("small", { style: { display: 'block' } }, row.zone_name || '—')),
+                        React.createElement("td", null, fa((_a = row.base_days) !== null && _a !== void 0 ? _a : '—')),
+                        React.createElement("td", null, faPlain(row.base_through_jdate || '—')),
+                        React.createElement("td", null, fa((_b = row.adjustment_days) !== null && _b !== void 0 ? _b : '—')),
+                        React.createElement("td", null, fa(row.monthly_days)),
+                        React.createElement("td", { title: 'بررسی تا ' + (row.checked_through_jdate || '—') }, row.current_month_updated_at ? fa(row.current_month_days) : 'محاسبه نشده'),
+                        React.createElement("td", { title: (row.absence_dates || []).join('، ') }, fa((_c = row.current_month_absent) !== null && _c !== void 0 ? _c : '—')),
+                        React.createElement("td", null,
+                            React.createElement("b", { style: { color: row.initialized ? 'var(--brand)' : 'var(--danger)' } }, row.initialized ? fa(row.seniority_days) : 'نیازمند مبنا')),
+                        React.createElement("td", null,
+                            React.createElement("div", { className: "row", style: { gap: 6, flexWrap: 'wrap' } },
+                                React.createElement("button", { className: "btn g", disabled: busy, onClick: () => openEdit(row) }, row.initialized ? 'ویرایش' : 'ثبت مبنا'),
+                                React.createElement("button", { className: "btn g", disabled: busy || !row.initialized, onClick: () => showHistory(row) }, "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647")))); }),
+                    !loading && !rows.length && React.createElement("tr", null,
+                        React.createElement("td", { colSpan: 11, style: { padding: 28, textAlign: 'center' } }, "\u067E\u0631\u0633\u0646\u0644\u06CC \u0628\u0627 \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F."))))),
+        pager.Pager(),
+        results && React.createElement("div", { role: "status", style: { padding: 14, lineHeight: 2 } },
+            React.createElement("b", null,
+                "\u0646\u062A\u06CC\u062C\u0647 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC: ",
+                fa(results.filter(result => result.ok).length),
+                " \u0645\u0648\u0641\u0642\u060C ",
+                fa(results.filter(result => !result.ok).length),
+                " \u0646\u0627\u0645\u0648\u0641\u0642\u061B \u062A\u063A\u06CC\u06CC\u0631 \u062E\u0627\u0644\u0635 ",
+                fa(results.filter(result => result.ok).reduce((sum, result) => sum + Number(result.delta_days || 0), 0)),
+                " \u0631\u0648\u0632."),
+            results.filter(result => !result.ok).map(result => React.createElement("div", { key: result.id, style: { color: 'var(--danger)' } },
+                result.name,
+                ": ",
+                result.error))),
+        editing && React.createElement(Modal, { title: 'سنوات ' + editing.first_name + ' ' + editing.last_name, onClose: () => !busy && setEditing(null) },
+            React.createElement("form", { onSubmit: event => { event.preventDefault(); save(); } },
+                React.createElement("label", null,
+                    "\u0645\u06CC\u0632\u0627\u0646 \u0633\u0646\u0648\u0627\u062A \u0634\u062E\u0635 (\u0631\u0648\u0632)",
+                    React.createElement("input", { "aria-label": "\u0645\u06CC\u0632\u0627\u0646 \u0633\u0646\u0648\u0627\u062A \u0634\u062E\u0635 \u0628\u0631 \u0627\u0633\u0627\u0633 \u062A\u0639\u062F\u0627\u062F \u0631\u0648\u0632", inputMode: "numeric", value: days, onChange: event => setDays(event.target.value), required: true, disabled: busy })),
+                !editing.initialized ? React.createElement("label", null,
+                    "\u0633\u0646\u0648\u0627\u062A \u062A\u0627 \u067E\u0627\u06CC\u0627\u0646 \u0627\u06CC\u0646 \u062A\u0627\u0631\u06CC\u062E (\u0634\u0645\u0633\u06CC)",
+                    React.createElement("input", { "aria-label": "\u062A\u0627\u0631\u06CC\u062E \u0645\u0628\u0646\u0627\u06CC \u0633\u0646\u0648\u0627\u062A", dir: "ltr", placeholder: "1405-06-31", value: baseline, onChange: event => setBaseline(event.target.value), required: true, disabled: busy })) : React.createElement("p", { style: { lineHeight: 2 } }, "\u0645\u0628\u0646\u0627\u06CC \u0627\u06A9\u0633\u0644 \u0648 \u0633\u0647\u0645 \u0645\u0627\u0647\u200C\u0647\u0627 \u062D\u0641\u0638 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u0627\u062E\u062A\u0644\u0627\u0641 \u0639\u062F\u062F \u0648\u0627\u0631\u062F\u0634\u062F\u0647 \u0628\u0647\u200C\u0639\u0646\u0648\u0627\u0646 \u0627\u0635\u0644\u0627\u062D \u062F\u0633\u062A\u06CC \u062B\u0628\u062A \u062E\u0648\u0627\u0647\u062F \u0634\u062F."),
+                React.createElement("label", null,
+                    "\u062F\u0644\u06CC\u0644 \u062B\u0628\u062A \u06CC\u0627 \u0627\u0635\u0644\u0627\u062D",
+                    React.createElement("textarea", { "aria-label": "\u062F\u0644\u06CC\u0644 \u0627\u0635\u0644\u0627\u062D \u0633\u0646\u0648\u0627\u062A", value: reason, onChange: event => setReason(event.target.value), maxLength: 500, required: true, disabled: busy })),
+                React.createElement("div", { className: "row", style: { gap: 8, marginTop: 14 } },
+                    React.createElement("button", { type: "submit", className: "btn p", disabled: busy }, busy ? 'در حال ذخیره…' : 'ذخیره سنوات'),
+                    React.createElement("button", { type: "button", className: "btn g", disabled: busy, onClick: () => setEditing(null) }, "\u0627\u0646\u0635\u0631\u0627\u0641")))),
+        history && React.createElement(Modal, { title: 'تاریخچه سنوات ' + history.person.first_name + ' ' + history.person.last_name, onClose: () => setHistory(null) },
+            React.createElement("div", { style: { maxHeight: '65vh', overflow: 'auto' } }, history.rows.length ? history.rows.map(event => React.createElement("div", { key: event.id, style: { padding: 12, borderBottom: '1px solid var(--line)', lineHeight: 2 } },
+                React.createElement("b", null,
+                    event.kind === 'recalculate' ? 'محاسبه ماهانه' : event.kind === 'import' ? 'ورود اکسل' : event.kind === 'initialize' ? 'ثبت مبنا' : 'اصلاح دستی',
+                    " ",
+                    faPlain(event.period || '')),
+                React.createElement("div", null,
+                    fa(event.total_before),
+                    " \u2190 ",
+                    fa(event.total_after),
+                    " \u0631\u0648\u0632 \u00B7 \u0627\u062E\u062A\u0644\u0627\u0641 ",
+                    fa(event.delta_days)),
+                React.createElement("div", null, event.reason),
+                React.createElement("small", null,
+                    event.actor_name || 'ورود از SQL',
+                    " \u00B7 ",
+                    event.created_at))) : React.createElement("p", null, "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647\u200C\u0627\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))));
+}
 function Users() {
     var _a, _b;
     const [usersTab, setUsersTab] = useState("users");
@@ -8605,7 +8859,7 @@ function DashboardConfig() {
             saved && React.createElement("span", { style: { color: "var(--ok)", fontSize: 13 } }, "\u2713 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"))));
 }
 function RolePerms() {
-    const MENU = [["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["officials", "حضور مسئولین"], ["covertselfies", "سلفی‌های نامحسوس"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["attreport", "گزارش تردد پرسنل"], ["leavereport", "گزارش مرخصی پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "شیفت و کارکرد"], ["workpolicy", "سیاست کاری"], ["requests", "گزارش درخواست‌ها"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["radiocenter", "مرکز بی‌سیم"], ["vehicleassets", "ماشین‌آلات و وسایل مأموریتی"], ["vehiclechecklist", "چک‌لیست خودرویی و موتوری"], ["settings", "تنظیمات"]];
+    const MENU = [["seniority", "سنوات نیروها"], ["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["officials", "حضور مسئولین"], ["covertselfies", "سلفی‌های نامحسوس"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["attreport", "گزارش تردد پرسنل"], ["leavereport", "گزارش مرخصی پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "شیفت و کارکرد"], ["workpolicy", "سیاست کاری"], ["requests", "گزارش درخواست‌ها"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["radiocenter", "مرکز بی‌سیم"], ["vehicleassets", "ماشین‌آلات و وسایل مأموریتی"], ["vehiclechecklist", "چک‌لیست خودرویی و موتوری"], ["settings", "تنظیمات"]];
     const [roles, setRoles] = useState([]);
     const [perms, setPerms] = useState({});
     const [sel, setSel] = useState(null);
@@ -15680,6 +15934,7 @@ function PersonnelLeaveReport() {
         React.createElement("p", { className: "muted", style: { fontSize: 11, marginTop: 12 } }, "\u00AB\u0645\u062C\u0627\u0632\u00BB \u0627\u0632 \u062C\u0645\u0639 \u0645\u0635\u0631\u0641 \u0648 \u0645\u0627\u0646\u062F\u0647 \u062F\u0631 \u0641\u0627\u06CC\u0644 \u0645\u0628\u0646\u0627 \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u0633\u0648\u0627\u0628\u0642 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0641\u0642\u0637 \u0627\u0632 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u0648 \u0645\u0631\u062A\u0628\u0637 \u062F\u0631 \u0633\u0627\u0645\u0627\u0646\u0647 \u0645\u06CC\u200C\u0622\u06CC\u062F. \u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0646\u0641\u06CC \u0639\u06CC\u0646\u0627\u064B \u062D\u0641\u0638 \u0634\u062F\u0647\u200C\u0627\u0646\u062F."));
 }
 const VIEWS = {
+    seniority: { t: "سنوات نیروها", ic: "📆", c: PersonnelSeniority },
     covertselfies: { t: "سلفی‌های نامحسوس", ic: "📸", c: CovertSelfies },
     dashboard: { t: "داشبورد مدیریت", ic: "▦", c: Dashboard },
     reportscenter: { t: "مرکز گزارش‌ها", ic: "🗂", c: ReportsCenter },
@@ -15886,7 +16141,7 @@ function App() {
         ["عملیات میدانی", ["missiondashboard", "citydashboard", "missiontemplates", "scoreengine", "officials", "presence", "attendance", "companyrequests", "outages", "covertselfies", "schoolservice"]],
         ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "platetraining", "lines", "zones", "bills", "complaints"]],
         ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "leavereport", "useract"]],
-        ["منابع انسانی", ["shifts", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural", "vehicleassets", "vehiclechecklist"]],
+        ["منابع انسانی", ["seniority", "shifts", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural", "vehicleassets", "vehiclechecklist"]],
         ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
         ["مدیریت سامانه", ["users", "org", "forms", "config", "customfields", "inventory", "excel", "appitems", "cronstatus", "activesessions", "logs", "settings"]],
     ];
@@ -15897,7 +16152,7 @@ function App() {
         officials: 'official-badge', presence: 'self-checkin', attendance: 'attendance-register', companyrequests: 'company-envelope', outages: 'service-outage', covertselfies: 'covert-camera',
         drivers: 'driver-id', driverservicereport: 'driver-service-chart', tempdrivers: 'temporary-driver-clock', lines: 'route-line', zones: 'zone-grid', bills: 'billing-receipt', platetraining: 'search-taxi',
         reports: 'report-card', report: 'report-send', perfreport: 'checked-user-male', attreport: 'attendance-calendar', leavereport: 'attendance-calendar', useract: 'user-activity',
-        shifts: 'shift-cycle', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
+        seniority: 'attendance-calendar', shifts: 'shift-cycle', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
         messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', radiocenter: 'radio-tower', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen',
         config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'activity-wave', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
         vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist', complaints: 'chat-message'

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/GpsWorkIntervals.php';
+require_once __DIR__.'/Seniority.php';
 // ============ تعریف همهٔ مسیرهای API ============
 const ADMIN = 3; // سطح ۳ و بالاتر = مدیریتی
 // از این نسخه به بعد، به‌درخواست کارفرما، شمارهٔ نسخهٔ سایت و اپ اندروید و نام فایل زیپ پروژه
@@ -3298,6 +3299,20 @@ route('GET', '/api/admin/attendance-report', function($p,$b,$u){
   $from=trim($_GET['from']??''); $to=trim($_GET['to']??'');
   if(!$uid||!$from||!$to) Http::error('پرسنل و بازهٔ تاریخ را مشخص کنید',400);
   return _attendance_report($uid,$from,$to);
+}, false, ADMIN);
+
+route('GET', '/api/admin/seniority', function($p,$b,$u){
+  return Seniority::listRows();
+}, false, ADMIN);
+route('PUT', '/api/admin/seniority/{id}', function($p,$b,$u){
+  return Seniority::save((int)$p['id'],$b,(int)$u['id']);
+}, false, ADMIN);
+route('POST', '/api/admin/seniority/{id}/recalculate', function($p,$b,$u){
+  return Seniority::recalculate((int)$p['id'],(int)$u['id'],(string)($b['period']??''));
+}, false, ADMIN);
+route('GET', '/api/admin/seniority/{id}/history', function($p,$b,$u){
+  Seniority::ensureSchema();
+  return ['rows'=>Db::all('SELECT h.*,CONCAT(u.first_name,\' \',u.last_name) actor_name FROM personnel_seniority_history h LEFT JOIN users u ON u.id=h.actor_id WHERE h.user_id=? ORDER BY h.id DESC LIMIT 200',[(int)$p['id']])];
 }, false, ADMIN);
 
 

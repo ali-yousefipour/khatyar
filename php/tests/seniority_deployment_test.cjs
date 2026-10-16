@@ -1,0 +1,26 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '../..');
+const workflow = fs.readFileSync(path.join(root, '.github/workflows/deploy-php.yml'), 'utf8');
+const lines = workflow.split(/\r?\n/);
+const checks = lines.filter(line => line.includes('if [ "${rel}" = "lib/Http.php" ]'));
+assert.equal(checks.length, 2);
+for (const check of checks) assert.ok(check.includes('"lib/Seniority.php"'));
+assert.ok(lines.find(line => line.includes('if [ -f deploy-payload/lib/Http.php ]')).includes('[ -f deploy-payload/lib/Seniority.php ]'));
+assert.ok(lines.find(line => line.includes('for name in Http.php')).includes('Seniority.php'));
+assert.ok(workflow.indexOf("'Seniority.php' => 'Seniority.php'") < workflow.indexOf("'routes.php' => 'routes.php'"));
+assert.ok(workflow.includes('node tests/seniority_ui_test.cjs'));
+assert.ok(workflow.includes('php tests/seniority_test.php'));
+const html = fs.readFileSync(path.join(root, 'php/app/panel.html'), 'utf8');
+assert.ok(html.includes('assets/panel.bundle.js?v=20261016.seniority'));
+const source = fs.readFileSync(path.join(root, 'php/tools/panel_source.jsx'), 'utf8');
+assert.ok(source.includes('["seniority","سنوات نیروها"]'));
+assert.ok(source.includes('["منابع انسانی",["seniority",'));
+assert.equal((source.match(/seniority:\{t:"سنوات نیروها"/g) || []).length, 1);
+const php = fs.readFileSync(path.join(root, 'php/lib/Seniority.php'), 'utf8');
+const sql = fs.readFileSync(path.join(root, 'php/db/seniority_schema.sql'), 'utf8');
+for (const match of php.matchAll(/Db::run\("(CREATE TABLE IF NOT EXISTS[\s\S]*?)"\);/g)) {
+  assert.ok(sql.replace(/\s+/g, ' ').includes(match[1].replace(/\s+/g, ' ')), 'Schema SQL and API must stay identical');
+}
+console.log('PASS seniority deployment: staged protected library, dependency order, canonical menu, cache key and identical migration schema');
