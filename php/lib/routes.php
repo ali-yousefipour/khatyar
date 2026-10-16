@@ -3048,19 +3048,6 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
   $assigns = Db::all("SELECT us.user_id, us.shift_id, us.from_jdate, us.to_jdate, CONCAT(uu.first_name,' ',uu.last_name) name, r.title role
     FROM user_shifts us JOIN users uu ON uu.id=us.user_id LEFT JOIN roles r ON r.id=uu.role_id
     WHERE (us.from_jdate IS NULL OR us.from_jdate <= ?) AND (us.to_jdate IS NULL OR us.to_jdate >= ?)", [$prefix.'31', $prefix.'01']);
-  // شیفت خودکار برای کاربرانی که تخصیص شیفت ندارند اما تردد ثبت کرده‌اند یا فعال هستند.
-  $seenAssign = array_flip(array_map(fn($x)=>(int)$x['user_id'], $assigns));
-  $autoUsers = Db::all("SELECT u.id user_id, 0 shift_id, NULL from_jdate, NULL to_jdate, CONCAT(u.first_name,' ',u.last_name) name, r.title role
-    FROM users u LEFT JOIN roles r ON r.id=u.role_id
-    WHERE u.is_active=1
-      AND NOT EXISTS (
-        SELECT 1
-        FROM user_shifts us
-        WHERE us.user_id=u.id
-          AND (us.from_jdate IS NULL OR us.from_jdate <= ?)
-          AND (us.to_jdate IS NULL OR us.to_jdate >= ?)
-      )", [$prefix.'31', $prefix.'01']);
-  foreach ($autoUsers as $au) if (!isset($seenAssign[(int)$au['user_id']])) $assigns[] = $au;
   $shiftsById = [];
   foreach (Db::all("SELECT * FROM shifts WHERE is_active=1") as $sx) $shiftsById[$sx['id']] = $sx;
   $out = [];
@@ -3112,7 +3099,8 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
       // Resolve the effective assignment on each date, including substitute shifts.
       // A single month may span several shift assignments.
       $dayShift = _active_user_shift_assignment($a['user_id'], $jdate);
-      if ($dayShift) $shift = $dayShift;
+      if (!$dayShift) continue;
+      $shift = $dayShift;
       $rows = _attendance_rows_for_jdate($a['user_id'], $jdate);
       $dr = (($shift['type']??'')==='advanced') ? _shift_day_row($shift['shift_id']??$shift['id'], $jdate) : null;
       $isHol = ShiftCalc::effectiveHoliday($jdate);
@@ -3279,7 +3267,7 @@ function _attendance_report($userId,$fromJ,$toJ){
     $isHol=ShiftCalc::effectiveHoliday($jdateDash);
     // همان منطق تایمر و گزارش ماهانه: اگر شیفت صریح وجود ندارد،
     // شیفت خودکار کاربر باید مبنای محاسبهٔ گزارش روزانه باشد.
-    $shift = _active_user_shift_assignment($userId, $jdateDash) ?: _auto_shift_for_user($userId);
+    $shift = _active_user_shift_assignment($userId, $jdateDash);
     $dr = ($shift && (($shift['type'] ?? '') === 'advanced')) ? _shift_day_row($shift['shift_id'] ?? $shift['id'], $jdateDash) : null;
     $w = $shift ? ShiftCalc::dayWork($shift,$jdateDash,$dr,$sessions,$isHol) : ['worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'late_in'=>0,'early_out'=>0,'surplus'=>0];
     $adj = _attendance_adjusted_overtime($userId,$jdateDash);
