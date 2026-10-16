@@ -3140,7 +3140,19 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
   return $out;
 }
 
+// مجوز مستقل گزارش کارکرد ماهانه؛ با دسترسی شیفت و حضور اشتراک ندارد.
+function _monthly_work_report_need($u){
+  $row=Db::one("SELECT value FROM app_settings WHERE `key`='role_perms' LIMIT 1");
+  if(!$row)return; // سازگار با حالت پیش‌فرض پنل: بدون پیکربندی همهٔ آیتم‌ها مجازند.
+  $cfg=json_decode((string)$row['value'],true);
+  $rid=(string)($u['role_id']??'');
+  if(!is_array($cfg)||!array_key_exists($rid,$cfg))return;
+  $items=is_array($cfg[$rid])?$cfg[$rid]:[];
+  if(!in_array('monthlyworkreport',$items,true))Http::error('دسترسی گزارش کارکرد ماهانه برای سمت شما فعال نیست',403);
+}
+
 route('GET', '/api/admin/shift-report', function($p,$b,$u){
+  _monthly_work_report_need($u);
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if (!$jy||!$jm) Http::error('سال و ماه شمسی را مشخص کنید',400);
   return ['year'=>$jy,'month'=>$jm,'rows'=>_shift_month_report($jy,$jm)];
@@ -3424,6 +3436,7 @@ route('POST', '/api/admin/attendance-punch', function($p,$b,$u){
 }, false, ADMIN);
 
 route('GET', '/api/admin/shift-report/export', function($p,$b,$u){
+  _monthly_work_report_need($u);
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if (!$jy||!$jm) Http::error('سال و ماه را مشخص کنید',400);
   $rows=_shift_month_report($jy,$jm);
