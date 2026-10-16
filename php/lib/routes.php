@@ -3467,6 +3467,37 @@ route('GET', '/api/admin/shift-report/export', function($p,$b,$u){
   $xw->output('کارکرد_'.$jy.'_'.$jm.'.xlsx','کارکرد ماهانه');
 }, false, ADMIN);
 
+// خروجی مستقل کارکرد جهت ارسال به سازمان؛ هیچ رکورد تردد یا محاسبه پایه‌ای را تغییر نمی‌دهد.
+route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
+  _monthly_work_report_need($u);
+  $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
+  if($jy<1300||$jy>1500||$jm<1||$jm>12)Http::error('ماه و سال نامعتبر است',422);
+  $rows=_shift_month_report($jy,$jm);
+  $users=Db::all("SELECT id,first_name,last_name,personnel_code FROM users");
+  $byId=[];foreach($users as $person)$byId[(int)$person['id']]=$person;
+  $headers=['ردیف','محل خدمت','سمت','ردیف گروه','نام','نام خانوادگی','شماره پرسنلی','ساعت جمعه کاری (ارسالی)','ساعت تعطیل کاری (ارسالی)','اضافه کاری (ارسالی)'];
+  $xw=new XlsxWriter($headers);$xw->setProfessionalStyle(true);
+  $months=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+  $xw->setReportHeading('صورت وضعیت اضافه‌کاری پرسنل مدیریت پیمان خطوط تاکسیرانی شهر مشهد مقدس',($months[$jm-1]??'').' '.$jy,'مقادیر بر حسب ساعت اعشاری؛ توضیح محاسبات در یادداشت هر سلول');
+  foreach([9,27,36,12,20,25,18,22,22,22] as $i=>$w)$xw->setColWidth($i,$w);
+  $xw->setTextCol(6);
+  $hm=static fn($m)=>sprintf('%02d:%02d',intdiv(abs((int)$m),60),abs((int)$m)%60);
+  $i=0;foreach($rows as $r){
+    $person=$byId[(int)$r['user_id']]??[];
+    $o=(int)($r['overtime']??0);$mission=(int)($r['mission_min']??0);$short=(int)($r['shortage']??0);
+    $fri=(int)($r['friday']??0);$hol=(int)($r['holiday']??0);
+    // friday includes all Friday work as currently computed by ShiftCalc; no extra Friday overtime
+    // is added unless it is separately available in the canonical monthly result.
+    $friOt=(int)($r['friday_overtime']??0);
+    $net=$o+$mission-$short;
+    $i++;$row=$xw->addRow([$i,'',($r['role']??''),$i,$person['first_name']??'', $person['last_name']??'',(string)($person['personnel_code']??''),round(($fri+$friOt)/60,6),round($hol/60,6),round($net/60,6)]);
+    $xw->setComment($row,7,'جمعه کاری: '.$hm($fri).' ساعت'."\n".'اضافه کاری جمعه: '.$hm($friOt).' ساعت'."\n".'مجموع جمعه کاری: '.$hm($fri+$friOt).' ساعت');
+    $xw->setComment($row,8,'مجموع تعطیل کاری: '.$hm($hol).' ساعت');
+    $xw->setComment($row,9,'اضافه کاری: '.$hm($o).' ساعت'."\n".'ماموریت: '.$hm($mission).' ساعت'."\n".'کسری کار: '.$hm($short).' ساعت (کسر شده)'."\n".'نهایی = '.($net<0?'-':'').$hm($net).' ساعت');
+  }
+  $xw->output('organization-work-'.$jy.'-'.$jm.'.xlsx','کارکرد سازمان');
+},false,ADMIN);
+
 // فراخوان خودکار تعطیلات رسمی یک ماه از سرویس holidayapi.ir (شمسی)
 route('POST', '/api/admin/holidays/fetch', function($p,$b,$u){
   $jy = (int)($b['year'] ?? 0); $jm = (int)($b['month'] ?? 0);
