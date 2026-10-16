@@ -10481,7 +10481,7 @@ function ShiftAssign() {
     useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(() => { }); db.shifts().then(s => setShifts(s || [])).catch(() => { }); load(); }, []);
     const cur = (uid) => assigns.find(a => Number(a.user_id) === Number(uid));
     const setShift = async (uid, sid) => { setError(""); setBusyUser(uid); try {
-        if (!sid) {
+        if (sid === "") {
             await db.delUserShift(uid);
         }
         else {
@@ -10513,8 +10513,9 @@ function ShiftAssign() {
                         " ",
                         u.last_name),
                     React.createElement("td", null,
-                        React.createElement("select", { className: "input", style: { maxWidth: 240 }, value: c ? c.shift_id : "", disabled: Number(busyUser) === Number(u.id), onChange: e => setShift(u.id, e.target.value) },
+                        React.createElement("select", { className: "input", style: { maxWidth: 240 }, value: c ? String(c.shift_id) : "", disabled: Number(busyUser) === Number(u.id), onChange: e => setShift(u.id, e.target.value) },
                             React.createElement("option", { value: "" }, "\u2014 \u0628\u062F\u0648\u0646 \u0634\u06CC\u0641\u062A \u2014"),
+                            React.createElement("option", { value: "0" }, "\u0634\u06CC\u0641\u062A \u062E\u0648\u062F\u06A9\u0627\u0631"),
                             shifts.map(s => React.createElement("option", { key: s.id, value: s.id }, s.title))))));
             })))));
 }
