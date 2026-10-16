@@ -2763,13 +2763,14 @@ route('DELETE', '/api/admin/shifts/{id}/days/{jdate}', function($p,$b,$u){
 route('GET', '/api/admin/user-shifts', function($p,$b,$u){
   _ensure_user_shifts_schema();
   return Db::all("SELECT us.user_id, us.shift_id, s.title, s.type, us.from_jdate, us.to_jdate
-    FROM user_shifts us JOIN shifts s ON s.id=us.shift_id");
+    FROM user_shifts us LEFT JOIN shifts s ON s.id=us.shift_id");
 }, false, ADMIN);
 route('POST', '/api/admin/user-shifts', function($p,$b,$u){
   _ensure_user_shifts_schema();
   _ensure_role_work_rules();
   $uid=(int)($b['user_id']??0); $sid=(int)($b['shift_id']??0);
-  if (!$uid||!$sid) Http::error('کاربر و شیفت را مشخص کنید',400);
+  if (!$uid||$sid<0) Http::error('کاربر و شیفت را مشخص کنید',400);
+  if($sid>0&&!Db::one('SELECT id FROM shifts WHERE id=? AND is_active=1',[$sid]))Http::error('شیفت انتخاب‌شده معتبر نیست',422);
   $from = trim((string)($b['from_jdate']??'')); $to = trim((string)($b['to_jdate']??''));
   $from = $from!=='' ? str_replace('/','-',$from) : null;
   $to = $to!=='' ? str_replace('/','-',$to) : null;
@@ -2961,6 +2962,9 @@ function _active_user_shift_assignment($userId, $jdate=null){
           $r['title']='جایگزینی — '.($r['title']??'شیفت');
           return $r;
         }
+        // Substitute inherits an automatic shift only if the absent user explicitly selected it.
+        $explicitAuto=Db::one('SELECT shift_id FROM user_shifts WHERE user_id=? AND shift_id=0',[(int)$sa['absent_user_id']]);
+        if(!$explicitAuto)return null;
         $auto=_auto_shift_for_user((int)$sa['absent_user_id']);
         $auto['is_substitute_shift']=1; $auto['absent_user_id']=(int)$sa['absent_user_id']; $auto['request_id']=(int)$sa['request_id'];
         $auto['title']='جایگزینی — '.($auto['title']??'شیفت خودکار');
@@ -2980,7 +2984,14 @@ function _active_user_shift_assignment($userId, $jdate=null){
     }
     return $r;
   }
-  return _auto_shift_for_user($userId);
+  // No implicit automatic shift: only an explicitly assigned shift is effective.
+  $autoRow=Db::one('SELECT from_jdate,to_jdate FROM user_shifts WHERE user_id=? AND shift_id=0',[(int)$userId]);
+  if($autoRow){
+    $from=!empty($autoRow['from_jdate'])?str_replace('/','-',$autoRow['from_jdate']):null;
+    $to=!empty($autoRow['to_jdate'])?str_replace('/','-',$autoRow['to_jdate']):null;
+    if(!$jdate||((!$from||strcmp($jdate,$from)>=0)&&(!$to||strcmp($jdate,$to)<=0)))return _auto_shift_for_user($userId);
+  }
+  return null;
 }
 function _shift_day_row($shiftId, $jdate){
   return Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=?", [(int)$shiftId, str_replace('/','-',$jdate)]);
