@@ -5146,6 +5146,7 @@ function ReportsCenter() {
                 ["useract", "⏱", "فعالیت کاربران", "لاگ کامل اقدامات هر کاربر در سامانه"],
                 ["commitments", "📋", "تعهدات انضباطی", "سوابق تعهدنامه و برخورد انضباطی پرسنل"],
                 ["shifts", "🗓", "شیفت و کارکرد", "برنامهٔ شیفت‌ها و محاسبهٔ کارکرد"],
+                ["monthlyworkreport", "📅", "گزارش کارکرد ماهانه", "گزارش کامل ماهانه و خروجی اکسل"],
             ] },
         { t: "تاکسیرانی", items: [
                 ["driverservicereport", "📈", "عملکرد و تذکرات تاکسیران", "سابقهٔ کامل هر راننده: حضور، چک‌لیست، تذکر"],
@@ -9000,7 +9001,7 @@ function DashboardConfig() {
             saved && React.createElement("span", { style: { color: "var(--ok)", fontSize: 13 } }, "\u2713 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"))));
 }
 function RolePerms() {
-    const MENU = [["seniority", "سنوات نیروها"], ["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["officials", "حضور مسئولین"], ["covertselfies", "سلفی‌های نامحسوس"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["attreport", "گزارش تردد پرسنل"], ["leavereport", "گزارش مرخصی پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "شیفت و کارکرد"], ["workpolicy", "سیاست کاری"], ["requests", "گزارش درخواست‌ها"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["radiocenter", "مرکز بی‌سیم"], ["vehicleassets", "ماشین‌آلات و وسایل مأموریتی"], ["vehiclechecklist", "چک‌لیست خودرویی و موتوری"], ["settings", "تنظیمات"]];
+    const MENU = [["seniority", "سنوات نیروها"], ["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["officials", "حضور مسئولین"], ["covertselfies", "سلفی‌های نامحسوس"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["attreport", "گزارش تردد پرسنل"], ["leavereport", "گزارش مرخصی پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "شیفت و کارکرد"], ["monthlyworkreport", "گزارش کارکرد ماهانه"], ["workpolicy", "سیاست کاری"], ["requests", "گزارش درخواست‌ها"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["radiocenter", "مرکز بی‌سیم"], ["vehicleassets", "ماشین‌آلات و وسایل مأموریتی"], ["vehiclechecklist", "چک‌لیست خودرویی و موتوری"], ["settings", "تنظیمات"]];
     const [roles, setRoles] = useState([]);
     const [perms, setPerms] = useState({});
     const [sel, setSel] = useState(null);
@@ -9647,7 +9648,7 @@ function OfflineSyncConflicts() {
 }
 function ShiftManager() {
     const [tab, setTab] = useState("shifts");
-    const TABS = [["shifts", "تعریف شیفت‌ها"], ["assign", "تخصیص به نیروها"], ["autoRules", "قوانین شیفت خودکار"], ["userRules", "قانون اختصاصی افراد"], ["shiftOps", "عملیات و عیب‌یابی شیفت"], ["rejectLogs", "لاگ رد حضور"], ["offlineConflicts", "تعارض آفلاین"], ["holidays", "تعطیلات رسمی"], ["blocked", "روزهای ممنوعهٔ مرخصی"], ["leavebal", "ماندهٔ مرخصی ابتدای دوره"], ["report", "گزارش کارکرد ماهانه"]];
+    const TABS = [["shifts", "تعریف شیفت‌ها"], ["assign", "تخصیص به نیروها"], ["autoRules", "قوانین شیفت خودکار"], ["userRules", "قانون اختصاصی افراد"], ["shiftOps", "عملیات و عیب‌یابی شیفت"], ["rejectLogs", "لاگ رد حضور"], ["offlineConflicts", "تعارض آفلاین"], ["holidays", "تعطیلات رسمی"], ["blocked", "روزهای ممنوعهٔ مرخصی"], ["leavebal", "ماندهٔ مرخصی ابتدای دوره"]];
     return (React.createElement("div", { className: "panel" },
         React.createElement("h3", null, "\uD83D\uDDD3 \u0634\u06CC\u0641\u062A \u06A9\u0627\u0631\u06CC \u0648 \u06A9\u0627\u0631\u06A9\u0631\u062F"),
         React.createElement("div", { className: "tabbar", style: { flexWrap: "wrap" } }, TABS.map(([k, t]) => React.createElement("button", { key: k, className: "tabbtn" + (tab === k ? " on" : ""), onClick: () => setTab(k) }, t))),
@@ -9660,8 +9661,7 @@ function ShiftManager() {
         tab === "offlineConflicts" && React.createElement(OfflineSyncConflicts, null),
         tab === "holidays" && React.createElement(Holidays, null),
         tab === "blocked" && React.createElement(LeaveBlockedDates, null),
-        tab === "leavebal" && React.createElement(LeaveBalanceInit, null),
-        tab === "report" && React.createElement(ShiftReport, null)));
+        tab === "leavebal" && React.createElement(LeaveBalanceInit, null)));
 }
 function minToHMInput(m) { m = parseInt(m || 0, 10); return { h: Math.floor(m / 60), m: m % 60 }; }
 function hmInputToMin(h, m) { return (parseInt(h || 0, 10) * 60) + (parseInt(m || 0, 10)); }
@@ -16417,6 +16417,7 @@ const VIEWS = {
     smslog: { t: "تاریخچهٔ پیامک", ic: "📜", c: SmsLog },
     attendance: { t: "حضور نیروها", ic: "🕒", c: StaffAttendance },
     shifts: { t: "شیفت و کارکرد", ic: "🗓", c: ShiftManager },
+    monthlyworkreport: { t: "گزارش کارکرد ماهانه", ic: "📅", c: ShiftReport },
     attreport: { t: "گزارش تردد پرسنل", ic: "🕒", c: AttendanceReport },
     leavereport: { t: "گزارش مرخصی پرسنل", ic: "🌴", c: PersonnelLeaveReport },
     workpolicy: { t: "سیاست کاری", ic: "📐", c: WorkPolicy },
@@ -16586,7 +16587,7 @@ function App() {
         ["عملیات میدانی", ["missiondashboard", "citydashboard", "missiontemplates", "scoreengine", "officials", "presence", "attendance", "companyrequests", "outages", "covertselfies", "schoolservice"]],
         ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "platetraining", "lines", "zones", "bills", "complaints"]],
         ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "leavereport", "useract"]],
-        ["منابع انسانی", ["seniority", "shifts", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural", "vehicleassets", "vehiclechecklist"]],
+        ["منابع انسانی", ["seniority", "shifts", "monthlyworkreport", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural", "vehicleassets", "vehiclechecklist"]],
         ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
         ["مدیریت سامانه", ["users", "org", "forms", "config", "customfields", "inventory", "excel", "appitems", "cronstatus", "activesessions", "logs", "settings"]],
     ];
@@ -16597,7 +16598,7 @@ function App() {
         officials: 'official-badge', presence: 'self-checkin', attendance: 'attendance-register', companyrequests: 'company-envelope', outages: 'service-outage', covertselfies: 'covert-camera',
         drivers: 'driver-id', driverservicereport: 'driver-service-chart', tempdrivers: 'temporary-driver-clock', lines: 'route-line', zones: 'zone-grid', bills: 'billing-receipt', platetraining: 'search-taxi',
         reports: 'report-card', report: 'report-send', perfreport: 'checked-user-male', attreport: 'attendance-calendar', leavereport: 'attendance-calendar', useract: 'user-activity',
-        seniority: 'attendance-calendar', shifts: 'shift-cycle', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
+        seniority: 'attendance-calendar', shifts: 'shift-cycle', monthlyworkreport: 'attendance-calendar', workpolicy: 'work-policy', requests: 'request-form', salaryslips: 'salary-slip', commitments: 'commitment-sign', welfare: 'welfare-gift', cultural: 'cultural-book',
         messages: 'messages-mail', sms: 'sms-phone', smslog: 'sms-history', messengercenter: 'messenger-bot', radiocenter: 'radio-tower', users: 'users-admin', org: 'organization-tree', forms: 'forms-pen',
         config: 'system-config', customfields: 'custom-fields', inventory: 'request-box', excel: 'excel-upload', appitems: 'app-menu', cronstatus: 'activity-wave', activesessions: 'security-lock', logs: 'audit-logs', settings: 'settings-gears',
         vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist', complaints: 'chat-message'
