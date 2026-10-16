@@ -53,10 +53,12 @@ async function testZones() {
   let failUpdate = false, failDelete = false, failAssign = false;
   let deletions = 0;
   const created = [];
+  const createdParents=[];
+  let nextZoneId=3;
   const app = harness('Zones', {
     users: async () => [{ id: '1', first_name: 'نیروی یک', zone_id: '1' }, { id: '2', first_name: 'نیروی دو', zone_id: '2' }],
     zones: async () => [{ id: '1', name: 'شمال' }, { id: '2', name: 'جنوب' }],
-    createZone: async name => { created.push(name); return { id: 3, name }; },
+    createZone: async (name,parent_id) => { created.push(name);createdParents.push(parent_id);return { id: nextZoneId++, name,parent_id }; },
     updateZone: async () => { if (failUpdate) throw new Error('rename failed'); },
     deleteZone: async () => { if (failDelete) throw new Error('delete failed'); deletions++; },
     setOrg: async () => { if (failAssign) throw new Error('assign failed'); },
@@ -97,6 +99,15 @@ async function testZones() {
   newInput.props.onChange({ target: { value: '  شرق  ' } }); tree = app.render();
   await button(tree, '+ منطقه').props.onClick(); tree = app.render();
   assert.deepEqual(created, ['شرق']); assert.ok(column(tree, 3));
+  button(column(tree,3),'+ زیرمنطقه').props.onClick();tree=app.render();
+  nodes(tree,node=>node.type==='input'&&node.props['aria-label']==='نام زیرمنطقه')[0].props.onChange({target:{value:'  محدوده یک  '}});tree=app.render();
+  await button(tree,'ذخیره زیرمنطقه').props.onClick();tree=app.render();
+  assert.equal(created[1],'محدوده یک');assert.equal(createdParents[1],3);
+  assert.ok(text(column(tree,4)).includes('شرق / محدوده یک'));
+  button(column(tree,3),'ویرایش').props.onClick();tree=app.render();
+  const parentSelect=nodes(tree,node=>node.type==='select'&&node.props['aria-label']==='منطقه والد')[0];
+  const choices=nodes(parentSelect,node=>node.type==='option').map(node=>String(node.props.value));
+  assert.ok(!choices.includes('3')&&!choices.includes('4'));
   console.log('PASS compiled Zones UI: edit/create, numeric/string IDs, cancel/delete, retained personnel, failed writes, and drag/drop');
 }
 

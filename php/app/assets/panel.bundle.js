@@ -470,8 +470,8 @@ const db = {
     revokeDevice: (id, type) => SEND('POST', '/admin/users/' + id + '/revoke-device', type ? { device_type: type } : {}),
     deleteUser: (id) => SEND('DELETE', '/admin/users/' + id),
     resetPassword: (id, password) => SEND('POST', '/admin/users/' + id + '/reset-password', { password }),
-    createZone: (name) => SEND('POST', '/admin/zones', { name }),
-    updateZone: (id, name) => SEND('PUT', '/admin/zones/' + id, { name }),
+    createZone: (name, parentId = null) => SEND('POST', '/admin/zones', { name, parent_id: parentId }),
+    updateZone: (id, name, parentId) => SEND('PUT', '/admin/zones/' + id, { name, ...(parentId === undefined ? {} : { parent_id: parentId }) }),
     deleteZone: (id) => SEND('DELETE', '/admin/zones/' + id, {}),
     addReason: (title) => SEND('POST', '/admin/notice-reasons', { title }),
     delReason: (id) => SEND('DELETE', '/admin/notice-reasons/' + id),
@@ -2015,6 +2015,33 @@ function Modal({ title, onClose, children }) {
             children)));
 }
 function seniorityEn(value) { return String(value !== null && value !== void 0 ? value : '').replace(/[۰-۹]/g, digit => '۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)).replace(/[٠-٩]/g, digit => '٠١٢٣٤٥٦٧٨٩'.indexOf(digit)); }
+function seniorityEscapeHtml(value) { return String(value !== null && value !== void 0 ? value : '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }
+function seniorityPrintBody(rows) {
+    const escape = seniorityEscapeHtml;
+    const headers = ['نام و نام خانوادگی', 'شماره پرسنلی', 'سمت', 'منطقه', 'مبنای سنوات', 'اصلاح دستی', 'جمع ماه‌ها', 'سنوات کل (روز)'];
+    const total = rows.reduce((sum, row) => sum + Number(row.seniority_days || 0), 0);
+    return '<style>@media print{@page{size:A4 landscape;margin:12mm}#root{display:none!important}#print-area{display:block!important;direction:rtl}.seniority-print thead{display:table-header-group}.seniority-print tr{break-inside:avoid}.seniority-print th{position:static!important;background:#e8f3ef!important;color:#163a2d!important}.seniority-print td,.seniority-print th{border:1px solid #cdded5;padding:8px;font-size:11px;white-space:normal!important}.seniority-print tbody tr:nth-child(even){background:#f3f8f5!important}}</style><div dir="rtl"><p>تعداد نیروها: ' + escape(fa(rows.length)) + ' · جمع سنوات: ' + escape(fa(total)) + ' روز</p><table class="seniority-print" style="width:100%;border-collapse:collapse;text-align:right"><thead><tr>' + headers.map(title => '<th>' + escape(title) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(row => { var _a, _b, _c; return '<tr>' + [[row.first_name, row.last_name].join(' '), row.personnel_code, row.role_title, row.zone_name, (_a = row.base_days) !== null && _a !== void 0 ? _a : '—', (_b = row.adjustment_days) !== null && _b !== void 0 ? _b : '—', row.monthly_days, (_c = row.seniority_days) !== null && _c !== void 0 ? _c : 'ثبت نشده'].map(value => '<td>' + escape(value) + '</td>').join('') + '</tr>'; }).join('') + '</tbody></table></div>';
+}
+async function downloadSeniorityReport(rows, period) {
+    const response = await _fetchWithAuth(API_BASE + '/admin/seniority/export', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ user_ids: rows.map(row => row.id), period }) });
+    if (!response.ok) {
+        let message = 'ساخت فایل اکسل انجام نشد.';
+        try {
+            const detail = await response.json();
+            message = detail.error || detail.message || message;
+        }
+        catch (_) { }
+        throw new Error(message);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob), link = document.createElement('a');
+    link.href = url;
+    link.download = 'seniority-' + period + '.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
 function seniorityFilter(rows, filters) {
     const normalize = value => seniorityEn(value).replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/\s+/g, ' ').trim().toLowerCase();
     const query = normalize(filters.q);
@@ -2129,15 +2156,19 @@ function PersonnelSeniority() {
             setBusy(false);
         }
     };
-    const exportReport = () => { try {
-        exportXlsx(seniorityExportRows(rows, data.period), 'سنوات نیروها', 'seniority-' + data.period + '.xlsx');
+    const exportReport = async () => { if (mutation.current || !data)
+        return; mutation.current = true; setBusy(true); try {
+        await downloadSeniorityReport(rows, data.period);
     }
     catch (failure) {
         alert(failure.message);
+    }
+    finally {
+        mutation.current = false;
+        setBusy(false);
     } };
     const printReport = () => {
-        const headers = ['نام و نام خانوادگی', 'شماره پرسنلی', 'سمت', 'منطقه', 'مبنای سنوات', 'اصلاح دستی', 'جمع ماه‌ها', 'سنوات کل (روز)'];
-        const body = '<table style="width:100%;border-collapse:collapse;text-align:right"><thead><tr>' + headers.map(title => '<th style="padding:8px;border:1px solid #ddd">' + esc(title) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(row => { var _a; return '<tr>' + [[row.first_name, row.last_name].join(' '), row.personnel_code, row.role_title, row.zone_name, row.base_days, row.adjustment_days, row.monthly_days, (_a = row.seniority_days) !== null && _a !== void 0 ? _a : 'ثبت نشده'].map(value => '<td style="padding:8px;border:1px solid #ddd">' + esc(value) + '</td>').join('') + '</tr>'; }).join('') + '</tbody></table>';
+        const body = seniorityPrintBody(rows);
         printLetterhead('سنوات نیروها — ' + faPlain(data.period), body, { subtitle: 'واحد: روز؛ سهم ماه جاری تا پایان ماه و به‌صورت علی‌الحساب است.' });
     };
     return React.createElement("div", { className: "panel", "data-testid": "personnel-seniority" },
@@ -2675,6 +2706,19 @@ function Zones() {
     const [editing, setEditing] = useState(null);
     const [editName, setEditName] = useState("");
     const mutation = useRef(false);
+    const [newParent, setNewParent] = useState(''), [editParent, setEditParent] = useState(''), [child, setChild] = useState(null), [childName, setChildName] = useState('');
+    const pathFor = zone => { const parts = [], seen = new Set(); let current = zone; while (current && !seen.has(+current.id)) {
+        seen.add(+current.id);
+        parts.unshift(current.name);
+        current = zones.find(item => +item.id === +current.parent_id);
+    } return parts.join(' / '); };
+    const isDescendant = (candidate, ancestor) => { const seen = new Set(); let current = candidate; while (current && !seen.has(+current.id)) {
+        if (+current.id === +ancestor)
+            return true;
+        seen.add(+current.id);
+        current = zones.find(item => +item.id === +current.parent_id);
+    } return false; };
+    const ordered = zones.slice().sort((left, right) => pathFor(left).localeCompare(pathFor(right), 'fa'));
     const reload = async () => { const [nextUsers, nextZones] = await Promise.all([db.users(), db.zones()]); setUsers(nextUsers); setZones(nextZones); };
     useEffect(() => { reload().catch(failure => setError(failure.message || 'بارگذاری مناطق انجام نشد.')); }, []);
     const mutate = async (action) => { if (mutation.current)
@@ -2691,9 +2735,11 @@ function Zones() {
     const assign = (uid, zid) => { if (!users.some(user => +user.id === +uid))
         return; return mutate(async () => { await db.setOrg(uid, { zone_id: zid }); setUsers(current => current.map(user => +user.id === +uid ? { ...user, zone_id: zid } : user)); }); };
     const addZone = () => { const name = nz.trim(); if (!name)
-        return; return mutate(async () => { const zone = await db.createZone(name); setZones(current => [...current, zone]); setNz(""); }); };
+        return; return mutate(async () => { const parent_id = newParent ? +newParent : null; const zone = await db.createZone(name, parent_id); setZones(current => [...current, { ...zone, parent_id }]); setNz(""); }); };
+    const addChild = () => { const name = childName.trim(); if (!name || !child)
+        return; return mutate(async () => { const zone = await db.createZone(name, +child.id); setZones(current => [...current, { ...zone, parent_id: +child.id }]); setChild(null); setChildName(''); }); };
     const saveZone = () => { const name = editName.trim(); if (!name || !editing)
-        return; return mutate(async () => { await db.updateZone(editing.id, name); setZones(current => current.map(zone => +zone.id === +editing.id ? { ...zone, name } : zone)); setEditing(null); }); };
+        return; return mutate(async () => { const parent_id = editParent ? +editParent : null; await db.updateZone(editing.id, name, parent_id); setZones(current => current.map(zone => +zone.id === +editing.id ? { ...zone, name, parent_id } : zone)); setEditing(null); }); };
     const removeZone = zone => { if (busy || !confirm(`منطقهٔ «${zone.name}» حذف شود؟ نیروهای آن حذف نمی‌شوند و به «بدون منطقه» منتقل می‌شوند.`))
         return; return mutate(async () => { await db.deleteZone(zone.id); setZones(current => current.filter(item => +item.id !== +zone.id).map(item => +item.parent_id === +zone.id ? { ...item, parent_id: null } : item)); setUsers(current => current.map(user => +user.zone_id === +zone.id ? { ...user, zone_id: null } : user)); }); };
     const Card = u => React.createElement("div", { className: "card-p", key: u.id, draggable: !busy, onDragStart: e => e.dataTransfer.setData("uid", u.id) },
@@ -2703,26 +2749,46 @@ function Zones() {
             u.last_name),
         React.createElement("small", null, u.role_title));
     const Col = (title, zid) => React.createElement("div", { className: "col" + (over === zid ? " over" : ""), key: zid || "none", onDragOver: e => { e.preventDefault(); setOver(zid); }, onDragLeave: () => setOver(null), onDrop: e => { assign(+e.dataTransfer.getData("uid"), zid); setOver(null); } },
-        React.createElement("h4", { className: "row", style: { justifyContent: "space-between", gap: 8 } },
+        React.createElement("h4", { className: "row", style: { justifyContent: "space-between", gap: 8, flexWrap: 'wrap' } },
             React.createElement("span", null, title),
-            zid != null && React.createElement("span", { className: "row", style: { gap: 5 } },
-                React.createElement("button", { className: "btn g", disabled: busy, onClick: () => { const zone = zones.find(item => +item.id === +zid); setEditing(zone); setEditName(zone.name); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
+            zid != null && React.createElement("span", { className: "row", style: { gap: 5, flexWrap: 'wrap' } },
+                React.createElement("button", { className: "btn g", disabled: busy, onClick: () => { const zone = zones.find(item => +item.id === +zid); setChild(zone); setChildName(''); } }, "+ \u0632\u06CC\u0631\u0645\u0646\u0637\u0642\u0647"),
+                React.createElement("button", { className: "btn g", disabled: busy, onClick: () => { const zone = zones.find(item => +item.id === +zid); setEditing(zone); setEditName(zone.name); setEditParent(zone.parent_id ? String(zone.parent_id) : ''); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
                 React.createElement("button", { className: "btn d", disabled: busy, onClick: () => removeZone(zones.find(item => +item.id === +zid)) }, "\u062D\u0630\u0641"))),
+        zid != null && React.createElement("small", { style: { display: 'block', color: 'var(--muted)', marginBottom: 10 } }, pathFor(zones.find(item => +item.id === +zid))),
         users.filter(u => zid == null ? !u.zone_id : +u.zone_id === +zid).map(Card));
     return (React.createElement("div", { className: "panel" },
         React.createElement("h3", null,
             "\u0645\u0646\u0637\u0642\u0647\u200C\u0628\u0646\u062F\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u2014 \u06A9\u0627\u0631\u062A\u200C\u0647\u0627 \u0631\u0627 \u062F\u0631 \u0645\u0646\u0637\u0642\u0647\u0654 \u0645\u0648\u0631\u062F\u0646\u0638\u0631 \u0631\u0647\u0627 \u06A9\u0646\u06CC\u062F",
             React.createElement("span", { className: "row", style: { gap: 8 } },
                 React.createElement("input", { className: "input", maxLength: 150, style: { padding: "6px 10px", width: 160 }, placeholder: "\u0646\u0627\u0645 \u0645\u0646\u0637\u0642\u0647\u0654 \u062C\u062F\u06CC\u062F", value: nz, onChange: e => setNz(e.target.value) }),
+                React.createElement("select", { "aria-label": "\u0645\u0646\u0637\u0642\u0647 \u0648\u0627\u0644\u062F \u0628\u0631\u0627\u06CC \u0645\u0646\u0637\u0642\u0647 \u062C\u062F\u06CC\u062F", className: "input", style: { maxWidth: 230 }, value: newParent, onChange: event => setNewParent(event.target.value) },
+                    React.createElement("option", { value: "" }, "\u0645\u0646\u0637\u0642\u0647 \u0645\u0633\u062A\u0642\u0644 (\u0628\u062F\u0648\u0646 \u0648\u0627\u0644\u062F)"),
+                    ordered.map(zone => React.createElement("option", { key: zone.id, value: zone.id }, pathFor(zone)))),
                 React.createElement("button", { className: "btn p", disabled: busy || !nz.trim(), onClick: addZone }, "+ \u0645\u0646\u0637\u0642\u0647"))),
         error && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } }, error),
         React.createElement("div", { className: "org" },
             Col("بدون منطقه", null),
-            zones.map(z => Col(z.name, z.id))),
+            ordered.map(z => Col(z.name, z.id))),
+        child && React.createElement(Modal, { title: 'تعریف زیرمنطقه برای ' + child.name, onClose: () => { if (!busy)
+                setChild(null); } },
+            React.createElement("p", { style: { lineHeight: 2 } },
+                "\u0645\u0646\u0637\u0642\u0647 \u0648\u0627\u0644\u062F: ",
+                pathFor(child)),
+            React.createElement("label", null, "\u0646\u0627\u0645 \u0632\u06CC\u0631\u0645\u0646\u0637\u0642\u0647"),
+            React.createElement("input", { "aria-label": "\u0646\u0627\u0645 \u0632\u06CC\u0631\u0645\u0646\u0637\u0642\u0647", className: "input", maxLength: 150, value: childName, onChange: event => setChildName(event.target.value) }),
+            error && React.createElement("p", { role: "alert", style: { color: 'var(--danger)' } }, error),
+            React.createElement("div", { className: "row", style: { gap: 8, marginTop: 12 } },
+                React.createElement("button", { className: "btn p", disabled: busy || !childName.trim(), onClick: addChild }, "\u0630\u062E\u06CC\u0631\u0647 \u0632\u06CC\u0631\u0645\u0646\u0637\u0642\u0647"),
+                React.createElement("button", { className: "btn g", disabled: busy, onClick: () => setChild(null) }, "\u0627\u0646\u0635\u0631\u0627\u0641"))),
         editing && React.createElement(Modal, { title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u0646\u0637\u0642\u0647", onClose: () => { if (!busy)
                 setEditing(null); } },
             React.createElement("label", null, "\u0646\u0627\u0645 \u0645\u0646\u0637\u0642\u0647"),
             React.createElement("input", { className: "input", maxLength: 150, value: editName, onChange: event => setEditName(event.target.value) }),
+            React.createElement("label", null, "\u0645\u0646\u0637\u0642\u0647 \u0648\u0627\u0644\u062F"),
+            React.createElement("select", { "aria-label": "\u0645\u0646\u0637\u0642\u0647 \u0648\u0627\u0644\u062F", className: "input", value: editParent, onChange: event => setEditParent(event.target.value) },
+                React.createElement("option", { value: "" }, "\u0645\u0646\u0637\u0642\u0647 \u0645\u0633\u062A\u0642\u0644 (\u0628\u062F\u0648\u0646 \u0648\u0627\u0644\u062F)"),
+                ordered.filter(zone => !isDescendant(zone, editing.id)).map(zone => React.createElement("option", { key: zone.id, value: zone.id }, pathFor(zone)))),
             error && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } }, error),
             React.createElement("button", { className: "btn p", disabled: busy || !editName.trim(), onClick: saveZone }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u0645\u0646\u0637\u0642\u0647"))));
 }

@@ -52,6 +52,10 @@ jobs:
           node tests/seniority_ui_test.cjs
           php -l lib/Seniority.php
           php tests/seniority_test.php
+          node tests/seniority_xlsx_test.cjs
+          php tests/zones_crud_test.php
+          php tests/org_chart_regions_test.php
+          node tests/org_regions_ui_test.cjs
 
       - name: Build deployment payload from this push
         shell: bash

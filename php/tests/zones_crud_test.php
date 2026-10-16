@@ -17,6 +17,7 @@ class Db {
   static $failDelete = false;
   static function pdo() { return self::$connection; }
   static function one($query,$params) { return self::$zones[(int)$params[0]] ?? null; }
+  static function all($query,$params=[]) { return array_values(self::$zones); }
   static function insert($query,$params) { self::$zones[3] = ['id'=>3,'name'=>$params[0],'parent_id'=>$params[1]]; return 3; }
   static function run($query,$params) {
     if (strpos($query,'UPDATE users')===0) {
@@ -26,7 +27,8 @@ class Db {
       foreach (self::$zones as &$zone) if ($zone['parent_id']==$params[0]) $zone['parent_id']=null;
       unset($zone);
     } elseif (strpos($query,'UPDATE zones SET name')===0) {
-      self::$zones[(int)$params[1]]['name']=$params[0];
+      $id=(int)$params[count($params)-1];self::$zones[$id]['name']=$params[0];
+      if(count($params)===3)self::$zones[$id]['parent_id']=$params[1];
     } elseif (strpos($query,'DELETE FROM zones')===0) {
       if (self::$failDelete) throw new RuntimeException('Database failure');
       unset(self::$zones[(int)$params[0]]);
@@ -40,6 +42,9 @@ function route($method,$path,$handler,$public=false,$level=null) {
   $handlers[$method] = $handler;
 }
 $source = file_get_contents(__DIR__.'/../lib/routes.php');
+$helperStart=strpos($source,'function _validated_zone_parent(');
+$helperEnd=strpos($source,"route('POST', '/api/admin/zones'",$helperStart);
+eval(substr($source,$helperStart,$helperEnd-$helperStart));
 foreach (['POST'=>'/api/admin/zones','PUT'=>'/api/admin/zones/{id}','DELETE'=>'/api/admin/zones/{id}'] as $method=>$path) {
   $start=strpos($source,"route('$method', '$path', ");
   if ($start===false) throw new RuntimeException('Zone endpoint missing');
@@ -60,6 +65,16 @@ $created=$handlers['POST']([],['name'=>'  منطقه سه  '],[]);
 if ($created['name']!=='منطقه سه') throw new RuntimeException('Name not trimmed');
 $handlers['PUT'](['id'=>1],['name'=>'نام جدید'],[]);
 if (Db::$zones[1]['name']!=='نام جدید' || Db::$users[0]['zone_id']!==1) throw new RuntimeException('Rename changed zone membership');
+$handlers['PUT'](['id'=>3],['name'=>'زیرمنطقه','parent_id'=>'2'],[]);
+if(Db::$zones[3]['parent_id']!==2)throw new RuntimeException('Parent not saved');
+foreach ([['id'=>1,'parent_id'=>3,'status'=>422],['id'=>3,'parent_id'=>3,'status'=>422],['id'=>3,'parent_id'=>99,'status'=>404],['id'=>3,'parent_id'=>'invalid','status'=>422]] as $case) {
+  $snapshot=[Db::$zones,Db::$users];
+  try{$handlers['PUT'](['id'=>$case['id']],['name'=>'invalid','parent_id'=>$case['parent_id']],[]);throw new LogicException('Invalid parent accepted');}
+  catch(RuntimeException $failure){if($failure->getCode()!==$case['status'])throw $failure;}
+  if([Db::$zones,Db::$users]!==$snapshot||Db::$connection->inTransaction())throw new RuntimeException('Failed hierarchy edit changed data');
+}
+$handlers['PUT'](['id'=>3],['name'=>'منطقه مستقل','parent_id'=>null],[]);
+if(Db::$zones[3]['parent_id']!==null)throw new RuntimeException('Parent not cleared');
 $before=[Db::$zones,Db::$users];
 Db::$failDelete=true;
 try { $handlers['DELETE'](['id'=>1],[],[]); throw new LogicException('Failure not propagated'); }

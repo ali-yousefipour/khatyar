@@ -16,7 +16,9 @@ class OrgChart {
     return null;
   }
 
-  static function defaultEdges($users, $savedEdges = []) {
+  static function defaultEdges($users, $savedEdges = [], $zones = []) {
+    $zoneParents=[];
+    foreach($zones as $zone)$zoneParents[(int)$zone['id']]=(int)($zone['parent_id']??0);
     $active = [];
     $keys = [];
     foreach ($users as $user) {
@@ -40,9 +42,19 @@ class OrgChart {
       $primary = 1;
       $candidates = [];
       foreach ($rules[$role] ?? [] as $managerRole) $candidates += $groups[$managerRole] ?? [];
+      $managerZone=$zoneId;
+      if ($regional) {
+        $seenZones=[];
+        while($managerZone>0&&!isset($seenZones[$managerZone])) {
+          $seenZones[$managerZone]=true;
+          $regionalManagers=array_filter($candidates,fn($manager)=>(int)($manager['zone_id']??0)===$managerZone);
+          if ($regionalManagers) break;
+          $managerZone=$zoneParents[$managerZone]??0;
+        }
+      }
       foreach ($candidates as $managerId => $manager) {
         if ($managerId === $userId) continue;
-        if ($regional && (int)($manager['zone_id'] ?? 0) !== $zoneId) continue;
+        if ($regional && ($managerZone<=0 || (int)($manager['zone_id'] ?? 0) !== $managerZone)) continue;
         $edges[$userId.':'.$managerId] = ['user_id'=>$userId,'manager_id'=>$managerId,'primary'=>$primary,'source'=>'regional_default'];
         $children[$managerId][] = $userId;
         $primary = 0;

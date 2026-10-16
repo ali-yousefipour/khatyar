@@ -3304,6 +3304,20 @@ route('GET', '/api/admin/attendance-report', function($p,$b,$u){
 route('GET', '/api/admin/seniority', function($p,$b,$u){
   return Seniority::listRows();
 }, false, ADMIN);
+route('POST', '/api/admin/seniority/export', function($p,$b,$u){
+  $ids=$b['user_ids']??null;
+  if (!is_array($ids)||!$ids||count($ids)>10000) Http::error('فهرست پرسنل برای خروجی معتبر نیست.',422);
+  $selected=[];
+  foreach($ids as $id) {
+    if (filter_var($id,FILTER_VALIDATE_INT)===false||(int)$id<1) Http::error('شناسه پرسنل معتبر نیست.',422);
+    $selected[(int)$id]=true;
+  }
+  $data=Seniority::listRows();
+  if (($b['period']??'')!==$data['period']) Http::error('ماه جاری تغییر کرده است؛ فهرست را بازخوانی کنید.',409);
+  $rows=array_values(array_filter($data['rows'],fn($row)=>isset($selected[(int)$row['id']])));
+  if (count($rows)!==count($selected)) Http::error('بعضی پرسنل دیگر در فهرست موجود نیستند؛ صفحه را بازخوانی کنید.',409);
+  Seniority::exportWorkbook($rows,$data['period'])->output('seniority-'.$data['period'].'.xlsx','سنوات نیروها');
+}, false, ADMIN);
 route('PUT', '/api/admin/seniority/{id}', function($p,$b,$u){
   return Seniority::save((int)$p['id'],$b,(int)$u['id']);
 }, false, ADMIN);
@@ -6921,8 +6935,9 @@ route('GET', '/api/admin/org-chart', function($p,$b,$u){
     $k=(int)$x['id'].':'.(int)$x['manager_id'];
     $edges[$k]=['user_id'=>(int)$x['id'],'manager_id'=>(int)$x['manager_id'],'primary'=>1];
   }
-  return ['users'=>$users,'edges'=>array_values($edges),'default_edges'=>OrgChart::defaultEdges($users, array_values($edges)),
-    'zones'=>Db::all("SELECT id,name,parent_id FROM zones ORDER BY id")];
+  $zones=Db::all("SELECT id,name,parent_id FROM zones ORDER BY id");
+  return ['users'=>$users,'edges'=>array_values($edges),'default_edges'=>OrgChart::defaultEdges($users, array_values($edges),$zones),
+    'zones'=>$zones];
 }, false, ADMIN);
 
 // مدیریت چند مقام بالاسری برای یک نیرو
@@ -8314,17 +8329,43 @@ route('DELETE', '/api/admin/roles/{id}', function($p,$b,$u){
   return ['ok'=>true];
 }, false, ADMIN);
 route('GET', '/api/admin/zones', fn($p,$b,$u) => Db::all("SELECT * FROM zones ORDER BY id"));
+function _validated_zone_parent($value,$zoneId=0) {
+  if ($value===null || $value==='') return null;
+  $parent=filter_var($value,FILTER_VALIDATE_INT);
+  if ($parent===false || $parent<1) Http::error('منطقه والد معتبر نیست.',422);
+  $zones=Db::all('SELECT id,parent_id FROM zones FOR UPDATE');
+  $parents=[];foreach($zones as $zone)$parents[(int)$zone['id']]=(int)($zone['parent_id']??0);
+  if (!array_key_exists($parent,$parents)) Http::error('منطقه والد یافت نشد.',404);
+  $seen=[];$cursor=$parent;
+  while($cursor>0) {
+    if ($cursor===(int)$zoneId || isset($seen[$cursor])) Http::error('منطقه نمی‌تواند زیرمجموعه خودش یا فرزندانش باشد.',422);
+    $seen[$cursor]=true;$cursor=$parents[$cursor]??0;
+  }
+  return $parent;
+}
 route('POST', '/api/admin/zones', function($p,$b,$u){
   $name = trim((string)($b['name'] ?? ''));
   if ($name === '' || mb_strlen($name) > 150) Http::error('نام منطقه باید بین ۱ تا ۱۵۰ نویسه باشد.', 422);
-  $id = Db::insert("INSERT INTO zones(name,parent_id) VALUES(?,?)", [$name, $b['parent_id'] ?? null]);
-  return ['id'=>$id,'name'=>$name];
+  $connection=Db::pdo();$connection->beginTransaction();
+  try {
+    $parent=_validated_zone_parent($b['parent_id']??null);
+    $id = Db::insert("INSERT INTO zones(name,parent_id) VALUES(?,?)", [$name,$parent]);
+    $connection->commit();
+  } catch (Throwable $failure) {if($connection->inTransaction())$connection->rollBack();throw $failure;}
+  return ['id'=>$id,'name'=>$name,'parent_id'=>$parent];
 }, false, ADMIN);
 route('PUT', '/api/admin/zones/{id}', function($p,$b,$u){
   $name = trim((string)($b['name'] ?? ''));
   if ($name === '' || mb_strlen($name) > 150) Http::error('نام منطقه باید بین ۱ تا ۱۵۰ نویسه باشد.', 422);
-  if (!Db::one("SELECT id FROM zones WHERE id=?", [$p['id']])) Http::error('منطقه یافت نشد.', 404);
-  Db::run("UPDATE zones SET name=? WHERE id=?", [$name, $p['id']]);
+  $connection=Db::pdo();$connection->beginTransaction();
+  try {
+  if (!Db::one("SELECT id FROM zones WHERE id=? FOR UPDATE", [$p['id']])) Http::error('منطقه یافت نشد.', 404);
+  if (array_key_exists('parent_id',$b)) {
+    $parent=_validated_zone_parent($b['parent_id'],(int)$p['id']);
+    Db::run("UPDATE zones SET name=?,parent_id=? WHERE id=?",[$name,$parent,$p['id']]);
+  } else Db::run("UPDATE zones SET name=? WHERE id=?", [$name, $p['id']]);
+  $connection->commit();
+  } catch (Throwable $failure) {if($connection->inTransaction())$connection->rollBack();throw $failure;}
   return ['ok'=>true];
 }, false, ADMIN);
 route('DELETE', '/api/admin/zones/{id}', function($p,$b,$u){

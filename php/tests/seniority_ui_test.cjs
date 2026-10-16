@@ -22,6 +22,7 @@ function harness(data) {
   let index = 0, pending = [];
   const state = [], effects = [];
   const sent = [], alerts = [];
+  const printed = [], downloads = [];
   let failGet = false, failSave = false;
   const context = vm.createContext({
     React: { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }) },
@@ -44,11 +45,17 @@ function harness(data) {
       return { ok: true, delta_days: 0 };
     },
     fa: String, faPlain: String, Modal: 'Modal',
+    printLetterhead: (...args) => printed.push(args),
+    API_BASE: '/api',
+    _fetchWithAuth: async (url, options) => { downloads.push({url,options});return {ok:true,blob:async()=>({})}; },
+    URL: {createObjectURL:()=> 'blob:test',revokeObjectURL:()=>{}},
+    document: {createElement:()=>({click(){},remove(){}}),body:{appendChild(){}}},
+    setTimeout:()=>{},
     confirm: () => true, alert: message => alerts.push(message),
   });
   vm.runInContext(source, context);
   return {
-    context, sent, alerts,
+    context, sent, alerts, printed, downloads,
     render: () => { index = 0; pending = []; const tree = vm.runInContext('PersonnelSeniority()', context); pending.forEach(run => run()); return tree; },
     failGet: value => { failGet = value; }, failSave: value => { failSave = value; },
   };
@@ -65,6 +72,19 @@ async function main() {
   assert.ok(content(tree).includes('کاربر دو'));
   assert.ok(!content(tree).includes('غیرفعال سه'));
   assert.ok(content(tree).includes('1405-07'));
+  button(tree, 'چاپ گزارش').props.onClick();
+  assert.equal(app.printed.length, 1);
+  assert.ok(app.printed[0][1].includes('seniority-print'));
+  assert.ok(app.printed[0][1].includes('#root{display:none!important}'));
+  assert.ok(!app.printed[0][1].includes('غیرفعال سه'));
+  app.context.unsafeRows=[{first_name:'<img src=x onerror=alert(1)>',last_name:'& نام',seniority_days:0}];
+  const printBody=vm.runInContext('seniorityPrintBody(unsafeRows)', app.context);
+  assert.ok(printBody.includes('&lt;img'));
+  assert.ok(!printBody.includes('<img'));
+  await button(tree, 'خروجی اکسل').props.onClick();
+  assert.equal(app.downloads[0].url, '/api/admin/seniority/export');
+  assert.deepEqual(JSON.parse(app.downloads[0].options.body), {user_ids:[1,2],period:'1405-07'});
+  tree=app.render();
   const search = nodes(tree, item => item.props?.['aria-label'] === 'جستجوی پرسنل')[0];
   search.props.onChange({ target: { value: '۵۰۰۵' } }); tree = app.render();
   assert.ok(content(tree).includes('کاربر یک') && !content(tree).includes('کاربر دو'));

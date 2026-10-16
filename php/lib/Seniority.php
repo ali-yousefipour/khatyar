@@ -69,6 +69,24 @@ class Seniority {
     return (int)$row['base_days']+(int)$row['adjustment_days']+(int)$monthlyDays;
   }
 
+  static function exportWorkbook($rows,$period) {
+    $writer = new XlsxWriter(['ردیف','نام و نام خانوادگی','شماره پرسنلی','کد ملی','سمت','منطقه','وضعیت نیرو','مبنای سنوات (روز)','تاریخ مبنا','اصلاح دستی (روز)','جمع ماه‌ها (روز)','سهم ماه جاری (روز)','غیبت ماه جاری (روز)','میزان سنوات شخص (روز)','وضعیت مبنا']);
+    $writer->setProfessionalStyle(true);
+    $total = array_sum(array_map(fn($row)=>(int)($row['seniority_days']??0),$rows));
+    $writer->setReportHeading('خطیار | گزارش سنوات نیروها','ماه گزارش: '.$period.' | تاریخ تهیه: '.self::today().' | واحد: روز',
+      'تعداد نیروها: '.count($rows).' | جمع سنوات: '.number_format($total).' روز | سهم ماه جاری تا پایان ماه، علی‌الحساب است.');
+    foreach ([8,28,18,18,25,22,15,18,18,18,18,20,20,24,20] as $column=>$width) $writer->setColWidth($column,$width);
+    foreach ([2,3,8] as $column) $writer->setTextCol($column);
+    foreach ($rows as $index=>$row) $writer->addRow([
+      $index+1,trim(($row['first_name']??'').' '.($row['last_name']??'')),(string)($row['personnel_code']??''),(string)($row['national_code']?:$row['username']),
+      $row['role_title']??'',$row['zone_name']??'',(int)$row['is_active']?'فعال':'غیرفعال',
+      $row['base_days']??'',$row['base_through_jdate']??'',$row['adjustment_days']??'',(int)$row['monthly_days'],
+      $row['current_month_updated_at']?(int)$row['current_month_days']:'محاسبه نشده',$row['current_month_absent']??'',
+      $row['seniority_days']??'ثبت نشده',$row['initialized']?'ثبت‌شده':'نیازمند ثبت مبنا'
+    ]);
+    return $writer;
+  }
+
   static function listRows() {
     self::ensureSchema();
     $today = static::today();
