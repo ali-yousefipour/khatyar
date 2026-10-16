@@ -14,6 +14,7 @@
  */
 class XlsxWriter {
   private $headers;
+  private $comments = [];
   private $rows = [];
   private $colWidths = [];   // colIdx(0-based) => width (کاراکتر)
   private $textCols = [];    // colIdx(0-based) => force values to remain text (IDs/codes with leading zeros)
@@ -26,6 +27,8 @@ class XlsxWriter {
 
   function setColWidth($idx, $chars) { $this->colWidths[$idx] = $chars; }
   function setTextCol($idx) { $this->textCols[$idx] = true; }
+  /** Add an Excel note to a data cell (zero-based row and column). */
+  function setComment($rowIdx,$colIdx,$text){ $this->comments[$rowIdx][$colIdx]=(string)$text; }
 
   /** قالب خواناتر ویژهٔ خروجی‌های مدیریتی: سرستون رنگی، ردیف‌های راه‌راه، فیلتر و تثبیت سرستون. */
   function setProfessionalStyle($enabled = true) { $this->professionalStyle = (bool)$enabled; }
@@ -90,6 +93,7 @@ class XlsxWriter {
       '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'.
       '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'.
       '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>'.
+      ($this->comments ? '<Override PartName="/xl/comments1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml"/><Default Extension="vml" ContentType="application/vnd.openxmlformats-officedocument.vmlDrawing"/>' : '').
       '</Types>');
 
     $zip->addFromString('_rels/.rels',
@@ -185,8 +189,22 @@ class XlsxWriter {
       $sheetXml .= '</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/><headerFooter><oddFooter>&amp;Cصفحه &amp;P از &amp;N</oddFooter></headerFooter>';
     }
     if ($this->images) $sheetXml .= '<drawing r:id="rIdDrawing1"/>';
+    if ($this->comments) $sheetXml .= '<legacyDrawing r:id="rIdComments"/>';
     $sheetXml .= '</worksheet>';
     $zip->addFromString('xl/worksheets/sheet1.xml', $sheetXml);
+
+    if ($this->comments) {
+      $notes=''; $vml=''; $shape=1024;
+      foreach ($this->comments as $ri=>$cells) foreach($cells as $ci=>$body){
+        $ref=self::colLetter($ci).($ri+$headerRow+1);
+        $notes.='<comment ref="'.$ref.'" authorId="0"><text><t xml:space="preserve">'.self::xmlEsc($body).'</t></text></comment>';
+        $shape++;
+        $vml.='<v:shape id="_x0000_s'.$shape.'" type="#_x0000_t202" style="position:absolute;visibility:hidden" fillcolor="#ffffe1" o:insetmode="auto"><v:fill color2="#ffffe1"/><v:shadow on="t" color="black" obscured="t"/><v:path o:connecttype="none"/><v:textbox style="mso-direction-alt:auto"><div style="text-align:left"/></v:textbox><x:ClientData ObjectType="Note"><x:MoveWithCells/><x:SizeWithCells/><x:AutoFill>False</x:AutoFill><x:Row>'.($ri+$headerRow).'</x:Row><x:Column>'.$ci.'</x:Column></x:ClientData></v:shape>';
+      }
+      $zip->addFromString('xl/comments1.xml','<?xml version="1.0" encoding="UTF-8"?><comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><authors><author>خطیار</author></authors><commentList>'.$notes.'</commentList></comments>');
+      $zip->addFromString('xl/drawings/comments.vml','<xml xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><o:shapelayout v:ext="edit"><o:idmap v:ext="edit" data="1"/></o:shapelayout><v:shapetype id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe"><v:stroke joinstyle="miter"/><v:path gradientshapeok="t" o:connecttype="rect"/></v:shapetype>'.$vml.'</xml>');
+    }
+    if ($this->comments && !$this->images) $zip->addFromString('xl/worksheets/_rels/sheet1.xml.rels','<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdComments" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing" Target="../drawings/comments.vml"/><Relationship Id="rIdNotes" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="../comments1.xml"/></Relationships>');
 
     if ($this->images) {
       $zip->addFromString('xl/worksheets/_rels/sheet1.xml.rels',
