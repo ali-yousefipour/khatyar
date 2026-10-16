@@ -199,7 +199,10 @@ class XlsxWriter {
         $ref=self::colLetter($ci).($ri+$headerRow+1);
         $notes.='<comment ref="'.$ref.'" authorId="0"><text><t xml:space="preserve">'.self::xmlEsc($body).'</t></text></comment>';
         $shape++;
-        $vml.='<v:shape id="_x0000_s'.$shape.'" type="#_x0000_t202" style="position:absolute;visibility:hidden" fillcolor="#ffffe1" o:insetmode="auto"><v:fill color2="#ffffe1"/><v:shadow on="t" color="black" obscured="t"/><v:path o:connecttype="none"/><v:textbox style="mso-direction-alt:auto"><div style="text-align:left"/></v:textbox><x:ClientData ObjectType="Note"><x:MoveWithCells/><x:SizeWithCells/><x:AutoFill>False</x:AutoFill><x:Row>'.($ri+$headerRow).'</x:Row><x:Column>'.$ci.'</x:Column></x:ClientData></v:shape>';
+        // Compact note boxes: keep a readable fixed width and size height to the explanation lines.
+        $noteLines=substr_count((string)$body,"\\n")+1;
+        $noteHeight=min(110,max(48,18*$noteLines+12));
+        $vml.='<v:shape id="_x0000_s'.$shape.'" type="#_x0000_t202" style="position:absolute;visibility:hidden;width:205pt;height:'.$noteHeight.'pt;z-index:1" fillcolor="#ffffe1" o:insetmode="auto"><v:fill color2="#ffffe1"/><v:shadow on="t" color="black" obscured="t"/><v:path o:connecttype="none"/><v:textbox style="mso-direction-alt:auto"><div style="text-align:left"/></v:textbox><x:ClientData ObjectType="Note"><x:MoveWithCells/><x:SizeWithCells/><x:AutoFill>False</x:AutoFill><x:Row>'.($ri+$headerRow).'</x:Row><x:Column>'.$ci.'</x:Column></x:ClientData></v:shape>';
       }
       $zip->addFromString('xl/comments1.xml','<?xml version="1.0" encoding="UTF-8"?><comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><authors><author>خطیار</author></authors><commentList>'.$notes.'</commentList></comments>');
       $zip->addFromString('xl/drawings/comments.vml','<xml xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><o:shapelayout v:ext="edit"><o:idmap v:ext="edit" data="1"/></o:shapelayout><v:shapetype id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe"><v:stroke joinstyle="miter"/><v:path gradientshapeok="t" o:connecttype="rect"/></v:shapetype>'.$vml.'</xml>');
