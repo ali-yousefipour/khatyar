@@ -49,6 +49,16 @@ class ImportTests(unittest.TestCase):
         self.assertIn("START TRANSACTION", sql)
         self.assertIn("COMMIT", sql)
 
+    def test_existing_database_collations_are_not_assumed(self):
+        for apply in [False, True]:
+            sql = importer.build_import([(1, "نام", "خانوادگی", "5005", "0012345678", 10)], "a" * 64, apply)
+            for column in ["username", "national_code", "personnel_code"]:
+                self.assertIn(f"CONVERT({column} USING utf8mb4) COLLATE utf8mb4_unicode_ci {column}", sql)
+            self.assertNotIn("ALTER TABLE users", sql)
+            self.assertNotIn("JOIN users person ON", sql)
+            if apply:
+                self.assertEqual(sql.count("CONVERT(saved.source_ref USING utf8mb4) COLLATE utf8mb4_unicode_ci"), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

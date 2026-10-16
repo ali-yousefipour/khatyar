@@ -72,7 +72,13 @@ SELECT source.source_row,person.id user_id,
       LPAD(COALESCE(NULLIF(TRIM(person.national_code),''),TRIM(person.username)),10,'0')<>source.national_code THEN 1
     WHEN source.personnel_code IS NOT NULL AND NULLIF(TRIM(person.personnel_code),'') IS NOT NULL AND TRIM(person.personnel_code)<>source.personnel_code THEN 1
     ELSE 0 END identity_conflict
-FROM seniority_source source JOIN users person ON
+FROM seniority_source source JOIN (
+  SELECT id,
+    CONVERT(username USING utf8mb4) COLLATE utf8mb4_unicode_ci username,
+    CONVERT(national_code USING utf8mb4) COLLATE utf8mb4_unicode_ci national_code,
+    CONVERT(personnel_code USING utf8mb4) COLLATE utf8mb4_unicode_ci personnel_code
+  FROM users
+) person ON
   (source.manual_user_id IS NOT NULL AND person.id=source.manual_user_id) OR
   (source.manual_user_id IS NULL AND (
     (source.national_code IS NOT NULL AND (
@@ -111,12 +117,15 @@ SELECT user_id,days,'1405-06-31',@seniority_source FROM seniority_ready WHERE ma
 INSERT IGNORE INTO personnel_seniority_history(user_id,event_key,kind,period,total_before,total_after,delta_days,reason)
 SELECT ready.user_id,CONCAT(@seniority_source,':',ready.user_id),'import','1405-06',0,ready.days,ready.days,'ورود اکسل سنوات تا پایان شهریور ۱۴۰۵'
 FROM seniority_ready ready JOIN personnel_seniority saved ON saved.user_id=ready.user_id
-WHERE ready.match_status='matched' AND saved.source_ref=@seniority_source;
+WHERE ready.match_status='matched' AND
+  CONVERT(saved.source_ref USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+  CONVERT(@seniority_source USING utf8mb4) COLLATE utf8mb4_unicode_ci;
 COMMIT;
 SELECT ready.source_row,ready.first_name,ready.last_name,ready.user_id,ready.days spreadsheet_days,
  saved.base_days,saved.base_through_jdate,
  CASE WHEN ready.match_status<>'matched' THEN ready.match_status
-   WHEN saved.source_ref=@seniority_source THEN 'imported_or_already_imported'
+   WHEN CONVERT(saved.source_ref USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+        CONVERT(@seniority_source USING utf8mb4) COLLATE utf8mb4_unicode_ci THEN 'imported_or_already_imported'
    ELSE 'existing_baseline_preserved' END result
 FROM seniority_ready ready LEFT JOIN personnel_seniority saved ON saved.user_id=ready.user_id ORDER BY ready.source_row;
 """
