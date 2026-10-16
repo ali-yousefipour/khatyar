@@ -3157,11 +3157,15 @@ function _monthly_work_report_need($u){
   if(!in_array('monthlyworkreport',$items,true))Http::error('دسترسی گزارش کارکرد ماهانه برای سمت شما فعال نیست',403);
 }
 
+function _final_work_month($y,$m){Db::run("CREATE TABLE IF NOT EXISTS finalized_work_months (jy SMALLINT NOT NULL,jm TINYINT NOT NULL,monthly_json LONGTEXT NOT NULL,daily_json LONGTEXT NOT NULL,finalized_by BIGINT NULL,finalized_at DATETIME DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(jy,jm)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");return Db::one("SELECT * FROM finalized_work_months WHERE jy=? AND jm=?",[$y,$m]);}
+function _work_month_rows($y,$m){$f=_final_work_month($y,$m);return $f?(json_decode($f['monthly_json'],true)?:[]):_shift_month_report($y,$m);}
+route('GET','/api/admin/shift-report/finalization',function($p,$b,$u){_monthly_work_report_need($u);$y=(int)($_GET['year']??0);$m=(int)($_GET['month']??0);if($y<1300||$m<1||$m>12)Http::error('تاریخ نامعتبر',422);$f=_final_work_month($y,$m);return ['finalized'=>(bool)$f,'finalized_at'=>$f['finalized_at']??null];},false,ADMIN);
+route('POST','/api/admin/shift-report/finalization',function($p,$b,$u){_monthly_work_report_need($u);$y=(int)($b['year']??0);$m=(int)($b['month']??0);if($y<1300||$m<1||$m>12)Http::error('تاریخ نامعتبر',422);if(_final_work_month($y,$m))Http::error('این ماه قبلاً نهایی شده است',409);$last=ShiftCalc::jMonthDays($y,$m);$from=sprintf('%04d-%02d-01',$y,$m);$to=sprintf('%04d-%02d-%02d',$y,$m,$last);$today=gregorian_to_jalali((int)date('Y'),(int)date('n'),(int)date('j'));$todayJ=sprintf('%04d-%02d-%02d',...$today);if(strcmp($to,$todayJ)>=0)Http::error('ماه جاری یا آینده قابل نهایی‌سازی نیست',422);$rows=_shift_month_report($y,$m);$daily=[];foreach($rows as $person){$uid=(int)($person['user_id']??$person['id']??0);if($uid)$daily[$uid]=_attendance_report($uid,$from,$to);}Db::run("INSERT INTO finalized_work_months(jy,jm,monthly_json,daily_json,finalized_by) VALUES(?,?,?,?,?)",[$y,$m,json_encode($rows,JSON_UNESCAPED_UNICODE),json_encode($daily,JSON_UNESCAPED_UNICODE),(int)($u['id']??0)]);return ['ok'=>true,'count'=>count($rows)];},false,ADMIN);
 route('GET', '/api/admin/shift-report', function($p,$b,$u){
   _monthly_work_report_need($u);
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if (!$jy||!$jm) Http::error('سال و ماه شمسی را مشخص کنید',400);
-  return ['year'=>$jy,'month'=>$jm,'rows'=>_shift_month_report($jy,$jm)];
+  return ['year'=>$jy,'month'=>$jm,'rows'=>_work_month_rows($jy,$jm)];
 }, false, ADMIN);
 
 // ==================== گزارش تردد پرسنل (مدل فینتو) ====================
@@ -3445,7 +3449,7 @@ route('GET', '/api/admin/shift-report/export', function($p,$b,$u){
   _monthly_work_report_need($u);
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if (!$jy||!$jm) Http::error('سال و ماه را مشخص کنید',400);
-  $rows=_shift_month_report($jy,$jm);
+  $rows=_work_month_rows($jy,$jm);
   $hm=fn($m)=>sprintf('%02d:%02d',intdiv(max(0,(int)$m),60),max(0,(int)$m)%60);
   $headers=['نام و نام خانوادگی','موظفی','حضور کل','حضور در شیفت','تاخیر ورود','تعجیل خروج','کسری کار','غیبت','جمع غیبت و کسری کار','شب کاری','اضافه کاری','ماموریت','مرخصی استحقاقی','مرخصی استعلاجی'];
   $xw=new XlsxWriter($headers);
@@ -3478,7 +3482,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   _monthly_work_report_need($u);
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if($jy<1300||$jy>1500||$jm<1||$jm>12)Http::error('ماه و سال نامعتبر است',422);
-  $rows=_shift_month_report($jy,$jm);
+  $rows=_work_month_rows($jy,$jm);
   $users=Db::all("SELECT u.id,u.first_name,u.last_name,u.personnel_code,u.zone_id,z.name AS zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id");
   $byId=[];foreach($users as $person)$byId[(int)$person['id']]=$person;
   $headers=['ردیف','محل خدمت','سمت','ردیف گروه','نام','نام خانوادگی','شماره پرسنلی','ساعت جمعه کاری (ارسالی)','ساعت تعطیل کاری (ارسالی)','اضافه کاری (ارسالی)'];
@@ -4385,7 +4389,7 @@ function _live_staff_dashboard(){
 route('GET', '/api/admin/work-dashboard', function($p,$b,$u){
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if(!$jy){ [$jy,$jm]=array_slice(gregorian_to_jalali(date('Y'),date('m'),date('d')),0,2); }
-  $rows=_shift_month_report($jy,$jm);
+  $rows=_work_month_rows($jy,$jm);
   $sum=['worked'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'friday'=>0,'holiday'=>0,'annual_min'=>0,'sick_min'=>0,'mission_min'=>0,'present_days'=>0,'staff'=>count($rows)];
   $top=[];
   foreach($rows as $r){
