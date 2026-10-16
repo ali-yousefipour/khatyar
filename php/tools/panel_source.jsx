@@ -6862,12 +6862,16 @@ function PunchAddModal({jdate,onSave,onClose}){
 }
 
 function ShiftReport(){
+  const [reportTab,setReportTab]=useState("monthly");
   const tj=todayJ();
   const [jy,setJy]=useState(tj[0]); const [jm,setJm]=useState(tj[1]); const [rows,setRows]=useState(null); const [busy,setBusy]=useState(false);
   const hm=(m)=>`${fa(Math.floor((m||0)/60))}:${String((m||0)%60).padStart(2,"0")}`;
   const run=async()=>{ setBusy(true); try{ const r=await db.shiftReport(jy,jm); setRows(r.rows||[]); }catch(e){ alert(e.message||"خطا"); } setBusy(false); };
   const exportExcel=async()=>{ try{ const res=await fetch(`${API_BASE}/admin/shift-report/export?year=${jy}&month=${jm}`,{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`کارکرد_${jy}_${jm}.xlsx`; a.click(); }catch(e){ alert(e.message); } };
+  const exportOrganization=async()=>{try{const res=await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}`,{headers:tok()});if(!res.ok)throw new Error(res.status===403?"دسترسی مجاز نیست":"خطا در تولید فایل سازمان");const blob=await res.blob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`کارکرد-سازمان-${jy}-${jm}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),60000);}catch(e){alert(e.message||"خطا");}};
   return(<div>
+    <div className="tabbar" style={{marginBottom:12}}><button className={"tabbtn"+(reportTab==="monthly"?" on":"")} onClick={()=>setReportTab("monthly")}>گزارش کارکرد ماهانه</button><button className={"tabbtn"+(reportTab==="organization"?" on":"")} onClick={()=>setReportTab("organization")}>تولید گزارش کارکرد برای ارسال به سازمان</button></div>
+    {reportTab==="organization"?<div className="panel"><h4>تولید گزارش کارکرد برای ارسال به سازمان</h4><p className="muted">اضافه‌کاری = اضافه‌کار + مأموریت − کسر کار؛ تعطیل‌کاری و جمعه‌کاری از کارکرد همان ماه استخراج می‌شوند. جزئیات محاسبات در یادداشت سلول‌های اکسل درج می‌شود.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} onChange={e=>setJy(+e.target.value||tj[0])}/></label><label>ماه <select className="input" value={jm} onChange={e=>setJm(+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><button className="btn p" onClick={exportOrganization}>⤓ تولید فایل اکسل سازمان</button></div></div>:<>
     <div className="row" style={{gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"flex-end"}}>
       <div><label className="label">سال</label><input className="input" type="number" style={{maxWidth:100}} value={jy} onChange={e=>setJy(+e.target.value||tj[0])}/></div>
       <div><label className="label">ماه</label><select className="input" style={{maxWidth:130}} value={jm} onChange={e=>setJm(+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>
@@ -6879,6 +6883,7 @@ function ShiftReport(){
     <div style={{overflowX:"auto"}}><table style={{fontSize:12,minWidth:1280}}><thead><tr><th>نام و نام خانوادگی</th><th>موظفی</th><th>حضور کل</th><th>حضور در شیفت</th><th>تاخیر ورود</th><th>تعجیل خروج</th><th>کسری کار</th><th>غیبت</th><th>جمع غیبت و کسری</th><th>شب کاری</th><th>اضافه کاری</th><th>ماموریت</th><th>م.استحقاقی</th><th>م.استعلاجی</th></tr></thead><tbody>
       {rows.map((r,i)=>{ const gh=(r.absent_min||0)+(r.shortage||0); return(<tr key={i}><td style={{fontWeight:700}}>{r.name}</td><td>{hm(r.expected)}</td><td>{hm(r.worked)}</td><td>{hm(r.in_shift||r.worked)}</td><td style={{color:r.late_in?"var(--danger)":"inherit"}}>{hm(r.late_in||0)}</td><td style={{color:r.early_out?"var(--danger)":"inherit"}}>{hm(r.early_out||0)}</td><td style={{color:r.shortage?"var(--danger)":"inherit"}}>{hm(r.shortage)}</td><td style={{color:r.absent_min?"var(--danger)":"inherit"}}>{hm(r.absent_min||0)}</td><td>{hm(gh)}</td><td>{hm(r.night)}</td><td style={{color:"var(--ok)"}}>{hm(r.overtime)}</td><td>{hm(r.mission_min||0)}</td><td>{hm(r.annual_min||0)}</td><td>{hm(r.sick_min||0)}</td></tr>); })}
     </tbody></table></div>)}
+    </>}
   </div>);
 }
 
