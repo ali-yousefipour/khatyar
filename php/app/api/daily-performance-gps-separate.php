@@ -11,7 +11,7 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   $jdate=preg_replace('/\//','-',trim((string)($_GET['date']??'')));
   if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$jdate)) $jdate=sprintf('%04d-%02d-%02d',$ty,$tm,$td);
 
-  $shift=_active_user_shift_assignment($u['id'],$jdate) ?: _auto_shift_for_user($u['id']);
+  $shift=_active_user_shift_assignment($u['id'],$jdate);
   if(!$shift) return ['date'=>$jdate,'data'=>null,'message'=>'برای شما شیفت فعالی تعریف نشده است.'];
 
   $dayRow=null;

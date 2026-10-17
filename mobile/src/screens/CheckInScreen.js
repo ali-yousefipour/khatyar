@@ -625,14 +625,15 @@ function CheckInCore() {
     return `${faNum(String(Math.floor(m / 60)).padStart(2, '0'))}:${faNum(String(m % 60).padStart(2, '0'))}`;
   };
   const liveTimer = (() => {
-    if (!open) return null;
-    const expected = +(timerInfo?.expected_min || 453);
-    const cap = +(timerInfo?.ot_cap_min || 27);
+    if (!open || !timerInfo) return null;
+    const unassigned = timerInfo.phase === 'unassigned';
+    const expected = unassigned ? 0 : Math.max(0, +(timerInfo.expected_min ?? 0));
+    const cap = unassigned ? 0 : Math.max(0, +(timerInfo.ot_cap_min ?? 0));
     const elapsedMin = Math.max(0, Math.floor(elapsed / 60));
     const remaining = Math.max(0, expected - elapsedMin);
-    const overtime = Math.max(0, Math.min(Math.max(0, elapsedMin - expected), cap));
-    const surplus = Math.max(0, elapsedMin - expected - cap);
-    const phase = remaining > 0 ? 'duty' : (overtime < cap ? 'overtime' : 'surplus');
+    const overtime = unassigned ? 0 : Math.max(0, Math.min(Math.max(0, elapsedMin - expected), cap));
+    const surplus = unassigned ? 0 : Math.max(0, elapsedMin - expected - cap);
+    const phase = unassigned ? 'unassigned' : remaining > 0 ? 'duty' : (overtime < cap ? 'overtime' : 'surplus');
     return { expected, cap, elapsedMin, remaining, overtime, surplus, phase };
   })();
   useEffect(() => {
@@ -1018,7 +1019,9 @@ function CheckInCore() {
           {liveTimer ? (
             <View style={{ marginTop: 8 }}>
               <Text style={[s.timerSub, { color: liveTimer.phase === 'duty' ? C.danger : (liveTimer.phase === 'overtime' ? '#b7791f' : C.danger) }]}> 
-                {liveTimer.phase === 'duty'
+                {liveTimer.phase === 'unassigned'
+                  ? 'برای شما شیفت فعالی تخصیص داده نشده است؛ فقط مدت حضور نمایش داده می‌شود.'
+                  : liveTimer.phase === 'duty'
                   ? `باقی‌مانده موظفی: ${fmtHM(liveTimer.remaining)}`
                   : liveTimer.phase === 'overtime'
                     ? `اضافه‌کار مجاز: ${faNum(liveTimer.overtime)} دقیقه از ${faNum(liveTimer.cap)} دقیقه`

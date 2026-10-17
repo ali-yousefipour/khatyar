@@ -50,6 +50,10 @@ jobs:
           grep -q 'run(String(person.id))' app/assets/panel.bundle.js
           grep -q 'FF000000' app/api/admin-attendance-xlsx.php
           node tests/seniority_ui_test.cjs
+          node tests/seniority_deployment_test.cjs
+          php tests/work_shift_regression_test.php
+          php tests/work_finalization_test.php
+          node tests/work_finalization_ui_test.cjs
           php -l lib/Seniority.php
           php tests/seniority_test.php
           node tests/seniority_xlsx_test.cjs

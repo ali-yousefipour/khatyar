@@ -16,7 +16,9 @@ assert.ok(workflow.includes('grep -Fq "$bundle_reference" /tmp/live-panel.html')
 assert.ok(workflow.includes('deploy-payload/app/panel.html | head -n 1'));
 assert.ok(!workflow.includes("grep -q 'assets/panel.bundle.js?v=20261015.4'"));
 const html = fs.readFileSync(path.join(root, 'php/app/panel.html'), 'utf8');
-assert.ok(html.includes('assets/panel.bundle.js?v=20261016.seniority'));
+const bundleReference = html.match(/assets\/panel\.bundle\.js\?v=[^"\s]+/);
+assert.ok(bundleReference, 'Panel references a cache-versioned bundle');
+assert.ok(fs.existsSync(path.join(root, 'php/app', bundleReference[0].split('?')[0])), 'Referenced bundle exists');
 const source = fs.readFileSync(path.join(root, 'php/tools/panel_source.jsx'), 'utf8');
 assert.ok(source.includes('["seniority","سنوات نیروها"]'));
 assert.ok(source.includes('["منابع انسانی",["seniority",'));

@@ -10972,6 +10972,8 @@ function AttendanceReport() {
                 React.createElement("button", { className: "btn p", onClick: run, disabled: busy }, busy ? "…" : "🔍 مشاهده گزارش"),
                 React.createElement("button", { className: "btn g", onClick: exportExcel, disabled: !data }, "\u2913 \u062F\u0627\u0646\u0644\u0648\u062F \u06AF\u0632\u0627\u0631\u0634"),
                 data && React.createElement("button", { className: "btn g", type: "button", onClick: () => { setDraftColumnIndexes(visibleColumnIndexes.slice()); setColumnSettingsOpen(true); } }, "\u2699 \u062A\u0646\u0638\u06CC\u0645 \u0633\u062A\u0648\u0646\u200C\u0647\u0627"))),
+        (data === null || data === void 0 ? void 0 : data.contains_finalized_month) && React.createElement("p", { className: "muted", role: "status" }, "\u0631\u0648\u0632\u0647\u0627\u06CC \u0645\u0631\u0628\u0648\u0637 \u0628\u0647 \u0645\u0627\u0647 \u0646\u0647\u0627\u06CC\u06CC\u200C\u0634\u062F\u0647 \u0627\u0632 \u0646\u0633\u062E\u0647\u0654 \u0630\u062E\u06CC\u0631\u0647\u200C\u0634\u062F\u0647 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
+        (data === null || data === void 0 ? void 0 : data.missing_frozen_person) && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } }, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0641\u0631\u062F \u062F\u0631 \u06CC\u06A9\u06CC \u0627\u0632 \u0645\u0627\u0647\u200C\u0647\u0627\u06CC \u0646\u0647\u0627\u06CC\u06CC\u200C\u0634\u062F\u0647\u0654 \u0642\u062F\u06CC\u0645\u06CC \u062C\u0632\u0626\u06CC\u0627\u062A \u0630\u062E\u06CC\u0631\u0647 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A\u061B \u062F\u0627\u062F\u0647\u0654 \u0641\u0639\u0644\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
         data && React.createElement("div", { className: "card-p", style: { marginBottom: 10, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 } },
             React.createElement("b", null, ((_a = data.user) === null || _a === void 0 ? void 0 : _a.name) || "—"),
             React.createElement("span", { style: { color: "var(--muted)", fontSize: 12 } },
@@ -11534,35 +11536,67 @@ function ShiftReport() {
     const [reportTab, setReportTab] = useState("monthly");
     const [finalStatus, setFinalStatus] = useState(null);
     const [finalBusy, setFinalBusy] = useState(false);
-    const loadFinalStatus = async () => { try {
-        const res = await fetch(`${API_BASE}/admin/shift-report/finalization?year=${jy}&month=${jm}`, { headers: tok() });
-        if (!res.ok)
-            throw Error("خطا در دریافت وضعیت");
-        setFinalStatus(await res.json());
-    }
-    catch (e) {
-        alert(e.message);
-    } };
-    const finalizeMonth = async () => { if (!window.confirm(`کارکرد ${J_MONTHS[jm - 1]} ${jy} برای همیشه ثابت شود؟ این عملیات قابل بازگشت نیست.`))
-        return; setFinalBusy(true); try {
-        const res = await fetch(`${API_BASE}/admin/shift-report/finalization`, { method: "POST", headers: { "Content-Type": "application/json", ...tok() }, body: JSON.stringify({ year: jy, month: jm }) });
-        const data = await res.json();
-        if (!res.ok)
-            throw Error(data.error || data.message || "نهایی‌سازی ناموفق بود");
-        await loadFinalStatus();
-        alert("کارکرد ماه نهایی شد.");
-    }
-    catch (e) {
-        alert(e.message);
-    }
-    finally {
-        setFinalBusy(false);
-    } };
+    const [statusBusy, setStatusBusy] = useState(false);
     const tj = todayJ();
     const [jy, setJy] = useState(tj[0]);
     const [jm, setJm] = useState(tj[1]);
     const [rows, setRows] = useState(null);
     const [busy, setBusy] = useState(false);
+    const finalRequest = useRef(0), finalScope = useRef(""), finalLock = useRef(false);
+    const periodKey = String(jy) + "-" + jm;
+    finalScope.current = periodKey;
+    useEffect(() => () => { finalRequest.current++; finalScope.current = ""; }, []);
+    const selectReportPeriod = (year, month) => { if (finalLock.current)
+        return; finalRequest.current++; finalScope.current = String(year) + "-" + month; setJy(year); setJm(month); setFinalStatus(null); setStatusBusy(false); };
+    const loadFinalStatus = async (year = jy, month = jm) => {
+        const scope = String(year) + "-" + month, generation = ++finalRequest.current;
+        setStatusBusy(true);
+        try {
+            const res = await fetch(API_BASE + "/admin/shift-report/finalization?year=" + year + "&month=" + month, { headers: tok() });
+            const data = await res.json();
+            if (!res.ok)
+                throw Error(data.error || data.message || "خطا در دریافت وضعیت");
+            if (generation === finalRequest.current && finalScope.current === scope)
+                setFinalStatus({ ...data, period: scope });
+        }
+        catch (e) {
+            if (generation === finalRequest.current && finalScope.current === scope)
+                alert(e.message);
+        }
+        finally {
+            if (generation === finalRequest.current && finalScope.current === scope)
+                setStatusBusy(false);
+        }
+    };
+    const finalizeMonth = async () => {
+        if (finalLock.current || statusBusy)
+            return;
+        const year = jy, month = jm, scope = periodKey;
+        if (!window.confirm("کارکرد " + J_MONTHS[month - 1] + " " + year + " برای همیشه ثابت شود؟ این عملیات قابل بازگشت نیست."))
+            return;
+        finalLock.current = true;
+        setFinalBusy(true);
+        try {
+            const res = await fetch(API_BASE + "/admin/shift-report/finalization", { method: "POST", headers: { "Content-Type": "application/json", ...tok() }, body: JSON.stringify({ year, month }) });
+            const data = await res.json();
+            if (!res.ok)
+                throw Error(data.error || data.message || "نهایی‌سازی ناموفق بود");
+            if (finalScope.current === scope) {
+                await loadFinalStatus(year, month);
+                setRows(null);
+                alert("کارکرد ماه نهایی شد.");
+            }
+        }
+        catch (e) {
+            if (finalScope.current === scope)
+                alert(e.message);
+        }
+        finally {
+            finalLock.current = false;
+            if (finalScope.current === scope)
+                setFinalBusy(false);
+        }
+    };
     const hm = (m) => `${fa(Math.floor((m || 0) / 60))}:${String((m || 0) % 60).padStart(2, "0")}`;
     const run = async () => { setBusy(true); try {
         const r = await db.shiftReport(jy, jm);
@@ -11600,39 +11634,39 @@ function ShiftReport() {
     } };
     return (React.createElement("div", null,
         React.createElement("div", { className: "tabbar", style: { marginBottom: 12 } },
-            React.createElement("button", { className: "tabbtn" + (reportTab === "monthly" ? " on" : ""), onClick: () => setReportTab("monthly") }, "\u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647\u0627\u0646\u0647"),
-            React.createElement("button", { className: "tabbtn" + (reportTab === "organization" ? " on" : ""), onClick: () => setReportTab("organization") }, "\u062A\u0648\u0644\u06CC\u062F \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u0628\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
-            React.createElement("button", { className: "tabbtn" + (reportTab === "finalize" ? " on" : ""), onClick: () => { setReportTab("finalize"); setFinalStatus(null); } }, "\u0646\u0647\u0627\u06CC\u06CC \u06A9\u0631\u062F\u0646 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627")),
+            React.createElement("button", { className: "tabbtn" + (reportTab === "monthly" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("monthly") }, "\u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647\u0627\u0646\u0647"),
+            React.createElement("button", { className: "tabbtn" + (reportTab === "organization" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("organization") }, "\u062A\u0648\u0644\u06CC\u062F \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u0628\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
+            React.createElement("button", { className: "tabbtn" + (reportTab === "finalize" ? " on" : ""), disabled: finalBusy, onClick: () => { setReportTab("finalize"); setFinalStatus(null); } }, "\u0646\u0647\u0627\u06CC\u06CC \u06A9\u0631\u062F\u0646 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627")),
         reportTab === "finalize" ? React.createElement("div", { className: "panel" },
             React.createElement("h4", null, "\u0646\u0647\u0627\u06CC\u06CC \u06A9\u0631\u062F\u0646 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627"),
             React.createElement("p", { className: "muted" }, "\u067E\u0633 \u0627\u0632 \u0646\u0647\u0627\u06CC\u06CC\u200C\u0633\u0627\u0632\u06CC\u060C \u06AF\u0632\u0627\u0631\u0634 \u0645\u0627\u0647\u0627\u0646\u0647 \u0648 \u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F\u0647 \u0648 \u062A\u063A\u06CC\u06CC\u0631 \u0634\u06CC\u0641\u062A \u06CC\u0627 \u0645\u0648\u062A\u0648\u0631 \u0645\u062D\u0627\u0633\u0628\u0627\u062A \u0627\u0639\u062F\u0627\u062F \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0645\u06CC\u200C\u062F\u0647\u062F."),
             React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },
                 React.createElement("label", null,
                     "\u0633\u0627\u0644 ",
-                    React.createElement("input", { className: "input", type: "number", value: jy, onChange: e => { setJy(+e.target.value || tj[0]); setFinalStatus(null); } })),
+                    React.createElement("input", { className: "input", type: "number", value: jy, disabled: finalBusy, onChange: e => selectReportPeriod(+e.target.value || tj[0], jm) })),
                 React.createElement("label", null,
                     "\u0645\u0627\u0647 ",
-                    React.createElement("select", { className: "input", value: jm, onChange: e => { setJm(+e.target.value); setFinalStatus(null); } }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
-                React.createElement("button", { className: "btn g", onClick: loadFinalStatus }, "\u0628\u0631\u0631\u0633\u06CC \u0648\u0636\u0639\u06CC\u062A"),
-                React.createElement("button", { className: "btn p", disabled: finalBusy || (finalStatus === null || finalStatus === void 0 ? void 0 : finalStatus.finalized), onClick: finalizeMonth }, finalBusy ? "در حال ثبت…" : "نهایی کردن کارکرد")),
-            finalStatus && React.createElement("p", null, finalStatus.finalized ? "این ماه نهایی شده است. تاریخ: " + finalStatus.finalized_at : "این ماه هنوز نهایی نشده است.")) : reportTab === "organization" ? React.createElement("div", { className: "panel" },
+                    React.createElement("select", { className: "input", value: jm, disabled: finalBusy, onChange: e => selectReportPeriod(jy, +e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
+                React.createElement("button", { className: "btn g", disabled: statusBusy || finalBusy, onClick: () => loadFinalStatus() }, "\u0628\u0631\u0631\u0633\u06CC \u0648\u0636\u0639\u06CC\u062A"),
+                React.createElement("button", { className: "btn p", disabled: finalBusy || statusBusy || ((finalStatus === null || finalStatus === void 0 ? void 0 : finalStatus.period) === periodKey && (finalStatus === null || finalStatus === void 0 ? void 0 : finalStatus.finalized)), onClick: finalizeMonth }, finalBusy ? "در حال ثبت…" : "نهایی کردن کارکرد")),
+            (finalStatus === null || finalStatus === void 0 ? void 0 : finalStatus.period) === periodKey && React.createElement("p", null, finalStatus.finalized ? "این ماه نهایی شده است. تاریخ: " + finalStatus.finalized_at : "این ماه هنوز نهایی نشده است.")) : reportTab === "organization" ? React.createElement("div", { className: "panel" },
             React.createElement("h4", null, "\u062A\u0648\u0644\u06CC\u062F \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u0628\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
             React.createElement("p", { className: "muted" }, "\u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631\u06CC = \u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631 + \u0645\u0623\u0645\u0648\u0631\u06CC\u062A \u2212 \u06A9\u0633\u0631 \u06A9\u0627\u0631\u061B \u062A\u0639\u0637\u06CC\u0644\u200C\u06A9\u0627\u0631\u06CC \u0648 \u062C\u0645\u0639\u0647\u200C\u06A9\u0627\u0631\u06CC \u0627\u0632 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0647\u0645\u0627\u0646 \u0645\u0627\u0647 \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u062C\u0632\u0626\u06CC\u0627\u062A \u0645\u062D\u0627\u0633\u0628\u0627\u062A \u062F\u0631 \u06CC\u0627\u062F\u062F\u0627\u0634\u062A \u0633\u0644\u0648\u0644\u200C\u0647\u0627\u06CC \u0627\u06A9\u0633\u0644 \u062F\u0631\u062C \u0645\u06CC\u200C\u0634\u0648\u062F."),
             React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },
                 React.createElement("label", null,
                     "\u0633\u0627\u0644 ",
-                    React.createElement("input", { className: "input", type: "number", value: jy, onChange: e => setJy(+e.target.value || tj[0]) })),
+                    React.createElement("input", { className: "input", type: "number", value: jy, disabled: finalBusy, onChange: e => selectReportPeriod(+e.target.value || tj[0], jm) })),
                 React.createElement("label", null,
                     "\u0645\u0627\u0647 ",
-                    React.createElement("select", { className: "input", value: jm, onChange: e => setJm(+e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
+                    React.createElement("select", { className: "input", value: jm, disabled: finalBusy, onChange: e => selectReportPeriod(jy, +e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
                 React.createElement("button", { className: "btn p", onClick: exportOrganization }, "\u2913 \u062A\u0648\u0644\u06CC\u062F \u0641\u0627\u06CC\u0644 \u0627\u06A9\u0633\u0644 \u0633\u0627\u0632\u0645\u0627\u0646"))) : React.createElement(React.Fragment, null,
             React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "flex-end" } },
                 React.createElement("div", null,
                     React.createElement("label", { className: "label" }, "\u0633\u0627\u0644"),
-                    React.createElement("input", { className: "input", type: "number", style: { maxWidth: 100 }, value: jy, onChange: e => setJy(+e.target.value || tj[0]) })),
+                    React.createElement("input", { className: "input", type: "number", style: { maxWidth: 100 }, value: jy, disabled: finalBusy, onChange: e => selectReportPeriod(+e.target.value || tj[0], jm) })),
                 React.createElement("div", null,
                     React.createElement("label", { className: "label" }, "\u0645\u0627\u0647"),
-                    React.createElement("select", { className: "input", style: { maxWidth: 130 }, value: jm, onChange: e => setJm(+e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
+                    React.createElement("select", { className: "input", style: { maxWidth: 130 }, value: jm, disabled: finalBusy, onChange: e => selectReportPeriod(jy, +e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
                 React.createElement("button", { className: "btn p", disabled: busy, onClick: run }, busy ? "…" : "محاسبه"),
                 rows && rows.length > 0 && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644"),
                 React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u0634\u06CC\u0641\u062A \u0634\u0628\u060C \u0627\u0633\u0641\u0646\u062F \u06A9\u0628\u06CC\u0633\u0647\u060C \u0628\u0627\u0632\u0647 \u062A\u062E\u0635\u06CC\u0635\u060C \u062A\u0627\u062E\u06CC\u0631 \u0648 \u062A\u0639\u062C\u06CC\u0644 \u062E\u0631\u0648\u062C \u062F\u0631 \u0645\u062D\u0627\u0633\u0628\u0647 \u0644\u062D\u0627\u0638 \u0645\u06CC\u200C\u0634\u0648\u062F.")),

@@ -224,6 +224,7 @@ jobs:
           node scripts/test-company-payroll.cjs
           node scripts/test-radio-live.cjs
           node scripts/test-radio-sfx.cjs
+          node scripts/test-work-timer.cjs
 
       - name: Generate clean Android project
         working-directory: mobile

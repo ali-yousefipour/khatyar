@@ -4,7 +4,7 @@
  * برای شیفت شب، خروج روز بعد بخشی از همان session روز ورود است و
  * نباید به‌صورت continuation در روز بعد نمایش داده شود.
  */
-function attendance_report_owned_by_entry_date($userId, $from, $to) {
+function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=false) {
   /*
    * این helper از route قدیمی _attendance_report استفاده می‌کند، اما باید
    * مستقل از ترتیب load فایل‌ها هم قابل اجرا باشد. در index معمولاً routes.php
@@ -15,6 +15,10 @@ function attendance_report_owned_by_entry_date($userId, $from, $to) {
   }
   if (!function_exists('_attendance_report')) {
     throw new RuntimeException('attendance report handler is unavailable');
+  }
+  if(!$liveOnly){
+    $frozen=_frozen_attendance_report($userId,$from,$to);
+    if($frozen!==null)return $frozen;
   }
   $report = _attendance_report($userId, $from, $to);
   if (empty($report['days']) || !is_array($report['days'])) return $report;

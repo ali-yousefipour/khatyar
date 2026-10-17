@@ -26,6 +26,10 @@ jobs:
           php -l php/lib/routes.php
           php -l php/lib/ShiftCalc.php
           php php/tests/work_summary_cutoff_test.php
+          php php/tests/work_shift_regression_test.php
+          php php/tests/work_finalization_test.php
+          node php/tests/work_finalization_ui_test.cjs
+          node php/tests/seniority_deployment_test.cjs
           php -l php/lib/GpsWorkIntervals.php
           php -l php/app/api/admin-attendance-report-owned.php
           php -l php/app/api/admin-attendance-xlsx.php

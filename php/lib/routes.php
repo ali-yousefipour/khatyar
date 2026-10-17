@@ -2289,6 +2289,16 @@ route('GET', '/api/my/checkin-config', function($p,$b,$u){
   return ['lines'=>$lines, 'open'=>$open];
 });
 
+function _attendance_checkin_traffic($userId,$eventAt){
+  $timestamp=strtotime($eventAt);
+  [$year,$month,$day]=gregorian_to_jalali((int)date('Y',$timestamp),(int)date('n',$timestamp),(int)date('j',$timestamp));
+  $date=sprintf('%04d-%02d-%02d',$year,$month,$day);
+  $shift=_active_user_shift_assignment($userId,$date);
+  if(!$shift||($shift['type']??'')!=='advanced')return;
+  $dayRow=_shift_day_row($shift['shift_id']??$shift['id'],$date);
+  $result=ShiftCalc::checkTrafficWindow($dayRow,$timestamp);
+  if(empty($result['ok']))Http::error($result['reason'],422);
+}
 // ثبت ورود
 route('POST', '/api/my/checkin', function($p,$b,$u){
   $eventAt = _app_client_time($b);
@@ -2296,6 +2306,7 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   // اگر جلسهٔ باز دارد، اجازهٔ ورود مجدد نده
   $open = Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL", [$u['id']]);
   if ($open) Http::error('شما قبلاً ثبت ورود کرده‌اید. ابتدا خروج بزنید.', 400);
+  _attendance_checkin_traffic((int)$u['id'],$eventAt);
   $lineId = (int)($b['line_id'] ?? 0);
   $method = strtolower((string)($b['method'] ?? 'gps'));
   if (in_array($method, ['qr','nfc','rfid','bt','bluetooth'], true)) Http::error('این روش ثبت حضور پشتیبانی نمی‌شود. از GPS، Wi-Fi یا GSM استفاده کنید.', 422);
@@ -2472,8 +2483,7 @@ route('POST', '/api/my/checkout', function($p,$b,$u){
   try {
     [$jy,$jm,$jd] = gregorian_to_jalali((int)date('Y',strtotime($open['check_in'])),(int)date('n',strtotime($open['check_in'])),(int)date('j',strtotime($open['check_in'])));
     $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
-    // همان مبنای گزارش و تایمر: در نبود تخصیص صریح، شیفت خودکار استفاده شود.
-    $shift = _active_user_shift_assignment($u['id'], $jdate) ?: _auto_shift_for_user($u['id']);
+    $shift = _active_user_shift_assignment($u['id'], $jdate);
     $sessions = [['in'=>strtotime($open['check_in']),'out'=>strtotime($now),'gps_invalid'=>_gps_work_invalid_intervals((int)$u['id'],strtotime($open['check_in']),strtotime($now))]];
     $hol = ShiftCalc::effectiveHoliday($jdate);
     $w = $shift ? ShiftCalc::dayWork($shift,$jdate,null,$sessions,$hol) : ['worked'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'surplus'=>0];
@@ -2558,17 +2568,18 @@ route('GET', '/api/my/work-timer', function($p,$b,$u){
   }
 
   $role=_user_role_title($u['id']);
-  $shift = _active_user_shift_assignment($u['id'], $jdate) ?: _auto_shift_for_user($u['id']);
-  $cap = ShiftCalc::roleOtCap($shift);
-  $expected = (($shift['type'] ?? '') === 'auto') ? (int)($shift['auto_expected_min'] ?? 453) : max(0,(int)ShiftCalc::expectedMinutes($shift, $jdate, null));
-  if ($expected <= 0) $expected = 453;
+  $shift = _active_user_shift_assignment($u['id'], $jdate);
+  $dayRow=($shift&&($shift['type']??'')==='advanced')?_shift_day_row($shift['shift_id']??$shift['id'],$jdate):null;
+  $dayConfig=ShiftCalc::parseJson($dayRow['day_config']??null);
+  $cap = !$shift?0:(($shift['type']??'')==='auto'?ShiftCalc::roleOtCap($shift):max(0,(int)($dayConfig['daily_ot']??$shift['daily_ot_cap']??27)));
+  $expected = !$shift?0:((($shift['type']??'')==='auto')?(ShiftCalc::isFriday($jdate)||ShiftCalc::effectiveHoliday($jdate)?0:(int)($shift['auto_expected_min']??453)):max(0,(int)ShiftCalc::expectedMinutes($shift,$jdate,$dayRow)));
 
   $elapsedSec = (int)$workedSec;
   $elapsed = (int)floor($elapsedSec/60);
   $remain=max(0,$expected-$elapsed);
-  $ot=max(0,min(max(0,$elapsed-$expected),$cap));
-  $surplus=max(0,$elapsed-$expected-$cap);
-  $phase = $remain>0 ? 'duty' : ($ot<$cap ? 'overtime' : 'surplus');
+  $ot=$shift?max(0,min(max(0,$elapsed-$expected),$cap)):0;
+  $surplus=$shift?max(0,$elapsed-$expected-$cap):0;
+  $phase = !$shift?'unassigned':($remain>0 ? 'duty' : ($ot<$cap ? 'overtime' : 'surplus'));
   $checkInTs = $open ? strtotime($open['check_in']) : null;
 
   return [
@@ -2963,8 +2974,10 @@ function _active_user_shift_assignment($userId, $jdate=null){
           return $r;
         }
         // Substitute inherits an automatic shift only if the absent user explicitly selected it.
-        $explicitAuto=Db::one('SELECT shift_id FROM user_shifts WHERE user_id=? AND shift_id=0',[(int)$sa['absent_user_id']]);
-        if(!$explicitAuto)return null;
+        $explicitAuto=Db::one('SELECT from_jdate,to_jdate FROM user_shifts WHERE user_id=? AND shift_id=0',[(int)$sa['absent_user_id']]);
+        $autoFrom=ShiftCalc::normJdate($explicitAuto['from_jdate']??'');
+        $autoTo=ShiftCalc::normJdate($explicitAuto['to_jdate']??'');
+        if(!$explicitAuto||($autoFrom&&$jdate<$autoFrom)||($autoTo&&$jdate>$autoTo))return null;
         $auto=_auto_shift_for_user((int)$sa['absent_user_id']);
         $auto['is_substitute_shift']=1; $auto['absent_user_id']=(int)$sa['absent_user_id']; $auto['request_id']=(int)$sa['request_id'];
         $auto['title']='جایگزینی — '.($auto['title']??'شیفت خودکار');
@@ -3157,10 +3170,103 @@ function _monthly_work_report_need($u){
   if(!in_array('monthlyworkreport',$items,true))Http::error('دسترسی گزارش کارکرد ماهانه برای سمت شما فعال نیست',403);
 }
 
-function _final_work_month($y,$m){Db::run("CREATE TABLE IF NOT EXISTS finalized_work_months (jy SMALLINT NOT NULL,jm TINYINT NOT NULL,monthly_json LONGTEXT NOT NULL,daily_json LONGTEXT NOT NULL,finalized_by BIGINT NULL,finalized_at DATETIME DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(jy,jm)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");return Db::one("SELECT * FROM finalized_work_months WHERE jy=? AND jm=?",[$y,$m]);}
-function _work_month_rows($y,$m){$f=_final_work_month($y,$m);return $f?(json_decode($f['monthly_json'],true)?:[]):_shift_month_report($y,$m);}
-route('GET','/api/admin/shift-report/finalization',function($p,$b,$u){_monthly_work_report_need($u);$y=(int)($_GET['year']??0);$m=(int)($_GET['month']??0);if($y<1300||$m<1||$m>12)Http::error('تاریخ نامعتبر',422);$f=_final_work_month($y,$m);return ['finalized'=>(bool)$f,'finalized_at'=>$f['finalized_at']??null];},false,ADMIN);
-route('POST','/api/admin/shift-report/finalization',function($p,$b,$u){_monthly_work_report_need($u);$y=(int)($b['year']??0);$m=(int)($b['month']??0);if($y<1300||$m<1||$m>12)Http::error('تاریخ نامعتبر',422);if(_final_work_month($y,$m))Http::error('این ماه قبلاً نهایی شده است',409);$last=ShiftCalc::jMonthDays($y,$m);$from=sprintf('%04d-%02d-01',$y,$m);$to=sprintf('%04d-%02d-%02d',$y,$m,$last);$today=gregorian_to_jalali((int)date('Y'),(int)date('n'),(int)date('j'));$todayJ=sprintf('%04d-%02d-%02d',...$today);if(strcmp($to,$todayJ)>=0)Http::error('ماه جاری یا آینده قابل نهایی‌سازی نیست',422);$rows=_shift_month_report($y,$m);$daily=[];foreach($rows as $person){$uid=(int)($person['user_id']??$person['id']??0);if($uid)$daily[$uid]=_attendance_report($uid,$from,$to);}Db::run("INSERT INTO finalized_work_months(jy,jm,monthly_json,daily_json,finalized_by) VALUES(?,?,?,?,?)",[$y,$m,json_encode($rows,JSON_UNESCAPED_UNICODE),json_encode($daily,JSON_UNESCAPED_UNICODE),(int)($u['id']??0)]);return ['ok'=>true,'count'=>count($rows)];},false,ADMIN);
+function _final_work_month($y,$m){
+  static $ready=false;
+  if(!$ready){
+    Db::run("CREATE TABLE IF NOT EXISTS finalized_work_months (jy SMALLINT NOT NULL,jm TINYINT NOT NULL,monthly_json LONGTEXT NOT NULL,daily_json LONGTEXT NOT NULL,finalized_by BIGINT NULL,finalized_at DATETIME DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(jy,jm)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $ready=true;
+  }
+  return Db::one("SELECT * FROM finalized_work_months WHERE jy=? AND jm=?",[$y,$m]);
+}
+function _work_snapshot_decode($json){
+  $data=json_decode((string)$json,true,512,JSON_THROW_ON_ERROR);
+  if(!is_array($data))throw new RuntimeException('Invalid work month snapshot');
+  return $data;
+}
+function _work_month_rows($y,$m){
+  $final=_final_work_month($y,$m);
+  return $final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($y,$m);
+}
+function _work_month_people(){
+  $people=Db::all("SELECT u.id,u.first_name,u.last_name,u.personnel_code,u.zone_id,z.name AS zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id");
+  $byId=[];foreach($people as $person)$byId[(int)$person['id']]=$person;
+  return $byId;
+}
+function _work_organization_person($row,$livePeople,$daily){
+  if(isset($row['organization_person'])&&is_array($row['organization_person']))return $row['organization_person'];
+  $uid=(int)$row['user_id'];
+  if($livePeople!==null)return $livePeople[$uid]??[];
+  $person=$daily[$uid]['user']??[];
+  return ['id'=>$uid,'first_name'=>$person['name']??$row['name']??'','last_name'=>'','personnel_code'=>$person['pcode']??'','zone_name'=>''];
+}
+function _frozen_attendance_report($userId,$from,$to){
+  $from=ShiftCalc::normJdate($from);$to=ShiftCalc::normJdate($to);
+  if(!$from||!$to||$from>$to)return null;
+  [$year,$month]=array_map('intval',explode('-',substr($from,0,7)));
+  $parts=[];$hasFrozen=false;
+  while(sprintf('%04d-%02d-01',$year,$month)<=$to){
+    $first=sprintf('%04d-%02d-01',$year,$month);
+    $last=sprintf('%04d-%02d-%02d',$year,$month,ShiftCalc::jMonthDays($year,$month));
+    $final=_final_work_month($year,$month);
+    $parts[]=['from'=>max($from,$first),'to'=>min($to,$last),'final'=>$final];
+    $hasFrozen=$hasFrozen||(bool)$final;
+    if(++$month>12){$month=1;$year++;}
+  }
+  if(!$hasFrozen)return null;
+  require_once __DIR__.'/../app/api/admin-attendance-report-owned.php';
+  $result=null;$days=[];$missing=false;
+  foreach($parts as $part){
+    if($part['final']){
+      $daily=_work_snapshot_decode($part['final']['daily_json']);
+      $report=$daily[(int)$userId]??null;
+      if(!$report){
+        $missing=true;
+        $report=['user'=>['id'=>(int)$userId,'name'=>'','pcode'=>''],'shift'=>null,'days'=>[]];
+      }
+    }else $report=attendance_report_owned_by_entry_date($userId,$part['from'],$part['to'],true);
+    if($result===null)$result=$report;
+    foreach($report['days']??[] as $day){
+      $date=ShiftCalc::normJdate($day['jdate']??$day['date']??'');
+      if($date&&$date>=$part['from']&&$date<=$part['to'])$days[$date]=$day;
+    }
+  }
+  ksort($days);
+  $result['from']=$from;$result['to']=$to;$result['days']=array_values($days);
+  $result['contains_finalized_month']=true;
+  if($missing)$result['missing_frozen_person']=true;
+  return $result;
+}
+function _finalize_work_month($year,$month,$userId){
+  if($year<1300||$year>1500||$month<1||$month>12)Http::error('تاریخ نامعتبر',422);
+  $from=sprintf('%04d-%02d-01',$year,$month);
+  $to=sprintf('%04d-%02d-%02d',$year,$month,ShiftCalc::jMonthDays($year,$month));
+  $today=gregorian_to_jalali((int)date('Y'),(int)date('n'),(int)date('j'));
+  if($to>=sprintf('%04d-%02d-%02d',...$today))Http::error('ماه جاری یا آینده قابل نهایی‌سازی نیست',422);
+  $lock='khatyar-work-final-'.$year.'-'.$month;
+  if((int)(Db::one("SELECT GET_LOCK(?,0) locked",[$lock])['locked']??0)!==1)Http::error('نهایی‌سازی این ماه در حال اجرا است',409);
+  try{
+    if(_final_work_month($year,$month))Http::error('این ماه قبلاً نهایی شده است',409);
+    require_once __DIR__.'/../app/api/admin-attendance-report-owned.php';
+    $rows=_shift_month_report($year,$month);
+    $people=_work_month_people();
+    foreach($rows as &$row)$row['organization_person']=$people[(int)$row['user_id']]??[];
+    unset($row);
+    $daily=[];
+    foreach($people as $uid=>$person)$daily[$uid]=attendance_report_owned_by_entry_date($uid,$from,$to,true);
+    Db::run("INSERT INTO finalized_work_months(jy,jm,monthly_json,daily_json,finalized_by) VALUES(?,?,?,?,?)",[$year,$month,json_encode($rows,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),json_encode($daily,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),(int)$userId]);
+    return ['ok'=>true,'count'=>count($rows)];
+  }finally{Db::one("SELECT RELEASE_LOCK(?) released",[$lock]);}
+}
+route('GET','/api/admin/shift-report/finalization',function($p,$b,$u){
+  _monthly_work_report_need($u);$year=(int)($_GET['year']??0);$month=(int)($_GET['month']??0);
+  if($year<1300||$year>1500||$month<1||$month>12)Http::error('تاریخ نامعتبر',422);
+  $final=_final_work_month($year,$month);
+  return ['finalized'=>(bool)$final,'finalized_at'=>$final['finalized_at']??null];
+},false,ADMIN);
+route('POST','/api/admin/shift-report/finalization',function($p,$b,$u){
+  _monthly_work_report_need($u);
+  return _finalize_work_month((int)($b['year']??0),(int)($b['month']??0),(int)($u['id']??0));
+},false,ADMIN);
 route('GET', '/api/admin/shift-report', function($p,$b,$u){
   _monthly_work_report_need($u);
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
@@ -3270,8 +3376,6 @@ function _attendance_report($userId,$fromJ,$toJ){
       $sessions[]=['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start'] ?? '1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end'] ?? '2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]];
     }
     $isHol=ShiftCalc::effectiveHoliday($jdateDash);
-    // همان منطق تایمر و گزارش ماهانه: اگر شیفت صریح وجود ندارد،
-    // شیفت خودکار کاربر باید مبنای محاسبهٔ گزارش روزانه باشد.
     $shift = _active_user_shift_assignment($userId, $jdateDash);
     $dr = ($shift && (($shift['type'] ?? '') === 'advanced')) ? _shift_day_row($shift['shift_id'] ?? $shift['id'], $jdateDash) : null;
     $w = $shift ? ShiftCalc::dayWork($shift,$jdateDash,$dr,$sessions,$isHol) : ['worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'late_in'=>0,'early_out'=>0,'surplus'=>0];
@@ -3321,15 +3425,8 @@ route('GET', '/api/admin/attendance-report', function($p,$b,$u){
   $uid=(int)($_GET['user_id']??0);
   $from=trim($_GET['from']??''); $to=trim($_GET['to']??'');
   if(!$uid||!$from||!$to) Http::error('پرسنل و بازهٔ تاریخ را مشخص کنید',400);
-  $a=ShiftCalc::normJdate($from);$z=ShiftCalc::normJdate($to);
-  if($a&&$z&&substr($a,0,7)===substr($z,0,7)){
-    [$y,$m]=array_map('intval',explode('-',substr($a,0,7)));
-    $f=_final_work_month($y,$m);
-    if($f){$all=json_decode($f['daily_json'],true)?:[];if(isset($all[$uid])){
-      $report=$all[$uid];$report['days']=array_values(array_filter($report['days']??[],static function($d)use($a,$z){$date=ShiftCalc::normJdate($d['jdate']??$d['date']??'');return $date&&$date>=$a&&$date<=$z;}));return $report;
-    }}
-  }
-  return _attendance_report($uid,$from,$to);
+  require_once __DIR__.'/../app/api/admin-attendance-report-owned.php';
+  return attendance_report_owned_by_entry_date($uid,$from,$to);
 }, false, ADMIN);
 
 route('GET', '/api/admin/seniority', function($p,$b,$u){
@@ -3490,9 +3587,10 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   _monthly_work_report_need($u);
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if($jy<1300||$jy>1500||$jm<1||$jm>12)Http::error('ماه و سال نامعتبر است',422);
-  $rows=_work_month_rows($jy,$jm);
-  $users=Db::all("SELECT u.id,u.first_name,u.last_name,u.personnel_code,u.zone_id,z.name AS zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id");
-  $byId=[];foreach($users as $person)$byId[(int)$person['id']]=$person;
+  $final=_final_work_month($jy,$jm);
+  $rows=$final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($jy,$jm);
+  $byId=$final?null:_work_month_people();
+  $daily=$final?_work_snapshot_decode($final['daily_json']):[];
   $headers=['ردیف','محل خدمت','سمت','ردیف گروه','نام','نام خانوادگی','شماره پرسنلی','ساعت جمعه کاری (ارسالی)','ساعت تعطیل کاری (ارسالی)','اضافه کاری (ارسالی)'];
   $xw=new XlsxWriter($headers);$xw->setProfessionalStyle(true);
   $months=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
@@ -3501,7 +3599,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   $xw->setTextCol(6);
   $hm=static fn($m)=>sprintf('%02d:%02d',intdiv(abs((int)$m),60),abs((int)$m)%60);
   $i=0;foreach($rows as $r){
-    $person=$byId[(int)$r['user_id']]??[];
+    $person=_work_organization_person($r,$byId,$daily);
     $o=(int)($r['overtime']??0);$mission=(int)($r['mission_min']??0);$short=(int)($r['shortage']??0);
     $fri=(int)($r['friday']??0);$hol=(int)($r['holiday']??0);
     // friday includes all Friday work as currently computed by ShiftCalc; no extra Friday overtime
@@ -3973,7 +4071,7 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   [$ty,$tm,$td]=array_slice(gregorian_to_jalali(date('Y'),date('m'),date('d')),0,3);
   $jdate=preg_replace('/\//','-',trim((string)($_GET['date']??'')));
   if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$jdate)) $jdate=sprintf('%04d-%02d-%02d',$ty,$tm,$td);
-  $shift=_active_user_shift_assignment($u['id'],$jdate) ?: _auto_shift_for_user($u['id']);
+  $shift=_active_user_shift_assignment($u['id'],$jdate);
   if(!$shift) return ['date'=>$jdate,'data'=>null,'message'=>'برای شما شیفت فعالی تعریف نشده است.'];
   $dayRow=null;
   if(($shift['type']??'')==='advanced') $dayRow=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$jdate]);

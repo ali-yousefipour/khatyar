@@ -135,8 +135,7 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
       ];
     }
 
-    // همان منطق گزارش ماهانه و تایمر: در نبود تخصیص صریح، شیفت خودکار کاربر مبنای محاسبه باشد.
-    $shift = _active_user_shift_assignment($userId, $dayJ) ?: _auto_shift_for_user($userId);
+    $shift = _active_user_shift_assignment($userId, $dayJ);
     $dayRow = null;
     if ($shift && (($shift['type'] ?? '') === 'advanced')) {
       $dayRow = _shift_day_row($shift['shift_id'] ?? $shift['id'], $dayJ);
@@ -265,8 +264,11 @@ try {
   $to = trim((string)($_GET['to'] ?? ''));
   if (!$uid || !$from || !$to) aar_error('پرسنل و بازهٔ تاریخ را مشخص کنید', 400);
 
-  $report = _attendance_report($uid, $from, $to);
-  $report = aar_rebuild_overnight_report($report, $uid);
+  $report = _frozen_attendance_report($uid,$from,$to);
+  if($report===null){
+    $report = _attendance_report($uid, $from, $to);
+    $report = aar_rebuild_overnight_report($report, $uid);
+  }
   aar_json($report);
 } catch (Throwable $e) {
   error_log('admin-attendance-report: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
