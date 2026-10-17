@@ -15,6 +15,10 @@ $base=sprintf('%04d-%02d-%02d ',$year,$month,$day);
 $shift=['type'=>'advanced','daily_ot_cap'=>120,'night_calc'=>1];
 $segments=[['s'=>'09:00','e'=>'17:00']];
 $sessions=[['in'=>strtotime($base.'10:00'),'out'=>strtotime($base.'18:00')]];
+$unassigned=ShiftCalc::dayWork(null,$date,null,$sessions,false);
+same('unassigned calculation cannot create overtime',0,$unassigned['overtime']);
+same('unassigned calculation has no expected duty',0,$unassigned['expected']);
+same('unassigned calculation retains actual presence',480,$unassigned['worked']);
 foreach([['ot_end'=>60],['ot_end'=>60,'ot_begin'=>0],['ot_end'=>60,'ot_begin'=>null]] as $config){
   $result=ShiftCalc::dayWork($shift,$date,['segments'=>$segments,'day_config'=>$config+['duty_min'=>480]],$sessions,false);
   same('end window independent of begin configuration',60,$result['overtime']);
