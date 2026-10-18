@@ -224,7 +224,7 @@ const s = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: C.paper },
   content: { padding: 14, paddingBottom: 40 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
-  creditBox: { backgroundColor: '#eef4ff', borderRadius: 12, padding: 12, marginBottom: 8 },
+  creditBox: { backgroundColor: '#eef4ff', borderRadius: 16, padding: 15, marginBottom: 8 },
   creditTitle: { fontFamily: FONT.bold, fontSize: 13, color: C.ink, textAlign: 'right' },
   creditText: { fontFamily: FONT.bold, fontSize: 18, color: C.brand, textAlign: 'right', marginTop: 2 },
   capacityText: { fontFamily: FONT.regular, fontSize: 12, color: C.ink, textAlign: 'right', marginTop: 4 },
