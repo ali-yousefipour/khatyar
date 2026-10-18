@@ -195,7 +195,7 @@ export default function ScannerScreen({ navigation, route }) {
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#000' },
+  screen: { flex: 1, backgroundColor: '#081b16' },
   cameraStage: { flex: 1, position: 'relative', overflow: 'hidden', backgroundColor: '#000' },
   cameraPreview: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   cameraLoading: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' },
