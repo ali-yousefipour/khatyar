@@ -11090,7 +11090,8 @@ function AttendanceReport() {
                                         React.createElement("th", null, "\u0627\u0632 \u0633\u0627\u0639\u062A"),
                                         React.createElement("th", null, "\u062A\u0627 \u0633\u0627\u0639\u062A"),
                                         React.createElement("th", null, "\u0645\u062F\u062A"),
-                                        React.createElement("th", null, "\u0639\u0644\u062A / \u0634\u0648\u0627\u0647\u062F \u062B\u0628\u062A\u200C\u0634\u062F\u0647"))),
+                                        React.createElement("th", null, "\u0639\u0644\u062A / \u0634\u0648\u0627\u0647\u062F \u062B\u0628\u062A\u200C\u0634\u062F\u0647"),
+                                        React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645"))),
                                 React.createElement("tbody", null, gpsDeficitModal.details.map((r, i) => {
                                     const start = String(r.start_at || "");
                                     const end = String(r.end_at || "");
@@ -11107,7 +11108,27 @@ function AttendanceReport() {
                                             React.createElement("div", null, r.reason || "علت مشخص نیست"),
                                             React.createElement("div", { style: { fontSize: 10, color: "var(--muted)", marginTop: 3 } },
                                                 "\u0634\u0627\u0647\u062F: ",
-                                                r.evidence || "—")));
+                                                r.evidence || "—")),
+                                        React.createElement("td", null,
+                                            React.createElement("button", { type: "button", className: "btn d", onClick: async () => {
+                                                    const reason = prompt("دلیل لغو این بازه کسر کار را وارد کنید (در سوابق مدیریتی ثبت می‌شود):", "");
+                                                    if (reason === null)
+                                                        return;
+                                                    if (reason.trim().length < 5) {
+                                                        alert("برای لغو کسر کار، توضیح حداقل پنج‌حرفی الزامی است.");
+                                                        return;
+                                                    }
+                                                    if (!confirm("اثر این بازه کسر کار حذف شود؟ رویداد GPS و سابقه لغو نگهداری می‌شوند."))
+                                                        return;
+                                                    try {
+                                                        await SEND("POST", "/admin/attendance-gps-waiver", { user_id: Number(uid), jdate: String(gpsDeficitModal.jdate || "").replaceAll("/", "-"), start_at: r.start_at, end_at: r.end_at, reason: reason.trim() });
+                                                        setGpsDeficitModal(null);
+                                                        await refresh();
+                                                    }
+                                                    catch (error) {
+                                                        alert(error.message || "لغو کسر کار انجام نشد");
+                                                    }
+                                                } }, "\u062D\u0630\u0641 \u06A9\u0633\u0631 \u06A9\u0627\u0631")));
                                 })))),
                     React.createElement("div", { style: { fontSize: 11, color: "var(--muted)", marginTop: 12 } }, "\u0646\u0628\u0648\u062F \u062A\u0623\u06CC\u06CC\u062F \u062F\u0648\u0631\u0647\u200C\u0627\u06CC\u060C \u0648\u0631\u0648\u062F \u0628\u0647 \u067E\u0633\u200C\u0632\u0645\u06CC\u0646\u0647 \u06CC\u0627 \u0642\u0637\u0639 \u0627\u0631\u062A\u0628\u0627\u0637 \u0628\u0647\u200C\u062A\u0646\u0647\u0627\u06CC\u06CC \u0639\u0644\u062A \u06A9\u0633\u0631 \u06A9\u0627\u0631 \u0646\u06CC\u0633\u062A\u061B \u0627\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0641\u0642\u0637 \u0628\u0627\u0632\u0647\u200C\u0647\u0627\u06CC \u062F\u0627\u0631\u0627\u06CC \u0631\u0648\u06CC\u062F\u0627\u062F \u0635\u0631\u06CC\u062D gps_off \u0631\u0627 \u0646\u0634\u0627\u0646 \u0645\u06CC\u200C\u062F\u0647\u062F.")))),
         conversionModal && React.createElement(AttendanceConversionModal, { userId: uid, mode: conversionModal.mode, jdate: conversionModal.jdate, minutes: conversionModal.minutes, day: conversionModal.day, onSaved: async () => { setConversionModal(null); await refresh(); }, onClose: () => setConversionModal(null) }),
