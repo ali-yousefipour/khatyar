@@ -197,7 +197,7 @@ export default function TempDriversScreen() {
 
 const s = StyleSheet.create({
   tabs: { flexDirection: 'row-reverse', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  tab: { flex: 1, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tab: { flex: 1, paddingVertical: 17, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabOn: { borderBottomColor: C.brand },
   tabTxt: { fontFamily: FONT.regular, color: '#888', fontSize: 13 },
   tabTxtOn: { color: C.brand, fontWeight: 'bold' },
