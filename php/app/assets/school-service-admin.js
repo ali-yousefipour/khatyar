@@ -159,7 +159,7 @@ if(t==='reports'){
  const val=id=>b.querySelector('#'+id)?.value.trim()||'';
  const norm=x=>x.replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
  const from=norm(val('rep-from')),to=norm(val('rep-to'));
- if(tp==='inspections'&&((from&&!/^1[34]\\d{2}\\/(0[1-9]|1[0-2])\\/(0[1-9]|[12]\\d|3[01])$/.test(from))||(to&&!/^1[34]\\d{2}\\/(0[1-9]|1[0-2])\\/(0[1-9]|[12]\\d|3[01])$/.test(to))||(from&&to&&from>to)))throw Error('بازه تاریخ شمسی معتبر نیست.');
+ if(tp==='inspections'&&((from&&!/^1[34]\d{2}\/(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])$/.test(from))||(to&&!/^1[34]\d{2}\/(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])$/.test(to))||(from&&to&&from>to)))throw Error('بازه تاریخ شمسی معتبر نیست.');
  const base=tp==='inspections'?'/api/school-service/export-filtered?'+new URLSearchParams({type:'inspections',search:val('rep-search'),district:norm(val('rep-district')),date_from:from,date_to:to}).toString():'/api/school-service/export?type='+tp;
  const response=await fetch(base,{headers:S.token?{Authorization:S.token}:{},credentials:'include'});if(!response.ok)throw Error('دریافت خروجی ناموفق بود');
  const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='سرویس_مدارس_'+tp+'.xlsx';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
