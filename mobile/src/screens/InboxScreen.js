@@ -419,7 +419,7 @@ const s = StyleSheet.create({
   btnTxt: { fontFamily: FONT.bold, color: '#fff', fontSize: 14 },
   archBtn: { marginTop: 10, alignSelf: 'flex-start', backgroundColor: '#f0f2f7', borderRadius: 9, paddingVertical: 7, paddingHorizontal: 12 },
   archTxt: { fontFamily: FONT.bold, color: C.slate, fontSize: 11.5 },
-  flowCard: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 8 },
+  flowCard: { borderWidth: 1, borderRadius: 16, padding: 15, marginBottom: 10 },
   flowAct: { fontFamily: FONT.bold, fontSize: 13 },
   flowWho: { fontFamily: FONT.regular, color: C.ink, fontSize: 13, textAlign: 'right', marginTop: 6, lineHeight: 21 },
   fwdRow: { paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: C.line },
