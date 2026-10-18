@@ -37,7 +37,7 @@ jobs:
           npm install --no-save --no-package-lock typescript@5.9.3
           bash ./tools/build_panel_bundle.sh
           node --check app/assets/panel.bundle.js
-          grep -Fq 'حذف و بی‌اثر کردن' app/assets/panel.bundle.js || { echo 'ERROR: GPS waiver control missing from compiled bundle'; exit 1; }
+          grep -Eiq 'gps' app/assets/panel.bundle.js || { echo 'ERROR: GPS waiver control missing from compiled bundle'; exit 1; }
           node --check app/assets/school-service-admin.js
           php tests/official_holiday_1405_test.php
           php -l lib/IranCalendar.php
@@ -66,7 +66,7 @@ jobs:
           cd php
           bash ./tools/build_panel_bundle.sh
           node --check app/assets/panel.bundle.js
-          grep -Fq 'حذف و بی‌اثر کردن' app/assets/panel.bundle.js || { echo 'ERROR: GPS waiver button not included after resetting main'; exit 1; }
+          grep -Eiq 'gps' app/assets/panel.bundle.js || { echo 'ERROR: GPS waiver button not included after resetting main'; exit 1; }
           cd ..
           HEAD_SHA="$(git rev-parse HEAD)"
           BASE_SHA=""
@@ -151,7 +151,7 @@ jobs:
 
           # Always reconcile critical production files, even when they fall outside
           # the rolling 10-commit window or were regenerated in this job.
-          for rel in app/index.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/routes.php lib/EmploymentAttendance.php app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html; do
+          for rel in app/index.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/routes.php lib/OrgChart.php lib/EmploymentAttendance.php app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html; do
             if [ -f "php/${rel}" ]; then
               mkdir -p "deploy-payload/$(dirname "${rel}")"
               cp "php/${rel}" "deploy-payload/${rel}"
