@@ -214,7 +214,7 @@ export default function HelpScreen() {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: C.paper },
   content: { padding: 14, paddingBottom: 36 },
-  hero: { backgroundColor: C.brand, borderRadius: 20, padding: 20, marginBottom: 12, alignItems: 'flex-end' },
+  hero: { backgroundColor: C.brand, borderRadius: 24, padding: 23, marginBottom: 12, alignItems: 'flex-end' },
   brand: { width: '100%', color: '#fff', fontFamily: FONT.bold, fontSize: 27, textAlign: 'right', writingDirection: 'rtl' },
   heroTitle: { width: '100%', color: '#fff', fontFamily: FONT.bold, fontSize: 17, lineHeight: 27, marginTop: 5, textAlign: 'right', writingDirection: 'rtl' },
   heroText: { width: '100%', color: '#dcefe9', fontFamily: FONT.regular, fontSize: 12, lineHeight: 21, marginTop: 7, textAlign: 'right', writingDirection: 'rtl' },
