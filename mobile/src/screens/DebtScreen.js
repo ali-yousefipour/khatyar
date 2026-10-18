@@ -136,13 +136,13 @@ function DetailRow({ label, value, big, mono }) {
 
 const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
-  red: { backgroundColor: C.danger, borderRadius: 12, padding: 12, marginBottom: 12 },
+  red: { backgroundColor: C.danger, borderRadius: 16, padding: 15, marginBottom: 12 },
   redTxt: { color: '#fff', fontFamily: FONT.bold, textAlign: 'center', fontSize: 13 },
-  fish: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 13, padding: 13, marginBottom: 10, flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
+  fish: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 17, padding: 16, marginBottom: 10, flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
   amt: { fontFamily: FONT.bold, fontSize: 14, color: C.ink, textAlign: 'right' },
   status: { fontFamily: FONT.regular, fontSize: 11, textAlign: 'right', marginTop: 2 },
   meta: { fontFamily: FONT.regular, fontSize: 10.5, color: C.muted, textAlign: 'right', marginTop: 2 },
-  pay: { backgroundColor: C.brand, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16 },
+  pay: { backgroundColor: C.brand, borderRadius: 13, paddingVertical: 11, paddingHorizontal: 16 },
   detailBtn: { backgroundColor: '#eef2ff', borderRadius: 9, paddingVertical: 7, paddingHorizontal: 12 },
   detailTxt: { fontFamily: FONT.bold, color: '#2746a6', fontSize: 11.5 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 22 },
