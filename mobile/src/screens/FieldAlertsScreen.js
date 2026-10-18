@@ -82,7 +82,7 @@ export default function FieldAlertsScreen({ navigation }) {
 
 const s = StyleSheet.create({
   cardHead: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  badge: { borderRadius: 8, paddingVertical: 3, paddingHorizontal: 9 },
+  badge: { borderRadius: 11, paddingVertical: 6, paddingHorizontal: 9 },
   badgeUnread: { backgroundColor: '#fdecea' },
   badgeRead: { backgroundColor: '#eef1f6' },
   badgeTxt: { fontFamily: FONT.bold, fontSize: 11 },
