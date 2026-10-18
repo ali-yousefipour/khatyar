@@ -52,10 +52,23 @@ class IranCalendar {
             if(isset($cols['source']))$where[]="COALESCE(source,'') NOT IN ('official','official-reference','official-service')";
             if(isset($cols['is_official']))$where[]='COALESCE(is_official,0)=0';
             if(isset($cols['official']))$where[]='COALESCE(official,0)=0';
-            $rows=Db::all('SELECT jdate,title FROM holidays WHERE '.implode(' AND ',$where),$args);
+            $select='jdate,title'.(isset($cols['source'])?',source':'');
+            $rows=Db::all('SELECT '.$select.' FROM holidays WHERE '.implode(' AND ',$where),$args);
+            $officialDays=self::events($y);
+            $knownWrong1405=['01-22','01-25','02-25','03-05','03-31','04-08','04-13','04-16','04-29','04-30','06-07','06-15','06-17','06-25','07-05','11-03'];
             foreach($rows as$r){
                 $j=self::normalize($r['jdate']??'');
-                if($j)self::$manualCache[$j]=trim((string)($r['title']??''));
+                if(!$j)continue;
+                $title=trim((string)($r['title']??''));
+                $source=strtolower(trim((string)($r['source']??'')));
+                // A row with no explicit manual provenance may be a legacy official import.
+                // Never let obsolete official observances resurrect as manual absences.
+                $explicitManual=in_array($source,['manual','custom','user'],true);
+                $looksOfficial=(bool)preg_match('/نوروز|عید|تاسوعا|عاشورا|اربعین|شهادت|ولادت|میلاد|رحلت|مبعث|قیام|روز جمهوری|روز طبیعت|ملی شدن صنعت نفت|تعطیلی استان تهران/u',$title);
+                $legacy1405=$y===1405&&in_array(substr($j,5),$knownWrong1405,true);
+                $alreadyOfficial=!empty($officialDays[$j]['is_holiday']);
+                if(!$explicitManual && $looksOfficial && ($legacy1405||$alreadyOfficial))continue;
+                if($title!=='')self::$manualCache[$j]=$title;
             }
         }catch(\Throwable$e){}
     }
