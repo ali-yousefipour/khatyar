@@ -2301,7 +2301,7 @@ function PersonnelSeniority() {
                     event.created_at))) : React.createElement("p", null, "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647\u200C\u0627\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))));
 }
 function Users() {
-    var _a, _b;
+    var _a, _b, _c;
     const [usersTab, setUsersTab] = useState("users");
     const [users, setUsers] = useState([]);
     const [roles, setRoles] = useState([]);
@@ -2514,9 +2514,8 @@ function Users() {
                     React.createElement("label", null, "\u062A\u0639\u062F\u0627\u062F \u0641\u0631\u0632\u0646\u062F"),
                     React.createElement("input", { className: "input", type: "number", min: "0", value: (_a = edit.children_count) !== null && _a !== void 0 ? _a : "", onChange: e => setEdit({ ...edit, children_count: e.target.value === "" ? null : +e.target.value }) })),
                 React.createElement("div", { style: { flex: 1, minWidth: 170 } },
-                    React.createElement("label", null, "\u062A\u0627\u0631\u06CC\u062E \u0634\u0631\u0648\u0639 \u0633\u0646\u0648\u0627\u062A"),
-                    React.createElement(JDate, { value: edit.seniority_start || "", onChange: v => setEdit({ ...edit, seniority_start: v }) }),
-                    edit.seniority_start && React.createElement("span", { className: "muted", style: { fontSize: 11 } }, seniorityLabel(edit.seniority_start))),
+                    React.createElement("label", null, "\u062A\u0639\u062F\u0627\u062F \u0631\u0648\u0632 \u0633\u0646\u0648\u0627\u062A"),
+                    React.createElement("input", { className: "input", type: "number", min: "0", value: (_b = edit.seniority_days) !== null && _b !== void 0 ? _b : "", onChange: e => setEdit({ ...edit, seniority_days: e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0) }) })),
                 React.createElement("div", { style: { flex: 1, minWidth: 170 } },
                     React.createElement("label", null, "\u062A\u0627\u0631\u06CC\u062E \u062A\u0648\u0644\u062F"),
                     React.createElement(JDate, { yearFrom: 1320, yearTo: todayJ()[0], value: edit.birth_iso || (edit.birth_date ? isoFromJ(...String(edit.birth_date).replace(/[\/.]/g, "-").split("-").map(Number)) : ""), onChange: v => { let bd = ""; if (v) {
@@ -2527,7 +2526,7 @@ function Users() {
                     edit.birth_date && React.createElement("span", { className: "muted", style: { fontSize: 11 } }, String(edit.birth_date).replace(/-/g, "/")))),
             React.createElement("div", { style: { flex: 1, minWidth: 170 } },
                 React.createElement("label", null, "\u062A\u0639\u062F\u0627\u062F \u0633\u062A\u0627\u0631\u0647 \u062F\u0631\u062C\u0647"),
-                React.createElement("input", { className: "input", type: "number", min: "0", max: "5", value: (_b = edit.rank_stars) !== null && _b !== void 0 ? _b : "", placeholder: "\u062E\u0627\u0644\u06CC = \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u0633\u0645\u062A", onChange: e => setEdit({ ...edit, rank_stars: e.target.value === "" ? null : Math.max(0, Math.min(5, +e.target.value || 0)) }) }),
+                React.createElement("input", { className: "input", type: "number", min: "0", max: "5", value: (_c = edit.rank_stars) !== null && _c !== void 0 ? _c : "", placeholder: "\u062E\u0627\u0644\u06CC = \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u0633\u0645\u062A", onChange: e => setEdit({ ...edit, rank_stars: e.target.value === "" ? null : Math.max(0, Math.min(5, +e.target.value || 0)) }) }),
                 React.createElement("span", { className: "muted", style: { fontSize: 11 } }, "\u067E\u06CC\u0634\u200C\u0641\u0631\u0636: \u0646\u0627\u0638\u0631/\u0627\u067E\u0631\u0627\u062A\u0648\u0631 \u06F1\u060C \u0628\u0627\u0632\u0631\u0633 \u06F2\u060C \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u06F4")),
             React.createElement(LeaveBalance, { userId: edit.id }),
             (edit.device_model || edit.android_version) && React.createElement("div", { className: "muted", style: { fontSize: 11.5, marginTop: 8 } },
@@ -11707,145 +11706,97 @@ function ShiftReport() {
 }
 // تنظیم پایهٔ حقوق و مشاهدهٔ فیش حقوقی یک کاربر
 function PayrollEditor({ userId, userName }) {
-    const tj = todayJ();
-    const [open, setOpen] = useState(false);
-    const [base, setBase] = useState(null);
-    const [jy, setJy] = useState(tj[0]);
-    const [jm, setJm] = useState(tj[1]);
-    const [slip, setSlip] = useState(null);
-    const [company, setCompany] = useState({});
-    const load = () => { setOpen(true); db.userPayroll(userId).then(setBase).catch(() => setBase({})); db.settings().then(s => setCompany(s || {})).catch(() => { }); };
-    const set = (k, val) => setBase(b => ({ ...b, [k]: val }));
-    const saveBase = async () => { await db.saveUserPayroll(userId, base); alert("پایهٔ حقوق ذخیره شد."); };
-    const calc = async () => { const s = await db.userPayslip(userId, jy, jm); setSlip(s); };
-    const money = (n) => fa(Number(n || 0).toLocaleString("en-US"));
+    const [open, setOpen] = useState(false), [base, setBase] = useState(null), [records, setRecords] = useState([]), [selected, setSelected] = useState(''), [detail, setDetail] = useState(null), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
+    const fields = [['base_monthly', 'حقوق پایهٔ ماهانه'], ['housing', 'حق مسکن'], ['family', 'حق خانوار'], ['food', 'بن/خواربار'], ['other_allow', 'سایر مزایا'], ['insurance_pct', 'درصد بیمه'], ['tax_pct', 'درصد مالیات'], ['other_deduct', 'سایر کسورات']];
+    const latest = async () => {
+        var _a;
+        setBusy(true);
+        setMessage('');
+        try {
+            const existing = await db.userPayroll(userId);
+            setBase(existing || {});
+            const response = await GET('/admin/payroll?' + new URLSearchParams({ user_id: userId, page: 1 }));
+            const rows = (response.rows || []).filter(row => Number(row.user_id) === Number(userId));
+            setRecords(rows);
+            if (rows.length) {
+                const first = await GET('/admin/payroll/' + rows[0].id);
+                const d = ((_a = first.row) === null || _a === void 0 ? void 0 : _a.data) || {};
+                const monthly = Number(d.monthly_wage || 0);
+                const patch = { base_monthly: monthly, housing: Number(d.housing || 0), family: Number(d.marriage || 0) + Number(d.child_allowance || 0), food: Number(d.food || 0), other_allow: Number(d.other || 0), other_deduct: Number(d.advance || 0), insurance_pct: monthly ? Number((100 * Number(d.insurance || 0) / monthly).toFixed(3)) : 0, tax_pct: monthly ? Number((100 * Number(d.tax || 0) / monthly).toFixed(3)) : 0 };
+                // Preserve values if the imported company row does not provide a meaningful denominator.
+                if (!monthly) {
+                    delete patch.insurance_pct;
+                    delete patch.tax_pct;
+                }
+                const merged = { ...(existing || {}), ...patch };
+                await db.saveUserPayroll(userId, merged);
+                setBase(merged);
+                setMessage('مقادیر از جدیدترین فیش شرکت خوانده و ذخیره شد. درصدهای بیمه و مالیات برآورد نسبت به حقوق ماهانه هستند.');
+            }
+            else
+                setMessage('برای این کاربر هنوز فیش تطبیق‌یافته‌ای در فایل شرکت موجود نیست.');
+        }
+        catch (e) {
+            setMessage(e.message || 'دریافت اطلاعات حقوق ممکن نشد.');
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    const show = async () => { var _a; if (!selected)
+        return; setBusy(true); try {
+        const row = await GET('/admin/payroll/' + selected);
+        if (Number((_a = row.row) === null || _a === void 0 ? void 0 : _a.user_id) !== Number(userId))
+            throw Error('فیش انتخاب‌شده متعلق به این کاربر نیست.');
+        setDetail(row);
+    }
+    catch (e) {
+        setMessage(e.message || 'دریافت فیش ناموفق بود.');
+    }
+    finally {
+        setBusy(false);
+    } };
+    const save = async () => { try {
+        await db.saveUserPayroll(userId, base);
+        setMessage('اطلاعات پایهٔ حقوق ذخیره شد.');
+    }
+    catch (e) {
+        setMessage(e.message || 'ذخیره ناموفق بود.');
+    } };
     if (!userId)
         return null;
-    const F = (k, l) => { var _a; return React.createElement("div", { style: { minWidth: 130 } },
-        React.createElement("label", { className: "label" }, l),
-        React.createElement("input", { className: "input", type: "number", style: { maxWidth: 150 }, value: (_a = base === null || base === void 0 ? void 0 : base[k]) !== null && _a !== void 0 ? _a : "", onChange: e => set(k, e.target.value) })); };
-    const printSlip = () => {
-        if (!slip)
-            return;
-        const comp = company.company_name || company.org_name || "شرکت";
-        const addr = company.company_address || "";
-        const phone = company.company_phone || "";
-        const rows = (obj, cls) => Object.entries(obj).filter(([, v]) => v).map(([k, v]) => `<tr><td>${k}</td><td class="${cls}">${Number(v).toLocaleString("en-US")}</td></tr>`).join("");
-        const html = `<!doctype html><html dir="rtl" lang="fa"><head><meta charset="utf-8"><title>فیش حقوقی</title>
-<style>
-@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
-*{font-family:Vazirmatn,Tahoma,sans-serif;box-sizing:border-box}
-body{margin:0;padding:24px;color:#1a2b3c;background:#fff}
-.sheet{max-width:760px;margin:0 auto;border:2px solid #0d7a5f;border-radius:14px;overflow:hidden}
-.head{background:#0d7a5f;color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
-.head h1{margin:0;font-size:20px}
-.head .c{font-size:13px;opacity:.95;text-align:left}
-.title{text-align:center;font-size:17px;font-weight:700;padding:14px;background:#e7f3ee;color:#0d7a5f}
-.meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:14px 22px;font-size:13px;border-bottom:1px dashed #cbd5e1}
-.meta b{color:#0d7a5f}
-.cols{display:flex;gap:0;flex-wrap:wrap}
-.col{flex:1;min-width:280px;padding:14px 22px}
-.col h3{margin:0 0 8px;font-size:14px;border-bottom:2px solid #0d7a5f;padding-bottom:6px}
-table{width:100%;border-collapse:collapse;font-size:13px}
-td{padding:7px 4px;border-bottom:1px solid #eef1f4}
-.earn{color:#0d7a5f;text-align:left;font-variant-numeric:tabular-nums}
-.ded{color:#d63b54;text-align:left;font-variant-numeric:tabular-nums}
-.sum td{font-weight:700;border-top:2px solid #0d7a5f}
-.net{background:#0d7a5f;color:#fff;text-align:center;padding:16px;font-size:18px;font-weight:700}
-.foot{padding:12px 22px;font-size:11px;color:#64748b;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
-.work{padding:10px 22px;font-size:12px;color:#475569;background:#f8fafc;display:flex;gap:18px;flex-wrap:wrap}
-@media print{body{padding:0}.sheet{border:none}}
-</style></head><body>
-<div class="sheet">
-  <div class="head"><h1>${comp}</h1><div class="c">${addr ? addr + "<br>" : ""}${phone ? "تلفن: " + phone : ""}</div></div>
-  <div class="title">فیش حقوقی ${J_MONTHS[jm - 1]} ${jy}</div>
-  <div class="meta"><span>نام و نام خانوادگی: <b>${userName || "-"}</b></span><span>ماه: <b>${J_MONTHS[jm - 1]} ${jy}</b></span><span>نرخ هر ساعت: <b>${Number(slip.hour_rate || 0).toLocaleString("en-US")}</b> ریال</span></div>
-  <div class="work"><span>کارکرد: ${slip.worked_h} ساعت</span><span>اضافه‌کار: ${slip.ot_h} ساعت</span><span>شب‌کاری: ${slip.night_h} ساعت</span><span>جمعه‌کاری: ${slip.friday_h} ساعت</span><span>تعطیل‌کاری: ${slip.holiday_h} ساعت</span></div>
-  <div class="cols">
-    <div class="col"><h3>دریافتی‌ها</h3><table>${rows(slip.earnings, "earn")}<tr class="sum"><td>جمع دریافتی</td><td class="earn">${Number(slip.gross).toLocaleString("en-US")}</td></tr></table></div>
-    <div class="col"><h3>کسورات</h3><table>${rows(slip.deductions, "ded")}<tr class="sum"><td>جمع کسورات</td><td class="ded">${Number(slip.total_deduct).toLocaleString("en-US")}</td></tr></table></div>
-  </div>
-  <div class="net">خالص پرداختی: ${Number(slip.net).toLocaleString("en-US")} ریال</div>
-  <div class="foot"><span>این فیش به‌صورت سیستمی صادر شده است.</span><span>تاریخ صدور: ${tj[0]}/${String(tj[1]).padStart(2, "0")}/${String(tj[2]).padStart(2, "0")}</span></div>
-</div>
-<` + `script>window.onload=function(){setTimeout(function(){window.print();},600);}<` + `/script>
-
-<!-- SalarySlipAdminModule: ماژول فیش حقوقی PDF
-مسیرهای API افزوده‌شده:
-GET  /api/admin/salary-slips/users?q=
-GET  /api/admin/users/{id}/salary-slips
-POST /api/admin/users/{id}/salary-slips  multipart: period_jy, period_jm, title, file
-DELETE /api/admin/salary-slips/{id}
--->
-</body></html>`;
-        const w = window.open("", "_blank");
-        if (!w) {
-            alert("پنجرهٔ چاپ مسدود شد. لطفاً اجازهٔ باز شدن پنجره را بدهید.");
-            return;
-        }
-        w.document.write(html);
-        w.document.close();
-    };
-    return (React.createElement("div", { style: { marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)" } }, !open ? React.createElement("button", { className: "btn g", type: "button", onClick: load }, "\u062D\u0642\u0648\u0642 \u0648 \u062F\u0633\u062A\u0645\u0632\u062F \u0648 \u0641\u06CC\u0634 \u062D\u0642\u0648\u0642\u06CC") :
-        React.createElement("div", null,
-            React.createElement("b", { style: { fontSize: 13 } }, "\u067E\u0627\u06CC\u0647\u0654 \u062D\u0642\u0648\u0642 (\u0631\u06CC\u0627\u0644):"),
-            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", marginTop: 8 } },
-                F("base_monthly", "حقوق پایهٔ ماهانه"),
-                F("housing", "حق مسکن"),
-                F("family", "حق خانوار"),
-                F("food", "بن/خواربار"),
-                F("other_allow", "سایر مزایا")),
-            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", marginTop: 8 } },
-                F("insurance_pct", "درصد بیمه"),
-                F("tax_pct", "درصد مالیات"),
-                F("other_deduct", "سایر کسورات")),
-            React.createElement("button", { className: "btn p", style: { marginTop: 10 }, onClick: saveBase }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u067E\u0627\u06CC\u0647\u0654 \u062D\u0642\u0648\u0642"),
-            React.createElement("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--line)" } },
-                React.createElement("div", { className: "row", style: { gap: 8, alignItems: "flex-end", flexWrap: "wrap" } },
-                    React.createElement("div", null,
-                        React.createElement("label", { className: "label" }, "\u0645\u0627\u0647"),
-                        React.createElement("select", { className: "input", style: { maxWidth: 120 }, value: jm, onChange: e => setJm(+e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
-                    React.createElement("div", null,
-                        React.createElement("label", { className: "label" }, "\u0633\u0627\u0644"),
-                        React.createElement("input", { className: "input", type: "number", style: { maxWidth: 90 }, value: jy, onChange: e => setJy(+e.target.value || tj[0]) })),
-                    React.createElement("button", { className: "btn p", onClick: calc }, "\u0645\u062D\u0627\u0633\u0628\u0647\u0654 \u0641\u06CC\u0634 \u062D\u0642\u0648\u0642\u06CC"),
-                    slip && React.createElement("button", { className: "btn g", onClick: printSlip }, "\uD83D\uDDA8 \u0686\u0627\u067E \u0641\u06CC\u0634 / PDF")),
-                slip && React.createElement("div", { className: "card-p", style: { marginTop: 12 } },
-                    React.createElement("div", { className: "row", style: { gap: 14, flexWrap: "wrap", fontSize: 12, color: "var(--muted)", marginBottom: 8 } },
-                        React.createElement("span", null,
-                            "\u06A9\u0627\u0631\u06A9\u0631\u062F: ",
-                            fa(slip.worked_h),
-                            " \u0633\u0627\u0639\u062A"),
-                        React.createElement("span", null,
-                            "\u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631: ",
-                            fa(slip.ot_h),
-                            " \u0633\u0627\u0639\u062A"),
-                        React.createElement("span", null,
-                            "\u0634\u0628\u200C\u06A9\u0627\u0631\u06CC: ",
-                            fa(slip.night_h)),
-                        React.createElement("span", null,
-                            "\u0646\u0631\u062E \u0633\u0627\u0639\u062A: ",
-                            money(slip.hour_rate))),
-                    React.createElement("table", { style: { fontSize: 12, width: "100%" } },
-                        React.createElement("tbody", null,
-                            Object.entries(slip.earnings).filter(([, val]) => val).map(([k, val]) => React.createElement("tr", { key: k },
-                                React.createElement("td", null, k),
-                                React.createElement("td", { style: { textAlign: "left", color: "var(--ok)" } }, money(val)))),
-                            React.createElement("tr", { style: { borderTop: "1px solid var(--line)", fontWeight: 700 } },
-                                React.createElement("td", null, "\u062C\u0645\u0639 \u062F\u0631\u06CC\u0627\u0641\u062A\u06CC"),
-                                React.createElement("td", { style: { textAlign: "left" } }, money(slip.gross))),
-                            Object.entries(slip.deductions).filter(([, val]) => val).map(([k, val]) => React.createElement("tr", { key: k },
-                                React.createElement("td", null, k),
-                                React.createElement("td", { style: { textAlign: "left", color: "var(--danger)" } },
-                                    "\u2212",
-                                    money(val)))),
-                            React.createElement("tr", { style: { borderTop: "2px solid var(--brand)", fontWeight: 700, fontSize: 14 } },
-                                React.createElement("td", null, "\u062E\u0627\u0644\u0635 \u067E\u0631\u062F\u0627\u062E\u062A\u06CC"),
-                                React.createElement("td", { style: { textAlign: "left", color: "var(--brand)" } },
-                                    money(slip.net),
-                                    " \u0631\u06CC\u0627\u0644")))))))));
+    return React.createElement("div", { className: "card-p", style: { marginTop: 12 } },
+        React.createElement("button", { type: "button", className: "btn g", onClick: () => { setOpen(!open); if (!open)
+                latest(); } }, "\u062D\u0642\u0648\u0642 \u0648 \u062F\u0633\u062A\u0645\u0632\u062F \u0648 \u0641\u06CC\u0634 \u062D\u0642\u0648\u0642\u06CC"),
+        open && React.createElement("div", { style: { marginTop: 14 } },
+            React.createElement("div", { className: "row", style: { justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' } },
+                React.createElement("b", null,
+                    "\u067E\u0627\u06CC\u0647\u0654 \u062D\u0642\u0648\u0642 (\u0631\u06CC\u0627\u0644) \u2014 ",
+                    userName),
+                React.createElement("button", { className: "btn", disabled: busy, onClick: latest }, "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0627\u0632 \u0622\u062E\u0631\u06CC\u0646 \u0641\u0627\u06CC\u0644 \u0634\u0631\u06A9\u062A")),
+            React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginTop: 12 } }, fields.map(([key, title]) => { var _a; return React.createElement("label", { key: key, style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+                title,
+                React.createElement("input", { className: "input", type: "number", value: (_a = base === null || base === void 0 ? void 0 : base[key]) !== null && _a !== void 0 ? _a : '', onChange: e => setBase(old => ({ ...old, [key]: e.target.value })) })); })),
+            React.createElement("button", { className: "btn p", style: { marginTop: 12 }, disabled: !base || busy, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062D\u0642\u0648\u0642"),
+            React.createElement("div", { style: { borderTop: '1px solid var(--line)', paddingTop: 14, marginTop: 16 } },
+                React.createElement("b", null, "\u0645\u0634\u0627\u0647\u062F\u0647 \u0641\u06CC\u0634 \u062D\u0642\u0648\u0642\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u0634\u0631\u06A9\u062A"),
+                React.createElement("p", { className: "muted" }, "\u0641\u06CC\u0634 \u0627\u0632 \u0641\u0627\u06CC\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u200C\u0634\u062F\u0647 \u0634\u0631\u06A9\u062A \u062E\u0648\u0627\u0646\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u062C\u062F\u062F \u0627\u0646\u062C\u0627\u0645 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
+                React.createElement("div", { className: "row", style: { gap: 10, flexWrap: 'wrap' } },
+                    React.createElement("select", { className: "input", "aria-label": "\u0627\u0646\u062A\u062E\u0627\u0628 \u0633\u0627\u0644 \u0648 \u0645\u0627\u0647 \u0641\u06CC\u0634", value: selected, onChange: e => { setSelected(e.target.value); setDetail(null); } },
+                        React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0633\u0627\u0644 \u0648 \u0645\u0627\u0647"),
+                        records.map(row => React.createElement("option", { key: row.id, value: row.id },
+                            row.period_jy,
+                            " / ",
+                            String(row.period_jm).padStart(2, '0')))),
+                    React.createElement("button", { className: "btn p", disabled: !selected || busy, onClick: show }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u0641\u06CC\u0634"),
+                    detail && React.createElement("button", { className: "btn", onClick: () => payrollPrint(detail.row.id) }, "\u0686\u0627\u067E \u0641\u06CC\u0634 A5")),
+                detail && React.createElement("div", { style: { maxHeight: 350, overflow: 'auto', marginTop: 12 } },
+                    React.createElement("table", { className: "tbl" },
+                        React.createElement("tbody", null, detail.fields.map((key, index) => { var _a; return React.createElement("tr", { key: key },
+                            React.createElement("td", null, detail.labels[index]),
+                            React.createElement("td", null, (_a = detail.row.data[key]) !== null && _a !== void 0 ? _a : '—')); }))))),
+            message && React.createElement("p", { role: "status", className: "muted" }, message)));
 }
-// ویرایش مقادیر فیلدهای سفارشی یک کاربر (توسط ادمین)
 function UserCustomValues({ userId }) {
     const [open, setOpen] = useState(false);
     const [fields, setFields] = useState(null);
@@ -14485,16 +14436,19 @@ function CompanyPayrollList() {
     return React.createElement("div", { className: "card-p" },
         React.createElement("h3", null, "\u0641\u06CC\u0634\u0647\u0627\u06CC \u062D\u0642\u0648\u0642\u06CC \u067E\u0631\u0633\u0646\u0644"),
         React.createElement("p", { className: "muted" }, "\u0645\u0628\u0627\u0644\u063A \u0637\u0628\u0642 \u0641\u0627\u06CC\u0644 \u0634\u0631\u06A9\u062A (\u0631\u06CC\u0627\u0644)\u061B \u0627\u06CC\u0646 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0628\u0647\u200C\u062A\u0646\u0647\u0627\u06CC\u06CC \u0631\u0633\u06CC\u062F \u0628\u0627\u0646\u06A9\u06CC \u0648\u0627\u0631\u06CC\u0632 \u0645\u062D\u0633\u0648\u0628 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
-        React.createElement("div", { className: "row", style: { gap: 8, flexWrap: 'wrap' } },
-            React.createElement("input", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0633\u0627\u0644", type: "number", placeholder: "\u0647\u0645\u0647\u0654 \u0633\u0627\u0644\u200C\u0647\u0627", value: filters.year, onChange: event => filter('year', event.target.value) }),
-            React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0645\u0627\u0647", value: filters.month, onChange: event => filter('month', event.target.value) },
-                React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0645\u0627\u0647\u200C\u0647\u0627"),
-                Array.from({ length: 12 }, (_, index) => React.createElement("option", { key: index, value: index + 1 }, index + 1))),
-            React.createElement("input", { className: "input", placeholder: "\u0646\u0627\u0645\u060C \u06A9\u062F \u0645\u0644\u06CC\u060C \u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC \u06CC\u0627 \u0633\u0645\u062A", value: filters.q, onChange: event => filter('q', event.target.value) }),
-            React.createElement("select", { className: "input", "aria-label": "\u0648\u0636\u0639\u06CC\u062A \u062A\u0637\u0628\u06CC\u0642", value: filters.status, onChange: event => filter('status', event.target.value) },
-                React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0631\u062F\u06CC\u0641\u200C\u0647\u0627"),
-                React.createElement("option", { value: "pending" }, "\u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u062A\u0637\u0628\u06CC\u0642 \u062F\u0633\u062A\u06CC")),
-            React.createElement("button", { className: "btn", onClick: () => setRefresh(value => value + 1) }, "\u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC")),
+        React.createElement("div", { className: "card-p", style: { background: "var(--surface,#f8fafc)", borderRadius: 14, padding: 14, marginBottom: 14 } },
+            React.createElement("h4", { style: { margin: "0 0 12px" } }, "\u062C\u0633\u062A\u062C\u0648 \u0648 \u0641\u06CC\u0644\u062A\u0631 \u0641\u06CC\u0634\u200C\u0647\u0627\u06CC \u067E\u0631\u0633\u0646\u0644"),
+            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: 'wrap', alignItems: "end" } },
+                React.createElement("input", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0633\u0627\u0644", type: "number", placeholder: "\u0647\u0645\u0647\u0654 \u0633\u0627\u0644\u200C\u0647\u0627", value: filters.year, onChange: event => filter('year', event.target.value) }),
+                React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0645\u0627\u0647", value: filters.month, onChange: event => filter('month', event.target.value) },
+                    React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0645\u0627\u0647\u200C\u0647\u0627"),
+                    Array.from({ length: 12 }, (_, index) => React.createElement("option", { key: index, value: index + 1 }, index + 1))),
+                React.createElement("input", { className: "input", placeholder: "\u0646\u0627\u0645\u060C \u06A9\u062F \u0645\u0644\u06CC\u060C \u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC \u06CC\u0627 \u0633\u0645\u062A", value: filters.q, onChange: event => filter('q', event.target.value) }),
+                React.createElement("select", { className: "input", "aria-label": "\u0648\u0636\u0639\u06CC\u062A \u062A\u0637\u0628\u06CC\u0642", value: filters.status, onChange: event => filter('status', event.target.value) },
+                    React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0631\u062F\u06CC\u0641\u200C\u0647\u0627"),
+                    React.createElement("option", { value: "pending" }, "\u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u062A\u0637\u0628\u06CC\u0642 \u062F\u0633\u062A\u06CC")),
+                React.createElement("button", { className: "btn", onClick: () => setRefresh(value => value + 1) }, "\u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC"),
+                React.createElement("button", { className: "btn", onClick: () => setFilters({ year: "", month: "", q: "", status: "", page: 1 }) }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627"))),
         error && React.createElement("p", { role: "alert" }, error),
         busy ? React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A\u2026") : result && React.createElement(React.Fragment, null,
             React.createElement("p", null,
