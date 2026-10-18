@@ -8,6 +8,7 @@ import ActivityIndicator from '../components/PulseLoadingIndicator';
 import { captureRef } from 'react-native-view-shot';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import PayrollAccessSlip from '../components/PayrollAccessSlip';
 
 const amount = (value, maximumFractionDigits = 0) => value === null || value === undefined || value === '' ? '—' : Number(value).toLocaleString('fa-IR', { maximumFractionDigits });
 const digits = value => String(value).replace(/[۰-۹]/g, character => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(character))).replace(/[٠-٩]/g, character => String('٠١٢٣٤٥٦٧٨٩'.indexOf(character))).replace(/\D/g, '');
@@ -144,17 +145,8 @@ export default function CompanyPayrollHistory() {
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.heading}>پیش‌نمایش فیش حقوق A5 افقی</Text>
           <Text style={styles.note}>صدور و دانلود فیش این ماه فقط یک‌بار مجاز است. پس از صدور، تصویر را ذخیره کنید.</Text>
-          {slip && <View ref={slipRef} collapsable={false} style={styles.slipPaper}>
-            <Text style={styles.slipHeading}>فیش حقوق و مزایا — {faNum(`${slip.row.period_jy}/${String(slip.row.period_jm).padStart(2,'0')}`)}</Text>
-            <Text style={styles.slipPerson}>{slip.row.employee_name} | {slip.row.role_title || '—'}</Text>
-            <View style={styles.slipGrid}>
-              {slip.fields.filter(field => !['sequence','first_name','last_name','national_code','account'].includes(field)).map(field => {
-                const index = slip.fields.indexOf(field);
-                return <View key={field} style={styles.slipCell}><Text style={styles.slipLabel}>{slip.labels[index]}</Text><Text style={styles.slipNumber}>{index < 7 ? (slip.row.data[field] || '—') : amount(slip.row.data[field], 2)}</Text></View>;
-              })}
-            </View>
-            <View style={styles.signatures}><Text style={styles.signature}>امضای امور اداری</Text><Text style={styles.signature}>مهر شرکت</Text><Text style={styles.signature}>امضای مدیرعامل</Text></View>
-            <Text style={styles.legal}>این فیش حقوق بدون امضا مدیر عامل و مهر شرکت فاقد ارزش قانونی است</Text>
+          {slip && <View ref={slipRef} collapsable={false} style={{ backgroundColor: '#fff', width: screenWidth - 32 }}>
+            <PayrollAccessSlip slip={slip} width={screenWidth - 32} />
           </View>}
           <TouchableOpacity disabled={issuing} style={[styles.button, issuing && styles.disabled]} onPress={saveIssuedSlip}><Text style={styles.buttonText}>{issuing ? 'در حال صدور…' : 'صدور نهایی و ذخیره تصویر (فقط یک‌بار)'}</Text></TouchableOpacity>
           <TouchableOpacity disabled={issuing} style={[styles.button, { marginTop: 10, backgroundColor: C.slate }]} onPress={() => setSlip(null)}><Text style={styles.buttonText}>انصراف</Text></TouchableOpacity>
