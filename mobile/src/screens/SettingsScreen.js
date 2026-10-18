@@ -68,7 +68,7 @@ const s = StyleSheet.create({
   sub: { color: '#d7eee8', fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', marginTop: 6 },
   section: { marginBottom: 14 },
   sectionTitle: { color: C.brand, fontFamily: FONT.bold, fontSize: 14, textAlign: 'right', marginBottom: 8, paddingHorizontal: 4 },
-  card: { backgroundColor: '#fff', borderRadius: 15, borderWidth: 1, borderColor: C.line, padding: 14, marginBottom: 9, flexDirection: 'row-reverse', alignItems: 'center' },
+  card: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: C.line, padding: 16, marginBottom: 9, flexDirection: 'row-reverse', alignItems: 'center' },
   icon: { width: 42, height: 42, borderRadius: 12, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center', marginLeft: 11 },
   iconText: { fontSize: 19 },
   textWrap: { flex: 1, minWidth: 0 },
