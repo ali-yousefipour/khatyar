@@ -1610,18 +1610,6 @@ function Zones(){
   const pathFor=zone=>{const parts=[],seen=new Set();let current=zone;while(current&&!seen.has(+current.id)){seen.add(+current.id);parts.unshift(current.name);current=zones.find(item=>+item.id===+current.parent_id);}return parts.join(' / ');};
   const isDescendant=(candidate,ancestor)=>{const seen=new Set();let current=candidate;while(current&&!seen.has(+current.id)){if(+current.id===+ancestor)return true;seen.add(+current.id);current=zones.find(item=>+item.id===+current.parent_id);}return false;};
   const ordered=zones.slice().sort((left,right)=>pathFor(left).localeCompare(pathFor(right),'fa'));
-  const zoneTree=(()=>{
-    const seen=new Set();
-    const renderBranch=(parentId,depth=0)=>zones.filter(z=>String(z.parent_id||'')===String(parentId||'')&&!seen.has(+z.id)).sort((a,b)=>a.name.localeCompare(b.name,'fa')).map(z=>{
-      seen.add(+z.id);
-      return <div key={z.id} style={{marginRight:depth?20:0,borderRight:depth?'2px solid var(--line)':'none',paddingRight:depth?10:0,marginTop:10}}>
-        {Col(z.name,z.id)}
-        {renderBranch(z.id,depth+1)}
-      </div>;
-    });
-    const roots=renderBranch(null);
-    return <>{roots}{zones.filter(z=>!seen.has(+z.id)).map(z=><div key={z.id}>{Col(z.name,z.id)}</div>)}</>;
-  })();
   const reload=async()=>{const [nextUsers,nextZones]=await Promise.all([db.users(),db.zones()]);setUsers(nextUsers.filter(u=>Number(u.is_active)===1));setZones(nextZones);};
   useEffect(()=>{reload().catch(failure=>setError(failure.message||'بارگذاری مناطق انجام نشد.'))},[]);
   const mutate=async action=>{if(mutation.current)return;mutation.current=true;setBusy(true);setError("");try{await action();}catch(failure){setError(failure.message||'ذخیره تغییرات انجام نشد.');}finally{mutation.current=false;setBusy(false);}};
@@ -1636,6 +1624,18 @@ function Zones(){
     onDragOver={e=>{e.preventDefault();setOver(zid)}} onDragLeave={()=>setOver(null)}
     onDrop={e=>{assign(+e.dataTransfer.getData("uid"),zid);setOver(null)}}>
     <h4 className="row" style={{justifyContent:"space-between",gap:8,flexWrap:'wrap'}}><span>{title}</span>{zid!=null&&<span className="row" style={{gap:5,flexWrap:'wrap'}}><button className="btn g" disabled={busy} onClick={()=>openLeaders(zones.find(item=>+item.id===+zid))}>تعیین مسئولان</button><button className="btn g" disabled={busy} onClick={()=>{const zone=zones.find(item=>+item.id===+zid);setChild(zone);setChildName('');}}>+ زیرمنطقه</button><button className="btn g" disabled={busy} onClick={()=>{const zone=zones.find(item=>+item.id===+zid);setEditing(zone);setEditName(zone.name);setEditParent(zone.parent_id?String(zone.parent_id):'');}}>ویرایش</button><button className="btn d" disabled={busy} onClick={()=>removeZone(zones.find(item=>+item.id===+zid))}>حذف</button></span>}</h4>{zid!=null&&(()=>{const zone=zones.find(item=>+item.id===+zid);return <div style={{fontSize:12,lineHeight:2,marginBottom:10}}><div className="muted">{pathFor(zone)}</div><div>سربازرس: {zone.senior_user_id?userName(zone.senior_user_id):'پیش‌فرض منطقه / منطقهٔ والد'}</div><div>بازرس‌ها: {(zone.inspector_ids||[]).length?zone.inspector_ids.map(userName).join('، '):'پیش‌فرض منطقه / منطقهٔ والد'}</div></div>;})()}{users.filter(u=>Number(u.is_active)===1&&(zid==null?!u.zone_id:+u.zone_id===+zid)).map(Card)}</div>;
+  const zoneTree=(()=>{
+    const seen=new Set();
+    const renderBranch=(parentId,depth=0)=>zones.filter(z=>String(z.parent_id||'')===String(parentId||'')&&!seen.has(+z.id)).sort((a,b)=>a.name.localeCompare(b.name,'fa')).map(z=>{
+      seen.add(+z.id);
+      return <div key={z.id} style={{marginRight:depth?20:0,borderRight:depth?'2px solid var(--line)':'none',paddingRight:depth?10:0,marginTop:10}}>
+        {Col(z.name,z.id)}
+        {renderBranch(z.id,depth+1)}
+      </div>;
+    });
+    const roots=renderBranch(null);
+    return <>{roots}{zones.filter(z=>!seen.has(+z.id)).map(z=><div key={z.id}>{Col(z.name,z.id)}</div>)}</>;
+  })();
   return(<div className="panel"><h3>منطقه‌بندی نیروها — کارت‌ها را در منطقهٔ موردنظر رها کنید
     <span className="row" style={{gap:8}}><input className="input" maxLength={150} style={{padding:"6px 10px",width:160}} placeholder="نام منطقهٔ جدید" value={nz} onChange={e=>setNz(e.target.value)}/>
       <select aria-label="منطقه والد برای منطقه جدید" className="input" style={{maxWidth:230}} value={newParent} onChange={event=>setNewParent(event.target.value)}><option value="">منطقه مستقل (بدون والد)</option>{ordered.map(zone=><option key={zone.id} value={zone.id}>{pathFor(zone)}</option>)}</select><button className="btn p" disabled={busy||!nz.trim()} onClick={addZone}>+ منطقه</button></span></h3>
