@@ -141,6 +141,10 @@ class Payroll {
     $summary=Db::one('SELECT COUNT(*) count,COALESCE(SUM(r.net),0) total_net,SUM(r.user_id IS NULL) pending'.$sql,$params);
     $page=max(1,(int)($filters['page']??1));$limit=50;$offset=($page-1)*$limit;
     $rows=Db::all('SELECT r.id,r.source_row,r.user_id,r.match_status,r.employee_name,r.personnel_code,r.national_code,r.role_title,r.net,p.period_jy,p.period_jm,b.created_at'.$sql.' ORDER BY p.period_jy DESC,p.period_jm DESC,r.source_row LIMIT '.$limit.' OFFSET '.$offset,$params);
+    if($userId!==null){
+      Db::run("CREATE TABLE IF NOT EXISTS payroll_issued_slips (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,user_id INT NOT NULL,period_jy INT NOT NULL,period_jm TINYINT NOT NULL,payroll_row_id INT NOT NULL,issued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE KEY unique_monthly_issue(user_id,period_jy,period_jm)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+      foreach($rows as &$item){$item['issued']=!!Db::one('SELECT id FROM payroll_issued_slips WHERE user_id=? AND period_jy=? AND period_jm=?',[$userId,$item['period_jy'],$item['period_jm']]);}unset($item);
+    }
     return ['rows'=>$rows,'summary'=>$summary,'page'=>$page,'page_size'=>$limit];
   }
   static function detail($id,$userId=null) {
