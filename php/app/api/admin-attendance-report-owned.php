@@ -139,6 +139,13 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     }
     if($gpsStart!==null) { $gpsInvalidSeconds+=max(0,$gpsEnd-$gpsStart); $gpsDetails[]=['start_at'=>date('Y-m-d H:i:s',$gpsStart),'end_at'=>date('Y-m-d H:i:s',$gpsEnd),'minutes'=>(int)ceil(($gpsEnd-$gpsStart)/60),'reason_code'=>'gps_off','reason'=>'ثبت صریح خاموش بودن GPS در سوابق دستگاه','evidence'=>'رویداد gps_off ثبت‌شده']; }
     usort($gpsDetails,static fn($a,$b)=>strcmp($a['start_at'],$b['start_at']));
+    // Admin waiver suppresses the deducted minutes; original GPS evidence remains intact.
+    require_once dirname(__DIR__,2).'/lib/GpsWorkIntervals.php';
+    $gpsDetails=array_values(array_filter($gpsDetails,static function($detail) use ($userId) {
+      return !gps_work_is_waived((int)$userId,(string)$detail['start_at'],(string)$detail['end_at']);
+    }));
+    $gpsInvalidSeconds=0;
+    foreach($gpsDetails as $detail)$gpsInvalidSeconds+=max(0,strtotime($detail['end_at'])-strtotime($detail['start_at']));
     $day['gps_inactive_minutes']=(int)ceil(max(0,$gpsInvalidSeconds)/60);
     $day['gps_inactive_details']=$gpsDetails;
     $day['punches'] = $punches;
