@@ -76,6 +76,6 @@ const s=StyleSheet.create({
  empty:{backgroundColor:'#fff',padding:20,borderRadius:14},emptyT:{fontFamily:FONT.regular,color:C.muted,textAlign:'center'},
  secTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:15,textAlign:'right',marginBottom:8},
  badgeWrap:{flexDirection:'row-reverse',flexWrap:'wrap',gap:8},
- badgeCard:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:12,padding:12,minWidth:'30%',alignItems:'center'},
+ badgeCard:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius: 16, padding: 15,minWidth:'30%',alignItems:'center'},
  badgeIc:{fontSize:26},badgeT:{fontFamily:FONT.bold,color:C.ink,fontSize:12,marginTop:4},badgeP:{fontFamily:FONT.regular,color:C.muted,fontSize:10,marginTop:2},
 });
