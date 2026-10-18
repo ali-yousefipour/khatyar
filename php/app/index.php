@@ -56,6 +56,35 @@ route('GET', '/api/admin/attendance-report', function($p,$b,$u){
   if(!$uid||!$from||!$to) Http::error('پرسنل و بازهٔ تاریخ را مشخص کنید',400);
   return attendance_report_owned_by_entry_date($uid,$from,$to);
 }, false, 3);
+// Waive one verified GPS deduction without deleting any original device event.
+route('POST', '/api/admin/attendance-gps-waiver', function($p,$b,$u) {
+  require_once __DIR__.'/../lib/GpsWorkIntervals.php';
+  require_once __DIR__.'/api/admin-attendance-report-owned.php';
+  $uid=(int)($b['user_id']??0);
+  $jdate=trim((string)($b['jdate']??''));
+  $start=trim((string)($b['start_at']??''));
+  $end=trim((string)($b['end_at']??''));
+  $reason=trim((string)($b['reason']??''));
+  if($uid<=0 || !preg_match('/^1[34]\\d{2}-\\d{2}-\\d{2}$/',$jdate) ||
+     !preg_match('/^20\\d{2}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$/',$start) ||
+     !preg_match('/^20\\d{2}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$/',$end) ||
+     strtotime($end)<=strtotime($start) || mb_strlen($reason)<5 || mb_strlen($reason)>500) {
+       Http::error('بازه کسر کار یا علت لغو معتبر نیست',422);
+  }
+  if(_frozen_attendance_report($uid,$jdate,$jdate)!==null) Http::error('گزارش نهایی‌شده قابل تغییر نیست',409);
+  $report=attendance_report_owned_by_entry_date($uid,$jdate,$jdate,true);
+  $found=false;
+  foreach(($report['days']??[]) as $day) {
+    if(str_replace('/','-',(string)($day['jdate']??''))!==$jdate)continue;
+    foreach(($day['gps_inactive_details']??[]) as $detail)
+      if(($detail['start_at']??'')===$start && ($detail['end_at']??'')===$end)$found=true;
+  }
+  if(!$found) Http::error('این بازه دیگر در محاسبات کسر کار موجود نیست؛ گزارش را تازه‌سازی کنید',409);
+  gps_work_waiver_schema();
+  Db::run('INSERT INTO gps_work_waivers(user_id,start_at,end_at,reason,actor_id) VALUES(?,?,?,?,?)',
+    [$uid,$start,$end,$reason,(int)$u['id']]);
+  return ['ok'=>true,'removed_minutes'=>(int)ceil((strtotime($end)-strtotime($start))/60)];
+}, false, 3);
 require __DIR__ . '/api/daily-performance-gps-separate.php'; require "$ROOT/lib/routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; // Read a user's employment period directly from the authoritative table.
 // This endpoint is independent of the variable-shaped admin/users list response.
 $routes[] = [
