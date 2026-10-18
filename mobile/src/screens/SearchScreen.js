@@ -118,7 +118,7 @@ const s = StyleSheet.create({
   tabTxtOn: { color: '#fff' },
   label: { fontFamily: FONT.regular, color: C.muted, fontSize: 13, marginBottom: 8, textAlign: 'right' },
   row: { flexDirection: 'row-reverse', gap: 8 },
-  input: { flex: 1, backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 13, padding: 13, textAlign: 'right', fontFamily: FONT.regular, color: C.ink },
+  input: { flex: 1, backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 17, padding: 16, textAlign: 'right', fontFamily: FONT.regular, color: C.ink },
   scan: { width: 52, borderRadius: 13, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   scanTxt: { color: '#fff', fontSize: 20 },
   plateRow: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
