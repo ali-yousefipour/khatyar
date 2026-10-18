@@ -6913,7 +6913,7 @@ function ShiftReport(){
 // تنظیم پایهٔ حقوق و مشاهدهٔ فیش حقوقی یک کاربر
 function PayrollEditor({userId,userName}){
  const [open,setOpen]=useState(false),[base,setBase]=useState(null),[records,setRecords]=useState([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
- const fields=[['base_monthly','حقوق پایهٔ ماهانه'],['housing','حق مسکن'],['family','حق خانوار'],['food','بن/خواربار'],['other_allow','سایر مزایا'],['insurance_pct','درصد بیمه'],['tax_pct','درصد مالیات'],['other_deduct','سایر کسورات']];
+ const fields=[['base_monthly','حقوق پایهٔ ماهانه'],['housing','حق مسکن'],['family','حق خانوار'],['food','بن/خواربار'],['other_allow','سایر مزایا'],['insurance_pct','مبلغ بیمه طبق فیش (ریال)'],['tax_pct','مبلغ مالیات طبق فیش (ریال)'],['other_deduct','سایر کسورات']];
  const latest=async()=>{
   setBusy(true);setMessage('');
   try{
@@ -6925,12 +6925,12 @@ function PayrollEditor({userId,userName}){
     const first=await GET('/admin/payroll/'+rows[0].id);
     const d=first.row?.data||{};
     const monthly=Number(d.monthly_wage||0);
-    const patch={base_monthly:monthly,housing:Number(d.housing||0),family:Number(d.marriage||0)+Number(d.child_allowance||0),food:Number(d.food||0),other_allow:Number(d.other||0),other_deduct:Number(d.advance||0),insurance_pct:monthly?Number((100*Number(d.insurance||0)/monthly).toFixed(3)):0,tax_pct:monthly?Number((100*Number(d.tax||0)/monthly).toFixed(3)):0};
-    // Preserve values if the imported company row does not provide a meaningful denominator.
-    if(!monthly){delete patch.insurance_pct;delete patch.tax_pct;}
+    const patch={base_monthly:monthly,housing:Number(d.housing||0),family:Number(d.marriage||0)+Number(d.child_allowance||0),food:Number(d.food||0),other_allow:Number(d.other||0),other_deduct:Number(d.advance||0),insurance_pct:Number(d.insurance||0),tax_pct:Number(d.tax||0)};
+    // The company file provides insurance/tax deduction amounts, not legal percentage rates.
+    // Store the exact imported figures without inferring or calculating percentages.
     const merged={...(existing||{}),...patch};
     await db.saveUserPayroll(userId,merged);setBase(merged);
-    setMessage('مقادیر از جدیدترین فیش شرکت خوانده و ذخیره شد. درصدهای بیمه و مالیات برآورد نسبت به حقوق ماهانه هستند.');
+    setMessage('مقادیر از جدیدترین فیش شرکت خوانده و ذخیره شد. مقادیر بیمه و مالیات عیناً از ستون‌های فایل شرکت دریافت شده‌اند و هیچ درصدی محاسبه نشده است.');
    }else setMessage('برای این کاربر هنوز فیش تطبیق‌یافته‌ای در فایل شرکت موجود نیست.');
   }catch(e){setMessage(e.message||'دریافت اطلاعات حقوق ممکن نشد.')}finally{setBusy(false);}
  };
