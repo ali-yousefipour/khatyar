@@ -91,6 +91,7 @@ foreach ($routes as &$employmentRoute) {
       $inject=static function(&$row) use (&$ids) {if(is_array($row)&&isset($row['id']))$ids[(int)$row['id']]=true;};
       if (isset($result['users']) && is_array($result['users']))foreach($result['users'] as &$row)$inject($row);
       elseif (isset($result['items']) && is_array($result['items']))foreach($result['items'] as &$row)$inject($row);
+      elseif (isset($result['rows']) && is_array($result['rows']))foreach($result['rows'] as &$row)$inject($row);
       elseif (array_is_list($result))foreach($result as &$row)$inject($row);
       elseif (isset($result['id']))$inject($result);
       if ($ids) {
@@ -100,6 +101,7 @@ foreach ($routes as &$employmentRoute) {
         $decorate=static function(&$row) use ($lookup) {if(is_array($row)&&isset($lookup[(int)($row['id']??0)]))$row=array_merge($row,$lookup[(int)$row['id']]);};
         if(isset($result['users']))foreach($result['users'] as &$row)$decorate($row);
         elseif(isset($result['items']))foreach($result['items'] as &$row)$decorate($row);
+        elseif(isset($result['rows']))foreach($result['rows'] as &$row)$decorate($row);
         elseif(array_is_list($result))foreach($result as &$row)$decorate($row);
         else $decorate($result);
       }
