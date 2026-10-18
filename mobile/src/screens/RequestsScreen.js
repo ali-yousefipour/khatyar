@@ -440,7 +440,7 @@ const s = StyleSheet.create({
   subRow: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 7 },
   subRowT: { fontFamily: FONT.bold, color: C.ink, fontSize: 13.5, textAlign: 'right' },
   subRowS: { fontFamily: FONT.regular, fontSize: 11.5, textAlign: 'right', marginTop: 3 },
-  modalClose: { backgroundColor: C.ink, borderRadius: 12, padding: 12, alignItems: 'center', marginTop: 6 },
+  modalClose: { backgroundColor: C.ink, borderRadius: 16, padding: 15, alignItems: 'center', marginTop: 6 },
   modalCloseT: { color: '#fff', fontFamily: FONT.bold },
   wrap: { flex: 1, backgroundColor: C.paper },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
