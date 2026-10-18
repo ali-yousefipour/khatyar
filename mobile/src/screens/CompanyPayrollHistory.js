@@ -87,9 +87,10 @@ export default function CompanyPayrollHistory() {
     try {
       // Render first, then claim the one-time issuance atomically on the server.
       const uri = await captureRef(slipRef, { format: 'png', quality: 1, result: 'tmpfile', width: 2480, height: 1748 });
-      await request(`/my/payroll/${slip.row.id}/issue`, { method: 'POST' });
       const destination = `${FileSystem.documentDirectory}payroll-${slip.row.period_jy}-${slip.row.period_jm}.png`;
       await FileSystem.copyAsync({ from: uri, to: destination });
+      try { await request(`/my/payroll/${slip.row.id}/issue`, { method: 'POST' }); }
+      catch (error) { await FileSystem.deleteAsync(destination, { idempotent: true }); throw error; }
       setIssuedMonths(v => ({ ...v, [`${slip.row.period_jy}-${slip.row.period_jm}`]: true }));
       Alert.alert('فیش صادر شد', 'تصویر با کیفیت A5 در حافظه برنامه ذخیره شد. برای انتقال به پوشه دلخواه گوشی، گزینه اشتراک‌گذاری را انتخاب کنید. صدور مجدد این ماه امکان‌پذیر نیست.');
       if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(destination, { mimeType: 'image/png', dialogTitle: 'ذخیره تصویر فیش حقوق' });
@@ -118,7 +119,7 @@ export default function CompanyPayrollHistory() {
           <Text style={styles.label}>خالص اعلامی: {amount(row.net)} ریال</Text>
           <Text style={styles.note}>{row.role_title}</Text>
           <TouchableOpacity accessibilityRole="button" disabled={opening} style={[styles.button, opening && styles.disabled]} onPress={() => openDetail(row.id)}><Text style={styles.buttonText}>{opening ? 'در حال دریافت…' : 'جزئیات حقوق و کسورات'}</Text></TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button" disabled={issuing || issuedMonths[`${row.period_jy}-${row.period_jm}`]} style={[styles.button, (issuing || issuedMonths[`${row.period_jy}-${row.period_jm}`]) && styles.disabled]} onPress={() => issueSlip(row)}><Text style={styles.buttonText}>{issuedMonths[`${row.period_jy}-${row.period_jm}`] ? 'فیش این ماه صادر شد' : 'صدور فیش حقوق'}</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" disabled={issuing || row.issued || issuedMonths[`${row.period_jy}-${row.period_jm}`]} style={[styles.button, (issuing || row.issued || issuedMonths[`${row.period_jy}-${row.period_jm}`]) && styles.disabled]} onPress={() => issueSlip(row)}><Text style={styles.buttonText}>{(row.issued || issuedMonths[`${row.period_jy}-${row.period_jm}`]) ? 'فیش این ماه صادر شد' : 'صدور فیش حقوق'}</Text></TouchableOpacity>
         </View>)}
         <View style={styles.row}>
           <TouchableOpacity accessibilityRole="button" disabled={filters.page <= 1} style={[styles.button, filters.page <= 1 && styles.disabled]} onPress={() => setFilters(value => ({ ...value, page: value.page - 1 }))}><Text style={styles.buttonText}>قبلی</Text></TouchableOpacity>
