@@ -10905,10 +10905,13 @@ function AttendanceReport() {
             return n(d && (((_b = (_a = d.in) !== null && _a !== void 0 ? _a : d.first_in) !== null && _b !== void 0 ? _b : d.first_entry))) || ins[0] || "--:--";
         if (k === "out")
             return n(d && (((_e = (_c = d.out) !== null && _c !== void 0 ? _c : d.last_out) !== null && _e !== void 0 ? _e : d.last_exit))) || (outs.length ? outs[outs.length - 1] : "--:--");
-        if (k === "in_station")
-            return ((d.punches || []).find(p => p && p.in_station) || {}).in_station || "—";
-        if (k === "out_station")
-            return (((d.punches || []).slice().reverse().find(p => p && p.out_station)) || {}).out_station || "—";
+        if (k === "in_station" || k === "out_station") {
+            const punch = k === "in_station" ? (d.punches || []).find(p => p && (p.in_station || p.method)) : ((d.punches || []).slice().reverse().find(p => p && (p.out_station || p.method)));
+            const station = String((punch === null || punch === void 0 ? void 0 : punch[k]) || (d === null || d === void 0 ? void 0 : d[k]) || "—");
+            const method = String((k === "in_station" ? ((punch === null || punch === void 0 ? void 0 : punch.check_in_method) || (punch === null || punch === void 0 ? void 0 : punch.in_method)) : ((punch === null || punch === void 0 ? void 0 : punch.check_out_method) || (punch === null || punch === void 0 ? void 0 : punch.out_method))) || (punch === null || punch === void 0 ? void 0 : punch.method) || (d === null || d === void 0 ? void 0 : d.method) || "").toLowerCase();
+            const label = method.includes("wifi") || method.includes("wi-fi") ? "Wi-Fi" : method.includes("gps") ? "GPS" : method.includes("manual") || method.includes("admin") ? "ثبت دستی" : method.includes("qr") ? "QR" : method.includes("nfc") ? "NFC" : method.includes("bluetooth") ? "Bluetooth" : "";
+            return station + (label ? " (" + label + ")" : "");
+        }
         if (k === "first_in")
             return n(d.first_in) || ins[0] || "--:--";
         if (k === "last_out")
@@ -11036,15 +11039,21 @@ function AttendanceReport() {
                 React.createElement("thead", null,
                     React.createElement("tr", null, selectedColumns.map(([title], i) => React.createElement("th", { key: title, style: { whiteSpace: "normal", overflowWrap: "anywhere", maxWidth: 180, minWidth: 64, position: "sticky", top: 0, zIndex: 3, background: "#eaf5f0", borderBottom: "2px solid #0d7a5f", borderInlineStart: "1px solid #d7e5dd", padding: "10px 8px", verticalAlign: "middle" } }, title)))),
                 React.createElement("tbody", null, (data.days || []).map((d, rowIndex) => {
-                    const red = !!d.is_holiday || !!d.is_friday || d.weekday === "جمعه";
+                    const friday = !!d.is_friday || d.weekday === "جمعه";
+                    const holiday = !!d.is_holiday;
+                    const red = friday || holiday;
                     return React.createElement("tr", { key: d.jdate, style: { background: rowIndex % 2 === 0 ? "#fff" : "#f0f8f3" } }, selectedColumns.map((col, i) => {
                         const title = col[0];
                         const getter = col[1];
+                        const isDeficit = ["کسری کار", "غیبت", "جمع غیبت و کسری کار", "تهاتر کسری کار"].includes(title);
+                        const isGpsDeficit = title === "کسر کار غیر فعال کردن برنامه";
+                        const deficitActive = title === "غیبت" ? Number(d.absent || 0) > 0 : mins(getter(d)) > 0;
+                        const cellColor = isGpsDeficit && deficitActive ? "#1764cf" : isDeficit && deficitActive ? "#c62828" : friday ? "#16803c" : holiday ? "#c62828" : "inherit";
                         const fontWeight = (i < 2 && red) ? 700 : 400;
                         const textAlign = ["ورود", "خروج", "اولین ورود", "آخرین خروج"].includes(title) ? "center" : "right";
-                        return React.createElement("td", { key: title, style: { whiteSpace: "nowrap", color: red ? "var(--danger)" : "inherit", fontWeight: fontWeight, textAlign: textAlign, padding: "8px", background: rowIndex % 2 === 0 ? "#fff" : "#f0f8f3", borderBottom: "1px solid #e2e9e4", borderInlineStart: "1px solid #e2e9e4", verticalAlign: "middle" } },
+                        return React.createElement("td", { key: title, style: { whiteSpace: "nowrap", color: cellColor, fontWeight: fontWeight, textAlign: textAlign, padding: "8px", background: rowIndex % 2 === 0 ? "#fff" : "#f0f8f3", borderBottom: "1px solid #e2e9e4", borderInlineStart: "1px solid #e2e9e4", verticalAlign: "middle" } },
                             title === "کسر کار غیر فعال کردن برنامه" && mins(getter(d)) > 0
-                                ? React.createElement("button", { type: "button", className: "btn g", style: { padding: "2px 6px", fontSize: 11, cursor: "pointer", fontWeight: 800 }, title: "\u0646\u0645\u0627\u06CC\u0634 \u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631\u06CC GPS/\u0628\u0631\u0646\u0627\u0645\u0647", onClick: () => setGpsDeficitModal({ jdate: d.jdate, minutes: mins(getter(d)), details: Array.isArray(d.gps_inactive_details) ? d.gps_inactive_details : [] }) }, attendanceCell(getter(d)))
+                                ? React.createElement("button", { type: "button", className: "btn g", style: { padding: "2px 6px", fontSize: 11, cursor: "pointer", fontWeight: 800, color: "#1764cf" }, title: "\u0646\u0645\u0627\u06CC\u0634 \u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631\u06CC GPS/\u0628\u0631\u0646\u0627\u0645\u0647", onClick: () => setGpsDeficitModal({ jdate: d.jdate, minutes: mins(getter(d)), details: Array.isArray(d.gps_inactive_details) ? d.gps_inactive_details : [] }) }, attendanceCell(getter(d)))
                                 : (title === "مازاد حضور" && mins(d.surplus) > 0) || (title === "کسری کار" && mins(d.shortage) > 0)
                                     ? React.createElement("button", { type: "button", className: "btn g", style: { padding: "2px 6px", fontSize: 11, cursor: "pointer", fontWeight: 800 }, title: title === "مازاد حضور" ? "تبدیل مازاد حضور به اضافه‌کار" : "تبدیل کسری کار به مرخصی استحقاقی ساعتی", onClick: () => setConversionModal({ mode: title === "مازاد حضور" ? "surplus" : "shortage", jdate: d.jdate, minutes: mins(title === "مازاد حضور" ? d.surplus : d.shortage), day: d }) }, attendanceCell(getter(d)))
                                     : attendanceCell(getter(d)),
