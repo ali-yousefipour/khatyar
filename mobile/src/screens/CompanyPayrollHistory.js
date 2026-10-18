@@ -5,6 +5,9 @@ import { request } from '../api';
 import { C, FONT } from '../theme';
 import { faNum } from '../num';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import { captureRef } from 'react-native-view-shot';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 
 const amount = (value, maximumFractionDigits = 0) => value === null || value === undefined || value === '' ? '—' : Number(value).toLocaleString('fa-IR', { maximumFractionDigits });
 const digits = value => String(value).replace(/[۰-۹]/g, character => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(character))).replace(/[٠-٩]/g, character => String('٠١٢٣٤٥٦٧٨٩'.indexOf(character))).replace(/\D/g, '');
@@ -22,6 +25,10 @@ export default function CompanyPayrollHistory() {
   const [opening, setOpening] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const detailLock = useRef(false);
+  const slipRef = useRef(null);
+  const [slip, setSlip] = useState(null);
+  const [issuing, setIssuing] = useState(false);
+  const [issuedMonths, setIssuedMonths] = useState({});
   const mounted = useRef(false);
   useFocusEffect(useCallback(() => {
     let alive = true;
@@ -59,6 +66,37 @@ export default function CompanyPayrollHistory() {
       if (mounted.current) setOpening(false);
     }
   };
+
+  const issueSlip = async row => {
+    if (issuing) return;
+    Alert.alert('صدور یک‌باره فیش حقوق', 'صدور و دریافت تصویر فیش حقوق هر ماه فقط یک‌بار مجاز است. تصویر را پس از صدور حتماً در گوشی ذخیره کنید؛ امکان صدور مجدد وجود ندارد.', [
+      { text: 'انصراف', style: 'cancel' },
+      { text: 'ادامه', onPress: async () => {
+        setIssuing(true);
+        try {
+          const data = await request(`/my/payroll/${row.id}`, { noStore: true });
+          setSlip(data);
+        } catch (e) { Alert.alert('خطا', e.message || 'دریافت اطلاعات فیش ممکن نشد.'); }
+        finally { setIssuing(false); }
+      } }
+    ]);
+  };
+  const saveIssuedSlip = async () => {
+    if (!slipRef.current || !slip || issuing) return;
+    setIssuing(true);
+    try {
+      // Render first, then claim the one-time issuance atomically on the server.
+      const uri = await captureRef(slipRef, { format: 'png', quality: 1, result: 'tmpfile', width: 2480, height: 1748 });
+      await request(`/my/payroll/${slip.row.id}/issue`, { method: 'POST' });
+      const destination = `${FileSystem.documentDirectory}payroll-${slip.row.period_jy}-${slip.row.period_jm}.png`;
+      await FileSystem.copyAsync({ from: uri, to: destination });
+      setIssuedMonths(v => ({ ...v, [`${slip.row.period_jy}-${slip.row.period_jm}`]: true }));
+      Alert.alert('فیش صادر شد', 'تصویر با کیفیت A5 در حافظه برنامه ذخیره شد. برای انتقال به پوشه دلخواه گوشی، گزینه اشتراک‌گذاری را انتخاب کنید. صدور مجدد این ماه امکان‌پذیر نیست.');
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(destination, { mimeType: 'image/png', dialogTitle: 'ذخیره تصویر فیش حقوق' });
+      setSlip(null);
+    } catch (e) { Alert.alert('صدور یا ذخیره ناموفق', e.message || 'عملیات انجام نشد.'); }
+    finally { setIssuing(false); }
+  };
   return <View style={styles.root}>
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.heading}>حقوق اعلامی شرکت</Text>
@@ -80,6 +118,7 @@ export default function CompanyPayrollHistory() {
           <Text style={styles.label}>خالص اعلامی: {amount(row.net)} ریال</Text>
           <Text style={styles.note}>{row.role_title}</Text>
           <TouchableOpacity accessibilityRole="button" disabled={opening} style={[styles.button, opening && styles.disabled]} onPress={() => openDetail(row.id)}><Text style={styles.buttonText}>{opening ? 'در حال دریافت…' : 'جزئیات حقوق و کسورات'}</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" disabled={issuing || issuedMonths[`${row.period_jy}-${row.period_jm}`]} style={[styles.button, (issuing || issuedMonths[`${row.period_jy}-${row.period_jm}`]) && styles.disabled]} onPress={() => issueSlip(row)}><Text style={styles.buttonText}>{issuedMonths[`${row.period_jy}-${row.period_jm}`] ? 'فیش این ماه صادر شد' : 'صدور فیش حقوق'}</Text></TouchableOpacity>
         </View>)}
         <View style={styles.row}>
           <TouchableOpacity accessibilityRole="button" disabled={filters.page <= 1} style={[styles.button, filters.page <= 1 && styles.disabled]} onPress={() => setFilters(value => ({ ...value, page: value.page - 1 }))}><Text style={styles.buttonText}>قبلی</Text></TouchableOpacity>
@@ -96,6 +135,29 @@ export default function CompanyPayrollHistory() {
           {(detail.row.warnings || []).map((warning, index) => <Text key={index} style={styles.error}>{warning}</Text>)}
           <View style={styles.detailsGrid}>{detail.fields.map((field, index) => <View style={[styles.detailCell, { width: detailColumns === 3 ? '31.8%' : '48.5%' }]} key={field}><Text style={styles.detailTitle}>{detail.labels[index]}</Text><Text style={styles.detailValue} numberOfLines={3}>{index < 7 ? (detail.row.data[field] || '—') : amount(detail.row.data[field], 6)}</Text></View>)}</View>
         </>}</ScrollView>
+      </View>
+    </Modal>
+
+    <Modal visible={!!slip} animationType="slide" onRequestClose={() => !issuing && setSlip(null)}>
+      <View style={styles.root}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <Text style={styles.heading}>پیش‌نمایش فیش حقوق A5 افقی</Text>
+          <Text style={styles.note}>صدور و دانلود فیش این ماه فقط یک‌بار مجاز است. پس از صدور، تصویر را ذخیره کنید.</Text>
+          {slip && <View ref={slipRef} collapsable={false} style={styles.slipPaper}>
+            <Text style={styles.slipHeading}>فیش حقوق و مزایا — {faNum(`${slip.row.period_jy}/${String(slip.row.period_jm).padStart(2,'0')}`)}</Text>
+            <Text style={styles.slipPerson}>{slip.row.employee_name} | {slip.row.role_title || '—'}</Text>
+            <View style={styles.slipGrid}>
+              {slip.fields.filter(field => !['sequence','first_name','last_name','national_code','account'].includes(field)).map(field => {
+                const index = slip.fields.indexOf(field);
+                return <View key={field} style={styles.slipCell}><Text style={styles.slipLabel}>{slip.labels[index]}</Text><Text style={styles.slipNumber}>{index < 7 ? (slip.row.data[field] || '—') : amount(slip.row.data[field], 2)}</Text></View>;
+              })}
+            </View>
+            <View style={styles.signatures}><Text style={styles.signature}>امضای امور اداری</Text><Text style={styles.signature}>مهر شرکت</Text><Text style={styles.signature}>امضای مدیرعامل</Text></View>
+            <Text style={styles.legal}>این فیش حقوق بدون امضا مدیر عامل و مهر شرکت فاقد ارزش قانونی است</Text>
+          </View>}
+          <TouchableOpacity disabled={issuing} style={[styles.button, issuing && styles.disabled]} onPress={saveIssuedSlip}><Text style={styles.buttonText}>{issuing ? 'در حال صدور…' : 'صدور نهایی و ذخیره تصویر (فقط یک‌بار)'}</Text></TouchableOpacity>
+          <TouchableOpacity disabled={issuing} style={[styles.button, { marginTop: 10, backgroundColor: C.slate }]} onPress={() => setSlip(null)}><Text style={styles.buttonText}>انصراف</Text></TouchableOpacity>
+        </ScrollView>
       </View>
     </Modal>
   </View>;
@@ -117,5 +179,15 @@ const styles = StyleSheet.create({
   detailTitle: { fontFamily: FONT.regular, fontSize: 13, color: C.slate, textAlign: 'right', marginBottom: 5 },
   detailValue: { fontFamily: FONT.bold, fontSize: 16, color: C.ink, textAlign: 'right' },
   error: { fontFamily: FONT.regular, color: '#b42318', textAlign: 'right', paddingVertical: 12 },
+  slipPaper: { width: '100%', aspectRatio: 210 / 148, padding: 9, backgroundColor: '#fff', borderWidth: 1, borderColor: '#999', justifyContent: 'space-between' },
+  slipHeading: { fontFamily: FONT.bold, textAlign: 'center', fontSize: 13, color: '#111' },
+  slipPerson: { fontFamily: FONT.bold, textAlign: 'center', fontSize: 10, color: '#111' },
+  slipGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'space-between', gap: 2 },
+  slipCell: { width: '32.8%', borderWidth: 0.5, borderColor: '#aaa', padding: 2, flexDirection: 'row-reverse', justifyContent: 'space-between' },
+  slipLabel: { fontFamily: FONT.regular, fontSize: 6.5, color: '#222', flexShrink: 1, textAlign: 'right' },
+  slipNumber: { fontFamily: FONT.bold, fontSize: 7, color: '#111', textAlign: 'left', flexShrink: 1 },
+  signatures: { flexDirection: 'row-reverse', justifyContent: 'space-around', paddingTop: 6 },
+  signature: { fontFamily: FONT.bold, fontSize: 9, color: '#222' },
+  legal: { fontFamily: FONT.bold, fontSize: 8, textAlign: 'center', color: '#b42318' },
   disabled: { opacity: 0.45 },
 });
