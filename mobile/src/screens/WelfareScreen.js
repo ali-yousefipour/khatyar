@@ -228,6 +228,6 @@ const s = StyleSheet.create({
   modalWrap: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: C.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, maxHeight: '75%' },
   modalTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 15, textAlign: 'right', marginBottom: 10 },
-  modalClose: { backgroundColor: C.ink, borderRadius: 12, padding: 12, alignItems: 'center', marginTop: 6 },
+  modalClose: { backgroundColor: C.ink, borderRadius: 16, padding: 15, alignItems: 'center', marginTop: 6 },
   modalCloseTxt: { color: '#fff', fontFamily: FONT.bold },
 });
