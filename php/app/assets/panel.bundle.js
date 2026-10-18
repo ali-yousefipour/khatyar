@@ -11083,53 +11083,55 @@ function AttendanceReport() {
                 React.createElement("div", { style: { overflowY: "auto", padding: "16px 18px" } },
                     gpsDeficitModal.details.length === 0
                         ? React.createElement("div", { className: "muted", style: { fontSize: 13, padding: 12 } }, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u06A9\u0633\u0631\u06CC\u060C \u0628\u0627\u0632\u0647 \u0648 \u0639\u0644\u062A \u062C\u0632\u0626\u06CC \u062F\u0631 \u0633\u0648\u0627\u0628\u0642 \u0642\u0627\u0628\u0644 \u062F\u0633\u062A\u0631\u0633\u06CC \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F. \u0627\u06CC\u0646 \u0645\u0648\u0631\u062F \u0628\u0647\u200C\u062A\u0646\u0647\u0627\u06CC\u06CC \u0627\u062B\u0628\u0627\u062A \u0646\u0645\u06CC\u200C\u06A9\u0646\u062F \u06A9\u0647 \u0628\u0631\u0646\u0627\u0645\u0647 \u0628\u0633\u062A\u0647 \u06CC\u0627 GPS \u062E\u0627\u0645\u0648\u0634 \u0628\u0648\u062F\u0647 \u0627\u0633\u062A.")
-                        : React.createElement("div", { style: { overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 } },
-                            React.createElement("table", { style: { width: "100%", minWidth: 650 } },
-                                React.createElement("thead", null,
-                                    React.createElement("tr", null,
-                                        React.createElement("th", null, "\u0627\u0632 \u0633\u0627\u0639\u062A"),
-                                        React.createElement("th", null, "\u062A\u0627 \u0633\u0627\u0639\u062A"),
-                                        React.createElement("th", null, "\u0645\u062F\u062A"),
-                                        React.createElement("th", null, "\u0639\u0644\u062A / \u0634\u0648\u0627\u0647\u062F \u062B\u0628\u062A\u200C\u0634\u062F\u0647"),
-                                        React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645"))),
-                                React.createElement("tbody", null, gpsDeficitModal.details.map((r, i) => {
-                                    const start = String(r.start_at || "");
-                                    const end = String(r.end_at || "");
-                                    const startTime = start.slice(11, 16) || "—";
-                                    const endTime = end.slice(11, 16) || "—";
-                                    const nextDay = start.slice(0, 10) !== end.slice(0, 10);
-                                    return React.createElement("tr", { key: i },
-                                        React.createElement("td", { style: { whiteSpace: "nowrap" } }, faPlain(startTime)),
-                                        React.createElement("td", { style: { whiteSpace: "nowrap" } },
-                                            faPlain(endTime),
-                                            nextDay ? React.createElement("span", { style: { fontSize: 10, display: "block", color: "var(--muted)" } }, "\u0631\u0648\u0632 \u0628\u0639\u062F") : null),
-                                        React.createElement("td", { style: { whiteSpace: "nowrap" } }, hm(r.minutes || 0)),
-                                        React.createElement("td", { style: { whiteSpace: "normal", minWidth: 260 } },
-                                            React.createElement("div", null, r.reason || "علت مشخص نیست"),
-                                            React.createElement("div", { style: { fontSize: 10, color: "var(--muted)", marginTop: 3 } },
-                                                "\u0634\u0627\u0647\u062F: ",
-                                                r.evidence || "—")),
-                                        React.createElement("td", null,
-                                            React.createElement("button", { type: "button", className: "btn d", onClick: async () => {
-                                                    const reason = prompt("دلیل لغو این بازه کسر کار را وارد کنید (در سوابق مدیریتی ثبت می‌شود):", "");
-                                                    if (reason === null)
-                                                        return;
-                                                    if (reason.trim().length < 5) {
-                                                        alert("برای لغو کسر کار، توضیح حداقل پنج‌حرفی الزامی است.");
-                                                        return;
-                                                    }
-                                                    if (!confirm("اثر این بازه کسر کار حذف شود؟ رویداد GPS و سابقه لغو نگهداری می‌شوند."))
-                                                        return;
-                                                    try {
-                                                        await SEND("POST", "/admin/attendance-gps-waiver", { user_id: Number(uid), jdate: String(gpsDeficitModal.jdate || "").replaceAll("/", "-"), start_at: r.start_at, end_at: r.end_at, reason: reason.trim() });
-                                                        setGpsDeficitModal(null);
-                                                        await refresh();
-                                                    }
-                                                    catch (error) {
-                                                        alert(error.message || "لغو کسر کار انجام نشد");
-                                                    }
-                                                } }, "\u062D\u0630\u0641 \u06A9\u0633\u0631 \u06A9\u0627\u0631")));
-                                })))),
+                        : React.createElement("div", null,
+                            React.createElement("p", { style: { fontSize: 12, margin: "0 0 10px", color: "var(--muted)" } }, "\u0628\u0631\u0627\u06CC \u062D\u0630\u0641 \u0627\u062B\u0631 \u0647\u0631 \u0628\u0627\u0632\u0647\u060C \u062F\u06A9\u0645\u0647 \u00AB\u062D\u0630\u0641 \u0648 \u0628\u06CC\u200C\u0627\u062B\u0631 \u06A9\u0631\u062F\u0646\u00BB \u0647\u0645\u0627\u0646 \u0631\u062F\u06CC\u0641 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F. \u062F\u0644\u06CC\u0644 \u062D\u0630\u0641 \u062B\u0628\u062A \u0634\u062F\u0647 \u0648 \u0634\u0648\u0627\u0647\u062F GPS \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0645\u06CC\u200C\u0634\u0648\u062F."),
+                            React.createElement("div", { style: { overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 } },
+                                React.createElement("table", { style: { width: "100%", minWidth: 650 } },
+                                    React.createElement("thead", null,
+                                        React.createElement("tr", null,
+                                            React.createElement("th", null, "\u0627\u0632 \u0633\u0627\u0639\u062A"),
+                                            React.createElement("th", null, "\u062A\u0627 \u0633\u0627\u0639\u062A"),
+                                            React.createElement("th", null, "\u0645\u062F\u062A"),
+                                            React.createElement("th", null, "\u0639\u0644\u062A / \u0634\u0648\u0627\u0647\u062F \u062B\u0628\u062A\u200C\u0634\u062F\u0647"),
+                                            React.createElement("th", null, "\u062D\u0630\u0641 \u0648 \u0628\u06CC\u200C\u0627\u062B\u0631 \u06A9\u0631\u062F\u0646"))),
+                                    React.createElement("tbody", null, gpsDeficitModal.details.map((r, i) => {
+                                        const start = String(r.start_at || "");
+                                        const end = String(r.end_at || "");
+                                        const startTime = start.slice(11, 16) || "—";
+                                        const endTime = end.slice(11, 16) || "—";
+                                        const nextDay = start.slice(0, 10) !== end.slice(0, 10);
+                                        return React.createElement("tr", { key: i },
+                                            React.createElement("td", { style: { whiteSpace: "nowrap" } }, faPlain(startTime)),
+                                            React.createElement("td", { style: { whiteSpace: "nowrap" } },
+                                                faPlain(endTime),
+                                                nextDay ? React.createElement("span", { style: { fontSize: 10, display: "block", color: "var(--muted)" } }, "\u0631\u0648\u0632 \u0628\u0639\u062F") : null),
+                                            React.createElement("td", { style: { whiteSpace: "nowrap" } }, hm(r.minutes || 0)),
+                                            React.createElement("td", { style: { whiteSpace: "normal", minWidth: 260 } },
+                                                React.createElement("div", null, r.reason || "علت مشخص نیست"),
+                                                React.createElement("div", { style: { fontSize: 10, color: "var(--muted)", marginTop: 3 } },
+                                                    "\u0634\u0627\u0647\u062F: ",
+                                                    r.evidence || "—")),
+                                            React.createElement("td", null,
+                                                React.createElement("button", { type: "button", className: "btn d", onClick: async () => {
+                                                        const reason = prompt("دلیل لغو این بازه کسر کار را وارد کنید (در سوابق مدیریتی ثبت می‌شود):", "");
+                                                        if (reason === null)
+                                                            return;
+                                                        if (reason.trim().length < 5) {
+                                                            alert("برای لغو کسر کار، توضیح حداقل پنج‌حرفی الزامی است.");
+                                                            return;
+                                                        }
+                                                        if (!confirm("اثر این بازه کسر کار حذف شود؟ رویداد GPS و سابقه لغو نگهداری می‌شوند."))
+                                                            return;
+                                                        try {
+                                                            await SEND("POST", "/admin/attendance-gps-waiver", { user_id: Number(uid), jdate: String(gpsDeficitModal.jdate || "").replaceAll("/", "-"), start_at: r.start_at, end_at: r.end_at, reason: reason.trim() });
+                                                            setGpsDeficitModal(null);
+                                                            await refresh();
+                                                        }
+                                                        catch (error) {
+                                                            alert(error.message || "لغو کسر کار انجام نشد");
+                                                        }
+                                                    } }, "\u062D\u0630\u0641 \u0648 \u0628\u06CC\u200C\u0627\u062B\u0631 \u06A9\u0631\u062F\u0646")));
+                                    }))))),
                     React.createElement("div", { style: { fontSize: 11, color: "var(--muted)", marginTop: 12 } }, "\u0646\u0628\u0648\u062F \u062A\u0623\u06CC\u06CC\u062F \u062F\u0648\u0631\u0647\u200C\u0627\u06CC\u060C \u0648\u0631\u0648\u062F \u0628\u0647 \u067E\u0633\u200C\u0632\u0645\u06CC\u0646\u0647 \u06CC\u0627 \u0642\u0637\u0639 \u0627\u0631\u062A\u0628\u0627\u0637 \u0628\u0647\u200C\u062A\u0646\u0647\u0627\u06CC\u06CC \u0639\u0644\u062A \u06A9\u0633\u0631 \u06A9\u0627\u0631 \u0646\u06CC\u0633\u062A\u061B \u0627\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0641\u0642\u0637 \u0628\u0627\u0632\u0647\u200C\u0647\u0627\u06CC \u062F\u0627\u0631\u0627\u06CC \u0631\u0648\u06CC\u062F\u0627\u062F \u0635\u0631\u06CC\u062D gps_off \u0631\u0627 \u0646\u0634\u0627\u0646 \u0645\u06CC\u200C\u062F\u0647\u062F.")))),
         conversionModal && React.createElement(AttendanceConversionModal, { userId: uid, mode: conversionModal.mode, jdate: conversionModal.jdate, minutes: conversionModal.minutes, day: conversionModal.day, onSaved: async () => { setConversionModal(null); await refresh(); }, onClose: () => setConversionModal(null) }),
         openDay && data && (() => {
