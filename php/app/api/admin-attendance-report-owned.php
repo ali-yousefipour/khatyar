@@ -151,6 +151,7 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     $gpsInvalidSeconds=0;
     foreach($gpsDetails as $detail)$gpsInvalidSeconds+=max(0,strtotime($detail['end_at'])-strtotime($detail['start_at']));
     $day['gps_inactive_minutes']=(int)ceil(max(0,$gpsInvalidSeconds)/60);
+    if(isset($day['data']) && is_array($day['data']))$day['data']['gps_inactive_minutes']=$day['gps_inactive_minutes'];
     $day['gps_inactive_details']=$gpsDetails;
     $day['punches'] = $punches;
     $day['in_shift'] = $hm($w['in_shift'] ?? 0);
@@ -171,5 +172,11 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     $day['absence_shortage'] = $hm((int)($w['shortage'] ?? 0));
   }
   unset($day);
+  $gpsMinutesTotal=0;
+  foreach(($report['days']??[]) as $entry)$gpsMinutesTotal+=max(0,(int)($entry['gps_inactive_minutes']??0));
+  foreach(['totals','work_totals','summary'] as $section){
+    if(isset($report[$section]) && is_array($report[$section]) && array_key_exists('gps_inactive_minutes',$report[$section]))
+      $report[$section]['gps_inactive_minutes']=$gpsMinutesTotal;
+  }
   return $report;
 }
