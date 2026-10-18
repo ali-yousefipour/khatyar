@@ -28,3 +28,31 @@ function gps_work_explicit_off_intervals(array $events, int $fromTs, int $toTs, 
   }
   return $merged;
 }
+
+
+/**
+ * Administrative waivers never erase device GPS evidence.
+ * Only an exact matched calculated deduction range can be waived.
+ */
+function gps_work_waiver_schema(): void {
+  Db::run("CREATE TABLE IF NOT EXISTS gps_work_waivers (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    start_at DATETIME NOT NULL,
+    end_at DATETIME NOT NULL,
+    reason VARCHAR(500) NOT NULL,
+    actor_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_waiver (user_id,start_at,end_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+function gps_work_waived_ranges(int $userId, string $day): array {
+  gps_work_waiver_schema();
+  return Db::all("SELECT start_at,end_at FROM gps_work_waivers WHERE user_id=? AND start_at>=? AND start_at<?",
+    [$userId,$day.' 00:00:00',date('Y-m-d H:i:s',strtotime($day.' +1 day'))]);
+}
+function gps_work_is_waived(int $userId, string $start, string $end): bool {
+  foreach(gps_work_waived_ranges($userId,substr($start,0,10)) as $w)
+    if((string)$w['start_at']===$start && (string)$w['end_at']===$end)return true;
+  return false;
+}
