@@ -185,7 +185,7 @@ const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   h: { fontFamily: FONT.bold, fontSize: 16, color: C.ink, textAlign: 'right', marginBottom: 12 },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 30 },
-  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 13, padding: 16, marginBottom: 10 },
+  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 18, padding: 17, marginBottom: 10 },
   cardTitle: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right' },
   cardSub: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', marginTop: 3 },
   label: { fontFamily: FONT.regular, color: C.muted, fontSize: 13, marginBottom: 6, textAlign: 'right' },
