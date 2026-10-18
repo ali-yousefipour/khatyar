@@ -6912,108 +6912,56 @@ function ShiftReport(){
 
 // تنظیم پایهٔ حقوق و مشاهدهٔ فیش حقوقی یک کاربر
 function PayrollEditor({userId,userName}){
-  const tj=todayJ();
-  const [open,setOpen]=useState(false); const [base,setBase]=useState(null);
-  const [jy,setJy]=useState(tj[0]); const [jm,setJm]=useState(tj[1]); const [slip,setSlip]=useState(null);
-  const [company,setCompany]=useState({});
-  const load=()=>{ setOpen(true); db.userPayroll(userId).then(setBase).catch(()=>setBase({})); db.settings().then(s=>setCompany(s||{})).catch(()=>{}); };
-  const set=(k,val)=>setBase(b=>({...b,[k]:val}));
-  const saveBase=async()=>{ await db.saveUserPayroll(userId,base); alert("پایهٔ حقوق ذخیره شد."); };
-  const calc=async()=>{ const s=await db.userPayslip(userId,jy,jm); setSlip(s); };
-  const money=(n)=>fa(Number(n||0).toLocaleString("en-US"));
-  if(!userId) return null;
-  const F=(k,l)=><div style={{minWidth:130}}><label className="label">{l}</label><input className="input" type="number" style={{maxWidth:150}} value={base?.[k]??""} onChange={e=>set(k,e.target.value)}/></div>;
-  const printSlip=()=>{
-    if(!slip) return;
-    const comp=company.company_name||company.org_name||"شرکت";
-    const addr=company.company_address||""; const phone=company.company_phone||"";
-    const rows=(obj,cls)=>Object.entries(obj).filter(([,v])=>v).map(([k,v])=>`<tr><td>${k}</td><td class="${cls}">${Number(v).toLocaleString("en-US")}</td></tr>`).join("");
-    const html=`<!doctype html><html dir="rtl" lang="fa"><head><meta charset="utf-8"><title>فیش حقوقی</title>
-<style>
-@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
-*{font-family:Vazirmatn,Tahoma,sans-serif;box-sizing:border-box}
-body{margin:0;padding:24px;color:#1a2b3c;background:#fff}
-.sheet{max-width:760px;margin:0 auto;border:2px solid #0d7a5f;border-radius:14px;overflow:hidden}
-.head{background:#0d7a5f;color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
-.head h1{margin:0;font-size:20px}
-.head .c{font-size:13px;opacity:.95;text-align:left}
-.title{text-align:center;font-size:17px;font-weight:700;padding:14px;background:#e7f3ee;color:#0d7a5f}
-.meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:14px 22px;font-size:13px;border-bottom:1px dashed #cbd5e1}
-.meta b{color:#0d7a5f}
-.cols{display:flex;gap:0;flex-wrap:wrap}
-.col{flex:1;min-width:280px;padding:14px 22px}
-.col h3{margin:0 0 8px;font-size:14px;border-bottom:2px solid #0d7a5f;padding-bottom:6px}
-table{width:100%;border-collapse:collapse;font-size:13px}
-td{padding:7px 4px;border-bottom:1px solid #eef1f4}
-.earn{color:#0d7a5f;text-align:left;font-variant-numeric:tabular-nums}
-.ded{color:#d63b54;text-align:left;font-variant-numeric:tabular-nums}
-.sum td{font-weight:700;border-top:2px solid #0d7a5f}
-.net{background:#0d7a5f;color:#fff;text-align:center;padding:16px;font-size:18px;font-weight:700}
-.foot{padding:12px 22px;font-size:11px;color:#64748b;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
-.work{padding:10px 22px;font-size:12px;color:#475569;background:#f8fafc;display:flex;gap:18px;flex-wrap:wrap}
-@media print{body{padding:0}.sheet{border:none}}
-</style></head><body>
-<div class="sheet">
-  <div class="head"><h1>${comp}</h1><div class="c">${addr?addr+"<br>":""}${phone?"تلفن: "+phone:""}</div></div>
-  <div class="title">فیش حقوقی ${J_MONTHS[jm-1]} ${jy}</div>
-  <div class="meta"><span>نام و نام خانوادگی: <b>${userName||"-"}</b></span><span>ماه: <b>${J_MONTHS[jm-1]} ${jy}</b></span><span>نرخ هر ساعت: <b>${Number(slip.hour_rate||0).toLocaleString("en-US")}</b> ریال</span></div>
-  <div class="work"><span>کارکرد: ${slip.worked_h} ساعت</span><span>اضافه‌کار: ${slip.ot_h} ساعت</span><span>شب‌کاری: ${slip.night_h} ساعت</span><span>جمعه‌کاری: ${slip.friday_h} ساعت</span><span>تعطیل‌کاری: ${slip.holiday_h} ساعت</span></div>
-  <div class="cols">
-    <div class="col"><h3>دریافتی‌ها</h3><table>${rows(slip.earnings,"earn")}<tr class="sum"><td>جمع دریافتی</td><td class="earn">${Number(slip.gross).toLocaleString("en-US")}</td></tr></table></div>
-    <div class="col"><h3>کسورات</h3><table>${rows(slip.deductions,"ded")}<tr class="sum"><td>جمع کسورات</td><td class="ded">${Number(slip.total_deduct).toLocaleString("en-US")}</td></tr></table></div>
-  </div>
-  <div class="net">خالص پرداختی: ${Number(slip.net).toLocaleString("en-US")} ریال</div>
-  <div class="foot"><span>این فیش به‌صورت سیستمی صادر شده است.</span><span>تاریخ صدور: ${tj[0]}/${String(tj[1]).padStart(2,"0")}/${String(tj[2]).padStart(2,"0")}</span></div>
-</div>
-<`+`script>window.onload=function(){setTimeout(function(){window.print();},600);}<`+`/script>
-
-<!-- SalarySlipAdminModule: ماژول فیش حقوقی PDF
-مسیرهای API افزوده‌شده:
-GET  /api/admin/salary-slips/users?q=
-GET  /api/admin/users/{id}/salary-slips
-POST /api/admin/users/{id}/salary-slips  multipart: period_jy, period_jm, title, file
-DELETE /api/admin/salary-slips/{id}
--->
-</body></html>`;
-    const w=window.open("","_blank");
-    if(!w){ alert("پنجرهٔ چاپ مسدود شد. لطفاً اجازهٔ باز شدن پنجره را بدهید."); return; }
-    w.document.write(html); w.document.close();
-  };
-  return(<div style={{marginTop:10,paddingTop:10,borderTop:"1px solid var(--line)"}}>
-    {!open?<button className="btn g" type="button" onClick={load}>حقوق و دستمزد و فیش حقوقی</button>:
-    <div>
-      <b style={{fontSize:13}}>پایهٔ حقوق (ریال):</b>
-      <div className="row" style={{gap:8,flexWrap:"wrap",marginTop:8}}>
-        {F("base_monthly","حقوق پایهٔ ماهانه")}{F("housing","حق مسکن")}{F("family","حق خانوار")}{F("food","بن/خواربار")}{F("other_allow","سایر مزایا")}
-      </div>
-      <div className="row" style={{gap:8,flexWrap:"wrap",marginTop:8}}>
-        {F("insurance_pct","درصد بیمه")}{F("tax_pct","درصد مالیات")}{F("other_deduct","سایر کسورات")}
-      </div>
-      <button className="btn p" style={{marginTop:10}} onClick={saveBase}>ذخیرهٔ پایهٔ حقوق</button>
-      <div style={{marginTop:14,paddingTop:12,borderTop:"1px dashed var(--line)"}}>
-        <div className="row" style={{gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
-          <div><label className="label">ماه</label><select className="input" style={{maxWidth:120}} value={jm} onChange={e=>setJm(+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>
-          <div><label className="label">سال</label><input className="input" type="number" style={{maxWidth:90}} value={jy} onChange={e=>setJy(+e.target.value||tj[0])}/></div>
-          <button className="btn p" onClick={calc}>محاسبهٔ فیش حقوقی</button>
-          {slip&&<button className="btn g" onClick={printSlip}>🖨 چاپ فیش / PDF</button>}
-        </div>
-        {slip&&<div className="card-p" style={{marginTop:12}}>
-          <div className="row" style={{gap:14,flexWrap:"wrap",fontSize:12,color:"var(--muted)",marginBottom:8}}>
-            <span>کارکرد: {fa(slip.worked_h)} ساعت</span><span>اضافه‌کار: {fa(slip.ot_h)} ساعت</span><span>شب‌کاری: {fa(slip.night_h)}</span><span>نرخ ساعت: {money(slip.hour_rate)}</span>
-          </div>
-          <table style={{fontSize:12,width:"100%"}}><tbody>
-            {Object.entries(slip.earnings).filter(([,val])=>val).map(([k,val])=><tr key={k}><td>{k}</td><td style={{textAlign:"left",color:"var(--ok)"}}>{money(val)}</td></tr>)}
-            <tr style={{borderTop:"1px solid var(--line)",fontWeight:700}}><td>جمع دریافتی</td><td style={{textAlign:"left"}}>{money(slip.gross)}</td></tr>
-            {Object.entries(slip.deductions).filter(([,val])=>val).map(([k,val])=><tr key={k}><td>{k}</td><td style={{textAlign:"left",color:"var(--danger)"}}>−{money(val)}</td></tr>)}
-            <tr style={{borderTop:"2px solid var(--brand)",fontWeight:700,fontSize:14}}><td>خالص پرداختی</td><td style={{textAlign:"left",color:"var(--brand)"}}>{money(slip.net)} ریال</td></tr>
-          </tbody></table>
-        </div>}
-      </div>
-    </div>}
-  </div>);
+ const [open,setOpen]=useState(false),[base,setBase]=useState(null),[records,setRecords]=useState([]),[selected,setSelected]=useState(''),[detail,setDetail]=useState(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+ const fields=[['base_monthly','حقوق پایهٔ ماهانه'],['housing','حق مسکن'],['family','حق خانوار'],['food','بن/خواربار'],['other_allow','سایر مزایا'],['insurance_pct','درصد بیمه'],['tax_pct','درصد مالیات'],['other_deduct','سایر کسورات']];
+ const latest=async()=>{
+  setBusy(true);setMessage('');
+  try{
+   const existing=await db.userPayroll(userId);setBase(existing||{});
+   const response=await GET('/admin/payroll?'+new URLSearchParams({user_id:userId,page:1}));
+   const rows=(response.rows||[]).filter(row=>Number(row.user_id)===Number(userId));
+   setRecords(rows);
+   if(rows.length){
+    const first=await GET('/admin/payroll/'+rows[0].id);
+    const d=first.row?.data||{};
+    const monthly=Number(d.monthly_wage||0);
+    const patch={base_monthly:monthly,housing:Number(d.housing||0),family:Number(d.marriage||0)+Number(d.child_allowance||0),food:Number(d.food||0),other_allow:Number(d.other||0),other_deduct:Number(d.advance||0),insurance_pct:monthly?Number((100*Number(d.insurance||0)/monthly).toFixed(3)):0,tax_pct:monthly?Number((100*Number(d.tax||0)/monthly).toFixed(3)):0};
+    // Preserve values if the imported company row does not provide a meaningful denominator.
+    if(!monthly){delete patch.insurance_pct;delete patch.tax_pct;}
+    const merged={...(existing||{}),...patch};
+    await db.saveUserPayroll(userId,merged);setBase(merged);
+    setMessage('مقادیر از جدیدترین فیش شرکت خوانده و ذخیره شد. درصدهای بیمه و مالیات برآورد نسبت به حقوق ماهانه هستند.');
+   }else setMessage('برای این کاربر هنوز فیش تطبیق‌یافته‌ای در فایل شرکت موجود نیست.');
+  }catch(e){setMessage(e.message||'دریافت اطلاعات حقوق ممکن نشد.')}finally{setBusy(false);}
+ };
+ const show=async()=>{if(!selected)return;setBusy(true);try{const row=await GET('/admin/payroll/'+selected);if(Number(row.row?.user_id)!==Number(userId))throw Error('فیش انتخاب‌شده متعلق به این کاربر نیست.');setDetail(row);}catch(e){setMessage(e.message||'دریافت فیش ناموفق بود.')}finally{setBusy(false)}};
+ const save=async()=>{try{await db.saveUserPayroll(userId,base);setMessage('اطلاعات پایهٔ حقوق ذخیره شد.')}catch(e){setMessage(e.message||'ذخیره ناموفق بود.')}};
+ if(!userId)return null;
+ return <div className="card-p" style={{marginTop:12}}>
+  <button type="button" className="btn g" onClick={()=>{setOpen(!open);if(!open)latest()}}>حقوق و دستمزد و فیش حقوقی</button>
+  {open&&<div style={{marginTop:14}}>
+   <div className="row" style={{justifyContent:'space-between',gap:12,flexWrap:'wrap'}}><b>پایهٔ حقوق (ریال) — {userName}</b><button className="btn" disabled={busy} onClick={latest}>به‌روزرسانی از آخرین فایل شرکت</button></div>
+   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12,marginTop:12}}>
+    {fields.map(([key,title])=><label key={key} style={{display:'flex',flexDirection:'column',gap:6}}>{title}<input className="input" type="number" value={base?.[key]??''} onChange={e=>setBase(old=>({...old,[key]:e.target.value}))}/></label>)}
+   </div>
+   <button className="btn p" style={{marginTop:12}} disabled={!base||busy} onClick={save}>ذخیره اطلاعات حقوق</button>
+   <div style={{borderTop:'1px solid var(--line)',paddingTop:14,marginTop:16}}>
+    <b>مشاهده فیش حقوقی ثبت‌شده شرکت</b>
+    <p className="muted">فیش از فایل بارگذاری‌شده شرکت خوانده می‌شود؛ محاسبه مجدد انجام نمی‌شود.</p>
+    <div className="row" style={{gap:10,flexWrap:'wrap'}}>
+     <select className="input" aria-label="انتخاب سال و ماه فیش" value={selected} onChange={e=>{setSelected(e.target.value);setDetail(null)}}>
+      <option value="">انتخاب سال و ماه</option>{records.map(row=><option key={row.id} value={row.id}>{row.period_jy} / {String(row.period_jm).padStart(2,'0')}</option>)}
+     </select>
+     <button className="btn p" disabled={!selected||busy} onClick={show}>مشاهده فیش</button>
+     {detail&&<button className="btn" onClick={()=>payrollPrint(detail.row.id)}>چاپ فیش A5</button>}
+    </div>
+    {detail&&<div style={{maxHeight:350,overflow:'auto',marginTop:12}}><table className="tbl"><tbody>{detail.fields.map((key,index)=><tr key={key}><td>{detail.labels[index]}</td><td>{detail.row.data[key]??'—'}</td></tr>)}</tbody></table></div>}
+   </div>
+   {message&&<p role="status" className="muted">{message}</p>}
+  </div>}
+ </div>;
 }
 
-// ویرایش مقادیر فیلدهای سفارشی یک کاربر (توسط ادمین)
 function UserCustomValues({userId}){
   const [open,setOpen]=useState(false); const [fields,setFields]=useState(null); const [vals,setVals]=useState({});
   const load=()=>{ setOpen(true); db.userCustomValues(userId).then(fs=>{ setFields(fs); const m={}; fs.forEach(f=>{ m[f.id]= f.ftype==="multiselect" ? (f.value?f.value.split("|"):[]) : (f.value||""); }); setVals(m); }).catch(()=>setFields([])); };
