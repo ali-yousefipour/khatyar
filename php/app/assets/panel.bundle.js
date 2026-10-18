@@ -11111,8 +11111,8 @@ function AttendanceReport() {
                                                 React.createElement("div", { style: { fontSize: 10, color: "var(--muted)", marginTop: 3 } },
                                                     "\u0634\u0627\u0647\u062F: ",
                                                     r.evidence || "—")),
-                                            React.createElement("td", null,
-                                                React.createElement("button", { type: "button", className: "btn d", onClick: async () => {
+                                            React.createElement("td", { style: { minWidth: 170, textAlign: "center" } },
+                                                React.createElement("button", { type: "button", className: "btn d", style: { display: "inline-flex", justifyContent: "center", alignItems: "center", background: "#b42318", color: "#fff", border: "1px solid #912018", fontWeight: 800, padding: "9px 12px", whiteSpace: "nowrap", cursor: "pointer" }, "aria-label": "\u062D\u0630\u0641 \u0648 \u0628\u06CC\u200C\u0627\u062B\u0631 \u06A9\u0631\u062F\u0646 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u06A9\u0633\u0631 \u06A9\u0627\u0631 GPS", onClick: async () => {
                                                         const reason = prompt("دلیل لغو این بازه کسر کار را وارد کنید (در سوابق مدیریتی ثبت می‌شود):", "");
                                                         if (reason === null)
                                                             return;
