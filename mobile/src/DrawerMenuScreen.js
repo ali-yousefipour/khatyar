@@ -3,6 +3,7 @@ import { Alert, Image, Modal, Platform, ScrollView, StyleSheet, Text, TouchableO
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { DrawerActions } from '@react-navigation/native';
 import { C, FONT } from './theme';
 import { useAuth } from './auth';
@@ -11,12 +12,12 @@ import { pending as pendingOfflineQueue } from './offline';
 import { subscribeUnreadCounts, refreshUnreadCounts, unreadLabel } from './unread';
 
 const ITEMS = [
-  ['Notifications', 'اعلان‌ها', '🔔'],
-  ['Messages', 'پیام‌ها', '💬'],
-  ['WorkSummary', 'کارکرد من', '📊'],
-  ['Profile', 'حساب کاربری', '👤'],
-  ['Settings', 'تنظیمات', '⚙️'],
-  ['Help', 'راهنمای برنامه، ورژن و اطلاعات سازنده', '❓'],
+  ['Notifications', 'اعلان‌ها', 'bell-outline'],
+  ['Messages', 'پیام‌ها', 'message-text-outline'],
+  ['WorkSummary', 'کارکرد من', 'chart-timeline-variant'],
+  ['Profile', 'حساب کاربری', 'account-circle-outline'],
+  ['Settings', 'تنظیمات', 'cog-outline'],
+  ['Help', 'راهنمای برنامه، ورژن و اطلاعات سازنده', 'help-circle-outline'],
 ];
 
 function normRole(value) {
@@ -176,15 +177,15 @@ export default function DrawerMenuScreen({ navigation }) {
 
   const items = [
     ...ITEMS,
-    ...(schoolServiceAllowed ? [['SchoolService', 'سرویس مدارس', '🏫']] : []),
-    ['SendQueue', 'صف ارسال' + (queueCount ? ` (${queueCount})` : ''), '📤'],
-    ['InboxReports', 'گزارشات دریافتی', '📥'],
+    ...(schoolServiceAllowed ? [['SchoolService', 'سرویس مدارس', 'school-outline']] : []),
+    ['SendQueue', 'صف ارسال' + (queueCount ? ` (${queueCount})` : ''), 'cloud-upload-outline'],
+    ['InboxReports', 'گزارشات دریافتی', 'inbox-arrow-down-outline'],
     ...(vehicleAllowed ? [[
       'PersonnelVehicleAsset',
       assetType === 'motorcycle' ? 'ویرایش اطلاعات موتورسیکلت' : 'ویرایش اطلاعات خودرو',
-      assetType === 'motorcycle' ? '🏍️' : '🚗',
+      assetType === 'motorcycle' ? 'motorbike' : 'car-outline',
     ]] : []),
-    ...(access?.checklist_allowed ? [['PersonnelVehicleChecklist', 'چک‌لیست خودرویی و موتوری', '☑️']] : []),
+    ...(access?.checklist_allowed ? [['PersonnelVehicleChecklist', 'چک‌لیست خودرویی و موتوری', 'clipboard-check-outline']] : []),
   ];
 
   return (
@@ -196,12 +197,12 @@ export default function DrawerMenuScreen({ navigation }) {
       <ScrollView persistentScrollbar={true} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {items.map(([route, title, glyph]) => (
           <TouchableOpacity key={route} style={s.item} onPress={() => { if (route === 'SendQueue') return onQueue(); go(route); if (route === 'Messages' || route === 'InboxReports' || route === 'Notifications') refreshUnreadCounts(); }} activeOpacity={0.82} accessibilityRole="button">
-            <View style={s.icon}><Text style={s.iconText}>{glyph}</Text>{(route === 'Messages' && unread.messages > 0) || (route === 'InboxReports' && unread.reports > 0) ? <View style={s.menuBadge}><Text style={s.menuBadgeText}>{unreadLabel(route === 'InboxReports' ? unread.reports : unread.messages)}</Text></View> : null}</View>
-            <View style={s.itemTextWrap}><Text style={s.itemText}>{title}</Text></View><Text style={s.itemChevron}>‹</Text>
+            <View style={s.icon}><MaterialCommunityIcons name={glyph} size={23} color={C.brand} />{(route === 'Messages' && unread.messages > 0) || (route === 'InboxReports' && unread.reports > 0) ? <View style={s.menuBadge}><Text style={s.menuBadgeText}>{unreadLabel(route === 'InboxReports' ? unread.reports : unread.messages)}</Text></View> : null}</View>
+            <View style={s.itemTextWrap}><Text style={s.itemText}>{title}</Text></View><MaterialCommunityIcons name="chevron-left" size={22} color={C.muted} style={s.itemChevron} />
           </TouchableOpacity>
         ))}
         <TouchableOpacity style={[s.item, s.logoutItem]} onPress={onLogout} activeOpacity={0.82}>
-          <View style={[s.icon, s.logoutIcon]}><Text style={s.iconText}>🚪</Text></View>
+          <View style={[s.icon, s.logoutIcon]}><MaterialCommunityIcons name="logout" size={23} color="#c03935" /></View>
           <View style={s.itemTextWrap}><Text style={[s.itemText, s.logoutText]}>خروج از حساب</Text></View>
         </TouchableOpacity>
       </ScrollView>
@@ -236,14 +237,14 @@ const s = StyleSheet.create({
   profileTextWrap: { flex: 1, minWidth: 0, alignItems: 'flex-end' },
   profileName: { width: '100%', color: '#fff', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
   profileRole: { width: '100%', color: '#dcefe9', fontFamily: FONT.regular, fontSize: 10, textAlign: 'right', writingDirection: 'rtl', marginTop: 3 },
-  content: { padding: 14, paddingBottom: 30 },
-  item: { minHeight: 66, width: '100%', backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 18, marginBottom: 10, paddingHorizontal: 12, flexDirection: 'row-reverse', alignItems: 'center', shadowColor: '#17352f', shadowOpacity: 0.035, shadowRadius: 7, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
-  icon: { width: 42, height: 42, position: 'relative', borderRadius: 14, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center', marginLeft: 11 },
+  content: { paddingHorizontal: 14, paddingTop: 18, paddingBottom: 32 },
+  item: { minHeight: 64, width: '100%', backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 16, marginBottom: 8, paddingHorizontal: 12, flexDirection: 'row-reverse', alignItems: 'center', shadowColor: '#17352f', shadowOpacity: 0.045, shadowRadius: 7, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  icon: { width: 44, height: 44, position: 'relative', borderRadius: 13, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center', marginLeft: 11 },
   menuBadge: { position: 'absolute', top: -5, right: -7, minWidth: 18, height: 18, paddingHorizontal: 3, borderRadius: 9, backgroundColor: '#e53935', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   menuBadgeText: { color: '#fff', fontFamily: FONT.bold, fontSize: 8, lineHeight: 10, textAlign: 'center', writingDirection: 'rtl' },
   iconText: { color: C.brand, fontSize: 18, fontFamily: FONT.bold, textAlign: 'center' },
   itemTextWrap: { flex: 1, minWidth: 0, alignSelf: 'stretch', alignItems: 'flex-end', justifyContent: 'center' },
-  itemText: { width: '100%', color: C.ink, fontFamily: FONT.bold, fontSize: 14, lineHeight: 21, textAlign: 'right', writingDirection: 'rtl' },
+  itemText: { width: '100%', color: C.ink, fontFamily: FONT.bold, fontSize: 13, lineHeight: 21, textAlign: 'right', writingDirection: 'rtl' },
   itemChevron: { color: C.muted, fontFamily: FONT.bold, fontSize: 22, marginRight: 8 },
   logoutItem: { marginTop: 14, borderColor: '#e3403e' },
   logoutIcon: { backgroundColor: '#fde8e7' },
