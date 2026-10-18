@@ -50,15 +50,19 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     $next = date('Y-m-d', strtotime($g.' +1 day'));
 
     $owned = Db::all(
-      "SELECT id,check_in,check_out FROM staff_attendance WHERE user_id=? AND check_in>=? AND check_in<? ORDER BY check_in ASC,id ASC",
+      "SELECT id,check_in,check_out,method FROM staff_attendance WHERE user_id=? AND check_in>=? AND check_in<? ORDER BY check_in ASC,id ASC",
       [$userId,$g.' 00:00:00',$next.' 00:00:00']
     );
     $ownedIds = [];
-    foreach ($owned as $r) $ownedIds[(int)$r['id']] = true;
+    foreach ($owned as $r) $ownedIds[(int)$r['id']] = $r;
 
     $punches = [];
     foreach (($day['punches'] ?? []) as $p) {
-      if (isset($ownedIds[(int)($p['id'] ?? 0)])) $punches[] = $p;
+      if (isset($ownedIds[(int)($p['id'] ?? 0)])) {
+        $record=$ownedIds[(int)$p['id']];
+        if(empty($p['method']))$p['method']=$record['method']??null;
+        $punches[]=$p;
+      }
     }
 
     $sessions = [];
