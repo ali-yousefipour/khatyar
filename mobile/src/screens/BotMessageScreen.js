@@ -211,7 +211,7 @@ export default function BotMessageScreen() {
 }
 
 const s = StyleSheet.create({
-  creditBox: { backgroundColor: '#eef4ff', borderRadius: 10, padding: 11, marginBottom: 12 },
+  creditBox: { backgroundColor: '#eef4ff', borderRadius: 14, padding: 14, marginBottom: 12 },
   creditTxt: { fontFamily: FONT.bold, color: '#1b4bb5', fontSize: 12.5, textAlign: 'right', marginBottom: 2 },
   limitTxt: { fontFamily: FONT.regular, color: '#c26b00', fontSize: 12, textAlign: 'right', marginTop: 2 },
   monthTxt: { fontFamily: FONT.regular, color: '#888', fontSize: 11, textAlign: 'right', marginTop: 2 },
@@ -228,7 +228,7 @@ const s = StyleSheet.create({
   pickToggleTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 13, flex: 1, textAlign: 'right' },
   tplRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
   catLabel: { fontFamily: FONT.bold, fontSize: 12, color: C.brand, textAlign: 'right', marginBottom: 4, marginTop: 2 },
-  tpl: { backgroundColor: '#e7f3ee', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14 },
+  tpl: { backgroundColor: '#e7f3ee', borderRadius: 13, paddingVertical: 11, paddingHorizontal: 14 },
   tplTxt: { fontFamily: FONT.bold, color: C.brand, fontSize: 13 },
   selRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
   clear: { fontFamily: FONT.regular, color: C.danger, fontSize: 12, marginTop: 14 },
