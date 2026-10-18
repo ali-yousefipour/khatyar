@@ -2743,7 +2743,7 @@ function Zones() {
         current = zones.find(item => +item.id === +current.parent_id);
     } return false; };
     const ordered = zones.slice().sort((left, right) => pathFor(left).localeCompare(pathFor(right), 'fa'));
-    const reload = async () => { const [nextUsers, nextZones] = await Promise.all([db.users(), db.zones()]); setUsers(nextUsers); setZones(nextZones); };
+    const reload = async () => { const [nextUsers, nextZones] = await Promise.all([db.users(), db.zones()]); setUsers(nextUsers.filter(u => Number(u.is_active) === 1)); setZones(nextZones); };
     useEffect(() => { reload().catch(failure => setError(failure.message || 'بارگذاری مناطق انجام نشد.')); }, []);
     const mutate = async (action) => { if (mutation.current)
         return; mutation.current = true; setBusy(true); setError(""); try {
@@ -2788,7 +2788,20 @@ function Zones() {
             React.createElement("div", null,
                 "\u0628\u0627\u0632\u0631\u0633\u200C\u0647\u0627: ",
                 (zone.inspector_ids || []).length ? zone.inspector_ids.map(userName).join('، ') : 'پیش‌فرض منطقه / منطقهٔ والد')); })(),
-        users.filter(u => zid == null ? !u.zone_id : +u.zone_id === +zid).map(Card));
+        users.filter(u => Number(u.is_active) === 1 && (zid == null ? !u.zone_id : +u.zone_id === +zid)).map(Card));
+    const zoneTree = (() => {
+        const seen = new Set();
+        const renderBranch = (parentId, depth = 0) => zones.filter(z => String(z.parent_id || '') === String(parentId || '') && !seen.has(+z.id)).sort((a, b) => a.name.localeCompare(b.name, 'fa')).map(z => {
+            seen.add(+z.id);
+            return React.createElement("div", { key: z.id, style: { marginRight: depth ? 20 : 0, borderRight: depth ? '2px solid var(--line)' : 'none', paddingRight: depth ? 10 : 0, marginTop: 10 } },
+                Col(z.name, z.id),
+                renderBranch(z.id, depth + 1));
+        });
+        const roots = renderBranch(null);
+        return React.createElement(React.Fragment, null,
+            roots,
+            zones.filter(z => !seen.has(+z.id)).map(z => React.createElement("div", { key: z.id }, Col(z.name, z.id))));
+    })();
     return (React.createElement("div", { className: "panel" },
         React.createElement("h3", null,
             "\u0645\u0646\u0637\u0642\u0647\u200C\u0628\u0646\u062F\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u2014 \u06A9\u0627\u0631\u062A\u200C\u0647\u0627 \u0631\u0627 \u062F\u0631 \u0645\u0646\u0637\u0642\u0647\u0654 \u0645\u0648\u0631\u062F\u0646\u0638\u0631 \u0631\u0647\u0627 \u06A9\u0646\u06CC\u062F",
@@ -2801,7 +2814,7 @@ function Zones() {
         error && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } }, error),
         React.createElement("div", { className: "org" },
             Col("بدون منطقه", null),
-            ordered.map(z => Col(z.name, z.id))),
+            zoneTree),
         leadership && React.createElement(Modal, { title: 'مسئولان ' + pathFor(leadership), onClose: () => { if (!busy)
                 setLeadership(null); } },
             React.createElement("p", { className: "muted" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0645\u0633\u0626\u0648\u0644\u060C \u0645\u0646\u0637\u0642\u0647\u0654 \u0639\u0636\u0648\u06CC\u062A \u0646\u06CC\u0631\u0648 \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0645\u06CC\u200C\u062F\u0647\u062F. \u0627\u0646\u062A\u062E\u0627\u0628 \u062E\u0627\u0644\u06CC\u060C \u0686\u0627\u0631\u062A \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u0645\u0646\u0637\u0642\u0647 \u0648 \u0646\u0632\u062F\u06CC\u06A9\u200C\u062A\u0631\u06CC\u0646 \u0648\u0627\u0644\u062F \u0631\u0627 \u062D\u0641\u0638 \u0645\u06CC\u200C\u06A9\u0646\u062F."),
@@ -2862,7 +2875,7 @@ function OrgChart() {
     const [fitKey, setFitKey] = useState(0);
     const viewport = useRef(null);
     const lastCanvas = useRef({ w: 0, h: 0 });
-    const reload = () => db.orgChart().then(next => { setError(""); setData({ users: next.users || [], edges: next.edges || [], default_edges: next.default_edges || [], zones: next.zones || [] }); }).catch(failure => setError(failure.message || 'بارگذاری چارت انجام نشد.'));
+    const reload = () => db.orgChart().then(next => { setError(""); setData({ users: (next.users || []).filter(u => Number(u.is_active) === 1), edges: next.edges || [], default_edges: next.default_edges || [], zones: next.zones || [] }); }).catch(failure => setError(failure.message || 'بارگذاری چارت انجام نشد.'));
     useEffect(() => { reload(); }, []);
     const users = data.users, edges = mode === "regional" ? data.default_edges : data.edges;
     const byId = Object.fromEntries(users.map(u => [+u.id, u]));
