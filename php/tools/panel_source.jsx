@@ -6458,8 +6458,13 @@ function AttendanceReport(){
     const {ins,outs}=punchTimes(d);
     if(k==="in")return n(d&&((d.in??d.first_in??d.first_entry)))||ins[0]||"--:--";
     if(k==="out")return n(d&&((d.out??d.last_out??d.last_exit)))||(outs.length?outs[outs.length-1]:"--:--");
-    if(k==="in_station")return ((d.punches||[]).find(p=>p&&p.in_station)||{}).in_station||"—";
-    if(k==="out_station")return (((d.punches||[]).slice().reverse().find(p=>p&&p.out_station))||{}).out_station||"—";
+    if(k==="in_station"||k==="out_station"){
+      const punch=k==="in_station"?(d.punches||[]).find(p=>p&&(p.in_station||p.method)):((d.punches||[]).slice().reverse().find(p=>p&&(p.out_station||p.method)));
+      const station=String(punch?.[k]||d?.[k]||"—");
+      const method=String((k==="in_station"?(punch?.check_in_method||punch?.in_method):(punch?.check_out_method||punch?.out_method))||punch?.method||d?.method||"").toLowerCase();
+      const label=method.includes("wifi")||method.includes("wi-fi")?"Wi-Fi":method.includes("gps")?"GPS":method.includes("manual")||method.includes("admin")?"ثبت دستی":method.includes("qr")?"QR":method.includes("nfc")?"NFC":method.includes("bluetooth")?"Bluetooth":"";
+      return station+(label?" ("+label+")":"");
+    }
     if(k==="first_in")return n(d.first_in)||ins[0]||"--:--";
     if(k==="last_out")return n(d.last_out)||(outs.length?outs[outs.length-1]:"--:--");
     if(k==="gps_inactive_minutes")return hm(d.gps_inactive_minutes||0);
@@ -6520,16 +6525,22 @@ function AttendanceReport(){
       <table className="khar-attendance-native" style={{fontSize:12,width:"max-content",tableLayout:"auto",borderCollapse:"separate",borderSpacing:0}}>
         <thead><tr>{selectedColumns.map(([title],i)=><th key={title} style={{whiteSpace:"normal",overflowWrap:"anywhere",maxWidth:180,minWidth:64,position:"sticky",top:0,zIndex:3,background:"#eaf5f0",borderBottom:"2px solid #0d7a5f",borderInlineStart:"1px solid #d7e5dd",padding:"10px 8px",verticalAlign:"middle"}}>{title}</th>)}</tr></thead>
         <tbody>{(data.days||[]).map((d,rowIndex)=>{
-          const red=!!d.is_holiday||!!d.is_friday||d.weekday==="جمعه";
+          const friday=!!d.is_friday||d.weekday==="جمعه";
+          const holiday=!!d.is_holiday;
+          const red=friday||holiday;
           return <tr key={d.jdate} style={{background:rowIndex%2===0?"#fff":"#f0f8f3"}}>
             {selectedColumns.map((col,i)=>{
               const title=col[0];
               const getter=col[1];
+              const isDeficit=["کسری کار","غیبت","جمع غیبت و کسری کار","تهاتر کسری کار"].includes(title);
+              const isGpsDeficit=title==="کسر کار غیر فعال کردن برنامه";
+              const deficitActive=title==="غیبت"?Number(d.absent||0)>0:mins(getter(d))>0;
+              const cellColor=isGpsDeficit&&deficitActive?"#1764cf":isDeficit&&deficitActive?"#c62828":friday?"#16803c":holiday?"#c62828":"inherit";
               const fontWeight=(i<2&&red)?700:400;
               const textAlign=["ورود","خروج","اولین ورود","آخرین خروج"].includes(title)?"center":"right";
-              return <td key={title} style={{whiteSpace:"nowrap",color:red?"var(--danger)":"inherit",fontWeight:fontWeight,textAlign:textAlign,padding:"8px",background:rowIndex%2===0?"#fff":"#f0f8f3",borderBottom:"1px solid #e2e9e4",borderInlineStart:"1px solid #e2e9e4",verticalAlign:"middle"}}>
+              return <td key={title} style={{whiteSpace:"nowrap",color:cellColor,fontWeight:fontWeight,textAlign:textAlign,padding:"8px",background:rowIndex%2===0?"#fff":"#f0f8f3",borderBottom:"1px solid #e2e9e4",borderInlineStart:"1px solid #e2e9e4",verticalAlign:"middle"}}>
                 {title==="کسر کار غیر فعال کردن برنامه"&&mins(getter(d))>0
-                  ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,cursor:"pointer",fontWeight:800}} title="نمایش دلایل کسری GPS/برنامه" onClick={()=>setGpsDeficitModal({jdate:d.jdate,minutes:mins(getter(d)),details:Array.isArray(d.gps_inactive_details)?d.gps_inactive_details:[]})}>{attendanceCell(getter(d))}</button>
+                  ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,cursor:"pointer",fontWeight:800,color:"#1764cf"}} title="نمایش دلایل کسری GPS/برنامه" onClick={()=>setGpsDeficitModal({jdate:d.jdate,minutes:mins(getter(d)),details:Array.isArray(d.gps_inactive_details)?d.gps_inactive_details:[]})}>{attendanceCell(getter(d))}</button>
                   : (title==="مازاد حضور"&&mins(d.surplus)>0)||(title==="کسری کار"&&mins(d.shortage)>0)
                     ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,cursor:"pointer",fontWeight:800}} title={title==="مازاد حضور"?"تبدیل مازاد حضور به اضافه‌کار":"تبدیل کسری کار به مرخصی استحقاقی ساعتی"} onClick={()=>setConversionModal({mode:title==="مازاد حضور"?"surplus":"shortage",jdate:d.jdate,minutes:mins(title==="مازاد حضور"?d.surplus:d.shortage),day:d})}>{attendanceCell(getter(d))}</button>
                     : attendanceCell(getter(d))}{title==="تاریخ"&&red&&<span style={{display:"block",fontSize:10}}>تعطیل</span>}
