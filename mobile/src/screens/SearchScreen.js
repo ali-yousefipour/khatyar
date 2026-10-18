@@ -136,7 +136,7 @@ const s = StyleSheet.create({
   plateFlagIR: { color: '#fff', fontFamily: FONT.bold, fontSize: 11 },
   plateFlagIran: { color: '#fff', fontFamily: FONT.bold, fontSize: 12, marginTop: 4 },
   pbox: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 10, padding: 10, width: 58, textAlign: 'center', fontFamily: FONT.bold, color: C.ink },
-  pSelect: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 10, paddingVertical: 10, width: 70, alignItems: 'center' },
+  pSelect: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 13, paddingVertical: 12, width: 70, alignItems: 'center' },
   pSelectTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 15 },
   iran: { fontFamily: FONT.bold, color: C.ink, fontSize: 13 },
   btn: { backgroundColor: C.brand, borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 18 },
