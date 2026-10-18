@@ -108,7 +108,7 @@ async function mountInspectionMap(container,rows){
   const popup='<div dir="rtl" style="font-family:Vazirmatn,Tahoma;min-width:230px"><b>'+esc(r.name||'مدرسه')+'</b><div>ناحیه: '+esc(r.educational_district||'نامشخص')+'</div><div>تعداد بازدید: '+ssvFa(r.inspection_count)+'</div><div>آخرین بازرس: '+esc(r.last_inspector||'نامشخص')+'</div><div>آخرین بازدید: '+esc(r.last_inspection_at||'نامشخص')+'</div><button type="button" class="ssv-row-btn primary" style="margin-top:8px" data-map-inspection-school="'+r.id+'">سوابق بازدید</button></div>';
   marker.bindPopup(popup);const btn=document.createElement('button');btn.type='button';btn.className='ssv-school-pick';btn.innerHTML='<b>'+esc(r.name||'مدرسه')+'</b><div style="font-size:11px;color:#667085;margin-top:3px">'+esc(r.educational_district||'')+' • '+ssvFa(r.inspection_count)+' بازدید</div>';btn.onclick=()=>{map.setView([lat,lng],17);marker.openPopup()};list.appendChild(btn);
  });
- if(!bounds.length)list.innerHTML='<div class="ssv-msg">هیچ مدرسه بازدیدشده‌ای با مختصات جغرافیایی ثبت‌شده پیدا نشد.</div>';else if(bounds.length===1)map.setView(bounds[0],16);else map.fitBounds(bounds,{padding:[25,25],maxZoom:16});
+ if(!bounds.length)list.innerHTML='<div class="ssv-msg">هیچ مدرسه بازدیدشده‌ای با مختصات جغرافیایی ثبت‌شده پیدا نشد.</div>'; // Keep Mashhad as the initial center; school markers and list clicks remain interactive.
  setTimeout(()=>map.invalidateSize(),250);
 }
 function ssvFa(n){return new Intl.NumberFormat('fa-IR').format(Number(n)||0)}
