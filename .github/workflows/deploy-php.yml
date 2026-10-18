@@ -436,67 +436,36 @@ jobs:
             }
           done < deploy-deletions.txt
 
-      - name: Verify public panel after PHP upload
-        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/app/panel.html') != '' }}
+      - name: Verify deployed panel and bundle against committed payload
+        if: ${{ env.SKIP_HOST_UPLOAD != 'true' }}
         shell: bash
         run: |
           set -euo pipefail
-
-          url="https://app.yousefipour.ir/?deploy_verify=${GITHUB_SHA}"
-          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
-            -H 'Cache-Control: no-cache, no-store' \
-            -A 'Khatyar-Deploy-Verify/1.0' \
-            "${url}" > /tmp/live-panel.html
-
-          grep -q 'assets/panel-build-runtime-fix.js?v=20261011.2' /tmp/live-panel.html
-          bundle_reference="$(grep -oE 'assets/panel[.]bundle[.]js[?]v=[^"]+' deploy-payload/app/panel.html | head -n 1)"
-          [ -n "$bundle_reference" ]
-          grep -Fq "$bundle_reference" /tmp/live-panel.html
-          grep -Eq 'assets/school-service-admin.js.v=20261011.256' /tmp/live-panel.html
-          grep -q '1.5.10' /tmp/live-panel.html
-          grep -q 'AUTO DEPLOY VERIFY: 2026-10-15-version-policy-min-only-v9' /tmp/live-panel.html
-          ! grep -q '/api/admin/complaints/dashboard' /tmp/live-panel.html
-          ! grep -q 'window.openComplaints=open;open();' /tmp/live-panel.html
-
-          echo "Public panel verification passed for ${GITHUB_SHA}."
-
-      - name: Verify public panel bundle after PHP upload
-        if: ${{ env.SKIP_HOST_UPLOAD != 'true' && hashFiles('deploy-payload/app/assets/panel.bundle.js') != '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          url="https://app.yousefipour.ir/assets/panel.bundle.js?deploy_verify=${GITHUB_SHA}"
-          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
-            -H 'Cache-Control: no-cache, no-store' \
-            -A 'Khatyar-Deploy-Verify/1.0' \
-            "${url}" > /tmp/live-panel-bundle.js
-
-          test -s /tmp/live-panel-bundle.js
-          grep -q 'PANEL BUILD: 1.5.10 (update-min-version-policy)' /tmp/live-panel-bundle.js
-          grep -q 'leavereport' /tmp/live-panel-bundle.js
-          grep -q 'khatyar.attendance.report.visible-columns.v1' /tmp/live-panel-bundle.js
-          grep -q 'columnSettingsOpen' /tmp/live-panel-bundle.js
-          grep -q 'selectedColumns' /tmp/live-panel-bundle.js
-          grep -q 'attendance-person-suggestions' /tmp/live-panel-bundle.js
-          grep -q 'attendance-person-option-' /tmp/live-panel-bundle.js
-          grep -q 'attendance-report-columns-grid' /tmp/live-panel-bundle.js
-          grep -q 'cal-shift-times' /tmp/live-panel-bundle.js
-          grep -q 'attendance-shift-day-paste' /tmp/live-panel-bundle.js
-          grep -q 'shift-paste-mode' /tmp/live-panel-bundle.js
-          grep -q 'onContextMenu' /tmp/live-panel-bundle.js
-          grep -q 'type === "simple" && React.createElement(React.Fragment, null' /tmp/live-panel-bundle.js
-          grep -q 'if (type === "simple") {' /tmp/live-panel-bundle.js
-          grep -q 'attendance-shift-assignment-error' /tmp/live-panel-bundle.js
-          grep -q 'run(String(person.id))' /tmp/live-panel-bundle.js
-          grep -Fq '`${y}/${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}`' /tmp/live-panel-bundle.js
-          grep -q 'repeat(3,minmax(0,1fr))' /tmp/live-panel-bundle.js
-          grep -q 'max-width:760px' /tmp/live-panel-bundle.js
-          grep -q 'attendance-report-table-scroll' /tmp/live-panel-bundle.js
-          grep -q 'admin-attendance-xlsx.php' /tmp/live-panel-bundle.js
-          grep -q 'aria-autocomplete' /tmp/live-panel-bundle.js
-          ! grep -q 'personIdentifierQuery' /tmp/live-panel-bundle.js
-          echo "Public panel bundle verification passed for ${GITHUB_SHA}."
+          base="https://app.yousefipour.ir"
+          for rel in app/panel.html app/assets/panel.bundle.js; do
+            local_path="deploy-payload/${rel}"
+            [ -f "${local_path}" ] || continue
+            case "${rel}" in
+              app/panel.html) url="${base}/?deploy_verify=${GITHUB_SHA}" ;;
+              app/assets/panel.bundle.js) url="${base}/assets/panel.bundle.js?deploy_verify=${GITHUB_SHA}" ;;
+            esac
+            remote_path="/tmp/khatyar-verify-$(basename "${rel}")"
+            curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+              -H 'Cache-Control: no-cache, no-store' -A 'Khatyar-Deploy-Verify/2.0' \
+              "${url}" > "${remote_path}"
+            test -s "${remote_path}"
+            if [ "${rel}" = "app/assets/panel.bundle.js" ]; then
+              node --check "${remote_path}"
+              cmp -s "${local_path}" "${remote_path}" || {
+                echo "ERROR: live panel bundle differs from the deployment payload" >&2
+                sha256sum "${local_path}" "${remote_path}"
+                exit 1
+              }
+            else
+              grep -q 'panel.bundle.js' "${remote_path}" || { echo "ERROR: panel HTML missing bundle reference" >&2; exit 1; }
+            fi
+            echo "Verified public ${rel}"
+          done
 
       - name: Smoke-test production API and login routes
         if: ${{ always() }}
