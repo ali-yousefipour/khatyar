@@ -121,7 +121,7 @@ const s = StyleSheet.create({
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 40 },
   readAll: { backgroundColor: C.taxi, padding: 10, alignItems: 'center' },
   readAllTxt: { color: C.taxiInk, fontFamily: FONT.bold, fontSize: 12 },
-  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 13, padding: 13, marginBottom: 10 },
+  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 17, padding: 16, marginBottom: 10 },
   delBtn: { alignSelf: 'flex-start', marginTop: 8, backgroundColor: '#ffecec', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10 },
   delTxt: { fontFamily: FONT.bold, color: C.danger, fontSize: 11 },
   unread: { borderRightWidth: 4, borderRightColor: C.danger },
