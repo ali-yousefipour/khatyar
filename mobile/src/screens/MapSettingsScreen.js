@@ -102,7 +102,7 @@ export default function MapSettingsScreen() {
 const s = StyleSheet.create({
   h: { fontFamily: FONT.bold, fontSize: 19, color: CC.ink, textAlign: 'right', marginBottom: 14 },
   section: { fontFamily: FONT.bold, fontSize: 14, color: CC.slate, textAlign: 'right', marginTop: 18, marginBottom: 10 },
-  opt: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, padding: 12, backgroundColor: CC.card, borderRadius: 10, borderWidth: 1, borderColor: CC.line, marginBottom: 8 },
+  opt: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, padding: 15, backgroundColor: CC.card, borderRadius: 15, borderWidth: 1, borderColor: CC.line, marginBottom: 8 },
   optOn: { borderColor: CC.brand, backgroundColor: '#f0faf6' },
   optTxt: { fontFamily: FONT.regular, color: CC.ink, fontSize: 13.5, flex: 1, textAlign: 'right' },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: CC.line, alignItems: 'center', justifyContent: 'center' },
