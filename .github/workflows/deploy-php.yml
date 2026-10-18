@@ -151,7 +151,7 @@ jobs:
 
           # Always reconcile critical production files, even when they fall outside
           # the rolling 10-commit window or were regenerated in this job.
-          for rel in app/index.php app/api/admin-attendance-report.php app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html lib/EmploymentAttendance.php; do
+          for rel in app/index.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/routes.php lib/EmploymentAttendance.php app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html; do
             if [ -f "php/${rel}" ]; then
               mkdir -p "deploy-payload/$(dirname "${rel}")"
               cp "php/${rel}" "deploy-payload/${rel}"
