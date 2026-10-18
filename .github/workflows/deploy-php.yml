@@ -83,6 +83,11 @@ jobs:
           # concurrent bundle workflow has already committed a newer bundle.
           git reset --hard origin/main
 
+          # Build after syncing main: the previous reset discarded the generated bundle.
+          cd php
+          bash ./tools/build_panel_bundle.sh
+          node --check app/assets/panel.bundle.js
+          cd ..
           HEAD_SHA="$(git rev-parse HEAD)"
           BASE_SHA=""
 
@@ -164,6 +169,16 @@ jobs:
             esac
           done < /tmp/php-diff.txt
 
+          # Always reconcile critical production files, even when they fall outside
+          # the rolling 10-commit window or were regenerated in this job.
+          for rel in app/index.php app/api/admin-attendance-report.php app/assets/panel.bundle.js app/panel.html; do
+            if [ -f "php/${rel}" ]; then
+              mkdir -p "deploy-payload/$(dirname "${rel}")"
+              cp "php/${rel}" "deploy-payload/${rel}"
+              echo "Forced production reconciliation: ${rel}"
+            fi
+          done
+
           sort -u deploy-deletions.txt -o deploy-deletions.txt
 
           payload_count="$(find deploy-payload -type f | wc -l | tr -d ' ')"
@@ -183,7 +198,7 @@ jobs:
             exit 1
           fi
 
-          if [ "${change_count}" -eq 0 ]; then
+          if [ "${change_count}" -eq 0 ] && [ "${payload_count}" -eq 0 ]; then
             echo "No PHP changes in this commit; skipping Khatyar Host upload."
             echo "SKIP_HOST_UPLOAD=true" >> "$GITHUB_ENV"
           fi
