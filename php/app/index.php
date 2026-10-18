@@ -56,7 +56,24 @@ route('GET', '/api/admin/attendance-report', function($p,$b,$u){
   if(!$uid||!$from||!$to) Http::error('پرسنل و بازهٔ تاریخ را مشخص کنید',400);
   return attendance_report_owned_by_entry_date($uid,$from,$to);
 }, false, 3);
-require __DIR__ . '/api/daily-performance-gps-separate.php'; require "$ROOT/lib/routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; $body = Http::body();
+require __DIR__ . '/api/daily-performance-gps-separate.php'; require "$ROOT/lib/routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; // Read a user's employment period directly from the authoritative table.
+// This endpoint is independent of the variable-shaped admin/users list response.
+$routes[] = [
+  'm' => 'GET',
+  'p' => '/api/admin/users/{id}/employment-period',
+  'public' => false,
+  'minLevel' => 3,
+  'fn' => static function ($params, $body, $user) {
+    $id=(int)($params['id']??0);
+    if($id<=0) Http::error('شناسه کاربر معتبر نیست',422);
+    $fields=Db::one("SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ('employment_start_date','employment_end_date')");
+    if((int)($fields['n']??0)!==2) Http::error('ستون‌های تاریخ همکاری در پایگاه داده ایجاد نشده‌اند',503);
+    $record=Db::one('SELECT id,employment_start_date,employment_end_date FROM users WHERE id=?',[$id]);
+    if(!$record) Http::error('کاربر یافت نشد',404);
+    return $record;
+  }
+];
+$body = Http::body();
 // Extend existing authenticated user routes without altering their authorization checks.
 foreach ($routes as &$employmentRoute) {
   $routePath = (string)($employmentRoute['p'] ?? '');
