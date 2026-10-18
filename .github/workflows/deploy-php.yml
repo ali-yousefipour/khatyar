@@ -37,6 +37,7 @@ jobs:
           npm install --no-save --no-package-lock typescript@5.9.3
           bash ./tools/build_panel_bundle.sh
           node --check app/assets/panel.bundle.js
+          node --check app/assets/school-service-admin.js
           php -l app/index.php
           php -l app/api/admin-attendance-report.php
           echo "Panel build and PHP syntax checks passed."
@@ -144,7 +145,7 @@ jobs:
 
           # Always reconcile critical production files, even when they fall outside
           # the rolling 10-commit window or were regenerated in this job.
-          for rel in app/index.php app/api/admin-attendance-report.php app/assets/panel.bundle.js app/panel.html; do
+          for rel in app/index.php app/api/admin-attendance-report.php app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html; do
             if [ -f "php/${rel}" ]; then
               mkdir -p "deploy-payload/$(dirname "${rel}")"
               cp "php/${rel}" "deploy-payload/${rel}"
@@ -415,19 +416,20 @@ jobs:
         run: |
           set -euo pipefail
           base="https://app.yousefipour.ir"
-          for rel in app/panel.html app/assets/panel.bundle.js; do
+          for rel in app/panel.html app/assets/panel.bundle.js app/assets/school-service-admin.js; do
             local_path="deploy-payload/${rel}"
             [ -f "${local_path}" ] || continue
             case "${rel}" in
               app/panel.html) url="${base}/?deploy_verify=${GITHUB_SHA}" ;;
               app/assets/panel.bundle.js) url="${base}/assets/panel.bundle.js?deploy_verify=${GITHUB_SHA}" ;;
+              app/assets/school-service-admin.js) url="${base}/assets/school-service-admin.js?deploy_verify=${GITHUB_SHA}" ;;
             esac
             remote_path="/tmp/khatyar-verify-$(basename "${rel}")"
             curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
               -H 'Cache-Control: no-cache, no-store' -A 'Khatyar-Deploy-Verify/2.0' \
               "${url}" > "${remote_path}"
             test -s "${remote_path}"
-            if [ "${rel}" = "app/assets/panel.bundle.js" ]; then
+            if [ "${rel}" = "app/assets/panel.bundle.js" ] || [ "${rel}" = "app/assets/school-service-admin.js" ]; then
               node --check "${remote_path}"
               cmp -s "${local_path}" "${remote_path}" || {
                 echo "ERROR: live panel bundle differs from the deployment payload" >&2
