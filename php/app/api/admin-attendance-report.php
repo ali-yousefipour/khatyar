@@ -117,7 +117,15 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
 
   // Employment period is inclusive. Retain original punches for audit; exclude days
   // outside the contract from worked time, expected shifts and absence calculations.
-  $employment = Db::one('SELECT employment_start_date,employment_end_date FROM users WHERE id=?',[$userId]);
+  $employment = null;
+  try {
+    $columns = Db::one("SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ('employment_start_date','employment_end_date')");
+    if ((int)($columns['n'] ?? 0) === 2) {
+      $employment = Db::one('SELECT employment_start_date,employment_end_date FROM users WHERE id=?',[$userId]);
+    }
+  } catch (Throwable $employmentError) {
+    error_log('Employment-period lookup failed: '.$employmentError->getMessage());
+  }
   $employmentStart = aar_normalize_jdate($employment['employment_start_date']??'');
   $employmentEnd = aar_normalize_jdate($employment['employment_end_date']??'');
   foreach ($report['days'] as $i => $day) {
