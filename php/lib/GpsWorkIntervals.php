@@ -35,6 +35,8 @@ function gps_work_explicit_off_intervals(array $events, int $fromTs, int $toTs, 
  * Only an exact matched calculated deduction range can be waived.
  */
 function gps_work_waiver_schema(): void {
+  static $ready=false;
+  if($ready)return;
   Db::run("CREATE TABLE IF NOT EXISTS gps_work_waivers (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -45,6 +47,7 @@ function gps_work_waiver_schema(): void {
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_waiver (user_id,start_at,end_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  $ready=true;
 }
 function gps_work_waived_ranges(int $userId, string $day): array {
   gps_work_waiver_schema();
