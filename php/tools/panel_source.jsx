@@ -6562,9 +6562,19 @@ function AttendanceReport(){
           {gpsDeficitModal.details.length===0
             ? <div className="muted" style={{fontSize:13,padding:12}}>برای این کسری، بازه و علت جزئی در سوابق قابل دسترسی پیدا نشد. این مورد به‌تنهایی اثبات نمی‌کند که برنامه بسته یا GPS خاموش بوده است.</div>
             : <div style={{overflowX:"auto",border:"1px solid var(--line)",borderRadius:10}}><table style={{width:"100%",minWidth:650}}>
-                <thead><tr><th>از ساعت</th><th>تا ساعت</th><th>مدت</th><th>علت / شواهد ثبت‌شده</th></tr></thead>
+                <thead><tr><th>از ساعت</th><th>تا ساعت</th><th>مدت</th><th>علت / شواهد ثبت‌شده</th><th>اقدام</th></tr></thead>
                 <tbody>{gpsDeficitModal.details.map((r,i)=>{const start=String(r.start_at||"");const end=String(r.end_at||"");const startTime=start.slice(11,16)||"—";const endTime=end.slice(11,16)||"—";const nextDay=start.slice(0,10)!==end.slice(0,10);return <tr key={i}>
                   <td style={{whiteSpace:"nowrap"}}>{faPlain(startTime)}</td><td style={{whiteSpace:"nowrap"}}>{faPlain(endTime)}{nextDay?<span style={{fontSize:10,display:"block",color:"var(--muted)"}}>روز بعد</span>:null}</td><td style={{whiteSpace:"nowrap"}}>{hm(r.minutes||0)}</td><td style={{whiteSpace:"normal",minWidth:260}}><div>{r.reason||"علت مشخص نیست"}</div><div style={{fontSize:10,color:"var(--muted)",marginTop:3}}>شاهد: {r.evidence||"—"}</div></td>
+                  <td><button type="button" className="btn d" onClick={async()=>{
+                    const reason=prompt("دلیل لغو این بازه کسر کار را وارد کنید (در سوابق مدیریتی ثبت می‌شود):","");
+                    if(reason===null)return;
+                    if(reason.trim().length<5){alert("برای لغو کسر کار، توضیح حداقل پنج‌حرفی الزامی است.");return;}
+                    if(!confirm("اثر این بازه کسر کار حذف شود؟ رویداد GPS و سابقه لغو نگهداری می‌شوند."))return;
+                    try{
+                      await SEND("POST","/admin/attendance-gps-waiver",{user_id:Number(uid),jdate:String(gpsDeficitModal.jdate||"").replaceAll("/","-"),start_at:r.start_at,end_at:r.end_at,reason:reason.trim()});
+                      setGpsDeficitModal(null);await refresh();
+                    }catch(error){alert(error.message||"لغو کسر کار انجام نشد");}
+                  }}>حذف کسر کار</button></td>
                 </tr>})}</tbody>
               </table></div>}
           <div style={{fontSize:11,color:"var(--muted)",marginTop:12}}>نبود تأیید دوره‌ای، ورود به پس‌زمینه یا قطع ارتباط به‌تنهایی علت کسر کار نیست؛ این گزارش فقط بازه‌های دارای رویداد صریح gps_off را نشان می‌دهد.</div>
