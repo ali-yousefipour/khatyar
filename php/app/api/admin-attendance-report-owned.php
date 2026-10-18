@@ -24,10 +24,26 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
   if (empty($report['days']) || !is_array($report['days'])) return $report;
 
   $metricKeys = ['worked','in_shift','expected','overtime','shortage','night','late_in','early_out','surplus','adjusted_ot','friday_work','holiday_work'];
+  $employment = null;
+  try {
+    $columns = Db::one("SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ('employment_start_date','employment_end_date')");
+    if ((int)($columns['n'] ?? 0) === 2) $employment = Db::one('SELECT employment_start_date,employment_end_date FROM users WHERE id=?',[$userId]);
+  } catch (Throwable $error) { error_log('Employment-period lookup failed: '.$error->getMessage()); }
+  $employmentStart = ShiftCalc::normJdate($employment['employment_start_date']??'');
+  $employmentEnd = ShiftCalc::normJdate($employment['employment_end_date']??'');
   foreach ($report['days'] as &$day) {
     if (!is_array($day)) continue;
     $j = str_replace('/','-',trim((string)($day['jdate'] ?? '')));
     if (!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$j)) continue;
+    if (($employmentStart && strcmp($j,$employmentStart)<0) || ($employmentEnd && strcmp($j,$employmentEnd)>0)) {
+      $day['outside_employment_period']=true;
+      foreach (array_merge($metricKeys,['absence_shortage','annual_leave','sick_leave','unpaid_leave','mission']) as $field) $day[$field]='00:00';
+      foreach (['annual_leave_minutes','sick_leave_minutes','unpaid_leave_minutes','mission_minutes','gps_inactive_minutes','absent'] as $field) $day[$field]=0;
+      $day['gps_inactive_details']=[];
+      if (isset($day['data']) && is_array($day['data'])) $day['data']=array_fill_keys($metricKeys,0);
+      $day['absence_reason']='خارج از بازه همکاری';
+      continue;
+    }
     [$jy,$jm,$jd] = array_map('intval', explode('-',$j));
     [$gy,$gm,$gd] = jalali_to_gregorian($jy,$jm,$jd);
     $g = sprintf('%04d-%02d-%02d',$gy,$gm,$gd);

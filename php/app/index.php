@@ -82,9 +82,8 @@ foreach ($routes as &$employmentRoute) {
   if (!in_array($routeMethod, ['GET','PUT'], true)) continue;
   $originalHandler = $employmentRoute['fn'];
   $employmentRoute['fn'] = static function($params,$body,$user) use ($originalHandler,$routeMethod,$routePath) {
-    $result = $originalHandler($params,$body,$user);
     $hasColumns = Db::one("SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ('employment_start_date','employment_end_date')");
-    if ((int)($hasColumns['n'] ?? 0) !== 2) { if ($routeMethod === 'PUT' && is_array($body) && (array_key_exists('employment_start_date',$body)||array_key_exists('employment_end_date',$body))) Http::error('ستون‌های تاریخ همکاری در پایگاه داده ایجاد نشده‌اند؛ ابتدا اسکریپت مهاجرت اجرا شود',503); return $result; }
+    if ((int)($hasColumns['n'] ?? 0) !== 2) { if ($routeMethod === 'PUT' && is_array($body) && (array_key_exists('employment_start_date',$body)||array_key_exists('employment_end_date',$body))) Http::error('ستون‌های تاریخ همکاری در پایگاه داده ایجاد نشده‌اند؛ ابتدا اسکریپت مهاجرت اجرا شود',503); return $originalHandler($params,$body,$user); }
     if ($routeMethod === 'PUT' && isset($params['id']) && is_array($body)) {
       $updates=[];$values=[];
       foreach (['employment_start_date','employment_end_date'] as $field) {
@@ -92,6 +91,10 @@ foreach ($routes as &$employmentRoute) {
         $date=trim((string)($body[$field]??''));
         $date=str_replace('/','-',$date);
         if ($date!=='' && !preg_match('/^1[34][0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/',$date)) Http::error('تاریخ همکاری معتبر نیست',422);
+        if ($date!=='') {
+          [$year,$month,$day]=array_map('intval',explode('-',$date));
+          if ($day>IranCalendar::monthLength($year,$month)) Http::error('روز تاریخ همکاری معتبر نیست',422);
+        }
         $updates[]="$field=?";$values[]=$date?:null;
       }
       if ($updates) {
@@ -100,9 +103,10 @@ foreach ($routes as &$employmentRoute) {
         $end=array_key_exists('employment_end_date',$body)?str_replace('/','-',trim((string)($body['employment_end_date']??''))):($current['employment_end_date']??null);
         if ($start && $end && strcmp($start,$end)>0) Http::error('تاریخ پایان همکاری قبل از شروع است',422);
         $values[]=(int)$params['id'];
-        Db::run('UPDATE users SET '.implode(',',$updates).' WHERE id=?',$values);
       }
     }
+    $result = $originalHandler($params,$body,$user);
+    if (!empty($updates)) Db::run('UPDATE users SET '.implode(',',$updates).' WHERE id=?',$values);
     if ($routeMethod === 'GET' && is_array($result)) {
       // User listing endpoints may return a plain array or wrap records in data/users/items/rows.
       $ids=[];

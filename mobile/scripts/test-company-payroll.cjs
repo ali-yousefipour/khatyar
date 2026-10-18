@@ -29,6 +29,7 @@ function harness() {
   };
   const native = Object.fromEntries(['View', 'Text', 'ScrollView', 'TouchableOpacity', 'TextInput', 'Modal'].map(name => [name, name]));
   native.StyleSheet = { create: value => value }; native.Alert = { alert: (...values) => alerts.push(values) };
+  native.useWindowDimensions = () => ({ width: 390, height: 844 });
   const exports = {};
   const modules = {
     react: React, 'react-native': native,
@@ -36,6 +37,10 @@ function harness() {
     '../api': { request: async (...values) => { calls.push(values); return requestImpl(...values); } },
     '../theme': { C: { paper: '#fff', line: '#ddd', ink: '#000', brand: 'green', slate: '#444' }, FONT: { regular: 'regular', bold: 'bold' } },
     '../num': { faNum: String }, '../components/PulseLoadingIndicator': 'ActivityIndicator',
+    'react-native-view-shot': { captureRef: async () => 'file:///preview.png' },
+    'expo-file-system/legacy': { documentDirectory: 'file:///private/', copyAsync: async () => {}, deleteAsync: async () => {} },
+    'expo-sharing': { isAvailableAsync: async () => false },
+    '../components/PayrollAccessSlip': 'PayrollAccessSlip',
     'react/jsx-runtime': { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }), Fragment: 'Fragment' },
   };
   vm.runInNewContext(compiled, { exports, require: name => { if (name.startsWith('@babel/runtime/')) return require(name); assert.ok(name in modules, 'Unexpected import '+name); return modules[name]; } });
@@ -69,5 +74,30 @@ function harness() {
   button(tree, 'تازه‌سازی').props.onPress(); test.render(); await settle(); tree = test.render();
   assert.match(text(tree), /network failed/); assert.ok(!text(tree).includes('پرسنل آزمایشی'), 'failed request cannot show stale rows');
   test.unmount();
+  const source = require('node:fs').readFileSync(path.join(__dirname, '../src/screens/CompanyPayrollHistory.js'), 'utf8');
+  const saveStart = source.indexOf('  const saveIssuedSlip = async () => {');
+  const saveEnd = source.indexOf('\n  return <View', saveStart);
+  for (const mode of ['success', 'queued', 'network-error']) {
+    const events = [];
+    const context = {
+      slipRef: { current: {} }, slip: { row: { id: 8, period_jy: 1405, period_jm: 6 } }, issuing: false,
+      setIssuing: value => events.push(['busy', value]),
+      captureRef: async () => 'file:///preview.png',
+      FileSystem: { documentDirectory: 'file:///private/', copyAsync: async () => events.push(['copied']), deleteAsync: async () => events.push(['deleted']) },
+      request: async (endpoint, options) => {
+        assert.equal(options.queueIfOffline, false);
+        if (mode === 'network-error') throw Error('offline');
+        return mode === 'queued' ? { ok: true, queued: true } : { ok: true, issued: true };
+      },
+      setIssuedMonths: () => events.push(['issued']), setSlip: value => events.push(['slip', value]),
+      Alert: { alert: (...values) => events.push(['alert', ...values]) },
+      Sharing: { isAvailableAsync: async () => false },
+    };
+    vm.createContext(context);
+    vm.runInContext(source.slice(saveStart, saveEnd) + '\nrunIssuance=saveIssuedSlip;', context);
+    await context.runIssuance();
+    assert.equal(events.some(event => event[0] === 'issued'), mode === 'success', 'only a durable server response issues a slip');
+    assert.equal(events.some(event => event[0] === 'deleted'), mode !== 'success', 'unconfirmed preview is cleaned up');
+  }
   console.log('Android payroll: private API, Persian filters, validation, history, details, close and network errors passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

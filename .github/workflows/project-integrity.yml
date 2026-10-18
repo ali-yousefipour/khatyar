@@ -24,12 +24,20 @@ jobs:
         run: |
           php -v
           php -l php/lib/routes.php
+          php -l php/app/api/admin-holiday-seed.php
           php -l php/lib/ShiftCalc.php
           php php/tests/work_summary_cutoff_test.php
           php php/tests/work_shift_regression_test.php
           php php/tests/work_finalization_test.php
           node php/tests/work_finalization_ui_test.cjs
           node php/tests/seniority_deployment_test.cjs
+          php php/tests/seniority_test.php
+          node php/tests/seniority_ui_test.cjs
+          node php/tests/org_regions_ui_test.cjs
+          php php/tests/selfie_delivery_test.php
+          php php/tests/employment_period_test.php
+          node mobile/scripts/test-selfie-delivery.cjs
+          node php/tests/selfie_ui_test.cjs
           php -l php/lib/GpsWorkIntervals.php
           php -l php/app/api/admin-attendance-report-owned.php
           php -l php/app/api/admin-attendance-xlsx.php

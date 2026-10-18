@@ -56,7 +56,7 @@ async function testZones() {
   const createdParents=[];
   let nextZoneId=3;
   const app = harness('Zones', {
-    users: async () => [{ id: '1', first_name: 'نیروی یک', zone_id: '1' }, { id: '2', first_name: 'نیروی دو', zone_id: '2' }],
+    users: async () => [{ id: '1', first_name: 'نیروی یک', zone_id: '1', is_active: 1 }, { id: '2', first_name: 'نیروی دو', zone_id: '2', is_active: '1' }, { id: '99', first_name: 'نیروی غیرفعال', zone_id: '1', is_active: 0 }],
     zones: async () => [{ id: '1', name: 'شمال' }, { id: '2', name: 'جنوب' }],
     createZone: async (name,parent_id) => { created.push(name);createdParents.push(parent_id);return { id: nextZoneId++, name,parent_id }; },
     updateZone: async () => { if (failUpdate) throw new Error('rename failed'); },
@@ -65,6 +65,7 @@ async function testZones() {
   });
   app.render(); await settle(); let tree = app.render();
   assert.ok(text(column(tree, 1)).includes('نیروی یک'));
+  assert.ok(!text(tree).includes('نیروی غیرفعال'));
   button(column(tree, 1), 'ویرایش').props.onClick(); tree = app.render();
   const editInput = nodes(tree, node => node.type === 'input' && node.props.value === 'شمال')[0];
   editInput.props.onChange({ target: { value: 'شمال جدید' } }); tree = app.render();
@@ -113,7 +114,7 @@ async function testZones() {
 
 async function testChart() {
   const roles = ['معاونت بازرسی و نظارت','رییس اداره بازرسی','سربازرس ارشد','سربازرس','بازرس','گشت موتوری','اپراتور','ناظر خط','مدیر اجرایی شرکت','صدور پروانه'];
-  const users = roles.map((role, index) => ({ id: index + 1, first_name: 'نفر ' + (index + 1), role_title: role,
+  const users = roles.map((role, index) => ({ id: index + 1, first_name: 'نفر ' + (index + 1), role_title: role, is_active: 1,
     zone_id: index >= 3 && index <= 6 ? 1 : index === 7 ? 2 : null, zone_name: index >= 3 && index <= 6 ? 'شمال' : index === 7 ? 'جنوب' : null }));
   const parents = { 2: [1], 3: [2], 4: [3], 5: [4], 6: [3], 7: [5, 6], 10: [9] };
   const defaultEdges = Object.entries(parents).flatMap(([user, managers]) => managers.map(manager => ({ user_id: +user, manager_id: manager, primary: 1 })));

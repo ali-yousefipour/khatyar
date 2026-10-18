@@ -13845,14 +13845,14 @@ function CovertCommand() {
     const [cmdResult, setCmdResult] = React.useState(null);
     React.useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(() => { }); db.roles().then(r => setRoles(r || [])).catch(() => { }); db.zones && db.zones().then(z => setZones(z || [])).catch(() => { }); }, []);
     const sendCmd = async () => {
-        if (!confirm("دستور گرفتن سلفی نامحسوس به کاربران انتخاب‌شده ارسال شود؟"))
+        if (!confirm("درخواست سلفی با پیش‌نمایش دوربین و تأیید کاربر ارسال شود؟"))
             return;
         setCmdBusy(true);
         setCmdResult(null);
         try {
             const ids = cmdType === "user" ? cmdUsers : cmdType === "role" ? cmdRoles : cmdZones;
             const r = await SEND("POST", "/admin/covert-selfie/command", { target_type: cmdType, ids });
-            setCmdResult(`✅ دستور به ${fa(r.sent || 0)} کاربر ارسال شد. اپ در دور بعدی polling (حداکثر ۳۰ ثانیه) سلفی می‌گیرد.`);
+            setCmdResult(`درخواست برای ${fa(r.sent || 0)} کاربر ثبت شد. دریافت عکس پس از تأیید کاربر و ذخیره موفق در سرور است.`);
         }
         catch (e) {
             setCmdResult("خطا: " + e.message);
@@ -13862,8 +13862,8 @@ function CovertCommand() {
         }
     };
     return (React.createElement("div", { className: "panel", style: { background: "var(--brand-soft)", borderRadius: 12 } },
-        React.createElement("h3", { style: { marginBottom: 8 } }, "\uD83D\uDCE4 \u0627\u0631\u0633\u0627\u0644 \u062F\u0633\u062A\u0648\u0631 \u0633\u0644\u0641\u06CC \u0646\u0627\u0645\u062D\u0633\u0648\u0633 \u0641\u0648\u0631\u06CC"),
-        React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 10 } }, "\u0627\u067E \u0645\u0648\u0628\u0627\u06CC\u0644 \u062F\u0631 \u062F\u0648\u0631 \u0628\u0639\u062F\u06CC \u0628\u0631\u0631\u0633\u06CC (\u062D\u062F\u0627\u06A9\u062B\u0631 \u06F3\u06F0 \u062B\u0627\u0646\u06CC\u0647) \u0627\u06CC\u0646 \u062F\u0633\u062A\u0648\u0631 \u0631\u0627 \u062F\u0631\u06CC\u0627\u0641\u062A \u0648 \u0633\u0644\u0641\u06CC \u0645\u06CC\u200C\u06AF\u06CC\u0631\u062F."),
+        React.createElement("h3", { style: { marginBottom: 8 } }, "\u0627\u0631\u0633\u0627\u0644 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0633\u0644\u0641\u06CC"),
+        React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 10 } }, "\u062F\u0631 \u0646\u0633\u062E\u0647\u0654 \u0627\u0635\u0644\u0627\u062D\u200C\u0634\u062F\u0647\u060C \u0628\u0631\u0646\u0627\u0645\u0647 \u062F\u0631 \u062D\u0627\u0644\u062A \u0628\u0627\u0632 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u0648 \u062F\u0648\u0631\u0628\u06CC\u0646 \u0631\u0627 \u0628\u0627 \u0627\u0637\u0644\u0627\u0639 \u0648 \u062A\u0623\u06CC\u06CC\u062F \u06A9\u0627\u0631\u0628\u0631 \u0646\u0645\u0627\u06CC\u0634 \u0645\u06CC\u200C\u062F\u0647\u062F. \u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0628\u0647 \u0645\u0639\u0646\u06CC \u062F\u0631\u06CC\u0627\u0641\u062A \u0639\u06A9\u0633 \u0646\u06CC\u0633\u062A."),
         React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", marginBottom: 10 } }, [["all", "همهٔ نیروها"], ["user", "کاربر مشخص"], ["role", "سمت مشخص"], ["zone", "منطقهٔ مشخص"]].map(([v, t]) => React.createElement("button", { key: v, className: "btn " + (cmdType === v ? "p" : "g"), onClick: () => setCmdType(v) }, t))),
         cmdType === "user" && React.createElement("div", null,
             React.createElement("label", { className: "label" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631:"),
@@ -13883,11 +13883,12 @@ function CovertCommand() {
 function CovertGallery() {
     const [rows, setRows] = React.useState(null);
     const [view, setView] = React.useState(null);
+    const [error, setError] = React.useState("");
     const [fName, setFName] = React.useState("");
     const [fRole, setFRole] = React.useState("");
     const [from, setFrom] = React.useState("");
     const [to, setTo] = React.useState("");
-    const reload = () => GET("/admin/covert-selfies").then(setRows).catch(() => setRows([]));
+    const reload = () => { setError(""); return GET("/admin/covert-selfies").then(setRows).catch(failure => { setRows([]); setError(failure.message || "دریافت فهرست تصاویر ناموفق بود."); }); };
     React.useEffect(() => { reload(); }, []);
     const del = async (id, e) => {
         e.stopPropagation();
@@ -13909,11 +13910,6 @@ function CovertGallery() {
             return false;
         if (fRole && r.role_title !== fRole)
             return false;
-        if (from && fj(r.created_at) < from)
-            return false; // مقایسهٔ متنی شمسی تقریبی
-        if (from || to) {
-            const d = isoFromJ ? null : null;
-        }
         return true;
     }).filter(r => {
         if (!from && !to)
@@ -13926,8 +13922,10 @@ function CovertGallery() {
         return true;
     });
     return (React.createElement("div", { className: "panel" },
-        React.createElement("h3", { style: { marginBottom: 10 } }, "\u0633\u0644\u0641\u06CC\u200C\u0647\u0627\u06CC \u062F\u0631\u06CC\u0627\u0641\u062A\u06CC \u0646\u0627\u0645\u062D\u0633\u0648\u0633"),
-        React.createElement("p", { style: { color: "var(--muted)", fontSize: 13, marginBottom: 12 } }, "\u062A\u0635\u0627\u0648\u06CC\u0631\u06CC \u06A9\u0647 \u0627\u067E \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u0646\u0627\u0645\u062D\u0633\u0648\u0633 \u0627\u0632 \u062F\u0648\u0631\u0628\u06CC\u0646 \u062C\u0644\u0648\u06CC \u06AF\u0648\u0634\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u06AF\u0631\u0641\u062A\u0647 \u0627\u0633\u062A. \u0628\u0627 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0628\u0631 \u0627\u0633\u0627\u0633 \u0634\u062E\u0635\u060C \u0633\u0645\u062A \u0648 \u0632\u0645\u0627\u0646 \u062C\u0633\u062A\u062C\u0648 \u06A9\u0646\u06CC\u062F."),
+        React.createElement("h3", { style: { marginBottom: 10 } }, "\u062A\u0635\u0627\u0648\u06CC\u0631 \u062F\u0631\u06CC\u0627\u0641\u062A\u06CC \u0633\u0627\u0645\u0627\u0646\u0647"),
+        React.createElement("p", { style: { color: "var(--muted)", fontSize: 13, marginBottom: 12 } }, "\u0641\u0642\u0637 \u062A\u0635\u0627\u0648\u06CC\u0631 \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u062F\u0631 \u0633\u0631\u0648\u0631 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u0633\u0644\u0641\u06CC\u200C\u0647\u0627\u06CC \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0634\u062F\u0647 \u062F\u0631 \u0646\u0633\u062E\u0647\u0654 \u0627\u0635\u0644\u0627\u062D\u200C\u0634\u062F\u0647 \u067E\u0633 \u0627\u0632 \u062A\u0623\u06CC\u06CC\u062F \u06A9\u0627\u0631\u0628\u0631 \u0627\u0631\u0633\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
+        React.createElement("button", { className: "btn g", onClick: reload }, "\u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC \u062A\u0635\u0627\u0648\u06CC\u0631"),
+        error && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } }, error),
         React.createElement("div", { className: "filters", style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" } },
             React.createElement("input", { className: "input", style: { maxWidth: 150, padding: "6px 10px" }, placeholder: "\u0646\u0627\u0645 \u0634\u062E\u0635", value: fName, onChange: e => setFName(e.target.value) }),
             React.createElement("select", { className: "input", style: { maxWidth: 150, padding: "6px 10px" }, value: fRole, onChange: e => setFRole(e.target.value) },
@@ -13947,7 +13945,7 @@ function CovertGallery() {
                 React.createElement("div", { style: { fontSize: 12, marginTop: 6, fontWeight: 700 } }, r.name || ("کاربر " + r.user_id)),
                 r.role_title && React.createElement("div", { style: { fontSize: 11, color: "var(--muted)" } }, r.role_title),
                 React.createElement("div", { style: { fontSize: 11, color: "var(--muted)" } }, fj(r.created_at)),
-                r.reason && React.createElement("div", { style: { fontSize: 11, color: "var(--muted)" } }, r.reason === 'login' ? 'هنگام ورود' : r.reason === 'checkin' ? 'ثبت حضور' : r.reason === 'manual' ? 'دستی' : 'دوره‌ای'),
+                r.reason && React.createElement("div", { style: { fontSize: 11, color: "var(--muted)" } }, r.reason.startsWith('sr:') || r.reason.startsWith('sc:') || r.reason === 'server_command' ? 'درخواست مدیر' : r.reason === 'screenshot' ? 'تصویر صفحه' : r.reason === 'login' ? 'هنگام ورود' : r.reason === 'checkin' ? 'ثبت حضور' : r.reason === 'manual' ? 'دستی' : 'دوره‌ای'),
                 React.createElement("button", { onClick: (e) => del(r.id, e), style: { position: "absolute", top: 4, left: 4, background: "var(--danger)", color: "#fff", border: "none", borderRadius: 6, padding: "2px 7px", fontSize: 11, cursor: "pointer" } }, "\u2715 \u062D\u0630\u0641")))),
         view && React.createElement("div", { onClick: () => setView(null), style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 } },
             React.createElement("div", { style: { maxWidth: "92%", maxHeight: "88%" } },

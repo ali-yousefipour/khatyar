@@ -8116,16 +8116,16 @@ function CovertCommand(){
   const [cmdBusy,setCmdBusy]=React.useState(false); const [cmdResult,setCmdResult]=React.useState(null);
   React.useEffect(()=>{ db.usersLite().then(u=>setUsers(u||[])).catch(()=>{}); db.roles().then(r=>setRoles(r||[])).catch(()=>{}); db.zones&&db.zones().then(z=>setZones(z||[])).catch(()=>{}); },[]);
   const sendCmd=async()=>{
-    if(!confirm("دستور گرفتن سلفی نامحسوس به کاربران انتخاب‌شده ارسال شود؟"))return;
+    if(!confirm("درخواست سلفی با پیش‌نمایش دوربین و تأیید کاربر ارسال شود؟"))return;
     setCmdBusy(true); setCmdResult(null);
     try{ const ids=cmdType==="user"?cmdUsers:cmdType==="role"?cmdRoles:cmdZones;
       const r=await SEND("POST","/admin/covert-selfie/command",{target_type:cmdType,ids});
-      setCmdResult(`✅ دستور به ${fa(r.sent||0)} کاربر ارسال شد. اپ در دور بعدی polling (حداکثر ۳۰ ثانیه) سلفی می‌گیرد.`);
+      setCmdResult(`درخواست برای ${fa(r.sent||0)} کاربر ثبت شد. دریافت عکس پس از تأیید کاربر و ذخیره موفق در سرور است.`);
     }catch(e){setCmdResult("خطا: "+e.message);}finally{setCmdBusy(false);}
   };
   return(<div className="panel" style={{background:"var(--brand-soft)",borderRadius:12}}>
-    <h3 style={{marginBottom:8}}>📤 ارسال دستور سلفی نامحسوس فوری</h3>
-    <p style={{fontSize:13,color:"var(--muted)",marginBottom:10}}>اپ موبایل در دور بعدی بررسی (حداکثر ۳۰ ثانیه) این دستور را دریافت و سلفی می‌گیرد.</p>
+    <h3 style={{marginBottom:8}}>ارسال درخواست سلفی</h3>
+    <p style={{fontSize:13,color:"var(--muted)",marginBottom:10}}>در نسخهٔ اصلاح‌شده، برنامه در حالت باز درخواست را بررسی و دوربین را با اطلاع و تأیید کاربر نمایش می‌دهد. ثبت درخواست به معنی دریافت عکس نیست.</p>
     <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:10}}>
       {[["all","همهٔ نیروها"],["user","کاربر مشخص"],["role","سمت مشخص"],["zone","منطقهٔ مشخص"]].map(([v,t])=>
         <button key={v} className={"btn "+(cmdType===v?"p":"g")} onClick={()=>setCmdType(v)}>{t}</button>)}
@@ -8146,8 +8146,9 @@ function CovertCommand(){
 
 function CovertGallery(){
   const [rows,setRows]=React.useState(null); const [view,setView]=React.useState(null);
+  const [error,setError]=React.useState("");
   const [fName,setFName]=React.useState(""); const [fRole,setFRole]=React.useState(""); const [from,setFrom]=React.useState(""); const [to,setTo]=React.useState("");
-  const reload=()=>GET("/admin/covert-selfies").then(setRows).catch(()=>setRows([]));
+  const reload=()=>{setError("");return GET("/admin/covert-selfies").then(setRows).catch(failure=>{setRows([]);setError(failure.message||"دریافت فهرست تصاویر ناموفق بود.");});};
   React.useEffect(()=>{reload();},[]);
   const del=async(id,e)=>{ e.stopPropagation(); if(!confirm("این سلفی حذف شود؟"))return;
     try{ await SEND("DELETE","/admin/covert-selfies/"+id,{}); setRows(r=>r.filter(x=>x.id!==id)); }catch(ex){ alert(ex.message||"خطا"); } };
@@ -8156,8 +8157,6 @@ function CovertGallery(){
   const filtered=rows.filter(r=>{
     if(fName&&!((r.name||"").includes(fName)))return false;
     if(fRole&&r.role_title!==fRole)return false;
-    if(from&&fj(r.created_at)<from)return false; // مقایسهٔ متنی شمسی تقریبی
-    if(from||to){ const d=isoFromJ? null:null; }
     return true;
   }).filter(r=>{
     if(!from&&!to)return true;
@@ -8165,8 +8164,10 @@ function CovertGallery(){
     if(from&&j<from)return false; if(to&&j>to)return false; return true;
   });
   return(<div className="panel">
-    <h3 style={{marginBottom:10}}>سلفی‌های دریافتی نامحسوس</h3>
-    <p style={{color:"var(--muted)",fontSize:13,marginBottom:12}}>تصاویری که اپ به‌صورت نامحسوس از دوربین جلوی گوشی نیروها گرفته است. با فیلترها می‌توانید بر اساس شخص، سمت و زمان جستجو کنید.</p>
+    <h3 style={{marginBottom:10}}>تصاویر دریافتی سامانه</h3>
+    <p style={{color:"var(--muted)",fontSize:13,marginBottom:12}}>فقط تصاویر ثبت‌شده در سرور نمایش داده می‌شوند. سلفی‌های درخواست‌شده در نسخهٔ اصلاح‌شده پس از تأیید کاربر ارسال می‌شوند.</p>
+    <button className="btn g" onClick={reload}>تازه‌سازی تصاویر</button>
+    {error&&<p role="alert" style={{color:"var(--danger)"}}>{error}</p>}
     <div className="filters" style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12,alignItems:"center"}}>
       <input className="input" style={{maxWidth:150,padding:"6px 10px"}} placeholder="نام شخص" value={fName} onChange={e=>setFName(e.target.value)}/>
       <select className="input" style={{maxWidth:150,padding:"6px 10px"}} value={fRole} onChange={e=>setFRole(e.target.value)}>
@@ -8184,7 +8185,7 @@ function CovertGallery(){
         <div style={{fontSize:12,marginTop:6,fontWeight:700}}>{r.name||("کاربر "+r.user_id)}</div>
         {r.role_title&&<div style={{fontSize:11,color:"var(--muted)"}}>{r.role_title}</div>}
         <div style={{fontSize:11,color:"var(--muted)"}}>{fj(r.created_at)}</div>
-        {r.reason&&<div style={{fontSize:11,color:"var(--muted)"}}>{r.reason==='login'?'هنگام ورود':r.reason==='checkin'?'ثبت حضور':r.reason==='manual'?'دستی':'دوره‌ای'}</div>}
+        {r.reason&&<div style={{fontSize:11,color:"var(--muted)"}}>{r.reason.startsWith('sr:')||r.reason.startsWith('sc:')||r.reason==='server_command'?'درخواست مدیر':r.reason==='screenshot'?'تصویر صفحه':r.reason==='login'?'هنگام ورود':r.reason==='checkin'?'ثبت حضور':r.reason==='manual'?'دستی':'دوره‌ای'}</div>}
         <button onClick={(e)=>del(r.id,e)} style={{position:"absolute",top:4,left:4,background:"var(--danger)",color:"#fff",border:"none",borderRadius:6,padding:"2px 7px",fontSize:11,cursor:"pointer"}}>✕ حذف</button>
       </div>)}
     </div>}

