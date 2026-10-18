@@ -37,7 +37,12 @@ jobs:
           npm install --no-save --no-package-lock typescript@5.9.3
           bash ./tools/build_panel_bundle.sh
           node --check app/assets/panel.bundle.js
+          grep -Fq 'حذف و بی‌اثر کردن' app/assets/panel.bundle.js || { echo 'ERROR: GPS waiver control missing from compiled bundle'; exit 1; }
           node --check app/assets/school-service-admin.js
+          php tests/official_holiday_1405_test.php
+          php -l lib/IranCalendar.php
+          php -l lib/GpsWorkIntervals.php
+          php -l app/api/admin-holiday-seed.php
           php -l app/index.php
           php -l app/api/admin-attendance-report.php
           echo "Panel build and PHP syntax checks passed."
@@ -61,6 +66,7 @@ jobs:
           cd php
           bash ./tools/build_panel_bundle.sh
           node --check app/assets/panel.bundle.js
+          grep -Fq 'حذف و بی‌اثر کردن' app/assets/panel.bundle.js || { echo 'ERROR: GPS waiver button not included after resetting main'; exit 1; }
           cd ..
           HEAD_SHA="$(git rev-parse HEAD)"
           BASE_SHA=""
