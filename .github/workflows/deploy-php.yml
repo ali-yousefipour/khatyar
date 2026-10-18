@@ -410,6 +410,72 @@ jobs:
             }
           done < deploy-deletions.txt
 
+      - name: Apply and verify employment date schema on host
+        if: ${{ env.SKIP_HOST_UPLOAD != 'true' }}
+        shell: bash
+        env:
+          FTP_HOST: 2870352177.cloudylink.com
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          token="$(openssl rand -hex 32)"
+          installer=".employment-schema-${GITHUB_SHA}.php"
+          cat > "/tmp/${installer}" <<'PHP'
+          <?php
+          declare(strict_types=1);
+          header('Content-Type: application/json; charset=utf-8');
+          try {
+              $received = (string)($_POST['token'] ?? '');
+              $expected = getenv('KHATYAR_SCHEMA_TOKEN') ?: '';
+              // Replaced with a fresh token in the deployment script before upload.
+              $expected = '__SCHEMA_TOKEN__';
+              if ($received === '' || !hash_equals($expected, $received)) {
+                  http_response_code(403);
+                  exit(json_encode(['ok'=>false, 'error'=>'forbidden']));
+              }
+              $config = require dirname(__DIR__, 2) . '/config.php';
+              $pdo = new PDO(
+                  "mysql:host={$config['db_host']};dbname={$config['db_name']};charset=utf8mb4",
+                  $config['db_user'], $config['db_pass'],
+                  [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]
+              );
+              foreach (['employment_start_date','employment_end_date'] as $column) {
+                  $check = $pdo->prepare("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name=?");
+                  $check->execute([$column]);
+                  if ((int)$check->fetchColumn() === 0) {
+                      $pdo->exec("ALTER TABLE users ADD COLUMN `{$column}` VARCHAR(10) NULL");
+                  }
+              }
+              $check = $pdo->query("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ('employment_start_date','employment_end_date')");
+              if ((int)$check->fetchColumn() !== 2) throw new RuntimeException('Schema columns not present after migration');
+              @unlink(__FILE__);
+              echo json_encode(['ok'=>true, 'employment_columns'=>2]);
+          } catch (Throwable $error) {
+              http_response_code(500);
+              error_log('Employment schema deployment: '.$error->getMessage());
+              echo json_encode(['ok'=>false, 'error'=>'schema migration failed']);
+          }
+          PHP
+          sed -i "s/__SCHEMA_TOKEN__/${token}/g" "/tmp/${installer}"
+          lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "
+            set ftp:ssl-force false;
+            set ftp:ssl-protect-data false;
+            set ftp:passive-mode true;
+            set ftp:prefer-epsv false;
+            set net:timeout 60;
+            set net:max-retries 4;
+            set ssl:verify-certificate no;
+            put /tmp/${installer} -o /app/assets/${installer};
+            bye
+          "
+          response="$(curl --fail --silent --show-error --max-time 45 --retry 2 \
+            -X POST --data-urlencode "token=${token}" \
+            "https://app.yousefipour.ir/assets/${installer}")"
+          echo "${response}"
+          echo "${response}" | grep -q '"employment_columns":2'
+          echo "Employment schema verified on production database."
+
       - name: Verify deployed panel and bundle against committed payload
         if: ${{ env.SKIP_HOST_UPLOAD != 'true' }}
         shell: bash
