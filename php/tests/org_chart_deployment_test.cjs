@@ -14,7 +14,8 @@ assert.ok(installerCheck.includes('[ -f deploy-payload/lib/EmploymentAttendance.
 const staging = lines.find(line => line.includes('for name in Http.php'));
 assert.ok(staging.includes('OrgChart.php'));
 assert.ok(staging.includes('EmploymentAttendance.php'));
-assert.ok(workflow.includes('app/panel.html lib/EmploymentAttendance.php; do'), 'required report library must remain in the payload outside the rolling commit window');
+const reconciledFiles = lines.find(line => line.trim().startsWith('for rel in app/index.php'));
+assert.ok(reconciledFiles && reconciledFiles.includes('lib/EmploymentAttendance.php') && reconciledFiles.includes('lib/OrgChart.php') && reconciledFiles.includes('app/panel.html'), 'required report libraries and panel must remain in forced production reconciliation outside the rolling commit window');
 const dependency = workflow.indexOf("'OrgChart.php' => 'OrgChart.php'");
 const routes = workflow.indexOf("'routes.php' => 'routes.php'");
 assert.ok(dependency > 0 && dependency < routes);
