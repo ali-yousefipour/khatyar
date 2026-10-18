@@ -67,7 +67,7 @@ foreach ($routes as &$employmentRoute) {
   $employmentRoute['fn'] = static function($params,$body,$user) use ($originalHandler,$routeMethod,$routePath) {
     $result = $originalHandler($params,$body,$user);
     $hasColumns = Db::one("SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ('employment_start_date','employment_end_date')");
-    if ((int)($hasColumns['n'] ?? 0) !== 2) return $result;
+    if ((int)($hasColumns['n'] ?? 0) !== 2) { if ($routeMethod === 'PUT' && is_array($body) && (array_key_exists('employment_start_date',$body)||array_key_exists('employment_end_date',$body))) Http::error('ستون‌های تاریخ همکاری در پایگاه داده ایجاد نشده‌اند؛ ابتدا اسکریپت مهاجرت اجرا شود',503); return $result; }
     if ($routeMethod === 'PUT' && isset($params['id']) && is_array($body)) {
       $updates=[];$values=[];
       foreach (['employment_start_date','employment_end_date'] as $field) {
@@ -87,23 +87,27 @@ foreach ($routes as &$employmentRoute) {
       }
     }
     if ($routeMethod === 'GET' && is_array($result)) {
+      // User listing endpoints may return a plain array or wrap records in data/users/items/rows.
       $ids=[];
-      $inject=static function(&$row) use (&$ids) {if(is_array($row)&&isset($row['id']))$ids[(int)$row['id']]=true;};
-      if (isset($result['users']) && is_array($result['users']))foreach($result['users'] as &$row)$inject($row);
-      elseif (isset($result['items']) && is_array($result['items']))foreach($result['items'] as &$row)$inject($row);
-      elseif (isset($result['rows']) && is_array($result['rows']))foreach($result['rows'] as &$row)$inject($row);
-      elseif (array_is_list($result))foreach($result as &$row)$inject($row);
-      elseif (isset($result['id']))$inject($result);
-      if ($ids) {
-        $placeholders=implode(',',array_fill(0,count($ids),'?'));
-        $dates=Db::all('SELECT id,employment_start_date,employment_end_date FROM users WHERE id IN ('.$placeholders.')',array_keys($ids));
-        $lookup=[];foreach($dates as $row)$lookup[(int)$row['id']]=$row;
-        $decorate=static function(&$row) use ($lookup) {if(is_array($row)&&isset($lookup[(int)($row['id']??0)]))$row=array_merge($row,$lookup[(int)$row['id']]);};
-        if(isset($result['users']))foreach($result['users'] as &$row)$decorate($row);
-        elseif(isset($result['items']))foreach($result['items'] as &$row)$decorate($row);
-        elseif(isset($result['rows']))foreach($result['rows'] as &$row)$decorate($row);
-        elseif(array_is_list($result))foreach($result as &$row)$decorate($row);
-        else $decorate($result);
+      $collect=function($node) use (&$collect,&$ids) {
+        if(!is_array($node))return;
+        if(isset($node['id']) && (isset($node['username']) || isset($node['first_name']) || isset($node['role_id'])))$ids[(int)$node['id']]=true;
+        foreach($node as $child)if(is_array($child))$collect($child);
+      };
+      $collect($result);
+      if($ids){
+        $lookup=[];
+        foreach(array_chunk(array_keys($ids),300) as $chunk){
+          $marks=implode(',',array_fill(0,count($chunk),'?'));
+          foreach(Db::all('SELECT id,employment_start_date,employment_end_date FROM users WHERE id IN ('.$marks.')',$chunk) as $record)$lookup[(int)$record['id']]=$record;
+        }
+        $decorate=function(&$node) use (&$decorate,$lookup){
+          if(!is_array($node))return;
+          if(isset($node['id']) && isset($lookup[(int)$node['id']]) && (isset($node['username'])||isset($node['first_name'])||isset($node['role_id'])))$node=array_merge($node,$lookup[(int)$node['id']]);
+          foreach($node as &$child)if(is_array($child))$decorate($child);
+          unset($child);
+        };
+        $decorate($result);
       }
     }
     return $result;
