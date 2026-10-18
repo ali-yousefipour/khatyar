@@ -59,4 +59,23 @@ if($y===1405 && $sourceCol){
     }
   }
 }
-$inserted=0;$updated=0;$existing=0;$details=[];foreach($official as $j=>$title){$stage='بررسی '.$j;$old=Db::one('SELECT id,title'.($sourceCol?',source':'').($officialCol?',`'.$officialCol.'`':'').' FROM holidays WHERE jdate IN (?,?) ORDER BY id LIMIT 1',[$j,str_replace('-','/',$j)]);if($old){$existing++;$oldTitle=trim((string)($old['title']??''));$newTitle=$title;$set=[];$args=[];if($newTitle!==$oldTitle){$set[]='title=?';$args[]=$newTitle;}if($sourceCol){$set[]='`'.$sourceCol.'`=?';$args[]='official';}if($officialCol){$set[]='`'.$officialCol.'`=?';$args[]=1;}if($set){$args[]=$old['id'];Db::query('UPDATE holidays SET '.implode(',',$set).' WHERE id=?',$args);$updated++;}$details[]=['jdate'=>$j,'status'=>'existing','title'=>$newTitle];}else{$fields=['jdate','title'];$vals=[$j,$title];if($sourceCol){$fields[]=$sourceCol;$vals[]='official';}if($officialCol){$fields[]=$officialCol;$vals[]=1;}$qs=implode(',',array_fill(0,count($vals),'?'));Db::query('INSERT INTO holidays (`'.implode('`,`',$fields).'`) VALUES ('.$qs.')',$vals);$inserted++;$details[]=['jdate'=>$j,'status'=>'inserted','title'=>$title];}}hs_json(['ok'=>true,'year'=>$y,'total'=>count($official),'inserted'=>$inserted,'updated'=>$updated,'existing'=>$existing,'removed'=>$removed,'legacy_removed'=>$legacyRemoved,'details'=>$details]);}catch(Throwable $e){error_log('admin-holiday-seed: stage='.$stage.' '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());$detail=$e->getMessage();if($detail==='')$detail=get_class($e);hs_json(['ok'=>false,'error'=>'خطای داخلی در درج تعطیلات رسمی','stage'=>$stage,'detail'=>$detail],500);}
+$inserted=0;$updated=0;$existing=0;$details=[];foreach($official as $j=>$title){$stage='بررسی '.$j;$old=Db::one('SELECT id,title'.($sourceCol?',source':'').($officialCol?',`'.$officialCol.'`':'').' FROM holidays WHERE jdate IN (?,?) ORDER BY id LIMIT 1',[$j,str_replace('-','/',$j)]);if($old){$existing++;$oldTitle=trim((string)($old['title']??''));$newTitle=$title;$set=[];$args=[];if($newTitle!==$oldTitle){$set[]='title=?';$args[]=$newTitle;}if($sourceCol){$set[]='`'.$sourceCol.'`=?';$args[]='official';}if($officialCol){$set[]='`'.$officialCol.'`=?';$args[]=1;}if($set){$args[]=$old['id'];Db::query('UPDATE holidays SET '.implode(',',$set).' WHERE id=?',$args);$updated++;}$details[]=['jdate'=>$j,'status'=>'existing','title'=>$newTitle];}else{$fields=['jdate','title'];$vals=[$j,$title];if($sourceCol){$fields[]=$sourceCol;$vals[]='official';}if($officialCol){$fields[]=$officialCol;$vals[]=1;}$qs=implode(',',array_fill(0,count($vals),'?'));Db::query('INSERT INTO holidays (`'.implode('`,`',$fields).'`) VALUES ('.$qs.')',$vals);$inserted++;$details[]=['jdate'=>$j,'status'=>'inserted','title'=>$title];}}
+// Remove only duplicate rows that are positively identified as official imports.
+// Never collapse or delete explicitly manual/custom holidays.
+$duplicatesRemoved=0;
+if($sourceCol || $officialCol){
+  $officialIds=[];
+  $candidateRows=Db::all('SELECT id,jdate'.($sourceCol?',`'.$sourceCol.'` AS holiday_source':'').($officialCol?',`'.$officialCol.'` AS official_flag':'').' FROM holidays WHERE jdate LIKE ? OR jdate LIKE ? ORDER BY id',[$y.'-%',$y.'/%%']);
+  foreach($candidateRows as $candidate){
+    $key=IranCalendar::normalize($candidate['jdate']??'');
+    if(!$key || !isset($official[$key]))continue;
+    $source=strtolower(trim((string)($candidate['holiday_source']??'')));
+    $explicitManual=in_array($source,['manual','custom','user'],true);
+    $taggedOfficial=in_array($source,['official','official-reference','official-service'],true)||($officialCol&&(int)($candidate['official_flag']??0)===1);
+    if($explicitManual || !$taggedOfficial)continue;
+    if(!isset($officialIds[$key])){$officialIds[$key]=(int)$candidate['id'];continue;}
+    Db::run('DELETE FROM holidays WHERE id=?',[(int)$candidate['id']]);
+    $duplicatesRemoved++;
+  }
+}
+hs_json(['ok'=>true,'duplicates_removed'=>$duplicatesRemoved,'year'=>$y,'total'=>count($official),'inserted'=>$inserted,'updated'=>$updated,'existing'=>$existing,'removed'=>$removed,'legacy_removed'=>$legacyRemoved,'details'=>$details]);}catch(Throwable $e){error_log('admin-holiday-seed: stage='.$stage.' '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());$detail=$e->getMessage();if($detail==='')$detail=get_class($e);hs_json(['ok'=>false,'error'=>'خطای داخلی در درج تعطیلات رسمی','stage'=>$stage,'detail'=>$detail],500);}
