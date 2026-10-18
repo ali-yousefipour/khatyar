@@ -89,7 +89,7 @@ const s = StyleSheet.create({
   head: { padding: 16, backgroundColor: '#fff', borderBottomColor: C.line, borderBottomWidth: 1 },
   headTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 16, textAlign: 'right' },
   headSub: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', marginTop: 4 },
-  card: { backgroundColor: '#fff', borderRadius: 13, borderColor: C.line, borderWidth: 1, padding: 14, marginBottom: 10, flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
+  card: { backgroundColor: '#fff', borderRadius: 17, borderColor: C.line, borderWidth: 1, padding: 16, marginBottom: 10, flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
   name: { fontFamily: FONT.bold, color: C.ink, fontSize: 15, textAlign: 'right' },
   meta: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', marginTop: 4 },
   exitBtn: { backgroundColor: '#fdecec', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14 },
