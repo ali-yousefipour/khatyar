@@ -86,7 +86,7 @@ const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: C.paper }, content: { padding: 16, paddingBottom: 48 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   help: { fontFamily: FONT.regular, color: C.muted, textAlign: 'right', lineHeight: 23, marginBottom: 12 },
-  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 12 },
+  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 18, padding: 17, marginBottom: 12 },
   heading: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right', fontSize: 15, marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#eef1f4' },
   label: { flex: 1, fontFamily: FONT.regular, color: C.ink, textAlign: 'right', marginLeft: 12 },
