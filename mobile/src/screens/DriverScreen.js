@@ -147,7 +147,7 @@ export default function DriverScreen({ route, navigation }) {
 const s = StyleSheet.create({
   tempBadge: { backgroundColor: '#eef7ff', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, marginVertical: 4, borderWidth: 1, borderColor: '#bcd9f5' },
   tempBadgeTxt: { fontFamily: FONT.regular, color: '#1f6fd6', fontSize: 12.5, fontWeight: 'bold', textAlign: 'right' },
-  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, padding: 15 },
+  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 19, padding: 18 },
   row: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
   pf: { width: 46, height: 46, borderRadius: 13, backgroundColor: C.brand, alignItems: 'center', justifyContent: 'center' },
   pfTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 18 },
