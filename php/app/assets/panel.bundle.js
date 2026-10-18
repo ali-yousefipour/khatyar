@@ -11048,7 +11048,7 @@ function AttendanceReport() {
                         const isDeficit = ["کسری کار", "غیبت", "جمع غیبت و کسری کار", "تهاتر کسری کار"].includes(title);
                         const isGpsDeficit = title === "کسر کار غیر فعال کردن برنامه";
                         const deficitActive = title === "غیبت" ? Number(d.absent || 0) > 0 : mins(getter(d)) > 0;
-                        const cellColor = isGpsDeficit && deficitActive ? "#1764cf" : isDeficit && deficitActive ? "#c62828" : friday ? "#16803c" : holiday ? "#c62828" : "inherit";
+                        const cellColor = isGpsDeficit && deficitActive ? "#1764cf" : isDeficit && deficitActive ? "#c62828" : (friday || holiday) ? "#16803c" : "inherit";
                         const fontWeight = (i < 2 && red) ? 700 : 400;
                         const textAlign = ["ورود", "خروج", "اولین ورود", "آخرین خروج"].includes(title) ? "center" : "right";
                         return React.createElement("td", { key: title, style: { whiteSpace: "nowrap", color: cellColor, fontWeight: fontWeight, textAlign: textAlign, padding: "8px", background: rowIndex % 2 === 0 ? "#fff" : "#f0f8f3", borderBottom: "1px solid #e2e9e4", borderInlineStart: "1px solid #e2e9e4", verticalAlign: "middle" } },
