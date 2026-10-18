@@ -2301,7 +2301,7 @@ function PersonnelSeniority() {
                     event.created_at))) : React.createElement("p", null, "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647\u200C\u0627\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))));
 }
 function Users() {
-    var _a, _b, _c;
+    var _a, _b;
     const [usersTab, setUsersTab] = useState("users");
     const [users, setUsers] = useState([]);
     const [roles, setRoles] = useState([]);
@@ -2429,7 +2429,7 @@ function Users() {
                     React.createElement("span", { className: "badge " + (u.is_active ? "b-ok" : "b-no") }, u.is_active ? "فعال" : "غیرفعال")),
                 React.createElement("td", null,
                     React.createElement("div", { className: "row", style: { gap: 6, flexWrap: "wrap" } },
-                        React.createElement("button", { className: "btn g", onClick: () => { setEdit({ ...u, allow_android: u.allow_android == 1, allow_web: u.allow_web == 1, security_exempt: u.security_exempt == 1, presence_required: u.presence_required == 1, can_send_sms: u.can_send_sms == 1, can_be_substitute: u.can_be_substitute == 1, can_welfare: u.can_welfare == 1, can_cultural: u.can_cultural == 1, can_manage_temp_drivers: u.can_manage_temp_drivers == 1, birth_iso: u.birth_date ? isoFromJ(...String(u.birth_date).replace(/[\/.]/g, "-").split("-").map(Number)) : "" }); setPw(""); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
+                        React.createElement("button", { className: "btn g", onClick: () => { setEdit({ ...u, seniority_loading: true, allow_android: u.allow_android == 1, allow_web: u.allow_web == 1, security_exempt: u.security_exempt == 1, presence_required: u.presence_required == 1, can_send_sms: u.can_send_sms == 1, can_be_substitute: u.can_be_substitute == 1, can_welfare: u.can_welfare == 1, can_cultural: u.can_cultural == 1, can_manage_temp_drivers: u.can_manage_temp_drivers == 1, birth_iso: u.birth_date ? isoFromJ(...String(u.birth_date).replace(/[\/.]/g, "-").split("-").map(Number)) : "" }); setPw(""); GET('/admin/seniority').then(result => { const record = (result.rows || []).find(row => Number(row.id) === Number(u.id)); setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, seniority_loading: false, seniority_days: (record === null || record === void 0 ? void 0 : record.initialized) ? record.seniority_days : null } : current); }).catch(() => setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, seniority_loading: false, seniority_days: null } : current)); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
                         React.createElement("button", { className: "btn g", onClick: () => setLineModal(u) }, "\u062E\u0637\u0648\u0637"),
                         React.createElement("button", { className: "btn g", style: { color: 'var(--danger)' }, onClick: () => delUser(u) }, "\u062D\u0630\u0641"))))))),
         pg.Pager(),
@@ -2515,7 +2515,8 @@ function Users() {
                     React.createElement("input", { className: "input", type: "number", min: "0", value: (_a = edit.children_count) !== null && _a !== void 0 ? _a : "", onChange: e => setEdit({ ...edit, children_count: e.target.value === "" ? null : +e.target.value }) })),
                 React.createElement("div", { style: { flex: 1, minWidth: 170 } },
                     React.createElement("label", null, "\u062A\u0639\u062F\u0627\u062F \u0631\u0648\u0632 \u0633\u0646\u0648\u0627\u062A"),
-                    React.createElement("input", { className: "input", type: "number", min: "0", value: (_b = edit.seniority_days) !== null && _b !== void 0 ? _b : "", onChange: e => setEdit({ ...edit, seniority_days: e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0) }) })),
+                    React.createElement("input", { className: "input", type: "text", readOnly: true, "aria-label": "\u062A\u0639\u062F\u0627\u062F \u0631\u0648\u0632 \u0633\u0646\u0648\u0627\u062A (\u0641\u0642\u0637 \u0646\u0645\u0627\u06CC\u0634)", value: edit.seniority_loading ? "در حال دریافت…" : edit.seniority_days == null ? "ثبت نشده" : fa(edit.seniority_days), style: { background: "var(--surface,#f2f5f7)", cursor: "default", fontWeight: 700 } }),
+                    React.createElement("small", { className: "muted" }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0627\u0632 \u0622\u062E\u0631\u06CC\u0646 \u0648\u0636\u0639\u06CC\u062A \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u062F\u0631 \u0645\u062F\u06CC\u0631\u06CC\u062A \u0633\u0646\u0648\u0627\u062A \u062F\u0631\u06CC\u0627\u0641\u062A \u0645\u06CC\u200C\u0634\u0648\u062F \u0648 \u062F\u0631 \u0627\u06CC\u0646 \u0628\u062E\u0634 \u0642\u0627\u0628\u0644 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0646\u06CC\u0633\u062A.")),
                 React.createElement("div", { style: { flex: 1, minWidth: 170 } },
                     React.createElement("label", null, "\u062A\u0627\u0631\u06CC\u062E \u062A\u0648\u0644\u062F"),
                     React.createElement(JDate, { yearFrom: 1320, yearTo: todayJ()[0], value: edit.birth_iso || (edit.birth_date ? isoFromJ(...String(edit.birth_date).replace(/[\/.]/g, "-").split("-").map(Number)) : ""), onChange: v => { let bd = ""; if (v) {
@@ -2526,7 +2527,7 @@ function Users() {
                     edit.birth_date && React.createElement("span", { className: "muted", style: { fontSize: 11 } }, String(edit.birth_date).replace(/-/g, "/")))),
             React.createElement("div", { style: { flex: 1, minWidth: 170 } },
                 React.createElement("label", null, "\u062A\u0639\u062F\u0627\u062F \u0633\u062A\u0627\u0631\u0647 \u062F\u0631\u062C\u0647"),
-                React.createElement("input", { className: "input", type: "number", min: "0", max: "5", value: (_c = edit.rank_stars) !== null && _c !== void 0 ? _c : "", placeholder: "\u062E\u0627\u0644\u06CC = \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u0633\u0645\u062A", onChange: e => setEdit({ ...edit, rank_stars: e.target.value === "" ? null : Math.max(0, Math.min(5, +e.target.value || 0)) }) }),
+                React.createElement("input", { className: "input", type: "number", min: "0", max: "5", value: (_b = edit.rank_stars) !== null && _b !== void 0 ? _b : "", placeholder: "\u062E\u0627\u0644\u06CC = \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u0633\u0645\u062A", onChange: e => setEdit({ ...edit, rank_stars: e.target.value === "" ? null : Math.max(0, Math.min(5, +e.target.value || 0)) }) }),
                 React.createElement("span", { className: "muted", style: { fontSize: 11 } }, "\u067E\u06CC\u0634\u200C\u0641\u0631\u0636: \u0646\u0627\u0638\u0631/\u0627\u067E\u0631\u0627\u062A\u0648\u0631 \u06F1\u060C \u0628\u0627\u0632\u0631\u0633 \u06F2\u060C \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u06F4")),
             React.createElement(LeaveBalance, { userId: edit.id }),
             (edit.device_model || edit.android_version) && React.createElement("div", { className: "muted", style: { fontSize: 11.5, marginTop: 8 } },
