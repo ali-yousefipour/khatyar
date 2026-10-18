@@ -57,6 +57,57 @@ route('GET', '/api/admin/attendance-report', function($p,$b,$u){
   return attendance_report_owned_by_entry_date($uid,$from,$to);
 }, false, 3);
 require __DIR__ . '/api/daily-performance-gps-separate.php'; require "$ROOT/lib/routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; $body = Http::body();
+// Extend existing authenticated user routes without altering their authorization checks.
+foreach ($routes as &$employmentRoute) {
+  $routePath = (string)($employmentRoute['p'] ?? '');
+  $routeMethod = (string)($employmentRoute['m'] ?? '');
+  if (!preg_match('~(?:^|/)admin/users(?:/\\{id\\})?$~', $routePath)) continue;
+  if (!in_array($routeMethod, ['GET','PUT'], true)) continue;
+  $originalHandler = $employmentRoute['fn'];
+  $employmentRoute['fn'] = static function($params,$body,$user) use ($originalHandler,$routeMethod,$routePath) {
+    $result = $originalHandler($params,$body,$user);
+    $hasColumns = Db::one("SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ('employment_start_date','employment_end_date')");
+    if ((int)($hasColumns['n'] ?? 0) !== 2) return $result;
+    if ($routeMethod === 'PUT' && isset($params['id']) && is_array($body)) {
+      $updates=[];$values=[];
+      foreach (['employment_start_date','employment_end_date'] as $field) {
+        if (!array_key_exists($field,$body)) continue;
+        $date=trim((string)($body[$field]??''));
+        $date=str_replace('/','-',$date);
+        if ($date!=='' && !preg_match('/^1[34][0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/',$date)) Http::error('تاریخ همکاری معتبر نیست',422);
+        $updates[]="$field=?";$values[]=$date?:null;
+      }
+      if ($updates) {
+        $current=Db::one('SELECT employment_start_date,employment_end_date FROM users WHERE id=?',[(int)$params['id']]);
+        $start=array_key_exists('employment_start_date',$body)?str_replace('/','-',trim((string)($body['employment_start_date']??''))):($current['employment_start_date']??null);
+        $end=array_key_exists('employment_end_date',$body)?str_replace('/','-',trim((string)($body['employment_end_date']??''))):($current['employment_end_date']??null);
+        if ($start && $end && strcmp($start,$end)>0) Http::error('تاریخ پایان همکاری قبل از شروع است',422);
+        $values[]=(int)$params['id'];
+        Db::run('UPDATE users SET '.implode(',',$updates).' WHERE id=?',$values);
+      }
+    }
+    if ($routeMethod === 'GET' && is_array($result)) {
+      $ids=[];
+      $inject=static function(&$row) use (&$ids) {if(is_array($row)&&isset($row['id']))$ids[(int)$row['id']]=true;};
+      if (isset($result['users']) && is_array($result['users']))foreach($result['users'] as &$row)$inject($row);
+      elseif (isset($result['items']) && is_array($result['items']))foreach($result['items'] as &$row)$inject($row);
+      elseif (array_is_list($result))foreach($result as &$row)$inject($row);
+      elseif (isset($result['id']))$inject($result);
+      if ($ids) {
+        $placeholders=implode(',',array_fill(0,count($ids),'?'));
+        $dates=Db::all('SELECT id,employment_start_date,employment_end_date FROM users WHERE id IN ('.$placeholders.')',array_keys($ids));
+        $lookup=[];foreach($dates as $row)$lookup[(int)$row['id']]=$row;
+        $decorate=static function(&$row) use ($lookup) {if(is_array($row)&&isset($lookup[(int)($row['id']??0)]))$row=array_merge($row,$lookup[(int)$row['id']]);};
+        if(isset($result['users']))foreach($result['users'] as &$row)$decorate($row);
+        elseif(isset($result['items']))foreach($result['items'] as &$row)$decorate($row);
+        elseif(array_is_list($result))foreach($result as &$row)$decorate($row);
+        else $decorate($result);
+      }
+    }
+    return $result;
+  };
+}
+unset($employmentRoute);
 foreach ($routes as $r) {
   if ($r['m'] !== $method) continue; $regex = '#^' . preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $r['p']) . '$#'; if (!preg_match($regex, $path, $mm)) continue; $params = array_filter($mm, 'is_string', ARRAY_FILTER_USE_KEY); $user = null;
   if (!$r['public']) {
