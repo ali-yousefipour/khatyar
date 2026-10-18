@@ -115,11 +115,27 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
     }
   }
 
+  // Employment period is inclusive. Retain original punches for audit; exclude days
+  // outside the contract from worked time, expected shifts and absence calculations.
+  $employment = Db::one('SELECT employment_start_date,employment_end_date FROM users WHERE id=?',[$userId]);
+  $employmentStart = aar_normalize_jdate($employment['employment_start_date']??'');
+  $employmentEnd = aar_normalize_jdate($employment['employment_end_date']??'');
   foreach ($report['days'] as $i => $day) {
     if (!is_array($day)) continue;
     $dayJ = aar_normalize_jdate($day['jdate'] ?? $day['date'] ?? '');
     if (!$dayJ) continue;
 
+    if (($employmentStart && strcmp($dayJ,$employmentStart)<0) || ($employmentEnd && strcmp($dayJ,$employmentEnd)>0)) {
+      $day['outside_employment_period']=true;
+      $day['data']=array_fill_keys($metricKeys,0);
+      foreach($metricKeys as $key)$day[$key]=0;
+      $day['night_work']=0;
+      $day['expected']=0;
+      $day['shortage']=0;
+      $day['absence_reason']='خارج از بازه همکاری';
+      $report['days'][$i]=$day;
+      continue;
+    }
     $allPunches = is_array($day['punches'] ?? null) ? $day['punches'] : [];
     $ownedPunches = [];
     // فقط رکوردهای اصلی DB که check_in آنها متعلق به همین تاریخ است.
