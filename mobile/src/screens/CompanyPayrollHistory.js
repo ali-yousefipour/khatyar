@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, Modal, useWindowDimensions } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { request } from '../api';
 import { C, FONT } from '../theme';
@@ -10,6 +10,8 @@ const amount = (value, maximumFractionDigits = 0) => value === null || value ===
 const digits = value => String(value).replace(/[۰-۹]/g, character => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(character))).replace(/[٠-٩]/g, character => String('٠١٢٣٤٥٦٧٨٩'.indexOf(character))).replace(/\D/g, '');
 
 export default function CompanyPayrollHistory() {
+  const { width: screenWidth } = useWindowDimensions();
+  const detailColumns = screenWidth >= 600 ? 3 : 2;
   const [year, setYear] = useState('');
   const [month, setMonth] = useState('');
   const [filters, setFilters] = useState({ year: '', month: '', page: 1 });
@@ -92,7 +94,7 @@ export default function CompanyPayrollHistory() {
           <Text style={styles.heading}>{detail.row.employee_name} — {faNum(`${detail.row.period_jy}/${detail.row.period_jm}`)}</Text>
           <Text style={styles.note}>اطلاعات اعلامی شرکت — مبالغ ریال</Text>
           {(detail.row.warnings || []).map((warning, index) => <Text key={index} style={styles.error}>{warning}</Text>)}
-          {detail.fields.map((field, index) => <View style={styles.detailRow} key={field}><Text style={styles.label}>{detail.labels[index]}</Text><Text style={[styles.label, { flex: 1 }]}>{index < 7 ? detail.row.data[field] || '—' : amount(detail.row.data[field], 6)}</Text></View>)}
+          <View style={styles.detailsGrid}>{detail.fields.map((field, index) => <View style={[styles.detailCell, { width: detailColumns === 3 ? '31.8%' : '48.5%' }]} key={field}><Text style={styles.detailTitle}>{detail.labels[index]}</Text><Text style={styles.detailValue} numberOfLines={3}>{index < 7 ? (detail.row.data[field] || '—') : amount(detail.row.data[field], 6)}</Text></View>)}</View>
         </>}</ScrollView>
       </View>
     </Modal>
@@ -102,15 +104,18 @@ export default function CompanyPayrollHistory() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.paper },
   content: { padding: 16, paddingBottom: 32 },
-  heading: { fontFamily: FONT.bold, fontSize: 16, color: C.ink, textAlign: 'right', marginBottom: 10 },
-  label: { fontFamily: FONT.regular, color: C.ink, textAlign: 'right', fontSize: 13, flexShrink: 1 },
+  heading: { fontFamily: FONT.bold, fontSize: 19, color: C.ink, textAlign: 'right', marginBottom: 10 },
+  label: { fontFamily: FONT.regular, color: C.ink, textAlign: 'right', fontSize: 15, flexShrink: 1 },
   note: { fontFamily: FONT.regular, color: C.slate, textAlign: 'right', lineHeight: 24, marginBottom: 12 },
   row: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginBottom: 12 },
   input: { flex: 1, minHeight: 48, backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 10, padding: 10, fontFamily: FONT.regular, textAlign: 'right', color: C.ink },
   button: { flexGrow: 1, minHeight: 46, padding: 12, backgroundColor: C.brand, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   buttonText: { fontFamily: FONT.bold, color: '#fff', textAlign: 'center' },
   card: { padding: 16, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: '#fff', marginBottom: 12, gap: 8 },
-  detailRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', gap: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: C.line },
+  detailsGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 9 },
+  detailCell: { minHeight: 68, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: C.line, paddingHorizontal: 10, paddingVertical: 9, justifyContent: 'center' },
+  detailTitle: { fontFamily: FONT.regular, fontSize: 13, color: C.slate, textAlign: 'right', marginBottom: 5 },
+  detailValue: { fontFamily: FONT.bold, fontSize: 16, color: C.ink, textAlign: 'right' },
   error: { fontFamily: FONT.regular, color: '#b42318', textAlign: 'right', paddingVertical: 12 },
   disabled: { opacity: 0.45 },
 });
