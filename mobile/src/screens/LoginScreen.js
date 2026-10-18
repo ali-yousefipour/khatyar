@@ -153,7 +153,7 @@ export default function LoginScreen() {
 
 const s = StyleSheet.create({
   wrap:{flex:1,backgroundColor:C.paper,padding:26,justifyContent:'center'},
-  logo:{width:64,height:64,borderRadius:18,backgroundColor:C.brand,alignSelf:'center',alignItems:'center',justifyContent:'center'},
+  logo:{width:72,height:72,borderRadius:22,backgroundColor:C.brand,alignSelf:'center',alignItems:'center',justifyContent:'center'},
   logoTxt:{color:'#fff',fontSize:30,fontFamily:FONT.bold},
   title:{fontFamily:FONT.bold,fontSize:18,textAlign:'center',marginTop:16,color:C.ink},
   sub:{textAlign:'center',color:C.muted,marginBottom:26,fontFamily:FONT.regular},
