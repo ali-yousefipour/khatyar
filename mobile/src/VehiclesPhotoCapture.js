@@ -47,11 +47,13 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
     return () => clearTimeout(timer);
   }, [cameraActive, cameraReady, cameraKey, shot]);
   useEffect(() => {
-    if (cameraReady) {
-      previewRetryRef.current = 0;
-      setError('');
-    }
+    if (cameraReady) setError('');
   }, [cameraReady]);
+  // Keep retry count bounded across native mount failures. A successful photo
+  // starts a fresh session when the user chooses to retake it.
+  useEffect(() => {
+    if (shot) previewRetryRef.current = 0;
+  }, [shot]);
   useEffect(() => () => { captureGeneration.current += 1; }, []);
 
   useEffect(() => {
@@ -255,13 +257,19 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         onCameraReady={() => setCameraReady(true)}
         onMountError={(event) => {
           setCameraReady(false);
-          setError(event?.message || 'دوربین آماده نشد.');
+          if (previewRetryRef.current < 2) {
+            previewRetryRef.current += 1;
+            setError('اتصال به دوربین برقرار نشد؛ تلاش مجدد به‌صورت خودکار انجام می‌شود.');
+            restartCamera();
+          } else {
+            setError(event?.message || 'دوربین دستگاه در دسترس نیست. برنامه‌های دیگر استفاده‌کننده از دوربین را ببندید.');
+          }
         }}
       />}
       <View style={[s.bottom, { paddingBottom: Math.max(20, insets.bottom + 12) }]}>
         <Text style={s.hint}>با دوربین پشت، از خودروهای حاضر در خط عکس بگیرید. تاریخ، ساعت و موقعیت به‌صورت خودکار روی عکس درج می‌شود.</Text>
         {error ? <Text style={s.error}>{error}</Text> : null}
-        {!cameraReady && <TouchableOpacity onPress={() => { previewRetryRef.current = 0; setCameraReady(false); setError(''); restartCamera(); }}><Text style={s.cancel}>راه‌اندازی دوباره دوربین</Text></TouchableOpacity>}
+        {!cameraReady && !error ? <Text style={s.cameraOnly}>در حال آماده‌سازی دوربین…</Text> : null}
         <TouchableOpacity style={[s.shutter, (!cameraReady || busy) && s.disabled]} onPress={snap} disabled={!cameraReady || busy}>
           {busy ? <ActivityIndicator color="#fff" /> : <View style={s.shutterInner} />}
         </TouchableOpacity>
