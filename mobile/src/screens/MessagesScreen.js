@@ -73,7 +73,7 @@ const s = StyleSheet.create({
   badge: { backgroundColor: '#e8f5ef', borderRadius: 9, paddingVertical: 4, paddingHorizontal: 10 },
   badgeTxt: { fontFamily: FONT.bold, color: '#0d7a5f', fontSize: 12 },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 40 },
-  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 13, padding: 13, marginBottom: 10 },
+  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 17, padding: 16, marginBottom: 10 },
   unread: { borderRightWidth: 4, borderRightColor: C.brand, backgroundColor: '#fbfffd' },
   cardHead: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
   dot: { borderRadius: 8, paddingVertical: 3, paddingHorizontal: 9 },
