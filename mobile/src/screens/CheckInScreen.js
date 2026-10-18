@@ -1465,10 +1465,10 @@ render();
 }
 
 const s = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },  checkTabs: { flexDirection:'row-reverse', backgroundColor:'#fff', borderBottomWidth:1, borderBottomColor:C.line, paddingHorizontal:10, paddingTop:8, paddingBottom:6, gap:6 },
-  checkTab: { flex:1, minHeight:42, borderRadius:12, alignItems:'center', justifyContent:'center', borderWidth:1, borderColor:C.line, backgroundColor:'#fff' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },  checkTabs: { flexDirection:'row-reverse', backgroundColor:'#fff', borderBottomWidth:1, borderBottomColor:C.line, paddingHorizontal:12, paddingTop:12, paddingBottom:10, gap:8 },
+  checkTab: { flex:1, minHeight:48, borderRadius:15, alignItems:'center', justifyContent:'center', borderWidth:1, borderColor:C.line, backgroundColor:'#fff' },
   checkTabOn: { backgroundColor:C.brand, borderColor:C.brand }, checkTabTxt:{fontFamily:FONT.bold,fontSize:12,color:C.ink}, checkTabTxtOn:{color:'#fff'},
-  perfNav:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',backgroundColor:'#fff',borderRadius:14,padding:8,borderWidth:1,borderColor:C.line},
+  perfNav:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',backgroundColor:'#fff',borderRadius:17,padding:11,borderWidth:1,borderColor:C.line},
   perfNavBtn:{paddingVertical:9,paddingHorizontal:10},perfNavTxt:{fontFamily:FONT.bold,fontSize:12,color:C.brand},perfDate:{fontFamily:FONT.bold,fontSize:13,color:C.ink},perfActions:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:14,padding:14,marginTop:10},perfActionTitle:{fontFamily:FONT.bold,fontSize:13,color:C.ink,textAlign:'right'},perfActionHint:{fontFamily:FONT.regular,fontSize:11,color:C.muted,textAlign:'right',marginTop:5,lineHeight:18},perfActionRow:{flexDirection:'row-reverse',gap:8,marginTop:10},perfActionLeave:{flex:1,backgroundColor:'#e7f3ee',borderWidth:1,borderColor:C.brand,borderRadius:12,paddingVertical:12,alignItems:'center'},perfActionManual:{flex:1,backgroundColor:'#eef4ff',borderWidth:1,borderColor:'#3b5bd6',borderRadius:12,paddingVertical:12,alignItems:'center'},perfActionIcon:{fontSize:17},perfActionLeaveTxt:{fontFamily:FONT.bold,fontSize:12,color:C.brand,marginTop:4},perfActionManualTxt:{fontFamily:FONT.bold,fontSize:12,color:'#3b5bd6',marginTop:4},
   perfTitleEmpty:{fontFamily:FONT.bold,fontSize:15,color:C.ink,textAlign:'center'},
   perfHero:{backgroundColor:C.brand,borderRadius:16,padding:16,marginTop:10},perfTitle:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right'},perfShift:{fontFamily:FONT.regular,fontSize:12,color:'#dcefe9',marginTop:4,textAlign:'right'},
@@ -1521,7 +1521,7 @@ const s = StyleSheet.create({
 });
 
 const ss = StyleSheet.create({
-  track: { height: 64, borderRadius: 32, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center', marginTop: 16, overflow: 'hidden' },
+  track: { height: 66, borderRadius: 33, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center', marginTop: 16, overflow: 'hidden' },
   trackTxt: { fontFamily: FONT.bold, fontSize: 15 },
   thumb: { position: 'absolute', right: 3, width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center' },
   thumbTxt: { color: '#fff', fontSize: 24, fontWeight: '700' },
