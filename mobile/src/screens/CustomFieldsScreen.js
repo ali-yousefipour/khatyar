@@ -161,7 +161,7 @@ const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper, padding: 24 },
   muted: { fontFamily: FONT.regular, color: C.muted, fontSize: 14, textAlign: 'center' },
   intro: { fontFamily: FONT.regular, color: C.slate, fontSize: 13, textAlign: 'right', marginBottom: 12 },
-  fieldWrap: { marginBottom: 14 },
+  fieldWrap: { marginBottom: 17 },
   label: { fontFamily: FONT.bold, color: C.ink, fontSize: 13, textAlign: 'right', marginBottom: 6 },
   input: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontFamily: FONT.regular, color: C.ink, textAlign: 'right', fontSize: 14 },
   txt: { fontFamily: FONT.regular, color: C.ink, fontSize: 14 },
