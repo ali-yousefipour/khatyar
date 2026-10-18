@@ -54,7 +54,7 @@ export default function ImportTimesScreen() {
 const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   h: { fontFamily: FONT.bold, fontSize: 19, color: CC.ink, textAlign: 'right', marginBottom: 6 },
-  sub: { fontFamily: FONT.regular, fontSize: 12.5, color: CC.muted, textAlign: 'right', marginBottom: 16, lineHeight: 20 },
+  sub: { fontFamily: FONT.regular, fontSize: 12.5, color: CC.muted, textAlign: 'right', marginBottom: 20, lineHeight: 22 },
   card: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12, backgroundColor: CC.card, borderRadius: 12, borderWidth: 1, borderColor: CC.line, padding: 14, marginBottom: 10 },
   icon: { width: 34, height: 34 },
   title: { fontFamily: FONT.bold, color: CC.ink, fontSize: 14.5, textAlign: 'right' },
