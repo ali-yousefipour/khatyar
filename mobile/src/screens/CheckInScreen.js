@@ -993,7 +993,7 @@ function CheckInCore() {
 
       {/* نقشه */}
       <TouchableOpacity style={s.refreshPosBtn} onPress={refreshMyLocation} disabled={refreshingPos}>
-        <Text style={s.refreshPosTxt}>{refreshingPos ? 'در حال یافتن موقعیت…' : '📍 بروزرسانی موقعیت من'}</Text>
+        <Text style={s.refreshPosTxt}>{refreshingPos ? 'در حال یافتن موقعیت…' : 'بروزرسانی موقعیت من'}</Text>
       </TouchableOpacity>
       <View style={s.mapBox}>
         <WebView originWhitelist={['*', 'file://']} source={{ html: mapHtml }}
@@ -1485,10 +1485,10 @@ const s = StyleSheet.create({
   lineChipOn: { backgroundColor: C.brand, borderColor: C.brand },
   lineChipTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 13 },
   lineChipTxtOn: { color: '#fff', fontFamily: FONT.bold },
-  mapBox: { height: 280, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: C.line, marginBottom: 10 },
-  refreshPosBtn: { backgroundColor: '#eef4ff', borderWidth: 1, borderColor: '#3b5bd6', borderRadius: 11, paddingVertical: 10, alignItems: 'center', marginBottom: 8 },
-  refreshPosTxt: { color: '#3b5bd6', fontFamily: FONT.bold, fontSize: 13 },
-  distRow: { padding: 12, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginBottom: 12 },
+  mapBox: { height: 310, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: C.line, marginBottom: 14, backgroundColor: '#eaf1ef', elevation: 2 },
+  refreshPosBtn: { backgroundColor: '#e7f3ee', borderWidth: 1, borderColor: C.brand, borderRadius: 15, paddingVertical: 13, alignItems: 'center', marginBottom: 8 },
+  refreshPosTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 13 },
+  distRow: { padding: 15, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginBottom: 14 },
   distTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 14, textAlign: 'center' },
   timerBox: { alignItems: 'center', padding: 16, borderRadius: 14, backgroundColor: '#e7f3ee', marginBottom: 14 },
   reminderCard: { flexDirection:'row-reverse', alignItems:'center', backgroundColor:'#fff', borderWidth:1, borderColor:C.line, borderRadius:14, padding:14, marginBottom:12 },
@@ -1521,9 +1521,9 @@ const s = StyleSheet.create({
 });
 
 const ss = StyleSheet.create({
-  track: { height: 66, borderRadius: 33, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center', marginTop: 16, overflow: 'hidden' },
+  track: { height: 72, borderRadius: 36, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center', marginTop: 18, marginBottom: 8, overflow: 'hidden', shadowColor: '#17352f', shadowOpacity: 0.10, shadowRadius: 10, elevation: 2 },
   trackTxt: { fontFamily: FONT.bold, fontSize: 15 },
-  thumb: { position: 'absolute', right: 3, width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center' },
+  thumb: { position: 'absolute', right: 4, width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center' },
   thumbTxt: { color: '#fff', fontSize: 24, fontWeight: '700' },
 });
 
