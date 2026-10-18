@@ -6565,7 +6565,7 @@ function AttendanceReport(){
                 <thead><tr><th>از ساعت</th><th>تا ساعت</th><th>مدت</th><th>علت / شواهد ثبت‌شده</th><th>حذف و بی‌اثر کردن</th></tr></thead>
                 <tbody>{gpsDeficitModal.details.map((r,i)=>{const start=String(r.start_at||"");const end=String(r.end_at||"");const startTime=start.slice(11,16)||"—";const endTime=end.slice(11,16)||"—";const nextDay=start.slice(0,10)!==end.slice(0,10);return <tr key={i}>
                   <td style={{whiteSpace:"nowrap"}}>{faPlain(startTime)}</td><td style={{whiteSpace:"nowrap"}}>{faPlain(endTime)}{nextDay?<span style={{fontSize:10,display:"block",color:"var(--muted)"}}>روز بعد</span>:null}</td><td style={{whiteSpace:"nowrap"}}>{hm(r.minutes||0)}</td><td style={{whiteSpace:"normal",minWidth:260}}><div>{r.reason||"علت مشخص نیست"}</div><div style={{fontSize:10,color:"var(--muted)",marginTop:3}}>شاهد: {r.evidence||"—"}</div></td>
-                  <td><button type="button" className="btn d" onClick={async()=>{
+                  <td style={{minWidth:170,textAlign:"center"}}><button type="button" className="btn d" style={{display:"inline-flex",justifyContent:"center",alignItems:"center",background:"#b42318",color:"#fff",border:"1px solid #912018",fontWeight:800,padding:"9px 12px",whiteSpace:"nowrap",cursor:"pointer"}} aria-label="حذف و بی‌اثر کردن این بازه کسر کار GPS" onClick={async()=>{
                     const reason=prompt("دلیل لغو این بازه کسر کار را وارد کنید (در سوابق مدیریتی ثبت می‌شود):","");
                     if(reason===null)return;
                     if(reason.trim().length<5){alert("برای لغو کسر کار، توضیح حداقل پنج‌حرفی الزامی است.");return;}
