@@ -136,11 +136,11 @@ foreach ($routes as &$employmentRoute) {
 }
 unset($employmentRoute);
 // Apply employment window to the primary attendance API irrespective of live/frozen source.
-require_once "$ROOT/lib/EmploymentAttendance.php";
 foreach($routes as &$attendanceRoute){
   if(($attendanceRoute['m']??'')!=='GET' || !preg_match('~(?:^|/)admin/attendance-report$~',(string)($attendanceRoute['p']??'')))continue;
   $originalAttendanceHandler=$attendanceRoute['fn'];
   $attendanceRoute['fn']=static function($params,$body,$user) use($originalAttendanceHandler){
+    require_once dirname(__DIR__).'/lib/EmploymentAttendance.php';
     $report=$originalAttendanceHandler($params,$body,$user);
     if(!is_array($report))return $report;
     $target=(int)($_GET['user_id']??0);
