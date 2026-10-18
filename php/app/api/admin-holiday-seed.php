@@ -41,7 +41,7 @@ if($y===1405 && $sourceCol){
     $oldSource=strtolower(trim((string)($oldHoliday['source']??'')));
     if(in_array($oldSource,['manual','custom','user'],true))continue;
     if($officialCol && (int)($oldHoliday['official_flag']??0)===1)continue;
-    if($oldSource!=='' && !in_array($oldSource,['legacy','seed','calendar','automatic'],true))continue;
+    if(!in_array($oldSource,['','legacy','seed','calendar','automatic'],true))continue;
     $suffix=$date?substr($date,5):'';
     $isWrong=in_array($suffix,$knownWrongDates,true)&&!isset($official[$date])&&preg_match($legacyPattern,(string)($oldHoliday['title']??''));
     $isTehran=in_array($suffix,['04-13','04-16'],true)&&stripos((string)($oldHoliday['title']??''),'تهران')!==false;
