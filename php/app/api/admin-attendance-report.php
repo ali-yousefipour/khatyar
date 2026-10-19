@@ -270,6 +270,42 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
   return $report;
 }
 
+
+/**
+ * Derive summary fields from the same visible day records, including frozen reports.
+ * Never derive shortage from monthly (expected - in_shift): that loses per-day
+ * attendance adjustments and can produce a phantom monthly deficit.
+ */
+function aar_reconcile_day_totals(array $report): array {
+  if (empty($report['days']) || !is_array($report['days'])) return $report;
+  $keys = ['worked','in_shift','expected','overtime','shortage','night',
+    'friday','holiday','late_in','early_out','surplus','adjusted_ot',
+    'friday_work','holiday_work','friday_overtime','holiday_overtime',
+    'total_overtime','holiday_friday_overtime'];
+  $totals = array_fill_keys($keys, 0);
+  $presentDays = 0;
+  foreach ($report['days'] as $day) {
+    if (!is_array($day)) continue;
+    $jdate = aar_normalize_jdate($day['jdate'] ?? $day['date'] ?? '');
+    if (!empty($day['is_future']) || !empty($day['outside_employment_period'])) continue;
+    // A future calendar entry does not accrue duty or deficit.
+    if ($jdate && strcmp($jdate, date('Y-m-d')) > 0 && !empty($day['is_future'])) continue;
+    $data = is_array($day['data'] ?? null) ? $day['data'] : [];
+    foreach ($keys as $key) {
+      $value = $day[$key] ?? $data[$key] ?? 0;
+      if (is_numeric($value)) $totals[$key] += max(0, (int)$value);
+    }
+    if ((int)($day['worked'] ?? $data['worked'] ?? 0) > 0) ++$presentDays;
+  }
+  $totals['night_work'] = $totals['night'];
+  $totals['present_days'] = $presentDays;
+  foreach (['totals','work_totals','summary'] as $field) {
+    if (!isset($report[$field]) || !is_array($report[$field])) continue;
+    foreach ($totals as $key => $value) $report[$field][$key] = $value;
+  }
+  return $report;
+}
+
 try {
   $ROOT = __DIR__ . '/../../';
   require_once "$ROOT/lib/Db.php";
@@ -312,6 +348,7 @@ try {
     $report = _attendance_report($uid, $from, $to);
     $report = aar_rebuild_overnight_report($report, $uid);
   }
+  $report = aar_reconcile_day_totals($report);
   aar_json($report);
 } catch (Throwable $e) {
   error_log('admin-attendance-report: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
