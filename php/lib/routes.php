@@ -3071,7 +3071,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
   unset($holidaySet['1405-07-05'], $holidaySet['1405/07/05']);
   // کاربرانی که در بخشی از ماه شیفت فعال دارند
   $assigns = Db::all("SELECT us.user_id, us.shift_id, us.from_jdate, us.to_jdate, CONCAT(uu.first_name,' ',uu.last_name) name, r.title role
-    FROM user_shifts us JOIN users uu ON uu.id=us.user_id LEFT JOIN roles r ON r.id=uu.role_id
+    FROM user_shifts us JOIN users uu ON uu.id=us.user_id AND uu.is_active=1 LEFT JOIN roles r ON r.id=uu.role_id
     WHERE (us.from_jdate IS NULL OR us.from_jdate <= ?) AND (us.to_jdate IS NULL OR us.to_jdate >= ?)", [$prefix.'31', $prefix.'01']);
   $shiftsById = [];
   foreach (Db::all("SELECT * FROM shifts WHERE is_active=1") as $sx) $shiftsById[$sx['id']] = $sx;
@@ -3212,7 +3212,7 @@ function _work_month_rows($y,$m){
   return $final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($y,$m);
 }
 function _work_month_people(){
-  $people=Db::all("SELECT u.id,u.first_name,u.last_name,u.personnel_code,u.zone_id,z.name AS zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id");
+  $people=Db::all("SELECT u.id,u.first_name,u.last_name,u.personnel_code,u.zone_id,z.name AS zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id WHERE u.is_active=1");
   $byId=[];foreach($people as $person)$byId[(int)$person['id']]=$person;
   return $byId;
 }
