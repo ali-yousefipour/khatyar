@@ -90,8 +90,9 @@ export default function CompanyPayrollHistory() {
       const uri = await captureRef(slipRef, { format: 'png', quality: 1, result: 'tmpfile', width: 2480, height: 1748 });
       const destination = `${FileSystem.documentDirectory}payroll-${slip.row.period_jy}-${slip.row.period_jm}.png`;
       await FileSystem.copyAsync({ from: uri, to: destination });
+      let result;
       try {
-        const result = await request(`/my/payroll/${slip.row.id}/issue`, { method: 'POST', queueIfOffline: false, noStore: true });
+        result = await request(`/my/payroll/${slip.row.id}/issue`, { method: 'POST', queueIfOffline: false, noStore: true });
         if (!result?.ok || !result.issued || result.queued) throw new Error('صدور فیش در سرور تأیید نشد؛ دوباره تلاش کنید.');
       }
       catch (error) { await FileSystem.deleteAsync(destination, { idempotent: true }); throw error; }
