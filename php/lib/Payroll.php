@@ -142,8 +142,12 @@ class Payroll {
     $page=max(1,(int)($filters['page']??1));$limit=50;$offset=($page-1)*$limit;
     $rows=Db::all('SELECT r.id,r.source_row,r.user_id,r.match_status,r.employee_name,r.personnel_code,r.national_code,r.role_title,r.net,p.period_jy,p.period_jm,b.created_at'.$sql.' ORDER BY p.period_jy DESC,p.period_jm DESC,r.source_row LIMIT '.$limit.' OFFSET '.$offset,$params);
     if($userId!==null){
-      Db::run("CREATE TABLE IF NOT EXISTS payroll_issued_slips (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,user_id INT NOT NULL,period_jy INT NOT NULL,period_jm TINYINT NOT NULL,payroll_row_id INT NOT NULL,issued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE KEY unique_monthly_issue(user_id,period_jy,period_jm)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-      foreach($rows as &$item){$item['issued']=!!Db::one('SELECT id FROM payroll_issued_slips WHERE user_id=? AND period_jy=? AND period_jm=?',[$userId,$item['period_jy'],$item['period_jm']]);}unset($item);
+      payroll_ensure_issue_counter();
+      foreach($rows as &$item){
+        $issue=Db::one('SELECT download_count FROM payroll_issued_slips WHERE user_id=? AND period_jy=? AND period_jm=?',[$userId,$item['period_jy'],$item['period_jm']]);
+        $item['issued_count']=(int)($issue['download_count']??0);
+        $item['issued']=$item['issued_count']>=3;
+      }unset($item);
     }
     return ['rows'=>$rows,'summary'=>$summary,'page'=>$page,'page_size'=>$limit];
   }
@@ -179,29 +183,35 @@ route('GET','/api/my/payroll',function($p,$b,$u){if(!_user_app_item_allowed($u,'
 route('GET','/api/my/payroll/{id}',function($p,$b,$u){if(!_user_app_item_allowed($u,'SalarySlips'))Http::error('دسترسی به فیش حقوقی فعال نیست',403);return payroll_response(fn()=>Payroll::detail($p['id'],$u['id']));});
 
 /**
- * A single irreversible issuance per account and Persian payroll month.
- * Unique constraint is the concurrency boundary, independent of app state.
+ * Three successful image issuances per account and Persian payroll month.
+ * The unique monthly key and conditional UPDATE enforce the limit atomically.
  */
+function payroll_ensure_issue_counter() {
+  Db::run("CREATE TABLE IF NOT EXISTS payroll_issued_slips (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    period_jy INT NOT NULL,
+    period_jm TINYINT NOT NULL,
+    payroll_row_id INT NOT NULL,
+    download_count INT NOT NULL DEFAULT 0,
+    issued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_monthly_issue(user_id,period_jy,period_jm)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  $column=Db::one("SHOW COLUMNS FROM payroll_issued_slips LIKE 'download_count'");
+  if (!$column) Db::run("ALTER TABLE payroll_issued_slips ADD COLUMN download_count INT NOT NULL DEFAULT 1");
+}
 function payroll_issue_once($id,$user) {
   if (!_user_app_item_allowed($user,'SalarySlips')) Http::error('دسترسی به فیش حقوقی فعال نیست',403);
   return payroll_response(function() use ($id,$user) {
     $row=Payroll::detail($id,$user['id'])['row'];
-    Db::run("CREATE TABLE IF NOT EXISTS payroll_issued_slips (
-      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      user_id INT NOT NULL,
-      period_jy INT NOT NULL,
-      period_jm TINYINT NOT NULL,
-      payroll_row_id INT NOT NULL,
-      issued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY unique_monthly_issue(user_id,period_jy,period_jm)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    try {
-      Db::run('INSERT INTO payroll_issued_slips(user_id,period_jy,period_jm,payroll_row_id) VALUES(?,?,?,?)',[(int)$user['id'],(int)$row['period_jy'],(int)$row['period_jm'],(int)$row['id']]);
-    } catch (PDOException $e) {
-      if ($e->getCode()==='23000') throw new PayrollError('فیش این ماه قبلاً صادر شده است. صدور و دریافت مجدد مجاز نیست.',409);
-      throw $e;
-    }
-    return ['ok'=>true,'issued'=>true];
+    payroll_ensure_issue_counter();
+    $args=[(int)$user['id'],(int)$row['period_jy'],(int)$row['period_jm']];
+    Db::run('INSERT IGNORE INTO payroll_issued_slips(user_id,period_jy,period_jm,payroll_row_id,download_count) VALUES(?,?,?,?,0)',[...$args,(int)$row['id']]);
+    $statement=Db::pdo()->prepare('UPDATE payroll_issued_slips SET download_count=download_count+1, payroll_row_id=? WHERE user_id=? AND period_jy=? AND period_jm=? AND download_count<3');
+    $statement->execute([(int)$row['id'],...$args]);
+    if ($statement->rowCount()!==1) throw new PayrollError('سقف سه بار دریافت تصویر فیش این ماه تکمیل شده است.',409);
+    $count=Db::one('SELECT download_count FROM payroll_issued_slips WHERE user_id=? AND period_jy=? AND period_jm=?',$args);
+    return ['ok'=>true,'issued'=>true,'issued_count'=>(int)$count['download_count'],'remaining'=>max(0,3-(int)$count['download_count'])];
   });
 }
 route('POST','/api/my/payroll/{id}/issue',function($p,$b,$u){return payroll_issue_once($p['id'],$u);});
