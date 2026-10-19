@@ -3053,7 +3053,13 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
   // تعداد روزهای ماه شمسی: ۱..۶ ⇒۳۱، ۷..۱۱⇒۳۰، ۱۲⇒۲۹/۳۰
   $days = ShiftCalc::jMonthDays($jy, $jm);
   $throughJdate=$throughJdate?ShiftCalc::normJdate($throughJdate):null;
-  $lastDay=ShiftCalc::monthReportLastDay($jy,$jm,$throughJdate);
+  // Cap live reports to today's Jalali date: future dates are neither absent nor deficient.
+  [$cy,$cm,$cd]=gregorian_to_jalali((int)date('Y'),(int)date('n'),(int)date('j'));
+  $todayJ=sprintf('%04d-%02d-%02d',$cy,$cm,$cd);
+  $firstJ=sprintf('%04d-%02d-01',$jy,$jm);
+  $endJ=sprintf('%04d-%02d-%02d',$jy,$jm,ShiftCalc::jMonthDays($jy,$jm));
+  if($endJ>$todayJ && ($throughJdate===null || $throughJdate>$todayJ))$throughJdate=$todayJ;
+  $lastDay=$firstJ>$todayJ?0:ShiftCalc::monthReportLastDay($jy,$jm,$throughJdate);
   $reportNow=time();
   $holidays = array_column(Db::all("SELECT jdate FROM holidays WHERE jdate LIKE ?", [$prefix.'%']), 'jdate');
   $holidaySet = array_flip($holidays);
