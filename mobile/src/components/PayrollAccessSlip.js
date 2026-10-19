@@ -14,6 +14,44 @@ export default function PayrollAccessSlip({ slip, width }) {
   const h = Number(layout.height) * scale;
   const data = slip.row?.data && typeof slip.row.data === 'object' ? slip.row.data : {};
   const fields = Object.fromEntries(Object.entries(data).map(([key, value]) => [normalized(key), value]));
+  // API may return machine-readable columns while Access uses Persian ControlSource names.
+  const aliases = {
+    'خالصپرداختی': ['net', 'net_pay', 'net_salary'],
+    'نام': ['first_name'],
+    'نامخانوادگی': ['last_name'],
+    'کدملی': ['national_code', 'national_id'],
+    'سمت': ['role_title', 'job_title'],
+    'روزکارکردکل': ['work_days', 'total_work_days'],
+    'روزکارکردموثر': ['effective_work_days'],
+    'مرخصی': ['leave_days'],
+    'غیبت': ['absence_days'],
+    'استعلاجی': ['sick_leave_days'],
+    'دستمزدروزانه': ['daily_wage'],
+    'مزدسنوات': ['seniority_pay'],
+    'مزدشغل': ['job_wage'],
+    'حقوقماهیانه': ['monthly_salary', 'base_salary'],
+    'حقتاهل': ['marriage_allowance'],
+    'حقاولاد': ['child_allowance'],
+    'ساعتجمعهکاری': ['friday_hours'],
+    'جمعهکاری': ['friday_pay'],
+    'ساعتتعطیلکاری': ['holiday_hours'],
+    'تعطیلکاری': ['holiday_pay'],
+    'ساعتشبکاری': ['night_hours'],
+    'شبکاری': ['night_pay'],
+    'درصدنوبتکاری': ['shift_percentage'],
+    'مبلغنوبتکاری': ['shift_pay'],
+    'ساعتاضافهکار': ['overtime_hours'],
+    'اضافهکار': ['overtime_pay'],
+    'حقمسکن': ['housing_allowance'],
+    'حقبن': ['food_allowance'],
+    'مساعده/سایرکسورات': ['other_deductions', 'advance_deductions'],
+    'متفرقه': ['other_benefits'],
+    'جمعحقوقومزایا': ['gross_pay', 'total_benefits'],
+    'بیمهتامیناجتماعی': ['insurance', 'social_insurance'],
+    'مالیات': ['tax', 'income_tax'],
+    'تعدادفرزند': ['children_count'],
+    'صفرمجردیکمتاهل': ['marital_status']
+  };
   const byName = {
     'نام': data.first_name || slip.row.employee_name?.split(' ')[0],
     'نام خانوادگی': data.last_name || slip.row.employee_name?.split(' ').slice(1).join(' '),
@@ -25,9 +63,19 @@ export default function PayrollAccessSlip({ slip, width }) {
     const key = normalized(source);
     const fallback = fields[key];
     if (fallback !== undefined && fallback !== null && fallback !== '') return fallback;
+    const alias = (aliases[key] || []).map(name => fields[normalized(name)]).find(value => value !== undefined && value !== null && value !== '');
+    if (alias !== undefined) return alias;
     const explicit = Object.entries(byName).find(([name]) => normalized(name) === key)?.[1];
     if (explicit !== undefined && explicit !== null && explicit !== '') return explicit;
     return fallback;
+  };
+  const displayValue = (value, control) => {
+    if (value === undefined || value === null || value === '') return '—';
+    const raw = String(value).trim();
+    if (String(control.Format || '').includes('#,##0') && /^-?\\d+(?:\\.\\d+)?$/.test(raw.replace(/,/g, ''))) {
+      return faNum(Math.round(Number(raw.replace(/,/g, ''))).toLocaleString('en-US'));
+    }
+    return faNum(raw);
   };
   const pos = c => ({
     position: 'absolute', left: Number(c.Left || 0) * scale,
@@ -50,7 +98,7 @@ export default function PayrollAccessSlip({ slip, width }) {
         fontSize: Math.max(3, Number(control.FontSize || 10) * width * 20 / Number(layout.width)),
         color: '#161616', textAlign: control.TextAlign === '2' ? 'right' : 'center',
         textAlignVertical: 'center', includeFontPadding: false
-      }]}>{isField ? faNum(number(value)) : value}</Text>;
+      }]}>{isField ? displayValue(value, control) : value}</Text>;
     })}
     <Text style={{ position: 'absolute', bottom: 2 * scale, left: 0, right: 0, textAlign: 'center', fontFamily: FONT.payrollHoma, fontWeight: 'bold', fontSize: Math.max(6, 105 * scale), color: '#b42318' }}>
       این فیش حقوق بدون امضای مدیرعامل و مهر شرکت فاقد ارزش قانونی است
