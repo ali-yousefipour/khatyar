@@ -1291,8 +1291,8 @@ function LiveMap(){
   </div>);
 }
 
-function Modal({title,onClose,children}){
-  return(<div className="modal-bg" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}><h3>{title}</h3>{children}</div></div>);
+function Modal({title,onClose,children,style}){
+  return(<div className="modal-bg" onClick={onClose}><div className="modal" style={style} onClick={e=>e.stopPropagation()}><h3>{title}</h3>{children}</div></div>);
 }
 
 function seniorityEn(value){return String(value??'').replace(/[۰-۹]/g,digit=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)).replace(/[٠-٩]/g,digit=>'٠١٢٣٤٥٦٧٨٩'.indexOf(digit));}
@@ -4894,6 +4894,24 @@ function LineGeofence({line,onClose}){
   const [name,setName]=useState("خط "+line.code+" — ایستگاه"); const [color,setColor]=useState("#e23b54");
   const reloadList=()=>db.geofences().then(all=>setList((all||[]).filter(g=>g.line_id===line.id))).catch(()=>{});
   useEffect(()=>{
+    // Leaflet Draw reads these labels when creating controls and drawing handlers.
+    const locale=L.drawLocal;
+    Object.assign(locale.draw.toolbar,{
+      actions:{title:"لغو رسم",text:"لغو"},finish:{title:"پایان رسم",text:"پایان"},
+      undo:{title:"حذف آخرین نقطه",text:"حذف آخرین نقطه"}
+    });
+    Object.assign(locale.draw.toolbar.buttons,{polygon:"رسم چندضلعی",circle:"رسم دایره"});
+    Object.assign(locale.draw.handlers.circle,{tooltip:{start:"برای رسم دایره کلیک کنید و بکشید."},radius:"شعاع"});
+    Object.assign(locale.draw.handlers.polygon.tooltip,{start:"برای شروع رسم کلیک کنید.",cont:"برای افزودن نقطه کلیک کنید.",end:"برای بستن چندضلعی روی نقطهٔ اول کلیک کنید."});
+    locale.draw.handlers.polyline.error="<strong>خطا:</strong> ضلع‌های محدوده نباید یکدیگر را قطع کنند.";
+    locale.draw.handlers.simpleshape.tooltip.end="برای پایان رسم دکمهٔ ماوس را رها کنید.";
+    Object.assign(locale.edit.toolbar.actions,{
+      save:{title:"ذخیرهٔ تغییرات",text:"ذخیره"},cancel:{title:"لغو ویرایش و کنارگذاشتن تغییرات",text:"لغو"},
+      clearAll:{title:"حذف همهٔ شکل‌ها",text:"حذف همه"}
+    });
+    Object.assign(locale.edit.toolbar.buttons,{edit:"ویرایش محدوده",editDisabled:"محدوده‌ای برای ویرایش وجود ندارد",remove:"حذف محدوده",removeDisabled:"محدوده‌ای برای حذف وجود ندارد"});
+    Object.assign(locale.edit.handlers.edit.tooltip,{text:"نقطه‌ها را برای ویرایش محدوده جابه‌جا کنید.",subtext:"برای کنارگذاشتن تغییرات، لغو را بزنید."});
+    locale.edit.handlers.remove.tooltip.text="برای حذف روی محدوده کلیک کنید.";
     const map=L.map(ref.current).setView([36.297,59.606],12); mapRef.current=map;
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(map);
     const drawn=new L.FeatureGroup().addTo(map); drawnRef.current=drawn;
@@ -4907,8 +4925,9 @@ function LineGeofence({line,onClose}){
       if(g.type==="circle"&&g.center_lat)L.circle([g.center_lat,g.center_lng],{radius:g.radius_m,color:g.color,fillColor:g.color,fillOpacity:.18}).addTo(map).bindPopup(g.name);
       else if(g.polygon)L.polygon(g.polygon,{color:g.color,fillColor:g.color,fillOpacity:.18}).addTo(map).bindPopup(g.name);
     }); }).catch(()=>{});
-    setTimeout(()=>map.invalidateSize(),250);
-    return ()=>map.remove();
+    const resizeObserver=new ResizeObserver(()=>map.invalidateSize());
+    resizeObserver.observe(ref.current);
+    return ()=>{resizeObserver.disconnect();map.remove();};
   },[]);
   const save=async()=>{ if(!pending||!name)return alert("ابتدا روی نقشه محدوده بکشید و نام را وارد کنید.");
     await db.createGeofence({...pending,name,color,line_id:line.id});
@@ -4918,9 +4937,9 @@ function LineGeofence({line,onClose}){
     setPending(null); drawnRef.current.clearLayers(); reloadList();
   };
   const del=async id=>{ await db.deleteGeofence(id); reloadList(); };
-  return(<Modal title={"محدودهٔ ایستگاه — خط "+line.code} onClose={onClose}>
+  return(<Modal title={"محدودهٔ ایستگاه — خط "+line.code} onClose={onClose} style={{width:900}}>
     <p className="muted" style={{marginBottom:8}}>روی نقشه یک «چندضلعی» یا «دایره» بکشید، سپس نام و رنگ را تعیین و ذخیره کنید.</p>
-    <div ref={ref} style={{height:300,borderRadius:12,overflow:"hidden",border:"1px solid var(--line)"}}></div>
+    <div ref={ref} style={{height:"min(55vh, 520px)",minHeight:300,borderRadius:12,overflow:"hidden",border:"1px solid var(--line)"}}></div>
     <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
       <input className="input" style={{maxWidth:200}} placeholder="نام ایستگاه" value={name} onChange={e=>setName(e.target.value)}/>
       <label className="row" style={{gap:6}}>رنگ <input type="color" value={color} onChange={e=>setColor(e.target.value)}/></label>

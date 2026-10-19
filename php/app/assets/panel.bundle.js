@@ -2009,9 +2009,9 @@ function LiveMap() {
         viewTab === "main" && React.createElement(PresenceLists, null),
         viewTab === "exits" && React.createElement(StationExits, null)));
 }
-function Modal({ title, onClose, children }) {
+function Modal({ title, onClose, children, style }) {
     return (React.createElement("div", { className: "modal-bg", onClick: onClose },
-        React.createElement("div", { className: "modal", onClick: e => e.stopPropagation() },
+        React.createElement("div", { className: "modal", style: style, onClick: e => e.stopPropagation() },
             React.createElement("h3", null, title),
             children)));
 }
@@ -8389,6 +8389,24 @@ function LineGeofence({ line, onClose }) {
     const [color, setColor] = useState("#e23b54");
     const reloadList = () => db.geofences().then(all => setList((all || []).filter(g => g.line_id === line.id))).catch(() => { });
     useEffect(() => {
+        // Leaflet Draw reads these labels when creating controls and drawing handlers.
+        const locale = L.drawLocal;
+        Object.assign(locale.draw.toolbar, {
+            actions: { title: "لغو رسم", text: "لغو" }, finish: { title: "پایان رسم", text: "پایان" },
+            undo: { title: "حذف آخرین نقطه", text: "حذف آخرین نقطه" }
+        });
+        Object.assign(locale.draw.toolbar.buttons, { polygon: "رسم چندضلعی", circle: "رسم دایره" });
+        Object.assign(locale.draw.handlers.circle, { tooltip: { start: "برای رسم دایره کلیک کنید و بکشید." }, radius: "شعاع" });
+        Object.assign(locale.draw.handlers.polygon.tooltip, { start: "برای شروع رسم کلیک کنید.", cont: "برای افزودن نقطه کلیک کنید.", end: "برای بستن چندضلعی روی نقطهٔ اول کلیک کنید." });
+        locale.draw.handlers.polyline.error = "<strong>خطا:</strong> ضلع‌های محدوده نباید یکدیگر را قطع کنند.";
+        locale.draw.handlers.simpleshape.tooltip.end = "برای پایان رسم دکمهٔ ماوس را رها کنید.";
+        Object.assign(locale.edit.toolbar.actions, {
+            save: { title: "ذخیرهٔ تغییرات", text: "ذخیره" }, cancel: { title: "لغو ویرایش و کنارگذاشتن تغییرات", text: "لغو" },
+            clearAll: { title: "حذف همهٔ شکل‌ها", text: "حذف همه" }
+        });
+        Object.assign(locale.edit.toolbar.buttons, { edit: "ویرایش محدوده", editDisabled: "محدوده‌ای برای ویرایش وجود ندارد", remove: "حذف محدوده", removeDisabled: "محدوده‌ای برای حذف وجود ندارد" });
+        Object.assign(locale.edit.handlers.edit.tooltip, { text: "نقطه‌ها را برای ویرایش محدوده جابه‌جا کنید.", subtext: "برای کنارگذاشتن تغییرات، لغو را بزنید." });
+        locale.edit.handlers.remove.tooltip.text = "برای حذف روی محدوده کلیک کنید.";
         const map = L.map(ref.current).setView([36.297, 59.606], 12);
         mapRef.current = map;
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap" }).addTo(map);
@@ -8418,8 +8436,9 @@ function LineGeofence({ line, onClose }) {
                     L.polygon(g.polygon, { color: g.color, fillColor: g.color, fillOpacity: .18 }).addTo(map).bindPopup(g.name);
             });
         }).catch(() => { });
-        setTimeout(() => map.invalidateSize(), 250);
-        return () => map.remove();
+        const resizeObserver = new ResizeObserver(() => map.invalidateSize());
+        resizeObserver.observe(ref.current);
+        return () => { resizeObserver.disconnect(); map.remove(); };
     }, []);
     const save = async () => {
         if (!pending || !name)
@@ -8435,9 +8454,9 @@ function LineGeofence({ line, onClose }) {
         reloadList();
     };
     const del = async (id) => { await db.deleteGeofence(id); reloadList(); };
-    return (React.createElement(Modal, { title: "محدودهٔ ایستگاه — خط " + line.code, onClose: onClose },
+    return (React.createElement(Modal, { title: "محدودهٔ ایستگاه — خط " + line.code, onClose: onClose, style: { width: 900 } },
         React.createElement("p", { className: "muted", style: { marginBottom: 8 } }, "\u0631\u0648\u06CC \u0646\u0642\u0634\u0647 \u06CC\u06A9 \u00AB\u0686\u0646\u062F\u0636\u0644\u0639\u06CC\u00BB \u06CC\u0627 \u00AB\u062F\u0627\u06CC\u0631\u0647\u00BB \u0628\u06A9\u0634\u06CC\u062F\u060C \u0633\u067E\u0633 \u0646\u0627\u0645 \u0648 \u0631\u0646\u06AF \u0631\u0627 \u062A\u0639\u06CC\u06CC\u0646 \u0648 \u0630\u062E\u06CC\u0631\u0647 \u06A9\u0646\u06CC\u062F."),
-        React.createElement("div", { ref: ref, style: { height: 300, borderRadius: 12, overflow: "hidden", border: "1px solid var(--line)" } }),
+        React.createElement("div", { ref: ref, style: { height: "min(55vh, 520px)", minHeight: 300, borderRadius: 12, overflow: "hidden", border: "1px solid var(--line)" } }),
         React.createElement("div", { className: "row", style: { gap: 8, marginTop: 10, flexWrap: "wrap" } },
             React.createElement("input", { className: "input", style: { maxWidth: 200 }, placeholder: "\u0646\u0627\u0645 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647", value: name, onChange: e => setName(e.target.value) }),
             React.createElement("label", { className: "row", style: { gap: 6 } },
