@@ -43,7 +43,8 @@ export default function PayrollAccessSlip({ slip, width }) {
       const isField = control.kind === 'TextBox';
       const value = isField ? getValue(control.ControlSource || control.Name) : control.Caption;
       return <Text key={index} numberOfLines={2} adjustsFontSizeToFit style={[pos(control), {
-        fontFamily: control.FontWeight ? FONT.bold : FONT.regular,
+        fontFamily: /nazanin|نازنین/i.test(String(control.FontName || '')) ? FONT.payrollNazanin : FONT.payrollHoma,
+        fontWeight: Number(control.FontWeight || 400) >= 700 ? 'bold' : 'normal',
         // Access layout coordinates are in twips (1/1440 inch); font sizes are points.
         // Convert both into the same physical coordinate space instead of an empirical 6.8 multiplier.
         fontSize: Math.max(3, Number(control.FontSize || 10) * width * 20 / Number(layout.width)),
@@ -51,7 +52,7 @@ export default function PayrollAccessSlip({ slip, width }) {
         textAlignVertical: 'center', includeFontPadding: false
       }]}>{isField ? faNum(number(value)) : value}</Text>;
     })}
-    <Text style={{ position: 'absolute', bottom: 2 * scale, left: 0, right: 0, textAlign: 'center', fontFamily: FONT.bold, fontSize: Math.max(6, 105 * scale), color: '#b42318' }}>
+    <Text style={{ position: 'absolute', bottom: 2 * scale, left: 0, right: 0, textAlign: 'center', fontFamily: FONT.payrollHoma, fontWeight: 'bold', fontSize: Math.max(6, 105 * scale), color: '#b42318' }}>
       این فیش حقوق بدون امضای مدیرعامل و مهر شرکت فاقد ارزش قانونی است
     </Text>
   </View>;
