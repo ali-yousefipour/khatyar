@@ -3044,6 +3044,24 @@ function _attendance_rows_for_jdate($userId,$jdate){
  * punch counts toward absence, not simultaneously toward shortage.
  * Returns null when the canonical report cannot provide a complete day range.
  */
+/**
+ * Monthly net shortage is the uncovered remaining duty after crediting
+ * eligible in-shift presence, approved leave/mission and separately-reported
+ * absence. This caps (never increases) the sum of daily shortages.
+ * Day-level late/early/GPS evidence remains in attendance detail.
+ */
+function _work_month_net_shortage(array $tot, array $requestMinutes): int {
+  $expected=max(0,(int)($tot['expected']??0));
+  $inShift=max(0,(int)($tot['in_shift']??0));
+  $absence=max(0,(int)($tot['absent_min']??0));
+  $credits=max(0,(int)($requestMinutes['annual_min']??0))
+    +max(0,(int)($requestMinutes['sick_min']??0))
+    +max(0,(int)($requestMinutes['mission_min']??0))
+    +max(0,(int)($requestMinutes['unpaid_min']??0));
+  $remaining=max(0,$expected-$inShift-$absence-$credits);
+  return min(max(0,(int)($tot['shortage']??0)),$remaining);
+}
+
 function _work_month_daily_attendance_totals(array $report, int $lastDay): ?array {
   if (!isset($report['days']) || !is_array($report['days']) || count($report['days']) !== $lastDay) return null;
   $parse = static function($value): int {
@@ -3138,7 +3156,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
     }
     // مرخصی/ماموریت تأییدشده باید از کسری همان روز کم شود؛ بازه‌های چندروزه
     // مطابق گزارش روزانه بین روزهای بازه تقسیم می‌شوند.
-    $reqAgg = ['annual_min'=>0,'sick_min'=>0,'mission_min'=>0,'ot_req_min'=>0];
+    $reqAgg = ['annual_min'=>0,'sick_min'=>0,'mission_min'=>0,'unpaid_min'=>0,'ot_req_min'=>0];
     $approvedExemptByJdate=[];
     $rqs=Db::all("SELECT type,unit,from_jdate,to_jdate,the_date,from_time,to_time,MAX(minutes) AS minutes
       FROM requests WHERE user_id=? AND status='approved' AND type IN('annual','sick','unpaid','mission','overtime')
@@ -3163,6 +3181,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
         if($throughJdate!==null&&strcmp($reqDate,$throughJdate)>0)continue;
         if($rq['type']==='annual')$reqAgg['annual_min']+=$mins;
         elseif($rq['type']==='sick')$reqAgg['sick_min']+=$mins;
+        elseif($rq['type']==='unpaid')$reqAgg['unpaid_min']+=$mins;
         elseif($rq['type']==='mission')$reqAgg['mission_min']+=$mins;
         elseif($rq['type']==='overtime')$reqAgg['ot_req_min']+=$mins;
         if(in_array($rq['type'],['annual','sick','unpaid','mission'],true))$approvedExemptByJdate[$reqDate]=($approvedExemptByJdate[$reqDate]??0)+$mins;
@@ -3234,6 +3253,9 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
         error_log('monthly work daily reconciliation failed for user '.$reportUid.': '.$reconciliationError->getMessage());
       }
     }
+    // Net monthly settlement: extra eligible presence on other dates covers
+    // short daily windows; recorded absences stay in their own column.
+    $tot['shortage']=_work_month_net_shortage($tot,$reqAgg);
     if (!empty($shift['monthly_ot_cap'])) $tot['overtime']=min($tot['overtime'],(int)$shift['monthly_ot_cap']);
     $out[] = array_merge(['user_id'=>$a['user_id'],'name'=>$a['name'],'role'=>$a['role'],'shift'=>$shift['title'],'shift_type'=>$shift['type']??'auto'], $tot, $reqAgg);
   }
