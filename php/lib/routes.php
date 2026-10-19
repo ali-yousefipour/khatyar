@@ -3602,6 +3602,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   $daily=$final?_work_snapshot_decode($final['daily_json']):[];
   // Forecast is an export-only overlay. Never mutate the canonical work report or finalized snapshots.
   $forecastRequested=($_GET['forecast_remaining']??'0')==='1';
+  $includeSurplus=($_GET['include_surplus']??'0')==='1';
   $forecastByUser=[];
   if($forecastRequested&&!$final){
     [$cy,$cm,$cd]=gregorian_to_jalali((int)date('Y'),(int)date('n'),(int)date('j'));
@@ -3650,7 +3651,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
           $dayWork=ShiftCalc::dayWork($dayShift,$pj,$dr,$sessions,false);
           if((int)($dayWork['worked']??0)<=0)continue;
           $extra=max(0,(int)($dayWork['overtime']??0));
-          $extra+=min(max(0,(int)($dayWork['surplus']??0)),max(0,(int)_attendance_adjusted_overtime($uid,$pj)));
+          $extra+=($includeSurplus?max(0,(int)($dayWork['surplus']??0)):min(max(0,(int)($dayWork['surplus']??0)),max(0,(int)_attendance_adjusted_overtime($uid,$pj))));
           $priorOvertime+=$extra;
           $workedDays++;
         }
@@ -3683,12 +3684,13 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
     // is added unless it is separately available in the canonical monthly result.
     $friOt=(int)($r['friday_overtime']??0);
     $forecast=$forecastByUser[(int)($r['user_id']??0)]??['overtime'=>0,'holiday'=>0,'work_days'=>0,'holiday_days'=>0,'daily_overtime'=>0,'sample_days'=>0];
-    $net=$o+$mission-$short+(int)$forecast['overtime'];
+    $surplusIncluded=$includeSurplus?max(0,(int)($r['surplus']??0)):0;
+    $net=$o+$surplusIncluded+$mission-$short+(int)$forecast['overtime'];
     $hol+=(int)$forecast['holiday'];
     $i++;$row=$xw->addRow([$i,(string)($person['zone_name']??''),($r['role']??''),$i,$person['first_name']??'', $person['last_name']??'',(string)($person['personnel_code']??''),round(($fri+$friOt)/60,6),round($hol/60,6),round($net/60,6)]);
     $xw->setComment($row,7,'جمعه کاری: '.$hm($fri).' ساعت'."\n".'اضافه کاری جمعه: '.$hm($friOt).' ساعت'."\n".'مجموع جمعه کاری: '.$hm($fri+$friOt).' ساعت');
     $xw->setComment($row,8,'مجموع تعطیل کاری: '.$hm($hol).' ساعت'."\n".'پیش‌بینی تعطیل‌کاری: '.$hm($forecast['holiday']).' ساعت ('.$forecast['holiday_days'].' روز × ۸ ساعت)');
-    $xw->setComment($row,9,'اضافه کاری: '.$hm($o).' ساعت'."\n".'ماموریت: '.$hm($mission).' ساعت'."\n".'کسری کار: '.$hm($short).' ساعت (کسر شده)'."\n".'پیش‌بینی اضافه‌کاری: '.$hm($forecast['overtime']).' ساعت ('.$forecast['work_days'].' روز؛ میانگین روزانه '.$hm($forecast['daily_overtime']).' از '.$forecast['sample_days'].' روز کاری قبلی نیرو)'."\n".'نهایی = '.($net<0?'-':'').$hm($net).' ساعت');
+    $xw->setComment($row,9,'اضافه کاری: '.$hm($o).' ساعت'."\n".'مازاد حضور لحاظ‌شده: '.$hm($surplusIncluded).' ساعت'."\n".'ماموریت: '.$hm($mission).' ساعت'."\n".'کسری کار: '.$hm($short).' ساعت (کسر شده)'."\n".'پیش‌بینی اضافه‌کاری: '.$hm($forecast['overtime']).' ساعت ('.$forecast['work_days'].' روز؛ میانگین روزانه '.$hm($forecast['daily_overtime']).' از '.$forecast['sample_days'].' روز کاری قبلی نیرو)'."\n".'نهایی = '.($net<0?'-':'').$hm($net).' ساعت');
   }
   $xw->output('organization-work-'.$jy.'-'.$jm.'.xlsx','کارکرد سازمان');
 },false,ADMIN);
