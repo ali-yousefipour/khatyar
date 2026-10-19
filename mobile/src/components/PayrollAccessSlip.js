@@ -69,20 +69,18 @@ export default function PayrollAccessSlip({ slip, width }) {
     if (explicit !== undefined && explicit !== null && explicit !== '') return explicit;
     return fallback;
   };
+  const persianDigits = value => faNum(String(value).replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))));
   const displayValue = (value, control) => {
     if (value === undefined || value === null || value === '') return '—';
     const raw = String(value).trim();
-    // Display all numeric payroll values as whole numbers, including work days and hours.
-    // Keep text identifiers (e.g. national codes) intact, including leading zeroes.
     const ascii = raw.replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
       .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
-      .replace(/٫/g, '.').replace(/[٬,\\s]/g, '');
-    const numericFormat = String(control.Format || '') !== '@';
-    if (numericFormat && /^[-+]?\\d+(?:\\.\\d+)?$/.test(ascii)) {
+      .replace(/٫/g, '.').replace(/[٬,\s]/g, '');
+    if (String(control.Format || '') !== '@' && /^[-+]?\d+(?:\.\d+)?$/.test(ascii)) {
       const n = Number(ascii);
-      if (Number.isFinite(n)) return faNum(Math.round(n).toLocaleString('en-US'));
+      if (Number.isFinite(n)) return persianDigits(Math.round(n).toLocaleString('en-US'));
     }
-    return faNum(raw);
+    return persianDigits(raw);
   };
   const pos = c => ({
     position: 'absolute', left: Number(c.Left || 0) * scale,
@@ -105,7 +103,7 @@ export default function PayrollAccessSlip({ slip, width }) {
         fontSize: Math.max(3, Number(control.FontSize || 10) * width * 20 / Number(layout.width)),
         color: '#161616', textAlign: control.TextAlign === '2' ? 'right' : 'center',
         textAlignVertical: 'center', includeFontPadding: false
-      }]}>{isField ? displayValue(value, control) : value}</Text>;
+      }]}>{isField ? displayValue(value, control) : persianDigits(value ?? '')}</Text>;
     })}
     <Text style={{ position: 'absolute', bottom: 2 * scale, left: 0, right: 0, textAlign: 'center', fontFamily: FONT.payrollHoma, fontWeight: 'bold', fontSize: Math.max(6, 105 * scale), color: '#b42318' }}>
       این فیش حقوق بدون امضای مدیرعامل و مهر شرکت فاقد ارزش قانونی است
