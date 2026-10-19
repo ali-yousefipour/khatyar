@@ -30,4 +30,17 @@ foreach (['totals','work_totals','summary'] as $field) {
 }
 checkValue('future duty excluded', $result['summary']['expected'], 900);
 checkValue('actual shortage not hidden', $result['summary']['shortage'], 100);
+$hmReport = [
+  'days'=>[
+    ['jdate'=>'1405-07-01','expected'=>'05:00','in_shift'=>'05:00','shortage'=>'00:00','worked'=>'09:54'],
+    ['jdate'=>'1405-07-02','expected'=>'05:00','in_shift'=>'04:30','shortage'=>'00:30','worked'=>'05:30'],
+  ],
+  'summary'=>[], 'totals'=>[], 'work_totals'=>[]
+];
+$hmResult = aar_reconcile_day_totals($hmReport);
+checkValue('HH:MM duty sums in minutes', $hmResult['summary']['expected'], 600);
+checkValue('HH:MM actual shortage sums in minutes', $hmResult['summary']['shortage'], 30);
+$entryOwned = file_get_contents(__DIR__.'/../app/api/admin-attendance-report-owned.php');
+checkValue('entry-owned route retains canonical shortage', str_contains($entryOwned, '$w[\\'shortage\\'] = $canonicalShortage;'), true);
+checkValue('entry-owned route does not rebuild naive shortage', str_contains($entryOwned, '$w[\\'shortage\\'] = max(0, $expectedMin - min($inShiftMin, $expectedMin));'), false);
 echo "PASS daily-to-monthly attendance reconciliation\n";
