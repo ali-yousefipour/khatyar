@@ -74,8 +74,12 @@ eq('Mission on fully worked day creates no credit',0,$dated['credited_exemption'
 eq('Gap on a different day remains shortage',30,_work_month_net_shortage($dated));
 $missionDays['days'][1]['mission']='00:20';
 $dated=_work_month_daily_attendance_totals($missionDays,2);
-eq('Same-day mission credits only uncovered duty',20,$dated['credited_exemption']);
-eq('Remaining shortage after valid mission credit',10,_work_month_net_shortage($dated));
+eq('Same-day mission never offsets shortage',0,$dated['credited_exemption']);
+eq('Shortage stays independent of mission',30,_work_month_net_shortage($dated));
+$missionDays['days'][1]['annual_leave']='00:20';
+$dated=_work_month_daily_attendance_totals($missionDays,2);
+eq('Approved leave still covers its own duty gap',20,$dated['credited_exemption']);
+eq('Remaining shortage after approved leave',10,_work_month_net_shortage($dated));
 eq('Genuine uncovered shortage is preserved',40,_work_month_net_shortage([
   'expected'=>300,'in_shift'=>260,'shortage'=>70,'absent_min'=>0
 ],[]));
