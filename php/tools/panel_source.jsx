@@ -4938,8 +4938,9 @@ function LineGeofence({line,onClose}){
   };
   const del=async id=>{ await db.deleteGeofence(id); reloadList(); };
   return(<Modal title={"محدودهٔ ایستگاه — خط "+line.code} onClose={onClose} style={{width:900}}>
+    <style>{`.station-geofence-map .leaflet-draw-toolbar a{background-image:url('assets/leaflet-draw-spritesheet.svg')!important}`}</style>
     <p className="muted" style={{marginBottom:8}}>روی نقشه یک «چندضلعی» یا «دایره» بکشید، سپس نام و رنگ را تعیین و ذخیره کنید.</p>
-    <div ref={ref} style={{height:"min(55vh, 520px)",minHeight:300,borderRadius:12,overflow:"hidden",border:"1px solid var(--line)"}}></div>
+    <div ref={ref} className="station-geofence-map" style={{height:"min(55vh, 520px)",minHeight:300,borderRadius:12,overflow:"hidden",border:"1px solid var(--line)"}}></div>
     <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
       <input className="input" style={{maxWidth:200}} placeholder="نام ایستگاه" value={name} onChange={e=>setName(e.target.value)}/>
       <label className="row" style={{gap:6}}>رنگ <input type="color" value={color} onChange={e=>setColor(e.target.value)}/></label>

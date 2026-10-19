@@ -8455,8 +8455,9 @@ function LineGeofence({ line, onClose }) {
     };
     const del = async (id) => { await db.deleteGeofence(id); reloadList(); };
     return (React.createElement(Modal, { title: "محدودهٔ ایستگاه — خط " + line.code, onClose: onClose, style: { width: 900 } },
+        React.createElement("style", null, `.station-geofence-map .leaflet-draw-toolbar a{background-image:url('assets/leaflet-draw-spritesheet.svg')!important}`),
         React.createElement("p", { className: "muted", style: { marginBottom: 8 } }, "\u0631\u0648\u06CC \u0646\u0642\u0634\u0647 \u06CC\u06A9 \u00AB\u0686\u0646\u062F\u0636\u0644\u0639\u06CC\u00BB \u06CC\u0627 \u00AB\u062F\u0627\u06CC\u0631\u0647\u00BB \u0628\u06A9\u0634\u06CC\u062F\u060C \u0633\u067E\u0633 \u0646\u0627\u0645 \u0648 \u0631\u0646\u06AF \u0631\u0627 \u062A\u0639\u06CC\u06CC\u0646 \u0648 \u0630\u062E\u06CC\u0631\u0647 \u06A9\u0646\u06CC\u062F."),
-        React.createElement("div", { ref: ref, style: { height: "min(55vh, 520px)", minHeight: 300, borderRadius: 12, overflow: "hidden", border: "1px solid var(--line)" } }),
+        React.createElement("div", { ref: ref, className: "station-geofence-map", style: { height: "min(55vh, 520px)", minHeight: 300, borderRadius: 12, overflow: "hidden", border: "1px solid var(--line)" } }),
         React.createElement("div", { className: "row", style: { gap: 8, marginTop: 10, flexWrap: "wrap" } },
             React.createElement("input", { className: "input", style: { maxWidth: 200 }, placeholder: "\u0646\u0627\u0645 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647", value: name, onChange: e => setName(e.target.value) }),
             React.createElement("label", { className: "row", style: { gap: 6 } },
