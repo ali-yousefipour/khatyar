@@ -234,6 +234,7 @@ jobs:
           umask 077
           printf '%s' "$MYKET_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/myket-release.jks"
           test -s "$RUNNER_TEMP/myket-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/myket-release.jks" -storepass "$MYKET_STORE_PASSWORD" -alias "$MYKET_KEY_ALIAS" >/dev/null
           echo "MYKET_STORE_FILE=$RUNNER_TEMP/myket-release.jks" >> "$GITHUB_ENV"
 
       - name: Build release APK
@@ -241,6 +242,7 @@ jobs:
         env:
           CI: "true"
           GITHUB_ACTIONS: "true"
+          MYKET_BUILD: "true"
           GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
           MYKET_STORE_PASSWORD: ${{ secrets.MYKET_STORE_PASSWORD }}
           MYKET_KEY_ALIAS: ${{ secrets.MYKET_KEY_ALIAS }}
@@ -252,6 +254,9 @@ jobs:
 
       - name: Verify Myket APK signature and identity
         working-directory: mobile
+        env:
+          MYKET_STORE_PASSWORD: ${{ secrets.MYKET_STORE_PASSWORD }}
+          MYKET_KEY_ALIAS: ${{ secrets.MYKET_KEY_ALIAS }}
         shell: bash
         run: |
           set -euo pipefail
@@ -260,6 +265,10 @@ jobs:
           BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
           test -x "$BUILD_TOOLS/apksigner"
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/myket-signature.txt"
+          keytool -exportcert -rfc -keystore "$RUNNER_TEMP/myket-release.jks" -storepass "$MYKET_STORE_PASSWORD" -alias "$MYKET_KEY_ALIAS" > "$RUNNER_TEMP/myket-release-cert.pem"
+          openssl x509 -in "$RUNNER_TEMP/myket-release-cert.pem" -outform DER | sha256sum | awk '{print $1}' > "$RUNNER_TEMP/expected-cert.sha256"
+          grep 'Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/myket-signature.txt" | head -1 | sed 's/.*digest: //' | tr -d ':' | tr '[:upper:]' '[:lower:]' > "$RUNNER_TEMP/apk-cert.sha256"
+          diff -u "$RUNNER_TEMP/expected-cert.sha256" "$RUNNER_TEMP/apk-cert.sha256" || { echo "::error::APK is not signed with the configured Myket release key"; exit 1; }
           if ! grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/myket-signature.txt"; then
             echo "::error::APK v2 signature missing"; exit 1
           fi
