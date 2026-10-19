@@ -11713,8 +11713,9 @@ function ShiftReport() {
         alert(e.message);
     } };
     const [forecastRemaining, setForecastRemaining] = useState(false);
+    const [includeSurplusInOvertime, setIncludeSurplusInOvertime] = useState(false);
     const exportOrganization = async () => { try {
-        const res = await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining ? 1 : 0}`, { headers: tok() });
+        const res = await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining ? 1 : 0}&include_surplus=${includeSurplusInOvertime ? 1 : 0}`, { headers: tok() });
         if (!res.ok)
             throw new Error(res.status === 403 ? "دسترسی مجاز نیست" : "خطا در تولید فایل سازمان");
         const blob = await res.blob();
@@ -11757,6 +11758,9 @@ function ShiftReport() {
                 React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 6 } },
                     React.createElement("input", { type: "checkbox", checked: forecastRemaining, onChange: e => setForecastRemaining(e.target.checked) }),
                     " \u067E\u06CC\u0634\u200C\u0628\u06CC\u0646\u06CC \u0631\u0648\u0632\u0647\u0627\u06CC \u0628\u0627\u0642\u06CC\u200C\u0645\u0627\u0646\u062F\u0647 \u062A\u0627 \u0627\u0646\u062A\u0647\u0627\u06CC \u0645\u0627\u0647"),
+                React.createElement("label", null,
+                    React.createElement("input", { type: "checkbox", checked: includeSurplusInOvertime, onChange: e => setIncludeSurplusInOvertime(e.target.checked) }),
+                    " \u0644\u062D\u0627\u0638 \u0645\u0627\u0632\u0627\u062F \u062D\u0636\u0648\u0631 \u062F\u0631 \u0645\u06CC\u0627\u0646\u06AF\u06CC\u0646 \u0648 \u0645\u062C\u0645\u0648\u0639 \u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631"),
                 React.createElement("button", { className: "btn p", onClick: exportOrganization }, "\u2913 \u062A\u0648\u0644\u06CC\u062F \u0641\u0627\u06CC\u0644 \u0627\u06A9\u0633\u0644 \u0633\u0627\u0632\u0645\u0627\u0646"))) : React.createElement(React.Fragment, null,
             React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "flex-end" } },
                 React.createElement("div", null,
