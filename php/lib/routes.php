@@ -3131,8 +3131,6 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
     $tot = ['friday_overtime'=>0,'worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'friday'=>0,'holiday'=>0,'late_in'=>0,'early_out'=>0,'surplus'=>0,'adjusted_ot'=>0,'present_days'=>0,'absent_min'=>0];
     for ($d=1; $d<=$lastDay; $d++) {
       $jdate = $prefix.str_pad($d,2,'0',STR_PAD_LEFT);
-      if (!empty($a['from_jdate']) && strcmp($jdate, str_replace('/','-',$a['from_jdate'])) < 0) continue;
-      if (!empty($a['to_jdate']) && strcmp($jdate, str_replace('/','-',$a['to_jdate'])) > 0) continue;
       // Resolve the effective assignment on each date, including substitute shifts.
       // A single month may span several shift assignments.
       $dayShift = _active_user_shift_assignment($a['user_id'], $jdate);
@@ -3151,7 +3149,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
       $isInCurrentReport=$throughJdate!==null&&strcmp($jdate,$throughJdate)<=0;
       $fullExpected=max(0,(int)($w['expected']??0));
       $elapsedExpected=$isInCurrentReport?ShiftCalc::elapsedExpectedMinutes($shift,$jdate,$dr,$reportNow):null;
-      $isAsOfDay=$hasOpenSession; // Yesterday is a completed reporting day; do not treat it as today's partial shift.
+      $isAsOfDay=false; // Only fully completed dates are included; open sessions must not be finalized as shortages.
       // Do not prorate past scheduled shifts by the current clock time.
 
       if (!$rows) {
@@ -3165,8 +3163,8 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
         $tot['absent_min'] += $dayAbsent;
         continue;
       }
-      if($isAsOfDay)$w['shortage']=$elapsedExpected===null?0:max(0,$elapsedExpected-min((int)($w['in_shift']??0),$elapsedExpected));
-      if($isAsOfDay&&$hasOpenSession)$w['early_out']=0;
+      if($hasOpenSession)$w['shortage']=0;
+      if($hasOpenSession)$w['early_out']=0;
       $dayExempt=min(max(0,(int)($w['expected']??0)),max(0,(int)($approvedExemptByJdate[$jdate]??0)));
       if($dayExempt>0)$w['shortage']=max(0,(int)($w['shortage']??0)-$dayExempt);
       $adj = _attendance_adjusted_overtime($a['user_id'],$jdate);
