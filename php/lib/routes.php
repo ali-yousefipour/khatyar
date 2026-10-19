@@ -3038,6 +3038,47 @@ function _attendance_rows_for_jdate($userId,$jdate){
   return $rows;
 }
 
+/**
+ * Monthly attendance totals must be derived from the identical day records
+ * displayed by the attendance detail endpoint. In particular, a day with no
+ * punch counts toward absence, not simultaneously toward shortage.
+ * Returns null when the canonical report cannot provide a complete day range.
+ */
+function _work_month_daily_attendance_totals(array $report, int $lastDay): ?array {
+  if (!isset($report['days']) || !is_array($report['days']) || count($report['days']) !== $lastDay) return null;
+  $parse = static function($value): int {
+    if (is_int($value) || is_float($value)) return max(0,(int)$value);
+    $value = trim(strtr((string)$value,['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9']));
+    if (preg_match('/^(\\d+):([0-5]\\d)$/',$value,$m)) return (int)$m[1]*60+(int)$m[2];
+    return ctype_digit($value) ? (int)$value : 0;
+  };
+  $tot=['expected'=>0,'in_shift'=>0,'shortage'=>0,'absent_min'=>0];
+  $seen=[];
+  foreach ($report['days'] as $day) {
+    if (!is_array($day)) return null;
+    $jdate=ShiftCalc::normJdate($day['jdate']??$day['date']??'');
+    if (!$jdate || isset($seen[$jdate])) return null;
+    $seen[$jdate]=true;
+    if (!empty($day['is_future']) || !empty($day['outside_employment_period'])) continue;
+    $expected=$parse($day['expected']??0);
+    $inShift=$parse($day['in_shift']??0);
+    $shortage=$parse($day['shortage']??0);
+    $tot['expected'] += $expected;
+    $tot['in_shift'] += $inShift;
+    $punches=$day['punches']??[];
+    if (empty($punches)) {
+      // Preserve the daily approved-leave exemption; remaining absence is not
+      // also charged to the separate shortage column.
+      $leave=$parse($day['annual_leave']??0)+$parse($day['sick_leave']??0)
+        +$parse($day['mission']??0)+$parse($day['unpaid_leave']??0);
+      $tot['absent_min'] += max(0,$expected-min($expected,$leave));
+    } else {
+      $tot['shortage'] += $shortage;
+    }
+  }
+  return $tot;
+}
+
 // گزارش تجمیعی کارکرد ماهانه (شبیه فینتو) — بر اساس staff_attendance و شیفت کاربر
 // پارامترها: ?year=1404&month=6  (یا from/to جلالی)
 function _shift_month_report($jy, $jm, $throughJdate=null) {
@@ -3174,6 +3215,24 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
       // Friday worked minutes are already included in 'friday'; do not add them a second time.
       // Friday overtime is the Friday work itself; never add a separate overtime bucket.
       if ($w['worked']>0) $tot['present_days']++;
+    }
+    // Reconcile the monthly detail with the canonical report returned to the
+    // attendance UI. Previously this independent loop could show 02:02 shortage
+    // when all visible daily rows showed 00:00.
+    if ($lastDay > 0) {
+      try {
+        require_once __DIR__.'/../app/api/admin-attendance-report-owned.php';
+        $monthlyTo=$prefix.str_pad($lastDay,2,'0',STR_PAD_LEFT);
+        $dailyReport=attendance_report_owned_by_entry_date($reportUid,$firstJ,$monthlyTo,true);
+        $dailyTotals=_work_month_daily_attendance_totals($dailyReport,$lastDay);
+        if ($dailyTotals !== null) {
+          foreach ($dailyTotals as $field=>$minutes) $tot[$field]=$minutes;
+        } else {
+          error_log('monthly work daily reconciliation unavailable for user '.$reportUid);
+        }
+      } catch (Throwable $reconciliationError) {
+        error_log('monthly work daily reconciliation failed for user '.$reportUid.': '.$reconciliationError->getMessage());
+      }
     }
     if (!empty($shift['monthly_ot_cap'])) $tot['overtime']=min($tot['overtime'],(int)$shift['monthly_ot_cap']);
     $out[] = array_merge(['user_id'=>$a['user_id'],'name'=>$a['name'],'role'=>$a['role'],'shift'=>$shift['title'],'shift_type'=>$shift['type']??'auto'], $tot, $reqAgg);
