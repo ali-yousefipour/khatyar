@@ -17,6 +17,16 @@ $tot=_work_month_daily_attendance_totals($report,3);
 eq('no phantom monthly shortage',0,$tot['shortage']);
 eq('monthly duty',600,$tot['expected']);
 eq('monthly within-shift',600,$tot['in_shift']);
+// Regression matching the reported 110:00 / 107:58 / 02:02 discrepancy:
+// a duty-versus-in-shift gap does NOT become shortage when the daily detail says zero.
+$gapReport=['days'=>[
+ ['jdate'=>'1405/07/01','expected'=>'105:00','in_shift'=>'102:58','shortage'=>'00:00','punches'=>[['id'=>10]]],
+ ['jdate'=>'1405/07/02','expected'=>'05:00','in_shift'=>'05:00','shortage'=>'00:00','punches'=>[['id'=>11]]],
+]];
+$gap=_work_month_daily_attendance_totals($gapReport,2);
+eq('reported duty 110 hours',6600,$gap['expected']);
+eq('reported in-shift 107:58',6478,$gap['in_shift']);
+eq('reported false 02:02 shortage corrected',0,$gap['shortage']);
 $report['days'][1]['shortage']='۰۱:۲۰';
 $report['days'][1]['in_shift']='03:40';
 $tot=_work_month_daily_attendance_totals($report,3);
