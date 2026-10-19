@@ -3885,6 +3885,129 @@ function _req_usage($uid,$type,$unit,$jy,$jm){
     'pending_month_min'=>$pendingMonthMin,'pending_year_min'=>$pendingYearMin];
 }
 
+// Assigned policies replace legacy global request caps, but not permissions or approvals.
+function _req_active_work_policy($uid){
+  $user=Db::one("SELECT * FROM users WHERE id=?",[(int)$uid]);
+  if(empty($user['work_policy_id'])) return null;
+  $policy=Db::one("SELECT * FROM work_policies WHERE id=? AND is_active=1",[(int)$user['work_policy_id']]);
+  if(!$policy) return null;
+  if(!is_array($policy['config'])) $policy['config']=json_decode((string)$policy['config'],true);
+  if(!is_array($policy['config'])) Http::error('تنظیمات سیاست کاری معتبر نیست؛ با مدیر سامانه تماس بگیرید.',422);
+  return $policy;
+}
+
+function _req_policy_date($value){
+  require_once __DIR__.'/IranCalendar.php';
+  $date=IranCalendar::normalize($value);
+  if(!$date || (int)substr($date,0,4)<1300 || (int)substr($date,0,4)>1500) return null;
+  [$gy,$gm,$gd]=IranCalendar::toGregorian(...array_map('intval',explode('-',$date)));
+  return new DateTimeImmutable(sprintf('%04d-%02d-%02d',$gy,$gm,$gd),new DateTimeZone('Asia/Tehran'));
+}
+
+// Recompute durations from dates/times; never trust client-supplied minutes.
+function _req_policy_span(array $request){
+  $type=$request['type']??'';
+  $unit=$type==='manual'?'daily':($request['unit']??'daily');
+  if(!in_array($unit,['daily','hourly'],true)) return null;
+  $from=$unit==='hourly'||$type==='manual'?($request['the_date']??$request['from_jdate']??null):($request['from_jdate']??$request['the_date']??null);
+  $to=$unit==='hourly'||$type==='manual'?$from:(($request['to_jdate']??null)?:$from);
+  $start=_req_policy_date($from); $end=_req_policy_date($to);
+  if(!$start||!$end||$end<$start) return null;
+  $days=(int)$start->diff($end)->days+1;
+  $minutes=$type==='manual'?0:$days*480; // Same daily-minute contract as requests/reporting.
+  if($unit==='hourly'){
+    $a=(string)($request['from_time']??''); $b=(string)($request['to_time']??'');
+    if(!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/',$a)||!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/',$b)||$b<=$a) return null;
+    $minutes=((int)substr($b,0,2)*60+(int)substr($b,3,2))-((int)substr($a,0,2)*60+(int)substr($a,3,2));
+    $start=$start->setTime((int)substr($a,0,2),(int)substr($a,3,2));
+  }
+  $periods=[];
+  for($day=$start->setTime(0,0);$day<=$end;$day=$day->modify('+1 day')){
+    [$jy,$jm]=gregorian_to_jalali((int)$day->format('Y'),(int)$day->format('n'),(int)$day->format('j'));
+    foreach([sprintf('%04d',$jy),sprintf('%04d-%02d',$jy,$jm)] as $key){
+      $periods[$key]=($periods[$key]??0)+($unit==='daily'?($type==='manual'?0:480):$minutes);
+    }
+  }
+  return compact('unit','start','days','minutes','periods');
+}
+
+function _req_validate_work_policy($uid,array $request,array $policy,$approval=false,$excludeId=0,$now=null){
+  $type=$request['type']??'';
+  if(!in_array($type,['annual','sick','unpaid','mission','overtime','manual'],true)) Http::error('نوع درخواست نامعتبر است',422);
+  $span=_req_policy_span($request);
+  if(!$span) Http::error('تاریخ یا بازهٔ ساعت درخواست معتبر نیست.',422);
+  $config=$policy['config'][$type]??[];
+  $limits=in_array($type,['manual','overtime'],true)?$config:($config[$span['unit']]??[]);
+  $title=['annual'=>'مرخصی استحقاقی','sick'=>'مرخصی استعلاجی','unpaid'=>'مرخصی بی‌حقوق','mission'=>'ماموریت','overtime'=>'اضافه‌کار','manual'=>'تردد دستی'][$type];
+  $hm=static fn($data,$prefix)=>max(0,(int)($data[$prefix.'_h']??0))*60+max(0,(int)($data[$prefix.'_m']??0));
+  if($type!=='manual'){
+    $daily=$span['unit']==='daily' && $type!=='overtime';
+    $min=$daily?(int)($limits['min_days']??0):$hm($limits,'min');
+    $max=$daily?(int)($limits['max_days']??0):$hm($limits,'max');
+    $length=$daily?$span['days']:$span['minutes'];
+    if($min>0&&$length<$min) Http::error('طول بازهٔ '.$title.' کمتر از حداقل مجاز سیاست کاری است.',422);
+    if($max>0&&$length>$max) Http::error('طول بازهٔ '.$title.' بیشتر از حداکثر مجاز سیاست کاری است.',422);
+  }
+  // Zero days means the start day itself, unlike zero caps (unlimited).
+  if((!$approval||!empty($policy['apply_time_limit_on_approve'])) && array_key_exists('deadline_days',$limits)){
+    $days=max(0,(int)$limits['deadline_days']);
+    $before=($limits['deadline_dir']??'after')==='before';
+    $deadline=$span['start']->modify(($before?'-':'+').$days.' days')->setTime(23,59,59);
+    $clock=(new DateTimeImmutable('@'.($now??time())))->setTimezone(new DateTimeZone('Asia/Tehran'));
+    if($clock>$deadline) Http::error('مهلت '.($approval?'تأیید':'ثبت').' '.$title.' طبق سیاست کاری گذشته است.',422);
+  }
+  $rows=Db::all("SELECT MAX(minutes) minutes,unit,from_jdate,to_jdate,the_date,from_time,to_time,type
+    FROM requests WHERE user_id=? AND type=? AND status IN ('pending','approved') AND id<>?
+    GROUP BY type,unit,from_jdate,to_jdate,the_date,from_time,to_time",[(int)$uid,$type,(int)$excludeId]);
+  $usage=[];
+  foreach($rows as $row){
+    $used=_req_policy_span($row);
+    if(!$used) continue; // Historical malformed rows have no usable interval.
+    foreach($used['periods'] as $key=>$minutes){
+      $usage[$key]['minutes']=($usage[$key]['minutes']??0)+$minutes;
+      if($type==='manual'||$type==='overtime'||$used['unit']===$span['unit']) $usage[$key]['count']=($usage[$key]['count']??0)+1;
+    }
+  }
+  foreach($span['periods'] as $key=>$minutes){
+    $period=strlen((string)$key)===4?'year':'month';
+    $label=$period==='year'?'سالانه':'ماهانه';
+    $cap=(int)($limits[$period.'_cap']??0);
+    if($cap>0&&($usage[$key]['count']??0)+1>$cap) Http::error('سقف تعداد '.$title.' '.$label.' در سیاست کاری تکمیل است.',422);
+    $minuteCap=$hm($config,$period);
+    $allowOver=$type==='annual'&&!empty($config['allow_over_'.$period]);
+    if(!$allowOver&&$minuteCap>0&&($usage[$key]['minutes']??0)+$minutes>$minuteCap) Http::error('سقف مدت '.$title.' '.$label.' در سیاست کاری تکمیل است.',422);
+  }
+}
+
+// Serialize quota validation and writes for one requester across all four entry points.
+// An advisory lock tolerates legacy DDL in the handlers (which would commit a transaction).
+function _req_work_policy_handler($path,callable $handler){
+  return static function($params,$body,$user) use($path,$handler){
+    $approval=false; $excludeId=0; $request=$body; $uid=(int)($user['id']??0);
+    if($path==='/api/admin/requests'){
+      $uid=(int)($body['user_id']??0);
+      // Even immediate admin approval is a new submission: its deadline always applies.
+    } elseif(str_contains($path,'{id}')){
+      $approval=($body['decision']??'')==='approve'||($body['status']??'')==='approved';
+      if(!$approval) return $handler($params,$body,$user);
+      $request=Db::one("SELECT * FROM requests WHERE id=?",[(int)$params['id']]);
+      if(!$request) return $handler($params,$body,$user);
+      if($path==='/api/requests/{id}/decide' && ($request['pending_on']??null)!=($user['id']??0) && empty($user['is_admin'])) Http::error('این درخواست در کارتابل شما نیست',403);
+      $uid=(int)$request['user_id']; $excludeId=(int)$params['id'];
+    }
+    if($uid<=0||!_req_active_work_policy($uid)) return $handler($params,$body,$user);
+    _ensure_requests_table();
+    $lock='khatyar:request-policy:'.$uid;
+    $locked=Db::one("SELECT GET_LOCK(?,10) acquired",[$lock]);
+    if((int)($locked['acquired']??0)!==1) Http::error('درخواست دیگری در حال بررسی است؛ دوباره تلاش کنید.',409);
+    try{
+      $policy=_req_active_work_policy($uid);
+      if($policy) _req_validate_work_policy($uid,$request,$policy,$approval,$excludeId);
+      return $handler($params,$body,$user);
+    } finally { Db::one("SELECT RELEASE_LOCK(?) released",[$lock]); }
+  };
+}
+
 // تعیین مقام تأییدکننده (سلسله‌مراتبی یا مسئول خاص)
 function _req_approver($uid){
   $mode = _req_setting('request_approval_mode','hierarchical');
@@ -4101,7 +4224,8 @@ route('POST', '/api/my/requests', function($p,$b,$u){
     if (!$capMsg && $cntY>0 && $usage['year_cnt']+1>$cntY) $capMsg="سقف تعداد ماموریت سالانه تکمیل است.";
     if (!$capMsg && $hY>0 && $usage['year_min']+$minutes>$hY*60) $capMsg="سقف ساعت ماموریت سالانه تکمیل است.";
   }
-  if ($capMsg) Http::error($capMsg,422);
+  // An active assigned work policy is authoritative; legacy caps remain the fallback.
+  if ($capMsg && !_req_active_work_policy($u['id'])) Http::error($capMsg,422);
   // سلفی اجباری برای تردد دستی؟
   if ($type==='manual' && _req_setting('manual_attendance_selfie',false) && empty($b['selfie_data'])) {
     Http::error('برای ثبت تردد دستی، الصاق عکس سلفی الزامی است.',422);
@@ -4599,6 +4723,17 @@ route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
   if(function_exists('_req_notify_sms')){try{_req_notify_sms($req,$status,$note);}catch(Throwable $e){error_log('request decision notify: '.$e->getMessage());}}
   return ['id'=>$id,'status'=>$status,'message'=>$status==='approved'?'درخواست با موفقیت تأیید شد.':'درخواست با موفقیت رد شد.'];
 }, false, ADMIN);
+
+// Install after all four request write routes, keeping front-controller deployment independent.
+// Cron and standalone report scripts load helpers with a no-op route() and no registry.
+if(isset($routes) && is_array($routes)){
+foreach($routes as &$policyRoute){
+  if(($policyRoute['m']??'')==='POST' && in_array($policyRoute['p']??'',['/api/my/requests','/api/admin/requests','/api/requests/{id}/decide','/api/admin/requests/{id}/decision'],true)){
+    $policyRoute['fn']=_req_work_policy_handler($policyRoute['p'],$policyRoute['fn']);
+  }
+}
+unset($policyRoute);
+}
 
 route('DELETE', '/api/admin/requests/{id}', function($p,$b,$u){
   $id=(int)($p['id']??0); if(!$id) Http::error('شناسه درخواست نامعتبر است',400);

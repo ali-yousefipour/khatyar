@@ -24,6 +24,7 @@ jobs:
         run: |
           php -v
           php -l php/lib/routes.php
+          php php/tests/work_policy_requests_test.php
           php -l php/lib/EmploymentAttendance.php
           php -l php/app/api/admin-holiday-seed.php
           php -l php/lib/ShiftCalc.php

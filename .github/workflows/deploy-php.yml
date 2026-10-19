@@ -40,6 +40,7 @@ jobs:
           grep -Eiq 'gps' app/assets/panel.bundle.js || { echo 'ERROR: GPS waiver control missing from compiled bundle'; exit 1; }
           node --check app/assets/school-service-admin.js
           php -l lib/routes.php
+          php tests/work_policy_requests_test.php
           php tests/work_month_daily_reconciliation_test.php
           php tests/attendance_mohammadian_shortage_test.php
           php tests/official_holiday_1405_test.php
