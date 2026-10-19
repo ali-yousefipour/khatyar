@@ -72,8 +72,15 @@ export default function PayrollAccessSlip({ slip, width }) {
   const displayValue = (value, control) => {
     if (value === undefined || value === null || value === '') return '—';
     const raw = String(value).trim();
-    if (String(control.Format || '').includes('#,##0') && /^-?\\d+(?:\\.\\d+)?$/.test(raw.replace(/,/g, ''))) {
-      return faNum(Math.round(Number(raw.replace(/,/g, ''))).toLocaleString('en-US'));
+    // Display all numeric payroll values as whole numbers, including work days and hours.
+    // Keep text identifiers (e.g. national codes) intact, including leading zeroes.
+    const ascii = raw.replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+      .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+      .replace(/٫/g, '.').replace(/[٬,\\s]/g, '');
+    const numericFormat = String(control.Format || '') !== '@';
+    if (numericFormat && /^[-+]?\\d+(?:\\.\\d+)?$/.test(ascii)) {
+      const n = Number(ascii);
+      if (Number.isFinite(n)) return faNum(Math.round(n).toLocaleString('en-US'));
     }
     return faNum(raw);
   };
