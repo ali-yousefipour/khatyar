@@ -46,7 +46,7 @@ export default function PayrollAccessSlip({ slip, width }) {
         fontFamily: control.FontWeight ? FONT.bold : FONT.regular,
         // Access layout coordinates are in twips (1/1440 inch); font sizes are points.
         // Convert both into the same physical coordinate space instead of an empirical 6.8 multiplier.
-        fontSize: Math.max(3, Number(control.FontSize || 10) * (Number(layout.width) / 11_415) * (width / (Number(layout.width) / 1440 * 72))),
+        fontSize: Math.max(3, Number(control.FontSize || 10) * width * 20 / Number(layout.width)),
         color: '#161616', textAlign: control.TextAlign === '2' ? 'right' : 'center',
         textAlignVertical: 'center', includeFontPadding: false
       }]}>{isField ? faNum(number(value)) : value}</Text>;
