@@ -114,10 +114,27 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     $approvedExempt = min((int)($w['expected'] ?? 0), $annualLeave + $sickLeave + $unpaidLeave + $missionLeave);
     $expectedMin = max(0, (int)($w['expected'] ?? 0));
     $inShiftMin = max(0, (int)($w['in_shift'] ?? 0));
-    // کسری نهایی همیشه از موظفی و حضور در شیفت محاسبه می‌شود؛ بنابراین
-    // جلسهٔ ۲۲:۰۰ تا ۰۶:۰۰ پس از نرمال‌سازی شبانه، کسری ۰ دارد.
-    $w['shortage'] = max(0, $expectedMin - min($inShiftMin, $expectedMin));
-    if ($approvedExempt > 0) $w['shortage'] = max(0, $w['shortage'] - $approvedExempt);
+    // The canonical daily report already applies shift rules, attendance credits,
+    // leave, and absence allocation. Do not replace its shortage with the naive
+    // difference between expected duty and in-shift minutes; the two are not
+    // equivalent when attendance is credited or settled outside shift windows.
+    $dailyShortage = $day['shortage'] ?? ($day['data']['shortage'] ?? null);
+    $parseDailyMinutes = static function($value): ?int {
+      if (is_int($value)) return max(0, $value);
+      if (is_float($value)) return max(0, (int)$value);
+      if (is_string($value) && preg_match('/^([0-9]+):([0-5][0-9])$/', trim($value), $parts))
+        return ((int)$parts[1]) * 60 + (int)$parts[2];
+      if (is_string($value) && ctype_digit(trim($value))) return (int)$value;
+      return null;
+    };
+    $canonicalShortage = $parseDailyMinutes($dailyShortage);
+    if ($canonicalShortage !== null) {
+      // Daily source is authoritative; leave was already applied in that source.
+      $w['shortage'] = $canonicalShortage;
+    } else {
+      // Fallback for older payloads without a daily shortage field.
+      $w['shortage'] = max(0, (int)($w['shortage'] ?? 0) - $approvedExempt);
+    }
 
     // کسری GPS/برنامه برای هر session فقط به تاریخ ورود همان session تعلق دارد.
     // این کار از شکستن یک شیفت شب بین دو روز و نمایش کسری گمراه‌کننده در روز بعد جلوگیری می‌کند.
