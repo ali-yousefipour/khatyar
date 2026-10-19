@@ -7,12 +7,12 @@ import layout from '../../assets/payroll-access-layout.json';
 // Faithful placement of the controls exported from the website's Access print layout.
 // A5 landscape output is captured at 2480 x 1748 by the calling screen.
 const number = value => value === undefined || value === null || value === '' ? '—' : String(value);
-const normalized = key => String(key || '').replace(/\s+/g, '').replace(/ي/g, 'ی').replace(/ك/g, 'ک');
+const normalized = key => String(key || '').normalize('NFKC').replace(/[\s\u200c\u200f\u200e_\-]/g, '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/ة/g, 'ه');
 export default function PayrollAccessSlip({ slip, width }) {
   if (!slip) return null;
   const scale = width / Number(layout.width);
   const h = Number(layout.height) * scale;
-  const data = slip.row?.data || {};
+  const data = slip.row?.data && typeof slip.row.data === 'object' ? slip.row.data : {};
   const fields = Object.fromEntries(Object.entries(data).map(([key, value]) => [normalized(key), value]));
   const byName = {
     'نام': data.first_name || slip.row.employee_name?.split(' ')[0],
@@ -22,8 +22,12 @@ export default function PayrollAccessSlip({ slip, width }) {
     'کد ملی': slip.row.national_code
   };
   const getValue = source => {
-    if (Object.prototype.hasOwnProperty.call(byName, source)) return byName[source];
-    return fields[normalized(source)];
+    const key = normalized(source);
+    const fallback = fields[key];
+    if (fallback !== undefined && fallback !== null && fallback !== '') return fallback;
+    const explicit = Object.entries(byName).find(([name]) => normalized(name) === key)?.[1];
+    if (explicit !== undefined && explicit !== null && explicit !== '') return explicit;
+    return fallback;
   };
   const pos = c => ({
     position: 'absolute', left: Number(c.Left || 0) * scale,
@@ -40,7 +44,9 @@ export default function PayrollAccessSlip({ slip, width }) {
       const value = isField ? getValue(control.ControlSource || control.Name) : control.Caption;
       return <Text key={index} numberOfLines={2} adjustsFontSizeToFit style={[pos(control), {
         fontFamily: control.FontWeight ? FONT.bold : FONT.regular,
-        fontSize: Math.max(3, Number(control.FontSize || 10) * scale * 6.8),
+        // Access layout coordinates are in twips (1/1440 inch); font sizes are points.
+        // Convert both into the same physical coordinate space instead of an empirical 6.8 multiplier.
+        fontSize: Math.max(3, Number(control.FontSize || 10) * (Number(layout.width) / 11_415) * (width / (Number(layout.width) / 1440 * 72))),
         color: '#161616', textAlign: control.TextAlign === '2' ? 'right' : 'center',
         textAlignVertical: 'center', includeFontPadding: false
       }]}>{isField ? faNum(number(value)) : value}</Text>;
