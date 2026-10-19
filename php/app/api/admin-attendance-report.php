@@ -292,7 +292,11 @@ function aar_reconcile_day_totals(array $report): array {
     $data = is_array($day['data'] ?? null) ? $day['data'] : [];
     foreach ($keys as $key) {
       $value = $day[$key] ?? $data[$key] ?? 0;
-      if (is_numeric($value)) $totals[$key] += max(0, (int)$value);
+      if (is_numeric($value)) {
+        $totals[$key] += max(0, (int)$value);
+      } elseif (is_string($value) && preg_match('/^([0-9]+):([0-5][0-9])$/', trim($value), $parts)) {
+        $totals[$key] += (int)$parts[1] * 60 + (int)$parts[2];
+      }
     }
     if ((int)($day['worked'] ?? $data['worked'] ?? 0) > 0) ++$presentDays;
   }
