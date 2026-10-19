@@ -55,8 +55,27 @@ eq('Masoud absence is counted only once',0,_work_month_net_shortage([
   'expected'=>$mins('166:06'),'in_shift'=>$mins('175:58'),'shortage'=>$mins('12:50'),'absent_min'=>$mins('07:33')
 ],['annual_min'=>$mins('08:00')]));
 eq('Mohammad authorized leave covers short shift',0,_work_month_net_shortage([
-  'expected'=>$mins('166:06'),'in_shift'=>$mins('130:36'),'shortage'=>$mins('06:20'),'absent_min'=>0
+  'expected'=>$mins('166:06'),'in_shift'=>$mins('130:36'),'shortage'=>$mins('06:20'),'absent_min'=>0,'credited_exemption'=>$mins('35:30')
 ],['annual_min'=>$mins('56:00')]));
+// Amir Mohammadian: full monthly mission is NOT a blanket credit.
+$amir=['expected'=>$mins('166:06'),'in_shift'=>$mins('149:48'),
+  'shortage'=>$mins('06:10'),'absent_min'=>0,
+  'credited_exemption'=>$mins('16:00')];
+eq('Amir: 16h leave leaves 18m uncovered despite 29:30 mission total',18,
+  _work_month_net_shortage($amir,['annual_min'=>$mins('16:00'),'mission_min'=>$mins('29:30')]));
+$missionDays=['days'=>[
+ ['jdate'=>'1405/07/01','expected'=>'07:33','in_shift'=>'07:33','shortage'=>'00:00',
+  'mission'=>'12:00','punches'=>[['id'=>1]]],
+ ['jdate'=>'1405/07/02','expected'=>'07:33','in_shift'=>'07:03','shortage'=>'00:30',
+  'mission'=>'00:00','punches'=>[['id'=>2]]]
+]];
+$dated=_work_month_daily_attendance_totals($missionDays,2);
+eq('Mission on fully worked day creates no credit',0,$dated['credited_exemption']);
+eq('Gap on a different day remains shortage',30,_work_month_net_shortage($dated));
+$missionDays['days'][1]['mission']='00:20';
+$dated=_work_month_daily_attendance_totals($missionDays,2);
+eq('Same-day mission credits only uncovered duty',20,$dated['credited_exemption']);
+eq('Remaining shortage after valid mission credit',10,_work_month_net_shortage($dated));
 eq('Genuine uncovered shortage is preserved',40,_work_month_net_shortage([
   'expected'=>300,'in_shift'=>260,'shortage'=>70,'absent_min'=>0
 ],[]));
