@@ -144,6 +144,25 @@ function aar_rebuild_overnight_report(array $report, int $userId) {
       $report['days'][$i]=$day;
       continue;
     }
+    // Future calendar dates are not absences. Keep this rule at the authoritative
+    // calculation layer so the API and its totals agree (including Excel consumers).
+    // Existing punches on a future date are retained rather than discarded.
+    $dayStartTs = ShiftCalc::jdateToTs($dayJ);
+    $futureWithoutPunch = $dayStartTs !== null
+      && $dayStartTs > strtotime('today')
+      && empty($rawAttendanceByJdate[$dayJ])
+      && empty($day['punches']);
+    if ($futureWithoutPunch) {
+      foreach ($metricKeys as $key) $day[$key] = 0;
+      $day['night_work'] = 0;
+      $day['absent'] = 0;
+      $day['absent_min'] = 0;
+      $day['absence_reason'] = 'روز آینده؛ هنوز موعد ثبت تردد فرا نرسیده است';
+      $day['is_future'] = true;
+      $day['data'] = array_fill_keys($metricKeys, 0);
+      $report['days'][$i] = $day;
+      continue;
+    }
     $allPunches = is_array($day['punches'] ?? null) ? $day['punches'] : [];
     $ownedPunches = [];
     // فقط رکوردهای اصلی DB که check_in آنها متعلق به همین تاریخ است.
