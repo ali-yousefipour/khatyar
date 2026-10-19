@@ -3207,9 +3207,15 @@ function _work_snapshot_decode($json){
   if(!is_array($data))throw new RuntimeException('Invalid work month snapshot');
   return $data;
 }
+function _work_only_active_users($rows){
+  if(!$rows)return [];
+  $active=Db::all("SELECT id FROM users WHERE is_active=1");
+  $allowed=array_fill_keys(array_map('intval',array_column($active,'id')),true);
+  return array_values(array_filter($rows,static fn($r)=>isset($allowed[(int)($r['user_id']??0)])));
+}
 function _work_month_rows($y,$m){
   $final=_final_work_month($y,$m);
-  return $final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($y,$m);
+  return _work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($y,$m));
 }
 function _work_month_people(){
   $people=Db::all("SELECT u.id,u.first_name,u.last_name,u.personnel_code,u.zone_id,z.name AS zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id WHERE u.is_active=1");
@@ -3612,7 +3618,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if($jy<1300||$jy>1500||$jm<1||$jm>12)Http::error('ماه و سال نامعتبر است',422);
   $final=_final_work_month($jy,$jm);
-  $rows=$final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($jy,$jm);
+  $rows=_work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($jy,$jm));
   $byId=$final?null:_work_month_people();
   $daily=$final?_work_snapshot_decode($final['daily_json']):[];
   // Forecast is an export-only overlay. Never mutate the canonical work report or finalized snapshots.
