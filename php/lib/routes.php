@@ -3076,7 +3076,12 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
   $shiftsById = [];
   foreach (Db::all("SELECT * FROM shifts WHERE is_active=1") as $sx) $shiftsById[$sx['id']] = $sx;
   $out = [];
+  $reportedUsers=[];
   foreach ($assigns as $a) {
+    // Several shift assignments can overlap one month; calculate each user only once.
+    $reportUid=(int)$a['user_id'];
+    if(isset($reportedUsers[$reportUid]))continue;
+    $reportedUsers[$reportUid]=true;
     $shift = ((int)($a['shift_id'] ?? 0) > 0) ? ($shiftsById[$a['shift_id']] ?? null) : _auto_shift_for_user($a['user_id']); if (!$shift) continue;
     $dayRows = [];
     if (($shift['type'] ?? '') === 'advanced') {
@@ -3416,7 +3421,7 @@ function _attendance_report($userId,$fromJ,$toJ){
       'overtime'=>$hm($w['overtime']??0),
       'holiday_overtime'=>$hm($w['holiday']??0),
       'friday_overtime'=>$hm($w['friday']??0),
-      'total_overtime'=>$hm($w['total_overtime']??(($w['overtime']??0)+($w['holiday_overtime']??0)+($w['friday_overtime']??0))),
+      'total_overtime'=>$hm((int)($w['overtime']??0)+(int)($w['holiday']??0)+(int)($w['friday']??0)),
       'holiday_friday_overtime'=>$hm(($w['holiday']??0)+($w['friday']??0)),
       'friday_workday'=>(int)($w['friday_workday']??0),
       'surplus'=>$hm($w['surplus']??0),
