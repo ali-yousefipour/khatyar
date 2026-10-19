@@ -6,7 +6,6 @@ import layout from '../../assets/payroll-access-layout.json';
 
 // Faithful placement of the controls exported from the website's Access print layout.
 // A5 landscape output is captured at 2480 x 1748 by the calling screen.
-const number = value => value === undefined || value === null || value === '' ? '—' : String(value);
 const normalized = key => String(key || '').normalize('NFKC').replace(/[\s\u200c\u200f\u200e_\-]/g, '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/ة/g, 'ه');
 export default function PayrollAccessSlip({ slip, width }) {
   if (!slip) return null;
@@ -15,42 +14,25 @@ export default function PayrollAccessSlip({ slip, width }) {
   const data = slip.row?.data && typeof slip.row.data === 'object' ? slip.row.data : {};
   const fields = Object.fromEntries(Object.entries(data).map(([key, value]) => [normalized(key), value]));
   // API may return machine-readable columns while Access uses Persian ControlSource names.
+  // Match the actual PHP Payroll::FIELDS payload, not guessed API names.
   const aliases = {
-    'خالصپرداختی': ['net', 'net_pay', 'net_salary'],
-    'نام': ['first_name'],
-    'نامخانوادگی': ['last_name'],
-    'کدملی': ['national_code', 'national_id'],
-    'سمت': ['role_title', 'job_title'],
-    'روزکارکردکل': ['work_days', 'total_work_days'],
-    'روزکارکردموثر': ['effective_work_days'],
-    'مرخصی': ['leave_days'],
-    'غیبت': ['absence_days'],
-    'استعلاجی': ['sick_leave_days'],
-    'دستمزدروزانه': ['daily_wage'],
-    'مزدسنوات': ['seniority_pay'],
-    'مزدشغل': ['job_wage'],
-    'حقوقماهیانه': ['monthly_salary', 'base_salary'],
-    'حقتاهل': ['marriage_allowance'],
-    'حقاولاد': ['child_allowance'],
-    'ساعتجمعهکاری': ['friday_hours'],
-    'جمعهکاری': ['friday_pay'],
-    'ساعتتعطیلکاری': ['holiday_hours'],
-    'تعطیلکاری': ['holiday_pay'],
-    'ساعتشبکاری': ['night_hours'],
-    'شبکاری': ['night_pay'],
-    'درصدنوبتکاری': ['shift_percentage'],
-    'مبلغنوبتکاری': ['shift_pay'],
-    'ساعتاضافهکار': ['overtime_hours'],
-    'اضافهکار': ['overtime_pay'],
-    'حقمسکن': ['housing_allowance'],
-    'حقبن': ['food_allowance'],
-    'مساعده/سایرکسورات': ['other_deductions', 'advance_deductions'],
-    'متفرقه': ['other_benefits'],
-    'جمعحقوقومزایا': ['gross_pay', 'total_benefits'],
-    'بیمهتامیناجتماعی': ['insurance', 'social_insurance'],
-    'مالیات': ['tax', 'income_tax'],
-    'تعدادفرزند': ['children_count'],
-    'صفرمجردیکمتاهل': ['marital_status']
+    'روزکارکردکل': ['days'], 'مرخصی': ['leave_days'], 'غیبت': ['absence_days'],
+    'استعلاجی': ['sick_days'], 'روزکارکردموثر': ['effective_days'],
+    'دستمزدروزانه': ['daily_wage'], 'مزدسنوات': ['seniority_wage'],
+    'مزدشغل': ['job_wage'], 'حقوقماهیانه': ['monthly_wage'],
+    'حقتاهل': ['marriage'], 'حقاولاد': ['child_allowance'],
+    'ساعتجمعهکاری': ['friday_hours'], 'جمعهکاری': ['friday_amount'],
+    'ساعتتعطیلکاری': ['holiday_hours'], 'تعطیلکاری': ['holiday_amount'],
+    'ساعتشبکاری': ['night_hours'], 'شبکاری': ['night_amount'],
+    'درصدنوبتکاری': ['shift_percent'], 'مبلغنوبتکاری': ['shift_amount'],
+    'ساعتاضافهکار': ['overtime_hours'], 'اضافهکار': ['overtime_amount'],
+    'حقمسکن': ['housing'], 'حقبن': ['food'],
+    'مساعده/سایرکسورات': ['advance'], 'متفرقه': ['other'],
+    'جمعحقوقومزایا': ['gross'], 'بیمهتامیناجتماعی': ['insurance'],
+    'مالیات': ['tax'], 'خالصپرداختی': ['net'],
+    'نام': ['first_name'], 'نامخانوادگی': ['last_name'],
+    'کدملی': ['national_code'], 'سمت': ['role'],
+    'تعدادفرزند': ['children'], 'صفرمجردیکمتاهل': ['married']
   };
   const byName = {
     'نام': data.first_name || slip.row.employee_name?.split(' ')[0],
@@ -97,7 +79,7 @@ export default function PayrollAccessSlip({ slip, width }) {
       const value = isField ? getValue(control.ControlSource || control.Name) : control.Caption;
       return <Text key={index} numberOfLines={2} adjustsFontSizeToFit style={[pos(control), {
         fontFamily: /nazanin|نازنین/i.test(String(control.FontName || '')) ? FONT.payrollNazanin : FONT.payrollHoma,
-        fontWeight: Number(control.FontWeight || 400) >= 700 ? 'bold' : 'normal',
+        // Do not request a synthetic bold face: it causes Android to substitute the bundled B Homa font.
         // Access layout coordinates are in twips (1/1440 inch); font sizes are points.
         // Convert both into the same physical coordinate space instead of an empirical 6.8 multiplier.
         fontSize: Math.max(3, Number(control.FontSize || 10) * width * 20 / Number(layout.width)),
@@ -105,7 +87,7 @@ export default function PayrollAccessSlip({ slip, width }) {
         textAlignVertical: 'center', includeFontPadding: false
       }]}>{isField ? displayValue(value, control) : persianDigits(value ?? '')}</Text>;
     })}
-    <Text style={{ position: 'absolute', bottom: 2 * scale, left: 0, right: 0, textAlign: 'center', fontFamily: FONT.payrollHoma, fontWeight: 'bold', fontSize: Math.max(6, 105 * scale), color: '#b42318' }}>
+    <Text style={{ position: 'absolute', bottom: 2 * scale, left: 0, right: 0, textAlign: 'center', fontFamily: FONT.payrollHoma, fontSize: Math.max(6, 105 * scale), color: '#b42318' }}>
       این فیش حقوق بدون امضای مدیرعامل و مهر شرکت فاقد ارزش قانونی است
     </Text>
   </View>;
