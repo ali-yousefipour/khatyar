@@ -11,7 +11,7 @@ class ShiftCalc
     static function isFriday($jdate){return self::jweekday($jdate)===6;}
     static function isJalaliLeap($jy){$a=$jy-(($jy>=0)?474:473);$b=474+($a%2820);return ((($b+38)*682)%2816)<682;}
     static function jMonthDays($jy,$jm){if($jm>=1&&$jm<=6)return 31;if($jm>=7&&$jm<=11)return 30;return self::isJalaliLeap((int)$jy)?30:29;}
-    static function monthReportLastDay($jy,$jm,$throughJdate=null){$days=self::jMonthDays((int)$jy,(int)$jm);$throughJdate=self::normJdate($throughJdate);$prefix=sprintf('%04d-%02d-',(int)$jy,(int)$jm);if($throughJdate&&strpos($throughJdate,$prefix)===0)return min($days,max(0,(int)substr($throughJdate,8,2)));return $days;}
+    static function monthReportLastDay($jy,$jm,$throughJdate=null){$days=self::jMonthDays((int)$jy,(int)$jm);$throughJdate=self::normJdate($throughJdate);$prefix=sprintf('%04d-%02d-',(int)$jy,(int)$jm);if($throughJdate&&$throughJdate<$prefix.'01')return 0;if($throughJdate&&strpos($throughJdate,$prefix)===0)return min($days,max(0,(int)substr($throughJdate,8,2)));return $days;}
     static function parseJson($v){if(is_array($v))return $v;if($v===null||$v==='')return [];$x=json_decode((string)$v,true);return is_array($x)?$x:[];}
 
     // منبع واحد تعطیلات: تقویم رسمی ایران + تعطیلات دستی سازمان.
