@@ -3159,6 +3159,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
       if ($adj > 0) { $use = min($adj, (int)($w['surplus'] ?? 0)); $w['overtime'] = (int)($w['overtime'] ?? 0) + $use; $w['surplus'] = max(0, (int)($w['surplus'] ?? 0) - $use); $w['adjusted_ot'] = $use; }
       foreach (['worked','in_shift','expected','overtime','shortage','night','friday','holiday','late_in','early_out','surplus','adjusted_ot'] as $k) $tot[$k]+=($w[$k] ?? 0);
       // جمعه کاری اضافه بر ساعت موظفی، مستقل از جمعه کاری پایه در گزارش سازمانی.
+      // Friday worked minutes are already included in 'friday'; do not add them a second time.
       if ((int)date('w',j_to_ts($jdate))===5) $tot['friday_overtime']+=max(0,(int)($w['overtime']??0));
       if ($w['worked']>0) $tot['present_days']++;
     }
@@ -3687,8 +3688,8 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
     $surplusIncluded=$includeSurplus?max(0,(int)($r['surplus']??0)):0;
     $net=$o+$surplusIncluded+$mission-$short+(int)$forecast['overtime'];
     $hol+=(int)$forecast['holiday'];
-    $i++;$row=$xw->addRow([$i,(string)($person['zone_name']??''),($r['role']??''),$i,$person['first_name']??'', $person['last_name']??'',(string)($person['personnel_code']??''),round(($fri+$friOt)/60,6),round($hol/60,6),round($net/60,6)]);
-    $xw->setComment($row,7,'جمعه کاری: '.$hm($fri).' ساعت'."\n".'اضافه کاری جمعه: '.$hm($friOt).' ساعت'."\n".'مجموع جمعه کاری: '.$hm($fri+$friOt).' ساعت');
+    $i++;$row=$xw->addRow([$i,(string)($person['zone_name']??''),($r['role']??''),$i,$person['first_name']??'', $person['last_name']??'',(string)($person['personnel_code']??''),round($fri/60,6),round($hol/60,6),round($net/60,6)]);
+    $xw->setComment($row,7,'جمعه کاری: '.$hm($fri).' ساعت'."\n".'اضافه کاری جمعه (جزئی از جمعه کاری، نه قابل جمع مجدد): '.$hm($friOt).' ساعت'."\n".'مجموع جمعه کاری (بدون احتساب تکراری): '.$hm($fri).' ساعت');
     $xw->setComment($row,8,'مجموع تعطیل کاری: '.$hm($hol).' ساعت'."\n".'پیش‌بینی تعطیل‌کاری: '.$hm($forecast['holiday']).' ساعت ('.$forecast['holiday_days'].' روز × ۸ ساعت)');
     $xw->setComment($row,9,'اضافه کاری: '.$hm($o).' ساعت'."\n".'مازاد حضور لحاظ‌شده: '.$hm($surplusIncluded).' ساعت'."\n".'ماموریت: '.$hm($mission).' ساعت'."\n".'کسری کار: '.$hm($short).' ساعت (کسر شده)'."\n".'پیش‌بینی اضافه‌کاری: '.$hm($forecast['overtime']).' ساعت ('.$forecast['work_days'].' روز؛ میانگین روزانه '.$hm($forecast['daily_overtime']).' از '.$forecast['sample_days'].' روز کاری قبلی نیرو)'."\n".'نهایی = '.($net<0?'-':'').$hm($net).' ساعت');
   }
