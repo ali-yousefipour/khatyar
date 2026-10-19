@@ -41,6 +41,9 @@ jobs:
           node --check app/assets/school-service-admin.js
           php -l lib/routes.php
           php tests/work_policy_requests_test.php
+          php tests/shift_rotation_test.php
+          node tests/shift_rotation_ui_test.cjs
+          node tests/shift_rotation_xlsx_test.cjs
           php tests/work_month_daily_reconciliation_test.php
           php tests/attendance_mohammadian_shortage_test.php
           php tests/official_holiday_1405_test.php

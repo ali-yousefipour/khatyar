@@ -11646,6 +11646,127 @@ function PunchAddModal({ jdate, onSave, onClose }) {
             "\u26A0 ",
             err));
 }
+function ShiftRotationReport({ year, month, onPeriodChange, disabled }) {
+    const [data, setData] = useState(null), [busy, setBusy] = useState(false), [exporting, setExporting] = useState(false), [error, setError] = useState("");
+    const generation = useRef(0), active = useRef(true), running = useRef(false), exportLock = useRef(false);
+    const scope = String(year) + "-" + month, scopeRef = useRef(scope);
+    scopeRef.current = scope;
+    useEffect(() => { active.current = true; return () => { active.current = false; generation.current++; }; }, []);
+    useEffect(() => { generation.current++; running.current = false; setData(null); setBusy(false); setError(""); }, [year, month]);
+    const format = value => value === null || value === undefined ? "—" : Number(value).toLocaleString('fa-IR', { maximumFractionDigits: 2 });
+    const readError = async (res) => { try {
+        const body = await res.json();
+        return body.error || body.message || "دریافت گزارش ممکن نشد";
+    }
+    catch (_) {
+        return "دریافت گزارش ممکن نشد";
+    } };
+    const run = async () => {
+        if (running.current || disabled)
+            return;
+        running.current = true;
+        setBusy(true);
+        setError("");
+        setData(null);
+        const request = ++generation.current, period = scope;
+        try {
+            const res = await fetch(`${API_BASE}/admin/shift-report/rotation?year=${year}&month=${month}`, { headers: tok(), cache: "no-store" });
+            if (!res.ok)
+                throw Error(await readError(res));
+            const result = await res.json();
+            if (!Array.isArray(result.rows) || Number(result.year) !== Number(year) || Number(result.month) !== Number(month))
+                throw Error("پاسخ گزارش با دورهٔ انتخابی مطابقت ندارد.");
+            if (active.current && request === generation.current && period === scopeRef.current)
+                setData(result);
+        }
+        catch (e) {
+            if (active.current && request === generation.current && period === scopeRef.current)
+                setError(e.message || "خطا در محاسبهٔ چرخش شیفت");
+        }
+        finally {
+            if (active.current && request === generation.current && period === scopeRef.current) {
+                running.current = false;
+                setBusy(false);
+            }
+        }
+    };
+    const exportExcel = async () => {
+        if (exportLock.current || disabled || !data)
+            return;
+        exportLock.current = true;
+        setExporting(true);
+        setError("");
+        const period = scope;
+        try {
+            const res = await fetch(`${API_BASE}/admin/shift-report/rotation/export?year=${year}&month=${month}`, { headers: tok(), cache: "no-store" });
+            if (!res.ok)
+                throw Error(await readError(res));
+            const blob = await res.blob();
+            if (!active.current || period !== scopeRef.current)
+                return;
+            const url = URL.createObjectURL(blob), a = document.createElement('a');
+            a.href = url;
+            a.download = `چرخش_شیفت_${year}_${month}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        }
+        catch (e) {
+            if (active.current && period === scopeRef.current)
+                setError(e.message || "تولید اکسل ممکن نشد");
+        }
+        finally {
+            exportLock.current = false;
+            if (active.current)
+                setExporting(false);
+        }
+    };
+    const current = data && Number(data.year) === Number(year) && Number(data.month) === Number(month) ? data : null;
+    return React.createElement("div", { className: "panel" },
+        React.createElement("h3", null, "\u0645\u062D\u0627\u0633\u0628\u0647 \u0686\u0631\u062E\u0634 \u0634\u06CC\u0641\u062A \u0646\u06CC\u0631\u0648\u0647\u0627"),
+        React.createElement("p", { className: "muted" }, "\u0645\u0628\u0646\u0627\u06CC \u0645\u062D\u0627\u0633\u0628\u0647 \u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F \u0627\u0633\u062A: \u0635\u0628\u062D \u06F0\u06F5:\u06F0\u06F0 \u062A\u0627 \u06F1\u06F1:\u06F0\u06F0\u060C \u0639\u0635\u0631 \u06F1\u06F4:\u06F0\u06F0 \u062A\u0627 \u06F1\u06F8:\u06F0\u06F0 \u0648 \u0634\u0628 \u06F2\u06F1:\u06F0\u06F0 \u062A\u0627 \u06F2\u06F3:\u06F0\u06F0. \u0633\u0647\u0645 \u0647\u0631 \u0631\u0648\u0632 \u0628\u06CC\u0646 \u0634\u06CC\u0641\u062A\u200C\u0647\u0627\u06CC \u0645\u062A\u0645\u0627\u06CC\u0632 \u0622\u0646 \u0631\u0648\u0632 \u062A\u0642\u0633\u06CC\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u0635\u0628\u062D \u0648 \u0639\u0635\u0631 \u062F\u0631 \u06CC\u06A9 \u0631\u0648\u0632\u060C \u0647\u0631\u06A9\u062F\u0627\u0645 \u06F0\u066B\u06F5 \u0645\u062D\u0633\u0648\u0628 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
+        React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginTop: 14 } },
+            React.createElement("label", null,
+                "\u0633\u0627\u0644 ",
+                React.createElement("input", { className: "input", "aria-label": "\u0633\u0627\u0644 \u0686\u0631\u062E\u0634 \u0634\u06CC\u0641\u062A", type: "number", min: "1300", max: "1500", value: year, disabled: disabled || exporting, onChange: e => onPeriodChange(+e.target.value, month) })),
+            React.createElement("label", null,
+                "\u0645\u0627\u0647 ",
+                React.createElement("select", { className: "input", "aria-label": "\u0645\u0627\u0647 \u0686\u0631\u062E\u0634 \u0634\u06CC\u0641\u062A", value: month, disabled: disabled || exporting, onChange: e => onPeriodChange(year, +e.target.value) }, J_MONTHS.map((name, i) => React.createElement("option", { key: i, value: i + 1 }, name)))),
+            React.createElement("button", { className: "btn p", disabled: busy || disabled || exporting, onClick: run }, busy ? "در حال محاسبه…" : "محاسبه چرخش شیفت"),
+            React.createElement("button", { className: "btn g", disabled: !current || !current.rows.length || busy || disabled || exporting, onClick: exportExcel }, exporting ? "در حال ساخت اکسل…" : "⤓ خروجی اکسل چرخش شیفت")),
+        error && React.createElement("p", { role: "alert", style: { color: "var(--danger)", marginTop: 12 } }, error),
+        current && React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "muted", style: { marginTop: 14 } },
+                "\u0645\u0646\u0628\u0639: ",
+                current.source === "finalized" ? "اطلاعات ذخیره‌شدهٔ ماه نهایی" : "ورودهای ثبت‌شدهٔ نیروهای فعال",
+                " \u00B7 \u0648\u0627\u062D\u062F: \u0631\u0648\u0632 \u00B7 \u0648\u0631\u0648\u062F \u0628\u062F\u0648\u0646 \u062E\u0631\u0648\u062C \u0646\u06CC\u0632 \u0628\u0631 \u0627\u0633\u0627\u0633 \u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F \u0637\u0628\u0642\u0647\u200C\u0628\u0646\u062F\u06CC \u0645\u06CC\u200C\u0634\u0648\u062F. \u062A\u06A9\u0631\u0627\u0631 \u0648\u0631\u0648\u062F \u062F\u0631 \u0647\u0645\u0627\u0646 \u0634\u06CC\u0641\u062A \u0633\u0647\u0645 \u0627\u0636\u0627\u0641\u0647 \u0646\u062F\u0627\u0631\u062F."),
+            (current.missing_source_count > 0 || current.missing_identity_count > 0) && React.createElement("p", { role: "status", style: { color: "var(--danger)" } }, "\u0628\u0639\u0636\u06CC \u0645\u0634\u062E\u0635\u0627\u062A \u06CC\u0627 \u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F \u062F\u0631 snapshot \u0642\u062F\u06CC\u0645\u06CC \u0645\u0648\u062C\u0648\u062F \u0646\u06CC\u0633\u062A\u061B \u062E\u0627\u0646\u0647\u0654 \u00AB\u2014\u00BB \u0628\u0647 \u0645\u0639\u0646\u06CC \u062F\u0627\u062F\u0647\u0654 \u0646\u0627\u0645\u0648\u062C\u0648\u062F \u0627\u0633\u062A \u0648 \u0635\u0641\u0631 \u0645\u062D\u0633\u0648\u0628 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
+            !current.rows.length ? React.createElement("p", { className: "muted" }, "\u0646\u06CC\u0631\u0648\u06CC\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062F\u0648\u0631\u0647 \u0645\u0648\u062C\u0648\u062F \u0646\u06CC\u0633\u062A.") : React.createElement("div", { style: { overflowX: "auto", marginTop: 12 } },
+                React.createElement("table", { style: { minWidth: 950, fontSize: 13 } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", { rowSpan: 2 }, "\u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC"),
+                            React.createElement("th", { rowSpan: 2 }, "\u06A9\u062F \u0645\u0644\u06CC"),
+                            React.createElement("th", { rowSpan: 2 }, "\u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC"),
+                            React.createElement("th", { colSpan: 3, style: { textAlign: "center", background: "var(--brand)", color: "#fff" } }, "\u0686\u0631\u062E\u0634 \u0634\u06CC\u0641\u062A"),
+                            React.createElement("th", { rowSpan: 2 }, "\u062C\u0645\u0639 \u0631\u0648\u0632 \u0637\u0628\u0642\u0647\u200C\u0628\u0646\u062F\u06CC\u200C\u0634\u062F\u0647"),
+                            React.createElement("th", { rowSpan: 2 }, "\u0631\u0648\u0632 \u062F\u0627\u0631\u0627\u06CC \u0648\u0631\u0648\u062F \u062E\u0627\u0631\u062C \u0627\u0632 \u0628\u0627\u0632\u0647"),
+                            React.createElement("th", { rowSpan: 2 }, "\u0648\u0631\u0648\u062F \u0628\u062F\u0648\u0646 \u062E\u0631\u0648\u062C \u0645\u0639\u062A\u0628\u0631")),
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0635\u0628\u062D"),
+                            React.createElement("th", null, "\u0639\u0635\u0631"),
+                            React.createElement("th", null, "\u0634\u0628"))),
+                    React.createElement("tbody", null, current.rows.map(row => React.createElement("tr", { key: row.user_id },
+                        React.createElement("td", { style: { fontWeight: 700 } }, row.name || "—"),
+                        React.createElement("td", { dir: "ltr" }, row.national_code || "—"),
+                        React.createElement("td", { dir: "ltr" }, row.personnel_code || "—"),
+                        ['morning', 'afternoon', 'night', 'matched_days', 'outside_days', 'open_sessions'].map(key => React.createElement("td", { key: key, style: { textAlign: "center" } }, format(row[key])))))),
+                    React.createElement("tfoot", null,
+                        React.createElement("tr", { style: { fontWeight: 700, background: "#eaf5ef" } },
+                            React.createElement("td", { colSpan: 3 }, current.missing_source_count > 0 ? "جمع داده‌های موجود" : "جمع کل"),
+                            ['morning', 'afternoon', 'night', 'matched_days', 'outside_days', 'open_sessions'].map(key => { var _a; return React.createElement("td", { key: key, style: { textAlign: "center" } }, format((_a = current.totals) === null || _a === void 0 ? void 0 : _a[key])); })))))));
+}
 function ShiftReport() {
     const [reportTab, setReportTab] = useState("monthly");
     const [finalStatus, setFinalStatus] = useState(null);
@@ -11752,8 +11873,9 @@ function ShiftReport() {
         React.createElement("div", { className: "tabbar", style: { marginBottom: 12 } },
             React.createElement("button", { className: "tabbtn" + (reportTab === "monthly" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("monthly") }, "\u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647\u0627\u0646\u0647"),
             React.createElement("button", { className: "tabbtn" + (reportTab === "organization" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("organization") }, "\u062A\u0648\u0644\u06CC\u062F \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u0628\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
+            React.createElement("button", { className: "tabbtn" + (reportTab === "rotation" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("rotation") }, "\u0645\u062D\u0627\u0633\u0628\u0647 \u0686\u0631\u062E\u0634 \u0634\u06CC\u0641\u062A \u0646\u06CC\u0631\u0648\u0647\u0627"),
             React.createElement("button", { className: "tabbtn" + (reportTab === "finalize" ? " on" : ""), disabled: finalBusy, onClick: () => { setReportTab("finalize"); setFinalStatus(null); } }, "\u0646\u0647\u0627\u06CC\u06CC \u06A9\u0631\u062F\u0646 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627")),
-        reportTab === "finalize" ? React.createElement("div", { className: "panel" },
+        reportTab === "rotation" ? React.createElement(ShiftRotationReport, { year: jy, month: jm, onPeriodChange: selectReportPeriod, disabled: finalBusy }) : reportTab === "finalize" ? React.createElement("div", { className: "panel" },
             React.createElement("h4", null, "\u0646\u0647\u0627\u06CC\u06CC \u06A9\u0631\u062F\u0646 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627"),
             React.createElement("p", { className: "muted" }, "\u067E\u0633 \u0627\u0632 \u0646\u0647\u0627\u06CC\u06CC\u200C\u0633\u0627\u0632\u06CC\u060C \u06AF\u0632\u0627\u0631\u0634 \u0645\u0627\u0647\u0627\u0646\u0647 \u0648 \u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F\u0647 \u0648 \u062A\u063A\u06CC\u06CC\u0631 \u0634\u06CC\u0641\u062A \u06CC\u0627 \u0645\u0648\u062A\u0648\u0631 \u0645\u062D\u0627\u0633\u0628\u0627\u062A \u0627\u0639\u062F\u0627\u062F \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0645\u06CC\u200C\u062F\u0647\u062F."),
             React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },

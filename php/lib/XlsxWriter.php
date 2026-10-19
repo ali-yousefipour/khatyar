@@ -22,6 +22,8 @@ class XlsxWriter {
   private $imageRowIdx = []; // ردیف‌هایی که حاوی تصویر هستند => ارتفاع لازم (pt)
   private $professionalStyle = false;
   private $reportHeading = null;
+  private $headerGroups = [];
+  private $decimalCols = [];
 
   function __construct(array $headers) { $this->headers = array_values($headers); }
 
@@ -33,6 +35,8 @@ class XlsxWriter {
   /** قالب خواناتر ویژهٔ خروجی‌های مدیریتی: سرستون رنگی، ردیف‌های راه‌راه، فیلتر و تثبیت سرستون. */
   function setProfessionalStyle($enabled = true) { $this->professionalStyle = (bool)$enabled; }
   function setReportHeading($title, $subtitle, $summary) { $this->reportHeading = [(string)$title,(string)$subtitle,(string)$summary]; }
+  function setHeaderGroup($startCol,$endCol,$title) { $this->headerGroups[]=[(int)$startCol,(int)$endCol,(string)$title]; }
+  function setDecimalCol($idx) { $this->decimalCols[(int)$idx]=true; }
 
   /** یک ردیف دادهٔ متنی/عددی اضافه می‌کند و شمارهٔ ردیف (0-based، بدون احتساب سرستون) را برمی‌گرداند. */
   function addRow(array $cells) { $this->rows[] = array_values($cells); return count($this->rows) - 1; }
@@ -79,6 +83,7 @@ class XlsxWriter {
   }
 
   function output($filename, $sheetName = 'Sheet1') {
+    $headerRow=($this->reportHeading?4:1)+($this->headerGroups?1:0);
     $tmp = tempnam(sys_get_temp_dir(), 'xlsx_');
     $zip = new ZipArchive();
     $zip->open($tmp, ZipArchive::OVERWRITE);
@@ -106,7 +111,7 @@ class XlsxWriter {
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'.
       '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'.
       '<sheets><sheet name="'.self::xmlEsc(mb_substr($sheetName,0,31)).'" sheetId="1" r:id="rId1"/></sheets>'.
-      ($this->reportHeading ? '<definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">&apos;'.self::xmlEsc(str_replace("'","''",mb_substr($sheetName,0,31))).'&apos;!$1:$4</definedName></definedNames>' : '').
+      ($this->reportHeading ? '<definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">&apos;'.self::xmlEsc(str_replace("'","''",mb_substr($sheetName,0,31))).'&apos;!$1:$'.$headerRow.'</definedName></definedNames>' : '').
       '</workbook>');
 
     $zip->addFromString('xl/_rels/workbook.xml.rels',
@@ -123,7 +128,7 @@ class XlsxWriter {
       '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF087F5B"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF1F8F4"/><bgColor indexed="64"/></patternFill></fill></fills>'.
       '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFD7E5DE"/></left><right style="thin"><color rgb="FFD7E5DE"/></right><top style="thin"><color rgb="FFD7E5DE"/></top><bottom style="thin"><color rgb="FFD7E5DE"/></bottom><diagonal/></border></borders>'.
       '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'.
-      '<cellXfs count="9">'.
+      '<cellXfs count="11">'.
       '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'.
       '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'.
       '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'.
@@ -133,6 +138,8 @@ class XlsxWriter {
       '<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="right" vertical="center" wrapText="1" readingOrder="2"/></xf>'.
       '<xf numFmtId="3" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>'.
       '<xf numFmtId="3" fontId="1" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2"/></xf>'.
+      '<xf numFmtId="2" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'.
+      '<xf numFmtId="2" fontId="1" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'.
       '</cellXfs>'.
       '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'.
       '</styleSheet>');
@@ -146,7 +153,6 @@ class XlsxWriter {
     }
     $cols .= '</cols>';
 
-    $headerRow = $this->reportHeading ? 4 : 1;
     $sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'.
       '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'.
       ($this->reportHeading ? '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' : '').
@@ -154,6 +160,12 @@ class XlsxWriter {
       $cols.'<sheetData>';
     if ($this->reportHeading) foreach ($this->reportHeading as $index=>$line) {
       $sheetXml .= '<row r="'.($index+1).'" ht="'.($index===0?40:30).'" customHeight="1"><c r="A'.($index+1).'" s="'.($index===0?5:6).'" t="inlineStr"><is><t xml:space="preserve">'.self::xmlEsc($line).'</t></is></c></row>';
+    }
+    if($this->headerGroups){
+      $groupRow=$headerRow-1;
+      $sheetXml.='<row r="'.$groupRow.'" ht="28" customHeight="1">';
+      foreach($this->headerGroups as [$first,$last,$title])$sheetXml.='<c r="'.self::colLetter($first).$groupRow.'" s="3" t="inlineStr"><is><t>'.self::xmlEsc($title).'</t></is></c>';
+      $sheetXml.='</row>';
     }
 
     // سرستون
@@ -173,6 +185,7 @@ class XlsxWriter {
         if (is_numeric($v) && $v !== '' && empty($this->textCols[$c]) && !preg_match('/^0\d/', (string)$v)) {
         $cellStyle = $this->professionalStyle ? (($ri % 2) ? '4' : '2') : '0';
         if ($this->reportHeading) $cellStyle = ($ri % 2) ? '8' : '7';
+        if (!empty($this->decimalCols[$c])) $cellStyle=($ri%2)?'10':'9';
         $sheetXml .= '<c r="'.self::colLetter($c).$excelRow.'"'.($cellStyle !== '0' ? ' s="'.$cellStyle.'"' : '').'><v>'.self::xmlEsc($v).'</v></c>';
         } else {
         $cellStyle = $this->professionalStyle ? (($ri % 2) ? '4' : '2') : '0';
@@ -183,10 +196,14 @@ class XlsxWriter {
     }
     $sheetXml .= '</sheetData>';
     if ($this->professionalStyle && $maxCol > 0 && count($this->rows) > 0) $sheetXml .= '<autoFilter ref="A'.$headerRow.':'.self::colLetter($maxCol-1).(count($this->rows)+$headerRow).'"/>';
-    if ($this->reportHeading && $maxCol>0) {
-      $sheetXml .= '<mergeCells count="3">';
-      for ($line=1;$line<=3;$line++) $sheetXml .= '<mergeCell ref="A'.$line.':'.self::colLetter($maxCol-1).$line.'"/>';
-      $sheetXml .= '</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/><headerFooter><oddFooter>&amp;Cصفحه &amp;P از &amp;N</oddFooter></headerFooter>';
+    if (($this->reportHeading||$this->headerGroups) && $maxCol>0) {
+      $sheetXml .= '<mergeCells count="'.(($this->reportHeading?3:0)+count($this->headerGroups)).'">';
+      if($this->reportHeading)for ($line=1;$line<=3;$line++) $sheetXml .= '<mergeCell ref="A'.$line.':'.self::colLetter($maxCol-1).$line.'"/>';
+      foreach($this->headerGroups as [$first,$last,$title])$sheetXml.='<mergeCell ref="'.self::colLetter($first).($headerRow-1).':'.self::colLetter($last).($headerRow-1).'"/>';
+      $sheetXml .= '</mergeCells>';
+    }
+    if($this->reportHeading && $maxCol>0){
+      $sheetXml .= '<printOptions horizontalCentered="1"/><pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/><headerFooter><oddFooter>&amp;Cصفحه &amp;P از &amp;N</oddFooter></headerFooter>';
     }
     if ($this->images) $sheetXml .= '<drawing r:id="rIdDrawing1"/>';
     if ($this->comments) $sheetXml .= '<legacyDrawing r:id="rIdComments"/>';

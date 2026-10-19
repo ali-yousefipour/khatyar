@@ -3304,7 +3304,7 @@ function _work_month_rows($y,$m){
   return _work_only_active_users($final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($y,$m));
 }
 function _work_month_people(){
-  $people=Db::all("SELECT u.id,u.first_name,u.last_name,u.personnel_code,u.zone_id,z.name AS zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id WHERE u.is_active=1");
+  $people=Db::all("SELECT u.id,u.first_name,u.last_name,u.username,u.national_code,u.personnel_code,u.zone_id,z.name AS zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id WHERE u.is_active=1");
   $byId=[];foreach($people as $person)$byId[(int)$person['id']]=$person;
   return $byId;
 }
@@ -3368,7 +3368,10 @@ function _finalize_work_month($year,$month,$userId){
     foreach($rows as &$row)$row['organization_person']=$people[(int)$row['user_id']]??[];
     unset($row);
     $daily=[];
-    foreach($people as $uid=>$person)$daily[$uid]=attendance_report_owned_by_entry_date($uid,$from,$to,true);
+    foreach($people as $uid=>$person){
+      $daily[$uid]=attendance_report_owned_by_entry_date($uid,$from,$to,true);
+      $daily[$uid]['rotation_person']=$person;
+    }
     Db::run("INSERT INTO finalized_work_months(jy,jm,monthly_json,daily_json,finalized_by) VALUES(?,?,?,?,?)",[$year,$month,json_encode($rows,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),json_encode($daily,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),(int)$userId]);
     return ['ok'=>true,'count'=>count($rows)];
   }finally{Db::one("SELECT RELEASE_LOCK(?) released",[$lock]);}
@@ -3389,6 +3392,122 @@ route('GET', '/api/admin/shift-report', function($p,$b,$u){
   if (!$jy||!$jm) Http::error('سال و ماه شمسی را مشخص کنید',400);
   return ['year'=>$jy,'month'=>$jm,'rows'=>_work_month_rows($jy,$jm)];
 }, false, ADMIN);
+
+// Shift rotation is an entry-time classification, independent of assigned/payable shifts.
+function _shift_rotation_stamp($value){
+  if(!$value)return null;
+  $date=DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',(string)$value,new DateTimeZone('Asia/Tehran'));
+  $errors=DateTimeImmutable::getLastErrors();
+  return $date&&(!$errors||(!$errors['warning_count']&&!$errors['error_count']))?$date:null;
+}
+function _shift_rotation_rows(array $people,array $punches,$start,$end){
+  $rows=[];$days=[];$seen=[];
+  foreach($people as $person){
+    $uid=(int)$person['id'];
+    $rows[$uid]=['user_id'=>$uid,'name'=>trim(($person['first_name']??'').' '.($person['last_name']??'')),
+      'national_code'=>(string)(($person['national_code']??'')?:($person['username']??'')),
+      'personnel_code'=>(string)($person['personnel_code']??''),
+      'morning'=>0,'afternoon'=>0,'night'=>0,'matched_days'=>0,'outside_days'=>0,'open_sessions'=>0,
+      'missing_source'=>!empty($person['missing_source'])];
+  }
+  foreach($punches as $punch){
+    $uid=(int)($punch['user_id']??0);
+    if(!isset($rows[$uid]))continue;
+    $id=$punch['attendance_id']??null;
+    if($id!==null&&isset($seen[$uid][$id]))continue;
+    if($id!==null)$seen[$uid][$id]=true;
+    $entry=_shift_rotation_stamp($punch['check_in']??null);
+    if(!$entry||$entry<$start||$entry>=$end)continue;
+    $exit=_shift_rotation_stamp($punch['check_out']??null);
+    if(!$exit||$exit<=$entry)$rows[$uid]['open_sessions']++;
+    $minute=(int)$entry->format('G')*60+(int)$entry->format('i');
+    $kind=$minute>=300&&$minute<=660?'morning':($minute>=840&&$minute<=1080?'afternoon':($minute>=1260&&$minute<=1380?'night':'outside'));
+    $days[$uid][$entry->format('Y-m-d')][$kind]=true;
+  }
+  foreach($rows as $uid=>&$row){
+    $units=['morning'=>0,'afternoon'=>0,'night'=>0];
+    foreach($days[$uid]??[] as $kinds){
+      if(isset($kinds['outside']))$row['outside_days']++;
+      unset($kinds['outside']);$count=count($kinds);
+      if(!$count)continue;
+      $row['matched_days']++;
+      foreach($kinds as $kind=>$unused)$units[$kind]+=6/$count;
+    }
+    foreach($units as $kind=>$value)$row[$kind]=$row['missing_source']?null:$value/6;
+    if($row['missing_source'])foreach(['matched_days','outside_days','open_sessions'] as $key)$row[$key]=null;
+  }
+  unset($row);
+  return array_values($rows);
+}
+function _shift_rotation_report($year,$month){
+  if($year<1300||$year>1500||$month<1||$month>12)Http::error('ماه و سال شمسی نامعتبر است',422);
+  require_once __DIR__.'/IranCalendar.php';
+  [$gy,$gm,$gd]=IranCalendar::toGregorian($year,$month,1);
+  $start=new DateTimeImmutable(sprintf('%04d-%02d-%02d 00:00:00',$gy,$gm,$gd),new DateTimeZone('Asia/Tehran'));
+  $end=$start->modify('+'.IranCalendar::monthLength($year,$month).' days');
+  $final=_final_work_month($year,$month);$people=[];$punches=[];
+  if($final){
+    $daily=_work_snapshot_decode($final['daily_json']);
+    $monthly=_work_snapshot_decode($final['monthly_json']);$metadata=[];
+    foreach($monthly as $person){
+      $uid=(int)$person['user_id'];
+      $metadata[$uid]=$person['organization_person']??['first_name'=>$person['name']??''];
+      if(!isset($daily[$uid]))$daily[$uid]=['user'=>['name'=>$person['name']??''],'days'=>[]];
+    }
+    foreach($daily as $uid=>$report){
+      $person=$report['rotation_person']??($metadata[(int)$uid]??[]);
+      $person['id']=(int)$uid;
+      if(empty($person['first_name'])&&empty($person['last_name']))$person['first_name']=$report['user']['name']??'';
+      if(empty($person['personnel_code']))$person['personnel_code']=$report['user']['pcode']??'';
+      $person['missing_source']=empty($report['days']);
+      foreach($report['days']??[] as $day){
+        if(!array_key_exists('punches',$day))$person['missing_source']=true;
+        foreach($day['punches']??[] as $punch){
+          if(empty($punch['in_full'])){$person['missing_source']=true;continue;}
+          $punches[]=['user_id'=>(int)$uid,'attendance_id'=>$punch['id']??null,'check_in'=>$punch['in_full'],'check_out'=>$punch['out_full']??null];
+        }
+      }
+      $people[]=$person;
+    }
+  }else{
+    $people=array_values(_work_month_people());
+    $punches=Db::all("SELECT a.id attendance_id,a.user_id,a.check_in,a.check_out
+      FROM staff_attendance a JOIN users u ON u.id=a.user_id
+      WHERE u.is_active=1 AND a.check_in>=? AND a.check_in<? ORDER BY a.check_in,a.id",[$start->format('Y-m-d H:i:s'),$end->format('Y-m-d H:i:s')]);
+  }
+  $rows=_shift_rotation_rows($people,$punches,$start,$end);
+  $totals=array_fill_keys(['morning','afternoon','night','matched_days','outside_days','open_sessions'],0);
+  $missing=0;$missingIdentity=0;
+  foreach($rows as $row){foreach($totals as $key=>$unused)$totals[$key]+=$row[$key]??0;if($row['missing_source'])$missing++;if($row['national_code']==='')$missingIdentity++;}
+  return ['year'=>$year,'month'=>$month,'source'=>$final?'finalized':'live','rows'=>$rows,'totals'=>$totals,'missing_source_count'=>$missing,'missing_identity_count'=>$missingIdentity];
+}
+function _shift_rotation_xlsx(array $report){
+  $xw=new XlsxWriter(['ردیف','نام و نام خانوادگی','کد ملی','شماره پرسنلی','صبح','عصر','شب','جمع روز طبقه‌بندی‌شده','روز دارای ورود خارج از بازه','ورود بدون خروج معتبر']);
+  $xw->setProfessionalStyle();
+  $xw->setReportHeading('محاسبه چرخش شیفت نیروها',sprintf('دوره: %04d/%02d | تعداد نیرو: %d | منبع: %s | نقص تردد: %d | کد ملی ناموجود: %d',$report['year'],$report['month'],count($report['rows']),$report['source']==='finalized'?'ماه نهایی‌شده':'تردد ثبت‌شده',$report['missing_source_count'],$report['missing_identity_count']),
+    'صبح ۰۵:۰۰–۱۱:۰۰ | عصر ۱۴:۰۰–۱۸:۰۰ | شب ۲۱:۰۰–۲۳:۰۰ | سهم روز بین شیفت‌های متمایز تقسیم می‌شود');
+  $xw->setHeaderGroup(4,6,'چرخش شیفت (روز)');
+  foreach([8,30,18,18,12,12,12,20,24,24] as $col=>$width)$xw->setColWidth($col,$width);
+  $xw->setTextCol(2);$xw->setTextCol(3);
+  foreach([4,5,6] as $col)$xw->setDecimalCol($col);
+  foreach($report['rows'] as $index=>$row){
+    $xw->addRow([$index+1,$row['name'],$row['national_code'],$row['personnel_code'],$row['morning'],$row['afternoon'],$row['night'],$row['matched_days'],$row['outside_days'],$row['open_sessions']]);
+    $xw->setComment($index,4,'مبنای محاسبه ساعت ورود است؛ ورود بدون خروج نیز طبقه‌بندی و جداگانه گزارش می‌شود. تکرار یک شیفت در یک روز سهم اضافه نمی‌سازد.');
+    if($row['missing_source'])$xw->setComment($index,1,'جزئیات ورود در snapshot قدیمی کامل نیست؛ خانه‌های خالی به معنی صفر نیستند.');
+    if($row['national_code']==='')$xw->setComment($index,2,'کد ملی در دادهٔ این گزارش موجود نیست؛ اطلاعات فعلی جایگزین تاریخچه نشده است.');
+  }
+  $t=$report['totals'];
+  $xw->addRow(['',$report['missing_source_count']?'جمع داده‌های موجود':'جمع کل','','',$t['morning'],$t['afternoon'],$t['night'],$t['matched_days'],$t['outside_days'],$t['open_sessions']]);
+  $xw->output('چرخش_شیفت_'.$report['year'].'_'.$report['month'].'.xlsx','چرخش شیفت نیروها');
+}
+route('GET','/api/admin/shift-report/rotation',function($p,$b,$u){
+  _monthly_work_report_need($u);
+  return _shift_rotation_report((int)($_GET['year']??0),(int)($_GET['month']??0));
+},false,ADMIN);
+route('GET','/api/admin/shift-report/rotation/export',function($p,$b,$u){
+  _monthly_work_report_need($u);
+  _shift_rotation_xlsx(_shift_rotation_report((int)($_GET['year']??0),(int)($_GET['month']??0)));
+},false,ADMIN);
 
 // ==================== گزارش تردد پرسنل (مدل فینتو) ====================
 // نام محل ورود/خروج از روی مختصات (نزدیک‌ترین ایستگاه)

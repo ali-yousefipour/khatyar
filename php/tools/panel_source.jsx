@@ -6944,6 +6944,61 @@ function PunchAddModal({jdate,onSave,onClose}){
   </PunchModalShell>;
 }
 
+function ShiftRotationReport({year,month,onPeriodChange,disabled}){
+  const [data,setData]=useState(null),[busy,setBusy]=useState(false),[exporting,setExporting]=useState(false),[error,setError]=useState("");
+  const generation=useRef(0),active=useRef(true),running=useRef(false),exportLock=useRef(false);
+  const scope=String(year)+"-"+month,scopeRef=useRef(scope);scopeRef.current=scope;
+  useEffect(()=>{active.current=true;return()=>{active.current=false;generation.current++;};},[]);
+  useEffect(()=>{generation.current++;running.current=false;setData(null);setBusy(false);setError("");},[year,month]);
+  const format=value=>value===null||value===undefined?"—":Number(value).toLocaleString('fa-IR',{maximumFractionDigits:2});
+  const readError=async res=>{try{const body=await res.json();return body.error||body.message||"دریافت گزارش ممکن نشد";}catch(_){return "دریافت گزارش ممکن نشد";}};
+  const run=async()=>{
+    if(running.current||disabled)return;
+    running.current=true;setBusy(true);setError("");setData(null);
+    const request=++generation.current,period=scope;
+    try{
+      const res=await fetch(`${API_BASE}/admin/shift-report/rotation?year=${year}&month=${month}`,{headers:tok(),cache:"no-store"});
+      if(!res.ok)throw Error(await readError(res));
+      const result=await res.json();
+      if(!Array.isArray(result.rows)||Number(result.year)!==Number(year)||Number(result.month)!==Number(month))throw Error("پاسخ گزارش با دورهٔ انتخابی مطابقت ندارد.");
+      if(active.current&&request===generation.current&&period===scopeRef.current)setData(result);
+    }catch(e){if(active.current&&request===generation.current&&period===scopeRef.current)setError(e.message||"خطا در محاسبهٔ چرخش شیفت");}
+    finally{if(active.current&&request===generation.current&&period===scopeRef.current){running.current=false;setBusy(false);}}
+  };
+  const exportExcel=async()=>{
+    if(exportLock.current||disabled||!data)return;
+    exportLock.current=true;setExporting(true);setError("");const period=scope;
+    try{
+      const res=await fetch(`${API_BASE}/admin/shift-report/rotation/export?year=${year}&month=${month}`,{headers:tok(),cache:"no-store"});
+      if(!res.ok)throw Error(await readError(res));
+      const blob=await res.blob();if(!active.current||period!==scopeRef.current)return;
+      const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`چرخش_شیفت_${year}_${month}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+    }catch(e){if(active.current&&period===scopeRef.current)setError(e.message||"تولید اکسل ممکن نشد");}
+    finally{exportLock.current=false;if(active.current)setExporting(false);}
+  };
+  const current=data&&Number(data.year)===Number(year)&&Number(data.month)===Number(month)?data:null;
+  return <div className="panel">
+    <h3>محاسبه چرخش شیفت نیروها</h3>
+    <p className="muted">مبنای محاسبه ساعت ورود است: صبح ۰۵:۰۰ تا ۱۱:۰۰، عصر ۱۴:۰۰ تا ۱۸:۰۰ و شب ۲۱:۰۰ تا ۲۳:۰۰. سهم هر روز بین شیفت‌های متمایز آن روز تقسیم می‌شود؛ صبح و عصر در یک روز، هرکدام ۰٫۵ محسوب می‌شوند.</p>
+    <div className="row" style={{gap:10,flexWrap:"wrap",alignItems:"flex-end",marginTop:14}}>
+      <label>سال <input className="input" aria-label="سال چرخش شیفت" type="number" min="1300" max="1500" value={year} disabled={disabled||exporting} onChange={e=>onPeriodChange(+e.target.value,month)}/></label>
+      <label>ماه <select className="input" aria-label="ماه چرخش شیفت" value={month} disabled={disabled||exporting} onChange={e=>onPeriodChange(year,+e.target.value)}>{J_MONTHS.map((name,i)=><option key={i} value={i+1}>{name}</option>)}</select></label>
+      <button className="btn p" disabled={busy||disabled||exporting} onClick={run}>{busy?"در حال محاسبه…":"محاسبه چرخش شیفت"}</button>
+      <button className="btn g" disabled={!current||!current.rows.length||busy||disabled||exporting} onClick={exportExcel}>{exporting?"در حال ساخت اکسل…":"⤓ خروجی اکسل چرخش شیفت"}</button>
+    </div>
+    {error&&<p role="alert" style={{color:"var(--danger)",marginTop:12}}>{error}</p>}
+    {current&&<>
+      <p className="muted" style={{marginTop:14}}>منبع: {current.source==="finalized"?"اطلاعات ذخیره‌شدهٔ ماه نهایی":"ورودهای ثبت‌شدهٔ نیروهای فعال"} · واحد: روز · ورود بدون خروج نیز بر اساس ساعت ورود طبقه‌بندی می‌شود. تکرار ورود در همان شیفت سهم اضافه ندارد.</p>
+      {(current.missing_source_count>0||current.missing_identity_count>0)&&<p role="status" style={{color:"var(--danger)"}}>بعضی مشخصات یا جزئیات تردد در snapshot قدیمی موجود نیست؛ خانهٔ «—» به معنی دادهٔ ناموجود است و صفر محسوب نمی‌شود.</p>}
+      {!current.rows.length?<p className="muted">نیرویی برای این دوره موجود نیست.</p>:<div style={{overflowX:"auto",marginTop:12}}><table style={{minWidth:950,fontSize:13}}>
+        <thead><tr><th rowSpan={2}>نام و نام خانوادگی</th><th rowSpan={2}>کد ملی</th><th rowSpan={2}>شماره پرسنلی</th><th colSpan={3} style={{textAlign:"center",background:"var(--brand)",color:"#fff"}}>چرخش شیفت</th><th rowSpan={2}>جمع روز طبقه‌بندی‌شده</th><th rowSpan={2}>روز دارای ورود خارج از بازه</th><th rowSpan={2}>ورود بدون خروج معتبر</th></tr><tr><th>صبح</th><th>عصر</th><th>شب</th></tr></thead>
+        <tbody>{current.rows.map(row=><tr key={row.user_id}><td style={{fontWeight:700}}>{row.name||"—"}</td><td dir="ltr">{row.national_code||"—"}</td><td dir="ltr">{row.personnel_code||"—"}</td>{['morning','afternoon','night','matched_days','outside_days','open_sessions'].map(key=><td key={key} style={{textAlign:"center"}}>{format(row[key])}</td>)}</tr>)}</tbody>
+        <tfoot><tr style={{fontWeight:700,background:"#eaf5ef"}}><td colSpan={3}>{current.missing_source_count>0?"جمع داده‌های موجود":"جمع کل"}</td>{['morning','afternoon','night','matched_days','outside_days','open_sessions'].map(key=><td key={key} style={{textAlign:"center"}}>{format(current.totals?.[key])}</td>)}</tr></tfoot>
+      </table></div>}
+    </>}
+  </div>;
+}
+
 function ShiftReport(){
   const [reportTab,setReportTab]=useState("monthly");
   const [finalStatus,setFinalStatus]=useState(null); const [finalBusy,setFinalBusy]=useState(false); const [statusBusy,setStatusBusy]=useState(false);
@@ -6975,8 +7030,8 @@ function ShiftReport(){
   const [includeSurplusInOvertime,setIncludeSurplusInOvertime]=useState(false);
   const exportOrganization=async()=>{try{const res=await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining?1:0}&include_surplus=${includeSurplusInOvertime?1:0}`,{headers:tok()});if(!res.ok)throw new Error(res.status===403?"دسترسی مجاز نیست":"خطا در تولید فایل سازمان");const blob=await res.blob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`کارکرد-سازمان-${jy}-${jm}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),60000);}catch(e){alert(e.message||"خطا");}};
   return(<div>
-    <div className="tabbar" style={{marginBottom:12}}><button className={"tabbtn"+(reportTab==="monthly"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("monthly")}>گزارش کارکرد ماهانه</button><button className={"tabbtn"+(reportTab==="organization"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("organization")}>تولید گزارش کارکرد برای ارسال به سازمان</button><button className={"tabbtn"+(reportTab==="finalize"?" on":"")} disabled={finalBusy} onClick={()=>{setReportTab("finalize");setFinalStatus(null);}}>نهایی کردن کارکرد نیروها</button></div>
-    {reportTab==="finalize"?<div className="panel"><h4>نهایی کردن کارکرد نیروها</h4><p className="muted">پس از نهایی‌سازی، گزارش ماهانه و جزئیات تردد ذخیره شده و تغییر شیفت یا موتور محاسبات اعداد این ماه را تغییر نمی‌دهد.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><button className="btn g" disabled={statusBusy||finalBusy} onClick={()=>loadFinalStatus()}>بررسی وضعیت</button><button className="btn p" disabled={finalBusy||statusBusy||(finalStatus?.period===periodKey&&finalStatus?.finalized)} onClick={finalizeMonth}>{finalBusy?"در حال ثبت…":"نهایی کردن کارکرد"}</button></div>{finalStatus?.period===periodKey&&<p>{finalStatus.finalized?"این ماه نهایی شده است. تاریخ: "+finalStatus.finalized_at:"این ماه هنوز نهایی نشده است."}</p>}</div>:reportTab==="organization"?<div className="panel"><h4>تولید گزارش کارکرد برای ارسال به سازمان</h4><p className="muted">اضافه‌کاری = اضافه‌کار + مأموریت − کسر کار؛ تعطیل‌کاری و جمعه‌کاری از کارکرد همان ماه استخراج می‌شوند. جزئیات محاسبات در یادداشت سلول‌های اکسل درج می‌شود.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><label style={{display:"flex",alignItems:"center",gap:6}}><input type="checkbox" checked={forecastRemaining} onChange={e=>setForecastRemaining(e.target.checked)}/> پیش‌بینی روزهای باقی‌مانده تا انتهای ماه</label><label><input type="checkbox" checked={includeSurplusInOvertime} onChange={e=>setIncludeSurplusInOvertime(e.target.checked)}/> لحاظ مازاد حضور در میانگین و مجموع اضافه‌کار</label><button className="btn p" onClick={exportOrganization}>⤓ تولید فایل اکسل سازمان</button></div></div>:<>
+    <div className="tabbar" style={{marginBottom:12}}><button className={"tabbtn"+(reportTab==="monthly"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("monthly")}>گزارش کارکرد ماهانه</button><button className={"tabbtn"+(reportTab==="organization"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("organization")}>تولید گزارش کارکرد برای ارسال به سازمان</button><button className={"tabbtn"+(reportTab==="rotation"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("rotation")}>محاسبه چرخش شیفت نیروها</button><button className={"tabbtn"+(reportTab==="finalize"?" on":"")} disabled={finalBusy} onClick={()=>{setReportTab("finalize");setFinalStatus(null);}}>نهایی کردن کارکرد نیروها</button></div>
+    {reportTab==="rotation"?<ShiftRotationReport year={jy} month={jm} onPeriodChange={selectReportPeriod} disabled={finalBusy}/>:reportTab==="finalize"?<div className="panel"><h4>نهایی کردن کارکرد نیروها</h4><p className="muted">پس از نهایی‌سازی، گزارش ماهانه و جزئیات تردد ذخیره شده و تغییر شیفت یا موتور محاسبات اعداد این ماه را تغییر نمی‌دهد.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><button className="btn g" disabled={statusBusy||finalBusy} onClick={()=>loadFinalStatus()}>بررسی وضعیت</button><button className="btn p" disabled={finalBusy||statusBusy||(finalStatus?.period===periodKey&&finalStatus?.finalized)} onClick={finalizeMonth}>{finalBusy?"در حال ثبت…":"نهایی کردن کارکرد"}</button></div>{finalStatus?.period===periodKey&&<p>{finalStatus.finalized?"این ماه نهایی شده است. تاریخ: "+finalStatus.finalized_at:"این ماه هنوز نهایی نشده است."}</p>}</div>:reportTab==="organization"?<div className="panel"><h4>تولید گزارش کارکرد برای ارسال به سازمان</h4><p className="muted">اضافه‌کاری = اضافه‌کار + مأموریت − کسر کار؛ تعطیل‌کاری و جمعه‌کاری از کارکرد همان ماه استخراج می‌شوند. جزئیات محاسبات در یادداشت سلول‌های اکسل درج می‌شود.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><label style={{display:"flex",alignItems:"center",gap:6}}><input type="checkbox" checked={forecastRemaining} onChange={e=>setForecastRemaining(e.target.checked)}/> پیش‌بینی روزهای باقی‌مانده تا انتهای ماه</label><label><input type="checkbox" checked={includeSurplusInOvertime} onChange={e=>setIncludeSurplusInOvertime(e.target.checked)}/> لحاظ مازاد حضور در میانگین و مجموع اضافه‌کار</label><button className="btn p" onClick={exportOrganization}>⤓ تولید فایل اکسل سازمان</button></div></div>:<>
     <div className="row" style={{gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"flex-end"}}>
       <div><label className="label">سال</label><input className="input" type="number" style={{maxWidth:100}} value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></div>
       <div><label className="label">ماه</label><select className="input" style={{maxWidth:130}} value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>

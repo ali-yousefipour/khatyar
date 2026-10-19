@@ -25,6 +25,9 @@ jobs:
           php -v
           php -l php/lib/routes.php
           php php/tests/work_policy_requests_test.php
+          php php/tests/shift_rotation_test.php
+          node php/tests/shift_rotation_ui_test.cjs
+          node php/tests/shift_rotation_xlsx_test.cjs
           php -l php/lib/EmploymentAttendance.php
           php -l php/app/api/admin-holiday-seed.php
           php -l php/lib/ShiftCalc.php
