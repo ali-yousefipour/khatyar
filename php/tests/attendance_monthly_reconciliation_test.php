@@ -3,7 +3,7 @@
 // not the difference between expected duty and in-shift presence.
 $source = file_get_contents(__DIR__ . '/../app/api/admin-attendance-report.php');
 $start = strpos($source, 'function aar_reconcile_day_totals(');
-$end = strpos($source, "\ntry {\n  $ROOT", $start);
+$end = strpos($source, "\ntry {", $start);
 if ($start === false || $end === false) throw new RuntimeException('Reconciliation helper missing');
 function aar_normalize_jdate($value) { return str_replace('/', '-', (string)$value); }
 eval(substr($source, $start, $end - $start));
