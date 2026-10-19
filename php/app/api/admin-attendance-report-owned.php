@@ -114,27 +114,13 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     $approvedExempt = min((int)($w['expected'] ?? 0), $annualLeave + $sickLeave + $unpaidLeave);
     $expectedMin = max(0, (int)($w['expected'] ?? 0));
     $inShiftMin = max(0, (int)($w['in_shift'] ?? 0));
-    // The canonical daily report already applies shift rules, attendance credits,
-    // leave, and absence allocation. Do not replace its shortage with the naive
-    // difference between expected duty and in-shift minutes; the two are not
-    // equivalent when attendance is credited or settled outside shift windows.
-    $dailyShortage = $day['shortage'] ?? ($day['data']['shortage'] ?? null);
-    $parseDailyMinutes = static function($value): ?int {
-      if (is_int($value)) return max(0, $value);
-      if (is_float($value)) return max(0, (int)$value);
-      if (is_string($value) && preg_match('/^([0-9]+):([0-5][0-9])$/', trim($value), $parts))
-        return ((int)$parts[1]) * 60 + (int)$parts[2];
-      if (is_string($value) && ctype_digit(trim($value))) return (int)$value;
-      return null;
-    };
-    $canonicalShortage = $parseDailyMinutes($dailyShortage);
-    if ($canonicalShortage !== null) {
-      // Daily source is authoritative; leave was already applied in that source.
-      $w['shortage'] = $canonicalShortage;
-    } else {
-      // Fallback for older payloads without a daily shortage field.
-      $w['shortage'] = max(0, (int)($w['shortage'] ?? 0) - $approvedExempt);
-    }
+    // Always recompute the attendance shortfall from the *effective shift*.
+    // Previously a stale day['shortage'] of 00:00 could override a 07:33
+    // duty with only 07:03 in-shift presence (30 minutes unaccounted).
+    // Mission is independent and must not offset attendance shortage here.
+    $w['shortage'] = max(0, $expectedMin - min($inShiftMin, $expectedMin) - $approvedExempt);
+    // A late clock-in is independently recorded by ShiftCalc::dayWork.
+    // Do not confuse late_in with shortage: eligible leave may cover a gap.
 
     // کسری GPS/برنامه برای هر session فقط به تاریخ ورود همان session تعلق دارد.
     // این کار از شکستن یک شیفت شب بین دو روز و نمایش کسری گمراه‌کننده در روز بعد جلوگیری می‌کند.
