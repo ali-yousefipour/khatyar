@@ -3082,7 +3082,14 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
     $reportUid=(int)$a['user_id'];
     if(isset($reportedUsers[$reportUid]))continue;
     $reportedUsers[$reportUid]=true;
-    $shift = ((int)($a['shift_id'] ?? 0) > 0) ? ($shiftsById[$a['shift_id']] ?? null) : _auto_shift_for_user($a['user_id']); if (!$shift) continue;
+    // Select an effective shift within the reporting window, not the first historical assignment.
+    $shift=null;
+    for($probe=1;$probe<=$lastDay;$probe++){
+      $probeJ=$prefix.str_pad($probe,2,'0',STR_PAD_LEFT);
+      $shift=_active_user_shift_assignment($reportUid,$probeJ);
+      if($shift)break;
+    }
+    if(!$shift)continue;
     $dayRows = [];
     if (($shift['type'] ?? '') === 'advanced') {
       foreach (Db::all("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate LIKE ?", [$a['shift_id'], $prefix.'%']) as $dr)
