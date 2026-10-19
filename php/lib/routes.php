@@ -3597,6 +3597,59 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   $rows=$final?_work_snapshot_decode($final['monthly_json']):_shift_month_report($jy,$jm);
   $byId=$final?null:_work_month_people();
   $daily=$final?_work_snapshot_decode($final['daily_json']):[];
+  // Forecast is an export-only overlay. Never mutate the canonical work report or finalized snapshots.
+  $forecastRequested=($_GET['forecast_remaining']??'0')==='1';
+  $forecastByUser=[];
+  if($forecastRequested&&!$final){
+    [$cy,$cm,$cd]=gregorian_to_jalali((int)date('Y'),(int)date('n'),(int)date('j'));
+    $todayJ=sprintf('%04d-%02d-%02d',$cy,$cm,$cd);
+    $firstJ=sprintf('%04d-%02d-01',$jy,$jm);
+    $endJ=sprintf('%04d-%02d-%02d',$jy,$jm,ShiftCalc::jMonthDays($jy,$jm));
+    if($firstJ<=$todayJ&&$todayJ<$endJ){
+      $monthStartTs=ShiftCalc::jdateToTs($firstJ);
+      $todayTs=ShiftCalc::jdateToTs($todayJ);
+      $monthEndTs=ShiftCalc::jdateToTs($endJ);
+      $workDays=0;
+      for($ts=$monthStartTs;$ts<$todayTs;$ts+=86400){
+        [$y,$m,$d]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
+        $j=sprintf('%04d-%02d-%02d',$y,$m,$d);
+        if((int)date('w',$ts)!==5&&!ShiftCalc::effectiveHoliday($j))$workDays++;
+      }
+      // Exclude approved leave dates from the historical average denominator per employee.
+      $approved=Db::all("SELECT user_id,from_jdate,to_jdate,the_date,type FROM requests WHERE status='approved' AND type IN ('annual','sick','unpaid') AND ((from_jdate IS NOT NULL AND from_jdate <= ? AND COALESCE(to_jdate,from_jdate) >= ?) OR (the_date BETWEEN ? AND ?))",[$endJ,$firstJ,$firstJ,$endJ]);
+      $leaveByUser=[];
+      foreach($approved as $leave){
+        $from=ShiftCalc::normJdate($leave['from_jdate']??'')?:ShiftCalc::normJdate($leave['the_date']??'');
+        $to=ShiftCalc::normJdate($leave['to_jdate']??'')?:ShiftCalc::normJdate($leave['the_date']??'')?:$from;
+        if(!$from||!$to)continue;
+        $uid=(int)$leave['user_id'];
+        for($ts=max($monthStartTs,ShiftCalc::jdateToTs($from));$ts<=min($monthEndTs,ShiftCalc::jdateToTs($to));$ts+=86400){
+          [$y,$m,$d]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
+          $leaveByUser[$uid][sprintf('%04d-%02d-%02d',$y,$m,$d)]=true;
+        }
+      }
+      foreach($rows as $r){
+        $uid=(int)($r['user_id']??0);
+        if($uid<=0)continue;
+        $workedDays=max(0,$workDays);
+        foreach($leaveByUser[$uid]??[] as $j=>$yes){
+          $ts=ShiftCalc::jdateToTs($j);
+          if($ts<$todayTs&&(int)date('w',$ts)!==5&&!ShiftCalc::effectiveHoliday($j))$workedDays--;
+        }
+        $dailyOt=$workedDays>0?max(0,(int)($r['overtime']??0))/$workedDays:0;
+        $futureOt=0;$futureHoliday=0;$futureWorkCount=0;$futureHolidayCount=0;
+        for($ts=$todayTs+86400;$ts<=$monthEndTs;$ts+=86400){
+          [$y,$m,$d]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
+          $j=sprintf('%04d-%02d-%02d',$y,$m,$d);
+          if(isset($leaveByUser[$uid][$j]))continue;
+          if((int)date('w',$ts)===5||ShiftCalc::effectiveHoliday($j)){$futureHoliday+=480;$futureHolidayCount++;}
+          else{$futureOt+=$dailyOt;$futureWorkCount++;}
+        }
+        $forecastByUser[$uid]=['overtime'=>(int)round($futureOt),'holiday'=>$futureHoliday,'work_days'=>$futureWorkCount,'holiday_days'=>$futureHolidayCount,'daily_overtime'=>(int)round($dailyOt)];
+      }
+    }
+  }
+
   $headers=['ردیف','محل خدمت','سمت','ردیف گروه','نام','نام خانوادگی','شماره پرسنلی','ساعت جمعه کاری (ارسالی)','ساعت تعطیل کاری (ارسالی)','اضافه کاری (ارسالی)'];
   $xw=new XlsxWriter($headers);$xw->setProfessionalStyle(true);
   $months=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
@@ -3611,11 +3664,13 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
     // friday includes all Friday work as currently computed by ShiftCalc; no extra Friday overtime
     // is added unless it is separately available in the canonical monthly result.
     $friOt=(int)($r['friday_overtime']??0);
-    $net=$o+$mission-$short;
+    $forecast=$forecastByUser[(int)($r['user_id']??0)]??['overtime'=>0,'holiday'=>0,'work_days'=>0,'holiday_days'=>0,'daily_overtime'=>0];
+    $net=$o+$mission-$short+(int)$forecast['overtime'];
+    $hol+=(int)$forecast['holiday'];
     $i++;$row=$xw->addRow([$i,(string)($person['zone_name']??''),($r['role']??''),$i,$person['first_name']??'', $person['last_name']??'',(string)($person['personnel_code']??''),round(($fri+$friOt)/60,6),round($hol/60,6),round($net/60,6)]);
     $xw->setComment($row,7,'جمعه کاری: '.$hm($fri).' ساعت'."\n".'اضافه کاری جمعه: '.$hm($friOt).' ساعت'."\n".'مجموع جمعه کاری: '.$hm($fri+$friOt).' ساعت');
-    $xw->setComment($row,8,'مجموع تعطیل کاری: '.$hm($hol).' ساعت');
-    $xw->setComment($row,9,'اضافه کاری: '.$hm($o).' ساعت'."\n".'ماموریت: '.$hm($mission).' ساعت'."\n".'کسری کار: '.$hm($short).' ساعت (کسر شده)'."\n".'نهایی = '.($net<0?'-':'').$hm($net).' ساعت');
+    $xw->setComment($row,8,'مجموع تعطیل کاری: '.$hm($hol).' ساعت'."\n".'پیش‌بینی تعطیل‌کاری: '.$hm($forecast['holiday']).' ساعت ('.$forecast['holiday_days'].' روز × ۸ ساعت)');
+    $xw->setComment($row,9,'اضافه کاری: '.$hm($o).' ساعت'."\n".'ماموریت: '.$hm($mission).' ساعت'."\n".'کسری کار: '.$hm($short).' ساعت (کسر شده)'."\n".'پیش‌بینی اضافه‌کاری: '.$hm($forecast['overtime']).' ساعت ('.$forecast['work_days'].' روز؛ میانگین روزانه '.$hm($forecast['daily_overtime']).')'."\n".'نهایی = '.($net<0?'-':'').$hm($net).' ساعت');
   }
   $xw->output('organization-work-'.$jy.'-'.$jm.'.xlsx','کارکرد سازمان');
 },false,ADMIN);
