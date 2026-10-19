@@ -6543,10 +6543,10 @@ function AttendanceReport(){
               return <td key={title} style={{whiteSpace:"nowrap",color:cellColor,fontWeight:fontWeight,textAlign:textAlign,padding:"8px",background:rowIndex%2===0?"#fff":"#f0f8f3",borderBottom:"1px solid #e2e9e4",borderInlineStart:"1px solid #e2e9e4",verticalAlign:"middle"}}>
                 {title==="کسر کار غیر فعال کردن برنامه"&&mins(getter(d))>0
                   ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,cursor:"pointer",fontWeight:800,color:"#1764cf"}} title="نمایش دلایل کسری GPS/برنامه" onClick={()=>setGpsDeficitModal({jdate:d.jdate,minutes:mins(getter(d)),details:Array.isArray(d.gps_inactive_details)?d.gps_inactive_details:[]})}>{attendanceCell(getter(d))}</button>
-                  : (title==="مازاد حضور"&&mins(d.surplus)>0)||(title==="کسری کار"&&mins(d.shortage)>0)
+                  : (title==="مازاد حضور"&&mins(d.surplus)>0)
                     ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,cursor:"pointer",fontWeight:800}} title={title==="مازاد حضور"?"تبدیل مازاد حضور به اضافه‌کار":"تبدیل کسری کار به مرخصی استحقاقی ساعتی"} onClick={()=>setConversionModal({mode:title==="مازاد حضور"?"surplus":"shortage",jdate:d.jdate,minutes:mins(title==="مازاد حضور"?d.surplus:d.shortage),day:d})}>{attendanceCell(getter(d))}</button>
                     : isShiftDeficit&&deficitActive
-                    ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,color:"#c62828"}} title="مشاهده ساعت موظفی شیفت و تردد واقعی" onClick={()=>setShiftDeficitModal({jdate:d.jdate,shift_start:d.shift_start||d.shift_in||d.shift?.start_time||d.data?.shift_start,shift_end:d.shift_end||d.shift_out||d.shift?.end_time||d.data?.shift_end,actual_in:dayVal(d,"in"),actual_out:dayVal(d,"out"),expected:mins(d.expected),shortage:mins(d.shortage)||mins(d.absence_shortage)})}>{attendanceCell(getter(d))}</button>
+                    ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,color:"#c62828"}} title="مشاهده ساعت موظفی شیفت و تردد واقعی" onClick={()=>setShiftDeficitModal({jdate:d.jdate,shift_start:d.shift_start||d.shift_in||d.shift?.start_time||d.data?.shift_start,shift_end:d.shift_end||d.shift_out||d.shift?.end_time||d.data?.shift_end,actual_in:dayVal(d,"in"),actual_out:dayVal(d,"out"),expected:mins(d.expected),shortage:mins(d.shortage)||mins(d.absence_shortage),day:d})}>{attendanceCell(getter(d))}</button>
                     : attendanceCell(getter(d))}{title==="تاریخ"&&red&&<span style={{display:"block",fontSize:10}}>تعطیل</span>}
                 {title==="تاریخ"&&<button type="button" className="btn g" style={{padding:"3px 6px",fontSize:10,marginInlineStart:5}} onClick={()=>setOpenDay(openDay===d.jdate?null:d.jdate)}>جزئیات</button>}
               </td>;
@@ -6565,6 +6565,7 @@ function AttendanceReport(){
         <p>خروج ثبت‌شده: <b>{attendanceCell(shiftDeficitModal.actual_out||"—")}</b></p>
         <p>موظفی روز: <b>{hm(shiftDeficitModal.expected||0)}</b> · کسری: <b>{hm(shiftDeficitModal.shortage||0)}</b></p>
         <p className="muted">ساعت‌های موظفی فقط در صورت ارائه توسط تعریف شیفت نمایش داده می‌شوند؛ برای شیفت شناور یا فاقد ساعت ثابت، زمان ساختگی نمایش داده نمی‌شود.</p>
+        {Number(shiftDeficitModal.shortage||0)>0&&<button className="btn p" style={{marginInlineEnd:8}} onClick={()=>{setConversionModal({mode:"shortage",jdate:shiftDeficitModal.jdate,minutes:shiftDeficitModal.shortage,day:shiftDeficitModal.day});setShiftDeficitModal(null);}}>تبدیل کسری کار به مرخصی استحقاقی ساعتی</button>}
         <button className="btn g" onClick={()=>setShiftDeficitModal(null)}>بستن</button>
       </div>
     </div>}
