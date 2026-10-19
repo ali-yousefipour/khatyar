@@ -3053,7 +3053,7 @@ function _attendance_rows_for_jdate($userId,$jdate){
 /**
  * Monthly net shortage credits only approved leave/mission minutes that
  * actually cover an uncovered scheduled duty on their own date. Never subtract
- * the full monthly mission/leave totals: those can overlap worked shifts.
+ * mission minutes: mission is independent of shortage in these reports.
  * Existing daily shortage is an upper bound; absence is accounted separately.
  */
 function _work_month_net_shortage(array $tot, array $requestMinutes=[]): int {
@@ -3086,10 +3086,10 @@ function _work_month_daily_attendance_totals(array $report, int $lastDay): ?arra
     $shortage=$parse($day['shortage']??0);
     $tot['expected'] += $expected;
     $tot['in_shift'] += $inShift;
-    // Approved requests are credited only against uncovered duty on that
-    // specific date; a 29:30 mission cannot erase unrelated deficits.
+    // Only approved leave may cover a duty gap here. Mission is reported
+    // independently; the organization Excel export applies its own policy.
     $request=$parse($day['annual_leave']??0)+$parse($day['sick_leave']??0)
-      +$parse($day['mission']??0)+$parse($day['unpaid_leave']??0);
+      +$parse($day['unpaid_leave']??0);
     $uncoveredDay=max(0,$expected-min($expected,$inShift));
     $credited=min($uncoveredDay,$request);
     $tot['credited_exemption'] += $credited;
@@ -3190,7 +3190,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
         elseif($rq['type']==='unpaid')$reqAgg['unpaid_min']+=$mins;
         elseif($rq['type']==='mission')$reqAgg['mission_min']+=$mins;
         elseif($rq['type']==='overtime')$reqAgg['ot_req_min']+=$mins;
-        if(in_array($rq['type'],['annual','sick','unpaid','mission'],true))$approvedExemptByJdate[$reqDate]=($approvedExemptByJdate[$reqDate]??0)+$mins;
+        if(in_array($rq['type'],['annual','sick','unpaid'],true))$approvedExemptByJdate[$reqDate]=($approvedExemptByJdate[$reqDate]??0)+$mins;
       }
     }
     // جلسات ثبت‌حضور کاربر در این ماه (بر اساس تاریخ میلادیِ متناظر با هر روز شمسی)
@@ -3499,7 +3499,7 @@ function _attendance_report($userId,$fromJ,$toJ){
     if ($adj > 0) { $use = min($adj, (int)($w['surplus'] ?? 0)); $w['overtime'] = (int)($w['overtime'] ?? 0) + $use; $w['surplus'] = max(0, (int)($w['surplus'] ?? 0) - $use); $w['adjusted_ot'] = $use; }
     $rq=$approvedRequests[$jdateDash]??[];
     $annualLeave=(int)($rq['annual']??0); $sickLeave=(int)($rq['sick']??0); $unpaidLeave=(int)($rq['unpaid']??0); $mission=(int)($rq['mission']??0);
-    $approvedExempt=min((int)($w['expected']??0),$annualLeave+$sickLeave+$unpaidLeave+$mission);
+    $approvedExempt=min((int)($w['expected']??0),$annualLeave+$sickLeave+$unpaidLeave);
     if($approvedExempt>0) $w['shortage']=max(0,(int)($w['shortage']??0)-$approvedExempt);
     $hm=fn($m)=>sprintf('%02d:%02d',intdiv(max(0,(int)$m),60),max(0,(int)$m)%60);
     $days[]=[
