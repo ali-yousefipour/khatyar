@@ -3050,16 +3050,19 @@ function _attendance_rows_for_jdate($userId,$jdate){
  * absence. This caps (never increases) the sum of daily shortages.
  * Day-level late/early/GPS evidence remains in attendance detail.
  */
-function _work_month_net_shortage(array $tot, array $requestMinutes): int {
+/**
+ * Monthly net shortage credits only approved leave/mission minutes that
+ * actually cover an uncovered scheduled duty on their own date. Never subtract
+ * the full monthly mission/leave totals: those can overlap worked shifts.
+ * Existing daily shortage is an upper bound; absence is accounted separately.
+ */
+function _work_month_net_shortage(array $tot, array $requestMinutes=[]): int {
   $expected=max(0,(int)($tot['expected']??0));
   $inShift=max(0,(int)($tot['in_shift']??0));
   $absence=max(0,(int)($tot['absent_min']??0));
-  $credits=max(0,(int)($requestMinutes['annual_min']??0))
-    +max(0,(int)($requestMinutes['sick_min']??0))
-    +max(0,(int)($requestMinutes['mission_min']??0))
-    +max(0,(int)($requestMinutes['unpaid_min']??0));
-  $remaining=max(0,$expected-$inShift-$absence-$credits);
-  return min(max(0,(int)($tot['shortage']??0)),$remaining);
+  $credits=max(0,(int)($tot['credited_exemption']??0));
+  $uncovered=max(0,$expected-$inShift-$absence-$credits);
+  return min(max(0,(int)($tot['shortage']??0)),$uncovered);
 }
 
 function _work_month_daily_attendance_totals(array $report, int $lastDay): ?array {
@@ -3067,10 +3070,10 @@ function _work_month_daily_attendance_totals(array $report, int $lastDay): ?arra
   $parse = static function($value): int {
     if (is_int($value) || is_float($value)) return max(0,(int)$value);
     $value = trim(strtr((string)$value,['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9']));
-    if (preg_match('/^(\\d+):([0-5]\\d)$/',$value,$m)) return (int)$m[1]*60+(int)$m[2];
+    if (preg_match('/^([0-9]+):([0-5][0-9])$/',$value,$m)) return (int)$m[1]*60+(int)$m[2];
     return ctype_digit($value) ? (int)$value : 0;
   };
-  $tot=['expected'=>0,'in_shift'=>0,'shortage'=>0,'absent_min'=>0];
+  $tot=['expected'=>0,'in_shift'=>0,'shortage'=>0,'absent_min'=>0,'credited_exemption'=>0];
   $seen=[];
   foreach ($report['days'] as $day) {
     if (!is_array($day)) return null;
@@ -3083,13 +3086,16 @@ function _work_month_daily_attendance_totals(array $report, int $lastDay): ?arra
     $shortage=$parse($day['shortage']??0);
     $tot['expected'] += $expected;
     $tot['in_shift'] += $inShift;
+    // Approved requests are credited only against uncovered duty on that
+    // specific date; a 29:30 mission cannot erase unrelated deficits.
+    $request=$parse($day['annual_leave']??0)+$parse($day['sick_leave']??0)
+      +$parse($day['mission']??0)+$parse($day['unpaid_leave']??0);
+    $uncoveredDay=max(0,$expected-min($expected,$inShift));
+    $credited=min($uncoveredDay,$request);
+    $tot['credited_exemption'] += $credited;
     $punches=$day['punches']??[];
     if (empty($punches)) {
-      // Preserve the daily approved-leave exemption; remaining absence is not
-      // also charged to the separate shortage column.
-      $leave=$parse($day['annual_leave']??0)+$parse($day['sick_leave']??0)
-        +$parse($day['mission']??0)+$parse($day['unpaid_leave']??0);
-      $tot['absent_min'] += max(0,$expected-min($expected,$leave));
+      $tot['absent_min'] += max(0,$expected-$credited);
     } else {
       $tot['shortage'] += $shortage;
     }
@@ -3256,6 +3262,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
     // Net monthly settlement: extra eligible presence on other dates covers
     // short daily windows; recorded absences stay in their own column.
     $tot['shortage']=_work_month_net_shortage($tot,$reqAgg);
+    unset($tot['credited_exemption']);
     if (!empty($shift['monthly_ot_cap'])) $tot['overtime']=min($tot['overtime'],(int)$shift['monthly_ot_cap']);
     $out[] = array_merge(['user_id'=>$a['user_id'],'name'=>$a['name'],'role'=>$a['role'],'shift'=>$shift['title'],'shift_type'=>$shift['type']??'auto'], $tot, $reqAgg);
   }
