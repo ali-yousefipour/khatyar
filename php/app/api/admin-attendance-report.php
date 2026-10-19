@@ -289,7 +289,6 @@ function aar_reconcile_day_totals(array $report): array {
     $jdate = aar_normalize_jdate($day['jdate'] ?? $day['date'] ?? '');
     if (!empty($day['is_future']) || !empty($day['outside_employment_period'])) continue;
     // A future calendar entry does not accrue duty or deficit.
-    if ($jdate && strcmp($jdate, date('Y-m-d')) > 0 && !empty($day['is_future'])) continue;
     $data = is_array($day['data'] ?? null) ? $day['data'] : [];
     foreach ($keys as $key) {
       $value = $day[$key] ?? $data[$key] ?? 0;
