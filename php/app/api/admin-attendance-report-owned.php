@@ -111,7 +111,7 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     $sickLeave = $sickLeave ?: $toMinutes($sickText);
     $unpaidLeave = $unpaidLeave ?: $toMinutes($unpaidText);
     $missionLeave = $missionLeave ?: $toMinutes($missionText);
-    $approvedExempt = min((int)($w['expected'] ?? 0), $annualLeave + $sickLeave + $unpaidLeave + $missionLeave);
+    $approvedExempt = min((int)($w['expected'] ?? 0), $annualLeave + $sickLeave + $unpaidLeave);
     $expectedMin = max(0, (int)($w['expected'] ?? 0));
     $inShiftMin = max(0, (int)($w['in_shift'] ?? 0));
     // The canonical daily report already applies shift rules, attendance credits,
