@@ -70,7 +70,7 @@ export default function CompanyPayrollHistory() {
 
   const issueSlip = async row => {
     if (issuing) return;
-    Alert.alert('صدور یک‌باره فیش حقوق', 'صدور و دریافت تصویر فیش حقوق هر ماه فقط یک‌بار مجاز است. تصویر را پس از صدور حتماً در گوشی ذخیره کنید؛ امکان صدور مجدد وجود ندارد.', [
+    Alert.alert('دریافت تصویر فیش حقوق', 'دریافت تصویر فیش حقوق هر ماه حداکثر سه بار مجاز است. تصویر را پس از دریافت در گوشی ذخیره کنید.', [
       { text: 'انصراف', style: 'cancel' },
       { text: 'ادامه', onPress: async () => {
         setIssuing(true);
@@ -95,8 +95,9 @@ export default function CompanyPayrollHistory() {
         if (!result?.ok || !result.issued || result.queued) throw new Error('صدور فیش در سرور تأیید نشد؛ دوباره تلاش کنید.');
       }
       catch (error) { await FileSystem.deleteAsync(destination, { idempotent: true }); throw error; }
-      setIssuedMonths(v => ({ ...v, [`${slip.row.period_jy}-${slip.row.period_jm}`]: true }));
-      Alert.alert('فیش صادر شد', 'تصویر با کیفیت A5 در حافظه برنامه ذخیره شد. برای انتقال به پوشه دلخواه گوشی، گزینه اشتراک‌گذاری را انتخاب کنید. صدور مجدد این ماه امکان‌پذیر نیست.');
+      setIssuedMonths(v => ({ ...v, [`${slip.row.period_jy}-${slip.row.period_jm}`]: Number(result.issued_count || 3) }));
+      setRefresh(value => value + 1);
+      Alert.alert('تصویر فیش ذخیره شد', `تصویر با کیفیت A5 ذخیره شد. تعداد دریافت‌های باقی‌مانده این ماه: ${faNum(result.remaining ?? 0)}. برای ذخیره در پوشه دلخواه گوشی از اشتراک‌گذاری استفاده کنید.`);
       if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(destination, { mimeType: 'image/png', dialogTitle: 'ذخیره تصویر فیش حقوق' });
       setSlip(null);
     } catch (e) { Alert.alert('صدور یا ذخیره ناموفق', e.message || 'عملیات انجام نشد.'); }
@@ -123,7 +124,7 @@ export default function CompanyPayrollHistory() {
           <Text style={styles.label}>خالص اعلامی: {amount(row.net)} ریال</Text>
           <Text style={styles.note}>{row.role_title}</Text>
           <TouchableOpacity accessibilityRole="button" disabled={opening} style={[styles.button, opening && styles.disabled]} onPress={() => openDetail(row.id)}><Text style={styles.buttonText}>{opening ? 'در حال دریافت…' : 'جزئیات حقوق و کسورات'}</Text></TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button" disabled={issuing || row.issued || issuedMonths[`${row.period_jy}-${row.period_jm}`]} style={[styles.button, (issuing || row.issued || issuedMonths[`${row.period_jy}-${row.period_jm}`]) && styles.disabled]} onPress={() => issueSlip(row)}><Text style={styles.buttonText}>{(row.issued || issuedMonths[`${row.period_jy}-${row.period_jm}`]) ? 'فیش این ماه صادر شد' : 'صدور فیش حقوق'}</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" disabled={issuing || row.issued || Number(issuedMonths[`${row.period_jy}-${row.period_jm}`] || 0) >= 3} style={[styles.button, (issuing || row.issued || Number(issuedMonths[`${row.period_jy}-${row.period_jm}`] || 0) >= 3) && styles.disabled]} onPress={() => issueSlip(row)}><Text style={styles.buttonText}>{(row.issued || Number(issuedMonths[`${row.period_jy}-${row.period_jm}`] || 0) >= 3) ? 'سقف سه بار دریافت تکمیل شد' : `دریافت تصویر فیش (${faNum(Math.max(0, 3 - Math.max(Number(row.issued_count || 0), Number(issuedMonths[`${row.period_jy}-${row.period_jm}`] || 0))))} بار باقی‌مانده)`}</Text></TouchableOpacity>
         </View>)}
         <View style={styles.row}>
           <TouchableOpacity accessibilityRole="button" disabled={filters.page <= 1} style={[styles.button, filters.page <= 1 && styles.disabled]} onPress={() => setFilters(value => ({ ...value, page: value.page - 1 }))}><Text style={styles.buttonText}>قبلی</Text></TouchableOpacity>
@@ -147,11 +148,11 @@ export default function CompanyPayrollHistory() {
       <View style={styles.root}>
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.heading}>پیش‌نمایش فیش حقوق A5 افقی</Text>
-          <Text style={styles.note}>صدور و دانلود فیش این ماه فقط یک‌بار مجاز است. پس از صدور، تصویر را ذخیره کنید.</Text>
+          <Text style={styles.note}>دریافت تصویر این ماه تا سه بار مجاز است. تصویر را پس از دریافت ذخیره کنید.</Text>
           {slip && <View ref={slipRef} collapsable={false} style={{ backgroundColor: '#fff', width: screenWidth - 32 }}>
             <PayrollAccessSlip slip={slip} width={screenWidth - 32} />
           </View>}
-          <TouchableOpacity disabled={issuing} style={[styles.button, issuing && styles.disabled]} onPress={saveIssuedSlip}><Text style={styles.buttonText}>{issuing ? 'در حال صدور…' : 'صدور نهایی و ذخیره تصویر (فقط یک‌بار)'}</Text></TouchableOpacity>
+          <TouchableOpacity disabled={issuing} style={[styles.button, issuing && styles.disabled]} onPress={saveIssuedSlip}><Text style={styles.buttonText}>{issuing ? 'در حال صدور…' : 'دریافت و ذخیره تصویر فیش'}</Text></TouchableOpacity>
           <TouchableOpacity disabled={issuing} style={[styles.button, { marginTop: 10, backgroundColor: C.slate }]} onPress={() => setSlip(null)}><Text style={styles.buttonText}>انصراف</Text></TouchableOpacity>
         </ScrollView>
       </View>
