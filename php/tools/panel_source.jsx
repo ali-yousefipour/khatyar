@@ -6315,6 +6315,7 @@ function AttendanceReport(){
   const [dayRequests,setDayRequests]=useState([]);
   const [conversionModal,setConversionModal]=useState(null);
   const [gpsDeficitModal,setGpsDeficitModal]=useState(null);
+  const [shiftDeficitModal,setShiftDeficitModal]=useState(null);
   const attendanceColumnStorageKey="khatyar.attendance.report.visible-columns.v1";
   const [columnSettingsOpen,setColumnSettingsOpen]=useState(false);
   const [visibleColumnIndexes,setVisibleColumnIndexes]=useState(()=>{
@@ -6534,6 +6535,7 @@ function AttendanceReport(){
               const getter=col[1];
               const isDeficit=["کسری کار","غیبت","جمع غیبت و کسری کار","تهاتر کسری کار"].includes(title);
               const isGpsDeficit=title==="کسر کار غیر فعال کردن برنامه";
+              const isShiftDeficit=["کسری کار","غیبت","جمع غیبت و کسری کار"].includes(title);
               const deficitActive=title==="غیبت"?Number(d.absent||0)>0:mins(getter(d))>0;
               const cellColor=isGpsDeficit&&deficitActive?"#1764cf":isDeficit&&deficitActive?"#c62828":(friday||holiday)?"#16803c":"inherit";
               const fontWeight=(i<2&&red)?700:400;
@@ -6543,6 +6545,8 @@ function AttendanceReport(){
                   ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,cursor:"pointer",fontWeight:800,color:"#1764cf"}} title="نمایش دلایل کسری GPS/برنامه" onClick={()=>setGpsDeficitModal({jdate:d.jdate,minutes:mins(getter(d)),details:Array.isArray(d.gps_inactive_details)?d.gps_inactive_details:[]})}>{attendanceCell(getter(d))}</button>
                   : (title==="مازاد حضور"&&mins(d.surplus)>0)||(title==="کسری کار"&&mins(d.shortage)>0)
                     ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,cursor:"pointer",fontWeight:800}} title={title==="مازاد حضور"?"تبدیل مازاد حضور به اضافه‌کار":"تبدیل کسری کار به مرخصی استحقاقی ساعتی"} onClick={()=>setConversionModal({mode:title==="مازاد حضور"?"surplus":"shortage",jdate:d.jdate,minutes:mins(title==="مازاد حضور"?d.surplus:d.shortage),day:d})}>{attendanceCell(getter(d))}</button>
+                    : isShiftDeficit&&deficitActive
+                    ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,color:"#c62828"}} title="مشاهده ساعت موظفی شیفت و تردد واقعی" onClick={()=>setShiftDeficitModal({jdate:d.jdate,shift_start:d.shift_start||d.shift_in||d.shift?.start_time||d.data?.shift_start,shift_end:d.shift_end||d.shift_out||d.shift?.end_time||d.data?.shift_end,actual_in:dayVal(d,"in"),actual_out:dayVal(d,"out"),expected:mins(d.expected),shortage:mins(d.shortage)||mins(d.absence_shortage)})}>{attendanceCell(getter(d))}</button>
                     : attendanceCell(getter(d))}{title==="تاریخ"&&red&&<span style={{display:"block",fontSize:10}}>تعطیل</span>}
                 {title==="تاریخ"&&<button type="button" className="btn g" style={{padding:"3px 6px",fontSize:10,marginInlineStart:5}} onClick={()=>setOpenDay(openDay===d.jdate?null:d.jdate)}>جزئیات</button>}
               </td>;
@@ -6551,6 +6555,18 @@ function AttendanceReport(){
         })}</tbody>
       </table>
       <div style={{padding:"7px 10px",fontSize:11,color:"var(--muted)",borderTop:"1px solid var(--line)",background:"#fff"}}>نمایش صفحه: {fa(selectedColumns.length)} ستون · فایل Excel: همهٔ {fa(columns.length)} ستون</div>
+    </div>}
+    {shiftDeficitModal&&<div role="presentation" onClick={e=>{if(e.target===e.currentTarget)setShiftDeficitModal(null);}} style={{position:"fixed",inset:0,zIndex:100600,background:"rgba(0,0,0,.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div className="card-p" role="dialog" aria-modal="true" aria-label="جزئیات شیفت و کسری کار" style={{width:"min(560px,96vw)",padding:20}}>
+        <h3>جزئیات شیفت و کسری کار — {faPlain(String(shiftDeficitModal.jdate||""))}</h3>
+        <p>ساعت موظفی ورود: <b>{attendanceCell(shiftDeficitModal.shift_start||"ثبت نشده")}</b></p>
+        <p>ساعت موظفی خروج: <b>{attendanceCell(shiftDeficitModal.shift_end||"ثبت نشده")}</b></p>
+        <p>ورود ثبت‌شده: <b>{attendanceCell(shiftDeficitModal.actual_in||"—")}</b></p>
+        <p>خروج ثبت‌شده: <b>{attendanceCell(shiftDeficitModal.actual_out||"—")}</b></p>
+        <p>موظفی روز: <b>{hm(shiftDeficitModal.expected||0)}</b> · کسری: <b>{hm(shiftDeficitModal.shortage||0)}</b></p>
+        <p className="muted">ساعت‌های موظفی فقط در صورت ارائه توسط تعریف شیفت نمایش داده می‌شوند؛ برای شیفت شناور یا فاقد ساعت ثابت، زمان ساختگی نمایش داده نمی‌شود.</p>
+        <button className="btn g" onClick={()=>setShiftDeficitModal(null)}>بستن</button>
+      </div>
     </div>}
     {gpsDeficitModal&&<div role="presentation" onClick={e=>{if(e.target===e.currentTarget)setGpsDeficitModal(null);}} style={{position:"fixed",inset:0,zIndex:100500,background:"rgba(0,0,0,.58)",display:"flex",alignItems:"center",justifyContent:"center",padding:"clamp(10px,2vw,24px)"}}>
       <div className="card-p" role="dialog" aria-modal="true" aria-label="دلایل کسر کار GPS و برنامه" onClick={e=>e.stopPropagation()} style={{width:"min(900px,96vw)",maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",padding:0}}>
