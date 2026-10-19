@@ -38,4 +38,29 @@ eq('absence not double counted as shortage',0,$tot['shortage']);
 $report['days'][2]['is_future']=true;
 eq('future day excluded',600,_work_month_daily_attendance_totals($report,3)['expected']);
 eq('truncated day range cannot silently reconcile',null,_work_month_daily_attendance_totals($report,4));
+// Monthly netting examples from the production summary (minutes).
+$code=file_get_contents(__DIR__.'/../lib/routes.php');
+$start=strpos($code,'function _work_month_net_shortage(');
+$end=strpos($code,'function _work_month_daily_attendance_totals(', $start);
+if ($start===false || $end===false) throw new RuntimeException('Monthly net settlement helper missing');
+eval(substr($code,$start,$end-$start));
+$mins=static function($hm){[$h,$m]=array_map('intval',explode(':',$hm));return $h*60+$m;};
+eq('Ali 110 duty 110 shift must have zero shortage',0,_work_month_net_shortage([
+  'expected'=>$mins('110:00'),'in_shift'=>$mins('110:00'),'shortage'=>$mins('02:02'),'absent_min'=>0
+],[]));
+eq('Mehdi Sharifi 175:30 shift vs 166:06 duty',0,_work_month_net_shortage([
+  'expected'=>$mins('166:06'),'in_shift'=>$mins('175:30'),'shortage'=>$mins('06:31'),'absent_min'=>0
+],['annual_min'=>$mins('08:00')]));
+eq('Masoud absence is counted only once',0,_work_month_net_shortage([
+  'expected'=>$mins('166:06'),'in_shift'=>$mins('175:58'),'shortage'=>$mins('12:50'),'absent_min'=>$mins('07:33')
+],['annual_min'=>$mins('08:00')]));
+eq('Mohammad authorized leave covers short shift',0,_work_month_net_shortage([
+  'expected'=>$mins('166:06'),'in_shift'=>$mins('130:36'),'shortage'=>$mins('06:20'),'absent_min'=>0
+],['annual_min'=>$mins('56:00')]));
+eq('Genuine uncovered shortage is preserved',40,_work_month_net_shortage([
+  'expected'=>300,'in_shift'=>260,'shortage'=>70,'absent_min'=>0
+],[]));
+eq('Absence does not double-charge shortage',0,_work_month_net_shortage([
+  'expected'=>453,'in_shift'=>0,'shortage'=>453,'absent_min'=>453
+],[]));
 echo "All monthly attendance rollup tests passed.\n";
