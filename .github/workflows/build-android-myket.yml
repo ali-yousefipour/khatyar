@@ -219,6 +219,34 @@ jobs:
           fi
           echo "CI Maven policy validated: official Google/Maven repositories only."
 
+      - name: Assert generated Myket release signing configuration
+        working-directory: mobile/android
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          src = Path("app/build.gradle").read_text()
+          bt = re.search(r'\\bbuildTypes\\s*\\{', src)
+          assert bt, "buildTypes missing"
+          release = re.search(r'\\brelease\\s*\\{', src[bt.end():])
+          assert release, "release build type missing"
+          start = bt.end() + release.end()
+          depth = 1
+          i = start
+          while depth and i < len(src):
+              if src[i] == '{': depth += 1
+              elif src[i] == '}': depth -= 1
+              i += 1
+          assert depth == 0, "release build block unbalanced"
+          body = src[start:i-1]
+          assert not re.search(r'signingConfig\\s+signingConfigs\\.debug', body), "Release is configured with DEBUG signing"
+          assert re.search(r'signingConfig\\s+signingConfigs\\.myketRelease', body), "Myket release signing is not applied"
+          assert 'myketRelease {' in src, "Myket signing config missing"
+          print("Verified generated Gradle release signing configuration; no debug signing assignment.")
+          PY
+
       - name: Restore Myket signing keystore
         shell: bash
         env:
