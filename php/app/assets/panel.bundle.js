@@ -10650,6 +10650,7 @@ function AttendanceReport() {
     const [dayRequests, setDayRequests] = useState([]);
     const [conversionModal, setConversionModal] = useState(null);
     const [gpsDeficitModal, setGpsDeficitModal] = useState(null);
+    const [shiftDeficitModal, setShiftDeficitModal] = useState(null);
     const attendanceColumnStorageKey = "khatyar.attendance.report.visible-columns.v1";
     const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
     const [visibleColumnIndexes, setVisibleColumnIndexes] = useState(() => {
@@ -11047,6 +11048,7 @@ function AttendanceReport() {
                         const getter = col[1];
                         const isDeficit = ["کسری کار", "غیبت", "جمع غیبت و کسری کار", "تهاتر کسری کار"].includes(title);
                         const isGpsDeficit = title === "کسر کار غیر فعال کردن برنامه";
+                        const isShiftDeficit = ["کسری کار", "غیبت", "جمع غیبت و کسری کار"].includes(title);
                         const deficitActive = title === "غیبت" ? Number(d.absent || 0) > 0 : mins(getter(d)) > 0;
                         const cellColor = isGpsDeficit && deficitActive ? "#1764cf" : isDeficit && deficitActive ? "#c62828" : (friday || holiday) ? "#16803c" : "inherit";
                         const fontWeight = (i < 2 && red) ? 700 : 400;
@@ -11056,7 +11058,9 @@ function AttendanceReport() {
                                 ? React.createElement("button", { type: "button", className: "btn g", style: { padding: "2px 6px", fontSize: 11, cursor: "pointer", fontWeight: 800, color: "#1764cf" }, title: "\u0646\u0645\u0627\u06CC\u0634 \u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631\u06CC GPS/\u0628\u0631\u0646\u0627\u0645\u0647", onClick: () => setGpsDeficitModal({ jdate: d.jdate, minutes: mins(getter(d)), details: Array.isArray(d.gps_inactive_details) ? d.gps_inactive_details : [] }) }, attendanceCell(getter(d)))
                                 : (title === "مازاد حضور" && mins(d.surplus) > 0) || (title === "کسری کار" && mins(d.shortage) > 0)
                                     ? React.createElement("button", { type: "button", className: "btn g", style: { padding: "2px 6px", fontSize: 11, cursor: "pointer", fontWeight: 800 }, title: title === "مازاد حضور" ? "تبدیل مازاد حضور به اضافه‌کار" : "تبدیل کسری کار به مرخصی استحقاقی ساعتی", onClick: () => setConversionModal({ mode: title === "مازاد حضور" ? "surplus" : "shortage", jdate: d.jdate, minutes: mins(title === "مازاد حضور" ? d.surplus : d.shortage), day: d }) }, attendanceCell(getter(d)))
-                                    : attendanceCell(getter(d)),
+                                    : isShiftDeficit && deficitActive
+                                        ? React.createElement("button", { type: "button", className: "btn g", style: { padding: "2px 6px", fontSize: 11, color: "#c62828" }, title: "\u0645\u0634\u0627\u0647\u062F\u0647 \u0633\u0627\u0639\u062A \u0645\u0648\u0638\u0641\u06CC \u0634\u06CC\u0641\u062A \u0648 \u062A\u0631\u062F\u062F \u0648\u0627\u0642\u0639\u06CC", onClick: () => { var _a, _b, _c, _e; return setShiftDeficitModal({ jdate: d.jdate, shift_start: d.shift_start || d.shift_in || ((_a = d.shift) === null || _a === void 0 ? void 0 : _a.start_time) || ((_b = d.data) === null || _b === void 0 ? void 0 : _b.shift_start), shift_end: d.shift_end || d.shift_out || ((_c = d.shift) === null || _c === void 0 ? void 0 : _c.end_time) || ((_e = d.data) === null || _e === void 0 ? void 0 : _e.shift_end), actual_in: dayVal(d, "in"), actual_out: dayVal(d, "out"), expected: mins(d.expected), shortage: mins(d.shortage) || mins(d.absence_shortage) }); } }, attendanceCell(getter(d)))
+                                        : attendanceCell(getter(d)),
                             title === "تاریخ" && red && React.createElement("span", { style: { display: "block", fontSize: 10 } }, "\u062A\u0639\u0637\u06CC\u0644"),
                             title === "تاریخ" && React.createElement("button", { type: "button", className: "btn g", style: { padding: "3px 6px", fontSize: 10, marginInlineStart: 5 }, onClick: () => setOpenDay(openDay === d.jdate ? null : d.jdate) }, "\u062C\u0632\u0626\u06CC\u0627\u062A"));
                     }));
@@ -11067,6 +11071,31 @@ function AttendanceReport() {
                 " \u0633\u062A\u0648\u0646 \u00B7 \u0641\u0627\u06CC\u0644 Excel: \u0647\u0645\u0647\u0654 ",
                 fa(columns.length),
                 " \u0633\u062A\u0648\u0646")),
+        shiftDeficitModal && React.createElement("div", { role: "presentation", onClick: e => { if (e.target === e.currentTarget)
+                setShiftDeficitModal(null); }, style: { position: "fixed", inset: 0, zIndex: 100600, background: "rgba(0,0,0,.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
+            React.createElement("div", { className: "card-p", role: "dialog", "aria-modal": "true", "aria-label": "\u062C\u0632\u0626\u06CC\u0627\u062A \u0634\u06CC\u0641\u062A \u0648 \u06A9\u0633\u0631\u06CC \u06A9\u0627\u0631", style: { width: "min(560px,96vw)", padding: 20 } },
+                React.createElement("h3", null,
+                    "\u062C\u0632\u0626\u06CC\u0627\u062A \u0634\u06CC\u0641\u062A \u0648 \u06A9\u0633\u0631\u06CC \u06A9\u0627\u0631 \u2014 ",
+                    faPlain(String(shiftDeficitModal.jdate || ""))),
+                React.createElement("p", null,
+                    "\u0633\u0627\u0639\u062A \u0645\u0648\u0638\u0641\u06CC \u0648\u0631\u0648\u062F: ",
+                    React.createElement("b", null, attendanceCell(shiftDeficitModal.shift_start || "ثبت نشده"))),
+                React.createElement("p", null,
+                    "\u0633\u0627\u0639\u062A \u0645\u0648\u0638\u0641\u06CC \u062E\u0631\u0648\u062C: ",
+                    React.createElement("b", null, attendanceCell(shiftDeficitModal.shift_end || "ثبت نشده"))),
+                React.createElement("p", null,
+                    "\u0648\u0631\u0648\u062F \u062B\u0628\u062A\u200C\u0634\u062F\u0647: ",
+                    React.createElement("b", null, attendanceCell(shiftDeficitModal.actual_in || "—"))),
+                React.createElement("p", null,
+                    "\u062E\u0631\u0648\u062C \u062B\u0628\u062A\u200C\u0634\u062F\u0647: ",
+                    React.createElement("b", null, attendanceCell(shiftDeficitModal.actual_out || "—"))),
+                React.createElement("p", null,
+                    "\u0645\u0648\u0638\u0641\u06CC \u0631\u0648\u0632: ",
+                    React.createElement("b", null, hm(shiftDeficitModal.expected || 0)),
+                    " \u00B7 \u06A9\u0633\u0631\u06CC: ",
+                    React.createElement("b", null, hm(shiftDeficitModal.shortage || 0))),
+                React.createElement("p", { className: "muted" }, "\u0633\u0627\u0639\u062A\u200C\u0647\u0627\u06CC \u0645\u0648\u0638\u0641\u06CC \u0641\u0642\u0637 \u062F\u0631 \u0635\u0648\u0631\u062A \u0627\u0631\u0627\u0626\u0647 \u062A\u0648\u0633\u0637 \u062A\u0639\u0631\u06CC\u0641 \u0634\u06CC\u0641\u062A \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F\u061B \u0628\u0631\u0627\u06CC \u0634\u06CC\u0641\u062A \u0634\u0646\u0627\u0648\u0631 \u06CC\u0627 \u0641\u0627\u0642\u062F \u0633\u0627\u0639\u062A \u062B\u0627\u0628\u062A\u060C \u0632\u0645\u0627\u0646 \u0633\u0627\u062E\u062A\u06AF\u06CC \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
+                React.createElement("button", { className: "btn g", onClick: () => setShiftDeficitModal(null) }, "\u0628\u0633\u062A\u0646"))),
         gpsDeficitModal && React.createElement("div", { role: "presentation", onClick: e => { if (e.target === e.currentTarget)
                 setGpsDeficitModal(null); }, style: { position: "fixed", inset: 0, zIndex: 100500, background: "rgba(0,0,0,.58)", display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(10px,2vw,24px)" } },
             React.createElement("div", { className: "card-p", role: "dialog", "aria-modal": "true", "aria-label": "\u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631 \u06A9\u0627\u0631 GPS \u0648 \u0628\u0631\u0646\u0627\u0645\u0647", onClick: e => e.stopPropagation(), style: { width: "min(900px,96vw)", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", padding: 0 } },
@@ -11682,6 +11711,7 @@ function ShiftReport() {
     catch (e) {
         alert(e.message);
     } };
+    const [forecastRemaining, setForecastRemaining] = useState(false);
     const exportOrganization = async () => { try {
         const res = await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}`, { headers: tok() });
         if (!res.ok)
@@ -11723,6 +11753,9 @@ function ShiftReport() {
                 React.createElement("label", null,
                     "\u0645\u0627\u0647 ",
                     React.createElement("select", { className: "input", value: jm, disabled: finalBusy, onChange: e => selectReportPeriod(jy, +e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
+                React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 6 } },
+                    React.createElement("input", { type: "checkbox", checked: false, disabled: true, title: "\u062A\u0627 \u0632\u0645\u0627\u0646 \u062A\u06A9\u0645\u06CC\u0644 \u0645\u062D\u0627\u0633\u0628\u0627\u062A \u0633\u0645\u062A \u0633\u0631\u0648\u0631 \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062A" }),
+                    " \u067E\u06CC\u0634\u200C\u0628\u06CC\u0646\u06CC \u0631\u0648\u0632\u0647\u0627\u06CC \u0628\u0627\u0642\u06CC\u200C\u0645\u0627\u0646\u062F\u0647 \u062A\u0627 \u0627\u0646\u062A\u0647\u0627\u06CC \u0645\u0627\u0647 (\u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u062A\u06A9\u0645\u06CC\u0644 \u0645\u062D\u0627\u0633\u0628\u0627\u062A)"),
                 React.createElement("button", { className: "btn p", onClick: exportOrganization }, "\u2913 \u062A\u0648\u0644\u06CC\u062F \u0641\u0627\u06CC\u0644 \u0627\u06A9\u0633\u0644 \u0633\u0627\u0632\u0645\u0627\u0646"))) : React.createElement(React.Fragment, null,
             React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "flex-end" } },
                 React.createElement("div", null,
