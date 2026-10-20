@@ -554,4 +554,15 @@ jobs:
             cat /tmp/khatyar-attendance-xlsx-auth.json 2>/dev/null || true
             exit 1
           fi
+          # All protected endpoints must reject anonymous access with 401,
+          # rather than crashing in route bootstrap/authentication with 500.
+          for route in /api/admin/stats /api/admin/roles /api/admin/zones /api/admin/users /api/admin/attendance-report; do
+            code="$(curl --silent --show-error --location --max-time 25 -o /tmp/khatyar-protected-route.json -w '%{http_code}' "${base}${route}" || true)"
+            echo "Anonymous GET ${route} -> HTTP ${code}"
+            if [ "${code}" != "401" ]; then
+              echo "ERROR: authenticated API returned unexpected HTTP status before authentication: ${route}" >&2
+              cat /tmp/khatyar-protected-route.json 2>/dev/null || true
+              exit 1
+            fi
+          done
           echo "Production API/login/attendance-Excel smoke tests passed (unauthorized requests are expected to be rejected)."
