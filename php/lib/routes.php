@@ -3255,7 +3255,9 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null) {
     $tot['holiday_friday_overtime']=$tot['friday_overtime']+$tot['holiday_overtime'];
     // Gross time is the sum of daily detail, irrespective of payroll caps.
     $tot['total_overtime']=$tot['regular_overtime']+$tot['holiday_friday_overtime'];
-    $tot['overtime']=$tot['total_overtime'];
+    // 'overtime' is the regular-only column in daily/monthly reports.
+    // Friday and holiday minutes are exposed separately and in total_overtime.
+    $tot['overtime']=$tot['regular_overtime'];
     // Automatic shifts have no monthly overtime ceiling, regardless of legacy DB settings.
     $monthlyCap=(($shift['type']??'')==='auto')?0:max(0,(int)($shift['monthly_ot_cap']??0));
     $tot['monthly_ot_cap']=$monthlyCap;
