@@ -23,10 +23,11 @@ $check('regular overtime',1000,$example['regular_overtime']);
 $check('Friday accounted once',960,$example['friday_overtime']);
 $check('holiday accounted once',1374,$example['holiday_overtime']);
 $check('sample daily total 55:34',3334,$example['total_overtime']);
-$check('visible monthly total equals daily total',3334,$example['overtime']);
+$check('monthly regular overtime excludes off-day work',1000,$example['overtime']);
 $check('combined off-day work is disjoint',2334,$example['holiday_friday_overtime']);
 $friday = $test(['overtime'=>0,'friday'=>489,'holiday'=>0],[]);
-$check('Friday 08:09 has no phantom double credit',489,$friday['overtime']);
+$check('Friday 08:09 not added to regular overtime',0,$friday['overtime']);
+$check('Friday 08:09 counted once in total',489,$friday['total_overtime']);
 $holiday = $test(['overtime'=>0,'friday'=>0,'holiday'=>480],[]);
 $check('public or manual holiday exactly once',480,$holiday['total_overtime']);
 $both = $test(['overtime'=>0,'friday'=>480,'holiday'=>0],[]);
@@ -37,7 +38,7 @@ $check('monthly cap only payable regular',600,$capped['payable_regular_overtime'
 $check('unpaid capped minutes',400,$capped['capped_overtime_minutes']);
 $check('gross Friday not reduced by cap',1960,$capped['total_overtime']);
 $check('payable Friday not reduced by cap',1560,$capped['payable_total_overtime']);
-$check('visible gross overtime unchanged by cap',1960,$capped['overtime']);
+$check('visible regular overtime unchanged by cap',1000,$capped['overtime']);
 $autoUncapped = $test(['overtime'=>2374,'friday'=>1380,'holiday'=>0],
     ['type'=>'auto','monthly_ot_cap'=>1000]);
 $check('automatic shift ignores legacy 1000 minute cap',0,$autoUncapped['monthly_ot_cap']);
