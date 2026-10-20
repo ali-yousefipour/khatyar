@@ -35,11 +35,12 @@ function harness() {
     react: React, 'react-native': native,
     '@react-navigation/native': { useFocusEffect: callback => { if (callback !== lastFocus) { lastFocus = callback; pendingFocus = callback; } } },
     '../api': { request: async (...values) => { calls.push(values); return requestImpl(...values); } },
-    '../theme': { C: { paper: '#fff', line: '#ddd', ink: '#000', brand: 'green', slate: '#444' }, FONT: { regular: 'regular', bold: 'bold' } },
+    '../theme': { C: { paper: '#fff', line: '#ddd', ink: '#000', brand: 'green', slate: '#444' }, FONT: { regular: 'regular', bold: 'bold', payrollHoma: 'Payroll-BHoma', payrollNazanin: 'Payroll-BNazanin' } },
     '../num': { faNum: String }, '../components/PulseLoadingIndicator': 'ActivityIndicator',
     'react-native-view-shot': { captureRef: async () => 'file:///preview.png' },
     'expo-file-system/legacy': { documentDirectory: 'file:///private/', copyAsync: async () => {}, deleteAsync: async () => {} },
     'expo-sharing': { isAvailableAsync: async () => false },
+    'expo-font': { isLoaded: name => ['Payroll-BHoma', 'Payroll-BNazanin'].includes(name), loadAsync: async () => {} },
     '../components/PayrollAccessSlip': 'PayrollAccessSlip',
     'react/jsx-runtime': { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }), Fragment: 'Fragment' },
   };
@@ -81,6 +82,9 @@ function harness() {
     const events = [];
     const context = {
       slipRef: { current: {} }, slip: { row: { id: 8, period_jy: 1405, period_jm: 6 } }, issuing: false,
+      payrollFontsReady: true,
+      FONT: { payrollHoma: 'Payroll-BHoma', payrollNazanin: 'Payroll-BNazanin' },
+      Font: { isLoaded: name => ['Payroll-BHoma', 'Payroll-BNazanin'].includes(name) },
       setIssuing: value => events.push(['busy', value]),
       captureRef: async () => 'file:///preview.png',
       FileSystem: { documentDirectory: 'file:///private/', copyAsync: async () => events.push(['copied']), deleteAsync: async () => events.push(['deleted']) },
@@ -89,7 +93,7 @@ function harness() {
         if (mode === 'network-error') throw Error('offline');
         return mode === 'queued' ? { ok: true, queued: true } : { ok: true, issued: true };
       },
-      setIssuedMonths: () => events.push(['issued']), setSlip: value => events.push(['slip', value]),
+      setIssuedMonths: () => events.push(['issued']), setRefresh: () => {}, setSlip: value => events.push(['slip', value]),
       Alert: { alert: (...values) => events.push(['alert', ...values]) },
       Sharing: { isAvailableAsync: async () => false },
     };
