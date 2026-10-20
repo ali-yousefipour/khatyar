@@ -3246,7 +3246,17 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null) {
     // short daily windows; recorded absences stay in their own column.
     $tot['shortage']=_work_month_net_shortage($tot,$reqAgg);
     unset($tot['credited_exemption']);
-    if (!empty($shift['monthly_ot_cap'])) $tot['overtime']=min($tot['overtime'],(int)$shift['monthly_ot_cap']);
+    // Keep regular overtime and Friday/holiday work as disjoint minute buckets.
+    // The monthly visible overtime is their sum, matching daily total_overtime.
+    // Apply the monthly cap to regular overtime only, not to Friday/holiday work.
+    $tot['regular_overtime']=max(0,(int)($tot['overtime']??0));
+    if (!empty($shift['monthly_ot_cap']))
+      $tot['regular_overtime']=min($tot['regular_overtime'],max(0,(int)$shift['monthly_ot_cap']));
+    $tot['friday_overtime']=max(0,(int)($tot['friday']??0));
+    $tot['holiday_overtime']=max(0,(int)($tot['holiday']??0));
+    $tot['holiday_friday_overtime']=$tot['friday_overtime']+$tot['holiday_overtime'];
+    $tot['total_overtime']=$tot['regular_overtime']+$tot['holiday_friday_overtime'];
+    $tot['overtime']=$tot['total_overtime'];
     $out[] = array_merge(['user_id'=>$a['user_id'],'name'=>$a['name'],'role'=>$a['role'],'shift'=>$shift['title'],'shift_type'=>$shift['type']??'auto'], $tot, $reqAgg);
   }
   return $out;
