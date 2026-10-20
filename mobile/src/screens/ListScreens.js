@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, useWindowDimensions } from 'react-native';
 import { request, imageSource } from '../api';
 import { C, FONT } from '../theme';
 import { fj, inCurrentJMonth, inCurrentJYear, inJRange } from '../jdate';
@@ -7,6 +7,7 @@ import { faNum } from '../num';
 import JDatePicker, { jLabel } from '../components/JDatePicker';
 import ImageViewer from '../components/ImageViewer';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 function DateFilterBar({ from, to, setFrom, setTo }) {
   const [pick, setPick] = useState(null);
@@ -171,15 +172,20 @@ export function PastChecklistsScreen({ route }) {
 }
 
 export function VehicleScreen({ route, navigation }) {
-  const { vehicle, drivers } = route.params;
+  const { width } = useWindowDimensions();
+  const vehicle = route?.params?.vehicle || {};
+  const drivers = Array.isArray(route?.params?.drivers) ? route.params.drivers : [];
+  const plate = String(vehicle.plate || '').trim();
+  const latinDigits = value => String(value || '').replace(/[۰-۹٠-٩]/g, d => {
+    const p = '۰۱۲۳۴۵۶۷۸۹'.indexOf(d);
+    return String(p >= 0 ? p : '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+  });
+  const plateParts = latinDigits(plate).match(/^(\\d{2})\\s*([آ-یA-Za-z])\\s*(\\d{3})\\s*[-\\s]*(\\d{2})$/);
   function openDriver(d) {
-    // رانندهٔ کمکی با پروانهٔ بهره‌برداری منقضی → مسدود
     if (d.access_blocked) {
-      Alert.alert(
-        'دسترسی مسدود است',
+      Alert.alert('دسترسی مسدود است',
         d.block_reason || 'پروانهٔ بهره‌برداری این رانندهٔ کمکی منقضی شده و قانوناً امکان استفاده از این تاکسی را ندارد.',
-        [{ text: 'متوجه شدم' }]
-      );
+        [{ text: 'متوجه شدم' }]);
       return;
     }
     navigation.navigate('Driver', {
@@ -189,42 +195,85 @@ export function VehicleScreen({ route, navigation }) {
     });
   }
   return (
-    <ScrollView persistentScrollbar={true} style={{ flex: 1, backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
-      <View style={s.card}>
-        <Text style={s.title}>خودرو {vehicle.plate}</Text>
-        <Text style={s.meta}>{vehicle.model_name || ''}{vehicle.line_code ? ` — خط ${vehicle.line_code}` : ''}</Text>
+    <ScrollView persistentScrollbar style={{ flex: 1, backgroundColor: C.paper }} contentContainerStyle={vs.page}>
+      <View style={vs.hero}>
+        <View style={vs.heading}><MaterialCommunityIcons name="taxi" size={22} color={C.brand}/><Text style={vs.headingText}>مشخصات تاکسی</Text></View>
+        <View style={[vs.plate, { maxWidth: Math.max(220, width - 68) }]}>
+          <View style={vs.plateBody}>
+            <Text style={vs.plateNumber} numberOfLines={1} adjustsFontSizeToFit>{plateParts ? `${faNum(plateParts[1])} ${plateParts[2]} ${faNum(plateParts[3])}` : faNum(plate || '—')}</Text>
+          </View>
+          <View style={vs.plateRegion}><Text style={vs.plateRegionLabel}>ایران</Text><Text style={vs.plateRegionNumber}>{plateParts ? faNum(plateParts[4]) : '—'}</Text></View>
+        </View>
+        <View style={vs.vehicleFacts}>
+          {!!vehicle.model_name && <View style={vs.fact}><MaterialCommunityIcons name="car-outline" size={17} color={C.brand}/><Text style={vs.factText}>{faNum(vehicle.model_name)}</Text></View>}
+          {!!vehicle.line_code && <View style={vs.fact}><MaterialCommunityIcons name="map-marker-path" size={17} color={C.brand}/><Text style={vs.factText}>خط {faNum(vehicle.line_code)}</Text></View>}
+        </View>
       </View>
-      <Text style={[s.meta, { marginVertical: 10 }]}>بهره‌بردار و رانندگان کمکی:</Text>
-      {drivers.map((d) => {
+      <View style={vs.listHeading}><View style={vs.listTitleRow}><MaterialCommunityIcons name="account-group-outline" size={21} color={C.brand}/><Text style={vs.listTitle}>رانندگان این تاکسی</Text></View><View style={vs.countBadge}><Text style={vs.countText}>{faNum(drivers.length)} نفر</Text></View></View>
+      {drivers.length === 0 && <View style={vs.empty}><Text style={vs.emptyText}>راننده‌ای برای این خودرو ثبت نشده است.</Text></View>}
+      {drivers.map((d, index) => {
         const isBen = d.role === 'beneficiary';
-        const blocked = d.access_blocked;
-        return (
-          <TouchableOpacity key={d.id} style={[s.card, blocked && { borderColor: '#e0b4b4', backgroundColor: '#fdf3f3' }]} onPress={() => openDriver(d)}>
-            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={s.title}>{d.first_name} {d.last_name}</Text>
-              <View style={[s.roleBadge, isBen ? s.roleBen : s.roleHelper]}>
-                <Text style={[s.roleBadgeTxt, isBen ? { color: '#0d7a5f' } : { color: '#9a6b00' }]}>
-                  {d.role_fa || (isBen ? 'بهره‌بردار (اصلی)' : 'کمکی')}
-                </Text>
-              </View>
-            </View>
-            <Text style={s.meta}>
-              {d.shift_fa ? `شیفت ${d.shift_fa}` : (isBen ? 'بدون شیفت' : '')}
-              {d.line_code_in_line ? ` · کد در خط: ${faNum(d.line_code_in_line)}` : ''}
-            </Text>
-            {d.op_lic_expired && (
-              <Text style={[s.meta, { color: blocked ? '#c0392b' : '#c26b00', marginTop: 4 }]}>
-                {blocked
-                  ? '⛔ پروانهٔ بهره‌برداری منقضی — دسترسی مسدود است'
-                  : '⚠ پروانهٔ بهره‌برداری منقضی (راننده اصلی — دسترسی باز)'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        );
+        const blocked = !!d.access_blocked;
+        const fullName = [d.first_name, d.last_name].filter(Boolean).join(' ') || 'نام نامشخص';
+        return <TouchableOpacity key={d.id || index} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`مشاهده مشخصات ${fullName}`} onPress={() => openDriver(d)} style={[vs.driverCard, blocked && vs.blockedCard]}>
+          <View style={vs.driverTop}>
+            <View style={vs.driverIdentity}><View style={[vs.avatar, isBen && vs.avatarMain]}><MaterialCommunityIcons name={isBen ? 'account-tie' : 'account-outline'} size={24} color={isBen ? '#fff' : C.brand}/></View><View style={vs.driverNames}><Text style={vs.driverName} numberOfLines={2}>{faNum(fullName)}</Text><Text style={vs.driverHint}>{isBen ? 'راننده اصلی' : 'راننده کمکی'}</Text></View></View>
+            <View style={[vs.rolePill, isBen ? vs.beneficiaryPill : vs.helperPill]}><Text style={[vs.roleText, { color: isBen ? '#08765c' : '#916400' }]}>{faNum(d.role_fa || (isBen ? 'بهره‌بردار' : 'کمکی'))}</Text></View>
+          </View>
+          <View style={vs.driverDetails}>
+            <View style={vs.detailChip}><MaterialCommunityIcons name="clock-outline" size={16} color={C.muted}/><Text style={vs.detailText}>{faNum(d.shift_fa ? `شیفت ${d.shift_fa}` : 'بدون شیفت')}</Text></View>
+            {!!d.line_code_in_line && <View style={vs.detailChip}><MaterialCommunityIcons name="identifier" size={16} color={C.muted}/><Text style={vs.detailText}>کد در خط: {faNum(d.line_code_in_line)}</Text></View>}
+          </View>
+          {d.op_lic_expired && <View style={vs.warning}><MaterialCommunityIcons name="alert-circle-outline" size={17} color={blocked ? C.danger : '#a66c00'}/><Text style={[vs.warningText, blocked && { color: C.danger }]}>{blocked ? 'پروانه بهره‌برداری منقضی؛ دسترسی مسدود است' : 'پروانه بهره‌برداری منقضی'}</Text></View>}
+          <View style={vs.driverFooter}><Text style={vs.footerText}>{blocked ? 'مشاهده محدود شده است' : 'مشاهده پرونده و خدمات راننده'}</Text><MaterialCommunityIcons name="chevron-left-circle-outline" size={21} color={blocked ? C.muted : C.brand}/></View>
+        </TouchableOpacity>;
       })}
     </ScrollView>
   );
 }
+
+const vs = StyleSheet.create({
+  page: { paddingHorizontal: 14, paddingTop: 16, paddingBottom: 60 },
+  hero: { backgroundColor: '#fff', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: C.line, alignItems: 'center', elevation: 2 },
+  heading: { flexDirection: 'row-reverse', alignItems: 'center', alignSelf: 'stretch', gap: 8, marginBottom: 12 },
+  headingText: { fontFamily: FONT.bold, fontSize: 16, color: C.ink },
+  plate: { flexDirection: 'row', direction: 'ltr', width: '100%', maxWidth: 330, height: 76, backgroundColor: '#f5c518', borderRadius: 11, borderWidth: 2, borderColor: '#242424', overflow: 'hidden' },
+  plateBody: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  plateNumber: { fontFamily: FONT.bold, color: '#1d1d1d', fontSize: 27, writingDirection: 'ltr', textAlign: 'center' },
+  plateRegion: { backgroundColor: '#fff', width: 56, borderLeftWidth: 1.5, borderLeftColor: '#242424', alignItems: 'center', justifyContent: 'center' },
+  plateRegionLabel: { fontFamily: FONT.bold, fontSize: 13, color: '#242424' },
+  plateRegionNumber: { fontFamily: FONT.bold, fontSize: 22, color: '#242424' },
+  vehicleFacts: { flexDirection: 'row-reverse', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  fact: { flexDirection: 'row-reverse', alignItems: 'center', gap: 5, backgroundColor: '#eff7f4', borderRadius: 11, paddingHorizontal: 10, paddingVertical: 8 },
+  factText: { fontFamily: FONT.bold, fontSize: 12, color: C.ink },
+  listHeading: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginTop: 22, marginBottom: 12 },
+  listTitleRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
+  listTitle: { fontFamily: FONT.bold, fontSize: 16, color: C.ink },
+  countBadge: { backgroundColor: '#e4f3ed', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  countText: { fontFamily: FONT.bold, fontSize: 12, color: C.brand },
+  driverCard: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: C.line, padding: 14, marginBottom: 11, elevation: 2 },
+  blockedCard: { backgroundColor: '#fff6f6', borderColor: '#eab9b9' },
+  driverTop: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  driverIdentity: { flexDirection: 'row-reverse', alignItems: 'center', flex: 1, minWidth: 0, gap: 9 },
+  avatar: { width: 43, height: 43, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e8f5ef' },
+  avatarMain: { backgroundColor: C.brand },
+  driverNames: { flex: 1, minWidth: 0, alignItems: 'flex-end' },
+  driverName: { fontFamily: FONT.bold, fontSize: 15, color: C.ink, textAlign: 'right' },
+  driverHint: { fontFamily: FONT.regular, fontSize: 11, color: C.muted, marginTop: 3 },
+  rolePill: { borderRadius: 10, paddingHorizontal: 9, paddingVertical: 7, maxWidth: '36%' },
+  beneficiaryPill: { backgroundColor: '#e6f5ef' },
+  helperPill: { backgroundColor: '#fff4dc' },
+  roleText: { fontFamily: FONT.bold, fontSize: 11, textAlign: 'center' },
+  driverDetails: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 7, marginTop: 12 },
+  detailChip: { flexDirection: 'row-reverse', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, backgroundColor: '#f4f6f8' },
+  detailText: { fontFamily: FONT.regular, color: C.ink, fontSize: 12 },
+  warning: { flexDirection: 'row-reverse', alignItems: 'center', gap: 7, backgroundColor: '#fff0e0', borderRadius: 10, padding: 9, marginTop: 10 },
+  warningText: { fontFamily: FONT.bold, fontSize: 11, color: '#a66c00', flexShrink: 1, textAlign: 'right' },
+  driverFooter: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#edf0f2', paddingTop: 11, marginTop: 12 },
+  footerText: { fontFamily: FONT.regular, fontSize: 11, color: C.muted },
+  empty: { padding: 25, alignItems: 'center' },
+  emptyText: { fontFamily: FONT.regular, color: C.muted, textAlign: 'center' },
+});
 
 const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
