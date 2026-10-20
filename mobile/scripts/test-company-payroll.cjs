@@ -69,7 +69,7 @@ function harness() {
   await button(tree, 'جزئیات حقوق و کسورات').props.onPress(); tree = test.render();
   assert.match(text(tree), /خالص پرداختی/); assert.equal(test.calls[2][0], '/my/payroll/8');
   assert.equal(nodes(tree, node => node.type === 'Modal')[0].props.visible, true);
-  button(tree, 'بستن جزئیات').props.onPress(); tree = test.render();
+  nodes(tree, node => node.type === 'TouchableOpacity' && node.props?.accessibilityLabel === 'بستن جزئیات')[0].props.onPress(); tree = test.render();
   assert.equal(nodes(tree, node => node.type === 'Modal')[0].props.visible, false);
   test.respond(async () => { throw Error('network failed'); });
   button(tree, 'تازه‌سازی').props.onPress(); test.render(); await settle(); tree = test.render();
