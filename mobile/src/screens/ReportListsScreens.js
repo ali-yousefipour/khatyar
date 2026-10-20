@@ -338,6 +338,8 @@ export function ExpOplicScreen({ navigation }) {
   const [q, setQ] = useState('');
   const [plateQ, setPlateQ] = useState(''); const [lineFilter, setLineFilter] = useState(null);
   const [page, setPage] = useState(1);
+  const [advanced, setAdvanced] = useState(false);
+  const [sort, setSort] = useState('nearest');
   const [from, setFrom] = useState(null); const [to, setTo] = useState(null); const [pick, setPick] = useState(null);
   const [smsing, setSmsing] = useState(null);
   const sendSms = async (r) => {
@@ -360,39 +362,72 @@ export function ExpOplicScreen({ navigation }) {
   const lineCode = useMemo(() => { const l = myLines.find((x) => String(x.id) === String(lineFilter)); return l ? String(l.code) : null; }, [lineFilter, myLines]);
   const list = useMemo(() => {
     if (rows === null) return null;
-    let l = rows.filter((r) => matchq({ plate: r.plate, ben: r.beneficiary, line: r.line, nid: r.national_id || r.owner_national_id }, q));
+    let l = rows.filter((r) => matchq({ plate: r.plate, ben: r.beneficiary, model: r.model_name || r.model, line: r.line, nid: r.national_id || r.owner_national_id }, q));
     if (plateQ) l = l.filter((r) => plateMatch(r.plate, plateQ));
     if (lineCode) l = l.filter((r) => String(r.line) === lineCode);
     if (from || to) { const ff = from ? [from.jy, from.jm, from.jd] : null; const tt = to ? [to.jy, to.jm, to.jd] : null; l = l.filter((r) => inJRange(r.expire, ff, tt)); }
-    l.sort((a, b) => expKey(a.expire) - expKey(b.expire));
+    l.sort((a, b) => sort === 'nearest' ? expKey(a.expire) - expKey(b.expire) : expKey(b.expire) - expKey(a.expire));
     return l;
-  }, [rows, q, from, to, plateQ, lineCode]);
-  useEffect(() => { setPage(1); }, [q, from, to, plateQ, lineFilter]);
+  }, [rows, q, from, to, plateQ, lineCode, sort]);
+  useEffect(() => { setPage(1); }, [q, from, to, plateQ, lineFilter, sort]);
   if (list === null) return <Loading />;
   const shown = list.slice(0, page * PAGE);
+  const resetFilters = () => { setQ(''); setPlateQ(''); setLineFilter(null); setFrom(null); setTo(null); setSort('nearest'); };
+  const activeFilters = !!(q || plateQ || lineFilter || from || to || sort !== 'nearest');
   return (
     <View style={s.wrap}>
       <FlatList contentContainerStyle={{ padding: 14 }} data={shown} keyExtractor={(_, i) => String(i)}
         onEndReached={() => { if (shown.length < list.length) setPage((p) => p + 1); }} onEndReachedThreshold={0.4}
         ListHeaderComponent={<>
-          <ExpiryFilters q={q} setQ={setQ} plateQ={plateQ} setPlateQ={setPlateQ} lineFilter={lineFilter} setLineFilter={setLineFilter} lines={myLines} />
-          <View style={s.dateRow}>
-            <TouchableOpacity style={s.dBtn} onPress={() => setPick('from')}><Text style={s.dBtnTxt}>{from ? jLabel(from.jy, from.jm, from.jd) : 'از تاریخ'}</Text></TouchableOpacity>
-            <TouchableOpacity style={s.dBtn} onPress={() => setPick('to')}><Text style={s.dBtnTxt}>{to ? jLabel(to.jy, to.jm, to.jd) : 'تا تاریخ'}</Text></TouchableOpacity>
-            {(from || to) ? <TouchableOpacity onPress={() => { setFrom(null); setTo(null); }}><Text style={s.clr}>پاک</Text></TouchableOpacity> : null}
+          <View style={op.hero}>
+            <Text style={op.heroTitle}>خودروهای فاقد بهره‌برداری</Text>
+            <Text style={op.heroDesc}>بررسی اعتبار پروانه بهره‌برداری و پیگیری خودروها</Text>
+            <View style={op.heroStats}>
+              <View style={op.heroStat}><Text style={op.heroStatNum}>{faNum(rows.length)}</Text><Text style={op.heroStatLabel}>کل موارد دریافتی</Text></View>
+              <View style={op.heroStat}><Text style={op.heroStatNum}>{faNum(list.length)}</Text><Text style={op.heroStatLabel}>نتایج فیلترشده</Text></View>
+            </View>
           </View>
-          <Text style={s.section}>{faNum(list.length)} مورد (مرتب بر اساس نزدیک‌ترین تاریخ)</Text>
+          <View style={op.filters}>
+            <Text style={op.filterTitle}>جستجو و پالایش خودروها</Text>
+            <SearchBar value={q} onChange={setQ} placeholder="نام بهره‌بردار، کد ملی، پلاک، مدل یا خط…" />
+            <View style={op.filterActions}>
+              <TouchableOpacity style={[op.filterButton, advanced && op.filterButtonOn]} onPress={() => setAdvanced(!advanced)} accessibilityRole="button">
+                <Text style={[op.filterButtonText, advanced && { color: '#fff' }]}>☷ {advanced ? 'بستن فیلترها' : 'فیلترهای پیشرفته'}</Text>
+              </TouchableOpacity>
+              {activeFilters && <TouchableOpacity style={op.resetButton} onPress={resetFilters}><Text style={op.resetText}>پاک‌کردن فیلترها</Text></TouchableOpacity>}
+            </View>
+            {advanced && <>
+              <ExpiryFilters q={q} setQ={setQ} plateQ={plateQ} setPlateQ={setPlateQ} lineFilter={lineFilter} setLineFilter={setLineFilter} lines={myLines} />
+              <Text style={op.fieldLabel}>بازه تاریخ انقضای پروانه</Text>
+              <View style={op.dateButtons}>
+                <TouchableOpacity style={op.dateButton} onPress={() => setPick('from')}><Text style={op.dateText}>{from ? jLabel(from.jy, from.jm, from.jd) : 'از تاریخ'}</Text></TouchableOpacity>
+                <TouchableOpacity style={op.dateButton} onPress={() => setPick('to')}><Text style={op.dateText}>{to ? jLabel(to.jy, to.jm, to.jd) : 'تا تاریخ'}</Text></TouchableOpacity>
+              </View>
+              <Text style={op.fieldLabel}>مرتب‌سازی بر اساس تاریخ انقضا</Text>
+              <View style={op.dateButtons}>
+                <TouchableOpacity style={[op.sortButton, sort === 'nearest' && op.sortOn]} onPress={() => setSort('nearest')}><Text style={[op.sortText, sort === 'nearest' && op.sortTextOn]}>قدیمی‌ترین</Text></TouchableOpacity>
+                <TouchableOpacity style={[op.sortButton, sort === 'latest' && op.sortOn]} onPress={() => setSort('latest')}><Text style={[op.sortText, sort === 'latest' && op.sortTextOn]}>جدیدترین</Text></TouchableOpacity>
+              </View>
+            </>}
+          </View>
+          <View style={op.resultRow}><Text style={op.resultText}>{faNum(list.length)} خودرو</Text><Text style={op.resultHint}>بر اساس تاریخ انقضا</Text></View>
         </>}
-        ListEmptyComponent={<Empty />}
+        ListEmptyComponent={<View style={op.emptyCard}><Text style={op.emptyTitle}>خودرویی یافت نشد</Text><Text style={op.emptySubtitle}>فیلترها را تغییر دهید یا جستجو را پاک کنید.</Text>{activeFilters && <TouchableOpacity onPress={resetFilters}><Text style={op.resetText}>نمایش همه موارد</Text></TouchableOpacity>}</View>}
         ListFooterComponent={shown.length < list.length ? <Text style={s.more}>در حال بارگذاری بیشتر…</Text> : null}
         renderItem={({ item: r }) => (
-          <View style={s.card}><Text style={s.title}>پلاک {faNum(r.plate)}</Text>
-            <Text style={s.meta}>خط {faNum(r.line || '—')} · بهره‌بردار: {r.beneficiary || '—'} · انقضا: {faNum(r.expire)}</Text>
-            <View style={s.actRow}>
-              <TouchableOpacity style={s.actNotice} onPress={() => openNotice(r)}><Text style={s.actNoticeTxt}>✎ ثبت تذکر</Text></TouchableOpacity>
-              <TouchableOpacity style={s.actSms} disabled={smsing === r.plate} onPress={() => sendSms(r)}>
-                <Text style={s.actSmsTxt}>{smsing === r.plate ? '...' : '✉ ارسال پیامک'}</Text>
-              </TouchableOpacity>
+          <View style={op.vehicleCard}>
+            <View style={op.cardTop}>
+              <View style={op.statusTag}><Text style={op.statusText}>نیازمند بررسی اعتبار</Text></View>
+              <Text style={op.plateTitle}>پلاک {faNum(r.plate || '—')}</Text>
+            </View>
+            <View style={op.cardDivider} />
+            <View style={op.infoRow}><Text style={op.infoValue}>{r.beneficiary || 'نامشخص'}</Text><Text style={op.infoLabel}>بهره‌بردار</Text></View>
+            <View style={op.infoRow}><Text style={op.infoValue}>خط {faNum(r.line || '—')}</Text><Text style={op.infoLabel}>خط فعالیت</Text></View>
+            {!!(r.model_name || r.model) && <View style={op.infoRow}><Text style={op.infoValue}>{r.model_name || r.model}</Text><Text style={op.infoLabel}>مدل خودرو</Text></View>}
+            <View style={op.expiryRow}><Text style={op.expiryValue}>{faNum(r.expire || 'نامشخص')}</Text><Text style={op.expiryLabel}>تاریخ انقضای پروانه</Text></View>
+            <View style={op.actionRow}>
+              <TouchableOpacity style={op.actionNotice} onPress={() => openNotice(r)} accessibilityRole="button"><Text style={op.actionNoticeText}>✎ ثبت تذکر</Text></TouchableOpacity>
+              <TouchableOpacity style={op.actionSms} disabled={smsing === r.plate} onPress={() => Alert.alert('تأیید ارسال پیامک', 'پیامک یادآوری پروانه بهره‌برداری برای بهره‌بردار این خودرو ارسال شود؟', [{ text: 'انصراف', style: 'cancel' }, { text: 'ارسال', onPress: () => sendSms(r) }])} accessibilityRole="button"><Text style={op.actionSmsText}>{smsing === r.plate ? 'در حال ارسال…' : '✉ ارسال پیامک'}</Text></TouchableOpacity>
             </View>
           </View>
         )} />
@@ -430,4 +465,53 @@ const s = StyleSheet.create({
   fchip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: C.line, backgroundColor: '#fff' },
   fchipOn: { backgroundColor: C.brand, borderColor: C.brand },
   fchipTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 12 },
+});
+
+const op = StyleSheet.create({
+  hero: { backgroundColor: C.brand, borderRadius: 20, padding: 18, marginBottom: 14 },
+  heroTitle: { fontFamily: FONT.bold, color: '#fff', fontSize: 19, textAlign: 'right' },
+  heroDesc: { fontFamily: FONT.regular, color: '#d8f1e8', fontSize: 12, textAlign: 'right', marginTop: 6 },
+  heroStats: { flexDirection: 'row-reverse', gap: 10, marginTop: 16 },
+  heroStat: { flex: 1, backgroundColor: 'rgba(255,255,255,0.13)', padding: 12, borderRadius: 12 },
+  heroStatNum: { color: '#fff', fontFamily: FONT.bold, fontSize: 20, textAlign: 'right' },
+  heroStatLabel: { color: '#e0f4ee', fontFamily: FONT.regular, fontSize: 11, textAlign: 'right' },
+  filters: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: C.line, padding: 13, marginBottom: 14 },
+  filterTitle: { color: C.ink, fontFamily: FONT.bold, fontSize: 15, textAlign: 'right', marginBottom: 10 },
+  filterActions: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  filterButton: { borderWidth: 1, borderColor: C.brand, borderRadius: 11, paddingHorizontal: 14, paddingVertical: 10 },
+  filterButtonOn: { backgroundColor: C.brand },
+  filterButtonText: { color: C.brand, fontFamily: FONT.bold, fontSize: 12 },
+  resetButton: { paddingVertical: 10, paddingHorizontal: 5 },
+  resetText: { color: C.danger, fontFamily: FONT.bold, fontSize: 12, textAlign: 'center' },
+  fieldLabel: { color: C.slate, fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', marginTop: 14, marginBottom: 7 },
+  dateButtons: { flexDirection: 'row-reverse', gap: 9 },
+  dateButton: { flex: 1, backgroundColor: '#f7f9fb', borderColor: C.line, borderWidth: 1, borderRadius: 11, paddingVertical: 12, alignItems: 'center' },
+  dateText: { fontFamily: FONT.bold, color: C.ink, fontSize: 12 },
+  sortButton: { flex: 1, borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  sortOn: { backgroundColor: C.brand, borderColor: C.brand },
+  sortText: { color: C.ink, fontFamily: FONT.bold, fontSize: 12 },
+  sortTextOn: { color: '#fff' },
+  resultRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  resultText: { color: C.ink, fontFamily: FONT.bold, fontSize: 15 },
+  resultHint: { color: C.muted, fontFamily: FONT.regular, fontSize: 11 },
+  vehicleCard: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 18, padding: 15, marginBottom: 12 },
+  cardTop: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 },
+  plateTitle: { color: C.ink, fontFamily: FONT.bold, fontSize: 16, textAlign: 'right' },
+  statusTag: { backgroundColor: '#fff3df', borderRadius: 9, paddingHorizontal: 9, paddingVertical: 5 },
+  statusText: { color: '#9b5a12', fontFamily: FONT.bold, fontSize: 10 },
+  cardDivider: { height: 1, backgroundColor: '#edf0f4', marginVertical: 12 },
+  infoRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 },
+  infoLabel: { color: C.muted, fontFamily: FONT.regular, fontSize: 12 },
+  infoValue: { color: C.ink, fontFamily: FONT.bold, fontSize: 12, flexShrink: 1, textAlign: 'right' },
+  expiryRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f6f8fa', borderRadius: 10, padding: 11, marginTop: 3 },
+  expiryLabel: { color: C.slate, fontFamily: FONT.regular, fontSize: 12 },
+  expiryValue: { color: C.danger, fontFamily: FONT.bold, fontSize: 13 },
+  actionRow: { flexDirection: 'row-reverse', gap: 9, marginTop: 13 },
+  actionNotice: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 11, backgroundColor: '#eef2ff' },
+  actionNoticeText: { color: '#2746a6', fontFamily: FONT.bold, fontSize: 12 },
+  actionSms: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 11, backgroundColor: '#e5f5ee' },
+  actionSmsText: { color: C.brand, fontFamily: FONT.bold, fontSize: 12 },
+  emptyCard: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, padding: 24, alignItems: 'center' },
+  emptyTitle: { color: C.ink, fontFamily: FONT.bold, fontSize: 15 },
+  emptySubtitle: { color: C.muted, fontFamily: FONT.regular, fontSize: 12, textAlign: 'center', marginVertical: 10 },
 });
