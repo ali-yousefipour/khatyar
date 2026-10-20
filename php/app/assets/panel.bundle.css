@@ -489,7 +489,7 @@ table{font-size:13px}
   .modal-bg{background:#102b3559;backdrop-filter:blur(4px);overscroll-behavior:contain}
   .modal{border:1px solid var(--line);border-radius:18px;max-height:calc(100dvh - 32px);overscroll-behavior:contain}
   .modal h3{font-size:17px}
-  .login-page{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:32px 16px;background:radial-gradient(ellipse at 10% 0,#dceee5,transparent 55%),var(--paper)}
+  .login-page{min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;padding:32px 16px;background:radial-gradient(ellipse at 10% 0,#dceee5,transparent 55%),var(--paper)}
   .login-card{width:420px;max-width:100%;padding:32px;box-shadow:0 16px 60px #123a2a12}
   .login-card .btn{min-height:46px}
   .login-card .input{min-height:48px}
