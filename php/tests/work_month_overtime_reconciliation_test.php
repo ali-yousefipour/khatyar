@@ -65,4 +65,14 @@ foreach (['$hm($r[\'friday\']??0)', '$hm($r[\'holiday\']??0)'] as $expression) {
 }
 if (str_contains($panel, '<th>اضافه کاری جمعه</th>')) throw new RuntimeException('Duplicate Friday column returned');
 echo "PASS monthly report and Excel deduplicated Friday/holiday columns\n";
+$commentChecks=[
+  'جمعه‌کاری قطعی:',
+  'تعطیل‌کاری قطعی (به‌جز جمعه):',
+  'اضافه‌کاری عادی:',
+  'بدون جمعه‌کاری و تعطیل‌کاری'
+];
+foreach ($commentChecks as $label) {
+    if (!str_contains($source, $label)) throw new RuntimeException('Missing organization export comment: '.$label);
+}
+echo "PASS organization export comment labels and separation\n";
 echo "PASS monthly overtime integration contracts\n";
