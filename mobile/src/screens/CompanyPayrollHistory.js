@@ -14,9 +14,9 @@ import PayrollAccessSlip from '../components/PayrollAccessSlip';
 const amount = (value, maximumFractionDigits = 0) => value === null || value === undefined || value === '' ? '—' : Number(value).toLocaleString('fa-IR', { maximumFractionDigits });
 const integerMoneyFields = new Set([
   'friday_amount', 'holiday_amount', 'overtime_amount', 'gross',
-  'insurance', 'tax', 'net', 'bonus', 'severance', 'employer_insurance',
+  'insurance', 'tax', 'net', 'night_amount', 'bonus', 'severance', 'employer_insurance',
 ]);
-const hiddenDetailFields = new Set(['employer_total']);
+const hiddenDetailFields = new Set(['employer_total', 'row', 'row_number', 'row_no', 'radif', 'ردیف']);
 const moneyText = value => {
   if (value === null || value === undefined || value === '') return '—';
   const normalized = String(value).trim()
@@ -175,7 +175,9 @@ export default function CompanyPayrollHistory() {
           <Text style={styles.heading}>{detail.row.employee_name} — {faNum(`${detail.row.period_jy}/${detail.row.period_jm}`)}</Text>
           <Text style={styles.note}>اطلاعات اعلامی شرکت — مبالغ ریال</Text>
           {(detail.row.warnings || []).map((warning, index) => <Text key={index} style={styles.error}>{warning}</Text>)}
-          <View style={styles.detailsGrid}>{detail.fields.map((field, index) => ({ field, label: detail.labels[index], index })).filter(({ field }) => !hiddenDetailFields.has(field)).map(({ field, label, index }) => <View style={[styles.detailCell, { width: detailColumns === 3 ? '31.8%' : '48.5%' }]} key={field}><Text style={styles.detailTitle}>{label}</Text><Text style={styles.detailValue} numberOfLines={3}>{index < 7 ? (detail.row.data[field] || '—') : integerMoneyFields.has(field) ? moneyText(detail.row.data[field]) : amount(detail.row.data[field], 6)}</Text></View>)}</View>
+          <View style={styles.detailsGrid}>{detail.fields.map((field, index) => ({ field, label: detail.labels[index], index })).filter(({ field, label }) => !hiddenDetailFields.has(field) && String(label || '').trim() !== 'ردیف' && field !== 'net' && String(label || '').replace(/\\s/g, '').replace(/‌/g, '') !== 'خالصپرداختی').map(({ field, label, index }) => <View style={[styles.detailCell, { width: detailColumns === 3 ? '31.8%' : '48.5%' }]} key={field}><Text style={styles.detailTitle}>{label}</Text><Text style={styles.detailValue} numberOfLines={3}>{index < 7 ? faNum(String(detail.row.data[field] ?? '—')) : integerMoneyFields.has(field) || /شب.?کاری/.test(String(label)) && /مبلغ/.test(String(label)) ? moneyText(detail.row.data[field]) : amount(detail.row.data[field], 6)}</Text></View>)}</View>
+          <View style={styles.netCard}><Text style={styles.netTitle}>خالص پرداختی</Text><Text style={styles.netValue}>{moneyText(detail.row.data?.net ?? detail.row.net)} ریال</Text></View>
+        
         </>}</ScrollView>
       </View>
     </Modal>
@@ -211,6 +213,9 @@ const styles = StyleSheet.create({
   detailCell: { minHeight: 68, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: C.line, paddingHorizontal: 10, paddingVertical: 9, justifyContent: 'center' },
   detailTitle: { fontFamily: FONT.regular, fontSize: 13, color: C.slate, textAlign: 'right', marginBottom: 5 },
   detailValue: { fontFamily: FONT.bold, fontSize: 16, color: C.ink, textAlign: 'right' },
+  netCard: { backgroundColor: '#fff4f4', borderWidth: 1.5, borderColor: '#dc2626', borderRadius: 14, marginTop: 16, padding: 18, alignItems: 'center' },
+  netTitle: { fontFamily: FONT.bold, fontSize: 17, color: '#b91c1c', textAlign: 'center' },
+  netValue: { fontFamily: FONT.bold, fontSize: 24, color: '#b91c1c', textAlign: 'center', marginTop: 8 },
   error: { fontFamily: FONT.regular, color: '#b42318', textAlign: 'right', paddingVertical: 12 },
   slipPaper: { width: '100%', aspectRatio: 210 / 148, padding: 9, backgroundColor: '#fff', borderWidth: 1, borderColor: '#999', justifyContent: 'space-between' },
   slipHeading: { fontFamily: FONT.bold, textAlign: 'center', fontSize: 13, color: '#111' },
