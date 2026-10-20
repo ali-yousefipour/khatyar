@@ -1,0 +1,47 @@
+<?php
+// Regression checks for the production monthly overtime settlement snippet.
+$source = file_get_contents(__DIR__.'/../lib/routes.php');
+$start = strpos($source, '    // Keep regular overtime and Friday/holiday work as disjoint minute buckets.');
+$end = strpos($source, "    $out[] = array_merge(", $start);
+if ($start === false || $end === false || $end <= $start) {
+    throw new RuntimeException('Monthly overtime settlement code missing');
+}
+$settle = substr($source, $start, $end - $start);
+$check = static function (string $label, int $expected, int $actual): void {
+    if ($expected !== $actual) throw new RuntimeException("$label expected $expected got $actual");
+    echo "PASS $label\n";
+};
+$test = static function(array $input, array $config) use ($settle): array {
+    $tot = $input;
+    $shift = $config;
+    eval($settle);
+    return $tot;
+};
+// Minute values, not HH:MM strings, are canonical in the aggregation layer.
+$example = $test(['overtime'=>1000,'friday'=>960,'holiday'=>1374],[]);
+$check('regular overtime',1000,$example['regular_overtime']);
+$check('Friday accounted once',960,$example['friday_overtime']);
+$check('holiday accounted once',1374,$example['holiday_overtime']);
+$check('sample daily total 55:34',3334,$example['total_overtime']);
+$check('visible monthly total equals daily total',3334,$example['overtime']);
+$check('combined off-day work is disjoint',2334,$example['holiday_friday_overtime']);
+$friday = $test(['overtime'=>0,'friday'=>489,'holiday'=>0],[]);
+$check('Friday 08:09 has no phantom double credit',489,$friday['overtime']);
+$holiday = $test(['overtime'=>0,'friday'=>0,'holiday'=>480],[]);
+$check('public or manual holiday exactly once',480,$holiday['total_overtime']);
+$both = $test(['overtime'=>0,'friday'=>480,'holiday'=>0],[]);
+$check('Friday also holiday classified Friday only',480,$both['total_overtime']);
+$capped = $test(['overtime'=>1000,'friday'=>960,'holiday'=>0],['monthly_ot_cap'=>600]);
+$check('monthly cap only regular',600,$capped['regular_overtime']);
+$check('Friday not reduced by regular cap',1560,$capped['total_overtime']);
+$zero = $test(['overtime'=>0,'friday'=>0,'holiday'=>0],[]);
+$check('zero work',0,$zero['total_overtime']);
+// Contracts already exercised by work_shift_regression_test and
+// work_month_daily_reconciliation_test must remain present.
+if (!str_contains($source, '$dayShift = _active_user_shift_assignment($a[\'user_id\'], $jdate);'))
+    throw new RuntimeException('Per-day assignment lookup removed');
+if (!str_contains($source, 'JOIN users uu ON uu.id=us.user_id AND uu.is_active=1'))
+    throw new RuntimeException('Inactive users filter removed');
+if (!str_contains($source, '_work_month_daily_attendance_totals($dailyReport,$lastDay)'))
+    throw new RuntimeException('Leave / mission / shortage daily reconciliation removed');
+echo "PASS monthly overtime integration contracts\n";
