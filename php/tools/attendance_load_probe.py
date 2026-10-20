@@ -12,6 +12,7 @@ app.yousefipour.ir is forbidden.
 import argparse
 import concurrent.futures
 import json
+import os
 import statistics
 import time
 import urllib.error
@@ -23,6 +24,8 @@ def main():
     parser.add_argument('--url', required=True)
     parser.add_argument('--users', type=int, choices=(50,100), default=50)
     parser.add_argument('--allow-host', default='', help='Explicit staging hostname')
+    parser.add_argument('--path', choices=('/api/health','/api/my/checkin-config','/api/my/work-timer'), default='/api/health')
+    parser.add_argument('--token-env', default='KHATYAR_STAGING_TOKEN')
     parser.add_argument('--timeout', type=float, default=12.0)
     args = parser.parse_args()
     url = args.url.rstrip('/')
@@ -32,11 +35,16 @@ def main():
     if not (host in ('localhost','127.0.0.1','::1') or host == args.allow_host.lower()):
         parser.error('Specify --allow-host with an isolated staging hostname')
     if not host: parser.error('Invalid URL')
-    probe = url + '/api/health'
+    probe = url + args.path
+    token = os.environ.get(args.token_env, '')
+    if args.path != '/api/health' and not token:
+        parser.error('Authenticated staging route requires an access token supplied through the environment')
     def single(_):
         begin = time.monotonic()
         try:
-            request = urllib.request.Request(probe, headers={'Cache-Control':'no-store'})
+            headers={'Cache-Control':'no-store'}
+            if token: headers['Authorization']='Bearer '+token
+            request = urllib.request.Request(probe, headers=headers)
             with urllib.request.urlopen(request, timeout=args.timeout) as response:
                 status = response.status
                 # Read response to measure full service time.
@@ -49,7 +57,7 @@ def main():
     durations = sorted(ms for _, ms in results)
     successful = sum(status==200 for status,_ in results)
     p95 = durations[min(len(durations)-1,int(len(durations)*.95))]
-    print(json.dumps({'users':args.users,'requests':len(results),'successful':successful,
+    print(json.dumps({'path':args.path,'users':args.users,'requests':len(results),'successful':successful,
         'error_count':len(results)-successful,'median_ms':statistics.median(durations),
         'p95_ms':p95,'max_ms':max(durations)}, ensure_ascii=False))
 if __name__ == '__main__': main()
