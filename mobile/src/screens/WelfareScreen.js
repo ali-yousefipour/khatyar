@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, Modal, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, Modal, RefreshControl, useWindowDimensions } from 'react-native';
 import { request, postOrQueue } from '../api';
 import { C, FONT } from '../theme';
 import { faNum } from '../num';
 import { jToday } from '../jdate';
 import JDatePicker, { jLabel } from '../components/JDatePicker';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const todayObj = () => { const [jy, jm, jd] = jToday(); return { jy, jm, jd }; };
 const jdateToString = (d) => `${d?.jy}/${String(d?.jm).padStart(2, '0')}/${String(d?.jd).padStart(2, '0')}`;
 
 export default function WelfareScreen({ route }) {
+  const { width } = useWindowDimensions();
   const presetDriver = route?.params?.driver || null;
   const lockedToDriver = !!presetDriver?.national_id;
   const [items, setItems] = useState([]);
@@ -76,10 +78,11 @@ export default function WelfareScreen({ route }) {
   };
 
   return (
-    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: width < 360 ? 11 : 16, paddingBottom: 56 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.brand]} />}>
-      <Text style={s.h}>ثبت تحویل رفاهیت به راننده</Text>
+      <View style={s.header}><View style={s.headerIcon}><MaterialCommunityIcons name="gift-outline" size={27} color={C.brand}/></View><View style={s.headerCopy}><Text style={s.h}>ثبت تحویل رفاهیت به راننده</Text><Text style={s.headerSub}>ثبت خدمات رفاهی و مشاهده سوابق تحویل</Text></View></View>
 
+      <View style={s.formCard}>
       {!lockedToDriver && (<>
         <Text style={s.label}>کد ملی راننده</Text>
         <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
@@ -88,34 +91,34 @@ export default function WelfareScreen({ route }) {
         </View>
       </>)}
       {driver && (
-        <View style={s.driverBox}>
+        <View style={s.driverBox}><View style={s.driverAvatar}><MaterialCommunityIcons name="account-tie-outline" size={24} color={C.brand}/></View><View style={s.driverInfo}>
           <Text style={s.driverName}>{driver.first_name} {driver.last_name}</Text>
-          <Text style={s.driverMeta}>موبایل: {faNum(driver.mobile || '—')} · نوع: {driver.driver_type || '—'}</Text>
+          <Text style={s.driverMeta}>موبایل: {faNum(driver.mobile || '—')} · نوع: {driver.driver_type || '—'}</Text></View>
         </View>
       )}
 
-      <Text style={[s.label, { marginTop: 12 }]}>نوع رفاهیت</Text>
+      <View style={s.sectionHeading}><MaterialCommunityIcons name="gift-open-outline" size={20} color={C.brand}/><Text style={s.sectionTitle}>مشخصات رفاهیت</Text></View><Text style={[s.label, { marginTop: 12 }]}>نوع رفاهیت</Text>
       <TouchableOpacity style={s.select} onPress={() => setItemOpen(true)}>
-        <Text style={[s.selectTxt, !itemId && { color: C.muted }]}>{itemId ? itemId.title : 'انتخاب نوع رفاهیت'}</Text>
+        <Text style={[s.selectTxt, !itemId && { color: C.muted }]}>{itemId ? itemId.title : 'انتخاب نوع رفاهیت'}</Text><MaterialCommunityIcons name="chevron-down" size={22} color={C.brand}/>
       </TouchableOpacity>
 
       {places.length > 0 && (
         <>
           <Text style={[s.label, { marginTop: 12 }]}>مکان ارائه (استخر/مرکز)</Text>
           <TouchableOpacity style={s.select} onPress={() => setPlaceOpen(true)}>
-            <Text style={[s.selectTxt, !placeId && { color: C.muted }]}>{placeId ? placeId.title : 'انتخاب مکان (اختیاری)'}</Text>
+            <Text style={[s.selectTxt, !placeId && { color: C.muted }]}>{placeId ? placeId.title : 'انتخاب مکان (اختیاری)'}</Text><MaterialCommunityIcons name="chevron-down" size={22} color={C.brand}/>
           </TouchableOpacity>
         </>
       )}
 
-      <View style={{ flexDirection: 'row-reverse', gap: 10, marginTop: 12 }}>
-        <View style={{ flex: 1 }}>
+      <View style={{ flexDirection: 'row-reverse', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+        <View style={{ flexGrow: 1, flexBasis: width < 360 ? '100%' : '44%' }}>
           <Text style={s.label}>تاریخ تحویل</Text>
           <TouchableOpacity style={s.select} onPress={() => setPickDate(true)}>
-            <Text style={s.selectTxt}>{gdate ? jLabel(gdate.jy, gdate.jm, gdate.jd) : 'انتخاب'}</Text>
+            <Text style={s.selectTxt}>{gdate ? faNum(jLabel(gdate.jy, gdate.jm, gdate.jd)) : 'انتخاب'}</Text><MaterialCommunityIcons name="calendar-month-outline" size={20} color={C.brand}/>
           </TouchableOpacity>
         </View>
-        <View style={{ flex: 1 }}>
+        <View style={{ flexGrow: 1, flexBasis: width < 360 ? '100%' : '44%' }}>
           <Text style={s.label}>تعداد</Text>
           <TextInput style={s.input} keyboardType="number-pad" value={count} onChangeText={setCount} />
         </View>
@@ -124,21 +127,21 @@ export default function WelfareScreen({ route }) {
       <Text style={[s.label, { marginTop: 12 }]}>توضیحات (اختیاری)</Text>
       <TextInput style={[s.input, { minHeight: 60, textAlignVertical: 'top' }]} value={note} onChangeText={setNote} multiline placeholder="توضیح…" placeholderTextColor={C.muted} />
 
-      <TouchableOpacity style={[s.submit, busy && { opacity: 0.6 }]} onPress={submit} disabled={busy}>
+      <TouchableOpacity style={[s.submit, busy && { opacity: 0.6 }]} onPress={submit} disabled={busy}><MaterialCommunityIcons name="content-save-check-outline" size={21} color="#fff"/>
         <Text style={s.submitTxt}>{busy ? 'در حال ثبت…' : 'ثبت تحویل رفاهیت'}</Text>
       </TouchableOpacity>
+      </View>
 
       {driver && (
         <>
-          <Text style={[s.h, { marginTop: 24 }]}>رفاهیات دریافتی این راننده</Text>
+          <View style={s.listHeading}><MaterialCommunityIcons name="account-check-outline" size={21} color={C.brand}/><Text style={s.listTitle}>رفاهیات دریافتی این راننده</Text><Text style={s.listCount}>{faNum(driverList?.length || 0)} مورد</Text></View>
           {driverList === null ? <ActivityIndicator color={C.brand} style={{ marginTop: 12 }} /> :
             driverList.length === 0 ? <Text style={s.empty}>این راننده تاکنون رفاهیتی دریافت نکرده است.</Text> :
-            driverList.map((w) => (
+            [...driverList].sort((a,b)=>String(b.granted_jdate||'').localeCompare(String(a.granted_jdate||''))).map((w) => (
               <View key={w.id} style={s.card}>
-                <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}>
+                <View style={s.cardTop}><View style={s.cardIcon}><MaterialCommunityIcons name="gift-outline" size={21} color={C.brand}/></View><View style={s.cardMain}>
                   <Text style={s.cardTitle}>{w.item_title}{w.count > 1 ? ` × ${faNum(w.count)}` : ''}</Text>
-                  <Text style={s.cardDate}>{faNum(w.granted_jdate)}</Text>
-                </View>
+                  </View><View style={s.dateBadge}><MaterialCommunityIcons name="calendar-outline" size={14} color={C.brand}/><Text style={s.cardDate}>{faNum(w.granted_jdate)}</Text></View></View>
                 {!!w.place_title && <Text style={s.cardMeta}>{w.place_title}</Text>}
                 {!!w.note && <Text style={s.cardNote}>{w.note}</Text>}
                 {!!w.granted_by_name && <Text style={s.cardNote}>ثبت‌کننده: {w.granted_by_name}</Text>}
@@ -147,15 +150,14 @@ export default function WelfareScreen({ route }) {
         </>
       )}
 
-      <Text style={[s.h, { marginTop: 24 }]}>رفاهیات ثبت‌شدهٔ من</Text>
+      <View style={s.listHeading}><MaterialCommunityIcons name="clipboard-list-outline" size={21} color={C.brand}/><Text style={s.listTitle}>رفاهیات ثبت‌شدهٔ من</Text><Text style={s.listCount}>{faNum(list?.length || 0)} مورد</Text></View>
       {list === null ? <ActivityIndicator color={C.brand} style={{ marginTop: 16 }} /> :
         list.length === 0 ? <Text style={s.empty}>هنوز رفاهیتی ثبت نکرده‌اید.</Text> :
-        list.map((w) => (
+        [...list].sort((a,b)=>String(b.granted_jdate||'').localeCompare(String(a.granted_jdate||''))).map((w) => (
           <View key={w.id} style={s.card}>
-            <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}>
+            <View style={s.cardTop}><View style={s.cardIcon}><MaterialCommunityIcons name="gift-outline" size={21} color={C.brand}/></View><View style={s.cardMain}>
               <Text style={s.cardTitle}>{w.item_title}{w.count > 1 ? ` × ${faNum(w.count)}` : ''}</Text>
-              <Text style={s.cardDate}>{faNum(w.granted_jdate)}</Text>
-            </View>
+              </View><View style={s.dateBadge}><MaterialCommunityIcons name="calendar-outline" size={14} color={C.brand}/><Text style={s.cardDate}>{faNum(w.granted_jdate)}</Text></View></View>
             <Text style={s.cardMeta}>{w.driver_name || w.driver_national_id}{w.place_title ? ` · ${w.place_title}` : ''}</Text>
             {!!w.note && <Text style={s.cardNote}>{w.note}</Text>}
           </View>
@@ -205,29 +207,45 @@ export default function WelfareScreen({ route }) {
 }
 
 const s = StyleSheet.create({
-  h: { fontFamily: FONT.bold, fontSize: 17, color: C.ink, textAlign: 'right', marginBottom: 10 },
-  label: { fontFamily: FONT.bold, color: C.slate, fontSize: 12.5, textAlign: 'right', marginBottom: 6 },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 10, padding: 12, fontFamily: FONT.regular, fontSize: 13.5, textAlign: 'right', color: C.ink },
-  lookupBtn: { backgroundColor: '#eef1f6', borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center' },
-  lookupTxt: { fontFamily: FONT.bold, color: C.slate, fontSize: 13 },
-  driverBox: { backgroundColor: '#eef7f3', borderRadius: 10, padding: 12, marginTop: 10, borderWidth: 1, borderColor: '#cfe8df' },
-  driverName: { fontFamily: FONT.bold, color: C.ink, fontSize: 14, textAlign: 'right' },
-  driverMeta: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', marginTop: 4 },
-  select: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 10, padding: 12 },
-  selectTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 13.5, textAlign: 'right' },
-  submit: { backgroundColor: C.brand, borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 16 },
-  submitTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 15 },
-  empty: { fontFamily: FONT.regular, color: C.muted, fontSize: 13, textAlign: 'center', marginTop: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: C.line, padding: 14, marginBottom: 10 },
-  cardTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 14 },
-  cardDate: { fontFamily: FONT.regular, color: C.muted, fontSize: 12 },
-  cardMeta: { fontFamily: FONT.regular, color: C.slate, fontSize: 12.5, textAlign: 'right', marginTop: 5 },
-  cardNote: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', marginTop: 4 },
-  typeRow: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 7 },
-  typeTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 13.5, textAlign: 'right' },
-  modalWrap: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalCard: { backgroundColor: C.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, maxHeight: '75%' },
-  modalTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 15, textAlign: 'right', marginBottom: 10 },
-  modalClose: { backgroundColor: C.ink, borderRadius: 16, padding: 15, alignItems: 'center', marginTop: 6 },
-  modalCloseTxt: { color: '#fff', fontFamily: FONT.bold },
+ header:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:14},
+ headerIcon:{width:50,height:50,borderRadius:15,backgroundColor:'#e5f4ec',alignItems:'center',justifyContent:'center'},
+ headerCopy:{flex:1,alignItems:'flex-end'},
+ h:{fontFamily:FONT.bold,fontSize:17,color:C.ink,textAlign:'right'},
+ headerSub:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:4},
+ formCard:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:18,padding:14,marginBottom:15,elevation:1},
+ sectionHeading:{flexDirection:'row-reverse',alignItems:'center',gap:8,marginTop:14,marginBottom:5},
+ sectionTitle:{fontFamily:FONT.bold,fontSize:14,color:C.ink,textAlign:'right'},
+ label:{fontFamily:FONT.bold,color:C.slate,fontSize:12.5,textAlign:'right',marginBottom:7},
+ input:{backgroundColor:'#f8fafb',borderWidth:1,borderColor:C.line,borderRadius:12,padding:12,fontFamily:FONT.regular,fontSize:13.5,textAlign:'right',color:C.ink,minHeight:49},
+ lookupBtn:{backgroundColor:'#e8f5ee',borderRadius:11,paddingHorizontal:14,justifyContent:'center'},
+ lookupTxt:{fontFamily:FONT.bold,color:C.brand,fontSize:13},
+ driverBox:{backgroundColor:'#edf7f1',borderRadius:13,padding:12,marginTop:12,borderWidth:1,borderColor:'#cfe8df',flexDirection:'row-reverse',alignItems:'center',gap:10},
+ driverAvatar:{width:44,height:44,borderRadius:13,backgroundColor:'#d8ede1',alignItems:'center',justifyContent:'center'},
+ driverInfo:{flex:1,alignItems:'flex-end'},
+ driverName:{fontFamily:FONT.bold,color:C.ink,fontSize:14,textAlign:'right'},
+ driverMeta:{fontFamily:FONT.regular,color:C.muted,fontSize:11.5,textAlign:'right',marginTop:5,lineHeight:20},
+ select:{backgroundColor:'#f8fafb',borderWidth:1,borderColor:C.line,borderRadius:12,padding:12,minHeight:50,flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',gap:8},
+ selectTxt:{fontFamily:FONT.regular,color:C.ink,fontSize:13.5,textAlign:'right',flex:1},
+ submit:{backgroundColor:C.brand,borderRadius:13,padding:14,minHeight:54,alignItems:'center',justifyContent:'center',flexDirection:'row-reverse',gap:9,marginTop:16},
+ submitTxt:{color:'#fff',fontFamily:FONT.bold,fontSize:15},
+ empty:{fontFamily:FONT.regular,color:C.muted,fontSize:13,textAlign:'center',marginTop:16,marginBottom:14},
+ listHeading:{flexDirection:'row-reverse',alignItems:'center',gap:8,marginTop:13,marginBottom:12},
+ listTitle:{fontFamily:FONT.bold,fontSize:15,color:C.ink,textAlign:'right',flex:1},
+ listCount:{fontFamily:FONT.bold,fontSize:11,color:C.brand,backgroundColor:'#e8f5ee',paddingHorizontal:9,paddingVertical:6,borderRadius:10},
+ card:{backgroundColor:'#fff',borderRadius:16,borderWidth:1,borderColor:C.line,padding:13,marginBottom:10,elevation:1},
+ cardTop:{flexDirection:'row-reverse',alignItems:'center',gap:8,flexWrap:'wrap'},
+ cardIcon:{width:39,height:39,borderRadius:12,backgroundColor:'#e8f5ee',alignItems:'center',justifyContent:'center'},
+ cardMain:{flex:1,minWidth:110,alignItems:'flex-end'},
+ cardTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:13.5,textAlign:'right'},
+ dateBadge:{flexDirection:'row-reverse',alignItems:'center',gap:5,backgroundColor:'#f0f6f3',borderRadius:9,paddingHorizontal:8,paddingVertical:7},
+ cardDate:{fontFamily:FONT.bold,color:C.brand,fontSize:11},
+ cardMeta:{fontFamily:FONT.regular,color:C.slate,fontSize:12,textAlign:'right',marginTop:9,lineHeight:21},
+ cardNote:{fontFamily:FONT.regular,color:C.muted,fontSize:12,textAlign:'right',marginTop:5,lineHeight:21},
+ typeRow:{backgroundColor:'#fff',borderColor:C.line,borderWidth:1,borderRadius:12,padding:13,marginBottom:7,minHeight:47},
+ typeTxt:{fontFamily:FONT.bold,color:C.ink,fontSize:13.5,textAlign:'right'},
+ modalWrap:{flex:1,backgroundColor:'rgba(0,0,0,0.4)',justifyContent:'flex-end'},
+ modalCard:{backgroundColor:C.paper,borderTopLeftRadius:20,borderTopRightRadius:20,padding:16,maxHeight:'75%'},
+ modalTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:15,textAlign:'right',marginBottom:10},
+ modalClose:{backgroundColor:C.ink,borderRadius:14,padding:14,alignItems:'center',marginTop:6},
+ modalCloseTxt:{color:'#fff',fontFamily:FONT.bold}
 });
