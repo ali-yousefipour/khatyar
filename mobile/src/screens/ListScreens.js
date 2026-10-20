@@ -240,22 +240,67 @@ const ds=StyleSheet.create({
 
 export function MySmsScreen() {
   const [all, setAll] = useState(null);
+  const [expanded, setExpanded] = useState({});
   useEffect(() => { request('/my/sms-log').then(setAll).catch(() => setAll([])); }, []);
-  const dlv = (c) => c == 1 ? ['تحویل شد', C.ok] : c == 2 ? ['تحویل نشد', C.danger] : ['—', C.muted];
   const { rows, from, to, setFrom, setTo } = useDateFilter(all);
-  const cm = all ? all.filter((r) => inCurrentJMonth(r.created_at)).length : 0;
-  const cy = all ? all.filter((r) => inCurrentJYear(r.created_at)).length : 0;
-  return <View style={{ flex: 1, backgroundColor: C.paper }}><List rows={rows} empty="شما پیامکی ارسال نکرده‌اید"
-    header={<><Counts month={cm} year={cy} labelMonth="پیامک این ماه" labelYear="پیامک امسال" /><DateFilterBar from={from} to={to} setFrom={setFrom} setTo={setTo} /></>}
-    render={({ item }) => { const d = dlv(item.delivery_code); return (
-      <View style={s.card}>
-        <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}>
-          <Text style={s.meta}>{item.to_mobile} · {fj(item.created_at)}</Text>
-          <Text style={{ color: d[1], fontFamily: FONT.bold, fontSize: 11 }}>{d[0]}</Text>
-        </View>
-        <Text style={s.txt}>{item.body}</Text>
-      </View>); }} /></View>;
+  const cm = all ? all.filter(r => inCurrentJMonth(r.created_at)).length : 0;
+  const cy = all ? all.filter(r => inCurrentJYear(r.created_at)).length : 0;
+  const ordered = useMemo(() => rows ? [...rows].sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))) : null, [rows]);
+  const dlv = c => c == 1 ? ['تحویل‌شده', C.ok, 'check-circle-outline'] : c == 2 ? ['تحویل‌نشده', C.danger, 'alert-circle-outline'] : ['در انتظار وضعیت', C.muted, 'clock-outline'];
+  return <View style={{ flex: 1, backgroundColor: C.paper }}>
+    <List rows={ordered} empty="پیامکی در بازه انتخاب‌شده یافت نشد"
+      header={<>
+        <View style={ms.heading}><View style={ms.headingIcon}><MaterialCommunityIcons name="message-text-outline" size={25} color={C.brand}/></View><View style={ms.headingCopy}><Text style={ms.headingTitle}>پیامک‌های ارسالی من</Text><Text style={ms.headingSub}>سوابق ارسال و وضعیت تحویل پیامک‌ها</Text></View></View>
+        <Counts month={cm} year={cy} labelMonth="پیامک این ماه" labelYear="پیامک امسال"/>
+        <View style={ms.filterBox}><View style={ms.filterHead}><MaterialCommunityIcons name="calendar-range" size={19} color={C.brand}/><Text style={ms.filterTitle}>فیلتر بازه زمانی</Text></View><DateFilterBar from={from} to={to} setFrom={setFrom} setTo={setTo}/></View>
+        <View style={ms.listHeading}><Text style={ms.listTitle}>تاریخچه ارسال</Text><Text style={ms.count}>{faNum(ordered?.length || 0)} پیامک</Text></View>
+      </>}
+      render={({ item, index }) => {
+        const key = String(item.id ?? `${item.created_at}-${item.to_mobile}-${index}`);
+        const open = !!expanded[key];
+        const status = dlv(item.delivery_code);
+        const body = String(item.body || '');
+        return <View style={ms.card}>
+          <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:open}} activeOpacity={0.8} style={ms.summary} onPress={() => setExpanded(prev => ({...prev,[key]:!prev[key]}))}>
+            <View style={ms.messageIcon}><MaterialCommunityIcons name="message-text-outline" size={22} color={C.brand}/></View>
+            <View style={ms.summaryBody}>
+              <Text style={ms.mobile}>{faNum(item.to_mobile || 'شماره نامشخص')}</Text>
+              <Text style={ms.date}>{faNum(fj(item.created_at))}</Text>
+            </View>
+            <MaterialCommunityIcons name={open?'chevron-up':'chevron-down'} size={23} color={C.muted}/>
+          </TouchableOpacity>
+          <View style={ms.statusRow}><MaterialCommunityIcons name={status[2]} size={16} color={status[1]}/><Text style={[ms.status,{color:status[1]}]}>{status[0]}</Text></View>
+          {!open ? <TouchableOpacity accessibilityRole="button" onPress={() => setExpanded(prev => ({...prev,[key]:true}))}><Text style={ms.preview} numberOfLines={2}>{faNum(body || 'بدون متن')}</Text><Text style={ms.expandHint}>مشاهده متن کامل</Text></TouchableOpacity> :
+            <View style={ms.fullMessage}><Text style={ms.fullText}>{faNum(body || 'بدون متن')}</Text></View>}
+        </View>;
+      }}/>
+  </View>;
 }
+const ms = StyleSheet.create({
+  heading:{flexDirection:'row-reverse',alignItems:'center',gap:11,marginBottom:13},
+  headingIcon:{width:48,height:48,borderRadius:15,backgroundColor:'#e7f5ef',alignItems:'center',justifyContent:'center'},
+  headingCopy:{flex:1,alignItems:'flex-end'},
+  headingTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:17,textAlign:'right'},
+  headingSub:{fontFamily:FONT.regular,color:C.muted,fontSize:11.5,textAlign:'right',marginTop:4},
+  filterBox:{backgroundColor:'#fff',borderRadius:16,borderWidth:1,borderColor:C.line,padding:12,marginTop:12,marginBottom:14},
+  filterHead:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:9},
+  filterTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:13},
+  listHeading:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',marginBottom:10},
+  listTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14},
+  count:{fontFamily:FONT.bold,color:C.brand,fontSize:12,backgroundColor:'#e7f5ef',paddingHorizontal:11,paddingVertical:6,borderRadius:10},
+  card:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:17,padding:13,marginBottom:10,elevation:1},
+  summary:{flexDirection:'row-reverse',alignItems:'center',gap:10,minHeight:47},
+  messageIcon:{width:40,height:40,borderRadius:12,backgroundColor:'#edf7f2',alignItems:'center',justifyContent:'center'},
+  summaryBody:{flex:1,alignItems:'flex-end',minWidth:0},
+  mobile:{fontFamily:FONT.bold,color:C.ink,fontSize:14,textAlign:'right'},
+  date:{fontFamily:FONT.regular,color:C.muted,fontSize:11,textAlign:'right',marginTop:4},
+  statusRow:{flexDirection:'row-reverse',alignItems:'center',gap:5,marginTop:10,marginBottom:6},
+  status:{fontFamily:FONT.bold,fontSize:11.5},
+  preview:{fontFamily:FONT.regular,color:C.ink,fontSize:12.5,textAlign:'right',lineHeight:23},
+  expandHint:{fontFamily:FONT.bold,color:C.brand,fontSize:11,textAlign:'right',marginTop:7},
+  fullMessage:{borderTopWidth:1,borderTopColor:'#edf0f2',paddingTop:10,marginTop:6},
+  fullText:{fontFamily:FONT.regular,color:C.ink,fontSize:13,textAlign:'right',lineHeight:25}
+});
 
 export function PastChecklistsScreen({ route }) {
   const { driver } = route.params;
