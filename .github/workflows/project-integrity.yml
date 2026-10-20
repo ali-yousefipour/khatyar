@@ -54,4 +54,5 @@ jobs:
         run: |
           node --version
           node --check php/app/assets/panel.bundle.js
+          node php/tests/panel_navigation_ui_test.cjs
           node --check php/app/assets/complaints-panel.js

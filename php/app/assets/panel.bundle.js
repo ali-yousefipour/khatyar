@@ -937,6 +937,10 @@ function PersonnelDistributionDashboard() {
         React.createElement("h4", { style: { margin: "16px 0 0" } }, "\u062A\u0639\u062F\u0627\u062F \u0646\u06CC\u0631\u0648\u0647\u0627 \u0628\u0647 \u062A\u0641\u06A9\u06CC\u06A9 \u0645\u0646\u0637\u0642\u0647"),
         cards(zoneCounts));
 }
+function ResponsiveTable({ children, ...props }) {
+    return React.createElement("div", { className: "table-wrap", tabIndex: 0, role: "region", "aria-label": "\u062C\u062F\u0648\u0644 \u0627\u0637\u0644\u0627\u0639\u0627\u062A\u061B \u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647 \u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0628\u06CC\u0634\u062A\u0631 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u06A9\u0646\u06CC\u062F" },
+        React.createElement("table", { ...props }, children));
+}
 function Dashboard() {
     const [s, setS] = useState(null);
     const [rep, setRep] = useState([]);
@@ -2409,7 +2413,7 @@ function Users() {
                 React.createElement("option", { value: "1" }, "\u0641\u0639\u0627\u0644"),
                 React.createElement("option", { value: "0" }, "\u063A\u06CC\u0631\u0641\u0639\u0627\u0644")),
             React.createElement("button", { className: "btn p", onClick: reload }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631")),
-        React.createElement("table", null,
+        React.createElement(ResponsiveTable, null,
             React.createElement("thead", null,
                 React.createElement("tr", null,
                     React.createElement("th", null),
@@ -3233,7 +3237,7 @@ function Drivers() {
             "\u0645\u062C\u0645\u0648\u0639: ",
             fa(data.total),
             " \u0631\u0627\u0646\u0646\u062F\u0647"),
-        React.createElement("table", null,
+        React.createElement(ResponsiveTable, null,
             React.createElement("thead", null,
                 React.createElement("tr", null,
                     React.createElement("th", null, "\u06A9\u062F \u0645\u0644\u06CC"),
@@ -3375,7 +3379,7 @@ function Bills() {
                 fa(data.page),
                 " \u0627\u0632 ",
                 fa(data.pages)),
-            React.createElement("table", null,
+            React.createElement(ResponsiveTable, null,
                 React.createElement("thead", null,
                     React.createElement("tr", null,
                         React.createElement("th", null, "\u0634\u062E\u0635 / \u0631\u0627\u0646\u0646\u062F\u0647"),
@@ -7447,7 +7451,7 @@ function Logs() {
                 events.map(e => React.createElement("option", { key: e, value: e }, ev[e] || e))),
             React.createElement("select", { className: "input", style: { maxWidth: 200 }, value: f.user_id, onChange: e => setF({ ...f, user_id: e.target.value }) },
                 React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u06A9\u0627\u0631\u0628\u0631\u0627\u0646"),
-                visibleUsers.map(u => React.createElement("option", { key: u.id, value: u.id },
+                users.map(u => React.createElement("option", { key: u.id, value: u.id },
                     u.first_name,
                     " ",
                     u.last_name,
@@ -7456,7 +7460,7 @@ function Logs() {
             React.createElement(JDate, { value: f.to, onChange: v => setF({ ...f, to: v }), placeholder: "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E" }),
             React.createElement("button", { className: "btn g", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
             React.createElement("button", { className: "btn p", onClick: exportExcel }, "\u2B07 \u062E\u0631\u0648\u062C\u06CC Excel")),
-        React.createElement("table", null,
+        React.createElement(ResponsiveTable, null,
             React.createElement("thead", null,
                 React.createElement("tr", null,
                     React.createElement("th", null, "\u0632\u0645\u0627\u0646"),
@@ -7743,7 +7747,7 @@ function Officials() {
             React.createElement("p", { className: "muted", style: { fontSize: 12, marginBottom: 6 } },
                 fa(rows.length),
                 " \u0631\u06A9\u0648\u0631\u062F"),
-            React.createElement("table", null,
+            React.createElement(ResponsiveTable, null,
                 React.createElement("thead", null,
                     React.createElement("tr", null,
                         React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
@@ -8308,7 +8312,7 @@ function Lines() {
             React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 10 } },
                 React.createElement("input", { className: "input", style: { maxWidth: 260 }, placeholder: "\u062C\u0633\u062A\u062C\u0648 \u0628\u0631 \u0627\u0633\u0627\u0633 \u06A9\u062F\u060C \u0645\u0628\u062F\u0623 \u06CC\u0627 \u0645\u0642\u0635\u062F \u062E\u0637", value: q, onChange: e => { setQ(e.target.value); pg.setPage(1); } })),
             React.createElement("p", { className: "muted", style: { marginBottom: 10 } }, "\u0628\u0631\u0627\u06CC \u0647\u0631 \u062E\u0637 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u00AB\u0645\u062D\u062F\u0648\u062F\u0647\u0654 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647\u00BB \u0631\u0627 \u0631\u0648\u06CC \u0646\u0642\u0634\u0647 (\u0686\u0646\u062F\u0636\u0644\u0639\u06CC \u06CC\u0627 \u062F\u0627\u06CC\u0631\u0647) \u062A\u0639\u0631\u06CC\u0641 \u06A9\u0646\u06CC\u062F\u061B \u0627\u06CC\u0646 \u0645\u062D\u062F\u0648\u062F\u0647\u200C\u0647\u0627 \u062F\u0631 \u0646\u0642\u0634\u0647\u0654 \u0632\u0646\u062F\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627 \u0628\u0627 \u0631\u0646\u06AF \u062F\u06CC\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
-            React.createElement("table", null,
+            React.createElement(ResponsiveTable, null,
                 React.createElement("thead", null,
                     React.createElement("tr", null,
                         React.createElement("th", null, "\u06A9\u062F"),
@@ -9198,7 +9202,7 @@ DELETE /api/admin/salary-slips/{id}
                 fa(total),
                 " \u06AF\u0632\u0627\u0631\u0634")),
         loading && React.createElement("p", { className: "muted", style: { textAlign: "center", padding: 8 } }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026"),
-        React.createElement("table", null,
+        React.createElement(ResponsiveTable, null,
             React.createElement("thead", null,
                 React.createElement("tr", null,
                     React.createElement("th", null, "\u0645\u0648\u0636\u0648\u0639"),
@@ -12568,7 +12572,7 @@ function SmsLog() {
             React.createElement("button", { className: "btn p", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
             React.createElement("button", { className: "btn g", disabled: busy, onClick: refresh }, busy ? "در حال بررسی…" : "به‌روزرسانی وضعیت تحویل"),
             React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
-        loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : rows.length ? (React.createElement("table", null,
+        loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : rows.length ? (React.createElement(ResponsiveTable, null,
             React.createElement("thead", null,
                 React.createElement("tr", null,
                     React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
@@ -13837,7 +13841,7 @@ function UserActivity() {
                 "\u0632\u0645\u0627\u0646\u200C\u0647\u0627\u06CC \u0631\u0648\u0634\u0646\u200C\u0628\u0648\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0634\u06A9\u0646 (",
                 fa(data.vpn_spans.length),
                 ")"),
-            React.createElement("table", null,
+            React.createElement(ResponsiveTable, null,
                 React.createElement("thead", null,
                     React.createElement("tr", null,
                         React.createElement("th", null, "#"),
@@ -13849,7 +13853,7 @@ function UserActivity() {
                     React.createElement("td", null, fj(s[1]))))))),
         data && data.vpn_events && data.vpn_events.length > 0 && React.createElement("div", { style: { marginTop: 12 } },
             React.createElement("h3", { style: { color: "#e23b54" } }, "\u0631\u0648\u06CC\u062F\u0627\u062F\u0647\u0627\u06CC \u0634\u0628\u06A9\u0647 \u0648 \u06A9\u0634\u0648\u0631 IP"),
-            React.createElement("table", null,
+            React.createElement(ResponsiveTable, null,
                 React.createElement("thead", null,
                     React.createElement("tr", null,
                         React.createElement("th", null, "\u0632\u0645\u0627\u0646"),
@@ -16815,8 +16819,8 @@ function Login({ onLogin, brand }) {
         }
     };
     const otp = loginMethod !== "password";
-    return (React.createElement("div", { style: { minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--paper)" } },
-        React.createElement("div", { className: "panel", style: { width: 380, maxWidth: "calc(100vw - 28px)" } },
+    return (React.createElement("div", { className: "login-page" },
+        React.createElement("div", { className: "panel login-card" },
             React.createElement("div", { style: { textAlign: "center", marginBottom: 18 } },
                 (brand === null || brand === void 0 ? void 0 : brand.logo) ? React.createElement("img", { src: brand.logo, style: { margin: "0 auto 10px", width: 58, height: 58, borderRadius: 14, objectFit: "contain", background: "#fff", padding: 5, border: "1px solid var(--line)" } }) : React.createElement("img", { src: "/brand-khatyar.png", style: { margin: "0 auto 10px", width: 58, height: 58, borderRadius: 29, objectFit: "cover" } }),
                 React.createElement("h3", { style: { justifyContent: "center" } },
@@ -16850,6 +16854,20 @@ function App() {
     const [allowed, setAllowed] = useState(null);
     const [drawer, setDrawer] = useState(false);
     const [brand, setBrand] = useState({});
+    const [menuSearch, setMenuSearch] = useState("");
+    const menuText = text => String(text || "").replace(/[يى]/g, "ی").replace(/ك/g, "ک").replace(/\u200c/g, " ").trim().toLowerCase();
+    const menuQuery = menuText(menuSearch);
+    const menuButtonRef = useRef(null);
+    useEffect(() => {
+        if (!drawer)
+            return;
+        const onKey = e => { var _a; if (e.key === "Escape") {
+            setDrawer(false);
+            (_a = menuButtonRef.current) === null || _a === void 0 ? void 0 : _a.focus();
+        } };
+        document.addEventListener("keydown", onKey);
+        return () => document.removeEventListener("keydown", onKey);
+    }, [drawer]);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => { try {
         return localStorage.getItem("admin_sidebar_collapsed") === "1";
     }
@@ -16907,8 +16925,11 @@ function App() {
         vehicleassets: 'operation-tools', vehiclechecklist: 'checklist', schoolservice: 'checklist', complaints: 'chat-message'
     };
     const can = (k) => !allowed || allowed.includes(k) || CORE.includes(k);
+    const currentSection = SECTIONS.find(([, keys]) => keys.includes(vk));
     const closeOnPick = (k) => { setV(k); setDrawer(false); };
+    const matchingMenuCount = SECTIONS.reduce((n, [title, keys]) => n + keys.filter(k => VIEWS[k] && can(k) && (menuText(VIEWS[k].t).includes(menuQuery) || menuText(title).includes(menuQuery))).length, 0);
     return (React.createElement("div", { className: "layout" + (drawer ? " drawer-open" : "") + (sidebarCollapsed ? " sidebar-collapsed" : "") },
+        React.createElement("a", { className: "skip-link", href: "#panel-content" }, "\u0631\u0641\u062A\u0646 \u0628\u0647 \u0645\u062D\u062A\u0648\u0627\u06CC \u0635\u0641\u062D\u0647"),
         React.createElement("div", { className: "scrim", onClick: () => setDrawer(false) }),
         React.createElement("aside", { className: "side" },
             React.createElement("div", { className: "brand" },
@@ -16917,20 +16938,24 @@ function App() {
             React.createElement("button", { type: "button", className: "sidebar-toggle", title: sidebarCollapsed ? "بازگرداندن منوی کامل" : "مینیمایز کردن منو", "aria-label": sidebarCollapsed ? "بازگرداندن منوی کامل" : "مینیمایز کردن منو", onClick: toggleSidebarCollapsed },
                 React.createElement("span", { "aria-hidden": "true" }, sidebarCollapsed ? "⇥" : "⇔"),
                 React.createElement("span", { className: "sidebar-toggle-label" }, sidebarCollapsed ? "بازگشت منو" : "مینیمایز منو")),
-            React.createElement("nav", { className: "nav", style: { flex: 1 } },
+            React.createElement("div", { className: "menu-search" },
+                React.createElement("input", { type: "search", value: menuSearch, onChange: e => setMenuSearch(e.target.value), placeholder: "\u062C\u0633\u062A\u062C\u0648 \u062F\u0631 \u0645\u0646\u0648\u2026", "aria-label": "\u062C\u0633\u062A\u062C\u0648 \u062F\u0631 \u0635\u0641\u062D\u0627\u062A \u067E\u0646\u0644" }),
+                menuSearch && React.createElement("button", { type: "button", onClick: () => setMenuSearch(""), "aria-label": "\u067E\u0627\u06A9 \u06A9\u0631\u062F\u0646 \u062C\u0633\u062A\u062C\u0648\u06CC \u0645\u0646\u0648" }, "\u00D7")),
+            React.createElement("nav", { className: "nav", "aria-label": "\u0635\u0641\u062D\u0627\u062A \u0645\u062F\u06CC\u0631\u06CC\u062A", style: { flex: 1 } },
                 SECTIONS.map(([title, keys]) => {
-                    const ks = keys.filter(k => VIEWS[k] && can(k));
+                    const ks = keys.filter(k => VIEWS[k] && can(k) && (!menuQuery || menuText(VIEWS[k].t).includes(menuQuery) || menuText(title).includes(menuQuery)));
                     if (!ks.length)
                         return null;
-                    const open = !!openSections[title];
+                    const open = !!menuQuery || !!openSections[title];
                     return (React.createElement("div", { key: title, className: "navsec" + (open ? " open" : "") },
                         React.createElement("button", { className: "navsec-head", onClick: () => setOpenSections(cur => ({ ...cur, [title]: !cur[title] })), "aria-expanded": open },
                             React.createElement("span", null, title),
                             React.createElement("span", { className: "nav-chevron" }, "\u2039")),
-                        React.createElement("div", { className: "navsec-body", style: { maxHeight: open ? `${ks.length * 60}px` : '0px', opacity: open ? 1 : 0 } }, ks.map(k => React.createElement("button", { key: k, title: sidebarCollapsed ? VIEWS[k].t : undefined, className: "navitem " + (v === k ? "on" : ""), onClick: () => closeOnPick(k) },
+                        React.createElement("div", { className: "navsec-body", style: { maxHeight: open ? `${ks.length * 60}px` : '0px', opacity: open ? 1 : 0 } }, ks.map(k => React.createElement("button", { key: k, title: VIEWS[k].t, "aria-current": vk === k ? "page" : undefined, className: "navitem " + (vk === k ? "on" : ""), onClick: () => closeOnPick(k) },
                             React.createElement("span", { className: "ic" }, I8(MENU_ICONS[k])),
                             React.createElement("span", { className: "navlabel" }, VIEWS[k].t))))));
                 }),
+                menuQuery && matchingMenuCount === 0 && React.createElement("p", { className: "menu-empty", role: "status" }, "\u0635\u0641\u062D\u0647\u200C\u0627\u06CC \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F. \u0639\u0628\u0627\u0631\u062A \u062F\u06CC\u06AF\u0631\u06CC \u062C\u0633\u062A\u062C\u0648 \u06A9\u0646\u06CC\u062F."),
                 React.createElement("button", { className: "navitem logout-item", onClick: () => { localStorage.removeItem("token"); setMe(null); } },
                     React.createElement("span", { className: "ic" }, I8('logout-door')),
                     React.createElement("span", { className: "navlabel" }, "\u062E\u0631\u0648\u062C"))),
@@ -16943,8 +16968,14 @@ function App() {
                     React.createElement("span", { style: { color: (window.__health ? "#16a06a" : "#e3403e") } }, window.__health ? "متصل به سرور" : "قطع")))),
         React.createElement("main", { className: "main" },
             React.createElement("div", { className: "top" },
-                React.createElement("button", { className: "burger", onClick: () => setDrawer(d => !d) }, "\u2630"),
-                React.createElement("h2", null, VIEWS[vk].t),
+                React.createElement("button", { ref: menuButtonRef, className: "burger", "aria-label": drawer ? "بستن منوی صفحات" : "باز کردن منوی صفحات", "aria-expanded": drawer, onClick: () => { setSidebarCollapsed(false); setDrawer(d => !d); } }, "\u2630"),
+                React.createElement("div", { className: "page-heading" },
+                    React.createElement("div", { className: "page-breadcrumb" },
+                        "\u067E\u0646\u0644 \u0645\u062F\u06CC\u0631\u06CC\u062A ",
+                        React.createElement("span", { "aria-hidden": "true" }, "/"),
+                        " ",
+                        (currentSection === null || currentSection === void 0 ? void 0 : currentSection[0]) || "خطیار"),
+                    React.createElement("h2", null, VIEWS[vk].t)),
                 React.createElement("div", { className: "who" },
                     React.createElement("span", null,
                         me.name,
@@ -16955,7 +16986,8 @@ function App() {
                         React.createElement("img", { src: userPhotoImg(me.photo), alt: "تصویر " + (me.name || "کاربر"), onError: e => { e.currentTarget.style.display = "none"; if (e.currentTarget.nextSibling)
                                 e.currentTarget.nextSibling.style.display = "grid"; } }),
                         React.createElement("span", { className: "av-fallback", style: { display: "none" } }, (me.name || "؟")[0])) : React.createElement("span", null, (me.name || "؟")[0])))),
-            React.createElement(View, null))));
+            React.createElement("div", { id: "panel-content", className: "page-content", "data-page": vk, tabIndex: -1 },
+                React.createElement(View, null)))));
 }
 const PANEL_BUILD_VERSION = "1.5.10";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،

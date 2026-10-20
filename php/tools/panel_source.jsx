@@ -640,6 +640,10 @@ function PersonnelDistributionDashboard(){
   return <div className="panel" style={{margin:"14px 0"}}><h3 style={{margin:"0 0 8px"}}>آمار نیروها</h3><div className="muted" style={{fontSize:12}}>بر اساس فهرست پرسنل، مستقل از وضعیت حضور و غیاب</div><h4 style={{margin:"14px 0 0"}}>تعداد نیروها به تفکیک سمت</h4>{cards(roleCounts)}<h4 style={{margin:"16px 0 0"}}>تعداد نیروها به تفکیک منطقه</h4>{cards(zoneCounts)}</div>;
 }
 
+function ResponsiveTable({children,...props}){
+  return <div className="table-wrap" tabIndex={0} role="region" aria-label="جدول اطلاعات؛ برای مشاهده ستون‌های بیشتر پیمایش کنید"><table {...props}>{children}</table></div>;
+}
+
 function Dashboard(){
   const [s,setS]=useState(null); const [rep,setRep]=useState([]); const [tw,setTw]=useState({top:[],bottom:[]}); const chartRef=useRef(); const lineRef=useRef();
   const [tab,setTab]=useState("charts");
@@ -1446,7 +1450,7 @@ function Users(){
       <select className="input" style={{maxWidth:150}} value={f.zone_id} onChange={e=>setF({...f,zone_id:e.target.value})}><option value="">همهٔ مناطق</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select>
       <select className="input" style={{maxWidth:120}} value={f.active} onChange={e=>setF({...f,active:e.target.value})}><option value="">همه</option><option value="1">فعال</option><option value="0">غیرفعال</option></select>
       <button className="btn p" onClick={reload}>اعمال فیلتر</button></div>
-    <table><thead><tr><th></th><th>نام</th><th>کد ملی</th><th>سمت</th><th>درجه</th><th>ایمیل</th><th>تعهدات</th><th>دستگاه‌ها</th><th>وضعیت</th><th>اقدامات</th></tr></thead>
+    <ResponsiveTable><thead><tr><th></th><th>نام</th><th>کد ملی</th><th>سمت</th><th>درجه</th><th>ایمیل</th><th>تعهدات</th><th>دستگاه‌ها</th><th>وضعیت</th><th>اقدامات</th></tr></thead>
     <tbody>{pg.slice.map(u=><tr key={u.id}>
       <td>{u.photo?<img src={u.photo} style={{width:34,height:34,borderRadius:8,objectFit:"cover"}}/>:<span className="pf2">{(u.first_name||"؟")[0]}</span>}</td>
       <td>{u.first_name} {u.last_name}</td><td style={{direction:"ltr",textAlign:"right"}}>{u.username||"—"}</td>
@@ -1457,7 +1461,7 @@ function Users(){
       <td><div className="row" style={{gap:6,flexWrap:"wrap"}}>
         <button className="btn g" onClick={()=>{setEdit({...u,seniority_loading:true,allow_android:u.allow_android==1,allow_web:u.allow_web==1,security_exempt:u.security_exempt==1,presence_required:u.presence_required==1,can_send_sms:u.can_send_sms==1,can_be_substitute:u.can_be_substitute==1,can_welfare:u.can_welfare==1,can_cultural:u.can_cultural==1,can_manage_temp_drivers:u.can_manage_temp_drivers==1,birth_iso:u.birth_date?isoFromJ(...String(u.birth_date).replace(/[\/.]/g,"-").split("-").map(Number)):""});setPw("");GET('/admin/users/'+u.id+'/employment-period').then(period=>{setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,employment_start_date:period.employment_start_date||'',employment_end_date:period.employment_end_date||''}:current)}).catch(error=>{alert('دریافت تاریخ همکاری از سرور ناموفق بود: '+(error.message||error));});GET('/admin/seniority').then(result=>{const record=(result.rows||[]).find(row=>Number(row.id)===Number(u.id));setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:record?.initialized?record.seniority_days:null}:current)}).catch(()=>setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:null}:current));}}>ویرایش</button>
         <button className="btn g" onClick={()=>setLineModal(u)}>خطوط</button>
-        <button className="btn g" style={{color:'var(--danger)'}} onClick={()=>delUser(u)}>حذف</button></div></td></tr>)}</tbody></table>
+        <button className="btn g" style={{color:'var(--danger)'}} onClick={()=>delUser(u)}>حذف</button></div></td></tr>)}</tbody></ResponsiveTable>
     {pg.Pager()}
     {commitmentsModal&&<Modal title={"تعهدات "+(commitmentsModal.user.first_name||"")+" "+(commitmentsModal.user.last_name||"")} onClose={()=>setCommitmentsModal(null)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:12}}>
@@ -1856,7 +1860,7 @@ function Drivers(){
       <input className="input" style={{maxWidth:130}} placeholder="نوع راننده" value={f.driver_type} onChange={e=>setF({...f,driver_type:e.target.value})}/>
       <button className="btn p" onClick={()=>load(1)}>اعمال فیلتر</button></div>
     <p className="muted" style={{marginBottom:8}}>مجموع: {fa(data.total)} راننده</p>
-    <table><thead><tr><th>کد ملی</th><th>نام</th><th>موبایل</th><th>جنسیت</th><th>پروانه بهره‌برداری</th><th>اقدامات</th></tr></thead>
+    <ResponsiveTable><thead><tr><th>کد ملی</th><th>نام</th><th>موبایل</th><th>جنسیت</th><th>پروانه بهره‌برداری</th><th>اقدامات</th></tr></thead>
     <tbody>{data.rows.map(x=><tr key={x.id}>
       <td style={{direction:"ltr",textAlign:"right"}}>{x.national_id}</td><td>{x.first_name} {x.last_name}</td>
       <td style={{direction:"ltr",textAlign:"right"}}>{x.mobile}</td><td>{x.gender}</td>
@@ -1864,7 +1868,7 @@ function Drivers(){
       <td><div className="row" style={{gap:6,flexWrap:"wrap"}}>
         <button className="btn g" onClick={()=>showFull(x.id)}>اطلاعات کامل</button>
         <button className="btn g" onClick={()=>setEdit({...x})}>ویرایش</button>
-        <button className="btn g" style={{color:'var(--danger)'}} onClick={()=>del(x)}>حذف</button></div></td></tr>)}</tbody></table>
+        <button className="btn g" style={{color:'var(--danger)'}} onClick={()=>del(x)}>حذف</button></div></td></tr>)}</tbody></ResponsiveTable>
     <div className="row" style={{gap:8,justifyContent:"center",alignItems:"center",marginTop:12}}>
       <button className="btn g" disabled={page<=1} onClick={()=>load(page-1)}>قبلی</button>
       <span style={{alignSelf:"center"}}>صفحهٔ {fa(data.page)} از {fa(data.pages||1)}</span>
@@ -1915,7 +1919,7 @@ function Bills(){
     </div>
     {loading?<p className="muted">در حال بارگذاری…</p>:b.length===0?<p className="muted">نتیجه‌ای یافت نشد.</p>:<>
     <p className="muted" style={{marginBottom:8}}>مجموع <b>{fa(data.total)}</b> فیش · صفحهٔ {fa(data.page)} از {fa(data.pages)}</p>
-    <table><thead><tr><th>شخص / راننده</th><th>کد ملی</th><th>پلاک</th><th>خط</th><th>مبلغ (ریال)</th><th>وضعیت</th><th>تاریخ</th><th>دلیل</th></tr></thead>
+    <ResponsiveTable><thead><tr><th>شخص / راننده</th><th>کد ملی</th><th>پلاک</th><th>خط</th><th>مبلغ (ریال)</th><th>وضعیت</th><th>تاریخ</th><th>دلیل</th></tr></thead>
     <tbody>{b.map(x=><tr key={x.id}>
       <td><div>{x.person_title}</div>{x.driver_name&&x.driver_name.trim()&&<div className="muted" style={{fontSize:11}}>{x.driver_name}</div>}</td>
       <td style={{direction:"ltr",textAlign:"right"}}>{x.national_id}</td>
@@ -1925,7 +1929,7 @@ function Bills(){
       <td><span className={"badge "+(x.status==="پرداخت شده"?"b-ok":"b-no")}>{x.status}</span></td>
       <td style={{fontSize:11}}>{x.pay_date||"\u2014"}</td>
       <td style={{fontSize:11}}>{x.reason||"\u2014"}</td>
-    </tr>)}</tbody></table>
+    </tr>)}</tbody></ResponsiveTable>
     <div className="row" style={{gap:8,justifyContent:"center",alignItems:"center",marginTop:12,flexWrap:"wrap"}}>
       <button className="btn g" disabled={data.page<=1} onClick={()=>load(q,data.page-1)}>قبلی</button>
       <span>صفحهٔ {fa(data.page)} از {fa(data.pages)} · مجموع {fa(data.total)}</span>
@@ -4352,15 +4356,15 @@ function Logs(){
   return(<div className="panel"><h3>لاگ فعالیت‌ها و رویدادهای امنیتی</h3>
     <div className="row no-print" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
       <select className="input" style={{maxWidth:180}} value={f.event} onChange={e=>setF({...f,event:e.target.value})}><option value="">همهٔ رویدادها</option>{events.map(e=><option key={e} value={e}>{ev[e]||e}</option>)}</select>
-      <select className="input" style={{maxWidth:200}} value={f.user_id} onChange={e=>setF({...f,user_id:e.target.value})}><option value="">همهٔ کاربران</option>{visibleUsers.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}{u.username?` — ${u.username}`:""}</option>)}</select>
+      <select className="input" style={{maxWidth:200}} value={f.user_id} onChange={e=>setF({...f,user_id:e.target.value})}><option value="">همهٔ کاربران</option>{users.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}{u.username?` — ${u.username}`:""}</option>)}</select>
       <JDate value={f.from} onChange={v=>setF({...f,from:v})} placeholder="از تاریخ"/>
       <JDate value={f.to} onChange={v=>setF({...f,to:v})} placeholder="تا تاریخ"/>
       <button className="btn g" onClick={load}>اعمال فیلتر</button>
       <button className="btn p" onClick={exportExcel}>⬇ خروجی Excel</button></div>
-    <table><thead><tr><th>زمان</th><th>کاربر</th><th>رویداد</th><th>توضیح</th></tr></thead>
+    <ResponsiveTable><thead><tr><th>زمان</th><th>کاربر</th><th>رویداد</th><th>توضیح</th></tr></thead>
     <tbody>{l.map(x=><tr key={x.id}><td>{fj(x.created_at)}</td><td>{x.first_name} {x.last_name}</td>
       <td><span className={"badge "+((x.event||"").includes("blocked")||(x.event||"").includes("off")||(x.event||"").includes("failed")?"b-no":"b-w")}>{ev[x.event]||x.event}</span></td>
-      <td style={{fontSize:12,color:"var(--muted)"}}>{x.meta?.reason||"—"}</td></tr>)}</tbody></table>
+      <td style={{fontSize:12,color:"var(--muted)"}}>{x.meta?.reason||"—"}</td></tr>)}</tbody></ResponsiveTable>
     {l.length===0&&<p className="muted" style={{textAlign:"center",padding:12}}>رکوردی یافت نشد.</p>}</div>);
 }
 
@@ -4532,10 +4536,10 @@ function Officials(){
         <button className="btn g" onClick={exportExcel}>⬇ Excel</button>
       </div>
       <p className="muted" style={{fontSize:12,marginBottom:6}}>{fa(rows.length)} رکورد</p>
-      <table><thead><tr><th>تاریخ</th><th>مسئول</th><th>سمت</th><th>خط</th><th>ثبت‌کننده</th><th></th></tr></thead>
+      <ResponsiveTable><thead><tr><th>تاریخ</th><th>مسئول</th><th>سمت</th><th>خط</th><th>ثبت‌کننده</th><th></th></tr></thead>
       <tbody>{rows.map(r=><tr key={r.id}><td>{fj(r.created_at)}</td><td>{r.official}</td><td>{r.official_role}</td>
         <td>{r.line||"—"}</td><td>{r.recorded_by}</td>
-        <td><button className="btn g" onClick={()=>setDetail(r)}>جزئیات</button></td></tr>)}</tbody></table>
+        <td><button className="btn g" onClick={()=>setDetail(r)}>جزئیات</button></td></tr>)}</tbody></ResponsiveTable>
       {rows.length===0&&<p style={{color:"var(--muted)",fontSize:13,textAlign:"center",padding:12}}>رکوردی یافت نشد.</p>}</div>
     <div className="panel"><h3>نمودار حضور هر مسئول</h3><canvas ref={chartRef} height="220"></canvas></div>
     {detail&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",display:"grid",placeItems:"center",zIndex:50,padding:16}} onClick={()=>setDetail(null)}>
@@ -4850,11 +4854,11 @@ function Lines(){
       <div className="row" style={{gap:8,marginBottom:10}}>
         <input className="input" style={{maxWidth:260}} placeholder="جستجو بر اساس کد، مبدأ یا مقصد خط" value={q} onChange={e=>{setQ(e.target.value);pg.setPage(1);}}/></div>
       <p className="muted" style={{marginBottom:10}}>برای هر خط می‌توانید «محدودهٔ ایستگاه» را روی نقشه (چندضلعی یا دایره) تعریف کنید؛ این محدوده‌ها در نقشهٔ زندهٔ نیروها با رنگ دیده می‌شوند.</p>
-      <table><thead><tr><th>کد</th><th>مبدأ</th><th>مقصد</th><th>وضعیت</th><th>محدوده‌ها</th><th>اقدامات</th></tr></thead>
+      <ResponsiveTable><thead><tr><th>کد</th><th>مبدأ</th><th>مقصد</th><th>وضعیت</th><th>محدوده‌ها</th><th>اقدامات</th></tr></thead>
       <tbody>{pg.slice.map(l=><tr key={l.id}><td>{l.code}</td><td>{l.origin}</td><td>{l.destination}</td>
         <td><span className={"badge "+(l.status==="فعال"?"b-ok":"b-no")}>{l.status||"—"}</span></td>
         <td>{counts[l.id]?fa(counts[l.id])+" ایستگاه":"—"}</td>
-        <td><button className="btn p" onClick={()=>setDetailLine(l)}>جزئیات</button> <button className="btn p" onClick={()=>setEditLine(l)}>تعریف محدودهٔ ایستگاه</button> <button className="btn g" onClick={()=>setIdentLine(l)}>شناسه‌های حضور</button> <button className="btn g" onClick={()=>setMethodLine(l)}>روش‌های ثبت حضور</button></td></tr>)}</tbody></table>
+        <td><button className="btn p" onClick={()=>setDetailLine(l)}>جزئیات</button> <button className="btn p" onClick={()=>setEditLine(l)}>تعریف محدودهٔ ایستگاه</button> <button className="btn g" onClick={()=>setIdentLine(l)}>شناسه‌های حضور</button> <button className="btn g" onClick={()=>setMethodLine(l)}>روش‌های ثبت حضور</button></td></tr>)}</tbody></ResponsiveTable>
       {list.length===0&&<p className="muted" style={{textAlign:"center",padding:12}}>خطی یافت نشد. از «ورود اطلاعات (اکسل)» فایل خطوط را بارگذاری کنید.</p>}
       {pg.Pager()}
     </div>}
@@ -5401,10 +5405,10 @@ DELETE /api/admin/salary-slips/{id}
       <button className="btn g" onClick={exportXls}>⤓ خروجی اکسل</button>
       <span className="muted" style={{fontSize:12}}>{fa(total)} گزارش</span></div>
     {loading&&<p className="muted" style={{textAlign:"center",padding:8}}>در حال بارگذاری…</p>}
-    <table><thead><tr><th>موضوع</th><th>فرستنده</th><th>وضعیت</th><th>ثبت</th><th>مهلت</th><th></th></tr></thead>
+    <ResponsiveTable><thead><tr><th>موضوع</th><th>فرستنده</th><th>وضعیت</th><th>ثبت</th><th>مهلت</th><th></th></tr></thead>
     <tbody>{list.map(r=><tr key={r.id}><td>{r.subject}{(r.has_attachment||r.attachment_name)?" 📎":""}</td><td>{r.first_name} {r.last_name}</td>
       <td><span className="badge b-ok">{ST[r.status]||r.status}</span></td><td>{fj(r.created_at)}</td>
-      <td><button className="btn g" onClick={()=>open(r)}>مشاهده</button></td></tr>)}</tbody></table>
+      <td><button className="btn g" onClick={()=>open(r)}>مشاهده</button></td></tr>)}</tbody></ResponsiveTable>
     {list.length===0&&!loading&&<p className="muted" style={{textAlign:"center",padding:12}}>گزارشی یافت نشد.</p>}
     {pages>1&&<div className="row" style={{justifyContent:"center",gap:8,marginTop:12}}>
       <button className="btn g" disabled={page<=1} onClick={()=>goPage(page-1)}>قبلی</button>
@@ -7344,7 +7348,7 @@ function SmsLog(){
       <button className="btn g" onClick={exportExcel}>⤓ خروجی اکسل</button>
     </div>
     {loading?<p className="muted">در حال بارگذاری…</p>:rows.length?(
-    <table><thead><tr><th>تاریخ</th><th>گیرنده</th><th>نوع</th><th>وضعیت ارسال</th><th>وضعیت تحویل</th><th>فرستنده</th><th>متن</th></tr></thead>
+    <ResponsiveTable><thead><tr><th>تاریخ</th><th>گیرنده</th><th>نوع</th><th>وضعیت ارسال</th><th>وضعیت تحویل</th><th>فرستنده</th><th>متن</th></tr></thead>
     <tbody>{rows.map(r=><tr key={r.id}>
       <td style={{whiteSpace:"nowrap"}}>{fj(r.created_at)}</td>
       <td dir="ltr">{r.to_mobile}</td>
@@ -7353,7 +7357,7 @@ function SmsLog(){
       <td>{delvBadge(r.delivery_code)}</td>
       <td>{(r.sender||"").trim()||"—"}</td>
       <td style={{maxWidth:280,fontSize:12,color:"var(--muted)"}}>{(r.body||"").slice(0,80)}{(r.body||"").length>80?"…":""}</td>
-    </tr>)}</tbody></table>
+    </tr>)}</tbody></ResponsiveTable>
     ):<p className="muted">پیامکی در این بازه ثبت نشده است.</p>}
     <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>توجه: بررسی وضعیت تحویل از سمت مخابرات فقط تا ۷ روز پس از ارسال امکان‌پذیر است.</p>
   </div>);
@@ -8081,18 +8085,18 @@ function UserActivity(){
    </div>}
    {data&&data.vpn_spans&&data.vpn_spans.length>0&&<div className="panel" style={{marginTop:14,borderColor:"#f3c0ca"}}>
      <h3 style={{color:"#e23b54"}}>زمان‌های روشن‌بودن فیلترشکن ({fa(data.vpn_spans.length)})</h3>
-     <table><thead><tr><th>#</th><th>روشن شد</th><th>خاموش شد</th></tr></thead>
-     <tbody>{data.vpn_spans.map((s,i)=><tr key={i}><td>{fa(i+1)}</td><td>{fj(s[0])}</td><td>{fj(s[1])}</td></tr>)}</tbody></table>
+     <ResponsiveTable><thead><tr><th>#</th><th>روشن شد</th><th>خاموش شد</th></tr></thead>
+     <tbody>{data.vpn_spans.map((s,i)=><tr key={i}><td>{fa(i+1)}</td><td>{fj(s[0])}</td><td>{fj(s[1])}</td></tr>)}</tbody></ResponsiveTable>
    </div>}
    {data&&data.vpn_events&&data.vpn_events.length>0&&<div style={{marginTop:12}}>
      <h3 style={{color:"#e23b54"}}>رویدادهای شبکه و کشور IP</h3>
-     <table><thead><tr><th>زمان</th><th>وضعیت</th><th>کشور IP</th><th>IP</th></tr></thead>
+     <ResponsiveTable><thead><tr><th>زمان</th><th>وضعیت</th><th>کشور IP</th><th>IP</th></tr></thead>
      <tbody>{data.vpn_events.map((e,i)=><tr key={i}>
        <td>{fj(e.at)}</td>
        <td><span style={{color:e.state?"#e23b54":"#16a06a"}}>{e.state?"فیلترشکن روشن":"خاموش"}</span></td>
        <td style={{fontWeight:700,color:(e.country&&e.country!=="IR")?"#d97706":"inherit"}} dir="ltr">{e.country||"—"}</td>
        <td dir="ltr" style={{fontSize:11}}>{e.ip||"—"}</td>
-     </tr>)}</tbody></table>
+     </tr>)}</tbody></ResponsiveTable>
    </div>}
    <p className="muted" style={{marginTop:10,fontSize:12}}>مدت روشن/خاموش بودن اینترنت و GPS از اپ موبایل ارسال می‌شود و برای کاربرانی که اپ نصب دارند در دسترس است.</p>
   </div>);
@@ -9178,8 +9182,8 @@ function Login({onLogin,brand}){
     try{const d=await db.webLoginOtpVerify(username,code);onLogin(d.user);}catch(e){setErr(e&&e.message?e.message:"کد واردشده صحیح نیست");}finally{setBusy(false);}
   };
   const otp=loginMethod!=="password";
-  return(<div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)"}}>
-    <div className="panel" style={{width:380,maxWidth:"calc(100vw - 28px)"}}>
+  return(<div className="login-page">
+    <div className="panel login-card">
       <div style={{textAlign:"center",marginBottom:18}}>{brand?.logo?<img src={brand.logo} style={{margin:"0 auto 10px",width:58,height:58,borderRadius:14,objectFit:"contain",background:"#fff",padding:5,border:"1px solid var(--line)"}}/>:<img src="/brand-khatyar.png" style={{margin:"0 auto 10px",width:58,height:58,borderRadius:29,objectFit:"cover"}}/>}
         <h3 style={{justifyContent:"center"}}>ورود به {brand?.title||"خطیار"}</h3></div>
       <div style={{fontSize:12,color:"var(--muted)",lineHeight:1.9,marginBottom:12}}>روش ورود فعال: <b>{methodLabel}</b></div>
@@ -9208,6 +9212,16 @@ function Login({onLogin,brand}){
 }
 function App(){
   const [me,setMe]=useState(null); const [authReady,setAuthReady]=useState(false); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState(null); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
+  const [menuSearch,setMenuSearch]=useState("");
+  const menuText=text=>String(text||"").replace(/[يى]/g,"ی").replace(/ك/g,"ک").replace(/\u200c/g," ").trim().toLowerCase();
+  const menuQuery=menuText(menuSearch);
+  const menuButtonRef=useRef(null);
+  useEffect(()=>{
+    if(!drawer)return;
+    const onKey=e=>{if(e.key==="Escape"){setDrawer(false);menuButtonRef.current?.focus();}};
+    document.addEventListener("keydown",onKey);
+    return()=>document.removeEventListener("keydown",onKey);
+  },[drawer]);
   const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>{ try{return localStorage.getItem("admin_sidebar_collapsed")==="1";}catch(e){return false;} });
   const toggleSidebarCollapsed=()=>setSidebarCollapsed(prev=>{const next=!prev;try{localStorage.setItem("admin_sidebar_collapsed",next?"1":"0");}catch(e){}return next;});
   // منوهای اصلی در لود اولیه بسته باشند؛ کاربر فقط بخش موردنیاز را باز می‌کند.
@@ -9248,20 +9262,25 @@ function App(){
     vehicleassets:'operation-tools', vehiclechecklist:'checklist', schoolservice:'checklist', complaints:'chat-message'
   };
   const can=(k)=>!allowed||allowed.includes(k)||CORE.includes(k);
+  const currentSection=SECTIONS.find(([,keys])=>keys.includes(vk));
   const closeOnPick=(k)=>{ setV(k); setDrawer(false); };
+  const matchingMenuCount=SECTIONS.reduce((n,[title,keys])=>n+keys.filter(k=>VIEWS[k]&&can(k)&&(menuText(VIEWS[k].t).includes(menuQuery)||menuText(title).includes(menuQuery))).length,0);
   return(<div className={"layout"+(drawer?" drawer-open":"")+(sidebarCollapsed?" sidebar-collapsed":"")}>
+    <a className="skip-link" href="#panel-content">رفتن به محتوای صفحه</a>
     <div className="scrim" onClick={()=>setDrawer(false)}></div>
     <aside className="side"><div className="brand">{brand.logo?<img src={brand.logo} style={{width:38,height:38,borderRadius:10,objectFit:"contain",background:"#fff",padding:3}}/>:<img src="/brand-khatyar.png" style={{width:38,height:38,borderRadius:19,objectFit:"cover"}}/>}<span>{brand.title||"خطیار"}</span></div>
       <button type="button" className="sidebar-toggle" title={sidebarCollapsed?"بازگرداندن منوی کامل":"مینیمایز کردن منو"} aria-label={sidebarCollapsed?"بازگرداندن منوی کامل":"مینیمایز کردن منو"} onClick={toggleSidebarCollapsed}><span aria-hidden="true">{sidebarCollapsed?"⇥":"⇔"}</span><span className="sidebar-toggle-label">{sidebarCollapsed?"بازگشت منو":"مینیمایز منو"}</span></button>
-      <nav className="nav" style={{flex:1}}>{SECTIONS.map(([title,keys])=>{ const ks=keys.filter(k=>VIEWS[k]&&can(k)); if(!ks.length)return null; const open=!!openSections[title];
+      <div className="menu-search"><input type="search" value={menuSearch} onChange={e=>setMenuSearch(e.target.value)} placeholder="جستجو در منو…" aria-label="جستجو در صفحات پنل"/>{menuSearch&&<button type="button" onClick={()=>setMenuSearch("")} aria-label="پاک کردن جستجوی منو">×</button>}</div>
+      <nav className="nav" aria-label="صفحات مدیریت" style={{flex:1}}>{SECTIONS.map(([title,keys])=>{ const ks=keys.filter(k=>VIEWS[k]&&can(k)&&(!menuQuery||menuText(VIEWS[k].t).includes(menuQuery)||menuText(title).includes(menuQuery))); if(!ks.length)return null; const open=!!menuQuery||!!openSections[title];
         return(<div key={title} className={"navsec"+(open?" open":"")}>
           <button className="navsec-head" onClick={()=>setOpenSections(cur=>({...cur,[title]:!cur[title]}))} aria-expanded={open}>
             <span>{title}</span><span className="nav-chevron">‹</span>
           </button>
           <div className="navsec-body" style={{maxHeight:open?`${ks.length*60}px`:'0px',opacity:open?1:0}}>
-            {ks.map(k=><button key={k} title={sidebarCollapsed?VIEWS[k].t:undefined} className={"navitem "+(v===k?"on":"")} onClick={()=>closeOnPick(k)}><span className="ic">{I8(MENU_ICONS[k])}</span><span className="navlabel">{VIEWS[k].t}</span></button>)}
+            {ks.map(k=><button key={k} title={VIEWS[k].t} aria-current={vk===k?"page":undefined} className={"navitem "+(vk===k?"on":"")} onClick={()=>closeOnPick(k)}><span className="ic">{I8(MENU_ICONS[k])}</span><span className="navlabel">{VIEWS[k].t}</span></button>)}
           </div>
         </div>); })}
+        {menuQuery&&matchingMenuCount===0&&<p className="menu-empty" role="status">صفحه‌ای پیدا نشد. عبارت دیگری جستجو کنید.</p>}
         <button className="navitem logout-item" onClick={()=>{localStorage.removeItem("token");setMe(null);}}><span className="ic">{I8('logout-door')}</span><span className="navlabel">خروج</span></button></nav>
       <div className="apibar">
         <div>برنامه‌نویسی و راه‌اندازی شده توسط شرکت مبین شات مشهد (خرداد ۱۴۰۵)</div>
@@ -9269,10 +9288,10 @@ function App(){
       </div>
     </aside>
     <main className="main"><div className="top">
-      <button className="burger" onClick={()=>setDrawer(d=>!d)}>☰</button>
-      <h2>{VIEWS[vk].t}</h2>
+      <button ref={menuButtonRef} className="burger" aria-label={drawer?"بستن منوی صفحات":"باز کردن منوی صفحات"} aria-expanded={drawer} onClick={()=>{setSidebarCollapsed(false);setDrawer(d=>!d);}}>☰</button>
+      <div className="page-heading"><div className="page-breadcrumb">پنل مدیریت <span aria-hidden="true">/</span> {currentSection?.[0]||"خطیار"}</div><h2>{VIEWS[vk].t}</h2></div>
       <div className="who"><span>{me.name} — {me.role}{me.rank_stars?" · "+"★".repeat(Math.max(0,Math.min(5,+me.rank_stars))):""}</span><div className="av">{me.photo?<><img src={userPhotoImg(me.photo)} alt={"تصویر "+(me.name||"کاربر")} onError={e=>{e.currentTarget.style.display="none";if(e.currentTarget.nextSibling)e.currentTarget.nextSibling.style.display="grid";}}/><span className="av-fallback" style={{display:"none"}}>{(me.name||"؟")[0]}</span></>:<span>{(me.name||"؟")[0]}</span>}</div></div></div>
-      <View/></main></div>);
+      <div id="panel-content" className="page-content" data-page={vk} tabIndex={-1}><View/></div></main></div>);
 }
 
 const PANEL_BUILD_VERSION = "1.5.10";
