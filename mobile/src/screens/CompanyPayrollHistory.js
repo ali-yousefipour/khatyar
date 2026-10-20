@@ -6,6 +6,7 @@ import { C, FONT } from '../theme';
 import { faNum } from '../num';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import { captureRef } from 'react-native-view-shot';
+import * as Font from 'expo-font';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import PayrollAccessSlip from '../components/PayrollAccessSlip';
@@ -45,6 +46,19 @@ export default function CompanyPayrollHistory() {
   const slipRef = useRef(null);
   const [slip, setSlip] = useState(null);
   const [issuing, setIssuing] = useState(false);
+  const [payrollFontsReady, setPayrollFontsReady] = useState(false);
+  const ensurePayrollFonts = async () => {
+    if (!Font.isLoaded(FONT.payrollHoma) || !Font.isLoaded(FONT.payrollNazanin)) {
+      await Font.loadAsync({
+        [FONT.payrollHoma]: require('../../assets/fonts/B Homa.ttf'),
+        [FONT.payrollNazanin]: require('../../assets/fonts/B NAZANIN.TTF'),
+      });
+    }
+    if (!Font.isLoaded(FONT.payrollHoma) || !Font.isLoaded(FONT.payrollNazanin)) {
+      throw new Error('فونت B HOMA یا B NAZANIN بارگذاری نشده است؛ ساخت تصویر متوقف شد.');
+    }
+    setPayrollFontsReady(true);
+  };
   const [issuedMonths, setIssuedMonths] = useState({});
   const mounted = useRef(false);
   useFocusEffect(useCallback(() => {
@@ -91,6 +105,7 @@ export default function CompanyPayrollHistory() {
       { text: 'ادامه', onPress: async () => {
         setIssuing(true);
         try {
+          await ensurePayrollFonts();
           const data = await request(`/my/payroll/${row.id}`, { noStore: true });
           setSlip(data);
         } catch (e) { Alert.alert('خطا', e.message || 'دریافت اطلاعات فیش ممکن نشد.'); }
@@ -102,6 +117,10 @@ export default function CompanyPayrollHistory() {
     if (!slipRef.current || !slip || issuing) return;
     setIssuing(true);
     try {
+      // Never capture or consume an issuance while payroll fonts are unavailable.
+      if (!payrollFontsReady || !Font.isLoaded(FONT.payrollHoma) || !Font.isLoaded(FONT.payrollNazanin)) {
+        throw new Error('فونت‌های فیش آماده نیستند. پیش‌نمایش را دوباره باز کنید.');
+      }
       // Render first, then claim the one-time issuance atomically on the server.
       const uri = await captureRef(slipRef, { format: 'png', quality: 1, result: 'tmpfile', width: 2480, height: 1748 });
       const destination = `${FileSystem.documentDirectory}payroll-${slip.row.period_jy}-${slip.row.period_jm}.png`;
@@ -166,7 +185,7 @@ export default function CompanyPayrollHistory() {
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.heading}>پیش‌نمایش فیش حقوق A5 افقی</Text>
           <Text style={styles.note}>دریافت تصویر این ماه تا سه بار مجاز است. تصویر را پس از دریافت ذخیره کنید.</Text>
-          {slip && <View ref={slipRef} collapsable={false} style={{ backgroundColor: '#fff', width: screenWidth - 32 }}>
+          {slip && payrollFontsReady && <View ref={slipRef} collapsable={false} style={{ backgroundColor: '#fff', width: screenWidth - 32 }}>
             <PayrollAccessSlip slip={slip} width={screenWidth - 32} />
           </View>}
           <TouchableOpacity disabled={issuing} style={[styles.button, issuing && styles.disabled]} onPress={saveIssuedSlip}><Text style={styles.buttonText}>{issuing ? 'در حال صدور…' : 'دریافت و ذخیره تصویر فیش'}</Text></TouchableOpacity>
