@@ -255,11 +255,37 @@ jobs:
           fi
           echo "CI Maven policy validated: official Google/Maven repositories only."
 
+      - name: Restore release signing keystore
+        shell: bash
+        env:
+          MYKET_KEYSTORE_BASE64: ${{ secrets.MYKET_KEYSTORE_BASE64 }}
+          MYKET_STORE_PASSWORD: ${{ secrets.MYKET_STORE_PASSWORD }}
+          MYKET_KEY_ALIAS: ${{ secrets.MYKET_KEY_ALIAS }}
+          MYKET_KEY_PASSWORD: ${{ secrets.MYKET_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for key in MYKET_KEYSTORE_BASE64 MYKET_STORE_PASSWORD MYKET_KEY_ALIAS MYKET_KEY_PASSWORD; do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::Missing release signing secret: $key. The APK must be signed with the existing production key."
+              exit 1
+            fi
+          done
+          umask 077
+          printf '%s' "$MYKET_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/khatyar-release.jks"
+          test -s "$RUNNER_TEMP/khatyar-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/khatyar-release.jks" -storepass "$MYKET_STORE_PASSWORD" -alias "$MYKET_KEY_ALIAS" >/dev/null
+          echo "MYKET_STORE_FILE=$RUNNER_TEMP/khatyar-release.jks" >> "$GITHUB_ENV"
+          echo "Production release keystore validated."
+
       - name: Build release APK
         working-directory: mobile/android
         env:
           CI: "true"
           GITHUB_ACTIONS: "true"
+          MYKET_BUILD: "true"
+          MYKET_STORE_PASSWORD: ${{ secrets.MYKET_STORE_PASSWORD }}
+          MYKET_KEY_ALIAS: ${{ secrets.MYKET_KEY_ALIAS }}
+          MYKET_KEY_PASSWORD: ${{ secrets.MYKET_KEY_PASSWORD }}
           GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
         run: |
           chmod +x gradlew
