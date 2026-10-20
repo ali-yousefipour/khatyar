@@ -188,22 +188,55 @@ const pn = StyleSheet.create({
 export function DriverSmsScreen({ route }) {
   const { driver } = route.params;
   const [all, setAll] = useState(null);
-  useEffect(() => { request(`/drivers/${driver.id}/sms`).then(setAll).catch(() => setAll([])); }, []);
-  const dlv = (c) => c == 1 ? ['تحویل شد', C.ok] : c == 2 ? ['تحویل نشد', C.danger] : ['—', C.muted];
+  useEffect(() => { request(`/drivers/${driver.id}/sms`).then(setAll).catch(() => setAll([])); }, [driver.id]);
   const { rows, from, to, setFrom, setTo } = useDateFilter(all);
-  const cm = all ? all.filter((r) => inCurrentJMonth(r.created_at)).length : 0;
-  const cy = all ? all.filter((r) => inCurrentJYear(r.created_at)).length : 0;
-  return <View style={{ flex: 1, backgroundColor: C.paper }}><List rows={rows} empty="پیامکی برای این راننده ثبت نشده است"
-    header={<><Counts month={cm} year={cy} labelMonth="پیامک این ماه" labelYear="پیامک امسال" /><DateFilterBar from={from} to={to} setFrom={setFrom} setTo={setTo} /></>}
-    render={({ item }) => { const d = dlv(item.delivery_code); return (
-      <View style={s.card}>
-        <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}>
-          <Text style={s.meta}>{fj(item.created_at)}{item.sender ? ` · ${item.sender}` : ''}</Text>
-          <Text style={{ color: d[1], fontFamily: FONT.bold, fontSize: 11 }}>{d[0]}</Text>
+  const cm = all ? all.filter(r => inCurrentJMonth(r.created_at)).length : 0;
+  const cy = all ? all.filter(r => inCurrentJYear(r.created_at)).length : 0;
+  const ordered = useMemo(() => rows ? [...rows].sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))) : null, [rows]);
+  const delivery = code => code == 1 ? { title:'تحویل شده', icon:'check-circle-outline', color:C.ok, bg:'#e9f7ef' } : code == 2 ? { title:'تحویل نشده', icon:'alert-circle-outline', color:C.danger, bg:'#fff0ed' } : { title:'وضعیت نامشخص', icon:'clock-outline', color:C.muted, bg:'#f1f3f5' };
+  return <View style={{flex:1,backgroundColor:C.paper}}>
+    <List rows={ordered} empty="پیامکی برای این راننده در بازه انتخاب‌شده ثبت نشده است"
+      header={<>
+        <View style={ds.header}><View style={ds.headerIcon}><MaterialCommunityIcons name="message-text-outline" size={25} color={C.brand}/></View><View style={ds.headerCopy}><Text style={ds.title}>پیامک‌های راننده</Text><Text style={ds.subtitle}>سوابق پیامک‌های ارسالی و وضعیت تحویل</Text></View></View>
+        <View style={ds.stats}>
+          <View style={ds.stat}><MaterialCommunityIcons name="calendar-month-outline" size={21} color={C.brand}/><Text style={ds.statValue}>{faNum(cm)}</Text><Text style={ds.statLabel}>پیامک این ماه</Text></View>
+          <View style={ds.stat}><MaterialCommunityIcons name="calendar-range-outline" size={21} color={C.brand}/><Text style={ds.statValue}>{faNum(cy)}</Text><Text style={ds.statLabel}>پیامک امسال</Text></View>
         </View>
-        <Text style={s.txt}>{item.body}</Text>
-      </View>); }} /></View>;
+        <View style={ds.filterBox}><View style={ds.sectionTitle}><MaterialCommunityIcons name="calendar-filter-outline" size={19} color={C.brand}/><Text style={ds.sectionText}>فیلتر بازه زمانی</Text></View><DateFilterBar from={from} to={to} setFrom={setFrom} setTo={setTo}/></View>
+        <View style={ds.sectionTitle}><MaterialCommunityIcons name="history" size={19} color={C.brand}/><Text style={ds.sectionText}>فهرست پیامک‌ها</Text><Text style={ds.count}>{faNum(ordered?.length || 0)} پیامک</Text></View>
+      </>}
+      render={({item}) => { const d=delivery(item.delivery_code);return <View style={ds.card}>
+        <View style={ds.cardHead}><View style={ds.messageIcon}><MaterialCommunityIcons name="message-processing-outline" size={22} color={C.brand}/></View><View style={ds.headContent}><Text style={ds.date}>{faNum(fj(item.created_at))}</Text>{!!item.sender&&<Text style={ds.sender} numberOfLines={2}>فرستنده: {faNum(item.sender)}</Text>}</View></View>
+        <Text style={ds.body} selectable>{faNum(item.body || '—')}</Text>
+        <View style={ds.footer}><View style={[ds.delivery,{backgroundColor:d.bg}]}><MaterialCommunityIcons name={d.icon} size={17} color={d.color}/><Text style={[ds.deliveryText,{color:d.color}]}>{d.title}</Text></View></View>
+      </View>;}}/>
+  </View>;
 }
+const ds=StyleSheet.create({
+  header:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:14},
+  headerIcon:{width:49,height:49,borderRadius:15,backgroundColor:'#e6f4ee',alignItems:'center',justifyContent:'center'},
+  headerCopy:{flex:1,alignItems:'flex-end'},
+  title:{fontFamily:FONT.bold,fontSize:17,color:C.ink,textAlign:'right'},
+  subtitle:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:4},
+  stats:{flexDirection:'row-reverse',gap:10,marginBottom:12},
+  stat:{flex:1,minWidth:0,backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:17,padding:13,alignItems:'center',gap:5},
+  statValue:{fontFamily:FONT.bold,fontSize:25,color:C.brand},
+  statLabel:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'center'},
+  filterBox:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:16,padding:12,marginBottom:14},
+  sectionTitle:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:10},
+  sectionText:{fontFamily:FONT.bold,fontSize:14,color:C.ink,textAlign:'right'},
+  count:{fontFamily:FONT.bold,fontSize:12,color:C.brand,marginRight:'auto',backgroundColor:'#e8f5ef',borderRadius:9,paddingHorizontal:9,paddingVertical:5},
+  card:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:17,padding:14,marginBottom:10,elevation:1},
+  cardHead:{flexDirection:'row-reverse',alignItems:'center',gap:9},
+  messageIcon:{width:40,height:40,borderRadius:12,backgroundColor:'#e8f5ef',alignItems:'center',justifyContent:'center'},
+  headContent:{flex:1,alignItems:'flex-end'},
+  date:{fontFamily:FONT.bold,fontSize:12,color:C.ink,textAlign:'right'},
+  sender:{fontFamily:FONT.regular,fontSize:11,color:C.muted,textAlign:'right',marginTop:4},
+  body:{fontFamily:FONT.regular,fontSize:14,lineHeight:25,color:C.ink,textAlign:'right',writingDirection:'rtl',backgroundColor:'#f7f9fb',padding:12,borderRadius:12,marginTop:12},
+  footer:{flexDirection:'row-reverse',marginTop:11},
+  delivery:{flexDirection:'row-reverse',alignItems:'center',gap:6,paddingVertical:7,paddingHorizontal:10,borderRadius:10},
+  deliveryText:{fontFamily:FONT.bold,fontSize:11}
+});
 
 export function MySmsScreen() {
   const [all, setAll] = useState(null);
