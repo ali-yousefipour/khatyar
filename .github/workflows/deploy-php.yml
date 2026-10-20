@@ -463,8 +463,71 @@ jobs:
               }
               $check = $pdo->query("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='users' AND column_name IN ('employment_start_date','employment_end_date')");
               if ((int)$check->fetchColumn() !== 2) throw new RuntimeException('Schema columns not present after migration');
+              // All attendance tables and columns are migrated here, outside the
+              // morning rush. Never issue CREATE/ALTER in normal API requests.
+              $pdo->exec("CREATE TABLE IF NOT EXISTS shift_handovers (
+                id INT AUTO_INCREMENT PRIMARY KEY, token VARCHAR(80) NOT NULL UNIQUE,
+                from_user_id INT NOT NULL, to_user_id INT NULL, line_id INT NULL,
+                attendance_id INT NULL, status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                expires_at DATETIME NOT NULL, accepted_at DATETIME NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_handover_token (token), INDEX idx_handover_from (from_user_id,status)
+              ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+              $pdo->exec("CREATE TABLE IF NOT EXISTS attendance_ot_adjustments (
+                id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
+                jdate VARCHAR(10) NOT NULL, minutes INT NOT NULL DEFAULT 0,
+                reason TEXT NULL, approved_by INT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_att_adj (user_id,jdate),
+                INDEX idx_att_adj_user (user_id,jdate)
+              ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+              $pdo->exec("CREATE TABLE IF NOT EXISTS attendance_reject_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
+                line_id INT NULL, method VARCHAR(30) NULL,
+                lat DECIMAL(10,7) NULL, lng DECIMAL(10,7) NULL,
+                accuracy_m DECIMAL(10,2) NULL, reason TEXT NULL,
+                meta JSON NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_arl_user_time(user_id,created_at),
+                INDEX idx_arl_line_time(line_id,created_at)
+              ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+              $pdo->exec("CREATE TABLE IF NOT EXISTS api_client_requests_v2 (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                request_hash CHAR(64) NOT NULL, client_uuid VARCHAR(191) NOT NULL,
+                method VARCHAR(10) NOT NULL, path VARCHAR(191) NOT NULL,
+                status_code SMALLINT NOT NULL DEFAULT 102,
+                response_json LONGTEXT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at DATETIME NULL,
+                PRIMARY KEY(id), UNIQUE KEY uq_api_client_request_hash(request_hash),
+                KEY idx_api_client_request_created(created_at),
+                KEY idx_api_client_request_uuid(client_uuid)
+              ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+              $columns = [
+                'handover_id' => 'INT NULL',
+                'calc_json' => 'JSON NULL',
+                'client_check_in' => 'DATETIME NULL',
+                'client_check_out' => 'DATETIME NULL',
+                'out_line_id' => 'INT NULL',
+                'in_station' => 'VARCHAR(150) NULL',
+                'out_station' => 'VARCHAR(150) NULL'
+              ];
+              $columnCheck = $pdo->prepare("SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema=DATABASE() AND table_name='staff_attendance' AND column_name=?");
+              foreach ($columns as $column => $definition) {
+                $columnCheck->execute([$column]);
+                if (!(int)$columnCheck->fetchColumn())
+                  $pdo->exec("ALTER TABLE staff_attendance ADD COLUMN `{$column}` {$definition}");
+              }
+              // Index checks happen only during deployment, never per user.
+              $indexCheck = $pdo->prepare("SELECT COUNT(*) FROM information_schema.statistics
+                WHERE table_schema=DATABASE() AND table_name='staff_attendance' AND index_name=?");
+              $indexCheck->execute(['idx_att_user_open_in']);
+              if (!(int)$indexCheck->fetchColumn()) {
+                $pdo->exec("ALTER TABLE staff_attendance ADD INDEX idx_att_user_open_in
+                  (user_id, check_out, check_in)");
+              }
               @unlink(__FILE__);
-              echo json_encode(['ok'=>true, 'employment_columns'=>2]);
+              echo json_encode(['ok'=>true, 'employment_columns'=>2, 'attendance_schema'=>true]);
           } catch (Throwable $error) {
               http_response_code(500);
               error_log('Employment schema deployment: '.$error->getMessage());
