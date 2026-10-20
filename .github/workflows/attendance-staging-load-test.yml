@@ -1,0 +1,66 @@
+name: attendance-staging-load-test
+on:
+  workflow_dispatch:
+    inputs:
+      endpoint:
+        description: "Read-only endpoint to exercise on isolated staging"
+        required: true
+        type: choice
+        options:
+          - /api/my/checkin-config
+          - /api/my/work-timer
+          - /api/health
+      concurrency:
+        description: "Number of concurrent requests"
+        required: true
+        type: choice
+        options: ["50", "100"]
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      KHATYAR_STAGING_URL: ${{ secrets.KHATYAR_STAGING_URL }}
+      KHATYAR_STAGING_TOKEN: ${{ secrets.KHATYAR_STAGING_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check isolated staging configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${KHATYAR_STAGING_URL}" ]; then
+            echo "::error::Define KHATYAR_STAGING_URL secret for an isolated environment. Production must never be load tested."
+            exit 1
+          fi
+          if [ "${{ inputs.endpoint }}" != "/api/health" ] && [ -z "${KHATYAR_STAGING_TOKEN}" ]; then
+            echo "::error::Set a staging-only KHATYAR_STAGING_TOKEN for authenticated attendance GET."
+            exit 1
+          fi
+      - name: Run read-only concurrency probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TARGET_HOST="$(python3 -c 'import os,urllib.parse;print(urllib.parse.urlparse(os.environ["KHATYAR_STAGING_URL"]).hostname or "")')"
+          python3 php/tools/attendance_load_probe.py \
+            --url "${KHATYAR_STAGING_URL}" \
+            --allow-host "${TARGET_HOST}" \
+            --path "${{ inputs.endpoint }}" \
+            --users "${{ inputs.concurrency }}" | tee attendance-load-report.json
+          python3 - <<'PY'
+          import json
+          data=json.load(open('attendance-load-report.json',encoding='utf-8'))
+          print('## Attendance staging benchmark', file=open(__import__('os').environ['GITHUB_STEP_SUMMARY'],'a'))
+          with open(__import__('os').environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n' + chr(10).join(f'- {k}: {v}' for k,v in data.items()) + '\n')
+          if data['error_count'] > 0:
+              raise SystemExit('Concurrency probe observed failed requests')
+          PY
+      - name: Upload result JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: attendance-staging-load-results
+          path: attendance-load-report.json
+          if-no-files-found: ignore
