@@ -11,6 +11,22 @@ import * as Sharing from 'expo-sharing';
 import PayrollAccessSlip from '../components/PayrollAccessSlip';
 
 const amount = (value, maximumFractionDigits = 0) => value === null || value === undefined || value === '' ? '—' : Number(value).toLocaleString('fa-IR', { maximumFractionDigits });
+const integerMoneyFields = new Set([
+  'friday_amount', 'holiday_amount', 'overtime_amount', 'gross',
+  'insurance', 'tax', 'net', 'bonus', 'severance', 'employer_insurance',
+]);
+const hiddenDetailFields = new Set(['employer_total']);
+const moneyText = value => {
+  if (value === null || value === undefined || value === '') return '—';
+  const normalized = String(value).trim()
+    .replace(/[۰-۹]/g, c => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)))
+    .replace(/[٠-٩]/g, c => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
+    .replace(/٫/g, '.').replace(/[٬,\\s]/g, '');
+  const n = Number(normalized);
+  return Number.isFinite(n) && normalized !== ''
+    ? Math.round(n).toLocaleString('fa-IR', { maximumFractionDigits: 0, minimumFractionDigits: 0 })
+    : String(value);
+};
 const digits = value => String(value).replace(/[۰-۹]/g, character => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(character))).replace(/[٠-٩]/g, character => String('٠١٢٣٤٥٦٧٨٩'.indexOf(character))).replace(/\D/g, '');
 
 export default function CompanyPayrollHistory() {
@@ -140,7 +156,7 @@ export default function CompanyPayrollHistory() {
           <Text style={styles.heading}>{detail.row.employee_name} — {faNum(`${detail.row.period_jy}/${detail.row.period_jm}`)}</Text>
           <Text style={styles.note}>اطلاعات اعلامی شرکت — مبالغ ریال</Text>
           {(detail.row.warnings || []).map((warning, index) => <Text key={index} style={styles.error}>{warning}</Text>)}
-          <View style={styles.detailsGrid}>{detail.fields.map((field, index) => <View style={[styles.detailCell, { width: detailColumns === 3 ? '31.8%' : '48.5%' }]} key={field}><Text style={styles.detailTitle}>{detail.labels[index]}</Text><Text style={styles.detailValue} numberOfLines={3}>{index < 7 ? (detail.row.data[field] || '—') : amount(detail.row.data[field], 6)}</Text></View>)}</View>
+          <View style={styles.detailsGrid}>{detail.fields.map((field, index) => ({ field, label: detail.labels[index], index })).filter(({ field }) => !hiddenDetailFields.has(field)).map(({ field, label, index }) => <View style={[styles.detailCell, { width: detailColumns === 3 ? '31.8%' : '48.5%' }]} key={field}><Text style={styles.detailTitle}>{label}</Text><Text style={styles.detailValue} numberOfLines={3}>{index < 7 ? (detail.row.data[field] || '—') : integerMoneyFields.has(field) ? moneyText(detail.row.data[field]) : amount(detail.row.data[field], 6)}</Text></View>)}</View>
         </>}</ScrollView>
       </View>
     </Modal>
