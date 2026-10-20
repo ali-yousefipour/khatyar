@@ -57,11 +57,12 @@ if (!str_contains($source, 'JOIN users uu ON uu.id=us.user_id AND uu.is_active=1
 if (!str_contains($source, '_work_month_daily_attendance_totals($dailyReport,$lastDay)'))
     throw new RuntimeException('Leave / mission / shortage daily reconciliation removed');
 $panel = file_get_contents(__DIR__.'/../tools/panel_source.jsx');
-foreach (['<th>جمعه کاری</th>','<th>اضافه کاری جمعه</th>','<th>تعطیل کاری</th>'] as $heading) {
+foreach (['<th>جمعه کاری</th>','<th>تعطیل کاری</th>'] as $heading) {
     if (!str_contains($panel,$heading)) throw new RuntimeException('Missing monthly table column: '.$heading);
 }
-foreach (['$hm($r[\'friday\']??0)', '$hm($r[\'friday_overtime\']??$r[\'friday\']??0)', '$hm($r[\'holiday\']??0)'] as $expression) {
+foreach (['$hm($r[\'friday\']??0)', '$hm($r[\'holiday\']??0)'] as $expression) {
     if (!str_contains($source,$expression)) throw new RuntimeException('Missing monthly Excel export field: '.$expression);
 }
-echo "PASS monthly report and Excel Friday/holiday columns\n";
+if (str_contains($panel, '<th>اضافه کاری جمعه</th>')) throw new RuntimeException('Duplicate Friday column returned');
+echo "PASS monthly report and Excel deduplicated Friday/holiday columns\n";
 echo "PASS monthly overtime integration contracts\n";
