@@ -13,9 +13,29 @@ class Db {
     ]);
     return self::$pdo;
   }
-  public static function all($sql, $params = []) { $st = self::pdo()->prepare($sql); $st->execute($params); return $st->fetchAll(); }
-  public static function one($sql, $params = []) { $st = self::pdo()->prepare($sql); $st->execute($params); $r = $st->fetch(); return $r === false ? null : $r; }
-  public static function run($sql, $params = []) { $st = self::pdo()->prepare($sql); $st->execute($params); return $st; }
+  private static function queryTiming($sql, $start) {
+    $ms = (int)round((microtime(true) - $start) * 1000);
+    $threshold = max(100, (int)(getenv('KHATYAR_SLOW_SQL_MS') ?: 350));
+    if ($ms < $threshold) return;
+    // Never log SQL parameters, personal data or raw dynamic query text.
+    $verb = strtoupper(strtok(ltrim((string)$sql), " \t\r\n") ?: 'SQL');
+    error_log("slow_sql operation={$verb} hash=".substr(hash('sha256',(string)$sql),0,12)." elapsed_ms={$ms}");
+  }
+  public static function all($sql, $params = []) {
+    $start=microtime(true);
+    try { $st=self::pdo()->prepare($sql); $st->execute($params); return $st->fetchAll(); }
+    finally { self::queryTiming($sql,$start); }
+  }
+  public static function one($sql, $params = []) {
+    $start=microtime(true);
+    try { $st=self::pdo()->prepare($sql); $st->execute($params); $r=$st->fetch(); return $r === false ? null : $r; }
+    finally { self::queryTiming($sql,$start); }
+  }
+  public static function run($sql, $params = []) {
+    $start=microtime(true);
+    try { $st=self::pdo()->prepare($sql); $st->execute($params); return $st; }
+    finally { self::queryTiming($sql,$start); }
+  }
   public static function exec($sql, $params = []) { return self::run($sql, $params)->rowCount(); }
   public static function insert($sql, $params = []) { self::run($sql, $params); return (int) self::pdo()->lastInsertId(); }
   public static function lastId() { return (int) self::pdo()->lastInsertId(); }
