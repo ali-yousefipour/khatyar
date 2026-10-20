@@ -28,6 +28,18 @@ $allowed = array_filter([$CONFIG['public_url'] ?: 'https://app.yousefipour.ir', 
 if ($origin && in_array($origin, $allowed, true)) header('Access-Control-Allow-Origin: ' . $origin); header('Vary: Origin'); header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Access-Token, X-Requested-With'); header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 $method = $_SERVER['REQUEST_METHOD']; $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH); $path = rtrim($path, '/'); if ($path === '') $path = '/';
+$apiRequestStart = microtime(true);
+register_shutdown_function(static function() use (&$apiRequestStart) {
+  $ms=(int)round((microtime(true)-$apiRequestStart)*1000);
+  $threshold=max(200,(int)(getenv('KHATYAR_SLOW_API_MS') ?: 1200));
+  if ($ms < $threshold) return;
+  $path=parse_url((string)($_SERVER['REQUEST_URI']??''),PHP_URL_PATH) ?: '/';
+  // Exclude user IDs, credentials and query parameters from timing logs.
+  $method=(string)($_SERVER['REQUEST_METHOD']??'GET');
+  $status=http_response_code();
+  error_log('slow_api method='.$method.' route='.$path.' status='.$status.' elapsed_ms='.$ms);
+});
+
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
   $siteV = '1.5.12'; $appV = '1.5.12';
