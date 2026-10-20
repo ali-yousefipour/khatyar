@@ -32,8 +32,12 @@ $check('public or manual holiday exactly once',480,$holiday['total_overtime']);
 $both = $test(['overtime'=>0,'friday'=>480,'holiday'=>0],[]);
 $check('Friday also holiday classified Friday only',480,$both['total_overtime']);
 $capped = $test(['overtime'=>1000,'friday'=>960,'holiday'=>0],['monthly_ot_cap'=>600]);
-$check('monthly cap only regular',600,$capped['regular_overtime']);
-$check('Friday not reduced by regular cap',1560,$capped['total_overtime']);
+$check('gross regular remains unchanged',1000,$capped['regular_overtime']);
+$check('monthly cap only payable regular',600,$capped['payable_regular_overtime']);
+$check('unpaid capped minutes',400,$capped['capped_overtime_minutes']);
+$check('gross Friday not reduced by cap',1960,$capped['total_overtime']);
+$check('payable Friday not reduced by cap',1560,$capped['payable_total_overtime']);
+$check('visible gross overtime unchanged by cap',1960,$capped['overtime']);
 $zero = $test(['overtime'=>0,'friday'=>0,'holiday'=>0],[]);
 $check('zero work',0,$zero['total_overtime']);
 // Contracts already exercised by work_shift_regression_test and
