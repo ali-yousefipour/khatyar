@@ -315,7 +315,6 @@ function _temp_driver_log($action,$tempId,$driverId,$lineId,$userId,$meta=[]){
   try { Db::run("INSERT INTO temp_line_driver_history(action,temp_line_driver_id,driver_id,line_id,user_id,meta) VALUES(?,?,?,?,?,?)", [$action,$tempId,$driverId,$lineId,$userId,json_encode($meta,JSON_UNESCAPED_UNICODE)]); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
 }
 function _attendance_reject_log($userId,$lineId,$method,$lat,$lng,$accuracy,$reason,$extra=[]){
-  try { Db::run("CREATE TABLE IF NOT EXISTS attendance_reject_logs (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, line_id INT NULL, method VARCHAR(30) NULL, lat DECIMAL(10,7) NULL, lng DECIMAL(10,7) NULL, accuracy_m DECIMAL(10,2) NULL, reason TEXT NULL, meta JSON NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_arl_user_time(user_id,created_at), INDEX idx_arl_line_time(line_id,created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   try { Db::run("INSERT INTO attendance_reject_logs(user_id,line_id,method,lat,lng,accuracy_m,reason,meta) VALUES(?,?,?,?,?,?,?,?)", [$userId,$lineId?:null,$method,$lat,$lng,$accuracy,$reason,json_encode($extra,JSON_UNESCAPED_UNICODE)]); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
 }
 
@@ -2410,9 +2409,6 @@ route('POST', '/api/my/checkin', function($p,$b,$u){
   // گزارش روزانه استفاده می‌شود و نباید مانع ثبت حضور واقعیِ نیرو در میانهٔ روز شود.
   [$jy,$jm,$jd] = gregorian_to_jalali(date('Y', strtotime($eventAt)),date('m', strtotime($eventAt)),date('d', strtotime($eventAt)));
   $jdate = sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
-  // اطمینان از وجود ستون‌های محل ورود/خروج (یک‌بار)
-  try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='in_station'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN in_station VARCHAR(150) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='out_station'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN out_station VARCHAR(150) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   // نام محل ورود از روی مختصات (نزدیک‌ترین ایستگاه/محدودهٔ خط)
   $inStation = $method === 'wifi' ? null : (($st['name'] ?? null) ?: _station_name_at($lat, $lng, $lineIds));
   $id = Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,check_in,in_lat,in_lng,in_station,client_check_in) VALUES(?,?,?,?,?,?,?,?)",
@@ -2822,17 +2818,8 @@ route('DELETE', '/api/admin/holidays/{jdate}', function($p,$b,$u){
 
 
 
-function _ensure_attendance_phase1_schema(){
-  static $done=false; if($done) return; $done=true;
-  try { Db::run("CREATE TABLE IF NOT EXISTS shift_handovers (id INT AUTO_INCREMENT PRIMARY KEY, token VARCHAR(80) NOT NULL UNIQUE, from_user_id INT NOT NULL, to_user_id INT NULL, line_id INT NULL, attendance_id INT NULL, status VARCHAR(20) NOT NULL DEFAULT 'pending', expires_at DATETIME NOT NULL, accepted_at DATETIME NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_handover_token (token), INDEX idx_handover_from (from_user_id, status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  try { Db::run("CREATE TABLE IF NOT EXISTS attendance_ot_adjustments (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, jdate VARCHAR(10) NOT NULL, minutes INT NOT NULL DEFAULT 0, reason TEXT NULL, approved_by INT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_att_adj (user_id,jdate), INDEX idx_att_adj_user (user_id,jdate)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='handover_id'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN handover_id INT NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='calc_json'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN calc_json JSON NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='client_check_in'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN client_check_in DATETIME NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='client_check_out'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN client_check_out DATETIME NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  // خط خروج می‌تواند با خط ورود متفاوت باشد؛ این ستون خطی را که خروج واقعاً در محدوده آن ثبت شده نگه می‌دارد.
-  try { if (!Db::one("SHOW COLUMNS FROM staff_attendance WHERE Field='out_line_id'")) Db::run("ALTER TABLE staff_attendance ADD COLUMN out_line_id INT NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-}
+// Schema DDL belongs to the deployment migration, never routine requests.
+function _ensure_attendance_phase1_schema(){ return; }
 
 function _attendance_auto_close_stale($userId, $now=null){
   _ensure_attendance_phase1_schema();
