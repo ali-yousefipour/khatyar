@@ -43,4 +43,9 @@ checkValue('HH:MM actual shortage sums in minutes', $hmResult['summary']['shorta
 $entryOwned = file_get_contents(__DIR__.'/../app/api/admin-attendance-report-owned.php');
 checkValue('entry-owned shortage subtracts approved exemptions', str_contains($entryOwned, "\$w['shortage'] = max(0, \$expectedMin - min(\$inShiftMin, \$expectedMin) - \$approvedExempt);"), true);
 checkValue('entry-owned route does not rebuild naive shortage', str_contains($entryOwned, "\$w['shortage'] = max(0, \$expectedMin - min(\$inShiftMin, \$expectedMin));"), false);
+foreach (["\$day['friday_overtime'] = \$hm(\$fri);", "\$day['holiday_overtime'] = \$hm(\$hol);", "\$day['total_overtime'] = \$hm(\$regular + \$fri + \$hol);"] as $required) {
+  if (!str_contains($entryOwned,$required)) throw new RuntimeException('Owned attendance fields are not synchronized: '.$required);
+}
+if (!str_contains($entryOwned, 'ShiftCalc::isFriday($j) ? 0 :')) throw new RuntimeException('Friday holiday exclusion missing');
+echo "PASS Friday/holiday exclusive overtime report contract\n";
 echo "PASS daily-to-monthly attendance reconciliation\n";
