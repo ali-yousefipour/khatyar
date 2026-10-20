@@ -18,21 +18,7 @@ class Http {
     if (!$key || !class_exists('Db')) return;
     [$uuid,$method,$path,$requestHash] = $key;
     try {
-      Db::run("CREATE TABLE IF NOT EXISTS api_client_requests_v2 (
-        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-        request_hash CHAR(64) NOT NULL,
-        client_uuid VARCHAR(191) NOT NULL,
-        method VARCHAR(10) NOT NULL,
-        path VARCHAR(191) NOT NULL,
-        status_code SMALLINT NOT NULL DEFAULT 102,
-        response_json LONGTEXT NULL,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        completed_at DATETIME NULL,
-        PRIMARY KEY(id),
-        UNIQUE KEY uq_api_client_request_hash(request_hash),
-        KEY idx_api_client_request_created(created_at),
-        KEY idx_api_client_request_uuid(client_uuid)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+      // Idempotency table is created by deployment, not once per POST.
       $row = Db::one("SELECT id,status_code,response_json,created_at FROM api_client_requests_v2 WHERE request_hash=? LIMIT 1",[$requestHash]);
       if ($row) {
         $age = time() - (strtotime((string)$row['created_at']) ?: time());
