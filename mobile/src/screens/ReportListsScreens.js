@@ -99,21 +99,65 @@ function plateMatch(rowPlate, query) {
 const PAGE = 10;
 function expKey(s) { const p = jParts(s); if (!p) return 99999999; return p[0] * 10000 + p[1] * 100 + p[2]; }
 
+function ActivityPerson({ title, person, busy }) {
+  const tint = busy ? '#e9f7f0' : '#fff0f1';
+  const ink = busy ? '#087755' : '#b63d50';
+  return <View style={[ar.person,{backgroundColor:tint}]}>
+    <View style={ar.personHeader}><MaterialCommunityIcons name={busy?'trending-up':'trending-down'} size={19} color={ink}/><Text style={[ar.personLabel,{color:ink}]}>{title}</Text></View>
+    <Text style={ar.personName} numberOfLines={3}>{person?.name||'اطلاعات موجود نیست'}</Text>
+    <View style={ar.countRow}><Text style={[ar.countNumber,{color:ink}]}>{faNum(Number(person?.n||0))}</Text><Text style={ar.countUnit}>حضور ثبت‌شده</Text></View>
+  </View>;
+}
 export function ActivityReportScreen() {
   const rows = useFetch('/my/driver-activity');
   if (rows === null) return <Loading />;
+  const items = Array.isArray(rows)?rows:[];
   return (
-    <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={{ padding: 14 }}>
-      {rows.length === 0 ? <Empty /> : rows.map((r, i) => (
-        <View key={i} style={s.card}>
-          <Text style={s.title}>خط {r.line}</Text>
-          <View style={s.row}><Text style={[s.k, { color: C.ok }]}>پرکارترین: {r.busiest.name}</Text><Text style={s.v}>{faNum(Number(r.busiest.n))} حضور</Text></View>
-          <View style={s.row}><Text style={[s.k, { color: C.danger }]}>کم‌کارترین: {r.idlest.name}</Text><Text style={s.v}>{faNum(Number(r.idlest.n))} حضور</Text></View>
+    <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={ar.content}>
+      <View style={ar.hero}>
+        <View style={ar.heroHeader}><MaterialCommunityIcons name="chart-timeline-variant" size={27} color="#fff"/><Text style={ar.heroTitle}>پرکارترین و کم‌کارترین هر خط</Text></View>
+        <Text style={ar.heroSubtitle}>مقایسه تعداد حضور ثبت‌شده رانندگان در خطوط فعالیت</Text>
+        <View style={ar.heroStat}><Text style={ar.heroNumber}>{faNum(items.length)}</Text><Text style={ar.heroStatText}>خط در گزارش</Text></View>
+      </View>
+      <View style={ar.listHeader}><Text style={ar.listTitle}>عملکرد خطوط</Text><Text style={ar.listHint}>بر اساس اطلاعات ثبت‌شده</Text></View>
+      {items.length===0?<Empty/>:items.map((r,i)=>(
+        <View key={String(r.line??i)} style={ar.card}>
+          <View style={ar.cardHeader}>
+            <View style={ar.lineBadge}><MaterialCommunityIcons name="bus" size={18} color={C.brand}/><Text style={ar.lineTitle}>خط {faNum(r.line??'—')}</Text></View>
+            <Text style={ar.cardCaption}>مقایسه میزان حضور</Text>
+          </View>
+          <ActivityPerson title="پرکارترین" person={r.busiest} busy />
+          <ActivityPerson title="کم‌کارترین" person={r.idlest} busy={false}/>
         </View>
       ))}
     </ScrollView>
   );
 }
+const ar=StyleSheet.create({
+  content:{paddingHorizontal:16,paddingTop:18,paddingBottom:48},
+  hero:{backgroundColor:C.brand,borderRadius:23,padding:20,marginBottom:20},
+  heroHeader:{flexDirection:'row-reverse',alignItems:'center',gap:10},
+  heroTitle:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right',flex:1},
+  heroSubtitle:{fontFamily:FONT.regular,fontSize:12,color:'#d8f3e8',textAlign:'right',lineHeight:22,marginTop:9},
+  heroStat:{flexDirection:'row-reverse',alignItems:'center',gap:9,backgroundColor:'rgba(255,255,255,0.14)',borderRadius:14,padding:12,marginTop:16},
+  heroNumber:{fontFamily:FONT.bold,color:'#fff',fontSize:22},
+  heroStatText:{fontFamily:FONT.regular,color:'#fff',fontSize:12},
+  listHeader:{flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8},
+  listTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:16},
+  listHint:{fontFamily:FONT.regular,color:C.muted,fontSize:11},
+  card:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:20,padding:15,marginBottom:14},
+  cardHeader:{flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8,marginBottom:14},
+  lineBadge:{flexDirection:'row-reverse',alignItems:'center',gap:8,backgroundColor:'#e8f5ee',borderRadius:12,paddingHorizontal:12,paddingVertical:9},
+  lineTitle:{fontFamily:FONT.bold,color:C.brand,fontSize:15},
+  cardCaption:{fontFamily:FONT.regular,color:C.muted,fontSize:11},
+  person:{borderRadius:15,padding:14,marginBottom:9},
+  personHeader:{flexDirection:'row-reverse',alignItems:'center',gap:7},
+  personLabel:{fontFamily:FONT.bold,fontSize:12},
+  personName:{fontFamily:FONT.bold,color:C.ink,fontSize:15,textAlign:'right',marginTop:9,lineHeight:25},
+  countRow:{flexDirection:'row-reverse',alignItems:'baseline',gap:7,marginTop:7},
+  countNumber:{fontFamily:FONT.bold,fontSize:23},
+  countUnit:{fontFamily:FONT.regular,color:C.slate,fontSize:12},
+});
 
 function ExpiryHero({ title, description, total, filtered, icon }) {
   return <View style={op.hero}>
