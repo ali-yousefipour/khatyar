@@ -5,7 +5,7 @@ import { refreshSearchCache, offlineSearch } from '../linecache';
 import { C, FONT } from '../theme';
 import { enNum, faNum } from '../num';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-const digitsOnly = (v='') => String(v).replace(/\D/g,'');
+const digitsOnly = (v='') => enNum(String(v)).replace(/[^0-9]/g,'');
 const buildTaxiPlate12 = (a,c) => { const x=digitsOnly(a).slice(0,2), y=digitsOnly(c).slice(0,3); return x.length===2&&y.length===3 ? `${x}ت${y}-12` : ''; };
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 
@@ -95,9 +95,9 @@ export default function SearchScreen({ navigation, route }) {
         <Text style={s.label}>دو بخش عددی پلاک تاکسی را وارد کنید</Text>
         <View style={[s.plateWrap,{transform:[{scale:Math.min(1,(width-(width<360?54:66))/300)}]}]}>
           <View style={s.plateBody}>
-            <TextInput style={s.plateInput} value={faNum(p1)} onChangeText={(v)=>{const d=faToEn(v).slice(0,2);setP1(d);if(d.length===2)p3ref.current?.focus()}} keyboardType="number-pad" maxLength={2} placeholder="۷۵" placeholderTextColor="#776d20" selectTextOnFocus/>
+            <TextInput style={s.plateInput} value={faNum(p1)} onChangeText={(v)=>{const d=faToEn(v).slice(0,2);setP1(d);if(d.length===2)p3ref.current?.focus()}} keyboardType="number-pad" maxLength={2} placeholder="۱۱" placeholderTextColor="#776d20" selectTextOnFocus/>
             <Text style={s.plateLetter}>ت</Text>
-            <TextInput ref={p3ref} style={[s.plateInput,{width:76}]} value={faNum(p3)} onChangeText={(v)=>setP3(faToEn(v).slice(0,3))} keyboardType="number-pad" maxLength={3} placeholder="۷۲۵" placeholderTextColor="#776d20" returnKeyType="search" onSubmitEditing={()=>doSearch('plate')} selectTextOnFocus/>
+            <TextInput ref={p3ref} style={[s.plateInput,{width:76}]} value={faNum(p3)} onChangeText={(v)=>setP3(faToEn(v).slice(0,3))} keyboardType="number-pad" maxLength={3} placeholder="۱۱۱" placeholderTextColor="#776d20" returnKeyType="search" onSubmitEditing={()=>doSearch('plate')} selectTextOnFocus/>
             <View style={s.plateRegion}><Text style={s.plateRegionNum}>۱۲</Text><View style={s.plateRegionLine}/></View>
           </View><View style={s.plateFlag}><Text style={s.plateFlagIR}>I.R.</Text><Text style={s.plateFlagIran}>ایران</Text></View>
         </View>
