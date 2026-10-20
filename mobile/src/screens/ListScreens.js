@@ -103,49 +103,87 @@ const at = StyleSheet.create({
 
 export function PastNoticesScreen({ route }) {
   const { driver } = route.params;
+  const { width } = useWindowDimensions();
   const [all, setAll] = useState(null);
   const [typeFilter, setTypeFilter] = useState(null);
   const [viewer, setViewer] = useState(null);
-  useEffect(() => { request(`/notices/${driver.id}`).then(setAll).catch(() => setAll([])); }, []);
+  useEffect(() => { request(`/notices/${driver.id}`).then(setAll).catch(() => setAll([])); }, [driver.id]);
   const P = { low: 'کم', medium: 'متوسط', high: 'زیاد' };
   const { rows, from, to, setFrom, setTo } = useDateFilter(all);
-  const types = useMemo(() => all ? [...new Set(all.map((n) => n.reason).filter(Boolean))] : [], [all]);
-  const finalRows = useMemo(() => rows ? (typeFilter ? rows.filter((r) => r.reason === typeFilter) : rows) : null, [rows, typeFilter]);
-  const cm = all ? all.filter((r) => inCurrentJMonth(r.created_at)).length : 0;
-  const cy = all ? all.filter((r) => inCurrentJYear(r.created_at)).length : 0;
-  return <View style={{ flex: 1, backgroundColor: C.paper }}><List rows={finalRows} empty="تذکری ثبت نشده است"
-    header={<>
-      <Counts month={cm} year={cy} labelMonth="تذکر این ماه" labelYear="تذکر امسال" />
-      <DateFilterBar from={from} to={to} setFrom={setFrom} setTo={setTo} />
-      {types.length > 0 && <View style={s.typeRow}>
-        <TouchableOpacity style={[s.typeChip, !typeFilter && s.typeOn]} onPress={() => setTypeFilter(null)}><Text style={[s.typeTxt, !typeFilter && { color: '#fff' }]}>همه</Text></TouchableOpacity>
-        {types.map((t) => <TouchableOpacity key={t} style={[s.typeChip, typeFilter === t && s.typeOn]} onPress={() => setTypeFilter(t)}><Text style={[s.typeTxt, typeFilter === t && { color: '#fff' }]}>{t}</Text></TouchableOpacity>)}
-      </View>}
-    </>}
-    render={({ item }) => <View style={s.card}>
-      <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={s.title}>{item.reason || 'تذکر'}</Text>
-        <View style={[s.prBadge, item.priority === 'high' ? s.prHigh : item.priority === 'medium' ? s.prMed : s.prLow]}>
-          <Text style={s.prTxt}>اولویت {P[item.priority] || '—'}</Text>
+  const types = useMemo(() => all ? [...new Set(all.map(n => n.reason).filter(Boolean))] : [], [all]);
+  const finalRows = useMemo(() => rows ? rows.filter(r => !typeFilter || r.reason === typeFilter).sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))) : null, [rows, typeFilter]);
+  const cm = all ? all.filter(r => inCurrentJMonth(r.created_at)).length : 0;
+  const cy = all ? all.filter(r => inCurrentJYear(r.created_at)).length : 0;
+  return <View style={{ flex: 1, backgroundColor: C.paper }}>
+    <List rows={finalRows} empty="تذکری در بازه انتخاب‌شده یافت نشد"
+      header={<>
+        <View style={pn.header}><View style={pn.headerIcon}><MaterialCommunityIcons name="clipboard-text-clock-outline" size={25} color={C.brand}/></View><View style={pn.headerText}><Text style={pn.heading}>سوابق تذکرات راننده</Text><Text style={pn.subheading}>مرور تذکرات ثبت‌شده و پیوست‌ها</Text></View></View>
+        <View style={pn.stats}>
+          <View style={pn.stat}><MaterialCommunityIcons name="calendar-month-outline" size={22} color={C.brand}/><Text style={pn.statNumber}>{faNum(cm)}</Text><Text style={pn.statLabel}>تذکر این ماه</Text></View>
+          <View style={pn.stat}><MaterialCommunityIcons name="calendar-range-outline" size={22} color={C.brand}/><Text style={pn.statNumber}>{faNum(cy)}</Text><Text style={pn.statLabel}>تذکر امسال</Text></View>
         </View>
-      </View>
-      {!!item.body && <Text style={s.txt}>{item.body}</Text>}
-      {(item.attachment_url) ? (
-        <TouchableOpacity onPress={() => setViewer(item.attachment_url)}>
-          <Image source={imageSource(item.attachment_url)} style={{ width: '100%', height: 170, borderRadius: 10, marginTop: 8 }} resizeMode="cover" />
-          <Text style={s.tapHint}>برای بزرگ‌نمایی لمس کنید</Text>
-        </TouchableOpacity>
-      ) : null}
-      <View style={s.noticeFooter}>
-        <Text style={s.meta}>{fj(item.created_at)}</Text>
-        {(item.recorder_name || item.recorder_username) ? (
-          <Text style={s.recorder}>ثبت‌کننده: {item.recorder_name?.trim() || item.recorder_username}</Text>
-        ) : null}
-      </View>
-    </View>} />
-    {viewer && <ImageViewer uri={viewer} visible={!!viewer} onClose={() => setViewer(null)} />}
+        <View style={pn.filters}><View style={pn.sectionHead}><MaterialCommunityIcons name="calendar-filter-outline" size={19} color={C.brand}/><Text style={pn.sectionTitle}>بازه زمانی</Text></View><DateFilterBar from={from} to={to} setFrom={setFrom} setTo={setTo}/>
+          {types.length > 0 && <><View style={pn.sectionHead}><MaterialCommunityIcons name="filter-variant" size={19} color={C.brand}/><Text style={pn.sectionTitle}>دلیل تذکر</Text></View><View style={pn.chips}>
+            <TouchableOpacity style={[pn.chip,!typeFilter&&pn.chipOn]} onPress={()=>setTypeFilter(null)}><Text style={[pn.chipText,!typeFilter&&pn.chipTextOn]}>همه</Text></TouchableOpacity>
+            {types.map(t=><TouchableOpacity key={t} style={[pn.chip,typeFilter===t&&pn.chipOn]} onPress={()=>setTypeFilter(t)}><Text style={[pn.chipText,typeFilter===t&&pn.chipTextOn]}>{t}</Text></TouchableOpacity>)}
+          </View></>}
+        </View>
+        <View style={pn.listTitle}><MaterialCommunityIcons name="history" size={20} color={C.brand}/><Text style={pn.sectionTitle}>فهرست تذکرات</Text><Text style={pn.total}>{faNum(finalRows?.length || 0)} مورد</Text></View>
+      </>}
+      render={({ item }) => <View style={pn.card}>
+        <View style={pn.cardHead}><View style={pn.reasonWrap}><View style={pn.reasonIcon}><MaterialCommunityIcons name="alert-circle-outline" size={21} color={C.brand}/></View><Text style={pn.reason}>{item.reason || 'تذکر'}</Text></View>
+          <View style={[pn.priority,item.priority==='high'?pn.priorityHigh:item.priority==='medium'?pn.priorityMedium:pn.priorityLow]}><Text style={pn.priorityText}>اولویت {P[item.priority] || '—'}</Text></View>
+        </View>
+        {!!item.body&&<View style={pn.bodyBox}><Text style={pn.body}>{item.body}</Text></View>}
+        {!!item.attachment_url&&<TouchableOpacity accessibilityRole="button" accessibilityLabel="بزرگ‌نمایی تصویر پیوست" style={pn.photoTouch} onPress={()=>setViewer(item.attachment_url)}>
+          <Image source={imageSource(item.attachment_url)} style={[pn.photo,{height:width<360?145:170}]} resizeMode="cover"/>
+          <View style={pn.photoCaption}><MaterialCommunityIcons name="image-search-outline" size={17} color={C.brand}/><Text style={pn.photoCaptionText}>مشاهده تصویر در اندازه بزرگ</Text></View>
+        </TouchableOpacity>}
+        <View style={pn.footer}><View style={pn.footerItem}><MaterialCommunityIcons name="calendar-clock-outline" size={16} color={C.muted}/><Text style={pn.footerText}>{faNum(fj(item.created_at))}</Text></View>
+          {!!(item.recorder_name||item.recorder_username)&&<View style={pn.footerItem}><MaterialCommunityIcons name="account-outline" size={16} color={C.muted}/><Text style={pn.footerText}>ثبت‌کننده: {item.recorder_name?.trim()||item.recorder_username}</Text></View>}
+        </View>
+      </View>} />
+    {viewer&&<ImageViewer uri={viewer} visible={!!viewer} onClose={()=>setViewer(null)}/>}
   </View>;
 }
+const pn = StyleSheet.create({
+ header:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:13},
+ headerIcon:{width:48,height:48,borderRadius:15,backgroundColor:'#e7f4ed',alignItems:'center',justifyContent:'center'},
+ headerText:{flex:1,alignItems:'flex-end'},
+ heading:{fontFamily:FONT.bold,fontSize:17,color:C.ink,textAlign:'right'},
+ subheading:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:4},
+ stats:{flexDirection:'row-reverse',gap:10,marginBottom:12},
+ stat:{flex:1,minWidth:0,backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:17,padding:13,alignItems:'center',gap:5},
+ statNumber:{fontFamily:FONT.bold,fontSize:25,color:C.brand},
+ statLabel:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'center'},
+ filters:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:16,padding:12,marginBottom:13},
+ sectionHead:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:10},
+ sectionTitle:{fontFamily:FONT.bold,fontSize:14,color:C.ink,textAlign:'right'},
+ chips:{flexDirection:'row-reverse',flexWrap:'wrap',gap:7,marginBottom:4},
+ chip:{borderWidth:1,borderColor:C.line,borderRadius:11,paddingHorizontal:12,paddingVertical:9,minHeight:40,backgroundColor:'#f8fafb',justifyContent:'center'},
+ chipOn:{backgroundColor:C.brand,borderColor:C.brand},
+ chipText:{fontFamily:FONT.bold,fontSize:12,color:C.ink},
+ chipTextOn:{color:'#fff'},
+ listTitle:{flexDirection:'row-reverse',alignItems:'center',gap:8,marginBottom:10},
+ total:{fontFamily:FONT.bold,fontSize:12,color:C.brand,marginRight:'auto',backgroundColor:'#e7f4ed',borderRadius:9,paddingHorizontal:9,paddingVertical:5},
+ card:{backgroundColor:'#fff',borderColor:C.line,borderWidth:1,borderRadius:18,padding:14,marginBottom:11,elevation:1},
+ cardHead:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:9},
+ reasonWrap:{flexDirection:'row-reverse',alignItems:'center',gap:8,flex:1,minWidth:145},
+ reasonIcon:{width:35,height:35,borderRadius:11,backgroundColor:'#e8f4ee',alignItems:'center',justifyContent:'center'},
+ reason:{fontFamily:FONT.bold,fontSize:14,color:C.ink,textAlign:'right',flexShrink:1},
+ priority:{borderRadius:10,paddingVertical:7,paddingHorizontal:10},
+ priorityHigh:{backgroundColor:'#fce8e6'},priorityMedium:{backgroundColor:'#fff3dc'},priorityLow:{backgroundColor:'#e7f5ed'},
+ priorityText:{fontFamily:FONT.bold,fontSize:11,color:C.ink},
+ bodyBox:{backgroundColor:'#f7f9fb',borderRadius:11,padding:11,marginTop:12},
+ body:{fontFamily:FONT.regular,color:C.ink,fontSize:13,lineHeight:23,textAlign:'right'},
+ photoTouch:{marginTop:12,borderRadius:12,overflow:'hidden',backgroundColor:'#f3f6f7'},
+ photo:{width:'100%',borderRadius:12},
+ photoCaption:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:7,padding:9},
+ photoCaptionText:{fontFamily:FONT.regular,fontSize:11,color:C.brand},
+ footer:{borderTopWidth:1,borderTopColor:'#edf0f2',paddingTop:10,marginTop:12,gap:7},
+ footerItem:{flexDirection:'row-reverse',alignItems:'center',gap:7,flexWrap:'wrap'},
+ footerText:{fontFamily:FONT.regular,fontSize:11.5,color:C.muted,textAlign:'right',flexShrink:1}
+});
 
 export function DriverSmsScreen({ route }) {
   const { driver } = route.params;
