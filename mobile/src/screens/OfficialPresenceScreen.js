@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Modal, FlatList } from 'react-native';
 import * as Location from 'expo-location';
 import { getFastPosition } from '../location';
@@ -11,6 +11,8 @@ import { fj } from '../jdate';
 import ModalKeyboardView from '../components/ModalKeyboardView';
 import { playSound } from '../soundFx';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { faNum } from '../num';
 
 export default function OfficialPresenceScreen() {
   const { user } = useAuth();
@@ -29,6 +31,9 @@ export default function OfficialPresenceScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [reqPhoto, setReqPhoto] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
+  const [roleQ, setRoleQ] = useState('');
+  const [expandedHistory, setExpandedHistory] = useState(null);
 
   const load = () => {
     Promise.all([
@@ -42,7 +47,7 @@ export default function OfficialPresenceScreen() {
   };
   useEffect(load, []);
 
-  const roles = [...new Set(officials.map((o) => o.role_title).filter(Boolean))];
+  const roles = useMemo(() => [...new Set(officials.map(o => o.role_title).filter(Boolean))], [officials]);
 
   const takePhoto = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -80,17 +85,19 @@ export default function OfficialPresenceScreen() {
   return (
     <>
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
-      <Text style={s.label}>۱) سمت مسئول را انتخاب کنید</Text>
-      <View style={s.chips}>
-        {roles.map((r) => (
-          <TouchableOpacity key={r} onPress={() => { setRoleSel(roleSel === r ? '' : r); setPicked(null); }}
-            style={[s.chip, roleSel === r && { backgroundColor: C.ink, borderColor: C.ink }]}>
-            <Text style={[s.chipTxt, roleSel === r && { color: '#fff' }]}>{r}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <Text style={s.label}>۲) مسئول مورد نظر را انتخاب کنید</Text>
+      <View style={s.hero}><View style={s.heroRow}><MaterialCommunityIcons name="account-check-outline" size={25} color="#fff"/><Text style={s.heroTitle}>ثبت حضور مسئولین در خط</Text></View><Text style={s.heroSubtitle}>اطلاعات بازدید میدانی را ثبت و سوابق خود را مشاهده کنید.</Text></View>
+      <View style={s.formCard}>
+      <View style={s.sectionRow}><MaterialCommunityIcons name="account-tie-outline" size={20} color={C.brand}/><Text style={s.label}>۱. سمت مسئول</Text></View>
+      <TouchableOpacity accessibilityRole="button" style={s.select} onPress={() => setRoleOpen(true)}><Text style={[s.selectTxt, !roleSel && {color:C.muted}]}>{roleSel || 'انتخاب یا جستجوی سمت مسئول'}</Text><MaterialCommunityIcons name="chevron-down" size={22} color={C.muted}/></TouchableOpacity>
+      <Modal visible={roleOpen} animationType="slide" transparent onRequestClose={() => setRoleOpen(false)}>
+        <ModalKeyboardView style={s.modalWrap}><View style={s.modalCard}>
+          <Text style={s.modalTitle}>انتخاب سمت مسئول</Text>
+          <TextInput style={s.input} value={roleQ} onChangeText={setRoleQ} placeholder="جستجوی سمت…" placeholderTextColor={C.muted} autoFocus/>
+          <FlatList data={roles.filter(r => r.includes(roleQ.trim()))} keyExtractor={r => r} style={{maxHeight:350,marginTop:10}} ListEmptyComponent={<Text style={s.empty}>سمتی یافت نشد.</Text>} renderItem={({item})=><TouchableOpacity style={s.optRow} onPress={() => {setRoleSel(item);setPicked(null);setNameQ('');setRoleOpen(false);setRoleQ('');}}><Text style={s.optName}>{item}</Text></TouchableOpacity>}/>
+          <TouchableOpacity style={s.modalClose} onPress={() => setRoleOpen(false)}><Text style={s.modalCloseTxt}>بستن</Text></TouchableOpacity>
+        </View></ModalKeyboardView>
+      </Modal>
+      <View style={s.sectionRow}><MaterialCommunityIcons name="account-search-outline" size={20} color={C.brand}/><Text style={s.label}>۲. انتخاب مسئول</Text></View>
       <TouchableOpacity style={s.select} onPress={() => { if (!roleSel) { Alert.alert('توجه', 'ابتدا سمت مسئول را انتخاب کنید.'); return; } setDropOpen(true); }}>
         <Text style={[s.selectTxt, !picked && { color: C.muted }]}>{picked ? `${picked.first_name} ${picked.last_name}` : (roleSel ? 'برای انتخاب/جستجو ضربه بزنید' : 'ابتدا سمت را انتخاب کنید')}</Text>
         <Text style={{ color: C.muted }}>▾</Text>
@@ -114,7 +121,7 @@ export default function OfficialPresenceScreen() {
         </ModalKeyboardView>
       </Modal>
 
-      <Text style={s.label}>۳) خط (الزامی)</Text>
+      <View style={s.sectionRow}><MaterialCommunityIcons name="map-marker-path" size={20} color={C.brand}/><Text style={s.label}>۳. خط مورد بازدید (الزامی)</Text></View>
       {lines.length === 0 ? <Text style={s.empty}>خطی به شما اختصاص نیافته است.</Text> : (
         <TouchableOpacity style={s.select} onPress={() => setLineOpen(true)}>
           <Text style={[s.selectTxt, !lineId && { color: C.muted }]}>{(() => { const pl = lines.find((l) => l.id === lineId); return pl ? `خط ${pl.code}${pl.origin ? ` (${pl.origin} - ${pl.destination || ''})` : ''}` : 'انتخاب/جستجوی خط'; })()}</Text>
@@ -140,25 +147,33 @@ export default function OfficialPresenceScreen() {
         </ModalKeyboardView>
       </Modal>
 
-      <Text style={s.label}>۴) عکس حضور مسئول در خط {reqPhoto ? '(الزامی)' : '(اختیاری)'}</Text>
+      <View style={s.sectionRow}><MaterialCommunityIcons name="camera-outline" size={20} color={C.brand}/><Text style={s.label}>۴. عکس حضور مسئول {reqPhoto ? '(الزامی)' : '(اختیاری)'}</Text></View>
       <TouchableOpacity style={s.photoBtn} onPress={takePhoto}>
         <Text style={s.photoBtnTxt}>{photo ? '✓ عکس گرفته شد (تعویض)' : '📷 گرفتن عکس'}</Text>
       </TouchableOpacity>
       {photo ? <Image source={{ uri: photo }} style={{ width: '100%', height: 170, borderRadius: 12, marginTop: 8 }} resizeMode="cover" /> : null}
 
-      <Text style={s.label}>توضیحات (الزامی)</Text>
-      <TextInput style={s.input} value={note} onChangeText={setNote} placeholder="مثلاً بازدید میدانی از خط ۵۰۰" placeholderTextColor={C.muted} />
+      <View style={s.sectionRow}><MaterialCommunityIcons name="text-box-outline" size={20} color={C.brand}/><Text style={s.label}>۵. توضیحات (الزامی)</Text></View>
+      <TextInput style={[s.input,s.noteInput]} multiline textAlignVertical="top" value={note} onChangeText={setNote} placeholder="مثلاً بازدید میدانی از خط ۵۰۰" placeholderTextColor={C.muted} />
 
-      <TouchableOpacity style={[s.btn, busy && { opacity: 0.6 }]} disabled={busy} onPress={submit}><Text style={s.btnTxt}>{busy ? 'در حال ثبت…' : 'ثبت حضور مسئول'}</Text></TouchableOpacity>
+      <TouchableOpacity style={[s.btn, busy && { opacity: 0.6 }]} disabled={busy} onPress={submit}><MaterialCommunityIcons name="check-circle-outline" size={21} color="#fff"/><Text style={s.btnTxt}>{busy ? 'در حال ثبت…' : 'ثبت حضور مسئول'}</Text></TouchableOpacity>
+      </View>
 
-      <Text style={[s.label, { marginTop: 22 }]}>آخرین ثبت‌های شما</Text>
-      {history.map((h) => (
-        <View key={h.id} style={s.histCard}>
-          <Text style={s.histTitle}>{h.official}{h.line ? ` — خط ${h.line}` : ''}</Text>
-          {!!h.note && <Text style={s.histNote}>{h.note}</Text>}
-          <Text style={s.histTime}>{fj(h.created_at)}</Text>
-        </View>
-      ))}
+      <View style={s.historyHeader}><View style={s.sectionRow}><MaterialCommunityIcons name="history" size={21} color={C.brand}/><Text style={s.historyHeading}>آخرین ثبت‌های شما</Text></View><Text style={s.historyCount}>{faNum(history.length)} ثبت</Text></View>
+      {history.length === 0 && <View style={s.histCard}><Text style={s.empty}>هنوز حضوری ثبت نشده است.</Text></View>}
+      {history.map((h, i) => {
+        const key = String(h.id ?? i);
+        const open = expandedHistory === key;
+        return <View key={key} style={s.histCard}>
+          <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:open}} style={s.historySummary} onPress={() => setExpandedHistory(open ? null : key)}>
+            <View style={s.historyIcon}><MaterialCommunityIcons name="account-check-outline" size={22} color={C.brand}/></View>
+            <View style={{flex:1}}><Text style={s.histTitle}>{h.official || 'مسئول'}{h.line ? ` — خط ${faNum(h.line)}` : ''}</Text><Text style={s.histTime}>{faNum(fj(h.created_at))}</Text></View>
+            <MaterialCommunityIcons name={open?'chevron-up':'chevron-down'} size={22} color={C.muted}/>
+          </TouchableOpacity>
+          {open && <View style={s.historyDetails}><Text style={s.histNote}>{h.note || 'توضیحی ثبت نشده است.'}</Text></View>}
+        </View>;
+      })}
+
     </ScrollView>
     <Modal visible={busy} transparent animationType="fade">
       <View style={s.overlay}>
@@ -175,7 +190,20 @@ export default function OfficialPresenceScreen() {
 
 const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
-  label: { fontFamily: FONT.bold, color: C.ink, fontSize: 13.5, marginBottom: 8, marginTop: 12, textAlign: 'right' },
+  label: { fontFamily: FONT.bold, color: C.ink, fontSize: 13.5, textAlign: 'right', flexShrink:1 },
+  hero:{backgroundColor:C.brand,borderRadius:19,padding:19,marginBottom:14},
+  heroRow:{flexDirection:'row-reverse',alignItems:'center',gap:10},
+  heroTitle:{fontFamily:FONT.bold,fontSize:17,color:'#fff',textAlign:'right'},
+  heroSubtitle:{fontFamily:FONT.regular,fontSize:12,color:'#e3f4ed',textAlign:'right',marginTop:9,lineHeight:21},
+  formCard:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:19,padding:14},
+  sectionRow:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginTop:13,marginBottom:9},
+  noteInput:{minHeight:100},
+  historyHeader:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',marginTop:19,marginBottom:6},
+  historyHeading:{fontFamily:FONT.bold,fontSize:15,color:C.ink},
+  historyCount:{fontFamily:FONT.bold,color:C.brand,backgroundColor:'#e7f5ef',paddingHorizontal:10,paddingVertical:5,borderRadius:9},
+  historySummary:{flexDirection:'row-reverse',alignItems:'center',gap:10},
+  historyIcon:{width:40,height:40,borderRadius:12,backgroundColor:'#e7f5ef',alignItems:'center',justifyContent:'center'},
+  historyDetails:{borderTopWidth:1,borderTopColor:C.line,marginTop:12,paddingTop:10},
   chips: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
   chip: { borderColor: C.line, borderWidth: 1, backgroundColor: '#fff', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 },
   chipTxt: { fontFamily: FONT.bold, fontSize: 12.5, color: C.ink, textAlign: 'right' },
@@ -194,7 +222,7 @@ const s = StyleSheet.create({
   modalCloseTxt: { color: '#fff', fontFamily: FONT.bold },
   photoBtn: { borderWidth: 1, borderColor: C.brand, borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: '#e7f3ee' },
   photoBtnTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 14 },
-  btn: { backgroundColor: C.brand, borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 16 },
+  btn: { backgroundColor: C.brand, borderRadius: 14, padding: 14, alignItems: 'center', justifyContent:'center',flexDirection:'row-reverse',gap:9,marginTop:18,minHeight:54 },
   btnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 15 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
   overlayBox: { backgroundColor: '#fff', borderRadius: 16, padding: 26, alignItems: 'center', width: 260 },
