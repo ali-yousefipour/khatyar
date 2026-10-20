@@ -3908,17 +3908,14 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
     $person=_work_organization_person($r,$byId,$daily);
     $o=(int)($r['regular_overtime']??0);$mission=(int)($r['mission_min']??0);$short=(int)($r['shortage']??0);
     $fri=(int)($r['friday']??0);$hol=(int)($r['holiday']??0);
-    // friday includes all Friday work as currently computed by ShiftCalc; no extra Friday overtime
-    // is added unless it is separately available in the canonical monthly result.
-    $friOt=(int)($r['friday_overtime']??0);
     $forecast=$forecastByUser[(int)($r['user_id']??0)]??['overtime'=>0,'holiday'=>0,'work_days'=>0,'holiday_days'=>0,'daily_overtime'=>0,'sample_days'=>0];
     $surplusIncluded=$includeSurplus?max(0,(int)($r['surplus']??0)):0;
     $net=$o+$surplusIncluded+$mission-$short+(int)$forecast['overtime'];
     $hol+=(int)$forecast['holiday'];
     $i++;$row=$xw->addRow([$i,(string)($person['zone_name']??''),($r['role']??''),$i,$person['first_name']??'', $person['last_name']??'',(string)($person['personnel_code']??''),round($fri/60,6),round($hol/60,6),round($net/60,6)]);
-    $xw->setComment($row,7,'جمعه کاری: '.$hm($fri).' ساعت'."\n".'جمعه‌کاری بدون جمع مجدد اضافه‌کار: '.$hm($fri).' ساعت'."\n".'مجموع جمعه کاری (بدون احتساب تکراری): '.$hm($fri).' ساعت');
-    $xw->setComment($row,8,'مجموع تعطیل کاری: '.$hm($hol).' ساعت'."\n".'پیش‌بینی تعطیل‌کاری: '.$hm($forecast['holiday']).' ساعت ('.$forecast['holiday_days'].' روز × ۸ ساعت)');
-    $xw->setComment($row,9,'اضافه کاری: '.$hm($o).' ساعت'."\n".'مازاد حضور لحاظ‌شده: '.$hm($surplusIncluded).' ساعت'."\n".'ماموریت: '.$hm($mission).' ساعت'."\n".'کسری کار: '.$hm($short).' ساعت (کسر شده)'."\n".'پیش‌بینی اضافه‌کاری: '.$hm($forecast['overtime']).' ساعت ('.$forecast['work_days'].' روز؛ میانگین روزانه '.$hm($forecast['daily_overtime']).' از '.$forecast['sample_days'].' روز کاری قبلی نیرو)'."\n".'نهایی = '.($net<0?'-':'').$hm($net).' ساعت');
+    $xw->setComment($row,7,'جمعه‌کاری قطعی: '.$hm($fri).' ساعت'."\n".'فقط حضور معتبر روزهای جمعه؛ روز جمعه حتی در صورت تعطیلی رسمی در ستون تعطیل‌کاری ثبت نمی‌شود.'."\n".'این مقدار در اضافه‌کاری عادی ستون ۹ دوباره لحاظ نشده است.');
+    $xw->setComment($row,8,'تعطیل‌کاری قطعی (به‌جز جمعه): '.$hm((int)($r['holiday']??0)).' ساعت'."\n".'پیش‌بینی تعطیل‌کاری روزهای غیرجمعه: '.$hm($forecast['holiday']).' ساعت'."\n".'جمع قابل نمایش: '.$hm($hol).' ساعت؛ جمعه‌ها در این ستون منظور نمی‌شوند.');
+    $xw->setComment($row,9,'اضافه‌کاری عادی: '.$hm($o).' ساعت'."\n".'مازاد حضور منظورشده: '.$hm($surplusIncluded).' ساعت'."\n".'مأموریت: '.$hm($mission).' ساعت'."\n".'کسری کار کسرشده: '.$hm($short).' ساعت'."\n".'پیش‌بینی اضافه‌کاری عادی: '.$hm($forecast['overtime']).' ساعت'."\n".'جمع نهایی این ستون (بدون جمعه‌کاری و تعطیل‌کاری): '.($net<0?'-':'').$hm($net).' ساعت');
   }
   $xw->output('organization-work-'.$jy.'-'.$jm.'.xlsx','کارکرد سازمان');
 },false,ADMIN);
