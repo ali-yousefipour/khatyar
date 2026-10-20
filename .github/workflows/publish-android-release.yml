@@ -270,12 +270,34 @@ jobs:
         working-directory: mobile
         shell: bash
         run: |
-          APK="android/app/build/outputs/apk/release/app-release.apk"
-          test -s "$APK"
+          echo "Available release APK outputs:"
+          find android/app/build/outputs/apk -type f -name '*.apk' -print 2>/dev/null || true
+          mapfile -t APKS < <(find android/app/build/outputs/apk -type f -name '*.apk' ! -name '*unsigned*' ! -name '*unaligned*' -size +0c 2>/dev/null | sort)
+          if [ "${#APKS[@]}" -eq 0 ]; then
+            echo "::error::No nonempty signed release APK found under android/app/build/outputs/apk"
+            exit 1
+          fi
+          RELEASE_APKS=()
+          for apk in "${APKS[@]}"; do
+            case "$apk" in
+              */release/*|*/release/*.apk) RELEASE_APKS+=("$apk") ;;
+            esac
+          done
+          if [ "${#RELEASE_APKS[@]}" -eq 0 ]; then
+            echo "::error::APK files exist but none are in a release output directory"
+            exit 1
+          fi
+          if [ "${#RELEASE_APKS[@]}" -ne 1 ]; then
+            printf 'Found multiple release APKs:\\n%s\\n' "${RELEASE_APKS[@]}"
+            echo "::error::Expected one universal release APK; multiple ABI splits need explicit packaging"
+            exit 1
+          fi
+          APK="${RELEASE_APKS[0]}"
           mkdir -p ../release
           cp "$APK" ../release/khatyar.apk
+          test -s ../release/khatyar.apk
           sha256sum ../release/khatyar.apk | tee ../release/khatyar.apk.sha256
-          echo "APK artifact verified."
+          echo "APK artifact verified from: $APK"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
