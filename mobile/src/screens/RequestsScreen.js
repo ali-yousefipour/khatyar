@@ -109,7 +109,7 @@ function AnnualLeaveStatus({ balance }) {
 }
 
 const faDigits = (value) => String(value ?? '').replace(/[0-9]/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]);
-const requestDate = (r) => String(r.the_date || r.from_jdate || r.created_at || '').slice(0, 10).replace(/\\//g, '-');
+const requestDate = (r) => String(r.the_date || r.from_jdate || r.created_at || '').slice(0, 10).replace(/\//g, '-');
 const requestPerson = (r) => r.approver_name || r.approved_by_name || r.decided_by_name || r.reviewer_name || r.approver?.name || r.approval?.approver_name || '';
 const pendingPerson = (r) => r.pending_approver_name || r.next_approver_name || r.assigned_to_name || r.current_approver_name || r.approver_name || r.approver?.name || '';
 const rejectionNote = (r) => r.rejection_reason || r.reject_reason || r.decision_note || r.approver_note || r.approval?.note || '';
