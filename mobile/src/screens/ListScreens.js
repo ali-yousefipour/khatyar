@@ -228,27 +228,78 @@ export function PastChecklistsScreen({ route }) {
   const { driver } = route.params;
   const [all, setAll] = useState(null);
   const [viewer, setViewer] = useState(null);
-  useEffect(() => { request(`/checklists/${driver.id}`).then(setAll).catch(() => setAll([])); }, []);
+  const [expandedId, setExpandedId] = useState(null);
+  useEffect(() => { request(`/checklists/${driver.id}`).then(setAll).catch(() => setAll([])); }, [driver.id]);
   const { rows, from, to, setFrom, setTo } = useDateFilter(all);
-  const cm = all ? all.filter((r) => inCurrentJMonth(r.created_at)).length : 0;
-  const cy = all ? all.filter((r) => inCurrentJYear(r.created_at)).length : 0;
+  const cm = all ? all.filter(r => inCurrentJMonth(r.created_at)).length : 0;
+  const cy = all ? all.filter(r => inCurrentJYear(r.created_at)).length : 0;
+  const ordered = useMemo(() => rows ? [...rows].sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))) : null, [rows]);
   return <View style={{ flex: 1, backgroundColor: C.paper }}>
-    <List rows={rows} empty="چک‌لیستی برای این راننده ثبت نشده است"
-      header={<><Counts month={cm} year={cy} labelMonth="چک‌لیست این ماه" labelYear="چک‌لیست امسال" /><DateFilterBar from={from} to={to} setFrom={setFrom} setTo={setTo} /></>}
-      render={({ item }) => <View style={s.card}>
-        <Text style={s.title}>چک‌لیست خودرو</Text>
-        <Text style={s.meta}>{fj(item.created_at)}{item.by_name ? ` · توسط ${item.by_name}` : ''}</Text>
-        {(item.photo || item.photo_data) ? <TouchableOpacity onPress={() => setViewer(item.photo || item.photo_data)}><Image source={imageSource(item.photo || item.photo_data)} style={{ width: '100%', height: 160, borderRadius: 10, marginTop: 6 }} resizeMode="cover" /></TouchableOpacity> : null}
-        {(item.items || []).map((it, i) => (
-          <View key={i} style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', marginTop: 6, borderTopWidth: i ? 1 : 0, borderTopColor: C.line, paddingTop: i ? 6 : 0 }}>
-            <Text style={[s.txt, { flex: 1 }]}>{it.label}</Text>
-            <Text style={[s.title, { color: C.brand }]}>{it.value}</Text>
-          </View>
-        ))}
-      </View>} />
-    <ImageViewer visible={!!viewer} uri={viewer} onClose={() => setViewer(null)} />
+    <List rows={ordered} empty="چک‌لیستی در بازه انتخاب‌شده ثبت نشده است"
+      header={<>
+        <View style={pc.heading}><View style={pc.headingIcon}><MaterialCommunityIcons name="clipboard-check-multiple-outline" size={25} color={C.brand}/></View><View style={pc.headingCopy}><Text style={pc.headingTitle}>سوابق چک‌لیست خودرو</Text><Text style={pc.headingSub}>برای مشاهده جزئیات، چک‌لیست را انتخاب کنید</Text></View></View>
+        <Counts month={cm} year={cy} labelMonth="چک‌لیست این ماه" labelYear="چک‌لیست امسال"/>
+        <View style={pc.filterBox}><View style={pc.filterTitle}><MaterialCommunityIcons name="calendar-filter-outline" size={18} color={C.brand}/><Text style={pc.filterText}>فیلتر بازه زمانی</Text></View><DateFilterBar from={from} to={to} setFrom={setFrom} setTo={setTo}/></View>
+        <View style={pc.listHead}><MaterialCommunityIcons name="history" size={20} color={C.brand}/><Text style={pc.filterText}>چک‌لیست‌های ثبت‌شده</Text><Text style={pc.count}>{faNum(ordered?.length || 0)} مورد</Text></View>
+      </>}
+      render={({ item, index }) => {
+        const key = String(item.id ?? `${item.created_at}-${index}`);
+        const open = expandedId === key;
+        const checks = Array.isArray(item.items) ? item.items : [];
+        const photo = item.photo || item.photo_data;
+        return <View style={pc.card}>
+          <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:open}} activeOpacity={0.75} style={pc.summary} onPress={() => setExpandedId(open ? null : key)}>
+            <View style={pc.summaryIcon}><MaterialCommunityIcons name="clipboard-text-outline" size={23} color={C.brand}/></View>
+            <View style={pc.summaryCopy}><Text style={pc.summaryTitle}>چک‌لیست خودرو</Text><Text style={pc.summaryDate}>{faNum(fj(item.created_at))}</Text>
+              {!!item.by_name && <Text style={pc.summaryBy} numberOfLines={1}>بازرس: {item.by_name}</Text>}
+              <View style={pc.tags}><Text style={pc.tag}>{faNum(checks.length)} مورد بررسی</Text>{!!photo&&<Text style={pc.tag}>دارای تصویر</Text>}</View>
+            </View>
+            <MaterialCommunityIcons name={open?'chevron-up-circle':'chevron-down-circle-outline'} size={26} color={C.brand}/>
+          </TouchableOpacity>
+          {open && <View style={pc.details}>
+            {!!photo && <TouchableOpacity accessibilityRole="button" accessibilityLabel="بزرگ‌نمایی تصویر چک‌لیست" onPress={() => setViewer(photo)}><Image source={imageSource(photo)} style={pc.photo} resizeMode="cover"/><View style={pc.photoCaption}><MaterialCommunityIcons name="image-search-outline" size={17} color={C.brand}/><Text style={pc.photoCaptionText}>برای بزرگ‌نمایی تصویر لمس کنید</Text></View></TouchableOpacity>}
+            <View style={pc.detailTitle}><MaterialCommunityIcons name="format-list-checks" size={20} color={C.brand}/><Text style={pc.detailTitleText}>نتایج بررسی</Text></View>
+            {checks.length===0&&<Text style={pc.noItems}>موردی برای این چک‌لیست ثبت نشده است.</Text>}
+            {checks.map((it,i)=><View key={i} style={pc.checkRow}><View style={pc.checkIndex}><Text style={pc.checkIndexText}>{faNum(i+1)}</Text></View><Text style={pc.checkLabel}>{it.label}</Text><Text style={pc.checkValue}>{faNum(it.value ?? '—')}</Text></View>)}
+          </View>}
+        </View>;
+      }}/>
+    <ImageViewer visible={!!viewer} uri={viewer} onClose={() => setViewer(null)}/>
   </View>;
 }
+const pc = StyleSheet.create({
+ heading:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:14},
+ headingIcon:{width:47,height:47,borderRadius:14,backgroundColor:'#e8f5ef',alignItems:'center',justifyContent:'center'},
+ headingCopy:{flex:1,alignItems:'flex-end'},
+ headingTitle:{fontFamily:FONT.bold,fontSize:17,color:C.ink,textAlign:'right'},
+ headingSub:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:4},
+ filterBox:{backgroundColor:'#fff',borderRadius:15,borderWidth:1,borderColor:C.line,padding:12,marginTop:4,marginBottom:14},
+ filterTitle:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:9},
+ filterText:{fontFamily:FONT.bold,fontSize:13,color:C.ink,textAlign:'right'},
+ listHead:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:10},
+ count:{marginRight:'auto',backgroundColor:'#e8f5ef',color:C.brand,fontFamily:FONT.bold,fontSize:12,borderRadius:10,paddingHorizontal:9,paddingVertical:5},
+ card:{backgroundColor:'#fff',borderRadius:17,borderWidth:1,borderColor:C.line,marginBottom:10,overflow:'hidden',elevation:1},
+ summary:{flexDirection:'row-reverse',alignItems:'center',padding:13,gap:10,minHeight:88},
+ summaryIcon:{width:45,height:45,borderRadius:13,backgroundColor:'#e8f5ef',alignItems:'center',justifyContent:'center'},
+ summaryCopy:{flex:1,alignItems:'flex-end',minWidth:0},
+ summaryTitle:{fontFamily:FONT.bold,fontSize:14,color:C.ink,textAlign:'right'},
+ summaryDate:{fontFamily:FONT.bold,fontSize:12,color:C.brand,textAlign:'right',marginTop:4},
+ summaryBy:{fontFamily:FONT.regular,fontSize:11,color:C.muted,textAlign:'right',marginTop:3},
+ tags:{flexDirection:'row-reverse',flexWrap:'wrap',gap:6,marginTop:8},
+ tag:{fontFamily:FONT.regular,fontSize:10.5,color:C.brand,backgroundColor:'#edf7f1',paddingHorizontal:8,paddingVertical:4,borderRadius:8},
+ details:{borderTopWidth:1,borderTopColor:C.line,padding:12},
+ photo:{width:'100%',height:175,borderRadius:12},
+ photoCaption:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:7,paddingVertical:10},
+ photoCaptionText:{fontFamily:FONT.regular,fontSize:11,color:C.brand},
+ detailTitle:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginTop:5,marginBottom:10},
+ detailTitleText:{fontFamily:FONT.bold,fontSize:14,color:C.ink},
+ noItems:{fontFamily:FONT.regular,color:C.muted,textAlign:'right',padding:10},
+ checkRow:{flexDirection:'row-reverse',alignItems:'center',flexWrap:'wrap',gap:9,paddingVertical:10,borderTopWidth:1,borderTopColor:'#edf0f2'},
+ checkIndex:{width:27,height:27,borderRadius:9,backgroundColor:'#e8f5ef',alignItems:'center',justifyContent:'center'},
+ checkIndexText:{fontFamily:FONT.bold,fontSize:11,color:C.brand},
+ checkLabel:{flex:1,minWidth:110,fontFamily:FONT.regular,fontSize:12,color:C.ink,textAlign:'right'},
+ checkValue:{fontFamily:FONT.bold,fontSize:12,color:C.brand,textAlign:'left',maxWidth:'45%'}
+});
 
 export function VehicleScreen({ route, navigation }) {
   const { width } = useWindowDimensions();
