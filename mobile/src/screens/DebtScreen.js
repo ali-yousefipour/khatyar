@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking, Alert, Modal } from 'react-native';
 import { request } from '../api';
 import { getAppConfig } from '../appconfig';
@@ -6,6 +6,15 @@ import { faNum } from '../num';
 import { C, FONT } from '../theme';
 import { sendTelemetry } from '../telemetry';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+// Dates can be Jalali/Gregorian, slash/dash separated, or include a time.
+const dateOrder = value => {
+  const ascii = String(value ?? '').replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  const parts = ascii.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})(?:\D+(\d{1,2})\D+(\d{1,2})\D+(\d{1,2}))?/);
+  if (parts) return Number(parts[1]) * 1e10 + Number(parts[2]) * 1e8 + Number(parts[3]) * 1e6 + Number(parts[4] || 0) * 1e4 + Number(parts[5] || 0) * 100 + Number(parts[6] || 0);
+  return 0;
+};
 
 export default function DebtScreen({ route, navigation }) {
   const { driver } = route.params;
@@ -52,50 +61,48 @@ export default function DebtScreen({ route, navigation }) {
 
   if (!data) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
   const showSms = cfg.bill_sms_enabled && cfg.can_send_sms;
+  const sortedBills = [...(Array.isArray(data.bills) ? data.bills : [])].sort((a, b) =>
+    dateOrder(b.pay_date || b.issue_date || b.created_at) - dateOrder(a.pay_date || a.issue_date || a.created_at) ||
+    dateOrder(b.paid_date) - dateOrder(a.paid_date) || String(b.id ?? '').localeCompare(String(a.id ?? ''), 'en', { numeric: true })
+  );
 
   return (
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+      <View style={s.header}><View style={s.headerIcon}><MaterialCommunityIcons name="receipt-text-outline" size={23} color={C.brand}/></View><View style={{ flex: 1 }}><Text style={s.headerTitle}>فیش‌های آبونمان تاکسیران</Text><Text style={s.headerSubtitle}>{faNum(sortedBills.length)} فیش · مرتب‌شده از جدیدترین به قدیمی‌ترین</Text></View></View>
       {data.unpaid_count > 0 && (
         <View style={s.red}>
           <Text style={s.redTxt}>{faNum(data.unpaid_count)} فیش پرداخت‌نشده · مجموع {faNum(faNum(Number(data.total_unpaid).toLocaleString()))} ریال</Text>
         </View>
       )}
       {data._err && <View style={s.red}><Text style={s.redTxt}>خطا: {data._err}</Text></View>}
-      {!data._err && data.bills.length === 0 && <View style={{ padding: 24, alignItems: 'center' }}><Text style={{ color: C.muted, fontFamily: FONT.regular }}>فیشی برای این راننده ثبت نشده است.</Text></View>}
-      {data.bills.map((b) => {
+      {!data._err && sortedBills.length === 0 && <View style={{ padding: 24, alignItems: 'center' }}><Text style={{ color: C.muted, fontFamily: FONT.regular }}>فیشی برای این راننده ثبت نشده است.</Text></View>}
+      {sortedBills.map((b) => {
         const unpaid = b.status !== 'پرداخت شده';
         return (
           <View style={s.fish} key={b.id}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.amt}>{faNum(faNum(Number(b.amount).toLocaleString()))} ریال</Text>
-              <Text style={[s.status, { color: unpaid ? C.muted : C.ok }]}>{b.status}</Text>
-              {!!b.pay_date && <Text style={s.meta}>تاریخ صدور فیش: {faNum(b.pay_date)}</Text>}
-              {!!b.paid_date && <Text style={[s.meta, { color: C.ok }]}>تاریخ پرداخت: {faNum(b.paid_date)}</Text>}
-              {!!b.bill_id && <Text style={s.meta}>شناسهٔ قبض: {faNum(b.bill_id)}</Text>}
+            <View style={s.billHead}>
+              <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                <Text style={s.amt}>{faNum(Number(b.amount || 0).toLocaleString('en-US'))} <Text style={s.currency}>ریال</Text></Text>
+                <View style={[s.statusPill, unpaid ? s.unpaidPill : s.paidPill]}><MaterialCommunityIcons name={unpaid ? 'clock-alert-outline' : 'check-circle-outline'} size={16} color={unpaid ? '#a46316' : C.ok}/><Text style={[s.status, { color: unpaid ? '#a46316' : C.ok }]}>{faNum(b.status || (unpaid ? 'پرداخت‌نشده' : 'پرداخت شده'))}</Text></View>
+              </View>
+              <View style={[s.billIcon, unpaid && s.billIconUnpaid]}><MaterialCommunityIcons name={unpaid ? 'receipt-text-clock-outline' : 'receipt-text-check-outline'} size={25} color={unpaid ? '#ad751f' : C.brand}/></View>
             </View>
-            <View style={{ gap: 6, alignItems: 'flex-start' }}>
-              {unpaid
-                ? <TouchableOpacity style={s.pay} onPress={() => { if (b.pay_url) { sendTelemetry('bill_pay_click', { bill_id: b.bill_id || null }); Linking.openURL(b.pay_url); } }}><Text style={s.payTxt}>پرداخت</Text></TouchableOpacity>
-                : <Text style={{ color: C.ok, fontSize: 18 }}>✓</Text>}
-              <TouchableOpacity style={s.detailBtn} onPress={() => setDetailBill(b)}>
-                <Text style={s.detailTxt}>نمایش اطلاعات</Text>
-              </TouchableOpacity>
-              {unpaid && cfg.can_send_messenger && cfg.bill_bot_enabled !== false && (
-                <TouchableOpacity style={s.botBtn} disabled={sending === 'bot'+b.id} onPress={() => sendBillBot(b)}>
-                  <Text style={s.botTxt}>{sending === 'bot'+b.id ? 'در حال ارسال…' : '🤖 ارسال مشخصات فیش در ربات‌ها'}</Text>
-                </TouchableOpacity>
-              )}
-              {unpaid && showSms && (
-                <TouchableOpacity style={s.smsBtn} disabled={sending === b.id} onPress={() => sendBillSms(b)}>
-                  <Text style={s.smsTxt}>{sending === b.id ? 'در حال ارسال…' : '✉ ارسال پیامک فیش'}</Text>
-                </TouchableOpacity>
-              )}
+            <View style={s.billInfo}>
+              {!!b.pay_date && <View style={s.infoRow}><MaterialCommunityIcons name="calendar-outline" size={16} color={C.muted}/><Text style={s.meta}>تاریخ صدور: {faNum(b.pay_date)}</Text></View>}
+              {!!b.paid_date && <View style={s.infoRow}><MaterialCommunityIcons name="calendar-check-outline" size={16} color={C.ok}/><Text style={[s.meta, { color: C.ok }]}>تاریخ پرداخت: {faNum(b.paid_date)}</Text></View>}
+              {!!b.bill_id && <View style={s.infoRow}><MaterialCommunityIcons name="identifier" size={16} color={C.muted}/><Text style={s.meta}>شناسه قبض: {faNum(b.bill_id)}</Text></View>}
+            </View>
+            <View style={s.billActions}>
+              <TouchableOpacity style={[s.detailBtn, s.actionButton]} onPress={() => setDetailBill(b)}><MaterialCommunityIcons name="information-outline" size={18} color="#2746a6"/><Text style={s.detailTxt}>نمایش اطلاعات</Text></TouchableOpacity>
+              {unpaid && <TouchableOpacity style={[s.pay, s.actionButton]} onPress={() => { if (b.pay_url) { sendTelemetry('bill_pay_click', { bill_id: b.bill_id || null }); Linking.openURL(b.pay_url); } }}><MaterialCommunityIcons name="credit-card-outline" size={18} color="#fff"/><Text style={s.payTxt}>پرداخت</Text></TouchableOpacity>}
+              {unpaid && cfg.can_send_messenger && cfg.bill_bot_enabled !== false && <TouchableOpacity style={[s.botBtn, s.actionButton]} disabled={sending === 'bot'+b.id} onPress={() => sendBillBot(b)}><MaterialCommunityIcons name="robot-outline" size={18} color="#3b5bd6"/><Text style={s.botTxt}>{sending === 'bot'+b.id ? 'در حال ارسال…' : 'ارسال در ربات‌ها'}</Text></TouchableOpacity>}
+              {unpaid && showSms && <TouchableOpacity style={[s.smsBtn, s.actionButton]} disabled={sending === b.id} onPress={() => sendBillSms(b)}><MaterialCommunityIcons name="message-text-outline" size={18} color={C.brand}/><Text style={s.smsTxt}>{sending === b.id ? 'در حال ارسال…' : 'ارسال پیامک'}</Text></TouchableOpacity>}
             </View>
           </View>
         );
       })}
       <TouchableOpacity style={s.noticeBtn} onPress={() => navigation.navigate('Notice', { driver, preset: 'بدهی آبونمان' })}>
-        <Text style={s.noticeTxt}>✎ ثبت تذکر آبونمان</Text>
+        <MaterialCommunityIcons name="note-edit-outline" size={19} color={C.taxiInk}/><Text style={s.noticeTxt}>ثبت تذکر آبونمان</Text>
       </TouchableOpacity>
 
       {/* پنجرهٔ نمایش اطلاعات فیش با فونت درشت */}
@@ -138,12 +145,27 @@ const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   red: { backgroundColor: C.danger, borderRadius: 16, padding: 15, marginBottom: 12 },
   redTxt: { color: '#fff', fontFamily: FONT.bold, textAlign: 'center', fontSize: 13 },
-  fish: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 17, padding: 16, marginBottom: 10, flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
-  amt: { fontFamily: FONT.bold, fontSize: 14, color: C.ink, textAlign: 'right' },
-  status: { fontFamily: FONT.regular, fontSize: 11, textAlign: 'right', marginTop: 2 },
-  meta: { fontFamily: FONT.regular, fontSize: 10.5, color: C.muted, textAlign: 'right', marginTop: 2 },
+  header: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginBottom: 16 },
+  headerIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#e6f4ef', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 17, textAlign: 'right' },
+  headerSubtitle: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', marginTop: 3 },
+  fish: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 18, padding: 15, marginBottom: 12, elevation: 2, shadowColor: '#17352f', shadowOpacity: .05, shadowRadius: 8 },
+  billHead: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+  billIcon: { width: 46, height: 46, borderRadius: 14, backgroundColor: '#e6f4ef', alignItems: 'center', justifyContent: 'center' },
+  billIconUnpaid: { backgroundColor: '#fff3dd' },
+  currency: { fontSize: 13, color: C.muted },
+  statusPill: { flexDirection: 'row-reverse', alignItems: 'center', gap: 5, alignSelf: 'flex-end', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 5, marginTop: 7 },
+  paidPill: { backgroundColor: '#e9f7ef' },
+  unpaidPill: { backgroundColor: '#fff4e4' },
+  billInfo: { backgroundColor: '#f7f9fb', borderRadius: 12, padding: 11, marginTop: 12, gap: 7 },
+  infoRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  billActions: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  actionButton: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 42 },
+  amt: { fontFamily: FONT.bold, fontSize: 20, color: C.ink, textAlign: 'right' },
+  status: { fontFamily: FONT.regular, fontSize: 12, textAlign: 'right' },
+  meta: { fontFamily: FONT.regular, fontSize: 12, color: C.muted, textAlign: 'right', flexShrink: 1 },
   pay: { backgroundColor: C.brand, borderRadius: 13, paddingVertical: 11, paddingHorizontal: 16 },
-  detailBtn: { backgroundColor: '#eef2ff', borderRadius: 9, paddingVertical: 7, paddingHorizontal: 12 },
+  detailBtn: { backgroundColor: '#eef2ff', borderRadius: 11, paddingVertical: 9, paddingHorizontal: 12 },
   detailTxt: { fontFamily: FONT.bold, color: '#2746a6', fontSize: 11.5 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 22 },
   modalCard: { backgroundColor: '#fff', borderRadius: 18, padding: 22, width: '100%', alignItems: 'center' },
@@ -159,6 +181,6 @@ const s = StyleSheet.create({
   smsTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 11 },
   botBtn: { backgroundColor: '#eef4ff', borderColor: '#3b5bd6', borderWidth: 1, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12 },
   botTxt: { color: '#3b5bd6', fontFamily: FONT.bold, fontSize: 11 },
-  noticeBtn: { backgroundColor: C.taxi, borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 8 },
+  noticeBtn: { backgroundColor: C.taxi, borderRadius: 14, padding: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row-reverse', gap: 8, marginTop: 8 },
   noticeTxt: { color: C.taxiInk, fontFamily: FONT.bold },
 });
