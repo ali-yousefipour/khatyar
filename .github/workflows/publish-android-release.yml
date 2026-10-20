@@ -215,6 +215,10 @@ jobs:
           fi
           echo "Expo Doctor completed at $(date -u +%FT%TZ)"
 
+      - name: Validate every mobile JavaScript and TypeScript source
+        working-directory: mobile
+        run: node scripts/validate-all-sources.cjs
+
       - name: Validate native config plugin syntax
         working-directory: mobile
         shell: bash
