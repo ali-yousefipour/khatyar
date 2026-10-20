@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, TextInput, Image, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, TextInput, Image, Linking, RefreshControl } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -10,58 +10,127 @@ import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import ImageViewer from '../components/ImageViewer';
 import CompanyPayrollHistory from './CompanyPayrollHistory';
+import JDatePicker from '../components/JDatePicker';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const TY = { annual: 'مرخصی استحقاقی', sick: 'مرخصی استعلاجی', mission: 'ماموریت', overtime: 'اضافه‌کار', manual: 'تردد دستی' };
 
 // کارتابل تأیید درخواست‌ها
+const normalizeJ = (value) => String(value || '').replace(/[۰-۹]/g, (x) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(x))).replace(/\\//g, '-').slice(0, 10);
+function InboxDate({ label, value, onChange }) {
+  const [visible, setVisible] = useState(false);
+  return <View style={{flex:1}}>
+    <Text style={inboxStyle.label}>{label}</Text>
+    <TouchableOpacity accessibilityRole="button" style={inboxStyle.dateButton} onPress={()=>setVisible(true)}>
+      <MaterialCommunityIcons name="calendar-month-outline" size={19} color={C.brand}/>
+      <Text style={inboxStyle.dateText}>{value ? faNum(value.replace(/-/g,'/')) : 'انتخاب تاریخ'}</Text>
+    </TouchableOpacity>
+    <JDatePicker visible={visible} onClose={()=>setVisible(false)} initial={null} onSelect={(d)=>onChange(`${d.jy}-${String(d.jm).padStart(2,'0')}-${String(d.jd).padStart(2,'0')}`)}/>
+  </View>;
+}
 export function RequestInboxScreen() {
   const [rows, setRows] = useState(null);
   const [note, setNote] = useState({});
   const [busy, setBusy] = useState(0);
-  const load = () => request('/my/request-inbox').then(setRows).catch(() => setRows([]));
-  useEffect(() => { load(); }, []);
-
+  const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [expanded, setExpanded] = useState({});
+  const load = useCallback(async () => {
+    try {
+      setError('');
+      const result = await request('/my/request-inbox', { noStore:true, forceNetwork:true, queueIfOffline:false });
+      const items = Array.isArray(result) ? result : (result?.rows || result?.requests || result?.data);
+      if (!Array.isArray(items)) throw new Error('پاسخ کارتابل ساختار معتبر ندارد.');
+      setRows(items);
+    } catch (e) { setError(e?.message || 'دریافت کارتابل ناموفق بود.'); setRows((old)=>old || []); }
+  }, []);
+  useFocusEffect(useCallback(()=>{load();},[load]));
+  const refresh = async()=>{setRefreshing(true);try{await load();}finally{setRefreshing(false);}};
+  const filtered = (rows || []).filter((r)=>{
+    const name = String(r.requester || r.requester_name || r.user_name || '').toLocaleLowerCase('fa');
+    const date = normalizeJ(r.the_date || r.from_jdate || r.created_jdate || r.created_at);
+    return (!search.trim() || name.includes(search.trim().toLocaleLowerCase('fa'))) &&
+      (typeFilter==='all' || r.type===typeFilter) && (!from || date >= from) && (!to || date <= to);
+  }).sort((a,b)=>normalizeJ(b.created_jdate || b.created_at || b.the_date || b.from_jdate).localeCompare(normalizeJ(a.created_jdate || a.created_at || a.the_date || a.from_jdate)));
   const decide = async (id, decision) => {
-    // هنگام رد، دلیل اجباری است تا فرستنده بداند چرا رد شده
     if (decision === 'reject' && !(note[id] || '').trim()) {
-      Alert.alert('دلیل رد لازم است', 'برای رد درخواست، لطفاً دلیل را در کادر یادداشت بنویسید تا برای درخواست‌دهنده نمایش داده شود.');
+      Alert.alert('دلیل رد لازم است', 'برای رد درخواست، دلیل را در کادر یادداشت بنویسید.');
       return;
     }
     setBusy(id);
     try {
       await request(`/requests/${id}/decide`, { method: 'POST', body: { decision, note: note[id] || '' } });
       Alert.alert('انجام شد', decision === 'approve' ? 'درخواست تأیید شد.' : 'درخواست رد شد.');
-      load();
+      await load();
     } catch (e) { Alert.alert('خطا', e.message); }
     finally { setBusy(0); }
   };
-
-  if (!rows) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
-  if (!rows.length) return <Text style={[s.muted, { padding: 24 }]}>درخواستی در کارتابل شما نیست.</Text>;
-
-  return (
-    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 14 }}>
-      {rows.map((r) => (
-        <View key={r.id} style={s.card}>
-          <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}>
-            <Text style={s.cardT}>{TY[r.type] || r.type} {r.unit === 'hourly' ? '(ساعتی)' : r.unit === 'daily' ? '(روزانه)' : ''}</Text>
-            <Text style={s.req}>{r.requester}</Text>
-          </View>
-          <Text style={s.meta}>{r.the_date || r.from_jdate}{r.to_jdate && r.to_jdate !== r.from_jdate ? ` تا ${r.to_jdate}` : ''}{r.from_time ? `  ${r.from_time}–${r.to_time}` : ''}{r.in_time ? `  ورود ${r.in_time} خروج ${r.out_time || '—'}` : ''}</Text>
-          {r.minutes ? <Text style={s.meta}>مدت: {Math.floor(r.minutes / 60)} ساعت و {r.minutes % 60} دقیقه</Text> : null}
-          {r.reason ? <Text style={s.reason}>{r.reason}</Text> : null}
-          {(r.selfie_url || r.selfie_data) ? <Image source={imageSource(r.selfie_url || r.selfie_data)} style={s.selfie} /> : null}
-          {r.attachment_name ? <Text style={[s.meta, { color: C.brand }]}>📎 {r.attachment_name}</Text> : null}
-          <TextInput style={s.note} value={note[r.id] || ''} onChangeText={(t) => setNote((n) => ({ ...n, [r.id]: t }))} placeholder="یادداشت (برای رد، دلیل الزامی است)…" placeholderTextColor={C.muted} />
-          <View style={{ flexDirection: 'row-reverse', gap: 10, marginTop: 8 }}>
-            <TouchableOpacity style={[s.ok, busy === r.id && { opacity: 0.6 }]} disabled={busy === r.id} onPress={() => decide(r.id, 'approve')}><Text style={s.okT}>تأیید</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.no, busy === r.id && { opacity: 0.6 }]} disabled={busy === r.id} onPress={() => decide(r.id, 'reject')}><Text style={s.noT}>رد</Text></TouchableOpacity>
-          </View>
-        </View>
-      ))}
-    </ScrollView>
-  );
+  return <ScrollView style={{backgroundColor:C.paper}} contentContainerStyle={{padding:14,paddingBottom:50}}
+    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.brand}/>}>
+    <View style={inboxStyle.heading}><View style={{flex:1}}><Text style={inboxStyle.title}>کارتابل تأیید درخواست‌ها</Text><Text style={inboxStyle.subtitle}>بررسی و تصمیم‌گیری درباره درخواست‌های ارجاع‌شده</Text></View><View style={inboxStyle.count}><Text style={inboxStyle.countText}>{faNum((rows||[]).length)}</Text></View></View>
+    <View style={inboxStyle.filterCard}>
+      <View style={inboxStyle.searchBox}><MaterialCommunityIcons name="magnify" size={23} color={C.muted}/><TextInput style={inboxStyle.searchInput} value={search} onChangeText={setSearch} placeholder="جستجوی نام ارسال‌کننده..." placeholderTextColor={C.muted}/>{search ? <TouchableOpacity onPress={()=>setSearch('')}><MaterialCommunityIcons name="close-circle" size={20} color={C.muted}/></TouchableOpacity> : null}</View>
+      <Text style={inboxStyle.label}>نوع درخواست</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{flexDirection:'row-reverse',gap:7,paddingVertical:3}}>
+        {[['all','همه'],...Object.entries(TY)].map(([key,label])=><TouchableOpacity key={key} onPress={()=>setTypeFilter(key)} style={[inboxStyle.chip,typeFilter===key&&inboxStyle.chipActive]}><Text style={[inboxStyle.chipText,typeFilter===key&&{color:'#fff'}]}>{label}</Text></TouchableOpacity>)}
+      </ScrollView>
+      <View style={{flexDirection:'row-reverse',gap:9}}><InboxDate label="از تاریخ" value={from} onChange={setFrom}/><InboxDate label="تا تاریخ" value={to} onChange={setTo}/></View>
+      <View style={{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',marginTop:13}}><Text style={inboxStyle.resultText}>{faNum(filtered.length)} درخواست یافت شد</Text><TouchableOpacity onPress={()=>{setSearch('');setTypeFilter('all');setFrom('');setTo('');}}><Text style={inboxStyle.clearText}>پاک کردن فیلترها</Text></TouchableOpacity></View>
+    </View>
+    {error ? <View style={inboxStyle.error}><Text style={inboxStyle.errorText}>{error}</Text><TouchableOpacity onPress={load}><Text style={inboxStyle.clearText}>تلاش مجدد</Text></TouchableOpacity></View> : null}
+    {rows===null ? <ActivityIndicator color={C.brand}/> : filtered.length===0 ? <View style={inboxStyle.empty}><MaterialCommunityIcons name="clipboard-check-outline" size={45} color={C.muted}/><Text style={inboxStyle.emptyTitle}>{rows.length ? 'درخواستی مطابق فیلترها پیدا نشد' : 'درخواستی در کارتابل شما نیست'}</Text><Text style={inboxStyle.subtitle}>{rows.length ? 'فیلترها را تغییر دهید.' : 'درخواست‌های ارجاع‌شده برای تأیید در این بخش نمایش داده می‌شوند.'}</Text></View> : filtered.map((r)=>{
+      const open=expanded[r.id] !== false;
+      return <View key={r.id} style={inboxStyle.card}>
+        <TouchableOpacity onPress={()=>setExpanded(p=>({...p,[r.id]:!open}))} style={{flexDirection:'row-reverse',alignItems:'center',gap:10}}>
+          <View style={inboxStyle.avatar}><MaterialCommunityIcons name="account-outline" size={23} color={C.brand}/></View>
+          <View style={{flex:1}}><Text style={inboxStyle.name}>{r.requester || r.requester_name || r.user_name || 'نام ارسال‌کننده نامشخص'}</Text><Text style={inboxStyle.subtitle}>{TY[r.type] || r.type} {r.unit==='hourly'?'· ساعتی':r.unit==='daily'?'· روزانه':''}</Text></View>
+          <MaterialCommunityIcons name={open?'chevron-up':'chevron-down'} size={24} color={C.muted}/>
+        </TouchableOpacity>
+        <Text style={inboxStyle.meta}>{faNum(r.the_date || r.from_jdate || '—')}{r.to_jdate && r.to_jdate !== r.from_jdate ? ` تا ${faNum(r.to_jdate)}` : ''}{r.from_time ? ` · ${faNum(r.from_time)} تا ${faNum(r.to_time)}` : ''}{r.in_time ? ` · ورود ${faNum(r.in_time)} · خروج ${faNum(r.out_time || '—')}` : ''}</Text>
+        {open ? <>
+          {r.minutes ? <Text style={inboxStyle.meta}>مدت: {faNum(Math.floor(r.minutes/60))} ساعت و {faNum(r.minutes%60)} دقیقه</Text> : null}
+          {r.reason ? <View style={inboxStyle.reasonBox}><Text style={inboxStyle.reason}>{r.reason}</Text></View> : null}
+          {(r.selfie_url || r.selfie_data) ? <Image source={imageSource(r.selfie_url || r.selfie_data)} style={s.selfie}/> : null}
+          {r.attachment_name ? <Text style={[inboxStyle.meta,{color:C.brand}]}>پیوست: {r.attachment_name}</Text> : null}
+          <TextInput style={s.note} multiline value={note[r.id]||''} onChangeText={(t)=>setNote(n=>({...n,[r.id]:t}))} placeholder="یادداشت تأیید یا دلیل رد درخواست..." placeholderTextColor={C.muted}/>
+          <View style={{flexDirection:'row-reverse',gap:9,marginTop:12}}><TouchableOpacity style={[s.ok,{minHeight:48,justifyContent:'center'},busy===r.id&&{opacity:.5}]} disabled={busy===r.id} onPress={()=>decide(r.id,'approve')}><Text style={s.okT}>تأیید درخواست</Text></TouchableOpacity><TouchableOpacity style={[s.no,{minHeight:48,justifyContent:'center'},busy===r.id&&{opacity:.5}]} disabled={busy===r.id} onPress={()=>decide(r.id,'reject')}><Text style={s.noT}>رد درخواست</Text></TouchableOpacity></View>
+        </> : null}
+      </View>;
+    })}
+  </ScrollView>;
 }
+const inboxStyle=StyleSheet.create({
+ heading:{flexDirection:'row-reverse',alignItems:'center',gap:12,marginBottom:14},
+ title:{fontFamily:FONT.bold,fontSize:18,color:C.ink,textAlign:'right'},
+ subtitle:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:5,lineHeight:20},
+ count:{backgroundColor:'#e3f3ed',width:48,height:48,borderRadius:15,alignItems:'center',justifyContent:'center'},
+ countText:{fontFamily:FONT.bold,fontSize:19,color:C.brand},
+ filterCard:{backgroundColor:'#fff',borderRadius:18,padding:13,borderWidth:1,borderColor:C.line,marginBottom:15},
+ searchBox:{flexDirection:'row-reverse',alignItems:'center',borderWidth:1,borderColor:C.line,borderRadius:13,paddingHorizontal:12,minHeight:50,backgroundColor:C.paper},
+ searchInput:{flex:1,fontFamily:FONT.regular,color:C.ink,textAlign:'right',paddingHorizontal:9,fontSize:13},
+ label:{fontFamily:FONT.bold,color:C.ink,textAlign:'right',fontSize:12,marginTop:13,marginBottom:7},
+ chip:{paddingHorizontal:12,paddingVertical:10,borderRadius:12,borderWidth:1,borderColor:C.line,backgroundColor:'#f7f9fb'},
+ chipActive:{backgroundColor:C.brand,borderColor:C.brand},
+ chipText:{fontFamily:FONT.bold,fontSize:12,color:C.ink},
+ dateButton:{backgroundColor:'#f7f9fb',borderColor:C.line,borderWidth:1,borderRadius:12,paddingHorizontal:10,minHeight:48,flexDirection:'row-reverse',alignItems:'center',gap:5},
+ dateText:{fontFamily:FONT.regular,fontSize:12,color:C.ink,flex:1,textAlign:'right'},
+ resultText:{fontFamily:FONT.bold,color:C.slate,fontSize:12},
+ clearText:{fontFamily:FONT.bold,color:C.brand,fontSize:12},
+ card:{backgroundColor:'#fff',borderRadius:18,padding:15,borderWidth:1,borderColor:C.line,marginBottom:11},
+ avatar:{width:42,height:42,borderRadius:14,backgroundColor:'#e9f5f0',justifyContent:'center',alignItems:'center'},
+ name:{fontFamily:FONT.bold,color:C.ink,fontSize:14,textAlign:'right'},
+ meta:{fontFamily:FONT.regular,color:C.muted,fontSize:12,textAlign:'right',marginTop:10,lineHeight:20},
+ reasonBox:{backgroundColor:'#f5f7fa',borderRadius:11,padding:12,marginTop:10},
+ reason:{fontFamily:FONT.regular,color:C.slate,fontSize:13,textAlign:'right',lineHeight:22},
+ empty:{alignItems:'center',backgroundColor:'#fff',borderRadius:18,padding:30,borderWidth:1,borderColor:C.line},
+ emptyTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14,marginTop:12,textAlign:'center'},
+ error:{backgroundColor:'#fff1f1',padding:14,borderRadius:12,marginBottom:12},
+ errorText:{fontFamily:FONT.regular,color:C.danger,fontSize:12,textAlign:'right',marginBottom:8}
+});
 
 // خلاصهٔ کارکرد ماهانهٔ من
 export function WorkSummaryScreen() {
