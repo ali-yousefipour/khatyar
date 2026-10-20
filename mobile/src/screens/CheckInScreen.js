@@ -1106,6 +1106,17 @@ function CheckInCore() {
 }
 
 function fmtMinFa(min){const n=Math.max(0,Number(min)||0),h=Math.floor(n/60),m=n%60;return `${faNum(h)}:${String(m).padStart(2,'0').replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d])}`;}
+function dailyAttendanceTime(value){
+  if(!value)return '—';
+  const str=String(value).trim();
+  const match=str.match(/(?:^|[ T])(\\d{1,2}:\\d{2})(?::\\d{2})?/);
+  if(match)return faNum(match[1]);
+  return '—';
+}
+function dailyAttendanceSessions(response){
+  const rows=Array.isArray(response?.sessions)?response.sessions:[];
+  return rows.filter(r=>r&&r.check_in).slice().sort((a,b)=>String(a.check_in).localeCompare(String(b.check_in)));
+}
 function CheckInPerformanceTab(){
   const navigation=useNavigation();
   const [date,setDate]=useState(null);
@@ -1159,17 +1170,25 @@ function CheckInPerformanceTab(){
   const absent=Math.max(0,Number(w.absent_min||0));
   const hasAttendanceDeficit=shortage>0||absent>0;
   const hasGpsInvalidMinutes=w.gps_invalid_min!==undefined && w.gps_invalid_min!==null && Number.isFinite(Number(w.gps_invalid_min));
-  const cards=[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['کسری کار',w.shortage],['شب‌کاری',w.night],['کسر کار خاموشی GPS/توقف برنامه',hasGpsInvalidMinutes?Number(w.gps_invalid_min):null]];
+  const cards=[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['مازاد حضور',w.surplus??w.surplus_min??w.excess??0],['کسری کار',w.shortage],['شب‌کاری',w.night],['کسر کار خاموشی GPS/توقف برنامه',hasGpsInvalidMinutes?Number(w.gps_invalid_min):null]];
+  const sessions=dailyAttendanceSessions(data);
   const openRequest=(type)=>{if(!data?.date)return;navigation.navigate('Requests',{initialType:type,initialDate:data.date,returnToDailyPerformance:true});};
   return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14,paddingBottom:32}}>
     {err?<Text style={s.warnText}>{err}</Text>:null}
     <View style={s.perfNav}>
       <TouchableOpacity style={s.perfNavBtn} onPress={()=>shiftDate(1)} disabled={busy}><Text style={[s.perfNavTxt,busy&&{opacity:.5}]}>روز بعد ›</Text></TouchableOpacity>
-      <Text style={s.perfDate}>{data?.weekday||''} {'('}{data?.date||''}{')'}</Text>
+      <Text style={s.perfDate}>{data?.weekday||''} {'('}{faNum(data?.date||'')}{')'}</Text>
       <TouchableOpacity style={s.perfNavBtn} onPress={()=>shiftDate(-1)} disabled={busy}><Text style={[s.perfNavTxt,busy&&{opacity:.5}]}>‹ روز قبل</Text></TouchableOpacity>
     </View>
     <View style={s.perfHero}><Text style={s.perfTitle}>عملکرد روزانه</Text><Text style={s.perfShift}>{data?.shift_title||'شیفت کاری'}</Text></View>
-    <View style={s.perfGrid}>{cards.map(([l,v])=><View key={l} style={s.perfCard}><Text style={s.perfValue}>{l==='کسر کار خاموشی GPS/توقف برنامه'&&!hasGpsInvalidMinutes?'—':fmtMinFa(v)}</Text><Text style={s.perfLabel}>{l}</Text></View>)}</View>
+    <View style={s.perfGrid}>{cards.map(([l,v])=><View key={l} style={[s.perfCard,(l==='کسری کار'||l.startsWith('کسر کار'))&&s.perfDangerCard]}><Text style={[s.perfValue,(l==='کسری کار'||l.startsWith('کسر کار'))&&{color:C.danger}]}>{l==='کسر کار خاموشی GPS/توقف برنامه'&&!hasGpsInvalidMinutes?'—':fmtMinFa(v)}</Text><Text style={s.perfLabel}>{l}</Text></View>)}</View>
+    <View style={s.dailySessionsPanel}>
+      <View style={s.dailySessionsHeader}><MaterialCommunityIcons name="clock-check-outline" size={23} color={C.brand}/><Text style={s.dailySessionsTitle}>ریز ترددهای روز</Text><Text style={s.dailySessionsCount}>{faNum(sessions.length)} نوبت</Text></View>
+      {sessions.length===0?<Text style={s.dailySessionsEmpty}>برای این روز ترددی ثبت نشده است.</Text>:sessions.map((session,index)=><View key={String(session.id??index)+'-'+String(session.check_in)} style={s.dailySessionCard}>
+        <View style={s.dailySessionHead}><Text style={s.dailySessionIndex}>تردد {faNum(index+1)}</Text><Text style={[s.dailySessionState,!session.check_out&&s.dailySessionOpen]}>{session.check_out?'خروج ثبت شده':'جلسه باز'}</Text></View>
+        <View style={s.dailySessionTimes}><View style={s.dailySessionTimeBox}><Text style={s.dailySessionTimeLabel}>ساعت ورود</Text><Text style={s.dailySessionTimeValue}>{dailyAttendanceTime(session.check_in)}</Text></View><MaterialCommunityIcons name="arrow-left" size={20} color={C.muted}/><View style={s.dailySessionTimeBox}><Text style={s.dailySessionTimeLabel}>ساعت خروج</Text><Text style={s.dailySessionTimeValue}>{dailyAttendanceTime(session.check_out)}</Text></View></View>
+      </View>)}
+    </View>
     {!hasGpsInvalidMinutes ? <Text style={[s.perfHint,{color:C.danger}]}>سرور مقدار کسرکار GPS/توقف برنامه را برای این روز برنگرداند؛ عدد «—» به معنی صفر بودن کسرکار نیست. تنظیم کارکرد GPS و پاسخ API باید بررسی شود.</Text> : <Text style={s.perfHint}>{w.gps_work_required ? 'فقط رویداد صریح خاموشی GPS کسر کار ایجاد می‌کند؛ رفتن برنامه به پس‌زمینه یا نرسیدن checkpoint به‌تنهایی کسر نمی‌شود.' : 'محاسبهٔ کسر کار GPS/توقف برنامه در تنظیمات کارکرد GPS فعال نیست؛ برای اعمال آن، تنظیم مربوطه در بک‌اند باید فعال باشد.'}</Text>}
     <View style={s.perfCardWide}>
       <Text style={s.perfLabel}>وضعیت این روز</Text>
@@ -1468,6 +1487,21 @@ render();
 }
 
 const s = StyleSheet.create({
+  perfDangerCard:{borderColor:'#f3d5d5',backgroundColor:'#fffafa'},
+  dailySessionsPanel:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:18,padding:13,marginTop:14,marginBottom:12},
+  dailySessionsHeader:{flexDirection:'row-reverse',alignItems:'center',gap:8,marginBottom:12},
+  dailySessionsTitle:{flex:1,fontFamily:FONT.bold,fontSize:15,color:C.ink,textAlign:'right'},
+  dailySessionsCount:{fontFamily:FONT.bold,fontSize:11,color:C.brand,backgroundColor:'#e8f5ee',paddingHorizontal:10,paddingVertical:6,borderRadius:10},
+  dailySessionsEmpty:{fontFamily:FONT.regular,color:C.muted,fontSize:12,textAlign:'center',paddingVertical:15},
+  dailySessionCard:{borderRadius:14,borderWidth:1,borderColor:'#e8edf0',backgroundColor:'#fafcfd',padding:12,marginBottom:9},
+  dailySessionHead:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',marginBottom:12},
+  dailySessionIndex:{fontFamily:FONT.bold,color:C.ink,fontSize:13},
+  dailySessionState:{fontFamily:FONT.bold,color:C.brand,fontSize:11},
+  dailySessionOpen:{color:'#b7791f'},
+  dailySessionTimes:{flexDirection:'row-reverse',alignItems:'center',gap:10},
+  dailySessionTimeBox:{flex:1,alignItems:'center',backgroundColor:'#fff',borderRadius:11,paddingVertical:11,paddingHorizontal:5},
+  dailySessionTimeLabel:{fontFamily:FONT.regular,color:C.muted,fontSize:11},
+  dailySessionTimeValue:{fontFamily:FONT.bold,color:C.ink,fontSize:20,marginTop:5},
   presenceHero:{flexDirection:'row-reverse',alignItems:'center',gap:10,backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:19,padding:14,marginBottom:14,elevation:1},
   presenceHeroIcon:{width:47,height:47,borderRadius:14,backgroundColor:'#e7f4ee',alignItems:'center',justifyContent:'center'},
   presenceHeroText:{flex:1,minWidth:0,alignItems:'flex-end'},
