@@ -105,7 +105,7 @@ try {
         }
     }
 
-    $retentionHours = radio_cleanup_retention_hours();
+    $retentionHours = RADIO_RETENTION_DEFAULT_HOURS;
     $deleted = 0;
     $missingFiles = 0;
     $unlinkFailed = 0;
