@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, Modal, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, Modal, SafeAreaView, useWindowDimensions } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { request } from '../api';
 import { C, FONT } from '../theme';
@@ -17,6 +17,9 @@ const integerMoneyFields = new Set([
   'insurance', 'tax', 'net', 'night_amount', 'bonus', 'severance', 'employer_insurance',
 ]);
 const hiddenDetailFields = new Set(['employer_total', 'row', 'row_number', 'row_no', 'radif', 'ردیف']);
+const normalizeLabel = value => String(value || '').replace(/[\u200c\s_\-]/g, '').trim().toLowerCase();
+const detailGroup = (field, label) => { const key = normalizeLabel(`${field} ${label}`); if (/نام|کدملی|شماره|سمت|ردیف|تاهل|فرزند|پرسنلی|حساب/.test(key) && !/حق|مبلغ/.test(key)) return 'هویتی و شغلی'; if (/بیمه|مالیات|کسور|وام|مساعده|کسر/.test(key)) return 'کسورات'; if (/روز|ساعت|غیبت|مرخصی|اضافه|شبکاری|نوبت|جمعهکاری|تعطیلکاری|کارکرد/.test(key) && !/مبلغ|حق|ریال/.test(key)) return 'کارکرد و زمان'; return 'حقوق و مزایا'; };
+const detailGroups = ['هویتی و شغلی','کارکرد و زمان','حقوق و مزایا','کسورات'];
 const moneyText = value => {
   if (value === null || value === undefined || value === '') return '—';
   const normalized = String(value).trim()
@@ -177,17 +180,37 @@ export default function CompanyPayrollHistory() {
         </View>
       </>}
     </ScrollView>
-    <Modal visible={!!detail} animationType="slide" onRequestClose={() => setDetail(null)}>
-      <View style={styles.root}><TouchableOpacity accessibilityRole="button" style={[styles.button, { margin: 16 }]} onPress={() => setDetail(null)}><Text style={styles.buttonText}>بستن جزئیات</Text></TouchableOpacity>
-        <ScrollView contentContainerStyle={styles.content}>{detail && <>
-          <Text style={styles.heading}>{detail.row.employee_name} — {faNum(`${detail.row.period_jy}/${detail.row.period_jm}`)}</Text>
-          <Text style={styles.note}>اطلاعات اعلامی شرکت — مبالغ ریال</Text>
-          {(detail.row.warnings || []).map((warning, index) => <Text key={index} style={styles.error}>{warning}</Text>)}
-          <View style={styles.detailsGrid}>{detail.fields.map((field, index) => ({ field, label: detail.labels[index], index })).filter(({ field, label }) => !hiddenDetailFields.has(field) && String(label || '').trim() !== 'ردیف' && field !== 'net' && String(label || '').replace(/\s/g, '').replace(/‌/g, '') !== 'خالصپرداختی').map(({ field, label, index }) => <View style={[styles.detailCell, { width: detailColumns === 3 ? '31.8%' : '48.5%' }]} key={field}><Text style={styles.detailTitle}>{label}</Text><Text style={styles.detailValue} numberOfLines={3}>{index < 7 ? faNum(String(detail.row.data[field] ?? '—')) : integerMoneyFields.has(field) || /شب.?کاری/.test(String(label)) && /مبلغ/.test(String(label)) ? moneyText(detail.row.data[field]) : amount(detail.row.data[field], 6)}</Text></View>)}</View>
-          <View style={styles.netCard}><Text style={styles.netTitle}>خالص پرداختی</Text><Text style={styles.netValue}>{moneyText(detail.row.data?.net ?? detail.row.net)} ریال</Text></View>
-        
-        </>}</ScrollView>
-      </View>
+    <Modal visible={!!detail} animationType="slide" onRequestClose={() => setDetail(null)} statusBarTranslucent={false}>
+      <SafeAreaView style={styles.root}>
+        <View style={styles.detailTopBar}>
+          <Text style={styles.detailTopTitle}>جزئیات حقوق و کسورات</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="بستن جزئیات" style={styles.detailClose} onPress={() => setDetail(null)}><Text style={styles.detailCloseText}>✕  بستن</Text></TouchableOpacity>
+        </View>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {detail && <>
+            <View style={styles.detailHero}>
+              <Text style={styles.detailHeroPeriod}>حقوق {faNum(`${detail.row.period_jy}/${String(detail.row.period_jm).padStart(2,'0')}`)}</Text>
+              <Text style={styles.detailHeroName}>{detail.row.employee_name}</Text>
+              <Text style={styles.detailHeroNote}>اطلاعات اعلامی شرکت · مبالغ به ریال</Text>
+            </View>
+            {(detail.row.warnings || []).map((warning,index)=><Text key={index} style={styles.error}>{warning}</Text>)}
+            {detailGroups.map(group => {
+              const items = (detail.fields || []).map((field,index)=>({field,label:detail.labels?.[index]||field,index}))
+                .filter(({field,label})=>!hiddenDetailFields.has(String(field).toLowerCase()) && normalizeLabel(field)!=='ردیف' && normalizeLabel(label)!=='ردیف' && field!=='net' && normalizeLabel(label)!=='خالصپرداختی')
+                .filter(({field,label})=>detailGroup(field,label)===group);
+              if(!items.length)return null;
+              return <View key={group} style={styles.detailSection}>
+                <View style={styles.detailSectionHeader}><Text style={styles.detailSectionTitle}>{group}</Text><Text style={styles.detailSectionCount}>{faNum(items.length)} مورد</Text></View>
+                <View style={styles.detailsGrid}>{items.map(({field,label,index})=><View style={[styles.detailCell,{width:detailColumns===3?'31.8%':'48.5%'}]} key={String(field)+index}>
+                  <Text style={styles.detailTitle}>{label}</Text>
+                  <Text style={styles.detailValue} numberOfLines={3} adjustsFontSizeToFit>{index<7?faNum(String(detail.row.data?.[field]??'—')):integerMoneyFields.has(field)||(/شب.?کاری/.test(String(label))&&/مبلغ/.test(String(label)))?moneyText(detail.row.data?.[field]):amount(detail.row.data?.[field],6)}</Text>
+                </View>)}</View>
+              </View>;
+            })}
+            <View style={styles.netCard}><Text style={styles.netTitle}>خالص پرداختی</Text><Text style={styles.netValue} adjustsFontSizeToFit numberOfLines={1}>{moneyText(detail.row.data?.net??detail.row.net)} ریال</Text></View>
+          </>}
+        </ScrollView>
+      </SafeAreaView>
     </Modal>
 
     <Modal visible={!!slip} animationType="slide" onRequestClose={() => !issuing && setSlip(null)}>
@@ -208,6 +231,18 @@ export default function CompanyPayrollHistory() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.paper },
+  detailTopBar:{minHeight:60,backgroundColor:'#fff',borderBottomWidth:1,borderBottomColor:C.line,paddingHorizontal:16,paddingVertical:9,flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between'},
+  detailTopTitle:{fontFamily:FONT.bold,fontSize:16,color:C.ink,textAlign:'right',flexShrink:1},
+  detailClose:{minHeight:42,paddingHorizontal:13,borderRadius:11,backgroundColor:'#e8f3ef',alignItems:'center',justifyContent:'center',marginLeft:12},
+  detailCloseText:{fontFamily:FONT.bold,fontSize:13,color:C.brand},
+  detailHero:{backgroundColor:C.brand,borderRadius:17,padding:18,marginBottom:16},
+  detailHeroPeriod:{fontFamily:FONT.bold,color:'#e1f4ec',fontSize:14,textAlign:'right'},
+  detailHeroName:{fontFamily:FONT.bold,color:'#fff',fontSize:19,textAlign:'right',marginTop:8},
+  detailHeroNote:{fontFamily:FONT.regular,color:'#e1f4ec',fontSize:12,textAlign:'right',marginTop:8},
+  detailSection:{marginBottom:18},
+  detailSectionHeader:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',marginBottom:11,paddingHorizontal:2},
+  detailSectionTitle:{fontFamily:FONT.bold,fontSize:16,color:C.ink},
+  detailSectionCount:{fontFamily:FONT.regular,fontSize:11,color:C.slate},
   hero:{backgroundColor:C.brand,borderRadius:18,padding:18,marginBottom:14},
   heroTitle:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right'},
   heroSubtitle:{fontFamily:FONT.bold,fontSize:13,color:'#e0f5ec',textAlign:'right',marginTop:7},
