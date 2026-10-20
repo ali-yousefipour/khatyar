@@ -21,15 +21,16 @@ export default function PayrollAccessSlip({ slip, width }) {
     'دستمزدروزانه': ['daily_wage'], 'مزدسنوات': ['seniority_wage'],
     'مزدشغل': ['job_wage'], 'حقوقماهیانه': ['monthly_wage'],
     'حقتاهل': ['marriage'], 'حقاولاد': ['child_allowance'],
-    'ساعتجمعهکاری': ['friday_hours'], 'جمعهکاری': ['friday_amount'],
-    'ساعتتعطیلکاری': ['holiday_hours'], 'تعطیلکاری': ['holiday_amount'],
+    'ساعتجمعهکاری': ['friday_hours'], 'جمعهکاری': ['friday_amount'], 'مبلغجمعهکاری': ['friday_amount'],
+    'ساعتتعطیلکاری': ['holiday_hours'], 'تعطیلکاری': ['holiday_amount'], 'مبلغتعطیلکاری': ['holiday_amount'],
     'ساعتشبکاری': ['night_hours'], 'شبکاری': ['night_amount'],
     'درصدنوبتکاری': ['shift_percent'], 'مبلغنوبتکاری': ['shift_amount'],
-    'ساعتاضافهکار': ['overtime_hours'], 'اضافهکار': ['overtime_amount'],
+    'ساعتاضافهکار': ['overtime_hours'], 'اضافهکار': ['overtime_amount'], 'مبلغاضافهکار': ['overtime_amount'],
     'حقمسکن': ['housing'], 'حقبن': ['food'],
     'مساعده/سایرکسورات': ['advance'], 'متفرقه': ['other'],
     'جمعحقوقومزایا': ['gross'], 'بیمهتامیناجتماعی': ['insurance'],
     'مالیات': ['tax'], 'خالصپرداختی': ['net'],
+    'عیدیپاداش': ['bonus'], 'عیدیوپاداش': ['bonus'], 'سنوات': ['severance'], 'بیمهسهمکارفرما': ['employer_insurance'],
     'نام': ['first_name'], 'نامخانوادگی': ['last_name'],
     'کدملی': ['national_code'], 'سمت': ['role'],
     'تعدادفرزند': ['children'], 'صفرمجردیکمتاهل': ['married']
@@ -51,6 +52,18 @@ export default function PayrollAccessSlip({ slip, width }) {
     if (explicit !== undefined && explicit !== null && explicit !== '') return explicit;
     return fallback;
   };
+  const integerMoneyControls = new Set([
+    'مبلغجمعهکاری', 'جمعهکاری', 'fridayamount',
+    'مبلغتعطیلکاری', 'تعطیلکاری', 'holidayamount',
+    'مبلغاضافهکار', 'اضافهکار', 'overtimeamount',
+    'جمعحقوقومزایا', 'gross', 'بیمهتامیناجتماعی', 'insurance',
+    'مالیات', 'tax', 'خالصپرداختی', 'net',
+    'عیدیوپاداش', 'عیدیپاداش', 'عیدی', 'bonus',
+    'سنوات', 'severance', 'بیمهسهمکارفرما', 'employerinsurance'
+  ]);
+  const isIntegerMoney = control =>
+    integerMoneyControls.has(normalized(control.ControlSource || control.Name)) ||
+    integerMoneyControls.has(normalized(control.Name || ''));
   const persianDigits = value => faNum(String(value).replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))));
   const displayValue = (value, control) => {
     if (value === undefined || value === null || value === '') return '—';
@@ -58,7 +71,7 @@ export default function PayrollAccessSlip({ slip, width }) {
     const ascii = raw.replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
       .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
       .replace(/٫/g, '.').replace(/[٬,\s]/g, '');
-    if (String(control.Format || '') !== '@' && /^[-+]?\d+(?:\.\d+)?$/.test(ascii)) {
+    if ((isIntegerMoney(control) || String(control.Format || '') !== '@') && /^[-+]?\d+(?:\.\d+)?$/.test(ascii)) {
       const n = Number(ascii);
       if (Number.isFinite(n)) return persianDigits(Math.round(n).toLocaleString('en-US'));
     }
