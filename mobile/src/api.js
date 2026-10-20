@@ -15,7 +15,23 @@ async function _sessionFormPost(path,body,{timeoutMs=25000}={}){const form=new U
 export async function loginRequest(body,opts){return _sessionFormPost('/session/start',body,opts)}
 export async function requestLoginOtp(mobile){return _sessionFormPost('/session/otp-request',{mobile})}
 export async function verifyLoginOtp(body){return _sessionFormPost('/session/otp-verify',body)}
-export async function getAppLoginConfig(){return request('/session/app-login-config',{auth:false,noStore:true})}
+export async function getAppLoginConfig(){
+  // Older PHP deployments have no app-login-config route. They explicitly
+  // permit password login for Android while requiring SMS OTP on the web.
+  // Fall back ONLY on HTTP 404, never on network errors or server failures.
+  const path='/session/app-login-config';
+  setLastApi({path,method:'GET',started_at:new Date().toISOString()});
+  const res=await fetchTimeout(`${apiBase()}${path}`,{
+    method:'GET',headers:{accept:'application/json','cache-control':'no-store'}
+  },15000);
+  if(res.status===404)return {method:'password',legacy:true};
+  const body=await res.text();
+  let data;
+  try{data=JSON.parse(body)}catch(_){throw new Error(`پاسخ تنظیمات ورود معتبر نیست (HTTP ${res.status}).`)}
+  if(!res.ok)throw new Error(data?.error||data?.message||`خطای سرور (HTTP ${res.status})`);
+  if(!['password','sms_otp','bale_otp'].includes(data?.method))throw new Error('روش ورود اعلام‌شده توسط سرور نامعتبر است.');
+  return data;
+}
 export async function requestAppLoginOtp(username){return _sessionFormPost('/session/app-login-request',{username})}
 export async function verifyAppLoginOtp(body){return _sessionFormPost('/session/app-login-verify',body)}
 export function imageSource(val){if(!val)return null;if(typeof val!=='string')return val;if(val.indexOf('data:')===0)return{uri:val};if(val.indexOf('/api/')===0){const base=apiBase().replace(/\/api$/,'');return{uri:base+val,headers:accessToken?{Authorization:'Bearer '+accessToken,'X-Access-Token':accessToken}:{}}}if(val.indexOf('http')===0)return{uri:val};return{uri:val}}
