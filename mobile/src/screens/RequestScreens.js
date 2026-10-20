@@ -16,7 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 const TY = { annual: 'مرخصی استحقاقی', sick: 'مرخصی استعلاجی', mission: 'ماموریت', overtime: 'اضافه‌کار', manual: 'تردد دستی' };
 
 // کارتابل تأیید درخواست‌ها
-const normalizeJ = (value) => String(value || '').replace(/[۰-۹]/g, (x) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(x))).replace(/\\//g, '-').slice(0, 10);
+const normalizeJ = (value) => String(value || '').replace(/[۰-۹]/g, (x) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(x))).replace(/\//g, '-').slice(0, 10);
 function InboxDate({ label, value, onChange }) {
   const [visible, setVisible] = useState(false);
   return <View style={{flex:1}}>
