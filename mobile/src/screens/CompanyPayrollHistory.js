@@ -21,7 +21,7 @@ const moneyText = value => {
   const normalized = String(value).trim()
     .replace(/[۰-۹]/g, c => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)))
     .replace(/[٠-٩]/g, c => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
-    .replace(/٫/g, '.').replace(/[٬,\\s]/g, '');
+    .replace(/٫/g, '.').replace(/[٬,\s]/g, '');
   const n = Number(normalized);
   return Number.isFinite(n) && normalized !== ''
     ? Math.round(n).toLocaleString('fa-IR', { maximumFractionDigits: 0, minimumFractionDigits: 0 })
