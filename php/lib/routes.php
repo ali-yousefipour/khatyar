@@ -3250,13 +3250,17 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null) {
     // The monthly visible overtime is their sum, matching daily total_overtime.
     // Apply the monthly cap to regular overtime only, not to Friday/holiday work.
     $tot['regular_overtime']=max(0,(int)($tot['overtime']??0));
-    if (!empty($shift['monthly_ot_cap']))
-      $tot['regular_overtime']=min($tot['regular_overtime'],max(0,(int)$shift['monthly_ot_cap']));
     $tot['friday_overtime']=max(0,(int)($tot['friday']??0));
     $tot['holiday_overtime']=max(0,(int)($tot['holiday']??0));
     $tot['holiday_friday_overtime']=$tot['friday_overtime']+$tot['holiday_overtime'];
+    // Gross time is the sum of daily detail, irrespective of payroll caps.
     $tot['total_overtime']=$tot['regular_overtime']+$tot['holiday_friday_overtime'];
     $tot['overtime']=$tot['total_overtime'];
+    $monthlyCap=max(0,(int)($shift['monthly_ot_cap']??0));
+    $tot['monthly_ot_cap']=$monthlyCap;
+    $tot['payable_regular_overtime']=$monthlyCap>0?min($tot['regular_overtime'],$monthlyCap):$tot['regular_overtime'];
+    $tot['capped_overtime_minutes']=$tot['regular_overtime']-$tot['payable_regular_overtime'];
+    $tot['payable_total_overtime']=$tot['payable_regular_overtime']+$tot['holiday_friday_overtime'];
     $out[] = array_merge(['user_id'=>$a['user_id'],'name'=>$a['name'],'role'=>$a['role'],'shift'=>$shift['title'],'shift_type'=>$shift['type']??'auto'], $tot, $reqAgg);
   }
   return $out;
