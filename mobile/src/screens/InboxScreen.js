@@ -9,6 +9,7 @@ import ActivityIndicator from '../components/PulseLoadingIndicator';
 import { refreshUnreadCounts } from '../unread';
 import ReportPersonPickerModal from '../components/ReportPersonPickerModal';
 import ReportTextModal from '../components/ReportTextModal';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const ST = { sent: 'جدید', seen: 'دیده‌شده', answered: 'پاسخ‌داده‌شده', forwarded: 'ارجاع‌شده', rejected: 'رد شده' };
 const PR = { normal: 'عادی', important: 'مهم', urgent: 'فوری' };
@@ -22,6 +23,7 @@ export function InboxReportsScreen({ navigation }) {
   const [pick, setPick] = useState(null);
   const [sender, setSender] = useState(null);
   const [statusF, setStatusF] = useState(null);
+  const [query, setQuery] = useState('');
 
   const load = useCallback(() => {
     const url = tab === 'archived' ? '/my/inbox-reports/archived' : (tab === 'forwarded' ? '/my/forwarded-reports' : (tab === 'cc' ? '/my/cc-reports' : '/my/inbox-reports'));
@@ -43,8 +45,9 @@ export function InboxReportsScreen({ navigation }) {
     if (from || to) { const f = from ? [from.jy, from.jm, from.jd] : null; const t = to ? [to.jy, to.jm, to.jd] : null; r = r.filter((x) => inJRange(x.created_at, f, t)); }
     if (sender) r = r.filter((x) => String(x.sender_id) === String(sender));
     if (statusF) r = r.filter((x) => x.status === statusF);
+    if (query.trim()) { const q = query.trim().toLocaleLowerCase(); r = r.filter((x) => [x.subject,x.body,x.first_name,x.last_name,x.plate,x.cc_by_name].some((v) => String(v||'').toLocaleLowerCase().includes(q))); }
     return r;
-  }, [data, from, to, sender, statusF]);
+  }, [data, from, to, sender, statusF, query]);
 
   async function toggleArchive(item) {
     try { await request(`/my/inbox-reports/${item.id}/archive`, { method: 'POST', body: { archive: tab !== 'archived' } }); load(); }
@@ -55,12 +58,18 @@ export function InboxReportsScreen({ navigation }) {
 
   return (
     <View style={s.wrap}>
+      <View style={s.pageHeader}><Text style={s.pageTitle}>{tab==='inbox'?'گزارش‌های دریافتی':tab==='forwarded'?'گزارش‌های ارجاع‌شده توسط من':tab==='cc'?'رونوشت‌های من':'بایگانی گزارش‌ها'}</Text><Text style={s.pageSubtitle}>{tab==='inbox'?'گزارش‌ها و موارد ارجاع‌شده به شما':tab==='forwarded'?'مواردی که به سایر کاربران ارجاع داده‌اید':tab==='cc'?'رونوشت گزارش‌های ارسال‌شده برای شما':'گزارش‌های بایگانی‌شده'}</Text></View>
       <View style={s.tabs}>
-        <TouchableOpacity style={[s.tab, tab === 'inbox' && s.tabOn]} onPress={() => setTab('inbox')}><Text style={[s.tabTxt, tab === 'inbox' && s.tabTxtOn]}>دریافتی</Text></TouchableOpacity>
-        <TouchableOpacity style={[s.tab, tab === 'forwarded' && s.tabOn]} onPress={() => setTab('forwarded')}><Text style={[s.tabTxt, tab === 'forwarded' && s.tabTxtOn]}>ارجاع‌شده توسط من</Text></TouchableOpacity>
-        <TouchableOpacity style={[s.tab, tab === 'cc' && s.tabOn]} onPress={() => setTab('cc')}><Text style={[s.tabTxt, tab === 'cc' && s.tabTxtOn]}>رونوشت‌های من</Text></TouchableOpacity>
-        <TouchableOpacity style={[s.tab, tab === 'archived' && s.tabOn]} onPress={() => setTab('archived')}><Text style={[s.tabTxt, tab === 'archived' && s.tabTxtOn]}>بایگانی</Text></TouchableOpacity>
+        {[
+          {id:'inbox',label:'دریافتی',icon:'inbox-arrow-down'},
+          {id:'forwarded',label:'ارجاع‌های من',icon:'share-outline'},
+          {id:'cc',label:'رونوشت‌های من',icon:'content-copy'},
+          {id:'archived',label:'بایگانی',icon:'archive-outline'},
+        ].map((t)=><TouchableOpacity key={t.id} accessibilityRole="tab" accessibilityState={{selected:tab===t.id}} style={[s.tab,tab===t.id&&s.tabOn]} onPress={()=>{setTab(t.id);setSender(null);setStatusF(null);setQuery('');}}>
+          <MaterialCommunityIcons name={t.icon} size={19} color={tab===t.id?'#fff':C.brand}/><Text numberOfLines={2} style={[s.tabTxt,tab===t.id&&s.tabTxtOn]}>{t.label}</Text>
+        </TouchableOpacity>)}
       </View>
+      <View style={s.searchBox}><MaterialCommunityIcons name="magnify" size={21} color={C.muted}/><TextInput value={query} onChangeText={setQuery} placeholder="جستجو در عنوان، متن و نام فرستنده…" placeholderTextColor={C.muted} style={s.searchInput} returnKeyType="search"/>{query.length>0?<TouchableOpacity accessibilityLabel="پاک کردن جستجو" onPress={()=>setQuery('')}><MaterialCommunityIcons name="close-circle" size={20} color={C.muted}/></TouchableOpacity>:null}</View>
       <View style={s.filters}>
         <TouchableOpacity style={s.fBtn} onPress={() => setPick('from')}><Text style={s.fBtnTxt}>{from ? jLabel(from.jy, from.jm, from.jd) : 'از تاریخ'}</Text></TouchableOpacity>
         <TouchableOpacity style={s.fBtn} onPress={() => setPick('to')}><Text style={s.fBtnTxt}>{to ? jLabel(to.jy, to.jm, to.jd) : 'تا تاریخ'}</Text></TouchableOpacity>
@@ -76,18 +85,17 @@ export function InboxReportsScreen({ navigation }) {
         <TouchableOpacity style={[s.chip, !statusF && s.chipOn]} onPress={() => setStatusF(null)}><Text style={[s.chipTxt, !statusF && { color: '#fff' }]}>همه وضعیت‌ها</Text></TouchableOpacity>
         {Object.entries(ST).map(([k, v]) => <TouchableOpacity key={k} style={[s.chip, statusF === k && s.chipOn]} onPress={() => setStatusF(k)}><Text style={[s.chipTxt, statusF === k && { color: '#fff' }]}>{v}</Text></TouchableOpacity>)}
       </ScrollView>
-      <FlatList contentContainerStyle={{ padding: 14 }} data={rows} keyExtractor={(it) => String(it.id)}
-        ListEmptyComponent={<Text style={s.empty}>{tab === 'archived' ? 'بایگانی خالی است.' : (tab === 'forwarded' ? 'گزارشی ارجاع نکرده‌اید.' : (tab === 'cc' ? 'رونوشتی برای شما ارسال نشده است.' : 'گزارش دریافتی ندارید.'))}</Text>}
+      <View style={s.listSummary}><Text style={s.listSummaryTitle}>{rows.length.toLocaleString('fa-IR')} گزارش</Text><Text style={s.listSummaryHint}>فهرست گزارش‌ها</Text></View>
+      <FlatList keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }} data={rows} keyExtractor={(it) => String(it.id)}
+        ListEmptyComponent={<View style={s.emptyCard}><MaterialCommunityIcons name="text-box-search-outline" size={38} color={C.muted}/><Text style={s.empty}>{query||sender||statusF||from||to?'گزارشی مطابق فیلترهای انتخاب‌شده پیدا نشد.':tab==='archived'?'بایگانی خالی است.':tab==='forwarded'?'گزارشی ارجاع نکرده‌اید.':tab==='cc'?'رونوشتی برای شما ارسال نشده است.':'گزارش دریافتی ندارید.'}</Text></View>}
         renderItem={({ item }) => (
           <View style={s.card}>
             <TouchableOpacity onPress={() => navigation.navigate('ReportDetail', { id: item.id })}>
-              <View style={s.rowB}>
-                <Text style={s.title}>{item.subject}</Text>
-                <Text style={[s.badge, { color: ST_COLOR[item.status] || C.muted, borderColor: ST_COLOR[item.status] || C.line }]}>{PR[item.priority] ? `${PR[item.priority]} · ` : ''}{ST[item.status] || item.status}</Text>
-              </View>
-              <Text style={s.meta}>از {item.first_name} {item.last_name} · {fj(item.created_at)}{tab === 'forwarded' && item.forwarded_at ? ` · ارجاع: ${fj(item.forwarded_at)}` : ''}{tab === 'cc' ? ` · رونوشت از ${item.cc_by_name || '—'} · ${fj(item.cc_at)}` : ''}</Text>
-              <Text style={s.snippet} numberOfLines={2}>{item.body}</Text>
+              <View style={s.rowB}><View style={{flex:1}}><Text style={s.title} numberOfLines={2}>{item.subject||'بدون عنوان'}</Text><Text style={s.reportId}>گزارش #{String(item.id)}</Text></View><Text style={[s.badge, { color: ST_COLOR[item.status] || C.muted, borderColor: ST_COLOR[item.status] || C.line,backgroundColor:item.status==='forwarded'?'#f1edff':item.status==='answered'?'#e7f7ef':item.status==='sent'?'#fff4e3':'#f0f3f9' }]}>{PR[item.priority] ? `${PR[item.priority]} · ` : ''}{ST[item.status] || item.status}</Text></View>
+              <View style={s.metaRow}><MaterialCommunityIcons name="account-outline" size={16} color={C.muted}/><Text style={s.meta} numberOfLines={2}>از {item.first_name} {item.last_name} · {fj(item.created_at)}{tab === 'forwarded' && item.forwarded_at ? ` · ارجاع: ${fj(item.forwarded_at)}` : ''}{tab === 'cc' ? ` · رونوشت از ${item.cc_by_name || '—'} · ${fj(item.cc_at)}` : ''}</Text></View>
+              <Text style={s.snippet} numberOfLines={3}>{item.body}</Text>
               {(item.attachment_name || item.attachment_path || item.attachments_count > 0) ? <Text style={s.hasAtt}>📎 دارای پیوست {item.attachments_count ? `(${item.attachments_count})` : ''}</Text> : null}
+              <View style={s.openHint}><Text style={s.openHintText}>مشاهده جزئیات</Text><MaterialCommunityIcons name="chevron-left" size={19} color={C.brand}/></View>
             </TouchableOpacity>
             {tab !== 'forwarded' && tab !== 'cc' ? <TouchableOpacity style={s.archBtn} onPress={() => toggleArchive(item)}>
               <Text style={s.archTxt}>{tab === 'archived' ? '↩ خروج از بایگانی' : '🗄 بایگانی'}</Text>
@@ -388,13 +396,14 @@ const s = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: C.paper },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 30 },
-  tabs: { flexDirection: 'row-reverse', gap: 8, padding: 12, paddingBottom: 6 },
-  tab: { flex: 1, backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
+  pageHeader:{paddingHorizontal:18,paddingTop:18,paddingBottom:13},pageTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:20,textAlign:'right'},pageSubtitle:{fontFamily:FONT.regular,color:C.muted,fontSize:12,textAlign:'right',marginTop:6,lineHeight:21},searchBox:{marginHorizontal:16,marginBottom:12,backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:15,minHeight:49,flexDirection:'row-reverse',alignItems:'center',paddingHorizontal:13,gap:9},searchInput:{fontFamily:FONT.regular,color:C.ink,fontSize:13,flex:1,textAlign:'right',paddingVertical:9},listSummary:{paddingHorizontal:17,paddingVertical:11,flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center'},listSummaryTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14},listSummaryHint:{fontFamily:FONT.regular,color:C.muted,fontSize:11},emptyCard:{alignItems:'center',justifyContent:'center',backgroundColor:'#fff',borderRadius:20,borderWidth:1,borderColor:C.line,padding:28,marginTop:18},reportId:{fontFamily:FONT.regular,color:C.muted,fontSize:10,textAlign:'right',marginTop:5},metaRow:{flexDirection:'row-reverse',alignItems:'center',gap:5,marginTop:10},openHint:{flexDirection:'row-reverse',alignItems:'center',gap:3,marginTop:12},openHintText:{fontFamily:FONT.bold,color:C.brand,fontSize:11},
+  tabs: { flexDirection: 'row-reverse', gap: 7, paddingHorizontal: 16, paddingBottom: 13 },
+  tab: { flex: 1, minWidth:0, minHeight:78, backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, paddingVertical: 10, paddingHorizontal:3, alignItems: 'center', justifyContent:'center',gap:6 },
   tabOn: { backgroundColor: C.brand, borderColor: C.brand },
-  tabTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 13 },
+  tabTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 11, textAlign:'center',lineHeight:17 },
   tabTxtOn: { color: '#fff' },
-  filters: { flexDirection: 'row-reverse', gap: 8, paddingHorizontal: 12, alignItems: 'center' },
-  fBtn: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 11 },
+  filters: { flexDirection: 'row-reverse', gap: 8, paddingHorizontal: 16, alignItems: 'center',flexWrap:'wrap' },
+  fBtn: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 12, minHeight:39,justifyContent:'center',paddingVertical: 8, paddingHorizontal: 13 },
   fBtnTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 11.5 },
   clr: { paddingHorizontal: 8 }, clrTxt: { color: C.danger, fontFamily: FONT.regular, fontSize: 11 },
   chipsScroll: { flexGrow: 0, flexShrink: 0 },
@@ -402,12 +411,12 @@ const s = StyleSheet.create({
   chip: { flexShrink: 0, backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 99, paddingVertical: 6, paddingHorizontal: 12, alignSelf: 'flex-start' },
   chipOn: { backgroundColor: C.brand, borderColor: C.brand },
   chipTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 11.5 },
-  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 17, padding: 16, marginBottom: 10 },
-  rowB: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
+  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 19, padding: 16, marginBottom: 12 },
+  rowB: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'flex-start',gap:10 },
   title: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right', flex: 1 },
-  badge: { fontFamily: FONT.bold, fontSize: 11, marginRight: 8, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
-  meta: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', marginTop: 3 },
-  snippet: { fontFamily: FONT.regular, color: C.ink, fontSize: 13, textAlign: 'right', marginTop: 6 },
+  badge: { fontFamily: FONT.bold, fontSize: 10, borderWidth: 1, borderRadius: 11, paddingHorizontal: 9, paddingVertical: 6,overflow:'hidden',flexShrink:0 },
+  meta: { fontFamily: FONT.regular, color: C.muted, fontSize: 11, textAlign: 'right', flex:1,lineHeight:19 },
+  snippet: { fontFamily: FONT.regular, color: C.ink, fontSize: 13, textAlign: 'right', marginTop: 12,lineHeight:23 },
   hasAtt: { fontFamily: FONT.regular, color: C.brand, fontSize: 11.5, textAlign: 'right', marginTop: 5 },
   body: { fontFamily: FONT.regular, color: C.ink, fontSize: 14, textAlign: 'right', marginTop: 8, lineHeight: 22 },
   label: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right', marginTop: 14, marginBottom: 6 },
