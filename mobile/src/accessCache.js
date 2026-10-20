@@ -39,7 +39,7 @@ export async function refreshAccessCache(){
       schoolService:school&&typeof school==='object'?school:(old?.schoolService||null),
       savedAt:Date.now()
     });
-    if(data.appItems.length||data.schoolService){
+    if(Array.isArray(app?.items)||old||data.schoolService){
       memory.data=data;
       await AsyncStorage.setItem(KEY,JSON.stringify(data));
     }
