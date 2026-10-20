@@ -3105,11 +3105,14 @@ function _work_month_daily_attendance_totals(array $report, int $lastDay): ?arra
 
 // گزارش تجمیعی کارکرد ماهانه (شبیه فینتو) — بر اساس staff_attendance و شیفت کاربر
 // پارامترها: ?year=1404&month=6  (یا from/to جلالی)
-function _shift_month_report($jy, $jm, $throughJdate=null) {
+function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null) {
   // رکوردهای بازِ قدیمی باید قبل از گزارش مطابق سیاست Auto-Close بسته شوند؛
   // وگرنه گزارش ماه‌های گذشته ممکن است یک جلسهٔ باز را صفر محاسبه کند.
   try {
-    foreach (Db::all("SELECT DISTINCT user_id FROM staff_attendance WHERE check_out IS NULL") as $or) {
+    $pending = $onlyUserId !== null
+      ? Db::all("SELECT DISTINCT user_id FROM staff_attendance WHERE user_id=? AND check_out IS NULL", [(int)$onlyUserId])
+      : Db::all("SELECT DISTINCT user_id FROM staff_attendance WHERE check_out IS NULL");
+    foreach ($pending as $or) {
       _attendance_auto_close_stale((int)$or['user_id']);
     }
   } catch (Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
@@ -3135,9 +3138,12 @@ function _shift_month_report($jy, $jm, $throughJdate=null) {
   $holidaySet = array_flip($holidays);
   unset($holidaySet['1405-07-05'], $holidaySet['1405/07/05']);
   // کاربرانی که در بخشی از ماه شیفت فعال دارند
+  $userFilter = $onlyUserId !== null ? " AND us.user_id=?" : "";
+  $assignParams = [$prefix.'31', $prefix.'01'];
+  if ($onlyUserId !== null) $assignParams[]=(int)$onlyUserId;
   $assigns = Db::all("SELECT us.user_id, us.shift_id, us.from_jdate, us.to_jdate, CONCAT(uu.first_name,' ',uu.last_name) name, r.title role
     FROM user_shifts us JOIN users uu ON uu.id=us.user_id AND uu.is_active=1 LEFT JOIN roles r ON r.id=uu.role_id
-    WHERE (us.from_jdate IS NULL OR us.from_jdate <= ?) AND (us.to_jdate IS NULL OR us.to_jdate >= ?)", [$prefix.'31', $prefix.'01']);
+    WHERE (us.from_jdate IS NULL OR us.from_jdate <= ?) AND (us.to_jdate IS NULL OR us.to_jdate >= ?)" . $userFilter, $assignParams);
   $shiftsById = [];
   foreach (Db::all("SELECT * FROM shifts WHERE is_active=1") as $sx) $shiftsById[$sx['id']] = $sx;
   $out = [];
@@ -4594,7 +4600,8 @@ route('GET', '/api/my/work-summary', function($p,$b,$u){
   if(!$jy){$jy=$todayY;$jm=$todayM;}
   $todayJ=sprintf('%04d-%02d-%02d',$todayY,$todayM,$todayD);
   $throughJdate=($jy===$todayY&&$jm===$todayM)?$todayJ:null;
-  $rows = _shift_month_report($jy,$jm,$throughJdate);
+  // Self-service must not recalculate every staff member's monthly attendance.
+  $rows = _shift_month_report($jy,$jm,$throughJdate,(int)$u['id']);
   $throughDate=$throughJdate?:sprintf('%04d-%02d-%02d',$jy,$jm,ShiftCalc::jMonthDays($jy,$jm));
   foreach($rows as $r) if($r['user_id']==$u['id']) return ['year'=>$jy,'month'=>$jm,'through_jdate'=>$throughDate,'data'=>$r];
   return ['year'=>$jy,'month'=>$jm,'through_jdate'=>$throughDate,'data'=>null];
