@@ -44,7 +44,10 @@ if (strpos($path, '/api') !== 0) {
   }
   http_response_code(404); echo 'Not Found'; exit;
 }
-// IMPORTANT: do not reconcile substitute shifts in the global request bootstrap.\n// That routine performs schema writes and scans request data; running it before every\n// API request can block login and health checks. Reconciliation is handled by its\n// dedicated workflow instead of the authentication/request bootstrap.\n$routes = [];
+// IMPORTANT: do not reconcile substitute shifts in the global request bootstrap.
+// It performs schema writes and scans request data, potentially blocking API calls.
+// Reconciliation belongs to its dedicated workflow, not API authentication.
+$routes = [];
 function route($m, $p, $fn, $public = false, $minLevel = 99) { global $routes; $routes[] = compact('m', 'p', 'fn', 'public', 'minLevel'); }
 function nid($v){ $s = preg_replace('/\D/', '', (string)$v); return $s === '' ? null : str_pad($s, 10, '0', STR_PAD_LEFT); }
 
