@@ -141,27 +141,35 @@ export default function CompanyPayrollHistory() {
   };
   return <View style={styles.root}>
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.heading}>حقوق اعلامی شرکت</Text>
-      <Text style={styles.note}>مبالغ به ریال و مطابق فایل شرکت هستند. درج مبلغ، به‌تنهایی تأیید واریز بانکی نیست.</Text>
-      <View style={styles.row}>
-        <TextInput accessibilityLabel="سال حقوق" style={styles.input} placeholder="همهٔ سال‌ها" keyboardType="number-pad" value={year} maxLength={4} onChangeText={setYear} />
-        <TextInput accessibilityLabel="ماه حقوق" style={styles.input} placeholder="همهٔ ماه‌ها" keyboardType="number-pad" value={month} maxLength={2} onChangeText={setMonth} />
-      </View>
-      <View style={styles.row}>
-        <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={applyFilters}><Text style={styles.buttonText}>اعمال فیلتر</Text></TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={() => setRefresh(value => value + 1)}><Text style={styles.buttonText}>تازه‌سازی</Text></TouchableOpacity>
+      <View style={styles.hero}><Text style={styles.heroTitle}>وضعیت حقوق ماهانه</Text><Text style={styles.heroSubtitle}>سوابق حقوق اعلام‌شده توسط شرکت</Text><Text style={styles.heroDisclaimer}>مبالغ به ریال و مطابق فایل شرکت هستند؛ ثبت مبلغ به معنی تأیید واریز بانکی نیست.</Text></View>
+      <View style={styles.filterPanel}>
+        <Text style={styles.sectionTitle}>جستجو در سوابق</Text>
+        <View style={styles.row}>
+          <TextInput accessibilityLabel="سال حقوق" style={styles.input} placeholder="سال شمسی (همه)" keyboardType="number-pad" value={faNum(year)} maxLength={4} onChangeText={setYear} />
+          <TextInput accessibilityLabel="ماه حقوق" style={styles.input} placeholder="ماه (همه)" keyboardType="number-pad" value={faNum(month)} maxLength={2} onChangeText={setMonth} />
+        </View>
+        <View style={styles.row}>
+          <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={applyFilters}><Text style={styles.buttonText}>اعمال فیلتر</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" style={styles.outlineButton} onPress={() => {setYear('');setMonth('');setFilters({year:'',month:'',page:1});setRefresh(value=>value+1);}}><Text style={styles.outlineButtonText}>پاک‌کردن فیلترها</Text></TouchableOpacity>
+        </View>
       </View>
       {busy ? <ActivityIndicator color={C.brand} /> : error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : result && <>
-        <Text style={styles.note}>{faNum(result.summary.count)} فیش · جمع خالص {amount(result.summary.total_net)} ریال</Text>
+        <View style={styles.summaryPanel}><View style={styles.summaryCell}><Text style={styles.summaryLabel}>تعداد فیش‌ها</Text><Text style={styles.summaryNumber}>{faNum(result.summary.count)}</Text></View><View style={styles.summaryCell}><Text style={styles.summaryLabel}>جمع خالص اعلامی</Text><Text style={styles.summaryNumber} numberOfLines={2} adjustsFontSizeToFit>{amount(result.summary.total_net)} <Text style={styles.summaryUnit}>ریال</Text></Text></View></View>
         {!result.rows.length && <Text style={styles.note}>اطلاعات حقوقی برای این بازه ثبت نشده است. فیش‌های پیوستی در تب دیگر قرار دارند.</Text>}
-        {result.rows.map(row => <View style={styles.card} key={row.id}>
-          <Text style={styles.heading}>حقوق {faNum(`${row.period_jy}/${String(row.period_jm).padStart(2, '0')}`)}</Text>
-          <Text style={styles.label}>{row.employee_name}</Text>
-          <Text style={styles.label}>خالص اعلامی: {amount(row.net)} ریال</Text>
-          <Text style={styles.note}>{row.role_title}</Text>
-          <TouchableOpacity accessibilityRole="button" disabled={opening} style={[styles.button, opening && styles.disabled]} onPress={() => openDetail(row.id)}><Text style={styles.buttonText}>{opening ? 'در حال دریافت…' : 'جزئیات حقوق و کسورات'}</Text></TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button" disabled={issuing || row.issued || Number(issuedMonths[`${row.period_jy}-${row.period_jm}`] || 0) >= 3} style={[styles.button, (issuing || row.issued || Number(issuedMonths[`${row.period_jy}-${row.period_jm}`] || 0) >= 3) && styles.disabled]} onPress={() => issueSlip(row)}><Text style={styles.buttonText}>{(row.issued || Number(issuedMonths[`${row.period_jy}-${row.period_jm}`] || 0) >= 3) ? 'سقف سه بار دریافت تکمیل شد' : `دریافت تصویر فیش (${faNum(Math.max(0, 3 - Math.max(Number(row.issued_count || 0), Number(issuedMonths[`${row.period_jy}-${row.period_jm}`] || 0))))} بار باقی‌مانده)`}</Text></TouchableOpacity>
-        </View>)}
+        {result.rows.map(row => {
+          const remaining = Math.max(0,3-Math.max(Number(row.issued_count||0),Number(issuedMonths[`${row.period_jy}-${row.period_jm}`]||0)));
+          const exhausted = row.issued || remaining===0;
+          return <View style={styles.payrollCard} key={row.id}>
+            <View style={styles.payrollHeader}><Text style={styles.payrollPeriod}>حقوق {faNum(`${row.period_jy}/${String(row.period_jm).padStart(2,'0')}`)}</Text><Text style={styles.periodBadge}>ماه شمسی</Text></View>
+            <Text style={styles.employeeName}>{row.employee_name}</Text>
+            {row.role_title ? <Text style={styles.employeeRole}>{row.role_title}</Text> : null}
+            <View style={styles.payrollAmountBox}><Text style={styles.payrollAmountLabel}>خالص حقوق اعلامی</Text><Text style={styles.payrollAmount} numberOfLines={1} adjustsFontSizeToFit>{amount(row.net)} <Text style={styles.summaryUnit}>ریال</Text></Text></View>
+            <View style={styles.payrollActions}>
+              <TouchableOpacity accessibilityRole="button" disabled={opening} style={[styles.button,styles.actionButton,opening&&styles.disabled]} onPress={()=>openDetail(row.id)}><Text style={styles.buttonText}>{opening?'در حال دریافت…':'جزئیات حقوق و کسورات'}</Text></TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" disabled={issuing||exhausted} style={[styles.outlineButton,styles.actionButton,(issuing||exhausted)&&styles.disabled]} onPress={()=>issueSlip(row)}><Text style={styles.outlineButtonText}>{exhausted?'سقف دریافت تکمیل شده':`دریافت تصویر فیش · ${faNum(remaining)} بار باقی‌مانده`}</Text></TouchableOpacity>
+            </View>
+          </View>;
+        })}
         <View style={styles.row}>
           <TouchableOpacity accessibilityRole="button" disabled={filters.page <= 1} style={[styles.button, filters.page <= 1 && styles.disabled]} onPress={() => setFilters(value => ({ ...value, page: value.page - 1 }))}><Text style={styles.buttonText}>قبلی</Text></TouchableOpacity>
           <Text style={styles.label}>{faNum(filters.page)}</Text>
@@ -200,6 +208,30 @@ export default function CompanyPayrollHistory() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.paper },
+  hero:{backgroundColor:C.brand,borderRadius:18,padding:18,marginBottom:14},
+  heroTitle:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right'},
+  heroSubtitle:{fontFamily:FONT.bold,fontSize:13,color:'#e0f5ec',textAlign:'right',marginTop:7},
+  heroDisclaimer:{fontFamily:FONT.regular,fontSize:11,lineHeight:20,color:'#e0f5ec',textAlign:'right',marginTop:10},
+  filterPanel:{backgroundColor:'#fff',borderRadius:16,padding:14,borderWidth:1,borderColor:C.line,marginBottom:14},
+  sectionTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14,textAlign:'right',marginBottom:12},
+  outlineButton:{flex:1,minHeight:46,padding:10,borderRadius:11,borderWidth:1,borderColor:C.brand,alignItems:'center',justifyContent:'center',backgroundColor:'#fff'},
+  outlineButtonText:{fontFamily:FONT.bold,color:C.brand,textAlign:'center',fontSize:12},
+  summaryPanel:{flexDirection:'row-reverse',gap:10,marginBottom:14},
+  summaryCell:{flex:1,backgroundColor:'#e7f3ee',borderRadius:14,padding:13,minHeight:86,justifyContent:'space-between'},
+  summaryLabel:{fontFamily:FONT.regular,fontSize:11,color:C.slate,textAlign:'right'},
+  summaryNumber:{fontFamily:FONT.bold,fontSize:17,color:C.brand,textAlign:'right',marginTop:9},
+  summaryUnit:{fontFamily:FONT.regular,fontSize:11},
+  payrollCard:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:17,padding:15,marginBottom:12},
+  payrollHeader:{flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center',gap:8},
+  payrollPeriod:{fontFamily:FONT.bold,color:C.ink,fontSize:17},
+  periodBadge:{fontFamily:FONT.regular,color:C.brand,fontSize:11,backgroundColor:'#e7f3ee',paddingHorizontal:9,paddingVertical:5,borderRadius:9},
+  employeeName:{fontFamily:FONT.bold,fontSize:14,color:C.ink,textAlign:'right',marginTop:13},
+  employeeRole:{fontFamily:FONT.regular,fontSize:12,color:C.slate,textAlign:'right',marginTop:4},
+  payrollAmountBox:{backgroundColor:'#f3f8f6',borderRadius:12,padding:13,marginTop:13,marginBottom:12},
+  payrollAmountLabel:{fontFamily:FONT.regular,fontSize:11,color:C.slate,textAlign:'right'},
+  payrollAmount:{fontFamily:FONT.bold,fontSize:20,color:C.brand,textAlign:'right',marginTop:5},
+  payrollActions:{gap:9},
+  actionButton:{flex:0,width:'100%',borderRadius:11},
   content: { padding: 16, paddingBottom: 32 },
   heading: { fontFamily: FONT.bold, fontSize: 19, color: C.ink, textAlign: 'right', marginBottom: 10 },
   label: { fontFamily: FONT.regular, color: C.ink, textAlign: 'right', fontSize: 15, flexShrink: 1 },
