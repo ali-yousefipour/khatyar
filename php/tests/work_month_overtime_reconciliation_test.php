@@ -38,6 +38,13 @@ $check('unpaid capped minutes',400,$capped['capped_overtime_minutes']);
 $check('gross Friday not reduced by cap',1960,$capped['total_overtime']);
 $check('payable Friday not reduced by cap',1560,$capped['payable_total_overtime']);
 $check('visible gross overtime unchanged by cap',1960,$capped['overtime']);
+$autoUncapped = $test(['overtime'=>2374,'friday'=>1380,'holiday'=>0],
+    ['type'=>'auto','monthly_ot_cap'=>1000]);
+$check('automatic shift ignores legacy 1000 minute cap',0,$autoUncapped['monthly_ot_cap']);
+$check('automatic shift payable regular 39:34',2374,$autoUncapped['payable_regular_overtime']);
+$check('automatic shift Friday 23:00',1380,$autoUncapped['friday_overtime']);
+$check('automatic shift gross/payable 62:34',3754,$autoUncapped['payable_total_overtime']);
+$check('automatic shift zero capped minutes',0,$autoUncapped['capped_overtime_minutes']);
 $zero = $test(['overtime'=>0,'friday'=>0,'holiday'=>0],[]);
 $check('zero work',0,$zero['total_overtime']);
 // Contracts already exercised by work_shift_regression_test and
