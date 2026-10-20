@@ -19,6 +19,7 @@ export default function BotMessageScreen() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tplOnly, setTplOnly] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
   const [roleGroup, setRoleGroup] = useState(''); // '' | beneficiary | helper | driver
   const [pickFromList, setPickFromList] = useState(false); // انتخاب از لیست (به‌جای کل نوع راننده)
   const [loadingDrivers, setLoadingDrivers] = useState(false);
@@ -55,7 +56,7 @@ export default function BotMessageScreen() {
   };
   const pickRole = (rg) => { const next = roleGroup === rg ? '' : rg; setRoleGroup(next); if (lineId) loadLine(lineId, next); };
   const addManual = () => {
-    const m = (mInput || '').replace(/\s/g, '');
+    const m = (mInput || '').replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/\s/g, '');
     if (!/^0\d{10}$/.test(m)) { Alert.alert('توجه', 'شماره را ۱۱ رقمی و با ۰ ابتدا وارد کنید'); return; }
     if (!manual.includes(m)) setManual([...manual, m]);
     setMInput('');
@@ -66,6 +67,7 @@ export default function BotMessageScreen() {
   const chosen = pickFromList ? drivers.filter((d) => sel[d.id]) : drivers;
   const filtered = q.trim() ? drivers.filter((d) => (d.name || '').includes(q.trim()) || (d.mobile || '').includes(q.trim())) : drivers;
   const totalCount = chosen.length + manual.length;
+  const selectedLine = lines.find(l => String(l.id) === String(lineId));
 
   const send = async () => {
     if (!msg.trim()) { Alert.alert('خطا', 'متن پیام ربات را وارد یا قالبی انتخاب کنید'); return; }
@@ -87,7 +89,7 @@ export default function BotMessageScreen() {
   if (loading) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
 
   return (
-    <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+    <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={{ padding: 14, paddingBottom: 64 }}>
       {/* نمایش اعتبار و سهمیهٔ کاربر */}
       {(credit || quota) && (
         <View style={s.creditBox}>
@@ -102,15 +104,16 @@ export default function BotMessageScreen() {
           {quota && quota.sent_month > 0 && <Text style={s.monthTxt}>ارسال این ماه: {faNum(quota.sent_month)} پیامک</Text>}
         </View>
       )}
-      <Text style={s.label}>قالب پیام</Text>
+      <View style={s.hero}><Text style={s.heroTitle}>ارسال پیام در ربات‌ها</Text><Text style={s.heroText}>ارسال گروهی به مشترکان متصل در بله، تلگرام و ایتا</Text><View style={s.heroStats}><Text style={s.heroStatsText}>گیرندگان انتخاب‌شده: {faNum(totalCount)}</Text><Text style={s.heroStatsText}>خط: {selectedLine ? faNum(selectedLine.code) : 'انتخاب نشده'}</Text></View></View>
+      <View style={s.section}><Text style={s.sectionTitle}>۱. قالب و متن پیام</Text><Text style={s.label}>قالب پیام</Text>
       {tpls.length ? (
         Object.entries(tpls.reduce((acc, t) => { const c = t.category || 'عمومی'; (acc[c] = acc[c] || []).push(t); return acc; }, {})).map(([cat, items]) => (
           <View key={cat} style={{ marginBottom: 6 }}>
             <Text style={s.catLabel}>{cat}</Text>
             <View style={s.tplRow}>
               {items.map((t, i) => (
-                <TouchableOpacity key={i} style={s.tpl} onPress={() => setMsg(t.body || '')}>
-                  <Text style={s.tplTxt}>{t.title || `قالب ${i + 1}`}</Text>
+                <TouchableOpacity key={i} accessibilityRole="button" accessibilityState={{selected:selectedTemplate===String(t.id ?? `${cat}-${i}`)}} style={[s.tpl,selectedTemplate===String(t.id ?? `${cat}-${i}`)&&s.tplActive]} onPress={() => {setMsg(t.body || '');setSelectedTemplate(String(t.id ?? `${cat}-${i}`));}}>
+                  <Text style={[s.tplTxt,selectedTemplate===String(t.id ?? `${cat}-${i}`)&&s.tplTxtActive]}>{t.title || `قالب ${i + 1}`}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -122,14 +125,14 @@ export default function BotMessageScreen() {
       <TextInput style={[s.input, { height: 90, textAlignVertical: 'top' }, tplOnly && { backgroundColor: '#f1f1f4', color: C.muted }]} multiline value={msg}
         onChangeText={tplOnly ? undefined : setMsg} editable={!tplOnly}
         placeholder={tplOnly ? 'یک قالب را از بالا انتخاب کنید' : 'متن پیام ربات…'} placeholderTextColor={C.muted} />
-      <Text style={s.muted}>پیام برای مشترکین متصل در بله، تلگرام و ایتا ارسال می‌شود.</Text>
+      <Text style={s.muted}>{msg.trim()?`طول پیام: ${faNum(msg.length)} نویسه`:'ابتدا قالب پیام را انتخاب کنید.'}</Text></View>
 
-      <View style={s.selRow}>
+      <View style={s.section}><View style={s.selRow}>
         <Text style={[s.label, { marginTop: 0 }]}>گیرندگان ({faNum(totalCount)})</Text>
         <TouchableOpacity onPress={() => { setSel({}); setManual([]); }}><Text style={s.clear}>پاک‌کردن</Text></TouchableOpacity>
       </View>
 
-      <Text style={s.hint}>۱) ابتدا یک خط انتخاب کنید تا رانندگان آن بارگذاری شوند:</Text>
+      <Text style={s.hint}>۲. انتخاب خط و گیرندگان</Text><Text style={s.muted}>برای بارگذاری رانندگان، یکی از خطوط زیر را انتخاب کنید.</Text>
       {lines.length > 0 && (
         <ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
           {lines.map((l) => (
@@ -188,7 +191,7 @@ export default function BotMessageScreen() {
         <Text style={s.muted}>برای ارسال به رانندگان، ابتدا یک خط را از بالا انتخاب کنید. (می‌توانید بدون انتخاب خط، فقط شماره‌های دستی وارد کنید.)</Text>
       )}
 
-      <Text style={[s.label, { marginTop: 14 }]}>ورود دستی شمارهٔ موبایل</Text>
+      </View><View style={s.section}><Text style={s.sectionTitle}>۳. افزودن شماره موبایل</Text><Text style={s.muted}>شماره‌های دستی مستقل از خط انتخابی به گیرندگان اضافه می‌شوند.</Text><Text style={[s.label, { marginTop: 10 }]}>ورود دستی شمارهٔ موبایل</Text>
       <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
         <TextInput style={[s.input, { flex: 1 }]} value={mInput} onChangeText={setMInput} keyboardType="number-pad" placeholder="09xxxxxxxxx" placeholderTextColor={C.muted} />
         <TouchableOpacity style={s.addBtn} onPress={addManual}><Text style={s.addBtnTxt}>افزودن</Text></TouchableOpacity>
@@ -203,14 +206,26 @@ export default function BotMessageScreen() {
         </View>
       )}
 
-      <TouchableOpacity style={[s.btn, busy && { opacity: 0.6 }]} disabled={busy} onPress={send}>
+      </View><View style={s.sendPanel}><Text style={s.sendSummary}>آماده ارسال به {faNum(totalCount)} گیرنده</Text><Text style={s.sendHelp}>پیش از ارسال، تعداد گیرندگان و متن پیام را تأیید خواهید کرد.</Text><TouchableOpacity style={[s.btn, busy && { opacity: 0.6 }]} disabled={busy} onPress={send}>
         <Text style={s.btnTxt}>{busy ? 'در حال ارسال…' : `ارسال در ربات‌ها به ${faNum(totalCount)} گیرنده`}</Text>
-      </TouchableOpacity>
+      </TouchableOpacity></View>
     </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
+  hero:{backgroundColor:C.brand,borderRadius:18,padding:18,marginBottom:12},
+  heroTitle:{fontFamily:FONT.bold,color:'#fff',fontSize:19,textAlign:'right'},
+  heroText:{fontFamily:FONT.regular,color:'#e0f4ec',fontSize:12,textAlign:'right',lineHeight:20,marginTop:7},
+  heroStats:{flexDirection:'row-reverse',flexWrap:'wrap',justifyContent:'space-between',gap:8,marginTop:14},
+  heroStatsText:{fontFamily:FONT.bold,color:'#fff',fontSize:12},
+  section:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:17,padding:14,marginBottom:12},
+  sectionTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:15,textAlign:'right',marginBottom:6},
+  tplActive:{backgroundColor:C.brand,borderColor:C.brand},
+  tplTxtActive:{color:'#fff'},
+  sendPanel:{backgroundColor:'#e8f4ef',borderRadius:17,padding:15,marginBottom:12},
+  sendSummary:{fontFamily:FONT.bold,color:C.brand,fontSize:15,textAlign:'right'},
+  sendHelp:{fontFamily:FONT.regular,color:C.slate,fontSize:11,textAlign:'right',marginTop:6},
   creditBox: { backgroundColor: '#eef4ff', borderRadius: 14, padding: 14, marginBottom: 12 },
   creditTxt: { fontFamily: FONT.bold, color: '#1b4bb5', fontSize: 12.5, textAlign: 'right', marginBottom: 2 },
   limitTxt: { fontFamily: FONT.regular, color: '#c26b00', fontSize: 12, textAlign: 'right', marginTop: 2 },
@@ -228,7 +243,7 @@ const s = StyleSheet.create({
   pickToggleTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 13, flex: 1, textAlign: 'right' },
   tplRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
   catLabel: { fontFamily: FONT.bold, fontSize: 12, color: C.brand, textAlign: 'right', marginBottom: 4, marginTop: 2 },
-  tpl: { backgroundColor: '#e7f3ee', borderRadius: 13, paddingVertical: 11, paddingHorizontal: 14 },
+  tpl: { backgroundColor: '#e7f3ee', borderRadius: 13, paddingVertical: 11, paddingHorizontal: 14, borderWidth:1, borderColor:'#cfe7de' },
   tplTxt: { fontFamily: FONT.bold, color: C.brand, fontSize: 13 },
   selRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
   clear: { fontFamily: FONT.regular, color: C.danger, fontSize: 12, marginTop: 14 },
@@ -239,12 +254,12 @@ const s = StyleSheet.create({
   cbTick: { color: '#fff', fontSize: 13, fontWeight: '700' },
   dname: { flex: 1, fontFamily: FONT.bold, color: C.ink, fontSize: 13, textAlign: 'right' },
   dmobile: { fontFamily: FONT.regular, color: C.muted, fontSize: 12 },
-  btn: { backgroundColor: C.brand, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginTop: 18 },
+  btn: { backgroundColor: C.brand, borderRadius: 13, minHeight:52, paddingVertical: 14, alignItems: 'center',justifyContent:'center', marginTop: 14 },
   btnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 15 },
   lineChip: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginLeft: 8 },
   lineChipOn: { backgroundColor: C.brand, borderColor: C.brand },
   lineChipTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 12.5 },
-  roleChip: { flex: 1, paddingVertical: 8, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center' },
+  roleChip: { minWidth:105, paddingVertical: 8, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center' },
   roleChipOn: { backgroundColor: C.taxi || C.brand, borderColor: C.taxi || C.brand },
   roleChipTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 11.5 },
   roleChipTxtOn: { color: C.taxiInk || '#fff', fontFamily: FONT.bold },
