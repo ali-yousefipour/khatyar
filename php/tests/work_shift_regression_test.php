@@ -38,6 +38,18 @@ $dayRow['day_config']['traffic_start']='22:00';$dayRow['day_config']['traffic_en
 same('overnight traffic accepts after midnight',true,ShiftCalc::checkThreshold($shift,$date,$dayRow,strtotime($base.'02:00'),'out')['ok']);
 same('overnight traffic rejects daytime',false,ShiftCalc::checkThreshold($shift,$date,$dayRow,strtotime($base.'10:00'),'in')['ok']);
 same('unrestricted floating stays unrestricted',true,ShiftCalc::checkThreshold(['type'=>'floating'],$date,null,strtotime($base.'20:00'),'in')['ok']);
+// Automatic Friday work must include the entire valid attendance interval, not 8h.
+foreach ([['1405-07-10','09:00','21:00',720],['1405-07-17','10:00','21:00',660]] as $case) {
+  [$jy,$jm,$jd]=array_map('intval',explode('-',$case[0]));
+  [$gy,$gm,$gd]=jalali_to_gregorian($jy,$jm,$jd);
+  $datePrefix=sprintf('%04d-%02d-%02d ',$gy,$gm,$gd);
+  $friday=ShiftCalc::dayWork(['type'=>'auto','auto_expected_min'=>453,'auto_ot_cap_min'=>27],$case[0],null,
+    [['in'=>strtotime($datePrefix.$case[1]),'out'=>strtotime($datePrefix.$case[2])]],false);
+  same('automatic Friday full worked '.$case[0],$case[3],$friday['friday_work']);
+  same('automatic Friday full overtime '.$case[0],$case[3],$friday['friday_overtime']);
+  same('automatic Friday total overtime '.$case[0],$case[3],$friday['total_overtime']);
+  same('automatic Friday no duty '.$case[0],0,$friday['expected']);
+}
 class Db {
   static $substitute=true;
   static $explicit=null;
