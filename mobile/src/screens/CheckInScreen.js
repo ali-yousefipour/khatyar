@@ -1109,7 +1109,7 @@ function fmtMinFa(min){const n=Math.max(0,Number(min)||0),h=Math.floor(n/60),m=n
 function dailyAttendanceTime(value){
   if(!value)return '—';
   const str=String(value).trim();
-  const match=str.match(/(?:^|[ T])(\\d{1,2}:\\d{2})(?::\\d{2})?/);
+  const match=str.match(/(?:^|[ T])(\d{1,2}:\d{2})(?::\d{2})?/);
   if(match)return faNum(match[1]);
   return '—';
 }
@@ -1238,7 +1238,7 @@ function shiftTimeFa(value){
   if(value===null||value===undefined||value==='')return '—';
   if(typeof value==='number')return faNum(String(Math.floor(value/60)).padStart(2,'0')+':'+String(value%60).padStart(2,'0'));
   const str=String(value);
-  const match=str.match(/(\\d{1,2}:\\d{2})/);
+  const match=str.match(/(\d{1,2}:\d{2})/);
   return faNum(match?match[1]:str);
 }
 function shiftIntervals(day){
@@ -1257,8 +1257,8 @@ function shiftIntervals(day){
 }
 function shiftJalaliFa(value){
   if(!value)return '—';
-  const v=String(value).replace(/\\//g,'-');
-  if(/^\\d{4}-\\d{2}-\\d{2}$/.test(v)){
+  const v=String(value).replace(/\//g,'-');
+  if(/^\d{4}-\d{2}-\d{2}$/.test(v)){
     const [y,m,d]=v.split('-').map(Number);
     if(y>=1700){const j=gregorian_to_jalali_client(y,m,d);return faNum(j.join('/'))}
     return faNum(v.replace(/-/g,'/'));
