@@ -276,9 +276,24 @@ jobs:
           MYKET_KEY_ALIAS: ${{ secrets.MYKET_KEY_ALIAS }}
           MYKET_KEY_PASSWORD: ${{ secrets.MYKET_KEY_PASSWORD }}
         run: |
+          set -o pipefail
           chmod +x gradlew
-          ./gradlew app:assembleRelease --no-daemon --stacktrace --console=plain --max-workers=2 \
-            -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
+          # Fresh CI runners occasionally receive incomplete Maven/Plugin Portal metadata.
+          # Retry only dependency-resolution failures, never compilation or bundling errors.
+          for attempt in 1 2 3; do
+            echo "Gradle release build attempt $attempt/3"
+            log_file="$RUNNER_TEMP/myket-gradle-attempt-$attempt.log"
+            if ./gradlew app:assembleRelease --no-daemon --stacktrace --console=plain --max-workers=2 --refresh-dependencies \
+              -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" 2>&1 | tee "$log_file"; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ] || ! grep -Eq 'Could not (find|resolve|download|GET|HEAD)|Read timed out|Connection reset|Remote host terminated|PKIX path building failed|Could not parse POM' "$log_file"; then
+              echo "::error::Gradle build failed; not retrying a non-dependency error (or retries exhausted)."
+              exit 1
+            fi
+            echo "::warning::Dependency repository resolution failed; retrying with refreshed Gradle metadata."
+            sleep $((attempt * 15))
+          done
 
       - name: Verify Myket APK signature and identity
         working-directory: mobile
