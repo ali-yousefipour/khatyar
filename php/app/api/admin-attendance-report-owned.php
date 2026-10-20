@@ -169,6 +169,22 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     $day['adjusted_ot'] = $hm($w['adjusted_ot'] ?? 0);
     $day['friday_work'] = $hm($w['friday_work'] ?? $w['friday'] ?? 0);
     $day['holiday_work'] = $hm($w['holiday_work'] ?? $w['holiday'] ?? 0);
+    // Synchronize all derived overtime columns with the reclassified owned
+    // sessions. Leaving old values here inflated Friday overtime in exports.
+    $fri = ShiftCalc::isFriday($j) ? (int)($w['worked'] ?? 0) : 0;
+    $hol = ShiftCalc::isFriday($j) ? 0 : (int)($w['holiday_work'] ?? $w['holiday'] ?? 0);
+    $regular = ShiftCalc::isFriday($j) ? 0 : (int)($w['overtime'] ?? 0);
+    $day['friday_work'] = $hm($fri);
+    $day['holiday_work'] = $hm($hol);
+    $day['friday_overtime'] = $hm($fri);
+    $day['holiday_overtime'] = $hm($hol);
+    $day['total_overtime'] = $hm($regular + $fri + $hol);
+    $day['holiday_friday_overtime'] = $hm($fri + $hol);
+    if (isset($day['data']) && is_array($day['data'])) {
+      foreach (['friday_work'=>$fri,'holiday_work'=>$hol,'friday_overtime'=>$fri,
+                'holiday_overtime'=>$hol,'total_overtime'=>$regular+$fri+$hol,
+                'holiday_friday_overtime'=>$fri+$hol] as $key=>$minutes) $day['data'][$key]=$minutes;
+    }
     $day['absent'] = (!$punches && !$isHol && !ShiftCalc::isFriday($j) && (int)($w['expected'] ?? 0) > 0 && $approvedExempt <= 0) ? 1 : 0;
     // در روز غیبت، کل موظفی قبلاً به‌عنوان کسری محاسبه شده است؛
     // بنابراین نباید موظفیِ غیبت دوباره به کسری اضافه شود.
