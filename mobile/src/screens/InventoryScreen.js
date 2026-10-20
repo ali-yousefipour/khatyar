@@ -5,6 +5,7 @@ import { C, FONT } from '../theme';
 import { faNum, enNum } from '../num';
 import ModalKeyboardView from '../components/ModalKeyboardView';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 const TABS = [
   ['balance', 'موجودی من'],
@@ -34,6 +35,13 @@ export default function InventoryScreen() {
   const [qty, setQty] = useState('');
   const [note, setNote] = useState('');
   const [allowResend, setAllowResend] = useState(true);
+  const [roleOpen, setRoleOpen] = useState(false);
+  const [roleQ, setRoleQ] = useState('');
+  const [itemOpen, setItemOpen] = useState(false);
+  const [itemQ, setItemQ] = useState('');
+  const [historyFilter, setHistoryFilter] = useState('all');
+  const [historyQuery, setHistoryQuery] = useState('');
+  const [expandedHistory, setExpandedHistory] = useState(null);
 
   const loadAll = useCallback(async () => {
     const [b, it, rc, pd, hs] = await Promise.all([
@@ -98,6 +106,9 @@ export default function InventoryScreen() {
   };
 
   if (loading) return <View style={s.center}><ActivityIndicator /></View>;
+  const chosenItem = itemTypes.find(it => String(it.id) === String(itemTypeId));
+  const chosenBalance = balance.find(it => String(it.item_type_id) === String(itemTypeId));
+  const filteredHistory = history.filter(h => (historyFilter === 'all' || h.status === historyFilter) && (!historyQuery.trim() || [h.item_name,h.to_name,h.from_name].some(v => String(v || '').includes(historyQuery.trim()))));
 
   return (
     <View style={s.page}>
@@ -109,13 +120,14 @@ export default function InventoryScreen() {
         ))}
       </View>
 
-      <ScrollView persistentScrollbar={true} style={s.body} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+      <ScrollView persistentScrollbar={true} style={s.body} contentContainerStyle={s.bodyContent} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+        <View style={s.hero}><View style={s.heroHeading}><MaterialCommunityIcons name="package-variant-closed" color="#fff" size={25}/><Text style={s.heroTitle}>{TABS.find(([k])=>k===tab)?.[1]}</Text></View><Text style={s.heroCaption}>{tab==='balance'?'موجودی اقلام و میزان قابل انتقال شما':tab==='deliver'?'ثبت تحویل جدید با تأیید نهایی گیرنده':tab==='pending'?'تحویل‌های منتظر بررسی و تصمیم شما':'سوابق تحویل، دریافت و وضعیت تأیید اقلام'}</Text></View>
         {tab === 'balance' && (
           <View>
             {balance.length === 0 ? <Text style={s.empty}>هنوز قلمی به شما تعلق نگرفته است.</Text> :
               balance.map((it) => (
                 <View key={it.item_type_id} style={s.balRow}>
-                  <Text style={s.balName}>{it.name}</Text>
+                  <View style={s.balHeading}><View style={s.itemIcon}><MaterialCommunityIcons name="package-variant" size={21} color={C.brand}/></View><Text style={[s.balName,{flexShrink:1}]}>{it.name}</Text></View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={[s.balNum, it.balance < 0 && { color: C.danger }]}>{faNum(it.balance)}{it.unit ? ' ' + it.unit : ''}</Text>
                     {it.transferable_balance < it.balance && (
@@ -129,39 +141,30 @@ export default function InventoryScreen() {
 
         {tab === 'deliver' && (
           <View>
-            <Text style={s.label}>۱) نوع قلم</Text>
-            <View style={s.chipRow}>
-              {itemTypes.map((it) => (
-                <TouchableOpacity key={it.id} onPress={() => setItemTypeId(it.id)} style={[s.chip, itemTypeId === it.id && s.chipOn]}>
-                  <Text style={[s.chipTxt, itemTypeId === it.id && s.chipTxtOn]}>{it.name}</Text>
-                </TouchableOpacity>
-              ))}
-              {itemTypes.length === 0 && <Text style={s.empty}>هنوز نوع قلمی توسط مدیر سامانه تعریف نشده است.</Text>}
-            </View>
-
-            <Text style={s.label}>۲) سمت تحویل‌گیرنده</Text>
-            <View style={s.chipRow}>
-              {roles.map((r) => (
-                <TouchableOpacity key={r} onPress={() => { setRoleSel(roleSel === r ? '' : r); setPicked(null); }} style={[s.chip, roleSel === r && s.chipOn]}>
-                  <Text style={[s.chipTxt, roleSel === r && s.chipTxtOn]}>{r}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={s.label}>۳) شخص تحویل‌گیرنده</Text>
+            <View style={s.formCard}>
+            <Text style={s.label}>۱. نوع قلم</Text>
+            <TouchableOpacity accessibilityRole="button" style={s.select} onPress={()=>setItemOpen(true)}>
+              <Text style={[s.selectTxt,!chosenItem&&{color:C.muted}]}>{chosenItem?.name || (itemTypes.length?'انتخاب یا جستجوی قلم':'هنوز نوع قلمی تعریف نشده است')}</Text><MaterialCommunityIcons name="chevron-down" size={22} color={C.muted}/>
+            </TouchableOpacity>
+            <Text style={s.label}>۲. سمت تحویل‌گیرنده</Text>
+            <TouchableOpacity accessibilityRole="button" style={s.select} onPress={()=>setRoleOpen(true)}>
+              <Text style={[s.selectTxt,!roleSel&&{color:C.muted}]}>{roleSel || 'انتخاب یا جستجوی سمت'}</Text><MaterialCommunityIcons name="chevron-down" size={22} color={C.muted}/>
+            </TouchableOpacity>
+            <Text style={s.label}>۳. شخص تحویل‌گیرنده</Text>
             <TouchableOpacity style={s.select} onPress={() => { if (!roleSel) { Alert.alert('توجه', 'ابتدا سمت تحویل‌گیرنده را انتخاب کنید.'); return; } setDropOpen(true); }}>
               <Text style={[s.selectTxt, !picked && { color: C.muted }]}>{picked ? `${picked.name}` : (roleSel ? 'برای انتخاب/جستجو ضربه بزنید' : 'ابتدا سمت را انتخاب کنید')}</Text>
-              <Text style={{ color: C.muted }}>▾</Text>
+              <MaterialCommunityIcons name="chevron-down" size={22} color={C.muted}/>
             </TouchableOpacity>
 
-            <Text style={s.label}>۴) تعداد (مثبت = تحویل، منفی = اصلاح/بازپس‌گیری)</Text>
+            <Text style={s.label}>۴. تعداد</Text>
+            <Text style={s.hint}>عدد مثبت برای تحویل و عدد منفی برای اصلاح یا بازپس‌گیری است.</Text>
             <TextInput style={s.input} value={qty} onChangeText={(t) => setQty(enNum(t).replace(/[^0-9-]/g, ''))} placeholder="مثلاً ۲ یا ۲-" placeholderTextColor={C.muted} keyboardType="numbers-and-punctuation" textAlign="right" />
-            {itemTypeId && (() => { const b = balance.find((x) => x.item_type_id === itemTypeId); return b ? (
+            {itemTypeId && (() => { const b = chosenBalance; return b ? (
               <Text style={s.hint}>موجودی قابل‌انتقال شما از این قلم: {faNum(b.transferable_balance)}{b.unit ? ' ' + b.unit : ''}</Text>
             ) : null; })()}
 
             <Text style={s.label}>توضیح (اختیاری)</Text>
-            <TextInput style={s.input} value={note} onChangeText={setNote} placeholder="توضیح کوتاه" placeholderTextColor={C.muted} textAlign="right" />
+            <TextInput style={[s.input,s.noteInput]} multiline textAlignVertical="top" value={note} onChangeText={setNote} placeholder="توضیح کوتاه" placeholderTextColor={C.muted} textAlign="right" />
 
             <TouchableOpacity style={s.checkRow} onPress={() => setAllowResend(!allowResend)}>
               <View style={[s.checkbox, allowResend && s.checkboxOn]}>{allowResend && <Text style={s.checkboxTick}>✓</Text>}</View>
@@ -171,16 +174,18 @@ export default function InventoryScreen() {
             <TouchableOpacity style={[s.mainBtn, busy && { opacity: 0.6 }]} disabled={busy} onPress={doDeliver}>
               <Text style={s.mainBtnTxt}>{busy ? 'در حال ارسال…' : 'تحویل'}</Text>
             </TouchableOpacity>
-            <Text style={s.hint}>پس از ثبت، این تحویل تا زمانی‌که گیرنده آن را در برنامهٔ خودش تأیید نکند، از موجودی شما کسر نهایی نمی‌شود.</Text>
+            <View style={s.notice}><MaterialCommunityIcons name="information-outline" size={19} color={C.brand}/><Text style={[s.hint,{flex:1,marginTop:0}]}>این انتقال پس از تأیید گیرنده نهایی می‌شود و تا آن زمان از موجودی شما کسر نهایی نخواهد شد.</Text></View>
+            </View>
           </View>
         )}
 
         {tab === 'pending' && (
           <View>
-            {pending.length === 0 ? <Text style={s.empty}>موردی برای تأیید ندارید.</Text> :
+            <Text style={s.sectionSubtitle}>درخواست‌های دریافت اقلام را بررسی کنید.</Text>
+            {pending.length === 0 ? <View style={s.emptyCard}><MaterialCommunityIcons name="check-circle-outline" size={34} color={C.brand}/><Text style={s.empty}>موردی برای تأیید ندارید.</Text></View> :
               pending.map((p) => (
                 <View key={p.id} style={s.pendCard}>
-                  <Text style={s.pendTitle}>{p.item_name} — {faNum(p.quantity)}{p.unit ? ' ' + p.unit : ''}</Text>
+                  <View style={s.pendHeader}><Text style={s.pendTitle}>{p.item_name} — {faNum(p.quantity)}{p.unit ? ' ' + p.unit : ''}</Text><Text style={s.pendingBadge}>در انتظار تأیید</Text></View>
                   <Text style={s.pendSub}>از: {p.from_name}</Text>
                   {!!p.created_at_fa && <Text style={s.pendSub}>{faNum(p.created_at_fa)}</Text>}
                   {!!p.note && <Text style={s.pendSub}>توضیح: {p.note}</Text>}
@@ -196,24 +201,39 @@ export default function InventoryScreen() {
 
         {tab === 'history' && (
           <View>
-            {history.length === 0 ? <Text style={s.empty}>هنوز تراکنشی ثبت نشده است.</Text> :
-              history.map((h) => (
-                <View key={h.id} style={s.histRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.histName}>{h.item_name} — {faNum(h.quantity)}{h.unit ? ' ' + h.unit : ''}</Text>
-                    <Text style={s.histSub}>{h.direction === 'ارسالی' ? `به: ${h.to_name}` : `از: ${h.from_name}`}</Text>
-                    {!!h.confirmed_at_fa && <Text style={s.histSub}>{faNum(h.confirmed_at_fa)}</Text>}
-                    {!h.transferable && <Text style={s.noResendBadge}>⚠ قابل انتقال به شخص دیگر نیست</Text>}
-                  </View>
-                  <Text style={[s.histStatus, h.status === 'confirmed' && { color: C.ok }, h.status === 'pending' && { color: C.orange }, h.status === 'rejected' && { color: C.danger }]}>
-                    {h.status === 'confirmed' ? 'تأییدشده' : h.status === 'pending' ? 'در انتظار' : 'رد شده'}
-                  </Text>
-                </View>
-              ))}
+            <TextInput style={[s.input,{marginBottom:10}]} value={historyQuery} onChangeText={setHistoryQuery} placeholder="جستجوی قلم یا نام شخص…" placeholderTextColor={C.muted}/>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
+              {[['all','همه'],['pending','در انتظار'],['confirmed','تأییدشده'],['rejected','ردشده']].map(([key,label])=><TouchableOpacity key={key} onPress={()=>setHistoryFilter(key)} style={[s.filterChip,historyFilter===key&&s.filterActive]}><Text style={[s.filterText,historyFilter===key&&s.filterTextActive]}>{label}</Text></TouchableOpacity>)}
+            </ScrollView>
+            {filteredHistory.length===0?<View style={s.emptyCard}><MaterialCommunityIcons name="archive-search-outline" size={34} color={C.muted}/><Text style={s.empty}>سابقه‌ای با این فیلتر یافت نشد.</Text></View>:filteredHistory.map((h,i)=>{
+              const key=String(h.id??i),open=expandedHistory===key;
+              return <View key={key} style={s.histCard}>
+                <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:open}} style={s.histRow} onPress={()=>setExpandedHistory(open?null:key)}>
+                  <View style={{flex:1}}><Text style={s.histName}>{h.item_name} — {faNum(h.quantity)}{h.unit?' '+h.unit:''}</Text><Text style={s.histSub}>{h.direction==='ارسالی'?`به: ${h.to_name||'—'}`:`از: ${h.from_name||'—'}`}</Text></View>
+                  <View style={{alignItems:'flex-end',gap:5}}><Text style={[s.histStatus,h.status==='confirmed'&&{color:C.ok},h.status==='pending'&&{color:C.orange},h.status==='rejected'&&{color:C.danger}]}>{h.status==='confirmed'?'تأییدشده':h.status==='pending'?'در انتظار':'ردشده'}</Text><MaterialCommunityIcons name={open?'chevron-up':'chevron-down'} size={20} color={C.muted}/></View>
+                </TouchableOpacity>
+                {open&&<View style={s.histDetails}>{!!h.confirmed_at_fa&&<Text style={s.histSub}>تاریخ تأیید: {faNum(h.confirmed_at_fa)}</Text>}{!!h.note&&<Text style={s.histSub}>توضیحات: {h.note}</Text>}{!h.transferable&&<Text style={s.noResendBadge}>قابل انتقال به شخص دیگر نیست</Text>}</View>}
+              </View>;
+            })}
           </View>
         )}
+
       </ScrollView>
 
+      <Modal visible={itemOpen} animationType="slide" transparent onRequestClose={()=>setItemOpen(false)}>
+        <ModalKeyboardView style={s.modalWrap}><View style={s.modalCard}><Text style={s.modalTitle}>انتخاب نوع قلم</Text>
+          <TextInput style={s.input} value={itemQ} onChangeText={setItemQ} placeholder="جستجوی نام قلم" placeholderTextColor={C.muted} autoFocus/>
+          <FlatList data={itemTypes.filter(it=>String(it.name||'').includes(itemQ.trim()))} keyExtractor={it=>String(it.id)} style={{maxHeight:330,marginTop:8}} ListEmptyComponent={<Text style={s.empty}>قلمی یافت نشد.</Text>} renderItem={({item})=><TouchableOpacity style={s.optRow} onPress={()=>{setItemTypeId(item.id);setItemOpen(false);setItemQ('');}}><Text style={s.optName}>{item.name}</Text></TouchableOpacity>}/>
+          <TouchableOpacity style={s.modalClose} onPress={()=>setItemOpen(false)}><Text style={s.modalCloseTxt}>بستن</Text></TouchableOpacity>
+        </View></ModalKeyboardView>
+      </Modal>
+      <Modal visible={roleOpen} animationType="slide" transparent onRequestClose={()=>setRoleOpen(false)}>
+        <ModalKeyboardView style={s.modalWrap}><View style={s.modalCard}><Text style={s.modalTitle}>انتخاب سمت تحویل‌گیرنده</Text>
+          <TextInput style={s.input} value={roleQ} onChangeText={setRoleQ} placeholder="جستجوی سمت" placeholderTextColor={C.muted} autoFocus/>
+          <FlatList data={roles.filter(r=>String(r).includes(roleQ.trim()))} keyExtractor={r=>String(r)} style={{maxHeight:330,marginTop:8}} ListEmptyComponent={<Text style={s.empty}>سمتی یافت نشد.</Text>} renderItem={({item})=><TouchableOpacity style={s.optRow} onPress={()=>{setRoleSel(item);setPicked(null);setNameQ('');setRoleOpen(false);setRoleQ('');}}><Text style={s.optName}>{item}</Text></TouchableOpacity>}/>
+          <TouchableOpacity style={s.modalClose} onPress={()=>setRoleOpen(false)}><Text style={s.modalCloseTxt}>بستن</Text></TouchableOpacity>
+        </View></ModalKeyboardView>
+      </Modal>
       <Modal visible={dropOpen} animationType="slide" transparent onRequestClose={() => setDropOpen(false)}>
         <ModalKeyboardView style={s.modalWrap}>
           <View style={s.modalCard}>
@@ -241,9 +261,30 @@ export default function InventoryScreen() {
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: C.paper },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
-  body: { flex: 1, padding: 14 },
+  body: { flex: 1 },
+  bodyContent:{padding:14,paddingBottom:50},
+  hero:{backgroundColor:C.brand,borderRadius:18,padding:18,marginBottom:14},
+  heroHeading:{flexDirection:'row-reverse',alignItems:'center',gap:9},
+  heroTitle:{fontFamily:FONT.bold,color:'#fff',fontSize:17,textAlign:'right'},
+  heroCaption:{fontFamily:FONT.regular,color:'#e5f4ef',fontSize:12,marginTop:8,textAlign:'right'},
+  formCard:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:18,padding:15},
+  noteInput:{minHeight:86},
+  notice:{flexDirection:'row-reverse',alignItems:'flex-start',gap:8,backgroundColor:'#e8f4ef',padding:12,borderRadius:12,marginTop:14},
+  balHeading:{flexDirection:'row-reverse',alignItems:'center',gap:9,flex:1},
+  itemIcon:{width:39,height:39,borderRadius:11,backgroundColor:'#e8f4ef',alignItems:'center',justifyContent:'center'},
+  sectionSubtitle:{fontFamily:FONT.regular,color:C.muted,textAlign:'right',marginBottom:13},
+  emptyCard:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:17,padding:25,alignItems:'center'},
+  pendHeader:{flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center',gap:8},
+  pendingBadge:{fontFamily:FONT.bold,color:C.orange,fontSize:11,backgroundColor:'#fff5e8',borderRadius:8,paddingHorizontal:8,paddingVertical:5},
+  filterRow:{flexDirection:'row-reverse',gap:8,paddingBottom:13},
+  filterChip:{backgroundColor:'#fff',borderColor:C.line,borderWidth:1,borderRadius:20,paddingHorizontal:14,paddingVertical:9},
+  filterActive:{backgroundColor:C.brand,borderColor:C.brand},
+  filterText:{fontFamily:FONT.bold,fontSize:12,color:C.slate},
+  filterTextActive:{color:'#fff'},
+  histCard:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:15,marginBottom:9,overflow:'hidden'},
+  histDetails:{borderTopWidth:1,borderColor:C.line,padding:12},
   tabbar: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 6, padding: 10, backgroundColor: C.card, borderBottomWidth: 1, borderColor: C.line },
-  tabbtn: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 999, backgroundColor: C.paper, borderWidth: 1, borderColor: C.line },
+  tabbtn: { flexGrow:1,alignItems:'center',paddingHorizontal:11,paddingVertical:11,borderRadius:12,backgroundColor:C.paper,borderWidth:1,borderColor:C.line },
   tabbtnOn: { backgroundColor: C.brand, borderColor: C.brand },
   tabtxt: { fontFamily: FONT.regular, fontSize: 12.5, color: C.slate, textAlign: 'right', writingDirection: 'rtl' },
   tabtxtOn: { color: '#fff', fontFamily: FONT.bold },
@@ -278,7 +319,7 @@ const s = StyleSheet.create({
   checkboxOn: { backgroundColor: C.brand, borderColor: C.brand },
   checkboxTick: { color: '#fff', fontFamily: FONT.bold, fontSize: 13 },
   checkLabel: { flex: 1, fontFamily: FONT.regular, fontSize: 12.5, color: C.ink, textAlign: 'right', writingDirection: 'rtl' },
-  histRow: { flexDirection: 'row-reverse', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, marginBottom: 8 },
+  histRow: { flexDirection: 'row-reverse', alignItems: 'center', gap:8,paddingHorizontal: 13, paddingVertical: 14 },
   histName: { fontFamily: FONT.bold, fontSize: 13.5, color: C.ink, textAlign: 'right', writingDirection: 'rtl' },
   histSub: { fontFamily: FONT.regular, fontSize: 12, color: C.muted, marginTop: 2, textAlign: 'right', writingDirection: 'rtl' },
   histStatus: { fontFamily: FONT.bold, fontSize: 12, textAlign: 'left', writingDirection: 'rtl' },
