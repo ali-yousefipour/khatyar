@@ -3902,7 +3902,7 @@ route('GET','/api/admin/shift-report/organization-export',function($p,$b,$u){
   $hm=static fn($m)=>sprintf('%02d:%02d',intdiv(abs((int)$m),60),abs((int)$m)%60);
   $i=0;foreach($rows as $r){
     $person=_work_organization_person($r,$byId,$daily);
-    $o=(int)($r['overtime']??0);$mission=(int)($r['mission_min']??0);$short=(int)($r['shortage']??0);
+    $o=(int)($r['regular_overtime']??0);$mission=(int)($r['mission_min']??0);$short=(int)($r['shortage']??0);
     $fri=(int)($r['friday']??0);$hol=(int)($r['holiday']??0);
     // friday includes all Friday work as currently computed by ShiftCalc; no extra Friday overtime
     // is added unless it is separately available in the canonical monthly result.
