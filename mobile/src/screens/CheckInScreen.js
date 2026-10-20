@@ -1234,10 +1234,42 @@ function gregorian_to_jalali_client(gy,gm,gd){
   while(jm<11&&jDayNo>=monthDays[jm]){jDayNo-=monthDays[jm];jm++;}
   return [jy,jm+1,jDayNo+1];
 }
+function shiftTimeFa(value){
+  if(value===null||value===undefined||value==='')return '—';
+  if(typeof value==='number')return faNum(String(Math.floor(value/60)).padStart(2,'0')+':'+String(value%60).padStart(2,'0'));
+  const str=String(value);
+  const match=str.match(/(\\d{1,2}:\\d{2})/);
+  return faNum(match?match[1]:str);
+}
+function shiftIntervals(day){
+  const raw=day?.segments??day?.day_config?.segments??day?.shift_segments??[];
+  let segments=raw;
+  if(typeof segments==='string'){try{segments=JSON.parse(segments)}catch{return []}}
+  if(!Array.isArray(segments))return [];
+  return segments.map((segment,index)=>{
+    const x=Array.isArray(segment)?{start:segment[0],end:segment[1]}:segment;
+    if(!x||typeof x!=='object')return null;
+    const start=x.start??x.from??x.start_time??x.in??x.check_in??x.entry_time;
+    const end=x.end??x.to??x.end_time??x.out??x.check_out??x.exit_time;
+    if(start==null&&end==null)return null;
+    return {key:String(x.id??index),start,end,label:x.title??x.name??x.label??('بازه '+faNum(index+1))};
+  }).filter(Boolean);
+}
+function shiftJalaliFa(value){
+  if(!value)return '—';
+  const v=String(value).replace(/\\//g,'-');
+  if(/^\\d{4}-\\d{2}-\\d{2}$/.test(v)){
+    const [y,m,d]=v.split('-').map(Number);
+    if(y>=1700){const j=gregorian_to_jalali_client(y,m,d);return faNum(j.join('/'))}
+    return faNum(v.replace(/-/g,'/'));
+  }
+  return faNum(v);
+}
 function CheckInShiftTab(){
   const [data,setData]=useState(null);
   const [busy,setBusy]=useState(true);
   const [err,setErr]=useState('');
+  const [expanded,setExpanded]=useState({});
   const requestSeq=useRef(0);
   const loadSchedule=async()=>{
     const seq=++requestSeq.current;
@@ -1248,33 +1280,42 @@ function CheckInShiftTab(){
       if(seq===requestSeq.current&&cached&&Array.isArray(cached.days))setData(cached);
       const fresh=await request(cacheKey,{timeoutMs:12000,noStore:true});
       if(seq===requestSeq.current)setData(fresh||{shift:null,days:[],message:'پاسخ برنامه شیفت خالی است.'});
-    }catch(e){
-      if(seq===requestSeq.current)setErr(e.message||'دریافت برنامه شیفت ناموفق بود.');
-    }finally{
-      if(seq===requestSeq.current)setBusy(false);
-    }
+    }catch(e){if(seq===requestSeq.current)setErr(e.message||'دریافت برنامه شیفت ناموفق بود.');}
+    finally{if(seq===requestSeq.current)setBusy(false);}
   };
   useEffect(()=>{loadSchedule();return()=>{requestSeq.current++}},[]);
   if(busy&&!data)return <View style={s.center}><ActivityIndicator size={80} message="در حال دریافت شیفت کاری…"/></View>;
   const days=Array.isArray(data?.days)?data.days:[];
   const shiftMissing=!data?.shift||days.length===0;
-  return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14,paddingBottom:32}}>
+  const total=days.reduce((sum,d)=>sum+Math.max(0,Number(d.minutes)||0),0);
+  const working=days.filter(d=>!d.is_off).length;
+  const shiftType=data?.shift?.type??data?.shift_type;
+  return <ScrollView persistentScrollbar contentContainerStyle={{padding:14,paddingBottom:45}}>
     {err?<Text style={s.warnText}>{err}</Text>:null}
-    <View style={s.shiftHero}>
-      <Text style={s.shiftHeroTitle}>شیفت کاری</Text>
-      <Text style={s.shiftHeroSub}>برنامهٔ کامل ماه جاری شمسی</Text>
+    <View style={s.shiftHero}><Text style={s.shiftHeroTitle}>تقویم شیفت کاری</Text><Text style={s.shiftHeroSub}>برنامه ماه جاری • تاریخ شمسی</Text></View>
+    <View style={s.shiftSummaryRow}>
+      <View style={s.shiftSummaryItem}><Text style={s.shiftSummaryValue}>{faNum(working)}</Text><Text style={s.shiftSummaryLabel}>روز کاری</Text></View>
+      <View style={s.shiftSummaryItem}><Text style={s.shiftSummaryValue}>{fmtMinFa(total)}</Text><Text style={s.shiftSummaryLabel}>مجموع موظفی</Text></View>
     </View>
-    {shiftMissing?<View style={[s.perfCardWide,{marginTop:4,alignItems:'center'}]}>
-      <Text style={s.perfTitleEmpty}>برنامه شیفت نمایش داده نمی‌شود</Text>
-      <Text style={s.perfHint}>{data?.message||err||'برای این کاربر شیفت فعالی پیدا نشد یا برنامه‌ای برای نمایش برنگشته است.'}</Text>
-    </View>:days.map(d=><View key={d.date} style={s.shiftCard}>
-      <View style={[s.shiftAccent,d.is_today&&{backgroundColor:C.brand}]}/>
-      <View style={{flex:1}}>
-        <Text style={s.shiftDate}>{d.weekday} <Text style={s.shiftDateLight}>({d.date})</Text>{d.is_today?<Text style={{fontFamily:FONT.bold,color:C.brand,fontSize:11}}>  • امروز</Text>:null}</Text>
-        <Text style={s.shiftMeta}>{d.is_holiday?('تعطیل: '+(d.holiday_title||'')):d.is_off?(d.is_no_shift?'بدون شیفت فعال':'روز استراحت/بدون موظفی'):(d.shift_title||'شیفت کاری')}</Text>
-      </View>
-      <Text style={s.shiftMinutes}>{d.is_off?'—':(faNum(d.minutes)+' دقیقه')}</Text>
-    </View>)}
+    {shiftType?<Text style={s.shiftTypeHint}>نوع شیفت: {String(data?.shift?.title??data?.shift_title??shiftType)}</Text>:null}
+    {shiftMissing?<View style={[s.perfCardWide,{marginTop:12,alignItems:'center'}]}><Text style={s.perfTitleEmpty}>برنامه شیفت نمایش داده نمی‌شود</Text><Text style={s.perfHint}>{data?.message||err||'برای این کاربر شیفت فعالی پیدا نشد.'}</Text></View>:days.map((d,index)=>{
+      const intervals=shiftIntervals(d);
+      const active=expanded[d.date]??!!d.is_today;
+      const overtimeCap=d.overtime_cap_min??d.max_overtime_min??d.day_config?.overtime_cap_min??data?.shift?.overtime_cap_min;
+      const kind=d.shift_type??d.shift_title??(d.is_off?'روز استراحت':data?.shift?.title??'شیفت کاری');
+      return <View key={String(d.date??index)} style={[s.shiftModernCard,d.is_today&&s.shiftTodayCard]}>
+        <TouchableOpacity activeOpacity={0.8} onPress={()=>setExpanded(prev=>({...prev,[d.date]:!active}))} style={s.shiftModernHead}>
+          <View style={{flex:1,alignItems:'flex-end'}}><Text style={s.shiftModernDate}>{d.weekday} • {shiftJalaliFa(d.date)} {d.is_today?'  ● امروز':''}</Text><Text style={s.shiftModernMeta}>{d.is_holiday?'تعطیل: '+(d.holiday_title||'رسمی'):kind}</Text></View>
+          <View style={s.shiftModernPill}><Text style={s.shiftModernPillText}>{d.is_off?'استراحت':fmtMinFa(d.minutes)}</Text></View>
+          <MaterialCommunityIcons name={active?'chevron-up':'chevron-down'} size={22} color={C.brand}/>
+        </TouchableOpacity>
+        {active?<View style={s.shiftDetails}>
+          <Text style={s.shiftDetailHeading}>نوع شیفت: {kind}</Text>
+          {d.is_off?<Text style={s.shiftDetailEmpty}>برای این روز ساعت ورود و خروج موظفی تعریف نشده است.</Text>:intervals.length?intervals.map((interval,i)=><View key={interval.key+'-'+i} style={s.shiftIntervalRow}><Text style={s.shiftIntervalLabel}>{intervals.length>1?('نوبت '+faNum(i+1)):'ساعت تردد'}</Text><Text style={s.shiftIntervalTimes}>ورود {shiftTimeFa(interval.start)}  ←  خروج {shiftTimeFa(interval.end)}</Text></View>):<Text style={s.shiftDetailEmpty}>ساعت ورود و خروج در پاسخ برنامه شیفت مشخص نشده است.</Text>}
+          <View style={s.shiftDetailFooter}><Text style={s.shiftDetailFooterText}>موظفی: {d.is_off?'—':fmtMinFa(d.minutes)}</Text><Text style={s.shiftDetailFooterText}>سقف اضافه‌کار: {overtimeCap==null?'تعریف نشده':fmtMinFa(overtimeCap)}</Text></View>
+        </View>:null}
+      </View>;
+    })}
     {busy&&data?<ActivityIndicator size={42} message="در حال بروزرسانی…"/>:null}
     <TouchableOpacity style={[s.readBtn,{marginTop:12}]} onPress={loadSchedule} disabled={busy}><Text style={s.readBtnTxt}>{busy?'در حال بروزرسانی…':'بروزرسانی شیفت کاری'}</Text></TouchableOpacity>
   </ScrollView>;
@@ -1487,6 +1528,26 @@ render();
 }
 
 const s = StyleSheet.create({
+  shiftSummaryRow:{flexDirection:'row-reverse',gap:10,marginVertical:12},
+  shiftSummaryItem:{flex:1,backgroundColor:'#fff',borderRadius:16,borderWidth:1,borderColor:'#e0e8e9',padding:15,alignItems:'center'},
+  shiftSummaryValue:{fontFamily:FONT.bold,fontSize:19,color:C.brand},
+  shiftSummaryLabel:{fontFamily:FONT.regular,fontSize:12,color:C.muted,marginTop:5},
+  shiftTypeHint:{fontFamily:FONT.bold,color:C.ink,textAlign:'right',marginVertical:9,fontSize:13},
+  shiftModernCard:{backgroundColor:'#fff',borderRadius:16,borderWidth:1,borderColor:'#e0e8e9',marginBottom:10,overflow:'hidden'},
+  shiftTodayCard:{borderColor:C.brand,borderWidth:1.5},
+  shiftModernHead:{flexDirection:'row-reverse',alignItems:'center',padding:13,gap:10,minHeight:76},
+  shiftModernDate:{fontFamily:FONT.bold,fontSize:13,color:C.ink,textAlign:'right'},
+  shiftModernMeta:{fontFamily:FONT.regular,fontSize:11,color:C.muted,marginTop:5,textAlign:'right'},
+  shiftModernPill:{backgroundColor:'#eaf5f1',borderRadius:10,paddingHorizontal:10,paddingVertical:8},
+  shiftModernPillText:{fontFamily:FONT.bold,color:C.brand,fontSize:11},
+  shiftDetails:{borderTopWidth:1,borderColor:'#edf1f3',padding:13,gap:10},
+  shiftDetailHeading:{fontFamily:FONT.bold,color:C.ink,fontSize:13,textAlign:'right'},
+  shiftDetailEmpty:{fontFamily:FONT.regular,color:C.muted,fontSize:12,textAlign:'right'},
+  shiftIntervalRow:{backgroundColor:'#f4f8f7',borderRadius:11,padding:12,gap:6},
+  shiftIntervalLabel:{fontFamily:FONT.bold,color:C.brand,fontSize:11,textAlign:'right'},
+  shiftIntervalTimes:{fontFamily:FONT.bold,color:C.ink,fontSize:13,textAlign:'right'},
+  shiftDetailFooter:{flexDirection:'row-reverse',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginTop:3},
+  shiftDetailFooterText:{fontFamily:FONT.regular,color:C.muted,fontSize:11},
   perfDangerCard:{borderColor:'#f3d5d5',backgroundColor:'#fffafa'},
   dailySessionsPanel:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:18,padding:13,marginTop:14,marginBottom:12},
   dailySessionsHeader:{flexDirection:'row-reverse',alignItems:'center',gap:8,marginBottom:12},
