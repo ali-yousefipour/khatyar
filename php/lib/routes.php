@@ -462,19 +462,9 @@ route('POST', '/api/auth/refresh', $refreshHandler, true);
 route('POST', '/api/session/renew', $refreshHandler, true);
 
 /* ================= ورود با کد یک‌بارمصرف پیامکی (OTP) ================= */
-function _otp_tables() {
-  try { Db::run("CREATE TABLE IF NOT EXISTS login_otp (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    mobile VARCHAR(20) NOT NULL,
-    code_hash VARCHAR(64) NOT NULL,
-    attempts INT NOT NULL DEFAULT 0,
-    expires_at DATETIME NOT NULL,
-    consumed_at DATETIME NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_login_otp_mobile (mobile, created_at)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-}
+// OTP schema is provisioned by the deployment migration.
+// Avoid runtime DDL and metadata locks at peak login time.
+function _otp_tables() { return; }
 // درخواست ارسال کد یک‌بارمصرف به موبایل ثبت‌شدهٔ کاربر
 route('POST', '/api/session/otp-request', function($p, $b) {
   _otp_tables();
