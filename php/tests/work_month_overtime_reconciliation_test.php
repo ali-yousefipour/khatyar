@@ -2,7 +2,7 @@
 // Regression checks for the production monthly overtime settlement snippet.
 $source = file_get_contents(__DIR__.'/../lib/routes.php');
 $start = strpos($source, '    // Keep regular overtime and Friday/holiday work as disjoint minute buckets.');
-$end = strpos($source, "    $out[] = array_merge(", $start);
+$end = strpos($source, '    $out[] = array_merge(', $start);
 if ($start === false || $end === false || $end <= $start) {
     throw new RuntimeException('Monthly overtime settlement code missing');
 }
