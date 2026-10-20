@@ -9,6 +9,8 @@ export default function LoginScreen() {
   const { login, appLoginConfig, appLoginOtpRequest, appLoginOtpVerify } = useAuth();
   const [loginMethod, setLoginMethod] = useState('password');
   const [configLoading, setConfigLoading] = useState(true);
+  const [configError, setConfigError] = useState('');
+  const [configRetry, setConfigRetry] = useState(0);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
@@ -21,16 +23,20 @@ export default function LoginScreen() {
 
   useEffect(() => {
     let alive = true;
+    setConfigLoading(true);
+    setConfigError('');
     appLoginConfig().then(x => {
       if (!alive) return;
-      setLoginMethod(['password','sms_otp','bale_otp'].includes(x?.method) ? x.method : 'password');
+      if (!['password','sms_otp','bale_otp'].includes(x?.method)) { setConfigError('تنظیمات روش ورود از سرور معتبر نیست. لطفاً با مدیر سامانه تماس بگیرید.'); return; }
+      setLoginMethod(x.method);
     }).catch(() => {
-      if (alive) setLoginMethod('password');
+      if (alive) setConfigError('دریافت روش ورود از سرور انجام نشد. اتصال اینترنت را بررسی و دوباره تلاش کنید.');
     }).finally(() => alive && setConfigLoading(false));
     return () => { alive = false; };
-  }, []);
+  }, [configRetry]);
 
   async function onLogin() {
+    if (configLoading || configError) return Alert.alert('خطا', 'روش ورود از سرور دریافت نشده است.');
     if (!username.trim()) return Alert.alert('توجه', 'نام کاربری (کد ملی) را وارد کنید.');
     if (loginMethod !== 'password') return onOtpRequest();
     if (!password) return Alert.alert('توجه', 'رمز عبور را وارد کنید.');
@@ -41,6 +47,7 @@ export default function LoginScreen() {
   }
 
   async function onOtpRequest() {
+    if (configLoading || configError || loginMethod === 'password') return Alert.alert('خطا', 'ورود با کد یک‌بارمصرف در تنظیمات فعلی فعال نیست.');
     if (!username.trim()) return Alert.alert('توجه', 'نام کاربری (کد ملی) را وارد کنید.');
     setBusy(true);
     try {
@@ -98,7 +105,9 @@ export default function LoginScreen() {
       <View style={s.logo}><Text style={s.logoTxt}>ت</Text></View>
       <Text style={s.title}>خطیار</Text>
       <Text style={s.sub}>مشهد</Text>
-      {configLoading ? <ActivityIndicator fullScreen size={90} message="در حال دریافت روش ورود…" /> : mode === 'login' ? (
+      {configLoading ? <ActivityIndicator fullScreen size={90} message="در حال دریافت روش ورود…" /> : configError ? (
+        <View style={{padding:18,alignItems:'center'}}><Text style={[s.note,{color:'#b42318',textAlign:'center'}]}>{configError}</Text><TouchableOpacity style={s.btn} onPress={()=>setConfigRetry(v=>v+1)}><Text style={s.btnTxt}>تلاش مجدد برای دریافت تنظیمات</Text></TouchableOpacity></View>
+      ) : mode === 'login' ? (
         <>
           <Text style={s.label}>نام کاربری (کد ملی)</Text>
           <TextInput style={s.input} value={username} onChangeText={setUsername} keyboardType="number-pad" placeholder="کد ملی" placeholderTextColor={C.muted} autoCapitalize="none" />
