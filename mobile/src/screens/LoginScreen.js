@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Switch, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Switch, Alert, AppState } from 'react-native';
 import { useAuth } from '../auth';
 import { request } from '../api';
 import { C, FONT } from '../theme';
@@ -20,6 +20,9 @@ export default function LoginScreen() {
   const [newPw, setNewPw] = useState('');
   const [otpCooldown, setOtpCooldown] = useState(0);
   const [fid, setFid] = useState('');
+  const otpSubmitting = useRef(false);
+  const cooldownTimer = useRef(null);
+  const normalizeDigits = value => String(value ?? '').replace(/[۰-۹]/g, ch => String(ch.charCodeAt(0) - 1776)).replace(/[٠-٩]/g, ch => String(ch.charCodeAt(0) - 1632));
 
   useEffect(() => {
     let alive = true;
@@ -35,8 +38,16 @@ export default function LoginScreen() {
     return () => { alive = false; };
   }, [configRetry]);
 
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active' && mode === 'login') setConfigRetry(v => v + 1);
+    });
+    return () => subscription.remove();
+  }, [mode]);
+  useEffect(() => () => { if (cooldownTimer.current) clearInterval(cooldownTimer.current); }, []);
+
   async function onLogin() {
-    if (configLoading || configError) return Alert.alert('خطا', 'روش ورود از سرور دریافت نشده است.');
+    if (busy || configLoading || configError) return Alert.alert('خطا', 'روش ورود از سرور دریافت نشده است یا درخواست دیگری در حال انجام است.');
     if (!username.trim()) return Alert.alert('توجه', 'نام کاربری (کد ملی) را وارد کنید.');
     if (loginMethod !== 'password') return onOtpRequest();
     if (!password) return Alert.alert('توجه', 'رمز عبور را وارد کنید.');
@@ -47,7 +58,7 @@ export default function LoginScreen() {
   }
 
   async function onOtpRequest() {
-    if (configLoading || configError || loginMethod === 'password') return Alert.alert('خطا', 'ورود با کد یک‌بارمصرف در تنظیمات فعلی فعال نیست.');
+    if (busy || configLoading || configError || loginMethod === 'password') return;
     if (!username.trim()) return Alert.alert('توجه', 'نام کاربری (کد ملی) را وارد کنید.');
     setBusy(true);
     try {
@@ -56,24 +67,27 @@ export default function LoginScreen() {
       setMode('otp-code');
       setOtpCooldown(60);
       Alert.alert('ارسال شد', loginMethod === 'bale_otp' ? 'کد ورود از طریق ربات بله برای شما ارسال شد.' : 'کد ورود به شماره همراه ثبت‌شده شما پیامک شد.');
-      const timer = setInterval(() => {
-        setOtpCooldown(v => { if (v <= 1) { clearInterval(timer); return 0; } return v - 1; });
+      if (cooldownTimer.current) clearInterval(cooldownTimer.current);
+      cooldownTimer.current = setInterval(() => {
+        setOtpCooldown(v => { if (v <= 1) { clearInterval(cooldownTimer.current); cooldownTimer.current = null; return 0; } return v - 1; });
       }, 1000);
     } catch (e) { Alert.alert('خطا', e.message); }
     finally { setBusy(false); }
   }
 
   async function onOtpVerify(value) {
-    const c = String(value ?? code).replace(/\D/g, '').slice(0, 6);
+    if (otpSubmitting.current || busy || configError || configLoading) return;
+    const c = normalizeDigits(value ?? code).replace(/\D/g, '').slice(0, 6);
     if (!/^\d{6}$/.test(c)) return Alert.alert('توجه', 'کد ۶ رقمی را کامل وارد کنید.');
+    otpSubmitting.current = true;
     setBusy(true);
     try { await appLoginOtpVerify(username.trim(), c); }
     catch (e) { Alert.alert('ورود ناموفق', e.message); }
-    finally { setBusy(false); }
+    finally { otpSubmitting.current = false; setBusy(false); }
   }
 
   useEffect(() => {
-    if (mode === 'otp-code' && /^\d{6}$/.test(code) && !busy) onOtpVerify(code);
+    if (mode === 'otp-code' && /^\d{6}$/.test(code) && !busy && !otpSubmitting.current) onOtpVerify(code);
   }, [code]);
 
   async function onForgot() {
@@ -133,10 +147,10 @@ export default function LoginScreen() {
       ) : mode === 'otp-code' ? (
         <>
           <Text style={s.label}>کد ۶ رقمی ورود</Text>
-          <TextInput style={[s.input,{textAlign:'center',fontSize:22,letterSpacing:6}]} value={code} onChangeText={t=>setCode(t.replace(/\D/g,'').slice(0,6))} keyboardType="number-pad" maxLength={6} autoComplete="sms-otp" textContentType="oneTimeCode" placeholder="------" placeholderTextColor={C.muted} autoFocus />
+          <TextInput style={[s.input,{textAlign:'center',fontSize:22,letterSpacing:6}]} value={code} onChangeText={t=>setCode(normalizeDigits(t).replace(/\D/g,'').slice(0,6))} keyboardType="number-pad" maxLength={6} autoComplete="sms-otp" textContentType="oneTimeCode" placeholder="------" placeholderTextColor={C.muted} autoFocus />
           <TouchableOpacity style={s.btn} onPress={()=>onOtpVerify()} disabled={busy}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>ورود</Text>}</TouchableOpacity>
           <TouchableOpacity onPress={onOtpRequest} disabled={busy || otpCooldown > 0} style={s.link}><Text style={[s.linkTxt,{color:otpCooldown>0?C.muted:C.brand}]}>{otpCooldown > 0 ? 'ارسال مجدد کد ('+otpCooldown+' ثانیه)' : 'ارسال مجدد کد'}</Text></TouchableOpacity>
-          <TouchableOpacity onPress={()=>setMode('login')} style={s.link}><Text style={{color:C.muted,fontFamily:FONT.regular}}>بازگشت</Text></TouchableOpacity>
+          <TouchableOpacity onPress={()=>{setCode('');setMode('login');setConfigRetry(v=>v+1)}} style={s.link}><Text style={{color:C.muted,fontFamily:FONT.regular}}>بازگشت</Text></TouchableOpacity>
         </>
       ) : mode === 'forgot' ? (
         <>
