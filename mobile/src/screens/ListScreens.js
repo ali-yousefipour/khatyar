@@ -50,15 +50,56 @@ function useDateFilter(allRows, dateField = 'created_at') {
 
 export function AttendanceScreen({ route }) {
   const { driver } = route.params;
+  const { width } = useWindowDimensions();
   const [all, setAll] = useState(null);
-  useEffect(() => { request(`/attendance/${driver.id}`).then(setAll).catch(() => setAll([])); }, []);
+  useEffect(() => { request(`/attendance/${driver.id}`).then(setAll).catch(() => setAll([])); }, [driver.id]);
   const { rows, from, to, setFrom, setTo } = useDateFilter(all);
   const cm = all ? all.filter((r) => inCurrentJMonth(r.created_at)).length : 0;
   const cy = all ? all.filter((r) => inCurrentJYear(r.created_at)).length : 0;
-  return <View style={{ flex: 1, backgroundColor: C.paper }}><List rows={rows} empty="حضوری ثبت نشده است"
-    header={<><Counts month={cm} year={cy} labelMonth="حضور این ماه" labelYear="حضور امسال" /><DateFilterBar from={from} to={to} setFrom={setFrom} setTo={setTo} /></>}
-    render={({ item }) => <View style={s.card}><Text style={s.txt}>{fj(item.created_at)}</Text></View>} /></View>;
+  const sortedRows = useMemo(() => rows ? [...rows].sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))) : null, [rows]);
+  return <View style={{ flex: 1, backgroundColor: C.paper }}>
+    <List rows={sortedRows} empty="حضوری در بازه انتخاب‌شده ثبت نشده است"
+      header={<>
+        <View style={at.header}><View style={at.headerIcon}><MaterialCommunityIcons name="calendar-check-outline" size={25} color={C.brand}/></View><View style={at.headerText}><Text style={at.title}>گزارش حضور راننده</Text><Text style={at.subtitle}>سوابق ثبت حضور و آمار فعالیت</Text></View></View>
+        <View style={at.stats}>
+          <View style={at.stat}><MaterialCommunityIcons name="calendar-month-outline" size={22} color={C.brand}/><Text style={at.statNumber}>{faNum(cm)}</Text><Text style={at.statLabel}>حضور این ماه</Text></View>
+          <View style={at.stat}><MaterialCommunityIcons name="calendar-range-outline" size={22} color={C.brand}/><Text style={at.statNumber}>{faNum(cy)}</Text><Text style={at.statLabel}>حضور امسال</Text></View>
+        </View>
+        <View style={at.filterCard}><View style={at.sectionRow}><MaterialCommunityIcons name="filter-variant" size={20} color={C.brand}/><Text style={at.sectionTitle}>فیلتر بازه زمانی</Text></View><DateFilterBar from={from} to={to} setFrom={setFrom} setTo={setTo}/></View>
+        <View style={at.sectionRow}><MaterialCommunityIcons name="history" size={20} color={C.brand}/><Text style={at.sectionTitle}>سوابق حضور</Text><Text style={at.count}>{faNum(sortedRows?.length || 0)} مورد</Text></View>
+      </>}
+      render={({ item, index }) => {
+        const formatted = faNum(fj(item.created_at));
+        const parts = formatted.split(/\\s+/);
+        const date = parts[0] || formatted;
+        const time = parts.slice(1).join(' ');
+        return <View style={at.entry}><View style={at.entryIcon}><MaterialCommunityIcons name="check-circle-outline" size={23} color={C.brand}/></View><View style={at.entryContent}><Text style={at.entryDate}>{date}</Text><Text style={at.entryHint}>ثبت حضور راننده</Text></View>{!!time&&<View style={at.timeBadge}><MaterialCommunityIcons name="clock-outline" size={15} color={C.brand}/><Text style={at.timeText}>{time}</Text></View>}</View>;
+      }}
+    />
+  </View>;
 }
+const at = StyleSheet.create({
+  header:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:14},
+  headerIcon:{width:49,height:49,borderRadius:15,backgroundColor:'#e6f4ed',alignItems:'center',justifyContent:'center'},
+  headerText:{flex:1,alignItems:'flex-end'},
+  title:{fontFamily:FONT.bold,color:C.ink,fontSize:17,textAlign:'right'},
+  subtitle:{fontFamily:FONT.regular,color:C.muted,fontSize:12,marginTop:3,textAlign:'right'},
+  stats:{flexDirection:'row-reverse',gap:10,marginBottom:12},
+  stat:{flex:1,minWidth:0,backgroundColor:'#fff',borderColor:C.line,borderWidth:1,borderRadius:17,paddingVertical:14,paddingHorizontal:8,alignItems:'center',gap:5,elevation:1},
+  statNumber:{fontFamily:FONT.bold,fontSize:25,color:C.brand},
+  statLabel:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'center'},
+  filterCard:{backgroundColor:'#fff',borderRadius:16,borderColor:C.line,borderWidth:1,paddingHorizontal:12,paddingVertical:9,marginBottom:14},
+  sectionRow:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:10,flexWrap:'wrap'},
+  sectionTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14,textAlign:'right'},
+  count:{fontFamily:FONT.bold,color:C.brand,fontSize:12,marginRight:'auto',backgroundColor:'#e9f5ee',paddingHorizontal:9,paddingVertical:5,borderRadius:9},
+  entry:{backgroundColor:'#fff',borderColor:C.line,borderWidth:1,borderRadius:16,padding:13,marginBottom:9,flexDirection:'row-reverse',alignItems:'center',gap:10,elevation:1},
+  entryIcon:{width:43,height:43,borderRadius:13,backgroundColor:'#eaf5ef',alignItems:'center',justifyContent:'center'},
+  entryContent:{flex:1,minWidth:0,alignItems:'flex-end'},
+  entryDate:{fontFamily:FONT.bold,fontSize:14,color:C.ink,textAlign:'right'},
+  entryHint:{fontFamily:FONT.regular,fontSize:11,color:C.muted,marginTop:5,textAlign:'right'},
+  timeBadge:{backgroundColor:'#eef7f3',borderRadius:10,paddingHorizontal:8,paddingVertical:7,flexDirection:'row-reverse',alignItems:'center',gap:4,maxWidth:'42%'},
+  timeText:{fontFamily:FONT.bold,fontSize:12,color:C.brand}
+});
 
 export function PastNoticesScreen({ route }) {
   const { driver } = route.params;
