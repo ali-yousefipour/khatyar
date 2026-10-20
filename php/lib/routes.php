@@ -3791,9 +3791,9 @@ route('GET', '/api/admin/shift-report/export', function($p,$b,$u){
   if (!$jy||!$jm) Http::error('سال و ماه را مشخص کنید',400);
   $rows=_work_month_rows($jy,$jm);
   $hm=fn($m)=>sprintf('%02d:%02d',intdiv(max(0,(int)$m),60),max(0,(int)$m)%60);
-  $headers=['نام و نام خانوادگی','موظفی','حضور کل','حضور در شیفت','تاخیر ورود','تعجیل خروج','کسری کار','غیبت','جمع غیبت و کسری کار','شب کاری','اضافه کاری','ماموریت','مرخصی استحقاقی','مرخصی استعلاجی'];
+  $headers=['نام و نام خانوادگی','موظفی','حضور کل','حضور در شیفت','تاخیر ورود','تعجیل خروج','کسری کار','غیبت','جمع غیبت و کسری کار','شب کاری','اضافه کاری','جمعه کاری','اضافه کاری جمعه','تعطیل کاری','ماموریت','مرخصی استحقاقی','مرخصی استعلاجی'];
   $xw=new XlsxWriter($headers);
-  $widths=[24,11,12,15,12,12,12,10,18,12,12,12,15,15];
+  $widths=[24,11,12,15,12,12,12,10,18,12,12,12,12,12,12,15,15];
   foreach($widths as $i=>$w) $xw->setColWidth($i,$w);
   foreach($rows as $r){
     $gh=($r['absent_min']??0)+($r['shortage']??0);
@@ -3808,7 +3808,10 @@ route('GET', '/api/admin/shift-report/export', function($p,$b,$u){
       $hm($r['absent_min']??0),
       $hm($gh),
       $hm($r['night']),
-      $hm($r['overtime']),
+      $hm($r['regular_overtime']??$r['overtime']),
+      $hm($r['friday']??0),
+      $hm($r['friday_overtime']??$r['friday']??0),
+      $hm($r['holiday']??0),
       $hm($r['mission_min']??0),
       $hm($r['annual_min']??0),
       $hm($r['sick_min']??0)
