@@ -33,6 +33,9 @@ jobs:
           php -l php/lib/ShiftCalc.php
           php php/tests/work_summary_cutoff_test.php
           php php/tests/work_shift_regression_test.php
+          php php/tests/work_month_daily_reconciliation_test.php
+          php php/tests/attendance_monthly_reconciliation_test.php
+          php php/tests/work_month_overtime_reconciliation_test.php
           php php/tests/work_finalization_test.php
           node php/tests/work_finalization_ui_test.cjs
           node php/tests/seniority_deployment_test.cjs
