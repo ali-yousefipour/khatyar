@@ -289,7 +289,12 @@ const db = {
   delHoliday: (jdate)=> SEND('DELETE','/admin/holidays/'+jdate,{}),
   fetchHolidays: (year,month)=> SEND('POST','/admin/holidays/fetch',{year,month}),
   shiftReport: (year,month)=> GET('/admin/shift-report?year='+year+'&month='+month),
-  attendanceReport: (userId,from,to)=> GET('/admin/attendance-report?user_id='+userId+'&from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to)),
+  attendanceReport: (userId,from,to)=> {
+    const rawId = userId && typeof userId === 'object' ? userId.id : userId;
+    const numericId = Number(rawId);
+    if(!Number.isSafeInteger(numericId) || numericId <= 0) return Promise.reject(new Error('شناسه پرسنل معتبر نیست؛ لطفاً شخص را دوباره انتخاب کنید.'));
+    return GET('/admin/attendance-report?user_id='+encodeURIComponent(String(numericId))+'&from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to));
+  },
   attendanceSurplusConvert: (body)=> SEND('POST','/admin/attendance-surplus/convert',body),
   attendanceSurplusReset: (body)=> SEND('POST','/admin/attendance-surplus/reset',body),
   ruleEngineRoles: ()=> GET('/admin/rule-engine/roles'),
