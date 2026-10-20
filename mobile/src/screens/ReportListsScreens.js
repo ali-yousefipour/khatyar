@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, FlatList, Alert, Modal } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { request } from '../api';
 import { C, FONT } from '../theme';
 import { faNum } from '../num';
@@ -114,6 +115,30 @@ export function ActivityReportScreen() {
   );
 }
 
+function ExpiryHero({ title, description, total, filtered, icon }) {
+  return <View style={op.hero}>
+    <View style={{flexDirection:'row-reverse',alignItems:'center',gap:10}}>
+      <MaterialCommunityIcons name={icon} size={26} color="#fff"/>
+      <View style={{flex:1}}><Text style={op.heroTitle}>{title}</Text><Text style={op.heroDesc}>{description}</Text></View>
+    </View>
+    <View style={op.heroStats}>
+      <View style={op.heroStat}><Text style={op.heroStatNum}>{faNum(total)}</Text><Text style={op.heroStatLabel}>کل موارد دریافتی</Text></View>
+      <View style={op.heroStat}><Text style={op.heroStatNum}>{faNum(filtered)}</Text><Text style={op.heroStatLabel}>نتایج فیلترشده</Text></View>
+    </View>
+  </View>;
+}
+function ExpiryInfo({ label, value }) {
+  return <View style={op.infoRow}><Text style={op.infoValue} numberOfLines={2}>{faNum(value ?? '—')}</Text><Text style={op.infoLabel}>{label}</Text></View>;
+}
+function ExpiryFilterDates({ from, to, setFrom, setTo, setPick }) {
+  return <View><Text style={op.fieldLabel}>بازه تاریخ انقضا</Text>
+    <View style={op.dateButtons}>
+      <TouchableOpacity style={op.dateButton} onPress={()=>setPick('from')}><Text style={op.dateText}>{from?jLabel(from.jy,from.jm,from.jd):'از تاریخ'}</Text></TouchableOpacity>
+      <TouchableOpacity style={op.dateButton} onPress={()=>setPick('to')}><Text style={op.dateText}>{to?jLabel(to.jy,to.jm,to.jd):'تا تاریخ'}</Text></TouchableOpacity>
+    </View>
+    {(from||to)?<TouchableOpacity style={op.resetButton} onPress={()=>{setFrom(null);setTo(null)}}><Text style={op.resetText}>پاک‌کردن بازه تاریخ</Text></TouchableOpacity>:null}
+  </View>;
+}
 export function ExpInsuranceScreen({ navigation }) {
   const ins = useFetch('/my/expiring?type=insurance');
   const insp = useFetch('/my/expiring?type=inspection');
@@ -163,26 +188,26 @@ export function ExpInsuranceScreen({ navigation }) {
       <FlatList contentContainerStyle={{ padding: 14 }} data={shown} keyExtractor={(_, i) => String(i)}
         onEndReached={() => { if (shown.length < list.length) setPage((p) => p + 1); }} onEndReachedThreshold={0.4}
         ListHeaderComponent={<>
-          <ExpiryFilters q={q} setQ={setQ} plateQ={plateQ} setPlateQ={setPlateQ} lineFilter={lineFilter} setLineFilter={setLineFilter} lines={myLines} />
-          <View style={s.frow}><Chip id="all" label="همه" /><Chip id="ins" label="بیمه" /><Chip id="insp" label="معاینه فنی" /></View>
-          <View style={s.dateRow}>
-            <TouchableOpacity style={s.dBtn} onPress={() => setPick('from')}><Text style={s.dBtnTxt}>{from ? jLabel(from.jy, from.jm, from.jd) : 'از تاریخ انقضا'}</Text></TouchableOpacity>
-            <TouchableOpacity style={s.dBtn} onPress={() => setPick('to')}><Text style={s.dBtnTxt}>{to ? jLabel(to.jy, to.jm, to.jd) : 'تا تاریخ انقضا'}</Text></TouchableOpacity>
-            {(from || to) ? <TouchableOpacity onPress={() => { setFrom(null); setTo(null); }}><Text style={s.clr}>پاک</Text></TouchableOpacity> : null}
+          <ExpiryHero title="بیمه و معاینه فنی خودروها" description="پیگیری اعتبار مدارک خودروها و اطلاع‌رسانی انقضا" total={(ins?.length||0)+(insp?.length||0)} filtered={list.length} icon="shield-car"/>
+          <View style={op.filters}><Text style={op.filterTitle}>جستجو و پالایش خودروها</Text>
+            <ExpiryFilters q={q} setQ={setQ} plateQ={plateQ} setPlateQ={setPlateQ} lineFilter={lineFilter} setLineFilter={setLineFilter} lines={myLines} />
+            <View style={[s.frow,{flexWrap:'wrap',marginTop:12}]}><Chip id="all" label="همه" /><Chip id="ins" label="بیمه" /><Chip id="insp" label="معاینه فنی" /></View>
+            <ExpiryFilterDates from={from} to={to} setFrom={setFrom} setTo={setTo} setPick={setPick}/>
           </View>
-          <Text style={s.section}>{faNum(list.length)} مورد (مرتب بر اساس نزدیک‌ترین تاریخ)</Text>
+          <View style={op.resultRow}><Text style={op.resultText}>{faNum(list.length)} خودرو</Text><Text style={op.resultHint}>بر اساس نزدیک‌ترین تاریخ انقضا</Text></View>
         </>}
         ListEmptyComponent={<Empty />}
         ListFooterComponent={shown.length < list.length ? <Text style={s.more}>در حال بارگذاری بیشتر…</Text> : null}
         renderItem={({ item: r }) => (
-          <View style={s.card}>
-            <Text style={s.title}>پلاک {faNum(r.plate)}</Text>
-            <Text style={s.meta}>{r.model_name || ''} · خط {faNum(r.line || '—')} · {r._k}: {faNum(r.expire)}</Text>
-            <View style={s.actRow}>
-              <TouchableOpacity style={s.actNotice} onPress={() => openNotice(r)}><Text style={s.actNoticeTxt}>✎ ثبت تذکر</Text></TouchableOpacity>
-              <TouchableOpacity style={s.actSms} disabled={smsing === r.plate + (r._k === 'بیمه' ? 'insurance' : 'inspection')} onPress={() => sendSms(r)}>
-                <Text style={s.actSmsTxt}>{smsing === r.plate + (r._k === 'بیمه' ? 'insurance' : 'inspection') ? '...' : '✉ ارسال پیامک'}</Text>
-              </TouchableOpacity>
+          <View style={op.vehicleCard}>
+            <View style={op.cardTop}><Text style={op.plateTitle}>پلاک {faNum(r.plate)}</Text><View style={op.statusTag}><Text style={op.statusText}>{r._k}</Text></View></View>
+            <View style={op.cardDivider}/>
+            <ExpiryInfo label="مدل خودرو" value={r.model_name||'نامشخص'}/>
+            <ExpiryInfo label="خط فعالیت" value={r.line?'خط '+faNum(r.line):'نامشخص'}/>
+            <View style={op.expiryRow}><Text style={op.expiryValue}>{faNum(r.expire||'نامشخص')}</Text><Text style={op.expiryLabel}>تاریخ انقضای {r._k}</Text></View>
+            <View style={op.actionRow}>
+              <TouchableOpacity style={op.actionNotice} onPress={() => openNotice(r)}><Text style={op.actionNoticeText}>✎ ثبت تذکر</Text></TouchableOpacity>
+              <TouchableOpacity style={op.actionSms} disabled={smsing === r.plate + (r._k === 'بیمه' ? 'insurance' : 'inspection')} onPress={() => sendSms(r)}><Text style={op.actionSmsText}>{smsing === r.plate + (r._k === 'بیمه' ? 'insurance' : 'inspection') ? 'در حال ارسال…' : '✉ ارسال پیامک'}</Text></TouchableOpacity>
             </View>
           </View>
         )} />
@@ -230,24 +255,25 @@ export function ExpTaxiScreen({ navigation }) {
       <FlatList contentContainerStyle={{ padding: 14 }} data={shown} keyExtractor={(_, i) => String(i)}
         onEndReached={() => { if (shown.length < list.length) setPage((p) => p + 1); }} onEndReachedThreshold={0.4}
         ListHeaderComponent={<>
-          <ExpiryFilters q={q} setQ={setQ} plateQ={plateQ} setPlateQ={setPlateQ} lineFilter={lineFilter} setLineFilter={setLineFilter} lines={myLines} />
-          <View style={s.dateRow}>
-            <TouchableOpacity style={s.dBtn} onPress={() => setPick('from')}><Text style={s.dBtnTxt}>{from ? jLabel(from.jy, from.jm, from.jd) : 'از تاریخ'}</Text></TouchableOpacity>
-            <TouchableOpacity style={s.dBtn} onPress={() => setPick('to')}><Text style={s.dBtnTxt}>{to ? jLabel(to.jy, to.jm, to.jd) : 'تا تاریخ'}</Text></TouchableOpacity>
-            {(from || to) ? <TouchableOpacity onPress={() => { setFrom(null); setTo(null); }}><Text style={s.clr}>پاک</Text></TouchableOpacity> : null}
+          <ExpiryHero title="افراد فاقد اعتبار" description="بررسی اعتبار پروانه تاکسیرانی و پیگیری رانندگان" total={rows?.length||0} filtered={list.length} icon="card-account-details-outline"/>
+          <View style={op.filters}><Text style={op.filterTitle}>جستجو و پالایش افراد</Text>
+            <ExpiryFilters q={q} setQ={setQ} plateQ={plateQ} setPlateQ={setPlateQ} lineFilter={lineFilter} setLineFilter={setLineFilter} lines={myLines} />
+            <ExpiryFilterDates from={from} to={to} setFrom={setFrom} setTo={setTo} setPick={setPick}/>
           </View>
-          <Text style={s.section}>{faNum(list.length)} نفر (مرتب بر اساس نزدیک‌ترین تاریخ)</Text>
+          <View style={op.resultRow}><Text style={op.resultText}>{faNum(list.length)} نفر</Text><Text style={op.resultHint}>بر اساس نزدیک‌ترین تاریخ انقضا</Text></View>
         </>}
         ListEmptyComponent={<Empty />}
         ListFooterComponent={shown.length < list.length ? <Text style={s.more}>در حال بارگذاری بیشتر…</Text> : null}
         renderItem={({ item: r }) => (
-          <View style={s.card}><Text style={s.title}>{r.first_name} {r.last_name}</Text>
-            <Text style={s.meta}>کد ملی {faNum(r.national_id)} · خط {faNum(r.line || '—')} · انقضا: {faNum(r.expire)}</Text>
-            <View style={s.actRow}>
-              <TouchableOpacity style={s.actNotice} onPress={() => notice(r.national_id)}><Text style={s.actNoticeTxt}>✎ ثبت تذکر</Text></TouchableOpacity>
-              <TouchableOpacity style={s.actSms} disabled={smsing === r.national_id} onPress={() => sendLicSms(r)}>
-                <Text style={s.actSmsTxt}>{smsing === r.national_id ? '...' : '✉ ارسال پیامک'}</Text>
-              </TouchableOpacity>
+          <View style={op.vehicleCard}>
+            <View style={op.cardTop}><Text style={op.plateTitle}>{r.first_name} {r.last_name}</Text><View style={op.statusTag}><Text style={op.statusText}>نیازمند بررسی اعتبار</Text></View></View>
+            <View style={op.cardDivider}/>
+            <ExpiryInfo label="کد ملی" value={r.national_id}/>
+            <ExpiryInfo label="خط فعالیت" value={r.line?'خط '+faNum(r.line):'نامشخص'}/>
+            <View style={op.expiryRow}><Text style={op.expiryValue}>{faNum(r.expire||'نامشخص')}</Text><Text style={op.expiryLabel}>تاریخ انقضای پروانه</Text></View>
+            <View style={op.actionRow}>
+              <TouchableOpacity style={op.actionNotice} onPress={() => notice(r.national_id)}><Text style={op.actionNoticeText}>✎ ثبت تذکر</Text></TouchableOpacity>
+              <TouchableOpacity style={op.actionSms} disabled={smsing === r.national_id} onPress={() => sendLicSms(r)}><Text style={op.actionSmsText}>{smsing === r.national_id ? 'در حال ارسال…' : '✉ ارسال پیامک'}</Text></TouchableOpacity>
             </View>
           </View>
         )} />
