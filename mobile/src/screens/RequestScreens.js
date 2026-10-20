@@ -205,45 +205,37 @@ table{width:100%;border-collapse:collapse;font-size:12px}td{padding:6px 4px;bord
   };
 
   if (data === undefined) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
+  const groups = [
+    {title:'اضافه‌کار و مازاد حضور',icon:'clock-plus-outline',items:[['اضافه‌کار',data?.overtime,C.ok],['مازاد حضور',data?.surplus,C.slate],['مازاد تبدیل‌شده به اضافه‌کار',data?.adjusted_ot,C.ok]]},
+    {title:'کسری و تأخیر',icon:'clock-alert-outline',items:[['کسری کار',data?.shortage,C.danger],['غیبت',data?.absent_min,C.danger],['تأخیر ورود',data?.late_in,C.danger],['تعجیل خروج',data?.early_out,C.danger]]},
+    {title:'کارکرد ویژه',icon:'calendar-clock-outline',items:[['شب‌کاری',data?.night],['جمعه‌کاری',data?.friday],['تعطیل‌کاری',data?.holiday],['تردد دستی',data?.manual_min]]},
+    {title:'مرخصی و مأموریت',icon:'calendar-account-outline',items:[['مرخصی استحقاقی',data?.annual_min],['مرخصی استعلاجی',data?.sick_min],['مأموریت',data?.mission_min]]}
+  ];
   return (
-    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
-      {ym && <Text style={s.month}>{J[ym[1] - 1]} {ym[0]}</Text>}
-      {data?.through_jdate ? <Text style={s.summaryThrough}>محاسبه تا {faNum(data.through_jdate.replace(/-/g, '/'))}</Text> : null}
-      {data && <Text style={s.summaryHint}>{['auto', 'floating'].includes(data.shift_type) ? 'کسر کار روز جاری برای شیفت‌های بدون ساعت‌بندی پس از پایان روز نهایی می‌شود.' : 'کسر کار روز جاری فقط بر پایهٔ زمان سپری‌شده از بازه‌های شیفت محاسبه می‌شود.'}</Text>}
-      {!data ? <Text style={[s.muted, { marginTop: 20 }]}>{loadError || 'برای این ماه شیفت یا ترددی ثبت نشده است.'}</Text> : (
-        <View>
-          <Row l="روزهای حضور" v={`${faNum(data.present_days || 0)} روز`} />
-          <Row l="کارکرد" v={hm(data.worked)} hl />
-          <Row l="موظفی" v={hm(data.expected)} />
-          <Row l="غیبت" v={hm(data.absent_min)} color={C.danger} />
-          <Row l="اضافه‌کار" v={hm(data.overtime)} color={C.ok} />
-          <Row l="مازاد حضور" v={hm(data.surplus)} color={C.danger} />
-          <Row l="مازاد تبدیل‌شده به اضافه‌کار" v={hm(data.adjusted_ot)} color={C.ok} />
-          <Row l="کسری کار" v={hm(data.shortage)} color={C.danger} />
-          <Row l="شب‌کاری" v={hm(data.night)} />
-          <Row l="جمعه‌کاری" v={hm(data.friday)} />
-          <Row l="تعطیل‌کاری" v={hm(data.holiday)} />
-          <Row l="مرخصی استحقاقی" v={hm(data.annual_min)} />
-          <Row l="مرخصی استعلاجی" v={hm(data.sick_min)} />
-          <Row l="ماموریت" v={hm(data.mission_min)} />
-          <Row l="تأخیر ورود" v={hm(data.late_in)} color={C.danger} />
-          <Row l="تعجیل خروج" v={hm(data.early_out)} color={C.danger} />
-          <Row l="تردد دستی" v={hm(data.manual_min)} />
+    <ScrollView persistentScrollbar style={{backgroundColor:C.paper}} contentContainerStyle={{padding:14,paddingBottom:56}}>
+      <View style={s.workHero}>
+        <View style={s.workHeroHeading}><MaterialCommunityIcons name="chart-timeline-variant" size={27} color="#fff"/><Text style={s.workHeroTitle}>گزارش کارکرد من</Text></View>
+        <Text style={s.workHeroMonth}>{ym ? `${J[ym[1]-1]} ${faNum(ym[0])}` : 'ماه جاری'}</Text>
+        {data?.through_jdate ? <Text style={s.workHeroThrough}>محاسبه تا {faNum(String(data.through_jdate).replace(/-/g,'/'))}</Text> : null}
+      </View>
+      {data ? <>
+        <View style={s.workPrimaryGrid}>
+          {[['روزهای حضور',`${faNum(data.present_days||0)} روز`,'calendar-check-outline'],['کارکرد',hm(data.worked),'clock-check-outline'],['موظفی',hm(data.expected),'calendar-clock'],['اضافه‌کار',hm(data.overtime),'clock-plus-outline']].map(([label,value,icon])=><View key={label} style={s.workPrimaryCard}><View style={s.workPrimaryCardHead}><MaterialCommunityIcons name={icon} size={20} color={C.brand}/><Text style={s.workPrimaryLabel}>{label}</Text></View><Text style={s.workPrimaryValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text></View>)}
         </View>
-      )}
-      {slip && (slip.gross > 0 || slip.net > 0) ? (
-        <View style={{ marginTop: 18 }}>
-          <Text style={s.slipTitle}>فیش حقوقی</Text>
-          {Object.entries(slip.earnings || {}).filter(([, v]) => v).map(([k, v]) => <Row key={k} l={k} v={`${money(v)} ﷼`} color={C.ok} />)}
-          <Row l="جمع دریافتی" v={`${money(slip.gross)} ﷼`} hl />
-          {Object.entries(slip.deductions || {}).filter(([, v]) => v).map(([k, v]) => <Row key={k} l={k} v={`−${money(v)} ﷼`} color={C.danger} />)}
-          <View style={[s.row, { backgroundColor: '#e7f3ee', borderColor: C.brand }]}>
-            <Text style={[s.rowL, { fontFamily: FONT.bold }]}>خالص پرداختی</Text>
-            <Text style={[s.rowV, { color: C.brand, fontSize: 16 }]}>{money(slip.net)} ﷼</Text>
-          </View>
-          <TouchableOpacity style={s.printBtn} onPress={printSlip}><Text style={s.printBtnTxt}>🖨 دریافت فیش PDF / اشتراک‌گذاری</Text></TouchableOpacity>
-        </View>
-      ) : null}
+        <View style={s.workNotice}><MaterialCommunityIcons name="information-outline" size={19} color={C.brand}/><Text style={s.workNoticeText}>{['auto','floating'].includes(data.shift_type)?'کسر کار روز جاری برای شیفت‌های بدون ساعت‌بندی پس از پایان روز نهایی می‌شود.':'کسر کار روز جاری فقط بر پایه زمان سپری‌شده از بازه‌های شیفت محاسبه می‌شود.'}</Text></View>
+        {groups.map((group)=><View key={group.title} style={s.workGroup}>
+          <View style={s.workGroupHeading}><MaterialCommunityIcons name={group.icon} size={21} color={C.brand}/><Text style={s.workGroupTitle}>{group.title}</Text></View>
+          {group.items.map(([label,value,color])=><View key={label} style={s.workMetricRow}><Text style={s.workMetricLabel}>{label}</Text><Text style={[s.workMetricValue,color&&{color}]}>{hm(value)}</Text></View>)}
+        </View>)}
+      </> : <View style={s.workGroup}><Text style={s.muted}>{loadError||'برای این ماه شیفت یا ترددی ثبت نشده است.'}</Text></View>}
+      {slip && (slip.gross > 0 || slip.net > 0) ? <View style={s.workGroup}>
+        <View style={s.workGroupHeading}><MaterialCommunityIcons name="receipt-text-outline" size={21} color={C.brand}/><Text style={s.workGroupTitle}>فیش حقوقی</Text></View>
+        {Object.entries(slip.earnings||{}).filter(([,v])=>v).map(([k,v])=><View key={k} style={s.workMetricRow}><Text style={s.workMetricLabel}>{k}</Text><Text style={[s.workMetricValue,{color:C.ok}]}>{money(v)} ریال</Text></View>)}
+        <View style={s.workMetricRow}><Text style={s.workMetricLabel}>جمع دریافتی</Text><Text style={s.workMetricValue}>{money(slip.gross)} ریال</Text></View>
+        {Object.entries(slip.deductions||{}).filter(([,v])=>v).map(([k,v])=><View key={k} style={s.workMetricRow}><Text style={s.workMetricLabel}>{k}</Text><Text style={[s.workMetricValue,{color:C.danger}]}>{money(v)} ریال</Text></View>)}
+        <View style={s.workNetRow}><Text style={s.workNetLabel}>خالص پرداختی</Text><Text style={s.workNetValue}>{money(slip.net)} ریال</Text></View>
+        <TouchableOpacity style={s.printBtn} onPress={printSlip}><Text style={s.printBtnTxt}>دریافت فیش PDF / اشتراک‌گذاری</Text></TouchableOpacity>
+      </View> : null}
     </ScrollView>
   );
 }
@@ -257,6 +249,27 @@ function Row({ l, v, hl, color }) {
 }
 
 const s = StyleSheet.create({
+  workHero:{backgroundColor:C.brand,borderRadius:19,padding:19,marginBottom:13},
+  workHeroHeading:{flexDirection:'row-reverse',alignItems:'center',gap:9},
+  workHeroTitle:{fontFamily:FONT.bold,color:'#fff',fontSize:16},
+  workHeroMonth:{fontFamily:FONT.bold,color:'#fff',fontSize:23,textAlign:'right',marginTop:12},
+  workHeroThrough:{fontFamily:FONT.regular,color:'#e3f5ef',fontSize:12,textAlign:'right',marginTop:7},
+  workPrimaryGrid:{flexDirection:'row-reverse',flexWrap:'wrap',justifyContent:'space-between',gap:10,marginBottom:12},
+  workPrimaryCard:{width:'48%',minWidth:0,backgroundColor:'#fff',borderRadius:16,padding:14,borderWidth:1,borderColor:C.line,minHeight:112,justifyContent:'space-between'},
+  workPrimaryCardHead:{flexDirection:'row-reverse',alignItems:'center',gap:7},
+  workPrimaryLabel:{fontFamily:FONT.regular,color:C.slate,fontSize:12,textAlign:'right',flexShrink:1},
+  workPrimaryValue:{fontFamily:FONT.bold,color:C.brand,fontSize:23,textAlign:'right',marginTop:10},
+  workNotice:{flexDirection:'row-reverse',gap:8,alignItems:'flex-start',backgroundColor:'#e8f5f0',borderRadius:13,padding:12,marginBottom:13},
+  workNoticeText:{flex:1,fontFamily:FONT.regular,color:C.slate,fontSize:11,lineHeight:19,textAlign:'right'},
+  workGroup:{backgroundColor:'#fff',borderRadius:17,padding:14,borderWidth:1,borderColor:C.line,marginBottom:12},
+  workGroupHeading:{flexDirection:'row-reverse',alignItems:'center',gap:8,paddingBottom:12,borderBottomWidth:1,borderBottomColor:'#e9edf0'},
+  workGroupTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14,textAlign:'right'},
+  workMetricRow:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',gap:10,paddingVertical:12,borderBottomWidth:1,borderBottomColor:'#f0f2f4'},
+  workMetricLabel:{fontFamily:FONT.regular,color:C.slate,fontSize:12,flex:1,textAlign:'right'},
+  workMetricValue:{fontFamily:FONT.bold,color:C.ink,fontSize:14,textAlign:'left'},
+  workNetRow:{backgroundColor:'#fff0f1',borderRadius:12,padding:13,flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center',gap:10,marginTop:12},
+  workNetLabel:{fontFamily:FONT.bold,color:C.danger,fontSize:13},
+  workNetValue:{fontFamily:FONT.bold,color:C.danger,fontSize:18},
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   muted: { fontFamily: FONT.regular, color: C.muted, fontSize: 13, textAlign: 'center' },
   card: { backgroundColor: '#fff', borderRadius: 18, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.line, shadowColor: '#17352f', shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
