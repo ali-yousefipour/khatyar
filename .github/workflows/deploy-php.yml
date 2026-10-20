@@ -495,6 +495,24 @@ jobs:
                 INDEX idx_arl_user_time(user_id,created_at),
                 INDEX idx_arl_line_time(line_id,created_at)
               ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+              $pdo->exec("CREATE TABLE IF NOT EXISTS login_otp (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                mobile VARCHAR(20) NOT NULL,
+                code_hash VARCHAR(64) NOT NULL,
+                attempts INT NOT NULL DEFAULT 0,
+                expires_at DATETIME NOT NULL,
+                consumed_at DATETIME NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_login_otp_mobile (mobile, created_at)
+              ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+              // OTP lookup patterns are user-scoped and time sensitive.
+              $otpIndex = $pdo->prepare("SELECT COUNT(*) FROM information_schema.statistics
+                WHERE table_schema=DATABASE() AND table_name='login_otp' AND index_name=?");
+              $otpIndex->execute(['idx_login_otp_user_created']);
+              if (!(int)$otpIndex->fetchColumn()) {
+                $pdo->exec("ALTER TABLE login_otp ADD INDEX idx_login_otp_user_created (user_id, created_at)");
+              }
               $pdo->exec("CREATE TABLE IF NOT EXISTS api_client_requests_v2 (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
                 request_hash CHAR(64) NOT NULL, client_uuid VARCHAR(191) NOT NULL,
