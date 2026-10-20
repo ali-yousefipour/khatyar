@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Modal } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Modal, useWindowDimensions } from 'react-native';
 import { ImagePicker, launchCamera, launchLibrary } from '../cameraLock';
 import { compressToDataUri } from '../img';
 import * as DocumentPicker from 'expo-document-picker';
@@ -9,6 +9,7 @@ import JDatePicker, { jLabel } from '../components/JDatePicker';
 import TimePicker from '../components/TimePicker';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import { g2j } from '../jdate';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // فیلد تاریخ شمسی (فقط از تقویم) — مقدار شمسی YYYY-MM-DD برمی‌گرداند
 function JDateField({ label, value, onPick }) {
@@ -107,6 +108,11 @@ function AnnualLeaveStatus({ balance }) {
   );
 }
 
+const faDigits = (value) => String(value ?? '').replace(/[0-9]/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]);
+const requestDate = (r) => String(r.the_date || r.from_jdate || r.created_at || '').slice(0, 10).replace(/\\//g, '-');
+const requestPerson = (r) => r.approver_name || r.approved_by_name || r.decided_by_name || r.reviewer_name || r.approver?.name || r.approval?.approver_name || '';
+const pendingPerson = (r) => r.pending_approver_name || r.next_approver_name || r.assigned_to_name || r.current_approver_name || r.approver_name || r.approver?.name || '';
+const rejectionNote = (r) => r.rejection_reason || r.reject_reason || r.decision_note || r.approver_note || r.approval?.note || '';
 const STATUS = { pending: ['در انتظار', '#cc7a14'], approved: ['تأییدشده', '#0d7a5f'], rejected: ['ردشده', '#d63b54'] };
 
 // تبدیل Date → رشتهٔ شمسی YYYY-MM-DD بدون وابستگی به Intl/Hermes
@@ -355,6 +361,10 @@ function MyRequests() {
   const [rows, setRows] = useState(null);
   const [bal, setBal] = useState(null);
   const [loadError, setLoadError] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [fromFilter, setFromFilter] = useState('');
+  const [toFilter, setToFilter] = useState('');
+  const { width } = useWindowDimensions();
   const load = async () => {
     setLoadError('');
     try {
@@ -375,11 +385,23 @@ function MyRequests() {
     load();
     request('/my/leave-balance', { noStore: true, forceNetwork: true, queueIfOffline: false }).then(setBal).catch(() => {});
   }, []);
+  const filteredRows = (rows || []).filter((r) => {
+    const date = requestDate(r);
+    return (filterType === 'all' || r.type === filterType) && (!fromFilter || date >= fromFilter) && (!toFilter || date <= toFilter);
+  }).sort((a,b) => requestDate(b).localeCompare(requestDate(a)));
   if (!rows) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
   const TY = { annual: 'مرخصی استحقاقی', sick: 'مرخصی استعلاجی', mission: 'ماموریت', overtime: 'اضافه‌کار', manual: 'تردد دستی' };
   const num = (x) => (x == null ? '∞' : String(Math.round((x + Number.EPSILON) * 10) / 10));
   return (
-    <ScrollView persistentScrollbar={true} contentContainerStyle={{ padding: 14, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} contentContainerStyle={{ paddingHorizontal: width < 360 ? 10 : 14, paddingTop:14, paddingBottom: 56 }}>
+      <View style={s.requestFilterPanel}>
+        <View style={s.requestSectionHead}><MaterialCommunityIcons name="filter-variant" size={21} color={C.brand}/><Text style={s.requestSectionTitle}>فیلتر درخواست‌ها</Text><Text style={s.requestCount}>{faDigits(filteredRows.length)} مورد</Text></View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.requestFilterChips}>
+          {[{k:'all',t:'همه'},...TYPES].map(t=><TouchableOpacity key={t.k} onPress={()=>setFilterType(t.k)} style={[s.chip,filterType===t.k&&s.chipOn]}><Text style={[s.chipT,filterType===t.k&&s.chipTOn]}>{t.t}</Text></TouchableOpacity>)}
+        </ScrollView>
+        <View style={s.requestDates}><View style={{flex:1}}><JDateField label="از تاریخ" value={fromFilter} onPick={setFromFilter}/></View><View style={{flex:1}}><JDateField label="تا تاریخ" value={toFilter} onPick={setToFilter}/></View></View>
+        {(filterType!=='all'||fromFilter||toFilter)?<TouchableOpacity onPress={()=>{setFilterType('all');setFromFilter('');setToFilter('')}} style={s.requestReset}><MaterialCommunityIcons name="filter-remove-outline" size={17} color={C.brand}/><Text style={s.requestResetText}>پاک کردن فیلترها</Text></TouchableOpacity>:null}
+      </View>
       {bal && (
         <View style={s.balCard}>
           <Text style={s.balTitle}>مانده مرخصی (ماه جاری / سال)</Text>
@@ -397,17 +419,20 @@ function MyRequests() {
         </View>
       )}
       {loadError ? <View><Text style={s.subWarn}>خطا در دریافت درخواست‌ها: {loadError}</Text><TouchableOpacity style={s.attachBtn} onPress={load}><Text style={s.attachT}>تلاش مجدد</Text></TouchableOpacity></View> : null}
-      {!loadError && !rows.length ? <Text style={[s.muted, { padding: 20 }]}>درخواستی ثبت نکرده‌اید.</Text> : rows.map((r) => {
+      {!loadError && !filteredRows.length ? <Text style={[s.muted, { padding: 20 }]}>{rows.length?'درخواستی با فیلترهای انتخاب‌شده یافت نشد.':'درخواستی ثبت نکرده‌اید.'}</Text> : filteredRows.map((r) => {
         const st = STATUS[r.status] || ['—', C.muted];
+        const approver = r.status === 'pending' ? pendingPerson(r) : requestPerson(r);
+        const rejectedReason = r.status === 'rejected' ? rejectionNote(r) : '';
         return (
           <View key={r.id} style={s.card}>
             <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}>
               <Text style={s.cardT}>{TY[r.type] || r.type} {r.unit === 'hourly' ? '(ساعتی)' : r.unit === 'daily' ? '(روزانه)' : ''}</Text>
               <View style={[s.badge, { backgroundColor: st[1] + '22' }]}><Text style={{ color: st[1], fontFamily: FONT.bold, fontSize: 11 }}>{st[0]}</Text></View>
             </View>
-            <Text style={s.cardMeta}>{r.the_date || r.from_jdate}{r.to_jdate && r.to_jdate !== r.from_jdate ? ` تا ${r.to_jdate}` : ''}{r.from_time ? `  ${r.from_time}–${r.to_time}` : ''}{r.in_time ? `  ورود ${r.in_time} خروج ${r.out_time || '—'}` : ''}</Text>
+            <Text style={s.cardMeta}>{faDigits(r.the_date || r.from_jdate) }{r.to_jdate && r.to_jdate !== r.from_jdate ? ` تا ${faDigits(r.to_jdate)}` : ''}{r.from_time ? `  ${faDigits(r.from_time)}–${faDigits(r.to_time)}` : ''}{r.in_time ? `  ورود ${faDigits(r.in_time)} خروج ${faDigits(r.out_time || '—')}` : ''}</Text>
             {r.reason ? <Text style={s.cardReason}>{r.reason}</Text> : null}
-            {r.approver_note ? <Text style={[s.cardReason, { color: C.danger }]}>پاسخ: {r.approver_note}</Text> : null}
+            {r.status==='rejected' ? <View style={s.rejectedBox}><MaterialCommunityIcons name="alert-circle-outline" size={18} color={C.danger}/><Text style={s.rejectedText}>دلیل رد: {rejectedReason || 'دلیل رد توسط تأییدکننده ثبت نشده است.'}</Text></View> : null}
+            {r.status==='approved'||r.status==='pending'?<View style={s.approverBox}><MaterialCommunityIcons name={r.status==='approved'?'account-check-outline':'account-clock-outline'} size={18} color={C.brand}/><Text style={s.approverText}>{r.status==='approved'?'تأییدکننده: ':'در انتظار تأیید: '}{approver || 'نام تأییدکننده از سرور دریافت نشده است'}</Text></View>:null}
           </View>
         );
       })}
@@ -430,6 +455,18 @@ async function fileToB64(uri) {
 }
 
 const s = StyleSheet.create({
+  requestFilterPanel:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:18,padding:13,marginBottom:13},
+  requestSectionHead:{flexDirection:'row-reverse',alignItems:'center',gap:8,marginBottom:12},
+  requestSectionTitle:{fontFamily:FONT.bold,fontSize:14,color:C.ink,flex:1,textAlign:'right'},
+  requestCount:{fontFamily:FONT.bold,fontSize:11,color:C.brand},
+  requestFilterChips:{flexDirection:'row-reverse',gap:7,paddingBottom:4},
+  requestDates:{flexDirection:'row-reverse',gap:9},
+  requestReset:{flexDirection:'row-reverse',alignItems:'center',gap:5,marginTop:12,alignSelf:'flex-end'},
+  requestResetText:{fontFamily:FONT.bold,fontSize:12,color:C.brand},
+  rejectedBox:{flexDirection:'row-reverse',alignItems:'flex-start',gap:7,backgroundColor:'#fff0f1',borderRadius:11,padding:11,marginTop:11},
+  rejectedText:{flex:1,fontFamily:FONT.regular,color:C.danger,fontSize:12,textAlign:'right',lineHeight:21},
+  approverBox:{flexDirection:'row-reverse',alignItems:'center',gap:7,backgroundColor:'#eaf5ef',borderRadius:11,padding:11,marginTop:11},
+  approverText:{flex:1,fontFamily:FONT.regular,color:C.brand,fontSize:12,textAlign:'right',lineHeight:20},
   subBtn: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 10, padding: 12 },
   subBtnT: { fontFamily: FONT.regular, color: C.ink, fontSize: 13.5, textAlign: 'right' },
   subWarn: { fontFamily: FONT.regular, color: C.danger, fontSize: 12, textAlign: 'right', marginTop: 5 },
@@ -444,24 +481,24 @@ const s = StyleSheet.create({
   modalCloseT: { color: '#fff', fontFamily: FONT.bold },
   wrap: { flex: 1, backgroundColor: C.paper },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  tabbar: { flexDirection: 'row-reverse', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.line },
-  tab: { flex: 1, paddingVertical: 13, alignItems: 'center' },
-  tabOn: { borderBottomWidth: 2, borderBottomColor: C.brand },
+  tabbar: { flexDirection: 'row-reverse', backgroundColor: '#fff', padding:9,gap:8,borderBottomWidth: 1, borderBottomColor: C.line },
+  tab: { flex: 1, paddingVertical: 14, alignItems: 'center',borderRadius:13,backgroundColor:'#eef1f6' },
+  tabOn: { backgroundColor:C.brand },
   tabT: { fontFamily: FONT.regular, color: C.muted, fontSize: 14 },
-  tabTOn: { color: C.brand, fontFamily: FONT.bold },
+  tabTOn: { color: '#fff', fontFamily: FONT.bold },
   label: { fontFamily: FONT.bold, fontSize: 13, color: C.ink, textAlign: 'right', marginTop: 12, marginBottom: 5 },
   input: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 11, padding: 11, fontFamily: FONT.regular, fontSize: 14, textAlign: 'right', color: C.ink },
   chips: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
-  chip: { borderWidth: 1, borderColor: C.line, borderRadius: 18, paddingVertical: 7, paddingHorizontal: 13, backgroundColor: '#fff' },
+  chip: { borderWidth: 1, borderColor: C.line, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 13, backgroundColor: '#fff' },
   chipOn: { backgroundColor: C.brand, borderColor: C.brand },
   chipT: { fontFamily: FONT.regular, fontSize: 12.5, color: C.ink },
   chipTOn: { color: '#fff', fontFamily: FONT.bold },
   muted: { fontFamily: FONT.regular, color: C.muted, fontSize: 13, textAlign: 'center' },
   attachBtn: { borderWidth: 1, borderColor: C.brand, borderRadius: 11, paddingVertical: 12, alignItems: 'center', marginTop: 12, backgroundColor: '#e7f3ee' },
   attachT: { color: C.brand, fontFamily: FONT.bold, fontSize: 13 },
-  btn: { backgroundColor: C.brand, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginTop: 18 },
+  btn: { backgroundColor: C.brand, borderRadius: 15, paddingVertical: 17, alignItems: 'center', marginTop: 18 },
   btnT: { color: '#fff', fontFamily: FONT.bold, fontSize: 15 },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 13, marginBottom: 10, borderWidth: 1, borderColor: C.line },
+  card: { backgroundColor: '#fff', borderRadius: 17, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: C.line },
   cardT: { fontFamily: FONT.bold, color: C.ink, fontSize: 14 },
   cardMeta: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', marginTop: 5 },
   cardReason: { fontFamily: FONT.regular, color: C.slate, fontSize: 12.5, textAlign: 'right', marginTop: 5 },
