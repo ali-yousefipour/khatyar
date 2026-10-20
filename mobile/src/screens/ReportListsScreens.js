@@ -21,13 +21,13 @@ function SearchBar({ value, onChange, placeholder }) {
 }
 
 // فیلتر مشترک لیست‌های انقضا: جستجوی کد ملی/متن + پلاک گرافیکی + فیلتر خط
-function ExpiryFilters({ q, setQ, plateQ, setPlateQ, lineFilter, setLineFilter, lines }) {
+function ExpiryFilters({ q, setQ, plateQ, setPlateQ, lineFilter, setLineFilter, lines, hideSearch = false }) {
   const [showPlate, setShowPlate] = useState(false);
   const [lineOpen, setLineOpen] = useState(false);
   const pickedLine = lines.find((l) => String(l.id) === String(lineFilter));
   return (
     <View>
-      <SearchBar value={q} onChange={setQ} placeholder="جستجو بر اساس کد ملی، نام، مدل…" />
+      {!hideSearch && <SearchBar value={q} onChange={setQ} placeholder="جستجو بر اساس کد ملی، نام، مدل…" />}
       <View style={ef.row}>
         <TouchableOpacity style={[ef.toggle, showPlate && ef.toggleOn]} onPress={() => setShowPlate((v) => !v)}>
           <Text style={[ef.toggleTxt, showPlate && { color: '#fff' }]}>🚖 جستجوی پلاک</Text>
@@ -397,7 +397,7 @@ export function ExpOplicScreen({ navigation }) {
               {activeFilters && <TouchableOpacity style={op.resetButton} onPress={resetFilters}><Text style={op.resetText}>پاک‌کردن فیلترها</Text></TouchableOpacity>}
             </View>
             {advanced && <>
-              <ExpiryFilters q={q} setQ={setQ} plateQ={plateQ} setPlateQ={setPlateQ} lineFilter={lineFilter} setLineFilter={setLineFilter} lines={myLines} />
+              <ExpiryFilters q={q} setQ={setQ} plateQ={plateQ} setPlateQ={setPlateQ} lineFilter={lineFilter} setLineFilter={setLineFilter} lines={myLines} hideSearch />
               <Text style={op.fieldLabel}>بازه تاریخ انقضای پروانه</Text>
               <View style={op.dateButtons}>
                 <TouchableOpacity style={op.dateButton} onPress={() => setPick('from')}><Text style={op.dateText}>{from ? jLabel(from.jy, from.jm, from.jd) : 'از تاریخ'}</Text></TouchableOpacity>
