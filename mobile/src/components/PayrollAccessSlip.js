@@ -57,7 +57,7 @@ export default function PayrollAccessSlip({ slip, width }) {
     'مبلغتعطیلکاری', 'تعطیلکاری', 'holidayamount',
     'مبلغاضافهکار', 'اضافهکار', 'overtimeamount',
     'جمعحقوقومزایا', 'gross', 'بیمهتامیناجتماعی', 'insurance',
-    'مالیات', 'tax', 'خالصپرداختی', 'net',
+    'مالیات', 'tax', 'شبکاری', 'مبلغشبکاری', 'nightamount', 'خالصپرداختی', 'net',
     'عیدیوپاداش', 'عیدیپاداش', 'عیدی', 'bonus',
     'سنوات', 'severance', 'بیمهسهمکارفرما', 'employerinsurance'
   ]);
