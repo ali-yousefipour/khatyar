@@ -178,17 +178,10 @@ export default function DrawerMenuScreen({ navigation }) {
     } finally { setPhotoBusy(false); }
   };
 
+  // Drawer is navigation-only; operational vehicle tools are dashboard cards.
   const items = [
     ...ITEMS,
-    ...(schoolServiceAllowed ? [['SchoolService', 'سرویس مدارس', 'school-outline']] : []),
     ['SendQueue', 'صف ارسال' + (queueCount ? ` (${queueCount})` : ''), 'cloud-upload-outline'],
-    ['InboxReports', 'گزارشات دریافتی', 'inbox-arrow-down-outline'],
-    ...(vehicleAllowed ? [[
-      'PersonnelVehicleAsset',
-      assetType === 'motorcycle' ? 'ویرایش اطلاعات موتورسیکلت' : 'ویرایش اطلاعات خودرو',
-      assetType === 'motorcycle' ? 'motorbike' : 'car-outline',
-    ]] : []),
-    ...(access?.checklist_allowed ? [['PersonnelVehicleChecklist', 'چک‌لیست خودرویی و موتوری', 'clipboard-check-outline']] : []),
   ].filter(([route]) => !roleAppAccess?.appItems || hasAppItem(roleAppAccess, route));
 
   return (
