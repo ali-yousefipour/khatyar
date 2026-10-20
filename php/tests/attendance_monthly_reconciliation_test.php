@@ -41,6 +41,6 @@ $hmResult = aar_reconcile_day_totals($hmReport);
 checkValue('HH:MM duty sums in minutes', $hmResult['summary']['expected'], 600);
 checkValue('HH:MM actual shortage sums in minutes', $hmResult['summary']['shortage'], 30);
 $entryOwned = file_get_contents(__DIR__.'/../app/api/admin-attendance-report-owned.php');
-checkValue('entry-owned route retains canonical shortage', str_contains($entryOwned, '$w[\\'shortage\\'] = $canonicalShortage;'), true);
-checkValue('entry-owned route does not rebuild naive shortage', str_contains($entryOwned, '$w[\\'shortage\\'] = max(0, $expectedMin - min($inShiftMin, $expectedMin));'), false);
+checkValue('entry-owned shortage subtracts approved exemptions', str_contains($entryOwned, "\$w['shortage'] = max(0, \$expectedMin - min(\$inShiftMin, \$expectedMin) - \$approvedExempt);"), true);
+checkValue('entry-owned route does not rebuild naive shortage', str_contains($entryOwned, "\$w['shortage'] = max(0, \$expectedMin - min(\$inShiftMin, \$expectedMin));"), false);
 echo "PASS daily-to-monthly attendance reconciliation\n";
