@@ -651,4 +651,19 @@ jobs:
               exit 1
             fi
           done
+          # OTP validation must never send SMS for an empty username.
+          otp_code="$(curl --silent --show-error --location --max-time 25 -X POST -H 'Content-Type: application/json' --data '{}' -o /tmp/khatyar-otp-empty.json -w '%{http_code}' "${base}/api/session/otp-request" || true)"
+          echo "POST /api/session/otp-request (empty user) -> HTTP ${otp_code}"
+          if [ "${otp_code}" != "400" ]; then
+            echo "ERROR: OTP route failed before input validation" >&2
+            cat /tmp/khatyar-otp-empty.json 2>/dev/null || true
+            exit 1
+          fi
+          me_code="$(curl --silent --show-error --location --max-time 25 -o /tmp/khatyar-me-anonymous.json -w '%{http_code}' "${base}/api/auth/me" || true)"
+          echo "GET /api/auth/me (anonymous) -> HTTP ${me_code}"
+          if [ "${me_code}" != "401" ]; then
+            echo "ERROR: auth/me did not reject anonymous request cleanly" >&2
+            cat /tmp/khatyar-me-anonymous.json 2>/dev/null || true
+            exit 1
+          fi
           echo "Production API/login/attendance-Excel smoke tests passed (unauthorized requests are expected to be rejected)."
