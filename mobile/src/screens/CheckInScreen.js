@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { faNum } from '../num';
 import { tehranTimeToEpochMs } from '../jdate';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, PanResponder, Animated, TextInput, Modal, Platform, PermissionsAndroid, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, PanResponder, Animated, TextInput, Modal, Platform, PermissionsAndroid, Linking, useWindowDimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import * as IntentLauncher from 'expo-intent-launcher';
@@ -17,6 +17,7 @@ import * as Notifications from 'expo-notifications';
 import NetInfo from '@react-native-community/netinfo';
 import WifiManager from 'react-native-wifi-reborn';
 import { isTileCached, loadLocalTilesAround } from '../mapCache';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // فاصلهٔ هاورساین به متر
 const WIFI_BSSID_CACHE_KEY = 'wifi_authorized_bssids_v1';
@@ -80,6 +81,7 @@ function pointInPolygon(lat, lng, poly) {
 }
 
 function CheckInCore() {
+  const { width: screenWidth } = useWindowDimensions();
   const [cfg, setCfg] = useState(null);
   const [appCfg, setAppCfg] = useState({ map_provider: 'osm' });
   const [mapRuntime,setMapRuntime]=useState({mode:'smart',provider:'osm',offline:false,tiles:{}});
@@ -971,19 +973,20 @@ function CheckInCore() {
   const mapHtml = buildMapHtml(mapLine, pos, appCfg, mapRuntime);
 
   return (
-    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ paddingHorizontal: screenWidth < 360 ? 11 : 16, paddingTop: 14, paddingBottom: 40 }}>
       {loadError && cfg && <View style={{ backgroundColor: '#fff4d7', borderRadius: 10, padding: 10, marginBottom: 10, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={{ color: '#8a6100', fontFamily: FONT.regular, fontSize: 12, flex: 1 }}>آخرین تازه‌سازی وضعیت ناموفق بود؛ اطلاعات نمایش‌داده‌شده ممکن است قدیمی باشد.</Text>
         <TouchableOpacity onPress={() => load()} style={{ marginRight: 8 }}><Text style={{ color: C.brand, fontFamily: FONT.bold, fontSize: 12 }}>تلاش مجدد</Text></TouchableOpacity>
       </View>}
       {/* خط به‌صورت خودکار از روی موقعیت کاربر تشخیص داده می‌شود؛ انتخاب دستی حذف شده است. */}
-      <Text style={s.label}>{open ? 'خطوط مجاز برای ثبت خروج' : 'خط تشخیص‌داده‌شده'}</Text>
+      <View style={s.presenceHero}><View style={s.presenceHeroIcon}><MaterialCommunityIcons name={open ? 'account-check-outline' : 'map-marker-check-outline'} size={27} color={C.brand}/></View><View style={s.presenceHeroText}><Text style={s.presenceHeroTitle}>{open ? 'حضور شما فعال است' : 'ثبت حضور در خط'}</Text><Text style={s.presenceHeroSub}>{open ? 'برای ثبت خروج، موقعیت خود را بررسی کنید.' : 'خط و محدوده مجاز به‌صورت خودکار شناسایی می‌شود.'}</Text></View><View style={[s.presenceBadge,!open&&s.presenceBadgeIdle]}><Text style={[s.presenceBadgeText,!open&&{color:C.muted}]}>{open?'حاضر':'آماده ثبت'}</Text></View></View>
+      <View style={s.sectionHeading}><MaterialCommunityIcons name="map-marker-radius-outline" size={20} color={C.brand}/><Text style={s.sectionHeadingText}>{open ? 'خطوط مجاز برای ثبت خروج' : 'خط تشخیص‌داده‌شده'}</Text></View>
       <View style={s.autoLineBox}>
-        <Text style={s.autoLineTitle}>
+        <View style={s.lineTitleRow}><MaterialCommunityIcons name="bus-marker" size={22} color={C.brand}/><Text style={s.autoLineTitle}>
           {open
             ? `خط ورود: ${open?.line_id ? faNum(String(cfg?.lines?.find((l) => Number(l.id) === Number(open.line_id))?.code || open.line_id)) : 'نامشخص'}`
             : (line ? `خط ${faNum(line.code || line.id)}` : 'در حال تشخیص خودکار خط')}
-        </Text>
+        </Text></View>
         <Text style={s.autoHint}>
           {open
             ? 'برای خروج، لازم نیست در همان خطی باشید که ورود را ثبت کرده‌اید. کافی است اکنون داخل محدودهٔ یکی از خطوط مجاز شما باشید؛ سامانه خط واقعی محل خروج را تشخیص می‌دهد و همان را ثبت می‌کند.'
@@ -993,7 +996,7 @@ function CheckInCore() {
 
       {/* نقشه */}
       <TouchableOpacity style={s.refreshPosBtn} onPress={refreshMyLocation} disabled={refreshingPos}>
-        <Text style={s.refreshPosTxt}>{refreshingPos ? 'در حال یافتن موقعیت…' : 'بروزرسانی موقعیت من'}</Text>
+        <MaterialCommunityIcons name="crosshairs-gps" size={20} color={C.brand}/><Text style={s.refreshPosTxt}>{refreshingPos ? 'در حال یافتن موقعیت…' : 'به‌روزرسانی موقعیت من'}</Text>
       </TouchableOpacity>
       <View style={s.mapBox}>
         <WebView originWhitelist={['*', 'file://']} source={{ html: mapHtml }}
@@ -1005,7 +1008,7 @@ function CheckInCore() {
       </View>
 
       {/* فاصله */}
-      <View style={s.distRow}>
+      <View style={s.distRow}><MaterialCommunityIcons name={inArea?'check-circle-outline':'map-marker-alert-outline'} size={20} color={inArea?C.ok:C.muted}/>
         {distance == null ? <Text style={s.muted}>{open ? 'هیچ محدوده‌ای برای خطوط مجاز تعریف نشده یا موقعیت در دسترس نیست.' : 'محدوده‌ای برای این خط تعریف نشده یا موقعیت در دسترس نیست.'}</Text> :
           inArea ? <Text style={[s.distTxt, { color: C.ok }]}>✓ {open ? 'شما داخل محدودهٔ یکی از خطوط مجاز برای خروج هستید' : 'شما داخل محدودهٔ ایستگاه هستید'}</Text> :
             <Text style={s.distTxt}>فاصله تا نزدیک‌ترین محدوده: <Text style={{ color: C.danger, fontFamily: FONT.bold }}>{faNum(Math.round(distance))} متر</Text></Text>}
@@ -1014,8 +1017,8 @@ function CheckInCore() {
       {/* تایمر حضور */}
       {open && (
         <View style={s.timerBox}>
-          <Text style={s.timerLabel}>مدت حضور شما</Text>
-          <Text style={s.timer}>{fmtTime(elapsed)}</Text>
+          <View style={s.timerHeading}><MaterialCommunityIcons name="clock-outline" size={19} color={C.brand}/><Text style={s.timerLabel}>مدت حضور شما</Text></View>
+          <Text style={s.timer}>{faNum(fmtTime(elapsed))}</Text>
           {liveTimer ? (
             <View style={{ marginTop: 8 }}>
               <Text style={[s.timerSub, { color: liveTimer.phase === 'duty' ? C.danger : (liveTimer.phase === 'overtime' ? '#b7791f' : C.danger) }]}> 
@@ -1037,7 +1040,7 @@ function CheckInCore() {
       {/* یاداور ثبت خروج */}
       <TouchableOpacity style={s.reminderCard} activeOpacity={0.82} onPress={() => setExitReminderEnabled(!exitReminder)}>
         <View style={s.reminderTextWrap}>
-          <Text style={s.reminderTitle}>یاداور ثبت خروج</Text>
+          <Text style={s.reminderTitle}>یادآور ثبت خروج</Text>
           <Text style={s.reminderHint}>با فعال بودن این گزینه، پس از رسیدن کارکرد به ۸ ساعت هشدار و اعلان دریافت می‌کنید.</Text>
         </View>
         <View style={[s.reminderCheckbox, exitReminder && s.reminderCheckboxOn]}>
@@ -1077,7 +1080,7 @@ function CheckInCore() {
       )}
 
       {/* اسلایدر ورود/خروج */}
-      <SlideButton mode={open ? 'out' : 'in'} disabled={busy} onComplete={onSlideComplete} />
+      <View style={s.actionArea}><View style={s.actionHeading}><MaterialCommunityIcons name={open?'logout':'login'} size={21} color={open?C.danger:C.brand}/><Text style={s.actionTitle}>{open?'ثبت خروج از خط':'ثبت ورود به خط'}</Text></View><Text style={s.actionHint}>برای جلوگیری از ثبت ناخواسته، دکمه را تا انتهای مسیر بکشید.</Text><SlideButton mode={open ? 'out' : 'in'} disabled={busy} onComplete={onSlideComplete} /></View>
       {open ? <TouchableOpacity style={s.handoverBtn} onPress={startHandover} disabled={busy}><Text style={s.handoverTxt}>🔁 تحویل شیفت با QR</Text></TouchableOpacity> : <TouchableOpacity style={s.readBtn} onPress={() => { if (!perm?.granted) requestPerm().then((r)=>{ if(r.granted) setScanOpen(true); }); else setScanOpen(true); }}><Text style={s.readBtnTxt}>📷 اسکن کد تحویل شیفت</Text></TouchableOpacity>}
       {handover ? <View style={s.qrBox}><Text style={s.qrTitle}>کد تحویل شیفت</Text>
         <WebView
@@ -1465,6 +1468,22 @@ render();
 }
 
 const s = StyleSheet.create({
+  presenceHero:{flexDirection:'row-reverse',alignItems:'center',gap:10,backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:19,padding:14,marginBottom:14,elevation:1},
+  presenceHeroIcon:{width:47,height:47,borderRadius:14,backgroundColor:'#e7f4ee',alignItems:'center',justifyContent:'center'},
+  presenceHeroText:{flex:1,minWidth:0,alignItems:'flex-end'},
+  presenceHeroTitle:{fontFamily:FONT.bold,fontSize:15,color:C.ink,textAlign:'right'},
+  presenceHeroSub:{fontFamily:FONT.regular,fontSize:11,color:C.muted,textAlign:'right',lineHeight:18,marginTop:4},
+  presenceBadge:{backgroundColor:'#e4f5ec',borderRadius:9,paddingVertical:7,paddingHorizontal:9},
+  presenceBadgeIdle:{backgroundColor:'#eef1f6'},
+  presenceBadgeText:{fontFamily:FONT.bold,fontSize:10,color:C.brand},
+  sectionHeading:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:9},
+  sectionHeadingText:{fontFamily:FONT.bold,color:C.ink,fontSize:14,textAlign:'right'},
+  lineTitleRow:{flexDirection:'row-reverse',alignItems:'center',gap:8,marginBottom:8},
+  timerHeading:{flexDirection:'row-reverse',alignItems:'center',gap:7},
+  actionArea:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:18,padding:13,marginTop:13},
+  actionHeading:{flexDirection:'row-reverse',alignItems:'center',gap:8},
+  actionTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14},
+  actionHint:{fontFamily:FONT.regular,color:C.muted,fontSize:11,textAlign:'right',marginTop:7},
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },  checkTabs: { flexDirection:'row-reverse', backgroundColor:'#fff', borderBottomWidth:1, borderBottomColor:C.line, paddingHorizontal:12, paddingTop:12, paddingBottom:10, gap:8 },
   checkTab: { flex:1, minHeight:48, borderRadius:15, alignItems:'center', justifyContent:'center', borderWidth:1, borderColor:C.line, backgroundColor:'#fff' },
   checkTabOn: { backgroundColor:C.brand, borderColor:C.brand }, checkTabTxt:{fontFamily:FONT.bold,fontSize:12,color:C.ink}, checkTabTxtOn:{color:'#fff'},
@@ -1479,18 +1498,18 @@ const s = StyleSheet.create({
   label: { fontFamily: FONT.bold, fontSize: 14, color: C.ink, textAlign: 'right', marginTop: 8, marginBottom: 6 },
   muted: { fontFamily: FONT.regular, color: C.muted, fontSize: 13, textAlign: 'center' },
   hint: { fontFamily: FONT.regular, color: C.muted, fontSize: 11, textAlign: 'right', marginTop: 6 },
-  autoLineBox: { padding: 12, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginBottom: 10 },
-  autoLineTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 15, textAlign: 'right', marginBottom: 6 },
+  autoLineBox: { padding: 14, borderRadius: 17, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginBottom: 10 },
+  autoLineTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 15, textAlign: 'right', flexShrink:1 },
   lineChip: { paddingVertical: 7, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginLeft: 8 },
   lineChipOn: { backgroundColor: C.brand, borderColor: C.brand },
   lineChipTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 13 },
   lineChipTxtOn: { color: '#fff', fontFamily: FONT.bold },
-  mapBox: { height: 310, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: C.line, marginBottom: 14, backgroundColor: '#eaf1ef', elevation: 2 },
-  refreshPosBtn: { backgroundColor: '#e7f3ee', borderWidth: 1, borderColor: C.brand, borderRadius: 15, paddingVertical: 13, alignItems: 'center', marginBottom: 8 },
+  mapBox: { height: 290, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: C.line, marginBottom: 14, backgroundColor: '#eaf1ef', elevation: 2 },
+  refreshPosBtn: { backgroundColor: '#e7f3ee', borderWidth: 1, borderColor: '#b6dccc', borderRadius: 14, paddingVertical: 12, alignItems: 'center',justifyContent:'center',flexDirection:'row-reverse',gap:8, marginBottom: 10 },
   refreshPosTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 13 },
-  distRow: { padding: 15, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginBottom: 14 },
+  distRow: { padding: 13, borderRadius: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginBottom: 12,flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:8 },
   distTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 14, textAlign: 'center' },
-  timerBox: { alignItems: 'center', padding: 16, borderRadius: 14, backgroundColor: '#e7f3ee', marginBottom: 14 },
+  timerBox: { alignItems: 'center', padding: 16, borderRadius: 18, backgroundColor: '#e7f3ee',borderWidth:1,borderColor:'#c9e6d8', marginBottom: 12 },
   reminderCard: { flexDirection:'row-reverse', alignItems:'center', backgroundColor:'#fff', borderWidth:1, borderColor:C.line, borderRadius:14, padding:14, marginBottom:12 },
   reminderTextWrap: { flex:1, minWidth:0 },
   reminderTitle: { fontFamily:FONT.bold, color:C.ink, fontSize:14, textAlign:'right' },
@@ -1507,7 +1526,7 @@ const s = StyleSheet.create({
   qrBox: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 12, padding: 12, marginTop: 10 },
   qrTitle: { fontFamily: FONT.bold, color: C.ink, textAlign: 'center', marginBottom: 6 },
   qrCode: { fontFamily: FONT.bold, color: C.brand, textAlign: 'center', direction: 'ltr' },
-  timer: { fontFamily: FONT.bold, color: C.brand, fontSize: 38, letterSpacing: 2, marginTop: 4 },
+  timer: { fontFamily: FONT.bold, color: C.brand, fontSize: 34, letterSpacing: 1, marginTop: 5 },
   methodRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   mChip: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line },
   mChipOn: { backgroundColor: C.ink, borderColor: C.ink },
@@ -1521,9 +1540,9 @@ const s = StyleSheet.create({
 });
 
 const ss = StyleSheet.create({
-  track: { height: 72, borderRadius: 36, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center', marginTop: 18, marginBottom: 8, overflow: 'hidden', shadowColor: '#17352f', shadowOpacity: 0.10, shadowRadius: 10, elevation: 2 },
+  track: { height: 68, borderRadius: 34, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center', marginTop: 18, marginBottom: 8, overflow: 'hidden', shadowColor: '#17352f', shadowOpacity: 0.10, shadowRadius: 10, elevation: 2 },
   trackTxt: { fontFamily: FONT.bold, fontSize: 15 },
-  thumb: { position: 'absolute', right: 4, width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center' },
+  thumb: { position: 'absolute', right: 4, width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center' },
   thumbTxt: { color: '#fff', fontSize: 24, fontWeight: '700' },
 });
 
