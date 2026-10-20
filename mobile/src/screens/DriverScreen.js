@@ -11,10 +11,14 @@ import { faNum } from '../num';
 export default function DriverScreen({ route, navigation }) {
   const { width: viewportWidth } = useWindowDimensions();
   const compact = viewportWidth < 390;
+  const plateWidth = Math.min(208, Math.max(145, viewportWidth - 42));
   const params = route?.params || {};
   const rawDriver = params.driver;
   const driver = rawDriver && typeof rawDriver === 'object' ? rawDriver : {};
   const vehicle = params.vehicle && typeof params.vehicle === 'object' ? params.vehicle : {};
+  const plateRaw = String(vehicle.plate || '').trim();
+  const plateParts = plateRaw.replace(/[۰-۹٠-٩]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d) >= 0 ? '۰۱۲۳۴۵۶۷۸۹'.indexOf(d) : '٠١٢٣٤٥٦٧٨٩'.indexOf(d))).match(/^(\d{2})\s*([آ-یA-Za-z])\s*(\d{3})\s*[-\s]*([0-9]{2})$/);
+  const plateRegion = plateParts?.[4] || '';
   const warnings = Array.isArray(params.warnings) ? params.warnings : [];
   const temp_lines = Array.isArray(params.temp_lines) ? params.temp_lines : [];
   const [lastAttendance, setLastAttendance] = useState(null);
@@ -100,9 +104,9 @@ export default function DriverScreen({ route, navigation }) {
               <Text style={s.meta}>کد ملی: {safeText(driver.national_id || driver.national_code)}</Text>
             </View>
           </View>
-          {!!vehicle?.plate && <View style={s.plateBox}>
-            <View style={s.plateMain}><Text style={s.plateText} numberOfLines={1} adjustsFontSizeToFit>{faNum(vehicle.plate)}</Text></View>
-            <View style={s.plateIran}><Text style={s.plateIranText}>ایران</Text><Text style={s.plateIranText}>۱۲</Text></View>
+          {!!vehicle?.plate && <View style={[s.plateBox, { width: plateWidth }]}>
+            <View style={s.plateMain}><Text style={s.plateText} numberOfLines={1} adjustsFontSizeToFit>{plateParts ? `${faNum(plateParts[1])} ${plateParts[2]} ${faNum(plateParts[3])}` : faNum(plateRaw)}</Text></View>
+            <View style={s.plateIran}><Text style={s.plateIranText}>ایران</Text><Text style={s.plateIranText}>{faNum(plateRegion || '—')}</Text></View>
           </View>}
         </View>
         <View style={s.sectionHeader}><MaterialCommunityIcons name="card-account-details-outline" size={19} color={C.brand}/><Text style={s.sectionTitle}>مشخصات تاکسیران و خودرو</Text></View>
@@ -160,7 +164,7 @@ const s = StyleSheet.create({
   heroRowCompact: { alignItems: 'stretch' },
   identity: { flexDirection: 'row-reverse', alignItems: 'center', flexGrow: 1, flexShrink: 1, minWidth: 165, gap: 9 },
   identityText: { flexShrink: 1, alignItems: 'flex-end' },
-  plateBox: { flexDirection: 'row', alignItems: 'stretch', backgroundColor: '#f5c518', borderWidth: 2, borderColor: '#202020', borderRadius: 8, overflow: 'hidden', minWidth: 142, maxWidth: '100%', height: 58 },
+  plateBox: { flexShrink: 0, flexDirection: 'row', alignItems: 'stretch', backgroundColor: '#f5c518', borderWidth: 2, borderColor: '#202020', borderRadius: 8, overflow: 'hidden', minWidth: 142, maxWidth: '100%', height: 58 },
   plateMain: { flex: 1, justifyContent: 'center', paddingHorizontal: 9 },
   plateText: { fontFamily: FONT.bold, fontSize: 19, color: '#171717', textAlign: 'center', writingDirection: 'ltr' },
   plateIran: { backgroundColor: '#fff', paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', borderLeftWidth: 1, borderColor: '#202020' },
