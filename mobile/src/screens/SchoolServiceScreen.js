@@ -146,7 +146,7 @@ const [inspectionTo,setInspectionTo]=React.useState('');
 const [inspectionDistrict,setInspectionDistrict]=React.useState('');
 const [inspectionStatus,setInspectionStatus]=React.useState('همه');
 const [inspectionSort,setInspectionSort]=React.useState('جدیدترین');
-const normalizedInspectionDate=v=>en(v).replace(/[^0-9]/g,'').padEnd(8,'0').slice(0,8);
+const normalizedInspectionDate=v=>{const digits=en(v).replace(/[^0-9]/g,'');return digits.length===8?digits:''};
 const filteredRecent=React.useMemo(()=>{
  const q=en(inspectionSearch).trim().toLowerCase();
  const from=inspectionFrom.trim()?normalizedInspectionDate(inspectionFrom):'';
@@ -155,15 +155,15 @@ const filteredRecent=React.useMemo(()=>{
   const date=normalizedInspectionDate(r.violation_date||'');
   const fields=[r.school_name,r.company_name,r.plate,r.violation_date,r.violation_time,r.educational_district,r.description,...(Array.isArray(r.violations)?r.violations:[])];
   if(q&&!fields.some(v=>en(v).toLowerCase().includes(q)))return false;
-  if(from&&date<from)return false;
-  if(to&&date>to)return false;
-  if(inspectionDistrict&&String(r.educational_district||'')!==inspectionDistrict)return false;
+  if(from&&(!date||date<from))return false;
+  if(to&&(!date||date>to))return false;
+  if(inspectionDistrict&&districtFromMeta(r.educational_district,meta?.districts||[])!==inspectionDistrict)return false;
   if(inspectionStatus==='ارسال‌شده'&&r.pending_sync)return false;
   if(inspectionStatus==='در انتظار ارسال'&&!r.pending_sync)return false;
   return true;
  });
  return rows.sort((a,b)=>{const x=normalizedInspectionDate(a.violation_date||'')+en(a.violation_time).replace(/[^0-9]/g,'').padStart(4,'0');const y=normalizedInspectionDate(b.violation_date||'')+en(b.violation_time).replace(/[^0-9]/g,'').padStart(4,'0');return inspectionSort==='قدیمی‌ترین'?x.localeCompare(y):y.localeCompare(x)});
-},[recent,inspectionSearch,inspectionFrom,inspectionTo,inspectionDistrict,inspectionStatus,inspectionSort]);
+},[recent,inspectionSearch,inspectionFrom,inspectionTo,inspectionDistrict,inspectionStatus,inspectionSort,meta?.districts]);
 const clearInspectionFilters=()=>{setInspectionSearch('');setInspectionFrom('');setInspectionTo('');setInspectionDistrict('');setInspectionStatus('همه');setInspectionSort('جدیدترین')};
 const validateStep=(n)=>{if(n===1){if(!f.district)return 'انتخاب ناحیه آموزشی الزامی است.';if(!f.school_id)return 'پس از انتخاب ناحیه، یک مدرسه را انتخاب یا ثبت کنید.';const schoolLat=Number(selectedSchool?.latitude),schoolLng=Number(selectedSchool?.longitude);if(!Number.isFinite(schoolLat)||!Number.isFinite(schoolLng))return 'موقعیت مکانی این مدرسه در سامانه ثبت نشده است؛ ابتدا موقعیت مدرسه را روی نقشه مشخص و با «ثبت/اصلاح موقعیت مدرسه» ذخیره کنید.';}if(n===2){const two=en(f.plate_two).replace(/\D/g,'').trim(),three=en(f.plate_three).replace(/\D/g,'').trim(),region=en(f.plate_region_code).replace(/\D/g,'').trim(),type=String(f.vehicle_type||'').trim(),color=String(f.vehicle_color||'').trim(),customType=String(customVehicleType||'').trim(),customColor=String(customVehicleColor||'').trim();const invalidPlate=!/^\d{2}$/.test(two)||!PLATE_LETTERS.includes(String(f.plate_letter||'').trim())||!/^\d{3}$/.test(three)||!/^\d{2}$/.test(region);const invalidType=!type||(type==='سایر'&&!customType);const invalidColor=!color||(color==='سایر'&&!customColor);if(invalidPlate||invalidType||invalidColor)return 'اطلاعات پلاک، نوع خودرو و رنگ خودرو را کامل کنید و برای «سایر» مقدار را وارد کنید.';}if(n===3){const dg=String(f.driver_gender||'').trim(),front=en(f.passenger_front_count).trim(),rear=en(f.passenger_rear_count).trim();if(dg!=='خانم'&&dg!=='آقا')return 'جنسیت راننده الزامی است؛ «خانم» یا «آقا» را انتخاب کنید.';if(!/^\d+$/.test(front)||!/^\d+$/.test(rear))return 'تعداد سرنشین جلو و عقب الزامی است؛ حتی اگر تعداد صفر است، مقدار ۰ را ثبت کنید.';if(!Array.isArray(f.violations)||f.violations.length===0)return 'انتخاب حداقل یک نوع تخلف برای ثبت بازدید الزامی است.';}if(n===4){if(!photo&&!existingPhoto)return 'ثبت تصویر خودروی بازدیدشده الزامی است؛ با دوربین عکس بگیرید یا تصویری از گالری پیوست کنید.';const visitLat=Number(useSchoolLocation?schoolLocation.latitude:f.latitude),visitLng=Number(useSchoolLocation?schoolLocation.longitude:f.longitude);if(useSchoolLocation){if(!Number.isFinite(Number(schoolLocation.latitude))||!Number.isFinite(Number(schoolLocation.longitude)))return 'برای یکی بودن محل بازدید با مدرسه، مختصات مدرسه باید ثبت شده باشد.';}else if(!Number.isFinite(visitLat)||!Number.isFinite(visitLng)||!String(f.location||'').trim())return 'محل بازدید و مختصات آن الزامی است؛ موقعیت فعلی را ثبت کنید یا گزینه «محل بازدید همان مکان مدرسه است» را فعال کنید.';}return ''};const next=()=>{const e=validateStep(step);if(e){Alert.alert('اطلاعات ناقص',e);return}setStep(x=>Math.min(5,x+1))};
 const prev=()=>setStep(x=>Math.max(1,x-1));
