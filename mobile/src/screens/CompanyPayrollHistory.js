@@ -147,6 +147,7 @@ export default function CompanyPayrollHistory() {
       <View style={styles.hero}><Text style={styles.heroTitle}>وضعیت حقوق ماهانه</Text><Text style={styles.heroSubtitle}>سوابق حقوق اعلام‌شده توسط شرکت</Text><Text style={styles.heroDisclaimer}>مبالغ به ریال و مطابق فایل شرکت هستند؛ ثبت مبلغ به معنی تأیید واریز بانکی نیست.</Text></View>
       <View style={styles.filterPanel}>
         <Text style={styles.sectionTitle}>جستجو در سوابق</Text>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="تازه‌سازی" style={styles.outlineButton} onPress={() => setRefresh(value => value + 1)}><Text style={styles.outlineButtonText}>تازه‌سازی</Text></TouchableOpacity>
         <View style={styles.row}>
           <TextInput accessibilityLabel="سال حقوق" style={styles.input} placeholder="سال شمسی (همه)" keyboardType="number-pad" value={faNum(year)} maxLength={4} onChangeText={setYear} />
           <TextInput accessibilityLabel="ماه حقوق" style={styles.input} placeholder="ماه (همه)" keyboardType="number-pad" value={faNum(month)} maxLength={2} onChangeText={setMonth} />
