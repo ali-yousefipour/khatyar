@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Switch, Alert, AppState } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Switch, Alert, AppState, Image } from 'react-native';
 import { useAuth } from '../auth';
 import { request } from '../api';
 import { C, FONT } from '../theme';
@@ -32,8 +32,8 @@ export default function LoginScreen() {
       if (!alive) return;
       if (!['password','sms_otp','bale_otp'].includes(x?.method)) { setConfigError('تنظیمات روش ورود از سرور معتبر نیست. لطفاً با مدیر سامانه تماس بگیرید.'); return; }
       setLoginMethod(x.method);
-    }).catch(() => {
-      if (alive) setConfigError('دریافت روش ورود از سرور انجام نشد. اتصال اینترنت را بررسی و دوباره تلاش کنید.');
+    }).catch((error) => {
+      if (alive) setConfigError('دریافت روش ورود از سرور انجام نشد. ' + (error?.message || 'اتصال اینترنت و دسترسی سرور را بررسی کنید.') + ' — لطفاً دوباره تلاش کنید.');
     }).finally(() => alive && setConfigLoading(false));
     return () => { alive = false; };
   }, [configRetry]);
@@ -116,7 +116,7 @@ export default function LoginScreen() {
 
   return (
     <View style={s.wrap}>
-      <View style={s.logo}><Text style={s.logoTxt}>ت</Text></View>
+      <Image source={require('../../assets/icon.png')} style={s.logo} resizeMode="contain" accessibilityLabel="لوگوی خطیار" />
       <Text style={s.title}>خطیار</Text>
       <Text style={s.sub}>مشهد</Text>
       {configLoading ? <ActivityIndicator fullScreen size={90} message="در حال دریافت روش ورود…" /> : configError ? (
