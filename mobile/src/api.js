@@ -16,15 +16,12 @@ export async function loginRequest(body,opts){return _sessionFormPost('/session/
 export async function requestLoginOtp(mobile){return _sessionFormPost('/session/otp-request',{mobile})}
 export async function verifyLoginOtp(body){return _sessionFormPost('/session/otp-verify',body)}
 export async function getAppLoginConfig(){
-  // Older PHP deployments have no app-login-config route. They explicitly
-  // permit password login for Android while requiring SMS OTP on the web.
-  // Fall back ONLY on HTTP 404, never on network errors or server failures.
   const path='/session/app-login-config';
   setLastApi({path,method:'GET',started_at:new Date().toISOString()});
   const res=await fetchTimeout(`${apiBase()}${path}`,{
     method:'GET',headers:{accept:'application/json','cache-control':'no-store'}
   },15000);
-  if(res.status===404)return {method:'password',legacy:true};
+  if(res.status===404)throw new Error('API تنظیمات ورود روی سرور نصب نشده است؛ با مدیر سامانه تماس بگیرید.');
   const body=await res.text();
   let data;
   try{data=JSON.parse(body)}catch(_){throw new Error(`پاسخ تنظیمات ورود معتبر نیست (HTTP ${res.status}).`)}

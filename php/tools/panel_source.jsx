@@ -129,7 +129,7 @@ const db = {
   // نکته: بدنهٔ ورود به‌جای JSON با فرم urlencoded ارسال می‌شود، چون WAF هاست درخواست‌های
   // POST با Content-Type: application/json را (به‌خصوص برای فیلدهای شبیه به فرم ورود) مسدود
   // می‌کند؛ با تست مستقیم روی سرور واقعی تأیید شد که فرم urlencoded بدون مشکل عبور می‌کند.
-  webLoginConfig: async()=>({method:'sms_otp'}),
+  webLoginConfig: ()=> GET('/session/web-login-config'),
   loginPassword: async(username,password)=>{
     const u=String(username||'').trim(), p=String(password||'');
     if(!u) throw new Error('نام کاربری را وارد کنید');
@@ -3978,7 +3978,7 @@ function Settings(){
     <div className="panel t-security"><h3>🔐 قوانین امنیتی ورود</h3>
       <div style={{padding:"12px",marginBottom:14,border:"1px solid var(--line)",borderRadius:12,background:"var(--brand-soft)"}}>
         <label className="label">روش ورود به نسخه وب</label>
-        <select className="input" value={v.web_login_method||"password"} onChange={e=>set("web_login_method",e.target.value)} style={{marginTop:6}}>
+        <select className="input" value={v.web_login_method||"sms_otp"} onChange={e=>set("web_login_method",e.target.value)} style={{marginTop:6}}>
           <option value="password">نام کاربری و کلمه عبور</option>
           <option value="sms_otp">نام کاربری + رمز یک‌بارمصرف پیامکی</option>
           <option value="bale_otp">نام کاربری + رمز یک‌بارمصرف از طریق ربات بله</option>
@@ -9162,9 +9162,10 @@ const VIEWS={
 
 function Login({onLogin,brand}){
   const [username,setUsername]=useState(""); const [password,setPassword]=useState(""); const [code,setCode]=useState("");
-  const [loginMethod,setLoginMethod]=useState("sms_otp"); const [mode,setMode]=useState("request");
+  const [loginMethod,setLoginMethod]=useState(null); const [mode,setMode]=useState("request");
+  const [configRetry,setConfigRetry]=useState(0);
   const [err,setErr]=useState(""); const [info,setInfo]=useState(""); const [busy,setBusy]=useState(false); const [cooldown,setCooldown]=useState(0);
-  useEffect(()=>{ let active=true; db.webLoginConfig().then(x=>{if(active){const configured=String(x&&x.method||"sms_otp");setLoginMethod(configured==="password"?"sms_otp":configured);}}).catch(()=>{if(active)setLoginMethod("sms_otp");}); return()=>{active=false}; },[]);
+  useEffect(()=>{ let active=true; setLoginMethod(null);setErr("");db.webLoginConfig().then(x=>{if(!['password','sms_otp','bale_otp'].includes(x?.method))throw new Error('روش ورود اعلام‌شده معتبر نیست.');if(active)setLoginMethod(x.method);}).catch(e=>{if(active)setErr(e.message||'دریافت روش ورود ناموفق بود.');}); return()=>{active=false}; },[configRetry]);
   useEffect(()=>{ if(cooldown<=0)return; const t=setInterval(()=>setCooldown(v=>Math.max(0,v-1)),1000); return()=>clearInterval(t); },[cooldown]);
   const methodLabel=loginMethod==="sms_otp"?"پیامک":loginMethod==="bale_otp"?"ربات بله":"نام کاربری و کلمه عبور";
   const requestCode=async()=>{
@@ -9182,6 +9183,7 @@ function Login({onLogin,brand}){
     try{const d=await db.webLoginOtpVerify(username,code);onLogin(d.user);}catch(e){setErr(e&&e.message?e.message:"کد واردشده صحیح نیست");}finally{setBusy(false);}
   };
   const otp=loginMethod!=="password";
+  if(!loginMethod)return <div className="login-page"><div className="panel login-card"><p>{err||'در حال دریافت روش ورود…'}</p>{err&&<button className="btn p" onClick={()=>setConfigRetry(v=>v+1)}>تلاش مجدد</button>}</div></div>;
   return(<div className="login-page">
     <div className="panel login-card">
       <div style={{textAlign:"center",marginBottom:18}}>{brand?.logo?<img src={brand.logo} style={{margin:"0 auto 10px",width:58,height:58,borderRadius:14,objectFit:"contain",background:"#fff",padding:5,border:"1px solid var(--line)"}}/>:<img src="/brand-khatyar.png" style={{margin:"0 auto 10px",width:58,height:58,borderRadius:29,objectFit:"cover"}}/>}

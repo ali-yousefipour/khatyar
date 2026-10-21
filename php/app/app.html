@@ -133,7 +133,7 @@ async function renewSession(){
 async function authenticatedFetch(url,opt={}){
   const target=new URL(url,location.href);
   if(target.origin!==location.origin||!target.pathname.startsWith('/api/'))return fetch(url,opt);
-  const publicPath=/^\/api\/(?:settings\/public|auth\/(?:login|forgot-password|reset-password)|session\/(?:start|renew|otp-request|otp-verify))\/?$/.test(target.pathname);
+  const publicPath=/^\/api\/(?:settings\/public|auth\/(?:login|forgot-password|reset-password)|session\/(?:start|renew|web-login-config|otp-request|otp-verify))\/?$/.test(target.pathname);
   const sentToken=publicPath?'':accessToken();
   if(!publicPath&&!sentToken){if(USER)logout();throw new Error('برای ادامه وارد حساب شوید.');}
   const send=()=>{
@@ -218,28 +218,31 @@ function loginDigits(value){return String(value||'').trim().replace(/[۰-۹]/g,d
 function changeLoginUser(){if(webLogin.busy)return;webLogin.codeRequested=false;render();}
 async function doLogin(resend=false){
   if(webLogin.busy)return;
+  if(!['password','sms_otp','bale_otp'].includes(webLogin.method))return;
+  const passwordMode=webLogin.method==='password';
   const error=document.getElementById('err');
   const username=webLogin.codeRequested?webLogin.username:loginDigits(document.getElementById('u').value);
-  const verifying=webLogin.codeRequested&&!resend;
+  const verifying=!passwordMode&&webLogin.codeRequested&&!resend;
   const code=verifying?loginDigits(document.getElementById('login-code').value):'';
   if(!username){error.textContent='کد ملی را وارد کنید.';return;}
-  if(verifying&&!/^\d{6}$/.test(code)){error.textContent='کد شش‌رقمی پیامک‌شده را وارد کنید.';return;}
-  if(!verifying&&username===webLogin.username&&Date.now()<webLogin.resendAt){if(!resend){webLogin.codeRequested=true;await render();return;}error.textContent='برای ارسال مجدد '+toFa(Math.ceil((webLogin.resendAt-Date.now())/1000))+' ثانیه صبر کنید.';return;}
+  if(verifying&&!/^\d{6}$/.test(code)){error.textContent='کد شش‌رقمی ارسال‌شده را وارد کنید.';return;}
+  if(!passwordMode&&!verifying&&username===webLogin.username&&Date.now()<webLogin.resendAt){if(!resend){webLogin.codeRequested=true;await render();return;}error.textContent='برای ارسال مجدد '+toFa(Math.ceil((webLogin.resendAt-Date.now())/1000))+' ثانیه صبر کنید.';return;}
   webLogin.busy=true;
   const button=document.getElementById('login-submit');
   button.disabled=true;
   error.textContent='در حال بررسی موقعیت…';
   try{
     if(!(await gpsAvailable()))throw new Error('برای ورود باید دسترسی موقعیت (GPS) را اجازه دهید.');
-    if(!verifying){
+    if(!passwordMode&&!verifying){
       error.textContent='در حال ارسال کد…';
       await POST('/session/otp-request',{username});
       webLogin.username=username;webLogin.codeRequested=true;webLogin.resendAt=Date.now()+60000;
       await render();
       return;
     }
-    error.textContent='در حال تأیید کد…';
-    const data=await POST('/session/otp-verify',{username,code,device_id:store.get('device_id'),device_type:'web',device_model:'WebApp '+navigator.platform});
+    error.textContent=passwordMode?'در حال ورود…':'در حال تأیید کد…';
+    const credentials=passwordMode?{password:document.getElementById('login-password').value}:{code};
+    const data=await POST(passwordMode?'/session/start':'/session/otp-verify',{username,...credentials,device_id:store.get('device_id'),device_type:'web',device_model:'WebApp '+navigator.platform});
     if(!data.access||!data.refresh||!data.user)throw new Error('پاسخ ورود کامل نیست؛ دوباره تلاش کنید.');
     _clearApiCache();store.set('token',data.access);store.set('refresh',data.refresh);store.set('user',JSON.stringify(data.user));USER=data.user;
     webLogin={username:'',codeRequested:false,busy:false,resendAt:0};
@@ -287,12 +290,16 @@ const screens={
     <button class="btn" onclick="doReset()">تغییر رمز</button>
     <button class="btn ghost" onclick="nav('login')">بازگشت به ورود</button>`; },
 
-  login:async()=>{ chrome(false); return `<div class="center"><div>${BRAND.logo?`<img src="${esc(BRAND.logo)}" style="width:64px;height:64px;object-fit:contain;border-radius:16px;background:#fff;padding:5px;border:1px solid var(--line)">`:`<div class="lg">ت</div>`}
+  login:async()=>{ chrome(false);
+    try{const config=await GET('/session/web-login-config');if(!['password','sms_otp','bale_otp'].includes(config.method))throw new Error('روش ورود اعلام‌شده معتبر نیست.');if(webLogin.method!==config.method)webLogin.codeRequested=false;webLogin.method=config.method;}
+    catch(e){webLogin.method=null;return `<div class="card"><p>${esc(e.message)}</p><button class="btn" onclick="render()">تلاش مجدد</button></div>`;}
+    const passwordMode=webLogin.method==='password',channel=webLogin.method==='bale_otp'?'ربات بله':'پیامک';
+    return `<div class="center"><div>${BRAND.logo?`<img src="${esc(BRAND.logo)}" style="width:64px;height:64px;object-fit:contain;border-radius:16px;background:#fff;padding:5px;border:1px solid var(--line)">`:`<div class="lg">ت</div>`}
     <h3 style="margin-top:14px">${esc(BRAND.title||'مدیریت خطوط تاکسیرانی')}</h3><p class="muted">مشهد — نسخهٔ وب</p></div></div>
     <form onsubmit="event.preventDefault();doLogin()">
-    ${webLogin.codeRequested?`<p class="muted" style="text-align:center">اگر حساب فعال و شماره همراه ثبت‌شده داشته باشید، کد ورود پیامک می‌شود. کد تا ۳ دقیقه معتبر است.</p><label class="label">کد شش‌رقمی پیامک‌شده</label><input class="inp" id="login-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr" required>`:`<label class="label">نام کاربری (کد ملی)</label><input class="inp" id="u" inputmode="numeric" autocomplete="username" value="${esc(webLogin.username)}" required><p class="muted" style="text-align:center;margin-top:8px">کد ورود به شماره همراه ثبت‌شده در سامانه پیامک می‌شود.</p>`}
+    ${webLogin.codeRequested?`<p class="muted" style="text-align:center">کد ورود از طریق ${channel} ارسال می‌شود و تا ۳ دقیقه معتبر است.</p><label class="label">کد شش‌رقمی</label><input class="inp" id="login-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" dir="ltr" required>`:`<label class="label">نام کاربری (کد ملی)</label><input class="inp" id="u" inputmode="numeric" autocomplete="username" value="${esc(webLogin.username)}" required>${passwordMode?'<label class="label">کلمه عبور</label><input class="inp" id="login-password" type="password" autocomplete="current-password" required>':`<p class="muted" style="text-align:center;margin-top:8px">کد ورود از طریق ${channel} ارسال می‌شود.</p>`}`}
     <div id="err" style="color:var(--danger);font-size:12.5px;margin-top:8px;text-align:center"></div>
-    <button class="btn" id="login-submit" type="submit">${webLogin.codeRequested?'تأیید کد و ورود':'دریافت کد ورود'}</button>
+    <button class="btn" id="login-submit" type="submit">${passwordMode?'ورود':webLogin.codeRequested?'تأیید کد و ورود':'دریافت کد ورود'}</button>
     ${webLogin.codeRequested?'<button class="btn ghost" type="button" onclick="doLogin(true)" style="margin-top:8px">ارسال مجدد کد (پس از ۶۰ ثانیه)</button><button class="btn ghost" type="button" onclick="changeLoginUser()" style="margin-top:8px">تغییر کد ملی</button>':''}
     </form>
     <p class="muted" style="text-align:center;margin-top:14px">ورود نیازمند روشن‌بودن موقعیت (GPS) است.</p>`; },

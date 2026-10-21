@@ -44,6 +44,8 @@ jobs:
           php -l app/index.php
           php tests/attendance_peak_load_guard_test.php
           php -l lib/routes.php
+          php tests/login_policy_test.php
+          node tests/login_policy_ui_test.cjs
           php tests/work_policy_requests_test.php
           php tests/shift_rotation_test.php
           node tests/shift_rotation_ui_test.cjs
@@ -652,6 +654,11 @@ jobs:
             fi
           done
           # OTP validation must never send SMS for an empty username.
+          for policy in app-login-config web-login-config; do
+            curl --fail --silent --show-error --max-time 25 "${base}/api/session/${policy}" -o /tmp/khatyar-login-policy.json
+            php -r '$v=json_decode(file_get_contents("/tmp/khatyar-login-policy.json"),true); if (!in_array($v["method"]??null,["password","sms_otp","bale_otp"],true)) exit(1);'
+            echo "GET /api/session/${policy}: valid configured login method"
+          done
           otp_code="$(curl --silent --show-error --location --max-time 25 -X POST -H 'Content-Type: application/json' --data '{}' -o /tmp/khatyar-otp-empty.json -w '%{http_code}' "${base}/api/session/otp-request" || true)"
           echo "POST /api/session/otp-request (empty user) -> HTTP ${otp_code}"
           if [ "${otp_code}" != "400" ]; then

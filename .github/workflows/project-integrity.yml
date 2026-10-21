@@ -24,6 +24,8 @@ jobs:
         run: |
           php -v
           php -l php/lib/routes.php
+          php php/tests/login_policy_test.php
+          node php/tests/login_policy_ui_test.cjs
           php php/tests/work_policy_requests_test.php
           php php/tests/shift_rotation_test.php
           node php/tests/shift_rotation_ui_test.cjs
