@@ -7063,7 +7063,7 @@ function ShiftReport(){
     {attendanceModal&&<div role="dialog" aria-modal="true" aria-label={"گزارش تردد ماهانه "+attendanceModal.name} style={{position:"fixed",inset:0,zIndex:9900,background:"rgba(0,0,0,.65)",display:"flex",justifyContent:"center",alignItems:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget){setAttendanceModal(null);run();}}}>
       <div style={{background:"var(--card,#fff)",borderRadius:14,width:"min(98vw,1600px)",maxHeight:"94vh",overflow:"auto",padding:16}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:10}}><strong>گزارش تردد ماهانه و ویرایش — {attendanceModal.name}</strong><button type="button" className="btn" onClick={()=>{setAttendanceModal(null);run();}}>✕ بستن</button></div>
-        <AttendanceReport key={attendanceModal.id+"-"+attendanceModal.year+"-"+attendanceModal.month} initialUserId={attendanceModal.id} initialName={attendanceModal.name} initialFrom={attendanceModal.year+"/"+String(attendanceModal.month).padStart(2,"0")+"/01"} initialTo={attendanceModal.year+"/"+String(attendanceModal.month).padStart(2,"0")+"/"+(attendanceModal.month<=6?"31":attendanceModal.month<=11?"30":"30")} onChanged={()=>run()}/>
+        <AttendanceReport key={attendanceModal.id+"-"+attendanceModal.year+"-"+attendanceModal.month} initialUserId={attendanceModal.id} initialName={attendanceModal.name} initialFrom={attendanceModal.year+"/"+String(attendanceModal.month).padStart(2,"0")+"/01"} initialTo={attendanceModal.year+"/"+String(attendanceModal.month).padStart(2,"0")+"/"+(attendanceModal.month<=6?"31":attendanceModal.month<=11?"30":((attendanceModal.year%33)%4===1?"30":"29"))} onChanged={()=>run()}/>
       </div>
     </div>}
   </div>);
