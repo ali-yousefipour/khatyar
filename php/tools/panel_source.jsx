@@ -77,11 +77,16 @@ async function GET(p, opts){
   const ttl = (opts&&opts.ttl) || _cacheTtlFor(p);
   const key = p;
   if(ttl && _cache[key] && (Date.now()-_cache[key].t)<ttl) return _cache[key].v;
-  const r = await _fetchWithAuth(API_BASE+p,{cache:'no-store'});
-  const v = await _readJsonResponse(r);
-  if(!r.ok) throw new Error(v.error||v.message||'خطای سرور');
-  if(ttl) _cache[key]={t:Date.now(),v};
-  return v;
+  const controller=opts&&opts.timeoutMs?new AbortController():null;
+  const timer=controller?setTimeout(()=>controller.abort(),opts.timeoutMs):null;
+  try{
+    const r = await _fetchWithAuth(API_BASE+p,{cache:'no-store',...(controller?{signal:controller.signal}:{})});
+    const v = await _readJsonResponse(r);
+    if(!r.ok) throw new Error(v.error||v.message||'خطای سرور');
+    if(ttl) _cache[key]={t:Date.now(),v};
+    return v;
+  }catch(error){if(controller&&controller.signal.aborted)throw new Error('زمان دریافت موقعیت‌ها پایان یافت؛ دوباره تلاش کنید.');throw error;}
+  finally{if(timer)clearTimeout(timer);}
 }
 
 async function downloadProtectedFile(path, filename){
@@ -256,7 +261,7 @@ const db = {
   bills: ()=> GET('/admin/bills'),
   reports: ()=> GET('/reports?per=20').then(d=>Array.isArray(d)?d:(d.items||[])),
   logs: ()=> GET('/admin/logs'),
-  live: (shiftOnly)=> GET('/locations/live'+(shiftOnly?'?shift_only=1':'')),
+  live: (shiftOnly)=> GET('/locations/live'+(shiftOnly?'?shift_only=1':''),{timeoutMs:20000}),
   track: (uid,from,to)=> GET(`/locations/track?user_id=${uid}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
   appVersion: ()=> GET('/app/version'),
   presentStats: ()=> GET('/admin/present-stats'),
