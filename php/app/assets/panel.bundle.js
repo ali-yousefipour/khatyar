@@ -11988,7 +11988,7 @@ function ShiftReport() {
                         "\u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F \u0645\u0627\u0647\u0627\u0646\u0647 \u0648 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u2014 ",
                         attendanceModal.name),
                     React.createElement("button", { type: "button", className: "btn", onClick: () => { setAttendanceModal(null); run(); } }, "\u2715 \u0628\u0633\u062A\u0646")),
-                React.createElement(AttendanceReport, { key: attendanceModal.id + "-" + attendanceModal.year + "-" + attendanceModal.month, initialUserId: attendanceModal.id, initialName: attendanceModal.name, initialFrom: attendanceModal.year + "/" + String(attendanceModal.month).padStart(2, "0") + "/01", initialTo: attendanceModal.year + "/" + String(attendanceModal.month).padStart(2, "0") + "/" + (attendanceModal.month <= 6 ? "31" : attendanceModal.month <= 11 ? "30" : "30"), onChanged: () => run() })))));
+                React.createElement(AttendanceReport, { key: attendanceModal.id + "-" + attendanceModal.year + "-" + attendanceModal.month, initialUserId: attendanceModal.id, initialName: attendanceModal.name, initialFrom: attendanceModal.year + "/" + String(attendanceModal.month).padStart(2, "0") + "/01", initialTo: attendanceModal.year + "/" + String(attendanceModal.month).padStart(2, "0") + "/" + (attendanceModal.month <= 6 ? "31" : attendanceModal.month <= 11 ? "30" : ((attendanceModal.year % 33) % 4 === 1 ? "30" : "29")), onChanged: () => run() })))));
 }
 // تنظیم پایهٔ حقوق و مشاهدهٔ فیش حقوقی یک کاربر
 function PayrollEditor({ userId, userName }) {
