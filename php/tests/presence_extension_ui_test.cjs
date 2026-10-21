@@ -1,0 +1,12 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+const source=fs.readFileSync(__dirname+'/../app/assets/presence-immediate-admin.js','utf8');
+const html=fs.readFileSync(__dirname+'/../app/panel.html','utf8');
+const panel=fs.readFileSync(__dirname+'/../tools/panel_source.jsx','utf8');
+assert.ok(panel.includes('id="khatyar-presence-extension"'));
+assert.ok(panel.includes('hidden={immediateOpen}'));
+assert.ok(!html.includes('presence-immediate-relocator.js'),'legacy moving observer is not loaded');
+assert.ok(source.includes("window.dispatchEvent(new CustomEvent('khatyar:presence-tab'"));
+let observer,scheduled=[],lookups=0;
+const context={URL,document:{baseURI:'https://example.test/',readyState:'complete',body:{},head:{appendChild(){}},createElement:()=>({}),getElementById(id){assert.equal(id,'khatyar-presence-extension');lookups++;return null;},querySelectorAll(){throw new Error('Must not scan unrelated React pages');}},window:{},localStorage:{},setTimeout:fn=>scheduled.push(fn),MutationObserver:class{constructor(callback){observer=callback;}observe(){}},fetch(){throw new Error('Unrelated pages must not fetch presence targets');},console};
+vm.runInNewContext(source,context);scheduled.forEach(fn=>fn());observer();observer();assert.equal(lookups,3);
+console.log('PASS presence extension: explicit host, no text scanning or background fetch on other pages, React visibility event, no legacy relocation loop');

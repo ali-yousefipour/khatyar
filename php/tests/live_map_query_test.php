@@ -6,6 +6,8 @@ class Db {
   static function run($sql,$params=[]){throw new LogicException('Read path must not change schema');}
 }
 $source=file_get_contents(__DIR__.'/../lib/routes.php');
+$helperStart=strpos($source,'function _live_location_sql(');$helperEnd=strpos($source,"route('GET', '/api/locations/live'",$helperStart);
+eval(substr($source,$helperStart,$helperEnd-$helperStart));
 $marker="route('GET', '/api/locations/live', ";$start=strpos($source,$marker)+strlen($marker);$end=strpos($source,'}, false, ADMIN);',$start);
 $handler=eval('return '.substr($source,$start,$end-$start).'};');
 function check($condition,$message){if(!$condition)throw new LogicException($message);}

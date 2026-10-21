@@ -936,6 +936,8 @@ function LiveMap(){
   const liveRequestRef=useRef(false); const liveMountedRef=useRef(false);
   const [liveLoading,setLiveLoading]=useState(true); const [liveError,setLiveError]=useState('');
   const [liveUpdated,setLiveUpdated]=useState(null);
+  const [mapDiagnostic,setMapDiagnostic]=useState(null); const [diagnosticBusy,setDiagnosticBusy]=useState(false);
+  const diagnoseMap=async()=>{if(diagnosticBusy)return;setDiagnosticBusy(true);try{setMapDiagnostic(await GET('/locations/live-diagnostics'+(shiftFilterRef.current?'?shift_only=1':''),{timeoutMs:20000}));}catch(error){setMapDiagnostic({error:error.message});}finally{setDiagnosticBusy(false);}};
   useEffect(()=>{ onlyOnlineRef.current=onlyOnline; localStorage.liveOnlyOnline=onlyOnline?"1":""; },[onlyOnline]);
   const [roleFilter,setRoleFilter]=useState(()=>{ try{return JSON.parse(localStorage.liveRoleFilter||"null");}catch(e){return null;} }); // null = همه
   const [personFilter,setPersonFilter]=useState(()=>{ try{return JSON.parse(localStorage.livePersonFilter||"null");}catch(e){return null;} }); // null = همه
@@ -1249,6 +1251,8 @@ function LiveMap(){
       <button className="btn g" disabled={savingImg} onClick={saveMapImage}>{savingImg?"در حال ذخیره…":"📷 ذخیرهٔ تصویر نقشه"}</button></span></h3>
     <div className="live-map-status" role="status" aria-live="polite">{liveLoading?'در حال دریافت موقعیت‌ها…':liveUpdated?'آخرین دریافت: '+liveUpdated.toLocaleTimeString('fa-IR'):'موقعیتی دریافت نشده است'}<button className="btn g" disabled={liveLoading} onClick={drawUsers}>تازه‌سازی موقعیت‌ها</button></div>
     {liveError&&<p role="alert">{liveError} — موقعیت‌های قبلی حفظ شده‌اند.</p>}
+    <button className="btn g" disabled={diagnosticBusy} onClick={diagnoseMap}>{diagnosticBusy?'در حال بررسی…':'بررسی اتصال و سرعت نقشه'}</button>
+    {mapDiagnostic&&<Modal title="بررسی سرعت نقشه" onClose={()=>setMapDiagnostic(null)}>{mapDiagnostic.error?<p role="alert">{mapDiagnostic.error}</p>:<><p>زمان بررسی پایگاه داده: {fa(mapDiagnostic.elapsed_ms)} میلی‌ثانیه</p><p>تعداد ستون‌های ایندکس: {fa(mapDiagnostic.indexes.length)}</p><div className="table-wrap"><table><thead><tr><th>بخش</th><th>نوع دسترسی</th><th>ایندکس</th><th>برآورد ردیف</th></tr></thead><tbody>{mapDiagnostic.plan.map((row,index)=><tr key={index}><td>{row.table}</td><td>{row.type}</td><td>{row.key||'—'}</td><td>{fa(row.rows||0)}</td></tr>)}</tbody></table></div></>}</Modal>}
     {/* تب‌بندی نقشه */}
     <div className="tabbar" style={{display:"flex",gap:8,marginBottom:12,borderBottom:"2px solid var(--line)",flexWrap:"wrap"}}>
       {[["main","🗺 نقشهٔ اصلی نیروها"],["live","🛰 رهگیری زنده"],["report","📊 گزارش مسیر و پخش"],["exits","⛔ خروج از محدوده امروز"]].map(([k,lbl])=>
@@ -3940,25 +3944,282 @@ function MaintenanceModeSettings(){
   </div>;
 }
 
+const SETTINGS_SECTION_INDEX=[
+  {
+    "id": "settings-section-1",
+    "tab": "general",
+    "title": "تنظیمات عمومی"
+  },
+  {
+    "id": "settings-section-2",
+    "tab": "subscription",
+    "title": "💳 اشتراک گروهی و انفرادی"
+  },
+  {
+    "id": "settings-section-3",
+    "tab": "monitoring",
+    "title": "⏱ تنظیم دوره پایش و ارسال هشدار"
+  },
+  {
+    "id": "settings-section-4",
+    "tab": "general",
+    "title": "لوگو و عنوان سایت و اداره"
+  },
+  {
+    "id": "settings-section-5",
+    "tab": "radio",
+    "title": "تنظیمات بی‌سیم"
+  },
+  {
+    "id": "settings-section-6",
+    "tab": "security",
+    "title": "🔐 قوانین امنیتی ورود"
+  },
+  {
+    "id": "settings-section-7",
+    "tab": "monitoring",
+    "title": "تنظیمات موقعیت‌یابی"
+  },
+  {
+    "id": "settings-section-8",
+    "tab": "files",
+    "title": "🖼 کیفیت تصاویر ارسالی از موبایل"
+  },
+  {
+    "id": "settings-section-9",
+    "tab": "hr",
+    "title": "انتخاب منطقه و بازرس توسط کاربر"
+  },
+  {
+    "id": "settings-section-10",
+    "tab": "hr",
+    "title": "ثبت حضور مسئولین"
+  },
+  {
+    "id": "settings-section-11",
+    "tab": "hr",
+    "title": "📍 محاسبهٔ کارکرد با GPS"
+  },
+  {
+    "id": "settings-section-12",
+    "tab": "hr",
+    "title": "محدودیت‌های ماهانهٔ کاربر"
+  },
+  {
+    "id": "settings-section-13",
+    "tab": "hr",
+    "title": "محدودیت‌های ثبت روزانه"
+  },
+  {
+    "id": "settings-section-14",
+    "tab": "hr",
+    "title": "تنظیمات درخواست‌ها (مرخصی/ماموریت/اضافه‌کار)"
+  },
+  {
+    "id": "settings-section-15",
+    "tab": "hr",
+    "title": "تنظیمات حقوق و دستمزد"
+  },
+  {
+    "id": "settings-section-16",
+    "tab": "hr",
+    "title": "🎂 تبریک تولد خودکار"
+  },
+  {
+    "id": "settings-section-17",
+    "tab": "fields",
+    "title": "🗂 فیلدهای سفارشی پرسنل"
+  },
+  {
+    "id": "settings-section-18",
+    "tab": "appitems",
+    "title": "📱 آیتم‌های قابل نمایش اپ بر اساس سمت"
+  },
+  {
+    "id": "settings-section-19",
+    "tab": "drivers",
+    "title": "خطوط دارای سیستم نوبت‌دهی"
+  },
+  {
+    "id": "settings-section-20",
+    "tab": "monitoring",
+    "title": "کلید API نقشه‌ها (نشان و بلد)"
+  },
+  {
+    "id": "settings-section-21",
+    "tab": "drivers",
+    "title": "علت‌های قطع سیستم نوبت‌دهی"
+  },
+  {
+    "id": "settings-section-22",
+    "tab": "sms",
+    "title": "پیامک تذکر به راننده"
+  },
+  {
+    "id": "settings-section-23",
+    "tab": "sms",
+    "title": "پیامک اطلاعات فیش آبونمان"
+  },
+  {
+    "id": "settings-section-24",
+    "tab": "hr",
+    "title": "تنظیمات ثبت تذکر"
+  },
+  {
+    "id": "settings-section-25",
+    "tab": "security",
+    "title": "نسخه و به‌روزرسانی اپ اندروید"
+  },
+  {
+    "id": "settings-section-26",
+    "tab": "files",
+    "title": "محدودیت فایل‌های پیوست (هر بخش جداگانه)"
+  },
+  {
+    "id": "settings-section-27",
+    "tab": "monitoring",
+    "title": "📸 نظارت تصویری نیروها"
+  },
+  {
+    "id": "settings-section-28",
+    "tab": "monitoring",
+    "title": "📍 اعلان‌های میدانی و حضور"
+  },
+  {
+    "id": "settings-section-29",
+    "tab": "monitoring",
+    "title": "🖥 اسکرین‌شات نامحسوس از صفحهٔ نیروها"
+  },
+  {
+    "id": "settings-section-30",
+    "tab": "monitoring",
+    "title": "اعلان‌ها و هشدارهای خودکار (Push)"
+  },
+  {
+    "id": "settings-section-31",
+    "tab": "drivers",
+    "title": "مسدودسازی رانندگان بدهکار"
+  },
+  {
+    "id": "settings-section-32",
+    "tab": "print",
+    "title": "قالب چاپ گزارش‌ها"
+  },
+  {
+    "id": "settings-section-33",
+    "tab": "dashboard",
+    "title": "چیدمان داشبورد و نحوهٔ محاسبهٔ عملکرد هر نیرو"
+  },
+  {
+    "id": "settings-section-34",
+    "tab": "hr",
+    "title": "صحت‌سنجی حضور (عکس سلفی + خودروها)"
+  },
+  {
+    "id": "settings-section-35",
+    "tab": "backup",
+    "title": "حذف خودکار تصاویر و پیوست‌ها"
+  },
+  {
+    "id": "settings-section-36",
+    "tab": "access",
+    "title": "سمت‌ها (نقش‌ها)"
+  },
+  {
+    "id": "settings-section-37",
+    "tab": "security",
+    "title": "سیاست تمدید اجباری"
+  },
+  {
+    "id": "settings-section-38",
+    "tab": "sms",
+    "title": "قالب پیامک انقضای مدارک"
+  },
+  {
+    "id": "settings-section-39",
+    "tab": "sms",
+    "title": "تنظیمات سرویس پیامک (نگین ارتباط)"
+  },
+  {
+    "id": "settings-section-40",
+    "tab": "security",
+    "title": "🔑 ورود با کد پیامکی (OTP) و خواندن خودکار کد"
+  },
+  {
+    "id": "settings-section-41",
+    "tab": "sms",
+    "title": "قالب‌های پیش‌فرض پیامک"
+  },
+  {
+    "id": "settings-section-42",
+    "tab": "sms",
+    "title": "💳 اعتبار و محدودیت ارسال پیامک"
+  },
+  {
+    "id": "settings-section-43",
+    "tab": "sms",
+    "title": "💰 هزینهٔ پیامک و ظرفیت ارسال"
+  },
+  {
+    "id": "settings-section-44",
+    "tab": "sms",
+    "title": "محدودیت ارسال پیامک"
+  },
+  {
+    "id": "settings-section-45",
+    "tab": "bale",
+    "title": "🤖 تنظیمات ربات‌های پیام‌رسان"
+  },
+  {
+    "id": "settings-section-46",
+    "tab": "sms",
+    "title": "پیامک خوش‌آمد هنگام ثبت‌نام کاربر"
+  },
+  {
+    "id": "settings-section-47",
+    "tab": "general",
+    "title": "اطلاعات شرکت (برای پیامک‌های انقضا)"
+  },
+  {
+    "id": "settings-section-48",
+    "tab": "sms",
+    "title": "قالب و ارسال خودکار پیامک‌های انقضا"
+  },
+  {
+    "id": "settings-section-49",
+    "tab": "access",
+    "title": "سطح دسترسی سمت‌ها به بخش‌های سایت"
+  },
+  {
+    "id": "settings-section-50",
+    "tab": "backup",
+    "title": "پشتیبان‌گیری، بازیابی و پاکسازی"
+  }
+];
 function Settings(){
   const [v,setV]=useState(null);
   const [tab,setTab]=useState("general");
+  const [visitedTabs,setVisitedTabs]=useState(['general']); const [settingsQuery,setSettingsQuery]=useState('');
+  const selectSettingsTab=key=>{setTab(key);setVisitedTabs(previous=>previous.includes(key)?previous:[...previous,key]);};
+  const openSettingsSection=section=>{selectSettingsTab(section.tab);setTimeout(()=>document.getElementById(section.id)?.scrollIntoView({behavior:'smooth',block:'start'}),0);};
   const [settingsError,setSettingsError]=useState(''); const [settingsSaving,setSettingsSaving]=useState(false); const settingsLock=useRef(false);
   useEffect(()=>{let active=true;db.settings().then(value=>{if(active)setV(value);}).catch(error=>{if(active)setSettingsError(error.message||'دریافت تنظیمات ناموفق بود');});return()=>{active=false;};},[]);
   if(!v)return <div role={settingsError?'alert':'status'}>{settingsError||'در حال بارگذاری…'}</div>;
   const set=(k,val)=>setV({...v,[k]:val});
   const save=async()=>{if(settingsLock.current)return;settingsLock.current=true;setSettingsSaving(true);setSettingsError('');try{await db.saveSettings(v);alert('تنظیمات ذخیره شد.');}catch(error){setSettingsError(error.message||'ذخیره تنظیمات ناموفق بود؛ تغییرات شما حفظ شده‌اند.');}finally{settingsLock.current=false;setSettingsSaving(false);}};
-  const TABS=[["general","⚙️","عمومی و موقعیت"],["subscription","💳","اشتراک"],["monitoring","⏱️","پایش و هشدارها"],["dashboard","📊","داشبورد و محاسبهٔ عملکرد"],["hr","👥","منابع انسانی"],["fields","🧩","فیلدهای پرسنل"],["appitems","📱","آیتم‌های اپ هر سمت"],["sms","💬","پیامک"],["bale","🤖","ربات‌ها"],["security","🔐","امنیت و نسخه اپ"],["radio","📻","تنظیمات بی‌سیم"],["files","📎","پیوست‌ها و اعلان‌ها"],["drivers","💰","بدهکاران"],["print","🖨️","قالب چاپ"],["access","🛡️","دسترسی‌ها"],["backup","💾","پشتیبان‌گیری و پاکسازی"]];
+  const TABS=[["general","⚙️","سازمان و هویت"],["subscription","💳","اشتراک"],["monitoring","⏱️","موقعیت، نظارت و هشدارها"],["dashboard","📊","داشبورد و محاسبهٔ عملکرد"],["hr","👥","منابع انسانی"],["fields","🧩","فیلدهای پرسنل"],["appitems","📱","آیتم‌های اپ هر سمت"],["sms","💬","پیامک"],["bale","🤖","ربات‌ها"],["security","🔐","امنیت و نسخه اپ"],["radio","📻","تنظیمات بی‌سیم"],["files","📎","تصاویر و پیوست‌ها"],["drivers","🚕","خطوط و رانندگان"],["print","🖨️","قالب چاپ"],["access","🛡️","دسترسی‌ها"],["backup","💾","پشتیبان‌گیری و پاکسازی"]];
   const Field=(k,l)=><div style={{marginBottom:12}}><label style={{fontSize:13,color:"var(--muted)"}}>{l}</label>
     <input className="input" value={v[k]??""} onChange={e=>set(k,e.target.value)} style={{marginTop:5}}/></div>;
   const Toggle=(k,l)=><label className="row" style={{justifyContent:"space-between",padding:"8px 0",cursor:"pointer"}}>
     <span style={{fontSize:13}}>{l}</span><input type="checkbox" checked={!!v[k]} onChange={e=>set(k,e.target.checked)}/></label>;
   return(<div className="admin-workspace-page admin-settings-page">
     <header className="settings-intro"><h3>تنظیمات سامانه</h3><p className="muted">سازمان و عملیات · پرسنل · ارتباطات · امنیت و نگهداری</p><p>بخش مرتبط را انتخاب کنید. تغییر بخش، اطلاعات واردشده را پاک نمی‌کند.</p>{settingsError&&<p role="alert">{settingsError}</p>}{settingsSaving&&<p role="status">در حال ذخیرهٔ تنظیمات…</p>}</header>
-    <label className="settings-mobile-picker">بخش تنظیمات<select className="input" value={tab} onChange={e=>setTab(e.target.value)}>{TABS.map(([k,,label])=><option key={k} value={k}>{label}</option>)}</select></label>
-    <div className="tabbar">{TABS.map(([k,ic,l])=><button key={k} aria-pressed={tab===k} className={"tabbtn"+(tab===k?" on":"")} onClick={()=>setTab(k)}><span aria-hidden="true" style={{fontSize:16,lineHeight:1,marginLeft:6}}>{ic}</span><span>{l}</span></button>)}</div>
+    <label className="settings-search">جستجو در تنظیمات<input className="input" type="search" value={settingsQuery} onChange={event=>setSettingsQuery(event.target.value)} placeholder="عنوان بخش؛ مانند موقعیت، رمز یا پیامک"/></label>
+    {settingsQuery.trim()&&<div className="settings-search-results" aria-live="polite">{SETTINGS_SECTION_INDEX.filter(section=>normalizePanelMenuText(section.title).includes(normalizePanelMenuText(settingsQuery))).map(section=><button type="button" className="btn g" key={section.id} onClick={()=>openSettingsSection(section)}>{section.title}</button>)}{!SETTINGS_SECTION_INDEX.some(section=>normalizePanelMenuText(section.title).includes(normalizePanelMenuText(settingsQuery)))&&<p>بخشی با این عنوان یافت نشد.</p>}</div>}
+    <label className="settings-mobile-picker">بخش تنظیمات<select className="input" value={tab} onChange={e=>selectSettingsTab(e.target.value)}>{TABS.map(([k,,label])=><option key={k} value={k}>{label}</option>)}</select></label>
+    <div className="tabbar">{TABS.map(([k,ic,l])=><button key={k} aria-pressed={tab===k} className={"tabbtn"+(tab===k?" on":"")} onClick={()=>selectSettingsTab(k)}><span aria-hidden="true" style={{fontSize:16,lineHeight:1,marginLeft:6}}>{ic}</span><span>{l}</span><small className="settings-section-count">{fa(SETTINGS_SECTION_INDEX.filter(section=>section.tab===k).length)}</small></button>)}</div>
     <div className={"grid2 settings-tabs tab-"+tab}>
-    <div className="panel t-general"><h3>تنظیمات عمومی</h3>{Field("org_name","نام سازمان")}{Field("deputy_name","معاونت نظارت و بازرسی")}
+    {visitedTabs.includes("general")&&<div id="settings-section-1" className="panel t-general"><h3>تنظیمات عمومی</h3>{Field("org_name","نام سازمان")}{Field("deputy_name","معاونت نظارت و بازرسی")}
       {Field("inspection_head","رییس اداره بازرسی")}{Field("payment_base_url","آدرس پایهٔ درگاه پرداخت")}
       {Field("attendance_cooldown_min","فاصلهٔ مجاز ثبت حضور (دقیقه)")}
       <div style={{marginTop:12}}>
@@ -3970,16 +4231,16 @@ function Settings(){
         </div>
         <p style={{fontSize:12,color:"var(--muted)",marginTop:6}}>در حالت «فقط شیفت کاری»: موقعیت ارسال نمی‌شود، سلفی و اسکرین‌شات نامحسوس گرفته نمی‌شود، اعلان‌ها ارسال نمی‌شوند — مگر در ساعاتی که شیفت کاری کاربر تعریف شده است.</p>
       </div>
-      <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیره تنظیمات</button></div>
+      <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیره تنظیمات</button></div>}
 
-    <div className="panel t-subscription"><h3>💳 اشتراک گروهی و انفرادی</h3>
+    {visitedTabs.includes("subscription")&&<div id="settings-section-2" className="panel t-subscription"><h3>💳 اشتراک گروهی و انفرادی</h3>
       {Toggle("subscription_enabled","فعال‌سازی محدودیت اشتراک برنامه")}
       <label className="label">نوع استفاده</label><select className="input" value={v.subscription_mode||"normal"} onChange={e=>set("subscription_mode",e.target.value)}><option value="normal">استفاده معمولی بدون اشتراک</option><option value="group">اشتراک گروهی</option><option value="individual">اشتراک انفرادی</option></select>
       {Field("subscription_group_amount","مبلغ کل اشتراک گروهی (ریال)")}
       {Field("subscription_individual_amount","مبلغ اشتراک هر فرد برای ۳۰ روز (ریال)")}
       <p className="muted" style={{fontSize:12,lineHeight:2}}>در حالت گروهی، مدیر اجرایی صورتحساب کل مجموعه را از ربات بله دریافت می‌کند و با پرداخت آن، دسترسی همه کاربران برای ۳۰ روز فعال می‌شود. در حالت انفرادی، هر کاربر صورتحساب شخصی خود را دریافت و اشتراک ۳۰ روزه را تمدید می‌کند. وضعیت اشتراک در اپ، داشبورد و منوی حساب کاربری نمایش داده می‌شود.</p>
-      <button className="btn p" onClick={save}>ذخیره تنظیمات اشتراک</button></div>
-    <div className="panel t-monitoring"><h3>⏱ تنظیم دوره پایش و ارسال هشدار</h3>
+      <button className="btn p" onClick={save}>ذخیره تنظیمات اشتراک</button></div>}
+    {visitedTabs.includes("monitoring")&&<div id="settings-section-3" className="panel t-monitoring"><h3>⏱ تنظیم دوره پایش و ارسال هشدار</h3>
       <p style={{fontSize:12.5,color:"var(--muted)",lineHeight:2,marginBottom:12}}>فاصلهٔ بررسی وضعیت‌های میدانی را تعیین کنید. پس از پایان هر دوره، در صورت ادامه داشتن وضعیت غیرمجاز، هشدار برای مسئولان مجاز و مطابق فیلترهای دریافت آنان ارسال می‌شود.</p>
       <div className="grid2" style={{gap:12}}>
         <div><label className="label">بررسی خاموش بودن GPS (ثانیه)</label><input className="input" type="number" min="15" max="3600" value={v.gps_check_seconds??60} onChange={e=>set("gps_check_seconds",Math.max(15,Math.min(3600,parseInt(e.target.value)||60)))}/></div>
@@ -3988,11 +4249,11 @@ function Settings(){
       </div>
       <p className="muted" style={{fontSize:12,marginTop:10}}>حداقل ۱۵ ثانیه و حداکثر ۳۶۰۰ ثانیه است.</p>
       <button className="btn p" style={{marginTop:10}} onClick={save}>ذخیره دوره‌های پایش</button>
-    </div>
-    <div className="panel t-general"><h3>لوگو و عنوان سایت و اداره</h3>
-      <OrgBrandingSettings v={v} set={set} save={save}/></div>
-    <div className="panel t-radio"><RadioSettings/></div>
-    <div className="panel t-security"><h3>🔐 قوانین امنیتی ورود</h3>
+    </div>}
+    {visitedTabs.includes("general")&&<div id="settings-section-4" className="panel t-general"><h3>لوگو و عنوان سایت و اداره</h3>
+      <OrgBrandingSettings v={v} set={set} save={save}/></div>}
+    {visitedTabs.includes("radio")&&<div id="settings-section-5" className="panel t-radio"><RadioSettings/></div>}
+    {visitedTabs.includes("security")&&<div id="settings-section-6" className="panel t-security"><h3>🔐 قوانین امنیتی ورود</h3>
       <div style={{padding:"12px",marginBottom:14,border:"1px solid var(--line)",borderRadius:12,background:"var(--brand-soft)"}}>
         <label className="label">روش ورود به نسخه وب</label>
         <select className="input" value={v.web_login_method||"sms_otp"} onChange={e=>set("web_login_method",e.target.value)} style={{marginTop:6}}>
@@ -4016,8 +4277,8 @@ function Settings(){
       {Toggle("block_mock_location","مسدودسازی هنگام موقعیت جعلی (Mock)")}
       <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>این قوانین توسط اپ موبایل بررسی و توسط سرور اعمال می‌شوند.</p>
       <MaintenanceModeSettings/>
-    </div>
-    <div className="panel t-general"><h3>تنظیمات موقعیت‌یابی</h3>
+    </div>}
+    {visitedTabs.includes("monitoring")&&<div id="settings-section-7" className="panel t-monitoring"><h3>تنظیمات موقعیت‌یابی</h3>
       {Field("location_interval_sec","فاصلهٔ ارسال موقعیت کاربران (ثانیه) — پیش‌فرض ۶۰")}
       <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
         <label className="label">محدودهٔ خطای مجاز ثبت حضور (متر):</label>
@@ -4025,8 +4286,8 @@ function Settings(){
         <span className="muted" style={{fontSize:12}}>۰ = بدون خطا / مثلاً ۵۰ متر اطراف مرز ایستگاه</span>
       </div>
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیره</button>
-      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>فاصلهٔ زمانی ارسال موقعیت را تعیین می‌کند. محدودهٔ خطا اجازه می‌دهد کاربران تا چند متر بیرون از مرز ایستگاه هم بتوانند ثبت حضور کنند.</p></div>
-    <div className="panel t-general"><h3>🖼 کیفیت تصاویر ارسالی از موبایل</h3>
+      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>فاصلهٔ زمانی ارسال موقعیت را تعیین می‌کند. محدودهٔ خطا اجازه می‌دهد کاربران تا چند متر بیرون از مرز ایستگاه هم بتوانند ثبت حضور کنند.</p></div>}
+    {visitedTabs.includes("files")&&<div id="settings-section-8" className="panel t-files"><h3>🖼 کیفیت تصاویر ارسالی از موبایل</h3>
       <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:10}}>کیفیت و رزولوشن تصاویری که از اپ موبایل برای گزارش‌ها، چک‌لیست‌ها، حضور مسئولین و سایر موارد ارسال می‌شوند. کاهش این مقادیر، حجم آپلود و فضای ذخیره‌سازی را کم می‌کند؛ افزایش آن‌ها کیفیت تصویر را بالا می‌برد.</p>
       <div style={{marginBottom:14}}>
         <label className="label">درصد فشرده‌سازی (کیفیت): {fa(v.image_quality??45)}٪</label>
@@ -4049,12 +4310,12 @@ function Settings(){
         <div><label className="label">کیفیت بندانگشتی (%)</label><input className="input" type="number" min="30" max="90" value={v.thumbnail_quality??70} onChange={e=>set("thumbnail_quality",Math.max(30,Math.min(90,+e.target.value||70)))}/></div>
       </div>
       <button className="btn p" onClick={save}>ذخیره</button>
-      <p style={{fontSize:11.5,color:"var(--muted)",marginTop:10}}>این تنظیمات پس از باز/بسته شدن اپ یا بارگذاری مجدد، روی دستگاه‌های موبایل اعمال می‌شوند. پیشنهاد: کیفیت ۴۵٪ و عرض ۱۰۲۴px تعادل خوبی بین حجم و وضوح است.</p></div>
-    <div className="panel t-hr"><h3>انتخاب منطقه و بازرس توسط کاربر</h3>
+      <p style={{fontSize:11.5,color:"var(--muted)",marginTop:10}}>این تنظیمات پس از باز/بسته شدن اپ یا بارگذاری مجدد، روی دستگاه‌های موبایل اعمال می‌شوند. پیشنهاد: کیفیت ۴۵٪ و عرض ۱۰۲۴px تعادل خوبی بین حجم و وضوح است.</p></div>}
+    {visitedTabs.includes("hr")&&<div id="settings-section-9" className="panel t-hr"><h3>انتخاب منطقه و بازرس توسط کاربر</h3>
       <label className="row" style={{gap:8,marginBottom:8}}><input type="checkbox" checked={!!v.allow_self_zone_select} onChange={e=>set("allow_self_zone_select",e.target.checked)}/><b>کاربران بتوانند در اپ، منطقه، بازرس‌ها و سربازرس خود را انتخاب کنند</b></label>
       <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:8}}>اگر فعال باشد، در «ویرایش اطلاعات» اپ، کاربر می‌تواند منطقهٔ خود را از فهرست انتخاب کند، یک یا چند بازرس و یک سربازرس برگزیند. این انتخاب‌ها به‌صورت خودکار در چارت سازمانی و منطقه‌بندی نیروها اعمال می‌شوند.</p>
-      <button className="btn p" onClick={save}>ذخیره</button></div>
-    <div className="panel t-hr"><h3>ثبت حضور مسئولین</h3>
+      <button className="btn p" onClick={save}>ذخیره</button></div>}
+    {visitedTabs.includes("hr")&&<div id="settings-section-10" className="panel t-hr"><h3>ثبت حضور مسئولین</h3>
       <label className="row" style={{gap:8,marginBottom:8}}><input type="checkbox" checked={v.official_visit_require_station!==false&&v.official_visit_require_station!==0} onChange={e=>set("official_visit_require_station",e.target.checked)}/>ثبت حضور مسئول فقط در محدودهٔ ایستگاه مجاز باشد</label>
       <label className="row" style={{gap:8,marginBottom:8}}><input type="checkbox" checked={!!v.official_visit_require_photo} onChange={e=>set("official_visit_require_photo",e.target.checked)}/>پیوست عکس هنگام ثبت حضور مسئول الزامی باشد</label>
       <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
@@ -4078,8 +4339,8 @@ function Settings(){
         <textarea className="input" rows="2" placeholder="جناب {name}، بازدید شما از خط {line} توسط {recorder} در {datetime} ثبت شد." value={v.official_visit_sms_template||""} onChange={e=>setV({...v,official_visit_sms_template:e.target.value})}/>
       </div>}
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیره</button>
-      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>اگر این گزینه روشن باشد و برای خطوط، «ایستگاه» (محدودهٔ مکانی) تعریف شده باشد، ثبت حضور فقط داخل محدوده ممکن است. محدودیت‌های تعداد و فاصله از ثبت تکراری برای بالا بردن رتبه جلوگیری می‌کنند.</p></div>
-    <div className="panel t-hr"><h3>📍 محاسبهٔ کارکرد با GPS</h3>
+      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>اگر این گزینه روشن باشد و برای خطوط، «ایستگاه» (محدودهٔ مکانی) تعریف شده باشد، ثبت حضور فقط داخل محدوده ممکن است. محدودیت‌های تعداد و فاصله از ثبت تکراری برای بالا بردن رتبه جلوگیری می‌کنند.</p></div>}
+    {visitedTabs.includes("hr")&&<div id="settings-section-11" className="panel t-hr"><h3>📍 محاسبهٔ کارکرد با GPS</h3>
       <label className="row" style={{gap:8,marginBottom:8}}><input type="checkbox" checked={!!v.gps_work_required} onChange={e=>set("gps_work_required",e.target.checked)}/><b>محاسبه کارکرد تنها با روشن بودن GPS</b></label>
       <div style={{fontSize:12.5,color:"var(--muted)",lineHeight:2,marginBottom:8}}>
         <p>🟢 با فعال بودن این گزینه، کنترل GPS فقط پس از آن آغاز می‌شود که کاربر در نرم‌افزار اندروید دکمهٔ «ورود» را بزند و ورود او با موفقیت ثبت شود.</p>
@@ -4087,8 +4348,8 @@ function Settings(){
         <p>📍 فقط رویداد صریح gps_off مبنای کسر کار GPS است. app_background، قطع ارتباط و نبود تأیید دوره‌ای به‌تنهایی کسر کار ایجاد نمی‌کنند. بسته‌شدن کامل برنامه فعلاً رویداد مستقل و قابل‌اثباتی ندارد و از روی نبود checkpoint جریمه نمی‌شود.</p>
         <p>ℹ️ برای آغاز کنترل، ابتدا GPS گوشی را روشن کنید و سپس ورود را ثبت نمایید. این قابلیت جایگزین ثبت موقعیت عادی یا رهگیری لحظه‌ای نیست.</p>
       </div>
-      <button className="btn p" onClick={save}>💾 ذخیره تنظیمات GPS کارکرد</button></div>
-    <div className="panel t-hr"><h3>محدودیت‌های ماهانهٔ کاربر</h3>
+      <button className="btn p" onClick={save}>💾 ذخیره تنظیمات GPS کارکرد</button></div>}
+    {visitedTabs.includes("hr")&&<div id="settings-section-12" className="panel t-hr"><h3>محدودیت‌های ماهانهٔ کاربر</h3>
       <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:10}}>محدودیت تعداد دفعاتی که هر کاربر در ۳۰ روز اخیر می‌تواند از قابلیت‌های زیر استفاده کند. مقدار صفر = بدون محدودیت.</p>
       <label className="label">حداکثر دفعات «فراموشی ثبت تردد» در ماه</label>
       <input className="input" type="number" min="0" style={{maxWidth:140}} value={v.forget_checkin_monthly_limit||0} onChange={e=>set("forget_checkin_monthly_limit",parseInt(e.target.value)||0)}/>
@@ -4096,8 +4357,8 @@ function Settings(){
       <input className="input" type="number" min="0" style={{maxWidth:140}} value={v.logout_monthly_limit||0} onChange={e=>set("logout_monthly_limit",parseInt(e.target.value)||0)}/>
       <label className="row" style={{gap:8,marginTop:12,marginBottom:6}}><input type="checkbox" checked={v.allow_logout!==false} onChange={e=>set("allow_logout",e.target.checked)}/><b>کاربران مجاز به خروج از حساب کاربری خود هستند</b></label>
       <p style={{fontSize:12,color:"var(--muted)",marginBottom:8}}>اگر غیرفعال شود، دکمهٔ خروج در اپ کار نخواهد کرد. در هر ورود، تعداد دفعات باقی‌ماندهٔ خروج به کاربر نمایش داده می‌شود.</p>
-      <button className="btn p" onClick={save}>ذخیره</button></div>
-    <div className="panel t-hr"><h3>محدودیت‌های ثبت روزانه</h3>
+      <button className="btn p" onClick={save}>ذخیره</button></div>}
+    {visitedTabs.includes("hr")&&<div id="settings-section-13" className="panel t-hr"><h3>محدودیت‌های ثبت روزانه</h3>
       <p style={{fontSize:13,color:"var(--muted)",marginBottom:10}}>برای جلوگیری از ثبت‌های تکراری یا بیش از حد، می‌توانید فاصله یا سقف مجاز هر فرایند را تعیین کنید. مقدار ۰ یعنی بدون محدودیت.</p>
       <div className="row" style={{gap:10,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
         <label className="label" style={{minWidth:230}}>فاصلهٔ مجاز چک‌لیست هر خودرو (روز):</label>
@@ -4116,25 +4377,25 @@ function Settings(){
         <label className="label" style={{minWidth:230}}>حداقل فاصلهٔ بین دو گزارش هر کاربر (دقیقه):</label>
         <input className="input" type="number" min="0" style={{maxWidth:100}} value={v.report_send_interval_min??0} onChange={e=>set("report_send_interval_min",Math.max(0,+e.target.value||0))}/>
       </div>
-      <button className="btn p" style={{marginTop:6}} onClick={save}>ذخیرهٔ محدودیت‌ها</button></div>
-    <div className="panel t-hr"><h3>تنظیمات درخواست‌ها (مرخصی/ماموریت/اضافه‌کار)</h3><RequestSettings v={v} set={set} save={save}/></div>
-    <div className="panel t-hr"><h3>تنظیمات حقوق و دستمزد</h3><PayrollSettings v={v} set={set} save={save}/></div>
-    <div className="panel t-hr"><h3>🎂 تبریک تولد خودکار</h3><BirthdaySettings v={v} set={set} save={save}/></div>
-    <div className="panel t-fields"><h3>🗂 فیلدهای سفارشی پرسنل</h3><CustomFieldsManager/>
+      <button className="btn p" style={{marginTop:6}} onClick={save}>ذخیرهٔ محدودیت‌ها</button></div>}
+    {visitedTabs.includes("hr")&&<div id="settings-section-14" className="panel t-hr"><h3>تنظیمات درخواست‌ها (مرخصی/ماموریت/اضافه‌کار)</h3><RequestSettings v={v} set={set} save={save}/></div>}
+    {visitedTabs.includes("hr")&&<div id="settings-section-15" className="panel t-hr"><h3>تنظیمات حقوق و دستمزد</h3><PayrollSettings v={v} set={set} save={save}/></div>}
+    {visitedTabs.includes("hr")&&<div id="settings-section-16" className="panel t-hr"><h3>🎂 تبریک تولد خودکار</h3><BirthdaySettings v={v} set={set} save={save}/></div>}
+    {visitedTabs.includes("fields")&&<div id="settings-section-17" className="panel t-fields"><h3>🗂 فیلدهای سفارشی پرسنل</h3><CustomFieldsManager/>
       <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid var(--line)"}}>
         <label className="row" style={{gap:8,marginBottom:6}}><input type="checkbox" checked={!!v.require_complete_profile_login} onChange={e=>set("require_complete_profile_login",e.target.checked)}/><b>جلوگیری از ورود کاربرانی که اطلاعات تکمیلی یا امضای خود را وارد نکرده‌اند</b></label>
         <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:8}}>در صورت فعال بودن، هر کاربری (به‌جز مدیران) که یکی از فیلدهای سفارشیِ «الزامی» را تکمیل نکرده باشد یا هنوز امضای خود را داخل برنامه ثبت نکرده باشد، هنگام ورود با پیام خطا مواجه شده و اجازهٔ ورود به نرم‌افزار را نخواهد داشت تا زمانی‌که اطلاعات را تکمیل کند. فیلدهای «الزامی» را از همین بخش (فیلدهای سفارشی پرسنل) مشخص کنید.</p>
         <button className="btn p" onClick={save}>ذخیره تنظیمات</button>
       </div>
-    </div>
-    <div className="panel t-appitems"><h3>📱 آیتم‌های قابل نمایش اپ بر اساس سمت</h3><RoleAppItems/></div>
-    <div className="panel t-general"><h3>خطوط دارای سیستم نوبت‌دهی</h3>
+    </div>}
+    {visitedTabs.includes("appitems")&&<div id="settings-section-18" className="panel t-appitems"><h3>📱 آیتم‌های قابل نمایش اپ بر اساس سمت</h3><RoleAppItems/></div>}
+    {visitedTabs.includes("drivers")&&<div id="settings-section-19" className="panel t-drivers"><h3>خطوط دارای سیستم نوبت‌دهی</h3>
       <p style={{fontSize:13,color:"var(--muted)",marginBottom:8}}>سیستم نوبت‌دهی فقط روی این خطوط فعال است و قطعی فقط برای آن‌ها ثبت می‌شود. کد خطوط را وارد کنید (پیش‌فرض: ۳۰۰، ۵۰۰، ۵۰۱، ۵۰۲، ۵۰۳، ۵۰۵، ۷۰۰).</p>
       <StringListEditor value={v.nobat_line_codes||["300","500","501","502","503","505","700"]} onChange={(arr)=>set("nobat_line_codes",arr)} placeholder="مثلاً 300"/>
       <label className="row" style={{gap:8,marginTop:12,alignItems:"center"}}><input type="checkbox" checked={!!v.disable_driver_attendance_for_nobat_lines} onChange={e=>set("disable_driver_attendance_for_nobat_lines",e.target.checked)}/><b>غیرفعال کردن ثبت حضور رانندگان در خطوط دارای سیستم نوبت‌دهی</b></label>
       <p style={{fontSize:12,color:"var(--muted)",marginTop:6}}>در صورت فعال بودن، کاربران خطوط فوق امکان ثبت حضور راننده را نخواهند داشت.</p>
-      <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیرهٔ خطوط نوبت‌دهی</button></div>
-    <div className="panel t-general"><h3>کلید API نقشه‌ها (نشان و بلد)</h3>
+      <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیرهٔ خطوط نوبت‌دهی</button></div>}
+    {visitedTabs.includes("monitoring")&&<div id="settings-section-20" className="panel t-monitoring"><h3>کلید API نقشه‌ها (نشان و بلد)</h3>
       <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:8}}>نشان دو نوع کلید دارد: «کلید وب» برای نمایش نقشه و «کلید سرویس» برای تبدیل مختصات به آدرس (نام خیابان). هر دو را وارد کنید.</p>
       {Field("neshan_api_key","کلید وب نشان (web.xxx) — برای نمایش نقشه")}
       {Field("neshan_service_key","کلید سرویس نشان (service.xxx) — برای نام خیابان و آدرس")}
@@ -4148,17 +4409,17 @@ function Settings(){
           <option value="google_sat">گوگل (ماهواره)</option>
         </select></label>
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیره</button>
-      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>نوع نقشهٔ انتخاب‌شده هم در «نقشهٔ زندهٔ» سایت و هم در نقشهٔ «ثبت حضور» اپ موبایل اعمال می‌شود. برای نشان/بلد کلید API لازم است.</p></div>
-    <div className="panel t-general"><h3>علت‌های قطع سیستم نوبت‌دهی</h3>
+      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>نوع نقشهٔ انتخاب‌شده هم در «نقشهٔ زندهٔ» سایت و هم در نقشهٔ «ثبت حضور» اپ موبایل اعمال می‌شود. برای نشان/بلد کلید API لازم است.</p></div>}
+    {visitedTabs.includes("drivers")&&<div id="settings-section-21" className="panel t-drivers"><h3>علت‌های قطع سیستم نوبت‌دهی</h3>
       <StringListEditor value={v.outage_reasons||[]} onChange={(arr)=>set("outage_reasons",arr)} placeholder="مثلاً اختلال شبکه" />
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیرهٔ علت‌ها</button>
-      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>این علت‌ها در فرم «اعلام قطع سیستم» اپ به‌صورت گزینه‌ای به اپراتور نمایش داده می‌شوند.</p></div>
-    <div className="panel t-sms"><h3>پیامک تذکر به راننده</h3>
+      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>این علت‌ها در فرم «اعلام قطع سیستم» اپ به‌صورت گزینه‌ای به اپراتور نمایش داده می‌شوند.</p></div>}
+    {visitedTabs.includes("sms")&&<div id="settings-section-22" className="panel t-sms"><h3>پیامک تذکر به راننده</h3>
       <label className="row" style={{gap:8,marginBottom:10}}><input type="checkbox" checked={!!v.notice_sms_enabled} onChange={e=>set("notice_sms_enabled",e.target.checked)}/><b>امکان ارسال تذکر به‌صورت پیامک به راننده فعال باشد</b></label>
       <p style={{fontSize:13,color:"var(--muted)",marginBottom:8}}>متغیرها: <code dir="ltr">{"{name}"}</code>، <code dir="ltr">{"{first_name}"}</code>، <code dir="ltr">{"{last_name}"}</code>، <code dir="ltr">{"{national_id}"}</code>، <code dir="ltr">{"{reason}"}</code>، <code dir="ltr">{"{body}"}</code>، <code dir="ltr">{"{priority}"}</code></p>
       <textarea className="input" rows="3" placeholder={"راننده گرامی {name}، یک تذکر برای شما ثبت شد: {body}"} value={v.notice_sms_template||""} onChange={e=>setV({...v,notice_sms_template:e.target.value})}/>
-      <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیرهٔ قالب تذکر</button></div>
-    <div className="panel t-sms"><h3>پیامک اطلاعات فیش آبونمان</h3>
+      <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیرهٔ قالب تذکر</button></div>}
+    {visitedTabs.includes("sms")&&<div id="settings-section-23" className="panel t-sms"><h3>پیامک اطلاعات فیش آبونمان</h3>
       <label className="row" style={{gap:8,marginBottom:10}}><input type="checkbox" checked={!!v.bill_sms_enabled} onChange={e=>set("bill_sms_enabled",e.target.checked)}/><b>امکان ارسال پیامک اطلاعات فیش آبونمان به تاکسیران فعال باشد</b></label>
       <p style={{fontSize:13,color:"var(--muted)",marginBottom:8}}>متغیرها: <code dir="ltr">{"{name}"}</code>، <code dir="ltr">{"{bill_id}"}</code>، <code dir="ltr">{"{pay_id}"}</code>، <code dir="ltr">{"{amount}"}</code>، <code dir="ltr">{"{plate}"}</code>، <code dir="ltr">{"{pay_url}"}</code></p>
       <textarea className="input" rows="5" placeholder={"تاکسیران گرامی {name}\nشناسهٔ قبض: {bill_id}\nشناسهٔ پرداخت: {pay_id}\nمبلغ: {amount} ریال\nپرداخت: {pay_url}"} value={v.bill_sms_template||""} onChange={e=>setV({...v,bill_sms_template:e.target.value})}/>
@@ -4167,19 +4428,19 @@ function Settings(){
       <h4 style={{margin:"0 0 8px"}}>قالب پیامک گروهی آبونمان</h4>
       <p style={{fontSize:13,color:"var(--muted)",marginBottom:8}}>برای ارسال گروهی به بدهکاران (هر فیش پیامک جدا با لینک پرداخت). متغیرها: <code dir="ltr">{"{name}"}</code>، <code dir="ltr">{"{bill_id}"}</code> (شناسهٔ قبض)، <code dir="ltr">{"{pay_id}"}</code> (شناسهٔ پرداخت)، <code dir="ltr">{"{amount}"}</code> (مبلغ قبض)، <code dir="ltr">{"{pay_url}"}</code> (لینک درگاه)، <code dir="ltr">{"{plate}"}</code>، <code dir="ltr">{"{line}"}</code></p>
       <textarea className="input" rows="3" placeholder={"راننده گرامی {name}، قبض آبونمان شما به شناسهٔ {bill_id} و مبلغ {amount} ریال در انتظار پرداخت است. پرداخت آنلاین:\n{pay_url}"} value={v.bill_bulk_sms_template||""} onChange={e=>setV({...v,bill_bulk_sms_template:e.target.value})}/>
-      <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیرهٔ قالب گروهی</button></div>
-    <div className="panel t-hr"><h3>تنظیمات ثبت تذکر</h3>
+      <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیرهٔ قالب گروهی</button></div>}
+    {visitedTabs.includes("hr")&&<div id="settings-section-24" className="panel t-hr"><h3>تنظیمات ثبت تذکر</h3>
       <label className="row" style={{gap:8,marginBottom:8}}><input type="checkbox" checked={!!v.notice_require_photo} onChange={e=>set("notice_require_photo",e.target.checked)}/>پیوست عکس هنگام ثبت تذکر الزامی باشد</label>
       <label className="row" style={{gap:8,marginBottom:8}}><input type="checkbox" checked={v.notice_camera_only!==false&&v.notice_camera_only!==0} onChange={e=>set("notice_camera_only",e.target.checked)}/>عکس تذکر فقط با دوربین گرفته شود (امکان انتخاب از گالری نباشد)</label>
-      <button className="btn p" style={{marginTop:4}} onClick={save}>ذخیره</button></div>
-    <div className="panel t-security"><h3>نسخه و به‌روزرسانی اپ اندروید</h3>
+      <button className="btn p" style={{marginTop:4}} onClick={save}>ذخیره</button></div>}
+    {visitedTabs.includes("security")&&<div id="settings-section-25" className="panel t-security"><h3>نسخه و به‌روزرسانی اپ اندروید</h3>
       {Field("app_latest_version","آخرین نسخهٔ منتشرشده (مثل 1.2.0)")}
       {Field("app_min_version","حداقل نسخهٔ مجاز (پایین‌تر از این، به‌روزرسانی اجباری)")}
       {Field("app_apk_url","آدرس فایل APK روی سرور (لینک مستقیم دانلود)")}
       {Field("app_update_notes","توضیحات به‌روزرسانی (اختیاری)")}
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیرهٔ تنظیمات نسخه</button>
-      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>اپ هنگام شروع، نسخهٔ خود را با «حداقل نسخهٔ مجاز» مقایسه می‌کند؛ اگر پایین‌تر بود، تا دانلود و نصب فایل جدید اجازهٔ ورود ندارد. فایل APK را در هاست آپلود کنید و لینک مستقیمش را اینجا بگذارید.</p></div>
-    <div className="panel t-files"><h3>محدودیت فایل‌های پیوست (هر بخش جداگانه)</h3>
+      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>اپ هنگام شروع، نسخهٔ خود را با «حداقل نسخهٔ مجاز» مقایسه می‌کند؛ اگر پایین‌تر بود، تا دانلود و نصب فایل جدید اجازهٔ ورود ندارد. فایل APK را در هاست آپلود کنید و لینک مستقیمش را اینجا بگذارید.</p></div>}
+    {visitedTabs.includes("files")&&<div id="settings-section-26" className="panel t-files"><h3>محدودیت فایل‌های پیوست (هر بخش جداگانه)</h3>
       {["upload_reports","گزارش‌ها"].length&&[["upload_reports","گزارش‌ها"],["upload_checklists","چک‌لیست‌ها"],["upload_notices","ثبت تذکر"]].map(([k,l])=>{
         const cur=v[k]||{}; const setSub=(sk,sv)=>set(k,{...cur,[sk]:sv});
         return(<div key={k} className="card-p" style={{display:"block"}}>
@@ -4197,8 +4458,8 @@ function Settings(){
         <button className="btn p" onClick={save}>ذخیره</button>
         <button className="btn g" onClick={async()=>{const r=await db.cleanupAttachments();alert(r.days?("پیوست‌های قدیمی‌تر از "+fa(r.days)+" روز پاک شدند."):(r.note||"انجام شد."));}}>پاک‌سازی پیوست‌های قدیمی الان</button></div>
       <p style={{fontSize:12,color:"var(--muted)",marginTop:8}}>برای حذف خودکار روزانه، فایل db/cleanup_cron.sql یا این دکمه را در Cron هاست زمان‌بندی کنید.</p>
-    </div>
-    <div className="panel t-files"><h3>📸 نظارت تصویری نیروها</h3>
+    </div>}
+    {visitedTabs.includes("monitoring")&&<div id="settings-section-27" className="panel t-monitoring"><h3>📸 نظارت تصویری نیروها</h3>
       <p className="muted" style={{marginBottom:10,fontSize:13}}>طبق تنظیم جدید، اپ دیگر هنگام ورود یا ثبت حضور سلفی نمی‌گیرد. سلفی فقط وقتی گرفته می‌شود که مدیر از سمت سرور برای همان کاربر دستور سلفی ارسال کند.</p>
       <div className="card-p" style={{display:"block",background:"#f8fafc"}}>
         <b>وضعیت جدید:</b>
@@ -4210,8 +4471,8 @@ function Settings(){
         <span className="muted" style={{fontSize:12}}>نیاز به اجرای کرون روزانه دارد</span>
       </div>
       <button className="btn p" style={{marginTop:10}} onClick={save}>ذخیرهٔ تنظیمات سلفی</button>
-    </div>
-    <div className="panel t-security"><h3>📍 اعلان‌های میدانی و حضور</h3>
+    </div>}
+    {visitedTabs.includes("monitoring")&&<div id="settings-section-28" className="panel t-monitoring"><h3>📍 اعلان‌های میدانی و حضور</h3>
       <p className="muted" style={{fontSize:13,marginBottom:14}}>برای هر رویداد می‌توانید ابتدا تعیین کنید کدام پرسنل تحت پایش باشند؛ سپس مسئولان دریافت‌کننده را مشخص کنید و برای هر مسئول نیز دامنهٔ اختصاصی افراد تحت نظارت تعریف کنید. پیام‌ها همراه تاریخ و ساعت در اعلان داخل برنامه، Push و ربات‌های متصل ارسال می‌شوند.</p>
       {[
         {key:'station_exit_notify', title:'خروج کاربر از محدودهٔ خط', desc:'هنگام خروج موقعیت کاربر از محدودهٔ ایستگاه یا خط.'},
@@ -4238,8 +4499,8 @@ function Settings(){
         </div>;
       })}
       <button className="btn p" style={{marginTop:14}} onClick={save}>ذخیره تنظیمات اعلان‌های میدانی</button>
-    </div>
-    <div className="panel t-files"><h3>🖥 اسکرین‌شات نامحسوس از صفحهٔ نیروها</h3>
+    </div>}
+    {visitedTabs.includes("monitoring")&&<div id="settings-section-29" className="panel t-monitoring"><h3>🖥 اسکرین‌شات نامحسوس از صفحهٔ نیروها</h3>
       <p className="muted" style={{marginBottom:10,fontSize:13}}>اپ می‌تواند به‌صورت نامحسوس از صفحهٔ نمایش گوشی نیرو اسکرین‌شات بگیرد و ارسال کند. تصاویر مانند نظارت در همان بخش ذخیره می‌شوند.</p>
       <p className="muted" style={{fontSize:12,marginBottom:10,background:"#fff3cd",padding:8,borderRadius:8}}>⚠ این قابلیت نیاز به نصب <b>react-native-view-shot</b> دارد: <code>npx expo install react-native-view-shot</code> سپس prebuild مجدد.</p>
       <label className="row" style={{gap:8,marginBottom:10}}><input type="checkbox" checked={!!v.covert_screenshot_enabled} onChange={e=>set("covert_screenshot_enabled",e.target.checked)}/>فعال‌سازی اسکرین‌شات نامحسوس</label>
@@ -4255,8 +4516,8 @@ function Settings(){
         <HoursRangeEditor value={v.covert_screenshot_hours||[]} onChange={(arr)=>set("covert_screenshot_hours",arr)}/>
       </div>}
       <button className="btn p" style={{marginTop:10}} onClick={save}>ذخیرهٔ تنظیمات اسکرین‌شات</button>
-    </div>
-    <div className="panel t-files"><h3>اعلان‌ها و هشدارهای خودکار (Push)</h3>
+    </div>}
+    {visitedTabs.includes("monitoring")&&<div id="settings-section-30" className="panel t-monitoring"><h3>اعلان‌ها و هشدارهای خودکار (Push)</h3>
       <p className="muted" style={{marginBottom:8}}>برای ارسال خودکار هشدار انقضای اعتبار به گوشی نیروها (حتی وقتی اپ بسته است)، یک کلید مخفی تعیین کنید و آدرس زیر را در Cron روزانهٔ هاست قرار دهید.</p>
       <label className="label">کلید مخفی Cron</label>
       <input className="input" value={v.cron_key||""} onChange={e=>set("cron_key",e.target.value)} placeholder="مثلاً یک رشتهٔ تصادفی طولانی"/>
@@ -4266,12 +4527,12 @@ function Settings(){
       </div>
       <p className="muted" style={{fontSize:12,marginTop:8}}>در cPanel → Cron Jobs، دستور بالا را روزی یک‌بار اجرا کنید (مسیر دقیق فایل را از File Manager بردارید؛ این فایل کنار index.php است). نیازی به wget یا کلید نیست — اسکریپت PHP مستقیماً اجرا می‌شود. پیام‌ها و ارجاع گزارش‌ها به‌صورت لحظه‌ای Push می‌شوند و به Cron نیاز ندارند.</p>
       <p className="muted" style={{fontSize:12,marginTop:4}}>کلید مخفی بالا فقط برای فراخوانی از طریق آدرس اینترنتی (در صورت پشتیبانی هاست از wget) لازم است.</p>
-    </div>
-    <div className="panel t-drivers"><h3>مسدودسازی رانندگان بدهکار</h3>
+    </div>}
+    {visitedTabs.includes("drivers")&&<div id="settings-section-31" className="panel t-drivers"><h3>مسدودسازی رانندگان بدهکار</h3>
       <p className="muted" style={{marginBottom:8}}>تعیین کنید با چند فیش پرداخت‌نشده در چند ماه اخیر، ثبت حضور راننده مسدود شود. همچنین می‌توانید رانندگان خاصی را دستی مسدود کنید.</p>
       <DriverBlock v={v} set={set} save={save}/>
-    </div>
-    <div className="panel t-print"><h3>قالب چاپ گزارش‌ها</h3>
+    </div>}
+    {visitedTabs.includes("print")&&<div id="settings-section-32" className="panel t-print"><h3>قالب چاپ گزارش‌ها</h3>
       <p className="muted" style={{marginBottom:8}}>ترتیب و نمایش هر بخش، تراز متن، اندازهٔ فونت و سربرگ/پاورقی چاپ را تنظیم کنید.</p>
       {(()=>{ const tp=v.report_print_template||{}; const setTp=(patch)=>set("report_print_template",{...tp,...patch});
         const labels={subject:"موضوع",sender:"فرستنده",date:"تاریخ",status:"وضعیت",body:"متن گزارش",trail:"روند گردش"};
@@ -4298,22 +4559,22 @@ function Settings(){
           </div>)}
           <button className="btn p" style={{marginTop:10}} onClick={save}>ذخیرهٔ قالب چاپ</button>
         </div>); })()}
-    </div>
-    <div className="panel t-dashboard"><h3>چیدمان داشبورد و نحوهٔ محاسبهٔ عملکرد هر نیرو</h3><DashboardConfig/></div>
-    <div className="panel t-dashboard"><h3>صحت‌سنجی حضور (عکس سلفی + خودروها)</h3><PresenceSettings/></div>
-    <div className="panel t-dashboard"><h3>حذف خودکار تصاویر و پیوست‌ها</h3>
+    </div>}
+    {visitedTabs.includes("dashboard")&&<div id="settings-section-33" className="panel t-dashboard"><h3>چیدمان داشبورد و نحوهٔ محاسبهٔ عملکرد هر نیرو</h3><DashboardConfig/></div>}
+    {visitedTabs.includes("hr")&&<div id="settings-section-34" className="panel t-hr"><h3>صحت‌سنجی حضور (عکس سلفی + خودروها)</h3><PresenceSettings/></div>}
+    {visitedTabs.includes("backup")&&<div id="settings-section-35" className="panel t-backup"><h3>حذف خودکار تصاویر و پیوست‌ها</h3>
       {Field("presence_retention_days","نگهداری تصاویر صحت‌سنجی حضور (روز) — ۰ = بدون حذف")}
       {Field("form_attachment_retention_days","نگهداری تصاویر پیوست فرم‌ها و چک‌لیست‌ها (روز)")}
       {Field("attachment_retention_days","نگهداری پیوست گزارش‌ها و پیام‌ها (روز)")}
       {Field("salary_slip_retention_days","نگهداری فیش‌های حقوقی (روز) — ۰ = بدون حذف")}
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیره</button>
-      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>تصاویر/پیوست‌ها و فیش‌های حقوقی قدیمی‌تر از مدت تعیین‌شده، به‌صورت خودکار از سرور حذف می‌شوند. برای اجرای خودکار روزانه، یک Cron به آدرس <code dir="ltr">/api/cron/cleanup?key=کلید</code> تنظیم کنید.</p></div>
-    <div className="panel t-dashboard"><h3>سمت‌ها (نقش‌ها)</h3><RolesManager/></div>
-    <div className="panel t-dashboard"><h3>سیاست تمدید اجباری</h3>
+      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>تصاویر/پیوست‌ها و فیش‌های حقوقی قدیمی‌تر از مدت تعیین‌شده، به‌صورت خودکار از سرور حذف می‌شوند. برای اجرای خودکار روزانه، یک Cron به آدرس <code dir="ltr">/api/cron/cleanup?key=کلید</code> تنظیم کنید.</p></div>}
+    {visitedTabs.includes("access")&&<div id="settings-section-36" className="panel t-access"><h3>سمت‌ها (نقش‌ها)</h3><RolesManager/></div>}
+    {visitedTabs.includes("security")&&<div id="settings-section-37" className="panel t-security"><h3>سیاست تمدید اجباری</h3>
       {Field("renew_days","دورهٔ تغییر اجباری رمز و عکس پرسنلی (روز) — پیش‌فرض ۳۰")}
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیره</button>
-      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>هر چند روز یک‌بار کاربر در اپ موبایل ملزم به تغییر رمز عبور و گرفتن عکس پرسنلی جدید شود.</p></div>
-    <div className="panel t-sms"><h3>قالب پیامک انقضای مدارک</h3>
+      <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>هر چند روز یک‌بار کاربر در اپ موبایل ملزم به تغییر رمز عبور و گرفتن عکس پرسنلی جدید شود.</p></div>}
+    {visitedTabs.includes("sms")&&<div id="settings-section-38" className="panel t-sms"><h3>قالب پیامک انقضای مدارک</h3>
       <p style={{fontSize:13,color:"var(--muted)",marginBottom:8}}>این قالب‌ها هنگام ارسال پیامک از صفحات «بیمه/معاینه»، «پروانهٔ تاکسیرانی» و «بهره‌برداری» در اپ استفاده می‌شوند.</p>
       <label className="label">قالب پیامک بیمهٔ شخص ثالث — متغیرها: {"{name}"}، {"{plate}"}، {"{expire}"}</label>
       <textarea className="input" rows="2" placeholder={"راننده گرامی {name}، بیمهٔ شخص ثالث خودروی شما با پلاک {plate} در تاریخ {expire} منقضی می‌شود."} value={v.insurance_sms_template||""} onChange={e=>setV({...v,insurance_sms_template:e.target.value})}/>
@@ -4324,8 +4585,8 @@ function Settings(){
       <label className="label" style={{marginTop:8}}>قالب پیامک پروانهٔ بهره‌برداری — متغیرها: {"{name}"}، {"{expire}"}</label>
       <textarea className="input" rows="2" placeholder={"تاکسیران گرامی {name}، پروانهٔ بهره‌برداری خودروی شما در تاریخ {expire} منقضی می‌شود. لطفاً جهت تمدید اقدام فرمایید."} value={v.oplic_sms_template||""} onChange={e=>setV({...v,oplic_sms_template:e.target.value})}/>
       <button className="btn p" style={{marginTop:10}} onClick={save}>ذخیره قالب‌ها</button>
-    </div>
-    <div className="panel t-sms"><h3>تنظیمات سرویس پیامک (نگین ارتباط)</h3>
+    </div>}
+    {visitedTabs.includes("sms")&&<div id="settings-section-39" className="panel t-sms"><h3>تنظیمات سرویس پیامک (نگین ارتباط)</h3>
       <label className="row" style={{gap:8,marginBottom:10}}><input type="checkbox" checked={!!v.sms_enabled} onChange={e=>setV({...v,sms_enabled:e.target.checked})}/><b>فعال‌سازی سرویس پیامک</b></label>
       {Field("sms_wsdl","آدرس وب‌سرویس (WSDL) — پیش‌فرض: https://sms.3300.ir/almassms.asmx?WSDL")}
       {Field("sms_username","نام کاربری وب‌سرویس")}
@@ -4333,31 +4594,31 @@ function Settings(){
       {Field("sms_line","شمارهٔ خط ارسال (اختیاری)")}
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیرهٔ تنظیمات پیامک</button>
       <SmsTools/>
-    </div>
-    <div className="panel t-sms"><h3>🔑 ورود با کد پیامکی (OTP) و خواندن خودکار کد</h3>
+    </div>}
+    {visitedTabs.includes("security")&&<div id="settings-section-40" className="panel t-security"><h3>🔑 ورود با کد پیامکی (OTP) و خواندن خودکار کد</h3>
       <p style={{fontSize:13,color:"var(--muted)",marginBottom:8}}>برای اینکه اپ اندروید بتواند کد پیامکی را <b>بدون هیچ مجوز حساسی و کاملاً خودکار</b> بخواند (Android SMS Retriever API)، باید «امضای اپلیکیشن» (App Hash — یک رشتهٔ ۱۱ کاراکتری) در انتهای متن پیامک درج شود. این مقدار را از توسعه‌دهنده بگیرید (به‌ازای هر keystore متفاوت است) و اینجا ثبت کنید.</p>
       {Field("android_sms_app_hash","App Hash اپلیکیشن اندروید (۱۱ کاراکتر)")}
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیره</button>
-    </div>
-    <div className="panel t-sms"><h3>قالب‌های پیش‌فرض پیامک</h3><SmsTemplates v={v} setV={setV} save={save}/></div>
-    <div className="panel t-sms"><h3>💳 اعتبار و محدودیت ارسال پیامک</h3><SmsCreditAndLimit/></div>
-    <div className="panel t-sms"><h3>💰 هزینهٔ پیامک و ظرفیت ارسال</h3><SmsCostPanel v={v} set={set} save={save}/></div>
-    <div className="panel t-sms"><h3>محدودیت ارسال پیامک</h3><label className="row" style={{gap:8}}><input type="checkbox" checked={!!v.sms_templates_only} onChange={e=>set("sms_templates_only",e.target.checked)}/>کاربران فقط بتوانند از قالب‌های تعریف‌شده استفاده کنند (امکان نوشتن متن دلخواه نباشد)</label><button className="btn p" style={{marginTop:10}} onClick={save}>ذخیره</button></div>
-    <div className="panel t-bale"><h3>🤖 تنظیمات ربات‌های پیام‌رسان</h3><BaleSettings v={v} setV={setV} set={set} save={save}/></div>
-<div className="panel t-sms"><h3>پیامک خوش‌آمد هنگام ثبت‌نام کاربر</h3>
+    </div>}
+    {visitedTabs.includes("sms")&&<div id="settings-section-41" className="panel t-sms"><h3>قالب‌های پیش‌فرض پیامک</h3><SmsTemplates v={v} setV={setV} save={save}/></div>}
+    {visitedTabs.includes("sms")&&<div id="settings-section-42" className="panel t-sms"><h3>💳 اعتبار و محدودیت ارسال پیامک</h3><SmsCreditAndLimit/></div>}
+    {visitedTabs.includes("sms")&&<div id="settings-section-43" className="panel t-sms"><h3>💰 هزینهٔ پیامک و ظرفیت ارسال</h3><SmsCostPanel v={v} set={set} save={save}/></div>}
+    {visitedTabs.includes("sms")&&<div id="settings-section-44" className="panel t-sms"><h3>محدودیت ارسال پیامک</h3><label className="row" style={{gap:8}}><input type="checkbox" checked={!!v.sms_templates_only} onChange={e=>set("sms_templates_only",e.target.checked)}/>کاربران فقط بتوانند از قالب‌های تعریف‌شده استفاده کنند (امکان نوشتن متن دلخواه نباشد)</label><button className="btn p" style={{marginTop:10}} onClick={save}>ذخیره</button></div>}
+    {visitedTabs.includes("bale")&&<div id="settings-section-45" className="panel t-bale"><h3>🤖 تنظیمات ربات‌های پیام‌رسان</h3><BaleSettings v={v} setV={setV} set={set} save={save}/></div>}
+{visitedTabs.includes("sms")&&<div id="settings-section-46" className="panel t-sms"><h3>پیامک خوش‌آمد هنگام ثبت‌نام کاربر</h3>
       <p style={{fontSize:13,color:"var(--muted)",marginBottom:8}}>هنگام ایجاد کاربر جدید (در صورت داشتن موبایل و فعال بودن سرویس)، این پیامک حاوی نام کاربری و رمز عبور برای او ارسال می‌شود. از متغیرها استفاده کنید: <code dir="ltr">{"{username}"}</code>، <code dir="ltr">{"{password}"}</code>، <code dir="ltr">{"{first_name}"}</code>، <code dir="ltr">{"{last_name}"}</code></p>
       <textarea className="input" rows="4" placeholder={"به سامانه خوش آمدید.\nنام کاربری: {username}\nرمز عبور: {password}"} value={v.sms_welcome_template||""} onChange={e=>setV({...v,sms_welcome_template:e.target.value})}/>
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیرهٔ قالب خوش‌آمد</button>
-    </div>
-    <div className="panel t-sms"><h3>اطلاعات شرکت (برای پیامک‌های انقضا)</h3>
+    </div>}
+    {visitedTabs.includes("general")&&<div id="settings-section-47" className="panel t-general"><h3>اطلاعات شرکت (برای پیامک‌های انقضا)</h3>
       {Field("company_name","نام شرکت")}
       {Field("company_address","آدرس شرکت")}
       {Field("company_phone","شمارهٔ تماس شرکت")}
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیرهٔ اطلاعات شرکت</button>
-    </div>
-    <div className="panel t-sms"><h3>قالب و ارسال خودکار پیامک‌های انقضا</h3><ExpirySettings v={v} setV={setV} save={save}/></div>
-    <div className="panel t-access"><h3>سطح دسترسی سمت‌ها به بخش‌های سایت</h3><RolePerms/></div>
-    <div className="panel t-backup"><h3>پشتیبان‌گیری، بازیابی و پاکسازی</h3><BackupSettings/></div></div></div>);
+    </div>}
+    {visitedTabs.includes("sms")&&<div id="settings-section-48" className="panel t-sms"><h3>قالب و ارسال خودکار پیامک‌های انقضا</h3><ExpirySettings v={v} setV={setV} save={save}/></div>}
+    {visitedTabs.includes("access")&&<div id="settings-section-49" className="panel t-access"><h3>سطح دسترسی سمت‌ها به بخش‌های سایت</h3><RolePerms/></div>}
+    {visitedTabs.includes("backup")&&<div id="settings-section-50" className="panel t-backup"><h3>پشتیبان‌گیری، بازیابی و پاکسازی</h3><BackupSettings/></div>}</div></div>);
 }
 
 function Logs(){
@@ -7753,6 +8014,8 @@ function SmsExpiry({type,title}){
 
 // صحت‌سنجی حضور: مشاهدهٔ ارسال‌ها (سلفی + عکس خودروها) و تخلفات عدم ارسال
 function PresenceChecks(){
+  const [immediateOpen,setImmediateOpen]=useState(false);
+  useEffect(()=>{const onTab=event=>setImmediateOpen(event.detail==='immediate');window.addEventListener('khatyar:presence-tab',onTab);return()=>window.removeEventListener('khatyar:presence-tab',onTab);},[]);
   const today=new Date().toISOString().slice(0,10);
   const [from,setFrom]=useState(today); const [to,setTo]=useState(today);
   const [rows,setRows]=useState([]); const [viol,setViol]=useState([]); const [loading,setLoading]=useState(false);
@@ -7766,7 +8029,7 @@ function PresenceChecks(){
   }catch(e){ alert(e.message||"خطا"); } };
   const dlImg=(url,name)=>{ const a=document.createElement("a"); a.href=url; a.download=name||"presence.jpg"; a.target="_blank"; a.click(); };
   const exportExcel=async()=>{ try{ const res=await fetch(db.presenceExportUrl(from,to,""),{headers:tok()}); if(!res.ok)throw new Error("خطا در دریافت"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`صحت‌سنجی_${from}_${to}.csv`; a.click(); }catch(e){ alert(e.message); } };
-  return(<div className="panel admin-workspace-page"><h3 style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+  return(<div className="panel admin-workspace-page"><div id="khatyar-presence-extension"/><div hidden={immediateOpen}><h3 style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
       <span>📸 صحت‌سنجی حضور نیروها</span></h3>
     <div className="filters">
       <span className="label">از</span><JDate value={from} onChange={setFrom}/>
@@ -7824,7 +8087,7 @@ function PresenceChecks(){
         <button className="btn g" onClick={()=>setFull(null)}>بستن</button>
       </div>
     </div>}
-  </div>);
+  </div></div>);
 }
 
 // صحت‌سنجی حضور: مشاهدهٔ ارسال‌ها (سلفی + عکس خودروها) و تخلفات عدم ارسال

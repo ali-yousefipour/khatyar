@@ -6631,36 +6631,47 @@ route('GET', '/api/media', function($p,$b,$u){
   Media::serve($rel); // خروجی مستقیم فایل + exit
 });
 
-route('GET', '/api/locations/live', function($p,$b,$u){
-  $shiftOnly = !empty($_GET['shift_only']);
+function _live_location_sql($shiftOnly){
   // Older deployments have captured_at/synced_at but no received_at column.
   $hasReceived=(bool)Db::one("SHOW COLUMNS FROM location_pings LIKE 'received_at'");
   $latestTime=$hasReceived?'COALESCE(last_ping.received_at,last_ping.captured_at)':'last_ping.captured_at';
   $receiptTime=$hasReceived?'COALESCE(lp.received_at,lp.captured_at)':'lp.captured_at';
-  // اطمینان از وجود ستون ip_country
-  try { $cc = array_column(Db::all("SHOW COLUMNS FROM user_net_state"), 'Field'); if (!in_array('ip_country', $cc)) Db::run("ALTER TABLE user_net_state ADD COLUMN ip_country VARCHAR(4) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  $netColumns=array_column(Db::all("SHOW COLUMNS FROM user_net_state"),'Field');
+  $ipCountry=in_array('ip_country',$netColumns,true)?'ns.ip_country':'NULL';
   $where = '';
   if ($shiftOnly) {
     // فقط کاربرانی که شیفت دارند و الان در ساعت شیفت‌شان هستند
     // (چک ساده: user_shifts وجود داشته باشد و ارسال موقعیت اخیر داشته باشند)
     $where = 'WHERE EXISTS (SELECT 1 FROM user_shifts ust JOIN shifts sh ON sh.id=ust.shift_id AND sh.is_active=1 WHERE ust.user_id=u.id)';
   }
-  return Db::all(
-  "SELECT lp.user_id, u.first_name, u.last_name,
+  return "SELECT lp.user_id, u.first_name, u.last_name,
           CASE WHEN u.photo_path IS NOT NULL AND u.photo_path<>'' THEN CONCAT('/api/media?path=', u.photo_path) ELSE u.photo END AS photo,
           u.role_id, r.title role_title, r.level, lp.lat, lp.lng, lp.captured_at,
           COALESCE(lp.via_gsm,0) AS via_gsm,
           $receiptTime AS received_at,
           ($receiptTime >= DATE_SUB(NOW(), INTERVAL 3 MINUTE)) AS online,
           TIMESTAMPDIFF(SECOND, $receiptTime, NOW()) AS secs_ago,
-          COALESCE(ns.vpn_on,0) AS vpn_on, ns.battery_level, ns.battery_charging, ns.ip_country, ns.last_ip
+          COALESCE(ns.vpn_on,0) AS vpn_on, ns.battery_level, ns.battery_charging, $ipCountry AS ip_country, ns.last_ip
    FROM users u
    JOIN location_pings lp ON lp.id=(SELECT last_ping.id FROM location_pings last_ping
      WHERE last_ping.user_id=u.id ORDER BY $latestTime DESC,last_ping.id DESC LIMIT 1)
    LEFT JOIN roles r ON r.id=u.role_id
    LEFT JOIN user_net_state ns ON ns.user_id=lp.user_id
-   $where");
+   $where";
+}
+route('GET', '/api/locations/live', function($p,$b,$u){
+  return Db::all(_live_location_sql(!empty($_GET['shift_only'])));
 }, false, ADMIN);
+
+// Read-only diagnostics: query plan and index metadata, never coordinates or credentials.
+route('GET', '/api/locations/live-diagnostics', function($p,$b,$u){
+  $start=microtime(true);
+  $indexes=Db::all('SHOW INDEX FROM location_pings');
+  $plan=Db::all('EXPLAIN '._live_location_sql(!empty($_GET['shift_only'])));
+  return ['elapsed_ms'=>(int)round((microtime(true)-$start)*1000),
+    'indexes'=>array_map(static fn($row)=>array_intersect_key($row,array_flip(['Key_name','Seq_in_index','Column_name'])), $indexes),
+    'plan'=>array_map(static fn($row)=>array_intersect_key($row,array_flip(['table','type','possible_keys','key','rows','Extra'])), $plan)];
+},false,ADMIN);
 
 // مسیر طی‌شدهٔ یک کاربر در بازهٔ زمانی (برای رهگیری زنده و گزارش رهگیری روی نقشه)
 route('GET', '/api/locations/track', function($p,$b,$u){

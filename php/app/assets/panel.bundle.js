@@ -1369,6 +1369,18 @@ function LiveMap() {
     const [liveLoading, setLiveLoading] = useState(true);
     const [liveError, setLiveError] = useState('');
     const [liveUpdated, setLiveUpdated] = useState(null);
+    const [mapDiagnostic, setMapDiagnostic] = useState(null);
+    const [diagnosticBusy, setDiagnosticBusy] = useState(false);
+    const diagnoseMap = async () => { if (diagnosticBusy)
+        return; setDiagnosticBusy(true); try {
+        setMapDiagnostic(await GET('/locations/live-diagnostics' + (shiftFilterRef.current ? '?shift_only=1' : ''), { timeoutMs: 20000 }));
+    }
+    catch (error) {
+        setMapDiagnostic({ error: error.message });
+    }
+    finally {
+        setDiagnosticBusy(false);
+    } };
     useEffect(() => { onlyOnlineRef.current = onlyOnline; localStorage.liveOnlyOnline = onlyOnline ? "1" : ""; }, [onlyOnline]);
     const [roleFilter, setRoleFilter] = useState(() => { try {
         return JSON.parse(localStorage.liveRoleFilter || "null");
@@ -1978,6 +1990,28 @@ function LiveMap() {
         liveError && React.createElement("p", { role: "alert" },
             liveError,
             " \u2014 \u0645\u0648\u0642\u0639\u06CC\u062A\u200C\u0647\u0627\u06CC \u0642\u0628\u0644\u06CC \u062D\u0641\u0638 \u0634\u062F\u0647\u200C\u0627\u0646\u062F."),
+        React.createElement("button", { className: "btn g", disabled: diagnosticBusy, onClick: diagnoseMap }, diagnosticBusy ? 'در حال بررسی…' : 'بررسی اتصال و سرعت نقشه'),
+        mapDiagnostic && React.createElement(Modal, { title: "\u0628\u0631\u0631\u0633\u06CC \u0633\u0631\u0639\u062A \u0646\u0642\u0634\u0647", onClose: () => setMapDiagnostic(null) }, mapDiagnostic.error ? React.createElement("p", { role: "alert" }, mapDiagnostic.error) : React.createElement(React.Fragment, null,
+            React.createElement("p", null,
+                "\u0632\u0645\u0627\u0646 \u0628\u0631\u0631\u0633\u06CC \u067E\u0627\u06CC\u06AF\u0627\u0647 \u062F\u0627\u062F\u0647: ",
+                fa(mapDiagnostic.elapsed_ms),
+                " \u0645\u06CC\u0644\u06CC\u200C\u062B\u0627\u0646\u06CC\u0647"),
+            React.createElement("p", null,
+                "\u062A\u0639\u062F\u0627\u062F \u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646\u062F\u06A9\u0633: ",
+                fa(mapDiagnostic.indexes.length)),
+            React.createElement("div", { className: "table-wrap" },
+                React.createElement("table", null,
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0628\u062E\u0634"),
+                            React.createElement("th", null, "\u0646\u0648\u0639 \u062F\u0633\u062A\u0631\u0633\u06CC"),
+                            React.createElement("th", null, "\u0627\u06CC\u0646\u062F\u06A9\u0633"),
+                            React.createElement("th", null, "\u0628\u0631\u0622\u0648\u0631\u062F \u0631\u062F\u06CC\u0641"))),
+                    React.createElement("tbody", null, mapDiagnostic.plan.map((row, index) => React.createElement("tr", { key: index },
+                        React.createElement("td", null, row.table),
+                        React.createElement("td", null, row.type),
+                        React.createElement("td", null, row.key || '—'),
+                        React.createElement("td", null, fa(row.rows || 0))))))))),
         React.createElement("div", { className: "tabbar", style: { display: "flex", gap: 8, marginBottom: 12, borderBottom: "2px solid var(--line)", flexWrap: "wrap" } }, [["main", "🗺 نقشهٔ اصلی نیروها"], ["live", "🛰 رهگیری زنده"], ["report", "📊 گزارش مسیر و پخش"], ["exits", "⛔ خروج از محدوده امروز"]].map(([k, lbl]) => React.createElement("button", { key: k, onClick: () => { setViewTab(k); if (k === "main")
                 stopTrack(); }, style: { background: "none", border: "none", borderBottom: viewTab === k ? "3px solid var(--brand)" : "3px solid transparent", padding: "8px 14px", cursor: "pointer", fontWeight: viewTab === k ? 800 : 500, color: viewTab === k ? "var(--brand)" : "var(--muted)", fontFamily: "inherit", fontSize: 13.5, whiteSpace: "nowrap" } }, lbl))),
         showFilters && React.createElement(MapFilters, { allUsers: allUsers, roleFilter: roleFilter, setRoleFilter: setRoleFilter, personFilter: personFilter, setPersonFilter: setPersonFilter, onApply: () => { const mk = markersRef.current, grp = layerRef.current; if (grp) {
@@ -6864,10 +6898,266 @@ function MaintenanceModeSettings() {
             "\u0627\u062C\u0627\u0632\u0647 \u0648\u0631\u0648\u062F \u0645\u062F\u06CC\u0631\u0627\u0646 \u062F\u0631 \u062D\u0627\u0644\u062A \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC"),
         React.createElement("button", { className: "btn p", style: { marginTop: 10 }, disabled: saving, onClick: save }, saving ? 'در حال ذخیره…' : 'ذخیره حالت نگهداری'));
 }
+const SETTINGS_SECTION_INDEX = [
+    {
+        "id": "settings-section-1",
+        "tab": "general",
+        "title": "تنظیمات عمومی"
+    },
+    {
+        "id": "settings-section-2",
+        "tab": "subscription",
+        "title": "💳 اشتراک گروهی و انفرادی"
+    },
+    {
+        "id": "settings-section-3",
+        "tab": "monitoring",
+        "title": "⏱ تنظیم دوره پایش و ارسال هشدار"
+    },
+    {
+        "id": "settings-section-4",
+        "tab": "general",
+        "title": "لوگو و عنوان سایت و اداره"
+    },
+    {
+        "id": "settings-section-5",
+        "tab": "radio",
+        "title": "تنظیمات بی‌سیم"
+    },
+    {
+        "id": "settings-section-6",
+        "tab": "security",
+        "title": "🔐 قوانین امنیتی ورود"
+    },
+    {
+        "id": "settings-section-7",
+        "tab": "monitoring",
+        "title": "تنظیمات موقعیت‌یابی"
+    },
+    {
+        "id": "settings-section-8",
+        "tab": "files",
+        "title": "🖼 کیفیت تصاویر ارسالی از موبایل"
+    },
+    {
+        "id": "settings-section-9",
+        "tab": "hr",
+        "title": "انتخاب منطقه و بازرس توسط کاربر"
+    },
+    {
+        "id": "settings-section-10",
+        "tab": "hr",
+        "title": "ثبت حضور مسئولین"
+    },
+    {
+        "id": "settings-section-11",
+        "tab": "hr",
+        "title": "📍 محاسبهٔ کارکرد با GPS"
+    },
+    {
+        "id": "settings-section-12",
+        "tab": "hr",
+        "title": "محدودیت‌های ماهانهٔ کاربر"
+    },
+    {
+        "id": "settings-section-13",
+        "tab": "hr",
+        "title": "محدودیت‌های ثبت روزانه"
+    },
+    {
+        "id": "settings-section-14",
+        "tab": "hr",
+        "title": "تنظیمات درخواست‌ها (مرخصی/ماموریت/اضافه‌کار)"
+    },
+    {
+        "id": "settings-section-15",
+        "tab": "hr",
+        "title": "تنظیمات حقوق و دستمزد"
+    },
+    {
+        "id": "settings-section-16",
+        "tab": "hr",
+        "title": "🎂 تبریک تولد خودکار"
+    },
+    {
+        "id": "settings-section-17",
+        "tab": "fields",
+        "title": "🗂 فیلدهای سفارشی پرسنل"
+    },
+    {
+        "id": "settings-section-18",
+        "tab": "appitems",
+        "title": "📱 آیتم‌های قابل نمایش اپ بر اساس سمت"
+    },
+    {
+        "id": "settings-section-19",
+        "tab": "drivers",
+        "title": "خطوط دارای سیستم نوبت‌دهی"
+    },
+    {
+        "id": "settings-section-20",
+        "tab": "monitoring",
+        "title": "کلید API نقشه‌ها (نشان و بلد)"
+    },
+    {
+        "id": "settings-section-21",
+        "tab": "drivers",
+        "title": "علت‌های قطع سیستم نوبت‌دهی"
+    },
+    {
+        "id": "settings-section-22",
+        "tab": "sms",
+        "title": "پیامک تذکر به راننده"
+    },
+    {
+        "id": "settings-section-23",
+        "tab": "sms",
+        "title": "پیامک اطلاعات فیش آبونمان"
+    },
+    {
+        "id": "settings-section-24",
+        "tab": "hr",
+        "title": "تنظیمات ثبت تذکر"
+    },
+    {
+        "id": "settings-section-25",
+        "tab": "security",
+        "title": "نسخه و به‌روزرسانی اپ اندروید"
+    },
+    {
+        "id": "settings-section-26",
+        "tab": "files",
+        "title": "محدودیت فایل‌های پیوست (هر بخش جداگانه)"
+    },
+    {
+        "id": "settings-section-27",
+        "tab": "monitoring",
+        "title": "📸 نظارت تصویری نیروها"
+    },
+    {
+        "id": "settings-section-28",
+        "tab": "monitoring",
+        "title": "📍 اعلان‌های میدانی و حضور"
+    },
+    {
+        "id": "settings-section-29",
+        "tab": "monitoring",
+        "title": "🖥 اسکرین‌شات نامحسوس از صفحهٔ نیروها"
+    },
+    {
+        "id": "settings-section-30",
+        "tab": "monitoring",
+        "title": "اعلان‌ها و هشدارهای خودکار (Push)"
+    },
+    {
+        "id": "settings-section-31",
+        "tab": "drivers",
+        "title": "مسدودسازی رانندگان بدهکار"
+    },
+    {
+        "id": "settings-section-32",
+        "tab": "print",
+        "title": "قالب چاپ گزارش‌ها"
+    },
+    {
+        "id": "settings-section-33",
+        "tab": "dashboard",
+        "title": "چیدمان داشبورد و نحوهٔ محاسبهٔ عملکرد هر نیرو"
+    },
+    {
+        "id": "settings-section-34",
+        "tab": "hr",
+        "title": "صحت‌سنجی حضور (عکس سلفی + خودروها)"
+    },
+    {
+        "id": "settings-section-35",
+        "tab": "backup",
+        "title": "حذف خودکار تصاویر و پیوست‌ها"
+    },
+    {
+        "id": "settings-section-36",
+        "tab": "access",
+        "title": "سمت‌ها (نقش‌ها)"
+    },
+    {
+        "id": "settings-section-37",
+        "tab": "security",
+        "title": "سیاست تمدید اجباری"
+    },
+    {
+        "id": "settings-section-38",
+        "tab": "sms",
+        "title": "قالب پیامک انقضای مدارک"
+    },
+    {
+        "id": "settings-section-39",
+        "tab": "sms",
+        "title": "تنظیمات سرویس پیامک (نگین ارتباط)"
+    },
+    {
+        "id": "settings-section-40",
+        "tab": "security",
+        "title": "🔑 ورود با کد پیامکی (OTP) و خواندن خودکار کد"
+    },
+    {
+        "id": "settings-section-41",
+        "tab": "sms",
+        "title": "قالب‌های پیش‌فرض پیامک"
+    },
+    {
+        "id": "settings-section-42",
+        "tab": "sms",
+        "title": "💳 اعتبار و محدودیت ارسال پیامک"
+    },
+    {
+        "id": "settings-section-43",
+        "tab": "sms",
+        "title": "💰 هزینهٔ پیامک و ظرفیت ارسال"
+    },
+    {
+        "id": "settings-section-44",
+        "tab": "sms",
+        "title": "محدودیت ارسال پیامک"
+    },
+    {
+        "id": "settings-section-45",
+        "tab": "bale",
+        "title": "🤖 تنظیمات ربات‌های پیام‌رسان"
+    },
+    {
+        "id": "settings-section-46",
+        "tab": "sms",
+        "title": "پیامک خوش‌آمد هنگام ثبت‌نام کاربر"
+    },
+    {
+        "id": "settings-section-47",
+        "tab": "general",
+        "title": "اطلاعات شرکت (برای پیامک‌های انقضا)"
+    },
+    {
+        "id": "settings-section-48",
+        "tab": "sms",
+        "title": "قالب و ارسال خودکار پیامک‌های انقضا"
+    },
+    {
+        "id": "settings-section-49",
+        "tab": "access",
+        "title": "سطح دسترسی سمت‌ها به بخش‌های سایت"
+    },
+    {
+        "id": "settings-section-50",
+        "tab": "backup",
+        "title": "پشتیبان‌گیری، بازیابی و پاکسازی"
+    }
+];
 function Settings() {
     var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l, _m, _p, _q, _r, _u, _v, _w, _x, _y, _z, _0;
     const [v, setV] = useState(null);
     const [tab, setTab] = useState("general");
+    const [visitedTabs, setVisitedTabs] = useState(['general']);
+    const [settingsQuery, setSettingsQuery] = useState('');
+    const selectSettingsTab = key => { setTab(key); setVisitedTabs(previous => previous.includes(key) ? previous : [...previous, key]); };
+    const openSettingsSection = section => { selectSettingsTab(section.tab); setTimeout(() => { var _a; return (_a = document.getElementById(section.id)) === null || _a === void 0 ? void 0 : _a.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 0); };
     const [settingsError, setSettingsError] = useState('');
     const [settingsSaving, setSettingsSaving] = useState(false);
     const settingsLock = useRef(false);
@@ -6889,7 +7179,7 @@ function Settings() {
         settingsLock.current = false;
         setSettingsSaving(false);
     } };
-    const TABS = [["general", "⚙️", "عمومی و موقعیت"], ["subscription", "💳", "اشتراک"], ["monitoring", "⏱️", "پایش و هشدارها"], ["dashboard", "📊", "داشبورد و محاسبهٔ عملکرد"], ["hr", "👥", "منابع انسانی"], ["fields", "🧩", "فیلدهای پرسنل"], ["appitems", "📱", "آیتم‌های اپ هر سمت"], ["sms", "💬", "پیامک"], ["bale", "🤖", "ربات‌ها"], ["security", "🔐", "امنیت و نسخه اپ"], ["radio", "📻", "تنظیمات بی‌سیم"], ["files", "📎", "پیوست‌ها و اعلان‌ها"], ["drivers", "💰", "بدهکاران"], ["print", "🖨️", "قالب چاپ"], ["access", "🛡️", "دسترسی‌ها"], ["backup", "💾", "پشتیبان‌گیری و پاکسازی"]];
+    const TABS = [["general", "⚙️", "سازمان و هویت"], ["subscription", "💳", "اشتراک"], ["monitoring", "⏱️", "موقعیت، نظارت و هشدارها"], ["dashboard", "📊", "داشبورد و محاسبهٔ عملکرد"], ["hr", "👥", "منابع انسانی"], ["fields", "🧩", "فیلدهای پرسنل"], ["appitems", "📱", "آیتم‌های اپ هر سمت"], ["sms", "💬", "پیامک"], ["bale", "🤖", "ربات‌ها"], ["security", "🔐", "امنیت و نسخه اپ"], ["radio", "📻", "تنظیمات بی‌سیم"], ["files", "📎", "تصاویر و پیوست‌ها"], ["drivers", "🚕", "خطوط و رانندگان"], ["print", "🖨️", "قالب چاپ"], ["access", "🛡️", "دسترسی‌ها"], ["backup", "💾", "پشتیبان‌گیری و پاکسازی"]];
     const Field = (k, l) => {
         var _a;
         return React.createElement("div", { style: { marginBottom: 12 } },
@@ -6906,14 +7196,21 @@ function Settings() {
             React.createElement("p", null, "\u0628\u062E\u0634 \u0645\u0631\u062A\u0628\u0637 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F. \u062A\u063A\u06CC\u06CC\u0631 \u0628\u062E\u0634\u060C \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0648\u0627\u0631\u062F\u0634\u062F\u0647 \u0631\u0627 \u067E\u0627\u06A9 \u0646\u0645\u06CC\u200C\u06A9\u0646\u062F."),
             settingsError && React.createElement("p", { role: "alert" }, settingsError),
             settingsSaving && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A\u2026")),
+        React.createElement("label", { className: "settings-search" },
+            "\u062C\u0633\u062A\u062C\u0648 \u062F\u0631 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A",
+            React.createElement("input", { className: "input", type: "search", value: settingsQuery, onChange: event => setSettingsQuery(event.target.value), placeholder: "\u0639\u0646\u0648\u0627\u0646 \u0628\u062E\u0634\u061B \u0645\u0627\u0646\u0646\u062F \u0645\u0648\u0642\u0639\u06CC\u062A\u060C \u0631\u0645\u0632 \u06CC\u0627 \u067E\u06CC\u0627\u0645\u06A9" })),
+        settingsQuery.trim() && React.createElement("div", { className: "settings-search-results", "aria-live": "polite" },
+            SETTINGS_SECTION_INDEX.filter(section => normalizePanelMenuText(section.title).includes(normalizePanelMenuText(settingsQuery))).map(section => React.createElement("button", { type: "button", className: "btn g", key: section.id, onClick: () => openSettingsSection(section) }, section.title)),
+            !SETTINGS_SECTION_INDEX.some(section => normalizePanelMenuText(section.title).includes(normalizePanelMenuText(settingsQuery))) && React.createElement("p", null, "\u0628\u062E\u0634\u06CC \u0628\u0627 \u0627\u06CC\u0646 \u0639\u0646\u0648\u0627\u0646 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")),
         React.createElement("label", { className: "settings-mobile-picker" },
             "\u0628\u062E\u0634 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A",
-            React.createElement("select", { className: "input", value: tab, onChange: e => setTab(e.target.value) }, TABS.map(([k, , label]) => React.createElement("option", { key: k, value: k }, label)))),
-        React.createElement("div", { className: "tabbar" }, TABS.map(([k, ic, l]) => React.createElement("button", { key: k, "aria-pressed": tab === k, className: "tabbtn" + (tab === k ? " on" : ""), onClick: () => setTab(k) },
+            React.createElement("select", { className: "input", value: tab, onChange: e => selectSettingsTab(e.target.value) }, TABS.map(([k, , label]) => React.createElement("option", { key: k, value: k }, label)))),
+        React.createElement("div", { className: "tabbar" }, TABS.map(([k, ic, l]) => React.createElement("button", { key: k, "aria-pressed": tab === k, className: "tabbtn" + (tab === k ? " on" : ""), onClick: () => selectSettingsTab(k) },
             React.createElement("span", { "aria-hidden": "true", style: { fontSize: 16, lineHeight: 1, marginLeft: 6 } }, ic),
-            React.createElement("span", null, l)))),
+            React.createElement("span", null, l),
+            React.createElement("small", { className: "settings-section-count" }, fa(SETTINGS_SECTION_INDEX.filter(section => section.tab === k).length))))),
         React.createElement("div", { className: "grid2 settings-tabs tab-" + tab },
-            React.createElement("div", { className: "panel t-general" },
+            visitedTabs.includes("general") && React.createElement("div", { id: "settings-section-1", className: "panel t-general" },
                 React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0639\u0645\u0648\u0645\u06CC"),
                 Field("org_name", "نام سازمان"),
                 Field("deputy_name", "معاونت نظارت و بازرسی"),
@@ -6927,7 +7224,7 @@ function Settings() {
                         lbl)))),
                     React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 6 } }, "\u062F\u0631 \u062D\u0627\u0644\u062A \u00AB\u0641\u0642\u0637 \u0634\u06CC\u0641\u062A \u06A9\u0627\u0631\u06CC\u00BB: \u0645\u0648\u0642\u0639\u06CC\u062A \u0627\u0631\u0633\u0627\u0644 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F\u060C \u0633\u0644\u0641\u06CC \u0648 \u0627\u0633\u06A9\u0631\u06CC\u0646\u200C\u0634\u0627\u062A \u0646\u0627\u0645\u062D\u0633\u0648\u0633 \u06AF\u0631\u0641\u062A\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F\u060C \u0627\u0639\u0644\u0627\u0646\u200C\u0647\u0627 \u0627\u0631\u0633\u0627\u0644 \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F \u2014 \u0645\u06AF\u0631 \u062F\u0631 \u0633\u0627\u0639\u0627\u062A\u06CC \u06A9\u0647 \u0634\u06CC\u0641\u062A \u06A9\u0627\u0631\u06CC \u06A9\u0627\u0631\u0628\u0631 \u062A\u0639\u0631\u06CC\u0641 \u0634\u062F\u0647 \u0627\u0633\u062A.")),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A")),
-            React.createElement("div", { className: "panel t-subscription" },
+            visitedTabs.includes("subscription") && React.createElement("div", { id: "settings-section-2", className: "panel t-subscription" },
                 React.createElement("h3", null, "\uD83D\uDCB3 \u0627\u0634\u062A\u0631\u0627\u06A9 \u06AF\u0631\u0648\u0647\u06CC \u0648 \u0627\u0646\u0641\u0631\u0627\u062F\u06CC"),
                 Toggle("subscription_enabled", "فعال‌سازی محدودیت اشتراک برنامه"),
                 React.createElement("label", { className: "label" }, "\u0646\u0648\u0639 \u0627\u0633\u062A\u0641\u0627\u062F\u0647"),
@@ -6939,7 +7236,7 @@ function Settings() {
                 Field("subscription_individual_amount", "مبلغ اشتراک هر فرد برای ۳۰ روز (ریال)"),
                 React.createElement("p", { className: "muted", style: { fontSize: 12, lineHeight: 2 } }, "\u062F\u0631 \u062D\u0627\u0644\u062A \u06AF\u0631\u0648\u0647\u06CC\u060C \u0645\u062F\u06CC\u0631 \u0627\u062C\u0631\u0627\u06CC\u06CC \u0635\u0648\u0631\u062A\u062D\u0633\u0627\u0628 \u06A9\u0644 \u0645\u062C\u0645\u0648\u0639\u0647 \u0631\u0627 \u0627\u0632 \u0631\u0628\u0627\u062A \u0628\u0644\u0647 \u062F\u0631\u06CC\u0627\u0641\u062A \u0645\u06CC\u200C\u06A9\u0646\u062F \u0648 \u0628\u0627 \u067E\u0631\u062F\u0627\u062E\u062A \u0622\u0646\u060C \u062F\u0633\u062A\u0631\u0633\u06CC \u0647\u0645\u0647 \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u0628\u0631\u0627\u06CC \u06F3\u06F0 \u0631\u0648\u0632 \u0641\u0639\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F. \u062F\u0631 \u062D\u0627\u0644\u062A \u0627\u0646\u0641\u0631\u0627\u062F\u06CC\u060C \u0647\u0631 \u06A9\u0627\u0631\u0628\u0631 \u0635\u0648\u0631\u062A\u062D\u0633\u0627\u0628 \u0634\u062E\u0635\u06CC \u062E\u0648\u062F \u0631\u0627 \u062F\u0631\u06CC\u0627\u0641\u062A \u0648 \u0627\u0634\u062A\u0631\u0627\u06A9 \u06F3\u06F0 \u0631\u0648\u0632\u0647 \u0631\u0627 \u062A\u0645\u062F\u06CC\u062F \u0645\u06CC\u200C\u06A9\u0646\u062F. \u0648\u0636\u0639\u06CC\u062A \u0627\u0634\u062A\u0631\u0627\u06A9 \u062F\u0631 \u0627\u067E\u060C \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u0648 \u0645\u0646\u0648\u06CC \u062D\u0633\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
                 React.createElement("button", { className: "btn p", onClick: save }, "\u0630\u062E\u06CC\u0631\u0647 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u0634\u062A\u0631\u0627\u06A9")),
-            React.createElement("div", { className: "panel t-monitoring" },
+            visitedTabs.includes("monitoring") && React.createElement("div", { id: "settings-section-3", className: "panel t-monitoring" },
                 React.createElement("h3", null, "\u23F1 \u062A\u0646\u0638\u06CC\u0645 \u062F\u0648\u0631\u0647 \u067E\u0627\u06CC\u0634 \u0648 \u0627\u0631\u0633\u0627\u0644 \u0647\u0634\u062F\u0627\u0631"),
                 React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", lineHeight: 2, marginBottom: 12 } }, "\u0641\u0627\u0635\u0644\u0647\u0654 \u0628\u0631\u0631\u0633\u06CC \u0648\u0636\u0639\u06CC\u062A\u200C\u0647\u0627\u06CC \u0645\u06CC\u062F\u0627\u0646\u06CC \u0631\u0627 \u062A\u0639\u06CC\u06CC\u0646 \u06A9\u0646\u06CC\u062F. \u067E\u0633 \u0627\u0632 \u067E\u0627\u06CC\u0627\u0646 \u0647\u0631 \u062F\u0648\u0631\u0647\u060C \u062F\u0631 \u0635\u0648\u0631\u062A \u0627\u062F\u0627\u0645\u0647 \u062F\u0627\u0634\u062A\u0646 \u0648\u0636\u0639\u06CC\u062A \u063A\u06CC\u0631\u0645\u062C\u0627\u0632\u060C \u0647\u0634\u062F\u0627\u0631 \u0628\u0631\u0627\u06CC \u0645\u0633\u0626\u0648\u0644\u0627\u0646 \u0645\u062C\u0627\u0632 \u0648 \u0645\u0637\u0627\u0628\u0642 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u062F\u0631\u06CC\u0627\u0641\u062A \u0622\u0646\u0627\u0646 \u0627\u0631\u0633\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F."),
                 React.createElement("div", { className: "grid2", style: { gap: 12 } },
@@ -6954,12 +7251,12 @@ function Settings() {
                         React.createElement("input", { className: "input", type: "number", min: "15", max: "3600", value: (_c = v.station_check_seconds) !== null && _c !== void 0 ? _c : 60, onChange: e => set("station_check_seconds", Math.max(15, Math.min(3600, parseInt(e.target.value) || 60))) }))),
                 React.createElement("p", { className: "muted", style: { fontSize: 12, marginTop: 10 } }, "\u062D\u062F\u0627\u0642\u0644 \u06F1\u06F5 \u062B\u0627\u0646\u06CC\u0647 \u0648 \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F3\u06F6\u06F0\u06F0 \u062B\u0627\u0646\u06CC\u0647 \u0627\u0633\u062A."),
                 React.createElement("button", { className: "btn p", style: { marginTop: 10 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647 \u062F\u0648\u0631\u0647\u200C\u0647\u0627\u06CC \u067E\u0627\u06CC\u0634")),
-            React.createElement("div", { className: "panel t-general" },
+            visitedTabs.includes("general") && React.createElement("div", { id: "settings-section-4", className: "panel t-general" },
                 React.createElement("h3", null, "\u0644\u0648\u06AF\u0648 \u0648 \u0639\u0646\u0648\u0627\u0646 \u0633\u0627\u06CC\u062A \u0648 \u0627\u062F\u0627\u0631\u0647"),
                 React.createElement(OrgBrandingSettings, { v: v, set: set, save: save })),
-            React.createElement("div", { className: "panel t-radio" },
+            visitedTabs.includes("radio") && React.createElement("div", { id: "settings-section-5", className: "panel t-radio" },
                 React.createElement(RadioSettings, null)),
-            React.createElement("div", { className: "panel t-security" },
+            visitedTabs.includes("security") && React.createElement("div", { id: "settings-section-6", className: "panel t-security" },
                 React.createElement("h3", null, "\uD83D\uDD10 \u0642\u0648\u0627\u0646\u06CC\u0646 \u0627\u0645\u0646\u06CC\u062A\u06CC \u0648\u0631\u0648\u062F"),
                 React.createElement("div", { style: { padding: "12px", marginBottom: 14, border: "1px solid var(--line)", borderRadius: 12, background: "var(--brand-soft)" } },
                     React.createElement("label", { className: "label" }, "\u0631\u0648\u0634 \u0648\u0631\u0648\u062F \u0628\u0647 \u0646\u0633\u062E\u0647 \u0648\u0628"),
@@ -6980,7 +7277,7 @@ function Settings() {
                 Toggle("block_mock_location", "مسدودسازی هنگام موقعیت جعلی (Mock)"),
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 10 } }, "\u0627\u06CC\u0646 \u0642\u0648\u0627\u0646\u06CC\u0646 \u062A\u0648\u0633\u0637 \u0627\u067E \u0645\u0648\u0628\u0627\u06CC\u0644 \u0628\u0631\u0631\u0633\u06CC \u0648 \u062A\u0648\u0633\u0637 \u0633\u0631\u0648\u0631 \u0627\u0639\u0645\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
                 React.createElement(MaintenanceModeSettings, null)),
-            React.createElement("div", { className: "panel t-general" },
+            visitedTabs.includes("monitoring") && React.createElement("div", { id: "settings-section-7", className: "panel t-monitoring" },
                 React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0645\u0648\u0642\u0639\u06CC\u062A\u200C\u06CC\u0627\u0628\u06CC"),
                 Field("location_interval_sec", "فاصلهٔ ارسال موقعیت کاربران (ثانیه) — پیش‌فرض ۶۰"),
                 React.createElement("div", { className: "row", style: { gap: 10, marginTop: 10, flexWrap: "wrap", alignItems: "center" } },
@@ -6989,7 +7286,7 @@ function Settings() {
                     React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u06F0 = \u0628\u062F\u0648\u0646 \u062E\u0637\u0627 / \u0645\u062B\u0644\u0627\u064B \u06F5\u06F0 \u0645\u062A\u0631 \u0627\u0637\u0631\u0627\u0641 \u0645\u0631\u0632 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647")),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647"),
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 10 } }, "\u0641\u0627\u0635\u0644\u0647\u0654 \u0632\u0645\u0627\u0646\u06CC \u0627\u0631\u0633\u0627\u0644 \u0645\u0648\u0642\u0639\u06CC\u062A \u0631\u0627 \u062A\u0639\u06CC\u06CC\u0646 \u0645\u06CC\u200C\u06A9\u0646\u062F. \u0645\u062D\u062F\u0648\u062F\u0647\u0654 \u062E\u0637\u0627 \u0627\u062C\u0627\u0632\u0647 \u0645\u06CC\u200C\u062F\u0647\u062F \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u062A\u0627 \u0686\u0646\u062F \u0645\u062A\u0631 \u0628\u06CC\u0631\u0648\u0646 \u0627\u0632 \u0645\u0631\u0632 \u0627\u06CC\u0633\u062A\u06AF\u0627\u0647 \u0647\u0645 \u0628\u062A\u0648\u0627\u0646\u0646\u062F \u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u06A9\u0646\u0646\u062F.")),
-            React.createElement("div", { className: "panel t-general" },
+            visitedTabs.includes("files") && React.createElement("div", { id: "settings-section-8", className: "panel t-files" },
                 React.createElement("h3", null, "\uD83D\uDDBC \u06A9\u06CC\u0641\u06CC\u062A \u062A\u0635\u0627\u0648\u06CC\u0631 \u0627\u0631\u0633\u0627\u0644\u06CC \u0627\u0632 \u0645\u0648\u0628\u0627\u06CC\u0644"),
                 React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 10 } }, "\u06A9\u06CC\u0641\u06CC\u062A \u0648 \u0631\u0632\u0648\u0644\u0648\u0634\u0646 \u062A\u0635\u0627\u0648\u06CC\u0631\u06CC \u06A9\u0647 \u0627\u0632 \u0627\u067E \u0645\u0648\u0628\u0627\u06CC\u0644 \u0628\u0631\u0627\u06CC \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627\u060C \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A\u200C\u0647\u0627\u060C \u062D\u0636\u0648\u0631 \u0645\u0633\u0626\u0648\u0644\u06CC\u0646 \u0648 \u0633\u0627\u06CC\u0631 \u0645\u0648\u0627\u0631\u062F \u0627\u0631\u0633\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u06A9\u0627\u0647\u0634 \u0627\u06CC\u0646 \u0645\u0642\u0627\u062F\u06CC\u0631\u060C \u062D\u062C\u0645 \u0622\u067E\u0644\u0648\u062F \u0648 \u0641\u0636\u0627\u06CC \u0630\u062E\u06CC\u0631\u0647\u200C\u0633\u0627\u0632\u06CC \u0631\u0627 \u06A9\u0645 \u0645\u06CC\u200C\u06A9\u0646\u062F\u061B \u0627\u0641\u0632\u0627\u06CC\u0634 \u0622\u0646\u200C\u0647\u0627 \u06A9\u06CC\u0641\u06CC\u062A \u062A\u0635\u0648\u06CC\u0631 \u0631\u0627 \u0628\u0627\u0644\u0627 \u0645\u06CC\u200C\u0628\u0631\u062F."),
                 React.createElement("div", { style: { marginBottom: 14 } },
@@ -7025,14 +7322,14 @@ function Settings() {
                         React.createElement("input", { className: "input", type: "number", min: "30", max: "90", value: (_p = v.thumbnail_quality) !== null && _p !== void 0 ? _p : 70, onChange: e => set("thumbnail_quality", Math.max(30, Math.min(90, +e.target.value || 70))) }))),
                 React.createElement("button", { className: "btn p", onClick: save }, "\u0630\u062E\u06CC\u0631\u0647"),
                 React.createElement("p", { style: { fontSize: 11.5, color: "var(--muted)", marginTop: 10 } }, "\u0627\u06CC\u0646 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u067E\u0633 \u0627\u0632 \u0628\u0627\u0632/\u0628\u0633\u062A\u0647 \u0634\u062F\u0646 \u0627\u067E \u06CC\u0627 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u0645\u062C\u062F\u062F\u060C \u0631\u0648\u06CC \u062F\u0633\u062A\u06AF\u0627\u0647\u200C\u0647\u0627\u06CC \u0645\u0648\u0628\u0627\u06CC\u0644 \u0627\u0639\u0645\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u067E\u06CC\u0634\u0646\u0647\u0627\u062F: \u06A9\u06CC\u0641\u06CC\u062A \u06F4\u06F5\u066A \u0648 \u0639\u0631\u0636 \u06F1\u06F0\u06F2\u06F4px \u062A\u0639\u0627\u062F\u0644 \u062E\u0648\u0628\u06CC \u0628\u06CC\u0646 \u062D\u062C\u0645 \u0648 \u0648\u0636\u0648\u062D \u0627\u0633\u062A.")),
-            React.createElement("div", { className: "panel t-hr" },
+            visitedTabs.includes("hr") && React.createElement("div", { id: "settings-section-9", className: "panel t-hr" },
                 React.createElement("h3", null, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0645\u0646\u0637\u0642\u0647 \u0648 \u0628\u0627\u0632\u0631\u0633 \u062A\u0648\u0633\u0637 \u06A9\u0627\u0631\u0628\u0631"),
                 React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 8 } },
                     React.createElement("input", { type: "checkbox", checked: !!v.allow_self_zone_select, onChange: e => set("allow_self_zone_select", e.target.checked) }),
                     React.createElement("b", null, "\u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u0628\u062A\u0648\u0627\u0646\u0646\u062F \u062F\u0631 \u0627\u067E\u060C \u0645\u0646\u0637\u0642\u0647\u060C \u0628\u0627\u0632\u0631\u0633\u200C\u0647\u0627 \u0648 \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u062E\u0648\u062F \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u0646\u062F")),
                 React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 8 } }, "\u0627\u06AF\u0631 \u0641\u0639\u0627\u0644 \u0628\u0627\u0634\u062F\u060C \u062F\u0631 \u00AB\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0627\u0637\u0644\u0627\u0639\u0627\u062A\u00BB \u0627\u067E\u060C \u06A9\u0627\u0631\u0628\u0631 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0645\u0646\u0637\u0642\u0647\u0654 \u062E\u0648\u062F \u0631\u0627 \u0627\u0632 \u0641\u0647\u0631\u0633\u062A \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u062F\u060C \u06CC\u06A9 \u06CC\u0627 \u0686\u0646\u062F \u0628\u0627\u0632\u0631\u0633 \u0648 \u06CC\u06A9 \u0633\u0631\u0628\u0627\u0632\u0631\u0633 \u0628\u0631\u06AF\u0632\u06CC\u0646\u062F. \u0627\u06CC\u0646 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0647\u0627 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u062E\u0648\u062F\u06A9\u0627\u0631 \u062F\u0631 \u0686\u0627\u0631\u062A \u0633\u0627\u0632\u0645\u0627\u0646\u06CC \u0648 \u0645\u0646\u0637\u0642\u0647\u200C\u0628\u0646\u062F\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u0627\u0639\u0645\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
                 React.createElement("button", { className: "btn p", onClick: save }, "\u0630\u062E\u06CC\u0631\u0647")),
-            React.createElement("div", { className: "panel t-hr" },
+            visitedTabs.includes("hr") && React.createElement("div", { id: "settings-section-10", className: "panel t-hr" },
                 React.createElement("h3", null, "\u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u0645\u0633\u0626\u0648\u0644\u06CC\u0646"),
                 React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 8 } },
                     React.createElement("input", { type: "checkbox", checked: v.official_visit_require_station !== false && v.official_visit_require_station !== 0, onChange: e => set("official_visit_require_station", e.target.checked) }),
@@ -7065,7 +7362,7 @@ function Settings() {
                     React.createElement("textarea", { className: "input", rows: "2", placeholder: "\u062C\u0646\u0627\u0628 {name}\u060C \u0628\u0627\u0632\u062F\u06CC\u062F \u0634\u0645\u0627 \u0627\u0632 \u062E\u0637 {line} \u062A\u0648\u0633\u0637 {recorder} \u062F\u0631 {datetime} \u062B\u0628\u062A \u0634\u062F.", value: v.official_visit_sms_template || "", onChange: e => setV({ ...v, official_visit_sms_template: e.target.value }) })),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647"),
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 10 } }, "\u0627\u06AF\u0631 \u0627\u06CC\u0646 \u06AF\u0632\u06CC\u0646\u0647 \u0631\u0648\u0634\u0646 \u0628\u0627\u0634\u062F \u0648 \u0628\u0631\u0627\u06CC \u062E\u0637\u0648\u0637\u060C \u00AB\u0627\u06CC\u0633\u062A\u06AF\u0627\u0647\u00BB (\u0645\u062D\u062F\u0648\u062F\u0647\u0654 \u0645\u06A9\u0627\u0646\u06CC) \u062A\u0639\u0631\u06CC\u0641 \u0634\u062F\u0647 \u0628\u0627\u0634\u062F\u060C \u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u0641\u0642\u0637 \u062F\u0627\u062E\u0644 \u0645\u062D\u062F\u0648\u062F\u0647 \u0645\u0645\u06A9\u0646 \u0627\u0633\u062A. \u0645\u062D\u062F\u0648\u062F\u06CC\u062A\u200C\u0647\u0627\u06CC \u062A\u0639\u062F\u0627\u062F \u0648 \u0641\u0627\u0635\u0644\u0647 \u0627\u0632 \u062B\u0628\u062A \u062A\u06A9\u0631\u0627\u0631\u06CC \u0628\u0631\u0627\u06CC \u0628\u0627\u0644\u0627 \u0628\u0631\u062F\u0646 \u0631\u062A\u0628\u0647 \u062C\u0644\u0648\u06AF\u06CC\u0631\u06CC \u0645\u06CC\u200C\u06A9\u0646\u0646\u062F.")),
-            React.createElement("div", { className: "panel t-hr" },
+            visitedTabs.includes("hr") && React.createElement("div", { id: "settings-section-11", className: "panel t-hr" },
                 React.createElement("h3", null, "\uD83D\uDCCD \u0645\u062D\u0627\u0633\u0628\u0647\u0654 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0627 GPS"),
                 React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 8 } },
                     React.createElement("input", { type: "checkbox", checked: !!v.gps_work_required, onChange: e => set("gps_work_required", e.target.checked) }),
@@ -7076,7 +7373,7 @@ function Settings() {
                     React.createElement("p", null, "\uD83D\uDCCD \u0641\u0642\u0637 \u0631\u0648\u06CC\u062F\u0627\u062F \u0635\u0631\u06CC\u062D gps_off \u0645\u0628\u0646\u0627\u06CC \u06A9\u0633\u0631 \u06A9\u0627\u0631 GPS \u0627\u0633\u062A. app_background\u060C \u0642\u0637\u0639 \u0627\u0631\u062A\u0628\u0627\u0637 \u0648 \u0646\u0628\u0648\u062F \u062A\u0623\u06CC\u06CC\u062F \u062F\u0648\u0631\u0647\u200C\u0627\u06CC \u0628\u0647\u200C\u062A\u0646\u0647\u0627\u06CC\u06CC \u06A9\u0633\u0631 \u06A9\u0627\u0631 \u0627\u06CC\u062C\u0627\u062F \u0646\u0645\u06CC\u200C\u06A9\u0646\u0646\u062F. \u0628\u0633\u062A\u0647\u200C\u0634\u062F\u0646 \u06A9\u0627\u0645\u0644 \u0628\u0631\u0646\u0627\u0645\u0647 \u0641\u0639\u0644\u0627\u064B \u0631\u0648\u06CC\u062F\u0627\u062F \u0645\u0633\u062A\u0642\u0644 \u0648 \u0642\u0627\u0628\u0644\u200C\u0627\u062B\u0628\u0627\u062A\u06CC \u0646\u062F\u0627\u0631\u062F \u0648 \u0627\u0632 \u0631\u0648\u06CC \u0646\u0628\u0648\u062F checkpoint \u062C\u0631\u06CC\u0645\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
                     React.createElement("p", null, "\u2139\uFE0F \u0628\u0631\u0627\u06CC \u0622\u063A\u0627\u0632 \u06A9\u0646\u062A\u0631\u0644\u060C \u0627\u0628\u062A\u062F\u0627 GPS \u06AF\u0648\u0634\u06CC \u0631\u0627 \u0631\u0648\u0634\u0646 \u06A9\u0646\u06CC\u062F \u0648 \u0633\u067E\u0633 \u0648\u0631\u0648\u062F \u0631\u0627 \u062B\u0628\u062A \u0646\u0645\u0627\u06CC\u06CC\u062F. \u0627\u06CC\u0646 \u0642\u0627\u0628\u0644\u06CC\u062A \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u062B\u0628\u062A \u0645\u0648\u0642\u0639\u06CC\u062A \u0639\u0627\u062F\u06CC \u06CC\u0627 \u0631\u0647\u06AF\u06CC\u0631\u06CC \u0644\u062D\u0638\u0647\u200C\u0627\u06CC \u0646\u06CC\u0633\u062A.")),
                 React.createElement("button", { className: "btn p", onClick: save }, "\uD83D\uDCBE \u0630\u062E\u06CC\u0631\u0647 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A GPS \u06A9\u0627\u0631\u06A9\u0631\u062F")),
-            React.createElement("div", { className: "panel t-hr" },
+            visitedTabs.includes("hr") && React.createElement("div", { id: "settings-section-12", className: "panel t-hr" },
                 React.createElement("h3", null, "\u0645\u062D\u062F\u0648\u062F\u06CC\u062A\u200C\u0647\u0627\u06CC \u0645\u0627\u0647\u0627\u0646\u0647\u0654 \u06A9\u0627\u0631\u0628\u0631"),
                 React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 10 } }, "\u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u062A\u0639\u062F\u0627\u062F \u062F\u0641\u0639\u0627\u062A\u06CC \u06A9\u0647 \u0647\u0631 \u06A9\u0627\u0631\u0628\u0631 \u062F\u0631 \u06F3\u06F0 \u0631\u0648\u0632 \u0627\u062E\u06CC\u0631 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0627\u0632 \u0642\u0627\u0628\u0644\u06CC\u062A\u200C\u0647\u0627\u06CC \u0632\u06CC\u0631 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u062F. \u0645\u0642\u062F\u0627\u0631 \u0635\u0641\u0631 = \u0628\u062F\u0648\u0646 \u0645\u062D\u062F\u0648\u062F\u06CC\u062A."),
                 React.createElement("label", { className: "label" }, "\u062D\u062F\u0627\u06A9\u062B\u0631 \u062F\u0641\u0639\u0627\u062A \u00AB\u0641\u0631\u0627\u0645\u0648\u0634\u06CC \u062B\u0628\u062A \u062A\u0631\u062F\u062F\u00BB \u062F\u0631 \u0645\u0627\u0647"),
@@ -7088,7 +7385,7 @@ function Settings() {
                     React.createElement("b", null, "\u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u0645\u062C\u0627\u0632 \u0628\u0647 \u062E\u0631\u0648\u062C \u0627\u0632 \u062D\u0633\u0627\u0628 \u06A9\u0627\u0631\u0628\u0631\u06CC \u062E\u0648\u062F \u0647\u0633\u062A\u0646\u062F")),
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginBottom: 8 } }, "\u0627\u06AF\u0631 \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0634\u0648\u062F\u060C \u062F\u06A9\u0645\u0647\u0654 \u062E\u0631\u0648\u062C \u062F\u0631 \u0627\u067E \u06A9\u0627\u0631 \u0646\u062E\u0648\u0627\u0647\u062F \u06A9\u0631\u062F. \u062F\u0631 \u0647\u0631 \u0648\u0631\u0648\u062F\u060C \u062A\u0639\u062F\u0627\u062F \u062F\u0641\u0639\u0627\u062A \u0628\u0627\u0642\u06CC\u200C\u0645\u0627\u0646\u062F\u0647\u0654 \u062E\u0631\u0648\u062C \u0628\u0647 \u06A9\u0627\u0631\u0628\u0631 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
                 React.createElement("button", { className: "btn p", onClick: save }, "\u0630\u062E\u06CC\u0631\u0647")),
-            React.createElement("div", { className: "panel t-hr" },
+            visitedTabs.includes("hr") && React.createElement("div", { id: "settings-section-13", className: "panel t-hr" },
                 React.createElement("h3", null, "\u0645\u062D\u062F\u0648\u062F\u06CC\u062A\u200C\u0647\u0627\u06CC \u062B\u0628\u062A \u0631\u0648\u0632\u0627\u0646\u0647"),
                 React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 10 } }, "\u0628\u0631\u0627\u06CC \u062C\u0644\u0648\u06AF\u06CC\u0631\u06CC \u0627\u0632 \u062B\u0628\u062A\u200C\u0647\u0627\u06CC \u062A\u06A9\u0631\u0627\u0631\u06CC \u06CC\u0627 \u0628\u06CC\u0634 \u0627\u0632 \u062D\u062F\u060C \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0641\u0627\u0635\u0644\u0647 \u06CC\u0627 \u0633\u0642\u0641 \u0645\u062C\u0627\u0632 \u0647\u0631 \u0641\u0631\u0627\u06CC\u0646\u062F \u0631\u0627 \u062A\u0639\u06CC\u06CC\u0646 \u06A9\u0646\u06CC\u062F. \u0645\u0642\u062F\u0627\u0631 \u06F0 \u06CC\u0639\u0646\u06CC \u0628\u062F\u0648\u0646 \u0645\u062D\u062F\u0648\u062F\u06CC\u062A."),
                 React.createElement("div", { className: "row", style: { gap: 10, marginBottom: 8, flexWrap: "wrap", alignItems: "center" } },
@@ -7105,16 +7402,16 @@ function Settings() {
                     React.createElement("label", { className: "label", style: { minWidth: 230 } }, "\u062D\u062F\u0627\u0642\u0644 \u0641\u0627\u0635\u0644\u0647\u0654 \u0628\u06CC\u0646 \u062F\u0648 \u06AF\u0632\u0627\u0631\u0634 \u0647\u0631 \u06A9\u0627\u0631\u0628\u0631 (\u062F\u0642\u06CC\u0642\u0647):"),
                     React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 100 }, value: (_x = v.report_send_interval_min) !== null && _x !== void 0 ? _x : 0, onChange: e => set("report_send_interval_min", Math.max(0, +e.target.value || 0)) })),
                 React.createElement("button", { className: "btn p", style: { marginTop: 6 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u0645\u062D\u062F\u0648\u062F\u06CC\u062A\u200C\u0647\u0627")),
-            React.createElement("div", { className: "panel t-hr" },
+            visitedTabs.includes("hr") && React.createElement("div", { id: "settings-section-14", className: "panel t-hr" },
                 React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627 (\u0645\u0631\u062E\u0635\u06CC/\u0645\u0627\u0645\u0648\u0631\u06CC\u062A/\u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631)"),
                 React.createElement(RequestSettings, { v: v, set: set, save: save })),
-            React.createElement("div", { className: "panel t-hr" },
+            visitedTabs.includes("hr") && React.createElement("div", { id: "settings-section-15", className: "panel t-hr" },
                 React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u062D\u0642\u0648\u0642 \u0648 \u062F\u0633\u062A\u0645\u0632\u062F"),
                 React.createElement(PayrollSettings, { v: v, set: set, save: save })),
-            React.createElement("div", { className: "panel t-hr" },
+            visitedTabs.includes("hr") && React.createElement("div", { id: "settings-section-16", className: "panel t-hr" },
                 React.createElement("h3", null, "\uD83C\uDF82 \u062A\u0628\u0631\u06CC\u06A9 \u062A\u0648\u0644\u062F \u062E\u0648\u062F\u06A9\u0627\u0631"),
                 React.createElement(BirthdaySettings, { v: v, set: set, save: save })),
-            React.createElement("div", { className: "panel t-fields" },
+            visitedTabs.includes("fields") && React.createElement("div", { id: "settings-section-17", className: "panel t-fields" },
                 React.createElement("h3", null, "\uD83D\uDDC2 \u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC \u067E\u0631\u0633\u0646\u0644"),
                 React.createElement(CustomFieldsManager, null),
                 React.createElement("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" } },
@@ -7123,10 +7420,10 @@ function Settings() {
                         React.createElement("b", null, "\u062C\u0644\u0648\u06AF\u06CC\u0631\u06CC \u0627\u0632 \u0648\u0631\u0648\u062F \u06A9\u0627\u0631\u0628\u0631\u0627\u0646\u06CC \u06A9\u0647 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u06A9\u0645\u06CC\u0644\u06CC \u06CC\u0627 \u0627\u0645\u0636\u0627\u06CC \u062E\u0648\u062F \u0631\u0627 \u0648\u0627\u0631\u062F \u0646\u06A9\u0631\u062F\u0647\u200C\u0627\u0646\u062F")),
                     React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 8 } }, "\u062F\u0631 \u0635\u0648\u0631\u062A \u0641\u0639\u0627\u0644 \u0628\u0648\u062F\u0646\u060C \u0647\u0631 \u06A9\u0627\u0631\u0628\u0631\u06CC (\u0628\u0647\u200C\u062C\u0632 \u0645\u062F\u06CC\u0631\u0627\u0646) \u06A9\u0647 \u06CC\u06A9\u06CC \u0627\u0632 \u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC\u0650 \u00AB\u0627\u0644\u0632\u0627\u0645\u06CC\u00BB \u0631\u0627 \u062A\u06A9\u0645\u06CC\u0644 \u0646\u06A9\u0631\u062F\u0647 \u0628\u0627\u0634\u062F \u06CC\u0627 \u0647\u0646\u0648\u0632 \u0627\u0645\u0636\u0627\u06CC \u062E\u0648\u062F \u0631\u0627 \u062F\u0627\u062E\u0644 \u0628\u0631\u0646\u0627\u0645\u0647 \u062B\u0628\u062A \u0646\u06A9\u0631\u062F\u0647 \u0628\u0627\u0634\u062F\u060C \u0647\u0646\u06AF\u0627\u0645 \u0648\u0631\u0648\u062F \u0628\u0627 \u067E\u06CC\u0627\u0645 \u062E\u0637\u0627 \u0645\u0648\u0627\u062C\u0647 \u0634\u062F\u0647 \u0648 \u0627\u062C\u0627\u0632\u0647\u0654 \u0648\u0631\u0648\u062F \u0628\u0647 \u0646\u0631\u0645\u200C\u0627\u0641\u0632\u0627\u0631 \u0631\u0627 \u0646\u062E\u0648\u0627\u0647\u062F \u062F\u0627\u0634\u062A \u062A\u0627 \u0632\u0645\u0627\u0646\u06CC\u200C\u06A9\u0647 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0631\u0627 \u062A\u06A9\u0645\u06CC\u0644 \u06A9\u0646\u062F. \u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u00AB\u0627\u0644\u0632\u0627\u0645\u06CC\u00BB \u0631\u0627 \u0627\u0632 \u0647\u0645\u06CC\u0646 \u0628\u062E\u0634 (\u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u0633\u0641\u0627\u0631\u0634\u06CC \u067E\u0631\u0633\u0646\u0644) \u0645\u0634\u062E\u0635 \u06A9\u0646\u06CC\u062F."),
                     React.createElement("button", { className: "btn p", onClick: save }, "\u0630\u062E\u06CC\u0631\u0647 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A"))),
-            React.createElement("div", { className: "panel t-appitems" },
+            visitedTabs.includes("appitems") && React.createElement("div", { id: "settings-section-18", className: "panel t-appitems" },
                 React.createElement("h3", null, "\uD83D\uDCF1 \u0622\u06CC\u062A\u0645\u200C\u0647\u0627\u06CC \u0642\u0627\u0628\u0644 \u0646\u0645\u0627\u06CC\u0634 \u0627\u067E \u0628\u0631 \u0627\u0633\u0627\u0633 \u0633\u0645\u062A"),
                 React.createElement(RoleAppItems, null)),
-            React.createElement("div", { className: "panel t-general" },
+            visitedTabs.includes("drivers") && React.createElement("div", { id: "settings-section-19", className: "panel t-drivers" },
                 React.createElement("h3", null, "\u062E\u0637\u0648\u0637 \u062F\u0627\u0631\u0627\u06CC \u0633\u06CC\u0633\u062A\u0645 \u0646\u0648\u0628\u062A\u200C\u062F\u0647\u06CC"),
                 React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 8 } }, "\u0633\u06CC\u0633\u062A\u0645 \u0646\u0648\u0628\u062A\u200C\u062F\u0647\u06CC \u0641\u0642\u0637 \u0631\u0648\u06CC \u0627\u06CC\u0646 \u062E\u0637\u0648\u0637 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A \u0648 \u0642\u0637\u0639\u06CC \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u0622\u0646\u200C\u0647\u0627 \u062B\u0628\u062A \u0645\u06CC\u200C\u0634\u0648\u062F. \u06A9\u062F \u062E\u0637\u0648\u0637 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F (\u067E\u06CC\u0634\u200C\u0641\u0631\u0636: \u06F3\u06F0\u06F0\u060C \u06F5\u06F0\u06F0\u060C \u06F5\u06F0\u06F1\u060C \u06F5\u06F0\u06F2\u060C \u06F5\u06F0\u06F3\u060C \u06F5\u06F0\u06F5\u060C \u06F7\u06F0\u06F0)."),
                 React.createElement(StringListEditor, { value: v.nobat_line_codes || ["300", "500", "501", "502", "503", "505", "700"], onChange: (arr) => set("nobat_line_codes", arr), placeholder: "\u0645\u062B\u0644\u0627\u064B 300" }),
@@ -7135,7 +7432,7 @@ function Settings() {
                     React.createElement("b", null, "\u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u06A9\u0631\u062F\u0646 \u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u0631\u0627\u0646\u0646\u062F\u06AF\u0627\u0646 \u062F\u0631 \u062E\u0637\u0648\u0637 \u062F\u0627\u0631\u0627\u06CC \u0633\u06CC\u0633\u062A\u0645 \u0646\u0648\u0628\u062A\u200C\u062F\u0647\u06CC")),
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 6 } }, "\u062F\u0631 \u0635\u0648\u0631\u062A \u0641\u0639\u0627\u0644 \u0628\u0648\u062F\u0646\u060C \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u062E\u0637\u0648\u0637 \u0641\u0648\u0642 \u0627\u0645\u06A9\u0627\u0646 \u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u0631\u0627\u0646\u0646\u062F\u0647 \u0631\u0627 \u0646\u062E\u0648\u0627\u0647\u0646\u062F \u062F\u0627\u0634\u062A."),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u062E\u0637\u0648\u0637 \u0646\u0648\u0628\u062A\u200C\u062F\u0647\u06CC")),
-            React.createElement("div", { className: "panel t-general" },
+            visitedTabs.includes("monitoring") && React.createElement("div", { id: "settings-section-20", className: "panel t-monitoring" },
                 React.createElement("h3", null, "\u06A9\u0644\u06CC\u062F API \u0646\u0642\u0634\u0647\u200C\u0647\u0627 (\u0646\u0634\u0627\u0646 \u0648 \u0628\u0644\u062F)"),
                 React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 8 } }, "\u0646\u0634\u0627\u0646 \u062F\u0648 \u0646\u0648\u0639 \u06A9\u0644\u06CC\u062F \u062F\u0627\u0631\u062F: \u00AB\u06A9\u0644\u06CC\u062F \u0648\u0628\u00BB \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u0646\u0642\u0634\u0647 \u0648 \u00AB\u06A9\u0644\u06CC\u062F \u0633\u0631\u0648\u06CC\u0633\u00BB \u0628\u0631\u0627\u06CC \u062A\u0628\u062F\u06CC\u0644 \u0645\u062E\u062A\u0635\u0627\u062A \u0628\u0647 \u0622\u062F\u0631\u0633 (\u0646\u0627\u0645 \u062E\u06CC\u0627\u0628\u0627\u0646). \u0647\u0631 \u062F\u0648 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F."),
                 Field("neshan_api_key", "کلید وب نشان (web.xxx) — برای نمایش نقشه"),
@@ -7151,12 +7448,12 @@ function Settings() {
                         React.createElement("option", { value: "google_sat" }, "\u06AF\u0648\u06AF\u0644 (\u0645\u0627\u0647\u0648\u0627\u0631\u0647)"))),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647"),
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 10 } }, "\u0646\u0648\u0639 \u0646\u0642\u0634\u0647\u0654 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u0647\u0645 \u062F\u0631 \u00AB\u0646\u0642\u0634\u0647\u0654 \u0632\u0646\u062F\u0647\u0654\u00BB \u0633\u0627\u06CC\u062A \u0648 \u0647\u0645 \u062F\u0631 \u0646\u0642\u0634\u0647\u0654 \u00AB\u062B\u0628\u062A \u062D\u0636\u0648\u0631\u00BB \u0627\u067E \u0645\u0648\u0628\u0627\u06CC\u0644 \u0627\u0639\u0645\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F. \u0628\u0631\u0627\u06CC \u0646\u0634\u0627\u0646/\u0628\u0644\u062F \u06A9\u0644\u06CC\u062F API \u0644\u0627\u0632\u0645 \u0627\u0633\u062A.")),
-            React.createElement("div", { className: "panel t-general" },
+            visitedTabs.includes("drivers") && React.createElement("div", { id: "settings-section-21", className: "panel t-drivers" },
                 React.createElement("h3", null, "\u0639\u0644\u062A\u200C\u0647\u0627\u06CC \u0642\u0637\u0639 \u0633\u06CC\u0633\u062A\u0645 \u0646\u0648\u0628\u062A\u200C\u062F\u0647\u06CC"),
                 React.createElement(StringListEditor, { value: v.outage_reasons || [], onChange: (arr) => set("outage_reasons", arr), placeholder: "\u0645\u062B\u0644\u0627\u064B \u0627\u062E\u062A\u0644\u0627\u0644 \u0634\u0628\u06A9\u0647" }),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u0639\u0644\u062A\u200C\u0647\u0627"),
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 10 } }, "\u0627\u06CC\u0646 \u0639\u0644\u062A\u200C\u0647\u0627 \u062F\u0631 \u0641\u0631\u0645 \u00AB\u0627\u0639\u0644\u0627\u0645 \u0642\u0637\u0639 \u0633\u06CC\u0633\u062A\u0645\u00BB \u0627\u067E \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u06AF\u0632\u06CC\u0646\u0647\u200C\u0627\u06CC \u0628\u0647 \u0627\u067E\u0631\u0627\u062A\u0648\u0631 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F.")),
-            React.createElement("div", { className: "panel t-sms" },
+            visitedTabs.includes("sms") && React.createElement("div", { id: "settings-section-22", className: "panel t-sms" },
                 React.createElement("h3", null, "\u067E\u06CC\u0627\u0645\u06A9 \u062A\u0630\u06A9\u0631 \u0628\u0647 \u0631\u0627\u0646\u0646\u062F\u0647"),
                 React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 10 } },
                     React.createElement("input", { type: "checkbox", checked: !!v.notice_sms_enabled, onChange: e => set("notice_sms_enabled", e.target.checked) }),
@@ -7178,7 +7475,7 @@ function Settings() {
                     React.createElement("code", { dir: "ltr" }, "{priority}")),
                 React.createElement("textarea", { className: "input", rows: "3", placeholder: "راننده گرامی {name}، یک تذکر برای شما ثبت شد: {body}", value: v.notice_sms_template || "", onChange: e => setV({ ...v, notice_sms_template: e.target.value }) }),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u0642\u0627\u0644\u0628 \u062A\u0630\u06A9\u0631")),
-            React.createElement("div", { className: "panel t-sms" },
+            visitedTabs.includes("sms") && React.createElement("div", { id: "settings-section-23", className: "panel t-sms" },
                 React.createElement("h3", null, "\u067E\u06CC\u0627\u0645\u06A9 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0641\u06CC\u0634 \u0622\u0628\u0648\u0646\u0645\u0627\u0646"),
                 React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 10 } },
                     React.createElement("input", { type: "checkbox", checked: !!v.bill_sms_enabled, onChange: e => set("bill_sms_enabled", e.target.checked) }),
@@ -7217,7 +7514,7 @@ function Settings() {
                     React.createElement("code", { dir: "ltr" }, "{line}")),
                 React.createElement("textarea", { className: "input", rows: "3", placeholder: "راننده گرامی {name}، قبض آبونمان شما به شناسهٔ {bill_id} و مبلغ {amount} ریال در انتظار پرداخت است. پرداخت آنلاین:\n{pay_url}", value: v.bill_bulk_sms_template || "", onChange: e => setV({ ...v, bill_bulk_sms_template: e.target.value }) }),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u0642\u0627\u0644\u0628 \u06AF\u0631\u0648\u0647\u06CC")),
-            React.createElement("div", { className: "panel t-hr" },
+            visitedTabs.includes("hr") && React.createElement("div", { id: "settings-section-24", className: "panel t-hr" },
                 React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u062B\u0628\u062A \u062A\u0630\u06A9\u0631"),
                 React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 8 } },
                     React.createElement("input", { type: "checkbox", checked: !!v.notice_require_photo, onChange: e => set("notice_require_photo", e.target.checked) }),
@@ -7226,7 +7523,7 @@ function Settings() {
                     React.createElement("input", { type: "checkbox", checked: v.notice_camera_only !== false && v.notice_camera_only !== 0, onChange: e => set("notice_camera_only", e.target.checked) }),
                     "\u0639\u06A9\u0633 \u062A\u0630\u06A9\u0631 \u0641\u0642\u0637 \u0628\u0627 \u062F\u0648\u0631\u0628\u06CC\u0646 \u06AF\u0631\u0641\u062A\u0647 \u0634\u0648\u062F (\u0627\u0645\u06A9\u0627\u0646 \u0627\u0646\u062A\u062E\u0627\u0628 \u0627\u0632 \u06AF\u0627\u0644\u0631\u06CC \u0646\u0628\u0627\u0634\u062F)"),
                 React.createElement("button", { className: "btn p", style: { marginTop: 4 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647")),
-            React.createElement("div", { className: "panel t-security" },
+            visitedTabs.includes("security") && React.createElement("div", { id: "settings-section-25", className: "panel t-security" },
                 React.createElement("h3", null, "\u0646\u0633\u062E\u0647 \u0648 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0627\u067E \u0627\u0646\u062F\u0631\u0648\u06CC\u062F"),
                 Field("app_latest_version", "آخرین نسخهٔ منتشرشده (مثل 1.2.0)"),
                 Field("app_min_version", "حداقل نسخهٔ مجاز (پایین‌تر از این، به‌روزرسانی اجباری)"),
@@ -7234,7 +7531,7 @@ function Settings() {
                 Field("app_update_notes", "توضیحات به‌روزرسانی (اختیاری)"),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0646\u0633\u062E\u0647"),
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 10 } }, "\u0627\u067E \u0647\u0646\u06AF\u0627\u0645 \u0634\u0631\u0648\u0639\u060C \u0646\u0633\u062E\u0647\u0654 \u062E\u0648\u062F \u0631\u0627 \u0628\u0627 \u00AB\u062D\u062F\u0627\u0642\u0644 \u0646\u0633\u062E\u0647\u0654 \u0645\u062C\u0627\u0632\u00BB \u0645\u0642\u0627\u06CC\u0633\u0647 \u0645\u06CC\u200C\u06A9\u0646\u062F\u061B \u0627\u06AF\u0631 \u067E\u0627\u06CC\u06CC\u0646\u200C\u062A\u0631 \u0628\u0648\u062F\u060C \u062A\u0627 \u062F\u0627\u0646\u0644\u0648\u062F \u0648 \u0646\u0635\u0628 \u0641\u0627\u06CC\u0644 \u062C\u062F\u06CC\u062F \u0627\u062C\u0627\u0632\u0647\u0654 \u0648\u0631\u0648\u062F \u0646\u062F\u0627\u0631\u062F. \u0641\u0627\u06CC\u0644 APK \u0631\u0627 \u062F\u0631 \u0647\u0627\u0633\u062A \u0622\u067E\u0644\u0648\u062F \u06A9\u0646\u06CC\u062F \u0648 \u0644\u06CC\u0646\u06A9 \u0645\u0633\u062A\u0642\u06CC\u0645\u0634 \u0631\u0627 \u0627\u06CC\u0646\u062C\u0627 \u0628\u06AF\u0630\u0627\u0631\u06CC\u062F.")),
-            React.createElement("div", { className: "panel t-files" },
+            visitedTabs.includes("files") && React.createElement("div", { id: "settings-section-26", className: "panel t-files" },
                 React.createElement("h3", null, "\u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u0641\u0627\u06CC\u0644\u200C\u0647\u0627\u06CC \u067E\u06CC\u0648\u0633\u062A (\u0647\u0631 \u0628\u062E\u0634 \u062C\u062F\u0627\u06AF\u0627\u0646\u0647)"),
                 ["upload_reports", "گزارش‌ها"].length && [["upload_reports", "گزارش‌ها"], ["upload_checklists", "چک‌لیست‌ها"], ["upload_notices", "ثبت تذکر"]].map(([k, l]) => {
                     var _a, _b;
@@ -7257,7 +7554,7 @@ function Settings() {
                     React.createElement("button", { className: "btn p", onClick: save }, "\u0630\u062E\u06CC\u0631\u0647"),
                     React.createElement("button", { className: "btn g", onClick: async () => { const r = await db.cleanupAttachments(); alert(r.days ? ("پیوست‌های قدیمی‌تر از " + fa(r.days) + " روز پاک شدند.") : (r.note || "انجام شد.")); } }, "\u067E\u0627\u06A9\u200C\u0633\u0627\u0632\u06CC \u067E\u06CC\u0648\u0633\u062A\u200C\u0647\u0627\u06CC \u0642\u062F\u06CC\u0645\u06CC \u0627\u0644\u0627\u0646")),
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 8 } }, "\u0628\u0631\u0627\u06CC \u062D\u0630\u0641 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0631\u0648\u0632\u0627\u0646\u0647\u060C \u0641\u0627\u06CC\u0644 db/cleanup_cron.sql \u06CC\u0627 \u0627\u06CC\u0646 \u062F\u06A9\u0645\u0647 \u0631\u0627 \u062F\u0631 Cron \u0647\u0627\u0633\u062A \u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u06A9\u0646\u06CC\u062F.")),
-            React.createElement("div", { className: "panel t-files" },
+            visitedTabs.includes("monitoring") && React.createElement("div", { id: "settings-section-27", className: "panel t-monitoring" },
                 React.createElement("h3", null, "\uD83D\uDCF8 \u0646\u0638\u0627\u0631\u062A \u062A\u0635\u0648\u06CC\u0631\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627"),
                 React.createElement("p", { className: "muted", style: { marginBottom: 10, fontSize: 13 } }, "\u0637\u0628\u0642 \u062A\u0646\u0638\u06CC\u0645 \u062C\u062F\u06CC\u062F\u060C \u0627\u067E \u062F\u06CC\u06AF\u0631 \u0647\u0646\u06AF\u0627\u0645 \u0648\u0631\u0648\u062F \u06CC\u0627 \u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u0633\u0644\u0641\u06CC \u0646\u0645\u06CC\u200C\u06AF\u06CC\u0631\u062F. \u0633\u0644\u0641\u06CC \u0641\u0642\u0637 \u0648\u0642\u062A\u06CC \u06AF\u0631\u0641\u062A\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F \u06A9\u0647 \u0645\u062F\u06CC\u0631 \u0627\u0632 \u0633\u0645\u062A \u0633\u0631\u0648\u0631 \u0628\u0631\u0627\u06CC \u0647\u0645\u0627\u0646 \u06A9\u0627\u0631\u0628\u0631 \u062F\u0633\u062A\u0648\u0631 \u0633\u0644\u0641\u06CC \u0627\u0631\u0633\u0627\u0644 \u06A9\u0646\u062F."),
                 React.createElement("div", { className: "card-p", style: { display: "block", background: "#f8fafc" } },
@@ -7268,7 +7565,7 @@ function Settings() {
                     React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 90 }, value: (_z = v.covert_selfie_retention_days) !== null && _z !== void 0 ? _z : 0, onChange: e => set("covert_selfie_retention_days", Math.max(0, +e.target.value || 0)) }),
                     React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u0646\u06CC\u0627\u0632 \u0628\u0647 \u0627\u062C\u0631\u0627\u06CC \u06A9\u0631\u0648\u0646 \u0631\u0648\u0632\u0627\u0646\u0647 \u062F\u0627\u0631\u062F")),
                 React.createElement("button", { className: "btn p", style: { marginTop: 10 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0633\u0644\u0641\u06CC")),
-            React.createElement("div", { className: "panel t-security" },
+            visitedTabs.includes("monitoring") && React.createElement("div", { id: "settings-section-28", className: "panel t-monitoring" },
                 React.createElement("h3", null, "\uD83D\uDCCD \u0627\u0639\u0644\u0627\u0646\u200C\u0647\u0627\u06CC \u0645\u06CC\u062F\u0627\u0646\u06CC \u0648 \u062D\u0636\u0648\u0631"),
                 React.createElement("p", { className: "muted", style: { fontSize: 13, marginBottom: 14 } }, "\u0628\u0631\u0627\u06CC \u0647\u0631 \u0631\u0648\u06CC\u062F\u0627\u062F \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0627\u0628\u062A\u062F\u0627 \u062A\u0639\u06CC\u06CC\u0646 \u06A9\u0646\u06CC\u062F \u06A9\u062F\u0627\u0645 \u067E\u0631\u0633\u0646\u0644 \u062A\u062D\u062A \u067E\u0627\u06CC\u0634 \u0628\u0627\u0634\u0646\u062F\u061B \u0633\u067E\u0633 \u0645\u0633\u0626\u0648\u0644\u0627\u0646 \u062F\u0631\u06CC\u0627\u0641\u062A\u200C\u06A9\u0646\u0646\u062F\u0647 \u0631\u0627 \u0645\u0634\u062E\u0635 \u06A9\u0646\u06CC\u062F \u0648 \u0628\u0631\u0627\u06CC \u0647\u0631 \u0645\u0633\u0626\u0648\u0644 \u0646\u06CC\u0632 \u062F\u0627\u0645\u0646\u0647\u0654 \u0627\u062E\u062A\u0635\u0627\u0635\u06CC \u0627\u0641\u0631\u0627\u062F \u062A\u062D\u062A \u0646\u0638\u0627\u0631\u062A \u062A\u0639\u0631\u06CC\u0641 \u06A9\u0646\u06CC\u062F. \u067E\u06CC\u0627\u0645\u200C\u0647\u0627 \u0647\u0645\u0631\u0627\u0647 \u062A\u0627\u0631\u06CC\u062E \u0648 \u0633\u0627\u0639\u062A \u062F\u0631 \u0627\u0639\u0644\u0627\u0646 \u062F\u0627\u062E\u0644 \u0628\u0631\u0646\u0627\u0645\u0647\u060C Push \u0648 \u0631\u0628\u0627\u062A\u200C\u0647\u0627\u06CC \u0645\u062A\u0635\u0644 \u0627\u0631\u0633\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
                 [
@@ -7295,7 +7592,7 @@ function Settings() {
                             (cur.mode || "hierarchy") === "specific" && React.createElement(AdvancedFieldAlertRecipients, { cur: cur, onChange: (recipients) => setSub("recipients", recipients) })));
                 }),
                 React.createElement("button", { className: "btn p", style: { marginTop: 14 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u0639\u0644\u0627\u0646\u200C\u0647\u0627\u06CC \u0645\u06CC\u062F\u0627\u0646\u06CC")),
-            React.createElement("div", { className: "panel t-files" },
+            visitedTabs.includes("monitoring") && React.createElement("div", { id: "settings-section-29", className: "panel t-monitoring" },
                 React.createElement("h3", null, "\uD83D\uDDA5 \u0627\u0633\u06A9\u0631\u06CC\u0646\u200C\u0634\u0627\u062A \u0646\u0627\u0645\u062D\u0633\u0648\u0633 \u0627\u0632 \u0635\u0641\u062D\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627"),
                 React.createElement("p", { className: "muted", style: { marginBottom: 10, fontSize: 13 } }, "\u0627\u067E \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u0646\u0627\u0645\u062D\u0633\u0648\u0633 \u0627\u0632 \u0635\u0641\u062D\u0647\u0654 \u0646\u0645\u0627\u06CC\u0634 \u06AF\u0648\u0634\u06CC \u0646\u06CC\u0631\u0648 \u0627\u0633\u06A9\u0631\u06CC\u0646\u200C\u0634\u0627\u062A \u0628\u06AF\u06CC\u0631\u062F \u0648 \u0627\u0631\u0633\u0627\u0644 \u06A9\u0646\u062F. \u062A\u0635\u0627\u0648\u06CC\u0631 \u0645\u0627\u0646\u0646\u062F \u0646\u0638\u0627\u0631\u062A \u062F\u0631 \u0647\u0645\u0627\u0646 \u0628\u062E\u0634 \u0630\u062E\u06CC\u0631\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
                 React.createElement("p", { className: "muted", style: { fontSize: 12, marginBottom: 10, background: "#fff3cd", padding: 8, borderRadius: 8 } },
@@ -7321,7 +7618,7 @@ function Settings() {
                     React.createElement("label", { className: "label" }, "\u0633\u0627\u0639\u062A\u200C\u0647\u0627\u06CC \u0645\u062C\u0627\u0632 \u0627\u0633\u06A9\u0631\u06CC\u0646\u200C\u0634\u0627\u062A (\u062E\u0627\u0644\u06CC = \u062A\u0645\u0627\u0645 \u0634\u0628\u0627\u0646\u0647\u200C\u0631\u0648\u0632)"),
                     React.createElement(HoursRangeEditor, { value: v.covert_screenshot_hours || [], onChange: (arr) => set("covert_screenshot_hours", arr) })),
                 React.createElement("button", { className: "btn p", style: { marginTop: 10 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u0633\u06A9\u0631\u06CC\u0646\u200C\u0634\u0627\u062A")),
-            React.createElement("div", { className: "panel t-files" },
+            visitedTabs.includes("monitoring") && React.createElement("div", { id: "settings-section-30", className: "panel t-monitoring" },
                 React.createElement("h3", null, "\u0627\u0639\u0644\u0627\u0646\u200C\u0647\u0627 \u0648 \u0647\u0634\u062F\u0627\u0631\u0647\u0627\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631 (Push)"),
                 React.createElement("p", { className: "muted", style: { marginBottom: 8 } }, "\u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0647\u0634\u062F\u0627\u0631 \u0627\u0646\u0642\u0636\u0627\u06CC \u0627\u0639\u062A\u0628\u0627\u0631 \u0628\u0647 \u06AF\u0648\u0634\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 (\u062D\u062A\u06CC \u0648\u0642\u062A\u06CC \u0627\u067E \u0628\u0633\u062A\u0647 \u0627\u0633\u062A)\u060C \u06CC\u06A9 \u06A9\u0644\u06CC\u062F \u0645\u062E\u0641\u06CC \u062A\u0639\u06CC\u06CC\u0646 \u06A9\u0646\u06CC\u062F \u0648 \u0622\u062F\u0631\u0633 \u0632\u06CC\u0631 \u0631\u0627 \u062F\u0631 Cron \u0631\u0648\u0632\u0627\u0646\u0647\u0654 \u0647\u0627\u0633\u062A \u0642\u0631\u0627\u0631 \u062F\u0647\u06CC\u062F."),
                 React.createElement("label", { className: "label" }, "\u06A9\u0644\u06CC\u062F \u0645\u062E\u0641\u06CC Cron"),
@@ -7330,11 +7627,11 @@ function Settings() {
                 React.createElement("div", { style: { marginTop: 10, background: "rgba(0,0,0,.05)", borderRadius: 10, padding: 10, direction: "ltr", fontSize: 12, wordBreak: "break-all" } }, "php /home/h301194/public_html/cron_push_expiry.php"),
                 React.createElement("p", { className: "muted", style: { fontSize: 12, marginTop: 8 } }, "\u062F\u0631 cPanel \u2192 Cron Jobs\u060C \u062F\u0633\u062A\u0648\u0631 \u0628\u0627\u0644\u0627 \u0631\u0627 \u0631\u0648\u0632\u06CC \u06CC\u06A9\u200C\u0628\u0627\u0631 \u0627\u062C\u0631\u0627 \u06A9\u0646\u06CC\u062F (\u0645\u0633\u06CC\u0631 \u062F\u0642\u06CC\u0642 \u0641\u0627\u06CC\u0644 \u0631\u0627 \u0627\u0632 File Manager \u0628\u0631\u062F\u0627\u0631\u06CC\u062F\u061B \u0627\u06CC\u0646 \u0641\u0627\u06CC\u0644 \u06A9\u0646\u0627\u0631 index.php \u0627\u0633\u062A). \u0646\u06CC\u0627\u0632\u06CC \u0628\u0647 wget \u06CC\u0627 \u06A9\u0644\u06CC\u062F \u0646\u06CC\u0633\u062A \u2014 \u0627\u0633\u06A9\u0631\u06CC\u067E\u062A PHP \u0645\u0633\u062A\u0642\u06CC\u0645\u0627\u064B \u0627\u062C\u0631\u0627 \u0645\u06CC\u200C\u0634\u0648\u062F. \u067E\u06CC\u0627\u0645\u200C\u0647\u0627 \u0648 \u0627\u0631\u062C\u0627\u0639 \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u0644\u062D\u0638\u0647\u200C\u0627\u06CC Push \u0645\u06CC\u200C\u0634\u0648\u0646\u062F \u0648 \u0628\u0647 Cron \u0646\u06CC\u0627\u0632 \u0646\u062F\u0627\u0631\u0646\u062F."),
                 React.createElement("p", { className: "muted", style: { fontSize: 12, marginTop: 4 } }, "\u06A9\u0644\u06CC\u062F \u0645\u062E\u0641\u06CC \u0628\u0627\u0644\u0627 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u0641\u0631\u0627\u062E\u0648\u0627\u0646\u06CC \u0627\u0632 \u0637\u0631\u06CC\u0642 \u0622\u062F\u0631\u0633 \u0627\u06CC\u0646\u062A\u0631\u0646\u062A\u06CC (\u062F\u0631 \u0635\u0648\u0631\u062A \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u0647\u0627\u0633\u062A \u0627\u0632 wget) \u0644\u0627\u0632\u0645 \u0627\u0633\u062A.")),
-            React.createElement("div", { className: "panel t-drivers" },
+            visitedTabs.includes("drivers") && React.createElement("div", { id: "settings-section-31", className: "panel t-drivers" },
                 React.createElement("h3", null, "\u0645\u0633\u062F\u0648\u062F\u0633\u0627\u0632\u06CC \u0631\u0627\u0646\u0646\u062F\u06AF\u0627\u0646 \u0628\u062F\u0647\u06A9\u0627\u0631"),
                 React.createElement("p", { className: "muted", style: { marginBottom: 8 } }, "\u062A\u0639\u06CC\u06CC\u0646 \u06A9\u0646\u06CC\u062F \u0628\u0627 \u0686\u0646\u062F \u0641\u06CC\u0634 \u067E\u0631\u062F\u0627\u062E\u062A\u200C\u0646\u0634\u062F\u0647 \u062F\u0631 \u0686\u0646\u062F \u0645\u0627\u0647 \u0627\u062E\u06CC\u0631\u060C \u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u0631\u0627\u0646\u0646\u062F\u0647 \u0645\u0633\u062F\u0648\u062F \u0634\u0648\u062F. \u0647\u0645\u0686\u0646\u06CC\u0646 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0631\u0627\u0646\u0646\u062F\u06AF\u0627\u0646 \u062E\u0627\u0635\u06CC \u0631\u0627 \u062F\u0633\u062A\u06CC \u0645\u0633\u062F\u0648\u062F \u06A9\u0646\u06CC\u062F."),
                 React.createElement(DriverBlock, { v: v, set: set, save: save })),
-            React.createElement("div", { className: "panel t-print" },
+            visitedTabs.includes("print") && React.createElement("div", { id: "settings-section-32", className: "panel t-print" },
                 React.createElement("h3", null, "\u0642\u0627\u0644\u0628 \u0686\u0627\u067E \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627"),
                 React.createElement("p", { className: "muted", style: { marginBottom: 8 } }, "\u062A\u0631\u062A\u06CC\u0628 \u0648 \u0646\u0645\u0627\u06CC\u0634 \u0647\u0631 \u0628\u062E\u0634\u060C \u062A\u0631\u0627\u0632 \u0645\u062A\u0646\u060C \u0627\u0646\u062F\u0627\u0632\u0647\u0654 \u0641\u0648\u0646\u062A \u0648 \u0633\u0631\u0628\u0631\u06AF/\u067E\u0627\u0648\u0631\u0642\u06CC \u0686\u0627\u067E \u0631\u0627 \u062A\u0646\u0638\u06CC\u0645 \u06A9\u0646\u06CC\u062F."),
                 (() => {
@@ -7372,13 +7669,13 @@ function Settings() {
                                 React.createElement("button", { className: "btn g", onClick: () => move(i, 1), disabled: i === order.length - 1 }, "\u2193")))),
                         React.createElement("button", { className: "btn p", style: { marginTop: 10 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u0642\u0627\u0644\u0628 \u0686\u0627\u067E")));
                 })()),
-            React.createElement("div", { className: "panel t-dashboard" },
+            visitedTabs.includes("dashboard") && React.createElement("div", { id: "settings-section-33", className: "panel t-dashboard" },
                 React.createElement("h3", null, "\u0686\u06CC\u062F\u0645\u0627\u0646 \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u0648 \u0646\u062D\u0648\u0647\u0654 \u0645\u062D\u0627\u0633\u0628\u0647\u0654 \u0639\u0645\u0644\u06A9\u0631\u062F \u0647\u0631 \u0646\u06CC\u0631\u0648"),
                 React.createElement(DashboardConfig, null)),
-            React.createElement("div", { className: "panel t-dashboard" },
+            visitedTabs.includes("hr") && React.createElement("div", { id: "settings-section-34", className: "panel t-hr" },
                 React.createElement("h3", null, "\u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062D\u0636\u0648\u0631 (\u0639\u06A9\u0633 \u0633\u0644\u0641\u06CC + \u062E\u0648\u062F\u0631\u0648\u0647\u0627)"),
                 React.createElement(PresenceSettings, null)),
-            React.createElement("div", { className: "panel t-dashboard" },
+            visitedTabs.includes("backup") && React.createElement("div", { id: "settings-section-35", className: "panel t-backup" },
                 React.createElement("h3", null, "\u062D\u0630\u0641 \u062E\u0648\u062F\u06A9\u0627\u0631 \u062A\u0635\u0627\u0648\u06CC\u0631 \u0648 \u067E\u06CC\u0648\u0633\u062A\u200C\u0647\u0627"),
                 Field("presence_retention_days", "نگهداری تصاویر صحت‌سنجی حضور (روز) — ۰ = بدون حذف"),
                 Field("form_attachment_retention_days", "نگهداری تصاویر پیوست فرم‌ها و چک‌لیست‌ها (روز)"),
@@ -7389,15 +7686,15 @@ function Settings() {
                     "\u062A\u0635\u0627\u0648\u06CC\u0631/\u067E\u06CC\u0648\u0633\u062A\u200C\u0647\u0627 \u0648 \u0641\u06CC\u0634\u200C\u0647\u0627\u06CC \u062D\u0642\u0648\u0642\u06CC \u0642\u062F\u06CC\u0645\u06CC\u200C\u062A\u0631 \u0627\u0632 \u0645\u062F\u062A \u062A\u0639\u06CC\u06CC\u0646\u200C\u0634\u062F\u0647\u060C \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u062E\u0648\u062F\u06A9\u0627\u0631 \u0627\u0632 \u0633\u0631\u0648\u0631 \u062D\u0630\u0641 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u0628\u0631\u0627\u06CC \u0627\u062C\u0631\u0627\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631 \u0631\u0648\u0632\u0627\u0646\u0647\u060C \u06CC\u06A9 Cron \u0628\u0647 \u0622\u062F\u0631\u0633 ",
                     React.createElement("code", { dir: "ltr" }, "/api/cron/cleanup?key=\u06A9\u0644\u06CC\u062F"),
                     " \u062A\u0646\u0638\u06CC\u0645 \u06A9\u0646\u06CC\u062F.")),
-            React.createElement("div", { className: "panel t-dashboard" },
+            visitedTabs.includes("access") && React.createElement("div", { id: "settings-section-36", className: "panel t-access" },
                 React.createElement("h3", null, "\u0633\u0645\u062A\u200C\u0647\u0627 (\u0646\u0642\u0634\u200C\u0647\u0627)"),
                 React.createElement(RolesManager, null)),
-            React.createElement("div", { className: "panel t-dashboard" },
+            visitedTabs.includes("security") && React.createElement("div", { id: "settings-section-37", className: "panel t-security" },
                 React.createElement("h3", null, "\u0633\u06CC\u0627\u0633\u062A \u062A\u0645\u062F\u06CC\u062F \u0627\u062C\u0628\u0627\u0631\u06CC"),
                 Field("renew_days", "دورهٔ تغییر اجباری رمز و عکس پرسنلی (روز) — پیش‌فرض ۳۰"),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647"),
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 10 } }, "\u0647\u0631 \u0686\u0646\u062F \u0631\u0648\u0632 \u06CC\u06A9\u200C\u0628\u0627\u0631 \u06A9\u0627\u0631\u0628\u0631 \u062F\u0631 \u0627\u067E \u0645\u0648\u0628\u0627\u06CC\u0644 \u0645\u0644\u0632\u0645 \u0628\u0647 \u062A\u063A\u06CC\u06CC\u0631 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0648 \u06AF\u0631\u0641\u062A\u0646 \u0639\u06A9\u0633 \u067E\u0631\u0633\u0646\u0644\u06CC \u062C\u062F\u06CC\u062F \u0634\u0648\u062F.")),
-            React.createElement("div", { className: "panel t-sms" },
+            visitedTabs.includes("sms") && React.createElement("div", { id: "settings-section-38", className: "panel t-sms" },
                 React.createElement("h3", null, "\u0642\u0627\u0644\u0628 \u067E\u06CC\u0627\u0645\u06A9 \u0627\u0646\u0642\u0636\u0627\u06CC \u0645\u062F\u0627\u0631\u06A9"),
                 React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 8 } }, "\u0627\u06CC\u0646 \u0642\u0627\u0644\u0628\u200C\u0647\u0627 \u0647\u0646\u06AF\u0627\u0645 \u0627\u0631\u0633\u0627\u0644 \u067E\u06CC\u0627\u0645\u06A9 \u0627\u0632 \u0635\u0641\u062D\u0627\u062A \u00AB\u0628\u06CC\u0645\u0647/\u0645\u0639\u0627\u06CC\u0646\u0647\u00BB\u060C \u00AB\u067E\u0631\u0648\u0627\u0646\u0647\u0654 \u062A\u0627\u06A9\u0633\u06CC\u0631\u0627\u0646\u06CC\u00BB \u0648 \u00AB\u0628\u0647\u0631\u0647\u200C\u0628\u0631\u062F\u0627\u0631\u06CC\u00BB \u062F\u0631 \u0627\u067E \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
                 React.createElement("label", { className: "label" },
@@ -7429,7 +7726,7 @@ function Settings() {
                     "{expire}"),
                 React.createElement("textarea", { className: "input", rows: "2", placeholder: "تاکسیران گرامی {name}، پروانهٔ بهره‌برداری خودروی شما در تاریخ {expire} منقضی می‌شود. لطفاً جهت تمدید اقدام فرمایید.", value: v.oplic_sms_template || "", onChange: e => setV({ ...v, oplic_sms_template: e.target.value }) }),
                 React.createElement("button", { className: "btn p", style: { marginTop: 10 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647 \u0642\u0627\u0644\u0628\u200C\u0647\u0627")),
-            React.createElement("div", { className: "panel t-sms" },
+            visitedTabs.includes("sms") && React.createElement("div", { id: "settings-section-39", className: "panel t-sms" },
                 React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0633\u0631\u0648\u06CC\u0633 \u067E\u06CC\u0627\u0645\u06A9 (\u0646\u06AF\u06CC\u0646 \u0627\u0631\u062A\u0628\u0627\u0637)"),
                 React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 10 } },
                     React.createElement("input", { type: "checkbox", checked: !!v.sms_enabled, onChange: e => setV({ ...v, sms_enabled: e.target.checked }) }),
@@ -7440,7 +7737,7 @@ function Settings() {
                 Field("sms_line", "شمارهٔ خط ارسال (اختیاری)"),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u067E\u06CC\u0627\u0645\u06A9"),
                 React.createElement(SmsTools, null)),
-            React.createElement("div", { className: "panel t-sms" },
+            visitedTabs.includes("security") && React.createElement("div", { id: "settings-section-40", className: "panel t-security" },
                 React.createElement("h3", null, "\uD83D\uDD11 \u0648\u0631\u0648\u062F \u0628\u0627 \u06A9\u062F \u067E\u06CC\u0627\u0645\u06A9\u06CC (OTP) \u0648 \u062E\u0648\u0627\u0646\u062F\u0646 \u062E\u0648\u062F\u06A9\u0627\u0631 \u06A9\u062F"),
                 React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 8 } },
                     "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646\u06A9\u0647 \u0627\u067E \u0627\u0646\u062F\u0631\u0648\u06CC\u062F \u0628\u062A\u0648\u0627\u0646\u062F \u06A9\u062F \u067E\u06CC\u0627\u0645\u06A9\u06CC \u0631\u0627 ",
@@ -7448,25 +7745,25 @@ function Settings() {
                     " \u0628\u062E\u0648\u0627\u0646\u062F (Android SMS Retriever API)\u060C \u0628\u0627\u06CC\u062F \u00AB\u0627\u0645\u0636\u0627\u06CC \u0627\u067E\u0644\u06CC\u06A9\u06CC\u0634\u0646\u00BB (App Hash \u2014 \u06CC\u06A9 \u0631\u0634\u062A\u0647\u0654 \u06F1\u06F1 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631\u06CC) \u062F\u0631 \u0627\u0646\u062A\u0647\u0627\u06CC \u0645\u062A\u0646 \u067E\u06CC\u0627\u0645\u06A9 \u062F\u0631\u062C \u0634\u0648\u062F. \u0627\u06CC\u0646 \u0645\u0642\u062F\u0627\u0631 \u0631\u0627 \u0627\u0632 \u062A\u0648\u0633\u0639\u0647\u200C\u062F\u0647\u0646\u062F\u0647 \u0628\u06AF\u06CC\u0631\u06CC\u062F (\u0628\u0647\u200C\u0627\u0632\u0627\u06CC \u0647\u0631 keystore \u0645\u062A\u0641\u0627\u0648\u062A \u0627\u0633\u062A) \u0648 \u0627\u06CC\u0646\u062C\u0627 \u062B\u0628\u062A \u06A9\u0646\u06CC\u062F."),
                 Field("android_sms_app_hash", "App Hash اپلیکیشن اندروید (۱۱ کاراکتر)"),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647")),
-            React.createElement("div", { className: "panel t-sms" },
+            visitedTabs.includes("sms") && React.createElement("div", { id: "settings-section-41", className: "panel t-sms" },
                 React.createElement("h3", null, "\u0642\u0627\u0644\u0628\u200C\u0647\u0627\u06CC \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u067E\u06CC\u0627\u0645\u06A9"),
                 React.createElement(SmsTemplates, { v: v, setV: setV, save: save })),
-            React.createElement("div", { className: "panel t-sms" },
+            visitedTabs.includes("sms") && React.createElement("div", { id: "settings-section-42", className: "panel t-sms" },
                 React.createElement("h3", null, "\uD83D\uDCB3 \u0627\u0639\u062A\u0628\u0627\u0631 \u0648 \u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u0627\u0631\u0633\u0627\u0644 \u067E\u06CC\u0627\u0645\u06A9"),
                 React.createElement(SmsCreditAndLimit, null)),
-            React.createElement("div", { className: "panel t-sms" },
+            visitedTabs.includes("sms") && React.createElement("div", { id: "settings-section-43", className: "panel t-sms" },
                 React.createElement("h3", null, "\uD83D\uDCB0 \u0647\u0632\u06CC\u0646\u0647\u0654 \u067E\u06CC\u0627\u0645\u06A9 \u0648 \u0638\u0631\u0641\u06CC\u062A \u0627\u0631\u0633\u0627\u0644"),
                 React.createElement(SmsCostPanel, { v: v, set: set, save: save })),
-            React.createElement("div", { className: "panel t-sms" },
+            visitedTabs.includes("sms") && React.createElement("div", { id: "settings-section-44", className: "panel t-sms" },
                 React.createElement("h3", null, "\u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u0627\u0631\u0633\u0627\u0644 \u067E\u06CC\u0627\u0645\u06A9"),
                 React.createElement("label", { className: "row", style: { gap: 8 } },
                     React.createElement("input", { type: "checkbox", checked: !!v.sms_templates_only, onChange: e => set("sms_templates_only", e.target.checked) }),
                     "\u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u0641\u0642\u0637 \u0628\u062A\u0648\u0627\u0646\u0646\u062F \u0627\u0632 \u0642\u0627\u0644\u0628\u200C\u0647\u0627\u06CC \u062A\u0639\u0631\u06CC\u0641\u200C\u0634\u062F\u0647 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u0646\u062F (\u0627\u0645\u06A9\u0627\u0646 \u0646\u0648\u0634\u062A\u0646 \u0645\u062A\u0646 \u062F\u0644\u062E\u0648\u0627\u0647 \u0646\u0628\u0627\u0634\u062F)"),
                 React.createElement("button", { className: "btn p", style: { marginTop: 10 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647")),
-            React.createElement("div", { className: "panel t-bale" },
+            visitedTabs.includes("bale") && React.createElement("div", { id: "settings-section-45", className: "panel t-bale" },
                 React.createElement("h3", null, "\uD83E\uDD16 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0631\u0628\u0627\u062A\u200C\u0647\u0627\u06CC \u067E\u06CC\u0627\u0645\u200C\u0631\u0633\u0627\u0646"),
                 React.createElement(BaleSettings, { v: v, setV: setV, set: set, save: save })),
-            React.createElement("div", { className: "panel t-sms" },
+            visitedTabs.includes("sms") && React.createElement("div", { id: "settings-section-46", className: "panel t-sms" },
                 React.createElement("h3", null, "\u067E\u06CC\u0627\u0645\u06A9 \u062E\u0648\u0634\u200C\u0622\u0645\u062F \u0647\u0646\u06AF\u0627\u0645 \u062B\u0628\u062A\u200C\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631"),
                 React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 8 } },
                     "\u0647\u0646\u06AF\u0627\u0645 \u0627\u06CC\u062C\u0627\u062F \u06A9\u0627\u0631\u0628\u0631 \u062C\u062F\u06CC\u062F (\u062F\u0631 \u0635\u0648\u0631\u062A \u062F\u0627\u0634\u062A\u0646 \u0645\u0648\u0628\u0627\u06CC\u0644 \u0648 \u0641\u0639\u0627\u0644 \u0628\u0648\u062F\u0646 \u0633\u0631\u0648\u06CC\u0633)\u060C \u0627\u06CC\u0646 \u067E\u06CC\u0627\u0645\u06A9 \u062D\u0627\u0648\u06CC \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0648 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0628\u0631\u0627\u06CC \u0627\u0648 \u0627\u0631\u0633\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F. \u0627\u0632 \u0645\u062A\u063A\u06CC\u0631\u0647\u0627 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F: ",
@@ -7479,19 +7776,19 @@ function Settings() {
                     React.createElement("code", { dir: "ltr" }, "{last_name}")),
                 React.createElement("textarea", { className: "input", rows: "4", placeholder: "به سامانه خوش آمدید.\nنام کاربری: {username}\nرمز عبور: {password}", value: v.sms_welcome_template || "", onChange: e => setV({ ...v, sms_welcome_template: e.target.value }) }),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u0642\u0627\u0644\u0628 \u062E\u0648\u0634\u200C\u0622\u0645\u062F")),
-            React.createElement("div", { className: "panel t-sms" },
+            visitedTabs.includes("general") && React.createElement("div", { id: "settings-section-47", className: "panel t-general" },
                 React.createElement("h3", null, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0634\u0631\u06A9\u062A (\u0628\u0631\u0627\u06CC \u067E\u06CC\u0627\u0645\u06A9\u200C\u0647\u0627\u06CC \u0627\u0646\u0642\u0636\u0627)"),
                 Field("company_name", "نام شرکت"),
                 Field("company_address", "آدرس شرکت"),
                 Field("company_phone", "شمارهٔ تماس شرکت"),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0634\u0631\u06A9\u062A")),
-            React.createElement("div", { className: "panel t-sms" },
+            visitedTabs.includes("sms") && React.createElement("div", { id: "settings-section-48", className: "panel t-sms" },
                 React.createElement("h3", null, "\u0642\u0627\u0644\u0628 \u0648 \u0627\u0631\u0633\u0627\u0644 \u062E\u0648\u062F\u06A9\u0627\u0631 \u067E\u06CC\u0627\u0645\u06A9\u200C\u0647\u0627\u06CC \u0627\u0646\u0642\u0636\u0627"),
                 React.createElement(ExpirySettings, { v: v, setV: setV, save: save })),
-            React.createElement("div", { className: "panel t-access" },
+            visitedTabs.includes("access") && React.createElement("div", { id: "settings-section-49", className: "panel t-access" },
                 React.createElement("h3", null, "\u0633\u0637\u062D \u062F\u0633\u062A\u0631\u0633\u06CC \u0633\u0645\u062A\u200C\u0647\u0627 \u0628\u0647 \u0628\u062E\u0634\u200C\u0647\u0627\u06CC \u0633\u0627\u06CC\u062A"),
                 React.createElement(RolePerms, null)),
-            React.createElement("div", { className: "panel t-backup" },
+            visitedTabs.includes("backup") && React.createElement("div", { id: "settings-section-50", className: "panel t-backup" },
                 React.createElement("h3", null, "\u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u200C\u06AF\u06CC\u0631\u06CC\u060C \u0628\u0627\u0632\u06CC\u0627\u0628\u06CC \u0648 \u067E\u0627\u06A9\u0633\u0627\u0632\u06CC"),
                 React.createElement(BackupSettings, null)))));
 }
@@ -13361,6 +13658,8 @@ function SmsExpiry({ type, title }) {
 }
 // صحت‌سنجی حضور: مشاهدهٔ ارسال‌ها (سلفی + عکس خودروها) و تخلفات عدم ارسال
 function PresenceChecks() {
+    const [immediateOpen, setImmediateOpen] = useState(false);
+    useEffect(() => { const onTab = event => setImmediateOpen(event.detail === 'immediate'); window.addEventListener('khatyar:presence-tab', onTab); return () => window.removeEventListener('khatyar:presence-tab', onTab); }, []);
     const today = new Date().toISOString().slice(0, 10);
     const [from, setFrom] = useState(today);
     const [to, setTo] = useState(today);
@@ -13405,111 +13704,113 @@ function PresenceChecks() {
         alert(e.message);
     } };
     return (React.createElement("div", { className: "panel admin-workspace-page" },
-        React.createElement("h3", { style: { display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 } },
-            React.createElement("span", null, "\uD83D\uDCF8 \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062D\u0636\u0648\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627")),
-        React.createElement("div", { className: "filters" },
-            React.createElement("span", { className: "label" }, "\u0627\u0632"),
-            React.createElement(JDate, { value: from, onChange: setFrom }),
-            React.createElement("span", { className: "label" }, "\u062A\u0627"),
-            React.createElement(JDate, { value: to, onChange: setTo }),
-            React.createElement("button", { className: "btn p", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
-            rows.length > 0 && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644 (\u0628\u0627 \u0644\u06CC\u0646\u06A9 \u0639\u06A9\u0633\u200C\u0647\u0627)")),
-        React.createElement("div", { className: "tabbar", style: { marginTop: 6 } },
-            React.createElement("button", { className: "tabbtn" + (tab === "sent" ? " on" : ""), onClick: () => setTab("sent") },
-                "\u0627\u0631\u0633\u0627\u0644\u200C\u0634\u062F\u0647 (",
-                fa(rows.length),
-                ")"),
-            React.createElement("button", { className: "tabbtn" + (tab === "miss" ? " on" : ""), onClick: () => setTab("miss") },
-                "\u062A\u062E\u0644\u0641 \u0639\u062F\u0645 \u0627\u0631\u0633\u0627\u0644 (",
-                fa(viol.length),
-                ")")),
-        loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : tab === "sent" ? (rows.length ? React.createElement("table", null,
-            React.createElement("thead", null,
-                React.createElement("tr", null,
-                    React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
-                    React.createElement("th", null, "\u0633\u0645\u062A"),
-                    React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
-                    React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
-                    React.createElement("th", null, "\u0645\u0648\u0642\u0639\u06CC\u062A"),
-                    React.createElement("th", null, "\u0632\u0645\u0627\u0646 \u062B\u0628\u062A (\u062A\u0647\u0631\u0627\u0646)"),
-                    React.createElement("th", null, "\u062A\u0635\u0627\u0648\u06CC\u0631"))),
-            React.createElement("tbody", null, rows.map(r => React.createElement("tr", { key: r.id },
-                React.createElement("td", null,
-                    React.createElement("b", null, r.name)),
-                React.createElement("td", null, r.role || "—"),
-                React.createElement("td", null, fj(r.slot_date)),
-                React.createElement("td", null, r.slot),
-                React.createElement("td", null, r.lat ? React.createElement("a", { href: `https://maps.google.com/?q=${r.lat},${r.lng}`, target: "_blank" }, "\u0646\u0642\u0634\u0647") : "—"),
-                React.createElement("td", null, r.captured_fa || fj(r.captured_at)),
-                React.createElement("td", null,
-                    React.createElement("button", { className: "btn g", onClick: () => openImg(r.id) }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u0639\u06A9\u0633\u200C\u0647\u0627")))))) : React.createElement("p", { className: "muted" }, "\u0627\u0631\u0633\u0627\u0644\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0646\u06CC\u0633\u062A.")) : (viol.length ? React.createElement("table", null,
-            React.createElement("thead", null,
-                React.createElement("tr", null,
-                    React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
-                    React.createElement("th", null, "\u0633\u0645\u062A"),
-                    React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
-                    React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
-                    React.createElement("th", null, "\u0646\u0648\u0639 \u062A\u062E\u0644\u0641"))),
-            React.createElement("tbody", null, viol.map((v, i) => React.createElement("tr", { key: i },
-                React.createElement("td", null,
-                    React.createElement("b", null, v.name)),
-                React.createElement("td", null, v.role || "—"),
-                React.createElement("td", null, fj(v.slot_date)),
-                React.createElement("td", null, v.slot),
-                React.createElement("td", null,
-                    React.createElement("span", { className: "badge b-no" }, v.type))))))
-            : React.createElement("p", { className: "muted" }, "\u062A\u062E\u0644\u0641\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0646\u06CC\u0633\u062A.")),
-        pick && React.createElement("div", { className: "modal-bg", onClick: () => setPick(null) },
-            React.createElement("div", { className: "modal", style: { maxWidth: 680 }, onClick: e => e.stopPropagation() },
-                React.createElement("h3", null,
-                    pick.name,
-                    " \u2014 ",
-                    fj(pick.slot_date),
-                    " \u0633\u0627\u0639\u062A ",
-                    pick.slot),
-                geo && React.createElement("div", { style: { background: "var(--brand-soft,#eef7f3)", borderRadius: 10, padding: "10px 12px", margin: "10px 0", fontSize: 13, lineHeight: 2 } },
-                    geo.address && React.createElement("div", null,
-                        "\uD83D\uDCCD ",
-                        React.createElement("b", null, "\u0622\u062F\u0631\u0633:"),
-                        " ",
-                        geo.address),
-                    geo.street && React.createElement("div", null,
-                        "\uD83D\uDEE3 ",
-                        React.createElement("b", null, "\u062E\u06CC\u0627\u0628\u0627\u0646:"),
-                        " ",
-                        geo.street),
-                    geo.nearest_line && React.createElement("div", null,
-                        "\uD83D\uDE96 ",
-                        React.createElement("b", null, "\u0646\u0632\u062F\u06CC\u06A9\u200C\u062A\u0631\u06CC\u0646 \u062E\u0637:"),
-                        " ",
-                        geo.nearest_line,
-                        geo.nearest_station ? ` (${geo.nearest_station})` : "",
-                        geo.distance_m != null ? ` — فاصله: ${fa(geo.distance_m)} متر` : "")),
-                React.createElement("div", { className: "grid2", style: { marginTop: 10 } }, ["selfie", "vehicles_photo"].map(key => {
-                    const src = pick[key] ? (pick[key].indexOf("/api/") === 0 ? API_BASE.replace(/\/api$/, "") + pick[key] : pick[key]) : null;
-                    return (React.createElement("div", { key: key },
-                        React.createElement("div", { className: "label", style: { marginBottom: 6 } }, key === "selfie" ? "سلفی" : "خودروهای خط"),
-                        src ? React.createElement("div", { style: { position: "relative" } },
-                            React.createElement("img", { src: src, style: { width: "100%", borderRadius: 10, cursor: "pointer" }, onClick: () => setFull(src) }),
-                            geo && (geo.street || geo.nearest_line) && React.createElement("div", { style: { position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,.6)", color: "#fff", fontSize: 11, padding: "5px 8px", borderRadius: "0 0 10px 10px", lineHeight: 1.7 } },
-                                geo.street ? `🛣 ${geo.street}` : "",
-                                geo.nearest_line ? ` · 🚖 ${geo.nearest_line}${geo.distance_m != null ? ` (${fa(geo.distance_m)}م)` : ""}` : ""),
-                            React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 6 } },
-                                React.createElement("button", { className: "btn g", style: { flex: 1 }, onClick: () => setFull(src) }, "\uD83D\uDD0D \u062A\u0645\u0627\u0645\u200C\u0635\u0641\u062D\u0647"),
-                                React.createElement("button", { className: "btn g", style: { flex: 1 }, onClick: () => dlImg(src, `${pick.name}_${key}.jpg`) }, "\u2913 \u0630\u062E\u06CC\u0631\u0647"))) : React.createElement("p", { className: "muted" }, "\u2014")));
-                })),
-                pick.lat ? React.createElement("p", { style: { marginTop: 10, fontSize: 13 } },
-                    "\u0645\u0648\u0642\u0639\u06CC\u062A: ",
-                    React.createElement("a", { href: `https://maps.google.com/?q=${pick.lat},${pick.lng}`, target: "_blank" },
-                        pick.lat,
-                        ", ",
-                        pick.lng)) : null,
-                React.createElement("button", { className: "btn g", style: { marginTop: 12, width: "100%" }, onClick: () => setPick(null) }, "\u0628\u0633\u062A\u0646"))),
-        full && React.createElement("div", { onClick: () => setFull(null), style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: 20, flexDirection: "column", gap: 12 } },
-            React.createElement("img", { src: full, style: { maxWidth: "95%", maxHeight: "82%", borderRadius: 8 }, onClick: e => e.stopPropagation() }),
-            React.createElement("div", { style: { display: "flex", gap: 10 } },
-                React.createElement("button", { className: "btn p", onClick: (e) => { e.stopPropagation(); dlImg(full, "presence_full.jpg"); } }, "\u2913 \u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0635\u0648\u06CC\u0631"),
-                React.createElement("button", { className: "btn g", onClick: () => setFull(null) }, "\u0628\u0633\u062A\u0646")))));
+        React.createElement("div", { id: "khatyar-presence-extension" }),
+        React.createElement("div", { hidden: immediateOpen },
+            React.createElement("h3", { style: { display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 } },
+                React.createElement("span", null, "\uD83D\uDCF8 \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062D\u0636\u0648\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627")),
+            React.createElement("div", { className: "filters" },
+                React.createElement("span", { className: "label" }, "\u0627\u0632"),
+                React.createElement(JDate, { value: from, onChange: setFrom }),
+                React.createElement("span", { className: "label" }, "\u062A\u0627"),
+                React.createElement(JDate, { value: to, onChange: setTo }),
+                React.createElement("button", { className: "btn p", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
+                rows.length > 0 && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644 (\u0628\u0627 \u0644\u06CC\u0646\u06A9 \u0639\u06A9\u0633\u200C\u0647\u0627)")),
+            React.createElement("div", { className: "tabbar", style: { marginTop: 6 } },
+                React.createElement("button", { className: "tabbtn" + (tab === "sent" ? " on" : ""), onClick: () => setTab("sent") },
+                    "\u0627\u0631\u0633\u0627\u0644\u200C\u0634\u062F\u0647 (",
+                    fa(rows.length),
+                    ")"),
+                React.createElement("button", { className: "tabbtn" + (tab === "miss" ? " on" : ""), onClick: () => setTab("miss") },
+                    "\u062A\u062E\u0644\u0641 \u0639\u062F\u0645 \u0627\u0631\u0633\u0627\u0644 (",
+                    fa(viol.length),
+                    ")")),
+            loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : tab === "sent" ? (rows.length ? React.createElement("table", null,
+                React.createElement("thead", null,
+                    React.createElement("tr", null,
+                        React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
+                        React.createElement("th", null, "\u0633\u0645\u062A"),
+                        React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
+                        React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
+                        React.createElement("th", null, "\u0645\u0648\u0642\u0639\u06CC\u062A"),
+                        React.createElement("th", null, "\u0632\u0645\u0627\u0646 \u062B\u0628\u062A (\u062A\u0647\u0631\u0627\u0646)"),
+                        React.createElement("th", null, "\u062A\u0635\u0627\u0648\u06CC\u0631"))),
+                React.createElement("tbody", null, rows.map(r => React.createElement("tr", { key: r.id },
+                    React.createElement("td", null,
+                        React.createElement("b", null, r.name)),
+                    React.createElement("td", null, r.role || "—"),
+                    React.createElement("td", null, fj(r.slot_date)),
+                    React.createElement("td", null, r.slot),
+                    React.createElement("td", null, r.lat ? React.createElement("a", { href: `https://maps.google.com/?q=${r.lat},${r.lng}`, target: "_blank" }, "\u0646\u0642\u0634\u0647") : "—"),
+                    React.createElement("td", null, r.captured_fa || fj(r.captured_at)),
+                    React.createElement("td", null,
+                        React.createElement("button", { className: "btn g", onClick: () => openImg(r.id) }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u0639\u06A9\u0633\u200C\u0647\u0627")))))) : React.createElement("p", { className: "muted" }, "\u0627\u0631\u0633\u0627\u0644\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0646\u06CC\u0633\u062A.")) : (viol.length ? React.createElement("table", null,
+                React.createElement("thead", null,
+                    React.createElement("tr", null,
+                        React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
+                        React.createElement("th", null, "\u0633\u0645\u062A"),
+                        React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
+                        React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
+                        React.createElement("th", null, "\u0646\u0648\u0639 \u062A\u062E\u0644\u0641"))),
+                React.createElement("tbody", null, viol.map((v, i) => React.createElement("tr", { key: i },
+                    React.createElement("td", null,
+                        React.createElement("b", null, v.name)),
+                    React.createElement("td", null, v.role || "—"),
+                    React.createElement("td", null, fj(v.slot_date)),
+                    React.createElement("td", null, v.slot),
+                    React.createElement("td", null,
+                        React.createElement("span", { className: "badge b-no" }, v.type))))))
+                : React.createElement("p", { className: "muted" }, "\u062A\u062E\u0644\u0641\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0646\u06CC\u0633\u062A.")),
+            pick && React.createElement("div", { className: "modal-bg", onClick: () => setPick(null) },
+                React.createElement("div", { className: "modal", style: { maxWidth: 680 }, onClick: e => e.stopPropagation() },
+                    React.createElement("h3", null,
+                        pick.name,
+                        " \u2014 ",
+                        fj(pick.slot_date),
+                        " \u0633\u0627\u0639\u062A ",
+                        pick.slot),
+                    geo && React.createElement("div", { style: { background: "var(--brand-soft,#eef7f3)", borderRadius: 10, padding: "10px 12px", margin: "10px 0", fontSize: 13, lineHeight: 2 } },
+                        geo.address && React.createElement("div", null,
+                            "\uD83D\uDCCD ",
+                            React.createElement("b", null, "\u0622\u062F\u0631\u0633:"),
+                            " ",
+                            geo.address),
+                        geo.street && React.createElement("div", null,
+                            "\uD83D\uDEE3 ",
+                            React.createElement("b", null, "\u062E\u06CC\u0627\u0628\u0627\u0646:"),
+                            " ",
+                            geo.street),
+                        geo.nearest_line && React.createElement("div", null,
+                            "\uD83D\uDE96 ",
+                            React.createElement("b", null, "\u0646\u0632\u062F\u06CC\u06A9\u200C\u062A\u0631\u06CC\u0646 \u062E\u0637:"),
+                            " ",
+                            geo.nearest_line,
+                            geo.nearest_station ? ` (${geo.nearest_station})` : "",
+                            geo.distance_m != null ? ` — فاصله: ${fa(geo.distance_m)} متر` : "")),
+                    React.createElement("div", { className: "grid2", style: { marginTop: 10 } }, ["selfie", "vehicles_photo"].map(key => {
+                        const src = pick[key] ? (pick[key].indexOf("/api/") === 0 ? API_BASE.replace(/\/api$/, "") + pick[key] : pick[key]) : null;
+                        return (React.createElement("div", { key: key },
+                            React.createElement("div", { className: "label", style: { marginBottom: 6 } }, key === "selfie" ? "سلفی" : "خودروهای خط"),
+                            src ? React.createElement("div", { style: { position: "relative" } },
+                                React.createElement("img", { src: src, style: { width: "100%", borderRadius: 10, cursor: "pointer" }, onClick: () => setFull(src) }),
+                                geo && (geo.street || geo.nearest_line) && React.createElement("div", { style: { position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,.6)", color: "#fff", fontSize: 11, padding: "5px 8px", borderRadius: "0 0 10px 10px", lineHeight: 1.7 } },
+                                    geo.street ? `🛣 ${geo.street}` : "",
+                                    geo.nearest_line ? ` · 🚖 ${geo.nearest_line}${geo.distance_m != null ? ` (${fa(geo.distance_m)}م)` : ""}` : ""),
+                                React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 6 } },
+                                    React.createElement("button", { className: "btn g", style: { flex: 1 }, onClick: () => setFull(src) }, "\uD83D\uDD0D \u062A\u0645\u0627\u0645\u200C\u0635\u0641\u062D\u0647"),
+                                    React.createElement("button", { className: "btn g", style: { flex: 1 }, onClick: () => dlImg(src, `${pick.name}_${key}.jpg`) }, "\u2913 \u0630\u062E\u06CC\u0631\u0647"))) : React.createElement("p", { className: "muted" }, "\u2014")));
+                    })),
+                    pick.lat ? React.createElement("p", { style: { marginTop: 10, fontSize: 13 } },
+                        "\u0645\u0648\u0642\u0639\u06CC\u062A: ",
+                        React.createElement("a", { href: `https://maps.google.com/?q=${pick.lat},${pick.lng}`, target: "_blank" },
+                            pick.lat,
+                            ", ",
+                            pick.lng)) : null,
+                    React.createElement("button", { className: "btn g", style: { marginTop: 12, width: "100%" }, onClick: () => setPick(null) }, "\u0628\u0633\u062A\u0646"))),
+            full && React.createElement("div", { onClick: () => setFull(null), style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: 20, flexDirection: "column", gap: 12 } },
+                React.createElement("img", { src: full, style: { maxWidth: "95%", maxHeight: "82%", borderRadius: 8 }, onClick: e => e.stopPropagation() }),
+                React.createElement("div", { style: { display: "flex", gap: 10 } },
+                    React.createElement("button", { className: "btn p", onClick: (e) => { e.stopPropagation(); dlImg(full, "presence_full.jpg"); } }, "\u2913 \u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0635\u0648\u06CC\u0631"),
+                    React.createElement("button", { className: "btn g", onClick: () => setFull(null) }, "\u0628\u0633\u062A\u0646"))))));
 }
 // صحت‌سنجی حضور: مشاهدهٔ ارسال‌ها (سلفی + عکس خودروها) و تخلفات عدم ارسال
 function TempDriversPanel() {

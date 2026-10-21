@@ -62,4 +62,6 @@ jobs:
           node --check php/app/assets/panel.bundle.js
           node php/tests/panel_navigation_ui_test.cjs
           node php/tests/panel_map_requests_test.cjs
+          node php/tests/settings_sections_ui_test.cjs
+          node php/tests/presence_extension_ui_test.cjs
           node --check php/app/assets/complaints-panel.js
