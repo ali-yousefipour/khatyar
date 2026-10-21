@@ -3778,9 +3778,15 @@ route('GET', '/api/admin/shift-report/export', function($p,$b,$u){
   if (!$jy||!$jm) Http::error('سال و ماه را مشخص کنید',400);
   $rows=_work_month_rows($jy,$jm);
   $hm=fn($m)=>sprintf('%02d:%02d',intdiv(max(0,(int)$m),60),max(0,(int)$m)%60);
-  $headers=['نام و نام خانوادگی','موظفی','حضور کل','حضور در شیفت','تاخیر ورود','تعجیل خروج','کسری کار','غیبت','جمع غیبت و کسری کار','شب کاری','اضافه کاری','جمعه کاری','تعطیل کاری','ماموریت','مرخصی استحقاقی','مرخصی استعلاجی'];
+  $headers=['نام و نام خانوادگی','موظفی','حضور کل','حضور در شیفت','تاخیر ورود','تعجیل خروج','کسری کار','غیبت','جمع غیبت و کسری کار','شب کاری','اضافه کاری','مازاد حضور','جمعه کاری','تعطیل کاری','ماموریت','مرخصی استحقاقی','مرخصی استعلاجی'];
   $xw=new XlsxWriter($headers);
-  $widths=[24,11,12,15,12,12,12,10,18,12,12,12,12,12,15,15];
+  $widths=[30,13,14,16,13,13,13,12,20,13,14,14,14,14,14,17,17];
+  $xw->setProfessionalStyle(true);
+  $xw->setReportHeading('گزارش کارکرد ماهانه پرسنل ـ سازمان مدیریت و نظارت بر تاکسیرانی شهرداری مشهد', 'دوره: '.sprintf('%04d/%02d',$jy,$jm).'  |  تعداد نیروها: '.count($rows), 'ساعات به قالب ساعت:دقیقه؛ جمعه‌کاری و تعطیل‌کاری از اضافه‌کاری عادی مستقل هستند.');
+  $xw->setHeaderGroup(1,3,'حضور و موظفی');
+  $xw->setHeaderGroup(4,8,'کسری و غیبت');
+  $xw->setHeaderGroup(9,13,'کارکرد ویژه و اضافه‌کاری');
+  $xw->setHeaderGroup(14,16,'درخواست‌های تأییدشده');
   foreach($widths as $i=>$w) $xw->setColWidth($i,$w);
   foreach($rows as $r){
     $gh=($r['absent_min']??0)+($r['shortage']??0);
@@ -3796,6 +3802,7 @@ route('GET', '/api/admin/shift-report/export', function($p,$b,$u){
       $hm($gh),
       $hm($r['night']),
       $hm($r['regular_overtime']??$r['overtime']),
+      $hm($r['surplus']??0),
       $hm($r['friday']??0),
       $hm($r['holiday']??0),
       $hm($r['mission_min']??0),
