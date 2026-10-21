@@ -4093,6 +4093,19 @@ function _req_validate_work_policy($uid,array $request,array $policy,$approval=f
 
 // Serialize quota validation and writes for one requester across all four entry points.
 // An advisory lock tolerates legacy DDL in the handlers (which would commit a transaction).
+function _req_reject_overlap($uid,array $request){
+  $span=_req_policy_span($request);
+  if(!$span)return; // Existing handlers retain responsibility for invalid input.
+  $type=(string)($request['type']??'');
+  $rows=Db::all("SELECT * FROM requests WHERE user_id=? AND type=? AND status IN ('pending','approved')",[(int)$uid,$type]);
+  $end=static function($value){return $value['unit']==='hourly'?$value['start']->modify('+'.$value['minutes'].' minutes'):$value['start']->setTime(0,0)->modify('+'.$value['days'].' days');};
+  foreach($rows as $row){
+    $other=_req_policy_span($row);if(!$other)continue;
+    if($type==='manual'){
+      if($span['start']->format('Y-m-d')===$other['start']->format('Y-m-d')&&($request['in_time']??null)===($row['in_time']??null)&&($request['out_time']??null)===($row['out_time']??null))Http::error('این درخواست قبلاً ثبت شده است.',409);
+    }elseif($span['start']<$end($other)&&$other['start']<$end($span))Http::error('برای این روز و بازه، درخواست هم‌زمان در انتظار یا تأییدشده دارید.',409);
+  }
+}
 function _req_work_policy_handler($path,callable $handler){
   return static function($params,$body,$user) use($path,$handler){
     $approval=false; $excludeId=0; $request=$body; $uid=(int)($user['id']??0);
@@ -4107,12 +4120,13 @@ function _req_work_policy_handler($path,callable $handler){
       if($path==='/api/requests/{id}/decide' && ($request['pending_on']??null)!=($user['id']??0) && empty($user['is_admin'])) Http::error('این درخواست در کارتابل شما نیست',403);
       $uid=(int)$request['user_id']; $excludeId=(int)$params['id'];
     }
-    if($uid<=0||!_req_active_work_policy($uid)) return $handler($params,$body,$user);
+    if($uid<=0) return $handler($params,$body,$user);
     _ensure_requests_table();
     $lock='khatyar:request-policy:'.$uid;
     $locked=Db::one("SELECT GET_LOCK(?,10) acquired",[$lock]);
     if((int)($locked['acquired']??0)!==1) Http::error('درخواست دیگری در حال بررسی است؛ دوباره تلاش کنید.',409);
     try{
+      if(!$approval) _req_reject_overlap($uid,$request);
       $policy=_req_active_work_policy($uid);
       if($policy) _req_validate_work_policy($uid,$request,$policy,$approval,$excludeId);
       return $handler($params,$body,$user);
@@ -4825,14 +4839,28 @@ route('GET', '/api/admin/requests', function($p,$b,$u){
 }, false, ADMIN);
 
 // عملیات مدیریتی گزارش درخواست‌ها: تأیید، رد و حذف
+route('GET', '/api/admin/requests/{id}/leave-context', function($p,$b,$u){
+  $request=Db::one("SELECT id,user_id,type FROM requests WHERE id=?",[(int)$p['id']]);
+  if(!$request)Http::error('درخواست یافت نشد',404);
+  if(!in_array($request['type'],['annual','sick'],true))Http::error('درخواست مرخصی نیست',422);
+  $context=_req_balance((int)$request['user_id']);
+  $from=_req_policy_date(sprintf('%04d-%02d-01',$context['year'],$context['month']));
+  $next=$context['month']===12?sprintf('%04d-01-01',$context['year']+1):sprintf('%04d-%02d-01',$context['year'],$context['month']+1);
+  $to=_req_policy_date($next);
+  $rows=Db::all("SELECT id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes,status FROM requests WHERE user_id=? AND type IN ('annual','sick') ORDER BY id DESC",[(int)$request['user_id']]);
+  $context['requests']=array_values(array_filter($rows,static function($row)use($from,$to){$span=_req_policy_span($row);if(!$span)return false;$end=$span['unit']==='hourly'?$span['start']->modify('+'.$span['minutes'].' minutes'):$span['start']->setTime(0,0)->modify('+'.$span['days'].' days');return $span['start']<$to&&$end>$from;}));
+  return $context;
+},false,ADMIN);
 route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
   $id=(int)($p['id']??0); $status=(string)($b['status']??'');
   if(!$id || !in_array($status,['approved','rejected'],true)) Http::error('عملیات درخواست نامعتبر است',400);
   $req=Db::one("SELECT id,user_id,status,type FROM requests WHERE id=?",[$id]);
   if(!$req) Http::error('درخواست یافت نشد',404);
+  if($req['status']!=='pending') Http::error('این درخواست دیگر در انتظار بررسی نیست؛ فهرست را تازه‌سازی کنید.',409);
   if($req['status']===$status) Http::error('وضعیت این درخواست قبلاً ثبت شده است',409);
   $note=trim((string)($b['note']??''))?:null;
-  Db::run("UPDATE requests SET status=?,approver_id=?,approver_note=?,decided_at=NOW() WHERE id=?",[$status,(int)$u['id'],$note,$id]);
+  $updated=Db::run("UPDATE requests SET status=?,approver_id=?,approver_note=?,decided_at=NOW() WHERE id=? AND status='pending'",[$status,(int)$u['id'],$note,$id]);
+  if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است؛ فهرست را تازه‌سازی کنید.',409);
   if(function_exists('_req_notify_sms')){try{_req_notify_sms($req,$status,$note);}catch(Throwable $e){error_log('request decision notify: '.$e->getMessage());}}
   return ['id'=>$id,'status'=>$status,'message'=>$status==='approved'?'درخواست با موفقیت تأیید شد.':'درخواست با موفقیت رد شد.'];
 }, false, ADMIN);

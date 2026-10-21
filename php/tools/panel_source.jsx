@@ -920,14 +920,17 @@ function LiveMap(){
   const [people,setPeople]=useState([]); const [trkUser,setTrkUser]=useState(""); const trkIv=useRef(null);
   const [fromD,setFromD]=useState(""); const [toD,setToD]=useState(""); const [trkInfo,setTrkInfo]=useState(null);
   const [trkPts,setTrkPts]=useState(null); const [fences,setFences]=useState([]); const [trkExits,setTrkExits]=useState([]);
-  useEffect(()=>{ db.geofences().then(g=>setFences(g||[])).catch(()=>{}); },[]);
   const [fromT,setFromT]=useState("00:00"); const [toT,setToT]=useState("23:59");
   const [onlineUsers,setOnlineUsers]=useState([]); const [allUsers,setAllUsers]=useState([]);
-  useEffect(()=>{ db.usersLite().then(l=>setAllUsers(l||[])).catch(()=>{}); },[]);
+  useEffect(()=>{ db.usersLite().then(l=>setAllUsers((l||[]).slice().sort((a,b)=>((a.first_name||'')+' '+(a.last_name||'')).localeCompare((b.first_name||'')+' '+(b.last_name||''),'fa')))).catch(()=>{}); },[]);
   const [mapProvider,setMapProvider]=useState(localStorage.mapProvider||"osm");
   const [shiftFilter,setShiftFilter]=useState(()=>localStorage.liveShiftFilter==="1");
   const [onlyOnline,setOnlyOnline]=useState(()=>localStorage.liveOnlyOnline==="1");
   const onlyOnlineRef=useRef(onlyOnline);
+  const shiftFilterRef=useRef(shiftFilter);
+  const liveRequestRef=useRef(false); const liveMountedRef=useRef(false);
+  const [liveLoading,setLiveLoading]=useState(true); const [liveError,setLiveError]=useState('');
+  const [liveUpdated,setLiveUpdated]=useState(null);
   useEffect(()=>{ onlyOnlineRef.current=onlyOnline; localStorage.liveOnlyOnline=onlyOnline?"1":""; },[onlyOnline]);
   const [roleFilter,setRoleFilter]=useState(()=>{ try{return JSON.parse(localStorage.liveRoleFilter||"null");}catch(e){return null;} }); // null = همه
   const [personFilter,setPersonFilter]=useState(()=>{ try{return JSON.parse(localStorage.livePersonFilter||"null");}catch(e){return null;} }); // null = همه
@@ -999,7 +1002,10 @@ function LiveMap(){
   const drawUsers=()=>{ const map=mapRef.current; if(!map)return;
     if(!layerRef.current){ layerRef.current=L.layerGroup().addTo(map); }
     const grp=layerRef.current; const mk=markersRef.current; const seen={};
-    db.live(shiftFilter).then(list=>{ (list||[]).forEach(u=>{ if(!u.lat||!u.lng)return; const id=u.user_id;
+    if(liveRequestRef.current)return;
+    liveRequestRef.current=true; setLiveLoading(true);
+    const requestedShift=shiftFilterRef.current;
+    db.live(requestedShift).then(list=>{ if(!liveMountedRef.current||requestedShift!==shiftFilterRef.current)return; setLiveError(''); setLiveUpdated(new Date()); (list||[]).forEach(u=>{ if(!u.lat||!u.lng)return; const id=u.user_id;
       if(focusRef.current && String(id)!==String(focusRef.current)) return; // فقط کاربر منتخب
       // فیلتر سمت: اگر فهرست سمت‌ها تعیین شده باشد، فقط همان سمت‌ها نمایش داده شوند
       const rf=roleFilterRef.current;
@@ -1008,7 +1014,7 @@ function LiveMap(){
       const pf=personFilterRef.current;
       if(pf && pf.length && !pf.includes(String(id))) return;
       // فیلتر فقط آنلاین: اگر فعال باشد، افراد آفلاین نمایش داده نشوند
-      if(onlyOnlineRef.current && !u.online) return;
+      if(onlyOnlineRef.current && !Number(u.online)) return;
       seen[id]=1;
       const pos=[+u.lat,+u.lng]; const icon=L.divIcon({html:markerHtml(u),className:"",iconSize:[42,52],iconAnchor:[21,52],popupAnchor:[0,-50]});
       if(mk[id]){ // فقط موقعیت/آیکن/پاپ‌آپ را به‌روزرسانی کن (بدون حذف و رسم مجدد → بدون چشمک‌زدن)
@@ -1025,20 +1031,21 @@ function LiveMap(){
       const rf=roleFilterRef.current; if(rf&&rf.length&&!rf.includes(String(u.role_id||u.role_title||"")))return false;
       const pf=personFilterRef.current; if(pf&&pf.length&&!pf.includes(String(u.user_id)))return false;
       return true; });
-    setOnlineUsers((list||[]).filter(u=>+u.online).map(u=>({id:u.user_id,name:(u.first_name||'')+' '+(u.last_name||'')})));
-    }).catch(()=>{});
+    setOnlineUsers((list||[]).filter(u=>+u.online).map(u=>({id:u.user_id,name:(u.first_name||'')+' '+(u.last_name||'')})).sort((a,b)=>a.name.localeCompare(b.name,'fa')));
+    }).catch(error=>{if(liveMountedRef.current)setLiveError(error.message||'دریافت موقعیت‌ها ناموفق بود.');}).finally(()=>{liveRequestRef.current=false;if(liveMountedRef.current){setLiveLoading(false);if(requestedShift!==shiftFilterRef.current)drawUsers();}});
   };
   useEffect(()=>{
+    liveMountedRef.current=true;
     const map=L.map(ref.current).setView([36.297,59.606],12); mapRef.current=map;
     applyBase(mapProvider);
-    db.geofences().then(gs=>(gs||[]).forEach(g=>{
+    db.geofences().then(gs=>{setFences(gs||[]);return (gs||[]).forEach(g=>{
       if(g.type==="circle"&&g.center_lat)L.circle([g.center_lat,g.center_lng],{radius:g.radius_m||200,color:g.color,fillColor:g.color,fillOpacity:.18}).addTo(map).bindPopup(`ایستگاه: ${g.name}${g.line_code?" — خط "+g.line_code:""}`);
       else if(g.type==="polygon"&&g.polygon)L.polygon(g.polygon,{color:g.color,fillColor:g.color,fillOpacity:.18}).addTo(map).bindPopup(`محدوده: ${g.name}${g.line_code?" — خط "+g.line_code:""}`);
-    })).catch(()=>{});
+    });}).catch(()=>{});
     drawUsers();
     setTimeout(()=>map.invalidateSize(),200);
     const iv=setInterval(drawUsers,15000);
-    return()=>{clearInterval(iv);map.remove();};
+    return()=>{liveMountedRef.current=false;clearInterval(iv);map.remove();};
   },[]);
 
   // با انتخاب یک نفر از کشوی رهگیری، در حالت زنده فقط همان نفر روی نقشه نمایش داده شود
@@ -1221,7 +1228,7 @@ function LiveMap(){
     }finally{ setSavingImg(false); }
   };
   const stopTrack=()=>{ if(trkIv.current){clearInterval(trkIv.current);trkIv.current=null;} const map=mapRef.current; if(lineRef.current&&map)map.removeLayer(lineRef.current); setTrkInfo(null); setTrkPts(null); setMode("live"); drawUsers(); };
-  return(<div className="panel admin-workspace-page"><h3>نقشهٔ نیروها و رهگیری
+  return(<div className="panel admin-workspace-page live-map-page"><h3>نقشهٔ زندهٔ نیروها و رهگیری
     <span className="row" style={{gap:8}}>
       <select className="input" style={{maxWidth:170,fontSize:12}} value={mapProvider} onChange={e=>changeProvider(e.target.value)}>
         <option value="osm">نقشهٔ OpenStreetMap</option>
@@ -1232,9 +1239,11 @@ function LiveMap(){
       </select>
       <button className="btn g" onClick={()=>{stopTrack();}}>{mode==="live"?"● زنده":"زنده"}</button>
       <button className="btn g" onClick={()=>setShowFilters(s=>!s)}>{(roleFilter&&roleFilter.length)||(personFilter&&personFilter.length)?"⚙ فیلتر فعال":"⚙ فیلتر نمایش"}</button>
-      <button className={shiftFilter?"btn p":"btn g"} onClick={()=>{ const n=!shiftFilter; setShiftFilter(n); localStorage.liveShiftFilter=n?"1":""; const mk=markersRef.current,grp=layerRef.current; if(grp){Object.keys(mk).forEach(id=>{grp.removeLayer(mk[id]);delete mk[id];}); } drawUsers(); }} title={shiftFilter?"نمایش همه":"فقط در شیفت"}>{shiftFilter?"👥 فقط در شیفت":"👥 همه"}</button>
-      <button className={onlyOnline?"btn p":"btn g"} onClick={()=>{ const n=!onlyOnline; setOnlyOnline(n); const mk=markersRef.current,grp=layerRef.current; if(grp){Object.keys(mk).forEach(id=>{grp.removeLayer(mk[id]);delete mk[id];}); } drawUsers(); }} title={onlyOnline?"نمایش همه":"فقط آنلاین‌ها"}>{onlyOnline?"🟢 فقط آنلاین":"🟢 آنلاین/آفلاین"}</button>
+      <button className={shiftFilter?"btn p":"btn g"} onClick={()=>{ const n=!shiftFilter; shiftFilterRef.current=n; setShiftFilter(n); localStorage.liveShiftFilter=n?"1":""; const mk=markersRef.current,grp=layerRef.current; if(grp){Object.keys(mk).forEach(id=>{grp.removeLayer(mk[id]);delete mk[id];}); } drawUsers(); }} title={shiftFilter?"نمایش همه":"فقط در شیفت"}>{shiftFilter?"👥 فقط در شیفت":"👥 همه"}</button>
+      <button className={onlyOnline?"btn p":"btn g"} onClick={()=>{ const n=!onlyOnline; onlyOnlineRef.current=n; setOnlyOnline(n); const mk=markersRef.current,grp=layerRef.current; if(grp){Object.keys(mk).forEach(id=>{grp.removeLayer(mk[id]);delete mk[id];}); } drawUsers(); }} title={onlyOnline?"نمایش همه":"فقط آنلاین‌ها"}>{onlyOnline?"🟢 فقط آنلاین":"🟢 آنلاین/آفلاین"}</button>
       <button className="btn g" disabled={savingImg} onClick={saveMapImage}>{savingImg?"در حال ذخیره…":"📷 ذخیرهٔ تصویر نقشه"}</button></span></h3>
+    <div className="live-map-status" role="status" aria-live="polite">{liveLoading?'در حال دریافت موقعیت‌ها…':liveUpdated?'آخرین دریافت: '+liveUpdated.toLocaleTimeString('fa-IR'):'موقعیتی دریافت نشده است'}<button className="btn g" disabled={liveLoading} onClick={drawUsers}>تازه‌سازی موقعیت‌ها</button></div>
+    {liveError&&<p role="alert">{liveError} — موقعیت‌های قبلی حفظ شده‌اند.</p>}
     {/* تب‌بندی نقشه */}
     <div className="tabbar" style={{display:"flex",gap:8,marginBottom:12,borderBottom:"2px solid var(--line)",flexWrap:"wrap"}}>
       {[["main","🗺 نقشهٔ اصلی نیروها"],["live","🛰 رهگیری زنده"],["report","📊 گزارش مسیر و پخش"],["exits","⛔ خروج از محدوده امروز"]].map(([k,lbl])=>
@@ -3587,7 +3596,7 @@ function BackupSettings(){
   };
   const PURGE_OPTIONS=[
     ["reports","گزارش‌ها و گردش آن‌ها"],["notices","تذکرها"],["checklists","چک‌لیست‌ها"],
-    ["attendance","حضور رانندگان و نیروها"],["presence","صحت‌سنجی حضور"],["covert","سلفی‌های نامحسوس"],
+    ["attendance","حضور رانندگان و نیروها"],["presence","صحت‌سنجی حضور"],["covert","نظارت"],
     ["official_visits","حضور مسئولین"],["messages","پیام‌ها"],["outages","قطعی سیستم نوبت‌دهی"],
     ["requests","درخواست‌ها (مرخصی/ماموریت)"],["sms_log","تاریخچهٔ پیامک"],["locations","ردیابی موقعیت"],
     ["forms","پاسخ فرم‌ها"],["all_images","فقط خالی‌کردن همهٔ تصاویر (بدون حذف رکورد)"],
@@ -3929,16 +3938,18 @@ function MaintenanceModeSettings(){
 function Settings(){
   const [v,setV]=useState(null);
   const [tab,setTab]=useState("general");
-  useEffect(()=>{db.settings().then(setV).catch(()=>{})},[]);
-  if(!v)return <div>در حال بارگذاری…</div>;
+  const [settingsError,setSettingsError]=useState(''); const [settingsSaving,setSettingsSaving]=useState(false); const settingsLock=useRef(false);
+  useEffect(()=>{let active=true;db.settings().then(value=>{if(active)setV(value);}).catch(error=>{if(active)setSettingsError(error.message||'دریافت تنظیمات ناموفق بود');});return()=>{active=false;};},[]);
+  if(!v)return <div role={settingsError?'alert':'status'}>{settingsError||'در حال بارگذاری…'}</div>;
   const set=(k,val)=>setV({...v,[k]:val});
-  const save=async()=>{ await db.saveSettings(v); alert("تنظیمات ذخیره شد."); };
+  const save=async()=>{if(settingsLock.current)return;settingsLock.current=true;setSettingsSaving(true);setSettingsError('');try{await db.saveSettings(v);alert('تنظیمات ذخیره شد.');}catch(error){setSettingsError(error.message||'ذخیره تنظیمات ناموفق بود؛ تغییرات شما حفظ شده‌اند.');}finally{settingsLock.current=false;setSettingsSaving(false);}};
   const TABS=[["general","⚙️","عمومی و موقعیت"],["subscription","💳","اشتراک"],["monitoring","⏱️","پایش و هشدارها"],["dashboard","📊","داشبورد و محاسبهٔ عملکرد"],["hr","👥","منابع انسانی"],["fields","🧩","فیلدهای پرسنل"],["appitems","📱","آیتم‌های اپ هر سمت"],["sms","💬","پیامک"],["bale","🤖","ربات‌ها"],["security","🔐","امنیت و نسخه اپ"],["radio","📻","تنظیمات بی‌سیم"],["files","📎","پیوست‌ها و اعلان‌ها"],["drivers","💰","بدهکاران"],["print","🖨️","قالب چاپ"],["access","🛡️","دسترسی‌ها"],["backup","💾","پشتیبان‌گیری و پاکسازی"]];
   const Field=(k,l)=><div style={{marginBottom:12}}><label style={{fontSize:13,color:"var(--muted)"}}>{l}</label>
     <input className="input" value={v[k]??""} onChange={e=>set(k,e.target.value)} style={{marginTop:5}}/></div>;
   const Toggle=(k,l)=><label className="row" style={{justifyContent:"space-between",padding:"8px 0",cursor:"pointer"}}>
     <span style={{fontSize:13}}>{l}</span><input type="checkbox" checked={!!v[k]} onChange={e=>set(k,e.target.checked)}/></label>;
   return(<div className="admin-workspace-page admin-settings-page">
+    <header className="settings-intro"><h3>تنظیمات سامانه</h3><p className="muted">سازمان و عملیات · پرسنل · ارتباطات · امنیت و نگهداری</p><p>بخش مرتبط را انتخاب کنید. تغییر بخش، اطلاعات واردشده را پاک نمی‌کند.</p>{settingsError&&<p role="alert">{settingsError}</p>}{settingsSaving&&<p role="status">در حال ذخیرهٔ تنظیمات…</p>}</header>
     <label className="settings-mobile-picker">بخش تنظیمات<select className="input" value={tab} onChange={e=>setTab(e.target.value)}>{TABS.map(([k,,label])=><option key={k} value={k}>{label}</option>)}</select></label>
     <div className="tabbar">{TABS.map(([k,ic,l])=><button key={k} aria-pressed={tab===k} className={"tabbtn"+(tab===k?" on":"")} onClick={()=>setTab(k)}><span aria-hidden="true" style={{fontSize:16,lineHeight:1,marginLeft:6}}>{ic}</span><span>{l}</span></button>)}</div>
     <div className={"grid2 settings-tabs tab-"+tab}>
@@ -4182,14 +4193,14 @@ function Settings(){
         <button className="btn g" onClick={async()=>{const r=await db.cleanupAttachments();alert(r.days?("پیوست‌های قدیمی‌تر از "+fa(r.days)+" روز پاک شدند."):(r.note||"انجام شد."));}}>پاک‌سازی پیوست‌های قدیمی الان</button></div>
       <p style={{fontSize:12,color:"var(--muted)",marginTop:8}}>برای حذف خودکار روزانه، فایل db/cleanup_cron.sql یا این دکمه را در Cron هاست زمان‌بندی کنید.</p>
     </div>
-    <div className="panel t-files"><h3>📸 سلفی نامحسوس از نیروها</h3>
+    <div className="panel t-files"><h3>📸 نظارت تصویری نیروها</h3>
       <p className="muted" style={{marginBottom:10,fontSize:13}}>طبق تنظیم جدید، اپ دیگر هنگام ورود یا ثبت حضور سلفی نمی‌گیرد. سلفی فقط وقتی گرفته می‌شود که مدیر از سمت سرور برای همان کاربر دستور سلفی ارسال کند.</p>
       <div className="card-p" style={{display:"block",background:"#f8fafc"}}>
         <b>وضعیت جدید:</b>
-        <p className="muted" style={{fontSize:12,marginTop:6}}>گزینه‌های «سلفی هنگام ورود»، «سلفی هنگام ثبت حضور» و «سلفی دوره‌ای» از اپ موبایل حذف شده‌اند. ارسال دستور سلفی از بخش مدیریت سلفی‌ها همچنان فعال است.</p>
+        <p className="muted" style={{fontSize:12,marginTop:6}}>گزینه‌های «سلفی هنگام ورود»، «سلفی هنگام ثبت حضور» و «سلفی دوره‌ای» از اپ موبایل حذف شده‌اند. درخواست نظارت فوری از بخش نظارت همچنان فعال است.</p>
       </div>
       <div className="row" style={{gap:10,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
-        <label className="label">پاک‌سازی خودکار سلفی‌های نامحسوس پس از (روز — ۰ = غیرفعال):</label>
+        <label className="label">پاک‌سازی خودکار نظارت پس از (روز — ۰ = غیرفعال):</label>
         <input className="input" type="number" min="0" style={{maxWidth:90}} value={v.covert_selfie_retention_days??0} onChange={e=>set("covert_selfie_retention_days",Math.max(0,+e.target.value||0))}/>
         <span className="muted" style={{fontSize:12}}>نیاز به اجرای کرون روزانه دارد</span>
       </div>
@@ -4224,7 +4235,7 @@ function Settings(){
       <button className="btn p" style={{marginTop:14}} onClick={save}>ذخیره تنظیمات اعلان‌های میدانی</button>
     </div>
     <div className="panel t-files"><h3>🖥 اسکرین‌شات نامحسوس از صفحهٔ نیروها</h3>
-      <p className="muted" style={{marginBottom:10,fontSize:13}}>اپ می‌تواند به‌صورت نامحسوس از صفحهٔ نمایش گوشی نیرو اسکرین‌شات بگیرد و ارسال کند. تصاویر مانند سلفی‌های نامحسوس در همان بخش ذخیره می‌شوند.</p>
+      <p className="muted" style={{marginBottom:10,fontSize:13}}>اپ می‌تواند به‌صورت نامحسوس از صفحهٔ نمایش گوشی نیرو اسکرین‌شات بگیرد و ارسال کند. تصاویر مانند نظارت در همان بخش ذخیره می‌شوند.</p>
       <p className="muted" style={{fontSize:12,marginBottom:10,background:"#fff3cd",padding:8,borderRadius:8}}>⚠ این قابلیت نیاز به نصب <b>react-native-view-shot</b> دارد: <code>npx expo install react-native-view-shot</code> سپس prebuild مجدد.</p>
       <label className="row" style={{gap:8,marginBottom:10}}><input type="checkbox" checked={!!v.covert_screenshot_enabled} onChange={e=>set("covert_screenshot_enabled",e.target.checked)}/>فعال‌سازی اسکرین‌شات نامحسوس</label>
       {v.covert_screenshot_enabled&&<div style={{marginInlineStart:8}}>
@@ -5324,7 +5335,7 @@ function DashboardConfig(){
 }
 
 function RolePerms(){
-  const MENU=[["seniority","سنوات نیروها"],["dashboard","داشبورد"],["reportscenter","مرکز گزارش‌ها"],["health","سلامت سامانه"],["map","نقشهٔ زنده"],["present","آمار حاضرین"],["presentchart","نمودار زندهٔ حاضرین"],["missiondashboard","داشبورد عملیات میدانی"],["citydashboard","داشبورد مدیریتی کل‌شهر"],["missiontemplates","موتور مأموریت — الگوها و تنظیمات"],["scoreengine","موتور امتیازدهی"],["driverservicereport","عملکرد و تذکرات تاکسیران"],["officials","حضور مسئولین"],["covertselfies","سلفی‌های نامحسوس"],["messages","پیام‌رسانی"],["messengercenter","مرکز ارسال ربات‌ها"],["companyrequests","مدارک ارسالی شرکت"],["salaryslips","بارگذاری فیش حقوقی"],["users","کاربران"],["zones","منطقه‌بندی"],["org","چارت سازمانی"],["drivers","رانندگان"],["platetraining","پلاک‌خوان"],["lines","خطوط"],["bills","آبونمان"],["config","تذکر/چک‌لیست"],["forms","فرم‌ساز"],["reports","گردش گزارش"],["report","گزارش‌گیری"],["perfreport","گزارش عملکرد پرسنل"],["attreport","گزارش تردد پرسنل"],["leavereport","گزارش مرخصی پرسنل"],["welfare","رفاهیات روابط عمومی"],["cultural","فعالیت‌های فرهنگی"],["excel","ورود اکسل"],["logs","لاگ"],["useract","فعالیت کاربران"],["commitments","تعهدات انضباطی"],["tempdrivers","رانندگان موقت"],["presence","صحت‌سنجی حضور"],["attendance","حضور نیروها"],["shifts","تنظیمات شیفت کاری"],["monthlyworkreport","گزارش کارکرد ماهانه"],["workpolicy","سیاست کاری"],["requests","گزارش درخواست‌ها"],["outages","قطعی سیستم نوبت‌دهی"],["customfields","فیلدهای سفارشی"],["inventory","اقلام تحویلی"],["sms","ارسال پیامک"],["smslog","تاریخچهٔ پیامک"],["appitems","آیتم‌های اپ هر سمت"],["cronstatus","پایش سلامت کرون‌ها"],["activesessions","جلسات فعال کاربران"],["radiocenter","مرکز بی‌سیم"],["vehicleassets","ماشین‌آلات و وسایل مأموریتی"],["vehiclechecklist","چک‌لیست خودرویی و موتوری"],["settings","تنظیمات"]];
+  const MENU=[["seniority","سنوات نیروها"],["dashboard","داشبورد"],["reportscenter","مرکز گزارش‌ها"],["health","سلامت سامانه"],["map","نقشهٔ زنده"],["present","آمار حاضرین"],["presentchart","نمودار زندهٔ حاضرین"],["missiondashboard","داشبورد عملیات میدانی"],["citydashboard","داشبورد مدیریتی کل‌شهر"],["missiontemplates","موتور مأموریت — الگوها و تنظیمات"],["scoreengine","موتور امتیازدهی"],["driverservicereport","عملکرد و تذکرات تاکسیران"],["officials","حضور مسئولین"],["covertselfies","نظارت"],["messages","پیام‌رسانی"],["messengercenter","مرکز ارسال ربات‌ها"],["companyrequests","مدارک ارسالی شرکت"],["salaryslips","بارگذاری فیش حقوقی"],["users","کاربران"],["zones","منطقه‌بندی"],["org","چارت سازمانی"],["drivers","رانندگان"],["platetraining","پلاک‌خوان"],["lines","خطوط"],["bills","آبونمان"],["config","تذکر/چک‌لیست"],["forms","فرم‌ساز"],["reports","گردش گزارش"],["report","گزارش‌گیری"],["perfreport","گزارش عملکرد پرسنل"],["attreport","گزارش تردد پرسنل"],["leavereport","گزارش مرخصی پرسنل"],["welfare","رفاهیات روابط عمومی"],["cultural","فعالیت‌های فرهنگی"],["excel","ورود اکسل"],["logs","لاگ"],["useract","فعالیت کاربران"],["commitments","تعهدات انضباطی"],["tempdrivers","رانندگان موقت"],["presence","صحت‌سنجی حضور"],["attendance","حضور نیروها"],["shifts","تنظیمات شیفت کاری"],["monthlyworkreport","گزارش کارکرد ماهانه"],["workpolicy","سیاست کاری"],["requests","گزارش درخواست‌ها"],["outages","قطعی سیستم نوبت‌دهی"],["customfields","فیلدهای سفارشی"],["inventory","اقلام تحویلی"],["sms","ارسال پیامک"],["smslog","تاریخچهٔ پیامک"],["appitems","آیتم‌های اپ هر سمت"],["cronstatus","پایش سلامت کرون‌ها"],["activesessions","جلسات فعال کاربران"],["radiocenter","مرکز بی‌سیم"],["vehicleassets","ماشین‌آلات و وسایل مأموریتی"],["vehiclechecklist","چک‌لیست خودرویی و موتوری"],["settings","تنظیمات"]];
   const [roles,setRoles]=useState([]); const [perms,setPerms]=useState({}); const [sel,setSel]=useState(null);
   useEffect(()=>{ db.roles().then(rs=>{setRoles(rs);}).catch(()=>{}); db.settings().then(s=>setPerms(s.role_perms||{})).catch(()=>{}); },[]);
   const allowed=sel!=null?(perms[sel]||MENU.map(m=>m[0])):[];
@@ -7237,28 +7248,37 @@ function jFromIso(iso){ if(!iso)return ""; const d=new Date(iso); if(isNaN(d))re
 function AdminRequests(){
   const [users,setUsers]=useState([]); const [rows,setRows]=useState([]); const [loading,setLoading]=useState(false);
   const [fUser,setFUser]=useState(""); const [fType,setFType]=useState(""); const [fStatus,setFStatus]=useState(""); const [busyId,setBusyId]=useState(null);
-  const act=async(id,status)=>{
-    const row=rows.find(x=>+x.id===+id); if(!row)return;
-    const title=status==="approved"?"تأیید":"رد"; let note="";
-    if(status==="rejected") note=prompt("علت رد درخواست (اختیاری):","")||"";
-    if(!confirm("درخواست «"+(TY[row.type]||row.type)+"» برای «"+row.requester+"» "+title+" شود؟"))return;
-    setBusyId(id);
-    try{await db.adminRequestDecision(id,{status,note});await load();}catch(e){alert(e.message||"عملیات درخواست انجام نشد");}finally{setBusyId(null);}
+  const [selected,setSelected]=useState([]); const [review,setReview]=useState(null); const [reviewLoading,setReviewLoading]=useState(false); const [actionMessage,setActionMessage]=useState(''); const actionLock=useRef(false); const loadVersion=useRef(0);
+  const execute=async(ids,status)=>{
+    if(actionLock.current)return; actionLock.current=true; setBusyId('batch'); setActionMessage('');
+    const failed=[]; let succeeded=0;
+    try{for(const id of ids){try{if(status==='delete')await db.adminRequestDelete(id);else await db.adminRequestDecision(id,{status,note:review?.note||''});succeeded++;}catch(error){failed.push({id,message:error.message||'عملیات ناموفق بود'});}}
+      setSelected(failed.map(item=>item.id));setReview(null);setActionMessage('موفق: '+fa(succeeded)+(failed.length?'؛ ناموفق: '+failed.map(item=>'#'+item.id+' '+item.message).join(' | '):''));await load();
+    }finally{actionLock.current=false;setBusyId(null);}
   };
-  const del=async(id)=>{
-    const row=rows.find(x=>+x.id===+id); if(!row)return;
-    if(!confirm("درخواست «"+(TY[row.type]||row.type)+"» برای «"+row.requester+"» حذف شود؟ این عملیات قابل بازگشت نیست."))return;
-    setBusyId(id);
-    try{await db.adminRequestDelete(id);await load();}catch(e){alert(e.message||"حذف درخواست انجام نشد");}finally{setBusyId(null);}
+  const prepare=async(ids,status)=>{
+    if(actionLock.current||reviewLoading||!ids.length)return;
+    const targets=rows.filter(row=>ids.includes(row.id)&&(status==='delete'||row.status==='pending'));
+    if(!targets.length)return;
+    let note='';if(status==='rejected'){const answer=prompt('علت رد درخواست‌ها (اختیاری):','');if(answer===null)return;note=answer;}
+    setReviewLoading(true);setActionMessage('');
+    try{const leaves=[];if(status==='approved'){for(const row of targets.filter(row=>['annual','sick'].includes(row.type))){const context=await GET('/admin/requests/'+row.id+'/leave-context');leaves.push({row,context});}}
+      setReview({ids:targets.map(row=>row.id),status,note,leaves});
+    }catch(error){setActionMessage(error.message||'اطلاعات مرخصی دریافت نشد؛ تأیید انجام نشد.');}finally{setReviewLoading(false);}
   };
+  const act=(id,status)=>prepare([id],status); const del=id=>prepare([id],'delete');
   const TY={annual:"مرخصی استحقاقی",sick:"مرخصی استعلاجی",mission:"ماموریت",overtime:"اضافه‌کار",manual:"تردد دستی"};
   const ST={pending:["در انتظار","b-pending"],approved:["تأییدشده","b-ok"],rejected:["ردشده","b-no"]};
   useEffect(()=>{ db.usersLite().then(u=>setUsers(u||[])).catch(()=>{}); load(); },[]);
   const qs=()=>{ const p=[]; if(fUser)p.push("user_id="+fUser); if(fType)p.push("type="+fType); if(fStatus)p.push("status="+fStatus); return p.length?"?"+p.join("&"):""; };
-  const load=()=>{ setLoading(true); db.adminRequests(qs()).then(r=>setRows(r||[])).catch(()=>{}).finally(()=>setLoading(false)); };
+  const load=async()=>{const version=++loadVersion.current;setLoading(true);try{const data=await db.adminRequests(qs());if(version===loadVersion.current)setRows(data||[]);}catch(error){if(version===loadVersion.current)setActionMessage(error.message||'دریافت درخواست‌ها ناموفق بود');}finally{if(version===loadVersion.current)setLoading(false);}};
   const hm=(m)=>m?`${fa(Math.floor(m/60))}:${String(m%60).padStart(2,"0")}`:"—";
   const exportExcel=async()=>{ try{ const res=await fetch(`${API_BASE}/admin/requests/export${qs()}`,{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="گزارش_درخواستها.csv"; a.click(); }catch(e){ alert(e.message); } };
   return(<div className="panel admin-workspace-page admin-list-page"><h3>📋 گزارش درخواست‌ها</h3>
+    <div className="request-bulk-toolbar"><label><input type="checkbox" aria-label="انتخاب همه درخواست‌های نمایش‌داده‌شده" disabled={!!busyId||reviewLoading||loading} checked={rows.length>0&&rows.every(row=>selected.includes(row.id))} onChange={event=>setSelected(event.target.checked?rows.map(row=>row.id):[])}/> انتخاب همهٔ نتایج نمایش‌داده‌شده</label><span>{fa(selected.filter(id=>rows.some(row=>row.id===id)).length)} انتخاب</span>{[['approved','تأیید گروهی'],['rejected','رد گروهی'],['delete','حذف گروهی']].map(([status,title])=><button className="btn g" key={status} disabled={!!busyId||reviewLoading||loading||!selected.length} onClick={()=>prepare(selected,status)}>{title}</button>)}</div>
+    {reviewLoading&&<p role="status">در حال دریافت اطلاعات مرخصی…</p>}{actionMessage&&<p role="status">{actionMessage}</p>}
+    {review&&<Modal title={review.status==='delete'?'حذف درخواست‌ها':review.status==='approved'?'بررسی و تأیید درخواست‌ها':'رد درخواست‌ها'} onClose={()=>{if(!busyId)setReview(null);}}><p>{fa(review.ids.length)} درخواست {review.status==='delete'?'حذف خواهند شد؛ این عملیات قابل بازگشت نیست.':'بررسی خواهند شد. فقط درخواست‌های در انتظار پردازش می‌شوند.'}</p>{review.leaves.map(({row,context})=><section className="leave-review" key={row.id}><h4>{row.requester} — {TY[row.type]}</h4><p>از ابتدای ماه جاری شمسی: {context.year}/{context.month}</p>{Object.entries(context.balance).filter(([key])=>key.startsWith(row.type+'_')).map(([key,value])=><p key={key}>{key.endsWith('daily')?'روزانه (روز)':'ساعتی (ساعت)'}: مصرف ماه {fa(value.used_month)} · باقی‌مانده ماه {value.left_month==null?'سقف تعیین نشده':fa(value.left_month)} · مصرف سال {fa(value.used_year)} · باقی‌مانده سال {value.left_year==null?'سقف تعیین نشده':fa(value.left_year)}</p>)}<p className="muted">مانده طبق سیاست جاری محاسبه شده و درخواست‌های در انتظار را نیز در نظر می‌گیرد.</p><div className="table-wrap"><table><thead><tr><th>نوع</th><th>از</th><th>تا</th><th>وضعیت</th></tr></thead><tbody>{context.requests.map(item=><tr key={item.id}><td>{TY[item.type]||item.type}</td><td>{item.from_jdate||item.the_date}</td><td>{item.to_jdate||item.the_date}</td><td>{ST[item.status]?.[0]||item.status}</td></tr>)}</tbody></table></div>{!context.requests.length&&<p>درخواستی از ابتدای ماه ثبت نشده است.</p>}</section>)}<button className="btn p" disabled={!!busyId} onClick={()=>execute(review.ids,review.status)}>{busyId?'در حال پردازش…':'تأیید نهایی عملیات'}</button></Modal>}
+
     <div className="filters" style={{flexWrap:"wrap",gap:8}}>
       <select className="input" style={{maxWidth:200}} value={fUser} onChange={e=>setFUser(e.target.value)}><option value="">همهٔ نیروها</option>{users.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}</select>
       <select className="input" style={{maxWidth:170}} value={fType} onChange={e=>setFType(e.target.value)}><option value="">همهٔ انواع</option>{Object.entries(TY).map(([k,t])=><option key={k} value={k}>{t}</option>)}</select>
@@ -7267,13 +7287,13 @@ function AdminRequests(){
       <button className="btn g" onClick={exportExcel}>⤓ خروجی اکسل</button>
     </div>
     {loading?<p className="muted">در حال بارگذاری…</p>:rows.length===0?<p className="muted">درخواستی یافت نشد.</p>:
-    <div style={{overflowX:"auto"}}><table style={{fontSize:12,minWidth:860}}><thead><tr><th>نیرو</th><th>نوع</th><th>واحد</th><th>تاریخ</th><th>ساعت</th><th>مدت</th><th>وضعیت</th><th>تأییدکننده</th><th>توضیحات</th><th>عملیات</th></tr></thead><tbody>
+    <div style={{overflowX:"auto"}}><table style={{fontSize:12,minWidth:860}}><thead><tr><th>انتخاب</th><th>نیرو</th><th>نوع</th><th>واحد</th><th>تاریخ</th><th>ساعت</th><th>مدت</th><th>وضعیت</th><th>تأییدکننده</th><th>توضیحات</th><th>عملیات</th></tr></thead><tbody>
       {rows.map(r=>{ const st=ST[r.status]||["—","b-pending"]; return(<tr key={r.id}>
-        <td>{r.requester}</td><td>{TY[r.type]||r.type}</td><td>{r.unit==="hourly"?"ساعتی":r.unit==="daily"?"روزانه":"—"}</td>
+        <td><input type="checkbox" aria-label={"انتخاب درخواست "+r.id} checked={selected.includes(r.id)} disabled={!!busyId||reviewLoading} onChange={event=>setSelected(previous=>event.target.checked?[...previous,r.id]:previous.filter(id=>id!==r.id))}/></td><td>{r.requester}</td><td>{TY[r.type]||r.type}</td><td>{r.unit==="hourly"?"ساعتی":r.unit==="daily"?"روزانه":"—"}</td>
         <td style={{whiteSpace:"nowrap"}}>{r.the_date||r.from_jdate}{r.to_jdate&&r.to_jdate!==r.from_jdate?` تا ${r.to_jdate}`:""}</td>
         <td style={{whiteSpace:"nowrap"}}>{r.from_time?`${r.from_time}–${r.to_time}`:r.in_time?`${r.in_time}/${r.out_time||"—"}`:"—"}</td>
         <td>{hm(r.minutes)}</td><td><span className={"badge "+st[1]}>{st[0]}</span></td>
-        <td>{(r.approver||"").trim()||"—"}</td><td style={{maxWidth:200,fontSize:11,color:"var(--muted)"}}>{r.reason||""}{r.approver_note?` | پاسخ: ${r.approver_note}`:""}{r.attachment_name?" 📎":""}</td><td style={{whiteSpace:"nowrap"}}>{r.status==="pending"&&<><button className="btn p" style={{fontSize:11,padding:"3px 8px",marginInlineEnd:4}} disabled={+busyId===+r.id} onClick={()=>act(r.id,"approved")}>تأیید</button><button className="btn g" style={{fontSize:11,padding:"3px 8px",marginInlineEnd:4}} disabled={+busyId===+r.id} onClick={()=>act(r.id,"rejected")}>رد</button></>}<button className="btn g" style={{fontSize:11,padding:"3px 8px"}} disabled={+busyId===+r.id} onClick={()=>del(r.id)}>حذف</button></td>
+        <td>{(r.approver||"").trim()||"—"}</td><td style={{maxWidth:200,fontSize:11,color:"var(--muted)"}}>{r.reason||""}{r.approver_note?` | پاسخ: ${r.approver_note}`:""}{r.attachment_name?" 📎":""}</td><td style={{whiteSpace:"nowrap"}}>{r.status==="pending"&&<><button className="btn p" style={{fontSize:11,padding:"3px 8px",marginInlineEnd:4}} disabled={!!busyId||reviewLoading} onClick={()=>act(r.id,"approved")}>تأیید</button><button className="btn g" style={{fontSize:11,padding:"3px 8px",marginInlineEnd:4}} disabled={!!busyId||reviewLoading} onClick={()=>act(r.id,"rejected")}>رد</button></>}<button className="btn g" style={{fontSize:11,padding:"3px 8px"}} disabled={!!busyId||reviewLoading} onClick={()=>del(r.id)}>حذف</button></td>
       </tr>); })}
     </tbody></table></div>}
   </div>);
@@ -8211,11 +8231,11 @@ function CovertSelfieRequestForm(){
   const send=async()=>{ if(!sel){alert("یک گزینه انتخاب کنید");return;} setBusy(true); setResult(null);
     try{ const body={note}; body[mode==="user"?"user_id":mode==="role"?"role_id":"zone_id"]=+sel;
       const r=await SEND("POST","/admin/covert-selfie-request",body);
-      setResult({ok:true,msg:`درخواست ارسال شد. اپ تا ۳۰ دقیقه سلفی را در اولین فرصت می‌گیرد.`}); setSel(""); setNote("");
+      setResult({ok:true,msg:`درخواست نظارت ثبت شد؛ کاربر تا ۳۰ دقیقه فرصت دارد در اپ فعال، دوربین را باز کند و تصویر را ارسال کند.`}); setSel(""); setNote("");
     }catch(e){ setResult({ok:false,msg:e.message}); } setBusy(false); };
   return(<div style={{background:"var(--brand-soft)",borderRadius:12,padding:14,marginBottom:16}}>
-    <h4 style={{margin:"0 0 10px"}}>📤 ارسال درخواست سلفی نامحسوس</h4>
-    <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:10}}>یک درخواست به اپ ارسال کنید. اپ در اولین فرصت (تا ۳ دقیقه بعد) سلفی گرفته و اینجا ارسال می‌کند.</p>
+    <h4 style={{margin:"0 0 10px"}}>📤 ارسال درخواست نظارت</h4>
+    <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:10}}>درخواست در اپِ فعال نمایش داده می‌شود. تصویر پس از بازکردن دوربین و ارسال توسط کاربر در بخش تصاویر نظارت ثبت می‌شود؛ ثبت درخواست به معنی دریافت تصویر نیست.</p>
     <div className="row" style={{gap:8,marginBottom:8,flexWrap:"wrap"}}>
       {[["user","فرد خاص"],["role","سمت"],["zone","منطقه"]].map(([m,t])=>
         <label key={m} style={{display:"inline-flex",gap:4,alignItems:"center",cursor:"pointer",fontSize:13}}>
@@ -8228,14 +8248,14 @@ function CovertSelfieRequestForm(){
       {mode==="zone"&&zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}
     </select>
     <input className="input" placeholder="یادداشت (اختیاری)" value={note} onChange={e=>setNote(e.target.value)} style={{marginBottom:8}}/>
-    <button className="btn p" disabled={busy||!sel} onClick={send}>{busy?"در حال ارسال…":"ارسال درخواست سلفی"}</button>
+    <button className="btn p" disabled={busy||!sel} onClick={send}>{busy?"در حال ارسال…":"درخواست نظارت هدفمند"}</button>
     {result&&<p style={{marginTop:8,fontSize:13,color:result.ok?"var(--ok)":"var(--danger)"}}>{result.msg}</p>}
   </div>);
 }
 
 function CovertSelfies(){
   const [tab,setTab]=React.useState("command");
-  const TABS=[["command","ارسال دستور سلفی"],["request","ارسال درخواست سلفی"],["gallery","سلفی‌های گرفته‌شده"]];
+  const TABS=[["command","درخواست نظارت فوری"],["request","درخواست نظارت هدفمند"],["gallery","تصاویر نظارت"]];
   return(<div className="admin-workspace-page">
     <div className="tabbar" style={{display:"flex",gap:8,marginBottom:14,borderBottom:"2px solid var(--line)",flexWrap:"wrap"}}>
       {TABS.map(([k,lbl])=>
@@ -8262,7 +8282,7 @@ function CovertCommand(){
     }catch(e){setCmdResult("خطا: "+e.message);}finally{setCmdBusy(false);}
   };
   return(<div className="panel" style={{background:"var(--brand-soft)",borderRadius:12}}>
-    <h3 style={{marginBottom:8}}>ارسال درخواست سلفی</h3>
+    <h3 style={{marginBottom:8}}>درخواست نظارت فوری</h3>
     <p style={{fontSize:13,color:"var(--muted)",marginBottom:10}}>در نسخهٔ اصلاح‌شده، برنامه در حالت باز درخواست را بررسی و دوربین را با اطلاع و تأیید کاربر نمایش می‌دهد. ثبت درخواست به معنی دریافت عکس نیست.</p>
     <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:10}}>
       {[["all","همهٔ نیروها"],["user","کاربر مشخص"],["role","سمت مشخص"],["zone","منطقهٔ مشخص"]].map(([v,t])=>
@@ -8277,7 +8297,7 @@ function CovertCommand(){
     {cmdType==="zone"&&<div><label className="label">انتخاب منطقه:</label>
       <select className="input" multiple style={{height:80}} onChange={e=>setCmdZones([...e.target.selectedOptions].map(o=>+o.value))}>
         {zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select></div>}
-    <button className="btn p" style={{marginTop:10}} disabled={cmdBusy} onClick={sendCmd}>{cmdBusy?"در حال ارسال…":"ارسال دستور سلفی فوری"}</button>
+    <button className="btn p" style={{marginTop:10}} disabled={cmdBusy} onClick={sendCmd}>{cmdBusy?"در حال ارسال…":"ارسال درخواست نظارت فوری"}</button>
     {cmdResult&&<p style={{marginTop:8,fontSize:13,color:"var(--brand)"}}>{cmdResult}</p>}
   </div>);
 }
@@ -8515,7 +8535,7 @@ function CompanyPayrollUpload(){
       if(commit){_invalidateCache();setPreview(null);setReplace(false);setMessage('✓ '+result.count+' ردیف ثبت شد؛ فیش‌های تطبیق‌یافته در اندروید قابل مشاهده‌اند.');}else setPreview(result);
     }catch(error){setMessage(error.message);if(commit){setPreview(null);setReplace(false);}}finally{lock.current=false;setBusy(false);}
   };
-  return <div className="card-p"><h3>بارگزاری فایل حقوق از شرکت</h3><p className="muted">فقط XLSX مطابق نمونهٔ شرکت؛ واحد مبالغ ریال است. ابتدا پیش‌نمایش را بررسی و سپس ثبت نهایی کنید. اطلاعات این فایل، تأیید بانکی واریز نیست.</p><div className="row" style={{gap:10,flexWrap:'wrap',marginTop:14}}><label>سال <input aria-label="سال حقوق" className="input" type="number" min="1300" max="1500" disabled={busy} value={form.period_jy} onChange={event=>{reset();setForm({...form,period_jy:event.target.value});}}/></label><label>ماه <select aria-label="ماه حقوق" className="input" disabled={busy} value={form.period_jm} onChange={event=>{reset();setForm({...form,period_jm:event.target.value});}}>{Array.from({length:12},(_,index)=><option key={index+1} value={index+1}>{index+1}</option>)}</select></label><input aria-label="فایل حقوق شرکت" type="file" accept=".xlsx" disabled={busy} onChange={event=>{reset();setFile(event.target.files?.[0]||null);}}/><button className="btn p" disabled={busy||!file} onClick={()=>submit(false)}>{busy?'در حال پردازش…':'بررسی و پیش‌نمایش'}</button></div>{message&&<p role="status">{message}</p>}{preview&&<div style={{marginTop:16}}><p><b>{preview.count} ردیف؛ {preview.matched} تطبیق یکتا؛ {preview.count-preview.matched} نیازمند تطبیق دستی</b></p><p className="muted">ردیف‌های نامنطبق برای مدیر حفظ می‌شوند و به هیچ کاربری نمایش داده نمی‌شوند. نام و نام خانوادگی برای تطبیق خودکار استفاده نمی‌شود.</p>{preview.revision>0&&<label><input type="checkbox" checked={replace} onChange={event=>setReplace(event.target.checked)} disabled={busy}/> تأیید جایگزینی نسخهٔ فعال این ماه؛ نسخهٔ قبلی در سابقهٔ سرور حفظ می‌شود.</label>}<div style={{overflow:'auto',maxHeight:420}}><table className="tbl"><thead><tr><th>ردیف اکسل</th><th>پرسنل</th><th>کد ملی</th><th>خالص پرداختی (ریال)</th><th>تطبیق</th><th>هشدار</th></tr></thead><tbody>{preview.rows.map(row=><tr key={row.source_row}><td>{row.source_row}</td><td>{row.data.first_name} {row.data.last_name}</td><td>{row.data.national_code}</td><td>{payrollNumber(row.data.net)}</td><td>{row.user_id?'کاربر #'+row.user_id:row.match_status==='conflict'?'تعارض شناسه':'نیازمند تطبیق'}</td><td>{row.warnings.join(' ')}</td></tr>)}</tbody></table></div><button className="btn p" style={{marginTop:14}} disabled={busy||(preview.revision>0&&!replace)} onClick={()=>submit(true)}>ثبت نهایی اطلاعات حقوق</button></div>}</div>;
+  return <div className="card-p"><h3>بارگذاری فایل حقوق شرکت</h3><p className="muted">فقط XLSX مطابق نمونهٔ شرکت؛ واحد مبالغ ریال است. ابتدا پیش‌نمایش را بررسی و سپس ثبت نهایی کنید. اطلاعات این فایل، تأیید بانکی واریز نیست.</p><div className="row" style={{gap:10,flexWrap:'wrap',marginTop:14}}><label>سال <input aria-label="سال حقوق" className="input" type="number" min="1300" max="1500" disabled={busy} value={form.period_jy} onChange={event=>{reset();setForm({...form,period_jy:event.target.value});}}/></label><label>ماه <select aria-label="ماه حقوق" className="input" disabled={busy} value={form.period_jm} onChange={event=>{reset();setForm({...form,period_jm:event.target.value});}}>{Array.from({length:12},(_,index)=><option key={index+1} value={index+1}>{index+1}</option>)}</select></label><input aria-label="فایل حقوق شرکت" type="file" accept=".xlsx" disabled={busy} onChange={event=>{reset();setFile(event.target.files?.[0]||null);}}/><button className="btn p" disabled={busy||!file} onClick={()=>submit(false)}>{busy?'در حال پردازش…':'بررسی و پیش‌نمایش'}</button></div>{message&&<p role="status">{message}</p>}{preview&&<div style={{marginTop:16}}><p><b>{preview.count} ردیف؛ {preview.matched} تطبیق یکتا؛ {preview.count-preview.matched} نیازمند تطبیق دستی</b></p><p className="muted">ردیف‌های نامنطبق برای مدیر حفظ می‌شوند و به هیچ کاربری نمایش داده نمی‌شوند. نام و نام خانوادگی برای تطبیق خودکار استفاده نمی‌شود.</p>{preview.revision>0&&<label><input type="checkbox" checked={replace} onChange={event=>setReplace(event.target.checked)} disabled={busy}/> تأیید جایگزینی نسخهٔ فعال این ماه؛ نسخهٔ قبلی در سابقهٔ سرور حفظ می‌شود.</label>}<div style={{overflow:'auto',maxHeight:420}}><table className="tbl"><thead><tr><th>ردیف اکسل</th><th>پرسنل</th><th>کد ملی</th><th>خالص پرداختی (ریال)</th><th>تطبیق</th><th>هشدار</th></tr></thead><tbody>{preview.rows.map(row=><tr key={row.source_row}><td>{row.source_row}</td><td>{row.data.first_name} {row.data.last_name}</td><td>{row.data.national_code}</td><td>{payrollNumber(row.data.net)}</td><td>{row.user_id?'کاربر #'+row.user_id:row.match_status==='conflict'?'تعارض شناسه':'نیازمند تطبیق'}</td><td>{row.warnings.join(' ')}</td></tr>)}</tbody></table></div><button className="btn p" style={{marginTop:14}} disabled={busy||(preview.revision>0&&!replace)} onClick={()=>submit(true)}>ثبت نهایی اطلاعات حقوق</button></div>}</div>;
 }
 function CompanyPayrollList(){
   const [filters,setFilters]=useState({year:'',month:'',q:'',status:'',page:1});const [result,setResult]=useState(null);const [error,setError]=useState('');const [busy,setBusy]=useState(false);const [refresh,setRefresh]=useState(0);const [detail,setDetail]=useState(null);const [mapping,setMapping]=useState(null);const [query,setQuery]=useState('');const [users,setUsers]=useState([]);const [userId,setUserId]=useState('');const generation=useRef(0);const action=useRef(false);
@@ -8524,11 +8544,11 @@ function CompanyPayrollList(){
   const showDetail=async(id)=>{if(action.current)return;action.current=true;try{setDetail(await GET('/admin/payroll/'+id));}catch(failure){setError(failure.message);}finally{action.current=false;}};
   const searchUsers=async()=>{if(action.current)return;action.current=true;try{const value=await db.salarySlipUsers(query);setUsers(value.rows||[]);}catch(failure){setError(failure.message);}finally{action.current=false;}};
   const match=async()=>{const selected=users.find(user=>String(user.id)===String(userId));if(!selected||!mapping||action.current)return;if(!confirm(`تطبیق دستی «${mapping.employee_name}» با «${selected.name||selected.username}»؟ این فیش به این حساب نمایش داده خواهد شد.`))return;action.current=true;try{await SEND('PUT','/admin/payroll/'+mapping.id+'/match',{user_id:Number(userId)});setMapping(null);setRefresh(value=>value+1);}catch(failure){setError(failure.message);}finally{action.current=false;}};
-  return <div className="card-p"><h3>فیشهای حقوقی پرسنل</h3><p className="muted">مبالغ طبق فایل شرکت (ریال)؛ این اطلاعات به‌تنهایی رسید بانکی واریز محسوب نمی‌شود.</p><div className="card-p" style={{background:"var(--surface,#f8fafc)",borderRadius:14,padding:14,marginBottom:14}}><h4 style={{margin:"0 0 12px"}}>جستجو و فیلتر فیش‌های پرسنل</h4><div className="row" style={{gap:8,flexWrap:'wrap',alignItems:"end"}}><input className="input" aria-label="فیلتر سال" type="number" placeholder="همهٔ سال‌ها" value={filters.year} onChange={event=>filter('year',event.target.value)}/><select className="input" aria-label="فیلتر ماه" value={filters.month} onChange={event=>filter('month',event.target.value)}><option value="">همهٔ ماه‌ها</option>{Array.from({length:12},(_,index)=><option key={index} value={index+1}>{index+1}</option>)}</select><input className="input" placeholder="نام، کد ملی، شماره پرسنلی یا سمت" value={filters.q} onChange={event=>filter('q',event.target.value)}/><select className="input" aria-label="وضعیت تطبیق" value={filters.status} onChange={event=>filter('status',event.target.value)}><option value="">همهٔ ردیف‌ها</option><option value="pending">نیازمند تطبیق دستی</option></select><button className="btn" onClick={()=>setRefresh(value=>value+1)}>تازه‌سازی</button><button className="btn" onClick={()=>setFilters({year:"",month:"",q:"",status:"",page:1})}>پاک‌کردن فیلترها</button></div></div>{error&&<p role="alert">{error}</p>}{busy?<p role="status">در حال دریافت…</p>:result&&<><p>{result.summary.count} فیش · جمع خالص: {payrollNumber(result.summary.total_net)} ریال · نامنطبق: {result.summary.pending||0}</p><div style={{overflow:'auto'}}><table className="tbl"><thead><tr><th>ماه</th><th>پرسنل</th><th>شماره پرسنلی</th><th>سمت</th><th>خالص (ریال)</th><th>عملیات</th></tr></thead><tbody>{result.rows.map(row=><tr key={row.id}><td>{row.period_jy}/{String(row.period_jm).padStart(2,'0')}</td><td>{row.employee_name}</td><td>{row.personnel_code||'—'}</td><td>{row.role_title}</td><td>{payrollNumber(row.net)}</td><td><button className="btn" onClick={()=>showDetail(row.id)}>جزئیات</button> <button className="btn" onClick={()=>payrollPrint(row.id)}>چاپ فیش حقوق</button>{!row.user_id&&<button className="btn" onClick={()=>{setMapping(row);setUsers([]);setQuery('');setUserId('');}}>تطبیق دستی</button>}</td></tr>)}</tbody></table>{!result.rows.length&&<p>فیشی برای این فیلتر یافت نشد.</p>}</div><div className="row" style={{gap:12,marginTop:12}}><button className="btn" disabled={filters.page<=1} onClick={()=>setFilters(previous=>({...previous,page:previous.page-1}))}>قبلی</button><span>صفحهٔ {filters.page}</span><button className="btn" disabled={filters.page*result.page_size>=Number(result.summary.count)} onClick={()=>setFilters(previous=>({...previous,page:previous.page+1}))}>بعدی</button></div></>}{detail&&<Modal title="جزئیات حقوق اعلامی شرکت — ریال" onClose={()=>setDetail(null)}><p>{detail.row.employee_name} — {detail.row.period_jy}/{detail.row.period_jm}</p><p className="muted">نسخهٔ {detail.row.revision} · بارگذاری: {detail.row.created_at}</p>{detail.row.warnings.map((warning,index)=><p key={index}>{warning}</p>)}<div style={{maxHeight:'60vh',overflow:'auto'}}>{detail.fields.map((field,index)=><div className="row" key={field} style={{justifyContent:'space-between',borderBottom:'1px solid #eee',padding:8}}><b>{detail.labels[index]}</b><span>{index<7?detail.row.data[field]||'—':detail.row.data[field]===null?'—':payrollNumber(detail.row.data[field],6)}</span></div>)}</div><button className="btn p" onClick={()=>payrollPrint(detail.row.id)}>چاپ فیش حقوق A5</button></Modal>}{mapping&&<Modal title={'تطبیق دستی '+mapping.employee_name} onClose={()=>setMapping(null)}><p>کد ملی فایل: {mapping.national_code} · شماره پرسنلی: {mapping.personnel_code}</p><input className="input" value={query} onChange={event=>setQuery(event.target.value)} placeholder="جستجوی نام یا کد ملی کاربر"/><button className="btn" onClick={searchUsers}>جستجوی کاربر</button><select className="input" value={userId} onChange={event=>setUserId(event.target.value)}><option value="">انتخاب کاربر</option>{users.map(user=><option key={user.id} value={user.id}>{user.name||user.username} — {user.national_code} — #{user.id}</option>)}</select><button className="btn p" disabled={!userId} onClick={match}>تأیید تطبیق دستی</button></Modal>}</div>;
+  return <div className="card-p"><h3>فیش‌های حقوقی پرسنل</h3><p className="muted">مبالغ طبق فایل شرکت (ریال)؛ این اطلاعات به‌تنهایی رسید بانکی واریز محسوب نمی‌شود.</p><div className="card-p" style={{background:"var(--surface,#f8fafc)",borderRadius:14,padding:14,marginBottom:14}}><h4 style={{margin:"0 0 12px"}}>جستجو و فیلتر فیش‌های پرسنل</h4><div className="row" style={{gap:8,flexWrap:'wrap',alignItems:"end"}}><input className="input" aria-label="فیلتر سال" type="number" placeholder="همهٔ سال‌ها" value={filters.year} onChange={event=>filter('year',event.target.value)}/><select className="input" aria-label="فیلتر ماه" value={filters.month} onChange={event=>filter('month',event.target.value)}><option value="">همهٔ ماه‌ها</option>{Array.from({length:12},(_,index)=><option key={index} value={index+1}>{index+1}</option>)}</select><input className="input" placeholder="نام، کد ملی، شماره پرسنلی یا سمت" value={filters.q} onChange={event=>filter('q',event.target.value)}/><select className="input" aria-label="وضعیت تطبیق" value={filters.status} onChange={event=>filter('status',event.target.value)}><option value="">همهٔ ردیف‌ها</option><option value="pending">نیازمند تطبیق دستی</option></select><button className="btn" onClick={()=>setRefresh(value=>value+1)}>تازه‌سازی</button><button className="btn" onClick={()=>setFilters({year:"",month:"",q:"",status:"",page:1})}>پاک‌کردن فیلترها</button></div></div>{error&&<p role="alert">{error}</p>}{busy?<p role="status">در حال دریافت…</p>:result&&<><p>{result.summary.count} فیش · جمع خالص: {payrollNumber(result.summary.total_net)} ریال · نامنطبق: {result.summary.pending||0}</p><div style={{overflow:'auto'}}><table className="tbl"><thead><tr><th>ماه</th><th>پرسنل</th><th>شماره پرسنلی</th><th>سمت</th><th>خالص (ریال)</th><th>عملیات</th></tr></thead><tbody>{result.rows.map(row=><tr key={row.id}><td>{row.period_jy}/{String(row.period_jm).padStart(2,'0')}</td><td>{row.employee_name}</td><td>{row.personnel_code||'—'}</td><td>{row.role_title}</td><td>{payrollNumber(row.net)}</td><td><button className="btn" onClick={()=>showDetail(row.id)}>جزئیات</button> <button className="btn" onClick={()=>payrollPrint(row.id)}>چاپ فیش حقوق</button>{!row.user_id&&<button className="btn" onClick={()=>{setMapping(row);setUsers([]);setQuery('');setUserId('');}}>تطبیق دستی</button>}</td></tr>)}</tbody></table>{!result.rows.length&&<p>فیشی برای این فیلتر یافت نشد.</p>}</div><div className="row" style={{gap:12,marginTop:12}}><button className="btn" disabled={filters.page<=1} onClick={()=>setFilters(previous=>({...previous,page:previous.page-1}))}>قبلی</button><span>صفحهٔ {filters.page}</span><button className="btn" disabled={filters.page*result.page_size>=Number(result.summary.count)} onClick={()=>setFilters(previous=>({...previous,page:previous.page+1}))}>بعدی</button></div></>}{detail&&<Modal title="جزئیات حقوق اعلامی شرکت — ریال" onClose={()=>setDetail(null)}><p>{detail.row.employee_name} — {detail.row.period_jy}/{detail.row.period_jm}</p><p className="muted">نسخهٔ {detail.row.revision} · بارگذاری: {detail.row.created_at}</p>{detail.row.warnings.map((warning,index)=><p key={index}>{warning}</p>)}<div style={{maxHeight:'60vh',overflow:'auto'}}>{detail.fields.map((field,index)=><div className="row" key={field} style={{justifyContent:'space-between',borderBottom:'1px solid #eee',padding:8}}><b>{detail.labels[index]}</b><span>{index<7?detail.row.data[field]||'—':detail.row.data[field]===null?'—':payrollNumber(detail.row.data[field],6)}</span></div>)}</div><button className="btn p" onClick={()=>payrollPrint(detail.row.id)}>چاپ فیش حقوق A5</button></Modal>}{mapping&&<Modal title={'تطبیق دستی '+mapping.employee_name} onClose={()=>setMapping(null)}><p>کد ملی فایل: {mapping.national_code} · شماره پرسنلی: {mapping.personnel_code}</p><input className="input" value={query} onChange={event=>setQuery(event.target.value)} placeholder="جستجوی نام یا کد ملی کاربر"/><button className="btn" onClick={searchUsers}>جستجوی کاربر</button><select className="input" value={userId} onChange={event=>setUserId(event.target.value)}><option value="">انتخاب کاربر</option>{users.map(user=><option key={user.id} value={user.id}>{user.name||user.username} — {user.national_code} — #{user.id}</option>)}</select><button className="btn p" disabled={!userId} onClick={match}>تأیید تطبیق دستی</button></Modal>}</div>;
 }
 function SalarySlipsAdmin(){
   const [tab,setTab]=useState('attachments');
-  return <div className="panel admin-workspace-page"><div role="tablist" aria-label="مدیریت فیش حقوقی" className="row" style={{gap:8,flexWrap:'wrap',marginBottom:16}}>{[['attachments','فیش‌های پیوستی'],['upload','بارگزاری فایل حقوق از شرکت'],['payroll','فیشهای حقوقی پرسنل']].map(([key,title])=><button role="tab" aria-selected={tab===key} className={'btn '+(tab===key?'p':'')} key={key} onClick={()=>setTab(key)}>{title}</button>)}</div><div role="tabpanel" key={tab}>{tab==='upload'?<CompanyPayrollUpload/>:tab==='payroll'?<CompanyPayrollList/>:<SalarySlipAttachmentsAdmin/>}</div></div>;
+  return <div className="panel admin-workspace-page payroll-admin"><div role="tablist" aria-label="مدیریت فیش حقوقی" className="row" style={{gap:8,flexWrap:'wrap',marginBottom:16}}>{[['attachments','فیش‌های پیوستی'],['upload','بارگذاری فایل حقوق شرکت'],['payroll','فیش‌های حقوقی پرسنل']].map(([key,title])=><button role="tab" aria-selected={tab===key} className={'btn '+(tab===key?'p':'')} key={key} onClick={()=>setTab(key)}>{title}</button>)}</div><div role="tabpanel" key={tab}>{tab==='upload'?<CompanyPayrollUpload/>:tab==='payroll'?<CompanyPayrollList/>:<SalarySlipAttachmentsAdmin/>}</div></div>;
 }
 function SalarySlipAttachmentsAdmin(){
   const months=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
@@ -9114,7 +9134,7 @@ function PersonnelLeaveReport(){
 
 const VIEWS={
   seniority:{t:"سنوات نیروها",ic:"📆",c:PersonnelSeniority},
-  covertselfies:{t:"سلفی‌های نامحسوس",ic:"📸",c:CovertSelfies},
+  covertselfies:{t:"نظارت",ic:"📸",c:CovertSelfies},
   dashboard:{t:"داشبورد مدیریت",ic:"▦",c:Dashboard},
   reportscenter:{t:"مرکز گزارش‌ها",ic:"🗂",c:ReportsCenter},
   health:{t:"داشبورد سلامت سامانه",ic:"◉",c:SystemHealthDashboard},
@@ -9193,7 +9213,7 @@ const PANEL_MENU_KEYWORDS={
   logs:"رویداد رخداد امنیت خطا فعالیت",activesessions:"نشست دستگاه ورود امنیت",
   schoolservice:"مدرسه مدارس سرویس دانش آموز",complaints:"شکایت شکایات اعتراض",
   zones:"منطقه زیرمنطقه منطقه بندی",appitems:"منو آیتم دسترسی سمت",
-  covertselfies:"تصویر عکس سلفی",workpolicy:"قوانین قانون کار سیاست",
+  covertselfies:"نظارت تصویر عکس سلفی نامحسوس",workpolicy:"قوانین قانون کار سیاست",
   config:"تذکر چک لیست چکلیست",vehiclechecklist:"چک لیست چکلیست خودرو موتور",
   missiontemplates:"ماموریت الگو بازدید برنامه",scoreengine:"امتیاز رتبه ارزیابی",
 };

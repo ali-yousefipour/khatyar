@@ -4,7 +4,7 @@ set_error_handler(static function($severity,$message,$file,$line){ throw new Err
 class Http { static function error($message,$code=400){ throw new RuntimeException($message,$code); } }
 function _ensure_requests_table(){}
 class Db {
-  static $policy=null,$rows=[],$request=null,$locked=1,$locks=[],$exclude=null;
+  static $policy=null,$rows=[],$request=null,$locked=1,$locks=[],$exclude=null,$overlaps=[];
   static function one($sql,$params=[]){
     if(str_contains($sql,'GET_LOCK')) { self::$locks[]='acquire'; return ['acquired'=>self::$locked]; }
     if(str_contains($sql,'RELEASE_LOCK')) { self::$locks[]='release'; return ['released'=>1]; }
@@ -14,6 +14,7 @@ class Db {
     throw new LogicException('Unexpected query: '.$sql);
   }
   static function all($sql,$params=[]){
+    if(str_contains($sql,'AND type=? AND status')&&!str_contains($sql,'id<>?'))return self::$overlaps;
     if(!str_contains($sql,"status IN ('pending','approved')")||!str_contains($sql,'id<>?')) throw new LogicException('Quota query must exclude rejected/canceled/self');
     self::$exclude=$params[2]; return self::$rows;
   }
@@ -137,3 +138,18 @@ eval(substr($source,$start,$end-$start));
 foreach(array_slice($routes,0,4) as $route) check($route['fn']!==$handler&&$route['minLevel']===3&&!$route['public'],'guard registration and access levels');
 check($routes[4]['fn']===$handler,'read-only route must remain unchanged');
 echo "PASS: assigned policy request limits, boundaries, approval paths and quota locking\n";
+Db::$policy=null;
+Db::$overlaps=[hourly()];
+denied(fn()=>_req_reject_overlap(12,hourly()),'exact duplicate',409);
+denied(fn()=>_req_reject_overlap(12,hourly('1405-07-01','08:30','09:30')),'overlapping hours',409);
+_req_reject_overlap(12,hourly('1405-07-01','09:00','10:00'));
+_req_reject_overlap(12,hourly('1405-07-02'));
+denied(fn()=>_req_reject_overlap(12,daily()),'daily overlaps hourly',409);
+Db::$overlaps=[daily('1405-07-01','1405-07-03')];
+denied(fn()=>_req_reject_overlap(12,hourly('1405-07-02')),'hourly overlaps multi-day',409);
+_req_reject_overlap(12,daily('1405-07-04'));
+Db::$overlaps=[hourly()];Db::$locks=[];
+$guard=_req_work_policy_handler('/api/my/requests',$handler);
+denied(fn()=>$guard([],hourly(),['id'=>12]),'no-policy duplicate lock',409);
+check(Db::$locks===['acquire','release'],'duplicates without assigned policy must serialize and release');
+echo "PASS: duplicates, overlapping/different dates, adjacent hours, multi-day leave and no-policy locking\n";

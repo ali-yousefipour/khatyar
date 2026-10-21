@@ -1341,16 +1341,21 @@ function LiveMap() {
     const [trkPts, setTrkPts] = useState(null);
     const [fences, setFences] = useState([]);
     const [trkExits, setTrkExits] = useState([]);
-    useEffect(() => { db.geofences().then(g => setFences(g || [])).catch(() => { }); }, []);
     const [fromT, setFromT] = useState("00:00");
     const [toT, setToT] = useState("23:59");
     const [onlineUsers, setOnlineUsers] = useState([]);
     const [allUsers, setAllUsers] = useState([]);
-    useEffect(() => { db.usersLite().then(l => setAllUsers(l || [])).catch(() => { }); }, []);
+    useEffect(() => { db.usersLite().then(l => setAllUsers((l || []).slice().sort((a, b) => ((a.first_name || '') + ' ' + (a.last_name || '')).localeCompare((b.first_name || '') + ' ' + (b.last_name || ''), 'fa')))).catch(() => { }); }, []);
     const [mapProvider, setMapProvider] = useState(localStorage.mapProvider || "osm");
     const [shiftFilter, setShiftFilter] = useState(() => localStorage.liveShiftFilter === "1");
     const [onlyOnline, setOnlyOnline] = useState(() => localStorage.liveOnlyOnline === "1");
     const onlyOnlineRef = useRef(onlyOnline);
+    const shiftFilterRef = useRef(shiftFilter);
+    const liveRequestRef = useRef(false);
+    const liveMountedRef = useRef(false);
+    const [liveLoading, setLiveLoading] = useState(true);
+    const [liveError, setLiveError] = useState('');
+    const [liveUpdated, setLiveUpdated] = useState(null);
     useEffect(() => { onlyOnlineRef.current = onlyOnline; localStorage.liveOnlyOnline = onlyOnline ? "1" : ""; }, [onlyOnline]);
     const [roleFilter, setRoleFilter] = useState(() => { try {
         return JSON.parse(localStorage.liveRoleFilter || "null");
@@ -1475,7 +1480,16 @@ function LiveMap() {
         const grp = layerRef.current;
         const mk = markersRef.current;
         const seen = {};
-        db.live(shiftFilter).then(list => {
+        if (liveRequestRef.current)
+            return;
+        liveRequestRef.current = true;
+        setLiveLoading(true);
+        const requestedShift = shiftFilterRef.current;
+        db.live(requestedShift).then(list => {
+            if (!liveMountedRef.current || requestedShift !== shiftFilterRef.current)
+                return;
+            setLiveError('');
+            setLiveUpdated(new Date());
             (list || []).forEach(u => {
                 if (!u.lat || !u.lng)
                     return;
@@ -1491,7 +1505,7 @@ function LiveMap() {
                 if (pf && pf.length && !pf.includes(String(id)))
                     return;
                 // فیلتر فقط آنلاین: اگر فعال باشد، افراد آفلاین نمایش داده نشوند
-                if (onlyOnlineRef.current && !u.online)
+                if (onlyOnlineRef.current && !Number(u.online))
                     return;
                 seen[id] = 1;
                 const pos = [+u.lat, +u.lng];
@@ -1527,23 +1541,32 @@ function LiveMap() {
                     return false;
                 return true;
             });
-            setOnlineUsers((list || []).filter(u => +u.online).map(u => ({ id: u.user_id, name: (u.first_name || '') + ' ' + (u.last_name || '') })));
-        }).catch(() => { });
+            setOnlineUsers((list || []).filter(u => +u.online).map(u => ({ id: u.user_id, name: (u.first_name || '') + ' ' + (u.last_name || '') })).sort((a, b) => a.name.localeCompare(b.name, 'fa')));
+        }).catch(error => { if (liveMountedRef.current)
+            setLiveError(error.message || 'دریافت موقعیت‌ها ناموفق بود.'); }).finally(() => { liveRequestRef.current = false; if (liveMountedRef.current) {
+            setLiveLoading(false);
+            if (requestedShift !== shiftFilterRef.current)
+                drawUsers();
+        } });
     };
     useEffect(() => {
+        liveMountedRef.current = true;
         const map = L.map(ref.current).setView([36.297, 59.606], 12);
         mapRef.current = map;
         applyBase(mapProvider);
-        db.geofences().then(gs => (gs || []).forEach(g => {
-            if (g.type === "circle" && g.center_lat)
-                L.circle([g.center_lat, g.center_lng], { radius: g.radius_m || 200, color: g.color, fillColor: g.color, fillOpacity: .18 }).addTo(map).bindPopup(`ایستگاه: ${g.name}${g.line_code ? " — خط " + g.line_code : ""}`);
-            else if (g.type === "polygon" && g.polygon)
-                L.polygon(g.polygon, { color: g.color, fillColor: g.color, fillOpacity: .18 }).addTo(map).bindPopup(`محدوده: ${g.name}${g.line_code ? " — خط " + g.line_code : ""}`);
-        })).catch(() => { });
+        db.geofences().then(gs => {
+            setFences(gs || []);
+            return (gs || []).forEach(g => {
+                if (g.type === "circle" && g.center_lat)
+                    L.circle([g.center_lat, g.center_lng], { radius: g.radius_m || 200, color: g.color, fillColor: g.color, fillOpacity: .18 }).addTo(map).bindPopup(`ایستگاه: ${g.name}${g.line_code ? " — خط " + g.line_code : ""}`);
+                else if (g.type === "polygon" && g.polygon)
+                    L.polygon(g.polygon, { color: g.color, fillColor: g.color, fillOpacity: .18 }).addTo(map).bindPopup(`محدوده: ${g.name}${g.line_code ? " — خط " + g.line_code : ""}`);
+            });
+        }).catch(() => { });
         drawUsers();
         setTimeout(() => map.invalidateSize(), 200);
         const iv = setInterval(drawUsers, 15000);
-        return () => { clearInterval(iv); map.remove(); };
+        return () => { liveMountedRef.current = false; clearInterval(iv); map.remove(); };
     }, []);
     // با انتخاب یک نفر از کشوی رهگیری، در حالت زنده فقط همان نفر روی نقشه نمایش داده شود
     useEffect(() => {
@@ -1917,9 +1940,9 @@ function LiveMap() {
         trkIv.current = null;
     } const map = mapRef.current; if (lineRef.current && map)
         map.removeLayer(lineRef.current); setTrkInfo(null); setTrkPts(null); setMode("live"); drawUsers(); };
-    return (React.createElement("div", { className: "panel admin-workspace-page" },
+    return (React.createElement("div", { className: "panel admin-workspace-page live-map-page" },
         React.createElement("h3", null,
-            "\u0646\u0642\u0634\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627 \u0648 \u0631\u0647\u06AF\u06CC\u0631\u06CC",
+            "\u0646\u0642\u0634\u0647\u0654 \u0632\u0646\u062F\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627 \u0648 \u0631\u0647\u06AF\u06CC\u0631\u06CC",
             React.createElement("span", { className: "row", style: { gap: 8 } },
                 React.createElement("select", { className: "input", style: { maxWidth: 170, fontSize: 12 }, value: mapProvider, onChange: e => changeProvider(e.target.value) },
                     React.createElement("option", { value: "osm" }, "\u0646\u0642\u0634\u0647\u0654 OpenStreetMap"),
@@ -1929,13 +1952,19 @@ function LiveMap() {
                     React.createElement("option", { value: "balad" }, "\u0628\u0644\u062F (Balad)")),
                 React.createElement("button", { className: "btn g", onClick: () => { stopTrack(); } }, mode === "live" ? "● زنده" : "زنده"),
                 React.createElement("button", { className: "btn g", onClick: () => setShowFilters(s => !s) }, (roleFilter && roleFilter.length) || (personFilter && personFilter.length) ? "⚙ فیلتر فعال" : "⚙ فیلتر نمایش"),
-                React.createElement("button", { className: shiftFilter ? "btn p" : "btn g", onClick: () => { const n = !shiftFilter; setShiftFilter(n); localStorage.liveShiftFilter = n ? "1" : ""; const mk = markersRef.current, grp = layerRef.current; if (grp) {
+                React.createElement("button", { className: shiftFilter ? "btn p" : "btn g", onClick: () => { const n = !shiftFilter; shiftFilterRef.current = n; setShiftFilter(n); localStorage.liveShiftFilter = n ? "1" : ""; const mk = markersRef.current, grp = layerRef.current; if (grp) {
                         Object.keys(mk).forEach(id => { grp.removeLayer(mk[id]); delete mk[id]; });
                     } drawUsers(); }, title: shiftFilter ? "نمایش همه" : "فقط در شیفت" }, shiftFilter ? "👥 فقط در شیفت" : "👥 همه"),
-                React.createElement("button", { className: onlyOnline ? "btn p" : "btn g", onClick: () => { const n = !onlyOnline; setOnlyOnline(n); const mk = markersRef.current, grp = layerRef.current; if (grp) {
+                React.createElement("button", { className: onlyOnline ? "btn p" : "btn g", onClick: () => { const n = !onlyOnline; onlyOnlineRef.current = n; setOnlyOnline(n); const mk = markersRef.current, grp = layerRef.current; if (grp) {
                         Object.keys(mk).forEach(id => { grp.removeLayer(mk[id]); delete mk[id]; });
                     } drawUsers(); }, title: onlyOnline ? "نمایش همه" : "فقط آنلاین‌ها" }, onlyOnline ? "🟢 فقط آنلاین" : "🟢 آنلاین/آفلاین"),
                 React.createElement("button", { className: "btn g", disabled: savingImg, onClick: saveMapImage }, savingImg ? "در حال ذخیره…" : "📷 ذخیرهٔ تصویر نقشه"))),
+        React.createElement("div", { className: "live-map-status", role: "status", "aria-live": "polite" },
+            liveLoading ? 'در حال دریافت موقعیت‌ها…' : liveUpdated ? 'آخرین دریافت: ' + liveUpdated.toLocaleTimeString('fa-IR') : 'موقعیتی دریافت نشده است',
+            React.createElement("button", { className: "btn g", disabled: liveLoading, onClick: drawUsers }, "\u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC \u0645\u0648\u0642\u0639\u06CC\u062A\u200C\u0647\u0627")),
+        liveError && React.createElement("p", { role: "alert" },
+            liveError,
+            " \u2014 \u0645\u0648\u0642\u0639\u06CC\u062A\u200C\u0647\u0627\u06CC \u0642\u0628\u0644\u06CC \u062D\u0641\u0638 \u0634\u062F\u0647\u200C\u0627\u0646\u062F."),
         React.createElement("div", { className: "tabbar", style: { display: "flex", gap: 8, marginBottom: 12, borderBottom: "2px solid var(--line)", flexWrap: "wrap" } }, [["main", "🗺 نقشهٔ اصلی نیروها"], ["live", "🛰 رهگیری زنده"], ["report", "📊 گزارش مسیر و پخش"], ["exits", "⛔ خروج از محدوده امروز"]].map(([k, lbl]) => React.createElement("button", { key: k, onClick: () => { setViewTab(k); if (k === "main")
                 stopTrack(); }, style: { background: "none", border: "none", borderBottom: viewTab === k ? "3px solid var(--brand)" : "3px solid transparent", padding: "8px 14px", cursor: "pointer", fontWeight: viewTab === k ? 800 : 500, color: viewTab === k ? "var(--brand)" : "var(--muted)", fontFamily: "inherit", fontSize: 13.5, whiteSpace: "nowrap" } }, lbl))),
         showFilters && React.createElement(MapFilters, { allUsers: allUsers, roleFilter: roleFilter, setRoleFilter: setRoleFilter, personFilter: personFilter, setPersonFilter: setPersonFilter, onApply: () => { const mk = markersRef.current, grp = layerRef.current; if (grp) {
@@ -6100,7 +6129,7 @@ function BackupSettings() {
     };
     const PURGE_OPTIONS = [
         ["reports", "گزارش‌ها و گردش آن‌ها"], ["notices", "تذکرها"], ["checklists", "چک‌لیست‌ها"],
-        ["attendance", "حضور رانندگان و نیروها"], ["presence", "صحت‌سنجی حضور"], ["covert", "سلفی‌های نامحسوس"],
+        ["attendance", "حضور رانندگان و نیروها"], ["presence", "صحت‌سنجی حضور"], ["covert", "نظارت"],
         ["official_visits", "حضور مسئولین"], ["messages", "پیام‌ها"], ["outages", "قطعی سیستم نوبت‌دهی"],
         ["requests", "درخواست‌ها (مرخصی/ماموریت)"], ["sms_log", "تاریخچهٔ پیامک"], ["locations", "ردیابی موقعیت"],
         ["forms", "پاسخ فرم‌ها"], ["all_images", "فقط خالی‌کردن همهٔ تصاویر (بدون حذف رکورد)"],
@@ -6826,11 +6855,27 @@ function Settings() {
     var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l, _m, _p, _q, _r, _u, _v, _w, _x, _y, _z, _0;
     const [v, setV] = useState(null);
     const [tab, setTab] = useState("general");
-    useEffect(() => { db.settings().then(setV).catch(() => { }); }, []);
+    const [settingsError, setSettingsError] = useState('');
+    const [settingsSaving, setSettingsSaving] = useState(false);
+    const settingsLock = useRef(false);
+    useEffect(() => { let active = true; db.settings().then(value => { if (active)
+        setV(value); }).catch(error => { if (active)
+        setSettingsError(error.message || 'دریافت تنظیمات ناموفق بود'); }); return () => { active = false; }; }, []);
     if (!v)
-        return React.createElement("div", null, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026");
+        return React.createElement("div", { role: settingsError ? 'alert' : 'status' }, settingsError || 'در حال بارگذاری…');
     const set = (k, val) => setV({ ...v, [k]: val });
-    const save = async () => { await db.saveSettings(v); alert("تنظیمات ذخیره شد."); };
+    const save = async () => { if (settingsLock.current)
+        return; settingsLock.current = true; setSettingsSaving(true); setSettingsError(''); try {
+        await db.saveSettings(v);
+        alert('تنظیمات ذخیره شد.');
+    }
+    catch (error) {
+        setSettingsError(error.message || 'ذخیره تنظیمات ناموفق بود؛ تغییرات شما حفظ شده‌اند.');
+    }
+    finally {
+        settingsLock.current = false;
+        setSettingsSaving(false);
+    } };
     const TABS = [["general", "⚙️", "عمومی و موقعیت"], ["subscription", "💳", "اشتراک"], ["monitoring", "⏱️", "پایش و هشدارها"], ["dashboard", "📊", "داشبورد و محاسبهٔ عملکرد"], ["hr", "👥", "منابع انسانی"], ["fields", "🧩", "فیلدهای پرسنل"], ["appitems", "📱", "آیتم‌های اپ هر سمت"], ["sms", "💬", "پیامک"], ["bale", "🤖", "ربات‌ها"], ["security", "🔐", "امنیت و نسخه اپ"], ["radio", "📻", "تنظیمات بی‌سیم"], ["files", "📎", "پیوست‌ها و اعلان‌ها"], ["drivers", "💰", "بدهکاران"], ["print", "🖨️", "قالب چاپ"], ["access", "🛡️", "دسترسی‌ها"], ["backup", "💾", "پشتیبان‌گیری و پاکسازی"]];
     const Field = (k, l) => {
         var _a;
@@ -6842,6 +6887,12 @@ function Settings() {
         React.createElement("span", { style: { fontSize: 13 } }, l),
         React.createElement("input", { type: "checkbox", checked: !!v[k], onChange: e => set(k, e.target.checked) }));
     return (React.createElement("div", { className: "admin-workspace-page admin-settings-page" },
+        React.createElement("header", { className: "settings-intro" },
+            React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0633\u0627\u0645\u0627\u0646\u0647"),
+            React.createElement("p", { className: "muted" }, "\u0633\u0627\u0632\u0645\u0627\u0646 \u0648 \u0639\u0645\u0644\u06CC\u0627\u062A \u00B7 \u067E\u0631\u0633\u0646\u0644 \u00B7 \u0627\u0631\u062A\u0628\u0627\u0637\u0627\u062A \u00B7 \u0627\u0645\u0646\u06CC\u062A \u0648 \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC"),
+            React.createElement("p", null, "\u0628\u062E\u0634 \u0645\u0631\u062A\u0628\u0637 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F. \u062A\u063A\u06CC\u06CC\u0631 \u0628\u062E\u0634\u060C \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0648\u0627\u0631\u062F\u0634\u062F\u0647 \u0631\u0627 \u067E\u0627\u06A9 \u0646\u0645\u06CC\u200C\u06A9\u0646\u062F."),
+            settingsError && React.createElement("p", { role: "alert" }, settingsError),
+            settingsSaving && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A\u2026")),
         React.createElement("label", { className: "settings-mobile-picker" },
             "\u0628\u062E\u0634 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A",
             React.createElement("select", { className: "input", value: tab, onChange: e => setTab(e.target.value) }, TABS.map(([k, , label]) => React.createElement("option", { key: k, value: k }, label)))),
@@ -7194,13 +7245,13 @@ function Settings() {
                     React.createElement("button", { className: "btn g", onClick: async () => { const r = await db.cleanupAttachments(); alert(r.days ? ("پیوست‌های قدیمی‌تر از " + fa(r.days) + " روز پاک شدند.") : (r.note || "انجام شد.")); } }, "\u067E\u0627\u06A9\u200C\u0633\u0627\u0632\u06CC \u067E\u06CC\u0648\u0633\u062A\u200C\u0647\u0627\u06CC \u0642\u062F\u06CC\u0645\u06CC \u0627\u0644\u0627\u0646")),
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 8 } }, "\u0628\u0631\u0627\u06CC \u062D\u0630\u0641 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0631\u0648\u0632\u0627\u0646\u0647\u060C \u0641\u0627\u06CC\u0644 db/cleanup_cron.sql \u06CC\u0627 \u0627\u06CC\u0646 \u062F\u06A9\u0645\u0647 \u0631\u0627 \u062F\u0631 Cron \u0647\u0627\u0633\u062A \u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u06A9\u0646\u06CC\u062F.")),
             React.createElement("div", { className: "panel t-files" },
-                React.createElement("h3", null, "\uD83D\uDCF8 \u0633\u0644\u0641\u06CC \u0646\u0627\u0645\u062D\u0633\u0648\u0633 \u0627\u0632 \u0646\u06CC\u0631\u0648\u0647\u0627"),
+                React.createElement("h3", null, "\uD83D\uDCF8 \u0646\u0638\u0627\u0631\u062A \u062A\u0635\u0648\u06CC\u0631\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627"),
                 React.createElement("p", { className: "muted", style: { marginBottom: 10, fontSize: 13 } }, "\u0637\u0628\u0642 \u062A\u0646\u0638\u06CC\u0645 \u062C\u062F\u06CC\u062F\u060C \u0627\u067E \u062F\u06CC\u06AF\u0631 \u0647\u0646\u06AF\u0627\u0645 \u0648\u0631\u0648\u062F \u06CC\u0627 \u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u0633\u0644\u0641\u06CC \u0646\u0645\u06CC\u200C\u06AF\u06CC\u0631\u062F. \u0633\u0644\u0641\u06CC \u0641\u0642\u0637 \u0648\u0642\u062A\u06CC \u06AF\u0631\u0641\u062A\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F \u06A9\u0647 \u0645\u062F\u06CC\u0631 \u0627\u0632 \u0633\u0645\u062A \u0633\u0631\u0648\u0631 \u0628\u0631\u0627\u06CC \u0647\u0645\u0627\u0646 \u06A9\u0627\u0631\u0628\u0631 \u062F\u0633\u062A\u0648\u0631 \u0633\u0644\u0641\u06CC \u0627\u0631\u0633\u0627\u0644 \u06A9\u0646\u062F."),
                 React.createElement("div", { className: "card-p", style: { display: "block", background: "#f8fafc" } },
                     React.createElement("b", null, "\u0648\u0636\u0639\u06CC\u062A \u062C\u062F\u06CC\u062F:"),
-                    React.createElement("p", { className: "muted", style: { fontSize: 12, marginTop: 6 } }, "\u06AF\u0632\u06CC\u0646\u0647\u200C\u0647\u0627\u06CC \u00AB\u0633\u0644\u0641\u06CC \u0647\u0646\u06AF\u0627\u0645 \u0648\u0631\u0648\u062F\u00BB\u060C \u00AB\u0633\u0644\u0641\u06CC \u0647\u0646\u06AF\u0627\u0645 \u062B\u0628\u062A \u062D\u0636\u0648\u0631\u00BB \u0648 \u00AB\u0633\u0644\u0641\u06CC \u062F\u0648\u0631\u0647\u200C\u0627\u06CC\u00BB \u0627\u0632 \u0627\u067E \u0645\u0648\u0628\u0627\u06CC\u0644 \u062D\u0630\u0641 \u0634\u062F\u0647\u200C\u0627\u0646\u062F. \u0627\u0631\u0633\u0627\u0644 \u062F\u0633\u062A\u0648\u0631 \u0633\u0644\u0641\u06CC \u0627\u0632 \u0628\u062E\u0634 \u0645\u062F\u06CC\u0631\u06CC\u062A \u0633\u0644\u0641\u06CC\u200C\u0647\u0627 \u0647\u0645\u0686\u0646\u0627\u0646 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A.")),
+                    React.createElement("p", { className: "muted", style: { fontSize: 12, marginTop: 6 } }, "\u06AF\u0632\u06CC\u0646\u0647\u200C\u0647\u0627\u06CC \u00AB\u0633\u0644\u0641\u06CC \u0647\u0646\u06AF\u0627\u0645 \u0648\u0631\u0648\u062F\u00BB\u060C \u00AB\u0633\u0644\u0641\u06CC \u0647\u0646\u06AF\u0627\u0645 \u062B\u0628\u062A \u062D\u0636\u0648\u0631\u00BB \u0648 \u00AB\u0633\u0644\u0641\u06CC \u062F\u0648\u0631\u0647\u200C\u0627\u06CC\u00BB \u0627\u0632 \u0627\u067E \u0645\u0648\u0628\u0627\u06CC\u0644 \u062D\u0630\u0641 \u0634\u062F\u0647\u200C\u0627\u0646\u062F. \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0646\u0638\u0627\u0631\u062A \u0641\u0648\u0631\u06CC \u0627\u0632 \u0628\u062E\u0634 \u0646\u0638\u0627\u0631\u062A \u0647\u0645\u0686\u0646\u0627\u0646 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A.")),
                 React.createElement("div", { className: "row", style: { gap: 10, marginBottom: 8, flexWrap: "wrap", alignItems: "center" } },
-                    React.createElement("label", { className: "label" }, "\u067E\u0627\u06A9\u200C\u0633\u0627\u0632\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631 \u0633\u0644\u0641\u06CC\u200C\u0647\u0627\u06CC \u0646\u0627\u0645\u062D\u0633\u0648\u0633 \u067E\u0633 \u0627\u0632 (\u0631\u0648\u0632 \u2014 \u06F0 = \u063A\u06CC\u0631\u0641\u0639\u0627\u0644):"),
+                    React.createElement("label", { className: "label" }, "\u067E\u0627\u06A9\u200C\u0633\u0627\u0632\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631 \u0646\u0638\u0627\u0631\u062A \u067E\u0633 \u0627\u0632 (\u0631\u0648\u0632 \u2014 \u06F0 = \u063A\u06CC\u0631\u0641\u0639\u0627\u0644):"),
                     React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 90 }, value: (_z = v.covert_selfie_retention_days) !== null && _z !== void 0 ? _z : 0, onChange: e => set("covert_selfie_retention_days", Math.max(0, +e.target.value || 0)) }),
                     React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u0646\u06CC\u0627\u0632 \u0628\u0647 \u0627\u062C\u0631\u0627\u06CC \u06A9\u0631\u0648\u0646 \u0631\u0648\u0632\u0627\u0646\u0647 \u062F\u0627\u0631\u062F")),
                 React.createElement("button", { className: "btn p", style: { marginTop: 10 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0633\u0644\u0641\u06CC")),
@@ -7233,7 +7284,7 @@ function Settings() {
                 React.createElement("button", { className: "btn p", style: { marginTop: 14 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u0639\u0644\u0627\u0646\u200C\u0647\u0627\u06CC \u0645\u06CC\u062F\u0627\u0646\u06CC")),
             React.createElement("div", { className: "panel t-files" },
                 React.createElement("h3", null, "\uD83D\uDDA5 \u0627\u0633\u06A9\u0631\u06CC\u0646\u200C\u0634\u0627\u062A \u0646\u0627\u0645\u062D\u0633\u0648\u0633 \u0627\u0632 \u0635\u0641\u062D\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627"),
-                React.createElement("p", { className: "muted", style: { marginBottom: 10, fontSize: 13 } }, "\u0627\u067E \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u0646\u0627\u0645\u062D\u0633\u0648\u0633 \u0627\u0632 \u0635\u0641\u062D\u0647\u0654 \u0646\u0645\u0627\u06CC\u0634 \u06AF\u0648\u0634\u06CC \u0646\u06CC\u0631\u0648 \u0627\u0633\u06A9\u0631\u06CC\u0646\u200C\u0634\u0627\u062A \u0628\u06AF\u06CC\u0631\u062F \u0648 \u0627\u0631\u0633\u0627\u0644 \u06A9\u0646\u062F. \u062A\u0635\u0627\u0648\u06CC\u0631 \u0645\u0627\u0646\u0646\u062F \u0633\u0644\u0641\u06CC\u200C\u0647\u0627\u06CC \u0646\u0627\u0645\u062D\u0633\u0648\u0633 \u062F\u0631 \u0647\u0645\u0627\u0646 \u0628\u062E\u0634 \u0630\u062E\u06CC\u0631\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
+                React.createElement("p", { className: "muted", style: { marginBottom: 10, fontSize: 13 } }, "\u0627\u067E \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u0646\u0627\u0645\u062D\u0633\u0648\u0633 \u0627\u0632 \u0635\u0641\u062D\u0647\u0654 \u0646\u0645\u0627\u06CC\u0634 \u06AF\u0648\u0634\u06CC \u0646\u06CC\u0631\u0648 \u0627\u0633\u06A9\u0631\u06CC\u0646\u200C\u0634\u0627\u062A \u0628\u06AF\u06CC\u0631\u062F \u0648 \u0627\u0631\u0633\u0627\u0644 \u06A9\u0646\u062F. \u062A\u0635\u0627\u0648\u06CC\u0631 \u0645\u0627\u0646\u0646\u062F \u0646\u0638\u0627\u0631\u062A \u062F\u0631 \u0647\u0645\u0627\u0646 \u0628\u062E\u0634 \u0630\u062E\u06CC\u0631\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
                 React.createElement("p", { className: "muted", style: { fontSize: 12, marginBottom: 10, background: "#fff3cd", padding: 8, borderRadius: 8 } },
                     "\u26A0 \u0627\u06CC\u0646 \u0642\u0627\u0628\u0644\u06CC\u062A \u0646\u06CC\u0627\u0632 \u0628\u0647 \u0646\u0635\u0628 ",
                     React.createElement("b", null, "react-native-view-shot"),
@@ -9072,7 +9123,7 @@ function DashboardConfig() {
             saved && React.createElement("span", { style: { color: "var(--ok)", fontSize: 13 } }, "\u2713 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"))));
 }
 function RolePerms() {
-    const MENU = [["seniority", "سنوات نیروها"], ["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["officials", "حضور مسئولین"], ["covertselfies", "سلفی‌های نامحسوس"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["attreport", "گزارش تردد پرسنل"], ["leavereport", "گزارش مرخصی پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "تنظیمات شیفت کاری"], ["monthlyworkreport", "گزارش کارکرد ماهانه"], ["workpolicy", "سیاست کاری"], ["requests", "گزارش درخواست‌ها"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["radiocenter", "مرکز بی‌سیم"], ["vehicleassets", "ماشین‌آلات و وسایل مأموریتی"], ["vehiclechecklist", "چک‌لیست خودرویی و موتوری"], ["settings", "تنظیمات"]];
+    const MENU = [["seniority", "سنوات نیروها"], ["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["officials", "حضور مسئولین"], ["covertselfies", "نظارت"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["attreport", "گزارش تردد پرسنل"], ["leavereport", "گزارش مرخصی پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "تنظیمات شیفت کاری"], ["monthlyworkreport", "گزارش کارکرد ماهانه"], ["workpolicy", "سیاست کاری"], ["requests", "گزارش درخواست‌ها"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["radiocenter", "مرکز بی‌سیم"], ["vehicleassets", "ماشین‌آلات و وسایل مأموریتی"], ["vehiclechecklist", "چک‌لیست خودرویی و موتوری"], ["settings", "تنظیمات"]];
     const [roles, setRoles] = useState([]);
     const [perms, setPerms] = useState({});
     const [sel, setSel] = useState(null);
@@ -12334,46 +12385,77 @@ function AdminRequests() {
     const [fType, setFType] = useState("");
     const [fStatus, setFStatus] = useState("");
     const [busyId, setBusyId] = useState(null);
-    const act = async (id, status) => {
-        const row = rows.find(x => +x.id === +id);
-        if (!row)
+    const [selected, setSelected] = useState([]);
+    const [review, setReview] = useState(null);
+    const [reviewLoading, setReviewLoading] = useState(false);
+    const [actionMessage, setActionMessage] = useState('');
+    const actionLock = useRef(false);
+    const loadVersion = useRef(0);
+    const execute = async (ids, status) => {
+        if (actionLock.current)
             return;
-        const title = status === "approved" ? "تأیید" : "رد";
-        let note = "";
-        if (status === "rejected")
-            note = prompt("علت رد درخواست (اختیاری):", "") || "";
-        if (!confirm("درخواست «" + (TY[row.type] || row.type) + "» برای «" + row.requester + "» " + title + " شود؟"))
-            return;
-        setBusyId(id);
+        actionLock.current = true;
+        setBusyId('batch');
+        setActionMessage('');
+        const failed = [];
+        let succeeded = 0;
         try {
-            await db.adminRequestDecision(id, { status, note });
+            for (const id of ids) {
+                try {
+                    if (status === 'delete')
+                        await db.adminRequestDelete(id);
+                    else
+                        await db.adminRequestDecision(id, { status, note: (review === null || review === void 0 ? void 0 : review.note) || '' });
+                    succeeded++;
+                }
+                catch (error) {
+                    failed.push({ id, message: error.message || 'عملیات ناموفق بود' });
+                }
+            }
+            setSelected(failed.map(item => item.id));
+            setReview(null);
+            setActionMessage('موفق: ' + fa(succeeded) + (failed.length ? '؛ ناموفق: ' + failed.map(item => '#' + item.id + ' ' + item.message).join(' | ') : ''));
             await load();
         }
-        catch (e) {
-            alert(e.message || "عملیات درخواست انجام نشد");
-        }
         finally {
+            actionLock.current = false;
             setBusyId(null);
         }
     };
-    const del = async (id) => {
-        const row = rows.find(x => +x.id === +id);
-        if (!row)
+    const prepare = async (ids, status) => {
+        if (actionLock.current || reviewLoading || !ids.length)
             return;
-        if (!confirm("درخواست «" + (TY[row.type] || row.type) + "» برای «" + row.requester + "» حذف شود؟ این عملیات قابل بازگشت نیست."))
+        const targets = rows.filter(row => ids.includes(row.id) && (status === 'delete' || row.status === 'pending'));
+        if (!targets.length)
             return;
-        setBusyId(id);
-        try {
-            await db.adminRequestDelete(id);
-            await load();
+        let note = '';
+        if (status === 'rejected') {
+            const answer = prompt('علت رد درخواست‌ها (اختیاری):', '');
+            if (answer === null)
+                return;
+            note = answer;
         }
-        catch (e) {
-            alert(e.message || "حذف درخواست انجام نشد");
+        setReviewLoading(true);
+        setActionMessage('');
+        try {
+            const leaves = [];
+            if (status === 'approved') {
+                for (const row of targets.filter(row => ['annual', 'sick'].includes(row.type))) {
+                    const context = await GET('/admin/requests/' + row.id + '/leave-context');
+                    leaves.push({ row, context });
+                }
+            }
+            setReview({ ids: targets.map(row => row.id), status, note, leaves });
+        }
+        catch (error) {
+            setActionMessage(error.message || 'اطلاعات مرخصی دریافت نشد؛ تأیید انجام نشد.');
         }
         finally {
-            setBusyId(null);
+            setReviewLoading(false);
         }
     };
+    const act = (id, status) => prepare([id], status);
+    const del = id => prepare([id], 'delete');
     const TY = { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", mission: "ماموریت", overtime: "اضافه‌کار", manual: "تردد دستی" };
     const ST = { pending: ["در انتظار", "b-pending"], approved: ["تأییدشده", "b-ok"], rejected: ["ردشده", "b-no"] };
     useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(() => { }); load(); }, []);
@@ -12381,7 +12463,19 @@ function AdminRequests() {
         p.push("user_id=" + fUser); if (fType)
         p.push("type=" + fType); if (fStatus)
         p.push("status=" + fStatus); return p.length ? "?" + p.join("&") : ""; };
-    const load = () => { setLoading(true); db.adminRequests(qs()).then(r => setRows(r || [])).catch(() => { }).finally(() => setLoading(false)); };
+    const load = async () => { const version = ++loadVersion.current; setLoading(true); try {
+        const data = await db.adminRequests(qs());
+        if (version === loadVersion.current)
+            setRows(data || []);
+    }
+    catch (error) {
+        if (version === loadVersion.current)
+            setActionMessage(error.message || 'دریافت درخواست‌ها ناموفق بود');
+    }
+    finally {
+        if (version === loadVersion.current)
+            setLoading(false);
+    } };
     const hm = (m) => m ? `${fa(Math.floor(m / 60))}:${String(m % 60).padStart(2, "0")}` : "—";
     const exportExcel = async () => { try {
         const res = await fetch(`${API_BASE}/admin/requests/export${qs()}`, { headers: tok() });
@@ -12398,6 +12492,58 @@ function AdminRequests() {
     } };
     return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page" },
         React.createElement("h3", null, "\uD83D\uDCCB \u06AF\u0632\u0627\u0631\u0634 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627"),
+        React.createElement("div", { className: "request-bulk-toolbar" },
+            React.createElement("label", null,
+                React.createElement("input", { type: "checkbox", "aria-label": "\u0627\u0646\u062A\u062E\u0627\u0628 \u0647\u0645\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634\u200C\u062F\u0627\u062F\u0647\u200C\u0634\u062F\u0647", disabled: !!busyId || reviewLoading || loading, checked: rows.length > 0 && rows.every(row => selected.includes(row.id)), onChange: event => setSelected(event.target.checked ? rows.map(row => row.id) : []) }),
+                " \u0627\u0646\u062A\u062E\u0627\u0628 \u0647\u0645\u0647\u0654 \u0646\u062A\u0627\u06CC\u062C \u0646\u0645\u0627\u06CC\u0634\u200C\u062F\u0627\u062F\u0647\u200C\u0634\u062F\u0647"),
+            React.createElement("span", null,
+                fa(selected.filter(id => rows.some(row => row.id === id)).length),
+                " \u0627\u0646\u062A\u062E\u0627\u0628"),
+            [['approved', 'تأیید گروهی'], ['rejected', 'رد گروهی'], ['delete', 'حذف گروهی']].map(([status, title]) => React.createElement("button", { className: "btn g", key: status, disabled: !!busyId || reviewLoading || loading || !selected.length, onClick: () => prepare(selected, status) }, title))),
+        reviewLoading && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0645\u0631\u062E\u0635\u06CC\u2026"),
+        actionMessage && React.createElement("p", { role: "status" }, actionMessage),
+        review && React.createElement(Modal, { title: review.status === 'delete' ? 'حذف درخواست‌ها' : review.status === 'approved' ? 'بررسی و تأیید درخواست‌ها' : 'رد درخواست‌ها', onClose: () => { if (!busyId)
+                setReview(null); } },
+            React.createElement("p", null,
+                fa(review.ids.length),
+                " \u062F\u0631\u062E\u0648\u0627\u0633\u062A ",
+                review.status === 'delete' ? 'حذف خواهند شد؛ این عملیات قابل بازگشت نیست.' : 'بررسی خواهند شد. فقط درخواست‌های در انتظار پردازش می‌شوند.'),
+            review.leaves.map(({ row, context }) => React.createElement("section", { className: "leave-review", key: row.id },
+                React.createElement("h4", null,
+                    row.requester,
+                    " \u2014 ",
+                    TY[row.type]),
+                React.createElement("p", null,
+                    "\u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0645\u0627\u0647 \u062C\u0627\u0631\u06CC \u0634\u0645\u0633\u06CC: ",
+                    context.year,
+                    "/",
+                    context.month),
+                Object.entries(context.balance).filter(([key]) => key.startsWith(row.type + '_')).map(([key, value]) => React.createElement("p", { key: key },
+                    key.endsWith('daily') ? 'روزانه (روز)' : 'ساعتی (ساعت)',
+                    ": \u0645\u0635\u0631\u0641 \u0645\u0627\u0647 ",
+                    fa(value.used_month),
+                    " \u00B7 \u0628\u0627\u0642\u06CC\u200C\u0645\u0627\u0646\u062F\u0647 \u0645\u0627\u0647 ",
+                    value.left_month == null ? 'سقف تعیین نشده' : fa(value.left_month),
+                    " \u00B7 \u0645\u0635\u0631\u0641 \u0633\u0627\u0644 ",
+                    fa(value.used_year),
+                    " \u00B7 \u0628\u0627\u0642\u06CC\u200C\u0645\u0627\u0646\u062F\u0647 \u0633\u0627\u0644 ",
+                    value.left_year == null ? 'سقف تعیین نشده' : fa(value.left_year))),
+                React.createElement("p", { className: "muted" }, "\u0645\u0627\u0646\u062F\u0647 \u0637\u0628\u0642 \u0633\u06CC\u0627\u0633\u062A \u062C\u0627\u0631\u06CC \u0645\u062D\u0627\u0633\u0628\u0647 \u0634\u062F\u0647 \u0648 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u0631\u0627 \u0646\u06CC\u0632 \u062F\u0631 \u0646\u0638\u0631 \u0645\u06CC\u200C\u06AF\u06CC\u0631\u062F."),
+                React.createElement("div", { className: "table-wrap" },
+                    React.createElement("table", null,
+                        React.createElement("thead", null,
+                            React.createElement("tr", null,
+                                React.createElement("th", null, "\u0646\u0648\u0639"),
+                                React.createElement("th", null, "\u0627\u0632"),
+                                React.createElement("th", null, "\u062A\u0627"),
+                                React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"))),
+                        React.createElement("tbody", null, context.requests.map(item => { var _a; return React.createElement("tr", { key: item.id },
+                            React.createElement("td", null, TY[item.type] || item.type),
+                            React.createElement("td", null, item.from_jdate || item.the_date),
+                            React.createElement("td", null, item.to_jdate || item.the_date),
+                            React.createElement("td", null, ((_a = ST[item.status]) === null || _a === void 0 ? void 0 : _a[0]) || item.status)); })))),
+                !context.requests.length && React.createElement("p", null, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0645\u0627\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))),
+            React.createElement("button", { className: "btn p", disabled: !!busyId, onClick: () => execute(review.ids, review.status) }, busyId ? 'در حال پردازش…' : 'تأیید نهایی عملیات')),
         React.createElement("div", { className: "filters", style: { flexWrap: "wrap", gap: 8 } },
             React.createElement("select", { className: "input", style: { maxWidth: 200 }, value: fUser, onChange: e => setFUser(e.target.value) },
                 React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627"),
@@ -12420,6 +12566,7 @@ function AdminRequests() {
                 React.createElement("table", { style: { fontSize: 12, minWidth: 860 } },
                     React.createElement("thead", null,
                         React.createElement("tr", null,
+                            React.createElement("th", null, "\u0627\u0646\u062A\u062E\u0627\u0628"),
                             React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
                             React.createElement("th", null, "\u0646\u0648\u0639"),
                             React.createElement("th", null, "\u0648\u0627\u062D\u062F"),
@@ -12433,6 +12580,8 @@ function AdminRequests() {
                     React.createElement("tbody", null, rows.map(r => {
                         const st = ST[r.status] || ["—", "b-pending"];
                         return (React.createElement("tr", { key: r.id },
+                            React.createElement("td", null,
+                                React.createElement("input", { type: "checkbox", "aria-label": "انتخاب درخواست " + r.id, checked: selected.includes(r.id), disabled: !!busyId || reviewLoading, onChange: event => setSelected(previous => event.target.checked ? [...previous, r.id] : previous.filter(id => id !== r.id)) })),
                             React.createElement("td", null, r.requester),
                             React.createElement("td", null, TY[r.type] || r.type),
                             React.createElement("td", null, r.unit === "hourly" ? "ساعتی" : r.unit === "daily" ? "روزانه" : "—"),
@@ -12450,9 +12599,9 @@ function AdminRequests() {
                                 r.attachment_name ? " 📎" : ""),
                             React.createElement("td", { style: { whiteSpace: "nowrap" } },
                                 r.status === "pending" && React.createElement(React.Fragment, null,
-                                    React.createElement("button", { className: "btn p", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: +busyId === +r.id, onClick: () => act(r.id, "approved") }, "\u062A\u0623\u06CC\u06CC\u062F"),
-                                    React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: +busyId === +r.id, onClick: () => act(r.id, "rejected") }, "\u0631\u062F")),
-                                React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px" }, disabled: +busyId === +r.id, onClick: () => del(r.id) }, "\u062D\u0630\u0641"))));
+                                    React.createElement("button", { className: "btn p", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "approved") }, "\u062A\u0623\u06CC\u06CC\u062F"),
+                                    React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "rejected") }, "\u0631\u062F")),
+                                React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px" }, disabled: !!busyId || reviewLoading, onClick: () => del(r.id) }, "\u062D\u0630\u0641"))));
                     }))))));
 }
 // گزارش ثبت حضور نیروها (چک‌این/چک‌اوت)
@@ -14058,7 +14207,7 @@ function CovertSelfieRequestForm() {
             const body = { note };
             body[mode === "user" ? "user_id" : mode === "role" ? "role_id" : "zone_id"] = +sel;
             const r = await SEND("POST", "/admin/covert-selfie-request", body);
-            setResult({ ok: true, msg: `درخواست ارسال شد. اپ تا ۳۰ دقیقه سلفی را در اولین فرصت می‌گیرد.` });
+            setResult({ ok: true, msg: `درخواست نظارت ثبت شد؛ کاربر تا ۳۰ دقیقه فرصت دارد در اپ فعال، دوربین را باز کند و تصویر را ارسال کند.` });
             setSel("");
             setNote("");
         }
@@ -14068,8 +14217,8 @@ function CovertSelfieRequestForm() {
         setBusy(false);
     };
     return (React.createElement("div", { style: { background: "var(--brand-soft)", borderRadius: 12, padding: 14, marginBottom: 16 } },
-        React.createElement("h4", { style: { margin: "0 0 10px" } }, "\uD83D\uDCE4 \u0627\u0631\u0633\u0627\u0644 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0633\u0644\u0641\u06CC \u0646\u0627\u0645\u062D\u0633\u0648\u0633"),
-        React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 10 } }, "\u06CC\u06A9 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0628\u0647 \u0627\u067E \u0627\u0631\u0633\u0627\u0644 \u06A9\u0646\u06CC\u062F. \u0627\u067E \u062F\u0631 \u0627\u0648\u0644\u06CC\u0646 \u0641\u0631\u0635\u062A (\u062A\u0627 \u06F3 \u062F\u0642\u06CC\u0642\u0647 \u0628\u0639\u062F) \u0633\u0644\u0641\u06CC \u06AF\u0631\u0641\u062A\u0647 \u0648 \u0627\u06CC\u0646\u062C\u0627 \u0627\u0631\u0633\u0627\u0644 \u0645\u06CC\u200C\u06A9\u0646\u062F."),
+        React.createElement("h4", { style: { margin: "0 0 10px" } }, "\uD83D\uDCE4 \u0627\u0631\u0633\u0627\u0644 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0646\u0638\u0627\u0631\u062A"),
+        React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 10 } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A \u062F\u0631 \u0627\u067E\u0650 \u0641\u0639\u0627\u0644 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F. \u062A\u0635\u0648\u06CC\u0631 \u067E\u0633 \u0627\u0632 \u0628\u0627\u0632\u06A9\u0631\u062F\u0646 \u062F\u0648\u0631\u0628\u06CC\u0646 \u0648 \u0627\u0631\u0633\u0627\u0644 \u062A\u0648\u0633\u0637 \u06A9\u0627\u0631\u0628\u0631 \u062F\u0631 \u0628\u062E\u0634 \u062A\u0635\u0627\u0648\u06CC\u0631 \u0646\u0638\u0627\u0631\u062A \u062B\u0628\u062A \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0628\u0647 \u0645\u0639\u0646\u06CC \u062F\u0631\u06CC\u0627\u0641\u062A \u062A\u0635\u0648\u06CC\u0631 \u0646\u06CC\u0633\u062A."),
         React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 8, flexWrap: "wrap" } }, [["user", "فرد خاص"], ["role", "سمت"], ["zone", "منطقه"]].map(([m, t]) => React.createElement("label", { key: m, style: { display: "inline-flex", gap: 4, alignItems: "center", cursor: "pointer", fontSize: 13 } },
             React.createElement("input", { type: "radio", name: "covert_mode", value: m, checked: mode === m, onChange: () => { setMode(m); setSel(""); } }),
             t))),
@@ -14082,12 +14231,12 @@ function CovertSelfieRequestForm() {
             mode === "role" && roles.map(r => React.createElement("option", { key: r.id, value: r.id }, r.title)),
             mode === "zone" && zones.map(z => React.createElement("option", { key: z.id, value: z.id }, z.name))),
         React.createElement("input", { className: "input", placeholder: "\u06CC\u0627\u062F\u062F\u0627\u0634\u062A (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)", value: note, onChange: e => setNote(e.target.value), style: { marginBottom: 8 } }),
-        React.createElement("button", { className: "btn p", disabled: busy || !sel, onClick: send }, busy ? "در حال ارسال…" : "ارسال درخواست سلفی"),
+        React.createElement("button", { className: "btn p", disabled: busy || !sel, onClick: send }, busy ? "در حال ارسال…" : "درخواست نظارت هدفمند"),
         result && React.createElement("p", { style: { marginTop: 8, fontSize: 13, color: result.ok ? "var(--ok)" : "var(--danger)" } }, result.msg)));
 }
 function CovertSelfies() {
     const [tab, setTab] = React.useState("command");
-    const TABS = [["command", "ارسال دستور سلفی"], ["request", "ارسال درخواست سلفی"], ["gallery", "سلفی‌های گرفته‌شده"]];
+    const TABS = [["command", "درخواست نظارت فوری"], ["request", "درخواست نظارت هدفمند"], ["gallery", "تصاویر نظارت"]];
     return (React.createElement("div", { className: "admin-workspace-page" },
         React.createElement("div", { className: "tabbar", style: { display: "flex", gap: 8, marginBottom: 14, borderBottom: "2px solid var(--line)", flexWrap: "wrap" } }, TABS.map(([k, lbl]) => React.createElement("button", { key: k, onClick: () => setTab(k), style: { background: "none", border: "none", borderBottom: tab === k ? "3px solid var(--brand)" : "3px solid transparent", padding: "8px 14px", cursor: "pointer", fontWeight: tab === k ? 800 : 500, color: tab === k ? "var(--brand)" : "var(--muted)", fontFamily: "inherit", fontSize: 14 } }, lbl))),
         tab === "command" && React.createElement(CovertCommand, null),
@@ -14124,7 +14273,7 @@ function CovertCommand() {
         }
     };
     return (React.createElement("div", { className: "panel", style: { background: "var(--brand-soft)", borderRadius: 12 } },
-        React.createElement("h3", { style: { marginBottom: 8 } }, "\u0627\u0631\u0633\u0627\u0644 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0633\u0644\u0641\u06CC"),
+        React.createElement("h3", { style: { marginBottom: 8 } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0646\u0638\u0627\u0631\u062A \u0641\u0648\u0631\u06CC"),
         React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 10 } }, "\u062F\u0631 \u0646\u0633\u062E\u0647\u0654 \u0627\u0635\u0644\u0627\u062D\u200C\u0634\u062F\u0647\u060C \u0628\u0631\u0646\u0627\u0645\u0647 \u062F\u0631 \u062D\u0627\u0644\u062A \u0628\u0627\u0632 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u0648 \u062F\u0648\u0631\u0628\u06CC\u0646 \u0631\u0627 \u0628\u0627 \u0627\u0637\u0644\u0627\u0639 \u0648 \u062A\u0623\u06CC\u06CC\u062F \u06A9\u0627\u0631\u0628\u0631 \u0646\u0645\u0627\u06CC\u0634 \u0645\u06CC\u200C\u062F\u0647\u062F. \u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0628\u0647 \u0645\u0639\u0646\u06CC \u062F\u0631\u06CC\u0627\u0641\u062A \u0639\u06A9\u0633 \u0646\u06CC\u0633\u062A."),
         React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", marginBottom: 10 } }, [["all", "همهٔ نیروها"], ["user", "کاربر مشخص"], ["role", "سمت مشخص"], ["zone", "منطقهٔ مشخص"]].map(([v, t]) => React.createElement("button", { key: v, className: "btn " + (cmdType === v ? "p" : "g"), onClick: () => setCmdType(v) }, t))),
         cmdType === "user" && React.createElement("div", null,
@@ -14139,7 +14288,7 @@ function CovertCommand() {
         cmdType === "zone" && React.createElement("div", null,
             React.createElement("label", { className: "label" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0645\u0646\u0637\u0642\u0647:"),
             React.createElement("select", { className: "input", multiple: true, style: { height: 80 }, onChange: e => setCmdZones([...e.target.selectedOptions].map(o => +o.value)) }, zones.map(z => React.createElement("option", { key: z.id, value: z.id }, z.name)))),
-        React.createElement("button", { className: "btn p", style: { marginTop: 10 }, disabled: cmdBusy, onClick: sendCmd }, cmdBusy ? "در حال ارسال…" : "ارسال دستور سلفی فوری"),
+        React.createElement("button", { className: "btn p", style: { marginTop: 10 }, disabled: cmdBusy, onClick: sendCmd }, cmdBusy ? "در حال ارسال…" : "ارسال درخواست نظارت فوری"),
         cmdResult && React.createElement("p", { style: { marginTop: 8, fontSize: 13, color: "var(--brand)" } }, cmdResult)));
 }
 function CovertGallery() {
@@ -14622,7 +14771,7 @@ function CompanyPayrollUpload() {
         }
     };
     return React.createElement("div", { className: "card-p" },
-        React.createElement("h3", null, "\u0628\u0627\u0631\u06AF\u0632\u0627\u0631\u06CC \u0641\u0627\u06CC\u0644 \u062D\u0642\u0648\u0642 \u0627\u0632 \u0634\u0631\u06A9\u062A"),
+        React.createElement("h3", null, "\u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u0641\u0627\u06CC\u0644 \u062D\u0642\u0648\u0642 \u0634\u0631\u06A9\u062A"),
         React.createElement("p", { className: "muted" }, "\u0641\u0642\u0637 XLSX \u0645\u0637\u0627\u0628\u0642 \u0646\u0645\u0648\u0646\u0647\u0654 \u0634\u0631\u06A9\u062A\u061B \u0648\u0627\u062D\u062F \u0645\u0628\u0627\u0644\u063A \u0631\u06CC\u0627\u0644 \u0627\u0633\u062A. \u0627\u0628\u062A\u062F\u0627 \u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u0648 \u0633\u067E\u0633 \u062B\u0628\u062A \u0646\u0647\u0627\u06CC\u06CC \u06A9\u0646\u06CC\u062F. \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0627\u06CC\u0646 \u0641\u0627\u06CC\u0644\u060C \u062A\u0623\u06CC\u06CC\u062F \u0628\u0627\u0646\u06A9\u06CC \u0648\u0627\u0631\u06CC\u0632 \u0646\u06CC\u0633\u062A."),
         React.createElement("div", { className: "row", style: { gap: 10, flexWrap: 'wrap', marginTop: 14 } },
             React.createElement("label", null,
@@ -14724,7 +14873,7 @@ function CompanyPayrollList() {
         action.current = false;
     } };
     return React.createElement("div", { className: "card-p" },
-        React.createElement("h3", null, "\u0641\u06CC\u0634\u0647\u0627\u06CC \u062D\u0642\u0648\u0642\u06CC \u067E\u0631\u0633\u0646\u0644"),
+        React.createElement("h3", null, "\u0641\u06CC\u0634\u200C\u0647\u0627\u06CC \u062D\u0642\u0648\u0642\u06CC \u067E\u0631\u0633\u0646\u0644"),
         React.createElement("p", { className: "muted" }, "\u0645\u0628\u0627\u0644\u063A \u0637\u0628\u0642 \u0641\u0627\u06CC\u0644 \u0634\u0631\u06A9\u062A (\u0631\u06CC\u0627\u0644)\u061B \u0627\u06CC\u0646 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0628\u0647\u200C\u062A\u0646\u0647\u0627\u06CC\u06CC \u0631\u0633\u06CC\u062F \u0628\u0627\u0646\u06A9\u06CC \u0648\u0627\u0631\u06CC\u0632 \u0645\u062D\u0633\u0648\u0628 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
         React.createElement("div", { className: "card-p", style: { background: "var(--surface,#f8fafc)", borderRadius: 14, padding: 14, marginBottom: 14 } },
             React.createElement("h4", { style: { margin: "0 0 12px" } }, "\u062C\u0633\u062A\u062C\u0648 \u0648 \u0641\u06CC\u0644\u062A\u0631 \u0641\u06CC\u0634\u200C\u0647\u0627\u06CC \u067E\u0631\u0633\u0646\u0644"),
@@ -14815,8 +14964,8 @@ function CompanyPayrollList() {
 }
 function SalarySlipsAdmin() {
     const [tab, setTab] = useState('attachments');
-    return React.createElement("div", { className: "panel admin-workspace-page" },
-        React.createElement("div", { role: "tablist", "aria-label": "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0641\u06CC\u0634 \u062D\u0642\u0648\u0642\u06CC", className: "row", style: { gap: 8, flexWrap: 'wrap', marginBottom: 16 } }, [['attachments', 'فیش‌های پیوستی'], ['upload', 'بارگزاری فایل حقوق از شرکت'], ['payroll', 'فیشهای حقوقی پرسنل']].map(([key, title]) => React.createElement("button", { role: "tab", "aria-selected": tab === key, className: 'btn ' + (tab === key ? 'p' : ''), key: key, onClick: () => setTab(key) }, title))),
+    return React.createElement("div", { className: "panel admin-workspace-page payroll-admin" },
+        React.createElement("div", { role: "tablist", "aria-label": "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0641\u06CC\u0634 \u062D\u0642\u0648\u0642\u06CC", className: "row", style: { gap: 8, flexWrap: 'wrap', marginBottom: 16 } }, [['attachments', 'فیش‌های پیوستی'], ['upload', 'بارگذاری فایل حقوق شرکت'], ['payroll', 'فیش‌های حقوقی پرسنل']].map(([key, title]) => React.createElement("button", { role: "tab", "aria-selected": tab === key, className: 'btn ' + (tab === key ? 'p' : ''), key: key, onClick: () => setTab(key) }, title))),
         React.createElement("div", { role: "tabpanel", key: tab }, tab === 'upload' ? React.createElement(CompanyPayrollUpload, null) : tab === 'payroll' ? React.createElement(CompanyPayrollList, null) : React.createElement(SalarySlipAttachmentsAdmin, null)));
 }
 function SalarySlipAttachmentsAdmin() {
@@ -16727,7 +16876,7 @@ function PersonnelLeaveReport() {
 }
 const VIEWS = {
     seniority: { t: "سنوات نیروها", ic: "📆", c: PersonnelSeniority },
-    covertselfies: { t: "سلفی‌های نامحسوس", ic: "📸", c: CovertSelfies },
+    covertselfies: { t: "نظارت", ic: "📸", c: CovertSelfies },
     dashboard: { t: "داشبورد مدیریت", ic: "▦", c: Dashboard },
     reportscenter: { t: "مرکز گزارش‌ها", ic: "🗂", c: ReportsCenter },
     health: { t: "داشبورد سلامت سامانه", ic: "◉", c: SystemHealthDashboard },
@@ -16805,7 +16954,7 @@ const PANEL_MENU_KEYWORDS = {
     logs: "رویداد رخداد امنیت خطا فعالیت", activesessions: "نشست دستگاه ورود امنیت",
     schoolservice: "مدرسه مدارس سرویس دانش آموز", complaints: "شکایت شکایات اعتراض",
     zones: "منطقه زیرمنطقه منطقه بندی", appitems: "منو آیتم دسترسی سمت",
-    covertselfies: "تصویر عکس سلفی", workpolicy: "قوانین قانون کار سیاست",
+    covertselfies: "نظارت تصویر عکس سلفی نامحسوس", workpolicy: "قوانین قانون کار سیاست",
     config: "تذکر چک لیست چکلیست", vehiclechecklist: "چک لیست چکلیست خودرو موتور",
     missiontemplates: "ماموریت الگو بازدید برنامه", scoreengine: "امتیاز رتبه ارزیابی",
 };
