@@ -393,6 +393,7 @@ table{font-size:13px}
   .dashboard-page .kpi{padding:15px}
   .dashboard-page .kpi .n{font-size:25px}
   .dashboard-page .panel{padding:16px}
+  .dashboard-page>.panel{margin:0!important}
   .attendance-report-page{padding:15px}
   .attendance-day-actions{width:100%;flex-direction:column}
   .attendance-day-actions .btn{flex:1 1 auto;width:100%}
@@ -474,11 +475,20 @@ table{font-size:13px}
   .table-wrap,.attendance-report-table-scroll{border:1px solid var(--line);border-radius:12px;overscroll-behavior-x:contain}
   .badge{padding:4px 10px;font-size:10.5px;line-height:1.7}
   .kpis{grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
-  .dashboard-page .kpi{padding:20px;min-height:112px;border-radius:14px;display:flex;flex-direction:column;justify-content:center}
+  .dashboard-page{gap:10px}
+  .dashboard-page>.kpis{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+  .dashboard-page .panel{padding:16px}
+  .dashboard-page .kpi{padding:10px 12px;min-height:74px;border-radius:11px;display:flex;flex-direction:column;justify-content:center}
   .kpi:hover{transform:none;box-shadow:var(--shadow-sm)}
   .kpi::after{height:3px;width:40px;top:0;right:20px;border-radius:0 0 4px 4px;background:var(--brand)}
-  .dashboard-page .kpi .n{font-size:30px;line-height:1.4}
-  .dashboard-page .kpi .l{font-size:11px;color:var(--muted);margin-top:7px}
+  .dashboard-page .kpi .n{font-size:24px;line-height:1.3}
+  .dashboard-page .kpi .l{font-size:11px;color:var(--muted);margin-top:3px;overflow-wrap:anywhere}
+  .dashboard-page .kpi::after{right:12px;width:28px}
+  .dashboard-page .personnel-stat-grid{grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px;margin-top:7px}
+  .dashboard-page .personnel-stat-grid .kpi{min-height:54px;padding:8px 10px;flex-direction:row;align-items:center;justify-content:space-between;gap:8px}
+  .dashboard-page .personnel-stat-grid .kpi::after{display:none}
+  .dashboard-page .personnel-stat-grid .n{font-size:21px;flex-shrink:0}
+  .dashboard-page .personnel-stat-grid .l{margin:0;line-height:1.6}
   .dashboard-page .grid2{margin-top:0}
   .settings-tabs{max-width:1100px}
   .settings-tabs>.panel{margin-bottom:18px}
@@ -552,10 +562,13 @@ table{font-size:13px}
     .page-content .panel{padding:16px;border-radius:12px}
     .page-content .panel h3{font-size:14px;align-items:flex-start}
     .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-    .dashboard-page .kpi{min-height:96px;padding:14px}
-    .dashboard-page .kpi .n{font-size:26px}
+    .dashboard-page>.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+    .dashboard-page .kpi{min-height:68px;padding:9px 11px}
+    .dashboard-page .kpi .n{font-size:23px}
     .dashboard-page .kpi .l{font-size:11px}
-    .dashboard-page .kpis>.kpi:last-child:nth-child(odd){grid-column:1/-1}
+    .dashboard-page .personnel-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+    .dashboard-page .personnel-stat-grid .kpi{min-height:52px;padding:7px 9px}
+    .dashboard-page .personnel-stat-grid .n{font-size:20px}
     .page-content .filters{padding:10px}
     .page-content .filters>*{width:auto;max-width:100%}
     .page-content .filters>:is(input,select){flex-basis:100%;width:100%;min-width:0;min-height:44px}

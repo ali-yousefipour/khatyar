@@ -621,8 +621,8 @@ function PersonnelDistributionDashboard(){
     }).catch(e=>{if(active)setError(e?.message||"دریافت اطلاعات پرسنل ناموفق بود");});
     return()=>{active=false};
   },[]);
-  if(error)return <div className="panel" style={{margin:"14px 0"}}><span className="muted">آمار نیروها در دسترس نیست: {error}</span></div>;
-  if(!data)return <div className="panel" style={{margin:"14px 0"}}><span className="muted">در حال دریافت آمار نیروها…</span></div>;
+  if(error)return <div className="panel personnel-stats"><span className="muted">آمار نیروها در دسترس نیست: {error}</span></div>;
+  if(!data)return <div className="panel personnel-stats"><span className="muted">در حال دریافت آمار نیروها…</span></div>;
   const {users,roles,zones}=data;
   const roleName=new Map(roles.map(r=>[String(r.id),r.title||r.name]));
   const zoneName=new Map(zones.map(z=>[String(z.id),z.name||z.title]));
@@ -636,8 +636,8 @@ function PersonnelDistributionDashboard(){
   };
   const roleCounts=countBy(u=>roleName.get(String(u.role_id))||u.role_title||u.role_name);
   const zoneCounts=countBy(u=>zoneName.get(String(u.zone_id??u.region_id))||u.zone_name||u.region_name);
-  const cards=(items)=><div className="kpis" style={{marginTop:10}}>{items.map(([name,count])=><div className="kpi" key={name}><div className="n">{fa(count)}</div><div className="l">{name}</div></div>)}</div>;
-  return <div className="panel" style={{margin:"14px 0"}}><h3 style={{margin:"0 0 8px"}}>آمار نیروها</h3><div className="muted" style={{fontSize:12}}>بر اساس فهرست پرسنل، مستقل از وضعیت حضور و غیاب</div><h4 style={{margin:"14px 0 0"}}>تعداد نیروها به تفکیک سمت</h4>{cards(roleCounts)}<h4 style={{margin:"16px 0 0"}}>تعداد نیروها به تفکیک منطقه</h4>{cards(zoneCounts)}</div>;
+  const cards=(items)=><div className="kpis personnel-stat-grid">{items.map(([name,count])=><div className="kpi" key={name}><div className="n">{fa(count)}</div><div className="l">{name}</div></div>)}</div>;
+  return <div className="panel personnel-stats"><h3 style={{margin:"0 0 6px"}}>آمار نیروها</h3><div className="muted" style={{fontSize:12}}>بر اساس فهرست پرسنل، مستقل از وضعیت حضور و غیاب</div><h4 style={{margin:"10px 0 0"}}>تعداد نیروها به تفکیک سمت</h4>{cards(roleCounts)}<h4 style={{margin:"12px 0 0"}}>تعداد نیروها به تفکیک منطقه</h4>{cards(zoneCounts)}</div>;
 }
 
 function ResponsiveTable({children,...props}){
