@@ -1221,7 +1221,7 @@ function LiveMap(){
     }finally{ setSavingImg(false); }
   };
   const stopTrack=()=>{ if(trkIv.current){clearInterval(trkIv.current);trkIv.current=null;} const map=mapRef.current; if(lineRef.current&&map)map.removeLayer(lineRef.current); setTrkInfo(null); setTrkPts(null); setMode("live"); drawUsers(); };
-  return(<div className="panel"><h3>نقشهٔ نیروها و رهگیری
+  return(<div className="panel admin-workspace-page"><h3>نقشهٔ نیروها و رهگیری
     <span className="row" style={{gap:8}}>
       <select className="input" style={{maxWidth:170,fontSize:12}} value={mapProvider} onChange={e=>changeProvider(e.target.value)}>
         <option value="osm">نقشهٔ OpenStreetMap</option>
@@ -1386,7 +1386,7 @@ function PersonnelSeniority(){
     const body=seniorityPrintBody(rows);
     printLetterhead('سنوات نیروها — '+faPlain(data.period),body,{subtitle:'واحد: روز؛ سهم ماه جاری تا پایان ماه و به‌صورت علی‌الحساب است.'});
   };
-  return <div className="panel" data-testid="personnel-seniority">
+  return <div className="panel admin-workspace-page" data-testid="personnel-seniority">
     <div className="row" style={{justifyContent:'space-between',gap:12,flexWrap:'wrap'}}><div><h3>سنوات نیروها</h3><p style={{color:'var(--muted)',lineHeight:2}}>میزان سنوات شخص بر اساس تعداد روز؛ مبنای اکسل تا پایان شهریور ۱۴۰۵.</p></div><div className="row" style={{gap:8,flexWrap:'wrap'}}><button className="btn g" disabled={loading||busy} onClick={load}>بازخوانی</button><button className="btn g" disabled={!rows.length||busy} onClick={exportReport}>خروجی اکسل</button><button className="btn g" disabled={!rows.length||busy} onClick={printReport}>چاپ گزارش</button><button className="btn p" disabled={!data||busy||loading} onClick={recalculate}>{busy&&progress?progress:'به‌روزرسانی تا انتهای ماه'}</button></div></div>
     <div role="note" style={{background:'#edf8f4',border:'1px solid var(--line)',borderRadius:14,padding:14,lineHeight:2,margin:'16px 0'}}>ماه جاری: <b>{faPlain(data?.period||'—')}</b> · تعداد روزهای ماه: {fa(data?.month_days||'—')}<br/>محاسبه: تمام روزهای ماه منهای غیبتِ روزهای پایان‌یافته، مطابق گزارش تردد. جمعه، تعطیلی و مرخصیِ تأییدشده غیبت محسوب نمی‌شوند. روزهای آینده علی‌الحساب منظور می‌شوند و با اصلاح تردد، سهم همین ماه اصلاح خواهد شد؛ ماه‌های قبل دوباره افزوده نمی‌شوند. نیروهای بدون مبنا و غیرفعال خودکار محاسبه نمی‌شوند.</div>
     {error&&<div role="alert" style={{color:'var(--danger)',padding:12}}>{error} <button className="btn g" disabled={loading||busy} onClick={load}>تلاش مجدد</button></div>}
@@ -1438,13 +1438,13 @@ function Users(){
     </div>
     {usersTab==="vehicles"?<PersonnelVehicleAssets/>:<PersonnelVehicleChecklist/>}
   </div>);
-  return(<div className="panel"><h3>مدیریت کاربران <button className="btn p" onClick={()=>setAdding(true)}>+ افزودن کاربر</button> <button className="btn g" onClick={async()=>{ try{ const res=await fetch(db.usersExportUrl(),{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="اطلاعات_کامل_کاربران.xlsx"; a.click(); }catch(e){alert(e.message);} }}>⤓ خروجی کامل کاربران (Excel)</button></h3>
-    <div className="row" style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
+  return(<div className="panel admin-workspace-page admin-list-page"><h3>مدیریت کاربران <button className="btn p" onClick={()=>setAdding(true)}>+ افزودن کاربر</button> <button className="btn g" onClick={async()=>{ try{ const res=await fetch(db.usersExportUrl(),{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="اطلاعات_کامل_کاربران.xlsx"; a.click(); }catch(e){alert(e.message);} }}>⤓ خروجی کامل کاربران (Excel)</button></h3>
+    <div className="row page-switcher" style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
       <button className="btn p">اطلاعات کاربران</button>
       <button className="btn g" onClick={()=>setUsersTab("vehicles")}>خودرو و موتورسیکلت</button>
       <button className="btn g" onClick={()=>setUsersTab("checklist")}>چک‌لیست خودرو و موتورسیکلت</button>
     </div>
-    <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
+    <div className="row page-toolbar" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
       <input className="input" style={{maxWidth:170}} placeholder="نام یا کد ملی" value={f.q} onChange={e=>setF({...f,q:e.target.value})}/>
       <select className="input" style={{maxWidth:150}} value={f.role_id} onChange={e=>setF({...f,role_id:e.target.value})}><option value="">همهٔ سمت‌ها</option>{roles.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select>
       <select className="input" style={{maxWidth:150}} value={f.zone_id} onChange={e=>setF({...f,zone_id:e.target.value})}><option value="">همهٔ مناطق</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select>
@@ -1653,7 +1653,7 @@ function Zones(){
     const roots=renderBranch(null);
     return <>{roots}{zones.filter(z=>!seen.has(+z.id)).map(z=><div key={z.id}>{Col(z.name,z.id)}</div>)}</>;
   })();
-  return(<div className="panel"><h3>منطقه‌بندی نیروها — کارت‌ها را در منطقهٔ موردنظر رها کنید
+  return(<div className="panel admin-workspace-page"><h3>منطقه‌بندی نیروها — کارت‌ها را در منطقهٔ موردنظر رها کنید
     <span className="row" style={{gap:8}}><input className="input" maxLength={150} style={{padding:"6px 10px",width:160}} placeholder="نام منطقهٔ جدید" value={nz} onChange={e=>setNz(e.target.value)}/>
       <select aria-label="منطقه والد برای منطقه جدید" className="input" style={{maxWidth:230}} value={newParent} onChange={event=>setNewParent(event.target.value)}><option value="">منطقه مستقل (بدون والد)</option>{ordered.map(zone=><option key={zone.id} value={zone.id}>{pathFor(zone)}</option>)}</select><button className="btn p" disabled={busy||!nz.trim()} onClick={addZone}>+ منطقه</button></span></h3>
     {error&&<p role="alert" style={{color:"var(--danger)"}}>{error}</p>}
@@ -1742,7 +1742,7 @@ function OrgChart(){
     el.addEventListener('wheel',wheel,{passive:false});
     return()=>el.removeEventListener('wheel',wheel);
   },[]);
-  return(<div className="panel" style={{padding:0,overflow:"hidden"}}>
+  return(<div className="panel admin-workspace-page" style={{padding:0,overflow:"hidden"}}>
     <div style={{padding:"16px 18px 12px",borderBottom:"1px solid var(--line)",background:"linear-gradient(180deg,var(--card),rgba(13,122,95,.035))"}}>
       <div className="row" style={{justifyContent:"space-between",gap:10,flexWrap:"wrap"}}><div><h3 style={{margin:0}}>چارت سازمانی نیروها</h3><p className="muted" style={{margin:"5px 0 0",fontSize:12}}>چارت پیش‌فرض از منطقه و سمت نیروها ساخته می‌شود. گشت‌های موتوری مستقیماً زیر نظر سربازرس ارشد هستند. برای ویرایش ارتباط‌های دستی، نمای «روابط ثبت‌شده» را انتخاب کنید. با + هر شاخه را باز کنید.</p></div>
       <div className="row" style={{gap:6,flexWrap:"wrap"}}><button className="btn g" disabled={!!filtered} onClick={collapseAll}>بستن همه</button><button className="btn g" disabled={!!filtered} onClick={expandAll}>بازکردن همه</button><button className="btn g" onClick={fit}>جا دادن در صفحه</button><button className="btn g" onClick={()=>centerAt()}>مرکز کردن</button><button className="btn p" onClick={printChart}>🖨 چاپ چارت</button></div></div>
@@ -1851,8 +1851,8 @@ function Drivers(){
   const showFull=async id=>{ setFull({loading:true}); try{ setFull(await db.driverFull(id)); }catch(e){ setFull(null); alert(e.message);} };
   const del=async x=>{ if(confirm('حذف راننده «'+x.first_name+' '+x.last_name+'»؟')){ await db.deleteDriver(x.id); load(page); } };
   const saveEdit=async()=>{ await db.updateDriver(edit.id,edit); setEdit(null); load(page); };
-  return(<div className="panel"><h3>رانندگان و خودروها <button className="btn p" onClick={exportXlsx}>⬇ خروجی اکسل</button></h3>
-    <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
+  return(<div className="panel admin-workspace-page admin-list-page"><h3>رانندگان و خودروها <button className="btn p" onClick={exportXlsx}>⬇ خروجی اکسل</button></h3>
+    <div className="row page-toolbar" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
       <input className="input" style={{maxWidth:170}} placeholder="کد ملی یا نام" value={f.q} onChange={e=>setF({...f,q:e.target.value})}/>
       <input className="input" style={{maxWidth:110}} placeholder="کد خط" value={f.line} onChange={e=>setF({...f,line:e.target.value})}/>
       <input className="input" style={{maxWidth:140}} placeholder="مدل خودرو" value={f.model} onChange={e=>setF({...f,model:e.target.value})}/>
@@ -1869,7 +1869,7 @@ function Drivers(){
         <button className="btn g" onClick={()=>showFull(x.id)}>اطلاعات کامل</button>
         <button className="btn g" onClick={()=>setEdit({...x})}>ویرایش</button>
         <button className="btn g" style={{color:'var(--danger)'}} onClick={()=>del(x)}>حذف</button></div></td></tr>)}</tbody></ResponsiveTable>
-    <div className="row" style={{gap:8,justifyContent:"center",alignItems:"center",marginTop:12}}>
+    <div className="row page-toolbar" style={{gap:8,justifyContent:"center",alignItems:"center",marginTop:12}}>
       <button className="btn g" disabled={page<=1} onClick={()=>load(page-1)}>قبلی</button>
       <span style={{alignSelf:"center"}}>صفحهٔ {fa(data.page)} از {fa(data.pages||1)}</span>
       <button className="btn g" disabled={page>=data.pages} onClick={()=>load(page+1)}>بعدی</button>
@@ -1910,7 +1910,7 @@ function Bills(){
   };
   useEffect(()=>{ load("",1); },[]);
   const b=data.rows||[];
-  return(<div className="panel"><h3>آبونمان و فیش‌ها</h3>
+  return(<div className="panel admin-workspace-page"><h3>آبونمان و فیش‌ها</h3>
     <div className="row" style={{gap:8,marginBottom:10,flexWrap:"wrap"}}>
       <input className="input" style={{maxWidth:260}} placeholder="جستجو: نام، کد ملی، پلاک یا شناسه قبض" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load(q,1)}/>
       <button className="btn p" onClick={()=>load(q,1)}>جستجو</button>
@@ -1941,7 +1941,7 @@ function Bills(){
 function Config(){
   const [tab,setTab]=useState("define");
   const TABS=[["define","تعریف موضوعات و چک‌لیست"],["reportsubjects","موضوعات گزارش‌ها"],["notices","تذکرات داده‌شده"],["checklists","چک‌لیست‌های داده‌شده"]];
-  return(<div>
+  return(<div className="admin-workspace-page">
     <div className="tabbar" style={{display:"flex",gap:8,marginBottom:14,borderBottom:"2px solid var(--line)",flexWrap:"wrap"}}>
       {TABS.map(([k,lbl])=>
         <button key={k} onClick={()=>setTab(k)} style={{background:"none",border:"none",borderBottom:tab===k?"3px solid var(--brand)":"3px solid transparent",padding:"8px 14px",cursor:"pointer",fontWeight:tab===k?800:500,color:tab===k?"var(--brand)":"var(--muted)",fontFamily:"inherit",fontSize:14}}>{lbl}</button>)}
@@ -2079,7 +2079,7 @@ function FormBuilder(){
   const publicUrl=(slug)=>slug?(location.origin+"/f/"+slug):"";
   const copyLink=(slug)=>{ navigator.clipboard?.writeText(publicUrl(slug)); alert("لینک فرم کپی شد:\n"+publicUrl(slug)); };
   const save=async()=>{ try{ if(editId){ const r=await db.updForm(editId,{title,schema:fields,public_enabled:isPublic}); if(r?.public_slug)setPublicSlug(r.public_slug); alert("فرم ویرایش شد."); } else { const r=await SEND('POST','/admin/forms',{title,schema:fields,public_enabled:isPublic}); if(r?.public_slug)setPublicSlug(r.public_slug); alert("فرم ذخیره شد."); } loadList(); }catch(e){ alert(e.message); } };
-  return(<div className="panel"><h3>فرم‌ساز حرفه‌ای {editId?<span style={{fontSize:13,color:"var(--brand)"}}>(ویرایش فرم #{fa(editId)})</span>:""} <button className="btn p" onClick={add}>+ افزودن فیلد</button> {editId&&<button className="btn g" onClick={resetForm}>فرم جدید</button>}</h3>
+  return(<div className="panel admin-workspace-page"><h3>فرم‌ساز حرفه‌ای {editId?<span style={{fontSize:13,color:"var(--brand)"}}>(ویرایش فرم #{fa(editId)})</span>:""} <button className="btn p" onClick={add}>+ افزودن فیلد</button> {editId&&<button className="btn g" onClick={resetForm}>فرم جدید</button>}</h3>
     <label className="label">عنوان فرم</label><input className="input" value={title} onChange={e=>setTitle(e.target.value)} style={{marginBottom:14}}/>
     {fields.map((f,i)=><div key={i} className="card-p" style={{display:"block"}}>
       <div className="row" style={{gap:8,flexWrap:"wrap"}}>
@@ -2203,7 +2203,7 @@ function Cultural(){
     const ws=XLSX.utils.json_to_sheet(rep.rows.map(r=>({"فعالیت":r.type_title,"مکان":r.place_title,"کد ملی":r.driver_national_id,"نام راننده":r.driver_name,"تاریخ":r.activity_jdate,"ساعت":r.hours,"ثبت‌کننده":r.recorded_by_name,"توضیح":r.note})));
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"فعالیت فرهنگی"); XLSX.writeFile(wb,"گزارش_فعالیت_فرهنگی.xlsx"); };
 
-  return(<div>
+  return(<div className="admin-workspace-page">
     <div className="row" style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
       {[["add","➕ ثبت فعالیت"],["types","🎭 انواع فعالیت"],["places","📍 مکان‌ها"],["report","📊 گزارش‌گیری"]].map(([k,l])=>
         <button key={k} className={"btn "+(tab===k?"p":"g")} onClick={()=>setTab(k)}>{l}</button>)}
@@ -2363,7 +2363,7 @@ function Welfare(){
     const ws=XLSX.utils.json_to_sheet(rep.rows.map(r=>({"رفاهیت":r.item_title,"مکان":r.place_title,"آدرس":r.place_address,"کد ملی":r.driver_national_id,"نام راننده":r.driver_name,"موبایل":r.driver_mobile,"تعداد":r.count,"تاریخ تحویل":r.granted_jdate,"ثبت‌کننده":r.granted_by_name,"توضیح":r.note})));
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"رفاهیات"); XLSX.writeFile(wb,"گزارش_رفاهیات.xlsx"); };
 
-  return(<div>
+  return(<div className="admin-workspace-page">
     <div className="row" style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
       {[["grant","➕ تحویل رفاهیت"],["items","🎁 انواع رفاهیات"],["places","📍 مکان‌ها"],["report","📊 گزارش‌گیری"]].map(([k,l])=>
         <button key={k} className={"btn "+(tab===k?"p":"g")} onClick={()=>setTab(k)}>{l}</button>)}
@@ -2528,7 +2528,7 @@ function MissionOperationsDashboard(){
     const full=withMission.filter(r=>Number(r.weighted_achievement||0)>=90).length;
     const weak=withMission.filter(r=>Number(r.weighted_achievement||0)<50).length;
     return {total:rows.length,withMission:withMission.length,avg,full,weak}; })();
-  return(<div className="panel"><h3>🧭 داشبورد عملیات میدانی</h3>
+  return(<div className="panel admin-workspace-page"><h3>🧭 داشبورد عملیات میدانی</h3>
     <p style={{fontSize:13,color:"var(--muted)",marginBottom:10}}>عملکرد وزن‌دار روزانهٔ نیروهای میدانی (ناظر خط، گشت موتوری، بازرس مقیم، بازرس گشت خودرویی، سربازرس) نسبت به مأموریت مؤثر آن‌ها (الگوی سمت یا مأموریت اختصاصی).</p>
     <div className="filters" style={{flexWrap:"wrap",gap:8,marginBottom:10}}>
       <span className="label">تاریخ</span><JDate value={date} onChange={setDate} jalali/>
@@ -2639,8 +2639,8 @@ function MissionTemplatesAdmin(){
     visit_require_end_report:"الزام گزارش پایان بازدید (true/false)",visit_geo_extra_radius_m:"شعاع مجاز اضافه از محدودهٔ خط (متر)",
     visit_photo_width:"عرض تصویر ذخیره‌شده (پیکسل)",visit_photo_quality:"کیفیت فشرده‌سازی تصویر (٪)"};
 
-  return(<div className="panel"><h3>🎯 موتور مأموریت — الگوها و تنظیمات</h3>
-    <div className="row" style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
+  return(<div className="panel admin-workspace-page admin-form-page"><h3>🎯 موتور مأموریت — الگوها و تنظیمات</h3>
+    <div className="row page-switcher" style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
       {[["templates","📐 الگوهای هر سمت"],["overrides","👤 مأموریت اختصاصی کاربر"],["settings","⚙ تنظیمات اجرای بازدید"],["visits","📑 گزارش بازدیدهای ثبت‌شده"]].map(([k,l])=>
         <button key={k} className={"btn "+(tab===k?"p":"g")} onClick={()=>{setTab(k);setMsg("");}}>{l}</button>)}
     </div>
@@ -2766,7 +2766,7 @@ function CityOperationsDashboard(){
     `;
     printLetterhead("داشبورد مدیریتی عملیات میدانی — کل شهر",body,{subtitle:"تاریخ گزارش: "+date});
   };
-  return(<div className="panel"><h3>🏙 داشبورد مدیریتی عملیات میدانی — کل شهر</h3>
+  return(<div className="panel admin-workspace-page"><h3>🏙 داشبورد مدیریتی عملیات میدانی — کل شهر</h3>
     <div className="filters" style={{flexWrap:"wrap",gap:8,marginBottom:14}}>
       <span className="label">تاریخ</span><JDate value={date} onChange={setDate} jalali/>
       <button className="btn p" onClick={load}>اعمال</button>
@@ -2873,7 +2873,7 @@ function ScoreEngineAdmin(){
     try{ await SEND("PUT","/admin/line-score-coefficients",{items:lineCo}); setMsg("✓ ذخیره شد"); }
     catch(e){ setMsg(e.message||"خطا"); } };
 
-  return(<div className="panel"><h3>🏆 موتور امتیازدهی نیروهای میدانی</h3>
+  return(<div className="panel admin-workspace-page"><h3>🏆 موتور امتیازدهی نیروهای میدانی</h3>
     <p style={{fontSize:13,color:"var(--muted)",marginBottom:10}}>امتیاز نهایی هر ردیف = امتیاز پایه × ضریب سمت × میانگین ضریب سختی خطوط تخصیص‌یافته. محاسبه به‌صورت خودکار و روزانه، هم‌زمان با بارگذاری «مأموریت روزانه» یا «برنامه بازدید» هر کاربر انجام می‌شود.</p>
     <div className="row" style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
       {[["rules","📐 قوانین امتیاز"],["roles","👤 ضریب سمت‌ها"],["lines","🛣 ضریب سختی خطوط"],["daily","📊 جدول امتیازات روزانه"],["leaderboard","🏆 رتبه‌بندی و نشان‌ها"]].map(([k,l])=>
@@ -2990,7 +2990,7 @@ function PersonnelPerformance(){
     const rows=data.people.map(p=>[p.name,p.role_title||"",p.checklists,p.driver_attendances,p.notices,p.official_visits,p.reports,p.sms_total||0,p.sms_abonman||0,p.bill_pay_clicks||0,p.bill_pay_effective||0,p.total]);
     const ws=XLSX.utils.aoa_to_sheet([cols,...rows]); const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"عملکرد پرسنل"); XLSX.writeFile(wb,"عملکرد_پرسنل.xlsx"); };
-  return(<div className="panel"><h3>گزارش عملکرد پرسنل</h3>
+  return(<div className="panel admin-workspace-page"><h3>گزارش عملکرد پرسنل</h3>
     <p style={{fontSize:13,color:"var(--muted)",marginBottom:10}}>تعداد فعالیت‌های هر نیرو در بازهٔ انتخابی شامل چک‌لیست، حضور، تذکر، گزارش، پیامک‌های ارسالی و عملکرد پرداخت قبض. خالی گذاشتن تاریخ = کل دوره.</p>
     <div className="filters" style={{flexWrap:"wrap",gap:8}}>
       <span className="label">از</span><JDate value={from} onChange={setFrom} jalali/>
@@ -3032,7 +3032,7 @@ function Reporting(){
       <table style="width:100%;border-collapse:collapse;margin-top:16px;font-size:13px"><thead><tr>${cur.cols.map(c=>`<th style="border:1px solid #ccc;padding:8px;background:#eef1f7">${c}</th>`).join("")}</tr></thead>
       <tbody>${shownRows.map(r=>`<tr>${r.map(c=>`<td style="border:1px solid #ccc;padding:8px;text-align:center">${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
     window.print(); };
-  return(<div className="panel"><h3>گزارش‌گیری پیشرفته</h3>
+  return(<div className="panel admin-workspace-page"><h3>گزارش‌گیری پیشرفته</h3>
     <div className="filters no-print">
       <select value={type} onChange={e=>setType(e.target.value)}>{Object.entries(TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select>
       <JDate value={from} onChange={setFrom} placeholder="از تاریخ"/>
@@ -3053,7 +3053,7 @@ function Reporting(){
 // مدیریت فیلدهای سفارشی پرسنل (تعریف فیلد دلخواه برای اطلاعات کارکنان)
 // تنظیم آیتم‌های قابل نمایش اپ برای هر سمت (نقش)
 // نمای مستقل آیتم‌های اپ هر سمت (در سایدبار)
-function ReportsCenter(){
+function ReportsCenter({canNavigate=()=>true}={}){
   const CATS=[
     {t:"عملیات میدانی",items:[
       ["missiondashboard","🧭","داشبورد عملیات میدانی","تحقق مأموریت روزانهٔ همهٔ نیروهای میدانی"],
@@ -3080,23 +3080,23 @@ function ReportsCenter(){
       ["smslog","📜","تاریخچهٔ پیامک","سوابق کامل پیامک‌های ارسالی سامانه"],
     ]},
   ];
-  return(<div className="panel"><h3>🗂 مرکز گزارش‌ها</h3>
+  return(<div className="panel reports-center-page admin-workspace-page"><h3>🗂 مرکز گزارش‌ها</h3>
     <p style={{fontSize:13,color:"var(--muted)",marginBottom:18}}>همهٔ گزارش‌های سامانه در یک نگاه، دسته‌بندی‌شده. روی هرکدام بزنید تا مستقیم باز شود.</p>
-    {CATS.map(cat=>(<div key={cat.t} style={{marginBottom:22}}>
+    {CATS.map(cat=>{const items=cat.items.filter(([key])=>canNavigate(key));if(!items.length)return null;return(<section key={cat.t} className="report-category">
       <h4 style={{fontSize:14,marginBottom:10,color:"var(--brand)"}}>{cat.t}</h4>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))",gap:10}}>
-        {cat.items.map(([key,ic,title,desc])=>(
-          <button key={key} onClick={()=>window.__navigateTo&&window.__navigateTo(key)}
-            style={{textAlign:"right",cursor:"pointer",border:"1px solid var(--line)",borderRadius:12,padding:14,background:"#fff",display:"flex",gap:10,alignItems:"flex-start"}}>
-            <span style={{fontSize:22}}>{ic}</span>
-            <span style={{display:"block"}}>
+      <div className="report-card-grid">
+        {items.map(([key,ic,title,desc])=>(
+          <button key={key} className="report-link-card" onClick={()=>window.__navigateTo&&window.__navigateTo(key)}>
+            <span className="report-link-icon" aria-hidden="true">{ic}</span>
+            <span className="report-link-copy">
               <span style={{display:"block",fontWeight:800,fontSize:13,color:"var(--ink)"}}>{title}</span>
               <span style={{display:"block",fontSize:11,color:"var(--muted)",marginTop:4,lineHeight:1.7}}>{desc}</span>
             </span>
+            <span className="report-link-arrow" aria-hidden="true">‹</span>
           </button>
         ))}
       </div>
-    </div>))}
+    </section>);})}
   </div>);
 }
 
@@ -3109,7 +3109,7 @@ function ActiveSessionsView(){
     await db.revokeDevice(userId,type); load();
   };
   const items=(data?.items||[]).filter(r=>!q||r.user_name.includes(q)||(r.device_model||'').includes(q));
-  return(<div className="panel"><h3>🔐 جلسات فعال کاربران</h3>
+  return(<div className="panel admin-workspace-page"><h3>🔐 جلسات فعال کاربران</h3>
     <p style={{fontSize:13,color:"var(--muted)",marginBottom:12}}>هر کاربر می‌تواند هم‌زمان یک نشست اندروید و یک نشست وب داشته باشد. اگر مشکوک به دسترسی غیرمجاز هستید، می‌توانید هر نشست را از راه دور قطع کنید — کاربر بلافاصله باید دوباره وارد شود.</p>
     <div className="row" style={{gap:8,marginBottom:12}}>
       <input className="input" style={{maxWidth:260}} placeholder="جست‌وجوی نام یا مدل دستگاه…" value={q} onChange={e=>setQ(e.target.value)}/>
@@ -3144,7 +3144,7 @@ function CronStatusView(){
     never_run:{ic:"❌",t:"هرگز اجرا نشده — در کنترل‌پنل هاست اضافه نشده است",color:"var(--danger)"},
     error:{ic:"🛑",t:"آخرین اجرا با خطا مواجه شده",color:"var(--danger)"},
   };
-  return(<div className="panel"><h3>⏱ پایش سلامت کرون‌های سامانه</h3>
+  return(<div className="panel admin-workspace-page"><h3>⏱ پایش سلامت کرون‌های سامانه</h3>
     <p style={{fontSize:13,color:"var(--muted)",marginBottom:6}}>هر ردیف یکی از فایل‌های Cron موجود در پروژه است. برای اضافه‌کردن هرکدام در cPanel → Cron Jobs،
       دستور را با مسیر واقعی فایل روی هاست خودتان جایگزین کنید (این فایل‌ها کنار index.php هستند):</p>
     <p style={{fontSize:12,color:"var(--muted)",marginBottom:14,fontFamily:"monospace",background:"var(--bg2,#f4f6f9)",padding:8,borderRadius:8}}>
@@ -3174,7 +3174,7 @@ function CronStatusView(){
 }
 
 function RoleAppItemsView(){
-  return(<div className="panel"><h3>📱 آیتم‌های قابل نمایش اپ بر اساس سمت</h3><RoleAppItems/></div>);
+  return(<div className="panel admin-workspace-page"><h3>📱 آیتم‌های قابل نمایش اپ بر اساس سمت</h3><RoleAppItems/></div>);
 }
 
 function RoleAppItems(){
@@ -3231,7 +3231,7 @@ function RadioCenter(){
   const loadChannels=async()=>{try{const d=await api('channel-list');const chs=d.channels||[];setChannels(chs);setCid(x=>x||(chs[0]?.id||0));setErr('');}catch(e){setErr(e.message);}};
   useEffect(()=>{loadChannels();const t=setInterval(loadChannels,15000);return()=>clearInterval(t);},[]);
 
-  return <div>
+  return <div className="admin-workspace-page">
     <div className="tabbar">
       <button className={'tabbtn'+(tab==='live'?' on':'')} onClick={()=>setTab('live')}>پخش زنده</button>
       <button className={'tabbtn'+(tab==='archive'?' on':'')} onClick={()=>setTab('archive')}>آرشیو پیام‌ها</button>
@@ -3368,7 +3368,7 @@ function CustomFieldsManager(){
   const del=async(fld)=>{ if(!confirm("حذف فیلد «"+fld.label+"» و همهٔ مقادیر ثبت‌شده؟"))return; try{ await db.delCustomField(fld.id); load(); }catch(e){alert(e.message);} };
   if(fields===null) return <p className="muted">در حال بارگذاری…</p>;
   const needOptions = form && (form.ftype==="select"||form.ftype==="multiselect");
-  return(<div>
+  return(<div className="admin-workspace-page">
     <p style={{fontSize:12,color:"var(--muted)",marginBottom:10}}>فیلدهای دلخواه برای اطلاعات پرسنل تعریف کنید (مثل شماره شناسنامه، شبا، سایز لباس، قد، شماره بیمه و ...). فیلدهای «قابل تکمیل توسط کاربر» در اپ به نیرو نمایش داده می‌شوند تا کامل کند.</p>
     {!form && <button className="btn p" onClick={()=>setForm({...blank})}>+ افزودن فیلد جدید</button>}
     {form && <div className="card-p" style={{marginTop:10}}>
@@ -3426,8 +3426,8 @@ function InventoryAdmin(){
   };
   useEffect(()=>{ if(tab==="report") loadLedger(); },[tab]);
   const exportUrl=()=>{ const qs=new URLSearchParams(Object.fromEntries(Object.entries(filt).filter(([,v])=>v))).toString(); return db.invExportUrl(qs?("?"+qs):""); };
-  return(<div>
-    <div className="row" style={{gap:8,marginBottom:14}}>
+  return(<div className="admin-workspace-page admin-form-page">
+    <div className="row page-switcher" style={{gap:8,marginBottom:14}}>
       {[["assign","واگذاری اقلام"],["types","انواع اقلام"],["report","گزارش و خروجی اکسل"]].map(([k,l])=>
         <button key={k} className={"btn "+(tab===k?"p":"g")} onClick={()=>setTab(k)}>{l}</button>)}
     </div>
@@ -3938,8 +3938,9 @@ function Settings(){
     <input className="input" value={v[k]??""} onChange={e=>set(k,e.target.value)} style={{marginTop:5}}/></div>;
   const Toggle=(k,l)=><label className="row" style={{justifyContent:"space-between",padding:"8px 0",cursor:"pointer"}}>
     <span style={{fontSize:13}}>{l}</span><input type="checkbox" checked={!!v[k]} onChange={e=>set(k,e.target.checked)}/></label>;
-  return(<div>
-    <div className="tabbar">{TABS.map(([k,ic,l])=><button key={k} className={"tabbtn"+(tab===k?" on":"")} onClick={()=>setTab(k)}><span aria-hidden="true" style={{fontSize:16,lineHeight:1,marginLeft:6}}>{ic}</span><span>{l}</span></button>)}</div>
+  return(<div className="admin-workspace-page admin-settings-page">
+    <label className="settings-mobile-picker">بخش تنظیمات<select className="input" value={tab} onChange={e=>setTab(e.target.value)}>{TABS.map(([k,,label])=><option key={k} value={k}>{label}</option>)}</select></label>
+    <div className="tabbar">{TABS.map(([k,ic,l])=><button key={k} aria-pressed={tab===k} className={"tabbtn"+(tab===k?" on":"")} onClick={()=>setTab(k)}><span aria-hidden="true" style={{fontSize:16,lineHeight:1,marginLeft:6}}>{ic}</span><span>{l}</span></button>)}</div>
     <div className={"grid2 settings-tabs tab-"+tab}>
     <div className="panel t-general"><h3>تنظیمات عمومی</h3>{Field("org_name","نام سازمان")}{Field("deputy_name","معاونت نظارت و بازرسی")}
       {Field("inspection_head","رییس اداره بازرسی")}{Field("payment_base_url","آدرس پایهٔ درگاه پرداخت")}
@@ -4353,8 +4354,8 @@ function Logs(){
   const exportExcel=()=>{ const rows=l.map(x=>[fj(x.created_at),(x.first_name||"")+" "+(x.last_name||""),ev[x.event]||x.event,(x.meta&&x.meta.reason)||""]);
     const ws=XLSX.utils.aoa_to_sheet([["زمان","کاربر","رویداد","توضیح"],...rows]); const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"لاگ"); XLSX.writeFile(wb,"لاگ_فعالیت‌ها.xlsx"); };
-  return(<div className="panel"><h3>لاگ فعالیت‌ها و رویدادهای امنیتی</h3>
-    <div className="row no-print" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
+  return(<div className="panel admin-workspace-page admin-list-page"><h3>لاگ فعالیت‌ها و رویدادهای امنیتی</h3>
+    <div className="row no-print page-toolbar" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
       <select className="input" style={{maxWidth:180}} value={f.event} onChange={e=>setF({...f,event:e.target.value})}><option value="">همهٔ رویدادها</option>{events.map(e=><option key={e} value={e}>{ev[e]||e}</option>)}</select>
       <select className="input" style={{maxWidth:200}} value={f.user_id} onChange={e=>setF({...f,user_id:e.target.value})}><option value="">همهٔ کاربران</option>{users.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}{u.username?` — ${u.username}`:""}</option>)}</select>
       <JDate value={f.from} onChange={v=>setF({...f,from:v})} placeholder="از تاریخ"/>
@@ -4454,7 +4455,7 @@ function ExcelImport(){
       const r = big ? await upChunked(kind,file) : await db.importExcel(kind,file);
       setResult({kind, imported:r.imported||0, skipped:r.skipped||0, errors:r.errors||[]});
     }catch(e){ setResult({kind, error:e.message}); } finally{ if(iv)clearInterval(iv); setStage(""); setBusy(null); setProgress(null); } };
-  return(<div className="panel"><h3>بروزرسانی دیتابیس از فایل اکسل</h3>
+  return(<div className="panel admin-workspace-page"><h3>بروزرسانی دیتابیس از فایل اکسل</h3>
     {busy&&<div style={{position:"fixed",inset:0,background:"rgba(15,27,45,.55)",display:"grid",placeItems:"center",zIndex:9999}}>
       <div style={{background:"#fff",borderRadius:16,padding:"28px 34px",textAlign:"center",minWidth:300}}>
         <div className="spinner"></div>
@@ -4518,7 +4519,7 @@ function Officials(){
     ...rows.map(r=>[fj(r.created_at),r.official,r.official_role,r.line||"",r.recorded_by,r.note||""])];
     const ws=XLSX.utils.aoa_to_sheet(aoa); const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"حضور مسئولین"); XLSX.writeFile(wb,"حضور_مسئولین_در_خط.xlsx"); };
-  return(<div className="grid2">
+  return(<div className="grid2 admin-workspace-page admin-list-page">
     <div className="panel"><h3>حضور مسئولین در خط</h3>
       <div className="filters" style={{flexWrap:"wrap",gap:8,marginBottom:10}}>
         <select className="input" style={{padding:"6px 10px",maxWidth:150}} value={role} onChange={e=>{setRole(e.target.value);setOfficialId("");}}>
@@ -4572,7 +4573,7 @@ function Messages(){
     }catch(e){alert(e.message);} setSending(false); };
   const showReceipts=async m=>{ setReceipts({m,rows:null}); const rows=await db.receipts(m.id); setReceipts({m,rows}); };
   const toggleU=id=>setSel(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
-  return(<div className="panel"><h3>پیام‌رسانی به نیروها
+  return(<div className="panel admin-workspace-page admin-form-page"><h3>پیام‌رسانی به نیروها
     <span className="row" style={{gap:8}}><button className={"btn "+(tab==="compose"?"p":"g")} onClick={()=>setTab("compose")}>ارسال پیام</button>
       <button className={"btn "+(tab==="sent"?"p":"g")} onClick={()=>setTab("sent")}>پیام‌های ارسالی</button></span></h3>
     {tab==="compose"?<div>
@@ -4840,8 +4841,8 @@ function Lines(){
   const [q,setQ]=useState(""); const term=q.trim();
   const filtered=list.filter(l=>!term || (l.code&&String(l.code).includes(term)) || (l.origin&&l.origin.includes(term)) || (l.destination&&l.destination.includes(term)));
   const pg=usePager(filtered,10);
-  return(<div className="panel"><h3>خطوط تاکسیرانی {tab==='list'&&<button className="btn p" onClick={()=>setAdding(a=>!a)}>+ تعریف خط جدید</button>}</h3>
-    <div className="row" style={{gap:6,flexWrap:'wrap',marginBottom:14,borderBottom:'1px solid var(--line)',paddingBottom:10}}>
+  return(<div className="panel admin-workspace-page admin-list-page"><h3>خطوط تاکسیرانی {tab==='list'&&<button className="btn p" onClick={()=>setAdding(a=>!a)}>+ تعریف خط جدید</button>}</h3>
+    <div className="row page-switcher" style={{gap:6,flexWrap:'wrap',marginBottom:14,borderBottom:'1px solid var(--line)',paddingBottom:10}}>
       {TABS.map(([key,label])=><button key={key} className={"btn "+(tab===key?'p':'g')} onClick={()=>setTab(key)}>{label}</button>)}
     </div>
     {tab==='list'&&<div>
@@ -5395,8 +5396,8 @@ DELETE /api/admin/salary-slips/{id}
     w.document.close(); w.focus(); setTimeout(()=>{try{w.print();}catch(e){}},400);
   };
   const ST={sent:"ارسال‌شده",seen:"دیده‌شده",answered:"پاسخ‌داده‌شده",forwarded:"ارجاع‌شده"};
-  return(<div className="panel"><h3>گردش گزارش‌ها</h3><p className="muted" style={{fontSize:12,marginBottom:10}}>گزارش‌های ارسالی، دریافتی و گزارش‌هایی که قبلاً ارجاع داده‌اید برای پیگیری در این بخش باقی می‌مانند.</p>
-    <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
+  return(<div className="panel admin-workspace-page admin-list-page"><h3>گردش گزارش‌ها</h3><p className="muted" style={{fontSize:12,marginBottom:10}}>گزارش‌های ارسالی، دریافتی و گزارش‌هایی که قبلاً ارجاع داده‌اید برای پیگیری در این بخش باقی می‌مانند.</p>
+    <div className="row page-toolbar" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
       <input className="input" style={{maxWidth:160}} placeholder="فرستنده" value={f.sender} onChange={e=>setF({...f,sender:e.target.value})}/>
       <input className="input" style={{maxWidth:160}} placeholder="موضوع" value={f.subject} onChange={e=>setF({...f,subject:e.target.value})}/>
       <JDate value={f.from} onChange={v=>setF({...f,from:v})} placeholder="از تاریخ"/>
@@ -5595,7 +5596,7 @@ function WorkPolicy(){
 
   // ---- ویرایش سیاست کاری ----
   const hasMode = ["annual","sick","unpaid","mission"].includes(reqTab);
-  return(<div className="panel">
+  return(<div className="panel admin-workspace-page">
     <div className="row" style={{justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
       <h3>{editing.id?"ویرایش":"ثبت"} سیاست کاری</h3>
       <button className="btn g" onClick={()=>setEditing(null)}>بازگشت به فهرست</button>
@@ -5796,7 +5797,7 @@ function OfflineSyncConflicts(){
 function ShiftManager(){
   const [tab,setTab]=useState("shifts");
   const TABS=[["shifts","تعریف شیفت‌ها"],["assign","تخصیص به نیروها"],["autoRules","قوانین شیفت خودکار"],["userRules","قانون اختصاصی افراد"],["shiftOps","عملیات و عیب‌یابی شیفت"],["rejectLogs","لاگ رد حضور"],["offlineConflicts","تعارض آفلاین"],["holidays","تعطیلات رسمی"],["blocked","روزهای ممنوعهٔ مرخصی"],["leavebal","ماندهٔ مرخصی ابتدای دوره"]];
-  return(<div className="panel"><h3>🗓 شیفت کاری و کارکرد</h3>
+  return(<div className="panel admin-workspace-page"><h3>🗓 شیفت کاری و کارکرد</h3>
     <div className="tabbar" style={{flexWrap:"wrap"}}>{TABS.map(([k,t])=><button key={k} className={"tabbtn"+(tab===k?" on":"")} onClick={()=>setTab(k)}>{t}</button>)}</div>
     {tab==="shifts"&&<ShiftList/>}
     {tab==="assign"&&<ShiftAssign/>}
@@ -6523,7 +6524,7 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
   const saveColumnSettings=()=>{const next=Array.from(new Set(draftColumnIndexes)).filter(i=>Number.isInteger(i)&&i>=0&&i<columns.length);if(!next.includes(0))next.unshift(0);setVisibleColumnIndexes(next);try{localStorage.setItem(attendanceColumnStorageKey,JSON.stringify(next));}catch(_){}setColumnSettingsOpen(false);};
   const exportExcel=async()=>{if(!data)return;try{const rows=[columns.map(x=>x[0])];(data.days||[]).forEach(d=>rows.push(columns.map(x=>x[1](d))));const response=await _fetchWithAuth("/api/admin-attendance-xlsx.php",{method:"POST",headers:{"content-type":"application/json","accept":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},body:JSON.stringify({rows}),cache:"no-store"});if(!response.ok){let message="خطا در ساخت فایل Excel";try{const result=await response.json();message=result.error||result.message||message}catch(_){}throw new Error(message)}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`گزارش_تردد_${String(uid)}_${String(from).replace(/\//g,"-")}_${String(to).replace(/\//g,"-")}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}catch(e){alert(e.message||"خطا در دریافت خروجی گزارش")}};
 
-  return(<div className="panel attendance-report-page" translate="no" data-no-translate="true"><h3>🕒 گزارش تردد پرسنل</h3>
+  return(<div className="panel attendance-report-page admin-workspace-page" translate="no" data-no-translate="true"><h3>🕒 گزارش تردد پرسنل</h3>
     <div className="card-p" style={{marginBottom:14}}>
       <div className="row" style={{gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
         <div style={{minWidth:280,flex:"1 1 280px"}}>
@@ -7045,7 +7046,7 @@ function ShiftReport(){
   const [forecastRemaining,setForecastRemaining]=useState(false);
   const [includeSurplusInOvertime,setIncludeSurplusInOvertime]=useState(false);
   const exportOrganization=async()=>{try{const res=await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining?1:0}&include_surplus=${includeSurplusInOvertime?1:0}`,{headers:tok()});if(!res.ok)throw new Error(res.status===403?"دسترسی مجاز نیست":"خطا در تولید فایل سازمان");const blob=await res.blob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`کارکرد-سازمان-${jy}-${jm}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),60000);}catch(e){alert(e.message||"خطا");}};
-  return(<div>
+  return(<div className="admin-workspace-page">
     <div className="tabbar" style={{marginBottom:12}}><button className={"tabbtn"+(reportTab==="monthly"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("monthly")}>گزارش کارکرد ماهانه</button><button className={"tabbtn"+(reportTab==="organization"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("organization")}>تولید گزارش کارکرد برای ارسال به سازمان</button><button className={"tabbtn"+(reportTab==="rotation"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("rotation")}>محاسبه چرخش شیفت نیروها</button><button className={"tabbtn"+(reportTab==="finalize"?" on":"")} disabled={finalBusy} onClick={()=>{setReportTab("finalize");setFinalStatus(null);}}>نهایی کردن کارکرد نیروها</button></div>
     {reportTab==="rotation"?<ShiftRotationReport year={jy} month={jm} onPeriodChange={selectReportPeriod} disabled={finalBusy}/>:reportTab==="finalize"?<div className="panel"><h4>نهایی کردن کارکرد نیروها</h4><p className="muted">پس از نهایی‌سازی، گزارش ماهانه و جزئیات تردد ذخیره شده و تغییر شیفت یا موتور محاسبات اعداد این ماه را تغییر نمی‌دهد.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><button className="btn g" disabled={statusBusy||finalBusy} onClick={()=>loadFinalStatus()}>بررسی وضعیت</button><button className="btn p" disabled={finalBusy||statusBusy||(finalStatus?.period===periodKey&&finalStatus?.finalized)} onClick={finalizeMonth}>{finalBusy?"در حال ثبت…":"نهایی کردن کارکرد"}</button></div>{finalStatus?.period===periodKey&&<p>{finalStatus.finalized?"این ماه نهایی شده است. تاریخ: "+finalStatus.finalized_at:"این ماه هنوز نهایی نشده است."}</p>}</div>:reportTab==="organization"?<div className="panel"><h4>تولید گزارش کارکرد برای ارسال به سازمان</h4><p className="muted">اضافه‌کاری = اضافه‌کار + مأموریت − کسر کار؛ تعطیل‌کاری و جمعه‌کاری از کارکرد همان ماه استخراج می‌شوند. جزئیات محاسبات در یادداشت سلول‌های اکسل درج می‌شود.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><label style={{display:"flex",alignItems:"center",gap:6}}><input type="checkbox" checked={forecastRemaining} onChange={e=>setForecastRemaining(e.target.checked)}/> پیش‌بینی روزهای باقی‌مانده تا انتهای ماه</label><label><input type="checkbox" checked={includeSurplusInOvertime} onChange={e=>setIncludeSurplusInOvertime(e.target.checked)}/> لحاظ مازاد حضور در میانگین و مجموع اضافه‌کار</label><button className="btn p" onClick={exportOrganization}>⤓ تولید فایل اکسل سازمان</button></div></div>:<>
     <div className="row" style={{gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"flex-end"}}>
@@ -7200,7 +7201,7 @@ function OutageReport(){
   },[data]);
   const hm=(m)=>`${fa(Math.floor((m||0)/60))}:${String((m||0)%60).padStart(2,"0")}`;
   const exportExcel=async()=>{ try{ const res=await fetch(db.outagesExportUrl(qs()),{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="قطعی_سیستم.csv"; a.click(); }catch(e){alert(e.message);} };
-  return(<div className="panel"><h3>⛔ گزارش قطعی سیستم نوبت‌دهی</h3>
+  return(<div className="panel admin-workspace-page"><h3>⛔ گزارش قطعی سیستم نوبت‌دهی</h3>
     <div className="filters" style={{flexWrap:"wrap",gap:8}}>
       <span className="label">از</span><JDate value={from} onChange={setFrom}/>
       <span className="label">تا</span><JDate value={to} onChange={setTo}/>
@@ -7257,7 +7258,7 @@ function AdminRequests(){
   const load=()=>{ setLoading(true); db.adminRequests(qs()).then(r=>setRows(r||[])).catch(()=>{}).finally(()=>setLoading(false)); };
   const hm=(m)=>m?`${fa(Math.floor(m/60))}:${String(m%60).padStart(2,"0")}`:"—";
   const exportExcel=async()=>{ try{ const res=await fetch(`${API_BASE}/admin/requests/export${qs()}`,{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="گزارش_درخواستها.csv"; a.click(); }catch(e){ alert(e.message); } };
-  return(<div className="panel"><h3>📋 گزارش درخواست‌ها</h3>
+  return(<div className="panel admin-workspace-page admin-list-page"><h3>📋 گزارش درخواست‌ها</h3>
     <div className="filters" style={{flexWrap:"wrap",gap:8}}>
       <select className="input" style={{maxWidth:200}} value={fUser} onChange={e=>setFUser(e.target.value)}><option value="">همهٔ نیروها</option>{users.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}</select>
       <select className="input" style={{maxWidth:170}} value={fType} onChange={e=>setFType(e.target.value)}><option value="">همهٔ انواع</option>{Object.entries(TY).map(([k,t])=><option key={k} value={k}>{t}</option>)}</select>
@@ -7297,7 +7298,7 @@ function StaffAttendance(){
   },[]);
   const fmtDur=(m)=>{ m=+m||0; const h=Math.floor(m/60), mm=m%60; return (h?fa(h)+" ساعت ":"")+fa(mm)+" دقیقه"; };
   const exportExcel=()=>{ window.open(API_BASE+"/admin/staff-attendance/export?"+qs()+"&token="+encodeURIComponent(localStorage.token||""),"_blank"); };
-  return(<div className="panel"><h3>🕒 گزارش حضور نیروها</h3>
+  return(<div className="panel admin-workspace-page"><h3>🕒 گزارش حضور نیروها</h3>
     <div className="filters" style={{flexWrap:"wrap",gap:8}}>
       <span className="label">از</span><JDate value={from} onChange={setFrom}/>
       <span className="label">تا</span><JDate value={to} onChange={setTo}/>
@@ -7345,7 +7346,7 @@ function SmsLog(){
     }catch(e){ alert(e.message||"خطا در خروجی"); } };
   const delvBadge=(c)=>{ if(c===null||c===undefined)return <span className="muted">بررسی‌نشده</span>;
     const cls = (c==1)?"b-ok":((c==2||c==16)?"b-no":"b-pending"); return <span className={"badge "+cls}>{DELV[String(c)]||("کد "+c)}</span>; };
-  return(<div className="panel"><h3 style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}><span>📜 تاریخچهٔ پیامک‌های ارسالی</span></h3>
+  return(<div className="panel admin-workspace-page admin-list-page"><h3 style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}><span>📜 تاریخچهٔ پیامک‌های ارسالی</span></h3>
     <div className="filters" style={{flexWrap:"wrap",gap:8}}>
       <span className="label">از</span><JDate value={from} onChange={setFrom}/>
       <span className="label">تا</span><JDate value={to} onChange={setTo}/>
@@ -7491,7 +7492,7 @@ function SmsCustomList(){
 function SmsSend(){
   const TABS=[["drivers","به رانندگان"],["custom","لیست دلخواه (تایپی/اکسل)"],["bill_bulk","آبونمان (گروهی)"],["taxi_lic","پروانهٔ تاکسیرانی"],["op_lic","پروانهٔ بهره‌برداری"],["inspection","معاینهٔ فنی"],["insurance","بیمهٔ شخص ثالث"]];
   const [tab,setTab]=useState("drivers");
-  return(<div className="panel"><h3>✉ ارسال پیامک</h3>
+  return(<div className="panel admin-workspace-page admin-form-page"><h3>✉ ارسال پیامک</h3>
     <div className="tabbar" style={{flexWrap:"wrap"}}>
       {TABS.map(([k,t])=><button key={k} className={"tabbtn"+(tab===k?" on":"")} onClick={()=>setTab(k)}>{t}</button>)}
     </div>
@@ -7740,7 +7741,7 @@ function PresenceChecks(){
   }catch(e){ alert(e.message||"خطا"); } };
   const dlImg=(url,name)=>{ const a=document.createElement("a"); a.href=url; a.download=name||"presence.jpg"; a.target="_blank"; a.click(); };
   const exportExcel=async()=>{ try{ const res=await fetch(db.presenceExportUrl(from,to,""),{headers:tok()}); if(!res.ok)throw new Error("خطا در دریافت"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`صحت‌سنجی_${from}_${to}.csv`; a.click(); }catch(e){ alert(e.message); } };
-  return(<div className="panel"><h3 style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+  return(<div className="panel admin-workspace-page"><h3 style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
       <span>📸 صحت‌سنجی حضور نیروها</span></h3>
     <div className="filters">
       <span className="label">از</span><JDate value={from} onChange={setFrom}/>
@@ -7839,7 +7840,7 @@ function TempDriversPanel(){
     const ws=XLSX.utils.json_to_sheet(list.map(t=>({"نام":t.first_name+" "+t.last_name,"کد ملی":t.national_id,"خط ویژه":t.line_code,"کد در خط":t.line_code_in_line||"","موبایل":t.mobile||"","توضیح":t.note||"","افزوده‌شده توسط":t.added_by_name||""})));
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"رانندگان موقت"); XLSX.writeFile(wb,"رانندگان_موقت.xlsx"); };
 
-  return(<div className="panel"><h3>🚕 رانندگان موقت خطوط ویژه</h3>
+  return(<div className="panel admin-workspace-page"><h3>🚕 رانندگان موقت خطوط ویژه</h3>
     <p style={{fontSize:13,color:"var(--muted)",marginBottom:12}}>رانندگانی که خط اصلی آن‌ها حفظ شده ولی به‌صورت موقت به خطوط ویژه (۳۰۰، ۵۰۰، ۵۰۱، ۵۰۲، ۵۰۳، ۵۰۵، ۷۰۰) اضافه شده‌اند. این رانندگان برای ناظر/اپراتور/بازرسِ آن خط قابل مشاهده و بررسی (چک‌لیست، تذکر) هستند.</p>
 
     <div className="card-p" style={{marginBottom:16}}>
@@ -7972,7 +7973,7 @@ function Commitments(){
 
   const fUsers=users.filter(u=>{ const s=(u.first_name+" "+u.last_name+" "+(u.role_title||"")); return !uq||s.indexOf(uq)>=0; });
 
-  return(<div className="panel"><h3>📋 تعهدات انضباطی</h3>
+  return(<div className="panel admin-workspace-page"><h3>📋 تعهدات انضباطی</h3>
     <div className="row" style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
       {[["add","➕ ثبت تعهد"],["list","📑 فهرست تعهدات"],["reasons","⚙ مدیریت دلایل"]].map(([k,l])=>
         <button key={k} className={"btn "+(tab===k?"p":"g")} onClick={()=>setTab(k)}>{l}</button>)}
@@ -8078,7 +8079,7 @@ function UserActivity(){
     }catch(e){ alert(e.message||"خطا"); }
     setAllBusy(false);
   };
-  return(<div className="panel"><h3>گزارش فعالیت کاربران</h3>
+  return(<div className="panel admin-workspace-page"><h3>گزارش فعالیت کاربران</h3>
    <div className="row" style={{gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
      <div><label className="label">جستجوی کاربر</label><input className="input" placeholder="نام/سمت…" value={q} onChange={e=>setQ(e.target.value)} style={{maxWidth:170}}/></div>
      <div><label className="label">کاربر</label><select className="input" style={{maxWidth:240}} value={uid} onChange={e=>setUid(e.target.value)}><option value="">انتخاب…</option>{filtered.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name} — {u.role_title}</option>)}</select></div>
@@ -8124,7 +8125,7 @@ function PresentChart(){
   const withDrivers=all.filter(l=>l.present>0).sort((a,b)=>b.present-a.present);
   const zero=all.filter(l=>!l.present||l.present===0);
   const max=withDrivers.length?withDrivers[0].present:1;
-  return(<div className="panel"><h3>نمودار زندهٔ رانندگان حاضر در خطوط
+  return(<div className="panel admin-workspace-page"><h3>نمودار زندهٔ رانندگان حاضر در خطوط
     <span className="row" style={{gap:8}}><span className="btn g">جمع کل: {fa(data.total_present||0)}</span>
       <button className="btn g" onClick={load}>به‌روزرسانی</button></span></h3>
     {withDrivers.length?<div style={{display:"flex",flexDirection:"column",gap:8,marginTop:6}}>
@@ -8172,7 +8173,7 @@ function PresentStats(){
     (l.code&&String(l.code).includes(term)) ||
     (l.origin&&l.origin.includes(term)) ||
     (l.destination&&l.destination.includes(term)));
-  return(<div className="panel"><h3>آمار لحظه‌ای حاضرین در خطوط
+  return(<div className="panel admin-workspace-page"><h3>آمار لحظه‌ای حاضرین در خطوط
     <span className="row" style={{gap:8}}><span className="btn g">جمع کل: {fa(data.total_present||0)}</span></span></h3>
     <div className="row" style={{gap:8,marginBottom:10}}>
       <input className="input" style={{maxWidth:260}} placeholder="فیلتر بر اساس نام/کد خط یا مبدا/مقصد" value={q} onChange={e=>setQ(e.target.value)}/>
@@ -8235,7 +8236,7 @@ function CovertSelfieRequestForm(){
 function CovertSelfies(){
   const [tab,setTab]=React.useState("command");
   const TABS=[["command","ارسال دستور سلفی"],["request","ارسال درخواست سلفی"],["gallery","سلفی‌های گرفته‌شده"]];
-  return(<div>
+  return(<div className="admin-workspace-page">
     <div className="tabbar" style={{display:"flex",gap:8,marginBottom:14,borderBottom:"2px solid var(--line)",flexWrap:"wrap"}}>
       {TABS.map(([k,lbl])=>
         <button key={k} onClick={()=>setTab(k)} style={{background:"none",border:"none",borderBottom:tab===k?"3px solid var(--brand)":"3px solid transparent",padding:"8px 14px",cursor:"pointer",fontWeight:tab===k?800:500,color:tab===k?"var(--brand)":"var(--muted)",fontFamily:"inherit",fontSize:14}}>{lbl}</button>)}
@@ -8345,7 +8346,7 @@ function PlateTrainingPanel(){
   const review=async(r,newStatus)=>{ const d2=prompt('دو رقم اول پلاک:', r.corrected_digits_2||'')||''; const d3=prompt('سه رقم آخر پلاک:', r.corrected_digits_3||'')||''; if((d2+d3).replace(/\D/g,'').length<5) return; const note=prompt('یادداشت بررسی:', r.review_note||'')||''; try{ await db.plateTrainingReview(r.id,{status:newStatus,corrected_digits_2:d2,corrected_digits_3:d3,review_note:note}); setMsg('✓ نمونه ثبت شد'); if(status==='pending') setRows(xs=>xs.filter(x=>x.id!==r.id)); else load(); }catch(e){ setMsg(e.message||'خطا در ثبت بررسی'); } };
   const quick=async(r,newStatus)=>{ try{ const body={status:newStatus,review_note:r.review_note||''}; if(r.corrected_plate) body.corrected_plate=r.corrected_plate; await db.plateTrainingReview(r.id,body); setMsg('✓ وضعیت نمونه تغییر کرد'); if(status==='pending' && newStatus!=='pending') setRows(xs=>xs.filter(x=>x.id!==r.id)); else load(); }catch(e){ setMsg(e.message||'خطا در تغییر وضعیت'); } };
   const stat=st?.samples||{};
-  return(<div className="panel">
+  return(<div className="panel admin-workspace-page">
     <h3>مدیریت نمونه‌های پلاک‌خوان</h3>
     <p className="muted" style={{fontSize:13,marginBottom:12}}>تشخیص پلاک به‌طور کامل روی گوشی (ML Kit) انجام می‌شود. این بخش صرفاً برای بازبینی و آرشیو نمونه‌های ثبت‌شده توسط کاربران است.</p>
     <div className="grid2" style={{marginTop:0}}>
@@ -8438,7 +8439,7 @@ function MessengerCenterPanel(){
     return !q.trim()||z.includes(q.trim().toLowerCase());
   });
   const counts={}; platforms.forEach(p=>{const a=subs[p.id]||[];counts[p.id]={all:a.length,active:a.filter(x=>Number(x.is_active??(x.status==='active'?1:0))===1).length};});
-  return <div className="panel messenger-center-native">
+  return <div className="panel messenger-center-native admin-workspace-page">
     <div className="row" style={{justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
       <div><h3>مرکز ارسال ربات‌ها</h3><p className="muted" style={{marginTop:5}}>ارسال گروهی، دعوت مشترکین و مدیریت اتصال کاربران به ربات‌های رسمی سامانه</p></div>
       <button className="btn g" onClick={loadAll} disabled={loading}>{loading?'در حال بروزرسانی':'بروزرسانی همه'}</button>
@@ -8527,7 +8528,7 @@ function CompanyPayrollList(){
 }
 function SalarySlipsAdmin(){
   const [tab,setTab]=useState('attachments');
-  return <div className="panel"><div role="tablist" aria-label="مدیریت فیش حقوقی" className="row" style={{gap:8,flexWrap:'wrap',marginBottom:16}}>{[['attachments','فیش‌های پیوستی'],['upload','بارگزاری فایل حقوق از شرکت'],['payroll','فیشهای حقوقی پرسنل']].map(([key,title])=><button role="tab" aria-selected={tab===key} className={'btn '+(tab===key?'p':'')} key={key} onClick={()=>setTab(key)}>{title}</button>)}</div><div role="tabpanel" key={tab}>{tab==='upload'?<CompanyPayrollUpload/>:tab==='payroll'?<CompanyPayrollList/>:<SalarySlipAttachmentsAdmin/>}</div></div>;
+  return <div className="panel admin-workspace-page"><div role="tablist" aria-label="مدیریت فیش حقوقی" className="row" style={{gap:8,flexWrap:'wrap',marginBottom:16}}>{[['attachments','فیش‌های پیوستی'],['upload','بارگزاری فایل حقوق از شرکت'],['payroll','فیشهای حقوقی پرسنل']].map(([key,title])=><button role="tab" aria-selected={tab===key} className={'btn '+(tab===key?'p':'')} key={key} onClick={()=>setTab(key)}>{title}</button>)}</div><div role="tabpanel" key={tab}>{tab==='upload'?<CompanyPayrollUpload/>:tab==='payroll'?<CompanyPayrollList/>:<SalarySlipAttachmentsAdmin/>}</div></div>;
 }
 function SalarySlipAttachmentsAdmin(){
   const months=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
@@ -8542,8 +8543,8 @@ function SalarySlipAttachmentsAdmin(){
   const chooseFile=(f)=>{if(!f)return;const n=String(f.name||'').toLowerCase();const ok=['application/pdf','image/jpeg','image/png'].includes(f.type)||/\.(pdf|jpe?g|png)$/.test(n);if(!ok){setMsg('فقط فایل PDF یا تصویر JPG، JPEG و PNG قابل انتخاب است.');return;}if(f.size>10*1024*1024){setMsg('حجم فایل نباید بیشتر از ۱۰ مگابایت باشد.');return;}setFile(f);setMsg('');};
   const upload=async()=>{if(!selected)return setMsg('ابتدا یک کاربر را انتخاب کنید.');if(!file)return setMsg('فایل PDF یا تصویر فیش را انتخاب کنید.');setBusy(true);setMsg('');try{await db.salarySlipUpload(selected.id,form,file);setMsg('✓ فیش حقوقی با موفقیت بارگذاری و برای کاربر قابل دریافت شد.');setFile(null);setForm(x=>({...x,title:''}));const r=await db.salarySlipsForUser(selected.id);setRows(r.rows||[]);}catch(e){setMsg(e.message||'بارگذاری ناموفق بود');}finally{setBusy(false);}};
   const del=async(id)=>{if(!confirm('این فیش حقوقی حذف شود؟'))return;try{await db.salarySlipDelete(id);setRows(x=>x.filter(r=>r.id!==id));setMsg('✓ فیش حذف شد.');}catch(e){setMsg(e.message||'حذف ناموفق بود');}};
-  return <div className="panel salary-admin">
-    <div className="row" style={{justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+  return <div className="panel salary-admin admin-workspace-page admin-form-page">
+    <div className="row page-toolbar" style={{justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
       <div><h3>مدیریت و بارگذاری فیش حقوقی</h3><p className="muted" style={{fontSize:13,marginTop:5}}>فیش حقوقی را به‌صورت PDF یا تصویر JPG/PNG برای هر کاربر، بر اساس سال و ماه شمسی ثبت و سوابق قبلی را مدیریت کنید.</p></div>
       <span className="badge" style={{color:'var(--brand)',borderColor:'var(--brand)'}}>PDF / JPG / PNG · حداکثر ۱۰ مگابایت</span>
     </div>
@@ -8587,7 +8588,7 @@ function SystemHealthDashboard(){
   const badge=(st)=>{ const c=st==='ok'?'var(--ok)':(st==='warning'?'#d18b00':'var(--danger)'); const t=st==='ok'?'سالم':(st==='warning'?'هشدار':'خطا'); return <span className="badge" style={{color:c,borderColor:c}}>{t}</span>; };
   const meta=(v)=>{ try{return JSON.stringify(v||{},null,2);}catch(e){return '';} };
   const statCards=d?[['وضعیت کلی',d.status==='ok'?'سالم':(d.status==='warning'?'هشدار':'خطا')],['نسخه سایت',d.site_version],['نسخه اپ',d.app_version],['کاربران فعال',d.stats?.users_active],['رانندگان',d.stats?.drivers_total],['خطوط',d.stats?.lines_total],['جلسات باز',d.stats?.open_staff_sessions],['خطای اپ ۲۴ساعت',d.stats?.mobile_errors_24h],['رد حضور ۲۴ساعت',d.stats?.attendance_rejects_24h],['صف آفلاین ناموفق',d.stats?.offline_failed],['Dead-letter',d.stats?.delivery_dead_letters],['نمونه پلاک در انتظار',d.stats?.plate_pending]]:[];
-  return(<div className="panel">
+  return(<div className="panel admin-workspace-page">
     <div className="row" style={{justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
       <div><h3>داشبورد سلامت سامانه</h3><p className="muted" style={{fontSize:13,marginTop:4}}>پایش دیتابیس، فضای ذخیره‌سازی، صف پیام‌ها، آفلاین، خطاهای موبایل، OCR پلاک، ربات‌ها و کرون‌جاب‌ها.</p></div>
       <div className="row" style={{gap:8,flexWrap:'wrap'}}><button className="btn g" onClick={()=>load(false)} disabled={busy}>{busy?'در حال دریافت':'بروزرسانی'}</button><button className="btn p" onClick={()=>load(true)} disabled={busy}>اجرای چک و ثبت</button><button className={auto?'btn p':'btn g'} onClick={()=>setAuto(a=>!a)}>{auto?'Auto 30s فعال':'Auto 30s خاموش'}</button></div>
@@ -8662,7 +8663,7 @@ function CompanyRequestsAdmin(){
   const secureCompanyMediaUrl = path => { const clean=String(path||'').replace(/^\/+/, ''); if(!clean) return ''; const q='/api/media?path='+encodeURIComponent(clean); const token=localStorage.token||''; return token ? q+'&token='+encodeURIComponent(token) : q; };
   const fileUrl=f=>secureCompanyMediaUrl(f.processed_path||f.file_path||'');
   const thumbUrl=f=>secureCompanyMediaUrl(f.thumbnail_path||f.processed_path||f.file_path||'');
-  return <div>
+  return <div className="admin-workspace-page">
     <div className="row" style={{gap:8,marginBottom:14,flexWrap:'wrap'}}>
       <button className={'btn '+(tab==='requests'?'p':'')} onClick={()=>setTab('requests')}>درخواست‌ها</button>
       <button className={'btn '+(tab==='settings'?'p':'')} onClick={()=>setTab('settings')}>تعرفه و پرداخت</button>
@@ -8726,7 +8727,7 @@ function DriverServiceReport(){
   const exportNotices=()=>{try{const rows=(notices?.rows||[]).map(x=>({'تاریخ':x.created_at||'','نوع':x.reason||'—','اولویت':x.priority||'—','شرح':x.body||'—','ثبت‌کننده':x.recorder_name||'—'}));exportXlsx(rows,'تذکرات',`driver-notices-${nid}.xlsx`)}catch(e){setMsg(e.message)}};
   const exportAnnual=()=>{try{const rows=JMONTHS.slice(1).map((name,i)=>({'ماه':name,'تعداد سرویس / ثبت حضور':Number(data?.months?.[i+1]||0)}));rows.push({'ماه':'جمع کل','تعداد سرویس / ثبت حضور':Number(data?.total||0)});exportXlsx(rows,'عملکرد سالیانه',`driver-performance-${nid}-${year}.xlsx`)}catch(e){setMsg(e.message)}};
   const exportMonth=()=>{try{if(!month)throw new Error('ابتدا یک ماه را انتخاب کنید');const rows=(data?.details?.[month]||[]).map(x=>({'تاریخ شمسی':x.jdate||'','زمان ورود':x.created_at||'','زمان خروج':x.exit_at||'باز','مدت (دقیقه)':Number(x.duration_minutes||0),'کد خط':x.line_code||'—','مبدأ':x.origin||'—','مقصد':x.destination||'—','ثبت‌کننده':x.recorder_name||'—'}));exportXlsx(rows,`ریز ${JMONTHS[month]}`,`driver-month-${nid}-${year}-${String(month).padStart(2,'0')}.xlsx`)}catch(e){setMsg(e.message)}};
-  return <div className="panel"><div className="row" style={{gap:8,flexWrap:'wrap',alignItems:'end'}}><div><label className="label">کد ملی تاکسیران</label><input className="input" maxLength="10" value={nid} onChange={e=>setNid(e.target.value.replace(/\D/g,'').slice(0,10))}/></div><div><label className="label">سال شمسی</label><input className="input" style={{width:110}} value={year} onChange={e=>setYear(+e.target.value||1405)}/></div><button className="btn p" onClick={search}>جستجو و تهیه گزارش</button>{data&&<button className="btn" onClick={printReport}>چاپ / PDF</button>}{data&&<button className="btn g" onClick={exportAnnual}>خروجی Excel عملکرد سالیانه</button>}{notices&&<button className="btn g" onClick={exportNotices}>خروجی Excel تذکرات</button>}</div>{msg&&<p style={{color:msg.includes('حذف شد')?'var(--ok)':'var(--danger)'}}>{msg}</p>}
+  return <div className="panel admin-workspace-page"><div className="row" style={{gap:8,flexWrap:'wrap',alignItems:'end'}}><div><label className="label">کد ملی تاکسیران</label><input className="input" maxLength="10" value={nid} onChange={e=>setNid(e.target.value.replace(/\D/g,'').slice(0,10))}/></div><div><label className="label">سال شمسی</label><input className="input" style={{width:110}} value={year} onChange={e=>setYear(+e.target.value||1405)}/></div><button className="btn p" onClick={search}>جستجو و تهیه گزارش</button>{data&&<button className="btn" onClick={printReport}>چاپ / PDF</button>}{data&&<button className="btn g" onClick={exportAnnual}>خروجی Excel عملکرد سالیانه</button>}{notices&&<button className="btn g" onClick={exportNotices}>خروجی Excel تذکرات</button>}</div>{msg&&<p style={{color:msg.includes('حذف شد')?'var(--ok)':'var(--danger)'}}>{msg}</p>}
   {data&&<><h3 style={{marginTop:18}}>گزارش عملکرد {data.driver.first_name} {data.driver.last_name}</h3><div className="grid cards">{JMONTHS.slice(1).map((name,i)=>{const m=i+1,n=Number(data.months[m]||0);return <button key={m} className="card" style={{cursor:'pointer',textAlign:'center',outline:month===m?'2px solid var(--brand)':'none'}} onClick={()=>setMonth(m)}><b>{name}</b><div style={{fontSize:26,color:'var(--brand)',marginTop:8}}>{fa(n)}</div><small>سرویس / ثبت حضور</small></button>})}</div>{month>0&&<div style={{marginTop:18}}><div className="row" style={{justifyContent:'space-between',gap:8,flexWrap:'wrap'}}><h3>ریز گزارش {JMONTHS[month]}</h3><button className="btn g" onClick={exportMonth}>خروجی Excel ریز ورود و خروج ماه</button></div><table><thead><tr><th>تاریخ</th><th>ورود</th><th>خروج</th><th>مدت</th><th>خط</th><th>ثبت‌کننده</th></tr></thead><tbody>{(data.details[month]||[]).map(x=><tr key={x.id}><td>{fa(x.jdate)}</td><td>{faDate(x.created_at)}</td><td>{x.exit_at?faDate(x.exit_at):'باز'}</td><td>{fa(x.duration_minutes||0)} دقیقه</td><td>{x.line_code||'—'} {x.origin&&x.destination?`(${x.origin}–${x.destination})`:''}</td><td>{x.recorder_name||'—'}</td></tr>)}</tbody></table></div>}</>}
   {notices&&<div style={{marginTop:24}}><h3>تذکرات ثبت‌شده ({fa(notices.total)})</h3><table><thead><tr><th>تاریخ</th><th>نوع</th><th>اولویت</th><th>شرح</th><th>ثبت‌کننده</th><th>عملیات</th></tr></thead><tbody>{notices.rows.map(x=><tr key={x.id}><td>{faDate(x.created_at)}</td><td>{x.reason||'—'}</td><td>{x.priority||'—'}</td><td>{x.body||'—'}</td><td>{x.recorder_name||'—'}</td><td><button className="btn d" onClick={()=>del(x.id)}>حذف دائمی</button></td></tr>)}</tbody></table></div>}
   </div>;
@@ -8772,7 +8773,7 @@ function PersonnelVehicleAssign(){
 function PersonnelVehicleAssets(){
   const [tab,setTab]=useState('assign');
   const [items,setItems]=useState([]),[selected,setSelected]=useState(null),[loading,setLoading]=useState(true),[q,setQ]=useState('');const load=async()=>{setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=list',{ttl:0});setItems(d.items||[]);}catch(e){alert(e.message)}finally{setLoading(false)}};useEffect(()=>{if(tab==='files')load()},[tab]);const filtered=items.filter(a=>{const s=(a.first_name+' '+a.last_name+' '+pvaPlate(a)+' '+(a.national_code||'')).toLowerCase();return !q||s.includes(q.toLowerCase())});const open=async a=>{try{const d=await GET('/personnel-vehicle-assets.php?op=detail&id='+encodeURIComponent(a.id),{ttl:0});setSelected(d.asset)}catch(e){alert(e.message)}};
-  return <div className="panel">
+  return <div className="panel admin-workspace-page">
     <div className="row" style={{justifyContent:'space-between',gap:8,flexWrap:'wrap'}}><h3>ماشین‌آلات و وسایل مأموریتی</h3>
       {tab==='files'&&<button className="btn g" onClick={()=>downloadProtectedFile('/personnel-vehicle-assets.php?op=export','personnel_vehicle_assets.xlsx')}>خروجی Excel + تصاویر</button>}
     </div>
@@ -8788,7 +8789,7 @@ function PersonnelVehicleAssets(){
   </div>;
 }
 function PVAAssetDetail({asset:a}){return <div><div className="row" style={{justifyContent:'space-between',alignItems:'start'}}><div><h3>{a.asset_type==='car'?'خودرو':'موتورسیکلت'} — {pvaPlate(a)}</h3><div className="muted">{a.first_name} {a.last_name} · {a.role_title||'—'} · وضعیت: {pvaStatus(a.status)}</div></div></div><div className="panel"><h4>مشخصات کامل</h4><PVAFields a={a}/></div><div className="panel"><h4>تصاویر و مدارک</h4><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>{(a.photos||[]).map(p=><figure key={p.photo_key} style={{margin:0,border:'1px solid var(--line)',borderRadius:10,padding:6}}><img src={p.data_uri} style={{width:'100%',height:120,objectFit:'contain',background:'#f5f6f8',borderRadius:7}}/><figcaption style={{fontSize:10,textAlign:'center'}}>{p.photo_key}</figcaption></figure>)}</div></div><div className="panel"><h4>تاریخچه چک‌لیست</h4><PVAHistory history={a.checklist_history||[]}/></div></div>}
-function PersonnelVehicleChecklist(){const [items,setItems]=useState([]),[selected,setSelected]=useState(null),[detail,setDetail]=useState(null),[checks,setChecks]=useState({}),[note,setNote]=useState(''),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false);const load=async()=>{setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=checklist-list',{ttl:0});setItems(d.items||[])}catch(e){alert(e.message)}finally{setLoading(false)}};useEffect(()=>{load()},[]);const open=async a=>{setSelected(a);setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=detail&id='+encodeURIComponent(a.id),{ttl:0});const x=d.asset||a;setDetail(x);const m={};(x.checks||[]).forEach(c=>m[c.check_key]=!!Number(c.check_value));setChecks(m);setNote(x.checklist_note||'')}catch(e){alert(e.message)}finally{setLoading(false)}};const motor=detail?.asset_type==='motorcycle',list=motor?PVA_MOTOR_CHECKS:PVA_CAR_CHECKS;const submit=async approved=>{const missing=list.filter(([k])=>checks[k]===undefined);if(missing.length){alert('تمام موارد چک‌لیست را تعیین تکلیف کنید.');return}if(approved&&list.some(([k])=>checks[k]!==true)){alert('برای تأیید نهایی همه موارد باید تأیید شده باشند.');return}setSaving(true);try{await SEND('POST','/personnel-vehicle-assets.php?op=checklist-verify',{asset_id:detail.id,approved,checks:Object.fromEntries(list.map(([k])=>[k,{value:!!checks[k],note:''}])),note});alert(approved?'وسیله تأیید شد.':'وسیله برای اصلاح برگشت داده شد.');setSelected(null);setDetail(null);await load()}catch(e){alert(e.message)}finally{setSaving(false)}};if(loading&&!detail)return <div className="panel"><p className="muted">در حال دریافت اطلاعات…</p></div>;return <div className="panel"><h3>چک‌لیست خودرویی و موتوری</h3>{!detail?<><p className="muted">پلاک را انتخاب کنید تا مشخصات کامل، تصاویر مدارک و سوابق چک‌لیست نمایش داده شود.</p><div style={{display:'grid',gap:8}}>{items.map(a=><button key={a.id} type="button" onClick={()=>open(a)} style={{textAlign:'right',background:'#fff',border:'1px solid var(--line)',borderRadius:12,padding:12,cursor:'pointer'}}><b>{pvaPlate(a)}</b><div>{a.first_name} {a.last_name} — {a.asset_type==='car'?'خودرو':'موتورسیکلت'}</div><small className="muted">{pvaStatus(a.status)} · {a.checklist_count?`${pvaFa(a.checklist_count)} بار بررسی شده`: 'بدون سابقه'}</small></button>)}{!items.length&&<div className="muted">هنوز وسیله‌ای برای بررسی ثبت نشده است.</div>}</div></>:<><button className="btn g" onClick={()=>{setDetail(null);setSelected(null)}}>بازگشت به فهرست</button><div className="panel"><h4>مشخصات و مالک</h4><PVAFields a={detail}/></div><div className="panel"><h4>تصاویر و مدارک</h4><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>{(detail.photos||[]).map(p=><figure key={p.photo_key} style={{margin:0}}><img src={p.data_uri} style={{width:'100%',height:130,objectFit:'contain',border:'1px solid var(--line)',borderRadius:10}}/><figcaption style={{fontSize:10,textAlign:'center'}}>{p.photo_key}</figcaption></figure>)}</div></div><div className="panel"><h4>تاریخچه قبلی</h4><PVAHistory history={detail.checklist_history||[]}/></div><div className="panel"><h4>بررسی چک‌لیست</h4>{list.map(([k,t])=><div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid var(--line)'}}><b style={{fontSize:13}}>{t}</b><div className="row" style={{gap:6}}><button className={'btn '+(checks[k]===true?'p':'')} onClick={()=>setChecks(x=>({...x,[k]:true}))}>تأیید</button><button className={'btn '+(checks[k]===false?'d':'')} onClick={()=>setChecks(x=>({...x,[k]:false}))}>رد</button></div></div>)}<label className="label" style={{display:'block',marginTop:12}}>توضیحات</label><textarea className="input" rows="4" value={note} onChange={e=>setNote(e.target.value)}/><div className="row" style={{gap:8,marginTop:10}}><button className="btn d" disabled={saving} onClick={()=>submit(false)}>نیازمند اصلاح</button><button className="btn p" disabled={saving} onClick={()=>submit(true)}>{saving?'در حال ثبت…':'تأیید نهایی'}</button></div></div></> }</div>}
+function PersonnelVehicleChecklist(){const [items,setItems]=useState([]),[selected,setSelected]=useState(null),[detail,setDetail]=useState(null),[checks,setChecks]=useState({}),[note,setNote]=useState(''),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false);const load=async()=>{setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=checklist-list',{ttl:0});setItems(d.items||[])}catch(e){alert(e.message)}finally{setLoading(false)}};useEffect(()=>{load()},[]);const open=async a=>{setSelected(a);setLoading(true);try{const d=await GET('/personnel-vehicle-assets.php?op=detail&id='+encodeURIComponent(a.id),{ttl:0});const x=d.asset||a;setDetail(x);const m={};(x.checks||[]).forEach(c=>m[c.check_key]=!!Number(c.check_value));setChecks(m);setNote(x.checklist_note||'')}catch(e){alert(e.message)}finally{setLoading(false)}};const motor=detail?.asset_type==='motorcycle',list=motor?PVA_MOTOR_CHECKS:PVA_CAR_CHECKS;const submit=async approved=>{const missing=list.filter(([k])=>checks[k]===undefined);if(missing.length){alert('تمام موارد چک‌لیست را تعیین تکلیف کنید.');return}if(approved&&list.some(([k])=>checks[k]!==true)){alert('برای تأیید نهایی همه موارد باید تأیید شده باشند.');return}setSaving(true);try{await SEND('POST','/personnel-vehicle-assets.php?op=checklist-verify',{asset_id:detail.id,approved,checks:Object.fromEntries(list.map(([k])=>[k,{value:!!checks[k],note:''}])),note});alert(approved?'وسیله تأیید شد.':'وسیله برای اصلاح برگشت داده شد.');setSelected(null);setDetail(null);await load()}catch(e){alert(e.message)}finally{setSaving(false)}};if(loading&&!detail)return <div className="panel"><p className="muted">در حال دریافت اطلاعات…</p></div>;return <div className="panel admin-workspace-page"><h3>چک‌لیست خودرویی و موتوری</h3>{!detail?<><p className="muted">پلاک را انتخاب کنید تا مشخصات کامل، تصاویر مدارک و سوابق چک‌لیست نمایش داده شود.</p><div style={{display:'grid',gap:8}}>{items.map(a=><button key={a.id} type="button" onClick={()=>open(a)} style={{textAlign:'right',background:'#fff',border:'1px solid var(--line)',borderRadius:12,padding:12,cursor:'pointer'}}><b>{pvaPlate(a)}</b><div>{a.first_name} {a.last_name} — {a.asset_type==='car'?'خودرو':'موتورسیکلت'}</div><small className="muted">{pvaStatus(a.status)} · {a.checklist_count?`${pvaFa(a.checklist_count)} بار بررسی شده`: 'بدون سابقه'}</small></button>)}{!items.length&&<div className="muted">هنوز وسیله‌ای برای بررسی ثبت نشده است.</div>}</div></>:<><button className="btn g" onClick={()=>{setDetail(null);setSelected(null)}}>بازگشت به فهرست</button><div className="panel"><h4>مشخصات و مالک</h4><PVAFields a={detail}/></div><div className="panel"><h4>تصاویر و مدارک</h4><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>{(detail.photos||[]).map(p=><figure key={p.photo_key} style={{margin:0}}><img src={p.data_uri} style={{width:'100%',height:130,objectFit:'contain',border:'1px solid var(--line)',borderRadius:10}}/><figcaption style={{fontSize:10,textAlign:'center'}}>{p.photo_key}</figcaption></figure>)}</div></div><div className="panel"><h4>تاریخچه قبلی</h4><PVAHistory history={detail.checklist_history||[]}/></div><div className="panel"><h4>بررسی چک‌لیست</h4>{list.map(([k,t])=><div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid var(--line)'}}><b style={{fontSize:13}}>{t}</b><div className="row" style={{gap:6}}><button className={'btn '+(checks[k]===true?'p':'')} onClick={()=>setChecks(x=>({...x,[k]:true}))}>تأیید</button><button className={'btn '+(checks[k]===false?'d':'')} onClick={()=>setChecks(x=>({...x,[k]:false}))}>رد</button></div></div>)}<label className="label" style={{display:'block',marginTop:12}}>توضیحات</label><textarea className="input" rows="4" value={note} onChange={e=>setNote(e.target.value)}/><div className="row" style={{gap:8,marginTop:10}}><button className="btn d" disabled={saving} onClick={()=>submit(false)}>نیازمند اصلاح</button><button className="btn p" disabled={saving} onClick={()=>submit(true)}>{saving?'در حال ثبت…':'تأیید نهایی'}</button></div></div></> }</div>}
 
 /* SCHOOL SERVICE INLINE MODULE: bundled into the canonical panel; API endpoints unchanged. */
 console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
@@ -9025,7 +9026,7 @@ function SchoolServiceLauncher(){
       .catch(e=>{if(alive)setError(e&&e.message?e.message:"خطا در بارگذاری سرویس مدارس");});
     return()=>{alive=false;try{window.closeSchoolService&&window.closeSchoolService()}catch(_){}};
   },[]);
-  return <div ref={hostRef} className="ssv-page-host" style={{minHeight:"calc(100vh - 100px)"}}>
+  return <div ref={hostRef} className="ssv-page-host admin-workspace-page" style={{minHeight:"calc(100vh - 100px)"}}>
     {error?<div className="ssv-msg">{error}</div>:null}
   </div>;
 }
@@ -9065,7 +9066,7 @@ function ComplaintsLauncher(){
       .catch(e=>{if(alive)setError(e&&e.message?e.message:"خطا در بارگذاری شکایات تاکسیرانان");});
     return()=>{alive=false;try{window.closeComplaints&&window.closeComplaints()}catch(_){}};
   },[]);
-  return <div ref={hostRef} className="khc-page-host" style={{minHeight:"calc(100vh - 100px)"}}>
+  return <div ref={hostRef} className="khc-page-host admin-workspace-page" style={{minHeight:"calc(100vh - 100px)"}}>
     {error?<div className="ssv-msg">{error}</div>:null}
   </div>;
 }
@@ -9102,7 +9103,7 @@ function PersonnelLeaveReport(){
   const td={padding:"8px",borderBottom:"1px solid var(--line)",fontSize:12,whiteSpace:"nowrap"};
   const headers=["نام و نام خانوادگی","کد پرسنلی","سمت","مجاز ماهانه","مصرف ماهانه","تعداد ماهانه","مانده ماهانه","مجاز سالانه","مصرف سالانه","تعداد سالانه","مانده سالانه"];
   const valueRow=r=>[r.name||r.personnel_name,r.personnel_code,r.role_title||"—",mins(r.monthly_allowed_min),mins(r.monthly_used_min),count(r.monthly_used_count),mins(r.monthly_balance_min),mins(r.yearly_allowed_min),mins(r.yearly_used_min),count(r.yearly_used_count),mins(r.yearly_balance_min)];
-  return <div className="panel"><div className="row" style={{justifyContent:"space-between",gap:10,flexWrap:"wrap"}}><div><h3>🌴 گزارش مرخصی پرسنل</h3><p className="muted" style={{fontSize:12,marginTop:5}}>آمار فایل مبنا تا {data.through_jdate||"—"}؛ مدت‌ها به‌صورت ساعت:دقیقه</p></div><div className="row" style={{gap:8}}><select className="input" value={period} onChange={e=>selectPeriod(e.target.value)} style={{minWidth:190}}>{data.periods.map(p=>{const v=`year=${p.year}&month=${p.month}`;return <option key={v} value={v}>{fa(p.year)}/{fa(String(p.month).padStart(2,"0"))} · تا {p.through_jdate}</option>})}</select><button className="btn" onClick={()=>load(period)}>بازخوانی</button></div></div>
+  return <div className="panel admin-workspace-page"><div className="row" style={{justifyContent:"space-between",gap:10,flexWrap:"wrap"}}><div><h3>🌴 گزارش مرخصی پرسنل</h3><p className="muted" style={{fontSize:12,marginTop:5}}>آمار فایل مبنا تا {data.through_jdate||"—"}؛ مدت‌ها به‌صورت ساعت:دقیقه</p></div><div className="row" style={{gap:8}}><select className="input" value={period} onChange={e=>selectPeriod(e.target.value)} style={{minWidth:190}}>{data.periods.map(p=>{const v=`year=${p.year}&month=${p.month}`;return <option key={v} value={v}>{fa(p.year)}/{fa(String(p.month).padStart(2,"0"))} · تا {p.through_jdate}</option>})}</select><button className="btn" onClick={()=>load(period)}>بازخوانی</button></div></div>
     <div className="row" style={{gap:8,marginTop:14,flexWrap:"wrap"}}><button className={`btn ${tab==="all"?"p":""}`} onClick={()=>setTab("all")}>گزارش کلی همهٔ نیروها ({count(rows.length)})</button><button className={`btn ${tab==="detail"?"p":""}`} onClick={()=>setTab("detail")} disabled={!selected}>جزئیات مرخصی یک پرسنل</button>{tab==="all"?<><input className="input" placeholder="جستجوی نام یا کد پرسنلی" value={query} onChange={e=>setQuery(e.target.value)} style={{maxWidth:260}}/><button className="btn" onClick={exportAll} disabled={!filtered.length}>دانلود Excel کلی</button></>:<button className="btn" onClick={exportDetail} disabled={!selected}>دانلود Excel جزئیات</button>}</div>
     {error&&<div style={{color:"var(--danger)",marginTop:10,fontSize:13}}>{error}</div>}{busy&&<div className="muted" style={{marginTop:10}}>در حال دریافت…</div>}
     {tab==="all"&&<div style={{overflow:"auto",maxHeight:"calc(100vh - 330px)",marginTop:12}}><table style={{borderCollapse:"collapse",width:"100%",minWidth:1120}}><thead style={{position:"sticky",top:0,background:"var(--paper)",zIndex:1}}><tr>{headers.map(h=><th key={h} style={th}>{h}</th>)}</tr></thead><tbody>{filtered.map(r=><tr key={r.snapshot_id} onClick={()=>selectPerson(r)} style={{cursor:"pointer",background:+r.snapshot_id===selectedId?"var(--brand-soft)":""}}>{valueRow(r).map((v,i)=><td key={i} style={td}>{v}</td>)}</tr>)}</tbody></table>{!filtered.length&&!busy&&<p className="muted" style={{padding:16}}>برای این دوره داده‌ای ثبت نشده است. فایل SQL خصوصی را در phpMyAdmin اجرا کنید.</p>}</div>}
@@ -9173,6 +9174,38 @@ const VIEWS={
   complaints:{t:"شکایات تاکسیرانان",ic:"chat-message",c:ComplaintsLauncher},
 };
 
+const PANEL_MENU_SECTIONS=[
+  ["داشبورد و نقشه",["dashboard","missiondashboard","citydashboard","map","present","presentchart"]],
+  ["بازرسی و خدمات",["officials","presence","covertselfies","outages","schoolservice","complaints","companyrequests","platetraining"]],
+  ["تاکسی و خطوط",["drivers","tempdrivers","lines","bills"]],
+  ["گزارش‌ها و آمار",["reportscenter","monthlyworkreport","attreport","leavereport","perfreport","driverservicereport","reports","report","useract"]],
+  ["پرسنل و منابع انسانی",["users","org","zones","attendance","shifts","workpolicy","seniority","requests","commitments","salaryslips"]],
+  ["تجهیزات و رفاه",["vehicleassets","vehiclechecklist","inventory","welfare","cultural"]],
+  ["پیام‌ها و ارتباطات",["messages","sms","smslog","messengercenter","radiocenter"]],
+  ["تنظیمات و ابزارها",["missiontemplates","scoreengine","forms","config","customfields","excel","appitems","settings"]],
+  ["سلامت و امنیت",["health","cronstatus","activesessions","logs"]],
+];
+const PANEL_MENU_KEYWORDS={
+  sms:"اس ام اس sms پیام کوتاه",smslog:"پیامک ارسال تاریخچه",messages:"پیام صندوق مکاتبه",
+  users:"کاربر پرسنل نیرو اعضا",salaryslips:"حقوق فیش مالی",seniority:"سنوات خدمت سابقه",
+  attreport:"تردد ورود خروج حضور",monthlyworkreport:"کارکرد ماهیانه موظفی شیفت سازمان",
+  requests:"درخواست مرخصی ماموریت",inventory:"انبار تجهیزات واگذاری تحویل",
+  logs:"رویداد رخداد امنیت خطا فعالیت",activesessions:"نشست دستگاه ورود امنیت",
+  schoolservice:"مدرسه مدارس سرویس دانش آموز",complaints:"شکایت شکایات اعتراض",
+  zones:"منطقه زیرمنطقه منطقه بندی",appitems:"منو آیتم دسترسی سمت",
+  covertselfies:"تصویر عکس سلفی",workpolicy:"قوانین قانون کار سیاست",
+  config:"تذکر چک لیست چکلیست",vehiclechecklist:"چک لیست چکلیست خودرو موتور",
+  missiontemplates:"ماموریت الگو بازدید برنامه",scoreengine:"امتیاز رتبه ارزیابی",
+};
+function normalizePanelMenuText(text){
+  return String(text||"").normalize("NFKC").replace(/[يىئ]/g,"ی").replace(/ك/g,"ک").replace(/[أإٱآ]/g,"ا").replace(/ؤ/g,"و").replace(/[\u064b-\u065f\u0670]/g,"").replace(/[\u200c\u200d]/g," ").replace(/\s+/g," ").trim().toLowerCase();
+}
+function panelMenuMatches(key,section,query){
+  const tokens=normalizePanelMenuText(query).split(" ").filter(Boolean);
+  const haystack=normalizePanelMenuText((VIEWS[key]?.t||"")+" "+section+" "+(PANEL_MENU_KEYWORDS[key]||""));
+  return tokens.every(token=>haystack.includes(token));
+}
+
 function Login({onLogin,brand}){
   const [username,setUsername]=useState(""); const [password,setPassword]=useState(""); const [code,setCode]=useState("");
   const [loginMethod,setLoginMethod]=useState(null); const [mode,setMode]=useState("request");
@@ -9228,9 +9261,10 @@ function Login({onLogin,brand}){
 function App(){
   const [me,setMe]=useState(null); const [authReady,setAuthReady]=useState(false); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState(null); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
   const [menuSearch,setMenuSearch]=useState("");
-  const menuText=text=>String(text||"").replace(/[يى]/g,"ی").replace(/ك/g,"ک").replace(/\u200c/g," ").trim().toLowerCase();
-  const menuQuery=menuText(menuSearch);
+  const menuQuery=normalizePanelMenuText(menuSearch);
   const menuButtonRef=useRef(null);
+  const menuSearchRef=useRef(null);
+  const menuNavRef=useRef(null);
   useEffect(()=>{
     if(!drawer)return;
     const onKey=e=>{if(e.key==="Escape"){setDrawer(false);menuButtonRef.current?.focus();}};
@@ -9240,7 +9274,7 @@ function App(){
   const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>{ try{return localStorage.getItem("admin_sidebar_collapsed")==="1";}catch(e){return false;} });
   const toggleSidebarCollapsed=()=>setSidebarCollapsed(prev=>{const next=!prev;try{localStorage.setItem("admin_sidebar_collapsed",next?"1":"0");}catch(e){}return next;});
   // منوهای اصلی در لود اولیه بسته باشند؛ کاربر فقط بخش موردنیاز را باز می‌کند.
-  const [openSections,setOpenSections]=useState({"داشبورد و پایش":false,"عملیات میدانی":false,"تاکسی و تاکسیران":false,"گزارش‌ها":false,"منابع انسانی":false,"ارتباطات":false,"مدیریت سامانه":false});
+  const [openSections,setOpenSections]=useState({});
   useEffect(()=>{ db.publicSettings().then(s=>{ const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>{}); },[]);
   useEffect(()=>{ let active=true; db.restoreSession().then(u=>{if(active)setMe(u);}).catch(()=>{}).finally(()=>{if(active)setAuthReady(true);}); return()=>{active=false}; },[]);
   useEffect(()=>{ if(me&&me.is_admin){ db.settings().then(s=>{ const all=s.role_perms||{}; const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id); const rp=all[me.role_id]; setAllowed(has&&Array.isArray(rp)?rp:null); const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>setAllowed(null)); } },[me]);
@@ -9254,16 +9288,7 @@ function App(){
   // پویا یا منوی fallback وابسته باشد. کنترل دسترسی خود صفحه جداگانه انجام می‌شود.
   const CORE_VIEWS=["dashboard","driverservicereport","schoolservice","complaints"];
   const vk=(!allowed||allowed.includes(v)||CORE_VIEWS.includes(v))?v:"dashboard"; const View=VIEWS[vk].c;
-  window.__navigateTo = (k)=>{ setV(k); setDrawer(false); };
-  const SECTIONS=[
-    ["داشبورد و پایش",["dashboard","reportscenter","health","map","present","presentchart"]],
-    ["عملیات میدانی",["missiondashboard","citydashboard","missiontemplates","scoreengine","officials","presence","attendance","companyrequests","outages","covertselfies","schoolservice"]],
-    ["تاکسی و تاکسیران",["drivers","driverservicereport","tempdrivers","platetraining","lines","zones","bills","complaints"]],
-    ["گزارش‌ها",["reports","report","perfreport","attreport","leavereport","useract"]],
-    ["منابع انسانی",["seniority","shifts","monthlyworkreport","workpolicy","requests","salaryslips","commitments","welfare","cultural","vehicleassets","vehiclechecklist"]],
-    ["ارتباطات",["messages","sms","smslog","messengercenter","radiocenter"]],
-    ["مدیریت سامانه",["users","org","forms","config","customfields","inventory","excel","appitems","cronstatus","activesessions","logs","settings"]],
-  ];
+  const SECTIONS=PANEL_MENU_SECTIONS;
   const CORE=["dashboard","driverservicereport","schoolservice","complaints"];
   const MENU_ICONS={
     dashboard:'dashboard-home', reportscenter:'reports-folder', health:'system-health', map:'map-marker', present:'present-group', presentchart:'presence-chart',
@@ -9278,18 +9303,28 @@ function App(){
   };
   const can=(k)=>!allowed||allowed.includes(k)||CORE.includes(k);
   const currentSection=SECTIONS.find(([,keys])=>keys.includes(vk));
-  const closeOnPick=(k)=>{ setV(k); setDrawer(false); };
-  const matchingMenuCount=SECTIONS.reduce((n,[title,keys])=>n+keys.filter(k=>VIEWS[k]&&can(k)&&(menuText(VIEWS[k].t).includes(menuQuery)||menuText(title).includes(menuQuery))).length,0);
+  const closeOnPick=(k)=>{if(!VIEWS[k]||!can(k))return;setV(k);setDrawer(false);setMenuSearch("");const section=SECTIONS.find(([,keys])=>keys.includes(k));if(section)setOpenSections({[section[0]]:true});};
+  window.__navigateTo=closeOnPick;
+  const menuSections=SECTIONS.map(([title,keys])=>[title,keys.filter(k=>VIEWS[k]&&can(k)&&panelMenuMatches(k,title,menuQuery))]).filter(([,keys])=>keys.length);
+  const matchingMenuKeys=menuSections.flatMap(([,keys])=>keys);
+  const matchingMenuCount=matchingMenuKeys.length;
+  const onMenuSearchKey=e=>{
+    if(e.key==="Escape"&&menuSearch){e.stopPropagation();setMenuSearch("");}
+    if(e.key==="Enter"&&menuQuery&&matchingMenuKeys.length){e.preventDefault();closeOnPick(matchingMenuKeys[0]);}
+    if(e.key==="ArrowDown"&&menuQuery){e.preventDefault();menuNavRef.current?.querySelector('.navitem:not(.logout-item)')?.focus();}
+  };
   return(<div className={"layout"+(drawer?" drawer-open":"")+(sidebarCollapsed?" sidebar-collapsed":"")}>
     <a className="skip-link" href="#panel-content">رفتن به محتوای صفحه</a>
     <div className="scrim" onClick={()=>setDrawer(false)}></div>
     <aside className="side"><div className="brand">{brand.logo?<img src={brand.logo} style={{width:38,height:38,borderRadius:10,objectFit:"contain",background:"#fff",padding:3}}/>:<img src="/brand-khatyar.png" style={{width:38,height:38,borderRadius:19,objectFit:"cover"}}/>}<span>{brand.title||"خطیار"}</span></div>
+      <div className="menu-search"><span className="menu-search-icon" aria-hidden="true">⌕</span><input ref={menuSearchRef} type="search" maxLength={100} value={menuSearch} onChange={e=>setMenuSearch(e.target.value)} onKeyDown={onMenuSearchKey} placeholder="جستجوی سریع صفحات…" aria-label="جستجو در صفحات پنل" aria-controls="panel-navigation"/>{menuSearch&&<button type="button" onClick={()=>{setMenuSearch("");menuSearchRef.current?.focus();}} aria-label="پاک کردن جستجوی منو">×</button>}</div>
+      <button type="button" className="menu-search-trigger" aria-label="باز کردن جستجوی منو" onClick={()=>{setSidebarCollapsed(false);setTimeout(()=>menuSearchRef.current?.focus(),0);}}>⌕</button>
+      {menuQuery&&<div className="menu-result-count" role="status">{fa(matchingMenuCount)} صفحه پیدا شد</div>}
       <button type="button" className="sidebar-toggle" title={sidebarCollapsed?"بازگرداندن منوی کامل":"مینیمایز کردن منو"} aria-label={sidebarCollapsed?"بازگرداندن منوی کامل":"مینیمایز کردن منو"} onClick={toggleSidebarCollapsed}><span aria-hidden="true">{sidebarCollapsed?"⇥":"⇔"}</span><span className="sidebar-toggle-label">{sidebarCollapsed?"بازگشت منو":"مینیمایز منو"}</span></button>
-      <div className="menu-search"><input type="search" value={menuSearch} onChange={e=>setMenuSearch(e.target.value)} placeholder="جستجو در منو…" aria-label="جستجو در صفحات پنل"/>{menuSearch&&<button type="button" onClick={()=>setMenuSearch("")} aria-label="پاک کردن جستجوی منو">×</button>}</div>
-      <nav className="nav" aria-label="صفحات مدیریت" style={{flex:1}}>{SECTIONS.map(([title,keys])=>{ const ks=keys.filter(k=>VIEWS[k]&&can(k)&&(!menuQuery||menuText(VIEWS[k].t).includes(menuQuery)||menuText(title).includes(menuQuery))); if(!ks.length)return null; const open=!!menuQuery||!!openSections[title];
+      <nav ref={menuNavRef} id="panel-navigation" className="nav" aria-label="صفحات مدیریت" style={{flex:1}}>{menuSections.map(([title,ks])=>{ const open=!!menuQuery||!!openSections[title];
         return(<div key={title} className={"navsec"+(open?" open":"")}>
-          <button className="navsec-head" onClick={()=>setOpenSections(cur=>({...cur,[title]:!cur[title]}))} aria-expanded={open}>
-            <span>{title}</span><span className="nav-chevron">‹</span>
+          <button className="navsec-head" onClick={()=>setOpenSections(cur=>cur[title]?{}:{[title]:true})} aria-expanded={open}>
+            <span>{title}</span><span className="navsec-meta"><span className="navsec-count">{fa(ks.length)}</span><span className="nav-chevron">‹</span></span>
           </button>
           <div className="navsec-body" style={{maxHeight:open?`${ks.length*60}px`:'0px',opacity:open?1:0}}>
             {ks.map(k=><button key={k} title={VIEWS[k].t} aria-current={vk===k?"page":undefined} className={"navitem "+(vk===k?"on":"")} onClick={()=>closeOnPick(k)}><span className="ic">{I8(MENU_ICONS[k])}</span><span className="navlabel">{VIEWS[k].t}</span></button>)}
@@ -9306,7 +9341,7 @@ function App(){
       <button ref={menuButtonRef} className="burger" aria-label={drawer?"بستن منوی صفحات":"باز کردن منوی صفحات"} aria-expanded={drawer} onClick={()=>{setSidebarCollapsed(false);setDrawer(d=>!d);}}>☰</button>
       <div className="page-heading"><div className="page-breadcrumb">پنل مدیریت <span aria-hidden="true">/</span> {currentSection?.[0]||"خطیار"}</div><h2>{VIEWS[vk].t}</h2></div>
       <div className="who"><span>{me.name} — {me.role}{me.rank_stars?" · "+"★".repeat(Math.max(0,Math.min(5,+me.rank_stars))):""}</span><div className="av">{me.photo?<><img src={userPhotoImg(me.photo)} alt={"تصویر "+(me.name||"کاربر")} onError={e=>{e.currentTarget.style.display="none";if(e.currentTarget.nextSibling)e.currentTarget.nextSibling.style.display="grid";}}/><span className="av-fallback" style={{display:"none"}}>{(me.name||"؟")[0]}</span></>:<span>{(me.name||"؟")[0]}</span>}</div></div></div>
-      <div id="panel-content" className="page-content" data-page={vk} tabIndex={-1}><View/></div></main></div>);
+      <div id="panel-content" className="page-content" data-page={vk} tabIndex={-1}><View canNavigate={can}/></div></main></div>);
 }
 
 const PANEL_BUILD_VERSION = "1.5.10";

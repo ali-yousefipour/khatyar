@@ -1917,7 +1917,7 @@ function LiveMap() {
         trkIv.current = null;
     } const map = mapRef.current; if (lineRef.current && map)
         map.removeLayer(lineRef.current); setTrkInfo(null); setTrkPts(null); setMode("live"); drawUsers(); };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null,
             "\u0646\u0642\u0634\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627 \u0648 \u0631\u0647\u06AF\u06CC\u0631\u06CC",
             React.createElement("span", { className: "row", style: { gap: 8 } },
@@ -2182,7 +2182,7 @@ function PersonnelSeniority() {
         const body = seniorityPrintBody(rows);
         printLetterhead('سنوات نیروها — ' + faPlain(data.period), body, { subtitle: 'واحد: روز؛ سهم ماه جاری تا پایان ماه و به‌صورت علی‌الحساب است.' });
     };
-    return React.createElement("div", { className: "panel", "data-testid": "personnel-seniority" },
+    return React.createElement("div", { className: "panel admin-workspace-page", "data-testid": "personnel-seniority" },
         React.createElement("div", { className: "row", style: { justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' } },
             React.createElement("div", null,
                 React.createElement("h3", null, "\u0633\u0646\u0648\u0627\u062A \u0646\u06CC\u0631\u0648\u0647\u0627"),
@@ -2378,7 +2378,7 @@ function Users() {
                 React.createElement("button", { className: "btn " + (usersTab === "vehicles" ? "p" : "g"), onClick: () => setUsersTab("vehicles") }, "\u062E\u0648\u062F\u0631\u0648 \u0648 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A"),
                 React.createElement("button", { className: "btn " + (usersTab === "checklist" ? "p" : "g"), onClick: () => setUsersTab("checklist") }, "\u0686\u06A9\u200C\u0644\u06CC\u0633\u062A \u062E\u0648\u062F\u0631\u0648 \u0648 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A")),
             usersTab === "vehicles" ? React.createElement(PersonnelVehicleAssets, null) : React.createElement(PersonnelVehicleChecklist, null)));
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page" },
         React.createElement("h3", null,
             "\u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 ",
             React.createElement("button", { className: "btn p", onClick: () => setAdding(true) }, "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u06A9\u0627\u0631\u0628\u0631"),
@@ -2396,11 +2396,11 @@ function Users() {
                 catch (e) {
                     alert(e.message);
                 } } }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u06A9\u0627\u0645\u0644 \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 (Excel)")),
-        React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 14, flexWrap: "wrap" } },
+        React.createElement("div", { className: "row page-switcher", style: { gap: 8, marginBottom: 14, flexWrap: "wrap" } },
             React.createElement("button", { className: "btn p" }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646"),
             React.createElement("button", { className: "btn g", onClick: () => setUsersTab("vehicles") }, "\u062E\u0648\u062F\u0631\u0648 \u0648 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A"),
             React.createElement("button", { className: "btn g", onClick: () => setUsersTab("checklist") }, "\u0686\u06A9\u200C\u0644\u06CC\u0633\u062A \u062E\u0648\u062F\u0631\u0648 \u0648 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A")),
-        React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", marginBottom: 12 } },
+        React.createElement("div", { className: "row page-toolbar", style: { gap: 8, flexWrap: "wrap", marginBottom: 12 } },
             React.createElement("input", { className: "input", style: { maxWidth: 170 }, placeholder: "\u0646\u0627\u0645 \u06CC\u0627 \u06A9\u062F \u0645\u0644\u06CC", value: f.q, onChange: e => setF({ ...f, q: e.target.value }) }),
             React.createElement("select", { className: "input", style: { maxWidth: 150 }, value: f.role_id, onChange: e => setF({ ...f, role_id: e.target.value }) },
                 React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0633\u0645\u062A\u200C\u0647\u0627"),
@@ -2820,7 +2820,7 @@ function Zones() {
             roots,
             zones.filter(z => !seen.has(+z.id)).map(z => React.createElement("div", { key: z.id }, Col(z.name, z.id))));
     })();
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null,
             "\u0645\u0646\u0637\u0642\u0647\u200C\u0628\u0646\u062F\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u2014 \u06A9\u0627\u0631\u062A\u200C\u0647\u0627 \u0631\u0627 \u062F\u0631 \u0645\u0646\u0637\u0642\u0647\u0654 \u0645\u0648\u0631\u062F\u0646\u0638\u0631 \u0631\u0647\u0627 \u06A9\u0646\u06CC\u062F",
             React.createElement("span", { className: "row", style: { gap: 8 } },
@@ -3041,7 +3041,7 @@ function OrgChart() {
         el.addEventListener('wheel', wheel, { passive: false });
         return () => el.removeEventListener('wheel', wheel);
     }, []);
-    return (React.createElement("div", { className: "panel", style: { padding: 0, overflow: "hidden" } },
+    return (React.createElement("div", { className: "panel admin-workspace-page", style: { padding: 0, overflow: "hidden" } },
         React.createElement("div", { style: { padding: "16px 18px 12px", borderBottom: "1px solid var(--line)", background: "linear-gradient(180deg,var(--card),rgba(13,122,95,.035))" } },
             React.createElement("div", { className: "row", style: { justifyContent: "space-between", gap: 10, flexWrap: "wrap" } },
                 React.createElement("div", null,
@@ -3219,11 +3219,11 @@ function Drivers() {
         load(page);
     } };
     const saveEdit = async () => { await db.updateDriver(edit.id, edit); setEdit(null); load(page); };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page" },
         React.createElement("h3", null,
             "\u0631\u0627\u0646\u0646\u062F\u06AF\u0627\u0646 \u0648 \u062E\u0648\u062F\u0631\u0648\u0647\u0627 ",
             React.createElement("button", { className: "btn p", onClick: exportXlsx }, "\u2B07 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
-        React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", marginBottom: 12 } },
+        React.createElement("div", { className: "row page-toolbar", style: { gap: 8, flexWrap: "wrap", marginBottom: 12 } },
             React.createElement("input", { className: "input", style: { maxWidth: 170 }, placeholder: "\u06A9\u062F \u0645\u0644\u06CC \u06CC\u0627 \u0646\u0627\u0645", value: f.q, onChange: e => setF({ ...f, q: e.target.value }) }),
             React.createElement("input", { className: "input", style: { maxWidth: 110 }, placeholder: "\u06A9\u062F \u062E\u0637", value: f.line, onChange: e => setF({ ...f, line: e.target.value }) }),
             React.createElement("input", { className: "input", style: { maxWidth: 140 }, placeholder: "\u0645\u062F\u0644 \u062E\u0648\u062F\u0631\u0648", value: f.model, onChange: e => setF({ ...f, model: e.target.value }) }),
@@ -3261,7 +3261,7 @@ function Drivers() {
                         React.createElement("button", { className: "btn g", onClick: () => showFull(x.id) }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u06A9\u0627\u0645\u0644"),
                         React.createElement("button", { className: "btn g", onClick: () => setEdit({ ...x }) }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
                         React.createElement("button", { className: "btn g", style: { color: 'var(--danger)' }, onClick: () => del(x) }, "\u062D\u0630\u0641"))))))),
-        React.createElement("div", { className: "row", style: { gap: 8, justifyContent: "center", alignItems: "center", marginTop: 12 } },
+        React.createElement("div", { className: "row page-toolbar", style: { gap: 8, justifyContent: "center", alignItems: "center", marginTop: 12 } },
             React.createElement("button", { className: "btn g", disabled: page <= 1, onClick: () => load(page - 1) }, "\u0642\u0628\u0644\u06CC"),
             React.createElement("span", { style: { alignSelf: "center" } },
                 "\u0635\u0641\u062D\u0647\u0654 ",
@@ -3356,7 +3356,7 @@ function Bills() {
     };
     useEffect(() => { load("", 1); }, []);
     const b = data.rows || [];
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\u0622\u0628\u0648\u0646\u0645\u0627\u0646 \u0648 \u0641\u06CC\u0634\u200C\u0647\u0627"),
         React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 10, flexWrap: "wrap" } },
             React.createElement("input", { className: "input", style: { maxWidth: 260 }, placeholder: "\u062C\u0633\u062A\u062C\u0648: \u0646\u0627\u0645\u060C \u06A9\u062F \u0645\u0644\u06CC\u060C \u067E\u0644\u0627\u06A9 \u06CC\u0627 \u0634\u0646\u0627\u0633\u0647 \u0642\u0628\u0636", value: q, onChange: e => setQ(e.target.value), onKeyDown: e => e.key === 'Enter' && load(q, 1) }),
@@ -3416,7 +3416,7 @@ function Bills() {
 function Config() {
     const [tab, setTab] = useState("define");
     const TABS = [["define", "تعریف موضوعات و چک‌لیست"], ["reportsubjects", "موضوعات گزارش‌ها"], ["notices", "تذکرات داده‌شده"], ["checklists", "چک‌لیست‌های داده‌شده"]];
-    return (React.createElement("div", null,
+    return (React.createElement("div", { className: "admin-workspace-page" },
         React.createElement("div", { className: "tabbar", style: { display: "flex", gap: 8, marginBottom: 14, borderBottom: "2px solid var(--line)", flexWrap: "wrap" } }, TABS.map(([k, lbl]) => React.createElement("button", { key: k, onClick: () => setTab(k), style: { background: "none", border: "none", borderBottom: tab === k ? "3px solid var(--brand)" : "3px solid transparent", padding: "8px 14px", cursor: "pointer", fontWeight: tab === k ? 800 : 500, color: tab === k ? "var(--brand)" : "var(--muted)", fontFamily: "inherit", fontSize: 14 } }, lbl))),
         tab === "define" && React.createElement(ConfigDefine, null),
         tab === "reportsubjects" && React.createElement(ReportSubjectsAdmin, null),
@@ -3705,7 +3705,7 @@ function FormBuilder() {
     catch (e) {
         alert(e.message);
     } };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null,
             "\u0641\u0631\u0645\u200C\u0633\u0627\u0632 \u062D\u0631\u0641\u0647\u200C\u0627\u06CC ",
             editId ? React.createElement("span", { style: { fontSize: 13, color: "var(--brand)" } },
@@ -3909,7 +3909,7 @@ function Cultural() {
         XLSX.utils.book_append_sheet(wb, ws, "فعالیت فرهنگی");
         XLSX.writeFile(wb, "گزارش_فعالیت_فرهنگی.xlsx");
     };
-    return (React.createElement("div", null,
+    return (React.createElement("div", { className: "admin-workspace-page" },
         React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 14, flexWrap: "wrap" } }, [["add", "➕ ثبت فعالیت"], ["types", "🎭 انواع فعالیت"], ["places", "📍 مکان‌ها"], ["report", "📊 گزارش‌گیری"]].map(([k, l]) => React.createElement("button", { key: k, className: "btn " + (tab === k ? "p" : "g"), onClick: () => setTab(k) }, l))),
         tab === "types" && React.createElement("div", { className: "panel" },
             React.createElement("h3", null, "\u062A\u0639\u0631\u06CC\u0641 \u0627\u0646\u0648\u0627\u0639 \u0641\u0639\u0627\u0644\u06CC\u062A \u0641\u0631\u0647\u0646\u06AF\u06CC"),
@@ -4145,7 +4145,7 @@ function Welfare() {
         XLSX.utils.book_append_sheet(wb, ws, "رفاهیات");
         XLSX.writeFile(wb, "گزارش_رفاهیات.xlsx");
     };
-    return (React.createElement("div", null,
+    return (React.createElement("div", { className: "admin-workspace-page" },
         React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 14, flexWrap: "wrap" } }, [["grant", "➕ تحویل رفاهیت"], ["items", "🎁 انواع رفاهیات"], ["places", "📍 مکان‌ها"], ["report", "📊 گزارش‌گیری"]].map(([k, l]) => React.createElement("button", { key: k, className: "btn " + (tab === k ? "p" : "g"), onClick: () => setTab(k) }, l))),
         tab === "items" && React.createElement("div", { className: "panel" },
             React.createElement("h3", null, "\u062A\u0639\u0631\u06CC\u0641 \u0627\u0646\u0648\u0627\u0639 \u0631\u0641\u0627\u0647\u06CC\u0627\u062A"),
@@ -4368,7 +4368,7 @@ function MissionOperationsDashboard() {
         const weak = withMission.filter(r => Number(r.weighted_achievement || 0) < 50).length;
         return { total: rows.length, withMission: withMission.length, avg, full, weak };
     })();
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\uD83E\uDDED \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u0639\u0645\u0644\u06CC\u0627\u062A \u0645\u06CC\u062F\u0627\u0646\u06CC"),
         React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 10 } }, "\u0639\u0645\u0644\u06A9\u0631\u062F \u0648\u0632\u0646\u200C\u062F\u0627\u0631 \u0631\u0648\u0632\u0627\u0646\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0645\u06CC\u062F\u0627\u0646\u06CC (\u0646\u0627\u0638\u0631 \u062E\u0637\u060C \u06AF\u0634\u062A \u0645\u0648\u062A\u0648\u0631\u06CC\u060C \u0628\u0627\u0632\u0631\u0633 \u0645\u0642\u06CC\u0645\u060C \u0628\u0627\u0632\u0631\u0633 \u06AF\u0634\u062A \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC\u060C \u0633\u0631\u0628\u0627\u0632\u0631\u0633) \u0646\u0633\u0628\u062A \u0628\u0647 \u0645\u0623\u0645\u0648\u0631\u06CC\u062A \u0645\u0624\u062B\u0631 \u0622\u0646\u200C\u0647\u0627 (\u0627\u0644\u06AF\u0648\u06CC \u0633\u0645\u062A \u06CC\u0627 \u0645\u0623\u0645\u0648\u0631\u06CC\u062A \u0627\u062E\u062A\u0635\u0627\u0635\u06CC)."),
         React.createElement("div", { className: "filters", style: { flexWrap: "wrap", gap: 8, marginBottom: 10 } },
@@ -4563,9 +4563,9 @@ function MissionTemplatesAdmin() {
         visit_require_start_photo: "الزام تصویر شروع بازدید (true/false)", visit_require_finish_photo: "الزام تصویر پایان بازدید (true/false)",
         visit_require_end_report: "الزام گزارش پایان بازدید (true/false)", visit_geo_extra_radius_m: "شعاع مجاز اضافه از محدودهٔ خط (متر)",
         visit_photo_width: "عرض تصویر ذخیره‌شده (پیکسل)", visit_photo_quality: "کیفیت فشرده‌سازی تصویر (٪)" };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page admin-form-page" },
         React.createElement("h3", null, "\uD83C\uDFAF \u0645\u0648\u062A\u0648\u0631 \u0645\u0623\u0645\u0648\u0631\u06CC\u062A \u2014 \u0627\u0644\u06AF\u0648\u0647\u0627 \u0648 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A"),
-        React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 14, flexWrap: "wrap" } }, [["templates", "📐 الگوهای هر سمت"], ["overrides", "👤 مأموریت اختصاصی کاربر"], ["settings", "⚙ تنظیمات اجرای بازدید"], ["visits", "📑 گزارش بازدیدهای ثبت‌شده"]].map(([k, l]) => React.createElement("button", { key: k, className: "btn " + (tab === k ? "p" : "g"), onClick: () => { setTab(k); setMsg(""); } }, l))),
+        React.createElement("div", { className: "row page-switcher", style: { gap: 8, marginBottom: 14, flexWrap: "wrap" } }, [["templates", "📐 الگوهای هر سمت"], ["overrides", "👤 مأموریت اختصاصی کاربر"], ["settings", "⚙ تنظیمات اجرای بازدید"], ["visits", "📑 گزارش بازدیدهای ثبت‌شده"]].map(([k, l]) => React.createElement("button", { key: k, className: "btn " + (tab === k ? "p" : "g"), onClick: () => { setTab(k); setMsg(""); } }, l))),
         msg && React.createElement("p", { style: { color: msg.startsWith("✓") ? "var(--ok)" : "var(--danger)", marginBottom: 10 } }, msg),
         tab === "templates" && React.createElement("div", null,
             React.createElement("div", { style: { border: "1px solid var(--line)", borderRadius: 10, padding: 12, marginBottom: 16 } },
@@ -4736,7 +4736,7 @@ function CityOperationsDashboard() {
     `;
         printLetterhead("داشبورد مدیریتی عملیات میدانی — کل شهر", body, { subtitle: "تاریخ گزارش: " + date });
     };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\uD83C\uDFD9 \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u0645\u062F\u06CC\u0631\u06CC\u062A\u06CC \u0639\u0645\u0644\u06CC\u0627\u062A \u0645\u06CC\u062F\u0627\u0646\u06CC \u2014 \u06A9\u0644 \u0634\u0647\u0631"),
         React.createElement("div", { className: "filters", style: { flexWrap: "wrap", gap: 8, marginBottom: 14 } },
             React.createElement("span", { className: "label" }, "\u062A\u0627\u0631\u06CC\u062E"),
@@ -4915,7 +4915,7 @@ function ScoreEngineAdmin() {
             setMsg(e.message || "خطا");
         }
     };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\uD83C\uDFC6 \u0645\u0648\u062A\u0648\u0631 \u0627\u0645\u062A\u06CC\u0627\u0632\u062F\u0647\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0645\u06CC\u062F\u0627\u0646\u06CC"),
         React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 10 } }, "\u0627\u0645\u062A\u06CC\u0627\u0632 \u0646\u0647\u0627\u06CC\u06CC \u0647\u0631 \u0631\u062F\u06CC\u0641 = \u0627\u0645\u062A\u06CC\u0627\u0632 \u067E\u0627\u06CC\u0647 \u00D7 \u0636\u0631\u06CC\u0628 \u0633\u0645\u062A \u00D7 \u0645\u06CC\u0627\u0646\u06AF\u06CC\u0646 \u0636\u0631\u06CC\u0628 \u0633\u062E\u062A\u06CC \u062E\u0637\u0648\u0637 \u062A\u062E\u0635\u06CC\u0635\u200C\u06CC\u0627\u0641\u062A\u0647. \u0645\u062D\u0627\u0633\u0628\u0647 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u062E\u0648\u062F\u06A9\u0627\u0631 \u0648 \u0631\u0648\u0632\u0627\u0646\u0647\u060C \u0647\u0645\u200C\u0632\u0645\u0627\u0646 \u0628\u0627 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u00AB\u0645\u0623\u0645\u0648\u0631\u06CC\u062A \u0631\u0648\u0632\u0627\u0646\u0647\u00BB \u06CC\u0627 \u00AB\u0628\u0631\u0646\u0627\u0645\u0647 \u0628\u0627\u0632\u062F\u06CC\u062F\u00BB \u0647\u0631 \u06A9\u0627\u0631\u0628\u0631 \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F."),
         React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 14, flexWrap: "wrap" } }, [["rules", "📐 قوانین امتیاز"], ["roles", "👤 ضریب سمت‌ها"], ["lines", "🛣 ضریب سختی خطوط"], ["daily", "📊 جدول امتیازات روزانه"], ["leaderboard", "🏆 رتبه‌بندی و نشان‌ها"]].map(([k, l]) => React.createElement("button", { key: k, className: "btn " + (tab === k ? "p" : "g"), onClick: () => { setTab(k); setMsg(""); } }, l))),
@@ -5079,7 +5079,7 @@ function PersonnelPerformance() {
         XLSX.utils.book_append_sheet(wb, ws, "عملکرد پرسنل");
         XLSX.writeFile(wb, "عملکرد_پرسنل.xlsx");
     };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634 \u0639\u0645\u0644\u06A9\u0631\u062F \u067E\u0631\u0633\u0646\u0644"),
         React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 10 } }, "\u062A\u0639\u062F\u0627\u062F \u0641\u0639\u0627\u0644\u06CC\u062A\u200C\u0647\u0627\u06CC \u0647\u0631 \u0646\u06CC\u0631\u0648 \u062F\u0631 \u0628\u0627\u0632\u0647\u0654 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC \u0634\u0627\u0645\u0644 \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A\u060C \u062D\u0636\u0648\u0631\u060C \u062A\u0630\u06A9\u0631\u060C \u06AF\u0632\u0627\u0631\u0634\u060C \u067E\u06CC\u0627\u0645\u06A9\u200C\u0647\u0627\u06CC \u0627\u0631\u0633\u0627\u0644\u06CC \u0648 \u0639\u0645\u0644\u06A9\u0631\u062F \u067E\u0631\u062F\u0627\u062E\u062A \u0642\u0628\u0636. \u062E\u0627\u0644\u06CC \u06AF\u0630\u0627\u0634\u062A\u0646 \u062A\u0627\u0631\u06CC\u062E = \u06A9\u0644 \u062F\u0648\u0631\u0647."),
         React.createElement("div", { className: "filters", style: { flexWrap: "wrap", gap: 8 } },
@@ -5150,7 +5150,7 @@ function Reporting() {
       <tbody>${shownRows.map(r => `<tr>${r.map(c => `<td style="border:1px solid #ccc;padding:8px;text-align:center">${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
         window.print();
     };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634\u200C\u06AF\u06CC\u0631\u06CC \u067E\u06CC\u0634\u0631\u0641\u062A\u0647"),
         React.createElement("div", { className: "filters no-print" },
             React.createElement("select", { value: type, onChange: e => setType(e.target.value) }, Object.entries(TYPES).map(([k, v]) => React.createElement("option", { key: k, value: k }, v))),
@@ -5173,7 +5173,7 @@ function Reporting() {
 // مدیریت فیلدهای سفارشی پرسنل (تعریف فیلد دلخواه برای اطلاعات کارکنان)
 // تنظیم آیتم‌های قابل نمایش اپ برای هر سمت (نقش)
 // نمای مستقل آیتم‌های اپ هر سمت (در سایدبار)
-function ReportsCenter() {
+function ReportsCenter({ canNavigate = () => true } = {}) {
     const CATS = [
         { t: "عملیات میدانی", items: [
                 ["missiondashboard", "🧭", "داشبورد عملیات میدانی", "تحقق مأموریت روزانهٔ همهٔ نیروهای میدانی"],
@@ -5200,16 +5200,22 @@ function ReportsCenter() {
                 ["smslog", "📜", "تاریخچهٔ پیامک", "سوابق کامل پیامک‌های ارسالی سامانه"],
             ] },
     ];
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel reports-center-page admin-workspace-page" },
         React.createElement("h3", null, "\uD83D\uDDC2 \u0645\u0631\u06A9\u0632 \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627"),
         React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 18 } }, "\u0647\u0645\u0647\u0654 \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627\u06CC \u0633\u0627\u0645\u0627\u0646\u0647 \u062F\u0631 \u06CC\u06A9 \u0646\u06AF\u0627\u0647\u060C \u062F\u0633\u062A\u0647\u200C\u0628\u0646\u062F\u06CC\u200C\u0634\u062F\u0647. \u0631\u0648\u06CC \u0647\u0631\u06A9\u062F\u0627\u0645 \u0628\u0632\u0646\u06CC\u062F \u062A\u0627 \u0645\u0633\u062A\u0642\u06CC\u0645 \u0628\u0627\u0632 \u0634\u0648\u062F."),
-        CATS.map(cat => (React.createElement("div", { key: cat.t, style: { marginBottom: 22 } },
-            React.createElement("h4", { style: { fontSize: 14, marginBottom: 10, color: "var(--brand)" } }, cat.t),
-            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 10 } }, cat.items.map(([key, ic, title, desc]) => (React.createElement("button", { key: key, onClick: () => window.__navigateTo && window.__navigateTo(key), style: { textAlign: "right", cursor: "pointer", border: "1px solid var(--line)", borderRadius: 12, padding: 14, background: "#fff", display: "flex", gap: 10, alignItems: "flex-start" } },
-                React.createElement("span", { style: { fontSize: 22 } }, ic),
-                React.createElement("span", { style: { display: "block" } },
-                    React.createElement("span", { style: { display: "block", fontWeight: 800, fontSize: 13, color: "var(--ink)" } }, title),
-                    React.createElement("span", { style: { display: "block", fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.7 } }, desc)))))))))));
+        CATS.map(cat => {
+            const items = cat.items.filter(([key]) => canNavigate(key));
+            if (!items.length)
+                return null;
+            return (React.createElement("section", { key: cat.t, className: "report-category" },
+                React.createElement("h4", { style: { fontSize: 14, marginBottom: 10, color: "var(--brand)" } }, cat.t),
+                React.createElement("div", { className: "report-card-grid" }, items.map(([key, ic, title, desc]) => (React.createElement("button", { key: key, className: "report-link-card", onClick: () => window.__navigateTo && window.__navigateTo(key) },
+                    React.createElement("span", { className: "report-link-icon", "aria-hidden": "true" }, ic),
+                    React.createElement("span", { className: "report-link-copy" },
+                        React.createElement("span", { style: { display: "block", fontWeight: 800, fontSize: 13, color: "var(--ink)" } }, title),
+                        React.createElement("span", { style: { display: "block", fontSize: 11, color: "var(--muted)", marginTop: 4, lineHeight: 1.7 } }, desc)),
+                    React.createElement("span", { className: "report-link-arrow", "aria-hidden": "true" }, "\u2039")))))));
+        })));
 }
 function ActiveSessionsView() {
     const [data, setData] = useState(null);
@@ -5224,7 +5230,7 @@ function ActiveSessionsView() {
         load();
     };
     const items = ((data === null || data === void 0 ? void 0 : data.items) || []).filter(r => !q || r.user_name.includes(q) || (r.device_model || '').includes(q));
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\uD83D\uDD10 \u062C\u0644\u0633\u0627\u062A \u0641\u0639\u0627\u0644 \u06A9\u0627\u0631\u0628\u0631\u0627\u0646"),
         React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 12 } }, "\u0647\u0631 \u06A9\u0627\u0631\u0628\u0631 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0647\u0645\u200C\u0632\u0645\u0627\u0646 \u06CC\u06A9 \u0646\u0634\u0633\u062A \u0627\u0646\u062F\u0631\u0648\u06CC\u062F \u0648 \u06CC\u06A9 \u0646\u0634\u0633\u062A \u0648\u0628 \u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F. \u0627\u06AF\u0631 \u0645\u0634\u06A9\u0648\u06A9 \u0628\u0647 \u062F\u0633\u062A\u0631\u0633\u06CC \u063A\u06CC\u0631\u0645\u062C\u0627\u0632 \u0647\u0633\u062A\u06CC\u062F\u060C \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0647\u0631 \u0646\u0634\u0633\u062A \u0631\u0627 \u0627\u0632 \u0631\u0627\u0647 \u062F\u0648\u0631 \u0642\u0637\u0639 \u06A9\u0646\u06CC\u062F \u2014 \u06A9\u0627\u0631\u0628\u0631 \u0628\u0644\u0627\u0641\u0627\u0635\u0644\u0647 \u0628\u0627\u06CC\u062F \u062F\u0648\u0628\u0627\u0631\u0647 \u0648\u0627\u0631\u062F \u0634\u0648\u062F."),
         React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 12 } },
@@ -5272,7 +5278,7 @@ function CronStatusView() {
         never_run: { ic: "❌", t: "هرگز اجرا نشده — در کنترل‌پنل هاست اضافه نشده است", color: "var(--danger)" },
         error: { ic: "🛑", t: "آخرین اجرا با خطا مواجه شده", color: "var(--danger)" },
     };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\u23F1 \u067E\u0627\u06CC\u0634 \u0633\u0644\u0627\u0645\u062A \u06A9\u0631\u0648\u0646\u200C\u0647\u0627\u06CC \u0633\u0627\u0645\u0627\u0646\u0647"),
         React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 6 } }, "\u0647\u0631 \u0631\u062F\u06CC\u0641 \u06CC\u06A9\u06CC \u0627\u0632 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627\u06CC Cron \u0645\u0648\u062C\u0648\u062F \u062F\u0631 \u067E\u0631\u0648\u0698\u0647 \u0627\u0633\u062A. \u0628\u0631\u0627\u06CC \u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0631\u062F\u0646 \u0647\u0631\u06A9\u062F\u0627\u0645 \u062F\u0631 cPanel \u2192 Cron Jobs\u060C \u062F\u0633\u062A\u0648\u0631 \u0631\u0627 \u0628\u0627 \u0645\u0633\u06CC\u0631 \u0648\u0627\u0642\u0639\u06CC \u0641\u0627\u06CC\u0644 \u0631\u0648\u06CC \u0647\u0627\u0633\u062A \u062E\u0648\u062F\u062A\u0627\u0646 \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u06A9\u0646\u06CC\u062F (\u0627\u06CC\u0646 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627 \u06A9\u0646\u0627\u0631 index.php \u0647\u0633\u062A\u0646\u062F):"),
         React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginBottom: 14, fontFamily: "monospace", background: "var(--bg2,#f4f6f9)", padding: 8, borderRadius: 8 } },
@@ -5313,7 +5319,7 @@ function CronStatusView() {
                     " \u0627\u062C\u0631\u0627 \u06A9\u0646\u06CC\u062F \u2014 \u0647\u0631\u06A9\u062F\u0627\u0645 \u0631\u0627 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F\u060C \u0648\u0636\u0639\u06CC\u062A\u0634 \u062F\u0631 \u0647\u0645\u06CC\u0646 \u062C\u062F\u0648\u0644 \u062C\u062F\u0627\u06AF\u0627\u0646\u0647 \u062B\u0628\u062A \u0645\u06CC\u200C\u0634\u0648\u062F.")))));
 }
 function RoleAppItemsView() {
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\uD83D\uDCF1 \u0622\u06CC\u062A\u0645\u200C\u0647\u0627\u06CC \u0642\u0627\u0628\u0644 \u0646\u0645\u0627\u06CC\u0634 \u0627\u067E \u0628\u0631 \u0627\u0633\u0627\u0633 \u0633\u0645\u062A"),
         React.createElement(RoleAppItems, null)));
 }
@@ -5514,7 +5520,7 @@ function RadioCenter() {
         setErr(e.message);
     } };
     useEffect(() => { loadChannels(); const t = setInterval(loadChannels, 15000); return () => clearInterval(t); }, []);
-    return React.createElement("div", null,
+    return React.createElement("div", { className: "admin-workspace-page" },
         React.createElement("div", { className: "tabbar" },
             React.createElement("button", { className: 'tabbtn' + (tab === 'live' ? ' on' : ''), onClick: () => setTab('live') }, "\u067E\u062E\u0634 \u0632\u0646\u062F\u0647"),
             React.createElement("button", { className: 'tabbtn' + (tab === 'archive' ? ' on' : ''), onClick: () => setTab('archive') }, "\u0622\u0631\u0634\u06CC\u0648 \u067E\u06CC\u0627\u0645\u200C\u0647\u0627")),
@@ -5752,7 +5758,7 @@ function CustomFieldsManager() {
     if (fields === null)
         return React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026");
     const needOptions = form && (form.ftype === "select" || form.ftype === "multiselect");
-    return (React.createElement("div", null,
+    return (React.createElement("div", { className: "admin-workspace-page" },
         React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginBottom: 10 } }, "\u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u062F\u0644\u062E\u0648\u0627\u0647 \u0628\u0631\u0627\u06CC \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u067E\u0631\u0633\u0646\u0644 \u062A\u0639\u0631\u06CC\u0641 \u06A9\u0646\u06CC\u062F (\u0645\u062B\u0644 \u0634\u0645\u0627\u0631\u0647 \u0634\u0646\u0627\u0633\u0646\u0627\u0645\u0647\u060C \u0634\u0628\u0627\u060C \u0633\u0627\u06CC\u0632 \u0644\u0628\u0627\u0633\u060C \u0642\u062F\u060C \u0634\u0645\u0627\u0631\u0647 \u0628\u06CC\u0645\u0647 \u0648 ...). \u0641\u06CC\u0644\u062F\u0647\u0627\u06CC \u00AB\u0642\u0627\u0628\u0644 \u062A\u06A9\u0645\u06CC\u0644 \u062A\u0648\u0633\u0637 \u06A9\u0627\u0631\u0628\u0631\u00BB \u062F\u0631 \u0627\u067E \u0628\u0647 \u0646\u06CC\u0631\u0648 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F \u062A\u0627 \u06A9\u0627\u0645\u0644 \u06A9\u0646\u062F."),
         !form && React.createElement("button", { className: "btn p", onClick: () => setForm({ ...blank }) }, "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0641\u06CC\u0644\u062F \u062C\u062F\u06CC\u062F"),
         form && React.createElement("div", { className: "card-p", style: { marginTop: 10 } },
@@ -5865,8 +5871,8 @@ function InventoryAdmin() {
     useEffect(() => { if (tab === "report")
         loadLedger(); }, [tab]);
     const exportUrl = () => { const qs = new URLSearchParams(Object.fromEntries(Object.entries(filt).filter(([, v]) => v))).toString(); return db.invExportUrl(qs ? ("?" + qs) : ""); };
-    return (React.createElement("div", null,
-        React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 14 } }, [["assign", "واگذاری اقلام"], ["types", "انواع اقلام"], ["report", "گزارش و خروجی اکسل"]].map(([k, l]) => React.createElement("button", { key: k, className: "btn " + (tab === k ? "p" : "g"), onClick: () => setTab(k) }, l))),
+    return (React.createElement("div", { className: "admin-workspace-page admin-form-page" },
+        React.createElement("div", { className: "row page-switcher", style: { gap: 8, marginBottom: 14 } }, [["assign", "واگذاری اقلام"], ["types", "انواع اقلام"], ["report", "گزارش و خروجی اکسل"]].map(([k, l]) => React.createElement("button", { key: k, className: "btn " + (tab === k ? "p" : "g"), onClick: () => setTab(k) }, l))),
         tab === "assign" && React.createElement("div", { className: "panel" },
             React.createElement("h3", null, "\u0648\u0627\u06AF\u0630\u0627\u0631\u06CC \u0627\u0642\u0644\u0627\u0645 \u0628\u0647 \u06CC\u06A9 \u0634\u062E\u0635"),
             React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 10 } }, "\u067E\u0633 \u0627\u0632 \u0648\u0627\u06AF\u0630\u0627\u0631\u06CC\u060C \u0642\u0644\u0645 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u00AB\u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u062A\u0623\u06CC\u06CC\u062F\u00BB \u0628\u0631\u0627\u06CC \u0647\u0645\u0627\u0646 \u0634\u062E\u0635 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F \u0648 \u062A\u0627 \u0632\u0645\u0627\u0646\u06CC\u200C\u06A9\u0647 \u0627\u0648 \u062F\u0631 \u0628\u0631\u0646\u0627\u0645\u0647 \u062F\u0631\u06CC\u0627\u0641\u062A \u0631\u0627 \u062A\u0623\u06CC\u06CC\u062F \u0646\u06A9\u0646\u062F\u060C \u0628\u0647 \u0645\u0648\u062C\u0648\u062F\u06CC\u200C\u0627\u0634 \u0627\u0636\u0627\u0641\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F. \u0622\u0646 \u0634\u062E\u0635 \u0646\u06CC\u0632 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0628\u0639\u062F\u0627\u064B \u0628\u062E\u0634\u06CC \u0627\u0632 \u0645\u0648\u062C\u0648\u062F\u06CC\u0650 \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647\u0654 \u062E\u0648\u062F \u0631\u0627 \u0628\u0647 \u062F\u06CC\u06AF\u0631\u0627\u0646 \u062A\u062D\u0648\u06CC\u0644 \u062F\u0647\u062F."),
@@ -6835,8 +6841,11 @@ function Settings() {
     const Toggle = (k, l) => React.createElement("label", { className: "row", style: { justifyContent: "space-between", padding: "8px 0", cursor: "pointer" } },
         React.createElement("span", { style: { fontSize: 13 } }, l),
         React.createElement("input", { type: "checkbox", checked: !!v[k], onChange: e => set(k, e.target.checked) }));
-    return (React.createElement("div", null,
-        React.createElement("div", { className: "tabbar" }, TABS.map(([k, ic, l]) => React.createElement("button", { key: k, className: "tabbtn" + (tab === k ? " on" : ""), onClick: () => setTab(k) },
+    return (React.createElement("div", { className: "admin-workspace-page admin-settings-page" },
+        React.createElement("label", { className: "settings-mobile-picker" },
+            "\u0628\u062E\u0634 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A",
+            React.createElement("select", { className: "input", value: tab, onChange: e => setTab(e.target.value) }, TABS.map(([k, , label]) => React.createElement("option", { key: k, value: k }, label)))),
+        React.createElement("div", { className: "tabbar" }, TABS.map(([k, ic, l]) => React.createElement("button", { key: k, "aria-pressed": tab === k, className: "tabbtn" + (tab === k ? " on" : ""), onClick: () => setTab(k) },
             React.createElement("span", { "aria-hidden": "true", style: { fontSize: 16, lineHeight: 1, marginLeft: 6 } }, ic),
             React.createElement("span", null, l)))),
         React.createElement("div", { className: "grid2 settings-tabs tab-" + tab },
@@ -7443,9 +7452,9 @@ function Logs() {
         XLSX.utils.book_append_sheet(wb, ws, "لاگ");
         XLSX.writeFile(wb, "لاگ_فعالیت‌ها.xlsx");
     };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page" },
         React.createElement("h3", null, "\u0644\u0627\u06AF \u0641\u0639\u0627\u0644\u06CC\u062A\u200C\u0647\u0627 \u0648 \u0631\u0648\u06CC\u062F\u0627\u062F\u0647\u0627\u06CC \u0627\u0645\u0646\u06CC\u062A\u06CC"),
-        React.createElement("div", { className: "row no-print", style: { gap: 8, flexWrap: "wrap", marginBottom: 12 } },
+        React.createElement("div", { className: "row no-print page-toolbar", style: { gap: 8, flexWrap: "wrap", marginBottom: 12 } },
             React.createElement("select", { className: "input", style: { maxWidth: 180 }, value: f.event, onChange: e => setF({ ...f, event: e.target.value }) },
                 React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0631\u0648\u06CC\u062F\u0627\u062F\u0647\u0627"),
                 events.map(e => React.createElement("option", { key: e, value: e }, ev[e] || e))),
@@ -7629,7 +7638,7 @@ function ExcelImport() {
             setProgress(null);
         }
     };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u062F\u06CC\u062A\u0627\u0628\u06CC\u0633 \u0627\u0632 \u0641\u0627\u06CC\u0644 \u0627\u06A9\u0633\u0644"),
         busy && React.createElement("div", { style: { position: "fixed", inset: 0, background: "rgba(15,27,45,.55)", display: "grid", placeItems: "center", zIndex: 9999 } },
             React.createElement("div", { style: { background: "#fff", borderRadius: 16, padding: "28px 34px", textAlign: "center", minWidth: 300 } },
@@ -7727,7 +7736,7 @@ function Officials() {
         XLSX.utils.book_append_sheet(wb, ws, "حضور مسئولین");
         XLSX.writeFile(wb, "حضور_مسئولین_در_خط.xlsx");
     };
-    return (React.createElement("div", { className: "grid2" },
+    return (React.createElement("div", { className: "grid2 admin-workspace-page admin-list-page" },
         React.createElement("div", { className: "panel" },
             React.createElement("h3", null, "\u062D\u0636\u0648\u0631 \u0645\u0633\u0626\u0648\u0644\u06CC\u0646 \u062F\u0631 \u062E\u0637"),
             React.createElement("div", { className: "filters", style: { flexWrap: "wrap", gap: 8, marginBottom: 10 } },
@@ -7842,7 +7851,7 @@ function Messages() {
     };
     const showReceipts = async (m) => { setReceipts({ m, rows: null }); const rows = await db.receipts(m.id); setReceipts({ m, rows }); };
     const toggleU = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page admin-form-page" },
         React.createElement("h3", null,
             "\u067E\u06CC\u0627\u0645\u200C\u0631\u0633\u0627\u0646\u06CC \u0628\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627",
             React.createElement("span", { className: "row", style: { gap: 8 } },
@@ -8297,11 +8306,11 @@ function Lines() {
     const term = q.trim();
     const filtered = list.filter(l => !term || (l.code && String(l.code).includes(term)) || (l.origin && l.origin.includes(term)) || (l.destination && l.destination.includes(term)));
     const pg = usePager(filtered, 10);
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page" },
         React.createElement("h3", null,
             "\u062E\u0637\u0648\u0637 \u062A\u0627\u06A9\u0633\u06CC\u0631\u0627\u0646\u06CC ",
             tab === 'list' && React.createElement("button", { className: "btn p", onClick: () => setAdding(a => !a) }, "+ \u062A\u0639\u0631\u06CC\u0641 \u062E\u0637 \u062C\u062F\u06CC\u062F")),
-        React.createElement("div", { className: "row", style: { gap: 6, flexWrap: 'wrap', marginBottom: 14, borderBottom: '1px solid var(--line)', paddingBottom: 10 } }, TABS.map(([key, label]) => React.createElement("button", { key: key, className: "btn " + (tab === key ? 'p' : 'g'), onClick: () => setTab(key) }, label))),
+        React.createElement("div", { className: "row page-switcher", style: { gap: 6, flexWrap: 'wrap', marginBottom: 14, borderBottom: '1px solid var(--line)', paddingBottom: 10 } }, TABS.map(([key, label]) => React.createElement("button", { key: key, className: "btn " + (tab === key ? 'p' : 'g'), onClick: () => setTab(key) }, label))),
         tab === 'list' && React.createElement("div", null,
             adding && React.createElement("div", { className: "card-p", style: { display: "block", marginBottom: 12 } },
                 React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
@@ -9188,10 +9197,10 @@ DELETE /api/admin/salary-slips/{id}
         catch (e) { } }, 400);
     };
     const ST = { sent: "ارسال‌شده", seen: "دیده‌شده", answered: "پاسخ‌داده‌شده", forwarded: "ارجاع‌شده" };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page" },
         React.createElement("h3", null, "\u06AF\u0631\u062F\u0634 \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627"),
         React.createElement("p", { className: "muted", style: { fontSize: 12, marginBottom: 10 } }, "\u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627\u06CC \u0627\u0631\u0633\u0627\u0644\u06CC\u060C \u062F\u0631\u06CC\u0627\u0641\u062A\u06CC \u0648 \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627\u06CC\u06CC \u06A9\u0647 \u0642\u0628\u0644\u0627\u064B \u0627\u0631\u062C\u0627\u0639 \u062F\u0627\u062F\u0647\u200C\u0627\u06CC\u062F \u0628\u0631\u0627\u06CC \u067E\u06CC\u06AF\u06CC\u0631\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u062E\u0634 \u0628\u0627\u0642\u06CC \u0645\u06CC\u200C\u0645\u0627\u0646\u0646\u062F."),
-        React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", marginBottom: 12 } },
+        React.createElement("div", { className: "row page-toolbar", style: { gap: 8, flexWrap: "wrap", marginBottom: 12 } },
             React.createElement("input", { className: "input", style: { maxWidth: 160 }, placeholder: "\u0641\u0631\u0633\u062A\u0646\u062F\u0647", value: f.sender, onChange: e => setF({ ...f, sender: e.target.value }) }),
             React.createElement("input", { className: "input", style: { maxWidth: 160 }, placeholder: "\u0645\u0648\u0636\u0648\u0639", value: f.subject, onChange: e => setF({ ...f, subject: e.target.value }) }),
             React.createElement(JDate, { value: f.from, onChange: v => setF({ ...f, from: v }), placeholder: "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E" }),
@@ -9442,7 +9451,7 @@ function WorkPolicy() {
             msg && React.createElement("p", { style: { marginTop: 10, color: msg.startsWith("✓") ? "var(--ok)" : "var(--danger)", fontWeight: 700 } }, msg)));
     // ---- ویرایش سیاست کاری ----
     const hasMode = ["annual", "sick", "unpaid", "mission"].includes(reqTab);
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center", marginBottom: 14 } },
             React.createElement("h3", null,
                 editing.id ? "ویرایش" : "ثبت",
@@ -9711,7 +9720,7 @@ function OfflineSyncConflicts() {
 function ShiftManager() {
     const [tab, setTab] = useState("shifts");
     const TABS = [["shifts", "تعریف شیفت‌ها"], ["assign", "تخصیص به نیروها"], ["autoRules", "قوانین شیفت خودکار"], ["userRules", "قانون اختصاصی افراد"], ["shiftOps", "عملیات و عیب‌یابی شیفت"], ["rejectLogs", "لاگ رد حضور"], ["offlineConflicts", "تعارض آفلاین"], ["holidays", "تعطیلات رسمی"], ["blocked", "روزهای ممنوعهٔ مرخصی"], ["leavebal", "ماندهٔ مرخصی ابتدای دوره"]];
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\uD83D\uDDD3 \u0634\u06CC\u0641\u062A \u06A9\u0627\u0631\u06CC \u0648 \u06A9\u0627\u0631\u06A9\u0631\u062F"),
         React.createElement("div", { className: "tabbar", style: { flexWrap: "wrap" } }, TABS.map(([k, t]) => React.createElement("button", { key: k, className: "tabbtn" + (tab === k ? " on" : ""), onClick: () => setTab(k) }, t))),
         tab === "shifts" && React.createElement(ShiftList, null),
@@ -11025,7 +11034,7 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
     catch (e) {
         alert(e.message || "خطا در دریافت خروجی گزارش");
     } };
-    return (React.createElement("div", { className: "panel attendance-report-page", translate: "no", "data-no-translate": "true" },
+    return (React.createElement("div", { className: "panel attendance-report-page admin-workspace-page", translate: "no", "data-no-translate": "true" },
         React.createElement("h3", null, "\uD83D\uDD52 \u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F \u067E\u0631\u0633\u0646\u0644"),
         React.createElement("div", { className: "card-p", style: { marginBottom: 14 } },
             React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap", alignItems: "flex-end" } },
@@ -11892,7 +11901,7 @@ function ShiftReport() {
     catch (e) {
         alert(e.message || "خطا");
     } };
-    return (React.createElement("div", null,
+    return (React.createElement("div", { className: "admin-workspace-page" },
         React.createElement("div", { className: "tabbar", style: { marginBottom: 12 } },
             React.createElement("button", { className: "tabbtn" + (reportTab === "monthly" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("monthly") }, "\u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647\u0627\u0646\u0647"),
             React.createElement("button", { className: "tabbtn" + (reportTab === "organization" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("organization") }, "\u062A\u0648\u0644\u06CC\u062F \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u0628\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
@@ -12240,7 +12249,7 @@ function OutageReport() {
     catch (e) {
         alert(e.message);
     } };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\u26D4 \u06AF\u0632\u0627\u0631\u0634 \u0642\u0637\u0639\u06CC \u0633\u06CC\u0633\u062A\u0645 \u0646\u0648\u0628\u062A\u200C\u062F\u0647\u06CC"),
         React.createElement("div", { className: "filters", style: { flexWrap: "wrap", gap: 8 } },
             React.createElement("span", { className: "label" }, "\u0627\u0632"),
@@ -12387,7 +12396,7 @@ function AdminRequests() {
     catch (e) {
         alert(e.message);
     } };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page" },
         React.createElement("h3", null, "\uD83D\uDCCB \u06AF\u0632\u0627\u0631\u0634 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627"),
         React.createElement("div", { className: "filters", style: { flexWrap: "wrap", gap: 8 } },
             React.createElement("select", { className: "input", style: { maxWidth: 200 }, value: fUser, onChange: e => setFUser(e.target.value) },
@@ -12485,7 +12494,7 @@ function StaffAttendance() {
     }, []);
     const fmtDur = (m) => { m = +m || 0; const h = Math.floor(m / 60), mm = m % 60; return (h ? fa(h) + " ساعت " : "") + fa(mm) + " دقیقه"; };
     const exportExcel = () => { window.open(API_BASE + "/admin/staff-attendance/export?" + qs() + "&token=" + encodeURIComponent(localStorage.token || ""), "_blank"); };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\uD83D\uDD52 \u06AF\u0632\u0627\u0631\u0634 \u062D\u0636\u0648\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627"),
         React.createElement("div", { className: "filters", style: { flexWrap: "wrap", gap: 8 } },
             React.createElement("span", { className: "label" }, "\u0627\u0632"),
@@ -12580,7 +12589,7 @@ function SmsLog() {
         const cls = (c == 1) ? "b-ok" : ((c == 2 || c == 16) ? "b-no" : "b-pending");
         return React.createElement("span", { className: "badge " + cls }, DELV[String(c)] || ("کد " + c));
     };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page" },
         React.createElement("h3", { style: { display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 } },
             React.createElement("span", null, "\uD83D\uDCDC \u062A\u0627\u0631\u06CC\u062E\u0686\u0647\u0654 \u067E\u06CC\u0627\u0645\u06A9\u200C\u0647\u0627\u06CC \u0627\u0631\u0633\u0627\u0644\u06CC")),
         React.createElement("div", { className: "filters", style: { flexWrap: "wrap", gap: 8 } },
@@ -12799,7 +12808,7 @@ function SmsCustomList() {
 function SmsSend() {
     const TABS = [["drivers", "به رانندگان"], ["custom", "لیست دلخواه (تایپی/اکسل)"], ["bill_bulk", "آبونمان (گروهی)"], ["taxi_lic", "پروانهٔ تاکسیرانی"], ["op_lic", "پروانهٔ بهره‌برداری"], ["inspection", "معاینهٔ فنی"], ["insurance", "بیمهٔ شخص ثالث"]];
     const [tab, setTab] = useState("drivers");
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page admin-form-page" },
         React.createElement("h3", null, "\u2709 \u0627\u0631\u0633\u0627\u0644 \u067E\u06CC\u0627\u0645\u06A9"),
         React.createElement("div", { className: "tabbar", style: { flexWrap: "wrap" } }, TABS.map(([k, t]) => React.createElement("button", { key: k, className: "tabbtn" + (tab === k ? " on" : ""), onClick: () => setTab(k) }, t))),
         tab === "drivers" ? React.createElement(SmsDrivers, null) : tab === "custom" ? React.createElement(SmsCustomList, null) : tab === "bill_bulk" ? React.createElement(SmsBillBulk, null) : React.createElement(SmsExpiry, { type: tab, title: TABS.find(x => x[0] === tab)[1] })));
@@ -13233,7 +13242,7 @@ function PresenceChecks() {
     catch (e) {
         alert(e.message);
     } };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", { style: { display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 } },
             React.createElement("span", null, "\uD83D\uDCF8 \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062D\u0636\u0648\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627")),
         React.createElement("div", { className: "filters" },
@@ -13438,7 +13447,7 @@ function TempDriversPanel() {
         XLSX.utils.book_append_sheet(wb, ws, "رانندگان موقت");
         XLSX.writeFile(wb, "رانندگان_موقت.xlsx");
     };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\uD83D\uDE95 \u0631\u0627\u0646\u0646\u062F\u06AF\u0627\u0646 \u0645\u0648\u0642\u062A \u062E\u0637\u0648\u0637 \u0648\u06CC\u0698\u0647"),
         React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 12 } }, "\u0631\u0627\u0646\u0646\u062F\u06AF\u0627\u0646\u06CC \u06A9\u0647 \u062E\u0637 \u0627\u0635\u0644\u06CC \u0622\u0646\u200C\u0647\u0627 \u062D\u0641\u0638 \u0634\u062F\u0647 \u0648\u0644\u06CC \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u0645\u0648\u0642\u062A \u0628\u0647 \u062E\u0637\u0648\u0637 \u0648\u06CC\u0698\u0647 (\u06F3\u06F0\u06F0\u060C \u06F5\u06F0\u06F0\u060C \u06F5\u06F0\u06F1\u060C \u06F5\u06F0\u06F2\u060C \u06F5\u06F0\u06F3\u060C \u06F5\u06F0\u06F5\u060C \u06F7\u06F0\u06F0) \u0627\u0636\u0627\u0641\u0647 \u0634\u062F\u0647\u200C\u0627\u0646\u062F. \u0627\u06CC\u0646 \u0631\u0627\u0646\u0646\u062F\u06AF\u0627\u0646 \u0628\u0631\u0627\u06CC \u0646\u0627\u0638\u0631/\u0627\u067E\u0631\u0627\u062A\u0648\u0631/\u0628\u0627\u0632\u0631\u0633\u0650 \u0622\u0646 \u062E\u0637 \u0642\u0627\u0628\u0644 \u0645\u0634\u0627\u0647\u062F\u0647 \u0648 \u0628\u0631\u0631\u0633\u06CC (\u0686\u06A9\u200C\u0644\u06CC\u0633\u062A\u060C \u062A\u0630\u06A9\u0631) \u0647\u0633\u062A\u0646\u062F."),
         React.createElement("div", { className: "card-p", style: { marginBottom: 16 } },
@@ -13645,7 +13654,7 @@ function Commitments() {
     const delReason = async (id) => { if (!confirm("حذف این دلیل؟"))
         return; await SEND("DELETE", "/admin/commitment-reasons/" + id); loadReasons(); };
     const fUsers = users.filter(u => { const s = (u.first_name + " " + u.last_name + " " + (u.role_title || "")); return !uq || s.indexOf(uq) >= 0; });
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\uD83D\uDCCB \u062A\u0639\u0647\u062F\u0627\u062A \u0627\u0646\u0636\u0628\u0627\u0637\u06CC"),
         React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 14, flexWrap: "wrap" } }, [["add", "➕ ثبت تعهد"], ["list", "📑 فهرست تعهدات"], ["reasons", "⚙ مدیریت دلایل"]].map(([k, l]) => React.createElement("button", { key: k, className: "btn " + (tab === k ? "p" : "g"), onClick: () => setTab(k) }, l))),
         tab === "add" && React.createElement("div", null,
@@ -13820,7 +13829,7 @@ function UserActivity() {
         }
         setAllBusy(false);
     };
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634 \u0641\u0639\u0627\u0644\u06CC\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646"),
         React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", alignItems: "flex-end" } },
             React.createElement("div", null,
@@ -13911,7 +13920,7 @@ function PresentChart() {
     const withDrivers = all.filter(l => l.present > 0).sort((a, b) => b.present - a.present);
     const zero = all.filter(l => !l.present || l.present === 0);
     const max = withDrivers.length ? withDrivers[0].present : 1;
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null,
             "\u0646\u0645\u0648\u062F\u0627\u0631 \u0632\u0646\u062F\u0647\u0654 \u0631\u0627\u0646\u0646\u062F\u06AF\u0627\u0646 \u062D\u0627\u0636\u0631 \u062F\u0631 \u062E\u0637\u0648\u0637",
             React.createElement("span", { className: "row", style: { gap: 8 } },
@@ -13979,7 +13988,7 @@ function PresentStats() {
         (l.code && String(l.code).includes(term)) ||
         (l.origin && l.origin.includes(term)) ||
         (l.destination && l.destination.includes(term)));
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null,
             "\u0622\u0645\u0627\u0631 \u0644\u062D\u0638\u0647\u200C\u0627\u06CC \u062D\u0627\u0636\u0631\u06CC\u0646 \u062F\u0631 \u062E\u0637\u0648\u0637",
             React.createElement("span", { className: "row", style: { gap: 8 } },
@@ -14079,7 +14088,7 @@ function CovertSelfieRequestForm() {
 function CovertSelfies() {
     const [tab, setTab] = React.useState("command");
     const TABS = [["command", "ارسال دستور سلفی"], ["request", "ارسال درخواست سلفی"], ["gallery", "سلفی‌های گرفته‌شده"]];
-    return (React.createElement("div", null,
+    return (React.createElement("div", { className: "admin-workspace-page" },
         React.createElement("div", { className: "tabbar", style: { display: "flex", gap: 8, marginBottom: 14, borderBottom: "2px solid var(--line)", flexWrap: "wrap" } }, TABS.map(([k, lbl]) => React.createElement("button", { key: k, onClick: () => setTab(k), style: { background: "none", border: "none", borderBottom: tab === k ? "3px solid var(--brand)" : "3px solid transparent", padding: "8px 14px", cursor: "pointer", fontWeight: tab === k ? 800 : 500, color: tab === k ? "var(--brand)" : "var(--muted)", fontFamily: "inherit", fontSize: 14 } }, lbl))),
         tab === "command" && React.createElement(CovertCommand, null),
         tab === "request" && React.createElement("div", { className: "panel" },
@@ -14251,7 +14260,7 @@ function PlateTrainingPanel() {
         setMsg(e.message || 'خطا در تغییر وضعیت');
     } };
     const stat = (st === null || st === void 0 ? void 0 : st.samples) || {};
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("h3", null, "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0646\u0645\u0648\u0646\u0647\u200C\u0647\u0627\u06CC \u067E\u0644\u0627\u06A9\u200C\u062E\u0648\u0627\u0646"),
         React.createElement("p", { className: "muted", style: { fontSize: 13, marginBottom: 12 } }, "\u062A\u0634\u062E\u06CC\u0635 \u067E\u0644\u0627\u06A9 \u0628\u0647\u200C\u0637\u0648\u0631 \u06A9\u0627\u0645\u0644 \u0631\u0648\u06CC \u06AF\u0648\u0634\u06CC (ML Kit) \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F. \u0627\u06CC\u0646 \u0628\u062E\u0634 \u0635\u0631\u0641\u0627\u064B \u0628\u0631\u0627\u06CC \u0628\u0627\u0632\u0628\u06CC\u0646\u06CC \u0648 \u0622\u0631\u0634\u06CC\u0648 \u0646\u0645\u0648\u0646\u0647\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u062A\u0648\u0633\u0637 \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u0627\u0633\u062A."),
         React.createElement("div", { className: "grid2", style: { marginTop: 0 } },
@@ -14435,7 +14444,7 @@ function MessengerCenterPanel() {
     });
     const counts = {};
     platforms.forEach(p => { const a = subs[p.id] || []; counts[p.id] = { all: a.length, active: a.filter(x => { var _a; return Number((_a = x.is_active) !== null && _a !== void 0 ? _a : (x.status === 'active' ? 1 : 0)) === 1; }).length }; });
-    return React.createElement("div", { className: "panel messenger-center-native" },
+    return React.createElement("div", { className: "panel messenger-center-native admin-workspace-page" },
         React.createElement("div", { className: "row", style: { justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
             React.createElement("div", null,
                 React.createElement("h3", null, "\u0645\u0631\u06A9\u0632 \u0627\u0631\u0633\u0627\u0644 \u0631\u0628\u0627\u062A\u200C\u0647\u0627"),
@@ -14806,7 +14815,7 @@ function CompanyPayrollList() {
 }
 function SalarySlipsAdmin() {
     const [tab, setTab] = useState('attachments');
-    return React.createElement("div", { className: "panel" },
+    return React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("div", { role: "tablist", "aria-label": "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0641\u06CC\u0634 \u062D\u0642\u0648\u0642\u06CC", className: "row", style: { gap: 8, flexWrap: 'wrap', marginBottom: 16 } }, [['attachments', 'فیش‌های پیوستی'], ['upload', 'بارگزاری فایل حقوق از شرکت'], ['payroll', 'فیشهای حقوقی پرسنل']].map(([key, title]) => React.createElement("button", { role: "tab", "aria-selected": tab === key, className: 'btn ' + (tab === key ? 'p' : ''), key: key, onClick: () => setTab(key) }, title))),
         React.createElement("div", { role: "tabpanel", key: tab }, tab === 'upload' ? React.createElement(CompanyPayrollUpload, null) : tab === 'payroll' ? React.createElement(CompanyPayrollList, null) : React.createElement(SalarySlipAttachmentsAdmin, null)));
 }
@@ -14874,8 +14883,8 @@ function SalarySlipAttachmentsAdmin() {
     catch (e) {
         setMsg(e.message || 'حذف ناموفق بود');
     } };
-    return React.createElement("div", { className: "panel salary-admin" },
-        React.createElement("div", { className: "row", style: { justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
+    return React.createElement("div", { className: "panel salary-admin admin-workspace-page admin-form-page" },
+        React.createElement("div", { className: "row page-toolbar", style: { justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
             React.createElement("div", null,
                 React.createElement("h3", null, "\u0645\u062F\u06CC\u0631\u06CC\u062A \u0648 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u0641\u06CC\u0634 \u062D\u0642\u0648\u0642\u06CC"),
                 React.createElement("p", { className: "muted", style: { fontSize: 13, marginTop: 5 } }, "\u0641\u06CC\u0634 \u062D\u0642\u0648\u0642\u06CC \u0631\u0627 \u0628\u0647\u200C\u0635\u0648\u0631\u062A PDF \u06CC\u0627 \u062A\u0635\u0648\u06CC\u0631 JPG/PNG \u0628\u0631\u0627\u06CC \u0647\u0631 \u06A9\u0627\u0631\u0628\u0631\u060C \u0628\u0631 \u0627\u0633\u0627\u0633 \u0633\u0627\u0644 \u0648 \u0645\u0627\u0647 \u0634\u0645\u0633\u06CC \u062B\u0628\u062A \u0648 \u0633\u0648\u0627\u0628\u0642 \u0642\u0628\u0644\u06CC \u0631\u0627 \u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0646\u06CC\u062F.")),
@@ -14979,7 +14988,7 @@ function SystemHealthDashboard() {
         return '';
     } };
     const statCards = d ? [['وضعیت کلی', d.status === 'ok' ? 'سالم' : (d.status === 'warning' ? 'هشدار' : 'خطا')], ['نسخه سایت', d.site_version], ['نسخه اپ', d.app_version], ['کاربران فعال', (_a = d.stats) === null || _a === void 0 ? void 0 : _a.users_active], ['رانندگان', (_b = d.stats) === null || _b === void 0 ? void 0 : _b.drivers_total], ['خطوط', (_c = d.stats) === null || _c === void 0 ? void 0 : _c.lines_total], ['جلسات باز', (_e = d.stats) === null || _e === void 0 ? void 0 : _e.open_staff_sessions], ['خطای اپ ۲۴ساعت', (_f = d.stats) === null || _f === void 0 ? void 0 : _f.mobile_errors_24h], ['رد حضور ۲۴ساعت', (_g = d.stats) === null || _g === void 0 ? void 0 : _g.attendance_rejects_24h], ['صف آفلاین ناموفق', (_h = d.stats) === null || _h === void 0 ? void 0 : _h.offline_failed], ['Dead-letter', (_j = d.stats) === null || _j === void 0 ? void 0 : _j.delivery_dead_letters], ['نمونه پلاک در انتظار', (_k = d.stats) === null || _k === void 0 ? void 0 : _k.plate_pending]] : [];
-    return (React.createElement("div", { className: "panel" },
+    return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("div", { className: "row", style: { justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
             React.createElement("div", null,
                 React.createElement("h3", null, "\u062F\u0627\u0634\u0628\u0648\u0631\u062F \u0633\u0644\u0627\u0645\u062A \u0633\u0627\u0645\u0627\u0646\u0647"),
@@ -15202,7 +15211,7 @@ function CompanyRequestsAdmin() {
         return ''; const q = '/api/media?path=' + encodeURIComponent(clean); const token = localStorage.token || ''; return token ? q + '&token=' + encodeURIComponent(token) : q; };
     const fileUrl = f => secureCompanyMediaUrl(f.processed_path || f.file_path || '');
     const thumbUrl = f => secureCompanyMediaUrl(f.thumbnail_path || f.processed_path || f.file_path || '');
-    return React.createElement("div", null,
+    return React.createElement("div", { className: "admin-workspace-page" },
         React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 14, flexWrap: 'wrap' } },
             React.createElement("button", { className: 'btn ' + (tab === 'requests' ? 'p' : ''), onClick: () => setTab('requests') }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627"),
             React.createElement("button", { className: 'btn ' + (tab === 'settings' ? 'p' : ''), onClick: () => setTab('settings') }, "\u062A\u0639\u0631\u0641\u0647 \u0648 \u067E\u0631\u062F\u0627\u062E\u062A")),
@@ -15547,7 +15556,7 @@ function DriverServiceReport() {
     catch (e) {
         setMsg(e.message);
     } };
-    return React.createElement("div", { className: "panel" },
+    return React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("div", { className: "row", style: { gap: 8, flexWrap: 'wrap', alignItems: 'end' } },
             React.createElement("div", null,
                 React.createElement("label", { className: "label" }, "\u06A9\u062F \u0645\u0644\u06CC \u062A\u0627\u06A9\u0633\u06CC\u0631\u0627\u0646"),
@@ -15712,7 +15721,7 @@ function PersonnelVehicleAssets() {
     catch (e) {
         alert(e.message);
     } };
-    return React.createElement("div", { className: "panel" },
+    return React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("div", { className: "row", style: { justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' } },
             React.createElement("h3", null, "\u0645\u0627\u0634\u06CC\u0646\u200C\u0622\u0644\u0627\u062A \u0648 \u0648\u0633\u0627\u06CC\u0644 \u0645\u0623\u0645\u0648\u0631\u06CC\u062A\u06CC"),
             tab === 'files' && React.createElement("button", { className: "btn g", onClick: () => downloadProtectedFile('/personnel-vehicle-assets.php?op=export', 'personnel_vehicle_assets.xlsx') }, "\u062E\u0631\u0648\u062C\u06CC Excel + \u062A\u0635\u0627\u0648\u06CC\u0631")),
@@ -15808,7 +15817,7 @@ finally {
     setSaving(false);
 } }; if (loading && !detail)
     return React.createElement("div", { className: "panel" },
-        React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A\u2026")); return React.createElement("div", { className: "panel" },
+        React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A\u2026")); return React.createElement("div", { className: "panel admin-workspace-page" },
     React.createElement("h3", null, "\u0686\u06A9\u200C\u0644\u06CC\u0633\u062A \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC \u0648 \u0645\u0648\u062A\u0648\u0631\u06CC"),
     !detail ? React.createElement(React.Fragment, null,
         React.createElement("p", { className: "muted" }, "\u067E\u0644\u0627\u06A9 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F \u062A\u0627 \u0645\u0634\u062E\u0635\u0627\u062A \u06A9\u0627\u0645\u0644\u060C \u062A\u0635\u0627\u0648\u06CC\u0631 \u0645\u062F\u0627\u0631\u06A9 \u0648 \u0633\u0648\u0627\u0628\u0642 \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0634\u0648\u062F."),
@@ -16532,7 +16541,7 @@ function SchoolServiceLauncher() {
         }
         catch (_) { } };
     }, []);
-    return React.createElement("div", { ref: hostRef, className: "ssv-page-host", style: { minHeight: "calc(100vh - 100px)" } }, error ? React.createElement("div", { className: "ssv-msg" }, error) : null);
+    return React.createElement("div", { ref: hostRef, className: "ssv-page-host admin-workspace-page", style: { minHeight: "calc(100vh - 100px)" } }, error ? React.createElement("div", { className: "ssv-msg" }, error) : null);
 }
 function ComplaintsLauncher() {
     const hostRef = useRef(null);
@@ -16580,7 +16589,7 @@ function ComplaintsLauncher() {
         }
         catch (_) { } };
     }, []);
-    return React.createElement("div", { ref: hostRef, className: "khc-page-host", style: { minHeight: "calc(100vh - 100px)" } }, error ? React.createElement("div", { className: "ssv-msg" }, error) : null);
+    return React.createElement("div", { ref: hostRef, className: "khc-page-host admin-workspace-page", style: { minHeight: "calc(100vh - 100px)" } }, error ? React.createElement("div", { className: "ssv-msg" }, error) : null);
 }
 function PersonnelLeaveReport() {
     var _a;
@@ -16658,7 +16667,7 @@ function PersonnelLeaveReport() {
     const td = { padding: "8px", borderBottom: "1px solid var(--line)", fontSize: 12, whiteSpace: "nowrap" };
     const headers = ["نام و نام خانوادگی", "کد پرسنلی", "سمت", "مجاز ماهانه", "مصرف ماهانه", "تعداد ماهانه", "مانده ماهانه", "مجاز سالانه", "مصرف سالانه", "تعداد سالانه", "مانده سالانه"];
     const valueRow = r => [r.name || r.personnel_name, r.personnel_code, r.role_title || "—", mins(r.monthly_allowed_min), mins(r.monthly_used_min), count(r.monthly_used_count), mins(r.monthly_balance_min), mins(r.yearly_allowed_min), mins(r.yearly_used_min), count(r.yearly_used_count), mins(r.yearly_balance_min)];
-    return React.createElement("div", { className: "panel" },
+    return React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("div", { className: "row", style: { justifyContent: "space-between", gap: 10, flexWrap: "wrap" } },
             React.createElement("div", null,
                 React.createElement("h3", null, "\uD83C\uDF34 \u06AF\u0632\u0627\u0631\u0634 \u0645\u0631\u062E\u0635\u06CC \u067E\u0631\u0633\u0646\u0644"),
@@ -16777,6 +16786,38 @@ const VIEWS = {
     schoolservice: { t: "سرویس مدارس", ic: "route", c: SchoolServiceLauncher },
     complaints: { t: "شکایات تاکسیرانان", ic: "chat-message", c: ComplaintsLauncher },
 };
+const PANEL_MENU_SECTIONS = [
+    ["داشبورد و نقشه", ["dashboard", "missiondashboard", "citydashboard", "map", "present", "presentchart"]],
+    ["بازرسی و خدمات", ["officials", "presence", "covertselfies", "outages", "schoolservice", "complaints", "companyrequests", "platetraining"]],
+    ["تاکسی و خطوط", ["drivers", "tempdrivers", "lines", "bills"]],
+    ["گزارش‌ها و آمار", ["reportscenter", "monthlyworkreport", "attreport", "leavereport", "perfreport", "driverservicereport", "reports", "report", "useract"]],
+    ["پرسنل و منابع انسانی", ["users", "org", "zones", "attendance", "shifts", "workpolicy", "seniority", "requests", "commitments", "salaryslips"]],
+    ["تجهیزات و رفاه", ["vehicleassets", "vehiclechecklist", "inventory", "welfare", "cultural"]],
+    ["پیام‌ها و ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
+    ["تنظیمات و ابزارها", ["missiontemplates", "scoreengine", "forms", "config", "customfields", "excel", "appitems", "settings"]],
+    ["سلامت و امنیت", ["health", "cronstatus", "activesessions", "logs"]],
+];
+const PANEL_MENU_KEYWORDS = {
+    sms: "اس ام اس sms پیام کوتاه", smslog: "پیامک ارسال تاریخچه", messages: "پیام صندوق مکاتبه",
+    users: "کاربر پرسنل نیرو اعضا", salaryslips: "حقوق فیش مالی", seniority: "سنوات خدمت سابقه",
+    attreport: "تردد ورود خروج حضور", monthlyworkreport: "کارکرد ماهیانه موظفی شیفت سازمان",
+    requests: "درخواست مرخصی ماموریت", inventory: "انبار تجهیزات واگذاری تحویل",
+    logs: "رویداد رخداد امنیت خطا فعالیت", activesessions: "نشست دستگاه ورود امنیت",
+    schoolservice: "مدرسه مدارس سرویس دانش آموز", complaints: "شکایت شکایات اعتراض",
+    zones: "منطقه زیرمنطقه منطقه بندی", appitems: "منو آیتم دسترسی سمت",
+    covertselfies: "تصویر عکس سلفی", workpolicy: "قوانین قانون کار سیاست",
+    config: "تذکر چک لیست چکلیست", vehiclechecklist: "چک لیست چکلیست خودرو موتور",
+    missiontemplates: "ماموریت الگو بازدید برنامه", scoreengine: "امتیاز رتبه ارزیابی",
+};
+function normalizePanelMenuText(text) {
+    return String(text || "").normalize("NFKC").replace(/[يىئ]/g, "ی").replace(/ك/g, "ک").replace(/[أإٱآ]/g, "ا").replace(/ؤ/g, "و").replace(/[\u064b-\u065f\u0670]/g, "").replace(/[\u200c\u200d]/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+}
+function panelMenuMatches(key, section, query) {
+    var _a;
+    const tokens = normalizePanelMenuText(query).split(" ").filter(Boolean);
+    const haystack = normalizePanelMenuText((((_a = VIEWS[key]) === null || _a === void 0 ? void 0 : _a.t) || "") + " " + section + " " + (PANEL_MENU_KEYWORDS[key] || ""));
+    return tokens.every(token => haystack.includes(token));
+}
 function Login({ onLogin, brand }) {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -16891,9 +16932,10 @@ function App() {
     const [drawer, setDrawer] = useState(false);
     const [brand, setBrand] = useState({});
     const [menuSearch, setMenuSearch] = useState("");
-    const menuText = text => String(text || "").replace(/[يى]/g, "ی").replace(/ك/g, "ک").replace(/\u200c/g, " ").trim().toLowerCase();
-    const menuQuery = menuText(menuSearch);
+    const menuQuery = normalizePanelMenuText(menuSearch);
     const menuButtonRef = useRef(null);
+    const menuSearchRef = useRef(null);
+    const menuNavRef = useRef(null);
     useEffect(() => {
         if (!drawer)
             return;
@@ -16915,7 +16957,7 @@ function App() {
     }
     catch (e) { } return next; });
     // منوهای اصلی در لود اولیه بسته باشند؛ کاربر فقط بخش موردنیاز را باز می‌کند.
-    const [openSections, setOpenSections] = useState({ "داشبورد و پایش": false, "عملیات میدانی": false, "تاکسی و تاکسیران": false, "گزارش‌ها": false, "منابع انسانی": false, "ارتباطات": false, "مدیریت سامانه": false });
+    const [openSections, setOpenSections] = useState({});
     useEffect(() => { db.publicSettings().then(s => { const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => { }); }, []);
     useEffect(() => { let active = true; db.restoreSession().then(u => { if (active)
         setMe(u); }).catch(() => { }).finally(() => { if (active)
@@ -16938,16 +16980,7 @@ function App() {
     const CORE_VIEWS = ["dashboard", "driverservicereport", "schoolservice", "complaints"];
     const vk = (!allowed || allowed.includes(v) || CORE_VIEWS.includes(v)) ? v : "dashboard";
     const View = VIEWS[vk].c;
-    window.__navigateTo = (k) => { setV(k); setDrawer(false); };
-    const SECTIONS = [
-        ["داشبورد و پایش", ["dashboard", "reportscenter", "health", "map", "present", "presentchart"]],
-        ["عملیات میدانی", ["missiondashboard", "citydashboard", "missiontemplates", "scoreengine", "officials", "presence", "attendance", "companyrequests", "outages", "covertselfies", "schoolservice"]],
-        ["تاکسی و تاکسیران", ["drivers", "driverservicereport", "tempdrivers", "platetraining", "lines", "zones", "bills", "complaints"]],
-        ["گزارش‌ها", ["reports", "report", "perfreport", "attreport", "leavereport", "useract"]],
-        ["منابع انسانی", ["seniority", "shifts", "monthlyworkreport", "workpolicy", "requests", "salaryslips", "commitments", "welfare", "cultural", "vehicleassets", "vehiclechecklist"]],
-        ["ارتباطات", ["messages", "sms", "smslog", "messengercenter", "radiocenter"]],
-        ["مدیریت سامانه", ["users", "org", "forms", "config", "customfields", "inventory", "excel", "appitems", "cronstatus", "activesessions", "logs", "settings"]],
-    ];
+    const SECTIONS = PANEL_MENU_SECTIONS;
     const CORE = ["dashboard", "driverservicereport", "schoolservice", "complaints"];
     const MENU_ICONS = {
         dashboard: 'dashboard-home', reportscenter: 'reports-folder', health: 'system-health', map: 'map-marker', present: 'present-group', presentchart: 'presence-chart',
@@ -16962,8 +16995,28 @@ function App() {
     };
     const can = (k) => !allowed || allowed.includes(k) || CORE.includes(k);
     const currentSection = SECTIONS.find(([, keys]) => keys.includes(vk));
-    const closeOnPick = (k) => { setV(k); setDrawer(false); };
-    const matchingMenuCount = SECTIONS.reduce((n, [title, keys]) => n + keys.filter(k => VIEWS[k] && can(k) && (menuText(VIEWS[k].t).includes(menuQuery) || menuText(title).includes(menuQuery))).length, 0);
+    const closeOnPick = (k) => { if (!VIEWS[k] || !can(k))
+        return; setV(k); setDrawer(false); setMenuSearch(""); const section = SECTIONS.find(([, keys]) => keys.includes(k)); if (section)
+        setOpenSections({ [section[0]]: true }); };
+    window.__navigateTo = closeOnPick;
+    const menuSections = SECTIONS.map(([title, keys]) => [title, keys.filter(k => VIEWS[k] && can(k) && panelMenuMatches(k, title, menuQuery))]).filter(([, keys]) => keys.length);
+    const matchingMenuKeys = menuSections.flatMap(([, keys]) => keys);
+    const matchingMenuCount = matchingMenuKeys.length;
+    const onMenuSearchKey = e => {
+        var _a, _b;
+        if (e.key === "Escape" && menuSearch) {
+            e.stopPropagation();
+            setMenuSearch("");
+        }
+        if (e.key === "Enter" && menuQuery && matchingMenuKeys.length) {
+            e.preventDefault();
+            closeOnPick(matchingMenuKeys[0]);
+        }
+        if (e.key === "ArrowDown" && menuQuery) {
+            e.preventDefault();
+            (_b = (_a = menuNavRef.current) === null || _a === void 0 ? void 0 : _a.querySelector('.navitem:not(.logout-item)')) === null || _b === void 0 ? void 0 : _b.focus();
+        }
+    };
     return (React.createElement("div", { className: "layout" + (drawer ? " drawer-open" : "") + (sidebarCollapsed ? " sidebar-collapsed" : "") },
         React.createElement("a", { className: "skip-link", href: "#panel-content" }, "\u0631\u0641\u062A\u0646 \u0628\u0647 \u0645\u062D\u062A\u0648\u0627\u06CC \u0635\u0641\u062D\u0647"),
         React.createElement("div", { className: "scrim", onClick: () => setDrawer(false) }),
@@ -16971,22 +17024,26 @@ function App() {
             React.createElement("div", { className: "brand" },
                 brand.logo ? React.createElement("img", { src: brand.logo, style: { width: 38, height: 38, borderRadius: 10, objectFit: "contain", background: "#fff", padding: 3 } }) : React.createElement("img", { src: "/brand-khatyar.png", style: { width: 38, height: 38, borderRadius: 19, objectFit: "cover" } }),
                 React.createElement("span", null, brand.title || "خطیار")),
+            React.createElement("div", { className: "menu-search" },
+                React.createElement("span", { className: "menu-search-icon", "aria-hidden": "true" }, "\u2315"),
+                React.createElement("input", { ref: menuSearchRef, type: "search", maxLength: 100, value: menuSearch, onChange: e => setMenuSearch(e.target.value), onKeyDown: onMenuSearchKey, placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0633\u0631\u06CC\u0639 \u0635\u0641\u062D\u0627\u062A\u2026", "aria-label": "\u062C\u0633\u062A\u062C\u0648 \u062F\u0631 \u0635\u0641\u062D\u0627\u062A \u067E\u0646\u0644", "aria-controls": "panel-navigation" }),
+                menuSearch && React.createElement("button", { type: "button", onClick: () => { var _a; setMenuSearch(""); (_a = menuSearchRef.current) === null || _a === void 0 ? void 0 : _a.focus(); }, "aria-label": "\u067E\u0627\u06A9 \u06A9\u0631\u062F\u0646 \u062C\u0633\u062A\u062C\u0648\u06CC \u0645\u0646\u0648" }, "\u00D7")),
+            React.createElement("button", { type: "button", className: "menu-search-trigger", "aria-label": "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u062C\u0633\u062A\u062C\u0648\u06CC \u0645\u0646\u0648", onClick: () => { setSidebarCollapsed(false); setTimeout(() => { var _a; return (_a = menuSearchRef.current) === null || _a === void 0 ? void 0 : _a.focus(); }, 0); } }, "\u2315"),
+            menuQuery && React.createElement("div", { className: "menu-result-count", role: "status" },
+                fa(matchingMenuCount),
+                " \u0635\u0641\u062D\u0647 \u067E\u06CC\u062F\u0627 \u0634\u062F"),
             React.createElement("button", { type: "button", className: "sidebar-toggle", title: sidebarCollapsed ? "بازگرداندن منوی کامل" : "مینیمایز کردن منو", "aria-label": sidebarCollapsed ? "بازگرداندن منوی کامل" : "مینیمایز کردن منو", onClick: toggleSidebarCollapsed },
                 React.createElement("span", { "aria-hidden": "true" }, sidebarCollapsed ? "⇥" : "⇔"),
                 React.createElement("span", { className: "sidebar-toggle-label" }, sidebarCollapsed ? "بازگشت منو" : "مینیمایز منو")),
-            React.createElement("div", { className: "menu-search" },
-                React.createElement("input", { type: "search", value: menuSearch, onChange: e => setMenuSearch(e.target.value), placeholder: "\u062C\u0633\u062A\u062C\u0648 \u062F\u0631 \u0645\u0646\u0648\u2026", "aria-label": "\u062C\u0633\u062A\u062C\u0648 \u062F\u0631 \u0635\u0641\u062D\u0627\u062A \u067E\u0646\u0644" }),
-                menuSearch && React.createElement("button", { type: "button", onClick: () => setMenuSearch(""), "aria-label": "\u067E\u0627\u06A9 \u06A9\u0631\u062F\u0646 \u062C\u0633\u062A\u062C\u0648\u06CC \u0645\u0646\u0648" }, "\u00D7")),
-            React.createElement("nav", { className: "nav", "aria-label": "\u0635\u0641\u062D\u0627\u062A \u0645\u062F\u06CC\u0631\u06CC\u062A", style: { flex: 1 } },
-                SECTIONS.map(([title, keys]) => {
-                    const ks = keys.filter(k => VIEWS[k] && can(k) && (!menuQuery || menuText(VIEWS[k].t).includes(menuQuery) || menuText(title).includes(menuQuery)));
-                    if (!ks.length)
-                        return null;
+            React.createElement("nav", { ref: menuNavRef, id: "panel-navigation", className: "nav", "aria-label": "\u0635\u0641\u062D\u0627\u062A \u0645\u062F\u06CC\u0631\u06CC\u062A", style: { flex: 1 } },
+                menuSections.map(([title, ks]) => {
                     const open = !!menuQuery || !!openSections[title];
                     return (React.createElement("div", { key: title, className: "navsec" + (open ? " open" : "") },
-                        React.createElement("button", { className: "navsec-head", onClick: () => setOpenSections(cur => ({ ...cur, [title]: !cur[title] })), "aria-expanded": open },
+                        React.createElement("button", { className: "navsec-head", onClick: () => setOpenSections(cur => cur[title] ? {} : { [title]: true }), "aria-expanded": open },
                             React.createElement("span", null, title),
-                            React.createElement("span", { className: "nav-chevron" }, "\u2039")),
+                            React.createElement("span", { className: "navsec-meta" },
+                                React.createElement("span", { className: "navsec-count" }, fa(ks.length)),
+                                React.createElement("span", { className: "nav-chevron" }, "\u2039"))),
                         React.createElement("div", { className: "navsec-body", style: { maxHeight: open ? `${ks.length * 60}px` : '0px', opacity: open ? 1 : 0 } }, ks.map(k => React.createElement("button", { key: k, title: VIEWS[k].t, "aria-current": vk === k ? "page" : undefined, className: "navitem " + (vk === k ? "on" : ""), onClick: () => closeOnPick(k) },
                             React.createElement("span", { className: "ic" }, I8(MENU_ICONS[k])),
                             React.createElement("span", { className: "navlabel" }, VIEWS[k].t))))));
@@ -17023,7 +17080,7 @@ function App() {
                                 e.currentTarget.nextSibling.style.display = "grid"; } }),
                         React.createElement("span", { className: "av-fallback", style: { display: "none" } }, (me.name || "؟")[0])) : React.createElement("span", null, (me.name || "؟")[0])))),
             React.createElement("div", { id: "panel-content", className: "page-content", "data-page": vk, tabIndex: -1 },
-                React.createElement(View, null)))));
+                React.createElement(View, { canNavigate: can })))));
 }
 const PANEL_BUILD_VERSION = "1.5.10";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
