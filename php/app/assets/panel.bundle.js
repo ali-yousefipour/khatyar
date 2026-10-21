@@ -11972,7 +11972,7 @@ function ShiftReport() {
                             React.createElement("td", null, hm(gh)),
                             React.createElement("td", null, hm(r.night)),
                             React.createElement("td", { style: { color: "var(--ok)" } }, hm((_a = r.regular_overtime) !== null && _a !== void 0 ? _a : r.overtime)),
-                            React.createElement("td", null, hm((_b = r.surplus) !== null && _b !== void 0 ? _b : 0)),
+                            React.createElement("td", { style: { color: "var(--danger,#c62828)", fontWeight: 700 } }, hm((_b = r.surplus) !== null && _b !== void 0 ? _b : 0)),
                             React.createElement("td", null, hm((_c = r.friday) !== null && _c !== void 0 ? _c : 0)),
                             React.createElement("td", null, hm((_e = r.holiday) !== null && _e !== void 0 ? _e : 0)),
                             React.createElement("td", null, hm(r.mission_min || 0)),
