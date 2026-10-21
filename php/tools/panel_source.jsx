@@ -6318,7 +6318,7 @@ function Holidays(){
 
 // گزارش کارکرد ماهانه
 // گزارش تردد پرسنل (مدل فینتو) — سطر روزانه + پاپ‌آپ لیست ورود/خروج + ویرایش ساعت توسط ادمین
-function AttendanceReport(){
+function AttendanceReport({initialUserId=null,initialName='',initialFrom='',initialTo='',onChanged=null}={}){
   const [users,setUsers]=useState([]);
   const [usersLoading,setUsersLoading]=useState(true);
   const [uid,setUid]=useState("");
@@ -6422,11 +6422,11 @@ function AttendanceReport(){
       e.preventDefault();selectAttendancePerson(visibleUsers[Math.max(0,Math.min(personActiveIndex,visibleUsers.length-1))]);
     }
   };
-  const run=async(reportUserId=uid)=>{
+  const run=async(reportUserId=uid,overrideFrom=null,overrideTo=null)=>{
     if(!reportUserId){alert("پرسنل را انتخاب کنید");return;}
     const fallback=attendanceDefaultRange();
-    const rangeFrom=String(from||fallback.from).trim();
-    const rangeTo=String(to||fallback.to).trim();
+    const rangeFrom=String(overrideFrom||from||fallback.from).trim();
+    const rangeTo=String(overrideTo||to||fallback.to).trim();
     const parseJ=(v)=>String(v).split(/[\\/-]/).map(Number);
     const f=parseJ(rangeFrom), t=parseJ(rangeTo);
     if(f.length!==3||t.length!==3||f.some(x=>!Number.isFinite(x))||t.some(x=>!Number.isFinite(x))){alert("فرمت بازهٔ تاریخ نامعتبر است");return;}
@@ -6440,6 +6440,12 @@ function AttendanceReport(){
     catch(e){ alert(e.message||"خطا در دریافت گزارش"); }
     finally{ setBusy(false); }
   };
+  useEffect(()=>{
+    if(!initialUserId)return;
+    const start=initialFrom||attendanceDefaultRange().from,end=initialTo||attendanceDefaultRange().to;
+    setUid(String(initialUserId));setPersonNameQuery(initialName);setFrom(start);setTo(end);
+    run(String(initialUserId),start,end);
+  },[initialUserId,initialFrom,initialTo]);
   useEffect(()=>{
     if(!openDay||!uid){setDayRequests([]);return;}
     db.adminRequests('?user_id='+encodeURIComponent(uid)).then(rows=>{
@@ -6458,7 +6464,7 @@ function AttendanceReport(){
     const rangeTo=String(to||fallback.to).trim();
     try{ const r=await db.attendanceReport(uid,rangeFrom,rangeTo); setData(r); }catch(e){}
   };
-  const savePunch=async(punch,ci,co)=>{ try{ await db.attendancePunchEdit(punch.id,{check_in:ci,check_out:co}); setEdit(null); await refresh(); }catch(e){alert(e.message||"خطا");} };
+  const savePunch=async(punch,ci,co)=>{ try{ await db.attendancePunchEdit(punch.id,{check_in:ci,check_out:co}); setEdit(null); await refresh(); if(onChanged)onChanged(); }catch(e){alert(e.message||"خطا");} };
   const delPunch=async(punch)=>{ if(!confirm("این تردد حذف شود؟"))return; try{ await db.attendancePunchDelete(punch.id); await refresh(); }catch(e){alert(e.message||"خطا");} };
   const addPunch=async(jdate,ci,co)=>{ try{ await db.attendancePunchAdd({user_id:+uid,jdate,check_in:ci,check_out:co||null}); setAddModal(null); await refresh(); }catch(e){alert(e.message||"خطا");} };
   const n=(v)=>{const s=String(v==null?"":v).replace(/[۰-۹]/g,x=>"۰۱۲۳۴۵۶۷۸۹".indexOf(x)); const m=s.match(/(?:^|[ T])([01]?\d|2[0-3]):([0-5]\d)/); return m?String(+m[1]).padStart(2,"0")+":"+m[2]:"";};
@@ -7009,6 +7015,7 @@ function ShiftRotationReport({year,month,onPeriodChange,disabled}){
 }
 
 function ShiftReport(){
+  const [attendanceModal,setAttendanceModal]=useState(null);
   const [reportTab,setReportTab]=useState("monthly");
   const [finalStatus,setFinalStatus]=useState(null); const [finalBusy,setFinalBusy]=useState(false); const [statusBusy,setStatusBusy]=useState(false);
   const tj=todayJ();
@@ -7049,10 +7056,16 @@ function ShiftReport(){
       <span className="muted" style={{fontSize:12}}>شیفت شب، اسفند کبیسه، بازه تخصیص، تاخیر و تعجیل خروج در محاسبه لحاظ می‌شود.</span>
     </div>
     {rows&&(rows.length===0?<p className="muted">داده‌ای برای این ماه نیست (نیرویی شیفت ندارد یا ترددی ثبت نشده).</p>:
-    <div style={{overflowX:"auto"}}><table style={{fontSize:12,minWidth:1580}}><thead><tr><th>نام و نام خانوادگی</th><th>موظفی</th><th>حضور کل</th><th>حضور در شیفت</th><th>تاخیر ورود</th><th>تعجیل خروج</th><th>کسری کار</th><th>غیبت</th><th>جمع غیبت و کسری</th><th>شب کاری</th><th>اضافه کاری</th><th>جمعه کاری</th><th>تعطیل کاری</th><th>ماموریت</th><th>م.استحقاقی</th><th>م.استعلاجی</th></tr></thead><tbody>
-      {rows.map((r,i)=>{ const gh=(r.absent_min||0)+(r.shortage||0); return(<tr key={i}><td style={{fontWeight:700}}>{r.name}</td><td>{hm(r.expected)}</td><td>{hm(r.worked)}</td><td>{hm(r.in_shift||r.worked)}</td><td style={{color:r.late_in?"var(--danger)":"inherit"}}>{hm(r.late_in||0)}</td><td style={{color:r.early_out?"var(--danger)":"inherit"}}>{hm(r.early_out||0)}</td><td style={{color:r.shortage?"var(--danger)":"inherit"}}>{hm(r.shortage)}</td><td style={{color:r.absent_min?"var(--danger)":"inherit"}}>{hm(r.absent_min||0)}</td><td>{hm(gh)}</td><td>{hm(r.night)}</td><td style={{color:"var(--ok)"}}>{hm(r.regular_overtime??r.overtime)}</td><td>{hm(r.friday??0)}</td><td>{hm(r.holiday??0)}</td><td>{hm(r.mission_min||0)}</td><td>{hm(r.annual_min||0)}</td><td>{hm(r.sick_min||0)}</td></tr>); })}
+    <div style={{overflowX:"auto"}}><table style={{fontSize:12,minWidth:1580}}><thead><tr><th>نام و نام خانوادگی</th><th>موظفی</th><th>حضور کل</th><th>حضور در شیفت</th><th>تاخیر ورود</th><th>تعجیل خروج</th><th>کسری کار</th><th>غیبت</th><th>جمع غیبت و کسری</th><th>شب کاری</th><th>اضافه کاری</th><th>مازاد حضور</th><th>جمعه کاری</th><th>تعطیل کاری</th><th>ماموریت</th><th>م.استحقاقی</th><th>م.استعلاجی</th></tr></thead><tbody>
+      {rows.map((r,i)=>{ const gh=(r.absent_min||0)+(r.shortage||0); return(<tr key={i}><td style={{fontWeight:700}}><button type="button" onClick={()=>setAttendanceModal({id:r.user_id,name:r.name,year:jy,month:jm})} style={{background:"none",border:0,padding:0,color:"var(--primary,#087f5b)",font:"inherit",fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>{r.name}</button></td><td>{hm(r.expected)}</td><td>{hm(r.worked)}</td><td>{hm(r.in_shift||r.worked)}</td><td style={{color:r.late_in?"var(--danger)":"inherit"}}>{hm(r.late_in||0)}</td><td style={{color:r.early_out?"var(--danger)":"inherit"}}>{hm(r.early_out||0)}</td><td style={{color:r.shortage?"var(--danger)":"inherit"}}>{hm(r.shortage)}</td><td style={{color:r.absent_min?"var(--danger)":"inherit"}}>{hm(r.absent_min||0)}</td><td>{hm(gh)}</td><td>{hm(r.night)}</td><td style={{color:"var(--ok)"}}>{hm(r.regular_overtime??r.overtime)}</td><td>{hm(r.surplus??0)}</td><td>{hm(r.friday??0)}</td><td>{hm(r.holiday??0)}</td><td>{hm(r.mission_min||0)}</td><td>{hm(r.annual_min||0)}</td><td>{hm(r.sick_min||0)}</td></tr>); })}
     </tbody></table></div>)}
     </>}
+    {attendanceModal&&<div role="dialog" aria-modal="true" aria-label={"گزارش تردد ماهانه "+attendanceModal.name} style={{position:"fixed",inset:0,zIndex:9900,background:"rgba(0,0,0,.65)",display:"flex",justifyContent:"center",alignItems:"center",padding:16}} onClick={e=>{if(e.target===e.currentTarget){setAttendanceModal(null);run();}}}>
+      <div style={{background:"var(--card,#fff)",borderRadius:14,width:"min(98vw,1600px)",maxHeight:"94vh",overflow:"auto",padding:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:10}}><strong>گزارش تردد ماهانه و ویرایش — {attendanceModal.name}</strong><button type="button" className="btn" onClick={()=>{setAttendanceModal(null);run();}}>✕ بستن</button></div>
+        <AttendanceReport key={attendanceModal.id+"-"+attendanceModal.year+"-"+attendanceModal.month} initialUserId={attendanceModal.id} initialName={attendanceModal.name} initialFrom={attendanceModal.year+"/"+String(attendanceModal.month).padStart(2,"0")+"/01"} initialTo={attendanceModal.year+"/"+String(attendanceModal.month).padStart(2,"0")+"/"+(attendanceModal.month<=6?"31":attendanceModal.month<=11?"30":"30")} onChanged={()=>run()}/>
+      </div>
+    </div>}
   </div>);
 }
 
