@@ -6668,7 +6668,9 @@ route('GET', '/api/locations/live-diagnostics', function($p,$b,$u){
   $start=microtime(true);
   $indexes=Db::all('SHOW INDEX FROM location_pings');
   $plan=Db::all('EXPLAIN '._live_location_sql(!empty($_GET['shift_only'])));
+  $photos=Db::one("SELECT COALESCE(SUM(CASE WHEN photo_path IS NULL OR photo_path='' THEN OCTET_LENGTH(photo) ELSE 0 END),0) bytes FROM users");
   return ['elapsed_ms'=>(int)round((microtime(true)-$start)*1000),
+    'inline_photo_bytes'=>(int)($photos['bytes']??0),
     'indexes'=>array_map(static fn($row)=>array_intersect_key($row,array_flip(['Key_name','Seq_in_index','Column_name'])), $indexes),
     'plan'=>array_map(static fn($row)=>array_intersect_key($row,array_flip(['table','type','possible_keys','key','rows','Extra'])), $plan)];
 },false,ADMIN);
