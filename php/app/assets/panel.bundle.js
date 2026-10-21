@@ -10653,7 +10653,7 @@ function Holidays() {
 }
 // گزارش کارکرد ماهانه
 // گزارش تردد پرسنل (مدل فینتو) — سطر روزانه + پاپ‌آپ لیست ورود/خروج + ویرایش ساعت توسط ادمین
-function AttendanceReport() {
+function AttendanceReport({ initialUserId = null, initialName = '', initialFrom = '', initialTo = '', onChanged = null } = {}) {
     var _a, _b;
     const [users, setUsers] = useState([]);
     const [usersLoading, setUsersLoading] = useState(true);
@@ -10804,14 +10804,14 @@ function AttendanceReport() {
             selectAttendancePerson(visibleUsers[Math.max(0, Math.min(personActiveIndex, visibleUsers.length - 1))]);
         }
     };
-    const run = async (reportUserId = uid) => {
+    const run = async (reportUserId = uid, overrideFrom = null, overrideTo = null) => {
         if (!reportUserId) {
             alert("پرسنل را انتخاب کنید");
             return;
         }
         const fallback = attendanceDefaultRange();
-        const rangeFrom = String(from || fallback.from).trim();
-        const rangeTo = String(to || fallback.to).trim();
+        const rangeFrom = String(overrideFrom || from || fallback.from).trim();
+        const rangeTo = String(overrideTo || to || fallback.to).trim();
         const parseJ = (v) => String(v).split(/[\\/-]/).map(Number);
         const f = parseJ(rangeFrom), t = parseJ(rangeTo);
         if (f.length !== 3 || t.length !== 3 || f.some(x => !Number.isFinite(x)) || t.some(x => !Number.isFinite(x))) {
@@ -10846,6 +10846,16 @@ function AttendanceReport() {
         }
     };
     useEffect(() => {
+        if (!initialUserId)
+            return;
+        const start = initialFrom || attendanceDefaultRange().from, end = initialTo || attendanceDefaultRange().to;
+        setUid(String(initialUserId));
+        setPersonNameQuery(initialName);
+        setFrom(start);
+        setTo(end);
+        run(String(initialUserId), start, end);
+    }, [initialUserId, initialFrom, initialTo]);
+    useEffect(() => {
         if (!openDay || !uid) {
             setDayRequests([]);
             return;
@@ -10875,6 +10885,8 @@ function AttendanceReport() {
         await db.attendancePunchEdit(punch.id, { check_in: ci, check_out: co });
         setEdit(null);
         await refresh();
+        if (onChanged)
+            onChanged();
     }
     catch (e) {
         alert(e.message || "خطا");
@@ -11778,6 +11790,7 @@ function ShiftRotationReport({ year, month, onPeriodChange, disabled }) {
                             ['morning', 'afternoon', 'night', 'matched_days', 'outside_days', 'open_sessions'].map(key => { var _a; return React.createElement("td", { key: key, style: { textAlign: "center" } }, format((_a = current.totals) === null || _a === void 0 ? void 0 : _a[key])); })))))));
 }
 function ShiftReport() {
+    const [attendanceModal, setAttendanceModal] = useState(null);
     const [reportTab, setReportTab] = useState("monthly");
     const [finalStatus, setFinalStatus] = useState(null);
     const [finalBusy, setFinalBusy] = useState(false);
@@ -11940,13 +11953,15 @@ function ShiftReport() {
                                 React.createElement("th", null, "\u062C\u0645\u0639 \u063A\u06CC\u0628\u062A \u0648 \u06A9\u0633\u0631\u06CC"),
                                 React.createElement("th", null, "\u0634\u0628 \u06A9\u0627\u0631\u06CC"),
                                 React.createElement("th", null, "\u0627\u0636\u0627\u0641\u0647 \u06A9\u0627\u0631\u06CC"),
+                                React.createElement("th", null, "\u0645\u0627\u0632\u0627\u062F \u062D\u0636\u0648\u0631"),
                                 React.createElement("th", null, "\u062C\u0645\u0639\u0647 \u06A9\u0627\u0631\u06CC"),
                                 React.createElement("th", null, "\u062A\u0639\u0637\u06CC\u0644 \u06A9\u0627\u0631\u06CC"),
                                 React.createElement("th", null, "\u0645\u0627\u0645\u0648\u0631\u06CC\u062A"),
                                 React.createElement("th", null, "\u0645.\u0627\u0633\u062A\u062D\u0642\u0627\u0642\u06CC"),
                                 React.createElement("th", null, "\u0645.\u0627\u0633\u062A\u0639\u0644\u0627\u062C\u06CC"))),
-                        React.createElement("tbody", null, rows.map((r, i) => { var _a, _b, _c; const gh = (r.absent_min || 0) + (r.shortage || 0); return (React.createElement("tr", { key: i },
-                            React.createElement("td", { style: { fontWeight: 700 } }, r.name),
+                        React.createElement("tbody", null, rows.map((r, i) => { var _a, _b, _c, _e; const gh = (r.absent_min || 0) + (r.shortage || 0); return (React.createElement("tr", { key: i },
+                            React.createElement("td", { style: { fontWeight: 700 } },
+                                React.createElement("button", { type: "button", onClick: () => setAttendanceModal({ id: r.user_id, name: r.name, year: jy, month: jm }), style: { background: "none", border: 0, padding: 0, color: "var(--primary,#087f5b)", font: "inherit", fontWeight: 700, cursor: "pointer", textDecoration: "underline" } }, r.name)),
                             React.createElement("td", null, hm(r.expected)),
                             React.createElement("td", null, hm(r.worked)),
                             React.createElement("td", null, hm(r.in_shift || r.worked)),
@@ -11957,11 +11972,23 @@ function ShiftReport() {
                             React.createElement("td", null, hm(gh)),
                             React.createElement("td", null, hm(r.night)),
                             React.createElement("td", { style: { color: "var(--ok)" } }, hm((_a = r.regular_overtime) !== null && _a !== void 0 ? _a : r.overtime)),
-                            React.createElement("td", null, hm((_b = r.friday) !== null && _b !== void 0 ? _b : 0)),
-                            React.createElement("td", null, hm((_c = r.holiday) !== null && _c !== void 0 ? _c : 0)),
+                            React.createElement("td", null, hm((_b = r.surplus) !== null && _b !== void 0 ? _b : 0)),
+                            React.createElement("td", null, hm((_c = r.friday) !== null && _c !== void 0 ? _c : 0)),
+                            React.createElement("td", null, hm((_e = r.holiday) !== null && _e !== void 0 ? _e : 0)),
                             React.createElement("td", null, hm(r.mission_min || 0)),
                             React.createElement("td", null, hm(r.annual_min || 0)),
-                            React.createElement("td", null, hm(r.sick_min || 0)))); }))))))));
+                            React.createElement("td", null, hm(r.sick_min || 0)))); })))))),
+        attendanceModal && React.createElement("div", { role: "dialog", "aria-modal": "true", "aria-label": "گزارش تردد ماهانه " + attendanceModal.name, style: { position: "fixed", inset: 0, zIndex: 9900, background: "rgba(0,0,0,.65)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16 }, onClick: e => { if (e.target === e.currentTarget) {
+                setAttendanceModal(null);
+                run();
+            } } },
+            React.createElement("div", { style: { background: "var(--card,#fff)", borderRadius: 14, width: "min(98vw,1600px)", maxHeight: "94vh", overflow: "auto", padding: 16 } },
+                React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 } },
+                    React.createElement("strong", null,
+                        "\u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F \u0645\u0627\u0647\u0627\u0646\u0647 \u0648 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u2014 ",
+                        attendanceModal.name),
+                    React.createElement("button", { type: "button", className: "btn", onClick: () => { setAttendanceModal(null); run(); } }, "\u2715 \u0628\u0633\u062A\u0646")),
+                React.createElement(AttendanceReport, { key: attendanceModal.id + "-" + attendanceModal.year + "-" + attendanceModal.month, initialUserId: attendanceModal.id, initialName: attendanceModal.name, initialFrom: attendanceModal.year + "/" + String(attendanceModal.month).padStart(2, "0") + "/01", initialTo: attendanceModal.year + "/" + String(attendanceModal.month).padStart(2, "0") + "/" + (attendanceModal.month <= 6 ? "31" : attendanceModal.month <= 11 ? "30" : "30"), onChanged: () => run() })))));
 }
 // تنظیم پایهٔ حقوق و مشاهدهٔ فیش حقوقی یک کاربر
 function PayrollEditor({ userId, userName }) {
