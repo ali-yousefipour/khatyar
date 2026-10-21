@@ -42,10 +42,10 @@ register_shutdown_function(static function() use (&$apiRequestStart) {
 
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
-  $siteV = '1.5.13'; $appV = '1.5.13';
+  $siteV = '1.5.14'; $appV = '1.5.14';
   $releaseNotes = [
-    'version' => '1.5.13',
-    'title' => 'تغییرات نسخه ۱.۵.۱۳',
+    'version' => '1.5.14',
+    'title' => 'تغییرات نسخه ۱.۵.۱۴',
     'items' => [
       'افزودن تاریخ شروع و پایان اشتغال با تقویم شمسی در مدیریت کاربران و اعتبارسنجی بازه اشتغال',
       'اعمال بازه اشتغال در گزارش تردد و محاسبه کارکرد و جلوگیری از احتساب روزهای خارج از قرارداد',
