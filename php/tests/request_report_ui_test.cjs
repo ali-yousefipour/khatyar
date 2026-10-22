@@ -4,7 +4,7 @@ const start=bundle.indexOf('function AdminRequests()'),end=bundle.indexOf('\nfun
 let cursor=0,refCursor=0,states=[],refs=[],loads=[],decisions=[];
 const context={React:{createElement:(type,props,...children)=>({type,props:props||{},children})},useEffect(){},
  useState(initial){const i=cursor++;if(states[i]===undefined)states[i]=initial;return[states[i],v=>states[i]=typeof v==='function'?v(states[i]):v];},
- useRef(initial){const i=refCursor++;return refs[i]??=( {current:initial});},Modal(){},fa:String,GET:async()=>({year:1405,month:7,balance:{},requests:[]}),prompt:()=>'',
+ useRef(initial){const i=refCursor++;return refs[i]??=( {current:initial});},Modal(){},RequestLeaveUsage(){},RequestDetails(){},fa:String,GET:async()=>({year:1405,month:7,balance:{},requests:[]}),prompt:()=>'',
  db:{adminRequests:()=>new Promise((resolve,reject)=>loads.push({resolve,reject})),adminRequestDecision:async(id,body)=>decisions.push({id,...body})},setTimeout,URL,console};
 vm.createContext(context);vm.runInContext(bundle.slice(start,end),context);
 const render=()=>{cursor=0;refCursor=0;return vm.runInContext('AdminRequests()',context);};
@@ -18,6 +18,8 @@ const tick=()=>new Promise(setImmediate);
  const rows=[{id:1,type:'annual',unit:'daily',minutes:480,status:'pending',requester:'الف'},{id:2,type:'manual',unit:'hourly',minutes:0,status:'approved',requester:'ب'}];
  loads.shift().resolve(rows);await tick();tree=render();
  assert.ok(text(tree).includes('1 روز'),'daily duration uses days');
+ button(tree,'جزئیات').props.onClick();tree=render();assert.equal(nodes(tree).find(n=>n.type===context.RequestDetails).props.requestId,1,'row details uses its own request id');
+ nodes(tree).find(n=>n.type===context.RequestDetails).props.onClose();tree=render();
  input(tree,'انتخاب درخواست 1').props.onChange({target:{checked:true}});tree=render();
  assert.equal(button(tree,'تأیید گروهی').props.disabled,false);
  nodes(tree).find(n=>n.type==='select').props.onChange({target:{value:'12'}});tree=render();

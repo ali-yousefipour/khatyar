@@ -12653,6 +12653,106 @@ function jFromIso(iso) { if (!iso)
     return ""; const d = new Date(iso); if (isNaN(d))
     return ""; const [jy, jm, jd] = gregToJalali(d.getFullYear(), d.getMonth() + 1, d.getDate()); return `${jy}-${String(jm).padStart(2, "0")}-${String(jd).padStart(2, "0")}`; }
 // گزارش درخواست‌ها برای ادمین (مرخصی/ماموریت/اضافه‌کار/تردد دستی)
+function RequestLeaveUsage({ requestId, initialContext }) {
+    const [open, setOpen] = useState(false);
+    const [context, setContext] = useState(initialContext || null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const show = async () => { if (loading)
+        return; if (open) {
+        setOpen(false);
+        return;
+    } setOpen(true); if (context === null || context === void 0 ? void 0 : context.usage_through_today)
+        return; setLoading(true); setError(''); try {
+        setContext(await GET('/admin/requests/' + requestId + '/leave-context'));
+    }
+    catch (e) {
+        setError(e.message || 'دریافت ماندهٔ مرخصی ناموفق بود');
+    }
+    finally {
+        setLoading(false);
+    } };
+    const titles = { annual: 'استحقاقی', sick: 'استعلاجی', unpaid: 'بدون حقوق' };
+    return React.createElement("section", { style: { margin: '12px 0' } },
+        React.createElement("button", { className: "btn g", onClick: show, disabled: loading }, loading ? 'در حال محاسبه…' : open ? 'بستن خلاصهٔ مرخصی' : 'نمایش ساعات مرخصی مصرف‌شده و مانده تا امروز'),
+        open && React.createElement("div", { role: "status" },
+            error && React.createElement("p", { style: { color: 'var(--danger)' } },
+                error,
+                React.createElement("button", { className: "btn g", onClick: () => { setOpen(false); } }, "\u0628\u0633\u062A\u0646 \u0648 \u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")),
+            (context === null || context === void 0 ? void 0 : context.usage_through_today) && React.createElement(React.Fragment, null,
+                React.createElement("p", null,
+                    "\u0645\u0635\u0631\u0641 \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647 \u062A\u0627 \u067E\u0627\u06CC\u0627\u0646 ",
+                    fa(context.usage_through_today.through_jdate),
+                    " \u00B7 \u0633\u06CC\u0627\u0633\u062A: ",
+                    context.policy_title || 'سیاست کاری اختصاص‌یافته'),
+                React.createElement("div", { className: "table-wrap" },
+                    React.createElement("table", null,
+                        React.createElement("thead", null,
+                            React.createElement("tr", null,
+                                React.createElement("th", null, "\u0645\u0631\u062E\u0635\u06CC / \u0633\u0627\u0639\u062A"),
+                                React.createElement("th", null, "\u0645\u0635\u0631\u0641 \u0645\u0627\u0647 \u062A\u0627 \u0627\u0645\u0631\u0648\u0632"),
+                                React.createElement("th", null, "\u0645\u0635\u0631\u0641 \u0633\u0627\u0644 \u062A\u0627 \u0627\u0645\u0631\u0648\u0632"),
+                                React.createElement("th", null, "\u0645\u0627\u0646\u062F\u0647 \u0645\u0627\u0647"),
+                                React.createElement("th", null, "\u0645\u0627\u0646\u062F\u0647 \u0633\u0627\u0644"),
+                                React.createElement("th", null, "\u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u0633\u0627\u0644"),
+                                React.createElement("th", null, "\u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647 \u0622\u06CC\u0646\u062F\u0647 \u062F\u0631 \u0633\u0627\u0644"))),
+                        React.createElement("tbody", null, Object.entries(context.usage_through_today.types).map(([type, value]) => React.createElement("tr", { key: type },
+                            React.createElement("td", null, titles[type] || type),
+                            React.createElement("td", null, fa(value.used_hours_month)),
+                            React.createElement("td", null, fa(value.used_hours_year)),
+                            React.createElement("td", null, value.remaining_hours_month == null ? 'بدون سقف' : fa(value.remaining_hours_month)),
+                            React.createElement("td", null, value.remaining_hours_year == null ? 'بدون سقف' : fa(value.remaining_hours_year)),
+                            React.createElement("td", null, fa(value.pending_hours_year)),
+                            React.createElement("td", null, fa(value.future_approved_hours_year))))))),
+                React.createElement("p", { className: "muted" }, "\u0647\u0645\u0647\u0654 \u0645\u0642\u0627\u062F\u06CC\u0631 \u0628\u0647 \u0633\u0627\u0639\u062A \u0647\u0633\u062A\u0646\u062F. \u0647\u0631 \u0631\u0648\u0632 \u0645\u0631\u062E\u0635\u06CC \u0637\u0628\u0642 \u0642\u0631\u0627\u0631\u062F\u0627\u062F \u0633\u0627\u0645\u0627\u0646\u0647 \u06F8 \u0633\u0627\u0639\u062A \u0627\u0633\u062A. \u0645\u0635\u0631\u0641 \u062A\u0627 \u0627\u0645\u0631\u0648\u0632 \u0634\u0627\u0645\u0644 \u0645\u0631\u062E\u0635\u06CC \u0622\u06CC\u0646\u062F\u0647 \u0646\u06CC\u0633\u062A\u061B \u0645\u0627\u0646\u062F\u0647\u0654 \u0642\u0627\u0628\u0644 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u060C \u0631\u0632\u0631\u0648 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u0648 \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647\u0654 \u0622\u06CC\u0646\u062F\u0647 \u0631\u0627 \u0647\u0645 \u06A9\u0633\u0631 \u0645\u06CC\u200C\u06A9\u0646\u062F."))));
+}
+function RequestDetails({ requestId, onClose }) {
+    var _a;
+    const [data, setData] = useState(null);
+    const [error, setError] = useState('');
+    const [imageError, setImageError] = useState(false);
+    useEffect(() => { let active = true; GET('/admin/requests/' + requestId + '/detail').then(value => { if (active)
+        setData(value); }).catch(e => { if (active)
+        setError(e.message || 'دریافت جزئیات ناموفق بود'); }); return () => { active = false; }; }, [requestId]);
+    const TY = { annual: 'مرخصی استحقاقی', sick: 'مرخصی استعلاجی', unpaid: 'مرخصی بدون حقوق', mission: 'ماموریت', overtime: 'اضافه‌کار', manual: 'تردد دستی' };
+    const ST = { pending: 'در انتظار', approved: 'تأییدشده', rejected: 'ردشده', canceled: 'لغوشده' };
+    const selfie = (data === null || data === void 0 ? void 0 : data.selfie_data) || (data === null || data === void 0 ? void 0 : data.selfie_url) || '';
+    const safeImage = value => /^data:image\/(?:jpeg|jpg|png|webp);base64,/i.test(value) || /^\/api\/media\?/.test(value);
+    const attachment = (data === null || data === void 0 ? void 0 : data.attachment_data) || '';
+    const safeAttachment = /^data:(?:image\/(?:jpeg|jpg|png|webp)|application\/(?:pdf|octet-stream|msword|vnd\.openxmlformats-officedocument\.[a-z.]+));base64,/i.test(attachment);
+    return React.createElement(Modal, { title: 'جزئیات درخواست #' + fa(requestId), onClose: onClose, style: { width: 860 } },
+        error ? React.createElement("p", { role: "alert" }, error) : !data ? React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062C\u0632\u0626\u06CC\u0627\u062A\u2026") : React.createElement(React.Fragment, null,
+            React.createElement("dl", { className: "grid2", style: { gap: 12 } }, [['درخواست‌کننده', data.requester], ['نوع', TY[data.type] || data.type], ['وضعیت', ST[data.status] || data.status], ['واحد', data.type === 'manual' ? 'تردد دستی' : data.unit === 'daily' ? 'روزانه' : data.unit === 'hourly' ? 'ساعتی' : '—'], ['مدت درخواست', data.type === 'manual' ? 'مطابق ساعت ورود / خروج' : data.unit === 'daily' ? (Math.round(Number(data.minutes || 0) / 480 * 100) / 100) + ' روز' : (Math.floor(Number(data.minutes || 0) / 60) + ' ساعت و ' + (Number(data.minutes || 0) % 60) + ' دقیقه')], ['از تاریخ', data.from_jdate || data.the_date], ['تا تاریخ', data.to_jdate || data.the_date || data.from_jdate], ['ساعت شروع / ورود', data.from_time || data.in_time], ['ساعت پایان / خروج', data.to_time || data.out_time], ['زمان ثبت', fj(data.created_at)], ['زمان تصمیم', data.decided_at ? fj(data.decided_at) : '—'], ['تأییدکننده', data.approver], ['مسئول فعلی بررسی', data.status === 'pending' ? data.pending_on_name : '—']].map(([label, value]) => React.createElement("div", { key: label },
+                React.createElement("dt", { className: "muted" }, label),
+                React.createElement("dd", { style: { margin: 0, fontWeight: 700 } }, value ? fa(value) : '—')))),
+            React.createElement("h4", null, "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
+            React.createElement("p", { style: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } }, data.reason || 'توضیحی ثبت نشده است.'),
+            data.approver_note && React.createElement(React.Fragment, null,
+                React.createElement("h4", null, "\u067E\u0627\u0633\u062E \u0628\u0631\u0631\u0633\u06CC\u200C\u06A9\u0646\u0646\u062F\u0647"),
+                React.createElement("p", { style: { whiteSpace: 'pre-wrap' } }, data.approver_note)),
+            data.type === 'manual' && React.createElement("section", null,
+                React.createElement("h4", null, "\u062A\u0635\u0648\u06CC\u0631 \u0633\u0644\u0641\u06CC \u0647\u0646\u06AF\u0627\u0645 \u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC"),
+                selfie && safeImage(selfie) && !imageError ? React.createElement("img", { src: selfie, alt: "\u0633\u0644\u0641\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u0647\u0645\u0631\u0627\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC", onError: () => setImageError(true), style: { display: 'block', maxWidth: '100%', width: 420, maxHeight: 480, objectFit: 'contain', borderRadius: 12 } }) : React.createElement("p", { className: "muted" }, imageError ? 'تصویر قابل بارگذاری نیست.' : 'تصویر سلفی قابل نمایش برای این درخواست ثبت نشده است.')),
+            data.attachment_name && React.createElement("section", null,
+                React.createElement("h4", null, "\u067E\u06CC\u0648\u0633\u062A"),
+                safeAttachment ? React.createElement("a", { className: "btn g", href: attachment, download: data.attachment_name },
+                    data.attachment_name,
+                    " \u2014 \u062F\u0631\u06CC\u0627\u0641\u062A \u067E\u06CC\u0648\u0633\u062A") : React.createElement("p", null,
+                    data.attachment_name,
+                    " \u2014 \u0641\u0627\u06CC\u0644 \u0642\u0627\u0628\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0645\u0648\u062C\u0648\u062F \u0646\u06CC\u0633\u062A."),
+                attachment && safeImage(attachment) && React.createElement("img", { src: attachment, alt: "\u067E\u06CC\u0648\u0633\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A", style: { display: 'block', maxWidth: '100%', maxHeight: 360, objectFit: 'contain' } })),
+            data.substitute_user_id && React.createElement("section", null,
+                React.createElement("h4", null, "\u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0645\u0631\u062E\u0635\u06CC"),
+                React.createElement("p", null, data.substitute_name || 'کاربر #' + fa(data.substitute_user_id)),
+                data.status === 'approved' && ((_a = data.substitute_assignment) === null || _a === void 0 ? void 0 : _a.status) === 'active' ? React.createElement("p", null,
+                    "\u0634\u06CC\u0641\u062A \u0645\u0648\u0642\u062A \u0645\u0637\u0627\u0628\u0642 \u0634\u06CC\u0641\u062A \u0645\u0624\u062B\u0631 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u06A9\u0646\u0646\u062F\u0647 \u0627\u0632 ",
+                    fa(data.substitute_assignment.from_date),
+                    " \u062A\u0627 ",
+                    fa(data.substitute_assignment.to_date),
+                    " \u0627\u0639\u0645\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F. \u067E\u0633 \u0627\u0632 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0634\u06CC\u0641\u062A \u0627\u0635\u0644\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A.") : React.createElement("p", { className: "muted" }, data.status === 'pending' ? 'پس از تأیید، شیفت درخواست‌کننده در بازهٔ مرخصی برای جایگزین اعمال می‌شود.' : 'جایگزینی فعالی برای این درخواست وجود ندارد.')),
+            ['annual', 'sick', 'unpaid'].includes(data.type) && React.createElement(RequestLeaveUsage, { key: data.id, requestId: data.id })),
+        React.createElement("button", { className: "btn g", onClick: onClose, style: { marginTop: 16 } }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A"));
+}
 function AdminRequests() {
     const [users, setUsers] = useState([]);
     const [rows, setRows] = useState([]);
@@ -12664,6 +12764,7 @@ function AdminRequests() {
     const [fFrom, setFFrom] = useState("");
     const [fTo, setFTo] = useState("");
     const [search, setSearch] = useState("");
+    const [detailId, setDetailId] = useState(null);
     const [selected, setSelected] = useState([]);
     const [review, setReview] = useState(null);
     const [reviewLoading, setReviewLoading] = useState(false);
@@ -12723,7 +12824,7 @@ function AdminRequests() {
         try {
             const leaves = [];
             if (status === 'approved') {
-                for (const row of targets.filter(row => ['annual', 'sick'].includes(row.type))) {
+                for (const row of targets.filter(row => ['annual', 'sick', 'unpaid'].includes(row.type))) {
                     const context = await GET('/admin/requests/' + row.id + '/leave-context');
                     leaves.push({ row, context });
                 }
@@ -12788,6 +12889,7 @@ function AdminRequests() {
     } };
     return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page" },
         React.createElement("h3", null, "\uD83D\uDCCB \u06AF\u0632\u0627\u0631\u0634 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627"),
+        detailId != null && React.createElement(RequestDetails, { key: detailId, requestId: detailId, onClose: () => setDetailId(null) }),
         React.createElement("div", { className: "request-bulk-toolbar" },
             React.createElement("label", null,
                 React.createElement("input", { type: "checkbox", "aria-label": "\u0627\u0646\u062A\u062E\u0627\u0628 \u0647\u0645\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634\u200C\u062F\u0627\u062F\u0647\u200C\u0634\u062F\u0647", disabled: !!busyId || reviewLoading || loading, checked: rows.length > 0 && rows.every(row => selected.includes(row.id)), onChange: event => setSelected(event.target.checked ? rows.map(row => row.id) : []) }),
@@ -12809,6 +12911,7 @@ function AdminRequests() {
                     row.requester,
                     " \u2014 ",
                     TY[row.type]),
+                React.createElement(RequestLeaveUsage, { key: row.id, requestId: row.id, initialContext: context }),
                 React.createElement("p", null,
                     "\u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0645\u0627\u0647 \u062C\u0627\u0631\u06CC \u0634\u0645\u0633\u06CC: ",
                     context.year,
@@ -12915,6 +13018,7 @@ function AdminRequests() {
                                 r.approver_note ? ` | پاسخ: ${r.approver_note}` : "",
                                 r.attachment_name ? " 📎" : ""),
                             React.createElement("td", { style: { whiteSpace: "nowrap" } },
+                                React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, onClick: () => setDetailId(r.id) }, "\u062C\u0632\u0626\u06CC\u0627\u062A"),
                                 r.status === "pending" && React.createElement(React.Fragment, null,
                                     React.createElement("button", { className: "btn p", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "approved") }, "\u062A\u0623\u06CC\u06CC\u062F"),
                                     React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "rejected") }, "\u0631\u062F")),

@@ -53,9 +53,10 @@ foreach ([['1405-07-10','09:00','21:00',720],['1405-07-17','10:00','21:00',660]]
 class Db {
   static $substitute=true;
   static $explicit=null;
+  static $byUser=[];
   static $dayRow=null;
   static $auto=['from_jdate'=>'1404-01-01','to_jdate'=>'1404-01-31'];
-  static function all($query,$params=[]){return self::$explicit?[self::$explicit]:[];}
+  static function all($query,$params=[]){if(isset(self::$byUser[$params[0]??0]))return self::$byUser[$params[0]];return self::$explicit?[self::$explicit]:[];}
   static function one($query,$params=[]){
     if(str_contains($query,'substitute_assignments'))return self::$substitute?['absent_user_id'=>2,'request_id'=>3]:null;
     if(str_contains($query,'shift_id=0'))return self::$auto;
@@ -71,6 +72,12 @@ Db::$auto=['from_jdate'=>'1405-08-01','to_jdate'=>null];
 same('substitute cannot inherit future automatic shift',null,_active_user_shift_assignment(1,$date));
 Db::$auto=['from_jdate'=>$date,'to_jdate'=>$date];
 same('substitute inherits inclusive effective date',true,(bool)_active_user_shift_assignment(1,$date)['is_substitute_shift']);
+Db::$byUser=[2=>[['id'=>17,'shift_id'=>17,'type'=>'advanced','title'=>'شیفت درخواست‌کننده','from_jdate'=>$date,'to_jdate'=>$date]],1=>[['id'=>23,'shift_id'=>23,'type'=>'rotating','title'=>'شیفت اصلی جایگزین','from_jdate'=>null,'to_jdate'=>null]]];
+same('substitute uses requesters effective shift',17,_active_user_shift_assignment(1,$date)['shift_id']);
+same('inherited shift retains absent user identity',2,_active_user_shift_assignment(1,$date)['absent_user_id']);
+Db::$substitute=false;
+same('outside active replacement own shift remains',23,_active_user_shift_assignment(1,$date)['shift_id']);
+Db::$byUser=[];
 Db::$substitute=false;Db::$auto=null;
 same('no assignment means no automatic shift',null,_active_user_shift_assignment(1,$date));
 Db::$auto=['from_jdate'=>'1404-01-01','to_jdate'=>'1404-01-31'];

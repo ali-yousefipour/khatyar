@@ -66,5 +66,6 @@ jobs:
           node php/tests/settings_sections_ui_test.cjs
           node php/tests/request_policy_ui_test.cjs
           node php/tests/request_report_ui_test.cjs
+          node php/tests/request_details_ui_test.cjs
           node php/tests/presence_extension_ui_test.cjs
           node --check php/app/assets/complaints-panel.js

@@ -2925,7 +2925,7 @@ function _active_user_shift_assignment($userId, $jdate=null){
   // شیفت موقت نیروی جایگزین: در روزهای مرخصی، دقیقاً شیفت فرد مرخصی‌گیرنده اعمال می‌شود.
   if ($jdate) {
     try {
-      $sa = Db::one("SELECT absent_user_id,request_id FROM substitute_assignments WHERE substitute_user_id=? AND status='active' AND from_date<=? AND to_date>=? ORDER BY id DESC LIMIT 1",[(int)$userId,$jdate,$jdate]);
+      $sa = Db::one("SELECT sa.absent_user_id,sa.request_id FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id DESC LIMIT 1",[(int)$userId,$jdate,$jdate]);
       if ($sa) {
         $arows = Db::all("SELECT us.user_id, us.shift_id, us.from_jdate, us.to_jdate, s.* FROM user_shifts us JOIN shifts s ON s.id=us.shift_id WHERE us.user_id=? AND s.is_active=1",[(int)$sa['absent_user_id']]);
         foreach($arows as $r){
@@ -3108,6 +3108,15 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null) {
   $assigns = Db::all("SELECT us.user_id, us.shift_id, us.from_jdate, us.to_jdate, CONCAT(uu.first_name,' ',uu.last_name) name, r.title role
     FROM user_shifts us JOIN users uu ON uu.id=us.user_id AND uu.is_active=1 LEFT JOIN roles r ON r.id=uu.role_id
     WHERE (us.from_jdate IS NULL OR us.from_jdate <= ?) AND (us.to_jdate IS NULL OR us.to_jdate >= ?)" . $userFilter, $assignParams);
+  // A substitute can have a temporary assignment without a permanent user_shifts row.
+  try{
+    $subParams=[$endJ,$firstJ];if($onlyUserId!==null)$subParams[]=(int)$onlyUserId;
+    $subUsers=Db::all("SELECT sa.substitute_user_id user_id,0 shift_id,sa.from_date from_jdate,sa.to_date to_jdate,CONCAT(uu.first_name,' ',uu.last_name) name,r.title role
+      FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved'
+      JOIN users uu ON uu.id=sa.substitute_user_id AND uu.is_active=1 LEFT JOIN roles r ON r.id=uu.role_id
+      WHERE sa.status='active' AND sa.from_date<=? AND sa.to_date>=?".($onlyUserId!==null?' AND sa.substitute_user_id=?':''),$subParams);
+    $assigns=array_merge($assigns,$subUsers);
+  }catch(Throwable $e){/* Legacy databases can lack substitute_assignments until first use. */}
   $shiftsById = [];
   foreach (Db::all("SELECT * FROM shifts WHERE is_active=1") as $sx) $shiftsById[$sx['id']] = $sx;
   $out = [];
@@ -4798,8 +4807,12 @@ function _req_apply_approval_effects(array $request,int $id){
     }
   }
   if(!empty($request['substitute_user_id'])){
+    if((int)$request['substitute_user_id']===(int)$request['user_id'])Http::error('نیروی جایگزین نمی‌تواند خود درخواست‌کننده باشد',422);
+    if(!Db::one("SELECT id FROM users WHERE id=? AND is_active=1 FOR UPDATE",[(int)$request['substitute_user_id']]))Http::error('نیروی جایگزین فعال نیست',422);
     $from=$request['from_jdate']?:$request['the_date'];
     $to=$request['to_jdate']?:($request['the_date']?:$from);
+    $conflict=Db::one("SELECT sa.id FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.request_id<>? AND sa.from_date<=? AND sa.to_date>=? LIMIT 1",[(int)$request['substitute_user_id'],$id,$to,$from]);
+    if($conflict)Http::error('نیروی جایگزین در این بازه جایگزینی تأییدشدهٔ دیگری دارد',409);
     if($from&&$to&&!Db::one("SELECT id FROM substitute_assignments WHERE request_id=? AND status='active'",[$id]))
       Db::run("INSERT INTO substitute_assignments(substitute_user_id,request_id,absent_user_id,from_date,to_date,status) VALUES(?,?,?,?,?,'active')",[(int)$request['substitute_user_id'],$id,(int)$request['user_id'],$from,$to]);
   }
@@ -4857,6 +4870,46 @@ function _req_report_csv_cell($value){
   return preg_match('/^[\s]*[=+@-]/u',$value)?"'".$value:$value;
 }
 
+// Consumption through the end of today, separate from quota reserved for future leave.
+function _req_leave_usage_through(array $rows,array $balance,$throughJdate){
+  $through=_req_policy_date($throughJdate);
+  if(!$through)Http::error('تاریخ محاسبهٔ مرخصی نامعتبر است',422);
+  $year=substr($throughJdate,0,4);$month=substr($throughJdate,0,7);
+  $yearStart=_req_policy_date($year.'-01-01');$monthStart=_req_policy_date($month.'-01');
+  $end=$through->modify('+1 day');$used=[];$seen=[];
+  foreach($rows as $row){
+    if(($row['status']??$row['balance_status']??'')!=='approved')continue;
+    $type=$row['type']??'';if(!in_array($type,['annual','sick','unpaid'],true))continue;
+    $span=_req_policy_span($row);if(!$span)continue;
+    $key=$type.'|'.$span['unit'].'|'.$span['start']->format('Y-m-d H:i').'|'.$span['days'].'|'.$span['minutes'];
+    if(isset($seen[$key]))continue;$seen[$key]=true;
+    if($span['unit']==='hourly'){
+      $stop=$span['start']->modify('+'.$span['minutes'].' minutes');
+      foreach(['year'=>$yearStart,'month'=>$monthStart] as $period=>$start){
+        $a=max($start->getTimestamp(),$span['start']->getTimestamp());$b=min($end->getTimestamp(),$stop->getTimestamp());
+        $used[$type][$period]=($used[$type][$period]??0)+max(0,($b-$a)/60);
+      }
+    }else{
+      $stop=$span['start']->modify('+'.$span['days'].' days');
+      foreach(['year'=>$yearStart,'month'=>$monthStart] as $period=>$start){
+        $a=$span['start']>$start?$span['start']:$start;$b=$stop<$end?$stop:$end;
+        $used[$type][$period]=($used[$type][$period]??0)+($b>$a?(int)$a->diff($b)->days*480:0);
+      }
+    }
+  }
+  $types=[];
+  foreach(['annual','sick','unpaid'] as $type){
+    $quota=$balance[$type.'_hourly']??[];$value=[];
+    foreach(['month','year'] as $period){
+      $value['used_hours_'.$period]=round(($used[$type][$period]??0)/60,2);
+      $value['remaining_hours_'.$period]=$quota['left_'.$period]??null;
+      $value['pending_hours_'.$period]=$quota['pending_'.$period]??0;
+      $value['future_approved_hours_'.$period]=max(0,round(($quota['used_'.$period]??0)-$value['used_hours_'.$period],2));
+    }$types[$type]=$value;
+  }
+  return ['through_jdate'=>$throughJdate,'types'=>$types];
+}
+
 // گزارش درخواست‌ها برای ادمین (با فیلتر کاربر/نوع/وضعیت/بازه)
 route('GET', '/api/admin/requests', function($p,$b,$u){
   [$where,$args]=_req_report_filter($_GET);
@@ -4868,15 +4921,33 @@ route('GET', '/api/admin/requests', function($p,$b,$u){
 }, false, ADMIN);
 
 // عملیات مدیریتی گزارش درخواست‌ها: تأیید، رد و حذف
+route('GET', '/api/admin/requests/{id}/detail', function($p,$b,$u){
+  $id=(int)$p['id'];if($id<=0)Http::error('شناسهٔ درخواست نامعتبر است',422);
+  $row=Db::one("SELECT r.*,CONCAT_WS(' ',us.first_name,us.last_name) requester,
+      CONCAT_WS(' ',ap.first_name,ap.last_name) approver,
+      CONCAT_WS(' ',pn.first_name,pn.last_name) pending_on_name
+    FROM requests r JOIN users us ON us.id=r.user_id LEFT JOIN users ap ON ap.id=r.approver_id
+    LEFT JOIN users pn ON pn.id=r.pending_on WHERE r.id=?",[$id]);
+  if(!$row)Http::error('درخواست یافت نشد',404);
+  $row['substitute_name']=null;$row['substitute_assignment']=null;
+  if(!empty($row['substitute_user_id'])){
+    $person=Db::one("SELECT CONCAT_WS(' ',first_name,last_name) name FROM users WHERE id=?",[(int)$row['substitute_user_id']]);
+    $row['substitute_name']=$person['name']??null;
+    if(_db_table_exists_safe('substitute_assignments'))$row['substitute_assignment']=Db::one("SELECT from_date,to_date,status FROM substitute_assignments WHERE request_id=? ORDER BY id DESC LIMIT 1",[$id]);
+  }
+  return $row;
+},false,ADMIN);
 route('GET', '/api/admin/requests/{id}/leave-context', function($p,$b,$u){
   $request=Db::one("SELECT id,user_id,type FROM requests WHERE id=?",[(int)$p['id']]);
   if(!$request)Http::error('درخواست یافت نشد',404);
-  if(!in_array($request['type'],['annual','sick'],true))Http::error('درخواست مرخصی نیست',422);
+  if(!in_array($request['type'],['annual','sick','unpaid'],true))Http::error('درخواست مرخصی نیست',422);
   $context=_req_balance((int)$request['user_id']);
   $from=_req_policy_date(sprintf('%04d-%02d-01',$context['year'],$context['month']));
   $next=$context['month']===12?sprintf('%04d-01-01',$context['year']+1):sprintf('%04d-%02d-01',$context['year'],$context['month']+1);
   $to=_req_policy_date($next);
-  $rows=Db::all("SELECT id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes,status FROM requests WHERE user_id=? AND type IN ('annual','sick') ORDER BY id DESC",[(int)$request['user_id']]);
+  $rows=Db::all("SELECT id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes,status FROM requests WHERE user_id=? AND type IN ('annual','sick','unpaid') ORDER BY id DESC",[(int)$request['user_id']]);
+  $today=_app_jdate_from_time(date('Y-m-d H:i:s'));
+  $context['usage_through_today']=_req_leave_usage_through($rows,$context['balance'],str_replace('/','-',$today));
   $context['requests']=array_values(array_filter($rows,static function($row)use($from,$to){$span=_req_policy_span($row);if(!$span)return false;$end=$span['unit']==='hourly'?$span['start']->modify('+'.$span['minutes'].' minutes'):$span['start']->setTime(0,0)->modify('+'.$span['days'].' days');return $span['start']<$to&&$end>$from;}));
   return $context;
 },false,ADMIN);
