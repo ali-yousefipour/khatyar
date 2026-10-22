@@ -6978,11 +6978,6 @@ const SETTINGS_SECTION_INDEX = [
         "title": "محدودیت‌های ثبت روزانه"
     },
     {
-        "id": "settings-section-14",
-        "tab": "hr",
-        "title": "تنظیمات درخواست‌ها (مرخصی/ماموریت/اضافه‌کار)"
-    },
-    {
         "id": "settings-section-15",
         "tab": "hr",
         "title": "تنظیمات حقوق و دستمزد"
@@ -7415,9 +7410,6 @@ function Settings() {
                     React.createElement("label", { className: "label", style: { minWidth: 230 } }, "\u062D\u062F\u0627\u0642\u0644 \u0641\u0627\u0635\u0644\u0647\u0654 \u0628\u06CC\u0646 \u062F\u0648 \u06AF\u0632\u0627\u0631\u0634 \u0647\u0631 \u06A9\u0627\u0631\u0628\u0631 (\u062F\u0642\u06CC\u0642\u0647):"),
                     React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 100 }, value: (_x = v.report_send_interval_min) !== null && _x !== void 0 ? _x : 0, onChange: e => set("report_send_interval_min", Math.max(0, +e.target.value || 0)) })),
                 React.createElement("button", { className: "btn p", style: { marginTop: 6 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u0645\u062D\u062F\u0648\u062F\u06CC\u062A\u200C\u0647\u0627")),
-            visitedTabs.includes("hr") && React.createElement("div", { id: "settings-section-14", className: "panel t-hr" },
-                React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627 (\u0645\u0631\u062E\u0635\u06CC/\u0645\u0627\u0645\u0648\u0631\u06CC\u062A/\u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631)"),
-                React.createElement(RequestSettings, { v: v, set: set, save: save })),
             visitedTabs.includes("hr") && React.createElement("div", { id: "settings-section-15", className: "panel t-hr" },
                 React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u062D\u0642\u0648\u0642 \u0648 \u062F\u0633\u062A\u0645\u0632\u062F"),
                 React.createElement(PayrollSettings, { v: v, set: set, save: save })),
@@ -8976,69 +8968,6 @@ function SmsTemplates({ v, setV, save }) {
 }
 // مدیریت سمت‌ها (نقش‌ها): تعریف، ویرایش، حذف
 // تنظیمات سقف‌ها و گردش تأیید درخواست‌ها
-function RequestSettings({ v, set, save }) {
-    const [users, setUsers] = useState([]);
-    useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(() => { }); }, []);
-    const N = (k, l, suffix) => { var _a; return React.createElement("div", { style: { minWidth: 150 } },
-        React.createElement("label", { className: "label" }, l),
-        React.createElement("div", { className: "row", style: { gap: 4, alignItems: "center" } },
-            React.createElement("input", { className: "input", type: "number", min: "0", style: { maxWidth: 90 }, value: (_a = v[k]) !== null && _a !== void 0 ? _a : "", onChange: e => set(k, e.target.value) }),
-            suffix && React.createElement("span", { className: "muted", style: { fontSize: 11 } }, suffix))); };
-    return (React.createElement("div", null,
-        React.createElement("h4", { style: { margin: "4px 0 8px" } }, "\u0645\u0631\u062E\u0635\u06CC \u0627\u0633\u062A\u062D\u0642\u0627\u0642\u06CC"),
-        React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },
-            N("annual_hourly_month", "ساعتی در ماه", "ساعت"),
-            N("annual_hourly_year", "ساعتی در سال", "ساعت"),
-            N("annual_daily_month", "روزانه در ماه", "روز"),
-            N("annual_daily_year", "روزانه در سال", "روز")),
-        React.createElement("h4", { style: { margin: "14px 0 8px" } }, "\u0645\u0631\u062E\u0635\u06CC \u0627\u0633\u062A\u0639\u0644\u0627\u062C\u06CC"),
-        React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },
-            N("sick_hourly_month", "ساعتی در ماه", "ساعت"),
-            N("sick_hourly_year", "ساعتی در سال", "ساعت"),
-            N("sick_daily_month", "روزانه در ماه", "روز"),
-            N("sick_daily_year", "روزانه در سال", "روز")),
-        React.createElement("h4", { style: { margin: "14px 0 8px" } }, "\u0627\u0636\u0627\u0641\u0647\u200C\u06A9\u0627\u0631"),
-        React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },
-            N("ot_count_month", "تعداد در ماه", "بار"),
-            N("ot_minutes_month", "دقیقه در ماه", "دقیقه"),
-            N("ot_count_year", "تعداد در سال", "بار"),
-            N("ot_minutes_year", "دقیقه در سال", "دقیقه")),
-        React.createElement("h4", { style: { margin: "14px 0 8px" } }, "\u0645\u0627\u0645\u0648\u0631\u06CC\u062A"),
-        React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },
-            N("mission_count_month", "تعداد در ماه", "بار"),
-            N("mission_hours_month", "ساعت در ماه", "ساعت"),
-            N("mission_count_year", "تعداد در سال", "بار"),
-            N("mission_hours_year", "ساعت در سال", "ساعت"),
-            N("mission_max_hours", "حداکثر هر ماموریت", "ساعت")),
-        React.createElement("h4", { style: { margin: "14px 0 8px" } }, "\u0639\u0645\u0648\u0645\u06CC"),
-        React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } }, N("leave_carryover_days", "مرخصی قابل انتقال به سال بعد", "روز")),
-        React.createElement("label", { className: "row", style: { gap: 8, marginTop: 12 } },
-            React.createElement("input", { type: "checkbox", checked: !!v.manual_attendance_selfie, onChange: e => set("manual_attendance_selfie", e.target.checked) }),
-            "\u0627\u0644\u0632\u0627\u0645 \u0627\u0644\u0635\u0627\u0642 \u0639\u06A9\u0633 \u0633\u0644\u0641\u06CC \u0647\u0646\u06AF\u0627\u0645 \u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC"),
-        React.createElement("label", { className: "row", style: { gap: 8, marginTop: 8 } },
-            React.createElement("input", { type: "checkbox", checked: v.checklist_require_photo !== false && v.checklist_require_photo !== 0, onChange: e => set("checklist_require_photo", e.target.checked) }),
-            "\u0627\u0644\u0632\u0627\u0645 \u062F\u0631\u062C \u0639\u06A9\u0633 \u0647\u0646\u06AF\u0627\u0645 \u062B\u0628\u062A \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A \u062E\u0648\u062F\u0631\u0648"),
-        React.createElement("label", { className: "row", style: { gap: 8, marginTop: 8 } },
-            React.createElement("input", { type: "checkbox", checked: !!v.request_sms_notify, onChange: e => set("request_sms_notify", e.target.checked) }),
-            "\u0627\u0631\u0633\u0627\u0644 \u067E\u06CC\u0627\u0645\u06A9 \u0628\u0647 \u0645\u062A\u0642\u0627\u0636\u06CC \u0647\u0646\u06AF\u0627\u0645 \u062A\u0623\u06CC\u06CC\u062F \u06CC\u0627 \u0631\u062F \u062F\u0631\u062E\u0648\u0627\u0633\u062A (\u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0641\u0639\u0627\u0644\u200C\u0628\u0648\u062F\u0646 \u0633\u0631\u0648\u06CC\u0633 \u067E\u06CC\u0627\u0645\u06A9)"),
-        React.createElement("h4", { style: { margin: "14px 0 8px" } }, "\u06AF\u0631\u062F\u0634 \u062A\u0623\u06CC\u06CC\u062F \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627"),
-        React.createElement("div", { className: "row", style: { gap: 14, flexWrap: "wrap", alignItems: "flex-end" } },
-            React.createElement("div", null,
-                React.createElement("label", { className: "label" }, "\u0634\u06CC\u0648\u0647\u0654 \u062A\u0623\u06CC\u06CC\u062F"),
-                React.createElement("select", { className: "input", style: { maxWidth: 220 }, value: v.request_approval_mode || "hierarchical", onChange: e => set("request_approval_mode", e.target.value) },
-                    React.createElement("option", { value: "hierarchical" }, "\u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628\u06CC (\u0632\u0646\u062C\u06CC\u0631\u0647\u0654 \u0645\u062F\u06CC\u0631\u0627\u0646)"),
-                    React.createElement("option", { value: "specific" }, "\u06CC\u06A9 \u0645\u0633\u0626\u0648\u0644 \u062E\u0627\u0635"))),
-            v.request_approval_mode === "specific" && React.createElement("div", null,
-                React.createElement("label", { className: "label" }, "\u0645\u0633\u0626\u0648\u0644 \u062A\u0623\u06CC\u06CC\u062F"),
-                React.createElement("select", { className: "input", style: { maxWidth: 220 }, value: v.request_approver_id || "", onChange: e => set("request_approver_id", e.target.value) },
-                    React.createElement("option", { value: "" }, "\u2014 \u0627\u0646\u062A\u062E\u0627\u0628 \u2014"),
-                    users.map(u => React.createElement("option", { key: u.id, value: u.id },
-                        u.first_name,
-                        " ",
-                        u.last_name))))),
-        React.createElement("button", { className: "btn p", style: { marginTop: 14 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627"),
-        React.createElement("p", { style: { fontSize: 11, color: "var(--muted)", marginTop: 8 } }, "\u0645\u0642\u062F\u0627\u0631 \u0635\u0641\u0631 \u06CC\u0627 \u062E\u0627\u0644\u06CC = \u0628\u062F\u0648\u0646 \u0645\u062D\u062F\u0648\u062F\u06CC\u062A. \u062F\u0631 \u062D\u0627\u0644\u062A \u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628\u06CC\u060C \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0627\u0632 \u0645\u062F\u06CC\u0631 \u0645\u0633\u062A\u0642\u06CC\u0645 \u0634\u0631\u0648\u0639 \u0648 \u062A\u0627 \u0628\u0627\u0644\u0627\u062A\u0631\u06CC\u0646 \u0645\u0642\u0627\u0645 \u0628\u0627\u0644\u0627\u062F\u0633\u062A \u0627\u0631\u062C\u0627\u0639 \u0645\u06CC\u200C\u0634\u0648\u062F.")));
-}
 // انتخاب دریافت‌کننده اعلان خروج از محدوده: اول سمت، سپس کاربر همان سمت
 // انتخاب یک یا چند «مسئول» دریافت‌کنندهٔ یک نوع هشدار میدانی (خروج از خط/VPN/GPS).
 // آرایه‌ای از شناسه‌ها را در user_ids ذخیره می‌کند تا بشود برای چند مسئول هم‌زمان ارسال کرد.
@@ -9765,7 +9694,7 @@ function WorkPolicy() {
             let o = c;
             const keys = path.split(".");
             for (let i = 0; i < keys.length - 1; i++)
-                o = o[keys[i]];
+                o = o[keys[i]] || (o[keys[i]] = {});
             o[keys[keys.length - 1]] = val;
             return { ...prev, config: c };
         });
@@ -9843,6 +9772,30 @@ function WorkPolicy() {
             React.createElement("input", { type: "checkbox", checked: !!editing.apply_time_limit_on_approve, onChange: e => setEditing({ ...editing, apply_time_limit_on_approve: e.target.checked }) }),
             "\u0627\u0639\u0645\u0627\u0644 \u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u0632\u0645\u0627\u0646\u06CC \u062F\u0631 \u0632\u0645\u0627\u0646 \u062A\u0627\u0626\u06CC\u062F \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
         msg && React.createElement("p", { style: { marginTop: 8, color: msg.startsWith("✓") ? "var(--ok)" : "var(--danger)", fontWeight: 700 } }, msg),
+        React.createElement("section", { className: "panel policy-request-options" },
+            React.createElement("h4", null, "\u06AF\u0631\u062F\u0634 \u062A\u0623\u06CC\u06CC\u062F \u0648 \u0627\u0644\u0632\u0627\u0645\u0627\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
+            React.createElement("p", { className: "muted" }, "\u062A\u0646\u0647\u0627 \u0633\u06CC\u0627\u0633\u062A \u06A9\u0627\u0631\u06CC \u0641\u0639\u0627\u0644\u0650 \u062A\u062E\u0635\u06CC\u0635\u200C\u06CC\u0627\u0641\u062A\u0647 \u0628\u0647 \u06A9\u0627\u0631\u0628\u0631 \u0645\u0628\u0646\u0627\u06CC \u062B\u0628\u062A\u060C \u062A\u0623\u06CC\u06CC\u062F \u0648 \u0645\u0627\u0646\u062F\u0647\u0654 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u0633\u062A. \u0628\u062F\u0648\u0646 \u0633\u06CC\u0627\u0633\u062A \u0641\u0639\u0627\u0644\u060C \u062B\u0628\u062A \u0648 \u062A\u0623\u06CC\u06CC\u062F \u0627\u0646\u062C\u0627\u0645 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
+            React.createElement("label", { className: "label" }, "\u0631\u0648\u0634 \u062A\u0623\u06CC\u06CC\u062F \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
+            React.createElement("select", { className: "input", value: g('request_options.approval_mode') || 'hierarchical', onChange: e => setCfg('request_options.approval_mode', e.target.value) },
+                React.createElement("option", { value: "hierarchical" }, "\u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628 \u0686\u0627\u0631\u062A \u0633\u0627\u0632\u0645\u0627\u0646\u06CC"),
+                React.createElement("option", { value: "specific" }, "\u0645\u0633\u0626\u0648\u0644 \u0645\u0634\u062E\u0635 \u062F\u0631 \u0627\u06CC\u0646 \u0633\u06CC\u0627\u0633\u062A")),
+            g('request_options.approval_mode') === 'specific' && React.createElement("label", { className: "label" },
+                "\u0645\u0633\u0626\u0648\u0644 \u062A\u0623\u06CC\u06CC\u062F",
+                React.createElement("select", { className: "input", value: g('request_options.approver_id'), onChange: num('request_options.approver_id') },
+                    React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0645\u0633\u0626\u0648\u0644"),
+                    users.map(user => React.createElement("option", { key: user.id, value: user.id },
+                        user.first_name,
+                        " ",
+                        user.last_name)))),
+            React.createElement("label", { className: "row" },
+                React.createElement("input", { type: "checkbox", checked: !!g('request_options.manual_attendance_selfie'), onChange: chk('request_options.manual_attendance_selfie') }),
+                "\u0627\u0644\u0632\u0627\u0645 \u0633\u0644\u0641\u06CC \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC"),
+            React.createElement("label", { className: "row" },
+                React.createElement("input", { type: "checkbox", checked: !!g('request_options.leave_require_substitute'), onChange: chk('request_options.leave_require_substitute') }),
+                "\u0627\u0644\u0632\u0627\u0645 \u0645\u0639\u0631\u0641\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0645\u0631\u062E\u0635\u06CC \u0648 \u0645\u0623\u0645\u0648\u0631\u06CC\u062A"),
+            React.createElement("label", { className: "row" },
+                React.createElement("input", { type: "checkbox", checked: !!g('request_options.request_sms_notify'), onChange: chk('request_options.request_sms_notify') }),
+                "\u067E\u06CC\u0627\u0645\u06A9 \u0646\u062A\u06CC\u062C\u0647\u0654 \u062F\u0631\u062E\u0648\u0627\u0633\u062A (\u0628\u0627 \u0633\u0631\u0648\u06CC\u0633 \u067E\u06CC\u0627\u0645\u06A9 \u0641\u0639\u0627\u0644)")),
         React.createElement("h4", { style: { textAlign: "center", margin: "18px 0 10px" } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627"),
         React.createElement("div", { className: "tabbar", style: { flexWrap: "wrap", overflowX: "auto" } }, REQ_TABS.map(([k, t]) => React.createElement("button", { key: k, className: "tabbtn" + (reqTab === k ? " on" : ""), onClick: () => { setReqTab(k); setModeTab("daily"); } }, t))),
         React.createElement("div", { style: { marginTop: 14 } },

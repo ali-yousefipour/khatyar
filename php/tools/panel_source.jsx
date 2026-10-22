@@ -4011,11 +4011,6 @@ const SETTINGS_SECTION_INDEX=[
     "title": "محدودیت‌های ثبت روزانه"
   },
   {
-    "id": "settings-section-14",
-    "tab": "hr",
-    "title": "تنظیمات درخواست‌ها (مرخصی/ماموریت/اضافه‌کار)"
-  },
-  {
     "id": "settings-section-15",
     "tab": "hr",
     "title": "تنظیمات حقوق و دستمزد"
@@ -4378,7 +4373,7 @@ function Settings(){
         <input className="input" type="number" min="0" style={{maxWidth:100}} value={v.report_send_interval_min??0} onChange={e=>set("report_send_interval_min",Math.max(0,+e.target.value||0))}/>
       </div>
       <button className="btn p" style={{marginTop:6}} onClick={save}>ذخیرهٔ محدودیت‌ها</button></div>}
-    {visitedTabs.includes("hr")&&<div id="settings-section-14" className="panel t-hr"><h3>تنظیمات درخواست‌ها (مرخصی/ماموریت/اضافه‌کار)</h3><RequestSettings v={v} set={set} save={save}/></div>}
+    {}
     {visitedTabs.includes("hr")&&<div id="settings-section-15" className="panel t-hr"><h3>تنظیمات حقوق و دستمزد</h3><PayrollSettings v={v} set={set} save={save}/></div>}
     {visitedTabs.includes("hr")&&<div id="settings-section-16" className="panel t-hr"><h3>🎂 تبریک تولد خودکار</h3><BirthdaySettings v={v} set={set} save={save}/></div>}
     {visitedTabs.includes("fields")&&<div id="settings-section-17" className="panel t-fields"><h3>🗂 فیلدهای سفارشی پرسنل</h3><CustomFieldsManager/>
@@ -5316,42 +5311,7 @@ function SmsTemplates({v,setV,save}){
 
 // مدیریت سمت‌ها (نقش‌ها): تعریف، ویرایش، حذف
 // تنظیمات سقف‌ها و گردش تأیید درخواست‌ها
-function RequestSettings({v,set,save}){
-  const [users,setUsers]=useState([]);
-  useEffect(()=>{ db.usersLite().then(u=>setUsers(u||[])).catch(()=>{}); },[]);
-  const N=(k,l,suffix)=><div style={{minWidth:150}}><label className="label">{l}</label><div className="row" style={{gap:4,alignItems:"center"}}><input className="input" type="number" min="0" style={{maxWidth:90}} value={v[k]??""} onChange={e=>set(k,e.target.value)}/>{suffix&&<span className="muted" style={{fontSize:11}}>{suffix}</span>}</div></div>;
-  return(<div>
-    <h4 style={{margin:"4px 0 8px"}}>مرخصی استحقاقی</h4>
-    <div className="row" style={{gap:10,flexWrap:"wrap"}}>{N("annual_hourly_month","ساعتی در ماه","ساعت")}{N("annual_hourly_year","ساعتی در سال","ساعت")}{N("annual_daily_month","روزانه در ماه","روز")}{N("annual_daily_year","روزانه در سال","روز")}</div>
-    <h4 style={{margin:"14px 0 8px"}}>مرخصی استعلاجی</h4>
-    <div className="row" style={{gap:10,flexWrap:"wrap"}}>{N("sick_hourly_month","ساعتی در ماه","ساعت")}{N("sick_hourly_year","ساعتی در سال","ساعت")}{N("sick_daily_month","روزانه در ماه","روز")}{N("sick_daily_year","روزانه در سال","روز")}</div>
-    <h4 style={{margin:"14px 0 8px"}}>اضافه‌کار</h4>
-    <div className="row" style={{gap:10,flexWrap:"wrap"}}>{N("ot_count_month","تعداد در ماه","بار")}{N("ot_minutes_month","دقیقه در ماه","دقیقه")}{N("ot_count_year","تعداد در سال","بار")}{N("ot_minutes_year","دقیقه در سال","دقیقه")}</div>
-    <h4 style={{margin:"14px 0 8px"}}>ماموریت</h4>
-    <div className="row" style={{gap:10,flexWrap:"wrap"}}>{N("mission_count_month","تعداد در ماه","بار")}{N("mission_hours_month","ساعت در ماه","ساعت")}{N("mission_count_year","تعداد در سال","بار")}{N("mission_hours_year","ساعت در سال","ساعت")}{N("mission_max_hours","حداکثر هر ماموریت","ساعت")}</div>
-    <h4 style={{margin:"14px 0 8px"}}>عمومی</h4>
-    <div className="row" style={{gap:10,flexWrap:"wrap"}}>{N("leave_carryover_days","مرخصی قابل انتقال به سال بعد","روز")}</div>
-    <label className="row" style={{gap:8,marginTop:12}}><input type="checkbox" checked={!!v.manual_attendance_selfie} onChange={e=>set("manual_attendance_selfie",e.target.checked)}/>الزام الصاق عکس سلفی هنگام ثبت تردد دستی</label>
-    <label className="row" style={{gap:8,marginTop:8}}><input type="checkbox" checked={v.checklist_require_photo!==false&&v.checklist_require_photo!==0} onChange={e=>set("checklist_require_photo",e.target.checked)}/>الزام درج عکس هنگام ثبت چک‌لیست خودرو</label>
-    <label className="row" style={{gap:8,marginTop:8}}><input type="checkbox" checked={!!v.request_sms_notify} onChange={e=>set("request_sms_notify",e.target.checked)}/>ارسال پیامک به متقاضی هنگام تأیید یا رد درخواست (نیازمند فعال‌بودن سرویس پیامک)</label>
-    <h4 style={{margin:"14px 0 8px"}}>گردش تأیید درخواست‌ها</h4>
-    <div className="row" style={{gap:14,flexWrap:"wrap",alignItems:"flex-end"}}>
-      <div><label className="label">شیوهٔ تأیید</label>
-        <select className="input" style={{maxWidth:220}} value={v.request_approval_mode||"hierarchical"} onChange={e=>set("request_approval_mode",e.target.value)}>
-          <option value="hierarchical">سلسله‌مراتبی (زنجیرهٔ مدیران)</option>
-          <option value="specific">یک مسئول خاص</option>
-        </select>
-      </div>
-      {v.request_approval_mode==="specific"&&<div><label className="label">مسئول تأیید</label>
-        <select className="input" style={{maxWidth:220}} value={v.request_approver_id||""} onChange={e=>set("request_approver_id",e.target.value)}>
-          <option value="">— انتخاب —</option>
-          {users.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
-        </select></div>}
-    </div>
-    <button className="btn p" style={{marginTop:14}} onClick={save}>ذخیرهٔ تنظیمات درخواست‌ها</button>
-    <p style={{fontSize:11,color:"var(--muted)",marginTop:8}}>مقدار صفر یا خالی = بدون محدودیت. در حالت سلسله‌مراتبی، درخواست از مدیر مستقیم شروع و تا بالاترین مقام بالادست ارجاع می‌شود.</p>
-  </div>);
-}
+
 
 
 // انتخاب دریافت‌کننده اعلان خروج از محدوده: اول سمت، سپس کاربر همان سمت
@@ -5823,7 +5783,7 @@ function WorkPolicy(){
   // کمک‌کننده برای تغییر config تو در تو
   const setCfg=(path,val)=>{
     setEditing(prev=>{ const c=JSON.parse(JSON.stringify(prev.config)); let o=c; const keys=path.split("."); 
-      for(let i=0;i<keys.length-1;i++)o=o[keys[i]]; o[keys[keys.length-1]]=val; return {...prev,config:c}; });
+      for(let i=0;i<keys.length-1;i++)o=o[keys[i]]||(o[keys[i]]={}); o[keys[keys.length-1]]=val; return {...prev,config:c}; });
   };
   const g=(path)=>{ let o=editing.config; for(const k of path.split("."))o=o?.[k]; return o ?? ""; };
   const num=(path)=>e=>setCfg(path, e.target.value===""?0:+e.target.value);
@@ -5890,6 +5850,13 @@ function WorkPolicy(){
     </label>
     {msg&&<p style={{marginTop:8,color:msg.startsWith("✓")?"var(--ok)":"var(--danger)",fontWeight:700}}>{msg}</p>}
 
+    <section className="panel policy-request-options"><h4>گردش تأیید و الزامات درخواست</h4><p className="muted">تنها سیاست کاری فعالِ تخصیص‌یافته به کاربر مبنای ثبت، تأیید و ماندهٔ درخواست‌هاست. بدون سیاست فعال، ثبت و تأیید انجام نمی‌شود.</p>
+      <label className="label">روش تأیید درخواست</label><select className="input" value={g('request_options.approval_mode')||'hierarchical'} onChange={e=>setCfg('request_options.approval_mode',e.target.value)}><option value="hierarchical">سلسله‌مراتب چارت سازمانی</option><option value="specific">مسئول مشخص در این سیاست</option></select>
+      {g('request_options.approval_mode')==='specific'&&<label className="label">مسئول تأیید<select className="input" value={g('request_options.approver_id')} onChange={num('request_options.approver_id')}><option value="">انتخاب مسئول</option>{users.map(user=><option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>)}</select></label>}
+      <label className="row"><input type="checkbox" checked={!!g('request_options.manual_attendance_selfie')} onChange={chk('request_options.manual_attendance_selfie')}/>الزام سلفی تردد دستی</label>
+      <label className="row"><input type="checkbox" checked={!!g('request_options.leave_require_substitute')} onChange={chk('request_options.leave_require_substitute')}/>الزام معرفی جایگزین مرخصی و مأموریت</label>
+      <label className="row"><input type="checkbox" checked={!!g('request_options.request_sms_notify')} onChange={chk('request_options.request_sms_notify')}/>پیامک نتیجهٔ درخواست (با سرویس پیامک فعال)</label>
+    </section>
     <h4 style={{textAlign:"center",margin:"18px 0 10px"}}>درخواست‌ها</h4>
     <div className="tabbar" style={{flexWrap:"wrap",overflowX:"auto"}}>
       {REQ_TABS.map(([k,t])=><button key={k} className={"tabbtn"+(reqTab===k?" on":"")} onClick={()=>{setReqTab(k);setModeTab("daily");}}>{t}</button>)}

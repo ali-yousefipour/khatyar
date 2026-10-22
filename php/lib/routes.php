@@ -2204,7 +2204,7 @@ route('GET', '/api/my/app-config', function($p,$b,$u){
     'gps_check_seconds'     => max(15,min(3600,(int)($g('gps_check_seconds', 60) ?: 60))), // فاصلهٔ بررسی روشن بودن GPS (ثانیه)
     'vpn_check_seconds'     => max(15,min(3600,(int)($g('vpn_check_seconds', 60) ?: 60))),
     'station_check_seconds' => max(15,min(3600,(int)($g('station_check_seconds', 60) ?: 60))),
-    'leave_require_substitute' => $g('leave_require_substitute', false) === true, // الزام معرفی جایگزین برای مرخصی
+    'leave_require_substitute' => !empty(_req_policy_options($u['id'],false)['leave_require_substitute']), // الزام معرفی جایگزین برای مرخصی
     // حالت فعالیت: always (همیشه) یا shift_only (فقط در ساعات شیفت کاری)
     'activity_mode'         => $g('activity_mode', 'always'), // always | shift_only
     // شیفت فعلی کاربر (برای تصمیم‌گیری درون اپ)
@@ -3955,7 +3955,7 @@ function _tracking_windows_for($userId){
 
 // اعلان پیامکی به متقاضی هنگام تأیید/رد درخواست (در صورت فعال‌بودن)
 function _req_notify_sms($req,$status,$note){
-  if (empty(_req_setting('request_sms_notify',false))) return;
+  if (empty(_req_policy_options($req['user_id'],false)['request_sms_notify'])) return;
   if (!Sms::isEnabled()) return;
   $usr = Db::one("SELECT first_name,last_name,phone FROM users WHERE id=?", [$req['user_id']]);
   if (!$usr || empty($usr['phone'])) return;
@@ -3997,7 +3997,7 @@ function _req_usage($uid,$type,$unit,$jy,$jm){
     'pending_month_min'=>$pendingMonthMin,'pending_year_min'=>$pendingYearMin];
 }
 
-// Assigned policies replace legacy global request caps, but not permissions or approvals.
+// Request constraints come exclusively from the active assigned work policy.
 function _req_active_work_policy($uid){
   $user=Db::one("SELECT * FROM users WHERE id=?",[(int)$uid]);
   if(empty($user['work_policy_id'])) return null;
@@ -4006,6 +4006,12 @@ function _req_active_work_policy($uid){
   if(!is_array($policy['config'])) $policy['config']=json_decode((string)$policy['config'],true);
   if(!is_array($policy['config'])) Http::error('تنظیمات سیاست کاری معتبر نیست؛ با مدیر سامانه تماس بگیرید.',422);
   return $policy;
+}
+
+function _req_policy_options($uid,$required=true){
+  $policy=_req_active_work_policy($uid);
+  if(!$policy&&$required)Http::error('برای بررسی درخواست، ابتدا سیاست کاری فعال به این کاربر تخصیص دهید.',422);
+  return is_array($policy['config']['request_options']??null)?$policy['config']['request_options']:[];
 }
 
 function _req_policy_date($value){
@@ -4093,6 +4099,48 @@ function _req_validate_work_policy($uid,array $request,array $policy,$approval=f
 
 // Serialize quota validation and writes for one requester across all four entry points.
 // An advisory lock tolerates legacy DDL in the handlers (which would commit a transaction).
+// Match validation: normalized Jalali periods, shared duration across hourly/daily,
+// deduplicated pending/approved requests and separate per-unit request counts.
+function _req_policy_balance($uid,array $policy,$jy,$jm){
+  $out=[];$month=sprintf('%04d-%02d',$jy,$jm);$year=sprintf('%04d',$jy);
+  foreach(['annual','sick','unpaid','mission','overtime'] as $type){
+    $config=$policy['config'][$type]??[];$usage=[];
+    $rows=Db::all("SELECT MAX(minutes) minutes,unit,from_jdate,to_jdate,the_date,from_time,to_time,type,
+      CASE WHEN MAX(status='approved')=1 THEN 'approved' ELSE 'pending' END balance_status
+      FROM requests WHERE user_id=? AND type=? AND status IN ('pending','approved')
+      GROUP BY type,unit,from_jdate,to_jdate,the_date,from_time,to_time",[(int)$uid,$type]);
+    foreach($rows as $row){$span=_req_policy_span($row);if(!$span)continue;
+      foreach($span['periods'] as $period=>$minutes){
+        $status=($row['balance_status']??'pending')==='approved'?'approved':'pending';
+        $usage[$period][$status]=($usage[$period][$status]??0)+$minutes;
+        $usage[$period]['count'][$span['unit']]=($usage[$period]['count'][$span['unit']]??0)+1;
+      }
+    }
+    $minutes=static fn($period)=>max(0,(int)($config[$period.'_h']??0))*60+max(0,(int)($config[$period.'_m']??0));
+    foreach(['daily'=>480,'hourly'=>60] as $unit=>$factor){
+      if($type==='overtime'&&$unit==='daily')continue;
+      $limits=$type==='overtime'?$config:($config[$unit]??[]);$value=[];
+      foreach(['month'=>$month,'year'=>$year] as $period=>$key){
+        $cap=$minutes($period);$approved=$usage[$key]['approved']??0;$pending=$usage[$key]['pending']??0;
+        $value['cap_'.$period]=$cap/$factor;$value['used_'.$period]=round($approved/$factor,2);$value['pending_'.$period]=round($pending/$factor,2);
+        $unlimited=$type==='annual'&&!empty($config['allow_over_'.$period]);
+        $value['left_'.$period]=$cap&&!$unlimited?max(0,($cap-$approved-$pending)/$factor):null;
+        $value['cap_count_'.$period]=(int)($limits[$period.'_cap']??0);
+        $value['used_count_'.$period]=$usage[$key]['count'][$unit]??0;
+      }
+      $out[$type.'_'.$unit]=$value;
+    }
+    if($type==='overtime'||$type==='mission'){
+      $value=[];foreach(['month'=>$month,'year'=>$year] as $period=>$key){
+        $value['used_min_'.$period]=($usage[$key]['approved']??0)+($usage[$key]['pending']??0);
+        $value['used_count_'.$period]=array_sum($usage[$key]['count']??[]);
+        $value['cap_min_'.$period]=$minutes($period);$value['cap_hours_'.$period]=$minutes($period)/60;
+        $value['cap_count_'.$period]=$type==='overtime'?(int)($config[$period.'_cap']??0):0;
+      }$out[$type]=$value;
+    }
+  }return $out;
+}
+
 function _req_reject_overlap($uid,array $request){
   $span=_req_policy_span($request);
   if(!$span)return; // Existing handlers retain responsibility for invalid input.
@@ -4128,7 +4176,8 @@ function _req_work_policy_handler($path,callable $handler){
     try{
       if(!$approval) _req_reject_overlap($uid,$request);
       $policy=_req_active_work_policy($uid);
-      if($policy) _req_validate_work_policy($uid,$request,$policy,$approval,$excludeId);
+      if(!$policy)Http::error('برای بررسی درخواست، ابتدا سیاست کاری فعال به این کاربر تخصیص دهید.',422);
+      _req_validate_work_policy($uid,$request,$policy,$approval,$excludeId);
       return $handler($params,$body,$user);
     } finally { Db::one("SELECT RELEASE_LOCK(?) released",[$lock]); }
   };
@@ -4136,9 +4185,11 @@ function _req_work_policy_handler($path,callable $handler){
 
 // تعیین مقام تأییدکننده (سلسله‌مراتبی یا مسئول خاص)
 function _req_approver($uid){
-  $mode = _req_setting('request_approval_mode','hierarchical');
+  $options=_req_policy_options($uid);
+  $mode=$options['approval_mode']??'hierarchical';
   if ($mode === 'specific') {
-    $sp = (int)_req_setting('request_approver_id',0);
+    $sp=(int)($options['approver_id']??0);
+    if(!$sp||!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$sp]))Http::error('مسئول تأیید سیاست کاری معتبر نیست.',422);
     return $sp ?: null;
   }
   $mgrs = _user_managers($uid);
@@ -4321,45 +4372,14 @@ route('POST', '/api/my/requests', function($p,$b,$u){
     $f = $b['from_jdate'] ?? null; $t = $b['to_jdate'] ?? $f;
     if ($f && $t) { $df=j_to_ts($f); $dt=j_to_ts($t); $days=$df&&$dt?max(1,(int)(($dt-$df)/86400)+1):1; $minutes=$days*480; }
   }
-  // بررسی سقف‌ها (برای مرخصی/ماموریت/اضافه‌کار)
-  $tj = explode('-', $b['the_date'] ?? $b['from_jdate'] ?? '');
-  $jy = (int)($tj[0] ?? 0); $jm = (int)($tj[1] ?? 0);
-  if (!$jy) { [$jy,$jm] = array_slice(gregorian_to_jalali(date('Y'),date('m'),date('d')),0,2); }
-  $capMsg = null;
-  $usage = _req_usage($u['id'],$type,$unit,$jy,$jm);
-  $capKey = function($base) use($type,$unit){ return $type.'_'.($unit==='hourly'?'hourly':'daily').'_'.$base; };
-  if (in_array($type,['annual','sick'])) {
-    $cm = (int)_req_setting($capKey('month'),0); $cyr=(int)_req_setting($capKey('year'),0);
-    $unitMin = $unit==='hourly'?60:480;
-    if ($cm>0 && ($usage['month_min']+$minutes) > $cm*$unitMin) $capMsg="سقف مرخصی ماهانه شما تکمیل است.";
-    if (!$capMsg && $cyr>0 && ($usage['year_min']+$minutes) > $cyr*$unitMin) $capMsg="سقف مرخصی سالانهٔ شما تکمیل است.";
-  } elseif ($type==='overtime') {
-    $cntM=(int)_req_setting('ot_count_month',0); $minM=(int)_req_setting('ot_minutes_month',0);
-    $cntY=(int)_req_setting('ot_count_year',0); $minY=(int)_req_setting('ot_minutes_year',0);
-    if ($cntM>0 && $usage['month_cnt']+1>$cntM) $capMsg="سقف تعداد اضافه‌کار ماهانه تکمیل است.";
-    if (!$capMsg && $minM>0 && $usage['month_min']+$minutes>$minM) $capMsg="سقف دقایق اضافه‌کار ماهانه تکمیل است.";
-    if (!$capMsg && $cntY>0 && $usage['year_cnt']+1>$cntY) $capMsg="سقف تعداد اضافه‌کار سالانه تکمیل است.";
-    if (!$capMsg && $minY>0 && $usage['year_min']+$minutes>$minY) $capMsg="سقف دقایق اضافه‌کار سالانه تکمیل است.";
-  } elseif ($type==='mission') {
-    $cntM=(int)_req_setting('mission_count_month',0); $hM=(int)_req_setting('mission_hours_month',0);
-    $cntY=(int)_req_setting('mission_count_year',0); $hY=(int)_req_setting('mission_hours_year',0);
-    $maxH=(int)_req_setting('mission_max_hours',0);
-    if ($maxH>0 && $minutes>$maxH*60) $capMsg="مدت این ماموریت از حداکثر مجاز بیشتر است.";
-    if (!$capMsg && $cntM>0 && $usage['month_cnt']+1>$cntM) $capMsg="سقف تعداد ماموریت ماهانه تکمیل است.";
-    if (!$capMsg && $hM>0 && $usage['month_min']+$minutes>$hM*60) $capMsg="سقف ساعت ماموریت ماهانه تکمیل است.";
-    if (!$capMsg && $cntY>0 && $usage['year_cnt']+1>$cntY) $capMsg="سقف تعداد ماموریت سالانه تکمیل است.";
-    if (!$capMsg && $hY>0 && $usage['year_min']+$minutes>$hY*60) $capMsg="سقف ساعت ماموریت سالانه تکمیل است.";
-  }
-  // An active assigned work policy is authoritative; legacy caps remain the fallback.
-  if ($capMsg && !_req_active_work_policy($u['id'])) Http::error($capMsg,422);
   // سلفی اجباری برای تردد دستی؟
-  if ($type==='manual' && _req_setting('manual_attendance_selfie',false) && empty($b['selfie_data'])) {
+  if ($type==='manual' && !empty(_req_policy_options($u['id'])['manual_attendance_selfie']) && empty($b['selfie_data'])) {
     Http::error('برای ثبت تردد دستی، الصاق عکس سلفی الزامی است.',422);
   }
   $approver = _req_approver($u['id']);
   // معرفی نیروی جایگزین (برای مرخصی/ماموریت) — اگر تنظیم الزام فعال است، برای annual/sick اجباری
   $sub = !empty($b['substitute_user_id']) ? (int)$b['substitute_user_id'] : null;
-  if (in_array($type,['annual','sick','mission']) && _req_setting('leave_require_substitute',false) && !$sub) {
+  if (in_array($type,['annual','sick','mission']) && !empty(_req_policy_options($u['id'])['leave_require_substitute']) && !$sub) {
     Http::error('برای ثبت این درخواست، معرفی نیروی جایگزین الزامی است.',422);
   }
   // بررسی روز ممنوعهٔ مرخصی و در دسترس بودن جایگزین (فقط برای مرخصی/ماموریت)
@@ -4452,7 +4472,8 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
     return ['ok'=>true,'status'=>'rejected'];
   }
   // تأیید: در حالت سلسله‌مراتبی، اگر تأییدکنندهٔ فعلی خودش مقام بالادست دارد، به او ارجاع شود
-  $mode = _req_setting('request_approval_mode','hierarchical');
+  $options=_req_policy_options($r['user_id']);
+  $mode=$options['approval_mode']??'hierarchical';
   $next = null;
   if ($mode === 'hierarchical') {
     $mgrs = _user_managers($u['id']);
@@ -4698,42 +4719,10 @@ function _req_balance($uid){
       }
     }
   } catch (\Throwable $e) { error_log('leave balance snapshot lookup failed: '.$e->getMessage()); }
-  $out = [];
-  // مرخصی استحقاقی و استعلاجی (ساعتی/روزانه)
-  foreach (['annual','sick'] as $type) {
-    foreach (['hourly','daily'] as $unit) {
-      $u = _req_usage($uid,$type,$unit,$jy,$jm);
-      $capM = (int)_req_setting("{$type}_{$unit}_month",0);
-      $capY = (int)_req_setting("{$type}_{$unit}_year",0);
-      $unitMin = $unit==='hourly'?60:480;
-      $out["{$type}_{$unit}"] = [
-        'cap_month'=>$capM,'cap_year'=>$capY,
-        'used_month'=> $unitMin? round($u['approved_month_min']/$unitMin,1):0,
-        'used_year'=> $unitMin? round($u['approved_year_min']/$unitMin,1):0,
-        'pending_month'=> $unitMin? round($u['pending_month_min']/$unitMin,1):0,
-        'pending_year'=> $unitMin? round($u['pending_year_min']/$unitMin,1):0,
-        'left_month'=> $capM? max(0,$capM - ($unitMin?$u['month_min']/$unitMin:0)):null,
-        'left_year'=> $capY? max(0,$capY - ($unitMin?$u['year_min']/$unitMin:0)):null,
-      ];
-    }
-  }
-  // اضافه‌کار (تعداد/دقیقه)
-  $uo = _req_usage($uid,'overtime','',$jy,$jm);
-  $out['overtime'] = [
-    'cap_count_month'=>(int)_req_setting('ot_count_month',0),'cap_min_month'=>(int)_req_setting('ot_minutes_month',0),
-    'cap_count_year'=>(int)_req_setting('ot_count_year',0),'cap_min_year'=>(int)_req_setting('ot_minutes_year',0),
-    'used_count_month'=>$uo['month_cnt'],'used_min_month'=>$uo['month_min'],
-    'used_count_year'=>$uo['year_cnt'],'used_min_year'=>$uo['year_min'],
-  ];
-  // ماموریت (تعداد/ساعت)
-  $um = _req_usage($uid,'mission','',$jy,$jm);
-  $out['mission'] = [
-    'cap_count_month'=>(int)_req_setting('mission_count_month',0),'cap_hours_month'=>(int)_req_setting('mission_hours_month',0),
-    'cap_count_year'=>(int)_req_setting('mission_count_year',0),'cap_hours_year'=>(int)_req_setting('mission_hours_year',0),
-    'used_count_month'=>$um['month_cnt'],'used_min_month'=>$um['month_min'],
-    'used_count_year'=>$um['year_cnt'],'used_min_year'=>$um['year_min'],
-  ];
-  return ['year'=>$jy,'month'=>$jm,'balance'=>$out,'official_snapshot'=>$officialSnapshot];
+  $policy=_req_active_work_policy($uid);
+  if(!$policy)Http::error('برای نمایش مانده، ابتدا سیاست کاری فعال به این کاربر تخصیص دهید.',422);
+  return ['year'=>$jy,'month'=>$jm,'balance'=>_req_policy_balance($uid,$policy,$jy,$jm),'official_snapshot'=>$officialSnapshot,
+    'policy_id'=>(int)$policy['id'],'policy_title'=>$policy['title']??'','source'=>'work_policy'];
 }
 
 // مانده مرخصی خودِ کاربر (اپ)
