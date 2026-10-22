@@ -172,3 +172,8 @@ Db::$overlaps=[daily('1405-06-31','1405-07-02')+['balance_status'=>'approved']];
 check(_req_policy_balance(12,Db::$policy,1405,7)['annual_daily']['used_month']===2.0,'multi-month leave apportioned to actual Jalali month');
 foreach(['annual_daily_month','ot_count_month','mission_hours_month',"_req_setting('request_approval_mode'","_req_setting('manual_attendance_selfie'","_req_setting('leave_require_substitute'"] as $legacy)check(!str_contains($source,$legacy),'retired request setting still active: '.$legacy);
 echo "PASS: policy-only submission/options/balance, mixed units, count caps, allow-over, month boundaries and retired globals\n";
+Db::$policy=policy(['annual'=>[]]);Db::$rows=[];Db::$overlaps=[daily()];
+Db::$request=daily()+['id'=>90,'user_id'=>12,'status'=>'rejected'];
+$retry=_req_work_policy_handler('/api/admin/requests/{id}/decision',static fn()=>['ok'=>true]);
+denied(fn()=>$retry(['id'=>90],['status'=>'approved'],['id'=>99]),'reapproval rejects overlapping active request',409);
+Db::$overlaps=[];check($retry(['id'=>90],['status'=>'approved'],['id'=>99])['ok'],'reapproval permitted when policy and overlap checks pass');

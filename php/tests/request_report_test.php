@@ -63,6 +63,8 @@ Db::$failAttendance=true;try{$decide(['id'=>3],['status'=>'approved'],['id'=>1])
 check(Db::pdo()->rollbacks===1,'attendance error rolls decision back');Db::$failAttendance=false;
 Db::$changed=0;denied(fn()=>$decide(['id'=>3],['status'=>'approved'],['id'=>1]),409);check(Db::pdo()->rollbacks===2,'concurrent decision rolls back');Db::$changed=1;
 Db::$request['status']='approved';denied(fn()=>$decide(['id'=>3],['status'=>'approved'],['id'=>1]),409);
+Db::$request['status']='rejected';$decide(['id'=>3],['status'=>'approved'],['id'=>1]);
+check(Db::$writes[count(Db::$writes)-2][1][4]==='rejected','reapproval compares original rejected status atomically');
 Db::$request['status']='pending';Db::$request['in_time']='25:99';denied(fn()=>$decide(['id'=>3],['status'=>'approved'],['id'=>1]),422);
 Db::$request['status']='pending';Db::$request['in_time']=null;denied(fn()=>$decide(['id'=>3],['status'=>'approved'],['id'=>1]),422);
 Db::$open=['id'=>8];$decide(['id'=>3],['status'=>'approved'],['id'=>1]);check(str_contains(end(Db::$writes)[0],'UPDATE staff_attendance'),'out-only request closes open attendance');

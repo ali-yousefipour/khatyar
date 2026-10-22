@@ -24,6 +24,7 @@ class XlsxWriter {
   private $reportHeading = null;
   private $headerGroups = [];
   private $decimalCols = [];
+  private $rowHeights = [];
 
   function __construct(array $headers) { $this->headers = array_values($headers); }
 
@@ -37,6 +38,7 @@ class XlsxWriter {
   function setReportHeading($title, $subtitle, $summary) { $this->reportHeading = [(string)$title,(string)$subtitle,(string)$summary]; }
   function setHeaderGroup($startCol,$endCol,$title) { $this->headerGroups[]=[(int)$startCol,(int)$endCol,(string)$title]; }
   function setDecimalCol($idx) { $this->decimalCols[(int)$idx]=true; }
+  function setRowHeight($idx,$points) { $this->rowHeights[(int)$idx]=max(18,min(409,(float)$points)); }
 
   /** یک ردیف دادهٔ متنی/عددی اضافه می‌کند و شمارهٔ ردیف (0-based، بدون احتساب سرستون) را برمی‌گرداند. */
   function addRow(array $cells) { $this->rows[] = array_values($cells); return count($this->rows) - 1; }
@@ -180,6 +182,7 @@ class XlsxWriter {
       $excelRow = $ri + $headerRow + 1;
       $ht = isset($this->imageRowIdx[$ri]) ? ' ht="'.$this->imageRowIdx[$ri].'" customHeight="1"' : '';
       if (!$ht && $this->reportHeading) $ht = ' ht="28" customHeight="1"';
+      if(isset($this->rowHeights[$ri]))$ht=' ht="'.$this->rowHeights[$ri].'" customHeight="1"';
       $sheetXml .= '<row r="'.$excelRow.'"'.$ht.'>';
       foreach ($row as $c => $v) {
         if (is_numeric($v) && $v !== '' && empty($this->textCols[$c]) && !preg_match('/^0\d/', (string)$v)) {

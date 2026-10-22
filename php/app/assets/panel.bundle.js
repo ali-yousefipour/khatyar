@@ -9375,7 +9375,7 @@ function DashboardConfig() {
             saved && React.createElement("span", { style: { color: "var(--ok)", fontSize: 13 } }, "\u2713 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"))));
 }
 function RolePerms() {
-    const MENU = [["seniority", "سنوات نیروها"], ["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["officials", "حضور مسئولین"], ["covertselfies", "نظارت"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["attreport", "گزارش تردد پرسنل"], ["leavereport", "گزارش مرخصی پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "تنظیمات شیفت کاری"], ["monthlyworkreport", "گزارش کارکرد ماهانه"], ["workpolicy", "سیاست کاری"], ["requests", "گزارش درخواست‌ها"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["radiocenter", "مرکز بی‌سیم"], ["vehicleassets", "ماشین‌آلات و وسایل مأموریتی"], ["vehiclechecklist", "چک‌لیست خودرویی و موتوری"], ["settings", "تنظیمات"]];
+    const MENU = [["seniority", "سنوات نیروها"], ["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["officials", "حضور مسئولین"], ["covertselfies", "نظارت"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["attreport", "گزارش تردد پرسنل"], ["leavereport", "گزارش مرخصی پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "تنظیمات شیفت کاری"], ["monthlyworkreport", "گزارش کارکرد ماهانه"], ["workpolicy", "سیاست کاری"], ["requests", "درخواست‌های پرسنل"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["radiocenter", "مرکز بی‌سیم"], ["vehicleassets", "ماشین‌آلات و وسایل مأموریتی"], ["vehiclechecklist", "چک‌لیست خودرویی و موتوری"], ["settings", "تنظیمات"]];
     const [roles, setRoles] = useState([]);
     const [perms, setPerms] = useState({});
     const [sel, setSel] = useState(null);
@@ -12652,7 +12652,7 @@ function OutageReport() {
 function jFromIso(iso) { if (!iso)
     return ""; const d = new Date(iso); if (isNaN(d))
     return ""; const [jy, jm, jd] = gregToJalali(d.getFullYear(), d.getMonth() + 1, d.getDate()); return `${jy}-${String(jm).padStart(2, "0")}-${String(jd).padStart(2, "0")}`; }
-// گزارش درخواست‌ها برای ادمین (مرخصی/ماموریت/اضافه‌کار/تردد دستی)
+// درخواست‌های پرسنل برای ادمین (مرخصی/ماموریت/اضافه‌کار/تردد دستی)
 function RequestLeaveUsage({ requestId, initialContext }) {
     const [open, setOpen] = useState(false);
     const [context, setContext] = useState(initialContext || null);
@@ -12759,7 +12759,7 @@ function AdminRequests() {
     const [loading, setLoading] = useState(false);
     const [fUser, setFUser] = useState("");
     const [fType, setFType] = useState("");
-    const [fStatus, setFStatus] = useState("");
+    const [fStatus, setFStatus] = useState("pending");
     const [busyId, setBusyId] = useState(null);
     const [fFrom, setFFrom] = useState("");
     const [fTo, setFTo] = useState("");
@@ -12807,7 +12807,7 @@ function AdminRequests() {
             return;
         if (loading || review)
             return;
-        const targets = rows.filter(row => ids.includes(row.id) && (status === 'delete' || row.status === 'pending'));
+        const targets = rows.filter(row => ids.includes(row.id) && (status === 'delete' || row.status === 'pending' || (status === 'approved' && row.status === 'rejected')));
         if (!targets.length) {
             setActionMessage('از موارد انتخاب‌شده، درخواستی برای این عملیات وجود ندارد.');
             return;
@@ -12842,7 +12842,8 @@ function AdminRequests() {
     const del = id => prepare([id], 'delete');
     const TY = { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", unpaid: "مرخصی بدون حقوق", mission: "ماموریت", overtime: "اضافه‌کار", manual: "تردد دستی" };
     const ST = { pending: ["در انتظار", "b-pending"], approved: ["تأییدشده", "b-ok"], rejected: ["ردشده", "b-no"], canceled: ["لغوشده", "b-no"] };
-    useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(() => { }); load(); }, []);
+    useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(() => { }); }, []);
+    useEffect(() => { setSelected([]); load(); }, [fStatus]);
     const qs = () => { const p = []; if (fUser)
         p.push("user_id=" + fUser); if (fType)
         p.push("type=" + fType); if (fStatus)
@@ -12880,7 +12881,7 @@ function AdminRequests() {
         const a = document.createElement("a");
         const url = URL.createObjectURL(blob);
         a.href = url;
-        a.download = "گزارش_درخواستها.csv";
+        a.download = "درخواستهای_پرسنل.xlsx";
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
@@ -12888,8 +12889,10 @@ function AdminRequests() {
         alert(e.message);
     } };
     return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page" },
-        React.createElement("h3", null, "\uD83D\uDCCB \u06AF\u0632\u0627\u0631\u0634 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627"),
+        React.createElement("h3", null, "\uD83D\uDCCB \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u067E\u0631\u0633\u0646\u0644"),
         detailId != null && React.createElement(RequestDetails, { key: detailId, requestId: detailId, onClose: () => setDetailId(null) }),
+        React.createElement("div", { role: "tablist", "aria-label": "\u0648\u0636\u0639\u06CC\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u067E\u0631\u0633\u0646\u0644", className: "filters", style: { display: "flex", gap: 8, flexWrap: "wrap" } }, [["pending", "در انتظار بررسی"], ["approved", "تأییدشده"], ["rejected", "ردشده"]].map(([key, title]) => React.createElement("button", { role: "tab", "aria-selected": fStatus === key, className: "btn " + (fStatus === key ? "p" : "g"), key: key, disabled: !!busyId || reviewLoading, onClick: () => { if (key === fStatus)
+                return; loadVersion.current++; setLoading(false); setSelected([]); setRows([]); setFStatus(key); } }, title))),
         React.createElement("div", { className: "request-bulk-toolbar" },
             React.createElement("label", null,
                 React.createElement("input", { type: "checkbox", "aria-label": "\u0627\u0646\u062A\u062E\u0627\u0628 \u0647\u0645\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634\u200C\u062F\u0627\u062F\u0647\u200C\u0634\u062F\u0647", disabled: !!busyId || reviewLoading || loading, checked: rows.length > 0 && rows.every(row => selected.includes(row.id)), onChange: event => setSelected(event.target.checked ? rows.map(row => row.id) : []) }),
@@ -12905,7 +12908,7 @@ function AdminRequests() {
             React.createElement("p", null,
                 fa(review.ids.length),
                 " \u062F\u0631\u062E\u0648\u0627\u0633\u062A ",
-                review.status === 'delete' ? 'حذف خواهند شد؛ این عملیات قابل بازگشت نیست.' : 'بررسی خواهند شد. فقط درخواست‌های در انتظار پردازش می‌شوند.'),
+                review.status === 'delete' ? 'حذف خواهند شد؛ این عملیات قابل بازگشت نیست.' : 'بررسی خواهند شد. درخواست‌های در انتظار و درخواست‌های ردشدهٔ انتخاب‌شده، طبق سیاست کاری بررسی می‌شوند.'),
             review.leaves.map(({ row, context }) => React.createElement("section", { className: "leave-review", key: row.id },
                 React.createElement("h4", null,
                     row.requester,
@@ -12957,25 +12960,19 @@ function AdminRequests() {
             React.createElement("select", { className: "input", style: { maxWidth: 170 }, value: fType, onChange: e => { setFType(e.target.value); setSelected([]); } },
                 React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0627\u0646\u0648\u0627\u0639"),
                 Object.entries(TY).map(([k, t]) => React.createElement("option", { key: k, value: k }, t))),
-            React.createElement("select", { className: "input", style: { maxWidth: 150 }, value: fStatus, onChange: e => { setFStatus(e.target.value); setSelected([]); } },
-                React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0648\u0636\u0639\u06CC\u062A\u200C\u0647\u0627"),
-                React.createElement("option", { value: "pending" }, "\u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631"),
-                React.createElement("option", { value: "approved" }, "\u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647"),
-                React.createElement("option", { value: "rejected" }, "\u0631\u062F\u0634\u062F\u0647"),
-                React.createElement("option", { value: "canceled" }, "\u0644\u063A\u0648\u0634\u062F\u0647")),
             React.createElement("label", null,
                 "\u062B\u0628\u062A \u0627\u0632 ",
-                React.createElement("input", { className: "input", type: "date", value: fFrom, onChange: e => { setFFrom(e.target.value); setSelected([]); } })),
+                React.createElement(JDate, { value: fFrom, onChange: value => { setFFrom(value); setSelected([]); }, placeholder: "\u062B\u0628\u062A \u0627\u0632 (\u0634\u0645\u0633\u06CC)" })),
             React.createElement("label", null,
                 "\u062B\u0628\u062A \u062A\u0627 ",
-                React.createElement("input", { className: "input", type: "date", value: fTo, onChange: e => { setFTo(e.target.value); setSelected([]); } })),
+                React.createElement(JDate, { value: fTo, onChange: value => { setFTo(value); setSelected([]); }, placeholder: "\u062B\u0628\u062A \u062A\u0627 (\u0634\u0645\u0633\u06CC)" })),
             React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u062F\u0631\u062E\u0648\u0627\u0633\u062A", placeholder: "\u0646\u0627\u0645 \u0646\u06CC\u0631\u0648\u060C \u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u06CC\u0627 \u0634\u0645\u0627\u0631\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A", value: search, onChange: e => { setSearch(e.target.value); setSelected([]); }, onKeyDown: e => { if (e.key === 'Enter')
                     load(); }, style: { maxWidth: 270 } }),
             React.createElement("button", { className: "btn p", disabled: loading || !!busyId || reviewLoading, onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
             React.createElement("button", { className: "btn g", disabled: loading || !!busyId || reviewLoading, onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
         React.createElement("p", { className: "muted" },
             fa(rows.length),
-            " \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F5\u06F0\u06F0 \u0646\u062A\u06CC\u062C\u0647\u0654 \u0622\u062E\u0631 (\u062E\u0631\u0648\u062C\u06CC CSV \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F5\u06F0\u06F0\u06F0 \u0645\u0648\u0631\u062F). \u0628\u0631\u0627\u06CC \u0646\u062A\u0627\u06CC\u062C \u0642\u062F\u06CC\u0645\u06CC\u200C\u062A\u0631 \u0628\u0627\u0632\u0647\u0654 \u062B\u0628\u062A \u0631\u0627 \u0645\u062D\u062F\u0648\u062F \u06A9\u0646\u06CC\u062F."),
+            " \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F5\u06F0\u06F0 \u0646\u062A\u06CC\u062C\u0647\u0654 \u0622\u062E\u0631 (\u062E\u0631\u0648\u062C\u06CC XLSX \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F5\u06F0\u06F0\u06F0 \u0645\u0648\u0631\u062F). \u0628\u0631\u0627\u06CC \u0646\u062A\u0627\u06CC\u062C \u0642\u062F\u06CC\u0645\u06CC\u200C\u062A\u0631 \u0628\u0627\u0632\u0647\u0654 \u062B\u0628\u062A \u0631\u0627 \u0645\u062D\u062F\u0648\u062F \u06A9\u0646\u06CC\u062F."),
         loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : rows.length === 0 ? React.createElement("p", { className: "muted" }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.") :
             React.createElement("div", { style: { overflowX: "auto" } },
                 React.createElement("table", { style: { fontSize: 12, minWidth: 860 } },
@@ -13019,9 +13016,9 @@ function AdminRequests() {
                                 r.attachment_name ? " 📎" : ""),
                             React.createElement("td", { style: { whiteSpace: "nowrap" } },
                                 React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, onClick: () => setDetailId(r.id) }, "\u062C\u0632\u0626\u06CC\u0627\u062A"),
-                                r.status === "pending" && React.createElement(React.Fragment, null,
-                                    React.createElement("button", { className: "btn p", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "approved") }, "\u062A\u0623\u06CC\u06CC\u062F"),
-                                    React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "rejected") }, "\u0631\u062F")),
+                                ["pending", "rejected"].includes(r.status) && React.createElement(React.Fragment, null,
+                                    React.createElement("button", { className: "btn p", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "approved") }, r.status === "rejected" ? "تأیید مجدد" : "تأیید"),
+                                    r.status === "pending" && React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "rejected") }, "\u0631\u062F")),
                                 React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px" }, disabled: !!busyId || reviewLoading, onClick: () => del(r.id) }, "\u062D\u0630\u0641"))));
                     }))))));
 }
@@ -17342,7 +17339,7 @@ const VIEWS = {
     attreport: { t: "گزارش تردد پرسنل", ic: "🕒", c: AttendanceReport },
     leavereport: { t: "گزارش مرخصی پرسنل", ic: "🌴", c: PersonnelLeaveReport },
     workpolicy: { t: "سیاست کاری", ic: "📐", c: WorkPolicy },
-    requests: { t: "گزارش درخواست‌ها", ic: "📋", c: AdminRequests },
+    requests: { t: "درخواست‌های پرسنل", ic: "📋", c: AdminRequests },
     outages: { t: "قطعی سیستم نوبت‌دهی", ic: "⛔", c: OutageReport },
     missiondashboard: { t: "داشبورد عملیات میدانی", ic: "🧭", c: MissionOperationsDashboard },
     citydashboard: { t: "داشبورد مدیریتی کل‌شهر", ic: "🏙", c: CityOperationsDashboard },

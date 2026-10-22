@@ -4183,7 +4183,7 @@ function _req_work_policy_handler($path,callable $handler){
     $locked=Db::one("SELECT GET_LOCK(?,10) acquired",[$lock]);
     if((int)($locked['acquired']??0)!==1) Http::error('درخواست دیگری در حال بررسی است؛ دوباره تلاش کنید.',409);
     try{
-      if(!$approval) _req_reject_overlap($uid,$request);
+      if(!$approval || ($request['status']??'')==='rejected') _req_reject_overlap($uid,$request);
       $policy=_req_active_work_policy($uid);
       if(!$policy)Http::error('برای بررسی درخواست، ابتدا سیاست کاری فعال به این کاربر تخصیص دهید.',422);
       _req_validate_work_policy($uid,$request,$policy,$approval,$excludeId);
@@ -4956,13 +4956,13 @@ route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
   if(!$id || !in_array($status,['approved','rejected'],true)) Http::error('عملیات درخواست نامعتبر است',400);
   $req=Db::one("SELECT * FROM requests WHERE id=?",[$id]);
   if(!$req) Http::error('درخواست یافت نشد',404);
-  if($req['status']!=='pending') Http::error('این درخواست دیگر در انتظار بررسی نیست؛ فهرست را تازه‌سازی کنید.',409);
+  if($req['status']!=='pending'&&!($status==='approved'&&$req['status']==='rejected')) Http::error('این درخواست دیگر در انتظار بررسی نیست؛ فهرست را تازه‌سازی کنید.',409);
   if($req['status']===$status) Http::error('وضعیت این درخواست قبلاً ثبت شده است',409);
   $note=trim((string)($b['note']??''))?:null;
   if($status==='approved')_req_prepare_approval_storage($req);
   $pdo=Db::pdo();$pdo->beginTransaction();
   try{
-  $updated=Db::run("UPDATE requests SET status=?,approver_id=?,approver_note=?,decided_at=NOW(),pending_on=NULL WHERE id=? AND status='pending'",[$status,(int)$u['id'],$note,$id]);
+  $updated=Db::run("UPDATE requests SET status=?,approver_id=?,approver_note=?,decided_at=NOW(),pending_on=NULL WHERE id=? AND status=?",[$status,(int)$u['id'],$note,$id,$req['status']]);
   if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است؛ فهرست را تازه‌سازی کنید.',409);
     if($status==='approved')_req_apply_approval_effects($req,$id);
     $pdo->commit();
@@ -5004,15 +5004,19 @@ route('GET', '/api/admin/requests/export', function($p,$b,$u){
     FROM requests r JOIN users us ON us.id=r.user_id LEFT JOIN users ap ON ap.id=r.approver_id $where ORDER BY r.id DESC LIMIT 5000", $args);
   $TY=['annual'=>'مرخصی استحقاقی','sick'=>'مرخصی استعلاجی','unpaid'=>'مرخصی بدون حقوق','mission'=>'ماموریت','overtime'=>'اضافه‌کار','manual'=>'تردد دستی'];
   $ST=['pending'=>'در انتظار','approved'=>'تأییدشده','rejected'=>'ردشده','canceled'=>'لغوشده'];
-  header('Content-Type: text/csv; charset=UTF-8');
-  header('Content-Disposition: attachment; filename="requests.csv"');
-  echo "\xEF\xBB\xBF"; $out=fopen('php://output','w');
-  $hm=fn($m)=>$m?sprintf('%02d:%02d',intdiv($m,60),$m%60):'';
-  fputcsv($out,['نام','نوع','واحد','از تاریخ','تا تاریخ','روز','از ساعت','تا ساعت','مدت','وضعیت','تأییدکننده','توضیحات','تاریخ ثبت']);
-  foreach($rows as $r) fputcsv($out,array_map('_req_report_csv_cell',[$r['requester'],$TY[$r['type']]??$r['type'],$r['unit']==='hourly'?'ساعتی':($r['unit']==='daily'?'روزانه':''),
-    $r['from_jdate'],$r['to_jdate'],$r['the_date'],$r['from_time']?:$r['in_time'],$r['to_time']?:$r['out_time'],($r['type']!=='manual'&&$r['unit']==='daily'?round((float)$r['minutes']/480,2).' روز':$hm($r['minutes'])),
-    $ST[$r['status']]??$r['status'],trim($r['approver'])?:'—',$r['reason'],fa_datetime($r['created_at'])]));
-  fclose($out); exit;
+  require_once __DIR__.'/XlsxWriter.php';
+  $xw=new XlsxWriter(['شماره درخواست','نام پرسنل','نوع درخواست','واحد','از تاریخ','تا تاریخ','روز','شروع / ورود','پایان / خروج','مدت','وضعیت','بررسی‌کننده','توضیحات درخواست','پاسخ بررسی‌کننده','زمان ثبت']);
+  $xw->setProfessionalStyle(true);
+  $xw->setReportHeading('درخواست‌های پرسنل','خطیار · خروجی مدیریتی · '.fa_datetime(date('Y-m-d H:i:s')),'تعداد: '.count($rows).' | وضعیت: '.($ST[$_GET['status']??'']??'همه').' | ثبت از: '.(!empty($_GET['from'])?_app_jdate_from_time($_GET['from'].' 00:00:00'):'—').' تا: '.(!empty($_GET['to'])?_app_jdate_from_time($_GET['to'].' 00:00:00'):'—'));
+  foreach([12,26,22,12,16,16,16,15,15,16,16,24,58,48,23] as $i=>$width){$xw->setColWidth($i,$width);$xw->setTextCol($i);}
+  $hm=fn($m)=>$m===null?'—':sprintf('%02d:%02d',intdiv((int)$m,60),(int)$m%60);
+  foreach($rows as $r){$rowIndex=$xw->addRow([$r['id'],$r['requester'],$TY[$r['type']]??$r['type'],$r['type']==='manual'?'تردد دستی':($r['unit']==='hourly'?'ساعتی':'روزانه'),
+    $r['from_jdate']?:$r['the_date'],$r['to_jdate']?:$r['the_date'],$r['the_date'],$r['from_time']?:$r['in_time'],$r['to_time']?:$r['out_time'],
+    $r['type']==='manual'?'طبق ساعت ورود و خروج':($r['unit']==='daily'?round((float)$r['minutes']/480,2).' روز':$hm($r['minutes'])),$ST[$r['status']]??$r['status'],trim($r['approver'])?:'—',$r['reason'],$r['approver_note'],fa_datetime($r['created_at'])]);
+    $lines=max(2,(int)ceil(mb_strlen((string)$r['reason'],'UTF-8')/48),(int)ceil(mb_strlen((string)$r['approver_note'],'UTF-8')/40));
+    $xw->setRowHeight($rowIndex,min(8,$lines)*18);
+  }
+  $xw->output('درخواستهای_پرسنل.xlsx','درخواست‌های پرسنل');
 }, false, ADMIN);
 
 // داشبورد لحظه‌ای حضور پرسنل
