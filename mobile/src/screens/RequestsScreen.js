@@ -169,7 +169,7 @@ function NewRequest({ onDone, initialType, initialDate }) {
   };
   const [reqSub, setReqSub] = useState(false);   // آیا جایگزین الزامی است
   const cfg = TYPES.find((t) => t.k === type);
-  const needsSubstitute = type === 'annual';
+  const needsSubstitute = type === 'annual' && unit === 'daily';
 
   // وقتی صفحه از «عملکرد روزانه» باز می‌شود، همان روز و نوع درخواست را مستقیماً آماده کن.
   useEffect(() => {

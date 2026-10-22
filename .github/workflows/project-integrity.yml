@@ -28,6 +28,8 @@ jobs:
           node php/tests/login_policy_ui_test.cjs
           php php/tests/work_policy_requests_test.php
           php php/tests/request_report_test.php
+          php php/tests/request_substitute_scope_test.php
+          node mobile/scripts/test-request-substitute-scope.cjs
           php php/tests/live_map_query_test.php
           php php/tests/shift_rotation_test.php
           node php/tests/shift_rotation_ui_test.cjs

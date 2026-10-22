@@ -72,6 +72,11 @@ Db::$writes=[];_req_apply_approval_effects(['type'=>'annual','user_id'=>12,'subs
 check(str_contains(Db::$writes[0][0],'INSERT INTO substitute_assignments'),'admin approval creates substitute assignment');
 Db::$subConflict=true;denied(fn()=>_req_apply_approval_effects(['type'=>'annual','user_id'=>12,'substitute_user_id'=>7,'from_jdate'=>'1405-07-30','to_jdate'=>'1405-08-01','the_date'=>null],3),409);Db::$subConflict=false;
 denied(fn()=>_req_apply_approval_effects(['type'=>'annual','user_id'=>12,'substitute_user_id'=>12],3),422);
+foreach([['mission','daily'],['mission','hourly'],['annual','hourly'],['sick','daily'],['sick','hourly'],['overtime','hourly']] as [$type,$unit]){
+  Db::$writes=[];$legacy=['type'=>$type,'unit'=>$unit,'user_id'=>12,'substitute_user_id'=>7,'from_jdate'=>'1405-07-30','to_jdate'=>'1405-07-30','the_date'=>'1405-07-30'];
+  _req_prepare_approval_storage($legacy);_req_apply_approval_effects($legacy,3);
+  check(Db::$writes===[],'non-daily-annual legacy substitute cannot create assignments: '.$type.'/'.$unit);
+}
 $a=strpos($source,"route('GET', '/api/admin/requests/{id}/detail'");$b=strpos($source,"route('GET', '/api/admin/requests/{id}/leave-context'",$a);eval(substr($source,$a,$b-$a));
 check($GLOBALS['routeOptions']['GET/api/admin/requests/{id}/detail']===[false,ADMIN],'details remain admin-only');
 Db::$request=['id'=>3,'type'=>'manual','selfie_data'=>'data:image/jpeg;base64,ZmFrZQ=='];

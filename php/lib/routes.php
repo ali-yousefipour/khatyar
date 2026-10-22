@@ -2925,7 +2925,7 @@ function _active_user_shift_assignment($userId, $jdate=null){
   // شیفت موقت نیروی جایگزین: در روزهای مرخصی، دقیقاً شیفت فرد مرخصی‌گیرنده اعمال می‌شود.
   if ($jdate) {
     try {
-      $sa = Db::one("SELECT sa.absent_user_id,sa.request_id FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id DESC LIMIT 1",[(int)$userId,$jdate,$jdate]);
+      $sa = Db::one("SELECT sa.absent_user_id,sa.request_id FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' AND rq.type='annual' AND COALESCE(rq.unit,'daily')='daily' WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.from_date<=? AND sa.to_date>=? ORDER BY sa.id DESC LIMIT 1",[(int)$userId,$jdate,$jdate]);
       if ($sa) {
         $arows = Db::all("SELECT us.user_id, us.shift_id, us.from_jdate, us.to_jdate, s.* FROM user_shifts us JOIN shifts s ON s.id=us.shift_id WHERE us.user_id=? AND s.is_active=1",[(int)$sa['absent_user_id']]);
         foreach($arows as $r){
@@ -3112,7 +3112,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null) {
   try{
     $subParams=[$endJ,$firstJ];if($onlyUserId!==null)$subParams[]=(int)$onlyUserId;
     $subUsers=Db::all("SELECT sa.substitute_user_id user_id,0 shift_id,sa.from_date from_jdate,sa.to_date to_jdate,CONCAT(uu.first_name,' ',uu.last_name) name,r.title role
-      FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved'
+      FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' AND rq.type='annual' AND COALESCE(rq.unit,'daily')='daily'
       JOIN users uu ON uu.id=sa.substitute_user_id AND uu.is_active=1 LEFT JOIN roles r ON r.id=uu.role_id
       WHERE sa.status='active' AND sa.from_date<=? AND sa.to_date>=?".($onlyUserId!==null?' AND sa.substitute_user_id=?':''),$subParams);
     $assigns=array_merge($assigns,$subUsers);
@@ -4221,7 +4221,7 @@ function _substitute_availability($subId, $fromDate, $toDate, $excludeRequestId=
   try { Db::run("CREATE TABLE IF NOT EXISTS substitute_assignments (id INT AUTO_INCREMENT PRIMARY KEY, substitute_user_id INT NOT NULL, request_id INT NOT NULL, absent_user_id INT NOT NULL, from_date VARCHAR(10) NOT NULL, to_date VARCHAR(10) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'active', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_sub_user (substitute_user_id), INDEX idx_sub_dates (from_date, to_date)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
 
   // ۱) شیفت اشغال‌شده (از مرخصی‌های تأییدشده): substitute_assignments فعال که با بازه همپوشانی دارد
-  $assigns = Db::all("SELECT from_date,to_date FROM substitute_assignments WHERE substitute_user_id=? AND status='active'", [$subId]);
+  $assigns = Db::all("SELECT sa.from_date,sa.to_date FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' AND rq.type='annual' AND COALESCE(rq.unit,'daily')='daily' WHERE sa.substitute_user_id=? AND sa.status='active'", [$subId]);
   foreach ($assigns as $a) {
     if (_date_ranges_overlap($fromDate,$toDate,$a['from_date'],$a['to_date'])) {
       return ['available'=>false, 'reason'=>'این نیروی جایگزین در بازهٔ انتخابی شیفت جایگزینی فعال دارد و در دسترس نیست.'];
@@ -4232,7 +4232,7 @@ function _substitute_availability($subId, $fromDate, $toDate, $excludeRequestId=
   $hasSub = false;
   try { $hasSub = (bool)Db::one("SHOW COLUMNS FROM requests WHERE Field='substitute_user_id'"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   if ($hasSub) {
-    $q = "SELECT from_jdate,to_jdate,the_date FROM requests WHERE substitute_user_id=? AND status='pending'";
+    $q = "SELECT from_jdate,to_jdate,the_date FROM requests WHERE substitute_user_id=? AND status='pending' AND type='annual' AND COALESCE(unit,'daily')='daily'";
     $args = [$subId];
     if ($excludeRequestId) { $q .= " AND id<>?"; $args[] = $excludeRequestId; }
     $pendings = Db::all($q, $args);
@@ -4386,9 +4386,9 @@ route('POST', '/api/my/requests', function($p,$b,$u){
     Http::error('برای ثبت تردد دستی، الصاق عکس سلفی الزامی است.',422);
   }
   $approver = _req_approver($u['id']);
-  // معرفی نیروی جایگزین (برای مرخصی/ماموریت) — اگر تنظیم الزام فعال است، برای annual/sick اجباری
-  $sub = !empty($b['substitute_user_id']) ? (int)$b['substitute_user_id'] : null;
-  if (in_array($type,['annual','sick','mission']) && !empty(_req_policy_options($u['id'])['leave_require_substitute']) && !$sub) {
+  // جایگزین فقط برای مرخصی استحقاقی روزانه قابل انتخاب و الزام است.
+  $sub = _req_substitute_eligible(['type'=>$type,'unit'=>$unit]) && !empty($b['substitute_user_id']) ? (int)$b['substitute_user_id'] : null;
+  if (_req_substitute_eligible(['type'=>$type,'unit'=>$unit]) && !empty(_req_policy_options($u['id'])['leave_require_substitute']) && !$sub) {
     Http::error('برای ثبت این درخواست، معرفی نیروی جایگزین الزامی است.',422);
   }
   // بررسی روز ممنوعهٔ مرخصی و در دسترس بودن جایگزین (فقط برای مرخصی/ماموریت)
@@ -4797,7 +4797,10 @@ route('POST', '/api/admin/requests', function($p,$b,$u){
 
 // Storage DDL runs before the decision transaction (MySQL DDL implicitly commits).
 function _req_prepare_approval_storage(array $request){
-  if(!empty($request['substitute_user_id']))Db::run("CREATE TABLE IF NOT EXISTS substitute_assignments (id INT AUTO_INCREMENT PRIMARY KEY, substitute_user_id INT NOT NULL, request_id INT NOT NULL, absent_user_id INT NOT NULL, from_date VARCHAR(10) NOT NULL, to_date VARCHAR(10) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'active', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_sub_user (substitute_user_id), INDEX idx_sub_dates (from_date, to_date)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  if(_req_substitute_eligible($request)&&!empty($request['substitute_user_id']))Db::run("CREATE TABLE IF NOT EXISTS substitute_assignments (id INT AUTO_INCREMENT PRIMARY KEY, substitute_user_id INT NOT NULL, request_id INT NOT NULL, absent_user_id INT NOT NULL, from_date VARCHAR(10) NOT NULL, to_date VARCHAR(10) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'active', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_sub_user (substitute_user_id), INDEX idx_sub_dates (from_date, to_date)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+function _req_substitute_eligible(array $request){
+  return ($request['type']??'')==='annual'&&($request['unit']??'daily')==='daily';
 }
 function _req_apply_approval_effects(array $request,int $id){
   if($request['type']==='manual'){
@@ -4806,12 +4809,12 @@ function _req_apply_approval_effects(array $request,int $id){
       if(!empty($request[$key])&&!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d(?::00)?$/',(string)$request[$key]))Http::error('ساعت تردد دستی نامعتبر است',422);
     }
   }
-  if(!empty($request['substitute_user_id'])){
+  if(_req_substitute_eligible($request)&&!empty($request['substitute_user_id'])){
     if((int)$request['substitute_user_id']===(int)$request['user_id'])Http::error('نیروی جایگزین نمی‌تواند خود درخواست‌کننده باشد',422);
     if(!Db::one("SELECT id FROM users WHERE id=? AND is_active=1 FOR UPDATE",[(int)$request['substitute_user_id']]))Http::error('نیروی جایگزین فعال نیست',422);
     $from=$request['from_jdate']?:$request['the_date'];
     $to=$request['to_jdate']?:($request['the_date']?:$from);
-    $conflict=Db::one("SELECT sa.id FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.request_id<>? AND sa.from_date<=? AND sa.to_date>=? LIMIT 1",[(int)$request['substitute_user_id'],$id,$to,$from]);
+    $conflict=Db::one("SELECT sa.id FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' AND rq.type='annual' AND COALESCE(rq.unit,'daily')='daily' WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.request_id<>? AND sa.from_date<=? AND sa.to_date>=? LIMIT 1",[(int)$request['substitute_user_id'],$id,$to,$from]);
     if($conflict)Http::error('نیروی جایگزین در این بازه جایگزینی تأییدشدهٔ دیگری دارد',409);
     if($from&&$to&&!Db::one("SELECT id FROM substitute_assignments WHERE request_id=? AND status='active'",[$id]))
       Db::run("INSERT INTO substitute_assignments(substitute_user_id,request_id,absent_user_id,from_date,to_date,status) VALUES(?,?,?,?,?,'active')",[(int)$request['substitute_user_id'],$id,(int)$request['user_id'],$from,$to]);
@@ -4838,7 +4841,7 @@ function _req_notify_decision(array $request,string $status,string $note,int $id
   try{_req_notify_sms($request,$status,$note);}catch(Throwable $e){error_log('request decision sms failed');}
 }
 function _req_notify_substitute(array $request,int $id){
-  if(empty($request['substitute_user_id']))return;
+  if(!_req_substitute_eligible($request)||empty($request['substitute_user_id']))return;
   try{Push::send([(int)$request['substitute_user_id']],'شیفت جایگزینی','جایگزینی شما برای درخواست مرخصی تأیید شد.',['type'=>'substitute_shift','request_id'=>$id]);}catch(Throwable $e){error_log('substitute shift notification failed');}
 }
 
