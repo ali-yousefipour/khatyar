@@ -12661,6 +12661,9 @@ function AdminRequests() {
     const [fType, setFType] = useState("");
     const [fStatus, setFStatus] = useState("");
     const [busyId, setBusyId] = useState(null);
+    const [fFrom, setFFrom] = useState("");
+    const [fTo, setFTo] = useState("");
+    const [search, setSearch] = useState("");
     const [selected, setSelected] = useState([]);
     const [review, setReview] = useState(null);
     const [reviewLoading, setReviewLoading] = useState(false);
@@ -12701,9 +12704,13 @@ function AdminRequests() {
     const prepare = async (ids, status) => {
         if (actionLock.current || reviewLoading || !ids.length)
             return;
-        const targets = rows.filter(row => ids.includes(row.id) && (status === 'delete' || row.status === 'pending'));
-        if (!targets.length)
+        if (loading || review)
             return;
+        const targets = rows.filter(row => ids.includes(row.id) && (status === 'delete' || row.status === 'pending'));
+        if (!targets.length) {
+            setActionMessage('از موارد انتخاب‌شده، درخواستی برای این عملیات وجود ندارد.');
+            return;
+        }
         let note = '';
         if (status === 'rejected') {
             const answer = prompt('علت رد درخواست‌ها (اختیاری):', '');
@@ -12732,36 +12739,49 @@ function AdminRequests() {
     };
     const act = (id, status) => prepare([id], status);
     const del = id => prepare([id], 'delete');
-    const TY = { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", mission: "ماموریت", overtime: "اضافه‌کار", manual: "تردد دستی" };
-    const ST = { pending: ["در انتظار", "b-pending"], approved: ["تأییدشده", "b-ok"], rejected: ["ردشده", "b-no"] };
+    const TY = { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", unpaid: "مرخصی بدون حقوق", mission: "ماموریت", overtime: "اضافه‌کار", manual: "تردد دستی" };
+    const ST = { pending: ["در انتظار", "b-pending"], approved: ["تأییدشده", "b-ok"], rejected: ["ردشده", "b-no"], canceled: ["لغوشده", "b-no"] };
     useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(() => { }); load(); }, []);
     const qs = () => { const p = []; if (fUser)
         p.push("user_id=" + fUser); if (fType)
         p.push("type=" + fType); if (fStatus)
-        p.push("status=" + fStatus); return p.length ? "?" + p.join("&") : ""; };
-    const load = async () => { const version = ++loadVersion.current; setLoading(true); try {
+        p.push("status=" + fStatus); if (fFrom)
+        p.push("from=" + encodeURIComponent(fFrom)); if (fTo)
+        p.push("to=" + encodeURIComponent(fTo)); if (search.trim())
+        p.push("q=" + encodeURIComponent(search.trim())); return p.length ? "?" + p.join("&") : ""; };
+    const load = async () => { if (fFrom && fTo && fFrom > fTo) {
+        setActionMessage('ابتدای بازه باید قبل از پایان آن باشد');
+        return;
+    } const version = ++loadVersion.current; setLoading(true); setReview(null); try {
         const data = await db.adminRequests(qs());
-        if (version === loadVersion.current)
+        if (version === loadVersion.current) {
             setRows(data || []);
+            setSelected(previous => previous.filter(id => (data || []).some(row => row.id === id)));
+        }
     }
     catch (error) {
-        if (version === loadVersion.current)
+        if (version === loadVersion.current) {
+            setRows([]);
+            setSelected([]);
             setActionMessage(error.message || 'دریافت درخواست‌ها ناموفق بود');
+        }
     }
     finally {
         if (version === loadVersion.current)
             setLoading(false);
     } };
-    const hm = (m) => m ? `${fa(Math.floor(m / 60))}:${String(m % 60).padStart(2, "0")}` : "—";
+    const hm = (m) => m != null ? `${fa(Math.floor(m / 60))}:${String(m % 60).padStart(2, "0")}` : "—";
     const exportExcel = async () => { try {
         const res = await fetch(`${API_BASE}/admin/requests/export${qs()}`, { headers: tok() });
         if (!res.ok)
             throw new Error("خطا");
         const blob = await res.blob();
         const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
+        a.href = url;
         a.download = "گزارش_درخواستها.csv";
         a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
     catch (e) {
         alert(e.message);
@@ -12798,10 +12818,14 @@ function AdminRequests() {
                     key.endsWith('daily') ? 'روزانه (روز)' : 'ساعتی (ساعت)',
                     ": \u0645\u0635\u0631\u0641 \u0645\u0627\u0647 ",
                     fa(value.used_month),
+                    " \u00B7 \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u0645\u0627\u0647 ",
+                    fa(value.pending_month || 0),
                     " \u00B7 \u0628\u0627\u0642\u06CC\u200C\u0645\u0627\u0646\u062F\u0647 \u0645\u0627\u0647 ",
                     value.left_month == null ? 'سقف تعیین نشده' : fa(value.left_month),
                     " \u00B7 \u0645\u0635\u0631\u0641 \u0633\u0627\u0644 ",
                     fa(value.used_year),
+                    " \u00B7 \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u0633\u0627\u0644 ",
+                    fa(value.pending_year || 0),
                     " \u00B7 \u0628\u0627\u0642\u06CC\u200C\u0645\u0627\u0646\u062F\u0647 \u0633\u0627\u0644 ",
                     value.left_year == null ? 'سقف تعیین نشده' : fa(value.left_year))),
                 React.createElement("p", { className: "muted" }, "\u0645\u0627\u0646\u062F\u0647 \u0637\u0628\u0642 \u0633\u06CC\u0627\u0633\u062A \u062C\u0627\u0631\u06CC \u0645\u062D\u0627\u0633\u0628\u0647 \u0634\u062F\u0647 \u0648 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u0631\u0627 \u0646\u06CC\u0632 \u062F\u0631 \u0646\u0638\u0631 \u0645\u06CC\u200C\u06AF\u06CC\u0631\u062F."),
@@ -12821,29 +12845,41 @@ function AdminRequests() {
                 !context.requests.length && React.createElement("p", null, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0645\u0627\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))),
             React.createElement("button", { className: "btn p", disabled: !!busyId, onClick: () => execute(review.ids, review.status) }, busyId ? 'در حال پردازش…' : 'تأیید نهایی عملیات')),
         React.createElement("div", { className: "filters", style: { flexWrap: "wrap", gap: 8 } },
-            React.createElement("select", { className: "input", style: { maxWidth: 200 }, value: fUser, onChange: e => setFUser(e.target.value) },
+            React.createElement("select", { className: "input", style: { maxWidth: 200 }, value: fUser, onChange: e => { setFUser(e.target.value); setSelected([]); } },
                 React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627"),
                 users.map(u => React.createElement("option", { key: u.id, value: u.id },
                     u.first_name,
                     " ",
                     u.last_name))),
-            React.createElement("select", { className: "input", style: { maxWidth: 170 }, value: fType, onChange: e => setFType(e.target.value) },
+            React.createElement("select", { className: "input", style: { maxWidth: 170 }, value: fType, onChange: e => { setFType(e.target.value); setSelected([]); } },
                 React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0627\u0646\u0648\u0627\u0639"),
                 Object.entries(TY).map(([k, t]) => React.createElement("option", { key: k, value: k }, t))),
-            React.createElement("select", { className: "input", style: { maxWidth: 150 }, value: fStatus, onChange: e => setFStatus(e.target.value) },
+            React.createElement("select", { className: "input", style: { maxWidth: 150 }, value: fStatus, onChange: e => { setFStatus(e.target.value); setSelected([]); } },
                 React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0648\u0636\u0639\u06CC\u062A\u200C\u0647\u0627"),
                 React.createElement("option", { value: "pending" }, "\u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631"),
                 React.createElement("option", { value: "approved" }, "\u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647"),
-                React.createElement("option", { value: "rejected" }, "\u0631\u062F\u0634\u062F\u0647")),
-            React.createElement("button", { className: "btn p", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
-            React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
+                React.createElement("option", { value: "rejected" }, "\u0631\u062F\u0634\u062F\u0647"),
+                React.createElement("option", { value: "canceled" }, "\u0644\u063A\u0648\u0634\u062F\u0647")),
+            React.createElement("label", null,
+                "\u062B\u0628\u062A \u0627\u0632 ",
+                React.createElement("input", { className: "input", type: "date", value: fFrom, onChange: e => { setFFrom(e.target.value); setSelected([]); } })),
+            React.createElement("label", null,
+                "\u062B\u0628\u062A \u062A\u0627 ",
+                React.createElement("input", { className: "input", type: "date", value: fTo, onChange: e => { setFTo(e.target.value); setSelected([]); } })),
+            React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u062F\u0631\u062E\u0648\u0627\u0633\u062A", placeholder: "\u0646\u0627\u0645 \u0646\u06CC\u0631\u0648\u060C \u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u06CC\u0627 \u0634\u0645\u0627\u0631\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A", value: search, onChange: e => { setSearch(e.target.value); setSelected([]); }, onKeyDown: e => { if (e.key === 'Enter')
+                    load(); }, style: { maxWidth: 270 } }),
+            React.createElement("button", { className: "btn p", disabled: loading || !!busyId || reviewLoading, onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
+            React.createElement("button", { className: "btn g", disabled: loading || !!busyId || reviewLoading, onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
+        React.createElement("p", { className: "muted" },
+            fa(rows.length),
+            " \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F5\u06F0\u06F0 \u0646\u062A\u06CC\u062C\u0647\u0654 \u0622\u062E\u0631 (\u062E\u0631\u0648\u062C\u06CC CSV \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F5\u06F0\u06F0\u06F0 \u0645\u0648\u0631\u062F). \u0628\u0631\u0627\u06CC \u0646\u062A\u0627\u06CC\u062C \u0642\u062F\u06CC\u0645\u06CC\u200C\u062A\u0631 \u0628\u0627\u0632\u0647\u0654 \u062B\u0628\u062A \u0631\u0627 \u0645\u062D\u062F\u0648\u062F \u06A9\u0646\u06CC\u062F."),
         loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : rows.length === 0 ? React.createElement("p", { className: "muted" }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.") :
             React.createElement("div", { style: { overflowX: "auto" } },
                 React.createElement("table", { style: { fontSize: 12, minWidth: 860 } },
                     React.createElement("thead", null,
                         React.createElement("tr", null,
                             React.createElement("th", null, "\u0627\u0646\u062A\u062E\u0627\u0628"),
-                            React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
+                            React.createElement("th", null, "\u0634\u0645\u0627\u0631\u0647 / \u0646\u06CC\u0631\u0648"),
                             React.createElement("th", null, "\u0646\u0648\u0639"),
                             React.createElement("th", null, "\u0648\u0627\u062D\u062F"),
                             React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
@@ -12858,14 +12894,19 @@ function AdminRequests() {
                         return (React.createElement("tr", { key: r.id },
                             React.createElement("td", null,
                                 React.createElement("input", { type: "checkbox", "aria-label": "انتخاب درخواست " + r.id, checked: selected.includes(r.id), disabled: !!busyId || reviewLoading, onChange: event => setSelected(previous => event.target.checked ? [...previous, r.id] : previous.filter(id => id !== r.id)) })),
-                            React.createElement("td", null, r.requester),
+                            React.createElement("td", null,
+                                React.createElement("small", null,
+                                    "#",
+                                    fa(r.id)),
+                                React.createElement("br", null),
+                                r.requester),
                             React.createElement("td", null, TY[r.type] || r.type),
                             React.createElement("td", null, r.unit === "hourly" ? "ساعتی" : r.unit === "daily" ? "روزانه" : "—"),
                             React.createElement("td", { style: { whiteSpace: "nowrap" } },
                                 r.the_date || r.from_jdate,
                                 r.to_jdate && r.to_jdate !== r.from_jdate ? ` تا ${r.to_jdate}` : ""),
-                            React.createElement("td", { style: { whiteSpace: "nowrap" } }, r.from_time ? `${r.from_time}–${r.to_time}` : r.in_time ? `${r.in_time}/${r.out_time || "—"}` : "—"),
-                            React.createElement("td", null, hm(r.minutes)),
+                            React.createElement("td", { style: { whiteSpace: "nowrap" } }, r.from_time ? `${r.from_time}–${r.to_time}` : (r.in_time || r.out_time) ? `${r.in_time || "—"}/${r.out_time || "—"}` : "—"),
+                            React.createElement("td", null, r.type !== "manual" && r.unit === "daily" ? fa(Math.round(Number(r.minutes || 0) / 480 * 100) / 100) + " روز" : hm(r.minutes)),
                             React.createElement("td", null,
                                 React.createElement("span", { className: "badge " + st[1] }, st[0])),
                             React.createElement("td", null, (r.approver || "").trim() || "—"),

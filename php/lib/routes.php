@@ -4463,12 +4463,13 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
   $r = Db::one("SELECT * FROM requests WHERE id=?", [$p['id']]);
   if (!$r) Http::error('یافت نشد',404);
   if ($r['pending_on']!=$u['id'] && empty($u['is_admin'])) Http::error('این درخواست در کارتابل شما نیست',403);
+  if($r['status']!=='pending')Http::error('این درخواست دیگر در انتظار بررسی نیست',409);
   $decision = $b['decision'] ?? ''; // approve / reject
   if (!in_array($decision,['approve','reject'])) Http::error('تصمیم نامعتبر',400);
   if ($decision === 'reject') {
-    Db::run("UPDATE requests SET status='rejected', approver_id=?, approver_note=?, decided_at=NOW(), pending_on=NULL WHERE id=?", [$u['id'],$b['note']??null,$p['id']]);
-    Push::send([$r['user_id']],'درخواست شما رد شد',$b['note']??'',['type'=>'request','request_id'=>$p['id']]);
-    _req_notify_sms($r,'rejected',$b['note']??'');
+    $updated=Db::run("UPDATE requests SET status='rejected', approver_id=?, approver_note=?, decided_at=NOW(), pending_on=NULL WHERE id=? AND status='pending'", [$u['id'],$b['note']??null,$p['id']]);
+    if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است',409);
+    _req_notify_decision($r,'rejected',$b['note']??'',(int)$p['id']);
     return ['ok'=>true,'status'=>'rejected'];
   }
   // تأیید: در حالت سلسله‌مراتبی، اگر تأییدکنندهٔ فعلی خودش مقام بالادست دارد، به او ارجاع شود
@@ -4480,48 +4481,22 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
     $next = $mgrs[0] ?? null;
   }
   if ($next) {
-    Db::run("UPDATE requests SET pending_on=?, approver_id=? WHERE id=?", [$next,$u['id'],$p['id']]);
+    $updated=Db::run("UPDATE requests SET pending_on=?, approver_id=? WHERE id=? AND status='pending'", [$next,$u['id'],$p['id']]);
+    if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است',409);
     Push::send([$next],'درخواست برای تأیید نهایی','',['type'=>'request','request_id'=>$p['id']]);
     return ['ok'=>true,'status'=>'forwarded','to'=>$next];
   }
-  // تأیید نهایی
-  Db::run("UPDATE requests SET status='approved', approver_id=?, approver_note=?, decided_at=NOW(), pending_on=NULL WHERE id=?", [$u['id'],$b['note']??null,$p['id']]);
-  // اگر نیروی جایگزین معرفی شده بود، شیفت جایگزینی او در این بازه ثبت می‌شود
-  try {
-    $hasSub = (bool)Db::one("SHOW COLUMNS FROM requests WHERE Field='substitute_user_id'");
-    if ($hasSub) {
-      $rr = Db::one("SELECT substitute_user_id, from_jdate, to_jdate, the_date FROM requests WHERE id=?", [$p['id']]);
-      if ($rr && !empty($rr['substitute_user_id'])) {
-        $fromD = $rr['from_jdate'] ?: $rr['the_date'];
-        $toD = $rr['to_jdate'] ?: ($rr['the_date'] ?: $fromD);
-        if ($fromD && $toD) {
-          Db::run("CREATE TABLE IF NOT EXISTS substitute_assignments (id INT AUTO_INCREMENT PRIMARY KEY, substitute_user_id INT NOT NULL, request_id INT NOT NULL, absent_user_id INT NOT NULL, from_date VARCHAR(10) NOT NULL, to_date VARCHAR(10) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'active', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_sub_user (substitute_user_id), INDEX idx_sub_dates (from_date, to_date)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-          // جلوگیری از درج تکراری برای همین درخواست
-          $exists = Db::one("SELECT id FROM substitute_assignments WHERE request_id=? AND status='active'", [$p['id']]);
-          if (!$exists) {
-            Db::run("INSERT INTO substitute_assignments(substitute_user_id,request_id,absent_user_id,from_date,to_date,status) VALUES(?,?,?,?,?,'active')",
-              [(int)$rr['substitute_user_id'], $p['id'], $r['user_id'], $fromD, $toD]);
-            // اطلاع به نیروی جایگزین
-            try { Push::notify([(int)$rr['substitute_user_id']], 'شیفت جایگزینی', "شما به‌عنوان نیروی جایگزین برای بازهٔ $fromD تا $toD تعیین شدید و در هر روز، شیفت فرد مرخصی‌گیرنده به‌صورت خودکار برای شما اعمال می‌شود.", ['type'=>'substitute_shift','request_id'=>$p['id'],'from'=>$fromD,'to'=>$toD]); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-          }
-        }
-      }
-    }
-  } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
-  // تردد دستی تأییدشده → درج در staff_attendance
-  if ($r['type']==='manual') {
-    $g = null;
-    if ($r['the_date'] && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/',$r['the_date'],$m)) {
-      [$gy,$gm,$gd]=jalali_to_gregorian((int)$m[1],(int)$m[2],(int)$m[3]); $g=sprintf('%04d-%02d-%02d',$gy,$gm,$gd);
-    }
-    if ($g) {
-      $ci = $r['in_time'] ? "$g ".$r['in_time'].":00" : null;
-      $co = $r['out_time'] ? "$g ".$r['out_time'].":00" : null;
-      if ($ci) Db::run("INSERT INTO staff_attendance(user_id,check_in,check_out,method) VALUES(?,?,?, 'manual')", [$r['user_id'],$ci,$co]);
-    }
-  }
-  Push::send([$r['user_id']],'درخواست شما تأیید شد','',['type'=>'request','request_id'=>$p['id']]);
-  _req_notify_sms($r,'approved','');
+  // Commit the decision and its attendance/substitute records together.
+  _req_prepare_approval_storage($r);
+  $pdo=Db::pdo();$pdo->beginTransaction();
+  try{
+    $updated=Db::run("UPDATE requests SET status='approved', approver_id=?, approver_note=?, decided_at=NOW(), pending_on=NULL WHERE id=? AND status='pending'",[$u['id'],$b['note']??null,$p['id']]);
+    if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است',409);
+    _req_apply_approval_effects($r,(int)$p['id']);
+    $pdo->commit();
+  }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+  _req_notify_substitute($r,(int)$p['id']);
+  _req_notify_decision($r,'approved',$b['note']??'',(int)$p['id']);
   return ['ok'=>true,'status'=>'approved'];
 });
 
@@ -4811,15 +4786,80 @@ route('POST', '/api/admin/requests', function($p,$b,$u){
   return ['id'=>$id,'status'=>'pending','minutes'=>$minutes];
 }, false, ADMIN);
 
+// Storage DDL runs before the decision transaction (MySQL DDL implicitly commits).
+function _req_prepare_approval_storage(array $request){
+  if(!empty($request['substitute_user_id']))Db::run("CREATE TABLE IF NOT EXISTS substitute_assignments (id INT AUTO_INCREMENT PRIMARY KEY, substitute_user_id INT NOT NULL, request_id INT NOT NULL, absent_user_id INT NOT NULL, from_date VARCHAR(10) NOT NULL, to_date VARCHAR(10) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'active', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_sub_user (substitute_user_id), INDEX idx_sub_dates (from_date, to_date)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+function _req_apply_approval_effects(array $request,int $id){
+  if($request['type']==='manual'){
+    if(empty($request['in_time'])&&empty($request['out_time']))Http::error('درخواست تردد دستی ساعت ورود یا خروج ندارد',422);
+    foreach(['in_time','out_time'] as $key){
+      if(!empty($request[$key])&&!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d(?::00)?$/',(string)$request[$key]))Http::error('ساعت تردد دستی نامعتبر است',422);
+    }
+  }
+  if(!empty($request['substitute_user_id'])){
+    $from=$request['from_jdate']?:$request['the_date'];
+    $to=$request['to_jdate']?:($request['the_date']?:$from);
+    if($from&&$to&&!Db::one("SELECT id FROM substitute_assignments WHERE request_id=? AND status='active'",[$id]))
+      Db::run("INSERT INTO substitute_assignments(substitute_user_id,request_id,absent_user_id,from_date,to_date,status) VALUES(?,?,?,?,?,'active')",[(int)$request['substitute_user_id'],$id,(int)$request['user_id'],$from,$to]);
+  }
+  if($request['type']==='manual'&&!empty($request['in_time'])){
+    $day=_req_policy_date($request['the_date']??'');
+    if(!$day)Http::error('تاریخ تردد دستی نامعتبر است',422);
+    $in=$day->format('Y-m-d').' '.substr($request['in_time'],0,5).':00';
+    $out=!empty($request['out_time'])?$day->format('Y-m-d').' '.substr($request['out_time'],0,5).':00':null;
+    if($out&&$out<$in)$out=(new DateTimeImmutable($out))->modify('+1 day')->format('Y-m-d H:i:s');
+    Db::run("INSERT INTO staff_attendance(user_id,check_in,check_out,method) VALUES(?,?,?, 'manual')",[(int)$request['user_id'],$in,$out]);
+  }elseif($request['type']==='manual'&&!empty($request['out_time'])){
+    $day=_req_policy_date($request['the_date']??'');
+    if(!$day)Http::error('تاریخ تردد دستی نامعتبر است',422);
+    $out=$day->format('Y-m-d').' '.substr($request['out_time'],0,5).':00';
+    $open=Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_out IS NULL AND check_in>=? AND check_in<=? ORDER BY check_in DESC LIMIT 1 FOR UPDATE",[(int)$request['user_id'],$day->format('Y-m-d').' 00:00:00',$out]);
+    if(!$open)Http::error('برای ثبت خروج، ورود باز در تاریخ درخواست یافت نشد؛ ابتدا ورود را ثبت یا اصلاح کنید.',422);
+    Db::run("UPDATE staff_attendance SET check_out=? WHERE id=? AND check_out IS NULL",[$out,(int)$open['id']]);
+  }
+}
+
+function _req_notify_decision(array $request,string $status,string $note,int $id){
+  try{Push::send([(int)$request['user_id']],$status==='approved'?'درخواست شما تأیید شد':'درخواست شما رد شد',$note,['type'=>'request','request_id'=>$id]);}catch(Throwable $e){error_log('request decision push failed');}
+  try{_req_notify_sms($request,$status,$note);}catch(Throwable $e){error_log('request decision sms failed');}
+}
+function _req_notify_substitute(array $request,int $id){
+  if(empty($request['substitute_user_id']))return;
+  try{Push::send([(int)$request['substitute_user_id']],'شیفت جایگزینی','جایگزینی شما برای درخواست مرخصی تأیید شد.',['type'=>'substitute_shift','request_id'=>$id]);}catch(Throwable $e){error_log('substitute shift notification failed');}
+}
+
+// Shared filters keep the on-screen report and CSV export consistent.
+function _req_report_filter(array $query){
+  $cond=[];$args=[];
+  if(!empty($query['user_id'])){$cond[]='r.user_id=?';$args[]=(int)$query['user_id'];}
+  foreach(['type'=>['annual','sick','unpaid','mission','overtime','manual'],'status'=>['pending','approved','rejected','canceled']] as $key=>$allowed){
+    $value=trim((string)($query[$key]??''));
+    if($value==='')continue;
+    if(!in_array($value,$allowed,true))Http::error('فیلتر درخواست نامعتبر است',422);
+    $cond[]="r.$key=?";$args[]=$value;
+  }
+  foreach(['from','to'] as $key){
+    $value=trim((string)($query[$key]??''));
+    if($value==='')continue;
+    $date=DateTimeImmutable::createFromFormat('!Y-m-d',$value);
+    if(!$date||$date->format('Y-m-d')!==$value)Http::error('تاریخ ثبت نامعتبر است',422);
+    $cond[]=$key==='from'?'r.created_at>=?':'r.created_at<?';
+    $args[]=$key==='from'?$value.' 00:00:00':$date->modify('+1 day')->format('Y-m-d').' 00:00:00';
+  }
+  if(!empty($query['from'])&&!empty($query['to'])&&$query['from']>$query['to'])Http::error('ابتدای بازه باید قبل از پایان آن باشد',422);
+  $q=trim((string)($query['q']??''));
+  if($q!==''){$cond[]="(CONCAT_WS(' ',us.first_name,us.last_name) LIKE ? OR r.reason LIKE ? OR CAST(r.id AS CHAR)=?)";$args[]='%'.$q.'%';$args[]='%'.$q.'%';$args[]=$q;}
+  return [$cond?'WHERE '.implode(' AND ',$cond):'',$args];
+}
+function _req_report_csv_cell($value){
+  $value=(string)($value??'');
+  return preg_match('/^[\s]*[=+@-]/u',$value)?"'".$value:$value;
+}
+
 // گزارش درخواست‌ها برای ادمین (با فیلتر کاربر/نوع/وضعیت/بازه)
 route('GET', '/api/admin/requests', function($p,$b,$u){
-  $cond=[]; $args=[];
-  if (!empty($_GET['user_id'])) { $cond[]="r.user_id=?"; $args[]=(int)$_GET['user_id']; }
-  if (!empty($_GET['type'])) { $cond[]="r.type=?"; $args[]=$_GET['type']; }
-  if (!empty($_GET['status'])) { $cond[]="r.status=?"; $args[]=$_GET['status']; }
-  if (!empty($_GET['from'])) { $cond[]="r.created_at>=?"; $args[]=$_GET['from'].' 00:00:00'; }
-  if (!empty($_GET['to'])) { $cond[]="r.created_at<=?"; $args[]=$_GET['to'].' 23:59:59'; }
-  $where = $cond ? 'WHERE '.implode(' AND ',$cond) : '';
+  [$where,$args]=_req_report_filter($_GET);
   return Db::all("SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name,
       CONCAT(us.first_name,' ',us.last_name) requester,
       CONCAT(COALESCE(ap.first_name,''),' ',COALESCE(ap.last_name,'')) approver
@@ -4843,14 +4883,21 @@ route('GET', '/api/admin/requests/{id}/leave-context', function($p,$b,$u){
 route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
   $id=(int)($p['id']??0); $status=(string)($b['status']??'');
   if(!$id || !in_array($status,['approved','rejected'],true)) Http::error('عملیات درخواست نامعتبر است',400);
-  $req=Db::one("SELECT id,user_id,status,type FROM requests WHERE id=?",[$id]);
+  $req=Db::one("SELECT * FROM requests WHERE id=?",[$id]);
   if(!$req) Http::error('درخواست یافت نشد',404);
   if($req['status']!=='pending') Http::error('این درخواست دیگر در انتظار بررسی نیست؛ فهرست را تازه‌سازی کنید.',409);
   if($req['status']===$status) Http::error('وضعیت این درخواست قبلاً ثبت شده است',409);
   $note=trim((string)($b['note']??''))?:null;
-  $updated=Db::run("UPDATE requests SET status=?,approver_id=?,approver_note=?,decided_at=NOW() WHERE id=? AND status='pending'",[$status,(int)$u['id'],$note,$id]);
+  if($status==='approved')_req_prepare_approval_storage($req);
+  $pdo=Db::pdo();$pdo->beginTransaction();
+  try{
+  $updated=Db::run("UPDATE requests SET status=?,approver_id=?,approver_note=?,decided_at=NOW(),pending_on=NULL WHERE id=? AND status='pending'",[$status,(int)$u['id'],$note,$id]);
   if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است؛ فهرست را تازه‌سازی کنید.',409);
-  if(function_exists('_req_notify_sms')){try{_req_notify_sms($req,$status,$note);}catch(Throwable $e){error_log('request decision notify: '.$e->getMessage());}}
+    if($status==='approved')_req_apply_approval_effects($req,$id);
+    $pdo->commit();
+  }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+  if($status==='approved')_req_notify_substitute($req,$id);
+  _req_notify_decision($req,$status,$note??'',$id);
   return ['id'=>$id,'status'=>$status,'message'=>$status==='approved'?'درخواست با موفقیت تأیید شد.':'درخواست با موفقیت رد شد.'];
 }, false, ADMIN);
 
@@ -4868,30 +4915,32 @@ unset($policyRoute);
 route('DELETE', '/api/admin/requests/{id}', function($p,$b,$u){
   $id=(int)($p['id']??0); if(!$id) Http::error('شناسه درخواست نامعتبر است',400);
   $req=Db::one("SELECT id FROM requests WHERE id=?",[$id]); if(!$req) Http::error('درخواست یافت نشد',404);
-  Db::run("DELETE FROM requests WHERE id=?",[$id]);
+  $pdo=Db::pdo();$pdo->beginTransaction();
+  try{
+    if(!Db::one("SELECT id FROM requests WHERE id=? FOR UPDATE",[$id]))Http::error('درخواست یافت نشد',404);
+    if(_db_table_exists_safe('substitute_assignments'))Db::run("UPDATE substitute_assignments SET status='canceled' WHERE request_id=?",[$id]);
+    Db::run("DELETE FROM requests WHERE id=?",[$id]);
+    $pdo->commit();
+  }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
   return ['id'=>$id,'deleted'=>true];
 }, false, ADMIN);
 
 // خروجی اکسل گزارش درخواست‌ها (ادمین)
 route('GET', '/api/admin/requests/export', function($p,$b,$u){
-  $cond=[]; $args=[];
-  if (!empty($_GET['user_id'])) { $cond[]="r.user_id=?"; $args[]=(int)$_GET['user_id']; }
-  if (!empty($_GET['type'])) { $cond[]="r.type=?"; $args[]=$_GET['type']; }
-  if (!empty($_GET['status'])) { $cond[]="r.status=?"; $args[]=$_GET['status']; }
-  $where = $cond ? 'WHERE '.implode(' AND ',$cond) : '';
+  [$where,$args]=_req_report_filter($_GET);
   $rows = Db::all("SELECT r.*, CONCAT(us.first_name,' ',us.last_name) requester,
       CONCAT(COALESCE(ap.first_name,''),' ',COALESCE(ap.last_name,'')) approver
     FROM requests r JOIN users us ON us.id=r.user_id LEFT JOIN users ap ON ap.id=r.approver_id $where ORDER BY r.id DESC LIMIT 5000", $args);
-  $TY=['annual'=>'مرخصی استحقاقی','sick'=>'مرخصی استعلاجی','mission'=>'ماموریت','overtime'=>'اضافه‌کار','manual'=>'تردد دستی'];
-  $ST=['pending'=>'در انتظار','approved'=>'تأییدشده','rejected'=>'ردشده'];
+  $TY=['annual'=>'مرخصی استحقاقی','sick'=>'مرخصی استعلاجی','unpaid'=>'مرخصی بدون حقوق','mission'=>'ماموریت','overtime'=>'اضافه‌کار','manual'=>'تردد دستی'];
+  $ST=['pending'=>'در انتظار','approved'=>'تأییدشده','rejected'=>'ردشده','canceled'=>'لغوشده'];
   header('Content-Type: text/csv; charset=UTF-8');
   header('Content-Disposition: attachment; filename="requests.csv"');
   echo "\xEF\xBB\xBF"; $out=fopen('php://output','w');
   $hm=fn($m)=>$m?sprintf('%02d:%02d',intdiv($m,60),$m%60):'';
   fputcsv($out,['نام','نوع','واحد','از تاریخ','تا تاریخ','روز','از ساعت','تا ساعت','مدت','وضعیت','تأییدکننده','توضیحات','تاریخ ثبت']);
-  foreach($rows as $r) fputcsv($out,[$r['requester'],$TY[$r['type']]??$r['type'],$r['unit']==='hourly'?'ساعتی':($r['unit']==='daily'?'روزانه':''),
-    $r['from_jdate'],$r['to_jdate'],$r['the_date'],$r['from_time']?:$r['in_time'],$r['to_time']?:$r['out_time'],$hm($r['minutes']),
-    $ST[$r['status']]??$r['status'],trim($r['approver'])?:'—',$r['reason'],fa_datetime($r['created_at'])]);
+  foreach($rows as $r) fputcsv($out,array_map('_req_report_csv_cell',[$r['requester'],$TY[$r['type']]??$r['type'],$r['unit']==='hourly'?'ساعتی':($r['unit']==='daily'?'روزانه':''),
+    $r['from_jdate'],$r['to_jdate'],$r['the_date'],$r['from_time']?:$r['in_time'],$r['to_time']?:$r['out_time'],($r['type']!=='manual'&&$r['unit']==='daily'?round((float)$r['minutes']/480,2).' روز':$hm($r['minutes'])),
+    $ST[$r['status']]??$r['status'],trim($r['approver'])?:'—',$r['reason'],fa_datetime($r['created_at'])]));
   fclose($out); exit;
 }, false, ADMIN);
 
@@ -15382,4 +15431,4 @@ try {
   // A failure in the optional school-service extension must never take down
   // authentication, public settings, health, or the rest of the API.
   error_log('school-service routes bootstrap failed: '.$e->getMessage().' @ '.basename($e->getFile()).':'.$e->getLine());
-}
+}

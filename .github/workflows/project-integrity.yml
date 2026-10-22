@@ -27,6 +27,7 @@ jobs:
           php php/tests/login_policy_test.php
           node php/tests/login_policy_ui_test.cjs
           php php/tests/work_policy_requests_test.php
+          php php/tests/request_report_test.php
           php php/tests/live_map_query_test.php
           php php/tests/shift_rotation_test.php
           node php/tests/shift_rotation_ui_test.cjs
@@ -64,5 +65,6 @@ jobs:
           node php/tests/panel_map_requests_test.cjs
           node php/tests/settings_sections_ui_test.cjs
           node php/tests/request_policy_ui_test.cjs
+          node php/tests/request_report_ui_test.cjs
           node php/tests/presence_extension_ui_test.cjs
           node --check php/app/assets/complaints-panel.js
