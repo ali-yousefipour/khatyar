@@ -31,3 +31,30 @@ foreach(['sources','files'] as $kind){
   _company_work_route('DELETE','/'.$kind.'/{id}',function($p,$b,$u)use($kind){return CompanyWork::archiveChange($kind,$p['id'],(int)$u['id']);});
   _company_work_route('POST','/'.$kind.'/{id}/restore',function($p,$b,$u)use($kind){return CompanyWork::archiveChange($kind,$p['id'],(int)$u['id'],true);});
 }
+
+// Incentives are kept separate from factual attendance and immutable finalization.
+_company_work_route('GET','/reconciliation',function($p,$b,$u){
+  CompanyWork::reconciliationSchema();[$y,$m]=Payroll::period($_GET['year']??0,$_GET['month']??0);
+  return ['batches'=>Db::all('SELECT id,source_id,source_name,created_at,reason,reverted_at,revert_reason FROM company_work_reconciliations WHERE jy=? AND jm=? ORDER BY id DESC',[$y,$m]),'active_id'=>(int)(Db::one('SELECT batch_id FROM company_work_reconciliation_state WHERE jy=? AND jm=?',[$y,$m])['batch_id']??0),'finalized'=>(bool)_final_work_month($y,$m)];
+});
+_company_work_route('GET','/reconciliation/preview/{id}',function($p,$b,$u){CompanyWork::reconciliationSchema();$r=CompanyWork::reconciliationPreview((int)$p['id']);unset($r['backup']);return $r;});
+_company_work_route('POST','/reconciliation/apply/{id}',function($p,$b,$u){CompanyWork::reconciliationSchema();return CompanyWork::reconciliationApply((int)$p['id'],$b['token']??null,$b['reason']??'',(int)$u['id']);});
+_company_work_route('GET','/reconciliation/batches/{id}',function($p,$b,$u){CompanyWork::reconciliationSchema();$r=CompanyWork::reconciliationRecord($p['id']);return ['id'=>(int)$r['id'],'plan'=>json_decode($r['plan_json'],true,512,JSON_THROW_ON_ERROR),'backup_hash'=>$r['backup_hash'],'source_name'=>$r['source_name'],'created_at'=>$r['created_at'],'reverted_at'=>$r['reverted_at']];});
+_company_work_route('POST','/reconciliation/batches/{id}/revert',function($p,$b,$u){CompanyWork::reconciliationSchema();return CompanyWork::reconciliationRevert((int)$p['id'],$b['reason']??'',(int)$u['id']);});
+_company_work_route('GET','/reconciliation/batches/{id}/backup',function($p,$b,$u){
+  CompanyWork::reconciliationSchema();$r=CompanyWork::reconciliationRecord($p['id']);
+  if(!hash_equals($r['backup_hash'],hash('sha256',$r['backup_json'])))CompanyWork::fail('صحت نسخهٔ اصلی تأیید نشد',409);
+  header('Content-Type: application/json; charset=utf-8');header('Content-Disposition: attachment; filename="original-work-'.$r['jy'].'-'.$r['jm'].'.json"');header('X-Content-Type-Options: nosniff');echo $r['backup_json'];exit;
+});
+_company_work_route('GET','/reconciliation/batches/{id}/export',function($p,$b,$u){
+  CompanyWork::reconciliationSchema();$r=CompanyWork::reconciliationRecord($p['id']);$plan=json_decode($r['plan_json'],true,512,JSON_THROW_ON_ERROR);
+  $daily=($_GET['mode']??'')==='daily';$headers=['نام و نام خانوادگی','شماره پرسنلی'];
+  if($daily)$headers=array_merge($headers,['تاریخ شمسی','حضور واقعی','تشویقی اضافه‌کار (ساعت)','تشویقی تعطیل‌کاری (ساعت)','تشویقی جمعه‌کاری (ساعت)']);
+  else foreach(['اضافه‌کار','تعطیل‌کاری','جمعه‌کاری'] as $title)foreach(['اصلی','سازمان','تشویقی','قابل پرداخت'] as $label)$headers[]=$title.' '.$label.' (ساعت)';
+  $x=new XlsxWriter($headers);$x->setProfessionalStyle(true);$x->setTextCol(1);foreach($headers as $i=>$v){$x->setColWidth($i,$i<2?25:20);if($i>=($daily?4:2))$x->setDecimalCol($i);}
+  $x->setReportHeading('تطبیق با ساعات تشویقی مصوب سازمان',sprintf('%04d/%02d',$r['jy'],$r['jm']), 'حضور واقعی و نسخهٔ نهایی اصلی تغییر نکرده‌اند؛ توزیع روزانه صرفاً حسابداری است.');
+  foreach($plan['rows'] as $row){
+    if($daily){foreach($row['days'] as $d)$x->addRow([$row['name'],$row['personnel_code'],$d['jdate'],$d['worked'],...array_map(fn($k)=>round($d['incentive_seconds'][$k]/3600,6),['overtime','holiday','friday'])]);}
+    else{$values=[$row['name'],$row['personnel_code']];foreach(['overtime','holiday','friday'] as $k)foreach(['actual_seconds','organization_seconds','incentive_seconds','payable_seconds'] as $field)$values[]=round($row[$field][$k]/3600,6);$x->addRow($values);}
+  }$x->output('organization-incentives-'.$r['id'].'.xlsx','تطبیق کارکرد');
+});

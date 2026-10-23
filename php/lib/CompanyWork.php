@@ -109,6 +109,80 @@ class CompanyWork {
     Db::run("CREATE TABLE IF NOT EXISTS company_work_files (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,source_id BIGINT UNSIGNED NOT NULL,jy SMALLINT NOT NULL,jm TINYINT NOT NULL,storage_key CHAR(32) NOT NULL,sha256 CHAR(64) NOT NULL,snapshot_json LONGTEXT NOT NULL,created_by BIGINT NOT NULL,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,KEY period_idx(jy,jm),KEY source_idx(source_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     Db::run("CREATE TABLE IF NOT EXISTS company_work_deleted (kind VARCHAR(10) NOT NULL,archive_id BIGINT UNSIGNED NOT NULL,deleted_by BIGINT NOT NULL,deleted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(kind,archive_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");$ready=true;
   }
+  static function reconciliationSchema(){
+    Db::run("CREATE TABLE IF NOT EXISTS company_work_reconciliations (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,jy SMALLINT NOT NULL,jm TINYINT NOT NULL,source_id BIGINT UNSIGNED NOT NULL,source_name VARCHAR(255) NOT NULL,source_hash CHAR(64) NOT NULL,backup_json LONGTEXT NOT NULL,backup_hash CHAR(64) NOT NULL,plan_json LONGTEXT NOT NULL,reason VARCHAR(1500) NOT NULL,created_by BIGINT NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,reverted_by BIGINT NULL,reverted_at DATETIME NULL,revert_reason VARCHAR(1500) NULL,KEY period_idx(jy,jm)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    Db::run("CREATE TABLE IF NOT EXISTS company_work_reconciliation_state (jy SMALLINT NOT NULL,jm TINYINT NOT NULL,batch_id BIGINT UNSIGNED NULL,PRIMARY KEY(jy,jm)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  }
+  /** Monetary allocation only: never change punches, missions or finalized evidence. */
+  static function reconciliationPlan($sourceRows,$monthly,$daily,$year,$month){
+    $byId=array_column($monthly,null,'user_id');$result=[];$errors=[];
+    foreach($sourceRows as $r){
+      $uid=(int)($r['user_id']??0);$issues=$r['errors']??[];$m=$byId[$uid]??null;$report=$daily[$uid]??null;
+      if(!$uid||!$m||!is_array($report)||!isset($report['days']))$issues[]='کارکرد اصلی نهایی‌شده برای این شخص کامل نیست';
+      $actual=['overtime'=>0,'holiday'=>0,'friday'=>0];$target=$actual;$bonus=$actual;$days=[];
+      if($m){
+        foreach(['regular_overtime','mission_min','shortage','holiday','friday'] as $k)if(!isset($m[$k])||!is_numeric($m[$k]))$issues[]='مقدار اصلی '.$k.' در نسخه نهایی موجود نیست';
+        $actual=['overtime'=>((int)($m['regular_overtime']??0)+(int)($m['mission_min']??0)-(int)($m['shortage']??0))*60,'holiday'=>(int)($m['holiday']??0)*60,'friday'=>(int)($m['friday']??0)*60];
+      }
+      foreach(['overtime','holiday','friday'] as $k){
+        $v=$r[$k.'_hours']??null;
+        if(!is_numeric($v)||!is_finite((float)$v)||(float)$v<0||(float)$v>IranCalendar::monthLength($year,$month)*24)$issues[]='ساعت سازمان نامعتبر است: '.$k;
+        else $target[$k]=(int)round((float)$v*3600);
+        if($target[$k]<$actual[$k])$issues[]='ساعت سازمان کمتر از کارکرد اصلی است: '.$k.'؛ نیاز به بررسی دستی دارد';
+        $bonus[$k]=max(0,$target[$k]-$actual[$k]);
+      }
+      $eligible=[];$seen=[];
+      if(count($report['days']??[])!==IranCalendar::monthLength($year,$month))$issues[]='تمام روزهای ماه در نسخهٔ اصلی موجود نیست';
+      foreach($report['days']??[] as $d){
+        $j=IranCalendar::normalize($d['jdate']??$d['date']??'');
+        if(!$j||substr($j,0,7)!==sprintf('%04d-%02d',$year,$month)||isset($seen[$j])){$issues[]='تاریخ روزهای نسخهٔ اصلی نامعتبر یا تکراری است';continue;}$seen[$j]=true;
+        if(!empty($d['outside_employment_period']))continue;
+        try{$worked=self::minutes($d['worked']??null);}catch(PayrollError $e){$issues[]='حضور روزانه در نسخهٔ اصلی نامعتبر است';continue;}
+        if($worked>0)$eligible[$j]=$d;
+      }
+      ksort($eligible);$n=count($eligible);
+      if(array_sum($bonus)>0&&!$n)$issues[]='روز دارای حضور واقعی برای توزیع حسابداری ساعات تشویقی وجود ندارد';
+      $i=0;foreach($eligible as $j=>$d){$part=[];foreach($bonus as $k=>$v)$part[$k]=intdiv($v,$n)+($i<$v%$n?1:0);$days[]=['jdate'=>$j,'worked'=>$d['worked'],'incentive_seconds'=>$part];$i++;}
+      $payable=[];foreach($actual as $k=>$v)$payable[$k]=$v+$bonus[$k];
+      $issues=array_values(array_unique($issues));$row=['user_id'=>$uid,'name'=>trim(($r['first_name']??'').' '.($r['last_name']??'')),'personnel_code'=>(string)($r['personnel_code']??''),'actual_seconds'=>$actual,'organization_seconds'=>$target,'incentive_seconds'=>$bonus,'payable_seconds'=>$payable,'days'=>$days,'errors'=>$issues];
+      if($issues)$errors[]=$row['personnel_code'];$result[]=$row;
+    }
+    if(!$result)self::fail('فایل سازمان فاقد ردیف قابل تطبیق است');
+    return ['year'=>$year,'month'=>$month,'rows'=>$result,'has_errors'=>(bool)$errors,'unit'=>'seconds','allocation'=>'توزیع حسابداری ساعات تشویقی روی روزهای دارای حضور؛ این مقادیر ورود، خروج یا مأموریت نیستند'];
+  }
+  static function reconciliationPreview($sourceId){
+    $s=self::source($sourceId);$y=(int)$s['jy'];$m=(int)$s['jm'];$final=_final_work_month($y,$m);
+    if(!$final)self::fail('ابتدا کارکرد ماه انتخابی را نهایی کنید',409);
+    $backup=['year'=>$y,'month'=>$m,'monthly_json'=>$final['monthly_json'],'daily_json'=>$final['daily_json'],'finalized_at'=>$final['finalized_at']??null,'finalized_by'=>$final['finalized_by']??null];
+    $plan=self::reconciliationPlan(self::matchRows(json_decode($s['rows_json'],true,512,JSON_THROW_ON_ERROR),self::users()),_work_snapshot_decode($final['monthly_json']),_work_snapshot_decode($final['daily_json']),$y,$m);
+    $active=Db::one('SELECT batch_id FROM company_work_reconciliation_state WHERE jy=? AND jm=?',[$y,$m]);
+    $token=hash('sha256',self::json([$s['sha256'],$backup,$plan,(int)($active['batch_id']??0)]));
+    return ['plan'=>$plan,'token'=>$token,'source_id'=>(int)$s['id'],'source_name'=>$s['file_name'],'source_hash'=>$s['sha256'],'backup_hash'=>hash('sha256',self::json($backup)),'backup'=>$backup,'active_id'=>(int)($active['batch_id']??0)];
+  }
+  static function reconciliationApply($sourceId,$token,$reason,$actor){
+    $reason=trim((string)$reason);if(mb_strlen($reason)<3||mb_strlen($reason)>500)self::fail('علت ثبت را بین ۳ تا ۵۰۰ نویسه وارد کنید');
+    $s=self::source($sourceId);$y=(int)$s['jy'];$m=(int)$s['jm'];$lock='company-work-reconcile:'.$y.':'.$m;
+    if((int)(Db::one('SELECT GET_LOCK(?,10) acquired',[$lock])['acquired']??0)!==1)self::fail('عملیات دیگری برای این ماه در حال اجراست',409);
+    $pdo=Db::pdo();try{
+      $p=self::reconciliationPreview($sourceId);
+      if(!is_string($token)||!hash_equals($p['token'],$token))self::fail('پیش‌نمایش تغییر کرده است؛ مقایسه را دوباره اجرا کنید',409);
+      if($p['active_id'])self::fail('برای این ماه تعدیل فعال وجود دارد؛ ابتدا آن را برگشت دهید',409);
+      if($p['plan']['has_errors'])self::fail('مغایرت‌های پیش‌نمایش باید پیش از ثبت برطرف شوند',422);
+      $pdo->beginTransaction();
+      $id=Db::insert('INSERT INTO company_work_reconciliations(jy,jm,source_id,source_name,source_hash,backup_json,backup_hash,plan_json,reason,created_by) VALUES(?,?,?,?,?,?,?,?,?,?)',[$y,$m,$sourceId,$p['source_name'],$p['source_hash'],self::json($p['backup']),$p['backup_hash'],self::json($p['plan']),$reason,$actor]);
+      Db::run('INSERT INTO company_work_reconciliation_state(jy,jm,batch_id) VALUES(?,?,?) ON DUPLICATE KEY UPDATE batch_id=VALUES(batch_id)',[$y,$m,$id]);$pdo->commit();return ['id'=>$id];
+    }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}finally{Db::one('SELECT RELEASE_LOCK(?) released',[$lock]);}
+  }
+  static function reconciliationRecord($id){$r=Db::one('SELECT * FROM company_work_reconciliations WHERE id=?',[(int)$id]);if(!$r)self::fail('نسخهٔ تطبیق یافت نشد',404);return $r;}
+  static function reconciliationRevert($id,$reason,$actor){
+    $r=self::reconciliationRecord($id);$reason=trim((string)$reason);if(mb_strlen($reason)<3||mb_strlen($reason)>500)self::fail('علت برگشت را بین ۳ تا ۵۰۰ نویسه وارد کنید');
+    $lock='company-work-reconcile:'.$r['jy'].':'.$r['jm'];if((int)(Db::one('SELECT GET_LOCK(?,10) acquired',[$lock])['acquired']??0)!==1)self::fail('عملیات دیگری در حال اجراست',409);
+    $pdo=Db::pdo();try{$pdo->beginTransaction();$state=Db::one('SELECT batch_id FROM company_work_reconciliation_state WHERE jy=? AND jm=? FOR UPDATE',[$r['jy'],$r['jm']]);
+      if((int)($state['batch_id']??0)!==(int)$id)self::fail('این نسخه فعال نیست؛ فهرست را تازه‌سازی کنید',409);
+      Db::run('UPDATE company_work_reconciliations SET reverted_by=?,reverted_at=CURRENT_TIMESTAMP,revert_reason=? WHERE id=?',[$actor,$reason,$id]);
+      Db::run('UPDATE company_work_reconciliation_state SET batch_id=NULL WHERE jy=? AND jm=?',[$r['jy'],$r['jm']]);$pdo->commit();return ['reverted'=>true];
+    }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}finally{Db::one('SELECT RELEASE_LOCK(?) released',[$lock]);}
+  }
   static function directory(){
     $dir=dirname(__DIR__).'/storage/company_work';
     if(!is_dir($dir)&&!mkdir($dir,0700,true)&&!is_dir($dir))throw new RuntimeException('ساخت آرشیو خصوصی ممکن نشد');
