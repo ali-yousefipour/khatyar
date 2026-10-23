@@ -322,6 +322,7 @@ const db = {
   plateTrainingReview: (id,body)=> SEND('POST','/admin/plate-training/samples/'+id+'/review',body),
   adminRequests: (qs)=> GET('/admin/requests'+(qs||"")),
   adminRequestDecision: (id,body)=> SEND('POST','/admin/requests/'+id+'/decision',body),
+  adminRequestEdit: (id,body)=> SEND('PUT','/admin/requests/'+id,body),
   adminRequestDelete: (id)=> SEND('DELETE','/admin/requests/'+id,{}),
   userLeaveBalance: (id)=> GET('/admin/users/'+id+'/leave-balance'),
   leaveBalanceInitList: ()=> GET('/admin/leave-balance-init'),
@@ -7579,13 +7580,63 @@ function RequestDetails({requestId,onClose}){
     {data.attachment_name&&<section><h4>پیوست</h4>{safeAttachment?<a className="btn g" href={attachment} download={data.attachment_name}>{data.attachment_name} — دریافت پیوست</a>:<p>{data.attachment_name} — فایل قابل دریافت موجود نیست.</p>}{attachment&&safeImage(attachment)&&<img src={attachment} alt="پیوست درخواست" style={{display:'block',maxWidth:'100%',maxHeight:360,objectFit:'contain'}}/>}</section>}
     {data.type==='annual'&&(data.unit||'daily')==='daily'&&data.substitute_user_id&&<section><h4>نیروی جایگزین مرخصی</h4><p>{data.substitute_name||'کاربر #'+fa(data.substitute_user_id)}</p>{data.status==='approved'&&data.substitute_assignment?.status==='active'?<p>شیفت موقت مطابق شیفت مؤثر درخواست‌کننده از {faPlain(data.substitute_assignment.from_date)} تا {faPlain(data.substitute_assignment.to_date)} اعمال می‌شود. پس از این بازه شیفت اصلی جایگزین معتبر است.</p>:<p className="muted">{data.status==='pending'?'پس از تأیید، شیفت درخواست‌کننده در بازهٔ مرخصی برای جایگزین اعمال می‌شود.':'جایگزینی فعالی برای این درخواست وجود ندارد.'}</p>}</section>}
     {['annual','sick','unpaid'].includes(data.type)&&<RequestLeaveUsage key={data.id} requestId={data.id}/>}
+    {!!data.edit_history?.length&&<section><h4>سابقهٔ اصلاح درخواست</h4>{data.edit_history.map(item=><p key={item.id}>{item.actor||'مدیر سامانه'} · {faPlain(fj(item.created_at))} · {item.edit_reason}</p>)}</section>}
   </>}<button className="btn g" onClick={onClose} style={{marginTop:16}}>بستن جزئیات</button></Modal>;
+}
+function ApprovedRequestEditor({requestId,users,onClose,onSaved}){
+  const [data,setData]=useState(null),[draft,setDraft]=useState(null),[error,setError]=useState(''),[saving,setSaving]=useState(false);
+  const alive=useRef(true),lock=useRef(false);
+  useEffect(()=>{alive.current=true;GET('/admin/requests/'+requestId+'/detail').then(r=>{
+    if(!alive.current)return;if(r.status!=='approved'||!r.edit_token)throw Error('درخواست تأییدشده را از فهرست تازه دوباره باز کنید.');
+    const norm=v=>String(v||'').replace(/\//g,'-');
+    setData(r);setDraft({from_jdate:norm(r.from_jdate||r.the_date),to_jdate:norm(r.to_jdate||r.the_date||r.from_jdate),the_date:norm(r.the_date||r.from_jdate),from_time:(r.from_time||'').slice(0,5),to_time:(r.to_time||'').slice(0,5),in_time:(r.in_time||'').slice(0,5),out_time:(r.out_time||'').slice(0,5),reason:r.reason||'',approver_note:r.approver_note||'',substitute_user_id:r.substitute_user_id?String(r.substitute_user_id):'',edit_reason:''});
+  }).catch(e=>{if(alive.current)setError(e.message||'دریافت درخواست ناموفق بود');});return()=>{alive.current=false;};},[requestId]);
+  const change=(key,value)=>setDraft(old=>({...old,[key]:['the_date','from_jdate','to_jdate'].includes(key)?String(value).replace(/\//g,'-'):value}));
+  const submit=async(event)=>{
+    event?.preventDefault();if(lock.current||!data||!draft)return;setError('');
+    const single=data.type==='manual'||data.unit==='hourly';
+    if(single&&!draft.the_date||!single&&(!draft.from_jdate||!draft.to_jdate)){setError('تاریخ درخواست را کامل کنید.');return;}
+    if(!single&&draft.to_jdate<draft.from_jdate){setError('تاریخ پایان نباید قبل از تاریخ شروع باشد.');return;}
+    if(data.type!=='manual'&&data.unit==='hourly'){
+      const time=/^(?:[01]\d|2[0-3]):[0-5]\d$/;
+      if(!time.test(draft.from_time)||!time.test(draft.to_time)){setError('ساعت شروع و پایان معتبر وارد کنید.');return;}
+      if(draft.from_time>=draft.to_time){setError('ساعت شروع باید کوچک‌تر از ساعت پایان باشد.');return;}
+    }
+    if(draft.edit_reason.trim().length<3){setError('علت اصلاح را حداقل در ۳ نویسه وارد کنید.');return;}
+    lock.current=true;setSaving(true);
+    try{const body={...draft,edit_token:data.edit_token};if(data.type!=='annual'||(data.unit||'daily')!=='daily')delete body.substitute_user_id;const result=await db.adminRequestEdit(requestId,body);if(alive.current)await onSaved(result);}
+    catch(e){if(alive.current)setError(e.message||'ثبت اصلاح ناموفق بود');}
+    finally{lock.current=false;if(alive.current)setSaving(false);}
+  };
+  const TY={annual:'مرخصی استحقاقی',sick:'مرخصی استعلاجی',unpaid:'مرخصی بدون حقوق',mission:'ماموریت',overtime:'اضافه‌کار',manual:'تردد دستی'};
+  const single=data&&(data.type==='manual'||data.unit==='hourly');
+  return <Modal title="ویرایش درخواست تأییدشده" onClose={()=>{if(!lock.current)onClose();}} style={{width:'min(94vw,760px)',maxHeight:'92vh',overflowY:'auto'}}>
+    {error&&<p role="alert" style={{color:'var(--danger,#bd2929)'}}>{error}</p>}
+    {!draft&&!error&&<p role="status">در حال دریافت درخواست…</p>}
+    {draft&&<form onSubmit={submit}>
+      <p><strong>{data.requester}</strong> · {TY[data.type]||data.type} · {data.type==='manual'?'ورود/خروج':data.unit==='hourly'?'ساعتی':'روزانه'} · شماره {fa(data.id)}</p>
+      <p className="muted">وضعیت تأیید و تأییدکنندهٔ اصلی حفظ می‌شوند. سابقهٔ اصلاح ثبت می‌شود؛ گزارش‌های نهایی‌شده و فایل‌های آرشیوی ثابت می‌مانند.</p>
+      <fieldset disabled={saving} style={{border:0,padding:0,margin:0}}><div className="grid2" style={{gap:12}}>
+        {single?<label>تاریخ درخواست<JDate jalali value={draft.the_date} onChange={v=>change('the_date',v)} placeholder="تاریخ درخواست"/></label>:<><label>از تاریخ<JDate jalali value={draft.from_jdate} onChange={v=>change('from_jdate',v)} placeholder="از تاریخ درخواست"/></label><label>تا تاریخ<JDate jalali value={draft.to_jdate} onChange={v=>change('to_jdate',v)} placeholder="تا تاریخ درخواست"/></label></>}
+        {data.type!=='manual'&&data.unit==='hourly'&&<><label>ساعت شروع<input className="input" aria-label="ساعت شروع درخواست" type="time" value={draft.from_time} onChange={e=>change('from_time',e.target.value)}/></label><label>ساعت پایان<input className="input" aria-label="ساعت پایان درخواست" type="time" value={draft.to_time} onChange={e=>change('to_time',e.target.value)}/></label></>}
+        {data.type==='manual'&&<>{data.in_time&&<label>ساعت ورود<input className="input" aria-label="ویرایش ساعت ورود" type="time" value={draft.in_time} onChange={e=>change('in_time',e.target.value)}/></label>}{data.out_time&&<label>ساعت خروج<input className="input" aria-label="ویرایش ساعت خروج" type="time" value={draft.out_time} onChange={e=>change('out_time',e.target.value)}/></label>}</>}
+      </div>
+      {data.type==='manual'&&<p className="muted">ساعت خروج کمتر از ورود برای ترددِ ورود و خروج، خروج روز بعد محسوب می‌شود. تردد مرتبط باید یکتا باشد. تاریخ درخواستِ فقط خروج باید در روز ورود مرتبط بماند.</p>}
+      {data.type==='annual'&&(data.unit||'daily')==='daily'&&<label>نیروی جایگزین<select className="input" aria-label="ویرایش نیروی جایگزین" value={draft.substitute_user_id} onChange={e=>change('substitute_user_id',e.target.value)}><option value="">بدون جایگزین</option>{data.substitute_user_id&&!users.some(u=>Number(u.id)===Number(data.substitute_user_id))&&<option value={data.substitute_user_id}>{data.substitute_name||'جایگزین فعلی'}</option>}{users.filter(u=>Number(u.id)!==Number(data.user_id)).map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}</select></label>}
+      <label>توضیحات درخواست<textarea className="input" aria-label="ویرایش توضیحات درخواست" maxLength={4000} value={draft.reason} onChange={e=>change('reason',e.target.value)}/></label>
+      <label>یادداشت تأییدکننده<textarea className="input" aria-label="ویرایش یادداشت تأیید" maxLength={4000} value={draft.approver_note} onChange={e=>change('approver_note',e.target.value)}/></label>
+      <label>علت اصلاح (الزامی)<textarea className="input" aria-label="علت اصلاح درخواست" required minLength={3} maxLength={500} value={draft.edit_reason} onChange={e=>change('edit_reason',e.target.value)}/></label>
+      <button className="btn p" type="submit" disabled={saving}>{saving?'در حال ثبت اصلاح…':'ذخیرهٔ اصلاح درخواست'}</button></fieldset>
+    </form>}
+    <button type="button" className="btn g" disabled={saving} onClick={onClose} style={{marginTop:12}}>انصراف از ویرایش</button>
+  </Modal>;
 }
 function AdminRequests(){
   const [users,setUsers]=useState([]); const [rows,setRows]=useState([]); const [loading,setLoading]=useState(false);
   const [fUser,setFUser]=useState(""); const [fType,setFType]=useState(""); const [fStatus,setFStatus]=useState("pending"); const [busyId,setBusyId]=useState(null);
   const [fFrom,setFFrom]=useState(""); const [fTo,setFTo]=useState(""); const [search,setSearch]=useState("");
   const [detailId,setDetailId]=useState(null);
+  const [editId,setEditId]=useState(null);
   const [selected,setSelected]=useState([]); const [review,setReview]=useState(null); const [reviewLoading,setReviewLoading]=useState(false); const [actionMessage,setActionMessage]=useState(''); const actionLock=useRef(false); const loadVersion=useRef(0);
   const execute=async(ids,status)=>{
     if(actionLock.current)return; actionLock.current=true; setBusyId('batch'); setActionMessage('');
@@ -7614,7 +7665,7 @@ function AdminRequests(){
   const load=async()=>{if(fFrom&&fTo&&fFrom>fTo){setActionMessage('ابتدای بازه باید قبل از پایان آن باشد');return;}const version=++loadVersion.current;setLoading(true);setReview(null);try{const data=await db.adminRequests(qs());if(version===loadVersion.current){setRows(data||[]);setSelected(previous=>previous.filter(id=>(data||[]).some(row=>row.id===id)));}}catch(error){if(version===loadVersion.current){setRows([]);setSelected([]);setActionMessage(error.message||'دریافت درخواست‌ها ناموفق بود');}}finally{if(version===loadVersion.current)setLoading(false);}};
   const hm=(m)=>m!=null?`${fa(Math.floor(m/60))}:${String(m%60).padStart(2,"0")}`:"—";
   const exportExcel=async()=>{ try{ const res=await fetch(`${API_BASE}/admin/requests/export${qs()}`,{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); const url=URL.createObjectURL(blob); a.href=url; a.download="درخواستهای_پرسنل.xlsx"; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); }catch(e){ alert(e.message); } };
-  return(<div className="panel admin-workspace-page admin-list-page"><h3>📋 درخواست‌های پرسنل</h3>{detailId!=null&&<RequestDetails key={detailId} requestId={detailId} onClose={()=>setDetailId(null)}/>}
+  return(<div className="panel admin-workspace-page admin-list-page"><h3>📋 درخواست‌های پرسنل</h3>{detailId!=null&&<RequestDetails key={detailId} requestId={detailId} onClose={()=>setDetailId(null)}/>}{editId!=null&&<ApprovedRequestEditor key={editId} requestId={editId} users={users} onClose={()=>{setEditId(null);setBusyId(null);}} onSaved={async()=>{setEditId(null);setBusyId(null);setDetailId(null);setActionMessage('درخواست تأییدشده اصلاح شد.');await load();}}/>}
     <div role="tablist" aria-label="وضعیت درخواست‌های پرسنل" className="filters" style={{display:"flex",gap:8,flexWrap:"wrap"}}>{[["pending","در انتظار بررسی"],["approved","تأییدشده"],["rejected","ردشده"]].map(([key,title])=><button role="tab" aria-selected={fStatus===key} className={"btn "+(fStatus===key?"p":"g")} key={key} disabled={!!busyId||reviewLoading} onClick={()=>{if(key===fStatus)return;loadVersion.current++;setLoading(false);setSelected([]);setRows([]);setFStatus(key);}}>{title}</button>)}</div><div className="request-bulk-toolbar"><label><input type="checkbox" aria-label="انتخاب همه درخواست‌های نمایش‌داده‌شده" disabled={!!busyId||reviewLoading||loading} checked={rows.length>0&&rows.every(row=>selected.includes(row.id))} onChange={event=>setSelected(event.target.checked?rows.map(row=>row.id):[])}/> انتخاب همهٔ نتایج نمایش‌داده‌شده</label><span>{fa(selected.filter(id=>rows.some(row=>row.id===id)).length)} انتخاب</span>{[['approved','تأیید گروهی'],['rejected','رد گروهی'],['delete','حذف گروهی']].map(([status,title])=><button className="btn g" key={status} disabled={!!busyId||reviewLoading||loading||!selected.length} onClick={()=>prepare(selected,status)}>{title}</button>)}</div>
     {reviewLoading&&<p role="status">در حال دریافت اطلاعات مرخصی…</p>}{actionMessage&&<p role="status">{actionMessage}</p>}
     {review&&<Modal title={review.status==='delete'?'حذف درخواست‌ها':review.status==='approved'?'بررسی و تأیید درخواست‌ها':'رد درخواست‌ها'} onClose={()=>{if(!busyId)setReview(null);}}><p>{fa(review.ids.length)} درخواست {review.status==='delete'?'حذف خواهند شد؛ این عملیات قابل بازگشت نیست.':'بررسی خواهند شد. درخواست‌های در انتظار و درخواست‌های ردشدهٔ انتخاب‌شده، طبق سیاست کاری بررسی می‌شوند.'}</p>{review.leaves.map(({row,context})=><section className="leave-review" key={row.id}><h4>{row.requester} — {TY[row.type]}</h4><RequestLeaveUsage key={row.id} requestId={row.id} initialContext={context}/><p>از ابتدای ماه جاری شمسی: {context.year}/{context.month}</p>{Object.entries(context.balance).filter(([key])=>key.startsWith(row.type+'_')).map(([key,value])=><p key={key}>{key.endsWith('daily')?'روزانه (روز)':'ساعتی (ساعت)'}: مصرف ماه {fa(value.used_month)} · در انتظار ماه {fa(value.pending_month||0)} · باقی‌مانده ماه {value.left_month==null?'سقف تعیین نشده':fa(value.left_month)} · مصرف سال {fa(value.used_year)} · در انتظار سال {fa(value.pending_year||0)} · باقی‌مانده سال {value.left_year==null?'سقف تعیین نشده':fa(value.left_year)}</p>)}<p className="muted">مانده طبق سیاست جاری محاسبه شده و درخواست‌های در انتظار را نیز در نظر می‌گیرد.</p><div className="table-wrap"><table><thead><tr><th>نوع</th><th>از</th><th>تا</th><th>وضعیت</th></tr></thead><tbody>{context.requests.map(item=><tr key={item.id}><td>{TY[item.type]||item.type}</td><td>{item.from_jdate||item.the_date}</td><td>{item.to_jdate||item.the_date}</td><td>{ST[item.status]?.[0]||item.status}</td></tr>)}</tbody></table></div>{!context.requests.length&&<p>درخواستی از ابتدای ماه ثبت نشده است.</p>}</section>)}<button className="btn p" disabled={!!busyId} onClick={()=>execute(review.ids,review.status)}>{busyId?'در حال پردازش…':'تأیید نهایی عملیات'}</button></Modal>}
@@ -7637,7 +7688,7 @@ function AdminRequests(){
         <td style={{whiteSpace:"nowrap"}}>{r.the_date||r.from_jdate}{r.to_jdate&&r.to_jdate!==r.from_jdate?` تا ${r.to_jdate}`:""}</td>
         <td style={{whiteSpace:"nowrap"}}>{r.from_time?`${r.from_time}–${r.to_time}`:(r.in_time||r.out_time)?`${r.in_time||"—"}/${r.out_time||"—"}`:"—"}</td>
         <td>{r.type!=="manual"&&r.unit==="daily"?fa(Math.round(Number(r.minutes||0)/480*100)/100)+" روز":hm(r.minutes)}</td><td><span className={"badge "+st[1]}>{st[0]}</span></td>
-        <td>{(r.approver||"").trim()||"—"}</td><td style={{maxWidth:200,fontSize:11,color:"var(--muted)"}}>{r.reason||""}{r.approver_note?` | پاسخ: ${r.approver_note}`:""}{r.attachment_name?" 📎":""}</td><td style={{whiteSpace:"nowrap"}}><button className="btn g" style={{fontSize:11,padding:"3px 8px",marginInlineEnd:4}} onClick={()=>setDetailId(r.id)}>جزئیات</button>{["pending","rejected"].includes(r.status)&&<><button className="btn p" style={{fontSize:11,padding:"3px 8px",marginInlineEnd:4}} disabled={!!busyId||reviewLoading} onClick={()=>act(r.id,"approved")}>{r.status==="rejected"?"تأیید مجدد":"تأیید"}</button>{r.status==="pending"&&<button className="btn g" style={{fontSize:11,padding:"3px 8px",marginInlineEnd:4}} disabled={!!busyId||reviewLoading} onClick={()=>act(r.id,"rejected")}>رد</button>}</>}<button className="btn g" style={{fontSize:11,padding:"3px 8px"}} disabled={!!busyId||reviewLoading} onClick={()=>del(r.id)}>حذف</button></td>
+        <td>{(r.approver||"").trim()||"—"}</td><td style={{maxWidth:200,fontSize:11,color:"var(--muted)"}}>{r.reason||""}{r.approver_note?` | پاسخ: ${r.approver_note}`:""}{r.attachment_name?" 📎":""}</td><td style={{whiteSpace:"nowrap"}}><button className="btn g" style={{fontSize:11,padding:"3px 8px",marginInlineEnd:4}} onClick={()=>setDetailId(r.id)}>جزئیات</button>{r.status==="approved"&&<button className="btn g" style={{fontSize:11,padding:"3px 8px",marginInlineEnd:4}} disabled={!!busyId||reviewLoading||loading} onClick={()=>{setDetailId(null);setBusyId("edit");setEditId(r.id);}}>ویرایش</button>}{["pending","rejected"].includes(r.status)&&<><button className="btn p" style={{fontSize:11,padding:"3px 8px",marginInlineEnd:4}} disabled={!!busyId||reviewLoading} onClick={()=>act(r.id,"approved")}>{r.status==="rejected"?"تأیید مجدد":"تأیید"}</button>{r.status==="pending"&&<button className="btn g" style={{fontSize:11,padding:"3px 8px",marginInlineEnd:4}} disabled={!!busyId||reviewLoading} onClick={()=>act(r.id,"rejected")}>رد</button>}</>}<button className="btn g" style={{fontSize:11,padding:"3px 8px"}} disabled={!!busyId||reviewLoading} onClick={()=>del(r.id)}>حذف</button></td>
       </tr>); })}
     </tbody></table></div>}
   </div>);

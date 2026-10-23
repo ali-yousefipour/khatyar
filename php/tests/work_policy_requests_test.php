@@ -50,6 +50,12 @@ validate(daily('1405-07-01','1405-07-02'),['annual'=>['daily'=>['min_days'=>2,'m
 denied(fn()=>validate(daily('1405-07-31'),[]),'invalid Jalali day');
 denied(fn()=>validate(daily('1405-07-02','1405-07-01'),[]),'reversed dates');
 denied(fn()=>validate(hourly('1405-07-01','09:00','08:00'),[]),'reversed hours');
+foreach(['annual','sick','unpaid'] as $leaveType){
+  denied(fn()=>validate(hourly('1405-07-01','09:00','09:00',$leaveType),[]),'equal leave hours '.$leaveType);
+  denied(fn()=>validate(hourly('1405-07-01','23:00','01:00',$leaveType),[]),'overnight hourly leave '.$leaveType);
+  validate(hourly('1405-07-01','00:00','00:01',$leaveType),[]);
+  validate(hourly('1405-07-01','23:58','23:59',$leaveType),[]);
+}
 denied(fn()=>validate(hourly(),['annual'=>['hourly'=>['min_h'=>2]]]),'hourly minimum');
 denied(fn()=>validate(hourly()+['minutes'=>0],['annual'=>['hourly'=>['max_m'=>30]]]),'client cannot forge minutes');
 foreach(['sick','unpaid','mission'] as $type) denied(fn()=>validate(daily('1405-07-01','1405-07-03',$type),[$type=>['daily'=>['max_days'=>2]]]),$type.' maximum');

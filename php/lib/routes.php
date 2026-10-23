@@ -4059,9 +4059,14 @@ function _req_policy_span(array $request){
   return compact('unit','start','days','minutes','periods');
 }
 
-function _req_validate_work_policy($uid,array $request,array $policy,$approval=false,$excludeId=0,$now=null){
+function _req_validate_work_policy($uid,array $request,array $policy,$approval=false,$excludeId=0,$now=null,$editing=false){
   $type=$request['type']??'';
   if(!in_array($type,['annual','sick','unpaid','mission','overtime','manual'],true)) Http::error('نوع درخواست نامعتبر است',422);
+  if($type!=='manual'&&($request['unit']??'daily')==='hourly'){
+    $a=(string)($request['from_time']??'');$z=(string)($request['to_time']??'');
+    if(!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/D',$a)||!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/D',$z))Http::error('ساعت شروع و پایان باید با قالب ساعت و دقیقه معتبر وارد شوند.',422);
+    if($a>=$z)Http::error('ساعت شروع باید کوچک‌تر از ساعت پایان باشد.',422);
+  }
   $span=_req_policy_span($request);
   if(!$span) Http::error('تاریخ یا بازهٔ ساعت درخواست معتبر نیست.',422);
   $config=$policy['config'][$type]??[];
@@ -4077,7 +4082,7 @@ function _req_validate_work_policy($uid,array $request,array $policy,$approval=f
     if($max>0&&$length>$max) Http::error('طول بازهٔ '.$title.' بیشتر از حداکثر مجاز سیاست کاری است.',422);
   }
   // Zero days means the start day itself, unlike zero caps (unlimited).
-  if((!$approval||!empty($policy['apply_time_limit_on_approve'])) && array_key_exists('deadline_days',$limits)){
+  if(!$editing && (!$approval||!empty($policy['apply_time_limit_on_approve'])) && array_key_exists('deadline_days',$limits)){
     $days=max(0,(int)$limits['deadline_days']);
     $before=($limits['deadline_dir']??'after')==='before';
     $deadline=$span['start']->modify(($before?'-':'+').$days.' days')->setTime(23,59,59);
@@ -4151,11 +4156,12 @@ function _req_policy_balance($uid,array $policy,$jy,$jm){
   }return $out;
 }
 
-function _req_reject_overlap($uid,array $request){
+function _req_reject_overlap($uid,array $request,$excludeId=0){
   $span=_req_policy_span($request);
   if(!$span)return; // Existing handlers retain responsibility for invalid input.
   $type=(string)($request['type']??'');
-  $rows=Db::all("SELECT * FROM requests WHERE user_id=? AND type=? AND status IN ('pending','approved')",[(int)$uid,$type]);
+  $args=[(int)$uid,$type];$exclude='';if($excludeId){$exclude=' AND id<>?';$args[]=(int)$excludeId;}
+  $rows=Db::all("SELECT * FROM requests WHERE user_id=? AND type=? AND status IN ('pending','approved')".$exclude,$args);
   $end=static function($value){return $value['unit']==='hourly'?$value['start']->modify('+'.$value['minutes'].' minutes'):$value['start']->setTime(0,0)->modify('+'.$value['days'].' days');};
   foreach($rows as $row){
     $other=_req_policy_span($row);if(!$other)continue;
@@ -4217,12 +4223,13 @@ function _date_ranges_overlap($from1,$to1,$from2,$to2){
 
 // بررسی در دسترس بودن یک نیروی جایگزین در بازهٔ مشخص
 // خروجی: ['available'=>bool, 'reason'=>string|null]
-function _substitute_availability($subId, $fromDate, $toDate, $excludeRequestId=null){
+function _substitute_availability($subId, $fromDate, $toDate, $excludeRequestId=null,$prepareStorage=true){
   // اطمینان از وجود جدول
-  try { Db::run("CREATE TABLE IF NOT EXISTS substitute_assignments (id INT AUTO_INCREMENT PRIMARY KEY, substitute_user_id INT NOT NULL, request_id INT NOT NULL, absent_user_id INT NOT NULL, from_date VARCHAR(10) NOT NULL, to_date VARCHAR(10) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'active', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_sub_user (substitute_user_id), INDEX idx_sub_dates (from_date, to_date)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
+  if($prepareStorage){try { Db::run("CREATE TABLE IF NOT EXISTS substitute_assignments (id INT AUTO_INCREMENT PRIMARY KEY, substitute_user_id INT NOT NULL, request_id INT NOT NULL, absent_user_id INT NOT NULL, from_date VARCHAR(10) NOT NULL, to_date VARCHAR(10) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'active', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_sub_user (substitute_user_id), INDEX idx_sub_dates (from_date, to_date)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }}
 
   // ۱) شیفت اشغال‌شده (از مرخصی‌های تأییدشده): substitute_assignments فعال که با بازه همپوشانی دارد
-  $assigns = Db::all("SELECT sa.from_date,sa.to_date FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' AND rq.type='annual' AND COALESCE(rq.unit,'daily')='daily' WHERE sa.substitute_user_id=? AND sa.status='active'", [$subId]);
+  $args=[$subId];$exclude='';if($excludeRequestId){$exclude=' AND sa.request_id<>?';$args[]=(int)$excludeRequestId;}
+  $assigns = Db::all("SELECT sa.from_date,sa.to_date FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' AND rq.type='annual' AND COALESCE(rq.unit,'daily')='daily' WHERE sa.substitute_user_id=? AND sa.status='active'".$exclude.($prepareStorage?'':' FOR UPDATE'), $args);
   foreach ($assigns as $a) {
     if (_date_ranges_overlap($fromDate,$toDate,$a['from_date'],$a['to_date'])) {
       return ['available'=>false, 'reason'=>'این نیروی جایگزین در بازهٔ انتخابی شیفت جایگزینی فعال دارد و در دسترس نیست.'];
@@ -4236,7 +4243,7 @@ function _substitute_availability($subId, $fromDate, $toDate, $excludeRequestId=
     $q = "SELECT from_jdate,to_jdate,the_date FROM requests WHERE substitute_user_id=? AND status='pending' AND type='annual' AND COALESCE(unit,'daily')='daily'";
     $args = [$subId];
     if ($excludeRequestId) { $q .= " AND id<>?"; $args[] = $excludeRequestId; }
-    $pendings = Db::all($q, $args);
+    $pendings = Db::all($q.($prepareStorage?'':' FOR UPDATE'), $args);
     foreach ($pendings as $pr) {
       $pf = $pr['from_jdate'] ?: $pr['the_date'];
       $pt = $pr['to_jdate'] ?: ($pr['the_date'] ?: $pf);
@@ -4815,7 +4822,7 @@ function _req_apply_approval_effects(array $request,int $id){
     if(!Db::one("SELECT id FROM users WHERE id=? AND is_active=1 FOR UPDATE",[(int)$request['substitute_user_id']]))Http::error('نیروی جایگزین فعال نیست',422);
     $from=$request['from_jdate']?:$request['the_date'];
     $to=$request['to_jdate']?:($request['the_date']?:$from);
-    $conflict=Db::one("SELECT sa.id FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' AND rq.type='annual' AND COALESCE(rq.unit,'daily')='daily' WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.request_id<>? AND sa.from_date<=? AND sa.to_date>=? LIMIT 1",[(int)$request['substitute_user_id'],$id,$to,$from]);
+    $conflict=Db::one("SELECT sa.id FROM substitute_assignments sa JOIN requests rq ON rq.id=sa.request_id AND rq.status='approved' AND rq.type='annual' AND COALESCE(rq.unit,'daily')='daily' WHERE sa.substitute_user_id=? AND sa.status='active' AND sa.request_id<>? AND sa.from_date<=? AND sa.to_date>=? LIMIT 1 FOR UPDATE",[(int)$request['substitute_user_id'],$id,$to,$from]);
     if($conflict)Http::error('نیروی جایگزین در این بازه جایگزینی تأییدشدهٔ دیگری دارد',409);
     if($from&&$to&&!Db::one("SELECT id FROM substitute_assignments WHERE request_id=? AND status='active'",[$id]))
       Db::run("INSERT INTO substitute_assignments(substitute_user_id,request_id,absent_user_id,from_date,to_date,status) VALUES(?,?,?,?,?,'active')",[(int)$request['substitute_user_id'],$id,(int)$request['user_id'],$from,$to]);
@@ -4914,6 +4921,129 @@ function _req_leave_usage_through(array $rows,array $balance,$throughJdate){
   return ['through_jdate'=>$throughJdate,'types'=>$types];
 }
 
+function _req_edit_state(array $request){
+  $out=[];
+  foreach(['id','user_id','type','unit','status','from_jdate','to_jdate','the_date','from_time','to_time','in_time','out_time','manual_kind','minutes','reason','approver_note','substitute_user_id','approver_id','decided_at','pending_on'] as $key){
+    $v=$request[$key]??null;
+    if(in_array($key,['id','user_id','minutes','substitute_user_id','approver_id','pending_on'],true))$v=$v===null?null:(int)$v;
+    $out[$key]=$v;
+  }
+  return $out;
+}
+function _req_edit_token(array $request){return hash('sha256',json_encode(_req_edit_state($request),JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));}
+function _req_edit_storage(){
+  static $ready=false;if($ready)return;
+  Db::run("CREATE TABLE IF NOT EXISTS request_edit_history (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,request_id INT NOT NULL,actor_id INT NOT NULL,edit_reason VARCHAR(1500) NOT NULL,before_json LONGTEXT NOT NULL,after_json LONGTEXT NOT NULL,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,INDEX request_idx(request_id,id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");$ready=true;
+}
+function _req_edit_payload(array $old,array $body){
+  require_once __DIR__.'/IranCalendar.php';
+  foreach(['type','unit','user_id','status'] as $key)if(array_key_exists($key,$body)&&(string)$body[$key] !== (string)($old[$key]??''))Http::error('نوع، واحد، درخواست‌کننده و وضعیت تأیید در این فرم قابل تغییر نیستند.',422);
+  $r=$old;
+  $date=static function($value){$value=IranCalendar::normalize($value);if(!$value||!_req_policy_date($value))Http::error('تاریخ درخواست نامعتبر است.',422);return $value;};
+  $single=$old['type']==='manual'||($old['unit']??'daily')==='hourly';
+  if($single){
+    $r['the_date']=$date($body['the_date']??$old['the_date']??$old['from_jdate']??'');
+    if($old['type']!=='manual'){if(!empty($old['from_jdate']))$r['from_jdate']=$r['the_date'];if(!empty($old['to_jdate']))$r['to_jdate']=$r['the_date'];}
+  }else{
+    $r['from_jdate']=$date($body['from_jdate']??$old['from_jdate']??$old['the_date']??'');
+    $r['to_jdate']=$date($body['to_jdate']??$old['to_jdate']??$r['from_jdate']);
+    if($r['to_jdate']<$r['from_jdate'])Http::error('تاریخ پایان نباید قبل از تاریخ شروع باشد.',422);
+    if(!empty($old['the_date']))$r['the_date']=$r['from_jdate'];
+  }
+  if($old['type']==='manual'){
+    foreach(['in_time','out_time'] as $key){
+      $value=trim((string)($body[$key]??$old[$key]??''));
+      if((bool)$value!==(bool)($old[$key]??''))Http::error('نوع ثبت ورود/خروج در ویرایش تردد دستی ثابت است.',422);
+      if($value!==''&&!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d(?::00)?$/D',$value))Http::error('ساعت تردد دستی نامعتبر است.',422);
+      $r[$key]=$value===''?null:substr($value,0,5);
+    }
+    if(empty($r['in_time'])&&empty($r['out_time']))Http::error('درخواست تردد دستی ساعت ورود یا خروج ندارد.',422);
+  }elseif(($old['unit']??'daily')==='hourly'){
+    foreach(['from_time','to_time'] as $key)$r[$key]=trim((string)($body[$key]??$old[$key]??''));
+    if(!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/D',$r['from_time'])||!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/D',$r['to_time']))Http::error('ساعت شروع و پایان نامعتبر است.',422);
+    if($r['from_time']>=$r['to_time'])Http::error('ساعت شروع باید کوچک‌تر از ساعت پایان باشد.',422);
+  }
+  foreach(['reason','approver_note'] as $key){$text=trim((string)($body[$key]??$old[$key]??''));if(mb_strlen($text)>4000)Http::error('توضیحات بیش از حد مجاز است.',422);$r[$key]=$text===''?null:$text;}
+  if(array_key_exists('substitute_user_id',$body)){
+    if($body['substitute_user_id']!==null&&$body['substitute_user_id']!==''&&((!is_int($body['substitute_user_id'])&&!is_string($body['substitute_user_id']))||!preg_match('/^(?:0|[1-9]\d*)$/D',(string)$body['substitute_user_id'])))Http::error('شناسهٔ نیروی جایگزین نامعتبر است.',422);
+    $r['substitute_user_id']=(int)$body['substitute_user_id']?:null;
+    if($r['substitute_user_id']&&!array_key_exists('substitute_user_id',$old))Http::error('ستون نیروی جایگزین در پایگاه داده آماده نیست؛ ابتدا ساختار درخواست‌ها به‌روزرسانی شود.',422);
+    if(!_req_substitute_eligible($r)&&$r['substitute_user_id'])Http::error('جایگزین فقط برای مرخصی استحقاقی روزانه قابل انتخاب است.',422);
+  }
+  $span=_req_policy_span($r);if(!$span)Http::error('تاریخ یا بازهٔ ساعت درخواست معتبر نیست.',422);
+  $r['minutes']=$r['type']==='manual'?0:$span['minutes'];return $r;
+}
+/** Update an unambiguous existing punch in place, preserving its ID and other evidence. */
+function _req_edit_manual_effect(array $old,array $new){
+  $day=_req_policy_date($old['the_date']??'');if(!$day)Http::error('تاریخ تردد قبلی نامعتبر است؛ ابتدا گزارش تردد بررسی شود.',409);
+  $uid=(int)$old['user_id'];$g=$day->format('Y-m-d');$params=[$uid];
+  if(!empty($old['in_time'])){
+    $params[]=$g.' '.substr($old['in_time'],0,5).':00';$where="check_in=? AND (method='manual' OR method LIKE 'manual|%')";
+    if(!empty($old['out_time'])){$out=$g.' '.substr($old['out_time'],0,5).':00';if($out<$params[1])$out=(new DateTimeImmutable($out,new DateTimeZone('Asia/Tehran')))->modify('+1 day')->format('Y-m-d H:i:s');$where.=' AND check_out=?';$params[]=$out;}
+  }else{$where='check_out=? AND check_in>=? AND check_in<=?';$params[]=$g.' '.substr($old['out_time'],0,5).':00';$params[]=$g.' 00:00:00';$params[]=$params[1];}
+  $matches=Db::all('SELECT id,user_id,check_in,check_out,method FROM staff_attendance WHERE user_id=? AND '.$where.' ORDER BY id LIMIT 2 FOR UPDATE',$params);
+  if(count($matches)!==1)Http::error('تردد مرتبط به‌صورت یکتا یافت نشد یا بعداً اصلاح شده است؛ جزئیات گزارش تردد را بررسی کنید.',409);
+  $p=$matches[0];$newDay=_req_policy_date($new['the_date'])->format('Y-m-d');
+  $in=!empty($old['in_time'])?$newDay.' '.$new['in_time'].':00':$p['check_in'];
+  $out=!empty($old['out_time'])?$newDay.' '.$new['out_time'].':00':$p['check_out'];
+  if(empty($old['in_time'])&&substr($p['check_in'],0,10)!==$newDay)Http::error('تاریخ درخواستِ فقط خروج باید همان روز ورود مرتبط باشد؛ برای جابه‌جایی روز، گزارش تردد را اصلاح کنید.',422);
+  if(!empty($old['in_time'])&&!empty($old['out_time'])&&$out<$in)$out=(new DateTimeImmutable($out,new DateTimeZone('Asia/Tehran')))->modify('+1 day')->format('Y-m-d H:i:s');
+  if($out&&$out<=$in)Http::error('خروج مرتبط باید بعد از ورود باشد.',422);
+  $changes=['before'=>['id'=>(int)$p['id'],'check_in'=>$p['check_in'],'check_out'=>$p['check_out']],'after'=>['id'=>(int)$p['id'],'check_in'=>$in,'check_out'=>$out]];
+  if($in===$p['check_in']&&$out===$p['check_out'])return $changes;
+  $overlap=Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND id<>? AND check_in<COALESCE(?,'9999-12-31 23:59:59') AND COALESCE(check_out,'9999-12-31 23:59:59')>? LIMIT 1 FOR UPDATE",[$uid,(int)$p['id'],$out,$in]);
+  if($overlap)Http::error('بازهٔ جدید تردد با تردد دیگری همپوشانی دارد.',409);
+  $updated=Db::run('UPDATE staff_attendance SET check_in=?,check_out=? WHERE id=? AND user_id=? AND check_in=? AND check_out<=>?',[$in,$out,(int)$p['id'],$uid,$p['check_in'],$p['check_out']]);
+  if($updated->rowCount()!==1)Http::error('تردد هم‌زمان تغییر کرده است؛ دوباره بررسی کنید.',409);
+  return $changes;
+}
+function _req_edit_approved($id,array $body,array $actor){
+  if($id<=0)Http::error('شناسهٔ درخواست نامعتبر است.',422);
+  foreach($body as $value)if($value!==null&&!is_scalar($value))Http::error('ساختار فیلدهای ویرایش معتبر نیست.',422);
+  $before=Db::one('SELECT * FROM requests WHERE id=?',[$id]);if(!$before)Http::error('درخواست یافت نشد.',404);
+  if($before['status']!=='approved')Http::error('فقط درخواست تأییدشده در این فرم قابل ویرایش است.',409);
+  $why=trim((string)($body['edit_reason']??''));if(mb_strlen($why)<3||mb_strlen($why)>500)Http::error('علت اصلاح را بین ۳ تا ۵۰۰ نویسه وارد کنید.',422);
+  $token=(string)($body['edit_token']??'');if(!preg_match('/^[a-f0-9]{64}$/D',$token))Http::error('اطلاعات ویرایش منقضی است؛ درخواست را دوباره باز کنید.',409);
+  $lock='khatyar:request-policy:'.(int)$before['user_id'];$locked=Db::one('SELECT GET_LOCK(?,10) acquired',[$lock]);
+  if((int)($locked['acquired']??0)!==1)Http::error('درخواست دیگری در حال پردازش است؛ دوباره تلاش کنید.',409);
+  $pdo=Db::pdo();
+  try{
+    _req_edit_storage();_req_prepare_approval_storage(array_replace($before,['substitute_user_id'=>$body['substitute_user_id']??$before['substitute_user_id']??null]));
+    $pdo->beginTransaction();
+    $before=Db::one('SELECT * FROM requests WHERE id=? FOR UPDATE',[$id]);
+    if(!$before||$before['status']!=='approved'||!hash_equals(_req_edit_token($before),$token))Http::error('درخواست هم‌زمان تغییر کرده است؛ آن را دوباره باز کنید.',409);
+    $after=_req_edit_payload($before,$body);
+    if(hash_equals(_req_edit_token($before),_req_edit_token($after))){$pdo->commit();return ['id'=>$id,'status'=>'approved','unchanged'=>true];}
+    $domain=false;foreach(['from_jdate','to_jdate','the_date','from_time','to_time','in_time','out_time','minutes','substitute_user_id'] as $key)if((string)($before[$key]??'')!==(string)($after[$key]??''))$domain=true;
+    $attendance=null;
+    if($domain){
+      $uid=(int)$before['user_id'];$policy=_req_active_work_policy($uid);if(!$policy)Http::error('ابتدا سیاست کاری فعال به این کاربر تخصیص دهید.',422);
+      _req_validate_work_policy($uid,$after,$policy,true,$id,null,true);_req_reject_overlap($uid,$after,$id);
+      if(_req_substitute_eligible($after)){
+        if(!empty($policy['config']['request_options']['leave_require_substitute'])&&empty($after['substitute_user_id']))Http::error('برای مرخصی استحقاقی روزانه نیروی جایگزین لازم است.',422);
+        if(!empty($after['substitute_user_id'])){
+          if((int)$after['substitute_user_id']===$uid||!Db::one('SELECT id FROM users WHERE id=? AND is_active=1 FOR UPDATE',[(int)$after['substitute_user_id']]))Http::error('نیروی جایگزین فعال و معتبر انتخاب کنید.',422);
+          $available=_substitute_availability((int)$after['substitute_user_id'],$after['from_jdate'],$after['to_jdate'],$id,false);
+          if(!$available['available'])Http::error($available['reason'],409);
+        }
+      }
+      if($after['type']==='manual')$attendance=_req_edit_manual_effect($before,$after);
+    }
+    $columns=['from_jdate','to_jdate','the_date','from_time','to_time','in_time','out_time','minutes','reason','approver_note'];
+    if(array_key_exists('substitute_user_id',$before))$columns[]='substitute_user_id';
+    $values=[];foreach($columns as $key)$values[]=$after[$key]??null;$values[]=$id;
+    $updated=Db::run("UPDATE requests SET ".implode(',',array_map(static fn($key)=>$key.'=?',$columns))." WHERE id=? AND status='approved'",$values);
+    if($updated->rowCount()!==1)Http::error('درخواست هم‌زمان تغییر کرده است؛ دوباره بررسی کنید.',409);
+    if($domain&&_req_substitute_eligible($after)){
+      if(!empty($after['substitute_user_id'])||_db_table_exists_safe('substitute_assignments'))Db::run("UPDATE substitute_assignments SET status='canceled' WHERE request_id=? AND status='active'",[$id]);
+      if(!empty($after['substitute_user_id']))_req_apply_approval_effects($after,$id);
+    }
+    $prior=_req_edit_state($before);$next=_req_edit_state($after);if($attendance){$prior['attendance']=$attendance['before'];$next['attendance']=$attendance['after'];}
+    $audit=Db::insert('INSERT INTO request_edit_history(request_id,actor_id,edit_reason,before_json,after_json) VALUES(?,?,?,?,?)',[$id,(int)$actor['id'],$why,json_encode($prior,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),json_encode($next,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+    $pdo->commit();return ['id'=>$id,'status'=>'approved','minutes'=>$after['minutes'],'edit_id'=>$audit,'message'=>'درخواست تأییدشده اصلاح شد.'];
+  }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}finally{Db::one('SELECT RELEASE_LOCK(?) released',[$lock]);}
+}
+
 // گزارش درخواست‌ها برای ادمین (با فیلتر کاربر/نوع/وضعیت/بازه)
 route('GET', '/api/admin/requests', function($p,$b,$u){
   [$where,$args]=_req_report_filter($_GET);
@@ -4933,6 +5063,8 @@ route('GET', '/api/admin/requests/{id}/detail', function($p,$b,$u){
     FROM requests r JOIN users us ON us.id=r.user_id LEFT JOIN users ap ON ap.id=r.approver_id
     LEFT JOIN users pn ON pn.id=r.pending_on WHERE r.id=?",[$id]);
   if(!$row)Http::error('درخواست یافت نشد',404);
+  $row['edit_token']=_req_edit_token($row);
+  $row['edit_history']=_db_table_exists_safe('request_edit_history')?Db::all("SELECT h.id,h.edit_reason,h.created_at,CONCAT_WS(' ',us.first_name,us.last_name) actor FROM request_edit_history h LEFT JOIN users us ON us.id=h.actor_id WHERE h.request_id=? ORDER BY h.id DESC LIMIT 20",[$id]):[];
   $row['substitute_name']=null;$row['substitute_assignment']=null;
   if(!empty($row['substitute_user_id'])){
     $person=Db::one("SELECT CONCAT_WS(' ',first_name,last_name) name FROM users WHERE id=?",[(int)$row['substitute_user_id']]);
@@ -4975,6 +5107,8 @@ route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
   _req_notify_decision($req,$status,$note??'',$id);
   return ['id'=>$id,'status'=>$status,'message'=>$status==='approved'?'درخواست با موفقیت تأیید شد.':'درخواست با موفقیت رد شد.'];
 }, false, ADMIN);
+
+route('PUT','/api/admin/requests/{id}',function($p,$b,$u){return _req_edit_approved((int)$p['id'],$b,$u);},false,ADMIN);
 
 // Install after all four request write routes, keeping front-controller deployment independent.
 // Cron and standalone report scripts load helpers with a no-op route() and no registry.

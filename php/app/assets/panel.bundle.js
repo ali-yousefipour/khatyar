@@ -436,6 +436,7 @@ const db = {
     plateTrainingReview: (id, body) => SEND('POST', '/admin/plate-training/samples/' + id + '/review', body),
     adminRequests: (qs) => GET('/admin/requests' + (qs || "")),
     adminRequestDecision: (id, body) => SEND('POST', '/admin/requests/' + id + '/decision', body),
+    adminRequestEdit: (id, body) => SEND('PUT', '/admin/requests/' + id, body),
     adminRequestDelete: (id) => SEND('DELETE', '/admin/requests/' + id, {}),
     userLeaveBalance: (id) => GET('/admin/users/' + id + '/leave-balance'),
     leaveBalanceInitList: () => GET('/admin/leave-balance-init'),
@@ -12922,7 +12923,7 @@ function RequestLeaveUsage({ requestId, initialContext }) {
                 React.createElement("p", { className: "muted" }, "\u0647\u0645\u0647\u0654 \u0645\u0642\u0627\u062F\u06CC\u0631 \u0628\u0647 \u0633\u0627\u0639\u062A \u0647\u0633\u062A\u0646\u062F. \u0647\u0631 \u0631\u0648\u0632 \u0645\u0631\u062E\u0635\u06CC \u0637\u0628\u0642 \u0642\u0631\u0627\u0631\u062F\u0627\u062F \u0633\u0627\u0645\u0627\u0646\u0647 \u06F8 \u0633\u0627\u0639\u062A \u0627\u0633\u062A. \u0645\u0635\u0631\u0641 \u062A\u0627 \u0627\u0645\u0631\u0648\u0632 \u0634\u0627\u0645\u0644 \u0645\u0631\u062E\u0635\u06CC \u0622\u06CC\u0646\u062F\u0647 \u0646\u06CC\u0633\u062A\u061B \u0645\u0627\u0646\u062F\u0647\u0654 \u0642\u0627\u0628\u0644 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u060C \u0631\u0632\u0631\u0648 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u0648 \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647\u0654 \u0622\u06CC\u0646\u062F\u0647 \u0631\u0627 \u0647\u0645 \u06A9\u0633\u0631 \u0645\u06CC\u200C\u06A9\u0646\u062F."))));
 }
 function RequestDetails({ requestId, onClose }) {
-    var _a;
+    var _a, _b;
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
     const [imageError, setImageError] = useState(false);
@@ -12965,8 +12966,146 @@ function RequestDetails({ requestId, onClose }) {
                     " \u062A\u0627 ",
                     faPlain(data.substitute_assignment.to_date),
                     " \u0627\u0639\u0645\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F. \u067E\u0633 \u0627\u0632 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0634\u06CC\u0641\u062A \u0627\u0635\u0644\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A.") : React.createElement("p", { className: "muted" }, data.status === 'pending' ? 'پس از تأیید، شیفت درخواست‌کننده در بازهٔ مرخصی برای جایگزین اعمال می‌شود.' : 'جایگزینی فعالی برای این درخواست وجود ندارد.')),
-            ['annual', 'sick', 'unpaid'].includes(data.type) && React.createElement(RequestLeaveUsage, { key: data.id, requestId: data.id })),
+            ['annual', 'sick', 'unpaid'].includes(data.type) && React.createElement(RequestLeaveUsage, { key: data.id, requestId: data.id }),
+            !!((_b = data.edit_history) === null || _b === void 0 ? void 0 : _b.length) && React.createElement("section", null,
+                React.createElement("h4", null, "\u0633\u0627\u0628\u0642\u0647\u0654 \u0627\u0635\u0644\u0627\u062D \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
+                data.edit_history.map(item => React.createElement("p", { key: item.id },
+                    item.actor || 'مدیر سامانه',
+                    " \u00B7 ",
+                    faPlain(fj(item.created_at)),
+                    " \u00B7 ",
+                    item.edit_reason)))),
         React.createElement("button", { className: "btn g", onClick: onClose, style: { marginTop: 16 } }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A"));
+}
+function ApprovedRequestEditor({ requestId, users, onClose, onSaved }) {
+    const [data, setData] = useState(null), [draft, setDraft] = useState(null), [error, setError] = useState(''), [saving, setSaving] = useState(false);
+    const alive = useRef(true), lock = useRef(false);
+    useEffect(() => {
+        alive.current = true;
+        GET('/admin/requests/' + requestId + '/detail').then(r => {
+            if (!alive.current)
+                return;
+            if (r.status !== 'approved' || !r.edit_token)
+                throw Error('درخواست تأییدشده را از فهرست تازه دوباره باز کنید.');
+            const norm = v => String(v || '').replace(/\//g, '-');
+            setData(r);
+            setDraft({ from_jdate: norm(r.from_jdate || r.the_date), to_jdate: norm(r.to_jdate || r.the_date || r.from_jdate), the_date: norm(r.the_date || r.from_jdate), from_time: (r.from_time || '').slice(0, 5), to_time: (r.to_time || '').slice(0, 5), in_time: (r.in_time || '').slice(0, 5), out_time: (r.out_time || '').slice(0, 5), reason: r.reason || '', approver_note: r.approver_note || '', substitute_user_id: r.substitute_user_id ? String(r.substitute_user_id) : '', edit_reason: '' });
+        }).catch(e => { if (alive.current)
+            setError(e.message || 'دریافت درخواست ناموفق بود'); });
+        return () => { alive.current = false; };
+    }, [requestId]);
+    const change = (key, value) => setDraft(old => ({ ...old, [key]: ['the_date', 'from_jdate', 'to_jdate'].includes(key) ? String(value).replace(/\//g, '-') : value }));
+    const submit = async (event) => {
+        event === null || event === void 0 ? void 0 : event.preventDefault();
+        if (lock.current || !data || !draft)
+            return;
+        setError('');
+        const single = data.type === 'manual' || data.unit === 'hourly';
+        if (single && !draft.the_date || !single && (!draft.from_jdate || !draft.to_jdate)) {
+            setError('تاریخ درخواست را کامل کنید.');
+            return;
+        }
+        if (!single && draft.to_jdate < draft.from_jdate) {
+            setError('تاریخ پایان نباید قبل از تاریخ شروع باشد.');
+            return;
+        }
+        if (data.type !== 'manual' && data.unit === 'hourly') {
+            const time = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+            if (!time.test(draft.from_time) || !time.test(draft.to_time)) {
+                setError('ساعت شروع و پایان معتبر وارد کنید.');
+                return;
+            }
+            if (draft.from_time >= draft.to_time) {
+                setError('ساعت شروع باید کوچک‌تر از ساعت پایان باشد.');
+                return;
+            }
+        }
+        if (draft.edit_reason.trim().length < 3) {
+            setError('علت اصلاح را حداقل در ۳ نویسه وارد کنید.');
+            return;
+        }
+        lock.current = true;
+        setSaving(true);
+        try {
+            const body = { ...draft, edit_token: data.edit_token };
+            if (data.type !== 'annual' || (data.unit || 'daily') !== 'daily')
+                delete body.substitute_user_id;
+            const result = await db.adminRequestEdit(requestId, body);
+            if (alive.current)
+                await onSaved(result);
+        }
+        catch (e) {
+            if (alive.current)
+                setError(e.message || 'ثبت اصلاح ناموفق بود');
+        }
+        finally {
+            lock.current = false;
+            if (alive.current)
+                setSaving(false);
+        }
+    };
+    const TY = { annual: 'مرخصی استحقاقی', sick: 'مرخصی استعلاجی', unpaid: 'مرخصی بدون حقوق', mission: 'ماموریت', overtime: 'اضافه‌کار', manual: 'تردد دستی' };
+    const single = data && (data.type === 'manual' || data.unit === 'hourly');
+    return React.createElement(Modal, { title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647", onClose: () => { if (!lock.current)
+            onClose(); }, style: { width: 'min(94vw,760px)', maxHeight: '92vh', overflowY: 'auto' } },
+        error && React.createElement("p", { role: "alert", style: { color: 'var(--danger,#bd2929)' } }, error),
+        !draft && !error && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u2026"),
+        draft && React.createElement("form", { onSubmit: submit },
+            React.createElement("p", null,
+                React.createElement("strong", null, data.requester),
+                " \u00B7 ",
+                TY[data.type] || data.type,
+                " \u00B7 ",
+                data.type === 'manual' ? 'ورود/خروج' : data.unit === 'hourly' ? 'ساعتی' : 'روزانه',
+                " \u00B7 \u0634\u0645\u0627\u0631\u0647 ",
+                fa(data.id)),
+            React.createElement("p", { className: "muted" }, "\u0648\u0636\u0639\u06CC\u062A \u062A\u0623\u06CC\u06CC\u062F \u0648 \u062A\u0623\u06CC\u06CC\u062F\u06A9\u0646\u0646\u062F\u0647\u0654 \u0627\u0635\u0644\u06CC \u062D\u0641\u0638 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u0633\u0627\u0628\u0642\u0647\u0654 \u0627\u0635\u0644\u0627\u062D \u062B\u0628\u062A \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627\u06CC \u0646\u0647\u0627\u06CC\u06CC\u200C\u0634\u062F\u0647 \u0648 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627\u06CC \u0622\u0631\u0634\u06CC\u0648\u06CC \u062B\u0627\u0628\u062A \u0645\u06CC\u200C\u0645\u0627\u0646\u0646\u062F."),
+            React.createElement("fieldset", { disabled: saving, style: { border: 0, padding: 0, margin: 0 } },
+                React.createElement("div", { className: "grid2", style: { gap: 12 } },
+                    single ? React.createElement("label", null,
+                        "\u062A\u0627\u0631\u06CC\u062E \u062F\u0631\u062E\u0648\u0627\u0633\u062A",
+                        React.createElement(JDate, { jalali: true, value: draft.the_date, onChange: v => change('the_date', v), placeholder: "\u062A\u0627\u0631\u06CC\u062E \u062F\u0631\u062E\u0648\u0627\u0633\u062A" })) : React.createElement(React.Fragment, null,
+                        React.createElement("label", null,
+                            "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E",
+                            React.createElement(JDate, { jalali: true, value: draft.from_jdate, onChange: v => change('from_jdate', v), placeholder: "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E \u062F\u0631\u062E\u0648\u0627\u0633\u062A" })),
+                        React.createElement("label", null,
+                            "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E",
+                            React.createElement(JDate, { jalali: true, value: draft.to_jdate, onChange: v => change('to_jdate', v), placeholder: "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E \u062F\u0631\u062E\u0648\u0627\u0633\u062A" }))),
+                    data.type !== 'manual' && data.unit === 'hourly' && React.createElement(React.Fragment, null,
+                        React.createElement("label", null,
+                            "\u0633\u0627\u0639\u062A \u0634\u0631\u0648\u0639",
+                            React.createElement("input", { className: "input", "aria-label": "\u0633\u0627\u0639\u062A \u0634\u0631\u0648\u0639 \u062F\u0631\u062E\u0648\u0627\u0633\u062A", type: "time", value: draft.from_time, onChange: e => change('from_time', e.target.value) })),
+                        React.createElement("label", null,
+                            "\u0633\u0627\u0639\u062A \u067E\u0627\u06CC\u0627\u0646",
+                            React.createElement("input", { className: "input", "aria-label": "\u0633\u0627\u0639\u062A \u067E\u0627\u06CC\u0627\u0646 \u062F\u0631\u062E\u0648\u0627\u0633\u062A", type: "time", value: draft.to_time, onChange: e => change('to_time', e.target.value) }))),
+                    data.type === 'manual' && React.createElement(React.Fragment, null,
+                        data.in_time && React.createElement("label", null,
+                            "\u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F",
+                            React.createElement("input", { className: "input", "aria-label": "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F", type: "time", value: draft.in_time, onChange: e => change('in_time', e.target.value) })),
+                        data.out_time && React.createElement("label", null,
+                            "\u0633\u0627\u0639\u062A \u062E\u0631\u0648\u062C",
+                            React.createElement("input", { className: "input", "aria-label": "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0633\u0627\u0639\u062A \u062E\u0631\u0648\u062C", type: "time", value: draft.out_time, onChange: e => change('out_time', e.target.value) })))),
+                data.type === 'manual' && React.createElement("p", { className: "muted" }, "\u0633\u0627\u0639\u062A \u062E\u0631\u0648\u062C \u06A9\u0645\u062A\u0631 \u0627\u0632 \u0648\u0631\u0648\u062F \u0628\u0631\u0627\u06CC \u062A\u0631\u062F\u062F\u0650 \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C\u060C \u062E\u0631\u0648\u062C \u0631\u0648\u0632 \u0628\u0639\u062F \u0645\u062D\u0633\u0648\u0628 \u0645\u06CC\u200C\u0634\u0648\u062F. \u062A\u0631\u062F\u062F \u0645\u0631\u062A\u0628\u0637 \u0628\u0627\u06CC\u062F \u06CC\u06A9\u062A\u0627 \u0628\u0627\u0634\u062F. \u062A\u0627\u0631\u06CC\u062E \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u0650 \u0641\u0642\u0637 \u062E\u0631\u0648\u062C \u0628\u0627\u06CC\u062F \u062F\u0631 \u0631\u0648\u0632 \u0648\u0631\u0648\u062F \u0645\u0631\u062A\u0628\u0637 \u0628\u0645\u0627\u0646\u062F."),
+                data.type === 'annual' && (data.unit || 'daily') === 'daily' && React.createElement("label", null,
+                    "\u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646",
+                    React.createElement("select", { className: "input", "aria-label": "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646", value: draft.substitute_user_id, onChange: e => change('substitute_user_id', e.target.value) },
+                        React.createElement("option", { value: "" }, "\u0628\u062F\u0648\u0646 \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646"),
+                        data.substitute_user_id && !users.some(u => Number(u.id) === Number(data.substitute_user_id)) && React.createElement("option", { value: data.substitute_user_id }, data.substitute_name || 'جایگزین فعلی'),
+                        users.filter(u => Number(u.id) !== Number(data.user_id)).map(u => React.createElement("option", { key: u.id, value: u.id },
+                            u.first_name,
+                            " ",
+                            u.last_name)))),
+                React.createElement("label", null,
+                    "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A",
+                    React.createElement("textarea", { className: "input", "aria-label": "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A", maxLength: 4000, value: draft.reason, onChange: e => change('reason', e.target.value) })),
+                React.createElement("label", null,
+                    "\u06CC\u0627\u062F\u062F\u0627\u0634\u062A \u062A\u0623\u06CC\u06CC\u062F\u06A9\u0646\u0646\u062F\u0647",
+                    React.createElement("textarea", { className: "input", "aria-label": "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u06CC\u0627\u062F\u062F\u0627\u0634\u062A \u062A\u0623\u06CC\u06CC\u062F", maxLength: 4000, value: draft.approver_note, onChange: e => change('approver_note', e.target.value) })),
+                React.createElement("label", null,
+                    "\u0639\u0644\u062A \u0627\u0635\u0644\u0627\u062D (\u0627\u0644\u0632\u0627\u0645\u06CC)",
+                    React.createElement("textarea", { className: "input", "aria-label": "\u0639\u0644\u062A \u0627\u0635\u0644\u0627\u062D \u062F\u0631\u062E\u0648\u0627\u0633\u062A", required: true, minLength: 3, maxLength: 500, value: draft.edit_reason, onChange: e => change('edit_reason', e.target.value) })),
+                React.createElement("button", { className: "btn p", type: "submit", disabled: saving }, saving ? 'در حال ثبت اصلاح…' : 'ذخیرهٔ اصلاح درخواست'))),
+        React.createElement("button", { type: "button", className: "btn g", disabled: saving, onClick: onClose, style: { marginTop: 12 } }, "\u0627\u0646\u0635\u0631\u0627\u0641 \u0627\u0632 \u0648\u06CC\u0631\u0627\u06CC\u0634"));
 }
 function AdminRequests() {
     const [users, setUsers] = useState([]);
@@ -12980,6 +13119,7 @@ function AdminRequests() {
     const [fTo, setFTo] = useState("");
     const [search, setSearch] = useState("");
     const [detailId, setDetailId] = useState(null);
+    const [editId, setEditId] = useState(null);
     const [selected, setSelected] = useState([]);
     const [review, setReview] = useState(null);
     const [reviewLoading, setReviewLoading] = useState(false);
@@ -13106,6 +13246,7 @@ function AdminRequests() {
     return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page" },
         React.createElement("h3", null, "\uD83D\uDCCB \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u067E\u0631\u0633\u0646\u0644"),
         detailId != null && React.createElement(RequestDetails, { key: detailId, requestId: detailId, onClose: () => setDetailId(null) }),
+        editId != null && React.createElement(ApprovedRequestEditor, { key: editId, requestId: editId, users: users, onClose: () => { setEditId(null); setBusyId(null); }, onSaved: async () => { setEditId(null); setBusyId(null); setDetailId(null); setActionMessage('درخواست تأییدشده اصلاح شد.'); await load(); } }),
         React.createElement("div", { role: "tablist", "aria-label": "\u0648\u0636\u0639\u06CC\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u067E\u0631\u0633\u0646\u0644", className: "filters", style: { display: "flex", gap: 8, flexWrap: "wrap" } }, [["pending", "در انتظار بررسی"], ["approved", "تأییدشده"], ["rejected", "ردشده"]].map(([key, title]) => React.createElement("button", { role: "tab", "aria-selected": fStatus === key, className: "btn " + (fStatus === key ? "p" : "g"), key: key, disabled: !!busyId || reviewLoading, onClick: () => { if (key === fStatus)
                 return; loadVersion.current++; setLoading(false); setSelected([]); setRows([]); setFStatus(key); } }, title))),
         React.createElement("div", { className: "request-bulk-toolbar" },
@@ -13231,6 +13372,7 @@ function AdminRequests() {
                                 r.attachment_name ? " 📎" : ""),
                             React.createElement("td", { style: { whiteSpace: "nowrap" } },
                                 React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, onClick: () => setDetailId(r.id) }, "\u062C\u0632\u0626\u06CC\u0627\u062A"),
+                                r.status === "approved" && React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading || loading, onClick: () => { setDetailId(null); setBusyId("edit"); setEditId(r.id); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
                                 ["pending", "rejected"].includes(r.status) && React.createElement(React.Fragment, null,
                                     React.createElement("button", { className: "btn p", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "approved") }, r.status === "rejected" ? "تأیید مجدد" : "تأیید"),
                                     r.status === "pending" && React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "rejected") }, "\u0631\u062F")),

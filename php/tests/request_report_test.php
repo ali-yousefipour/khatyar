@@ -11,6 +11,7 @@ class FakeConnection {
 class Db {
   static $request,$writes=[],$failAttendance=false,$changed=1,$open=null,$pdo,$subConflict=false;
   static function pdo(){return self::$pdo??=new FakeConnection;}
+  static function all($sql,$params=[]){if(str_contains($sql,'FROM request_edit_history'))return [];throw new LogicException($sql);}
   static function one($sql,$params=[]){
     if(str_contains($sql,'FROM users'))return ['id'=>$params[0],'name'=>'جایگزین آزمون'];
     if(str_contains($sql,'FROM substitute_assignments'))return str_contains($sql,'JOIN requests')&&self::$subConflict?['id'=>99]:null;

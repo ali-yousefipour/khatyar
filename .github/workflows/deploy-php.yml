@@ -55,6 +55,8 @@ jobs:
           php tests/login_policy_test.php
           node tests/login_policy_ui_test.cjs
           php tests/work_policy_requests_test.php
+          php tests/request_edit_test.php
+          node tests/request_edit_ui_test.cjs
           php tests/shift_rotation_test.php
           node tests/shift_rotation_ui_test.cjs
           node tests/shift_rotation_xlsx_test.cjs
