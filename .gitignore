@@ -2,6 +2,9 @@
 # اختصاصی پروژه (بر اساس ساختار شما) #
 ##############################
 
+# Private organization inputs and archived company workbooks (never source assets).
+/php/storage/company_work/
+
 project_structure.txt
 project_structure_clean.txt
 

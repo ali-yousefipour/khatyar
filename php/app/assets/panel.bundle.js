@@ -12125,6 +12125,220 @@ function ShiftRotationReport({ year, month, onPeriodChange, disabled }) {
                             React.createElement("td", { colSpan: 3 }, current.missing_source_count > 0 ? "جمع داده‌های موجود" : "جمع کل"),
                             ['morning', 'afternoon', 'night', 'matched_days', 'outside_days', 'open_sessions'].map(key => { var _a; return React.createElement("td", { key: key, style: { textAlign: "center" } }, format((_a = current.totals) === null || _a === void 0 ? void 0 : _a[key])); })))))));
 }
+function CompanyWorkReport({ year, month, onPeriodChange }) {
+    const [archive, setArchive] = useState(null), [file, setFile] = useState(null), [preview, setPreview] = useState(null), [detail, setDetail] = useState(null), [account, setAccount] = useState(""), [busy, setBusy] = useState(""), [error, setError] = useState(""), [query, setQuery] = useState("");
+    const life = useRef({ alive: true, controller: null, locked: false });
+    const fileInput = useRef(null);
+    useEffect(() => { life.current.alive = true; load(); return () => { var _a; life.current.alive = false; (_a = life.current.controller) === null || _a === void 0 ? void 0 : _a.abort(); }; }, []);
+    const request = async (path, options = {}) => {
+        const controller = new AbortController();
+        life.current.controller = controller;
+        const res = await fetch(API_BASE + "/admin/company-work" + path, { ...options, headers: { ...tok(), ...(options.headers || {}) }, signal: controller.signal });
+        const text = await res.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        }
+        catch (_a) {
+            throw Error("پاسخ سرور کامل نیست؛ وضعیت آرشیو را دوباره بررسی کنید.");
+        }
+        if (!res.ok)
+            throw Error(data.error || data.message || "دریافت اطلاعات ناموفق بود");
+        return data;
+    };
+    const load = async () => {
+        try {
+            const data = await request("?year=" + year + "&month=" + month);
+            if (life.current.alive) {
+                setArchive(data);
+                setError("");
+            }
+        }
+        catch (e) {
+            if (life.current.alive && e.name !== "AbortError")
+                setError(e.message);
+        }
+    };
+    const action = async (label, fn) => {
+        if (life.current.locked)
+            return;
+        life.current.locked = true;
+        setBusy(label);
+        setError("");
+        try {
+            await fn();
+        }
+        catch (e) {
+            if (life.current.alive && e.name !== "AbortError")
+                setError(e.message);
+        }
+        finally {
+            life.current.locked = false;
+            if (life.current.alive)
+                setBusy("");
+        }
+    };
+    const upload = mode => action(mode === "preview" ? "بررسی فایل…" : "ذخیره در آرشیو…", async () => {
+        if (!file)
+            throw Error("فایل XLSX سازمان را انتخاب کنید");
+        const body = new FormData();
+        body.append("file", file);
+        body.append("year", year);
+        body.append("month", month);
+        body.append("mode", mode);
+        const data = await request("/import", { method: "POST", body });
+        if (!life.current.alive)
+            return;
+        if (mode === "preview") {
+            setPreview(data);
+            setDetail({ rows: data.rows, title: "بررسی فایل سازمان" });
+            setQuery("");
+        }
+        else {
+            setPreview(null);
+            setFile(null);
+            if (fileInput.current)
+                fileInput.current.value = "";
+            setDetail({ rows: data.rows, title: data.duplicate ? "این فایل قبلاً در آرشیو ثبت شده است" : "فایل سازمان در آرشیو ثبت شد" });
+            await load();
+        }
+    });
+    const showSource = id => action("دریافت جزئیات…", async () => { const data = await request("/sources/" + id); if (life.current.alive) {
+        setDetail({ ...data, title: "کارکرد تأییدشدهٔ سازمان" });
+        setQuery("");
+    } });
+    const showFile = id => action("دریافت جزئیات…", async () => { const data = await request("/files/" + id); if (life.current.alive) {
+        setDetail({ ...data.snapshot, title: "نسخهٔ ثبت‌شدهٔ فایل شرکت" });
+        setQuery("");
+    } });
+    const generate = id => action("محاسبه و ساخت فایل شرکت…", async () => {
+        const data = await request("/sources/" + id + "/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ account_field_id: Number(account) }) });
+        if (!life.current.alive)
+            return;
+        setDetail({ ...data.snapshot, title: data.generated ? "فایل شرکت ساخته و در آرشیو ذخیره شد" : "مغایرت‌ها را پیش از ساخت فایل شرکت رفع کنید" });
+        setQuery("");
+        await load();
+    });
+    const download = (kind, id) => action("دریافت فایل…", async () => {
+        const controller = new AbortController();
+        life.current.controller = controller;
+        const res = await fetch(API_BASE + "/admin/company-work/" + kind + "/" + id + "/download", { headers: tok(), signal: controller.signal });
+        if (!res.ok) {
+            let data = {};
+            try {
+                data = await res.json();
+            }
+            catch (_a) { }
+            throw Error(data.error || data.message || "دانلود فایل ناموفق بود");
+        }
+        const blob = await res.blob();
+        if (!life.current.alive)
+            return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = (kind === "sources" ? "کارکرد-سازمان-" : "کارکرد-شرکت-") + year + "-" + month + ".xlsx";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+    });
+    const normalize = value => String(value !== null && value !== void 0 ? value : "").replace(/[يك]/g, c => c === "ي" ? "ی" : "ک").replace(/[۰-۹]/g, c => "۰۱۲۳۴۵۶۷۸۹".indexOf(c)).toLowerCase();
+    const visible = ((detail === null || detail === void 0 ? void 0 : detail.rows) || []).filter(r => normalize([r.first_name, r.last_name, r.personnel_code, r.role, ...(r.errors || [])].join(" ")).includes(normalize(query)));
+    const columns = [["first_name", "نام"], ["last_name", "نام خانوادگی"], ["personnel_code", "شماره پرسنلی"], ["role", "سمت"], ["friday_hours", "جمعه‌کاری (ساعت)"], ["holiday_hours", "تعطیل‌کاری (ساعت)"], ["overtime_hours", "اضافه‌کاری (ساعت)"]];
+    const extra = [["national_code", "کد ملی"], ["account", "شماره حساب"], ["days", "روز کارکرد کل"], ["leave_days", "استحقاقی (روز)"], ["absence_days", "غیبت (روز)"], ["sick_days", "استعلاجی (روز)"], ["married", "تأهل"], ["children", "فرزند"], ["night_hours", "شب‌کاری (ساعت)"], ["seniority_days", "سنوات (روز)"], ["morning", "چرخش صبح"], ["afternoon", "چرخش عصر"], ["night", "چرخش شب"]];
+    const display = value => value === null || value === undefined ? "—" : typeof value === "number" ? faPlain(Number(value.toFixed(4))) : faPlain(value);
+    return React.createElement("section", { className: "panel", "aria-busy": !!busy },
+        React.createElement("h3", null, "\u0641\u0627\u06CC\u0644 \u0646\u0647\u0627\u06CC\u06CC \u0634\u0631\u06A9\u062A"),
+        React.createElement("p", { className: "muted" }, "\u0633\u0645\u062A \u0648 \u0633\u0627\u0639\u0627\u062A \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647 \u0627\u0632 \u0641\u0627\u06CC\u0644 \u0633\u0627\u0632\u0645\u0627\u0646\u061B \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0647\u0648\u06CC\u062A\u06CC \u0648 \u06A9\u0627\u0631\u06A9\u0631\u062F \u062A\u06A9\u0645\u06CC\u0644\u06CC \u0627\u0632 \u0633\u0627\u0645\u0627\u0646\u0647 \u062E\u0648\u0627\u0646\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F. \u0647\u0631 \u0646\u0633\u062E\u0647\u0654 \u062A\u0648\u0644\u06CC\u062F\u0634\u062F\u0647 \u062C\u062F\u0627\u06AF\u0627\u0646\u0647 \u062F\u0631 \u0622\u0631\u0634\u06CC\u0648 \u0628\u0627\u0642\u06CC \u0645\u06CC\u200C\u0645\u0627\u0646\u062F."),
+        React.createElement("div", { className: "row", style: { gap: 12, flexWrap: "wrap", alignItems: "end" } },
+            React.createElement("label", null,
+                "\u0633\u0627\u0644",
+                React.createElement("input", { className: "input", type: "number", min: "1300", max: "1500", value: year, disabled: !!busy, onChange: e => onPeriodChange(Number(e.target.value), month) })),
+            React.createElement("label", null,
+                "\u0645\u0627\u0647",
+                React.createElement("select", { className: "input", value: month, disabled: !!busy, onChange: e => onPeriodChange(year, Number(e.target.value)) }, J_MONTHS.map((m, i) => React.createElement("option", { key: m, value: i + 1 }, m)))),
+            React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => action("دریافت آرشیو…", load) }, "\u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC \u0622\u0631\u0634\u06CC\u0648")),
+        error && React.createElement("p", { role: "alert", style: { color: "var(--danger,#bd2929)" } }, error),
+        busy && React.createElement("p", { role: "status" }, busy),
+        React.createElement("div", { style: { marginTop: 20, padding: 16, border: "1px solid var(--border,#ddd)", borderRadius: 12 } },
+            React.createElement("h4", null, "\u0644\u06CC\u0633\u062A \u06A9\u0627\u0631\u06A9\u0631\u062F \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
+            React.createElement("label", null,
+                "\u0641\u0627\u06CC\u0644 XLSX (\u062D\u062F\u0627\u06A9\u062B\u0631 \u06F1\u06F0 \u0645\u06AF\u0627\u0628\u0627\u06CC\u062A)",
+                React.createElement("input", { ref: fileInput, className: "input", type: "file", accept: ".xlsx", disabled: !!busy, onChange: e => { var _a; setFile(((_a = e.target.files) === null || _a === void 0 ? void 0 : _a[0]) || null); setPreview(null); setDetail(null); } })),
+            React.createElement("p", { className: "muted" }, "\u062F\u0648\u0631\u0647\u0654 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u0628\u0627\u06CC\u062F \u0628\u0627 \u0639\u0646\u0648\u0627\u0646 \u0641\u0627\u06CC\u0644 \u06CC\u06A9\u0633\u0627\u0646 \u0628\u0627\u0634\u062F. \u0627\u0628\u062A\u062F\u0627 \u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0648 \u062A\u0637\u0628\u06CC\u0642 \u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646\u06CC\u062F."),
+            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
+                React.createElement("button", { className: "btn", disabled: !file || !!busy, onClick: () => upload("preview") }, "\u0628\u0631\u0631\u0633\u06CC \u0648 \u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634"),
+                React.createElement("button", { className: "btn p", disabled: !preview || !!busy, onClick: () => upload("commit") }, "\u062B\u0628\u062A \u0641\u0627\u06CC\u0644 \u0628\u0631\u0631\u0633\u06CC\u200C\u0634\u062F\u0647 \u062F\u0631 \u0622\u0631\u0634\u06CC\u0648"))),
+        React.createElement("h4", { style: { marginTop: 24 } }, "\u06A9\u0627\u0631\u06A9\u0631\u062F\u0647\u0627\u06CC \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
+        !archive ? React.createElement("p", { className: "muted" }, error ? "آرشیو دریافت نشد؛ دوباره تلاش کنید." : "در حال دریافت آرشیو…") : archive.sources.length === 0 ? React.createElement("p", { className: "muted" }, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0647\u0646\u0648\u0632 \u0641\u0627\u06CC\u0644\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") : React.createElement(React.Fragment, null,
+            React.createElement("label", null,
+                "\u0641\u06CC\u0644\u062F \u0634\u0645\u0627\u0631\u0647 \u062D\u0633\u0627\u0628 \u062F\u0631 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u067E\u0631\u0633\u0646\u0644",
+                React.createElement("select", { className: "input", disabled: !!busy, value: account, onChange: e => setAccount(e.target.value) },
+                    React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0641\u06CC\u0644\u062F \u0634\u0645\u0627\u0631\u0647 \u062D\u0633\u0627\u0628"),
+                    archive.account_fields.map(f => React.createElement("option", { key: f.id, value: f.id }, f.label)))),
+            !archive.account_fields.length && React.createElement("p", { role: "alert" }, "\u0641\u06CC\u0644\u062F \u0634\u0645\u0627\u0631\u0647 \u062D\u0633\u0627\u0628 \u062F\u0631 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u06A9\u0645\u06CC\u0644\u06CC \u067E\u0631\u0633\u0646\u0644 \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A\u061B \u0627\u0628\u062A\u062F\u0627 \u0622\u0646 \u0631\u0627 \u062F\u0631 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0641\u06CC\u0644\u062F\u0647\u0627 \u0627\u06CC\u062C\u0627\u062F \u0648 \u062A\u06A9\u0645\u06CC\u0644 \u06A9\u0646\u06CC\u062F."),
+            React.createElement("p", { className: "muted" }, "\u0645\u0631\u062E\u0635\u06CC \u0627\u0633\u062A\u062D\u0642\u0627\u0642\u06CC: \u0645\u062C\u0645\u0648\u0639 \u0631\u0648\u0632\u0647\u0627\u06CC \u0631\u0648\u0632\u0627\u0646\u0647 \u00D7 \u06F4\u06F5\u06F3 \u062F\u0642\u06CC\u0642\u0647 + \u062F\u0642\u0627\u06CC\u0642 \u0633\u0627\u0639\u062A\u06CC\u060C \u062A\u0642\u0633\u06CC\u0645 \u0628\u0631 \u06F4\u06F5\u06F3. \u063A\u06CC\u0628\u062A \u0627\u0632 \u0634\u0631\u0648\u0639 \u0647\u0645\u06A9\u0627\u0631\u06CC \u062A\u0627 \u0631\u0648\u0632\u0647\u0627\u06CC \u067E\u0627\u06CC\u0627\u0646\u200C\u06CC\u0627\u0641\u062A\u0647 \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F. \u0641\u0627\u06CC\u0644 \u0645\u0627\u0647 \u062C\u0627\u0631\u06CC \u0634\u0627\u0645\u0644 \u062F\u0627\u062F\u0647\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u062A\u0627 \u0627\u0645\u0631\u0648\u0632 \u0627\u0633\u062A."),
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,300px),1fr))", gap: 12 } }, archive.sources.map(s => React.createElement("article", { key: s.id, style: { padding: 14, border: "1px solid var(--border,#ddd)", borderRadius: 12 } },
+                React.createElement("strong", { style: { overflowWrap: "anywhere" } }, s.file_name),
+                React.createElement("p", { className: "muted" },
+                    "\u062B\u0628\u062A: ",
+                    faPlain(s.created_at)),
+                React.createElement("div", { className: "row", style: { gap: 6, flexWrap: "wrap" } },
+                    React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => showSource(s.id) }, "\u062C\u0632\u0626\u06CC\u0627\u062A \u0648 \u062A\u0637\u0628\u06CC\u0642"),
+                    React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => download("sources", s.id) }, "\u062F\u0627\u0646\u0644\u0648\u062F \u0641\u0627\u06CC\u0644 \u0633\u0627\u0632\u0645\u0627\u0646"),
+                    React.createElement("button", { className: "btn p", disabled: !!busy || !account, onClick: () => generate(s.id) }, "\u0633\u0627\u062E\u062A \u0648 \u0622\u0631\u0634\u06CC\u0648 \u0641\u0627\u06CC\u0644 \u0634\u0631\u06A9\u062A")))))),
+        React.createElement("h4", { style: { marginTop: 24 } }, "\u0622\u0631\u0634\u06CC\u0648 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627\u06CC \u0646\u0647\u0627\u06CC\u06CC \u0634\u0631\u06A9\u062A"),
+        archive && !archive.files.length && React.createElement("p", { className: "muted" }, "\u0647\u0646\u0648\u0632 \u062E\u0631\u0648\u062C\u06CC \u0634\u0631\u06A9\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,300px),1fr))", gap: 12 } }, archive === null || archive === void 0 ? void 0 : archive.files.map(f => React.createElement("article", { key: f.id, style: { padding: 14, border: "1px solid var(--border,#ddd)", borderRadius: 12 } },
+            React.createElement("strong", null,
+                "\u0646\u0633\u062E\u0647\u0654 ",
+                fa(f.id),
+                " \u2014 ",
+                J_MONTHS[month - 1],
+                " ",
+                fa(year)),
+            React.createElement("p", { className: "muted" },
+                "\u062A\u0648\u0644\u06CC\u062F: ",
+                faPlain(f.created_at),
+                " | \u0641\u0627\u06CC\u0644 \u0633\u0627\u0632\u0645\u0627\u0646: ",
+                fa(f.source_id)),
+            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
+                React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => showFile(f.id) }, "\u062C\u0632\u0626\u06CC\u0627\u062A \u0646\u0633\u062E\u0647"),
+                React.createElement("button", { className: "btn p", disabled: !!busy, onClick: () => download("files", f.id) }, "\u062F\u0627\u0646\u0644\u0648\u062F XLSX"))))),
+        detail && React.createElement(Modal, { title: detail.title, onClose: () => setDetail(null), style: { width: "min(96vw,1500px)" } },
+            React.createElement("button", { type: "button", className: "btn", onClick: () => setDetail(null) }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A"),
+            detail.account_field && React.createElement("p", { className: "muted" },
+                "\u0645\u0646\u0628\u0639 \u062D\u0633\u0627\u0628: ",
+                detail.account_field.label,
+                " | \u0631\u0648\u0632 \u0645\u0631\u062E\u0635\u06CC: \u06F4\u06F5\u06F3 \u062F\u0642\u06CC\u0642\u0647 | ",
+                detail.partial ? "ماه جاری؛ داده‌ها تا روز تولید" : "ماه پایان‌یافته",
+                " | \u0645\u0646\u0628\u0639 \u062A\u0631\u062F\u062F: ",
+                detail.attendance_source === "finalized" ? "نسخهٔ نهایی‌شده" : "تردد ثبت‌شده"),
+            React.createElement("label", null,
+                "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u0646\u0627\u0645\u060C \u0634\u0645\u0627\u0631\u0647 \u067E\u0631\u0633\u0646\u0644\u06CC\u060C \u0633\u0645\u062A \u06CC\u0627 \u0645\u063A\u0627\u06CC\u0631\u062A",
+                React.createElement("input", { className: "input", value: query, onChange: e => setQuery(e.target.value) })),
+            React.createElement("p", null,
+                fa(visible.length),
+                " \u0627\u0632 ",
+                fa(detail.rows.length),
+                " \u0646\u06CC\u0631\u0648 | \u0645\u063A\u0627\u06CC\u0631\u062A: ",
+                fa(detail.rows.filter(r => { var _a; return (_a = r.errors) === null || _a === void 0 ? void 0 : _a.length; }).length)),
+            React.createElement("div", { style: { overflowX: "auto", maxHeight: "60vh" } },
+                React.createElement("table", { style: { minWidth: detail.account_field ? 2300 : 1000, fontSize: 12 } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0631\u062F\u06CC\u0641 \u0641\u0627\u06CC\u0644"),
+                            [...columns, ...(detail.account_field ? extra : [])].map(([k, label]) => React.createElement("th", { key: k }, label)),
+                            React.createElement("th", null, "\u0646\u062A\u06CC\u062C\u0647 \u0628\u0631\u0631\u0633\u06CC"))),
+                    React.createElement("tbody", null, visible.map(r => { var _a, _b; return React.createElement("tr", { key: r.source_row },
+                        React.createElement("td", null, fa(r.source_row)),
+                        [...columns, ...(detail.account_field ? extra : [])].map(([k]) => React.createElement("td", { key: k }, display(r[k]))),
+                        React.createElement("td", { style: { color: ((_a = r.errors) === null || _a === void 0 ? void 0 : _a.length) ? "var(--danger,#bd2929)" : "var(--ok,#087f5b)" } },
+                            ((_b = r.errors) === null || _b === void 0 ? void 0 : _b.length) ? r.errors.join("؛ ") : "تطبیق تأیید شد",
+                            r.suggested_code && React.createElement("div", null,
+                                "\u0634\u0645\u0627\u0631\u0647\u0654 \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0646\u0627\u0645: ",
+                                faPlain(r.suggested_code),
+                                " \u2014 \u0641\u0627\u06CC\u0644 \u0633\u0627\u0632\u0645\u0627\u0646 \u0628\u0627\u06CC\u062F \u0627\u0635\u0644\u0627\u062D \u0634\u0648\u062F."))); }))))));
+}
 function ShiftReport() {
     const [attendanceModal, setAttendanceModal] = useState(null);
     const [reportTab, setReportTab] = useState("monthly");
@@ -12232,9 +12446,10 @@ function ShiftReport() {
         React.createElement("div", { className: "tabbar", style: { marginBottom: 12 } },
             React.createElement("button", { className: "tabbtn" + (reportTab === "monthly" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("monthly") }, "\u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647\u0627\u0646\u0647"),
             React.createElement("button", { className: "tabbtn" + (reportTab === "organization" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("organization") }, "\u062A\u0648\u0644\u06CC\u062F \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u0628\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
+            React.createElement("button", { className: "tabbtn" + (reportTab === "company-final" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("company-final") }, "\u0641\u0627\u06CC\u0644 \u0646\u0647\u0627\u06CC\u06CC \u0634\u0631\u06A9\u062A"),
             React.createElement("button", { className: "tabbtn" + (reportTab === "rotation" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("rotation") }, "\u0645\u062D\u0627\u0633\u0628\u0647 \u0686\u0631\u062E\u0634 \u0634\u06CC\u0641\u062A \u0646\u06CC\u0631\u0648\u0647\u0627"),
             React.createElement("button", { className: "tabbtn" + (reportTab === "finalize" ? " on" : ""), disabled: finalBusy, onClick: () => { setReportTab("finalize"); setFinalStatus(null); } }, "\u0646\u0647\u0627\u06CC\u06CC \u06A9\u0631\u062F\u0646 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627")),
-        reportTab === "rotation" ? React.createElement(ShiftRotationReport, { year: jy, month: jm, onPeriodChange: selectReportPeriod, disabled: finalBusy }) : reportTab === "finalize" ? React.createElement("div", { className: "panel" },
+        reportTab === "company-final" ? React.createElement(CompanyWorkReport, { key: periodKey, year: jy, month: jm, onPeriodChange: selectReportPeriod }) : reportTab === "rotation" ? React.createElement(ShiftRotationReport, { year: jy, month: jm, onPeriodChange: selectReportPeriod, disabled: finalBusy }) : reportTab === "finalize" ? React.createElement("div", { className: "panel" },
             React.createElement("h4", null, "\u0646\u0647\u0627\u06CC\u06CC \u06A9\u0631\u062F\u0646 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627"),
             React.createElement("p", { className: "muted" }, "\u067E\u0633 \u0627\u0632 \u0646\u0647\u0627\u06CC\u06CC\u200C\u0633\u0627\u0632\u06CC\u060C \u06AF\u0632\u0627\u0631\u0634 \u0645\u0627\u0647\u0627\u0646\u0647 \u0648 \u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F\u0647 \u0648 \u062A\u063A\u06CC\u06CC\u0631 \u0634\u06CC\u0641\u062A \u06CC\u0627 \u0645\u0648\u062A\u0648\u0631 \u0645\u062D\u0627\u0633\u0628\u0627\u062A \u0627\u0639\u062F\u0627\u062F \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0645\u06CC\u200C\u062F\u0647\u062F."),
             React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap" } },

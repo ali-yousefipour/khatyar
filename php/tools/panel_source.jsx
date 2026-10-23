@@ -7259,6 +7259,84 @@ function ShiftRotationReport({year,month,onPeriodChange,disabled}){
   </div>;
 }
 
+function CompanyWorkReport({year,month,onPeriodChange}){
+  const [archive,setArchive]=useState(null),[file,setFile]=useState(null),[preview,setPreview]=useState(null),[detail,setDetail]=useState(null),[account,setAccount]=useState(""),[busy,setBusy]=useState(""),[error,setError]=useState(""),[query,setQuery]=useState("");
+  const life=useRef({alive:true,controller:null,locked:false});
+  const fileInput=useRef(null);
+  useEffect(()=>{life.current.alive=true;load();return()=>{life.current.alive=false;life.current.controller?.abort();};},[]);
+  const request=async(path,options={})=>{
+    const controller=new AbortController();life.current.controller=controller;
+    const res=await fetch(API_BASE+"/admin/company-work"+path,{...options,headers:{...tok(),...(options.headers||{})},signal:controller.signal});
+    const text=await res.text();let data;try{data=JSON.parse(text);}catch{throw Error("پاسخ سرور کامل نیست؛ وضعیت آرشیو را دوباره بررسی کنید.");}
+    if(!res.ok)throw Error(data.error||data.message||"دریافت اطلاعات ناموفق بود");return data;
+  };
+  const load=async()=>{
+    try{const data=await request("?year="+year+"&month="+month);if(life.current.alive){setArchive(data);setError("");}}
+    catch(e){if(life.current.alive&&e.name!=="AbortError")setError(e.message);}
+  };
+  const action=async(label,fn)=>{
+    if(life.current.locked)return;life.current.locked=true;setBusy(label);setError("");
+    try{await fn();}catch(e){if(life.current.alive&&e.name!=="AbortError")setError(e.message);}
+    finally{life.current.locked=false;if(life.current.alive)setBusy("");}
+  };
+  const upload=mode=>action(mode==="preview"?"بررسی فایل…":"ذخیره در آرشیو…",async()=>{
+    if(!file)throw Error("فایل XLSX سازمان را انتخاب کنید");
+    const body=new FormData();body.append("file",file);body.append("year",year);body.append("month",month);body.append("mode",mode);
+    const data=await request("/import",{method:"POST",body});if(!life.current.alive)return;
+    if(mode==="preview"){setPreview(data);setDetail({rows:data.rows,title:"بررسی فایل سازمان"});setQuery("");}
+    else{setPreview(null);setFile(null);if(fileInput.current)fileInput.current.value="";setDetail({rows:data.rows,title:data.duplicate?"این فایل قبلاً در آرشیو ثبت شده است":"فایل سازمان در آرشیو ثبت شد"});await load();}
+  });
+  const showSource=id=>action("دریافت جزئیات…",async()=>{const data=await request("/sources/"+id);if(life.current.alive){setDetail({...data,title:"کارکرد تأییدشدهٔ سازمان"});setQuery("");}});
+  const showFile=id=>action("دریافت جزئیات…",async()=>{const data=await request("/files/"+id);if(life.current.alive){setDetail({...data.snapshot,title:"نسخهٔ ثبت‌شدهٔ فایل شرکت"});setQuery("");}});
+  const generate=id=>action("محاسبه و ساخت فایل شرکت…",async()=>{
+    const data=await request("/sources/"+id+"/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({account_field_id:Number(account)})});
+    if(!life.current.alive)return;setDetail({...data.snapshot,title:data.generated?"فایل شرکت ساخته و در آرشیو ذخیره شد":"مغایرت‌ها را پیش از ساخت فایل شرکت رفع کنید"});setQuery("");await load();
+  });
+  const download=(kind,id)=>action("دریافت فایل…",async()=>{
+    const controller=new AbortController();life.current.controller=controller;
+    const res=await fetch(API_BASE+"/admin/company-work/"+kind+"/"+id+"/download",{headers:tok(),signal:controller.signal});
+    if(!res.ok){let data={};try{data=await res.json();}catch{}throw Error(data.error||data.message||"دانلود فایل ناموفق بود");}
+    const blob=await res.blob();if(!life.current.alive)return;const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=(kind==="sources"?"کارکرد-سازمان-":"کارکرد-شرکت-")+year+"-"+month+".xlsx";a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
+  });
+  const normalize=value=>String(value??"").replace(/[يك]/g,c=>c==="ي"?"ی":"ک").replace(/[۰-۹]/g,c=>"۰۱۲۳۴۵۶۷۸۹".indexOf(c)).toLowerCase();
+  const visible=(detail?.rows||[]).filter(r=>normalize([r.first_name,r.last_name,r.personnel_code,r.role,...(r.errors||[])].join(" ")).includes(normalize(query)));
+  const columns=[["first_name","نام"],["last_name","نام خانوادگی"],["personnel_code","شماره پرسنلی"],["role","سمت"],["friday_hours","جمعه‌کاری (ساعت)"],["holiday_hours","تعطیل‌کاری (ساعت)"],["overtime_hours","اضافه‌کاری (ساعت)"]];
+  const extra=[["national_code","کد ملی"],["account","شماره حساب"],["days","روز کارکرد کل"],["leave_days","استحقاقی (روز)"],["absence_days","غیبت (روز)"],["sick_days","استعلاجی (روز)"],["married","تأهل"],["children","فرزند"],["night_hours","شب‌کاری (ساعت)"],["seniority_days","سنوات (روز)"],["morning","چرخش صبح"],["afternoon","چرخش عصر"],["night","چرخش شب"]];
+  const display=value=>value===null||value===undefined?"—":typeof value==="number"?faPlain(Number(value.toFixed(4))):faPlain(value);
+  return <section className="panel" aria-busy={!!busy}>
+    <h3>فایل نهایی شرکت</h3><p className="muted">سمت و ساعات تأییدشده از فایل سازمان؛ اطلاعات هویتی و کارکرد تکمیلی از سامانه خوانده می‌شود. هر نسخهٔ تولیدشده جداگانه در آرشیو باقی می‌ماند.</p>
+    <div className="row" style={{gap:12,flexWrap:"wrap",alignItems:"end"}}>
+      <label>سال<input className="input" type="number" min="1300" max="1500" value={year} disabled={!!busy} onChange={e=>onPeriodChange(Number(e.target.value),month)}/></label>
+      <label>ماه<select className="input" value={month} disabled={!!busy} onChange={e=>onPeriodChange(year,Number(e.target.value))}>{J_MONTHS.map((m,i)=><option key={m} value={i+1}>{m}</option>)}</select></label>
+      <button className="btn" disabled={!!busy} onClick={()=>action("دریافت آرشیو…",load)}>تازه‌سازی آرشیو</button>
+    </div>
+    {error&&<p role="alert" style={{color:"var(--danger,#bd2929)"}}>{error}</p>}
+    {busy&&<p role="status">{busy}</p>}
+    <div style={{marginTop:20,padding:16,border:"1px solid var(--border,#ddd)",borderRadius:12}}>
+      <h4>لیست کارکرد تأییدشده سازمان</h4><label>فایل XLSX (حداکثر ۱۰ مگابایت)<input ref={fileInput} className="input" type="file" accept=".xlsx" disabled={!!busy} onChange={e=>{setFile(e.target.files?.[0]||null);setPreview(null);setDetail(null);}}/></label>
+      <p className="muted">دورهٔ انتخاب‌شده باید با عنوان فایل یکسان باشد. ابتدا پیش‌نمایش و تطبیق شماره پرسنلی را بررسی کنید.</p>
+      <div className="row" style={{gap:8,flexWrap:"wrap"}}><button className="btn" disabled={!file||!!busy} onClick={()=>upload("preview")}>بررسی و پیش‌نمایش</button><button className="btn p" disabled={!preview||!!busy} onClick={()=>upload("commit")}>ثبت فایل بررسی‌شده در آرشیو</button></div>
+    </div>
+    <h4 style={{marginTop:24}}>کارکردهای تأییدشده سازمان</h4>
+    {!archive?<p className="muted">{error?"آرشیو دریافت نشد؛ دوباره تلاش کنید.":"در حال دریافت آرشیو…"}</p>:archive.sources.length===0?<p className="muted">برای این ماه هنوز فایلی ثبت نشده است.</p>:<>
+      <label>فیلد شماره حساب در اطلاعات پرسنل<select className="input" disabled={!!busy} value={account} onChange={e=>setAccount(e.target.value)}><option value="">انتخاب فیلد شماره حساب</option>{archive.account_fields.map(f=><option key={f.id} value={f.id}>{f.label}</option>)}</select></label>
+      {!archive.account_fields.length&&<p role="alert">فیلد شماره حساب در اطلاعات تکمیلی پرسنل تعریف نشده است؛ ابتدا آن را در تنظیمات فیلدها ایجاد و تکمیل کنید.</p>}
+      <p className="muted">مرخصی استحقاقی: مجموع روزهای روزانه × ۴۵۳ دقیقه + دقایق ساعتی، تقسیم بر ۴۵۳. غیبت از شروع همکاری تا روزهای پایان‌یافته محاسبه می‌شود. فایل ماه جاری شامل داده‌های ثبت‌شده تا امروز است.</p>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,300px),1fr))",gap:12}}>{archive.sources.map(s=><article key={s.id} style={{padding:14,border:"1px solid var(--border,#ddd)",borderRadius:12}}><strong style={{overflowWrap:"anywhere"}}>{s.file_name}</strong><p className="muted">ثبت: {faPlain(s.created_at)}</p><div className="row" style={{gap:6,flexWrap:"wrap"}}><button className="btn" disabled={!!busy} onClick={()=>showSource(s.id)}>جزئیات و تطبیق</button><button className="btn" disabled={!!busy} onClick={()=>download("sources",s.id)}>دانلود فایل سازمان</button><button className="btn p" disabled={!!busy||!account} onClick={()=>generate(s.id)}>ساخت و آرشیو فایل شرکت</button></div></article>)}</div>
+    </>}
+    <h4 style={{marginTop:24}}>آرشیو فایل‌های نهایی شرکت</h4>
+    {archive&&!archive.files.length&&<p className="muted">هنوز خروجی شرکتی برای این ماه ساخته نشده است.</p>}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,300px),1fr))",gap:12}}>{archive?.files.map(f=><article key={f.id} style={{padding:14,border:"1px solid var(--border,#ddd)",borderRadius:12}}><strong>نسخهٔ {fa(f.id)} — {J_MONTHS[month-1]} {fa(year)}</strong><p className="muted">تولید: {faPlain(f.created_at)} | فایل سازمان: {fa(f.source_id)}</p><div className="row" style={{gap:8,flexWrap:"wrap"}}><button className="btn" disabled={!!busy} onClick={()=>showFile(f.id)}>جزئیات نسخه</button><button className="btn p" disabled={!!busy} onClick={()=>download("files",f.id)}>دانلود XLSX</button></div></article>)}</div>
+    {detail&&<Modal title={detail.title} onClose={()=>setDetail(null)} style={{width:"min(96vw,1500px)"}}>
+      <button type="button" className="btn" onClick={()=>setDetail(null)}>بستن جزئیات</button>
+      {detail.account_field&&<p className="muted">منبع حساب: {detail.account_field.label} | روز مرخصی: ۴۵۳ دقیقه | {detail.partial?"ماه جاری؛ داده‌ها تا روز تولید":"ماه پایان‌یافته"} | منبع تردد: {detail.attendance_source==="finalized"?"نسخهٔ نهایی‌شده":"تردد ثبت‌شده"}</p>}
+      <label>جست‌وجوی نام، شماره پرسنلی، سمت یا مغایرت<input className="input" value={query} onChange={e=>setQuery(e.target.value)}/></label><p>{fa(visible.length)} از {fa(detail.rows.length)} نیرو | مغایرت: {fa(detail.rows.filter(r=>r.errors?.length).length)}</p>
+      <div style={{overflowX:"auto",maxHeight:"60vh"}}><table style={{minWidth:detail.account_field?2300:1000,fontSize:12}}><thead><tr><th>ردیف فایل</th>{[...columns,...(detail.account_field?extra:[])].map(([k,label])=><th key={k}>{label}</th>)}<th>نتیجه بررسی</th></tr></thead><tbody>{visible.map(r=><tr key={r.source_row}><td>{fa(r.source_row)}</td>{[...columns,...(detail.account_field?extra:[])].map(([k])=><td key={k}>{display(r[k])}</td>)}<td style={{color:r.errors?.length?"var(--danger,#bd2929)":"var(--ok,#087f5b)"}}>{r.errors?.length?r.errors.join("؛ "):"تطبیق تأیید شد"}{r.suggested_code&&<div>شمارهٔ ثبت‌شده برای این نام: {faPlain(r.suggested_code)} — فایل سازمان باید اصلاح شود.</div>}</td></tr>)}</tbody></table></div>
+    </Modal>}
+  </section>;
+}
+
+
 function ShiftReport(){
   const [attendanceModal,setAttendanceModal]=useState(null);
   const [reportTab,setReportTab]=useState("monthly");
@@ -7291,8 +7369,8 @@ function ShiftReport(){
   const [includeSurplusInOvertime,setIncludeSurplusInOvertime]=useState(false);
   const exportOrganization=async()=>{try{const res=await fetch(`${API_BASE}/admin/shift-report/organization-export?year=${jy}&month=${jm}&forecast_remaining=${forecastRemaining?1:0}&include_surplus=${includeSurplusInOvertime?1:0}`,{headers:tok()});if(!res.ok)throw new Error(res.status===403?"دسترسی مجاز نیست":"خطا در تولید فایل سازمان");const blob=await res.blob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`کارکرد-سازمان-${jy}-${jm}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),60000);}catch(e){alert(e.message||"خطا");}};
   return(<div className="admin-workspace-page">
-    <div className="tabbar" style={{marginBottom:12}}><button className={"tabbtn"+(reportTab==="monthly"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("monthly")}>گزارش کارکرد ماهانه</button><button className={"tabbtn"+(reportTab==="organization"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("organization")}>تولید گزارش کارکرد برای ارسال به سازمان</button><button className={"tabbtn"+(reportTab==="rotation"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("rotation")}>محاسبه چرخش شیفت نیروها</button><button className={"tabbtn"+(reportTab==="finalize"?" on":"")} disabled={finalBusy} onClick={()=>{setReportTab("finalize");setFinalStatus(null);}}>نهایی کردن کارکرد نیروها</button></div>
-    {reportTab==="rotation"?<ShiftRotationReport year={jy} month={jm} onPeriodChange={selectReportPeriod} disabled={finalBusy}/>:reportTab==="finalize"?<div className="panel"><h4>نهایی کردن کارکرد نیروها</h4><p className="muted">پس از نهایی‌سازی، گزارش ماهانه و جزئیات تردد ذخیره شده و تغییر شیفت یا موتور محاسبات اعداد این ماه را تغییر نمی‌دهد.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><button className="btn g" disabled={statusBusy||finalBusy} onClick={()=>loadFinalStatus()}>بررسی وضعیت</button><button className="btn p" disabled={finalBusy||statusBusy||(finalStatus?.period===periodKey&&finalStatus?.finalized)} onClick={finalizeMonth}>{finalBusy?"در حال ثبت…":"نهایی کردن کارکرد"}</button></div>{finalStatus?.period===periodKey&&<p>{finalStatus.finalized?"این ماه نهایی شده است. تاریخ: "+finalStatus.finalized_at:"این ماه هنوز نهایی نشده است."}</p>}</div>:reportTab==="organization"?<div className="panel"><h4>تولید گزارش کارکرد برای ارسال به سازمان</h4><p className="muted">اضافه‌کاری = اضافه‌کار + مأموریت − کسر کار؛ تعطیل‌کاری و جمعه‌کاری از کارکرد همان ماه استخراج می‌شوند. جزئیات محاسبات در یادداشت سلول‌های اکسل درج می‌شود.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><label style={{display:"flex",alignItems:"center",gap:6}}><input type="checkbox" checked={forecastRemaining} onChange={e=>setForecastRemaining(e.target.checked)}/> پیش‌بینی روزهای باقی‌مانده تا انتهای ماه</label><label><input type="checkbox" checked={includeSurplusInOvertime} onChange={e=>setIncludeSurplusInOvertime(e.target.checked)}/> لحاظ مازاد حضور در میانگین و مجموع اضافه‌کار</label><button className="btn p" onClick={exportOrganization}>⤓ تولید فایل اکسل سازمان</button></div></div>:<>
+    <div className="tabbar" style={{marginBottom:12}}><button className={"tabbtn"+(reportTab==="monthly"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("monthly")}>گزارش کارکرد ماهانه</button><button className={"tabbtn"+(reportTab==="organization"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("organization")}>تولید گزارش کارکرد برای ارسال به سازمان</button><button className={"tabbtn"+(reportTab==="company-final"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("company-final")}>فایل نهایی شرکت</button><button className={"tabbtn"+(reportTab==="rotation"?" on":"")} disabled={finalBusy} onClick={()=>setReportTab("rotation")}>محاسبه چرخش شیفت نیروها</button><button className={"tabbtn"+(reportTab==="finalize"?" on":"")} disabled={finalBusy} onClick={()=>{setReportTab("finalize");setFinalStatus(null);}}>نهایی کردن کارکرد نیروها</button></div>
+    {reportTab==="company-final"?<CompanyWorkReport key={periodKey} year={jy} month={jm} onPeriodChange={selectReportPeriod}/>:reportTab==="rotation"?<ShiftRotationReport year={jy} month={jm} onPeriodChange={selectReportPeriod} disabled={finalBusy}/>:reportTab==="finalize"?<div className="panel"><h4>نهایی کردن کارکرد نیروها</h4><p className="muted">پس از نهایی‌سازی، گزارش ماهانه و جزئیات تردد ذخیره شده و تغییر شیفت یا موتور محاسبات اعداد این ماه را تغییر نمی‌دهد.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><button className="btn g" disabled={statusBusy||finalBusy} onClick={()=>loadFinalStatus()}>بررسی وضعیت</button><button className="btn p" disabled={finalBusy||statusBusy||(finalStatus?.period===periodKey&&finalStatus?.finalized)} onClick={finalizeMonth}>{finalBusy?"در حال ثبت…":"نهایی کردن کارکرد"}</button></div>{finalStatus?.period===periodKey&&<p>{finalStatus.finalized?"این ماه نهایی شده است. تاریخ: "+finalStatus.finalized_at:"این ماه هنوز نهایی نشده است."}</p>}</div>:reportTab==="organization"?<div className="panel"><h4>تولید گزارش کارکرد برای ارسال به سازمان</h4><p className="muted">اضافه‌کاری = اضافه‌کار + مأموریت − کسر کار؛ تعطیل‌کاری و جمعه‌کاری از کارکرد همان ماه استخراج می‌شوند. جزئیات محاسبات در یادداشت سلول‌های اکسل درج می‌شود.</p><div className="row" style={{gap:10,flexWrap:"wrap"}}><label>سال <input className="input" type="number" value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></label><label>ماه <select className="input" value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></label><label style={{display:"flex",alignItems:"center",gap:6}}><input type="checkbox" checked={forecastRemaining} onChange={e=>setForecastRemaining(e.target.checked)}/> پیش‌بینی روزهای باقی‌مانده تا انتهای ماه</label><label><input type="checkbox" checked={includeSurplusInOvertime} onChange={e=>setIncludeSurplusInOvertime(e.target.checked)}/> لحاظ مازاد حضور در میانگین و مجموع اضافه‌کار</label><button className="btn p" onClick={exportOrganization}>⤓ تولید فایل اکسل سازمان</button></div></div>:<>
     <div className="row" style={{gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"flex-end"}}>
       <div><label className="label">سال</label><input className="input" type="number" style={{maxWidth:100}} value={jy} disabled={finalBusy} onChange={e=>selectReportPeriod(+e.target.value||tj[0],jm)}/></div>
       <div><label className="label">ماه</label><select className="input" style={{maxWidth:130}} value={jm} disabled={finalBusy} onChange={e=>selectReportPeriod(jy,+e.target.value)}>{J_MONTHS.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>

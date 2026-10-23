@@ -44,6 +44,12 @@ jobs:
           php -l app/index.php
           php tests/attendance_peak_load_guard_test.php
           php -l lib/routes.php
+          php -l lib/CompanyWork.php
+          php -l lib/company_work_routes.php
+          php tests/company_work_test.php
+          php tests/company_work_archive_test.php
+          php tests/company_work_collect_test.php
+          node tests/company_work_ui_test.cjs
           php tests/login_policy_test.php
           node tests/login_policy_ui_test.cjs
           php tests/work_policy_requests_test.php
@@ -644,7 +650,7 @@ jobs:
           fi
           # All protected endpoints must reject anonymous access with 401,
           # rather than crashing in route bootstrap/authentication with 500.
-          for route in /api/admin/stats /api/admin/roles /api/admin/zones /api/admin/users /api/admin/attendance-report; do
+          for route in /api/admin/stats /api/admin/roles /api/admin/zones /api/admin/users /api/admin/attendance-report /api/admin/company-work /api/admin/company-work/sources/0/download; do
             code="$(curl --silent --show-error --location --max-time 25 -o /tmp/khatyar-protected-route.json -w '%{http_code}' "${base}${route}" || true)"
             echo "Anonymous GET ${route} -> HTTP ${code}"
             if [ "${code}" != "401" ]; then

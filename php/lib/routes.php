@@ -1328,6 +1328,7 @@ function _ensure_salary_slips(){
   } catch (Throwable $e) {}
 }
 require_once __DIR__.'/Payroll.php';
+require_once __DIR__.'/company_work_routes.php';
 function _salary_slip_token($id,$uid,$path){ return substr(hash_hmac('sha256', $id.'|'.$uid.'|'.$path, $GLOBALS['CONFIG']['jwt_secret'] ?? 'taxi'), 0, 32); }
 function _save_salary_slip_upload($file){
   if (!$file || ($file['error'] ?? 1) !== 0 || empty($file['tmp_name'])) Http::error('فایل فیش حقوقی ارسال نشده است', 400);
