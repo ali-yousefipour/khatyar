@@ -12,11 +12,14 @@ _company_work_route('GET','',function($p,$b,$u){
   return ['sources'=>Db::all('SELECT id,jy,jm,file_name,created_at FROM company_work_sources WHERE jy=? AND jm=? ORDER BY id DESC',[$y,$m]),'files'=>Db::all('SELECT id,source_id,jy,jm,created_at FROM company_work_files WHERE jy=? AND jm=? ORDER BY id DESC',[$y,$m]),'account_fields'=>Db::all('SELECT id,label,fkey FROM custom_fields WHERE is_active=1 ORDER BY sort_order,id')];
 });
 _company_work_route('POST','/import',function($p,$b,$u){
-  [$y,$m]=Payroll::period((int)($b['year']??0),(int)($b['month']??0));$f=$_FILES['file']??null;
+  // Http::body is the JSON/urlencoded contract. PHP exposes multipart fields in $_POST.
+  $form=$_POST;
+  if(!isset($form['year'],$form['month']))CompanyWork::fail('سال و ماه همراه فایل دریافت نشد؛ دورهٔ گزارش را انتخاب و فایل را دوباره ارسال کنید');
+  [$y,$m]=Payroll::period($form['year'],$form['month']);$f=$_FILES['file']??null;
   if(!$f||$f['error']!==UPLOAD_ERR_OK||!is_uploaded_file($f['tmp_name']))CompanyWork::fail('فایل سازمان را انتخاب کنید؛ حداکثر حجم ۱۰ مگابایت');
   if(strtolower(pathinfo($f['name'],PATHINFO_EXTENSION))!=='xlsx')CompanyWork::fail('فقط فایل XLSX پذیرفته می‌شود');
-  if(!in_array($b['mode']??'', ['preview','commit'],true))CompanyWork::fail('نوع عملیات نامعتبر است');
-  return CompanyWork::import($f['tmp_name'],$f['name'],$y,$m,(int)$u['id'],$b['mode']==='commit');
+  if(!in_array($form['mode']??'', ['preview','commit'],true))CompanyWork::fail('نوع عملیات نامعتبر است');
+  return CompanyWork::import($f['tmp_name'],$f['name'],$y,$m,(int)$u['id'],$form['mode']==='commit');
 });
 _company_work_route('GET','/sources/{id}',function($p,$b,$u){$s=CompanyWork::source($p['id']);return ['id'=>(int)$s['id'],'year'=>(int)$s['jy'],'month'=>(int)$s['jm'],'rows'=>CompanyWork::matchRows(json_decode($s['rows_json'],true,512,JSON_THROW_ON_ERROR),CompanyWork::users())];});
 _company_work_route('GET','/sources/{id}/download',function($p,$b,$u){$s=CompanyWork::source($p['id']);CompanyWork::download($s,$s['file_name']);});

@@ -9,7 +9,7 @@ const c=vm.createContext({React:{createElement:(type,props,...children)=>({type,
   useState:v=>{const i=index++;if(!(i in states))states[i]=v;return [states[i],value=>states[i]=typeof value==='function'?value(states[i]):value];},
   useRef:v=>{const i=index++;return states[i]||(states[i]={current:v});},
   useEffect:(cb,deps)=>{const i=index++;if(!effects[i])pending.push(()=>{effects[i]={cleanup:cb()};});},
-  AbortController,FormData,API_BASE:'/api',tok:()=>({Authorization:'Bearer test'}),J_MONTHS:Array.from({length:12},(_,i)=>String(i+1)),faPlain:String,fa:v=>Number(v).toString(),
+  AbortController,FormData,API_BASE:'/api',tok:()=>({Authorization:'Bearer test'}),J_MONTHS:Array.from({length:12},(_,i)=>String(i+1)),faPlain:String,fa:v=>Number(v).toLocaleString('en-US'),
   fetch:async(url,options)=>{calls.push({url,options});return response(url,options);},
   URL:{createObjectURL:()=> 'blob:test',revokeObjectURL:u=>downloads.push(['revoke',u])},setTimeout:cb=>cb(),
   document:{createElement:()=>({click(){downloads.push(['download',this.download]);}})}
@@ -21,7 +21,7 @@ const settle=()=>new Promise(r=>setImmediate(r));
 (async()=>{
   response=async()=>ok(archive);let tree=render();await settle();tree=render();
   assert(text(tree).includes('فایل نهایی شرکت'));assert(button(tree,'ساخت و آرشیو فایل شرکت').props.disabled,'explicit account field required');
-  const selects=nodes(tree,n=>n.type==='select');selects.at(-1).props.onChange({target:{value:'7'}});tree=render();assert(!button(tree,'ساخت و آرشیو فایل شرکت').props.disabled);
+  const selects=nodes(tree,n=>n.type==='select');assert.equal(selects[0].props['aria-label'],'سال گزارش شرکت');assert.equal(text(nodes(selects[0],n=>n.type==='option'&&n.props.value===1405)[0]),'1405','year label has no thousands separator');selects.at(-1).props.onChange({target:{value:'7'}});tree=render();assert(!button(tree,'ساخت و آرشیو فایل شرکت').props.disabled);
   const row={source_row:4,first_name:'کاربر',last_name:'نمونه',personnel_code:'0007',role:'ناظر',friday_hours:0,holiday_hours:1.5,overtime_hours:2,errors:['شماره نادرست'],suggested_code:'0009'};
   response=async()=>ok({rows:[row]});await button(tree,'جزئیات و تطبیق').props.onClick();tree=render();assert(text(tree).includes('کاربر'));assert(text(tree).includes('0007'));assert(text(tree).includes('0009'));assert(text(tree).includes('شماره نادرست'));
   const query=nodes(tree,n=>n.type==='input'&&!n.props.type)[0];query.props.onChange({target:{value:'ناموجود'}});tree=render();assert(!nodes(tree,n=>n.type==='td').some(n=>text(n)==='کاربر'),'detail search filters real rows');

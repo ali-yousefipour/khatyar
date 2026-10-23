@@ -7306,7 +7306,7 @@ function CompanyWorkReport({year,month,onPeriodChange}){
   return <section className="panel" aria-busy={!!busy}>
     <h3>فایل نهایی شرکت</h3><p className="muted">سمت و ساعات تأییدشده از فایل سازمان؛ اطلاعات هویتی و کارکرد تکمیلی از سامانه خوانده می‌شود. هر نسخهٔ تولیدشده جداگانه در آرشیو باقی می‌ماند.</p>
     <div className="row" style={{gap:12,flexWrap:"wrap",alignItems:"end"}}>
-      <label>سال<select className="input" value={year} disabled={!!busy} onChange={e=>onPeriodChange(Number(e.target.value),month)}>{Array.from({length:201},(_,i)=>1300+i).map(y=><option key={y} value={y}>{fa(y)}</option>)}</select></label>
+      <label>سال<select aria-label="سال گزارش شرکت" className="input" value={year} disabled={!!busy} onChange={e=>onPeriodChange(Number(e.target.value),month)}>{Array.from({length:201},(_,i)=>1300+i).map(y=><option key={y} value={y}>{faPlain(y)}</option>)}</select></label>
       <label>ماه<select className="input" value={month} disabled={!!busy} onChange={e=>onPeriodChange(year,Number(e.target.value))}>{J_MONTHS.map((m,i)=><option key={m} value={i+1}>{m}</option>)}</select></label>
       <button className="btn" disabled={!!busy} onClick={()=>action("دریافت آرشیو…",load)}>تازه‌سازی آرشیو</button>
     </div>

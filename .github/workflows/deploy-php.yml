@@ -51,6 +51,7 @@ jobs:
           php tests/company_work_collect_test.php
           node tests/company_work_ui_test.cjs
           node tests/company_work_deployment_test.cjs
+          node tests/company_work_http_test.cjs
           php tests/login_policy_test.php
           node tests/login_policy_ui_test.cjs
           php tests/work_policy_requests_test.php

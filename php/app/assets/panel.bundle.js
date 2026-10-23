@@ -12252,7 +12252,7 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
         React.createElement("div", { className: "row", style: { gap: 12, flexWrap: "wrap", alignItems: "end" } },
             React.createElement("label", null,
                 "\u0633\u0627\u0644",
-                React.createElement("select", { className: "input", value: year, disabled: !!busy, onChange: e => onPeriodChange(Number(e.target.value), month) }, Array.from({ length: 201 }, (_, i) => 1300 + i).map(y => React.createElement("option", { key: y, value: y }, fa(y))))),
+                React.createElement("select", { "aria-label": "\u0633\u0627\u0644 \u06AF\u0632\u0627\u0631\u0634 \u0634\u0631\u06A9\u062A", className: "input", value: year, disabled: !!busy, onChange: e => onPeriodChange(Number(e.target.value), month) }, Array.from({ length: 201 }, (_, i) => 1300 + i).map(y => React.createElement("option", { key: y, value: y }, faPlain(y))))),
             React.createElement("label", null,
                 "\u0645\u0627\u0647",
                 React.createElement("select", { className: "input", value: month, disabled: !!busy, onChange: e => onPeriodChange(year, Number(e.target.value)) }, J_MONTHS.map((m, i) => React.createElement("option", { key: m, value: i + 1 }, m)))),
