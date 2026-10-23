@@ -217,7 +217,7 @@ class CompanyWork {
   /** Clone the sanitized reference's styles. All strings are literal cells, never formulas. */
   static function write($snapshot,$target){
     if(empty($snapshot['rows'])||!empty($snapshot['has_errors']))self::fail('ابتدا مغایرت‌های پرسنلی را رفع کنید');
-    if(!copy(dirname(__DIR__).'/templates/company-work.xlsx',$target))throw new RuntimeException('قالب اکسل در دسترس نیست');
+    if(!copy(__DIR__.'/company-work-template.xlsx',$target))throw new RuntimeException('قالب اکسل در دسترس نیست');
     $zip=new ZipArchive();if($zip->open($target)!==true)throw new RuntimeException('ساخت اکسل ناموفق بود');
     try{
       $doc=self::xml($zip->getFromName('xl/worksheets/sheet1.xml'));$xp=self::xpath($doc);$ns=$doc->documentElement->namespaceURI;

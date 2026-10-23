@@ -50,6 +50,7 @@ jobs:
           php tests/company_work_archive_test.php
           php tests/company_work_collect_test.php
           node tests/company_work_ui_test.cjs
+          node tests/company_work_deployment_test.cjs
           php tests/login_policy_test.php
           node tests/login_policy_ui_test.cjs
           php tests/work_policy_requests_test.php
@@ -244,7 +245,7 @@ jobs:
               [ -n "${file}" ] || continue
               rel="${file#deploy-payload/}"
 
-              if [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ]; then
+              if [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
                 continue
               fi
 
@@ -268,7 +269,7 @@ jobs:
 
           lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-upload.cmd)"
 
-          if [ -f deploy-payload/lib/Db.php ] || [ -f deploy-payload/lib/Http.php ] || [ -f deploy-payload/lib/routes.php ] || [ -f deploy-payload/lib/IranCalendar.php ] || [ -f deploy-payload/lib/ShiftCalc.php ] || [ -f deploy-payload/lib/GpsWorkIntervals.php ] || [ -f deploy-payload/lib/school_service_routes_extra.php ] || [ -f deploy-payload/lib/XlsxWriter.php ] || [ -f deploy-payload/lib/OrgChart.php ] || [ -f deploy-payload/lib/Seniority.php ] || [ -f deploy-payload/lib/Payroll.php ] || [ -f deploy-payload/lib/EmploymentAttendance.php ]; then
+          if [ -f deploy-payload/lib/Db.php ] || [ -f deploy-payload/lib/Http.php ] || [ -f deploy-payload/lib/routes.php ] || [ -f deploy-payload/lib/IranCalendar.php ] || [ -f deploy-payload/lib/ShiftCalc.php ] || [ -f deploy-payload/lib/GpsWorkIntervals.php ] || [ -f deploy-payload/lib/school_service_routes_extra.php ] || [ -f deploy-payload/lib/XlsxWriter.php ] || [ -f deploy-payload/lib/OrgChart.php ] || [ -f deploy-payload/lib/Seniority.php ] || [ -f deploy-payload/lib/Payroll.php ] || [ -f deploy-payload/lib/EmploymentAttendance.php ] || [ -f deploy-payload/lib/CompanyWork.php ] || [ -f deploy-payload/lib/company_work_routes.php ] || [ -f deploy-payload/lib/company-work-template.xlsx ]; then
             ROUTES_TOKEN="$(openssl rand -hex 32)"
             INSTALLER_NAME=".attendance-lib-install-${GITHUB_SHA}.php"
 
@@ -287,6 +288,9 @@ jobs:
               'OrgChart.php' => 'OrgChart.php',
               'Seniority.php' => 'Seniority.php',
               'Payroll.php' => 'Payroll.php',
+              'CompanyWork.php' => 'CompanyWork.php',
+              'company_work_routes.php' => 'company_work_routes.php',
+              'company-work-template.xlsx' => 'company-work-template.xlsx',
               'EmploymentAttendance.php' => 'EmploymentAttendance.php',
               'routes.php' => 'routes.php',
               'IranCalendar.php' => 'IranCalendar.php',
@@ -331,7 +335,7 @@ jobs:
               echo 'set net:timeout 60'
               echo 'set net:max-retries 5'
               echo 'set ssl:verify-certificate no'
-              for name in Db.php Http.php XlsxWriter.php OrgChart.php Seniority.php Payroll.php EmploymentAttendance.php routes.php IranCalendar.php ShiftCalc.php GpsWorkIntervals.php school_service_routes_extra.php; do
+              for name in Db.php Http.php XlsxWriter.php OrgChart.php Seniority.php Payroll.php EmploymentAttendance.php CompanyWork.php company_work_routes.php company-work-template.xlsx routes.php IranCalendar.php ShiftCalc.php GpsWorkIntervals.php school_service_routes_extra.php; do
                 if [ -f "deploy-payload/lib/$name" ]; then
                   printf 'put %s -o %s\n' "${GITHUB_WORKSPACE}/deploy-payload/lib/$name" "/app/assets/.attendance-deploy-$name"
                 fi
@@ -368,7 +372,7 @@ jobs:
           while IFS= read -r file; do
             [ -n "${file}" ] || continue
             rel="${file#deploy-payload/}"
-            if [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ]; then
+            if [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
               echo "FTP verify skipped for ${rel} (host FTP denies direct write; host-side PHP installer verifies checksum)."
               continue
             fi

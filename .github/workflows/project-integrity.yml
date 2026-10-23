@@ -30,6 +30,7 @@ jobs:
           php php/tests/company_work_archive_test.php
           php php/tests/company_work_collect_test.php
           node php/tests/company_work_ui_test.cjs
+          node php/tests/company_work_deployment_test.cjs
           php php/tests/login_policy_test.php
           node php/tests/login_policy_ui_test.cjs
           php php/tests/work_policy_requests_test.php
