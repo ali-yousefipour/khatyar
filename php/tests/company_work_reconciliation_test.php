@@ -39,4 +39,3 @@ Db::$fail=true;$p3=CompanyWork::reconciliationPreview(8);try{CompanyWork::reconc
 yes('locks released on failures',Db::$released);yes('no changes to attendance, missions or original finalization',!array_filter(Db::$writes,fn($q)=>preg_match('/^(UPDATE|DELETE|INSERT INTO) (staff_attendance|requests|finalized_work_months)\b/',$q)));
 Db::$lock=0;denied('concurrent month processing blocked',409,fn()=>CompanyWork::reconciliationApply(8,$p3['token'],'قفل همزمان',7));
 echo "Company reconciliation tests passed\n";
-
