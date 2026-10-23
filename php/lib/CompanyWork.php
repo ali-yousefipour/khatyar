@@ -106,7 +106,8 @@ class CompanyWork {
   static function schema(){
     static $ready=false;if($ready)return;
     Db::run("CREATE TABLE IF NOT EXISTS company_work_sources (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,jy SMALLINT NOT NULL,jm TINYINT NOT NULL,file_name VARCHAR(255) NOT NULL,storage_key CHAR(32) NOT NULL,sha256 CHAR(64) NOT NULL,rows_json LONGTEXT NOT NULL,created_by BIGINT NOT NULL,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,UNIQUE KEY period_hash(jy,jm,sha256)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    Db::run("CREATE TABLE IF NOT EXISTS company_work_files (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,source_id BIGINT UNSIGNED NOT NULL,jy SMALLINT NOT NULL,jm TINYINT NOT NULL,storage_key CHAR(32) NOT NULL,sha256 CHAR(64) NOT NULL,snapshot_json LONGTEXT NOT NULL,created_by BIGINT NOT NULL,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,KEY period_idx(jy,jm),KEY source_idx(source_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");$ready=true;
+    Db::run("CREATE TABLE IF NOT EXISTS company_work_files (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,source_id BIGINT UNSIGNED NOT NULL,jy SMALLINT NOT NULL,jm TINYINT NOT NULL,storage_key CHAR(32) NOT NULL,sha256 CHAR(64) NOT NULL,snapshot_json LONGTEXT NOT NULL,created_by BIGINT NOT NULL,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,KEY period_idx(jy,jm),KEY source_idx(source_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    Db::run("CREATE TABLE IF NOT EXISTS company_work_deleted (kind VARCHAR(10) NOT NULL,archive_id BIGINT UNSIGNED NOT NULL,deleted_by BIGINT NOT NULL,deleted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(kind,archive_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");$ready=true;
   }
   static function directory(){
     $dir=dirname(__DIR__).'/storage/company_work';
@@ -115,16 +116,29 @@ class CompanyWork {
   }
   static function path($key){if(!preg_match('/^[a-f0-9]{32}$/D',(string)$key))throw new RuntimeException('Invalid archive key');return static::directory().'/'.$key.'.xlsx';}
   static function json($value){return json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);}
-  static function source($id){$s=Db::one('SELECT * FROM company_work_sources WHERE id=?',[(int)$id]);if(!$s)self::fail('فایل سازمان یافت نشد',404);return $s;}
+  static function archiveRecord($kind,$id){
+    $table=match($kind){'sources'=>'company_work_sources','files'=>'company_work_files',default=>null};
+    if(!$table||(int)$id<=0)self::fail('شناسهٔ آرشیو نامعتبر است',422);
+    $r=Db::one("SELECT a.*,d.deleted_at FROM $table a LEFT JOIN company_work_deleted d ON d.kind=? AND d.archive_id=a.id WHERE a.id=?",[$kind,(int)$id]);
+    if(!$r)self::fail('مورد آرشیو یافت نشد',404);return $r;
+  }
+  static function archiveChange($kind,$id,$actor,$restore=false){
+    self::archiveRecord($kind,$id);
+    if($restore)Db::run('DELETE FROM company_work_deleted WHERE kind=? AND archive_id=?',[$kind,(int)$id]);
+    else Db::run('INSERT INTO company_work_deleted(kind,archive_id,deleted_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE archive_id=VALUES(archive_id)',[$kind,(int)$id,$actor]);
+    return ['id'=>(int)$id,'deleted'=>!$restore];
+  }
+  static function activeArchive($kind,$id){$r=self::archiveRecord($kind,$id);if(!empty($r['deleted_at']))self::fail('این مورد حذف شده است؛ ابتدا آن را از بخش حذف‌شده‌ها بازیابی کنید',409);return $r;}
+  static function source($id){return self::activeArchive('sources',$id);}
   static function import($path,$name,$year,$month,$actor,$commit){
     $rows=self::parse($path,$year,$month);$matched=self::matchRows($rows,self::users());
     if(!$commit)return ['rows'=>$matched,'sha256'=>hash_file('sha256',$path)];
     $hash=hash_file('sha256',$path);$old=Db::one('SELECT id FROM company_work_sources WHERE jy=? AND jm=? AND sha256=?',[$year,$month,$hash]);
-    if($old)return ['id'=>(int)$old['id'],'duplicate'=>true,'rows'=>$matched];
+    if($old){Db::run("DELETE FROM company_work_deleted WHERE kind='sources' AND archive_id=?",[(int)$old['id']]);return ['id'=>(int)$old['id'],'duplicate'=>true,'rows'=>$matched];}
     $key=bin2hex(random_bytes(16));$target=static::path($key);
     if(!copy($path,$target))throw new RuntimeException('ذخیرهٔ فایل سازمان ناموفق بود');chmod($target,0600);
     try{$id=Db::insert('INSERT INTO company_work_sources(jy,jm,file_name,storage_key,sha256,rows_json,created_by) VALUES(?,?,?,?,?,?,?)',[$year,$month,mb_substr(basename($name),0,250),$key,$hash,self::json($rows),$actor]);}
-    catch(Throwable $e){unlink($target);$old=Db::one('SELECT id FROM company_work_sources WHERE jy=? AND jm=? AND sha256=?',[$year,$month,$hash]);if($old)return ['id'=>(int)$old['id'],'duplicate'=>true,'rows'=>$matched];throw $e;}
+    catch(Throwable $e){unlink($target);$old=Db::one('SELECT id FROM company_work_sources WHERE jy=? AND jm=? AND sha256=?',[$year,$month,$hash]);if($old){Db::run("DELETE FROM company_work_deleted WHERE kind='sources' AND archive_id=?",[(int)$old['id']]);return ['id'=>(int)$old['id'],'duplicate'=>true,'rows'=>$matched];}throw $e;}
     return ['id'=>$id,'rows'=>$matched];
   }
   static function date($v){$date=IranCalendar::normalize($v);if(!$date)return null;[$gy,$gm,$gd]=IranCalendar::toGregorian(...array_map('intval',explode('-',$date)));return new DateTimeImmutable(sprintf('%04d-%02d-%02d',$gy,$gm,$gd),new DateTimeZone('Asia/Tehran'));}

@@ -1,27 +1,38 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const bundle=fs.readFileSync(path.join(__dirname,'../app/assets/panel.bundle.js'),'utf8');
+const dates=vm.createContext({faPlain:v=>String(v).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d])});
+vm.runInContext(bundle.slice(bundle.indexOf('function _g2j('),bundle.indexOf('function faTime(')),dates);
+assert.equal(dates.faDate('2026-10-23 12:30:00'),'۱۴۰۵/۰۸/۰۱ ۱۲:۳۰');
+assert.equal(dates.faDate('2026-10-22T21:00:00Z'),'۱۴۰۵/۰۸/۰۱ ۰۰:۳۰');
+assert.equal(dates.faDate(null),'—');
 const code=bundle.slice(bundle.indexOf('function CompanyWorkReport('),bundle.indexOf('function ShiftReport('));
 const states=[],effects=[],calls=[],downloads=[];let index=0,pending=[],response,props={year:1405,month:7,onPeriodChange(){}};
 function nodes(t,p){if(Array.isArray(t))return t.flatMap(x=>nodes(x,p));if(!t||typeof t!=='object')return [];return [...(p(t)?[t]:[]),...nodes(t.props.children,p)];}
 function text(t){if(Array.isArray(t))return t.map(text).join('');if(t==null||typeof t==='boolean')return '';return typeof t==='object'?text(t.props.children):String(t);}
 function deferred(){let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};}
+const dateCalls=[];let confirmDelete=true;
 const c=vm.createContext({React:{createElement:(type,props,...children)=>({type,props:{...props,children}}),Fragment:'Fragment'},Modal:'Modal',
   useState:v=>{const i=index++;if(!(i in states))states[i]=v;return [states[i],value=>states[i]=typeof value==='function'?value(states[i]):value];},
   useRef:v=>{const i=index++;return states[i]||(states[i]={current:v});},
   useEffect:(cb,deps)=>{const i=index++;if(!effects[i])pending.push(()=>{effects[i]={cleanup:cb()};});},
-  AbortController,FormData,API_BASE:'/api',tok:()=>({Authorization:'Bearer test'}),J_MONTHS:Array.from({length:12},(_,i)=>String(i+1)),faPlain:String,fa:v=>Number(v).toLocaleString('en-US'),
+  window:{confirm:()=>confirmDelete},faDate:v=>{dateCalls.push(v);return 'شمسی:'+v;},AbortController,FormData,API_BASE:'/api',tok:()=>({Authorization:'Bearer test'}),J_MONTHS:Array.from({length:12},(_,i)=>String(i+1)),faPlain:String,fa:v=>Number(v).toLocaleString('en-US'),
   fetch:async(url,options)=>{calls.push({url,options});return response(url,options);},
   URL:{createObjectURL:()=> 'blob:test',revokeObjectURL:u=>downloads.push(['revoke',u])},setTimeout:cb=>cb(),
   document:{createElement:()=>({click(){downloads.push(['download',this.download]);}})}
 });vm.runInContext(code,c);
 function render(){index=0;const tree=c.CompanyWorkReport(props);const queue=pending;pending=[];queue.forEach(cb=>cb());return tree;}
 function button(tree,label){const b=nodes(tree,n=>n.type==='button'&&text(n)===label)[0];assert(b,'button '+label);return b;}
-const ok=data=>({ok:true,text:async()=>JSON.stringify(data)}),archive={sources:[{id:1,file_name:'نمونه.xlsx',created_at:'2026-10-23'}],files:[],account_fields:[{id:7,label:'شماره حساب'}]};
+const ok=data=>({ok:true,text:async()=>JSON.stringify(data)}),archive={sources:[{id:1,file_name:'نمونه.xlsx',created_at:'2026-10-23'}],files:[{id:2,source_id:1,created_at:'2026-10-23 12:30:00'}],account_fields:[{id:7,label:'شماره حساب'}]};
 const settle=()=>new Promise(r=>setImmediate(r));
 (async()=>{
   response=async()=>ok(archive);let tree=render();await settle();tree=render();
   assert(text(tree).includes('فایل نهایی شرکت'));assert(button(tree,'ساخت و آرشیو فایل شرکت').props.disabled,'explicit account field required');
   const selects=nodes(tree,n=>n.type==='select');assert.equal(selects[0].props['aria-label'],'سال گزارش شرکت');assert.equal(text(nodes(selects[0],n=>n.type==='option'&&n.props.value===1405)[0]),'1405','year label has no thousands separator');selects.at(-1).props.onChange({target:{value:'7'}});tree=render();assert(!button(tree,'ساخت و آرشیو فایل شرکت').props.disabled);
+  assert(dateCalls.includes('2026-10-23')&&dateCalls.includes('2026-10-23 12:30:00'),'both archive timestamps use date formatter');
+  confirmDelete=false;const beforeCancel=calls.length;button(tree,'حذف فایل سازمان').props.onClick();assert.equal(calls.length,beforeCancel,'cancel leaves archive intact');
+  confirmDelete=true;response=async(url,options)=>options.method==='DELETE'?ok({deleted:true}):ok({...archive,sources:archive.sources.map(r=>({...r,deleted_at:'2026-10-23 13:00:00'}))});
+  await button(tree,'حذف فایل سازمان').props.onClick();tree=render();assert(text(tree).includes('موارد حذف‌شده'));assert(!nodes(tree,n=>n.type==='button'&&text(n)==='دانلود فایل سازمان').length);assert(dateCalls.includes('2026-10-23 13:00:00'),'deletion timestamp is Persian too');
+  response=async(url,options)=>options.method==='POST'?ok({deleted:false}):ok(archive);await button(tree,'بازیابی').props.onClick();tree=render();assert(button(tree,'دانلود فایل سازمان'));assert(calls.some(x=>x.url.endsWith('/sources/1/restore')&&x.options.method==='POST'));
   const row={source_row:4,first_name:'کاربر',last_name:'نمونه',personnel_code:'0007',role:'ناظر',friday_hours:0,holiday_hours:1.5,overtime_hours:2,errors:['شماره نادرست'],suggested_code:'0009'};
   response=async()=>ok({rows:[row]});await button(tree,'جزئیات و تطبیق').props.onClick();tree=render();assert(text(tree).includes('کاربر'));assert(text(tree).includes('0007'));assert(text(tree).includes('0009'));assert(text(tree).includes('شماره نادرست'));
   const query=nodes(tree,n=>n.type==='input'&&!n.props.type)[0];query.props.onChange({target:{value:'ناموجود'}});tree=render();assert(!nodes(tree,n=>n.type==='td').some(n=>text(n)==='کاربر'),'detail search filters real rows');

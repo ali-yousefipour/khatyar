@@ -12242,6 +12242,18 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 10000);
     });
+    const changeArchive = (kind, id, restore = false) => {
+        if (!restore && !window.confirm("این مورد از آرشیو فعال حذف شود؟ امکان بازیابی از بخش حذف‌شده‌ها وجود دارد. فایل‌های وابسته حفظ می‌شوند."))
+            return;
+        return action(restore ? "بازیابی…" : "حذف از آرشیو…", async () => {
+            await request("/" + kind + "/" + id + (restore ? "/restore" : ""), { method: restore ? "POST" : "DELETE" });
+            if (!life.current.alive)
+                return;
+            setDetail(null);
+            setPreview(null);
+            await load();
+        });
+    };
     const normalize = value => String(value !== null && value !== void 0 ? value : "").replace(/[يك]/g, c => c === "ي" ? "ی" : "ک").replace(/[۰-۹]/g, c => "۰۱۲۳۴۵۶۷۸۹".indexOf(c)).toLowerCase();
     const visible = ((detail === null || detail === void 0 ? void 0 : detail.rows) || []).filter(r => normalize([r.first_name, r.last_name, r.personnel_code, r.role, ...(r.errors || [])].join(" ")).includes(normalize(query)));
     const columns = [["first_name", "نام"], ["last_name", "نام خانوادگی"], ["personnel_code", "شماره پرسنلی"], ["role", "سمت"], ["friday_hours", "جمعه‌کاری (ساعت)"], ["holiday_hours", "تعطیل‌کاری (ساعت)"], ["overtime_hours", "اضافه‌کاری (ساعت)"]];
@@ -12270,7 +12282,7 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
                 React.createElement("button", { className: "btn", disabled: !file || !!busy, onClick: () => upload("preview") }, "\u0628\u0631\u0631\u0633\u06CC \u0648 \u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634"),
                 React.createElement("button", { className: "btn p", disabled: !preview || !!busy, onClick: () => upload("commit") }, "\u062B\u0628\u062A \u0641\u0627\u06CC\u0644 \u0628\u0631\u0631\u0633\u06CC\u200C\u0634\u062F\u0647 \u062F\u0631 \u0622\u0631\u0634\u06CC\u0648"))),
         React.createElement("h4", { style: { marginTop: 24 } }, "\u06A9\u0627\u0631\u06A9\u0631\u062F\u0647\u0627\u06CC \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
-        !archive ? React.createElement("p", { className: "muted" }, error ? "آرشیو دریافت نشد؛ دوباره تلاش کنید." : "در حال دریافت آرشیو…") : archive.sources.length === 0 ? React.createElement("p", { className: "muted" }, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0647\u0646\u0648\u0632 \u0641\u0627\u06CC\u0644\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") : React.createElement(React.Fragment, null,
+        !archive ? React.createElement("p", { className: "muted" }, error ? "آرشیو دریافت نشد؛ دوباره تلاش کنید." : "در حال دریافت آرشیو…") : archive.sources.filter(s => !s.deleted_at).length === 0 ? React.createElement("p", { className: "muted" }, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0647\u0646\u0648\u0632 \u0641\u0627\u06CC\u0644\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") : React.createElement(React.Fragment, null,
             React.createElement("label", null,
                 "\u0641\u06CC\u0644\u062F \u0634\u0645\u0627\u0631\u0647 \u062D\u0633\u0627\u0628 \u062F\u0631 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u067E\u0631\u0633\u0646\u0644",
                 React.createElement("select", { className: "input", disabled: !!busy, value: account, onChange: e => setAccount(e.target.value) },
@@ -12278,18 +12290,19 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
                     archive.account_fields.map(f => React.createElement("option", { key: f.id, value: f.id }, f.label)))),
             !archive.account_fields.length && React.createElement("p", { role: "alert" }, "\u0641\u06CC\u0644\u062F \u0634\u0645\u0627\u0631\u0647 \u062D\u0633\u0627\u0628 \u062F\u0631 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062A\u06A9\u0645\u06CC\u0644\u06CC \u067E\u0631\u0633\u0646\u0644 \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A\u061B \u0627\u0628\u062A\u062F\u0627 \u0622\u0646 \u0631\u0627 \u062F\u0631 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0641\u06CC\u0644\u062F\u0647\u0627 \u0627\u06CC\u062C\u0627\u062F \u0648 \u062A\u06A9\u0645\u06CC\u0644 \u06A9\u0646\u06CC\u062F."),
             React.createElement("p", { className: "muted" }, "\u0645\u0631\u062E\u0635\u06CC \u0627\u0633\u062A\u062D\u0642\u0627\u0642\u06CC: \u0645\u062C\u0645\u0648\u0639 \u0631\u0648\u0632\u0647\u0627\u06CC \u0631\u0648\u0632\u0627\u0646\u0647 \u00D7 \u06F4\u06F5\u06F3 \u062F\u0642\u06CC\u0642\u0647 + \u062F\u0642\u0627\u06CC\u0642 \u0633\u0627\u0639\u062A\u06CC\u060C \u062A\u0642\u0633\u06CC\u0645 \u0628\u0631 \u06F4\u06F5\u06F3. \u063A\u06CC\u0628\u062A \u0627\u0632 \u0634\u0631\u0648\u0639 \u0647\u0645\u06A9\u0627\u0631\u06CC \u062A\u0627 \u0631\u0648\u0632\u0647\u0627\u06CC \u067E\u0627\u06CC\u0627\u0646\u200C\u06CC\u0627\u0641\u062A\u0647 \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F. \u0641\u0627\u06CC\u0644 \u0645\u0627\u0647 \u062C\u0627\u0631\u06CC \u0634\u0627\u0645\u0644 \u062F\u0627\u062F\u0647\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u062A\u0627 \u0627\u0645\u0631\u0648\u0632 \u0627\u0633\u062A."),
-            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,300px),1fr))", gap: 12 } }, archive.sources.map(s => React.createElement("article", { key: s.id, style: { padding: 14, border: "1px solid var(--border,#ddd)", borderRadius: 12 } },
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,300px),1fr))", gap: 12 } }, archive.sources.filter(s => !s.deleted_at).map(s => React.createElement("article", { key: s.id, style: { padding: 14, border: "1px solid var(--border,#ddd)", borderRadius: 12 } },
                 React.createElement("strong", { style: { overflowWrap: "anywhere" } }, s.file_name),
                 React.createElement("p", { className: "muted" },
                     "\u062B\u0628\u062A: ",
-                    faPlain(s.created_at)),
+                    faDate(s.created_at)),
                 React.createElement("div", { className: "row", style: { gap: 6, flexWrap: "wrap" } },
                     React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => showSource(s.id) }, "\u062C\u0632\u0626\u06CC\u0627\u062A \u0648 \u062A\u0637\u0628\u06CC\u0642"),
                     React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => download("sources", s.id) }, "\u062F\u0627\u0646\u0644\u0648\u062F \u0641\u0627\u06CC\u0644 \u0633\u0627\u0632\u0645\u0627\u0646"),
-                    React.createElement("button", { className: "btn p", disabled: !!busy || !account, onClick: () => generate(s.id) }, "\u0633\u0627\u062E\u062A \u0648 \u0622\u0631\u0634\u06CC\u0648 \u0641\u0627\u06CC\u0644 \u0634\u0631\u06A9\u062A")))))),
+                    React.createElement("button", { className: "btn p", disabled: !!busy || !account, onClick: () => generate(s.id) }, "\u0633\u0627\u062E\u062A \u0648 \u0622\u0631\u0634\u06CC\u0648 \u0641\u0627\u06CC\u0644 \u0634\u0631\u06A9\u062A"),
+                    React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => changeArchive("sources", s.id) }, "\u062D\u0630\u0641 \u0641\u0627\u06CC\u0644 \u0633\u0627\u0632\u0645\u0627\u0646")))))),
         React.createElement("h4", { style: { marginTop: 24 } }, "\u0622\u0631\u0634\u06CC\u0648 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627\u06CC \u0646\u0647\u0627\u06CC\u06CC \u0634\u0631\u06A9\u062A"),
-        archive && !archive.files.length && React.createElement("p", { className: "muted" }, "\u0647\u0646\u0648\u0632 \u062E\u0631\u0648\u062C\u06CC \u0634\u0631\u06A9\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
-        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,300px),1fr))", gap: 12 } }, archive === null || archive === void 0 ? void 0 : archive.files.map(f => React.createElement("article", { key: f.id, style: { padding: 14, border: "1px solid var(--border,#ddd)", borderRadius: 12 } },
+        archive && !archive.files.filter(f => !f.deleted_at).length && React.createElement("p", { className: "muted" }, "\u0647\u0646\u0648\u0632 \u062E\u0631\u0648\u062C\u06CC \u0634\u0631\u06A9\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,300px),1fr))", gap: 12 } }, archive === null || archive === void 0 ? void 0 : archive.files.filter(f => !f.deleted_at).map(f => React.createElement("article", { key: f.id, style: { padding: 14, border: "1px solid var(--border,#ddd)", borderRadius: 12 } },
             React.createElement("strong", null,
                 "\u0646\u0633\u062E\u0647\u0654 ",
                 fa(f.id),
@@ -12299,12 +12312,23 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
                 fa(year)),
             React.createElement("p", { className: "muted" },
                 "\u062A\u0648\u0644\u06CC\u062F: ",
-                faPlain(f.created_at),
+                faDate(f.created_at),
                 " | \u0641\u0627\u06CC\u0644 \u0633\u0627\u0632\u0645\u0627\u0646: ",
                 fa(f.source_id)),
             React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap" } },
                 React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => showFile(f.id) }, "\u062C\u0632\u0626\u06CC\u0627\u062A \u0646\u0633\u062E\u0647"),
-                React.createElement("button", { className: "btn p", disabled: !!busy, onClick: () => download("files", f.id) }, "\u062F\u0627\u0646\u0644\u0648\u062F XLSX"))))),
+                React.createElement("button", { className: "btn p", disabled: !!busy, onClick: () => download("files", f.id) }, "\u062F\u0627\u0646\u0644\u0648\u062F XLSX"),
+                React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => changeArchive("files", f.id) }, "\u062D\u0630\u0641 \u0646\u0633\u062E\u0647\u0654 \u0634\u0631\u06A9\u062A"))))),
+        archive && [...archive.sources, ...archive.files].some(r => r.deleted_at) && React.createElement("div", { style: { marginTop: 24 } },
+            React.createElement("h4", null, "\u0645\u0648\u0627\u0631\u062F \u062D\u0630\u0641\u200C\u0634\u062F\u0647 (\u0642\u0627\u0628\u0644 \u0628\u0627\u0632\u06CC\u0627\u0628\u06CC)"),
+            [...[...archive.sources].filter(r => r.deleted_at).map(r => ({ ...r, kind: "sources" })), ...archive.files.filter(r => r.deleted_at).map(r => ({ ...r, kind: "files" }))].map(r => React.createElement("article", { key: r.kind + r.id, style: { padding: 14, border: "1px solid var(--border,#ddd)", borderRadius: 12, marginBottom: 8 } },
+                React.createElement("strong", null, r.kind === "sources" ? r.file_name : "نسخهٔ شرکت " + fa(r.id)),
+                React.createElement("p", { className: "muted" },
+                    "\u062B\u0628\u062A: ",
+                    faDate(r.created_at),
+                    " | \u062D\u0630\u0641: ",
+                    faDate(r.deleted_at)),
+                React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => changeArchive(r.kind, r.id, true) }, "\u0628\u0627\u0632\u06CC\u0627\u0628\u06CC")))),
         detail && React.createElement(Modal, { title: detail.title, onClose: () => setDetail(null), style: { width: "min(96vw,1500px)" } },
             React.createElement("button", { type: "button", className: "btn", onClick: () => setDetail(null) }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A"),
             detail.account_field && React.createElement("p", { className: "muted" },

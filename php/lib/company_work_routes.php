@@ -9,7 +9,7 @@ function _company_work_route($method,$path,$handler){
 }
 _company_work_route('GET','',function($p,$b,$u){
   [$y,$m]=Payroll::period((int)($_GET['year']??0),(int)($_GET['month']??0));
-  return ['sources'=>Db::all('SELECT id,jy,jm,file_name,created_at FROM company_work_sources WHERE jy=? AND jm=? ORDER BY id DESC',[$y,$m]),'files'=>Db::all('SELECT id,source_id,jy,jm,created_at FROM company_work_files WHERE jy=? AND jm=? ORDER BY id DESC',[$y,$m]),'account_fields'=>Db::all('SELECT id,label,fkey FROM custom_fields WHERE is_active=1 ORDER BY sort_order,id')];
+  return ['sources'=>Db::all('SELECT a.id,a.jy,a.jm,a.file_name,a.created_at,d.deleted_at FROM company_work_sources a LEFT JOIN company_work_deleted d ON d.kind=\'sources\' AND d.archive_id=a.id WHERE a.jy=? AND a.jm=? ORDER BY a.id DESC',[$y,$m]),'files'=>Db::all('SELECT a.id,a.source_id,a.jy,a.jm,a.created_at,d.deleted_at FROM company_work_files a LEFT JOIN company_work_deleted d ON d.kind=\'files\' AND d.archive_id=a.id WHERE a.jy=? AND a.jm=? ORDER BY a.id DESC',[$y,$m]),'account_fields'=>Db::all('SELECT id,label,fkey FROM custom_fields WHERE is_active=1 ORDER BY sort_order,id')];
 });
 _company_work_route('POST','/import',function($p,$b,$u){
   // Http::body is the JSON/urlencoded contract. PHP exposes multipart fields in $_POST.
@@ -24,5 +24,10 @@ _company_work_route('POST','/import',function($p,$b,$u){
 _company_work_route('GET','/sources/{id}',function($p,$b,$u){$s=CompanyWork::source($p['id']);return ['id'=>(int)$s['id'],'year'=>(int)$s['jy'],'month'=>(int)$s['jm'],'rows'=>CompanyWork::matchRows(json_decode($s['rows_json'],true,512,JSON_THROW_ON_ERROR),CompanyWork::users())];});
 _company_work_route('GET','/sources/{id}/download',function($p,$b,$u){$s=CompanyWork::source($p['id']);CompanyWork::download($s,$s['file_name']);});
 _company_work_route('POST','/sources/{id}/generate',function($p,$b,$u){return CompanyWork::generate(CompanyWork::source($p['id']),(int)($b['account_field_id']??0),(int)$u['id']);});
-_company_work_route('GET','/files/{id}',function($p,$b,$u){$f=Db::one('SELECT snapshot_json FROM company_work_files WHERE id=?',[(int)$p['id']]);if(!$f)CompanyWork::fail('فایل شرکت یافت نشد',404);return ['id'=>(int)$p['id'],'snapshot'=>json_decode($f['snapshot_json'],true,512,JSON_THROW_ON_ERROR)];});
-_company_work_route('GET','/files/{id}/download',function($p,$b,$u){$f=Db::one('SELECT * FROM company_work_files WHERE id=?',[(int)$p['id']]);if(!$f)CompanyWork::fail('فایل شرکت یافت نشد',404);CompanyWork::download($f,'کارکرد-شرکت-'.$f['jy'].'-'.$f['jm'].'.xlsx');});
+_company_work_route('GET','/files/{id}',function($p,$b,$u){$f=CompanyWork::activeArchive('files',$p['id']);return ['id'=>(int)$p['id'],'snapshot'=>json_decode($f['snapshot_json'],true,512,JSON_THROW_ON_ERROR)];});
+_company_work_route('GET','/files/{id}/download',function($p,$b,$u){$f=CompanyWork::activeArchive('files',$p['id']);CompanyWork::download($f,'کارکرد-شرکت-'.$f['jy'].'-'.$f['jm'].'.xlsx');});
+
+foreach(['sources','files'] as $kind){
+  _company_work_route('DELETE','/'.$kind.'/{id}',function($p,$b,$u)use($kind){return CompanyWork::archiveChange($kind,$p['id'],(int)$u['id']);});
+  _company_work_route('POST','/'.$kind.'/{id}/restore',function($p,$b,$u)use($kind){return CompanyWork::archiveChange($kind,$p['id'],(int)$u['id'],true);});
+}
