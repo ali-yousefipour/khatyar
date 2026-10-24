@@ -9943,9 +9943,13 @@ route('POST', '/api/admin/import/{kind}', function($p,$b,$u){
 // ورود قطعه‌قطعهٔ اکسل: ردیف‌ها به‌صورت JSON از مرورگر می‌آیند (برای فایل‌های حجیم)
 // بدنه: { rows: [[سلول‌ها...], ...], offset: شمارهٔ ردیف شروع این قطعه }
 route('POST', '/api/admin/import-chunk/{kind}', function($p,$b,$u){
-  @ini_set('memory_limit','512M'); @set_time_limit(300);
+  @ini_set('memory_limit','512M'); @set_time_limit(150);
   $rows = $b['rows'] ?? null;
   if (!is_array($rows)) Http::error('داده‌ای برای ورود ارسال نشد', 400);
+  // Protect PHP workers and MySQL from long multi-table bill upserts.
+  // One header row is included by the client in each request.
+  $maxRows = ($p['kind'] === 'bills') ? 76 : 301;
+  if (count($rows) > $maxRows) Http::error('تعداد ردیف‌های قطعه بیش از حد مجاز است؛ بسته را کوچک‌تر ارسال کنید', 413);
   $offset = (int)($b['offset'] ?? 0);
   require_once __DIR__.'/Xlsx.php';
   $res = Importer::runRows($p['kind'], $rows, $offset);
