@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const root=path.join(__dirname,'../..'),flow=fs.readFileSync(path.join(root,'.github/workflows/deploy-php.yml'),'utf8');
 const upload=flow.slice(flow.indexOf('- name: Upload changed PHP files'),flow.indexOf('- name: Verify uploaded FTP files'));
 const verify=flow.slice(flow.indexOf('- name: Verify uploaded FTP files'),flow.indexOf('- name: Delete removed PHP files'));
-for(const name of ['CompanyWork.php','company_work_routes.php','company-work-template.xlsx']){
+for(const name of ['Xlsx.php','CompanyWork.php','company_work_routes.php','company-work-template.xlsx']){
   assert(upload.includes('[ "${rel}" = "lib/'+name+'" ]'),'skip denied direct FTP: '+name);
   assert(upload.includes('[ -f deploy-payload/lib/'+name+' ]'),'trigger protected installer: '+name);
   assert(upload.includes("'"+name+"' => '"+name+"'"),'installer allowlist: '+name);
