@@ -125,7 +125,7 @@ class Importer {
   }
 
   public static function run($kind, $path, $rowsOverride = null, $rowOffset = 0) {
-    @ini_set('memory_limit', '512M'); @set_time_limit(900);
+    @ini_set('memory_limit', '512M'); @set_time_limit(is_array($rowsOverride) ? 150 : 900);
     $pdo = Db::pdo();
     $ZW = "\u{200c}";
     $h = null; $imported = 0; $skipped = 0; $errors = [];
