@@ -7943,34 +7943,43 @@ function ExcelImport() {
     const [result, setResult] = useState(null);
     const [stage, setStage] = useState("");
     const [progress, setProgress] = useState(null);
-    const CHUNK = 300; // تعداد ردیف در هر قطعه
-    // ورود قطعه‌قطعه برای فایل‌های حجیم: خواندن در مرورگر، تقسیم، ارسال تکه‌تکه
+    // Bounded import batches avoid long writes against large bills tables.
     const upChunked = async (kind, file) => {
         setStage("در حال خواندن فایل اکسل…");
-        const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf, { type: "array" });
+        const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" });
-        if (!aoa.length)
+        if (!ws || !ws["!ref"])
             throw new Error("فایل خالی است");
-        const header = aoa[0]; // ردیف سرستون
-        const dataRows = aoa.slice(1); // ردیف‌های داده (بدون سرستون)
-        const total = dataRows.length;
-        let imported = 0, skipped = 0;
+        const bounds = XLSX.utils.decode_range(ws["!ref"]);
+        const first = bounds.s.r;
+        const total = Math.max(0, bounds.e.r - first);
+        const take = (from, to) => XLSX.utils.sheet_to_json(ws, {
+            header: 1, raw: false, defval: "", blankrows: true,
+            range: XLSX.utils.encode_range({ s: { r: from, c: 0 }, e: { r: to, c: bounds.e.c } })
+        });
+        const header = take(first, first)[0] || [];
+        if (!header.length || !total)
+            throw new Error("فایل فاقد ردیف قابل بارگذاری است");
+        const chunkSize = kind === "bills" ? 50 : 300;
+        let pos = 0, imported = 0, skipped = 0;
         const errors = [];
-        // هر قطعه شامل ردیف سرستون + بخشی از داده‌ها است، و offset=0 تا سرور همیشه سرستون را تشخیص دهد
-        let pos = 0;
         while (pos < total) {
-            const slice = dataRows.slice(pos, pos + CHUNK);
-            const chunk = [header, ...slice]; // سرستون + داده‌های این قطعه
-            setStage(`در حال ارسال ردیف‌های ${fa(pos + 1)} تا ${fa(Math.min(pos + CHUNK, total))} از ${fa(total)}…`);
-            setProgress(Math.round((pos / total) * 100));
-            const r = await SEND("POST", "/admin/import-chunk/" + kind, { rows: chunk, offset: 0 });
+            const length = Math.min(chunkSize, total - pos);
+            const slice = take(first + pos + 1, first + pos + length);
+            setStage(`در حال ثبت ردیف‌های ${fa(pos + 1)} تا ${fa(pos + length)} از ${fa(total)}…`);
+            setProgress(Math.round(pos / total * 100));
+            let r;
+            try {
+                r = await SEND("POST", "/admin/import-chunk/" + kind, { rows: [header, ...slice], offset: 0 });
+            }
+            catch (e) {
+                throw new Error(`بارگذاری در ردیف ${fa(pos + 1)} متوقف شد (تعداد ثبت‌شده: ${fa(imported)}). ${e.message}. برای جلوگیری از تکرار فیش‌های فاقد شناسه، بسته ناموفق خودکار ارسال نمی‌شود.`);
+            }
             imported += r.imported || 0;
             skipped += r.skipped || 0;
             if (r.errors && r.errors.length && errors.length < 8)
                 errors.push(...r.errors.slice(0, 8 - errors.length));
-            pos += CHUNK;
+            pos += length;
         }
         setProgress(100);
         return { imported, skipped, errors };
@@ -7982,7 +7991,7 @@ function ExcelImport() {
         setBusy(kind);
         setResult(null);
         setProgress(null);
-        const big = file.size > 1.5 * 1024 * 1024; // فایل‌های بزرگ‌تر از ۱.۵ مگابایت → قطعه‌قطعه
+        const big = kind === "bills" || file.size > 1.5 * 1024 * 1024; // فایل‌های بزرگ‌تر از ۱.۵ مگابایت → قطعه‌قطعه
         const msgs = ["در حال آپلود فایل به سرور…", "در حال خواندن ردیف‌های اکسل…", "در حال ذخیره در دیتابیس…", "در حال نهایی‌سازی…"];
         let mi = 0;
         let iv = null;
