@@ -14689,6 +14689,9 @@ function _cronlog_record($cronKey, $status, $message, $isCli) {
 }
 function _v199_known_crons(){
   return [
+    ['key'=>'presence-alert','file'=>'cron_background.php presence-alert','title'=>'هشدار صحت‌سنجی حضور از سرور','schedule'=>'هر دقیقه','max_minutes'=>3],
+    ['key'=>'delivery-queue','file'=>'cron_background.php delivery-queue','title'=>'پردازش صف پایدار ارسال','schedule'=>'هر دقیقه','max_minutes'=>3],
+    ['key'=>'system-health','file'=>'cron_background.php system-health','title'=>'ثبت پایش سلامت سامانه','schedule'=>'هر پنج دقیقه','max_minutes'=>10],
     ['key'=>'auto-exit','file'=>'cron_auto_exit.php','title'=>'خروج خودکار رانندگان جامانده در خط','schedule'=>'هر ۱۵ دقیقه','max_minutes'=>30],
     ['key'=>'sms-expiry','file'=>'cron_sms_expiry.php','title'=>'پیامک هشدار انقضای اعتبار','schedule'=>'روزی یک‌بار (پیشنهاد ۸ صبح)','max_minutes'=>1560],
     ['key'=>'push-expiry','file'=>'cron_push_expiry.php','title'=>'پوش هشدار انقضای اعتبار','schedule'=>'روزی یک‌بار (پیشنهاد ۸ صبح)','max_minutes'=>1560],

@@ -41,6 +41,7 @@ jobs:
           node --check app/assets/school-service-admin.js
           php -l lib/Db.php
           for cron_file in app/cron*.php app/radio-cleanup.php; do php -l "$cron_file" || exit 1; done
+          php tests/cron_background_test.php
           php -l lib/Http.php
           php -l app/index.php
           php tests/attendance_peak_load_guard_test.php
