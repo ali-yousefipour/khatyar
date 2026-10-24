@@ -1,7 +1,7 @@
 <?php
 /**
  * Cron اختصاصی بله.
- * پیشنهاد cPanel: */5 * * * * php /path/to/php/app/cron_bale.php
+ * پیشنهاد cPanel: هر پنج دقیقه، اجرای PHP روی فایل cron_bale.php
  * اجرای مستقیم HTTP نیز با cron_key امکان‌پذیر است.
  */
 $ROOT = dirname(__DIR__);

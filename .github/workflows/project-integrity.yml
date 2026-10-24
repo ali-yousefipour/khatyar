@@ -23,6 +23,7 @@ jobs:
       - name: PHP syntax
         run: |
           php -v
+          for cron_file in php/app/cron*.php php/app/radio-cleanup.php; do php -l "$cron_file" || exit 1; done
           php -l php/lib/routes.php
           php -l php/lib/CompanyWork.php
           php -l php/lib/company_work_routes.php
