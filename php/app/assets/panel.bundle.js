@@ -7943,7 +7943,7 @@ function ExcelImport() {
     const [result, setResult] = useState(null);
     const [stage, setStage] = useState("");
     const [progress, setProgress] = useState(null);
-    // Bounded import batches avoid long writes against large bills tables.
+    // Smaller, bounded bill batches keep multi-table upserts below shared-host timeouts.
     const upChunked = async (kind, file) => {
         setStage("در حال خواندن فایل اکسل…");
         const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
@@ -7963,6 +7963,7 @@ function ExcelImport() {
         const chunkSize = kind === "bills" ? 50 : 300;
         let pos = 0, imported = 0, skipped = 0;
         const errors = [];
+        // Re-send the header with each slice so Importer can interpret each request independently.
         while (pos < total) {
             const length = Math.min(chunkSize, total - pos);
             const slice = take(first + pos + 1, first + pos + length);
