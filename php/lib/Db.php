@@ -5,12 +5,16 @@ class Db {
     if (self::$pdo) return self::$pdo;
     $c = require __DIR__ . '/../config.php';
     $dsn = "mysql:host={$c['db_host']};dbname={$c['db_name']};charset=utf8mb4";
-    self::$pdo = new PDO($dsn, $c['db_user'], $c['db_pass'], [
+    // The DSN already negotiates utf8mb4. Keep session settings as separate,
+    // portable statements instead of combining SET NAMES with a variable assignment.
+    $pdo = new PDO($dsn, $c['db_user'], $c['db_pass'], [
       PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
       PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
       PDO::ATTR_EMULATE_PREPARES => false,
-      PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci, time_zone = '+03:30'",
     ]);
+    $pdo->exec("SET SESSION collation_connection = 'utf8mb4_unicode_ci'");
+    $pdo->exec("SET SESSION time_zone = '+03:30'");
+    self::$pdo = $pdo;
     return self::$pdo;
   }
   private static function queryTiming($sql, $start) {
