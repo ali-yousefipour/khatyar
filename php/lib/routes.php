@@ -6885,7 +6885,9 @@ route('GET', '/api/media', function($p,$b,$u){
 function _live_location_sql($shiftOnly){
   // Older deployments have captured_at/synced_at but no received_at column.
   $hasReceived=(bool)Db::one("SHOW COLUMNS FROM location_pings LIKE 'received_at'");
-  $latestTime=$hasReceived?'COALESCE(last_ping.received_at,last_ping.captured_at)':'last_ping.captured_at';
+  // A ping row receives its monotonically increasing id when the server saves it.
+  // Use that ingestion order for the current location instead of sorting a user's
+  // entire history by a computed COALESCE expression on every map refresh.
   $receiptTime=$hasReceived?'COALESCE(lp.received_at,lp.captured_at)':'lp.captured_at';
   // Build against the actual deployed schema; a missing optional telemetry column
   // must not turn the entire online map into HTTP 500.
@@ -6915,8 +6917,8 @@ function _live_location_sql($shiftOnly){
           TIMESTAMPDIFF(SECOND, $receiptTime, NOW()) AS secs_ago,
           $vpnOn AS vpn_on, $batteryLevel AS battery_level, $batteryCharging AS battery_charging, $ipCountry AS ip_country, $lastIp AS last_ip
    FROM users u
-   JOIN location_pings lp ON lp.id=(SELECT last_ping.id FROM location_pings last_ping
-     WHERE last_ping.user_id=u.id ORDER BY $latestTime DESC,last_ping.id DESC LIMIT 1)
+   JOIN location_pings lp ON lp.id=(SELECT MAX(last_ping.id) FROM location_pings last_ping
+     WHERE last_ping.user_id=u.id)
    LEFT JOIN roles r ON r.id=u.role_id
    $netJoin
    $where";
@@ -10889,8 +10891,7 @@ route('GET', '/api/admin/presence', function($p,$b,$u){
       lp.lat, lp.lng, lp.captured_at, TIMESTAMPDIFF(SECOND, lp.captured_at, NOW()) secs
     FROM users u JOIN roles r ON r.id=u.role_id
     LEFT JOIN location_pings lp ON lp.id=(
-      SELECT lp1.id FROM location_pings lp1
-      WHERE lp1.user_id=u.id ORDER BY lp1.captured_at DESC, lp1.id DESC LIMIT 1
+      SELECT MAX(lp1.id) FROM location_pings lp1 WHERE lp1.user_id=u.id
     )
     WHERE u.is_active=1 ORDER BY name");
   $online=[]; $offline=[]; $inactive=[];
