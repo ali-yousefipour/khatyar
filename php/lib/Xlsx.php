@@ -130,10 +130,13 @@ class Importer {
     $ZW = "\u{200c}";
     $h = null; $imported = 0; $skipped = 0; $errors = [];
     $pdo->beginTransaction(); $sinceCommit = 0;
+    // Bill imports touch several indexed tables per row. Bound transaction duration
+    // and lock retention on large datasets without changing other import formats.
+    $commitEvery = ($kind === 'bills') ? 50 : 400;
     $noHeader = ($kind === 'vehicles'); // فایل خودروها ممکن است سرستون داشته یا نداشته باشد
     $vehHeader = false;
 
-    $handler = function($row, $i) use (&$h, &$imported, &$skipped, &$errors, &$sinceCommit, &$vehHeader, $kind, $ZW, $pdo, $noHeader) {
+    $handler = function($row, $i) use (&$h, &$imported, &$skipped, &$errors, &$sinceCommit, &$vehHeader, $commitEvery, $kind, $ZW, $pdo, $noHeader) {
       if ($kind === 'vehicles' && $i === 0) {
         $vals = array_map(fn($x)=>trim((string)$x), $row);
         if (in_array('شماره پلاک', $vals, true) || (isset($row[0]) && trim((string)$row[0])==='ردیف')) {
@@ -346,7 +349,7 @@ class Importer {
         $skipped++;
         if (count($errors) < 5) $errors[] = "ردیف " . ($i+1) . ": " . $e->getMessage();
       }
-      if (++$sinceCommit >= 400) { $pdo->commit(); $pdo->beginTransaction(); $sinceCommit = 0; }
+      if (++$sinceCommit >= $commitEvery) { $pdo->commit(); $pdo->beginTransaction(); $sinceCommit = 0; }
     };
 
     try {
