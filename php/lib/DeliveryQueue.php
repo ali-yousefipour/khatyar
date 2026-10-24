@@ -4,6 +4,7 @@
  * این کلاس برای جلوگیری از گم‌شدن پیام در زمان قطعی سرویس یا اینترنت استفاده می‌شود.
  */
 class DeliveryQueue {
+  private static $processing = false;
   public static function ensure() {
     try {
       Db::run("CREATE TABLE IF NOT EXISTS delivery_queue (
@@ -31,6 +32,8 @@ class DeliveryQueue {
   }
 
   public static function enqueue($channel, $to, $title, $body='', $payload=[], $targetType=null, $targetId=null, $maxAttempts=5) {
+    // The current row already owns its retries; failed providers must not clone it.
+    if (self::$processing) return false;
     self::ensure();
     try {
       Db::run("INSERT INTO delivery_queue(channel,target_type,target_id,to_value,title,body,payload,status,max_attempts,next_attempt_at)
@@ -48,6 +51,9 @@ class DeliveryQueue {
   }
 
   public static function process($limit=50) {
+    if (self::$processing) return ['ok'=>true,'processed'=>0,'sent'=>0,'failed'=>0];
+    self::$processing=true;
+    try {
     self::ensure();
     $limit = max(1, min(200, (int)$limit));
     $rows = Db::all("SELECT * FROM delivery_queue
@@ -85,5 +91,6 @@ class DeliveryQueue {
       }
     }
     return $out;
+    } finally { self::$processing=false; }
   }
 }

@@ -30,7 +30,9 @@ try {
 
   // اگر ارسال قبلی در صف ثبت شده باشد، تلاش مجدد محدود و کنترل‌شده انجام می‌شود.
   $retried = 0;
-  try {
+  // With the durable queue scheduled, this job maintains archives only.
+  $maintenanceOnly=$isCli&&in_array('--maintenance-only',$argv??[],true);
+  if(!$maintenanceOnly) try {
     $rows = Db::all("SELECT id,chat_id,body FROM bale_message_log WHERE status='failed' AND chat_id IS NOT NULL AND body IS NOT NULL AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) ORDER BY id ASC LIMIT 25");
     foreach ($rows as $r) {
       $res = BaleBot::sendMessage($r['chat_id'], $r['body'], ['target_type'=>'bale_cron_retry','target_id'=>$r['id']]);
@@ -38,6 +40,7 @@ try {
     }
   } catch (Throwable $e) { $log['retry_error']=$e->getMessage(); }
   $log['failed_messages_retried']=$retried;
+  $log['maintenance_only']=$maintenanceOnly;
 } catch (Throwable $e) {
   $log['ok']=false; $log['error']=$e->getMessage();
 }
