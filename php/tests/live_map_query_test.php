@@ -1,7 +1,7 @@
 <?php
 class Db {
-  static $received=false,$telemetry=false,$sql='';
-  static function one($sql,$params=[]){return self::$received?['Field'=>'received_at']:null;}
+  static $received=false,$telemetry=false,$netTable=true,$sql='';
+  static function one($sql,$params=[]){if(str_starts_with($sql,'SHOW TABLES'))return self::$netTable?['Tables_in_db'=>'user_net_state']:null;return self::$received?['Field'=>'received_at']:null;}
   static function all($sql,$params=[]){if(str_starts_with($sql,'SHOW COLUMNS'))return self::$telemetry ? array_map(static fn($name)=>['Field'=>$name],['ip_country','vpn_on','battery_level','battery_charging','last_ip','via_gsm']) : []; self::$sql=$sql;return [];}
   static function run($sql,$params=[]){throw new LogicException('Read path must not change schema');}
 }
@@ -11,7 +11,8 @@ eval(substr($source,$helperStart,$helperEnd-$helperStart));
 $marker="route('GET', '/api/locations/live', ";$start=strpos($source,$marker)+strlen($marker);$end=strpos($source,'}, false, ADMIN);',$start);
 $handler=eval('return '.substr($source,$start,$end-$start).'};');
 function check($condition,$message){if(!$condition)throw new LogicException($message);}
-foreach([false,true] as $received){foreach([false,true] as $shift){foreach([false,true] as $telemetry){
+foreach([false,true] as $received){foreach([false,true] as $shift){foreach([false,true] as $telemetry){foreach([false,true] as $netTable){
+  Db::$netTable=$netTable;
   Db::$telemetry=$telemetry;
   Db::$received=$received;$_GET=$shift?['shift_only'=>1]:[];$handler([],[],['id'=>1]);
   check(!str_contains(Db::$sql,'GROUP BY'),'Live query must not group the full ping history');
@@ -21,8 +22,9 @@ foreach([false,true] as $received){foreach([false,true] as $shift){foreach([fals
   check(str_contains(Db::$sql,'WHERE EXISTS')===$shift,'Shift filter must not duplicate users');
   foreach([' AS received_at',' AS online',' AS secs_ago',' AS via_gsm',' AS vpn_on',' AS battery_level',' AS battery_charging',' AS last_ip'] as $field)check(str_contains(Db::$sql,$field),'Preserve response field '.$field);
   check(str_contains(Db::$sql,'lp.via_gsm')===$telemetry,'Optional GSM telemetry column should only be referenced when present');
-  check(str_contains(Db::$sql,'ns.vpn_on')===$telemetry,'Optional VPN telemetry column should only be referenced when present');
-}}}
+  check(str_contains(Db::$sql,'ns.vpn_on')===($telemetry&&$netTable),'Optional VPN telemetry column should only be referenced when present');
+  check(str_contains(Db::$sql,'LEFT JOIN user_net_state')===$netTable,'Network state join must match deployed schema');
+}}}}
 echo "PASS live map query: legacy/current timestamp schema, per-user latest point, deterministic ties, shift isolation and response fields\n";
 
 // Presence must never aggregate the complete ping history for every refresh.
