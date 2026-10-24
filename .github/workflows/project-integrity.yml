@@ -43,6 +43,7 @@ jobs:
           php php/tests/request_substitute_scope_test.php
           node mobile/scripts/test-request-substitute-scope.cjs
           php php/tests/live_map_query_test.php
+          php php/tests/bill_import_chunk_scaling_test.php
           php php/tests/shift_rotation_test.php
           node php/tests/shift_rotation_ui_test.cjs
           node php/tests/shift_rotation_xlsx_test.cjs
