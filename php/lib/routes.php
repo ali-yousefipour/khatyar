@@ -6887,8 +6887,16 @@ function _live_location_sql($shiftOnly){
   $hasReceived=(bool)Db::one("SHOW COLUMNS FROM location_pings LIKE 'received_at'");
   $latestTime=$hasReceived?'COALESCE(last_ping.received_at,last_ping.captured_at)':'last_ping.captured_at';
   $receiptTime=$hasReceived?'COALESCE(lp.received_at,lp.captured_at)':'lp.captured_at';
+  // Build against the actual deployed schema; a missing optional telemetry column
+  // must not turn the entire online map into HTTP 500.
+  $pingColumns=array_column(Db::all("SHOW COLUMNS FROM location_pings"),'Field');
+  $viaGsm=in_array('via_gsm',$pingColumns,true)?'COALESCE(lp.via_gsm,0)':'0';
   $netColumns=array_column(Db::all("SHOW COLUMNS FROM user_net_state"),'Field');
   $ipCountry=in_array('ip_country',$netColumns,true)?'ns.ip_country':'NULL';
+  $vpnOn=in_array('vpn_on',$netColumns,true)?'COALESCE(ns.vpn_on,0)':'0';
+  $batteryLevel=in_array('battery_level',$netColumns,true)?'ns.battery_level':'NULL';
+  $batteryCharging=in_array('battery_charging',$netColumns,true)?'ns.battery_charging':'NULL';
+  $lastIp=in_array('last_ip',$netColumns,true)?'ns.last_ip':'NULL';
   $where = '';
   if ($shiftOnly) {
     // فقط کاربرانی که شیفت دارند و الان در ساعت شیفت‌شان هستند
@@ -6898,11 +6906,11 @@ function _live_location_sql($shiftOnly){
   return "SELECT lp.user_id, u.first_name, u.last_name,
           CASE WHEN u.photo_path IS NOT NULL AND u.photo_path<>'' THEN CONCAT('/api/media?path=', u.photo_path) ELSE u.photo END AS photo,
           u.role_id, r.title role_title, r.level, lp.lat, lp.lng, lp.captured_at,
-          COALESCE(lp.via_gsm,0) AS via_gsm,
+          $viaGsm AS via_gsm,
           $receiptTime AS received_at,
           ($receiptTime >= DATE_SUB(NOW(), INTERVAL 3 MINUTE)) AS online,
           TIMESTAMPDIFF(SECOND, $receiptTime, NOW()) AS secs_ago,
-          COALESCE(ns.vpn_on,0) AS vpn_on, ns.battery_level, ns.battery_charging, $ipCountry AS ip_country, ns.last_ip
+          $vpnOn AS vpn_on, $batteryLevel AS battery_level, $batteryCharging AS battery_charging, $ipCountry AS ip_country, $lastIp AS last_ip
    FROM users u
    JOIN location_pings lp ON lp.id=(SELECT last_ping.id FROM location_pings last_ping
      WHERE last_ping.user_id=u.id ORDER BY $latestTime DESC,last_ping.id DESC LIMIT 1)
@@ -10877,9 +10885,10 @@ route('GET', '/api/admin/presence', function($p,$b,$u){
   $rows = Db::all("SELECT u.id, CONCAT(u.first_name,' ',u.last_name) name, r.title role,
       lp.lat, lp.lng, lp.captured_at, TIMESTAMPDIFF(SECOND, lp.captured_at, NOW()) secs
     FROM users u JOIN roles r ON r.id=u.role_id
-    LEFT JOIN (SELECT lp1.user_id, lp1.lat, lp1.lng, lp1.captured_at FROM location_pings lp1
-               JOIN (SELECT user_id, MAX(captured_at) mx FROM location_pings GROUP BY user_id) m
-               ON m.user_id=lp1.user_id AND m.mx=lp1.captured_at) lp ON lp.user_id=u.id
+    LEFT JOIN location_pings lp ON lp.id=(
+      SELECT lp1.id FROM location_pings lp1
+      WHERE lp1.user_id=u.id ORDER BY lp1.captured_at DESC, lp1.id DESC LIMIT 1
+    )
     WHERE u.is_active=1 ORDER BY name");
   $online=[]; $offline=[]; $inactive=[];
   foreach ($rows as $r) {
