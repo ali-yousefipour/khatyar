@@ -12128,6 +12128,7 @@ function ShiftRotationReport({ year, month, onPeriodChange, disabled }) {
 }
 function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
     const [data, setData] = useState(null), [source, setSource] = useState(""), [officeScope, setOfficeScope] = useState(""), [preview, setPreview] = useState(null), [reason, setReason] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState(""), [person, setPerson] = useState(null), [original, setOriginal] = useState(null);
+    const [selected, setSelected] = useState([]);
     const life = useRef({ alive: true, locked: false, controller: null });
     const request = async (path, options = {}) => { const controller = new AbortController(); life.current.controller = controller; const r = await fetch(API_BASE + "/admin/company-work" + path, { ...options, headers: { ...tok(), ...(options.headers || {}) }, signal: controller.signal }); if (!r.ok) {
         let e = {};
@@ -12155,13 +12156,15 @@ function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
     useEffect(() => { life.current.alive = true; run(load); return () => { var _a; life.current.alive = false; (_a = life.current.controller) === null || _a === void 0 ? void 0 : _a.abort(); }; }, []);
     const compare = () => run(async () => { const r = await (await request("/reconciliation/preview/" + source + "?office_scope=" + officeScope)).json(); if (life.current.alive) {
         setPreview(r);
+        setSelected([]);
         setPerson(null);
     } });
     const apply = () => run(async () => { if (reason.trim().length < 3)
-        throw Error("علت ثبت تعدیل را وارد کنید"); const r = await (await request("/reconciliation/apply/" + preview.source_id, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: preview.token, reason, office_scope: preview.plan.office_scope }) })).json(); if (!life.current.alive)
-        return; setPreview({ ...preview, id: r.id }); await load(); });
+        throw Error("علت ثبت تعدیل را وارد کنید"); const r = await (await request("/reconciliation/apply/" + preview.source_id, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: preview.token, reason, office_scope: preview.plan.office_scope, selected_user_ids: selected }) })).json(); if (!life.current.alive)
+        return; setPreview(null); await load(); });
     const view = id => run(async () => { const r = await (await request("/reconciliation/batches/" + id)).json(); if (life.current.alive) {
         setPreview(r);
+        setSelected([]);
         setPerson(null);
     } });
     const revert = id => run(async () => { if (reason.trim().length < 3)
@@ -12188,7 +12191,7 @@ function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
             data && !data.finalized && React.createElement("p", { role: "alert" }, "\u0627\u0628\u062A\u062F\u0627 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0631\u0627 \u062F\u0631 \u062A\u0628 \u0646\u0647\u0627\u06CC\u06CC\u200C\u0633\u0627\u0632\u06CC \u062B\u0628\u062A \u06A9\u0646\u06CC\u062F."),
             React.createElement("label", null,
                 "\u0641\u0627\u06CC\u0644 \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647\u0654 \u0633\u0627\u0632\u0645\u0627\u0646",
-                React.createElement("select", { className: "input", "aria-label": "\u0641\u0627\u06CC\u0644 \u0633\u0627\u0632\u0645\u0627\u0646 \u0628\u0631\u0627\u06CC \u062A\u0637\u0628\u06CC\u0642", value: source, onChange: e => { setSource(e.target.value); setPreview(null); } },
+                React.createElement("select", { className: "input", "aria-label": "\u0641\u0627\u06CC\u0644 \u0633\u0627\u0632\u0645\u0627\u0646 \u0628\u0631\u0627\u06CC \u062A\u0637\u0628\u06CC\u0642", value: source, onChange: e => { setSource(e.target.value); setPreview(null); setSelected([]); } },
                     React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0627\u0632 \u0622\u0631\u0634\u06CC\u0648 \u0645\u0627\u0647"), data === null || data === void 0 ? void 0 :
                     data.sources.map(s => React.createElement("option", { key: s.id, value: s.id },
                         s.file_name,
@@ -12196,7 +12199,7 @@ function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
                         faDate(s.created_at))))),
             React.createElement("label", null,
                 "\u0645\u0628\u0646\u0627\u06CC \u06AF\u0631\u0648\u0647 \u0646\u06CC\u0631\u0648\u06CC \u0627\u062F\u0627\u0631\u06CC \u0645\u0642\u06CC\u0645 \u0633\u0627\u0632\u0645\u0627\u0646",
-                React.createElement("select", { className: "input", "aria-label": "\u0645\u0628\u0646\u0627\u06CC \u06AF\u0631\u0648\u0647 \u0627\u062F\u0627\u0631\u06CC", value: officeScope, onChange: e => { setOfficeScope(e.target.value); setPreview(null); } },
+                React.createElement("select", { className: "input", "aria-label": "\u0645\u0628\u0646\u0627\u06CC \u06AF\u0631\u0648\u0647 \u0627\u062F\u0627\u0631\u06CC", value: officeScope, onChange: e => { setOfficeScope(e.target.value); setPreview(null); setSelected([]); } },
                     React.createElement("option", { value: "" }, "\u0645\u0628\u0646\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u06AF\u0631\u0648\u0647 \u0631\u0627 \u0645\u0634\u062E\u0635 \u06A9\u0646\u06CC\u062F"),
                     React.createElement("option", { value: "role" }, "\u0627\u0641\u0631\u0627\u062F \u062F\u0627\u0631\u0627\u06CC \u0647\u0645\u06CC\u0646 \u0633\u0645\u062A"),
                     React.createElement("option", { value: "zone" }, "\u0627\u0641\u0631\u0627\u062F \u0645\u0646\u0637\u0642\u0647\u200C\u0627\u06CC \u0628\u0627 \u0647\u0645\u06CC\u0646 \u0646\u0627\u0645"))),
@@ -12212,10 +12215,23 @@ function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
                     preview.source_name,
                     " | ",
                     fa(preview.plan.rows.length),
-                    " \u0646\u0641\u0631 | \u0628\u0631\u0646\u0627\u0645\u0647\u0654 \u062B\u0627\u0628\u062A \u0645\u0635\u0648\u0628: ",
-                    fa(preview.plan.rows.filter(r => r.office_group).length),
+                    " \u0646\u0641\u0631 | \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u0628\u0631\u0627\u06CC \u0628\u0631\u0646\u0627\u0645\u0647\u0654 \u0627\u062F\u0627\u0631\u06CC: ",
+                    fa(preview.id ? (preview.plan.selected_user_ids || []).length : selected.length),
                     " \u0646\u0641\u0631"),
                 preview.plan.has_errors && React.createElement("p", { role: "alert" }, "\u0645\u0648\u0627\u0631\u062F \u062F\u0627\u0631\u0627\u06CC \u0645\u063A\u0627\u06CC\u0631\u062A \u0628\u0627\u06CC\u062F \u067E\u06CC\u0634 \u0627\u0632 \u062B\u0628\u062A \u0628\u0631\u0631\u0633\u06CC \u0634\u0648\u0646\u062F."),
+                !preview.id && React.createElement("section", { "aria-label": "\u062A\u0623\u06CC\u06CC\u062F \u0627\u0641\u0631\u0627\u062F \u0628\u062F\u0648\u0646 \u062A\u0631\u062F\u062F" },
+                    React.createElement("h4", null, "\u0627\u0641\u0631\u0627\u062F \u0628\u062F\u0648\u0646 \u0648\u0631\u0648\u062F \u0648 \u062E\u0631\u0648\u062C \u062F\u0631 \u0645\u0627\u0647 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC"),
+                    React.createElement("p", { className: "muted" }, "\u062A\u0631\u062F\u062F\u0647\u0627\u06CC \u0633\u0627\u06CC\u062A\u060C \u0634\u0627\u0645\u0644 \u0648\u0631\u0648\u062F \u0628\u0627\u0632 \u0648 \u062E\u0631\u0648\u062C \u062A\u0646\u0647\u0627\u060C \u0628\u0631\u0631\u0633\u06CC \u0634\u062F\u0647\u200C\u0627\u0646\u062F. \u0628\u0631\u0646\u0627\u0645\u0647\u0654 \u06F0\u06F7:\u06F0\u06F0 \u062A\u0627 \u06F1\u06F4:\u06F3\u06F3 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u0627\u0641\u0631\u0627\u062F \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647\u0654 \u06AF\u0631\u0648\u0647 \u0627\u062F\u0627\u0631\u06CC \u0627\u0639\u0645\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F. \u0633\u0627\u0639\u0627\u062A \u0645\u0635\u0648\u0628 \u0633\u0627\u0632\u0645\u0627\u0646 \u0628\u0631\u0627\u06CC \u0647\u0645\u0647\u0654 \u0631\u062F\u06CC\u0641\u200C\u0647\u0627 \u0628\u0631\u0642\u0631\u0627\u0631 \u0627\u0633\u062A."),
+                    React.createElement("button", { className: "btn", onClick: () => setSelected((preview.candidates || []).filter(c => c.eligible).map(c => c.user_id)) }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0647\u0645\u0647\u0654 \u0648\u0627\u062C\u062F\u06CC\u0646 \u0634\u0631\u0627\u06CC\u0637"),
+                    React.createElement("button", { className: "btn", onClick: () => setSelected([]) }, "\u0644\u063A\u0648 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0647\u0627"),
+                    !(preview.candidates || []).length && React.createElement("p", null, "\u0641\u0631\u062F \u0628\u062F\u0648\u0646 \u062A\u0631\u062F\u062F\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F."),
+                    React.createElement("div", { style: { maxHeight: 320, overflowY: "auto" } }, (preview.candidates || []).map(c => React.createElement("label", { key: c.user_id, style: { display: "flex", gap: 8, padding: 10, alignItems: "center" } },
+                        React.createElement("input", { type: "checkbox", "aria-label": "انتخاب " + c.name, disabled: !c.eligible, checked: selected.includes(c.user_id), onChange: e => setSelected(ids => e.target.checked ? [...ids, c.user_id] : ids.filter(id => id !== c.user_id)) }),
+                        React.createElement("span", null,
+                            c.name,
+                            " \u2014 ",
+                            faPlain(c.personnel_code),
+                            !c.eligible && " — خارج از گروه اداری یا دارای مغایرت"))))),
                 React.createElement("div", { style: { overflowX: "auto" } },
                     React.createElement("table", { style: { minWidth: 1300 } },
                         React.createElement("thead", null,

@@ -114,7 +114,7 @@ class CompanyWork {
     Db::run("CREATE TABLE IF NOT EXISTS company_work_reconciliation_state (jy SMALLINT NOT NULL,jm TINYINT NOT NULL,batch_id BIGINT UNSIGNED NULL,PRIMARY KEY(jy,jm)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   }
   /** Monetary allocation only: never change punches, missions or finalized evidence. */
-  static function reconciliationPlan($sourceRows,$monthly,$daily,$year,$month,$people=[],$officeScope=null){
+  static function reconciliationPlan($sourceRows,$monthly,$daily,$year,$month,$people=[],$officeScope=null,$selected=[]){
     $byId=array_column($monthly,null,'user_id');$peopleById=array_column($people,null,'id');$result=[];$errors=[];$calendar=[];$conflicts=[];
     foreach($daily as $report)foreach($report['days']??[] as $d){$j=IranCalendar::normalize($d['jdate']??$d['date']??'');if(!$j||substr($j,0,7)!==sprintf('%04d-%02d',$year,$month)||!array_key_exists('is_holiday',$d))continue;$h=(bool)$d['is_holiday'];if(isset($calendar[$j])&&$calendar[$j]!==$h)$conflicts[$j]=true;$calendar[$j]=$h;}
     if($officeScope!==null&&!in_array($officeScope,['role','zone'],true))self::fail('مبنای انتخاب گروه اداری نامعتبر است');
@@ -162,7 +162,7 @@ class CompanyWork {
       }
       $approved=[];foreach($eligible as $j=>$d)$approved[$j]=['overtime'=>0,'holiday'=>0,'friday'=>0];
       foreach($target as $k=>$v){$n=count($groups[$k]);foreach($groups[$k] as $i=>$j)$approved[$j][$k]=intdiv($v,$n)+($i<$v%$n?1:0);}
-      $officeDays=0;foreach($eligible as $j=>$d){$officeDay=$office&&in_array($j,$groups['overtime'],true);if($officeDay)$officeDays++;$days[]=['jdate'=>$j,'worked'=>$d['worked']??null,'incentive_seconds'=>$parts[$j],'payable_seconds'=>$approved[$j],'organization_schedule'=>$officeDay?['from'=>'07:00','to'=>'14:33','minutes'=>453,'source'=>'organization_approved_schedule']:null];}
+      $officeDays=0;foreach($eligible as $j=>$d){$officeDay=$office&&in_array($uid,$selected,true)&&in_array($j,$groups['overtime'],true);if($officeDay)$officeDays++;$days[]=['jdate'=>$j,'worked'=>$d['worked']??null,'incentive_seconds'=>$parts[$j],'payable_seconds'=>$approved[$j],'ordinary_day'=>in_array($j,$groups['overtime'],true),'organization_schedule'=>$officeDay?['from'=>'07:00','to'=>'14:33','minutes'=>453,'source'=>'organization_approved_schedule']:null];}
       $payable=$target;
       $issues=array_values(array_unique($issues));$row=['user_id'=>$uid,'name'=>trim(($r['first_name']??'').' '.($r['last_name']??'')),'personnel_code'=>(string)($r['personnel_code']??''),'actual_seconds'=>$actual,'organization_seconds'=>$target,'incentive_seconds'=>$bonus,'payable_seconds'=>$payable,'days'=>$days,'office_schedule_days'=>$officeDays,'office_schedule_minutes'=>$officeDays*453,'office_group'=>$office,'group_basis'=>$officeScope,'warnings'=>$warnings,'errors'=>$issues];
       if($issues)$errors[]=$row['personnel_code'];$result[]=$row;
@@ -170,16 +170,32 @@ class CompanyWork {
     if(!$result)self::fail('فایل سازمان فاقد ردیف قابل تطبیق است');
     return ['year'=>$year,'month'=>$month,'rows'=>$result,'has_errors'=>(bool)$errors,'unit'=>'seconds','allocation_version'=>3,'office_scope'=>$officeScope,'allocation'=>'تخصیص حسابداری: جمعه‌کاری فقط جمعه‌ها، تعطیل‌کاری فقط تعطیلات غیرجمعه و اضافه‌کار روزهای عادی؛ تردد و مأموریت واقعی تغییر نمی‌کند'];
   }
+  static function reconciliationCandidates($plan){
+    $start=self::date(sprintf('%04d-%02d-01',$plan['year'],$plan['month']));$end=$start->modify('+'.IranCalendar::monthLength($plan['year'],$plan['month']).' days');
+    $ids=array_values(array_unique(array_filter(array_map('intval',array_column($plan['rows'],'user_id')))));$evidence=[];
+    if($ids){$marks=implode(',',array_fill(0,count($ids),'?'));$evidence=Db::all("SELECT id,user_id,check_in,check_out FROM staff_attendance WHERE user_id IN ($marks) AND ((check_in>=? AND check_in<?) OR (check_out>=? AND check_out<?) OR (check_in<? AND (check_out>=? OR check_out IS NULL))) ORDER BY user_id,id",array_merge($ids,[$start->format('Y-m-d H:i:s'),$end->format('Y-m-d H:i:s'),$start->format('Y-m-d H:i:s'),$end->format('Y-m-d H:i:s'),$start->format('Y-m-d H:i:s'),$start->format('Y-m-d H:i:s')]));}
+    $present=array_fill_keys(array_map('intval',array_column($evidence,'user_id')),true);$candidates=[];
+    foreach($plan['rows'] as $r)if($r['user_id']&&!isset($present[(int)$r['user_id']]))$candidates[]=['user_id'=>(int)$r['user_id'],'name'=>$r['name'],'personnel_code'=>$r['personnel_code'],'eligible'=>!empty($r['office_group'])&&!$r['errors']];
+    return ['candidates'=>$candidates,'attendance_hash'=>hash('sha256',self::json($evidence))];
+  }
+  static function selectOfficeCandidates($plan,$candidates,$selected){
+    if(!is_array($selected)||count($selected)>count($candidates))self::fail('فهرست انتخاب پرسنل نامعتبر است');
+    $allowed=[];foreach($candidates as $c)if($c['eligible'])$allowed[]=$c['user_id'];$ids=[];
+    foreach($selected as $id){if(!is_int($id)||!in_array($id,$allowed,true)||in_array($id,$ids,true))self::fail('انتخاب فقط برای افراد واجد شرایط و بدون تردد این ماه مجاز است');$ids[]=$id;}
+    foreach($plan['rows'] as &$r){$chosen=in_array((int)$r['user_id'],$ids,true);$count=0;foreach($r['days'] as &$d){$friday=self::date($d['jdate'])->format('w')==='5';$d['organization_schedule']=null;if($chosen&&!$friday&&!empty($d['ordinary_day'])){$count++;$d['organization_schedule']=['from'=>'07:00','to'=>'14:33','minutes'=>453,'source'=>'organization_approved_schedule'];}}unset($d);$r['office_schedule_days']=$count;$r['office_schedule_minutes']=$count*453;$r['office_selected']=$chosen;}unset($r);
+    $plan['selected_user_ids']=$ids;$plan['allocation_version']=4;return $plan;
+  }
   static function reconciliationPreview($sourceId,$officeScope=null){
     $s=self::source($sourceId);$y=(int)$s['jy'];$m=(int)$s['jm'];$final=_final_work_month($y,$m);
     if(!$final)self::fail('ابتدا کارکرد ماه انتخابی را نهایی کنید',409);
     $backup=['year'=>$y,'month'=>$m,'monthly_json'=>$final['monthly_json'],'daily_json'=>$final['daily_json'],'finalized_at'=>$final['finalized_at']??null,'finalized_by'=>$final['finalized_by']??null];
     $people=self::users();$plan=self::reconciliationPlan(self::matchRows(json_decode($s['rows_json'],true,512,JSON_THROW_ON_ERROR),$people),_work_snapshot_decode($final['monthly_json']),_work_snapshot_decode($final['daily_json']),$y,$m,$people,$officeScope);
+    $eligibility=self::reconciliationCandidates($plan);
     $active=Db::one('SELECT batch_id FROM company_work_reconciliation_state WHERE jy=? AND jm=?',[$y,$m]);
-    $token=hash('sha256',self::json([$s['sha256'],$backup,$plan,(int)($active['batch_id']??0)]));
-    return ['plan'=>$plan,'token'=>$token,'source_id'=>(int)$s['id'],'source_name'=>$s['file_name'],'source_hash'=>$s['sha256'],'backup_hash'=>hash('sha256',self::json($backup)),'backup'=>$backup,'active_id'=>(int)($active['batch_id']??0)];
+    $token=hash('sha256',self::json([$s['sha256'],$backup,$plan,$eligibility,(int)($active['batch_id']??0)]));
+    return $eligibility+['plan'=>$plan,'token'=>$token,'source_id'=>(int)$s['id'],'source_name'=>$s['file_name'],'source_hash'=>$s['sha256'],'backup_hash'=>hash('sha256',self::json($backup)),'backup'=>$backup,'active_id'=>(int)($active['batch_id']??0)];
   }
-  static function reconciliationApply($sourceId,$token,$reason,$actor,$officeScope=null){
+  static function reconciliationApply($sourceId,$token,$reason,$actor,$officeScope=null,$selected=[]){
     $reason=trim((string)$reason);if(mb_strlen($reason)<3||mb_strlen($reason)>500)self::fail('علت ثبت را بین ۳ تا ۵۰۰ نویسه وارد کنید');
     $s=self::source($sourceId);$y=(int)$s['jy'];$m=(int)$s['jm'];$lock='company-work-reconcile:'.$y.':'.$m;
     if((int)(Db::one('SELECT GET_LOCK(?,10) acquired',[$lock])['acquired']??0)!==1)self::fail('عملیات دیگری برای این ماه در حال اجراست',409);
@@ -189,6 +205,8 @@ class CompanyWork {
       if($p['active_id'])self::fail('برای این ماه تعدیل فعال وجود دارد؛ ابتدا آن را برگشت دهید',409);
       if($p['plan']['has_errors'])self::fail('مغایرت‌های پیش‌نمایش باید پیش از ثبت برطرف شوند',422);
       $pdo->beginTransaction();
+      $fresh=self::reconciliationCandidates($p['plan']);if($fresh!==array_intersect_key($p,$fresh))self::fail('وضعیت تردد تغییر کرده است؛ پیش‌نمایش را تازه کنید',409);
+      $p['plan']=self::selectOfficeCandidates($p['plan'],$p['candidates'],$selected);
       $id=Db::insert('INSERT INTO company_work_reconciliations(jy,jm,source_id,source_name,source_hash,backup_json,backup_hash,plan_json,reason,created_by) VALUES(?,?,?,?,?,?,?,?,?,?)',[$y,$m,$sourceId,$p['source_name'],$p['source_hash'],self::json($p['backup']),$p['backup_hash'],self::json($p['plan']),$reason,$actor]);
       Db::run('INSERT INTO company_work_reconciliation_state(jy,jm,batch_id) VALUES(?,?,?) ON DUPLICATE KEY UPDATE batch_id=VALUES(batch_id)',[$y,$m,$id]);$pdo->commit();return ['id'=>$id];
     }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}finally{Db::one('SELECT RELEASE_LOCK(?) released',[$lock]);}
@@ -309,7 +327,7 @@ class CompanyWork {
       $r['married']=Payroll::normalize($u['marital_status']??'');$r['children']=$u['children_count'];
       if(!in_array($r['married'],['مجرد','متاهل','متأهل'],true))$r['errors'][]='وضعیت تأهل ثبت نشده یا نامعتبر است';
       if($r['children']===null||!preg_match('/^\d+$/D',(string)$r['children']))$r['errors'][]='تعداد فرزند ثبت نشده یا نامعتبر است';
-      $approvedOffice=$officeBasis['rows'][$uid]??null;$approvedOffice=!empty($approvedOffice['office_group'])?$approvedOffice:null;
+      $approvedOffice=$officeBasis['rows'][$uid]??null;$approvedOffice=!empty($approvedOffice['office_group'])&&!empty($approvedOffice['office_schedule_days'])?$approvedOffice:null;
       $rot=$rotation[$uid]??null;
       // A person who left this month may now be inactive, but still belongs in the source file.
       // Reuse the same rotation classifier for them; never invent missing frozen history.

@@ -50,6 +50,8 @@ echo "Company work collection and generation tests passed\n";
 
 Db::$fail=false;Db::$field=true;Db::$account='0000123456';Seniority::$value=730;
 $approvedDays=[];for($n=1;$n<=30;$n++)$approvedDays[]=['jdate'=>sprintf('1405-07-%02d',$n),'organization_schedule'=>$n>=15?['from'=>'07:00','to'=>'14:33','minutes'=>453,'source'=>'organization_approved_schedule']:null];
-Db::$officeBatch=['id'=>88,'source_id'=>8,'plan_json'=>CompanyWork::json(['rows'=>[['user_id'=>1,'office_group'=>true,'office_schedule_minutes'=>16*453,'days'=>$approvedDays]]])];
+Db::$officeBatch=['id'=>88,'source_id'=>8,'plan_json'=>CompanyWork::json(['rows'=>[['user_id'=>1,'office_group'=>true,'office_schedule_days'=>16,'office_schedule_minutes'=>16*453,'days'=>$approvedDays]]])];
 $payable=CompanyWork::collect($source,5);yes('company output uses active approved schedule for absence',!$payable['has_errors']&&$payable['rows'][0]['recorded_absence_days']===1&&$payable['rows'][0]['absence_days']===0&&$payable['rows'][0]['covered_absence_days']===1&&$payable['rows'][0]['organization_basis']['batch_id']===88);
 try{CompanyWork::collect(array_replace($source,['id'=>99]),5);throw new LogicException('expected source mismatch');}catch(PayrollError $e){yes('office basis cannot leak into another source file',$e->getCode()===409);}
+
+$unselected=json_decode(Db::$officeBatch['plan_json'],true);$unselected['rows'][0]['office_schedule_days']=0;Db::$officeBatch['plan_json']=CompanyWork::json($unselected);$unchanged=CompanyWork::collect($source,5);yes('unselected office member keeps original payable absence',$unchanged['rows'][0]['absence_days']===1&&!isset($unchanged['rows'][0]['organization_basis']));
