@@ -6891,7 +6891,10 @@ function _live_location_sql($shiftOnly){
   // must not turn the entire online map into HTTP 500.
   $pingColumns=array_column(Db::all("SHOW COLUMNS FROM location_pings"),'Field');
   $viaGsm=in_array('via_gsm',$pingColumns,true)?'COALESCE(lp.via_gsm,0)':'0';
-  $netColumns=array_column(Db::all("SHOW COLUMNS FROM user_net_state"),'Field');
+  // Some older deployments do not have the optional network-state table.
+  $hasNetState=(bool)Db::one("SHOW TABLES LIKE 'user_net_state'");
+  $netColumns=$hasNetState?array_column(Db::all("SHOW COLUMNS FROM user_net_state"),'Field'):[];
+  $netJoin=$hasNetState?'LEFT JOIN user_net_state ns ON ns.user_id=lp.user_id':'';
   $ipCountry=in_array('ip_country',$netColumns,true)?'ns.ip_country':'NULL';
   $vpnOn=in_array('vpn_on',$netColumns,true)?'COALESCE(ns.vpn_on,0)':'0';
   $batteryLevel=in_array('battery_level',$netColumns,true)?'ns.battery_level':'NULL';
@@ -6915,7 +6918,7 @@ function _live_location_sql($shiftOnly){
    JOIN location_pings lp ON lp.id=(SELECT last_ping.id FROM location_pings last_ping
      WHERE last_ping.user_id=u.id ORDER BY $latestTime DESC,last_ping.id DESC LIMIT 1)
    LEFT JOIN roles r ON r.id=u.role_id
-   LEFT JOIN user_net_state ns ON ns.user_id=lp.user_id
+   $netJoin
    $where";
 }
 route('GET', '/api/locations/live', function($p,$b,$u){
