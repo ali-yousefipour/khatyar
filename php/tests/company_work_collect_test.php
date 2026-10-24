@@ -1,7 +1,7 @@
 <?php
 date_default_timezone_set('Asia/Tehran');const ADMIN=3;function route(...$args){}
 class Db {
-  static $users=[],$requests=[],$inserted=[];static $account='0000123456',$fail=false,$field=true;
+  static $users=[],$requests=[],$inserted=[];static $officeBatch=null;static $account='0000123456',$fail=false,$field=true;
   static function all($sql,$params=[]){
     if(str_contains($sql,'FROM users'))return self::$users;
     if(str_contains($sql,'custom_field_values'))return [['user_id'=>1,'value'=>self::$account]];
@@ -9,7 +9,7 @@ class Db {
     if(str_contains($sql,'staff_attendance'))return [];
     throw new RuntimeException('Unexpected query');
   }
-  static function one($sql,$params=[]){if(str_contains($sql,'custom_fields'))return self::$field?['id'=>5,'label'=>'شماره حساب']:null;throw new RuntimeException('Unexpected query');}
+  static function one($sql,$params=[]){if(str_contains($sql,'company_work_reconciliation_state'))return self::$officeBatch;if(str_contains($sql,'custom_fields'))return self::$field?['id'=>5,'label'=>'شماره حساب']:null;throw new RuntimeException('Unexpected query');}
   static function insert($sql,$params=[]){if(self::$fail)throw new RuntimeException('synthetic archive failure');self::$inserted[]=[$sql,$params];return 9;}
 }
 class Seniority {static $value=730;static function listRows(){return ['rows'=>[['id'=>1,'seniority_days'=>self::$value]]];}}
@@ -20,6 +20,7 @@ function attendance_report_owned_by_entry_date($uid,$from,$to){
   for($n=1;$n<=30;$n++)$days[]=['jdate'=>sprintf('1405-07-%02d',$n),'absent'=>in_array($n,[1,20],true)?1:0,'night'=>$n===20?'02:30':'00:00'];
   return ['days'=>$days];
 }
+function _db_table_exists_safe($table){return Db::$officeBatch!==null;}
 require_once __DIR__.'/../lib/CompanyWork.php';
 class IsolatedCollectedCompanyWork extends CompanyWork {static $dir;static function directory(){return self::$dir;}}
 function yes($label,$value){if(!$value)throw new RuntimeException('FAIL '.$label);echo "PASS $label\n";}
@@ -46,3 +47,9 @@ try{
   Db::$field=false;try{CompanyWork::collect($source,99);throw new RuntimeException('expected invalid account field');}catch(PayrollError $e){yes('unknown account field rejected',$e->getCode()===422);}
 }finally{foreach(glob($root.'/*') as $file)unlink($file);rmdir($root);}
 echo "Company work collection and generation tests passed\n";
+
+Db::$fail=false;Db::$field=true;Db::$account='0000123456';Seniority::$value=730;
+$approvedDays=[];for($n=1;$n<=30;$n++)$approvedDays[]=['jdate'=>sprintf('1405-07-%02d',$n),'organization_schedule'=>$n>=15?['from'=>'07:00','to'=>'14:33','minutes'=>453,'source'=>'organization_approved_schedule']:null];
+Db::$officeBatch=['id'=>88,'source_id'=>8,'plan_json'=>CompanyWork::json(['rows'=>[['user_id'=>1,'office_group'=>true,'office_schedule_minutes'=>16*453,'days'=>$approvedDays]]])];
+$payable=CompanyWork::collect($source,5);yes('company output uses active approved schedule for absence',!$payable['has_errors']&&$payable['rows'][0]['recorded_absence_days']===1&&$payable['rows'][0]['absence_days']===0&&$payable['rows'][0]['covered_absence_days']===1&&$payable['rows'][0]['organization_basis']['batch_id']===88);
+try{CompanyWork::collect(array_replace($source,['id'=>99]),5);throw new LogicException('expected source mismatch');}catch(PayrollError $e){yes('office basis cannot leak into another source file',$e->getCode()===409);}

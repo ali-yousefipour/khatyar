@@ -271,6 +271,23 @@ class CompanyWork {
     $leave=$cut<$from?['annual'=>0,'sick'=>0]:self::leaveDays($requests,$from,$cut);
     return ['days'=>$days,'leave_days'=>$leave['annual'],'absence_days'=>$absence,'sick_days'=>$leave['sick'],'night_hours'=>$night/60];
   }
+  static function activeOfficeBasis($year,$month,$sourceId){
+    if(!function_exists('_db_table_exists_safe')||!_db_table_exists_safe('company_work_reconciliation_state'))return null;
+    $b=Db::one('SELECT b.id,b.source_id,b.plan_json FROM company_work_reconciliation_state s JOIN company_work_reconciliations b ON b.id=s.batch_id WHERE s.jy=? AND s.jm=?',[$year,$month]);
+    if(!$b)return null;
+    if((int)$b['source_id']!==(int)$sourceId)self::fail('تعدیل فعال این ماه به فایل سازمان دیگری مربوط است؛ ابتدا نسخهٔ مناسب را تعیین کنید',409);
+    $plan=json_decode($b['plan_json'],true,512,JSON_THROW_ON_ERROR);
+    return ['id'=>(int)$b['id'],'rows'=>array_column($plan['rows'],null,'user_id')];
+  }
+  static function officePaymentReport($report,$approved){
+    $original=[];foreach($report['days']??[] as $d){$j=IranCalendar::normalize($d['jdate']??$d['date']??'');if($j)$original[$j]=$d;}
+    $days=$original;$covered=0;
+    foreach($approved['days'] as $p){$j=$p['jdate'];$d=$original[$j]??['jdate'=>$j,'absent'=>0,'night'=>'00:00'];
+      if(!empty($p['organization_schedule'])){if(!empty($d['absent']))$covered++;$d['absent']=0;}$days[$j]=$d;
+    }
+    if($approved['days']){$first=$approved['days'][0]['jdate'];[$y,$m]=array_map('intval',explode('-',substr($first,0,7)));for($n=1;$n<=IranCalendar::monthLength($y,$m);$n++){$j=sprintf('%04d-%02d-%02d',$y,$m,$n);if(!isset($days[$j]))$days[$j]=['jdate'=>$j,'outside_employment_period'=>true,'absent'=>0,'night'=>'00:00'];}}
+    ksort($days);return ['report'=>array_replace($report,['days'=>array_values($days)]),'covered_absence_days'=>$covered];
+  }
   static function collect($source,$accountField){
     // Archives load cheaply; the explicit generate action alone runs monthly calculations.
     @set_time_limit(300);
@@ -282,7 +299,7 @@ class CompanyWork {
     if(!function_exists('attendance_report_owned_by_entry_date'))require_once dirname(__DIR__).'/app/api/admin-attendance-report-owned.php';
     $from=sprintf('%04d/%02d/01',$year,$month);$to=sprintf('%04d/%02d/%02d',$year,$month,IranCalendar::monthLength($year,$month));$today=new DateTimeImmutable('today',new DateTimeZone('Asia/Tehran'));
     if(self::date($from)>$today)self::fail('تولید فایل برای ماه آینده مجاز نیست');
-    $hasErrors=false;
+    $officeBasis=self::activeOfficeBasis($year,$month,(int)$source['id']);$hasErrors=false;
     foreach($rows as &$r){
       if(!$r['user_id']||$r['errors']){$hasErrors=true;continue;}$uid=$r['user_id'];$u=$byId[$uid];
       $r['national_code']=Payroll::identity(($u['national_code']??'')?:($u['username']??''),true);$r['account']=Payroll::normalize($accounts[$uid]??'');
@@ -292,6 +309,7 @@ class CompanyWork {
       $r['married']=Payroll::normalize($u['marital_status']??'');$r['children']=$u['children_count'];
       if(!in_array($r['married'],['مجرد','متاهل','متأهل'],true))$r['errors'][]='وضعیت تأهل ثبت نشده یا نامعتبر است';
       if($r['children']===null||!preg_match('/^\d+$/D',(string)$r['children']))$r['errors'][]='تعداد فرزند ثبت نشده یا نامعتبر است';
+      $approvedOffice=$officeBasis['rows'][$uid]??null;$approvedOffice=!empty($approvedOffice['office_group'])?$approvedOffice:null;
       $rot=$rotation[$uid]??null;
       // A person who left this month may now be inactive, but still belongs in the source file.
       // Reuse the same rotation classifier for them; never invent missing frozen history.
@@ -300,9 +318,15 @@ class CompanyWork {
         $punches=Db::all('SELECT id attendance_id,user_id,check_in,check_out FROM staff_attendance WHERE user_id=? AND check_in>=? AND check_in<? ORDER BY check_in,id',[$uid,$start->format('Y-m-d H:i:s'),$end->format('Y-m-d H:i:s')]);
         $rot=_shift_rotation_rows([$u],$punches,$start,$end)[0]??null;
       }
+      if($approvedOffice){
+        $r['recorded_rotation']=$rot;$planned=[];
+        foreach($approvedOffice['days'] as $d)if(!empty($d['organization_schedule'])){$g=self::date($d['jdate'])->format('Y-m-d');$planned[]=['user_id'=>$uid,'check_in'=>$g.' 07:00:00','check_out'=>$g.' 14:33:00','method'=>'organization_approved_schedule'];}
+        $rot=_shift_rotation_rows([$u],$planned,self::date($from),self::date($to)->modify('+1 day'))[0]??null;
+      }
       if(!$rot||!empty($rot['missing_source']))$r['errors'][]='منبع محاسبهٔ چرخش شیفت موجود نیست';
       foreach(['morning','afternoon','night'] as $k)$r[$k]=$rot[$k]??null;
       $report=attendance_report_owned_by_entry_date($uid,$from,$to);
+      if($approvedOffice){$r['organization_basis']=['batch_id'=>$officeBasis['id'],'source'=>'organization_approved_schedule','office_schedule_minutes'=>$approvedOffice['office_schedule_minutes']];$r['recorded_absence_days']=self::metrics($u,$report,[],$year,$month,$today)['absence_days'];$paid=self::officePaymentReport($report,$approvedOffice);$report=$paid['report'];$r['covered_absence_days']=$paid['covered_absence_days'];}
       if(!isset($report['days'])||count($report['days'])!==IranCalendar::monthLength($year,$month))$r['errors'][]='جزئیات کامل روزهای ماه در گزارش تردد موجود نیست';
       $requests=Db::all("SELECT type,unit,from_jdate,to_jdate,the_date,from_time,to_time FROM requests WHERE user_id=? AND status='approved' AND type IN('annual','sick')",[$uid]);
       try{$r=array_merge($r,self::metrics($u,$report,$requests,$year,$month,$today));}catch(PayrollError $e){$r['errors'][]=$e->getMessage();}

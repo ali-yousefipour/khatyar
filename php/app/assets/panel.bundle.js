@@ -12314,6 +12314,7 @@ function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
                         React.createElement("td", null, faPlain((_g = d.holiday_work) !== null && _g !== void 0 ? _g : "—"))); })))))));
 }
 function CompanyWorkReport({ year, month, onPeriodChange }) {
+    var _a;
     const [archive, setArchive] = useState(null), [file, setFile] = useState(null), [preview, setPreview] = useState(null), [detail, setDetail] = useState(null), [account, setAccount] = useState(""), [busy, setBusy] = useState(""), [error, setError] = useState(""), [query, setQuery] = useState("");
     const life = useRef({ alive: true, controller: null, locked: false });
     const fileInput = useRef(null);
@@ -12518,6 +12519,7 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
                 React.createElement("button", { className: "btn", disabled: !!busy, onClick: () => changeArchive(r.kind, r.id, true) }, "\u0628\u0627\u0632\u06CC\u0627\u0628\u06CC")))),
         detail && React.createElement(Modal, { title: detail.title, onClose: () => setDetail(null), style: { width: "min(96vw,1500px)" } },
             React.createElement("button", { type: "button", className: "btn", onClick: () => setDetail(null) }, "\u0628\u0633\u062A\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A"),
+            ((_a = detail.rows) === null || _a === void 0 ? void 0 : _a.some(r => r.organization_basis)) && React.createElement("p", { className: "muted" }, "\u0631\u0648\u0632\u0647\u0627\u06CC \u0627\u062F\u0627\u0631\u06CC \u0645\u0635\u0648\u0628 \u0633\u0627\u0632\u0645\u0627\u0646 \u062F\u0631 \u063A\u06CC\u0628\u062A \u0642\u0627\u0628\u0644 \u067E\u0631\u062F\u0627\u062E\u062A \u0648 \u0686\u0631\u062E\u0634 \u0634\u06CC\u0641\u062A \u0627\u06CC\u0646 \u0641\u0627\u06CC\u0644 \u0644\u062D\u0627\u0638 \u0634\u062F\u0647\u200C\u0627\u0646\u062F\u061B \u0645\u0628\u0646\u0627\u06CC \u0627\u0648\u0644\u06CC\u0647 \u062F\u0631 \u0633\u0627\u0628\u0642\u0647\u0654 \u0646\u0633\u062E\u0647 \u062D\u0641\u0638 \u0627\u0633\u062A."),
             detail.account_field && React.createElement("p", { className: "muted" },
                 "\u0645\u0646\u0628\u0639 \u062D\u0633\u0627\u0628: ",
                 detail.account_field.label,
