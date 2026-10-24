@@ -17,7 +17,8 @@ foreach([false,true] as $received){foreach([false,true] as $shift){foreach([fals
   Db::$received=$received;$_GET=$shift?['shift_only'=>1]:[];$handler([],[],['id'=>1]);
   check(!str_contains(Db::$sql,'GROUP BY'),'Live query must not group the full ping history');
   check(str_contains(Db::$sql,'last_ping.user_id=u.id'),'Latest point lookup must be scoped to one user');
-  check(str_contains(Db::$sql,'last_ping.id DESC LIMIT 1'),'Equal timestamps need a deterministic tie-breaker');
+  check(str_contains(Db::$sql,'MAX(last_ping.id)'),'Current ping should use server insertion sequence without a per-user filesort');
+  check(!str_contains(Db::$sql,'ORDER BY'),'Live query should not sort all of a user\'s pings');
   check(str_contains(Db::$sql,'lp.received_at')===$received,'Legacy databases must not reference absent received_at');
   check(str_contains(Db::$sql,'WHERE EXISTS')===$shift,'Shift filter must not duplicate users');
   foreach([' AS received_at',' AS online',' AS secs_ago',' AS via_gsm',' AS vpn_on',' AS battery_level',' AS battery_charging',' AS last_ip'] as $field)check(str_contains(Db::$sql,$field),'Preserve response field '.$field);
@@ -36,5 +37,6 @@ $presenceHandler=eval('return '.substr($source,$presenceStart,$presenceEnd-$pres
 $presenceHandler([],[],['id'=>1]);
 check(!str_contains(Db::$sql,'GROUP BY'),'Presence must not aggregate the full ping history');
 check(str_contains(Db::$sql,'lp1.user_id=u.id'),'Presence latest point must be user-scoped');
-check(str_contains(Db::$sql,'lp1.id DESC LIMIT 1'),'Presence ties must be deterministic');
-echo "PASS presence query: bounded per-user latest ping lookup\\n";
+check(str_contains(Db::$sql,'MAX(lp1.id)'),'Presence must use indexed insertion sequence');
+check(!str_contains(Db::$sql,'ORDER BY lp1.captured_at'),'Presence must not filesort each user history');
+echo "PASS presence query: bounded per-user latest ping lookup\n";
