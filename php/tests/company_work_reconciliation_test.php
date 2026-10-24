@@ -30,6 +30,18 @@ $bad=$sourceRow;$bad['holiday_hours']=0;$out=CompanyWork::reconciliationPlan([ar
 $unknown=$daily;unset($unknown[1]['days'][0]['is_holiday']);yes('unknown frozen holiday calendar rejected',CompanyWork::reconciliationPlan([array_merge($sourceRow,['user_id'=>1])],$monthly,$unknown,1405,7)['has_errors']);
 $missing=$daily;array_pop($missing[1]['days']);yes('partial frozen month blocked',CompanyWork::reconciliationPlan([array_merge($sourceRow,['user_id'=>1])],$monthly,$missing,1405,7)['has_errors']);
 $none=$daily;foreach($none[1]['days'] as &$d)$d['worked']='00:00';unset($d);$zero=CompanyWork::reconciliationPlan([array_merge($sourceRow,['user_id'=>1])],$monthly,$none,1405,7);yes('no attendance fabricated for incentive-only allocation',!$zero['has_errors']&&!array_filter($zero['rows'][0]['days'],fn($d)=>$d['worked']!=='00:00'));
+$officePeople=[['id'=>1,'role_title'=>'نیروی اداری مقیم سازمان','zone_name'=>'سازمان تاکسیرانی']];
+$officePlan=CompanyWork::reconciliationPlan([array_merge($sourceRow,['user_id'=>1])],$monthly,$daily,1405,7,$officePeople,'role');$officeRow=$officePlan['rows'][0];
+yes('office schedule uses explicit role group only',$officeRow['office_group']&&$officeRow['office_schedule_days']>0);
+foreach($officeRow['days'] as $d)if($d['organization_schedule']){if(CompanyWork::date($d['jdate'])->format('w')==='5'||substr($d['jdate'],-2)==='04'||$d['organization_schedule']!==['from'=>'07:00','to'=>'14:33','minutes'=>453,'source'=>'organization_approved_schedule'])throw new LogicException('invalid office day');}
+yes('office times exactly 07:00 to 14:33 on ordinary days',true);
+$zonePlan=CompanyWork::reconciliationPlan([array_merge($sourceRow,['user_id'=>1])],$monthly,$daily,1405,7,$officePeople,'zone');yes('role name never broadens a zone-scoped group',!$zonePlan['rows'][0]['office_group']&&$zonePlan['rows'][0]['office_schedule_days']===0);
+foreach(['overtime','holiday','friday'] as $k)yes('daily payable total equals full organization '.$k,array_sum(array_column(array_column($officeRow['days'],'payable_seconds'),$k))===$officeRow['organization_seconds'][$k]);
+$missingPerson=[['id'=>2,'role_title'=>'نیروی اداری مقیم سازمان','zone_name'=>'اداری','employment_start_date'=>'1405-07-15']];
+$missingPlan=CompanyWork::reconciliationPlan([array_merge($sourceRow,['user_id'=>2,'holiday_hours'=>0])],$monthly,$daily,1405,7,$missingPerson,'role');$missingRow=$missingPlan['rows'][0];
+yes('missing frozen person can use organization-backed payable basis',!$missingPlan['has_errors']&&$missingRow['actual_seconds']['overtime']===null&&$missingRow['payable_seconds']===$missingRow['organization_seconds']&&count($missingRow['warnings'])>0);
+yes('approved schedule excludes days before hiring',!array_filter($missingRow['days'],fn($d)=>$d['jdate']<'1405-07-15')&&count($missingRow['days'])===16);
+yes('unknown original attendance is not claimed as a measured punch',!array_filter($missingRow['days'],fn($d)=>$d['worked']!==null));
 denied('stale preview cannot commit',409,fn()=>CompanyWork::reconciliationApply(8,str_repeat('b',64),'مصوبه سازمان',7));
 $saved=CompanyWork::reconciliationApply(8,$p['token'],'مصوبه سازمان',7);yes('atomic backup before activation',Db::$state===1&&Db::$batches[1]['backup_hash']===hash('sha256',Db::$batches[1]['backup_json']));
 yes('full original snapshot preserved',json_decode(Db::$batches[1]['backup_json'],true)['daily_json']===$original['daily_json']&&Db::$final===$original);

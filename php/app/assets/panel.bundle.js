@@ -12127,7 +12127,7 @@ function ShiftRotationReport({ year, month, onPeriodChange, disabled }) {
                             ['morning', 'afternoon', 'night', 'matched_days', 'outside_days', 'open_sessions'].map(key => { var _a; return React.createElement("td", { key: key, style: { textAlign: "center" } }, format((_a = current.totals) === null || _a === void 0 ? void 0 : _a[key])); })))))));
 }
 function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
-    const [data, setData] = useState(null), [source, setSource] = useState(""), [preview, setPreview] = useState(null), [reason, setReason] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState(""), [person, setPerson] = useState(null), [original, setOriginal] = useState(null);
+    const [data, setData] = useState(null), [source, setSource] = useState(""), [officeScope, setOfficeScope] = useState(""), [preview, setPreview] = useState(null), [reason, setReason] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState(""), [person, setPerson] = useState(null), [original, setOriginal] = useState(null);
     const life = useRef({ alive: true, locked: false, controller: null });
     const request = async (path, options = {}) => { const controller = new AbortController(); life.current.controller = controller; const r = await fetch(API_BASE + "/admin/company-work" + path, { ...options, headers: { ...tok(), ...(options.headers || {}) }, signal: controller.signal }); if (!r.ok) {
         let e = {};
@@ -12153,12 +12153,12 @@ function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
             setBusy(false);
     } };
     useEffect(() => { life.current.alive = true; run(load); return () => { var _a; life.current.alive = false; (_a = life.current.controller) === null || _a === void 0 ? void 0 : _a.abort(); }; }, []);
-    const compare = () => run(async () => { const r = await (await request("/reconciliation/preview/" + source)).json(); if (life.current.alive) {
+    const compare = () => run(async () => { const r = await (await request("/reconciliation/preview/" + source + "?office_scope=" + officeScope)).json(); if (life.current.alive) {
         setPreview(r);
         setPerson(null);
     } });
     const apply = () => run(async () => { if (reason.trim().length < 3)
-        throw Error("علت ثبت تعدیل را وارد کنید"); const r = await (await request("/reconciliation/apply/" + preview.source_id, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: preview.token, reason }) })).json(); if (!life.current.alive)
+        throw Error("علت ثبت تعدیل را وارد کنید"); const r = await (await request("/reconciliation/apply/" + preview.source_id, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: preview.token, reason, office_scope: preview.plan.office_scope }) })).json(); if (!life.current.alive)
         return; setPreview({ ...preview, id: r.id }); await load(); });
     const view = id => run(async () => { const r = await (await request("/reconciliation/batches/" + id)).json(); if (life.current.alive) {
         setPreview(r);
@@ -12171,7 +12171,7 @@ function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
         setOriginal({ monthly: JSON.parse(b.monthly_json), daily: JSON.parse(b.daily_json), id, finalized_at: b.finalized_at }); });
     const download = (id, kind) => run(async () => { const r = await request("/reconciliation/batches/" + id + "/" + kind); const blob = await r.blob(); if (!life.current.alive)
         return; const url = URL.createObjectURL(blob), a = document.createElement("a"); a.href = url; a.download = "تطبیق-" + year + "-" + month + (kind === "backup" ? ".json" : ".xlsx"); a.click(); setTimeout(() => URL.revokeObjectURL(url), 10000); });
-    const hours = v => faPlain((Number(v || 0) / 3600).toFixed(6).replace(/\.?0+$/, ''));
+    const hours = v => v === null || v === undefined ? "—" : faPlain((Number(v || 0) / 3600).toFixed(6).replace(/\.?0+$/, ''));
     const keys = [["overtime", "اضافه‌کار"], ["holiday", "تعطیل‌کاری"], ["friday", "جمعه‌کاری"]];
     return React.createElement("section", { className: "panel", "aria-busy": busy },
         React.createElement("h3", null, "\u06CC\u06A9\u0633\u0627\u0646 \u0633\u0627\u0632\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0627 \u062F\u0631\u06CC\u0627\u0641\u062A\u06CC \u0627\u0632 \u0633\u0627\u0632\u0645\u0627\u0646"),
@@ -12194,7 +12194,14 @@ function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
                         s.file_name,
                         " \u2014 ",
                         faDate(s.created_at))))),
-            React.createElement("button", { className: "btn p", disabled: !source || !(data === null || data === void 0 ? void 0 : data.finalized), onClick: compare }, "\u06CC\u06A9\u0633\u0627\u0646 \u0633\u0627\u0632\u06CC \u062A\u0631\u062F\u062F \u067E\u0631\u0633\u0646\u0644 \u0628\u0627 \u06A9\u0627\u0631\u06A9\u0631\u062F \u062F\u0631\u06CC\u0627\u0641\u062A\u06CC \u0627\u0632 \u0633\u0627\u0632\u0645\u0627\u0646"),
+            React.createElement("label", null,
+                "\u0645\u0628\u0646\u0627\u06CC \u06AF\u0631\u0648\u0647 \u0646\u06CC\u0631\u0648\u06CC \u0627\u062F\u0627\u0631\u06CC \u0645\u0642\u06CC\u0645 \u0633\u0627\u0632\u0645\u0627\u0646",
+                React.createElement("select", { className: "input", "aria-label": "\u0645\u0628\u0646\u0627\u06CC \u06AF\u0631\u0648\u0647 \u0627\u062F\u0627\u0631\u06CC", value: officeScope, onChange: e => { setOfficeScope(e.target.value); setPreview(null); } },
+                    React.createElement("option", { value: "" }, "\u0645\u0628\u0646\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u06AF\u0631\u0648\u0647 \u0631\u0627 \u0645\u0634\u062E\u0635 \u06A9\u0646\u06CC\u062F"),
+                    React.createElement("option", { value: "role" }, "\u0627\u0641\u0631\u0627\u062F \u062F\u0627\u0631\u0627\u06CC \u0647\u0645\u06CC\u0646 \u0633\u0645\u062A"),
+                    React.createElement("option", { value: "zone" }, "\u0627\u0641\u0631\u0627\u062F \u0645\u0646\u0637\u0642\u0647\u200C\u0627\u06CC \u0628\u0627 \u0647\u0645\u06CC\u0646 \u0646\u0627\u0645"))),
+            React.createElement("p", { className: "muted" }, "\u0628\u0627\u0632\u0647\u0654 \u0645\u0635\u0648\u0628 \u0633\u0627\u0632\u0645\u0627\u0646 \u06F0\u06F7:\u06F0\u06F0 \u062A\u0627 \u06F1\u06F4:\u06F3\u06F3 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u06AF\u0631\u0648\u0647 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC \u0648 \u0631\u0648\u0632\u0647\u0627\u06CC \u0639\u0627\u062F\u06CC\u0650 \u062F\u0627\u062E\u0644 \u062F\u0648\u0631\u0647\u0654 \u0647\u0645\u06A9\u0627\u0631\u06CC \u062B\u0628\u062A \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u0633\u0627\u06CC\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0631\u0627 \u062F\u0631\u06CC\u0627\u0641\u062A \u0646\u0645\u06CC\u200C\u06A9\u0646\u0646\u062F."),
+            React.createElement("button", { className: "btn p", disabled: !source || !officeScope || !(data === null || data === void 0 ? void 0 : data.finalized), onClick: compare }, "\u06CC\u06A9\u0633\u0627\u0646 \u0633\u0627\u0632\u06CC \u062A\u0631\u062F\u062F \u067E\u0631\u0633\u0646\u0644 \u0628\u0627 \u06A9\u0627\u0631\u06A9\u0631\u062F \u062F\u0631\u06CC\u0627\u0641\u062A\u06CC \u0627\u0632 \u0633\u0627\u0632\u0645\u0627\u0646"),
             React.createElement("p", { className: "muted" }, "\u0627\u06CC\u0646 \u062F\u06A9\u0645\u0647 \u0627\u0628\u062A\u062F\u0627 \u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0645\u0642\u0627\u06CC\u0633\u0647 \u0631\u0627 \u0646\u0634\u0627\u0646 \u0645\u06CC\u200C\u062F\u0647\u062F. \u062B\u0628\u062A \u0646\u0647\u0627\u06CC\u06CC \u062F\u0631 \u0645\u0631\u062D\u0644\u0647\u0654 \u0628\u0639\u062F \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F. \u0641\u0627\u06CC\u0644 \u0633\u0627\u0632\u0645\u0627\u0646 \u0627\u0632 \u062A\u0628 \u00AB\u0641\u0627\u06CC\u0644 \u0646\u0647\u0627\u06CC\u06CC \u0634\u0631\u06A9\u062A\u00BB \u0648\u0627\u0631\u062F \u0645\u06CC\u200C\u0634\u0648\u062F."),
             React.createElement("label", null,
                 "\u0639\u0644\u062A \u062B\u0628\u062A \u06CC\u0627 \u0628\u0631\u06AF\u0634\u062A",
@@ -12205,6 +12212,8 @@ function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
                     preview.source_name,
                     " | ",
                     fa(preview.plan.rows.length),
+                    " \u0646\u0641\u0631 | \u0628\u0631\u0646\u0627\u0645\u0647\u0654 \u062B\u0627\u0628\u062A \u0645\u0635\u0648\u0628: ",
+                    fa(preview.plan.rows.filter(r => r.office_group).length),
                     " \u0646\u0641\u0631"),
                 preview.plan.has_errors && React.createElement("p", { role: "alert" }, "\u0645\u0648\u0627\u0631\u062F \u062F\u0627\u0631\u0627\u06CC \u0645\u063A\u0627\u06CC\u0631\u062A \u0628\u0627\u06CC\u062F \u067E\u06CC\u0634 \u0627\u0632 \u062B\u0628\u062A \u0628\u0631\u0631\u0633\u06CC \u0634\u0648\u0646\u062F."),
                 React.createElement("div", { style: { overflowX: "auto" } },
@@ -12217,15 +12226,20 @@ function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
                                     " (\u0633\u0627\u0639\u062A)")),
                                 React.createElement("th", { rowSpan: 2 }, "\u062C\u0632\u0626\u06CC\u0627\u062A")),
                             React.createElement("tr", null, keys.flatMap(([k]) => ["ثبت‌شدهٔ اولیه", "سازمان", "قابل پرداخت (تعدیل‌شده)"].map(t => React.createElement("th", { key: k + t }, t))))),
-                        React.createElement("tbody", null, preview.plan.rows.map((r, i) => React.createElement("tr", { key: i },
+                        React.createElement("tbody", null, preview.plan.rows.map((r, i) => { var _a; return React.createElement("tr", { key: i },
                             React.createElement("td", null,
                                 r.name,
                                 React.createElement("br", null),
                                 faPlain(r.personnel_code),
+                                r.office_group && React.createElement("p", null,
+                                    "\u0628\u0627\u0632\u0647\u0654 \u0645\u0635\u0648\u0628 \u0633\u0627\u0632\u0645\u0627\u0646 \u06F0\u06F7:\u06F0\u06F0\u2013\u06F1\u06F4:\u06F3\u06F3\u061B ",
+                                    fa(r.office_schedule_days),
+                                    " \u0631\u0648\u0632"), (_a = r.warnings) === null || _a === void 0 ? void 0 :
+                                _a.map((w, i) => React.createElement("p", { key: i, className: "muted" }, w)),
                                 r.errors.length > 0 && React.createElement("p", { style: { color: "var(--danger,#bd2929)" } }, r.errors.join("؛ "))),
                             keys.flatMap(([k]) => ["actual_seconds", "organization_seconds", "payable_seconds"].map(f => React.createElement("td", { key: k + f }, hours(r[f][k])))),
                             React.createElement("td", null,
-                                React.createElement("button", { className: "btn", onClick: () => setPerson(r) }, "\u0631\u0648\u0632\u0627\u0646\u0647"))))))),
+                                React.createElement("button", { className: "btn", onClick: () => setPerson(r) }, "\u0631\u0648\u0632\u0627\u0646\u0647"))); })))),
                 !preview.id && React.createElement("button", { className: "btn p", disabled: preview.plan.has_errors || !!(data === null || data === void 0 ? void 0 : data.active_id) || reason.trim().length < 3, onClick: apply }, "\u062B\u0628\u062A \u062A\u0639\u062F\u06CC\u0644 \u0645\u0635\u0648\u0628 \u0648 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u0627\u0635\u0644\u06CC"),
                 !!(data === null || data === void 0 ? void 0 : data.active_id) && !preview.id && React.createElement("p", null, "\u0627\u0628\u062A\u062F\u0627 \u062A\u0639\u062F\u06CC\u0644 \u0641\u0639\u0627\u0644 \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0631\u0627 \u0628\u0631\u06AF\u0634\u062A \u062F\u0647\u06CC\u062F.")),
             React.createElement("h4", null, "\u0622\u0631\u0634\u06CC\u0648 \u062A\u0637\u0628\u06CC\u0642 \u0648 \u0646\u0633\u062E\u0647\u0654 \u0627\u0635\u0644\u06CC \u0645\u0627\u0647"),
@@ -12257,20 +12271,26 @@ function OrganizationWorkReconciliation({ year, month, onPeriodChange }) {
         busy && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u067E\u0631\u062F\u0627\u0632\u0634\u2026"),
         error && React.createElement("p", { role: "alert", style: { color: "var(--danger,#bd2929)" } }, error),
         person && React.createElement(Modal, { title: "توزیع حسابداری تعدیل مصوب — " + person.name, onClose: () => setPerson(null) },
-            React.createElement("p", null, "\u062D\u0636\u0648\u0631 \u0648\u0627\u0642\u0639\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u0646\u06A9\u0631\u062F\u0647 \u0627\u0633\u062A\u061B \u0627\u0639\u062F\u0627\u062F \u062A\u0634\u0648\u06CC\u0642\u06CC \u0633\u0627\u0639\u062A \u0648\u0631\u0648\u062F\u060C \u062E\u0631\u0648\u062C \u06CC\u0627 \u0645\u0623\u0645\u0648\u0631\u06CC\u062A \u0646\u06CC\u0633\u062A\u0646\u062F."),
+            React.createElement("p", null, "\u0628\u0627\u0632\u0647\u0654 \u0646\u0645\u0627\u06CC\u0634\u200C\u062F\u0627\u062F\u0647\u200C\u0634\u062F\u0647\u060C \u0628\u0631\u0646\u0627\u0645\u0647\u0654 \u0645\u0635\u0648\u0628 \u0633\u0627\u0632\u0645\u0627\u0646 \u0627\u0633\u062A. \u062D\u0636\u0648\u0631 \u062B\u0628\u062A\u200C\u0634\u062F\u0647\u0654 \u0627\u0648\u0644\u06CC\u0647 \u062C\u062F\u0627 \u062D\u0641\u0638 \u0645\u06CC\u200C\u0634\u0648\u062F."),
             React.createElement("div", { style: { overflowX: "auto", maxHeight: "65vh" } },
                 React.createElement("table", null,
                     React.createElement("thead", null,
                         React.createElement("tr", null,
                             React.createElement("th", null, "\u0631\u0648\u0632 \u0634\u0645\u0633\u06CC"),
-                            React.createElement("th", null, "\u062D\u0636\u0648\u0631 \u0648\u0627\u0642\u0639\u06CC"),
+                            React.createElement("th", null, "\u062D\u0636\u0648\u0631 \u062B\u0628\u062A\u200C\u0634\u062F\u0647\u0654 \u0627\u0648\u0644\u06CC\u0647"),
+                            React.createElement("th", null, "\u0628\u0627\u0632\u0647\u0654 \u0645\u0635\u0648\u0628 \u0633\u0627\u0632\u0645\u0627\u0646"),
+                            React.createElement("th", null, "\u0645\u062F\u062A \u0645\u0635\u0648\u0628 \u0633\u0627\u0632\u0645\u0627\u0646"),
                             keys.map(([k, t]) => React.createElement("th", { key: k },
                                 t,
-                                " \u062A\u0639\u062F\u06CC\u0644 \u0645\u0635\u0648\u0628 (\u0633\u0627\u0639\u062A)")))),
-                    React.createElement("tbody", null, person.days.map(d => React.createElement("tr", { key: d.jdate },
+                                " ",
+                                person.days.some(d => d.payable_seconds) ? "قابل پرداخت" : "تعدیل نسخهٔ قدیمی",
+                                " (\u0633\u0627\u0639\u062A)")))),
+                    React.createElement("tbody", null, person.days.map(d => { var _a; return React.createElement("tr", { key: d.jdate },
                         React.createElement("td", null, faPlain(d.jdate)),
-                        React.createElement("td", null, faPlain(d.worked)),
-                        keys.map(([k]) => React.createElement("td", { key: k }, hours(d.incentive_seconds[k]))))))))),
+                        React.createElement("td", null, faPlain((_a = d.worked) !== null && _a !== void 0 ? _a : "ناموجود")),
+                        React.createElement("td", null, d.organization_schedule ? "۰۷:۰۰–۱۴:۳۳" : "—"),
+                        React.createElement("td", null, d.organization_schedule ? "۷:۳۳" : "—"),
+                        keys.map(([k]) => React.createElement("td", { key: k }, hours((d.payable_seconds || d.incentive_seconds)[k])))); }))))),
         original && React.createElement(Modal, { title: "\u0646\u0633\u062E\u0647\u0654 \u0627\u0635\u0644\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u0647\u0627\u06CC\u06CC\u200C\u0634\u062F\u0647", onClose: () => setOriginal(null) },
             React.createElement("p", null,
                 "\u0646\u0633\u062E\u0647\u0654 \u0627\u0635\u0644\u06CC \u0628\u062F\u0648\u0646 \u062A\u0639\u062F\u06CC\u0644\u0627\u062A \u062A\u0634\u0648\u06CC\u0642\u06CC\u061B \u062A\u0627\u0631\u06CC\u062E \u0646\u0647\u0627\u06CC\u06CC\u200C\u0633\u0627\u0632\u06CC: ",
