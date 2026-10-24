@@ -27,6 +27,6 @@ $result=Importer::runRows('bills',$rows,0);
 if ($result['imported']!==125 || $result['skipped']!==0 || Db::$writes!==125 || Db::$connection->commits!==3)
   throw new RuntimeException('Bill batching regression: '.json_encode(['result'=>$result,'writes'=>Db::$writes,'commits'=>Db::$connection->commits],JSON_UNESCAPED_UNICODE));
 $source=file_get_contents(__DIR__.'/../lib/routes.php');
-if (!str_contains($source,"($p['kind'] === 'bills') ? 76 : 301"))
+if (!str_contains($source,"(\$p['kind'] === 'bills') ? 76 : 301"))
   throw new RuntimeException('Chunk endpoint must bound bill requests');
 echo "PASS bill-import: 125 writes in three <=50-row transactions; bounded HTTP chunks\n";
