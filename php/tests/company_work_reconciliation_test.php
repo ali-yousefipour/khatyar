@@ -18,17 +18,18 @@ $sourceRow=['first_name'=>'کاربر','last_name'=>'نمونه','personnel_code
 Db::$users=[['id'=>1,'first_name'=>'کاربر','last_name'=>'نمونه','personnel_code'=>'0005']];
 Db::$source=['id'=>8,'jy'=>1405,'jm'=>7,'file_name'=>'سازمان.xlsx','sha256'=>str_repeat('a',64),'rows_json'=>CompanyWork::json([$sourceRow])];
 $monthly=[['user_id'=>1,'name'=>'کاربر نمونه','regular_overtime'=>120,'mission_min'=>60,'shortage'=>30,'holiday'=>30,'friday'=>60]];
-$days=[];for($i=1;$i<=30;$i++)$days[]=['jdate'=>sprintf('1405/07/%02d',$i),'worked'=>$i<=3?'08:00':'00:00'];
+$days=[];for($i=1;$i<=30;$i++)$days[]=['jdate'=>sprintf('1405/07/%02d',$i),'worked'=>$i<=3?'08:00':'00:00','is_holiday'=>in_array($i,[3,4],true)];
 $daily=[1=>['user'=>['name'=>'کاربر نمونه'],'days'=>$days]];
 Db::$final=['monthly_json'=>CompanyWork::json($monthly),'daily_json'=>CompanyWork::json($daily),'finalized_at'=>'2026-10-22 12:00:00'];$original=Db::$final;
 $p=CompanyWork::reconciliationPreview(8);$r=$p['plan']['rows'][0];
 yes('canonical organization baseline includes mission minus shortage',$r['actual_seconds']['overtime']===150*60);
 yes('all payable categories equal organization values',$r['payable_seconds']===$r['organization_seconds']&&!$p['plan']['has_errors']);
-foreach(['overtime','holiday','friday'] as $k){$parts=array_column(array_column($r['days'],'incentive_seconds'),$k);yes('exact sum and balanced seconds '.$k,array_sum($parts)===$r['incentive_seconds'][$k]&&max($parts)-min($parts)<=1);}
-yes('only real attended days receive accounting allocation',count($r['days'])===3&&$r['days'][0]['worked']==='08:00');
-$bad=$sourceRow;$bad['holiday_hours']=0;$out=CompanyWork::reconciliationPlan([array_merge($bad,['user_id'=>1])],$monthly,$daily,1405,7);yes('lower organization value requires manual review',$out['has_errors']);
+foreach(['overtime','holiday','friday'] as $k){$parts=array_column(array_column($r['days'],'incentive_seconds'),$k);yes('exact calendar sum '.$k,array_sum($parts)===$r['incentive_seconds'][$k]);}
+foreach($r['days'] as $d){$fri=CompanyWork::date($d['jdate'])->format('w')==='5';yes('Friday allocation only on Fridays',!$d['incentive_seconds']['friday']||$fri);yes('holiday allocation excludes Fridays',!$d['incentive_seconds']['holiday']||(!$fri&&substr($d['jdate'],-2)==='04'));yes('regular overtime excludes holidays and Fridays',!$d['incentive_seconds']['overtime']||(!$fri&&substr($d['jdate'],-2)!=='04'));}
+$bad=$sourceRow;$bad['holiday_hours']=0;$out=CompanyWork::reconciliationPlan([array_merge($bad,['user_id'=>1])],$monthly,$daily,1405,7);yes('lower organization value creates signed financial adjustment',!$out['has_errors']&&$out['rows'][0]['incentive_seconds']['holiday']===-1800&&$out['rows'][0]['payable_seconds']['holiday']===0);
+$unknown=$daily;unset($unknown[1]['days'][0]['is_holiday']);yes('unknown frozen holiday calendar rejected',CompanyWork::reconciliationPlan([array_merge($sourceRow,['user_id'=>1])],$monthly,$unknown,1405,7)['has_errors']);
 $missing=$daily;array_pop($missing[1]['days']);yes('partial frozen month blocked',CompanyWork::reconciliationPlan([array_merge($sourceRow,['user_id'=>1])],$monthly,$missing,1405,7)['has_errors']);
-$none=$daily;foreach($none[1]['days'] as &$d)$d['worked']='00:00';unset($d);yes('no fake attendance day invented',CompanyWork::reconciliationPlan([array_merge($sourceRow,['user_id'=>1])],$monthly,$none,1405,7)['has_errors']);
+$none=$daily;foreach($none[1]['days'] as &$d)$d['worked']='00:00';unset($d);$zero=CompanyWork::reconciliationPlan([array_merge($sourceRow,['user_id'=>1])],$monthly,$none,1405,7);yes('no attendance fabricated for incentive-only allocation',!$zero['has_errors']&&!array_filter($zero['rows'][0]['days'],fn($d)=>$d['worked']!=='00:00'));
 denied('stale preview cannot commit',409,fn()=>CompanyWork::reconciliationApply(8,str_repeat('b',64),'مصوبه سازمان',7));
 $saved=CompanyWork::reconciliationApply(8,$p['token'],'مصوبه سازمان',7);yes('atomic backup before activation',Db::$state===1&&Db::$batches[1]['backup_hash']===hash('sha256',Db::$batches[1]['backup_json']));
 yes('full original snapshot preserved',json_decode(Db::$batches[1]['backup_json'],true)['daily_json']===$original['daily_json']&&Db::$final===$original);

@@ -128,8 +128,7 @@ class CompanyWork {
         $v=$r[$k.'_hours']??null;
         if(!is_numeric($v)||!is_finite((float)$v)||(float)$v<0||(float)$v>IranCalendar::monthLength($year,$month)*24)$issues[]='ساعت سازمان نامعتبر است: '.$k;
         else $target[$k]=(int)round((float)$v*3600);
-        if($target[$k]<$actual[$k])$issues[]='ساعت سازمان کمتر از کارکرد اصلی است: '.$k.'؛ نیاز به بررسی دستی دارد';
-        $bonus[$k]=max(0,$target[$k]-$actual[$k]);
+        $bonus[$k]=$target[$k]-$actual[$k];
       }
       $eligible=[];$seen=[];
       if(count($report['days']??[])!==IranCalendar::monthLength($year,$month))$issues[]='تمام روزهای ماه در نسخهٔ اصلی موجود نیست';
@@ -138,17 +137,25 @@ class CompanyWork {
         if(!$j||substr($j,0,7)!==sprintf('%04d-%02d',$year,$month)||isset($seen[$j])){$issues[]='تاریخ روزهای نسخهٔ اصلی نامعتبر یا تکراری است';continue;}$seen[$j]=true;
         if(!empty($d['outside_employment_period']))continue;
         try{$worked=self::minutes($d['worked']??null);}catch(PayrollError $e){$issues[]='حضور روزانه در نسخهٔ اصلی نامعتبر است';continue;}
-        if($worked>0)$eligible[$j]=$d;
+        $eligible[$j]=$d;
       }
-      ksort($eligible);$n=count($eligible);
-      if(array_sum($bonus)>0&&!$n)$issues[]='روز دارای حضور واقعی برای توزیع حسابداری ساعات تشویقی وجود ندارد';
-      $i=0;foreach($eligible as $j=>$d){$part=[];foreach($bonus as $k=>$v)$part[$k]=intdiv($v,$n)+($i<$v%$n?1:0);$days[]=['jdate'=>$j,'worked'=>$d['worked'],'incentive_seconds'=>$part];$i++;}
+      ksort($eligible);$groups=['overtime'=>[],'holiday'=>[],'friday'=>[]];$parts=[];
+      foreach($eligible as $j=>$d){
+        $friday=self::date($j)->format('w')==='5';$holiday=!empty($d['is_holiday']);
+        if(!$friday&&!array_key_exists('is_holiday',$d))$issues[]='وضعیت تعطیلی روز در نسخهٔ اصلی مشخص نیست';
+        $k=$friday?'friday':($holiday?'holiday':'overtime');$groups[$k][]=$j;
+        $parts[$j]=['overtime'=>0,'holiday'=>0,'friday'=>0];
+      }
+      foreach($bonus as $k=>$v){$n=count($groups[$k]);if($v!==0&&!$n){$issues[]='روز تقویمی واجد شرایط برای تخصیص '.$k.' در نسخهٔ اصلی موجود نیست';continue;}
+        $amount=abs($v);foreach($groups[$k] as $i=>$j)$parts[$j][$k]=($v<0?-1:1)*(intdiv($amount,$n)+($i<$amount%$n?1:0));
+      }
+      foreach($eligible as $j=>$d)$days[]=['jdate'=>$j,'worked'=>$d['worked'],'incentive_seconds'=>$parts[$j]];
       $payable=[];foreach($actual as $k=>$v)$payable[$k]=$v+$bonus[$k];
       $issues=array_values(array_unique($issues));$row=['user_id'=>$uid,'name'=>trim(($r['first_name']??'').' '.($r['last_name']??'')),'personnel_code'=>(string)($r['personnel_code']??''),'actual_seconds'=>$actual,'organization_seconds'=>$target,'incentive_seconds'=>$bonus,'payable_seconds'=>$payable,'days'=>$days,'errors'=>$issues];
       if($issues)$errors[]=$row['personnel_code'];$result[]=$row;
     }
     if(!$result)self::fail('فایل سازمان فاقد ردیف قابل تطبیق است');
-    return ['year'=>$year,'month'=>$month,'rows'=>$result,'has_errors'=>(bool)$errors,'unit'=>'seconds','allocation'=>'توزیع حسابداری ساعات تشویقی روی روزهای دارای حضور؛ این مقادیر ورود، خروج یا مأموریت نیستند'];
+    return ['year'=>$year,'month'=>$month,'rows'=>$result,'has_errors'=>(bool)$errors,'unit'=>'seconds','allocation_version'=>2,'allocation'=>'تخصیص حسابداری: جمعه‌کاری فقط جمعه‌ها، تعطیل‌کاری فقط تعطیلات غیرجمعه و اضافه‌کار روزهای عادی؛ تردد و مأموریت واقعی تغییر نمی‌کند'];
   }
   static function reconciliationPreview($sourceId){
     $s=self::source($sourceId);$y=(int)$s['jy'];$m=(int)$s['jm'];$final=_final_work_month($y,$m);

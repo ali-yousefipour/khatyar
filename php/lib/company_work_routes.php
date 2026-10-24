@@ -49,12 +49,12 @@ _company_work_route('GET','/reconciliation/batches/{id}/backup',function($p,$b,$
 _company_work_route('GET','/reconciliation/batches/{id}/export',function($p,$b,$u){
   CompanyWork::reconciliationSchema();$r=CompanyWork::reconciliationRecord($p['id']);$plan=json_decode($r['plan_json'],true,512,JSON_THROW_ON_ERROR);
   $daily=($_GET['mode']??'')==='daily';$headers=['نام و نام خانوادگی','شماره پرسنلی'];
-  if($daily)$headers=array_merge($headers,['تاریخ شمسی','حضور واقعی','تشویقی اضافه‌کار (ساعت)','تشویقی تعطیل‌کاری (ساعت)','تشویقی جمعه‌کاری (ساعت)']);
-  else foreach(['اضافه‌کار','تعطیل‌کاری','جمعه‌کاری'] as $title)foreach(['اصلی','سازمان','تشویقی','قابل پرداخت'] as $label)$headers[]=$title.' '.$label.' (ساعت)';
+  if($daily)$headers=array_merge($headers,['تاریخ شمسی','حضور واقعی','تعدیل مصوب اضافه‌کار (ساعت)','تعدیل مصوب تعطیل‌کاری (ساعت)','تعدیل مصوب جمعه‌کاری (ساعت)']);
+  else foreach(['اضافه‌کار','تعطیل‌کاری','جمعه‌کاری'] as $title)foreach(['ثبت‌شدهٔ اولیه','سازمان','قابل پرداخت (تعدیل‌شده)'] as $label)$headers[]=$title.' '.$label.' (ساعت)';
   $x=new XlsxWriter($headers);$x->setProfessionalStyle(true);$x->setTextCol(1);foreach($headers as $i=>$v){$x->setColWidth($i,$i<2?25:20);if($i>=($daily?4:2))$x->setDecimalCol($i);}
-  $x->setReportHeading('تطبیق با ساعات تشویقی مصوب سازمان',sprintf('%04d/%02d',$r['jy'],$r['jm']), 'حضور واقعی و نسخهٔ نهایی اصلی تغییر نکرده‌اند؛ توزیع روزانه صرفاً حسابداری است.');
+  $x->setReportHeading('تطبیق با تعدیلات مصوب سازمان',sprintf('%04d/%02d',$r['jy'],$r['jm']), 'حضور واقعی و نسخهٔ نهایی اصلی تغییر نکرده‌اند؛ توزیع روزانه صرفاً حسابداری است.');
   foreach($plan['rows'] as $row){
     if($daily){foreach($row['days'] as $d)$x->addRow([$row['name'],$row['personnel_code'],$d['jdate'],$d['worked'],...array_map(fn($k)=>round($d['incentive_seconds'][$k]/3600,6),['overtime','holiday','friday'])]);}
-    else{$values=[$row['name'],$row['personnel_code']];foreach(['overtime','holiday','friday'] as $k)foreach(['actual_seconds','organization_seconds','incentive_seconds','payable_seconds'] as $field)$values[]=round($row[$field][$k]/3600,6);$x->addRow($values);}
+    else{$values=[$row['name'],$row['personnel_code']];foreach(['overtime','holiday','friday'] as $k)foreach(['actual_seconds','organization_seconds','payable_seconds'] as $field)$values[]=round($row[$field][$k]/3600,6);$x->addRow($values);}
   }$x->output('organization-incentives-'.$r['id'].'.xlsx','تطبیق کارکرد');
 });
