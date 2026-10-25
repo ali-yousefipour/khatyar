@@ -77,6 +77,8 @@ jobs:
           php -l php/lib/complaints_routes_extra.php
       - name: Panel bundle syntax
         run: |
+          node php/tests/android_web_navigation_test.cjs
+          node --check php/app/assets/android-app-ui.js
           node --version
           node --check php/app/assets/panel.bundle.js
           node php/tests/panel_navigation_ui_test.cjs

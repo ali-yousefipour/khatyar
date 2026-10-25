@@ -1,0 +1,26 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),cp=require('node:child_process');
+cp.execFileSync(process.execPath,[__dirname+'/../tools/build_android_web_navigation.cjs','--check'],{stdio:'inherit'});
+const html=fs.readFileSync(__dirname+'/../app/app.html','utf8'),code=html.match(/<script>\s*([\s\S]*?)<\/script>/)[1].split('// ---- boot ----')[0];
+const data=fs.readFileSync(__dirname+'/../app/assets/android-navigation.js','utf8');
+const memory=new Map(),rows=[],chips=[],elements=new Map();
+const element=id=>{if(!elements.has(id))elements.set(id,{id,value:'',textContent:'',innerHTML:'',style:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},focus(){}});return elements.get(id)};
+const c={console,Intl,URL,Headers,AbortController,Date,setTimeout:()=>0,setInterval:()=>0,clearInterval(){},navigator:{onLine:false},location:{href:'https://fixture.test/app',origin:'https://fixture.test'},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,String(v)),removeItem:k=>memory.delete(k)},document:{getElementById:element,querySelector:()=>null,querySelectorAll:selector=>selector.includes('#webAndroidGrid')?rows:selector.includes('[data-cat].chip')?chips:[],documentElement:{style:{}}},addEventListener(){},fetch:async()=>({ok:true,json:async()=>[],status:200})};c.window=c;vm.createContext(c);vm.runInContext(data,c);vm.runInContext(code,c);
+(async()=>{
+ vm.runInContext("USER={id:7,name:'آزمون',role:'ناظر خط',is_admin:true,can_send_sms:true}; GET=async p=>p==='/my/app-items'?{items:globalThis.__items??KH_ANDROID_NAV.dashboard.map(x=>x.route).concat(KH_ANDROID_NAV.drawer.map(x=>x.route))}:p==='/school-service/access'?{allowed:true}:{}",c);
+ const home=await vm.runInContext('screens.dashboard()',c);assert.equal((home.match(/data-route=/g)||[]).length,36);assert(home.includes('جستجو در امکانات'));assert(!home.includes('kh-android-catalog'));
+ vm.runInContext('__items=["Requests","Profile","Settings"];',c);const restricted=await vm.runInContext('screens.dashboard()',c);assert.equal((restricted.match(/data-route=/g)||[]).length,1);assert(restricted.includes('data-route="Requests"'));
+ vm.runInContext('APP_ALLOWED=["Notifications","Messages","WorkSummary","Profile","Settings","Help","SendQueue"]; openDrawer()',c);const drawer=element('drawerPanel').innerHTML;assert.equal((drawer.match(/android-drawer-link(?: |")/g)||[]).length,8);assert(!drawer.includes("nav('Driver')"));assert(!drawer.includes("nav('ChangePassword')"));assert(!drawer.includes("nav('PersonnelVehicleAsset')"));assert(drawer.includes("nav('Settings')"));
+ rows.push({dataset:{title:'فیش حقوقی',cat:'personal'},hidden:false},{dataset:{title:'ارسال گزارش',cat:'work'},hidden:false});element('android-menu-search').value='حقوق';vm.runInContext("filterWebAndroid('all')",c);assert.equal(rows[0].hidden,false);assert.equal(rows[1].hidden,true);assert.equal(element('android-result-count').textContent,'۱ مورد');vm.runInContext("filterWebAndroid('work')",c);assert(rows.every(x=>x.hidden));assert.equal(element('android-empty').hidden,false);
+ vm.runInContext('__items=[];',c);const none=await vm.runInContext('screens.dashboard()',c);assert.equal((none.match(/data-route=/g)||[]).length,0);
+ vm.runInContext("USER.id=1;store.set(androidOrderKey(),JSON.stringify(['Requests','Requests','Unknown']));",c);const ordered=vm.runInContext('androidOrderedItems().map(x=>x.route)',c);assert.equal(ordered[0],'Requests');assert.equal(new Set(ordered).size,36);vm.runInContext('USER.id=2',c);assert.equal(vm.runInContext('androidOrderedItems()[0].route',c),'PersonnelVehicleAsset');
+ const shell=fs.readFileSync(__dirname+'/../app/app-shell.php','utf8');assert(!shell.includes('android-web-existing-screen-parity.js'));const bridge=fs.readFileSync(__dirname+'/../app/assets/personnel-vehicle-ui-bridge.js','utf8');assert(!bridge.includes('drawer.appendChild'));const parity=fs.readFileSync(__dirname+'/../app/assets/android-web-parity.js','utf8');assert(!parity.includes('MutationObserver(inject)'));
+ assert(fs.existsSync(__dirname+'/../app/assets/fonts/MaterialCommunityIcons-15.0.2.ttf'));const sw=fs.readFileSync(__dirname+'/../app/sw.js','utf8');assert(sw.includes('android-navigation.js?v=20261025.1'));assert(sw.includes('if (response.ok) { const copy = response.clone();'));
+ c.document.addEventListener=()=>{};
+ vm.runInContext(fs.readFileSync(__dirname+'/../app/assets/android-app-ui.js','utf8'),c);
+ const settings=await vm.runInContext('screens.settings()',c);assert.equal((settings.match(/class="item"/g)||[]).length,9);assert(settings.includes('androidWebUpdate()'));
+ vm.runInContext("store.set('queue',JSON.stringify([{p:'/requests',body:{secret:'never-render-payload'}}]));",c);
+ const queue=await vm.runInContext('screens.sendqueue()',c);assert(queue.includes('ثبت درخواست'));assert(!queue.includes('never-render-payload'));
+ vm.runInContext("store.set('queue','[]')",c);assert((await vm.runInContext('screens.sendqueue()',c)).includes('صف ارسال خالی است'));
+ assert((await vm.runInContext('screens.privacypolicy()',c)).includes('حریم خصوصی'));
+ console.log('PASS Android/web: source parity, role filtering, drawer, search/category, empty state, per-user order, no reinjection, offline assets, nine settings and safe queue display');
+})().catch(e=>{console.error(e);process.exitCode=1});

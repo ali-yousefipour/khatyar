@@ -85,19 +85,21 @@ input,select,textarea,button{font-family:inherit;max-width:100%}
 }
 @media(max-width:380px){.kpis{grid-template-columns:1fr!important}}
 </style>
+<link rel="stylesheet" href="assets/android-app.css?v=20261025.1">
+<script src="assets/android-navigation.js?v=20261025.1"></script>
 </head>
 <body>
 <div class="app">
   <div class="offline" id="offline">حالت آفلاین — موارد در صف ارسال</div>
   <div class="hdr" id="hdr" style="display:none">
-    <button class="ic" id="hdrIc" onclick="hdrAction()">☰</button>
+    <button class="ic" id="hdrIc" aria-label="باز کردن منو یا بازگشت" onclick="hdrAction()">☰</button>
     <span class="ttl" id="hdrTtl">داشبورد</span>
-    <button class="bell" onclick="nav('messages')">✉<span class="dot" id="msgDot">۰</span></button>
-    <button class="bell" onclick="nav('notifications')">🔔<span class="dot" id="bellDot">۰</span></button>
+    <button class="bell" aria-label="پیام‌ها" onclick="nav('messages')"><span class="kh-icon" aria-hidden="true">&#983914;</span><span class="dot" id="msgDot">۰</span></button>
+    <button class="bell" aria-label="اعلان‌ها" onclick="nav('notifications')"><span class="kh-icon" aria-hidden="true">&#983196;</span><span class="dot" id="bellDot">۰</span></button>
   </div>
   <div class="body" id="body"><div class="spin"></div></div>
   <div class="footer" id="footer" style="display:none"></div>
-  <div class="drawer" id="drawer" onclick="if(event.target.id==='drawer')closeDrawer()"><div class="panel" id="drawerPanel"></div></div>
+  <div class="drawer" id="drawer" onclick="if(event.target.id==='drawer')closeDrawer()"><div class="panel" id="drawerPanel" role="dialog" aria-modal="true" aria-label="منوی برنامه"></div></div>
   <div class="toast" id="toast"></div>
 </div>
 <script>
@@ -264,17 +266,18 @@ const ANDROID_ITEMS=[
    نشان می‌دهد. قبلاً هم داشبورد و هم منوی کشویی این وب‌اپ، تقریباً کل فهرست بالا (نزدیک به ۶۰ آیتم، شامل
    صفحات تنظیمات/جزئیات که در اندروید اصلاً روی داشبورد یا منو نیستند) را نشان می‌دادند — همان چیزی که باعث
    می‌شد منو/داشبورد شلوغ و تکراری به‌نظر برسد. */
-const DASHBOARD_ITEMS=['Radio','Search','PresentList','Reports','CheckIn','Requests','RequestInbox','WorkSummary','SalarySlips','CompanyRequests','Subscription','Sms','BotMessages','MySms','Forms','Cultural','Welfare','OfficialPresence','Inventory','MyDailyMission','LineVisitProgram','StationCapture','MyStations','RoleDashboard','Leaderboard','ActivityReport','ExpInsurance','ExpTaxi','ExpOplic','TeamReport','TempDrivers','Outage'];
-const DRAWER_ITEMS=['Notifications','Messages','WorkSummary','SalarySlips','Profile','Help','ImportTimes','InboxReports','PersonnelVehicleAsset','PersonnelVehicleChecklist'];
-const ANDROID_CATS=[['all','همه'],['field','میدانی'],['work','عملیات'],['messages','ارتباطات'],['personal','شخصی'],['general','عمومی']];
+const DASHBOARD_ITEMS=KH_ANDROID_NAV.dashboard.map(x=>x.route);
+const DRAWER_ITEMS=KH_ANDROID_NAV.drawer.map(x=>x.route);
+const ANDROID_CATS=KH_ANDROID_NAV.categories;
+for(const x of [...KH_ANDROID_NAV.dashboard,...KH_ANDROID_NAV.drawer]){const old=ANDROID_ITEMS.find(a=>a[0]===x.route);if(old){old[1]=x.title;old[2]=x.category||old[2];}else ANDROID_ITEMS.push([x.route,x.title,x.category||'personal']);}
 const token=()=>localStorage.getItem('token')||localStorage.getItem('access')||localStorage.getItem('access_token')||'';
-let APP_ALLOWED=null;
+let APP_ALLOWED=null, APP_FEATURES={}, SCHOOL_ACCESS=false;
 async function loadAppAllowed(){try{const r=await GET('/my/app-items');APP_ALLOWED=Array.isArray(r?.items)?r.items:null;}catch(_){APP_ALLOWED=null}return APP_ALLOWED;}
-const appAllowed=k=>APP_ALLOWED===null||APP_ALLOWED.includes(k);
+const appAllowed=k=>APP_ALLOWED===null||APP_ALLOWED.includes(k)||(['StationCapture','MyStations'].includes(k)&&['StationCapture','MyStations','LineLocation'].some(x=>APP_ALLOWED.includes(x)));
 const routeAlias={
   PresentList:'present',ActivityReport:'activity',ExpInsurance:'expInsurance',ExpTaxi:'expTaxi',ExpOplic:'expOplic',TeamReport:'team',InboxReports:'inbox',OfficialPresence:'official',Messages:'messages',Notifications:'notifications',Forms:'forms',Reports:'reports',Search:'search',CheckIn:'checkin',Radio:'radio',Help:'help',Profile:'profile'
 };
-function webPlaceholder(key,label){return async()=>{chrome(true,label,'back');return `<div class="card"><h3>${esc(label)}</h3><p class="muted" style="margin-top:8px">این بخش در نسخه وب با همان نام و دسترسی نسخه اندروید ارائه شده است. رابط اختصاصی این بخش در حال تکمیل است.</p></div>`}}
+function webPlaceholder(key,label){const screen=async()=>{chrome(true,label,'back');return `<div class="card"><h3>${esc(label)}</h3><p class="muted" style="margin-top:8px">این بخش در نسخه وب با همان نام و دسترسی نسخه اندروید ارائه شده است. رابط اختصاصی این بخش در حال تکمیل است.</p></div>`};screen.isPlaceholder=true;return screen;}
 
 // ---- screens ----
 const screens={
@@ -305,14 +308,20 @@ const screens={
     <p class="muted" style="text-align:center;margin-top:14px">ورود نیازمند روشن‌بودن موقعیت (GPS) است.</p>`; },
 
   dashboard:async()=>{ chrome(true,'داشبورد','menu'); await loadAppAllowed();
-    const [s,st]=await Promise.all([GET('/my/dashboard').catch(()=>({today:0,checklists:0,notices:0,reports:0,unread:0})),GET('/my/stats').catch(()=>({drivers:0,vehicles:0}))]);
-    bell(s.unread); msgBadge(s.unread_messages); INBOX_N=s.inbox_reports||0;
-    const K=[['رانندگان خطوط شما',st.drivers],['خودروهای خطوط شما',st.vehicles],['حضور امروز',s.today],['چک‌لیست این ماه',s.checklists]];
-    const visible=DASHBOARD_ITEMS.map(k=>ANDROID_ITEMS.find(x=>x[0]===k)).filter(x=>x&&appAllowed(x[0]));
-    return `<div class="hero"><div class="hi">روز بخیر،</div><div class="nm">${starsForUser(USER)?`<span style="color:#b7791f">${starsForUser(USER)}</span> `:''}${esc(USER.name)} — ${esc(USER.role)}${starsForUser(USER)?` <span style="color:#b7791f">${starsForUser(USER)}</span>`:''}</div></div>
-      <div class="kpis">${K.map(([l,n])=>`<div class="kpi"><div class="n">${toFa(n)}</div><div class="l">${l}</div></div>`).join('')}</div>
-      <div class="label">امکانات خطیار</div><div class="row" style="gap:6px;overflow:auto;flex-wrap:nowrap;margin-bottom:8px">${ANDROID_CATS.map(([k,l])=>`<button class="chip" data-cat="${k}" onclick="filterWebAndroid('${k}')">${l}</button>`).join('')}</div>
-      <div id="webAndroidGrid" class="kgrid">${visible.map(x=>`<button class="item" data-route="${x[0]}" data-cat="${x[2]}" onclick="nav('${x[0]}')"><span style="font-size:18px">${x[0]==='Radio'?'📻':'•'}</span>${esc(x[1])}</button>`).join('')}</div>`; },
+    const [s,st,features,school]=await Promise.all([GET('/my/dashboard').catch(()=>({})),GET('/my/stats').catch(()=>({})),GET('/my/app-config').catch(()=>({})),GET('/school-service/access').catch(()=>({}))]);
+    APP_FEATURES=features;SCHOOL_ACCESS=school.allowed===true;
+    bell(s.unread);msgBadge(s.unread_messages);INBOX_N=s.inbox_reports||0;
+    const K=[['رانندگان خطوط شما',st.drivers,'account-group-outline'],['خودروهای خطوط شما',st.vehicles,'car-multiple'],['حضور امروز',s.today,'account-check-outline'],['چک‌لیست این ماه',s.checklists,'clipboard-check-outline']];
+    const visible=androidOrderedItems().filter(androidCanShow);
+    tmp._after=()=>{filterWebAndroid('all');androidDashboardContext();};
+    return `<section class="android-dashboard"><div class="hero"><div class="android-identity"><div class="hi">روز بخیر،</div><div class="nm"><span class="android-rank" aria-label="درجه">${Array.from(starsForUser(USER)).map(()=>'<i></i>').join('')}</span>${esc(USER.name)}</div><span class="android-role">${esc(USER.role)}</span><div class="android-org" id="android-zone"></div><div class="android-org" id="android-chief"></div></div><div class="android-date">${esc(new Intl.DateTimeFormat('fa-IR',{dateStyle:'full',timeZone:'Asia/Tehran'}).format(new Date()))}<div id="android-weather" class="android-weather">آب‌وهوا ناموجود</div></div>${androidAvatar(USER)}</div>
+      <div class="kpis">${K.map(([l,n,i])=>`<div class="kpi"><div class="android-kpi-head"><div class="n">${n==null?'—':toFa(n)}</div><span class="android-kpi-icon">${androidIcon(i)}</span></div><div class="l">${l}</div></div>`).join('')}</div>
+      <div class="android-section"><div><small>دسترسی سریع به خدمات</small><h2>امکانات خطیار</h2></div><span class="android-count" id="android-result-count">${toFa(visible.length)} مورد</span></div>
+      <label class="android-search">${androidIcon('magnify')}<input id="android-menu-search" type="search" placeholder="جستجو در امکانات…" aria-label="جستجو در امکانات" oninput="filterWebAndroid()"><button type="button" aria-label="پاک کردن جستجو" onclick="document.getElementById('android-menu-search').value='';filterWebAndroid()">${androidIcon('close')}</button></label>
+      <div class="android-order-bar"><span>ترتیب آیتم‌ها برای حساب کاربری شما ذخیره می‌شود.</span><button type="button" onclick="androidOrderDialog()">☷ تنظیم ترتیب</button></div>
+      <div class="android-tabs" role="group" aria-label="دسته‌بندی امکانات">${ANDROID_CATS.map(([k,l])=>`<button class="chip ${k==='all'?'on':''}" data-cat="${k}" onclick="filterWebAndroid('${k}')">${l}</button>`).join('')}</div>
+      <div id="webAndroidGrid" class="android-grid">${visible.map(x=>`<button class="item" data-route="${x.route}" data-cat="${x.category}" data-title="${esc(x.title)}" onclick="nav('${x.route}')"><span class="android-tile-icon" style="background:${x.bg}">${androidIcon(x.icon)}</span><span>${esc(x.title)}</span></button>`).join('')}</div><div id="android-empty" class="android-empty" hidden><b>موردی پیدا نشد</b><p class="muted">عبارت دیگری جست‌وجو کنید یا فیلتر را روی «همه» بگذارید.</p><button class="btn ghost" onclick="document.getElementById('android-menu-search').value='';filterWebAndroid('all')">پاک‌کردن جست‌وجو و فیلتر</button></div></section>`;
+  },
 
   team:async()=>{ chrome(true,'زیرمجموعهٔ من','back'); const d=await GET('/my/team').catch(()=>({groups:{},counts:{},busiest:null,idlest:null}));
     const groups=Object.entries(d.groups||{});
@@ -557,7 +566,9 @@ function canSeeTeam(){ const r=USER&&USER.role||''; return r.indexOf('سرباز
 function canSeeOfficialChart(){ const r=USER&&USER.role||''; return !!(USER&&(USER.is_admin || r.indexOf('سربازرس ارشد')>=0)); }
 function filterLines(q){ document.querySelectorAll('#lns .chip').forEach(c=>{ c.style.display=(!q||c.dataset.code.indexOf(q)>=0)?'':'none'; }); }
 function matchq(obj,q){ if(!q)return true; q=q.trim(); return Object.values(obj).some(v=>String(v||'').indexOf(q)>=0); }
+for(const x of [...KH_ANDROID_NAV.dashboard,...KH_ANDROID_NAV.drawer]){const r=routeAlias[x.route]||x.route.toLowerCase();if(!screens[r])screens[r]=webPlaceholder(x.route,x.title);}
 ['Dashboard','Search','Driver','Vehicle','Debt','Checklist','Notice','Reports','Sms','BotMessages','Requests','RequestInbox','WorkSummary','SalarySlips','CompanyRequests','Subscription','CheckIn','Forms','Cultural','Welfare','TempDrivers','Notifications','FieldAlerts','ActivityReport','ExpInsurance','ExpTaxi','ExpOplic','TeamReport','InboxReports','ReportDetail','OfficialPresence','Inventory','Messages','Attendance','PastNotices','PastChecklists','DriverSms','MySms','CustomFields','Outage','Profile','ChangePassword','EditProfile','PersonnelVehicleAsset','PersonnelVehicleChecklist','MapSettings','ExpiryNotificationSettings','FieldAlertSettings','ImportTimes','AppLockSettings','CrashReports','LineVisitProgram','MyDailyMission','RoleDashboard','Leaderboard','Radio','Help','StationCapture','MyStations','PresentList'].forEach(k=>{const r=routeAlias[k]||k.toLowerCase();if(!screens[r])screens[r]=webPlaceholder(k,ANDROID_ITEMS.find(x=>x[0]===k)?.[1]||k)});
+screens.help=async()=>{chrome(true,'راهنمای برنامه','back');return '<div class="hero"><h2>خطیار</h2><p>راهنمای برنامه، ورژن و اطلاعات سازنده</p></div><div class="card"><p>برای دسترسی به امکانات، از کارت‌های داشبورد و جستجو استفاده کنید. حساب، تنظیمات و پیام‌ها در منوی برنامه قرار دارند.</p><button class="btn" onclick="nav(\'AboutApp\')">درباره برنامه</button><button class="btn ghost" onclick="nav(\'PrivacyPolicy\')">سیاست حریم خصوصی</button></div>';};
 function help(){ chrome(true,'راهنمای برنامه','back'); return Promise.resolve('<div class="card"><h3>راهنمای خطیار</h3><p class="muted" style="margin-top:8px">راهنمای استفاده از امکانات نسخه اندروید و وب‌اپ خطیار.</p></div>'); }
 screens.help=help;
 
@@ -650,13 +661,14 @@ async function changePass(){ const cp=document.getElementById('cp').value, np=do
   try{ await POST('/admin/change-password',{current:cp,next:np}); toast('رمز تغییر کرد'); document.getElementById('cp').value='';document.getElementById('np').value=''; }catch(e){ toast(e.message); } }
 
 // ---- chrome / nav ----
-function chrome(show,title,icon){ document.getElementById('hdr').style.display=show?'flex':'none'; document.getElementById('footer').style.display=show?'flex':'none';
-  if(title)document.getElementById('hdrTtl').textContent=title; document.getElementById('hdrIc').textContent=icon==='back'?'→':'☰'; tmp._icon=icon; }
+function chrome(show,title,icon){ document.getElementById('hdr').style.display=show?'flex':'none'; document.getElementById('footer').style.display='none';
+  if(title)document.getElementById('hdrTtl').textContent=title; document.getElementById('hdrIc').innerHTML=androidIcon(icon==='back'?'arrow-right':'menu'); tmp._icon=icon; }
 function bell(n){ const d=document.getElementById('bellDot'); if(d){ if(n>0){d.style.display='block';d.textContent=toFa(n);}else d.style.display='none'; } }
 function msgBadge(n){ const d=document.getElementById('msgDot'); if(d){ if(n>0){d.style.display='block';d.textContent=toFa(n);}else d.style.display='none'; } }
 let INBOX_N=0;
 function hdrAction(){ if(tmp._icon==='back') nav('dashboard'); else openDrawer(); }
-function openDrawer(){ const rows=DRAWER_ITEMS.map(k=>ANDROID_ITEMS.find(x=>x[0]===k)).filter(x=>x&&appAllowed(x[0])); document.getElementById('drawerPanel').innerHTML=`<div class="uhead"><b>${esc(USER.name)}</b><div style="opacity:.85;font-size:12px">${esc(USER.role)}</div></div><div class="ditem" onclick="nav('Dashboard')"><span style="width:22px">🏠</span>داشبورد</div>${rows.map(x=>`<div class="ditem" onclick="nav('${x[0]}')"><span style="width:22px">${x[0]==='Radio'?'📻':'•'}</span>${esc(x[1])}</div>`).join('')}<div class="ditem" style="color:var(--danger)" onclick="logout()"><span style="width:22px">⎋</span>خروج</div>`; document.getElementById('drawer').classList.add('on'); }
+function openDrawer(){ const rows=KH_ANDROID_NAV.drawer.filter(x=>appAllowed(x.route));document.getElementById('drawerPanel').innerHTML=`<div class="android-drawer-head"><button class="android-drawer-close" aria-label="بستن منوی برنامه" onclick="closeDrawer()">${androidIcon('close')}</button><div class="android-drawer-brand"><span>${androidIcon('view-grid-outline')}</span><div><strong>خطیار</strong><small>منوی برنامه</small></div></div><div class="android-drawer-user">${androidAvatar(USER)}<div><b>${esc(USER.name)}</b><div style="font-size:12px;opacity:.85">${esc(USER.role)}</div></div></div></div><div class="android-drawer-links">${rows.map(x=>`<button class="ditem android-drawer-link" onclick="nav('${x.route}')"><span class="android-kpi-icon">${androidIcon(x.icon)}</span><span>${esc(x.title)}</span>${androidIcon('chevron-left')}</button>`).join('')}<button class="ditem android-drawer-link logout" onclick="logout()"><span class="android-kpi-icon">${androidIcon('logout')}</span><span>خروج از حساب</span></button></div>`;document.getElementById('drawer').classList.add('on');document.getElementById('drawer').setAttribute('aria-hidden','false');document.querySelector('.android-drawer-close')?.focus(); }
+
 function closeDrawer(){ document.getElementById('drawer').classList.remove('on'); }
 
 async function renderCheckinTab(){const host=document.getElementById('checkinTabBody');if(!host)return;try{if(tmp.checkTab==='performance'){const d=await GET('/my/daily-performance');const w=d.data||{};host.innerHTML=`<div class="hero"><div class="nm">عملکرد روزانه</div><div class="hi">${esc(d.weekday||'')} (${esc(d.date||'')}) · ${esc(d.shift_title||'شیفت کاری')}</div></div><div class="kpis">${[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['کسری کار',w.shortage],['شب‌کاری',w.night]].map(([l,v])=>`<div class="kpi"><div class="n">${toFa(Math.floor((Number(v)||0)/60))}:${toFa(String((Number(v)||0)%60).padStart(2,'0'))}</div><div class="l">${l}</div></div>`).join('')}</div>`;return;}if(tmp.checkTab==='shift'){const d=await GET('/my/shift-schedule');host.innerHTML=`<div class="card"><b>${esc(d.shift?.title||'شیفت کاری')}</b><div class="muted" style="margin-top:4px">برنامهٔ ۱۴ روز آینده</div></div>${(d.days||[]).map(x=>`<div class="card between"><div><b>${esc(x.weekday)} (${esc(x.date)})</b><div class="muted" style="margin-top:4px">${x.is_off?'روز استراحت/بدون موظفی':x.is_holiday?'تعطیل: '+esc(x.holiday_title||''): 'شیفت کاری'}</div></div><b>${x.is_off?'—':toFa(x.minutes)+' دقیقه'}</b></div>`).join('')}`;return;}const c=await GET('/my/checkin-config');const o=c.open;host.innerHTML=`<div class="card"><div class="between"><b>${o?'حضور شما ثبت شده است':'ثبت حضور'}</b><span class="badge ${o?'b-ok':'b-no'}">${o?'در شیفت':'خارج از شیفت'}</span></div><p class="muted" style="margin-top:8px">${o?'زمان ورود: '+esc(fj(o.check_in)):'برای ثبت ورود، موقعیت مکانی را دریافت کنید.'}</p><button class="btn" id="webCheckBtn">${o?'ثبت خروج':'ثبت ورود'}</button></div>`;document.getElementById('webCheckBtn').onclick=()=>webCheckinAction(o); }catch(e){host.innerHTML=`<div class="warn">${esc(e.message)}</div>`}}
@@ -676,7 +688,16 @@ function renderRadioPtt(){const e=document.getElementById('radioPtt');if(!e)retu
     let take;
     try{const r=await fetch('/api/radio-api-v2.php?op=take',{method:'POST',headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'},body:JSON.stringify({channel_id:radioWebState.cid})});take=await r.json().catch(()=>({}));if(!r.ok||!take.ok)throw Error(take.error||'کانال در حال استفاده است');}catch(e){toast(e.message||'گرفتن مجوز صحبت ناموفق بود');return;}
     try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});const mr=new MediaRecorder(stream,{mimeType:'audio/webm'});radioWebState.media={mr,stream,chunks:[],started:Date.now()};mr.ondataavailable=x=>{if(x.data.size)radioWebState.media.chunks.push(x.data)};mr.onstop=async()=>{const st=radioWebState.media;radioWebState.media=null;stream.getTracks().forEach(t=>t.stop());const blob=new Blob(st.chunks,{type:'audio/webm'});const fd=new FormData();fd.append('channel_id',String(radioWebState.cid));fd.append('duration_ms',String(Math.min(Number(take.lease_ms||120000),Date.now()-st.started)));fd.append('audio',blob,'radio.webm');try{const r=await fetch('/api/radio-api-v2.php?op=send',{method:'POST',headers:{Authorization:'Bearer '+token()},body:fd});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'ارسال پیام ناموفق بود');toast('پیام بی‌سیم ارسال شد')}catch(e){toast(e.message||'ارسال پیام ناموفق بود');try{await fetch('/api/radio-api-v2.php?op=release',{method:'POST',headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'},body:JSON.stringify({channel_id:radioWebState.cid})})}catch(_){}}};mr.start();radioWebState.recording=true;b.textContent='در حال صحبت… رها کنید';}catch(e){toast(e.message||'دسترسی میکروفن برقرار نشد');try{await fetch('/api/radio-api-v2.php?op=release',{method:'POST',headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'},body:JSON.stringify({channel_id:radioWebState.cid})})}catch(_){}}};const stop=()=>{if(radioWebState.media?.mr?.state==='recording')radioWebState.media.mr.stop();radioWebState.recording=false;b.textContent='نگه‌داشتن برای صحبت'};b.onmousedown=start;b.onmouseup=stop;b.onmouseleave=stop;b.ontouchstart=start;b.ontouchend=stop;}
-function filterWebAndroid(cat){document.querySelectorAll('#webAndroidGrid [data-route]').forEach(e=>{e.style.display=(cat==='all'||e.dataset.cat===cat)?'flex':'none'});document.querySelectorAll('[data-cat].chip').forEach(e=>e.classList.toggle('on',e.dataset.cat===cat));}
+function androidCanShow(x){if(!appAllowed(x.route))return false;const admin=!!USER?.is_admin;const access={cultural:admin||!!APP_FEATURES.can_cultural,welfare:admin||!!APP_FEATURES.can_welfare,temp:admin||!!APP_FEATURES.can_manage_temp_drivers,schoolservice:SCHOOL_ACCESS};if(x.needs&&!access[x.needs])return false;if(['Sms','MySms'].includes(x.route)&&!USER?.can_send_sms)return false;return true;}
+function androidDashboardContext(){const generation=_renderGeneration,uid=USER?.id;const valid=()=>current==='dashboard'&&generation===_renderGeneration&&USER?.id===uid;GET('/me/full-profile').then(p=>{if(!valid())return;const zone=document.getElementById('android-zone'),chief=document.getElementById('android-chief');if(zone)zone.textContent=p.zone_name?'منطقه: '+p.zone_name:'';if(chief)chief.textContent=p.zone_chief_inspector_name?'سربازرس منطقه شما جناب آقای: '+p.zone_chief_inspector_name:'';}).catch(()=>{});GET('/weather.php').then(w=>{if(!valid()||!w.ok||!Number.isFinite(Number(w.temperature)))return;const e=document.getElementById('android-weather');if(e)e.textContent=toFa(Math.round(Number(w.temperature)))+'° · مشهد';}).catch(()=>{});}
+function androidIcon(name){const code=KH_ANDROID_NAV.icons[name]||KH_ANDROID_NAV.icons['view-grid-outline'];return '<span class="kh-icon" aria-hidden="true">'+String.fromCodePoint(code)+'</span>';}
+function androidAvatar(user){const p=String(user.photo||'');return p&&/^(https?:\/\/|\/)/.test(p)?`<img class="android-avatar" src="${esc(p)}" alt="عکس حساب کاربری">`:`<span class="android-avatar" aria-hidden="true">${esc(String(user.name||'؟').charAt(0))}</span>`;}
+function androidOrderKey(){return 'android-menu-order:'+USER.id;}
+function androidOrderedItems(){let ids=[];try{ids=JSON.parse(store.get(androidOrderKey())||'[]');if(!Array.isArray(ids))ids=[];}catch{}const all=KH_ANDROID_NAV.dashboard;return [...new Set([...ids,...all.map(x=>x.route)])].map(id=>all.find(x=>x.route===id)).filter(Boolean);}
+function filterWebAndroid(cat){if(cat)tmp.androidCategory=cat;const selected=tmp.androidCategory||'all',q=String(document.getElementById('android-menu-search')?.value||'').trim().replace(/[يى]/g,'ی').replace(/ك/g,'ک').toLocaleLowerCase();let count=0;document.querySelectorAll('#webAndroidGrid [data-route]').forEach(e=>{const title=e.dataset.title.replace(/[يى]/g,'ی').replace(/ك/g,'ک').toLocaleLowerCase();e.hidden=!((selected==='all'||e.dataset.cat===selected)&&(!q||title.includes(q)));if(!e.hidden)count++;});document.querySelectorAll('[data-cat].chip').forEach(e=>{e.classList.toggle('on',e.dataset.cat===selected);e.setAttribute('aria-pressed',String(e.dataset.cat===selected));});const n=document.getElementById('android-result-count');if(n)n.textContent=toFa(count)+' مورد';const empty=document.getElementById('android-empty');if(empty)empty.hidden=count>0;}
+function androidOrderDialog(){let d=document.getElementById('android-order');if(!d){d=document.createElement('dialog');d.id='android-order';d.className='android-order';document.body.appendChild(d);}const items=androidOrderedItems().filter(androidCanShow);d.innerHTML=`<header><h3>مرتب‌سازی داشبورد</h3><button aria-label="بستن مرتب‌سازی" onclick="document.getElementById('android-order').close()">${androidIcon('close')}</button></header><div class="row"><button onclick="androidMoveOrder('sort')">مرتب‌سازی الفبایی</button><button onclick="androidMoveOrder('reset')">بازگردانی ترتیب پیش‌فرض</button></div>${items.map((x,i)=>`<div class="android-order-row"><span>${toFa(i+1)}. ${esc(x.title)}</span><button aria-label="انتقال ${esc(x.title)} به بالا" ${i===0?'disabled':''} onclick="androidMoveOrder('${x.route}',-1)">▲</button><button aria-label="انتقال ${esc(x.title)} به پایین" ${i===items.length-1?'disabled':''} onclick="androidMoveOrder('${x.route}',1)">▼</button></div>`).join('')}<button class="btn" onclick="document.getElementById('android-order').close();nav('Dashboard')">ذخیره و بستن</button>`;if(!d.open)d.showModal();}
+function androidMoveOrder(route,dir){let a=androidOrderedItems();if(route==='reset')a=KH_ANDROID_NAV.dashboard;else if(route==='sort')a=a.slice().sort((x,y)=>x.title.localeCompare(y.title,'fa'));else {const visible=a.filter(androidCanShow),i=visible.findIndex(x=>x.route===route),other=visible[i+dir];if(other){const n=a.findIndex(x=>x.route===route),j=a.findIndex(x=>x.route===other.route);[a[n],a[j]]=[a[j],a[n]];}}store.set(androidOrderKey(),JSON.stringify(a.map(x=>x.route)));androidOrderDialog();}
+
 function nav(k){ const item=ANDROID_ITEMS.find(x=>x[0]===k)||ANDROID_ITEMS.find(x=>(routeAlias[x[0]]||x[0].toLowerCase())===k); const key=item?.[0]||k; if(item&&!appAllowed(key)){toast('دسترسی این بخش برای سمت شما فعال نیست');return;} current=routeAlias[key]||key.toLowerCase(); closeDrawer(); render(); }
 let _renderGeneration=0;
 async function render(){
@@ -687,12 +708,13 @@ async function render(){
   if(current==='checkin') setTimeout(renderCheckinTab,0);
   if(current==='radio') setTimeout(()=>{document.querySelectorAll('[data-radtab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-radtab]').forEach(x=>x.classList.toggle('on',x===b));renderRadioWebTab(b.dataset.radtab)});renderRadioWebTab('live')},0); else if(radioWebState.liveTimer){clearInterval(radioWebState.liveTimer);radioWebState.liveTimer=null;}
   if(tmp._after){ const fn=tmp._after; tmp._after=null; setTimeout(fn,0); }
+  document.querySelector('.body')?.classList.toggle('android-login',current==='login');
   if(USER){ const tabs=[['dashboard','🏠','خانه'],['search','🔍','جستجو'],['checkin','🕘','حضور'],['notifications','🔔','اعلان'],['profile','⚙','حساب']];
     document.getElementById('footer').innerHTML=tabs.map(([k,i,l])=>`<button class="${current===k?'on':''}" onclick="nav('${k}')"><span class="fi">${i}</span>${l}</button>`).join(''); }
 }
 
 // ---- boot ----
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=20260905.12',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=20261025.android1',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
 USER = store.get('user')?JSON.parse(store.get('user')):null;
 current = USER?'dashboard':'login';
 refreshOffline(); if(navigator.onLine) flushQueue();
