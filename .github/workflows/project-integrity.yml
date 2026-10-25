@@ -38,6 +38,7 @@ jobs:
           node php/tests/company_work_deployment_test.cjs
           node php/tests/company_work_http_test.cjs
           php php/tests/login_policy_test.php
+          php php/tests/zone_context_test.php
           node php/tests/login_policy_ui_test.cjs
           php php/tests/work_policy_requests_test.php
           php php/tests/request_report_test.php

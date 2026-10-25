@@ -1,5 +1,28 @@
 <?php
 class OrgChart {
+  // Same responsibility precedence as defaultEdges, independent of physical staff membership.
+  static function zoneResponsibility($zoneId, $zones, $users) {
+    $byZone=[];$byUser=[];$chain=[];$seen=[];
+    foreach($zones as $zone)$byZone[(int)$zone['id']]=$zone;
+    foreach($users as $user)if(!empty($user['is_active']))$byUser[(int)$user['id']]=$user;
+    ksort($byUser,SORT_NUMERIC);
+    for($id=(int)$zoneId;$id>0&&isset($byZone[$id])&&!isset($seen[$id]);$id=(int)($byZone[$id]['parent_id']??0)){$seen[$id]=true;$chain[]=$id;}
+    $eligible=function($user,$kind){$key=self::roleKey($user['role_title']??'');return $kind==='senior'?$key==='senior':($key==='inspector'||($key==='motor'&&str_contains(strtr($user['role_title']??'',['ي'=>'ی','ك'=>'ک']),'بازرس')));};
+    $resolve=function($kind)use($chain,$byZone,$byUser,$eligible){
+      foreach($chain as $id){$z=$byZone[$id];$ids=$kind==='senior'?array_filter([$z['senior_user_id']??null]):($z['inspector_ids']??[]);$found=[];foreach($ids as $uid){$uid=(int)$uid;if(isset($byUser[$uid])&&$eligible($byUser[$uid],$kind))$found[$uid]=$byUser[$uid];}if($found)return ['users'=>array_values($found),'zone_id'=>$id,'source'=>'explicit'];}
+      foreach($chain as $id){$found=[];foreach($byUser as $user)if((int)($user['zone_id']??0)===$id&&$eligible($user,$kind))$found[]=$user;if($found)return ['users'=>$kind==='senior'?[$found[0]]:$found,'zone_id'=>$id,'source'=>'role'];}
+      return ['users'=>[],'zone_id'=>null,'source'=>null];
+    };
+    $dto=function($u){return ['id'=>(int)$u['id'],'name'=>trim(($u['first_name']??'').' '.($u['last_name']??''))?:($u['name']??$u['username']??''),'role_title'=>$u['role_title']??'','level'=>(int)($u['level']??0),'is_admin'=>(int)($u['is_admin']??0)];};
+    $senior=$resolve('senior');$inspectors=$resolve('inspector');
+    return ['zone_id'=>$chain?(int)$zoneId:null,'zone_name'=>$byZone[(int)$zoneId]['name']??'','zone_path'=>implode(' / ',array_map(fn($id)=>$byZone[$id]['name']??'',array_reverse($chain))),
+      'chief'=>$senior['users']?$dto($senior['users'][0]):null,'inspectors'=>array_map($dto,$inspectors['users']),
+      'chief_source'=>$senior['source'],'inspectors_source'=>$inspectors['source'],'chief_zone_id'=>$senior['zone_id'],'inspectors_zone_id'=>$inspectors['zone_id']];
+  }
+  static function currentZoneResponsibility($zoneId) {
+    return self::zoneResponsibility($zoneId,self::withZoneLeaders(Db::all('SELECT id,name,parent_id FROM zones ORDER BY id')),
+      Db::all('SELECT u.id,u.first_name,u.last_name,u.username,u.zone_id,u.is_active,r.title role_title,r.level,r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1'));
+  }
   static function ensureZoneLeaders() {
     Db::run("CREATE TABLE IF NOT EXISTS zone_leadership (zone_id INT NOT NULL PRIMARY KEY, senior_user_id INT NULL, inspector_ids TEXT NOT NULL, updated_by INT NULL, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   }

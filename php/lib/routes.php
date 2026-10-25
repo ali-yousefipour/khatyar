@@ -10475,18 +10475,17 @@ route('PUT', '/api/me/profile', function($p,$b,$u){
   return ['ok'=>true];
 });
 route('GET', '/api/me/full-profile', function($p,$b,$u){
-  $r = Db::one("SELECT id,username,first_name,last_name,email,mobile,address,marital_status,children_count,birth_date,national_code,rank_stars,signature_data,
-     (SELECT z.name FROM zones z WHERE z.id=users.zone_id LIMIT 1) AS zone_name,
-     (SELECT TRIM(CONCAT(COALESCE(ci.first_name,''),' ',COALESCE(ci.last_name,'')))
-       FROM users ci JOIN roles cr ON cr.id=ci.role_id
-       WHERE ci.zone_id=users.zone_id AND ci.is_active=1
-         AND (cr.title LIKE '%سربازرس%' OR cr.level>=4)
-         AND cr.title NOT LIKE '%نیروی اداری%'
-       ORDER BY CASE WHEN cr.title LIKE '%سربازرس%' THEN 0 ELSE 1 END, cr.level DESC, ci.id ASC
-       LIMIT 1) AS zone_chief_inspector_name,
+  $r = Db::one("SELECT id,username,first_name,last_name,email,mobile,address,marital_status,children_count,birth_date,national_code,rank_stars,signature_data,zone_id,
      CASE WHEN photo_path IS NOT NULL AND photo_path<>'' THEN CONCAT('/api/media?path=', photo_path) ELSE photo END AS photo
      FROM users WHERE id=?", [$u['id']]);
-  return $r ?: [];
+  if(!$r)return [];
+  require_once __DIR__.'/OrgChart.php';
+  $context=OrgChart::currentZoneResponsibility((int)($r['zone_id']??0));
+  $r['zone_name']=$context['zone_name'];$r['zone_path']=$context['zone_path'];
+  $r['zone_chief_inspector_name']=$context['chief']['name']??'';
+  $r['zone_chief_inspector_id']=$context['chief']['id']??null;
+  $r['zone_inspectors']=$context['inspectors'];
+  return $r;
 });
 
 // آیا کاربر اجازهٔ انتخاب منطقه/بازرس خودش را دارد؟ + داده‌های لازم برای انتخاب
@@ -10516,26 +10515,9 @@ route('GET', '/api/me/zone-inspectors', function($p,$b,$u){
     ];
   }
 
-  // بازرسین منطقه: کاربرانی که منطقه‌شان این است و نقش بازرسی/سربازرسی دارند (و خود کاربر نیستند)
-  // نیروهای اداری از این فهرست حذف می‌شوند (چارت مستقل دارند)
-  $inspectors = Db::all("SELECT u.id, TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) name, r.title role_title, r.is_admin, r.level
-    FROM users u JOIN roles r ON r.id=u.role_id
-    WHERE u.zone_id=? AND u.id<>? AND (r.title LIKE '%بازرس%' OR r.level>=4)
-      AND r.title NOT LIKE '%نیروی اداری%'
-    ORDER BY r.level DESC, name", [$zoneId, $u['id']]);
-  // سربازرس منطقه: کسی که نقشش شامل «سربازرس» است یا بالاترین سطح در منطقه
-  $chief = null;
-  foreach ($inspectors as $ins) {
-    if (mb_strpos($ins['role_title'] ?? '', 'سربازرس') !== false) { $chief = $ins; break; }
-  }
-  if (!$chief && $inspectors) {
-    $chief = $inspectors[0];
-  }
-  return [
-    'chief' => $chief,
-    'inspectors' => $inspectors,
-    'is_admin_staff' => false,
-  ];
+  require_once __DIR__.'/OrgChart.php';
+  $context=OrgChart::currentZoneResponsibility($zoneId);
+  return ['chief'=>($context['chief']['id']??null)===(int)$u['id']?null:$context['chief'],'inspectors'=>array_values(array_filter($context['inspectors'],fn($x)=>(int)$x['id']!==(int)$u['id'])),'is_admin_staff'=>false,'zone_path'=>$context['zone_path']];
 });
 
 route('GET', '/api/me/zone-options', function($p,$b,$u){
@@ -10549,6 +10531,11 @@ route('GET', '/api/me/zone-options', function($p,$b,$u){
   $me = Db::one("SELECT zone_id FROM users WHERE id=?", [$u['id']]);
   $mgrs = array_map('intval', array_column(Db::all("SELECT manager_id FROM user_managers WHERE user_id=?", [$u['id']]), 'manager_id'));
   $chief = _req_setting("chief_inspector_user_{$u['id']}", null);
+  require_once __DIR__.'/OrgChart.php';
+  $context=OrgChart::currentZoneResponsibility((int)($me['zone_id']??0));
+  $allowed=array_column($context['inspectors'],'id');
+  $mgrs=$context['inspectors_source']==='explicit'?$allowed:array_values(array_intersect($mgrs,$allowed));
+  $chief=$context['chief']['id']??null;
   return [
     'enabled' => $enabled,
     'zones' => $zones,
