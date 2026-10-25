@@ -1,6 +1,6 @@
 // خطیار PWA service worker — cache is versioned and HTML/JS/CSS/JSON are network-first.
-const CACHE = 'khatyar-web-20261025.android1';
-const SHELL = ['/app?sw=20261025.android1', '/manifest.json', '/icon-192.png', '/icon-512.png', '/assets/android-navigation.js?v=20261025.1', '/assets/android-app.css?v=20261025.1', '/assets/android-app-ui.js?v=20261025.1', '/assets/MaterialCommunityIcons-15.0.2.ttf'];
+const CACHE = 'khatyar-web-20261025.android2';
+const SHELL = ['/app?sw=20261025.android2', '/manifest.json', '/icon-192.png', '/icon-512.png', '/assets/android-navigation.js?v=20261025.2', '/assets/android-app.css?v=20261025.2', '/assets/android-app-ui.js?v=20261025.2', '/assets/MaterialCommunityIcons-15.0.2.ttf'];
 const IMMUTABLE_EXT = /\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|eot|mp3|wav|ogg|mp4|webm)$/i;
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -21,7 +21,7 @@ self.addEventListener('fetch', event => {
       // «Response body is already used» مواجه می‌شد چون تا آن لحظه بدنهٔ پاسخ اصلی مصرف شده بود.
       if (response.ok) { const copy = response.clone(); caches.open(CACHE).then(c => c.put(event.request, copy)); }
       return response;
-    }).catch(() => caches.match(event.request).then(r => r || caches.match('/app?sw=20261025.android1'))));
+    }).catch(() => caches.match(event.request).then(r => r || caches.match('/app?sw=20261025.android2'))));
     return;
   }
   if (IMMUTABLE_EXT.test(url.pathname)) {

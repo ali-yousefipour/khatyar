@@ -78,6 +78,7 @@ jobs:
       - name: Panel bundle syntax
         run: |
           node php/tests/android_web_navigation_test.cjs
+          node php/tests/android_web_screens_test.cjs
           node --check php/app/assets/android-app-ui.js
           node --version
           node --check php/app/assets/panel.bundle.js
