@@ -175,7 +175,13 @@ async function postOrQueue(p,b){
   try{ return await POST(p,b); }
   catch(e){ if(!navigator.onLine){ const q=JSON.parse(store.get('queue')||'[]'); q.push({p,b}); store.set('queue',JSON.stringify(q)); refreshOffline(); return {queued:true}; } throw e; }
 }
+let _queueFlush=null;
 async function flushQueue(){
+  if(_queueFlush)return _queueFlush;
+  _queueFlush=flushQueueBatch();
+  try{return await _queueFlush;}finally{_queueFlush=null;}
+}
+async function flushQueueBatch(){
   let q=JSON.parse(store.get('queue')||'[]'); if(!q.length) return;
   const keep=[]; for(const it of q){ try{ await POST(it.p,it.b); }catch{ keep.push(it); } }
   store.set('queue',JSON.stringify(keep)); refreshOffline();

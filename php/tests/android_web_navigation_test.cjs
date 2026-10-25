@@ -21,6 +21,9 @@ const c={console,Intl,URL,Headers,AbortController,Date,setTimeout:()=>0,setInter
  vm.runInContext("store.set('queue',JSON.stringify([{p:'/requests',body:{secret:'never-render-payload'}}]));",c);
  const queue=await vm.runInContext('screens.sendqueue()',c);assert(queue.includes('ثبت درخواست'));assert(!queue.includes('never-render-payload'));
  vm.runInContext("store.set('queue','[]')",c);assert((await vm.runInContext('screens.sendqueue()',c)).includes('صف ارسال خالی است'));
+ let release,posts=0;c.fetch=()=>{posts++;return new Promise(resolve=>{release=()=>resolve({ok:true,status:200,json:async()=>({ok:true})});});};
+ vm.runInContext("store.set('queue',JSON.stringify([{p:'/requests',b:{text:'test'}}]));localStorage.setItem('token','test-only');",c);
+ const first=vm.runInContext('flushQueue()',c),second=vm.runInContext('flushQueue()',c);assert.equal(posts,1);release();await Promise.all([first,second]);assert.equal(JSON.parse(memory.get('queue')).length,0);assert.equal(posts,1);
  assert((await vm.runInContext('screens.privacypolicy()',c)).includes('حریم خصوصی'));
- console.log('PASS Android/web: source parity, role filtering, drawer, search/category, empty state, per-user order, no reinjection, offline assets, nine settings and safe queue display');
+ console.log('PASS Android/web: source parity, role filtering, drawer, search/category, empty state, per-user order, no reinjection, offline assets, nine settings, safe queue display and concurrent flush sends once');
 })().catch(e=>{console.error(e);process.exitCode=1});
