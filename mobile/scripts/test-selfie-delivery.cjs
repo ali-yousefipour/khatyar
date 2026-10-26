@@ -51,7 +51,7 @@ async function run(mode) {
     require: () => ({ deleteAsync: async () => {} }),
   };
   vm.createContext(stale);
-  vm.runInContext(source.slice(start, end) + '\\nrunCapture=handleDone;', stale);
+  vm.runInContext(source.slice(start, end) + '\nrunCapture=handleDone;', stale);
   await stale.runCapture({ uri: 'file:///stale-photo.jpg' });
   assert.ok(source.includes("request('/my/covert-selfie-request', { noStore: true })"));
   assert.ok(source.includes("request('/my/selfie-commands', { noStore: true })"));
