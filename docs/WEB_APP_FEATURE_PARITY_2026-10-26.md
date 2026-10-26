@@ -52,7 +52,7 @@
 
 ## تکمیل دریافت گزارش خطا در سرور
 
-مسیر واقعی Android: `mobile/src/crashReporter.js` → `request('/crash-reports', {method:'POST',body:report})`؛ پیش از این handler PHP نداشت. اکنون `php/app/index.php` پس از routes اصلی، `php/lib/CrashReports.php` را ثبت می‌کند. نسخه و منبع Android تغییر نکرد.
+مسیر واقعی Android: `mobile/src/crashReporter.js` → `request('/crash-reports', {method:'POST',body:report})`؛ پیش از این handler PHP نداشت. اکنون همین قرارداد در فایل فعال `php/lib/routes.php` ثبت می‌شود. ساخت فایل جدید lib با FTP هاست رد شد؛ وابستگی جدید index حذف و منطق به مسیر موجود منتقل شد. نسخه و منبع Android تغییر نکرد.
 
 POST احرازهویت‌شده به جدول `client_crash_reports` متصل است؛ جدول به روش helperهای موجود پروژه، در اولین ارسال معتبر با CREATE IF NOT EXISTS ایجاد می‌شود. شناسهٔ گزارش همراه با user_id نشست unique است. retry همان شناسه گزارش تکراری نمی‌سازد. user_id ارسالی، headerها، body درخواست قبلی، last_api و تمام فیلدهای خارج از whitelist ذخیره نمی‌شوند. طول فیلدها محدود و متن‌های token/password/Bearer شناخته‌شده پوشانده می‌شوند. سقف ورودی ۶۴ کیلوبایت است؛ آستانه ضد ارسال پرتعداد، ۳۰ گزارش در ده دقیقه برای هر حساب است (شمارش آستانه جای rate limiter اتمیک را نمی‌گیرد).
 

@@ -6,7 +6,7 @@ class Db {
   static function one($sql,$args=[]){self::$calls[]=[$sql,$args];return str_contains($sql,'COUNT(*)')?['n'=>self::$count]:(self::$rows[$args[0].':'.$args[1]]??null);}
 }
 function route($method,$path,$handler,...$options){$GLOBALS['route']=[$method,$path,$handler,$options];}
-require __DIR__.'/../lib/CrashReports.php';
+$source=file_get_contents(__DIR__.'/../lib/routes.php');$start=strpos($source,'// BEGIN CLIENT CRASH REPORTS');$end=strpos($source,'// END CLIENT CRASH REPORTS',$start);eval(substr($source,$start,$end-$start));
 function check($ok,$why){if(!$ok)throw new LogicException($why);}
 function reject($body,$status){try{CrashReports::save($body,['id'=>1]);throw new LogicException('accepted invalid body');}catch(RuntimeException $e){check($e->getCode()===$status,'unexpected error code');}}
 $body=['id'=>'CR-1234','message'=>'failed Bearer SECRET access_token=TOKEN password="PASSWORD"','stack'=>'stack','user_id'=>99,'last_api'=>['headers'=>['Authorization'=>'SECRET']]];
