@@ -95,8 +95,7 @@ export default function CovertSelfie() {
         const r = await request('/my/covert-selfie-request');
         if (r?.id) {
           doCapture('manual');
-          request('/my/covert-selfie-request/' + r.id + '/fulfill', { method: 'POST', body: {} }).catch(() => {});
-        }
+                 }
       } catch {}
     };
     poll();
