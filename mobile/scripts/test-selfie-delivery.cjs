@@ -5,7 +5,12 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../src/CovertSelfie.js'), 'utf8');
 const start = source.indexOf('  const handleDone = useCallback(');
 const end = source.indexOf('\n  }, []);', start) + '\n  }, []);'.length;
-assert.ok(start > 0 && end > start);
+assert.ok(start > 0 && end > start, 'CovertSelfie.js must define handleDone using useCallback');
+// Fail with an actionable contract error rather than an opaque assertion during the success scenario.
+assert.ok(source.includes('if (!result?.ok || !(Number(result.id) > 0) || result.queued)'),
+  'Selfie delivery contract mismatch: successful server persistence must be verified before clearing a pending request. Restore the consent-based upload flow; do not bypass this test.');
+assert.ok(!source.includes("'/fulfill'"),
+  'Selfie delivery contract mismatch: polling must not acknowledge a request before upload succeeds.');
 async function run(mode) {
   const events = [];
   const context = {
@@ -30,7 +35,8 @@ async function run(mode) {
   vm.createContext(context);
   vm.runInContext(source.slice(start, end) + '\nrunCapture=handleDone;', context);
   await context.runCapture(mode === 'camera-error' ? null : { uri: 'file:///photo.jpg' });
-  assert.equal(events.some(event => event[0] === 'pending' && event[1] === null), mode === 'success');
+  assert.equal(events.some(event => event[0] === 'pending' && event[1] === null), mode === 'success',
+    `Pending request state mismatch in ${mode}: clear only after durable server acknowledgment`);
   assert.equal(events.some(event => event[0] === 'error'), mode !== 'success');
   assert.equal(context.busyRef.current, false);
   assert.equal(events.filter(event => event[0] === 'request').length, ['success', 'queued', 'network-error'].includes(mode) ? 1 : 0);
