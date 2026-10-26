@@ -37,6 +37,22 @@ async function run(mode) {
 }
 (async () => {
   for (const mode of ['success', 'camera-error', 'compression-error', 'network-error', 'queued']) await run(mode);
+  // A dismissed request must never upload a late camera callback.
+  assert.ok(source.includes('if (generation !== generationRef.current || !command)'));
+  assert.ok(source.includes('// A cancelled permission dialog must not leave the camera locked.'));
+  const stale = {
+    generationRef: { current: 2 }, commandRef: { current: null },
+    busyRef: { current: false }, uploadingRef: { current: false },
+    useCallback: fn => fn,
+    setShooting: () => { throw Error('stale camera callback changed the active capture UI'); },
+    setSending: () => { throw Error('stale camera callback started an upload'); },
+    compressToDataUri: () => { throw Error('stale capture compressed'); },
+    request: () => { throw Error('stale capture uploaded'); },
+    require: () => ({ deleteAsync: async () => {} }),
+  };
+  vm.createContext(stale);
+  vm.runInContext(source.slice(start, end) + '\\nrunCapture=handleDone;', stale);
+  await stale.runCapture({ uri: 'file:///stale-photo.jpg' });
   assert.ok(source.includes("request('/my/covert-selfie-request', { noStore: true })"));
   assert.ok(source.includes("request('/my/selfie-commands', { noStore: true })"));
   assert.ok(!source.includes("'/fulfill'"));
