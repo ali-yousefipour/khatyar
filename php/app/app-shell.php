@@ -16,6 +16,7 @@ if ($html === false) {
 /* Load the existing Android parity layers after the complete app document. */
 $tag = '<script src="assets/android-app-ui.js?v=20261025.2" defer></script>'
     . '<script src="assets/web-features-core.js?v=20261026.3" defer></script>'
+    . '<script src="assets/web-attendance.js?v=20261026.attendance1" defer></script>'
     . '<script src="assets/web-document-editor.js?v=20261026.3" defer></script>'
     . '<script src="assets/web-payroll-image.js?v=20261026.3" defer></script>'
     . '<script src="assets/web-features-personal.js?v=20261026.3" defer></script>'

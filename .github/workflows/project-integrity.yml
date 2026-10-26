@@ -81,6 +81,7 @@ jobs:
           node php/tests/android_web_navigation_test.cjs
           node php/tests/android_web_screens_test.cjs
           node php/tests/web_features_test.cjs
+          node php/tests/web_attendance_test.cjs
           php php/tests/inventory_read_contract_test.php
           php php/tests/crash_reports_test.php
           node --check php/app/assets/android-app-ui.js

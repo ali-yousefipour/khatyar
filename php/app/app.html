@@ -85,7 +85,7 @@ input,select,textarea,button{font-family:inherit;max-width:100%}
 }
 @media(max-width:380px){.kpis{grid-template-columns:1fr!important}}
 </style>
-<link rel="stylesheet" href="assets/android-app.css?v=20261026.3">
+<link rel="stylesheet" href="assets/android-app.css?v=20261026.attendance1">
 <script src="assets/android-navigation.js?v=20261025.2"></script>
 </head>
 <body>
@@ -457,8 +457,7 @@ const screens={
       ${trail?`<label class="label" style="margin-top:16px">روند گردش</label>${trail}`:''}`; },
 
 
-  checkin:async()=>{ chrome(true,'ثبت حضور من','back'); const cfg=await GET('/my/checkin-config'); tmp.checkTab=tmp.checkTab||'checkin';
-    return `<div class="tabbar"><button class="tabbtn ${tmp.checkTab==='checkin'?'on':''}" onclick="tmp.checkTab='checkin';render()">ثبت حضور</button><button class="tabbtn ${tmp.checkTab==='performance'?'on':''}" onclick="tmp.checkTab='performance';render()">عملکرد روزانه</button><button class="tabbtn ${tmp.checkTab==='shift'?'on':''}" onclick="tmp.checkTab='shift';render()">شیفت کاری</button></div><div id="checkinTabBody"><div class="spin"></div></div>`; },
+  checkin:async()=>{chrome(true,'ثبت حضور من','back');return '<p class="warn">ابزار ثبت حضور هنوز بارگذاری نشده است؛ صفحه را تازه‌سازی کنید.</p>';},
 
   radio:async()=>{chrome(true,'بی‌سیم خطیار','back');await loadRadioWeb();return '<div id="radioWeb"></div>';},
   notifications:async()=>{ chrome(true,'اعلان‌ها و هشدارها','back'); const d=await GET('/my/notifications'); bell(0);
@@ -658,8 +657,6 @@ function openDrawer(){ const rows=KH_ANDROID_NAV.drawer.filter(x=>appAllowed(x.r
 
 function closeDrawer(){ document.getElementById('drawer').classList.remove('on'); }
 
-async function renderCheckinTab(){const host=document.getElementById('checkinTabBody');if(!host)return;try{if(tmp.checkTab==='performance'){const d=await GET('/my/daily-performance');const w=d.data||{};host.innerHTML=`<div class="hero"><div class="nm">عملکرد روزانه</div><div class="hi">${esc(d.weekday||'')} (${esc(d.date||'')}) · ${esc(d.shift_title||'شیفت کاری')}</div></div><div class="kpis">${[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['کسری کار',w.shortage],['شب‌کاری',w.night]].map(([l,v])=>`<div class="kpi"><div class="n">${toFa(Math.floor((Number(v)||0)/60))}:${toFa(String((Number(v)||0)%60).padStart(2,'0'))}</div><div class="l">${l}</div></div>`).join('')}</div>`;return;}if(tmp.checkTab==='shift'){const d=await GET('/my/shift-schedule');host.innerHTML=`<div class="card"><b>${esc(d.shift?.title||'شیفت کاری')}</b><div class="muted" style="margin-top:4px">برنامهٔ ۱۴ روز آینده</div></div>${(d.days||[]).map(x=>`<div class="card between"><div><b>${esc(x.weekday)} (${esc(x.date)})</b><div class="muted" style="margin-top:4px">${x.is_off?'روز استراحت/بدون موظفی':x.is_holiday?'تعطیل: '+esc(x.holiday_title||''): 'شیفت کاری'}</div></div><b>${x.is_off?'—':toFa(x.minutes)+' دقیقه'}</b></div>`).join('')}`;return;}const c=await GET('/my/checkin-config');const o=c.open;host.innerHTML=`<div class="card"><div class="between"><b>${o?'حضور شما ثبت شده است':'ثبت حضور'}</b><span class="badge ${o?'b-ok':'b-no'}">${o?'در شیفت':'خارج از شیفت'}</span></div><p class="muted" style="margin-top:8px">${o?'زمان ورود: '+esc(fj(o.check_in)):'برای ثبت ورود، موقعیت مکانی را دریافت کنید.'}</p><button class="btn" id="webCheckBtn">${o?'ثبت خروج':'ثبت ورود'}</button></div>`;document.getElementById('webCheckBtn').onclick=()=>webCheckinAction(o); }catch(e){host.innerHTML=`<div class="warn">${esc(e.message)}</div>`}}
-function webCheckinAction(open){if(!navigator.geolocation){toast('مرورگر به موقعیت مکانی دسترسی ندارد');return}navigator.geolocation.getCurrentPosition(async p=>{try{const url=open?'/my/checkout':'/my/checkin';await POST(url,{lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy,method:'gps'});toast(open?'خروج ثبت شد':'ورود ثبت شد');renderCheckinTab()}catch(e){toast(e.message)}} ,e=>toast('دریافت موقعیت ناموفق بود: '+e.message),{enableHighAccuracy:true,maximumAge:0,timeout:12000})}
 let radioWebState={channels:[],cid:0,after:0,enabled:true,listenAll:false,listenAllAllowed:false,tab:'recent',generation:0,liveTimer:null,polling:false,media:null,recording:false,pending:false,talkBusy:false,held:false,queue:[],playing:false,audio:null,ready:false,busy:false,error:'',settingsBusy:false};
 async function radioRequest(op,params={},body,authToken=token()){const q=new URLSearchParams({op,...params});const r=await fetch('/api/radio-api-v2.php?'+q,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+authToken,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),cache:'no-store'});const d=await r.json();if(!r.ok||d.ok===false)throw Error(d.error||'ارتباط با بی‌سیم برقرار نشد.');return d;}
 function radioValid(g){return current==='radio'&&radioWebState.generation===g;}
@@ -704,7 +701,6 @@ async function render(){
   const body=document.getElementById('body'); body.classList.toggle('android-subpage',!['dashboard','login','forgot','reset'].includes(current)); body.innerHTML='<div class="spin"></div>';
   try{const html=await screens[current]();if(generation!==_renderGeneration)return;body.innerHTML=html;}catch(e){if(generation!==_renderGeneration)return;body.innerHTML=`<p class="warn">${esc(e.message)}</p>`;}
   body.scrollTop=0;
-  if(current==='checkin') setTimeout(renderCheckinTab,0);
   if(current==='radio') setTimeout(()=>{if(current==='radio'&&generation===_renderGeneration)renderRadioWebTab('recent');},0);
   if(tmp._after){ const fn=tmp._after; tmp._after=null; setTimeout(fn,0); }
   document.querySelector('.body')?.classList.toggle('android-login',current==='login');
@@ -713,7 +709,7 @@ async function render(){
 }
 
 // ---- boot ----
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=20261026.features3',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=20261026.attendance1',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
 USER = store.get('user')?JSON.parse(store.get('user')):null;
 current = USER?'dashboard':'login';
 refreshOffline(); if(navigator.onLine) flushQueue();
