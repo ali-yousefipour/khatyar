@@ -71,7 +71,11 @@ export default function CovertSelfie() {
     busyRef.current = true;
     let hasPerm = perm?.granted;
     if (!hasPerm) { const r = await requestPerm().catch(() => null); hasPerm = r?.granted; }
-    if (generation !== generationRef.current) return false;
+    if (generation !== generationRef.current) {
+      // A cancelled permission dialog must not leave the camera locked.
+      busyRef.current = false;
+      return false;
+    }
     if (!hasPerm || isCameraInUse() || AppState.currentState !== 'active') {
       busyRef.current = false;
       setError(!hasPerm ? 'دسترسی دوربین لازم است.' : 'دوربین در بخش دیگری فعال است؛ دوباره تلاش کنید.');
@@ -86,6 +90,11 @@ export default function CovertSelfie() {
   const handleDone = useCallback(async (photo) => {
     const generation = generationRef.current;
     const command = commandRef.current;
+    // Ignore a camera callback from a dismissed/replaced request.
+    if (generation !== generationRef.current || !command) {
+      if (photo?.uri) require('expo-file-system/legacy').deleteAsync(photo.uri, { idempotent: true }).catch(() => {});
+      return;
+    }
     setShooting(false);
     if (!photo?.uri) { busyRef.current = false; setError('دوربین عکس معتبری دریافت نکرد؛ دوباره تلاش کنید.'); return; }
     setSending(true);
