@@ -85,7 +85,7 @@ input,select,textarea,button{font-family:inherit;max-width:100%}
 }
 @media(max-width:380px){.kpis{grid-template-columns:1fr!important}}
 </style>
-<link rel="stylesheet" href="assets/android-app.css?v=20261025.2">
+<link rel="stylesheet" href="assets/android-app.css?v=20261026.1">
 <script src="assets/android-navigation.js?v=20261025.2"></script>
 </head>
 <body>
@@ -158,7 +158,7 @@ async function authenticatedFetch(url,opt={}){
 }
 async function api(path,opt={}){
   const r=await authenticatedFetch(API+path,{...opt,headers:{'Content-Type':'application/json',...(opt.headers||{})}});
-  const d=await r.json().catch(()=>({}));
+  let d;try{d=await r.json();}catch{throw new Error('پاسخ سرور معتبر نیست؛ عملیات تأیید نشد.');}
   if(!r.ok) throw new Error(d.error||'خطای سرور');
   return d;
 }
@@ -281,7 +281,7 @@ let APP_ALLOWED=null, APP_FEATURES={}, SCHOOL_ACCESS=false;
 async function loadAppAllowed(){try{const r=await GET('/my/app-items');APP_ALLOWED=Array.isArray(r?.items)?r.items:null;}catch(_){APP_ALLOWED=null}return APP_ALLOWED;}
 const appAllowed=k=>APP_ALLOWED===null||APP_ALLOWED.includes(k)||(['StationCapture','MyStations'].includes(k)&&['StationCapture','MyStations','LineLocation'].some(x=>APP_ALLOWED.includes(x)));
 const routeAlias={
-  PresentList:'present',ActivityReport:'activity',ExpInsurance:'expInsurance',ExpTaxi:'expTaxi',ExpOplic:'expOplic',TeamReport:'team',InboxReports:'inbox',OfficialPresence:'official',Messages:'messages',Notifications:'notifications',Forms:'forms',Reports:'reports',Search:'search',CheckIn:'checkin',Radio:'radio',Help:'help',Profile:'profile'
+  PresentList:'present',ActivityReport:'activity',ExpInsurance:'expInsurance',ExpTaxi:'expTaxi',ExpOplic:'expOplic',TeamReport:'team',InboxReports:'inbox',OfficialPresence:'official',Messages:'messages',Notifications:'notifications',Forms:'forms',Reports:'reports',Search:'search',CheckIn:'checkin',Radio:'radio',Help:'help',Profile:'profile',PastNotices:'pastNotices',ReportDetail:'reportDetail'
 };
 function webPlaceholder(key,label){const screen=async()=>{chrome(true,label,'back');return `<div class="card"><h3>${esc(label)}</h3><p class="muted" style="margin-top:8px">این بخش در نسخه وب با همان نام و دسترسی نسخه اندروید ارائه شده است. رابط اختصاصی این بخش در حال تکمیل است.</p></div>`};screen.isPlaceholder=true;return screen;}
 
@@ -713,7 +713,7 @@ async function render(){
 }
 
 // ---- boot ----
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=20261025.android2',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=20261026.features1',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
 USER = store.get('user')?JSON.parse(store.get('user')):null;
 current = USER?'dashboard':'login';
 refreshOffline(); if(navigator.onLine) flushQueue();

@@ -2206,6 +2206,7 @@ route('GET', '/api/my/app-config', function($p,$b,$u){
     'vpn_check_seconds'     => max(15,min(3600,(int)($g('vpn_check_seconds', 60) ?: 60))),
     'station_check_seconds' => max(15,min(3600,(int)($g('station_check_seconds', 60) ?: 60))),
     'leave_require_substitute' => !empty(_req_policy_options($u['id'],false)['leave_require_substitute']), // الزام معرفی جایگزین برای مرخصی
+    'manual_attendance_selfie' => !empty(_req_policy_options($u['id'],false)['manual_attendance_selfie']),
     // حالت فعالیت: always (همیشه) یا shift_only (فقط در ساعات شیفت کاری)
     'activity_mode'         => $g('activity_mode', 'always'), // always | shift_only
     // شیفت فعلی کاربر (برای تصمیم‌گیری درون اپ)
@@ -14836,6 +14837,26 @@ function _inv_transferable_balance($userId, $itemTypeId) {
 }
 
 // ---- مدیریت انواع اقلام (ادمین) ----
+// Shared Android/PWA read contract. Personal inventory is always scoped to the session.
+route('GET','/api/inventory/balance',function($p,$b,$u){return ['items'=>_inv_balance((int)$u['id'])];});
+route('GET','/api/inventory/item-types',function($p,$b,$u){_inv_tables();return ['items'=>Db::all("SELECT id,name,unit FROM inventory_item_types WHERE is_active=1 ORDER BY name")];});
+route('GET','/api/inventory/recipients',function($p,$b,$u){
+  return ['roles'=>Db::all("SELECT DISTINCT r.id,r.title FROM roles r JOIN users u ON u.role_id=r.id WHERE u.is_active=1 ORDER BY r.title"),
+    'users'=>Db::all("SELECT u.id,u.role_id,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) name,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 AND u.id<>? ORDER BY r.title,u.last_name,u.first_name",[(int)$u['id']])];
+});
+route('GET','/api/inventory/pending',function($p,$b,$u){
+  _inv_tables();return ['items'=>Db::all("SELECT t.id,t.quantity,t.note,t.created_at,t.transferable,it.name item_name,it.unit,
+    TRIM(CONCAT(COALESCE(fu.first_name,''),' ',COALESCE(fu.last_name,''))) from_name
+    FROM inventory_transfers t JOIN inventory_item_types it ON it.id=t.item_type_id LEFT JOIN users fu ON fu.id=t.from_user_id
+    WHERE t.to_user_id=? AND t.status='pending' ORDER BY t.created_at DESC,t.id DESC",[(int)$u['id']])];
+});
+route('GET','/api/inventory/history',function($p,$b,$u){
+  _inv_tables();return ['items'=>Db::all("SELECT t.id,t.quantity,t.note,t.status,t.created_at,t.confirmed_at,t.rejected_at,t.transferable,it.name item_name,it.unit,
+    TRIM(CONCAT(COALESCE(fu.first_name,''),' ',COALESCE(fu.last_name,''))) from_name,
+    TRIM(CONCAT(COALESCE(tu.first_name,''),' ',COALESCE(tu.last_name,''))) to_name
+    FROM inventory_transfers t JOIN inventory_item_types it ON it.id=t.item_type_id LEFT JOIN users fu ON fu.id=t.from_user_id JOIN users tu ON tu.id=t.to_user_id
+    WHERE t.from_user_id=? OR t.to_user_id=? ORDER BY t.created_at DESC,t.id DESC LIMIT 500",[(int)$u['id'],(int)$u['id']])];
+});
 route('GET','/api/admin/inventory/item-types',function($p,$b,$u){ _inv_tables(); return ['items'=>Db::all("SELECT * FROM inventory_item_types ORDER BY is_active DESC,name")]; },false,ADMIN);
 route('POST','/api/admin/inventory/item-types',function($p,$b,$u){
   _inv_tables();
@@ -14873,9 +14894,11 @@ route('GET','/api/admin/inventory/ledger',function($p,$b,$u){
   if (!empty($_GET['to'])) { $c[]='t.confirmed_at <= ?'; $pr[]=$_GET['to'].' 23:59:59'; }
   $where = implode(' AND ',$c);
   $rows = Db::all("SELECT t.id,t.quantity,t.note,t.created_at,t.confirmed_at,t.transferable,it.name item_name,it.unit,
-      TRIM(CONCAT(COALESCE(fu.first_name,''),' ',COALESCE(fu.last_name,''))) from_name,    FROM inventory_transfers t JOIN inventory_item_types it ON it.id=t.item_type_id
+      TRIM(CONCAT(COALESCE(fu.first_name,''),' ',COALESCE(fu.last_name,''))) from_name,
+      TRIM(CONCAT(COALESCE(tu.first_name,''),' ',COALESCE(tu.last_name,''))) to_name
+    FROM inventory_transfers t JOIN inventory_item_types it ON it.id=t.item_type_id
     LEFT JOIN users fu ON fu.id=t.from_user_id JOIN users tu ON tu.id=t.to_user_id
-    WHERE t.from_user_id=? OR t.to_user_id=? ORDER BY t.created_at DESC LIMIT 500",[(int)$u['id'],(int)$u['id'],(int)$u['id']]);
+    WHERE $where ORDER BY t.created_at DESC,t.id DESC LIMIT 500",$pr);
   foreach ($rows as &$r3) { $r3['created_at_fa'] = fa_datetime($r3['created_at']); $r3['confirmed_at_fa'] = fa_datetime($r3['confirmed_at']); } unset($r3);
   return ['items'=>$rows];
 });

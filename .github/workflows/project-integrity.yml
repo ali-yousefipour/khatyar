@@ -80,6 +80,8 @@ jobs:
         run: |
           node php/tests/android_web_navigation_test.cjs
           node php/tests/android_web_screens_test.cjs
+          node php/tests/web_features_test.cjs
+          php php/tests/inventory_read_contract_test.php
           node --check php/app/assets/android-app-ui.js
           node --version
           node --check php/app/assets/panel.bundle.js

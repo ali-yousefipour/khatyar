@@ -14,13 +14,18 @@ if ($html === false) {
 }
 
 /* Load the existing Android parity layers after the complete app document. */
-$tag = '<script src="assets/android-web-parity.js?v=20261025.2" defer></script>'
-    . '<script src="assets/android-app-ui.js?v=20261025.2" defer></script>'
+$tag = '<script src="assets/android-app-ui.js?v=20261025.2" defer></script>'
+    . '<script src="assets/web-features-core.js?v=20261026.1" defer></script>'
+    . '<script src="assets/web-features-personal.js?v=20261026.1" defer></script>'
+    . '<script src="assets/web-features-field.js?v=20261026.1" defer></script>'
+    . '<script src="assets/web-features-services.js?v=20261026.1" defer></script>'
+    . '<script src="assets/web-features-company.js?v=20261026.1" defer></script>'
+    . '<script src="assets/web-features-device.js?v=20261026.1" defer></script>'
     . '<script src="assets/personnel-vehicle-web.js?v=20261015.auth1" defer></script>'
     . '<script src="assets/personnel-vehicle-checklist-enhancement.js?v=20260905.12" defer></script>'
     . '<script src="assets/personnel-vehicle-ui-bridge.js?v=20261025.2" defer></script>'
     . '<script src="assets/presence-immediate-admin.js?v=20260919.02" defer></script>';
-if (stripos($html, 'android-web-parity.js') === false) {
+if (stripos($html, 'web-features-core.js') === false) {
     $html = preg_replace('~</body>~i', $tag . "\n</body>", $html, 1);
 }
 header('Content-Type: text/html; charset=UTF-8');
