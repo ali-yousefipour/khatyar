@@ -92,11 +92,14 @@ function testCameraOwnership() {
   assert.equal(render(second).cameraActive, false);
   clock = 351;
   timers.forEach(handler => handler());
+  assert.equal(render(second).cameraActive, false, 'rear lens must wait for native release');
+  clock = 801;
+  timers.forEach(handler => handler());
   assert.equal(render(second).cameraActive, true);
   listeners.forEach(handler => handler('background'));
   assert.equal(render(second).cameraActive, false);
   listeners.forEach(handler => handler('active'));
-  clock = 702;
+  clock = 1602;
   render(second); timers.forEach(handler => handler());
   assert.equal(render(second).cameraActive, true);
   first.effects.forEach(effect => effect?.cleanup?.());
@@ -106,4 +109,12 @@ function testCameraOwnership() {
   console.log('PASS camera exclusion, release delay, background/resume and cleanup');
 }
 
-testCompression().then(testCameraOwnership).catch(error => { console.error(error); process.exitCode = 1; });
+function testRearPreviewRecovery() {
+  const source = fs.readFileSync(path.join(root, 'VehiclesPhotoCapture.js'), 'utf8');
+  assert.match(source, /onPress=\{recoverPreview\}/, 'manual recovery must remain available for black preview');
+  assert.match(source, /setCameraReady\(false\);[\s\S]*?restartCamera\(\)/, 'recovery must reset readiness and remount the native camera');
+  assert.match(source, /onMountError=/, 'native camera mount failures must be handled');
+  console.log('PASS rear camera black-preview manual recovery and native remount');
+}
+
+testCompression().then(() => { testCameraOwnership(); testRearPreviewRecovery(); }).catch(error => { console.error(error); process.exitCode = 1; });
