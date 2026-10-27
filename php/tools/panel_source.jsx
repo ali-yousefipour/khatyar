@@ -620,6 +620,8 @@ function LiveStaffDashboard(){
 function PersonnelDistributionDashboard(){
   const [data,setData]=useState(null);
   const [error,setError]=useState("");
+  const [selected,setSelected]=useState(null);
+  const [search,setSearch]=useState("");
   useEffect(()=>{
     let active=true;
     Promise.all([db.users(),db.roles(),db.zones()]).then(([users,roles,zones])=>{
@@ -632,18 +634,62 @@ function PersonnelDistributionDashboard(){
   const {users,roles,zones}=data;
   const roleName=new Map(roles.map(r=>[String(r.id),r.title||r.name]));
   const zoneName=new Map(zones.map(z=>[String(z.id),z.name||z.title]));
-  const countBy=getName=>{
-    const counts=new Map();
+  // The modal and its counter must use exactly the same grouping expression.
+  const getRole=u=>String(roleName.get(String(u.role_id))||u.role_title||u.role_name||"").trim();
+  const getZone=u=>String(zoneName.get(String(u.zone_id??u.region_id))||u.zone_name||u.region_name||"").trim();
+  const groupBy=getName=>{
+    const grouped=new Map();
     for(const u of users){
-      const name=String(getName(u)||"").trim();
-      if(name&&name!=="—")counts.set(name,(counts.get(name)||0)+1);
+      const name=getName(u);
+      if(name&&name!=="—"){
+        if(!grouped.has(name))grouped.set(name,[]);
+        grouped.get(name).push(u);
+      }
     }
-    return [...counts.entries()].filter(([,count])=>count>0).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],"fa"));
+    return [...grouped.entries()].sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0],"fa"));
   };
-  const roleCounts=countBy(u=>roleName.get(String(u.role_id))||u.role_title||u.role_name);
-  const zoneCounts=countBy(u=>zoneName.get(String(u.zone_id??u.region_id))||u.zone_name||u.region_name);
-  const cards=(items)=><div className="kpis personnel-stat-grid">{items.map(([name,count])=><div className="kpi" key={name}><div className="n">{fa(count)}</div><div className="l">{name}</div></div>)}</div>;
-  return <div className="panel personnel-stats"><h3 style={{margin:"0 0 6px"}}>آمار نیروها</h3><div className="muted" style={{fontSize:12}}>بر اساس فهرست پرسنل، مستقل از وضعیت حضور و غیاب</div><h4 style={{margin:"10px 0 0"}}>تعداد نیروها به تفکیک سمت</h4>{cards(roleCounts)}<h4 style={{margin:"12px 0 0"}}>تعداد نیروها به تفکیک منطقه</h4>{cards(zoneCounts)}</div>;
+  const roleGroups=groupBy(getRole);
+  const zoneGroups=groupBy(getZone);
+  const cards=(items,kind)=><div className="kpis personnel-stat-grid">{items.map(([name,people])=>
+    <button type="button" className="kpi" key={name}
+      title={"مشاهده فهرست "+name} aria-label={"مشاهده "+fa(people.length)+" نفر در "+name}
+      onClick={()=>{setSearch("");setSelected({kind,name});}}
+      style={{fontFamily:"inherit",color:"inherit",cursor:"pointer",textAlign:"inherit",width:"100%",border:"1px solid var(--line,#d9e3e0)",transition:"border-color .15s"}}>
+      <div className="n">{fa(people.length)}</div><div className="l">{name}</div>
+    </button>)}</div>;
+  const activeGroups=selected?.kind==="role"?roleGroups:zoneGroups;
+  const matching=selected?(activeGroups.find(([name])=>name===selected.name)?.[1]||[]):[];
+  const q=search.trim().toLocaleLowerCase("fa");
+  const shown=matching.filter(u=>!q||[
+    u.first_name,u.last_name,u.username,u.personnel_code,getRole(u),getZone(u)
+  ].some(v=>String(v??"").toLocaleLowerCase("fa").includes(q)));
+  const fullName=u=>[u.first_name,u.last_name].filter(Boolean).join(" ").trim()||u.name||u.full_name||u.username||"—";
+  return <div className="panel personnel-stats">
+    <h3 style={{margin:"0 0 6px"}}>آمار نیروها</h3>
+    <div className="muted" style={{fontSize:12}}>بر اساس فهرست پرسنل، مستقل از وضعیت حضور و غیاب</div>
+    <h4 style={{margin:"10px 0 0"}}>تعداد نیروها به تفکیک سمت</h4>{cards(roleGroups,"role")}
+    <h4 style={{margin:"12px 0 0"}}>تعداد نیروها به تفکیک منطقه</h4>{cards(zoneGroups,"zone")}
+    {selected&&<Modal title={(selected.kind==="role"?"نیروهای سمت: ":"نیروهای منطقه: ")+selected.name} onClose={()=>setSelected(null)}
+      style={{width:"min(760px,94vw)",maxWidth:"94vw",maxHeight:"85vh",overflowY:"auto",direction:"rtl"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:12,flexWrap:"wrap"}}>
+        <span className="muted">تعداد: <b>{fa(matching.length)}</b> نفر</span>
+        <input className="input" aria-label="جست‌وجوی افراد" placeholder="جست‌وجوی نام یا کد پرسنلی…" value={search}
+          onChange={e=>setSearch(e.target.value)} style={{maxWidth:320,width:"100%"}}/>
+      </div>
+      <div style={{overflowX:"auto",maxHeight:"54vh",overflowY:"auto"}}>
+        <table style={{width:"100%"}}>
+          <thead><tr><th>ردیف</th><th>نام و نام خانوادگی</th><th>کد پرسنلی</th><th>سمت</th><th>منطقه</th><th>وضعیت</th></tr></thead>
+          <tbody>{shown.map((u,i)=><tr key={u.id||u.username||i}>
+            <td>{fa(i+1)}</td><td>{fullName(u)}</td><td>{u.personnel_code?fa(u.personnel_code):"—"}</td>
+            <td>{getRole(u)||"—"}</td><td>{getZone(u)||"—"}</td>
+            <td>{u.is_active==1||u.is_active===true?"فعال":"غیرفعال"}</td>
+          </tr>)}</tbody>
+        </table>
+        {shown.length===0&&<div className="muted" style={{padding:16,textAlign:"center"}}>شخصی با این مشخصات یافت نشد.</div>}
+      </div>
+      <div style={{marginTop:14,textAlign:"left"}}><button type="button" className="btn g" onClick={()=>setSelected(null)}>بستن</button></div>
+    </Modal>}
+  </div>;
 }
 
 function ResponsiveTable({children,...props}){
