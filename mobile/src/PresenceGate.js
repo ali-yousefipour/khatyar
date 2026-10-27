@@ -21,6 +21,8 @@ export default function PresenceGate({navigationRef}){
  const openedRef=useRef(false);
  const wizardWasActiveRef=useRef(false);
  const RANDOM_CACHE_KEY='presence_random_schedule_v1';
+ const checkingRef=useRef(false);
+ const userId=Number(user?.id||0);
 
  const setDueStable=next=>{if(!mountedRef.current)return;dueRef.current=next;setDue(next);};
 
@@ -29,10 +31,11 @@ export default function PresenceGate({navigationRef}){
  // زمان‌بندی عادی فقط وقتی ویزارد باز نیست polling می‌شود.
  // وجود یک ویزارد باز نباید با پاسخ موقت/ناقص تنظیمات باعث unmount شدن آن شود.
  useEffect(()=>{
-  if(!user)return;
+  if(!userId)return;
   let alive=true;
   const check=async()=>{
-   if(!alive||dueRef.current)return;
+   if(!alive||dueRef.current||checkingRef.current)return;
+   checkingRef.current=true;
    try{
     const cfg=await request('/my/presence-config',{auth:true,noStore:true});
     if(!alive)return;
@@ -44,12 +47,12 @@ export default function PresenceGate({navigationRef}){
     // حالت تصادفی: برنامه از سرور/کش جلسهٔ باز خوانده می‌شود؛ ساعت‌های دستی کاملاً کنار گذاشته می‌شوند.
     if(cfg.random_enabled){
       let schedule=null;
-      try{ const raw=await AsyncStorage.getItem(RANDOM_CACHE_KEY); if(raw){const x=JSON.parse(raw);if(Array.isArray(x?.items)&&x.items.length)schedule=x;} }catch{}
+      try{ const raw=await AsyncStorage.getItem(RANDOM_CACHE_KEY); if(raw){const x=JSON.parse(raw);if(Number(x?.user_id)===userId&&Number(x?.attendance_id)>0&&Array.isArray(x?.items)&&x.items.length)schedule=x;} }catch{}
       try{
         const remote=await request('/my/presence-random-schedule',{auth:true,noStore:true,timeoutMs:8000});
         if(Array.isArray(remote?.items)){
           if(remote.items.length){
-            schedule={attendance_id:Number(remote.attendance_id||schedule?.attendance_id||0),items:remote.items,cached_at:Date.now()};
+            schedule={user_id:userId,attendance_id:Number(remote.attendance_id||0),items:remote.items,cached_at:Date.now()};
             await AsyncStorage.setItem(RANDOM_CACHE_KEY,JSON.stringify(schedule));
           }else{
             schedule=null;
@@ -57,7 +60,7 @@ export default function PresenceGate({navigationRef}){
           }
         }
       }catch{}
-      if(!schedule?.items?.length)return;
+      if(!schedule?.items?.length||!schedule.attendance_id)return;
       for(const item of schedule.items){
         const at=Number(item.ts||0)*1000;
         if(!at)continue;
@@ -73,7 +76,7 @@ export default function PresenceGate({navigationRef}){
           await AsyncStorage.setItem(notifKey,'1');
           notify('صحت‌سنجی حضور','لطفاً ظرف '+itemWin+' دقیقه سلفی و عکس خودروهای خط را ارسال کنید.',{type:'presence_check',slot:item.slot||'',window_minutes:itemWin,random:true,request_id:requestId});
         }
-        setDueStable({slot:String(item.slot||''),windowMinutes:itemWin,day:now.day,key,expiredKey,immediate:false,random:true,requestId});
+        setDueStable({slot:String(item.slot||''),windowMinutes:itemWin,deadlineMs:at+itemWin*60000,day:now.day,key,expiredKey,immediate:false,random:true,requestId});
         return;
       }
       return;
@@ -89,15 +92,17 @@ export default function PresenceGate({navigationRef}){
       await AsyncStorage.setItem(notifKey,'1');
       notify('صحت‌سنجی حضور',`لطفاً ظرف ${win} دقیقه سلفی و عکس خودروهای خط را ارسال کنید.`,{type:'presence_check',slot:sl,window_minutes:win});
      }
-     if(!dueRef.current)setDueStable({slot:sl,windowMinutes:win,day:now.day,key,expiredKey,immediate:false,requestId:`${now.day}_${sl}`});
+     if(!dueRef.current)setDueStable({slot:sl,windowMinutes:win,deadlineMs:Date.now()+Math.max(0,sm+win-now.minutes)*60000,day:now.day,key,expiredKey,immediate:false,requestId:`${now.day}_${sl}`});
      return;
     }
-   }catch(e){}
+   }catch(e){console.warn('presence schedule refresh failed:',e?.message||String(e));}
+   finally{checkingRef.current=false;}
   };
   check();
   const timer=setInterval(check,20000);
-  return()=>{alive=false;clearInterval(timer);};
- },[user]);
+  const sub=AppState.addEventListener('change',state=>{if(state==='active')check();});
+  return()=>{alive=false;clearInterval(timer);sub?.remove?.();};
+ },[userId]);
 
  // اعلان عادی و «صحت‌سنجی فوری» هر دو از همین مسیر وارد Wizard می‌شوند.
  useEffect(()=>{
@@ -121,7 +126,12 @@ export default function PresenceGate({navigationRef}){
    const expiredKey=random?`presence_random_expired:${requestId}`:`presence_expired:${now.day}:${sl}`;
    if(await AsyncStorage.getItem(key))return;
    if(!immediate&&await AsyncStorage.getItem(expiredKey))return;
-   if(!dueRef.current)setDueStable({slot:sl,windowMinutes:Math.max(1,Number(data.window_minutes||cfg.window_minutes||1)),day:now.day,key,expiredKey,immediate,random,requestId});
+   const notificationWindow=Math.max(1,Number(data.window_minutes||cfg.window_minutes||1));
+   const requestTs=Number(data.ts||data.at_ts||0);
+   const requestedAtMs=requestTs>0?requestTs*1000:Date.now();
+   const deadlineMs=requestedAtMs+notificationWindow*60000;
+   if(!immediate&&Date.now()>=deadlineMs)return;
+   if(!dueRef.current)setDueStable({slot:sl,windowMinutes:notificationWindow,deadlineMs,day:now.day,key,expiredKey,immediate,random,requestId});
   };
   const handleResponse=r=>openFromNotification(r?.notification?.request?.content?.data||{}).catch(()=>{});
   const handleReceived=n=>openFromNotification(n?.request?.content?.data||{}).catch(()=>{});
@@ -164,6 +174,7 @@ export default function PresenceGate({navigationRef}){
    navigationRef.navigate('PresenceCheckWizard',{
     slot:due.slot,
     windowMinutes:due.windowMinutes,
+    deadlineMs:due.deadlineMs,
     day:due.day,
     key:due.key,
     expiredKey:due.expiredKey,
