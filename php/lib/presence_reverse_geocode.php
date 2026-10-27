@@ -5,8 +5,9 @@
  * caching and attribution. Auth is enforced by the regular API router.
  */
 route('GET', '/api/my/reverse-geocode', static function ($params, $body, $user) {
-    $lat = filter_var($_GET['lat'] ?? null, FILTER_VALIDATE_FLOAT);
-    $lon = filter_var($_GET['lng'] ?? null, FILTER_VALIDATE_FLOAT);
+    if (!isset($_GET['lat'], $_GET['lng'])) return ['ok' => false, 'street' => '', 'source' => 'none'];
+    $lat = filter_var($_GET['lat'], FILTER_VALIDATE_FLOAT);
+    $lon = filter_var($_GET['lng'], FILTER_VALIDATE_FLOAT);
     if ($lat === false || $lon === false || $lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
         return ['ok' => false, 'street' => '', 'source' => 'none'];
     }
@@ -63,7 +64,8 @@ route('GET', '/api/my/reverse-geocode', static function ($params, $body, $user) 
                     $street = trim($a[$field]); break;
                 }
             }
-            $street = mb_substr(strip_tags($street), 0, 120);
+            $street = trim(strip_tags($street));
+            $street = function_exists('mb_substr') ? mb_substr($street, 0, 120) : substr($street, 0, 240);
         }
         // Also cache missing road labels to prevent repeated queries at an unmapped position.
         $items[$key] = ['street' => $street, 'expires' => $now + ($street !== '' ? 86400 : 3600)];
