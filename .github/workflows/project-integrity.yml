@@ -29,6 +29,7 @@ jobs:
           php -l php/lib/routes.php
           php -l php/lib/CompanyWork.php
           php -l php/lib/company_work_routes.php
+          php php/tests/subscription_invoice_test.php
           php php/tests/company_work_test.php
           php php/tests/company_work_archive_test.php
           php php/tests/company_work_collect_test.php
