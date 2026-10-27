@@ -7,6 +7,9 @@ on:
         description: "Version matching mobile/package.json"
         required: true
         default: "1.5.15"
+  push:
+    branches:
+      - "main"
 
 permissions:
   contents: write
@@ -18,6 +21,9 @@ concurrency:
 jobs:
   myket:
     name: Build signed APK for Myket
+    # Only explicit release commits trigger an automatic APK build.
+    # A normal code push must not publish an unreviewed release.
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'ci(android-myket):') || startsWith(github.event.head_commit.message, 'ci(android-release):')
     runs-on: ubuntu-latest
     env:
       NODE_VERSION: "22.23.1"
@@ -33,7 +39,10 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          test "$VERSION" = "$(node -p "require('./mobile/package.json').version")" || { echo "::error::Version does not match mobile/package.json"; exit 1; }
+          PACKAGE_VERSION="$(node -p "require('./mobile/package.json').version")"
+          VERSION="${VERSION:-$PACKAGE_VERSION}"
+          test "$VERSION" = "$PACKAGE_VERSION" || { echo "::error::Version does not match mobile/package.json"; exit 1; }
+          test "$VERSION" = "$(node -p "require('./mobile/app.config.js')({config:{}}).version")" || { echo "::error::Version does not match app.config.js"; exit 1; }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node
@@ -372,7 +381,7 @@ jobs:
             gh release upload "$TAG" release/khatyar.apk release/khatyar.apk.sha256 --clobber
             gh release edit "$TAG" --latest
           else
-            gh release create "$TAG" release/khatyar.apk release/khatyar.apk.sha256 \\
+            gh release create "$TAG" release/khatyar.apk release/khatyar.apk.sha256 \
               --target "$TARGET_SHA" \\
               --title "خطیار ${VERSION}" \\
               --generate-notes \\
