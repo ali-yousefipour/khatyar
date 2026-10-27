@@ -76,7 +76,7 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
         if(TRUSTED_UPDATE_HOST.equalsIgnoreCase(host)) return;
         if(TRUSTED_GITHUB_ASSET_HOST.equalsIgnoreCase(host)) return;
         if(TRUSTED_GITHUB_RELEASE_HOST.equalsIgnoreCase(host) &&
-           url.getPath().matches("/ali-yousefipour/khatyar/releases/(?:latest/download|download/v[0-9]+\\.[0-9]+\\.[0-9]+)/khatyar\\.apk")) return;
+           url.getPath().matches("/ali-yousefipour/khatyar/releases/(?:latest/download|download/v[0-9]+\\.[0-9]+\\.[0-9]+)/[^/]+\\.apk")) return;
         if(TRUSTED_GITHUB_RAW_HOST.equalsIgnoreCase(host)) {
             String path = url.getPath();
             if(path != null) {
