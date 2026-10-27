@@ -907,8 +907,11 @@ function LiveStaffDashboard() {
                             React.createElement("span", { className: "badge " + (isOpenSession(r) ? "ok" : "muted") }, isOpenSession(r) ? "داخل شیفت" : "خروج ثبت شده")))))))));
 }
 function PersonnelDistributionDashboard() {
+    var _a;
     const [data, setData] = useState(null);
     const [error, setError] = useState("");
+    const [selected, setSelected] = useState(null);
+    const [search, setSearch] = useState("");
     useEffect(() => {
         let active = true;
         Promise.all([db.users(), db.roles(), db.zones()]).then(([users, roles, zones]) => {
@@ -929,27 +932,67 @@ function PersonnelDistributionDashboard() {
     const { users, roles, zones } = data;
     const roleName = new Map(roles.map(r => [String(r.id), r.title || r.name]));
     const zoneName = new Map(zones.map(z => [String(z.id), z.name || z.title]));
-    const countBy = getName => {
-        const counts = new Map();
+    // The modal and its counter must use exactly the same grouping expression.
+    const getRole = u => String(roleName.get(String(u.role_id)) || u.role_title || u.role_name || "").trim();
+    const getZone = u => { var _a; return String(zoneName.get(String((_a = u.zone_id) !== null && _a !== void 0 ? _a : u.region_id)) || u.zone_name || u.region_name || "").trim(); };
+    const groupBy = getName => {
+        const grouped = new Map();
         for (const u of users) {
-            const name = String(getName(u) || "").trim();
-            if (name && name !== "—")
-                counts.set(name, (counts.get(name) || 0) + 1);
+            const name = getName(u);
+            if (name && name !== "—") {
+                if (!grouped.has(name))
+                    grouped.set(name, []);
+                grouped.get(name).push(u);
+            }
         }
-        return [...counts.entries()].filter(([, count]) => count > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "fa"));
+        return [...grouped.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], "fa"));
     };
-    const roleCounts = countBy(u => roleName.get(String(u.role_id)) || u.role_title || u.role_name);
-    const zoneCounts = countBy(u => { var _a; return zoneName.get(String((_a = u.zone_id) !== null && _a !== void 0 ? _a : u.region_id)) || u.zone_name || u.region_name; });
-    const cards = (items) => React.createElement("div", { className: "kpis personnel-stat-grid" }, items.map(([name, count]) => React.createElement("div", { className: "kpi", key: name },
-        React.createElement("div", { className: "n" }, fa(count)),
+    const roleGroups = groupBy(getRole);
+    const zoneGroups = groupBy(getZone);
+    const cards = (items, kind) => React.createElement("div", { className: "kpis personnel-stat-grid" }, items.map(([name, people]) => React.createElement("button", { type: "button", className: "kpi", key: name, title: "مشاهده فهرست " + name, "aria-label": "مشاهده " + fa(people.length) + " نفر در " + name, onClick: () => { setSearch(""); setSelected({ kind, name }); }, style: { fontFamily: "inherit", color: "inherit", cursor: "pointer", textAlign: "inherit", width: "100%", border: "1px solid var(--line,#d9e3e0)", transition: "border-color .15s" } },
+        React.createElement("div", { className: "n" }, fa(people.length)),
         React.createElement("div", { className: "l" }, name))));
+    const activeGroups = (selected === null || selected === void 0 ? void 0 : selected.kind) === "role" ? roleGroups : zoneGroups;
+    const matching = selected ? (((_a = activeGroups.find(([name]) => name === selected.name)) === null || _a === void 0 ? void 0 : _a[1]) || []) : [];
+    const q = search.trim().toLocaleLowerCase("fa");
+    const shown = matching.filter(u => !q || [
+        u.first_name, u.last_name, u.username, u.personnel_code, getRole(u), getZone(u)
+    ].some(v => String(v !== null && v !== void 0 ? v : "").toLocaleLowerCase("fa").includes(q)));
+    const fullName = u => [u.first_name, u.last_name].filter(Boolean).join(" ").trim() || u.name || u.full_name || u.username || "—";
     return React.createElement("div", { className: "panel personnel-stats" },
         React.createElement("h3", { style: { margin: "0 0 6px" } }, "\u0622\u0645\u0627\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627"),
         React.createElement("div", { className: "muted", style: { fontSize: 12 } }, "\u0628\u0631 \u0627\u0633\u0627\u0633 \u0641\u0647\u0631\u0633\u062A \u067E\u0631\u0633\u0646\u0644\u060C \u0645\u0633\u062A\u0642\u0644 \u0627\u0632 \u0648\u0636\u0639\u06CC\u062A \u062D\u0636\u0648\u0631 \u0648 \u063A\u06CC\u0627\u0628"),
         React.createElement("h4", { style: { margin: "10px 0 0" } }, "\u062A\u0639\u062F\u0627\u062F \u0646\u06CC\u0631\u0648\u0647\u0627 \u0628\u0647 \u062A\u0641\u06A9\u06CC\u06A9 \u0633\u0645\u062A"),
-        cards(roleCounts),
+        cards(roleGroups, "role"),
         React.createElement("h4", { style: { margin: "12px 0 0" } }, "\u062A\u0639\u062F\u0627\u062F \u0646\u06CC\u0631\u0648\u0647\u0627 \u0628\u0647 \u062A\u0641\u06A9\u06CC\u06A9 \u0645\u0646\u0637\u0642\u0647"),
-        cards(zoneCounts));
+        cards(zoneGroups, "zone"),
+        selected && React.createElement(Modal, { title: (selected.kind === "role" ? "نیروهای سمت: " : "نیروهای منطقه: ") + selected.name, onClose: () => setSelected(null), style: { width: "min(760px,94vw)", maxWidth: "94vw", maxHeight: "85vh", overflowY: "auto", direction: "rtl" } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" } },
+                React.createElement("span", { className: "muted" },
+                    "\u062A\u0639\u062F\u0627\u062F: ",
+                    React.createElement("b", null, fa(matching.length)),
+                    " \u0646\u0641\u0631"),
+                React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u0627\u0641\u0631\u0627\u062F", placeholder: "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u0646\u0627\u0645 \u06CC\u0627 \u06A9\u062F \u067E\u0631\u0633\u0646\u0644\u06CC\u2026", value: search, onChange: e => setSearch(e.target.value), style: { maxWidth: 320, width: "100%" } })),
+            React.createElement("div", { style: { overflowX: "auto", maxHeight: "54vh", overflowY: "auto" } },
+                React.createElement("table", { style: { width: "100%" } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0631\u062F\u06CC\u0641"),
+                            React.createElement("th", null, "\u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC"),
+                            React.createElement("th", null, "\u06A9\u062F \u067E\u0631\u0633\u0646\u0644\u06CC"),
+                            React.createElement("th", null, "\u0633\u0645\u062A"),
+                            React.createElement("th", null, "\u0645\u0646\u0637\u0642\u0647"),
+                            React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"))),
+                    React.createElement("tbody", null, shown.map((u, i) => React.createElement("tr", { key: u.id || u.username || i },
+                        React.createElement("td", null, fa(i + 1)),
+                        React.createElement("td", null, fullName(u)),
+                        React.createElement("td", null, u.personnel_code ? fa(u.personnel_code) : "—"),
+                        React.createElement("td", null, getRole(u) || "—"),
+                        React.createElement("td", null, getZone(u) || "—"),
+                        React.createElement("td", null, u.is_active == 1 || u.is_active === true ? "فعال" : "غیرفعال"))))),
+                shown.length === 0 && React.createElement("div", { className: "muted", style: { padding: 16, textAlign: "center" } }, "\u0634\u062E\u0635\u06CC \u0628\u0627 \u0627\u06CC\u0646 \u0645\u0634\u062E\u0635\u0627\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")),
+            React.createElement("div", { style: { marginTop: 14, textAlign: "left" } },
+                React.createElement("button", { type: "button", className: "btn g", onClick: () => setSelected(null) }, "\u0628\u0633\u062A\u0646"))));
 }
 function ResponsiveTable({ children, ...props }) {
     return React.createElement("div", { className: "table-wrap", tabIndex: 0, role: "region", "aria-label": "\u062C\u062F\u0648\u0644 \u0627\u0637\u0644\u0627\u0639\u0627\u062A\u061B \u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647 \u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0628\u06CC\u0634\u062A\u0631 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u06A9\u0646\u06CC\u062F" },
