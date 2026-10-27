@@ -1,60 +1,21 @@
 import { Alert, DeviceEventEmitter, NativeModules } from 'react-native';
-import Constants from 'expo-constants';
-import { request } from './api';
+import { currentVersion, checkVersion, validateUpdateUrl } from './update';
 
 const { KhatyarUpdater } = NativeModules;
-const TRUSTED_UPDATE_HOST = 'app.yousefipour.ir';
-const TRUSTED_GITHUB_RELEASE_HOST = 'github.com';
-const TRUSTED_GITHUB_RAW_HOST = 'raw.githubusercontent.com';
-const TRUSTED_GITHUB_RAW_PREFIXES = [
-  '/ali-yousefipour/khatyar/main/mobile/release/',
-  '/ali-yousefipour/khatyar-releases/main/',
-];
-
-export function currentVersion() {
-  return Constants.expoConfig?.version || '0.0.0';
-}
-
-function isNewer(a, b) {
-  const pa = String(a).split('.').map((x) => parseInt(x, 10) || 0);
-  const pb = String(b).split('.').map((x) => parseInt(x, 10) || 0);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const x = pa[i] || 0, y = pb[i] || 0;
-    if (x > y) return true;
-    if (x < y) return false;
-  }
-  return false;
-}
-
-function validateUpdateUrl(value) {
-  try {
-    const u = new URL(String(value));
-    const host = u.hostname.toLowerCase();
-    const portOk = !u.port || u.port === '443';
-    if (u.protocol !== 'https:' || !portOk) return false;
-    if (host === TRUSTED_UPDATE_HOST) return true;
-    if (host === TRUSTED_GITHUB_RELEASE_HOST) {
-      return /^\/ali-yousefipour\/khatyar\/releases\/(?:latest\/download|download\/v\d+\.\d+\.\d+)\/khatyar\.apk$/.test(u.pathname);
-    }
-    if (host !== TRUSTED_GITHUB_RAW_HOST) return false;
-    return TRUSTED_GITHUB_RAW_PREFIXES.some(prefix =>
-      u.pathname.startsWith(prefix) &&
-      /^khatyar-[0-9]+\.[0-9]+\.[0-9]+\.apk$/.test(u.pathname.slice(prefix.length))
-    );
-  } catch (_) {
-    return false;
-  }
-}
 
 function normalizeSha256(value) {
   const sha = String(value || '').trim().toLowerCase();
   return /^[a-f0-9]{64}$/.test(sha) ? sha : '';
 }
 
+export { currentVersion };
+
 export async function downloadAndInstallUpdate(info) {
   if (!info?.url) throw new Error('آدرس فایل به‌روزرسانی در سرور تنظیم نشده است.');
-  if (!validateUpdateUrl(info.url)) throw new Error('آدرس به‌روزرسانی معتبر نیست؛ فقط HTTPS روی سرور رسمی مجاز است.');
-  const expectedSha256 = normalizeSha256(info.apk_sha256 || info.sha256);
+  const expectedSha256 = normalizeSha256(info.apkSha256 || info.apk_sha256 || info.sha256);
+  if (!validateUpdateUrl(info.url, expectedSha256)) {
+    throw new Error('لینک دانلود APK معتبر نیست؛ لینک باید HTTPS باشد و میزبان‌های غیررسمی نیاز به SHA-256 دارند.');
+  }
   if (!KhatyarUpdater?.downloadApk) throw new Error('ماژول دانلود و نصب درون‌برنامه‌ای در این نسخه موجود نیست.');
   const fileName = `KhatYar-v${String(info.latest || 'update').replace(/[^0-9A-Za-z._-]/g, '_')}.apk`;
   return KhatyarUpdater.downloadApk(info.url, fileName, expectedSha256);
@@ -74,23 +35,23 @@ export function subscribeUpdaterEvents(handlers = {}) {
 }
 
 export async function checkForUpdate(userInitiated = false) {
-  try {
-    const info = await request('/app/version', { auth: false, noStore: true });
-    const latest = info?.latest_version || info?.app_version || currentVersion();
-    const apkUrl = info?.apk_url || '';
-    const apkSha256 = info?.apk_sha256 || info?.sha256 || '';
-    const cur = currentVersion();
-    if (!latest) {
-      if (userInitiated) Alert.alert('بروزرسانی', 'اطلاعات نسخه از سرور دریافت نشد.');
-      return null;
-    }
-    if (isNewer(latest, cur)) {
-      return { latest, current: cur, url: apkUrl, apk_sha256: apkSha256, required: false };
-    }
-    if (userInitiated) Alert.alert('بروزرسانی', 'شما از آخرین نسخه استفاده می‌کنید.');
-    return { latest, current: cur, url: apkUrl, apk_sha256: apkSha256, required: false };
-  } catch (e) {
-    if (userInitiated) Alert.alert('خطا', 'بررسی بروزرسانی ناموفق بود.');
-    return null;
+  const info = await checkVersion();
+  if (!info.hasUpdate && !info.required) {
+    if (userInitiated) Alert.alert('بررسی به‌روزرسانی', `نسخه ${info.current} آخرین نسخه نصب‌شده است.`);
+    return info;
   }
+  if (!userInitiated) return info; // Forced updates are rendered by App's UpdateScreen.
+  const message = `نسخه فعلی: ${info.current}\nآخرین نسخه: ${info.latest}` +
+    (info.required ? '\nاین به‌روزرسانی اجباری است.' : '') +
+    (info.notes ? `\n\nتغییرات نسخه:\n${info.notes}` : '');
+  if (!info.url) {
+    Alert.alert('به‌روزرسانی', message + '\n\nلینک APK در تنظیمات سرور وجود ندارد یا معتبر نیست.');
+    return info;
+  }
+  Alert.alert('نسخه جدید خطیار', message, [
+    { text: 'بعداً', style: 'cancel' },
+    { text: 'دانلود و نصب', onPress: () => downloadAndInstallUpdate(info).catch(error =>
+      Alert.alert('خطای دانلود', error?.message || 'دریافت فایل APK انجام نشد.')) },
+  ]);
+  return info;
 }
