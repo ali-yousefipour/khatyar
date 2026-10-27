@@ -378,6 +378,7 @@ jobs:
               --generate-notes \\
               --latest
           fi
+          mkdir -p "$RUNNER_TEMP/release-check"
           gh release download "$TAG" --pattern 'khatyar.apk.sha256' --dir "$RUNNER_TEMP/release-check" --clobber
           cmp release/khatyar.apk.sha256 "$RUNNER_TEMP/release-check/khatyar.apk.sha256"
           echo "Direct APK: https://github.com/${{ github.repository }}/releases/latest/download/khatyar.apk"
