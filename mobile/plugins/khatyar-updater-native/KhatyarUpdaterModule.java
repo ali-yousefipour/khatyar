@@ -43,6 +43,8 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
     private static final String KEY_PENDING_URI = "pending_install_uri";
     private static final String TRUSTED_UPDATE_HOST = "app.yousefipour.ir";
     private static final String TRUSTED_GITHUB_RAW_HOST = "raw.githubusercontent.com";
+    private static final String TRUSTED_GITHUB_RELEASE_HOST = "github.com";
+    private static final String TRUSTED_GITHUB_ASSET_HOST = "release-assets.githubusercontent.com";
     private static final String[] TRUSTED_GITHUB_RAW_PREFIXES = {
         "/ali-yousefipour/khatyar/main/mobile/release/",
         "/ali-yousefipour/khatyar-releases/main/"
@@ -65,12 +67,16 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
         return sha;
     }
 
-    private void validateUpdateUrl(URL url) throws Exception {
+    private void validateUpdateUrl(URL url, boolean hasPinnedHash) throws Exception {
         if(url==null || !"https".equalsIgnoreCase(url.getProtocol()) || (url.getPort()!=-1 && url.getPort()!=443)) {
             throw new Exception("آدرس به‌روزرسانی مجاز نیست؛ فقط HTTPS روی سرورهای تأییدشده خطیار قابل استفاده است.");
         }
         String host = url.getHost();
+        if(url.getUserInfo()!=null) throw new Exception("آدرس به‌روزرسانی نباید شامل نام کاربری یا رمز باشد.");
         if(TRUSTED_UPDATE_HOST.equalsIgnoreCase(host)) return;
+        if(TRUSTED_GITHUB_ASSET_HOST.equalsIgnoreCase(host)) return;
+        if(TRUSTED_GITHUB_RELEASE_HOST.equalsIgnoreCase(host) &&
+           url.getPath().matches("/ali-yousefipour/khatyar/releases/(?:latest/download|download/v[0-9]+\\\\.[0-9]+\\\\.[0-9]+)/khatyar\\\\.apk")) return;
         if(TRUSTED_GITHUB_RAW_HOST.equalsIgnoreCase(host)) {
             String path = url.getPath();
             if(path != null) {
@@ -80,7 +86,8 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
                 }
             }
         }
-        throw new Exception("آدرس به‌روزرسانی مجاز نیست؛ فقط APK رسمی خطیار قابل دریافت است.");
+        if(hasPinnedHash) return; // Administrator configured HTTPS mirror, pinned to SHA-256.
+        throw new Exception("برای دریافت از میزبان غیررسمی، SHA-256 فایل APK باید در تنظیمات سرور ثبت شود.");
     }
 
     private String sha256(File file) throws Exception {
@@ -106,7 +113,7 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
             HttpURLConnection connection=null;
             try{
                 URL url=new URL(urlText);
-                validateUpdateUrl(url);
+                validateUpdateUrl(url, !expected.isEmpty());
                 long existing=part.exists()?part.length():0;
                 connection=(HttpURLConnection)url.openConnection();
                 connection.setConnectTimeout(30000); connection.setReadTimeout(120000); connection.setInstanceFollowRedirects(true);
@@ -114,10 +121,10 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
                 if(existing>0)connection.setRequestProperty("Range","bytes="+existing+"-");
                 connection.connect();
                 URL finalUrl=connection.getURL();
-                validateUpdateUrl(finalUrl);
+                validateUpdateUrl(finalUrl, !expected.isEmpty());
                 int code=connection.getResponseCode();
                 boolean resumed=existing>0&&code==206;
-                if(existing>0&&code==416){part.delete();existing=0;connection.disconnect();connection=null;connection=(HttpURLConnection)url.openConnection();connection.setConnectTimeout(30000);connection.setReadTimeout(120000);connection.setInstanceFollowRedirects(true);connection.setRequestProperty("Accept","application/vnd.android.package-archive,application/octet-stream,*/*");connection.connect();validateUpdateUrl(connection.getURL());code=connection.getResponseCode();}
+                if(existing>0&&code==416){part.delete();existing=0;connection.disconnect();connection=null;connection=(HttpURLConnection)url.openConnection();connection.setConnectTimeout(30000);connection.setReadTimeout(120000);connection.setInstanceFollowRedirects(true);connection.setRequestProperty("Accept","application/vnd.android.package-archive,application/octet-stream,*/*");connection.connect();validateUpdateUrl(connection.getURL(), !expected.isEmpty());code=connection.getResponseCode();}
                 if(code<200||code>=300)throw new Exception("دانلود فایل ناموفق بود (HTTP "+code+").");
                 if(existing>0&&!resumed){existing=0;try{part.delete();}catch(Exception ignored){}}
                 long contentLength=connection.getContentLengthLong();
