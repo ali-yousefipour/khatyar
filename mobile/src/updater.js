@@ -36,6 +36,10 @@ export function subscribeUpdaterEvents(handlers = {}) {
 
 export async function checkForUpdate(userInitiated = false) {
   const info = await checkVersion();
+  if (info.failed) {
+    if (userInitiated) Alert.alert('خطای ارتباط', 'اطلاعات نسخه از سرور دریافت نشد. اتصال اینترنت را بررسی و دوباره تلاش کنید.');
+    return info;
+  }
   if (!info.hasUpdate && !info.required) {
     if (userInitiated) Alert.alert('بررسی به‌روزرسانی', `نسخه ${info.current} آخرین نسخه نصب‌شده است.`);
     return info;
