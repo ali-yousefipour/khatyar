@@ -9472,7 +9472,7 @@ function DashboardConfig() {
             saved && React.createElement("span", { style: { color: "var(--ok)", fontSize: 13 } }, "\u2713 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F"))));
 }
 function RolePerms() {
-    const MENU = [["seniority", "سنوات نیروها"], ["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["officials", "حضور مسئولین"], ["covertselfies", "نظارت"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["attreport", "گزارش تردد پرسنل"], ["leavereport", "گزارش مرخصی پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "تنظیمات شیفت کاری"], ["monthlyworkreport", "گزارش کارکرد ماهانه"], ["workpolicy", "سیاست کاری"], ["requests", "درخواست‌های پرسنل"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["radiocenter", "مرکز بی‌سیم"], ["vehicleassets", "ماشین‌آلات و وسایل مأموریتی"], ["vehiclechecklist", "چک‌لیست خودرویی و موتوری"], ["settings", "تنظیمات"]];
+    const MENU = [["seniority", "سنوات نیروها"], ["dashboard", "داشبورد"], ["reportscenter", "مرکز گزارش‌ها"], ["health", "سلامت سامانه"], ["map", "نقشهٔ زنده"], ["present", "آمار حاضرین"], ["presentchart", "نمودار زندهٔ حاضرین"], ["missiondashboard", "داشبورد عملیات میدانی"], ["citydashboard", "داشبورد مدیریتی کل‌شهر"], ["missiontemplates", "موتور مأموریت — الگوها و تنظیمات"], ["scoreengine", "موتور امتیازدهی"], ["driverservicereport", "عملکرد و تذکرات تاکسیران"], ["officials", "حضور مسئولین"], ["covertselfies", "نظارت"], ["messages", "پیام‌رسانی"], ["messengercenter", "مرکز ارسال ربات‌ها"], ["companyrequests", "مدارک ارسالی شرکت"], ["salaryslips", "بارگذاری فیش حقوقی"], ["subscriptioninvoices", "صدور فاکتور اشتراک"], ["users", "کاربران"], ["zones", "منطقه‌بندی"], ["org", "چارت سازمانی"], ["drivers", "رانندگان"], ["platetraining", "پلاک‌خوان"], ["lines", "خطوط"], ["bills", "آبونمان"], ["config", "تذکر/چک‌لیست"], ["forms", "فرم‌ساز"], ["reports", "گردش گزارش"], ["report", "گزارش‌گیری"], ["perfreport", "گزارش عملکرد پرسنل"], ["attreport", "گزارش تردد پرسنل"], ["leavereport", "گزارش مرخصی پرسنل"], ["welfare", "رفاهیات روابط عمومی"], ["cultural", "فعالیت‌های فرهنگی"], ["excel", "ورود اکسل"], ["logs", "لاگ"], ["useract", "فعالیت کاربران"], ["commitments", "تعهدات انضباطی"], ["tempdrivers", "رانندگان موقت"], ["presence", "صحت‌سنجی حضور"], ["attendance", "حضور نیروها"], ["shifts", "تنظیمات شیفت کاری"], ["monthlyworkreport", "گزارش کارکرد ماهانه"], ["workpolicy", "سیاست کاری"], ["requests", "درخواست‌های پرسنل"], ["outages", "قطعی سیستم نوبت‌دهی"], ["customfields", "فیلدهای سفارشی"], ["inventory", "اقلام تحویلی"], ["sms", "ارسال پیامک"], ["smslog", "تاریخچهٔ پیامک"], ["appitems", "آیتم‌های اپ هر سمت"], ["cronstatus", "پایش سلامت کرون‌ها"], ["activesessions", "جلسات فعال کاربران"], ["radiocenter", "مرکز بی‌سیم"], ["vehicleassets", "ماشین‌آلات و وسایل مأموریتی"], ["vehiclechecklist", "چک‌لیست خودرویی و موتوری"], ["settings", "تنظیمات"]];
     const [roles, setRoles] = useState([]);
     const [perms, setPerms] = useState({});
     const [sel, setSel] = useState(null);
@@ -17979,6 +17979,207 @@ function PersonnelLeaveReport() {
                 !((_a = data.requests) === null || _a === void 0 ? void 0 : _a.length) && React.createElement("p", { className: "muted", style: { padding: 12 } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0645\u0631\u062E\u0635\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647\u200C\u0627\u06CC \u062F\u0631 \u0633\u0627\u0645\u0627\u0646\u0647 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")))),
         React.createElement("p", { className: "muted", style: { fontSize: 11, marginTop: 12 } }, "\u00AB\u0645\u062C\u0627\u0632\u00BB \u0627\u0632 \u062C\u0645\u0639 \u0645\u0635\u0631\u0641 \u0648 \u0645\u0627\u0646\u062F\u0647 \u062F\u0631 \u0641\u0627\u06CC\u0644 \u0645\u0628\u0646\u0627 \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u0633\u0648\u0627\u0628\u0642 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0641\u0642\u0637 \u0627\u0632 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u0648 \u0645\u0631\u062A\u0628\u0637 \u062F\u0631 \u0633\u0627\u0645\u0627\u0646\u0647 \u0645\u06CC\u200C\u0622\u06CC\u062F. \u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0646\u0641\u06CC \u0639\u06CC\u0646\u0627\u064B \u062D\u0641\u0638 \u0634\u062F\u0647\u200C\u0627\u0646\u062F."));
 }
+function SubscriptionInvoicesAdmin() {
+    const [companies, setCompanies] = useState([]);
+    const [invoices, setInvoices] = useState([]);
+    const [error, setError] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [filter, setFilter] = useState("");
+    const [activeInvoice, setActiveInvoice] = useState(null);
+    const [companyForm, setCompanyForm] = useState({ company_name: "", national_id: "", economic_code: "", phone: "", address: "" });
+    const [draft, setDraft] = useState({ company_id: "", issued_date: todayJ().join("-") + "-01", due_date: "", description: "اشتراک سامانه خطیار", discount_rial: "0", tax_percent: "0", items: [{ title: "حق اشتراک سامانه خطیار (ماهانه)", quantity: 1, unit_price_rial: "0" }] });
+    const money = v => fa(Number(v || 0).toLocaleString("en-US")) + " ریال";
+    const refresh = async () => {
+        try {
+            const [c, i] = await Promise.all([GET("/admin/subscription-customers"), GET("/admin/subscription-invoices")]);
+            setCompanies(Array.isArray(c) ? c : []);
+            setInvoices(Array.isArray(i) ? i : []);
+            setError("");
+        }
+        catch (e) {
+            setError(e.message || "بازیابی فاکتورها ناموفق بود");
+        }
+    };
+    useEffect(() => { refresh(); }, []);
+    const updateItem = (i, key, value) => setDraft(prev => ({ ...prev, items: prev.items.map((v, n) => n === i ? { ...v, [key]: value } : v) }));
+    const priceItems = draft.items.map(x => Number(x.quantity || 0) * Number(x.unit_price_rial || 0));
+    const subtotal = priceItems.reduce((sum, x) => sum + x, 0);
+    const discount = Number(draft.discount_rial || 0);
+    const taxValue = Math.round(Math.max(0, subtotal - discount) * Number(draft.tax_percent || 0) / 100);
+    const finalTotal = subtotal - discount + taxValue;
+    const addCompany = async () => {
+        if (!companyForm.company_name.trim()) {
+            setError("نام شرکت الزامی است");
+            return;
+        }
+        setBusy(true);
+        try {
+            const result = await SEND("POST", "/admin/subscription-customers", companyForm);
+            const companiesNext = await GET("/admin/subscription-customers");
+            setCompanies(companiesNext || []);
+            setDraft(prev => ({ ...prev, company_id: String(result.id) }));
+            setCompanyForm({ company_name: "", national_id: "", economic_code: "", phone: "", address: "" });
+            setError("");
+        }
+        catch (e) {
+            setError(e.message || "ثبت شرکت ناموفق بود");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    const createInvoice = async () => {
+        setBusy(true);
+        try {
+            const payload = { ...draft, company_id: Number(draft.company_id), items: draft.items.map(x => ({
+                    title: String(x.title).trim(), quantity: Number(x.quantity), unit_price_rial: Number(x.unit_price_rial)
+                })) };
+            if (!payload.company_id || !payload.items.every(x => x.title && x.quantity > 0 && x.unit_price_rial >= 0))
+                throw new Error("شرکت و اقلام فاکتور را تکمیل کنید.");
+            const created = await SEND("POST", "/admin/subscription-invoices", payload);
+            await refresh();
+            setActiveInvoice(null);
+            setError("");
+            alert("فاکتور " + created.invoice_number + " صادر شد.");
+        }
+        catch (e) {
+            setError(e.message || "صدور فاکتور ناموفق بود");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    const setStatus = async (invoice, status) => {
+        if (!confirm("تغییر وضعیت فاکتور " + invoice.invoice_number + " به " + (status === "paid" ? "پرداخت‌شده" : "باطل‌شده") + " انجام شود؟"))
+            return;
+        let payment_reference = "";
+        if (status === "paid") {
+            const reference = prompt("شماره پیگیری پرداخت (اختیاری):", "");
+            if (reference === null)
+                return;
+            payment_reference = reference;
+        }
+        setBusy(true);
+        try {
+            await SEND("POST", "/admin/subscription-invoices/" + invoice.id + "/status", { status, payment_reference });
+            await refresh();
+            setError("");
+        }
+        catch (e) {
+            setError(e.message || "تغییر وضعیت ناموفق بود");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    const cleanPrint = s => String(s !== null && s !== void 0 ? s : "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const printInvoice = invoice => {
+        const company = typeof invoice.company_snapshot === "string" ? JSON.parse(invoice.company_snapshot) : invoice.company_snapshot;
+        const items = typeof invoice.line_items === "string" ? JSON.parse(invoice.line_items) : invoice.line_items;
+        const rows = (Array.isArray(items) ? items : []).map((x, i) => '<tr><td>' + (i + 1) + '</td><td>' + cleanPrint(x.title) + '</td><td>' + cleanPrint(x.quantity) + '</td><td>' + cleanPrint(Number(x.unit_price_rial).toLocaleString("fa-IR")) + '</td><td>' + cleanPrint(Number(x.total_rial).toLocaleString("fa-IR")) + '</td></tr>').join("");
+        const html = '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><title>فاکتور ' + cleanPrint(invoice.invoice_number) + '</title><style>body{font-family:Tahoma,Arial,sans-serif;margin:35px;color:#173f32;direction:rtl}h1{border-bottom:3px solid #0d7a5f;padding-bottom:14px}table{border-collapse:collapse;width:100%;margin:22px 0}td,th{border:1px solid #bccac4;padding:10px;text-align:right}th{background:#e4f2ec}.totals{text-align:left;line-height:2}.note{color:#555} @media print{button{display:none}}</style></head><body><h1>فاکتور فروش اشتراک سامانه خطیار</h1><p><b>شماره:</b> ' + cleanPrint(invoice.invoice_number) + '　<b>تاریخ صدور:</b> ' + cleanPrint(invoice.issued_date) + '　<b>سررسید:</b> ' + cleanPrint(invoice.due_date || "—") + '</p><p><b>خریدار:</b> ' + cleanPrint(company.company_name) + '　<b>شناسه ملی:</b> ' + cleanPrint(company.national_id || "—") + '　<b>کد اقتصادی:</b> ' + cleanPrint(company.economic_code || "—") + '</p><p><b>تلفن:</b> ' + cleanPrint(company.phone || "—") + '　<b>نشانی:</b> ' + cleanPrint(company.address || "—") + '</p><table><thead><tr><th>ردیف</th><th>شرح خدمات اشتراک</th><th>تعداد</th><th>مبلغ واحد (ریال)</th><th>جمع (ریال)</th></tr></thead><tbody>' + rows + '</tbody></table><div class="totals">جمع: ' + Number(invoice.subtotal_rial).toLocaleString("fa-IR") + ' ریال<br>تخفیف: ' + Number(invoice.discount_rial).toLocaleString("fa-IR") + ' ریال<br>مالیات (' + cleanPrint(invoice.tax_percent) + '٪): ' + Number(invoice.tax_rial).toLocaleString("fa-IR") + ' ریال<h2>مبلغ قابل پرداخت: ' + Number(invoice.total_rial).toLocaleString("fa-IR") + ' ریال</h2></div><p class="note">' + cleanPrint(invoice.description || "") + '</p><p class="note">این سند فاکتور فروش داخلی است و به‌معنای ثبت در سامانه مؤدیان یا صدور صورتحساب الکترونیکی مالیاتی نیست.</p><button onclick="window.print()">چاپ فاکتور</button></body></html>';
+        const popup = window.open("", "_blank");
+        if (!popup) {
+            alert("مرورگر پنجره چاپ را مسدود کرده است.");
+            return;
+        }
+        popup.document.open();
+        popup.document.write(html);
+        popup.document.close();
+        popup.focus();
+    };
+    const inp = (label, value, onChange, type = "text") => React.createElement("label", { style: { display: "grid", gap: 4, minWidth: 160, flex: "1 1 170px" } },
+        React.createElement("span", { className: "muted", style: { fontSize: 12 } }, label),
+        React.createElement("input", { className: "input", type: type, value: value !== null && value !== void 0 ? value : "", onChange: e => onChange(e.target.value) }));
+    const statusFa = { unpaid: "پرداخت‌نشده", paid: "پرداخت‌شده", cancelled: "باطل‌شده" };
+    return React.createElement("div", { className: "admin-workspace-page", style: { direction: "rtl" } },
+        React.createElement("div", { className: "panel" },
+            React.createElement("h3", null, "\u0635\u062F\u0648\u0631 \u0641\u0627\u06A9\u062A\u0648\u0631 \u0641\u0631\u0648\u0634 \u0627\u0634\u062A\u0631\u0627\u06A9 \u062E\u0637\u06CC\u0627\u0631"),
+            React.createElement("p", { className: "muted" }, "\u0645\u0628\u0627\u0644\u063A \u0628\u0631 \u062D\u0633\u0628 \u0631\u06CC\u0627\u0644 \u0627\u0633\u062A. \u0645\u0627\u0644\u06CC\u0627\u062A \u0648 \u062A\u062E\u0641\u06CC\u0641 \u062A\u0646\u0647\u0627 \u0645\u0637\u0627\u0628\u0642 \u0645\u0642\u0627\u062F\u06CC\u0631\u06CC \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F \u06A9\u0647 \u062F\u0631 \u0641\u0627\u06A9\u062A\u0648\u0631 \u0648\u0627\u0631\u062F \u06A9\u0631\u062F\u0647\u200C\u0627\u06CC\u062F."),
+            error && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } }, error),
+            React.createElement("h4", null, "\u062B\u0628\u062A \u0634\u0631\u06A9\u062A \u0637\u0631\u0641 \u0642\u0631\u0627\u0631\u062F\u0627\u062F"),
+            React.createElement("div", { className: "row", style: { gap: 9, flexWrap: "wrap" } },
+                inp("نام شرکت", companyForm.company_name, v => setCompanyForm({ ...companyForm, company_name: v })),
+                inp("شناسه ملی", companyForm.national_id, v => setCompanyForm({ ...companyForm, national_id: v })),
+                inp("کد اقتصادی", companyForm.economic_code, v => setCompanyForm({ ...companyForm, economic_code: v })),
+                inp("تلفن", companyForm.phone, v => setCompanyForm({ ...companyForm, phone: v })),
+                inp("نشانی", companyForm.address, v => setCompanyForm({ ...companyForm, address: v }))),
+            React.createElement("button", { className: "btn g", style: { marginTop: 10 }, disabled: busy, onClick: addCompany }, "\u062B\u0628\u062A \u0634\u0631\u06A9\u062A \u062C\u062F\u06CC\u062F")),
+        React.createElement("div", { className: "panel" },
+            React.createElement("h4", null, "\u0641\u0627\u06A9\u062A\u0648\u0631 \u062C\u062F\u06CC\u062F"),
+            React.createElement("div", { className: "row", style: { gap: 9, flexWrap: "wrap" } },
+                React.createElement("label", { style: { minWidth: 220, flex: 1 } },
+                    "\u0634\u0631\u06A9\u062A \u062E\u0631\u06CC\u062F\u0627\u0631",
+                    React.createElement("select", { className: "input", style: { width: "100%" }, value: draft.company_id, onChange: e => setDraft({ ...draft, company_id: e.target.value }) },
+                        React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u0631\u06A9\u062A"),
+                        companies.filter(c => c.is_active == 1).map(c => React.createElement("option", { key: c.id, value: c.id }, c.company_name)))),
+                inp("تاریخ صدور (۱۴۰۵-۰۸-۰۵)", draft.issued_date, v => setDraft({ ...draft, issued_date: v })),
+                inp("سررسید (اختیاری)", draft.due_date, v => setDraft({ ...draft, due_date: v }))),
+            React.createElement("div", { style: { overflowX: "auto", marginTop: 12 } },
+                React.createElement("table", { style: { width: "100%" } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0634\u0631\u062D \u062E\u062F\u0645\u0627\u062A"),
+                            React.createElement("th", null, "\u062A\u0639\u062F\u0627\u062F"),
+                            React.createElement("th", null, "\u0645\u0628\u0644\u063A \u0648\u0627\u062D\u062F (\u0631\u06CC\u0627\u0644)"),
+                            React.createElement("th", null, "\u062C\u0645\u0639 \u0631\u062F\u06CC\u0641"),
+                            React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
+                    React.createElement("tbody", null, draft.items.map((x, i) => React.createElement("tr", { key: i },
+                        React.createElement("td", null,
+                            React.createElement("input", { className: "input", style: { minWidth: 210 }, value: x.title, onChange: e => updateItem(i, "title", e.target.value) })),
+                        React.createElement("td", null,
+                            React.createElement("input", { className: "input", style: { width: 85 }, type: "number", min: "1", max: "10000", value: x.quantity, onChange: e => updateItem(i, "quantity", e.target.value) })),
+                        React.createElement("td", null,
+                            React.createElement("input", { className: "input", style: { minWidth: 140 }, type: "number", min: "0", step: "1", value: x.unit_price_rial, onChange: e => updateItem(i, "unit_price_rial", e.target.value) })),
+                        React.createElement("td", null, money(priceItems[i])),
+                        React.createElement("td", null,
+                            React.createElement("button", { type: "button", className: "btn g", disabled: draft.items.length === 1, onClick: () => setDraft({ ...draft, items: draft.items.filter((_, n) => n !== i) }) }, "\u062D\u0630\u0641"))))))),
+            React.createElement("button", { type: "button", className: "btn g", disabled: draft.items.length >= 30, onClick: () => setDraft({ ...draft, items: [...draft.items, { title: "", quantity: 1, unit_price_rial: "0" }] }) }, "\u0627\u0641\u0632\u0648\u062F\u0646 \u0631\u062F\u06CC\u0641"),
+            React.createElement("div", { className: "row", style: { marginTop: 14, gap: 9, flexWrap: "wrap" } },
+                inp("تخفیف (ریال)", draft.discount_rial, v => setDraft({ ...draft, discount_rial: v }), "number"),
+                inp("درصد مالیات (در صورت شمول)", draft.tax_percent, v => setDraft({ ...draft, tax_percent: v }), "number"),
+                inp("شرح یا یادداشت", draft.description, v => setDraft({ ...draft, description: v }))),
+            React.createElement("p", { style: { lineHeight: 2 } },
+                "\u062C\u0645\u0639 \u0627\u0642\u0644\u0627\u0645: ",
+                React.createElement("b", null, money(subtotal)),
+                "\u3000 \u0645\u0627\u0644\u06CC\u0627\u062A: ",
+                React.createElement("b", null, money(taxValue)),
+                "\u3000 \u0645\u0628\u0644\u063A \u0646\u0647\u0627\u06CC\u06CC: ",
+                React.createElement("b", null, money(finalTotal))),
+            React.createElement("button", { className: "btn p", disabled: busy || !draft.company_id || finalTotal < 0, onClick: createInvoice }, "\u0635\u062F\u0648\u0631 \u0648 \u062B\u0628\u062A \u0641\u0627\u06A9\u062A\u0648\u0631")),
+        React.createElement("div", { className: "panel" },
+            React.createElement("div", { className: "row", style: { justifyContent: "space-between", gap: 10, flexWrap: "wrap" } },
+                React.createElement("h4", null, "\u0633\u0648\u0627\u0628\u0642 \u0641\u0627\u06A9\u062A\u0648\u0631\u0647\u0627"),
+                React.createElement("button", { className: "btn g", onClick: refresh }, "\u21BB \u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC")),
+            React.createElement("label", null,
+                "\u0641\u06CC\u0644\u062A\u0631 \u0634\u0631\u06A9\u062A\u3000",
+                React.createElement("select", { className: "input", value: filter, onChange: e => setFilter(e.target.value) },
+                    React.createElement("option", { value: "" }, "\u0647\u0645\u0647 \u0634\u0631\u06A9\u062A\u200C\u0647\u0627"),
+                    companies.map(c => React.createElement("option", { value: c.id, key: c.id }, c.company_name)))),
+            React.createElement("div", { style: { overflowX: "auto" } },
+                React.createElement("table", { style: { width: "100%" } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0634\u0645\u0627\u0631\u0647 \u0641\u0627\u06A9\u062A\u0648\u0631"),
+                            React.createElement("th", null, "\u0634\u0631\u06A9\u062A"),
+                            React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
+                            React.createElement("th", null, "\u0645\u0628\u0644\u063A (\u0631\u06CC\u0627\u0644)"),
+                            React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
+                            React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
+                    React.createElement("tbody", null, invoices.filter(i => !filter || String(i.company_id) === filter).map(i => React.createElement("tr", { key: i.id },
+                        React.createElement("td", null, i.invoice_number),
+                        React.createElement("td", null, i.company_name),
+                        React.createElement("td", null, i.issued_date),
+                        React.createElement("td", null, money(i.total_rial)),
+                        React.createElement("td", null, statusFa[i.status] || i.status),
+                        React.createElement("td", null,
+                            React.createElement("div", { className: "row", style: { gap: 5, flexWrap: "wrap" } },
+                                React.createElement("button", { className: "btn g", onClick: () => printInvoice(i) }, "\u0646\u0645\u0627\u06CC\u0634 \u0648 \u0686\u0627\u067E"),
+                                i.status === "unpaid" && React.createElement(React.Fragment, null,
+                                    React.createElement("button", { className: "btn p", disabled: busy, onClick: () => setStatus(i, "paid") }, "\u062B\u0628\u062A \u067E\u0631\u062F\u0627\u062E\u062A"),
+                                    React.createElement("button", { className: "btn g", disabled: busy, onClick: () => setStatus(i, "cancelled") }, "\u0627\u0628\u0637\u0627\u0644")))))))),
+                invoices.length === 0 && React.createElement("p", { className: "muted" }, "\u0647\u0646\u0648\u0632 \u0641\u0627\u06A9\u062A\u0648\u0631\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))));
+}
 const VIEWS = {
     seniority: { t: "سنوات نیروها", ic: "📆", c: PersonnelSeniority },
     covertselfies: { t: "نظارت", ic: "📸", c: CovertSelfies },
@@ -17991,6 +18192,7 @@ const VIEWS = {
     officials: { t: "حضور مسئولین در خط", ic: "👤", c: Officials },
     messages: { t: "پیام‌رسانی به نیروها", ic: "✉", c: Messages },
     salaryslips: { t: "بارگذاری فیش حقوقی", ic: "💳", c: SalarySlipsAdmin },
+    subscriptioninvoices: { t: "صدور فاکتور", ic: "🧾", c: SubscriptionInvoicesAdmin },
     messengercenter: { t: "مرکز ارسال ربات‌ها", ic: "🤖", c: MessengerCenterPanel },
     companyrequests: { t: "مدارک ارسالی شرکت", ic: "📨", c: CompanyRequestsAdmin },
     users: { t: "مدیریت کاربران", ic: "☷", c: Users },
@@ -18044,6 +18246,7 @@ const PANEL_MENU_SECTIONS = [
     ["داشبورد و نقشه", ["dashboard", "missiondashboard", "citydashboard", "map", "present", "presentchart"]],
     ["بازرسی و خدمات", ["officials", "presence", "covertselfies", "outages", "schoolservice", "complaints", "companyrequests", "platetraining"]],
     ["تاکسی و خطوط", ["drivers", "tempdrivers", "lines", "bills"]],
+    ["امور مالی و اشتراک", ["subscriptioninvoices"]],
     ["گزارش‌ها و آمار", ["reportscenter", "monthlyworkreport", "attreport", "leavereport", "perfreport", "driverservicereport", "reports", "report", "useract"]],
     ["پرسنل و منابع انسانی", ["users", "org", "zones", "attendance", "shifts", "workpolicy", "seniority", "requests", "commitments", "salaryslips"]],
     ["تجهیزات و رفاه", ["vehicleassets", "vehiclechecklist", "inventory", "welfare", "cultural"]],
@@ -18053,7 +18256,7 @@ const PANEL_MENU_SECTIONS = [
 ];
 const PANEL_MENU_KEYWORDS = {
     sms: "اس ام اس sms پیام کوتاه", smslog: "پیامک ارسال تاریخچه", messages: "پیام صندوق مکاتبه",
-    users: "کاربر پرسنل نیرو اعضا", salaryslips: "حقوق فیش مالی", seniority: "سنوات خدمت سابقه",
+    users: "کاربر پرسنل نیرو اعضا", subscriptioninvoices: "صدور فاکتور فروش اشتراک خطیار شرکتها مالی", salaryslips: "حقوق فیش مالی", seniority: "سنوات خدمت سابقه",
     attreport: "تردد ورود خروج حضور", monthlyworkreport: "کارکرد ماهیانه موظفی شیفت سازمان",
     requests: "درخواست مرخصی ماموریت", inventory: "انبار تجهیزات واگذاری تحویل",
     logs: "رویداد رخداد امنیت خطا فعالیت", activesessions: "نشست دستگاه ورود امنیت",
