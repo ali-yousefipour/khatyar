@@ -9,7 +9,7 @@ on:
         default: "1.5.14"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-myket-${{ github.ref }}
@@ -333,9 +333,16 @@ jobs:
           if ! "$BUILD_TOOLS/aapt" dump badging "$APK" | grep -q "package: name='ir.mashhad.taxicontrol'"; then
             echo "::error::Unexpected Android package ID"; exit 1
           fi
+          ACTUAL_VERSION="$("$BUILD_TOOLS/aapt" dump badging "$APK" | sed -n "s/^package:.*versionName='\\([^']*\\)'.*/\\1/p" | head -1)"
+          if [ "$ACTUAL_VERSION" != "${{ steps.version.outputs.version }}" ]; then
+            echo "::error::Signed APK version ($ACTUAL_VERSION) does not match requested version (${{ steps.version.outputs.version }})."
+            exit 1
+          fi
           mkdir -p ../release
           cp "$APK" ../release/khatyar-myket-${{ steps.version.outputs.version }}.apk
-          sha256sum ../release/khatyar-myket-${{ steps.version.outputs.version }}.apk > ../release/khatyar-myket-${{ steps.version.outputs.version }}.apk.sha256
+          cp "$APK" ../release/khatyar.apk
+          (cd ../release && sha256sum "khatyar-myket-${{ steps.version.outputs.version }}.apk" > "khatyar-myket-${{ steps.version.outputs.version }}.apk.sha256")
+          (cd ../release && sha256sum khatyar.apk > khatyar.apk.sha256)
 
       - name: Upload Myket signed APK
         uses: actions/upload-artifact@v4
@@ -346,6 +353,35 @@ jobs:
             release/khatyar-myket-${{ steps.version.outputs.version }}.apk.sha256
           if-no-files-found: error
           retention-days: 30
+
+      # GitHub Actions artifacts are downloadable as ZIP files. A GitHub Release
+      # asset is published separately so the Android updater can use a direct APK URL.
+      - name: Publish direct APK to latest GitHub Release
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          TAG="v${VERSION}"
+          test -s release/khatyar.apk
+          test -s release/khatyar.apk.sha256
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release/khatyar.apk release/khatyar.apk.sha256 --clobber
+            gh release edit "$TAG" --latest
+          else
+            gh release create "$TAG" release/khatyar.apk release/khatyar.apk.sha256 \\
+              --target "$TARGET_SHA" \\
+              --title "خطیار ${VERSION}" \\
+              --generate-notes \\
+              --latest
+          fi
+          gh release download "$TAG" --pattern 'khatyar.apk.sha256' --dir "$RUNNER_TEMP/release-check" --clobber
+          cmp release/khatyar.apk.sha256 "$RUNNER_TEMP/release-check/khatyar.apk.sha256"
+          echo "Direct APK: https://github.com/${{ github.repository }}/releases/latest/download/khatyar.apk"
+          echo "Versioned APK: https://github.com/${{ github.repository }}/releases/download/$TAG/khatyar.apk"
 
       - name: Remove signing keystore
         if: always()
