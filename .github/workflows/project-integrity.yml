@@ -68,6 +68,7 @@ jobs:
           node php/tests/org_regions_ui_test.cjs
           php php/tests/selfie_delivery_test.php
           php php/tests/employment_period_test.php
+          node mobile/scripts/test-update-contract.cjs
           node mobile/scripts/test-selfie-delivery.cjs
           node php/tests/selfie_ui_test.cjs
           php -l php/lib/GpsWorkIntervals.php
