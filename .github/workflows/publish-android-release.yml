@@ -1,6 +1,6 @@
 name: build-android-release
 
-# CI trigger: 1.5.15 / versionCode 10514 release build
+# CI trigger: 1.5.15 / versionCode 10515 release build
 # CI release rerun: official npmjs.org + official Google/Maven Central only
 # CI trigger: Android APK build requested 2026-10-15 after validated test-branch merge
 on:
@@ -226,6 +226,7 @@ jobs:
           node --check plugins/withWifiRebornSdkCompat.js
           node --check app.config.js
           node scripts/test-company-payroll.cjs
+          node scripts/test-update-contract.cjs
           node scripts/test-selfie-delivery.cjs
           node scripts/test-radio-live.cjs
           node scripts/test-radio-sfx.cjs
