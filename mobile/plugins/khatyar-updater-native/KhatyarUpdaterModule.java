@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -90,6 +91,22 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
         throw new Exception("برای دریافت از میزبان غیررسمی، SHA-256 فایل APK باید در تنظیمات سرور ثبت شود.");
     }
 
+    // Never install a release whose embedded manifest does not match the requested version.
+    // This also catches stale GitHub 'latest' links after updating app_latest_version.
+    private void validateDownloadedApk(File file, String targetName) throws Exception {
+        PackageInfo pkg = getReactApplicationContext().getPackageManager().getPackageArchiveInfo(file.getAbsolutePath(), 0);
+        if(pkg == null) throw new Exception("فایل دریافت‌شده APK معتبر نیست.");
+        if(!getReactApplicationContext().getPackageName().equals(pkg.packageName))
+            throw new Exception("شناسه برنامه در فایل دانلودشده با خطیار تطابق ندارد.");
+        final String prefix = "KhatYar-v";
+        if(targetName.startsWith(prefix) && targetName.endsWith(".apk")) {
+            String expectedVersion = targetName.substring(prefix.length(), targetName.length() - 4);
+            if(expectedVersion.matches("[0-9]+\\\\.[0-9]+\\\\.[0-9]+") &&
+               !expectedVersion.equals(pkg.versionName))
+                throw new Exception("نسخه APK دانلودشده (" + pkg.versionName + ") با نسخه اعلام‌شده سرور (" + expectedVersion + ") تطابق ندارد. لینک دانلود را در پنل اصلاح کنید.");
+        }
+    }
+
     private String sha256(File file) throws Exception {
         MessageDigest digest=MessageDigest.getInstance("SHA-256");
         try(InputStream in=new FileInputStream(file)){
@@ -143,6 +160,7 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
                     try{part.delete();}catch(Exception ignored){}
                     throw new Exception("صحت فایل به‌روزرسانی تأیید نشد؛ SHA-256 فایل با مقدار اعلام‌شده توسط سرور مطابقت ندارد.");
                 }
+                validateDownloadedApk(part, name);
                 Uri finalUri=publishToDownloads(part,name);
                 try{part.delete();}catch(Exception ignored){}
                 prefs().edit().putString(KEY_PENDING_URI,finalUri.toString()).apply();
