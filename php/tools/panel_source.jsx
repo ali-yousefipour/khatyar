@@ -558,6 +558,8 @@ function usePager(items, initial){
 function LiveStaffDashboard(){
   const tj=todayJ();
   const [live,setLive]=useState(null); const [tab,setTab]=useState("present");
+  const [selectedStatus,setSelectedStatus]=useState(null);
+  const [modalSearch,setModalSearch]=useState("");
   const [refreshCountdown,setRefreshCountdown]=useState(60);
   const countdownRef=useRef(60);
   const load=()=>db.workDashboard(tj[0],tj[1]).then(x=>setLive(x&&x.live?x.live:null)).catch(()=>setLive(null));
@@ -577,6 +579,14 @@ function LiveStaffDashboard(){
   const isOpenSession=(r)=>r.is_open===true||r.is_open===1||["1","true","open"].includes(String(r.is_open??"").trim().toLowerCase());
   const baseRows=tab==="present"?[...(live.present_list||[])].filter(isOpenSession):tab==="leave"?(live.leave_list||[]):(live.absent_list||[]);
   const absenceReason=(r)=>String(r.absence_reason||r.reason||r.absent_reason||r.status_reason||r.reason_text||r.leave_reason||r.request_reason||r.note||"ثبت نشده").trim();
+  const statusLists={present:live.present_list||[],absent:live.absent_list||[],leave:live.leave_list||[]};
+  const allStaff=[...statusLists.present,...statusLists.absent,...statusLists.leave];
+  const statusCards=[["total","کل پرسنل",live.total],["present","حاضر در شیفت",live.present],["absent","غایب",live.absent],["leave","مرخصی/ماموریت",live.leave]];
+  const selectedRows=selectedStatus==="total"?allStaff:(statusLists[selectedStatus]||[]);
+  const searchText=modalSearch.trim().toLocaleLowerCase("fa");
+  const modalRows=selectedRows.filter(r=>!searchText||[r.name,r.role_title,r.line_code,absenceReason(r)].some(x=>String(x??"").toLocaleLowerCase("fa").includes(searchText)));
+  const statusLabel=key=>statusCards.find(([k])=>k===key)?.[1]||"";
+  const statusForRow=r=>statusLists.present.includes(r)?"حاضر":statusLists.leave.includes(r)?"مرخصی/مأموریت":"غایب";
   const sortValue=(r,key)=>{
     if(key==="check_in"){
       const raw=String(r.check_in||"").trim();
@@ -606,7 +616,12 @@ function LiveStaffDashboard(){
       <button className="btn g" onClick={refreshNow}>↻ بروزرسانی</button>
     </div>
     <div className="kpis" style={{marginTop:12}}>
-      {[["کل پرسنل",live.total],["حاضر در شیفت",live.present],["غایب",live.absent],["مرخصی/ماموریت",live.leave]].map(([l,n],i)=><div className="kpi" key={i}><div className="n">{fa(n||0)}</div><div className="l">{l}</div></div>)}
+      {statusCards.map(([key,label,count])=><button type="button" className="kpi" key={key}
+        onClick={()=>{setModalSearch("");setSelectedStatus(key);}}
+        title={"مشاهده فهرست "+label} aria-label={"مشاهده "+fa(count||0)+" نفر: "+label}
+        style={{fontFamily:"inherit",color:"inherit",textAlign:"inherit",width:"100%",cursor:"pointer",border:"1px solid var(--line,#d9e3e0)"}}>
+        <div className="n">{fa(count||0)}</div><div className="l">{label}</div>
+      </button>)}
     </div>
     <div className="tabbar" style={{display:"flex",gap:6,margin:"12px 0",borderBottom:"1px solid var(--line)",flexWrap:"wrap"}}>
       {[["present","حاضرین"],["absent","غایبین"],["leave","مرخصی و ماموریت"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{background:"none",border:"none",borderBottom:tab===k?"3px solid var(--brand)":"3px solid transparent",padding:"8px 12px",fontFamily:"inherit",fontWeight:tab===k?800:500,cursor:"pointer",color:tab===k?"var(--brand)":"var(--muted)"}}>{l}</button>)}
@@ -614,6 +629,27 @@ function LiveStaffDashboard(){
     {rows.length===0?<p className="muted">موردی برای نمایش وجود ندارد.</p>:<div style={{overflowX:"auto"}}><table><thead><tr><th>نام {tab==="present"&&sortButton("name","نام")}</th><th>سمت {tab==="present"&&sortButton("role_title","سمت")}</th>{tab==="absent"&&<th>علت غیبت</th>}{tab==="present"&&<><th>ساعت ورود {sortButton("check_in","ساعت ورود")}</th><th>خط {sortButton("line_code","خط")}</th><th>روش {sortButton("method","روش")}</th><th>وضعیت {sortButton("is_open","وضعیت")}</th></>}</tr></thead><tbody>
       {rows.map((r,i)=><tr key={r.user_id||i}><td>{r.name||"—"}</td><td>{r.role_title||"—"}</td>{tab==="absent"&&<td>{absenceReason(r)}</td>}{tab==="present"&&<><td>{r.check_in?faTime(r.check_in):"—"}</td><td>{r.line_code?("خط "+fa(r.line_code)+(r.line_description?" — "+r.line_description:"")):"—"}</td><td>{methodFa[r.method]||r.method||"—"}</td><td><span className={"badge "+(isOpenSession(r)?"ok":"muted")}>{isOpenSession(r)?"داخل شیفت":"خروج ثبت شده"}</span></td></>}</tr>)}
     </tbody></table></div>}
+    {selectedStatus&&<Modal title={"فهرست "+statusLabel(selectedStatus)+" — "+fa(selectedRows.length)+" نفر"} onClose={()=>setSelectedStatus(null)}
+      style={{width:"min(850px,95vw)",maxWidth:"95vw",maxHeight:"85vh",overflowY:"auto",direction:"rtl"}}>
+      <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",marginBottom:12}}>
+        <span className="muted">تاریخ: {faPlain(live.jdate||"")} · تعداد: {fa(selectedRows.length)}</span>
+        <input className="input" aria-label="جست‌وجوی نیروهای حاضر، غایب یا مرخصی" placeholder="جست‌وجوی نام، سمت یا خط…" value={modalSearch}
+          onChange={e=>setModalSearch(e.target.value)} style={{width:"100%",maxWidth:320}}/>
+      </div>
+      <div style={{maxHeight:"55vh",overflow:"auto"}}>
+        <table style={{width:"100%"}}>
+          <thead><tr><th>ردیف</th><th>نام و نام خانوادگی</th><th>سمت</th><th>وضعیت</th><th>ورود</th><th>خط</th><th>توضیحات</th></tr></thead>
+          <tbody>{modalRows.map((r,i)=><tr key={(r.user_id??"row")+"-"+i}>
+            <td>{fa(i+1)}</td><td>{r.name||"—"}</td><td>{r.role_title||"—"}</td>
+            <td>{statusForRow(r)}</td><td>{r.check_in?faTime(r.check_in):"—"}</td>
+            <td>{r.line_code?("خط "+fa(r.line_code)):"—"}</td>
+            <td>{statusLists.absent.includes(r)?absenceReason(r):statusLists.present.includes(r)?(isOpenSession(r)?"داخل شیفت":"خروج ثبت شده"):(r.reason||r.leave_reason||"—")}</td>
+          </tr>)}</tbody>
+        </table>
+        {modalRows.length===0&&<p className="muted" style={{padding:14,textAlign:"center"}}>شخصی با مشخصات واردشده یافت نشد.</p>}
+      </div>
+      <div style={{marginTop:14,textAlign:"left"}}><button type="button" className="btn g" onClick={()=>setSelectedStatus(null)}>بستن</button></div>
+    </Modal>}
   </div>;
 }
 
