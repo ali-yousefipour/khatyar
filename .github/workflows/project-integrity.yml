@@ -90,6 +90,7 @@ jobs:
           node --version
           node --check php/app/assets/panel.bundle.js
           node php/tests/personnel_dashboard_modal_test.cjs
+          node php/tests/live_staff_kpi_modal_test.cjs
           node php/tests/panel_navigation_ui_test.cjs
           node php/tests/panel_map_requests_test.cjs
           node php/tests/settings_sections_ui_test.cjs
