@@ -127,7 +127,8 @@ export default function PresenceGate({navigationRef}){
    if(await AsyncStorage.getItem(key))return;
    if(!immediate&&await AsyncStorage.getItem(expiredKey))return;
    const notificationWindow=Math.max(1,Number(data.window_minutes||cfg.window_minutes||1));
-   const requestTs=Number(data.ts||data.at_ts||0);
+   const randomTimestamp= random ? /^rnd_\d+_(\d{10})$/.exec(requestId)?.[1] : null;
+   const requestTs=Number(data.ts||data.at_ts||randomTimestamp||0);
    const requestedAtMs=requestTs>0?requestTs*1000:Date.now();
    const deadlineMs=requestedAtMs+notificationWindow*60000;
    if(!immediate&&Date.now()>=deadlineMs)return;
