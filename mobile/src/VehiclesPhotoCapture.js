@@ -11,6 +11,7 @@ import { getImageConfig, compressToDataUri } from './img';
 import { getAppConfig } from './appconfig';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCameraSession } from './cameraSession';
+import { request } from './api';
 
 export default function VehiclesPhotoCapture({ onCapture, onCancel, station = null }) {
   const [perm, requestPerm] = useCameraPermissions();
@@ -22,7 +23,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   const [cameraReady, setCameraReady] = useState(false);
   const [shot, setShot] = useState(null);
   const [metaBusy, setMetaBusy] = useState(false);
-  const [stamp, setStamp] = useState({ date: '', coords: 'در حال دریافت موقعیت…', street: '', dist: '' });
+  const [stamp, setStamp] = useState({ date: '', coords: 'در حال دریافت موقعیت…', street: '', dist: '', source: '' });
   const [coords, setCoords] = useState(null);
   const [error, setError] = useState('');
   const [imageReady, setImageReady] = useState(false);
@@ -87,13 +88,28 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
       if (lat == null || lng == null) return { lat: null, lng: null, street: '', dist: '' };
 
       let street = '';
+      let source = '';
       try {
         const address = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-        if (address?.[0]) {
-          street = [address[0].street, address[0].name, address[0].district]
-            .filter(Boolean).slice(0, 2).join('، ');
-        }
+        // Prefer an actual street label; place names and districts are not street names.
+        street = String(address?.[0]?.street || '').trim();
+        if (street) source = 'device';
       } catch (_) {}
+      if (!street) {
+        // The backend enforces Nominatim's global 1-request/sec limit and caches
+        // results across devices. Never contact its public API per handset.
+        try {
+          const osm = await request('/my/reverse-geocode?lat=' +
+            encodeURIComponent(lat.toFixed(6)) + '&lng=' +
+            encodeURIComponent(lng.toFixed(6)), {
+              noStore: true, timeoutMs: 6500
+            });
+          if (osm?.street) {
+            street = String(osm.street).trim();
+            source = 'openstreetmap';
+          }
+        } catch (_) {}
+      }
 
       let dist = '';
       if (station?.center_lat != null && station?.center_lng != null) {
@@ -103,7 +119,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
           dist = `فاصله تا ایستگاه: ${faNum(Math.round(edge))} متر`;
         } catch (_) {}
       }
-      return { lat, lng, street, dist };
+      return { lat, lng, street, dist, source };
     } catch (_) {
       return { lat: null, lng: null, street: '', dist: '' };
     }
@@ -138,6 +154,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         coords: 'در حال دریافت موقعیت…',
         street: '',
         dist: '',
+        source: '',
       });
       setMetaBusy(true);
 
@@ -153,6 +170,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
             : 'موقعیت نامشخص',
           street: loc.street || '',
           dist: loc.dist || '',
+          source: loc.source || '',
         }));
       }).catch(() => {
         if (generation !== captureGeneration.current) return;
@@ -231,7 +249,8 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
             <View style={s.stampBox}>
               <Text style={s.stampTxt}>{stamp.date}</Text>
               <Text style={s.stampTxt}>📍 {stamp.coords}</Text>
-              {stamp.street ? <Text style={s.stampTxt}>{stamp.street}</Text> : null}
+              {stamp.street ? <Text style={s.stampTxt}>خیابان: {stamp.street}</Text> : null}
+              {stamp.source === 'openstreetmap' ? <Text style={s.attribution}>© OpenStreetMap contributors</Text> : null}
               {stamp.dist ? <Text style={s.stampTxt}>{stamp.dist}</Text> : null}
               <Text style={s.stampBrand}>سامانه خطیار</Text>
             </View>
@@ -314,6 +333,7 @@ const s = StyleSheet.create({
   stampBox: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.58)', padding: 8 },
   stampTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right' },
   stampBrand: { color: C.taxi, fontFamily: FONT.bold, fontSize: 10, textAlign: 'right', marginTop: 2 },
+  attribution: { color: '#fff', fontSize: 9, textAlign: 'right' },
   metaLoading: { fontFamily: FONT.regular, color: C.brand, fontSize: 12, textAlign: 'center', marginTop: 8 },
   previewNote: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'center', lineHeight: 20, marginTop: 8 },
   error: { fontFamily: FONT.regular, color: C.danger, fontSize: 12, textAlign: 'center', lineHeight: 20, marginTop: 6 },
