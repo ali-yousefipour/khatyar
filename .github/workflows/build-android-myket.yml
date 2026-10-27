@@ -382,9 +382,9 @@ jobs:
             gh release edit "$TAG" --latest
           else
             gh release create "$TAG" release/khatyar.apk release/khatyar.apk.sha256 \
-              --target "$TARGET_SHA" \\
-              --title "خطیار ${VERSION}" \\
-              --generate-notes \\
+              --target "$TARGET_SHA" \
+              --title "خطیار ${VERSION}" \
+              --generate-notes \
               --latest
           fi
           mkdir -p "$RUNNER_TEMP/release-check"
