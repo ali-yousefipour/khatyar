@@ -3,6 +3,8 @@ import { AppState } from 'react-native';
 
 let owner = null;
 let availableAt = 0;
+// Allow Android's native CameraX pipeline to release the previous lens before a hand-off.
+const CAMERA_HANDOFF_MS = 800;
 
 export function isCameraInUse() {
   return owner !== null || Date.now() < availableAt;
@@ -34,7 +36,7 @@ export function useCameraSession(enabled) {
       setAcquired(false);
       if (owner === token.current) {
         owner = null;
-        availableAt = Date.now() + 350;
+        availableAt = Date.now() + CAMERA_HANDOFF_MS;
       }
     };
   }, [enabled, foreground, generation]);
