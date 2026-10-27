@@ -33,6 +33,15 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   // Some Android devices report a mounted camera without delivering preview frames.
   // Recreate the native camera once if its ready event never arrives.
   const previewRetryRef = useRef(0);
+  // onCameraReady does not guarantee that Android has produced visible preview frames.
+  // Keep a user-triggered native remount available even when ready was reported.
+  const recoverPreview = () => {
+    if (busy || shot) return;
+    setCameraReady(false);
+    setError('در حال راه‌اندازی مجدد پیش‌نمایش دوربین…');
+    previewRetryRef.current = 0;
+    restartCamera();
+  };
   useEffect(() => {
     if (!cameraActive || cameraReady || shot) return undefined;
     const timer = setTimeout(() => {
@@ -47,7 +56,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
     return () => clearTimeout(timer);
   }, [cameraActive, cameraReady, cameraKey, shot]);
   useEffect(() => {
-    if (cameraReady) setError('');
+    if (cameraReady) { setError(''); previewRetryRef.current = 0; }
   }, [cameraReady]);
   // Keep retry count bounded across native mount failures. A successful photo
   // starts a fresh session when the user chooses to retake it.
@@ -254,7 +263,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         facing="back"
         mode="picture"
         active
-        onCameraReady={() => setCameraReady(true)}
+        onCameraReady={() => { setCameraReady(true); setError(''); }}
         onMountError={(event) => {
           setCameraReady(false);
           if (previewRetryRef.current < 2) {
@@ -273,6 +282,9 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         <TouchableOpacity style={[s.shutter, (!cameraReady || busy) && s.disabled]} onPress={snap} disabled={!cameraReady || busy}>
           {busy ? <ActivityIndicator color="#fff" /> : <View style={s.shutterInner} />}
         </TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={recoverPreview} style={s.retryButton}>
+          <Text style={s.retryText}>تصویر سیاه است؟ راه‌اندازی دوباره دوربین</Text>
+        </TouchableOpacity>
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={s.cancel}>انصراف</Text></TouchableOpacity> : null}
         <Text style={s.cameraOnly}>ثبت تصویر فقط با دوربین پشت گوشی انجام می‌شود و انتخاب از گالری در این مرحله وجود ندارد.</Text>
       </View>
@@ -290,6 +302,8 @@ const s = StyleSheet.create({
   shutterInner: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#fff' },
   disabled: { opacity: 0.55 },
   cancel: { color: '#fff', marginTop: 10, fontFamily: FONT.regular, fontSize: 13 },
+  retryButton: { paddingVertical: 10, paddingHorizontal: 14, marginTop: 8, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)' },
+  retryText: { color: '#fff', fontFamily: FONT.regular, fontSize: 12, textAlign: 'center' },
   cameraOnly: { color: 'rgba(255,255,255,0.72)', fontFamily: FONT.regular, fontSize: 11, textAlign: 'center', marginTop: 8 },
   previewWrap: { flex: 1, minHeight: 0, width: '100%', backgroundColor: C.paper },
   previewScroll: { flex: 1, width: '100%' },
