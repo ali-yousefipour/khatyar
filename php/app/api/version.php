@@ -15,13 +15,14 @@ $get = function ($key, $default = null) {
     }
 };
 
-$latest = (string)$get('app_latest_version', '1.5.10');
-if (!preg_match('/^\d+\.\d+\.\d+$/', $latest)) $latest = '1.5.10';
-$min = (string)$get('app_min_version', '0.0.0');
-if (version_compare($latest, '1.5.10', '<')) $latest = '1.5.10';
+$latest = trim((string)$get('app_latest_version', '1.5.14'));
+if (!preg_match('/^\d+\.\d+\.\d+$/', $latest)) $latest = '1.5.14';
+$min = trim((string)$get('app_min_version', '0.0.0'));
+if (!preg_match('/^\d+\.\d+\.\d+$/', $min)) $min = '0.0.0';
 $defaultApkUrl = 'https://github.com/ali-yousefipour/khatyar/releases/latest/download/khatyar.apk';
 $url = trim((string)$get('app_apk_url', $defaultApkUrl));
-if ($url === '' || strpos($url, 'khatyar-1.5.7.apk') !== false) $url = $defaultApkUrl;
+// Do not replace administrator-configured links, including custom APK filenames.
+// Empty value is reported as empty so clients can show a clear configuration error.
 $sha = strtolower(trim((string)$get('app_apk_sha256', '')));
 $notes = (string)$get('app_update_notes', '');
 
