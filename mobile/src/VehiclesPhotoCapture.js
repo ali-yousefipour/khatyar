@@ -90,7 +90,12 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
       let street = '';
       let source = '';
       try {
-        const address = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+        // Native geocoder occasionally hangs on Android without returning a road.
+        // Continue to the OSM backend fallback after a short bounded wait.
+        const address = await Promise.race([
+          Location.reverseGeocodeAsync({ latitude: lat, longitude: lng }),
+          new Promise((resolve) => setTimeout(() => resolve([]), 2500))
+        ]);
         // Prefer an actual street label; place names and districts are not street names.
         street = String(address?.[0]?.street || '').trim();
         if (street) source = 'device';
