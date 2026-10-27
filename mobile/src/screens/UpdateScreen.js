@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, AppState, DeviceEventEmitter, NativeModules, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { C, FONT } from '../theme';
+import { downloadAndInstallUpdate } from '../updater';
 
 const { KhatyarUpdater } = NativeModules;
 function bytes(n) { n=Number(n)||0; if(n<1024)return `${n} B`; if(n<1048576)return `${(n/1024).toFixed(1)} KB`; if(n<1073741824)return `${(n/1048576).toFixed(1)} MB`; return `${(n/1073741824).toFixed(2)} GB`; }
@@ -26,7 +27,7 @@ export default function UpdateScreen({ info, onRecheck }) {
     if(!info?.url){Alert.alert('به‌روزرسانی','آدرس فایل به‌روزرسانی در سرور تنظیم نشده است.');return;}
     if(!KhatyarUpdater?.downloadApk){Alert.alert('به‌روزرسانی','ماژول دانلود درون‌برنامه‌ای در این نسخه موجود نیست.');return;}
     setBusy(true);setPermission(false);setStatus('در حال شروع/ادامه دانلود…');
-    try{await KhatyarUpdater.downloadApk(info.url,fileName,info?.apk_sha256||'');}catch(_){setBusy(false);}
+    try{await downloadAndInstallUpdate(info);}catch(error){setBusy(false);setStatus(error?.message||'دانلود ناموفق بود.');Alert.alert('خطای به‌روزرسانی',error?.message||'فایل APK قابل دریافت نیست.');}
   }
   const pct=Math.round(progress*100);
   return <View style={s.wrap}>
@@ -34,8 +35,10 @@ export default function UpdateScreen({ info, onRecheck }) {
     <Text style={s.title}>به‌روزرسانی لازم است</Text>
     <Text style={s.msg}>نسخه جدید داخل برنامه دانلود می‌شود. در صورت قطع موقت اینترنت، فایل ناقص حذف نمی‌شود و پس از برقراری اتصال، دانلود از همان نقطه ادامه پیدا می‌کند. پس از دانلود کامل، APK در Downloads ذخیره و نصب‌کننده اندروید اجرا می‌شود.</Text>
     <Text style={s.ver}>نسخه فعلی: {info?.current}  |  نسخه جدید: {info?.latest}</Text>
+    {!!info?.notes && <Text style={s.notes}>{info.notes}</Text>}
+    {!info?.url && <Text style={s.note}>لینک APK در سرور ثبت نشده یا معتبر نیست. برای اصلاح، به تنظیمات نسخه در پنل مدیریت مراجعه کنید.</Text>}
     {busy&&<View style={s.box}><View style={s.track}><View style={[s.fill,{width:`${pct}%`}]}/></View><View style={s.row}><Text style={s.small}>{pct}%</Text><Text style={s.small}>{bytes(downloaded)}{total?` از ${bytes(total)}`:''}</Text></View><Text style={s.status}>{status}</Text></View>}
-    <TouchableOpacity style={s.btn} onPress={download} disabled={busy}><Text style={s.btnTxt}>{busy?'در حال دانلود…':'دانلود / ادامه دانلود و نصب'}</Text></TouchableOpacity>
+    <TouchableOpacity style={[s.btn,(!info?.url||busy)&&{opacity:0.55}]} onPress={download} disabled={busy||!info?.url}><Text style={s.btnTxt}>{busy?'در حال دانلود…':'دانلود / ادامه دانلود و نصب'}</Text></TouchableOpacity>
     <Text style={s.location}>محل ذخیره نهایی: حافظه داخلی › Downloads › {fileName}</Text>
     {permission&&<Text style={s.note}>مجوز نصب را فعال کنید و به خطیار برگردید؛ نصب خودکار ادامه خواهد یافت.</Text>}
     <TouchableOpacity style={s.ghost} onPress={onRecheck} disabled={busy}><Text style={s.ghostTxt}>بعد از نصب، بررسی مجدد</Text></TouchableOpacity>
