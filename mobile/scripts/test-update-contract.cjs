@@ -58,6 +58,9 @@ assert.equal(validateUpdateUrl('https://evil.org@bad.example.org/update.apk'), f
   assert.match(nativeSource, /TRUSTED_GITHUB_ASSET_HOST/);
   assert.match(nativeSource, /validateUpdateUrl\(finalUrl, !expected\.isEmpty\(\)\)/);
   assert.match(nativeSource, /if\(hasPinnedHash\) return/);
+  assert.match(nativeSource, /validateDownloadedApk\(part, name\)/, 'APK identity must be checked before installer');
+  assert.match(nativeSource, /pkg\.versionName/, 'embedded APK version must match panel release');
+  assert.match(nativeSource, /pkg\.packageName/, 'embedded APK package identity must match installed app');
   assert.match(screenSource, /downloadAndInstallUpdate\(info\)/);
   assert.match(screenSource, /info\?\.notes/);
   assert.match(manualSource, /checkVersion\(\)/);
