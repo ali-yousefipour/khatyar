@@ -21,9 +21,10 @@ export default function PresenceCheckWizard(){
  const expiredKey=String(p.expiredKey||'');
  const immediate=!!p.immediate;
  const requestId=String(p.requestId||'');
+ const deadlineMs=Number(p.deadlineMs)||Date.now()+windowMinutes*60000;
  const[step,setStep]=useState('intro');
  const[selfie,setSelfie]=useState(null);
- const[secs,setSecs]=useState(windowMinutes*60);
+ const[secs,setSecs]=useState(Math.max(0,Math.ceil((deadlineMs-Date.now())/1000)));
  const[sending,setSending]=useState(false);
  const[error,setError]=useState('');
  const[expired,setExpired]=useState(false);
@@ -55,23 +56,20 @@ export default function PresenceCheckWizard(){
  },[navigation,step]);
 
  useEffect(()=>{
-   if(sending||['submitting','done','expired'].includes(step))return;
-   const timer=setInterval(()=>{
-     setSecs(x=>{
-       if(x<=1){
-         clearInterval(timer);
-         if(!finishedRef.current){
-           setExpired(true);
-           setStep('expired');
-           stopPresenceAlarm().catch(()=>{});
-         }
-         return 0;
-       }
-       return x-1;
-     });
-   },1000);
+   if(['done','expired'].includes(step))return;
+   const update=()=>{
+     const remaining=Math.max(0,Math.ceil((deadlineMs-Date.now())/1000));
+     setSecs(remaining);
+     if(remaining===0&&!finishedRef.current&&!sending){
+       setExpired(true);
+       setStep('expired');
+       stopPresenceAlarm().catch(()=>{});
+     }
+   };
+   update();
+   const timer=setInterval(update,1000);
    return()=>clearInterval(timer);
- },[step,sending]);
+ },[step,sending,deadlineMs]);
 
  const closeWizard=()=>{
    allowExitRef.current=true;
@@ -79,7 +77,9 @@ export default function PresenceCheckWizard(){
  };
 
  async function submit(vehiclesUrl,coords){
-   if(finishedRef.current||sending)return;
+   if(finishedRef.current||sending||Date.now()>=deadlineMs){
+     setExpired(true);setStep('expired');return;
+   }
    coordsRef.current=coords||coordsRef.current;
    setError('');
    setSending(true);
@@ -94,9 +94,10 @@ export default function PresenceCheckWizard(){
          lng:coords?.lng??coordsRef.current?.lng??null
        },
        timeoutMs:60000,
-       noStore:true
+       noStore:true,
+       queueIfOffline:false
      });
-     if(!r?.ok||!r?.id)throw new Error('سرور ثبت صحت‌سنجی را تأیید نکرد.');
+     if(!r?.ok||r?.queued||!Number.isSafeInteger(Number(r?.id))||Number(r.id)<=0)throw new Error('سرور ثبت صحت‌سنجی را تأیید نکرد.');
      finishedRef.current=true;
      if(doneKey)await AsyncStorage.setItem(doneKey,'1');
      await stopPresenceAlarm();
