@@ -1,8 +1,6 @@
 name: build-android-release
 
-# CI trigger: 1.5.15 / versionCode 10515 release build
-# CI release rerun: official npmjs.org + official Google/Maven Central only
-# CI trigger: Android APK build requested 2026-10-15 after validated test-branch merge
+# Legacy Android release builder. Manual only; Myket is the default automatic release workflow.
 on:
   workflow_dispatch:
     inputs:
@@ -14,12 +12,6 @@ on:
         description: "شاخه/commit مبنای انتشار"
         required: true
         default: "main"
-  push:
-    branches:
-      - "main"
-      - "test/expo57-hermes-dependency-alignment"
-    tags:
-      - "v*"
 
 permissions:
   contents: write
@@ -32,7 +24,6 @@ concurrency:
 jobs:
   release:
     name: Build and publish Android release
-    if: github.event_name != 'push' || github.ref_type == 'tag' || startsWith(github.event.head_commit.message, 'ci(android-release):') || github.ref == 'refs/heads/test/expo57-hermes-dependency-alignment'
     runs-on: ubuntu-latest
     env:
       NODE_VERSION: "22.23.1"
