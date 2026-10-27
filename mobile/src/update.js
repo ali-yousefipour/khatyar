@@ -23,7 +23,7 @@ export function validateUpdateUrl(value, sha256 = '') {
     // Other administrator-configured HTTPS hosts require a pinned APK digest.
     const pinned = /^[a-f0-9]{64}$/i.test(String(sha256 || '').trim());
     if (host === TRUSTED_GITHUB_RELEASE_HOST) {
-      return /^\/ali-yousefipour\/khatyar\/releases\/(?:latest\/download|download\/v\d+\.\d+\.\d+)\/khatyar\.apk$/.test(u.pathname);
+      return /^\/ali-yousefipour\/khatyar\/releases\/(?:latest\/download|download\/v\d+\.\d+\.\d+)\/[^/]+\.apk$/i.test(u.pathname) || pinned;
     }
     if (host !== TRUSTED_GITHUB_RAW_HOST) return pinned;
     return TRUSTED_GITHUB_RAW_PREFIXES.some(prefix =>
@@ -64,6 +64,6 @@ export async function checkVersion() {
     // A bad/missing optional APK link must never turn an optional update into a forced one.
     return { required, hasUpdate, latest, min, url: validUrl ? url : '', apkSha256: validUrl ? apkSha256 : '', notes: String(d.notes || d.update_notes || ''), invalidUrl: !!url && !validUrl, current };
   } catch (e) {
-    return { required: false, hasUpdate: false, latest: current, url: '', apkSha256: '', notes: '', current };
+    return { required: false, hasUpdate: false, latest: current, url: '', apkSha256: '', notes: '', current, failed: true };
   }
 }
