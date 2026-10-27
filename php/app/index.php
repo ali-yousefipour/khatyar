@@ -129,7 +129,7 @@ route('POST', '/api/admin/attendance-gps-waiver', function($p,$b,$u) {
     [$uid,$start,$end,$reason,(int)$u['id']]);
   return ['ok'=>true,'removed_minutes'=>(int)ceil((strtotime($end)-strtotime($start))/60)];
 }, false, 3);
-require __DIR__ . '/api/daily-performance-gps-separate.php'; require "$ROOT/lib/routes.php"; if (is_file("$ROOT/lib/presence_reverse_geocode.php")) require "$ROOT/lib/presence_reverse_geocode.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; // Read a user's employment period directly from the authoritative table.
+require __DIR__ . '/api/daily-performance-gps-separate.php'; require "$ROOT/lib/routes.php"; if (is_file("$ROOT/lib/presence_reverse_geocode.php")) require "$ROOT/lib/presence_reverse_geocode.php"; if (is_file("$ROOT/lib/subscription_invoice_routes.php")) require "$ROOT/lib/subscription_invoice_routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; // Read a user's employment period directly from the authoritative table.
 // This endpoint is independent of the variable-shaped admin/users list response.
 $routes[] = [
   'm' => 'GET',
