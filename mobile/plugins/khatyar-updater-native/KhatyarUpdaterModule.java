@@ -164,7 +164,16 @@ public class KhatyarUpdaterModule extends ReactContextBaseJavaModule {
                 Uri finalUri=publishToDownloads(part,name);
                 try{part.delete();}catch(Exception ignored){}
                 prefs().edit().putString(KEY_PENDING_URI,finalUri.toString()).apply();
-                WritableMap result=Arguments.createMap();result.putString("fileName",name);result.putString("uri",finalUri.toString());result.putString("location","Downloads/"+name);result.putString("sha256",actual);emit("khatyarUpdaterComplete",result);promise.resolve(result);
+                WritableMap result=Arguments.createMap();result.putString("fileName",name);result.putString("uri",finalUri.toString());result.putString("location","Downloads/"+name);result.putString("sha256",actual);emit("khatyarUpdaterComplete",result);
+                // WritableMap is consumed when emitted across the React Native bridge.
+                // A Promise must receive a fresh map; reusing the event payload throws
+                // "Map already consumed" even though the APK downloaded correctly.
+                WritableMap promiseResult=Arguments.createMap();
+                promiseResult.putString("fileName",name);
+                promiseResult.putString("uri",finalUri.toString());
+                promiseResult.putString("location","Downloads/"+name);
+                promiseResult.putString("sha256",actual);
+                promise.resolve(promiseResult);
                 installApk(finalUri);
             }catch(Exception e){WritableMap m=Arguments.createMap();m.putString("message",e.getMessage()==null?"دانلود ناموفق بود؛ با تلاش دوباره ادامه می‌یابد.":e.getMessage());emit("khatyarUpdaterError",m);promise.reject("UPDATE_DOWNLOAD",e.getMessage(),e);}finally{if(connection!=null)connection.disconnect();}
         });
