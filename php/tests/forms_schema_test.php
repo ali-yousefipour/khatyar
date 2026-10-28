@@ -9,7 +9,9 @@ class Db {
   public static $indexes=[];
   public static $queries=[];
   public static $fail=false;
+  public static $settings=[];
   public static function one($sql,$args=[]) {
+    if(strpos($sql,'FROM app_settings')!==false)return isset(self::$settings[$args[0]])?['value'=>self::$settings[$args[0]]]:null;
     if(strpos($sql,'information_schema.TABLES')!==false)return ['n'=>isset(self::$tables[$args[0]])?1:0];
     if(strpos($sql,'information_schema.STATISTICS')!==false)return ['n'=>isset(self::$indexes[$args[0]][$args[1]])?1:0];
     if(strpos($sql,'IS_NULLABLE')!==false)return ['n'=>'YES'];
@@ -22,6 +24,7 @@ class Db {
   public static function run($sql,$args=[]) {
     if(self::$fail)throw new RuntimeException('Mock SQL permission denied');
     self::$queries[]=$sql;
+    if(strpos($sql,'INSERT INTO app_settings')!==false)self::$settings[$args[0]]=$args[1];
     if(preg_match('/ALTER TABLE (custom_forms|form_submissions) ADD COLUMN `(\w+)`/',$sql,$m))self::$columns[$m[1]][$m[2]]=true;
     if(strpos($sql,'MODIFY COLUMN user_id')!==false)self::$columns['form_submissions']['user_id']=true;
     if(strpos($sql,'ADD UNIQUE KEY public_slug_uq')!==false)self::$indexes['custom_forms']['public_slug_uq']=true;
@@ -38,6 +41,7 @@ $count=count(Db::$queries);
 KhatyarFormsSchema::ensure();
 if(count(Db::$queries)!==$count)throw new RuntimeException('Schema check is not idempotent');
 if($count<5)throw new RuntimeException('Expected actual migration of old database');
+if((Db::$settings['forms_schema_ready_v2']??'')!=='verified')throw new RuntimeException('Migration marker must be persisted after successful verification');
 $indexSource=file_get_contents(__DIR__.'/../app/index.php');
 if(strpos($indexSource,'KhatyarFormsSchema::ensure()')===false)throw new RuntimeException('API handler missing forms schema enforcement');
 echo "PASS forms: old schema migration, required columns, idempotence, authenticated/public route guard\n";
