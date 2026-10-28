@@ -214,11 +214,11 @@ async function refresh(){
 }
 function renderTemplateList(){
  const el=by('wc-templates-list');if(!el)return;
- el.innerHTML=templates.map(t=>`<div class="wc-template-row"><span>${e(t.name)} ${t.is_default?'(پیش‌فرض سامانه)':''}</span>${t.is_default?'':`<button type="button" class="wc-delete" data-template-delete="${Number(t.id)}">حذف قالب</button>`}</div>`).join('');
+ el.innerHTML=templates.map(t=>`<div class="wc-template-row"><span>${e(t.name)} ${t.is_default?'(قالب اولیه سامانه)':''}</span><button type="button" class="wc-delete" data-template-delete="${Number(t.id)}">حذف قالب</button></div>`).join('');
 }
 async function deleteTemplate(id){
  const t=templates.find(x=>Number(x.id)===id);
- if(!t||t.is_default)return;
+ if(!t)return;
  if(!confirm('قالب «'+t.name+'» برای همیشه حذف شود؟ اگر قرارداد صادرشده‌ای به آن متصل باشد، سامانه حذف را مجاز نمی‌داند.'))return;
  await call('/templates/'+id,{method:'DELETE'});
  status('قالب «'+t.name+'» حذف شد.');
