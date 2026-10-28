@@ -24,14 +24,16 @@ final class RegionalTeam {
         return array_keys($seen);
     }
     public static function allowedMembers(array $actor,array $users,array $zones,array $leadership): array {
-        $role=self::roleKey((string)($actor['role_title']??''));
-        if(!in_array($role,['senior','inspector'],true))return [];
+        // Regional hierarchy is configured by numeric role level, not the
+        // editable Persian title (which can vary between equivalent roles).
+        $viewerLevel=(int)($actor['level']??0);
+        if(!in_array($viewerLevel,[5,6],true))return [];
         $actorId=(int)($actor['id']??0);if(!$actorId)return [];
         $roots=[];
         foreach($leadership as $entry){
             $z=(int)($entry['zone_id']??0);
-            if($role==='senior' && (int)($entry['senior_user_id']??0)===$actorId)$roots[]=$z;
-            if($role==='inspector' && in_array($actorId,array_map('intval',$entry['inspector_ids']??[]),true))$roots[]=$z;
+            if($viewerLevel===5 && (int)($entry['senior_user_id']??0)===$actorId)$roots[]=$z;
+            if($viewerLevel===6 && in_array($actorId,array_map('intval',$entry['inspector_ids']??[]),true))$roots[]=$z;
         }
         // If explicit responsibility has been assigned, it takes precedence
         // over the staff member's physical base region.
@@ -42,13 +44,12 @@ final class RegionalTeam {
         foreach($users as $person){
             $id=(int)($person['id']??0);
             if(!$id||$id===$actorId||empty($person['is_active']))continue;
-            $kind=self::roleKey((string)($person['role_title']??''));
-            if($role==='senior'&&!in_array($kind,['inspector','field'],true))continue;
-            if($role==='inspector'&&$kind!=='field')continue;
+            $memberLevel=(int)($person['level']??0);
+            if($memberLevel<=$viewerLevel || $memberLevel>9)continue;
             $personZone=(int)($person['zone_id']??0);
             $inScope=isset($scope[$personZone]);
             // Inspectors appointed to the region can be based elsewhere.
-            if($role==='senior'&&$kind==='inspector'){
+            if($viewerLevel===5&&$memberLevel===6){
                 foreach($leadership as $entry){
                     if(isset($scope[(int)($entry['zone_id']??0)])&&in_array($id,array_map('intval',$entry['inspector_ids']??[]),true)){$inScope=true;break;}
                 }
@@ -59,10 +60,11 @@ final class RegionalTeam {
     }
     public static function response(array $actor): array {
         $actorId=(int)($actor['id']??0);
-        $actorRow=Db::one('SELECT zone_id FROM users WHERE id=?',[$actorId])?:[];
+        $actorRow=Db::one('SELECT u.zone_id,r.level FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?',[$actorId])?:[];
         $actor['zone_id']=$actorRow['zone_id']??null;
+        $actor['level']=$actorRow['level']??null;
         $zones=Db::all('SELECT id,name,parent_id FROM zones');
-        $users=Db::all('SELECT u.id,u.first_name,u.last_name,u.zone_id,u.is_active,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1');
+        $users=Db::all('SELECT u.id,u.first_name,u.last_name,u.zone_id,u.is_active,r.title role_title,r.level FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1');
         $leadership=[];
         try{
             foreach(Db::all('SELECT zone_id,senior_user_id,inspector_ids FROM zone_leadership') as $row){
