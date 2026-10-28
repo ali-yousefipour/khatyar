@@ -8042,6 +8042,7 @@ route('GET', '/api/my/official-visits', fn($p,$b,$u) => Db::all(
 
 /* ---------------- فرم‌ها ---------------- */
 function _forms_ensure_schema(){
+  if(class_exists('KhatyarFormsSchema',false)) return;
   static $done=false; if($done)return; $done=true;
   try{
     $col=function($t,$c){ $r=Db::one("SELECT COUNT(*) n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?",[$t,$c]); return (int)($r['n']??0)>0; };
