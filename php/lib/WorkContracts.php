@@ -99,14 +99,20 @@ HTML;
       if(in_array($key,['bank_account','account_number','bank_account_number','account','bankaccount','hesab','shomare_hesab'],true)
         || in_array($label,['شماره حساب','شماره حساب بانکی','حساب بانکی','شماره حساب بانک شهر'],true))
         $custom['bank_account']=$value;
+      if(in_array($key,['father_name','father','fathername','name_father','pedar','name_pedar'],true)
+        || in_array($label,['نام پدر','نام پدر پرسنل','نام پدر کاربر','نام پدر کارمند'],true))
+        $custom['father_name']=$value;
+      if(in_array($key,['identity_number','id_number','birth_certificate_number','shenasnameh','shomare_shenasnameh','shenaseh'],true)
+        || in_array($label,['شماره شناسنامه','شماره شناسنامه پرسنل','شماره شناسنامه کاربر'],true))
+        $custom['identity_number']=$value;
       if(in_array($key,['shaba','iban','sheba'],true)||in_array($label,['شماره شبا','شبا'],true))
         $custom['shaba']=$value;
     }
     return [
       'user_id'=>$id,'full_name'=>trim(($u['first_name']??'').' '.($u['last_name']??'')),
       'first_name'=>$u['first_name']??'','last_name'=>$u['last_name']??'',
-      'father_name'=>$first(['father_name']),'birth_date'=>$first(['birth_date']),
-      'identity_number'=>$first(['identity_number','id_number']),
+      'father_name'=>$first(['father_name']) ?: ($custom['father_name']??''),'birth_date'=>$first(['birth_date']),
+      'identity_number'=>$first(['identity_number','id_number']) ?: ($custom['identity_number']??''),
       'national_code'=>$first(['national_code','national_id']),
       'address'=>$first(['address','home_address']),
       'mobile'=>$first(['mobile','mobile_number','phone']),
