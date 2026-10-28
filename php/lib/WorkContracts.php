@@ -73,7 +73,6 @@ HTML;
       'bank_account','account_number','bank_account_number','shaba','gender'];
     $available=array_values(array_filter($wanted,fn($f)=>isset($columns[$f])));
     if(!$available) throw new RuntimeException('ستون مشخصات کاربران یافت نشد');
-    $sql='SELECT '.implode(',',array_map(fn($f)=>'`'.$f.'`',$available)).',r.title AS role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.is_active=1';
     // Fully qualify user columns to avoid ambiguous id.
     $sql='SELECT '.implode(',',array_map(fn($f)=>'u.`'.$f.'`',$available)).',r.title AS role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.is_active=1';
     $u=Db::one($sql,[$id]);
@@ -185,6 +184,12 @@ HTML;
       $end=str_replace('/','-',trim((string)($b['end_date']??'')));
       foreach([$start,$end] as $date)if(!preg_match('/^1[34]\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/',$date))
         Http::error('تاریخ شروع و پایان باید شمسی و معتبر باشند',422);
+      require_once __DIR__.'/IranCalendar.php';
+      foreach([$start,$end] as $date){
+        [$year,$month,$day]=array_map('intval',explode('-',$date));
+        if($day>IranCalendar::monthLength($year,$month))
+          Http::error('روز واردشده در تقویم شمسی معتبر نیست',422);
+      }
       if(strcmp($end,$start)<0)Http::error('تاریخ پایان قبل از شروع است',422);
       $duration=trim((string)($b['duration_label']??''));
       if($duration===''||mb_strlen($duration)>100)Http::error('مدت قرارداد را مشخص کنید',422);
