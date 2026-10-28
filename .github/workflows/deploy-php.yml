@@ -77,6 +77,7 @@ jobs:
           php -l lib/WorkContracts.php
           php tests/work_contracts_test.php
           php tests/work_contract_management_test.php
+          php tests/api_startup_performance_test.php
           node --check app/assets/work-contracts-admin.js
           php -l lib/RadioShiftGate.php
           php -l app/radio-api-v2.php
