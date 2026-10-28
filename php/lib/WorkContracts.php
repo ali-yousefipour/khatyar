@@ -201,6 +201,11 @@ HTML;
         foreach($ids as $uid){
           $snapshot=self::userSnapshot($uid);
           $snapshot['start_date']=$start;$snapshot['end_date']=$end;$snapshot['duration_label']=$duration;
+          // Missing personnel data remains blank; never invent legal identifiers.
+          $missing=[];
+          foreach(['national_code'=>'کد ملی','father_name'=>'نام پدر','birth_date'=>'تاریخ تولد',
+                   'identity_number'=>'شماره شناسنامه','address'=>'نشانی','mobile'=>'تلفن تماس'] as $field=>$label)
+            if(trim((string)($snapshot[$field]??''))==='')$missing[]=$label;
           $rendered=self::render($tpl['body_html']??'', $snapshot);
           $word=null;
           if($tpl['kind']==='docx') {
@@ -209,7 +214,7 @@ HTML;
           }
           Db::run('INSERT INTO work_contracts(template_id,user_id,start_date,end_date,duration_label,snapshot_json,body_html,docx_blob,created_by) VALUES(?,?,?,?,?,?,?,?,?)',
             [$tid,$uid,$start,$end,$duration,json_encode($snapshot,JSON_UNESCAPED_UNICODE),$rendered,$word,(int)$actor['id']]);
-          $created[]=['id'=>(int)$pdo->lastInsertId(),'user_id'=>$uid,'name'=>$snapshot['full_name']];
+          $created[]=['id'=>(int)$pdo->lastInsertId(),'user_id'=>$uid,'name'=>$snapshot['full_name'],'missing'=>$missing];
         }
         $pdo->commit();
       }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
