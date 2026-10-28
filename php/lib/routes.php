@@ -2205,7 +2205,7 @@ route('GET', '/api/my/app-config', function($p,$b,$u){
     'gps_check_seconds'     => max(15,min(3600,(int)($g('gps_check_seconds', 60) ?: 60))), // فاصلهٔ بررسی روشن بودن GPS (ثانیه)
     'vpn_check_seconds'     => max(15,min(3600,(int)($g('vpn_check_seconds', 60) ?: 60))),
     'station_check_seconds' => max(15,min(3600,(int)($g('station_check_seconds', 60) ?: 60))),
-    'leave_require_substitute' => !empty(_req_policy_options($u['id'],false)['leave_require_substitute']), // الزام معرفی جایگزین برای مرخصی
+    'leave_require_substitute' => _req_leave_substitute_required($u['id']), // only daily annual leave; substitute staff exempt except specified zones
     'manual_attendance_selfie' => !empty(_req_policy_options($u['id'],false)['manual_attendance_selfie']),
     // حالت فعالیت: always (همیشه) یا shift_only (فقط در ساعات شیفت کاری)
     'activity_mode'         => $g('activity_mode', 'always'), // always | shift_only
@@ -4025,6 +4025,21 @@ function _req_policy_options($uid,$required=true){
   return is_array($policy['config']['request_options']??null)?$policy['config']['request_options']:[];
 }
 
+// Daily annual leave substitute rule shared by the Android config and POST validation.
+// Regional coverage is mandatory even when the requester can act as a substitute.
+function _req_leave_substitute_required($uid){
+  $uid=(int)$uid;
+  if($uid<=0)return true; // fail closed if the caller identity is unavailable
+  $row=Db::one("SELECT COALESCE(u.can_be_substitute,0) can_be_substitute,COALESCE(z.name,'') zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id WHERE u.id=? LIMIT 1",[$uid]);
+  if(!$row)return true;
+  $zone=trim(str_replace(['ي','ك','‌'],['ی','ک',' '],(string)($row['zone_name']??'')));
+  $zone=preg_replace('/\\s+/u',' ',$zone);
+  // Both entry gateways and Samen lines need coverage; normalize aliases used in zones.
+  if(strpos($zone,'مبادی ورودی')!==false || strpos($zone,'ثامن')!==false)return true;
+  if(!empty($row['can_be_substitute']))return false;
+  return !empty(_req_policy_options($uid,false)['leave_require_substitute']);
+}
+
 function _req_policy_date($value){
   require_once __DIR__.'/IranCalendar.php';
   $date=IranCalendar::normalize($value);
@@ -4397,7 +4412,7 @@ route('POST', '/api/my/requests', function($p,$b,$u){
   $approver = _req_approver($u['id']);
   // جایگزین فقط برای مرخصی استحقاقی روزانه قابل انتخاب و الزام است.
   $sub = _req_substitute_eligible(['type'=>$type,'unit'=>$unit]) && !empty($b['substitute_user_id']) ? (int)$b['substitute_user_id'] : null;
-  if (_req_substitute_eligible(['type'=>$type,'unit'=>$unit]) && !empty(_req_policy_options($u['id'])['leave_require_substitute']) && !$sub) {
+  if (_req_substitute_eligible(['type'=>$type,'unit'=>$unit]) && _req_leave_substitute_required($u['id']) && !$sub) {
     Http::error('برای ثبت این درخواست، معرفی نیروی جایگزین الزامی است.',422);
   }
   // بررسی روز ممنوعهٔ مرخصی و در دسترس بودن جایگزین (فقط برای مرخصی/ماموریت)
