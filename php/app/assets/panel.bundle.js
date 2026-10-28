@@ -2,7 +2,7 @@ const KH_COMPLAINTS_BUILD = "2026-10-06-v257";
 // PANEL BUILD TARGET: 2026-10-14-v1
 // Build sync: keep generated panel bundle aligned with panel_source changes.
 const { useState, useEffect, useRef, useMemo } = React;
-const I8 = (name) => React.createElement("img", { src: `/assets/icons3d/${name}.png`, alt: "", width: "30", height: "30", loading: "eager", decoding: "async", style: { objectFit: 'contain' }, onError: e => { e.currentTarget.style.display = 'none'; } });
+const I8 = (name) => name && name !== "undefined" ? React.createElement("img", { src: `/assets/icons3d/${name}.png`, alt: "", width: "30", height: "30", loading: "eager", decoding: "async", style: { objectFit: 'contain' }, onError: e => { e.currentTarget.style.display = 'none'; } }) : React.createElement("span", { "aria-hidden": "true", style: { display: "inline-flex", fontSize: 20, alignItems: "center", justifyContent: "center", width: 30, height: 30 } }, "\u25A6");
 // چاپ حرفه‌ای با سربرگ (لوگو + عنوان سازمان + تاریخ تولید) — برای استفادهٔ مشترک در همهٔ گزارش‌ها
 function printLetterhead(reportTitle, bodyHtml, opts) {
     const a = document.getElementById("print-area");
