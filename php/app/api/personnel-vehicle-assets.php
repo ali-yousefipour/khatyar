@@ -224,8 +224,11 @@ try {
     if($type===null)pva_fail('برای شما خودرو یا موتورسیکلتی تخصیص داده نشده است',403);
     if(!in_array($reqType,['car','motorcycle'],true)||$reqType!==$type)pva_fail('دسترسی ثبت وسیله برای شما مجاز نیست',403);
     $years=pva_years();$year=(int)pva_norm($b['model_year']??0);if($year<1390||!in_array($year,$years,true))pva_fail('سال ساخت/مدل نامعتبر است');
-    if($type==='car' && trim((string)($b['plate_part_right']??''))==='' && trim((string)($b['plate_part_left']??''))==='')pva_fail('پلاک خودرو را کامل وارد کنید');
-    if($type==='motorcycle' && trim((string)($b['motorcycle_plate_top']??''))==='' && trim((string)($b['motorcycle_plate_bottom']??''))==='')pva_fail('پلاک موتورسیکلت را وارد کنید');
+    if($type==='car'){
+      $letters=['ب','ج','د','س','ص','ط','ق','ل','م','ن','و','هـ','ی','ت','ع','ک','الف','پ','ث','ش','ز','ف','گ','ژ'];
+      if(!preg_match('/^[0-9]{2}$/',pva_norm($b['plate_part_left']??''))||!preg_match('/^[0-9]{3}$/',pva_norm($b['plate_part_right']??''))||!preg_match('/^[0-9]{2}$/',pva_norm($b['plate_iran']??''))||!in_array(trim((string)($b['plate_letter']??'')),$letters,true))pva_fail('شماره، حرف و کد ایران پلاک خودرو را کامل وارد کنید');
+    }
+    if($type==='motorcycle'&&(!preg_match('/^[0-9]{3}$/',pva_norm($b['motorcycle_plate_top']??''))||!preg_match('/^[0-9]{5}$/',pva_norm($b['motorcycle_plate_bottom']??''))))pva_fail('پلاک موتورسیکلت باید شامل ۳ و ۵ رقم باشد');
     $canonicalPlate=$type==='motorcycle'?trim(pva_norm($b['motorcycle_plate_top']??'').' / '.pva_norm($b['motorcycle_plate_bottom']??'')):trim(pva_norm($b['plate_part_right']??'').' '.pva_norm($b['plate_letter']??'').' '.pva_norm($b['plate_part_left']??'').' ایران '.pva_norm($b['plate_iran']??'')); 
     $cols=['asset_type','plate','plate_part_right','plate_letter','plate_part_left','plate_iran','motorcycle_plate_top','motorcycle_plate_bottom','vehicle_type','fuel_type','color','model_year','chassis_number','engine_number','vin','motorcycle_usage','motorcycle_system','motorcycle_type','cylinders','license_number','license_issue_date','license_expiry_date','insurance_number','insurance_company','insurance_issue_date','insurance_expiry_date','technical_inspection_number','technical_inspection_issue_date','technical_inspection_expiry_date','fixed_beacon','mobile_beacon','heating_ok','cooling_ok','amplifier'];
     // Older installations retain legacy NOT NULL columns. Include them in writes when present,
