@@ -7,6 +7,13 @@ import layout from '../../assets/payroll-access-layout.json';
 // Faithful placement of the controls exported from the website's Access print layout.
 // A5 landscape output is captured at 2480 x 1748 by the calling screen.
 const normalized = key => String(key || '').normalize('NFKC').replace(/[\s\u200c\u200f\u200e_\-]/g, '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/ة/g, 'ه');
+const payrollMonths = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+export const payrollPeriodTitle = row => {
+  const month = Number(row?.period_jm);
+  const year = Number(row?.period_jy);
+  if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 1300 || year > 1500) return 'دوره حقوق نامشخص';
+  return `${payrollMonths[month - 1]}ماه ${year}`;
+};
 export default function PayrollAccessSlip({ slip, width }) {
   if (!slip) return null;
   const scale = width / Number(layout.width);
@@ -89,7 +96,7 @@ export default function PayrollAccessSlip({ slip, width }) {
       if (control.kind === 'Image') return layout.logo ? <Image key={index} resizeMode="contain" source={{ uri: layout.logo.startsWith('data:') ? layout.logo : 'data:image/png;base64,' + layout.logo }} style={pos(control)} /> : null;
       if (control.kind !== 'TextBox' && control.kind !== 'Label') return null;
       const isField = control.kind === 'TextBox';
-      const value = isField ? getValue(control.ControlSource || control.Name) : control.Caption;
+      const value = isField ? getValue(control.ControlSource || control.Name) : control.Name === 'Label86' ? payrollPeriodTitle(slip.row) : control.Caption;
       return <Text key={index} numberOfLines={2} adjustsFontSizeToFit={false} allowFontScaling={false} style={[pos(control), {
         fontFamily: /nazanin|نازنین/i.test(String(control.FontName || '')) ? FONT.payrollNazanin : FONT.payrollHoma,
         fontWeight: 'normal', fontStyle: 'normal',
