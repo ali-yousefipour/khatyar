@@ -169,6 +169,8 @@ function NewRequest({ onDone, initialType, initialDate }) {
   };
   const [reqSub, setReqSub] = useState(false);   // آیا جایگزین الزامی است
   const cfg = TYPES.find((t) => t.k === type);
+  // Hourly leave never needs a substitute. Daily leave uses the user-specific
+  // server rule (substitute employees exempt, except Samen / entry-gateway zones).
   const needsSubstitute = type === 'annual' && unit === 'daily';
 
   // وقتی صفحه از «عملکرد روزانه» باز می‌شود، همان روز و نوع درخواست را مستقیماً آماده کن.
@@ -179,7 +181,9 @@ function NewRequest({ onDone, initialType, initialDate }) {
 
   // بارگذاری تنظیم الزام جایگزین
   useEffect(() => {
-    request('/my/app-config').then((c) => setReqSub(!!c.leave_require_substitute)).catch(() => {});
+    request('/my/app-config', { noStore: true, forceNetwork: true, queueIfOffline: false })
+      .then((c) => setReqSub(!!c.leave_require_substitute))
+      .catch(() => setReqSub(true)); // Fail closed: backend remains authoritative.
   }, []);
 
   // وقتی بازهٔ تاریخ مشخص شد، نیروهای جایگزینِ در دسترس را برای آن بازه می‌گیریم
@@ -194,7 +198,10 @@ function NewRequest({ onDone, initialType, initialDate }) {
     } catch (e) { setSubs([]); }
     finally { setSubLoading(false); }
   };
-  useEffect(() => { loadSubs(); /* eslint-disable-next-line */ }, [type, unit, fromJ, toJd, theDate]);
+  useEffect(() => {
+    if (!needsSubstitute) { setSub(null); setSubs([]); setSubOpen(false); return; }
+    loadSubs(); /* eslint-disable-next-line */
+  }, [type, unit, fromJ, toJd, theDate, needsSubstitute]);
 
   const pickAttach = async () => {
     const r = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], copyToCacheDirectory: true });
