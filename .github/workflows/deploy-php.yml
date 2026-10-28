@@ -380,6 +380,21 @@ jobs:
               "${install_url}")"
             echo "${response}"
             echo "${response}" | grep -q '"ok":true'
+            # Assert that the host-side installer actually copied each module
+            # to the canonical /lib directory. Staging alone is insufficient.
+            for name in KhatyarFormsSchema.php WorkContracts.php; do
+              local_path="deploy-payload/lib/${name}"
+              expected_sha="$(sha256sum "${local_path}" | awk '{print $1}')"
+              php -r '
+                $response=json_decode($argv[1],true);
+                $name=$argv[2];$expected=$argv[3];
+                if(!is_array($response)||empty($response["ok"])||
+                   !hash_equals($expected,(string)($response["files"][$name]??""))) {
+                  fwrite(STDERR,"ERROR: canonical PHP module was not installed or checksum mismatched: ".$name.PHP_EOL);
+                  exit(1);
+                }
+              ' "${response}" "${name}" "${expected_sha}"
+            done
 
             echo
             echo "Host-side attendance PHP library installation completed."
