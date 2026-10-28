@@ -52,6 +52,19 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
 
   $w['gps_work_required']=_gps_work_required();
   $w['gps_invalid_min']=(int)ceil(max(0,$gpsInvalidSeconds)/60);
+  require_once dirname(__DIR__,2).'/lib/InternetWorkIntervals.php';
+  $internetDetails=internet_work_daily_details((int)$u['id'],$rows);
+  $w['internet_work_required']=internet_work_enabled();
+  $w['internet_invalid_min']=array_sum(array_column($internetDetails,'minutes'));
+  $w['internet_invalid_details']=$internetDetails;
+  // مأموریت ساعتی مستقل از ساعات حضور و کسر کار واقعی نمایش داده می‌شود.
+  $missions=Db::all("SELECT from_time,to_time,minutes FROM requests WHERE user_id=? AND type='mission' AND unit='hourly' AND status='approved' AND (from_jdate=? OR the_date=?)",[(int)$u['id'],$jdate,$jdate]);
+  $w['hourly_mission_min']=array_sum(array_map(static function($r){
+    $m=(int)($r['minutes']??0);
+    if($m>0)return $m;
+    $a=strtotime('2000-01-01 '.($r['from_time']??''));$b=strtotime('2000-01-01 '.($r['to_time']??''));
+    return $a&&$b&&$b>$a?(int)(($b-$a)/60):0;
+  },$missions));
   $weekday=_jweekday_name((int)substr($jdate,0,4),(int)substr($jdate,5,2),(int)substr($jdate,8,2));
   $isCalHoliday=!empty($cal['is_official_holiday'])||!empty($cal['is_manual_holiday']);
   return ['date'=>$jdate,'weekday'=>$weekday,'shift_title'=>$shift['title']??'شیفت کاری','shift_type'=>$shift['type']??'','holiday'=>$isCalHoliday,'holiday_title'=>$cal['title']??'', 'sessions'=>$rows,'data'=>$w];

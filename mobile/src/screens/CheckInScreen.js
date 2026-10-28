@@ -1170,7 +1170,7 @@ function CheckInPerformanceTab(){
   const absent=Math.max(0,Number(w.absent_min||0));
   const hasAttendanceDeficit=shortage>0||absent>0;
   const hasGpsInvalidMinutes=w.gps_invalid_min!==undefined && w.gps_invalid_min!==null && Number.isFinite(Number(w.gps_invalid_min));
-  const cards=[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['مازاد حضور',w.surplus??w.surplus_min??w.excess??0],['کسری کار',w.shortage],['شب‌کاری',w.night],['کسر کار خاموشی GPS/توقف برنامه',hasGpsInvalidMinutes?Number(w.gps_invalid_min):null]];
+  const cards=[['کارکرد',w.worked],['حضور در شیفت',w.in_shift],['موظفی',w.expected],['اضافه‌کار',w.overtime],['مازاد حضور',w.surplus??w.surplus_min??w.excess??0],['کسری کار',w.shortage],['شب‌کاری',w.night],['مأموریت ساعتی تأییدشده',w.hourly_mission_min??0],['کسر کار خاموشی اینترنت',w.internet_invalid_min??null],['کسر کار خاموشی GPS/توقف برنامه',hasGpsInvalidMinutes?Number(w.gps_invalid_min):null]];
   const sessions=dailyAttendanceSessions(data);
   const openRequest=(type)=>{if(!data?.date)return;navigation.navigate('Requests',{initialType:type,initialDate:data.date,returnToDailyPerformance:true});};
   return <ScrollView persistentScrollbar={true} contentContainerStyle={{padding:14,paddingBottom:32}}>
@@ -1181,7 +1181,7 @@ function CheckInPerformanceTab(){
       <TouchableOpacity style={s.perfNavBtn} onPress={()=>shiftDate(-1)} disabled={busy}><Text style={[s.perfNavTxt,busy&&{opacity:.5}]}>‹ روز قبل</Text></TouchableOpacity>
     </View>
     <View style={s.perfHero}><Text style={s.perfTitle}>عملکرد روزانه</Text><Text style={s.perfShift}>{data?.shift_title||'شیفت کاری'}</Text></View>
-    <View style={s.perfGrid}>{cards.map(([l,v])=><View key={l} style={[s.perfCard,(l==='کسری کار'||l.startsWith('کسر کار'))&&s.perfDangerCard]}><Text style={[s.perfValue,(l==='کسری کار'||l.startsWith('کسر کار'))&&{color:C.danger}]}>{l==='کسر کار خاموشی GPS/توقف برنامه'&&!hasGpsInvalidMinutes?'—':fmtMinFa(v)}</Text><Text style={s.perfLabel}>{l}</Text></View>)}</View>
+    <View style={s.perfGrid}>{cards.map(([l,v])=><View key={l} style={[s.perfCard,(l==='کسری کار'||l.startsWith('کسر کار'))&&s.perfDangerCard]}><Text style={[s.perfValue,(l==='کسری کار'||l.startsWith('کسر کار'))&&{color:C.danger}]}>{v===null?'—':fmtMinFa(v)}</Text><Text style={s.perfLabel}>{l}</Text></View>)}</View>
     <View style={s.dailySessionsPanel}>
       <View style={s.dailySessionsHeader}><MaterialCommunityIcons name="clock-check-outline" size={23} color={C.brand}/><Text style={s.dailySessionsTitle}>ریز ترددهای روز</Text><Text style={s.dailySessionsCount}>{faNum(sessions.length)} نوبت</Text></View>
       {sessions.length===0?<Text style={s.dailySessionsEmpty}>برای این روز ترددی ثبت نشده است.</Text>:sessions.map((session,index)=><View key={String(session.id??index)+'-'+String(session.check_in)} style={s.dailySessionCard}>

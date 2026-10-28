@@ -132,6 +132,26 @@ route('POST', '/api/admin/attendance-gps-waiver', function($p,$b,$u) {
     [$uid,$start,$end,$reason,(int)$u['id']]);
   return ['ok'=>true,'removed_minutes'=>(int)ceil((strtotime($end)-strtotime($start))/60)];
 }, false, 3);
+route('POST', '/api/admin/attendance-internet-waiver', function($p,$b,$u) {
+  require_once __DIR__.'/../lib/InternetWorkIntervals.php';
+  require_once __DIR__.'/api/admin-attendance-report-owned.php';
+  $uid=(int)($b['user_id']??0);$jdate=trim((string)($b['jdate']??''));
+  $start=trim((string)($b['start_at']??''));$end=trim((string)($b['end_at']??''));$reason=trim((string)($b['reason']??''));
+  if($uid<=0||!preg_match('/^1[34]\d{2}-\d{2}-\d{2}$/',$jdate)||
+    !preg_match('/^20\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/',$start)||
+    !preg_match('/^20\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/',$end)||
+    strtotime($end)<=strtotime($start)||mb_strlen($reason)<5||mb_strlen($reason)>500)Http::error('بازه یا علت رفع کسر کار معتبر نیست',422);
+  if(_frozen_attendance_report($uid,$jdate,$jdate)!==null)Http::error('گزارش نهایی‌شده قابل تغییر نیست',409);
+  $report=attendance_report_owned_by_entry_date($uid,$jdate,$jdate,true);$found=false;
+  foreach(($report['days']??[]) as $day){
+    if(str_replace('/','-',(string)($day['jdate']??''))!==$jdate)continue;
+    foreach(($day['internet_inactive_details']??[]) as $detail)if(($detail['start_at']??'')===$start&&($detail['end_at']??'')===$end)$found=true;
+  }
+  if(!$found)Http::error('بازه خاموشی اینترنت در گزارش تازه یافت نشد',409);
+  internet_work_waiver_schema();
+  Db::run('INSERT INTO internet_work_waivers(user_id,start_at,end_at,reason,actor_id) VALUES(?,?,?,?,?)',[$uid,$start,$end,$reason,(int)$u['id']]);
+  return ['ok'=>true,'removed_minutes'=>(int)ceil((strtotime($end)-strtotime($start))/60)];
+}, false, 3);
 require __DIR__ . '/api/daily-performance-gps-separate.php'; require "$ROOT/lib/routes.php"; // Optional module must not break login, public settings or the whole API if
 // FTP deployment uploads index.php before WorkContracts.php.
 if (strpos($path,'/api/admin/work-contracts')===0) {

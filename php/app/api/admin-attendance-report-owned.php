@@ -38,8 +38,9 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     if (($employmentStart && strcmp($j,$employmentStart)<0) || ($employmentEnd && strcmp($j,$employmentEnd)>0)) {
       $day['outside_employment_period']=true;
       foreach (array_merge($metricKeys,['absence_shortage','annual_leave','sick_leave','unpaid_leave','mission']) as $field) $day[$field]='00:00';
-      foreach (['annual_leave_minutes','sick_leave_minutes','unpaid_leave_minutes','mission_minutes','gps_inactive_minutes','absent'] as $field) $day[$field]=0;
+      foreach (['annual_leave_minutes','sick_leave_minutes','unpaid_leave_minutes','mission_minutes','gps_inactive_minutes','internet_inactive_minutes','absent'] as $field) $day[$field]=0;
       $day['gps_inactive_details']=[];
+      $day['internet_inactive_details']=[];
       if (isset($day['data']) && is_array($day['data'])) $day['data']=array_fill_keys($metricKeys,0);
       $day['absence_reason']='خارج از بازه همکاری';
       continue;
@@ -156,6 +157,11 @@ function attendance_report_owned_by_entry_date($userId, $from, $to, $liveOnly=fa
     $day['gps_inactive_minutes']=(int)ceil(max(0,$gpsInvalidSeconds)/60);
     if(isset($day['data']) && is_array($day['data']))$day['data']['gps_inactive_minutes']=$day['gps_inactive_minutes'];
     $day['gps_inactive_details']=$gpsDetails;
+    require_once dirname(__DIR__,2).'/lib/InternetWorkIntervals.php';
+    $internetDetails=internet_work_daily_details((int)$userId,$owned);
+    $day['internet_inactive_details']=$internetDetails;
+    $day['internet_inactive_minutes']=array_sum(array_column($internetDetails,'minutes'));
+    if(isset($day['data'])&&is_array($day['data']))$day['data']['internet_inactive_minutes']=$day['internet_inactive_minutes'];
     $day['punches'] = $punches;
     $day['in_shift'] = $hm($w['in_shift'] ?? 0);
     $day['worked'] = $hm($w['worked'] ?? 0);

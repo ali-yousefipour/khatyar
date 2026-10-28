@@ -53,6 +53,7 @@ jobs:
           php php/tests/work_policy_requests_test.php
           php php/tests/request_report_test.php
           node php/tests/request_approval_timeline_test.cjs
+          node php/tests/request_admin_visibility_test.cjs
           node mobile/scripts/test-dashboard-role-visibility.cjs
           php php/tests/request_edit_test.php
           node php/tests/request_edit_ui_test.cjs

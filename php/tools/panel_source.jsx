@@ -4429,6 +4429,8 @@ function Settings(){
       <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>اگر این گزینه روشن باشد و برای خطوط، «ایستگاه» (محدودهٔ مکانی) تعریف شده باشد، ثبت حضور فقط داخل محدوده ممکن است. محدودیت‌های تعداد و فاصله از ثبت تکراری برای بالا بردن رتبه جلوگیری می‌کنند.</p></div>}
     {visitedTabs.includes("hr")&&<div id="settings-section-11" className="panel t-hr"><h3>📍 محاسبهٔ کارکرد با GPS</h3>
       <label className="row" style={{gap:8,marginBottom:8}}><input type="checkbox" checked={!!v.gps_work_required} onChange={e=>set("gps_work_required",e.target.checked)}/><b>محاسبه کارکرد تنها با روشن بودن GPS</b></label>
+      <label className="row" style={{gap:8,marginBottom:8}}><input type="checkbox" checked={v.internet_work_required!==false} onChange={e=>set("internet_work_required",e.target.checked)}/><b>ثبت کسر کار مجزای خاموشی اینترنت (پیش‌فرض فعال)</b></label>
+      <p style={{fontSize:12,color:"var(--muted)"}}>خاموشی اینترنت فقط در زمان حضور فعال و با رویداد ثبت‌شده بررسی می‌شود؛ این مقدار مستقل از کسری کار واقعی است و امکان رفع مدیریتی دارد.</p>
       <div style={{fontSize:12.5,color:"var(--muted)",lineHeight:2,marginBottom:8}}>
         <p>🟢 با فعال بودن این گزینه، کنترل GPS فقط پس از آن آغاز می‌شود که کاربر در نرم‌افزار اندروید دکمهٔ «ورود» را بزند و ورود او با موفقیت ثبت شود.</p>
         <p>📱 برنامه برای بررسی GPS تلاش دوره‌ای انجام می‌دهد؛ زمان‌بندی پس‌زمینه ممکن است به محدودیت‌های اندروید وابسته باشد.</p>
@@ -6689,11 +6691,18 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
   const [conversionModal,setConversionModal]=useState(null);
   const [gpsDeficitModal,setGpsDeficitModal]=useState(null);
   const [shiftDeficitModal,setShiftDeficitModal]=useState(null);
-  const attendanceColumnStorageKey="khatyar.attendance.report.visible-columns.v1";
+  // نسخهٔ جدید تنظیم ستون‌ها: ستون «خاموشی اینترنت» در جایگاه ۹ اضافه شده است.
+  // مقدارهای قدیمیِ مبتنی بر اندیس باید یک خانه جابه‌جا شوند، نه اینکه ستون تازه مخفی بماند.
+  const attendanceColumnStorageKey="khatyar.attendance.report.visible-columns.v2";
   const [columnSettingsOpen,setColumnSettingsOpen]=useState(false);
   const [visibleColumnIndexes,setVisibleColumnIndexes]=useState(()=>{
-    try{const saved=JSON.parse(localStorage.getItem(attendanceColumnStorageKey)||"null");return Array.isArray(saved)?saved.filter(i=>Number.isInteger(i)&&i>=0&&i<30):Array.from({length:30},(_,i)=>i)}
-    catch(_){return Array.from({length:30},(_,i)=>i)}
+    try{
+      const saved=JSON.parse(localStorage.getItem(attendanceColumnStorageKey)||"null");
+      if(Array.isArray(saved))return saved.filter(i=>Number.isInteger(i)&&i>=0&&i<40);
+      const legacy=JSON.parse(localStorage.getItem("khatyar.attendance.report.visible-columns.v1")||"null");
+      if(Array.isArray(legacy))return Array.from(new Set([...legacy.filter(i=>Number.isInteger(i)&&i>=0&&i<40).map(i=>i>=9?i+1:i),9])).sort((a,b)=>a-b);
+    }catch(_){}
+    return Array.from({length:40},(_,i)=>i);
   });
   const [draftColumnIndexes,setDraftColumnIndexes]=useState(visibleColumnIndexes);
 
@@ -6848,6 +6857,7 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
     if(k==="first_in")return n(d.first_in)||ins[0]||"--:--";
     if(k==="last_out")return n(d.last_out)||(outs.length?outs[outs.length-1]:"--:--");
     if(k==="gps_inactive_minutes")return hm(d.gps_inactive_minutes||0);
+    if(k==="internet_inactive_minutes")return hm(d.internet_inactive_minutes||0);
     const v=d[k]; return v==null||v===""?"00:00":v;
   };
   const convertSurplus=async(d)=>{ const surplus=mins(d.surplus); if(!surplus){alert("مازاد حضوری برای تبدیل وجود ندارد");return;} const val=prompt("چند دقیقه از مازاد حضور به اضافه‌کار تبدیل شود؟",String(surplus)); if(val===null)return; const minutes=Math.max(0,Math.min(surplus,parseInt(String(val).replace(/\D/g,""),10)||0)); const reason=prompt("علت/توضیح تأیید مازاد حضور:","تأیید مدیر"); try{await db.attendanceSurplusConvert({user_id:+uid,jdate:d.jdate,minutes,reason:reason||""});await refresh();}catch(e){alert(e.message||"خطا در تبدیل مازاد حضور");} };
@@ -6855,7 +6865,7 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
   const columns=[
     ["تاریخ",d=>d.jdate||"—"],["روز هفته",d=>d.weekday||"—"],["ورود",d=>dayVal(d,"in")],["خروج",d=>dayVal(d,"out")],
     ["محل ورود",d=>dayVal(d,"in_station")],["محل خروج",d=>dayVal(d,"out_station")],["حضور در شیفت",d=>dayVal(d,"in_shift")],
-    ["کسری کار",d=>dayVal(d,"shortage")],["کسر کار غیر فعال کردن برنامه",d=>dayVal(d,"gps_inactive_minutes")],["غیبت",d=>String(d.absent??0)],["جمع غیبت و کسری کار",d=>dayVal(d,"absence_shortage")],
+    ["کسری کار",d=>dayVal(d,"shortage")],["کسر کار غیر فعال کردن برنامه",d=>dayVal(d,"gps_inactive_minutes")],["کسر کار خاموشی اینترنت",d=>dayVal(d,"internet_inactive_minutes")],["غیبت",d=>String(d.absent??0)],["جمع غیبت و کسری کار",d=>dayVal(d,"absence_shortage")],
     ["شب کاری",d=>dayVal(d,"night")],["اضافه کاری",d=>dayVal(d,"overtime")],["موظفی",d=>dayVal(d,"expected")],
     ["ماموریت",d=>dayVal(d,"mission")],["مرخصی استحقاقی",d=>dayVal(d,"annual_leave")],["مرخصی استعلاجی",d=>dayVal(d,"sick_leave")],
     ["مرخصی بدون حقوق",d=>dayVal(d,"unpaid_leave")],["مازاد حضور",d=>dayVal(d,"surplus")],["کل حضور",d=>dayVal(d,"worked")],
@@ -6913,15 +6923,15 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
               const title=col[0];
               const getter=col[1];
               const isDeficit=["کسری کار","غیبت","جمع غیبت و کسری کار","تهاتر کسری کار"].includes(title);
-              const isGpsDeficit=title==="کسر کار غیر فعال کردن برنامه";
+              const isGpsDeficit=title==="کسر کار غیر فعال کردن برنامه"||title==="کسر کار خاموشی اینترنت";
               const isShiftDeficit=["کسری کار","غیبت","جمع غیبت و کسری کار"].includes(title);
               const deficitActive=title==="غیبت"?Number(d.absent||0)>0:mins(getter(d))>0;
               const cellColor=isGpsDeficit&&deficitActive?"#1764cf":isDeficit&&deficitActive?"#c62828":(friday||holiday)?"#16803c":"inherit";
               const fontWeight=(i<2&&red)?700:400;
               const textAlign=["ورود","خروج","اولین ورود","آخرین خروج"].includes(title)?"center":"right";
               return <td key={title} style={{whiteSpace:"nowrap",color:cellColor,fontWeight:fontWeight,textAlign:textAlign,padding:"8px",background:rowIndex%2===0?"#fff":"#f0f8f3",borderBottom:"1px solid #e2e9e4",borderInlineStart:"1px solid #e2e9e4",verticalAlign:"middle"}}>
-                {title==="کسر کار غیر فعال کردن برنامه"&&mins(getter(d))>0
-                  ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,cursor:"pointer",fontWeight:800,color:"#1764cf"}} title="نمایش دلایل کسری GPS/برنامه" onClick={()=>setGpsDeficitModal({jdate:d.jdate,minutes:mins(getter(d)),details:Array.isArray(d.gps_inactive_details)?d.gps_inactive_details:[]})}>{attendanceCell(getter(d))}</button>
+                {isGpsDeficit&&mins(getter(d))>0
+                  ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,cursor:"pointer",fontWeight:800,color:"#1764cf"}} title="نمایش دلایل و رفع کسر کار" onClick={()=>setGpsDeficitModal({kind:title==="کسر کار خاموشی اینترنت"?'internet':'gps',jdate:d.jdate,minutes:mins(getter(d)),details:title==="کسر کار خاموشی اینترنت"?(d.internet_inactive_details||[]):(d.gps_inactive_details||[])})}>{attendanceCell(getter(d))}</button>
                   : (title==="مازاد حضور"&&mins(d.surplus)>0)
                     ? <button type="button" className="btn g" style={{padding:"2px 6px",fontSize:11,cursor:"pointer",fontWeight:800}} title={title==="مازاد حضور"?"تبدیل مازاد حضور به اضافه‌کار":"تبدیل کسری کار به مرخصی استحقاقی ساعتی"} onClick={()=>setConversionModal({mode:title==="مازاد حضور"?"surplus":"shortage",jdate:d.jdate,minutes:mins(title==="مازاد حضور"?d.surplus:d.shortage),day:d})}>{attendanceCell(getter(d))}</button>
                     : isShiftDeficit&&deficitActive
@@ -6951,7 +6961,7 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
     {gpsDeficitModal&&<div role="presentation" onClick={e=>{if(e.target===e.currentTarget)setGpsDeficitModal(null);}} style={{position:"fixed",inset:0,zIndex:100500,background:"rgba(0,0,0,.58)",display:"flex",alignItems:"center",justifyContent:"center",padding:"clamp(10px,2vw,24px)"}}>
       <div className="card-p" role="dialog" aria-modal="true" aria-label="دلایل کسر کار GPS و برنامه" onClick={e=>e.stopPropagation()} style={{width:"min(900px,96vw)",maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",padding:0}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"14px 18px",borderBottom:"1px solid var(--line)",flexShrink:0}}>
-          <div><h3 style={{margin:0}}>دلایل کسر کار GPS / برنامه</h3><div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>تاریخ ورود: {faPlain(String(gpsDeficitModal.jdate||"—"))} · مدت ثبت‌شده: {hm(gpsDeficitModal.minutes)} ساعت</div></div>
+          <div><h3 style={{margin:0}}>دلایل کسر کار {gpsDeficitModal.kind==='internet'?'خاموشی اینترنت':'GPS / برنامه'}</h3><div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>تاریخ ورود: {faPlain(String(gpsDeficitModal.jdate||"—"))} · مدت ثبت‌شده: {hm(gpsDeficitModal.minutes)} ساعت</div></div>
           <button className="btn g" onClick={()=>setGpsDeficitModal(null)}>بستن</button>
         </div>
         <div style={{overflowY:"auto",padding:"16px 18px"}}>
@@ -6967,7 +6977,7 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
                     if(reason.trim().length<5){alert("برای لغو کسر کار، توضیح حداقل پنج‌حرفی الزامی است.");return;}
                     if(!confirm("اثر این بازه کسر کار حذف شود؟ رویداد GPS و سابقه لغو نگهداری می‌شوند."))return;
                     try{
-                      await SEND("POST","/admin/attendance-gps-waiver",{user_id:Number(uid),jdate:String(gpsDeficitModal.jdate||"").replaceAll("/","-"),start_at:r.start_at,end_at:r.end_at,reason:reason.trim()});
+                      await SEND("POST",gpsDeficitModal.kind==='internet'?"/admin/attendance-internet-waiver":"/admin/attendance-gps-waiver",{user_id:Number(uid),jdate:String(gpsDeficitModal.jdate||"").replaceAll("/","-"),start_at:r.start_at,end_at:r.end_at,reason:reason.trim()});
                       setGpsDeficitModal(null);await refresh();
                     }catch(error){alert(error.message||"لغو کسر کار انجام نشد");}
                   }}>حذف و بی‌اثر کردن</button></td>

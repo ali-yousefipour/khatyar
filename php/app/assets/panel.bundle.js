@@ -7470,6 +7470,10 @@ function Settings() {
                 React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 8 } },
                     React.createElement("input", { type: "checkbox", checked: !!v.gps_work_required, onChange: e => set("gps_work_required", e.target.checked) }),
                     React.createElement("b", null, "\u0645\u062D\u0627\u0633\u0628\u0647 \u06A9\u0627\u0631\u06A9\u0631\u062F \u062A\u0646\u0647\u0627 \u0628\u0627 \u0631\u0648\u0634\u0646 \u0628\u0648\u062F\u0646 GPS")),
+                React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 8 } },
+                    React.createElement("input", { type: "checkbox", checked: v.internet_work_required !== false, onChange: e => set("internet_work_required", e.target.checked) }),
+                    React.createElement("b", null, "\u062B\u0628\u062A \u06A9\u0633\u0631 \u06A9\u0627\u0631 \u0645\u062C\u0632\u0627\u06CC \u062E\u0627\u0645\u0648\u0634\u06CC \u0627\u06CC\u0646\u062A\u0631\u0646\u062A (\u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u0641\u0639\u0627\u0644)")),
+                React.createElement("p", { style: { fontSize: 12, color: "var(--muted)" } }, "\u062E\u0627\u0645\u0648\u0634\u06CC \u0627\u06CC\u0646\u062A\u0631\u0646\u062A \u0641\u0642\u0637 \u062F\u0631 \u0632\u0645\u0627\u0646 \u062D\u0636\u0648\u0631 \u0641\u0639\u0627\u0644 \u0648 \u0628\u0627 \u0631\u0648\u06CC\u062F\u0627\u062F \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u0628\u0631\u0631\u0633\u06CC \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u0627\u06CC\u0646 \u0645\u0642\u062F\u0627\u0631 \u0645\u0633\u062A\u0642\u0644 \u0627\u0632 \u06A9\u0633\u0631\u06CC \u06A9\u0627\u0631 \u0648\u0627\u0642\u0639\u06CC \u0627\u0633\u062A \u0648 \u0627\u0645\u06A9\u0627\u0646 \u0631\u0641\u0639 \u0645\u062F\u06CC\u0631\u06CC\u062A\u06CC \u062F\u0627\u0631\u062F."),
                 React.createElement("div", { style: { fontSize: 12.5, color: "var(--muted)", lineHeight: 2, marginBottom: 8 } },
                     React.createElement("p", null, "\uD83D\uDFE2 \u0628\u0627 \u0641\u0639\u0627\u0644 \u0628\u0648\u062F\u0646 \u0627\u06CC\u0646 \u06AF\u0632\u06CC\u0646\u0647\u060C \u06A9\u0646\u062A\u0631\u0644 GPS \u0641\u0642\u0637 \u067E\u0633 \u0627\u0632 \u0622\u0646 \u0622\u063A\u0627\u0632 \u0645\u06CC\u200C\u0634\u0648\u062F \u06A9\u0647 \u06A9\u0627\u0631\u0628\u0631 \u062F\u0631 \u0646\u0631\u0645\u200C\u0627\u0641\u0632\u0627\u0631 \u0627\u0646\u062F\u0631\u0648\u06CC\u062F \u062F\u06A9\u0645\u0647\u0654 \u00AB\u0648\u0631\u0648\u062F\u00BB \u0631\u0627 \u0628\u0632\u0646\u062F \u0648 \u0648\u0631\u0648\u062F \u0627\u0648 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u062B\u0628\u062A \u0634\u0648\u062F."),
                     React.createElement("p", null, "\uD83D\uDCF1 \u0628\u0631\u0646\u0627\u0645\u0647 \u0628\u0631\u0627\u06CC \u0628\u0631\u0631\u0633\u06CC GPS \u062A\u0644\u0627\u0634 \u062F\u0648\u0631\u0647\u200C\u0627\u06CC \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u062F\u0647\u062F\u061B \u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u067E\u0633\u200C\u0632\u0645\u06CC\u0646\u0647 \u0645\u0645\u06A9\u0646 \u0627\u0633\u062A \u0628\u0647 \u0645\u062D\u062F\u0648\u062F\u06CC\u062A\u200C\u0647\u0627\u06CC \u0627\u0646\u062F\u0631\u0648\u06CC\u062F \u0648\u0627\u0628\u0633\u062A\u0647 \u0628\u0627\u0634\u062F."),
@@ -11120,16 +11124,21 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
     const [conversionModal, setConversionModal] = useState(null);
     const [gpsDeficitModal, setGpsDeficitModal] = useState(null);
     const [shiftDeficitModal, setShiftDeficitModal] = useState(null);
-    const attendanceColumnStorageKey = "khatyar.attendance.report.visible-columns.v1";
+    // نسخهٔ جدید تنظیم ستون‌ها: ستون «خاموشی اینترنت» در جایگاه ۹ اضافه شده است.
+    // مقدارهای قدیمیِ مبتنی بر اندیس باید یک خانه جابه‌جا شوند، نه اینکه ستون تازه مخفی بماند.
+    const attendanceColumnStorageKey = "khatyar.attendance.report.visible-columns.v2";
     const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
     const [visibleColumnIndexes, setVisibleColumnIndexes] = useState(() => {
         try {
             const saved = JSON.parse(localStorage.getItem(attendanceColumnStorageKey) || "null");
-            return Array.isArray(saved) ? saved.filter(i => Number.isInteger(i) && i >= 0 && i < 30) : Array.from({ length: 30 }, (_, i) => i);
+            if (Array.isArray(saved))
+                return saved.filter(i => Number.isInteger(i) && i >= 0 && i < 40);
+            const legacy = JSON.parse(localStorage.getItem("khatyar.attendance.report.visible-columns.v1") || "null");
+            if (Array.isArray(legacy))
+                return Array.from(new Set([...legacy.filter(i => Number.isInteger(i) && i >= 0 && i < 40).map(i => i >= 9 ? i + 1 : i), 9])).sort((a, b) => a - b);
         }
-        catch (_) {
-            return Array.from({ length: 30 }, (_, i) => i);
-        }
+        catch (_) { }
+        return Array.from({ length: 40 }, (_, i) => i);
     });
     const [draftColumnIndexes, setDraftColumnIndexes] = useState(visibleColumnIndexes);
     useEffect(() => { let active = true; db.usersLite(true).then(us => { if (active)
@@ -11400,6 +11409,8 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
             return n(d.last_out) || (outs.length ? outs[outs.length - 1] : "--:--");
         if (k === "gps_inactive_minutes")
             return hm(d.gps_inactive_minutes || 0);
+        if (k === "internet_inactive_minutes")
+            return hm(d.internet_inactive_minutes || 0);
         const v = d[k];
         return v == null || v === "" ? "00:00" : v;
     };
@@ -11425,7 +11436,7 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
     const columns = [
         ["تاریخ", d => d.jdate || "—"], ["روز هفته", d => d.weekday || "—"], ["ورود", d => dayVal(d, "in")], ["خروج", d => dayVal(d, "out")],
         ["محل ورود", d => dayVal(d, "in_station")], ["محل خروج", d => dayVal(d, "out_station")], ["حضور در شیفت", d => dayVal(d, "in_shift")],
-        ["کسری کار", d => dayVal(d, "shortage")], ["کسر کار غیر فعال کردن برنامه", d => dayVal(d, "gps_inactive_minutes")], ["غیبت", d => { var _a; return String((_a = d.absent) !== null && _a !== void 0 ? _a : 0); }], ["جمع غیبت و کسری کار", d => dayVal(d, "absence_shortage")],
+        ["کسری کار", d => dayVal(d, "shortage")], ["کسر کار غیر فعال کردن برنامه", d => dayVal(d, "gps_inactive_minutes")], ["کسر کار خاموشی اینترنت", d => dayVal(d, "internet_inactive_minutes")], ["غیبت", d => { var _a; return String((_a = d.absent) !== null && _a !== void 0 ? _a : 0); }], ["جمع غیبت و کسری کار", d => dayVal(d, "absence_shortage")],
         ["شب کاری", d => dayVal(d, "night")], ["اضافه کاری", d => dayVal(d, "overtime")], ["موظفی", d => dayVal(d, "expected")],
         ["ماموریت", d => dayVal(d, "mission")], ["مرخصی استحقاقی", d => dayVal(d, "annual_leave")], ["مرخصی استعلاجی", d => dayVal(d, "sick_leave")],
         ["مرخصی بدون حقوق", d => dayVal(d, "unpaid_leave")], ["مازاد حضور", d => dayVal(d, "surplus")], ["کل حضور", d => dayVal(d, "worked")],
@@ -11528,15 +11539,15 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
                         const title = col[0];
                         const getter = col[1];
                         const isDeficit = ["کسری کار", "غیبت", "جمع غیبت و کسری کار", "تهاتر کسری کار"].includes(title);
-                        const isGpsDeficit = title === "کسر کار غیر فعال کردن برنامه";
+                        const isGpsDeficit = title === "کسر کار غیر فعال کردن برنامه" || title === "کسر کار خاموشی اینترنت";
                         const isShiftDeficit = ["کسری کار", "غیبت", "جمع غیبت و کسری کار"].includes(title);
                         const deficitActive = title === "غیبت" ? Number(d.absent || 0) > 0 : mins(getter(d)) > 0;
                         const cellColor = isGpsDeficit && deficitActive ? "#1764cf" : isDeficit && deficitActive ? "#c62828" : (friday || holiday) ? "#16803c" : "inherit";
                         const fontWeight = (i < 2 && red) ? 700 : 400;
                         const textAlign = ["ورود", "خروج", "اولین ورود", "آخرین خروج"].includes(title) ? "center" : "right";
                         return React.createElement("td", { key: title, style: { whiteSpace: "nowrap", color: cellColor, fontWeight: fontWeight, textAlign: textAlign, padding: "8px", background: rowIndex % 2 === 0 ? "#fff" : "#f0f8f3", borderBottom: "1px solid #e2e9e4", borderInlineStart: "1px solid #e2e9e4", verticalAlign: "middle" } },
-                            title === "کسر کار غیر فعال کردن برنامه" && mins(getter(d)) > 0
-                                ? React.createElement("button", { type: "button", className: "btn g", style: { padding: "2px 6px", fontSize: 11, cursor: "pointer", fontWeight: 800, color: "#1764cf" }, title: "\u0646\u0645\u0627\u06CC\u0634 \u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631\u06CC GPS/\u0628\u0631\u0646\u0627\u0645\u0647", onClick: () => setGpsDeficitModal({ jdate: d.jdate, minutes: mins(getter(d)), details: Array.isArray(d.gps_inactive_details) ? d.gps_inactive_details : [] }) }, attendanceCell(getter(d)))
+                            isGpsDeficit && mins(getter(d)) > 0
+                                ? React.createElement("button", { type: "button", className: "btn g", style: { padding: "2px 6px", fontSize: 11, cursor: "pointer", fontWeight: 800, color: "#1764cf" }, title: "\u0646\u0645\u0627\u06CC\u0634 \u062F\u0644\u0627\u06CC\u0644 \u0648 \u0631\u0641\u0639 \u06A9\u0633\u0631 \u06A9\u0627\u0631", onClick: () => setGpsDeficitModal({ kind: title === "کسر کار خاموشی اینترنت" ? 'internet' : 'gps', jdate: d.jdate, minutes: mins(getter(d)), details: title === "کسر کار خاموشی اینترنت" ? (d.internet_inactive_details || []) : (d.gps_inactive_details || []) }) }, attendanceCell(getter(d)))
                                 : (title === "مازاد حضور" && mins(d.surplus) > 0)
                                     ? React.createElement("button", { type: "button", className: "btn g", style: { padding: "2px 6px", fontSize: 11, cursor: "pointer", fontWeight: 800 }, title: title === "مازاد حضور" ? "تبدیل مازاد حضور به اضافه‌کار" : "تبدیل کسری کار به مرخصی استحقاقی ساعتی", onClick: () => setConversionModal({ mode: title === "مازاد حضور" ? "surplus" : "shortage", jdate: d.jdate, minutes: mins(title === "مازاد حضور" ? d.surplus : d.shortage), day: d }) }, attendanceCell(getter(d)))
                                     : isShiftDeficit && deficitActive
@@ -11583,7 +11594,9 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
             React.createElement("div", { className: "card-p", role: "dialog", "aria-modal": "true", "aria-label": "\u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631 \u06A9\u0627\u0631 GPS \u0648 \u0628\u0631\u0646\u0627\u0645\u0647", onClick: e => e.stopPropagation(), style: { width: "min(900px,96vw)", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", padding: 0 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 18px", borderBottom: "1px solid var(--line)", flexShrink: 0 } },
                     React.createElement("div", null,
-                        React.createElement("h3", { style: { margin: 0 } }, "\u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631 \u06A9\u0627\u0631 GPS / \u0628\u0631\u0646\u0627\u0645\u0647"),
+                        React.createElement("h3", { style: { margin: 0 } },
+                            "\u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631 \u06A9\u0627\u0631 ",
+                            gpsDeficitModal.kind === 'internet' ? 'خاموشی اینترنت' : 'GPS / برنامه'),
                         React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 4 } },
                             "\u062A\u0627\u0631\u06CC\u062E \u0648\u0631\u0648\u062F: ",
                             faPlain(String(gpsDeficitModal.jdate || "—")),
@@ -11634,7 +11647,7 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
                                                         if (!confirm("اثر این بازه کسر کار حذف شود؟ رویداد GPS و سابقه لغو نگهداری می‌شوند."))
                                                             return;
                                                         try {
-                                                            await SEND("POST", "/admin/attendance-gps-waiver", { user_id: Number(uid), jdate: String(gpsDeficitModal.jdate || "").replaceAll("/", "-"), start_at: r.start_at, end_at: r.end_at, reason: reason.trim() });
+                                                            await SEND("POST", gpsDeficitModal.kind === 'internet' ? "/admin/attendance-internet-waiver" : "/admin/attendance-gps-waiver", { user_id: Number(uid), jdate: String(gpsDeficitModal.jdate || "").replaceAll("/", "-"), start_at: r.start_at, end_at: r.end_at, reason: reason.trim() });
                                                             setGpsDeficitModal(null);
                                                             await refresh();
                                                         }

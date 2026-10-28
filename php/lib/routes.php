@@ -2232,6 +2232,7 @@ route('GET', '/api/my/app-config', function($p,$b,$u){
     'gsm_tracking_enabled'  => $g('gsm_tracking_enabled', true)!==false,
     'gsm_ping_minutes'      => max(1,min(60,(int)($g('gsm_ping_minutes', 2) ?: 2))), // فاصلهٔ پینگ GSM (دقیقه)
     'gps_work_required'     => $gb('gps_work_required', false),
+    'internet_work_required'=> $gb('internet_work_required', true),
     'gps_check_seconds'     => max(15,min(3600,(int)($g('gps_check_seconds', 60) ?: 60))), // فاصلهٔ بررسی روشن بودن GPS (ثانیه)
     'vpn_check_seconds'     => max(15,min(3600,(int)($g('vpn_check_seconds', 60) ?: 60))),
     'station_check_seconds' => max(15,min(3600,(int)($g('station_check_seconds', 60) ?: 60))),
@@ -4552,7 +4553,8 @@ route('GET', '/api/my/request-inbox', fn($p,$b,$u) => Db::all(
 route('GET', '/api/requests/{id}', function($p,$b,$u){
   $r = Db::one("SELECT r.*, CONCAT(us.first_name,' ',us.last_name) requester FROM requests r JOIN users us ON us.id=r.user_id WHERE r.id=?", [$p['id']]);
   if (!$r) Http::error('یافت نشد',404);
-  if ($r['user_id']!=$u['id'] && $r['pending_on']!=$u['id'] && empty($u['is_admin'])) Http::error('دسترسی ندارید',403);
+  if ((int)$r['user_id']!==(int)$u['id'] && (int)($r['pending_on']??0)!==(int)$u['id']
+    && !(_req_is_root_admin($u) || (!empty($u['is_admin'])&&in_array($r['status'],['approved','rejected'],true)))) Http::error('دسترسی ندارید',403);
   return $r;
 });
 
@@ -4560,7 +4562,7 @@ route('GET', '/api/requests/{id}', function($p,$b,$u){
 route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
   $r = Db::one("SELECT * FROM requests WHERE id=?", [$p['id']]);
   if (!$r) Http::error('یافت نشد',404);
-  if ($r['pending_on']!=$u['id'] && empty($u['is_admin'])) Http::error('این درخواست در کارتابل شما نیست',403);
+  if ((int)($r['pending_on']??0)!==(int)$u['id'] && !_req_is_root_admin($u)) Http::error('این درخواست در کارتابل شما نیست',403);
   if($r['status']!=='pending')Http::error('این درخواست دیگر در انتظار بررسی نیست',409);
   $decision = $b['decision'] ?? ''; // approve / reject
   if (!in_array($decision,['approve','reject'])) Http::error('تصمیم نامعتبر',400);
@@ -4948,9 +4950,23 @@ function _req_notify_substitute(array $request,int $id){
   try{Push::send([(int)$request['substitute_user_id']],'شیفت جایگزینی','جایگزینی شما برای درخواست مرخصی تأیید شد.',['type'=>'substitute_shift','request_id'=>$id]);}catch(Throwable $e){error_log('substitute shift notification failed');}
 }
 
-// Shared filters keep the on-screen report and CSV export consistent.
-function _req_report_filter(array $query){
+// «ادمین اصلی» با نقش‌های مدیریتیِ دارای دسترسی پنل یکی نیست.
+// فقط حساب اصلی admin می‌تواند درخواست‌های در انتظارِ سایر مسئولان را ببیند.
+function _req_is_root_admin(array $viewer): bool {
+  return strtolower(trim((string)($viewer['username']??'')))==='admin';
+}
+function _req_admin_can_view_request(array $viewer,array $request): bool {
+  return _req_is_root_admin($viewer)
+    || in_array((string)($request['status']??''),['approved','rejected'],true)
+    || (($request['status']??'')==='pending' && (int)($request['pending_on']??0)===(int)($viewer['id']??0));
+}
+// Shared filters keep the on-screen report and XLSX export consistent.
+function _req_report_filter(array $query,?array $viewer=null){
   $cond=[];$args=[];
+  if($viewer!==null&&!_req_is_root_admin($viewer)){
+    $cond[]="(r.status IN ('approved','rejected') OR (r.status='pending' AND r.pending_on=?))";
+    $args[]=(int)($viewer['id']??0);
+  }
   if(!empty($query['user_id'])){$cond[]='r.user_id=?';$args[]=(int)$query['user_id'];}
   foreach(['type'=>['annual','sick','unpaid','mission','overtime','manual'],'status'=>['pending','approved','rejected','canceled']] as $key=>$allowed){
     $value=trim((string)($query[$key]??''));
@@ -5141,7 +5157,7 @@ function _req_edit_approved($id,array $body,array $actor){
 
 // گزارش درخواست‌ها برای ادمین (با فیلتر کاربر/نوع/وضعیت/بازه)
 route('GET', '/api/admin/requests', function($p,$b,$u){
-  [$where,$args]=_req_report_filter($_GET);
+  [$where,$args]=_req_report_filter($_GET,$u);
   return Db::all("SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name,
       CONCAT(us.first_name,' ',us.last_name) requester,
       CONCAT(COALESCE(ap.first_name,''),' ',COALESCE(ap.last_name,'')) approver
@@ -5158,6 +5174,7 @@ route('GET', '/api/admin/requests/{id}/detail', function($p,$b,$u){
     FROM requests r JOIN users us ON us.id=r.user_id LEFT JOIN users ap ON ap.id=r.approver_id
     LEFT JOIN users pn ON pn.id=r.pending_on WHERE r.id=?",[$id]);
   if(!$row)Http::error('درخواست یافت نشد',404);
+  if(!_req_admin_can_view_request($u,$row))Http::error('این درخواست در دسترس شما نیست',403);
   $row['edit_token']=_req_edit_token($row);
   $row['edit_history']=_db_table_exists_safe('request_edit_history')?Db::all("SELECT h.id,h.edit_reason,h.created_at,CONCAT_WS(' ',us.first_name,us.last_name) actor FROM request_edit_history h LEFT JOIN users us ON us.id=h.actor_id WHERE h.request_id=? ORDER BY h.id DESC LIMIT 20",[$id]):[];
   $row['substitute_name']=null;$row['substitute_assignment']=null;
@@ -5169,8 +5186,9 @@ route('GET', '/api/admin/requests/{id}/detail', function($p,$b,$u){
   return $row;
 },false,ADMIN);
 route('GET', '/api/admin/requests/{id}/leave-context', function($p,$b,$u){
-  $request=Db::one("SELECT id,user_id,type FROM requests WHERE id=?",[(int)$p['id']]);
+  $request=Db::one("SELECT id,user_id,type,status,pending_on FROM requests WHERE id=?",[(int)$p['id']]);
   if(!$request)Http::error('درخواست یافت نشد',404);
+  if(!_req_admin_can_view_request($u,$request))Http::error('این درخواست در دسترس شما نیست',403);
   if(!in_array($request['type'],['annual','sick','unpaid'],true))Http::error('درخواست مرخصی نیست',422);
   $context=_req_balance((int)$request['user_id']);
   $from=_req_policy_date(sprintf('%04d-%02d-01',$context['year'],$context['month']));
@@ -5187,6 +5205,7 @@ route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
   if(!$id || !in_array($status,['approved','rejected'],true)) Http::error('عملیات درخواست نامعتبر است',400);
   $req=Db::one("SELECT * FROM requests WHERE id=?",[$id]);
   if(!$req) Http::error('درخواست یافت نشد',404);
+  if(!_req_is_root_admin($u)&&($req['status']!=='pending'||(int)($req['pending_on']??0)!==(int)$u['id']))Http::error('این درخواست در کارتابل شما نیست',403);
   if($req['status']!=='pending'&&!($status==='approved'&&$req['status']==='rejected')) Http::error('این درخواست دیگر در انتظار بررسی نیست؛ فهرست را تازه‌سازی کنید.',409);
   if($req['status']===$status) Http::error('وضعیت این درخواست قبلاً ثبت شده است',409);
   $note=trim((string)($b['note']??''))?:null;
@@ -5220,7 +5239,8 @@ unset($policyRoute);
 
 route('DELETE', '/api/admin/requests/{id}', function($p,$b,$u){
   $id=(int)($p['id']??0); if(!$id) Http::error('شناسه درخواست نامعتبر است',400);
-  $req=Db::one("SELECT id FROM requests WHERE id=?",[$id]); if(!$req) Http::error('درخواست یافت نشد',404);
+  $req=Db::one("SELECT id,status,pending_on FROM requests WHERE id=?",[$id]); if(!$req) Http::error('درخواست یافت نشد',404);
+  if(!_req_admin_can_view_request($u,$req))Http::error('این درخواست در دسترس شما نیست',403);
   $pdo=Db::pdo();$pdo->beginTransaction();
   try{
     if(!Db::one("SELECT id FROM requests WHERE id=? FOR UPDATE",[$id]))Http::error('درخواست یافت نشد',404);
@@ -5233,7 +5253,7 @@ route('DELETE', '/api/admin/requests/{id}', function($p,$b,$u){
 
 // خروجی اکسل گزارش درخواست‌ها (ادمین)
 route('GET', '/api/admin/requests/export', function($p,$b,$u){
-  [$where,$args]=_req_report_filter($_GET);
+  [$where,$args]=_req_report_filter($_GET,$u);
   $rows = Db::all("SELECT r.*, CONCAT(us.first_name,' ',us.last_name) requester,
       CONCAT(COALESCE(ap.first_name,''),' ',COALESCE(ap.last_name,'')) approver
     FROM requests r JOIN users us ON us.id=r.user_id LEFT JOIN users ap ON ap.id=r.approver_id $where ORDER BY r.id DESC LIMIT 5000", $args);
@@ -7122,7 +7142,7 @@ route('POST', '/api/activity/vpn-status', function($p,$b,$u){
 // ثبت رویداد فعالیت کاربر (از اپ موبایل/وب): online/offline/gps_on/gps_off/heartbeat
 route('POST', '/api/activity/telemetry', function($p,$b,$u){
   $kind = $b['kind'] ?? '';
-  $allowed = ['online','offline','gps_on','gps_off','heartbeat','session_start','session_end','app_foreground','app_background','bill_pay_click'];
+  $allowed = ['online','offline','gps_on','gps_off','internet_off','internet_on','heartbeat','session_start','session_end','app_foreground','app_background','bill_pay_click'];
   if (!in_array($kind, $allowed, true)) Http::error('نوع نامعتبر', 400);
   // زمان رخداد از کلاینت (برای داده‌های آفلاین که دیرتر ارسال می‌شوند)؛ در صورت نبود، اکنون
   $at = isset($b['at']) ? date('Y-m-d H:i:s', strtotime($b['at'])) : date('Y-m-d H:i:s');
@@ -9734,7 +9754,7 @@ route('PUT', '/api/admin/settings', function($p,$b,$u){
 }, false, ADMIN);
 // تنظیمات عمومی (محدودیت آپلود هر بخش) برای اپ میدانی — فقط کلیدهای غیرحساس
 route('GET', '/api/settings/public', function($p,$b,$u){
-  $keys = ['gps_work_required','gps_work_required_enabled_at','upload_reports','upload_checklists','upload_notices','image_quality','image_max_width','image_max_height','thumbnail_size','thumbnail_quality','attachment_retention_days','form_attachment_retention_days','presence_retention_days','covert_selfie_retention_days','salary_slip_retention_days','company_request_retention_days','site_title','site_logo','org_title','org_logo','plate_ocr_enabled','plate_ocr_mode','plate_ocr_min_confidence','plate_ocr_require_confirm','plate_ocr_save_samples','plate_ocr_fixed_letter','plate_ocr_region_code','plate_ocr_crop_width','plate_ocr_crop_quality','cloud_ocr_enabled','cloud_ocr_provider','cloud_ocr_api_key','cloud_ocr_endpoint','cloud_ocr_connect_timeout','cloud_ocr_timeout'];
+  $keys = ['gps_work_required','gps_work_required_enabled_at','internet_work_required','upload_reports','upload_checklists','upload_notices','image_quality','image_max_width','image_max_height','thumbnail_size','thumbnail_quality','attachment_retention_days','form_attachment_retention_days','presence_retention_days','covert_selfie_retention_days','salary_slip_retention_days','company_request_retention_days','site_title','site_logo','org_title','org_logo','plate_ocr_enabled','plate_ocr_mode','plate_ocr_min_confidence','plate_ocr_require_confirm','plate_ocr_save_samples','plate_ocr_fixed_letter','plate_ocr_region_code','plate_ocr_crop_width','plate_ocr_crop_quality','cloud_ocr_enabled','cloud_ocr_provider','cloud_ocr_api_key','cloud_ocr_endpoint','cloud_ocr_connect_timeout','cloud_ocr_timeout'];
   $out=[]; try { foreach (Db::all("SELECT `key`,value FROM app_settings WHERE `key` IN ('".implode("','",$keys)."')") as $r) $out[$r['key']] = json_decode($r['value'], true); } catch (Throwable $e) { error_log('settings/public fallback: '.$e->getMessage()); }
   return $out;
 }, true);
