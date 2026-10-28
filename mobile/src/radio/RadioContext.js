@@ -70,7 +70,8 @@ const load=async()=>{
     if(!mountedRef.current||sequence!==loadSequenceRef.current)return;
     setVolumePttEnabledState(savedV==='1');const list=await apply(response,savedC,savedE);
     if(!mountedRef.current||sequence!==loadSequenceRef.current)return;
-    if(!list.length)setLoadError('هیچ کانال مجازی برای حساب شما دریافت نشد.');else setTimeout(()=>loadRecentMessages(),0);
+    if(response.shift_allowed===false)setLoadError('بی‌سیم غیرفعال است: برای استفاده باید در «ثبت حضور من» ورود ثبت کنید و خروج نزده باشید.');
+    else if(!list.length)setLoadError('هیچ کانال مجازی برای حساب شما دریافت نشد.');else setTimeout(()=>loadRecentMessages(),0);
   }catch(error){if(mountedRef.current&&sequence===loadSequenceRef.current)setLoadError(error.message||'دریافت کانال‌های بی‌سیم ناموفق بود.');}
   finally{if(mountedRef.current&&sequence===loadSequenceRef.current)setLoading(false);}
 };
@@ -137,7 +138,7 @@ const poll=async()=>{
       if(AppState.currentState==='active'&&Number(message.sender_id)!==Number(user.id))await playFile(message,{generation});
     }
     if(generation===sessionRef.current)loadRecentMessages();
-  }catch(error){if(generation===sessionRef.current){if(shiftDenied(error)){cancelPlayback();resyncingRef.current=true;}pollFailRef.current++;if(mountedRef.current&&pollFailRef.current>=3)setLoadError(error.message||'دریافت پیام بی‌سیم ناموفق بود.');}}
+  }catch(error){if(generation===sessionRef.current){if(shiftDenied(error)){cancelPlayback();resyncingRef.current=true;setLoadError('بی‌سیم غیرفعال است: ورود فعال در «ثبت حضور من» ندارید یا خروج ثبت کرده‌اید.');}else{pollFailRef.current++;if(mountedRef.current&&pollFailRef.current>=3)setLoadError(error.message||'دریافت پیام بی‌سیم ناموفق بود.');}}}
   finally{pollingRef.current=false;}
 };
 const pollAll=async()=>{
@@ -150,7 +151,7 @@ const pollAll=async()=>{
       if(Number(message.id)<=listenAllLastIdRef.current)continue;listenAllLastIdRef.current=Number(message.id);
       if(AppState.currentState==='active'&&Number(message.sender_id)!==Number(user.id))await playFile(message,{generation,all:true});
     }
-  }catch(error){if(generation===sessionRef.current){if(shiftDenied(error)){cancelPlayback();resyncingRef.current=true;}setLoadError(error.message||'دریافت پیام شنود ناموفق بود.');}}
+  }catch(error){if(generation===sessionRef.current){if(shiftDenied(error)){cancelPlayback();resyncingRef.current=true;setLoadError('بی‌سیم غیرفعال است: ورود فعال در «ثبت حضور من» ندارید یا خروج ثبت کرده‌اید.');}else setLoadError(error.message||'دریافت پیام شنود ناموفق بود.');}}
   finally{pollAllRef.current=false;}
 };
 const presence=async()=>{if(!user?.id||!enabledRef.current||!channelRef.current)return;try{await request('/radio-api-v2.php?op=presence',{method:'POST',body:{channel_id:channelRef.current}})}catch(e){}};

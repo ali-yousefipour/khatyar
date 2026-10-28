@@ -5,9 +5,9 @@
  * listen or transmit. Official/management roles (level 1–4) are exempt.
  */
 function kh_radio_shift_enabled(): bool {
-    $row=Db::one("SELECT value FROM app_settings WHERE `key`='radio_limit_to_shift' LIMIT 1");
-    $value=trim((string)($row['value']??''));
-    return in_array(strtolower($value), ['1','true','yes','on'], true);
+    // Mandatory policy: an old optional database setting cannot disable the
+    // attendance gate for any level 5–9 radio client.
+    return true;
 }
 function kh_radio_shift_responsible(array $user): bool {
     $level=(int)($user['level']??99);
@@ -15,7 +15,7 @@ function kh_radio_shift_responsible(array $user): bool {
     return $level>=1 && $level<=4;
 }
 function kh_radio_shift_allowed(array $user): bool {
-    if (!kh_radio_shift_enabled() || kh_radio_shift_responsible($user)) return true;
+    if (kh_radio_shift_responsible($user)) return true;
     $uid=(int)($user['id']??0);
     if($uid<=0)return false;
     // Inspect the latest punch (including checked-out rows). An older unclosed
