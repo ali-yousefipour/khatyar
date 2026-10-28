@@ -109,7 +109,7 @@ async function refresh(){
 }
 async function history(){
  try{const d=await call('/history');issued=d.rows||[];
- by('wc-history').innerHTML=issued.map(r=>`<tr><td>${e(r.first_name)} ${e(r.last_name)}</td><td>${e(r.template_name)}</td><td>${e(r.start_date)}</td><td>${e(r.end_date)}</td><td><button data-contract="${Number(r.id)}" data-action="print">چاپ</button> ${r.kind==='docx'?`<button data-contract="${Number(r.id)}" data-action="word">Word</button>`:''}</td></tr>`).join('')||'<tr><td colspan="5">هنوز قراردادی صادر نشده است.</td></tr>';
+ by('wc-history').innerHTML=issued.map(r=>`<tr><td>${e(r.first_name)} ${e(r.last_name)}</td><td>${e(r.template_name)}</td><td>${e(r.start_date)}</td><td>${e(r.end_date)}</td><td>${r.kind==='docx'?`<button data-contract="${Number(r.id)}" data-action="word">Word / چاپ دقیق</button> <button data-contract="${Number(r.id)}" data-action="print">پیش‌نمایش متنی</button>`:`<button data-contract="${Number(r.id)}" data-action="print">چاپ</button>`}</td></tr>`).join('')||'<tr><td colspan="5">هنوز قراردادی صادر نشده است.</td></tr>';
  }catch(err){status(err.message,true);}
 }
 async function generate(){
