@@ -4412,6 +4412,40 @@ function _ensure_requests_table(){
   $ready = true;
 }
 
+function _req_approval_steps_ensure(){
+  static $ready=false;if($ready)return;
+  Db::run("CREATE TABLE IF NOT EXISTS request_approval_steps (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    request_id INT NOT NULL,actor_id INT NOT NULL,
+    decision VARCHAR(16) NOT NULL,note TEXT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_request_steps (request_id,id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  $ready=true;
+}
+function _req_record_approval_step(int $requestId,int $actorId,string $decision,?string $note=null): void {
+  _req_approval_steps_ensure();
+  Db::run('INSERT INTO request_approval_steps(request_id,actor_id,decision,note) VALUES(?,?,?,?)',[$requestId,$actorId,$decision,$note]);
+}
+function _req_decorate_my_requests(array $rows): array {
+  if(!$rows)return $rows;
+  $ids=array_map(static fn($r)=>(int)$r['id'],$rows);
+  $marks=implode(',',array_fill(0,count($ids),'?'));
+  $steps=[];
+  if(_db_table_exists_safe('request_approval_steps')){
+    foreach(Db::all("SELECT s.request_id,s.decision,s.note,s.created_at,
+        TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) actor_name
+        FROM request_approval_steps s LEFT JOIN users u ON u.id=s.actor_id
+        WHERE s.request_id IN ($marks) ORDER BY s.id",$ids) as $s){$steps[(int)$s['request_id']][]=$s;}
+  }
+  foreach($rows as &$r){
+    $id=(int)$r['id'];$r['approval_steps']=$steps[$id]??[];
+    $r['pending_approver_name']=trim((string)($r['pending_approver_name']??''));
+    $r['approver_name']=trim((string)($r['approver_name']??''));
+  }unset($r);
+  return $rows;
+}
+
 route('POST', '/api/my/requests', function($p,$b,$u){
   _ensure_requests_table();
   $type = $b['type'] ?? ''; // annual / sick / mission / overtime / manual
@@ -4477,17 +4511,23 @@ route('POST', '/api/my/requests', function($p,$b,$u){
 route('GET', '/api/my/requests', function($p,$b,$u){
   _ensure_requests_table();
   // اطمینان از وجود ستون جایگزین
-  $sel = "id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,manual_kind,in_time,out_time,minutes,reason,status,approver_note,created_at,attachment_name";
+  $sel = "r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name";
   $hasSub = false;
   try { $hasSub = (bool)Db::one("SHOW COLUMNS FROM requests WHERE Field='substitute_user_id'"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   if ($hasSub) {
-    return Db::all("SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,
+    return _req_decorate_my_requests(Db::all("SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,
         r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name,r.substitute_user_id,
-        TRIM(CONCAT(COALESCE(su.first_name,''),' ',COALESCE(su.last_name,''))) substitute_name
+        TRIM(CONCAT(COALESCE(su.first_name,''),' ',COALESCE(su.last_name,''))) substitute_name,
+        TRIM(CONCAT(COALESCE(ap.first_name,''),' ',COALESCE(ap.last_name,''))) approver_name,
+        TRIM(CONCAT(COALESCE(pn.first_name,''),' ',COALESCE(pn.last_name,''))) pending_approver_name
       FROM requests r LEFT JOIN users su ON su.id=r.substitute_user_id
-      WHERE r.user_id=? ORDER BY r.id DESC LIMIT 100", [$u['id']]);
+      LEFT JOIN users ap ON ap.id=r.approver_id LEFT JOIN users pn ON pn.id=r.pending_on
+      WHERE r.user_id=? ORDER BY r.id DESC LIMIT 100", [$u['id']]));
   }
-  return Db::all("SELECT $sel FROM requests WHERE user_id=? ORDER BY id DESC LIMIT 100", [$u['id']]);
+  return _req_decorate_my_requests(Db::all("SELECT $sel,TRIM(CONCAT(COALESCE(ap.first_name,''),' ',COALESCE(ap.last_name,''))) approver_name,
+      TRIM(CONCAT(COALESCE(pn.first_name,''),' ',COALESCE(pn.last_name,''))) pending_approver_name
+      FROM requests r LEFT JOIN users ap ON ap.id=r.approver_id LEFT JOIN users pn ON pn.id=r.pending_on
+      WHERE r.user_id=? ORDER BY r.id DESC LIMIT 100",[$u['id']]));
 });
 
 // لغو درخواست توسط خود کاربر (در حالت pending یا approved)
@@ -4525,8 +4565,14 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
   $decision = $b['decision'] ?? ''; // approve / reject
   if (!in_array($decision,['approve','reject'])) Http::error('تصمیم نامعتبر',400);
   if ($decision === 'reject') {
-    $updated=Db::run("UPDATE requests SET status='rejected', approver_id=?, approver_note=?, decided_at=NOW(), pending_on=NULL WHERE id=? AND status='pending'", [$u['id'],$b['note']??null,$p['id']]);
-    if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است',409);
+    _req_approval_steps_ensure();
+    $pdo=Db::pdo();$pdo->beginTransaction();
+    try{
+      $updated=Db::run("UPDATE requests SET status='rejected', approver_id=?, approver_note=?, decided_at=NOW(), pending_on=NULL WHERE id=? AND status='pending'", [$u['id'],$b['note']??null,$p['id']]);
+      if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است',409);
+      _req_record_approval_step((int)$p['id'],(int)$u['id'],'rejected',$b['note']??null);
+      $pdo->commit();
+    }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
     _req_notify_decision($r,'rejected',$b['note']??'',(int)$p['id']);
     return ['ok'=>true,'status'=>'rejected'];
   }
@@ -4539,18 +4585,26 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
     $next = $mgrs[0] ?? null;
   }
   if ($next) {
-    $updated=Db::run("UPDATE requests SET pending_on=?, approver_id=? WHERE id=? AND status='pending'", [$next,$u['id'],$p['id']]);
-    if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است',409);
+    _req_approval_steps_ensure();
+    $pdo=Db::pdo();$pdo->beginTransaction();
+    try{
+      $updated=Db::run("UPDATE requests SET pending_on=?, approver_id=? WHERE id=? AND status='pending'", [$next,$u['id'],$p['id']]);
+      if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است',409);
+      _req_record_approval_step((int)$p['id'],(int)$u['id'],'forwarded',$b['note']??null);
+      $pdo->commit();
+    }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
     Push::send([$next],'درخواست برای تأیید نهایی','',['type'=>'request','request_id'=>$p['id']]);
     return ['ok'=>true,'status'=>'forwarded','to'=>$next];
   }
   // Commit the decision and its attendance/substitute records together.
   _req_prepare_approval_storage($r);
+  _req_approval_steps_ensure();
   $pdo=Db::pdo();$pdo->beginTransaction();
   try{
     $updated=Db::run("UPDATE requests SET status='approved', approver_id=?, approver_note=?, decided_at=NOW(), pending_on=NULL WHERE id=? AND status='pending'",[$u['id'],$b['note']??null,$p['id']]);
     if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است',409);
     _req_apply_approval_effects($r,(int)$p['id']);
+    _req_record_approval_step((int)$p['id'],(int)$u['id'],'approved',$b['note']??null);
     $pdo->commit();
   }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
   _req_notify_substitute($r,(int)$p['id']);
@@ -5137,11 +5191,13 @@ route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
   if($req['status']===$status) Http::error('وضعیت این درخواست قبلاً ثبت شده است',409);
   $note=trim((string)($b['note']??''))?:null;
   if($status==='approved')_req_prepare_approval_storage($req);
+  _req_approval_steps_ensure();
   $pdo=Db::pdo();$pdo->beginTransaction();
   try{
   $updated=Db::run("UPDATE requests SET status=?,approver_id=?,approver_note=?,decided_at=NOW(),pending_on=NULL WHERE id=? AND status=?",[$status,(int)$u['id'],$note,$id,$req['status']]);
   if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است؛ فهرست را تازه‌سازی کنید.',409);
     if($status==='approved')_req_apply_approval_effects($req,$id);
+    _req_record_approval_step($id,(int)$u['id'],$status,$note);
     $pdo->commit();
   }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
   if($status==='approved')_req_notify_substitute($req,$id);

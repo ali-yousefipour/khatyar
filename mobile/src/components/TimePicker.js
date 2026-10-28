@@ -1,85 +1,74 @@
-import React, { useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, PanResponder } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput } from 'react-native';
 import { C, FONT } from '../theme';
-const FA = '۰۱۲۳۴۵۶۷۸۹';
-const fa = (s) => String(s).replace(/[0-9]/g, (d) => FA[+d]);
-const SIZE = 260;
-const R = SIZE / 2;
+
+const fa = v => String(v).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);
+const latin = v => String(v).replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+const two = n => String(n).padStart(2, '0');
+
 export default function TimePicker({ visible, onClose, onSelect, initial }) {
-  const init = (initial || '08:00').split(':');
-  const [hour, setHour] = useState(parseInt(init[0], 10) || 8);
-  const [minute, setMinute] = useState(parseInt(init[1], 10) || 0);
-  const [mode, setMode] = useState('h');
-  function angleToVal(x, y) {
-    const dx = x - R, dy = y - R;
-    let ang = Math.atan2(dy, dx) * 180 / Math.PI + 90;
-    if (ang < 0) ang += 360;
-    if (mode === 'h') {
-      let h = Math.round(ang / 30) % 12;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      let hh = h === 0 ? 12 : h;
-      if (dist < R * 0.62) { hh = hh === 12 ? 0 : hh + 12; }
-      setHour(hh % 24);
-    } else { let m = Math.round(ang / 6) % 60; setMinute(m); }
-  }
-  const pan = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: (e) => angleToVal(e.nativeEvent.locationX, e.nativeEvent.locationY),
-    onPanResponderMove: (e) => angleToVal(e.nativeEvent.locationX, e.nativeEvent.locationY),
-  });
-  const handAng = mode === 'h' ? ((hour % 12) * 30) : (minute * 6);
-  const handLen = mode === 'h' && hour >= 12 && hour !== 12 ? R * 0.42 : R * 0.62;
-  const hx = R + handLen * Math.sin(handAng * Math.PI / 180);
-  const hy = R - handLen * Math.cos(handAng * Math.PI / 180);
-  const nums = mode === 'h' ? Array.from({ length: 12 }, (_, i) => i + 1) : [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
-  const p2 = (n) => String(n).padStart(2, '0');
-  return (
-    <Modal visible={!!visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={s.bg}>
-        <View style={s.card}>
-          <View style={s.timeRow}>
-            <TouchableOpacity onPress={() => setMode('h')}><Text style={[s.tBig, mode === 'h' && { color: C.brand }]}>{fa(p2(hour))}</Text></TouchableOpacity>
-            <Text style={s.colon}>:</Text>
-            <TouchableOpacity onPress={() => setMode('m')}><Text style={[s.tBig, mode === 'm' && { color: C.brand }]}>{fa(p2(minute))}</Text></TouchableOpacity>
-          </View>
-          <Text style={s.hint}>{mode === 'h' ? 'ساعت را انتخاب کنید (داخلی: ۱۳ تا ۲۴)' : 'دقیقه را انتخاب کنید'}</Text>
-          <View style={s.clock} {...pan.panHandlers}>
-            <View style={s.center} />
-            <View style={[s.hand, { width: 3, height: handLen, left: R - 1.5, top: R - handLen, transform: [{ translateY: handLen / 2 }, { rotate: `${handAng}deg` }, { translateY: -handLen / 2 }] }]} />
-            <View style={[s.knob, { left: hx - 14, top: hy - 14 }]} />
-            {nums.map((n, i) => {
-              const ang = (mode === 'h' ? (n % 12) * 30 : n * 6);
-              const rad = R * 0.82;
-              const x = R + rad * Math.sin(ang * Math.PI / 180) - 14;
-              const y = R - rad * Math.cos(ang * Math.PI / 180) - 12;
-              return <Text key={i} style={[s.num, { left: x, top: y }]}>{fa(n)}</Text>;
-            })}
-          </View>
-          <View style={s.actions}>
-            <TouchableOpacity style={s.cancel} onPress={onClose}><Text style={s.cancelTxt}>انصراف</Text></TouchableOpacity>
-            <TouchableOpacity style={s.ok} onPress={() => { onSelect(`${p2(hour)}:${p2(minute)}`); onClose(); }}><Text style={s.okTxt}>تأیید</Text></TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
+  const [hour, setHour] = useState(8);
+  const [minute, setMinute] = useState('00');
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    if (!visible) return;
+    const match = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(latin(initial || '08:00'));
+    setHour(match ? Number(match[1]) : 8);
+    setMinute(match ? match[2] : '00');
+    setError(false);
+  }, [visible, initial]);
+  const valid = /^\d{1,2}$/.test(minute) && Number(minute) <= 59;
+  const confirm = () => {
+    if (!valid) { setError(true); return; }
+    onSelect(two(hour) + ':' + two(Number(minute)));
+    onClose();
+  };
+  return <Modal visible={!!visible} transparent animationType="fade" onRequestClose={onClose}>
+    <View style={s.backdrop}><View style={s.card}>
+      <Text style={s.title}>انتخاب ساعت</Text>
+      <Text style={s.subtitle}>ساعت به صورت ۲۴ساعته است؛ بعدازظهر از ۱۳ تا ۲۳ انتخاب می‌شود.</Text>
+      <View style={s.preview}><Text style={s.previewTime}>{fa(two(hour) + ':' + two(valid ? Number(minute) : 0))}</Text><Text style={s.previewLabel}>{hour < 12 ? 'قبل‌ازظهر' : 'بعدازظهر'}</Text></View>
+      <Text style={s.label}>ساعت (۰۰ تا ۲۳)</Text>
+      <ScrollView nestedScrollEnabled style={s.hoursScroll} contentContainerStyle={s.hoursGrid}>
+        {Array.from({ length: 24 }, (_, h) => <TouchableOpacity accessibilityRole="button" accessibilityLabel={'ساعت ' + fa(two(h))} key={h} style={[s.hourChip, hour === h && s.selected]} onPress={() => setHour(h)}><Text style={[s.chipText, hour === h && s.selectedText]}>{fa(two(h))}</Text></TouchableOpacity>)}
+      </ScrollView>
+      <Text style={s.label}>دقیقه (۰۰ تا ۵۹)</Text>
+      <View style={s.minuteRow}><TextInput style={[s.minuteInput, error && !valid && s.invalid]} value={fa(minute)} onChangeText={v => { setMinute(latin(v).replace(/[^0-9]/g, '').slice(0, 2)); setError(false); }} keyboardType="number-pad" maxLength={2} selectTextOnFocus textAlign="center"/><Text style={s.minuteHelp}>دقیقه دقیق را وارد کنید</Text></View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.minutePresets}>
+        {[0, 5, 10, 15, 20, 30, 40, 45, 50, 55].map(m => <TouchableOpacity key={m} style={[s.minuteChip, valid && Number(minute) === m && s.minuteSelected]} onPress={() => { setMinute(two(m)); setError(false); }}><Text style={s.minuteChipText}>{fa(two(m))}</Text></TouchableOpacity>)}
+      </ScrollView>
+      {error && !valid && <Text style={s.error}>دقیقه باید عددی بین ۰۰ تا ۵۹ باشد.</Text>}
+      <View style={s.actions}><TouchableOpacity style={s.confirm} onPress={confirm}><Text style={s.confirmText}>تأیید ساعت</Text></TouchableOpacity><TouchableOpacity style={s.cancel} onPress={onClose}><Text style={s.cancelText}>انصراف</Text></TouchableOpacity></View>
+    </View></View>
+  </Modal>;
 }
 const s = StyleSheet.create({
-  bg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
-  card: { backgroundColor: C.paper, borderRadius: 20, padding: 20, alignItems: 'center', width: SIZE + 56 },
-  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4, justifyContent: 'center' },
-  tBig: { fontFamily: FONT.bold, fontSize: 42, color: C.ink },
-  colon: { fontFamily: FONT.bold, fontSize: 42, color: C.muted },
-  hint: { fontFamily: FONT.regular, fontSize: 11.5, color: C.muted, marginBottom: 14 },
-  clock: { width: SIZE, height: SIZE, borderRadius: R, backgroundColor: '#eef1f7', position: 'relative' },
-  center: { position: 'absolute', left: R - 4, top: R - 4, width: 8, height: 8, borderRadius: 4, backgroundColor: C.brand },
-  hand: { position: 'absolute', backgroundColor: C.brand, borderRadius: 2 },
-  knob: { position: 'absolute', width: 28, height: 28, borderRadius: 14, backgroundColor: C.brand, opacity: 0.85 },
-  num: { position: 'absolute', width: 28, textAlign: 'center', fontFamily: FONT.bold, color: C.ink, fontSize: 14 },
-  actions: { flexDirection: 'row-reverse', gap: 10, marginTop: 18, alignSelf: 'stretch' },
-  ok: { flex: 1, backgroundColor: C.brand, borderRadius: 12, padding: 12, alignItems: 'center' },
-  okTxt: { color: '#fff', fontFamily: FONT.bold },
-  cancel: { flex: 1, backgroundColor: '#eef1f7', borderRadius: 12, padding: 12, alignItems: 'center' },
-  cancelTxt: { color: C.ink, fontFamily: FONT.bold },
+  backdrop: { flex:1, backgroundColor:'rgba(5,20,31,.55)', alignItems:'center', justifyContent:'center', padding:16 },
+  card: { backgroundColor:'#fff', width:'100%', maxWidth:410, borderRadius:22, padding:18, maxHeight:'90%' },
+  title: { fontFamily:FONT.bold, fontSize:19, color:C.ink, textAlign:'right' },
+  subtitle: { fontFamily:FONT.regular, fontSize:11.5, lineHeight:20, color:C.muted, textAlign:'right', marginTop:5 },
+  preview: { backgroundColor:'#e9f6f0', borderRadius:14, alignItems:'center', padding:10, marginTop:14, marginBottom:14 },
+  previewTime: { fontFamily:FONT.bold, fontSize:29, color:C.brand },
+  previewLabel: { fontFamily:FONT.regular, fontSize:11, color:C.brand },
+  label: { fontFamily:FONT.bold, fontSize:12.5, color:C.ink, textAlign:'right', marginBottom:7 },
+  hoursScroll: { flexGrow:0, maxHeight:208, marginBottom:13 },
+  hoursGrid: { flexDirection:'row-reverse', flexWrap:'wrap', gap:7, justifyContent:'center' },
+  hourChip: { width:'14.1%', borderRadius:9, paddingVertical:9, backgroundColor:'#f4f6fa', alignItems:'center', borderWidth:1, borderColor:'#e4eaf1' },
+  selected: { backgroundColor:C.brand, borderColor:C.brand },
+  chipText: { fontFamily:FONT.bold, color:C.slate, fontSize:13 },
+  selectedText: { color:'#fff' },
+  minuteRow: { flexDirection:'row-reverse', alignItems:'center', gap:12 },
+  minuteInput: { width:74, borderRadius:12, borderWidth:1, borderColor:C.brand, color:C.ink, fontFamily:FONT.bold, fontSize:21, paddingVertical:8 },
+  invalid: { borderColor:C.danger },
+  minuteHelp: { fontFamily:FONT.regular, fontSize:11.5, color:C.muted },
+  minutePresets: { flexDirection:'row-reverse', gap:7, paddingVertical:10 },
+  minuteChip: { backgroundColor:'#f2f6f8', paddingHorizontal:12, paddingVertical:8, borderRadius:10 },
+  minuteSelected: { backgroundColor:'#d5efe3' },
+  minuteChipText: { fontFamily:FONT.bold, fontSize:12, color:C.brand },
+  error: { fontFamily:FONT.regular, fontSize:11, color:C.danger, textAlign:'right' },
+  actions: { flexDirection:'row-reverse', gap:9, marginTop:10 },
+  confirm: { flex:1.4, backgroundColor:C.brand, borderRadius:12, paddingVertical:12, alignItems:'center' },
+  cancel: { flex:1, backgroundColor:'#edf1f5', borderRadius:12, paddingVertical:12, alignItems:'center' },
+  confirmText: { fontFamily:FONT.bold, color:'#fff' },
+  cancelText: { fontFamily:FONT.bold, color:C.ink },
 });

@@ -115,6 +115,21 @@ const pendingPerson = (r) => r.pending_approver_name || r.next_approver_name || 
 const rejectionNote = (r) => r.rejection_reason || r.reject_reason || r.decision_note || r.approver_note || r.approval?.note || '';
 const STATUS = { pending: ['در انتظار', '#cc7a14'], approved: ['تأییدشده', '#0d7a5f'], rejected: ['ردشده', '#d63b54'] };
 
+function ApprovalTimeline({ item }) {
+  const steps = Array.isArray(item.approval_steps) ? item.approval_steps : [];
+  const current = item.status === 'pending' ? pendingPerson(item) : '';
+  const finalName = requestPerson(item);
+  const events = steps.map(step => ({ ...step, label: step.decision === 'rejected' ? 'رد کرده' : step.decision === 'forwarded' ? 'تأیید و به مسئول بعد ارجاع داده' : 'تأیید نهایی کرده', color: step.decision === 'rejected' ? C.danger : C.ok }));
+  if (!steps.length && item.status === 'approved' && finalName) events.push({ actor_name: finalName, label: 'تأیید نهایی کرده', color: C.ok, legacy: true });
+  if (!steps.length && item.status === 'rejected' && finalName) events.push({ actor_name: finalName, label: 'رد کرده', color: C.danger, legacy: true });
+  return <View style={s.approvalTimeline}>
+    <Text style={s.approvalTitle}>مسیر بررسی و تأیید</Text>
+    {events.map((step, i) => <View key={i} style={s.approvalEvent}><MaterialCommunityIcons name={step.decision === 'rejected' ? 'close-circle' : 'check-circle'} size={18} color={step.color}/><View style={{ flex:1 }}><Text style={s.approvalName}>{step.actor_name || 'نام مسئول موجود نیست'} <Text style={{ color:step.color }}>{step.label}</Text></Text>{step.created_at ? <Text style={s.approvalDate}>{faDigits(step.created_at)}</Text> : null}{step.note ? <Text style={s.approvalNote}>{step.note}</Text> : null}</View></View>)}
+    {item.status === 'pending' ? <View style={s.approvalEvent}><MaterialCommunityIcons name="clock-outline" size={18} color="#bc7816"/><Text style={[s.approvalName, { flex:1 }]}>در انتظار بررسی: {current || 'نام مسئول از سرور دریافت نشده است'}</Text></View> : null}
+    {!steps.length && <Text style={s.approvalLegacy}>تاریخچه مراحل قبلی این درخواست در سامانه ثبت نشده است؛ فقط وضعیت فعلی و آخرین مسئول قابل نمایش است.</Text>}
+  </View>;
+}
+
 // تبدیل Date → رشتهٔ شمسی YYYY-MM-DD بدون وابستگی به Intl/Hermes
 function toJ(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
@@ -439,7 +454,7 @@ function MyRequests() {
             <Text style={s.cardMeta}>{faDigits(r.the_date || r.from_jdate) }{r.to_jdate && r.to_jdate !== r.from_jdate ? ` تا ${faDigits(r.to_jdate)}` : ''}{r.from_time ? `  ${faDigits(r.from_time)}–${faDigits(r.to_time)}` : ''}{r.in_time ? `  ورود ${faDigits(r.in_time)} خروج ${faDigits(r.out_time || '—')}` : ''}</Text>
             {r.reason ? <Text style={s.cardReason}>{r.reason}</Text> : null}
             {r.status==='rejected' ? <View style={s.rejectedBox}><MaterialCommunityIcons name="alert-circle-outline" size={18} color={C.danger}/><Text style={s.rejectedText}>دلیل رد: {rejectedReason || 'دلیل رد توسط تأییدکننده ثبت نشده است.'}</Text></View> : null}
-            {r.status==='approved'||r.status==='pending'?<View style={s.approverBox}><MaterialCommunityIcons name={r.status==='approved'?'account-check-outline':'account-clock-outline'} size={18} color={C.brand}/><Text style={s.approverText}>{r.status==='approved'?'تأییدکننده: ':'در انتظار تأیید: '}{approver || 'نام تأییدکننده از سرور دریافت نشده است'}</Text></View>:null}
+            <ApprovalTimeline item={r}/>
           </View>
         );
       })}
@@ -474,6 +489,13 @@ const s = StyleSheet.create({
   rejectedText:{flex:1,fontFamily:FONT.regular,color:C.danger,fontSize:12,textAlign:'right',lineHeight:21},
   approverBox:{flexDirection:'row-reverse',alignItems:'center',gap:7,backgroundColor:'#eaf5ef',borderRadius:11,padding:11,marginTop:11},
   approverText:{flex:1,fontFamily:FONT.regular,color:C.brand,fontSize:12,textAlign:'right',lineHeight:20},
+  approvalTimeline:{backgroundColor:'#f6f9fc',borderRadius:13,borderWidth:1,borderColor:'#e5edf2',padding:12,marginTop:12},
+  approvalTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:12.5,textAlign:'right',marginBottom:8},
+  approvalEvent:{flexDirection:'row-reverse',alignItems:'flex-start',gap:8,paddingVertical:7,borderTopWidth:1,borderTopColor:'#e9eef3'},
+  approvalName:{fontFamily:FONT.bold,color:C.slate,fontSize:11.8,textAlign:'right',lineHeight:20},
+  approvalDate:{fontFamily:FONT.regular,color:C.muted,fontSize:10.5,textAlign:'right'},
+  approvalNote:{fontFamily:FONT.regular,color:C.slate,fontSize:11,textAlign:'right',marginTop:2},
+  approvalLegacy:{fontFamily:FONT.regular,color:C.muted,fontSize:10.5,lineHeight:18,textAlign:'right',marginTop:5},
   subBtn: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 10, padding: 12 },
   subBtnT: { fontFamily: FONT.regular, color: C.ink, fontSize: 13.5, textAlign: 'right' },
   subWarn: { fontFamily: FONT.regular, color: C.danger, fontSize: 12, textAlign: 'right', marginTop: 5 },

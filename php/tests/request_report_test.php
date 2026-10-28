@@ -21,6 +21,7 @@ class Db {
   }
   static function run($sql,$params=[]){
     if(self::$failAttendance&&str_contains($sql,'INSERT INTO staff_attendance'))throw new RuntimeException('simulated storage failure');
+    if(str_contains($sql,'request_approval_steps'))return new class {function rowCount(){return 1;}};
     self::$writes[]=[$sql,$params];return new class {function rowCount(){return Db::$changed;}};
   }
 }
@@ -35,6 +36,7 @@ eval(str_replace('__DIR__',var_export(dirname(__DIR__).'/lib',true),substr($sour
 $a=strpos($source,'function gregorian_to_jalali(');$b=strpos($source,'function j_to_ts(',$a);eval(substr($source,$a,$b-$a));
 $a=strpos($source,'function _req_policy_span(');$b=strpos($source,'function _req_validate_work_policy(',$a);eval(substr($source,$a,$b-$a));
 $a=strpos($source,'function _req_prepare_approval_storage(');$b=strpos($source,'// گزارش درخواست‌ها برای ادمین',$a);eval(substr($source,$a,$b-$a));
+$a=strpos($source,'function _req_approval_steps_ensure(');$b=strpos($source,"route('POST', '/api/my/requests'",$a);eval(substr($source,$a,$b-$a));
 [$where,$args]=_req_report_filter(['from'=>'2026-10-01','to'=>'2026-10-22','type'=>'unpaid','status'=>'canceled','q'=>"O'Reilly"]);
 check(str_contains($where,'r.created_at<?'),'inclusive end date uses next midnight');
 check(in_array('2026-10-23 00:00:00',$args,true),'end date boundary');
