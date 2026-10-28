@@ -59,6 +59,13 @@ assert.equal(validateUpdateUrl('https://evil.org@bad.example.org/update.apk'), f
   assert.match(nativeSource, /validateUpdateUrl\(finalUrl, !expected\.isEmpty\(\)\)/);
   assert.match(nativeSource, /if\(hasPinnedHash\) return/);
   assert.match(nativeSource, /validateDownloadedApk\(part, name\)/, 'APK identity must be checked before installer');
+  // WritableMap is a one-shot React Native bridge payload. Reusing the event
+  // map as a Promise result causes the Android "Map already consumed" crash.
+  assert.match(nativeSource, /emit\("khatyarUpdaterComplete",result\);[\s\S]*?WritableMap promiseResult=Arguments\.createMap\(\);[\s\S]*?promise\.resolve\(promiseResult\);/,
+    'APK complete event and Promise must use separate writable maps');
+  assert.doesNotMatch(nativeSource, /emit\("khatyarUpdaterComplete",result\);\s*promise\.resolve\(result\);/,
+    'Never reuse an emitted WritableMap');
+
   assert.match(nativeSource, /pkg\.versionName/, 'embedded APK version must match panel release');
   assert.match(nativeSource, /pkg\.packageName/, 'embedded APK package identity must match installed app');
   assert.match(screenSource, /downloadAndInstallUpdate\(info\)/);
