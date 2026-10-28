@@ -4055,19 +4055,14 @@ function _req_policy_options($uid,$required=true){
   return is_array($policy['config']['request_options']??null)?$policy['config']['request_options']:[];
 }
 
-// Daily annual leave substitute rule shared by the Android config and POST validation.
-// Regional coverage is mandatory even when the requester can act as a substitute.
+// One region-specific rule shared by the Android config and server validation.
 function _req_leave_substitute_required($uid){
   $uid=(int)$uid;
   if($uid<=0)return true; // fail closed if the caller identity is unavailable
-  $row=Db::one("SELECT COALESCE(u.can_be_substitute,0) can_be_substitute,COALESCE(z.name,'') zone_name FROM users u LEFT JOIN zones z ON z.id=u.zone_id WHERE u.id=? LIMIT 1",[$uid]);
+  _zone_leave_requirement_storage();
+  $row=Db::one("SELECT COALESCE(z.leave_requires_substitute,0) leave_requires_substitute FROM users u LEFT JOIN zones z ON z.id=u.zone_id WHERE u.id=? LIMIT 1",[$uid]);
   if(!$row)return true;
-  $zone=trim(str_replace(['ي','ك','‌'],['ی','ک',' '],(string)($row['zone_name']??'')));
-  $zone=preg_replace('/\\s+/u',' ',$zone);
-  // Both entry gateways and Samen lines need coverage; normalize aliases used in zones.
-  if(strpos($zone,'مبادی ورودی')!==false || strpos($zone,'ثامن')!==false)return true;
-  if(!empty($row['can_be_substitute']))return false;
-  return !empty(_req_policy_options($uid,false)['leave_require_substitute']);
+  return !empty($row['leave_requires_substitute']);
 }
 
 function _req_policy_date($value){
@@ -5054,7 +5049,7 @@ function _req_edit_approved($id,array $body,array $actor){
   if((int)($locked['acquired']??0)!==1)Http::error('درخواست دیگری در حال پردازش است؛ دوباره تلاش کنید.',409);
   $pdo=Db::pdo();
   try{
-    _req_edit_storage();_req_prepare_approval_storage(array_replace($before,['substitute_user_id'=>$body['substitute_user_id']??$before['substitute_user_id']??null]));
+    _zone_leave_requirement_storage();_req_edit_storage();_req_prepare_approval_storage(array_replace($before,['substitute_user_id'=>$body['substitute_user_id']??$before['substitute_user_id']??null]));
     $pdo->beginTransaction();
     $before=Db::one('SELECT * FROM requests WHERE id=? FOR UPDATE',[$id]);
     if(!$before||$before['status']!=='approved'||!hash_equals(_req_edit_token($before),$token))Http::error('درخواست هم‌زمان تغییر کرده است؛ آن را دوباره باز کنید.',409);
@@ -5066,7 +5061,7 @@ function _req_edit_approved($id,array $body,array $actor){
       $uid=(int)$before['user_id'];$policy=_req_active_work_policy($uid);if(!$policy)Http::error('ابتدا سیاست کاری فعال به این کاربر تخصیص دهید.',422);
       _req_validate_work_policy($uid,$after,$policy,true,$id,null,true);_req_reject_overlap($uid,$after,$id);
       if(_req_substitute_eligible($after)){
-        if(!empty($policy['config']['request_options']['leave_require_substitute'])&&empty($after['substitute_user_id']))Http::error('برای مرخصی استحقاقی روزانه نیروی جایگزین لازم است.',422);
+        if(_req_leave_substitute_required($uid)&&empty($after['substitute_user_id']))Http::error('برای مرخصی استحقاقی روزانه نیروی جایگزین لازم است.',422);
         if(!empty($after['substitute_user_id'])){
           if((int)$after['substitute_user_id']===$uid||!Db::one('SELECT id FROM users WHERE id=? AND is_active=1 FOR UPDATE',[(int)$after['substitute_user_id']]))Http::error('نیروی جایگزین فعال و معتبر انتخاب کنید.',422);
           $available=_substitute_availability((int)$after['substitute_user_id'],$after['from_jdate'],$after['to_jdate'],$id,false);
@@ -9305,7 +9300,21 @@ route('DELETE', '/api/admin/roles/{id}', function($p,$b,$u){
   Db::run("DELETE FROM roles WHERE id=?", [$p['id']]);
   return ['ok'=>true];
 }, false, ADMIN);
-route('GET', '/api/admin/zones', function(){require_once __DIR__.'/OrgChart.php';return OrgChart::withZoneLeaders(Db::all("SELECT * FROM zones ORDER BY id"));});
+// Keep older installations compatible before the one-time migration is applied.
+function _zone_leave_requirement_storage(){
+  static $ready=false;
+  if($ready)return;
+  if(!Db::one("SHOW COLUMNS FROM zones LIKE 'leave_requires_substitute'")){
+    Db::run("ALTER TABLE zones ADD COLUMN leave_requires_substitute TINYINT(1) NOT NULL DEFAULT 0");
+  }
+  $ready=true;
+}
+function _zone_leave_requirement_value($value){
+  if($value===true||$value===1||$value==='1')return 1;
+  if($value===false||$value===0||$value==='0')return 0;
+  Http::error('مقدار گزینهٔ نیاز به نیروی جایگزین نامعتبر است.',422);
+}
+route('GET', '/api/admin/zones', function(){_zone_leave_requirement_storage();require_once __DIR__.'/OrgChart.php';return OrgChart::withZoneLeaders(Db::all("SELECT * FROM zones ORDER BY id"));});
 route('PUT', '/api/admin/zones/{id}/leaders', function($p,$b,$u){require_once __DIR__.'/OrgChart.php';return OrgChart::saveZoneLeaders($p['id'],$b['senior_user_id']??null,$b['inspector_ids']??[],$u['id']);},false,ADMIN);
 function _validated_zone_parent($value,$zoneId=0) {
   if ($value===null || $value==='') return null;
@@ -9322,26 +9331,31 @@ function _validated_zone_parent($value,$zoneId=0) {
   return $parent;
 }
 route('POST', '/api/admin/zones', function($p,$b,$u){
+  _zone_leave_requirement_storage();
   $name = trim((string)($b['name'] ?? ''));
   if ($name === '' || mb_strlen($name) > 150) Http::error('نام منطقه باید بین ۱ تا ۱۵۰ نویسه باشد.', 422);
   $connection=Db::pdo();$connection->beginTransaction();
   try {
     $parent=_validated_zone_parent($b['parent_id']??null);
-    $id = Db::insert("INSERT INTO zones(name,parent_id) VALUES(?,?)", [$name,$parent]);
+    $required=_zone_leave_requirement_value($b['leave_requires_substitute']??false);
+    $id = Db::insert("INSERT INTO zones(name,parent_id,leave_requires_substitute) VALUES(?,?,?)", [$name,$parent,$required]);
     $connection->commit();
   } catch (Throwable $failure) {if($connection->inTransaction())$connection->rollBack();throw $failure;}
-  return ['id'=>$id,'name'=>$name,'parent_id'=>$parent];
+  return ['id'=>$id,'name'=>$name,'parent_id'=>$parent,'leave_requires_substitute'=>$required];
 }, false, ADMIN);
 route('PUT', '/api/admin/zones/{id}', function($p,$b,$u){
+  _zone_leave_requirement_storage();
   $name = trim((string)($b['name'] ?? ''));
   if ($name === '' || mb_strlen($name) > 150) Http::error('نام منطقه باید بین ۱ تا ۱۵۰ نویسه باشد.', 422);
   $connection=Db::pdo();$connection->beginTransaction();
   try {
   if (!Db::one("SELECT id FROM zones WHERE id=? FOR UPDATE", [$p['id']])) Http::error('منطقه یافت نشد.', 404);
+  $hasRequired=array_key_exists('leave_requires_substitute',$b);
+  $required=$hasRequired?_zone_leave_requirement_value($b['leave_requires_substitute']):null;
   if (array_key_exists('parent_id',$b)) {
     $parent=_validated_zone_parent($b['parent_id'],(int)$p['id']);
-    Db::run("UPDATE zones SET name=?,parent_id=? WHERE id=?",[$name,$parent,$p['id']]);
-  } else Db::run("UPDATE zones SET name=? WHERE id=?", [$name, $p['id']]);
+    Db::run($hasRequired?"UPDATE zones SET name=?,parent_id=?,leave_requires_substitute=? WHERE id=?":"UPDATE zones SET name=?,parent_id=? WHERE id=?",$hasRequired?[$name,$parent,$required,$p['id']]:[$name,$parent,$p['id']]);
+  } else Db::run($hasRequired?"UPDATE zones SET name=?,leave_requires_substitute=? WHERE id=?":"UPDATE zones SET name=? WHERE id=?",$hasRequired?[$name,$required,$p['id']]:[$name,$p['id']]);
   $connection->commit();
   } catch (Throwable $failure) {if($connection->inTransaction())$connection->rollBack();throw $failure;}
   return ['ok'=>true];

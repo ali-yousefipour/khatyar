@@ -10,10 +10,10 @@ context.React={createElement:(type,props,...children)=>({type,props:props||{},ch
 vm.createContext(context);vm.runInContext(code,context);
 const render=()=>{cursor=0;return vm.runInContext('WorkPolicy()',context);};const nodes=tree=>!tree||typeof tree!=='object'?[]:[tree,...(tree.children||[]).flat(Infinity).flatMap(nodes)];
 const text=tree=>typeof tree==='string'?tree:!tree?'':(tree.children||[]).flat(Infinity).map(text).join('');
-let tree=render();const checkbox=label=>nodes(tree).find(n=>n.type==='label'&&text(n).includes(label)).children.flat(Infinity).find(n=>n?.type==='input');
+let tree=render();const checkbox=label=>nodes(tree).find(n=>n.type==='label'&&text(n).includes(label))?.children.flat(Infinity).find(n=>n?.type==='input');
 checkbox('الزام سلفی').props.onChange({target:{checked:true}});assert.equal(states[1].config.request_options.manual_attendance_selfie,true,'old policy config gains nested options safely');
-tree=render();checkbox('الزام معرفی جایگزین').props.onChange({target:{checked:true}});assert.equal(states[1].config.request_options.leave_require_substitute,true);
+tree=render();assert.ok(text(tree).includes('از بخش «منطقه‌بندی»'));assert.equal(checkbox('الزام معرفی جایگزین'),undefined);
 tree=render();const approval=nodes(tree).find(n=>n.type==='select'&&n.children.flat(Infinity).some(o=>text(o).includes('سلسله‌مراتب')));approval.props.onChange({target:{value:'specific'}});
 tree=render();const person=nodes(tree).find(n=>n.type==='select'&&n.children.flat(Infinity).some(o=>text(o)==='انتخاب مسئول'));assert.ok(person);person.props.onChange({target:{value:'7'}});assert.equal(states[1].config.request_options.approver_id,7);
 assert.deepEqual(states[1].config.annual,{daily:{},hourly:{}},'editing options does not change duration limits');
-console.log('PASS policy request UI: legacy editor absent, old-policy nested options, substitute/selfie and specific approver preserve limits');
+console.log('PASS policy request UI: replacement setting moved to regions, selfie and approver preserve limits');

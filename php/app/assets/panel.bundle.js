@@ -490,8 +490,8 @@ const db = {
     revokeDevice: (id, type) => SEND('POST', '/admin/users/' + id + '/revoke-device', type ? { device_type: type } : {}),
     deleteUser: (id) => SEND('DELETE', '/admin/users/' + id),
     resetPassword: (id, password) => SEND('POST', '/admin/users/' + id + '/reset-password', { password }),
-    createZone: (name, parentId = null) => SEND('POST', '/admin/zones', { name, parent_id: parentId }),
-    updateZone: (id, name, parentId) => SEND('PUT', '/admin/zones/' + id, { name, ...(parentId === undefined ? {} : { parent_id: parentId }) }),
+    createZone: (name, parentId = null, requiresSubstitute = false) => SEND('POST', '/admin/zones', { name, parent_id: parentId, leave_requires_substitute: requiresSubstitute }),
+    updateZone: (id, name, parentId, requiresSubstitute) => SEND('PUT', '/admin/zones/' + id, { name, ...(parentId === undefined ? {} : { parent_id: parentId }), ...(requiresSubstitute === undefined ? {} : { leave_requires_substitute: requiresSubstitute }) }),
     zoneLeaders: (id, fields) => SEND('PUT', '/admin/zones/' + id + '/leaders', fields),
     deleteZone: (id) => SEND('DELETE', '/admin/zones/' + id, {}),
     addReason: (title) => SEND('POST', '/admin/notice-reasons', { title }),
@@ -2950,6 +2950,7 @@ function Zones() {
         mutation.current = false;
         setBusy(false);
     } };
+    const setLeaveRequirement = (zone, required) => mutate(async () => { await db.updateZone(zone.id, zone.name, undefined, required); setZones(current => current.map(item => +item.id === +zone.id ? { ...item, leave_requires_substitute: required ? 1 : 0 } : item)); });
     const assign = (uid, zid) => { if (!users.some(user => +user.id === +uid))
         return; return mutate(async () => { await db.setOrg(uid, { zone_id: zid }); setUsers(current => current.map(user => +user.id === +uid ? { ...user, zone_id: zid } : user)); }); };
     const addZone = () => { const name = nz.trim(); if (!name)
@@ -2967,6 +2968,9 @@ function Zones() {
             u.last_name),
         React.createElement("small", null, u.role_title));
     const Col = (title, zid) => React.createElement("div", { className: "col" + (over === zid ? " over" : ""), key: zid || "none", onDragOver: e => { e.preventDefault(); setOver(zid); }, onDragLeave: () => setOver(null), onDrop: e => { assign(+e.dataTransfer.getData("uid"), zid); setOver(null); } },
+        zid != null && (() => { const zone = zones.find(item => +item.id === +zid); return React.createElement("label", { className: "row", style: { gap: 6, marginBottom: 8, fontSize: 13 } },
+            React.createElement("input", { type: "checkbox", disabled: busy, checked: !!Number(zone.leave_requires_substitute), onChange: event => setLeaveRequirement(zone, event.target.checked) }),
+            " \u0646\u06CC\u0627\u0632 \u0628\u0647 \u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0645\u0631\u062E\u0635\u06CC"); })(),
         React.createElement("h4", { className: "row", style: { justifyContent: "space-between", gap: 8, flexWrap: 'wrap' } },
             React.createElement("span", null, title),
             zid != null && React.createElement("span", { className: "row", style: { gap: 5, flexWrap: 'wrap' } },
@@ -9910,9 +9914,7 @@ function WorkPolicy() {
             React.createElement("label", { className: "row" },
                 React.createElement("input", { type: "checkbox", checked: !!g('request_options.manual_attendance_selfie'), onChange: chk('request_options.manual_attendance_selfie') }),
                 "\u0627\u0644\u0632\u0627\u0645 \u0633\u0644\u0641\u06CC \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC"),
-            React.createElement("label", { className: "row" },
-                React.createElement("input", { type: "checkbox", checked: !!g('request_options.leave_require_substitute'), onChange: chk('request_options.leave_require_substitute') }),
-                "\u0627\u0644\u0632\u0627\u0645 \u0645\u0639\u0631\u0641\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u0645\u0631\u062E\u0635\u06CC \u0627\u0633\u062A\u062D\u0642\u0627\u0642\u06CC \u0631\u0648\u0632\u0627\u0646\u0647"),
+            React.createElement("p", { className: "muted" }, "\u0627\u0644\u0632\u0627\u0645 \u0646\u06CC\u0631\u0648\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0645\u0631\u062E\u0635\u06CC \u0627\u0633\u062A\u062D\u0642\u0627\u0642\u06CC \u0631\u0648\u0632\u0627\u0646\u0647 \u0627\u0632 \u0628\u062E\u0634 \u00AB\u0645\u0646\u0637\u0642\u0647\u200C\u0628\u0646\u062F\u06CC\u00BB \u0628\u0631\u0627\u06CC \u0647\u0631 \u0645\u0646\u0637\u0642\u0647 \u062A\u0646\u0638\u06CC\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F."),
             React.createElement("label", { className: "row" },
                 React.createElement("input", { type: "checkbox", checked: !!g('request_options.request_sms_notify'), onChange: chk('request_options.request_sms_notify') }),
                 "\u067E\u06CC\u0627\u0645\u06A9 \u0646\u062A\u06CC\u062C\u0647\u0654 \u062F\u0631\u062E\u0648\u0627\u0633\u062A (\u0628\u0627 \u0633\u0631\u0648\u06CC\u0633 \u067E\u06CC\u0627\u0645\u06A9 \u0641\u0639\u0627\u0644)")),

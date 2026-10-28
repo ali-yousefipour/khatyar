@@ -52,6 +52,7 @@ function harness(component, db) {
 async function testZones() {
   let failUpdate = false, failDelete = false, failAssign = false;
   let deletions = 0;
+  const requirementUpdates=[];
   const created = [];
   const createdParents=[];
   let nextZoneId=3;
@@ -59,11 +60,16 @@ async function testZones() {
     users: async () => [{ id: '1', first_name: 'نیروی یک', zone_id: '1', is_active: 1 }, { id: '2', first_name: 'نیروی دو', zone_id: '2', is_active: '1' }, { id: '99', first_name: 'نیروی غیرفعال', zone_id: '1', is_active: 0 }],
     zones: async () => [{ id: '1', name: 'شمال' }, { id: '2', name: 'جنوب' }],
     createZone: async (name,parent_id) => { created.push(name);createdParents.push(parent_id);return { id: nextZoneId++, name,parent_id }; },
-    updateZone: async () => { if (failUpdate) throw new Error('rename failed'); },
+    updateZone: async (...args) => { if (failUpdate) throw new Error('rename failed');if(args.length===4)requirementUpdates.push(args); },
     deleteZone: async () => { if (failDelete) throw new Error('delete failed'); deletions++; },
     setOrg: async () => { if (failAssign) throw new Error('assign failed'); },
   });
   app.render(); await settle(); let tree = app.render();
+  const requirement=nodes(column(tree,1),node=>node.type==='input'&&node.props.type==='checkbox')[0];
+  assert.equal(requirement.props.checked,false);
+  await requirement.props.onChange({target:{checked:true}});tree=app.render();
+  assert.equal(nodes(column(tree,1),node=>node.type==='input'&&node.props.type==='checkbox')[0].props.checked,true);
+  assert.deepEqual(requirementUpdates[0],['1','شمال',undefined,true]);
   assert.ok(text(column(tree, 1)).includes('نیروی یک'));
   assert.ok(!text(tree).includes('نیروی غیرفعال'));
   button(column(tree, 1), 'ویرایش').props.onClick(); tree = app.render();
@@ -158,7 +164,7 @@ async function testLeaders(){
   const select=nodes(tree,node=>node.type==='select'&&node.props['aria-label']==='سربازرس منطقه')[0];
   assert.ok(!text(select).includes('ارشد بازرسی'));
   select.props.onChange({target:{value:'10'}});
-  nodes(tree,node=>node.type==='input'&&node.props.type==='checkbox')[0].props.onChange({target:{checked:true}});tree=app.render();
+  nodes(tree,node=>node.type==='Modal').flatMap(modal=>nodes(modal,node=>node.type==='input'&&node.props.type==='checkbox'))[0].props.onChange({target:{checked:true}});tree=app.render();
   fail=true;await button(tree,'ذخیره مسئولان').props.onClick();tree=app.render();assert.match(text(tree),/save failure/);assert.equal(nodes(tree,node=>node.type==='Modal').length,1);
   fail=false;await button(tree,'ذخیره مسئولان').props.onClick();tree=app.render();assert.equal(nodes(tree,node=>node.type==='Modal').length,0);assert.match(text(column(tree,1)),/سربازرس منطقه/);assert.match(text(column(tree,1)),/بازرس زیرمنطقه/);
   assert.equal(writes[1].fields.senior_user_id,10);assert.deepEqual(Array.from(writes[1].fields.inspector_ids),[11]);assert.equal(users[0].zone_id,3);assert.equal(users[1].zone_id,4);

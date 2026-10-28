@@ -376,8 +376,8 @@ const db = {
   revokeDevice: (id,type)=> SEND('POST','/admin/users/'+id+'/revoke-device',type?{device_type:type}:{}),
   deleteUser: (id)=> SEND('DELETE','/admin/users/'+id),
   resetPassword: (id,password)=> SEND('POST','/admin/users/'+id+'/reset-password',{password}),
-  createZone: (name,parentId=null)=> SEND('POST','/admin/zones',{name,parent_id:parentId}),
-  updateZone: (id,name,parentId)=> SEND('PUT','/admin/zones/'+id,{name,...(parentId===undefined?{}:{parent_id:parentId})}),
+  createZone: (name,parentId=null,requiresSubstitute=false)=> SEND('POST','/admin/zones',{name,parent_id:parentId,leave_requires_substitute:requiresSubstitute}),
+  updateZone: (id,name,parentId,requiresSubstitute)=> SEND('PUT','/admin/zones/'+id,{name,...(parentId===undefined?{}:{parent_id:parentId}),...(requiresSubstitute===undefined?{}:{leave_requires_substitute:requiresSubstitute})}),
   zoneLeaders: (id,fields)=>SEND('PUT','/admin/zones/'+id+'/leaders',fields),
   deleteZone: (id)=> SEND('DELETE','/admin/zones/'+id,{}),
   addReason: (title)=> SEND('POST','/admin/notice-reasons',{title}),
@@ -1731,6 +1731,7 @@ function Zones(){
   const reload=async()=>{const [nextUsers,nextZones]=await Promise.all([db.users(),db.zones()]);setUsers(nextUsers.filter(u=>Number(u.is_active)===1));setZones(nextZones);};
   useEffect(()=>{reload().catch(failure=>setError(failure.message||'بارگذاری مناطق انجام نشد.'))},[]);
   const mutate=async action=>{if(mutation.current)return;mutation.current=true;setBusy(true);setError("");try{await action();}catch(failure){setError(failure.message||'ذخیره تغییرات انجام نشد.');}finally{mutation.current=false;setBusy(false);}};
+  const setLeaveRequirement=(zone,required)=>mutate(async()=>{await db.updateZone(zone.id,zone.name,undefined,required);setZones(current=>current.map(item=>+item.id===+zone.id?{...item,leave_requires_substitute:required?1:0}:item));});
   const assign=(uid,zid)=>{if(!users.some(user=>+user.id===+uid))return;return mutate(async()=>{await db.setOrg(uid,{zone_id:zid});setUsers(current=>current.map(user=>+user.id===+uid?{...user,zone_id:zid}:user));});};
   const addZone=()=>{const name=nz.trim();if(!name)return;return mutate(async()=>{const parent_id=newParent?+newParent:null;const zone=await db.createZone(name,parent_id);setZones(current=>[...current,{...zone,parent_id}]);setNz("");});};
   const addChild=()=>{const name=childName.trim();if(!name||!child)return;return mutate(async()=>{const zone=await db.createZone(name,+child.id);setZones(current=>[...current,{...zone,parent_id:+child.id}]);setChild(null);setChildName('');});};
@@ -1741,6 +1742,7 @@ function Zones(){
   const Col=(title,zid)=><div className={"col"+(over===zid?" over":"")} key={zid||"none"}
     onDragOver={e=>{e.preventDefault();setOver(zid)}} onDragLeave={()=>setOver(null)}
     onDrop={e=>{assign(+e.dataTransfer.getData("uid"),zid);setOver(null)}}>
+    {zid!=null&&(()=>{const zone=zones.find(item=>+item.id===+zid);return <label className="row" style={{gap:6,marginBottom:8,fontSize:13}}><input type="checkbox" disabled={busy} checked={!!Number(zone.leave_requires_substitute)} onChange={event=>setLeaveRequirement(zone,event.target.checked)}/> نیاز به نیروی جایگزین مرخصی</label>;})()}
     <h4 className="row" style={{justifyContent:"space-between",gap:8,flexWrap:'wrap'}}><span>{title}</span>{zid!=null&&<span className="row" style={{gap:5,flexWrap:'wrap'}}><button className="btn g" disabled={busy} onClick={()=>openLeaders(zones.find(item=>+item.id===+zid))}>تعیین مسئولان</button><button className="btn g" disabled={busy} onClick={()=>{const zone=zones.find(item=>+item.id===+zid);setChild(zone);setChildName('');}}>+ زیرمنطقه</button><button className="btn g" disabled={busy} onClick={()=>{const zone=zones.find(item=>+item.id===+zid);setEditing(zone);setEditName(zone.name);setEditParent(zone.parent_id?String(zone.parent_id):'');}}>ویرایش</button><button className="btn d" disabled={busy} onClick={()=>removeZone(zones.find(item=>+item.id===+zid))}>حذف</button></span>}</h4>{zid!=null&&(()=>{const zone=zones.find(item=>+item.id===+zid);return <div style={{fontSize:12,lineHeight:2,marginBottom:10}}><div className="muted">{pathFor(zone)}</div><div>سربازرس: {zone.senior_user_id?userName(zone.senior_user_id):'پیش‌فرض منطقه / منطقهٔ والد'}</div><div>بازرس‌ها: {(zone.inspector_ids||[]).length?zone.inspector_ids.map(userName).join('، '):'پیش‌فرض منطقه / منطقهٔ والد'}</div></div>;})()}{users.filter(u=>Number(u.is_active)===1&&(zid==null?!u.zone_id:+u.zone_id===+zid)).map(Card)}</div>;
   const zoneTree=(()=>{
     const seen=new Set();
@@ -5957,7 +5959,7 @@ function WorkPolicy(){
       <label className="label">روش تأیید درخواست</label><select className="input" value={g('request_options.approval_mode')||'hierarchical'} onChange={e=>setCfg('request_options.approval_mode',e.target.value)}><option value="hierarchical">سلسله‌مراتب چارت سازمانی</option><option value="specific">مسئول مشخص در این سیاست</option></select>
       {g('request_options.approval_mode')==='specific'&&<label className="label">مسئول تأیید<select className="input" value={g('request_options.approver_id')} onChange={num('request_options.approver_id')}><option value="">انتخاب مسئول</option>{users.map(user=><option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>)}</select></label>}
       <label className="row"><input type="checkbox" checked={!!g('request_options.manual_attendance_selfie')} onChange={chk('request_options.manual_attendance_selfie')}/>الزام سلفی تردد دستی</label>
-      <label className="row"><input type="checkbox" checked={!!g('request_options.leave_require_substitute')} onChange={chk('request_options.leave_require_substitute')}/>الزام معرفی جایگزین فقط برای مرخصی استحقاقی روزانه</label>
+      <p className="muted">الزام نیروی جایگزین مرخصی استحقاقی روزانه از بخش «منطقه‌بندی» برای هر منطقه تنظیم می‌شود.</p>
       <label className="row"><input type="checkbox" checked={!!g('request_options.request_sms_notify')} onChange={chk('request_options.request_sms_notify')}/>پیامک نتیجهٔ درخواست (با سرویس پیامک فعال)</label>
     </section>
     <h4 style={{textAlign:"center",margin:"18px 0 10px"}}>درخواست‌ها</h4>

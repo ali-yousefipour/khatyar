@@ -18,7 +18,7 @@ class Db {
   static function pdo() { return self::$connection; }
   static function one($query,$params) { return self::$zones[(int)$params[0]] ?? null; }
   static function all($query,$params=[]) { return array_values(self::$zones); }
-  static function insert($query,$params) { self::$zones[3] = ['id'=>3,'name'=>$params[0],'parent_id'=>$params[1]]; return 3; }
+  static function insert($query,$params) { self::$zones[3] = ['id'=>3,'name'=>$params[0],'parent_id'=>$params[1],'leave_requires_substitute'=>$params[2]]; return 3; }
   static function run($query,$params=[]) {
     if(strpos($query,'CREATE TABLE IF NOT EXISTS zone_leadership')===0 || strpos($query,'DELETE FROM zone_leadership')===0)return;
     if (strpos($query,'UPDATE users')===0) {
@@ -29,7 +29,8 @@ class Db {
       unset($zone);
     } elseif (strpos($query,'UPDATE zones SET name')===0) {
       $id=(int)$params[count($params)-1];self::$zones[$id]['name']=$params[0];
-      if(count($params)===3)self::$zones[$id]['parent_id']=$params[1];
+      if(str_contains($query,'parent_id='))self::$zones[$id]['parent_id']=$params[1];
+      if(str_contains($query,'leave_requires_substitute='))self::$zones[$id]['leave_requires_substitute']=$params[count($params)-2];
     } elseif (strpos($query,'DELETE FROM zones')===0) {
       if (self::$failDelete) throw new RuntimeException('Database failure');
       unset(self::$zones[(int)$params[0]]);
@@ -43,6 +44,8 @@ function route($method,$path,$handler,$public=false,$level=null) {
   $handlers[$method] = $handler;
 }
 $source = file_get_contents(__DIR__.'/../lib/routes.php');
+function _zone_leave_requirement_storage(){}
+function _zone_leave_requirement_value($value){if(in_array($value,[true,1,'1'],true))return 1;if(in_array($value,[false,0,'0'],true))return 0;Http::error('invalid flag',422);}
 require_once __DIR__.'/../lib/OrgChart.php';
 $helperStart=strpos($source,'function _validated_zone_parent(');
 $helperEnd=strpos($source,"route('POST', '/api/admin/zones'",$helperStart);
@@ -65,6 +68,11 @@ foreach (['POST','PUT'] as $method) {
 }
 $created=$handlers['POST']([],['name'=>'  منطقه سه  '],[]);
 if ($created['name']!=='منطقه سه') throw new RuntimeException('Name not trimmed');
+$handlers['PUT'](['id'=>1],['name'=>'منطقه یک','leave_requires_substitute'=>true],[]);
+if(Db::$zones[1]['leave_requires_substitute']!==1)throw new RuntimeException('Zone leave requirement not saved');
+$handlers['PUT'](['id'=>1],['name'=>'منطقه یک','leave_requires_substitute'=>false],[]);
+if(Db::$zones[1]['leave_requires_substitute']!==0)throw new RuntimeException('Zone leave requirement not cleared');
+try{$handlers['PUT'](['id'=>1],['name'=>'منطقه یک','leave_requires_substitute'=>'wrong'],[]);throw new LogicException('Invalid flag accepted');}catch(RuntimeException $e){if($e->getCode()!==422)throw $e;}
 $handlers['PUT'](['id'=>1],['name'=>'نام جدید'],[]);
 if (Db::$zones[1]['name']!=='نام جدید' || Db::$users[0]['zone_id']!==1) throw new RuntimeException('Rename changed zone membership');
 $handlers['PUT'](['id'=>3],['name'=>'زیرمنطقه','parent_id'=>'2'],[]);

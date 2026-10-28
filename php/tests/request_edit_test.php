@@ -54,6 +54,8 @@ class Db {
 }
 function _db_table_exists_safe($name){return true;}
 $source=file_get_contents(__DIR__.'/../lib/routes.php');
+function _zone_leave_requirement_storage(){}
+function _req_leave_substitute_required($uid){return (bool)(Db::$policy['region_required']??false);}
 function loadPart($source,$start,$end){$a=strpos($source,$start);$b=strpos($source,$end,$a);if($a===false||$b===false)throw new LogicException('Missing source section');eval(str_replace('__DIR__',var_export(dirname(__DIR__).'/lib',true),substr($source,$a,$b-$a)));}
 loadPart($source,'function gregorian_to_jalali(','function j_to_ts(');
 loadPart($source,'function _req_active_work_policy(','function _req_approver(');
@@ -79,7 +81,7 @@ resetEdit();$r=edit();expect('unchanged save does not create audit revision',$r[
 resetEdit(['from_jdate'=>null,'to_jdate'=>null]);Db::$policy=null;edit(['approver_note'=>'اصلاح یادداشت']);expect('text-only correction preserves nullable date aliases and does not reapprove',Db::$rows[3]['from_jdate']===null&&Db::$rows[3]['to_jdate']===null&&Db::$rows[3]['approver_note']==='اصلاح یادداشت');
 resetEdit(['unit'=>'daily','minutes'=>480,'from_time'=>null,'to_time'=>null,'substitute_user_id'=>9]);Db::$assignments=[['request_id'=>3,'substitute_user_id'=>9,'absent_user_id'=>12,'from_date'=>'1405-07-01','to_date'=>'1405-07-01','status'=>'active']];edit(['from_jdate'=>'1405-07-02','to_jdate'=>'1405-07-03','substitute_user_id'=>10]);
 expect('substitute old interval canceled and corrected assignment activated',Db::$assignments[0]['status']==='canceled'&&Db::$assignments[1]['substitute_user_id']===10&&Db::$assignments[1]['from_date']==='1405-07-02'&&Db::$rows[3]['minutes']===960);
-resetEdit(['unit'=>'daily','minutes'=>480,'from_time'=>null,'to_time'=>null]);Db::$policy['config']['request_options']['leave_require_substitute']=true;denied('policy requires substitute for changed daily annual leave',422,fn()=>edit(['to_jdate'=>'1405-07-02']));
+resetEdit(['unit'=>'daily','minutes'=>480,'from_time'=>null,'to_time'=>null]);Db::$policy['region_required']=true;denied('region requires substitute for changed daily annual leave',422,fn()=>edit(['to_jdate'=>'1405-07-02']));
 function manual($in,$out){resetEdit(['type'=>'manual','unit'=>'daily','minutes'=>0,'from_jdate'=>null,'to_jdate'=>null,'from_time'=>null,'to_time'=>null,'in_time'=>$in,'out_time'=>$out]);Db::$policy=['config'=>['manual'=>[]]];return _req_policy_date('1405-07-01')->format('Y-m-d');}
 $g=manual('23:00','02:00');$next=(new DateTimeImmutable($g))->modify('+1 day')->format('Y-m-d');Db::$punches=[77=>['id'=>77,'user_id'=>12,'check_in'=>$g.' 23:00:00','check_out'=>$next.' 02:00:00','method'=>'manual','other_evidence'=>'retained']];edit(['in_time'=>'22:00','out_time'=>'03:00']);
 expect('overnight manual correction preserves punch ID and other evidence',Db::$punches[77]['check_in']===$g.' 22:00:00'&&Db::$punches[77]['check_out']===$next.' 03:00:00'&&Db::$punches[77]['other_evidence']==='retained');
