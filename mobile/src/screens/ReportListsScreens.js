@@ -339,6 +339,14 @@ export function TeamReportScreen() {
           {d.idlest && <View style={s.row}><Text style={[s.k, { color: C.danger }]}>کم‌کارترین: {d.idlest.name}</Text><Text style={s.v}>{faNum(Number(d.idlest.total))}</Text></View>}
         </View>
       )}
+      <View style={s.card}>
+        <Text style={s.title}>وضعیت نیروهای منطقه‌های تحت مسئولیت</Text>
+        <View style={s.row}>
+          <Text style={s.k}>کل زیرمجموعه: {faNum(Number(d.total || 0))}</Text>
+          <Text style={[s.v, { color: C.ok }]}>حاضر: {faNum(Number(d.present || 0))}</Text>
+          <Text style={[s.v, { color: C.danger }]}>بدون حضور: {faNum(Number(d.absent || 0))}</Text>
+        </View>
+      </View>
       {groups.length === 0 ? <Empty /> : groups.map(([role, list]) => (
         <View key={role} style={s.card}>
           <Text style={s.title}>{role} ({faNum(Number(list.length))})</Text>
@@ -347,6 +355,10 @@ export function TeamReportScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={tm.memberName}>{m.name}</Text>
                 {!!m.role_title && <Text style={tm.memberRole}>{m.role_title}</Text>}
+                {!!m.zone_name && <Text style={tm.memberRegion}>منطقه: {m.zone_name}</Text>}
+                <Text style={[tm.memberAttendance, { color: m.is_present ? C.ok : C.danger }]}>
+                  {m.is_present ? '● حاضر' : '● فاقد حضور فعال'} {m.check_in_time ? '  |  ساعت ورود: ' + faNum(m.check_in_time) : '  |  ورود امروز ثبت نشده'}
+                </Text>
                 {m.line_count > 0 ? (
                   m.line_count <= 6 ? (
                     <Text style={tm.memberLines}>خطوط: {m.lines.map((l) => faNum(l)).join('، ')}</Text>
@@ -388,6 +400,8 @@ const tm = StyleSheet.create({
   memberRow: { flexDirection: 'row-reverse', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#eef1f6' },
   memberName: { fontFamily: FONT.bold, color: C.ink, fontSize: 14, textAlign: 'right' },
   memberRole: { fontFamily: FONT.regular, color: C.muted, fontSize: 11.5, textAlign: 'right', marginTop: 2 },
+  memberRegion: { fontFamily: FONT.regular, color: C.slate, fontSize: 12, textAlign: 'right', marginTop: 4 },
+  memberAttendance: { fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', marginTop: 4 },
   memberLines: { fontFamily: FONT.regular, color: C.slate, fontSize: 12, textAlign: 'right', marginTop: 4 },
   memberLinesLink: { fontFamily: FONT.regular, color: C.brand, fontSize: 12, textAlign: 'right', marginTop: 4 },
   memberNoLine: { fontFamily: FONT.regular, color: C.muted, fontSize: 11.5, textAlign: 'right', marginTop: 4 },
