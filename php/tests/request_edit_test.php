@@ -14,6 +14,7 @@ class Db {
   static function one($sql,$params=[]){
     if(str_contains($sql,'GET_LOCK')){self::$locks[]='lock';return ['acquired'=>self::$locked];}
     if(str_contains($sql,'RELEASE_LOCK')){self::$locks[]='release';return ['released'=>1];}
+    if(str_contains($sql,'COALESCE(z.leave_requires_substitute'))return ['leave_requires_substitute'=>self::$policy['region_required']??0];
     if(str_contains($sql,'SHOW COLUMNS'))return ['Field'=>'substitute_user_id'];
     if(str_contains($sql,'FROM work_policies'))return self::$policy;
     if(str_contains($sql,'SELECT * FROM users'))return ['id'=>$params[0],'work_policy_id'=>1];
@@ -55,7 +56,6 @@ class Db {
 function _db_table_exists_safe($name){return true;}
 $source=file_get_contents(__DIR__.'/../lib/routes.php');
 function _zone_leave_requirement_storage(){}
-function _req_leave_substitute_required($uid){return (bool)(Db::$policy['region_required']??false);}
 function loadPart($source,$start,$end){$a=strpos($source,$start);$b=strpos($source,$end,$a);if($a===false||$b===false)throw new LogicException('Missing source section');eval(str_replace('__DIR__',var_export(dirname(__DIR__).'/lib',true),substr($source,$a,$b-$a)));}
 loadPart($source,'function gregorian_to_jalali(','function j_to_ts(');
 loadPart($source,'function _req_active_work_policy(','function _req_approver(');
