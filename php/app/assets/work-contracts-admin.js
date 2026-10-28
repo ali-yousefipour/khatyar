@@ -28,10 +28,10 @@ async function download(id,type){
  }
 }
 const style=`
-#kh-contract-launch{position:fixed;bottom:54px;left:17px;z-index:2147483001;background:#087751;color:white;border:none;border-radius:12px;padding:10px 16px;box-shadow:0 5px 20px #0002;cursor:pointer;font:600 13px Vazirmatn,Tahoma}
-#kh-contract-panel{position:fixed;inset:0;z-index:2147483200;background:#0009;display:none;align-items:center;justify-content:center;direction:rtl;font:14px Vazirmatn,Tahoma}
-#kh-contract-panel.open{display:flex}
-#kh-contract-panel .wc-box{width:min(1100px,97vw);max-height:94vh;overflow:auto;background:#f5f8f7;border-radius:18px;padding:22px}
+
+#kh-contract-panel{position:relative;display:none;width:100%;direction:rtl;font:14px Vazirmatn,Tahoma}
+#kh-contract-panel.open{display:block}
+#kh-contract-panel .wc-box{width:100%;box-sizing:border-box;background:#f5f8f7;border-radius:18px;padding:22px}
 #kh-contract-panel h2{margin:0;color:#0d664b}
 #kh-contract-panel .wc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:14px 0}
 #kh-contract-panel label{display:block;color:#243b37;font-weight:600}
@@ -53,10 +53,10 @@ const style=`
 function dom(){
  if(document.getElementById('kh-contract-panel'))return;
  const st=document.createElement('style');st.textContent=style;document.head.appendChild(st);
- const btn=document.createElement('button');btn.id='kh-contract-launch';btn.type='button';btn.textContent='ایجاد و پرینت قرارداد کاری';btn.onclick=open;document.body.appendChild(btn);
+
  const div=document.createElement('div');div.id='kh-contract-panel';div.innerHTML=`
  <div class="wc-box">
- <div class="wc-toolbar"><h2>ایجاد و پرینت قرارداد کاری</h2><button class="wc-secondary" id="wc-close">بستن ×</button></div>
+ <div class="wc-toolbar"><h2>ایجاد و پرینت قرارداد کاری</h2></div>
  <p>انتخاب قالب پیش‌فرض یا Word، تعیین مدت قرارداد و صدور نسخه مستقل برای هر یک از نیروها.</p>
  <div class="wc-grid">
  <label>قالب قرارداد<select id="wc-template"></select></label>
@@ -75,10 +75,9 @@ function dom(){
  <hr><div class="wc-toolbar"><h3>قراردادهای صادرشده</h3><button class="wc-secondary" id="wc-history-refresh">بارگذاری سوابق</button></div>
  <div class="wc-history"><table><thead><tr><th>نیرو</th><th>قالب</th><th>شروع</th><th>پایان</th><th>اقدامات</th></tr></thead><tbody id="wc-history"></tbody></table></div>
  <div id="wc-message" class="wc-status"></div></div>`;
- div.onclick=ev=>{if(ev.target===div)close();};
- document.body.appendChild(div);
+ const host=document.getElementById('khatyar-contract-page');if(!host)return;
+ host.appendChild(div);
  const by=id=>div.querySelector('#'+id);
- by('wc-close').onclick=close;
  by('wc-refresh').onclick=refresh;
  by('wc-history-refresh').onclick=history;
  by('wc-search').oninput=renderUsers;
@@ -132,8 +131,12 @@ async function upload(){
  try{await call('/templates',{method:'POST',body:f});by('wc-tpl-name').value='';by('wc-tpl-file').value='';await refresh();status('قالب Word ذخیره شد.');}
  catch(err){status(err.message,true);}
 }
-function close(){document.getElementById('kh-contract-panel')?.classList.remove('open');}
-function open(){dom();document.getElementById('kh-contract-panel').classList.add('open');if(!loaded){loaded=true;refresh();}}
-function init(){dom();}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+function unmount(){document.getElementById('kh-contract-panel')?.remove();loaded=false;selected.clear();}
+function mount(){
+ const host=document.getElementById('khatyar-contract-page');
+ if(!host)return;
+ dom();const panel=document.getElementById('kh-contract-panel');if(!panel)return;
+ panel.classList.add('open');if(!loaded){loaded=true;refresh();}
+}
+window.KhatyarWorkContracts={mount,unmount};
 })();
