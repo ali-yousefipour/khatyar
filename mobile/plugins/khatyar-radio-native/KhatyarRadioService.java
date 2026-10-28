@@ -520,13 +520,13 @@ public final class KhatyarRadioService extends Service {
   private synchronized void playRemote(String audioUrl, String token) {
     try {
       if (!radioAuthorized()) return;
-      acquireAudioFocus();
       if (audioUrl.startsWith("/")) {
         String base = getPrefs().getString("baseUrl", "").replaceAll("/+$", "");
         if (audioUrl.startsWith("/api/") && base.endsWith("/api")) base = base.substring(0, base.length() - 4);
         audioUrl = base + audioUrl;
       }
       releasePlayer();
+      acquireAudioFocus();
       player = new MediaPlayer();
       player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
       try { player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK); } catch (Throwable ignored) {}
