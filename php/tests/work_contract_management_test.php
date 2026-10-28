@@ -3,7 +3,7 @@ require_once __DIR__.'/../lib/WorkContracts.php';
 function ensureContract($ok,$message){if(!$ok)throw new RuntimeException($message);}
 $src=file_get_contents(__DIR__.'/../lib/WorkContracts.php');
 $ui=file_get_contents(__DIR__.'/../app/assets/work-contracts-admin.js');
-foreach(["work_contract_audit","deleted_at","/api/admin/work-contracts/{id}","'updated'","'deleted'","docxHtml("] as $required)
+foreach(["work_contract_audit","/api/admin/work-contracts/{id}","'updated'","DELETE FROM work_contract_audit WHERE contract_id=?","DELETE FROM work_contracts WHERE id=?","docxHtml("] as $required)
   ensureContract(strpos($src,$required)!==false,'Missing contract feature: '.$required);
 foreach(["data-action=\"edit\"","data-action=\"delete\"","async function saveEdit()","async function deleteContract("] as $required)
   ensureContract(strpos($ui,$required)!==false,'Missing contract interface: '.$required);
@@ -19,4 +19,4 @@ if(class_exists('ZipArchive')&&class_exists('DOMDocument')){
   ensureContract(strpos($html,'wc-page-break')!==false,'Second page break must be preserved');
   ensureContract(strpos($html,'\\n')===false,'No literal backslash-n tokens in HTML');
 }
-echo "PASS work-contract print structure, edit/delete and audit regression\n";
+echo "PASS work-contract print structure, permanent deletion, edit and audit regression\n";
