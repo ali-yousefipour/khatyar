@@ -26,9 +26,22 @@ const sortRecentMessages=list=>{const map=new Map();for(const m of(Array.isArray
 const loadRecentMessages=async()=>{if(!user?.id||!channelRef.current)return;if(recentLoadingRef.current){recentRefreshPendingRef.current=true;return}const requestId=++recentRequestIdRef.current;const requestedChannel=Number(channelRef.current);recentLoadingRef.current=true;try{const r=await request(`/radio-api-v2.php?op=responsible-recent&channel_id=${requestedChannel}`,{noStore:true});if(!mountedRef.current||requestId!==recentRequestIdRef.current||requestedChannel!==Number(channelRef.current))return;const list=Array.isArray(r?.messages)?r.messages:[];setRecentMessages(sortRecentMessages(list))}catch(e){}finally{recentLoadingRef.current=false;if(recentRefreshPendingRef.current){recentRefreshPendingRef.current=false;setTimeout(()=>loadRecentMessages(),0)}}};
 const cancelPlayback=()=>{playbackRef.current?.cancel?.();setPlayingMessageId(0);setLastMessage(null);};
 const beginSession=()=>{const generation=++sessionRef.current;resyncingRef.current=true;lastIdRef.current=0;listenAllLastIdRef.current=0;recentRequestIdRef.current+=1;setRecentMessages([]);setBusy(false);setSpeaker(null);cancelPlayback();if(NATIVE)NATIVE.stop().catch(()=>{});return generation;};
+const shiftDenied=e=>/403|شیفت کاری|ورود خود را ثبت کنید|دسترسی به بی‌سیم/i.test(String(e?.message||e||''));
 const initializeLive=async(generation,cid,all=listenAllRef.current)=>{
   if(!cid)return false;
-  const response=await request(`/radio-api-v2.php?op=${all?'poll-all':'poll'}&channel_id=${cid}&initialize=1`,{noStore:true});
+  let response;
+  try{response=await request(`/radio-api-v2.php?op=${all?'poll-all':'poll'}&channel_id=${cid}&initialize=1`,{noStore:true});}
+  catch(error){
+    if(shiftDenied(error)&&generation===sessionRef.current){
+      // Keep the native foreground poller alive; it must not play anything
+      // until the server confirms that a new attendance session is active.
+      cancelPlayback();
+      if(NATIVE)await syncNative({channelId:cid,lastMessageId:0,listenAll:all,initialized:true,generation});
+      setLoadError('برای استفاده از بی‌سیم ابتدا از «ثبت حضور من» ورود بزنید.');
+      return false;
+    }
+    throw error;
+  }
   if(!mountedRef.current||generation!==sessionRef.current||cid!==Number(channelRef.current))return false;
   const cursor=Number(response.last_message_id);
   if(!Number.isSafeInteger(cursor)||cursor<0)throw new Error('همگام‌سازی زندهٔ بی‌سیم ناموفق بود؛ دوباره کانال را بارگذاری کنید.');
@@ -110,7 +123,7 @@ const playFile=async(message,{generation=sessionRef.current,manual=false,all=fal
     await entry.done;
   }catch(error){finish();}
 };
-const pollFailRef=useRef(0);
+const pollFailRef=useRef(0),reconnectRef=useRef(false),nextReconnectRef=useRef(0);
 const poll=async()=>{
   if(!user?.id||!enabledRef.current||pollingRef.current||!channelRef.current||resyncingRef.current||listenAllRef.current)return;
   pollingRef.current=true;const requestedChannel=Number(channelRef.current),generation=sessionRef.current;
@@ -124,7 +137,7 @@ const poll=async()=>{
       if(AppState.currentState==='active'&&Number(message.sender_id)!==Number(user.id))await playFile(message,{generation});
     }
     if(generation===sessionRef.current)loadRecentMessages();
-  }catch(error){if(generation===sessionRef.current){pollFailRef.current++;if(mountedRef.current&&pollFailRef.current>=3)setLoadError(error.message||'دریافت پیام بی‌سیم ناموفق بود.');}}
+  }catch(error){if(generation===sessionRef.current){if(shiftDenied(error)){cancelPlayback();resyncingRef.current=true;}pollFailRef.current++;if(mountedRef.current&&pollFailRef.current>=3)setLoadError(error.message||'دریافت پیام بی‌سیم ناموفق بود.');}}
   finally{pollingRef.current=false;}
 };
 const pollAll=async()=>{
@@ -137,16 +150,23 @@ const pollAll=async()=>{
       if(Number(message.id)<=listenAllLastIdRef.current)continue;listenAllLastIdRef.current=Number(message.id);
       if(AppState.currentState==='active'&&Number(message.sender_id)!==Number(user.id))await playFile(message,{generation,all:true});
     }
-  }catch(error){if(generation===sessionRef.current)setLoadError(error.message||'دریافت پیام شنود ناموفق بود.');}
+  }catch(error){if(generation===sessionRef.current){if(shiftDenied(error)){cancelPlayback();resyncingRef.current=true;}setLoadError(error.message||'دریافت پیام شنود ناموفق بود.');}}
   finally{pollAllRef.current=false;}
 };
 const presence=async()=>{if(!user?.id||!enabledRef.current||!channelRef.current)return;try{await request('/radio-api-v2.php?op=presence',{method:'POST',body:{channel_id:channelRef.current}})}catch(e){}};
+const retryPendingShift=async()=>{
+  if(!resyncingRef.current||!enabledRef.current||!channelRef.current||reconnectRef.current||Date.now()<nextReconnectRef.current)return;
+  reconnectRef.current=true;nextReconnectRef.current=Date.now()+7000;
+  try{await initializeLive(sessionRef.current,Number(channelRef.current));}
+  catch(error){if(mountedRef.current)setLoadError(error.message||'اتصال مجدد بی‌سیم ناموفق بود.');}
+  finally{reconnectRef.current=false;}
+};
 const resyncToLive=async()=>{
   const generation=beginSession();
   try{if(enabledRef.current&&channelRef.current)await initializeLive(generation,Number(channelRef.current));}
   catch(error){if(generation===sessionRef.current)setLoadError(error.message||'همگام‌سازی بی‌سیم ناموفق بود؛ بروزرسانی کنید.');}
 };
-useEffect(()=>{if(!user?.id||!enabled||!channelRef.current)return;const tick=()=>{if(listenAllRef.current)pollAll();else poll();presence()};tick();loadRecentMessages();const t=setInterval(tick,1800),sub=AppState.addEventListener('change',s=>{if(s==='active'){resyncToLive().then(tick)}});return()=>{clearInterval(t);try{sub.remove()}catch(e){}}},[user?.id,enabled,channelId]);
+useEffect(()=>{if(!user?.id||!enabled||!channelRef.current)return;const tick=()=>{if(resyncingRef.current){retryPendingShift();return;}if(listenAllRef.current)pollAll();else poll();presence()};tick();loadRecentMessages();const t=setInterval(tick,1800),sub=AppState.addEventListener('change',s=>{if(s==='active'){resyncToLive().then(tick)}});return()=>{clearInterval(t);try{sub.remove()}catch(e){}}},[user?.id,enabled,channelId]);
 useEffect(()=>{if(!NATIVE)return;const send=v=>{try{NATIVE.setForegroundState(v)}catch(e){}};send(AppState.currentState==='active');const sub=AppState.addEventListener('change',s=>send(s==='active'));const hb=setInterval(()=>{if(AppState.currentState==='active')send(true)},2000);return()=>{try{sub.remove()}catch(e){}clearInterval(hb);send(false)}},[]);
 const releaseTake=async()=>{try{await request('/radio-api-v2.php?op=release',{method:'POST',body:{channel_id:channelRef.current}})}catch(_){} };
 const startTalk=async()=>{if(pttReleaseTimerRef.current){clearTimeout(pttReleaseTimerRef.current);pttReleaseTimerRef.current=null}const inputGeneration=++pttInputGenerationRef.current;pttDownRef.current=true;if(recordingRef.current)return;try{if(resyncingRef.current||!channelRef.current){pttDownRef.current=false;Alert.alert('بی‌سیم',channels.length?'ابتدا یک کانال انتخاب کنید.':'هیچ کانال مجازی برای شما در دسترس نیست.');return}let mic=await getRecordingPermissionsAsync().catch(()=>({granted:false}));if(!mic?.granted)mic=await requestRecordingPermissionsAsync().catch(()=>({granted:false}));if(!mic?.granted){pttDownRef.current=false;return}if(!pttDownRef.current||inputGeneration!==pttInputGenerationRef.current)return;const r=await request('/radio-api-v2.php?op=take',{method:'POST',body:{channel_id:channelRef.current}});if(!r.ok)throw new Error(r.error);if(!pttDownRef.current||inputGeneration!==pttInputGenerationRef.current){await releaseTake();return}const minLimit=Math.max(MIN_TALK_MS,Number(channels.find(x=>Number(x.id)===Number(channelRef.current))?.min_talk_ms||minTalkMs||MIN_TALK_MS));const limit=Math.max(minLimit,Number(r.lease_ms||limitRef.current||DEFAULT_TALK_MS));limitRef.current=limit;setMaxTalkMs(limit);await setAudioModeAsync({playsInSilentMode:true,allowsRecording:true,interruptionMode:'doNotMix'});if(!pttDownRef.current||inputGeneration!==pttInputGenerationRef.current){await releaseTake();return}playEffect('ptt_press',pttPressPlayer);await wait(90);if(!pttDownRef.current||inputGeneration!==pttInputGenerationRef.current){await releaseTake();return}let nativeStarted=false;if(NATIVE?.startOutgoingRecording){try{await NATIVE.startOutgoingRecording();nativeRecordingRef.current=true;nativeStarted=true}catch(_){nativeRecordingRef.current=false}}if(!nativeStarted){await recorder.prepareToRecordAsync()}if(!pttDownRef.current||inputGeneration!==pttInputGenerationRef.current){if(nativeRecordingRef.current){try{await NATIVE.stopOutgoingRecording()}catch(_){}}nativeRecordingRef.current=false;try{await recorder.stop()}catch(_){ }await releaseTake();return}if(!nativeStarted)recorder.record();talkStartRef.current=Date.now();autoStoppedRef.current=false;recordingRef.current=true;talkGenerationRef.current+=1;setRecording(true);setStatus(`در حال صحبت… حداکثر ${Math.round(limit/1000)} ثانیه`);setTimeout(()=>{if(recordingRef.current){autoStoppedRef.current=true;stopTalk({immediate:true})}},limit)}catch(e){pttDownRef.current=false;setStatus('');try{await releaseTake()}catch(_){}Alert.alert('بی‌سیم',String(e.message||'').includes('استفاده')?'کانال در حال استفاده است.':(e.message||'امکان صحبت وجود ندارد.'))}};
