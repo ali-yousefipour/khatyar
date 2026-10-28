@@ -57,6 +57,8 @@ jobs:
           node tests/company_work_ui_test.cjs
           node tests/company_work_deployment_test.cjs
           node tests/company_work_http_test.cjs
+          php -l lib/KhatyarFormsSchema.php
+          php tests/forms_schema_test.php
           php tests/login_policy_test.php
           node tests/login_policy_ui_test.cjs
           php tests/work_policy_requests_test.php
