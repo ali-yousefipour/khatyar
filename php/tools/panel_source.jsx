@@ -9792,6 +9792,21 @@ function SubscriptionInvoicesAdmin(){
   </div>;
 }
 
+function WorkContractsPage(){
+  const [ready,setReady]=useState(false);
+  useEffect(()=>{
+    let active=true,attempts=0;
+    const attach=()=>{
+      if(!active)return;
+      if(window.KhatyarWorkContracts?.mount){window.KhatyarWorkContracts.mount();setReady(true);}
+      else if(attempts++<12)setTimeout(attach,200);
+    };
+    attach();
+    return()=>{active=false;window.KhatyarWorkContracts?.unmount?.();};
+  },[]);
+  return <section className="panel admin-workspace-page"><div id="khatyar-contract-page"/>{!ready&&<p className="muted">در حال بارگذاری ایجاد و پرینت قرارداد کاری…</p>}</section>;
+}
+
 const VIEWS={
   seniority:{t:"سنوات نیروها",ic:"📆",c:PersonnelSeniority},
   covertselfies:{t:"نظارت",ic:"📸",c:CovertSelfies},
@@ -9817,6 +9832,7 @@ const VIEWS={
   bills:{t:"آبونمان و فیش‌ها",ic:"₪",c:Bills},
   config:{t:"تذکرات و چک‌لیست",ic:"✎",c:Config},
   forms:{t:"فرم‌ساز",ic:"▤",c:FormBuilder},
+  workcontracts:{t:"ایجاد و پرینت قرارداد کاری",ic:"📄",c:WorkContractsPage},
   reports:{t:"گردش گزارش‌ها",ic:"✉",c:Reports},
   report:{t:"گزارش‌گیری پیشرفته",ic:"📊",c:Reporting},
   perfreport:{t:"گزارش عملکرد پرسنل",ic:"🏆",c:PersonnelPerformance},
@@ -9861,7 +9877,7 @@ const PANEL_MENU_SECTIONS=[
   ["تاکسی و خطوط",["drivers","tempdrivers","lines","bills"]],
   ["امور مالی و اشتراک",["subscriptioninvoices"]],
   ["گزارش‌ها و آمار",["reportscenter","monthlyworkreport","attreport","leavereport","perfreport","driverservicereport","reports","report","useract"]],
-  ["پرسنل و منابع انسانی",["users","org","zones","attendance","shifts","workpolicy","seniority","requests","commitments","salaryslips"]],
+  ["پرسنل و منابع انسانی",["users","org","zones","attendance","shifts","workpolicy","seniority","requests","commitments","salaryslips","workcontracts"]],
   ["تجهیزات و رفاه",["vehicleassets","vehiclechecklist","inventory","welfare","cultural"]],
   ["پیام‌ها و ارتباطات",["messages","sms","smslog","messengercenter","radiocenter"]],
   ["تنظیمات و ابزارها",["missiontemplates","scoreengine","forms","config","customfields","excel","appitems","settings"]],
@@ -9869,7 +9885,7 @@ const PANEL_MENU_SECTIONS=[
 ];
 const PANEL_MENU_KEYWORDS={
   sms:"اس ام اس sms پیام کوتاه",smslog:"پیامک ارسال تاریخچه",messages:"پیام صندوق مکاتبه",
-  users:"کاربر پرسنل نیرو اعضا",subscriptioninvoices:"صدور فاکتور فروش اشتراک خطیار شرکتها مالی",salaryslips:"حقوق فیش مالی",seniority:"سنوات خدمت سابقه",
+  users:"کاربر پرسنل نیرو اعضا",subscriptioninvoices:"صدور فاکتور فروش اشتراک خطیار شرکتها مالی",salaryslips:"حقوق فیش مالی",workcontracts:"قرارداد کاری استخدام پرسنل چاپ پرینت ورد",seniority:"سنوات خدمت سابقه",
   attreport:"تردد ورود خروج حضور",monthlyworkreport:"کارکرد ماهیانه موظفی شیفت سازمان",
   requests:"درخواست مرخصی ماموریت",inventory:"انبار تجهیزات واگذاری تحویل",
   logs:"رویداد رخداد امنیت خطا فعالیت",activesessions:"نشست دستگاه ورود امنیت",
@@ -9979,7 +9995,7 @@ function App(){
     drivers:'driver-id', driverservicereport:'driver-service-chart', tempdrivers:'temporary-driver-clock', lines:'route-line', zones:'zone-grid', bills:'billing-receipt', platetraining:'search-taxi',
     reports:'report-card', report:'report-send', perfreport:'checked-user-male', attreport:'attendance-calendar', leavereport:'attendance-calendar', useract:'user-activity',
     seniority:'attendance-calendar', shifts:'shift-cycle', monthlyworkreport:'attendance-calendar', workpolicy:'work-policy', requests:'request-form', salaryslips:'salary-slip', commitments:'commitment-sign', welfare:'welfare-gift', cultural:'cultural-book',
-    messages:'messages-mail', sms:'sms-phone', smslog:'sms-history', messengercenter:'messenger-bot', radiocenter:'radio-tower', users:'users-admin', org:'organization-tree', forms:'forms-pen',
+    messages:'messages-mail', sms:'sms-phone', smslog:'sms-history', messengercenter:'messenger-bot', radiocenter:'radio-tower', users:'users-admin', org:'organization-tree', forms:'forms-pen', workcontracts:'form-document',
     config:'system-config', customfields:'custom-fields', inventory:'request-box', excel:'excel-upload', appitems:'app-menu', cronstatus:'activity-wave', activesessions:'security-lock', logs:'audit-logs', settings:'settings-gears',
     vehicleassets:'operation-tools', vehiclechecklist:'checklist', schoolservice:'checklist', complaints:'chat-message'
   };
