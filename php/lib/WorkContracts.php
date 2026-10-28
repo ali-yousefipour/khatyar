@@ -22,9 +22,16 @@ final class WorkContracts {
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY ix_contract_user (user_id,id),KEY ix_contract_template (template_id,id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    $r=Db::one("SELECT id FROM work_contract_templates WHERE name=? LIMIT 1",['قرارداد پیش‌فرض شرکت سعید توس عدل']);
-    if(!$r) Db::run("INSERT INTO work_contract_templates(name,kind,body_html,is_default) VALUES(?,?,?,1)",
-      ['قرارداد پیش‌فرض شرکت سعید توس عدل','html',self::defaultHtml()]);
+    // Seed the built-in template once, not again after an administrator
+    // intentionally deletes it. This also permits a fully custom set of templates.
+    $seeded=Db::one("SELECT value FROM app_settings WHERE `key`='work_contract_templates_seeded_v1' LIMIT 1");
+    if(!$seeded){
+      $r=Db::one("SELECT id FROM work_contract_templates WHERE name=? LIMIT 1",['قرارداد پیش‌فرض شرکت سعید توس عدل']);
+      if(!$r) Db::run("INSERT INTO work_contract_templates(name,kind,body_html,is_default) VALUES(?,?,?,1)",
+        ['قرارداد پیش‌فرض شرکت سعید توس عدل','html',self::defaultHtml()]);
+      Db::run("INSERT INTO app_settings (`key`,value) VALUES (?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)",
+        ['work_contract_templates_seeded_v1','1']);
+    }
     Db::run("CREATE TABLE IF NOT EXISTS work_contract_audit (
       id BIGINT AUTO_INCREMENT PRIMARY KEY,contract_id BIGINT NOT NULL,actor_id INT NOT NULL,
       action VARCHAR(20) NOT NULL,before_json LONGTEXT NULL,after_json LONGTEXT NULL,
@@ -430,7 +437,7 @@ HTML;
       try {
         $tpl=Db::one('SELECT id,is_default FROM work_contract_templates WHERE id=? FOR UPDATE',[$id]);
         if(!$tpl)Http::error('قالب موردنظر یافت نشد',404);
-        if(!empty($tpl['is_default']))Http::error('قالب اصلی سامانه قابل حذف نیست؛ قالب‌های بارگذاری‌شده را می‌توانید حذف کنید',409);
+
         $count=Db::one('SELECT COUNT(*) n FROM work_contracts WHERE template_id=?',[$id]);
         if((int)($count['n']??0)>0)Http::error('ابتدا قراردادهای صادرشده با این قالب را حذف یا به قالب دیگری منتقل کنید',409);
         Db::run('DELETE FROM work_contract_templates WHERE id=?',[$id]);
