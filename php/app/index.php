@@ -263,12 +263,15 @@ foreach ($routes as &$teamRoute) {
 unset($teamRoute);
 // Enforce consistent, verified forms schema across listing, creation, editing
 // and public forms, before legacy handlers attempt to query new columns.
-require_once "$ROOT/lib/KhatyarFormsSchema.php";
+// A partly uploaded FTP release must never take down authentication.
+$formsSchemaAvailable=is_file("$ROOT/lib/KhatyarFormsSchema.php");
+if($formsSchemaAvailable) require_once "$ROOT/lib/KhatyarFormsSchema.php";
 foreach($routes as &$formsRoute) {
   $formsPath=(string)($formsRoute['p']??'');
   if(!preg_match('~^/api/(?:admin/(?:forms(?:/.*)?|form-submit)|public/forms(?:/.*)?)$~',$formsPath))continue;
   $formsOriginal=$formsRoute['fn'];
   $formsRoute['fn']=static function($params,$body,$user)use($formsOriginal){
+    if(!class_exists('KhatyarFormsSchema')) Http::error('ماژول ساختار فرم‌ها هنوز روی سرور نصب نشده است',503);
     KhatyarFormsSchema::ensure();
     return $formsOriginal($params,$body,$user);
   };
