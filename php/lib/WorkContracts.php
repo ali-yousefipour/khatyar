@@ -187,54 +187,116 @@ HTML;
   }
   private static function docxHtml(string $binary): string {
     if(!class_exists('ZipArchive')||!class_exists('DOMDocument'))
-      throw new RuntimeException('امکان پردازش قالب Word در سرور فعال نیست');
-    $temp=tempnam(sys_get_temp_dir(),'wch');file_put_contents($temp,$binary);
+      throw new RuntimeException('افزونه‌های پردازش Word در سرور نصب نیستند');
+    $temp=tempnam(sys_get_temp_dir(),'wch');
+    file_put_contents($temp,$binary);
     $zip=new ZipArchive();
-    if($zip->open($temp)!==true){unlink($temp);throw new RuntimeException('فایل Word معتبر نیست');}
-    $xml=$zip->getFromName('word/document.xml');$zip->close();unlink($temp);
-    if($xml===false)throw new RuntimeException('ساختار فایل Word ناقص است');
-    $dom=new DOMDocument('1.0','UTF-8');
-    if(!$dom->loadXML($xml,LIBXML_NONET|LIBXML_COMPACT))throw new RuntimeException('ساختار متن Word نامعتبر است');
-    $xp=new DOMXPath($dom);
-    $xp->registerNamespace('w','http://schemas.openxmlformats.org/wordprocessingml/2006/main');
-    $html='<div class="wc-paper wc-word" dir="rtl">';
-    $page2=false;
-    foreach($xp->query('//w:body//w:p') as $p){
-      $parts=[];$plain='';
-      foreach($xp->query('.//w:r',$p) as $run){
-        $value='';
-        foreach($xp->query('.//w:t|.//w:tab|.//w:br',$run) as $node){
-          if($node->localName==='t')$value.=$node->textContent;
-          elseif($node->localName==='tab')$value.=' ';
-          elseif($node->localName==='br' && $node->getAttributeNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main','type')!=='page')$value.=' ';
+    if($zip->open($temp)!==true){@unlink($temp);throw new RuntimeException('قالب Word معتبر نیست');}
+    try{
+      $xml=$zip->getFromName('word/document.xml');
+      if($xml===false)throw new RuntimeException('متن فایل Word پیدا نشد');
+      $dom=new DOMDocument('1.0','UTF-8');
+      if(!@$dom->loadXML($xml,LIBXML_NONET|LIBXML_COMPACT))
+        throw new RuntimeException('ساختار Word نامعتبر است');
+      $xp=new DOMXPath($dom);
+      $w='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+      $rns='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+      $xp->registerNamespace('w',$w);
+      $xp->registerNamespace('a','http://schemas.openxmlformats.org/drawingml/2006/main');
+      $xp->registerNamespace('wp','http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing');
+      $rels=[];
+      $relXml=$zip->getFromName('word/_rels/document.xml.rels');
+      if($relXml!==false){
+        $rd=new DOMDocument();
+        if(@$rd->loadXML($relXml,LIBXML_NONET|LIBXML_COMPACT)){
+          foreach($rd->getElementsByTagNameNS('http://schemas.openxmlformats.org/package/2006/relationships','Relationship') as $rel){
+            if($rel->getAttribute('TargetMode')==='External')continue;
+            $target=str_replace('\\','/',$rel->getAttribute('Target'));
+            if(!preg_match('~(?:^|/)media/([^/]+\.(?:png|jpe?g|gif|webp))$~i',$target,$m))continue;
+            $rels[$rel->getAttribute('Id')]='word/media/'.$m[1];
+          }
         }
-        if($value==='')continue;
-        $plain.=$value;
-        $escaped=htmlspecialchars($value,ENT_QUOTES,'UTF-8');
-        if($xp->query('./w:rPr/w:b',$run)->length)$escaped='<strong>'.$escaped.'</strong>';
-        $parts[]=$escaped;
       }
-      $plain=trim($plain);
-      if($plain==='')continue;
-      // Each actual newline or literal backslash-n from historical imports
-      // represents a real paragraph, never visible "\\n" text.
-      $content=implode('',$parts);
-      $content=str_replace(["\\r\\n","\\r"],"\\n",$content);
-      $content=str_replace('\\\\n',"\\n",$content);
-      foreach(explode("\\n",$content) as $piece){
-        $piece=trim($piece);
-        $text=trim(html_entity_decode(strip_tags($piece),ENT_QUOTES|ENT_HTML5,'UTF-8'));
-        if($text==='')continue;
-        if(!$page2 && preg_match('/^(?:۷|7)\\s*[)\\-.،:]?\\s*حق\\s*السعی/u',$text)){
-          $html.='<div class="wc-page-break"></div>';$page2=true;
+      $html='<div class="wc-paper wc-word" dir="rtl">';
+      $page2=false;
+      foreach($xp->query('//w:body/w:p') as $p){
+        $raw='';$rich='';$images=[];
+        foreach($xp->query('.//w:r',$p) as $run){
+          $text='';
+          foreach($xp->query('./w:t|./w:tab|./w:br',$run) as $node){
+            if($node->localName==='t')$text.=$node->textContent;
+            elseif($node->localName==='tab')$text.=' ';
+            elseif($node->localName==='br')$text.="\n";
+          }
+          if($text!==''){
+            $raw.=$text;
+            $escaped=htmlspecialchars($text,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+            $bold=$xp->query('./w:rPr/w:b[not(@w:val="0" or @w:val="false")]', $run)->length>0;
+            $font=$xp->query('./w:rPr/w:rFonts',$run)->item(0);
+            $size=$xp->query('./w:rPr/w:szCs|./w:rPr/w:sz',$run)->item(0);
+            $fontName=$font?($font->getAttributeNS($w,'cs')?:$font->getAttributeNS($w,'ascii')):'';
+            $runCss='';
+            // Respect genuine DOCX typeface/size when the browser has it installed.
+            if($fontName!=='' && preg_match('/^[\p{L}\p{N} ._-]{1,45}$/u',$fontName))
+              $runCss.='font-family:&quot;'.htmlspecialchars($fontName,ENT_QUOTES,'UTF-8').'&quot;,Tahoma,sans-serif;';
+            if($size){
+              $n=(int)$size->getAttributeNS($w,'val');
+              if($n>=16&&$n<=34)$runCss.='font-size:'.($n/2).'pt;';
+            }
+            if($bold)$runCss.='font-weight:700;';
+            $rich.='<span'.($runCss?' style="'.$runCss.'"':'').'>'.$escaped.'</span>';
+          }
+          foreach($xp->query('.//a:blip',$run) as $blip){
+            $rid=$blip->getAttributeNS($rns,'embed');
+            $path=$rels[$rid]??'';
+            if(!$path)continue;
+            $bytes=$zip->getFromName($path);
+            if($bytes===false||strlen($bytes)>1500000)continue;
+            $extension=strtolower(pathinfo($path,PATHINFO_EXTENSION));
+            $mime=($extension==='jpg'||$extension==='jpeg')?'image/jpeg':
+                  ($extension==='png'?'image/png':($extension==='gif'?'image/gif':'image/webp'));
+            $extent=$xp->query('.//wp:extent',$run)->item(0);
+            $width=$extent?(int)round((float)$extent->getAttribute('cx')/914400*96):100;
+            $width=max(40,min(150,$width));
+            $images[]='<img class="wc-template-logo" alt="" width="'.$width.'" src="data:'.$mime.';base64,'.base64_encode($bytes).'">';
+          }
         }
-        if(preg_match('/^قرارداد\\s*کار$/u',$text))$html.='<h1>'.$piece.'</h1>';
-        elseif(preg_match('~^[۰-۹0-9]+(?:/[۰-۹0-9]+)?\\s*[)\\-.،:]\\s*~u',$text))
-          $html.='<h3>'.$piece.'</h3>';
-        else $html.='<p>'.$piece.'</p>';
+        if($images){
+          // The supplied original Word contract places its two logos in the
+          // first paragraph, before the title. Preserve them inside the PDF.
+          $html.='<div class="wc-logo-row">'.implode('',$images).'</div>';
+        }
+        if(trim($raw)==='')continue;
+        $raw=str_replace(["\r\n","\r","\\n"],"\n",$raw);
+        $rich=str_replace(["\r\n","\r","\\n"],"\n",$rich);
+        $segments=explode("\n",$raw);
+        $canUseRich=count($segments)===1;
+        foreach($segments as $segment){
+          $plain=trim($segment);
+          if($plain==='')continue;
+          $content=$canUseRich?$rich:htmlspecialchars($plain,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+          if(!$page2 && preg_match('/^(?:۷|7)\s*[)\-.،:]?\s*حق\s*السعی/u',$plain)){
+            $html.='<div class="wc-page-break"></div>';$page2=true;
+          }
+          if(preg_match('/^قرارداد\s*کار$/u',$plain)){
+            $html.='<h1>'.$content.'</h1>';
+          }elseif(mb_strlen($plain,'UTF-8')<=68 &&
+                   preg_match('~^[۰-۹0-9]+(?:/[۰-۹0-9]+)?\s*[)\-.،:]\s*~u',$plain)){
+            $html.='<h3>'.$content.'</h3>';
+          }elseif(preg_match('~^([۰-۹0-9]+(?:/[۰-۹0-9]+)?\s*[)\-.،:]\s*[^:：]{1,45}[:：])\s*(.+)$~u',$plain,$parts)){
+            // Make only the article heading bold, not its entire long paragraph.
+            $html.='<p class="wc-clause"><strong>'.
+              htmlspecialchars($parts[1],ENT_QUOTES,'UTF-8').'</strong> '.
+              htmlspecialchars($parts[2],ENT_QUOTES,'UTF-8').'</p>';
+          }else{
+            $html.='<p>'.$content.'</p>';
+          }
+        }
       }
+      return $html.'</div>';
+    }finally{
+      $zip->close();@unlink($temp);
     }
-    return $html.'</div>';
   }
   private static function renderContract(array $tpl,array $snapshot): array {
     if(($tpl['kind']??'html')==='docx'){
