@@ -328,6 +328,20 @@ HTML;
       return '';
     }finally{$zip->close();@unlink($temp);}
   }
+  private static function printableSheets(string $body,string $footer): string {
+    // Every A4 page is an independent sheet: padding and signatures repeat on
+    // page 2 instead of disappearing after the first CSS-fragmented div.
+    $body=preg_replace('~^<div class="wc-paper[^"]*" dir="rtl">~u','',$body,1);
+    $body=preg_replace('~</div>\s*$~u','',$body,1);
+    $pieces=preg_split('~<div class="wc-page-break"></div>~u',$body);
+    if(!$pieces)$pieces=[$body];
+    $output='<div class="wc-print-document" dir="rtl">';
+    foreach($pieces as $piece){
+      $output.='<section class="wc-sheet" dir="rtl"><main class="wc-sheet-content">'.
+        $piece.'</main>'.$footer.'</section>';
+    }
+    return $output.'</div>';
+  }
   private static function persianPrintable(string $html): string {
     // Convert visible text only, never image data URLs or HTML attributes.
     $parts=preg_split('/(<[^>]*>)/u',$html,-1,PREG_SPLIT_DELIM_CAPTURE);
@@ -533,42 +547,42 @@ HTML;
         $footer=self::footerFromWord($row['docx_blob']);
       }
       if($footer==='')$footer='<div class="wc-print-footer" dir="rtl"><span>محل امضای کارگر</span><span>محل امضای کارفرما</span></div>';
-      $row['body_html']=self::persianPrintable($row['body_html']);
+      $row['body_html']=self::printableSheets(self::persianPrintable($row['body_html']),$footer);
       header('Content-Type: text/html; charset=utf-8');header('Cache-Control: private,no-store');
       header("Content-Security-Policy: default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'");
       $style=<<<'CSS'
-@page{size:A4 portrait;margin:16mm 17mm 26mm}
+@page{size:A4 portrait;margin:0}
 :root{color-scheme:light}
 *{box-sizing:border-box}
-html{direction:rtl}
-body{margin:0;background:#edf1f2;color:#111827;direction:rtl;font-family:Tahoma,"Vazirmatn","Noto Naskh Arabic",sans-serif;font-size:11.2pt;line-height:1.65;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.wc-tools{padding:12px;text-align:center;background:#fff;border-bottom:1px solid #d4dfdd}
-.wc-tools button{border:0;background:#157650;color:#fff;padding:10px 26px;border-radius:8px;cursor:pointer;font:inherit}
-.wc-paper{width:210mm;max-width:100%;padding:16mm 17mm 26mm;background:#fff;margin:16px auto;box-shadow:0 2px 14px #0002;direction:rtl;text-align:right}
-.wc-paper h1{text-align:center;margin:0 0 14px;font-size:17pt;font-weight:700}
-.wc-paper h3{font-size:11.7pt;font-weight:700;margin:11px 0 5px;break-after:avoid}
-.wc-paper p{font-size:11pt;line-height:1.78;margin:5px 0;text-align:justify;direction:rtl;unicode-bidi:plaintext;orphans:2;widows:2}
-.wc-paper b{font-weight:700}
-.wc-paper .wc-sign{display:flex;justify-content:space-between;gap:20px;margin-top:24px;min-height:40px;break-inside:avoid;font-weight:700}
-.wc-paper .wc-page-break{break-before:page;page-break-before:always;height:0;margin:0;padding:0}
-.wc-word{font-family:Tahoma,"B Nazanin",sans-serif}
-.wc-word p{font-size:10pt;line-height:1.6;margin:3px 0;text-align:justify;font-weight:400;overflow-wrap:break-word}
-.wc-word .wc-clause strong{font-weight:700}
-.wc-word h3{font-size:10.5pt;margin:7px 0 3px;line-height:1.55}
-.wc-logo-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-height:90px;margin:0 0 8px}
-.wc-template-logo{object-fit:contain;max-height:94px;width:auto;max-width:31%;height:auto}
-.wc-print-footer{display:flex;justify-content:space-between;align-items:flex-end;position:fixed;bottom:1mm;right:17mm;left:17mm;height:17mm;border-top:1px solid #ddd;padding-top:4mm;font:700 10pt Tahoma,sans-serif;direction:rtl}.wc-word .wc-sign,.wc-paper .wc-sign{display:none}
-.wc-paper .wc-docx-text{white-space:pre-wrap;line-height:1.6;text-align:justify}
+html,body{padding:0;margin:0;direction:rtl;background:#eceff1;color:#111827;font-family:Tahoma,"Vazirmatn",sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.wc-tools{padding:12px;text-align:center;background:white}
+.wc-tools button{border:0;background:#16724e;color:white;padding:10px 26px;border-radius:8px;cursor:pointer;font:12pt Tahoma,sans-serif}
+.wc-print-document{width:210mm;max-width:100%;margin:14px auto}
+.wc-sheet{position:relative;display:flex;flex-direction:column;width:210mm;height:297mm;overflow:hidden;padding:19mm 20mm 31mm;background:white;margin:0 auto 12px;box-shadow:0 2px 12px #0002;direction:rtl;page-break-after:always;break-after:page}
+.wc-sheet:last-child{page-break-after:auto;break-after:auto}
+.wc-sheet-content{flex:1;min-height:0;direction:rtl;text-align:right;font:10pt/1.6 Tahoma,"Vazirmatn",sans-serif}
+.wc-sheet-content h1{text-align:center;margin:9mm 0 8mm;font-size:14pt;font-weight:700}
+.wc-sheet-content h3{font-size:10.5pt;line-height:1.5;margin:6px 0 3px;break-after:avoid;font-weight:700}
+.wc-sheet-content p{font-size:10pt;line-height:1.6;margin:3px 0;text-align:justify;direction:rtl;unicode-bidi:plaintext;overflow-wrap:anywhere;font-weight:400}
+.wc-sheet-content strong,.wc-sheet-content b{font-weight:700}
+.wc-sheet-content .wc-clause strong{font-weight:700}
+.wc-logo-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-height:22mm;margin:0 0 2mm}
+.wc-template-logo{object-fit:contain;max-height:20mm;width:auto;max-width:31%;height:auto}
+.wc-print-footer{position:absolute;right:20mm;left:20mm;bottom:16mm;height:16mm;display:flex;align-items:flex-end;justify-content:space-between;direction:rtl;border:0;padding:0;font:500 10.5pt/1.4 Tahoma,"Vazirmatn",sans-serif}
+.wc-print-footer span{font:inherit;color:#161b20;white-space:nowrap;direction:rtl}
+.wc-sign,.wc-page-break{display:none!important}
 @media print{
- html,body{width:auto;background:#fff}
+ html,body{width:210mm!important;max-width:210mm!important;margin:0!important;padding:0!important;background:white!important}
  .wc-tools{display:none!important}
- .wc-paper{width:auto;max-width:none;margin:0;padding:0;box-shadow:none}.wc-print-footer{bottom:0;right:0;left:0}
- .wc-paper p,.wc-paper h3,.wc-paper .wc-sign{break-inside:avoid-page}
+ .wc-print-document{width:210mm!important;max-width:210mm!important;margin:0!important}
+ .wc-sheet{box-shadow:none!important;margin:0!important;width:210mm!important;height:297mm!important;padding:19mm 20mm 31mm!important;page-break-after:always;break-after:page}
+ .wc-sheet:last-child{page-break-after:auto;break-after:auto}
 }
+
 CSS;
       $autoPrint=!empty($_GET['autoprint']);
       $printScript=$autoPrint?'<script>window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},350);});</script>':'';
-      echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>قرارداد شماره '.(int)$id.'</title><style>'.$style.'</style><div class="wc-tools" style="text-align:center;padding:14px"><button onclick="window.print()">چاپ / ذخیره PDF</button></div>'.$row['body_html'].$footer.$printScript.'</html>';exit;
+      echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>قرارداد شماره '.(int)$id.'</title><style>'.$style.'</style><div class="wc-tools" style="text-align:center;padding:14px"><button onclick="window.print()">چاپ / ذخیره PDF</button></div>' .$row['body_html'].$printScript.'</html>';exit;
     },false,3);
     route('GET','/api/admin/work-contracts/{id}/word',static function($p,$b,$actor){
       self::setup();$id=(int)($p['id']??0);
