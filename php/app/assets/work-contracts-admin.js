@@ -233,7 +233,7 @@ function renderTemplateList(){
 async function deleteTemplate(id){
  const t=templates.find(x=>Number(x.id)===id);
  if(!t)return;
- if(!confirm('قالب «'+t.name+'» برای همیشه حذف شود؟ اگر قرارداد صادرشده‌ای به آن متصل باشد، سامانه حذف را مجاز نمی‌داند.'))return;
+ if(!confirm('قالب «'+t.name+'» برای همیشه حذف شود؟ قراردادهای صادرشده قبلی با نسخه چاپی مستقل حفظ می‌شوند.'))return;
  await call('/templates/'+id,{method:'DELETE'});
  status('قالب «'+t.name+'» حذف شد.');
  await refresh();
