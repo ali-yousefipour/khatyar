@@ -5,6 +5,7 @@
 ini_set('display_errors','0');
 $ROOT = __DIR__ . '/..';
 require "$ROOT/lib/Db.php";
+require "$ROOT/lib/RadioShiftGate.php";
 require "$ROOT/lib/Jwt.php";
 require "$ROOT/lib/Http.php";
 $CONFIG = require "$ROOT/config.php";
@@ -42,6 +43,7 @@ function radio_audio_path($id){ return __DIR__.'/uploads/radio/'.((int)$id).'.m4
 radio_setup();
 $u=radio_user(); radio_cleanup_locks();
 $method=$_SERVER['REQUEST_METHOD']; $op=$_GET['op']??$_POST['op']??'state';
+if(in_array($op,['take','send','poll','audio'],true)) kh_radio_shift_require($u);
 if($op==='channels'&&$method==='GET'){
   $rows=Db::all('SELECT id,name,code,description,current_speaker_id,lock_until FROM radio_channels WHERE is_active=1 ORDER BY id');
   $settings=Db::one('SELECT enabled,channel_id FROM radio_user_settings WHERE user_id=?',[$u['id']]);
