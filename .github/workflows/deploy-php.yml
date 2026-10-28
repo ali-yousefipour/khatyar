@@ -190,7 +190,7 @@ jobs:
 
           # Always reconcile critical production files, even when they fall outside
           # the rolling 10-commit window or were regenerated in this job.
-          for rel in app/index.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/RadioShiftGate.php lib/routes.php lib/OrgChart.php lib/EmploymentAttendance.php app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html; do
+          for rel in app/index.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/RadioShiftGate.php lib/routes.php lib/OrgChart.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html; do
             if [ -f "php/${rel}" ]; then
               mkdir -p "deploy-payload/$(dirname "${rel}")"
               cp "php/${rel}" "deploy-payload/${rel}"
@@ -264,7 +264,7 @@ jobs:
               [ -n "${file}" ] || continue
               rel="${file#deploy-payload/}"
 
-              if [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
+              if [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/KhatyarFormsSchema.php" ] || [ "${rel}" = "lib/WorkContracts.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
                 continue
               fi
 
@@ -313,6 +313,8 @@ jobs:
               'company_work_routes.php' => 'company_work_routes.php',
               'company-work-template.xlsx' => 'company-work-template.xlsx',
               'EmploymentAttendance.php' => 'EmploymentAttendance.php',
+              'KhatyarFormsSchema.php' => 'KhatyarFormsSchema.php',
+              'WorkContracts.php' => 'WorkContracts.php',
               'routes.php' => 'routes.php',
               'IranCalendar.php' => 'IranCalendar.php',
               'ShiftCalc.php' => 'ShiftCalc.php',
@@ -359,7 +361,7 @@ jobs:
               echo 'set net:timeout 60'
               echo 'set net:max-retries 5'
               echo 'set ssl:verify-certificate no'
-              for name in Db.php Http.php DeliveryQueue.php Xlsx.php XlsxWriter.php OrgChart.php Seniority.php Payroll.php EmploymentAttendance.php CompanyWork.php company_work_routes.php company-work-template.xlsx routes.php IranCalendar.php ShiftCalc.php GpsWorkIntervals.php presence_reverse_geocode.php subscription_invoice_routes.php RadioShiftGate.php school_service_routes_extra.php; do
+              for name in Db.php Http.php DeliveryQueue.php Xlsx.php XlsxWriter.php OrgChart.php Seniority.php Payroll.php EmploymentAttendance.php KhatyarFormsSchema.php WorkContracts.php CompanyWork.php company_work_routes.php company-work-template.xlsx routes.php IranCalendar.php ShiftCalc.php GpsWorkIntervals.php presence_reverse_geocode.php subscription_invoice_routes.php RadioShiftGate.php school_service_routes_extra.php; do
                 if [ -f "deploy-payload/lib/$name" ]; then
                   printf 'put %s -o %s\n' "${GITHUB_WORKSPACE}/deploy-payload/lib/$name" "/app/assets/.attendance-deploy-$name"
                 fi
@@ -381,6 +383,15 @@ jobs:
 
             echo
             echo "Host-side attendance PHP library installation completed."
+          # The new form and contract modules must be present in the same
+          # canonical /lib path used by app/index.php; absence fails deployment.
+          for name in KhatyarFormsSchema.php WorkContracts.php; do
+            if [ ! -f "deploy-payload/lib/${name}" ]; then
+              echo "ERROR: missing required module from deployment payload: ${name}" >&2
+              exit 1
+            fi
+            echo "Staged and installed required PHP module: ${name}"
+          done
           fi
 
       - name: Verify uploaded FTP files
@@ -396,7 +407,7 @@ jobs:
           while IFS= read -r file; do
             [ -n "${file}" ] || continue
             rel="${file#deploy-payload/}"
-            if [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
+            if [ "${rel}" = "lib/Db.php" ] || [ "${rel}" = "lib/Http.php" ] || [ "${rel}" = "lib/routes.php" ] || [ "${rel}" = "lib/IranCalendar.php" ] || [ "${rel}" = "lib/ShiftCalc.php" ] || [ "${rel}" = "lib/GpsWorkIntervals.php" ] || [ "${rel}" = "lib/presence_reverse_geocode.php" ] || [ "${rel}" = "lib/subscription_invoice_routes.php" ] || [ "${rel}" = "lib/RadioShiftGate.php" ] || [ "${rel}" = "lib/school_service_routes_extra.php" ] || [ "${rel}" = "lib/DeliveryQueue.php" ] || [ "${rel}" = "lib/Xlsx.php" ] || [ "${rel}" = "lib/XlsxWriter.php" ] || [ "${rel}" = "lib/OrgChart.php" ] || [ "${rel}" = "lib/Seniority.php" ] || [ "${rel}" = "lib/Payroll.php" ] || [ "${rel}" = "lib/EmploymentAttendance.php" ] || [ "${rel}" = "lib/KhatyarFormsSchema.php" ] || [ "${rel}" = "lib/WorkContracts.php" ] || [ "${rel}" = "lib/CompanyWork.php" ] || [ "${rel}" = "lib/company_work_routes.php" ] || [ "${rel}" = "lib/company-work-template.xlsx" ]; then
               echo "FTP verify skipped for ${rel} (host FTP denies direct write; host-side PHP installer verifies checksum)."
               continue
             fi
