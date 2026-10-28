@@ -1,0 +1,30 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const source = fs.readFileSync(path.join(__dirname, '../src/components/PayrollAccessSlip.js'), 'utf8');
+const screen = fs.readFileSync(path.join(__dirname, '../src/screens/CompanyPayrollHistory.js'), 'utf8');
+const layout = JSON.parse(fs.readFileSync(path.join(__dirname, '../assets/payroll-access-layout.json'), 'utf8'));
+const web = fs.readFileSync(path.join(__dirname, '../../php/app/assets/web-payroll-image.js'), 'utf8');
+const title = layout.controls.find(x => x.Name === 'Label86');
+assert.ok(title, 'The payroll print period label exists in the Access template');
+assert.match(String(title.Caption), /شهریور/, 'Fixture reproduces previous fixed Shahrivar title');
+assert.ok(source.includes("control.Name === 'Label86' ? payrollPeriodTitle(slip.row) : control.Caption"), 'Android uses row period, never hard-coded caption');
+assert.ok(screen.includes('<PayrollAccessSlip slip={slip}'), 'Print receives server detail');
+assert.ok(screen.includes('slip.row.period_jy') && screen.includes('slip.row.period_jm'), 'Capture and file naming follow server payroll period');
+assert.ok(web.includes("W.months[Number(row.period_jm)-1]"), 'Web image also uses stored payroll month');
+const match = source.match(/const payrollMonths = (\[[^;]+\]);/);
+assert.ok(match, 'Month names are defined');
+const months = JSON.parse(match[1].replace(/'/g, '"'));
+assert.equal(months.length, 12);
+const format = row => {
+  const m = Number(row.period_jm), y = Number(row.period_jy);
+  return Number.isInteger(m) && m >= 1 && m <= 12 && Number.isInteger(y) && y >= 1300 && y <= 1500
+    ? months[m-1]+'ماه '+y : 'دوره حقوق نامشخص';
+};
+assert.equal(format({period_jy:1405,period_jm:7}), 'مهرماه 1405');
+assert.equal(format({period_jy:1405,period_jm:6}), 'شهریورماه 1405');
+assert.equal(format({period_jy:1405,period_jm:8}), 'آبانماه 1405');
+assert.equal(format({period_jy:1405,period_jm:12}), 'اسفندماه 1405');
+assert.equal(format({period_jy:1405,period_jm:13}), 'دوره حقوق نامشخص');
+console.log('PASS payroll slip printed month follows uploaded payroll period, not static Access label');
