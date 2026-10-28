@@ -687,10 +687,14 @@ function _presence_random_schedule_for_attendance($userId,$attendanceId,$checkin
   }
   $win=max(1,min(10,(int)($cfg['window_minutes']??1)));
   $items=_presence_random_generate_schedule($checkinAt,$win,6);
-  Db::run("INSERT INTO presence_random_schedules(user_id,attendance_id,checkin_at,schedule_json) VALUES(?,?,?,?)",[
+  Db::run("INSERT IGNORE INTO presence_random_schedules(user_id,attendance_id,checkin_at,schedule_json) VALUES(?,?,?,?)",[
     $userId,$attendanceId,$checkinAt,json_encode($items,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)
   ]);
-  return $items;
+  // Cron and Android may initialize this attendance concurrently. Always return
+  // the winning persisted schedule so both use identical random timestamps.
+  $stored=Db::one("SELECT schedule_json FROM presence_random_schedules WHERE attendance_id=? LIMIT 1",[$attendanceId]);
+  $persisted=$stored?json_decode($stored['schedule_json']??'',true):null;
+  return is_array($persisted)?$persisted:$items;
 }
 function _presence_random_schedule_payload($items){
   return array_values(array_map(function($x){
