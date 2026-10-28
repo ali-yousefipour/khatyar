@@ -22,7 +22,15 @@ final class KhatyarFormsSchema {
     }
     public static function ensure(): void {
         if(self::$verified)return;
+        // Persistent readiness marker prevents repeated INFORMATION_SCHEMA
+        // queries and DDL attempts for every forms request / PHP worker.
+        // It is only written after the migration is fully verified.
         try {
+            $ready=Db::one("SELECT value FROM app_settings WHERE `key`=? LIMIT 1",['forms_schema_ready_v2']);
+            if((string)($ready['value']??'')==='verified'){
+                self::$verified=true;
+                return;
+            }
             if(!self::tableExists('custom_forms')) {
                 Db::run("CREATE TABLE IF NOT EXISTS custom_forms (
                   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -79,6 +87,10 @@ final class KhatyarFormsSchema {
                 if(!isset($custom[$column]))throw new RuntimeException('custom_forms missing '.$column);
             foreach(['id','form_id','user_id','answers','is_public','submitter_name','submitter_mobile'] as $column)
                 if(!isset($submissions[$column]))throw new RuntimeException('form_submissions missing '.$column);
+            // Commit readiness only when every required column exists.
+            // The settings key is already used by the existing settings API.
+            Db::run("INSERT INTO app_settings (`key`,value) VALUES (?,?)
+                ON DUPLICATE KEY UPDATE value=VALUES(value)",['forms_schema_ready_v2','verified']);
             self::$verified=true;
         } catch(Throwable $error) {
             error_log('forms schema migration failed: '.get_class($error).': '.$error->getMessage());
