@@ -11,6 +11,7 @@ import { getImageConfig, compressToDataUri } from './img';
 import { getAppConfig } from './appconfig';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCameraSession } from './cameraSession';
+import { launchCamera, ImagePicker } from './cameraLock';
 import { request } from './api';
 
 export default function VehiclesPhotoCapture({ onCapture, onCancel, station = null }) {
@@ -27,8 +28,9 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   const [coords, setCoords] = useState(null);
   const [error, setError] = useState('');
   const [imageReady, setImageReady] = useState(false);
+  const [systemCameraOpen, setSystemCameraOpen] = useState(false);
   const captureGeneration = useRef(0);
-  const { cameraActive, cameraKey, restartCamera } = useCameraSession(!!perm?.granted && !shot);
+  const { cameraActive, cameraKey, restartCamera } = useCameraSession(!!perm?.granted && !shot && !systemCameraOpen);
 
   useEffect(() => { if (!cameraActive) setCameraReady(false); }, [cameraActive]);
   // Some Android devices report a mounted camera without delivering preview frames.
@@ -130,60 +132,92 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
     }
   }
 
+  // CameraX may report onCameraReady even when its preview surface is black.
+  // The system camera is a camera-only fallback; no library/gallery access.
+  async function openSystemCamera() {
+    if (busy || shot || systemCameraOpen) return;
+    setSystemCameraOpen(true); // unmount Expo CameraView before Android camera intent
+    setCameraReady(false);
+    setError('');
+    const generation = ++captureGeneration.current;
+    try {
+      // Release CameraX surface before asking the OS camera application to open.
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      const result = await launchCamera({
+        mediaTypes: ['images'],
+        cameraType: ImagePicker.CameraType?.back || 'back',
+        quality: 1,
+        allowsEditing: false,
+        base64: false,
+        exif: false,
+      });
+      if (generation !== captureGeneration.current) return;
+      if (result?.canceled) return;
+      const uri = result?.assets?.[0]?.uri;
+      if (!uri) throw new Error('system_camera_no_image');
+      setBusy(true);
+      await processPhoto(uri, generation);
+    } catch (err) {
+      if (generation === captureGeneration.current) {
+        setError('دوربین گوشی باز نشد. دسترسی دوربین را بررسی کنید و دوباره تلاش کنید.');
+      }
+    } finally {
+      setBusy(false);
+      setSystemCameraOpen(false);
+    }
+  }
+
+  async function processPhoto(uri, generation) {
+    if (generation !== captureGeneration.current || !uri) return;
+    setImageReady(false);
+    setCameraReady(false);
+    setCoords(null);
+    setShot(uri);
+    setStamp({
+      date: fjDateTime(new Date()),
+      coords: 'در حال دریافت موقعیت…',
+      street: '',
+      dist: '',
+      source: '',
+    });
+    setMetaBusy(true);
+    // GPS and the street name are added to the captured image as before.
+    let locationTimer;
+    Promise.race([readLocation(), new Promise(resolve => {
+      locationTimer = setTimeout(() => resolve({ lat: null, lng: null, street: '', dist: '' }), 12000);
+    })]).then(loc => {
+      if (generation !== captureGeneration.current) return;
+      setCoords({ lat: loc.lat, lng: loc.lng });
+      setStamp(prev => ({
+        ...prev,
+        coords: loc.lat != null && loc.lng != null
+          ? `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}` : 'موقعیت نامشخص',
+        street: loc.street || '', dist: loc.dist || '', source: loc.source || '',
+      }));
+    }).catch(() => {
+      if (generation === captureGeneration.current) {
+        setCoords(null);
+        setStamp(prev => ({ ...prev, coords: 'موقعیت نامشخص' }));
+      }
+    }).finally(() => {
+      clearTimeout(locationTimer);
+      if (generation === captureGeneration.current) setMetaBusy(false);
+    });
+  }
+
   async function snap() {
-    if (!camRef.current || !cameraActive || !cameraReady || busy) return;
+    if (!camRef.current || !cameraActive || !cameraReady || busy || systemCameraOpen) return;
     const generation = ++captureGeneration.current;
     setBusy(true);
     setError('');
     try {
-      // عکس باید بلافاصله بعد از لمس شاتر گرفته شود؛ GPS و Reverse Geocode نباید
-      // کاربر را قبل از ثبت عکس منتظر نگه دارند.
-      const photoPromise = camRef.current.takePictureAsync({
-        quality: 1,
-        exif: false,
-        skipProcessing: false,
+      const photo = await camRef.current.takePictureAsync({
+        quality: 1, exif: false, skipProcessing: false,
       });
-      let locationTimer;
-      const locationPromise = Promise.race([readLocation(), new Promise(resolve => {
-        locationTimer = setTimeout(() => resolve({ lat: null, lng: null, street: '', dist: '' }), 12000);
-      })]).finally(() => clearTimeout(locationTimer));
-      const photo = await photoPromise;
       if (!photo?.uri) throw new Error('camera_empty_result');
-
-      setImageReady(false);
-      setCameraReady(false);
-      setCoords(null);
-      setShot(photo.uri);
-      setStamp({
-        date: fjDateTime(new Date()),
-        coords: 'در حال دریافت موقعیت…',
-        street: '',
-        dist: '',
-        source: '',
-      });
-      setMetaBusy(true);
-
-      // متادیتای موقعیت بعد از نمایش عکس تکمیل می‌شود؛ بنابراین دوربین سریعاً
-      // وارد مرحله تأیید می‌شود و reverse geocoding مسیر UI را قفل نمی‌کند.
-      locationPromise.then((loc) => {
-        if (generation !== captureGeneration.current) return;
-        setCoords({ lat: loc.lat, lng: loc.lng });
-        setStamp((prev) => ({
-          ...prev,
-          coords: loc.lat != null && loc.lng != null
-            ? `${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}`
-            : 'موقعیت نامشخص',
-          street: loc.street || '',
-          dist: loc.dist || '',
-          source: loc.source || '',
-        }));
-      }).catch(() => {
-        if (generation !== captureGeneration.current) return;
-        setCoords(null);
-        setStamp((prev) => ({ ...prev, coords: 'موقعیت نامشخص' }));
-      }).finally(() => { if (generation === captureGeneration.current) setMetaBusy(false); });
+      await processPhoto(photo.uri, generation);
     } catch (_) {
-      setError('ثبت تصویر انجام نشد. دوربین را ثابت نگه دارید و دوباره تلاش کنید.');
+      setError('ثبت تصویر انجام نشد. از «دوربین اصلی گوشی» استفاده کنید.');
     } finally {
       setBusy(false);
     }
@@ -280,7 +314,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
 
   return (
     <View style={s.camWrap}>
-      {cameraActive && <CameraView
+      {cameraActive && !systemCameraOpen && <CameraView
         key={cameraKey}
         ref={camRef}
         style={s.cam}
@@ -306,8 +340,11 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         <TouchableOpacity style={[s.shutter, (!cameraReady || busy) && s.disabled]} onPress={snap} disabled={!cameraReady || busy}>
           {busy ? <ActivityIndicator color="#fff" /> : <View style={s.shutterInner} />}
         </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={recoverPreview} style={s.retryButton}>
+        <TouchableOpacity accessibilityRole="button" disabled={busy || systemCameraOpen} onPress={recoverPreview} style={s.retryButton}>
           <Text style={s.retryText}>تصویر سیاه است؟ راه‌اندازی دوباره دوربین</Text>
+        </TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" disabled={busy || systemCameraOpen} onPress={openSystemCamera} style={[s.retryButton, { borderColor: '#a7f3d0', backgroundColor: 'rgba(22,101,52,0.28)' }]}>
+          <Text style={s.retryText}>{systemCameraOpen ? 'در حال بازکردن دوربین گوشی…' : 'عکس‌برداری با دوربین اصلی گوشی'}</Text>
         </TouchableOpacity>
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={s.cancel}>انصراف</Text></TouchableOpacity> : null}
         <Text style={s.cameraOnly}>ثبت تصویر فقط با دوربین پشت گوشی انجام می‌شود و انتخاب از گالری در این مرحله وجود ندارد.</Text>
