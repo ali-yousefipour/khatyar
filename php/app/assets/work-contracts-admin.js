@@ -14,19 +14,18 @@ async function call(path,opts={}){
  if(!r.ok||!data.ok)throw Error(data.error||('خطای سرور '+r.status));
  return data;
 }
-async function download(id,type){
- const r=await fetch(BASE+'/'+id+'/'+type,{headers:{Authorization:'Bearer '+token()},cache:'no-store'});
- if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d.error||'دریافت فایل ناموفق بود');}
- const blob=await r.blob(),url=URL.createObjectURL(blob);
- if(type==='print'){
-   const tab=window.open(url,'_blank');
-   if(!tab){URL.revokeObjectURL(url);throw Error('برای نمایش قرارداد اجازه باز شدن پنجره را بدهید');}
-   setTimeout(()=>URL.revokeObjectURL(url),120000);
- } else {
-   const a=document.createElement('a');a.href=url;a.download='khatyar-contract-'+id+'.docx';document.body.appendChild(a);a.click();a.remove();
-   setTimeout(()=>URL.revokeObjectURL(url),30000);
- }
+async function printContract(id){
+ // Print-only HTML, with browser's native Save as PDF destination.
+ const tab=window.open('about:blank','_blank');
+ if(!tab)throw Error('برای چاپ قرارداد، اجازه باز شدن پنجره را فعال کنید');
+ try{
+   const r=await fetch(BASE+'/'+id+'/print?autoprint=1',{headers:{Authorization:'Bearer '+token()},cache:'no-store'});
+   if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d.error||'آماده‌سازی چاپ ناموفق بود');}
+   const html=await r.text();
+   tab.document.open();tab.document.write(html);tab.document.close();
+ }catch(error){tab.close();throw error;}
 }
+
 const style=`
 
 #kh-contract-panel{position:relative;display:none;width:100%;direction:rtl;font:14px Vazirmatn,Tahoma}
@@ -57,7 +56,7 @@ function dom(){
  const div=document.createElement('div');div.id='kh-contract-panel';div.innerHTML=`
  <div class="wc-box">
  <div class="wc-toolbar"><h2>ایجاد و پرینت قرارداد کاری</h2></div>
- <p>انتخاب قالب پیش‌فرض یا Word، تعیین مدت قرارداد و صدور نسخه مستقل برای هر یک از نیروها.</p>
+ <p>انتخاب قالب قرارداد، تعیین مدت و صدور نسخه مستقل؛ خروجی فقط از طریق چاپ یا ذخیره PDF ارائه می‌شود.</p>
  <div class="wc-grid">
  <label>قالب قرارداد<select id="wc-template"></select></label>
  <label>تاریخ شروع (شمسی)<input id="wc-start" dir="ltr" placeholder="1405/08/01" maxlength="10"></label>
@@ -87,7 +86,7 @@ function dom(){
  by('wc-upload').onclick=upload;
  div.addEventListener('click',ev=>{
    const b=ev.target.closest('button[data-contract]');if(!b)return;
-   download(Number(b.dataset.contract),b.dataset.action).catch(err=>status(err.message,true));
+   printContract(Number(b.dataset.contract)).catch(err=>status(err.message,true));
  });
 }
 const selected=new Set();
@@ -108,7 +107,7 @@ async function refresh(){
 }
 async function history(){
  try{const d=await call('/history');issued=d.rows||[];
- by('wc-history').innerHTML=issued.map(r=>`<tr><td>${e(r.first_name)} ${e(r.last_name)}</td><td>${e(r.template_name)}</td><td>${e(r.start_date)}</td><td>${e(r.end_date)}</td><td>${r.kind==='docx'?`<button data-contract="${Number(r.id)}" data-action="word">Word / چاپ دقیق</button> <button data-contract="${Number(r.id)}" data-action="print">پیش‌نمایش متنی</button>`:`<button data-contract="${Number(r.id)}" data-action="print">چاپ</button>`}</td></tr>`).join('')||'<tr><td colspan="5">هنوز قراردادی صادر نشده است.</td></tr>';
+ by('wc-history').innerHTML=issued.map(r=>`<tr><td>${e(r.first_name)} ${e(r.last_name)}</td><td>${e(r.template_name)}</td><td>${e(r.start_date)}</td><td>${e(r.end_date)}</td><td><button data-contract="${Number(r.id)}" data-action="print">چاپ / ذخیره PDF</button></td></tr>`).join('')||'<tr><td colspan="5">هنوز قراردادی صادر نشده است.</td></tr>';
  }catch(err){status(err.message,true);}
 }
 async function generate(){
