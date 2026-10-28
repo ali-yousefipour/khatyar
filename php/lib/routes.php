@@ -799,32 +799,58 @@ route('GET', '/api/cron/presence-alert', function($p,$b,$u){
   // زمان‌بندی تصادفی: زمان‌ها از لحظهٔ ثبت ورود هر پرسنل مستقل هستند و فقط تا وقتی حضور باز است ارسال می‌شوند.
   if(_presence_random_schedule_enabled($cfg)){
     _ensure_presence_random_schedule_schema();
+    // Generate schedules on the SERVER for every eligible open attendance.
+    // Previously schedules only existed after a handset fetched its personal API.
+    $generated=0;$eligible=0;$randomErrors=0;
     try{
-      $rows=Db::all("SELECT prs.user_id,prs.attendance_id,prs.schedule_json,sa.check_in
-        FROM presence_random_schedules prs
-        JOIN staff_attendance sa ON sa.id=prs.attendance_id
-        WHERE sa.check_out IS NULL AND sa.check_in IS NOT NULL
-        ORDER BY prs.id DESC LIMIT 5000");
+      $rows=Db::all("SELECT sa.id attendance_id,sa.user_id,sa.check_in,u.presence_required,prs.schedule_json
+        FROM staff_attendance sa
+        JOIN users u ON u.id=sa.user_id AND u.is_active=1 AND u.presence_required=1
+        LEFT JOIN presence_random_schedules prs ON prs.attendance_id=sa.id
+        WHERE sa.check_out IS NULL AND sa.check_in IS NOT NULL AND sa.check_in<=NOW()
+          AND sa.check_in>=DATE_SUB(NOW(),INTERVAL 24 HOUR)
+        ORDER BY sa.id DESC LIMIT 5000");
+      $jdate=_presence_today_jdate();
       foreach($rows as $row){
-        $items=json_decode($row['schedule_json']??'',true);
-        if(!is_array($items))continue;
-        foreach($items as $it){
-          $at=(int)($it['ts']??0); if(!$at)continue;
-          if($now<$at || $now>$at+70)continue;
-          $slot=(string)($it['slot']??date('H:i',$at));
-          $win=max(1,(int)($it['window_minutes']??$win));
-          $dup=Db::one("SELECT id FROM notifications WHERE user_id=? AND data LIKE ? AND created_at>=DATE_SUB(NOW(),INTERVAL 2 MINUTE) LIMIT 1",
-            [(int)$row['user_id'],'%"presence_random_attendance":"'.(int)$row['attendance_id'].'"%']);
-          if($dup)continue;
-          Push::notify([(int)$row['user_id']],'صحت‌سنجی حضور',"لطفاً ظرف {$win} دقیقه سلفی و عکس خودروهای خط را ارسال کنید.",[
-            'type'=>'presence_check','slot'=>$slot,'presence_slot'=>$slot,'window_minutes'=>$win,
-            'random'=>true,'presence_random_attendance'=>(int)$row['attendance_id'],'request_id'=>'rnd_'.(int)$row['attendance_id'].'_'.$at
-          ]);
-          $sent++;
-          break;
+        $uid=(int)$row['user_id'];$attendanceId=(int)$row['attendance_id'];
+        if(!_presence_is_required_for_user($uid,$cfg,true,$jdate,$now))continue;
+        $eligible++;
+        try{
+          $items=!empty($row['schedule_json'])?json_decode($row['schedule_json'],true):null;
+          if(!is_array($items)||!count($items)){
+            // An insert collision means the app initialized the same session simultaneously.
+            $items=_presence_random_schedule_for_attendance($uid,$attendanceId,$row['check_in'],$cfg);
+            $generated++;
+          }
+          foreach($items as $it){
+            $at=(int)($it['ts']??0);if($at<=0)continue;
+            $itemWin=max(1,min(10,(int)($it['window_minutes']??$win)));
+            // Deliver during the ACTUAL request validity window, not a hard 70-second
+            // window that may be missed by delayed cron invocations.
+            if($now<$at||$now>=$at+$itemWin*60)continue;
+            $slot=(string)($it['slot']??date('H:i',$at));
+            $requestId='rnd_'.$attendanceId.'_'.$at;
+            // Dedupe by each individual random request, not by entire attendance.
+            // This also prevents duplicated push on a retried background job.
+            $dup=Db::one("SELECT id FROM notifications WHERE user_id=? AND data LIKE ? LIMIT 1",
+              [$uid,'%'. $requestId .'%']);
+            if($dup)continue;
+            Push::notify([$uid],'صحت‌سنجی حضور',"لطفاً ظرف {$itemWin} دقیقه سلفی و عکس خودروهای خط را ارسال کنید.",[
+              'type'=>'presence_check','slot'=>$slot,'presence_slot'=>$slot,'window_minutes'=>$itemWin,
+              'random'=>true,'ts'=>$at,'presence_random_attendance'=>$attendanceId,'request_id'=>$requestId
+            ]);
+            $sent++;
+          }
+        }catch(Throwable $e){
+          $randomErrors++;
+          error_log('presence random delivery failed uid='.$uid.' attendance='.$attendanceId.' error='.get_class($e));
         }
       }
-    }catch(Throwable $e){ error_log('presence random cron suppressed: '.$e->getMessage()); }
+    }catch(Throwable $e){
+      $randomErrors++;
+      error_log('presence random cron query failed: '.get_class($e).' '.$e->getMessage());
+    }
+    if($randomErrors)return ['ok'=>false,'sent'=>$sent,'eligible'=>$eligible,'generated'=>$generated,'errors'=>$randomErrors];
   }
   return ['ok'=>true,'sent'=>$sent];
 }, true);
