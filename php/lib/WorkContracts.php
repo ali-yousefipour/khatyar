@@ -176,13 +176,71 @@ HTML;
     $zip->deleteName('word/document.xml');$zip->addFromString('word/document.xml',$xml);
     $zip->close();$out=file_get_contents($temp);unlink($temp);return $out;
   }
-  private static function docxText(string $binary): string {
-    $temp=tempnam(sys_get_temp_dir(),'wcr');file_put_contents($temp,$binary);
-    $z=new ZipArchive();if($z->open($temp)!==true){unlink($temp);return '';}
-    $xml=$z->getFromName('word/document.xml');$z->close();unlink($temp);
-    if(!$xml)return '';
-    $xml=preg_replace('~</w:p>~','\n',$xml);
-    return html_entity_decode(strip_tags($xml),ENT_QUOTES|ENT_XML1,'UTF-8');
+  private static function docxHtml(string $binary): string {
+    if(!class_exists('ZipArchive')||!class_exists('DOMDocument'))
+      throw new RuntimeException('امکان پردازش قالب Word در سرور فعال نیست');
+    $temp=tempnam(sys_get_temp_dir(),'wch');file_put_contents($temp,$binary);
+    $zip=new ZipArchive();
+    if($zip->open($temp)!==true){unlink($temp);throw new RuntimeException('فایل Word معتبر نیست');}
+    $xml=$zip->getFromName('word/document.xml');$zip->close();unlink($temp);
+    if($xml===false)throw new RuntimeException('ساختار فایل Word ناقص است');
+    $dom=new DOMDocument('1.0','UTF-8');
+    if(!$dom->loadXML($xml,LIBXML_NONET|LIBXML_COMPACT))throw new RuntimeException('ساختار متن Word نامعتبر است');
+    $xp=new DOMXPath($dom);
+    $xp->registerNamespace('w','http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+    $html='<div class="wc-paper wc-word" dir="rtl">';
+    $page2=false;
+    foreach($xp->query('//w:body//w:p') as $p){
+      $parts=[];$plain='';
+      foreach($xp->query('.//w:r',$p) as $run){
+        $value='';
+        foreach($xp->query('.//w:t|.//w:tab|.//w:br',$run) as $node){
+          if($node->localName==='t')$value.=$node->textContent;
+          elseif($node->localName==='tab')$value.=' ';
+          elseif($node->localName==='br' && $node->getAttributeNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main','type')!=='page')$value.=' ';
+        }
+        if($value==='')continue;
+        $plain.=$value;
+        $escaped=htmlspecialchars($value,ENT_QUOTES,'UTF-8');
+        if($xp->query('./w:rPr/w:b',$run)->length)$escaped='<strong>'.$escaped.'</strong>';
+        $parts[]=$escaped;
+      }
+      $plain=trim($plain);
+      if($plain==='')continue;
+      // Also render older templates containing textual backslash-n escapes.
+      $plain=str_replace('\\n',' ',$plain);
+      $content=implode('',$parts);
+      $content=str_replace('\\n',' ',$content);
+      if(!$page2 && preg_match('/^(?:۷|7)\s*[)\-.،:]?\s*حق\s*السعی/u',$plain)){
+        $html.='<div class="wc-page-break"></div>';$page2=true;
+      }
+      if(preg_match('/^قرارداد\s*کار$/u',$plain))$html.='<h1>'.$content.'</h1>';
+      elseif(preg_match('/^[۰-۹0-9]+(?:[\\/۰-۹0-9]+)?\s*[)\-.،:]\s*/u',$plain))$html.='<h3>'.$content.'</h3>';
+      else $html.='<p>'.$content.'</p>';
+    }
+    return $html.'</div>';
+  }
+  private static function renderContract(array $tpl,array $snapshot): array {
+    if(($tpl['kind']??'html')==='docx'){
+      $word=self::docxReplace((string)$tpl['docx_blob'],$snapshot);
+      return [self::docxHtml($word),$word];
+    }
+    return [self::render((string)($tpl['body_html']??''),$snapshot),null];
+  }
+  private static function datesAndDuration(array $body): array {
+    require_once __DIR__.'/IranCalendar.php';
+    $start=str_replace('/','-',trim((string)($body['start_date']??'')));
+    $end=str_replace('/','-',trim((string)($body['end_date']??'')));
+    foreach([$start,$end] as $date){
+      if(!preg_match('/^1[34]\\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$/',$date))
+        Http::error('تاریخ قرارداد باید شمسی و معتبر باشد',422);
+      [$y,$m,$d]=array_map('intval',explode('-',$date));
+      if($d>IranCalendar::monthLength($y,$m))Http::error('روز واردشده معتبر نیست',422);
+    }
+    if(strcmp($start,$end)>0)Http::error('تاریخ پایان قبل از شروع قرارداد است',422);
+    $duration=trim((string)($body['duration_label']??''));
+    if(!$duration||mb_strlen($duration)>100)Http::error('مدت قرارداد معتبر نیست',422);
+    return [$start,$end,$duration];
   }
   public static function register(): void {
     route('GET','/api/admin/work-contracts/bootstrap',static function($p,$b,$actor){
@@ -239,12 +297,7 @@ HTML;
                    'identity_number'=>'شماره شناسنامه','address'=>'نشانی','mobile'=>'تلفن تماس',
                    'bank_account'=>'شماره حساب'] as $field=>$label)
             if(trim((string)($snapshot[$field]??''))==='')$missing[]=$label;
-          $rendered=self::render($tpl['body_html']??'', $snapshot);
-          $word=null;
-          if($tpl['kind']==='docx') {
-            $word=self::docxReplace($tpl['docx_blob'],$snapshot);
-            $rendered='<div class="wc-docx-text">'.nl2br(htmlspecialchars(self::docxText($word),ENT_QUOTES,'UTF-8')).'</div>';
-          }
+          [$rendered,$word]=self::renderContract($tpl,$snapshot);
           Db::run('INSERT INTO work_contracts(template_id,user_id,start_date,end_date,duration_label,snapshot_json,body_html,docx_blob,created_by) VALUES(?,?,?,?,?,?,?,?,?)',
             [$tid,$uid,$start,$end,$duration,json_encode($snapshot,JSON_UNESCAPED_UNICODE),$rendered,$word,(int)$actor['id']]);
           $created[]=['id'=>(int)$pdo->lastInsertId(),'user_id'=>$uid,'name'=>$snapshot['full_name'],'missing'=>$missing];
