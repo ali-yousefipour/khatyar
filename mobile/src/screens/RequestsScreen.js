@@ -183,7 +183,7 @@ function NewRequest({ onDone, initialType, initialDate }) {
   useEffect(() => {
     request('/my/app-config', { noStore: true, forceNetwork: true, queueIfOffline: false })
       .then((c) => setReqSub(!!c.leave_require_substitute))
-      .catch(() => setReqSub(true)); // Fail closed: backend remains authoritative.
+      .catch(() => setReqSub(false)); // Do not block an exempt user; server enforces required coverage.
   }, []);
 
   // وقتی بازهٔ تاریخ مشخص شد، نیروهای جایگزینِ در دسترس را برای آن بازه می‌گیریم
