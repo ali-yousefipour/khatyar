@@ -40,6 +40,9 @@ jobs:
           node php/tests/company_work_http_test.cjs
           php php/tests/login_policy_test.php
           php php/tests/zone_context_test.php
+          php -l php/lib/WorkContracts.php
+          php php/tests/work_contracts_test.php
+          node --check php/app/assets/work-contracts-admin.js
           php php/tests/radio_shift_gate_test.php
           node mobile/scripts/test-radio-shift-native.cjs
           node php/tests/login_policy_ui_test.cjs
