@@ -371,17 +371,23 @@ HTML;
       return ['ok'=>true,'id'=>$id];
     },false,3);
     route('DELETE','/api/admin/work-contracts/{id}',static function($p,$b,$actor){
-      self::setup();$id=(int)$p['id'];
-      $row=Db::one('SELECT id,user_id,template_id,start_date,end_date,duration_label,snapshot_json FROM work_contracts WHERE id=? AND deleted_at IS NULL',[$id]);
-      if(!$row)Http::error('قرارداد یافت نشد',404);
-      $pdo=self::db();$pdo->beginTransaction();
+      self::setup();$id=(int)($p['id']??0);
+      if($id<=0)Http::error('شناسه قرارداد معتبر نیست',422);
+      $pdo=self::db();
+      $pdo->beginTransaction();
       try{
-        Db::run('UPDATE work_contracts SET deleted_at=NOW() WHERE id=? AND deleted_at IS NULL',[$id]);
-        Db::run('INSERT INTO work_contract_audit(contract_id,actor_id,action,before_json) VALUES(?,?,?,?)',
-          [$id,(int)$actor['id'],'deleted',json_encode($row,JSON_UNESCAPED_UNICODE)]);
+        // Permanent, atomic deletion: no contract snapshot, generated DOCX
+        // or personally identifiable data may remain in the audit table.
+        $row=Db::one('SELECT id FROM work_contracts WHERE id=? FOR UPDATE',[$id]);
+        if(!$row)Http::error('قرارداد یافت نشد',404);
+        Db::run('DELETE FROM work_contract_audit WHERE contract_id=?',[$id]);
+        Db::run('DELETE FROM work_contracts WHERE id=?',[$id]);
         $pdo->commit();
-      }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
-      return ['ok'=>true,'id'=>$id];
+      }catch(Throwable $e){
+        if($pdo->inTransaction())$pdo->rollBack();
+        throw $e;
+      }
+      return ['ok'=>true,'id'=>$id,'deleted_permanently'=>true];
     },false,3);
     route('GET','/api/admin/work-contracts/{id}/print',static function($p,$b,$actor){
       self::setup();$id=(int)($p['id']??0);
