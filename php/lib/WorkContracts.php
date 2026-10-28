@@ -261,7 +261,29 @@ HTML;
       if(!$row)Http::error('قرارداد یافت نشد',404);
       header('Content-Type: text/html; charset=utf-8');header('Cache-Control: private,no-store');
       header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'");
-      $style='body{direction:rtl;font:14px Tahoma,sans-serif;line-height:1.85;background:#eef2f5;margin:0}.wc-paper{background:white;max-width:794px;margin:18px auto;padding:35px;box-shadow:0 1px 8px #bbb}.wc-sign{display:flex;justify-content:space-between;margin-top:35px}.wc-page-break{break-before:page;margin-top:30px}h1{text-align:center}h3{margin:12px 0 6px}p{margin:6px 0;text-align:justify}@page{size:A4;margin:14mm}@media print{body{background:white}.wc-paper{margin:0;padding:0;box-shadow:none}.wc-tools{display:none}}';
+      $style=<<<'CSS'
+@page{size:A4 portrait;margin:15mm 15mm 14mm}
+:root{color-scheme:light}
+*{box-sizing:border-box}
+html{direction:rtl}
+body{margin:0;background:#edf1f2;color:#111827;direction:rtl;font-family:Tahoma,"Vazirmatn","Noto Naskh Arabic",sans-serif;font-size:11.2pt;line-height:1.65;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.wc-tools{padding:12px;text-align:center;background:#fff;border-bottom:1px solid #d4dfdd}
+.wc-tools button{border:0;background:#157650;color:#fff;padding:10px 26px;border-radius:8px;cursor:pointer;font:inherit}
+.wc-paper{width:210mm;max-width:100%;padding:15mm;background:#fff;margin:16px auto;box-shadow:0 2px 14px #0002;direction:rtl;text-align:right}
+.wc-paper h1{text-align:center;margin:0 0 14px;font-size:17pt;font-weight:700}
+.wc-paper h3{font-size:11.7pt;font-weight:700;margin:11px 0 5px;break-after:avoid}
+.wc-paper p{font-size:11pt;line-height:1.78;margin:5px 0;text-align:justify;direction:rtl;unicode-bidi:plaintext;orphans:2;widows:2}
+.wc-paper b{font-weight:700}
+.wc-paper .wc-sign{display:flex;justify-content:space-between;gap:20px;margin-top:24px;min-height:40px;break-inside:avoid;font-weight:700}
+.wc-paper .wc-page-break{break-before:page;page-break-before:always;height:0;margin:0;padding:0}
+.wc-paper .wc-docx-text{white-space:pre-wrap;line-height:1.8;text-align:justify}
+@media print{
+ html,body{width:auto;background:#fff}
+ .wc-tools{display:none!important}
+ .wc-paper{width:auto;max-width:none;margin:0;padding:0;box-shadow:none}
+ .wc-paper p,.wc-paper h3,.wc-paper .wc-sign{break-inside:avoid-page}
+}
+CSS;
       echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>قرارداد شماره '.(int)$id.'</title><style>'.$style.'</style><div class="wc-tools" style="text-align:center;padding:14px"><button onclick="window.print()">چاپ قرارداد</button></div>'.$row['body_html'].'</html>';exit;
     },false,3);
     route('GET','/api/admin/work-contracts/{id}/word',static function($p,$b,$actor){
