@@ -54,6 +54,19 @@ public final class KhatyarRadioModule extends ReactContextBaseJavaModule {
     }}catch(Throwable error){promise.reject("RADIO_NATIVE",error);}
   }
   @ReactMethod public void stop(Promise promise){try{synchronized(KhatyarRadioService.class){Context app=context.getApplicationContext();android.content.SharedPreferences preferences=app.getSharedPreferences(KhatyarRadioService.PREFS,Context.MODE_PRIVATE);preferences.edit().putBoolean("enabled",false).putLong("sessionVersion",preferences.getLong("sessionVersion",0L)+1L).apply();app.stopService(new Intent(app,KhatyarRadioService.class));promise.resolve(true);}}catch(Throwable error){promise.reject("RADIO_NATIVE",error);}}
+  @ReactMethod public void openBatteryOptimizationSettings(Promise promise){
+    try{
+      Intent intent=new Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      context.startActivity(intent);promise.resolve(true);
+    }catch(Throwable error){
+      try{
+        Intent intent=new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+          android.net.Uri.parse("package:"+context.getPackageName()));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);context.startActivity(intent);promise.resolve(true);
+      }catch(Throwable fallback){promise.reject("RADIO_BATTERY_SETTINGS",fallback);}
+    }
+  }
   @ReactMethod public void setForegroundState(boolean foreground,Promise promise){try{context.getApplicationContext().getSharedPreferences(KhatyarRadioService.PREFS,Context.MODE_PRIVATE).edit().putBoolean("jsForeground",foreground).putLong("jsForegroundAt",System.currentTimeMillis()).apply();promise.resolve(true);}catch(Throwable e){promise.reject("RADIO_NATIVE",e);}}
   @Override public void invalidate(){try{context.unregisterReceiver(receiver);}catch(Throwable ignored){}super.invalidate();}
 }
