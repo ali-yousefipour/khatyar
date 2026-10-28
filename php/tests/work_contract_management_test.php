@@ -31,4 +31,24 @@ if(class_exists('ZipArchive')&&class_exists('DOMDocument')){
   ensureContract(strpos($logoHtml,'<h3>')===false,'Never turn full lengthy legal clauses into bold headings');
 
 }
+// Print regression: footer Word labels, Persian digits and Jalali dates,
+// while preserving image data and the user's original bank-account digits in storage.
+if(class_exists('ZipArchive')&&class_exists('DOMDocument')){
+  $temp=tempnam(sys_get_temp_dir(),'wcf');$z=new ZipArchive();$z->open($temp,ZipArchive::OVERWRITE);
+  $z->addFromString('word/footer2.xml','<?xml version="1.0"?><w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p><w:r><w:t>محل امضاء کارگر</w:t></w:r><w:r><w:t>محل امضاء کارفرما</w:t></w:r></w:p></w:ftr>');
+  $z->close();
+  $fm=new ReflectionMethod(WorkContracts::class,'footerFromWord');
+  $footer=$fm->invoke(null,file_get_contents($temp));unlink($temp);
+  ensureContract(strpos($footer,'wc-print-footer')!==false,'Word footer should be included in print');
+  ensureContract(strpos($footer,'محل امضای کارگر')!==false && strpos($footer,'محل امضای کارفرما')!==false,'Both signatures should be retained');
+}
+$digits=new ReflectionMethod(WorkContracts::class,'persianPrintable');
+$shown=$digits->invoke(null,'<p>1405-08-01 شماره حساب 400796964308</p><img src="data:image/png;base64,ABC123">');
+ensureContract(strpos($shown,'۱۴۰۵/۰۸/۰۱')!==false,'Jalali date must print in Persian');
+ensureContract(strpos($shown,'۴۰۰۷۹۶۹۶۴۳۰۸')!==false,'Account number must print in Persian');
+ensureContract(strpos($shown,'ABC123')!==false,'Embedded image bytes must not change');
+ensureContract(strpos($src,"/work-contracts/templates/{id}")!==false,'Template deletion API required');
+ensureContract(strpos($src,'COUNT(*) n FROM work_contracts WHERE template_id=?')!==false,'Referenced templates cannot be deleted');
+ensureContract(strpos($ui,'data-template-delete')!==false,'Template delete control required');
+ensureContract(strpos($ui,'wc-jalali-picker')!==false,'Persian calendar input required');
 echo "PASS work-contract print structure, permanent deletion, edit and audit regression\n";
