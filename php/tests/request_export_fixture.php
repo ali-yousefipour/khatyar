@@ -9,7 +9,7 @@ function fa_datetime($value){return '۱۴۰۵/۰۷/۳۰ ۰۸:۳۰';}
 function _app_jdate_from_time($value){return '1405/07/30';}
 function route($method,$path,$fn,...$options){$GLOBALS['export']=$fn;}
 $source=file_get_contents(__DIR__.'/../lib/routes.php');
-$a=strpos($source,'function _req_report_filter(');$b=strpos($source,'function _req_report_csv_cell(',$a);eval(substr($source,$a,$b-$a));
+$a=strpos($source,'function _req_is_root_admin(');$b=strpos($source,'function _req_report_csv_cell(',$a);eval(substr($source,$a,$b-$a));
 $a=strpos($source,"route('GET', '/api/admin/requests/export'");$b=strpos($source,'// داشبورد لحظه',$a);
 eval(str_replace('__DIR__',var_export(dirname(__DIR__).'/lib',true),substr($source,$a,$b-$a)));
 $_GET=['status'=>'rejected','from'=>'2026-10-01','to'=>'2026-10-22'];
