@@ -162,10 +162,10 @@ async function saveEdit(){
  }catch(err){status(err.message,true);}finally{button.disabled=false;}
 }
 async function deleteContract(id){
- if(!confirm('قرارداد شماره '+num(id)+' حذف شود؟ نسخه حذف‌شده از فهرست کنار می‌رود و سابقه آن ثبت خواهد شد.'))return;
+ if(!confirm('قرارداد شماره '+num(id)+' برای همیشه از دیتابیس حذف شود؟ این عملیات قابل بازگشت نیست و نسخه Word، متن و سوابق تغییرات همین قرارداد نیز پاک می‌شوند.'))return;
  await call('/'+id,{method:'DELETE'});
  if(editingId===id){editingId=null;by('wc-editor').hidden=true;}
- status('قرارداد شماره '+num(id)+' حذف و در سوابق تغییرات ثبت شد.');
+ status('قرارداد شماره '+num(id)+' برای همیشه حذف شد.');
  await history();
 }
 async function generate(){
