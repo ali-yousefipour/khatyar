@@ -85,7 +85,23 @@ HTML;
     $sql='SELECT '.implode(',',array_map(fn($f)=>'u.`'.$f.'`',$available)).',r.title AS role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.is_active=1';
     $u=Db::one($sql,[$id]);
     if(!$u) Http::error('نیروی انتخاب‌شده فعال نیست یا وجود ندارد',422);
-    $first=function(array $keys)use($u):string{foreach($keys as $k)if(!empty($u[$k]))return (string)$u[$k];return '';};
+    $first=function(array $keys)use($u):string{foreach($keys as $k)if(!empty($u[$k]))return trim((string)$u[$k]);return '';};
+    // Account information is normally stored in the configurable personnel
+    // fields, not in the users table. Read the exact selected employee's values.
+    $custom=[];
+    foreach(Db::all("SELECT f.fkey,f.label,v.value FROM custom_field_values v
+      JOIN custom_fields f ON f.id=v.field_id
+      WHERE v.user_id=? AND f.is_active=1",[$id]) as $field){
+      $key=mb_strtolower(trim((string)($field['fkey']??'')),'UTF-8');
+      $label=trim((string)($field['label']??''));
+      $value=trim((string)($field['value']??''));
+      if($value==='')continue;
+      if(in_array($key,['bank_account','account_number','bank_account_number','account','bankaccount','hesab','shomare_hesab'],true)
+        || in_array($label,['شماره حساب','شماره حساب بانکی','حساب بانکی','شماره حساب بانک شهر'],true))
+        $custom['bank_account']=$value;
+      if(in_array($key,['shaba','iban','sheba'],true)||in_array($label,['شماره شبا','شبا'],true))
+        $custom['shaba']=$value;
+    }
     return [
       'user_id'=>$id,'full_name'=>trim(($u['first_name']??'').' '.($u['last_name']??'')),
       'first_name'=>$u['first_name']??'','last_name'=>$u['last_name']??'',
@@ -95,8 +111,8 @@ HTML;
       'address'=>$first(['address','home_address']),
       'mobile'=>$first(['mobile','mobile_number','phone']),
       'role_title'=>$u['role_title']??'',
-      'bank_account'=>$first(['bank_account','account_number','bank_account_number']),
-      'shaba'=>$first(['shaba']),'gender'=>$first(['gender'])
+      'bank_account'=>$first(['bank_account','account_number','bank_account_number']) ?: ($custom['bank_account']??''),
+      'shaba'=>$first(['shaba']) ?: ($custom['shaba']??''),'gender'=>$first(['gender'])
     ];
   }
   private static function render(string $text,array $snapshot,bool $xml=false): string {
@@ -214,7 +230,8 @@ HTML;
           // Missing personnel data remains blank; never invent legal identifiers.
           $missing=[];
           foreach(['national_code'=>'کد ملی','father_name'=>'نام پدر','birth_date'=>'تاریخ تولد',
-                   'identity_number'=>'شماره شناسنامه','address'=>'نشانی','mobile'=>'تلفن تماس'] as $field=>$label)
+                   'identity_number'=>'شماره شناسنامه','address'=>'نشانی','mobile'=>'تلفن تماس',
+                   'bank_account'=>'شماره حساب'] as $field=>$label)
             if(trim((string)($snapshot[$field]??''))==='')$missing[]=$label;
           $rendered=self::render($tpl['body_html']??'', $snapshot);
           $word=null;
