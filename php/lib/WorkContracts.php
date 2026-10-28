@@ -6,6 +6,9 @@
 final class WorkContracts {
   private static function db(): PDO { return Db::pdo(); }
   public static function setup(): void {
+    static $ready=false;
+    if($ready)return;
+    try {
     Db::run("CREATE TABLE IF NOT EXISTS work_contract_templates (
       id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(180) NOT NULL, kind VARCHAR(12) NOT NULL,
       body_html LONGTEXT NULL, docx_blob LONGBLOB NULL, is_default TINYINT NOT NULL DEFAULT 0,
@@ -22,6 +25,11 @@ final class WorkContracts {
     $r=Db::one("SELECT id FROM work_contract_templates WHERE name=? LIMIT 1",['قرارداد پیش‌فرض شرکت سعید توس عدل']);
     if(!$r) Db::run("INSERT INTO work_contract_templates(name,kind,body_html,is_default) VALUES(?,?,?,1)",
       ['قرارداد پیش‌فرض شرکت سعید توس عدل','html',self::defaultHtml()]);
+    $ready=true;
+    } catch(Throwable $error) {
+      error_log('work contracts database initialization: '.get_class($error).': '.$error->getMessage());
+      Http::error('پایگاه داده قراردادهای کاری آماده نیست. لازم است جدول‌های قرارداد در سرور ایجاد و مجوز پایگاه داده بررسی شود.',503);
+    }
   }
   public static function defaultHtml(): string {
     return <<<'HTML'
