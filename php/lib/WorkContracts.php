@@ -99,7 +99,7 @@ HTML;
     return strtr($text,$replacements);
   }
   private static function docxReplace(string $binary,array $values): string {
-    if(!class_exists('ZipArchive'))throw new RuntimeException('امکان پردازش Word در PHP فعال نیست');
+    if(!class_exists('ZipArchive')||!class_exists('DOMDocument'))throw new RuntimeException('افزونه‌های ZIP و XML برای پردازش Word در سرور لازم هستند');
     $temp=tempnam(sys_get_temp_dir(),'wct');file_put_contents($temp,$binary);
     $zip=new ZipArchive();
     if($zip->open($temp)!==true){unlink($temp);throw new RuntimeException('فایل Word معتبر نیست');}
@@ -170,6 +170,8 @@ HTML;
       if((int)$f['size']>5*1024*1024||strtolower(pathinfo($f['name'],PATHINFO_EXTENSION))!=='docx')
         Http::error('فقط فایل Word با پسوند docx تا پنج مگابایت مجاز است',422);
       $blob=file_get_contents($f['tmp_name']);if(substr($blob,0,2)!=='PK')Http::error('فرمت فایل Word معتبر نیست',422);
+      if(!class_exists('ZipArchive')||!class_exists('DOMDocument'))
+        Http::error('افزونه‌های ZIP و XML در سرور فعال نیستند؛ بارگذاری Word امکان‌پذیر نیست',503);
       $z=new ZipArchive();if($z->open($f['tmp_name'])!==true||$z->locateName('word/document.xml')===false)
         Http::error('فایل Word ساختار معتبر ندارد',422);
       $z->close();
