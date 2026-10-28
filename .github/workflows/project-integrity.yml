@@ -71,6 +71,7 @@ jobs:
           php php/tests/selfie_delivery_test.php
           php php/tests/employment_period_test.php
           node mobile/scripts/test-update-contract.cjs
+          node mobile/scripts/test-payroll-period-title.cjs
           php php/tests/presence_street_geocode_test.php
           node mobile/scripts/test-selfie-delivery.cjs
           node php/tests/selfie_ui_test.cjs
