@@ -329,46 +329,62 @@ export function ExpTaxiScreen({ navigation }) {
 export function TeamReportScreen() {
   const d = useFetch('/my/team');
   const [linesModal, setLinesModal] = useState(null); // {name, lines}
+  const [filter, setFilter] = useState('all');
+  const [query, setQuery] = useState('');
   if (d === null) return <Loading />;
-  const groups = Object.entries(d.groups || {});
+  const entries = Object.entries(d.groups || {});
+  const statusOf = (m) => m.attendance_status || (m.is_present ? 'present' : 'absent');
+  const groups = entries.map(([role, list]) => [role, list.filter((m) =>
+    (filter === 'all' || statusOf(m) === filter) &&
+    (!query.trim() || [m.name, m.zone_name, m.role_title, ...(m.lines || [])].some((v) => String(v || '').includes(query.trim())))
+  )]).filter(([, list]) => list.length);
+  const statusMeta = {
+    present: { label: 'حاضر در شیفت', icon: 'check-circle', color: '#087c58', bg: '#e4f7ee' },
+    completed: { label: 'شیفت انجام‌شده', icon: 'check-all', color: '#3662a1', bg: '#e9f1ff' },
+    absent: { label: 'فاقد حضور فعال', icon: 'clock-outline', color: '#a45428', bg: '#fff2e5' },
+  };
   return (
-    <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={{ padding: 14 }}>
+    <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={{ padding: 14, paddingBottom: 36 }}>
       {(d.busiest || d.idlest) && (
         <View style={s.card}><Text style={s.title}>کارایی زیرمجموعه</Text>
           {d.busiest && <View style={s.row}><Text style={[s.k, { color: C.ok }]}>پرکارترین: {d.busiest.name}</Text><Text style={s.v}>{faNum(Number(d.busiest.total))}</Text></View>}
           {d.idlest && <View style={s.row}><Text style={[s.k, { color: C.danger }]}>کم‌کارترین: {d.idlest.name}</Text><Text style={s.v}>{faNum(Number(d.idlest.total))}</Text></View>}
         </View>
       )}
-      <View style={s.card}>
-        <Text style={s.title}>وضعیت نیروهای منطقه‌های تحت مسئولیت</Text>
-        <View style={s.row}>
-          <Text style={s.k}>کل زیرمجموعه: {faNum(Number(d.total || 0))}</Text>
-          <Text style={[s.v, { color: C.ok }]}>حاضر: {faNum(Number(d.present || 0))}</Text>
-          <Text style={[s.v, { color: C.danger }]}>بدون حضور: {faNum(Number(d.absent || 0))}</Text>
+      <View style={tm.hero}>
+        <View style={tm.heroHead}><MaterialCommunityIcons name="account-group-outline" size={26} color="#fff"/><View style={{ flex: 1 }}><Text style={tm.heroTitle}>زیرمجموعه من</Text><Text style={tm.heroCaption}>وضعیت تردد امروز نیروهای مناطق تحت مسئولیت</Text></View></View>
+        <View style={tm.stats}>
+          {[
+            { key: 'all', label: 'کل نیروها', count: d.total, color: '#e4f7f1' },
+            { key: 'present', label: 'حاضر در شیفت', count: d.present, color: '#b5f2ce' },
+            { key: 'completed', label: 'شیفت انجام‌شده', count: d.completed, color: '#cde2ff' },
+            { key: 'absent', label: 'فاقد حضور فعال', count: d.absent, color: '#ffe4bc' },
+          ].map((it) => <TouchableOpacity key={it.key} onPress={() => setFilter(it.key)} style={[tm.stat, filter === it.key && tm.statSelected]}>
+            <Text style={[tm.statCount, { color: it.color }]}>{faNum(Number(it.count || 0))}</Text>
+            <Text style={tm.statLabel}>{it.label}</Text>
+          </TouchableOpacity>)}
         </View>
       </View>
+      <View style={tm.searchBox}><MaterialCommunityIcons name="magnify" size={21} color={C.muted}/><TextInput style={tm.searchInput} value={query} onChangeText={setQuery} placeholder="جستجوی نام، منطقه، سمت یا خط..." placeholderTextColor={C.muted}/>{!!query && <TouchableOpacity onPress={() => setQuery('')}><MaterialCommunityIcons name="close-circle" size={20} color={C.muted}/></TouchableOpacity>}</View>
+      <Text style={tm.resultsTitle}>{faNum(groups.reduce((n, [, list]) => n + list.length, 0))} نیرو در این فهرست</Text>
       {groups.length === 0 ? <Empty /> : groups.map(([role, list]) => (
-        <View key={role} style={s.card}>
-          <Text style={s.title}>{role} ({faNum(Number(list.length))})</Text>
+        <View key={role} style={tm.groupCard}>
+          <View style={tm.groupHead}><View style={tm.groupIcon}><MaterialCommunityIcons name="account-multiple" size={19} color={C.brand}/></View><Text style={tm.groupTitle}>{role}</Text><Text style={tm.groupCount}>{faNum(list.length)} نفر</Text></View>
           {list.map((m) => (
             <View key={m.id} style={tm.memberRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={tm.memberName}>{m.name}</Text>
-                {!!m.role_title && <Text style={tm.memberRole}>{m.role_title}</Text>}
-                {!!m.zone_name && <Text style={tm.memberRegion}>منطقه: {m.zone_name}</Text>}
-                <Text style={[tm.memberAttendance, { color: m.is_present ? C.ok : C.danger }]}>
-                  {m.is_present ? '● حاضر' : '● فاقد حضور فعال'} {m.check_in_time ? '  |  ساعت ورود: ' + faNum(m.check_in_time) : '  |  ورود امروز ثبت نشده'}
-                </Text>
-                {m.line_count == null ? null : m.line_count > 0 ? (
-                  m.line_count <= 6 ? (
-                    <Text style={tm.memberLines}>خطوط: {m.lines.map((l) => faNum(l)).join('، ')}</Text>
-                  ) : (
-                    <TouchableOpacity onPress={() => setLinesModal({ name: m.name, lines: m.lines })}>
-                      <Text style={tm.memberLinesLink}>خطوط: {m.lines.slice(0, 6).map((l) => faNum(l)).join('، ')} … (نمایش همهٔ {faNum(m.line_count)} خط)</Text>
-                    </TouchableOpacity>
-                  )
-                ) : <Text style={tm.memberNoLine}>بدون خط اختصاصی</Text>}
-              </View>
+              <View style={tm.personHead}><View style={tm.avatar}><Text style={tm.avatarText}>{(m.name || '؟').trim().slice(0, 1)}</Text></View><View style={{ flex: 1 }}><Text style={tm.memberName}>{m.name}</Text><Text style={tm.memberRole}>{[m.role_title, m.zone_name ? 'منطقه ' + m.zone_name : null].filter(Boolean).join(' · ')}</Text></View></View>
+              <View style={[tm.statusTag, { backgroundColor: statusMeta[statusOf(m)]?.bg || statusMeta.absent.bg }]}><MaterialCommunityIcons name={statusMeta[statusOf(m)]?.icon || 'clock-outline'} size={16} color={statusMeta[statusOf(m)]?.color || C.slate}/><Text style={[tm.statusText, { color: statusMeta[statusOf(m)]?.color || C.slate }]}>{statusMeta[statusOf(m)]?.label || 'فاقد حضور فعال'}</Text></View>
+              {(m.attendance_sessions || []).length ? <View style={tm.sessions}>
+                <Text style={tm.sessionsTitle}>ترددهای امروز · {faNum(m.attendance_sessions.length)} نوبت</Text>
+                {m.attendance_sessions.map((a, index) => <View key={index} style={tm.sessionRow}>
+                  <Text style={tm.sessionIndex}>نوبت {faNum(index + 1)}</Text>
+                  <Text style={tm.sessionIn}>ورود {faNum(a.check_in_time || '—')}</Text>
+                  <Text style={tm.sessionOut}>{a.check_out_time ? 'خروج ' + faNum(a.check_out_time) : 'خروج ثبت نشده'}</Text>
+                </View>)}
+              </View> : <Text style={tm.memberNoEntry}>امروز ورود ثبت نشده است</Text>}
+              {!!m.line_count && <TouchableOpacity style={tm.linesButton} onPress={() => setLinesModal({ name: m.name, lines: m.lines || [] })}>
+                <MaterialCommunityIcons name="map-marker-path" size={18} color={C.brand}/><Text style={tm.linesButtonTxt} numberOfLines={2}>خطوط: {(m.lines || []).slice(0, 4).map(faNum).join('، ')}{m.line_count > 4 ? ' و ...' : ''}</Text><Text style={tm.linesCount}>{faNum(m.line_count)} خط</Text><MaterialCommunityIcons name="chevron-left" size={19} color={C.brand}/>
+              </TouchableOpacity>}
             </View>
           ))}
         </View>
@@ -378,7 +394,7 @@ export function TeamReportScreen() {
         <View style={tm.modalBg}>
           <View style={tm.modalBox}>
             <Text style={tm.modalTitle}>خطوط {linesModal?.name}</Text>
-            <Text style={tm.modalSub}>{faNum(linesModal?.lines?.length || 0)} خط</Text>
+            <Text style={tm.modalSub}>{faNum(linesModal?.lines?.length || 0)} خط اختصاص‌یافته</Text>
             <ScrollView persistentScrollbar={true} style={{ maxHeight: 340, marginVertical: 10 }}>
               <View style={tm.chipWrap}>
                 {(linesModal?.lines || []).map((l, i) => (
@@ -397,14 +413,41 @@ export function TeamReportScreen() {
 }
 
 const tm = StyleSheet.create({
-  memberRow: { flexDirection: 'row-reverse', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#eef1f6' },
+  hero: { backgroundColor: '#075d4d', borderRadius: 21, padding: 17, marginBottom: 13, elevation: 3 },
+  heroHead: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12, marginBottom: 16 },
+  heroTitle: { fontFamily: FONT.bold, color: '#fff', fontSize: 19, textAlign: 'right' },
+  heroCaption: { fontFamily: FONT.regular, color: '#d7ebe5', fontSize: 11.5, textAlign: 'right', marginTop: 3 },
+  stats: { flexDirection: 'row-reverse', gap: 6 },
+  stat: { flex: 1, minWidth: 0, borderRadius: 12, backgroundColor: 'rgba(255,255,255,.11)', borderWidth: 1, borderColor: 'transparent', paddingVertical: 11, paddingHorizontal: 2, alignItems: 'center', gap: 5 },
+  statSelected: { borderColor: '#fff', backgroundColor: 'rgba(255,255,255,.24)' },
+  statCount: { fontFamily: FONT.bold, fontSize: 22 },
+  statLabel: { fontFamily: FONT.bold, fontSize: 9.5, color: '#fff', textAlign: 'center' },
+  searchBox: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: C.line, flexDirection: 'row-reverse', alignItems: 'center', gap: 9, paddingHorizontal: 12, marginBottom: 11 },
+  searchInput: { flex: 1, fontFamily: FONT.regular, color: C.ink, fontSize: 13, textAlign: 'right', paddingVertical: 12 },
+  resultsTitle: { fontFamily: FONT.bold, fontSize: 12, color: C.slate, marginBottom: 10, textAlign: 'right' },
+  groupCard: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: C.line, marginBottom: 13, overflow: 'hidden' },
+  groupHead: { flexDirection: 'row-reverse', alignItems: 'center', gap: 9, padding: 13, backgroundColor: '#f0f6f4' },
+  groupIcon: { backgroundColor: '#dcefe8', borderRadius: 10, padding: 7 },
+  groupTitle: { flex: 1, fontFamily: FONT.bold, fontSize: 14, color: C.ink, textAlign: 'right' },
+  groupCount: { fontFamily: FONT.bold, fontSize: 11, color: C.brand },
+  memberRow: { padding: 13, borderTopWidth: 1, borderTopColor: '#e8edf3' },
+  personHead: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginBottom: 10 },
+  avatar: { width: 38, height: 38, borderRadius: 13, backgroundColor: '#e9f4f0', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontFamily: FONT.bold, fontSize: 18, color: C.brand },
   memberName: { fontFamily: FONT.bold, color: C.ink, fontSize: 14, textAlign: 'right' },
-  memberRole: { fontFamily: FONT.regular, color: C.muted, fontSize: 11.5, textAlign: 'right', marginTop: 2 },
-  memberRegion: { fontFamily: FONT.regular, color: C.slate, fontSize: 12, textAlign: 'right', marginTop: 4 },
-  memberAttendance: { fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', marginTop: 4 },
-  memberLines: { fontFamily: FONT.regular, color: C.slate, fontSize: 12, textAlign: 'right', marginTop: 4 },
-  memberLinesLink: { fontFamily: FONT.regular, color: C.brand, fontSize: 12, textAlign: 'right', marginTop: 4 },
-  memberNoLine: { fontFamily: FONT.regular, color: C.muted, fontSize: 11.5, textAlign: 'right', marginTop: 4 },
+  memberRole: { fontFamily: FONT.regular, color: C.muted, fontSize: 11.5, textAlign: 'right', marginTop: 3 },
+  statusTag: { flexDirection: 'row-reverse', alignSelf: 'flex-start', alignItems: 'center', gap: 6, paddingHorizontal: 11, paddingVertical: 6, borderRadius: 20, marginBottom: 9 },
+  statusText: { fontFamily: FONT.bold, fontSize: 11.5 },
+  sessions: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#edf0f5', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 },
+  sessionsTitle: { fontFamily: FONT.bold, color: C.slate, fontSize: 11, textAlign: 'right', marginBottom: 6 },
+  sessionRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, paddingVertical: 5, flexWrap: 'wrap' },
+  sessionIndex: { fontFamily: FONT.regular, fontSize: 10.5, color: C.muted, marginLeft: 'auto' },
+  sessionIn: { fontFamily: FONT.bold, fontSize: 11.5, color: '#087c58' },
+  sessionOut: { fontFamily: FONT.bold, fontSize: 11.5, color: '#3662a1' },
+  memberNoEntry: { fontFamily: FONT.regular, color: C.muted, fontSize: 11.5, textAlign: 'right' },
+  linesButton: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, backgroundColor: '#f0f7f4', borderRadius: 11, paddingHorizontal: 10, paddingVertical: 10, marginTop: 10 },
+  linesButtonTxt: { flex: 1, fontFamily: FONT.regular, color: C.brand, fontSize: 11.5, textAlign: 'right' },
+  linesCount: { fontFamily: FONT.bold, color: C.brand, fontSize: 10.5 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 20 },
   modalBox: { backgroundColor: '#fff', borderRadius: 16, padding: 18, width: '100%', maxWidth: 380 },
   modalTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 16, textAlign: 'right' },

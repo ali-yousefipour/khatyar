@@ -237,28 +237,9 @@ unset($attendanceRoute);
 // rules as zone leadership. Replace the legacy roster without changing auth.
 foreach ($routes as &$teamRoute) {
   if (($teamRoute['m']??'')==='GET' && ($teamRoute['p']??'')==='/api/my/team') {
-    $legacyTeamHandler=$teamRoute['fn'];
-    $teamRoute['fn']=static function($params,$body,$user) use($legacyTeamHandler) {
+    $teamRoute['fn']=static function($params,$body,$user) {
       require_once dirname(__DIR__).'/lib/RegionalTeam.php';
-      $scoped=RegionalTeam::response($user);
-      // Preserve existing assigned-line display, but never trust legacy
-      // membership as permission to add a person to the regional roster.
-      try {
-        $legacy=$legacyTeamHandler($params,$body,$user);
-        $lineMap=[];
-        foreach(($legacy['groups']??[]) as $members)foreach($members as $member){
-          $id=(int)($member['id']??0);
-          if($id>0)$lineMap[$id]=['lines'=>$member['lines']??[], 'line_count'=>$member['line_count']??null];
-        }
-        foreach($scoped['groups'] as &$members)foreach($members as &$member){
-          $extra=$lineMap[(int)$member['id']]??null;
-          if($extra){$member['lines']=is_array($extra['lines'])?$extra['lines']:[];$member['line_count']=$extra['line_count'];}
-        }
-        unset($members,$member);
-      } catch(Throwable $error) {
-        error_log('regional team legacy line metadata unavailable: '.$error->getMessage());
-      }
-      return $scoped;
+      return RegionalTeam::response($user);
     };
   }
 }

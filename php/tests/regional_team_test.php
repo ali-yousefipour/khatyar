@@ -30,4 +30,20 @@ checkTeam($ids(RegionalTeam::allowedMembers($renamedInspector,$users,$zones,$lea
 checkTeam(in_array(12,$ids(RegionalTeam::allowedMembers($users[0],$users,$zones,$leaders)),true),'Level-five senior includes all lower regional staff');
 checkTeam(!in_array(12,$ids(RegionalTeam::allowedMembers($users[1],$users,$zones,$leaders)),true),'Level-six inspector cannot enumerate same-level peers');
 checkTeam(RegionalTeam::zoneTree([['id'=>3,'parent_id'=>2],['id'=>2,'parent_id'=>3]],[2])===[2,3],'Malformed cycles cannot create infinite loops');
+$none=RegionalTeam::attendanceState([]);
+checkTeam($none['attendance_status']==='absent'&&$none['attendance_sessions']===[],'No check-in today is absent');
+$one=RegionalTeam::attendanceState([['check_in'=>'2026-10-28 07:00:00','check_out'=>null]]);
+checkTeam($one['attendance_status']==='present'&&$one['check_in_time']==='07:00','Open shift is present');
+$done=RegionalTeam::attendanceState([['check_in'=>'2026-10-28 07:00:00','check_out'=>'2026-10-28 12:30:00']]);
+checkTeam($done['attendance_status']==='completed'&&$done['check_out_time']==='12:30','Closed shift is completed');
+$twice=RegionalTeam::attendanceState([
+ ['check_in'=>'2026-10-28 06:00:00','check_out'=>'2026-10-28 11:00:00'],
+ ['check_in'=>'2026-10-28 14:00:00','check_out'=>'2026-10-28 18:00:00'],
+]);
+checkTeam($twice['attendance_status']==='completed'&&count($twice['attendance_sessions'])===2,'Both finished shifts remain visible');
+$reentered=RegionalTeam::attendanceState([
+ ['check_in'=>'2026-10-28 06:00:00','check_out'=>'2026-10-28 11:00:00'],
+ ['check_in'=>'2026-10-28 14:00:00','check_out'=>null],
+]);
+checkTeam($reentered['attendance_status']==='present'&&count($reentered['attendance_sessions'])===2,'New open shift takes priority and preserves earlier checkout');
 echo "PASS team regional scope, nested zones, designated managers, inactive personnel and isolation\n";
