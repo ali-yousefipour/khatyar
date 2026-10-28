@@ -13,4 +13,4 @@ $a=strpos($source,'function _req_report_filter(');$b=strpos($source,'function _r
 $a=strpos($source,"route('GET', '/api/admin/requests/export'");$b=strpos($source,'// داشبورد لحظه',$a);
 eval(str_replace('__DIR__',var_export(dirname(__DIR__).'/lib',true),substr($source,$a,$b-$a)));
 $_GET=['status'=>'rejected','from'=>'2026-10-01','to'=>'2026-10-22'];
-$GLOBALS['export']([],[],['id'=>1]);
+$GLOBALS['export']([],[],['id'=>1,'username'=>'admin']);
