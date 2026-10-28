@@ -290,7 +290,9 @@ body{margin:0;background:#edf1f2;color:#111827;direction:rtl;font-family:Tahoma,
  .wc-paper p,.wc-paper h3,.wc-paper .wc-sign{break-inside:avoid-page}
 }
 CSS;
-      echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>قرارداد شماره '.(int)$id.'</title><style>'.$style.'</style><div class="wc-tools" style="text-align:center;padding:14px"><button onclick="window.print()">چاپ قرارداد</button></div>'.$row['body_html'].'</html>';exit;
+      $autoPrint=!empty($_GET['autoprint']);
+      $printScript=$autoPrint?'<script>window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},350);});</script>':'';
+      echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>قرارداد شماره '.(int)$id.'</title><style>'.$style.'</style><div class="wc-tools" style="text-align:center;padding:14px"><button onclick="window.print()">چاپ / ذخیره PDF</button></div>'.$row['body_html'].$printScript.'</html>';exit;
     },false,3);
     route('GET','/api/admin/work-contracts/{id}/word',static function($p,$b,$actor){
       self::setup();$id=(int)($p['id']??0);
