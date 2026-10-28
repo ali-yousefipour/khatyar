@@ -100,7 +100,7 @@ final class RegionalTeam {
                 'role_title'=>$title,'zone_id'=>$zoneId,'zone_name'=>$names[$zoneId]??'',
                 'check_in_time'=>$a?substr((string)$a['check_in'],11,5):null,
                 'check_in_at'=>$a['check_in']??null,
-                'is_present'=>$active,'line_count'=>0,'lines'=>[],
+                'is_present'=>$active,'line_count'=>null,'lines'=>[],
             ];
         }
         ksort($groups,SORT_NATURAL);
