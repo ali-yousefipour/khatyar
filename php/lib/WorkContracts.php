@@ -337,7 +337,13 @@ HTML;
         static fn($m)=>$m[1].'/'.str_pad($m[2],2,'0',STR_PAD_LEFT).'/'.str_pad($m[3],2,'0',STR_PAD_LEFT),$part);
       $part=preg_replace_callback('/\b(\d{1,2})[-\/](\d{1,2})[-\/](1[34]\d{2})\b/u',
         static fn($m)=>$m[3].'/'.str_pad($m[2],2,'0',STR_PAD_LEFT).'/'.str_pad($m[1],2,'0',STR_PAD_LEFT),$part);
-      $part=strtr($part,['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹','٠'=>'۰','١'=>'۱','٢'=>'۲','٣'=>'۳','٤'=>'۴','٥'=>'۵','٦'=>'۶','٧'=>'۷','٨'=>'۸','٩'=>'۹']);
+      $entities=preg_split('/(&(?:#x[0-9a-fA-F]+|#[0-9]+|[A-Za-z]+);)/u',$part,-1,PREG_SPLIT_DELIM_CAPTURE);
+      foreach($entities as $entityIndex=>&$text){
+        if($entityIndex%2!==0)continue;
+        $text=strtr($text,['0'=>'۰','1'=>'۱','2'=>'۲','3'=>'۳','4'=>'۴','5'=>'۵','6'=>'۶','7'=>'۷','8'=>'۸','9'=>'۹','٠'=>'۰','١'=>'۱','٢'=>'۲','٣'=>'۳','٤'=>'۴','٥'=>'۵','٦'=>'۶','٧'=>'۷','٨'=>'۸','٩'=>'۹']);
+      }
+      unset($text);
+      $part=implode('',$entities);
     }
     unset($part);
     return implode('',$parts);
