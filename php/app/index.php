@@ -254,6 +254,19 @@ foreach ($routes as &$teamRoute) {
   }
 }
 unset($teamRoute);
+// Enforce consistent, verified forms schema across listing, creation, editing
+// and public forms, before legacy handlers attempt to query new columns.
+require_once "$ROOT/lib/KhatyarFormsSchema.php";
+foreach($routes as &$formsRoute) {
+  $formsPath=(string)($formsRoute['p']??'');
+  if(!preg_match('~^/api/(?:admin/(?:forms(?:/.*)?|form-submit)|public/forms(?:/.*)?)$~',$formsPath))continue;
+  $formsOriginal=$formsRoute['fn'];
+  $formsRoute['fn']=static function($params,$body,$user)use($formsOriginal){
+    KhatyarFormsSchema::ensure();
+    return $formsOriginal($params,$body,$user);
+  };
+}
+unset($formsRoute);
 foreach ($routes as $r) {
   if ($r['m'] !== $method) continue; $regex = '#^' . preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $r['p']) . '$#'; if (!preg_match($regex, $path, $mm)) continue; $params = array_filter($mm, 'is_string', ARRAY_FILTER_USE_KEY); $user = null;
   try {
