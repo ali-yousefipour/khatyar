@@ -106,13 +106,44 @@ HTML;
     if($zip->open($temp)!==true){unlink($temp);throw new RuntimeException('فایل Word معتبر نیست');}
     $xml=$zip->getFromName('word/document.xml');
     if($xml===false){$zip->close();unlink($temp);throw new RuntimeException('ساختار فایل Word معتبر نیست');}
-    // Replace whole placeholders, including those split between Word text runs.
-    $xml=preg_replace_callback('~(?:<w:t(?:\s+[^>]*)?>[^<]*</w:t>\s*(?:</w:r>\s*</w:p>|</w:r>\s*<w:r[^>]*>|<w:r[^>]*>|</w:r>\s*</w:hyperlink>\s*<w:hyperlink[^>]*>))*~u',
-      static fn($m)=>$m[0],$xml); // Preserve OOXML structure.
-    foreach($values as $key=>$value){
-      $needle='{{'.$key.'}}';$replacement=htmlspecialchars((string)$value,ENT_XML1|ENT_QUOTES,'UTF-8');
-      $xml=str_replace($needle,$replacement,$xml);
+    // Word frequently splits a single {{field}} token over several <w:t> runs.
+    // Match across run boundaries while keeping all paragraph/run formatting.
+    $doc=new DOMDocument('1.0','UTF-8');
+    if(!$doc->loadXML($xml,LIBXML_NONET|LIBXML_COMPACT)){
+      $zip->close();unlink($temp);throw new RuntimeException('XML قالب Word معتبر نیست');
     }
+    $xpath=new DOMXPath($doc);
+    $xpath->registerNamespace('w','http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+    foreach($xpath->query('//w:p') as $para){
+      $nodes=[];$full='';
+      foreach($xpath->query('.//w:t',$para) as $node){$nodes[]=$node;$full.=$node->nodeValue;}
+      if(!$nodes||strpos($full,'{{')===false)continue;
+      preg_match_all('/\\{\\{([a-z_]+)\\}\\}/u',$full,$matches,PREG_OFFSET_CAPTURE);
+      $originals=array_map(static fn($n)=>$n->nodeValue,$nodes);
+      $starts=[];$offset=0;
+      foreach($originals as $t){$starts[]=$offset;$offset+=mb_strlen($t,'UTF-8');}
+      for($m=count($matches[0])-1;$m>=0;$m--){
+        $token=$matches[0][$m][0];$key=$matches[1][$m][0];
+        if(!array_key_exists($key,$values))continue;
+        $begin=mb_strlen(substr($full,0,$matches[0][$m][1]),'UTF-8');
+        $finish=$begin+mb_strlen($token,'UTF-8');
+        $first=null;$last=null;
+        foreach($originals as $i=>$value){
+          $lo=$starts[$i];$hi=$lo+mb_strlen($value,'UTF-8');
+          if($first===null&&$begin<$hi)$first=$i;
+          if($finish>$lo&&$finish<=$hi){$last=$i;break;}
+        }
+        if($first===null||$last===null)continue;
+        $replacement=(string)$values[$key];
+        $left=mb_substr($nodes[$first]->nodeValue,0,$begin-$starts[$first],'UTF-8');
+        $right=mb_substr($nodes[$last]->nodeValue,$finish-$starts[$last],null,'UTF-8');
+        if($first===$last){$nodes[$first]->nodeValue=$left.$replacement.$right;continue;}
+        $nodes[$first]->nodeValue=$left.$replacement;
+        for($j=$first+1;$j<$last;$j++)$nodes[$j]->nodeValue='';
+        $nodes[$last]->nodeValue=$right;
+      }
+    }
+    $xml=$doc->saveXML();
     $zip->deleteName('word/document.xml');$zip->addFromString('word/document.xml',$xml);
     $zip->close();$out=file_get_contents($temp);unlink($temp);return $out;
   }
