@@ -221,6 +221,17 @@ foreach($routes as &$attendanceRoute){
   };
 }
 unset($attendanceRoute);
+// The team endpoint must follow the same server-side regional responsibility
+// rules as zone leadership. Replace the legacy roster without changing auth.
+foreach ($routes as &$teamRoute) {
+  if (($teamRoute['m']??'')==='GET' && ($teamRoute['p']??'')==='/api/my/team') {
+    $teamRoute['fn']=static function($params,$body,$user) {
+      require_once dirname(__DIR__).'/lib/RegionalTeam.php';
+      return RegionalTeam::response($user);
+    };
+  }
+}
+unset($teamRoute);
 foreach ($routes as $r) {
   if ($r['m'] !== $method) continue; $regex = '#^' . preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $r['p']) . '$#'; if (!preg_match($regex, $path, $mm)) continue; $params = array_filter($mm, 'is_string', ARRAY_FILTER_USE_KEY); $user = null;
   try {
