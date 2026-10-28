@@ -458,7 +458,7 @@ HTML;
       // Repair already-issued Word contracts whose saved HTML contained literal \\n.
       if(!empty($row['docx_blob']))$row['body_html']=self::docxHtml($row['docx_blob']);
       header('Content-Type: text/html; charset=utf-8');header('Cache-Control: private,no-store');
-      header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'");
+      header("Content-Security-Policy: default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'");
       $style=<<<'CSS'
 @page{size:A4 portrait;margin:15mm 15mm 14mm}
 :root{color-scheme:light}
@@ -474,7 +474,13 @@ body{margin:0;background:#edf1f2;color:#111827;direction:rtl;font-family:Tahoma,
 .wc-paper b{font-weight:700}
 .wc-paper .wc-sign{display:flex;justify-content:space-between;gap:20px;margin-top:24px;min-height:40px;break-inside:avoid;font-weight:700}
 .wc-paper .wc-page-break{break-before:page;page-break-before:always;height:0;margin:0;padding:0}
-.wc-paper .wc-docx-text{white-space:pre-wrap;line-height:1.8;text-align:justify}
+.wc-word{font-family:Tahoma,"B Nazanin",sans-serif}
+.wc-word p{font-size:10pt;line-height:1.6;margin:3px 0;text-align:justify;font-weight:400;overflow-wrap:break-word}
+.wc-word .wc-clause strong{font-weight:700}
+.wc-word h3{font-size:10.5pt;margin:7px 0 3px;line-height:1.55}
+.wc-logo-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-height:90px;margin:0 0 8px}
+.wc-template-logo{object-fit:contain;max-height:94px;width:auto;max-width:31%;height:auto}
+.wc-paper .wc-docx-text{white-space:pre-wrap;line-height:1.6;text-align:justify}
 @media print{
  html,body{width:auto;background:#fff}
  .wc-tools{display:none!important}
