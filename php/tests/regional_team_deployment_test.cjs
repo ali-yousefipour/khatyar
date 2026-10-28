@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const flow=fs.readFileSync(path.join(__dirname,'../../.github/workflows/deploy-php.yml'),'utf8');
+const upload=flow.slice(flow.indexOf('- name: Upload changed PHP files'),flow.indexOf('- name: Verify uploaded FTP files'));
+const verify=flow.slice(flow.indexOf('- name: Verify uploaded FTP files'),flow.indexOf('- name: Delete removed PHP files'));
+const name='RegionalTeam.php';
+assert.ok(upload.includes('[ "${rel}" = "lib/'+name+'" ]'),'protected PHP file bypasses direct FTP');
+assert.ok(upload.includes('[ -f deploy-payload/lib/'+name+' ]'),'installer runs for regional team changes');
+assert.ok(upload.includes("'"+name+"' => '"+name+"'"),'host-side installer includes the regional team');
+assert.ok(upload.includes('OrgChart.php '+name+' Seniority.php'),'staging includes the regional team');
+assert.ok(upload.includes('for name in KhatyarFormsSchema.php WorkContracts.php '+name),'canonical checksum checked after installation');
+assert.ok(verify.includes('[ "${rel}" = "lib/'+name+'" ]'),'FTP cannot read protected canonical file');
+assert.ok(flow.includes('lib/'+name+' lib/EmploymentAttendance.php'),'force reconciliation includes regional team');
+console.log('PASS regional team deployment: protected host installer, staging and checksum verification');

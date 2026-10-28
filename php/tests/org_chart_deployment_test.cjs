@@ -4,11 +4,11 @@ const path = require('node:path');
 
 const workflow = fs.readFileSync(path.join(__dirname, '../../.github/workflows/deploy-php.yml'), 'utf8');
 const lines = workflow.split(/\r?\n/);
-const protectedChecks = lines.filter(line => line.includes('if [ "${rel}" = "lib/Db.php" ]'));
+const protectedChecks = lines.filter(line => line.includes('[ "${rel}" = "lib/Db.php" ]'));
 assert.equal(protectedChecks.length, 2);
 for (const check of protectedChecks) assert.ok(check.includes('"lib/OrgChart.php"'));
 for (const check of protectedChecks) assert.ok(check.includes('"lib/EmploymentAttendance.php"'));
-const installerCheck = lines.find(line => line.includes('if [ -f deploy-payload/lib/Db.php ]'));
+const installerCheck = lines.find(line => line.includes('[ -f deploy-payload/lib/Db.php ]'));
 assert.ok(installerCheck.includes('[ -f deploy-payload/lib/OrgChart.php ]'));
 assert.ok(installerCheck.includes('[ -f deploy-payload/lib/EmploymentAttendance.php ]'));
 const staging = lines.find(line => line.includes('for name in Db.php Http.php'));
