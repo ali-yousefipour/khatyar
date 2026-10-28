@@ -132,7 +132,14 @@ route('POST', '/api/admin/attendance-gps-waiver', function($p,$b,$u) {
     [$uid,$start,$end,$reason,(int)$u['id']]);
   return ['ok'=>true,'removed_minutes'=>(int)ceil((strtotime($end)-strtotime($start))/60)];
 }, false, 3);
-require __DIR__ . '/api/daily-performance-gps-separate.php'; require "$ROOT/lib/routes.php"; require_once "$ROOT/lib/WorkContracts.php"; WorkContracts::register(); if (is_file("$ROOT/lib/presence_reverse_geocode.php")) require "$ROOT/lib/presence_reverse_geocode.php"; if (is_file("$ROOT/lib/subscription_invoice_routes.php")) require "$ROOT/lib/subscription_invoice_routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; // Read a user's employment period directly from the authoritative table.
+require __DIR__ . '/api/daily-performance-gps-separate.php'; require "$ROOT/lib/routes.php"; // Optional module must not break login, public settings or the whole API if
+// FTP deployment uploads index.php before WorkContracts.php.
+if (is_file("$ROOT/lib/WorkContracts.php")) {
+  require_once "$ROOT/lib/WorkContracts.php";
+  WorkContracts::register();
+} else {
+  error_log('work contracts module not deployed yet; skipping contract routes');
+} if (is_file("$ROOT/lib/presence_reverse_geocode.php")) require "$ROOT/lib/presence_reverse_geocode.php"; if (is_file("$ROOT/lib/subscription_invoice_routes.php")) require "$ROOT/lib/subscription_invoice_routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; // Read a user's employment period directly from the authoritative table.
 // This endpoint is independent of the variable-shaped admin/users list response.
 $routes[] = [
   'm' => 'GET',
@@ -286,6 +293,15 @@ foreach ($routes as $r) {
     $user['device_id'] = $payload['device_id'] ?? null; $user['device_type'] = $dt;
     if (empty($user['is_admin'])) { $mrow = Db::one("SELECT value FROM app_settings WHERE `key`='maintenance_mode'"); $mcfg = $mrow ? json_decode($mrow['value'], true) : null; if (!empty($mcfg['enabled'])) Http::error((string)($mcfg['message'] ?? '') ?: 'نرم‌افزار و پنل موقتاً برای تعمیرات غیرفعال است. لطفاً بعداً تلاش کنید.', 503); }
     if ($r['minLevel'] <= 3) { if (empty($user['is_admin'])) Http::error('دسترسی مدیریتی لازم است', 403); } elseif ((int)$user['level'] > $r['minLevel']) Http::error('سطح دسترسی کافی نیست', 403);
+  }
+  if(strpos($path,'/api/admin/work-contracts')===0) {
+    // The same role_perms key used by the web sidebar is enforced on API.
+    $permRow=Db::one("SELECT value FROM app_settings WHERE `key`='role_perms' LIMIT 1");
+    $permConfig=$permRow?json_decode((string)$permRow['value'],true):null;
+    $rid=(string)($user['role_id']??'');
+    if(is_array($permConfig) && array_key_exists($rid,$permConfig)
+       && !in_array('workcontracts',is_array($permConfig[$rid])?$permConfig[$rid]:[],true))
+      Http::error('دسترسی ایجاد و پرینت قرارداد برای سمت شما فعال نیست',403);
   }
   $result = $r['fn']($params, $body, $user); Http::json($result);
   } catch (Throwable $e) { error_log('API error [' . $method . ' ' . $path . '] ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . basename($e->getFile()) . ':' . $e->getLine()); $debug = getenv('API_DEBUG') === '1' || (defined('API_DEBUG') && API_DEBUG); if ($debug) Http::json(['error' => 'خطای داخلی سرور', 'detail' => $e->getMessage(), 'line' => $e->getLine(), 'file' => basename($e->getFile())], 500); else Http::error('خطای داخلی سرور', 500); }
