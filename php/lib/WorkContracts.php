@@ -216,16 +216,23 @@ HTML;
       }
       $plain=trim($plain);
       if($plain==='')continue;
-      // Also render older templates containing textual backslash-n escapes.
-      $plain=str_replace('\\n',' ',$plain);
+      // Each actual newline or literal backslash-n from historical imports
+      // represents a real paragraph, never visible "\\n" text.
       $content=implode('',$parts);
-      $content=str_replace('\\n',' ',$content);
-      if(!$page2 && preg_match('/^(?:۷|7)\s*[)\-.،:]?\s*حق\s*السعی/u',$plain)){
-        $html.='<div class="wc-page-break"></div>';$page2=true;
+      $content=str_replace(["\\r\\n","\\r"],"\\n",$content);
+      $content=str_replace('\\\\n',"\\n",$content);
+      foreach(explode("\\n",$content) as $piece){
+        $piece=trim($piece);
+        $text=trim(html_entity_decode(strip_tags($piece),ENT_QUOTES|ENT_HTML5,'UTF-8'));
+        if($text==='')continue;
+        if(!$page2 && preg_match('/^(?:۷|7)\\s*[)\\-.،:]?\\s*حق\\s*السعی/u',$text)){
+          $html.='<div class="wc-page-break"></div>';$page2=true;
+        }
+        if(preg_match('/^قرارداد\\s*کار$/u',$text))$html.='<h1>'.$piece.'</h1>';
+        elseif(preg_match('/^[۰-۹0-9]+(?:[\\\\/۰-۹0-9]+)?\\s*[)\\-.،:]\\s*/u',$text))
+          $html.='<h3>'.$piece.'</h3>';
+        else $html.='<p>'.$piece.'</p>';
       }
-      if(preg_match('/^قرارداد\s*کار$/u',$plain))$html.='<h1>'.$content.'</h1>';
-      elseif(preg_match('/^[۰-۹0-9]+(?:[\\/۰-۹0-9]+)?\s*[)\-.،:]\s*/u',$plain))$html.='<h3>'.$content.'</h3>';
-      else $html.='<p>'.$content.'</p>';
     }
     return $html.'</div>';
   }
