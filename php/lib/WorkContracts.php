@@ -444,8 +444,9 @@ HTML;
         $tpl=Db::one('SELECT id,is_default FROM work_contract_templates WHERE id=? FOR UPDATE',[$id]);
         if(!$tpl)Http::error('قالب موردنظر یافت نشد',404);
 
-        $count=Db::one('SELECT COUNT(*) n FROM work_contracts WHERE template_id=?',[$id]);
-        if((int)($count['n']??0)>0)Http::error('ابتدا قراردادهای صادرشده با این قالب را حذف یا به قالب دیگری منتقل کنید',409);
+        // Issued contracts contain their own complete printable snapshot and
+        // DOCX; detaching the template must not remove or invalidate them.
+        Db::run('UPDATE work_contracts SET template_id=0 WHERE template_id=?',[$id]);
         Db::run('DELETE FROM work_contract_templates WHERE id=?',[$id]);
         $pdo->commit();
       }catch(Throwable $error){
@@ -457,9 +458,9 @@ HTML;
     route('GET','/api/admin/work-contracts/history',static function($p,$b,$actor){
       self::setup();
       $rows=Db::all("SELECT c.id,c.user_id,c.start_date,c.end_date,c.duration_label,c.created_at,
-      u.first_name,u.last_name,t.name template_name,t.kind
+      u.first_name,u.last_name,COALESCE(t.name,'قالب حذف‌شده') template_name,COALESCE(t.kind,'html') kind
       FROM work_contracts c JOIN users u ON u.id=c.user_id
-      JOIN work_contract_templates t ON t.id=c.template_id WHERE c.deleted_at IS NULL ORDER BY c.id DESC LIMIT 300");
+      LEFT JOIN work_contract_templates t ON t.id=c.template_id WHERE c.deleted_at IS NULL ORDER BY c.id DESC LIMIT 300");
       return ['ok'=>true,'rows'=>$rows];
     },false,3);
     route('GET','/api/admin/work-contracts/{id}',static function($p,$b,$actor){
