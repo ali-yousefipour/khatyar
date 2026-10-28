@@ -5,6 +5,8 @@ const BASE='/api/admin/work-contracts';
 let loaded=false, users=[],templates=[], issued=[];
 const e=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=s=>String(s??'').replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
+const latin=s=>String(s??'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+const standardDate=s=>latin(s).replace(/\//g,'-').trim();
 const token=()=>localStorage.getItem('token')||localStorage.token||'';
 async function call(path,opts={}){
  const headers={Authorization:'Bearer '+token()};
@@ -51,6 +53,18 @@ const style=`
 #kh-contract-panel .wc-editor{margin-top:15px;padding:16px;background:#fff;border:1px solid #d3e3db;border-radius:12px}
 #kh-contract-panel .wc-editor[hidden]{display:none}
 #kh-contract-panel .wc-delete{background:#ad313a}
+#kh-contract-panel .wc-template-list{margin:12px 0}
+#kh-contract-panel .wc-template-row{display:flex;justify-content:space-between;align-items:center;padding:8px;border:1px solid #dce8e2;border-radius:8px;margin:5px 0;background:#fff;gap:8px}
+#kh-contract-panel .wc-date-entry{display:flex;gap:6px;align-items:center}
+#kh-contract-panel .wc-date-entry input{flex:1;min-width:0}
+#kh-contract-panel .wc-date-entry button{flex-shrink:0;margin-top:4px}
+.wc-jalali-picker{position:fixed;z-index:2147483600;width:312px;max-width:95vw;background:#fff;border:1px solid #d4e4da;border-radius:13px;box-shadow:0 14px 40px #0003;padding:12px;direction:rtl;font:13px Tahoma,sans-serif}
+.wc-jalali-picker .wc-cal-head{display:flex;justify-content:space-between;gap:4px;margin-bottom:9px}
+.wc-jalali-picker button,.wc-jalali-picker select{font:inherit;padding:6px;border:1px solid #d8e5dc;background:#f5faf7;color:#134e35;border-radius:7px}
+.wc-jalali-picker .wc-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.wc-jalali-picker .wc-cal-grid button{padding:7px 0;border:0;background:white;cursor:pointer}
+.wc-jalali-picker .wc-cal-grid button:hover,.wc-jalali-picker .wc-cal-grid button.selected{background:#177c55;color:white}
+.wc-jalali-picker .wc-cal-week{color:#64748b;text-align:center;font-size:10px;padding:4px 0}
 `;
 function dom(){
  if(document.getElementById('kh-contract-panel'))return;
@@ -62,8 +76,8 @@ function dom(){
  <p>انتخاب قالب قرارداد، تعیین مدت و صدور نسخه مستقل؛ خروجی فقط از طریق چاپ یا ذخیره PDF ارائه می‌شود.</p>
  <div class="wc-grid">
  <label>قالب قرارداد<select id="wc-template"></select></label>
- <label>تاریخ شروع (شمسی)<input id="wc-start" dir="ltr" placeholder="1405/08/01" maxlength="10"></label>
- <label>تاریخ پایان (شمسی)<input id="wc-end" dir="ltr" placeholder="1405/12/29" maxlength="10"></label>
+ <label>تاریخ شروع (شمسی)<div class="wc-date-entry"><input id="wc-start" dir="ltr" placeholder="۱۴۰۵/۰۸/۰۱" maxlength="10"><button class="wc-secondary" type="button" data-calendar-for="wc-start" aria-label="انتخاب تاریخ شروع">📅</button></div></label>
+ <label>تاریخ پایان (شمسی)<div class="wc-date-entry"><input id="wc-end" dir="ltr" placeholder="۱۴۰۵/۱۲/۲۹" maxlength="10"><button class="wc-secondary" type="button" data-calendar-for="wc-end" aria-label="انتخاب تاریخ پایان">📅</button></div></label>
  <label>مدت قرارداد<input id="wc-duration" placeholder="مثلاً پنج ماه"></label>
  </div>
  <div class="wc-toolbar"><h3>انتخاب نیروها</h3><label>جستجو<input id="wc-search" placeholder="نام و نام خانوادگی یا سمت"></label></div>
@@ -73,6 +87,7 @@ function dom(){
  <hr><h3>بارگذاری قالب Word و ذخیره در قالب‌های پیش‌فرض</h3>
  <div class="wc-grid"><label>نام قالب جدید<input id="wc-tpl-name" placeholder="مثلاً قرارداد موقت ۱۴۰۵"></label><label>فایل Word (.docx)<input id="wc-tpl-file" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></label></div>
  <div class="wc-actions"><button id="wc-upload">ذخیره قالب</button></div>
+ <div id="wc-templates-list" class="wc-template-list" aria-label="قالب‌های ذخیره‌شده"></div>
  <small>در قالب Word از برچسب‌هایی مانند {{full_name}}، {{national_code}}، {{father_name}}، {{birth_date}}، {{role_title}}، {{start_date}} و {{end_date}} استفاده کنید. هر برچسب باید در یک قطعه متن Word قرار گیرد.</small>
  <hr><div class="wc-toolbar"><h3>قراردادهای صادرشده</h3><button class="wc-secondary" id="wc-history-refresh">بارگذاری سوابق</button></div>
  <div class="wc-history"><table><thead><tr><th>نیرو</th><th>قالب</th><th>شروع</th><th>پایان</th><th>اقدامات</th></tr></thead><tbody id="wc-history"></tbody></table></div>
@@ -89,8 +104,8 @@ function dom(){
 <label>نشانی<input data-edit="address"></label>
 <label>عنوان شغل<input data-edit="role_title"></label>
 <label>شماره حساب<input data-edit="bank_account"></label>
-<label>تاریخ شروع شمسی<input data-edit="start_date" placeholder="1405-08-01"></label>
-<label>تاریخ پایان شمسی<input data-edit="end_date" placeholder="1405-12-29"></label>
+<label>تاریخ شروع شمسی<div class="wc-date-entry"><input id="wc-edit-start" data-edit="start_date" placeholder="۱۴۰۵/۰۸/۰۱"><button class="wc-secondary" type="button" data-calendar-for="wc-edit-start">📅</button></div></label>
+<label>تاریخ پایان شمسی<div class="wc-date-entry"><input id="wc-edit-end" data-edit="end_date" placeholder="۱۴۰۵/۱۲/۲۹"><button class="wc-secondary" type="button" data-calendar-for="wc-edit-end">📅</button></div></label>
 <label>مدت قرارداد<input data-edit="duration_label"></label>
 <label>قالب قرارداد<select id="wc-edit-template"></select></label>
 </div>
@@ -107,6 +122,14 @@ function dom(){
  by('wc-clear').onclick=()=>{selected.clear();renderUsers();};
  by('wc-generate').onclick=generate;
  by('wc-upload').onclick=upload;
+ by('wc-templates-list').onclick=ev=>{
+   const b=ev.target.closest('[data-template-delete]');
+   if(b)deleteTemplate(Number(b.dataset.templateDelete)).catch(err=>status(err.message,true));
+ };
+ div.addEventListener('click',ev=>{
+   const b=ev.target.closest('[data-calendar-for]');
+   if(b){ev.preventDefault();openCalendar(by(b.dataset.calendarFor));}
+ });
  by('wc-edit-save').onclick=saveEdit;
  by('wc-edit-cancel').onclick=()=>{editingId=null;by('wc-editor').hidden=true;};
  div.addEventListener('click',ev=>{
@@ -116,6 +139,61 @@ function dom(){
    else if(action==='delete')deleteContract(id).catch(err=>status(err.message,true));
    else printContract(id).catch(err=>status(err.message,true));
  });
+}
+const jMonths=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+const jFormat=new Intl.DateTimeFormat('en-u-ca-persian-nu-latn',{timeZone:'UTC',year:'numeric',month:'2-digit',day:'2-digit'});
+function jalaliParts(date){
+ const p=jFormat.formatToParts(date),a={};p.forEach(x=>{if(['year','month','day'].includes(x.type))a[x.type]=Number(x.value);});
+ return [a.year,a.month,a.day];
+}
+function toGregorian(y,m,d){
+ const target=y*10000+m*100+d;
+ let lo=Date.UTC(y+620,0,1),hi=Date.UTC(y+623,0,1);
+ while(lo<=hi){
+   const midDay=Math.floor((lo+hi)/2/86400000)*86400000;
+   const t=jalaliParts(new Date(midDay+43200000)),n=t[0]*10000+t[1]*100+t[2];
+   if(n===target)return new Date(midDay);
+   if(n<target)lo=midDay+86400000;else hi=midDay-86400000;
+ }
+ return null;
+}
+function jalaliMonthLength(y,m){
+ const a=toGregorian(y,m,1),b=toGregorian(m===12?y+1:y,m===12?1:m,1);
+ return a&&b?Math.round((b-a)/86400000):(m<=6?31:m<=11?30:29);
+}
+let activeCalendar=null;
+function closeCalendar(){activeCalendar?.remove();activeCalendar=null;}
+function openCalendar(input){
+ if(!input)return;
+ closeCalendar();
+ const supplied=standardDate(input.value).match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+ const current=jalaliParts(new Date()),selected=supplied?[+supplied[1],+supplied[2],+supplied[3]]:current;
+ let y=selected[0],m=selected[1];
+ const pop=document.createElement('div');pop.className='wc-jalali-picker';document.body.appendChild(pop);activeCalendar=pop;
+ const rect=input.getBoundingClientRect();pop.style.left=Math.max(8,Math.min(window.innerWidth-322,rect.left))+'px';pop.style.top=Math.max(8,Math.min(window.innerHeight-360,rect.bottom+4))+'px';
+ function draw(){
+   const g=toGregorian(y,m,1),first=g?(g.getUTCDay()+1)%7:0,len=jalaliMonthLength(y,m);
+   let cells=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'].map(t=>'<span class="wc-cal-week">'+t+'</span>').join('');
+   for(let i=0;i<first;i++)cells+='<span></span>';
+   for(let d=1;d<=len;d++)cells+='<button type="button" data-jday="'+d+'" class="'+(selected[0]===y&&selected[1]===m&&selected[2]===d?'selected':'')+'">'+num(d)+'</button>';
+   pop.innerHTML='<div class="wc-cal-head"><button type="button" data-prev>ماه قبل</button><select data-jmonth>'+jMonths.map((name,i)=>'<option value="'+(i+1)+'"'+(m===i+1?' selected':'')+'>'+name+'</option>').join('')+'</select><select data-jyear>'+Array.from({length:31},(_,i)=>y-15+i).map(yr=>'<option value="'+yr+'"'+(yr===y?' selected':'')+'>'+num(yr)+'</option>').join('')+'</select><button type="button" data-next>ماه بعد</button></div><div class="wc-cal-grid">'+cells+'</div><button type="button" data-close>بستن</button>';
+ }
+ pop.onclick=ev=>{
+   const t=ev.target.closest('button');if(!t)return;
+   if(t.hasAttribute('data-close'))return closeCalendar();
+   if(t.hasAttribute('data-prev')){m--;if(m<1){m=12;y--;}draw();return;}
+   if(t.hasAttribute('data-next')){m++;if(m>12){m=1;y++;}draw();return;}
+   if(t.hasAttribute('data-jday')){
+     const d=Number(t.dataset.jday);input.value=num(y+'/'+String(m).padStart(2,'0')+'/'+String(d).padStart(2,'0'));
+     input.dispatchEvent(new Event('change',{bubbles:true}));closeCalendar();
+   }
+ };
+ pop.onchange=ev=>{
+   if(ev.target.matches('[data-jmonth]'))m=Number(ev.target.value);
+   if(ev.target.matches('[data-jyear]'))y=Number(ev.target.value);
+   draw();
+ };
+ draw();
 }
 let editingId=null;
 const selected=new Set();
@@ -131,8 +209,20 @@ function renderUsers(){
 async function refresh(){
  try{status('در حال دریافت اطلاعات…');const d=await call('/bootstrap');users=d.users||[];templates=d.templates||[];
  by('wc-template').innerHTML=templates.map(t=>`<option value="${Number(t.id)}">${e(t.name)}${t.kind==='docx'?' (Word)':''}</option>`).join('');
- renderUsers();status('اطلاعات و قالب‌ها بارگذاری شد.');await history();
+ renderTemplateList();renderUsers();status('اطلاعات و قالب‌ها بارگذاری شد.');await history();
  }catch(err){status(err.message,true);}
+}
+function renderTemplateList(){
+ const el=by('wc-templates-list');if(!el)return;
+ el.innerHTML=templates.map(t=>`<div class="wc-template-row"><span>${e(t.name)} ${t.is_default?'(پیش‌فرض سامانه)':''}</span>${t.is_default?'':`<button type="button" class="wc-delete" data-template-delete="${Number(t.id)}">حذف قالب</button>`}</div>`).join('');
+}
+async function deleteTemplate(id){
+ const t=templates.find(x=>Number(x.id)===id);
+ if(!t||t.is_default)return;
+ if(!confirm('قالب «'+t.name+'» برای همیشه حذف شود؟ اگر قرارداد صادرشده‌ای به آن متصل باشد، سامانه حذف را مجاز نمی‌داند.'))return;
+ await call('/templates/'+id,{method:'DELETE'});
+ status('قالب «'+t.name+'» حذف شد.');
+ await refresh();
 }
 async function history(){
  try{const d=await call('/history');issued=d.rows||[];
@@ -143,7 +233,7 @@ async function openEdit(id){
  const data=await call('/'+id),c=data.contract||{},snapshot=c.snapshot||{};
  editingId=id;by('wc-edit-number').textContent='شماره '+num(id);
  for(const el of by('wc-editor').querySelectorAll('[data-edit]')){
-   const key=el.dataset.edit;el.value=String(c[key]??snapshot[key]??'');
+   const key=el.dataset.edit;el.value=['start_date','end_date'].includes(key)?num(String(c[key]??snapshot[key]??'').replace(/-/g,'/')):String(c[key]??snapshot[key]??'');
  }
  by('wc-edit-template').innerHTML=templates.map(t=>`<option value="${Number(t.id)}">${e(t.name)}</option>`).join('');
  by('wc-edit-template').value=String(c.template_id);
@@ -153,7 +243,7 @@ async function openEdit(id){
 async function saveEdit(){
  if(!editingId)return;
  const data={template_id:Number(by('wc-edit-template').value)};
- for(const el of by('wc-editor').querySelectorAll('[data-edit]'))data[el.dataset.edit]=el.value.trim();
+ for(const el of by('wc-editor').querySelectorAll('[data-edit]'))data[el.dataset.edit]=['start_date','end_date'].includes(el.dataset.edit)?standardDate(el.value):el.value.trim();
  const button=by('wc-edit-save');button.disabled=true;
  try{
    await call('/'+editingId,{method:'PUT',body:JSON.stringify(data)});
@@ -169,7 +259,7 @@ async function deleteContract(id){
  await history();
 }
 async function generate(){
- const ids=[...selected],start=by('wc-start').value.trim().replaceAll('/','-'),end=by('wc-end').value.trim().replaceAll('/','-'),duration=by('wc-duration').value.trim();
+ const ids=[...selected],start=standardDate(by('wc-start').value),end=standardDate(by('wc-end').value),duration=by('wc-duration').value.trim();
  if(!ids.length)return status('حداقل یک نیرو انتخاب کنید.',true);
  if(!/^1[34]\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(start)||!/^1[34]\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(end)||end<start)return status('تاریخ‌های شمسی را بررسی کنید.',true);
  if(!duration)return status('مدت قرارداد را مشخص کنید.',true);
