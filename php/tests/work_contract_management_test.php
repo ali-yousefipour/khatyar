@@ -49,7 +49,13 @@ ensureContract(strpos($shown,'۴۰۰۷۹۶۹۶۴۳۰۸')!==false,'Account number
 ensureContract(strpos($shown,'ABC123')!==false,'Embedded image bytes must not change');
 ensureContract(strpos($digits->invoke(null,'<p>نام &#039; کاربر 1405-08-01</p>'),'&#039;')!==false,'HTML entities must stay intact');
 ensureContract(strpos($src,"/work-contracts/templates/{id}")!==false,'Template deletion API required');
-ensureContract(strpos($src,'COUNT(*) n FROM work_contracts WHERE template_id=?')!==false,'Referenced templates cannot be deleted');
+ensureContract(strpos($src,'UPDATE work_contracts SET template_id=0 WHERE template_id=?')!==false,'Template deletion must preserve issued snapshots');
 ensureContract(strpos($ui,'data-template-delete')!==false,'Template delete control required');
 ensureContract(strpos($ui,'wc-jalali-picker')!==false,'Persian calendar input required');
+$sheet=new ReflectionMethod(WorkContracts::class,'printableSheets');
+$pages=$sheet->invoke(null,'<div class="wc-paper wc-word" dir="rtl"><p>اول</p><div class="wc-page-break"></div><p>دوم</p></div>','<div class="wc-print-footer">امضا</div>');
+ensureContract(substr_count($pages,'class="wc-sheet"')===2,'Both pages must have separate A4 sheets');
+ensureContract(substr_count($pages,'class="wc-print-footer"')===2,'Signature footer must repeat on each page');
+ensureContract(strpos($src,'height:297mm')!==false && strpos($src,'padding:19mm 20mm 31mm')!==false,'A4 padding must apply on every page');
+ensureContract(strpos($src,'font:500 10.5pt')!==false,'Footer must have readable consistent typography');
 echo "PASS work-contract print structure, permanent deletion, edit and audit regression\n";
