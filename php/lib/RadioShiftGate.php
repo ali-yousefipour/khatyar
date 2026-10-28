@@ -17,13 +17,13 @@ function kh_radio_shift_allowed(array $user): bool {
     if (!kh_radio_shift_enabled() || kh_radio_shift_responsible($user)) return true;
     $uid=(int)($user['id']??0);
     if($uid<=0)return false;
-    // The live check-in is the authoritative indication that this user is
-    // currently inside their work shift. Reject future and stale open records.
-    // MAX 24h also allows overnight / rotating shifts, but not abandoned sessions.
-    $row=Db::one("SELECT id FROM staff_attendance WHERE user_id=? AND check_in<=NOW()
-        AND check_in>=DATE_SUB(NOW(),INTERVAL 24 HOUR) AND check_out IS NULL
-        ORDER BY check_in DESC LIMIT 1",[$uid]);
-    return !empty($row);
+    // Inspect the latest punch (including checked-out rows). An older unclosed
+    // row must never re-authorize someone who has already checked out.
+    $row=Db::one("SELECT id,check_in,check_out FROM staff_attendance
+        WHERE user_id=? AND check_in<=NOW()
+        AND check_in>=DATE_SUB(NOW(),INTERVAL 24 HOUR)
+        ORDER BY check_in DESC,id DESC LIMIT 1",[$uid]);
+    return $row !== null && !empty($row['id']) && empty($row['check_out']);
 }
 function kh_radio_shift_require(array $user): void {
     if (!kh_radio_shift_allowed($user)) {
