@@ -1,0 +1,24 @@
+<?php
+require_once __DIR__.'/../lib/RegionalTeam.php';
+function checkTeam($ok,$message){if(!$ok)throw new RuntimeException($message);}
+$users=[
+ ['id'=>1,'role_title'=>'سربازرس','zone_id'=>1,'is_active'=>1],
+ ['id'=>2,'role_title'=>'بازرس','zone_id'=>2,'is_active'=>1],
+ ['id'=>3,'role_title'=>'بازرس مقیم','zone_id'=>8,'is_active'=>1],
+ ['id'=>4,'role_title'=>'اپراتور','zone_id'=>2,'is_active'=>1],
+ ['id'=>5,'role_title'=>'ناظر خط','zone_id'=>3,'is_active'=>1],
+ ['id'=>6,'role_title'=>'اپراتور','zone_id'=>4,'is_active'=>1],
+ ['id'=>7,'role_title'=>'ناظر خط','zone_id'=>3,'is_active'=>0],
+ ['id'=>8,'role_title'=>'سربازرس','zone_id'=>4,'is_active'=>1],
+ ['id'=>9,'role_title'=>'بازرس','zone_id'=>4,'is_active'=>1],
+];
+$zones=[['id'=>1,'parent_id'=>null],['id'=>2,'parent_id'=>1],['id'=>3,'parent_id'=>2],['id'=>4,'parent_id'=>null],['id'=>8,'parent_id'=>null]];
+$leaders=[['zone_id'=>1,'senior_user_id'=>1,'inspector_ids'=>[]],['zone_id'=>2,'senior_user_id'=>null,'inspector_ids'=>[2,3]]];
+$ids=static fn($members)=>array_map(static fn($member)=>(int)$member['id'],$members);
+checkTeam($ids(RegionalTeam::allowedMembers($users[0],$users,$zones,$leaders))===[2,3,4,5],'Senior sees inspectors including cross-region appointee, plus field staff in descendants only');
+checkTeam($ids(RegionalTeam::allowedMembers($users[1],$users,$zones,$leaders))===[4,5],'Inspector sees operator and line observer in own region and descendants');
+checkTeam($ids(RegionalTeam::allowedMembers($users[2],$users,$zones,$leaders))===[4,5],'Explicitly appointed inspector sees assigned region, not physical base zone');
+checkTeam($ids(RegionalTeam::allowedMembers($users[7],$users,$zones,$leaders))===[9,6] || $ids(RegionalTeam::allowedMembers($users[7],$users,$zones,$leaders))===[6,9],'Separate region senior does not see other regions');
+checkTeam(RegionalTeam::allowedMembers($users[3],$users,$zones,$leaders)===[],'Operators cannot enumerate personnel');
+checkTeam(RegionalTeam::zoneTree([['id'=>3,'parent_id'=>2],['id'=>2,'parent_id'=>3]],[2])===[2,3],'Malformed cycles cannot create infinite loops');
+echo "PASS team regional scope, nested zones, designated managers, inactive personnel and isolation\n";
