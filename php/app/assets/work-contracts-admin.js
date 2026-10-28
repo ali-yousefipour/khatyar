@@ -58,7 +58,7 @@ const style=`
 #kh-contract-panel .wc-date-entry{display:flex;gap:6px;align-items:center}
 #kh-contract-panel .wc-date-entry input{flex:1;min-width:0}
 #kh-contract-panel .wc-date-entry button{flex-shrink:0;margin-top:4px}
-.wc-jalali-picker{position:fixed;z-index:2147483600;width:312px;max-width:95vw;background:#fff;border:1px solid #d4e4da;border-radius:13px;box-shadow:0 14px 40px #0003;padding:12px;direction:rtl;font:13px Tahoma,sans-serif}
+.wc-jalali-picker{position:fixed;z-index:2147483647;width:312px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow-y:auto;background:#fff;border:1px solid #d4e4da;border-radius:13px;box-shadow:0 14px 40px #0003;padding:12px;direction:rtl;font:13px Tahoma,sans-serif}
 .wc-jalali-picker .wc-cal-head{display:flex;justify-content:space-between;gap:4px;margin-bottom:9px}
 .wc-jalali-picker button,.wc-jalali-picker select{font:inherit;padding:6px;border:1px solid #d8e5dc;background:#f5faf7;color:#134e35;border-radius:7px}
 .wc-jalali-picker .wc-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
@@ -162,15 +162,27 @@ function jalaliMonthLength(y,m){
  return a&&b?Math.round((b-a)/86400000):(m<=6?31:m<=11?30:29);
 }
 let activeCalendar=null;
-function closeCalendar(){activeCalendar?.remove();activeCalendar=null;}
+let calendarOutsideHandler=null;
+function closeCalendar(){activeCalendar?.remove();activeCalendar=null;if(calendarOutsideHandler){document.removeEventListener('pointerdown',calendarOutsideHandler,true);calendarOutsideHandler=null;}}
 function openCalendar(input){
  if(!input)return;
  closeCalendar();
  const supplied=standardDate(input.value).match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
  const current=jalaliParts(new Date()),selected=supplied?[+supplied[1],+supplied[2],+supplied[3]]:current;
+ if(!Number.isFinite(selected[0])||selected[0]<1300||selected[0]>1600||selected[1]<1||selected[1]>12){selected.splice(0,3,...current);}
  let y=selected[0],m=selected[1];
  const pop=document.createElement('div');pop.className='wc-jalali-picker';document.body.appendChild(pop);activeCalendar=pop;
- const rect=input.getBoundingClientRect();pop.style.left=Math.max(8,Math.min(window.innerWidth-322,rect.left))+'px';pop.style.top=Math.max(8,Math.min(window.innerHeight-360,rect.bottom+4))+'px';
+ const place=()=>{
+   const rect=input.getBoundingClientRect(),vw=window.innerWidth,vh=window.innerHeight;
+   const width=Math.min(344,Math.max(270,vw-16)),height=Math.min(pop.scrollHeight||350,vh-16);
+   pop.style.width=width+'px';
+   pop.style.left=Math.max(8,Math.min(vw-width-8,rect.right-width))+'px';
+   const below=vh-rect.bottom,above=rect.top;
+   pop.style.top=Math.max(8,Math.min(vh-height-8,below>=height+6||below>=above?rect.bottom+6:rect.top-height-6))+'px';
+ };
+ place();
+ calendarOutsideHandler=event=>{if(!pop.contains(event.target) && event.target!==input && !event.target.closest?.('[data-calendar-for]'))closeCalendar();};
+ document.addEventListener('pointerdown',calendarOutsideHandler,true);
  function draw(){
    const g=toGregorian(y,m,1),first=g?(g.getUTCDay()+1)%7:0,len=jalaliMonthLength(y,m);
    let cells=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'].map(t=>'<span class="wc-cal-week">'+t+'</span>').join('');
@@ -194,6 +206,8 @@ function openCalendar(input){
    draw();
  };
  draw();
+ place();
+ pop.addEventListener('click',e=>e.stopPropagation());
 }
 let editingId=null;
 const selected=new Set();
@@ -278,7 +292,7 @@ async function upload(){
  try{await call('/templates',{method:'POST',body:f});by('wc-tpl-name').value='';by('wc-tpl-file').value='';await refresh();status('قالب Word ذخیره شد.');}
  catch(err){status(err.message,true);}
 }
-function unmount(){document.getElementById('kh-contract-panel')?.remove();loaded=false;selected.clear();editingId=null;}
+function unmount(){closeCalendar();document.getElementById('kh-contract-panel')?.remove();loaded=false;selected.clear();editingId=null;}
 function mount(){
  const host=document.getElementById('khatyar-contract-page');
  if(!host)return;
