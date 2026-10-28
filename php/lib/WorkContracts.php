@@ -25,6 +25,15 @@ final class WorkContracts {
     $r=Db::one("SELECT id FROM work_contract_templates WHERE name=? LIMIT 1",['قرارداد پیش‌فرض شرکت سعید توس عدل']);
     if(!$r) Db::run("INSERT INTO work_contract_templates(name,kind,body_html,is_default) VALUES(?,?,?,1)",
       ['قرارداد پیش‌فرض شرکت سعید توس عدل','html',self::defaultHtml()]);
+    Db::run("CREATE TABLE IF NOT EXISTS work_contract_audit (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,contract_id BIGINT NOT NULL,actor_id INT NOT NULL,
+      action VARCHAR(20) NOT NULL,before_json LONGTEXT NULL,after_json LONGTEXT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,KEY idx_audit_contract(contract_id,id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $deletedColumn=Db::one("SELECT COUNT(*) n FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='work_contracts' AND COLUMN_NAME='deleted_at'");
+    if((int)($deletedColumn['n']??0)===0)
+      Db::run("ALTER TABLE work_contracts ADD COLUMN deleted_at DATETIME NULL");
     $ready=true;
     } catch(Throwable $error) {
       error_log('work contracts database initialization: '.get_class($error).': '.$error->getMessage());
@@ -311,13 +320,68 @@ HTML;
       $rows=Db::all("SELECT c.id,c.user_id,c.start_date,c.end_date,c.duration_label,c.created_at,
       u.first_name,u.last_name,t.name template_name,t.kind
       FROM work_contracts c JOIN users u ON u.id=c.user_id
-      JOIN work_contract_templates t ON t.id=c.template_id ORDER BY c.id DESC LIMIT 300");
+      JOIN work_contract_templates t ON t.id=c.template_id WHERE c.deleted_at IS NULL ORDER BY c.id DESC LIMIT 300");
       return ['ok'=>true,'rows'=>$rows];
+    },false,3);
+    route('GET','/api/admin/work-contracts/{id}',static function($p,$b,$actor){
+      self::setup();
+      $row=Db::one("SELECT id,user_id,template_id,start_date,end_date,duration_label,snapshot_json
+        FROM work_contracts WHERE id=? AND deleted_at IS NULL",[(int)$p['id']]);
+      if(!$row)Http::error('قرارداد یافت نشد',404);
+      $row['snapshot']=json_decode((string)$row['snapshot_json'],true)?:[];
+      unset($row['snapshot_json']);
+      return ['ok'=>true,'contract'=>$row];
+    },false,3);
+    route('PUT','/api/admin/work-contracts/{id}',static function($p,$b,$actor){
+      self::setup();
+      $id=(int)$p['id'];
+      $old=Db::one('SELECT * FROM work_contracts WHERE id=? AND deleted_at IS NULL',[$id]);
+      if(!$old)Http::error('قرارداد یافت نشد',404);
+      [$start,$end,$duration]=self::datesAndDuration($b);
+      $snap=json_decode((string)$old['snapshot_json'],true);
+      if(!is_array($snap))Http::error('اطلاعات اولیه قرارداد نامعتبر است',422);
+      $editable=['full_name','father_name','birth_date','identity_number','national_code',
+        'address','mobile','role_title','bank_account','shaba'];
+      foreach($editable as $field) {
+        if(!array_key_exists($field,$b))continue;
+        $value=trim((string)$b[$field]);
+        if(mb_strlen($value)>400)Http::error('طول اطلاعات قرارداد بیش از حد مجاز است',422);
+        $snap[$field]=$value;
+      }
+      $snap['start_date']=$start;$snap['end_date']=$end;$snap['duration_label']=$duration;
+      $templateId=(int)($b['template_id']??$old['template_id']);
+      $template=Db::one('SELECT * FROM work_contract_templates WHERE id=?',[$templateId]);
+      if(!$template)Http::error('قالب قرارداد یافت نشد',404);
+      [$body,$word]=self::renderContract($template,$snap);
+      $pdo=self::db();$pdo->beginTransaction();
+      try{
+        Db::run('UPDATE work_contracts SET template_id=?,start_date=?,end_date=?,duration_label=?,snapshot_json=?,body_html=?,docx_blob=? WHERE id=? AND deleted_at IS NULL',
+          [$templateId,$start,$end,$duration,json_encode($snap,JSON_UNESCAPED_UNICODE),$body,$word,$id]);
+        Db::run("INSERT INTO work_contract_audit(contract_id,actor_id,action,before_json,after_json) VALUES(?,?,?,?,?)",
+          [$id,(int)$actor['id'],'updated',json_encode(['snapshot'=>$old['snapshot_json'],'start_date'=>$old['start_date'],'end_date'=>$old['end_date'],'duration_label'=>$old['duration_label']],JSON_UNESCAPED_UNICODE),json_encode(['snapshot'=>$snap,'start_date'=>$start,'end_date'=>$end,'duration_label'=>$duration],JSON_UNESCAPED_UNICODE)]);
+        $pdo->commit();
+      }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+      return ['ok'=>true,'id'=>$id];
+    },false,3);
+    route('DELETE','/api/admin/work-contracts/{id}',static function($p,$b,$actor){
+      self::setup();$id=(int)$p['id'];
+      $row=Db::one('SELECT id,user_id,template_id,start_date,end_date,duration_label,snapshot_json FROM work_contracts WHERE id=? AND deleted_at IS NULL',[$id]);
+      if(!$row)Http::error('قرارداد یافت نشد',404);
+      $pdo=self::db();$pdo->beginTransaction();
+      try{
+        Db::run('UPDATE work_contracts SET deleted_at=NOW() WHERE id=? AND deleted_at IS NULL',[$id]);
+        Db::run('INSERT INTO work_contract_audit(contract_id,actor_id,action,before_json) VALUES(?,?,?,?)',
+          [$id,(int)$actor['id'],'deleted',json_encode($row,JSON_UNESCAPED_UNICODE)]);
+        $pdo->commit();
+      }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+      return ['ok'=>true,'id'=>$id];
     },false,3);
     route('GET','/api/admin/work-contracts/{id}/print',static function($p,$b,$actor){
       self::setup();$id=(int)($p['id']??0);
-      $row=Db::one('SELECT id,body_html,snapshot_json FROM work_contracts WHERE id=?',[$id]);
+      $row=Db::one('SELECT id,body_html,snapshot_json,docx_blob FROM work_contracts WHERE id=? AND deleted_at IS NULL',[$id]);
       if(!$row)Http::error('قرارداد یافت نشد',404);
+      // Repair already-issued Word contracts whose saved HTML contained literal \\n.
+      if(!empty($row['docx_blob']))$row['body_html']=self::docxHtml($row['docx_blob']);
       header('Content-Type: text/html; charset=utf-8');header('Cache-Control: private,no-store');
       header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'");
       $style=<<<'CSS'
