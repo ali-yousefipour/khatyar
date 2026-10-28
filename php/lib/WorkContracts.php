@@ -9,6 +9,13 @@ final class WorkContracts {
     static $ready=false;
     if($ready)return;
     try {
+    // The schema is migrated once. Never issue CREATE/ALTER or query
+    // INFORMATION_SCHEMA during ordinary print/list/create API requests.
+    $marker=Db::one("SELECT value FROM app_settings WHERE `key`=? LIMIT 1",['work_contract_schema_ready_v2']);
+    if((string)($marker['value']??'')==='verified'){
+      $ready=true;
+      return;
+    }
     Db::run("CREATE TABLE IF NOT EXISTS work_contract_templates (
       id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(180) NOT NULL, kind VARCHAR(12) NOT NULL,
       body_html LONGTEXT NULL, docx_blob LONGBLOB NULL, is_default TINYINT NOT NULL DEFAULT 0,
@@ -41,6 +48,21 @@ final class WorkContracts {
       WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='work_contracts' AND COLUMN_NAME='deleted_at'");
     if((int)($deletedColumn['n']??0)===0)
       Db::run("ALTER TABLE work_contracts ADD COLUMN deleted_at DATETIME NULL");
+    // Verify the migration before persisting readiness, including installs
+    // previously partially deployed over FTP.
+    $checks=Db::all("SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA=DATABASE() AND
+      ((TABLE_NAME='work_contracts' AND COLUMN_NAME IN ('id','template_id','deleted_at','body_html','docx_blob'))
+      OR (TABLE_NAME='work_contract_templates' AND COLUMN_NAME IN ('id','docx_blob'))
+      OR (TABLE_NAME='work_contract_audit' AND COLUMN_NAME='contract_id'))");
+    $seen=[];
+    foreach($checks as $check)$seen[$check['TABLE_NAME'].'.'.$check['COLUMN_NAME']]=true;
+    foreach(['work_contracts.id','work_contracts.template_id','work_contracts.deleted_at',
+       'work_contracts.body_html','work_contracts.docx_blob','work_contract_templates.id',
+       'work_contract_templates.docx_blob','work_contract_audit.contract_id'] as $column)
+      if(!isset($seen[$column]))throw new RuntimeException('Missing work-contract schema field: '.$column);
+    Db::run("INSERT INTO app_settings (`key`,value) VALUES (?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)",
+      ['work_contract_schema_ready_v2','verified']);
     $ready=true;
     } catch(Throwable $error) {
       error_log('work contracts database initialization: '.get_class($error).': '.$error->getMessage());
