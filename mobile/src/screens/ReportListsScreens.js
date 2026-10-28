@@ -359,7 +359,7 @@ export function TeamReportScreen() {
                 <Text style={[tm.memberAttendance, { color: m.is_present ? C.ok : C.danger }]}>
                   {m.is_present ? '● حاضر' : '● فاقد حضور فعال'} {m.check_in_time ? '  |  ساعت ورود: ' + faNum(m.check_in_time) : '  |  ورود امروز ثبت نشده'}
                 </Text>
-                {m.line_count > 0 ? (
+                {m.line_count == null ? null : m.line_count > 0 ? (
                   m.line_count <= 6 ? (
                     <Text style={tm.memberLines}>خطوط: {m.lines.map((l) => faNum(l)).join('، ')}</Text>
                   ) : (
