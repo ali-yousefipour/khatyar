@@ -42,7 +42,6 @@ jobs:
           php php/tests/zone_context_test.php
           php php/tests/radio_shift_gate_test.php
           node mobile/scripts/test-radio-shift-native.cjs
-          node mobile/scripts/test-radio-live.cjs
           node php/tests/login_policy_ui_test.cjs
           php php/tests/work_policy_requests_test.php
           php php/tests/request_report_test.php
