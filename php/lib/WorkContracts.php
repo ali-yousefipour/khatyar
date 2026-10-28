@@ -229,7 +229,7 @@ HTML;
           $html.='<div class="wc-page-break"></div>';$page2=true;
         }
         if(preg_match('/^قرارداد\\s*کار$/u',$text))$html.='<h1>'.$piece.'</h1>';
-        elseif(preg_match('/^[۰-۹0-9]+(?:[\\\\/۰-۹0-9]+)?\\s*[)\\-.،:]\\s*/u',$text))
+        elseif(preg_match('~^[۰-۹0-9]+(?:/[۰-۹0-9]+)?\\s*[)\\-.،:]\\s*~u',$text))
           $html.='<h3>'.$piece.'</h3>';
         else $html.='<p>'.$piece.'</p>';
       }
