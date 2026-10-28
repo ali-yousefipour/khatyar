@@ -44,6 +44,7 @@ jobs:
           php php/tests/zone_context_test.php
           php -l php/lib/WorkContracts.php
           php php/tests/work_contracts_test.php
+          php php/tests/work_contract_management_test.php
           node --check php/app/assets/work-contracts-admin.js
           php php/tests/radio_shift_gate_test.php
           node mobile/scripts/test-radio-shift-native.cjs
