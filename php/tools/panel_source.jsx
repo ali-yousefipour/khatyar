@@ -3321,7 +3321,7 @@ function RadioSettings(){
       <input type="checkbox" checked={shiftLimit} onChange={e=>setShiftLimit(e.target.checked)} />
       <b>محدود کردن بیسیم به شیفت کاری ( بجز مسئولین)</b>
     </label>
-    <p className="muted" style={{fontSize:12,lineHeight:2,marginTop:8}}>هنگام فعال بودن، کاربران عادی فقط با ثبت ورود و داشتن شیفت حضور باز می‌توانند پیام‌های بی‌سیم را بشنوند یا ارسال کنند. مسئولین با سطح سازمانی ۱ تا ۴ و مدیران سامانه مستثنا هستند. محدودیت در API دریافت و ارسال صوت نیز اعمال می‌شود.</p>
+    <p className="muted" style={{fontSize:12,lineHeight:2,marginTop:8}}>هنگام فعال بودن، تمام نیروهای سطح ۵ تا ۹ (حتی دارندگان دسترسی مدیریتی) فقط پس از ثبت ورود در «ثبت حضور من» و تا قبل از ثبت خروج می‌توانند از بی‌سیم استفاده کنند. فقط سطوح ۱ تا ۴ مستثنا هستند. این محدودیت در API دریافت و ارسال صوت نیز اعمال می‌شود.</p>
     {shiftError&&<p role="alert" style={{color:"var(--danger)"}}>{shiftError}</p>}
     <button className="btn p" disabled={shiftSaving} onClick={saveShiftLimit}>{shiftSaving?"در حال ذخیره…":"ذخیره محدودیت بی‌سیم"}</button>
   </div>}

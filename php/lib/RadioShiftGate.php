@@ -11,7 +11,8 @@ function kh_radio_shift_enabled(): bool {
 }
 function kh_radio_shift_responsible(array $user): bool {
     $level=(int)($user['level']??99);
-    return !empty($user['is_admin']) || ($level>=1 && $level<=4);
+    // Web/admin permissions must not override attendance for levels 5–9.
+    return $level>=1 && $level<=4;
 }
 function kh_radio_shift_allowed(array $user): bool {
     if (!kh_radio_shift_enabled() || kh_radio_shift_responsible($user)) return true;
