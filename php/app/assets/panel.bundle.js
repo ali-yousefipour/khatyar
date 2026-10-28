@@ -5546,6 +5546,9 @@ function RoleAppItems() {
 }
 function RadioSettings() {
     const [data, setData] = useState({ channels: [], users: [], roles: [], regions: [], retention_days: 1, retention_hours: 24 });
+    const [shiftLimit, setShiftLimit] = useState(false);
+    const [shiftSaving, setShiftSaving] = useState(false);
+    const [shiftError, setShiftError] = useState('');
     const [busy, setBusy] = useState(false);
     const [loadErr, setLoadErr] = useState('');
     const [loading, setLoading] = useState(true);
@@ -5555,7 +5558,9 @@ function RadioSettings() {
     /* خطیار: قبلاً فقط alert() نشان داده می‌شد که ممکن بود دیده/بسته شود بدون توجه؛ حالا خطای بارگذاری
        به‌صورت دائمی و واضح در خودِ صفحه نمایش داده می‌شود تا علت واقعیِ خالی‌بودن این تب مشخص شود. */
     const load = async () => { setLoading(true); setLoadErr(''); try {
-        setData(await api('bootstrap'));
+        const [bootstrap, shift] = await Promise.all([api('bootstrap'), api('shift-limit-get')]);
+        setData(bootstrap);
+        setShiftLimit(!!shift.radio_limit_to_shift);
     }
     catch (e) {
         setLoadErr(e.message || 'خطای نامشخص در بارگذاری تنظیمات بی‌سیم');
@@ -5585,8 +5590,26 @@ function RadioSettings() {
         alert(e.message);
     } };
     const toggle = (key, id) => setForm(f => ({ ...f, rules: { ...f.rules, [key]: f.rules[key].includes(id) ? f.rules[key].filter(x => x !== id) : [...f.rules[key], id] } }));
+    const saveShiftLimit = async () => { setShiftSaving(true); setShiftError(''); try {
+        const result = await api('shift-limit-set', { method: 'POST', body: JSON.stringify({ radio_limit_to_shift: shiftLimit }) });
+        setShiftLimit(!!result.radio_limit_to_shift);
+    }
+    catch (error) {
+        setShiftError(error.message || 'ذخیره تنظیم محدودیت بی‌سیم ناموفق بود');
+    }
+    finally {
+        setShiftSaving(false);
+    } };
     return React.createElement("div", { className: "radio-settings-module" },
         React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645 \u0627\u06A9\u0646\u0648\u0646 \u0628\u062E\u0634\u06CC \u0627\u0632 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u0635\u0644\u06CC \u0633\u0627\u0645\u0627\u0646\u0647 \u0627\u0633\u062A. \u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0627\u0646\u0627\u0644\u200C\u0647\u0627 \u0648 \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0622\u0631\u0634\u06CC\u0648 \u0627\u0632 \u0647\u0645\u06CC\u0646 \u062A\u0628 \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+        !loading && !loadErr && React.createElement("div", { className: "panel", style: { marginTop: 12 } },
+            React.createElement("h3", null, "\u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u062F\u0633\u062A\u0631\u0633\u06CC \u0628\u06CC\u200C\u0633\u06CC\u0645"),
+            React.createElement("label", { className: "row", style: { gap: 10, alignItems: "center", cursor: "pointer" } },
+                React.createElement("input", { type: "checkbox", checked: shiftLimit, onChange: e => setShiftLimit(e.target.checked) }),
+                React.createElement("b", null, "\u0645\u062D\u062F\u0648\u062F \u06A9\u0631\u062F\u0646 \u0628\u06CC\u0633\u06CC\u0645 \u0628\u0647 \u0634\u06CC\u0641\u062A \u06A9\u0627\u0631\u06CC ( \u0628\u062C\u0632 \u0645\u0633\u0626\u0648\u0644\u06CC\u0646)")),
+            React.createElement("p", { className: "muted", style: { fontSize: 12, lineHeight: 2, marginTop: 8 } }, "\u0647\u0646\u06AF\u0627\u0645 \u0641\u0639\u0627\u0644 \u0628\u0648\u062F\u0646\u060C \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u0639\u0627\u062F\u06CC \u0641\u0642\u0637 \u0628\u0627 \u062B\u0628\u062A \u0648\u0631\u0648\u062F \u0648 \u062F\u0627\u0634\u062A\u0646 \u0634\u06CC\u0641\u062A \u062D\u0636\u0648\u0631 \u0628\u0627\u0632 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u0646\u062F \u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u06CC \u0628\u06CC\u200C\u0633\u06CC\u0645 \u0631\u0627 \u0628\u0634\u0646\u0648\u0646\u062F \u06CC\u0627 \u0627\u0631\u0633\u0627\u0644 \u06A9\u0646\u0646\u062F. \u0645\u0633\u0626\u0648\u0644\u06CC\u0646 \u0628\u0627 \u0633\u0637\u062D \u0633\u0627\u0632\u0645\u0627\u0646\u06CC \u06F1 \u062A\u0627 \u06F4 \u0648 \u0645\u062F\u06CC\u0631\u0627\u0646 \u0633\u0627\u0645\u0627\u0646\u0647 \u0645\u0633\u062A\u062B\u0646\u0627 \u0647\u0633\u062A\u0646\u062F. \u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u062F\u0631 API \u062F\u0631\u06CC\u0627\u0641\u062A \u0648 \u0627\u0631\u0633\u0627\u0644 \u0635\u0648\u062A \u0646\u06CC\u0632 \u0627\u0639\u0645\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+            shiftError && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } }, shiftError),
+            React.createElement("button", { className: "btn p", disabled: shiftSaving, onClick: saveShiftLimit }, shiftSaving ? "در حال ذخیره…" : "ذخیره محدودیت بی‌سیم")),
         loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645\u2026") : null,
         loadErr ? React.createElement("div", { className: "panel", style: { borderColor: '#e23b54', background: '#fdeef0' } },
             React.createElement("b", { style: { color: '#e23b54' } }, "\u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u06CC\u200C\u0633\u06CC\u0645 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F"),
