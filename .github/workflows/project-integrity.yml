@@ -38,6 +38,8 @@ jobs:
           node php/tests/company_work_ui_test.cjs
           node php/tests/company_work_deployment_test.cjs
           node php/tests/company_work_http_test.cjs
+          php -l php/lib/KhatyarFormsSchema.php
+          php php/tests/forms_schema_test.php
           php php/tests/login_policy_test.php
           php php/tests/zone_context_test.php
           php -l php/lib/WorkContracts.php
