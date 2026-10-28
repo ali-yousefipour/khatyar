@@ -62,6 +62,37 @@ public final class KhatyarRadioService extends Service {
   private long lastId = 0;
   private long serviceStartedAt = 0;
   private boolean destroyed = false;
+  private volatile boolean accessDenied = true;
+  private android.media.AudioFocusRequest audioFocusRequest;
+  private boolean audioFocusHeld = false;
+  private boolean radioAuthorized(){return !destroyed&&!accessDenied&&getPrefs().getBoolean("enabled",false);}
+  private synchronized void revokeRadioAccess(){
+    accessDenied=true;pendingAudioUrls.clear();pendingAudioToken="";
+    getPrefs().edit().putBoolean("notificationPttActive",false).apply();
+    releasePlayer();
+    Intent off=new Intent(KhatyarRadioModule.ACTION_PTT);
+    off.setPackage(getPackageName());off.putExtra("down",false);off.putExtra("source","attendance_revoked");
+    sendBroadcast(off);
+    try{updateNotification();}catch(Throwable ignored){}
+  }
+  private void acquireAudioFocus(){
+    try{
+      AudioManager am=(AudioManager)getSystemService(Context.AUDIO_SERVICE);if(am==null)return;
+      if(Build.VERSION.SDK_INT>=26){
+        audioFocusRequest=new android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+          .setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+          .setOnAudioFocusChangeListener(change->{if(change==AudioManager.AUDIOFOCUS_LOSS)handler.post(this::releasePlayer);}).build();
+        audioFocusHeld=am.requestAudioFocus(audioFocusRequest)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+      }
+    }catch(Throwable ignored){}
+  }
+  private void releaseAudioFocus(){
+    if(!audioFocusHeld)return;
+    try{AudioManager am=(AudioManager)getSystemService(Context.AUDIO_SERVICE);if(am!=null&&Build.VERSION.SDK_INT>=26&&audioFocusRequest!=null)am.abandonAudioFocusRequest(audioFocusRequest);}catch(Throwable ignored){}
+    audioFocusHeld=false;audioFocusRequest=null;
+  }
+
 
   private boolean playbackActive() { return getPrefs().getBoolean("playbackActive", false); }
   private final java.util.ArrayDeque<String> pendingAudioUrls = new java.util.ArrayDeque<>();
@@ -191,7 +222,7 @@ public final class KhatyarRadioService extends Service {
     RemoteViews expanded = new RemoteViews(getPackageName(), R.layout.khatyar_radio_notification_big);
     PendingIntent ptt = buildPttPendingIntent();
 
-    String status = pttActive ? "فعال • متصل به سرور • PTT فعال" : "فعال • متصل به سرور";
+    String status = accessDenied ? "منتظر تأیید حضور در شیفت" : (pttActive ? "فعال • PTT فعال" : "فعال • متصل به سرور");
     String channelName = getPrefs().getString("channelName", "").trim();
     String info = (channelName.isEmpty() ? "کانال بی‌سیم" : "کانال: " + channelName)
       + "  •  تاریخ شمسی: " + jalaliToday();
@@ -246,7 +277,7 @@ public final class KhatyarRadioService extends Service {
   }
 
   private void toggleNotificationPtt() {
-    if (!getPrefs().getBoolean("enabled", false) || getPrefs().getLong("channelId", 0L) <= 0 || playbackActive() || player != null) return;
+    if (!radioAuthorized() || getPrefs().getLong("channelId", 0L) <= 0 || playbackActive() || player != null) return;
     boolean active = getPrefs().getBoolean("notificationPttActive", false);
     if (active) {
       sendPtt(false, "notification");
@@ -277,7 +308,7 @@ public final class KhatyarRadioService extends Service {
   }
 
   private void sendPtt(boolean down, String source) {
-    if (!getPrefs().getBoolean("enabled", false) || getPrefs().getLong("channelId", 0L) <= 0 || playbackActive() || player != null) return;
+    if (!radioAuthorized() || getPrefs().getLong("channelId", 0L) <= 0 || playbackActive() || player != null) return;
     Intent i = new Intent(KhatyarRadioModule.ACTION_PTT); i.setPackage(getPackageName());
     i.putExtra("down", down); i.putExtra("source", source); sendBroadcast(i);
   }
@@ -295,7 +326,10 @@ public final class KhatyarRadioService extends Service {
         if (channel <= 0) return;
         endpoint = base.replaceAll("/+$", "") + "/radio-api-v2.php?op=poll&channel_id=" + channel + "&after=" + lastId;
       }
-      String body = get(endpoint, token); if (body == null || body.isEmpty()) return;
+      String body = get(endpoint, token);
+      if("__RADIO_FORBIDDEN__".equals(body)){synchronized(this){revokeRadioAccess();}return;}
+      if(body==null||body.isEmpty())return;
+      accessDenied=false;
       JSONObject root = new JSONObject(body);
       JSONArray messages = root.optJSONArray("messages");
       boolean initialized = p.getBoolean("initialized", false);
@@ -357,21 +391,21 @@ public final class KhatyarRadioService extends Service {
     try {
       c = (HttpURLConnection)new URL(endpoint).openConnection(); c.setConnectTimeout(7000); c.setReadTimeout(12000); c.setUseCaches(false);
       c.setRequestProperty("Accept", "application/json"); if (token != null && !token.isEmpty()) c.setRequestProperty("Authorization", "Bearer " + token);
-      int code = c.getResponseCode(); if (code < 200 || code >= 300) return null;
+      int code = c.getResponseCode(); if(code==403||code==401)return "__RADIO_FORBIDDEN__"; if (code < 200 || code >= 300) return null;
       BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream(), "UTF-8")); StringBuilder out = new StringBuilder(); String line;
       while ((line = r.readLine()) != null) out.append(line); r.close(); return out.toString();
     } catch (Throwable e) { return null; } finally { if (c != null) c.disconnect(); }
   }
 
   private synchronized void enqueueRemote(String audioUrl, String token) {
-    if (audioUrl == null || audioUrl.isEmpty()) return;
+    if (!radioAuthorized() || audioUrl == null || audioUrl.isEmpty()) return;
     if (pendingAudioUrls.size() >= 20) pendingAudioUrls.pollFirst();
     pendingAudioUrls.offerLast(audioUrl);
     pendingAudioToken = token == null ? "" : token;
     if (player == null && !playbackActive()) playNextRemote();
   }
   private synchronized void playNextRemote() {
-    if (player != null || pendingAudioUrls.isEmpty()) return;
+    if (!radioAuthorized() || player != null || pendingAudioUrls.isEmpty()) return;
     String url = pendingAudioUrls.pollFirst();
     playRemote(url, pendingAudioToken);
   }
@@ -392,6 +426,7 @@ public final class KhatyarRadioService extends Service {
     player = null;
     if (old != null) { try { old.stop(); } catch (Throwable ignored) {} try { old.release(); } catch (Throwable ignored) {} }
     setPlaybackActive(false);
+    releaseAudioFocus();
   }
 
   /**
@@ -508,12 +543,14 @@ public final class KhatyarRadioService extends Service {
 
   private synchronized void playRemote(String audioUrl, String token) {
     try {
+      if (!radioAuthorized()) return;
       if (audioUrl.startsWith("/")) {
         String base = getPrefs().getString("baseUrl", "").replaceAll("/+$", "");
         if (audioUrl.startsWith("/api/") && base.endsWith("/api")) base = base.substring(0, base.length() - 4);
         audioUrl = base + audioUrl;
       }
       releasePlayer();
+      acquireAudioFocus();
       player = new MediaPlayer();
       player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
       try { player.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK); } catch (Throwable ignored) {}
@@ -537,7 +574,7 @@ public final class KhatyarRadioService extends Service {
   }
 
   @Override public void onDestroy() {
-    destroyed = true; handler.removeCallbacksAndMessages(null); io.shutdownNow();
+    destroyed = true; accessDenied=true; handler.removeCallbacksAndMessages(null); io.shutdownNow();
     if (mediaSession != null) { try { mediaSession.setActive(false); mediaSession.release(); } catch (Throwable ignored) {} mediaSession = null; }
     releasePlayer();
     super.onDestroy();
