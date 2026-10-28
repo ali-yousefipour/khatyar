@@ -47,6 +47,7 @@ $shown=$digits->invoke(null,'<p>1405-08-01 شماره حساب 400796964308</p><
 ensureContract(strpos($shown,'۱۴۰۵/۰۸/۰۱')!==false,'Jalali date must print in Persian');
 ensureContract(strpos($shown,'۴۰۰۷۹۶۹۶۴۳۰۸')!==false,'Account number must print in Persian');
 ensureContract(strpos($shown,'ABC123')!==false,'Embedded image bytes must not change');
+ensureContract(strpos($digits->invoke(null,'<p>نام &#039; کاربر 1405-08-01</p>'),'&#039;')!==false,'HTML entities must stay intact');
 ensureContract(strpos($src,"/work-contracts/templates/{id}")!==false,'Template deletion API required');
 ensureContract(strpos($src,'COUNT(*) n FROM work_contracts WHERE template_id=?')!==false,'Referenced templates cannot be deleted');
 ensureContract(strpos($ui,'data-template-delete')!==false,'Template delete control required');
