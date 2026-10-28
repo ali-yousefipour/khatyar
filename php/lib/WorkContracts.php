@@ -298,6 +298,43 @@ HTML;
       $zip->close();@unlink($temp);
     }
   }
+  private static function footerFromWord(string $binary): string {
+    if(!class_exists('ZipArchive')||!class_exists('DOMDocument'))return '';
+    $temp=tempnam(sys_get_temp_dir(),'wcf');file_put_contents($temp,$binary);
+    $zip=new ZipArchive();
+    if($zip->open($temp)!==true){@unlink($temp);return '';}
+    try {
+      foreach(['word/footer2.xml','word/footer1.xml','word/footer3.xml'] as $part){
+        $xml=$zip->getFromName($part);
+        if($xml===false)continue;
+        $doc=new DOMDocument();
+        if(!@$doc->loadXML($xml,LIBXML_NONET|LIBXML_COMPACT))continue;
+        $xp=new DOMXPath($doc);
+        $xp->registerNamespace('w','http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+        $text=trim(implode(' ',array_map(static fn($n)=>trim($n->textContent),iterator_to_array($xp->query('//w:t')))));
+        if(strpos($text,'امضا')===false && strpos($text,'امضاء')===false)continue;
+        $names=[];
+        if(preg_match('/محل\s*امضا(?:ء|ی)?\s*کارگر/u',$text))$names[]='محل امضای کارگر';
+        if(preg_match('/محل\s*امضا(?:ء|ی)?\s*کارفرما/u',$text))$names[]='محل امضای کارفرما';
+        if(count($names)===2)return '<div class="wc-print-footer" dir="rtl"><span>'.$names[0].'</span><span>'.$names[1].'</span></div>';
+      }
+      return '';
+    }finally{$zip->close();@unlink($temp);}
+  }
+  private static function persianPrintable(string $html): string {
+    // Convert visible text only, never image data URLs or HTML attributes.
+    $parts=preg_split('/(<[^>]*>)/u',$html,-1,PREG_SPLIT_DELIM_CAPTURE);
+    foreach($parts as $i=>&$part){
+      if($i%2!==0)continue;
+      $part=preg_replace_callback('/\b(1[34]\d{2})[-\/](\d{1,2})[-\/](\d{1,2})\b/u',
+        static fn($m)=>$m[1].'/'.str_pad($m[2],2,'0',STR_PAD_LEFT).'/'.str_pad($m[3],2,'0',STR_PAD_LEFT),$part);
+      $part=preg_replace_callback('/\b(\d{1,2})[-\/](\d{1,2})[-\/](1[34]\d{2})\b/u',
+        static fn($m)=>$m[3].'/'.str_pad($m[2],2,'0',STR_PAD_LEFT).'/'.str_pad($m[1],2,'0',STR_PAD_LEFT),$part);
+      $part=strtr($part,'0123456789٠١٢٣٤٥٦٧٨٩','۰۱۲۳۴۵۶۷۸۹۰۱۲۳۴۵۶۷۸۹');
+    }
+    unset($part);
+    return implode('',$parts);
+  }
   private static function renderContract(array $tpl,array $snapshot): array {
     if(($tpl['kind']??'html')==='docx'){
       $word=self::docxReplace((string)$tpl['docx_blob'],$snapshot);
@@ -384,6 +421,26 @@ HTML;
       }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
       return ['ok'=>true,'contracts'=>$created];
     },false,3);
+    route('DELETE','/api/admin/work-contracts/templates/{id}',static function($p,$b,$actor){
+      self::setup();
+      $id=(int)($p['id']??0);
+      if($id<=0)Http::error('شناسه قالب معتبر نیست',422);
+      $pdo=self::db();
+      $pdo->beginTransaction();
+      try {
+        $tpl=Db::one('SELECT id,is_default FROM work_contract_templates WHERE id=? FOR UPDATE',[$id]);
+        if(!$tpl)Http::error('قالب موردنظر یافت نشد',404);
+        if(!empty($tpl['is_default']))Http::error('قالب اصلی سامانه قابل حذف نیست؛ قالب‌های بارگذاری‌شده را می‌توانید حذف کنید',409);
+        $count=Db::one('SELECT COUNT(*) n FROM work_contracts WHERE template_id=?',[$id]);
+        if((int)($count['n']??0)>0)Http::error('ابتدا قراردادهای صادرشده با این قالب را حذف یا به قالب دیگری منتقل کنید',409);
+        Db::run('DELETE FROM work_contract_templates WHERE id=?',[$id]);
+        $pdo->commit();
+      }catch(Throwable $error){
+        if($pdo->inTransaction())$pdo->rollBack();
+        throw $error;
+      }
+      return ['ok'=>true,'deleted_permanently'=>true,'id'=>$id];
+    },false,3);
     route('GET','/api/admin/work-contracts/history',static function($p,$b,$actor){
       self::setup();
       $rows=Db::all("SELECT c.id,c.user_id,c.start_date,c.end_date,c.duration_label,c.created_at,
@@ -456,18 +513,24 @@ HTML;
       $row=Db::one('SELECT id,body_html,snapshot_json,docx_blob FROM work_contracts WHERE id=? AND deleted_at IS NULL',[$id]);
       if(!$row)Http::error('قرارداد یافت نشد',404);
       // Repair already-issued Word contracts whose saved HTML contained literal \\n.
-      if(!empty($row['docx_blob']))$row['body_html']=self::docxHtml($row['docx_blob']);
+      $footer='';
+      if(!empty($row['docx_blob'])){
+        $row['body_html']=self::docxHtml($row['docx_blob']);
+        $footer=self::footerFromWord($row['docx_blob']);
+      }
+      if($footer==='')$footer='<div class="wc-print-footer" dir="rtl"><span>محل امضای کارگر</span><span>محل امضای کارفرما</span></div>';
+      $row['body_html']=self::persianPrintable($row['body_html']);
       header('Content-Type: text/html; charset=utf-8');header('Cache-Control: private,no-store');
       header("Content-Security-Policy: default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'");
       $style=<<<'CSS'
-@page{size:A4 portrait;margin:15mm 15mm 14mm}
+@page{size:A4 portrait;margin:16mm 17mm 26mm}
 :root{color-scheme:light}
 *{box-sizing:border-box}
 html{direction:rtl}
 body{margin:0;background:#edf1f2;color:#111827;direction:rtl;font-family:Tahoma,"Vazirmatn","Noto Naskh Arabic",sans-serif;font-size:11.2pt;line-height:1.65;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .wc-tools{padding:12px;text-align:center;background:#fff;border-bottom:1px solid #d4dfdd}
 .wc-tools button{border:0;background:#157650;color:#fff;padding:10px 26px;border-radius:8px;cursor:pointer;font:inherit}
-.wc-paper{width:210mm;max-width:100%;padding:15mm;background:#fff;margin:16px auto;box-shadow:0 2px 14px #0002;direction:rtl;text-align:right}
+.wc-paper{width:210mm;max-width:100%;padding:16mm 17mm 26mm;background:#fff;margin:16px auto;box-shadow:0 2px 14px #0002;direction:rtl;text-align:right}
 .wc-paper h1{text-align:center;margin:0 0 14px;font-size:17pt;font-weight:700}
 .wc-paper h3{font-size:11.7pt;font-weight:700;margin:11px 0 5px;break-after:avoid}
 .wc-paper p{font-size:11pt;line-height:1.78;margin:5px 0;text-align:justify;direction:rtl;unicode-bidi:plaintext;orphans:2;widows:2}
@@ -480,17 +543,18 @@ body{margin:0;background:#edf1f2;color:#111827;direction:rtl;font-family:Tahoma,
 .wc-word h3{font-size:10.5pt;margin:7px 0 3px;line-height:1.55}
 .wc-logo-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-height:90px;margin:0 0 8px}
 .wc-template-logo{object-fit:contain;max-height:94px;width:auto;max-width:31%;height:auto}
+.wc-print-footer{display:flex;justify-content:space-between;align-items:flex-end;position:fixed;bottom:1mm;right:17mm;left:17mm;height:17mm;border-top:1px solid #ddd;padding-top:4mm;font:700 10pt Tahoma,sans-serif;direction:rtl}.wc-word .wc-sign,.wc-paper .wc-sign{display:none}
 .wc-paper .wc-docx-text{white-space:pre-wrap;line-height:1.6;text-align:justify}
 @media print{
  html,body{width:auto;background:#fff}
  .wc-tools{display:none!important}
- .wc-paper{width:auto;max-width:none;margin:0;padding:0;box-shadow:none}
+ .wc-paper{width:auto;max-width:none;margin:0;padding:0;box-shadow:none}.wc-print-footer{bottom:0;right:0;left:0}
  .wc-paper p,.wc-paper h3,.wc-paper .wc-sign{break-inside:avoid-page}
 }
 CSS;
       $autoPrint=!empty($_GET['autoprint']);
       $printScript=$autoPrint?'<script>window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},350);});</script>':'';
-      echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>قرارداد شماره '.(int)$id.'</title><style>'.$style.'</style><div class="wc-tools" style="text-align:center;padding:14px"><button onclick="window.print()">چاپ / ذخیره PDF</button></div>'.$row['body_html'].$printScript.'</html>';exit;
+      echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>قرارداد شماره '.(int)$id.'</title><style>'.$style.'</style><div class="wc-tools" style="text-align:center;padding:14px"><button onclick="window.print()">چاپ / ذخیره PDF</button></div>'.$row['body_html'].$footer.$printScript.'</html>';exit;
     },false,3);
     route('GET','/api/admin/work-contracts/{id}/word',static function($p,$b,$actor){
       self::setup();$id=(int)($p['id']??0);
