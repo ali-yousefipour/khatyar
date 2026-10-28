@@ -134,11 +134,13 @@ route('POST', '/api/admin/attendance-gps-waiver', function($p,$b,$u) {
 }, false, 3);
 require __DIR__ . '/api/daily-performance-gps-separate.php'; require "$ROOT/lib/routes.php"; // Optional module must not break login, public settings or the whole API if
 // FTP deployment uploads index.php before WorkContracts.php.
-if (is_file("$ROOT/lib/WorkContracts.php")) {
-  require_once "$ROOT/lib/WorkContracts.php";
-  WorkContracts::register();
-} else {
-  error_log('work contracts module not deployed yet; skipping contract routes');
+if (strpos($path,'/api/admin/work-contracts')===0) {
+  if (is_file("$ROOT/lib/WorkContracts.php")) {
+    require_once "$ROOT/lib/WorkContracts.php";
+    WorkContracts::register();
+  } else {
+    error_log('work contracts module not deployed yet; skipping contract routes');
+  }
 } if (is_file("$ROOT/lib/presence_reverse_geocode.php")) require "$ROOT/lib/presence_reverse_geocode.php"; if (is_file("$ROOT/lib/subscription_invoice_routes.php")) require "$ROOT/lib/subscription_invoice_routes.php"; if (is_file("$ROOT/lib/complaints_routes_extra.php")) require "$ROOT/lib/complaints_routes_extra.php"; // Read a user's employment period directly from the authoritative table.
 // This endpoint is independent of the variable-shaped admin/users list response.
 $routes[] = [
