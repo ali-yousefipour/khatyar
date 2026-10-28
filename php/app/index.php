@@ -263,22 +263,24 @@ foreach ($routes as &$teamRoute) {
   }
 }
 unset($teamRoute);
-// Enforce consistent, verified forms schema across listing, creation, editing
-// and public forms, before legacy handlers attempt to query new columns.
-// A partly uploaded FTP release must never take down authentication.
-$formsSchemaAvailable=is_file("$ROOT/lib/KhatyarFormsSchema.php");
-if($formsSchemaAvailable) require_once "$ROOT/lib/KhatyarFormsSchema.php";
-foreach($routes as &$formsRoute) {
-  $formsPath=(string)($formsRoute['p']??'');
-  if(!preg_match('~^/api/(?:admin/(?:forms(?:/.*)?|form-submit)|public/forms(?:/.*)?)$~',$formsPath))continue;
-  $formsOriginal=$formsRoute['fn'];
-  $formsRoute['fn']=static function($params,$body,$user)use($formsOriginal){
-    if(!class_exists('KhatyarFormsSchema')) Http::error('ماژول ساختار فرم‌ها هنوز روی سرور نصب نشده است',503);
-    KhatyarFormsSchema::ensure();
-    return $formsOriginal($params,$body,$user);
-  };
+// Only forms endpoints need the schema adapter. Do not traverse the entire
+// route collection or load the forms migration on every login, dashboard,
+// attendance, radio or Android polling request.
+if (preg_match('~^/api/(?:admin/(?:forms(?:/.*)?|form-submit)|public/forms(?:/.*)?)$~', $path)) {
+  if(is_file("$ROOT/lib/KhatyarFormsSchema.php"))
+    require_once "$ROOT/lib/KhatyarFormsSchema.php";
+  foreach($routes as &$formsRoute) {
+    $formsPath=(string)($formsRoute['p']??'');
+    if(!preg_match('~^/api/(?:admin/(?:forms(?:/.*)?|form-submit)|public/forms(?:/.*)?)$~',$formsPath))continue;
+    $formsOriginal=$formsRoute['fn'];
+    $formsRoute['fn']=static function($params,$body,$user)use($formsOriginal){
+      if(!class_exists('KhatyarFormsSchema')) Http::error('ماژول ساختار فرم‌ها هنوز روی سرور نصب نشده است',503);
+      KhatyarFormsSchema::ensure();
+      return $formsOriginal($params,$body,$user);
+    };
+  }
+  unset($formsRoute);
 }
-unset($formsRoute);
 foreach ($routes as $r) {
   if ($r['m'] !== $method) continue; $regex = '#^' . preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $r['p']) . '$#'; if (!preg_match($regex, $path, $mm)) continue; $params = array_filter($mm, 'is_string', ARRAY_FILTER_USE_KEY); $user = null;
   try {
