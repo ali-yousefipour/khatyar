@@ -120,7 +120,9 @@ async function generate(){
  if(!confirm('برای '+num(ids.length)+' نفر قرارداد مستقل صادر شود؟'))return;
  const btn=by('wc-generate');btn.disabled=true;
  try{const d=await call('/generate',{method:'POST',body:JSON.stringify({user_ids:ids,template_id:Number(by('wc-template').value),start_date:start,end_date:end,duration_label:duration})});
- status(num((d.contracts||[]).length)+' قرارداد مجزا با موفقیت صادر شد.');await history();
+ const incomplete=(d.contracts||[]).filter(x=>x.missing?.length);
+ status(num((d.contracts||[]).length)+' قرارداد مجزا صادر شد.'+(incomplete.length?' هشدار: اطلاعات پرونده '+num(incomplete.length)+' نفر کامل نیست: '+incomplete.map(x=>x.name+' ('+x.missing.join('، ')+')').join('؛ '):''),!!incomplete.length);
+ await history();
  }catch(err){status(err.message,true);}finally{btn.disabled=false;}
 }
 async function upload(){
