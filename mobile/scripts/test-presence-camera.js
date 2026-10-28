@@ -95,11 +95,14 @@ function testCameraOwnership() {
   assert.equal(render(second).cameraActive, false, 'rear lens must wait for native release');
   clock = 801;
   timers.forEach(handler => handler());
+  assert.equal(render(second).cameraActive, false, 'CameraX handoff must wait for full 1500ms');
+  clock = 1501;
+  timers.forEach(handler => handler());
   assert.equal(render(second).cameraActive, true);
   listeners.forEach(handler => handler('background'));
   assert.equal(render(second).cameraActive, false);
   listeners.forEach(handler => handler('active'));
-  clock = 1602;
+  clock = 3102;
   render(second); timers.forEach(handler => handler());
   assert.equal(render(second).cameraActive, true);
   first.effects.forEach(effect => effect?.cleanup?.());
@@ -114,6 +117,11 @@ function testRearPreviewRecovery() {
   assert.match(source, /onPress=\{recoverPreview\}/, 'manual recovery must remain available for black preview');
   assert.match(source, /setCameraReady\(false\);[\s\S]*?restartCamera\(\)/, 'recovery must reset readiness and remount the native camera');
   assert.match(source, /onMountError=/, 'native camera mount failures must be handled');
+  assert.match(source, /launchCamera\(/, 'system camera fallback must launch real camera capture');
+  assert.match(source, /mediaTypes: \['images'\]/, 'fallback must only capture still photos');
+  assert.match(source, /setSystemCameraOpen\(true\)/, 'release inline camera before launching system camera');
+  assert.match(source, /await processPhoto\(uri, generation\)/, 'fallback photo must retain existing GPS and time stamp workflow');
+  assert.doesNotMatch(source, /launchLibrary\(/, 'gallery must not be introduced into attendance checks');
   console.log('PASS rear camera black-preview manual recovery and native remount');
 }
 
