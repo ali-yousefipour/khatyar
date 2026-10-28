@@ -48,6 +48,9 @@ const style=`
 #kh-contract-panel th{background:#edf6f1}
 #kh-contract-panel .wc-status{min-height:24px;color:#265a46;margin:12px 0}
 #kh-contract-panel small{font-size:11px;color:#697b70}
+#kh-contract-panel .wc-editor{margin-top:15px;padding:16px;background:#fff;border:1px solid #d3e3db;border-radius:12px}
+#kh-contract-panel .wc-editor[hidden]{display:none}
+#kh-contract-panel .wc-delete{background:#ad313a}
 `;
 function dom(){
  if(document.getElementById('kh-contract-panel'))return;
@@ -73,6 +76,26 @@ function dom(){
  <small>در قالب Word از برچسب‌هایی مانند {{full_name}}، {{national_code}}، {{father_name}}، {{birth_date}}، {{role_title}}، {{start_date}} و {{end_date}} استفاده کنید. هر برچسب باید در یک قطعه متن Word قرار گیرد.</small>
  <hr><div class="wc-toolbar"><h3>قراردادهای صادرشده</h3><button class="wc-secondary" id="wc-history-refresh">بارگذاری سوابق</button></div>
  <div class="wc-history"><table><thead><tr><th>نیرو</th><th>قالب</th><th>شروع</th><th>پایان</th><th>اقدامات</th></tr></thead><tbody id="wc-history"></tbody></table></div>
+ <section class="wc-editor" id="wc-editor" hidden>
+<h3>ویرایش قرارداد صادرشده <span id="wc-edit-number"></span></h3>
+<p>ویرایش فقط روی این قرارداد اعمال می‌شود و پرونده پرسنلی تغییر نمی‌کند.</p>
+<div class="wc-grid">
+<label>نام و نام خانوادگی<input data-edit="full_name"></label>
+<label>نام پدر<input data-edit="father_name"></label>
+<label>شماره شناسنامه<input data-edit="identity_number"></label>
+<label>کد ملی<input data-edit="national_code"></label>
+<label>تاریخ تولد<input data-edit="birth_date"></label>
+<label>شماره تماس<input data-edit="mobile"></label>
+<label>نشانی<input data-edit="address"></label>
+<label>عنوان شغل<input data-edit="role_title"></label>
+<label>شماره حساب<input data-edit="bank_account"></label>
+<label>تاریخ شروع شمسی<input data-edit="start_date" placeholder="1405-08-01"></label>
+<label>تاریخ پایان شمسی<input data-edit="end_date" placeholder="1405-12-29"></label>
+<label>مدت قرارداد<input data-edit="duration_label"></label>
+<label>قالب قرارداد<select id="wc-edit-template"></select></label>
+</div>
+<div class="wc-actions"><button id="wc-edit-save">ذخیره تغییرات و بازسازی چاپ</button><button class="wc-secondary" id="wc-edit-cancel">انصراف</button></div>
+</section>
  <div id="wc-message" class="wc-status"></div></div>`;
  const host=document.getElementById('khatyar-contract-page');if(!host)return;
  host.appendChild(div);
@@ -84,11 +107,17 @@ function dom(){
  by('wc-clear').onclick=()=>{selected.clear();renderUsers();};
  by('wc-generate').onclick=generate;
  by('wc-upload').onclick=upload;
+ by('wc-edit-save').onclick=saveEdit;
+ by('wc-edit-cancel').onclick=()=>{editingId=null;by('wc-editor').hidden=true;};
  div.addEventListener('click',ev=>{
    const b=ev.target.closest('button[data-contract]');if(!b)return;
-   printContract(Number(b.dataset.contract)).catch(err=>status(err.message,true));
+   const id=Number(b.dataset.contract),action=b.dataset.action;
+   if(action==='edit')openEdit(id).catch(err=>status(err.message,true));
+   else if(action==='delete')deleteContract(id).catch(err=>status(err.message,true));
+   else printContract(id).catch(err=>status(err.message,true));
  });
 }
+let editingId=null;
 const selected=new Set();
 const by=id=>document.querySelector('#kh-contract-panel #'+id);
 function status(message,error=false){const x=by('wc-message');if(x){x.textContent=message;x.style.color=error?'#b42318':'#146d4b';}}
@@ -107,8 +136,37 @@ async function refresh(){
 }
 async function history(){
  try{const d=await call('/history');issued=d.rows||[];
- by('wc-history').innerHTML=issued.map(r=>`<tr><td>${e(r.first_name)} ${e(r.last_name)}</td><td>${e(r.template_name)}</td><td>${e(r.start_date)}</td><td>${e(r.end_date)}</td><td><button data-contract="${Number(r.id)}" data-action="print">چاپ / ذخیره PDF</button></td></tr>`).join('')||'<tr><td colspan="5">هنوز قراردادی صادر نشده است.</td></tr>';
+ by('wc-history').innerHTML=issued.map(r=>`<tr><td>${e(r.first_name)} ${e(r.last_name)}</td><td>${e(r.template_name)}</td><td>${e(r.start_date)}</td><td>${e(r.end_date)}</td><td><button data-contract="${Number(r.id)}" data-action="print">چاپ / ذخیره PDF</button> <button class="wc-secondary" data-contract="${Number(r.id)}" data-action="edit">ویرایش</button> <button class="wc-delete" data-contract="${Number(r.id)}" data-action="delete">حذف</button></td></tr>`).join('')||'<tr><td colspan="5">هنوز قراردادی صادر نشده است.</td></tr>';
  }catch(err){status(err.message,true);}
+}
+async function openEdit(id){
+ const data=await call('/'+id),c=data.contract||{},snapshot=c.snapshot||{};
+ editingId=id;by('wc-edit-number').textContent='شماره '+num(id);
+ for(const el of by('wc-editor').querySelectorAll('[data-edit]')){
+   const key=el.dataset.edit;el.value=String(c[key]??snapshot[key]??'');
+ }
+ by('wc-edit-template').innerHTML=templates.map(t=>`<option value="${Number(t.id)}">${e(t.name)}</option>`).join('');
+ by('wc-edit-template').value=String(c.template_id);
+ by('wc-editor').hidden=false;by('wc-editor').scrollIntoView({behavior:'smooth',block:'start'});
+ status('اطلاعات قرارداد برای ویرایش بارگذاری شد.');
+}
+async function saveEdit(){
+ if(!editingId)return;
+ const data={template_id:Number(by('wc-edit-template').value)};
+ for(const el of by('wc-editor').querySelectorAll('[data-edit]'))data[el.dataset.edit]=el.value.trim();
+ const button=by('wc-edit-save');button.disabled=true;
+ try{
+   await call('/'+editingId,{method:'PUT',body:JSON.stringify(data)});
+   status('تغییرات قرارداد شماره '+num(editingId)+' ذخیره شد. چاپ نسخه اصلاح‌شده آماده است.');
+   editingId=null;by('wc-editor').hidden=true;await history();
+ }catch(err){status(err.message,true);}finally{button.disabled=false;}
+}
+async function deleteContract(id){
+ if(!confirm('قرارداد شماره '+num(id)+' حذف شود؟ نسخه حذف‌شده از فهرست کنار می‌رود و سابقه آن ثبت خواهد شد.'))return;
+ await call('/'+id,{method:'DELETE'});
+ if(editingId===id){editingId=null;by('wc-editor').hidden=true;}
+ status('قرارداد شماره '+num(id)+' حذف و در سوابق تغییرات ثبت شد.');
+ await history();
 }
 async function generate(){
  const ids=[...selected],start=by('wc-start').value.trim().replaceAll('/','-'),end=by('wc-end').value.trim().replaceAll('/','-'),duration=by('wc-duration').value.trim();
@@ -130,7 +188,7 @@ async function upload(){
  try{await call('/templates',{method:'POST',body:f});by('wc-tpl-name').value='';by('wc-tpl-file').value='';await refresh();status('قالب Word ذخیره شد.');}
  catch(err){status(err.message,true);}
 }
-function unmount(){document.getElementById('kh-contract-panel')?.remove();loaded=false;selected.clear();}
+function unmount(){document.getElementById('kh-contract-panel')?.remove();loaded=false;selected.clear();editingId=null;}
 function mount(){
  const host=document.getElementById('khatyar-contract-page');
  if(!host)return;
