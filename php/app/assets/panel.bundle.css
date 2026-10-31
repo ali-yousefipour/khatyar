@@ -930,6 +930,12 @@ table{font-size:13px}
 .advanced-report-page .workspace-filterbar .input{min-width:135px;flex:1 1 150px}
 .advanced-report-page .workspace-filterbar .btn{flex:1 1 115px}
 .personnel-performance-page .workspace-filterbar{margin-bottom:14px}
+.personnel-leave-page>.row{gap:10px;flex-wrap:wrap;margin:12px 0}
+.personnel-leave-page>.row .input{min-height:44px}
+.personnel-leave-table{max-height:calc(100vh - 330px);overflow:auto}
+.personnel-leave-detail-link{border:0;background:transparent;color:#087b59;font:800 12px Vazirmatn,sans-serif;cursor:pointer;text-align:start;text-decoration:underline;text-underline-offset:4px;padding:7px 4px;min-height:38px}
+.personnel-leave-detail-link:hover{color:#075c44}
+.personnel-leave-detail-link:focus-visible{outline:3px solid #d0a333;outline-offset:2px;border-radius:5px}
 .staff-attendance-page .table-wrap table,.sms-history-page .table-wrap table{min-width:680px;width:100%}
 .reports-center-search{display:flex;align-items:end;flex-wrap:wrap;gap:10px;padding:13px;margin-bottom:15px;background:#f2f9f5;border:1px solid #d8e9de;border-radius:12px}
 .reports-center-search label{font-size:12px;font-weight:800;color:#315b45;flex:0 0 130px;padding-bottom:10px}
