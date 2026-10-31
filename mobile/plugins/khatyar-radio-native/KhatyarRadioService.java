@@ -245,13 +245,12 @@ public final class KhatyarRadioService extends Service {
     RemoteViews expanded = new RemoteViews(getPackageName(), R.layout.khatyar_radio_notification_big);
     PendingIntent ptt = buildPttPendingIntent();
 
-    String status = accessDenied ? "منتظر تأیید حضور در شیفت" : (pttActive ? "فعال • PTT فعال" : "فعال • متصل به سرور");
+    String status = accessDenied ? "در انتظار تأیید حضور" : (pttActive ? "در حال صحبت" : "بی‌سیم متصل");
     String channelName = getPrefs().getString("channelName", "").trim();
     String role = getPrefs().getString("userRole", "").trim();
-    String info = (role.isEmpty() ? "سمت کاربر نامشخص" : "سمت: " + role)
-      + "  •  " + (channelName.isEmpty() ? "کانال بی‌سیم" : "کانال: " + channelName)
-      + "  •  تاریخ شمسی: " + jalaliToday();
-    String pttLabel = pttActive ? "پایان PTT" : "شروع PTT";
+    String info = (channelName.isEmpty() ? "کانال بی‌سیم" : "کانال: " + channelName)
+      + (role.isEmpty() ? "" : "  •  " + role);
+    String pttLabel = pttActive ? "پایان صحبت" : "شروع صحبت";
 
     compact.setTextViewText(R.id.khatyar_notification_status, status);
     compact.setTextViewText(R.id.khatyar_notification_info, info);

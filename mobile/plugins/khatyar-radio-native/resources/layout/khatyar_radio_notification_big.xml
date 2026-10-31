@@ -24,8 +24,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="بی‌سیم فعال • متصل"
-            android:textColor="@color/khatyar_notification_primary"
-            android:textSize="19sp"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="16sp"
             android:textStyle="bold"
             android:gravity="start"
             android:includeFontPadding="false"/>
@@ -34,7 +34,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="بی‌سیم"
-            android:textColor="@color/khatyar_notification_secondary"
+            android:textColor="?android:attr/textColorSecondary"
             android:textSize="12sp"
             android:includeFontPadding="false"
             android:layout_marginStart="8dp"/>
@@ -46,8 +46,10 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
         android:text="کانال فعال • آماده ارتباط"
-        android:textColor="@color/khatyar_notification_secondary"
-        android:textSize="15sp"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="13sp"
+        android:maxLines="2"
+        android:ellipsize="end"
         android:gravity="start"
         android:includeFontPadding="false"/>
 
@@ -87,7 +89,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
         android:text="برای ارسال پیام صوتی، دکمه صحبت را لمس کنید"
-        android:textColor="@color/khatyar_notification_secondary"
+        android:textColor="?android:attr/textColorSecondary"
         android:textSize="11sp"
         android:gravity="center"
         android:includeFontPadding="false"/>

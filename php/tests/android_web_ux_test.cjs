@@ -5,9 +5,9 @@ const app = fs.readFileSync(path.join(__dirname, '../app/app.html'), 'utf8');
 const css = fs.readFileSync(path.join(__dirname, '../app/assets/android-web-ux.css'), 'utf8');
 const sw = fs.readFileSync(path.join(__dirname, '../app/sw.js'), 'utf8');
 
-assert.match(app, /assets\/android-web-ux\.css\?v=20261031\.carplate1/,
+assert.match(app, /assets\/android-web-ux\.css\?v=20261031\.checklist1/,
   'Android-aligned styles must be loaded by the canonical web entry point');
-assert.match(sw, /android-web-ux\.css\?v=20261031\.carplate1/,
+assert.match(sw, /android-web-ux\.css\?v=20261031\.checklist1/,
   'Android-aligned styles must be available offline');
 assert.doesNotMatch(app, /user-scalable=no|maximum-scale=1/,
   'Browser users must be able to zoom');

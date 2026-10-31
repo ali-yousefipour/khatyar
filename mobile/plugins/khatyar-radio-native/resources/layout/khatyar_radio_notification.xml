@@ -24,10 +24,12 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="بی‌سیم فعال • متصل"
-            android:textColor="@color/khatyar_notification_primary"
-            android:textSize="16sp"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="14sp"
             android:textStyle="bold"
             android:gravity="start"
+            android:maxLines="1"
+            android:ellipsize="end"
             android:includeFontPadding="false"/>
 
         <TextView
@@ -36,16 +38,18 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="کانال فعال • آماده ارتباط"
-            android:textColor="@color/khatyar_notification_secondary"
-            android:textSize="13sp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp"
             android:gravity="start"
+            android:maxLines="1"
+            android:ellipsize="end"
             android:includeFontPadding="false"/>
     </LinearLayout>
 
     <LinearLayout
         android:id="@+id/khatyar_notification_ptt"
-        android:layout_width="124dp"
-        android:layout_height="56dp"
+        android:layout_width="108dp"
+        android:layout_height="52dp"
         android:background="@drawable/khatyar_notification_ptt_background"
         android:gravity="center"
         android:orientation="horizontal"
