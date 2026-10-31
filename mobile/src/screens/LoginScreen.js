@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Switch, Alert, AppState, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Switch, Alert, AppState, Image, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuth } from '../auth';
 import { request } from '../api';
 import { C, FONT } from '../theme';
@@ -13,6 +13,7 @@ export default function LoginScreen() {
   const [configRetry, setConfigRetry] = useState(0);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState('login');
@@ -115,7 +116,9 @@ export default function LoginScreen() {
   const methodLabel = loginMethod === 'bale_otp' ? 'ربات بله' : loginMethod === 'sms_otp' ? 'پیامک' : 'نام کاربری و کلمه عبور';
 
   return (
-    <View style={s.wrap}>
+    <KeyboardAvoidingView style={s.wrap} behavior={Platform.OS==='ios'?'padding':undefined}>
+    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.scrollContent}>
+    <View style={s.formCard}>
       <Image source={require('../../assets/icon.png')} style={s.logo} resizeMode="contain" accessibilityLabel="لوگوی خطیار" />
       <Text style={s.title}>خطیار</Text>
       <Text style={s.sub}>مشهد</Text>
@@ -124,11 +127,11 @@ export default function LoginScreen() {
       ) : mode === 'login' ? (
         <>
           <Text style={s.label}>نام کاربری (کد ملی)</Text>
-          <TextInput style={s.input} value={username} onChangeText={setUsername} keyboardType="number-pad" placeholder="کد ملی" placeholderTextColor={C.muted} autoCapitalize="none" />
+          <TextInput style={s.input} value={username} onChangeText={setUsername} keyboardType="number-pad" placeholder="کد ملی" placeholderTextColor={C.muted} autoCapitalize="none" autoComplete="username" accessibilityLabel="نام کاربری، کد ملی" />
           {loginMethod === 'password' ? (
             <>
               <Text style={s.label}>رمز عبور</Text>
-              <TextInput style={s.input} value={password} onChangeText={setPassword} secureTextEntry placeholder="رمز عبور" placeholderTextColor={C.muted} />
+              <View style={s.passwordRow}><TextInput style={[s.input,s.passwordInput]} value={password} onChangeText={setPassword} secureTextEntry={!showPassword} autoComplete="current-password" placeholder="رمز عبور" placeholderTextColor={C.muted} accessibilityLabel="رمز عبور"/><TouchableOpacity style={s.showPassword} accessibilityRole="button" accessibilityLabel={showPassword?'پنهان کردن رمز عبور':'نمایش رمز عبور'} onPress={()=>setShowPassword(v=>!v)}><Text style={s.showPasswordText}>{showPassword?'پنهان':'نمایش'}</Text></TouchableOpacity></View>
               <View style={s.remember}>
                 <Switch value={remember} onValueChange={setRemember} trackColor={{ true: C.brand }} thumbColor="#fff" />
                 <Text style={s.rememberTxt}>مرا به خاطر بسپار (ورود خودکار)</Text>
@@ -171,17 +174,25 @@ export default function LoginScreen() {
         </>
       )}
     </View>
+    </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const s = StyleSheet.create({
-  wrap:{flex:1,backgroundColor:C.paper,padding:26,justifyContent:'center'},
+  wrap:{flex:1,backgroundColor:C.paper},
+  scrollContent:{flexGrow:1,justifyContent:'center',paddingHorizontal:18,paddingVertical:30},
+  formCard:{width:'100%',maxWidth:460,alignSelf:'center',backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:22,padding:22},
   logo:{width:72,height:72,borderRadius:22,backgroundColor:C.brand,alignSelf:'center',alignItems:'center',justifyContent:'center'},
   logoTxt:{color:'#fff',fontSize:30,fontFamily:FONT.bold},
   title:{fontFamily:FONT.bold,fontSize:18,textAlign:'center',marginTop:16,color:C.ink},
   sub:{textAlign:'center',color:C.muted,marginBottom:26,fontFamily:FONT.regular},
   label:{fontFamily:FONT.regular,color:C.muted,fontSize:13,marginBottom:6,textAlign:'right'},
-  input:{backgroundColor:'#fff',borderColor:C.line,borderWidth:1,borderRadius:13,padding:13,marginBottom:16,textAlign:'right',fontFamily:FONT.regular,color:C.ink},
+  input:{backgroundColor:'#fff',borderColor:C.line,borderWidth:1,borderRadius:13,padding:13,marginBottom:16,minHeight:50,textAlign:'right',fontFamily:FONT.regular,color:C.ink},
+  passwordRow:{position:'relative'},
+  passwordInput:{paddingLeft:76},
+  showPassword:{position:'absolute',left:6,top:6,minHeight:38,minWidth:62,backgroundColor:'#e9f5ef',borderRadius:9,alignItems:'center',justifyContent:'center'},
+  showPasswordText:{fontFamily:FONT.bold,color:C.brand,fontSize:12},
   remember:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:20},
   rememberTxt:{fontFamily:FONT.regular,color:C.ink,fontSize:13},
   btn:{backgroundColor:C.brand,borderRadius:14,padding:15,alignItems:'center'},
