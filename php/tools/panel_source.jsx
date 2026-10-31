@@ -9362,22 +9362,24 @@ function pvaStatus(s){return ({pending:'در انتظار بررسی',verified:'
 function PVAFields({a}){const motor=a.asset_type==='motorcycle';const rows=motor?[['نوع وسیله','موتورسیکلت'],['پلاک',pvaPlate(a)],['کاربری موتور',a.motorcycle_usage],['سیستم موتور',a.motorcycle_system],['تیپ موتور',a.motorcycle_type],['سوخت',a.fuel_type],['سال ساخت',pvaFa(a.model_year)],['رنگ',a.color],['سیلندر',pvaFa(a.cylinders)],['شماره موتور',a.engine_number],['شماره تنه/شاسی',a.chassis_number],['گواهینامه',a.license_number],['صدور گواهینامه',a.license_issue_date],['انقضای گواهینامه',a.license_expiry_date],['بیمه',a.insurance_number],['شروع بیمه',a.insurance_issue_date],['پایان بیمه',a.insurance_expiry_date]]:[['نوع وسیله','خودرو'],['پلاک',pvaPlate(a)],['نوع خودرو',a.vehicle_type],['سوخت',a.fuel_type],['سال ساخت',pvaFa(a.model_year)],['رنگ',a.color],['شماره شاسی',a.chassis_number],['شماره موتور',a.engine_number],['VIN',a.vin],['گواهینامه',a.license_number],['صدور گواهینامه',a.license_issue_date],['انقضای گواهینامه',a.license_expiry_date],['بیمه',a.insurance_number],['شرکت بیمه',a.insurance_company],['صدور بیمه',a.insurance_issue_date],['انقضای بیمه',a.insurance_expiry_date],['معاینه فنی',a.technical_inspection_number],['صدور معاینه',a.technical_inspection_issue_date],['انقضای معاینه',a.technical_inspection_expiry_date],['چراغگردان ثابت',Number(a.fixed_beacon)?'بله':'خیر'],['چراغگردان متحرک',Number(a.mobile_beacon)?'بله':'خیر'],['گرمایش',Number(a.heating_ok)?'سالم':'ناسالم'],['سرمایش',Number(a.cooling_ok)?'سالم':'ناسالم'],['آمپلی‌فایر',Number(a.amplifier)?'دارد':'ندارد']];return <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:8}}>{rows.map(([k,v])=><div key={k} style={{border:'1px solid var(--line)',borderRadius:10,padding:9,background:'#fff'}}><small className="muted">{k}</small><div style={{fontWeight:700,marginTop:3}}>{v||'—'}</div></div>)}</div>}
 function PVAHistory({history=[]}){return <div>{history.length?history.map(h=><div key={h.id} style={{borderBottom:'1px solid var(--line)',padding:'9px 0'}}><b>{h.result==='verified'?'تأیید نهایی':'نیازمند اصلاح'}</b><div className="muted" style={{fontSize:11}}>{h.checked_at||'—'} {h.checker_name?`— ${h.checker_name}`:''}</div>{h.note&&<div style={{fontSize:12,marginTop:3}}>{h.note}</div>}</div>):<div className="muted">هنوز سابقه‌ای ثبت نشده است.</div>}</div>}
 function PersonnelVehicleAssign(){
-  const [users,setUsers]=useState(null),[q,setQ]=useState(''),[busy,setBusy]=useState(0);
-  const load=async()=>{try{const d=await GET('/personnel-vehicle-assets.php?op=assign-list',{ttl:0});setUsers(d.users||[]);}catch(e){alert(e.message);setUsers([]);}};
+  const [users,setUsers]=useState(null),[q,setQ]=useState(''),[busy,setBusy]=useState(0),[error,setError]=useState(''),[loading,setLoading]=useState(true);
+  const load=async()=>{setLoading(true);setError('');try{const d=await GET('/personnel-vehicle-assets.php?op=assign-list',{ttl:0});setUsers(d.users||[]);}catch(e){setError(e.message||'دریافت فهرست پرسنل ناموفق بود.');}finally{setLoading(false);}};
   useEffect(()=>{load();},[]);
-  const setType=async(uid,type)=>{setBusy(uid);try{await SEND('POST','/personnel-vehicle-assets.php?op=assign-set',{user_id:uid,asset_type:type});setUsers(list=>list.map(x=>Number(x.id)===Number(uid)?{...x,asset_type:type||null}:x));}catch(e){alert(e.message);}finally{setBusy(0);}};
-  if(users===null)return <p className="muted">در حال دریافت فهرست پرسنل…</p>;
+  const setType=async(uid,type)=>{setBusy(uid);setError('');try{await SEND('POST','/personnel-vehicle-assets.php?op=assign-set',{user_id:uid,asset_type:type});setUsers(list=>list.map(x=>Number(x.id)===Number(uid)?{...x,asset_type:type||null}:x));}catch(e){setError(e.message||'ذخیرهٔ تخصیص ناموفق بود.');}finally{setBusy(0);}};
+  if(users===null&&loading)return <p className="muted" role="status">در حال دریافت فهرست پرسنل…</p>;
+  if(users===null)return <div className="workspace-inline-error" role="alert">{error}<button className="btn g" onClick={load}>تلاش دوباره</button></div>;
   const filtered=users.filter(u=>{const s=(u.first_name+' '+u.last_name+' '+(u.role_title||'')).toLowerCase();return !q||s.includes(q.toLowerCase());});
-  return <div>
+  return <div className="pva-assign-page">
     <p className="muted" style={{marginBottom:10}}>مشخص کنید کدام پرسنل مسئول یک دستگاه خودرو یا موتورسیکلت مأموریتی است. فقط افرادی که این‌جا برایشان خودرو یا موتورسیکلت تخصیص داده شود، در برنامهٔ اندروید به بخش «ثبت مشخصات خودرو/موتورسیکلت» دسترسی خواهند داشت.</p>
-    <input className="input" style={{marginBottom:10,maxWidth:320}} placeholder="جستجوی نام یا سمت" value={q} onChange={e=>setQ(e.target.value)}/>
-    <table style={{fontSize:12.5}}><thead><tr><th>نام</th><th>سمت</th><th>تخصیص فعلی</th><th></th></tr></thead><tbody>
+    {error&&<div className="workspace-inline-error" role="alert">{error}<button className="btn g" onClick={load}>تلاش دوباره</button></div>}
+    <div className="pva-assign-toolbar"><label>جست‌وجوی پرسنل<input className="input" type="search" placeholder="نام یا سمت" value={q} onChange={e=>setQ(e.target.value)}/></label><span>{fa(filtered.length)} نفر از {fa(users.length)} نفر</span><button className="btn g" onClick={load} disabled={loading}>{loading?'در حال دریافت…':'بروزرسانی'}</button></div>
+    <ResponsiveTable><thead><tr><th>نام</th><th>سمت</th><th>تخصیص فعلی</th><th>نوع وسیله</th></tr></thead><tbody>
       {filtered.map(u=><tr key={u.id}>
         <td><b>{u.first_name} {u.last_name}</b></td>
         <td>{u.role_title||'—'}</td>
         <td>{u.asset_type==='car'?'خودرو':u.asset_type==='motorcycle'?'موتورسیکلت':<span className="muted">تخصیص نشده</span>}</td>
         <td style={{whiteSpace:'nowrap'}}>
-          <select className="input" style={{display:'inline-block',width:150}} disabled={busy===u.id} value={u.asset_type||''} onChange={e=>setType(u.id,e.target.value)}>
+          <select className="input" aria-label={'تخصیص وسیله به '+u.first_name+' '+u.last_name} style={{display:'inline-block',width:150}} disabled={busy===u.id} value={u.asset_type||''} onChange={e=>setType(u.id,e.target.value)}>
             <option value="">— بدون تخصیص —</option>
             <option value="car">خودرو</option>
             <option value="motorcycle">موتورسیکلت</option>
@@ -9385,7 +9387,7 @@ function PersonnelVehicleAssign(){
         </td>
       </tr>)}
       {!filtered.length&&<tr><td colSpan="4" className="muted">فردی یافت نشد.</td></tr>}
-    </tbody></table>
+    </tbody></ResponsiveTable>
   </div>;
 }
 function PersonnelVehicleAssets(){
