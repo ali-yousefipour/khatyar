@@ -16536,7 +16536,7 @@ function SalarySlipAttachmentsAdmin() {
                         React.createElement("button", { className: "btn d", onClick: () => del(r.id) }, "\u062D\u0630\u0641"))) : React.createElement("p", { className: "muted", style: { padding: 16, textAlign: 'center' } }, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u06A9\u0627\u0631\u0628\u0631 \u0641\u06CC\u0634\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")))));
 }
 function SystemHealthDashboard() {
-    var _a, _b, _c, _e, _f, _g, _h, _j, _k;
+    var _a, _b, _c, _e, _f, _g, _h, _j, _k, _l;
     const [d, setD] = useState(null);
     const [busy, setBusy] = useState(false);
     const [msg, setMsg] = useState('');
@@ -16544,13 +16544,28 @@ function SystemHealthDashboard() {
     const [devices, setDevices] = useState([]);
     const [deviceStats, setDeviceStats] = useState({});
     const [dq, setDq] = useState('');
-    const loadDevices = async (q = dq) => { try {
+    const [componentStatus, setComponentStatus] = useState('all');
+    const [deviceError, setDeviceError] = useState('');
+    const [devicesLoading, setDevicesLoading] = useState(false);
+    const busyRef = useRef(false);
+    const deviceRequestRef = useRef(0);
+    const loadDevices = async (q = dq) => { const request = ++deviceRequestRef.current; setDevicesLoading(true); setDeviceError(''); try {
         const x = await db.deviceHealth(q);
-        setDevices(x.items || []);
-        setDeviceStats(x.stats || {});
+        if (request === deviceRequestRef.current) {
+            setDevices(x.items || []);
+            setDeviceStats(x.stats || {});
+        }
     }
-    catch (e) { } };
-    const load = async (run) => { setBusy(true); setMsg(''); try {
+    catch (e) {
+        if (request === deviceRequestRef.current)
+            setDeviceError(e.message || 'دریافت وضعیت دستگاه‌ها ناموفق بود');
+    }
+    finally {
+        if (request === deviceRequestRef.current)
+            setDevicesLoading(false);
+    } };
+    const load = async (run) => { if (busyRef.current)
+        return; busyRef.current = true; setBusy(true); setMsg(''); try {
         const r = run ? await db.systemHealthRunChecks() : await db.systemHealthDashboard();
         setD(r);
         await loadDevices();
@@ -16561,6 +16576,7 @@ function SystemHealthDashboard() {
         setMsg(e.message || 'خطا در دریافت سلامت سامانه');
     }
     finally {
+        busyRef.current = false;
         setBusy(false);
     } };
     useEffect(() => { load(false); }, []);
@@ -16574,17 +16590,19 @@ function SystemHealthDashboard() {
         return '';
     } };
     const statCards = d ? [['وضعیت کلی', d.status === 'ok' ? 'سالم' : (d.status === 'warning' ? 'هشدار' : 'خطا')], ['نسخه سایت', d.site_version], ['نسخه اپ', d.app_version], ['کاربران فعال', (_a = d.stats) === null || _a === void 0 ? void 0 : _a.users_active], ['رانندگان', (_b = d.stats) === null || _b === void 0 ? void 0 : _b.drivers_total], ['خطوط', (_c = d.stats) === null || _c === void 0 ? void 0 : _c.lines_total], ['جلسات باز', (_e = d.stats) === null || _e === void 0 ? void 0 : _e.open_staff_sessions], ['خطای اپ ۲۴ساعت', (_f = d.stats) === null || _f === void 0 ? void 0 : _f.mobile_errors_24h], ['رد حضور ۲۴ساعت', (_g = d.stats) === null || _g === void 0 ? void 0 : _g.attendance_rejects_24h], ['صف آفلاین ناموفق', (_h = d.stats) === null || _h === void 0 ? void 0 : _h.offline_failed], ['Dead-letter', (_j = d.stats) === null || _j === void 0 ? void 0 : _j.delivery_dead_letters], ['نمونه پلاک در انتظار', (_k = d.stats) === null || _k === void 0 ? void 0 : _k.plate_pending]] : [];
-    return (React.createElement("div", { className: "panel admin-workspace-page" },
+    const components = ((d === null || d === void 0 ? void 0 : d.components) || []).filter(c => componentStatus === 'all' || (componentStatus === 'problem' ? c.status !== 'ok' : c.status === componentStatus));
+    const problemCount = ((d === null || d === void 0 ? void 0 : d.components) || []).filter(c => c.status !== 'ok').length;
+    return (React.createElement("div", { className: "panel admin-workspace-page system-health-page" },
         React.createElement("div", { className: "row", style: { justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
             React.createElement("div", null,
                 React.createElement("h3", null, "\u062F\u0627\u0634\u0628\u0648\u0631\u062F \u0633\u0644\u0627\u0645\u062A \u0633\u0627\u0645\u0627\u0646\u0647"),
                 React.createElement("p", { className: "muted", style: { fontSize: 13, marginTop: 4 } }, "\u067E\u0627\u06CC\u0634 \u062F\u06CC\u062A\u0627\u0628\u06CC\u0633\u060C \u0641\u0636\u0627\u06CC \u0630\u062E\u06CC\u0631\u0647\u200C\u0633\u0627\u0632\u06CC\u060C \u0635\u0641 \u067E\u06CC\u0627\u0645\u200C\u0647\u0627\u060C \u0622\u0641\u0644\u0627\u06CC\u0646\u060C \u062E\u0637\u0627\u0647\u0627\u06CC \u0645\u0648\u0628\u0627\u06CC\u0644\u060C OCR \u067E\u0644\u0627\u06A9\u060C \u0631\u0628\u0627\u062A\u200C\u0647\u0627 \u0648 \u06A9\u0631\u0648\u0646\u200C\u062C\u0627\u0628\u200C\u0647\u0627.")),
             React.createElement("div", { className: "row", style: { gap: 8, flexWrap: 'wrap' } },
-                React.createElement("button", { className: "btn g", onClick: () => load(false), disabled: busy }, busy ? 'در حال دریافت' : 'بروزرسانی'),
-                React.createElement("button", { className: "btn p", onClick: () => load(true), disabled: busy }, "\u0627\u062C\u0631\u0627\u06CC \u0686\u06A9 \u0648 \u062B\u0628\u062A"),
-                React.createElement("button", { className: auto ? 'btn p' : 'btn g', onClick: () => setAuto(a => !a) }, auto ? 'Auto 30s فعال' : 'Auto 30s خاموش'))),
-        msg && React.createElement("p", { style: { fontWeight: 700, color: msg.startsWith('✓') ? 'var(--ok)' : 'var(--danger)', marginTop: 10 } }, msg),
-        !d ? React.createElement("p", { className: "muted", style: { padding: 20 } }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u062F\u0631\u06CC\u0627\u0641\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") : React.createElement(React.Fragment, null,
+                React.createElement("button", { className: "btn g", onClick: () => load(false), disabled: busy }, busy ? 'در حال دریافت…' : 'بروزرسانی'),
+                React.createElement("button", { className: "btn p", onClick: () => load(true), disabled: busy }, busy ? 'لطفاً صبر کنید…' : 'اجرای چک و ثبت'),
+                React.createElement("button", { className: auto ? 'btn p' : 'btn g', "aria-pressed": auto, onClick: () => setAuto(a => !a) }, auto ? 'بروزرسانی خودکار: روشن' : 'بروزرسانی خودکار: خاموش'))),
+        msg && React.createElement("p", { role: msg.startsWith('✓') ? 'status' : 'alert', style: { fontWeight: 700, color: msg.startsWith('✓') ? 'var(--ok)' : 'var(--danger)', marginTop: 10 } }, msg),
+        !d ? React.createElement("div", { className: "workspace-empty-state", role: "status" }, busy ? 'در حال دریافت وضعیت سامانه…' : 'داده‌ای دریافت نشده است. برای دریافت دوباره، دکمهٔ بروزرسانی را بزنید.') : React.createElement(React.Fragment, null,
             React.createElement("div", { className: "grid", style: { marginTop: 12 } }, statCards.map(([k, v]) => React.createElement("div", { className: "kpi", key: k },
                 React.createElement("span", null, k),
                 React.createElement("b", null, typeof v === 'number' ? fa(v) : (v || '—'))))),
@@ -16596,24 +16614,43 @@ function SystemHealthDashboard() {
                 React.createElement("span", { className: "muted", style: { fontSize: 12, marginRight: 8 } },
                     "\u0622\u062E\u0631\u06CC\u0646 \u062F\u0631\u06CC\u0627\u0641\u062A: ",
                     fj(d.time))),
-            React.createElement("div", { style: { overflowX: 'auto' } },
-                React.createElement("table", { style: { minWidth: 980, fontSize: 12 } },
+            React.createElement("div", { className: "system-health-section-heading" },
+                React.createElement("div", null,
+                    React.createElement("h4", null, "\u0633\u0644\u0627\u0645\u062A \u0627\u062C\u0632\u0627\u06CC \u0633\u0627\u0645\u0627\u0646\u0647"),
+                    React.createElement("p", { className: "muted" },
+                        fa(((_l = d.components) === null || _l === void 0 ? void 0 : _l.length) || 0),
+                        " \u0628\u062E\u0634 \u0628\u0631\u0631\u0633\u06CC\u200C\u0634\u062F\u0647 \u00B7 ",
+                        fa(problemCount),
+                        " \u0645\u0648\u0631\u062F \u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u067E\u06CC\u06AF\u06CC\u0631\u06CC")),
+                React.createElement("label", null,
+                    "\u0646\u0645\u0627\u06CC\u0634 \u0648\u0636\u0639\u06CC\u062A ",
+                    React.createElement("select", { className: "input", value: componentStatus, onChange: e => setComponentStatus(e.target.value) },
+                        React.createElement("option", { value: "all" }, "\u0647\u0645\u0647\u0654 \u0628\u062E\u0634\u200C\u0647\u0627"),
+                        React.createElement("option", { value: "problem" }, "\u0641\u0642\u0637 \u0647\u0634\u062F\u0627\u0631\u0647\u0627 \u0648 \u062E\u0637\u0627\u0647\u0627"),
+                        React.createElement("option", { value: "warning" }, "\u0641\u0642\u0637 \u0647\u0634\u062F\u0627\u0631\u0647\u0627"),
+                        React.createElement("option", { value: "error" }, "\u0641\u0642\u0637 \u062E\u0637\u0627\u0647\u0627"),
+                        React.createElement("option", { value: "ok" }, "\u0641\u0642\u0637 \u0633\u0627\u0644\u0645\u200C\u0647\u0627")))),
+            React.createElement("div", { className: "system-health-table-wrap" },
+                React.createElement("table", { style: { minWidth: 760, fontSize: 12 } },
                     React.createElement("thead", null,
                         React.createElement("tr", null,
                             React.createElement("th", null, "\u0628\u062E\u0634"),
                             React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
                             React.createElement("th", null, "\u067E\u06CC\u0627\u0645"),
                             React.createElement("th", null, "\u062C\u0632\u0626\u06CC\u0627\u062A"))),
-                    React.createElement("tbody", null, (d.components || []).map(c => React.createElement("tr", { key: c.key },
-                        React.createElement("td", null,
-                            React.createElement("b", null, c.title),
-                            React.createElement("div", { className: "muted", dir: "ltr", style: { fontSize: 10 } }, c.key)),
-                        React.createElement("td", null, badge(c.status)),
-                        React.createElement("td", null, c.message),
-                        React.createElement("td", null,
-                            React.createElement("details", null,
-                                React.createElement("summary", { style: { cursor: 'pointer', color: 'var(--brand)' } }, "\u0646\u0645\u0627\u06CC\u0634"),
-                                React.createElement("pre", { dir: "ltr", style: { whiteSpace: 'pre-wrap', textAlign: 'left', maxWidth: 520, maxHeight: 220, overflow: 'auto' } }, meta(c.meta))))))))),
+                    React.createElement("tbody", null,
+                        components.map(c => React.createElement("tr", { key: c.key },
+                            React.createElement("td", null,
+                                React.createElement("b", null, c.title),
+                                React.createElement("div", { className: "muted", dir: "ltr", style: { fontSize: 10 } }, c.key)),
+                            React.createElement("td", null, badge(c.status)),
+                            React.createElement("td", null, c.message),
+                            React.createElement("td", null,
+                                React.createElement("details", null,
+                                    React.createElement("summary", { style: { cursor: 'pointer', color: 'var(--brand)' } }, "\u0646\u0645\u0627\u06CC\u0634"),
+                                    React.createElement("pre", { dir: "ltr", style: { whiteSpace: 'pre-wrap', textAlign: 'left', maxWidth: 520, maxHeight: 220, overflow: 'auto' } }, meta(c.meta)))))),
+                        !components.length && React.createElement("tr", null,
+                            React.createElement("td", { colSpan: "4", className: "muted", style: { textAlign: 'center', padding: 22 } }, "\u0645\u0648\u0631\u062F\u06CC \u0628\u0627 \u0648\u0636\u0639\u06CC\u062A \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F."))))),
             React.createElement("div", { className: "grid2", style: { marginTop: 14 } },
                 React.createElement("div", { className: "card-p" },
                     React.createElement("h4", null, "\u062E\u0637\u0627\u0647\u0627 \u0648 \u0647\u0634\u062F\u0627\u0631\u0647\u0627\u06CC \u0627\u062E\u06CC\u0631 \u0633\u0627\u0645\u0627\u0646\u0647"),
@@ -16653,9 +16690,15 @@ function SystemHealthDashboard() {
                     React.createElement("div", null,
                         React.createElement("h4", null, "\u0633\u0644\u0627\u0645\u062A \u062F\u0633\u062A\u06AF\u0627\u0647\u200C\u0647\u0627\u06CC \u0645\u0648\u0628\u0627\u06CC\u0644"),
                         React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u0622\u062E\u0631\u06CC\u0646 \u0648\u0636\u0639\u06CC\u062A \u0628\u0627\u062A\u0631\u06CC\u060C \u062D\u0627\u0641\u0638\u0647\u060C \u0634\u0628\u06A9\u0647\u060C \u067E\u0627\u0633\u062E API \u0648 \u0646\u0633\u062E\u0647 \u0627\u0646\u062F\u0631\u0648\u06CC\u062F \u06A9\u0627\u0631\u0628\u0631\u0627\u0646.")),
-                    React.createElement("div", { className: "row", style: { gap: 6 } },
-                        React.createElement("input", { value: dq, onChange: e => setDq(e.target.value), placeholder: "\u062C\u0633\u062A\u062C\u0648 \u0646\u0627\u0645\u060C \u0645\u062F\u0644 \u06CC\u0627 \u0646\u0633\u062E\u0647" }),
-                        React.createElement("button", { className: "btn g", onClick: () => loadDevices(dq) }, "\u062C\u0633\u062A\u062C\u0648"))),
+                    React.createElement("form", { className: "system-health-device-search", onSubmit: e => { e.preventDefault(); loadDevices(dq); } },
+                        React.createElement("label", { htmlFor: "device-health-search" }, "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u062F\u0633\u062A\u06AF\u0627\u0647"),
+                        React.createElement("input", { id: "device-health-search", className: "input", type: "search", value: dq, onChange: e => setDq(e.target.value), placeholder: "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u060C \u0645\u062F\u0644 \u06CC\u0627 \u0646\u0633\u062E\u0647" }),
+                        React.createElement("button", { className: "btn g", type: "submit", disabled: devicesLoading }, devicesLoading ? 'در حال جست‌وجو…' : 'جست‌وجو'),
+                        dq && React.createElement("button", { type: "button", className: "btn g", disabled: devicesLoading, onClick: () => { setDq(''); loadDevices(''); } }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646"))),
+                deviceError && React.createElement("div", { className: "workspace-inline-error", role: "alert" },
+                    deviceError,
+                    " ",
+                    React.createElement("button", { className: "btn g", type: "button", onClick: () => loadDevices(dq) }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")),
                 React.createElement("div", { className: "grid", style: { margin: '10px 0' } }, [
                     ['دستگاه‌ها', deviceStats.total_devices], ['بدون گزارش تازه', deviceStats.stale_devices], ['خطای API', deviceStats.api_failed], ['آفلاین', deviceStats.offline_devices], ['باتری کم', deviceStats.low_battery], ['حافظه کم', deviceStats.low_storage], ['میانگین پاسخ API', deviceStats.avg_latency_ms ? fa(deviceStats.avg_latency_ms) + ' ms' : '—']
                 ].map(([k, v]) => React.createElement("div", { className: "kpi", key: k },
@@ -16683,12 +16726,12 @@ function SystemHealthDashboard() {
                             React.createElement("td", { dir: "ltr" }, x.app_version || '—'),
                             React.createElement("td", null, x.android_sdk ? fa(x.android_sdk) : '—'),
                             React.createElement("td", null, x.battery_level != null ? fa(x.battery_level) + '٪' : '—'),
-                            React.createElement("td", null, x.free_disk_bytes ? fa(Math.round(Number(x.free_disk_bytes) / 1073741824)) + ' GB' : '—'),
+                            React.createElement("td", null, x.free_disk_bytes != null ? fa(Math.round(Number(x.free_disk_bytes) / 1073741824)) + ' GB' : '—'),
                             React.createElement("td", null, Number(x.network_connected) ? 'متصل' : 'قطع'),
                             React.createElement("td", null, Number(x.api_ok) ? fa(x.api_latency_ms || 0) + ' ms' : 'ناموفق'),
                             React.createElement("td", null, fj(x.captured_at)),
                             React.createElement("td", null, badge(x.health_status === 'stale' ? 'warning' : x.health_status)))) : React.createElement("tr", null,
-                            React.createElement("td", { colSpan: "10", className: "muted" }, "\u0647\u0646\u0648\u0632 \u06AF\u0632\u0627\u0631\u0634 \u0633\u0644\u0627\u0645\u062A \u062F\u0633\u062A\u06AF\u0627\u0647\u06CC \u062F\u0631\u06CC\u0627\u0641\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")))))),
+                            React.createElement("td", { colSpan: "10", className: "muted" }, devicesLoading ? 'در حال دریافت اطلاعات دستگاه‌ها…' : deviceError ? 'اطلاعات دستگاه‌ها در دسترس نیست.' : 'هیچ گزارش دستگاهی برای این جست‌وجو یافت نشد.')))))),
             React.createElement("p", { className: "muted", style: { fontSize: 12, marginTop: 12 } },
                 "\u0628\u0631\u0627\u06CC \u062B\u0628\u062A \u062F\u0648\u0631\u0647\u200C\u0627\u06CC \u0633\u0644\u0627\u0645\u062A\u060C \u06A9\u0631\u0648\u0646\u200C\u062C\u0627\u0628 \u0631\u0627 \u0631\u0648\u06CC ",
                 React.createElement("code", { dir: "ltr" }, "/api/cron/system-health-probe?key=CRON_KEY"),
