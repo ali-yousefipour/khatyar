@@ -914,6 +914,43 @@ table{font-size:13px}
 }
 
 /* Dashboard overview and performance cards */
+.dashboard-live{margin:16px 0;padding:19px!important}
+.dashboard-live-head{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}
+.dashboard-live-head h3{font-size:17px;margin:3px 0 5px;color:#174638}
+.dashboard-live-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11.5px;color:#75887f}
+.dashboard-live-refresh{white-space:nowrap}
+.dashboard-live-warning{margin-top:12px;padding:10px 13px;background:#fff8e8;border:1px solid #eecf89;border-radius:10px;font-size:12px;color:#7d5b14;line-height:1.8}
+.dashboard-live-stats{margin-top:16px;gap:10px}
+.dashboard-live-stat{position:relative;display:flex;flex-direction:column;align-items:flex-start;min-height:118px!important;width:100%;text-align:start;cursor:pointer;font-family:inherit;color:inherit;border:1px solid #dce9e2!important;transition:transform .15s,border-color .15s,box-shadow .15s}
+.dashboard-live-stat:hover{transform:translateY(-2px);border-color:#86baa0!important;box-shadow:0 10px 22px -16px #125d3d70}
+.dashboard-live-stat .n{font-size:28px!important}
+.dashboard-live-stat .l{font-size:12px!important;font-weight:800}
+.dashboard-live-stat-action{font-size:10.5px;color:#50806a;margin-top:auto;padding-top:8px}
+.dashboard-live-stat-action span{font-size:17px;vertical-align:middle}
+.dashboard-live-stat-present .n{color:#0b8662!important}
+.dashboard-live-stat-absent .n{color:#bb4d3c!important}
+.dashboard-live-stat-leave .n{color:#9268b1!important}
+.dashboard-live-list-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:21px 0 9px}
+.dashboard-live-list-head h4{margin:0;color:#23483a;font-size:13px}
+.dashboard-live-tabs{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 12px!important;padding:5px;border:1px solid #deebe3;border-radius:12px}
+.dashboard-live-tabs button{min-height:40px;border:0;border-radius:9px;background:transparent;padding:8px 14px;cursor:pointer;font:700 12px Vazirmatn,sans-serif;color:#5d7669}
+.dashboard-live-tabs button:hover{background:#edf7f0}
+.dashboard-live-tabs .dashboard-live-tab-active{background:#fff;color:#087b59;box-shadow:0 2px 9px #174d361a}
+.dashboard-live-table{max-width:100%;overflow-x:auto}
+.dashboard-live-table table{min-width:650px}
+.dashboard-live-empty{padding:25px 14px;text-align:center;background:#f7faf8;border:1px dashed #d2e6da;border-radius:12px;color:#728a7d;font-size:12px}
+.dashboard-live-placeholder{padding:22px!important}
+.dashboard-personnel .dashboard-section-head{margin:0 0 18px}
+.personnel-stat-section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:20px 0 10px}
+.personnel-stat-section-head h4{margin:0;color:#235340;font-size:13px}
+.personnel-stat-section-head span{font-size:11px;color:#6c8b7b;background:#eef7f1;padding:5px 10px;border-radius:99px}
+.dashboard-personnel .personnel-stat-card{min-height:100px!important;display:flex;flex-direction:column;align-items:flex-start;cursor:pointer;text-align:start;transition:border-color .15s,transform .15s}
+.dashboard-personnel .personnel-stat-card:hover{transform:translateY(-2px);border-color:#8abea3!important;background:#f6fbf8}
+.personnel-stat-number{font-size:23px;font-weight:850;color:#0a7655;line-height:1.4}
+.personnel-stat-number span{font-size:10px;font-weight:500;color:#799288}
+.dashboard-personnel .personnel-stat-card .l{margin:3px 0;font-weight:700;font-size:11.5px}
+.personnel-stat-view{font-size:10px;color:#6e9881;margin-top:auto}
+@media(max-width:640px){.dashboard-live{padding:13px!important}.dashboard-live-head h3{font-size:15px}.dashboard-live-refresh{width:100%}.dashboard-live-stat{min-height:107px!important}.dashboard-live-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.dashboard-live-tabs button{padding:8px 4px;font-size:10.5px}.dashboard-personnel .personnel-stat-card{min-height:88px!important}}
 .dashboard-section-head{display:flex;align-items:end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:18px 0 13px}
 .dashboard-section-head h2{font-size:17px;line-height:1.6;margin:2px 0 0;color:#174638}
 .dashboard-section-kicker{font-size:11px;font-weight:800;color:#0b8764;letter-spacing:.2px}
