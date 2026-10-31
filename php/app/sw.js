@@ -1,6 +1,6 @@
 // خطیار PWA service worker — cache is versioned and HTML/JS/CSS/JSON are network-first.
-const CACHE = 'khatyar-web-20261031.motorplate1';
-const SHELL = ['/app?sw=20261031.motorplate1', '/manifest.json', '/icon-192.png', '/icon-512.png', '/assets/android-navigation.js?v=20261025.2', '/assets/android-app.css?v=20261026.attendance1', '/assets/android-web-ux.css?v=20261031.motorplate1', '/assets/android-app-ui.js?v=20261025.2', '/assets/web-document-editor.js?v=20261026.3', '/assets/web-payroll-image.js?v=20261026.3', '/assets/payroll-access-layout.json', '/assets/web-attendance.js?v=20261026.attendance1', '/assets/web-features-core.js?v=20261026.3', '/assets/web-features-personal.js?v=20261026.3', '/assets/web-features-field.js?v=20261026.3', '/assets/web-features-services.js?v=20261026.3', '/assets/web-features-company.js?v=20261026.3', '/assets/web-features-device.js?v=20261026.3', '/assets/MaterialCommunityIcons-15.0.2.ttf'];
+const CACHE = 'khatyar-web-20261031.carplate1';
+const SHELL = ['/app?sw=20261031.carplate1', '/manifest.json', '/icon-192.png', '/icon-512.png', '/assets/android-navigation.js?v=20261025.2', '/assets/android-app.css?v=20261026.attendance1', '/assets/android-web-ux.css?v=20261031.carplate1', '/assets/android-app-ui.js?v=20261025.2', '/assets/web-document-editor.js?v=20261026.3', '/assets/web-payroll-image.js?v=20261026.3', '/assets/payroll-access-layout.json', '/assets/web-attendance.js?v=20261026.attendance1', '/assets/web-features-core.js?v=20261026.3', '/assets/web-features-personal.js?v=20261026.3', '/assets/web-features-field.js?v=20261026.3', '/assets/web-features-services.js?v=20261026.3', '/assets/web-features-company.js?v=20261026.3', '/assets/web-features-device.js?v=20261026.3', '/assets/MaterialCommunityIcons-15.0.2.ttf'];
 const IMMUTABLE_EXT = /\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|eot|mp3|wav|ogg|mp4|webm)$/i;
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -21,7 +21,7 @@ self.addEventListener('fetch', event => {
       // «Response body is already used» مواجه می‌شد چون تا آن لحظه بدنهٔ پاسخ اصلی مصرف شده بود.
       if (response.ok) { const copy = response.clone(); caches.open(CACHE).then(c => c.put(event.request, copy)); }
       return response;
-    }).catch(() => caches.match(event.request).then(r => r || caches.match('/app?sw=20261031.motorplate1'))));
+    }).catch(() => caches.match(event.request).then(r => r || caches.match('/app?sw=20261031.carplate1'))));
     return;
   }
   if (IMMUTABLE_EXT.test(url.pathname)) {

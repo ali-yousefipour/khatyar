@@ -31,7 +31,7 @@ export function VehiclePlateInput({motor,data,set}){
  return <>
   <Text style={st.help}>شماره‌ها را از چپ به راست مطابق پلاک وارد کنید و برای انتخاب حرف روی آن بزنید.</Text>
   <View style={st.plateFrame}>
-   <View style={st.flagBar}><Text style={st.flag}>🇮🇷</Text><Text style={st.flagSmall}>I.R.</Text><Text style={st.flagSmall}>IRAN</Text></View>
+   <View style={st.flagBar} accessible accessibilityLabel="پرچم ایران، I.R. IRAN"><View style={st.carFlag}><View style={st.motorFlagGreen}/><View style={st.motorFlagWhite}><Text style={st.motorFlagMark}>●</Text></View><View style={st.motorFlagRed}/></View><Text style={st.flagSmall}>I.R.</Text><Text style={st.flagSmall}>IRAN</Text></View>
    <View style={st.plateMain}>
     <View style={[st.plateSegment,{flex:1.1}]}><NumberCell value={data.plate_part_left} onChange={v=>set('plate_part_left',v)} length={2} placeholder="۱۲" next={()=>setLettersOpen(true)}/></View>
     <TouchableOpacity accessibilityRole="button" accessibilityLabel="انتخاب حرف پلاک" onPress={()=>setLettersOpen(true)} style={[st.plateSegment,st.letterSegment]}><Text style={[st.letter, !data.plate_letter&&st.letterEmpty]}>{data.plate_letter||'حرف'}</Text><Text style={st.chevron}>⌄</Text></TouchableOpacity>
@@ -78,11 +78,11 @@ export function VehicleYearPicker({years,value,onChange,motor}){
 
 const st=StyleSheet.create({
  help:{color:'#64748b',fontFamily:FONT.regular,fontSize:12,textAlign:'right',marginBottom:10,lineHeight:20},
- plateFrame:{flexDirection:'row',borderWidth:2,borderColor:'#1e293b',borderRadius:11,overflow:'hidden',backgroundColor:'#fff',minHeight:87,marginBottom:16},
- flagBar:{width:39,backgroundColor:'#1456a4',justifyContent:'space-around',alignItems:'center',paddingVertical:6},flag:{fontSize:21},flagSmall:{fontSize:9,color:'#fff',fontWeight:'800'},
- plateMain:{flex:1,flexDirection:'row',alignItems:'stretch'},plateSegment:{flex:1,borderRightWidth:1,borderRightColor:'#e2e8f0',justifyContent:'center',alignItems:'center',minWidth:0},plateNumber:{width:'100%',color:'#111827',fontSize:23,fontWeight:'800',paddingHorizontal:1,paddingVertical:9,writingDirection:'ltr'},
- letterSegment:{flex:0.95,backgroundColor:'#f8fafc'},letter:{color:'#111827',fontSize:25,fontWeight:'800'},letterEmpty:{fontSize:15,color:'#64748b'},chevron:{position:'absolute',bottom:2,fontSize:14,color:'#64748b'},
- regionSegment:{width:58,borderLeftWidth:2,borderLeftColor:'#1e293b',alignItems:'center',justifyContent:'center'},regionLabel:{fontFamily:FONT.bold,fontSize:13,color:'#111827',marginTop:4},
+ plateFrame:{flexDirection:'row',direction:'ltr',alignSelf:'center',width:'100%',maxWidth:440,borderWidth:3,borderColor:'#171717',borderRadius:15,overflow:'hidden',backgroundColor:'#f5f5f5',minHeight:82,marginBottom:16},
+ flagBar:{width:47,backgroundColor:'#0b3f94',justifyContent:'center',alignItems:'center',paddingVertical:6},carFlag:{width:29,height:19,marginBottom:6},flagSmall:{fontFamily:FONT.bold,fontSize:10,color:'#fff',lineHeight:16},
+ plateMain:{flex:1,flexDirection:'row',direction:'ltr',alignItems:'stretch'},plateSegment:{flex:1,borderRightWidth:1,borderRightColor:'#c5c5c5',justifyContent:'center',alignItems:'center',minWidth:0},plateNumber:{width:'100%',color:'#111',fontFamily:FONT.bold,fontSize:25,paddingHorizontal:0,paddingVertical:9,writingDirection:'ltr'},
+ letterSegment:{flex:0.95,minHeight:65},letter:{color:'#111',fontFamily:FONT.bold,fontSize:26},letterEmpty:{fontSize:17,color:'#64748b'},chevron:{position:'absolute',bottom:3,fontSize:14,color:'#64748b'},
+ regionSegment:{width:64,borderLeftWidth:3,borderLeftColor:'#171717',alignItems:'center',justifyContent:'center'},regionLabel:{fontFamily:FONT.bold,fontSize:11,color:'#111',marginTop:3},
  motorWrap:{marginBottom:14},
  motorPlateFrame:{alignSelf:'center',width:'100%',maxWidth:360,aspectRatio:1.8,borderWidth:4,borderColor:'#111',borderRadius:17,overflow:'hidden',backgroundColor:'#fff',direction:'ltr'},
  motorFirstRow:{flex:1,flexDirection:'row',direction:'ltr'},motorSecondRow:{flex:0.85,justifyContent:'center',paddingHorizontal:12},
