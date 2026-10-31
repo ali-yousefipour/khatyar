@@ -5364,15 +5364,17 @@ function ScoreEngineAdmin() {
                 !(badgeList === null || badgeList === void 0 ? void 0 : badgeList.length) && React.createElement("p", { style: { color: "var(--muted)", textAlign: "center", padding: 16 } }, "\u0647\u0646\u0648\u0632 \u0646\u0634\u0627\u0646\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0627\u0639\u0637\u0627 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A (\u0646\u0634\u0627\u0646\u200C\u0647\u0627 \u067E\u0627\u06CC\u0627\u0646 \u0631\u0648\u0632/\u0647\u0641\u062A\u0647/\u0645\u0627\u0647 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u062E\u0648\u062F\u06A9\u0627\u0631 \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F).")))));
 }
 function PersonnelPerformance() {
+    var _a;
     const tj = todayJ();
     const [from, setFrom] = useState("");
     const [to, setTo] = useState("");
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
-    const qs = () => { const p = []; if (from)
-        p.push("from=" + from); if (to)
-        p.push("to=" + to); return p.length ? ("?" + p.join("&")) : ""; };
-    const load = () => { setLoading(true); GET("/admin/personnel-performance" + qs()).then(setData).catch(() => { }).finally(() => setLoading(false)); };
+    const [error, setError] = useState('');
+    const qs = (fromDate = from, toDate = to) => { const p = new URLSearchParams(); if (fromDate)
+        p.set('from', fromDate); if (toDate)
+        p.set('to', toDate); return p.toString() ? '?' + p.toString() : ''; };
+    const load = (fromDate = from, toDate = to) => { setLoading(true); setError(''); GET("/admin/personnel-performance" + qs(fromDate, toDate)).then(setData).catch(e => setError(e.message || 'دریافت عملکرد پرسنل ناموفق بود.')).finally(() => setLoading(false)); };
     useEffect(() => { load(); }, []);
     const exportExcel = () => {
         if (!data)
@@ -5384,19 +5386,27 @@ function PersonnelPerformance() {
         XLSX.utils.book_append_sheet(wb, ws, "عملکرد پرسنل");
         XLSX.writeFile(wb, "عملکرد_پرسنل.xlsx");
     };
-    return (React.createElement("div", { className: "panel admin-workspace-page" },
-        React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634 \u0639\u0645\u0644\u06A9\u0631\u062F \u067E\u0631\u0633\u0646\u0644"),
+    return (React.createElement("div", { className: "panel admin-workspace-page personnel-performance-page" },
+        React.createElement("div", { className: "workspace-section-heading" },
+            React.createElement("div", null,
+                React.createElement("span", null, "\u062A\u062D\u0644\u06CC\u0644 \u0639\u0645\u0644\u06A9\u0631\u062F"),
+                React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634 \u0639\u0645\u0644\u06A9\u0631\u062F \u067E\u0631\u0633\u0646\u0644"),
+                React.createElement("p", null, "\u0645\u0642\u0627\u06CC\u0633\u0647 \u0641\u0639\u0627\u0644\u06CC\u062A\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627 \u062F\u0631 \u0628\u0627\u0632\u0647 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC")),
+            React.createElement("span", { className: "workspace-heading-count" },
+                fa(((_a = data === null || data === void 0 ? void 0 : data.people) === null || _a === void 0 ? void 0 : _a.length) || 0),
+                " \u0646\u06CC\u0631\u0648")),
         React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 10 } }, "\u062A\u0639\u062F\u0627\u062F \u0641\u0639\u0627\u0644\u06CC\u062A\u200C\u0647\u0627\u06CC \u0647\u0631 \u0646\u06CC\u0631\u0648 \u062F\u0631 \u0628\u0627\u0632\u0647\u0654 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC \u0634\u0627\u0645\u0644 \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A\u060C \u062D\u0636\u0648\u0631\u060C \u062A\u0630\u06A9\u0631\u060C \u06AF\u0632\u0627\u0631\u0634\u060C \u067E\u06CC\u0627\u0645\u06A9\u200C\u0647\u0627\u06CC \u0627\u0631\u0633\u0627\u0644\u06CC \u0648 \u0639\u0645\u0644\u06A9\u0631\u062F \u067E\u0631\u062F\u0627\u062E\u062A \u0642\u0628\u0636. \u062E\u0627\u0644\u06CC \u06AF\u0630\u0627\u0634\u062A\u0646 \u062A\u0627\u0631\u06CC\u062E = \u06A9\u0644 \u062F\u0648\u0631\u0647."),
-        React.createElement("div", { className: "filters", style: { flexWrap: "wrap", gap: 8 } },
+        React.createElement("div", { className: "filters workspace-filterbar" },
             React.createElement("span", { className: "label" }, "\u0627\u0632"),
             React.createElement(JDate, { value: from, onChange: setFrom, jalali: true }),
             React.createElement("span", { className: "label" }, "\u062A\u0627"),
             React.createElement(JDate, { value: to, onChange: setTo, jalali: true }),
-            React.createElement("button", { className: "btn p", onClick: load }, "\u0627\u0639\u0645\u0627\u0644"),
-            React.createElement("button", { className: "btn g", onClick: () => { setFrom(""); setTo(""); setTimeout(load, 0); } }, "\u06A9\u0644 \u062F\u0648\u0631\u0647"),
+            React.createElement("button", { className: "btn p", disabled: loading, onClick: () => load() }, "\u0627\u0639\u0645\u0627\u0644"),
+            React.createElement("button", { className: "btn g", disabled: loading, onClick: () => { setFrom(""); setTo(""); load("", ""); } }, "\u06A9\u0644 \u062F\u0648\u0631\u0647"),
             React.createElement("button", { className: "btn g", onClick: exportExcel, disabled: !data }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
-        loading && React.createElement("p", { style: { color: "var(--muted)" } }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026"),
-        data && React.createElement("div", { style: { overflowX: "auto", marginTop: 10 } },
+        error && React.createElement("p", { className: "workspace-inline-error", role: "alert" }, error),
+        loading && React.createElement("p", { className: "workspace-empty-state", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026"),
+        data && !loading && React.createElement("div", { className: "table-wrap workspace-wide-table" },
             React.createElement("table", { style: { fontSize: 12.5, minWidth: 980 } },
                 React.createElement("thead", null,
                     React.createElement("tr", null,
@@ -5436,7 +5446,11 @@ function Reporting() {
     const [cur, setCur] = useState({ cols: [], rows: [] });
     const [loaded, setLoaded] = useState(false);
     const [loading, setLoading] = useState(false);
-    const load = () => { setLoading(true); db.report(type, from, to, person).then(d => { setCur(d || { cols: [], rows: [] }); setLoaded(true); }).catch(() => { }).finally(() => setLoading(false)); };
+    const [error, setError] = useState('');
+    const load = () => { if (from && to && from > to) {
+        setError('تاریخ شروع باید قبل از تاریخ پایان باشد.');
+        return;
+    } setLoading(true); setError(''); setLoaded(false); db.report(type, from, to, person).then(d => { setCur(d || { cols: [], rows: [] }); setLoaded(true); }).catch(e => setError(e.message || 'دریافت گزارش ناموفق بود.')).finally(() => setLoading(false)); };
     // به‌صورت خودکار بارگذاری نمی‌شود؛ تا کاربر فیلتر/جستجو نزند چیزی نمایش داده نمی‌شود (سرعت بیشتر)
     const jcell = (c) => { const s = String(c); return /^\d{4}-\d{2}-\d{2}/.test(s) ? fj(s) : c; };
     const jrows = cur.rows.map(r => r.map(jcell));
@@ -5456,24 +5470,32 @@ function Reporting() {
       <tbody>${shownRows.map(r => `<tr>${r.map(c => `<td style="border:1px solid #ccc;padding:8px;text-align:center">${escape(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
         window.print();
     };
-    return (React.createElement("div", { className: "panel admin-workspace-page" },
-        React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634\u200C\u06AF\u06CC\u0631\u06CC \u067E\u06CC\u0634\u0631\u0641\u062A\u0647"),
-        React.createElement("div", { className: "filters no-print" },
-            React.createElement("select", { value: type, onChange: e => setType(e.target.value) }, Object.entries(TYPES).map(([k, v]) => React.createElement("option", { key: k, value: k }, v))),
+    return (React.createElement("div", { className: "panel admin-workspace-page advanced-report-page" },
+        React.createElement("div", { className: "workspace-section-heading" },
+            React.createElement("div", null,
+                React.createElement("span", null, "\u0633\u0627\u062E\u062A \u06AF\u0632\u0627\u0631\u0634"),
+                React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634\u200C\u06AF\u06CC\u0631\u06CC \u067E\u06CC\u0634\u0631\u0641\u062A\u0647"),
+                React.createElement("p", null, "\u06AF\u0632\u0627\u0631\u0634 \u062F\u0644\u062E\u0648\u0627\u0647 \u0628\u0627 \u0641\u06CC\u0644\u062A\u0631 \u0648 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644 \u06CC\u0627 \u0686\u0627\u067E")),
+            React.createElement("span", { className: "workspace-heading-count" }, loaded ? fa(shownRows.length) + ' ردیف' : 'آماده')),
+        React.createElement("div", { className: "filters no-print workspace-filterbar" },
+            React.createElement("select", { className: "input", "aria-label": "\u0646\u0648\u0639 \u06AF\u0632\u0627\u0631\u0634", value: type, onChange: e => { setType(e.target.value); setLoaded(false); setCur({ cols: [], rows: [] }); } }, Object.entries(TYPES).map(([k, v]) => React.createElement("option", { key: k, value: k }, v))),
             React.createElement(JDate, { value: from, onChange: setFrom, placeholder: "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E" }),
             React.createElement(JDate, { value: to, onChange: setTo, placeholder: "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E" }),
-            React.createElement("input", { placeholder: "\u0646\u0627\u0645 \u0634\u062E\u0635\u2026", value: person, onChange: e => setPerson(e.target.value) }),
-            React.createElement("button", { className: "btn g", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
-            React.createElement("button", { className: "btn p", onClick: exportExcel, disabled: !loaded }, "\u2B07 \u062E\u0631\u0648\u062C\u06CC Excel"),
-            React.createElement("button", { className: "btn t", onClick: printPdf, disabled: !loaded }, "\uD83D\uDDA8 \u0686\u0627\u067E / PDF")),
+            React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u0634\u062E\u0635", placeholder: "\u0646\u0627\u0645 \u0634\u062E\u0635\u2026", value: person, onChange: e => setPerson(e.target.value) }),
+            React.createElement("button", { className: "btn g", disabled: loading, onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
+            React.createElement("button", { className: "btn p", onClick: exportExcel, disabled: !loaded || loading }, "\u2B07 \u062E\u0631\u0648\u062C\u06CC Excel"),
+            React.createElement("button", { className: "btn t", onClick: printPdf, disabled: !loaded || loading }, "\uD83D\uDDA8 \u0686\u0627\u067E / PDF")),
+        error && React.createElement("p", { className: "workspace-inline-error", role: "alert" }, error),
         loading ? React.createElement("p", { className: "muted", style: { textAlign: "center", padding: "30px 0" } }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026")
             : !loaded ? React.createElement("div", { style: { textAlign: "center", padding: "40px 16px", color: "var(--muted)" } },
                 React.createElement("div", { style: { fontSize: 40, marginBottom: 8 } }, "\uD83D\uDD0E"),
                 React.createElement("p", null, "\u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u06AF\u0632\u0627\u0631\u0634\u060C \u0646\u0648\u0639 \u06AF\u0632\u0627\u0631\u0634 \u0648 \u0628\u0627\u0632\u0647\u0654 \u062A\u0627\u0631\u06CC\u062E \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F \u0648 \u00AB\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631\u00BB \u0631\u0627 \u0628\u0632\u0646\u06CC\u062F."))
-                : React.createElement("table", null,
-                    React.createElement("thead", null,
-                        React.createElement("tr", null, cur.cols.map((c, i) => React.createElement("th", { key: i }, c)))),
-                    React.createElement("tbody", null, shownRows.map((r, i) => React.createElement("tr", { key: i }, r.map((c, j) => React.createElement("td", { key: j }, c)))))),
+                : React.createElement("div", { className: "table-wrap workspace-wide-table" },
+                    React.createElement("table", null,
+                        React.createElement("thead", null,
+                            React.createElement("tr", null, cur.cols.map((c, i) => React.createElement("th", { key: i }, c)))),
+                        React.createElement("tbody", null, shownRows.map((r, i) => React.createElement("tr", { key: i }, r.map((c, j) => React.createElement("td", { key: j }, c)))))),
+                    shownRows.length === 0 && React.createElement("p", { className: "workspace-empty-state" }, "\u0645\u0648\u0631\u062F\u06CC \u0628\u0627 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")),
         React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 10 } }, "\u062E\u0631\u0648\u062C\u06CC Excel \u06CC\u06A9 \u0641\u0627\u06CC\u0644 xlsx \u0648\u0627\u0642\u0639\u06CC \u0645\u06CC\u200C\u0633\u0627\u0632\u062F\u061B \u00AB\u0686\u0627\u067E/PDF\u00BB \u0627\u0632 \u0642\u0627\u0644\u0628 \u0686\u0627\u067E\u06CC \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0645\u06CC\u200C\u06A9\u0646\u062F.")));
 }
 // مدیریت فیلدهای سفارشی پرسنل (تعریف فیلد دلخواه برای اطلاعات کارکنان)
