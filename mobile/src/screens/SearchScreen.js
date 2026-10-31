@@ -71,8 +71,11 @@ export default function SearchScreen({ navigation, route }) {
     } catch (e) {
       const found = await offlineSearch(term);
       if (found.length >= 1) {
-        Alert.alert('حالت آفلاین', 'اطلاعات از کش امروز نمایش داده می‌شود و ممکن است کامل نباشد.');
-        navigation.navigate('Driver', { driver: normalizeDriver(found[0]) || {}, vehicle: {}, warnings: [] });
+        Alert.alert('حالت آفلاین', 'اطلاعات از آخرین داده‌های ذخیره‌شده نمایش داده می‌شود و ممکن است قدیمی یا ناقص باشد.');
+        // Cached results may be vehicles or drivers; never show a vehicle as a driver.
+        const first = kind === 'plate' ? (found.find(item => item.offline_type === 'vehicle') || found[0]) : (found.find(item => item.offline_type !== 'vehicle') || found[0]);
+        if (first.offline_type === 'vehicle') navigation.navigate('Vehicle', { vehicle: normalizeVehicle(first), drivers: [], offline: true });
+        else navigation.navigate('Driver', { driver: normalizeDriver(first) || {}, vehicle: {}, warnings: [], offline: true });
       } else Alert.alert('یافت نشد', e.message + '\n(در کش آفلاین نیز یافت نشد)');
     } finally { setBusy(false); }
   }

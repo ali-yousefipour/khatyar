@@ -113,6 +113,12 @@ const requestDate = (r) => String(r.the_date || r.from_jdate || r.created_at || 
 const requestPerson = (r) => r.approver_name || r.approved_by_name || r.decided_by_name || r.reviewer_name || r.approver?.name || r.approval?.approver_name || '';
 const pendingPerson = (r) => r.pending_approver_name || r.next_approver_name || r.assigned_to_name || r.current_approver_name || r.approver_name || r.approver?.name || '';
 const rejectionNote = (r) => r.rejection_reason || r.reject_reason || r.decision_note || r.approver_note || r.approval?.note || '';
+const manualTimeSummary = (r) => {
+  if (r.type !== 'manual') return '';
+  const entry = r.in_time ? `ورود ${faDigits(r.in_time)}` : '';
+  const exit = r.out_time ? `خروج ${faDigits(r.out_time)}` : '';
+  return [entry, exit].filter(Boolean).join(' · ') || 'ساعت تردد ثبت نشده';
+};
 const STATUS = { pending: ['در انتظار', '#cc7a14'], approved: ['تأییدشده', '#0d7a5f'], rejected: ['ردشده', '#d63b54'] };
 
 function ApprovalTimeline({ item }) {
@@ -462,7 +468,7 @@ function MyRequests() {
               <Text style={s.cardT}>{TY[r.type] || r.type} {r.unit === 'hourly' ? '(ساعتی)' : r.unit === 'daily' ? '(روزانه)' : ''}</Text>
               <View style={[s.badge, { backgroundColor: st[1] + '22' }]}><Text style={{ color: st[1], fontFamily: FONT.bold, fontSize: 11 }}>{st[0]}</Text></View>
             </View>
-            <Text style={s.cardMeta}>{faDigits(r.the_date || r.from_jdate) }{r.to_jdate && r.to_jdate !== r.from_jdate ? ` تا ${faDigits(r.to_jdate)}` : ''}{r.from_time ? `  ${faDigits(r.from_time)}–${faDigits(r.to_time)}` : ''}{r.in_time ? `  ورود ${faDigits(r.in_time)} خروج ${faDigits(r.out_time || '—')}` : ''}</Text>
+            <Text style={s.cardMeta}>{faDigits(r.the_date || r.from_jdate) }{r.to_jdate && r.to_jdate !== r.from_jdate ? ` تا ${faDigits(r.to_jdate)}` : ''}{r.from_time ? `  ${faDigits(r.from_time)}–${faDigits(r.to_time)}` : ''}{r.type==='manual' ? `  ${manualTimeSummary(r)}` : ''}</Text>
             {r.reason ? <Text style={s.cardReason}>{r.reason}</Text> : null}
             {r.status==='rejected' ? <View style={s.rejectedBox}><MaterialCommunityIcons name="alert-circle-outline" size={18} color={C.danger}/><Text style={s.rejectedText}>دلیل رد: {rejectedReason || 'دلیل رد توسط تأییدکننده ثبت نشده است.'}</Text></View> : null}
             <ApprovalTimeline item={r}/>
