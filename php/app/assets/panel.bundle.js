@@ -5449,10 +5449,11 @@ function Reporting() {
     };
     const printPdf = () => {
         const a = document.getElementById("print-area");
+        const escape = v => String(v !== null && v !== void 0 ? v : "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
         a.innerHTML = `<div style="padding:24px;font-family:Vazirmatn"><h2 style="text-align:center">گزارش ${TYPES[type]}</h2>
       <p style="text-align:center;color:#666">سامانه مدیریت و نظارت بر خطوط و نیروهای اجرایی تاکسیرانی — ${new Date().toLocaleDateString("fa-IR")}</p>
-      <table style="width:100%;border-collapse:collapse;margin-top:16px;font-size:13px"><thead><tr>${cur.cols.map(c => `<th style="border:1px solid #ccc;padding:8px;background:#eef1f7">${c}</th>`).join("")}</tr></thead>
-      <tbody>${shownRows.map(r => `<tr>${r.map(c => `<td style="border:1px solid #ccc;padding:8px;text-align:center">${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      <table style="width:100%;border-collapse:collapse;margin-top:16px;font-size:13px"><thead><tr>${cur.cols.map(c => `<th style="border:1px solid #ccc;padding:8px;background:#eef1f7">${escape(c)}</th>`).join("")}</tr></thead>
+      <tbody>${shownRows.map(r => `<tr>${r.map(c => `<td style="border:1px solid #ccc;padding:8px;text-align:center">${escape(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
         window.print();
     };
     return (React.createElement("div", { className: "panel admin-workspace-page" },
@@ -5479,6 +5480,7 @@ function Reporting() {
 // تنظیم آیتم‌های قابل نمایش اپ برای هر سمت (نقش)
 // نمای مستقل آیتم‌های اپ هر سمت (در سایدبار)
 function ReportsCenter({ canNavigate = () => true } = {}) {
+    const [query, setQuery] = useState("");
     const CATS = [
         { t: "عملیات میدانی", items: [
                 ["missiondashboard", "🧭", "داشبورد عملیات میدانی", "تحقق مأموریت روزانهٔ همهٔ نیروهای میدانی"],
@@ -5505,13 +5507,25 @@ function ReportsCenter({ canNavigate = () => true } = {}) {
                 ["smslog", "📜", "تاریخچهٔ پیامک", "سوابق کامل پیامک‌های ارسالی سامانه"],
             ] },
     ];
+    const normalizedQuery = query.trim().toLocaleLowerCase("fa");
+    const visibleCategories = CATS.map(cat => ({ ...cat, items: cat.items.filter(([key, , title, desc]) => canNavigate(key) && (!normalizedQuery || (title + " " + desc + " " + cat.t).toLocaleLowerCase("fa").includes(normalizedQuery))) })).filter(cat => cat.items.length);
+    const reportCount = visibleCategories.reduce((sum, cat) => sum + cat.items.length, 0);
     return (React.createElement("div", { className: "panel reports-center-page admin-workspace-page" },
-        React.createElement("h3", null, "\uD83D\uDDC2 \u0645\u0631\u06A9\u0632 \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627"),
-        React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 18 } }, "\u0647\u0645\u0647\u0654 \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627\u06CC \u0633\u0627\u0645\u0627\u0646\u0647 \u062F\u0631 \u06CC\u06A9 \u0646\u06AF\u0627\u0647\u060C \u062F\u0633\u062A\u0647\u200C\u0628\u0646\u062F\u06CC\u200C\u0634\u062F\u0647. \u0631\u0648\u06CC \u0647\u0631\u06A9\u062F\u0627\u0645 \u0628\u0632\u0646\u06CC\u062F \u062A\u0627 \u0645\u0633\u062A\u0642\u06CC\u0645 \u0628\u0627\u0632 \u0634\u0648\u062F."),
-        CATS.map(cat => {
-            const items = cat.items.filter(([key]) => canNavigate(key));
-            if (!items.length)
-                return null;
+        React.createElement("div", { className: "workspace-section-heading" },
+            React.createElement("div", null,
+                React.createElement("span", null, "\u0645\u0631\u06A9\u0632 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0645\u062F\u06CC\u0631\u06CC\u062A\u06CC"),
+                React.createElement("h3", null, "\u0645\u0631\u06A9\u0632 \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627"),
+                React.createElement("p", null, "\u062F\u0633\u062A\u0631\u0633\u06CC \u0628\u0647 \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627\u06CC \u0633\u0627\u0645\u0627\u0646\u0647 \u0628\u0631 \u0627\u0633\u0627\u0633 \u062F\u0633\u062A\u0647\u200C\u0628\u0646\u062F\u06CC \u0648 \u0633\u0637\u062D \u062F\u0633\u062A\u0631\u0633\u06CC")),
+            React.createElement("span", { className: "workspace-heading-count" },
+                fa(reportCount),
+                " \u06AF\u0632\u0627\u0631\u0634")),
+        React.createElement("div", { className: "reports-center-search" },
+            React.createElement("label", { htmlFor: "reports-center-query" }, "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u06AF\u0632\u0627\u0631\u0634"),
+            React.createElement("input", { id: "reports-center-query", className: "input", placeholder: "\u0646\u0627\u0645 \u06AF\u0632\u0627\u0631\u0634 \u06CC\u0627 \u0645\u0648\u0636\u0648\u0639 \u0645\u0648\u0631\u062F\u0646\u0638\u0631\u2026", value: query, onChange: e => setQuery(e.target.value) }),
+            query && React.createElement("button", { type: "button", className: "btn g", onClick: () => setQuery("") }, "\u067E\u0627\u06A9 \u06A9\u0631\u062F\u0646")),
+        !visibleCategories.length && React.createElement("div", { className: "workspace-empty-state" }, "\u06AF\u0632\u0627\u0631\u0634\u06CC \u0645\u0637\u0627\u0628\u0642 \u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u0634\u0645\u0627 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F."),
+        visibleCategories.map(cat => {
+            const items = cat.items;
             return (React.createElement("section", { key: cat.t, className: "report-category" },
                 React.createElement("h4", { style: { fontSize: 14, marginBottom: 10, color: "var(--brand)" } }, cat.t),
                 React.createElement("div", { className: "report-card-grid" }, items.map(([key, ic, title, desc]) => (React.createElement("button", { key: key, className: "report-link-card", onClick: () => window.__navigateTo && window.__navigateTo(key) },
@@ -13950,11 +13964,14 @@ function AdminRequests() {
 }
 // گزارش ثبت حضور نیروها (چک‌این/چک‌اوت)
 function StaffAttendance() {
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
     const [from, setFrom] = useState(today);
     const [to, setTo] = useState(today);
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [exporting, setExporting] = useState(false);
     const [fUser, setFUser] = useState("");
     const [fLine, setFLine] = useState("");
     const [fRole, setFRole] = useState("");
@@ -13978,7 +13995,7 @@ function StaffAttendance() {
             p.push("method=" + fMethod);
         return p.join("&");
     };
-    const load = () => { setLoading(true); GET("/admin/staff-attendance?" + qs()).then(r => setRows(r || [])).catch(() => { }).finally(() => setLoading(false)); };
+    const load = () => { setLoading(true); setError(''); GET("/admin/staff-attendance?" + qs()).then(r => setRows(r || [])).catch(e => setError(e.message || 'دریافت گزارش حضور ناموفق بود.')).finally(() => setLoading(false)); };
     useEffect(() => {
         load();
         db.usersLite().then(u => setUsers(u || [])).catch(() => { });
@@ -13986,10 +14003,36 @@ function StaffAttendance() {
         db.roles().then(r => setRoles(r || [])).catch(() => { });
     }, []);
     const fmtDur = (m) => { m = +m || 0; const h = Math.floor(m / 60), mm = m % 60; return (h ? fa(h) + " ساعت " : "") + fa(mm) + " دقیقه"; };
-    const exportExcel = () => { window.open(API_BASE + "/admin/staff-attendance/export?" + qs() + "&token=" + encodeURIComponent(localStorage.token || ""), "_blank"); };
-    return (React.createElement("div", { className: "panel admin-workspace-page" },
-        React.createElement("h3", null, "\uD83D\uDD52 \u06AF\u0632\u0627\u0631\u0634 \u062D\u0636\u0648\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627"),
-        React.createElement("div", { className: "filters", style: { flexWrap: "wrap", gap: 8 } },
+    const exportExcel = async () => { setExporting(true); setError(''); try {
+        const res = await _fetchWithAuth(API_BASE + "/admin/staff-attendance/export?" + qs());
+        if (!res.ok)
+            throw new Error('دریافت خروجی اکسل ناموفق بود.');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'گزارش_حضور_نیروها.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+    }
+    catch (e) {
+        setError(e.message || 'خطا در خروجی اکسل');
+    }
+    finally {
+        setExporting(false);
+    } };
+    return (React.createElement("div", { className: "panel admin-workspace-page staff-attendance-page" },
+        React.createElement("div", { className: "workspace-section-heading" },
+            React.createElement("div", null,
+                React.createElement("span", null, "\u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627\u06CC \u062D\u0636\u0648\u0631"),
+                React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634 \u062D\u0636\u0648\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627"),
+                React.createElement("p", null, "\u0645\u0631\u0648\u0631 \u0648\u0631\u0648\u062F\u060C \u062E\u0631\u0648\u062C \u0648 \u0645\u062F\u062A \u062D\u0636\u0648\u0631 \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627")),
+            React.createElement("span", { className: "workspace-heading-count" },
+                fa(rows.length),
+                " \u0631\u06A9\u0648\u0631\u062F")),
+        React.createElement("div", { className: "filters workspace-filterbar" },
             React.createElement("span", { className: "label" }, "\u0627\u0632"),
             React.createElement(JDate, { value: from, onChange: setFrom }),
             React.createElement("span", { className: "label" }, "\u062A\u0627"),
@@ -14012,9 +14055,10 @@ function StaffAttendance() {
                 React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0631\u0648\u0634\u200C\u0647\u0627"),
                 React.createElement("option", { value: "gps" }, "\u0645\u0648\u0642\u0639\u06CC\u062A"),
                 React.createElement("option", { value: "wifi" }, "WiFi")),
-            React.createElement("button", { className: "btn p", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
-            React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
-        loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : rows.length ? (React.createElement("table", null,
+            React.createElement("button", { className: "btn p", disabled: loading, onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
+            React.createElement("button", { className: "btn g", disabled: loading || exporting, onClick: exportExcel }, exporting ? 'در حال دریافت…' : '⤓ خروجی اکسل')),
+        error && React.createElement("p", { className: "workspace-inline-error", role: "alert" }, error),
+        loading ? React.createElement("p", { className: "workspace-empty-state", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u06AF\u0632\u0627\u0631\u0634\u2026") : rows.length ? (React.createElement(ResponsiveTable, null,
             React.createElement("thead", null,
                 React.createElement("tr", null,
                     React.createElement("th", null, "\u0646\u0627\u0645"),
@@ -14032,12 +14076,13 @@ function StaffAttendance() {
                     React.createElement("span", { className: "badge b-ok" }, M[r.method] || r.method || "—")),
                 React.createElement("td", { style: { whiteSpace: "nowrap" } }, fj(r.check_in)),
                 React.createElement("td", { style: { whiteSpace: "nowrap" } }, r.check_out ? fj(r.check_out) : React.createElement("span", { className: "badge b-pending" }, "\u062F\u0631 \u062D\u0627\u0644 \u062D\u0636\u0648\u0631")),
-                React.createElement("td", null, fmtDur(r.minutes))))))) : React.createElement("p", { className: "muted" }, "\u062B\u0628\u062A \u062D\u0636\u0648\u0631\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")));
+                React.createElement("td", null, fmtDur(r.minutes))))))) : React.createElement("p", { className: "workspace-empty-state" }, error ? 'نمایش آخرین داده‌های دریافت‌شده ممکن نیست.' : 'ثبت حضوری در این بازه یافت نشد.')));
 }
 // تاریخچهٔ پیامک‌ها: فهرست، وضعیت تحویل، خروجی اکسل
 function SmsLog() {
-    const today = new Date().toISOString().slice(0, 10);
-    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    const localDate = d => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+    const today = localDate(new Date());
+    const weekAgo = localDate(new Date(Date.now() - 7 * 86400000));
     const [from, setFrom] = useState(weekAgo);
     const [to, setTo] = useState(today);
     const [kind, setKind] = useState("");
@@ -14046,9 +14091,11 @@ function SmsLog() {
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(false);
     const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+    const [exporting, setExporting] = useState(false);
     const KIND = { register: "ثبت‌نام", reset: "بازیابی رمز", driver: "به راننده", test: "آزمایشی" };
     const DELV = { "-1": "ارسال نشده", "1": "تحویل به گیرنده", "2": "ناموفق", "8": "تحویل به مخابرات", "16": "عدم تحویل مخابرات", "0": "نامشخص" };
-    const load = () => { setLoading(true); db.smsLog(from, to, kind, sentBy).then(r => setRows(r || [])).catch(() => { }).finally(() => setLoading(false)); };
+    const load = () => { setLoading(true); setError(''); db.smsLog(from, to, kind, sentBy).then(r => setRows(r || [])).catch(e => setError(e.message || 'دریافت تاریخچه پیامک ناموفق بود.')).finally(() => setLoading(false)); };
     useEffect(() => { load(); db.usersLite().then(u => setUsers(u || [])).catch(() => { }); }, []);
     const refresh = async () => { setBusy(true); try {
         const r = await db.smsRefreshStatus(from, to);
@@ -14062,18 +14109,27 @@ function SmsLog() {
         alert(e.message || "خطا");
     } setBusy(false); };
     const exportExcel = async () => {
+        setExporting(true);
+        setError('');
         try {
             const res = await fetch(`${API_BASE}/admin/sms-log/export?from=${from}&to=${to}${kind ? `&kind=${kind}` : ""}${sentBy ? `&sent_by=${sentBy}` : ""}`, { headers: tok() });
             if (!res.ok)
                 throw new Error("خطا در دریافت فایل");
             const blob = await res.blob();
             const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
+            const url = URL.createObjectURL(blob);
+            a.href = url;
             a.download = `گزارش_پیامک_${from}_${to}.csv`;
+            document.body.appendChild(a);
             a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 30000);
         }
         catch (e) {
-            alert(e.message || "خطا در خروجی");
+            setError(e.message || "خطا در خروجی");
+        }
+        finally {
+            setExporting(false);
         }
     };
     const delvBadge = (c) => {
@@ -14082,10 +14138,16 @@ function SmsLog() {
         const cls = (c == 1) ? "b-ok" : ((c == 2 || c == 16) ? "b-no" : "b-pending");
         return React.createElement("span", { className: "badge " + cls }, DELV[String(c)] || ("کد " + c));
     };
-    return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page" },
-        React.createElement("h3", { style: { display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 } },
-            React.createElement("span", null, "\uD83D\uDCDC \u062A\u0627\u0631\u06CC\u062E\u0686\u0647\u0654 \u067E\u06CC\u0627\u0645\u06A9\u200C\u0647\u0627\u06CC \u0627\u0631\u0633\u0627\u0644\u06CC")),
-        React.createElement("div", { className: "filters", style: { flexWrap: "wrap", gap: 8 } },
+    return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page sms-history-page" },
+        React.createElement("div", { className: "workspace-section-heading" },
+            React.createElement("div", null,
+                React.createElement("span", null, "\u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627\u06CC \u0627\u0631\u062A\u0628\u0627\u0637\u06CC"),
+                React.createElement("h3", null, "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u067E\u06CC\u0627\u0645\u06A9\u200C\u0647\u0627\u06CC \u0627\u0631\u0633\u0627\u0644\u06CC"),
+                React.createElement("p", null, "\u0633\u0648\u0627\u0628\u0642 \u0627\u0631\u0633\u0627\u0644 \u0648 \u0648\u0636\u0639\u06CC\u062A \u062A\u062D\u0648\u06CC\u0644 \u067E\u06CC\u0627\u0645\u06A9\u200C\u0647\u0627")),
+            React.createElement("span", { className: "workspace-heading-count" },
+                fa(rows.length),
+                " \u067E\u06CC\u0627\u0645\u06A9")),
+        React.createElement("div", { className: "filters workspace-filterbar" },
             React.createElement("span", { className: "label" }, "\u0627\u0632"),
             React.createElement(JDate, { value: from, onChange: setFrom }),
             React.createElement("span", { className: "label" }, "\u062A\u0627"),
@@ -14102,10 +14164,11 @@ function SmsLog() {
                     u.first_name,
                     " ",
                     u.last_name))),
-            React.createElement("button", { className: "btn p", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
+            React.createElement("button", { className: "btn p", disabled: loading, onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
             React.createElement("button", { className: "btn g", disabled: busy, onClick: refresh }, busy ? "در حال بررسی…" : "به‌روزرسانی وضعیت تحویل"),
-            React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
-        loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : rows.length ? (React.createElement(ResponsiveTable, null,
+            React.createElement("button", { className: "btn g", disabled: loading || exporting, onClick: exportExcel }, exporting ? 'در حال دریافت…' : '⤓ خروجی CSV')),
+        error && React.createElement("p", { className: "workspace-inline-error", role: "alert" }, error),
+        loading ? React.createElement("p", { className: "workspace-empty-state", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : rows.length ? (React.createElement(ResponsiveTable, null,
             React.createElement("thead", null,
                 React.createElement("tr", null,
                     React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
@@ -14124,7 +14187,7 @@ function SmsLog() {
                 React.createElement("td", null, (r.sender || "").trim() || "—"),
                 React.createElement("td", { style: { maxWidth: 280, fontSize: 12, color: "var(--muted)" } },
                     (r.body || "").slice(0, 80),
-                    (r.body || "").length > 80 ? "…" : "")))))) : React.createElement("p", { className: "muted" }, "\u067E\u06CC\u0627\u0645\u06A9\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
+                    (r.body || "").length > 80 ? "…" : "")))))) : React.createElement("p", { className: "workspace-empty-state" }, "\u067E\u06CC\u0627\u0645\u06A9\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
         React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", marginTop: 10 } }, "\u062A\u0648\u062C\u0647: \u0628\u0631\u0631\u0633\u06CC \u0648\u0636\u0639\u06CC\u062A \u062A\u062D\u0648\u06CC\u0644 \u0627\u0632 \u0633\u0645\u062A \u0645\u062E\u0627\u0628\u0631\u0627\u062A \u0641\u0642\u0637 \u062A\u0627 \u06F7 \u0631\u0648\u0632 \u067E\u0633 \u0627\u0632 \u0627\u0631\u0633\u0627\u0644 \u0627\u0645\u06A9\u0627\u0646\u200C\u067E\u0630\u06CC\u0631 \u0627\u0633\u062A.")));
 }
 // تنظیم قالب و ارسال خودکار پیامک‌های انقضا (۴ نوع)
