@@ -24,7 +24,7 @@ $tag = '<script src="assets/android-app-ui.js?v=20261025.2" defer></script>'
     . '<script src="assets/web-features-services.js?v=20261026.3" defer></script>'
     . '<script src="assets/web-features-company.js?v=20261026.3" defer></script>'
     . '<script src="assets/web-features-device.js?v=20261026.3" defer></script>'
-    . '<script src="assets/personnel-vehicle-web.js?v=20261015.auth1" defer></script>'
+    . '<script src="assets/personnel-vehicle-web.js?v=20261031.motorplate1" defer></script>'
     . '<script src="assets/personnel-vehicle-checklist-enhancement.js?v=20260905.12" defer></script>'
     . '<script src="assets/personnel-vehicle-ui-bridge.js?v=20261025.2" defer></script>'
     . '<script src="assets/presence-immediate-admin.js?v=20260919.02" defer></script>';

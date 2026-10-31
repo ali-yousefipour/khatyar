@@ -8,16 +8,24 @@ const digits=(value,length)=>en(value).replace(/\D/g,'').slice(0,length);
 // همان حروف قابل انتخاب در فرم بازدید سرویس مدارس.
 export const VEHICLE_PLATE_LETTERS=['ب','ج','د','س','ص','ط','ق','ل','م','ن','و','هـ','ی','ت','ع','ک','الف','پ','ث','ش','ز','ف','گ','ژ'];
 
-function NumberCell({value,onChange,length,placeholder,inputRef,next}){
- return <TextInput ref={inputRef} style={st.plateNumber} value={fa(value||'')} onChangeText={v=>{const n=digits(v,length);onChange(n);if(n.length===length)next?.()}} keyboardType="number-pad" maxLength={length} placeholder={placeholder} placeholderTextColor="#9ca3af" textAlign="center" selectTextOnFocus accessibilityLabel={`${fa(length)} رقم پلاک`}/>;
+function NumberCell({value,onChange,length,placeholder,inputRef,next,style,label}){
+ return <TextInput ref={inputRef} style={[st.plateNumber,style]} value={fa(value||'')} onChangeText={v=>{const n=digits(v,length);onChange(n);if(n.length===length)next?.()}} keyboardType="number-pad" maxLength={length} placeholder={placeholder} placeholderTextColor="#9ca3af" textAlign="center" selectTextOnFocus accessibilityLabel={label||`${fa(length)} رقم پلاک`}/>;
 }
 
 export function VehiclePlateInput({motor,data,set}){
  const[lettersOpen,setLettersOpen]=useState(false);
- const letterRef=useRef(null),threeRef=useRef(null),regionRef=useRef(null);
+ const letterRef=useRef(null),threeRef=useRef(null),regionRef=useRef(null),motorBottomRef=useRef(null);
  if(motor)return <View style={st.motorWrap}>
-  <View style={st.motorTopBar}><Text style={st.motorBarText}>پلاک موتورسیکلت</Text><Text style={st.motorBarText}>IRAN | ایران</Text></View>
-  <View style={st.motorNumbers}><NumberCell value={data.motorcycle_plate_top} onChange={v=>set('motorcycle_plate_top',v)} length={3} placeholder="۱۲۳"/><View style={st.motorSeparator}/><NumberCell value={data.motorcycle_plate_bottom} onChange={v=>set('motorcycle_plate_bottom',v)} length={5} placeholder="۱۲۳۴۵"/></View>
+  <View style={st.motorPlateFrame}>
+   <View style={st.motorFirstRow}>
+    <View style={st.motorFlagBar} accessible accessibilityLabel="پرچم ایران، I.R. IRAN">
+     <View style={st.motorFlag}><View style={st.motorFlagGreen}/><View style={st.motorFlagWhite}><Text style={st.motorFlagMark}>●</Text></View><View style={st.motorFlagRed}/></View>
+     <Text style={st.motorFlagLabel}>I.R.</Text><Text style={st.motorFlagLabel}>IRAN</Text>
+    </View>
+    <View style={st.motorNumberTop}><NumberCell value={data.motorcycle_plate_top} onChange={v=>set('motorcycle_plate_top',v)} length={3} placeholder="۱۲۳" next={()=>motorBottomRef.current?.focus()} style={st.motorNumber} label="سه رقم ردیف بالای پلاک موتورسیکلت"/></View>
+   </View>
+   <View style={st.motorSecondRow}><NumberCell inputRef={motorBottomRef} value={data.motorcycle_plate_bottom} onChange={v=>set('motorcycle_plate_bottom',v)} length={5} placeholder="۵۶۷۸۹" style={st.motorNumber} label="پنج رقم ردیف پایین پلاک موتورسیکلت"/></View>
+  </View>
   <Text style={st.help}>شماره سه‌رقمی و پنج‌رقمی پلاک را جداگانه وارد کنید.</Text>
  </View>;
  return <>
@@ -75,7 +83,13 @@ const st=StyleSheet.create({
  plateMain:{flex:1,flexDirection:'row',alignItems:'stretch'},plateSegment:{flex:1,borderRightWidth:1,borderRightColor:'#e2e8f0',justifyContent:'center',alignItems:'center',minWidth:0},plateNumber:{width:'100%',color:'#111827',fontSize:23,fontWeight:'800',paddingHorizontal:1,paddingVertical:9,writingDirection:'ltr'},
  letterSegment:{flex:0.95,backgroundColor:'#f8fafc'},letter:{color:'#111827',fontSize:25,fontWeight:'800'},letterEmpty:{fontSize:15,color:'#64748b'},chevron:{position:'absolute',bottom:2,fontSize:14,color:'#64748b'},
  regionSegment:{width:58,borderLeftWidth:2,borderLeftColor:'#1e293b',alignItems:'center',justifyContent:'center'},regionLabel:{fontFamily:FONT.bold,fontSize:13,color:'#111827',marginTop:4},
- motorWrap:{backgroundColor:'#f8fafc',borderRadius:15,borderColor:'#cbd5e1',borderWidth:1,overflow:'hidden',marginBottom:14},motorTopBar:{backgroundColor:'#1456a4',padding:10,flexDirection:'row-reverse',justifyContent:'space-between'},motorBarText:{color:'#fff',fontFamily:FONT.bold,fontSize:12},motorNumbers:{flexDirection:'row',padding:15,alignItems:'center'},motorSeparator:{height:32,width:2,backgroundColor:'#cbd5e1',marginHorizontal:8},
+ motorWrap:{marginBottom:14},
+ motorPlateFrame:{alignSelf:'center',width:'100%',maxWidth:360,aspectRatio:1.8,borderWidth:4,borderColor:'#111',borderRadius:17,overflow:'hidden',backgroundColor:'#fff',direction:'ltr'},
+ motorFirstRow:{flex:1,flexDirection:'row',direction:'ltr'},motorSecondRow:{flex:0.85,justifyContent:'center',paddingHorizontal:12},
+ motorFlagBar:{width:69,backgroundColor:'#093b98',padding:5,alignItems:'center',justifyContent:'flex-start'},
+ motorFlag:{width:'100%',height:29,marginBottom:9},motorFlagGreen:{flex:1,backgroundColor:'#239946'},motorFlagWhite:{flex:1,backgroundColor:'#fff',alignItems:'center',justifyContent:'center'},motorFlagMark:{fontSize:8,color:'#d12832',lineHeight:9},motorFlagRed:{flex:1,backgroundColor:'#da2432'},
+ motorFlagLabel:{fontFamily:FONT.bold,fontSize:14,color:'#fff',lineHeight:19,textAlign:'center'},
+ motorNumberTop:{flex:1,justifyContent:'center',paddingHorizontal:11},motorNumber:{fontFamily:FONT.bold,fontSize:42,color:'#080808',minHeight:58,paddingVertical:0,letterSpacing:4},
  backdrop:{flex:1,backgroundColor:'rgba(15,23,42,.55)',justifyContent:'flex-end'},sheet:{backgroundColor:'#fff',borderTopLeftRadius:25,borderTopRightRadius:25,padding:20,paddingBottom:30},modalHeading:{fontFamily:FONT.bold,fontSize:19,color:'#0f172a',textAlign:'right',marginBottom:8},
  letterGrid:{flexDirection:'row-reverse',flexWrap:'wrap',gap:8,paddingVertical:6},letterOption:{width:'22%',minHeight:54,alignItems:'center',justifyContent:'center',backgroundColor:'#f1f5f9',borderRadius:12,borderWidth:1,borderColor:'#e2e8f0'},letterOptionText:{fontFamily:FONT.bold,fontSize:23,color:'#1e293b'},optionSelected:{backgroundColor:C.brand,borderColor:C.brand},selectedText:{color:'#fff'},
  closeButton:{marginTop:12,padding:13,alignItems:'center',borderRadius:12,backgroundColor:'#f1f5f9'},closeText:{fontFamily:FONT.bold,color:'#334155'},

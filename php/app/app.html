@@ -86,7 +86,7 @@ input,select,textarea,button{font-family:inherit;max-width:100%}
 @media(max-width:380px){.kpis{grid-template-columns:1fr!important}}
 </style>
 <link rel="stylesheet" href="assets/android-app.css?v=20261026.attendance1">
-<link rel="stylesheet" href="assets/android-web-ux.css?v=20261031.android-parity1">
+<link rel="stylesheet" href="assets/android-web-ux.css?v=20261031.motorplate1">
 <script src="assets/android-navigation.js?v=20261025.2"></script>
 </head>
 <body>
@@ -710,7 +710,7 @@ async function render(){
 }
 
 // ---- boot ----
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=20261031.android-parity1',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=20261031.motorplate1',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
 USER = store.get('user')?JSON.parse(store.get('user')):null;
 current = USER?'dashboard':'login';
 refreshOffline(); if(navigator.onLine) flushQueue();
