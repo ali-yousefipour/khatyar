@@ -1178,3 +1178,11 @@ table{font-size:13px}
 .pva-checklist-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
 .pva-checklist-actions .btn{min-height:44px}
 @media(max-width:640px){.pva-checklist-hero{padding:15px}.pva-checklist-count{padding:8px 11px;font-size:21px}.pva-checklist-hero h3{font-size:18px}.pva-checklist-filters>*{flex:1 1 100%!important}.pva-checklist-section{padding:12px}.pva-checklist-row{align-items:stretch;flex-direction:column}.pva-checklist-row>div .btn{flex:1}.pva-checklist-actions .btn{flex:1 1 150px}}
+
+.pva-assign-toolbar{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:15px 0}
+.pva-assign-toolbar label{display:grid;gap:5px;flex:1 1 220px;max-width:380px;font-weight:700;font-size:12px}
+.pva-assign-toolbar span{font-size:12px;color:var(--muted);margin-bottom:12px}
+.pva-assign-toolbar button{min-height:42px}
+.pva-assign-page .table-wrap{max-width:100%}
+.pva-assign-page td{vertical-align:middle}
+@media(max-width:640px){.pva-assign-toolbar label{flex:1 1 100%;max-width:none}.pva-assign-toolbar button{flex:1 1 120px}.pva-assign-toolbar span{margin-bottom:9px}}
