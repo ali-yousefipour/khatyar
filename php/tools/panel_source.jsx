@@ -558,11 +558,19 @@ function usePager(items, initial){
 function LiveStaffDashboard(){
   const tj=todayJ();
   const [live,setLive]=useState(null); const [tab,setTab]=useState("present");
+  const [loadError,setLoadError]=useState("");
+  const [refreshing,setRefreshing]=useState(false);
   const [selectedStatus,setSelectedStatus]=useState(null);
   const [modalSearch,setModalSearch]=useState("");
   const [refreshCountdown,setRefreshCountdown]=useState(60);
   const countdownRef=useRef(60);
-  const load=()=>db.workDashboard(tj[0],tj[1]).then(x=>setLive(x&&x.live?x.live:null)).catch(()=>setLive(null));
+  const load=()=>{
+    setRefreshing(true);
+    return db.workDashboard(tj[0],tj[1]).then(x=>{
+      if(!x||!x.live)throw new Error("اطلاعات حضور در پاسخ سرور موجود نیست.");
+      setLive(x.live);setLoadError("");
+    }).catch(e=>setLoadError(e?.message||"دریافت وضعیت حضور ناموفق بود")).finally(()=>setRefreshing(false));
+  };
   const refreshNow=()=>{countdownRef.current=60;setRefreshCountdown(60);load();};
   useEffect(()=>{
     load();
@@ -575,7 +583,7 @@ function LiveStaffDashboard(){
   },[]);
   const methodFa={gps:"GPS",wifi:"Wi‑Fi",manual:"دستی",gsm:"GSM"};
   const [sortConfig,setSortConfig]=useState({key:"check_in",direction:"asc"});
-  if(!live)return <div className="panel" style={{margin:"14px 0"}}><span className="muted">در حال دریافت وضعیت حضور پرسنل…</span></div>;
+  if(!live)return <div className="panel dashboard-live dashboard-live-placeholder" role="status"><h3>وضعیت لحظه‌ای حضور پرسنل</h3><p className="muted">{loadError||"در حال دریافت وضعیت حضور پرسنل…"}</p>{loadError&&<button type="button" className="btn p" onClick={refreshNow}>تلاش مجدد</button>}</div>;
   const isOpenSession=(r)=>r.is_open===true||r.is_open===1||["1","true","open"].includes(String(r.is_open??"").trim().toLowerCase());
   const baseRows=tab==="present"?[...(live.present_list||[])].filter(isOpenSession):tab==="leave"?(live.leave_list||[]):(live.absent_list||[]);
   const absenceReason=(r)=>String(r.absence_reason||r.reason||r.absent_reason||r.status_reason||r.reason_text||r.leave_reason||r.request_reason||r.note||"ثبت نشده").trim();
@@ -610,23 +618,26 @@ function LiveStaffDashboard(){
     return sortConfig.direction==="asc"?cmp:-cmp;
   }):baseRows;
   const sortButton=(key,label)=><button type="button" className="btn g" onClick={()=>setSortConfig(prev=>({key,direction:prev.key===key&&prev.direction==="asc"?"desc":"asc"}))} aria-label={"مرتب‌سازی "+label} title={"مرتب‌سازی "+label} style={{padding:"2px 6px",marginInlineStart:5,fontSize:11,lineHeight:1.4,whiteSpace:"nowrap"}}>{sortConfig.key===key?(sortConfig.direction==="asc"?"↑":"↓"):"↕"}</button>;
-  return <div className="panel" style={{margin:"14px 0"}}>
-    <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-      <div><h3 style={{margin:0}}>وضعیت لحظه‌ای حضور پرسنل</h3><div className="muted" style={{fontSize:12,marginTop:4}}>امروز {faPlain(live.jdate||"")} · بروزرسانی خودکار تا {fa(refreshCountdown)} ثانیه دیگر</div></div>
-      <button className="btn g" onClick={refreshNow}>↻ بروزرسانی</button>
+  return <section className="panel dashboard-live" aria-label="وضعیت لحظه‌ای حضور پرسنل">
+    <div className="dashboard-live-head">
+      <div><span className="dashboard-section-kicker">پایش برخط نیروها</span><h3>وضعیت لحظه‌ای حضور پرسنل</h3><div className="dashboard-live-meta"><span>امروز {faPlain(live.jdate||"")}</span><span aria-hidden="true">·</span><span>بروزرسانی بعدی: {fa(refreshCountdown)} ثانیه</span></div></div>
+      <button type="button" className="btn g dashboard-live-refresh" disabled={refreshing} onClick={refreshNow}>{refreshing?"در حال دریافت…":"↻ بروزرسانی"}</button>
     </div>
-    <div className="kpis" style={{marginTop:12}}>
-      {statusCards.map(([key,label,count])=><button type="button" className="kpi" key={key}
+    {loadError&&<div className="dashboard-live-warning" role="status">اطلاعات قبلی نمایش داده می‌شود؛ بروزرسانی ناموفق بود: {loadError}</div>}
+    <div className="kpis dashboard-live-stats">
+      {statusCards.map(([key,label,count])=><button type="button" key={key}
         onClick={()=>{setModalSearch("");setSelectedStatus(key);}}
         title={"مشاهده فهرست "+label} aria-label={"مشاهده "+fa(count||0)+" نفر: "+label}
-        style={{fontFamily:"inherit",color:"inherit",textAlign:"inherit",width:"100%",cursor:"pointer",border:"1px solid var(--line,#d9e3e0)"}}>
+        className={"kpi dashboard-live-stat dashboard-live-stat-"+key}>
         <div className="n">{fa(count||0)}</div><div className="l">{label}</div>
+        <span className="dashboard-live-stat-action">مشاهده فهرست <span aria-hidden="true">‹</span></span>
       </button>)}
     </div>
-    <div className="tabbar" style={{display:"flex",gap:6,margin:"12px 0",borderBottom:"1px solid var(--line)",flexWrap:"wrap"}}>
-      {[["present","حاضرین"],["absent","غایبین"],["leave","مرخصی و ماموریت"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{background:"none",border:"none",borderBottom:tab===k?"3px solid var(--brand)":"3px solid transparent",padding:"8px 12px",fontFamily:"inherit",fontWeight:tab===k?800:500,cursor:"pointer",color:tab===k?"var(--brand)":"var(--muted)"}}>{l}</button>)}
+    <div className="dashboard-live-list-head"><h4>فهرست وضعیت نیروها</h4><span className="muted">{fa(rows.length)} مورد</span></div>
+    <div className="tabbar dashboard-live-tabs" role="tablist" aria-label="فیلتر وضعیت حضور">
+      {[["present","حاضرین"],["absent","غایبین"],["leave","مرخصی و مأموریت"]].map(([k,l])=><button type="button" role="tab" aria-selected={tab===k} key={k} onClick={()=>setTab(k)} className={tab===k?"dashboard-live-tab-active":""}>{l}</button>)}
     </div>
-    {rows.length===0?<p className="muted">موردی برای نمایش وجود ندارد.</p>:<div style={{overflowX:"auto"}}><table><thead><tr><th>نام {tab==="present"&&sortButton("name","نام")}</th><th>سمت {tab==="present"&&sortButton("role_title","سمت")}</th>{tab==="absent"&&<th>علت غیبت</th>}{tab==="present"&&<><th>ساعت ورود {sortButton("check_in","ساعت ورود")}</th><th>خط {sortButton("line_code","خط")}</th><th>روش {sortButton("method","روش")}</th><th>وضعیت {sortButton("is_open","وضعیت")}</th></>}</tr></thead><tbody>
+    {rows.length===0?<p className="dashboard-live-empty">موردی برای نمایش در این وضعیت وجود ندارد.</p>:<div className="table-wrap dashboard-live-table" tabIndex={0} role="region" aria-label="جدول حضور پرسنل؛ قابل پیمایش افقی"><table><thead><tr><th>نام {tab==="present"&&sortButton("name","نام")}</th><th>سمت {tab==="present"&&sortButton("role_title","سمت")}</th>{tab==="absent"&&<th>علت غیبت</th>}{tab==="present"&&<><th>ساعت ورود {sortButton("check_in","ساعت ورود")}</th><th>خط {sortButton("line_code","خط")}</th><th>روش {sortButton("method","روش")}</th><th>وضعیت {sortButton("is_open","وضعیت")}</th></>}</tr></thead><tbody>
       {rows.map((r,i)=><tr key={r.user_id||i}><td>{r.name||"—"}</td><td>{r.role_title||"—"}</td>{tab==="absent"&&<td>{absenceReason(r)}</td>}{tab==="present"&&<><td>{r.check_in?faTime(r.check_in):"—"}</td><td>{r.line_code?("خط "+fa(r.line_code)+(r.line_description?" — "+r.line_description:"")):"—"}</td><td>{methodFa[r.method]||r.method||"—"}</td><td><span className={"badge "+(isOpenSession(r)?"ok":"muted")}>{isOpenSession(r)?"داخل شیفت":"خروج ثبت شده"}</span></td></>}</tr>)}
     </tbody></table></div>}
     {selectedStatus&&<Modal title={"فهرست "+statusLabel(selectedStatus)+" — "+fa(selectedRows.length)+" نفر"} onClose={()=>setSelectedStatus(null)}
@@ -650,7 +661,7 @@ function LiveStaffDashboard(){
       </div>
       <div style={{marginTop:14,textAlign:"left"}}><button type="button" className="btn g" onClick={()=>setSelectedStatus(null)}>بستن</button></div>
     </Modal>}
-  </div>;
+  </section>;
 }
 
 function PersonnelDistributionDashboard(){
@@ -687,11 +698,11 @@ function PersonnelDistributionDashboard(){
   const roleGroups=groupBy(getRole);
   const zoneGroups=groupBy(getZone);
   const cards=(items,kind)=><div className="kpis personnel-stat-grid">{items.map(([name,people])=>
-    <button type="button" className="kpi" key={name}
+    <button type="button" className="kpi personnel-stat-card" key={name}
       title={"مشاهده فهرست "+name} aria-label={"مشاهده "+fa(people.length)+" نفر در "+name}
       onClick={()=>{setSearch("");setSelected({kind,name});}}
       style={{fontFamily:"inherit",color:"inherit",cursor:"pointer",textAlign:"inherit",width:"100%",border:"1px solid var(--line,#d9e3e0)",transition:"border-color .15s"}}>
-      <div className="n">{fa(people.length)}</div><div className="l">{name}</div>
+      <div className="personnel-stat-number">{fa(people.length)} <span>نفر</span></div><div className="l">{name}</div><span className="personnel-stat-view">مشاهده افراد ‹</span>
     </button>)}</div>;
   const activeGroups=selected?.kind==="role"?roleGroups:zoneGroups;
   const matching=selected?(activeGroups.find(([name])=>name===selected.name)?.[1]||[]):[];
@@ -700,11 +711,10 @@ function PersonnelDistributionDashboard(){
     u.first_name,u.last_name,u.username,u.personnel_code,getRole(u),getZone(u)
   ].some(v=>String(v??"").toLocaleLowerCase("fa").includes(q)));
   const fullName=u=>[u.first_name,u.last_name].filter(Boolean).join(" ").trim()||u.name||u.full_name||u.username||"—";
-  return <div className="panel personnel-stats">
-    <h3 style={{margin:"0 0 6px"}}>آمار نیروها</h3>
-    <div className="muted" style={{fontSize:12}}>بر اساس فهرست پرسنل، مستقل از وضعیت حضور و غیاب</div>
-    <h4 style={{margin:"10px 0 0"}}>تعداد نیروها به تفکیک سمت</h4>{cards(roleGroups,"role")}
-    <h4 style={{margin:"12px 0 0"}}>تعداد نیروها به تفکیک منطقه</h4>{cards(zoneGroups,"zone")}
+  return <section className="panel personnel-stats dashboard-personnel" aria-label="آمار نیروها">
+    <div className="dashboard-section-head"><div><span className="dashboard-section-kicker">ترکیب سازمانی</span><h2>آمار و توزیع نیروها</h2></div><span className="dashboard-section-caption">بر اساس فهرست پرسنل، مستقل از حضور و غیاب</span></div>
+    <div className="personnel-stat-section-head"><h4>تعداد نیروها به تفکیک سمت</h4><span>{fa(roleGroups.length)} سمت</span></div>{cards(roleGroups,"role")}
+    <div className="personnel-stat-section-head"><h4>تعداد نیروها به تفکیک منطقه</h4><span>{fa(zoneGroups.length)} منطقه</span></div>{cards(zoneGroups,"zone")}
     {selected&&<Modal title={(selected.kind==="role"?"نیروهای سمت: ":"نیروهای منطقه: ")+selected.name} onClose={()=>setSelected(null)}
       style={{width:"min(760px,94vw)",maxWidth:"94vw",maxHeight:"85vh",overflowY:"auto",direction:"rtl"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:12,flexWrap:"wrap"}}>
@@ -725,7 +735,7 @@ function PersonnelDistributionDashboard(){
       </div>
       <div style={{marginTop:14,textAlign:"left"}}><button type="button" className="btn g" onClick={()=>setSelected(null)}>بستن</button></div>
     </Modal>}
-  </div>;
+  </section>;
 }
 
 function ResponsiveTable({children,...props}){
