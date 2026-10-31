@@ -1492,14 +1492,17 @@ function Users(){
   const [edit,setEdit]=useState(null); const [lineModal,setLineModal]=useState(null); const [adding,setAdding]=useState(false);
   const [commitmentsModal,setCommitmentsModal]=useState(null);
   const [f,setF]=useState({q:"",role_id:"",zone_id:"",active:""}); const [pw,setPw]=useState("");
+  const [usersLoading,setUsersLoading]=useState(false); const [usersError,setUsersError]=useState("");
+  const [savingUser,setSavingUser]=useState(false); const [exportingUsers,setExportingUsers]=useState(false);
+  const requestSeq=useRef(0);
   const clean=o=>{const x={...o};Object.keys(x).forEach(k=>(x[k]===""||x[k]==null)&&delete x[k]);return x;};
-  const reload=()=>db.users(clean(f)).then(us=>setUsers(us.map(u=>({...u,is_active:(u.is_active==1||u.is_active===true)})))).catch(()=>{});
+  const reload=async(filters=f)=>{const request=++requestSeq.current;setUsersLoading(true);setUsersError("");try{const us=await db.users(clean(filters));if(request!==requestSeq.current)return;setUsers((Array.isArray(us)?us:[]).map(u=>({...u,is_active:(u.is_active==1||u.is_active===true)})));pg.setPage(1);}catch(error){if(request===requestSeq.current)setUsersError(error.message||"دریافت فهرست کاربران ناموفق بود.");}finally{if(request===requestSeq.current)setUsersLoading(false);}};
   const pg=usePager(users,10);
   useEffect(()=>{reload(); db.roles().then(setRoles).catch(()=>{}); db.zones().then(setZones).catch(()=>{})},[]);
   const rt=id=>roles.find(r=>r.id===id)?.title||""; const zn=id=>zones.find(z=>z.id===id)?.name||"—";
   const defaultStars=(role)=>{ const r=String(role||""); if(r.includes("سربازرس"))return 4; if(r.includes("بازرس"))return 2; if(r.includes("ناظر خط")||r.includes("اپراتور"))return 1; return 0; };
   const starsForUser=(u)=>{ const n=(u.rank_stars!==null&&u.rank_stars!==undefined&&u.rank_stars!=="")?Math.max(0,Math.min(5,+u.rank_stars||0)):defaultStars(u.role_title||rt(u.role_id)); return n?"★".repeat(n):"—"; };
-  const save=async u=>{if(u.employment_start_date&&u.employment_end_date&&String(u.employment_end_date).replaceAll('/','-')<String(u.employment_start_date).replaceAll('/','-')){alert('تاریخ اتمام همکاری نمی‌تواند قبل از تاریخ شروع باشد.');return;} await db.updateUser(u.id,{employment_start_date:u.employment_start_date||null,employment_end_date:u.employment_end_date||null,first_name:u.first_name,last_name:u.last_name,email:u.email,role_id:u.role_id,zone_id:u.zone_id,is_active:u.is_active,allow_android:u.allow_android?1:0,allow_web:u.allow_web?1:0,security_exempt:u.security_exempt?1:0,phone:u.phone,national_code:u.national_code,marital_status:u.marital_status,address:u.address,children_count:u.children_count,presence_required:u.presence_required?1:0,seniority_start:u.seniority_start||null,can_send_sms:u.can_send_sms?1:0,can_be_substitute:u.can_be_substitute?1:0,can_welfare:u.can_welfare?1:0,can_cultural:u.can_cultural?1:0,can_manage_temp_drivers:u.can_manage_temp_drivers?1:0,personnel_code:u.personnel_code||null,birth_date:u.birth_date||null,rank_stars:(u.rank_stars===''||u.rank_stars==null)?null:Math.max(0,Math.min(5,+u.rank_stars||0))});
+  const save=async u=>{if(savingUser)return;if(u.employment_start_date&&u.employment_end_date&&String(u.employment_end_date).replaceAll('/','-')<String(u.employment_start_date).replaceAll('/','-')){alert('تاریخ اتمام همکاری نمی‌تواند قبل از تاریخ شروع باشد.');return;}setSavingUser(true);try{await db.updateUser(u.id,{employment_start_date:u.employment_start_date||null,employment_end_date:u.employment_end_date||null,first_name:u.first_name,last_name:u.last_name,email:u.email,role_id:u.role_id,zone_id:u.zone_id,is_active:u.is_active,allow_android:u.allow_android?1:0,allow_web:u.allow_web?1:0,security_exempt:u.security_exempt?1:0,phone:u.phone,national_code:u.national_code,marital_status:u.marital_status,address:u.address,children_count:u.children_count,presence_required:u.presence_required?1:0,seniority_start:u.seniority_start||null,can_send_sms:u.can_send_sms?1:0,can_be_substitute:u.can_be_substitute?1:0,can_welfare:u.can_welfare?1:0,can_cultural:u.can_cultural?1:0,can_manage_temp_drivers:u.can_manage_temp_drivers?1:0,personnel_code:u.personnel_code||null,birth_date:u.birth_date||null,rank_stars:(u.rank_stars===''||u.rank_stars==null)?null:Math.max(0,Math.min(5,+u.rank_stars||0))});
     // The API must return the committed values, not just acknowledge the PUT.
     const persisted=await GET('/admin/users/'+u.id+'/employment-period');
     const normalizeDate=v=>String(v||'').trim().replaceAll('/','-');
@@ -1508,10 +1511,10 @@ function Users(){
       setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,employment_start_date:persisted.employment_start_date||'',employment_end_date:persisted.employment_end_date||''}:current);
       return;
     }
-    if(pw){ await db.resetPassword(u.id,pw); } setEdit(null); setPw(""); reload(); };
+    if(pw){ await db.resetPassword(u.id,pw); } setEdit(null); setPw(""); await reload(); }catch(error){alert('ذخیرهٔ اطلاعات کاربر ناموفق بود: '+(error.message||error));}finally{setSavingUser(false);} };
   const add=async u=>{ const r=await db.createUser(u); setAdding(false); reload(); if(r&&r.sms_sent) alert("کاربر ساخته شد و نام کاربری/رمز عبور برای او پیامک شد."); };
   const revoke=async(id,type)=>{ if(confirm("شناسهٔ دستگاه ("+(type==='android'?'اندروید':'وب')+") حذف شود؟")){ await db.revokeDevice(id,type); reload(); } };
-  const delUser=async u=>{ if(confirm('حذف کامل کاربر «'+u.first_name+' '+u.last_name+'»؟ برگشت‌ناپذیر است.')){ await db.deleteUser(u.id); reload(); } };
+  const delUser=async u=>{ if(confirm('حذف کامل کاربر «'+u.first_name+' '+u.last_name+'»؟ برگشت‌ناپذیر است.')){try{await db.deleteUser(u.id);await reload();}catch(error){alert('حذف کاربر ناموفق بود: '+(error.message||error));}} };
   const pickPhoto=async(u,file)=>{ if(!file)return; const data=await compressImage(file,512,0.6); await db.adminSetPhoto(u.id,data); setEdit(e=>e?{...e,photo:data}:e); reload(); };
   const pickSignature=async(u,file)=>{ if(!file)return; const data=await compressImage(file,500,0.7); await db.adminSetSignature(u.id,data); setEdit(e=>e?{...e,signature_data:data}:e); reload(); };
   const clearSignature=async(u)=>{ if(!confirm("امضای این کاربر حذف شود؟"))return; await db.adminSetSignature(u.id,""); setEdit(e=>e?{...e,signature_data:null}:e); reload(); };
@@ -1524,19 +1527,20 @@ function Users(){
     </div>
     {usersTab==="vehicles"?<PersonnelVehicleAssets/>:<PersonnelVehicleChecklist/>}
   </div>);
-  return(<div className="panel admin-workspace-page admin-list-page users-management-page"><div className="users-hero"><div className="users-hero-copy"><span className="users-eyebrow">مدیریت منابع انسانی / دسترسی‌ها</span><h3>مدیریت کاربران</h3><p>اطلاعات پرسنل، سطح دسترسی و دستگاه‌های متصل را از یک نمای یکپارچه مدیریت کنید.</p></div><div className="users-hero-actions"><button className="btn p" onClick={()=>setAdding(true)}>+ افزودن کاربر</button><button className="btn g" onClick={async()=>{ try{ const res=await fetch(db.usersExportUrl(),{headers:tok()}); if(!res.ok)throw new Error("خطا"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="اطلاعات_کامل_کاربران.xlsx"; a.click(); }catch(e){alert(e.message);} }}>⤓ خروجی کامل کاربران (Excel)</button></div></div>
+  return(<div className="panel admin-workspace-page admin-list-page users-management-page"><div className="users-hero"><div className="users-hero-copy"><span className="users-eyebrow">مدیریت منابع انسانی / دسترسی‌ها</span><h3>مدیریت کاربران</h3><p>اطلاعات پرسنل، سطح دسترسی و دستگاه‌های متصل را از یک نمای یکپارچه مدیریت کنید.</p></div><div className="users-hero-actions"><button className="btn p" onClick={()=>setAdding(true)}>+ افزودن کاربر</button><button className="btn g" disabled={exportingUsers} onClick={async()=>{setExportingUsers(true);try{const res=await fetch(db.usersExportUrl(),{headers:tok()});if(!res.ok)throw new Error("دریافت فایل از سرور ناموفق بود");const blob=await res.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="اطلاعات_کامل_کاربران.xlsx";a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){alert(e.message||"خطا در دریافت خروجی کاربران");}finally{setExportingUsers(false);}}}>{exportingUsers?"در حال آماده‌سازی خروجی…":"⤓ خروجی کامل کاربران (Excel)"}</button></div></div>
     <div className="users-overview" aria-label="خلاصه نتایج فعلی"><div className="users-overview-card"><span>کاربران در نتایج فعلی</span><strong>{fa(users.length)}</strong><small>مطابق آخرین فیلتر اعمال‌شده</small></div><div className="users-overview-card"><span>کاربران فعال</span><strong>{fa(users.filter(u=>u.is_active).length)}</strong><small>در نتایج فعلی</small></div><div className="users-overview-card"><span>کاربران غیرفعال</span><strong>{fa(users.filter(u=>!u.is_active).length)}</strong><small>در نتایج فعلی</small></div></div>
     <div className="row page-switcher" style={{gap:8,marginBottom:14,flexWrap:"wrap"}}>
       <button className="btn p">اطلاعات کاربران</button>
       <button className="btn g" onClick={()=>setUsersTab("vehicles")}>خودرو و موتورسیکلت</button>
       <button className="btn g" onClick={()=>setUsersTab("checklist")}>چک‌لیست خودرو و موتورسیکلت</button>
     </div>
-    <form className="users-filter-panel" onSubmit={e=>{e.preventDefault();reload();}}><div className="users-filter-heading"><div><strong>جست‌وجو و پالایش</strong><span>برای یافتن سریع‌تر نیروها، فیلترهای موردنظر را تنظیم کنید.</span></div><span className="users-filter-count">{fa(users.length)} نتیجه</span></div><div className="users-filter-grid">
+    <form className="users-filter-panel" onSubmit={e=>{e.preventDefault();reload();}}><div className="users-filter-heading"><div><strong>جست‌وجو و پالایش</strong><span>برای یافتن سریع‌تر نیروها، فیلترهای موردنظر را تنظیم کنید.</span></div><span className="users-filter-count" aria-live="polite">{usersLoading?"در حال دریافت…":fa(users.length)+" نتیجه"}</span></div><div className="users-filter-grid">
       <label className="users-filter-field">نام یا کد ملی<input className="input" type="search" placeholder="جست‌وجوی نام یا کد ملی…" value={f.q} onChange={e=>setF({...f,q:e.target.value})}/></label>
       <label className="users-filter-field">سمت<select className="input" value={f.role_id} onChange={e=>setF({...f,role_id:e.target.value})}><option value="">همهٔ سمت‌ها</option>{roles.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select></label>
       <label className="users-filter-field">منطقه<select className="input" value={f.zone_id} onChange={e=>setF({...f,zone_id:e.target.value})}><option value="">همهٔ مناطق</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select></label>
       <label className="users-filter-field">وضعیت<select className="input" value={f.active} onChange={e=>setF({...f,active:e.target.value})}><option value="">همهٔ وضعیت‌ها</option><option value="1">فعال</option><option value="0">غیرفعال</option></select></label>
-      <button className="btn p users-filter-submit" type="submit">اعمال فیلتر</button></div></form>
+      <button className="btn p users-filter-submit" type="submit" disabled={usersLoading}>{usersLoading?"در حال جست‌وجو…":"اعمال فیلتر"}</button></div></form>
+    {usersError&&<div className="workspace-inline-error users-load-error" role="alert"><span>دریافت فهرست کاربران انجام نشد: {usersError}</span><button type="button" className="btn g" onClick={()=>reload()}>تلاش دوباره</button></div>}
     <div className="users-table-heading"><div><h4>فهرست کاربران</h4><span>مشاهده و مدیریت اطلاعات کاربران در نتایج فعلی</span></div><span className="users-table-count">{fa(users.length)} کاربر</span></div>
     <ResponsiveTable><thead><tr><th></th><th>نام</th><th>کد ملی</th><th>سمت</th><th>درجه</th><th>ایمیل</th><th>تعهدات</th><th>دستگاه‌ها</th><th>وضعیت</th><th>اقدامات</th></tr></thead>
     <tbody>{pg.slice.map(u=><tr key={u.id}>
@@ -1550,7 +1554,7 @@ function Users(){
         <button className="btn g" onClick={()=>{setEdit({...u,seniority_loading:true,allow_android:u.allow_android==1,allow_web:u.allow_web==1,security_exempt:u.security_exempt==1,presence_required:u.presence_required==1,can_send_sms:u.can_send_sms==1,can_be_substitute:u.can_be_substitute==1,can_welfare:u.can_welfare==1,can_cultural:u.can_cultural==1,can_manage_temp_drivers:u.can_manage_temp_drivers==1,birth_iso:u.birth_date?isoFromJ(...String(u.birth_date).replace(/[\/.]/g,"-").split("-").map(Number)):""});setPw("");GET('/admin/users/'+u.id+'/employment-period').then(period=>{setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,employment_start_date:period.employment_start_date||'',employment_end_date:period.employment_end_date||''}:current)}).catch(error=>{alert('دریافت تاریخ همکاری از سرور ناموفق بود: '+(error.message||error));});GET('/admin/seniority').then(result=>{const record=(result.rows||[]).find(row=>Number(row.id)===Number(u.id));setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:record?.initialized?record.seniority_days:null}:current)}).catch(()=>setEdit(current=>current&&Number(current.id)===Number(u.id)?{...current,seniority_loading:false,seniority_days:null}:current));}}>ویرایش</button>
         <button className="btn g" onClick={()=>setLineModal(u)}>خطوط</button>
         <button className="btn g users-danger-action" onClick={()=>delUser(u)}>حذف</button></div></td></tr>)}</tbody></ResponsiveTable>
-    {!users.length&&<div className="users-empty-state" role="status"><strong>کاربری با این فیلترها پیدا نشد</strong><span>عبارت جست‌وجو یا وضعیت و سمت انتخابی را تغییر دهید و دوباره فیلتر کنید.</span><button className="btn g" onClick={()=>{setF({q:"",role_id:"",zone_id:"",active:""});db.users({}).then(us=>setUsers(us.map(u=>({...u,is_active:(u.is_active==1||u.is_active===true)})))).catch(()=>{});}}>پاک‌کردن فیلترها</button></div>}
+    {!users.length&&!usersLoading&&!usersError&&<div className="users-empty-state" role="status"><strong>کاربری با این فیلترها پیدا نشد</strong><span>عبارت جست‌وجو یا وضعیت و سمت انتخابی را تغییر دهید و دوباره فیلتر کنید.</span><button className="btn g" onClick={()=>{const cleared={q:"",role_id:"",zone_id:"",active:""};setF(cleared);reload(cleared);}}>پاک‌کردن فیلترها</button></div>}
     {pg.Pager()}
     {commitmentsModal&&<Modal title={"تعهدات "+(commitmentsModal.user.first_name||"")+" "+(commitmentsModal.user.last_name||"")} onClose={()=>setCommitmentsModal(null)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:12}}>
@@ -1611,7 +1615,7 @@ function Users(){
       <PayrollEditor userId={edit.id} userName={`${edit.first_name||""} ${edit.last_name||""}`.trim()}/>
       <UserCustomValues userId={edit.id}/>
       <label>آدرس محل سکونت</label><textarea className="input" rows="2" value={edit.address||""} onChange={e=>setEdit({...edit,address:e.target.value})}/>
-      <label>تغییر رمز عبور (خالی = بدون تغییر)</label><input className="input" type="text" value={pw} placeholder="رمز جدید" onChange={e=>setPw(e.target.value)}/>
+      <label>تغییر رمز عبور (خالی = بدون تغییر)</label><input className="input" type="password" autoComplete="new-password" value={pw} placeholder="رمز جدید" onChange={e=>setPw(e.target.value)}/>
       <div className="row" style={{gap:16,marginTop:12,flexWrap:"wrap"}}>
         <label className="row" style={{gap:6}}><input type="checkbox" checked={edit.is_active} onChange={e=>setEdit({...edit,is_active:e.target.checked})}/>فعال</label>
         <label className="row" style={{gap:6}}><input type="checkbox" checked={edit.allow_android} onChange={e=>setEdit({...edit,allow_android:e.target.checked})}/>ورود با اندروید</label>
@@ -1628,7 +1632,7 @@ function Users(){
       <div className="row" style={{gap:8,marginTop:12}}>
         <button className="btn g" onClick={()=>revoke(edit.id,'android')}>حذف دستگاه اندروید</button>
         <button className="btn g" onClick={()=>revoke(edit.id,'web')}>حذف نشست وب</button></div>
-      <button className="btn p" style={{marginTop:14}} onClick={()=>save(edit)}>ذخیره</button></Modal>}
+      <button className="btn p" style={{marginTop:14}} disabled={savingUser} onClick={()=>save(edit)}>{savingUser?"در حال ذخیره…":"ذخیره تغییرات"}</button></Modal>}
     {adding&&<AddUser roles={roles} zones={zones} onClose={()=>setAdding(false)} onSave={add}/>}
     {lineModal&&<LineAssign user={lineModal} onClose={()=>setLineModal(null)}/>}
   </div>);
