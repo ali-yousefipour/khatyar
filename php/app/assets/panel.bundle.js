@@ -6245,30 +6245,41 @@ function CustomFieldsManager() {
 }
 function InventoryAdmin() {
     const [tab, setTab] = useState("assign");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const [notice, setNotice] = useState("");
+    const [reportLoading, setReportLoading] = useState(false);
+    const ledgerRequest = useRef(0);
     const [types, setTypes] = useState(null);
     const [typeForm, setTypeForm] = useState(null);
     const [users, setUsers] = useState([]);
     const [assignForm, setAssignForm] = useState({ item_type_id: "", to_user_id: "", quantity: "", note: "", transferable: true });
     const [ledger, setLedger] = useState(null);
     const [filt, setFilt] = useState({ item_type_id: "", from: "", to: "" });
-    const loadTypes = () => db.invItemTypes().then(d => setTypes(d.items || [])).catch(() => setTypes([]));
-    useEffect(() => { loadTypes(); db.users({}).then(d => setUsers(Array.isArray(d) ? d : (d.rows || d.items || []))).catch(() => { }); }, []);
+    const loadTypes = () => db.invItemTypes().then(d => setTypes(d.items || [])).catch(e => { setError(e.message || "دریافت انواع اقلام ناموفق بود."); setTypes([]); });
+    useEffect(() => { loadTypes(); db.users({}).then(d => setUsers(Array.isArray(d) ? d : (d.rows || d.items || []))).catch(e => setError(e.message || "دریافت کاربران ناموفق بود.")); }, []);
     const saveType = async () => {
         var _a;
         if (!((_a = typeForm.name) === null || _a === void 0 ? void 0 : _a.trim())) {
             alert("نام قلم را وارد کنید");
             return;
         }
+        setBusy(true);
+        setError("");
         try {
             if (typeForm.id)
                 await db.invUpdItemType(typeForm.id, typeForm);
             else
                 await db.invAddItemType(typeForm);
             setTypeForm(null);
-            loadTypes();
+            await loadTypes();
+            setNotice("اطلاعات قلم ذخیره شد.");
         }
         catch (e) {
-            alert(e.message || "خطا");
+            setError(e.message || "ذخیره نوع قلم ناموفق بود.");
+        }
+        finally {
+            setBusy(false);
         }
     };
     const toggleType = async (t) => { try {
@@ -6279,27 +6290,60 @@ function InventoryAdmin() {
         alert(e.message);
     } };
     const doAssign = async () => {
-        if (!assignForm.item_type_id || !assignForm.to_user_id || !assignForm.quantity) {
-            alert("همهٔ فیلدها را پر کنید");
+        if (!assignForm.item_type_id || !assignForm.to_user_id || !Number.isSafeInteger(Number(assignForm.quantity)) || Number(assignForm.quantity) <= 0) {
+            setError("نوع قلم، تحویل‌گیرنده و تعداد صحیح و مثبت را وارد کنید.");
             return;
         }
+        setBusy(true);
+        setError("");
         try {
             await db.invAssign({ ...assignForm, quantity: +assignForm.quantity });
-            alert("واگذار شد؛ پس از تأیید گیرنده در برنامه، به موجودی او افزوده می‌شود.");
+            setNotice("واگذاری ثبت شد؛ پس از تأیید گیرنده در برنامه، به موجودی او افزوده می‌شود.");
             setAssignForm({ item_type_id: "", to_user_id: "", quantity: "", note: "", transferable: true });
         }
         catch (e) {
-            alert(e.message || "خطا");
+            setError(e.message || "واگذاری ناموفق بود.");
+        }
+        finally {
+            setBusy(false);
         }
     };
-    const loadLedger = () => {
+    const loadLedger = async () => {
+        if (filt.from && filt.to && filt.from > filt.to) {
+            setError("تاریخ شروع نباید بعد از تاریخ پایان باشد.");
+            return;
+        }
+        const requestId = ++ledgerRequest.current;
         const qs = new URLSearchParams(Object.fromEntries(Object.entries(filt).filter(([, v]) => v))).toString();
-        db.invLedger(qs ? ("?" + qs) : "").then(d => setLedger(d.items || [])).catch(() => setLedger([]));
+        setReportLoading(true);
+        setError("");
+        try {
+            const d = await db.invLedger(qs ? ("?" + qs) : "");
+            if (requestId === ledgerRequest.current)
+                setLedger(d.items || []);
+        }
+        catch (e) {
+            if (requestId === ledgerRequest.current) {
+                setLedger(null);
+                setError(e.message || "دریافت گزارش اقلام ناموفق بود.");
+            }
+        }
+        finally {
+            if (requestId === ledgerRequest.current)
+                setReportLoading(false);
+        }
     };
     useEffect(() => { if (tab === "report")
         loadLedger(); }, [tab]);
     const exportUrl = () => { const qs = new URLSearchParams(Object.fromEntries(Object.entries(filt).filter(([, v]) => v))).toString(); return db.invExportUrl(qs ? ("?" + qs) : ""); };
-    return (React.createElement("div", { className: "admin-workspace-page admin-form-page" },
+    return (React.createElement("div", { className: "admin-workspace-page admin-form-page inventory-workspace" },
+        React.createElement("div", { className: "workspace-section-heading" },
+            React.createElement("div", null,
+                React.createElement("span", null, "\u0645\u062F\u06CC\u0631\u06CC\u062A \u062A\u062C\u0647\u06CC\u0632\u0627\u062A"),
+                React.createElement("h3", null, "\u0627\u0642\u0644\u0627\u0645 \u062A\u062D\u0648\u06CC\u0644\u06CC \u0648 \u0648\u0627\u06AF\u0630\u0627\u0631\u06CC\u200C\u0647\u0627"),
+                React.createElement("p", null, "\u062B\u0628\u062A \u0648\u0627\u06AF\u0630\u0627\u0631\u06CC\u060C \u0645\u062F\u06CC\u0631\u06CC\u062A \u0627\u0646\u0648\u0627\u0639 \u0627\u0642\u0644\u0627\u0645 \u0648 \u06AF\u0632\u0627\u0631\u0634 \u062A\u062D\u0648\u06CC\u0644\u200C\u0647\u0627\u06CC \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647"))),
+        error && React.createElement("p", { className: "workspace-inline-error", role: "alert" }, error),
+        notice && React.createElement("p", { role: "status", style: { background: "var(--brand-soft)", borderRadius: 10, padding: 12 } }, notice),
         React.createElement("div", { className: "row page-switcher", style: { gap: 8, marginBottom: 14 } }, [["assign", "واگذاری اقلام"], ["types", "انواع اقلام"], ["report", "گزارش و خروجی اکسل"]].map(([k, l]) => React.createElement("button", { key: k, className: "btn " + (tab === k ? "p" : "g"), onClick: () => setTab(k) }, l))),
         tab === "assign" && React.createElement("div", { className: "panel" },
             React.createElement("h3", null, "\u0648\u0627\u06AF\u0630\u0627\u0631\u06CC \u0627\u0642\u0644\u0627\u0645 \u0628\u0647 \u06CC\u06A9 \u0634\u062E\u0635"),
@@ -6322,15 +6366,15 @@ function InventoryAdmin() {
                             u2.last_name,
                             u2.role_title ? " — " + u2.role_title : "")))),
                 React.createElement("div", null,
-                    React.createElement("label", { className: "label" }, "\u062A\u0639\u062F\u0627\u062F"),
-                    React.createElement("input", { className: "input", type: "number", value: assignForm.quantity, onChange: e => setAssignForm({ ...assignForm, quantity: e.target.value }) })),
+                    React.createElement("label", { className: "label", htmlFor: "inventory-quantity" }, "\u062A\u0639\u062F\u0627\u062F"),
+                    React.createElement("input", { id: "inventory-quantity", className: "input", type: "number", min: "1", step: "1", inputMode: "numeric", value: assignForm.quantity, onChange: e => setAssignForm({ ...assignForm, quantity: e.target.value }) })),
                 React.createElement("div", null,
                     React.createElement("label", { className: "label" }, "\u062A\u0648\u0636\u06CC\u062D (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)"),
                     React.createElement("input", { className: "input", value: assignForm.note, onChange: e => setAssignForm({ ...assignForm, note: e.target.value }) }))),
             React.createElement("label", { className: "row", style: { gap: 8, marginTop: 10 } },
                 React.createElement("input", { type: "checkbox", checked: assignForm.transferable, onChange: e => setAssignForm({ ...assignForm, transferable: e.target.checked }) }),
                 "\u06AF\u06CC\u0631\u0646\u062F\u0647 \u0627\u062C\u0627\u0632\u0647 \u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F \u0627\u06CC\u0646 \u0642\u0644\u0645 \u0631\u0627 \u0628\u0647 \u0634\u062E\u0635 \u062F\u06CC\u06AF\u0631\u06CC \u0647\u0645 \u0645\u0646\u062A\u0642\u0644 \u06A9\u0646\u062F"),
-            React.createElement("button", { className: "btn p", style: { marginTop: 12 }, onClick: doAssign }, "\u0648\u0627\u06AF\u0630\u0627\u0631\u06CC")),
+            React.createElement("button", { className: "btn p", style: { marginTop: 12 }, disabled: busy, onClick: doAssign }, busy ? "در حال ثبت…" : "ثبت واگذاری")),
         tab === "types" && React.createElement("div", { className: "panel" },
             React.createElement("h3", null, "\u0627\u0646\u0648\u0627\u0639 \u0627\u0642\u0644\u0627\u0645"),
             !typeForm && React.createElement("button", { className: "btn p", onClick: () => setTypeForm({ name: "", unit: "" }) }, "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0646\u0648\u0639 \u0642\u0644\u0645"),
@@ -6343,34 +6387,39 @@ function InventoryAdmin() {
                         React.createElement("label", { className: "label" }, "\u0648\u0627\u062D\u062F (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)"),
                         React.createElement("input", { className: "input", value: typeForm.unit || "", onChange: e => setTypeForm({ ...typeForm, unit: e.target.value }), placeholder: "\u0639\u062F\u062F" }))),
                 React.createElement("div", { className: "row", style: { gap: 8, marginTop: 10 } },
-                    React.createElement("button", { className: "btn p", onClick: saveType }, typeForm.id ? "ذخیرهٔ تغییرات" : "افزودن"),
+                    React.createElement("button", { className: "btn p", disabled: busy, onClick: saveType }, busy ? "در حال ذخیره…" : typeForm.id ? "ذخیرهٔ تغییرات" : "افزودن"),
                     React.createElement("button", { className: "btn g", onClick: () => setTypeForm(null) }, "\u0627\u0646\u0635\u0631\u0627\u0641"))),
-            React.createElement("table", { style: { marginTop: 14, fontSize: 12.5 } },
-                React.createElement("thead", null,
-                    React.createElement("tr", null,
-                        React.createElement("th", null, "\u0646\u0627\u0645"),
-                        React.createElement("th", null, "\u0648\u0627\u062D\u062F"),
-                        React.createElement("th", null, "\u0641\u0639\u0627\u0644"),
-                        React.createElement("th", null))),
-                React.createElement("tbody", null, (types || []).length === 0 ? React.createElement("tr", null,
-                    React.createElement("td", { colSpan: "4", className: "muted" }, "\u0646\u0648\u0639 \u0642\u0644\u0645\u06CC \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")) :
-                    (types || []).map(t => (React.createElement("tr", { key: t.id },
-                        React.createElement("td", null,
-                            React.createElement("b", null, t.name)),
-                        React.createElement("td", null, t.unit || "—"),
-                        React.createElement("td", null,
-                            React.createElement("input", { type: "checkbox", checked: !!t.is_active, onChange: () => toggleType(t) })),
-                        React.createElement("td", null,
-                            React.createElement("button", { className: "btn g", onClick: () => setTypeForm({ ...t }) }, "\u0648\u06CC\u0631\u0627\u06CC\u0634")))))))),
+            React.createElement("div", { className: "table-wrap", style: { marginTop: 14 }, role: "region", "aria-label": "\u0641\u0647\u0631\u0633\u062A \u0627\u0646\u0648\u0627\u0639 \u0627\u0642\u0644\u0627\u0645", tabIndex: 0 },
+                React.createElement("table", { style: { fontSize: 12.5, minWidth: 460 } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0646\u0627\u0645"),
+                            React.createElement("th", null, "\u0648\u0627\u062D\u062F"),
+                            React.createElement("th", null, "\u0641\u0639\u0627\u0644"),
+                            React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
+                    React.createElement("tbody", null, (types || []).length === 0 ? React.createElement("tr", null,
+                        React.createElement("td", { colSpan: "4", className: "muted" }, "\u0646\u0648\u0639 \u0642\u0644\u0645\u06CC \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")) :
+                        (types || []).map(t => (React.createElement("tr", { key: t.id },
+                            React.createElement("td", null,
+                                React.createElement("b", null, t.name)),
+                            React.createElement("td", null, t.unit || "—"),
+                            React.createElement("td", null,
+                                React.createElement("input", { type: "checkbox", checked: !!t.is_active, onChange: () => toggleType(t) })),
+                            React.createElement("td", null,
+                                React.createElement("button", { className: "btn g", onClick: () => setTypeForm({ ...t }) }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"))))))))),
         tab === "report" && React.createElement("div", { className: "panel" },
             React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634 \u062A\u062D\u0648\u06CC\u0644\u200C\u0647\u0627\u06CC \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647"),
             React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 10, flexWrap: "wrap" } },
-                React.createElement("select", { className: "input", style: { maxWidth: 200 }, value: filt.item_type_id, onChange: e => setFilt({ ...filt, item_type_id: e.target.value }) },
+                React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0646\u0648\u0639 \u0642\u0644\u0645", style: { maxWidth: 200 }, value: filt.item_type_id, onChange: e => setFilt({ ...filt, item_type_id: e.target.value }) },
                     React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0627\u0642\u0644\u0627\u0645"),
                     (types || []).map(t => React.createElement("option", { key: t.id, value: t.id }, t.name))),
-                React.createElement("input", { className: "input", type: "date", value: filt.from, onChange: e => setFilt({ ...filt, from: e.target.value }), style: { maxWidth: 150 } }),
-                React.createElement("input", { className: "input", type: "date", value: filt.to, onChange: e => setFilt({ ...filt, to: e.target.value }), style: { maxWidth: 150 } }),
-                React.createElement("button", { className: "btn p", onClick: loadLedger }, "\u0646\u0645\u0627\u06CC\u0634"),
+                React.createElement("label", { style: { display: "grid", gap: 4 } },
+                    "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E",
+                    React.createElement("input", { className: "input", type: "date", value: filt.from, onChange: e => setFilt({ ...filt, from: e.target.value }), style: { maxWidth: 150 } })),
+                React.createElement("label", { style: { display: "grid", gap: 4 } },
+                    "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E",
+                    React.createElement("input", { className: "input", type: "date", value: filt.to, onChange: e => setFilt({ ...filt, to: e.target.value }), style: { maxWidth: 150 } })),
+                React.createElement("button", { className: "btn p", disabled: reportLoading, onClick: loadLedger }, reportLoading ? "در حال دریافت…" : "نمایش گزارش"),
                 React.createElement("button", { className: "btn g", onClick: async () => { try {
                         const res = await fetch(exportUrl(), { headers: tok() });
                         if (!res.ok)
@@ -6384,28 +6433,29 @@ function InventoryAdmin() {
                     catch (e) {
                         alert(e.message || "خطا");
                     } } }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644 (\u0628\u0627 \u0627\u0645\u0636\u0627)")),
-            React.createElement("table", { style: { fontSize: 12.5 } },
-                React.createElement("thead", null,
-                    React.createElement("tr", null,
-                        React.createElement("th", null, "\u0642\u0644\u0645"),
-                        React.createElement("th", null, "\u062A\u0639\u062F\u0627\u062F"),
-                        React.createElement("th", null, "\u062A\u062D\u0648\u06CC\u0644\u200C\u062F\u0647\u0646\u062F\u0647"),
-                        React.createElement("th", null, "\u062A\u062D\u0648\u06CC\u0644\u200C\u06AF\u06CC\u0631\u0646\u062F\u0647"),
-                        React.createElement("th", null, "\u0642\u0627\u0628\u0644 \u0627\u0646\u062A\u0642\u0627\u0644 \u0645\u062C\u062F\u062F"),
-                        React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E \u062A\u0623\u06CC\u06CC\u062F"))),
-                React.createElement("tbody", null, ledger === null ? React.createElement("tr", null,
-                    React.createElement("td", { colSpan: "6", className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026")) :
-                    ledger.length === 0 ? React.createElement("tr", null,
-                        React.createElement("td", { colSpan: "6", className: "muted" }, "\u0645\u0648\u0631\u062F\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")) :
-                        ledger.map(r => (React.createElement("tr", { key: r.id },
-                            React.createElement("td", null, r.item_name),
-                            React.createElement("td", null,
-                                r.quantity,
-                                r.unit ? " " + r.unit : ""),
-                            React.createElement("td", null, r.from_name || "مدیر سامانه"),
-                            React.createElement("td", null, r.to_name),
-                            React.createElement("td", null, r.transferable ? "بله" : "خیر"),
-                            React.createElement("td", null, r.confirmed_at_fa || r.confirmed_at)))))))));
+            React.createElement("div", { className: "table-wrap", role: "region", "aria-label": "\u06AF\u0632\u0627\u0631\u0634 \u0627\u0642\u0644\u0627\u0645 \u062A\u062D\u0648\u06CC\u0644\u06CC", tabIndex: 0 },
+                React.createElement("table", { style: { fontSize: 12.5, minWidth: 820 } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0642\u0644\u0645"),
+                            React.createElement("th", null, "\u062A\u0639\u062F\u0627\u062F"),
+                            React.createElement("th", null, "\u062A\u062D\u0648\u06CC\u0644\u200C\u062F\u0647\u0646\u062F\u0647"),
+                            React.createElement("th", null, "\u062A\u062D\u0648\u06CC\u0644\u200C\u06AF\u06CC\u0631\u0646\u062F\u0647"),
+                            React.createElement("th", null, "\u0642\u0627\u0628\u0644 \u0627\u0646\u062A\u0642\u0627\u0644 \u0645\u062C\u062F\u062F"),
+                            React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E \u062A\u0623\u06CC\u06CC\u062F"))),
+                    React.createElement("tbody", null, ledger === null ? React.createElement("tr", null,
+                        React.createElement("td", { colSpan: "6", className: "muted" }, reportLoading ? "در حال بارگذاری…" : error ? "بارگذاری ناموفق بود؛ دوباره تلاش کنید." : "برای دریافت گزارش، دکمه نمایش را بزنید.")) :
+                        ledger.length === 0 ? React.createElement("tr", null,
+                            React.createElement("td", { colSpan: "6", className: "muted" }, "\u0645\u0648\u0631\u062F\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")) :
+                            ledger.map(r => (React.createElement("tr", { key: r.id },
+                                React.createElement("td", null, r.item_name),
+                                React.createElement("td", null,
+                                    r.quantity,
+                                    r.unit ? " " + r.unit : ""),
+                                React.createElement("td", null, r.from_name || "مدیر سامانه"),
+                                React.createElement("td", null, r.to_name),
+                                React.createElement("td", null, r.transferable ? "بله" : "خیر"),
+                                React.createElement("td", null, r.confirmed_at_fa || r.confirmed_at))))))))));
 }
 function StringListEditor({ value, onChange, placeholder }) {
     const [txt, setTxt] = React.useState("");
@@ -6426,7 +6476,7 @@ function StringListEditor({ value, onChange, placeholder }) {
         React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 } },
             arr.map((it, i) => React.createElement("span", { key: i, style: { background: "#eef2f6", borderRadius: 14, padding: "5px 10px", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 } },
                 it,
-                React.createElement("span", { style: { cursor: "pointer", color: "#d63b54", fontWeight: 700 }, onClick: () => del(i) }, "\u00D7"))),
+                React.createElement("button", { type: "button", "aria-label": "حذف " + it, title: "حذف " + it, style: { cursor: "pointer", color: "#b42340", background: "transparent", border: 0, fontWeight: 700, minWidth: 28, minHeight: 28 }, onClick: () => del(i) }, "\u00D7"))),
             arr.length === 0 && React.createElement("span", { style: { color: "var(--muted)", fontSize: 12 } }, "\u0645\u0648\u0631\u062F\u06CC \u0627\u0636\u0627\u0641\u0647 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))));
 }
 function OrgBrandingSettings({ v, set, save }) {

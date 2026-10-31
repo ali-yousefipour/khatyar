@@ -3541,30 +3541,40 @@ function CustomFieldsManager(){
 
 function InventoryAdmin(){
   const [tab,setTab]=useState("assign");
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState("");
+  const [notice,setNotice]=useState("");
+  const [reportLoading,setReportLoading]=useState(false);
+  const ledgerRequest=useRef(0);
   const [types,setTypes]=useState(null);
   const [typeForm,setTypeForm]=useState(null);
   const [users,setUsers]=useState([]);
   const [assignForm,setAssignForm]=useState({item_type_id:"",to_user_id:"",quantity:"",note:"",transferable:true});
   const [ledger,setLedger]=useState(null);
   const [filt,setFilt]=useState({item_type_id:"",from:"",to:""});
-  const loadTypes=()=>db.invItemTypes().then(d=>setTypes(d.items||[])).catch(()=>setTypes([]));
-  useEffect(()=>{ loadTypes(); db.users({}).then(d=>setUsers(Array.isArray(d)?d:(d.rows||d.items||[]))).catch(()=>{}); },[]);
+  const loadTypes=()=>db.invItemTypes().then(d=>setTypes(d.items||[])).catch(e=>{setError(e.message||"دریافت انواع اقلام ناموفق بود.");setTypes([]);});
+  useEffect(()=>{ loadTypes(); db.users({}).then(d=>setUsers(Array.isArray(d)?d:(d.rows||d.items||[]))).catch(e=>setError(e.message||"دریافت کاربران ناموفق بود.")); },[]);
   const saveType=async()=>{
     if(!typeForm.name?.trim()){alert("نام قلم را وارد کنید");return;}
-    try{ if(typeForm.id) await db.invUpdItemType(typeForm.id,typeForm); else await db.invAddItemType(typeForm); setTypeForm(null); loadTypes(); }catch(e){alert(e.message||"خطا");}
+    setBusy(true);setError("");try{ if(typeForm.id) await db.invUpdItemType(typeForm.id,typeForm); else await db.invAddItemType(typeForm); setTypeForm(null); await loadTypes();setNotice("اطلاعات قلم ذخیره شد."); }catch(e){setError(e.message||"ذخیره نوع قلم ناموفق بود.");}finally{setBusy(false);}
   };
   const toggleType=async(t)=>{ try{ await db.invUpdItemType(t.id,{is_active:t.is_active?0:1}); loadTypes(); }catch(e){alert(e.message);} };
   const doAssign=async()=>{
-    if(!assignForm.item_type_id||!assignForm.to_user_id||!assignForm.quantity){alert("همهٔ فیلدها را پر کنید");return;}
-    try{ await db.invAssign({...assignForm,quantity:+assignForm.quantity}); alert("واگذار شد؛ پس از تأیید گیرنده در برنامه، به موجودی او افزوده می‌شود."); setAssignForm({item_type_id:"",to_user_id:"",quantity:"",note:"",transferable:true}); }catch(e){alert(e.message||"خطا");}
+    if(!assignForm.item_type_id||!assignForm.to_user_id||!Number.isSafeInteger(Number(assignForm.quantity))||Number(assignForm.quantity)<=0){setError("نوع قلم، تحویل‌گیرنده و تعداد صحیح و مثبت را وارد کنید.");return;}
+    setBusy(true);setError("");try{ await db.invAssign({...assignForm,quantity:+assignForm.quantity});setNotice("واگذاری ثبت شد؛ پس از تأیید گیرنده در برنامه، به موجودی او افزوده می‌شود.");setAssignForm({item_type_id:"",to_user_id:"",quantity:"",note:"",transferable:true}); }catch(e){setError(e.message||"واگذاری ناموفق بود.");}finally{setBusy(false);}
   };
-  const loadLedger=()=>{
+  const loadLedger=async()=>{
+    if(filt.from&&filt.to&&filt.from>filt.to){setError("تاریخ شروع نباید بعد از تاریخ پایان باشد.");return;}
+    const requestId=++ledgerRequest.current;
     const qs=new URLSearchParams(Object.fromEntries(Object.entries(filt).filter(([,v])=>v))).toString();
-    db.invLedger(qs?("?"+qs):"").then(d=>setLedger(d.items||[])).catch(()=>setLedger([]));
+    setReportLoading(true);setError("");try{const d=await db.invLedger(qs?("?"+qs):"");if(requestId===ledgerRequest.current)setLedger(d.items||[]);}catch(e){if(requestId===ledgerRequest.current){setLedger(null);setError(e.message||"دریافت گزارش اقلام ناموفق بود.");}}finally{if(requestId===ledgerRequest.current)setReportLoading(false);}
   };
   useEffect(()=>{ if(tab==="report") loadLedger(); },[tab]);
   const exportUrl=()=>{ const qs=new URLSearchParams(Object.fromEntries(Object.entries(filt).filter(([,v])=>v))).toString(); return db.invExportUrl(qs?("?"+qs):""); };
-  return(<div className="admin-workspace-page admin-form-page">
+  return(<div className="admin-workspace-page admin-form-page inventory-workspace">
+    <div className="workspace-section-heading"><div><span>مدیریت تجهیزات</span><h3>اقلام تحویلی و واگذاری‌ها</h3><p>ثبت واگذاری، مدیریت انواع اقلام و گزارش تحویل‌های تأییدشده</p></div></div>
+    {error&&<p className="workspace-inline-error" role="alert">{error}</p>}
+    {notice&&<p role="status" style={{background:"var(--brand-soft)",borderRadius:10,padding:12}}>{notice}</p>}
     <div className="row page-switcher" style={{gap:8,marginBottom:14}}>
       {[["assign","واگذاری اقلام"],["types","انواع اقلام"],["report","گزارش و خروجی اکسل"]].map(([k,l])=>
         <button key={k} className={"btn "+(tab===k?"p":"g")} onClick={()=>setTab(k)}>{l}</button>)}
@@ -3584,11 +3594,11 @@ function InventoryAdmin(){
             <option value="">— انتخاب کنید —</option>
             {users.map(u2=><option key={u2.id} value={u2.id}>{u2.first_name} {u2.last_name}{u2.role_title?" — "+u2.role_title:""}</option>)}
           </select></div>
-        <div><label className="label">تعداد</label><input className="input" type="number" value={assignForm.quantity} onChange={e=>setAssignForm({...assignForm,quantity:e.target.value})}/></div>
+        <div><label className="label" htmlFor="inventory-quantity">تعداد</label><input id="inventory-quantity" className="input" type="number" min="1" step="1" inputMode="numeric" value={assignForm.quantity} onChange={e=>setAssignForm({...assignForm,quantity:e.target.value})}/></div>
         <div><label className="label">توضیح (اختیاری)</label><input className="input" value={assignForm.note} onChange={e=>setAssignForm({...assignForm,note:e.target.value})}/></div>
       </div>
       <label className="row" style={{gap:8,marginTop:10}}><input type="checkbox" checked={assignForm.transferable} onChange={e=>setAssignForm({...assignForm,transferable:e.target.checked})}/>گیرنده اجازه داشته باشد این قلم را به شخص دیگری هم منتقل کند</label>
-      <button className="btn p" style={{marginTop:12}} onClick={doAssign}>واگذاری</button>
+      <button className="btn p" style={{marginTop:12}} disabled={busy} onClick={doAssign}>{busy?"در حال ثبت…":"ثبت واگذاری"}</button>
     </div>}
 
     {tab==="types" && <div className="panel">
@@ -3600,40 +3610,40 @@ function InventoryAdmin(){
           <div style={{width:120}}><label className="label">واحد (اختیاری)</label><input className="input" value={typeForm.unit||""} onChange={e=>setTypeForm({...typeForm,unit:e.target.value})} placeholder="عدد"/></div>
         </div>
         <div className="row" style={{gap:8,marginTop:10}}>
-          <button className="btn p" onClick={saveType}>{typeForm.id?"ذخیرهٔ تغییرات":"افزودن"}</button>
+          <button className="btn p" disabled={busy} onClick={saveType}>{busy?"در حال ذخیره…":typeForm.id?"ذخیرهٔ تغییرات":"افزودن"}</button>
           <button className="btn g" onClick={()=>setTypeForm(null)}>انصراف</button>
         </div>
       </div>}
-      <table style={{marginTop:14,fontSize:12.5}}><thead><tr><th>نام</th><th>واحد</th><th>فعال</th><th></th></tr></thead><tbody>
+      <div className="table-wrap" style={{marginTop:14}} role="region" aria-label="فهرست انواع اقلام" tabIndex={0}><table style={{fontSize:12.5,minWidth:460}}><thead><tr><th>نام</th><th>واحد</th><th>فعال</th><th>عملیات</th></tr></thead><tbody>
         {(types||[]).length===0?<tr><td colSpan="4" className="muted">نوع قلمی تعریف نشده است.</td></tr>:
          (types||[]).map(t=>(<tr key={t.id}>
           <td><b>{t.name}</b></td><td>{t.unit||"—"}</td>
           <td><input type="checkbox" checked={!!t.is_active} onChange={()=>toggleType(t)}/></td>
           <td><button className="btn g" onClick={()=>setTypeForm({...t})}>ویرایش</button></td>
         </tr>))}
-      </tbody></table>
+      </tbody></table></div>
     </div>}
 
     {tab==="report" && <div className="panel">
       <h3>گزارش تحویل‌های تأییدشده</h3>
       <div className="row" style={{gap:8,marginBottom:10,flexWrap:"wrap"}}>
-        <select className="input" style={{maxWidth:200}} value={filt.item_type_id} onChange={e=>setFilt({...filt,item_type_id:e.target.value})}>
+        <select className="input" aria-label="فیلتر نوع قلم" style={{maxWidth:200}} value={filt.item_type_id} onChange={e=>setFilt({...filt,item_type_id:e.target.value})}>
           <option value="">همهٔ اقلام</option>
           {(types||[]).map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
-        <input className="input" type="date" value={filt.from} onChange={e=>setFilt({...filt,from:e.target.value})} style={{maxWidth:150}}/>
-        <input className="input" type="date" value={filt.to} onChange={e=>setFilt({...filt,to:e.target.value})} style={{maxWidth:150}}/>
-        <button className="btn p" onClick={loadLedger}>نمایش</button>
+        <label style={{display:"grid",gap:4}}>از تاریخ<input className="input" type="date" value={filt.from} onChange={e=>setFilt({...filt,from:e.target.value})} style={{maxWidth:150}}/></label>
+        <label style={{display:"grid",gap:4}}>تا تاریخ<input className="input" type="date" value={filt.to} onChange={e=>setFilt({...filt,to:e.target.value})} style={{maxWidth:150}}/></label>
+        <button className="btn p" disabled={reportLoading} onClick={loadLedger}>{reportLoading?"در حال دریافت…":"نمایش گزارش"}</button>
         <button className="btn g" onClick={async()=>{ try{ const res=await fetch(exportUrl(),{headers:tok()}); if(!res.ok)throw new Error("خطا در دریافت خروجی"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="گزارش_اقلام_تحویلی.xlsx"; a.click(); }catch(e){alert(e.message||"خطا");} }}>⤓ خروجی اکسل (با امضا)</button>
       </div>
-      <table style={{fontSize:12.5}}><thead><tr><th>قلم</th><th>تعداد</th><th>تحویل‌دهنده</th><th>تحویل‌گیرنده</th><th>قابل انتقال مجدد</th><th>تاریخ تأیید</th></tr></thead><tbody>
-        {ledger===null?<tr><td colSpan="6" className="muted">در حال بارگذاری…</td></tr>:
+      <div className="table-wrap" role="region" aria-label="گزارش اقلام تحویلی" tabIndex={0}><table style={{fontSize:12.5,minWidth:820}}><thead><tr><th>قلم</th><th>تعداد</th><th>تحویل‌دهنده</th><th>تحویل‌گیرنده</th><th>قابل انتقال مجدد</th><th>تاریخ تأیید</th></tr></thead><tbody>
+        {ledger===null?<tr><td colSpan="6" className="muted">{reportLoading?"در حال بارگذاری…":error?"بارگذاری ناموفق بود؛ دوباره تلاش کنید.":"برای دریافت گزارش، دکمه نمایش را بزنید."}</td></tr>:
          ledger.length===0?<tr><td colSpan="6" className="muted">موردی یافت نشد.</td></tr>:
          ledger.map(r=>(<tr key={r.id}>
           <td>{r.item_name}</td><td>{r.quantity}{r.unit?" "+r.unit:""}</td>
           <td>{r.from_name||"مدیر سامانه"}</td><td>{r.to_name}</td><td>{r.transferable?"بله":"خیر"}</td><td>{r.confirmed_at_fa||r.confirmed_at}</td>
         </tr>))}
-      </tbody></table>
+      </tbody></table></div>
     </div>}
   </div>);
 }
@@ -3649,7 +3659,7 @@ function StringListEditor({value,onChange,placeholder}){
       <button className="btn g" onClick={add}>+ افزودن</button>
     </div>
     <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
-      {arr.map((it,i)=><span key={i} style={{background:"#eef2f6",borderRadius:14,padding:"5px 10px",fontSize:13,display:"inline-flex",alignItems:"center",gap:6}}>{it}<span style={{cursor:"pointer",color:"#d63b54",fontWeight:700}} onClick={()=>del(i)}>×</span></span>)}
+      {arr.map((it,i)=><span key={i} style={{background:"#eef2f6",borderRadius:14,padding:"5px 10px",fontSize:13,display:"inline-flex",alignItems:"center",gap:6}}>{it}<button type="button" aria-label={"حذف "+it} title={"حذف "+it} style={{cursor:"pointer",color:"#b42340",background:"transparent",border:0,fontWeight:700,minWidth:28,minHeight:28}} onClick={()=>del(i)}>×</button></span>)}
       {arr.length===0&&<span style={{color:"var(--muted)",fontSize:12}}>موردی اضافه نشده است.</span>}
     </div>
   </div>);
