@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, useWindowDimensions } from 'react-native';
-import { request, imageSource } from '../api';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView, Alert, useWindowDimensions } from 'react-native';
+import { request } from '../api';
 import { C, FONT } from '../theme';
 import { fj, inCurrentJMonth, inCurrentJYear, inJRange } from '../jdate';
 import { faNum } from '../num';
@@ -9,14 +9,15 @@ import ImageViewer from '../components/ImageViewer';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import TaxiPlate from '../components/TaxiPlate';
+import HistoricalMediaImage from '../components/HistoricalMediaImage';
 
 function DateFilterBar({ from, to, setFrom, setTo }) {
   const [pick, setPick] = useState(null);
   return (
     <View style={s.filterBar}>
-      <TouchableOpacity style={s.fBtn} onPress={() => setPick('from')}><Text style={s.fBtnTxt}>{from ? jLabel(from.jy, from.jm, from.jd) : 'از تاریخ'}</Text></TouchableOpacity>
-      <TouchableOpacity style={s.fBtn} onPress={() => setPick('to')}><Text style={s.fBtnTxt}>{to ? jLabel(to.jy, to.jm, to.jd) : 'تا تاریخ'}</Text></TouchableOpacity>
-      {(from || to) ? <TouchableOpacity style={s.clr} onPress={() => { setFrom(null); setTo(null); }}><Text style={s.clrTxt}>پاک‌کردن</Text></TouchableOpacity> : null}
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="انتخاب تاریخ شروع" style={s.fBtn} onPress={() => setPick('from')}><Text style={s.fBtnTxt}>{from ? jLabel(from.jy, from.jm, from.jd) : 'از تاریخ'}</Text></TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="انتخاب تاریخ پایان" style={s.fBtn} onPress={() => setPick('to')}><Text style={s.fBtnTxt}>{to ? jLabel(to.jy, to.jm, to.jd) : 'تا تاریخ'}</Text></TouchableOpacity>
+      {(from || to) ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="پاک کردن فیلتر تاریخ" style={s.clr} onPress={() => { setFrom(null); setTo(null); }}><Text style={s.clrTxt}>پاک‌کردن</Text></TouchableOpacity> : null}
       <JDatePicker visible={!!pick} onClose={() => setPick(null)} initial={null}
         onSelect={(d) => { const v = { jy: d.jy, jm: d.jm, jd: d.jd }; if (pick === 'from') setFrom(v); else setTo(v); }} />
     </View>
@@ -138,8 +139,8 @@ export function PastNoticesScreen({ route }) {
         </View>
         <View style={pn.filters}><View style={pn.sectionHead}><MaterialCommunityIcons name="calendar-filter-outline" size={19} color={C.brand}/><Text style={pn.sectionTitle}>بازه زمانی</Text></View><DateFilterBar from={from} to={to} setFrom={setFrom} setTo={setTo}/>
           {types.length > 0 && <><View style={pn.sectionHead}><MaterialCommunityIcons name="filter-variant" size={19} color={C.brand}/><Text style={pn.sectionTitle}>دلیل تذکر</Text></View><View style={pn.chips}>
-            <TouchableOpacity style={[pn.chip,!typeFilter&&pn.chipOn]} onPress={()=>setTypeFilter(null)}><Text style={[pn.chipText,!typeFilter&&pn.chipTextOn]}>همه</Text></TouchableOpacity>
-            {types.map(t=><TouchableOpacity key={t} style={[pn.chip,typeFilter===t&&pn.chipOn]} onPress={()=>setTypeFilter(t)}><Text style={[pn.chipText,typeFilter===t&&pn.chipTextOn]}>{t}</Text></TouchableOpacity>)}
+            <TouchableOpacity accessibilityRole="button" accessibilityState={{selected:!typeFilter}} style={[pn.chip,!typeFilter&&pn.chipOn]} onPress={()=>setTypeFilter(null)}><Text style={[pn.chipText,!typeFilter&&pn.chipTextOn]}>همه</Text></TouchableOpacity>
+            {types.map(t=><TouchableOpacity accessibilityRole="button" accessibilityState={{selected:typeFilter===t}} key={t} style={[pn.chip,typeFilter===t&&pn.chipOn]} onPress={()=>setTypeFilter(t)}><Text style={[pn.chipText,typeFilter===t&&pn.chipTextOn]}>{t}</Text></TouchableOpacity>)}
           </View></>}
         </View>
         <View style={pn.listTitle}><MaterialCommunityIcons name="history" size={20} color={C.brand}/><Text style={pn.sectionTitle}>فهرست تذکرات</Text><Text style={pn.total}>{faNum(finalRows?.length || 0)} مورد</Text></View>
@@ -149,10 +150,10 @@ export function PastNoticesScreen({ route }) {
           <View style={[pn.priority,item.priority==='high'?pn.priorityHigh:item.priority==='medium'?pn.priorityMedium:pn.priorityLow]}><Text style={pn.priorityText}>اولویت {P[item.priority] || '—'}</Text></View>
         </View>
         {!!item.body&&<View style={pn.bodyBox}><Text style={pn.body}>{item.body}</Text></View>}
-        {!!item.attachment_url&&<TouchableOpacity accessibilityRole="button" accessibilityLabel="بزرگ‌نمایی تصویر پیوست" style={pn.photoTouch} onPress={()=>setViewer(item.attachment_url)}>
-          <Image source={imageSource(item.attachment_url)} style={[pn.photo,{height:width<360?145:170}]} resizeMode="cover"/>
-          <View style={pn.photoCaption}><MaterialCommunityIcons name="image-search-outline" size={17} color={C.brand}/><Text style={pn.photoCaptionText}>مشاهده تصویر در اندازه بزرگ</Text></View>
-        </TouchableOpacity>}
+        {!!item.attachment_url&&<View style={pn.photoTouch}>
+          <HistoricalMediaImage uri={item.attachment_url} style={[pn.photo,{height:width<360?160:185}]}
+            accessibilityLabel="بزرگ‌نمایی تصویر پیوست" onPress={()=>setViewer(item.attachment_url)}/>
+        </View>}
         <View style={pn.footer}><View style={pn.footerItem}><MaterialCommunityIcons name="calendar-clock-outline" size={16} color={C.muted}/><Text style={pn.footerText}>{faNum(fj(item.created_at))}</Text></View>
           {!!(item.recorder_name||item.recorder_username)&&<View style={pn.footerItem}><MaterialCommunityIcons name="account-outline" size={16} color={C.muted}/><Text style={pn.footerText}>ثبت‌کننده: {item.recorder_name?.trim()||item.recorder_username}</Text></View>}
         </View>
@@ -174,7 +175,7 @@ const pn = StyleSheet.create({
  sectionHead:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:10},
  sectionTitle:{fontFamily:FONT.bold,fontSize:14,color:C.ink,textAlign:'right'},
  chips:{flexDirection:'row-reverse',flexWrap:'wrap',gap:7,marginBottom:4},
- chip:{borderWidth:1,borderColor:C.line,borderRadius:11,paddingHorizontal:12,paddingVertical:9,minHeight:40,backgroundColor:'#f8fafb',justifyContent:'center'},
+ chip:{borderWidth:1,borderColor:C.line,borderRadius:11,paddingHorizontal:12,paddingVertical:9,minHeight:48,backgroundColor:'#f8fafb',justifyContent:'center'},
  chipOn:{backgroundColor:C.brand,borderColor:C.brand},
  chipText:{fontFamily:FONT.bold,fontSize:12,color:C.ink},
  chipTextOn:{color:'#fff'},
@@ -346,7 +347,7 @@ export function PastChecklistsScreen({ route }) {
             <MaterialCommunityIcons name={open?'chevron-up-circle':'chevron-down-circle-outline'} size={26} color={C.brand}/>
           </TouchableOpacity>
           {open && <View style={pc.details}>
-            {!!photo && <TouchableOpacity accessibilityRole="button" accessibilityLabel="بزرگ‌نمایی تصویر چک‌لیست" onPress={() => setViewer(photo)}><Image source={imageSource(photo)} style={pc.photo} resizeMode="cover"/><View style={pc.photoCaption}><MaterialCommunityIcons name="image-search-outline" size={17} color={C.brand}/><Text style={pc.photoCaptionText}>برای بزرگ‌نمایی تصویر لمس کنید</Text></View></TouchableOpacity>}
+            {!!photo && <HistoricalMediaImage uri={photo} style={pc.photo} accessibilityLabel="بزرگ‌نمایی تصویر چک‌لیست" onPress={() => setViewer(photo)}/>}
             <View style={pc.detailTitle}><MaterialCommunityIcons name="format-list-checks" size={20} color={C.brand}/><Text style={pc.detailTitleText}>نتایج بررسی</Text></View>
             {checks.length===0&&<Text style={pc.noItems}>موردی برای این چک‌لیست ثبت نشده است.</Text>}
             {checks.map((it,i)=><View key={i} style={pc.checkRow}><View style={pc.checkIndex}><Text style={pc.checkIndexText}>{faNum(i+1)}</Text></View><Text style={pc.checkLabel}>{it.label}</Text><Text style={pc.checkValue}>{faNum(it.value ?? '—')}</Text></View>)}
@@ -495,9 +496,9 @@ const s = StyleSheet.create({
   roleHelper: { backgroundColor: '#fdf3e0' },
   roleBadgeTxt: { fontFamily: FONT.bold, fontSize: 11 },
   filterBar: { flexDirection: 'row-reverse', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' },
-  fBtn: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 14 },
+  fBtn: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 14, minHeight: 48, justifyContent: 'center' },
   fBtnTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 12 },
-  clr: { paddingVertical: 8, paddingHorizontal: 10 },
+  clr: { paddingVertical: 8, paddingHorizontal: 10, minHeight: 48, justifyContent: 'center' },
   clrTxt: { fontFamily: FONT.regular, color: C.danger, fontSize: 11.5 },
   counts: { flexDirection: 'row-reverse', gap: 10, marginBottom: 12 },
   countBox: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 16, padding: 15, alignItems: 'center' },

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, View, Image, TouchableOpacity, Text, StyleSheet, Dimensions, FlatList } from 'react-native';
 import { imageSource } from '../api';
+import HistoricalMediaImage from './HistoricalMediaImage';
 
 // پشتیبانی از دو حالت:
 // ۱) تک‌تصویری قدیمی: <ImageViewer uri={...} visible={...} onClose={...} />
@@ -21,7 +22,7 @@ export default function ImageViewer({ uri, images, initialIndex = 0, visible, on
         {list.length > 1 && (
           <View style={s.counter}><Text style={s.counterTxt}>{safeIndex + 1} / {list.length}</Text></View>
         )}
-        {!!current?.uri && <Image source={imageSource(current.uri)} style={s.img} resizeMode="contain" />}
+        {!!current?.uri && <HistoricalMediaImage uri={current.uri} style={s.img} resizeMode="contain" />}
         {!!current?.label && <Text style={s.label}>{current.label}</Text>}
         {list.length > 1 && (
           <>
