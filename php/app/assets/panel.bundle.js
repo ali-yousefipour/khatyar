@@ -15346,13 +15346,40 @@ function UserActivity() {
     const [from, setFrom] = useState("");
     const [to, setTo] = useState("");
     const [data, setData] = useState(null);
-    useEffect(() => { db.users().then(setUsers).catch(() => { }); }, []);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [usersError, setUsersError] = useState('');
+    const [detailBusy, setDetailBusy] = useState(false);
+    const requestId = useRef(0);
+    useEffect(() => { db.users().then(setUsers).catch(e => setUsersError(e.message || 'دریافت فهرست کاربران ناموفق بود')); }, []);
     const load = async () => {
-        if (!uid)
-            return alert("یک کاربر را انتخاب کنید");
+        if (!uid) {
+            setError('لطفاً یک کاربر انتخاب کنید.');
+            return;
+        }
         const f = from || new Date().toISOString().slice(0, 10);
         const tt = to || f;
-        setData(await GET(`/admin/user-activity-range?user_id=${uid}&from=${f}&to=${tt}`));
+        if (f > tt) {
+            setError('تاریخ شروع نباید بعد از تاریخ پایان باشد.');
+            return;
+        }
+        const req = ++requestId.current;
+        setLoading(true);
+        setError('');
+        setData(null);
+        try {
+            const result = await GET(`/admin/user-activity-range?user_id=${encodeURIComponent(uid)}&from=${encodeURIComponent(f)}&to=${encodeURIComponent(tt)}`);
+            if (req === requestId.current)
+                setData(result);
+        }
+        catch (e) {
+            if (req === requestId.current)
+                setError(e.message || 'دریافت گزارش فعالیت ناموفق بود');
+        }
+        finally {
+            if (req === requestId.current)
+                setLoading(false);
+        }
     };
     const fmt = (sec) => { sec = +sec || 0; const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return (h ? fa(h) + " ساعت " : "") + fa(m) + " دقیقه"; };
     const filtered = users.filter(u => { const s = (u.first_name + " " + u.last_name + " " + (u.role_title || "")); return !q || s.indexOf(q) >= 0; });
@@ -15376,18 +15403,26 @@ function UserActivity() {
             return alert("یک کاربر را انتخاب کنید");
         const f = from || new Date().toISOString().slice(0, 10);
         const tt = to || f;
+        if (f > tt)
+            return setError('تاریخ شروع نباید بعد از تاریخ پایان باشد.');
+        setDetailBusy(true);
         try {
             const res = await fetch(`${API_BASE}/admin/user-activity/export?user_id=${uid}&from=${f}&to=${tt}`, { headers: tok() });
             if (!res.ok)
                 throw new Error("خطا در دریافت فایل");
             const blob = await res.blob();
             const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
+            const url = URL.createObjectURL(blob);
+            a.href = url;
             a.download = `ریز_عملکرد_${selName()}_${f}_${tt}.csv`;
             a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
         }
         catch (e) {
-            alert(e.message || "خطا");
+            setError(e.message || "خطا در دریافت ریز عملکرد");
+        }
+        finally {
+            setDetailBusy(false);
         }
     };
     // خروجی اکسل فعالیت همهٔ کاربران (گزارش کلی)
@@ -15395,6 +15430,8 @@ function UserActivity() {
     const exportAll = async () => {
         const f = from || new Date().toISOString().slice(0, 10);
         const tt = to || f;
+        if (f > tt)
+            return setError('تاریخ شروع نباید بعد از تاریخ پایان باشد.');
         setAllBusy(true);
         try {
             const r = await GET(`/admin/user-activity-all?from=${f}&to=${tt}`);
@@ -15415,15 +15452,18 @@ function UserActivity() {
         }
         setAllBusy(false);
     };
-    return (React.createElement("div", { className: "panel admin-workspace-page" },
-        React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634 \u0641\u0639\u0627\u0644\u06CC\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646"),
+    return (React.createElement("div", { className: "panel admin-workspace-page user-activity-page" },
+        React.createElement("div", { className: "user-activity-intro" },
+            React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634 \u0641\u0639\u0627\u0644\u06CC\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646"),
+            React.createElement("p", null, "\u0645\u062F\u062A \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0627\u0632 \u0628\u0631\u0646\u0627\u0645\u0647\u060C \u0627\u062A\u0635\u0627\u0644 \u0627\u06CC\u0646\u062A\u0631\u0646\u062A\u060C GPS \u0648 \u0631\u0648\u06CC\u062F\u0627\u062F\u0647\u0627\u06CC \u0634\u0628\u06A9\u0647 \u0631\u0627 \u062F\u0631 \u0628\u0627\u0632\u0647\u0654 \u062F\u0644\u062E\u0648\u0627\u0647 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646\u06CC\u062F.")),
+        usersError && React.createElement("p", { className: "workspace-inline-error", role: "alert" }, usersError),
         React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", alignItems: "flex-end" } },
             React.createElement("div", null,
                 React.createElement("label", { className: "label" }, "\u062C\u0633\u062A\u062C\u0648\u06CC \u06A9\u0627\u0631\u0628\u0631"),
                 React.createElement("input", { className: "input", placeholder: "\u0646\u0627\u0645/\u0633\u0645\u062A\u2026", value: q, onChange: e => setQ(e.target.value), style: { maxWidth: 170 } })),
             React.createElement("div", null,
                 React.createElement("label", { className: "label" }, "\u06A9\u0627\u0631\u0628\u0631"),
-                React.createElement("select", { className: "input", style: { maxWidth: 240 }, value: uid, onChange: e => setUid(e.target.value) },
+                React.createElement("select", { className: "input", style: { maxWidth: 240 }, value: uid, onChange: e => { setUid(e.target.value); setData(null); setError(''); requestId.current++; setLoading(false); } },
                     React.createElement("option", { value: "" }, "\u0627\u0646\u062A\u062E\u0627\u0628\u2026"),
                     filtered.map(u => React.createElement("option", { key: u.id, value: u.id },
                         u.first_name,
@@ -15439,10 +15479,12 @@ function UserActivity() {
                 React.createElement("label", { className: "label" }, "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E"),
                 React.createElement("br", null),
                 React.createElement(JDate, { value: to, onChange: setTo, placeholder: "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E" })),
-            React.createElement("button", { className: "btn p", onClick: load }, "\u0646\u0645\u0627\u06CC\u0634"),
+            React.createElement("button", { className: "btn p", onClick: load, disabled: loading }, loading ? 'در حال دریافت…' : 'نمایش گزارش'),
             data && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2B07 \u062E\u0631\u0648\u062C\u06CC Excel (\u062E\u0644\u0627\u0635\u0647)"),
-            uid && React.createElement("button", { className: "btn t", onClick: exportDetail }, "\u2B07 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644 \u0631\u06CC\u0632 \u0639\u0645\u0644\u06A9\u0631\u062F"),
+            uid && React.createElement("button", { className: "btn t", disabled: detailBusy, onClick: exportDetail }, detailBusy ? 'در حال دریافت…' : '⬇ خروجی اکسل ریز عملکرد'),
             React.createElement("button", { className: "btn g", onClick: exportAll, disabled: allBusy, style: { background: "#0f766e", color: "#fff" } }, allBusy ? "در حال آماده‌سازی…" : "⬇ خروجی اکسل همهٔ کاربران")),
+        error && React.createElement("div", { className: "workspace-inline-error", role: "alert" }, error),
+        !data && !loading && !error && React.createElement("div", { className: "user-activity-empty", role: "status" }, "\u06CC\u06A9 \u06A9\u0627\u0631\u0628\u0631 \u0648 \u0628\u0627\u0632\u0647\u0654 \u062A\u0627\u0631\u06CC\u062E\u06CC \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F\u060C \u0633\u067E\u0633 \u00AB\u0646\u0645\u0627\u06CC\u0634 \u06AF\u0632\u0627\u0631\u0634\u00BB \u0631\u0627 \u0628\u0632\u0646\u06CC\u062F."),
         data && React.createElement("div", { className: "kpis", style: { marginTop: 14 } },
             React.createElement("div", { className: "kpi" },
                 React.createElement("div", { className: "n" }, fmt(data.usage_seconds)),
