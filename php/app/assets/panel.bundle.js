@@ -1044,13 +1044,10 @@ function ResponsiveTable({ children, ...props }) {
 function BirthdayCelebration({ bdays }) {
     if (!bdays || !Array.isArray(bdays.people))
         return null;
-    const people = bdays.people;
+    const people = bdays.people.filter(p => p.is_today || Number(p.days_left) > 0);
     if (!people.length)
-        return React.createElement("div", { className: "birthday-empty", role: "status" },
-            "\uD83C\uDF82 \u062F\u0631 \u0645\u0627\u0647 ",
-            bdays.month_name,
-            " \u0633\u0627\u0644\u06AF\u0631\u062F \u062A\u0648\u0644\u062F\u06CC \u0628\u0631\u0627\u06CC \u0647\u0645\u06A9\u0627\u0631\u0627\u0646 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.");
-    const ordered = [...people].sort((a, b) => (a.is_today ? 0 : a.days_left > 0 ? 1 : 2) - (b.is_today ? 0 : b.days_left > 0 ? 1 : 2) || (a.days_left > 0 ? a.days_left : 999) - (b.days_left > 0 ? b.days_left : 999));
+        return null;
+    const ordered = [...people].sort((a, b) => (a.is_today ? 0 : 1) - (b.is_today ? 0 : 1) || Number(a.days_left) - Number(b.days_left));
     return React.createElement("section", { className: "birthday-celebration", "aria-label": "\u0633\u0627\u0644\u06AF\u0631\u062F \u062A\u0648\u0644\u062F \u0647\u0645\u06A9\u0627\u0631\u0627\u0646" },
         React.createElement("div", { className: "birthday-celebration-head" },
             React.createElement("div", { className: "birthday-celebration-icon", "aria-hidden": "true" }, "\uD83C\uDF82"),
@@ -1066,8 +1063,8 @@ function BirthdayCelebration({ bdays }) {
                 fa(people.length),
                 " \u0646\u0641\u0631")),
         React.createElement("div", { className: "birthday-celebration-grid" }, ordered.map((p, i) => {
-            const status = p.is_today ? "today" : p.days_left > 0 ? "upcoming" : "passed";
-            const statusText = p.is_today ? "امروز، تولدت مبارک!" : p.days_left > 0 ? fa(p.days_left) + " روز مانده" : "سپری شده";
+            const status = p.is_today ? "today" : "upcoming";
+            const statusText = p.is_today ? "امروز، تولدت مبارک!" : fa(p.days_left) + " روز مانده";
             return React.createElement("article", { className: "birthday-person birthday-person-" + status, key: p.id || p.birth_date + "-" + i },
                 React.createElement("div", { className: "birthday-person-avatar", "aria-hidden": "true" }, p.is_today ? "🎉" : p.days_left > 0 ? "🎁" : "🎈"),
                 React.createElement("div", { className: "birthday-person-details" },
