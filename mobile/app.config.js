@@ -2,9 +2,9 @@
 try { require('dotenv').config(); } catch (e) {}
 let hasLocalAuth = false;
 try { require.resolve('expo-local-authentication'); hasLocalAuth = true; } catch (e) { hasLocalAuth = false; }
-// Android 1.5.16: profile, lock-screen, and Wi-Fi attendance fixes.
-const APP_VERSION = '1.5.16';
-const APP_VERSION_CODE = 10516;
+// Android 1.5.17: presence camera, operational UI and recovery fixes.
+const APP_VERSION = '1.5.17';
+const APP_VERSION_CODE = 10517;
 module.exports = ({ config }) => ({
   ...config,
   name: process.env.APP_NAME || 'خطیار', slug: 'khatyar-mobile', version: APP_VERSION, orientation: 'portrait', newArchEnabled: true, icon: './assets/icon.png', userInterfaceStyle: 'light', assetBundlePatterns: ['**/*'],

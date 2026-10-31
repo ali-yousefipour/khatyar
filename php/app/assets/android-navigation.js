@@ -357,63 +357,63 @@ window.KH_ANDROID_NAV={
     {
       "key": "map-settings",
       "title": "تنظیمات نقشه و دانلود آفلاین",
-      "icon": "🗺️",
+      "icon": "map-outline",
       "route": "MapSettings",
       "description": "مدیریت تنظیمات نقشه و داده‌های آفلاین"
     },
     {
       "key": "expiry-settings",
       "title": "اعلان‌های پایان اعتبار",
-      "icon": "🔔",
+      "icon": "bell-outline",
       "route": "ExpiryNotificationSettings",
       "description": "تنظیم اعلان‌های مربوط به اعتبار"
     },
     {
       "key": "field-alerts",
       "title": "هشدارهای میدانی",
-      "icon": "⚠️",
+      "icon": "alert-circle-outline",
       "route": "FieldAlertSettings",
       "description": "تنظیم هشدارهای میدانی"
     },
     {
       "key": "app-lock",
       "title": "قفل برنامه",
-      "icon": "🔐",
+      "icon": "lock-outline",
       "route": "AppLockSettings",
       "description": "مدیریت قفل و امنیت ورود به برنامه"
     },
     {
       "key": "crash-reports",
       "title": "گزارش خطاهای برنامه",
-      "icon": "🛠️",
+      "icon": "bug-outline",
       "route": "CrashReports",
       "description": "مشاهده و مدیریت گزارش خطاهای برنامه"
     },
     {
       "key": "import-times",
       "title": "آخرین زمان‌های به‌روزرسانی",
-      "icon": "🕒",
+      "icon": "clock-outline",
       "route": "ImportTimes",
       "description": "مشاهده آخرین زمان دریافت و به‌روزرسانی اطلاعات"
     },
     {
       "key": "check-update",
       "title": "بررسی به‌روزرسانی برنامه",
-      "icon": "🔄",
+      "icon": "update",
       "route": null,
       "description": "بررسی وجود نسخه جدید برنامه"
     },
     {
       "key": "privacy-policy",
       "title": "سیاست حریم خصوصی",
-      "icon": "🔒",
+      "icon": "shield-lock-outline",
       "route": "PrivacyPolicy",
       "description": "اطلاعات مربوط به جمع‌آوری، استفاده و حفاظت از داده‌ها"
     },
     {
       "key": "about-app",
       "title": "درباره برنامه",
-      "icon": "ℹ️",
+      "icon": "information-outline",
       "route": "AboutApp",
       "description": "اطلاعات رسمی خطیار، نسخه، تولیدکننده و راه‌های ارتباطی"
     }

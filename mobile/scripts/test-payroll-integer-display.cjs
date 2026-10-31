@@ -13,9 +13,12 @@ const moneyFields = [
 for (const field of moneyFields) {
   assert(details.includes("'"+field+"'"), 'Missing whole-money detail field: '+field);
 }
-assert(details.includes("hiddenDetailFields = new Set(['employer_total'])"));
-assert(details.includes("filter(({ field }) => !hiddenDetailFields.has(field))"));
-assert(details.includes("integerMoneyFields.has(field) ? moneyText(detail.row.data[field])"));
+assert.match(details, /hiddenDetailFields = new Set\(\[[^\]]*'employer_total'[^\]]*'row'[^\]]*\]\)/,
+  'Employer-only totals and row identifiers must not appear as payroll fields');
+assert.match(details, /hiddenDetailFields\.has\(String\(field\)\.toLowerCase\(\)\)/,
+  'Detail rows must filter hidden fields regardless of casing');
+assert.match(details, /integerMoneyFields\.has\(field\)[\s\S]*?moneyText\(detail\.row\.data\?\.\[field\]\)/,
+  'Money fields must use integer formatting in detail cells');
 assert(slip.includes("isIntegerMoney(control) || String(control.Format || '') !== '@'"));
 const aliases = ['friday_amount','holiday_amount','overtime_amount','gross','insurance','tax','net','bonus','severance','employer_insurance'];
 for (const field of aliases) assert(slip.includes("'"+field+"'"), 'Missing payslip alias: '+field);

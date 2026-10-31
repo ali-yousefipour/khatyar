@@ -21,35 +21,40 @@ export default function DebtScreen({ route, navigation }) {
   const [data, setData] = useState(null);
   const [cfg, setCfg] = useState({ bill_sms_enabled: false, can_send_sms: false });
   const [sending, setSending] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [detailBill, setDetailBill] = useState(null); // فیش انتخاب‌شده برای نمایش درشت
 
   function load() {
+    setLoading(true);
     const nid = driver.national_id;
     const plate = driver.plate || route.params?.vehicle?.plate;
     if (nid) {
       request(`/debt/${nid}`).then((d) => {
         // اگر با کد ملی فیشی پیدا نشد، با پلاک امتحان کن
         if ((!d.bills || d.bills.length === 0) && plate) {
-          request(`/debt-by-plate/${encodeURIComponent(plate)}`).then(setData).catch(() => setData(d));
-        } else setData(d);
+          request(`/debt-by-plate/${encodeURIComponent(plate)}`).then(setData).catch(() => setData(d)).finally(() => setLoading(false));
+        } else { setData(d); setLoading(false); }
       }).catch((e) => {
         // خطا در کد ملی — با پلاک امتحان کن
-        if (plate) request(`/debt-by-plate/${encodeURIComponent(plate)}`).then(setData).catch((e2) => setData({ bills: [], unpaid_count: 0, total_unpaid: 0, _err: e2.message }));
-        else setData({ bills: [], unpaid_count: 0, total_unpaid: 0, _err: e.message });
+        if (plate) request(`/debt-by-plate/${encodeURIComponent(plate)}`).then(setData).catch((e2) => setData({ bills: [], unpaid_count: 0, total_unpaid: 0, _err: e2.message })).finally(() => setLoading(false));
+        else { setData({ bills: [], unpaid_count: 0, total_unpaid: 0, _err: e.message }); setLoading(false); }
       });
     } else if (plate) {
-      request(`/debt-by-plate/${encodeURIComponent(plate)}`).then(setData).catch((e) => setData({ bills: [], unpaid_count: 0, total_unpaid: 0, _err: e.message }));
+      request(`/debt-by-plate/${encodeURIComponent(plate)}`).then(setData).catch((e) => setData({ bills: [], unpaid_count: 0, total_unpaid: 0, _err: e.message })).finally(() => setLoading(false));
     } else {
       setData({ bills: [], unpaid_count: 0, total_unpaid: 0, _err: 'کد ملی و پلاک راننده موجود نیست' });
+      setLoading(false);
     }
   }
   useEffect(() => { load(); getAppConfig().then((c) => setCfg(c || {})).catch(() => {}); }, []);
 
   async function sendBillBot(b) {
-    try { setSending('bot'+b.id); const r=await request(`/debt/${b.id}/messenger`, { method:'POST', body:{} }); Alert.alert('ارسال شد', `مشخصات فیش در ربات‌ها ارسال شد. ارسال موفق: ${r.sent||0}، متصل‌نشده: ${r.not_connected||0}`); } catch(e){ Alert.alert('خطا',e.message||'ارسال در ربات‌ها ناموفق بود.'); } finally { setSending(null); }
+    if (sending !== null) return;
+    try { setSending('bot'+b.id); const r=await request(`/debt/${b.id}/messenger`, { method:'POST', body:{} }); const count=Number(r?.sent||0); Alert.alert(count>0?'ارسال شد':'ارسالی انجام نشد', `ارسال موفق: ${faNum(count)}، متصل‌نشده: ${faNum(r?.not_connected||0)}`); } catch(e){ Alert.alert('خطا',e.message||'ارسال در ربات‌ها ناموفق بود.'); } finally { setSending(null); }
   }
 
   async function sendBillSms(b) {
+    if (sending !== null) return;
     try {
       setSending(b.id);
       await request(`/debt/${b.id}/sms`, { method: 'POST', body: {} });
@@ -59,7 +64,18 @@ export default function DebtScreen({ route, navigation }) {
     } finally { setSending(null); }
   }
 
-  if (!data) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
+  async function openPayment(b) {
+    if (!b.pay_url) { Alert.alert('لینک پرداخت موجود نیست', 'برای دریافت لینک پرداخت با پشتیبانی سامانه تماس بگیرید.'); return; }
+    try {
+      const supported = await Linking.canOpenURL(b.pay_url);
+      if (!supported) throw new Error('cannot_open_payment_link');
+      sendTelemetry('bill_pay_click', { bill_id: b.bill_id || null });
+      await Linking.openURL(b.pay_url);
+    } catch (_) { Alert.alert('بازکردن پرداخت ناموفق بود', 'اتصال اینترنت و مرورگر گوشی را بررسی کنید. هیچ پرداختی در برنامه تأیید نشده است.'); }
+  }
+
+  if (!data && loading) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
+  if (!data) return <View style={s.center}><Text style={s.errorText}>اطلاعات فیش‌ها دریافت نشد.</Text><TouchableOpacity style={s.retryBtn} onPress={load}><Text style={s.retryTxt}>تلاش دوباره</Text></TouchableOpacity></View>;
   const showSms = cfg.bill_sms_enabled && cfg.can_send_sms;
   const sortedBills = [...(Array.isArray(data.bills) ? data.bills : [])].sort((a, b) =>
     dateOrder(b.pay_date || b.issue_date || b.created_at) - dateOrder(a.pay_date || a.issue_date || a.created_at) ||
@@ -74,7 +90,7 @@ export default function DebtScreen({ route, navigation }) {
           <Text style={s.redTxt}>{faNum(data.unpaid_count)} فیش پرداخت‌نشده · مجموع {faNum(faNum(Number(data.total_unpaid).toLocaleString()))} ریال</Text>
         </View>
       )}
-      {data._err && <View style={s.red}><Text style={s.redTxt}>خطا: {data._err}</Text></View>}
+      {data._err && <View accessibilityLiveRegion="polite" style={s.red}><Text style={s.redTxt}>خطا: {data._err}</Text><TouchableOpacity accessibilityRole="button" onPress={load} disabled={loading} style={s.retryBtn}><Text style={s.retryTxt}>{loading?'در حال دریافت…':'تلاش دوباره'}</Text></TouchableOpacity></View>}
       {!data._err && sortedBills.length === 0 && <View style={{ padding: 24, alignItems: 'center' }}><Text style={{ color: C.muted, fontFamily: FONT.regular }}>فیشی برای این راننده ثبت نشده است.</Text></View>}
       {sortedBills.map((b) => {
         const unpaid = b.status !== 'پرداخت شده';
@@ -94,7 +110,7 @@ export default function DebtScreen({ route, navigation }) {
             </View>
             <View style={s.billActions}>
               <TouchableOpacity style={[s.detailBtn, s.actionButton]} onPress={() => setDetailBill(b)}><MaterialCommunityIcons name="information-outline" size={18} color="#2746a6"/><Text style={s.detailTxt}>نمایش اطلاعات</Text></TouchableOpacity>
-              {unpaid && <TouchableOpacity style={[s.pay, s.actionButton]} onPress={() => { if (b.pay_url) { sendTelemetry('bill_pay_click', { bill_id: b.bill_id || null }); Linking.openURL(b.pay_url); } }}><MaterialCommunityIcons name="credit-card-outline" size={18} color="#fff"/><Text style={s.payTxt}>پرداخت</Text></TouchableOpacity>}
+              {unpaid && <TouchableOpacity accessibilityRole="button" style={[s.pay, s.actionButton]} onPress={() => openPayment(b)}><MaterialCommunityIcons name="credit-card-outline" size={18} color="#fff"/><Text style={s.payTxt}>پرداخت</Text></TouchableOpacity>}
               {unpaid && cfg.can_send_messenger && cfg.bill_bot_enabled !== false && <TouchableOpacity style={[s.botBtn, s.actionButton]} disabled={sending === 'bot'+b.id} onPress={() => sendBillBot(b)}><MaterialCommunityIcons name="robot-outline" size={18} color="#3b5bd6"/><Text style={s.botTxt}>{sending === 'bot'+b.id ? 'در حال ارسال…' : 'ارسال در ربات‌ها'}</Text></TouchableOpacity>}
               {unpaid && showSms && <TouchableOpacity style={[s.smsBtn, s.actionButton]} disabled={sending === b.id} onPress={() => sendBillSms(b)}><MaterialCommunityIcons name="message-text-outline" size={18} color={C.brand}/><Text style={s.smsTxt}>{sending === b.id ? 'در حال ارسال…' : 'ارسال پیامک'}</Text></TouchableOpacity>}
             </View>
@@ -145,6 +161,9 @@ const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   red: { backgroundColor: C.danger, borderRadius: 16, padding: 15, marginBottom: 12 },
   redTxt: { color: '#fff', fontFamily: FONT.bold, textAlign: 'center', fontSize: 13 },
+  errorText: { color: C.danger, fontFamily: FONT.regular, textAlign: 'center', lineHeight: 22, marginBottom: 12 },
+  retryBtn: { minHeight: 48, borderRadius: 10, paddingHorizontal: 18, paddingVertical: 12, justifyContent: 'center', alignItems: 'center', marginTop: 10, backgroundColor: C.brand },
+  retryTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 13 },
   header: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginBottom: 16 },
   headerIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#e6f4ef', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 17, textAlign: 'right' },
