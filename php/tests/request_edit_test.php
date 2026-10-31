@@ -16,6 +16,7 @@ class Db {
     if(str_contains($sql,'RELEASE_LOCK')){self::$locks[]='release';return ['released'=>1];}
     if(str_contains($sql,'COALESCE(z.leave_requires_substitute'))return ['leave_requires_substitute'=>self::$policy['region_required']??0];
     if(str_contains($sql,'SHOW COLUMNS'))return ['Field'=>'substitute_user_id'];
+    if(str_contains($sql,'FROM request_approval_steps'))return null;
     if(str_contains($sql,'FROM work_policies'))return self::$policy;
     if(str_contains($sql,'SELECT * FROM users'))return ['id'=>$params[0],'work_policy_id'=>1];
     if(str_contains($sql,'FROM users'))return $params[0]>0?['id'=>$params[0]]:null;
@@ -65,7 +66,8 @@ function expect($name,$value){if(!$value)throw new LogicException('FAIL '.$name)
 function denied($name,$code,$fn){try{$fn();}catch(RuntimeException $e){expect($name,$e->getCode()===$code);return;}throw new LogicException('Unexpected success: '.$name);}
 function record($extra=[]){return array_replace(['id'=>3,'user_id'=>12,'type'=>'annual','unit'=>'hourly','status'=>'approved','from_jdate'=>'1405-07-01','to_jdate'=>'1405-07-01','the_date'=>'1405-07-01','from_time'=>'08:00','to_time'=>'09:00','minutes'=>60,'reason'=>'original','approver_note'=>'approved note','approver_id'=>99,'decided_at'=>'2026-10-01 09:00:00','pending_on'=>null,'substitute_user_id'=>null,'in_time'=>null,'out_time'=>null,'selfie_data'=>'private-original-photo'], $extra);}
 function resetEdit($extra=[]){Db::$rows=[3=>record($extra)];Db::$punches=[];Db::$assignments=[];Db::$history=[];Db::$writes=[];Db::$failAudit=false;Db::$conflict=false;Db::$stale=false;Db::$locked=1;Db::$locks=[];Db::$policy=['config'=>['annual'=>[]]];}
-function edit($body=[]){return _req_edit_approved(3,array_replace(['edit_token'=>_req_edit_token(Db::$rows[3]),'edit_reason'=>'اصلاح اشتباه ثبت'], $body),['id'=>7]);}
+function edit($body=[]){return _req_edit_approved(3,array_replace(['edit_token'=>_req_edit_token(Db::$rows[3]),'edit_reason'=>'اصلاح اشتباه ثبت'], $body),['id'=>7,'role_title'=>'مدیر کل']);}
+resetEdit();denied('unassigned manager cannot edit another request',403,fn()=>_req_edit_approved(3,['edit_reason'=>'تلاش غیرمجاز'],['id'=>7,'role_title'=>'سربازرس ارشد']));
 resetEdit();edit(['to_time'=>'10:00','minutes'=>9999]);
 expect('recomputed duration, preserved approval and original evidence',Db::$rows[3]['minutes']===120&&Db::$rows[3]['approver_id']===99&&Db::$rows[3]['status']==='approved'&&Db::$rows[3]['selfie_data']==='private-original-photo');
 $audit=Db::$history[0];expect('required actor/reason and before/after history',$audit[1]===7&&json_decode($audit[3],true)['minutes']===60&&json_decode($audit[4],true)['minutes']===120&&!str_contains($audit[3],'private-original-photo'));
