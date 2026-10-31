@@ -27,6 +27,7 @@ assert.match(signed,/KH-۰۰۰۰۰۰۴۲/);
 assert.match(signed,/۱۴۰۵\/۰۸\/۰۹/);
 assert.match(signed,/InvoiceVazir/);
 assert.match(signed,/assets\/invoices\/sample-signature\.jpg/);
+assert.ok(!signed.includes('تصویر نمونه امضا')&&!customImage.includes('تصویر امضای انتخاب‌شده'),'Printed invoice has no signature caption');
 assert.ok(fs.existsSync(__dirname+'/../app/assets/invoices/sample-signature.jpg'),'Signature sample is deployed with panel assets');
 assert.ok(!html.includes('<b class="signature-person">'),'Unsigned invoices do not fabricate a signatory');
 assert.match(html,/اشتراک &lt;آزمایشی&gt;/,'User-supplied text is escaped');
