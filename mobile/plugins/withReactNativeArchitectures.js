@@ -1,9 +1,8 @@
 const { withGradleProperties, withAppBuildGradle } = require('@expo/config-plugins');
 
-// New APK releases target 64-bit Android devices only. Keep both the RN
-// compilation target AND Gradle NDK ABI filter in sync: the latter prevents
-// prebuilt third-party 32-bit .so files from sneaking into the final APK.
-const TARGET_ARCHITECTURES = 'arm64-v8a';
+// Include both 32-bit and 64-bit ARM for older Android devices and newer phones.
+// React Native compilation targets and Gradle NDK filters must stay in sync.
+const TARGET_ARCHITECTURES = 'armeabi-v7a,arm64-v8a';
 
 module.exports = function withReactNativeArchitectures(config) {
   config = withGradleProperties(config, (cfg) => {
@@ -33,10 +32,10 @@ module.exports = function withReactNativeArchitectures(config) {
   });
   return withAppBuildGradle(config, (cfg) => {
     if (cfg.modResults.language !== 'groovy') return cfg;
-    const marker = '// KHATYAR_ARM64_ONLY';
+    const marker = '// KHATYAR_ARM32_ARM64';
     if (cfg.modResults.contents.includes(marker)) return cfg;
-    const updated = cfg.modResults.contents.replace(/defaultConfig\s*\{/, match => `${match}\n        ${marker}\n        ndk { abiFilters 'arm64-v8a' }`);
-    if (updated === cfg.modResults.contents) throw new Error('Android defaultConfig block not found; cannot enforce arm64-only APK.');
+    const updated = cfg.modResults.contents.replace(/defaultConfig\s*\{/, match => `${match}\n        ${marker}\n        ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }`);
+    if (updated === cfg.modResults.contents) throw new Error('Android defaultConfig block not found; cannot enforce ARM32/ARM64 APK.');
     cfg.modResults.contents = updated;
     return cfg;
   });
