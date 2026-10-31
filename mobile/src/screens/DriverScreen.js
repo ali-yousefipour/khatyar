@@ -30,7 +30,6 @@ export default function DriverScreen({ route, navigation }) {
   const [portraitConsent, setPortraitConsent] = useState(false);
   const [portraitBusy, setPortraitBusy] = useState(false);
   const [portraitLoading, setPortraitLoading] = useState(true);
-  const [portraitRequired, setPortraitRequired] = useState(false);
   const [portraitError, setPortraitError] = useState('');
   const hasDriver = !!(driver && (driver.id || driver.national_id || driver.national_code));
   useEffect(() => {
@@ -41,10 +40,8 @@ export default function DriverScreen({ route, navigation }) {
     if (!driver.id) { setPortraitLoading(false); return; }
     let active = true;
     setPortraitLoading(true);
-    request('/driver-photos/config', { noStore: true, queueIfOffline: false })
-      .then(data => { if (active) setPortraitRequired(!!data?.required); }).catch(() => {});
     request('/driver-photos/' + driver.id, { noStore: true, queueIfOffline: false })
-      .then(data => { if (active) { setPortrait(data?.photo || null); setPortraitRequired(!!data?.required); setPortraitError(''); } })
+      .then(data => { if (active) { setPortrait(data?.photo || null); setPortraitError(''); } })
       .catch(() => { if (active) setPortraitError('دریافت وضعیت تصویر ممکن نشد. دوباره تلاش کنید.'); })
       .finally(() => { if (active) setPortraitLoading(false); });
     return () => { active = false; };
@@ -84,6 +81,14 @@ export default function DriverScreen({ route, navigation }) {
       { text: 'بعداً', style: 'cancel' },
       { text: 'رفتن به درج عکس', onPress: () => { if (!portraitDraft) capturePortrait(); } },
     ]);
+  };
+  const runDriverAction = (action) => {
+    if (action.t === 'ثبت تذکر') return action.on();
+    if (portraitLoading || portraitError) {
+      return Alert.alert('بررسی تصویر پرسنلی', portraitError || 'لطفاً تا بررسی وضعیت تصویر پرسنلی صبر کنید.');
+    }
+    if (!portrait || portraitBusy || portraitDraft) return photoGate();
+    return action.on();
   };
   const safeText = (v) => {
     if (v === null || v === undefined || v === '') return '';
@@ -165,6 +170,7 @@ export default function DriverScreen({ route, navigation }) {
           {portrait ? <><Image source={imageSource(portrait)} style={s.portraitPreview}/><Text style={s.portraitSuccess}>تصویر ثبت و تأیید شده است؛ تغییر آن فقط توسط مدیر سامانه امکان‌پذیر است.</Text></> : <>
             <Text style={s.portraitHint}>{portraitLoading ? 'در حال بررسی وضعیت تصویر…' : 'عکس واضح، روبه‌دوربین و متعلق به همین تاکسیران باشد. پس از تأیید نهایی، تصویر در اپ قابل ویرایش نیست.'}</Text>
             {!!portraitError && <Text style={s.portraitWarning}>{portraitError}</Text>}
+            {!portraitLoading && !portrait && <Text style={s.portraitWarning}>تا ثبت و تأیید تصویر، همهٔ خدمات تاکسیران به‌جز ثبت تذکر غیرفعال هستند.</Text>}
             {portraitDraft ? <><Image source={{uri:portraitDraft}} style={s.portraitPreview}/><TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:portraitConsent}} onPress={() => setPortraitConsent(v=>!v)} style={s.consentRow}><MaterialCommunityIcons name={portraitConsent?'checkbox-marked':'checkbox-blank-outline'} size={23} color={C.brand}/><Text style={s.consentText}>تأیید می‌کنم تصویر واضح و متعلق به راننده اصلی است؛ مسئولیت مغایرت احتمالی با من است.</Text></TouchableOpacity><View style={s.portraitActions}><TouchableOpacity style={s.portraitSecondary} onPress={() => {setPortraitDraft(null);setPortraitConsent(false);}} disabled={portraitBusy}><Text style={s.portraitSecondaryText}>عکس دوباره</Text></TouchableOpacity><TouchableOpacity style={[s.portraitButton,(!portraitConsent||portraitBusy)&&{opacity:.45}]} onPress={confirmPortrait} disabled={!portraitConsent||portraitBusy}><Text style={s.portraitButtonText}>{portraitBusy?'در حال ثبت…':'تأیید و ثبت قطعی'}</Text></TouchableOpacity></View></> : <TouchableOpacity style={s.portraitButton} disabled={portraitBusy||portraitLoading} onPress={capturePortrait}><MaterialCommunityIcons name="camera-outline" size={21} color="#fff"/><Text style={s.portraitButtonText}>گرفتن عکس با دوربین</Text></TouchableOpacity>}
           </>}
         </View>
@@ -206,7 +212,7 @@ export default function DriverScreen({ route, navigation }) {
       <View style={s.sectionHeader}><MaterialCommunityIcons name="view-dashboard-outline" size={20} color={C.brand}/><Text style={s.sectionTitle}>خدمات و عملیات</Text></View>
       <View style={s.acts}>
         {ACTIONS.map((a, i) => (
-          <TouchableOpacity key={i} accessibilityRole="button" accessibilityLabel={a.t} accessibilityState={{disabled:!!(a.primary&&busy)}} activeOpacity={0.8} onPress={a.t==='ثبت تذکر'?a.on:portraitLoading?()=>Alert.alert('در حال بررسی', 'لطفاً تا بررسی وضعیت تصویر پرسنلی صبر کنید.'):portraitRequired&&!portrait?photoGate:a.on} disabled={a.primary && busy}
+          <TouchableOpacity key={i} accessibilityRole="button" accessibilityLabel={a.t} accessibilityHint={a.t !== 'ثبت تذکر' && !portrait ? 'ابتدا تصویر پرسنلی تاکسیران را ثبت کنید' : undefined} accessibilityState={{disabled:!!(a.primary&&busy)}} activeOpacity={0.8} onPress={() => runDriverAction(a)} disabled={a.primary && busy}
             style={[s.act, a.primary && s.actPrimary, a.taxi && s.actTaxi, a.primary&&busy&&{opacity:0.6}]}>
             {a.primary && busy
               ? <ActivityIndicator color="#fff" />

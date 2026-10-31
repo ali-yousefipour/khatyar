@@ -16,9 +16,20 @@ const CHANNEL_AUDIO = [
 
 const messageTime = value => {
   if (!value) return '—';
-  const raw = String(value).replace('T', ' ');
-  const match = raw.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})/);
-  return faNum(match ? `${match[1]} · ${match[2]}` : raw);
+  const raw = String(value).trim();
+  // Radio API returns MySQL DATETIME in Tehran local time without a timezone.
+  const local = raw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::(\d{2}))?$/);
+  const parsed = new Date(local ? `${local[1]}T${local[2]}:${local[3] || '00'}+03:30` : raw);
+  if (!Number.isFinite(parsed.getTime())) return faNum(raw);
+  try {
+    const day = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+      year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Tehran',
+    }).format(parsed);
+    const clock = new Intl.DateTimeFormat('fa-IR', {
+      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Tehran',
+    }).format(parsed);
+    return `${day} · ${clock}`;
+  } catch (_) { return faNum(raw); }
 };
 
 const recentOnly = rows => {

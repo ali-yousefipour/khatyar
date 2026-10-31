@@ -9,8 +9,11 @@ const panel = fs.readFileSync(path.resolve(__dirname, '../../php/tools/panel_sou
 for (const pattern of [
   /launchCamera\(/, /requestCameraPermissionsAsync/, /compressToDataUri\(/,
   /maxW: width, maxH: 640, quality/, /portraitConsent/, /تأیید و ثبت قطعی/,
-  /queueIfOffline: false/, /a\.t==='ثبت تذکر'\?a\.on/,
+  /queueIfOffline: false/, /action\.t === 'ثبت تذکر'/,
+  /if \(!portrait \|\| portraitBusy \|\| portraitDraft\) return photoGate\(\)/,
+  /onPress=\{\(\) => runDriverAction\(a\)\}/,
 ]) assert.match(driver, pattern);
+assert.doesNotMatch(driver, /portraitRequired\s*&&/);
 assert.doesNotMatch(driver, /launchLibrary\(/);
 for (const pattern of [
   /CREATE TABLE IF NOT EXISTS driver_profile_photos/,
