@@ -1,0 +1,13 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const routes = fs.readFileSync(path.join(__dirname, '../lib/routes.php'), 'utf8');
+const team = routes.slice(routes.indexOf("route('GET', '/api/my/team'"), routes.indexOf("route('GET', '/api/admin/user-activity-range'"));
+const screen = fs.readFileSync(path.join(__dirname, '../../mobile/src/screens/ReportListsScreens.js'), 'utf8');
+assert.ok(team.includes('$visibleIds[]='), 'Authorized members must be selected before photos');
+assert.ok(team.includes('SELECT id,photo_path,photo FROM users WHERE id IN ($placeholders)'), 'Photos must be fetched for visible members only');
+assert.ok(team.includes("$member['photo']=$photos"), 'Each visible team member needs a photo field');
+assert.ok(screen.includes('<TeamMemberAvatar name={m.name} photo={m.photo}/>'), 'Photo thumbnails must accompany member names');
+assert.ok(screen.includes('onError={()=>setFailed(true)}'), 'Invalid or missing photos need fallback');
+assert.ok(screen.includes('imageSource(usable)'), 'Protected photo URLs must use authenticated image loading');
+console.log('PASS scoped team photo payload and authenticated thumbnail fallback');

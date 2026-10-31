@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, FlatList, Alert, Modal } from 'react-native';
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, TextInput, FlatList, Alert, Modal } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { request, cachedValue } from '../api';
+import { request, cachedValue, imageSource } from '../api';
 import { C, FONT } from '../theme';
 import { faNum } from '../num';
 import { jParts, inJRange } from '../jdate';
@@ -387,7 +387,7 @@ export function TeamReportScreen() {
           <View style={tm.groupHead}><View style={tm.groupIcon}><MaterialCommunityIcons name="account-multiple" size={19} color={C.brand}/></View><Text style={tm.groupTitle}>{role}</Text><Text style={tm.groupCount}>{faNum(list.length)} نفر</Text></View>
           {list.map((m) => (
             <View key={m.id} style={tm.memberRow}>
-              <View style={tm.personHead}><View style={tm.avatar}><Text style={tm.avatarText}>{(m.name || '؟').trim().slice(0, 1)}</Text></View><View style={{ flex: 1 }}><Text style={tm.memberName}>{m.name}</Text><Text style={tm.memberRole}>{[m.role_title, m.zone_name ? 'منطقه ' + m.zone_name : null].filter(Boolean).join(' · ')}</Text></View></View>
+              <View style={tm.personHead}><TeamMemberAvatar name={m.name} photo={m.photo}/><View style={{ flex: 1 }}><Text style={tm.memberName}>{m.name}</Text><Text style={tm.memberRole}>{[m.role_title, m.zone_name ? 'منطقه ' + m.zone_name : null].filter(Boolean).join(' · ')}</Text></View></View>
               <View style={[tm.statusTag, { backgroundColor: statusMeta[statusOf(m)]?.bg || statusMeta.absent.bg }]}><MaterialCommunityIcons name={statusMeta[statusOf(m)]?.icon || 'clock-outline'} size={16} color={statusMeta[statusOf(m)]?.color || C.slate}/><Text style={[tm.statusText, { color: statusMeta[statusOf(m)]?.color || C.slate }]}>{statusMeta[statusOf(m)]?.label || 'فاقد حضور فعال'}</Text></View>
               {(m.attendance_sessions || []).length ? <View style={tm.sessions}>
                 <Text style={tm.sessionsTitle}>ترددهای امروز · {faNum(m.attendance_sessions.length)} نوبت</Text>
@@ -427,6 +427,22 @@ export function TeamReportScreen() {
   );
 }
 
+function TeamMemberAvatar({name,photo}) {
+  const [failed,setFailed]=useState(false);
+  useEffect(()=>setFailed(false),[photo]);
+  let source=null;
+  if(typeof photo==='string' && photo.trim()){
+    const trimmed=photo.trim();
+    const usable=trimmed.startsWith('data:') || trimmed.startsWith('/api/') || /^https?:\/\//i.test(trimmed)
+      ? trimmed : /^(\/9j\/|iVBOR)/.test(trimmed) ? `data:image/${trimmed.startsWith('iVBOR')?'png':'jpeg'};base64,${trimmed}` : null;
+    if(usable)source=imageSource(usable);
+  }
+  return <View style={tm.avatar} accessibilityLabel={`تصویر ${name||'کاربر'}`}>
+    {source&&!failed?<Image source={source} style={tm.avatarImage} resizeMode="cover" onError={()=>setFailed(true)}/>
+      :<MaterialCommunityIcons name="account-outline" size={23} color={C.brand}/>}
+  </View>;
+}
+
 const tm = StyleSheet.create({
   retry:{backgroundColor:C.brand,padding:13,borderRadius:12,marginTop:12},
   retryText:{fontFamily:FONT.bold,color:'#fff'},
@@ -453,7 +469,8 @@ const tm = StyleSheet.create({
   groupCount: { fontFamily: FONT.bold, fontSize: 11, color: C.brand },
   memberRow: { padding: 13, borderTopWidth: 1, borderTopColor: '#e8edf3' },
   personHead: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginBottom: 10 },
-  avatar: { width: 38, height: 38, borderRadius: 13, backgroundColor: '#e9f4f0', alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 46, height: 46, borderRadius: 14, backgroundColor: '#e9f4f0', alignItems: 'center', justifyContent: 'center', overflow:'hidden',borderWidth:1,borderColor:'#d7e8e1' },
+  avatarImage: {width:'100%',height:'100%'},
   avatarText: { fontFamily: FONT.bold, fontSize: 18, color: C.brand },
   memberName: { fontFamily: FONT.bold, color: C.ink, fontSize: 14, textAlign: 'right' },
   memberRole: { fontFamily: FONT.regular, color: C.muted, fontSize: 11.5, textAlign: 'right', marginTop: 3 },

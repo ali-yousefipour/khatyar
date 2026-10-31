@@ -11287,6 +11287,7 @@ route('GET', '/api/my/team', function($p,$b,$u){
     $lr = Db::all("SELECT ul.user_id, l.code FROM user_lines ul JOIN `lines` l ON l.id=ul.line_id WHERE ul.user_id IN ($in) ORDER BY l.code", $teamIdsAll);
     foreach ($lr as $row) $userLines[$row['user_id']][] = $row['code'];
   }
+  $visibleIds=[];
   foreach ($team as $m) {
     $rt = $roleName[$m['role_id']]['title'] ?? '';
     $match = false; foreach ($allowRoles as $ar) if (mb_strpos($rt,$ar)!==false) { $match=true; break; }
@@ -11299,6 +11300,17 @@ route('GET', '/api/my/team', function($p,$b,$u){
       'lines'=>$lines,
       'line_count'=>count($lines),
     ];
+    $visibleIds[]=(int)$m['id'];
+  }
+  // Fetch personal photos only for authorized team members. Do not transfer
+  // every active user's legacy base64 photo in the hierarchy traversal query.
+  if($visibleIds){
+    $placeholders=implode(',',array_fill(0,count($visibleIds),'?'));
+    $photos=[];
+    foreach(Db::all("SELECT id,photo_path,photo FROM users WHERE id IN ($placeholders)",$visibleIds) as $person){
+      $photos[(int)$person['id']]=_user_photo_url($person['photo_path']??null,$person['photo']??null);
+    }
+    foreach($groups as &$group){foreach($group as &$member){$member['photo']=$photos[(int)$member['id']]??null;}unset($member);}unset($group);
   }
   // پرکار/کم‌کارترین زیرمجموعه بر اساس فعالیت
   $teamIds = array_column($team,'id');
