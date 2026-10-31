@@ -6,7 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { compressToDataUri } from '../img';
-import { postOrQueue, request } from '../api';
+import { postOrQueue, request, cachedValue } from '../api';
 import { C, FONT } from '../theme';
 import { fj } from '../jdate';
 import { playSound } from '../soundFx';
@@ -43,12 +43,20 @@ export default function ReportsScreen({ navigation }) {
   const [sortNewest, setSortNewest] = useState(true);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [listError, setListError] = useState('');
+  const [listBusy, setListBusy] = useState(false);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     const suffix = sentQuery.trim() ? `?q=${encodeURIComponent(sentQuery.trim())}` : '';
-    request('/my/reports' + suffix, { noStore: true, queueIfOffline: false })
-      .then(r => { setMine(Array.isArray(r) ? r : []); setListError(''); })
-      .catch(e => { setListError(e?.message || 'دریافت گزارش‌های ارسال‌شده ممکن نشد.'); });
+    const url='/my/reports' + suffix;
+    setListBusy(true);
+    try {
+      const saved=await cachedValue(url);
+      if(Array.isArray(saved))setMine(saved);
+      const result=await request(url,{queueIfOffline:false});
+      if(!Array.isArray(result))throw new Error('پاسخ گزارش‌های ارسالی معتبر نیست.');
+      setMine(result);setListError('');
+    } catch(e) { setListError(e?.message || 'دریافت گزارش‌های ارسال‌شده ممکن نشد.'); }
+    finally {setListBusy(false);}
   }, [sentQuery]);
 
   useEffect(() => {
@@ -70,11 +78,11 @@ export default function ReportsScreen({ navigation }) {
     return () => clearTimeout(timer);
   }, [tab, load]);
 
-  const sortedMine = useMemo(() => [...mine].sort((a, b) => {
+  const sortedMine = useMemo(() => mine.filter(r => !sentQuery.trim() || [r.subject,r.body,r.sender_name,r.sender].some(v=>String(v||'').includes(sentQuery.trim()))).sort((a, b) => {
     const aa = new Date(a.created_at || 0).getTime();
     const bb = new Date(b.created_at || 0).getTime();
     return sortNewest ? bb - aa : aa - bb;
-  }), [mine, sortNewest]);
+  }), [mine, sortNewest, sentQuery]);
 
   const roles = useMemo(() => {
     const map = new Map();
@@ -201,16 +209,16 @@ export default function ReportsScreen({ navigation }) {
           </View><View style={s.sectionCard}><View style={s.sectionHead}><MaterialCommunityIcons name="account-arrow-left-outline" size={21} color={C.brand}/><Text style={s.sectionTitle}>گیرندگان گزارش</Text></View><Text style={[s.label, { marginTop: 14 }]}>گیرنده گزارش</Text>
           <View style={s.mgrWrap}><TouchableOpacity style={[s.mgrChip, targetMode === 'manager' && s.mgrChipOn]} onPress={() => { setTargetMode('manager'); setSelectedRole(''); setTargetQuery(''); setToUserId(managers.length === 1 ? managers[0].id : null); }}><Text style={[s.mgrChipTxt, targetMode === 'manager' && s.white]}>مقام بالادست</Text></TouchableOpacity><TouchableOpacity style={[s.mgrChip, targetMode === 'specific' && s.mgrChipOn]} onPress={() => { setTargetMode('specific'); setToUserId(null); setSelectedRole(''); setTargetQuery(''); setShowTargetModal(true); }}><Text style={[s.mgrChipTxt, targetMode === 'specific' && s.white]}>ارسال برای شخص دیگر</Text></TouchableOpacity></View>
           {targetMode === 'manager' ? <View style={s.mgrWrap}>{managers.map((m) => <TouchableOpacity key={m.id} style={[s.mgrChip, String(toUserId) === String(m.id) && s.mgrChipOn]} onPress={() => setToUserId(m.id)}><Text style={[s.mgrChipTxt, String(toUserId) === String(m.id) && s.white]}>{m.is_chief ? '★ ' : ''}{m.name}{m.role_title ? ` (${m.role_title})` : ''}</Text></TouchableOpacity>)}</View> : <TouchableOpacity style={s.personSelect} onPress={() => setShowTargetModal(true)}><Text style={s.personSelectTitle}>{toUserId ? 'گیرنده انتخاب شده' : 'انتخاب شخص دیگر'}</Text><Text style={s.personSelectValue}>{toUserId ? (([...managers, ...allTargets].find(x => String(x.id) === String(toUserId))?.first_name || '') + ' ' + ([...managers, ...allTargets].find(x => String(x.id) === String(toUserId))?.last_name || '')).trim() : 'جستجوی مستقیم یا فیلتر بر اساس سمت'}</Text></TouchableOpacity>}
-          <TouchableOpacity style={s.ccToggle} onPress={() => { setCcEnabled((v) => !v); setCcRole(''); setCcQuery(''); setCcUserId(null); }}><Text style={s.ccToggleTxt}>{ccEnabled ? '✓ ' : ''}📋 ارسال رونوشت به فرد دیگر</Text></TouchableOpacity>
+          <TouchableOpacity style={s.ccToggle} accessibilityRole="checkbox" accessibilityState={{checked:ccEnabled}} onPress={() => { setCcEnabled((v) => !v); setCcRole(''); setCcQuery(''); setCcUserId(null); }}><MaterialCommunityIcons name={ccEnabled?'checkbox-marked-outline':'checkbox-blank-outline'} color={C.brand} size={22}/><Text style={s.ccToggleTxt}>ارسال رونوشت به فرد دیگر</Text></TouchableOpacity>
           {ccEnabled && <><Text style={s.stepTitle}>۱. انتخاب سمت گیرندهٔ رونوشت</Text><View style={s.mgrWrap}>{roles.map((r) => <TouchableOpacity key={r.key} style={[s.mgrChip, ccRole === r.key && s.mgrChipOn]} onPress={() => { setCcRole(r.key); setCcUserId(null); setCcQuery(''); }}><Text style={[s.mgrChipTxt, ccRole === r.key && s.white]}>{r.title}</Text></TouchableOpacity>)}</View>{ccRole ? <><Text style={s.stepTitle}>۲. انتخاب شخص</Text><TextInput style={s.input} value={ccQuery} onChangeText={setCcQuery} placeholder="جستجوی نام شخص…" placeholderTextColor={C.muted} /><View style={s.mgrWrap}>{ccTargets.map((t) => <TouchableOpacity key={t.id} style={[s.mgrChip, String(ccUserId) === String(t.id) && s.mgrChipOn]} onPress={() => setCcUserId(t.id)}><Text style={[s.mgrChipTxt, String(ccUserId) === String(t.id) && s.white]}>{t.first_name} {t.last_name}</Text></TouchableOpacity>)}</View></> : null}</>}
           </View><TouchableOpacity style={[s.btn, sending && { opacity: 0.6 }]} onPress={send} disabled={sending}><MaterialCommunityIcons name="send-check-outline" size={21} color="#fff"/><Text style={s.btnTxt}>{sending ? 'در حال ارسال…' : 'ارسال گزارش'}</Text></TouchableOpacity>
         </ScrollView>
       ) : (
         <ScrollView persistentScrollbar={true} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-          <View style={s.sentHero}><MaterialCommunityIcons name="clipboard-text-clock-outline" size={23} color={C.brand}/><View style={s.sentHeroText}><Text style={s.sectionTitle}>سوابق گزارش‌های ارسال‌شده</Text><Text style={s.sentCount}>{faNum(sortedMine.length)} گزارش</Text></View></View><TextInput style={s.input} value={sentQuery} onChangeText={setSentQuery} placeholder="جستجو بر اساس موضوع یا بخشی از متن گزارش…" placeholderTextColor={C.muted} />
+          <View style={s.sentHero}><MaterialCommunityIcons name="clipboard-text-clock-outline" size={23} color={C.brand}/><View style={s.sentHeroText}><Text style={s.sectionTitle}>سوابق گزارش‌های ارسال‌شده</Text><Text style={s.sentCount}>{faNum(sortedMine.length)} گزارش</Text></View><TouchableOpacity accessibilityRole="button" disabled={listBusy} onPress={load}><MaterialCommunityIcons name="refresh" size={23} color={C.brand}/></TouchableOpacity></View><TextInput style={s.input} value={sentQuery} onChangeText={setSentQuery} placeholder="جستجو بر اساس موضوع یا بخشی از متن گزارش…" placeholderTextColor={C.muted} />
           <View style={s.sortBar}><TouchableOpacity style={[s.sortBtn, sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(true)}><Text style={[s.sortTxt, sortNewest && s.white]}>جدیدترین</Text></TouchableOpacity><TouchableOpacity style={[s.sortBtn, !sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(false)}><Text style={[s.sortTxt, !sortNewest && s.white]}>قدیمی‌ترین</Text></TouchableOpacity><TouchableOpacity style={[s.pdfBtn, pdfBusy && { opacity: .6 }]} disabled={pdfBusy} onPress={exportPdf}><MaterialCommunityIcons name="file-pdf-box" size={17} color="#fff"/><Text style={s.pdfTxt}>{pdfBusy ? 'در حال ساخت PDF…' : 'خروجی PDF'}</Text></TouchableOpacity></View>
           {!!listError && <View style={{backgroundColor:'#fff2f0',borderWidth:1,borderColor:'#efc5bf',borderRadius:13,padding:14,marginTop:10}}><Text style={{fontFamily:FONT.regular,color:'#922f26',textAlign:'center'}}>{listError} اطلاعات قبلی ممکن است قدیمی باشند.</Text><TouchableOpacity accessibilityRole="button" onPress={load} style={{minHeight:48,alignItems:'center',justifyContent:'center'}}><Text style={{fontFamily:FONT.bold,color:C.brand}}>تلاش دوباره</Text></TouchableOpacity></View>}
-          {sortedMine.length === 0 && !listError && <Text style={s.empty}>گزارشی مطابق جستجو یافت نشد.</Text>}
+          {sortedMine.length === 0 && !listError && <Text style={s.empty}>{listBusy?'در حال دریافت گزارش‌ها…':'گزارشی مطابق جستجو یافت نشد.'}</Text>}
           {sortedMine.map((r) => <TouchableOpacity key={r.id} style={s.card} onPress={() => navigation.navigate('ReportDetail', { id: r.id, mine: true })}><View style={s.cardHead}><View style={s.cardTitleRow}><MaterialCommunityIcons name="file-document-outline" size={19} color={C.brand}/><Text style={s.cardTitle}>{r.subject}</Text></View><Text style={[s.status,r.priority==='urgent'&&s.urgentStatus]}>{PRIORITY[r.priority] ? `${PRIORITY[r.priority]} · ` : ''}{STATUS[r.status] || r.status}</Text></View><Text numberOfLines={2} style={s.preview}>{r.body}</Text><View style={s.dateRow}><MaterialCommunityIcons name="calendar-clock-outline" size={15} color={C.muted}/><Text style={s.date}>{faNum(fj(r.created_at))}</Text></View>{Number(r.confidential_history) === 1 ? <Text style={s.confBadge}>محرمانه · سابقه برای ارسال‌کننده مخفی است</Text> : null}<View style={s.cardFooter}><Text style={s.tapHint}>مشاهده جزئیات و پیوست‌ها</Text><MaterialCommunityIcons name="chevron-left" size={19} color={C.brand}/></View></TouchableOpacity>)}
         </ScrollView>
       )}
@@ -256,7 +264,7 @@ const s = StyleSheet.create({
   attItem: { alignItems: 'center', backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 10, padding: 10, marginTop: 7, flexDirection: 'row-reverse' }, thumb: { width: 44, height: 44, borderRadius: 8, marginEnd: 8 }, attName: { fontFamily: FONT.regular, color: C.ink, fontSize: 12, flex: 1, textAlign: 'right' }, attDel: { fontFamily: FONT.bold, color: C.danger, fontSize: 12, paddingHorizontal: 8 },
   priorityWrap: { flexDirection: 'row-reverse', gap: 8, marginBottom: 8 }, priorityChip: { flex: 1, backgroundColor: '#eef1f7', borderRadius: 12, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: C.line }, priorityOn: { backgroundColor: C.brand, borderColor: C.brand }, priorityTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 12 },
   mgrWrap: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 6 }, mgrChip: { backgroundColor: '#eef2f8', borderWidth: 1, borderColor: C.line, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 14 }, mgrChipOn: { backgroundColor: C.brand, borderColor: C.brand }, mgrChipTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 13 }, stepTitle: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right', marginTop: 14, marginBottom: 3 },
-  ccToggle: { backgroundColor: '#f0ecff', borderWidth: 1, borderColor: '#6a4fd6', borderRadius: 12, paddingVertical: 11, alignItems: 'center', marginTop: 14 }, ccToggleTxt: { fontFamily: FONT.bold, color: '#6a4fd6', fontSize: 13 },
+  ccToggle: { backgroundColor: '#eaf5ef', borderWidth: 1, borderColor: '#b6d9cd', borderRadius: 12, minHeight:48,paddingVertical: 11, flexDirection:'row-reverse',justifyContent:'center',alignItems: 'center',gap:8,marginTop: 14 }, ccToggleTxt: { fontFamily: FONT.bold, color: C.brand, fontSize: 13 },
   btn: { backgroundColor: C.brand, borderRadius: 16, padding: 16, minHeight:54, alignItems: 'center', justifyContent:'center',flexDirection:'row-reverse',gap:10,marginTop: 5 }, btnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 15 }, empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 16 },
   sortBar: { flexDirection: 'row-reverse', flexWrap:'wrap',gap: 7, marginTop: 9, marginBottom: 4 }, sortBtn: { flexGrow: 1,flexBasis:'27%', backgroundColor: '#eef1f7', borderRadius: 10, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: C.line }, sortBtnOn: { backgroundColor: C.brand, borderColor: C.brand }, sortTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 11.5 }, pdfBtn: { flexGrow: 1,flexBasis:'28%', backgroundColor: '#5b3bb8', borderRadius: 10, paddingVertical: 10, alignItems: 'center',justifyContent:'center',flexDirection:'row-reverse',gap:5,paddingHorizontal:6 }, pdfTxt: { fontFamily: FONT.bold, color: '#fff', fontSize: 11.5 },
   card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 18, padding: 16, marginTop: 11, shadowColor: '#17352f', shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 }, cardHead: { flexDirection: 'row-reverse', alignItems:'flex-start',flexWrap:'wrap',gap:8,justifyContent: 'space-between' }, cardTitle: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right', flex: 1 }, status: { fontFamily: FONT.bold, color: C.brand, fontSize: 11,backgroundColor:'#eaf6ef',paddingVertical:5,paddingHorizontal:8,borderRadius:8,overflow:'hidden' }, preview: { fontFamily: FONT.regular, color: C.ink, fontSize: 12.5, textAlign: 'right', marginTop: 8, lineHeight: 20 }, date: { fontFamily: FONT.regular, color: C.muted, fontSize: 11, textAlign: 'right', marginTop: 5 }, confBadge: { fontFamily: FONT.bold, color: '#9a5b00', fontSize: 11.5, textAlign: 'right', marginTop: 6 }, tapHint: { fontFamily: FONT.regular, color: C.brand, fontSize: 11.5, textAlign: 'right', marginTop: 6 },

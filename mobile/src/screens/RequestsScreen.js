@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert,
 import { ImagePicker, launchCamera, launchLibrary } from '../cameraLock';
 import { compressToDataUri } from '../img';
 import * as DocumentPicker from 'expo-document-picker';
-import { request } from '../api';
+import { request, cachedValue } from '../api';
 import { C, FONT } from '../theme';
 import JDatePicker, { jLabel } from '../components/JDatePicker';
 import TimePicker from '../components/TimePicker';
@@ -20,7 +20,7 @@ function JDateField({ label, value, onPick }) {
     <View style={{ marginTop: 10 }}>
       <Text style={pf.label}>{label}</Text>
       <TouchableOpacity style={pf.btn} onPress={() => setOpen(true)}>
-        <Text style={[pf.btnTxt, !value && { color: C.muted }]}>{show}</Text><Text>📅</Text>
+        <Text style={[pf.btnTxt, !value && { color: C.muted }]}>{show}</Text><MaterialCommunityIcons name="calendar-month-outline" size={20} color={C.brand}/>
       </TouchableOpacity>
       <JDatePicker visible={open} onClose={() => setOpen(false)} initial={null}
         onSelect={(d) => onPick(`${d.jy}-${String(d.jm).padStart(2, '0')}-${String(d.jd).padStart(2, '0')}`)} />
@@ -34,7 +34,7 @@ function TimeField({ label, value, onPick }) {
     <View style={{ marginTop: 10 }}>
       <Text style={pf.label}>{label}</Text>
       <TouchableOpacity style={pf.btn} onPress={() => setOpen(true)}>
-        <Text style={[pf.btnTxt, !value && { color: C.muted }]}>{value ? fa(value) : 'انتخاب ساعت'}</Text><Text>🕐</Text>
+        <Text style={[pf.btnTxt, !value && { color: C.muted }]}>{value ? fa(value) : 'انتخاب ساعت'}</Text><MaterialCommunityIcons name="clock-time-four-outline" size={20} color={C.brand}/>
       </TouchableOpacity>
       <TimePicker visible={open} onClose={() => setOpen(false)} initial={value} onSelect={onPick} />
     </View>
@@ -119,19 +119,22 @@ const manualTimeSummary = (r) => {
   const exit = r.out_time ? `خروج ${faDigits(r.out_time)}` : '';
   return [entry, exit].filter(Boolean).join(' · ') || 'ساعت تردد ثبت نشده';
 };
-const STATUS = { pending: ['در انتظار', '#cc7a14'], approved: ['تأییدشده', '#0d7a5f'], rejected: ['ردشده', '#d63b54'] };
+const STATUS = { pending: ['در انتظار بررسی', '#cc7a14'], approved: ['تأییدشده', '#0d7a5f'], rejected: ['ردشده', '#d63b54'], canceled: ['لغوشده', '#64748b'] };
 
 function ApprovalTimeline({ item }) {
   const steps = Array.isArray(item.approval_steps) ? item.approval_steps : [];
   const current = item.status === 'pending' ? pendingPerson(item) : '';
   const finalName = requestPerson(item);
   const events = steps.map(step => ({ ...step, label: step.decision === 'rejected' ? 'رد کرده' : step.decision === 'forwarded' ? 'تأیید و به مسئول بعد ارجاع داده' : 'تأیید نهایی کرده', color: step.decision === 'rejected' ? C.danger : C.ok }));
+  const upcoming = Array.isArray(item.upcoming_approvers) ? item.upcoming_approvers : [];
   if (!steps.length && item.status === 'approved' && finalName) events.push({ actor_name: finalName, label: 'تأیید نهایی کرده', color: C.ok, legacy: true });
   if (!steps.length && item.status === 'rejected' && finalName) events.push({ actor_name: finalName, label: 'رد کرده', color: C.danger, legacy: true });
   return <View style={s.approvalTimeline}>
     <Text style={s.approvalTitle}>مسیر بررسی و تأیید</Text>
     {events.map((step, i) => <View key={i} style={s.approvalEvent}><MaterialCommunityIcons name={step.decision === 'rejected' ? 'close-circle' : 'check-circle'} size={18} color={step.color}/><View style={{ flex:1 }}><Text style={s.approvalName}>{step.actor_name || 'نام مسئول موجود نیست'} <Text style={{ color:step.color }}>{step.label}</Text></Text>{step.created_at ? <Text style={s.approvalDate}>{faDigits(step.created_at)}</Text> : null}{step.note ? <Text style={s.approvalNote}>{step.note}</Text> : null}</View></View>)}
-    {item.status === 'pending' ? <View style={s.approvalEvent}><MaterialCommunityIcons name="clock-outline" size={18} color="#bc7816"/><Text style={[s.approvalName, { flex:1 }]}>در انتظار بررسی: {current || 'نام مسئول از سرور دریافت نشده است'}</Text></View> : null}
+    {item.status === 'pending' && upcoming.length ? upcoming.map((person, index) => <View key={`upcoming-${person.user_id || index}`} style={s.approvalEvent}><MaterialCommunityIcons name={index===0?'clock-outline':'progress-clock'} size={18} color={index===0?'#bc7816':C.slate}/><View style={{flex:1}}><Text style={s.approvalName}>{person.name || 'نام مسئول ثبت نشده'}</Text><Text style={s.approvalDate}>{index===0?'در انتظار بررسی و تأیید این مسئول':'در مرحله بعد؛ هنوز بررسی نکرده است'}</Text></View></View>) : null}
+    {item.status === 'pending' && !upcoming.length ? <View style={s.approvalEvent}><MaterialCommunityIcons name="clock-outline" size={18} color="#bc7816"/><Text style={[s.approvalName, { flex:1 }]}>در انتظار بررسی: {current || 'نام مسئول از سرور دریافت نشده است'}</Text></View> : null}
+    {item.status==='pending' && item.approval_mode==='hierarchical' && !upcoming.length ? <Text style={s.approvalLegacy}>نام مسئولان مراحل بعد هنوز از سرور مشخص نشده است.</Text> : null}
     {!steps.length && <Text style={s.approvalLegacy}>تاریخچه مراحل قبلی این درخواست در سامانه ثبت نشده است؛ فقط وضعیت فعلی و آخرین مسئول قابل نمایش است.</Text>}
   </View>;
 }
@@ -407,8 +410,7 @@ function MyRequests() {
   const load = async () => {
     setLoadError('');
     try {
-      // Do not render stale offline cache as if it were a current server response.
-      const response = await request('/my/requests', { noStore: true, forceNetwork: true, queueIfOffline: false });
+      const response = await request('/my/requests', { queueIfOffline: false });
       const items = Array.isArray(response) ? response :
         (Array.isArray(response?.requests) ? response.requests :
         (Array.isArray(response?.rows) ? response.rows :
@@ -417,11 +419,11 @@ function MyRequests() {
       setRows(items);
     } catch (error) {
       setLoadError(error?.message || 'دریافت درخواست‌ها ناموفق بود.');
-      setRows([]);
+      setRows((previous) => previous || []);
     }
   };
   useEffect(() => {
-    load();
+    cachedValue('/my/requests').then((saved) => { if (Array.isArray(saved)) setRows(saved); }).finally(load);
     request('/my/leave-balance', { noStore: true, forceNetwork: true, queueIfOffline: false }).then(setBal).catch(() => {});
   }, []);
   const filteredRows = (rows || []).filter((r) => {

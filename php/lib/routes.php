@@ -4449,10 +4449,35 @@ function _req_decorate_my_requests(array $rows): array {
         FROM request_approval_steps s LEFT JOIN users u ON u.id=s.actor_id
         WHERE s.request_id IN ($marks) ORDER BY s.id",$ids) as $s){$steps[(int)$s['request_id']][]=$s;}
   }
+  // The next reviewer is not necessarily the last one. Expose the actual
+  // configured manager chain, starting at pending_on, without guessing names.
+  $requestOwner=(int)($rows[0]['user_id']??0);
+  $approvalMode=$requestOwner>0?(_req_policy_options($requestOwner,false)['approval_mode']??'hierarchical'):'hierarchical';
+  $chainCache=[];$actorNames=[];
   foreach($rows as &$r){
     $id=(int)$r['id'];$r['approval_steps']=$steps[$id]??[];
     $r['pending_approver_name']=trim((string)($r['pending_approver_name']??''));
     $r['approver_name']=trim((string)($r['approver_name']??''));
+    $r['approval_mode']=$approvalMode;
+    $r['upcoming_approvers']=[];
+    $start=(int)($r['pending_on']??0);
+    if($approvalMode==='hierarchical' && $r['status']==='pending' && $start>0){
+      if(!isset($chainCache[$start])){
+        $ids=[];$seen=[];$cursor=$start;
+        while($cursor>0 && !isset($seen[$cursor]) && count($ids)<20){
+          $seen[$cursor]=true;$ids[]=$cursor;
+          $next=_user_managers($cursor);$cursor=(int)($next[0]??0);
+        }
+        $chainCache[$start]=$ids;
+      }
+      foreach($chainCache[$start] as $position=>$actorId){
+        if(!array_key_exists($actorId,$actorNames)){
+          $actor=Db::one("SELECT TRIM(CONCAT(COALESCE(first_name,''),' ',COALESCE(last_name,''))) name FROM users WHERE id=?",[$actorId]);
+          $actorNames[$actorId]=trim((string)($actor['name']??''));
+        }
+        $r['upcoming_approvers'][]=['user_id'=>$actorId,'name'=>$actorNames[$actorId],'stage'=>$position===0?'current':'next'];
+      }
+    }
   }unset($r);
   return $rows;
 }
@@ -4534,11 +4559,11 @@ route('POST', '/api/my/requests', function($p,$b,$u){
 route('GET', '/api/my/requests', function($p,$b,$u){
   _ensure_requests_table();
   // اطمینان از وجود ستون جایگزین
-  $sel = "r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name";
+  $sel = "r.id,r.user_id,r.pending_on,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name";
   $hasSub = false;
   try { $hasSub = (bool)Db::one("SHOW COLUMNS FROM requests WHERE Field='substitute_user_id'"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   if ($hasSub) {
-    return _req_decorate_my_requests(Db::all("SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,
+    return _req_decorate_my_requests(Db::all("SELECT r.id,r.user_id,r.pending_on,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,
         r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name,r.substitute_user_id,
         TRIM(CONCAT(COALESCE(su.first_name,''),' ',COALESCE(su.last_name,''))) substitute_name,
         TRIM(CONCAT(COALESCE(ap.first_name,''),' ',COALESCE(ap.last_name,''))) approver_name,

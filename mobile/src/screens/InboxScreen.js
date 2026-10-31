@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Image, Switch, Linking } from 'react-native';
-import { request, imageSource } from '../api';
+import { request, imageSource, cachedValue } from '../api';
 import { C, FONT } from '../theme';
 import { fj, inJRange } from '../jdate';
 import ImageViewer from '../components/ImageViewer';
@@ -26,23 +26,31 @@ export function InboxReportsScreen({ navigation }) {
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [archiveBusy, setArchiveBusy] = useState(null);
   const loadSerial = useRef(0);
+  const tabSnapshots = useRef({});
 
   const load = useCallback(async () => {
     const serial = ++loadSerial.current;
     setRefreshing(true);
     const url = tab === 'archived' ? '/my/inbox-reports/archived' : (tab === 'forwarded' ? '/my/forwarded-reports' : (tab === 'cc' ? '/my/cc-reports' : '/my/inbox-reports'));
     try {
-      const result = await request(url, { noStore: true });
+      const result = await request(url);
       if (!Array.isArray(result)) throw new Error('پاسخ صندوق گزارش‌ها معتبر نیست.');
-      if (serial === loadSerial.current) { setData(result); setError(''); }
+      if (serial === loadSerial.current) { tabSnapshots.current[tab]=result;setData(result); setError(''); }
     } catch (e) {
       if (serial === loadSerial.current) setError(e?.message || 'دریافت گزارش‌ها ناموفق بود.');
     } finally {
       if (serial === loadSerial.current) setRefreshing(false);
     }
   }, [tab]);
-  useEffect(() => { setData(null); setError(''); load(); return () => { loadSerial.current += 1; }; }, [load]);
+  useEffect(() => {
+    let active=true;
+    const url = tab === 'archived' ? '/my/inbox-reports/archived' : tab === 'forwarded' ? '/my/forwarded-reports' : tab === 'cc' ? '/my/cc-reports' : '/my/inbox-reports';
+    setData(tabSnapshots.current[tab] || null);setError('');
+    cachedValue(url).then(saved=>{if(active && Array.isArray(saved) && !tabSnapshots.current[tab]){tabSnapshots.current[tab]=saved;setData(saved);}}).finally(()=>{if(active)load();});
+    return () => { active=false;loadSerial.current += 1; };
+  }, [load,tab]);
   useEffect(() => { const un = navigation.addListener('focus', load); return un; }, [navigation, load]);
 
   const senders = useMemo(() => {
@@ -63,8 +71,17 @@ export function InboxReportsScreen({ navigation }) {
   }, [data, from, to, sender, statusF, query]);
 
   async function toggleArchive(item) {
-    try { await request(`/my/inbox-reports/${item.id}/archive`, { method: 'POST', body: { archive: tab !== 'archived' } }); load(); }
-    catch (e) { Alert.alert('خطا', e.message); }
+    if(archiveBusy !== null)return;
+    setArchiveBusy(item.id);
+    try {
+      await request(`/my/inbox-reports/${item.id}/archive`, { method: 'POST', body: { archive: tab !== 'archived' }, queueIfOffline:false });
+      const remaining=(tabSnapshots.current[tab] || data || []).filter(r=>String(r.id)!==String(item.id));
+      tabSnapshots.current[tab]=remaining;setData(remaining);
+      delete tabSnapshots.current[tab==='archived'?'inbox':'archived'];
+      Alert.alert('ثبت شد', tab==='archived'?'گزارش از بایگانی خارج شد.':'گزارش به بایگانی منتقل شد.');
+      load();
+    } catch (e) { Alert.alert('عملیات انجام نشد', e?.message || 'لطفاً دوباره تلاش کنید.'); }
+    finally { setArchiveBusy(null); }
   }
 
   if (!data && refreshing) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
@@ -108,11 +125,11 @@ export function InboxReportsScreen({ navigation }) {
               <View style={s.rowB}><View style={{flex:1}}><Text style={s.title} numberOfLines={2}>{item.subject||'بدون عنوان'}</Text><Text style={s.reportId}>گزارش #{String(item.id)}</Text></View><Text style={[s.badge, { color: ST_COLOR[item.status] || C.muted, borderColor: ST_COLOR[item.status] || C.line,backgroundColor:item.status==='forwarded'?'#f1edff':item.status==='answered'?'#e7f7ef':item.status==='sent'?'#fff4e3':'#f0f3f9' }]}>{PR[item.priority] ? `${PR[item.priority]} · ` : ''}{ST[item.status] || item.status}</Text></View>
               <View style={s.metaRow}><MaterialCommunityIcons name="account-outline" size={16} color={C.muted}/><Text style={s.meta} numberOfLines={2}>از {item.first_name} {item.last_name} · {fj(item.created_at)}{tab === 'forwarded' && item.forwarded_at ? ` · ارجاع: ${fj(item.forwarded_at)}` : ''}{tab === 'cc' ? ` · رونوشت از ${item.cc_by_name || '—'} · ${fj(item.cc_at)}` : ''}</Text></View>
               <Text style={s.snippet} numberOfLines={3}>{item.body}</Text>
-              {(item.attachment_name || item.attachment_path || item.attachments_count > 0) ? <Text style={s.hasAtt}>📎 دارای پیوست {item.attachments_count ? `(${item.attachments_count})` : ''}</Text> : null}
+              {(item.attachment_name || item.attachment_path || item.attachments_count > 0) ? <View style={{flexDirection:'row-reverse',alignItems:'center',gap:5}}><MaterialCommunityIcons name="paperclip" size={16} color={C.brand}/><Text style={s.hasAtt}>دارای پیوست {item.attachments_count ? `(${item.attachments_count})` : ''}</Text></View> : null}
               <View style={s.openHint}><Text style={s.openHintText}>مشاهده جزئیات</Text><MaterialCommunityIcons name="chevron-left" size={19} color={C.brand}/></View>
             </TouchableOpacity>
-            {tab !== 'forwarded' && tab !== 'cc' ? <TouchableOpacity style={s.archBtn} onPress={() => toggleArchive(item)}>
-              <Text style={s.archTxt}>{tab === 'archived' ? '↩ خروج از بایگانی' : '🗄 بایگانی'}</Text>
+            {tab !== 'forwarded' && tab !== 'cc' ? <TouchableOpacity accessibilityRole="button" disabled={archiveBusy!==null} style={[s.archBtn,archiveBusy===item.id&&{opacity:.55}]} onPress={() => toggleArchive(item)}>
+              <MaterialCommunityIcons name={tab==='archived'?'archive-arrow-up-outline':'archive-arrow-down-outline'} size={18} color={C.brand}/><Text style={s.archTxt}>{archiveBusy===item.id?'در حال ثبت…':tab === 'archived' ? 'خروج از بایگانی' : 'انتقال به بایگانی'}</Text>
             </TouchableOpacity> : null}
           </View>
         )} />
@@ -443,7 +460,7 @@ const s = StyleSheet.create({
   btnGhostTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 13 },
   btn: { backgroundColor: C.brand, borderRadius: 12, paddingVertical: 13, alignItems: 'center', marginTop: 8 },
   btnTxt: { fontFamily: FONT.bold, color: '#fff', fontSize: 14 },
-  archBtn: { marginTop: 10, alignSelf: 'flex-start', backgroundColor: '#f0f2f7', borderRadius: 9, paddingVertical: 7, paddingHorizontal: 12 },
+  archBtn: { marginTop: 10, alignSelf: 'flex-start', flexDirection:'row-reverse',alignItems:'center',gap:6,backgroundColor: '#eaf5ef', borderRadius: 11, minHeight: 48, paddingVertical: 9, paddingHorizontal: 14 },
   archTxt: { fontFamily: FONT.bold, color: C.slate, fontSize: 11.5 },
   flowCard: { borderWidth: 1, borderRadius: 16, padding: 15, marginBottom: 10 },
   flowAct: { fontFamily: FONT.bold, fontSize: 13 },

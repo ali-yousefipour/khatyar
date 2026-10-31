@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, FlatList, Alert, Modal } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { request } from '../api';
+import { request, cachedValue } from '../api';
 import { C, FONT } from '../theme';
 import { faNum } from '../num';
 import { jParts, inJRange } from '../jdate';
@@ -327,11 +327,25 @@ export function ExpTaxiScreen({ navigation }) {
 }
 
 export function TeamReportScreen() {
-  const d = useFetch('/my/team');
+  const [team, setTeam] = useState(null);
+  const [teamBusy, setTeamBusy] = useState(false);
+  const [teamError, setTeamError] = useState('');
+  const refreshTeam = async () => {
+    setTeamBusy(true);
+    try {
+      const result = await request('/my/team');
+      if (!result || typeof result !== 'object' || Array.isArray(result) || !result.groups) throw new Error('پاسخ زیرمجموعه‌ها معتبر نیست.');
+      setTeam(result);setTeamError('');
+    } catch(e) { setTeamError(e?.message || 'دریافت زیرمجموعه‌ها ناموفق بود.'); }
+    finally { setTeamBusy(false); }
+  };
+  useEffect(() => { cachedValue('/my/team').then(saved => { if(saved?.groups) setTeam(saved); }).finally(refreshTeam); }, []);
+  const d = team;
   const [linesModal, setLinesModal] = useState(null); // {name, lines}
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
-  if (d === null) return <Loading />;
+  if (d === null && teamBusy) return <Loading />;
+  if (d === null) return <View style={s.center}><Text style={s.empty}>{teamError || 'اطلاعات زیرمجموعه در دسترس نیست.'}</Text><TouchableOpacity onPress={refreshTeam} style={tm.retry}><Text style={tm.retryText}>تلاش دوباره</Text></TouchableOpacity></View>;
   const entries = Object.entries(d.groups || {});
   const statusOf = (m) => m.attendance_status || (m.is_present ? 'present' : 'absent');
   const groups = entries.map(([role, list]) => [role, list.filter((m) =>
@@ -345,6 +359,7 @@ export function TeamReportScreen() {
   };
   return (
     <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={{ padding: 14, paddingBottom: 36 }}>
+      <View style={tm.refreshRow}><TouchableOpacity accessibilityRole="button" disabled={teamBusy} onPress={refreshTeam} style={tm.refreshButton}><MaterialCommunityIcons name="refresh" size={18} color={C.brand}/><Text style={tm.refreshText}>{teamBusy?'در حال به‌روزرسانی…':'به‌روزرسانی'}</Text></TouchableOpacity>{teamError?<Text style={tm.refreshWarning}>نمایش آخرین اطلاعات ذخیره‌شده</Text>:null}</View>
       {(d.busiest || d.idlest) && (
         <View style={s.card}><Text style={s.title}>کارایی زیرمجموعه</Text>
           {d.busiest && <View style={s.row}><Text style={[s.k, { color: C.ok }]}>پرکارترین: {d.busiest.name}</Text><Text style={s.v}>{faNum(Number(d.busiest.total))}</Text></View>}
@@ -413,6 +428,12 @@ export function TeamReportScreen() {
 }
 
 const tm = StyleSheet.create({
+  retry:{backgroundColor:C.brand,padding:13,borderRadius:12,marginTop:12},
+  retryText:{fontFamily:FONT.bold,color:'#fff'},
+  refreshRow:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',marginBottom:10},
+  refreshButton:{flexDirection:'row-reverse',alignItems:'center',gap:6,backgroundColor:'#e7f3ee',borderRadius:12,padding:10},
+  refreshText:{fontFamily:FONT.bold,color:C.brand,fontSize:12},
+  refreshWarning:{fontFamily:FONT.regular,color:C.muted,fontSize:11},
   hero: { backgroundColor: '#075d4d', borderRadius: 21, padding: 17, marginBottom: 13, elevation: 3 },
   heroHead: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12, marginBottom: 16 },
   heroTitle: { fontFamily: FONT.bold, color: '#fff', fontSize: 19, textAlign: 'right' },
