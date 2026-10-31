@@ -733,8 +733,7 @@ function ResponsiveTable({children,...props}){
 }
 
 function Dashboard(){
-  const [s,setS]=useState(null); const [rep,setRep]=useState([]); const [tw,setTw]=useState({top:[],bottom:[]}); const chartRef=useRef(); const lineRef=useRef();
-  const [tab,setTab]=useState("charts");
+  const [s,setS]=useState(null); const [tw,setTw]=useState({top:[],bottom:[]});
   const [bdays,setBdays]=useState(null);
   const [loadErr,setLoadErr]=useState("");
   const [loading,setLoading]=useState(true);
@@ -742,24 +741,7 @@ function Dashboard(){
     setLoading(true); setLoadErr("");
     db.stats().then(setS).catch(e=>setLoadErr(e&&e.message?e.message:"خطا در دریافت اطلاعات داشبورد")).finally(()=>setLoading(false));
   };
-  useEffect(()=>{loadStats(); GET("/admin/birthdays-month").then(setBdays).catch(()=>{})},[]);
-  useEffect(()=>{
-    if(tab==="reports"){ db.reports().then(setRep).catch(()=>{}); }
-    if(tab==="workers"){ db.topWorkers().then(setTw).catch(()=>{}); }
-  },[tab]);
-  useEffect(()=>{
-    if(!s||tab!=="charts"||!chartRef.current)return;
-    const c=new Chart(chartRef.current,{type:"bar",data:{labels:(s.week_attendance||[]).map(x=>x.d||""),
-      datasets:[{data:(s.week_attendance||[]).map(x=>x.n!==undefined?x.n:x),backgroundColor:"#0d7a5f",borderRadius:7}]},
-      options:{plugins:{legend:{display:false}},scales:{y:{ticks:{font:{family:"Vazirmatn"}}},x:{ticks:{font:{family:"Vazirmatn"}}}}}});
-    let c2;
-    if(lineRef.current&&s.by_line){
-      c2=new Chart(lineRef.current,{type:"bar",data:{labels:s.by_line.map(x=>"خط "+x.code),
-        datasets:[{data:s.by_line.map(x=>x.n),backgroundColor:"#f6c324",borderRadius:6}]},
-        options:{indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{ticks:{font:{family:"Vazirmatn"}}},y:{ticks:{font:{family:"Vazirmatn"}}}}}});
-    }
-    return()=>{c.destroy();c2&&c2.destroy();};
-  },[s,tab]);
+  useEffect(()=>{loadStats(); GET("/admin/birthdays-month").then(setBdays).catch(()=>{});db.topWorkers().then(setTw).catch(()=>{})},[]);
   if(loading&&!s)return <div className="panel" style={{margin:"14px 0"}}><div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10}}><span>در حال دریافت اطلاعات داشبورد…</span><span className="muted" style={{fontSize:12}}>لطفاً چند لحظه صبر کنید</span></div></div>;
   if(loadErr&&!s)return <div className="panel" style={{margin:"14px 0",border:"1px solid #f0caca"}}><h3 style={{marginTop:0}}>اطلاعات داشبورد دریافت نشد</h3><p style={{color:"var(--danger)",fontSize:13,lineHeight:1.9}}>{loadErr}</p><button className="btn p" onClick={loadStats}>تلاش مجدد</button></div>;
   if(!s)return <div className="panel" style={{margin:"14px 0"}}>اطلاعات داشبورد در دسترس نیست.</div>;
@@ -792,25 +774,13 @@ function Dashboard(){
       </div>
     </div>}
     {bdays&&bdays.people&&bdays.people.length===0&&<div style={{background:"#f7f9fc",border:"1px solid var(--line)",borderRadius:12,padding:"12px 16px",margin:"14px 0",fontSize:13,color:"var(--muted)"}}>🎂 در ماه {bdays.month_name} هیچ‌یک از همکاران سالگرد تولد ندارند.</div>}
-    <div className="tabbar" style={{display:"flex",gap:8,margin:"14px 0",borderBottom:"2px solid var(--line)",flexWrap:"wrap"}}>
-      {[["charts","📊 نمودارها"],["workers","👥 کارایی نیروها"],["reports","📨 گزارش‌های اخیر"]].map(([k,lbl])=>
-        <button key={k} onClick={()=>setTab(k)} style={{background:"none",border:"none",borderBottom:tab===k?"3px solid var(--brand)":"3px solid transparent",padding:"8px 14px",cursor:"pointer",fontWeight:tab===k?800:500,color:tab===k?"var(--brand)":"var(--muted)",fontFamily:"inherit",fontSize:14}}>{lbl}</button>)}
-    </div>
-    {tab==="charts"&&<div className="grid2">
-      <div className="panel"><h3>روند حضور در ۷ روز گذشته</h3><canvas ref={chartRef} height="130"></canvas></div>
-      <div className="panel"><h3>حضور به تفکیک خط (۳۰ روز)</h3><canvas ref={lineRef} height="130"></canvas></div>
-    </div>}
-    {tab==="workers"&&(tw && tw.groups && tw.groups.length>0 ? <div>
-      <h3 style={{margin:"6px 0 10px",fontSize:16}}>پرکارترین و کم‌کارترین نیروها به تفکیک نقش{tw.zone_scope==="own"?" (منطقهٔ شما)":""}</h3>
+    {tw && tw.groups && tw.groups.length>0 ? <section aria-label="کارایی نیروها">
+      <h3 style={{margin:"18px 0 12px",fontSize:16}}>👥 کارایی نیروها — پرکارترین و کم‌کارترین به تفکیک نقش{tw.zone_scope==="own"?" (منطقهٔ شما)":""}</h3>
       <div className="grid2">
         {tw.groups.map((g,i)=><WorkerGroup key={g.key} title={g.title} data={g} color={GROUP_COLORS[g.key]||"#0d7a5f"}/>)}
         {tw.groups.length%2===1?<div></div>:null}
       </div>
-    </div> : <p className="muted" style={{padding:16}}>داده‌ای برای نمایش نیست.</p>)}
-    {tab==="reports"&&<div className="panel"><h3>گزارش‌های اخیر</h3>
-      <table><tbody>{rep.map(r=><tr key={r.id}><td>{r.first_name} {r.last_name}</td><td>{r.subject}</td>
-        <td><span className={"badge "+badgeCls(r.status)}>{STATUS_FA[r.status]||r.status}</span></td></tr>)}</tbody></table>
-    </div>}
+    </section> : <p className="muted" style={{padding:16}}>داده‌ای برای نمایش کارایی نیروها نیست.</p>}
   </div>);
 }
 

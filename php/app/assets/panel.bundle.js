@@ -1043,11 +1043,7 @@ function ResponsiveTable({ children, ...props }) {
 }
 function Dashboard() {
     const [s, setS] = useState(null);
-    const [rep, setRep] = useState([]);
     const [tw, setTw] = useState({ top: [], bottom: [] });
-    const chartRef = useRef();
-    const lineRef = useRef();
-    const [tab, setTab] = useState("charts");
     const [bdays, setBdays] = useState(null);
     const [loadErr, setLoadErr] = useState("");
     const [loading, setLoading] = useState(true);
@@ -1056,29 +1052,7 @@ function Dashboard() {
         setLoadErr("");
         db.stats().then(setS).catch(e => setLoadErr(e && e.message ? e.message : "خطا در دریافت اطلاعات داشبورد")).finally(() => setLoading(false));
     };
-    useEffect(() => { loadStats(); GET("/admin/birthdays-month").then(setBdays).catch(() => { }); }, []);
-    useEffect(() => {
-        if (tab === "reports") {
-            db.reports().then(setRep).catch(() => { });
-        }
-        if (tab === "workers") {
-            db.topWorkers().then(setTw).catch(() => { });
-        }
-    }, [tab]);
-    useEffect(() => {
-        if (!s || tab !== "charts" || !chartRef.current)
-            return;
-        const c = new Chart(chartRef.current, { type: "bar", data: { labels: (s.week_attendance || []).map(x => x.d || ""),
-                datasets: [{ data: (s.week_attendance || []).map(x => x.n !== undefined ? x.n : x), backgroundColor: "#0d7a5f", borderRadius: 7 }] },
-            options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { font: { family: "Vazirmatn" } } }, x: { ticks: { font: { family: "Vazirmatn" } } } } } });
-        let c2;
-        if (lineRef.current && s.by_line) {
-            c2 = new Chart(lineRef.current, { type: "bar", data: { labels: s.by_line.map(x => "خط " + x.code),
-                    datasets: [{ data: s.by_line.map(x => x.n), backgroundColor: "#f6c324", borderRadius: 6 }] },
-                options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { ticks: { font: { family: "Vazirmatn" } } }, y: { ticks: { font: { family: "Vazirmatn" } } } } } });
-        }
-        return () => { c.destroy(); c2 && c2.destroy(); };
-    }, [s, tab]);
+    useEffect(() => { loadStats(); GET("/admin/birthdays-month").then(setBdays).catch(() => { }); db.topWorkers().then(setTw).catch(() => { }); }, []);
     if (loading && !s)
         return React.createElement("div", { className: "panel", style: { margin: "14px 0" } },
             React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center", gap: 10 } },
@@ -1129,32 +1103,13 @@ function Dashboard() {
             "\uD83C\uDF82 \u062F\u0631 \u0645\u0627\u0647 ",
             bdays.month_name,
             " \u0647\u06CC\u0686\u200C\u06CC\u06A9 \u0627\u0632 \u0647\u0645\u06A9\u0627\u0631\u0627\u0646 \u0633\u0627\u0644\u06AF\u0631\u062F \u062A\u0648\u0644\u062F \u0646\u062F\u0627\u0631\u0646\u062F."),
-        React.createElement("div", { className: "tabbar", style: { display: "flex", gap: 8, margin: "14px 0", borderBottom: "2px solid var(--line)", flexWrap: "wrap" } }, [["charts", "📊 نمودارها"], ["workers", "👥 کارایی نیروها"], ["reports", "📨 گزارش‌های اخیر"]].map(([k, lbl]) => React.createElement("button", { key: k, onClick: () => setTab(k), style: { background: "none", border: "none", borderBottom: tab === k ? "3px solid var(--brand)" : "3px solid transparent", padding: "8px 14px", cursor: "pointer", fontWeight: tab === k ? 800 : 500, color: tab === k ? "var(--brand)" : "var(--muted)", fontFamily: "inherit", fontSize: 14 } }, lbl))),
-        tab === "charts" && React.createElement("div", { className: "grid2" },
-            React.createElement("div", { className: "panel" },
-                React.createElement("h3", null, "\u0631\u0648\u0646\u062F \u062D\u0636\u0648\u0631 \u062F\u0631 \u06F7 \u0631\u0648\u0632 \u06AF\u0630\u0634\u062A\u0647"),
-                React.createElement("canvas", { ref: chartRef, height: "130" })),
-            React.createElement("div", { className: "panel" },
-                React.createElement("h3", null, "\u062D\u0636\u0648\u0631 \u0628\u0647 \u062A\u0641\u06A9\u06CC\u06A9 \u062E\u0637 (\u06F3\u06F0 \u0631\u0648\u0632)"),
-                React.createElement("canvas", { ref: lineRef, height: "130" }))),
-        tab === "workers" && (tw && tw.groups && tw.groups.length > 0 ? React.createElement("div", null,
-            React.createElement("h3", { style: { margin: "6px 0 10px", fontSize: 16 } },
-                "\u067E\u0631\u06A9\u0627\u0631\u062A\u0631\u06CC\u0646 \u0648 \u06A9\u0645\u200C\u06A9\u0627\u0631\u062A\u0631\u06CC\u0646 \u0646\u06CC\u0631\u0648\u0647\u0627 \u0628\u0647 \u062A\u0641\u06A9\u06CC\u06A9 \u0646\u0642\u0634",
+        tw && tw.groups && tw.groups.length > 0 ? React.createElement("section", { "aria-label": "\u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627" },
+            React.createElement("h3", { style: { margin: "18px 0 12px", fontSize: 16 } },
+                "\uD83D\uDC65 \u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u2014 \u067E\u0631\u06A9\u0627\u0631\u062A\u0631\u06CC\u0646 \u0648 \u06A9\u0645\u200C\u06A9\u0627\u0631\u062A\u0631\u06CC\u0646 \u0628\u0647 \u062A\u0641\u06A9\u06CC\u06A9 \u0646\u0642\u0634",
                 tw.zone_scope === "own" ? " (منطقهٔ شما)" : ""),
             React.createElement("div", { className: "grid2" },
                 tw.groups.map((g, i) => React.createElement(WorkerGroup, { key: g.key, title: g.title, data: g, color: GROUP_COLORS[g.key] || "#0d7a5f" })),
-                tw.groups.length % 2 === 1 ? React.createElement("div", null) : null)) : React.createElement("p", { className: "muted", style: { padding: 16 } }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u0646\u06CC\u0633\u062A.")),
-        tab === "reports" && React.createElement("div", { className: "panel" },
-            React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627\u06CC \u0627\u062E\u06CC\u0631"),
-            React.createElement("table", null,
-                React.createElement("tbody", null, rep.map(r => React.createElement("tr", { key: r.id },
-                    React.createElement("td", null,
-                        r.first_name,
-                        " ",
-                        r.last_name),
-                    React.createElement("td", null, r.subject),
-                    React.createElement("td", null,
-                        React.createElement("span", { className: "badge " + badgeCls(r.status) }, STATUS_FA[r.status] || r.status)))))))));
+                tw.groups.length % 2 === 1 ? React.createElement("div", null) : null)) : React.createElement("p", { className: "muted", style: { padding: 16 } }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u0646\u06CC\u0633\u062A.")));
 }
 const GROUP_COLORS = { supervisor: "#0d7a5f", operator: "#0891b2", admin_staff: "#2563eb", chief_inspector: "#7c3aed", inspector: "#d97706" };
 // نمایش پرکارترین/کم‌کارترین یک گروه نقش + پنجرهٔ بالنی جزئیات با کلیک روی نام
