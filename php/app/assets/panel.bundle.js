@@ -2539,8 +2539,27 @@ function Users() {
     const [commitmentsModal, setCommitmentsModal] = useState(null);
     const [f, setF] = useState({ q: "", role_id: "", zone_id: "", active: "" });
     const [pw, setPw] = useState("");
+    const [usersLoading, setUsersLoading] = useState(false);
+    const [usersError, setUsersError] = useState("");
+    const [savingUser, setSavingUser] = useState(false);
+    const [exportingUsers, setExportingUsers] = useState(false);
+    const requestSeq = useRef(0);
     const clean = o => { const x = { ...o }; Object.keys(x).forEach(k => (x[k] === "" || x[k] == null) && delete x[k]); return x; };
-    const reload = () => db.users(clean(f)).then(us => setUsers(us.map(u => ({ ...u, is_active: (u.is_active == 1 || u.is_active === true) })))).catch(() => { });
+    const reload = async (filters = f) => { const request = ++requestSeq.current; setUsersLoading(true); setUsersError(""); try {
+        const us = await db.users(clean(filters));
+        if (request !== requestSeq.current)
+            return;
+        setUsers((Array.isArray(us) ? us : []).map(u => ({ ...u, is_active: (u.is_active == 1 || u.is_active === true) })));
+        pg.setPage(1);
+    }
+    catch (error) {
+        if (request === requestSeq.current)
+            setUsersError(error.message || "دریافت فهرست کاربران ناموفق بود.");
+    }
+    finally {
+        if (request === requestSeq.current)
+            setUsersLoading(false);
+    } };
     const pg = usePager(users, 10);
     useEffect(() => { reload(); db.roles().then(setRoles).catch(() => { }); db.zones().then(setZones).catch(() => { }); }, []);
     const rt = id => { var _a; return ((_a = roles.find(r => r.id === id)) === null || _a === void 0 ? void 0 : _a.title) || ""; };
@@ -2551,25 +2570,36 @@ function Users() {
         return 1; return 0; };
     const starsForUser = (u) => { const n = (u.rank_stars !== null && u.rank_stars !== undefined && u.rank_stars !== "") ? Math.max(0, Math.min(5, +u.rank_stars || 0)) : defaultStars(u.role_title || rt(u.role_id)); return n ? "★".repeat(n) : "—"; };
     const save = async (u) => {
+        if (savingUser)
+            return;
         if (u.employment_start_date && u.employment_end_date && String(u.employment_end_date).replaceAll('/', '-') < String(u.employment_start_date).replaceAll('/', '-')) {
             alert('تاریخ اتمام همکاری نمی‌تواند قبل از تاریخ شروع باشد.');
             return;
         }
-        await db.updateUser(u.id, { employment_start_date: u.employment_start_date || null, employment_end_date: u.employment_end_date || null, first_name: u.first_name, last_name: u.last_name, email: u.email, role_id: u.role_id, zone_id: u.zone_id, is_active: u.is_active, allow_android: u.allow_android ? 1 : 0, allow_web: u.allow_web ? 1 : 0, security_exempt: u.security_exempt ? 1 : 0, phone: u.phone, national_code: u.national_code, marital_status: u.marital_status, address: u.address, children_count: u.children_count, presence_required: u.presence_required ? 1 : 0, seniority_start: u.seniority_start || null, can_send_sms: u.can_send_sms ? 1 : 0, can_be_substitute: u.can_be_substitute ? 1 : 0, can_welfare: u.can_welfare ? 1 : 0, can_cultural: u.can_cultural ? 1 : 0, can_manage_temp_drivers: u.can_manage_temp_drivers ? 1 : 0, personnel_code: u.personnel_code || null, birth_date: u.birth_date || null, rank_stars: (u.rank_stars === '' || u.rank_stars == null) ? null : Math.max(0, Math.min(5, +u.rank_stars || 0)) });
-        // The API must return the committed values, not just acknowledge the PUT.
-        const persisted = await GET('/admin/users/' + u.id + '/employment-period');
-        const normalizeDate = v => String(v || '').trim().replaceAll('/', '-');
-        if (normalizeDate(persisted.employment_start_date) !== normalizeDate(u.employment_start_date) || normalizeDate(persisted.employment_end_date) !== normalizeDate(u.employment_end_date)) {
-            alert('تاریخ همکاری در پایگاه داده مطابق مقدار واردشده ذخیره نشده است. اطلاعات واقعی سرور نمایش داده می‌شود.');
-            setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, employment_start_date: persisted.employment_start_date || '', employment_end_date: persisted.employment_end_date || '' } : current);
-            return;
+        setSavingUser(true);
+        try {
+            await db.updateUser(u.id, { employment_start_date: u.employment_start_date || null, employment_end_date: u.employment_end_date || null, first_name: u.first_name, last_name: u.last_name, email: u.email, role_id: u.role_id, zone_id: u.zone_id, is_active: u.is_active, allow_android: u.allow_android ? 1 : 0, allow_web: u.allow_web ? 1 : 0, security_exempt: u.security_exempt ? 1 : 0, phone: u.phone, national_code: u.national_code, marital_status: u.marital_status, address: u.address, children_count: u.children_count, presence_required: u.presence_required ? 1 : 0, seniority_start: u.seniority_start || null, can_send_sms: u.can_send_sms ? 1 : 0, can_be_substitute: u.can_be_substitute ? 1 : 0, can_welfare: u.can_welfare ? 1 : 0, can_cultural: u.can_cultural ? 1 : 0, can_manage_temp_drivers: u.can_manage_temp_drivers ? 1 : 0, personnel_code: u.personnel_code || null, birth_date: u.birth_date || null, rank_stars: (u.rank_stars === '' || u.rank_stars == null) ? null : Math.max(0, Math.min(5, +u.rank_stars || 0)) });
+            // The API must return the committed values, not just acknowledge the PUT.
+            const persisted = await GET('/admin/users/' + u.id + '/employment-period');
+            const normalizeDate = v => String(v || '').trim().replaceAll('/', '-');
+            if (normalizeDate(persisted.employment_start_date) !== normalizeDate(u.employment_start_date) || normalizeDate(persisted.employment_end_date) !== normalizeDate(u.employment_end_date)) {
+                alert('تاریخ همکاری در پایگاه داده مطابق مقدار واردشده ذخیره نشده است. اطلاعات واقعی سرور نمایش داده می‌شود.');
+                setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, employment_start_date: persisted.employment_start_date || '', employment_end_date: persisted.employment_end_date || '' } : current);
+                return;
+            }
+            if (pw) {
+                await db.resetPassword(u.id, pw);
+            }
+            setEdit(null);
+            setPw("");
+            await reload();
         }
-        if (pw) {
-            await db.resetPassword(u.id, pw);
+        catch (error) {
+            alert('ذخیرهٔ اطلاعات کاربر ناموفق بود: ' + (error.message || error));
         }
-        setEdit(null);
-        setPw("");
-        reload();
+        finally {
+            setSavingUser(false);
+        }
     };
     const add = async (u) => { const r = await db.createUser(u); setAdding(false); reload(); if (r && r.sms_sent)
         alert("کاربر ساخته شد و نام کاربری/رمز عبور برای او پیامک شد."); };
@@ -2578,8 +2608,13 @@ function Users() {
         reload();
     } };
     const delUser = async (u) => { if (confirm('حذف کامل کاربر «' + u.first_name + ' ' + u.last_name + '»؟ برگشت‌ناپذیر است.')) {
-        await db.deleteUser(u.id);
-        reload();
+        try {
+            await db.deleteUser(u.id);
+            await reload();
+        }
+        catch (error) {
+            alert('حذف کاربر ناموفق بود: ' + (error.message || error));
+        }
     } };
     const pickPhoto = async (u, file) => { if (!file)
         return; const data = await compressImage(file, 512, 0.6); await db.adminSetPhoto(u.id, data); setEdit(e => e ? { ...e, photo: data } : e); reload(); };
@@ -2603,19 +2638,24 @@ function Users() {
                 React.createElement("p", null, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u067E\u0631\u0633\u0646\u0644\u060C \u0633\u0637\u062D \u062F\u0633\u062A\u0631\u0633\u06CC \u0648 \u062F\u0633\u062A\u06AF\u0627\u0647\u200C\u0647\u0627\u06CC \u0645\u062A\u0635\u0644 \u0631\u0627 \u0627\u0632 \u06CC\u06A9 \u0646\u0645\u0627\u06CC \u06CC\u06A9\u067E\u0627\u0631\u0686\u0647 \u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0646\u06CC\u062F.")),
             React.createElement("div", { className: "users-hero-actions" },
                 React.createElement("button", { className: "btn p", onClick: () => setAdding(true) }, "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u06A9\u0627\u0631\u0628\u0631"),
-                React.createElement("button", { className: "btn g", onClick: async () => { try {
+                React.createElement("button", { className: "btn g", disabled: exportingUsers, onClick: async () => { setExportingUsers(true); try {
                         const res = await fetch(db.usersExportUrl(), { headers: tok() });
                         if (!res.ok)
-                            throw new Error("خطا");
+                            throw new Error("دریافت فایل از سرور ناموفق بود");
                         const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
                         const a = document.createElement("a");
-                        a.href = URL.createObjectURL(blob);
+                        a.href = url;
                         a.download = "اطلاعات_کامل_کاربران.xlsx";
                         a.click();
+                        setTimeout(() => URL.revokeObjectURL(url), 60000);
                     }
                     catch (e) {
-                        alert(e.message);
-                    } } }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u06A9\u0627\u0645\u0644 \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 (Excel)"))),
+                        alert(e.message || "خطا در دریافت خروجی کاربران");
+                    }
+                    finally {
+                        setExportingUsers(false);
+                    } } }, exportingUsers ? "در حال آماده‌سازی خروجی…" : "⤓ خروجی کامل کاربران (Excel)"))),
         React.createElement("div", { className: "users-overview", "aria-label": "\u062E\u0644\u0627\u0635\u0647 \u0646\u062A\u0627\u06CC\u062C \u0641\u0639\u0644\u06CC" },
             React.createElement("div", { className: "users-overview-card" },
                 React.createElement("span", null, "\u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u062F\u0631 \u0646\u062A\u0627\u06CC\u062C \u0641\u0639\u0644\u06CC"),
@@ -2638,9 +2678,7 @@ function Users() {
                 React.createElement("div", null,
                     React.createElement("strong", null, "\u062C\u0633\u062A\u200C\u0648\u062C\u0648 \u0648 \u067E\u0627\u0644\u0627\u06CC\u0634"),
                     React.createElement("span", null, "\u0628\u0631\u0627\u06CC \u06CC\u0627\u0641\u062A\u0646 \u0633\u0631\u06CC\u0639\u200C\u062A\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627\u060C \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0645\u0648\u0631\u062F\u0646\u0638\u0631 \u0631\u0627 \u062A\u0646\u0638\u06CC\u0645 \u06A9\u0646\u06CC\u062F.")),
-                React.createElement("span", { className: "users-filter-count" },
-                    fa(users.length),
-                    " \u0646\u062A\u06CC\u062C\u0647")),
+                React.createElement("span", { className: "users-filter-count", "aria-live": "polite" }, usersLoading ? "در حال دریافت…" : fa(users.length) + " نتیجه")),
             React.createElement("div", { className: "users-filter-grid" },
                 React.createElement("label", { className: "users-filter-field" },
                     "\u0646\u0627\u0645 \u06CC\u0627 \u06A9\u062F \u0645\u0644\u06CC",
@@ -2661,7 +2699,12 @@ function Users() {
                         React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0648\u0636\u0639\u06CC\u062A\u200C\u0647\u0627"),
                         React.createElement("option", { value: "1" }, "\u0641\u0639\u0627\u0644"),
                         React.createElement("option", { value: "0" }, "\u063A\u06CC\u0631\u0641\u0639\u0627\u0644"))),
-                React.createElement("button", { className: "btn p users-filter-submit", type: "submit" }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"))),
+                React.createElement("button", { className: "btn p users-filter-submit", type: "submit", disabled: usersLoading }, usersLoading ? "در حال جست‌وجو…" : "اعمال فیلتر"))),
+        usersError && React.createElement("div", { className: "workspace-inline-error users-load-error", role: "alert" },
+            React.createElement("span", null,
+                "\u062F\u0631\u06CC\u0627\u0641\u062A \u0641\u0647\u0631\u0633\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u0627\u0646\u062C\u0627\u0645 \u0646\u0634\u062F: ",
+                usersError),
+            React.createElement("button", { type: "button", className: "btn g", onClick: () => reload() }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")),
         React.createElement("div", { className: "users-table-heading" },
             React.createElement("div", null,
                 React.createElement("h4", null, "\u0641\u0647\u0631\u0633\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646"),
@@ -2712,10 +2755,10 @@ function Users() {
                         React.createElement("button", { className: "btn g", onClick: () => { setEdit({ ...u, seniority_loading: true, allow_android: u.allow_android == 1, allow_web: u.allow_web == 1, security_exempt: u.security_exempt == 1, presence_required: u.presence_required == 1, can_send_sms: u.can_send_sms == 1, can_be_substitute: u.can_be_substitute == 1, can_welfare: u.can_welfare == 1, can_cultural: u.can_cultural == 1, can_manage_temp_drivers: u.can_manage_temp_drivers == 1, birth_iso: u.birth_date ? isoFromJ(...String(u.birth_date).replace(/[\/.]/g, "-").split("-").map(Number)) : "" }); setPw(""); GET('/admin/users/' + u.id + '/employment-period').then(period => { setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, employment_start_date: period.employment_start_date || '', employment_end_date: period.employment_end_date || '' } : current); }).catch(error => { alert('دریافت تاریخ همکاری از سرور ناموفق بود: ' + (error.message || error)); }); GET('/admin/seniority').then(result => { const record = (result.rows || []).find(row => Number(row.id) === Number(u.id)); setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, seniority_loading: false, seniority_days: (record === null || record === void 0 ? void 0 : record.initialized) ? record.seniority_days : null } : current); }).catch(() => setEdit(current => current && Number(current.id) === Number(u.id) ? { ...current, seniority_loading: false, seniority_days: null } : current)); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
                         React.createElement("button", { className: "btn g", onClick: () => setLineModal(u) }, "\u062E\u0637\u0648\u0637"),
                         React.createElement("button", { className: "btn g users-danger-action", onClick: () => delUser(u) }, "\u062D\u0630\u0641"))))))),
-        !users.length && React.createElement("div", { className: "users-empty-state", role: "status" },
+        !users.length && !usersLoading && !usersError && React.createElement("div", { className: "users-empty-state", role: "status" },
             React.createElement("strong", null, "\u06A9\u0627\u0631\u0628\u0631\u06CC \u0628\u0627 \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F"),
             React.createElement("span", null, "\u0639\u0628\u0627\u0631\u062A \u062C\u0633\u062A\u200C\u0648\u062C\u0648 \u06CC\u0627 \u0648\u0636\u0639\u06CC\u062A \u0648 \u0633\u0645\u062A \u0627\u0646\u062A\u062E\u0627\u0628\u06CC \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0647\u06CC\u062F \u0648 \u062F\u0648\u0628\u0627\u0631\u0647 \u0641\u06CC\u0644\u062A\u0631 \u06A9\u0646\u06CC\u062F."),
-            React.createElement("button", { className: "btn g", onClick: () => { setF({ q: "", role_id: "", zone_id: "", active: "" }); db.users({}).then(us => setUsers(us.map(u => ({ ...u, is_active: (u.is_active == 1 || u.is_active === true) })))).catch(() => { }); } }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627")),
+            React.createElement("button", { className: "btn g", onClick: () => { const cleared = { q: "", role_id: "", zone_id: "", active: "" }; setF(cleared); reload(cleared); } }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627")),
         pg.Pager(),
         commitmentsModal && React.createElement(Modal, { title: "تعهدات " + (commitmentsModal.user.first_name || "") + " " + (commitmentsModal.user.last_name || ""), onClose: () => setCommitmentsModal(null) },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 12 } },
@@ -2833,7 +2876,7 @@ function Users() {
             React.createElement("label", null, "\u0622\u062F\u0631\u0633 \u0645\u062D\u0644 \u0633\u06A9\u0648\u0646\u062A"),
             React.createElement("textarea", { className: "input", rows: "2", value: edit.address || "", onChange: e => setEdit({ ...edit, address: e.target.value }) }),
             React.createElement("label", null, "\u062A\u063A\u06CC\u06CC\u0631 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 (\u062E\u0627\u0644\u06CC = \u0628\u062F\u0648\u0646 \u062A\u063A\u06CC\u06CC\u0631)"),
-            React.createElement("input", { className: "input", type: "text", value: pw, placeholder: "\u0631\u0645\u0632 \u062C\u062F\u06CC\u062F", onChange: e => setPw(e.target.value) }),
+            React.createElement("input", { className: "input", type: "password", autoComplete: "new-password", value: pw, placeholder: "\u0631\u0645\u0632 \u062C\u062F\u06CC\u062F", onChange: e => setPw(e.target.value) }),
             React.createElement("div", { className: "row", style: { gap: 16, marginTop: 12, flexWrap: "wrap" } },
                 React.createElement("label", { className: "row", style: { gap: 6 } },
                     React.createElement("input", { type: "checkbox", checked: edit.is_active, onChange: e => setEdit({ ...edit, is_active: e.target.checked }) }),
@@ -2872,7 +2915,7 @@ function Users() {
             React.createElement("div", { className: "row", style: { gap: 8, marginTop: 12 } },
                 React.createElement("button", { className: "btn g", onClick: () => revoke(edit.id, 'android') }, "\u062D\u0630\u0641 \u062F\u0633\u062A\u06AF\u0627\u0647 \u0627\u0646\u062F\u0631\u0648\u06CC\u062F"),
                 React.createElement("button", { className: "btn g", onClick: () => revoke(edit.id, 'web') }, "\u062D\u0630\u0641 \u0646\u0634\u0633\u062A \u0648\u0628")),
-            React.createElement("button", { className: "btn p", style: { marginTop: 14 }, onClick: () => save(edit) }, "\u0630\u062E\u06CC\u0631\u0647")),
+            React.createElement("button", { className: "btn p", style: { marginTop: 14 }, disabled: savingUser, onClick: () => save(edit) }, savingUser ? "در حال ذخیره…" : "ذخیره تغییرات")),
         adding && React.createElement(AddUser, { roles: roles, zones: zones, onClose: () => setAdding(false), onSave: add }),
         lineModal && React.createElement(LineAssign, { user: lineModal, onClose: () => setLineModal(null) })));
 }
