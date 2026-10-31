@@ -6,7 +6,7 @@ on:
       version:
         description: "Version matching mobile/package.json"
         required: true
-        default: "1.5.16"
+        default: "1.5.17"
   push:
     branches:
       - "main"
