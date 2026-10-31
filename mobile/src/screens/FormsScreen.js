@@ -25,8 +25,19 @@ export default function FormsScreen({ route }) {
   const [busy, setBusy] = useState(false);
   const [dateField, setDateField] = useState(null); // کلید فیلدی که در حال انتخاب تاریخ برای آن هستیم
   const [filePicking, setFilePicking] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { request('/admin/forms').then(setForms).catch(() => setForms([])); }, []);
+  async function loadForms() {
+    setLoading(true); setLoadError('');
+    try {
+      const data = await request('/admin/forms', { noStore: true });
+      if (!Array.isArray(data)) throw new Error('پاسخ فهرست فرم‌ها نامعتبر است.');
+      setForms(data);
+    } catch (e) { setLoadError(e?.message || 'دریافت فرم‌ها انجام نشد.'); }
+    finally { setLoading(false); }
+  }
+  useEffect(() => { loadForms(); }, []);
 
   function setA(k, v) { setAnswers((a) => ({ ...a, [k]: v })); }
 
@@ -86,6 +97,7 @@ export default function FormsScreen({ route }) {
       if (f.type === 'sheba' && v && !/^IR[0-9]{24}$/.test(v)) return Alert.alert('توجه', `شمارهٔ شبای «${f.label}» نامعتبر است (باید IR و ۲۴ رقم باشد).`);
       out[f.key] = v;
     }
+    if (busy) return;
     setBusy(true);
     try {
       const r = await postOrQueue('/admin/form-submit', { form_id: active.id, driver_id: driver?.id, answers: out });
@@ -95,14 +107,16 @@ export default function FormsScreen({ route }) {
     finally { setBusy(false); }
   }
 
-  if (!forms) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
+  if (loading && !forms) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
+  if (!forms) return <View style={s.center}><Text accessibilityLiveRegion="polite" style={s.error}>{loadError || 'فهرست فرم‌ها دریافت نشد.'}</Text><TouchableOpacity accessibilityRole="button" style={s.btn} onPress={loadForms}><Text style={s.btnTxt}>تلاش دوباره</Text></TouchableOpacity></View>;
 
   if (!active) return (
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <Text style={s.h}>فرم‌های قابل تکمیل</Text>
+      {loadError ? <View style={s.errorBox}><Text accessibilityLiveRegion="polite" style={s.error}>{loadError}</Text><TouchableOpacity accessibilityRole="button" disabled={loading} onPress={loadForms} style={s.retry}><Text style={s.retryText}>{loading ? 'در حال دریافت…' : 'بارگذاری دوباره'}</Text></TouchableOpacity></View> : null}
       {forms.length === 0 && <Text style={s.empty}>فرمی تعریف نشده است.</Text>}
       {forms.map((f) => (
-        <TouchableOpacity key={f.id} style={s.card} onPress={() => { setActive(f); setAnswers({}); }}>
+        <TouchableOpacity key={f.id} accessibilityRole="button" style={s.card} onPress={() => { setActive(f); setAnswers({}); }}>
           <Text style={s.cardTitle}>{f.title}</Text>
           <Text style={s.cardSub}>{(f.schema || []).length} فیلد</Text>
         </TouchableOpacity>
@@ -183,6 +197,10 @@ export default function FormsScreen({ route }) {
 
 const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
+  errorBox: { borderWidth: 1, borderColor: '#fecaca', backgroundColor: '#fff7f7', padding: 14, borderRadius: 14, marginBottom: 12 },
+  error: { color: '#9f1d1d', fontFamily: FONT.regular, textAlign: 'center', lineHeight: 23, marginBottom: 10 },
+  retry: { minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  retryText: { color: C.brand, fontFamily: FONT.bold },
   h: { fontFamily: FONT.bold, fontSize: 16, color: C.ink, textAlign: 'right', marginBottom: 12 },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 30 },
   card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 18, padding: 17, marginBottom: 10 },

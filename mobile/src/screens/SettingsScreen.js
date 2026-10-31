@@ -1,23 +1,29 @@
-import React from 'react';
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { C, FONT } from '../theme';
 
 const ITEMS = [
-  ['map-settings', 'تنظیمات نقشه و دانلود آفلاین', '🗺️', 'MapSettings', 'مدیریت تنظیمات نقشه و داده‌های آفلاین'],
-  ['expiry-settings', 'اعلان‌های پایان اعتبار', '🔔', 'ExpiryNotificationSettings', 'تنظیم اعلان‌های مربوط به اعتبار'],
-  ['field-alerts', 'هشدارهای میدانی', '⚠️', 'FieldAlertSettings', 'تنظیم هشدارهای میدانی'],
-  ['app-lock', 'قفل برنامه', '🔐', 'AppLockSettings', 'مدیریت قفل و امنیت ورود به برنامه'],
-  ['crash-reports', 'گزارش خطاهای برنامه', '🛠️', 'CrashReports', 'مشاهده و مدیریت گزارش خطاهای برنامه'],
-  ['import-times', 'آخرین زمان‌های به‌روزرسانی', '🕒', 'ImportTimes', 'مشاهده آخرین زمان دریافت و به‌روزرسانی اطلاعات'],
-  ['check-update', 'بررسی به‌روزرسانی برنامه', '🔄', null, 'بررسی وجود نسخه جدید برنامه'],
-  ['privacy-policy', 'سیاست حریم خصوصی', '🔒', 'PrivacyPolicy', 'اطلاعات مربوط به جمع‌آوری، استفاده و حفاظت از داده‌ها'],
-  ['about-app', 'درباره برنامه', 'ℹ️', 'AboutApp', 'اطلاعات رسمی خطیار، نسخه، تولیدکننده و راه‌های ارتباطی'],
+  ['map-settings', 'تنظیمات نقشه و دانلود آفلاین', 'map-outline', 'MapSettings', 'مدیریت تنظیمات نقشه و داده‌های آفلاین'],
+  ['expiry-settings', 'اعلان‌های پایان اعتبار', 'bell-outline', 'ExpiryNotificationSettings', 'تنظیم اعلان‌های مربوط به اعتبار'],
+  ['field-alerts', 'هشدارهای میدانی', 'alert-circle-outline', 'FieldAlertSettings', 'تنظیم هشدارهای میدانی'],
+  ['app-lock', 'قفل برنامه', 'lock-outline', 'AppLockSettings', 'مدیریت قفل و امنیت ورود به برنامه'],
+  ['crash-reports', 'گزارش خطاهای برنامه', 'bug-outline', 'CrashReports', 'مشاهده و مدیریت گزارش خطاهای برنامه'],
+  ['import-times', 'آخرین زمان‌های به‌روزرسانی', 'clock-outline', 'ImportTimes', 'مشاهده آخرین زمان دریافت و به‌روزرسانی اطلاعات'],
+  ['check-update', 'بررسی به‌روزرسانی برنامه', 'update', null, 'بررسی وجود نسخه جدید برنامه'],
+  ['privacy-policy', 'سیاست حریم خصوصی', 'shield-lock-outline', 'PrivacyPolicy', 'اطلاعات مربوط به جمع‌آوری، استفاده و حفاظت از داده‌ها'],
+  ['about-app', 'درباره برنامه', 'information-outline', 'AboutApp', 'اطلاعات رسمی خطیار، نسخه، تولیدکننده و راه‌های ارتباطی'],
 ];
 
 export default function SettingsScreen({ navigation }) {
-  const openItem = (route) => {
-    if (route) navigation.navigate(route);
-    else import('../updater').then((m) => m.checkForUpdate(true)).catch(() => {});
+  const [checking, setChecking] = useState(false);
+  const openItem = async (route) => {
+    if (route) { navigation.navigate(route); return; }
+    if (checking) return;
+    setChecking(true);
+    try { const updater = await import('../updater'); await updater.checkForUpdate(true); }
+    catch (_) { Alert.alert('خطا', 'بررسی به‌روزرسانی انجام نشد. اتصال اینترنت را بررسی کنید.'); }
+    finally { setChecking(false); }
   };
   return (
     <ScrollView style={s.wrap} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -35,7 +41,7 @@ export default function SettingsScreen({ navigation }) {
       <View style={s.section}>
         <Text style={s.sectionTitle}>تنظیمات برنامه</Text>
         {ITEMS.slice(5, 7).map(([key, title, icon, route, description]) => (
-          <Item key={key} title={title} icon={icon} description={description} onPress={() => openItem(route)} />
+          <Item key={key} title={title} icon={icon} description={route ? description : checking ? 'در حال بررسی نسخهٔ جدید…' : description} disabled={!route && checking} onPress={() => openItem(route)} />
         ))}
       </View>
       <View style={s.section}>
@@ -47,10 +53,10 @@ export default function SettingsScreen({ navigation }) {
     </ScrollView>
   );
 }
-function Item({ title, icon, description, onPress }) {
+function Item({ title, icon, description, onPress, disabled = false }) {
   return (
-    <TouchableOpacity style={s.card} activeOpacity={0.82} onPress={onPress}>
-      <View style={s.icon}><Text style={s.iconText}>{icon}</Text></View>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={title} disabled={disabled} style={[s.card, disabled && { opacity: 0.6 }]} activeOpacity={0.82} onPress={onPress}>
+      <View style={s.icon}><MaterialCommunityIcons name={icon} size={23} color={C.brand} accessible={false} /></View>
       <View style={s.textWrap}>
         <Text style={s.itemTitle}>{title}</Text>
         <Text style={s.description}>{description}</Text>

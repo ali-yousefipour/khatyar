@@ -1,5 +1,5 @@
-import React,{useEffect,useState} from 'react';
-import {View,Text,ScrollView,StyleSheet,RefreshControl,TouchableOpacity,Alert} from 'react-native';
+import React,{useEffect,useState,useRef} from 'react';
+import {View,Text,ScrollView,StyleSheet,RefreshControl,TouchableOpacity} from 'react-native';
 import {request} from '../api';
 import {C,FONT} from '../theme';
 import {faNum} from '../num';
@@ -22,30 +22,37 @@ export default function LeaderboardScreen(){
  const [period,setPeriod]=useState('daily');
  const [data,setData]=useState(null);
  const [badges,setBadges]=useState(null);
- const [meId,setMeId]=useState(null);
  const [refreshing,setRefreshing]=useState(false);
+ const [loading,setLoading]=useState(true);
+ const [error,setError]=useState('');
+ const generation=useRef(0);
 
  const load=async(p)=>{
+  const current=++generation.current;
+  setLoading(true);setError('');
   try{
    const [lb,my]=await Promise.all([request('/leaderboard?period='+p,{noStore:true}),request('/my/badges',{noStore:true})]);
+   if(current!==generation.current)return;
    setData(lb); setBadges(my.items||[]);
-  }catch(e){Alert.alert('خطا',e.message||'دریافت رتبه‌بندی ناموفق بود');}
+  }catch(e){if(current===generation.current)setError(e?.message||'دریافت رتبه‌بندی ناموفق بود.');}
+  finally{if(current===generation.current){setLoading(false);setRefreshing(false);}}
  };
- useEffect(()=>{load(period);},[period]);
- const refresh=async()=>{setRefreshing(true);await load(period);setRefreshing(false);};
+ useEffect(()=>{load(period);return()=>{generation.current+=1;};},[period]);
+ const refresh=()=>{if(refreshing)return;setRefreshing(true);load(period);};
 
  return <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
   <View style={s.head}><Text style={s.headTitle}>رتبه‌بندی و نشان‌ها</Text><Text style={s.headSub}>عملکرد وزن‌دار نیروهای میدانی بر اساس امتیاز</Text></View>
 
   <View style={s.tabs}>{PERIODS.map(([k,l])=>
-   <TouchableOpacity key={k} style={[s.tab,period===k&&s.tabOn]} onPress={()=>setPeriod(k)}>
+   <TouchableOpacity key={k} accessibilityRole="tab" accessibilityState={{selected:period===k}} style={[s.tab,period===k&&s.tabOn]} onPress={()=>setPeriod(k)}>
     <Text style={[s.tabT,period===k&&s.tabTOn]}>{l}</Text>
    </TouchableOpacity>)}</View>
 
-  {!data?<View style={s.center}><ActivityIndicator color={C.brand}/></View>:<>
+  {error?<View accessibilityLiveRegion="polite" style={s.errorBox}><Text style={s.errorText}>{error}</Text><TouchableOpacity accessibilityRole="button" onPress={()=>load(period)} style={s.retry}><Text style={s.retryText}>تلاش دوباره</Text></TouchableOpacity></View>:null}
+  {loading?<View style={s.center}><ActivityIndicator color={C.brand}/></View>:data?<>
    {(data.items||[]).map(r=><RankRow key={r.user_id} r={r}/>)}
    {(!data.items||!data.items.length)&&<View style={s.empty}><Text style={s.emptyT}>برای این بازه هنوز امتیازی ثبت نشده است.</Text></View>}
-  </>}
+  </>:null}
 
   {badges&&badges.length>0&&<View style={{marginTop:18}}>
    <Text style={s.secTitle}>نشان‌های من</Text>
@@ -74,6 +81,10 @@ const s=StyleSheet.create({
  name:{fontFamily:FONT.bold,color:C.ink,textAlign:'right'},role:{fontFamily:FONT.regular,color:C.muted,fontSize:11,textAlign:'right',marginTop:2},
  pts:{fontFamily:FONT.bold,color:'#0f7c55',fontSize:15},
  empty:{backgroundColor:'#fff',padding:20,borderRadius:14},emptyT:{fontFamily:FONT.regular,color:C.muted,textAlign:'center'},
+ errorBox:{backgroundColor:'#fff7f7',borderColor:'#fecaca',borderWidth:1,borderRadius:14,padding:14,marginBottom:10},
+ errorText:{fontFamily:FONT.regular,color:'#9f1d1d',textAlign:'center',lineHeight:22},
+ retry:{alignSelf:'center',minHeight:48,justifyContent:'center',paddingHorizontal:20},
+ retryText:{fontFamily:FONT.bold,color:C.brand},
  secTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:15,textAlign:'right',marginBottom:8},
  badgeWrap:{flexDirection:'row-reverse',flexWrap:'wrap',gap:8},
  badgeCard:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius: 16, padding: 15,minWidth:'30%',alignItems:'center'},
