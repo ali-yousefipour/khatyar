@@ -44,17 +44,11 @@ function generate(name, durationMs, sound) {
       case 'press':
         value = hiss * 0.095 * Math.exp(-ms / 22) + pulse(7, 42, 760, 0.07);
         break;
-      case 'release':
-        value = hiss * 0.14 * Math.exp(-ms / 11) - pulse(5, 27, 520, 0.035);
-        break;
       case 'open':
         value = hiss * 0.13 * Math.exp(-ms / 75) + pulse(10, 68, 530, 0.04);
         break;
       case 'close':
         value = hiss * 0.16 * Math.exp(-ms / 42) + pulse(0, 36, 400, 0.025);
-        break;
-      case 'hiss':
-        value = hiss * 0.07;
         break;
       case 'roger':
         value = pulse(4, 82, 1120, 0.13) + pulse(98, 163, 880, 0.105);
@@ -62,19 +56,8 @@ function generate(name, durationMs, sound) {
       case 'eot':
         value = pulse(4, 58, 1040, 0.12) + pulse(70, 136, 720, 0.10);
         break;
-      case 'bot':
-        value = pulse(6, 71, 820, 0.115) + pulse(88, 169, 1060, 0.12);
-        break;
       case 'alert':
         value = pulse(9, 140, 920, 0.11) + pulse(175, 310, 920, 0.11) + hiss * 0.018;
-        break;
-      case 'courtesy':
-        value = pulse(7, 156, 880, 0.10);
-        break;
-      case 'sequence':
-        value = hiss * 0.045 * Math.exp(-ms / 90) + pulse(40, 145, 860, 0.11) +
-          pulse(220, 325, 1120, 0.13) + pulse(480, 565, 800, 0.10) +
-          hiss * 0.045 * Math.exp(-Math.abs(ms - 640) / 50);
         break;
     }
     // Gentle first-order low-pass reduces harsh high-frequency digital noise.
@@ -86,16 +69,10 @@ function generate(name, durationMs, sound) {
 }
 
 [
-  ['radio_bot', 185, 'bot'],
   ['radio_call_alert', 360, 'alert'],
-  ['radio_courtesy_beep', 175, 'courtesy'],
   ['radio_eot', 150, 'eot'],
   ['radio_ptt_press', 65, 'press'],
-  ['radio_release_click', 48, 'release'],
-  ['radio_rf_hiss', 1000, 'hiss'],
   ['radio_roger_beep', 180, 'roger'],
-  ['radio_sequence_reference', 800, 'sequence'],
-  ['radio_squelch', 240, 'open'],
   ['radio_squelch_open', 210, 'open'],
   ['radio_squelch_close', 155, 'close'],
 ].forEach(spec => generate(...spec));
