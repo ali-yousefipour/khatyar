@@ -1326,6 +1326,7 @@ function UserPicker({ users, value, onChange, placeholder }) {
             React.createElement("small", { className: "muted" }, u.role_title || "")))
             : React.createElement("p", { className: "muted", style: { padding: 10, fontSize: 12 } }, "\u0645\u0648\u0631\u062F\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F."))));
 }
+const mapEscapeHtml = value => String(value !== null && value !== void 0 ? value : "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 // فیلتر نمایش نقشهٔ زنده: بر اساس سمت یا اشخاص خاص (برای افزایش سرعت نمایش)
 function MapFilters({ allUsers, roleFilter, setRoleFilter, personFilter, setPersonFilter, onApply }) {
     const [roles, setRoles] = React.useState([]);
@@ -1334,8 +1335,8 @@ function MapFilters({ allUsers, roleFilter, setRoleFilter, personFilter, setPers
     const toggleRole = (id) => { const cur = roleFilter ? [...roleFilter] : []; const i = cur.indexOf(String(id)); i >= 0 ? cur.splice(i, 1) : cur.push(String(id)); setRoleFilter(cur.length ? cur : null); };
     const togglePerson = (id) => { const cur = personFilter ? [...personFilter] : []; const i = cur.indexOf(String(id)); i >= 0 ? cur.splice(i, 1) : cur.push(String(id)); setPersonFilter(cur.length ? cur : null); };
     const filtered = q.trim() ? allUsers.filter(u => ((u.first_name || "") + " " + (u.last_name || "")).includes(q.trim())) : allUsers;
-    return (React.createElement("div", { style: { background: "var(--brand-soft)", borderRadius: 10, padding: 12, marginBottom: 10 } },
-        React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 8 } }, "\u0628\u0631\u0627\u06CC \u0627\u0641\u0632\u0627\u06CC\u0634 \u0633\u0631\u0639\u062A \u0646\u0645\u0627\u06CC\u0634\u060C \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0641\u0642\u0637 \u0633\u0645\u062A\u200C\u0647\u0627 \u06CC\u0627 \u0627\u0634\u062E\u0627\u0635 \u062F\u0644\u062E\u0648\u0627\u0647 \u0631\u0627 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0647\u06CC\u062F. \u0627\u06AF\u0631 \u0686\u06CC\u0632\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u0634\u0648\u062F\u060C \u0647\u0645\u0647 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
+    return (React.createElement("section", { className: "live-map-filters", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0631\u0648\u06CC \u0646\u0642\u0634\u0647" },
+        React.createElement("p", null, "\u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u0633\u0631\u06CC\u0639\u200C\u062A\u0631 \u0646\u0642\u0634\u0647\u060C \u0633\u0645\u062A\u200C\u0647\u0627 \u06CC\u0627 \u0627\u0634\u062E\u0627\u0635 \u0645\u0648\u0631\u062F\u0646\u0638\u0631 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F. \u0628\u062F\u0648\u0646 \u0627\u0646\u062A\u062E\u0627\u0628\u060C \u0647\u0645\u0647 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
         React.createElement("div", { style: { marginBottom: 10 } },
             React.createElement("b", { style: { fontSize: 13 } }, "\u0646\u0645\u0627\u06CC\u0634 \u0628\u0631 \u0627\u0633\u0627\u0633 \u0633\u0645\u062A:"),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 } }, roles.map(r => {
@@ -1346,7 +1347,7 @@ function MapFilters({ allUsers, roleFilter, setRoleFilter, personFilter, setPers
             }))),
         React.createElement("div", null,
             React.createElement("b", { style: { fontSize: 13 } }, "\u06CC\u0627 \u0646\u0645\u0627\u06CC\u0634 \u0627\u0634\u062E\u0627\u0635 \u0645\u0634\u062E\u0635:"),
-            React.createElement("input", { className: "input", style: { marginTop: 6, marginBottom: 6 }, placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u0634\u062E\u0635\u2026", value: q, onChange: e => setQ(e.target.value) }),
+            React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u0646\u0627\u0645 \u0634\u062E\u0635 \u0628\u0631\u0627\u06CC \u0641\u06CC\u0644\u062A\u0631 \u0646\u0642\u0634\u0647", style: { marginTop: 6, marginBottom: 6 }, placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u0634\u062E\u0635\u2026", value: q, onChange: e => setQ(e.target.value) }),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 160, overflowY: "auto" } }, filtered.slice(0, 100).map(u => {
                 const on = personFilter && personFilter.includes(String(u.id));
                 return (React.createElement("label", { key: u.id, style: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, background: on ? "var(--brand)" : "#fff", color: on ? "#fff" : "var(--ink)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", border: "1px solid var(--line)" } },
@@ -1357,7 +1358,7 @@ function MapFilters({ allUsers, roleFilter, setRoleFilter, personFilter, setPers
             }))),
         React.createElement("div", { className: "row", style: { gap: 8, marginTop: 10 } },
             React.createElement("button", { className: "btn p", onClick: onApply }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
-            React.createElement("button", { className: "btn g", onClick: () => { setRoleFilter(null); setPersonFilter(null); setTimeout(onApply, 50); } }, "\u0646\u0645\u0627\u06CC\u0634 \u0647\u0645\u0647"))));
+            React.createElement("button", { className: "btn g", onClick: () => { setRoleFilter(null); setPersonFilter(null); onApply({ roles: null, people: null }); } }, "\u0646\u0645\u0627\u06CC\u0634 \u0647\u0645\u0647"))));
 }
 // کنترل پخش مسیر طی‌شده روی نقشه با نشانگر متحرک، تنظیم سرعت و میانگین سرعت بین نقاط
 function PlaybackControls({ trkPts, pbIdx, setPbIdx, pbPlaying, setPbPlaying, pbSpeed, setPbSpeed, mapRef, pbMarkerRef, pbIvRef }) {
@@ -1472,6 +1473,7 @@ function LiveMap() {
     const shiftFilterRef = useRef(shiftFilter);
     const liveRequestRef = useRef(false);
     const liveMountedRef = useRef(false);
+    const refreshPendingRef = useRef(false);
     const [liveLoading, setLiveLoading] = useState(true);
     const [liveError, setLiveError] = useState('');
     const [liveUpdated, setLiveUpdated] = useState(null);
@@ -1557,6 +1559,8 @@ function LiveMap() {
         if (baseRef.current.bringToBack)
             baseRef.current.bringToBack();
     };
+    useEffect(() => { if (mapRef.current && mapProvider === "neshan")
+        applyBase(mapProvider); }, [mapKeys.neshan]);
     const changeProvider = (prov) => { setMapProvider(prov); localStorage.mapProvider = prov; applyBase(prov); };
     // رنگ خط دور تصویر بر اساس سطح/نقش کاربر
     const roleColor = (u) => {
@@ -1586,10 +1590,10 @@ function LiveMap() {
         const online = !!(+u.online);
         const ring = roleColor(u);
         const initials = ((u.first_name || "؟")[0] || "") + ((u.last_name || "")[0] || "");
-        const photoStyle = u.photo ? `background-image:url('${u.photo}');background-size:cover;background-position:center;` : `background:${ring};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;`;
+        const safePhoto = typeof u.photo === "string" && (/^(https?:\/\/|\/)/i).test(u.photo) ? u.photo : "";
         const dim = online ? 1 : 0.5;
         return `<div style="position:relative;width:42px;height:52px;opacity:${dim}">
-      <div style="width:40px;height:40px;border-radius:50%;border:3px solid ${ring};box-shadow:0 2px 6px rgba(0,0,0,.4);${photoStyle}overflow:hidden">${u.photo ? "" : initials}</div>
+      <div style="width:40px;height:40px;border-radius:50%;border:3px solid ${ring};box-shadow:0 2px 6px rgba(0,0,0,.4);background:${ring};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;overflow:hidden">${safePhoto ? `<img src="${mapEscapeHtml(safePhoto)}" alt="" style="width:100%;height:100%;object-fit:cover"/>` : mapEscapeHtml(initials)}</div>
       <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid ${ring}"></div>
       <div style="position:absolute;top:-2px;right:-2px;width:11px;height:11px;border-radius:50%;border:2px solid #fff;background:${online ? "#16a06a" : "#9aa6b6"}"></div>
       ${(+u.vpn_on) ? '<div style="position:absolute;top:-4px;left:-4px;background:#dc2626;color:#fff;font-size:8px;font-weight:700;border-radius:4px;padding:0 3px">VPN</div>' : ''}
@@ -1598,8 +1602,9 @@ function LiveMap() {
     };
     const popupHtml = (u) => {
         const online = !!(+u.online);
-        const mins = Math.floor((u.secs_ago || 0) / 60);
-        return `<b>${u.first_name} ${u.last_name}</b><br>${u.role_title || ''}<br>${online ? '<span style="color:#16a06a">● آنلاین (در حال ارسال موقعیت)</span>' : '<span style="color:#8a93a6">● آفلاین — ' + (mins > 0 ? ('آخرین ارسال ' + mins + ' دقیقه پیش') : 'لحظاتی پیش') + '</span>'}${(+u.vpn_on) ? '<br><span style="color:#dc2626">⚠ فیلترشکن روشن' + (u.ip_country && u.ip_country !== 'IR' ? (' (کشور IP: ' + u.ip_country + ')') : '') + '</span>' : ''}${(u.ip_country && u.ip_country !== 'IR' && !(+u.vpn_on)) ? '<br><span style="color:#d97706">🌐 کشور IP: ' + u.ip_country + '</span>' : ''}${(+u.via_gsm) ? '<br><span style="color:#d97706">📶 موقعیت حدودی (آنتن GSM — GPS خاموش)</span>' : ''}${(u.battery_level != null && u.battery_level !== '') ? '<br><span style="color:' + (u.battery_level < 20 ? '#dc2626' : '#16a06a') + '">🔋 باتری: ' + fa(u.battery_level) + '٪' + (+u.battery_charging ? ' (در حال شارژ)' : '') + '</span>' : ''}<br>${fj(u.captured_at)}`;
+        const mins = Math.max(0, Math.floor((+u.secs_ago || 0) / 60));
+        const name = mapEscapeHtml((u.first_name || "") + " " + (u.last_name || "")), role = mapEscapeHtml(u.role_title || ""), country = mapEscapeHtml(u.ip_country || "");
+        return `<b>${name}</b><br>${role}<br>${online ? '<span style="color:#16a06a">● آنلاین (در حال ارسال موقعیت)</span>' : '<span style="color:#8a93a6">● آفلاین — ' + (mins > 0 ? ('آخرین ارسال ' + fa(mins) + ' دقیقه پیش') : 'لحظاتی پیش') + '</span>'}${(+u.vpn_on) ? '<br><span style="color:#dc2626">⚠ فیلترشکن روشن' + (country && country !== 'IR' ? (' (کشور IP: ' + country + ')') : '') + '</span>' : ''}${(country && country !== 'IR' && !(+u.vpn_on)) ? '<br><span style="color:#d97706">🌐 کشور IP: ' + country + '</span>' : ''}${(+u.via_gsm) ? '<br><span style="color:#d97706">📶 موقعیت حدودی (آنتن GSM — GPS خاموش)</span>' : ''}${(u.battery_level != null && u.battery_level !== '') ? '<br><span style="color:' + (u.battery_level < 20 ? '#dc2626' : '#16a06a') + '">🔋 باتری: ' + fa(u.battery_level) + '٪' + (+u.battery_charging ? ' (در حال شارژ)' : '') + '</span>' : ''}<br>${mapEscapeHtml(fj(u.captured_at))}`;
     };
     const drawUsers = () => {
         const map = mapRef.current;
@@ -1611,8 +1616,10 @@ function LiveMap() {
         const grp = layerRef.current;
         const mk = markersRef.current;
         const seen = {};
-        if (liveRequestRef.current)
+        if (liveRequestRef.current) {
+            refreshPendingRef.current = true;
             return;
+        }
         liveRequestRef.current = true;
         setLiveLoading(true);
         const requestedShift = shiftFilterRef.current;
@@ -1676,8 +1683,10 @@ function LiveMap() {
         }).catch(error => { if (liveMountedRef.current)
             setLiveError(error.message || 'دریافت موقعیت‌ها ناموفق بود.'); }).finally(() => { liveRequestRef.current = false; if (liveMountedRef.current) {
             setLiveLoading(false);
-            if (requestedShift !== shiftFilterRef.current)
+            if (requestedShift !== shiftFilterRef.current || refreshPendingRef.current) {
+                refreshPendingRef.current = false;
                 drawUsers();
+            }
         } });
     };
     useEffect(() => {
@@ -1697,7 +1706,13 @@ function LiveMap() {
         drawUsers();
         setTimeout(() => map.invalidateSize(), 200);
         const iv = setInterval(drawUsers, 15000);
-        return () => { liveMountedRef.current = false; clearInterval(iv); map.remove(); };
+        return () => { liveMountedRef.current = false; clearInterval(iv); if (trkIv.current) {
+            clearInterval(trkIv.current);
+            trkIv.current = null;
+        } if (pbIvRef.current) {
+            clearInterval(pbIvRef.current);
+            pbIvRef.current = null;
+        } map.remove(); mapRef.current = null; };
     }, []);
     // با انتخاب یک نفر از کشوی رهگیری، در حالت زنده فقط همان نفر روی نقشه نمایش داده شود
     useEffect(() => {
@@ -1769,7 +1784,7 @@ function LiveMap() {
         setMode("track");
         if (trkIv.current)
             clearInterval(trkIv.current);
-        const today = new Date().toISOString().slice(0, 10);
+        const today = localIsoDate(new Date());
         const run = () => db.track(trkUser, today + " 00:00:00", today + " 23:59:59").then(r => { drawTrack(r.points); setTrkInfo({ name: r.name, count: r.count }); }).catch(() => { });
         run();
         trkIv.current = setInterval(run, 15000);
@@ -1814,9 +1829,10 @@ function LiveMap() {
         return `${Math.round(bd)} متر تا «${best ? best.name : '?'}»` + (best && best.line_code ? ` (خط ${best.line_code})` : "");
     };
     // preset بازه‌های زمانی آماده
+    const localIsoDate = x => [x.getFullYear(), String(x.getMonth() + 1).padStart(2, "0"), String(x.getDate()).padStart(2, "0")].join("-");
     const setPreset = (p) => {
         const d = new Date();
-        const iso = x => x.toISOString().slice(0, 10);
+        const iso = localIsoDate;
         if (p === "today") {
             setFromD(iso(d));
             setToD(iso(d));
@@ -2072,10 +2088,13 @@ function LiveMap() {
     } const map = mapRef.current; if (lineRef.current && map)
         map.removeLayer(lineRef.current); setTrkInfo(null); setTrkPts(null); setMode("live"); drawUsers(); };
     return (React.createElement("div", { className: "panel admin-workspace-page live-map-page" },
-        React.createElement("h3", null,
-            "\u0646\u0642\u0634\u0647\u0654 \u0632\u0646\u062F\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627 \u0648 \u0631\u0647\u06AF\u06CC\u0631\u06CC",
-            React.createElement("span", { className: "row", style: { gap: 8 } },
-                React.createElement("select", { className: "input", style: { maxWidth: 170, fontSize: 12 }, value: mapProvider, onChange: e => changeProvider(e.target.value) },
+        React.createElement("div", { className: "live-map-heading" },
+            React.createElement("div", null,
+                React.createElement("span", { className: "dashboard-section-kicker" }, "\u067E\u0627\u06CC\u0634 \u0645\u06CC\u062F\u0627\u0646\u06CC"),
+                React.createElement("h3", null, "\u0646\u0642\u0634\u0647\u0654 \u0632\u0646\u062F\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627 \u0648 \u0631\u0647\u06AF\u06CC\u0631\u06CC"),
+                React.createElement("p", null, "\u0645\u0648\u0642\u0639\u06CC\u062A \u0646\u06CC\u0631\u0648\u0647\u0627\u060C \u0631\u0647\u06AF\u06CC\u0631\u06CC \u0645\u0633\u06CC\u0631 \u0648 \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627\u06CC \u062A\u0631\u062F\u062F")),
+            React.createElement("div", { className: "live-map-toolbar" },
+                React.createElement("select", { className: "input", "aria-label": "\u0627\u0646\u062A\u062E\u0627\u0628 \u0633\u0631\u0648\u06CC\u0633 \u0646\u0642\u0634\u0647", value: mapProvider, onChange: e => changeProvider(e.target.value) },
                     React.createElement("option", { value: "osm" }, "\u0646\u0642\u0634\u0647\u0654 OpenStreetMap"),
                     React.createElement("option", { value: "google" }, "\u0646\u0642\u0634\u0647\u0654 \u06AF\u0648\u06AF\u0644"),
                     React.createElement("option", { value: "google_sat" }, "\u0645\u0627\u0647\u0648\u0627\u0631\u0647\u200C\u0627\u06CC \u06AF\u0648\u06AF\u0644"),
@@ -2131,9 +2150,12 @@ function LiveMap() {
                 item.Seq_in_index,
                 " \u2014 ",
                 item.Column_name))))),
-        React.createElement("div", { className: "tabbar", style: { display: "flex", gap: 8, marginBottom: 12, borderBottom: "2px solid var(--line)", flexWrap: "wrap" } }, [["main", "🗺 نقشهٔ اصلی نیروها"], ["live", "🛰 رهگیری زنده"], ["report", "📊 گزارش مسیر و پخش"], ["exits", "⛔ خروج از محدوده امروز"]].map(([k, lbl]) => React.createElement("button", { key: k, onClick: () => { setViewTab(k); if (k === "main")
-                stopTrack(); }, style: { background: "none", border: "none", borderBottom: viewTab === k ? "3px solid var(--brand)" : "3px solid transparent", padding: "8px 14px", cursor: "pointer", fontWeight: viewTab === k ? 800 : 500, color: viewTab === k ? "var(--brand)" : "var(--muted)", fontFamily: "inherit", fontSize: 13.5, whiteSpace: "nowrap" } }, lbl))),
-        showFilters && React.createElement(MapFilters, { allUsers: allUsers, roleFilter: roleFilter, setRoleFilter: setRoleFilter, personFilter: personFilter, setPersonFilter: setPersonFilter, onApply: () => { const mk = markersRef.current, grp = layerRef.current; if (grp) {
+        React.createElement("div", { className: "tabbar live-map-tabs", role: "tablist", "aria-label": "\u0628\u062E\u0634\u200C\u0647\u0627\u06CC \u0646\u0642\u0634\u0647 \u0632\u0646\u062F\u0647" }, [["main", "🗺 نقشهٔ اصلی نیروها"], ["live", "🛰 رهگیری زنده"], ["report", "📊 گزارش مسیر و پخش"], ["exits", "⛔ خروج از محدوده امروز"]].map(([k, lbl]) => React.createElement("button", { type: "button", role: "tab", "aria-selected": viewTab === k, className: viewTab === k ? "live-map-tab-active" : "", key: k, onClick: () => { setViewTab(k); if (k === "main")
+                stopTrack(); } }, lbl))),
+        showFilters && React.createElement(MapFilters, { allUsers: allUsers, roleFilter: roleFilter, setRoleFilter: setRoleFilter, personFilter: personFilter, setPersonFilter: setPersonFilter, onApply: overrides => { if (overrides) {
+                roleFilterRef.current = overrides.roles;
+                personFilterRef.current = overrides.people;
+            } const mk = markersRef.current, grp = layerRef.current; if (grp) {
                 Object.keys(mk).forEach(id => { grp.removeLayer(mk[id]); delete mk[id]; });
             } drawUsers(); } }),
         viewTab === "live" && React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", marginBottom: 8, alignItems: "center" } },
@@ -2167,7 +2189,7 @@ function LiveMap() {
             "\u062A\u0639\u062F\u0627\u062F \u0646\u0642\u0627\u0637 \u0645\u0633\u06CC\u0631: ",
             fa(trkInfo.count || 0),
             mode === "track" ? " (به‌روزرسانی زنده)" : ""),
-        React.createElement("div", { id: "map", ref: ref, style: { height: "52vh", minHeight: 340, borderRadius: 14 } }),
+        React.createElement("div", { id: "map", className: "live-map-canvas", ref: ref, role: "region", "aria-label": "\u0646\u0642\u0634\u0647 \u062A\u0639\u0627\u0645\u0644\u06CC \u0645\u0648\u0642\u0639\u06CC\u062A \u0646\u06CC\u0631\u0648\u0647\u0627" }),
         (viewTab === "main" || viewTab === "live") && React.createElement("div", { style: { display: "flex", gap: 14, flexWrap: "wrap", fontSize: 11.5, color: "var(--muted)", padding: "8px 4px 0" } },
             React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
                 React.createElement("span", { style: { width: 10, height: 10, borderRadius: "50%", background: "#16a06a", display: "inline-block" } }),
