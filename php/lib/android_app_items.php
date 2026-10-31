@@ -1,0 +1,5 @@
+<?php
+/** Canonical Android app item keys shared by the admin editor and mobile API. */
+function kh_android_app_items(): array {
+  return ['Dashboard','Search','Driver','Vehicle','Debt','Checklist','Notice','Reports','Sms','BotMessages','Requests','RequestInbox','WorkSummary','SalarySlips','CompanyRequests','Subscription','CheckIn','Forms','Cultural','Welfare','TempDrivers','Notifications','FieldAlerts','ActivityReport','ExpInsurance','ExpTaxi','ExpOplic','TeamReport','InboxReports','ReportDetail','OfficialPresence','Inventory','Messages','Attendance','PastNotices','PastChecklists','DriverSms','MySms','CustomFields','Outage','Profile','ChangePassword','EditProfile','PersonnelVehicleAsset','PersonnelVehicleChecklist','MapSettings','ExpiryNotificationSettings','FieldAlertSettings','ImportTimes','AppLockSettings','CrashReports','LineVisitProgram','LineLocation','MyDailyMission','RoleDashboard','Leaderboard','Radio','Help','StationCapture','MyStations','PresentList','SendQueue','Settings','PrivacyPolicy','AboutApp','SchoolService','Complaints','ComplaintDetail','PresenceCheckWizard'];
+}

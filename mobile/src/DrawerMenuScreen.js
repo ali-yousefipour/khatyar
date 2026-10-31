@@ -10,7 +10,6 @@ import { useAuth } from './auth';
 import { request, uploadFile, flushQueuedRequests, imageSource } from './api';
 import { pending as pendingOfflineQueue } from './offline';
 import { subscribeUnreadCounts, refreshUnreadCounts, unreadLabel } from './unread';
-import { readAccessCache, refreshAccessCache, hasAppItem } from './accessCache';
 
 const ITEMS = [
   ['Notifications', 'اعلان‌ها', 'bell-outline'],
@@ -52,8 +51,15 @@ export default function DrawerMenuScreen({ navigation }) {
   const [schoolServiceAllowed, setSchoolServiceAllowed] = React.useState(false);
   const [unread, setUnread] = React.useState({ messages: 0, reports: 0 });
   const [queueCount, setQueueCount] = React.useState(0);
-  const [roleAppAccess, setRoleAppAccess] = React.useState(null);
-  React.useEffect(() => { let active = true; readAccessCache().then(v => { if(active) setRoleAppAccess(v); }).catch(() => {}); refreshAccessCache().then(v => { if(active) setRoleAppAccess(v); }).catch(() => {}); return () => { active = false; }; }, [user?.id, user?.role_id]);
+  const [roleAppAccess, setRoleAppAccess] = React.useState([]);
+  React.useEffect(() => {
+    let active = true;
+    setRoleAppAccess([]);
+    request('/my/app-items', { noStore: true, forceNetwork: true, queueIfOffline: false, timeoutMs: 10000 })
+      .then(r => { if (active) setRoleAppAccess(Array.isArray(r?.items) ? r.items : []); })
+      .catch(() => { if (active) setRoleAppAccess([]); });
+    return () => { active = false; };
+  }, [user?.id, user?.role_id]);
 
   React.useEffect(() => {
     const off = subscribeUnreadCounts(setUnread);
@@ -182,7 +188,7 @@ export default function DrawerMenuScreen({ navigation }) {
   const items = [
     ...ITEMS,
     ['SendQueue', 'صف ارسال' + (queueCount ? ` (${queueCount})` : ''), 'cloud-upload-outline'],
-  ].filter(([route]) => !roleAppAccess?.appItems || hasAppItem(roleAppAccess, route));
+  ].filter(([route]) => roleAppAccess.includes(route));
 
   return (
     <View style={s.page}>
