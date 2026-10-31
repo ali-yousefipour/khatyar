@@ -3094,26 +3094,27 @@ function ScoreEngineAdmin(){
 function PersonnelPerformance(){
   const tj=todayJ();
   const [from,setFrom]=useState(""); const [to,setTo]=useState("");
-  const [data,setData]=useState(null); const [loading,setLoading]=useState(false);
-  const qs=()=>{ const p=[]; if(from)p.push("from="+from); if(to)p.push("to="+to); return p.length?("?"+p.join("&")):""; };
-  const load=()=>{ setLoading(true); GET("/admin/personnel-performance"+qs()).then(setData).catch(()=>{}).finally(()=>setLoading(false)); };
+  const [data,setData]=useState(null); const [loading,setLoading]=useState(false);const [error,setError]=useState('');
+  const qs=(fromDate=from,toDate=to)=>{const p=new URLSearchParams();if(fromDate)p.set('from',fromDate);if(toDate)p.set('to',toDate);return p.toString()?'?'+p.toString():'';};
+  const load=(fromDate=from,toDate=to)=>{setLoading(true);setError('');GET("/admin/personnel-performance"+qs(fromDate,toDate)).then(setData).catch(e=>setError(e.message||'دریافت عملکرد پرسنل ناموفق بود.')).finally(()=>setLoading(false));};
   useEffect(()=>{load();},[]);
   const exportExcel=()=>{ if(!data)return;
     const cols=["نام","سمت","چک‌لیست","حضور راننده","تذکر","حضور مسئول","گزارش","پیامک ارسالی","پیامک آبونمان","کلیک پرداخت قبض","پرداخت موفق (۷ روز)","مجموع فعالیت"];
     const rows=data.people.map(p=>[p.name,p.role_title||"",p.checklists,p.driver_attendances,p.notices,p.official_visits,p.reports,p.sms_total||0,p.sms_abonman||0,p.bill_pay_clicks||0,p.bill_pay_effective||0,p.total]);
     const ws=XLSX.utils.aoa_to_sheet([cols,...rows]); const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"عملکرد پرسنل"); XLSX.writeFile(wb,"عملکرد_پرسنل.xlsx"); };
-  return(<div className="panel admin-workspace-page"><h3>گزارش عملکرد پرسنل</h3>
+  return(<div className="panel admin-workspace-page personnel-performance-page"><div className="workspace-section-heading"><div><span>تحلیل عملکرد</span><h3>گزارش عملکرد پرسنل</h3><p>مقایسه فعالیت‌های ثبت‌شده نیروها در بازه انتخابی</p></div><span className="workspace-heading-count">{fa(data?.people?.length||0)} نیرو</span></div>
     <p style={{fontSize:13,color:"var(--muted)",marginBottom:10}}>تعداد فعالیت‌های هر نیرو در بازهٔ انتخابی شامل چک‌لیست، حضور، تذکر، گزارش، پیامک‌های ارسالی و عملکرد پرداخت قبض. خالی گذاشتن تاریخ = کل دوره.</p>
-    <div className="filters" style={{flexWrap:"wrap",gap:8}}>
+    <div className="filters workspace-filterbar">
       <span className="label">از</span><JDate value={from} onChange={setFrom} jalali/>
       <span className="label">تا</span><JDate value={to} onChange={setTo} jalali/>
-      <button className="btn p" onClick={load}>اعمال</button>
-      <button className="btn g" onClick={()=>{setFrom("");setTo("");setTimeout(load,0);}}>کل دوره</button>
+      <button className="btn p" disabled={loading} onClick={()=>load()}>اعمال</button>
+      <button className="btn g" disabled={loading} onClick={()=>{setFrom("");setTo("");load("","");}}>کل دوره</button>
       <button className="btn g" onClick={exportExcel} disabled={!data}>⤓ خروجی اکسل</button>
     </div>
-    {loading&&<p style={{color:"var(--muted)"}}>در حال بارگذاری…</p>}
-    {data&&<div style={{overflowX:"auto",marginTop:10}}>
+    {error&&<p className="workspace-inline-error" role="alert">{error}</p>}
+    {loading&&<p className="workspace-empty-state" role="status">در حال بارگذاری…</p>}
+    {data&&!loading&&<div className="table-wrap workspace-wide-table">
       <table style={{fontSize:12.5,minWidth:980}}>
         <thead><tr><th>نام</th><th>سمت</th><th>چک‌لیست</th><th>حضور راننده</th><th>تذکر</th><th>حضور مسئول</th><th>گزارش</th><th>پیامک</th><th>آبونمان</th><th>کلیک پرداخت</th><th>پرداخت موفق</th><th>مجموع</th></tr></thead>
         <tbody>{data.people.map((p,i)=><tr key={i} style={i<3?{background:"#f0faf6"}:{}}>
@@ -3131,8 +3132,8 @@ function PersonnelPerformance(){
 function Reporting(){
   const TYPES={attendance:"حضور رانندگان",notices:"تذکرات",checklists:"چک‌لیست‌ها",bills:"بدهی آبونمان",presence_violations:"تخلفات عدم صحت‌سنجی حضور"};
   const [type,setType]=useState("attendance"); const [from,setFrom]=useState(""); const [to,setTo]=useState(""); const [person,setPerson]=useState("");
-  const [cur,setCur]=useState({cols:[],rows:[]}); const [loaded,setLoaded]=useState(false); const [loading,setLoading]=useState(false);
-  const load=()=>{ setLoading(true); db.report(type,from,to,person).then(d=>{setCur(d||{cols:[],rows:[]});setLoaded(true);}).catch(()=>{}).finally(()=>setLoading(false)); };
+  const [cur,setCur]=useState({cols:[],rows:[]}); const [loaded,setLoaded]=useState(false); const [loading,setLoading]=useState(false);const [error,setError]=useState('');
+  const load=()=>{if(from&&to&&from>to){setError('تاریخ شروع باید قبل از تاریخ پایان باشد.');return;}setLoading(true);setError('');setLoaded(false);db.report(type,from,to,person).then(d=>{setCur(d||{cols:[],rows:[]});setLoaded(true);}).catch(e=>setError(e.message||'دریافت گزارش ناموفق بود.')).finally(()=>setLoading(false));};
   // به‌صورت خودکار بارگذاری نمی‌شود؛ تا کاربر فیلتر/جستجو نزند چیزی نمایش داده نمی‌شود (سرعت بیشتر)
   const jcell=(c)=>{ const s=String(c); return /^\d{4}-\d{2}-\d{2}/.test(s)?fj(s):c; };
   const jrows=cur.rows.map(r=>r.map(jcell));
@@ -3145,21 +3146,22 @@ function Reporting(){
       <table style="width:100%;border-collapse:collapse;margin-top:16px;font-size:13px"><thead><tr>${cur.cols.map(c=>`<th style="border:1px solid #ccc;padding:8px;background:#eef1f7">${escape(c)}</th>`).join("")}</tr></thead>
       <tbody>${shownRows.map(r=>`<tr>${r.map(c=>`<td style="border:1px solid #ccc;padding:8px;text-align:center">${escape(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
     window.print(); };
-  return(<div className="panel admin-workspace-page"><h3>گزارش‌گیری پیشرفته</h3>
-    <div className="filters no-print">
-      <select value={type} onChange={e=>setType(e.target.value)}>{Object.entries(TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select>
+  return(<div className="panel admin-workspace-page advanced-report-page"><div className="workspace-section-heading"><div><span>ساخت گزارش</span><h3>گزارش‌گیری پیشرفته</h3><p>گزارش دلخواه با فیلتر و خروجی اکسل یا چاپ</p></div><span className="workspace-heading-count">{loaded?fa(shownRows.length)+' ردیف':'آماده'}</span></div>
+    <div className="filters no-print workspace-filterbar">
+      <select className="input" aria-label="نوع گزارش" value={type} onChange={e=>{setType(e.target.value);setLoaded(false);setCur({cols:[],rows:[]});}}>{Object.entries(TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select>
       <JDate value={from} onChange={setFrom} placeholder="از تاریخ"/>
       <JDate value={to} onChange={setTo} placeholder="تا تاریخ"/>
-      <input placeholder="نام شخص…" value={person} onChange={e=>setPerson(e.target.value)}/>
-      <button className="btn g" onClick={load}>اعمال فیلتر</button>
-      <button className="btn p" onClick={exportExcel} disabled={!loaded}>⬇ خروجی Excel</button>
-      <button className="btn t" onClick={printPdf} disabled={!loaded}>🖨 چاپ / PDF</button></div>
+      <input className="input" aria-label="جست‌وجوی شخص" placeholder="نام شخص…" value={person} onChange={e=>setPerson(e.target.value)}/>
+      <button className="btn g" disabled={loading} onClick={load}>اعمال فیلتر</button>
+      <button className="btn p" onClick={exportExcel} disabled={!loaded||loading}>⬇ خروجی Excel</button>
+      <button className="btn t" onClick={printPdf} disabled={!loaded||loading}>🖨 چاپ / PDF</button></div>
+    {error&&<p className="workspace-inline-error" role="alert">{error}</p>}
     {loading?<p className="muted" style={{textAlign:"center",padding:"30px 0"}}>در حال بارگذاری…</p>
      :!loaded?<div style={{textAlign:"center",padding:"40px 16px",color:"var(--muted)"}}>
         <div style={{fontSize:40,marginBottom:8}}>🔎</div>
         <p>برای نمایش گزارش، نوع گزارش و بازهٔ تاریخ را انتخاب کنید و «اعمال فیلتر» را بزنید.</p></div>
-     :<table><thead><tr>{cur.cols.map((c,i)=><th key={i}>{c}</th>)}</tr></thead>
-      <tbody>{shownRows.map((r,i)=><tr key={i}>{r.map((c,j)=><td key={j}>{c}</td>)}</tr>)}</tbody></table>}
+     :<div className="table-wrap workspace-wide-table"><table><thead><tr>{cur.cols.map((c,i)=><th key={i}>{c}</th>)}</tr></thead>
+      <tbody>{shownRows.map((r,i)=><tr key={i}>{r.map((c,j)=><td key={j}>{c}</td>)}</tr>)}</tbody></table>{shownRows.length===0&&<p className="workspace-empty-state">موردی با فیلترهای انتخاب‌شده یافت نشد.</p>}</div>}
     <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>خروجی Excel یک فایل xlsx واقعی می‌سازد؛ «چاپ/PDF» از قالب چاپی استفاده می‌کند.</p></div>);
 }
 
