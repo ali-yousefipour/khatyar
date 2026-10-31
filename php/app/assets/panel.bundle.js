@@ -12967,6 +12967,7 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
 function ShiftReport() {
     const [attendanceModal, setAttendanceModal] = useState(null);
     const [reportTab, setReportTab] = useState("monthly");
+    const [reportError, setReportError] = useState("");
     const [finalStatus, setFinalStatus] = useState(null);
     const [finalBusy, setFinalBusy] = useState(false);
     const [statusBusy, setStatusBusy] = useState(false);
@@ -12976,11 +12977,12 @@ function ShiftReport() {
     const [rows, setRows] = useState(null);
     const [busy, setBusy] = useState(false);
     const finalRequest = useRef(0), finalScope = useRef(""), finalLock = useRef(false);
+    const monthlyRequest = useRef(0);
     const periodKey = String(jy) + "-" + jm;
     finalScope.current = periodKey;
-    useEffect(() => () => { finalRequest.current++; finalScope.current = ""; }, []);
+    useEffect(() => () => { finalRequest.current++; monthlyRequest.current++; finalScope.current = ""; }, []);
     const selectReportPeriod = (year, month) => { if (finalLock.current)
-        return; finalRequest.current++; finalScope.current = String(year) + "-" + month; setJy(year); setJm(month); setFinalStatus(null); setStatusBusy(false); };
+        return; finalRequest.current++; monthlyRequest.current++; finalScope.current = String(year) + "-" + month; setJy(year); setJm(month); setRows(null); setReportError(""); setBusy(false); setFinalStatus(null); setStatusBusy(false); };
     const loadFinalStatus = async (year = jy, month = jm) => {
         const scope = String(year) + "-" + month, generation = ++finalRequest.current;
         setStatusBusy(true);
@@ -13031,13 +13033,21 @@ function ShiftReport() {
         }
     };
     const hm = (m) => `${fa(Math.floor((m || 0) / 60))}:${String((m || 0) % 60).padStart(2, "0")}`;
-    const run = async () => { setBusy(true); try {
-        const r = await db.shiftReport(jy, jm);
-        setRows(r.rows || []);
+    const run = async () => { const generation = ++monthlyRequest.current; const year = jy, month = jm; setBusy(true); setReportError(""); try {
+        const r = await db.shiftReport(year, month);
+        if (generation === monthlyRequest.current)
+            setRows(Array.isArray(r.rows) ? r.rows : []);
     }
     catch (e) {
-        alert(e.message || "خطا");
-    } setBusy(false); };
+        if (generation === monthlyRequest.current) {
+            setRows(null);
+            setReportError(e.message || "دریافت گزارش کارکرد ناموفق بود.");
+        }
+    }
+    finally {
+        if (generation === monthlyRequest.current)
+            setBusy(false);
+    } };
     const exportExcel = async () => { try {
         const res = await fetch(`${API_BASE}/admin/shift-report/export?year=${jy}&month=${jm}`, { headers: tok() });
         if (!res.ok)
@@ -13067,14 +13077,20 @@ function ShiftReport() {
     catch (e) {
         alert(e.message || "خطا");
     } };
-    return (React.createElement("div", { className: "admin-workspace-page" },
-        React.createElement("div", { className: "tabbar", style: { marginBottom: 12 } },
-            React.createElement("button", { className: "tabbtn" + (reportTab === "monthly" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("monthly") }, "\u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647\u0627\u0646\u0647"),
-            React.createElement("button", { className: "tabbtn" + (reportTab === "organization" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("organization") }, "\u062A\u0648\u0644\u06CC\u062F \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0631\u0627\u06CC \u0627\u0631\u0633\u0627\u0644 \u0628\u0647 \u0633\u0627\u0632\u0645\u0627\u0646"),
-            React.createElement("button", { className: "tabbtn" + (reportTab === "company-final" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("company-final") }, "\u0641\u0627\u06CC\u0644 \u0646\u0647\u0627\u06CC\u06CC \u0634\u0631\u06A9\u062A"),
-            React.createElement("button", { className: "tabbtn" + (reportTab === "organization-reconcile" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("organization-reconcile") }, "\u06CC\u06A9\u0633\u0627\u0646 \u0633\u0627\u0632\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F \u0628\u0627 \u062F\u0631\u06CC\u0627\u0641\u062A\u06CC \u0627\u0632 \u0633\u0627\u0632\u0645\u0627\u0646"),
-            React.createElement("button", { className: "tabbtn" + (reportTab === "rotation" ? " on" : ""), disabled: finalBusy, onClick: () => setReportTab("rotation") }, "\u0645\u062D\u0627\u0633\u0628\u0647 \u0686\u0631\u062E\u0634 \u0634\u06CC\u0641\u062A \u0646\u06CC\u0631\u0648\u0647\u0627"),
-            React.createElement("button", { className: "tabbtn" + (reportTab === "finalize" ? " on" : ""), disabled: finalBusy, onClick: () => { setReportTab("finalize"); setFinalStatus(null); } }, "\u0646\u0647\u0627\u06CC\u06CC \u06A9\u0631\u062F\u0646 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627")),
+    return (React.createElement("div", { className: "admin-workspace-page monthly-work-report-page" },
+        React.createElement("style", null, `.monthly-work-report-page .work-report-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}.monthly-work-report-page .work-report-heading h3{margin:0}.monthly-work-report-page .work-report-state{padding:22px;border:1px dashed var(--line);border-radius:14px;text-align:center;background:var(--card,#fff);line-height:1.9;margin-top:12px}.monthly-work-report-page .work-report-state[role=alert]{border:1px solid #e2b7b7;background:#fff5f4;color:#9e2727}.monthly-work-report-page .work-report-table-wrap{overflow:auto;max-height:65vh;border:1px solid var(--line);border-radius:12px}.monthly-work-report-page .work-report-table-wrap:focus-visible{outline:3px solid #0d7a5f;outline-offset:2px}.monthly-work-report-page .work-report-table{border-collapse:separate;border-spacing:0;font-size:12px;min-width:1580px;width:100%}.monthly-work-report-page .work-report-table th{position:sticky;top:0;z-index:2;background:#edf6f1;white-space:normal;line-height:1.6;border-bottom:2px solid #0d7a5f}.monthly-work-report-page .work-report-table td{white-space:nowrap}.monthly-work-report-page .work-report-table tbody tr:nth-child(even){background:rgba(13,122,95,.035)}.monthly-work-report-page .work-report-table tbody tr:hover{background:rgba(13,122,95,.09)}.monthly-work-report-page .work-report-table th:first-child,.monthly-work-report-page .work-report-table td:first-child{position:sticky;right:0;z-index:1;background:var(--card,#fff);min-width:175px}.monthly-work-report-page .work-report-table th:first-child{z-index:3;background:#edf6f1}.monthly-work-report-page .tabbar{display:flex;overflow-x:auto;gap:6px;padding-bottom:7px;scrollbar-width:thin}.monthly-work-report-page .tabbtn{white-space:nowrap;flex-shrink:0}`),
+        React.createElement("div", { className: "work-report-heading" },
+            React.createElement("div", null,
+                React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627"),
+                React.createElement("p", { className: "muted", style: { margin: "5px 0 0" } }, "\u0645\u062D\u0627\u0633\u0628\u0647 \u0648 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F\u060C \u062E\u0631\u0648\u062C\u06CC \u0633\u0627\u0632\u0645\u0627\u0646 \u0648 \u0646\u0647\u0627\u06CC\u06CC\u200C\u0633\u0627\u0632\u06CC \u0645\u0627\u0647\u0627\u0646\u0647")),
+            rows && React.createElement("span", { className: "muted", role: "status" },
+                fa(rows.length),
+                " \u0646\u0641\u0631 \u00B7 ",
+                J_MONTHS[jm - 1],
+                " ",
+                fa(jy))),
+        React.createElement("div", { className: "tabbar", role: "tablist", "aria-label": "\u0628\u062E\u0634\u200C\u0647\u0627\u06CC \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F", style: { marginBottom: 12 } }, [["monthly", "گزارش کارکرد ماهانه"], ["organization", "تولید گزارش کارکرد برای ارسال به سازمان"], ["company-final", "فایل نهایی شرکت"], ["organization-reconcile", "یکسان‌سازی کارکرد با دریافتی سازمان"], ["rotation", "محاسبه چرخش شیفت نیروها"], ["finalize", "نهایی کردن کارکرد نیروها"]].map(([key, label]) => React.createElement("button", { key: key, type: "button", role: "tab", "aria-selected": reportTab === key, className: "tabbtn" + (reportTab === key ? " on" : ""), disabled: finalBusy, onClick: () => { setReportTab(key); if (key === "finalize")
+                setFinalStatus(null); } }, label))),
         reportTab === "organization-reconcile" ? React.createElement(OrganizationWorkReconciliation, { key: periodKey, year: jy, month: jm, onPeriodChange: selectReportPeriod }) : reportTab === "company-final" ? React.createElement(CompanyWorkReport, { key: periodKey, year: jy, month: jm, onPeriodChange: selectReportPeriod }) : reportTab === "rotation" ? React.createElement(ShiftRotationReport, { year: jy, month: jm, onPeriodChange: selectReportPeriod, disabled: finalBusy }) : reportTab === "finalize" ? React.createElement("div", { className: "panel" },
             React.createElement("h4", null, "\u0646\u0647\u0627\u06CC\u06CC \u06A9\u0631\u062F\u0646 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0646\u06CC\u0631\u0648\u0647\u0627"),
             React.createElement("p", { className: "muted" }, "\u067E\u0633 \u0627\u0632 \u0646\u0647\u0627\u06CC\u06CC\u200C\u0633\u0627\u0632\u06CC\u060C \u06AF\u0632\u0627\u0631\u0634 \u0645\u0627\u0647\u0627\u0646\u0647 \u0648 \u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0631\u062F\u062F \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F\u0647 \u0648 \u062A\u063A\u06CC\u06CC\u0631 \u0634\u06CC\u0641\u062A \u06CC\u0627 \u0645\u0648\u062A\u0648\u0631 \u0645\u062D\u0627\u0633\u0628\u0627\u062A \u0627\u0639\u062F\u0627\u062F \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u0646\u0645\u06CC\u200C\u062F\u0647\u062F."),
@@ -13111,12 +13127,18 @@ function ShiftReport() {
                 React.createElement("div", null,
                     React.createElement("label", { className: "label" }, "\u0645\u0627\u0647"),
                     React.createElement("select", { className: "input", style: { maxWidth: 130 }, value: jm, disabled: finalBusy, onChange: e => selectReportPeriod(jy, +e.target.value) }, J_MONTHS.map((m, i) => React.createElement("option", { key: i, value: i + 1 }, m)))),
-                React.createElement("button", { className: "btn p", disabled: busy, onClick: run }, busy ? "…" : "محاسبه"),
+                React.createElement("button", { className: "btn p", disabled: busy, onClick: run }, busy ? "در حال محاسبه…" : "محاسبه کارکرد"),
                 rows && rows.length > 0 && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644"),
                 React.createElement("span", { className: "muted", style: { fontSize: 12 } }, "\u0634\u06CC\u0641\u062A \u0634\u0628\u060C \u0627\u0633\u0641\u0646\u062F \u06A9\u0628\u06CC\u0633\u0647\u060C \u0628\u0627\u0632\u0647 \u062A\u062E\u0635\u06CC\u0635\u060C \u062A\u0627\u062E\u06CC\u0631 \u0648 \u062A\u0639\u062C\u06CC\u0644 \u062E\u0631\u0648\u062C \u062F\u0631 \u0645\u062D\u0627\u0633\u0628\u0647 \u0644\u062D\u0627\u0638 \u0645\u06CC\u200C\u0634\u0648\u062F.")),
-            rows && (rows.length === 0 ? React.createElement("p", { className: "muted" }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0646\u06CC\u0633\u062A (\u0646\u06CC\u0631\u0648\u06CC\u06CC \u0634\u06CC\u0641\u062A \u0646\u062F\u0627\u0631\u062F \u06CC\u0627 \u062A\u0631\u062F\u062F\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647).") :
-                React.createElement("div", { style: { overflowX: "auto" } },
-                    React.createElement("table", { style: { fontSize: 12, minWidth: 1580 } },
+            busy && React.createElement("div", { className: "work-report-state", role: "status", "aria-live": "polite" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0648 \u0645\u062D\u0627\u0633\u0628\u0647\u0654 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647\u2026"),
+            !busy && reportError && React.createElement("div", { className: "work-report-state", role: "alert" },
+                React.createElement("strong", null, "\u062F\u0631\u06CC\u0627\u0641\u062A \u06AF\u0632\u0627\u0631\u0634 \u0627\u0646\u062C\u0627\u0645 \u0646\u0634\u062F."),
+                React.createElement("div", null, reportError),
+                React.createElement("button", { type: "button", className: "btn p", onClick: run }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")),
+            !busy && !reportError && rows === null && React.createElement("div", { className: "work-report-state", role: "status" }, "\u0633\u0627\u0644 \u0648 \u0645\u0627\u0647 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F \u0648 \u062F\u06A9\u0645\u0647\u0654 \u00AB\u0645\u062D\u0627\u0633\u0628\u0647 \u06A9\u0627\u0631\u06A9\u0631\u062F\u00BB \u0631\u0627 \u0628\u0632\u0646\u06CC\u062F."),
+            !busy && rows && (rows.length === 0 ? React.createElement("div", { className: "work-report-state", role: "status" }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647 \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F (\u0646\u06CC\u0631\u0648\u06CC\u06CC \u0634\u06CC\u0641\u062A \u0646\u062F\u0627\u0631\u062F \u06CC\u0627 \u062A\u0631\u062F\u062F\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A).") :
+                React.createElement("div", { className: "work-report-table-wrap", role: "region", tabIndex: 0, "aria-label": "\u062C\u062F\u0648\u0644 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647\u0627\u0646\u0647\u061B \u0628\u0631\u0627\u06CC \u062F\u06CC\u062F\u0646 \u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0628\u06CC\u0634\u062A\u0631 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u06A9\u0646\u06CC\u062F" },
+                    React.createElement("table", { className: "work-report-table" },
                         React.createElement("thead", null,
                             React.createElement("tr", null,
                                 React.createElement("th", null, "\u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC"),
