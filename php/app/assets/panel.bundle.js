@@ -802,11 +802,21 @@ function LiveStaffDashboard() {
     const tj = todayJ();
     const [live, setLive] = useState(null);
     const [tab, setTab] = useState("present");
+    const [loadError, setLoadError] = useState("");
+    const [refreshing, setRefreshing] = useState(false);
     const [selectedStatus, setSelectedStatus] = useState(null);
     const [modalSearch, setModalSearch] = useState("");
     const [refreshCountdown, setRefreshCountdown] = useState(60);
     const countdownRef = useRef(60);
-    const load = () => db.workDashboard(tj[0], tj[1]).then(x => setLive(x && x.live ? x.live : null)).catch(() => setLive(null));
+    const load = () => {
+        setRefreshing(true);
+        return db.workDashboard(tj[0], tj[1]).then(x => {
+            if (!x || !x.live)
+                throw new Error("اطلاعات حضور در پاسخ سرور موجود نیست.");
+            setLive(x.live);
+            setLoadError("");
+        }).catch(e => setLoadError((e === null || e === void 0 ? void 0 : e.message) || "دریافت وضعیت حضور ناموفق بود")).finally(() => setRefreshing(false));
+    };
     const refreshNow = () => { countdownRef.current = 60; setRefreshCountdown(60); load(); };
     useEffect(() => {
         load();
@@ -823,8 +833,10 @@ function LiveStaffDashboard() {
     const methodFa = { gps: "GPS", wifi: "Wi‑Fi", manual: "دستی", gsm: "GSM" };
     const [sortConfig, setSortConfig] = useState({ key: "check_in", direction: "asc" });
     if (!live)
-        return React.createElement("div", { className: "panel", style: { margin: "14px 0" } },
-            React.createElement("span", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0648\u0636\u0639\u06CC\u062A \u062D\u0636\u0648\u0631 \u067E\u0631\u0633\u0646\u0644\u2026"));
+        return React.createElement("div", { className: "panel dashboard-live dashboard-live-placeholder", role: "status" },
+            React.createElement("h3", null, "\u0648\u0636\u0639\u06CC\u062A \u0644\u062D\u0638\u0647\u200C\u0627\u06CC \u062D\u0636\u0648\u0631 \u067E\u0631\u0633\u0646\u0644"),
+            React.createElement("p", { className: "muted" }, loadError || "در حال دریافت وضعیت حضور پرسنل…"),
+            loadError && React.createElement("button", { type: "button", className: "btn p", onClick: refreshNow }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F"));
     const isOpenSession = (r) => { var _a; return r.is_open === true || r.is_open === 1 || ["1", "true", "open"].includes(String((_a = r.is_open) !== null && _a !== void 0 ? _a : "").trim().toLowerCase()); };
     const baseRows = tab === "present" ? [...(live.present_list || [])].filter(isOpenSession) : tab === "leave" ? (live.leave_list || []) : (live.absent_list || []);
     const absenceReason = (r) => String(r.absence_reason || r.reason || r.absent_reason || r.status_reason || r.reason_text || r.leave_reason || r.request_reason || r.note || "ثبت نشده").trim();
@@ -866,22 +878,37 @@ function LiveStaffDashboard() {
         return sortConfig.direction === "asc" ? cmp : -cmp;
     }) : baseRows;
     const sortButton = (key, label) => React.createElement("button", { type: "button", className: "btn g", onClick: () => setSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc" })), "aria-label": "مرتب‌سازی " + label, title: "مرتب‌سازی " + label, style: { padding: "2px 6px", marginInlineStart: 5, fontSize: 11, lineHeight: 1.4, whiteSpace: "nowrap" } }, sortConfig.key === key ? (sortConfig.direction === "asc" ? "↑" : "↓") : "↕");
-    return React.createElement("div", { className: "panel", style: { margin: "14px 0" } },
-        React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" } },
+    return React.createElement("section", { className: "panel dashboard-live", "aria-label": "\u0648\u0636\u0639\u06CC\u062A \u0644\u062D\u0638\u0647\u200C\u0627\u06CC \u062D\u0636\u0648\u0631 \u067E\u0631\u0633\u0646\u0644" },
+        React.createElement("div", { className: "dashboard-live-head" },
             React.createElement("div", null,
-                React.createElement("h3", { style: { margin: 0 } }, "\u0648\u0636\u0639\u06CC\u062A \u0644\u062D\u0638\u0647\u200C\u0627\u06CC \u062D\u0636\u0648\u0631 \u067E\u0631\u0633\u0646\u0644"),
-                React.createElement("div", { className: "muted", style: { fontSize: 12, marginTop: 4 } },
-                    "\u0627\u0645\u0631\u0648\u0632 ",
-                    faPlain(live.jdate || ""),
-                    " \u00B7 \u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631 \u062A\u0627 ",
-                    fa(refreshCountdown),
-                    " \u062B\u0627\u0646\u06CC\u0647 \u062F\u06CC\u06AF\u0631")),
-            React.createElement("button", { className: "btn g", onClick: refreshNow }, "\u21BB \u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC")),
-        React.createElement("div", { className: "kpis", style: { marginTop: 12 } }, statusCards.map(([key, label, count]) => React.createElement("button", { type: "button", className: "kpi", key: key, onClick: () => { setModalSearch(""); setSelectedStatus(key); }, title: "مشاهده فهرست " + label, "aria-label": "مشاهده " + fa(count || 0) + " نفر: " + label, style: { fontFamily: "inherit", color: "inherit", textAlign: "inherit", width: "100%", cursor: "pointer", border: "1px solid var(--line,#d9e3e0)" } },
+                React.createElement("span", { className: "dashboard-section-kicker" }, "\u067E\u0627\u06CC\u0634 \u0628\u0631\u062E\u0637 \u0646\u06CC\u0631\u0648\u0647\u0627"),
+                React.createElement("h3", null, "\u0648\u0636\u0639\u06CC\u062A \u0644\u062D\u0638\u0647\u200C\u0627\u06CC \u062D\u0636\u0648\u0631 \u067E\u0631\u0633\u0646\u0644"),
+                React.createElement("div", { className: "dashboard-live-meta" },
+                    React.createElement("span", null,
+                        "\u0627\u0645\u0631\u0648\u0632 ",
+                        faPlain(live.jdate || "")),
+                    React.createElement("span", { "aria-hidden": "true" }, "\u00B7"),
+                    React.createElement("span", null,
+                        "\u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0628\u0639\u062F\u06CC: ",
+                        fa(refreshCountdown),
+                        " \u062B\u0627\u0646\u06CC\u0647"))),
+            React.createElement("button", { type: "button", className: "btn g dashboard-live-refresh", disabled: refreshing, onClick: refreshNow }, refreshing ? "در حال دریافت…" : "↻ بروزرسانی")),
+        loadError && React.createElement("div", { className: "dashboard-live-warning", role: "status" },
+            "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0642\u0628\u0644\u06CC \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F: ",
+            loadError),
+        React.createElement("div", { className: "kpis dashboard-live-stats" }, statusCards.map(([key, label, count]) => React.createElement("button", { type: "button", key: key, onClick: () => { setModalSearch(""); setSelectedStatus(key); }, title: "مشاهده فهرست " + label, "aria-label": "مشاهده " + fa(count || 0) + " نفر: " + label, className: "kpi dashboard-live-stat dashboard-live-stat-" + key },
             React.createElement("div", { className: "n" }, fa(count || 0)),
-            React.createElement("div", { className: "l" }, label)))),
-        React.createElement("div", { className: "tabbar", style: { display: "flex", gap: 6, margin: "12px 0", borderBottom: "1px solid var(--line)", flexWrap: "wrap" } }, [["present", "حاضرین"], ["absent", "غایبین"], ["leave", "مرخصی و ماموریت"]].map(([k, l]) => React.createElement("button", { key: k, onClick: () => setTab(k), style: { background: "none", border: "none", borderBottom: tab === k ? "3px solid var(--brand)" : "3px solid transparent", padding: "8px 12px", fontFamily: "inherit", fontWeight: tab === k ? 800 : 500, cursor: "pointer", color: tab === k ? "var(--brand)" : "var(--muted)" } }, l))),
-        rows.length === 0 ? React.createElement("p", { className: "muted" }, "\u0645\u0648\u0631\u062F\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F.") : React.createElement("div", { style: { overflowX: "auto" } },
+            React.createElement("div", { className: "l" }, label),
+            React.createElement("span", { className: "dashboard-live-stat-action" },
+                "\u0645\u0634\u0627\u0647\u062F\u0647 \u0641\u0647\u0631\u0633\u062A ",
+                React.createElement("span", { "aria-hidden": "true" }, "\u2039"))))),
+        React.createElement("div", { className: "dashboard-live-list-head" },
+            React.createElement("h4", null, "\u0641\u0647\u0631\u0633\u062A \u0648\u0636\u0639\u06CC\u062A \u0646\u06CC\u0631\u0648\u0647\u0627"),
+            React.createElement("span", { className: "muted" },
+                fa(rows.length),
+                " \u0645\u0648\u0631\u062F")),
+        React.createElement("div", { className: "tabbar dashboard-live-tabs", role: "tablist", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0648\u0636\u0639\u06CC\u062A \u062D\u0636\u0648\u0631" }, [["present", "حاضرین"], ["absent", "غایبین"], ["leave", "مرخصی و مأموریت"]].map(([k, l]) => React.createElement("button", { type: "button", role: "tab", "aria-selected": tab === k, key: k, onClick: () => setTab(k), className: tab === k ? "dashboard-live-tab-active" : "" }, l))),
+        rows.length === 0 ? React.createElement("p", { className: "dashboard-live-empty" }, "\u0645\u0648\u0631\u062F\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u062F\u0631 \u0627\u06CC\u0646 \u0648\u0636\u0639\u06CC\u062A \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F.") : React.createElement("div", { className: "table-wrap dashboard-live-table", tabIndex: 0, role: "region", "aria-label": "\u062C\u062F\u0648\u0644 \u062D\u0636\u0648\u0631 \u067E\u0631\u0633\u0646\u0644\u061B \u0642\u0627\u0628\u0644 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u0627\u0641\u0642\u06CC" },
             React.createElement("table", null,
                 React.createElement("thead", null,
                     React.createElement("tr", null,
@@ -992,9 +1019,13 @@ function PersonnelDistributionDashboard() {
     };
     const roleGroups = groupBy(getRole);
     const zoneGroups = groupBy(getZone);
-    const cards = (items, kind) => React.createElement("div", { className: "kpis personnel-stat-grid" }, items.map(([name, people]) => React.createElement("button", { type: "button", className: "kpi", key: name, title: "مشاهده فهرست " + name, "aria-label": "مشاهده " + fa(people.length) + " نفر در " + name, onClick: () => { setSearch(""); setSelected({ kind, name }); }, style: { fontFamily: "inherit", color: "inherit", cursor: "pointer", textAlign: "inherit", width: "100%", border: "1px solid var(--line,#d9e3e0)", transition: "border-color .15s" } },
-        React.createElement("div", { className: "n" }, fa(people.length)),
-        React.createElement("div", { className: "l" }, name))));
+    const cards = (items, kind) => React.createElement("div", { className: "kpis personnel-stat-grid" }, items.map(([name, people]) => React.createElement("button", { type: "button", className: "kpi personnel-stat-card", key: name, title: "مشاهده فهرست " + name, "aria-label": "مشاهده " + fa(people.length) + " نفر در " + name, onClick: () => { setSearch(""); setSelected({ kind, name }); }, style: { fontFamily: "inherit", color: "inherit", cursor: "pointer", textAlign: "inherit", width: "100%", border: "1px solid var(--line,#d9e3e0)", transition: "border-color .15s" } },
+        React.createElement("div", { className: "personnel-stat-number" },
+            fa(people.length),
+            " ",
+            React.createElement("span", null, "\u0646\u0641\u0631")),
+        React.createElement("div", { className: "l" }, name),
+        React.createElement("span", { className: "personnel-stat-view" }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u0627\u0641\u0631\u0627\u062F \u2039"))));
     const activeGroups = (selected === null || selected === void 0 ? void 0 : selected.kind) === "role" ? roleGroups : zoneGroups;
     const matching = selected ? (((_a = activeGroups.find(([name]) => name === selected.name)) === null || _a === void 0 ? void 0 : _a[1]) || []) : [];
     const q = search.trim().toLocaleLowerCase("fa");
@@ -1002,12 +1033,23 @@ function PersonnelDistributionDashboard() {
         u.first_name, u.last_name, u.username, u.personnel_code, getRole(u), getZone(u)
     ].some(v => String(v !== null && v !== void 0 ? v : "").toLocaleLowerCase("fa").includes(q)));
     const fullName = u => [u.first_name, u.last_name].filter(Boolean).join(" ").trim() || u.name || u.full_name || u.username || "—";
-    return React.createElement("div", { className: "panel personnel-stats" },
-        React.createElement("h3", { style: { margin: "0 0 6px" } }, "\u0622\u0645\u0627\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627"),
-        React.createElement("div", { className: "muted", style: { fontSize: 12 } }, "\u0628\u0631 \u0627\u0633\u0627\u0633 \u0641\u0647\u0631\u0633\u062A \u067E\u0631\u0633\u0646\u0644\u060C \u0645\u0633\u062A\u0642\u0644 \u0627\u0632 \u0648\u0636\u0639\u06CC\u062A \u062D\u0636\u0648\u0631 \u0648 \u063A\u06CC\u0627\u0628"),
-        React.createElement("h4", { style: { margin: "10px 0 0" } }, "\u062A\u0639\u062F\u0627\u062F \u0646\u06CC\u0631\u0648\u0647\u0627 \u0628\u0647 \u062A\u0641\u06A9\u06CC\u06A9 \u0633\u0645\u062A"),
+    return React.createElement("section", { className: "panel personnel-stats dashboard-personnel", "aria-label": "\u0622\u0645\u0627\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627" },
+        React.createElement("div", { className: "dashboard-section-head" },
+            React.createElement("div", null,
+                React.createElement("span", { className: "dashboard-section-kicker" }, "\u062A\u0631\u06A9\u06CC\u0628 \u0633\u0627\u0632\u0645\u0627\u0646\u06CC"),
+                React.createElement("h2", null, "\u0622\u0645\u0627\u0631 \u0648 \u062A\u0648\u0632\u06CC\u0639 \u0646\u06CC\u0631\u0648\u0647\u0627")),
+            React.createElement("span", { className: "dashboard-section-caption" }, "\u0628\u0631 \u0627\u0633\u0627\u0633 \u0641\u0647\u0631\u0633\u062A \u067E\u0631\u0633\u0646\u0644\u060C \u0645\u0633\u062A\u0642\u0644 \u0627\u0632 \u062D\u0636\u0648\u0631 \u0648 \u063A\u06CC\u0627\u0628")),
+        React.createElement("div", { className: "personnel-stat-section-head" },
+            React.createElement("h4", null, "\u062A\u0639\u062F\u0627\u062F \u0646\u06CC\u0631\u0648\u0647\u0627 \u0628\u0647 \u062A\u0641\u06A9\u06CC\u06A9 \u0633\u0645\u062A"),
+            React.createElement("span", null,
+                fa(roleGroups.length),
+                " \u0633\u0645\u062A")),
         cards(roleGroups, "role"),
-        React.createElement("h4", { style: { margin: "12px 0 0" } }, "\u062A\u0639\u062F\u0627\u062F \u0646\u06CC\u0631\u0648\u0647\u0627 \u0628\u0647 \u062A\u0641\u06A9\u06CC\u06A9 \u0645\u0646\u0637\u0642\u0647"),
+        React.createElement("div", { className: "personnel-stat-section-head" },
+            React.createElement("h4", null, "\u062A\u0639\u062F\u0627\u062F \u0646\u06CC\u0631\u0648\u0647\u0627 \u0628\u0647 \u062A\u0641\u06A9\u06CC\u06A9 \u0645\u0646\u0637\u0642\u0647"),
+            React.createElement("span", null,
+                fa(zoneGroups.length),
+                " \u0645\u0646\u0637\u0642\u0647")),
         cards(zoneGroups, "zone"),
         selected && React.createElement(Modal, { title: (selected.kind === "role" ? "نیروهای سمت: " : "نیروهای منطقه: ") + selected.name, onClose: () => setSelected(null), style: { width: "min(760px,94vw)", maxWidth: "94vw", maxHeight: "85vh", overflowY: "auto", direction: "rtl" } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" } },
