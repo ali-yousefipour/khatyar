@@ -6,6 +6,7 @@ const read = name => fs.readFileSync(path.join(screens, name), 'utf8');
 const forms = read('FormsScreen.js');
 const driverGate = read('CompanyRequestsDriverGateScreen.js');
 const visits = read('LineVisitProgramScreen.js');
+const payroll = read('CompanyPayrollHistory.js');
 
 assert.match(forms, /mimeExtensions\[a\]/, 'MIME filters must validate a real filename extension');
 assert.match(forms, /a==='image\/\*'/, 'Generic image picker constraints must remain usable');
@@ -16,4 +17,6 @@ assert.match(driverGate, /if\(version===searchVersion.current\)setCandidate\(nor
 assert.match(visits, /scrollRef\.current\?\.scrollTo/, 'Selecting a line returns to its editor');
 assert.match(visits, /accessibilityState=\{\{selected:selected\?\.line\?\.id===l.id\}\}/, 'Selected line is announced');
 assert.match(visits, /name="camera-outline"/, 'Camera uses a vector icon');
+assert.match(payroll, /تلاش مجدد برای دریافت سوابق حقوق/, 'Payroll error state provides recovery');
+assert.match(payroll, /در حال دریافت سوابق حقوق/, 'Payroll loading state is explained');
 console.log('PASS under-reviewed Android wizards: forms, driver gate, visit program');

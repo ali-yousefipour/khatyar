@@ -157,7 +157,7 @@ export default function CompanyPayrollHistory() {
           <TouchableOpacity accessibilityRole="button" style={styles.outlineButton} onPress={() => {setYear('');setMonth('');setFilters({year:'',month:'',page:1});setRefresh(value=>value+1);}}><Text style={styles.outlineButtonText}>پاک‌کردن فیلترها</Text></TouchableOpacity>
         </View>
       </View>
-      {busy ? <ActivityIndicator color={C.brand} /> : error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : result && <>
+      {busy ? <View accessibilityLiveRegion="polite" style={{alignItems:'center',padding:18}}><ActivityIndicator color={C.brand} /><Text style={{fontFamily:FONT.regular,color:C.slate,marginTop:8}}>در حال دریافت سوابق حقوق…</Text></View> : error ? <View style={styles.filterPanel}><Text accessibilityRole="alert" style={styles.error}>{error}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="تلاش مجدد برای دریافت سوابق حقوق" style={styles.outlineButton} onPress={()=>setRefresh(value=>value+1)}><Text style={styles.outlineButtonText}>تلاش دوباره</Text></TouchableOpacity></View> : result && <>
         <View style={styles.summaryPanel}><View style={styles.summaryCell}><Text style={styles.summaryLabel}>تعداد فیش‌ها</Text><Text style={styles.summaryNumber}>{faNum(result.summary.count)}</Text></View><View style={styles.summaryCell}><Text style={styles.summaryLabel}>جمع خالص اعلامی</Text><Text style={styles.summaryNumber} numberOfLines={2} adjustsFontSizeToFit>{amount(result.summary.total_net)} <Text style={styles.summaryUnit}>ریال</Text></Text></View></View>
         {!result.rows.length && <Text style={styles.note}>اطلاعات حقوقی برای این بازه ثبت نشده است. فیش‌های پیوستی در تب دیگر قرار دارند.</Text>}
         {result.rows.map(row => {
@@ -222,8 +222,8 @@ export default function CompanyPayrollHistory() {
           {slip && payrollFontsReady && <View ref={slipRef} collapsable={false} style={{ backgroundColor: '#fff', width: screenWidth - 32 }}>
             <PayrollAccessSlip slip={slip} width={screenWidth - 32} />
           </View>}
-          <TouchableOpacity disabled={issuing} style={[styles.button, issuing && styles.disabled]} onPress={saveIssuedSlip}><Text style={styles.buttonText}>{issuing ? 'در حال صدور…' : 'دریافت و ذخیره تصویر فیش'}</Text></TouchableOpacity>
-          <TouchableOpacity disabled={issuing} style={[styles.button, { marginTop: 10, backgroundColor: C.slate }]} onPress={() => setSlip(null)}><Text style={styles.buttonText}>انصراف</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" disabled={issuing} style={[styles.button, issuing && styles.disabled]} onPress={saveIssuedSlip}><Text style={styles.buttonText}>{issuing ? 'در حال صدور…' : 'دریافت و ذخیره تصویر فیش'}</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" disabled={issuing} style={[styles.button, { marginTop: 10, backgroundColor: C.slate }]} onPress={() => setSlip(null)}><Text style={styles.buttonText}>انصراف</Text></TouchableOpacity>
         </ScrollView>
       </View>
     </Modal>
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   heroDisclaimer:{fontFamily:FONT.regular,fontSize:11,lineHeight:20,color:'#e0f5ec',textAlign:'right',marginTop:10},
   filterPanel:{backgroundColor:'#fff',borderRadius:16,padding:14,borderWidth:1,borderColor:C.line,marginBottom:14},
   sectionTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14,textAlign:'right',marginBottom:12},
-  outlineButton:{flex:1,minHeight:46,padding:10,borderRadius:11,borderWidth:1,borderColor:C.brand,alignItems:'center',justifyContent:'center',backgroundColor:'#fff'},
+  outlineButton:{flex:1,minHeight:48,padding:10,borderRadius:11,borderWidth:1,borderColor:C.brand,alignItems:'center',justifyContent:'center',backgroundColor:'#fff'},
   outlineButtonText:{fontFamily:FONT.bold,color:C.brand,textAlign:'center',fontSize:12},
   summaryPanel:{flexDirection:'row-reverse',gap:10,marginBottom:14},
   summaryCell:{flex:1,backgroundColor:'#e7f3ee',borderRadius:14,padding:13,minHeight:86,justifyContent:'space-between'},
