@@ -2215,10 +2215,49 @@ function LiveMap() {
         viewTab === "exits" && React.createElement(StationExits, null)));
 }
 function Modal({ title, onClose, children, style }) {
-    return (React.createElement("div", { className: "modal-bg", onClick: onClose },
-        React.createElement("div", { className: "modal", style: style, onClick: e => e.stopPropagation() },
-            React.createElement("h3", null, title),
-            children)));
+    const dialogRef = useRef(null);
+    const titleId = useRef("modal-title-" + Math.random().toString(36).slice(2));
+    const closeRef = useRef(onClose);
+    closeRef.current = onClose;
+    useEffect(() => {
+        const previous = document.activeElement;
+        const dialog = dialogRef.current;
+        dialog === null || dialog === void 0 ? void 0 : dialog.focus();
+        const onKeyDown = e => {
+            if (e.key === "Escape") {
+                e.preventDefault();
+                closeRef.current();
+                return;
+            }
+            if (e.key !== "Tab" || !dialog)
+                return;
+            const focusable = [...dialog.querySelectorAll('button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el => el.getClientRects().length);
+            if (!focusable.length) {
+                e.preventDefault();
+                dialog.focus();
+                return;
+            }
+            const first = focusable[0], last = focusable[focusable.length - 1];
+            if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+                e.preventDefault();
+                last.focus();
+            }
+            else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        };
+        document.addEventListener("keydown", onKeyDown);
+        return () => { document.removeEventListener("keydown", onKeyDown); if (previous === null || previous === void 0 ? void 0 : previous.isConnected)
+            previous.focus(); };
+    }, []);
+    return React.createElement("div", { className: "modal-bg", onMouseDown: e => { if (e.target === e.currentTarget)
+            onClose(); } },
+        React.createElement("div", { className: "modal dashboard-dialog", style: style, ref: dialogRef, role: "dialog", "aria-modal": "true", "aria-labelledby": titleId.current, tabIndex: -1 },
+            React.createElement("div", { className: "dashboard-dialog-head" },
+                React.createElement("h3", { id: titleId.current }, title),
+                React.createElement("button", { className: "dashboard-dialog-close", type: "button", "aria-label": "\u0628\u0633\u062A\u0646 \u067E\u0646\u062C\u0631\u0647", onClick: onClose }, "\u00D7")),
+            children));
 }
 function seniorityEn(value) { return String(value !== null && value !== void 0 ? value : '').replace(/[۰-۹]/g, digit => '۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)).replace(/[٠-٩]/g, digit => '٠١٢٣٤٥٦٧٨٩'.indexOf(digit)); }
 function seniorityEscapeHtml(value) { return String(value !== null && value !== void 0 ? value : '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }
