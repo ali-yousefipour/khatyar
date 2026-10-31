@@ -146,8 +146,8 @@ export default function DriverScreen({ route, navigation }) {
       <View style={s.sectionHeader}><MaterialCommunityIcons name="view-dashboard-outline" size={20} color={C.brand}/><Text style={s.sectionTitle}>خدمات و عملیات</Text></View>
       <View style={s.acts}>
         {ACTIONS.map((a, i) => (
-          <TouchableOpacity key={i} onPress={a.on} disabled={a.primary && busy}
-            style={[s.act, a.primary && s.actPrimary, a.taxi && s.actTaxi]}>
+          <TouchableOpacity key={i} accessibilityRole="button" accessibilityLabel={a.t} accessibilityState={{disabled:!!(a.primary&&busy)}} activeOpacity={0.8} onPress={a.on} disabled={a.primary && busy}
+            style={[s.act, a.primary && s.actPrimary, a.taxi && s.actTaxi, a.primary&&busy&&{opacity:0.6}]}>
             {a.primary && busy
               ? <ActivityIndicator color="#fff" />
               : <><View style={[s.actionIcon, a.primary && s.actionIconPrimary]}><MaterialCommunityIcons name={a.e} size={25} color={a.primary ? "#fff" : C.brand}/></View>

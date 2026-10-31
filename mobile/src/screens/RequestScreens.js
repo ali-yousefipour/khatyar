@@ -337,7 +337,8 @@ function SalarySlipAttachmentsScreen() {
   return <View style={{flex:1,backgroundColor:C.paper}}><ScrollView persistentScrollbar={true} style={{ backgroundColor:C.paper }} contentContainerStyle={{ padding:16 }}>
     {err ? <View style={{backgroundColor:'#fde9e7',borderRadius:12,padding:14,marginTop:10}}>
         <Text style={{color:'#b04a42',fontFamily:s.cardT.fontFamily,textAlign:'center'}}>{err}</Text>
-        <Text style={[s.muted,{textAlign:'center',marginTop:6,fontSize:12}]}>اگر مطمئن هستید فیش برایتان ثبت شده، این خطا معمولاً یعنی دسترسی «فیش حقوقی» برای سمت شما در تنظیمات فعال نیست — با مدیر سیستم هماهنگ کنید.</Text>
+        <Text style={[s.muted,{textAlign:'center',marginTop:6,fontSize:12}]}>ابتدا اتصال اینترنت را بررسی کنید. در صورت خطای دسترسی، مدیر سامانه باید آیتم «فیش حقوقی» را برای سمت شما فعال کند.</Text>
+        <TouchableOpacity accessibilityRole="button" onPress={load} style={{minHeight:48,justifyContent:'center',alignItems:'center',backgroundColor:C.brand,borderRadius:12,marginTop:12}}><Text style={{color:'#fff',fontFamily:FONT.bold}}>تلاش دوباره</Text></TouchableOpacity>
       </View>
     : !rows.length ? <Text style={[s.muted,{textAlign:'center',marginTop:30}]}>هنوز فیش حقوقی برای شما پیوست نشده است.</Text> : rows.map((r)=>(
       <View key={r.id} style={s.card}>

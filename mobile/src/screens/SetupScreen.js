@@ -11,16 +11,23 @@ export default function SetupScreen({ onDone }) {
 
   async function testAndSave() {
     setBusy(true); setMsg(null);
-    const clean = url.replace(/\/$/, '');
+    const clean = String(url || '').trim().replace(/\/+$/, '');
     try {
-      const r = await fetch(`${clean}/../health`).catch(() => fetch(`${clean.replace(/\/api$/, '')}/health`));
+      if (!/^https:\/\/[^\s/]+(?:\/[^\s]*)?$/i.test(clean)) throw new Error('آدرس سرور باید با https:// شروع شود.');
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      let r;
+      try {
+        r = await fetch(`${clean.replace(/\/api$/, '')}/health`, { signal: controller.signal });
+      } finally { clearTimeout(timer); }
+      if (!r.ok) throw new Error(`خطای پاسخ سرور: ${r.status}`);
       const d = await r.json();
       if (!d.ok) throw new Error('پاسخ نامعتبر از سرور');
       await setApiBase(clean);
       setMsg({ ok: true, t: 'اتصال موفق بود ✓' });
-      setTimeout(onDone, 500);
+      onDone?.();
     } catch (e) {
-      setMsg({ ok: false, t: 'اتصال ناموفق — آدرس را بررسی کنید' });
+      setMsg({ ok: false, t: e?.name === 'AbortError' ? 'زمان اتصال به پایان رسید؛ شبکه را بررسی کنید.' : (e?.message || 'اتصال ناموفق بود؛ آدرس را بررسی کنید.') });
     } finally { setBusy(false); }
   }
 
@@ -31,12 +38,12 @@ export default function SetupScreen({ onDone }) {
       <Text style={s.sub}>آدرس وب‌سرویس سامانه را وارد کنید</Text>
 
       <Text style={s.label}>آدرس سرور (API)</Text>
-      <TextInput style={s.input} value={url} onChangeText={setUrl} autoCapitalize="none"
+      <TextInput style={s.input} value={url} onChangeText={setUrl} autoCapitalize="none" autoCorrect={false} accessibilityLabel="آدرس HTTPS سرور"
         keyboardType="url" placeholder="https://taxi-control.mashhad.ir/api" placeholderTextColor={C.muted} />
 
       {msg && <Text style={[s.msg, { color: msg.ok ? C.ok : C.danger }]}>{msg.t}</Text>}
 
-      <TouchableOpacity style={s.btn} onPress={testAndSave} disabled={busy}>
+      <TouchableOpacity accessibilityRole="button" accessibilityState={{disabled:busy}} style={[s.btn,busy&&{opacity:0.6}]} onPress={testAndSave} disabled={busy}>
         {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>تست و ذخیره</Text>}
       </TouchableOpacity>
       <Text style={s.note}>این آدرس فقط یک‌بار تنظیم می‌شود و بعداً از منو قابل تغییر است.</Text>

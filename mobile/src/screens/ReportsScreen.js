@@ -42,10 +42,13 @@ export default function ReportsScreen({ navigation }) {
   const [ccUserId, setCcUserId] = useState(null);
   const [sortNewest, setSortNewest] = useState(true);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [listError, setListError] = useState('');
 
   const load = useCallback(() => {
     const suffix = sentQuery.trim() ? `?q=${encodeURIComponent(sentQuery.trim())}` : '';
-    request('/my/reports' + suffix).then(setMine).catch(() => setMine([]));
+    request('/my/reports' + suffix, { noStore: true, queueIfOffline: false })
+      .then(r => { setMine(Array.isArray(r) ? r : []); setListError(''); })
+      .catch(e => { setListError(e?.message || 'دریافت گزارش‌های ارسال‌شده ممکن نشد.'); });
   }, [sentQuery]);
 
   useEffect(() => {
@@ -206,7 +209,8 @@ export default function ReportsScreen({ navigation }) {
         <ScrollView persistentScrollbar={true} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
           <View style={s.sentHero}><MaterialCommunityIcons name="clipboard-text-clock-outline" size={23} color={C.brand}/><View style={s.sentHeroText}><Text style={s.sectionTitle}>سوابق گزارش‌های ارسال‌شده</Text><Text style={s.sentCount}>{faNum(sortedMine.length)} گزارش</Text></View></View><TextInput style={s.input} value={sentQuery} onChangeText={setSentQuery} placeholder="جستجو بر اساس موضوع یا بخشی از متن گزارش…" placeholderTextColor={C.muted} />
           <View style={s.sortBar}><TouchableOpacity style={[s.sortBtn, sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(true)}><Text style={[s.sortTxt, sortNewest && s.white]}>جدیدترین</Text></TouchableOpacity><TouchableOpacity style={[s.sortBtn, !sortNewest && s.sortBtnOn]} onPress={() => setSortNewest(false)}><Text style={[s.sortTxt, !sortNewest && s.white]}>قدیمی‌ترین</Text></TouchableOpacity><TouchableOpacity style={[s.pdfBtn, pdfBusy && { opacity: .6 }]} disabled={pdfBusy} onPress={exportPdf}><MaterialCommunityIcons name="file-pdf-box" size={17} color="#fff"/><Text style={s.pdfTxt}>{pdfBusy ? 'در حال ساخت PDF…' : 'خروجی PDF'}</Text></TouchableOpacity></View>
-          {sortedMine.length === 0 && <Text style={s.empty}>گزارشی مطابق جستجو یافت نشد.</Text>}
+          {!!listError && <View style={{backgroundColor:'#fff2f0',borderWidth:1,borderColor:'#efc5bf',borderRadius:13,padding:14,marginTop:10}}><Text style={{fontFamily:FONT.regular,color:'#922f26',textAlign:'center'}}>{listError} اطلاعات قبلی ممکن است قدیمی باشند.</Text><TouchableOpacity accessibilityRole="button" onPress={load} style={{minHeight:48,alignItems:'center',justifyContent:'center'}}><Text style={{fontFamily:FONT.bold,color:C.brand}}>تلاش دوباره</Text></TouchableOpacity></View>}
+          {sortedMine.length === 0 && !listError && <Text style={s.empty}>گزارشی مطابق جستجو یافت نشد.</Text>}
           {sortedMine.map((r) => <TouchableOpacity key={r.id} style={s.card} onPress={() => navigation.navigate('ReportDetail', { id: r.id, mine: true })}><View style={s.cardHead}><View style={s.cardTitleRow}><MaterialCommunityIcons name="file-document-outline" size={19} color={C.brand}/><Text style={s.cardTitle}>{r.subject}</Text></View><Text style={[s.status,r.priority==='urgent'&&s.urgentStatus]}>{PRIORITY[r.priority] ? `${PRIORITY[r.priority]} · ` : ''}{STATUS[r.status] || r.status}</Text></View><Text numberOfLines={2} style={s.preview}>{r.body}</Text><View style={s.dateRow}><MaterialCommunityIcons name="calendar-clock-outline" size={15} color={C.muted}/><Text style={s.date}>{faNum(fj(r.created_at))}</Text></View>{Number(r.confidential_history) === 1 ? <Text style={s.confBadge}>محرمانه · سابقه برای ارسال‌کننده مخفی است</Text> : null}<View style={s.cardFooter}><Text style={s.tapHint}>مشاهده جزئیات و پیوست‌ها</Text><MaterialCommunityIcons name="chevron-left" size={19} color={C.brand}/></View></TouchableOpacity>)}
         </ScrollView>
       )}

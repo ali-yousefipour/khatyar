@@ -29,11 +29,26 @@ function Counts({ month, year, labelMonth = 'این ماه', labelYear = 'امس
     </View>
   );
 }
-function List({ rows, render, empty, header }) {
-  if (!rows) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
+function useRemoteRows(path) {
+  const [all, setAll] = useState(null);
+  const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setAll(null); setError('');
+    request(path, { noStore: true, queueIfOffline: false })
+      .then(r => { if (active) setAll(Array.isArray(r) ? r : []); })
+      .catch(e => { if (active) { setAll([]); setError(e?.message || 'دریافت اطلاعات ممکن نشد.'); } });
+    return () => { active = false; };
+  }, [path, attempt]);
+  return { all, error, retry: () => setAttempt(x => x + 1) };
+}
+function List({ rows, render, empty, header, error, onRetry }) {
+  if (!rows) return <View style={s.center}><ActivityIndicator color={C.brand} /><Text style={s.empty}>در حال دریافت اطلاعات…</Text></View>;
   return <FlatList data={rows} keyExtractor={(_, i) => String(i)} ListHeaderComponent={header}
     contentContainerStyle={{ padding: 16, paddingBottom: 56 }} renderItem={render}
-    ListEmptyComponent={<View style={s.center}><Text style={s.empty}>{empty}</Text></View>} />;
+    ListEmptyComponent={<View style={s.center}><Text style={s.empty}>{error ? 'دریافت اطلاعات ناموفق بود.' : empty}</Text></View>}
+    ListFooterComponent={error ? <View style={{backgroundColor:'#fff2f0',borderWidth:1,borderColor:'#efc5bf',borderRadius:14,padding:14,marginTop:12,alignItems:'center'}}><Text style={{fontFamily:FONT.regular,color:'#922f26',textAlign:'center'}}>{error}</Text><TouchableOpacity accessibilityRole="button" onPress={onRetry} style={{minHeight:48,paddingHorizontal:20,justifyContent:'center'}}><Text style={{fontFamily:FONT.bold,color:C.brand}}>تلاش دوباره</Text></TouchableOpacity></View> : null} />;
 }
 function useDateFilter(allRows, dateField = 'created_at') {
   const [from, setFrom] = useState(null);
@@ -51,14 +66,13 @@ function useDateFilter(allRows, dateField = 'created_at') {
 export function AttendanceScreen({ route }) {
   const { driver } = route.params;
   const { width } = useWindowDimensions();
-  const [all, setAll] = useState(null);
-  useEffect(() => { request(`/attendance/${driver.id}`).then(setAll).catch(() => setAll([])); }, [driver.id]);
+  const { all, error, retry } = useRemoteRows(`/attendance/${driver.id}`);
   const { rows, from, to, setFrom, setTo } = useDateFilter(all);
   const cm = all ? all.filter((r) => inCurrentJMonth(r.created_at)).length : 0;
   const cy = all ? all.filter((r) => inCurrentJYear(r.created_at)).length : 0;
   const sortedRows = useMemo(() => rows ? [...rows].sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))) : null, [rows]);
   return <View style={{ flex: 1, backgroundColor: C.paper }}>
-    <List rows={sortedRows} empty="حضوری در بازه انتخاب‌شده ثبت نشده است"
+    <List rows={sortedRows} error={error} onRetry={retry} empty="حضوری در بازه انتخاب‌شده ثبت نشده است"
       header={<>
         <View style={at.header}><View style={at.headerIcon}><MaterialCommunityIcons name="calendar-check-outline" size={25} color={C.brand}/></View><View style={at.headerText}><Text style={at.title}>گزارش حضور راننده</Text><Text style={at.subtitle}>سوابق ثبت حضور و آمار فعالیت</Text></View></View>
         <View style={at.stats}>
@@ -104,10 +118,9 @@ const at = StyleSheet.create({
 export function PastNoticesScreen({ route }) {
   const { driver } = route.params;
   const { width } = useWindowDimensions();
-  const [all, setAll] = useState(null);
+  const { all, error, retry } = useRemoteRows(`/notices/${driver.id}`);
   const [typeFilter, setTypeFilter] = useState(null);
   const [viewer, setViewer] = useState(null);
-  useEffect(() => { request(`/notices/${driver.id}`).then(setAll).catch(() => setAll([])); }, [driver.id]);
   const P = { low: 'کم', medium: 'متوسط', high: 'زیاد' };
   const { rows, from, to, setFrom, setTo } = useDateFilter(all);
   const types = useMemo(() => all ? [...new Set(all.map(n => n.reason).filter(Boolean))] : [], [all]);
@@ -115,7 +128,7 @@ export function PastNoticesScreen({ route }) {
   const cm = all ? all.filter(r => inCurrentJMonth(r.created_at)).length : 0;
   const cy = all ? all.filter(r => inCurrentJYear(r.created_at)).length : 0;
   return <View style={{ flex: 1, backgroundColor: C.paper }}>
-    <List rows={finalRows} empty="تذکری در بازه انتخاب‌شده یافت نشد"
+    <List rows={finalRows} error={error} onRetry={retry} empty="تذکری در بازه انتخاب‌شده یافت نشد"
       header={<>
         <View style={pn.header}><View style={pn.headerIcon}><MaterialCommunityIcons name="clipboard-text-clock-outline" size={25} color={C.brand}/></View><View style={pn.headerText}><Text style={pn.heading}>سوابق تذکرات راننده</Text><Text style={pn.subheading}>مرور تذکرات ثبت‌شده و پیوست‌ها</Text></View></View>
         <View style={pn.stats}>
@@ -187,15 +200,14 @@ const pn = StyleSheet.create({
 
 export function DriverSmsScreen({ route }) {
   const { driver } = route.params;
-  const [all, setAll] = useState(null);
-  useEffect(() => { request(`/drivers/${driver.id}/sms`).then(setAll).catch(() => setAll([])); }, [driver.id]);
+  const { all, error, retry } = useRemoteRows(`/drivers/${driver.id}/sms`);
   const { rows, from, to, setFrom, setTo } = useDateFilter(all);
   const cm = all ? all.filter(r => inCurrentJMonth(r.created_at)).length : 0;
   const cy = all ? all.filter(r => inCurrentJYear(r.created_at)).length : 0;
   const ordered = useMemo(() => rows ? [...rows].sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))) : null, [rows]);
   const delivery = code => code == 1 ? { title:'تحویل شده', icon:'check-circle-outline', color:C.ok, bg:'#e9f7ef' } : code == 2 ? { title:'تحویل نشده', icon:'alert-circle-outline', color:C.danger, bg:'#fff0ed' } : { title:'وضعیت نامشخص', icon:'clock-outline', color:C.muted, bg:'#f1f3f5' };
   return <View style={{flex:1,backgroundColor:C.paper}}>
-    <List rows={ordered} empty="پیامکی برای این راننده در بازه انتخاب‌شده ثبت نشده است"
+    <List rows={ordered} error={error} onRetry={retry} empty="پیامکی برای این راننده در بازه انتخاب‌شده ثبت نشده است"
       header={<>
         <View style={ds.header}><View style={ds.headerIcon}><MaterialCommunityIcons name="message-text-outline" size={25} color={C.brand}/></View><View style={ds.headerCopy}><Text style={ds.title}>پیامک‌های راننده</Text><Text style={ds.subtitle}>سوابق پیامک‌های ارسالی و وضعیت تحویل</Text></View></View>
         <View style={ds.stats}>
@@ -239,16 +251,15 @@ const ds=StyleSheet.create({
 });
 
 export function MySmsScreen() {
-  const [all, setAll] = useState(null);
+  const { all, error, retry } = useRemoteRows('/my/sms-log');
   const [expanded, setExpanded] = useState({});
-  useEffect(() => { request('/my/sms-log').then(setAll).catch(() => setAll([])); }, []);
   const { rows, from, to, setFrom, setTo } = useDateFilter(all);
   const cm = all ? all.filter(r => inCurrentJMonth(r.created_at)).length : 0;
   const cy = all ? all.filter(r => inCurrentJYear(r.created_at)).length : 0;
   const ordered = useMemo(() => rows ? [...rows].sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))) : null, [rows]);
   const dlv = c => c == 1 ? ['تحویل‌شده', C.ok, 'check-circle-outline'] : c == 2 ? ['تحویل‌نشده', C.danger, 'alert-circle-outline'] : ['در انتظار وضعیت', C.muted, 'clock-outline'];
   return <View style={{ flex: 1, backgroundColor: C.paper }}>
-    <List rows={ordered} empty="پیامکی در بازه انتخاب‌شده یافت نشد"
+    <List rows={ordered} error={error} onRetry={retry} empty="پیامکی در بازه انتخاب‌شده یافت نشد"
       header={<>
         <View style={ms.heading}><View style={ms.headingIcon}><MaterialCommunityIcons name="message-text-outline" size={25} color={C.brand}/></View><View style={ms.headingCopy}><Text style={ms.headingTitle}>پیامک‌های ارسالی من</Text><Text style={ms.headingSub}>سوابق ارسال و وضعیت تحویل پیامک‌ها</Text></View></View>
         <Counts month={cm} year={cy} labelMonth="پیامک این ماه" labelYear="پیامک امسال"/>
@@ -304,16 +315,15 @@ const ms = StyleSheet.create({
 
 export function PastChecklistsScreen({ route }) {
   const { driver } = route.params;
-  const [all, setAll] = useState(null);
+  const { all, error, retry } = useRemoteRows(`/checklists/${driver.id}`);
   const [viewer, setViewer] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
-  useEffect(() => { request(`/checklists/${driver.id}`).then(setAll).catch(() => setAll([])); }, [driver.id]);
   const { rows, from, to, setFrom, setTo } = useDateFilter(all);
   const cm = all ? all.filter(r => inCurrentJMonth(r.created_at)).length : 0;
   const cy = all ? all.filter(r => inCurrentJYear(r.created_at)).length : 0;
   const ordered = useMemo(() => rows ? [...rows].sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))) : null, [rows]);
   return <View style={{ flex: 1, backgroundColor: C.paper }}>
-    <List rows={ordered} empty="چک‌لیستی در بازه انتخاب‌شده ثبت نشده است"
+    <List rows={ordered} error={error} onRetry={retry} empty="چک‌لیستی در بازه انتخاب‌شده ثبت نشده است"
       header={<>
         <View style={pc.heading}><View style={pc.headingIcon}><MaterialCommunityIcons name="clipboard-check-multiple-outline" size={25} color={C.brand}/></View><View style={pc.headingCopy}><Text style={pc.headingTitle}>سوابق چک‌لیست خودرو</Text><Text style={pc.headingSub}>برای مشاهده جزئیات، چک‌لیست را انتخاب کنید</Text></View></View>
         <Counts month={cm} year={cy} labelMonth="چک‌لیست این ماه" labelYear="چک‌لیست امسال"/>

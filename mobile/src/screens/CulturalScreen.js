@@ -30,8 +30,9 @@ export default function CulturalScreen({ route }) {
   const [list, setList] = useState(null);
   const [driverList, setDriverList] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
-  const loadList = () => request('/my/cultural-activities').then(setList).catch(() => setList([]));
+  const loadList = () => request('/my/cultural-activities', { noStore: true, queueIfOffline: false }).then(r => { setList(Array.isArray(r) ? r : []); setLoadError(''); }).catch(e => { setLoadError(e?.message || 'دریافت سوابق فعالیت‌ها ممکن نشد.'); setList(current => current || []); });
   const loadDriverList = (natId) => { if (!natId) return; request('/my/driver-cultural?national_id=' + natId).then(setDriverList).catch(() => setDriverList([])); };
   useEffect(() => {
     request('/my/cultural-types').then((t) => setTypes(t || [])).catch(() => {});
@@ -40,11 +41,11 @@ export default function CulturalScreen({ route }) {
     if (presetDriver?.national_id) loadDriverList(presetDriver.national_id);
   }, []);
 
-  const onRefresh = async () => { setRefreshing(true); await loadList(); if (driver?.national_id) loadDriverList(driver.national_id); setRefreshing(false); };
+  const onRefresh = async () => { setRefreshing(true); try { await loadList(); if (driver?.national_id) await loadDriverList(driver.national_id); } finally { setRefreshing(false); } };
 
   const lookup = async () => {
-    const n = (driver?.national_id || nid).replace(/\D/g, '');
-    if (n.length < 8) return Alert.alert('توجه', 'کد ملی معتبر وارد کنید.');
+    const n = (lockedToDriver ? driver?.national_id : nid || '').replace(/[۰-۹]/g, d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/\D/g, '');
+    if (n.length !== 10) return Alert.alert('توجه', 'کد ملی ۱۰ رقمی وارد کنید.');
     try {
       const r = await request('/search?national_id=' + n);
       if (r.type === 'driver') { setDriver(r.driver); loadDriverList(n); }
@@ -75,12 +76,13 @@ export default function CulturalScreen({ route }) {
   return (
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.brand]} />}>
+      {!!loadError && <View style={{backgroundColor:'#fff2f0',borderColor:'#efc5bf',borderWidth:1,borderRadius:13,padding:14,marginBottom:14}}><Text style={{fontFamily:FONT.regular,color:'#922f26',textAlign:'center'}}>{loadError}</Text><TouchableOpacity accessibilityRole="button" onPress={loadList} style={{minHeight:48,justifyContent:'center',alignItems:'center',marginTop:8}}><Text style={{fontFamily:FONT.bold,color:C.brand}}>تلاش دوباره</Text></TouchableOpacity></View>}
       <Text style={s.h}>ثبت فعالیت فرهنگی راننده</Text>
 
       {!lockedToDriver && (<>
         <Text style={s.label}>کد ملی راننده</Text>
         <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
-          <TextInput style={[s.input, { flex: 1 }]} dir="ltr" keyboardType="number-pad" maxLength={10} value={nid} onChangeText={setNid} placeholder="کد ملی" placeholderTextColor={C.muted} />
+          <TextInput style={[s.input, { flex: 1 }]} dir="ltr" keyboardType="number-pad" maxLength={10} value={nid} onChangeText={v=>{setNid(v);setDriver(null);setDriverList(null);}} placeholder="کد ملی" placeholderTextColor={C.muted} />
           <TouchableOpacity style={s.lookupBtn} onPress={lookup}><Text style={s.lookupTxt}>🔍 فراخوان</Text></TouchableOpacity>
         </View>
       </>)}

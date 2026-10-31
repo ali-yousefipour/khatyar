@@ -1,4 +1,4 @@
-import React,{useEffect,useState}from'react';
+import React,{useState}from'react';
 import{Alert,ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View}from'react-native';
 import CompanyRequestsScreen from'./CompanyRequestsScreen';
 import{request}from'../api';
@@ -9,38 +9,6 @@ const en=v=>String(v??'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d
 
 export default function CompanyRequestsDriverGateScreen(){
  const[driver,setDriver]=useState(null),[candidate,setCandidate]=useState(null),[nid,setNid]=useState(''),[busy,setBusy]=useState(false);
-
- // پس از انتخاب راننده، شناسه و مشخصات او را به درخواست ایجادشده تزریق می‌کنیم.
- // این بخش برای حفظ سازگاری با CompanyRequestsScreen فعلی باقی می‌ماند.
- useEffect(()=>{
-   if(!driver)return;
-   const original=global.fetch;
-   global.fetch=async(input,init={})=>{
-     const url=typeof input==='string'?input:String(input?.url||'');
-     const method=String(init?.method||'GET').toUpperCase();
-     if(method==='POST'&&/\/company-request\/create(?:\?|$)/.test(url)&&init?.body){
-       try{
-         const body=JSON.parse(String(init.body));
-         body.driver_id=Number(driver.id||0)||body.driver_id;
-         body.driver_name=driver.name||driver.full_name||[driver.first_name,driver.last_name].filter(Boolean).join(' ')||body.driver_name;
-         body.driver_national_id=String(driver.national_id||driver.national_code||body.driver_national_id||'');
-         body.driver_mobile=String(driver.mobile||driver.phone||body.driver_mobile||'');
-         body.driver_vehicle_id=driver.vehicle_id?Number(driver.vehicle_id):body.driver_vehicle_id;
-         body.driver_vehicle_plate=driver.vehicles?.[0]?.plate||driver.plate||body.driver_vehicle_plate;
-         init={...init,body:JSON.stringify(body)};
-       }catch(_){}
-     }
-     const res=await original(input,init);
-     if(method==='POST'&&/\/company-request\/create(?:\?|$)/.test(url)){
-       try{
-         const clone=res.clone(),j=await clone.json();
-         if(j?.id)original('/api/company-request-support.php?op=notify-new',{method:'POST',headers:{'content-type':'application/json',...(init.headers||{})},body:JSON.stringify({request_id:j.id})}).catch(()=>{});
-       }catch(_){}
-     }
-     return res;
-   };
-   return()=>{global.fetch=original};
- },[driver]);
 
  async function find(){
    const n=en(nid).replace(/\D/g,'');
@@ -70,11 +38,11 @@ export default function CompanyRequestsDriverGateScreen(){
    finally{setBusy(false)}
  }
 
- if(driver)return <CompanyRequestsScreen/>;
+ if(driver)return <View style={{flex:1,backgroundColor:C.paper}}><View style={s.selectedBanner}><Text style={s.selectedName} numberOfLines={1}>راننده: {driver.name||'—'} · {fa(driver.national_id||'')}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="تغییر راننده انتخاب‌شده" style={s.changeDriver} onPress={()=>{setDriver(null);setCandidate(null);}}><Text style={s.changeDriverText}>تغییر راننده</Text></TouchableOpacity></View><CompanyRequestsScreen selectedDriver={driver}/></View>;
  return <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.content}>
    <View style={s.card}><Text style={s.title}>ارسال مدارک برای شرکت</Text><Text style={s.step}>مرحله ۱ — انتخاب راننده</Text><Text style={s.muted}>کد ملی راننده را وارد کنید، مشخصات فرد را از بانک اطلاعاتی بررسی کنید و سپس همان راننده را انتخاب کنید. اطلاعات انتخاب‌شده به‌صورت خودکار همراه درخواست ارسال می‌شود.</Text></View>
    <View style={s.card}><Text style={s.label}>کد ملی راننده</Text><TextInput value={nid} onChangeText={setNid} keyboardType="numeric" maxLength={10} placeholder="مثلاً ۰۰۱۲۳۴۵۶۷۸" placeholderTextColor={C.muted} style={s.input}/><TouchableOpacity style={s.btn} onPress={find} disabled={busy}>{busy?<ActivityIndicator size={32}/>:<Text style={s.btnTxt}>جستجوی راننده</Text>}</TouchableOpacity></View>
    {candidate&&<View style={s.card}><Text style={s.step}>راننده یافت شد</Text><Text style={s.driverName}>{candidate.name||'—'}</Text><Text style={s.info}>کد ملی: {fa(candidate.national_id||nid)}</Text>{candidate.mobile?<Text style={s.info}>موبایل: {fa(candidate.mobile)}</Text>:null}{candidate.vehicles?.length?<Text style={s.info}>خودرو: {candidate.vehicles.map(v=>v.plate).filter(Boolean).join('، ')}</Text>:null}<TouchableOpacity style={s.selectBtn} onPress={()=>setDriver(candidate)}><Text style={s.btnTxt}>✓ انتخاب این راننده و ادامه</Text></TouchableOpacity></View>}
  </ScrollView>;
 }
-const s=StyleSheet.create({page:{flex:1,backgroundColor:C.paper},content:{padding:16,paddingBottom:40},card:{backgroundColor:C.card||'#fff',borderRadius:20,padding:19,marginBottom:14,borderWidth:1,borderColor:C.line||'#e5e7eb'},title:{fontFamily:FONT.bold,fontSize:20,color:C.text,marginBottom:8,textAlign:'right'},step:{fontFamily:FONT.bold,fontSize:15,color:C.brand,marginBottom:10,textAlign:'right'},muted:{fontFamily:FONT.regular,fontSize:13,color:C.muted,lineHeight:22,textAlign:'right'},label:{fontFamily:FONT.bold,fontSize:13,color:C.text,marginBottom:7,textAlign:'right'},input:{fontFamily:FONT.regular,fontSize:17,color:C.text,borderWidth:1,borderColor:C.line||'#ddd',borderRadius:12,paddingHorizontal:14,paddingVertical:12,textAlign:'center',letterSpacing:2,marginBottom:12},btn:{backgroundColor:C.brand,borderRadius:12,minHeight:50,alignItems:'center',justifyContent:'center'},selectBtn:{backgroundColor:C.brand,borderRadius:12,minHeight:50,alignItems:'center',justifyContent:'center',marginTop:14},btnTxt:{fontFamily:FONT.bold,color:'#fff',fontSize:15},driverName:{fontFamily:FONT.bold,fontSize:21,color:C.text,textAlign:'right',marginBottom:8},info:{fontFamily:FONT.regular,fontSize:14,color:C.text,textAlign:'right',marginTop:5}});
+const s=StyleSheet.create({selectedBanner:{flexDirection:'row-reverse',alignItems:'center',paddingHorizontal:12,paddingVertical:8,gap:8,backgroundColor:'#e8f5ee',borderBottomWidth:1,borderColor:C.line},selectedName:{flex:1,minWidth:0,fontFamily:FONT.bold,color:C.ink,textAlign:'right',fontSize:12},changeDriver:{minHeight:48,justifyContent:'center',paddingHorizontal:12,borderRadius:11,backgroundColor:C.brand},changeDriverText:{fontFamily:FONT.bold,color:'#fff',fontSize:12},page:{flex:1,backgroundColor:C.paper},content:{padding:16,paddingBottom:40},card:{backgroundColor:C.card||'#fff',borderRadius:20,padding:19,marginBottom:14,borderWidth:1,borderColor:C.line||'#e5e7eb'},title:{fontFamily:FONT.bold,fontSize:20,color:C.text,marginBottom:8,textAlign:'right'},step:{fontFamily:FONT.bold,fontSize:15,color:C.brand,marginBottom:10,textAlign:'right'},muted:{fontFamily:FONT.regular,fontSize:13,color:C.muted,lineHeight:22,textAlign:'right'},label:{fontFamily:FONT.bold,fontSize:13,color:C.text,marginBottom:7,textAlign:'right'},input:{fontFamily:FONT.regular,fontSize:17,color:C.text,borderWidth:1,borderColor:C.line||'#ddd',borderRadius:12,paddingHorizontal:14,paddingVertical:12,textAlign:'center',letterSpacing:2,marginBottom:12},btn:{backgroundColor:C.brand,borderRadius:12,minHeight:50,alignItems:'center',justifyContent:'center'},selectBtn:{backgroundColor:C.brand,borderRadius:12,minHeight:50,alignItems:'center',justifyContent:'center',marginTop:14},btnTxt:{fontFamily:FONT.bold,color:'#fff',fontSize:15},driverName:{fontFamily:FONT.bold,fontSize:21,color:C.text,textAlign:'right',marginBottom:8},info:{fontFamily:FONT.regular,fontSize:14,color:C.text,textAlign:'right',marginTop:5}});

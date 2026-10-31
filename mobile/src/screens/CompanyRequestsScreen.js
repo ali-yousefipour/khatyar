@@ -146,7 +146,7 @@ function TimePicker({ visible, hour, minute, onClose, onSelect }) {
     <Text style={st.timeColon}>:</Text><ScrollView persistentScrollbar={true} style={st.timeCol}>{mins.map(x=><TouchableOpacity key={x} style={[st.timeItem,x===minute&&st.timeOn]} onPress={()=>onSelect(hour,x)}><Text style={[st.timeTxt,x===minute&&st.timeTxtOn]}>{fa(x)}</Text></TouchableOpacity>)}</ScrollView></View>
     <TouchableOpacity style={st.btnWide} onPress={onClose}><Text style={st.btnTxt}>تأیید ساعت</Text></TouchableOpacity></View></View></Modal>;
 }
-export default function CompanyRequestsScreen() {
+export default function CompanyRequestsScreen({ selectedDriver = null }) {
   const [loading,setLoading]=useState(true); const [cfg,setCfg]=useState(null); const [types,setTypes]=useState([]);
   const [mode,setMode]=useState('home'); const [selected,setSelected]=useState(null); const [form,setForm]=useState({});
   const [req,setReq]=useState(null); const [docIndex,setDocIndex]=useState(0); const [files,setFiles]=useState({});
@@ -176,7 +176,18 @@ export default function CompanyRequestsScreen() {
     setBusyMessage('در حال ثبت درخواست…');setBusy(true);try{
       const d=req?.id
         ? await request('/company-request/update/'+req.id,{method:'POST',body:{form_data:form}})
-        : await request('/company-request/create',{method:'POST',body:{request_type:selected.code,form_data:form}});
+        : await request('/company-request/create',{method:'POST',body:{
+          request_type:selected.code,form_data:form,
+          ...(selectedDriver?.id ? {
+            driver_id:Number(selectedDriver.id),
+            driver_name:selectedDriver.name||selectedDriver.full_name||[selectedDriver.first_name,selectedDriver.last_name].filter(Boolean).join(' '),
+            driver_national_id:String(selectedDriver.national_id||selectedDriver.national_code||''),
+            driver_mobile:String(selectedDriver.mobile||selectedDriver.phone||''),
+            driver_vehicle_id:selectedDriver.vehicle_id?Number(selectedDriver.vehicle_id):undefined,
+            driver_vehicle_plate:selectedDriver.vehicles?.[0]?.plate||selectedDriver.plate||'',
+          } : {}),
+        }});
+      if(!req?.id&&d?.id)request('/company-request-support.php?op=notify-new',{method:'POST',body:{request_id:d.id},queueIfOffline:false}).catch(()=>{});
       setReq(x=>({...x,...d}));
       const missing=(selected?.required_documents||[]).findIndex(k=>!files[k]); setDocIndex(missing>=0?missing:0); setMode(missing>=0?'documents':'summary');
     }catch(e){Alert.alert('خطا',e.message);}finally{setBusy(false);}
