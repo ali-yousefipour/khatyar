@@ -9780,10 +9780,12 @@ function PersonnelLeaveReport(){
 // This is a local sales invoice; it does not replace a tax-authority invoice.
 function buildFintoInvoiceHtml(invoice,seller){
   const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const digits=v=>String(v??"").replace(/[0-9]/g,d=>"۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
   const number=v=>Number(v||0).toLocaleString("fa-IR");
+  const signer=typeof invoice.signer_snapshot==="string"?JSON.parse(invoice.signer_snapshot||"null"):invoice.signer_snapshot;
   const buyer=typeof invoice.company_snapshot==="string"?JSON.parse(invoice.company_snapshot||"{}"):invoice.company_snapshot||{};
   const items=typeof invoice.line_items==="string"?JSON.parse(invoice.line_items||"[]"):invoice.line_items||[];
-  const label=(title,value)=>`<span><b>${title}:</b> ${esc(value||" ")}</span>`;
+  const label=(title,value)=>`<span><b>${title}:</b> ${esc(digits(value||" "))}</span>`;
   const party=(title,entity,isSeller)=>`<section class="party"><h2>${title}</h2><div class="party-grid">
     ${label("نام شخص حقیقی/حقوقی",isSeller?entity.name:entity.company_name)}${label("شماره اقتصادی",entity.economic_code)}${label("شماره ثبت",entity.registration_number)}
     ${label("نشانی کامل",entity.address)}${label("استان",entity.province)}${label("شهر",entity.city)}
@@ -9797,16 +9799,17 @@ function buildFintoInvoiceHtml(invoice,seller){
     const rowDiscount=index===arr.length-1?discount-assignedDiscount:Math.round(discount*share);
     const rowTax=index===arr.length-1?tax-assignedTax:Math.round(tax*share);
     assignedDiscount+=rowDiscount;assignedTax+=rowTax;
-    return `<tr><td>${number(index+1)}</td><td></td><td class="description">${esc(item.title)}</td><td>${number(item.quantity)}</td><td>عدد</td><td>${number(item.unit_price_rial)}</td><td>${number(amount)}</td><td>${number(rowDiscount)}</td><td>${number(amount-rowDiscount)}</td><td>${number(rowTax)}</td><td>${number(amount-rowDiscount+rowTax)}</td></tr>`;
+    return `<tr><td>${number(index+1)}</td><td></td><td class="description">${esc(digits(item.title))}</td><td>${number(item.quantity)}</td><td>عدد</td><td>${number(item.unit_price_rial)}</td><td>${number(amount)}</td><td>${number(rowDiscount)}</td><td>${number(amount-rowDiscount)}</td><td>${number(rowTax)}</td><td>${number(amount-rowDiscount+rowTax)}</td></tr>`;
   }).join("");
   const date=String(invoice.issued_date||"").replace(/-/g,"/");
   return `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><title>صورتحساب ${esc(invoice.invoice_number)}</title><style>
   @page{size:A4 landscape;margin:11mm 10mm}*{box-sizing:border-box}body{margin:0;color:#111;font-family:Tahoma,Arial,sans-serif;font-size:10px;direction:rtl;background:#fff}h1,h2,p{margin:0}header{height:63px;display:grid;grid-template-columns:1fr 1fr 1fr;align-items:start}header h1{text-align:center;font-size:15px;margin-top:4px}header .page{text-align:right;font-size:11px}header .meta{display:grid;grid-template-columns:90px 110px;gap:3px 6px;align-items:center;justify-content:end;text-align:right}header .meta strong{border:1px solid #333;text-align:center;padding:3px;font-size:11px;font-weight:400;direction:ltr}.party{border:1px solid #222;margin-bottom:2px}.party h2,.section-heading{font-size:12px;text-align:center;border-bottom:2px solid #222;padding:5px;font-weight:700}.party-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 16px;padding:9px 7px;min-height:65px}.party-grid span{white-space:normal;overflow-wrap:anywhere}.party-grid b{font-weight:500}.section-heading{border:1px solid #222;margin-top:2px}table{width:100%;border-collapse:collapse;table-layout:fixed;direction:rtl;font-size:9px}th,td{border:1px solid #111;text-align:center;padding:6px 3px;vertical-align:middle}th{height:52px;font-weight:700}td{height:47px}td.description{text-align:right;line-height:1.7;overflow-wrap:anywhere}table th:nth-child(1){width:3%}table th:nth-child(2){width:5%}table th:nth-child(3){width:21%}table th:nth-child(4){width:7%}table th:nth-child(5){width:7%}table th:nth-child(6){width:9%}table th:nth-child(7){width:9%}table th:nth-child(8){width:7%}table th:nth-child(9){width:11%}table th:nth-child(10){width:10%}table th:nth-child(11){width:11%}tfoot td{height:30px;font-weight:700}tfoot .words{text-align:right;font-weight:400}.conditions{width:50%;margin-right:0;margin-left:auto;border:1px solid #222;font-size:11px}.conditions>div{padding:6px;border-bottom:1px solid #222}.conditions>div:last-child{border-bottom:0;min-height:33px}.signatures{display:flex;justify-content:space-between;min-height:135px;align-items:flex-end;padding:0 55px 8px}.signatures span{width:38%;text-align:center;font-size:12px}.disclaimer{font-size:8px;text-align:center;color:#555;margin-top:5px}.actions{padding:10px;text-align:center}@media print{.actions{display:none}thead{display:table-header-group}tr{break-inside:avoid}}@media screen{body{max-width:1180px;margin:15px auto;padding:14px}.actions button{padding:8px 18px}}
-  </style></head><body><header><div class="page">صفحه ۱ از ۱</div><h1>صورتحساب فروش کالا و خدمات</h1><div class="meta"><span>شماره سریال:</span><strong>${esc(invoice.invoice_number)}</strong><span>تاریخ:</span><strong>${esc(date)}</strong></div></header>
+  @font-face{font-family:InvoiceVazir;src:url('/assets/fonts/Vazirmatn-Regular.ttf') format('truetype');font-weight:400;font-display:swap}@font-face{font-family:InvoiceVazir;src:url('/assets/fonts/Vazirmatn-Bold.ttf') format('truetype');font-weight:700;font-display:swap}body{font-family:InvoiceVazir,Tahoma,sans-serif}.signatures{align-items:flex-start;padding-top:12px;min-height:145px}.signature-person{display:block;margin-top:6px;font-weight:700}.signature-role{display:block;margin-top:3px;font-size:10px}.signature-sample{display:block;width:115px;height:82px;object-fit:contain;margin:4px auto 0;mix-blend-mode:multiply}.signature-caption{display:block;font-size:8px;color:#666}
+  </style></head><body><header><div class="page">صفحه ۱ از ۱</div><h1>صورتحساب فروش کالا و خدمات</h1><div class="meta"><span>شماره سریال:</span><strong>${esc(digits(invoice.invoice_number))}</strong><span>تاریخ:</span><strong>${esc(digits(date))}</strong></div></header>
   ${party("مشخصات فروشنده",seller,true)}${party("مشخصات خریدار",buyer,false)}<h2 class="section-heading">مشخصات کالا یا خدمات مورد معامله</h2>
   <table><thead><tr><th>ردیف</th><th>کد کالا</th><th>شرح کالا یا خدمات</th><th>تعداد/مقدار</th><th>واحد اندازه‌گیری</th><th>مبلغ واحد (ریال)</th><th>مبلغ کل (ریال)</th><th>مبلغ تخفیف</th><th>مبلغ کل پس از تخفیف (ریال)</th><th>جمع عوارض و مالیات (ریال)</th><th>مبلغ کل بعلاوه مالیات و عوارض (ریال)</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="6" class="words">جمع کل به حروف: —</td><td>${number(subtotal)}</td><td>${number(discount)}</td><td>${number(subtotal-discount)}</td><td>${number(tax)}</td><td>${number(invoice.total_rial)}</td></tr></tfoot></table>
   <div class="conditions"><div>شرایط و نحوه فروش: نقدی ☐　غیرنقدی ☐</div><div>توضیحات: ${esc(invoice.description||"")}</div></div>
-  <div class="signatures"><span>مهر و امضای فروشنده:</span><span>مهر و امضای خریدار:</span></div><div class="disclaimer">این فاکتور داخلی است و جایگزین صورتحساب الکترونیکی سامانه مؤدیان نیست.</div><div class="actions"><button onclick="window.print()">چاپ / ذخیره PDF</button></div></body></html>`;
+  <div class="signatures"><span>مهر و امضای فروشنده:${signer?`<b class="signature-person">${esc(signer.full_name)}</b><small class="signature-role">${esc(signer.job_title||"")}</small>`:""}<img class="signature-sample" src="/assets/invoices/sample-signature.jpg" alt="نمونه امضا"><small class="signature-caption">تصویر نمونه امضا</small></span><span>مهر و امضای خریدار:</span></div><div class="disclaimer">این فاکتور داخلی است و جایگزین صورتحساب الکترونیکی سامانه مؤدیان نیست.</div><div class="actions"><button onclick="window.print()">چاپ / ذخیره PDF</button></div></body></html>`;
 }
 function SubscriptionInvoicesAdmin(){
   const [invoiceTab,setInvoiceTab]=useState("standard");
@@ -9814,21 +9817,34 @@ function SubscriptionInvoicesAdmin(){
   const [seller,setSeller]=useState(()=>{try{return JSON.parse(localStorage.getItem("khatyar.finto.invoice.seller.v1")||"{}")||{};}catch(_){return {};}});
   const updateSeller=(key,value)=>setSeller(prev=>{const next={...prev,[key]:value};try{localStorage.setItem("khatyar.finto.invoice.seller.v1",JSON.stringify(next));}catch(_){}return next;});
   const [companies,setCompanies]=useState([]);
+  const [signers,setSigners]=useState([]);
+  const [signerForm,setSignerForm]=useState({id:"",full_name:"",job_title:""});
   const [invoices,setInvoices]=useState([]);
   const [error,setError]=useState("");
   const [busy,setBusy]=useState(false);
   const [filter,setFilter]=useState("");
   const [activeInvoice,setActiveInvoice]=useState(null);
   const [companyForm,setCompanyForm]=useState({company_name:"",national_id:"",economic_code:"",phone:"",address:""});
-  const [draft,setDraft]=useState({company_id:"",issued_date:(()=>{const t=todayJ();return String(t[0])+"-"+String(t[1]).padStart(2,"0")+"-"+String(t[2]).padStart(2,"0");})(),due_date:"",description:"اشتراک سامانه خطیار",discount_rial:"0",tax_percent:"0",items:[{title:"حق اشتراک سامانه خطیار (ماهانه)",quantity:1,unit_price_rial:"0"}]});
+  const [draft,setDraft]=useState({company_id:"",signer_id:"",issued_date:(()=>{const t=todayJ();return String(t[0])+"-"+String(t[1]).padStart(2,"0")+"-"+String(t[2]).padStart(2,"0");})(),due_date:"",description:"اشتراک سامانه خطیار",discount_rial:"0",tax_percent:"0",items:[{title:"حق اشتراک سامانه خطیار (ماهانه)",quantity:1,unit_price_rial:"0"}]});
   const money=v=>fa(Number(v||0).toLocaleString("en-US"))+" ریال";
   const refresh=async()=>{
     try{
-      const [c,i]=await Promise.all([GET("/admin/subscription-customers"),GET("/admin/subscription-invoices")]);
-      setCompanies(Array.isArray(c)?c:[]);setInvoices(Array.isArray(i)?i:[]);setError("");
+      const [c,i,s]=await Promise.all([GET("/admin/subscription-customers"),GET("/admin/subscription-invoices"),GET("/admin/invoice-signers")]);
+      setCompanies(Array.isArray(c)?c:[]);setInvoices(Array.isArray(i)?i:[]);setSigners(Array.isArray(s)?s:[]);setError("");
     }catch(e){setError(e.message||"بازیابی فاکتورها ناموفق بود");}
   };
   useEffect(()=>{refresh();},[]);
+  const saveSigner=async()=>{
+    if(signerForm.full_name.trim().length<2){setError("نام امضاکننده را وارد کنید.");return;}
+    setBusy(true);
+    try{
+      const path=signerForm.id?"/admin/invoice-signers/"+signerForm.id:"/admin/invoice-signers";
+      const result=await SEND("POST",path,{full_name:signerForm.full_name,job_title:signerForm.job_title});
+      const id=signerForm.id||result.id;
+      setSigners(await GET("/admin/invoice-signers"));setDraft(prev=>({...prev,signer_id:String(id)}));
+      setSignerForm({id:"",full_name:"",job_title:""});setError("");
+    }catch(e){setError(e.message||"ذخیره امضاکننده انجام نشد");}finally{setBusy(false);}
+  };
   const updateItem=(i,key,value)=>setDraft(prev=>({...prev,items:prev.items.map((v,n)=>n===i?{...v,[key]:value}:v)}));
   const priceItems=draft.items.map(x=>Number(x.quantity||0)*Number(x.unit_price_rial||0));
   const subtotal=priceItems.reduce((sum,x)=>sum+x,0);
@@ -9852,7 +9868,7 @@ function SubscriptionInvoicesAdmin(){
   const createInvoice=async()=>{
     setBusy(true);
     try{
-      const payload={...draft,company_id:Number(draft.company_id),items:draft.items.map(x=>({
+      const payload={...draft,company_id:Number(draft.company_id),signer_id:draft.signer_id?Number(draft.signer_id):null,items:draft.items.map(x=>({
         title:String(x.title).trim(),quantity:Number(x.quantity),unit_price_rial:Number(x.unit_price_rial)
       }))};
       if(!payload.company_id||!payload.items.every(x=>x.title&&x.quantity>0&&x.unit_price_rial>=0))throw new Error("شرکت و اقلام فاکتور را تکمیل کنید.");
@@ -9873,7 +9889,7 @@ function SubscriptionInvoicesAdmin(){
     catch(e){setError(e.message||"تغییر وضعیت ناموفق بود");}
     finally{setBusy(false);}
   };
-  const cleanPrint=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const cleanPrint=s=>String(s??"").replace(/[0-9]/g,d=>"۰۱۲۳۴۵۶۷۸۹"[Number(d)]).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const printInvoice=invoice=>{
     if(invoiceTab==="finto"){
       let html;try{html=buildFintoInvoiceHtml(invoice,seller);}catch(_){setError("اطلاعات این فاکتور برای چاپ معتبر نیست.");return;}
@@ -9915,6 +9931,20 @@ function SubscriptionInvoicesAdmin(){
         </select></label>
         {inp("تاریخ صدور (۱۴۰۵-۰۸-۰۵)",draft.issued_date,v=>setDraft({...draft,issued_date:v}))}
         {inp("سررسید (اختیاری)",draft.due_date,v=>setDraft({...draft,due_date:v}))}
+      </div>
+      <div style={{marginTop:14,padding:12,border:"1px solid var(--line)",borderRadius:12}}>
+        <h4>مهر و امضای فروشنده</h4>
+        <p className="muted">شخص انتخاب‌شده همراه با سمت او در فاکتور ذخیره می‌شود؛ ویرایش بعدی مشخصات، فاکتورهای قبلی را تغییر نمی‌دهد.</p>
+        <div className="row" style={{gap:9,flexWrap:"wrap",alignItems:"end"}}>
+          <label style={{flex:"1 1 220px"}}>انتخاب امضاکننده<select className="input" style={{width:"100%"}} value={draft.signer_id} onChange={e=>setDraft({...draft,signer_id:e.target.value})}><option value="">بدون نام امضاکننده</option>{signers.map(s=><option key={s.id} value={s.id}>{s.full_name}{s.job_title?" · "+s.job_title:""}</option>)}</select></label>
+          <button type="button" className="btn g" disabled={!draft.signer_id} onClick={()=>{const s=signers.find(s=>String(s.id)===String(draft.signer_id));if(s)setSignerForm({id:String(s.id),full_name:s.full_name,job_title:s.job_title||""});}}>ویرایش شخص انتخاب‌شده</button>
+        </div>
+        <div className="row" style={{gap:9,marginTop:10,flexWrap:"wrap",alignItems:"end"}}>
+          {inp("نام و نام خانوادگی امضاکننده",signerForm.full_name,v=>setSignerForm({...signerForm,full_name:v}))}
+          {inp("سمت / عنوان سازمانی",signerForm.job_title,v=>setSignerForm({...signerForm,job_title:v}))}
+          <button type="button" className="btn p" disabled={busy} onClick={saveSigner}>{signerForm.id?"ذخیره ویرایش":"افزودن امضاکننده"}</button>
+          {signerForm.id&&<button type="button" className="btn g" onClick={()=>setSignerForm({id:"",full_name:"",job_title:""})}>انصراف</button>}
+        </div>
       </div>
       <div style={{overflowX:"auto",marginTop:12}}><table style={{width:"100%"}}><thead><tr><th>شرح خدمات</th><th>تعداد</th><th>مبلغ واحد (ریال)</th><th>جمع ردیف</th><th>عملیات</th></tr></thead>
         <tbody>{draft.items.map((x,i)=><tr key={i}><td><input className="input" style={{minWidth:210}} value={x.title} onChange={e=>updateItem(i,"title",e.target.value)}/></td>

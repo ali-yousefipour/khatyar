@@ -38,6 +38,15 @@ function kh_invoice_schema() {
     updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_company(company_id), KEY idx_created(created_at), KEY idx_status(status)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  Db::run("CREATE TABLE IF NOT EXISTS kh_invoice_signers (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(190) NOT NULL,
+    job_title VARCHAR(190) NOT NULL DEFAULT '',
+    is_active TINYINT NOT NULL DEFAULT 1,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  $column=Db::one("SHOW COLUMNS FROM kh_subscription_invoices LIKE 'signer_snapshot'");
+  if(!$column)Db::run("ALTER TABLE kh_subscription_invoices ADD COLUMN signer_snapshot JSON NULL");
   } catch (\PDOException $e) {
     // Do not expose SQL, schema details or connection credentials to the browser.
     error_log('subscription invoice schema unavailable; sqlstate='.($e->errorInfo[0]??$e->getCode()));
@@ -56,6 +65,31 @@ function kh_inv_date($v,$nullable=false) {
   if(!preg_match('/^1[34]\d{2}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/',$v)) Http::error('تاریخ شمسی معتبر نیست',422);
   return $v;
 }
+function kh_inv_signer($id){
+  if(!$id)return null;
+  $signer=Db::one('SELECT id,full_name,job_title FROM kh_invoice_signers WHERE id=? AND is_active=1',[(int)$id]);
+  if(!$signer)Http::error('امضاکننده انتخاب‌شده معتبر نیست',422);
+  return ['id'=>(int)$signer['id'],'full_name'=>$signer['full_name'],'job_title'=>$signer['job_title']];
+}
+route('GET','/api/admin/invoice-signers',static function($p,$b,$u){
+  kh_invoice_schema();
+  return Db::all('SELECT id,full_name,job_title FROM kh_invoice_signers WHERE is_active=1 ORDER BY id DESC');
+},false,3);
+route('POST','/api/admin/invoice-signers',static function($p,$b,$u){
+  kh_invoice_schema();
+  $name=kh_inv_str($b['full_name']??'');$title=kh_inv_str($b['job_title']??'');
+  if(mb_strlen($name)<2)Http::error('نام امضاکننده الزامی است',422);
+  $id=Db::insert('INSERT INTO kh_invoice_signers(full_name,job_title) VALUES(?,?)',[$name,$title]);
+  return ['ok'=>true,'id'=>$id];
+},false,3);
+route('POST','/api/admin/invoice-signers/{id}',static function($p,$b,$u){
+  kh_invoice_schema();
+  $id=(int)($p['id']??0);$name=kh_inv_str($b['full_name']??'');$title=kh_inv_str($b['job_title']??'');
+  if(mb_strlen($name)<2)Http::error('نام امضاکننده الزامی است',422);
+  if(!Db::one('SELECT id FROM kh_invoice_signers WHERE id=? AND is_active=1',[$id]))Http::error('امضاکننده یافت نشد',404);
+  Db::run('UPDATE kh_invoice_signers SET full_name=?,job_title=? WHERE id=?',[$name,$title,$id]);
+  return ['ok'=>true];
+},false,3);
 route('GET','/api/admin/subscription-customers',static function($p,$b,$u){
   kh_invoice_schema();
   return Db::all("SELECT * FROM kh_subscription_customers ORDER BY company_name");
@@ -116,13 +150,14 @@ route('POST','/api/admin/subscription-invoices',static function($p,$b,$u){
   $total=$subtotal-$discount+$taxAmount;
   $date=kh_inv_date($b['issued_date']??'');
   $due=kh_inv_date($b['due_date']??'',true);
+  $signer=kh_inv_signer($b['signer_id']??null);
   if($due&&strcmp($due,$date)<0)Http::error('سررسید نمی‌تواند پیش از تاریخ صدور باشد',422);
   $pdo=Db::pdo();
   $pdo->beginTransaction();
   try{
-    $id=Db::insert("INSERT INTO kh_subscription_invoices(company_id,company_snapshot,issued_date,due_date,description,line_items,subtotal_rial,discount_rial,tax_percent,tax_rial,total_rial,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",[
+    $id=Db::insert("INSERT INTO kh_subscription_invoices(company_id,company_snapshot,issued_date,due_date,description,line_items,subtotal_rial,discount_rial,tax_percent,tax_rial,total_rial,created_by,signer_snapshot) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",[
       $companyId,json_encode($company,JSON_UNESCAPED_UNICODE),$date,$due,kh_inv_str($b['description']??'',1000),
-      json_encode($clean,JSON_UNESCAPED_UNICODE),$subtotal,$discount,$tax,$taxAmount,$total,(int)$u['id']
+      json_encode($clean,JSON_UNESCAPED_UNICODE),$subtotal,$discount,$tax,$taxAmount,$total,(int)$u['id'],$signer?json_encode($signer,JSON_UNESCAPED_UNICODE):null
     ]);
     $number='KH-'.str_pad((string)$id,8,'0',STR_PAD_LEFT);
     Db::run("UPDATE kh_subscription_invoices SET invoice_number=? WHERE id=?",[$number,$id]);
