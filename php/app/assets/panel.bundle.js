@@ -8174,6 +8174,7 @@ function Settings() {
                 React.createElement("h3", null, "\u062D\u0630\u0641 \u062E\u0648\u062F\u06A9\u0627\u0631 \u062A\u0635\u0627\u0648\u06CC\u0631 \u0648 \u067E\u06CC\u0648\u0633\u062A\u200C\u0647\u0627"),
                 Field("presence_retention_days", "نگهداری تصاویر صحت‌سنجی حضور (روز) — ۰ = بدون حذف"),
                 Field("form_attachment_retention_days", "نگهداری تصاویر پیوست فرم‌ها و چک‌لیست‌ها (روز)"),
+                Field("official_visit_retention_days", "نگهداری تصاویر حضور مسئولین در خط (روز) — ۰ = بدون حذف؛ در صورت تنظیم‌نشدن مطابق فرم‌ها و چک‌لیست‌ها"),
                 Field("attachment_retention_days", "نگهداری پیوست گزارش‌ها و پیام‌ها (روز)"),
                 Field("salary_slip_retention_days", "نگهداری فیش‌های حقوقی (روز) — ۰ = بدون حذف"),
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647"),
@@ -8540,21 +8541,21 @@ function ExcelImport() {
 }
 function OfficialVisitImg({ id }) {
     const [src, setSrc] = React.useState(null);
-    const [failed, setFailed] = React.useState(false);
+    const [failure, setFailure] = React.useState('');
+    const [attempt, setAttempt] = React.useState(0);
     React.useEffect(() => {
-        let alive = true;
+        let alive = true, objectUrl = null;
         setSrc(null);
-        setFailed(false);
+        setFailure('');
         fetch(API_BASE + "/admin/official-visits/" + id + "/image", { headers: tok() })
-            .then(r => { if (!r.ok)
-            throw new Error('no image'); return r.blob(); })
-            .then(b => { if (alive)
-            setSrc(URL.createObjectURL(b)); }).catch(() => { if (alive)
-            setFailed(true); });
-        return () => { alive = false; };
-    }, [id]);
-    if (failed)
-        return React.createElement("div", { style: { width: "100%", height: 220, background: "#f5f6f8", borderRadius: 10, display: "grid", placeItems: "center", color: "var(--muted)", fontSize: 13 } }, "\u062A\u0635\u0648\u06CC\u0631\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062D\u0636\u0648\u0631 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.");
+            .then(r => { if (!r.ok) { const e = new Error('image unavailable'); e.status = r.status; throw e; } return r.blob(); })
+            .then(b => { if (alive) { objectUrl = URL.createObjectURL(b); setSrc(objectUrl); } }).catch(e => { if (alive) setFailure(e.status === 410 ? 'removed' : e.status === 404 ? 'missing' : 'network'); });
+        return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+    }, [id, attempt]);
+    if (failure)
+        return React.createElement("div", { role: "status", style: { width: "100%", minHeight: 220, background: "#f5f6f8", borderRadius: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 18, color: "var(--muted)", fontSize: 13, textAlign: "center" } },
+            React.createElement("span", null, failure === 'removed' ? 'به دلیل قدیمی بودن، تصویر حذف شده است' : failure === 'missing' ? 'تصویری برای این حضور ثبت نشده است.' : 'بارگذاری تصویر ممکن نشد.'),
+            failure === 'network' && React.createElement("button", { type: "button", className: "btn g", onClick: () => setAttempt(n => n + 1) }, "تلاش دوباره"));
     if (!src)
         return React.createElement("div", { style: { width: "100%", height: 220, background: "#eef1f7", borderRadius: 10 } });
     return React.createElement("img", { src: src, alt: "", style: { width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 10, background: "#f5f6f8" } });

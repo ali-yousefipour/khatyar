@@ -4724,6 +4724,7 @@ function Settings(){
     {visitedTabs.includes("backup")&&<div id="settings-section-35" className="panel t-backup"><h3>حذف خودکار تصاویر و پیوست‌ها</h3>
       {Field("presence_retention_days","نگهداری تصاویر صحت‌سنجی حضور (روز) — ۰ = بدون حذف")}
       {Field("form_attachment_retention_days","نگهداری تصاویر پیوست فرم‌ها و چک‌لیست‌ها (روز)")}
+      {Field("official_visit_retention_days","نگهداری تصاویر حضور مسئولین در خط (روز) — ۰ = بدون حذف؛ در صورت تنظیم‌نشدن مطابق فرم‌ها و چک‌لیست‌ها")}
       {Field("attachment_retention_days","نگهداری پیوست گزارش‌ها و پیام‌ها (روز)")}
       {Field("salary_slip_retention_days","نگهداری فیش‌های حقوقی (روز) — ۰ = بدون حذف")}
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیره</button>
@@ -4927,14 +4928,17 @@ function ExcelImport(){
 }
 
 function OfficialVisitImg({id}){
-  const [src,setSrc]=React.useState(null); const [failed,setFailed]=React.useState(false);
-  React.useEffect(()=>{ let alive=true; setSrc(null); setFailed(false);
+  const [src,setSrc]=React.useState(null); const [failure,setFailure]=React.useState(''); const [attempt,setAttempt]=React.useState(0);
+  React.useEffect(()=>{ let alive=true,objectUrl=null; setSrc(null); setFailure('');
     fetch(API_BASE+"/admin/official-visits/"+id+"/image",{headers:tok()})
-      .then(r=>{ if(!r.ok) throw new Error('no image'); return r.blob(); })
-      .then(b=>{ if(alive) setSrc(URL.createObjectURL(b)); }).catch(()=>{ if(alive) setFailed(true); });
-    return ()=>{ alive=false; };
-  },[id]);
-  if(failed) return <div style={{width:"100%",height:220,background:"#f5f6f8",borderRadius:10,display:"grid",placeItems:"center",color:"var(--muted)",fontSize:13}}>تصویری برای این حضور ثبت نشده است.</div>;
+      .then(r=>{ if(!r.ok){const e=new Error('image unavailable');e.status=r.status;throw e;} return r.blob(); })
+      .then(b=>{ if(alive){objectUrl=URL.createObjectURL(b);setSrc(objectUrl);} }).catch(e=>{ if(alive) setFailure(e.status===410?'removed':e.status===404?'missing':'network'); });
+    return ()=>{ alive=false; if(objectUrl) URL.revokeObjectURL(objectUrl); };
+  },[id,attempt]);
+  if(failure) return <div role="status" style={{width:"100%",minHeight:220,background:"#f5f6f8",borderRadius:10,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,padding:18,color:"var(--muted)",fontSize:13,textAlign:"center"}}>
+    <span>{failure==='removed'?'به دلیل قدیمی بودن، تصویر حذف شده است':failure==='missing'?'تصویری برای این حضور ثبت نشده است.':'بارگذاری تصویر ممکن نشد.'}</span>
+    {failure==='network'&&<button type="button" className="btn g" onClick={()=>setAttempt(n=>n+1)}>تلاش دوباره</button>}
+  </div>;
   if(!src) return <div style={{width:"100%",height:220,background:"#eef1f7",borderRadius:10}}/>;
   return <img src={src} alt="" style={{width:"100%",maxHeight:420,objectFit:"contain",borderRadius:10,background:"#f5f6f8"}}/>;
 }

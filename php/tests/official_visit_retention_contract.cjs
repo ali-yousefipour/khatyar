@@ -1,0 +1,22 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const routes = fs.readFileSync(path.join(root, 'lib/routes.php'), 'utf8');
+const cron = fs.readFileSync(path.join(root, 'app/cron.php'), 'utf8');
+const panel = fs.readFileSync(path.join(root, 'tools/panel_source.jsx'), 'utf8');
+const bundle = fs.readFileSync(path.join(root, 'app/assets/panel.bundle.js'), 'utf8');
+
+assert.match(routes, /function _cleanup_official_visit_photos\(\)/);
+assert.match(routes, /official_visit_retention_days/);
+assert.match(routes, /photo_path='expired:retention',photo_data=NULL/);
+assert.match(routes, /if \(is_file\(\$full\)\) \{ \$result\['errors'\]/);
+assert.match(routes, /=== 'expired:retention'\) Http::error\([^\n]+410\)/);
+assert.match(cron, /\$officialCleanup = _cleanup_official_visit_photos\(\)/);
+assert.doesNotMatch(cron, /\$clean\('official_visits'/);
+assert.match(panel, /به دلیل قدیمی بودن، تصویر حذف شده است/);
+assert.match(panel, /failure==='network'&&<button/);
+assert.match(panel, /official_visit_retention_days/);
+assert.match(bundle, /official_visit_retention_days/);
+assert.match(bundle, /failure === 'removed'/);
+console.log('PASS official visit retention: single policy, verified removal, tombstone, and UI states');

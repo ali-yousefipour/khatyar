@@ -9742,6 +9742,7 @@ route('GET', '/api/admin/bills', function($p,$b,$u){
 route('GET', '/api/admin/official-visits/{id}/image', function($p,$b,$u){
   $r = Db::one("SELECT photo_data, photo_path FROM official_visits WHERE id=?", [$p['id']]);
   if (!$r) Http::error('یافت نشد', 404);
+  if (($r['photo_path'] ?? '') === 'expired:retention') Http::error('تصویر قدیمی حذف شده است', 410);
   if (!empty($r['photo_path'])) { Media::serve($r['photo_path']); }
   if (empty($r['photo_data'])) Http::error('یافت نشد', 404);
   $data = $r['photo_data'];
@@ -9912,7 +9913,10 @@ function _run_retention_cleanup() {
   $cleanTable('messages','created_at',$att,['attachment_path'],['attachment_data']);
   $form=$get('form_attachment_retention_days');
   $cleanTable('checklist_submissions','created_at',$form,['photo_path'],['photo_data']);
-  $cleanTable('official_visits','created_at',$form,['photo_path'],['photo_data']);
+  $report['sections']['official_visits']=_cleanup_official_visit_photos();
+  $report['deleted_files']+=$report['sections']['official_visits']['files'];
+  $report['cleared_rows']+=$report['sections']['official_visits']['rows'];
+  if (!empty($report['sections']['official_visits']['errors'])) $report['errors']=array_merge($report['errors'],$report['sections']['official_visits']['errors']);
   $cleanTable('form_submissions','created_at',$form,['attachment_path'],['attachment_data']);
   $pres=$get('presence_retention_days');
   $cleanTable('presence_checks','captured_at',$pres,['selfie_path','vehicles_photo_path'],['selfie','vehicles_photo']);
@@ -9932,6 +9936,37 @@ function _run_retention_cleanup() {
   }
   $report['ok']=count($report['errors'])===0;
   return $report;
+}
+
+// A tombstone preserves the distinction between "never uploaded" and "removed by retention".
+// Both the web cleanup endpoint and the scheduled cron use this same routine.
+function _cleanup_official_visit_photos() {
+  $setting=Db::one("SELECT value FROM app_settings WHERE `key`='official_visit_retention_days'");
+  $fallback=Db::one("SELECT value FROM app_settings WHERE `key`='form_attachment_retention_days'");
+  $raw=$setting ? json_decode($setting['value'],true) : ($fallback ? json_decode($fallback['value'],true) : 0);
+  $days=is_numeric($raw)?max(0,(int)$raw):0;
+  $result=['days'=>$days,'files'=>0,'rows'=>0,'errors'=>[]];
+  if (!$days) return $result;
+  $cut=date('Y-m-d H:i:s',time()-$days*86400);
+  // Bound each run; next scheduled run continues where this one stopped.
+  try {
+    $rows=Db::all("SELECT id,photo_path,photo_data FROM official_visits WHERE created_at < ? AND
+      (photo_path IS NOT NULL AND photo_path<>'' AND photo_path<>'expired:retention' OR photo_data IS NOT NULL AND photo_data<>'') ORDER BY id LIMIT 2000",[$cut]);
+    foreach ($rows as $r) {
+      $path=(string)($r['photo_path']??'');
+      if ($path && $path!=='expired:retention') {
+        $full=Media::fullPath($path);
+        if (!$full) { $result['errors'][]='مسیر تصویر نامعتبر است؛ شناسه '.$r['id']; continue; }
+        if (is_file($full)) {
+          Media::delete($path);
+          if (is_file($full)) { $result['errors'][]='حذف فایل ناموفق بود؛ شناسه '.$r['id']; continue; }
+          $result['files']++;
+        }
+      }
+      $result['rows']+=(int)Db::run("UPDATE official_visits SET photo_path='expired:retention',photo_data=NULL WHERE id=?",[$r['id']]);
+    }
+  } catch (\Throwable $e) { $result['errors'][]=$e->getMessage(); }
+  return $result;
 }
 
 route('POST', '/api/admin/cleanup-attachments', function($p,$b,$u){

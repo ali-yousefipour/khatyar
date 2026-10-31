@@ -179,7 +179,8 @@ function cron_cleanup(&$log) {
   $clean('checklist_submissions', 'photo_data', 'created_at', $formDays);
   try { $clean('form_submissions', 'attachment_data', 'created_at', $formDays); } catch (\Throwable $e) {}
   // تصاویر صحت‌سنجی حضور و سلفی‌ها
-  $clean('official_visits', 'photo_data', 'created_at', $presDays);
+  $officialCleanup = _cleanup_official_visit_photos();
+  $cleared += $officialCleanup['rows'];
   // سلفی نامحسوس — تنظیم جداگانه (covert_selfie_retention_days)، اگر ۰ باشد از presence استفاده می‌شود
   $effCovert = $covertDays > 0 ? $covertDays : $presDays;
   if ($effCovert > 0) {
@@ -190,7 +191,8 @@ function cron_cleanup(&$log) {
       $cleared += (int)Db::run("DELETE FROM covert_selfies WHERE created_at < ?", [$cov_cutoff]);
     } catch (\Throwable $e) {}
   }
-  $log['cleanup'] = ['cleared'=>$cleared,'attachment_days'=>$attDays,'form_days'=>$formDays,'presence_days'=>$presDays,'covert_selfie_days'=>$effCovert];
+  $log['cleanup'] = ['cleared'=>$cleared,'attachment_days'=>$attDays,'form_days'=>$formDays,'presence_days'=>$presDays,'official_visits'=>$officialCleanup,'covert_selfie_days'=>$effCovert];
+  if ($officialCleanup['errors']) throw new \RuntimeException('خطا در پاکسازی تصاویر حضور مسئولین: '.implode('؛ ',$officialCleanup['errors']));
 }
 
 function cron_mission_scoring_eod(&$log) {
