@@ -5,6 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { DrawerActions } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, FONT } from './theme';
 import { useAuth } from './auth';
 import { request, uploadFile, flushQueuedRequests, imageSource } from './api';
@@ -18,6 +19,11 @@ const ITEMS = [
   ['Profile', 'حساب کاربری', 'account-circle-outline'],
   ['Settings', 'تنظیمات', 'cog-outline'],
   ['Help', 'راهنمای برنامه، ورژن و اطلاعات سازنده', 'help-circle-outline'],
+];
+const MENU_SECTIONS = [
+  { title: 'پیام‌ها و اطلاع‌رسانی', icon: 'message-text-outline', routes: ['Notifications', 'Messages'] },
+  { title: 'حساب و کارکرد', icon: 'account-circle-outline', routes: ['WorkSummary', 'Profile'] },
+  { title: 'برنامه و پشتیبانی', icon: 'cog-outline', routes: ['SendQueue', 'Settings', 'Help'] },
 ];
 
 function normRole(value) {
@@ -44,6 +50,7 @@ function isUserQueueItem(item) {
 
 export default function DrawerMenuScreen({ navigation }) {
   const { user, logout, refreshUser } = useAuth();
+  const insets = useSafeAreaInsets();
   const [photo, setPhoto] = React.useState(user?.photo || null);
   const [photoOpen, setPhotoOpen] = React.useState(false);
   const [photoBusy, setPhotoBusy] = React.useState(false);
@@ -52,14 +59,19 @@ export default function DrawerMenuScreen({ navigation }) {
   const [unread, setUnread] = React.useState({ messages: 0, reports: 0 });
   const [queueCount, setQueueCount] = React.useState(0);
   const [roleAppAccess, setRoleAppAccess] = React.useState([]);
+  const [roleAccessLoading, setRoleAccessLoading] = React.useState(true);
+  const [roleAccessError, setRoleAccessError] = React.useState(false);
+  const [accessAttempt, setAccessAttempt] = React.useState(0);
   React.useEffect(() => {
     let active = true;
     setRoleAppAccess([]);
+    setRoleAccessLoading(true);
+    setRoleAccessError(false);
     request('/my/app-items', { noStore: true, forceNetwork: true, queueIfOffline: false, timeoutMs: 10000 })
-      .then(r => { if (active) setRoleAppAccess(Array.isArray(r?.items) ? r.items : []); })
-      .catch(() => { if (active) setRoleAppAccess([]); });
+      .then(r => { if (active) { setRoleAppAccess(Array.isArray(r?.items) ? r.items : []); setRoleAccessLoading(false); } })
+      .catch(() => { if (active) { setRoleAppAccess([]); setRoleAccessError(true); setRoleAccessLoading(false); } });
     return () => { active = false; };
-  }, [user?.id, user?.role_id]);
+  }, [user?.id, user?.role_id, accessAttempt]);
 
   React.useEffect(() => {
     const off = subscribeUnreadCounts(setUnread);
@@ -189,24 +201,32 @@ export default function DrawerMenuScreen({ navigation }) {
     ...ITEMS,
     ['SendQueue', 'صف ارسال' + (queueCount ? ` (${queueCount})` : ''), 'cloud-upload-outline'],
   ].filter(([route]) => roleAppAccess.includes(route));
+  const sections = MENU_SECTIONS.map(section => ({
+    ...section, entries: section.routes.map(route => items.find(item => item[0] === route)).filter(Boolean),
+  })).filter(section => section.entries.length > 0);
 
   return (
     <View style={s.page}>
-      <View style={s.header}>
-        <View style={s.brandRow}><View style={s.brandMark}><Image source={require('../assets/icon.png')} style={s.brandLogo} resizeMode="contain" /></View><View style={s.brandTextWrap}><Text style={s.brand}>خطیار</Text><Text style={s.title}>منوی برنامه</Text></View></View>
+      <View style={[s.header,{paddingTop:insets.top+14}]}>
+        <View style={s.brandRow}><View style={s.brandMark}><Image source={require('../assets/icon.png')} style={s.brandLogo} resizeMode="contain" /></View><View style={s.brandTextWrap}><Text style={s.brand}>خطیار</Text><Text style={s.title}>دسترسی‌های حساب شما</Text></View><TouchableOpacity accessibilityRole="button" accessibilityLabel="بستن منوی کناری" style={s.closeMenu} onPress={()=>navigation?.dispatch?.(DrawerActions.closeDrawer())}><MaterialCommunityIcons name="close" size={22} color="#fff" /></TouchableOpacity></View>
         <View style={s.profileRow}><TouchableOpacity onPress={() => setPhotoOpen(true)} activeOpacity={0.8} accessibilityRole="imagebutton" accessibilityLabel="نمایش تمام‌صفحه و مدیریت عکس کاربر"><View style={s.profileAvatar}>{photo ? <Image source={imageSource(photo)} style={s.profileImage} /> : <Text style={s.profileInitial}>{String(user?.name || "؟").trim().charAt(0) || "؟"}</Text>}</View></TouchableOpacity><View style={s.profileTextWrap}><Text style={s.profileName} numberOfLines={1}>{user?.name || "کاربر خطیار"}</Text><Text style={s.profileRole} numberOfLines={1}>{user?.role_title || user?.role || "حساب کاربری"}</Text></View></View>
       </View>
-      <ScrollView persistentScrollbar={true} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        {items.map(([route, title, glyph]) => (
-          <TouchableOpacity key={route} style={s.item} onPress={() => { if (route === 'SendQueue') return onQueue(); go(route); if (route === 'Messages' || route === 'InboxReports' || route === 'Notifications') refreshUnreadCounts(); }} activeOpacity={0.82} accessibilityRole="button">
+      <ScrollView persistentScrollbar={true} contentContainerStyle={[s.content,{paddingBottom:Math.max(insets.bottom,16)+24}]} showsVerticalScrollIndicator={false}>
+        {roleAccessLoading ? <View style={s.accessState}><MaterialCommunityIcons name="shield-account-outline" size={30} color={C.brand}/><Text style={s.accessText}>در حال بررسی دسترسی‌های سمت شما…</Text></View> : roleAccessError ? <View style={s.accessState}><Text style={s.accessText}>دریافت دسترسی‌های منو ممکن نشد.</Text><TouchableOpacity accessibilityRole="button" style={s.retryAccess} onPress={()=>setAccessAttempt(x=>x+1)}><Text style={s.retryAccessText}>تلاش دوباره</Text></TouchableOpacity></View> : sections.length === 0 ? <View style={s.accessState}><MaterialCommunityIcons name="lock-outline" size={30} color={C.muted}/><Text style={s.accessText}>برای سمت شما گزینه‌ای در منو فعال نشده است.</Text></View> : null}
+        {sections.map(section => <View key={section.title} style={s.menuSection}>
+          <View style={s.sectionHead}><MaterialCommunityIcons name={section.icon} size={18} color={C.brand}/><Text style={s.sectionTitle}>{section.title}</Text></View>
+          {section.entries.map(([route, title, glyph]) => (
+          <TouchableOpacity key={route} style={s.item} accessibilityLabel={title} onPress={() => { if (route === 'SendQueue') return onQueue(); go(route); if (route === 'Messages' || route === 'InboxReports' || route === 'Notifications') refreshUnreadCounts(); }} activeOpacity={0.78} accessibilityRole="button">
             <View style={s.icon}><MaterialCommunityIcons name={glyph} size={23} color={C.brand} />{(route === 'Messages' && unread.messages > 0) || (route === 'InboxReports' && unread.reports > 0) ? <View style={s.menuBadge}><Text style={s.menuBadgeText}>{unreadLabel(route === 'InboxReports' ? unread.reports : unread.messages)}</Text></View> : null}</View>
             <View style={s.itemTextWrap}><Text style={s.itemText}>{title}</Text></View><MaterialCommunityIcons name="chevron-left" size={22} color={C.muted} style={s.itemChevron} />
           </TouchableOpacity>
-        ))}
-        <TouchableOpacity style={[s.item, s.logoutItem]} onPress={onLogout} activeOpacity={0.82}>
+          ))}
+        </View>)}
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="خروج از حساب کاربری" style={[s.item, s.logoutItem]} onPress={onLogout} activeOpacity={0.78}>
           <View style={[s.icon, s.logoutIcon]}><MaterialCommunityIcons name="logout" size={23} color="#c03935" /></View>
           <View style={s.itemTextWrap}><Text style={[s.itemText, s.logoutText]}>خروج از حساب</Text></View>
         </TouchableOpacity>
+        <Text style={s.menuFoot}>خطیار · مدیریت هوشمند ناوگان تاکسیرانی</Text>
       </ScrollView>
       <Modal visible={photoOpen} transparent animationType="fade" onRequestClose={() => setPhotoOpen(false)}>
         <View style={s.photoModal}>
@@ -223,16 +243,17 @@ export default function DrawerMenuScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: C.paper},
-  header: { backgroundColor: C.brand2, paddingTop: 48, paddingHorizontal: 18, paddingBottom: 18, borderBottomLeftRadius: 24, shadowColor: '#062f26', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+  page: { flex: 1, backgroundColor: C.paper },
+  header: { backgroundColor: C.brand2, paddingHorizontal: 18, paddingBottom: 24, borderBottomLeftRadius: 28, borderBottomRightRadius: 8, shadowColor: '#062f26', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
   brandRow: { width: '100%', flexDirection: 'row-reverse', alignItems: 'center' },
+  closeMenu: { width: 48, height: 48, borderRadius: 15, backgroundColor: 'rgba(255,255,255,.14)', alignItems: 'center', justifyContent: 'center', marginRight: 8 },
   brandMark: { width: 44, height: 44, borderRadius: 15, backgroundColor: 'rgba(255,255,255,.15)', alignItems: 'center', justifyContent: 'center', marginLeft: 11 },
   brandLogo: { width: 36, height: 36, borderRadius: 10 },
   brandMarkText: { fontSize: 23, textAlign: 'center', writingDirection: 'ltr' },
   brandTextWrap: { flex: 1, alignItems: 'flex-end' },
   brand: { width: '100%', color: '#fff', fontFamily: FONT.bold, fontSize: 24, textAlign: 'right', writingDirection: 'rtl' },
   title: { width: '100%', color: '#dcefe9', fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', writingDirection: 'rtl', marginTop: 2 },
-  profileRow: { width: '100%', minHeight: 56, backgroundColor: 'rgba(255,255,255,.11)', borderRadius: 16, padding: 9, marginTop: 14, flexDirection: 'row-reverse', alignItems: 'center' },
+  profileRow: { width: '100%', minHeight: 70, backgroundColor: 'rgba(255,255,255,.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,.18)', borderRadius: 19, padding: 11, marginTop: 18, flexDirection: 'row-reverse', alignItems: 'center' },
   profileAvatar: { width: 46, height: 46, overflow: 'hidden', borderRadius: 23, backgroundColor: C.taxi, alignItems: 'center', justifyContent: 'center', marginLeft: 10, borderWidth: 2, borderColor: 'rgba(255,255,255,.65)' },
   profileImage: { width: '100%', height: '100%' },
   profileInitial: { color: C.brand2, fontFamily: FONT.bold, fontSize: 18, textAlign: 'center' },
@@ -240,15 +261,23 @@ const s = StyleSheet.create({
   profileName: { width: '100%', color: '#fff', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
   profileRole: { width: '100%', color: '#dcefe9', fontFamily: FONT.regular, fontSize: 10, textAlign: 'right', writingDirection: 'rtl', marginTop: 3 },
   content: { paddingHorizontal: 14, paddingTop: 18, paddingBottom: 32 },
-  item: { minHeight: 64, width: '100%', backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 16, marginBottom: 8, paddingHorizontal: 12, flexDirection: 'row-reverse', alignItems: 'center', shadowColor: '#17352f', shadowOpacity: 0.045, shadowRadius: 7, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
-  icon: { width: 44, height: 44, position: 'relative', borderRadius: 13, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center', marginLeft: 11 },
+  menuSection: { marginBottom: 13 },
+  sectionHead: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, paddingHorizontal: 6, marginBottom: 10 },
+  sectionTitle: { flex: 1, fontFamily: FONT.bold, color: C.ink, textAlign: 'right', fontSize: 13 },
+  item: { minHeight: 62, width: '100%', backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 17, marginBottom: 8, paddingHorizontal: 12, flexDirection: 'row-reverse', alignItems: 'center', shadowColor: '#17352f', shadowOpacity: 0.04, shadowRadius: 7, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  icon: { width: 44, height: 44, position: 'relative', borderRadius: 14, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center', marginLeft: 11 },
   menuBadge: { position: 'absolute', top: -5, right: -7, minWidth: 18, height: 18, paddingHorizontal: 3, borderRadius: 9, backgroundColor: '#e53935', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   menuBadgeText: { color: '#fff', fontFamily: FONT.bold, fontSize: 8, lineHeight: 10, textAlign: 'center', writingDirection: 'rtl' },
   iconText: { color: C.brand, fontSize: 18, fontFamily: FONT.bold, textAlign: 'center' },
   itemTextWrap: { flex: 1, minWidth: 0, alignSelf: 'stretch', alignItems: 'flex-end', justifyContent: 'center' },
   itemText: { width: '100%', color: C.ink, fontFamily: FONT.bold, fontSize: 13, lineHeight: 21, textAlign: 'right', writingDirection: 'rtl' },
   itemChevron: { color: C.muted, fontFamily: FONT.bold, fontSize: 22, marginRight: 8 },
-  logoutItem: { marginTop: 14, borderColor: '#e3403e' },
+  logoutItem: { marginTop: 12, borderColor: '#efc5c3', backgroundColor: '#fff7f6' },
+  accessState: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 18, padding: 22, marginBottom: 18, alignItems: 'center', gap: 12 },
+  accessText: { fontFamily: FONT.regular, color: C.muted, fontSize: 13, lineHeight: 21, textAlign: 'center' },
+  retryAccess: { minHeight: 48, minWidth: 145, backgroundColor: C.brand, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
+  retryAccessText: { fontFamily: FONT.bold, color: '#fff', fontSize: 13 },
+  menuFoot: { fontFamily: FONT.regular, fontSize: 10, textAlign: 'center', color: C.muted, marginTop: 14 },
   logoutIcon: { backgroundColor: '#fde8e7' },
   logoutText: { color: '#e3403e' },
   photoModal: { flex: 1, backgroundColor: 'rgba(3,10,16,.96)', alignItems: 'center', justifyContent: 'center', padding: 20 },

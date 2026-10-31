@@ -5,7 +5,7 @@ window.KH_ANDROID_NAV={
       "route": "PersonnelVehicleAsset",
       "title": "ویرایش اطلاعات خودرو یا موتورسیکلت",
       "bg": "#e8f6f0",
-      "icon": "view-grid-outline",
+      "icon": "car-cog",
       "category": "general",
       "needs": null
     },
@@ -13,7 +13,7 @@ window.KH_ANDROID_NAV={
       "route": "PersonnelVehicleChecklist",
       "title": "چک‌لیست خودرویی و موتوری",
       "bg": "#eef2fb",
-      "icon": "view-grid-outline",
+      "icon": "clipboard-check-outline",
       "category": "general",
       "needs": null
     },

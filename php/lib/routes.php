@@ -1572,13 +1572,14 @@ route('POST', '/api/admin/role-app-items', function($p,$b,$u){
 
 // آیتم‌های مجاز اپ برای کاربر جاری (بر اساس سمت او)
 route('GET', '/api/my/app-items', function($p,$b,$u){
-  require_once __DIR__.'/android_app_items.php';
+  // Keep in sync with the Android-only editor; no extra deployment module is required.
+  $allItems = ['Dashboard','Search','Driver','Vehicle','Debt','Checklist','Notice','Reports','Sms','BotMessages','Requests','RequestInbox','WorkSummary','SalarySlips','CompanyRequests','Subscription','CheckIn','Forms','Cultural','Welfare','TempDrivers','Notifications','FieldAlerts','ActivityReport','ExpInsurance','ExpTaxi','ExpOplic','TeamReport','InboxReports','ReportDetail','OfficialPresence','Inventory','Messages','Attendance','PastNotices','PastChecklists','DriverSms','MySms','CustomFields','Outage','Profile','ChangePassword','EditProfile','PersonnelVehicleAsset','PersonnelVehicleChecklist','MapSettings','ExpiryNotificationSettings','FieldAlertSettings','ImportTimes','AppLockSettings','CrashReports','LineVisitProgram','LineLocation','MyDailyMission','RoleDashboard','Leaderboard','Radio','Help','StationCapture','MyStations','PresentList','SendQueue','Settings','PrivacyPolicy','AboutApp','SchoolService','Complaints','ComplaintDetail','PresenceCheckWizard'];
   $row = Db::one("SELECT value FROM app_settings WHERE `key`='role_app_items'");
   $cfg = $row ? json_decode($row['value'], true) : [];
   $rid = (string)($u['role_id'] ?? '');
   // An unconfigured role inherits the full catalogue; an explicitly empty role has no access.
   $items = (is_array($cfg) && array_key_exists($rid, $cfg) && is_array($cfg[$rid]))
-    ? array_values(array_intersect(kh_android_app_items(), $cfg[$rid])) : kh_android_app_items();
+    ? array_values(array_intersect($allItems, $cfg[$rid])) : $allItems;
   return ['items'=>$items];
 }, false);
 
