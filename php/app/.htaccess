@@ -81,6 +81,9 @@ ServerSignature Off
   <FilesMatch "\.(png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|eot|mp3|wav|ogg|mp4|webm|pdf|zip)$">
     Header set Cache-Control "public, max-age=2592000, immutable"
   </FilesMatch>
+  <FilesMatch "^(brand-khatyar(-loader)?\.png|favicon(-32)?\.(png|svg)|icon-(192|512)\.png|apple-touch-icon\.png)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
   <If "%{REQUEST_URI} =~ m#/(vendor/leaflet|vendor/leaflet-draw|tiles|map-tiles|maps)(/|$)#">
     Header set Cache-Control "public, max-age=2592000, immutable"
   </If>
