@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking, ScrollView } 
 import { request } from '../api';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const fa = (n) => Number(n || 0).toLocaleString('fa-IR');
 
@@ -60,11 +61,12 @@ export default function SubscriptionScreen({ onActivated }) {
         Alert.alert('بدون نیاز به پرداخت', data?.message || 'سامانه در حالت بدون اشتراک است.');
         return;
       }
-      setPayment({ id: data.payment_id, status: 'pending' });
+      if (!data?.payment_id) throw new Error('شناسه صورتحساب دریافت نشد.');
       if (!data.bot_link) throw new Error('لینک ربات بله در تنظیمات ثبت نشده است');
       const supported = await Linking.canOpenURL(data.bot_link);
       if (!supported) throw new Error('امکان بازکردن لینک ربات بله در این دستگاه وجود ندارد');
       await Linking.openURL(data.bot_link);
+      setPayment({ id: data.payment_id, status: 'pending' });
     } catch (e) {
       Alert.alert('خطا', e?.message || 'ایجاد صورتحساب انجام نشد');
     } finally {
@@ -88,7 +90,7 @@ export default function SubscriptionScreen({ onActivated }) {
   return (
     <ScrollView persistentScrollbar={true} style={styles.page} contentContainerStyle={styles.content}>
       <View style={styles.card}>
-        <Text style={styles.icon}>💳</Text>
+        <MaterialCommunityIcons name="credit-card-check-outline" size={48} color={C.brand} accessibilityLabel="وضعیت اشتراک" />
         <Text style={styles.title}>اشتراک برنامه</Text>
         <Text style={styles.mode}>{status.label || 'وضعیت اشتراک'}</Text>
 
@@ -103,7 +105,7 @@ export default function SubscriptionScreen({ onActivated }) {
             {status.expires_at ? <Text style={styles.detail}>تاریخ پایان: {status.expires_at}</Text> : null}
             <Text style={styles.amount}>مبلغ تمدید ۳۰ روزه: {fa(status.amount)} ریال</Text>
             {status.can_pay ? (
-              <TouchableOpacity style={styles.button} onPress={pay} disabled={busy}>
+              <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled: busy }} style={styles.button} onPress={pay} disabled={busy}>
                 {busy ? <ActivityIndicator size={28} /> : <Text style={styles.buttonText}>دریافت صورتحساب از ربات بله</Text>}
               </TouchableOpacity>
             ) : (
@@ -114,11 +116,11 @@ export default function SubscriptionScreen({ onActivated }) {
           <Text style={styles.note}>سامانه در حالت استفاده معمولی است و نیازی به پرداخت اشتراک ندارد.</Text>
         )}
 
-        {payment?.status === 'pending' ? <Text style={styles.pending}>در انتظار پرداخت و تأیید صورتحساب…</Text> : null}
-        {error ? <Text style={styles.errorInline}>{error}</Text> : null}
+        {payment?.status === 'pending' ? <Text accessibilityLiveRegion="polite" style={styles.pending}>در انتظار پرداخت و تأیید صورتحساب… پس از پرداخت می‌توانید وضعیت را به‌روزرسانی کنید.</Text> : null}
+        {error ? <Text accessibilityLiveRegion="polite" style={styles.errorInline}>{error}</Text> : null}
       </View>
 
-      <TouchableOpacity style={styles.refresh} onPress={() => load()} disabled={loading}>
+      <TouchableOpacity accessibilityRole="button" style={styles.refresh} onPress={() => load()} disabled={loading}>
         <Text style={styles.refreshText}>{loading ? 'در حال به‌روزرسانی…' : 'به‌روزرسانی وضعیت'}</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -141,8 +143,8 @@ const styles = StyleSheet.create({
   pending: { fontFamily: FONT.bold, color: '#8a6500', textAlign: 'center', marginTop: 16 },
   error: { fontFamily: FONT.regular, color: '#b42318', textAlign: 'center', lineHeight: 23, marginBottom: 16 },
   errorInline: { fontFamily: FONT.regular, color: '#b42318', textAlign: 'center', marginTop: 14 },
-  button: { backgroundColor: C.brand, borderRadius: 16, padding: 16, marginTop: 20, width: '100%', alignItems: 'center' },
+  button: { backgroundColor: C.brand, borderRadius: 16, padding: 16, minHeight: 50, marginTop: 20, width: '100%', alignItems: 'center' },
   buttonText: { fontFamily: FONT.bold, color: '#fff' },
-  refresh: { borderWidth: 1, borderColor: C.brand, borderRadius: 14, padding: 13, marginTop: 14, alignItems: 'center' },
+  refresh: { borderWidth: 1, borderColor: C.brand, borderRadius: 14, padding: 13, minHeight: 48, marginTop: 14, alignItems: 'center' },
   refreshText: { fontFamily: FONT.bold, color: C.brand },
 });

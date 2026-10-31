@@ -1,11 +1,11 @@
 import React from 'react';
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
 import { C, FONT } from '../theme';
 import { currentVersion } from '../updater';
 
 export default function AboutAppScreen({ navigation }) {
-  const openSite=async()=>{try{await Linking.openURL('https://www.mobinshot.ir')}catch(_){}};
-  const callSupport=async()=>{try{await Linking.openURL('tel:09982118899')}catch(_){}};
+  const openSite=async()=>{try{await Linking.openURL('https://www.mobinshot.ir')}catch(_){Alert.alert('بازکردن وب‌سایت ممکن نیست','اتصال اینترنت و مرورگر دستگاه را بررسی کنید.');}};
+  const callSupport=async()=>{try{await Linking.openURL('tel:09982118899')}catch(_){Alert.alert('تماس برقرار نشد','شماره پشتیبانی: ۰۹۹۸۲۱۱۸۸۹۹');}};
   const rows=[
     ['نام برنامه','خطیار — سامانه مدیریت و نظارت بر ناوگان تاکسیرانی'],
     ['نسخه',currentVersion()],
@@ -18,10 +18,10 @@ export default function AboutAppScreen({ navigation }) {
   return <ScrollView style={s.wrap} contentContainerStyle={s.content}>
     <View style={s.hero}><Text style={s.brand}>خطیار</Text><Text style={s.title}>درباره برنامه</Text><Text style={s.sub}>اطلاعات رسمی برنامه</Text></View>
     <View style={s.card}>{rows.map(([label,value])=><View key={label} style={s.row}><Text style={s.label}>{label}</Text><Text style={s.value}>{value}</Text></View>)}
-      <TouchableOpacity style={s.btn} onPress={openSite}><Text style={s.btnText}>باز کردن وب‌سایت مبین شات</Text></TouchableOpacity>
-      <TouchableOpacity style={s.btn} onPress={callSupport}><Text style={s.btnText}>تماس با پشتیبانی: ۰۹۹۸۲۱۱۸۸۹۹</Text></TouchableOpacity>
-      <TouchableOpacity style={s.btn} onPress={()=>navigation?.navigate?.('PrivacyPolicy')}><Text style={s.btnText}>مشاهده سیاست حریم خصوصی</Text></TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" style={s.btn} onPress={openSite}><Text style={s.btnText}>باز کردن وب‌سایت مبین شات</Text></TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" style={s.btn} onPress={callSupport}><Text style={s.btnText}>تماس با پشتیبانی: ۰۹۹۸۲۱۱۸۸۹۹</Text></TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" style={s.btn} onPress={()=>navigation?.navigate?.('PrivacyPolicy')}><Text style={s.btnText}>مشاهده سیاست حریم خصوصی</Text></TouchableOpacity>
     </View>
   </ScrollView>;
 }
-const s=StyleSheet.create({wrap:{flex:1,backgroundColor:C.paper},content:{padding:14,paddingBottom:40},hero:{backgroundColor:C.brand,borderRadius:24,padding:23,marginBottom:12},brand:{color:'#fff',fontFamily:FONT.bold,fontSize:24,textAlign:'right'},title:{color:'#fff',fontFamily:FONT.bold,fontSize:18,textAlign:'right',marginTop:8},sub:{color:'#d7eee8',fontFamily:FONT.regular,fontSize:12,textAlign:'right',marginTop:6},card:{backgroundColor:'#fff',borderRadius:15,borderWidth:1,borderColor:'#e4e9f2',padding:14},row:{borderBottomWidth:1,borderBottomColor:'#edf0f4',paddingVertical:10},label:{color:C.brand,fontFamily:FONT.bold,fontSize:12,textAlign:'right'},value:{color:'#344054',fontFamily:FONT.regular,fontSize:12.5,lineHeight:21,textAlign:'right',marginTop:3},btn:{backgroundColor:C.brand,borderRadius:12,paddingVertical:12,alignItems:'center',marginTop:10},btnText:{color:'#fff',fontFamily:FONT.bold,fontSize:12.5}});
+const s=StyleSheet.create({wrap:{flex:1,backgroundColor:C.paper},content:{padding:14,paddingBottom:40},hero:{backgroundColor:C.brand,borderRadius:24,padding:23,marginBottom:12},brand:{color:'#fff',fontFamily:FONT.bold,fontSize:24,textAlign:'right'},title:{color:'#fff',fontFamily:FONT.bold,fontSize:18,textAlign:'right',marginTop:8},sub:{color:'#d7eee8',fontFamily:FONT.regular,fontSize:12,textAlign:'right',marginTop:6},card:{backgroundColor:'#fff',borderRadius:15,borderWidth:1,borderColor:'#e4e9f2',padding:14},row:{borderBottomWidth:1,borderBottomColor:'#edf0f4',paddingVertical:10},label:{color:C.brand,fontFamily:FONT.bold,fontSize:12,textAlign:'right'},value:{color:'#344054',fontFamily:FONT.regular,fontSize:12.5,lineHeight:21,textAlign:'right',marginTop:3},btn:{backgroundColor:C.brand,borderRadius:12,paddingVertical:14,minHeight:48,alignItems:'center',justifyContent:'center',marginTop:10},btnText:{color:'#fff',fontFamily:FONT.bold,fontSize:12.5}});

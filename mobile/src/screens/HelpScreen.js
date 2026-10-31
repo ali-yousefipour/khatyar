@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Linking, TextInput, Alert } from 'react-native';
 import { C, FONT } from '../theme';
 import { currentVersion, checkForUpdate } from '../updater';
 
@@ -144,7 +144,7 @@ const SECTIONS = [
 function Section({ section, open, onPress }) {
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.sectionHeader} onPress={onPress} activeOpacity={0.8}>
+      <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={section.title} style={styles.sectionHeader} onPress={onPress} activeOpacity={0.8}>
         <View style={styles.sectionIcon}><Text style={styles.sectionIconText}>{section.icon}</Text></View>
         <Text style={styles.sectionTitle}>{section.title}</Text>
         <Text style={styles.chevron}>{open ? '⌃' : '⌄'}</Text>
@@ -166,13 +166,20 @@ function Section({ section, open, onPress }) {
 export default function HelpScreen() {
   const [openIndex, setOpenIndex] = useState(0);
   const [checking, setChecking] = useState(false);
+  const [query, setQuery] = useState('');
+  const [collapsedMatches, setCollapsedMatches] = useState([]);
   const version = currentVersion();
+  const normalizedQuery = query.trim().toLocaleLowerCase('fa-IR');
+  const visibleSections = normalizedQuery ? SECTIONS.map((section, index) => ({
+    section: { ...section, items: section.title.toLocaleLowerCase('fa-IR').includes(normalizedQuery) ? section.items : section.items.filter(([title, description]) => `${title} ${description}`.toLocaleLowerCase('fa-IR').includes(normalizedQuery)) },
+    index,
+  })).filter(({ section }) => section.items.length) : SECTIONS.map((section, index) => ({ section, index }));
 
   const doCheckUpdate = async () => {
     if (checking) return;
     setChecking(true);
-    try { await checkForUpdate(true); } catch (_) {}
-    setChecking(false);
+    try { await checkForUpdate(true); } catch (_) { Alert.alert('خطا', 'بررسی نسخه جدید انجام نشد. اتصال اینترنت را بررسی کنید.'); }
+    finally { setChecking(false); }
   };
 
   return (
@@ -189,20 +196,26 @@ export default function HelpScreen() {
         <Text style={styles.noticeText}>بخش‌های زیر را باز کنید تا نحوه استفاده از امکانات اصلی خطیار را ببینید. بعضی گزینه‌ها فقط برای نقش‌ها و کاربران دارای دسترسی نمایش داده می‌شوند.</Text>
       </View>
 
-      {SECTIONS.map((section, index) => (
+      <View style={styles.searchBox}>
+        <TextInput accessibilityLabel="جست‌وجو در راهنمای برنامه" style={styles.searchInput} value={query} onChangeText={text => { setQuery(text); setCollapsedMatches([]); }} placeholder="جست‌وجو در موضوعات راهنما…" placeholderTextColor={C.muted} returnKeyType="search" />
+        {query ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="پاک‌کردن جست‌وجو" style={styles.clearSearch} onPress={() => setQuery('')}><Text style={styles.clearSearchText}>پاک‌کردن</Text></TouchableOpacity> : null}
+      </View>
+
+      {visibleSections.map(({ section, index }) => (
         <Section
           key={section.title}
           section={section}
-          open={openIndex === index}
-          onPress={() => setOpenIndex(openIndex === index ? -1 : index)}
+          open={normalizedQuery ? !collapsedMatches.includes(index) : openIndex === index}
+          onPress={() => normalizedQuery ? setCollapsedMatches(prev => prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]) : setOpenIndex(openIndex === index ? -1 : index)}
         />
       ))}
+      {visibleSections.length === 0 ? <View style={styles.notice}><Text style={styles.noticeTitle}>موضوعی پیدا نشد</Text><Text style={styles.noticeText}>عبارت کوتاه‌تری جست‌وجو کنید یا جست‌وجو را پاک کنید.</Text><TouchableOpacity accessibilityRole="button" onPress={() => setQuery('')} style={styles.clearSearch}><Text style={styles.clearSearchText}>نمایش همهٔ موضوعات</Text></TouchableOpacity></View> : null}
 
       <TouchableOpacity style={styles.updateButton} onPress={doCheckUpdate} disabled={checking} activeOpacity={0.82}>
         <Text style={styles.updateButtonText}>{checking ? 'در حال بررسی نسخه جدید…' : 'بررسی نسخه جدید'}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.supportButton} onPress={() => Linking.openURL('tel:09982118899')} activeOpacity={0.82}>
+      <TouchableOpacity accessibilityRole="button" style={styles.supportButton} onPress={() => Linking.openURL('tel:09982118899').catch(() => Alert.alert('تماس برقرار نشد', 'شماره پشتیبانی: ۰۹۹۸۲۱۱۸۸۹۹'))} activeOpacity={0.82}>
         <Text style={styles.supportButtonText}>تماس با پشتیبانی: ۰۹۹۸۲۱۱۸۸۹۹</Text>
       </TouchableOpacity>
 
@@ -223,6 +236,10 @@ const styles = StyleSheet.create({
   notice: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 16, padding: 15, marginBottom: 10 },
   noticeTitle: { color: C.ink, fontFamily: FONT.bold, fontSize: 14, textAlign: 'right', writingDirection: 'rtl' },
   noticeText: { color: C.muted, fontFamily: FONT.regular, fontSize: 12, lineHeight: 21, marginTop: 6, textAlign: 'right', writingDirection: 'rtl' },
+  searchBox: { flexDirection: 'row-reverse', backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 14, alignItems: 'center', paddingHorizontal: 12, marginBottom: 12, minHeight: 50 },
+  searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 14, color: C.ink, textAlign: 'right', minHeight: 48 },
+  clearSearch: { minHeight: 44, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12 },
+  clearSearchText: { color: C.brand, fontFamily: FONT.bold, fontSize: 12 },
   card: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 16, marginBottom: 9, overflow: 'hidden' },
   sectionHeader: { minHeight: 62, paddingHorizontal: 13, flexDirection: 'row-reverse', alignItems: 'center' },
   sectionIcon: { width: 39, height: 39, borderRadius: 12, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center', marginLeft: 10 },
