@@ -3504,6 +3504,56 @@ function Drivers() {
     const [per, setPer] = useState(10);
     const [full, setFull] = useState(null);
     const [edit, setEdit] = useState(null);
+    const [photoPreview, setPhotoPreview] = useState(null);
+    const [photoBusy, setPhotoBusy] = useState(false);
+    useEffect(() => {
+        if (!(full === null || full === void 0 ? void 0 : full.photo)) {
+            setPhotoPreview(null);
+            return;
+        }
+        let alive = true;
+        let url = null;
+        fetch(full.photo, { headers: tok(), cache: 'no-store' }).then(r => { if (!r.ok)
+            throw Error('photo'); return r.blob(); }).then(blob => { url = URL.createObjectURL(blob); if (alive)
+            setPhotoPreview(url);
+        else
+            URL.revokeObjectURL(url); }).catch(() => { if (alive)
+            setPhotoPreview(null); });
+        return () => { alive = false; if (url)
+            URL.revokeObjectURL(url); };
+    }, [full === null || full === void 0 ? void 0 : full.photo]);
+    const uploadPortrait = async (id, file) => {
+        if (!file)
+            return;
+        setPhotoBusy(true);
+        try {
+            const image = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(Error('خواندن تصویر ممکن نشد.')); reader.onload = () => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(Error('تصویر معتبر نیست.')); img.src = reader.result; }; reader.readAsDataURL(file); });
+            const ratio = Math.min(1, 480 / image.width, 640 / image.height);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(image.width * ratio);
+            canvas.height = Math.round(image.height * ratio);
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            let data = '';
+            for (const q of [.35, .26, .18]) {
+                data = canvas.toDataURL('image/jpeg', q);
+                if ((data.length - data.indexOf(',') - 1) * .75 <= 120 * 1024)
+                    break;
+            }
+            if ((data.length - data.indexOf(',') - 1) * .75 > 120 * 1024)
+                throw Error('حجم عکس هنوز بیش از ۱۲۰ کیلوبایت است.');
+            await SEND('PUT', '/admin/drivers/' + id + '/photo', { photo_data: data, confirmed: true });
+            await showFull(id);
+            load(page);
+            alert('تصویر پرسنلی راننده با موفقیت ثبت شد.');
+        }
+        catch (error) {
+            alert(error.message || 'ثبت تصویر انجام نشد.');
+        }
+        finally {
+            setPhotoBusy(false);
+        }
+    };
     const clean = o => { const x = { ...o }; Object.keys(x).forEach(k => !x[k] && delete x[k]); return x; };
     const norm = d => Array.isArray(d) ? { rows: d, total: d.length, page: 1, pages: 1 } : (d && Array.isArray(d.rows) ? d : { rows: [], total: 0, page: 1, pages: 1 });
     const load = (pg = 1) => { db.drivers({ ...clean(f), page: pg, per }).then(d => { const n = norm(d); setData(n); setPage(n.page); }).catch(() => setData({ rows: [], total: 0, page: 1, pages: 1 })); };
@@ -3549,6 +3599,7 @@ function Drivers() {
         React.createElement(ResponsiveTable, null,
             React.createElement("thead", null,
                 React.createElement("tr", null,
+                    React.createElement("th", null, "\u062A\u0635\u0648\u06CC\u0631"),
                     React.createElement("th", null, "\u06A9\u062F \u0645\u0644\u06CC"),
                     React.createElement("th", null, "\u0646\u0627\u0645"),
                     React.createElement("th", null, "\u0645\u0648\u0628\u0627\u06CC\u0644"),
@@ -3556,6 +3607,7 @@ function Drivers() {
                     React.createElement("th", null, "\u067E\u0631\u0648\u0627\u0646\u0647 \u0628\u0647\u0631\u0647\u200C\u0628\u0631\u062F\u0627\u0631\u06CC"),
                     React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645\u0627\u062A"))),
             React.createElement("tbody", null, data.rows.map(x => React.createElement("tr", { key: x.id },
+                React.createElement("td", null, x.photo ? React.createElement("button", { className: "btn g", onClick: () => showFull(x.id), "aria-label": "\u0645\u0634\u0627\u0647\u062F\u0647 \u062A\u0635\u0648\u06CC\u0631 \u067E\u0631\u0633\u0646\u0644\u06CC" }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u0639\u06A9\u0633") : React.createElement("span", { className: "badge b-pending" }, "\u0628\u062F\u0648\u0646 \u0639\u06A9\u0633")),
                 React.createElement("td", { style: { direction: "ltr", textAlign: "right" } }, x.national_id),
                 React.createElement("td", null,
                     x.first_name,
@@ -3592,6 +3644,15 @@ function Drivers() {
                     full.last_name),
                 " \u2014 \u06A9\u062F \u0645\u0644\u06CC ",
                 full.national_id),
+            React.createElement("div", { className: "card-p", style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 12 } },
+                React.createElement("b", null, "\u062A\u0635\u0648\u06CC\u0631 \u067E\u0631\u0633\u0646\u0644\u06CC \u062A\u0627\u06A9\u0633\u06CC\u0631\u0627\u0646"),
+                photoPreview ? React.createElement("img", { src: photoPreview, alt: "\u0639\u06A9\u0633 \u067E\u0631\u0633\u0646\u0644\u06CC \u062A\u0627\u06A9\u0633\u06CC\u0631\u0627\u0646", style: { width: 120, height: 156, objectFit: 'cover', borderRadius: 12 } }) : React.createElement("span", { className: "muted" }, full.photo ? 'در حال دریافت تصویر…' : 'تصویری ثبت نشده است'),
+                React.createElement("label", { className: "btn g", style: { cursor: photoBusy ? 'wait' : 'pointer' } },
+                    " ",
+                    full.photo ? 'ویرایش تصویر توسط مدیر' : 'درج تصویر توسط مدیر',
+                    " ",
+                    React.createElement("input", { type: "file", accept: "image/jpeg,image/png,image/webp", disabled: photoBusy, style: { display: 'none' }, onChange: e => { var _a; return uploadPortrait(full.id, (_a = e.target.files) === null || _a === void 0 ? void 0 : _a[0]); } })),
+                React.createElement("small", { className: "muted" }, "\u062A\u0635\u0648\u06CC\u0631 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u06A9\u0645\u200C\u062D\u062C\u0645 \u0630\u062E\u06CC\u0631\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u062A\u0639\u0648\u06CC\u0636 \u0639\u06A9\u0633 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u0645\u062F\u06CC\u0631 \u0645\u062C\u0627\u0632 \u0627\u0633\u062A.")),
             React.createElement("p", { className: "muted" },
                 "\u0645\u0648\u0628\u0627\u06CC\u0644: ",
                 full.mobile || "—",
@@ -7946,6 +8007,10 @@ function Settings() {
                 React.createElement("button", { className: "btn p", style: { marginTop: 8 }, onClick: save }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u0642\u0627\u0644\u0628 \u06AF\u0631\u0648\u0647\u06CC")),
             visitedTabs.includes("hr") && React.createElement("div", { id: "settings-section-24", className: "panel t-hr" },
                 React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u062B\u0628\u062A \u062A\u0630\u06A9\u0631"),
+                React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 8 } },
+                    React.createElement("input", { type: "checkbox", checked: !!v.driver_profile_photo_required, onChange: e => set("driver_profile_photo_required", e.target.checked) }),
+                    "\u0627\u0644\u0632\u0627\u0645 \u062A\u0635\u0648\u06CC\u0631 \u067E\u0631\u0633\u0646\u0644\u06CC \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647 \u062A\u0627\u06A9\u0633\u06CC\u0631\u0627\u0646 \u067E\u06CC\u0634 \u0627\u0632 \u062B\u0628\u062A \u0639\u0645\u0644\u06CC\u0627\u062A \u0635\u0641\u062D\u0647 \u0645\u0634\u062E\u0635\u0627\u062A \u0631\u0627\u0646\u0646\u062F\u0647"),
+                React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u0628\u0627 \u0641\u0639\u0627\u0644\u200C\u06A9\u0631\u062F\u0646 \u0627\u06CC\u0646 \u06AF\u0632\u06CC\u0646\u0647\u060C \u062B\u0628\u062A \u062D\u0636\u0648\u0631 \u0648 \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A \u0631\u0627\u0646\u0646\u062F\u0647 \u0628\u062F\u0648\u0646 \u062A\u0635\u0648\u06CC\u0631 \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647 \u0645\u0633\u062F\u0648\u062F \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u062B\u0628\u062A \u062A\u0630\u06A9\u0631 \u0627\u0632 \u0627\u06CC\u0646 \u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u0645\u0633\u062A\u062B\u0646\u06CC \u0627\u0633\u062A. \u062A\u0635\u0648\u06CC\u0631 \u0641\u0642\u0637 \u0628\u0627 \u062F\u0648\u0631\u0628\u06CC\u0646 \u0627\u067E \u0642\u0627\u0628\u0644 \u062B\u0628\u062A \u0627\u0633\u062A \u0648 \u062A\u063A\u06CC\u06CC\u0631 \u0622\u0646 \u0627\u0632 \u0637\u0631\u06CC\u0642 \u067E\u0646\u0644 \u0645\u062F\u06CC\u0631 \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F."),
                 React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 8 } },
                     React.createElement("input", { type: "checkbox", checked: !!v.notice_require_photo, onChange: e => set("notice_require_photo", e.target.checked) }),
                     "\u067E\u06CC\u0648\u0633\u062A \u0639\u06A9\u0633 \u0647\u0646\u06AF\u0627\u0645 \u062B\u0628\u062A \u062A\u0630\u06A9\u0631 \u0627\u0644\u0632\u0627\u0645\u06CC \u0628\u0627\u0634\u062F"),

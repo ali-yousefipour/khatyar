@@ -1936,6 +1936,28 @@ function Drivers(){
   const [data,setData]=useState({rows:[],total:0,page:1,pages:1});
   const [f,setF]=useState({q:"",line:"",model:"",gender:"",driver_type:""}); const [page,setPage]=useState(1); const [per,setPer]=useState(10);
   const [full,setFull]=useState(null); const [edit,setEdit]=useState(null);
+  const [photoPreview,setPhotoPreview]=useState(null); const [photoBusy,setPhotoBusy]=useState(false);
+  useEffect(()=>{
+    if(!full?.photo){setPhotoPreview(null);return;}
+    let alive=true;let url=null;
+    fetch(full.photo,{headers:tok(),cache:'no-store'}).then(r=>{if(!r.ok)throw Error('photo');return r.blob();}).then(blob=>{url=URL.createObjectURL(blob);if(alive)setPhotoPreview(url);else URL.revokeObjectURL(url);}).catch(()=>{if(alive)setPhotoPreview(null);});
+    return()=>{alive=false;if(url)URL.revokeObjectURL(url);};
+  },[full?.photo]);
+  const uploadPortrait=async(id,file)=>{
+    if(!file)return;
+    setPhotoBusy(true);
+    try{
+      const image=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(Error('خواندن تصویر ممکن نشد.'));reader.onload=()=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(Error('تصویر معتبر نیست.'));img.src=reader.result;};reader.readAsDataURL(file);});
+      const ratio=Math.min(1,480/image.width,640/image.height);
+      const canvas=document.createElement('canvas');canvas.width=Math.round(image.width*ratio);canvas.height=Math.round(image.height*ratio);
+      const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0,canvas.width,canvas.height);
+      let data='';for(const q of [.35,.26,.18]){data=canvas.toDataURL('image/jpeg',q);if((data.length-data.indexOf(',')-1)*.75<=120*1024)break;}
+      if((data.length-data.indexOf(',')-1)*.75>120*1024)throw Error('حجم عکس هنوز بیش از ۱۲۰ کیلوبایت است.');
+      await SEND('PUT','/admin/drivers/'+id+'/photo',{photo_data:data,confirmed:true});
+      await showFull(id);load(page);
+      alert('تصویر پرسنلی راننده با موفقیت ثبت شد.');
+    }catch(error){alert(error.message||'ثبت تصویر انجام نشد.');}finally{setPhotoBusy(false);}
+  };
   const clean=o=>{const x={...o};Object.keys(x).forEach(k=>!x[k]&&delete x[k]);return x;};
   const norm=d=>Array.isArray(d)?{rows:d,total:d.length,page:1,pages:1}:(d&&Array.isArray(d.rows)?d:{rows:[],total:0,page:1,pages:1});
   const load=(pg=1)=>{ db.drivers({...clean(f),page:pg,per}).then(d=>{const n=norm(d);setData(n);setPage(n.page);}).catch(()=>setData({rows:[],total:0,page:1,pages:1})); };
@@ -1955,8 +1977,9 @@ function Drivers(){
       <input className="input" style={{maxWidth:130}} placeholder="نوع راننده" value={f.driver_type} onChange={e=>setF({...f,driver_type:e.target.value})}/>
       <button className="btn p" onClick={()=>load(1)}>اعمال فیلتر</button></div>
     <p className="muted" style={{marginBottom:8}}>مجموع: {fa(data.total)} راننده</p>
-    <ResponsiveTable><thead><tr><th>کد ملی</th><th>نام</th><th>موبایل</th><th>جنسیت</th><th>پروانه بهره‌برداری</th><th>اقدامات</th></tr></thead>
+    <ResponsiveTable><thead><tr><th>تصویر</th><th>کد ملی</th><th>نام</th><th>موبایل</th><th>جنسیت</th><th>پروانه بهره‌برداری</th><th>اقدامات</th></tr></thead>
     <tbody>{data.rows.map(x=><tr key={x.id}>
+      <td>{x.photo?<button className="btn g" onClick={()=>showFull(x.id)} aria-label="مشاهده تصویر پرسنلی">مشاهده عکس</button>:<span className="badge b-pending">بدون عکس</span>}</td>
       <td style={{direction:"ltr",textAlign:"right"}}>{x.national_id}</td><td>{x.first_name} {x.last_name}</td>
       <td style={{direction:"ltr",textAlign:"right"}}>{x.mobile}</td><td>{x.gender}</td>
       <td><span className={"badge "+(x.op_lic_status==="فعال"?"b-ok":"b-no")}>{x.op_lic_status||"—"}</span></td>
@@ -1974,6 +1997,7 @@ function Drivers(){
     {full&&<Modal title="اطلاعات کامل راننده" onClose={()=>setFull(null)}>
       {full.loading?<p className="muted">در حال بارگذاری…</p>:<div>
         <p><b>{full.first_name} {full.last_name}</b> — کد ملی {full.national_id}</p>
+        <div className="card-p" style={{display:'flex',flexDirection:'column',alignItems:'center',gap:10,marginBottom:12}}><b>تصویر پرسنلی تاکسیران</b>{photoPreview?<img src={photoPreview} alt="عکس پرسنلی تاکسیران" style={{width:120,height:156,objectFit:'cover',borderRadius:12}}/>:<span className="muted">{full.photo?'در حال دریافت تصویر…':'تصویری ثبت نشده است'}</span>}<label className="btn g" style={{cursor:photoBusy?'wait':'pointer'}}> {full.photo?'ویرایش تصویر توسط مدیر':'درج تصویر توسط مدیر'} <input type="file" accept="image/jpeg,image/png,image/webp" disabled={photoBusy} style={{display:'none'}} onChange={e=>uploadPortrait(full.id,e.target.files?.[0])}/></label><small className="muted">تصویر به‌صورت کم‌حجم ذخیره می‌شود؛ تعویض عکس فقط برای مدیر مجاز است.</small></div>
         <p className="muted">موبایل: {full.mobile||"—"} · جنسیت: {full.gender||"—"} · نوع: {full.driver_type||"—"}</p>
         <h4 style={{marginTop:12}}>خودروها</h4>{(full.vehicles||[]).map((v,i)=><div key={i} className="card-p">{v.plate} — {v.model_name||""} {v.model_year||""} {v.line_code?("/ خط "+v.line_code):""}</div>)}
         <h4 style={{marginTop:12}}>تذکرات</h4>{(full.notices||[]).length?full.notices.map((n,i)=><div key={i} className="card-p">{fj(n.created_at)} — {n.reason||""} ({n.priority})</div>):<p className="muted">—</p>}
@@ -4563,6 +4587,8 @@ function Settings(){
       <textarea className="input" rows="3" placeholder={"راننده گرامی {name}، قبض آبونمان شما به شناسهٔ {bill_id} و مبلغ {amount} ریال در انتظار پرداخت است. پرداخت آنلاین:\n{pay_url}"} value={v.bill_bulk_sms_template||""} onChange={e=>setV({...v,bill_bulk_sms_template:e.target.value})}/>
       <button className="btn p" style={{marginTop:8}} onClick={save}>ذخیرهٔ قالب گروهی</button></div>}
     {visitedTabs.includes("hr")&&<div id="settings-section-24" className="panel t-hr"><h3>تنظیمات ثبت تذکر</h3>
+      <label className="row" style={{gap:8,marginBottom:8}}><input type="checkbox" checked={!!v.driver_profile_photo_required} onChange={e=>set("driver_profile_photo_required",e.target.checked)}/>الزام تصویر پرسنلی تأییدشده تاکسیران پیش از ثبت عملیات صفحه مشخصات راننده</label>
+      <p className="muted" style={{fontSize:12}}>با فعال‌کردن این گزینه، ثبت حضور و چک‌لیست راننده بدون تصویر تأییدشده مسدود می‌شود؛ ثبت تذکر از این محدودیت مستثنی است. تصویر فقط با دوربین اپ قابل ثبت است و تغییر آن از طریق پنل مدیر انجام می‌شود.</p>
       <label className="row" style={{gap:8,marginBottom:8}}><input type="checkbox" checked={!!v.notice_require_photo} onChange={e=>set("notice_require_photo",e.target.checked)}/>پیوست عکس هنگام ثبت تذکر الزامی باشد</label>
       <label className="row" style={{gap:8,marginBottom:8}}><input type="checkbox" checked={v.notice_camera_only!==false&&v.notice_camera_only!==0} onChange={e=>set("notice_camera_only",e.target.checked)}/>عکس تذکر فقط با دوربین گرفته شود (امکان انتخاب از گالری نباشد)</label>
       <button className="btn p" style={{marginTop:4}} onClick={save}>ذخیره</button></div>}

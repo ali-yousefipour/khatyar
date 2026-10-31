@@ -7,6 +7,8 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.content.Context;
+import android.content.res.Configuration;
+import android.graphics.Color;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
@@ -262,6 +264,19 @@ public final class KhatyarRadioService extends Service {
     expanded.setTextViewText(R.id.khatyar_notification_ptt_label, pttLabel);
     expanded.setOnClickPendingIntent(R.id.khatyar_notification_ptt, ptt);
 
+    // RemoteViews are rendered by SystemUI, whose notification background can
+    // differ from the app theme. Never resolve ?android:textColor* in the app.
+    boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+      == Configuration.UI_MODE_NIGHT_YES;
+    int primaryText = Color.parseColor(night ? "#FFFFFFFF" : "#FF17212E");
+    int secondaryText = Color.parseColor(night ? "#FFD8E0E7" : "#FF475569");
+    compact.setTextColor(R.id.khatyar_notification_status, primaryText);
+    compact.setTextColor(R.id.khatyar_notification_info, secondaryText);
+    expanded.setTextColor(R.id.khatyar_notification_status, primaryText);
+    expanded.setTextColor(R.id.khatyar_notification_info, secondaryText);
+    expanded.setTextColor(R.id.khatyar_notification_brand, secondaryText);
+    expanded.setTextColor(R.id.khatyar_notification_hint, secondaryText);
+
     Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
     PendingIntent contentIntent = null;
     if (launch != null) {
@@ -312,6 +327,11 @@ public final class KhatyarRadioService extends Service {
 
   private void updateNotification() {
     ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(NOTIFICATION_ID, buildRadioNotification());
+  }
+
+  @Override public void onConfigurationChanged(Configuration newConfig) {
+    super.onConfigurationChanged(newConfig);
+    try { updateNotification(); } catch (Throwable ignored) {}
   }
 
   private void toggleNotificationPtt() {

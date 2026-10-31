@@ -5901,6 +5901,79 @@ route('POST', '/api/admin/plate-training/samples/{id}/review', function($p,$b,$u
 }, false, ADMIN);
 
 /* ---------------- جستجو ---------------- */
+// Photo records live outside drivers to keep old imports and legacy schemas intact.
+function _driver_photo_ensure_table(){
+  if (_db_table_exists_safe('driver_profile_photos')) return;
+  Db::run("CREATE TABLE IF NOT EXISTS driver_profile_photos (
+    driver_id INT NOT NULL PRIMARY KEY,
+    photo_path VARCHAR(255) NOT NULL,
+    captured_by INT NULL,
+    confirmed_at DATETIME NOT NULL,
+    updated_by INT NULL,
+    updated_at DATETIME NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+function _driver_photo_record($driverId){
+  _driver_photo_ensure_table();
+  return Db::one('SELECT photo_path,confirmed_at FROM driver_profile_photos WHERE driver_id=?',[(int)$driverId]);
+}
+function _driver_photo_required(){
+  return filter_var(_req_setting('driver_profile_photo_required',false),FILTER_VALIDATE_BOOLEAN);
+}
+function _driver_photo_guard($driverId){
+  if (!_driver_photo_required() || (int)$driverId<=0) return;
+  if (!_driver_photo_record($driverId)) Http::error('ابتدا تصویر پرسنلی تاکسیران را با دوربین ثبت و تأیید کنید.',409);
+}
+function _driver_photo_access($driverId,$u){
+  if (!Db::one('SELECT id FROM drivers WHERE id=?',[(int)$driverId])) Http::error('راننده یافت نشد',404);
+  if (!empty($u['is_admin'])) return;
+  $rows=Db::all('SELECT l.id,l.code FROM user_lines ul JOIN `lines` l ON l.id=ul.line_id WHERE ul.user_id=?',[$u['id']]);
+  if (!$rows) Http::error('دسترسی به این راننده مجاز نیست',403);
+  $lineIds=array_column($rows,'id');$lineCodes=array_column($rows,'code');
+  $driverVehicles=Db::all('SELECT v.line_id,v.line_text FROM vehicle_drivers vd JOIN vehicles v ON v.id=vd.vehicle_id WHERE vd.driver_id=?',[(int)$driverId]);
+  foreach ($driverVehicles as $v){
+    if ($v['line_id'] && in_array($v['line_id'],$lineIds)) return;
+    $code=trim(preg_split('/\s*-\s*/u',trim((string)($v['line_text']??'')))[0]);
+    if ($code && in_array($code,$lineCodes)) return;
+  }
+  if (_driver_in_temp_lines($driverId,$lineIds,$lineCodes)) return;
+  Http::error('دسترسی به این راننده مجاز نیست',403);
+}
+function _driver_photo_save($driverId,$u,$b,$admin=false){
+  $driverId=(int)$driverId;
+  if (!$admin) _driver_photo_access($driverId,$u);
+  elseif (!Db::one('SELECT id FROM drivers WHERE id=?',[$driverId])) Http::error('راننده یافت نشد',404);
+  _driver_photo_ensure_table();
+  $existing=_driver_photo_record($driverId);
+  if ($existing && !$admin) Http::error('تصویر پرسنلی قبلاً ثبت شده است؛ فقط مدیر می‌تواند آن را تغییر دهد.',409);
+  if (empty($b['confirmed'])) Http::error('تأیید تصویر توسط ثبت‌کننده الزامی است.',422);
+  $image=(string)($b['photo_data']??'');
+  if (!preg_match('#^data:image/jpeg;base64,([A-Za-z0-9+/=]+)$#',$image,$m)) Http::error('فرمت تصویر باید JPEG باشد.',422);
+  $raw=base64_decode($m[1],true);
+  if (!$raw || strlen($raw)>120*1024 || strlen($raw)<2000) Http::error('حجم تصویر باید بین ۲ و ۱۲۰ کیلوبایت باشد.',422);
+  $size=@getimagesizefromstring($raw);
+  if (!$size || $size[2]!==IMAGETYPE_JPEG || $size[0]>640 || $size[1]>800 || $size[0]<160 || $size[1]<200)
+    Http::error('ابعاد تصویر مجاز نیست؛ عکس را در گوشی فشرده کنید.',422);
+  $path=Media::saveBase64($image,'driver-profiles',480,35);
+  if (!$path) Http::error('ذخیره تصویر ممکن نشد.',500);
+  try {
+    if ($existing) Db::run('UPDATE driver_profile_photos SET photo_path=?,updated_by=?,updated_at=NOW() WHERE driver_id=?',[$path,$u['id'],$driverId]);
+    else Db::run('INSERT INTO driver_profile_photos(driver_id,photo_path,captured_by,confirmed_at) VALUES(?,?,?,NOW())',[$driverId,$path,$u['id']]);
+  } catch(Throwable $e) { @unlink(Media::baseDir().'/'.substr($path,8)); throw $e; }
+  // After an administrator replaces a portrait, reclaim only the old owned file.
+  $oldPath=(string)($existing['photo_path']??'');
+  if ($admin && str_starts_with($oldPath,'uploads/driver-profiles/') && $oldPath!==$path)
+    @unlink(Media::baseDir().'/'.substr($oldPath,8));
+  return ['ok'=>true,'photo'=>'/api/media?path='.urlencode($path),'locked'=>true];
+}
+route('GET','/api/driver-photos/config',function($p,$b,$u){return ['required'=>_driver_photo_required()];});
+route('GET','/api/driver-photos/{id}',function($p,$b,$u){
+  _driver_photo_access($p['id'],$u);
+  $photo=_driver_photo_record($p['id']);
+  return ['required'=>_driver_photo_required(),'photo'=>$photo?'/api/media?path='.urlencode($photo['photo_path']):null,'locked'=>(bool)$photo];
+});
+route('POST','/api/driver-photos/{id}',function($p,$b,$u){return _driver_photo_save($p['id'],$u,$b);});
+route('PUT','/api/admin/drivers/{id}/photo',function($p,$b,$u){return _driver_photo_save($p['id'],$u,$b,true);},false,ADMIN);
 route('GET', '/api/search', function($p, $b, $u) {
   // خطوط مجاز کاربر — مقاوم در برابر نصب‌های قدیمی یا جدول/ستون ناقص
   $myLines = [];
@@ -6170,6 +6243,7 @@ route('POST', '/api/attendance', function($p, $b, $u) {
   _ensure_attendances_schema();
   $eventAt = _app_client_time($b);
   $did = (int)($b['driver_id'] ?? 0); if (!$did) Http::error('ورودی نامعتبر', 400);
+  _driver_photo_guard($did);
   // مسدودسازی راننده (دستی یا به‌دلیل بدهی فیش)
   $drv = Db::one("SELECT national_id FROM drivers WHERE id=?", [$did]);
   $setRow = Db::one("SELECT value FROM app_settings WHERE `key`='driver_block'");
@@ -6436,6 +6510,7 @@ route('GET', '/api/admin/recorders', function($p,$b,$u){
     ORDER BY name");
 }, false, ADMIN);
 route('POST', '/api/notices', function($p, $b, $u) {
+  // ثبت تذکر از شرط تصویر پرسنلی راننده مستثنی است؛ الزام پیوست خود تذکر مستقل می‌ماند.
   // پشتیبانی از هر دو حالت: JSON (attachment_data) و multipart (فایل واقعی)
   $isMultipart = !empty($_FILES['attachment']) && ($_FILES['attachment']['error'] ?? 1) === 0;
   if ($isMultipart) {
@@ -6648,6 +6723,7 @@ route('GET', '/api/checklist/template', function($p,$b,$u) {
   $t['items'] = $items; return $t;
 });
 route('POST', '/api/checklist', function($p, $b, $u) {
+  _driver_photo_guard($b['driver_id'] ?? 0);
   // الزام درج عکس (در صورت فعال‌بودن در تنظیمات؛ پیش‌فرض: الزامی)
   $reqPhoto = Db::one("SELECT value FROM app_settings WHERE `key`='checklist_require_photo'");
   $requirePhoto = $reqPhoto ? (bool)json_decode($reqPhoto['value'], true) : true;
@@ -9524,6 +9600,7 @@ route('POST', '/api/admin/lines', function($p,$b,$u){
   return ['ok'=>true];
 }, false, ADMIN);
 route('GET', '/api/admin/drivers', function($p,$b,$u){
+  _driver_photo_ensure_table();
   $c=[]; $pr=[];
   if (!empty($_GET['q'])) { $c[]="(d.national_id LIKE ? OR d.first_name LIKE ? OR d.last_name LIKE ?)"; $q='%'.$_GET['q'].'%'; array_push($pr,$q,$q,$q); }
   if (!empty($_GET['gender'])) { $c[]="d.gender=?"; $pr[]=$_GET['gender']; }
@@ -9534,8 +9611,9 @@ route('GET', '/api/admin/drivers', function($p,$b,$u){
   $where=$c?('WHERE '.implode(' AND ',$c)):'';
   $total=(int) Db::one("SELECT COUNT(*) n FROM drivers d $where", $pr)['n'];
   $per=min(200,max(10,(int)($_GET['per'] ?? 25))); $page=max(1,(int)($_GET['page'] ?? 1)); $off=($page-1)*$per;
-  $rows=Db::all("SELECT d.id,d.national_id,d.first_name,d.last_name,d.mobile,d.gender,d.driver_type,d.taxi_lic_status,d.op_lic_status,d.op_lic_expire
-    FROM drivers d $where ORDER BY d.id LIMIT $per OFFSET $off", $pr);
+  $rows=Db::all("SELECT d.id,d.national_id,d.first_name,d.last_name,d.mobile,d.gender,d.driver_type,d.taxi_lic_status,d.op_lic_status,d.op_lic_expire,dp.photo_path
+    FROM drivers d LEFT JOIN driver_profile_photos dp ON dp.driver_id=d.id $where ORDER BY d.id LIMIT $per OFFSET $off", $pr);
+  foreach($rows as &$row) $row['photo']=$row['photo_path']?'/api/media?path='.urlencode($row['photo_path']):null;
   return ['rows'=>$rows,'total'=>$total,'page'=>$page,'per'=>$per,'pages'=>(int)ceil($total/$per)];
 });
 
@@ -9578,6 +9656,8 @@ route('GET', '/api/admin/driver-notices/export', function($p,$b,$u){
 
 route('GET', '/api/admin/drivers/{id}/full', function($p,$b,$u){
   $d = Db::one("SELECT * FROM drivers WHERE id=?", [$p['id']]); if(!$d) Http::error('یافت نشد',404);
+  $photo=_driver_photo_record($p['id']);
+  $d['photo']=$photo?'/api/media?path='.urlencode($photo['photo_path']):null;
   $d['vehicles']  = Db::all("SELECT v.plate, MAX(v.model_name) model_name, MAX(v.model_year) model_year, MAX(l.code) line_code,
        MAX(vd.role) role, MAX(vd.shift) shift FROM vehicle_drivers vd JOIN vehicles v ON v.id=vd.vehicle_id
        LEFT JOIN `lines` l ON l.id=v.line_id WHERE vd.driver_id=? GROUP BY v.plate", [$p['id']]);
@@ -10663,9 +10743,11 @@ route('PUT', '/api/me/profile', function($p,$b,$u){
 });
 route('GET', '/api/me/full-profile', function($p,$b,$u){
   $r = Db::one("SELECT id,username,first_name,last_name,email,mobile,address,marital_status,children_count,birth_date,national_code,rank_stars,signature_data,zone_id,
-     CASE WHEN photo_path IS NOT NULL AND photo_path<>'' THEN CONCAT('/api/media?path=', photo_path) ELSE photo END AS photo
+     photo_path, photo
      FROM users WHERE id=?", [$u['id']]);
   if(!$r)return [];
+  $r['photo'] = _user_photo_url($r['photo_path'] ?? null, $r['photo'] ?? null);
+  unset($r['photo_path']);
   require_once __DIR__.'/OrgChart.php';
   $context=OrgChart::currentZoneResponsibility((int)($r['zone_id']??0));
   $r['zone_name']=$context['zone_name'];$r['zone_path']=$context['zone_path'];

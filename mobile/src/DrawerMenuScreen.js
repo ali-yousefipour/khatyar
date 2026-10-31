@@ -53,6 +53,7 @@ export default function DrawerMenuScreen({ navigation }) {
   const { user, logout, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
   const [photo, setPhoto] = React.useState(user?.photo || null);
+  const [photoFailed, setPhotoFailed] = React.useState(false);
   const [photoOpen, setPhotoOpen] = React.useState(false);
   const [photoBusy, setPhotoBusy] = React.useState(false);
   const [access, setAccess] = React.useState(null);
@@ -138,7 +139,16 @@ export default function DrawerMenuScreen({ navigation }) {
     ]);
   };
 
-  React.useEffect(() => { setPhoto(user?.photo || null); }, [user?.photo]);
+  React.useEffect(() => { setPhoto(user?.photo || null); setPhotoFailed(false); }, [user?.photo]);
+  React.useEffect(() => {
+    let active = true;
+    const refreshPhoto = () => request('/me/full-profile', { noStore: true, timeoutMs: 10000 })
+      .then(profile => { if (active && profile?.photo) { setPhoto(profile.photo); setPhotoFailed(false); } })
+      .catch(() => {});
+    refreshPhoto();
+    const unsubscribe = navigation.addListener('focus', refreshPhoto);
+    return () => { active = false; unsubscribe(); };
+  }, [navigation, user?.id]);
 
   const changePhoto = async () => {
     try {
@@ -151,7 +161,7 @@ export default function DrawerMenuScreen({ navigation }) {
       const uploaded = await uploadFile('/me/photo', {}, 'photo', asset.uri, asset.fileName || 'profile.jpg', asset.mimeType || 'image/jpeg', { queueIfOffline: false });
       if (!uploaded?.ok && !uploaded?.path) throw new Error('سرور عکس را ذخیره نکرد.');
       const profile = await request('/me/full-profile', { noStore: true });
-      if (profile?.photo) setPhoto(profile.photo);
+      if (profile?.photo) { setPhoto(profile.photo); setPhotoFailed(false); }
       await refreshUser?.();
       Alert.alert('عکس به‌روز شد', 'تصویر حساب کاربری با موفقیت تغییر کرد.');
     } catch (error) {
@@ -208,7 +218,7 @@ export default function DrawerMenuScreen({ navigation }) {
     <View style={s.page}>
       <View style={[s.header,{paddingTop:insets.top+14}]}>
         <View style={s.brandRow}><View style={s.brandMark}><Image source={require('../assets/icon.png')} style={s.brandLogo} resizeMode="contain" /></View><View style={s.brandTextWrap}><Text style={s.brand}>خطیار</Text><Text style={s.title}>دسترسی‌های حساب شما</Text></View><TouchableOpacity accessibilityRole="button" accessibilityLabel="بستن منوی کناری" style={s.closeMenu} onPress={()=>navigation?.dispatch?.(DrawerActions.closeDrawer())}><MaterialCommunityIcons name="close" size={22} color="#fff" /></TouchableOpacity></View>
-        <View style={s.profileRow}><TouchableOpacity onPress={() => setPhotoOpen(true)} activeOpacity={0.8} accessibilityRole="imagebutton" accessibilityLabel="نمایش تمام‌صفحه و مدیریت عکس کاربر"><View style={s.profileAvatar}>{photo ? <Image source={imageSource(photo)} style={s.profileImage} /> : <Text style={s.profileInitial}>{String(user?.name || "؟").trim().charAt(0) || "؟"}</Text>}</View></TouchableOpacity><View style={s.profileTextWrap}><Text style={s.profileName} numberOfLines={1}>{user?.name || "کاربر خطیار"}</Text><Text style={s.profileRole} numberOfLines={1}>{user?.role_title || user?.role || "حساب کاربری"}</Text></View></View>
+        <View style={s.profileRow}><TouchableOpacity onPress={() => setPhotoOpen(true)} activeOpacity={0.8} accessibilityRole="imagebutton" accessibilityLabel="نمایش تمام‌صفحه و مدیریت عکس کاربر"><View style={s.profileAvatar}>{photo && !photoFailed ? <Image source={imageSource(photo)} style={s.profileImage} onError={() => setPhotoFailed(true)} /> : <Text style={s.profileInitial}>{String(user?.name || "؟").trim().charAt(0) || "؟"}</Text>}</View></TouchableOpacity><View style={s.profileTextWrap}><Text style={s.profileName} numberOfLines={1}>{user?.name || "کاربر خطیار"}</Text><Text style={s.profileRole} numberOfLines={1}>{user?.role_title || user?.role || "حساب کاربری"}</Text></View></View>
       </View>
       <ScrollView persistentScrollbar={true} contentContainerStyle={[s.content,{paddingBottom:Math.max(insets.bottom,16)+24}]} showsVerticalScrollIndicator={false}>
         {roleAccessLoading ? <View style={s.accessState}><MaterialCommunityIcons name="shield-account-outline" size={30} color={C.brand}/><Text style={s.accessText}>در حال بررسی دسترسی‌های سمت شما…</Text></View> : roleAccessError ? <View style={s.accessState}><Text style={s.accessText}>دریافت دسترسی‌های منو ممکن نشد.</Text><TouchableOpacity accessibilityRole="button" style={s.retryAccess} onPress={()=>setAccessAttempt(x=>x+1)}><Text style={s.retryAccessText}>تلاش دوباره</Text></TouchableOpacity></View> : sections.length === 0 ? <View style={s.accessState}><MaterialCommunityIcons name="lock-outline" size={30} color={C.muted}/><Text style={s.accessText}>برای سمت شما گزینه‌ای در منو فعال نشده است.</Text></View> : null}

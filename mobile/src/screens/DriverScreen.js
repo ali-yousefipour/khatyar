@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, useWindowDimensions } from 'react-native';
 import { postOrQueue, request } from '../api';
+import { imageSource } from '../api';
+import { ImagePicker, launchCamera } from '../cameraLock';
+import { compressToDataUri } from '../img';
 import { getAppConfig } from '../appconfig';
 import * as Location from 'expo-location';
 import { C, FONT } from '../theme';
@@ -22,11 +25,66 @@ export default function DriverScreen({ route, navigation }) {
   const [busy, setBusy] = useState(false);
   const [access, setAccess] = useState({ welfare: false, cultural: false });
   const [complaintAllowed, setComplaintAllowed] = useState(false);
+  const [portrait, setPortrait] = useState(null);
+  const [portraitDraft, setPortraitDraft] = useState(null);
+  const [portraitConsent, setPortraitConsent] = useState(false);
+  const [portraitBusy, setPortraitBusy] = useState(false);
+  const [portraitLoading, setPortraitLoading] = useState(true);
+  const [portraitRequired, setPortraitRequired] = useState(false);
+  const [portraitError, setPortraitError] = useState('');
   const hasDriver = !!(driver && (driver.id || driver.national_id || driver.national_code));
   useEffect(() => {
     getAppConfig().then((c) => setAccess({ welfare: !!c.can_welfare, cultural: !!c.can_cultural })).catch(() => {});
     request('/complaints/access', { noStore: true }).then((x) => setComplaintAllowed(!!x?.can_submit)).catch(() => {});
   }, []);
+  useEffect(() => {
+    if (!driver.id) { setPortraitLoading(false); return; }
+    let active = true;
+    setPortraitLoading(true);
+    request('/driver-photos/config', { noStore: true, queueIfOffline: false })
+      .then(data => { if (active) setPortraitRequired(!!data?.required); }).catch(() => {});
+    request('/driver-photos/' + driver.id, { noStore: true, queueIfOffline: false })
+      .then(data => { if (active) { setPortrait(data?.photo || null); setPortraitRequired(!!data?.required); setPortraitError(''); } })
+      .catch(() => { if (active) setPortraitError('دریافت وضعیت تصویر ممکن نشد. دوباره تلاش کنید.'); })
+      .finally(() => { if (active) setPortraitLoading(false); });
+    return () => { active = false; };
+  }, [driver.id]);
+  const capturePortrait = async () => {
+    if (portrait || portraitBusy) return;
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) return Alert.alert('دسترسی دوربین', 'برای ثبت تصویر پرسنلی راننده اجازه دوربین لازم است.');
+      const result = await launchCamera({ mediaTypes: ['images'], cameraType: ImagePicker.CameraType.front, allowsEditing: false, quality: 0.7 });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      setPortraitBusy(true);
+      const source = result.assets[0].uri;
+      let compressed = null;
+      for (const [width, quality] of [[480, 0.34], [400, 0.28], [320, 0.22]]) {
+        compressed = await compressToDataUri(source, { maxW: width, maxH: 640, quality });
+        if (compressed && Math.floor((compressed.length - compressed.indexOf(',') - 1) * 3 / 4) <= 120 * 1024) break;
+      }
+      if (!compressed || Math.floor((compressed.length - compressed.indexOf(',') - 1) * 3 / 4) > 120 * 1024) throw new Error('فشرده‌سازی تصویر به حجم مجاز انجام نشد. دوباره عکس بگیرید.');
+      setPortraitDraft(compressed);
+      setPortraitConsent(false);
+    } catch (error) { Alert.alert('تصویر پرسنلی', error?.message || 'ثبت تصویر ممکن نشد.'); }
+    finally { setPortraitBusy(false); }
+  };
+  const confirmPortrait = async () => {
+    if (!portraitDraft || !portraitConsent || portraitBusy || !driver.id) return;
+    setPortraitBusy(true);
+    try {
+      const saved = await request('/driver-photos/' + driver.id, { method: 'POST', body: { photo_data: portraitDraft, confirmed: true }, queueIfOffline: false, noStore: true, timeoutMs: 30000 });
+      setPortrait(saved.photo); setPortraitDraft(null); setPortraitConsent(false);
+      Alert.alert('ثبت قطعی شد', 'تصویر تاکسیران ثبت شد و دیگر در برنامه قابل تغییر نیست.');
+    } catch (error) { Alert.alert('ثبت تصویر ناموفق بود', error?.message || 'پس از اتصال به اینترنت دوباره تلاش کنید.'); }
+    finally { setPortraitBusy(false); }
+  };
+  const photoGate = () => {
+    Alert.alert('ابتدا تصویر پرسنلی تاکسیران را ثبت کنید', 'عکس باید واضح و متعلق به راننده اصلی باشد. مسئولیت مغایرت تصویر با راننده بر عهده ثبت‌کننده است.', [
+      { text: 'بعداً', style: 'cancel' },
+      { text: 'رفتن به درج عکس', onPress: () => { if (!portraitDraft) capturePortrait(); } },
+    ]);
+  };
   const safeText = (v) => {
     if (v === null || v === undefined || v === '') return '';
     if (typeof v === 'string' || typeof v === 'number') return faNum(String(v));
@@ -95,12 +153,20 @@ export default function DriverScreen({ route, navigation }) {
       <View style={s.card}>
         <View style={[s.heroRow, compact && s.heroRowCompact]}>
           <View style={s.identity}>
-            <View style={s.pf}><MaterialCommunityIcons name="account-tie" size={25} color="#fff" /></View>
+            <View style={s.pf}>{portrait ? <Image source={imageSource(portrait)} style={s.portraitAvatar} /> : <MaterialCommunityIcons name="account-tie" size={25} color="#fff" />}</View>
             <View style={s.identityText}>
               <Text style={s.name} numberOfLines={2}>{safeText(driver.first_name)} {safeText(driver.last_name)}</Text>
               <Text style={s.meta}>کد ملی: {safeText(driver.national_id || driver.national_code)}</Text>
             </View>
           </View>
+        </View>
+        <View style={s.portraitCard}>
+          <Text style={s.portraitTitle}>تصویر پرسنلی تاکسیران</Text>
+          {portrait ? <><Image source={imageSource(portrait)} style={s.portraitPreview}/><Text style={s.portraitSuccess}>تصویر ثبت و تأیید شده است؛ تغییر آن فقط توسط مدیر سامانه امکان‌پذیر است.</Text></> : <>
+            <Text style={s.portraitHint}>{portraitLoading ? 'در حال بررسی وضعیت تصویر…' : 'عکس واضح، روبه‌دوربین و متعلق به همین تاکسیران باشد. پس از تأیید نهایی، تصویر در اپ قابل ویرایش نیست.'}</Text>
+            {!!portraitError && <Text style={s.portraitWarning}>{portraitError}</Text>}
+            {portraitDraft ? <><Image source={{uri:portraitDraft}} style={s.portraitPreview}/><TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:portraitConsent}} onPress={() => setPortraitConsent(v=>!v)} style={s.consentRow}><MaterialCommunityIcons name={portraitConsent?'checkbox-marked':'checkbox-blank-outline'} size={23} color={C.brand}/><Text style={s.consentText}>تأیید می‌کنم تصویر واضح و متعلق به راننده اصلی است؛ مسئولیت مغایرت احتمالی با من است.</Text></TouchableOpacity><View style={s.portraitActions}><TouchableOpacity style={s.portraitSecondary} onPress={() => {setPortraitDraft(null);setPortraitConsent(false);}} disabled={portraitBusy}><Text style={s.portraitSecondaryText}>عکس دوباره</Text></TouchableOpacity><TouchableOpacity style={[s.portraitButton,(!portraitConsent||portraitBusy)&&{opacity:.45}]} onPress={confirmPortrait} disabled={!portraitConsent||portraitBusy}><Text style={s.portraitButtonText}>{portraitBusy?'در حال ثبت…':'تأیید و ثبت قطعی'}</Text></TouchableOpacity></View></> : <TouchableOpacity style={s.portraitButton} disabled={portraitBusy||portraitLoading} onPress={capturePortrait}><MaterialCommunityIcons name="camera-outline" size={21} color="#fff"/><Text style={s.portraitButtonText}>گرفتن عکس با دوربین</Text></TouchableOpacity>}
+          </>}
         </View>
         {!!vehicle?.plate && <View style={{marginTop:16}}><TaxiPlate plate={vehicle.plate} compact={compact}/></View>}
         <View style={s.sectionHeader}><MaterialCommunityIcons name="card-account-details-outline" size={19} color={C.brand}/><Text style={s.sectionTitle}>مشخصات تاکسیران و خودرو</Text></View>
@@ -140,7 +206,7 @@ export default function DriverScreen({ route, navigation }) {
       <View style={s.sectionHeader}><MaterialCommunityIcons name="view-dashboard-outline" size={20} color={C.brand}/><Text style={s.sectionTitle}>خدمات و عملیات</Text></View>
       <View style={s.acts}>
         {ACTIONS.map((a, i) => (
-          <TouchableOpacity key={i} accessibilityRole="button" accessibilityLabel={a.t} accessibilityState={{disabled:!!(a.primary&&busy)}} activeOpacity={0.8} onPress={a.on} disabled={a.primary && busy}
+          <TouchableOpacity key={i} accessibilityRole="button" accessibilityLabel={a.t} accessibilityState={{disabled:!!(a.primary&&busy)}} activeOpacity={0.8} onPress={a.t==='ثبت تذکر'?a.on:portraitLoading?()=>Alert.alert('در حال بررسی', 'لطفاً تا بررسی وضعیت تصویر پرسنلی صبر کنید.'):portraitRequired&&!portrait?photoGate:a.on} disabled={a.primary && busy}
             style={[s.act, a.primary && s.actPrimary, a.taxi && s.actTaxi, a.primary&&busy&&{opacity:0.6}]}>
             {a.primary && busy
               ? <ActivityIndicator color="#fff" />
@@ -167,6 +233,20 @@ const s = StyleSheet.create({
   card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 19, padding: 18 },
   row: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
   pf: { width: 46, height: 46, borderRadius: 13, backgroundColor: C.brand, alignItems: 'center', justifyContent: 'center' },
+  portraitAvatar: { width: 46, height: 46, borderRadius: 13 },
+  portraitCard: { marginTop: 16, backgroundColor: '#F4FAF7', borderWidth: 1, borderColor: '#C8E5D7', borderRadius: 16, padding: 14, gap: 10 },
+  portraitTitle: { fontFamily: FONT.bold, color: C.brand, fontSize: 15, textAlign: 'right' },
+  portraitHint: { fontFamily: FONT.regular, color: C.slate, fontSize: 12, lineHeight: 22, textAlign: 'right' },
+  portraitWarning: { fontFamily: FONT.bold, color: C.danger, textAlign: 'right', fontSize: 12 },
+  portraitPreview: { width: 120, height: 156, borderRadius: 12, alignSelf: 'center', backgroundColor: '#E1E8E4' },
+  portraitSuccess: { fontFamily: FONT.regular, color: C.brand, fontSize: 12, textAlign: 'right', lineHeight: 21 },
+  portraitButton: { minHeight: 48, borderRadius: 12, paddingHorizontal: 14, backgroundColor: C.brand, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8, flex: 1 },
+  portraitButtonText: { fontFamily: FONT.bold, color: '#fff', fontSize: 12.5 },
+  portraitActions: { flexDirection: 'row-reverse', alignItems: 'center', gap: 9 },
+  portraitSecondary: { minHeight: 48, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, justifyContent: 'center' },
+  portraitSecondaryText: { fontFamily: FONT.bold, fontSize: 12, color: C.brand },
+  consentRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, minHeight: 48 },
+  consentText: { flex: 1, fontFamily: FONT.regular, color: C.ink, fontSize: 11.5, textAlign: 'right', lineHeight: 20 },
   pfTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 18 },
   name: { fontFamily: FONT.bold, fontSize: 16, color: C.ink, textAlign: 'right' },
   meta: { fontFamily: FONT.regular, fontSize: 12, color: C.muted, textAlign: 'right' },

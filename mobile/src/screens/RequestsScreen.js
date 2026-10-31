@@ -432,7 +432,7 @@ function MyRequests() {
   }).sort((a,b) => requestDate(b).localeCompare(requestDate(a)));
   if (!rows) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
   const TY = { annual: 'مرخصی استحقاقی', sick: 'مرخصی استعلاجی', mission: 'ماموریت', overtime: 'اضافه‌کار', manual: 'تردد دستی' };
-  const num = (x) => (x == null ? '∞' : String(Math.round((x + Number.EPSILON) * 10) / 10));
+  const num = (x) => (x == null ? '—' : faDigits(String(Math.round((Number(x) + Number.EPSILON) * 10) / 10)));
   return (
     <ScrollView persistentScrollbar={true} contentContainerStyle={{ paddingHorizontal: width < 360 ? 10 : 14, paddingTop:14, paddingBottom: 56 }}>
       <View style={s.requestFilterPanel}>
@@ -445,14 +445,15 @@ function MyRequests() {
       </View>
       {bal && (
         <View style={s.balCard}>
-          <Text style={s.balTitle}>مانده مرخصی (ماه جاری / سال)</Text>
+          <View style={s.balHeader}><MaterialCommunityIcons name="calendar-check-outline" size={22} color={C.brand}/><Text style={s.balTitle}>گزارش مانده مرخصی</Text></View>
+          <Text style={s.balHint}>مانده قابل استفاده در ماه جاری و کل سال، مطابق اطلاعات ثبت‌شده در سامانه</Text>
           {[['annual_daily', 'استحقاقی روزانه', 'روز'], ['annual_hourly', 'استحقاقی ساعتی', 'ساعت'], ['sick_daily', 'استعلاجی روزانه', 'روز'], ['sick_hourly', 'استعلاجی ساعتی', 'ساعت']].map(([k, l, un]) => {
             const b = (bal.balance || {})[k] || {};
             if (!b.cap_month && !b.cap_year) return null;
             return (
               <View key={k} style={s.balRow}>
                 <Text style={s.balL}>{l}</Text>
-                <Text style={s.balV}>مانده ماه: <Text style={{ color: C.ok }}>{num(b.left_month)}</Text> / سال: <Text style={{ color: C.ok }}>{num(b.left_year)}</Text> {un}</Text>
+                <View style={s.balValues}><View style={s.balMetric}><Text style={s.balMetricLabel}>ماه جاری</Text><Text style={s.balMetricNumber}>{num(b.left_month)} <Text style={s.balMetricUnit}>{un}</Text></Text></View><View style={s.balMetric}><Text style={s.balMetricLabel}>سال</Text><Text style={s.balMetricNumber}>{num(b.left_year)} <Text style={s.balMetricUnit}>{un}</Text></Text></View></View>
               </View>
             );
           })}
@@ -551,10 +552,17 @@ const s = StyleSheet.create({
   cardMeta: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', marginTop: 5 },
   cardReason: { fontFamily: FONT.regular, color: C.slate, fontSize: 12.5, textAlign: 'right', marginTop: 5 },
   badge: { borderRadius: 8, paddingVertical: 3, paddingHorizontal: 9 },
-  balCard: { backgroundColor: '#fff', borderRadius: 12, padding: 13, marginBottom: 12, borderWidth: 1, borderColor: C.line },
-  balTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 13, textAlign: 'right', marginBottom: 8 },
-  balRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 5, borderTopWidth: 1, borderTopColor: C.line },
-  balL: { fontFamily: FONT.regular, color: C.slate, fontSize: 12.5 },
+  balCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: C.line },
+  balHeader: { flexDirection: 'row-reverse', alignItems: 'center', gap: 9 },
+  balTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 16, textAlign: 'right' },
+  balHint: { fontFamily: FONT.regular, color: C.muted, fontSize: 11, lineHeight: 20, textAlign: 'right', marginTop: 7, marginBottom: 10 },
+  balRow: { paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line, gap: 9 },
+  balL: { fontFamily: FONT.bold, color: C.slate, fontSize: 13, textAlign: 'right' },
+  balValues: { flexDirection: 'row-reverse', gap: 9 },
+  balMetric: { flex: 1, borderRadius: 12, padding: 10, backgroundColor: '#eef8f3', alignItems: 'center' },
+  balMetricLabel: { color: C.slate, fontFamily: FONT.regular, fontSize: 11 },
+  balMetricNumber: { color: C.brand, fontFamily: FONT.bold, fontSize: 17, marginTop: 4 },
+  balMetricUnit: { color: C.brand, fontFamily: FONT.regular, fontSize: 11 },
   balV: { fontFamily: FONT.regular, color: C.muted, fontSize: 12 },
   leaveUnit: { backgroundColor: '#f7fafc', borderColor: C.line, borderWidth: 1, borderRadius: 10, padding: 10, marginBottom: 9 },
   leaveUnitTitle: { fontFamily: FONT.bold, color: C.brand, fontSize: 13, textAlign: 'right', marginBottom: 5 },
