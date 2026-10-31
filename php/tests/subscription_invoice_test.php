@@ -4,12 +4,14 @@ $routes=[];
 function route($m,$p,$fn,$public=false,$minLevel=99){global $routes;$routes[]=compact('m','p','fn','public','minLevel');}
 class Http { public static function error($message,$code=400){throw new RuntimeException($message,$code);} }
 class Db {
-  public static $company=null,$inserts=0,$race=false;
-  public static function run($sql,$params=[]){return true;}
-  public static function one($sql,$params=[]){return str_contains($sql,'FROM kh_subscription_customers')?self::$company:null;}
+  public static $company=null,$inserts=0,$race=false,$ddl=0;
+  public static function run($sql,$params=[]){if(str_contains($sql,'CREATE TABLE')||str_contains($sql,'ALTER TABLE'))self::$ddl++;return true;}
+  public static function one($sql,$params=[]){if(str_contains($sql,'SHOW TABLES LIKE'))return ['table'=>'exists'];return str_contains($sql,'FROM kh_subscription_customers')?self::$company:null;}
   public static function insert($sql,$params=[]){self::$inserts++;if(self::$race){self::$company=['id'=>18];$error=new PDOException('duplicate',23000);$error->errorInfo=['23000',1062,'duplicate'];throw $error;}return 17;}
 }
 require __DIR__.'/../lib/subscription_invoice_routes.php';
+kh_invoice_schema();
+if(Db::$ddl!==0)throw new RuntimeException('Existing invoice tables must not trigger DDL on each request');
 $expected=[
  ['GET','/api/admin/subscription-customers'],
  ['POST','/api/admin/subscription-customers'],

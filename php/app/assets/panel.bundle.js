@@ -18555,8 +18555,8 @@ function buildFintoInvoiceHtml(invoice, seller) {
     const esc = v => String(v !== null && v !== void 0 ? v : "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     const digits = v => String(v !== null && v !== void 0 ? v : "").replace(/[0-9]/g, d => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
     const number = v => Number(v || 0).toLocaleString("fa-IR");
-    const signer = typeof invoice.signer_snapshot === "string" ? JSON.parse(invoice.signer_snapshot || "null") : invoice.signer_snapshot;
     const buyer = typeof invoice.company_snapshot === "string" ? JSON.parse(invoice.company_snapshot || "{}") : invoice.company_snapshot || {};
+    const signer = (typeof invoice.signer_snapshot === "string" ? JSON.parse(invoice.signer_snapshot || "null") : invoice.signer_snapshot) || buyer._invoice_signer || null;
     const items = typeof invoice.line_items === "string" ? JSON.parse(invoice.line_items || "[]") : invoice.line_items || [];
     const label = (title, value) => `<span><b>${title}:</b> ${esc(digits(value || " "))}</span>`;
     const party = (title, entity, isSeller) => `<section class="party"><h2>${title}</h2><div class="party-grid">

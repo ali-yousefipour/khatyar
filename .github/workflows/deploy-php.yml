@@ -280,13 +280,16 @@ jobs:
 
               local_file="${GITHUB_WORKSPACE}/${file}"
               remote_file="${remote_dir}/$(basename "${rel}")"
+              if [ "${remote_dir}" != "/" ]; then
+                printf 'mkdir -p %s\n' "${remote_dir}"
+              fi
               printf 'put %s -o %s\n' "${local_file}" "${remote_file}"
             done < <(find deploy-payload -type f -print | sort)
 
             echo 'bye'
           } >> /tmp/lftp-upload.cmd
 
-          echo "Uploading changed PHP files without remote directory creation:"
+          echo "Uploading changed PHP files and creating missing asset directories:"
           find deploy-payload -type f -print | sort | grep -v '^deploy-payload/lib/routes.php$' || true
 
           lftp --user "${FTP_USER}" --password "${FTP_PASS}" "ftp://${FTP_HOST}:21" -e "$(cat /tmp/lftp-upload.cmd)"
