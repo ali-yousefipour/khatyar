@@ -10,9 +10,19 @@ import ActivityIndicator from '../components/PulseLoadingIndicator';
 export default function MessagesScreen() {
   const [data, setData] = useState(null);
   const [openId, setOpenId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const load = useCallback(() => {
-    request('/my/messages').then(setData).catch(() => setData([]));
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const messages = await request('/my/messages', { noStore: true });
+      if (!Array.isArray(messages)) throw new Error('پاسخ پیام‌ها معتبر نیست.');
+      setData(messages);
+      setError('');
+    } catch (e) {
+      setError(e?.message || 'دریافت پیام‌ها ناموفق بود.');
+    } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -22,16 +32,16 @@ export default function MessagesScreen() {
     // با باز کردن پیام، همان پیام خوانده‌شده می‌شود
     if (willOpen && !m.read_at) {
       try {
-        await request(`/my/messages/${m.id}/read`, { method: 'POST' });
+        await request(`/my/messages/${m.id}/read`, { method: 'POST', queueIfOffline: false });
         setData((cur) => (cur || []).map((x) => x.id === m.id ? { ...x, read_at: new Date().toISOString() } : x));
         refreshUnreadCounts();
-      } catch (e) {}
+      } catch (e) { setError(e?.message || 'ثبت خوانده‌شدن پیام ناموفق بود.'); }
     }
   }
 
-  if (!data) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
+  if (!data && loading) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
 
-  const unread = data.filter((x) => !x.read_at).length;
+  const unread = (data || []).filter((x) => !x.read_at).length;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.paper }}>
@@ -39,15 +49,18 @@ export default function MessagesScreen() {
         <Text style={s.headTxt}>پیام‌ها</Text>
         {unread > 0 && <View style={s.badge}><Text style={s.badgeTxt}>{faNum(unread)} خوانده‌نشده</Text></View>}
       </View>
+      {!!error && <View style={s.errorBox}><Text style={s.errorText}>{error}</Text><TouchableOpacity style={s.retry} onPress={load} accessibilityRole="button"><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
       <FlatList
         contentContainerStyle={{ padding: 16, paddingBottom: 56 }}
-        data={data}
+        data={data || []}
+        refreshing={loading}
+        onRefresh={load}
         keyExtractor={(i) => String(i.id)}
-        ListEmptyComponent={<Text style={s.empty}>پیامی ندارید.</Text>}
+        ListEmptyComponent={<Text style={s.empty}>{error ? 'دریافت پیام‌ها انجام نشد؛ دوباره تلاش کنید.' : 'پیامی ندارید.'}</Text>}
         renderItem={({ item }) => {
           const open = openId === item.id;
           return (
-            <TouchableOpacity activeOpacity={0.8} onPress={() => toggle(item)} style={[s.card, !item.read_at && s.unread]}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`پیام ${item.title || 'بدون عنوان'}`} activeOpacity={0.8} onPress={() => toggle(item)} style={[s.card, !item.read_at && s.unread]}>
               <View style={s.cardHead}>
                 <Text style={s.title}>✉ {item.title || 'پیام'}</Text>
                 <View style={[s.dot, item.read_at ? s.dotRead : s.dotUnread]}>
@@ -67,6 +80,10 @@ export default function MessagesScreen() {
 }
 
 const s = StyleSheet.create({
+  errorBox: { margin: 12, padding: 14, backgroundColor: '#fff1f1', borderColor: '#f3b8c0', borderWidth: 1, borderRadius: 14 },
+  errorText: { color: '#982b3d', fontFamily: FONT.regular, lineHeight: 22, textAlign: 'right' },
+  retry: { alignSelf: 'flex-end', paddingVertical: 10, paddingHorizontal: 18, borderRadius: 10, backgroundColor: '#fff', marginTop: 8 },
+  retryText: { color: C.brand, fontFamily: FONT.bold },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   head: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', padding: 14, backgroundColor: '#fff', borderBottomColor: C.line, borderBottomWidth: 1 },
   headTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 16 },

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Image, Switch, Linking } from 'react-native';
 import { request, imageSource } from '../api';
 import { C, FONT } from '../theme';
@@ -24,12 +24,25 @@ export function InboxReportsScreen({ navigation }) {
   const [sender, setSender] = useState(null);
   const [statusF, setStatusF] = useState(null);
   const [query, setQuery] = useState('');
+  const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const loadSerial = useRef(0);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
+    const serial = ++loadSerial.current;
+    setRefreshing(true);
     const url = tab === 'archived' ? '/my/inbox-reports/archived' : (tab === 'forwarded' ? '/my/forwarded-reports' : (tab === 'cc' ? '/my/cc-reports' : '/my/inbox-reports'));
-    request(url).then(setData).catch(() => setData([]));
+    try {
+      const result = await request(url, { noStore: true });
+      if (!Array.isArray(result)) throw new Error('پاسخ صندوق گزارش‌ها معتبر نیست.');
+      if (serial === loadSerial.current) { setData(result); setError(''); }
+    } catch (e) {
+      if (serial === loadSerial.current) setError(e?.message || 'دریافت گزارش‌ها ناموفق بود.');
+    } finally {
+      if (serial === loadSerial.current) setRefreshing(false);
+    }
   }, [tab]);
-  useEffect(() => { setData(null); load(); }, [load]);
+  useEffect(() => { setData(null); setError(''); load(); return () => { loadSerial.current += 1; }; }, [load]);
   useEffect(() => { const un = navigation.addListener('focus', load); return un; }, [navigation, load]);
 
   const senders = useMemo(() => {
@@ -54,11 +67,12 @@ export function InboxReportsScreen({ navigation }) {
     catch (e) { Alert.alert('خطا', e.message); }
   }
 
-  if (!data) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
+  if (!data && refreshing) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
 
   return (
     <View style={s.wrap}>
       <View style={s.pageHeader}><Text style={s.pageTitle}>{tab==='inbox'?'گزارش‌های دریافتی':tab==='forwarded'?'گزارش‌های ارجاع‌شده توسط من':tab==='cc'?'رونوشت‌های من':'بایگانی گزارش‌ها'}</Text><Text style={s.pageSubtitle}>{tab==='inbox'?'گزارش‌ها و موارد ارجاع‌شده به شما':tab==='forwarded'?'مواردی که به سایر کاربران ارجاع داده‌اید':tab==='cc'?'رونوشت گزارش‌های ارسال‌شده برای شما':'گزارش‌های بایگانی‌شده'}</Text></View>
+      {!!error && <View style={{ margin: 12, padding: 14, backgroundColor: '#fff1f1', borderColor: '#f3b8c0', borderWidth: 1, borderRadius: 14 }}><Text style={{ fontFamily: FONT.regular, color: '#982b3d', textAlign: 'right', lineHeight: 22 }}>{error}</Text><TouchableOpacity accessibilityRole="button" onPress={load} style={{ alignSelf: 'flex-end', padding: 10, marginTop: 8 }}><Text style={{ fontFamily: FONT.bold, color: C.brand }}>تلاش مجدد</Text></TouchableOpacity></View>}
       <View style={s.tabs}>
         {[
           {id:'inbox',label:'دریافتی',icon:'inbox-arrow-down'},
@@ -85,9 +99,9 @@ export function InboxReportsScreen({ navigation }) {
         <TouchableOpacity style={[s.chip, !statusF && s.chipOn]} onPress={() => setStatusF(null)}><Text style={[s.chipTxt, !statusF && { color: '#fff' }]}>همه وضعیت‌ها</Text></TouchableOpacity>
         {Object.entries(ST).map(([k, v]) => <TouchableOpacity key={k} style={[s.chip, statusF === k && s.chipOn]} onPress={() => setStatusF(k)}><Text style={[s.chipTxt, statusF === k && { color: '#fff' }]}>{v}</Text></TouchableOpacity>)}
       </ScrollView>
-      <View style={s.listSummary}><Text style={s.listSummaryTitle}>{rows.length.toLocaleString('fa-IR')} گزارش</Text><Text style={s.listSummaryHint}>فهرست گزارش‌ها</Text></View>
-      <FlatList keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }} data={rows} keyExtractor={(it) => String(it.id)}
-        ListEmptyComponent={<View style={s.emptyCard}><MaterialCommunityIcons name="text-box-search-outline" size={38} color={C.muted}/><Text style={s.empty}>{query||sender||statusF||from||to?'گزارشی مطابق فیلترهای انتخاب‌شده پیدا نشد.':tab==='archived'?'بایگانی خالی است.':tab==='forwarded'?'گزارشی ارجاع نکرده‌اید.':tab==='cc'?'رونوشتی برای شما ارسال نشده است.':'گزارش دریافتی ندارید.'}</Text></View>}
+      <View style={s.listSummary}><Text style={s.listSummaryTitle}>{(rows || []).length.toLocaleString('fa-IR')} گزارش</Text><Text style={s.listSummaryHint}>فهرست گزارش‌ها</Text></View>
+      <FlatList keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }} data={rows || []} keyExtractor={(it) => String(it.id)} refreshing={refreshing} onRefresh={load}
+        ListEmptyComponent={<View style={s.emptyCard}><MaterialCommunityIcons name="text-box-search-outline" size={38} color={C.muted}/><Text style={s.empty}>{error?'دریافت گزارش‌ها ناموفق بود.':query||sender||statusF||from||to?'گزارشی مطابق فیلترهای انتخاب‌شده پیدا نشد.':tab==='archived'?'بایگانی خالی است.':tab==='forwarded'?'گزارشی ارجاع نکرده‌اید.':tab==='cc'?'رونوشتی برای شما ارسال نشده است.':'گزارش دریافتی ندارید.'}</Text></View>}
         renderItem={({ item }) => (
           <View style={s.card}>
             <TouchableOpacity onPress={() => navigation.navigate('ReportDetail', { id: item.id })}>
@@ -132,8 +146,11 @@ export function ReportDetailScreen({ route, navigation }) {
   const [showPersonPicker, setShowPersonPicker] = useState(false);
   const [personPickerMode, setPersonPickerMode] = useState('forward');
   const [textModalMode, setTextModalMode] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [detailLoading, setDetailLoading] = useState(true);
   const load = useCallback(() => {
-    request('/reports/' + id).then(setR).catch(() => setR(null));
+    setDetailLoading(true);
+    request('/reports/' + id, { noStore: true }).then(result => { setR(result); setLoadError(''); }).catch(e => { setLoadError(e?.message || 'دریافت جزئیات گزارش ناموفق بود.'); }).finally(() => setDetailLoading(false));
     refreshUnreadCounts();
     request('/my/reports/' + id + '/flow').then(setFlow).catch(() => setFlow([]));
   }, [id]);
@@ -145,7 +162,7 @@ export function ReportDetailScreen({ route, navigation }) {
   // نمی‌شد، ولی در رندرهای بعدی اجرا می‌شد — دقیقاً همان خطای «Rendered more hooks than
   // during the previous render» که در گزارش خطا دیده شد.
   const fwdRoles = useMemo(() => Array.from(new Set(targets.map((t) => t.role_title).filter(Boolean))), [targets]);
-  if (!r) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
+  if (!r) return <View style={s.center}>{detailLoading ? <ActivityIndicator color={C.brand} /> : <View style={{ margin: 20, padding: 20, alignItems: 'center' }}><Text style={{ fontFamily: FONT.regular, color: C.danger, textAlign: 'center', lineHeight: 24 }}>{loadError || 'جزئیات گزارش در دسترس نیست.'}</Text><TouchableOpacity accessibilityRole="button" onPress={load} style={{ marginTop: 16, padding: 12, backgroundColor: C.soft, borderRadius: 12 }}><Text style={{ fontFamily: FONT.bold, color: C.brand }}>تلاش مجدد</Text></TouchableOpacity></View>}</View>;
 
   const startEdit = () => { setESubject(r.subject || ''); setEBody(r.body || ''); setEPriority(r.priority || 'normal'); setEditing(true); };
   const saveEdit = async () => {
