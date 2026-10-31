@@ -17389,53 +17389,77 @@ function PersonnelVehicleAssign() {
 }
 function PersonnelVehicleAssets() {
     const [tab, setTab] = useState('assign');
-    const [items, setItems] = useState([]), [selected, setSelected] = useState(null), [loading, setLoading] = useState(true), [q, setQ] = useState('');
-    const load = async () => { setLoading(true); try {
-        const d = await GET('/personnel-vehicle-assets.php?op=list', { ttl: 0 });
-        setItems(d.items || []);
+    const [items, setItems] = useState([]), [selected, setSelected] = useState(null), [loading, setLoading] = useState(false), [detailLoading, setDetailLoading] = useState(false), [q, setQ] = useState(''), [type, setType] = useState('all'), [error, setError] = useState('');
+    const detailRequest = useRef(0);
+    const load = async () => { setLoading(true); setError(''); try {
+        const result = await GET('/personnel-vehicle-assets.php?op=list', { ttl: 0 });
+        setItems(result.items || []);
     }
     catch (e) {
-        alert(e.message);
+        setError(e.message || 'دریافت پرونده‌ها ناموفق بود.');
     }
     finally {
         setLoading(false);
     } };
     useEffect(() => { if (tab === 'files')
         load(); }, [tab]);
-    const filtered = items.filter(a => { const s = (a.first_name + ' ' + a.last_name + ' ' + pvaPlate(a) + ' ' + (a.national_code || '')).toLowerCase(); return !q || s.includes(q.toLowerCase()); });
-    const open = async (a) => { try {
-        const d = await GET('/personnel-vehicle-assets.php?op=detail&id=' + encodeURIComponent(a.id), { ttl: 0 });
-        setSelected(d.asset);
+    const filtered = items.filter(a => { const value = [a.first_name, a.last_name, pvaPlate(a), a.national_code].filter(Boolean).join(' ').toLowerCase(); return value.includes(q.trim().toLowerCase()) && (type === 'all' || a.asset_type === type); });
+    const open = async (asset) => { const request = ++detailRequest.current; setDetailLoading(true); setSelected(null); setError(''); try {
+        const result = await GET('/personnel-vehicle-assets.php?op=detail&id=' + encodeURIComponent(asset.id), { ttl: 0 });
+        if (request === detailRequest.current)
+            setSelected(result.asset || asset);
     }
     catch (e) {
-        alert(e.message);
+        if (request === detailRequest.current)
+            setError(e.message || 'دریافت جزئیات پرونده ناموفق بود.');
+    }
+    finally {
+        if (request === detailRequest.current)
+            setDetailLoading(false);
     } };
-    return React.createElement("div", { className: "panel admin-workspace-page" },
-        React.createElement("div", { className: "row", style: { justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' } },
-            React.createElement("h3", null, "\u0645\u0627\u0634\u06CC\u0646\u200C\u0622\u0644\u0627\u062A \u0648 \u0648\u0633\u0627\u06CC\u0644 \u0645\u0623\u0645\u0648\u0631\u06CC\u062A\u06CC"),
-            tab === 'files' && React.createElement("button", { className: "btn g", onClick: () => downloadProtectedFile('/personnel-vehicle-assets.php?op=export', 'personnel_vehicle_assets.xlsx') }, "\u062E\u0631\u0648\u062C\u06CC Excel + \u062A\u0635\u0627\u0648\u06CC\u0631")),
-        React.createElement("div", { className: "row", style: { gap: 8, margin: '10px 0' } },
-            React.createElement("button", { className: "btn " + (tab === 'assign' ? 'p' : 'g'), onClick: () => setTab('assign') }, "\u062A\u062E\u0635\u06CC\u0635 \u062E\u0648\u062F\u0631\u0648/\u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A"),
-            React.createElement("button", { className: "btn " + (tab === 'files' ? 'p' : 'g'), onClick: () => setTab('files') }, "\u067E\u0631\u0648\u0646\u062F\u0647\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647")),
-        tab === 'assign' ? React.createElement(PersonnelVehicleAssign, null) :
-            loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A\u2026") : React.createElement(React.Fragment, null,
-                React.createElement("input", { className: "input", style: { marginBottom: 10, maxWidth: 320 }, placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645\u060C \u067E\u0644\u0627\u06A9 \u06CC\u0627 \u06A9\u062F \u0645\u0644\u06CC", value: q, onChange: e => setQ(e.target.value) }),
-                React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'minmax(250px,32%) 1fr', gap: 10 } },
-                    React.createElement("div", { style: { display: 'grid', gap: 7, maxHeight: 650, overflow: 'auto' } },
-                        filtered.map(a => React.createElement("button", { key: a.id, type: "button", onClick: () => open(a), style: { textAlign: 'right', border: '1px solid var(--line)', background: '#fff', borderRadius: 12, padding: 10, cursor: 'pointer', outline: (selected === null || selected === void 0 ? void 0 : selected.id) === a.id ? '2px solid var(--brand)' : 'none' } },
-                            React.createElement("b", null, pvaPlate(a) || 'بدون پلاک'),
-                            React.createElement("div", { style: { fontSize: 12 } },
-                                a.first_name,
-                                " ",
-                                a.last_name,
-                                " \u2014 ",
-                                a.asset_type === 'car' ? 'خودرو' : 'موتورسیکلت'),
-                            React.createElement("div", { className: "muted", style: { fontSize: 11 } },
-                                pvaStatus(a.status),
-                                " \u00B7 \u0622\u062E\u0631\u06CC\u0646 \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A: ",
-                                a.checklist_last_at || '—'))),
-                        !filtered.length && React.createElement("div", { className: "muted", style: { padding: 20, textAlign: 'center' } }, "\u067E\u0631\u0648\u0646\u062F\u0647\u200C\u0627\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")),
-                    React.createElement("div", { style: { background: '#f8fafc', border: '1px solid var(--line)', borderRadius: 14, padding: 14 } }, selected ? React.createElement(PVAAssetDetail, { asset: selected }) : React.createElement("div", { className: "muted", style: { padding: 30, textAlign: 'center' } }, "\u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647 \u0645\u0634\u062E\u0635\u0627\u062A\u060C \u06CC\u06A9 \u062E\u0648\u062F\u0631\u0648 \u06CC\u0627 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F.")))));
+    return React.createElement("div", { className: "panel admin-workspace-page pva-assets-page" },
+        React.createElement("div", { className: "pva-assets-hero" },
+            React.createElement("div", null,
+                React.createElement("h3", null, "\u0645\u0627\u0634\u06CC\u0646\u200C\u0622\u0644\u0627\u062A \u0648 \u0648\u0633\u0627\u06CC\u0644 \u0645\u0623\u0645\u0648\u0631\u06CC\u062A\u06CC"),
+                React.createElement("p", null, "\u062A\u062E\u0635\u06CC\u0635 \u0648\u0633\u0627\u06CC\u0644 \u0628\u0647 \u067E\u0631\u0633\u0646\u0644 \u0648 \u0645\u0634\u0627\u0647\u062F\u0647\u0654 \u067E\u0631\u0648\u0646\u062F\u0647\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647")),
+            tab === 'files' && React.createElement("button", { className: "btn g", onClick: () => downloadProtectedFile('/personnel-vehicle-assets.php?op=export', 'personnel_vehicle_assets.xlsx') }, "\u062E\u0631\u0648\u062C\u06CC Excel \u0648 \u062A\u0635\u0627\u0648\u06CC\u0631")),
+        React.createElement("div", { className: "pva-assets-tabs", role: "group", "aria-label": "\u0628\u062E\u0634 \u0648\u0633\u0627\u06CC\u0644 \u0646\u0642\u0644\u06CC\u0647" },
+            React.createElement("button", { className: 'btn ' + (tab === 'assign' ? 'p' : 'g'), "aria-pressed": tab === 'assign', onClick: () => setTab('assign') }, "\u062A\u062E\u0635\u06CC\u0635 \u062E\u0648\u062F\u0631\u0648 \u0648 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A"),
+            React.createElement("button", { className: 'btn ' + (tab === 'files' ? 'p' : 'g'), "aria-pressed": tab === 'files', onClick: () => setTab('files') }, "\u067E\u0631\u0648\u0646\u062F\u0647\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647")),
+        tab === 'assign' ? React.createElement(PersonnelVehicleAssign, null) : React.createElement(React.Fragment, null,
+            React.createElement("div", { className: "pva-assets-toolbar" },
+                React.createElement("label", null,
+                    "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u067E\u0631\u0648\u0646\u062F\u0647",
+                    React.createElement("input", { className: "input", type: "search", placeholder: "\u0646\u0627\u0645\u060C \u067E\u0644\u0627\u06A9 \u06CC\u0627 \u06A9\u062F \u0645\u0644\u06CC", value: q, onChange: e => setQ(e.target.value) })),
+                React.createElement("label", null,
+                    "\u0646\u0648\u0639 \u0648\u0633\u06CC\u0644\u0647",
+                    React.createElement("select", { className: "input", value: type, onChange: e => setType(e.target.value) },
+                        React.createElement("option", { value: "all" }, "\u0647\u0645\u0647\u0654 \u0648\u0633\u0627\u06CC\u0644"),
+                        React.createElement("option", { value: "car" }, "\u062E\u0648\u062F\u0631\u0648"),
+                        React.createElement("option", { value: "motorcycle" }, "\u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A"))),
+                React.createElement("span", null,
+                    fa(filtered.length),
+                    " \u067E\u0631\u0648\u0646\u062F\u0647"),
+                React.createElement("button", { className: "btn g", onClick: load, disabled: loading }, loading ? 'در حال دریافت…' : 'بروزرسانی')),
+            error && React.createElement("div", { className: "workspace-inline-error", role: "alert" },
+                React.createElement("span", null, error),
+                React.createElement("button", { className: "btn g", onClick: selected ? () => setError('') : load }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")),
+            loading ? React.createElement("div", { className: "pva-assets-empty", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u067E\u0631\u0648\u0646\u062F\u0647\u200C\u0647\u0627\u2026") : React.createElement("div", { className: "pva-assets-workspace" },
+                React.createElement("div", { className: "pva-assets-list", "aria-label": "\u0641\u0647\u0631\u0633\u062A \u067E\u0631\u0648\u0646\u062F\u0647\u200C\u0647\u0627" },
+                    filtered.map(asset => React.createElement("button", { key: asset.id, type: "button", "aria-pressed": (selected === null || selected === void 0 ? void 0 : selected.id) === asset.id, className: 'pva-assets-item' + ((selected === null || selected === void 0 ? void 0 : selected.id) === asset.id ? ' on' : ''), onClick: () => open(asset) },
+                        React.createElement("strong", null, pvaPlate(asset) || 'بدون پلاک'),
+                        React.createElement("span", null,
+                            asset.first_name,
+                            " ",
+                            asset.last_name,
+                            " \u00B7 ",
+                            asset.asset_type === 'car' ? 'خودرو' : 'موتورسیکلت'),
+                        React.createElement("small", null,
+                            pvaStatus(asset.status),
+                            " \u00B7 \u0622\u062E\u0631\u06CC\u0646 \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A: ",
+                            asset.checklist_last_at || '—'))),
+                    !filtered.length && React.createElement("div", { className: "pva-assets-empty" }, items.length ? 'پرونده‌ای با این مشخصات یافت نشد.' : 'هنوز پرونده‌ای ثبت نشده است.')),
+                React.createElement("div", { className: "pva-assets-detail" }, detailLoading ? React.createElement("div", { className: "pva-assets-empty", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0645\u0634\u062E\u0635\u0627\u062A \u0648 \u0645\u062F\u0627\u0631\u06A9\u2026") : selected ? React.createElement(PVAAssetDetail, { asset: selected }) : React.createElement("div", { className: "pva-assets-empty" }, "\u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647\u0654 \u0645\u0634\u062E\u0635\u0627\u062A \u0648 \u0645\u062F\u0627\u0631\u06A9\u060C \u06CC\u06A9 \u067E\u0631\u0648\u0646\u062F\u0647 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F.")))));
 }
 function PVAAssetDetail({ asset: a }) { return React.createElement("div", null,
     React.createElement("div", { className: "row", style: { justifyContent: 'space-between', alignItems: 'start' } },
