@@ -19076,6 +19076,7 @@ function Login({ onLogin, brand }) {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [code, setCode] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const [loginMethod, setLoginMethod] = useState(null);
     const [mode, setMode] = useState("request");
     const [configRetry, setConfigRetry] = useState(0);
@@ -19090,14 +19091,20 @@ function Login({ onLogin, brand }) {
     useEffect(() => { if (cooldown <= 0)
         return; const t = setInterval(() => setCooldown(v => Math.max(0, v - 1)), 1000); return () => clearInterval(t); }, [cooldown]);
     const methodLabel = loginMethod === "sms_otp" ? "پیامک" : loginMethod === "bale_otp" ? "ربات بله" : "نام کاربری و کلمه عبور";
+    const normalizedUsername = username.trim();
+    const normalizeDigits = value => String(value).replace(/[۰-۹]/g, c => String("۰۱۲۳۴۵۶۷۸۹".indexOf(c))).replace(/[٠-٩]/g, c => String("٠١٢٣٤٥٦٧٨٩".indexOf(c)));
     const requestCode = async () => {
         if (busy || cooldown > 0)
             return;
+        if (!normalizedUsername) {
+            setErr("نام کاربری را وارد کنید.");
+            return;
+        }
         setBusy(true);
         setErr("");
         setInfo("");
         try {
-            const d = await db.webLoginOtpRequest(username);
+            const d = await db.webLoginOtpRequest(normalizedUsername);
             setMode("verify");
             setCode("");
             setCooldown(60);
@@ -19113,11 +19120,15 @@ function Login({ onLogin, brand }) {
     const passwordLogin = async () => {
         if (busy)
             return;
+        if (!normalizedUsername || !password) {
+            setErr("نام کاربری و کلمه عبور را کامل وارد کنید.");
+            return;
+        }
         setBusy(true);
         setErr("");
         setInfo("");
         try {
-            const d = await db.loginPassword(username, password);
+            const d = await db.loginPassword(normalizedUsername, password);
             onLogin(d.user);
         }
         catch (e) {
@@ -19130,11 +19141,15 @@ function Login({ onLogin, brand }) {
     const verify = async () => {
         if (busy)
             return;
+        if (code.length !== 6) {
+            setErr("کد ورود باید شش رقم باشد.");
+            return;
+        }
         setBusy(true);
         setErr("");
         setInfo("");
         try {
-            const d = await db.webLoginOtpVerify(username, code);
+            const d = await db.webLoginOtpVerify(normalizedUsername, code);
             onLogin(d.user);
         }
         catch (e) {
@@ -19147,36 +19162,48 @@ function Login({ onLogin, brand }) {
     const otp = loginMethod !== "password";
     if (!loginMethod)
         return React.createElement("div", { className: "login-page" },
-            React.createElement("div", { className: "panel login-card" },
+            React.createElement("div", { className: "panel login-card", role: "status" },
                 React.createElement("p", null, err || 'در حال دریافت روش ورود…'),
                 err && React.createElement("button", { className: "btn p", onClick: () => setConfigRetry(v => v + 1) }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")));
     return (React.createElement("div", { className: "login-page" },
         React.createElement("div", { className: "panel login-card" },
-            React.createElement("div", { style: { textAlign: "center", marginBottom: 18 } },
-                (brand === null || brand === void 0 ? void 0 : brand.logo) ? React.createElement("img", { src: brand.logo, style: { margin: "0 auto 10px", width: 58, height: 58, borderRadius: 14, objectFit: "contain", background: "#fff", padding: 5, border: "1px solid var(--line)" } }) : React.createElement("img", { src: "/brand-khatyar.png", style: { margin: "0 auto 10px", width: 58, height: 58, borderRadius: 29, objectFit: "cover" } }),
-                React.createElement("h3", { style: { justifyContent: "center" } },
+            React.createElement("div", { className: "login-brand" },
+                (brand === null || brand === void 0 ? void 0 : brand.logo) ? React.createElement("img", { src: brand.logo, alt: "\u0646\u0634\u0627\u0646 \u0633\u0627\u0645\u0627\u0646\u0647" }) : React.createElement("img", { src: "/brand-khatyar.png", alt: "\u0646\u0634\u0627\u0646 \u062E\u0637\u06CC\u0627\u0631" }),
+                React.createElement("span", { className: "login-eyebrow" }, "\u067E\u0646\u0644 \u0645\u062F\u06CC\u0631\u06CC\u062A \u0648 \u0646\u0638\u0627\u0631\u062A"),
+                React.createElement("h1", null,
                     "\u0648\u0631\u0648\u062F \u0628\u0647 ",
-                    (brand === null || brand === void 0 ? void 0 : brand.title) || "خطیار")),
-            React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", lineHeight: 1.9, marginBottom: 12 } },
-                "\u0631\u0648\u0634 \u0648\u0631\u0648\u062F \u0641\u0639\u0627\u0644: ",
-                React.createElement("b", null, methodLabel)),
+                    (brand === null || brand === void 0 ? void 0 : brand.title) || "خطیار"),
+                React.createElement("p", null, "\u0628\u0631\u0627\u06CC \u0627\u062F\u0627\u0645\u0647\u060C \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062D\u0633\u0627\u0628 \u0633\u0627\u0632\u0645\u0627\u0646\u06CC \u062E\u0648\u062F \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F.")),
+            React.createElement("div", { className: "login-method" },
+                "\u0631\u0648\u0634 \u0648\u0631\u0648\u062F \u0641\u0639\u0627\u0644 ",
+                React.createElement("strong", null, methodLabel)),
             otp && mode === "request" && React.createElement(React.Fragment, null,
                 React.createElement("p", { style: { fontSize: 12, color: "var(--muted)", lineHeight: 1.9, marginBottom: 10 } }, "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u062E\u0648\u062F \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F \u062A\u0627 \u06A9\u062F \u06CC\u06A9\u200C\u0628\u0627\u0631\u0645\u0635\u0631\u0641 \u0628\u0631\u0627\u06CC \u0634\u0645\u0627 \u0627\u0631\u0633\u0627\u0644 \u0634\u0648\u062F."),
-                React.createElement("input", { className: "input", autoComplete: "username", dir: "ltr", placeholder: "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC", value: username, onChange: e => setUsername(e.target.value), onKeyDown: e => e.key === 'Enter' && requestCode() }),
+                React.createElement("label", { className: "login-field" },
+                    "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC",
+                    React.createElement("input", { className: "input", autoComplete: "username", dir: "ltr", placeholder: "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0633\u0627\u0632\u0645\u0627\u0646\u06CC", value: username, onChange: e => setUsername(e.target.value), onKeyDown: e => e.key === 'Enter' && requestCode(), autoFocus: true })),
                 React.createElement("button", { className: "btn p", style: { width: "100%", marginTop: 14 }, onClick: requestCode, disabled: busy || cooldown > 0 }, busy ? 'در حال ارسال…' : cooldown > 0 ? 'ارسال مجدد (' + cooldown + ')' : 'دریافت کد ورود')),
             otp && mode === "verify" && React.createElement(React.Fragment, null,
                 React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", lineHeight: 1.9, marginBottom: 10 } }, loginMethod === "bale_otp" ? "کد شش‌رقمی ارسال‌شده توسط ربات بله را وارد کنید." : "کد شش‌رقمی ارسال‌شده به شماره همراه ثبت‌شده حساب کاربری را وارد کنید."),
-                React.createElement("input", { className: "input", inputMode: "numeric", autoComplete: "one-time-code", dir: "ltr", maxLength: 6, placeholder: "\u06A9\u062F \u06CC\u06A9\u200C\u0628\u0627\u0631\u0645\u0635\u0631\u0641", value: code, onChange: e => setCode(e.target.value.replace(/[^0-9۰-۹]/g, '')), onKeyDown: e => e.key === 'Enter' && verify(), autoFocus: true }),
+                React.createElement("label", { className: "login-field" },
+                    "\u06A9\u062F \u0634\u0634\u200C\u0631\u0642\u0645\u06CC \u0648\u0631\u0648\u062F",
+                    React.createElement("input", { className: "input login-otp", inputMode: "numeric", autoComplete: "one-time-code", dir: "ltr", maxLength: 6, placeholder: "------", value: code, onChange: e => setCode(normalizeDigits(e.target.value).replace(/[^0-9]/g, '').slice(0, 6)), onKeyDown: e => e.key === 'Enter' && verify(), autoFocus: true })),
                 React.createElement("button", { className: "btn p", style: { width: "100%", marginTop: 14 }, onClick: verify, disabled: busy || code.length !== 6 }, busy ? 'در حال بررسی…' : 'تأیید و ورود'),
                 React.createElement("div", { className: "row", style: { justifyContent: "space-between", marginTop: 10 } },
-                    React.createElement("a", { style: { fontSize: 12, color: "var(--brand)", cursor: cooldown > 0 ? "default" : "pointer", opacity: cooldown > 0 ? .5 : 1 }, onClick: requestCode }, "\u0627\u0631\u0633\u0627\u0644 \u0645\u062C\u062F\u062F"),
-                    React.createElement("a", { style: { fontSize: 12, color: "var(--muted)", cursor: "pointer" }, onClick: () => { setMode("request"); setCode(""); setErr(""); setInfo(""); } }, "\u062A\u063A\u06CC\u06CC\u0631 \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC"))),
+                    React.createElement("button", { type: "button", className: "login-text-button", disabled: busy || cooldown > 0, onClick: requestCode }, cooldown > 0 ? `ارسال مجدد تا ${cooldown} ثانیه` : "ارسال مجدد کد"),
+                    React.createElement("button", { type: "button", className: "login-text-button", disabled: busy, onClick: () => { setMode("request"); setCode(""); setErr(""); setInfo(""); } }, "\u062A\u063A\u06CC\u06CC\u0631 \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC"))),
             !otp && React.createElement(React.Fragment, null,
-                React.createElement("input", { className: "input", autoComplete: "username", dir: "ltr", placeholder: "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC", value: username, onChange: e => setUsername(e.target.value), onKeyDown: e => e.key === 'Enter' && passwordLogin() }),
-                React.createElement("input", { className: "input", type: "password", autoComplete: "current-password", dir: "ltr", placeholder: "\u06A9\u0644\u0645\u0647 \u0639\u0628\u0648\u0631", value: password, onChange: e => setPassword(e.target.value), onKeyDown: e => e.key === 'Enter' && passwordLogin(), style: { marginTop: 10 } }),
+                React.createElement("label", { className: "login-field" },
+                    "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC",
+                    React.createElement("input", { className: "input", autoComplete: "username", dir: "ltr", placeholder: "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0633\u0627\u0632\u0645\u0627\u0646\u06CC", value: username, onChange: e => setUsername(e.target.value), onKeyDown: e => e.key === 'Enter' && passwordLogin(), autoFocus: true })),
+                React.createElement("label", { className: "login-field" },
+                    "\u06A9\u0644\u0645\u0647 \u0639\u0628\u0648\u0631",
+                    React.createElement("span", { className: "login-password-wrap" },
+                        React.createElement("input", { className: "input", type: showPassword ? "text" : "password", autoComplete: "current-password", dir: "ltr", placeholder: "\u06A9\u0644\u0645\u0647 \u0639\u0628\u0648\u0631", value: password, onChange: e => setPassword(e.target.value), onKeyDown: e => e.key === 'Enter' && passwordLogin() }),
+                        React.createElement("button", { type: "button", className: "login-password-toggle", onClick: () => setShowPassword(v => !v), "aria-label": showPassword ? "پنهان کردن کلمه عبور" : "نمایش کلمه عبور", "aria-pressed": showPassword }, showPassword ? "پنهان" : "نمایش"))),
                 React.createElement("button", { className: "btn p", style: { width: "100%", marginTop: 14 }, onClick: passwordLogin, disabled: busy }, busy ? "در حال ورود…" : "ورود")),
-            info && React.createElement("p", { style: { color: "var(--ok)", fontSize: 12, marginTop: 8 } }, info),
-            err && React.createElement("p", { style: { color: "var(--danger)", fontSize: 12, marginTop: 8 } }, err))));
+            info && React.createElement("p", { role: "status", className: "login-feedback login-feedback-ok" }, info),
+            err && React.createElement("p", { role: "alert", className: "login-feedback login-feedback-error" }, err))));
 }
 function App() {
     const [me, setMe] = useState(null);
