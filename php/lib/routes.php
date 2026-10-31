@@ -4466,6 +4466,18 @@ route('POST', '/api/my/requests', function($p,$b,$u){
     if ($f && $t) { $df=j_to_ts($f); $dt=j_to_ts($t); $days=$df&&$dt?max(1,(int)(($dt-$df)/86400)+1):1; $minutes=$days*480; }
   }
   // سلفی اجباری برای تردد دستی؟
+  if ($type==='manual') {
+    $kind=(string)($b['manual_kind']??'both');
+    if(!in_array($kind,['in','out','both'],true))Http::error('نوع تردد دستی نامعتبر است.',422);
+    foreach(['in_time','out_time'] as $timeKey){
+      if(isset($b[$timeKey])&&$b[$timeKey]!==''&&!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/D',(string)$b[$timeKey]))Http::error('ساعت ورود یا خروج نامعتبر است.',422);
+    }
+    if(($kind==='in'||$kind==='both')&&empty($b['in_time']))Http::error('ساعت ورود الزامی است.',422);
+    if(($kind==='out'||$kind==='both')&&empty($b['out_time']))Http::error('ساعت خروج الزامی است.',422);
+    if($kind==='in')$b['out_time']=null;
+    if($kind==='out')$b['in_time']=null;
+    $b['manual_kind']=$kind;
+  }
   if ($type==='manual' && !empty(_req_policy_options($u['id'])['manual_attendance_selfie']) && empty($b['selfie_data'])) {
     Http::error('برای ثبت تردد دستی، الصاق عکس سلفی الزامی است.',422);
   }
@@ -10735,7 +10747,11 @@ route('POST', '/api/me/photo', function($p,$b,$u){
   return ['ok'=>true, 'path'=>$path];
 });
 route('GET', '/api/my/lines', fn($p,$b,$u) => Db::all(
-  "SELECT l.id,l.code,l.origin,l.destination,l.status FROM user_lines ul JOIN `lines` l ON l.id=ul.line_id WHERE ul.user_id=? ORDER BY l.code", [$u['id']]));
+  "SELECT l.id,l.code,l.origin,l.destination,l.status,
+     (SELECT COUNT(*) FROM vehicles v WHERE v.line_id=l.id) fleet_count,
+     (SELECT COUNT(DISTINCT vd.driver_id) FROM vehicle_drivers vd JOIN vehicles v ON v.id=vd.vehicle_id WHERE v.line_id=l.id AND vd.role='beneficiary') primary_driver_count,
+     (SELECT COUNT(DISTINCT vd.driver_id) FROM vehicle_drivers vd JOIN vehicles v ON v.id=vd.vehicle_id WHERE v.line_id=l.id AND vd.role='helper') helper_driver_count
+   FROM user_lines ul JOIN `lines` l ON l.id=ul.line_id WHERE ul.user_id=? ORDER BY l.code", [$u['id']]));
 route('GET', '/api/my/reports', function($p,$b,$u){
   _ensure_reports_index();
   $q = trim((string)($_GET['q'] ?? ''));

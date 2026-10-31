@@ -162,6 +162,7 @@ function NewRequest({ onDone, initialType, initialDate }) {
   const [toTime, setToTime] = useState('12:00');
   const [inTime, setInTime] = useState('08:00');
   const [outTime, setOutTime] = useState('14:00');
+  const [manualKind, setManualKind] = useState('both');
   const [reason, setReason] = useState('');
   const [attach, setAttach] = useState(null);
   const [selfie, setSelfie] = useState(null);
@@ -236,6 +237,8 @@ function NewRequest({ onDone, initialType, initialDate }) {
 
   const submit = async () => {
     if (cfg.manual && !theDate) return Alert.alert('توجه', 'تاریخ را از تقویم انتخاب کنید.');
+    if (cfg.manual && (manualKind === 'in' || manualKind === 'both') && !inTime) return Alert.alert('توجه', 'ساعت ورود را انتخاب کنید.');
+    if (cfg.manual && (manualKind === 'out' || manualKind === 'both') && !outTime) return Alert.alert('توجه', 'ساعت خروج را انتخاب کنید.');
     if (!cfg.manual && unit === 'hourly' && !theDate) return Alert.alert('توجه', 'تاریخ را از تقویم انتخاب کنید.');
     if (!cfg.manual && unit === 'daily' && (!fromJ || !toJd)) return Alert.alert('توجه', 'بازهٔ تاریخ را از تقویم انتخاب کنید.');
     if (needsSubstitute && reqSub && !sub) return Alert.alert('توجه', 'برای این مرخصی، معرفی نیروی جایگزین الزامی است.');
@@ -244,7 +247,10 @@ function NewRequest({ onDone, initialType, initialDate }) {
     try {
       const body = { type, reason };
       if (cfg.manual) {
-        body.the_date = theDate; body.in_time = inTime; body.out_time = outTime; body.manual_kind = 'both';
+        body.the_date = theDate;
+        body.manual_kind = manualKind;
+        body.in_time = manualKind === 'out' ? null : inTime;
+        body.out_time = manualKind === 'in' ? null : outTime;
         if (selfie) body.selfie_data = selfie;
       } else {
         body.unit = unit;
@@ -288,11 +294,16 @@ function NewRequest({ onDone, initialType, initialDate }) {
 
       {cfg.manual ? (
         <>
+          <Text style={s.label}>نوع ثبت تردد</Text>
+          <View style={s.chips} accessibilityRole="radiogroup">
+            {[["in","فقط ورود"],["out","فقط خروج"],["both","ورود و خروج"]].map(([kind,label])=><TouchableOpacity key={kind} accessibilityRole="radio" accessibilityState={{checked:manualKind===kind}} style={[s.chip,manualKind===kind&&s.chipOn]} onPress={()=>setManualKind(kind)}><Text style={[s.chipT,manualKind===kind&&s.chipTOn]}>{label}</Text></TouchableOpacity>)}
+          </View>
           <JDateField label="تاریخ" value={theDate} onPick={setTheDate} />
           <View style={{ flexDirection: 'row-reverse', gap: 10 }}>
-            <View style={{ flex: 1 }}><TimeField label="ساعت ورود" value={inTime} onPick={setInTime} /></View>
-            <View style={{ flex: 1 }}><TimeField label="ساعت خروج" value={outTime} onPick={setOutTime} /></View>
+            {manualKind!=='out'&&<View style={{ flex: 1 }}><TimeField label="ساعت ورود" value={inTime} onPick={setInTime} /></View>}
+            {manualKind!=='in'&&<View style={{ flex: 1 }}><TimeField label="ساعت خروج" value={outTime} onPick={setOutTime} /></View>}
           </View>
+          {manualKind==='out'&&<Text style={s.subWarn}>درخواست فقط خروج، پس از تأیید به ورود باز همان روز متصل می‌شود.</Text>}
           <TouchableOpacity style={s.attachBtn} onPress={takeSelfie}><Text style={s.attachT}>{selfie ? '✓ سلفی گرفته شد (تعویض)' : '📷 الصاق عکس سلفی'}</Text></TouchableOpacity>
         </>
       ) : unit === 'hourly' ? (

@@ -360,7 +360,10 @@ export function ProfileScreen({ navigation }) {
           </TouchableOpacity>
           {linesOpen && lines.map((l) => (
             <View key={l.id} style={s.lineCard}>
-              <Text style={{ fontFamily: FONT.bold, color: CC.ink, textAlign: 'right' }}>{faNum(l.code)} — {l.origin}{l.destination ? ' → ' + l.destination : ''}</Text>
+              <Text style={s.lineTitle}>{faNum(l.code)} — {l.origin}{l.destination ? ' ← ' + l.destination : ''}</Text>
+              <View style={s.lineStats}>
+                {[["ناوگان",l.fleet_count],["راننده اصلی",l.primary_driver_count],["راننده کمکی",l.helper_driver_count]].map(([label,count])=><View key={label} style={s.lineStat}><Text style={s.lineStatNumber}>{count==null?'—':faNum(count)}</Text><Text style={s.lineStatLabel}>{label}</Text></View>)}
+              </View>
             </View>
           ))}
         </>
@@ -426,7 +429,12 @@ const s = StyleSheet.create({
   sizeBtn: { backgroundColor: '#eef1f7', borderRadius: 9, paddingVertical: 6, paddingHorizontal: 12 },
   sizeBtnTxt: { fontFamily: FONT.bold, color: CC.ink, fontSize: 12 },
   linesHead: { backgroundColor: '#fff', borderColor: CC.line, borderWidth: 1, borderRadius: 11, padding: 13, marginBottom: 8, flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
-  lineCard: { backgroundColor: '#fff', borderColor: CC.line, borderWidth: 1, borderRadius: 11, padding: 11, marginBottom: 8, marginRight: 10 },
+  lineCard: { backgroundColor: '#fff', borderColor: CC.line, borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 10 },
+  lineTitle: { fontFamily: FONT.bold, color: CC.ink, textAlign: 'right', fontSize: 14, lineHeight: 24, marginBottom: 10 },
+  lineStats: { flexDirection: 'row-reverse', gap: 7 },
+  lineStat: { flex: 1, minWidth: 0, backgroundColor: '#f0f7f4', borderRadius: 10, paddingVertical: 9, paddingHorizontal: 4, alignItems: 'center' },
+  lineStatNumber: { fontFamily: FONT.bold, color: CC.brand, fontSize: 17 },
+  lineStatLabel: { fontFamily: FONT.regular, color: CC.muted, fontSize: 10.5, textAlign: 'center', marginTop: 2 },
   chip: { backgroundColor: '#eef2f8', borderWidth: 1, borderColor: CC.line, borderRadius: 99, paddingVertical: 8, paddingHorizontal: 16 },
   chipOn: { backgroundColor: CC.brand, borderColor: CC.brand },
   chipTxt: { fontFamily: FONT.regular, color: CC.slate, fontSize: 13 },
