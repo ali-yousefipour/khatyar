@@ -58,10 +58,10 @@ public final class RadioSfxPlayer {
     int duration;
     if ("receive_leadin".equals(kind)) duration=70;
     else if ("receive_tail".equals(kind)) duration=85;
-    else if ("ptt_press".equals(kind)||"talk_start".equals(kind)) duration=60;
-    else if ("roger".equals(kind)) duration=90;
-    else if ("eot".equals(kind)) duration=110;
-    else if ("release_click".equals(kind)) duration=25;
+    else if ("ptt_press".equals(kind)||"talk_start".equals(kind)) duration=65;
+    else if ("roger".equals(kind)) duration=180;
+    else if ("eot".equals(kind)) duration=150;
+    else if ("release_click".equals(kind)) duration=48;
     else return new byte[0];
     int count=SAMPLE_RATE*duration/1000;
     byte[] bytes=new byte[count*2];
@@ -69,15 +69,16 @@ public final class RadioSfxPlayer {
     double low=0.0,high=0.0,previousLow=0.0;
     for(int index=0;index<count;index++){
       double milliseconds=index*1000.0/SAMPLE_RATE;
-      low+=0.65*((random.nextDouble()*2.0-1.0)-low);
-      high=0.84*(high+low-previousLow);previousLow=low;
+      low+=0.34*((random.nextDouble()*2.0-1.0)-low);
+      high=0.79*(high+low-previousLow);previousLow=low;
       double sample;
-      if("receive_leadin".equals(kind))sample=high*0.16*Math.exp(-milliseconds/22.0);
-      else if("receive_tail".equals(kind))sample=high*0.20*Math.exp(-milliseconds/28.0);
-      else if("release_click".equals(kind))sample=high*0.18*Math.exp(-milliseconds/7.0);
-      else if("eot".equals(kind))sample=milliseconds<40?tone(950,index,0.10):(milliseconds>65?tone(700,index,0.08):0.0);
-      else sample=tone("roger".equals(kind)?1200:950,index,0.10);
-      double edge=Math.max(0.0,Math.min(1.0,Math.min(milliseconds/4.0,(duration-milliseconds)/6.0)));
+      if("receive_leadin".equals(kind))sample=high*0.13*Math.exp(-milliseconds/75.0)+burst(530,index,milliseconds,10,68,0.04);
+      else if("receive_tail".equals(kind))sample=high*0.16*Math.exp(-milliseconds/42.0)+burst(400,index,milliseconds,0,36,0.025);
+      else if("release_click".equals(kind))sample=high*0.14*Math.exp(-milliseconds/11.0)-burst(520,index,milliseconds,5,27,0.035);
+      else if("eot".equals(kind))sample=burst(1040,index,milliseconds,4,58,0.12)+burst(720,index,milliseconds,70,136,0.10);
+      else if("roger".equals(kind))sample=burst(1120,index,milliseconds,4,82,0.13)+burst(880,index,milliseconds,98,163,0.105);
+      else sample=high*0.095*Math.exp(-milliseconds/22.0)+burst(760,index,milliseconds,7,42,0.07);
+      double edge=Math.max(0.0,Math.min(1.0,Math.min(milliseconds/5.0,(duration-milliseconds)/10.0)));
       short value=(short)Math.round(Math.max(-0.25,Math.min(0.25,sample*edge))*32767.0);
       bytes[index*2]=(byte)(value&0xff);bytes[index*2+1]=(byte)((value>>8)&0xff);
     }
@@ -85,7 +86,14 @@ public final class RadioSfxPlayer {
   }
 
   private static double tone(double hz, int sample, double gain) {
-    return Math.sin(2.0 * Math.PI * hz * sample / SAMPLE_RATE) * gain;
+    return (Math.sin(2.0 * Math.PI * hz * sample / SAMPLE_RATE)
+        + 0.13 * Math.sin(4.0 * Math.PI * hz * sample / SAMPLE_RATE)) * gain;
+  }
+
+  private static double burst(double hz, int sample, double ms, double start, double end, double gain) {
+    if (ms < start || ms >= end) return 0.0;
+    double edge=Math.max(0.0,Math.min(1.0,Math.min((ms-start)/5.0,(end-ms)/9.0)));
+    return tone(hz,sample,gain*edge);
   }
 
   private static double noise(java.util.Random random, double gain) {

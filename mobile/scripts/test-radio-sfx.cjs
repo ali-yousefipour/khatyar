@@ -11,7 +11,7 @@ const test=`public class RadioSfxTest {private static final int SAMPLE_RATE=8000
 ${methods}
 public static void main(String[] args){
 String[] kinds={"receive_leadin","receive_tail","ptt_press","talk_start","roger","eot","release_click"};
-int[] durations={70,85,60,60,90,110,25};
+int[] durations={70,85,65,65,180,150,48};
 for(int index=0;index<kinds.length;index++){
 byte[] bytes=buildPcm(kinds[index]);if(bytes.length!=durations[index]*16)throw new AssertionError("duration "+kinds[index]);
 int peak=0;long energy=0,sum=0;for(int offset=0;offset<bytes.length;offset+=2){short sample=(short)((bytes[offset]&255)|((bytes[offset+1]&255)<<8));peak=Math.max(peak,Math.abs((int)sample));energy+=(long)sample*sample;sum+=sample;}
