@@ -13,7 +13,8 @@ function fileExtOk(name, allowedTypes) {
   const list = allowedTypes.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
   if (!list.length) return true;
   const lower = String(name || '').toLowerCase();
-  return list.some((a) => (a.startsWith('.') ? lower.endsWith(a) : true)); // نوع MIME دقیق در سرور هم دوباره بررسی می‌شود
+  const mimeExtensions = { 'application/pdf':['.pdf'], 'image/jpeg':['.jpg','.jpeg'], 'image/png':['.png'], 'image/webp':['.webp'], 'application/msword':['.doc'], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':['.docx'] };
+  return list.some((a) => a==='*/*' || a==='*' || (a==='image/*' ? /\.(jpe?g|png|webp|gif)$/i.test(lower) : (a.startsWith('.') ? lower.endsWith(a) : (mimeExtensions[a]||[]).some(ext=>lower.endsWith(ext)))));
 }
 
 export default function FormsScreen({ route }) {
@@ -93,7 +94,7 @@ export default function FormsScreen({ route }) {
     for (const f of (active.schema || [])) {
       if (!visible(f)) continue;
       const v = answers[f.key] ?? '';
-      if (f.required && !v) return Alert.alert('توجه', `فیلد «${f.label}» الزامی است.`);
+      if (f.required && (v === null || v === undefined || String(v).trim() === '')) return Alert.alert('توجه', `فیلد «${f.label}» الزامی است.`);
       if (f.type === 'sheba' && v && !/^IR[0-9]{24}$/.test(v)) return Alert.alert('توجه', `شمارهٔ شبای «${f.label}» نامعتبر است (باید IR و ۲۴ رقم باشد).`);
       out[f.key] = v;
     }
@@ -127,22 +128,23 @@ export default function FormsScreen({ route }) {
   return (
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       <Text style={s.h}>{active.title}</Text>
+      <Text style={s.intro}>فیلدهای ستاره‌دار الزامی‌اند. پس از تکمیل، فرم را از پایین صفحه ثبت کنید.</Text>
       {(active.schema || []).filter(visible).map((field) => (
         <View key={field.key} style={{ marginBottom: 12 }}>
           <Text style={s.label}>{field.label}{field.required ? ' *' : ''}</Text>
 
           {field.type === 'national_id' ? (
             <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
-              <TextInput style={[s.input, { flex: 1 }]} keyboardType="number-pad"
+              <TextInput accessibilityLabel={field.label} style={[s.input, { flex: 1 }]} keyboardType="number-pad" maxLength={10}
                 value={answers[field.key] || ''} onChangeText={(v) => setA(field.key, v)} />
-              <TouchableOpacity style={s.smallBtn} onPress={() => autofill(field)}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="فراخوان اطلاعات راننده با کد ملی" style={s.smallBtn} onPress={() => autofill(field)}>
                 <Text style={s.smallBtnTxt}>فراخوان</Text>
               </TouchableOpacity>
             </View>
           ) : field.type === 'select' ? (
             <View style={s.opts}>
               {(field.options || []).map((o) => (
-                <TouchableOpacity key={o} onPress={() => setA(field.key, o)}
+                <TouchableOpacity accessibilityRole="radio" accessibilityState={{checked:answers[field.key]===o}} key={o} onPress={() => setA(field.key, o)}
                   style={[s.opt, answers[field.key] === o && { backgroundColor: C.brand, borderColor: C.brand }]}>
                   <Text style={[s.optTxt, answers[field.key] === o && { color: '#fff' }]}>{o}</Text>
                 </TouchableOpacity>
@@ -151,42 +153,42 @@ export default function FormsScreen({ route }) {
           ) : field.type === 'checkbox' ? (
             <View style={s.opts}>
               {['بله', 'خیر'].map((o) => (
-                <TouchableOpacity key={o} onPress={() => setA(field.key, o)}
+                <TouchableOpacity accessibilityRole="radio" accessibilityState={{checked:answers[field.key]===o}} key={o} onPress={() => setA(field.key, o)}
                   style={[s.opt, answers[field.key] === o && { backgroundColor: C.brand, borderColor: C.brand }]}>
                   <Text style={[s.optTxt, answers[field.key] === o && { color: '#fff' }]}>{o}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           ) : field.type === 'textarea' ? (
-            <TextInput style={[s.input, { minHeight: 90, textAlignVertical: 'top' }]} multiline
+            <TextInput accessibilityLabel={field.label} style={[s.input, { minHeight: 90, textAlignVertical: 'top' }]} multiline
               value={answers[field.key] || ''} onChangeText={(v) => setA(field.key, v)} />
           ) : field.type === 'signature' ? (
             <SignaturePad value={answers[field.key]} onChange={(v) => setA(field.key, v)} />
           ) : field.type === 'date' ? (
-            <TouchableOpacity style={s.input} onPress={() => setDateField(field.key)}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`انتخاب تاریخ ${field.label}`} style={[s.input,s.picker]} onPress={() => setDateField(field.key)}>
               <Text style={{ fontFamily: FONT.regular, color: answers[field.key] ? C.ink : C.muted, textAlign: 'right' }}>
                 {answers[field.key] || 'برای انتخاب تاریخ ضربه بزنید'}
               </Text>
             </TouchableOpacity>
           ) : field.type === 'file' ? (
-            <TouchableOpacity style={[s.input, answers[field.key] && { borderColor: C.brand }]} onPress={() => pickFile(field)} disabled={filePicking === field.key}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`انتخاب فایل ${field.label}`} style={[s.input,s.picker, answers[field.key] && { borderColor: C.brand }]} onPress={() => pickFile(field)} disabled={filePicking === field.key}>
               <Text style={{ fontFamily: FONT.regular, color: answers[field.key] ? C.brand : C.muted, textAlign: 'right' }}>
                 {filePicking === field.key ? 'در حال انتخاب…' : (answers[field.key + '__name'] || (answers[field.key] ? 'فایل انتخاب شد ✓' : 'برای انتخاب فایل ضربه بزنید'))}
               </Text>
             </TouchableOpacity>
           ) : field.type === 'sheba' ? (
-            <TextInput style={[s.input, { textAlign: 'left', writingDirection: 'ltr' }]} autoCapitalize="characters" placeholder="IR + ۲۴ رقم" placeholderTextColor={C.muted}
+            <TextInput accessibilityLabel={field.label} style={[s.input, { textAlign: 'left', writingDirection: 'ltr' }]} autoCapitalize="characters" placeholder="IR + ۲۴ رقم" placeholderTextColor={C.muted}
               value={answers[field.key] || ''} onChangeText={(v) => setA(field.key, v.toUpperCase())} />
           ) : (
-            <TextInput style={s.input} keyboardType={field.type === 'number' ? 'number-pad' : 'default'}
+            <TextInput accessibilityLabel={field.label} style={s.input} keyboardType={field.type === 'number' ? 'number-pad' : 'default'}
               value={answers[field.key] || ''} onChangeText={(v) => setA(field.key, v)} />
           )}
         </View>
       ))}
-      <TouchableOpacity style={s.btn} onPress={submit} disabled={busy}>
+      <TouchableOpacity accessibilityRole="button" style={s.btn} onPress={submit} disabled={busy}>
         {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>ثبت فرم</Text>}
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => setActive(null)} style={{ marginTop: 12, alignItems: 'center' }}>
+      <TouchableOpacity accessibilityRole="button" onPress={() => setActive(null)} style={s.backBtn}>
         <Text style={{ color: C.muted, fontFamily: FONT.regular }}>بازگشت به فهرست فرم‌ها</Text>
       </TouchableOpacity>
       <JDatePicker visible={!!dateField} onClose={() => setDateField(null)}
@@ -202,17 +204,20 @@ const s = StyleSheet.create({
   retry: { minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   retryText: { color: C.brand, fontFamily: FONT.bold },
   h: { fontFamily: FONT.bold, fontSize: 16, color: C.ink, textAlign: 'right', marginBottom: 12 },
+  intro: { fontFamily: FONT.regular, fontSize: 13, color: C.muted, textAlign: 'right', lineHeight: 23, marginBottom: 14 },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 30 },
   card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 18, padding: 17, marginBottom: 10 },
   cardTitle: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right' },
   cardSub: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', marginTop: 3 },
   label: { fontFamily: FONT.regular, color: C.muted, fontSize: 13, marginBottom: 6, textAlign: 'right' },
-  input: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 13, padding: 12, textAlign: 'right', fontFamily: FONT.regular, color: C.ink },
+  input: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 13, padding: 12, minHeight: 48, textAlign: 'right', fontFamily: FONT.regular, color: C.ink },
+  picker: { justifyContent: 'center' },
   opts: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
-  opt: { borderColor: C.line, borderWidth: 1, backgroundColor: '#fff', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14 },
+  opt: { borderColor: C.line, borderWidth: 1, backgroundColor: '#fff', borderRadius: 10, minHeight: 48, justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 14 },
   optTxt: { fontFamily: FONT.bold, fontSize: 13, color: C.ink },
-  smallBtn: { backgroundColor: C.ink, borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center' },
+  smallBtn: { backgroundColor: C.ink, borderRadius: 10, minHeight: 48, paddingHorizontal: 16, justifyContent: 'center' },
   smallBtnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 13 },
   btn: { backgroundColor: C.brand, borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 8 },
+  backBtn: { minHeight: 48, marginTop: 12, alignItems: 'center', justifyContent: 'center' },
   btnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 15 },
 });
