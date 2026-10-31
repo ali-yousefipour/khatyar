@@ -299,7 +299,7 @@ export default function DashboardScreen({ navigation }) {
     persistMenuOrder(list);
   };
   const orderedMenu = (menuOrder.length ? menuOrder : MENU.map((m) => m.r)).map((r) => MENU.find((m) => m.r === r)).filter(Boolean);
-  useEffect(() => { flushQueuedRequests(); registerPush(); load(); const unsub = navigation.addListener('focus', load); return unsub; }, [navigation]);
+  useEffect(() => { flushQueuedRequests().catch(() => {}); registerPush(); load(); const unsub = navigation.addListener('focus', load); return unsub; }, [navigation]);
 
   useEffect(() => {
     let active = true;
@@ -313,7 +313,7 @@ export default function DashboardScreen({ navigation }) {
   const manualSync = async () => {
     if (syncing) return;
     setSyncing(true);
-    try { setSyncDetail('پاک‌سازی کش و ارسال داده‌های آفلاین…'); const keys = await AsyncStorage.getAllKeys(); const cacheKeys = keys.filter((k) => String(k).startsWith('cache:')); if (cacheKeys.length) await AsyncStorage.multiRemove(cacheKeys); const n = await flushQueuedRequests().catch(() => 0); load(); Alert.alert('بروزرسانی شد', n > 0 ? `${n} مورد آفلاین ارسال شد.` : 'کش و اطلاعات برنامه بروزرسانی شد.'); } catch (e) { Alert.alert('خطا', 'بروزرسانی کش و اطلاعات ناموفق بود.'); } finally { setSyncDetail(''); setSyncing(false); }
+    try { setSyncDetail('پاک‌سازی کش و آغاز همگام‌سازی…'); const keys = await AsyncStorage.getAllKeys(); const cacheKeys = keys.filter((k) => String(k).startsWith('cache:')); if (cacheKeys.length) await AsyncStorage.multiRemove(cacheKeys); flushQueuedRequests({force:true}).catch(() => {}); load(); Alert.alert('بروزرسانی آغاز شد', 'دریافت اطلاعات جدید و ارسال موارد ذخیره‌شده در پس‌زمینه انجام می‌شود. وضعیت موارد ارسال‌نشده را در «صف ارسال» بررسی کنید.'); } catch (e) { Alert.alert('خطا', 'آغاز بروزرسانی ناموفق بود.'); } finally { setSyncDetail(''); setSyncing(false); }
   };
 
   useLayoutEffect(() => {

@@ -98,6 +98,7 @@ function CheckInCore() {
   // جلوگیری از race بین loadهای پس‌زمینه و ورود/خروج جدید؛ پاسخ یک load قدیمی
   // نباید وضعیت جلسهٔ جدید را دوباره null یا به جلسهٔ قبلی برگرداند.
   const attendanceStateEpochRef = useRef(0);
+  const lastNetworkRefreshRef = useRef(0);
   const [scanOpen, setScanOpen] = useState(false);
   const [proofVal, setProofVal] = useState('');
   const [wifiScanStatus, setWifiScanStatus] = useState('');
@@ -423,7 +424,16 @@ function CheckInCore() {
     load();
     let alive = true;
     let netSub = null;
-    try { netSub = NetInfo.addEventListener(async state => { if (alive && state?.isInternetReachable === true) { try { await flushQueuedRequests({force:true}); } catch {} await load(); } }); } catch {}
+    try { netSub = NetInfo.addEventListener(state => {
+      if (!alive || state?.isInternetReachable !== true) return;
+      // Network listeners can fire repeatedly; refresh presence promptly without
+      // waiting for a potentially long offline-upload queue.
+      const now = Date.now();
+      if (now - lastNetworkRefreshRef.current < 30000) return;
+      lastNetworkRefreshRef.current = now;
+      flushQueuedRequests({force:true}).catch(() => {});
+      load().catch(() => {});
+    }); } catch {}
     AsyncStorage.getItem('attendance_exit_reminder_8h').then(v => setExitReminder(v === '1')).catch(() => {});
     getAppConfig().then((c) => c && setAppCfg(c)).catch(() => {});
     return () => {
