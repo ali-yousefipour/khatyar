@@ -691,6 +691,13 @@ table{font-size:13px}
 #khatyar-presence-extension [hidden]{display:none!important}
 .settings-tabs .panel{min-width:0}
 .settings-tabs label.row{gap:12px;align-items:flex-start}
+.admin-settings-page .settings-field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;font-size:13px;font-weight:650;color:var(--ink);line-height:1.7}
+.admin-settings-page .settings-field .input{min-height:44px;margin:0;min-width:0}
+.settings-feedback:empty{display:none}
+.settings-feedback:not(:empty){margin-top:12px}
+.settings-feedback p{padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:12.5px;line-height:1.8}
+.settings-feedback .settings-feedback-success{background:var(--ok-soft);color:#126347;border-color:#a7dfbf}
+.settings-feedback .settings-feedback-error{background:var(--danger-soft);color:#98263a;border-color:#f4b5c0}
 @media(max-width:700px){
  .payroll-admin .card-p{padding:12px}
  .payroll-admin .row{flex-wrap:wrap}

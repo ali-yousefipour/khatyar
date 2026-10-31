@@ -7262,6 +7262,7 @@ function Settings() {
     const selectSettingsTab = key => { setTab(key); setVisitedTabs(previous => previous.includes(key) ? previous : [...previous, key]); };
     const openSettingsSection = section => { selectSettingsTab(section.tab); setTimeout(() => { var _a; return (_a = document.getElementById(section.id)) === null || _a === void 0 ? void 0 : _a.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 0); };
     const [settingsError, setSettingsError] = useState('');
+    const [settingsNotice, setSettingsNotice] = useState('');
     const [settingsSaving, setSettingsSaving] = useState(false);
     const settingsLock = useRef(false);
     useEffect(() => { let active = true; db.settings().then(value => { if (active)
@@ -7269,11 +7270,11 @@ function Settings() {
         setSettingsError(error.message || 'دریافت تنظیمات ناموفق بود'); }); return () => { active = false; }; }, []);
     if (!v)
         return React.createElement("div", { role: settingsError ? 'alert' : 'status' }, settingsError || 'در حال بارگذاری…');
-    const set = (k, val) => setV({ ...v, [k]: val });
+    const set = (k, val) => { setSettingsNotice(''); setV(previous => ({ ...previous, [k]: val })); };
     const save = async () => { if (settingsLock.current)
-        return; settingsLock.current = true; setSettingsSaving(true); setSettingsError(''); try {
+        return; settingsLock.current = true; setSettingsSaving(true); setSettingsError(''); setSettingsNotice(''); try {
         await db.saveSettings(v);
-        alert('تنظیمات ذخیره شد.');
+        setSettingsNotice('تنظیمات با موفقیت ذخیره شد.');
     }
     catch (error) {
         setSettingsError(error.message || 'ذخیره تنظیمات ناموفق بود؛ تغییرات شما حفظ شده‌اند.');
@@ -7285,9 +7286,10 @@ function Settings() {
     const TABS = [["general", "⚙️", "سازمان و هویت"], ["subscription", "💳", "اشتراک"], ["monitoring", "⏱️", "موقعیت، نظارت و هشدارها"], ["dashboard", "📊", "داشبورد و محاسبهٔ عملکرد"], ["hr", "👥", "منابع انسانی"], ["fields", "🧩", "فیلدهای پرسنل"], ["appitems", "📱", "آیتم‌های اپ هر سمت"], ["sms", "💬", "پیامک"], ["bale", "🤖", "ربات‌ها"], ["security", "🔐", "امنیت و نسخه اپ"], ["radio", "📻", "تنظیمات بی‌سیم"], ["files", "📎", "تصاویر و پیوست‌ها"], ["drivers", "🚕", "خطوط و رانندگان"], ["print", "🖨️", "قالب چاپ"], ["access", "🛡️", "دسترسی‌ها"], ["backup", "💾", "پشتیبان‌گیری و پاکسازی"]];
     const Field = (k, l) => {
         var _a;
-        return React.createElement("div", { style: { marginBottom: 12 } },
-            React.createElement("label", { style: { fontSize: 13, color: "var(--muted)" } }, l),
-            React.createElement("input", { className: "input", value: (_a = v[k]) !== null && _a !== void 0 ? _a : "", onChange: e => set(k, e.target.value), style: { marginTop: 5 } }));
+        return React.createElement("label", { className: "settings-field" },
+            " ",
+            React.createElement("span", null, l),
+            React.createElement("input", { className: "input", value: (_a = v[k]) !== null && _a !== void 0 ? _a : "", onChange: e => set(k, e.target.value) }));
     };
     const Toggle = (k, l) => React.createElement("label", { className: "row", style: { justifyContent: "space-between", padding: "8px 0", cursor: "pointer" } },
         React.createElement("span", { style: { fontSize: 13 } }, l),
@@ -7297,8 +7299,10 @@ function Settings() {
             React.createElement("h3", null, "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0633\u0627\u0645\u0627\u0646\u0647"),
             React.createElement("p", { className: "muted" }, "\u0633\u0627\u0632\u0645\u0627\u0646 \u0648 \u0639\u0645\u0644\u06CC\u0627\u062A \u00B7 \u067E\u0631\u0633\u0646\u0644 \u00B7 \u0627\u0631\u062A\u0628\u0627\u0637\u0627\u062A \u00B7 \u0627\u0645\u0646\u06CC\u062A \u0648 \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC"),
             React.createElement("p", null, "\u0628\u062E\u0634 \u0645\u0631\u062A\u0628\u0637 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F. \u062A\u063A\u06CC\u06CC\u0631 \u0628\u062E\u0634\u060C \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0648\u0627\u0631\u062F\u0634\u062F\u0647 \u0631\u0627 \u067E\u0627\u06A9 \u0646\u0645\u06CC\u200C\u06A9\u0646\u062F."),
-            settingsError && React.createElement("p", { role: "alert" }, settingsError),
-            settingsSaving && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A\u2026")),
+            React.createElement("div", { className: "settings-feedback", "aria-live": "polite", "aria-atomic": "true" },
+                settingsError && React.createElement("p", { className: "settings-feedback-error", role: "alert" }, settingsError),
+                settingsNotice && React.createElement("p", { className: "settings-feedback-success", role: "status" }, settingsNotice),
+                settingsSaving && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A\u2026"))),
         React.createElement("label", { className: "settings-search" },
             "\u062C\u0633\u062A\u062C\u0648 \u062F\u0631 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A",
             React.createElement("input", { className: "input", type: "search", value: settingsQuery, onChange: event => setSettingsQuery(event.target.value), placeholder: "\u0639\u0646\u0648\u0627\u0646 \u0628\u062E\u0634\u061B \u0645\u0627\u0646\u0646\u062F \u0645\u0648\u0642\u0639\u06CC\u062A\u060C \u0631\u0645\u0632 \u06CC\u0627 \u067E\u06CC\u0627\u0645\u06A9" })),
