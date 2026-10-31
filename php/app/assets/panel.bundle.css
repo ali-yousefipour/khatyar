@@ -914,6 +914,34 @@ table{font-size:13px}
 }
 
 /* Dashboard overview and performance cards */
+.admin-requests-page{min-width:0}
+.request-page-head{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding:5px 0 17px;border-bottom:1px solid #dfebe4;margin-bottom:15px}
+.request-page-eyebrow{font-size:11px;font-weight:800;color:#168463}
+.request-page-head h3{margin:2px 0!important;font-size:19px!important;color:#1a4737}
+.request-page-head p{font-size:12px;color:var(--muted);line-height:1.8}
+.request-page-count{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:116px;padding:11px 16px;border-radius:14px;background:#eaf6ee;border:1px solid #d1e9da}
+.request-page-count strong{font-size:24px;line-height:1.3;color:#0b7857}
+.request-page-count span{font-size:10.5px;color:#4c7861}
+.request-status-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 13px;padding:6px;border-radius:13px;background:#edf5ef;border:1px solid #d6e7dc}
+.request-status-tabs button{flex:1 1 130px;min-height:44px;border:0;border-radius:10px;background:transparent;color:#567568;font:700 12px Vazirmatn,sans-serif;cursor:pointer;padding:9px 13px}
+.request-status-tabs button:hover{background:#f8fbf9}
+.request-status-tabs .request-status-active{background:#fff;color:#086b4c;box-shadow:0 3px 11px #0b5f3b1c}
+.request-status-tabs button:focus-visible{outline:3px solid #c49c37;outline-offset:1px}
+.admin-requests-page .request-bulk-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;border-radius:12px;border:1px solid #dce9e1;background:#fafcfb}
+.admin-requests-page .request-bulk-toolbar label{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700}
+.admin-requests-page .request-bulk-toolbar input[type=checkbox]{width:17px;height:17px;accent-color:#0b7857}
+.admin-requests-page .request-bulk-toolbar>span{margin-inline-end:auto;font-size:11px;color:#5d806d}
+.admin-requests-page .request-bulk-toolbar .btn{min-height:39px;padding:7px 10px}
+.request-filters{display:flex;align-items:end;gap:10px!important;margin:15px 0}
+.request-filters label{display:flex;flex-direction:column;gap:5px;min-width:135px;flex:1 1 155px;font-size:11.5px;font-weight:700;color:#426553}
+.request-filters label>.input{width:100%;max-width:none}
+.request-filters .btn{flex:0 0 auto}
+.request-results-table{max-width:100%;overflow-x:auto;border-radius:12px}
+.request-results-table table{width:100%;border-collapse:separate;border-spacing:0}
+.request-results-table td{vertical-align:middle}
+.request-results-table td:last-child{min-width:190px}
+.request-state{padding:25px 14px;border:1px dashed #cfe0d5;border-radius:12px;background:#f8fbf9;text-align:center;font-size:12px;color:#647e70}
+@media(max-width:700px){.request-page-head h3{font-size:16px!important}.request-page-count{min-width:90px}.request-filters label{flex-basis:calc(50% - 10px)}.request-filters .btn{flex:1 1 120px}.admin-requests-page .request-bulk-toolbar .btn{flex:1 1 90px}.request-status-tabs button{font-size:11px;flex-basis:90px;padding:8px 5px}}
 .dashboard-dialog{outline:none;max-height:min(88vh,850px);overflow-y:auto;overscroll-behavior:contain}
 .dashboard-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid #dfeae4}
 .dashboard-dialog-head h3{margin:0!important;line-height:1.8;min-width:0;font-size:15px;color:#214a38}
