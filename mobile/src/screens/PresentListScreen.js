@@ -19,6 +19,7 @@ export default function PresentListScreen() {
   const [data, setData] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [query, setQuery] = useState('');
   const { width } = useWindowDimensions();
   const filtered = useMemo(() => (data || []).filter(item => {
@@ -29,10 +30,12 @@ export default function PresentListScreen() {
 
   const load = useCallback(async () => {
     try {
-      const result = await request('/attendance/present');
+      const result = await request('/attendance/present', { noStore: true, queueIfOffline: false });
       setData(normalizePresent(result));
+      setLoadError('');
     } catch (e) {
-      setData([]);
+      setLoadError(e?.message || 'دریافت فهرست حاضرین ممکن نشد.');
+      setData((current) => current || []);
     }
   }, []);
 
@@ -58,7 +61,7 @@ export default function PresentListScreen() {
     finally { setBusy(null); }
   }
 
-  if (!data) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
+  if (!data) return <View style={s.center}><ActivityIndicator color={C.brand} /><Text style={s.empty}>در حال دریافت فهرست حاضرین…</Text></View>;
 
   return (
     <View style={s.screen}>
@@ -69,12 +72,13 @@ export default function PresentListScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} colors={[C.brand]} />}
         contentContainerStyle={[s.listContent,{paddingHorizontal:width<360?11:16}]}
         ListHeaderComponent={<>
+          {loadError ? <View style={s.errorBox}><MaterialCommunityIcons name="alert-circle-outline" size={22} color="#a82b24"/><Text style={s.errorText}>{loadError}{data.length ? ' اطلاعات قبلی نمایش داده می‌شود.' : ''}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="تلاش دوباره برای دریافت حاضرین" onPress={load} style={s.retryBtn}><Text style={s.retryText}>تلاش دوباره</Text></TouchableOpacity></View> : null}
           <View style={s.hero}><View style={s.heroIcon}><MaterialCommunityIcons name="account-group-outline" size={26} color={C.brand}/></View><View style={s.heroCopy}><Text style={s.headTxt}>تاکسیرانان حاضر در خط</Text><Text style={s.headSub}>وضعیت حضور رانندگان و ثبت خروج از خط</Text></View></View>
           <View style={s.stats}><View style={s.statIcon}><MaterialCommunityIcons name="check-circle-outline" size={24} color={C.brand}/></View><View style={s.statCopy}><Text style={s.statValue}>{faNum(data.length)}</Text><Text style={s.statLabel}>راننده حاضر در خط</Text></View><View style={s.livePill}><View style={s.liveDot}/><Text style={s.liveText}>حاضر</Text></View></View>
           <View style={s.searchBox}><MaterialCommunityIcons name="magnify" size={23} color={C.brand}/><TextInput style={s.searchInput} value={query} onChangeText={setQuery} placeholder="جستجوی نام راننده یا شماره خط" placeholderTextColor={C.muted} autoCorrect={false}/>{query.length>0&&<TouchableOpacity accessibilityRole="button" accessibilityLabel="پاک کردن جستجو" onPress={()=>setQuery('')}><MaterialCommunityIcons name="close-circle" size={21} color={C.muted}/></TouchableOpacity>}</View>
           <View style={s.listHeading}><MaterialCommunityIcons name="format-list-bulleted" size={20} color={C.brand}/><Text style={s.listTitle}>فهرست رانندگان</Text><Text style={s.resultCount}>{faNum(filtered.length)} مورد</Text></View>
         </>}
-        ListEmptyComponent={<View style={s.emptyBox}><MaterialCommunityIcons name={query?'account-search-outline':'account-off-outline'} size={34} color={C.muted}/><Text style={s.empty}>{query?'راننده‌ای با این مشخصات پیدا نشد.':'هیچ راننده‌ای در خط حاضر نیست.'}</Text></View>}
+        ListEmptyComponent={loadError ? null : <View style={s.emptyBox}><MaterialCommunityIcons name={query?'account-search-outline':'account-off-outline'} size={34} color={C.muted}/><Text style={s.empty}>{query?'راننده‌ای با این مشخصات پیدا نشد.':'هیچ راننده‌ای در خط حاضر نیست.'}</Text></View>}
         renderItem={({ item }) => (
           <View style={s.card}>
             <View style={s.cardTop}>
@@ -83,7 +87,7 @@ export default function PresentListScreen() {
               <View style={s.presentPill}><Text style={s.presentText}>حاضر</Text></View>
             </View>
             <View style={s.cardBottom}><View style={s.duration}><MaterialCommunityIcons name="clock-outline" size={17} color={C.brand}/><Text style={s.durationText}>{faNum(item.mins_in || 0)} دقیقه در خط</Text></View>
-              <TouchableOpacity accessibilityRole="button" style={[s.exitBtn,busy===item.driver_id&&s.disabled]} onPress={()=>confirmExit(item)} disabled={busy===item.driver_id}>{busy===item.driver_id?<ActivityIndicator color="#c53e3e"/>:<><MaterialCommunityIcons name="logout" size={17} color="#c53e3e"/><Text style={s.exitTxt}>ثبت خروج</Text></>}</TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`ثبت خروج ${item.first_name || ''} ${item.last_name || ''}`} style={[s.exitBtn,(busy!==null||!!loadError)&&s.disabled]} onPress={()=>confirmExit(item)} disabled={busy!==null||!!loadError}>{busy===item.driver_id?<ActivityIndicator color="#c53e3e"/>:<><MaterialCommunityIcons name="logout" size={17} color="#c53e3e"/><Text style={s.exitTxt}>ثبت خروج</Text></>}</TouchableOpacity>
             </View>
           </View>
         )}
@@ -125,9 +129,13 @@ const s=StyleSheet.create({
  cardBottom:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:9,borderTopWidth:1,borderTopColor:'#edf0f2',marginTop:12,paddingTop:11},
  duration:{flexDirection:'row-reverse',alignItems:'center',gap:6,flexShrink:1},
  durationText:{fontFamily:FONT.regular,color:C.slate,fontSize:12},
- exitBtn:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:7,backgroundColor:'#fceceb',borderRadius:11,paddingHorizontal:13,paddingVertical:10,minHeight:40},
+ exitBtn:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:7,backgroundColor:'#fceceb',borderRadius:11,paddingHorizontal:13,paddingVertical:10,minHeight:48},
  exitTxt:{fontFamily:FONT.bold,color:'#c53e3e',fontSize:12.5},
  disabled:{opacity:.55},
  emptyBox:{alignItems:'center',padding:28,marginTop:25,gap:10},
- empty:{fontFamily:FONT.regular,color:C.muted,fontSize:13,textAlign:'center'}
+ empty:{fontFamily:FONT.regular,color:C.muted,fontSize:13,textAlign:'center'},
+ errorBox:{backgroundColor:'#fff3f1',borderColor:'#f0c6bf',borderWidth:1,borderRadius:15,padding:12,gap:10,alignItems:'center',marginBottom:14},
+ errorText:{fontFamily:FONT.regular,fontSize:13,color:'#89241e',textAlign:'center',lineHeight:21},
+ retryBtn:{minHeight:48,paddingHorizontal:20,backgroundColor:C.brand,borderRadius:12,alignItems:'center',justifyContent:'center'},
+ retryText:{fontFamily:FONT.bold,fontSize:13,color:'#fff'}
 });

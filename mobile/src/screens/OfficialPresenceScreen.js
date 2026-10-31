@@ -34,31 +34,41 @@ export default function OfficialPresenceScreen() {
   const [roleOpen, setRoleOpen] = useState(false);
   const [roleQ, setRoleQ] = useState('');
   const [expandedHistory, setExpandedHistory] = useState(null);
+  const [loadError, setLoadError] = useState('');
 
   const load = () => {
-    Promise.all([
-      request('/officials').catch(() => []),
-      request('/my/lines').catch(() => []),
-      request('/my/official-visits').catch(() => []),
-      request('/officials/config').catch(() => ({ require_photo: false })),
+    Promise.allSettled([
+      request('/officials', { noStore: true, queueIfOffline: false }),
+      request('/my/lines', { noStore: true, queueIfOffline: false }),
+      request('/my/official-visits', { noStore: true, queueIfOffline: false }),
+      request('/officials/config', { noStore: true, queueIfOffline: false }),
     ]).then(([o, l, h, cfg]) => {
-      setOfficials(o); setLines(l); setHistory(h); setReqPhoto(!!cfg.require_photo); setLoading(false);
-    });
+      if (o.status === 'fulfilled' && Array.isArray(o.value)) setOfficials(o.value);
+      if (l.status === 'fulfilled' && Array.isArray(l.value)) setLines(l.value);
+      if (h.status === 'fulfilled' && Array.isArray(h.value)) setHistory(h.value);
+      if (cfg.status === 'fulfilled') setReqPhoto(!!cfg.value?.require_photo);
+      setLoadError([o,l,h,cfg].some(r=>r.status==='rejected') ? 'دریافت برخی اطلاعات بازدید ممکن نشد. برای جلوگیری از ثبت ناقص، ابتدا دریافت اطلاعات را تکرار کنید.' : '');
+      setLoading(false);
+    }).catch(() => { setLoadError('دریافت اطلاعات ناموفق بود.'); setLoading(false); });
   };
   useEffect(load, []);
 
   const roles = useMemo(() => [...new Set(officials.map(o => o.role_title).filter(Boolean))], [officials]);
 
   const takePhoto = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) { Alert.alert('توجه', 'دسترسی دوربین لازم است'); return; }
-    const r = await launchCamera({ quality: 1 });
-    if (r.canceled) return;
-    const c = await compressToDataUri(r.assets[0].uri);
-    setPhoto(c);
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) { Alert.alert('دسترسی دوربین', 'برای ثبت تصویر حضور مسئول، دسترسی دوربین را فعال کنید.'); return; }
+      const r = await launchCamera({ quality: 1 });
+      if (r.canceled || !r.assets?.[0]?.uri) return;
+      const c = await compressToDataUri(r.assets[0].uri);
+      if (!c) throw new Error('تصویر دوربین قابل پردازش نبود.');
+      setPhoto(c);
+    } catch (e) { Alert.alert('ثبت تصویر ناموفق بود', e?.message || 'دوربین را ببندید و دوباره تلاش کنید.'); }
   };
 
   async function submit() {
+    if (loadError) return Alert.alert('اطلاعات ناقص', 'ابتدا اطلاعات صفحه را دوباره دریافت کنید.');
     if (!picked) return Alert.alert('توجه', 'یک مسئول را انتخاب کنید.');
     if (!lineId) return Alert.alert('توجه', 'انتخاب خط الزامی است.');
     if (!note.trim()) return Alert.alert('توجه', 'درج توضیحات الزامی است.');
@@ -85,6 +95,7 @@ export default function OfficialPresenceScreen() {
   return (
     <>
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+      {!!loadError && <View style={s.loadErrorCard}><MaterialCommunityIcons name="alert-circle-outline" size={24} color="#9f2820"/><Text style={s.loadErrorText}>{loadError}</Text><TouchableOpacity accessibilityRole="button" onPress={load} style={s.retryLoad}><Text style={s.retryLoadText}>تلاش دوباره</Text></TouchableOpacity></View>}
       <View style={s.hero}><View style={s.heroRow}><MaterialCommunityIcons name="account-check-outline" size={25} color="#fff"/><Text style={s.heroTitle}>ثبت حضور مسئولین در خط</Text></View><Text style={s.heroSubtitle}>اطلاعات بازدید میدانی را ثبت و سوابق خود را مشاهده کنید.</Text></View>
       <View style={s.formCard}>
       <View style={s.sectionRow}><MaterialCommunityIcons name="account-tie-outline" size={20} color={C.brand}/><Text style={s.label}>۱. سمت مسئول</Text></View>
@@ -156,7 +167,7 @@ export default function OfficialPresenceScreen() {
       <View style={s.sectionRow}><MaterialCommunityIcons name="text-box-outline" size={20} color={C.brand}/><Text style={s.label}>۵. توضیحات (الزامی)</Text></View>
       <TextInput style={[s.input,s.noteInput]} multiline textAlignVertical="top" value={note} onChangeText={setNote} placeholder="مثلاً بازدید میدانی از خط ۵۰۰" placeholderTextColor={C.muted} />
 
-      <TouchableOpacity style={[s.btn, busy && { opacity: 0.6 }]} disabled={busy} onPress={submit}><MaterialCommunityIcons name="check-circle-outline" size={21} color="#fff"/><Text style={s.btnTxt}>{busy ? 'در حال ثبت…' : 'ثبت حضور مسئول'}</Text></TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" style={[s.btn, (busy||!!loadError) && { opacity: 0.6 }]} disabled={busy||!!loadError} onPress={submit}><MaterialCommunityIcons name="check-circle-outline" size={21} color="#fff"/><Text style={s.btnTxt}>{busy ? 'در حال ثبت…' : 'ثبت حضور مسئول'}</Text></TouchableOpacity>
       </View>
 
       <View style={s.historyHeader}><View style={s.sectionRow}><MaterialCommunityIcons name="history" size={21} color={C.brand}/><Text style={s.historyHeading}>آخرین ثبت‌های شما</Text></View><Text style={s.historyCount}>{faNum(history.length)} ثبت</Text></View>
@@ -190,6 +201,10 @@ export default function OfficialPresenceScreen() {
 
 const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
+  loadErrorCard: { backgroundColor: '#fff2f0', borderWidth: 1, borderColor: '#eec6c1', borderRadius: 16, padding: 14, marginBottom: 14, alignItems: 'center', gap: 10 },
+  loadErrorText: { fontFamily: FONT.regular, color: '#89241e', fontSize: 13, textAlign: 'center', lineHeight: 22 },
+  retryLoad: { minHeight: 48, minWidth: 150, backgroundColor: C.brand, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  retryLoadText: { fontFamily: FONT.bold, color: '#fff', fontSize: 13 },
   label: { fontFamily: FONT.bold, color: C.ink, fontSize: 13.5, textAlign: 'right', flexShrink:1 },
   hero:{backgroundColor:C.brand,borderRadius:19,padding:19,marginBottom:14},
   heroRow:{flexDirection:'row-reverse',alignItems:'center',gap:10},
