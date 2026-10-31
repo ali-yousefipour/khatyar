@@ -1089,3 +1089,33 @@ table{font-size:13px}
   .active-sessions-bulkbar label{width:100%}
   .active-sessions-bulkbar .btn{width:100%;margin-inline-start:0}
 }
+
+/* System health: clear hierarchy, discoverable filters and mobile-friendly controls. */
+.system-health-page{--health-edge:#d9e8e5}
+.system-health-page>div:first-child{padding:18px 20px;border:1px solid var(--health-edge);border-radius:18px;background:linear-gradient(120deg,#f0faf5,#f5f8fd)}
+.system-health-page>div:first-child h3{margin:0;font-size:21px}
+.system-health-page>div:first-child .btn{min-height:42px}
+.system-health-page .kpi{text-align:center;min-width:0;overflow-wrap:anywhere}
+.system-health-page .kpi b{font-variant-numeric:tabular-nums}
+.system-health-section-heading{display:flex;align-items:end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:20px 0 10px}
+.system-health-section-heading h4{margin:0 0 4px;font-size:16px}
+.system-health-section-heading p{margin:0;font-size:12px}
+.system-health-section-heading label{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700}
+.system-health-section-heading select{min-width:190px;max-width:240px}
+.system-health-table-wrap{overflow-x:auto;border:1px solid var(--health-edge);border-radius:14px}
+.system-health-table-wrap table{width:100%;margin:0}
+.system-health-table-wrap th{background:#edf6f3}
+.system-health-table-wrap tbody tr:hover{background:#f7fbf9}
+.system-health-device-search{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.system-health-device-search label{font-size:12px;font-weight:700}
+.system-health-device-search input{min-width:190px;flex:1}
+.system-health-device-search button{min-height:40px}
+@media(max-width:640px){
+  .system-health-page>div:first-child{padding:15px}
+  .system-health-page>div:first-child .row:last-child{width:100%}
+  .system-health-page>div:first-child .btn{flex:1 1 120px}
+  .system-health-section-heading label,.system-health-section-heading select{width:100%;max-width:none}
+  .system-health-device-search{width:100%}
+  .system-health-device-search label,.system-health-device-search input{width:100%;min-width:0}
+  .system-health-device-search button{flex:1 1 110px}
+}
