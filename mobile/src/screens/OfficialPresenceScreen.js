@@ -109,7 +109,7 @@ export default function OfficialPresenceScreen() {
         </View></ModalKeyboardView>
       </Modal>
       <View style={s.sectionRow}><MaterialCommunityIcons name="account-search-outline" size={20} color={C.brand}/><Text style={s.label}>۲. انتخاب مسئول</Text></View>
-      <TouchableOpacity style={s.select} onPress={() => { if (!roleSel) { Alert.alert('توجه', 'ابتدا سمت مسئول را انتخاب کنید.'); return; } setDropOpen(true); }}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="انتخاب مسئول" accessibilityState={{ disabled: !roleSel }} style={s.select} onPress={() => { if (!roleSel) { Alert.alert('توجه', 'ابتدا سمت مسئول را انتخاب کنید.'); return; } setDropOpen(true); }}>
         <Text style={[s.selectTxt, !picked && { color: C.muted }]}>{picked ? `${picked.first_name} ${picked.last_name}` : (roleSel ? 'برای انتخاب/جستجو ضربه بزنید' : 'ابتدا سمت را انتخاب کنید')}</Text>
         <Text style={{ color: C.muted }}>▾</Text>
       </TouchableOpacity>
@@ -134,7 +134,7 @@ export default function OfficialPresenceScreen() {
 
       <View style={s.sectionRow}><MaterialCommunityIcons name="map-marker-path" size={20} color={C.brand}/><Text style={s.label}>۳. خط مورد بازدید (الزامی)</Text></View>
       {lines.length === 0 ? <Text style={s.empty}>خطی به شما اختصاص نیافته است.</Text> : (
-        <TouchableOpacity style={s.select} onPress={() => setLineOpen(true)}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="انتخاب خط محل حضور" style={s.select} onPress={() => setLineOpen(true)}>
           <Text style={[s.selectTxt, !lineId && { color: C.muted }]}>{(() => { const pl = lines.find((l) => l.id === lineId); return pl ? `خط ${pl.code}${pl.origin ? ` (${pl.origin} - ${pl.destination || ''})` : ''}` : 'انتخاب/جستجوی خط'; })()}</Text>
           <Text style={{ color: C.muted }}>▾</Text>
         </TouchableOpacity>
@@ -159,7 +159,7 @@ export default function OfficialPresenceScreen() {
       </Modal>
 
       <View style={s.sectionRow}><MaterialCommunityIcons name="camera-outline" size={20} color={C.brand}/><Text style={s.label}>۴. عکس حضور مسئول {reqPhoto ? '(الزامی)' : '(اختیاری)'}</Text></View>
-      <TouchableOpacity style={s.photoBtn} onPress={takePhoto}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={photo ? 'گرفتن دوباره عکس حضور مسئول' : 'گرفتن عکس حضور مسئول'} style={s.photoBtn} onPress={takePhoto}>
         <Text style={s.photoBtnTxt}>{photo ? '✓ عکس گرفته شد (تعویض)' : '📷 گرفتن عکس'}</Text>
       </TouchableOpacity>
       {photo ? <Image source={{ uri: photo }} style={{ width: '100%', height: 170, borderRadius: 12, marginTop: 8 }} resizeMode="cover" /> : null}
