@@ -15,4 +15,7 @@ assert.match(official, /cfg\.status === 'fulfilled'/, 'Photo requirement must no
 assert.match(official, /disabled=\{busy\|\|!!loadError\}/, 'Submission must be disabled while required data is unverified');
 assert.match(official, /r\.assets\?\.\[0\]\?\.uri/, 'Camera cancellation or missing image must be handled');
 assert.match(official, /ثبت تصویر ناموفق بود/, 'Camera error must be explained');
+const complaints = read('ComplaintsScreen.js');
+assert.match(complaints, /if\(await save\(\)\)setFull\(false\)/, 'Full-screen signature must remain open after capture failure');
+assert.match(complaints, /onSave\(uri\);return true/, 'Signature save must report confirmed completion');
 console.log('PASS field presence recovery: stale-data safety, retry, photo and touch target');
