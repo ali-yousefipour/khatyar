@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { request } from '../api';
 import { C, FONT } from '../theme';
-import { faNum } from '../num';
+import { faNum, enNum } from '../num';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 
 const normalizeMobile = (value) => {
-  const n = String(value || '').replace(/\s|-/g, '');
+  const n = enNum(String(value || '')).replace(/\s|-/g, '');
   if (/^09\d{9}$/.test(n)) return n;
   if (/^989\d{9}$/.test(n)) return `0${n.slice(2)}`;
   if (/^9\d{9}$/.test(n)) return `0${n}`;
@@ -28,21 +28,25 @@ export default function SmsScreen() {
   const [loadingRecipients, setLoadingRecipients] = useState(false);
   const [tplOnly, setTplOnly] = useState(false);
   const [quota, setQuota] = useState(null);
+  const [error, setError] = useState('');
+  const recipientRequest = useRef(0);
 
   useEffect(() => {
     Promise.all([
-      request('/sms/config').catch(() => ({ templates: [], templates_only: false })),
-      request('/my/lines').catch(() => []),
-      request('/my/sms-quota-v2').catch(() => null),
+      request('/sms/config', { noStore: true }),
+      request('/my/lines', { noStore: true }),
+      request('/my/sms-quota-v2', { noStore: true }).catch(() => null),
     ]).then(([cfg, l, q]) => {
       setTpls(Array.isArray(cfg?.templates) ? cfg.templates : []);
       setTplOnly(!!cfg?.templates_only);
       setLines(Array.isArray(l) ? l : []);
       setQuota(q || null);
-    }).finally(() => setLoading(false));
+      setError('');
+    }).catch(e => setError(e?.message || 'دریافت تنظیمات پیامک و خطوط ناموفق بود.')).finally(() => setLoading(false));
   }, []);
 
   const toggleLine = async (id) => {
+    const serial = ++recipientRequest.current;
     const key = String(id);
     const next = selectedLines.includes(key)
       ? selectedLines.filter((x) => x !== key)
@@ -55,12 +59,16 @@ export default function SmsScreen() {
         return;
       }
       const results = await Promise.all(next.map((lineId) =>
-        request('/sms/drivers-by-line?line_id=' + encodeURIComponent(lineId)).catch(() => [])
+        request('/sms/drivers-by-line?line_id=' + encodeURIComponent(lineId), { noStore: true })
       ));
+      if (serial !== recipientRequest.current) return;
       const mobiles = uniqueMobiles(results.flat().map((d) => d?.mobile || d?.phone || d?.mobile_number));
       setLineMobiles(mobiles);
+      setError('');
+    } catch (e) {
+      if (serial === recipientRequest.current) { setLineMobiles([]); setError(e?.message || 'دریافت کامل مخاطبان خطوط ناموفق بود.'); }
     } finally {
-      setLoadingRecipients(false);
+      if (serial === recipientRequest.current) setLoadingRecipients(false);
     }
   };
 
@@ -90,6 +98,8 @@ export default function SmsScreen() {
       Alert.alert('خطا', 'حداقل یک خط انتخاب یا یک شماره موبایل وارد کنید.');
       return;
     }
+    if (loadingRecipients || error) { Alert.alert('توجه', 'ابتدا دریافت کامل مخاطبان و تنظیمات پیامک را انجام دهید.'); return; }
+    if (totalCount > 50) { Alert.alert('محدودیت ارسال', 'در هر نوبت حداکثر ۵۰ شماره قابل ارسال است. گیرندگان را به گروه‌های کوچک‌تر تقسیم کنید.'); return; }
     if (panelCount != null && totalCount > Number(panelCount)) {
       Alert.alert('اعتبار ناکافی', `تعداد گیرندگان (${faNum(totalCount)}) از ظرفیت فعلی پنل (${faNum(panelCount)} پیامک) بیشتر است.`);
       return;
@@ -100,9 +110,10 @@ export default function SmsScreen() {
         setBusy(true);
         try {
           const r = await request('/sms/send', {
-            method: 'POST',
+            method: 'POST', queueIfOffline: false,
             body: { driver_ids: [], mobiles: recipients, message: msg.trim() },
           });
+          if (!r?.ok) throw new Error('سرور ارسال پیامک را تأیید نکرد.');
           Alert.alert('انجام شد', `پیامک به ${faNum(r?.sent || 0)} شماره ارسال شد.`);
           setSelectedLines([]);
           setLineMobiles([]);
@@ -122,6 +133,7 @@ export default function SmsScreen() {
 
   return (
     <ScrollView style={s.wrap} contentContainerStyle={s.content} persistentScrollbar>
+      {!!error && <View style={s.errorBox}><Text style={s.errorText}>{error}</Text><TouchableOpacity accessibilityRole="button" style={s.retry} onPress={() => { setError(''); setLoading(true); Promise.all([request('/sms/config', { noStore: true }), request('/my/lines', { noStore: true })]).then(([cfg,l]) => { setTpls(Array.isArray(cfg?.templates) ? cfg.templates : []); setTplOnly(!!cfg?.templates_only); setLines(Array.isArray(l) ? l : []); }).catch(e => setError(e?.message || 'دریافت تنظیمات ناموفق بود.')).finally(() => setLoading(false)); }}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
       {quota && (
         <View style={s.creditBox}>
           <Text style={s.creditTitle}>اعتبار پنل پیامک</Text>
@@ -173,7 +185,7 @@ export default function SmsScreen() {
 
       <View style={s.sectionHeader}>
         <Text style={s.label}>گیرندگان: {faNum(totalCount)} شماره</Text>
-        <TouchableOpacity onPress={() => { setSelectedLines([]); setLineMobiles([]); setManual([]); }}>
+        <TouchableOpacity onPress={() => { recipientRequest.current += 1; setLoadingRecipients(false); setSelectedLines([]); setLineMobiles([]); setManual([]); setError(''); }}>
           <Text style={s.clear}>پاک‌کردن</Text>
         </TouchableOpacity>
       </View>
@@ -213,7 +225,7 @@ export default function SmsScreen() {
         </View>
       )}
 
-      <TouchableOpacity style={[s.sendButton, busy && s.disabledButton]} disabled={busy} onPress={send}>
+      <TouchableOpacity style={[s.sendButton, (busy || loadingRecipients || !!error) && s.disabledButton]} disabled={busy || loadingRecipients || !!error} onPress={send} accessibilityRole="button">
         <Text style={s.sendText}>{busy ? 'در حال ارسال…' : `ارسال به ${faNum(totalCount)} شماره`}</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -221,6 +233,10 @@ export default function SmsScreen() {
 }
 
 const s = StyleSheet.create({
+  errorBox: { backgroundColor: '#fff1f1', borderColor: '#f3b8c0', borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 12 },
+  errorText: { color: '#982b3d', fontFamily: FONT.regular, textAlign: 'right', lineHeight: 22 },
+  retry: { minHeight: 44, alignSelf: 'flex-end', paddingHorizontal: 14, justifyContent: 'center' },
+  retryText: { color: C.brand, fontFamily: FONT.bold },
   wrap: { flex: 1, backgroundColor: C.paper },
   content: { padding: 14, paddingBottom: 40 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },

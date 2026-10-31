@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { request } from '../api';
 import { C, FONT } from '../theme';
@@ -23,6 +23,8 @@ export default function BotMessageScreen() {
   const [roleGroup, setRoleGroup] = useState(''); // '' | beneficiary | helper | driver
   const [pickFromList, setPickFromList] = useState(false); // انتخاب از لیست (به‌جای کل نوع راننده)
   const [loadingDrivers, setLoadingDrivers] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const lineRequest = useRef(0);
 
   const [credit, setCredit] = useState(null);
   const [quota, setQuota] = useState(null);
@@ -30,29 +32,31 @@ export default function BotMessageScreen() {
   useEffect(() => {
     // فقط قالب‌ها، خطوط و سهمیه را لود کن — لیست رانندگان لود نمی‌شود (سرعت بیشتر)
     Promise.all([
-      request('/sms/config').catch(() => ({ templates: [], templates_only: false })),
-      request('/my/lines').catch(() => []),
-      request('/messengers/config').catch(() => null),
+      request('/sms/config', { noStore: true }),
+      request('/my/lines', { noStore: true }),
+      request('/messengers/config', { noStore: true }),
     ]).then(([cfg, l, q]) => {
       setTpls(cfg.templates || []); setTplOnly(!!cfg.templates_only);
       setLines(l || []);
       if (q) {
         setQuota(null); setCredit(null);
       }
-    }).finally(() => setLoading(false));
+      setLoadError('');
+    }).catch(e => setLoadError(e?.message || 'دریافت تنظیمات ربات‌ها ناموفق بود.')).finally(() => setLoading(false));
   }, []);
 
   const loadLine = (id, role) => {
+    const serial = ++lineRequest.current;
     setLineId(id);
     const rg = role !== undefined ? role : roleGroup;
     setDrivers([]); setSel({});
     if (!id) return; // بدون خط، رانندگان لود نمی‌شوند
     setLoadingDrivers(true);
     const rq = rg ? `&role=${rg}` : '';
-    request('/sms/drivers-by-line?line_id=' + id + rq)
-      .then((d) => { setDrivers(d || []); setSel({}); })
-      .catch(() => setDrivers([]))
-      .finally(() => setLoadingDrivers(false));
+    request('/sms/drivers-by-line?line_id=' + encodeURIComponent(id) + rq, { noStore: true })
+      .then((d) => { if (!Array.isArray(d)) throw new Error('فهرست رانندگان معتبر نیست.'); if (serial === lineRequest.current) { setDrivers(d); setSel({}); setLoadError(''); } })
+      .catch(e => { if (serial === lineRequest.current) { setDrivers([]); setLoadError(e?.message || 'دریافت رانندگان خط ناموفق بود.'); } })
+      .finally(() => { if (serial === lineRequest.current) setLoadingDrivers(false); });
   };
   const pickRole = (rg) => { const next = roleGroup === rg ? '' : rg; setRoleGroup(next); if (lineId) loadLine(lineId, next); };
   const addManual = () => {
@@ -70,6 +74,7 @@ export default function BotMessageScreen() {
   const selectedLine = lines.find(l => String(l.id) === String(lineId));
 
   const send = async () => {
+    if (loadingDrivers || loadError) { Alert.alert('توجه', 'دریافت مخاطبان یا تنظیمات کامل نشده است. دوباره تلاش کنید.'); return; }
     if (!msg.trim()) { Alert.alert('خطا', 'متن پیام ربات را وارد یا قالبی انتخاب کنید'); return; }
     if (!totalCount) { Alert.alert('خطا', 'حداقل یک گیرنده انتخاب یا وارد کنید'); return; }
     Alert.alert('تأیید ارسال', `ارسال پیام در ربات‌ها به ${totalCount} گیرنده؟`, [
@@ -77,7 +82,7 @@ export default function BotMessageScreen() {
       { text: 'ارسال', onPress: async () => {
         setBusy(true);
         try {
-          const r = await request('/messengers/send-group', { method: 'POST', body: { driver_ids: chosen.map((d) => d.id), mobiles: manual, line_id: lineId ? Number(lineId) : null, role: roleGroup, message: msg.trim() } });
+          const r = await request('/messengers/send-group', { method: 'POST', queueIfOffline: false, body: { driver_ids: chosen.map((d) => d.id), mobiles: manual, line_id: null, role: roleGroup, message: msg.trim() } });
           Alert.alert('انجام شد', `در ربات‌ها ${r.sent || 0} ارسال انجام شد؛ ${r.not_connected || 0} مورد هنوز مشترک ربات نیستند.`);
           setSel({}); setManual([]);
         } catch (e) { Alert.alert('خطا', e.message || 'ارسال ناموفق'); }
@@ -90,6 +95,7 @@ export default function BotMessageScreen() {
 
   return (
     <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={{ padding: 14, paddingBottom: 64 }}>
+      {!!loadError && <View style={s.errorBox}><Text style={s.errorText}>{loadError}</Text><TouchableOpacity accessibilityRole="button" onPress={() => lineId ? loadLine(lineId) : (setLoading(true), Promise.all([request('/sms/config', { noStore: true }), request('/my/lines', { noStore: true })]).then(([cfg,l]) => { setTpls(cfg?.templates || []); setTplOnly(!!cfg?.templates_only); setLines(l || []); setLoadError(''); }).catch(e => setLoadError(e?.message || 'دریافت تنظیمات ناموفق بود.')).finally(() => setLoading(false)))} style={s.retry}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
       {/* نمایش اعتبار و سهمیهٔ کاربر */}
       {(credit || quota) && (
         <View style={s.creditBox}>
@@ -206,7 +212,7 @@ export default function BotMessageScreen() {
         </View>
       )}
 
-      </View><View style={s.sendPanel}><Text style={s.sendSummary}>آماده ارسال به {faNum(totalCount)} گیرنده</Text><Text style={s.sendHelp}>پیش از ارسال، تعداد گیرندگان و متن پیام را تأیید خواهید کرد.</Text><TouchableOpacity style={[s.btn, busy && { opacity: 0.6 }]} disabled={busy} onPress={send}>
+      </View><View style={s.sendPanel}><Text style={s.sendSummary}>آماده ارسال به {faNum(totalCount)} گیرنده</Text><Text style={s.sendHelp}>پیش از ارسال، تعداد گیرندگان و متن پیام را تأیید خواهید کرد.</Text><TouchableOpacity style={[s.btn, (busy || loadingDrivers || !!loadError) && { opacity: 0.6 }]} disabled={busy || loadingDrivers || !!loadError} onPress={send} accessibilityRole="button">
         <Text style={s.btnTxt}>{busy ? 'در حال ارسال…' : `ارسال در ربات‌ها به ${faNum(totalCount)} گیرنده`}</Text>
       </TouchableOpacity></View>
     </ScrollView>
@@ -214,6 +220,10 @@ export default function BotMessageScreen() {
 }
 
 const s = StyleSheet.create({
+  errorBox:{backgroundColor:'#fff1f1',borderColor:'#f3b8c0',borderWidth:1,borderRadius:14,padding:14,marginBottom:12},
+  errorText:{fontFamily:FONT.regular,color:'#982b3d',textAlign:'right',lineHeight:22},
+  retry:{alignSelf:'flex-end',minHeight:44,justifyContent:'center',paddingHorizontal:14},
+  retryText:{fontFamily:FONT.bold,color:C.brand},
   hero:{backgroundColor:C.brand,borderRadius:18,padding:18,marginBottom:12},
   heroTitle:{fontFamily:FONT.bold,color:'#fff',fontSize:19,textAlign:'right'},
   heroText:{fontFamily:FONT.regular,color:'#e0f4ec',fontSize:12,textAlign:'right',lineHeight:20,marginTop:7},
