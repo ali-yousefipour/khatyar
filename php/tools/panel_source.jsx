@@ -897,6 +897,7 @@ function UserPicker({users,value,onChange,placeholder}){
   </div>);
 }
 
+const mapEscapeHtml=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 // فیلتر نمایش نقشهٔ زنده: بر اساس سمت یا اشخاص خاص (برای افزایش سرعت نمایش)
 function MapFilters({allUsers,roleFilter,setRoleFilter,personFilter,setPersonFilter,onApply}){
   const [roles,setRoles]=React.useState([]);
@@ -905,8 +906,8 @@ function MapFilters({allUsers,roleFilter,setRoleFilter,personFilter,setPersonFil
   const toggleRole=(id)=>{ const cur=roleFilter?[...roleFilter]:[]; const i=cur.indexOf(String(id)); i>=0?cur.splice(i,1):cur.push(String(id)); setRoleFilter(cur.length?cur:null); };
   const togglePerson=(id)=>{ const cur=personFilter?[...personFilter]:[]; const i=cur.indexOf(String(id)); i>=0?cur.splice(i,1):cur.push(String(id)); setPersonFilter(cur.length?cur:null); };
   const filtered=q.trim()?allUsers.filter(u=>((u.first_name||"")+" "+(u.last_name||"")).includes(q.trim())):allUsers;
-  return(<div style={{background:"var(--brand-soft)",borderRadius:10,padding:12,marginBottom:10}}>
-    <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:8}}>برای افزایش سرعت نمایش، می‌توانید فقط سمت‌ها یا اشخاص دلخواه را نمایش دهید. اگر چیزی انتخاب نشود، همه نمایش داده می‌شوند.</p>
+  return(<section className="live-map-filters" aria-label="فیلتر نیروهای روی نقشه">
+    <p>برای نمایش سریع‌تر نقشه، سمت‌ها یا اشخاص موردنظر را انتخاب کنید. بدون انتخاب، همه نمایش داده می‌شوند.</p>
     <div style={{marginBottom:10}}>
       <b style={{fontSize:13}}>نمایش بر اساس سمت:</b>
       <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>
@@ -917,7 +918,7 @@ function MapFilters({allUsers,roleFilter,setRoleFilter,personFilter,setPersonFil
     </div>
     <div>
       <b style={{fontSize:13}}>یا نمایش اشخاص مشخص:</b>
-      <input className="input" style={{marginTop:6,marginBottom:6}} placeholder="جستجوی نام شخص…" value={q} onChange={e=>setQ(e.target.value)}/>
+      <input className="input" aria-label="جست‌وجوی نام شخص برای فیلتر نقشه" style={{marginTop:6,marginBottom:6}} placeholder="جستجوی نام شخص…" value={q} onChange={e=>setQ(e.target.value)}/>
       <div style={{display:"flex",flexWrap:"wrap",gap:6,maxHeight:160,overflowY:"auto"}}>
         {filtered.slice(0,100).map(u=>{ const on=personFilter&&personFilter.includes(String(u.id)); return(
           <label key={u.id} style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:12,background:on?"var(--brand)":"#fff",color:on?"#fff":"var(--ink)",borderRadius:8,padding:"4px 10px",cursor:"pointer",border:"1px solid var(--line)"}}>
@@ -926,9 +927,9 @@ function MapFilters({allUsers,roleFilter,setRoleFilter,personFilter,setPersonFil
     </div>
     <div className="row" style={{gap:8,marginTop:10}}>
       <button className="btn p" onClick={onApply}>اعمال فیلتر</button>
-      <button className="btn g" onClick={()=>{setRoleFilter(null);setPersonFilter(null);setTimeout(onApply,50);}}>نمایش همه</button>
+      <button className="btn g" onClick={()=>{setRoleFilter(null);setPersonFilter(null);onApply({roles:null,people:null});}}>نمایش همه</button>
     </div>
-  </div>);
+  </section>);
 }
 
 // کنترل پخش مسیر طی‌شده روی نقشه با نشانگر متحرک، تنظیم سرعت و میانگین سرعت بین نقاط
@@ -994,7 +995,7 @@ function LiveMap(){
   const [onlyOnline,setOnlyOnline]=useState(()=>localStorage.liveOnlyOnline==="1");
   const onlyOnlineRef=useRef(onlyOnline);
   const shiftFilterRef=useRef(shiftFilter);
-  const liveRequestRef=useRef(false); const liveMountedRef=useRef(false);
+  const liveRequestRef=useRef(false); const liveMountedRef=useRef(false); const refreshPendingRef=useRef(false);
   const [liveLoading,setLiveLoading]=useState(true); const [liveError,setLiveError]=useState('');
   const [liveUpdated,setLiveUpdated]=useState(null);
   const [mapDiagnostic,setMapDiagnostic]=useState(null); const [diagnosticBusy,setDiagnosticBusy]=useState(false);
@@ -1041,6 +1042,7 @@ function LiveMap(){
     }
     baseRef.current=layer.addTo(map); if(baseRef.current.bringToBack)baseRef.current.bringToBack();
   };
+  useEffect(()=>{if(mapRef.current&&mapProvider==="neshan")applyBase(mapProvider);},[mapKeys.neshan]);
   const changeProvider=(prov)=>{ setMapProvider(prov); localStorage.mapProvider=prov; applyBase(prov); };
   // رنگ خط دور تصویر بر اساس سطح/نقش کاربر
   const roleColor=(u)=>{ const r=(u.role_title||""); const lv=+u.level||0;
@@ -1056,21 +1058,22 @@ function LiveMap(){
   const centerRef=useRef(false);
   const markerHtml=(u)=>{ const online=!!(+u.online); const ring=roleColor(u);
     const initials=((u.first_name||"؟")[0]||"")+((u.last_name||"")[0]||"");
-    const photoStyle=u.photo?`background-image:url('${u.photo}');background-size:cover;background-position:center;`:`background:${ring};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;`;
+    const safePhoto=typeof u.photo==="string"&&(/^(https?:\/\/|\/)/i).test(u.photo)?u.photo:"";
     const dim=online?1:0.5;
     return `<div style="position:relative;width:42px;height:52px;opacity:${dim}">
-      <div style="width:40px;height:40px;border-radius:50%;border:3px solid ${ring};box-shadow:0 2px 6px rgba(0,0,0,.4);${photoStyle}overflow:hidden">${u.photo?"":initials}</div>
+      <div style="width:40px;height:40px;border-radius:50%;border:3px solid ${ring};box-shadow:0 2px 6px rgba(0,0,0,.4);background:${ring};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;overflow:hidden">${safePhoto?`<img src="${mapEscapeHtml(safePhoto)}" alt="" style="width:100%;height:100%;object-fit:cover"/>`:mapEscapeHtml(initials)}</div>
       <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid ${ring}"></div>
       <div style="position:absolute;top:-2px;right:-2px;width:11px;height:11px;border-radius:50%;border:2px solid #fff;background:${online?"#16a06a":"#9aa6b6"}"></div>
       ${(+u.vpn_on)?'<div style="position:absolute;top:-4px;left:-4px;background:#dc2626;color:#fff;font-size:8px;font-weight:700;border-radius:4px;padding:0 3px">VPN</div>':''}
       ${(+u.via_gsm)?'<div style="position:absolute;bottom:8px;left:-6px;background:#d97706;color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 4px;box-shadow:0 1px 3px rgba(0,0,0,.4)">📶</div>':''}
     </div>`; };
-  const popupHtml=(u)=>{ const online=!!(+u.online); const mins=Math.floor((u.secs_ago||0)/60);
-    return `<b>${u.first_name} ${u.last_name}</b><br>${u.role_title||''}<br>${online?'<span style="color:#16a06a">● آنلاین (در حال ارسال موقعیت)</span>':'<span style="color:#8a93a6">● آفلاین — '+(mins>0?('آخرین ارسال '+mins+' دقیقه پیش'):'لحظاتی پیش')+'</span>'}${(+u.vpn_on)?'<br><span style="color:#dc2626">⚠ فیلترشکن روشن'+(u.ip_country&&u.ip_country!=='IR'?(' (کشور IP: '+u.ip_country+')'):'')+'</span>':''}${(u.ip_country&&u.ip_country!=='IR'&&!(+u.vpn_on))?'<br><span style="color:#d97706">🌐 کشور IP: '+u.ip_country+'</span>':''}${(+u.via_gsm)?'<br><span style="color:#d97706">📶 موقعیت حدودی (آنتن GSM — GPS خاموش)</span>':''}${(u.battery_level!=null&&u.battery_level!=='')?'<br><span style="color:'+(u.battery_level<20?'#dc2626':'#16a06a')+'">🔋 باتری: '+fa(u.battery_level)+'٪'+(+u.battery_charging?' (در حال شارژ)':'')+'</span>':''}<br>${fj(u.captured_at)}`; };
+  const popupHtml=(u)=>{ const online=!!(+u.online); const mins=Math.max(0,Math.floor((+u.secs_ago||0)/60));
+    const name=mapEscapeHtml((u.first_name||"")+" "+(u.last_name||"")),role=mapEscapeHtml(u.role_title||""),country=mapEscapeHtml(u.ip_country||"");
+    return `<b>${name}</b><br>${role}<br>${online?'<span style="color:#16a06a">● آنلاین (در حال ارسال موقعیت)</span>':'<span style="color:#8a93a6">● آفلاین — '+(mins>0?('آخرین ارسال '+fa(mins)+' دقیقه پیش'):'لحظاتی پیش')+'</span>'}${(+u.vpn_on)?'<br><span style="color:#dc2626">⚠ فیلترشکن روشن'+(country&&country!=='IR'?(' (کشور IP: '+country+')'):'')+'</span>':''}${(country&&country!=='IR'&&!(+u.vpn_on))?'<br><span style="color:#d97706">🌐 کشور IP: '+country+'</span>':''}${(+u.via_gsm)?'<br><span style="color:#d97706">📶 موقعیت حدودی (آنتن GSM — GPS خاموش)</span>':''}${(u.battery_level!=null&&u.battery_level!=='')?'<br><span style="color:'+(u.battery_level<20?'#dc2626':'#16a06a')+'">🔋 باتری: '+fa(u.battery_level)+'٪'+(+u.battery_charging?' (در حال شارژ)':'')+'</span>':''}<br>${mapEscapeHtml(fj(u.captured_at))}`; };
   const drawUsers=()=>{ const map=mapRef.current; if(!map)return;
     if(!layerRef.current){ layerRef.current=L.layerGroup().addTo(map); }
     const grp=layerRef.current; const mk=markersRef.current; const seen={};
-    if(liveRequestRef.current)return;
+    if(liveRequestRef.current){refreshPendingRef.current=true;return;}
     liveRequestRef.current=true; setLiveLoading(true);
     const requestedShift=shiftFilterRef.current;
     db.live(requestedShift).then(list=>{ if(!liveMountedRef.current||requestedShift!==shiftFilterRef.current)return; setLiveError(''); setLiveUpdated(new Date()); (list||[]).forEach(u=>{ if(!u.lat||!u.lng)return; const id=u.user_id;
@@ -1100,7 +1103,7 @@ function LiveMap(){
       const pf=personFilterRef.current; if(pf&&pf.length&&!pf.includes(String(u.user_id)))return false;
       return true; });
     setOnlineUsers((list||[]).filter(u=>+u.online).map(u=>({id:u.user_id,name:(u.first_name||'')+' '+(u.last_name||'')})).sort((a,b)=>a.name.localeCompare(b.name,'fa')));
-    }).catch(error=>{if(liveMountedRef.current)setLiveError(error.message||'دریافت موقعیت‌ها ناموفق بود.');}).finally(()=>{liveRequestRef.current=false;if(liveMountedRef.current){setLiveLoading(false);if(requestedShift!==shiftFilterRef.current)drawUsers();}});
+    }).catch(error=>{if(liveMountedRef.current)setLiveError(error.message||'دریافت موقعیت‌ها ناموفق بود.');}).finally(()=>{liveRequestRef.current=false;if(liveMountedRef.current){setLiveLoading(false);if(requestedShift!==shiftFilterRef.current||refreshPendingRef.current){refreshPendingRef.current=false;drawUsers();}}});
   };
   useEffect(()=>{
     liveMountedRef.current=true;
@@ -1113,7 +1116,7 @@ function LiveMap(){
     drawUsers();
     setTimeout(()=>map.invalidateSize(),200);
     const iv=setInterval(drawUsers,15000);
-    return()=>{liveMountedRef.current=false;clearInterval(iv);map.remove();};
+    return()=>{liveMountedRef.current=false;clearInterval(iv);if(trkIv.current){clearInterval(trkIv.current);trkIv.current=null;}if(pbIvRef.current){clearInterval(pbIvRef.current);pbIvRef.current=null;}map.remove();mapRef.current=null;};
   },[]);
 
   // با انتخاب یک نفر از کشوی رهگیری، در حالت زنده فقط همان نفر روی نقشه نمایش داده شود
@@ -1153,7 +1156,7 @@ function LiveMap(){
   // رهگیری زنده: مسیر امروزِ کاربر انتخابی هر ۱۵ ثانیه به‌روز می‌شود
   const startLive=()=>{ if(!trkUser){alert("یک کاربر را انتخاب کنید");return;} setMode("track");
     if(trkIv.current)clearInterval(trkIv.current);
-    const today=new Date().toISOString().slice(0,10);
+    const today=localIsoDate(new Date());
     const run=()=>db.track(trkUser,today+" 00:00:00",today+" 23:59:59").then(r=>{drawTrack(r.points);setTrkInfo({name:r.name,count:r.count});}).catch(()=>{});
     run(); trkIv.current=setInterval(run,15000);
   };
@@ -1173,7 +1176,8 @@ function LiveMap(){
     if(best&&bd<=(+best.radius_m)) return "داخل: "+best.name+(best.line_code?` (خط ${best.line_code})`:"");
     return `${Math.round(bd)} متر تا «${best?best.name:'?'}»`+(best&&best.line_code?` (خط ${best.line_code})`:""); };
   // preset بازه‌های زمانی آماده
-  const setPreset=(p)=>{ const d=new Date(); const iso=x=>x.toISOString().slice(0,10);
+  const localIsoDate=x=>[x.getFullYear(),String(x.getMonth()+1).padStart(2,"0"),String(x.getDate()).padStart(2,"0")].join("-");
+  const setPreset=(p)=>{ const d=new Date(); const iso=localIsoDate;
     if(p==="today"){ setFromD(iso(d)); setToD(iso(d)); setFromT("00:00"); setToT("23:59"); }
     else if(p==="yesterday"){ const y=new Date(d.getTime()-86400000); setFromD(iso(y)); setToD(iso(y)); setFromT("00:00"); setToT("23:59"); }
     else if(p==="7d"){ const a=new Date(d.getTime()-6*86400000); setFromD(iso(a)); setToD(iso(d)); setFromT("00:00"); setToT("23:59"); }
@@ -1296,9 +1300,9 @@ function LiveMap(){
     }finally{ setSavingImg(false); }
   };
   const stopTrack=()=>{ if(trkIv.current){clearInterval(trkIv.current);trkIv.current=null;} const map=mapRef.current; if(lineRef.current&&map)map.removeLayer(lineRef.current); setTrkInfo(null); setTrkPts(null); setMode("live"); drawUsers(); };
-  return(<div className="panel admin-workspace-page live-map-page"><h3>نقشهٔ زندهٔ نیروها و رهگیری
-    <span className="row" style={{gap:8}}>
-      <select className="input" style={{maxWidth:170,fontSize:12}} value={mapProvider} onChange={e=>changeProvider(e.target.value)}>
+  return(<div className="panel admin-workspace-page live-map-page"><div className="live-map-heading"><div><span className="dashboard-section-kicker">پایش میدانی</span><h3>نقشهٔ زندهٔ نیروها و رهگیری</h3><p>موقعیت نیروها، رهگیری مسیر و گزارش‌های تردد</p></div>
+    <div className="live-map-toolbar">
+      <select className="input" aria-label="انتخاب سرویس نقشه" value={mapProvider} onChange={e=>changeProvider(e.target.value)}>
         <option value="osm">نقشهٔ OpenStreetMap</option>
         <option value="google">نقشهٔ گوگل</option>
         <option value="google_sat">ماهواره‌ای گوگل</option>
@@ -1309,17 +1313,17 @@ function LiveMap(){
       <button className="btn g" onClick={()=>setShowFilters(s=>!s)}>{(roleFilter&&roleFilter.length)||(personFilter&&personFilter.length)?"⚙ فیلتر فعال":"⚙ فیلتر نمایش"}</button>
       <button className={shiftFilter?"btn p":"btn g"} onClick={()=>{ const n=!shiftFilter; shiftFilterRef.current=n; setShiftFilter(n); localStorage.liveShiftFilter=n?"1":""; const mk=markersRef.current,grp=layerRef.current; if(grp){Object.keys(mk).forEach(id=>{grp.removeLayer(mk[id]);delete mk[id];}); } drawUsers(); }} title={shiftFilter?"نمایش همه":"فقط در شیفت"}>{shiftFilter?"👥 فقط در شیفت":"👥 همه"}</button>
       <button className={onlyOnline?"btn p":"btn g"} onClick={()=>{ const n=!onlyOnline; onlyOnlineRef.current=n; setOnlyOnline(n); const mk=markersRef.current,grp=layerRef.current; if(grp){Object.keys(mk).forEach(id=>{grp.removeLayer(mk[id]);delete mk[id];}); } drawUsers(); }} title={onlyOnline?"نمایش همه":"فقط آنلاین‌ها"}>{onlyOnline?"🟢 فقط آنلاین":"🟢 آنلاین/آفلاین"}</button>
-      <button className="btn g" disabled={savingImg} onClick={saveMapImage}>{savingImg?"در حال ذخیره…":"📷 ذخیرهٔ تصویر نقشه"}</button></span></h3>
+      <button className="btn g" disabled={savingImg} onClick={saveMapImage}>{savingImg?"در حال ذخیره…":"📷 ذخیرهٔ تصویر نقشه"}</button></div></div>
     <div className="live-map-status" role="status" aria-live="polite">{liveLoading?'در حال دریافت موقعیت‌ها…':liveUpdated?'آخرین دریافت: '+liveUpdated.toLocaleTimeString('fa-IR'):'موقعیتی دریافت نشده است'}<button className="btn g" disabled={liveLoading} onClick={drawUsers}>تازه‌سازی موقعیت‌ها</button></div>
     {liveError&&<p role="alert">{liveError} — موقعیت‌های قبلی حفظ شده‌اند.</p>}
     <button className="btn g" disabled={diagnosticBusy} onClick={diagnoseMap}>{diagnosticBusy?'در حال بررسی…':'بررسی اتصال و سرعت نقشه'}</button>
     {mapDiagnostic&&<Modal title="بررسی سرعت نقشه" onClose={()=>setMapDiagnostic(null)}>{mapDiagnostic.error?<p role="alert">{mapDiagnostic.error}</p>:<><p>زمان بررسی پایگاه داده: {fa(mapDiagnostic.elapsed_ms)} میلی‌ثانیه</p><p>تعداد ستون‌های ایندکس: {fa(mapDiagnostic.indexes.length)}</p><p>حجم تصاویر قدیمیِ درون پاسخ: {fa(Math.round((mapDiagnostic.inline_photo_bytes||0)/1024))} کیلوبایت</p><div className="table-wrap"><table><thead><tr><th>بخش</th><th>نوع دسترسی</th><th>ایندکس</th><th>برآورد ردیف</th><th>روش اجرا</th></tr></thead><tbody>{mapDiagnostic.plan.map((row,index)=><tr key={index}><td>{row.table}</td><td>{row.type}</td><td>{row.key||'—'}</td><td>{fa(row.rows||0)}</td><td>{row.Extra||"—"}</td></tr>)}</tbody></table></div><h4>ایندکس‌های موقعیت</h4><ul>{mapDiagnostic.indexes.map((item,index)=><li key={index}>{item.Key_name}: {item.Seq_in_index} — {item.Column_name}</li>)}</ul></>}</Modal>}
     {/* تب‌بندی نقشه */}
-    <div className="tabbar" style={{display:"flex",gap:8,marginBottom:12,borderBottom:"2px solid var(--line)",flexWrap:"wrap"}}>
+    <div className="tabbar live-map-tabs" role="tablist" aria-label="بخش‌های نقشه زنده">
       {[["main","🗺 نقشهٔ اصلی نیروها"],["live","🛰 رهگیری زنده"],["report","📊 گزارش مسیر و پخش"],["exits","⛔ خروج از محدوده امروز"]].map(([k,lbl])=>
-        <button key={k} onClick={()=>{ setViewTab(k); if(k==="main")stopTrack(); }} style={{background:"none",border:"none",borderBottom:viewTab===k?"3px solid var(--brand)":"3px solid transparent",padding:"8px 14px",cursor:"pointer",fontWeight:viewTab===k?800:500,color:viewTab===k?"var(--brand)":"var(--muted)",fontFamily:"inherit",fontSize:13.5,whiteSpace:"nowrap"}}>{lbl}</button>)}
+        <button type="button" role="tab" aria-selected={viewTab===k} className={viewTab===k?"live-map-tab-active":""} key={k} onClick={()=>{ setViewTab(k); if(k==="main")stopTrack(); }}>{lbl}</button>)}
     </div>
-    {showFilters&&<MapFilters allUsers={allUsers} roleFilter={roleFilter} setRoleFilter={setRoleFilter} personFilter={personFilter} setPersonFilter={setPersonFilter} onApply={()=>{const mk=markersRef.current,grp=layerRef.current; if(grp){Object.keys(mk).forEach(id=>{grp.removeLayer(mk[id]);delete mk[id];});} drawUsers();}}/>}
+    {showFilters&&<MapFilters allUsers={allUsers} roleFilter={roleFilter} setRoleFilter={setRoleFilter} personFilter={personFilter} setPersonFilter={setPersonFilter} onApply={overrides=>{if(overrides){roleFilterRef.current=overrides.roles;personFilterRef.current=overrides.people;}const mk=markersRef.current,grp=layerRef.current; if(grp){Object.keys(mk).forEach(id=>{grp.removeLayer(mk[id]);delete mk[id];});} drawUsers();}}/>}
     {viewTab==="live"&&<div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:8,alignItems:"center"}}>
       <span style={{fontSize:12,color:"var(--muted)",fontWeight:700}}>رهگیری زنده:</span>
       <select className="input" style={{maxWidth:220}} value={trkUser} onChange={e=>setTrkUser(e.target.value)}>
@@ -1352,7 +1356,7 @@ function LiveMap(){
       <button className="btn p" onClick={exportTrack}>خروجی اکسل ریز تردد</button>
     </div>}
     {trkInfo&&<p style={{fontSize:13,color:"var(--ink)",margin:"4px 0"}}>{trkInfo.name?`کاربر: ${trkInfo.name} — `:""}تعداد نقاط مسیر: {fa(trkInfo.count||0)}{mode==="track"?" (به‌روزرسانی زنده)":""}</p>}
-    <div id="map" ref={ref} style={{height:"52vh",minHeight:340,borderRadius:14}}></div>
+    <div id="map" className="live-map-canvas" ref={ref} role="region" aria-label="نقشه تعاملی موقعیت نیروها"></div>
     {(viewTab==="main"||viewTab==="live")&&<div style={{display:"flex",gap:14,flexWrap:"wrap",fontSize:11.5,color:"var(--muted)",padding:"8px 4px 0"}}>
       <span style={{display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:"50%",background:"#16a06a",display:"inline-block"}}></span> آنلاین (GPS)</span>
       <span style={{display:"inline-flex",alignItems:"center",gap:4}}><span style={{background:"#d97706",color:"#fff",borderRadius:6,padding:"0 4px",fontWeight:700}}>📶</span> موقعیت حدودی از آنتن GSM (GPS خاموش)</span>
