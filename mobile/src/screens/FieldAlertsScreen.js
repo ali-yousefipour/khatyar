@@ -5,8 +5,9 @@ import { request } from '../api';
 import { C, FONT } from '../theme';
 import { fj } from '../jdate';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import {MaterialCommunityIcons} from '@expo/vector-icons';
 
-const TYPE_ICON = { station_exit: '🚦', station_enter: '✅', vpn_on: '🛡️', gps_off: '📍', attendance_checkin: '🟢', attendance_checkout: '🔴' };
+const TYPE_ICON = { station_exit: 'map-marker-off-outline', station_enter: 'map-marker-check-outline', vpn_on: 'shield-alert-outline', gps_off: 'crosshairs-off', attendance_checkin: 'login', attendance_checkout: 'logout' };
 const TYPE_LABEL = { station_exit: 'خروج از خط', station_enter: 'ورود به خط', vpn_on: 'روشن‌شدن VPN', gps_off: 'خاموش‌شدن GPS', attendance_checkin: 'ثبت ورود حضور من', attendance_checkout: 'ثبت خروج حضور من' };
 
 export default function FieldAlertsScreen({ navigation }) {
@@ -19,7 +20,7 @@ export default function FieldAlertsScreen({ navigation }) {
   const load = useCallback(async () => {
     setRefreshing(true);
     try {
-      const d = await request('/my/field-alerts', { noStore: true });
+      const d = await request('/my/field-alerts');
       if (!Array.isArray(d?.items)) throw new Error('پاسخ هشدارها معتبر نیست.');
       setData(d); setAllRead(false); setError('');
     } catch (e) { setError(e?.message || 'دریافت هشدارهای میدانی ناموفق بود.'); }
@@ -63,6 +64,7 @@ export default function FieldAlertsScreen({ navigation }) {
   return (
     <View style={{ flex: 1, backgroundColor: C.paper }}>
       {!!error && <View style={s.errorBox}><Text style={s.errorText}>{error}</Text><TouchableOpacity accessibilityRole="button" style={s.retry} onPress={load}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
+      <View style={s.pageHeading}><View style={s.headerIcon}><MaterialCommunityIcons name="shield-alert-outline" size={27} color={C.brand}/></View><View style={{flex:1}}><Text style={s.headingTitle}>هشدارهای میدانی</Text><Text style={s.headingCaption}>{unreadCount?`${faNum(unreadCount)} هشدار خوانده‌نشده`:'همهٔ هشدارها بررسی شده‌اند'}</Text></View></View>
       {items.length > 0 && (
         <TouchableOpacity style={[s.readAll, (unreadCount === 0 || busy) && { opacity: 0.5 }]} onPress={markRead} disabled={unreadCount === 0 || busy} accessibilityRole="button">
           <Text style={s.readAllTxt}>
@@ -85,7 +87,7 @@ export default function FieldAlertsScreen({ navigation }) {
           return (
             <TouchableOpacity style={[s.card, !isRead && s.unread]} onPress={() => open(item)} disabled={busy} accessibilityRole="button">
               <View style={s.cardHead}>
-                <Text style={s.title}>{TYPE_ICON[t] || '⚠️'} {item.title}</Text>
+                <View style={s.titleRow}><MaterialCommunityIcons name={TYPE_ICON[t]||'alert-circle-outline'} size={22} color={C.brand}/><Text style={s.title}>{item.title}</Text></View>
                 <View style={[s.badge, isRead ? s.badgeRead : s.badgeUnread]}>
                   <Text style={[s.badgeTxt, isRead ? s.badgeTxtRead : s.badgeTxtUnread]}>{isRead ? 'خوانده‌شده' : 'خوانده‌نشده'}</Text>
                 </View>
@@ -102,6 +104,10 @@ export default function FieldAlertsScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
+  pageHeading:{backgroundColor:'#e9f6f0',borderRadius:18,marginHorizontal:16,marginTop:16,padding:15,flexDirection:'row-reverse',alignItems:'center',gap:12},
+  headerIcon:{width:48,height:48,borderRadius:15,backgroundColor:'#fff',alignItems:'center',justifyContent:'center'},
+  headingTitle:{fontFamily:FONT.bold,fontSize:17,color:C.brand,textAlign:'right'},headingCaption:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:3},
+  titleRow:{flex:1,flexDirection:'row-reverse',alignItems:'center',gap:8},
   errorBox: { padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#f3b8c0', backgroundColor: '#fff1f1', margin: 12 },
   errorText: { fontFamily: FONT.regular, color: '#982b3d', textAlign: 'right', lineHeight: 22 },
   retry: { minHeight: 44, alignSelf: 'flex-end', justifyContent: 'center', paddingHorizontal: 14 },
@@ -116,11 +122,11 @@ const s = StyleSheet.create({
   typeLabel: { fontFamily: FONT.bold, color: C.taxiInk, backgroundColor: C.taxi, alignSelf: 'flex-start', borderRadius: 6, paddingVertical: 2, paddingHorizontal: 8, fontSize: 11, marginBottom: 6 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 40 },
-  readAll: { backgroundColor: C.taxi, padding: 10, alignItems: 'center' },
-  readAllTxt: { color: C.taxiInk, fontFamily: FONT.bold, fontSize: 12 },
-  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 13, padding: 13, marginBottom: 10 },
+  readAll: { backgroundColor: '#fff',borderWidth:1,borderColor:C.line,borderRadius:12,minHeight:48,marginHorizontal:16,marginTop:12,padding: 10,alignItems:'center',justifyContent:'center' },
+  readAllTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 12 },
+  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 18, padding: 16, marginBottom: 10 },
   unread: { borderRightWidth: 4, borderRightColor: C.danger },
-  title: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right' },
+  title: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right',flexShrink:1,fontSize:14 },
   body: { fontFamily: FONT.regular, color: C.ink, textAlign: 'right', marginTop: 4, fontSize: 13 },
   time: { fontFamily: FONT.regular, color: C.muted, fontSize: 11, textAlign: 'right', marginTop: 6 },
 });

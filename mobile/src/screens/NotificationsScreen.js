@@ -5,6 +5,7 @@ import { request } from '../api';
 import { C, FONT } from '../theme';
 import { fj } from '../jdate';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import {MaterialCommunityIcons} from '@expo/vector-icons';
 
 export default function NotificationsScreen({ navigation }) {
   const [data, setData] = useState(null);
@@ -96,6 +97,7 @@ export default function NotificationsScreen({ navigation }) {
         </View>
       )}
       {!!error && <View style={s.errorBox}><Text style={s.errorText}>{error}</Text><TouchableOpacity onPress={load} style={s.retry}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
+      <View style={s.pageHeading}><View style={s.headerIcon}><MaterialCommunityIcons name="bell-outline" size={26} color={C.brand}/></View><View style={{flex:1}}><Text style={s.headingTitle}>اعلان‌های شما</Text><Text style={s.headingCaption}>{unreadCount?`${faNum(unreadCount)} اعلان خوانده‌نشده`:'همهٔ اعلان‌ها بررسی شده‌اند'}</Text></View></View>
       {items.length > 0 && (
         <TouchableOpacity style={[s.readAll, (unreadCount === 0 || actionBusy) && { opacity: 0.5 }]} onPress={markRead} disabled={unreadCount === 0 || actionBusy} accessibilityRole="button">
           <Text style={s.readAllTxt}>
@@ -117,7 +119,7 @@ export default function NotificationsScreen({ navigation }) {
           return (
             <TouchableOpacity style={[s.card, !isRead && s.unread, item.type === 'alert' && s.alert]} onPress={() => open(item)} disabled={opening || actionBusy} accessibilityRole="button">
               <View style={s.cardHead}>
-                <Text style={s.title}>{item.type === 'alert' ? '⚠ ' : ''}{item.title}</Text>
+                <View style={s.titleRow}><MaterialCommunityIcons name={item.type==='alert'?'alert-circle-outline':'bell-outline'} size={21} color={item.type==='alert'?'#aa5d00':C.brand}/><Text style={s.title}>{item.title}</Text></View>
                 <View style={[s.badge, isRead ? s.badgeRead : s.badgeUnread]}>
                   <Text style={[s.badgeTxt, isRead ? s.badgeTxtRead : s.badgeTxtUnread]}>
                     {item.type === 'alert' ? 'هشدار' : (isRead ? 'خوانده‌شده' : 'خوانده‌نشده')}
@@ -137,12 +139,16 @@ export default function NotificationsScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
+  pageHeading:{backgroundColor:'#e9f6f0',borderRadius:18,marginHorizontal:16,marginTop:16,padding:15,flexDirection:'row-reverse',alignItems:'center',gap:12},
+  headerIcon:{width:48,height:48,borderRadius:15,backgroundColor:'#fff',alignItems:'center',justifyContent:'center'},
+  headingTitle:{fontFamily:FONT.bold,fontSize:17,color:C.brand,textAlign:'right'},headingCaption:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:3},
+  titleRow:{flex:1,flexDirection:'row-reverse',alignItems:'center',gap:8},
   errorBox: { margin: 12, padding: 14, borderRadius: 14, backgroundColor: '#fff1f1', borderColor: '#f3b8c0', borderWidth: 1 },
   errorText: { fontFamily: FONT.regular, color: '#982b3d', lineHeight: 22, textAlign: 'right' },
   retry: { alignSelf: 'flex-end', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, marginTop: 8 },
   retryText: { fontFamily: FONT.bold, color: C.brand, fontSize: 12 },
   cardHead: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  badge: { borderRadius: 8, paddingVertical: 3, paddingHorizontal: 9 },
+  badge: { borderRadius: 99, paddingVertical: 6, paddingHorizontal: 10 },
   badgeUnread: { backgroundColor: '#e8f5ef' },
   badgeRead: { backgroundColor: '#eef1f6' },
   badgeTxt: { fontFamily: FONT.bold, fontSize: 11 },
@@ -153,14 +159,14 @@ const s = StyleSheet.create({
   overlayTxt: { fontFamily: FONT.regular, color: C.ink, marginTop: 10 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 40 },
-  readAll: { backgroundColor: C.taxi, padding: 10, alignItems: 'center' },
-  readAllTxt: { color: C.taxiInk, fontFamily: FONT.bold, fontSize: 12 },
+  readAll: { backgroundColor: '#fff',borderWidth:1,borderColor:C.line,borderRadius:12,minHeight:48,marginHorizontal:16,marginTop:12, padding: 10, alignItems: 'center',justifyContent:'center' },
+  readAllTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 12 },
   card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 17, padding: 16, marginBottom: 10 },
-  delBtn: { alignSelf: 'flex-start', marginTop: 8, backgroundColor: '#ffecec', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10 },
+  delBtn: { alignSelf: 'flex-start', minHeight:44,justifyContent:'center',marginTop: 8, backgroundColor: '#fff0f1', borderRadius: 10, paddingVertical: 6, paddingHorizontal: 13 },
   delTxt: { fontFamily: FONT.bold, color: C.danger, fontSize: 11 },
   unread: { borderRightWidth: 4, borderRightColor: C.danger },
   alert: { borderRightWidth: 4, borderRightColor: C.taxi },
-  title: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right' },
+  title: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right',flexShrink:1,fontSize:14 },
   body: { fontFamily: FONT.regular, color: C.ink, textAlign: 'right', marginTop: 4, fontSize: 13 },
   time: { fontFamily: FONT.regular, color: C.muted, fontSize: 11, textAlign: 'right', marginTop: 6 },
 });

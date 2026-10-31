@@ -15,6 +15,7 @@ import { subscribeUnreadCounts, refreshUnreadCounts, unreadLabel } from '../unre
 import { todayFaLong } from '../jdate';
 import { useRadio } from '../radio/RadioContext';
 import { getLockConfig, lockAppNow } from '../AppLock';
+import { readAppItems, refreshAppItems } from '../appItemPermissions';
 
 function RadioHeaderToggle({ navigation }) {
   const { enabled, busy } = useRadio();
@@ -47,11 +48,13 @@ const MENU_TABS = [['all', 'همه'], ['general', 'عمومی'], ['field', 'عم
 const MENU = [
   { t: 'ویرایش اطلاعات خودرو یا موتورسیکلت', r: 'PersonnelVehicleAsset', bg: '#e8f6f0' },
   { t: 'چک‌لیست خودرویی و موتوری', r: 'PersonnelVehicleChecklist', bg: '#eef2fb' },
+  { t: 'خطوط مجاز شما', r: 'MyAllowedLines', bg: '#e7f3ee' },
   { t: 'بی‌سیم', r: 'Radio', bg: '#e8f6f0' }, { t: 'جستجوی تاکسی و تاکسیران', r: 'Search', bg: '#e8f3ff' }, { t: 'حاضرین در خط', r: 'PresentList', bg: '#e9f7f0' }, { t: 'ارسال گزارش', r: 'Reports', bg: '#fff3e6' }, { t: 'ثبت حضور من', r: 'CheckIn', bg: '#e7f3ee' }, { t: 'درخواست‌ها', r: 'Requests', bg: '#eef2fb' }, { t: 'تأیید درخواست‌ها', r: 'RequestInbox', bg: '#fff3e6' }, { t: 'کارکرد من', r: 'WorkSummary', bg: '#f0eefb' }, { t: 'فیش حقوقی', r: 'SalarySlips', bg: '#fff7e6' }, { t: 'ارسال برای شرکت', r: 'CompanyRequests', bg: '#e8f7f4' }, { t: 'اشتراک برنامه', r: 'Subscription', bg: '#fff4d6' }, { t: 'ارسال پیامک', r: 'Sms', bg: '#e7f3ee' }, { t: 'ارسال پیام در ربات‌ها', r: 'BotMessages', bg: '#eef7ff' }, { t: 'پیامک‌های ارسالی من', r: 'MySms', bg: '#eef4ff' }, { t: 'تکمیل فرم‌ها', r: 'Forms', bg: '#f0ecff' }, { t: 'فعالیت‌های فرهنگی', r: 'Cultural', bg: '#fdeef7', needs: 'cultural' }, { t: 'ثبت رفاهیات', r: 'Welfare', bg: '#fef3f8', needs: 'welfare' }, { t: 'حضور مسئولین در خط', r: 'OfficialPresence', bg: '#eafaf3' }, { t: 'اقلام تحویلی', r: 'Inventory', bg: '#f0ecff' }, { t: 'مأموریت روزانه من', r: 'MyDailyMission', bg: '#fff4d8' }, { t: 'برنامه بازدید و پوشش خط', r: 'LineVisitProgram', bg: '#e8f3ff' }, { t: 'ثبت موقعیت و تصویر خطوط', r: 'StationCapture', bg: '#e8f3ff' }, { t: 'ایستگاه‌های ثبت‌شده من', r: 'MyStations', bg: '#eafaf3' }, { t: 'داشبورد و امتیاز من', r: 'RoleDashboard', bg: '#eafaf3' }, { t: 'رتبه‌بندی و نشان‌ها', r: 'Leaderboard', bg: '#fff4d8' }, { t: 'پرکار/کم‌کار هر خط', r: 'ActivityReport', bg: '#eef4ff' }, { t: 'بیمه و معاینه خودروها', r: 'ExpInsurance', bg: '#e9f7f0' }, { t: 'افراد فاقد اعتبار', r: 'ExpTaxi', bg: '#fdeef0' }, { t: 'خودرو فاقد بهره‌برداری', r: 'ExpOplic', bg: '#fff7e0' }, { t: 'زیرمجموعهٔ من', r: 'TeamReport', bg: '#f0ecff' }, { t: 'رانندگان موقت خطوط ویژه', r: 'TempDrivers', bg: '#eef7ff', needs: 'temp' }, { t: 'اعلام قطع سیستم نوبت‌دهی', r: 'Outage', bg: '#fdeef0' }, { t: 'سرویس مدارس', r: 'SchoolService', bg: '#eaf4ff', needs: 'schoolservice' }, { t: 'شکایات تاکسیرانان', r: 'Complaints', bg: '#fff0f2' }
 ];
 const MENU_ICONS = {
   "PersonnelVehicleAsset": "car-cog",
   "PersonnelVehicleChecklist": "clipboard-check-outline",
+  "MyAllowedLines": "routes",
   "Radio": "radio-handheld",
   "Search": "magnify",
   "PresentList": "account-group-outline",
@@ -199,14 +202,20 @@ export default function DashboardScreen({ navigation }) {
 
   const load = () => {
     swr('/my/dashboard', setStats); swr('/my/stats', setMyStats);
-    setAllowed([]);
-    setPermissionState('loading');
-    request('/my/app-items', { noStore: true, forceNetwork: true, queueIfOffline: false })
-      .then((r) => { setAllowed(Array.isArray(r?.items) ? r.items : []); setPermissionState('ready'); })
-      .catch(() => { setAllowed([]); setPermissionState('error'); });
   };
 
-  useEffect(() => { setAllowed([]); setPermissionState('loading'); }, [user?.id]);
+  useEffect(() => {
+    let active = true;
+    setAllowed([]);setPermissionState('loading');
+    (async () => {
+      const cached = await readAppItems(user?.id);
+      if (!active) return;
+      if (cached !== null) { setAllowed(cached);setPermissionState('ready'); }
+      try { const fresh = await refreshAppItems(user?.id); if(active){setAllowed(fresh);setPermissionState('ready');} }
+      catch (_) { if(active && cached === null) setPermissionState('error'); }
+    })();
+    return () => { active = false; };
+  }, [user?.id]);
 
   useEffect(() => {
     let alive = true;

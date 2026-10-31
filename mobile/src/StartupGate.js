@@ -3,20 +3,23 @@ import { View, Text, Image, StyleSheet, TouchableOpacity, Animated, Easing } fro
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiBase } from './config';
 import { loadTokens, request, flushQueuedRequests } from './api';
-import { clearAppConfigCache, getAppConfig } from './appconfig';
+import { getAppConfig } from './appconfig';
 import { refreshSearchCache } from './linecache';
 import { FONT } from './theme';
 import { faNum } from './num';
 import * as Application from 'expo-application';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Network from 'expo-network';
 
 const MAINTENANCE_CACHE_KEY = 'startup_maintenance_status_v1';
 const startupVersion = Application.nativeApplicationVersion || '1.3.74';
 
 async function readMaintenanceStatus() {
   try {
+    const net=await Network.getNetworkStateAsync().catch(()=>null);
+    if(net?.isConnected===false||net?.isInternetReachable===false)throw new Error('offline');
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 12000);
+    const timer = setTimeout(() => ctrl.abort(), 3000);
     const response = await fetch(`${apiBase()}/system/maintenance-status?_=${Date.now()}`, {
       headers: { 'cache-control': 'no-cache', pragma: 'no-cache' },
       signal: ctrl.signal,
@@ -39,17 +42,6 @@ async function readMaintenanceStatus() {
     } catch (_) {}
     return { enabled: false, message: '', unavailable: true };
   }
-}
-
-async function clearServerDataCache() {
-  const keys = await AsyncStorage.getAllKeys();
-  const removable = keys.filter((key) =>
-    key.startsWith('cache:') ||
-    key === 'app_config_v1' ||
-    key === 'search_cache_v1'
-  );
-  if (removable.length) await AsyncStorage.multiRemove(removable);
-  clearAppConfigCache();
 }
 
 export default function StartupGate({ children }) {
@@ -77,15 +69,18 @@ export default function StartupGate({ children }) {
     try {
       await loadTokens();
       setProgress(30);
-      await clearServerDataCache();
+      // داده‌های احراز هویت و فهرست‌های ذخیره‌شده در شروع برنامه پاک نشوند؛
+      // بدون اینترنت، نسخهٔ محلی باید در دسترس بماند.
       setProgress(40);
-      // پیکربندی عمومی/شخصی برنامه از سرور دوباره دریافت می‌شود.
-      await getAppConfig(true).catch(() => null);
+      // تازه‌سازی به‌صورت پس‌زمینه؛ صفحهٔ شروع منتظر دانلود فایل‌ها نیست.
+      const net=await Network.getNetworkStateAsync().catch(()=>null);
+      if(net?.isConnected!==false&&net?.isInternetReachable!==false){
+        getAppConfig(true).catch(()=>null);
+        refreshSearchCache(true).catch(()=>null);
+        request('/auth/me',{noStore:true,timeoutMs:5000}).catch(()=>null);
+      }
       setProgress(55);
-      await refreshSearchCache(true).catch(() => null);
       setProgress(65);
-      // در صورت وجود نشست، دادهٔ کاربر نیز بدون استفاده از کش تازه می‌شود.
-      await request('/auth/me', { noStore: true }).catch(() => null);
       setProgress(75);
     } catch (_) {}
 
@@ -97,7 +92,7 @@ export default function StartupGate({ children }) {
     setProgress(90);
 
     setPhase('در حال آماده‌سازی برنامه…');
-    const remain = Math.max(0, 5000 - (Date.now() - startedAt));
+    const remain = Math.max(0, 1500 - (Date.now() - startedAt));
     if (remain) await new Promise(resolve => setTimeout(resolve, remain));
     setProgress(100);
     setReady(true);

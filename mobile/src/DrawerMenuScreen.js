@@ -11,6 +11,7 @@ import { useAuth } from './auth';
 import { request, uploadFile, flushQueuedRequests, imageSource } from './api';
 import { pending as pendingOfflineQueue } from './offline';
 import { subscribeUnreadCounts, refreshUnreadCounts, unreadLabel } from './unread';
+import { readAppItems, refreshAppItems } from './appItemPermissions';
 
 const ITEMS = [
   ['Notifications', 'اعلان‌ها', 'bell-outline'],
@@ -67,9 +68,7 @@ export default function DrawerMenuScreen({ navigation }) {
     setRoleAppAccess([]);
     setRoleAccessLoading(true);
     setRoleAccessError(false);
-    request('/my/app-items', { noStore: true, forceNetwork: true, queueIfOffline: false, timeoutMs: 10000 })
-      .then(r => { if (active) { setRoleAppAccess(Array.isArray(r?.items) ? r.items : []); setRoleAccessLoading(false); } })
-      .catch(() => { if (active) { setRoleAppAccess([]); setRoleAccessError(true); setRoleAccessLoading(false); } });
+    (async()=>{const cached=await readAppItems(user?.id);if(!active)return;if(cached!==null){setRoleAppAccess(cached);setRoleAccessLoading(false);}try{const fresh=await refreshAppItems(user?.id);if(active){setRoleAppAccess(fresh);setRoleAccessLoading(false);setRoleAccessError(false);}}catch(_){if(active&&cached===null){setRoleAppAccess([]);setRoleAccessError(true);setRoleAccessLoading(false);}}})();
     return () => { active = false; };
   }, [user?.id, user?.role_id, accessAttempt]);
 

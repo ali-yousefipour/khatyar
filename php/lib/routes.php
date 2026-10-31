@@ -1559,6 +1559,10 @@ route('POST', '/api/admin/maintenance', function($p,$b,$u){
 route('GET', '/api/admin/role-app-items', function($p,$b,$u){
   $row = Db::one("SELECT value FROM app_settings WHERE `key`='role_app_items'");
   $cfg = $row ? json_decode($row['value'], true) : [];
+  $configured = Db::one("SELECT value FROM app_settings WHERE `key`='role_app_items_allowed_lines_v1'");
+  if (($configured['value'] ?? '') !== '1' && is_array($cfg)) foreach ($cfg as &$roleItems) {
+    if (is_array($roleItems) && !in_array('MyAllowedLines', $roleItems, true)) $roleItems[] = 'MyAllowedLines';
+  } unset($roleItems);
   $roles = Db::all("SELECT id, title, level FROM roles ORDER BY level DESC");
   return ['roles'=>$roles, 'config'=>$cfg ?: new stdClass()];
 }, false, ADMIN);
@@ -1567,19 +1571,22 @@ route('POST', '/api/admin/role-app-items', function($p,$b,$u){
   $cfg = $b['config'] ?? [];
   Db::run("INSERT INTO app_settings(`key`,value) VALUES('role_app_items',?)
            ON DUPLICATE KEY UPDATE value=VALUES(value)", [json_encode($cfg, JSON_UNESCAPED_UNICODE)]);
+  Db::run("INSERT INTO app_settings(`key`,value) VALUES('role_app_items_allowed_lines_v1','1') ON DUPLICATE KEY UPDATE value='1'");
   return ['ok'=>true];
 }, false, ADMIN);
 
 // آیتم‌های مجاز اپ برای کاربر جاری (بر اساس سمت او)
 route('GET', '/api/my/app-items', function($p,$b,$u){
   // Keep in sync with the Android-only editor; no extra deployment module is required.
-  $allItems = ['Dashboard','Search','Driver','Vehicle','Debt','Checklist','Notice','Reports','Sms','BotMessages','Requests','RequestInbox','WorkSummary','SalarySlips','CompanyRequests','Subscription','CheckIn','Forms','Cultural','Welfare','TempDrivers','Notifications','FieldAlerts','ActivityReport','ExpInsurance','ExpTaxi','ExpOplic','TeamReport','InboxReports','ReportDetail','OfficialPresence','Inventory','Messages','Attendance','PastNotices','PastChecklists','DriverSms','MySms','CustomFields','Outage','Profile','ChangePassword','EditProfile','PersonnelVehicleAsset','PersonnelVehicleChecklist','MapSettings','ExpiryNotificationSettings','FieldAlertSettings','ImportTimes','AppLockSettings','CrashReports','LineVisitProgram','LineLocation','MyDailyMission','RoleDashboard','Leaderboard','Radio','Help','StationCapture','MyStations','PresentList','SendQueue','Settings','PrivacyPolicy','AboutApp','SchoolService','Complaints','ComplaintDetail','PresenceCheckWizard'];
+  $allItems = ['Dashboard','Search','Driver','Vehicle','Debt','Checklist','Notice','Reports','Sms','BotMessages','Requests','RequestInbox','WorkSummary','SalarySlips','CompanyRequests','Subscription','CheckIn','Forms','Cultural','Welfare','TempDrivers','Notifications','FieldAlerts','ActivityReport','ExpInsurance','ExpTaxi','ExpOplic','TeamReport','InboxReports','ReportDetail','OfficialPresence','Inventory','Messages','Attendance','PastNotices','PastChecklists','DriverSms','MySms','CustomFields','Outage','Profile','MyAllowedLines','ChangePassword','EditProfile','PersonnelVehicleAsset','PersonnelVehicleChecklist','MapSettings','ExpiryNotificationSettings','FieldAlertSettings','ImportTimes','AppLockSettings','CrashReports','LineVisitProgram','LineLocation','MyDailyMission','RoleDashboard','Leaderboard','Radio','Help','StationCapture','MyStations','PresentList','SendQueue','Settings','PrivacyPolicy','AboutApp','SchoolService','Complaints','ComplaintDetail','PresenceCheckWizard'];
   $row = Db::one("SELECT value FROM app_settings WHERE `key`='role_app_items'");
   $cfg = $row ? json_decode($row['value'], true) : [];
   $rid = (string)($u['role_id'] ?? '');
   // An unconfigured role inherits the full catalogue; an explicitly empty role has no access.
   $items = (is_array($cfg) && array_key_exists($rid, $cfg) && is_array($cfg[$rid]))
     ? array_values(array_intersect($allItems, $cfg[$rid])) : $allItems;
+  $configured = Db::one("SELECT value FROM app_settings WHERE `key`='role_app_items_allowed_lines_v1'");
+  if (($configured['value'] ?? '') !== '1' && !in_array('MyAllowedLines', $items, true)) $items[] = 'MyAllowedLines';
   return ['items'=>$items];
 }, false);
 
