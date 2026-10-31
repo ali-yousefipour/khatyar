@@ -18527,7 +18527,52 @@ function PersonnelLeaveReport() {
                 !((_a = data.requests) === null || _a === void 0 ? void 0 : _a.length) && React.createElement("p", { className: "muted", style: { padding: 12 } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0645\u0631\u062E\u0635\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647\u200C\u0627\u06CC \u062F\u0631 \u0633\u0627\u0645\u0627\u0646\u0647 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")))),
         React.createElement("p", { className: "muted", style: { fontSize: 11, marginTop: 12 } }, "\u00AB\u0645\u062C\u0627\u0632\u00BB \u0627\u0632 \u062C\u0645\u0639 \u0645\u0635\u0631\u0641 \u0648 \u0645\u0627\u0646\u062F\u0647 \u062F\u0631 \u0641\u0627\u06CC\u0644 \u0645\u0628\u0646\u0627 \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u0633\u0648\u0627\u0628\u0642 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0641\u0642\u0637 \u0627\u0632 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u0648 \u0645\u0631\u062A\u0628\u0637 \u062F\u0631 \u0633\u0627\u0645\u0627\u0646\u0647 \u0645\u06CC\u200C\u0622\u06CC\u062F. \u0645\u0642\u0627\u062F\u06CC\u0631 \u0645\u0646\u0641\u06CC \u0639\u06CC\u0646\u0627\u064B \u062D\u0641\u0638 \u0634\u062F\u0647\u200C\u0627\u0646\u062F."));
 }
+// Print-only A4 landscape layout, based on the supplied Finto invoice sample.
+// This is a local sales invoice; it does not replace a tax-authority invoice.
+function buildFintoInvoiceHtml(invoice, seller) {
+    const esc = v => String(v !== null && v !== void 0 ? v : "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const number = v => Number(v || 0).toLocaleString("fa-IR");
+    const buyer = typeof invoice.company_snapshot === "string" ? JSON.parse(invoice.company_snapshot || "{}") : invoice.company_snapshot || {};
+    const items = typeof invoice.line_items === "string" ? JSON.parse(invoice.line_items || "[]") : invoice.line_items || [];
+    const label = (title, value) => `<span><b>${title}:</b> ${esc(value || " ")}</span>`;
+    const party = (title, entity, isSeller) => `<section class="party"><h2>${title}</h2><div class="party-grid">
+    ${label("نام شخص حقیقی/حقوقی", isSeller ? entity.name : entity.company_name)}${label("شماره اقتصادی", entity.economic_code)}${label("شماره ثبت", entity.registration_number)}
+    ${label("نشانی کامل", entity.address)}${label("استان", entity.province)}${label("شهر", entity.city)}
+    ${label("شناسه ملی", entity.national_id)}${label("کدپستی ۱۰ رقمی", entity.postal_code)}${label("شماره تلفن", entity.phone)}
+  </div></section>`;
+    const subtotal = Number(invoice.subtotal_rial || 0), discount = Number(invoice.discount_rial || 0), tax = Number(invoice.tax_rial || 0);
+    let assignedDiscount = 0, assignedTax = 0;
+    const rows = (Array.isArray(items) ? items : []).map((item, index, arr) => {
+        var _a;
+        const amount = Number((_a = item.total_rial) !== null && _a !== void 0 ? _a : Number(item.quantity || 0) * Number(item.unit_price_rial || 0));
+        const share = subtotal > 0 ? amount / subtotal : 0;
+        const rowDiscount = index === arr.length - 1 ? discount - assignedDiscount : Math.round(discount * share);
+        const rowTax = index === arr.length - 1 ? tax - assignedTax : Math.round(tax * share);
+        assignedDiscount += rowDiscount;
+        assignedTax += rowTax;
+        return `<tr><td>${number(index + 1)}</td><td></td><td class="description">${esc(item.title)}</td><td>${number(item.quantity)}</td><td>عدد</td><td>${number(item.unit_price_rial)}</td><td>${number(amount)}</td><td>${number(rowDiscount)}</td><td>${number(amount - rowDiscount)}</td><td>${number(rowTax)}</td><td>${number(amount - rowDiscount + rowTax)}</td></tr>`;
+    }).join("");
+    const date = String(invoice.issued_date || "").replace(/-/g, "/");
+    return `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><title>صورتحساب ${esc(invoice.invoice_number)}</title><style>
+  @page{size:A4 landscape;margin:11mm 10mm}*{box-sizing:border-box}body{margin:0;color:#111;font-family:Tahoma,Arial,sans-serif;font-size:10px;direction:rtl;background:#fff}h1,h2,p{margin:0}header{height:63px;display:grid;grid-template-columns:1fr 1fr 1fr;align-items:start}header h1{text-align:center;font-size:15px;margin-top:4px}header .page{text-align:right;font-size:11px}header .meta{display:grid;grid-template-columns:90px 110px;gap:3px 6px;align-items:center;justify-content:end;text-align:right}header .meta strong{border:1px solid #333;text-align:center;padding:3px;font-size:11px;font-weight:400;direction:ltr}.party{border:1px solid #222;margin-bottom:2px}.party h2,.section-heading{font-size:12px;text-align:center;border-bottom:2px solid #222;padding:5px;font-weight:700}.party-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 16px;padding:9px 7px;min-height:65px}.party-grid span{white-space:normal;overflow-wrap:anywhere}.party-grid b{font-weight:500}.section-heading{border:1px solid #222;margin-top:2px}table{width:100%;border-collapse:collapse;table-layout:fixed;direction:rtl;font-size:9px}th,td{border:1px solid #111;text-align:center;padding:6px 3px;vertical-align:middle}th{height:52px;font-weight:700}td{height:47px}td.description{text-align:right;line-height:1.7;overflow-wrap:anywhere}table th:nth-child(1){width:3%}table th:nth-child(2){width:5%}table th:nth-child(3){width:21%}table th:nth-child(4){width:7%}table th:nth-child(5){width:7%}table th:nth-child(6){width:9%}table th:nth-child(7){width:9%}table th:nth-child(8){width:7%}table th:nth-child(9){width:11%}table th:nth-child(10){width:10%}table th:nth-child(11){width:11%}tfoot td{height:30px;font-weight:700}tfoot .words{text-align:right;font-weight:400}.conditions{width:50%;margin-right:0;margin-left:auto;border:1px solid #222;font-size:11px}.conditions>div{padding:6px;border-bottom:1px solid #222}.conditions>div:last-child{border-bottom:0;min-height:33px}.signatures{display:flex;justify-content:space-between;min-height:135px;align-items:flex-end;padding:0 55px 8px}.signatures span{width:38%;text-align:center;font-size:12px}.disclaimer{font-size:8px;text-align:center;color:#555;margin-top:5px}.actions{padding:10px;text-align:center}@media print{.actions{display:none}thead{display:table-header-group}tr{break-inside:avoid}}@media screen{body{max-width:1180px;margin:15px auto;padding:14px}.actions button{padding:8px 18px}}
+  </style></head><body><header><div class="page">صفحه ۱ از ۱</div><h1>صورتحساب فروش کالا و خدمات</h1><div class="meta"><span>شماره سریال:</span><strong>${esc(invoice.invoice_number)}</strong><span>تاریخ:</span><strong>${esc(date)}</strong></div></header>
+  ${party("مشخصات فروشنده", seller, true)}${party("مشخصات خریدار", buyer, false)}<h2 class="section-heading">مشخصات کالا یا خدمات مورد معامله</h2>
+  <table><thead><tr><th>ردیف</th><th>کد کالا</th><th>شرح کالا یا خدمات</th><th>تعداد/مقدار</th><th>واحد اندازه‌گیری</th><th>مبلغ واحد (ریال)</th><th>مبلغ کل (ریال)</th><th>مبلغ تخفیف</th><th>مبلغ کل پس از تخفیف (ریال)</th><th>جمع عوارض و مالیات (ریال)</th><th>مبلغ کل بعلاوه مالیات و عوارض (ریال)</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="6" class="words">جمع کل به حروف: —</td><td>${number(subtotal)}</td><td>${number(discount)}</td><td>${number(subtotal - discount)}</td><td>${number(tax)}</td><td>${number(invoice.total_rial)}</td></tr></tfoot></table>
+  <div class="conditions"><div>شرایط و نحوه فروش: نقدی ☐　غیرنقدی ☐</div><div>توضیحات: ${esc(invoice.description || "")}</div></div>
+  <div class="signatures"><span>مهر و امضای فروشنده:</span><span>مهر و امضای خریدار:</span></div><div class="disclaimer">این فاکتور داخلی است و جایگزین صورتحساب الکترونیکی سامانه مؤدیان نیست.</div><div class="actions"><button onclick="window.print()">چاپ / ذخیره PDF</button></div></body></html>`;
+}
 function SubscriptionInvoicesAdmin() {
+    const [invoiceTab, setInvoiceTab] = useState("standard");
+    const [seller, setSeller] = useState(() => { try {
+        return JSON.parse(localStorage.getItem("khatyar.finto.invoice.seller.v1") || "{}") || {};
+    }
+    catch (_) {
+        return {};
+    } });
+    const updateSeller = (key, value) => setSeller(prev => { const next = { ...prev, [key]: value }; try {
+        localStorage.setItem("khatyar.finto.invoice.seller.v1", JSON.stringify(next));
+    }
+    catch (_) { } return next; });
     const [companies, setCompanies] = useState([]);
     const [invoices, setInvoices] = useState([]);
     const [error, setError] = useState("");
@@ -18622,6 +18667,26 @@ function SubscriptionInvoicesAdmin() {
     };
     const cleanPrint = s => String(s !== null && s !== void 0 ? s : "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     const printInvoice = invoice => {
+        if (invoiceTab === "finto") {
+            let html;
+            try {
+                html = buildFintoInvoiceHtml(invoice, seller);
+            }
+            catch (_) {
+                setError("اطلاعات این فاکتور برای چاپ معتبر نیست.");
+                return;
+            }
+            const popup = window.open("", "_blank");
+            if (!popup) {
+                setError("مرورگر پنجره چاپ را مسدود کرده است.");
+                return;
+            }
+            popup.document.open();
+            popup.document.write(html);
+            popup.document.close();
+            popup.focus();
+            return;
+        }
         const company = typeof invoice.company_snapshot === "string" ? JSON.parse(invoice.company_snapshot) : invoice.company_snapshot;
         const items = typeof invoice.line_items === "string" ? JSON.parse(invoice.line_items) : invoice.line_items;
         const rows = (Array.isArray(items) ? items : []).map((x, i) => '<tr><td>' + (i + 1) + '</td><td>' + cleanPrint(x.title) + '</td><td>' + cleanPrint(x.quantity) + '</td><td>' + cleanPrint(Number(x.unit_price_rial).toLocaleString("fa-IR")) + '</td><td>' + cleanPrint(Number(x.total_rial).toLocaleString("fa-IR")) + '</td></tr>').join("");
@@ -18641,6 +18706,17 @@ function SubscriptionInvoicesAdmin() {
         React.createElement("input", { className: "input", type: type, value: value !== null && value !== void 0 ? value : "", onChange: e => onChange(e.target.value) }));
     const statusFa = { unpaid: "پرداخت‌نشده", paid: "پرداخت‌شده", cancelled: "باطل‌شده" };
     return React.createElement("div", { className: "admin-workspace-page", style: { direction: "rtl" } },
+        React.createElement("div", { className: "panel" },
+            React.createElement("div", { role: "tablist", "aria-label": "\u0642\u0627\u0644\u0628 \u0635\u062F\u0648\u0631 \u0641\u0627\u06A9\u062A\u0648\u0631", className: "row", style: { gap: 10, flexWrap: "wrap" } },
+                React.createElement("button", { type: "button", role: "tab", "aria-selected": invoiceTab === "standard", className: invoiceTab === "standard" ? "btn p" : "btn g", onClick: () => setInvoiceTab("standard") }, "\u0641\u0627\u06A9\u062A\u0648\u0631 \u0645\u0639\u0645\u0648\u0644\u06CC"),
+                React.createElement("button", { type: "button", role: "tab", "aria-selected": invoiceTab === "finto", className: invoiceTab === "finto" ? "btn p" : "btn g", onClick: () => setInvoiceTab("finto") }, "\u0641\u0627\u06A9\u062A\u0648\u0631 \u0628\u0627 \u0642\u0627\u0644\u0628 \u0641\u06CC\u0646\u062A\u0648")),
+            invoiceTab === "finto" && React.createElement("div", { style: { marginTop: 14 } },
+                React.createElement("h4", null, "\u0645\u0634\u062E\u0635\u0627\u062A \u0641\u0631\u0648\u0634\u0646\u062F\u0647 \u062F\u0631 \u0642\u0627\u0644\u0628 \u0641\u06CC\u0646\u062A\u0648"),
+                React.createElement("p", { className: "muted" }, "\u0645\u0634\u062E\u0635\u0627\u062A \u0641\u0631\u0648\u0634\u0646\u062F\u0647 \u0641\u0642\u0637 \u062F\u0631 \u0627\u06CC\u0646 \u0645\u0631\u0648\u0631\u06AF\u0631 \u0630\u062E\u06CC\u0631\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062D\u0642\u06CC\u0642\u06CC \u06CC\u0627 \u062D\u0642\u0648\u0642\u06CC \u0631\u0627 \u0645\u0637\u0627\u0628\u0642 \u0645\u062F\u0627\u0631\u06A9 \u062E\u0648\u062F \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F\u061B \u062E\u0627\u0646\u0647\u200C\u0647\u0627\u06CC \u062E\u0627\u0644\u06CC \u062F\u0631 \u0686\u0627\u067E \u062E\u0627\u0644\u06CC \u0645\u06CC\u200C\u0645\u0627\u0646\u0646\u062F."),
+                React.createElement("div", { className: "row", style: { gap: 9, flexWrap: "wrap" } }, [["name", "نام شخص حقیقی/حقوقی"], ["economic_code", "شماره اقتصادی"], ["registration_number", "شماره ثبت"], ["national_id", "شناسه ملی"], ["postal_code", "کدپستی"], ["province", "استان"], ["city", "شهر"], ["phone", "شماره تلفن"], ["address", "نشانی کامل"]].map(([key, title]) => React.createElement("label", { key: key, style: { display: "grid", gap: 4, flex: "1 1 190px" } },
+                    React.createElement("span", { className: "muted" }, title),
+                    React.createElement("input", { className: "input", value: seller[key] || "", onChange: e => updateSeller(key, e.target.value) })))),
+                React.createElement("p", { className: "muted", style: { marginTop: 10 } }, "\u0628\u0631\u0627\u06CC \u0686\u0627\u067E\u060C \u0627\u0632 \u062F\u06A9\u0645\u0647 \u00AB\u0646\u0645\u0627\u06CC\u0634 \u0648 \u0686\u0627\u067E\u00BB \u06A9\u0646\u0627\u0631 \u0647\u0631 \u0641\u0627\u06A9\u062A\u0648\u0631 \u062F\u0631 \u067E\u0627\u06CC\u06CC\u0646 \u0635\u0641\u062D\u0647 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F\u061B \u0627\u0646\u062F\u0627\u0632\u0647\u0654 \u06A9\u0627\u063A\u0630 A4 \u0648 \u062C\u0647\u062A \u0627\u0641\u0642\u06CC \u0627\u0633\u062A."))),
         React.createElement("div", { className: "panel" },
             React.createElement("h3", null, "\u0635\u062F\u0648\u0631 \u0641\u0627\u06A9\u062A\u0648\u0631 \u0641\u0631\u0648\u0634 \u0627\u0634\u062A\u0631\u0627\u06A9 \u062E\u0637\u06CC\u0627\u0631"),
             React.createElement("p", { className: "muted" }, "\u0645\u0628\u0627\u0644\u063A \u0628\u0631 \u062D\u0633\u0628 \u0631\u06CC\u0627\u0644 \u0627\u0633\u062A. \u0645\u0627\u0644\u06CC\u0627\u062A \u0648 \u062A\u062E\u0641\u06CC\u0641 \u062A\u0646\u0647\u0627 \u0645\u0637\u0627\u0628\u0642 \u0645\u0642\u0627\u062F\u06CC\u0631\u06CC \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F \u06A9\u0647 \u062F\u0631 \u0641\u0627\u06A9\u062A\u0648\u0631 \u0648\u0627\u0631\u062F \u06A9\u0631\u062F\u0647\u200C\u0627\u06CC\u062F."),
