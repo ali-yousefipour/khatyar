@@ -12,40 +12,59 @@ const TYPE_LABEL = { station_exit: 'خروج از خط', station_enter: 'ورو�
 export default function FieldAlertsScreen({ navigation }) {
   const [data, setData] = useState(null);
   const [allRead, setAllRead] = useState(false);
+  const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const load = useCallback(() => {
-    request('/my/field-alerts').then(d => { setData(d); setAllRead(false); }).catch(() => setData({ items: [], unread: 0 }));
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const d = await request('/my/field-alerts', { noStore: true });
+      if (!Array.isArray(d?.items)) throw new Error('پاسخ هشدارها معتبر نیست.');
+      setData(d); setAllRead(false); setError('');
+    } catch (e) { setError(e?.message || 'دریافت هشدارهای میدانی ناموفق بود.'); }
+    finally { setRefreshing(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   async function markRead() {
-    await request('/my/field-alerts/read', { method: 'POST' }).catch(() => {});
-    setAllRead(true);
-    setData(prev => prev ? { ...prev, unread: 0, items: (prev.items || []).map(n => ({ ...n, is_read: true })) } : prev);
-    setTimeout(() => load(), 1000);
+    setBusy(true);
+    try {
+      await request('/my/field-alerts/read', { method: 'POST', queueIfOffline: false });
+      setAllRead(true);
+      setData(prev => prev ? { ...prev, unread: 0, items: (prev.items || []).map(n => ({ ...n, is_read: true })) } : prev);
+      setError('');
+    } catch (e) { setError(e?.message || 'ثبت خوانده‌شدن هشدارها ناموفق بود.'); }
+    finally { setBusy(false); }
   }
 
   async function open(n) {
     if (n.id && !n.is_read) {
-      await request(`/my/notifications/${n.id}/read`, { method: 'POST' }).catch(() => {});
-      setData(prev => prev ? {
-        ...prev,
-        unread: Math.max(0, (prev.unread || 1) - 1),
-        items: (prev.items || []).map(x => x.id === n.id ? { ...x, is_read: true } : x),
-      } : prev);
+      setBusy(true);
+      try {
+        await request(`/my/notifications/${n.id}/read`, { method: 'POST', queueIfOffline: false });
+        setData(prev => prev ? {
+          ...prev,
+          unread: Math.max(0, (prev.unread || 1) - 1),
+          items: (prev.items || []).map(x => x.id === n.id ? { ...x, is_read: true } : x),
+        } : prev);
+        setError('');
+      } catch (e) { setError(e?.message || 'ثبت خوانده‌شدن هشدار ناموفق بود.'); }
+      finally { setBusy(false); }
     }
   }
 
-  if (!data) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
+  if (!data && refreshing) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
 
-  const items = data.items || [];
-  const unreadCount = allRead ? 0 : Math.min((data.unread != null ? data.unread : items.filter(n => !n.is_read).length), 99);
+  const items = data?.items || [];
+  const unreadCount = allRead ? 0 : Math.min((data?.unread != null ? data.unread : items.filter(n => !n.is_read).length), 99);
 
   return (
     <View style={{ flex: 1, backgroundColor: C.paper }}>
+      {!!error && <View style={s.errorBox}><Text style={s.errorText}>{error}</Text><TouchableOpacity accessibilityRole="button" style={s.retry} onPress={load}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
       {items.length > 0 && (
-        <TouchableOpacity style={[s.readAll, unreadCount === 0 && { opacity: 0.5 }]} onPress={markRead} disabled={unreadCount === 0}>
+        <TouchableOpacity style={[s.readAll, (unreadCount === 0 || busy) && { opacity: 0.5 }]} onPress={markRead} disabled={unreadCount === 0 || busy} accessibilityRole="button">
           <Text style={s.readAllTxt}>
             {unreadCount > 0
               ? `علامت‌گذاری همه به‌عنوان خوانده‌شده (${unreadCount > 99 ? '+۹۹' : faNum(unreadCount)})`
@@ -55,14 +74,16 @@ export default function FieldAlertsScreen({ navigation }) {
       )}
       <FlatList
         data={items}
+        refreshing={refreshing}
+        onRefresh={load}
         keyExtractor={(i, idx) => String(i.id || 'a' + idx)}
         contentContainerStyle={{ padding: 16, paddingBottom: 56 }}
-        ListEmptyComponent={<Text style={s.empty}>هشدار میدانی‌ای وجود ندارد</Text>}
+        ListEmptyComponent={<Text style={s.empty}>{error ? 'دریافت هشدارها انجام نشد؛ دوباره تلاش کنید.' : 'هشدار میدانی‌ای وجود ندارد'}</Text>}
         renderItem={({ item }) => {
           const isRead = allRead || !!item.is_read;
           const t = item.data?.type;
           return (
-            <TouchableOpacity style={[s.card, !isRead && s.unread]} onPress={() => open(item)}>
+            <TouchableOpacity style={[s.card, !isRead && s.unread]} onPress={() => open(item)} disabled={busy} accessibilityRole="button">
               <View style={s.cardHead}>
                 <Text style={s.title}>{TYPE_ICON[t] || '⚠️'} {item.title}</Text>
                 <View style={[s.badge, isRead ? s.badgeRead : s.badgeUnread]}>
@@ -81,6 +102,10 @@ export default function FieldAlertsScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
+  errorBox: { padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#f3b8c0', backgroundColor: '#fff1f1', margin: 12 },
+  errorText: { fontFamily: FONT.regular, color: '#982b3d', textAlign: 'right', lineHeight: 22 },
+  retry: { minHeight: 44, alignSelf: 'flex-end', justifyContent: 'center', paddingHorizontal: 14 },
+  retryText: { color: C.brand, fontFamily: FONT.bold },
   cardHead: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   badge: { borderRadius: 11, paddingVertical: 6, paddingHorizontal: 9 },
   badgeUnread: { backgroundColor: '#fdecea' },
