@@ -25,6 +25,7 @@ export default function InventoryScreen() {
   const [pending, setPending] = useState([]);
   const [history, setHistory] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   // فرم تحویل
   const [itemTypeId, setItemTypeId] = useState(null);
@@ -44,19 +45,23 @@ export default function InventoryScreen() {
   const [expandedHistory, setExpandedHistory] = useState(null);
 
   const loadAll = useCallback(async () => {
-    const [b, it, rc, pd, hs] = await Promise.all([
-      request('/inventory/balance').catch(() => ({ items: [] })),
-      request('/inventory/item-types').catch(() => ({ items: [] })),
-      request('/inventory/recipients').catch(() => ({ roles: [], users: [] })),
-      request('/inventory/pending').catch(() => ({ items: [] })),
-      request('/inventory/history').catch(() => ({ items: [] })),
-    ]);
-    setBalance(b.items || []);
-    setItemTypes(it.items || []);
-    setRoles((rc.roles || []).map((r) => r.title));
-    setUsers(rc.users || []);
-    setPending(pd.items || []);
-    setHistory(hs.items || []);
+    try {
+      const [b, it, rc, pd, hs] = await Promise.all([
+        request('/inventory/balance', { noStore: true }),
+        request('/inventory/item-types', { noStore: true }),
+        request('/inventory/recipients', { noStore: true }),
+        request('/inventory/pending', { noStore: true }),
+        request('/inventory/history', { noStore: true }),
+      ]);
+      if (![b?.items, it?.items, rc?.users, pd?.items, hs?.items].every(Array.isArray)) throw new Error('اطلاعات انبار ناقص دریافت شد.');
+      setBalance(b.items);
+      setItemTypes(it.items);
+      setRoles((rc.roles || []).map((r) => r.title));
+      setUsers(rc.users);
+      setPending(pd.items);
+      setHistory(hs.items);
+      setLoadError('');
+    } catch (e) { setLoadError(e?.message || 'دریافت اطلاعات انبار ناموفق بود.'); }
   }, []);
 
   useEffect(() => {
@@ -73,14 +78,16 @@ export default function InventoryScreen() {
   const doDeliver = async () => {
     if (!itemTypeId) { Alert.alert('توجه', 'نوع قلم را انتخاب کنید.'); return; }
     if (!picked) { Alert.alert('توجه', 'ابتدا سمت و سپس شخص تحویل‌گیرنده را انتخاب کنید.'); return; }
-    const n = parseInt(enNum(qty), 10);
-    if (!n || isNaN(n)) { Alert.alert('توجه', 'تعداد را وارد کنید (می‌تواند مثبت یا منفی باشد).'); return; }
+    const normalized = enNum(qty).trim();
+    const n = Number(normalized);
+    if (!/^-?[1-9]\d*$/.test(normalized) || !Number.isSafeInteger(n)) { Alert.alert('توجه', 'تعداد باید عدد صحیح غیرصفر باشد (مثبت یا منفی).'); return; }
+    if (loadError) { Alert.alert('توجه', 'اطلاعات انبار کامل دریافت نشده است. دوباره تلاش کنید.'); return; }
     setBusy(true);
     try {
-      await request('/inventory/deliver', { method: 'POST', body: { item_type_id: itemTypeId, to_user_id: picked.id, quantity: n, note, transferable: allowResend } });
+      await request('/inventory/deliver', { method: 'POST', queueIfOffline: false, body: { item_type_id: itemTypeId, to_user_id: picked.id, quantity: n, note, transferable: allowResend } });
       Alert.alert('انجام شد', 'تحویل ثبت شد؛ پس از تأیید گیرنده، به موجودی او افزوده می‌شود.');
       setQty(''); setNote(''); setPicked(null); setRoleSel(''); setAllowResend(true);
-      loadAll();
+      await loadAll();
       setTab('history');
     } catch (e) {
       Alert.alert('خطا', e.message || 'ثبت تحویل ناموفق بود.');
@@ -89,7 +96,7 @@ export default function InventoryScreen() {
 
   const doConfirm = async (id) => {
     setBusy(true);
-    try { await request(`/inventory/confirm/${id}`, { method: 'POST', body: {} }); loadAll(); }
+    try { await request(`/inventory/confirm/${id}`, { method: 'POST', queueIfOffline: false, body: {} }); await loadAll(); }
     catch (e) { Alert.alert('خطا', e.message || 'تأیید ناموفق بود.'); }
     finally { setBusy(false); }
   };
@@ -98,7 +105,7 @@ export default function InventoryScreen() {
       { text: 'انصراف', style: 'cancel' },
       { text: 'رد کن', style: 'destructive', onPress: async () => {
         setBusy(true);
-        try { await request(`/inventory/reject/${id}`, { method: 'POST', body: {} }); loadAll(); }
+        try { await request(`/inventory/reject/${id}`, { method: 'POST', queueIfOffline: false, body: {} }); await loadAll(); }
         catch (e) { Alert.alert('خطا', e.message || 'رد ناموفق بود.'); }
         finally { setBusy(false); }
       } },
@@ -119,6 +126,7 @@ export default function InventoryScreen() {
           </TouchableOpacity>
         ))}
       </View>
+      {!!loadError && <View style={s.errorBox}><Text style={s.errorText}>{loadError}</Text><TouchableOpacity accessibilityRole="button" onPress={onRefresh} style={s.retry}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
 
       <ScrollView persistentScrollbar={true} style={s.body} contentContainerStyle={s.bodyContent} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <View style={s.hero}><View style={s.heroHeading}><MaterialCommunityIcons name="package-variant-closed" color="#fff" size={25}/><Text style={s.heroTitle}>{TABS.find(([k])=>k===tab)?.[1]}</Text></View><Text style={s.heroCaption}>{tab==='balance'?'موجودی اقلام و میزان قابل انتقال شما':tab==='deliver'?'ثبت تحویل جدید با تأیید نهایی گیرنده':tab==='pending'?'تحویل‌های منتظر بررسی و تصمیم شما':'سوابق تحویل، دریافت و وضعیت تأیید اقلام'}</Text></View>
@@ -171,7 +179,7 @@ export default function InventoryScreen() {
               <Text style={s.checkLabel}>تحویل‌گیرنده اجازه داشته باشد این قلم را به شخص دیگری هم منتقل کند</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[s.mainBtn, busy && { opacity: 0.6 }]} disabled={busy} onPress={doDeliver}>
+            <TouchableOpacity style={[s.mainBtn, (busy || !!loadError) && { opacity: 0.6 }]} disabled={busy || !!loadError} onPress={doDeliver}>
               <Text style={s.mainBtnTxt}>{busy ? 'در حال ارسال…' : 'تحویل'}</Text>
             </TouchableOpacity>
             <View style={s.notice}><MaterialCommunityIcons name="information-outline" size={19} color={C.brand}/><Text style={[s.hint,{flex:1,marginTop:0}]}>این انتقال پس از تأیید گیرنده نهایی می‌شود و تا آن زمان از موجودی شما کسر نهایی نخواهد شد.</Text></View>
@@ -191,8 +199,8 @@ export default function InventoryScreen() {
                   {!!p.note && <Text style={s.pendSub}>توضیح: {p.note}</Text>}
                   {!p.transferable && <Text style={s.noResendBadge}>⚠ قابل انتقال به شخص دیگر نیست</Text>}
                   <View style={s.pendActions}>
-                    <TouchableOpacity style={s.confirmBtn} onPress={() => doConfirm(p.id)}><Text style={s.confirmBtnTxt}>✓ تأیید دریافت</Text></TouchableOpacity>
-                    <TouchableOpacity style={s.rejectBtn} onPress={() => doReject(p.id)}><Text style={s.rejectBtnTxt}>رد</Text></TouchableOpacity>
+                    <TouchableOpacity style={s.confirmBtn} disabled={busy || !!loadError} onPress={() => doConfirm(p.id)}><Text style={s.confirmBtnTxt}>✓ تأیید دریافت</Text></TouchableOpacity>
+                    <TouchableOpacity style={s.rejectBtn} disabled={busy || !!loadError} onPress={() => doReject(p.id)}><Text style={s.rejectBtnTxt}>رد</Text></TouchableOpacity>
                   </View>
                 </View>
               ))}
@@ -259,6 +267,10 @@ export default function InventoryScreen() {
 }
 
 const s = StyleSheet.create({
+  errorBox: { backgroundColor: '#fff1f1', borderColor: '#f3b8c0', borderWidth: 1, borderRadius: 14, padding: 14, margin: 12 },
+  errorText: { fontFamily: FONT.regular, color: '#982b3d', textAlign: 'right', lineHeight: 22 },
+  retry: { alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center', paddingHorizontal: 14 },
+  retryText: { fontFamily: FONT.bold, color: C.brand },
   page: { flex: 1, backgroundColor: C.paper },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   body: { flex: 1 },

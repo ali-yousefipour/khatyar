@@ -30,7 +30,7 @@ function FieldInput({ field, value, onChange }) {
     return (
       <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
         <Switch value={value === '1' || value === true} onValueChange={(v) => onChange(v ? '1' : '0')} trackColor={{ true: C.brand }} />
-        <Text style={s.txt}>{value === '1' ? 'بله' : 'خیر'}</Text>
+        <Text style={s.txt}>{value === '1' || value === true ? 'بله' : 'خیر'}</Text>
       </View>
     );
   if (field.ftype === 'select')
@@ -72,14 +72,21 @@ export default function CustomFieldsScreen({ navigation }) {
   const [vals, setVals] = useState({});
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const load = () => {
-    request('/my/custom-fields').then((fs) => {
-      setFields(fs || []);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const fs = await request('/my/custom-fields', { noStore: true });
+      if (!Array.isArray(fs)) throw new Error('پاسخ فیلدهای سفارشی معتبر نیست.');
+      setFields(fs);
       const m = {};
-      (fs || []).forEach((f) => { if (f.value != null) m[f.id] = f.value; });
+      fs.forEach((f) => { if (f.value != null) m[f.id] = f.value; });
       setVals(m);
-    }).catch(() => setFields([]));
+      setLoadError('');
+    } catch (e) { setLoadError(e?.message || 'دریافت اطلاعات تکمیلی ناموفق بود.'); }
+    finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
 
@@ -90,23 +97,26 @@ export default function CustomFieldsScreen({ navigation }) {
     try {
       const payload = {};
       (fields || []).filter((f) => f.user_editable).forEach((f) => { if (vals[f.id] != null) payload[f.id] = vals[f.id]; });
-      await request('/my/custom-fields', { method: 'POST', body: { values: payload } });
+      const result = await request('/my/custom-fields', { method: 'POST', queueIfOffline: false, body: { values: payload } });
+      if (!result?.ok) throw new Error('سرور ذخیره اطلاعات را تأیید نکرد.');
       Alert.alert('ثبت شد', 'اطلاعات شما ذخیره شد.');
       setEditing(false);
     } catch (e) { Alert.alert('خطا', e.message || 'ثبت ناموفق'); }
     finally { setBusy(false); }
   };
 
-  if (fields === null) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
-  if (!fields.length) return <View style={s.center}><Text style={s.muted}>فیلدی برای تکمیل تعریف نشده است.</Text></View>;
+  if (fields === null && loading) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
+  if (fields === null) return <View style={s.center}><Text style={s.errorText}>{loadError || 'اطلاعات تکمیلی در دسترس نیست.'}</Text><TouchableOpacity accessibilityRole="button" style={s.retry} onPress={load}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>;
+  if (!fields.length) return <View style={s.center}><Text style={s.muted}>{loadError || 'فیلدی برای تکمیل تعریف نشده است.'}</Text>{!!loadError && <TouchableOpacity accessibilityRole="button" style={s.retry} onPress={load}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity>}</View>;
 
   const editable = fields.filter((f) => f.user_editable);
   const readonly = fields.filter((f) => !f.user_editable);
-  const showVal = (f) => (f.ftype === 'checkbox') ? (vals[f.id] === '1' ? 'بله' : 'خیر') : ((String(vals[f.id] || '')).replace(/\|/g, '، ') || '—');
+  const showVal = (f) => (f.ftype === 'checkbox') ? (vals[f.id] === '1' || vals[f.id] === true ? 'بله' : 'خیر') : ((String(vals[f.id] || '')).replace(/\|/g, '، ') || '—');
 
   if (!editing) {
     return (
       <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+        {!!loadError && <View style={s.errorBox}><Text style={s.errorText}>{loadError}</Text><TouchableOpacity accessibilityRole="button" style={s.retry} onPress={load}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
         <Text style={s.intro}>اطلاعات تکمیلی شما</Text>
         {fields.map((f) => (
           <View key={f.id} style={s.roRow}>
@@ -125,6 +135,7 @@ export default function CustomFieldsScreen({ navigation }) {
 
   return (
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+      {!!loadError && <View style={s.errorBox}><Text style={s.errorText}>{loadError}</Text><TouchableOpacity accessibilityRole="button" style={s.retry} onPress={load}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
       <Text style={s.intro}>اطلاعات تکمیلی خود را وارد یا ویرایش کنید.</Text>
       {editable.map((f) => (
         <View key={f.id} style={s.fieldWrap}>
@@ -146,7 +157,7 @@ export default function CustomFieldsScreen({ navigation }) {
       )}
 
       <View style={{ flexDirection: 'row-reverse', gap: 10, marginTop: 18 }}>
-        <TouchableOpacity style={[s.btn, { flex: 1, marginTop: 0 }, busy && { opacity: 0.6 }]} disabled={busy} onPress={save}>
+        <TouchableOpacity style={[s.btn, { flex: 1, marginTop: 0 }, (busy || !!loadError) && { opacity: 0.6 }]} disabled={busy || !!loadError} onPress={save}>
           <Text style={s.btnTxt}>{busy ? 'در حال ثبت…' : 'ذخیرهٔ اطلاعات'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[s.btnGhost, { flex: 1 }]} onPress={() => { setEditing(false); load(); }}>
@@ -158,6 +169,10 @@ export default function CustomFieldsScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
+  errorBox: { padding: 14, backgroundColor: '#fff1f1', borderColor: '#f3b8c0', borderWidth: 1, borderRadius: 14, marginBottom: 12 },
+  errorText: { fontFamily: FONT.regular, color: '#982b3d', textAlign: 'center', lineHeight: 22 },
+  retry: { minHeight: 44, paddingHorizontal: 16, alignSelf: 'center', justifyContent: 'center', marginTop: 8 },
+  retryText: { fontFamily: FONT.bold, color: C.brand },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper, padding: 24 },
   muted: { fontFamily: FONT.regular, color: C.muted, fontSize: 14, textAlign: 'center' },
   intro: { fontFamily: FONT.regular, color: C.slate, fontSize: 13, textAlign: 'right', marginBottom: 12 },
