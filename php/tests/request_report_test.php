@@ -56,21 +56,22 @@ function route($method,$path,$fn,...$options){global $handlers;$handlers[$method
 $a=strpos($source,"route('POST', '/api/admin/requests/{id}/decision'");$b=strpos($source,'// Install after',$a);eval(substr($source,$a,$b-$a));
 $decide=$handlers['POST/api/admin/requests/{id}/decision'];
 Db::$request=['id'=>3,'user_id'=>12,'status'=>'pending','type'=>'manual','the_date'=>'1405-07-30','in_time'=>'23:00','out_time'=>'02:00'];
-$decide(['id'=>3],['status'=>'approved'],['id'=>1,'username'=>'admin']);
+$director=['id'=>1,'username'=>'admin','role_title'=>'مدیر کل'];
+$decide(['id'=>3],['status'=>'approved'],$director);
 $attendance=array_values(array_filter(Db::$writes,fn($x)=>str_contains($x[0],'INSERT INTO staff_attendance')));
 check(count($attendance)===1,'admin approval creates attendance');
 check(strtotime($attendance[0][1][2])-strtotime($attendance[0][1][1])===10800,'overnight exit is next day');
 check(Db::pdo()->commits===1,'decision committed');
 check(str_contains(Db::$writes[0][0],'pending_on=NULL'),'completed decision clears inbox');
-Db::$failAttendance=true;try{$decide(['id'=>3],['status'=>'approved'],['id'=>1,'username'=>'admin']);}catch(RuntimeException $e){}
+Db::$failAttendance=true;try{$decide(['id'=>3],['status'=>'approved'],$director);}catch(RuntimeException $e){}
 check(Db::pdo()->rollbacks===1,'attendance error rolls decision back');Db::$failAttendance=false;
-Db::$changed=0;denied(fn()=>$decide(['id'=>3],['status'=>'approved'],['id'=>1,'username'=>'admin']),409);check(Db::pdo()->rollbacks===2,'concurrent decision rolls back');Db::$changed=1;
-Db::$request['status']='approved';denied(fn()=>$decide(['id'=>3],['status'=>'approved'],['id'=>1,'username'=>'admin']),409);
-Db::$request['status']='rejected';$decide(['id'=>3],['status'=>'approved'],['id'=>1,'username'=>'admin']);
+Db::$changed=0;denied(fn()=>$decide(['id'=>3],['status'=>'approved'],$director),409);check(Db::pdo()->rollbacks===2,'concurrent decision rolls back');Db::$changed=1;
+Db::$request['status']='approved';denied(fn()=>$decide(['id'=>3],['status'=>'approved'],$director),409);
+Db::$request['status']='rejected';$decide(['id'=>3],['status'=>'approved'],$director);
 check(Db::$writes[count(Db::$writes)-2][1][4]==='rejected','reapproval compares original rejected status atomically');
-Db::$request['status']='pending';Db::$request['in_time']='25:99';denied(fn()=>$decide(['id'=>3],['status'=>'approved'],['id'=>1,'username'=>'admin']),422);
-Db::$request['status']='pending';Db::$request['in_time']=null;denied(fn()=>$decide(['id'=>3],['status'=>'approved'],['id'=>1,'username'=>'admin']),422);
-Db::$open=['id'=>8];$decide(['id'=>3],['status'=>'approved'],['id'=>1,'username'=>'admin']);check(str_contains(end(Db::$writes)[0],'UPDATE staff_attendance'),'out-only request closes open attendance');
+Db::$request['status']='pending';Db::$request['in_time']='25:99';denied(fn()=>$decide(['id'=>3],['status'=>'approved'],$director),422);
+Db::$request['status']='pending';Db::$request['in_time']=null;denied(fn()=>$decide(['id'=>3],['status'=>'approved'],$director),422);
+Db::$open=['id'=>8];$decide(['id'=>3],['status'=>'approved'],$director);check(str_contains(end(Db::$writes)[0],'UPDATE staff_attendance'),'out-only request closes open attendance');
 Db::$writes=[];_req_apply_approval_effects(['type'=>'annual','user_id'=>12,'substitute_user_id'=>7,'from_jdate'=>'1405-07-30','to_jdate'=>'1405-08-01','the_date'=>null],3);
 check(str_contains(Db::$writes[0][0],'INSERT INTO substitute_assignments'),'admin approval creates substitute assignment');
 Db::$subConflict=true;denied(fn()=>_req_apply_approval_effects(['type'=>'annual','user_id'=>12,'substitute_user_id'=>7,'from_jdate'=>'1405-07-30','to_jdate'=>'1405-08-01','the_date'=>null],3),409);Db::$subConflict=false;
@@ -83,9 +84,9 @@ foreach([['mission','daily'],['mission','hourly'],['annual','hourly'],['sick','d
 $a=strpos($source,"route('GET', '/api/admin/requests/{id}/detail'");$b=strpos($source,"route('GET', '/api/admin/requests/{id}/leave-context'",$a);eval(substr($source,$a,$b-$a));
 check($GLOBALS['routeOptions']['GET/api/admin/requests/{id}/detail']===[false,ADMIN],'details remain admin-only');
 Db::$request=['id'=>3,'type'=>'manual','selfie_data'=>'data:image/jpeg;base64,ZmFrZQ=='];
-$detail=$handlers['GET/api/admin/requests/{id}/detail'](['id'=>3],[],['id'=>1,'username'=>'admin']);check($detail['selfie_data']===Db::$request['selfie_data'],'details include stored manual selfie');
-Db::$request=null;denied(fn()=>$handlers['GET/api/admin/requests/{id}/detail'](['id'=>99],[],['id'=>1,'username'=>'admin']),404);
+$detail=$handlers['GET/api/admin/requests/{id}/detail'](['id'=>3],[],$director);check($detail['selfie_data']===Db::$request['selfie_data'],'details include stored manual selfie');
+Db::$request=null;denied(fn()=>$handlers['GET/api/admin/requests/{id}/detail'](['id'=>99],[],$director),404);
 Db::$request=['id'=>3];
 $a=strpos($source,"route('DELETE', '/api/admin/requests/{id}'");$b=strpos($source,'// خروجی اکسل گزارش',$a);eval(substr($source,$a,$b-$a));Db::$writes=[];
-$handlers['DELETE/api/admin/requests/{id}'](['id'=>3],[],['id'=>1,'username'=>'admin']);check(str_contains(Db::$writes[0][0],"status='canceled'"),'delete releases substitute');
+$handlers['DELETE/api/admin/requests/{id}'](['id'=>3],[],$director);check(str_contains(Db::$writes[0][0],"status='canceled'"),'delete releases substitute');
 echo "PASS request report: filter boundaries, parameterization, atomic approval, concurrency, overnight/out-only attendance, substitute and delete cleanup\n";

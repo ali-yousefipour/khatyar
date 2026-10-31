@@ -4553,8 +4553,7 @@ route('GET', '/api/my/request-inbox', fn($p,$b,$u) => Db::all(
 route('GET', '/api/requests/{id}', function($p,$b,$u){
   $r = Db::one("SELECT r.*, CONCAT(us.first_name,' ',us.last_name) requester FROM requests r JOIN users us ON us.id=r.user_id WHERE r.id=?", [$p['id']]);
   if (!$r) Http::error('یافت نشد',404);
-  if ((int)$r['user_id']!==(int)$u['id'] && (int)($r['pending_on']??0)!==(int)$u['id']
-    && !(_req_is_root_admin($u) || (!empty($u['is_admin'])&&in_array($r['status'],['approved','rejected'],true)))) Http::error('دسترسی ندارید',403);
+  if ((int)$r['user_id']!==(int)$u['id'] && !_req_admin_can_view_request($u,$r)) Http::error('دسترسی ندارید',403);
   return $r;
 });
 
@@ -4950,22 +4949,25 @@ function _req_notify_substitute(array $request,int $id){
   try{Push::send([(int)$request['substitute_user_id']],'شیفت جایگزینی','جایگزینی شما برای درخواست مرخصی تأیید شد.',['type'=>'substitute_shift','request_id'=>$id]);}catch(Throwable $e){error_log('substitute shift notification failed');}
 }
 
-// «ادمین اصلی» با نقش‌های مدیریتیِ دارای دسترسی پنل یکی نیست.
-// فقط حساب اصلی admin می‌تواند درخواست‌های در انتظارِ سایر مسئولان را ببیند.
+// دسترسی کامل به همهٔ مراحل صرفاً متعلق به سمت «مدیر کل» است، نه نام کاربری admin.
 function _req_is_root_admin(array $viewer): bool {
-  return strtolower(trim((string)($viewer['username']??'')))==='admin';
+  return in_array(preg_replace('/\s+/u','',trim((string)($viewer['role_title']??''))),['مدیرکل'],true);
 }
 function _req_admin_can_view_request(array $viewer,array $request): bool {
-  return _req_is_root_admin($viewer)
-    || in_array((string)($request['status']??''),['approved','rejected'],true)
-    || (($request['status']??'')==='pending' && (int)($request['pending_on']??0)===(int)($viewer['id']??0));
+  if(_req_is_root_admin($viewer))return true;
+  $uid=(int)($viewer['id']??0);if($uid<=0)return false;
+  if((int)($request['pending_on']??0)===$uid||(int)($request['approver_id']??0)===$uid)return true;
+  return _db_table_exists_safe('request_approval_steps')
+    && (bool)Db::one('SELECT id FROM request_approval_steps WHERE request_id=? AND actor_id=? LIMIT 1',[(int)($request['id']??0),$uid]);
 }
 // Shared filters keep the on-screen report and XLSX export consistent.
 function _req_report_filter(array $query,?array $viewer=null){
   $cond=[];$args=[];
   if($viewer!==null&&!_req_is_root_admin($viewer)){
-    $cond[]="(r.status IN ('approved','rejected') OR (r.status='pending' AND r.pending_on=?))";
-    $args[]=(int)($viewer['id']??0);
+    $uid=(int)($viewer['id']??0);
+    $scope='(r.pending_on=? OR r.approver_id=?';$args[]=$uid;$args[]=$uid;
+    if(_db_table_exists_safe('request_approval_steps')){$scope.=' OR EXISTS (SELECT 1 FROM request_approval_steps ras WHERE ras.request_id=r.id AND ras.actor_id=?)';$args[]=$uid;}
+    $cond[]=$scope.')';
   }
   if(!empty($query['user_id'])){$cond[]='r.user_id=?';$args[]=(int)$query['user_id'];}
   foreach(['type'=>['annual','sick','unpaid','mission','overtime','manual'],'status'=>['pending','approved','rejected','canceled']] as $key=>$allowed){
@@ -5112,6 +5114,7 @@ function _req_edit_approved($id,array $body,array $actor){
   if($id<=0)Http::error('شناسهٔ درخواست نامعتبر است.',422);
   foreach($body as $value)if($value!==null&&!is_scalar($value))Http::error('ساختار فیلدهای ویرایش معتبر نیست.',422);
   $before=Db::one('SELECT * FROM requests WHERE id=?',[$id]);if(!$before)Http::error('درخواست یافت نشد.',404);
+  if(!_req_admin_can_view_request($actor,$before))Http::error('این درخواست در دسترس شما نیست.',403);
   if($before['status']!=='approved')Http::error('فقط درخواست تأییدشده در این فرم قابل ویرایش است.',409);
   $why=trim((string)($body['edit_reason']??''));if(mb_strlen($why)<3||mb_strlen($why)>500)Http::error('علت اصلاح را بین ۳ تا ۵۰۰ نویسه وارد کنید.',422);
   $token=(string)($body['edit_token']??'');if(!preg_match('/^[a-f0-9]{64}$/D',$token))Http::error('اطلاعات ویرایش منقضی است؛ درخواست را دوباره باز کنید.',409);
@@ -5239,7 +5242,7 @@ unset($policyRoute);
 
 route('DELETE', '/api/admin/requests/{id}', function($p,$b,$u){
   $id=(int)($p['id']??0); if(!$id) Http::error('شناسه درخواست نامعتبر است',400);
-  $req=Db::one("SELECT id,status,pending_on FROM requests WHERE id=?",[$id]); if(!$req) Http::error('درخواست یافت نشد',404);
+  $req=Db::one("SELECT id,status,pending_on,approver_id FROM requests WHERE id=?",[$id]); if(!$req) Http::error('درخواست یافت نشد',404);
   if(!_req_admin_can_view_request($u,$req))Http::error('این درخواست در دسترس شما نیست',403);
   $pdo=Db::pdo();$pdo->beginTransaction();
   try{

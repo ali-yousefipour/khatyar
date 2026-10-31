@@ -11365,6 +11365,7 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
     const [to, setTo] = useState(attendanceInitialRange.to);
     const [data, setData] = useState(null);
     const [busy, setBusy] = useState(false);
+    const [reportError, setReportError] = useState("");
     const [openDay, setOpenDay] = useState(null);
     const [mapPunch, setMapPunch] = useState(null);
     const mapContainerRef = useRef(null);
@@ -11531,6 +11532,7 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
         if (to !== rangeTo)
             setTo(rangeTo);
         setBusy(true);
+        setReportError("");
         setData(null);
         setOpenDay(null);
         try {
@@ -11538,7 +11540,7 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
             setData(r);
         }
         catch (e) {
-            alert(e.message || "خطا در دریافت گزارش");
+            setReportError(e.message || "خطا در دریافت گزارش");
         }
         finally {
             setBusy(false);
@@ -11727,7 +11729,11 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
         alert(e.message || "خطا در دریافت خروجی گزارش");
     } };
     return (React.createElement("div", { className: "panel attendance-report-page admin-workspace-page", translate: "no", "data-no-translate": "true" },
-        React.createElement("h3", null, "\uD83D\uDD52 \u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F \u067E\u0631\u0633\u0646\u0644"),
+        React.createElement("style", null, `.attendance-report-page .attendance-report-heading{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}.attendance-report-page .attendance-report-heading h3{margin:0}.attendance-report-page .attendance-report-hint{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.8}.attendance-report-page .attendance-report-state{border:1px dashed var(--line);border-radius:14px;padding:28px 18px;text-align:center;background:var(--card,#fff);line-height:1.9}.attendance-report-page .attendance-report-state[role=alert]{border-style:solid;border-color:#e9b8b3;background:#fff5f3;color:#9f2820}.attendance-report-page .attendance-report-stats{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 12px}.attendance-report-page .attendance-report-stat{padding:9px 14px;border:1px solid var(--line);background:var(--card,#fff);border-radius:12px;min-width:125px}.attendance-report-page .attendance-report-stat span{display:block;font-size:11px;color:var(--muted)}.attendance-report-page .attendance-report-stat strong{display:block;margin-top:4px;font-size:15px;font-variant-numeric:tabular-nums}.attendance-report-page .attendance-report-table-scroll:focus-visible{outline:3px solid #0d7a5f;outline-offset:3px}@media(max-width:640px){.attendance-report-page .attendance-report-state{padding:22px 12px}.attendance-report-page .attendance-report-stat{flex:1 1 135px}}`),
+        React.createElement("div", { className: "attendance-report-heading" },
+            React.createElement("div", null,
+                React.createElement("h3", null, "\u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F \u067E\u0631\u0633\u0646\u0644"),
+                React.createElement("p", { className: "attendance-report-hint" }, "\u0628\u0631\u0631\u0633\u06CC \u062A\u0631\u062F\u062F \u0631\u0648\u0632\u0627\u0646\u0647\u060C \u062C\u0632\u0626\u06CC\u0627\u062A \u0634\u06CC\u0641\u062A \u0648 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644 \u062F\u0631 \u0628\u0627\u0632\u0647\u0654 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC"))),
         React.createElement("div", { className: "card-p", style: { marginBottom: 14 } },
             React.createElement("div", { className: "row", style: { gap: 10, flexWrap: "wrap", alignItems: "flex-end" } },
                 React.createElement("div", { style: { minWidth: 280, flex: "1 1 280px" } },
@@ -11751,6 +11757,12 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
                 React.createElement("button", { className: "btn p", onClick: run, disabled: busy }, busy ? "…" : "🔍 مشاهده گزارش"),
                 React.createElement("button", { className: "btn g", onClick: exportExcel, disabled: !data }, "\u2913 \u062F\u0627\u0646\u0644\u0648\u062F \u06AF\u0632\u0627\u0631\u0634"),
                 data && React.createElement("button", { className: "btn g", type: "button", onClick: () => { setDraftColumnIndexes(visibleColumnIndexes.slice()); setColumnSettingsOpen(true); } }, "\u2699 \u062A\u0646\u0638\u06CC\u0645 \u0633\u062A\u0648\u0646\u200C\u0647\u0627"))),
+        busy && React.createElement("div", { className: "attendance-report-state", role: "status", "aria-live": "polite" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0648 \u0622\u0645\u0627\u062F\u0647\u200C\u0633\u0627\u0632\u06CC \u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F\u2026"),
+        !busy && reportError && React.createElement("div", { className: "attendance-report-state", role: "alert" },
+            React.createElement("strong", null, "\u062F\u0631\u06CC\u0627\u0641\u062A \u06AF\u0632\u0627\u0631\u0634 \u0627\u0646\u062C\u0627\u0645 \u0646\u0634\u062F."),
+            React.createElement("div", null, reportError),
+            React.createElement("button", { type: "button", className: "btn p", onClick: () => run(), style: { marginTop: 10 } }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")),
+        !busy && !data && !reportError && React.createElement("div", { className: "attendance-report-state", role: "status" }, "\u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647\u0654 \u06AF\u0632\u0627\u0631\u0634\u060C \u0646\u0627\u0645 \u06CC\u06A9\u06CC \u0627\u0632 \u0646\u06CC\u0631\u0648\u0647\u0627 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F \u0648 \u0628\u0627\u0632\u0647\u0654 \u062A\u0627\u0631\u06CC\u062E \u0631\u0627 \u0645\u0634\u062E\u0635 \u06A9\u0646\u06CC\u062F."),
         (data === null || data === void 0 ? void 0 : data.contains_finalized_month) && React.createElement("p", { className: "muted", role: "status" }, "\u0631\u0648\u0632\u0647\u0627\u06CC \u0645\u0631\u0628\u0648\u0637 \u0628\u0647 \u0645\u0627\u0647 \u0646\u0647\u0627\u06CC\u06CC\u200C\u0634\u062F\u0647 \u0627\u0632 \u0646\u0633\u062E\u0647\u0654 \u0630\u062E\u06CC\u0631\u0647\u200C\u0634\u062F\u0647 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
         (data === null || data === void 0 ? void 0 : data.missing_frozen_person) && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } }, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0641\u0631\u062F \u062F\u0631 \u06CC\u06A9\u06CC \u0627\u0632 \u0645\u0627\u0647\u200C\u0647\u0627\u06CC \u0646\u0647\u0627\u06CC\u06CC\u200C\u0634\u062F\u0647\u0654 \u0642\u062F\u06CC\u0645\u06CC \u062C\u0632\u0626\u06CC\u0627\u062A \u0630\u062E\u06CC\u0631\u0647 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A\u061B \u062F\u0627\u062F\u0647\u0654 \u0641\u0639\u0644\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."),
         data && React.createElement("div", { className: "card-p", style: { marginBottom: 10, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 } },
@@ -11762,6 +11774,23 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
                 fa(data.from || from || "—"),
                 " \u062A\u0627 ",
                 fa(data.to || to || "—"))),
+        data && React.createElement("div", { className: "attendance-report-stats", "aria-label": "\u062E\u0644\u0627\u0635\u0647\u0654 \u06AF\u0632\u0627\u0631\u0634" },
+            React.createElement("div", { className: "attendance-report-stat" },
+                React.createElement("span", null, "\u0631\u0648\u0632\u0647\u0627\u06CC \u06AF\u0632\u0627\u0631\u0634"),
+                React.createElement("strong", null, fa((data.days || []).length))),
+            React.createElement("div", { className: "attendance-report-stat" },
+                React.createElement("span", null, "\u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634\u06CC"),
+                React.createElement("strong", null,
+                    fa(selectedColumns.length),
+                    " \u0627\u0632 ",
+                    fa(columns.length))),
+            React.createElement("div", { className: "attendance-report-stat" },
+                React.createElement("span", null, "\u0628\u0627\u0632\u0647\u0654 \u06AF\u0632\u0627\u0631\u0634"),
+                React.createElement("strong", null,
+                    faPlain(String(data.from || from)),
+                    " \u062A\u0627 ",
+                    faPlain(String(data.to || to))))),
+        data && !(data.days || []).length && React.createElement("div", { className: "attendance-report-state", role: "status" }, "\u062F\u0631 \u0628\u0627\u0632\u0647\u0654 \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647\u060C \u0631\u0648\u0632\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u062F\u0631 \u06AF\u0632\u0627\u0631\u0634 \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F. \u0628\u0627\u0632\u0647\u0654 \u062A\u0627\u0631\u06CC\u062E \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646\u06CC\u062F."),
         columnSettingsOpen && React.createElement("div", { role: "presentation", onClick: e => { if (e.target === e.currentTarget)
                 setColumnSettingsOpen(false); }, style: { position: "fixed", inset: 0, zIndex: 100500, background: "rgba(0,0,0,.48)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 } },
             React.createElement("div", { className: "card-p", role: "dialog", "aria-modal": "true", "aria-labelledby": "attendance-columns-title", style: { width: "min(1100px,96vw)", maxHeight: "88vh", overflow: "auto", padding: 20, boxShadow: "0 18px 55px rgba(0,0,0,.22)" } },
@@ -11778,7 +11807,7 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
                     React.createElement("button", { className: "btn g", type: "button", onClick: () => setDraftColumnIndexes([0]) }, "\u0641\u0642\u0637 \u062A\u0627\u0631\u06CC\u062E"),
                     React.createElement("button", { className: "btn p", type: "button", onClick: saveColumnSettings }, "\u0630\u062E\u06CC\u0631\u0647 \u062A\u0646\u0638\u06CC\u0645"),
                     React.createElement("button", { className: "btn g", type: "button", onClick: () => setColumnSettingsOpen(false) }, "\u0627\u0646\u0635\u0631\u0627\u0641")))),
-        data && React.createElement("div", { className: "attendance-report-table-scroll", style: { height: "calc(100vh - 360px)", maxHeight: "calc(100dvh - 260px)", minHeight: 220, overflow: "auto", border: "1px solid var(--line)", borderRadius: 10, position: "relative", overscrollBehavior: "contain" } },
+        data && (data.days || []).length > 0 && React.createElement("div", { className: "attendance-report-table-scroll", tabIndex: 0, role: "region", "aria-label": "\u062C\u062F\u0648\u0644 \u062A\u0631\u062F\u062F \u0631\u0648\u0632\u0627\u0646\u0647\u061B \u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647\u0654 \u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0628\u06CC\u0634\u062A\u0631 \u0628\u0647 \u0635\u0648\u0631\u062A \u0627\u0641\u0642\u06CC \u067E\u06CC\u0645\u0627\u06CC\u0634 \u06A9\u0646\u06CC\u062F", style: { height: "calc(100vh - 360px)", maxHeight: "calc(100dvh - 260px)", minHeight: 220, overflow: "auto", border: "1px solid var(--line)", borderRadius: 10, position: "relative", overscrollBehavior: "contain" } },
             React.createElement("table", { className: "khar-attendance-native", style: { fontSize: 12, width: "max-content", tableLayout: "auto", borderCollapse: "separate", borderSpacing: 0 } },
                 React.createElement("thead", null,
                     React.createElement("tr", null, selectedColumns.map(([title], i) => React.createElement("th", { key: title, style: { whiteSpace: "normal", overflowWrap: "anywhere", maxWidth: 180, minWidth: 64, position: "sticky", top: 0, zIndex: 3, background: "#eaf5f0", borderBottom: "2px solid #0d7a5f", borderInlineStart: "1px solid #d7e5dd", padding: "10px 8px", verticalAlign: "middle" } }, title)))),

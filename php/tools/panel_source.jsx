@@ -6714,6 +6714,7 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
   const [to,setTo]=useState(attendanceInitialRange.to);
   const [data,setData]=useState(null);
   const [busy,setBusy]=useState(false);
+  const [reportError,setReportError]=useState("");
   const [openDay,setOpenDay]=useState(null);
   const [mapPunch,setMapPunch]=useState(null);
   const mapContainerRef=useRef(null);
@@ -6821,9 +6822,9 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
     if(Date.UTC(fg[0],fg[1]-1,fg[2])>Date.UTC(tg[0],tg[1]-1,tg[2])){alert("تاریخ «از» نباید بعد از تاریخ «تا» باشد");return;}
     if(from!==rangeFrom)setFrom(rangeFrom);
     if(to!==rangeTo)setTo(rangeTo);
-    setBusy(true); setData(null); setOpenDay(null);
+    setBusy(true); setReportError(""); setData(null); setOpenDay(null);
     try{ const r=await db.attendanceReport(reportUserId,rangeFrom,rangeTo); setData(r); }
-    catch(e){ alert(e.message||"خطا در دریافت گزارش"); }
+    catch(e){ setReportError(e.message||"خطا در دریافت گزارش"); }
     finally{ setBusy(false); }
   };
   useEffect(()=>{
@@ -6910,7 +6911,9 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
   const saveColumnSettings=()=>{const next=Array.from(new Set(draftColumnIndexes)).filter(i=>Number.isInteger(i)&&i>=0&&i<columns.length);if(!next.includes(0))next.unshift(0);setVisibleColumnIndexes(next);try{localStorage.setItem(attendanceColumnStorageKey,JSON.stringify(next));}catch(_){}setColumnSettingsOpen(false);};
   const exportExcel=async()=>{if(!data)return;try{const rows=[columns.map(x=>x[0])];(data.days||[]).forEach(d=>rows.push(columns.map(x=>x[1](d))));const response=await _fetchWithAuth("/api/admin-attendance-xlsx.php",{method:"POST",headers:{"content-type":"application/json","accept":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},body:JSON.stringify({rows}),cache:"no-store"});if(!response.ok){let message="خطا در ساخت فایل Excel";try{const result=await response.json();message=result.error||result.message||message}catch(_){}throw new Error(message)}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`گزارش_تردد_${String(uid)}_${String(from).replace(/\//g,"-")}_${String(to).replace(/\//g,"-")}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}catch(e){alert(e.message||"خطا در دریافت خروجی گزارش")}};
 
-  return(<div className="panel attendance-report-page admin-workspace-page" translate="no" data-no-translate="true"><h3>🕒 گزارش تردد پرسنل</h3>
+  return(<div className="panel attendance-report-page admin-workspace-page" translate="no" data-no-translate="true">
+    <style>{`.attendance-report-page .attendance-report-heading{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}.attendance-report-page .attendance-report-heading h3{margin:0}.attendance-report-page .attendance-report-hint{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.8}.attendance-report-page .attendance-report-state{border:1px dashed var(--line);border-radius:14px;padding:28px 18px;text-align:center;background:var(--card,#fff);line-height:1.9}.attendance-report-page .attendance-report-state[role=alert]{border-style:solid;border-color:#e9b8b3;background:#fff5f3;color:#9f2820}.attendance-report-page .attendance-report-stats{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 12px}.attendance-report-page .attendance-report-stat{padding:9px 14px;border:1px solid var(--line);background:var(--card,#fff);border-radius:12px;min-width:125px}.attendance-report-page .attendance-report-stat span{display:block;font-size:11px;color:var(--muted)}.attendance-report-page .attendance-report-stat strong{display:block;margin-top:4px;font-size:15px;font-variant-numeric:tabular-nums}.attendance-report-page .attendance-report-table-scroll:focus-visible{outline:3px solid #0d7a5f;outline-offset:3px}@media(max-width:640px){.attendance-report-page .attendance-report-state{padding:22px 12px}.attendance-report-page .attendance-report-stat{flex:1 1 135px}}`}</style>
+    <div className="attendance-report-heading"><div><h3>گزارش تردد پرسنل</h3><p className="attendance-report-hint">بررسی تردد روزانه، جزئیات شیفت و خروجی اکسل در بازهٔ انتخابی</p></div></div>
     <div className="card-p" style={{marginBottom:14}}>
       <div className="row" style={{gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
         <div style={{minWidth:280,flex:"1 1 280px"}}>
@@ -6930,11 +6933,16 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
         {data&&<button className="btn g" type="button" onClick={()=>{setDraftColumnIndexes(visibleColumnIndexes.slice());setColumnSettingsOpen(true);}}>⚙ تنظیم ستون‌ها</button>}
       </div>
     </div>
+    {busy&&<div className="attendance-report-state" role="status" aria-live="polite">در حال دریافت و آماده‌سازی گزارش تردد…</div>}
+    {!busy&&reportError&&<div className="attendance-report-state" role="alert"><strong>دریافت گزارش انجام نشد.</strong><div>{reportError}</div><button type="button" className="btn p" onClick={()=>run()} style={{marginTop:10}}>تلاش دوباره</button></div>}
+    {!busy&&!data&&!reportError&&<div className="attendance-report-state" role="status">برای مشاهدهٔ گزارش، نام یکی از نیروها را انتخاب کنید و بازهٔ تاریخ را مشخص کنید.</div>}
     {data?.contains_finalized_month&&<p className="muted" role="status">روزهای مربوط به ماه نهایی‌شده از نسخهٔ ذخیره‌شده نمایش داده می‌شوند.</p>}
     {data?.missing_frozen_person&&<p role="alert" style={{color:"var(--danger)"}}>برای این فرد در یکی از ماه‌های نهایی‌شدهٔ قدیمی جزئیات ذخیره نشده است؛ دادهٔ فعلی جایگزین تاریخچه نمی‌شود.</p>}
     {data&&<div className="card-p" style={{marginBottom:10,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
       <b>{data.user?.name||"—"}</b><span style={{color:"var(--muted)",fontSize:12}}>کد پرسنلی: {fa(data.user?.pcode||"—")} | از {fa(data.from||from||"—")} تا {fa(data.to||to||"—")}</span>
     </div>}
+    {data&&<div className="attendance-report-stats" aria-label="خلاصهٔ گزارش"><div className="attendance-report-stat"><span>روزهای گزارش</span><strong>{fa((data.days||[]).length)}</strong></div><div className="attendance-report-stat"><span>ستون‌های نمایشی</span><strong>{fa(selectedColumns.length)} از {fa(columns.length)}</strong></div><div className="attendance-report-stat"><span>بازهٔ گزارش</span><strong>{faPlain(String(data.from||from))} تا {faPlain(String(data.to||to))}</strong></div></div>}
+    {data&&!(data.days||[]).length&&<div className="attendance-report-state" role="status">در بازهٔ انتخاب‌شده، روزی برای نمایش در گزارش وجود ندارد. بازهٔ تاریخ را بررسی کنید.</div>}
     {columnSettingsOpen&&<div role="presentation" onClick={e=>{if(e.target===e.currentTarget)setColumnSettingsOpen(false);}} style={{position:"fixed",inset:0,zIndex:100500,background:"rgba(0,0,0,.48)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div className="card-p" role="dialog" aria-modal="true" aria-labelledby="attendance-columns-title" style={{width:"min(1100px,96vw)",maxHeight:"88vh",overflow:"auto",padding:20,boxShadow:"0 18px 55px rgba(0,0,0,.22)"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}><h3 id="attendance-columns-title" style={{margin:0}}>تنظیم ستون‌های گزارش</h3><button type="button" className="btn g" onClick={()=>setColumnSettingsOpen(false)} aria-label="بستن">×</button></div>
@@ -6944,7 +6952,7 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
         <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:14}}><button className="btn g" type="button" onClick={()=>setDraftColumnIndexes(columns.map((_,i)=>i))}>نمایش همه</button><button className="btn g" type="button" onClick={()=>setDraftColumnIndexes([0])}>فقط تاریخ</button><button className="btn p" type="button" onClick={saveColumnSettings}>ذخیره تنظیم</button><button className="btn g" type="button" onClick={()=>setColumnSettingsOpen(false)}>انصراف</button></div>
       </div>
     </div>}
-    {data&&<div className="attendance-report-table-scroll" style={{height:"calc(100vh - 360px)",maxHeight:"calc(100dvh - 260px)",minHeight:220,overflow:"auto",border:"1px solid var(--line)",borderRadius:10,position:"relative",overscrollBehavior:"contain"}}>
+    {data&&(data.days||[]).length>0&&<div className="attendance-report-table-scroll" tabIndex={0} role="region" aria-label="جدول تردد روزانه؛ برای مشاهدهٔ ستون‌های بیشتر به صورت افقی پیمایش کنید" style={{height:"calc(100vh - 360px)",maxHeight:"calc(100dvh - 260px)",minHeight:220,overflow:"auto",border:"1px solid var(--line)",borderRadius:10,position:"relative",overscrollBehavior:"contain"}}>
       <table className="khar-attendance-native" style={{fontSize:12,width:"max-content",tableLayout:"auto",borderCollapse:"separate",borderSpacing:0}}>
         <thead><tr>{selectedColumns.map(([title],i)=><th key={title} style={{whiteSpace:"normal",overflowWrap:"anywhere",maxWidth:180,minWidth:64,position:"sticky",top:0,zIndex:3,background:"#eaf5f0",borderBottom:"2px solid #0d7a5f",borderInlineStart:"1px solid #d7e5dd",padding:"10px 8px",verticalAlign:"middle"}}>{title}</th>)}</tr></thead>
         <tbody>{(data.days||[]).map((d,rowIndex)=>{
