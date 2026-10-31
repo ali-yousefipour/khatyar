@@ -1119,3 +1119,21 @@ table{font-size:13px}
   .system-health-device-search label,.system-health-device-search input{width:100%;min-width:0}
   .system-health-device-search button{flex:1 1 110px}
 }
+
+/* User activity reports: structured filters and helpful empty/error states. */
+.user-activity-page .user-activity-intro{padding:19px 21px;border:1px solid #d2e7e3;border-radius:17px;background:linear-gradient(115deg,#edf9f5,#f5f9fe);margin-bottom:16px}
+.user-activity-intro h3{margin:0 0 6px;font-size:21px}
+.user-activity-intro p{font-size:12.5px;line-height:1.9;color:var(--muted);margin:0}
+.user-activity-page>.row{padding:17px;border:1px solid var(--line);border-radius:15px;background:var(--card,#fff)}
+.user-activity-page>.row>div{flex:1 1 155px;min-width:140px}
+.user-activity-page>.row .input{width:100%;max-width:none!important}
+.user-activity-page>.row .btn{min-height:42px}
+.user-activity-page .kpis .kpi{text-align:center;min-width:0}
+.user-activity-page .kpis .kpi .n{overflow-wrap:anywhere;line-height:1.6}
+.user-activity-empty{margin-top:15px;padding:25px;text-align:center;color:var(--muted);border:1px dashed #bdd7ce;border-radius:14px;background:#f7fbf9;font-size:13px}
+@media(max-width:640px){
+  .user-activity-page .user-activity-intro{padding:15px}
+  .user-activity-page>.row{padding:12px}
+  .user-activity-page>.row>div{flex:1 1 100%}
+  .user-activity-page>.row>.btn{flex:1 1 145px}
+}
