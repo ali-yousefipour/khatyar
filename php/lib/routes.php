@@ -14912,6 +14912,28 @@ route('GET','/api/admin/active-sessions',function($p,$b,$u){
     ORDER BY s.created_at DESC LIMIT 500");
   return ['items'=>$rows,'count'=>count($rows)];
 },false,ADMIN);
+route('POST','/api/admin/active-sessions/revoke',function($p,$b,$u){
+  $raw = $b['session_ids'] ?? null;
+  if (!is_array($raw) || !$raw || count($raw)>500) Http::error('بین ۱ تا ۵۰۰ نشست را انتخاب کنید.',400);
+  $ids=[];
+  foreach ($raw as $id) {
+    if ((!is_int($id) && !is_string($id)) || !ctype_digit((string)$id) || (int)$id<1) Http::error('شناسه نشست نامعتبر است.',400);
+    $ids[]=(int)$id;
+  }
+  $ids=array_values(array_unique($ids));
+  $marks=implode(',',array_fill(0,count($ids),'?'));
+  $pdo=Db::pdo();
+  $pdo->beginTransaction();
+  try {
+    $changed=Db::run("UPDATE user_sessions SET revoked_at=NOW() WHERE revoked_at IS NULL AND id IN ($marks)",$ids)->rowCount();
+    Db::run("INSERT INTO activity_logs(user_id,event,meta) VALUES(?, 'device_revoked_bulk', ?)",[$u['id'],json_encode(['by'=>$u['id'],'requested_count'=>count($ids),'revoked_count'=>$changed])]);
+    $pdo->commit();
+  } catch (\Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    throw $e;
+  }
+  return ['ok'=>true,'revoked_count'=>$changed];
+},false,ADMIN);
 
 /* ================= اقلام تحویلی (واگذاری زنجیره‌ای اقلام بین کاربران با تأیید گیرنده) ================= */
 function _inv_tables() {

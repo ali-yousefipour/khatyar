@@ -5401,42 +5401,121 @@ function ActiveSessionsView() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [q, setQ] = useState("");
-    const load = () => { setLoading(true); GET("/admin/active-sessions").then(setData).catch(() => setData({ items: [], count: 0 })).finally(() => setLoading(false)); };
+    const [deviceFilter, setDeviceFilter] = useState("all");
+    const [selected, setSelected] = useState([]);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const [notice, setNotice] = useState("");
+    const load = async () => { setLoading(true); setError(""); setSelected([]); try {
+        const result = await GET("/admin/active-sessions");
+        setData(result);
+    }
+    catch (e) {
+        setError(e.message || "دریافت نشست‌ها ناموفق بود.");
+    }
+    finally {
+        setLoading(false);
+    } };
     useEffect(() => { load(); }, []);
     const revoke = async (userId, type, name) => {
+        if (busy || loading)
+            return;
         if (!confirm(`نشست ${type === 'android' ? 'اندروید' : 'وب'} کاربر «${name}» قطع شود؟ کاربر باید دوباره وارد شود.`))
             return;
-        await db.revokeDevice(userId, type);
-        load();
+        setBusy(true);
+        setError("");
+        setNotice("");
+        try {
+            await db.revokeDevice(userId, type);
+            await load();
+            setNotice("نشست انتخاب‌شده قطع شد.");
+        }
+        catch (e) {
+            setError(e.message || "قطع نشست ناموفق بود.");
+        }
+        finally {
+            setBusy(false);
+        }
     };
-    const items = ((data === null || data === void 0 ? void 0 : data.items) || []).filter(r => !q || r.user_name.includes(q) || (r.device_model || '').includes(q));
-    return (React.createElement("div", { className: "panel admin-workspace-page" },
+    const items = ((data === null || data === void 0 ? void 0 : data.items) || []).filter(r => (deviceFilter === "all" || r.device_type === deviceFilter) && (!q || (r.user_name || "").includes(q) || (r.device_model || "").includes(q) || (r.device_id || "").includes(q)));
+    const visibleIds = items.map(s => Number(s.id));
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selected.includes(id));
+    const toggleAll = checked => setSelected(checked ? visibleIds : []);
+    const toggleOne = (id, checked) => setSelected(previous => checked ? [...previous.filter(value => value !== id), id] : previous.filter(value => value !== id));
+    const revokeSelected = async () => {
+        var _a;
+        if (busy || loading || !selected.length)
+            return;
+        const chosen = items.filter(s => selected.includes(Number(s.id)));
+        if (!chosen.length)
+            return;
+        const types = [...new Set(chosen.map(s => s.device_type))].map(t => t === 'android' ? 'اندروید' : t === 'web' ? 'وب' : t).join(" و ");
+        if (!confirm(`آیا از قطع ${fa(chosen.length)} نشست ${types} مطمئن هستید؟ کاربران انتخاب‌شده باید دوباره وارد شوند.`))
+            return;
+        setBusy(true);
+        setError("");
+        setNotice("");
+        try {
+            const result = await SEND('POST', '/admin/active-sessions/revoke', { session_ids: chosen.map(s => Number(s.id)) });
+            await load();
+            setNotice(`${fa((_a = result.revoked_count) !== null && _a !== void 0 ? _a : chosen.length)} نشست قطع شد.`);
+        }
+        catch (e) {
+            setError(e.message || "قطع گروهی نشست‌ها ناموفق بود. فهرست را تازه‌سازی کنید.");
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    return (React.createElement("div", { className: "panel admin-workspace-page active-sessions-page" },
         React.createElement("h3", null, "\uD83D\uDD10 \u062C\u0644\u0633\u0627\u062A \u0641\u0639\u0627\u0644 \u06A9\u0627\u0631\u0628\u0631\u0627\u0646"),
         React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 12 } }, "\u0647\u0631 \u06A9\u0627\u0631\u0628\u0631 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0647\u0645\u200C\u0632\u0645\u0627\u0646 \u06CC\u06A9 \u0646\u0634\u0633\u062A \u0627\u0646\u062F\u0631\u0648\u06CC\u062F \u0648 \u06CC\u06A9 \u0646\u0634\u0633\u062A \u0648\u0628 \u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F. \u0627\u06AF\u0631 \u0645\u0634\u06A9\u0648\u06A9 \u0628\u0647 \u062F\u0633\u062A\u0631\u0633\u06CC \u063A\u06CC\u0631\u0645\u062C\u0627\u0632 \u0647\u0633\u062A\u06CC\u062F\u060C \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0647\u0631 \u0646\u0634\u0633\u062A \u0631\u0627 \u0627\u0632 \u0631\u0627\u0647 \u062F\u0648\u0631 \u0642\u0637\u0639 \u06A9\u0646\u06CC\u062F \u2014 \u06A9\u0627\u0631\u0628\u0631 \u0628\u0644\u0627\u0641\u0627\u0635\u0644\u0647 \u0628\u0627\u06CC\u062F \u062F\u0648\u0628\u0627\u0631\u0647 \u0648\u0627\u0631\u062F \u0634\u0648\u062F."),
-        React.createElement("div", { className: "row", style: { gap: 8, marginBottom: 12 } },
-            React.createElement("input", { className: "input", style: { maxWidth: 260 }, placeholder: "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u0646\u0627\u0645 \u06CC\u0627 \u0645\u062F\u0644 \u062F\u0633\u062A\u06AF\u0627\u0647\u2026", value: q, onChange: e => setQ(e.target.value) }),
-            React.createElement("button", { className: "btn p", onClick: load }, "\u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC"),
-            React.createElement("span", { style: { fontSize: 12, color: "var(--muted)", alignSelf: "center" } }, data ? fa(items.length) + " نشست فعال" : "")),
-        loading && React.createElement("p", { style: { color: "var(--muted)" } }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026"),
-        data && React.createElement("div", { style: { overflowX: "auto" } },
-            React.createElement("table", { style: { fontSize: 12.5, minWidth: 560 } },
-                React.createElement("thead", null,
-                    React.createElement("tr", null,
-                        React.createElement("th", null, "\u06A9\u0627\u0631\u0628\u0631"),
-                        React.createElement("th", null, "\u0633\u0645\u062A"),
-                        React.createElement("th", null, "\u0646\u0648\u0639 \u062F\u0633\u062A\u06AF\u0627\u0647"),
-                        React.createElement("th", null, "\u0645\u062F\u0644/\u0634\u0646\u0627\u0633\u0647"),
-                        React.createElement("th", null, "\u0632\u0645\u0627\u0646 \u0648\u0631\u0648\u062F"),
-                        React.createElement("th", null))),
-                React.createElement("tbody", null, items.map(s => (React.createElement("tr", { key: s.id },
-                    React.createElement("td", { style: { fontWeight: 700 } }, s.user_name),
-                    React.createElement("td", { style: { fontSize: 11, color: "var(--muted)" } }, s.role_title || ""),
-                    React.createElement("td", null, s.device_type === 'android' ? "📱 اندروید" : s.device_type === 'web' ? "🖥 وب" : s.device_type),
-                    React.createElement("td", { style: { fontSize: 11, fontFamily: "monospace" } }, s.device_model || s.device_id || "—"),
-                    React.createElement("td", { style: { fontSize: 11 } }, fj(s.created_at)),
-                    React.createElement("td", null,
-                        React.createElement("button", { className: "btn g", onClick: () => revoke(s.user_id, s.device_type, s.user_name) }, "\u0642\u0637\u0639 \u0646\u0634\u0633\u062A"))))))),
-            !items.length && React.createElement("p", { style: { color: "var(--muted)", textAlign: "center", padding: 16 } }, "\u0646\u0634\u0633\u062A \u0641\u0639\u0627\u0644\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F."))));
+        React.createElement("div", { className: "active-sessions-toolbar" },
+            React.createElement("label", null,
+                "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u0646\u0634\u0633\u062A",
+                React.createElement("input", { className: "input", type: "search", placeholder: "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631 \u06CC\u0627 \u0634\u0646\u0627\u0633\u0647 \u062F\u0633\u062A\u06AF\u0627\u0647\u2026", value: q, onChange: e => { setQ(e.target.value); setSelected([]); } })),
+            React.createElement("label", null,
+                "\u0646\u0648\u0639 \u0646\u0634\u0633\u062A",
+                React.createElement("select", { className: "input", value: deviceFilter, onChange: e => { setDeviceFilter(e.target.value); setSelected([]); } },
+                    React.createElement("option", { value: "all" }, "\u0647\u0645\u0647 \u0646\u0634\u0633\u062A\u200C\u0647\u0627"),
+                    React.createElement("option", { value: "web" }, "\u0648\u0628"),
+                    React.createElement("option", { value: "android" }, "\u0627\u0646\u062F\u0631\u0648\u06CC\u062F"))),
+            React.createElement("button", { type: "button", className: "btn g", disabled: loading || busy, onClick: load }, "\u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC"),
+            React.createElement("span", { className: "active-sessions-count" }, data ? fa(items.length) + " نشست فعال" : "")),
+        error && React.createElement("p", { className: "active-sessions-message error", role: "alert" }, error),
+        notice && React.createElement("p", { className: "active-sessions-message success", role: "status" }, notice),
+        loading && React.createElement("p", { role: "status", style: { color: "var(--muted)" } }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026"),
+        data && React.createElement(React.Fragment, null,
+            React.createElement("div", { className: "active-sessions-bulkbar" },
+                React.createElement("label", null,
+                    React.createElement("input", { type: "checkbox", checked: allVisibleSelected, disabled: busy || loading || !items.length, onChange: e => toggleAll(e.target.checked) }),
+                    " \u0627\u0646\u062A\u062E\u0627\u0628 \u0647\u0645\u0647 \u0646\u062A\u0627\u06CC\u062C \u0646\u0645\u0627\u06CC\u0634\u200C\u062F\u0627\u062F\u0647\u200C\u0634\u062F\u0647"),
+                React.createElement("span", null,
+                    fa(selected.length),
+                    " \u0646\u0634\u0633\u062A \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647"),
+                React.createElement("button", { type: "button", className: "btn d", disabled: busy || loading || !selected.length, onClick: revokeSelected }, busy ? "در حال قطع نشست‌ها…" : `قطع گروهی ${fa(selected.length)} نشست`)),
+            React.createElement("div", { className: "table-wrap", style: { overflowX: "auto" } },
+                React.createElement("table", { style: { fontSize: 12.5, minWidth: 720 } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0627\u0646\u062A\u062E\u0627\u0628"),
+                            React.createElement("th", null, "\u06A9\u0627\u0631\u0628\u0631"),
+                            React.createElement("th", null, "\u0633\u0645\u062A"),
+                            React.createElement("th", null, "\u0646\u0648\u0639 \u062F\u0633\u062A\u06AF\u0627\u0647"),
+                            React.createElement("th", null, "\u0645\u062F\u0644/\u0634\u0646\u0627\u0633\u0647"),
+                            React.createElement("th", null, "\u0632\u0645\u0627\u0646 \u0648\u0631\u0648\u062F"),
+                            React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
+                    React.createElement("tbody", null, items.map(s => (React.createElement("tr", { key: s.id },
+                        React.createElement("td", null,
+                            React.createElement("input", { type: "checkbox", "aria-label": `انتخاب نشست ${s.user_name} (${s.device_type === 'android' ? 'اندروید' : 'وب'})`, checked: selected.includes(Number(s.id)), disabled: busy || loading, onChange: e => toggleOne(Number(s.id), e.target.checked) })),
+                        React.createElement("td", { style: { fontWeight: 700 } }, s.user_name),
+                        React.createElement("td", { style: { fontSize: 11, color: "var(--muted)" } }, s.role_title || ""),
+                        React.createElement("td", null, s.device_type === 'android' ? "📱 اندروید" : s.device_type === 'web' ? "🖥 وب" : s.device_type),
+                        React.createElement("td", { style: { fontSize: 11, fontFamily: "monospace" } }, s.device_model || s.device_id || "—"),
+                        React.createElement("td", { style: { fontSize: 11 } }, fj(s.created_at)),
+                        React.createElement("td", null,
+                            React.createElement("button", { className: "btn g", disabled: busy || loading, onClick: () => revoke(s.user_id, s.device_type, s.user_name) }, "\u0642\u0637\u0639 \u0646\u0634\u0633\u062A"))))))),
+                !items.length && React.createElement("p", { style: { color: "var(--muted)", textAlign: "center", padding: 16 } }, "\u0646\u0634\u0633\u062A \u0641\u0639\u0627\u0644\u06CC \u0628\u0627 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")))));
 }
 function CronStatusView() {
     const [data, setData] = useState(null);

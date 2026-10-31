@@ -3205,33 +3205,62 @@ function ReportsCenter({canNavigate=()=>true}={}){
 
 function ActiveSessionsView(){
   const [data,setData]=useState(null); const [loading,setLoading]=useState(false); const [q,setQ]=useState("");
-  const load=()=>{ setLoading(true); GET("/admin/active-sessions").then(setData).catch(()=>setData({items:[],count:0})).finally(()=>setLoading(false)); };
+  const [deviceFilter,setDeviceFilter]=useState("all"); const [selected,setSelected]=useState([]);
+  const [busy,setBusy]=useState(false); const [error,setError]=useState(""); const [notice,setNotice]=useState("");
+  const load=async()=>{setLoading(true);setError("");setSelected([]);try{const result=await GET("/admin/active-sessions");setData(result);}catch(e){setError(e.message||"دریافت نشست‌ها ناموفق بود.");}finally{setLoading(false);}};
   useEffect(()=>{ load(); },[]);
   const revoke=async(userId,type,name)=>{
+    if(busy||loading)return;
     if(!confirm(`نشست ${type==='android'?'اندروید':'وب'} کاربر «${name}» قطع شود؟ کاربر باید دوباره وارد شود.`)) return;
-    await db.revokeDevice(userId,type); load();
+    setBusy(true);setError("");setNotice("");
+    try{await db.revokeDevice(userId,type);await load();setNotice("نشست انتخاب‌شده قطع شد.");}
+    catch(e){setError(e.message||"قطع نشست ناموفق بود.");}
+    finally{setBusy(false);}
   };
-  const items=(data?.items||[]).filter(r=>!q||r.user_name.includes(q)||(r.device_model||'').includes(q));
-  return(<div className="panel admin-workspace-page"><h3>🔐 جلسات فعال کاربران</h3>
+  const items=(data?.items||[]).filter(r=>(deviceFilter==="all"||r.device_type===deviceFilter)&&(!q||(r.user_name||"").includes(q)||(r.device_model||"").includes(q)||(r.device_id||"").includes(q)));
+  const visibleIds=items.map(s=>Number(s.id));
+  const allVisibleSelected=visibleIds.length>0&&visibleIds.every(id=>selected.includes(id));
+  const toggleAll=checked=>setSelected(checked?visibleIds:[]);
+  const toggleOne=(id,checked)=>setSelected(previous=>checked?[...previous.filter(value=>value!==id),id]:previous.filter(value=>value!==id));
+  const revokeSelected=async()=>{
+    if(busy||loading||!selected.length)return;
+    const chosen=items.filter(s=>selected.includes(Number(s.id)));
+    if(!chosen.length)return;
+    const types=[...new Set(chosen.map(s=>s.device_type))].map(t=>t==='android'?'اندروید':t==='web'?'وب':t).join(" و ");
+    if(!confirm(`آیا از قطع ${fa(chosen.length)} نشست ${types} مطمئن هستید؟ کاربران انتخاب‌شده باید دوباره وارد شوند.`))return;
+    setBusy(true);setError("");setNotice("");
+    try{const result=await SEND('POST','/admin/active-sessions/revoke',{session_ids:chosen.map(s=>Number(s.id))});await load();setNotice(`${fa(result.revoked_count??chosen.length)} نشست قطع شد.`);}
+    catch(e){setError(e.message||"قطع گروهی نشست‌ها ناموفق بود. فهرست را تازه‌سازی کنید.");}
+    finally{setBusy(false);}
+  };
+  return(<div className="panel admin-workspace-page active-sessions-page"><h3>🔐 جلسات فعال کاربران</h3>
     <p style={{fontSize:13,color:"var(--muted)",marginBottom:12}}>هر کاربر می‌تواند هم‌زمان یک نشست اندروید و یک نشست وب داشته باشد. اگر مشکوک به دسترسی غیرمجاز هستید، می‌توانید هر نشست را از راه دور قطع کنید — کاربر بلافاصله باید دوباره وارد شود.</p>
-    <div className="row" style={{gap:8,marginBottom:12}}>
-      <input className="input" style={{maxWidth:260}} placeholder="جست‌وجوی نام یا مدل دستگاه…" value={q} onChange={e=>setQ(e.target.value)}/>
-      <button className="btn p" onClick={load}>بروزرسانی</button>
-      <span style={{fontSize:12,color:"var(--muted)",alignSelf:"center"}}>{data?fa(items.length)+" نشست فعال":""}</span>
+    <div className="active-sessions-toolbar">
+      <label>جست‌وجوی نشست<input className="input" type="search" placeholder="نام کاربر یا شناسه دستگاه…" value={q} onChange={e=>{setQ(e.target.value);setSelected([]);}}/></label>
+      <label>نوع نشست<select className="input" value={deviceFilter} onChange={e=>{setDeviceFilter(e.target.value);setSelected([]);}}><option value="all">همه نشست‌ها</option><option value="web">وب</option><option value="android">اندروید</option></select></label>
+      <button type="button" className="btn g" disabled={loading||busy} onClick={load}>بروزرسانی</button>
+      <span className="active-sessions-count">{data?fa(items.length)+" نشست فعال":""}</span>
     </div>
-    {loading&&<p style={{color:"var(--muted)"}}>در حال بارگذاری…</p>}
-    {data&&<div style={{overflowX:"auto"}}>
-      <table style={{fontSize:12.5,minWidth:560}}><thead><tr><th>کاربر</th><th>سمت</th><th>نوع دستگاه</th><th>مدل/شناسه</th><th>زمان ورود</th><th></th></tr></thead>
+    {error&&<p className="active-sessions-message error" role="alert">{error}</p>}
+    {notice&&<p className="active-sessions-message success" role="status">{notice}</p>}
+    {loading&&<p role="status" style={{color:"var(--muted)"}}>در حال بارگذاری…</p>}
+    {data&&<><div className="active-sessions-bulkbar">
+      <label><input type="checkbox" checked={allVisibleSelected} disabled={busy||loading||!items.length} onChange={e=>toggleAll(e.target.checked)}/> انتخاب همه نتایج نمایش‌داده‌شده</label>
+      <span>{fa(selected.length)} نشست انتخاب‌شده</span>
+      <button type="button" className="btn d" disabled={busy||loading||!selected.length} onClick={revokeSelected}>{busy?"در حال قطع نشست‌ها…":`قطع گروهی ${fa(selected.length)} نشست`}</button>
+    </div><div className="table-wrap" style={{overflowX:"auto"}}>
+      <table style={{fontSize:12.5,minWidth:720}}><thead><tr><th>انتخاب</th><th>کاربر</th><th>سمت</th><th>نوع دستگاه</th><th>مدل/شناسه</th><th>زمان ورود</th><th>عملیات</th></tr></thead>
       <tbody>{items.map(s=>(<tr key={s.id}>
+        <td><input type="checkbox" aria-label={`انتخاب نشست ${s.user_name} (${s.device_type==='android'?'اندروید':'وب'})`} checked={selected.includes(Number(s.id))} disabled={busy||loading} onChange={e=>toggleOne(Number(s.id),e.target.checked)}/></td>
         <td style={{fontWeight:700}}>{s.user_name}</td>
         <td style={{fontSize:11,color:"var(--muted)"}}>{s.role_title||""}</td>
         <td>{s.device_type==='android'?"📱 اندروید":s.device_type==='web'?"🖥 وب":s.device_type}</td>
         <td style={{fontSize:11,fontFamily:"monospace"}}>{s.device_model||s.device_id||"—"}</td>
         <td style={{fontSize:11}}>{fj(s.created_at)}</td>
-        <td><button className="btn g" onClick={()=>revoke(s.user_id,s.device_type,s.user_name)}>قطع نشست</button></td>
+        <td><button className="btn g" disabled={busy||loading} onClick={()=>revoke(s.user_id,s.device_type,s.user_name)}>قطع نشست</button></td>
       </tr>))}</tbody></table>
-      {!items.length&&<p style={{color:"var(--muted)",textAlign:"center",padding:16}}>نشست فعالی یافت نشد.</p>}
-    </div>}
+      {!items.length&&<p style={{color:"var(--muted)",textAlign:"center",padding:16}}>نشست فعالی با فیلترهای انتخاب‌شده یافت نشد.</p>}
+    </div></>}
   </div>);
 }
 
