@@ -1261,50 +1261,11 @@ function PresenceLists() {
             React.createElement("div", { className: "muted", style: { fontSize: 11 } },
                 x.role,
                 x.captured_at ? (" · " + fj(x.captured_at)) : ""))) : React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u2014"))));
-    // بخش موارد انجام‌نشده (تخلفات عدم ارسال صحت‌سنجی)
-    const today = new Date().toISOString().slice(0, 10);
-    const [vFrom, setVFrom] = useState(today);
-    const [vTo, setVTo] = useState(today);
-    const [viol, setViol] = useState(null);
-    const [vLoading, setVLoading] = useState(false);
-    const loadViol = () => {
-        setVLoading(true);
-        db.presenceViolations(vFrom, vTo)
-            .then(r => setViol(r || [])).catch(() => setViol([])).finally(() => setVLoading(false));
-    };
     return (React.createElement("div", null,
         React.createElement("div", { className: "grid3", style: { marginTop: 14, gap: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))" } },
             React.createElement(Col, { title: "\u0622\u0646\u0644\u0627\u06CC\u0646", items: d.online, color: "#16a06a" }),
             React.createElement(Col, { title: "\u063A\u06CC\u0631\u0641\u0639\u0627\u0644 (\u0628\u062F\u0648\u0646 \u0645\u0648\u0642\u0639\u06CC\u062A)", items: d.inactive, color: "#f6c324" }),
-            React.createElement(Col, { title: "\u0622\u0641\u0644\u0627\u06CC\u0646", items: d.offline, color: "#8a93a6" })),
-        React.createElement("div", { className: "panel", style: { marginTop: 14 } },
-            React.createElement("h3", null, "\u26A0 \u0645\u0648\u0627\u0631\u062F \u0627\u0646\u062C\u0627\u0645\u200C\u0646\u0634\u062F\u0647\u0654 \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062D\u0636\u0648\u0631"),
-            React.createElement("p", { className: "muted", style: { fontSize: 13, marginBottom: 10 } }, "\u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0645\u0634\u0645\u0648\u0644 \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u06A9\u0647 \u062F\u0631 \u0628\u0627\u0632\u0647\u0654 \u0633\u0627\u0639\u062A\u06CC \u0645\u0642\u0631\u0631\u060C \u0633\u0644\u0641\u06CC \u0648 \u0639\u06A9\u0633 \u062E\u0637 \u0631\u0627 \u0627\u0631\u0633\u0627\u0644 \u0646\u06A9\u0631\u062F\u0647\u200C\u0627\u0646\u062F. (\u0646\u06CC\u0627\u0632 \u0628\u0647 \u0641\u0639\u0627\u0644 \u0628\u0648\u062F\u0646 \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u0648 \u062A\u0639\u0631\u06CC\u0641 \u0628\u0627\u0632\u0647\u200C\u0647\u0627\u06CC \u0633\u0627\u0639\u062A\u06CC \u062F\u0631 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u062F\u0627\u0631\u062F.)"),
-            React.createElement("div", { className: "row", style: { gap: 8, flexWrap: "wrap", marginBottom: 10, alignItems: "center" } },
-                React.createElement("span", { className: "label" }, "\u0627\u0632"),
-                React.createElement(JDate, { value: vFrom, onChange: setVFrom }),
-                React.createElement("span", { className: "label" }, "\u062A\u0627"),
-                React.createElement(JDate, { value: vTo, onChange: setVTo }),
-                React.createElement("button", { className: "btn p", onClick: loadViol }, "\u0646\u0645\u0627\u06CC\u0634 \u0645\u0648\u0627\u0631\u062F \u0627\u0646\u062C\u0627\u0645\u200C\u0646\u0634\u062F\u0647"),
-                viol && React.createElement("button", { className: "btn g", onClick: () => { const ws = XLSX.utils.json_to_sheet(viol.map(x => ({ تاریخ: fj(x.slot_date), نیرو: x.name, سمت: x.role || "—", "بازهٔ ساعتی": x.slot, نوع: x.type }))); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "موارد انجام‌نشده"); XLSX.writeFile(wb, "موارد_انجام_نشده_صحت_سنجی.xlsx"); } }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
-            vLoading ? React.createElement("p", { className: "muted", style: { textAlign: "center", padding: 12 } }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026")
-                : viol === null ? React.createElement("p", { className: "muted", style: { textAlign: "center", padding: 12 } }, "\u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634\u060C \u0628\u0627\u0632\u0647\u0654 \u062A\u0627\u0631\u06CC\u062E \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u0648 \u062F\u06A9\u0645\u0647 \u0631\u0627 \u0628\u0632\u0646\u06CC\u062F.")
-                    : viol.length === 0 ? React.createElement("p", { className: "muted", style: { textAlign: "center", padding: 12, color: "var(--ok)" } }, "\u2713 \u0645\u0648\u0631\u062F\u06CC \u0627\u0646\u062C\u0627\u0645\u200C\u0646\u0634\u062F\u0647 \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")
-                        : React.createElement("table", null,
-                            React.createElement("thead", null,
-                                React.createElement("tr", null,
-                                    React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
-                                    React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
-                                    React.createElement("th", null, "\u0633\u0645\u062A"),
-                                    React.createElement("th", null, "\u0628\u0627\u0632\u0647\u0654 \u0633\u0627\u0639\u062A\u06CC"),
-                                    React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"))),
-                            React.createElement("tbody", null, viol.map((x, i) => React.createElement("tr", { key: i },
-                                React.createElement("td", null, fj(x.slot_date)),
-                                React.createElement("td", null, x.name),
-                                React.createElement("td", null, x.role || "—"),
-                                React.createElement("td", null, x.slot),
-                                React.createElement("td", null,
-                                    React.createElement("span", { className: "badge", style: { background: "#fde7ea", color: "#c0293f" } }, "\u0627\u0646\u062C\u0627\u0645 \u0646\u0634\u062F\u0647")))))))));
+            React.createElement(Col, { title: "\u0622\u0641\u0644\u0627\u06CC\u0646", items: d.offline, color: "#8a93a6" }))));
 }
 // انتخابگر کاربر با جستجو (تایپ بخشی از نام/نام‌خانوادگی)
 function UserPicker({ users, value, onChange, placeholder }) {
