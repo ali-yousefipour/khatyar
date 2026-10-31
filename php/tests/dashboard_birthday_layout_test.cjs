@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const src=fs.readFileSync(path.join(__dirname,'../tools/panel_source.jsx'),'utf8');
+const css=fs.readFileSync(path.join(__dirname,'../app/assets/panel.bundle.css'),'utf8');
+const from=src.indexOf('function BirthdayCelebration(');
+const to=src.indexOf('function Dashboard(){',from);
+const ui=src.slice(from,to);
+const dashboard=src.slice(to,src.indexOf('\nconst GROUP_COLORS=',to));
+assert.ok(from>=0&&to>from,'Birthday celebration component exists');
+for(const snippet of ['bdays.people','p.days_left','p.is_today','bdays.month_name','p.role_title','p.birth_date','birthday-person-status'])assert.ok(ui.includes(snippet),'Missing birthday data: '+snippet);
+assert.ok(dashboard.indexOf('<BirthdayCelebration bdays={bdays}/>')<dashboard.indexOf('<div className="kpis">'),'Birthdays must display above dashboard counters');
+assert.ok(dashboard.indexOf('<BirthdayCelebration bdays={bdays}/>')<dashboard.indexOf('<PersonnelDistributionDashboard/>'),'Birthdays must display above personnel statistics');
+assert.match(css,/\.birthday-celebration-grid\{display:grid/);
+assert.match(css,/@media\(max-width:640px\).*\.birthday-celebration-grid/);
+console.log('PASS birthday cards preserve all dates and statuses, display above counters, and support mobile layout');

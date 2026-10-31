@@ -732,6 +732,25 @@ function ResponsiveTable({children,...props}){
   return <div className="table-wrap" tabIndex={0} role="region" aria-label="جدول اطلاعات؛ برای مشاهده ستون‌های بیشتر پیمایش کنید"><table {...props}>{children}</table></div>;
 }
 
+function BirthdayCelebration({bdays}){
+  if(!bdays||!Array.isArray(bdays.people))return null;
+  const people=bdays.people;
+  if(!people.length)return <div className="birthday-empty" role="status">🎂 در ماه {bdays.month_name} سالگرد تولدی برای همکاران ثبت نشده است.</div>;
+  const ordered=[...people].sort((a,b)=>(a.is_today?0:a.days_left>0?1:2)-(b.is_today?0:b.days_left>0?1:2)||(a.days_left>0?a.days_left:999)-(b.days_left>0?b.days_left:999));
+  return <section className="birthday-celebration" aria-label="سالگرد تولد همکاران">
+    <div className="birthday-celebration-head"><div className="birthday-celebration-icon" aria-hidden="true">🎂</div><div className="birthday-celebration-heading"><span className="birthday-celebration-eyebrow">مناسبت‌های این ماه</span><h2>سالگرد تولد همکاران <span>در ماه {bdays.month_name}</span></h2><p>به همکاران عزیزمان تبریک می‌گوییم و برایشان روزهایی پر از شادی آرزو داریم.</p></div><span className="birthday-celebration-count">{fa(people.length)} نفر</span></div>
+    <div className="birthday-celebration-grid">{ordered.map((p,i)=>{
+      const status=p.is_today?"today":p.days_left>0?"upcoming":"passed";
+      const statusText=p.is_today?"امروز، تولدت مبارک!":p.days_left>0?fa(p.days_left)+" روز مانده":"سپری شده";
+      return <article className={"birthday-person birthday-person-"+status} key={p.id||p.birth_date+"-"+i}>
+        <div className="birthday-person-avatar" aria-hidden="true">{p.is_today?"🎉":p.days_left>0?"🎁":"🎈"}</div>
+        <div className="birthday-person-details"><h3>{p.name}</h3><div className="birthday-person-role">{p.role_title||"همکار خطیار"}</div><div className="birthday-person-date"><span>سالگرد تولد</span><b>{fa(p.day)} {bdays.month_name}</b><span className="birthday-person-year">{faPlain(p.birth_date||"")}</span></div></div>
+        <span className="birthday-person-status">{statusText}</span>
+      </article>;
+    })}</div>
+  </section>;
+}
+
 function Dashboard(){
   const [s,setS]=useState(null); const [tw,setTw]=useState({top:[],bottom:[]});
   const [bdays,setBdays]=useState(null);
@@ -747,33 +766,10 @@ function Dashboard(){
   if(!s)return <div className="panel" style={{margin:"14px 0"}}>اطلاعات داشبورد در دسترس نیست.</div>;
   const K=[["راننده فعال",s.drivers],["خط فعال",s.lines],["حضور امروز",s.today_attendance],["فیش پرداخت‌نشده",s.unpaid_bills],["تذکر این ماه",s.notices_month]];
   return(<div className="dashboard-page">
+    <BirthdayCelebration bdays={bdays}/>
     <div className="kpis">{K.map(([l,n],i)=><div className="kpi" key={i}><div className="n">{fa(n)}</div><div className="l">{l}</div></div>)}</div>
     <PersonnelDistributionDashboard/>
     <LiveStaffDashboard/>
-    {bdays&&bdays.people&&bdays.people.length>0&&<div style={{background:"linear-gradient(135deg,#fff5f8,#fef9ee)",border:"1px solid #f5d5e0",borderRadius:14,padding:16,margin:"14px 0"}}>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-        <span style={{fontSize:22}}>🎂</span>
-        <b style={{fontSize:15}}>سالگرد تولد همکاران در ماه {bdays.month_name} ({fa(bdays.people.length)} نفر)</b>
-      </div>
-      <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
-        {bdays.people.map((p,i)=>{
-          const dl=p.days_left;
-          const badge = p.is_today ? {t:"🎉 امروز!",c:"#16a06a",bg:"#e7f7ef"}
-            : (dl>0 ? {t:fa(dl)+" روز مانده",c:"#b8860b",bg:"#fdf6e3"}
-            : {t:"گذشته",c:"#9aa6b6",bg:"#f0f2f5"});
-          return <div key={i} style={{background:"#fff",borderRadius:10,padding:"10px 14px",border:p.is_today?"2px solid #16a06a":"1px solid #f0e0e8",minWidth:200,display:"flex",alignItems:"center",gap:10}}>
-            <div style={{width:38,height:38,borderRadius:"50%",background:p.is_today?"#e7f7ef":"#fce4ec",display:"grid",placeItems:"center",fontSize:18}}>{p.is_today?"🎉":"🎈"}</div>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:700,fontSize:13.5}}>{p.name}</div>
-              <div style={{fontSize:11.5,color:"var(--muted)"}}>{p.role_title||""} · {bdays.month_name} {fa(p.day)}</div>
-              <div style={{fontSize:10.5,color:"#b08",direction:"ltr",textAlign:"right"}}>{faPlain(p.birth_date||"")}</div>
-            </div>
-            <div style={{fontSize:11,fontWeight:700,color:badge.c,background:badge.bg,borderRadius:8,padding:"3px 8px",whiteSpace:"nowrap"}}>{badge.t}</div>
-          </div>;
-        })}
-      </div>
-    </div>}
-    {bdays&&bdays.people&&bdays.people.length===0&&<div style={{background:"#f7f9fc",border:"1px solid var(--line)",borderRadius:12,padding:"12px 16px",margin:"14px 0",fontSize:13,color:"var(--muted)"}}>🎂 در ماه {bdays.month_name} هیچ‌یک از همکاران سالگرد تولد ندارند.</div>}
     {tw && tw.groups && tw.groups.length>0 ? <section aria-label="کارایی نیروها">
       <h3 style={{margin:"18px 0 12px",fontSize:16}}>👥 کارایی نیروها — پرکارترین و کم‌کارترین به تفکیک نقش{tw.zone_scope==="own"?" (منطقهٔ شما)":""}</h3>
       <div className="grid2">

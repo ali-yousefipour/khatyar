@@ -1041,6 +1041,48 @@ function ResponsiveTable({ children, ...props }) {
     return React.createElement("div", { className: "table-wrap", tabIndex: 0, role: "region", "aria-label": "\u062C\u062F\u0648\u0644 \u0627\u0637\u0644\u0627\u0639\u0627\u062A\u061B \u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647 \u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0628\u06CC\u0634\u062A\u0631 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u06A9\u0646\u06CC\u062F" },
         React.createElement("table", { ...props }, children));
 }
+function BirthdayCelebration({ bdays }) {
+    if (!bdays || !Array.isArray(bdays.people))
+        return null;
+    const people = bdays.people;
+    if (!people.length)
+        return React.createElement("div", { className: "birthday-empty", role: "status" },
+            "\uD83C\uDF82 \u062F\u0631 \u0645\u0627\u0647 ",
+            bdays.month_name,
+            " \u0633\u0627\u0644\u06AF\u0631\u062F \u062A\u0648\u0644\u062F\u06CC \u0628\u0631\u0627\u06CC \u0647\u0645\u06A9\u0627\u0631\u0627\u0646 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.");
+    const ordered = [...people].sort((a, b) => (a.is_today ? 0 : a.days_left > 0 ? 1 : 2) - (b.is_today ? 0 : b.days_left > 0 ? 1 : 2) || (a.days_left > 0 ? a.days_left : 999) - (b.days_left > 0 ? b.days_left : 999));
+    return React.createElement("section", { className: "birthday-celebration", "aria-label": "\u0633\u0627\u0644\u06AF\u0631\u062F \u062A\u0648\u0644\u062F \u0647\u0645\u06A9\u0627\u0631\u0627\u0646" },
+        React.createElement("div", { className: "birthday-celebration-head" },
+            React.createElement("div", { className: "birthday-celebration-icon", "aria-hidden": "true" }, "\uD83C\uDF82"),
+            React.createElement("div", { className: "birthday-celebration-heading" },
+                React.createElement("span", { className: "birthday-celebration-eyebrow" }, "\u0645\u0646\u0627\u0633\u0628\u062A\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0645\u0627\u0647"),
+                React.createElement("h2", null,
+                    "\u0633\u0627\u0644\u06AF\u0631\u062F \u062A\u0648\u0644\u062F \u0647\u0645\u06A9\u0627\u0631\u0627\u0646 ",
+                    React.createElement("span", null,
+                        "\u062F\u0631 \u0645\u0627\u0647 ",
+                        bdays.month_name)),
+                React.createElement("p", null, "\u0628\u0647 \u0647\u0645\u06A9\u0627\u0631\u0627\u0646 \u0639\u0632\u06CC\u0632\u0645\u0627\u0646 \u062A\u0628\u0631\u06CC\u06A9 \u0645\u06CC\u200C\u06AF\u0648\u06CC\u06CC\u0645 \u0648 \u0628\u0631\u0627\u06CC\u0634\u0627\u0646 \u0631\u0648\u0632\u0647\u0627\u06CC\u06CC \u067E\u0631 \u0627\u0632 \u0634\u0627\u062F\u06CC \u0622\u0631\u0632\u0648 \u062F\u0627\u0631\u06CC\u0645.")),
+            React.createElement("span", { className: "birthday-celebration-count" },
+                fa(people.length),
+                " \u0646\u0641\u0631")),
+        React.createElement("div", { className: "birthday-celebration-grid" }, ordered.map((p, i) => {
+            const status = p.is_today ? "today" : p.days_left > 0 ? "upcoming" : "passed";
+            const statusText = p.is_today ? "امروز، تولدت مبارک!" : p.days_left > 0 ? fa(p.days_left) + " روز مانده" : "سپری شده";
+            return React.createElement("article", { className: "birthday-person birthday-person-" + status, key: p.id || p.birth_date + "-" + i },
+                React.createElement("div", { className: "birthday-person-avatar", "aria-hidden": "true" }, p.is_today ? "🎉" : p.days_left > 0 ? "🎁" : "🎈"),
+                React.createElement("div", { className: "birthday-person-details" },
+                    React.createElement("h3", null, p.name),
+                    React.createElement("div", { className: "birthday-person-role" }, p.role_title || "همکار خطیار"),
+                    React.createElement("div", { className: "birthday-person-date" },
+                        React.createElement("span", null, "\u0633\u0627\u0644\u06AF\u0631\u062F \u062A\u0648\u0644\u062F"),
+                        React.createElement("b", null,
+                            fa(p.day),
+                            " ",
+                            bdays.month_name),
+                        React.createElement("span", { className: "birthday-person-year" }, faPlain(p.birth_date || "")))),
+                React.createElement("span", { className: "birthday-person-status" }, statusText));
+        })));
+}
 function Dashboard() {
     const [s, setS] = useState(null);
     const [tw, setTw] = useState({ top: [], bottom: [] });
@@ -1067,42 +1109,12 @@ function Dashboard() {
         return React.createElement("div", { className: "panel", style: { margin: "14px 0" } }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0646\u06CC\u0633\u062A.");
     const K = [["راننده فعال", s.drivers], ["خط فعال", s.lines], ["حضور امروز", s.today_attendance], ["فیش پرداخت‌نشده", s.unpaid_bills], ["تذکر این ماه", s.notices_month]];
     return (React.createElement("div", { className: "dashboard-page" },
+        React.createElement(BirthdayCelebration, { bdays: bdays }),
         React.createElement("div", { className: "kpis" }, K.map(([l, n], i) => React.createElement("div", { className: "kpi", key: i },
             React.createElement("div", { className: "n" }, fa(n)),
             React.createElement("div", { className: "l" }, l)))),
         React.createElement(PersonnelDistributionDashboard, null),
         React.createElement(LiveStaffDashboard, null),
-        bdays && bdays.people && bdays.people.length > 0 && React.createElement("div", { style: { background: "linear-gradient(135deg,#fff5f8,#fef9ee)", border: "1px solid #f5d5e0", borderRadius: 14, padding: 16, margin: "14px 0" } },
-            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } },
-                React.createElement("span", { style: { fontSize: 22 } }, "\uD83C\uDF82"),
-                React.createElement("b", { style: { fontSize: 15 } },
-                    "\u0633\u0627\u0644\u06AF\u0631\u062F \u062A\u0648\u0644\u062F \u0647\u0645\u06A9\u0627\u0631\u0627\u0646 \u062F\u0631 \u0645\u0627\u0647 ",
-                    bdays.month_name,
-                    " (",
-                    fa(bdays.people.length),
-                    " \u0646\u0641\u0631)")),
-            React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } }, bdays.people.map((p, i) => {
-                const dl = p.days_left;
-                const badge = p.is_today ? { t: "🎉 امروز!", c: "#16a06a", bg: "#e7f7ef" }
-                    : (dl > 0 ? { t: fa(dl) + " روز مانده", c: "#b8860b", bg: "#fdf6e3" }
-                        : { t: "گذشته", c: "#9aa6b6", bg: "#f0f2f5" });
-                return React.createElement("div", { key: i, style: { background: "#fff", borderRadius: 10, padding: "10px 14px", border: p.is_today ? "2px solid #16a06a" : "1px solid #f0e0e8", minWidth: 200, display: "flex", alignItems: "center", gap: 10 } },
-                    React.createElement("div", { style: { width: 38, height: 38, borderRadius: "50%", background: p.is_today ? "#e7f7ef" : "#fce4ec", display: "grid", placeItems: "center", fontSize: 18 } }, p.is_today ? "🎉" : "🎈"),
-                    React.createElement("div", { style: { flex: 1 } },
-                        React.createElement("div", { style: { fontWeight: 700, fontSize: 13.5 } }, p.name),
-                        React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)" } },
-                            p.role_title || "",
-                            " \u00B7 ",
-                            bdays.month_name,
-                            " ",
-                            fa(p.day)),
-                        React.createElement("div", { style: { fontSize: 10.5, color: "#b08", direction: "ltr", textAlign: "right" } }, faPlain(p.birth_date || ""))),
-                    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: badge.c, background: badge.bg, borderRadius: 8, padding: "3px 8px", whiteSpace: "nowrap" } }, badge.t));
-            }))),
-        bdays && bdays.people && bdays.people.length === 0 && React.createElement("div", { style: { background: "#f7f9fc", border: "1px solid var(--line)", borderRadius: 12, padding: "12px 16px", margin: "14px 0", fontSize: 13, color: "var(--muted)" } },
-            "\uD83C\uDF82 \u062F\u0631 \u0645\u0627\u0647 ",
-            bdays.month_name,
-            " \u0647\u06CC\u0686\u200C\u06CC\u06A9 \u0627\u0632 \u0647\u0645\u06A9\u0627\u0631\u0627\u0646 \u0633\u0627\u0644\u06AF\u0631\u062F \u062A\u0648\u0644\u062F \u0646\u062F\u0627\u0631\u0646\u062F."),
         tw && tw.groups && tw.groups.length > 0 ? React.createElement("section", { "aria-label": "\u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627" },
             React.createElement("h3", { style: { margin: "18px 0 12px", fontSize: 16 } },
                 "\uD83D\uDC65 \u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u2014 \u067E\u0631\u06A9\u0627\u0631\u062A\u0631\u06CC\u0646 \u0648 \u06A9\u0645\u200C\u06A9\u0627\u0631\u062A\u0631\u06CC\u0646 \u0628\u0647 \u062A\u0641\u06A9\u06CC\u06A9 \u0646\u0642\u0634",

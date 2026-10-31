@@ -666,6 +666,39 @@ table{font-size:13px}
 @media print{.menu-search-trigger,.menu-result-count,.settings-mobile-picker{display:none!important}}
 
 /* Personnel directory: scoped glass surfaces; intentionally excludes dialogs. */
+/* Dashboard birthday celebration: a standalone, responsive surface above all counters. */
+@media screen{
+  .dashboard-page>.birthday-celebration{position:relative;isolation:isolate;overflow:hidden;margin:0 0 18px;padding:22px;border-radius:21px;border:1px solid #f0d7df;background:linear-gradient(115deg,#fff6f9 0%,#fffaf1 55%,#f7faf7 100%);box-shadow:0 12px 34px #693b4410}
+  .dashboard-page>.birthday-celebration::before{content:"";position:absolute;z-index:-1;width:280px;height:280px;top:-190px;left:-50px;background:radial-gradient(circle,#ffbaca66,transparent 70%);pointer-events:none}
+  .birthday-celebration-head{display:flex;gap:14px;align-items:center;margin-bottom:18px}
+  .birthday-celebration-icon{flex:0 0 56px;height:56px;display:grid;place-items:center;border-radius:17px;background:#fff;border:1px solid #f1dbe1;box-shadow:0 5px 15px #c98e9b18;font-size:27px}
+  .birthday-celebration-heading{flex:1;min-width:0}
+  .birthday-celebration-eyebrow{display:block;color:#a45672;font-size:11px;font-weight:800;margin-bottom:4px}
+  .birthday-celebration-heading h2{font-size:19px;font-weight:900;line-height:1.6;margin:0;color:#533543}
+  .birthday-celebration-heading h2 span{font-size:15px;color:#a35d79}
+  .birthday-celebration-heading p{font-size:12px;line-height:1.8;color:#896b77;margin:4px 0 0}
+  .birthday-celebration-count{flex-shrink:0;min-width:68px;text-align:center;border-radius:100px;padding:8px 13px;background:#fff;border:1px solid #f1dbe1;color:#88465f;font-weight:800;font-size:12px}
+  .birthday-celebration-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+  .birthday-person{display:flex;align-items:flex-start;gap:13px;min-width:0;padding:17px;border:1px solid #eddee1;border-radius:16px;background:#ffffffdf;box-shadow:0 6px 19px #6f38410c;backdrop-filter:blur(10px)}
+  .birthday-person-today{border-color:#edb5ca;background:linear-gradient(140deg,#fff,#fff0f5)}
+  .birthday-person-upcoming{border-color:#e9dabb}
+  .birthday-person-avatar{flex:0 0 45px;height:45px;display:grid;place-items:center;border-radius:14px;background:#fdeef4;font-size:22px}
+  .birthday-person-upcoming .birthday-person-avatar{background:#fcf1dd}
+  .birthday-person-passed .birthday-person-avatar{background:#f1f1f5}
+  .birthday-person-details{min-width:0;flex:1}
+  .birthday-person-details h3{font-size:14px;line-height:1.6;margin:0 0 3px;color:#493a43;font-weight:900;overflow-wrap:anywhere}
+  .birthday-person-role{font-size:11px;line-height:1.65;color:#877780;margin-bottom:12px}
+  .birthday-person-date{display:flex;align-items:center;flex-wrap:wrap;gap:6px 9px;font-size:11px;color:#8a7580}
+  .birthday-person-date b{color:#7d405b;font-size:12px}
+  .birthday-person-year{direction:ltr;unicode-bidi:isolate;color:#9b8991}
+  .birthday-person-status{align-self:flex-start;flex-shrink:0;border-radius:9px;padding:6px 9px;font-size:10px;font-weight:800;background:#f0f0f2;color:#697078;white-space:nowrap}
+  .birthday-person-upcoming .birthday-person-status{background:#fff2d4;color:#845c17}
+  .birthday-person-today .birthday-person-status{background:#e6f8ed;color:#12673d}
+  .dashboard-page>.birthday-empty{padding:15px 18px;margin-bottom:16px;border-radius:13px;border:1px solid #ede5e8;background:#fff9fb;color:#846671;font-size:12px}
+  @media(max-width:640px){.dashboard-page>.birthday-celebration{padding:15px;border-radius:16px}.birthday-celebration-head{gap:10px;align-items:flex-start}.birthday-celebration-icon{flex-basis:42px;height:42px;font-size:23px;border-radius:12px}.birthday-celebration-heading h2{font-size:16px}.birthday-celebration-heading h2 span{font-size:13px}.birthday-celebration-heading p{font-size:11px}.birthday-celebration-count{padding:5px 8px;min-width:0;font-size:10px}.birthday-celebration-grid{grid-template-columns:minmax(0,1fr)}.birthday-person{padding:13px;gap:10px}.birthday-person-avatar{flex-basis:39px;height:39px}.birthday-person-status{font-size:10px;padding:5px 7px}}
+}
+
+/* Personnel directory: scoped glass surfaces; intentionally excludes dialogs. */
 @media screen{
   .users-management-page{--users-ink:#163e35;--users-accent:#17694f}
   .users-management-page .users-hero{position:relative;isolation:isolate;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;border:1px solid #c9e4d8;border-radius:20px;padding:24px 26px;margin-bottom:16px;background:linear-gradient(118deg,#edf9f4 0%,#f7fbff 53%,#eaf5f2 100%);box-shadow:0 12px 32px #1e644210}
