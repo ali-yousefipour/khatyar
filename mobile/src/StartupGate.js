@@ -88,11 +88,11 @@ export default function StartupGate({ children }) {
       setProgress(75);
     } catch (_) {}
 
-    setPhase('در حال ارسال اطلاعات ذخیره‌شده…');
-    try {
-      // فقط مواردی که سرور موفقیت آن‌ها را تأیید کند از صف حذف می‌شوند.
-      await flushQueuedRequests();
-    } catch (_) {}
+    setPhase('در حال آماده‌سازی همگام‌سازی…');
+    // ارسال صف ممکن است برای هر مورد تا پایان timeout شبکه یا بارگذاری تصویر طول بکشد.
+    // شروع برنامه نباید منتظر تمام‌شدن صف بماند؛ فقط پاسخ تأییدشده سرور
+    // در offline.flush از صف حذف می‌شود و سرویس App نیز ارسال را پیگیری می‌کند.
+    flushQueuedRequests().catch(() => {});
     setProgress(90);
 
     setPhase('در حال آماده‌سازی برنامه…');
