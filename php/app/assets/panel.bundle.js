@@ -8548,14 +8548,23 @@ function OfficialVisitImg({ id }) {
         setSrc(null);
         setFailure('');
         fetch(API_BASE + "/admin/official-visits/" + id + "/image", { headers: tok() })
-            .then(r => { if (!r.ok) { const e = new Error('image unavailable'); e.status = r.status; throw e; } return r.blob(); })
-            .then(b => { if (alive) { objectUrl = URL.createObjectURL(b); setSrc(objectUrl); } }).catch(e => { if (alive) setFailure(e.status === 410 ? 'removed' : e.status === 404 ? 'missing' : 'network'); });
-        return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+            .then(r => { if (!r.ok) {
+            const e = new Error('image unavailable');
+            e.status = r.status;
+            throw e;
+        } return r.blob(); })
+            .then(b => { if (alive) {
+            objectUrl = URL.createObjectURL(b);
+            setSrc(objectUrl);
+        } }).catch(e => { if (alive)
+            setFailure(e.status === 410 ? 'removed' : e.status === 404 ? 'missing' : 'network'); });
+        return () => { alive = false; if (objectUrl)
+            URL.revokeObjectURL(objectUrl); };
     }, [id, attempt]);
     if (failure)
         return React.createElement("div", { role: "status", style: { width: "100%", minHeight: 220, background: "#f5f6f8", borderRadius: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 18, color: "var(--muted)", fontSize: 13, textAlign: "center" } },
             React.createElement("span", null, failure === 'removed' ? 'به دلیل قدیمی بودن، تصویر حذف شده است' : failure === 'missing' ? 'تصویری برای این حضور ثبت نشده است.' : 'بارگذاری تصویر ممکن نشد.'),
-            failure === 'network' && React.createElement("button", { type: "button", className: "btn g", onClick: () => setAttempt(n => n + 1) }, "تلاش دوباره"));
+            failure === 'network' && React.createElement("button", { type: "button", className: "btn g", onClick: () => setAttempt(n => n + 1) }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647"));
     if (!src)
         return React.createElement("div", { style: { width: "100%", height: 220, background: "#eef1f7", borderRadius: 10 } });
     return React.createElement("img", { src: src, alt: "", style: { width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 10, background: "#f5f6f8" } });
