@@ -2050,14 +2050,16 @@ function Config(){
 
 function ReportSubjectsAdmin(){
   const [rows,setRows]=useState([]); const [title,setTitle]=useState(""); const [busy,setBusy]=useState(false);
-  const load=()=>db.reportSubjects().then(setRows).catch(e=>alert(e.message));
+  const [error,setError]=useState(""); const [loading,setLoading]=useState(true);
+  const load=()=>{setLoading(true);return db.reportSubjects().then(r=>{setRows(r);setError("");}).catch(e=>setError(e.message||"دریافت موضوعات گزارش ناموفق بود.")).finally(()=>setLoading(false));};
   useEffect(load,[]);
-  const add=async()=>{const t=title.trim();if(!t)return;setBusy(true);try{await db.addReportSubject(t);setTitle("");load();}catch(e){alert(e.message)}finally{setBusy(false)}};
-  const del=async(id)=>{if(!confirm("این موضوع غیرفعال شود؟"))return;try{await db.delReportSubject(id);load();}catch(e){alert(e.message)}};
-  return <div className="panel"><h3>تعریف موضوعات گزارش‌ها</h3><p className="muted">این موضوعات در فرم ارسال گزارش نرم‌افزار نمایش داده می‌شوند. گزینه «سایر» همیشه برای درج موضوع دلخواه در دسترس است.</p>
-    <div className="row" style={{gap:8}}><input className="input" value={title} onChange={e=>setTitle(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")add()}} placeholder="عنوان موضوع جدید…"/><button className="btn p" disabled={busy} onClick={add}>افزودن</button></div>
-    <div className="chiprow" style={{marginTop:12}}>{rows.filter(x=>x.is_active!==0).map(r=><span className="chip" key={r.id}>{r.title}<b onClick={()=>del(r.id)}>✕</b></span>)}</div>
-    {!rows.filter(x=>x.is_active!==0).length&&<p className="muted">موضوعی تعریف نشده است.</p>}</div>;
+  const add=async()=>{const t=title.trim();if(!t){setError("عنوان موضوع جدید را وارد کنید.");return;}setBusy(true);setError("");try{await db.addReportSubject(t);setTitle("");await load();}catch(e){setError(e.message||"ثبت موضوع ناموفق بود.");}finally{setBusy(false)}};
+  const del=async(id)=>{if(!confirm("این موضوع غیرفعال شود؟"))return;setBusy(true);setError("");try{await db.delReportSubject(id);await load();}catch(e){setError(e.message||"غیرفعال‌کردن موضوع ناموفق بود.");}finally{setBusy(false)}};
+  return <div className="panel report-subjects-page"><h3>تعریف موضوعات گزارش‌ها</h3><p className="muted">این موضوعات در فرم ارسال گزارش نرم‌افزار نمایش داده می‌شوند. گزینه «سایر» همیشه برای درج موضوع دلخواه در دسترس است.</p>
+    {error&&<p role="alert" className="workspace-inline-error">{error}</p>}
+    <form className="row report-subjects-form" style={{gap:8}} onSubmit={e=>{e.preventDefault();add();}}><label className="report-subjects-field">عنوان موضوع جدید<input className="input" value={title} onChange={e=>setTitle(e.target.value)} placeholder="مثلاً تخلف راننده" maxLength={190}/></label><button type="submit" className="btn p" disabled={busy}>{busy?"در حال ثبت…":"افزودن موضوع"}</button></form>
+    <div className="chiprow report-subjects-list" style={{marginTop:12}}>{rows.filter(x=>Number(x.is_active)!==0).map(r=><span className="chip" key={r.id}>{r.title}<button type="button" className="report-subject-remove" aria-label={`غیرفعال کردن موضوع ${r.title}`} disabled={busy} onClick={()=>del(r.id)}>×</button></span>)}</div>
+    {!loading&&!rows.filter(x=>Number(x.is_active)!==0).length&&<p className="muted">موضوعی تعریف نشده است.</p>}{loading&&<p role="status" className="muted">در حال دریافت موضوعات…</p>}</div>;
 }
 
 function GivenFilters({f,setF,recorders,onApply,onClear}){
@@ -2081,15 +2083,17 @@ function GivenFilters({f,setF,recorders,onApply,onClear}){
 
 function GivenNotices(){
   const [rows,setRows]=useState([]); const [recorders,setRecorders]=useState([]); const [f,setF]=useState({}); const [loading,setLoading]=useState(false);
-  const qs=()=>{ const p=[]; ["recorder_role","recorder_id","national_id","line","from","to"].forEach(k=>{ if(f[k]) p.push(k+"="+encodeURIComponent(f[k])); }); return p.length?("?"+p.join("&")):""; };
-  const load=()=>{ setLoading(true); GET("/admin/given-notices"+qs()).then(setRows).catch(()=>setRows([])).finally(()=>setLoading(false)); };
+  const [error,setError]=useState(""); const requestSeq=useRef(0);
+  const qs=filters=>{ const p=[]; ["recorder_role","recorder_id","national_id","line","from","to"].forEach(k=>{ if(filters[k]) p.push(k+"="+encodeURIComponent(filters[k])); }); return p.length?("?"+p.join("&")):""; };
+  const load=(filters=f)=>{ const seq=++requestSeq.current;setLoading(true);setError("");GET("/admin/given-notices"+qs(filters)).then(data=>{if(seq===requestSeq.current)setRows(data);}).catch(e=>{if(seq===requestSeq.current)setError(e.message||"دریافت تذکرات ناموفق بود.");}).finally(()=>{if(seq===requestSeq.current)setLoading(false);}); };
   useEffect(()=>{ load(); GET("/admin/recorders").then(setRecorders).catch(()=>{}); },[]);
   const PR={low:"کم",medium:"متوسط",high:"زیاد"};
   const exportExcel=()=>{ const aoa=[["تاریخ","راننده","کد ملی","خط","موضوع","اولویت","متن","ثبت‌کننده","سمت ثبت‌کننده"],
     ...rows.map(r=>[fj(r.created_at),r.driver_name||"",r.national_id||"",r.line||"",r.reason||"",PR[r.priority]||r.priority,r.body||"",r.recorder_name||"",r.recorder_role||""])];
     const ws=XLSX.utils.aoa_to_sheet(aoa); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"تذکرات"); XLSX.writeFile(wb,"تذکرات_داده_شده.xlsx"); };
   return(<div className="panel"><h3>تذکرات داده‌شده</h3>
-    <GivenFilters f={f} setF={setF} recorders={recorders} onApply={load} onClear={()=>{setF({});setTimeout(load,0);}}/>
+    <GivenFilters f={f} setF={setF} recorders={recorders} onApply={()=>load(f)} onClear={()=>{setF({});load({});}}/>
+    {error&&<p role="alert" className="workspace-inline-error">{error} <button type="button" className="btn g" onClick={()=>load(f)}>تلاش مجدد</button></p>}
     <div className="row" style={{justifyContent:"space-between",marginBottom:8}}>
       <span className="muted" style={{fontSize:12}}>{loading?"در حال بارگذاری…":fa(rows.length)+" تذکر"}</span>
       <button className="btn g" onClick={exportExcel} disabled={!rows.length}>⤓ خروجی اکسل</button>
@@ -2102,14 +2106,16 @@ function GivenNotices(){
 
 function GivenChecklists(){
   const [rows,setRows]=useState([]); const [recorders,setRecorders]=useState([]); const [f,setF]=useState({}); const [loading,setLoading]=useState(false);
-  const qs=()=>{ const p=[]; ["recorder_role","recorder_id","national_id","line","from","to"].forEach(k=>{ if(f[k]) p.push(k+"="+encodeURIComponent(f[k])); }); return p.length?("?"+p.join("&")):""; };
-  const load=()=>{ setLoading(true); GET("/admin/given-checklists"+qs()).then(setRows).catch(()=>setRows([])).finally(()=>setLoading(false)); };
+  const [error,setError]=useState(""); const requestSeq=useRef(0);
+  const qs=filters=>{ const p=[]; ["recorder_role","recorder_id","national_id","line","from","to"].forEach(k=>{ if(filters[k]) p.push(k+"="+encodeURIComponent(filters[k])); }); return p.length?("?"+p.join("&")):""; };
+  const load=(filters=f)=>{const seq=++requestSeq.current;setLoading(true);setError("");GET("/admin/given-checklists"+qs(filters)).then(data=>{if(seq===requestSeq.current)setRows(data);}).catch(e=>{if(seq===requestSeq.current)setError(e.message||"دریافت چک‌لیست‌ها ناموفق بود.");}).finally(()=>{if(seq===requestSeq.current)setLoading(false);});};
   useEffect(()=>{ load(); GET("/admin/recorders").then(setRecorders).catch(()=>{}); },[]);
   const exportExcel=()=>{ const aoa=[["تاریخ","راننده","کد ملی","خط","چک‌لیست","پاسخ‌ها","ثبت‌کننده","سمت ثبت‌کننده"],
     ...rows.map(r=>[fj(r.created_at),r.driver_name||"",r.national_id||"",r.line||"",r.template_title||"",(r.answers_pretty||[]).map(a=>a.label+": "+a.value).join(" | "),r.recorder_name||"",r.recorder_role||""])];
     const ws=XLSX.utils.aoa_to_sheet(aoa); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"چک‌لیست‌ها"); XLSX.writeFile(wb,"چک_لیست_های_داده_شده.xlsx"); };
   return(<div className="panel"><h3>چک‌لیست‌های داده‌شده</h3>
-    <GivenFilters f={f} setF={setF} recorders={recorders} onApply={load} onClear={()=>{setF({});setTimeout(load,0);}}/>
+    <GivenFilters f={f} setF={setF} recorders={recorders} onApply={()=>load(f)} onClear={()=>{setF({});load({});}}/>
+    {error&&<p role="alert" className="workspace-inline-error">{error} <button type="button" className="btn g" onClick={()=>load(f)}>تلاش مجدد</button></p>}
     <div className="row" style={{justifyContent:"space-between",marginBottom:8}}>
       <span className="muted" style={{fontSize:12}}>{loading?"در حال بارگذاری…":fa(rows.length)+" چک‌لیست"}</span>
       <button className="btn g" onClick={exportExcel} disabled={!rows.length}>⤓ خروجی اکسل</button>

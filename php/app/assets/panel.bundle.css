@@ -1235,6 +1235,20 @@ table{font-size:13px}
 @media(max-width:850px){.pva-assets-workspace{grid-template-columns:minmax(0,1fr)}.pva-assets-list{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));max-height:330px}.pva-assets-detail{padding:11px}}
 @media(max-width:640px){.pva-assets-hero{padding:15px}.pva-assets-hero h3{font-size:18px}.pva-assets-hero>.btn{width:100%}.pva-assets-tabs .btn{flex:1 1 140px}.pva-assets-toolbar label{max-width:none;flex:1 1 100%}.pva-assets-toolbar .btn{flex:1 1 110px}.pva-assets-list{grid-template-columns:minmax(0,1fr);max-height:310px}}
 
+/* Report taxonomy and issued-report workspaces */
+.report-subjects-page{min-width:0}
+.report-subjects-page>h3{margin-bottom:8px}
+.report-subjects-form{display:flex;flex-wrap:wrap;align-items:end;margin-top:16px}
+.report-subjects-field{display:grid;gap:6px;flex:1 1 250px;font-size:12px;font-weight:700;color:#245342}
+.report-subjects-form .btn{min-height:44px}
+.report-subjects-list{display:flex;flex-wrap:wrap;gap:8px}
+.report-subjects-list .chip{display:inline-flex;align-items:center;gap:8px;max-width:100%;overflow-wrap:anywhere;padding:4px 7px 4px 5px}
+.report-subject-remove{display:grid;place-items:center;flex:none;min-width:34px;min-height:34px;border:0;background:#fce7e9;color:#a62940;border-radius:8px;font-size:21px;cursor:pointer}
+.report-subject-remove:hover{background:#f8d4da}
+.report-subject-remove:disabled{opacity:.45;cursor:not-allowed}
+.workspace-inline-error{display:flex;flex-wrap:wrap;align-items:center;gap:9px;padding:10px 13px;margin:12px 0;background:var(--danger-soft);color:#94233b;border:1px solid #f1c5ce;border-radius:10px;font-size:12px;line-height:1.8}
+@media(max-width:560px){.report-subjects-form>.btn{width:100%}.report-subjects-field{flex-basis:100%}}
+
 /* Invoice workspace: readable form controls and a stable compact layout. */
 .subscription-invoice-page{min-width:0}
 .subscription-invoice-page>.panel{min-width:0;margin-bottom:18px}

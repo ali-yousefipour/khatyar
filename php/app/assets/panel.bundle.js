@@ -3736,39 +3736,49 @@ function ReportSubjectsAdmin() {
     const [rows, setRows] = useState([]);
     const [title, setTitle] = useState("");
     const [busy, setBusy] = useState(false);
-    const load = () => db.reportSubjects().then(setRows).catch(e => alert(e.message));
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(true);
+    const load = () => { setLoading(true); return db.reportSubjects().then(r => { setRows(r); setError(""); }).catch(e => setError(e.message || "دریافت موضوعات گزارش ناموفق بود.")).finally(() => setLoading(false)); };
     useEffect(load, []);
-    const add = async () => { const t = title.trim(); if (!t)
-        return; setBusy(true); try {
+    const add = async () => { const t = title.trim(); if (!t) {
+        setError("عنوان موضوع جدید را وارد کنید.");
+        return;
+    } setBusy(true); setError(""); try {
         await db.addReportSubject(t);
         setTitle("");
-        load();
+        await load();
     }
     catch (e) {
-        alert(e.message);
+        setError(e.message || "ثبت موضوع ناموفق بود.");
     }
     finally {
         setBusy(false);
     } };
     const del = async (id) => { if (!confirm("این موضوع غیرفعال شود؟"))
-        return; try {
+        return; setBusy(true); setError(""); try {
         await db.delReportSubject(id);
-        load();
+        await load();
     }
     catch (e) {
-        alert(e.message);
+        setError(e.message || "غیرفعال‌کردن موضوع ناموفق بود.");
+    }
+    finally {
+        setBusy(false);
     } };
-    return React.createElement("div", { className: "panel" },
+    return React.createElement("div", { className: "panel report-subjects-page" },
         React.createElement("h3", null, "\u062A\u0639\u0631\u06CC\u0641 \u0645\u0648\u0636\u0648\u0639\u0627\u062A \u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627"),
         React.createElement("p", { className: "muted" }, "\u0627\u06CC\u0646 \u0645\u0648\u0636\u0648\u0639\u0627\u062A \u062F\u0631 \u0641\u0631\u0645 \u0627\u0631\u0633\u0627\u0644 \u06AF\u0632\u0627\u0631\u0634 \u0646\u0631\u0645\u200C\u0627\u0641\u0632\u0627\u0631 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u06AF\u0632\u06CC\u0646\u0647 \u00AB\u0633\u0627\u06CC\u0631\u00BB \u0647\u0645\u06CC\u0634\u0647 \u0628\u0631\u0627\u06CC \u062F\u0631\u062C \u0645\u0648\u0636\u0648\u0639 \u062F\u0644\u062E\u0648\u0627\u0647 \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0627\u0633\u062A."),
-        React.createElement("div", { className: "row", style: { gap: 8 } },
-            React.createElement("input", { className: "input", value: title, onChange: e => setTitle(e.target.value), onKeyDown: e => { if (e.key === "Enter")
-                    add(); }, placeholder: "\u0639\u0646\u0648\u0627\u0646 \u0645\u0648\u0636\u0648\u0639 \u062C\u062F\u06CC\u062F\u2026" }),
-            React.createElement("button", { className: "btn p", disabled: busy, onClick: add }, "\u0627\u0641\u0632\u0648\u062F\u0646")),
-        React.createElement("div", { className: "chiprow", style: { marginTop: 12 } }, rows.filter(x => x.is_active !== 0).map(r => React.createElement("span", { className: "chip", key: r.id },
+        error && React.createElement("p", { role: "alert", className: "workspace-inline-error" }, error),
+        React.createElement("form", { className: "row report-subjects-form", style: { gap: 8 }, onSubmit: e => { e.preventDefault(); add(); } },
+            React.createElement("label", { className: "report-subjects-field" },
+                "\u0639\u0646\u0648\u0627\u0646 \u0645\u0648\u0636\u0648\u0639 \u062C\u062F\u06CC\u062F",
+                React.createElement("input", { className: "input", value: title, onChange: e => setTitle(e.target.value), placeholder: "\u0645\u062B\u0644\u0627\u064B \u062A\u062E\u0644\u0641 \u0631\u0627\u0646\u0646\u062F\u0647", maxLength: 190 })),
+            React.createElement("button", { type: "submit", className: "btn p", disabled: busy }, busy ? "در حال ثبت…" : "افزودن موضوع")),
+        React.createElement("div", { className: "chiprow report-subjects-list", style: { marginTop: 12 } }, rows.filter(x => Number(x.is_active) !== 0).map(r => React.createElement("span", { className: "chip", key: r.id },
             r.title,
-            React.createElement("b", { onClick: () => del(r.id) }, "\u2715")))),
-        !rows.filter(x => x.is_active !== 0).length && React.createElement("p", { className: "muted" }, "\u0645\u0648\u0636\u0648\u0639\u06CC \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."));
+            React.createElement("button", { type: "button", className: "report-subject-remove", "aria-label": `غیرفعال کردن موضوع ${r.title}`, disabled: busy, onClick: () => del(r.id) }, "\u00D7")))),
+        !loading && !rows.filter(x => Number(x.is_active) !== 0).length && React.createElement("p", { className: "muted" }, "\u0645\u0648\u0636\u0648\u0639\u06CC \u062A\u0639\u0631\u06CC\u0641 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."),
+        loading && React.createElement("p", { role: "status", className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0645\u0648\u0636\u0648\u0639\u0627\u062A\u2026"));
 }
 function GivenFilters({ f, setF, recorders, onApply, onClear }) {
     const roles = [...new Set(recorders.map(r => r.role_title).filter(Boolean))];
@@ -3794,9 +3804,14 @@ function GivenNotices() {
     const [recorders, setRecorders] = useState([]);
     const [f, setF] = useState({});
     const [loading, setLoading] = useState(false);
-    const qs = () => { const p = []; ["recorder_role", "recorder_id", "national_id", "line", "from", "to"].forEach(k => { if (f[k])
-        p.push(k + "=" + encodeURIComponent(f[k])); }); return p.length ? ("?" + p.join("&")) : ""; };
-    const load = () => { setLoading(true); GET("/admin/given-notices" + qs()).then(setRows).catch(() => setRows([])).finally(() => setLoading(false)); };
+    const [error, setError] = useState("");
+    const requestSeq = useRef(0);
+    const qs = filters => { const p = []; ["recorder_role", "recorder_id", "national_id", "line", "from", "to"].forEach(k => { if (filters[k])
+        p.push(k + "=" + encodeURIComponent(filters[k])); }); return p.length ? ("?" + p.join("&")) : ""; };
+    const load = (filters = f) => { const seq = ++requestSeq.current; setLoading(true); setError(""); GET("/admin/given-notices" + qs(filters)).then(data => { if (seq === requestSeq.current)
+        setRows(data); }).catch(e => { if (seq === requestSeq.current)
+        setError(e.message || "دریافت تذکرات ناموفق بود."); }).finally(() => { if (seq === requestSeq.current)
+        setLoading(false); }); };
     useEffect(() => { load(); GET("/admin/recorders").then(setRecorders).catch(() => { }); }, []);
     const PR = { low: "کم", medium: "متوسط", high: "زیاد" };
     const exportExcel = () => {
@@ -3809,7 +3824,11 @@ function GivenNotices() {
     };
     return (React.createElement("div", { className: "panel" },
         React.createElement("h3", null, "\u062A\u0630\u06A9\u0631\u0627\u062A \u062F\u0627\u062F\u0647\u200C\u0634\u062F\u0647"),
-        React.createElement(GivenFilters, { f: f, setF: setF, recorders: recorders, onApply: load, onClear: () => { setF({}); setTimeout(load, 0); } }),
+        React.createElement(GivenFilters, { f: f, setF: setF, recorders: recorders, onApply: () => load(f), onClear: () => { setF({}); load({}); } }),
+        error && React.createElement("p", { role: "alert", className: "workspace-inline-error" },
+            error,
+            " ",
+            React.createElement("button", { type: "button", className: "btn g", onClick: () => load(f) }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")),
         React.createElement("div", { className: "row", style: { justifyContent: "space-between", marginBottom: 8 } },
             React.createElement("span", { className: "muted", style: { fontSize: 12 } }, loading ? "در حال بارگذاری…" : fa(rows.length) + " تذکر"),
             React.createElement("button", { className: "btn g", onClick: exportExcel, disabled: !rows.length }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
@@ -3847,9 +3866,14 @@ function GivenChecklists() {
     const [recorders, setRecorders] = useState([]);
     const [f, setF] = useState({});
     const [loading, setLoading] = useState(false);
-    const qs = () => { const p = []; ["recorder_role", "recorder_id", "national_id", "line", "from", "to"].forEach(k => { if (f[k])
-        p.push(k + "=" + encodeURIComponent(f[k])); }); return p.length ? ("?" + p.join("&")) : ""; };
-    const load = () => { setLoading(true); GET("/admin/given-checklists" + qs()).then(setRows).catch(() => setRows([])).finally(() => setLoading(false)); };
+    const [error, setError] = useState("");
+    const requestSeq = useRef(0);
+    const qs = filters => { const p = []; ["recorder_role", "recorder_id", "national_id", "line", "from", "to"].forEach(k => { if (filters[k])
+        p.push(k + "=" + encodeURIComponent(filters[k])); }); return p.length ? ("?" + p.join("&")) : ""; };
+    const load = (filters = f) => { const seq = ++requestSeq.current; setLoading(true); setError(""); GET("/admin/given-checklists" + qs(filters)).then(data => { if (seq === requestSeq.current)
+        setRows(data); }).catch(e => { if (seq === requestSeq.current)
+        setError(e.message || "دریافت چک‌لیست‌ها ناموفق بود."); }).finally(() => { if (seq === requestSeq.current)
+        setLoading(false); }); };
     useEffect(() => { load(); GET("/admin/recorders").then(setRecorders).catch(() => { }); }, []);
     const exportExcel = () => {
         const aoa = [["تاریخ", "راننده", "کد ملی", "خط", "چک‌لیست", "پاسخ‌ها", "ثبت‌کننده", "سمت ثبت‌کننده"],
@@ -3861,7 +3885,11 @@ function GivenChecklists() {
     };
     return (React.createElement("div", { className: "panel" },
         React.createElement("h3", null, "\u0686\u06A9\u200C\u0644\u06CC\u0633\u062A\u200C\u0647\u0627\u06CC \u062F\u0627\u062F\u0647\u200C\u0634\u062F\u0647"),
-        React.createElement(GivenFilters, { f: f, setF: setF, recorders: recorders, onApply: load, onClear: () => { setF({}); setTimeout(load, 0); } }),
+        React.createElement(GivenFilters, { f: f, setF: setF, recorders: recorders, onApply: () => load(f), onClear: () => { setF({}); load({}); } }),
+        error && React.createElement("p", { role: "alert", className: "workspace-inline-error" },
+            error,
+            " ",
+            React.createElement("button", { type: "button", className: "btn g", onClick: () => load(f) }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F")),
         React.createElement("div", { className: "row", style: { justifyContent: "space-between", marginBottom: 8 } },
             React.createElement("span", { className: "muted", style: { fontSize: 12 } }, loading ? "در حال بارگذاری…" : fa(rows.length) + " چک‌لیست"),
             React.createElement("button", { className: "btn g", onClick: exportExcel, disabled: !rows.length }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
