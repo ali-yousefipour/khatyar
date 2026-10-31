@@ -17319,39 +17319,57 @@ function PVAHistory({ history = [] }) { return React.createElement("div", null, 
         h.checker_name ? `— ${h.checker_name}` : ''),
     h.note && React.createElement("div", { style: { fontSize: 12, marginTop: 3 } }, h.note))) : React.createElement("div", { className: "muted" }, "\u0647\u0646\u0648\u0632 \u0633\u0627\u0628\u0642\u0647\u200C\u0627\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")); }
 function PersonnelVehicleAssign() {
-    const [users, setUsers] = useState(null), [q, setQ] = useState(''), [busy, setBusy] = useState(0);
-    const load = async () => { try {
+    const [users, setUsers] = useState(null), [q, setQ] = useState(''), [busy, setBusy] = useState(0), [error, setError] = useState(''), [loading, setLoading] = useState(true);
+    const load = async () => { setLoading(true); setError(''); try {
         const d = await GET('/personnel-vehicle-assets.php?op=assign-list', { ttl: 0 });
         setUsers(d.users || []);
     }
     catch (e) {
-        alert(e.message);
-        setUsers([]);
+        setError(e.message || 'دریافت فهرست پرسنل ناموفق بود.');
+    }
+    finally {
+        setLoading(false);
     } };
     useEffect(() => { load(); }, []);
-    const setType = async (uid, type) => { setBusy(uid); try {
+    const setType = async (uid, type) => { setBusy(uid); setError(''); try {
         await SEND('POST', '/personnel-vehicle-assets.php?op=assign-set', { user_id: uid, asset_type: type });
         setUsers(list => list.map(x => Number(x.id) === Number(uid) ? { ...x, asset_type: type || null } : x));
     }
     catch (e) {
-        alert(e.message);
+        setError(e.message || 'ذخیرهٔ تخصیص ناموفق بود.');
     }
     finally {
         setBusy(0);
     } };
+    if (users === null && loading)
+        return React.createElement("p", { className: "muted", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0641\u0647\u0631\u0633\u062A \u067E\u0631\u0633\u0646\u0644\u2026");
     if (users === null)
-        return React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0641\u0647\u0631\u0633\u062A \u067E\u0631\u0633\u0646\u0644\u2026");
+        return React.createElement("div", { className: "workspace-inline-error", role: "alert" },
+            error,
+            React.createElement("button", { className: "btn g", onClick: load }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647"));
     const filtered = users.filter(u => { const s = (u.first_name + ' ' + u.last_name + ' ' + (u.role_title || '')).toLowerCase(); return !q || s.includes(q.toLowerCase()); });
-    return React.createElement("div", null,
+    return React.createElement("div", { className: "pva-assign-page" },
         React.createElement("p", { className: "muted", style: { marginBottom: 10 } }, "\u0645\u0634\u062E\u0635 \u06A9\u0646\u06CC\u062F \u06A9\u062F\u0627\u0645 \u067E\u0631\u0633\u0646\u0644 \u0645\u0633\u0626\u0648\u0644 \u06CC\u06A9 \u062F\u0633\u062A\u06AF\u0627\u0647 \u062E\u0648\u062F\u0631\u0648 \u06CC\u0627 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A \u0645\u0623\u0645\u0648\u0631\u06CC\u062A\u06CC \u0627\u0633\u062A. \u0641\u0642\u0637 \u0627\u0641\u0631\u0627\u062F\u06CC \u06A9\u0647 \u0627\u06CC\u0646\u200C\u062C\u0627 \u0628\u0631\u0627\u06CC\u0634\u0627\u0646 \u062E\u0648\u062F\u0631\u0648 \u06CC\u0627 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A \u062A\u062E\u0635\u06CC\u0635 \u062F\u0627\u062F\u0647 \u0634\u0648\u062F\u060C \u062F\u0631 \u0628\u0631\u0646\u0627\u0645\u0647\u0654 \u0627\u0646\u062F\u0631\u0648\u06CC\u062F \u0628\u0647 \u0628\u062E\u0634 \u00AB\u062B\u0628\u062A \u0645\u0634\u062E\u0635\u0627\u062A \u062E\u0648\u062F\u0631\u0648/\u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A\u00BB \u062F\u0633\u062A\u0631\u0633\u06CC \u062E\u0648\u0627\u0647\u0646\u062F \u062F\u0627\u0634\u062A."),
-        React.createElement("input", { className: "input", style: { marginBottom: 10, maxWidth: 320 }, placeholder: "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u06CC\u0627 \u0633\u0645\u062A", value: q, onChange: e => setQ(e.target.value) }),
-        React.createElement("table", { style: { fontSize: 12.5 } },
+        error && React.createElement("div", { className: "workspace-inline-error", role: "alert" },
+            error,
+            React.createElement("button", { className: "btn g", onClick: load }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")),
+        React.createElement("div", { className: "pva-assign-toolbar" },
+            React.createElement("label", null,
+                "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u067E\u0631\u0633\u0646\u0644",
+                React.createElement("input", { className: "input", type: "search", placeholder: "\u0646\u0627\u0645 \u06CC\u0627 \u0633\u0645\u062A", value: q, onChange: e => setQ(e.target.value) })),
+            React.createElement("span", null,
+                fa(filtered.length),
+                " \u0646\u0641\u0631 \u0627\u0632 ",
+                fa(users.length),
+                " \u0646\u0641\u0631"),
+            React.createElement("button", { className: "btn g", onClick: load, disabled: loading }, loading ? 'در حال دریافت…' : 'بروزرسانی')),
+        React.createElement(ResponsiveTable, null,
             React.createElement("thead", null,
                 React.createElement("tr", null,
                     React.createElement("th", null, "\u0646\u0627\u0645"),
                     React.createElement("th", null, "\u0633\u0645\u062A"),
                     React.createElement("th", null, "\u062A\u062E\u0635\u06CC\u0635 \u0641\u0639\u0644\u06CC"),
-                    React.createElement("th", null))),
+                    React.createElement("th", null, "\u0646\u0648\u0639 \u0648\u0633\u06CC\u0644\u0647"))),
             React.createElement("tbody", null,
                 filtered.map(u => React.createElement("tr", { key: u.id },
                     React.createElement("td", null,
@@ -17362,7 +17380,7 @@ function PersonnelVehicleAssign() {
                     React.createElement("td", null, u.role_title || '—'),
                     React.createElement("td", null, u.asset_type === 'car' ? 'خودرو' : u.asset_type === 'motorcycle' ? 'موتورسیکلت' : React.createElement("span", { className: "muted" }, "\u062A\u062E\u0635\u06CC\u0635 \u0646\u0634\u062F\u0647")),
                     React.createElement("td", { style: { whiteSpace: 'nowrap' } },
-                        React.createElement("select", { className: "input", style: { display: 'inline-block', width: 150 }, disabled: busy === u.id, value: u.asset_type || '', onChange: e => setType(u.id, e.target.value) },
+                        React.createElement("select", { className: "input", "aria-label": 'تخصیص وسیله به ' + u.first_name + ' ' + u.last_name, style: { display: 'inline-block', width: 150 }, disabled: busy === u.id, value: u.asset_type || '', onChange: e => setType(u.id, e.target.value) },
                             React.createElement("option", { value: "" }, "\u2014 \u0628\u062F\u0648\u0646 \u062A\u062E\u0635\u06CC\u0635 \u2014"),
                             React.createElement("option", { value: "car" }, "\u062E\u0648\u062F\u0631\u0648"),
                             React.createElement("option", { value: "motorcycle" }, "\u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A"))))),
