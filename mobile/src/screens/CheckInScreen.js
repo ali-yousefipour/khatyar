@@ -981,6 +981,14 @@ function CheckInCore() {
     ? { geofences: (cfg?.lines || []).flatMap((l) => l.geofences || []) }
     : line;
   const mapHtml = buildMapHtml(mapLine, pos, appCfg, mapRuntime);
+  const availableMethods = [['gps', 'GPS', 'crosshairs-gps'], ['wifi', 'Wi-Fi', 'wifi']].filter(([key]) => {
+    if (key === 'wifi') return (cfg?.lines || []).some((item) => {
+      const allowed = Array.isArray(item.checkin_methods) ? item.checkin_methods.filter((x) => !['qr','nfc','rfid','bt','bluetooth'].includes(String(x).toLowerCase())) : [];
+      return (!allowed.length || allowed.includes('wifi')) && (item.idents || []).some((ident) => String(ident.kind || '').toLowerCase() === 'wifi' && normalizeBssid(ident.value));
+    });
+    const allowed = Array.isArray(line?.checkin_methods) ? line.checkin_methods.filter((x) => !['qr','nfc','rfid','bt','bluetooth'].includes(String(x).toLowerCase())) : [];
+    return !line || !allowed.length || allowed.includes('gps');
+  });
 
   return (
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ paddingHorizontal: screenWidth < 360 ? 11 : 16, paddingTop: 14, paddingBottom: 40 }}>
@@ -989,7 +997,7 @@ function CheckInCore() {
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="دریافت دوباره وضعیت حضور" onPress={() => load()} style={{ marginRight: 8, minHeight: 48, justifyContent: 'center' }}><Text style={{ color: C.brand, fontFamily: FONT.bold, fontSize: 12 }}>تلاش مجدد</Text></TouchableOpacity>
       </View>}
       {/* خط به‌صورت خودکار از روی موقعیت کاربر تشخیص داده می‌شود؛ انتخاب دستی حذف شده است. */}
-      <View style={s.presenceHero}><View style={s.presenceHeroIcon}><MaterialCommunityIcons name={open ? 'account-check-outline' : 'map-marker-check-outline'} size={27} color={C.brand}/></View><View style={s.presenceHeroText}><Text style={s.presenceHeroTitle}>{open ? 'حضور شما فعال است' : 'ثبت حضور در خط'}</Text><Text style={s.presenceHeroSub}>{open ? 'برای ثبت خروج، موقعیت خود را بررسی کنید.' : 'خط و محدوده مجاز به‌صورت خودکار شناسایی می‌شود.'}</Text></View><View style={[s.presenceBadge,!open&&s.presenceBadgeIdle]}><Text style={[s.presenceBadgeText,!open&&{color:C.muted}]}>{open?'حاضر':'آماده ثبت'}</Text></View></View>
+      <View style={s.presenceHero}><View style={s.presenceHeroIcon}><MaterialCommunityIcons name={open ? 'account-check-outline' : 'map-marker-check-outline'} size={27} color={C.brand}/></View><View style={s.presenceHeroText}><Text style={s.presenceHeroTitle}>{open ? 'حضور شما فعال است' : 'ثبت حضور در خط'}</Text></View><View style={[s.presenceBadge,!open&&s.presenceBadgeIdle]}><Text style={[s.presenceBadgeText,!open&&{color:C.muted}]}>{open?'حاضر':'آماده ثبت'}</Text></View></View>
       <View style={s.sectionHeading}><MaterialCommunityIcons name="map-marker-radius-outline" size={20} color={C.brand}/><Text style={s.sectionHeadingText}>{open ? 'خطوط مجاز برای ثبت خروج' : 'خط تشخیص‌داده‌شده'}</Text></View>
       <View style={s.autoLineBox}>
         <View style={s.lineTitleRow}><MaterialCommunityIcons name="bus-marker" size={22} color={C.brand}/><Text style={s.autoLineTitle}>
@@ -997,17 +1005,9 @@ function CheckInCore() {
             ? `خط ورود: ${open?.line_id ? faNum(String(cfg?.lines?.find((l) => Number(l.id) === Number(open.line_id))?.code || open.line_id)) : 'نامشخص'}`
             : (line ? `خط ${faNum(line.code || line.id)}` : 'در حال تشخیص خودکار خط')}
         </Text></View>
-        <Text style={s.autoHint}>
-          {open
-            ? 'برای خروج، لازم نیست در همان خطی باشید که ورود را ثبت کرده‌اید. کافی است اکنون داخل محدودهٔ یکی از خطوط مجاز شما باشید؛ سامانه خط واقعی محل خروج را تشخیص می‌دهد و همان را ثبت می‌کند.'
-            : 'برای ثبت حضور نیازی به انتخاب خط نیست. اگر داخل محدودهٔ هرکدام از خطوط تعریف‌شده برای شما باشید، سرور همان خط را به‌صورت خودکار ثبت می‌کند.'}
-        </Text>
       </View>
 
       {/* نقشه */}
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel="به‌روزرسانی موقعیت من" accessibilityState={{ disabled: refreshingPos }} style={s.refreshPosBtn} onPress={refreshMyLocation} disabled={refreshingPos}>
-        <MaterialCommunityIcons name="crosshairs-gps" size={20} color={C.brand}/><Text style={s.refreshPosTxt}>{refreshingPos ? 'در حال یافتن موقعیت…' : 'به‌روزرسانی موقعیت من'}</Text>
-      </TouchableOpacity>
       <View style={s.mapBox}>
         <WebView originWhitelist={['*', 'file://']} source={{ html: mapHtml }}
           style={{ flex: 1 }} scrollEnabled={false}
@@ -1015,13 +1015,25 @@ function CheckInCore() {
           setSupportMultipleWindows={false}
           allowFileAccess allowUniversalAccessFromFileURLs allowFileAccessFromFileURLs
           onError={() => {}} />
-      </View>
-
-      {/* فاصله */}
-      <View style={s.distRow}><MaterialCommunityIcons name={inArea?'check-circle-outline':'map-marker-alert-outline'} size={20} color={inArea?C.ok:C.muted}/>
-        {distance == null ? <Text style={s.muted}>{open ? 'هیچ محدوده‌ای برای خطوط مجاز تعریف نشده یا موقعیت در دسترس نیست.' : 'محدوده‌ای برای این خط تعریف نشده یا موقعیت در دسترس نیست.'}</Text> :
-          inArea ? <Text style={[s.distTxt, { color: C.ok }]}>✓ {open ? 'شما داخل محدودهٔ یکی از خطوط مجاز برای خروج هستید' : 'شما داخل محدودهٔ ایستگاه هستید'}</Text> :
-            <Text style={s.distTxt}>فاصله تا نزدیک‌ترین محدوده: <Text style={{ color: C.danger, fontFamily: FONT.bold }}>{faNum(Math.round(distance))} متر</Text></Text>}
+        <View pointerEvents="box-none" style={s.mapOverlayTop}>
+          <View style={s.mapGlassStatus}>
+            <MaterialCommunityIcons name={method==='wifi'&&!open ? (wifiMatch?'wifi-check':'wifi-strength-alert-outline') : inArea?'check-circle-outline':'map-marker-radius-outline'} size={21} color={method==='wifi'&&!open ? (wifiMatch?C.ok:C.brand) : inArea?C.ok:C.danger}/>
+            <Text style={s.mapStatusText}>
+              {method==='wifi'&&!open ? (wifiMatch ? `وای‌فای مجاز · خط ${faNum(String(wifiMatch.line?.code || wifiMatch.line_id))}` : (wifiScanStatus || 'در انتظار شناسایی وای‌فای مجاز')) : distance == null ? 'موقعیت یا محدوده در دسترس نیست' : inArea ? 'شما داخل محدوده مجاز ایستگاه هستید' : `فاصله تا نزدیک‌ترین خط: ${faNum(Math.round(distance))} متر`}
+            </Text>
+          </View>
+        </View>
+        <View pointerEvents="box-none" style={s.mapOverlayBottom}>
+          {!open && <View accessibilityRole="radiogroup" style={s.mapMethodGroup}>
+            {availableMethods.map(([key,label,icon]) => <TouchableOpacity key={key} accessibilityRole="radio" accessibilityLabel={`ثبت حضور با ${label}`} accessibilityState={{checked:method===key}} style={[s.mapMethodButton,method===key&&s.mapMethodActive]} onPress={() => {setMethod(key);if(key==='wifi')scanNearbyWifi().catch(()=>{});}}>
+              <MaterialCommunityIcons name={icon} size={22} color={method===key?'#fff':C.brand}/>
+              <Text style={[s.mapMethodLabel,method===key&&{color:'#fff'}]}>{label}</Text>
+            </TouchableOpacity>)}
+          </View>}
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="به‌روزرسانی موقعیت من" accessibilityState={{disabled:refreshingPos}} style={s.mapRefreshButton} onPress={refreshMyLocation} disabled={refreshingPos}>
+            <MaterialCommunityIcons name={refreshingPos?'progress-clock':'crosshairs-gps'} size={23} color={C.brand}/>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* تایمر حضور */}
@@ -1051,46 +1063,23 @@ function CheckInCore() {
       <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel="یادآور ثبت خروج پس از هشت ساعت" accessibilityState={{ checked: !!exitReminder }} style={s.reminderCard} activeOpacity={0.82} onPress={() => setExitReminderEnabled(!exitReminder)}>
         <View style={s.reminderTextWrap}>
           <Text style={s.reminderTitle}>یادآور ثبت خروج</Text>
-          <Text style={s.reminderHint}>با فعال بودن این گزینه، پس از رسیدن کارکرد به ۸ ساعت هشدار و اعلان دریافت می‌کنید.</Text>
         </View>
         <View style={[s.reminderCheckbox, exitReminder && s.reminderCheckboxOn]}>
           {exitReminder ? <Text style={s.reminderCheck}>✓</Text> : null}
         </View>
       </TouchableOpacity>
 
-      {/* روش ثبت حضور */}
-      {!open && (
-        <>
-          <Text style={s.label}>روش ثبت حضور</Text>
-          <View style={s.methodRow}>
-            {[['gps', 'موقعیت (GPS)'], ['wifi', 'WiFi']]
-              .filter(([k]) => {
-                if (k === 'wifi') return (cfg?.lines || []).some((l) => {
-                  const allowed = Array.isArray(l.checkin_methods) ? l.checkin_methods.filter((x) => !['qr', 'nfc', 'rfid', 'bt', 'bluetooth'].includes(String(x).toLowerCase())) : [];
-                  return ((!allowed.length || allowed.includes('wifi')) && (l.idents || []).some((ident) => String(ident.kind || '').toLowerCase() === 'wifi' && normalizeBssid(ident.value)));
-                });
-                const allowed = Array.isArray(line?.checkin_methods) ? line.checkin_methods.filter((x) => !['qr', 'nfc', 'rfid', 'bt', 'bluetooth'].includes(String(x).toLowerCase())) : [];
-                return !line || !allowed.length || allowed.includes(k);
-              })
-              .map(([k, t]) => (
-              <TouchableOpacity key={k} accessibilityRole="radio" accessibilityLabel={t} accessibilityState={{ checked: method === k }} style={[s.mChip, method === k && s.mChipOn]} onPress={() => { setMethod(k); if (k === 'wifi') scanNearbyWifi().catch(() => {}); }}>
-                <Text style={[s.mChipTxt, method === k && s.mChipTxtOn]}>{t}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {method === 'wifi' && (
+      {/* ابزارهای تکمیلی وای‌فای؛ انتخاب روش روی نقشه انجام می‌شود. */}
+      {!open && method === 'wifi' && (
             <>
-              <TouchableOpacity style={s.readBtn} onPress={() => scanNearbyWifi().catch(() => {})}><Text style={s.readBtnTxt}>📶 اسکن شبکه‌های Wi-Fi اطراف</Text></TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" style={s.readBtn} onPress={() => scanNearbyWifi().catch(() => {})}><MaterialCommunityIcons name="wifi-refresh" size={19} color="#3b5bd6"/><Text style={s.readBtnTxt}>اسکن دوباره وای‌فای</Text></TouchableOpacity>
               {!!wifiScanStatus && <Text style={[s.hint, wifiMatch ? { color: C.ok } : null]}>{wifiScanStatus}</Text>}
               {wifiMatch ? <Text style={s.hint}>خط شناسایی‌شده: {faNum(String(wifiMatch.line?.code || wifiMatch.line_id))} · قدرت سیگنال: {faNum(String(wifiMatch.level))} dBm</Text> : null}
-              <Text style={s.hint}>نیازی به اتصال به Wi-Fi یا حضور در محدوده GPS خط نیست. برنامه BSSIDهای مجاز را خودکار اسکن و تطبیق می‌دهد. اندروید برای اسکن ممکن است روشن بودن سرویس موقعیت مکانی را الزامی کند، اما مختصات GPS برای ثبت استفاده نمی‌شود.</Text>
             </>
-          )}
-        </>
       )}
 
       {/* اسلایدر ورود/خروج */}
-      <View style={s.actionArea}><View style={s.actionHeading}><MaterialCommunityIcons name={open?'logout':'login'} size={21} color={open?C.danger:C.brand}/><Text style={s.actionTitle}>{open?'ثبت خروج از خط':'ثبت ورود به خط'}</Text></View><Text style={s.actionHint}>برای جلوگیری از ثبت ناخواسته، دکمه را تا انتهای مسیر بکشید.</Text><SlideButton mode={open ? 'out' : 'in'} disabled={busy} onComplete={onSlideComplete} /></View>
+      <View style={s.actionArea}><View style={s.actionHeading}><MaterialCommunityIcons name={open?'logout':'login'} size={21} color={open?C.danger:C.brand}/><Text style={s.actionTitle}>{open?'ثبت خروج از خط':'ثبت ورود به خط'}</Text></View><SlideButton mode={open ? 'out' : 'in'} disabled={busy} onComplete={onSlideComplete} /></View>
       {open ? <TouchableOpacity style={s.handoverBtn} onPress={startHandover} disabled={busy}><Text style={s.handoverTxt}>🔁 تحویل شیفت با QR</Text></TouchableOpacity> : <TouchableOpacity style={s.readBtn} onPress={() => { if (!perm?.granted) requestPerm().then((r)=>{ if(r.granted) setScanOpen(true); }); else setScanOpen(true); }}><Text style={s.readBtnTxt}>📷 اسکن کد تحویل شیفت</Text></TouchableOpacity>}
       {handover ? <View style={s.qrBox}><Text style={s.qrTitle}>کد تحویل شیفت</Text>
         <WebView
@@ -1609,7 +1598,16 @@ const s = StyleSheet.create({
   lineChipOn: { backgroundColor: C.brand, borderColor: C.brand },
   lineChipTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 13 },
   lineChipTxtOn: { color: '#fff', fontFamily: FONT.bold },
-  mapBox: { height: 290, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: C.line, marginBottom: 14, backgroundColor: '#eaf1ef', elevation: 2 },
+  mapBox: { height: 330, position:'relative', borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: C.line, marginBottom: 14, backgroundColor: '#eaf1ef', elevation: 2 },
+  mapOverlayTop: { position:'absolute',top:12,left:12,right:12,zIndex:2,alignItems:'center' },
+  mapGlassStatus: { maxWidth:'100%', minHeight:48, flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:8,paddingHorizontal:15,paddingVertical:9,backgroundColor:'rgba(255,255,255,0.94)',borderColor:'rgba(255,255,255,0.96)',borderWidth:1,borderRadius:17,elevation:4,shadowColor:'#17352f',shadowOpacity:0.16,shadowRadius:9 },
+  mapStatusText: {flexShrink:1,fontFamily:FONT.bold,fontSize:12,color:C.ink,textAlign:'right',lineHeight:19},
+  mapOverlayBottom: {position:'absolute',left:12,right:12,bottom:12,zIndex:2,flexDirection:'row-reverse',alignItems:'flex-end',justifyContent:'space-between',gap:8},
+  mapMethodGroup: {flexDirection:'row-reverse',alignItems:'center',gap:6,backgroundColor:'rgba(255,255,255,0.93)',padding:5,borderRadius:16,elevation:3},
+  mapMethodButton: {minWidth:65,minHeight:48,paddingHorizontal:9,flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:5,borderRadius:12},
+  mapMethodActive: {backgroundColor:C.brand},
+  mapMethodLabel: {fontFamily:FONT.bold,fontSize:11,color:C.brand},
+  mapRefreshButton: {width:50,height:50,alignItems:'center',justifyContent:'center',borderRadius:15,backgroundColor:'rgba(255,255,255,0.95)',elevation:3},
   refreshPosBtn: { backgroundColor: '#e7f3ee', borderWidth: 1, borderColor: '#b6dccc', borderRadius: 14, paddingVertical: 12, alignItems: 'center',justifyContent:'center',flexDirection:'row-reverse',gap:8, marginBottom: 10 },
   refreshPosTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 13 },
   distRow: { padding: 13, borderRadius: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginBottom: 12,flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:8 },
@@ -1637,7 +1635,7 @@ const s = StyleSheet.create({
   mChipOn: { backgroundColor: C.ink, borderColor: C.ink },
   mChipTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 12.5 },
   mChipTxtOn: { color: '#fff', fontFamily: FONT.bold },
-  readBtn: { backgroundColor: '#eef4ff', borderWidth: 1, borderColor: '#3b5bd6', borderRadius: 11, paddingVertical: 11, alignItems: 'center', marginTop: 8 },
+  readBtn: { backgroundColor: '#eef4ff', borderWidth: 1, borderColor: '#3b5bd6', borderRadius: 11, paddingVertical: 11, alignItems: 'center',justifyContent:'center',flexDirection:'row-reverse',gap:7, marginTop: 8 },
   readBtnTxt: { color: '#3b5bd6', fontFamily: FONT.bold, fontSize: 13 },
   input: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 11, padding: 12, fontFamily: FONT.regular, fontSize: 14, textAlign: 'right', color: C.ink, marginTop: 4 },
   scanClose: { position: 'absolute', bottom: 30, alignSelf: 'center', backgroundColor: '#fff', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 24 },
