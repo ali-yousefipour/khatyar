@@ -5942,8 +5942,13 @@ function _driver_photo_access($driverId,$u){
 function _driver_photo_save($driverId,$u,$b,$admin=false){
   $driverId=(int)$driverId;
   if (!$admin) _driver_photo_access($driverId,$u);
-  elseif (!Db::one('SELECT id FROM drivers WHERE id=?',[$driverId])) Http::error('راننده یافت نشد',404);
+  $driver=Db::one('SELECT id,national_id FROM drivers WHERE id=?',[$driverId]);
+  if (!$driver) Http::error('راننده یافت نشد',404);
+  $nationalId=_digits_only($driver['national_id']??'');
+  if (strlen($nationalId)!==10) Http::error('برای ثبت عکس، کد ملی ده‌رقمی راننده باید تکمیل شود.',422);
   _driver_photo_ensure_table();
+  $duplicate=Db::one('SELECT driver_id FROM driver_profile_photos WHERE photo_path=? AND driver_id<>?', ['uploads/driver-profiles/'.$nationalId.'.jpg',$driverId]);
+  if ($duplicate) Http::error('این کد ملی قبلاً برای تصویر راننده دیگری استفاده شده است.',409);
   $existing=_driver_photo_record($driverId);
   if ($existing && !$admin) Http::error('تصویر پرسنلی قبلاً ثبت شده است؛ فقط مدیر می‌تواند آن را تغییر دهد.',409);
   if (empty($b['confirmed'])) Http::error('تأیید تصویر توسط ثبت‌کننده الزامی است.',422);
@@ -5954,16 +5959,37 @@ function _driver_photo_save($driverId,$u,$b,$admin=false){
   $size=@getimagesizefromstring($raw);
   if (!$size || $size[2]!==IMAGETYPE_JPEG || $size[0]>640 || $size[1]>800 || $size[0]<160 || $size[1]<200)
     Http::error('ابعاد تصویر مجاز نیست؛ عکس را در گوشی فشرده کنید.',422);
-  $path=Media::saveBase64($image,'driver-profiles',480,35);
-  if (!$path) Http::error('ذخیره تصویر ممکن نشد.',500);
+  // Base64 is only the API transport. Store a real JPEG named after the driver's national ID.
+  $temporary=Media::saveBase64($image,'driver-profiles',480,35);
+  if (!$temporary) Http::error('ذخیره تصویر ممکن نشد.',500);
+  $path='uploads/driver-profiles/'.$nationalId.'.jpg';
+  $destination=Media::fullPath($path);
+  $backup=null;
+  if (is_file($destination)) {
+    $backup=$destination.'.backup-'.bin2hex(random_bytes(8));
+    if (!@rename($destination,$backup)) {
+      Media::delete($temporary);
+      Http::error('امکان جایگزینی تصویر قبلی وجود ندارد.',500);
+    }
+  }
+  if (!@rename(Media::fullPath($temporary),$destination)) {
+    if ($backup) @rename($backup,$destination);
+    Media::delete($temporary);
+    Http::error('ذخیره فایل JPG ممکن نشد.',500);
+  }
   try {
     if ($existing) Db::run('UPDATE driver_profile_photos SET photo_path=?,updated_by=?,updated_at=NOW() WHERE driver_id=?',[$path,$u['id'],$driverId]);
     else Db::run('INSERT INTO driver_profile_photos(driver_id,photo_path,captured_by,confirmed_at) VALUES(?,?,?,NOW())',[$driverId,$path,$u['id']]);
-  } catch(Throwable $e) { @unlink(Media::baseDir().'/'.substr($path,8)); throw $e; }
+  } catch(Throwable $e) {
+    Media::delete($path);
+    if ($backup) @rename($backup,$destination);
+    throw $e;
+  }
+  if ($backup) @unlink($backup);
   // After an administrator replaces a portrait, reclaim only the old owned file.
   $oldPath=(string)($existing['photo_path']??'');
   if ($admin && str_starts_with($oldPath,'uploads/driver-profiles/') && $oldPath!==$path)
-    @unlink(Media::baseDir().'/'.substr($oldPath,8));
+    Media::delete($oldPath);
   return ['ok'=>true,'photo'=>'/api/media?path='.urlencode($path),'locked'=>true];
 }
 route('GET','/api/driver-photos/config',function($p,$b,$u){return ['required'=>_driver_photo_required()];});
