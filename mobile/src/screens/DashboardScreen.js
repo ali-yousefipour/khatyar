@@ -235,7 +235,8 @@ export default function DashboardScreen({ navigation }) {
     if (!save) return Promise.resolve(normalized);
     orderSaveQueue.current = orderSaveQueue.current
       .catch(() => {})
-      .then(() => AsyncStorage.setItem(orderKey, JSON.stringify(normalized)).catch(() => {}));
+      .then(() => AsyncStorage.setItem(orderKey, JSON.stringify(normalized)))
+      .catch(() => Alert.alert('خطای ذخیره ترتیب', 'ترتیب جدید روی این دستگاه ذخیره نشد. فضای ذخیره‌سازی را بررسی و دوباره تلاش کنید.'));
     return orderSaveQueue.current.then(() => normalized);
   };
   const resetMenuOrder = () => persistMenuOrder(MENU.map((m) => m.r));
@@ -416,11 +417,11 @@ const s = StyleSheet.create({
   emptyMenuActionText: { color: C.brand, fontFamily: FONT.bold, fontSize: 12, textAlign: 'center', writingDirection: 'rtl' },
   orderListContent: { paddingBottom: 4 },
   orderRowDragging: { opacity: 0.92, elevation: 8, shadowOpacity: 0.18, shadowRadius: 8, zIndex: 10 },
-  dragHandle: { width: 38, height: 42, borderRadius: 10, backgroundColor: '#eef2f7', alignItems: 'center', justifyContent: 'center', marginHorizontal: 3 },
+  dragHandle: { width: 44, height: 48, borderRadius: 10, backgroundColor: '#eef2f7', alignItems: 'center', justifyContent: 'center', marginHorizontal: 2 },
   dragHandleDots: { color: C.brand, fontSize: 22, lineHeight: 24, textAlign: 'center' },
   orderBar: { marginHorizontal: 14, marginBottom: 8, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   orderHint: { flex: 1, color: C.muted, fontFamily: FONT.regular, fontSize: 11, textAlign: 'right', writingDirection: 'rtl' },
-  orderBtn: { backgroundColor: C.brand, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 },
+  orderBtn: { backgroundColor: C.brand, borderRadius: 12, minHeight:48,justifyContent:'center',paddingHorizontal: 14, paddingVertical: 9 },
   orderBtnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 11, textAlign: 'center', writingDirection: 'rtl' },
   orderBg: { flex: 1, backgroundColor: 'rgba(11,27,46,.58)', alignItems: 'center', justifyContent: 'center', padding: 14 },
   orderCard: { width: '100%', maxWidth: 620, maxHeight: '88%', backgroundColor: C.paper, borderRadius: 22, padding: 14, overflow: 'hidden' },
@@ -428,15 +429,15 @@ const s = StyleSheet.create({
   orderTitle: { flex: 1, color: C.ink, fontFamily: FONT.bold, fontSize: 17, textAlign: 'right', writingDirection: 'rtl' },
   orderClose: { color: C.muted, fontSize: 20, paddingHorizontal: 6 },
   orderActions: { flexDirection: 'row-reverse', gap: 8, marginBottom: 8 },
-  orderAction: { flex: 1, borderWidth: 1, borderColor: C.line, backgroundColor: '#fff', borderRadius: 10, paddingVertical: 9, alignItems: 'center' },
+  orderAction: { flex: 1, borderWidth: 1, borderColor: C.line, backgroundColor: '#fff', borderRadius: 12,minHeight:48,justifyContent:'center',paddingVertical: 9, alignItems: 'center' },
   orderActionTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 11, textAlign: 'center', writingDirection: 'rtl' },
   orderList: { flexGrow: 0, maxHeight: 520 },
-  orderRow: { minHeight: 56, marginBottom: 6, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 13, flexDirection: 'row-reverse', alignItems: 'center', paddingHorizontal: 7 },
+  orderRow: { minHeight: 62, marginBottom: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 13, flexDirection: 'row-reverse', alignItems: 'center', paddingHorizontal: 5 },
   orderIndex: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#eef2f7', alignItems: 'center', justifyContent: 'center', marginLeft: 7 },
   orderIndexTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 12 },
   orderName: { flex: 1, minWidth: 0, paddingHorizontal: 4 },
   orderNameTxt: { color: C.ink, fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
-  moveBtn: { width: 34, height: 38, borderRadius: 9, backgroundColor: '#f5f7fa', alignItems: 'center', justifyContent: 'center', marginHorizontal: 2 },
+  moveBtn: { width: 42, height: 48, borderRadius: 9, backgroundColor: '#f5f7fa', alignItems: 'center', justifyContent: 'center', marginHorizontal: 2 },
   moveTxt: { color: C.brand, fontSize: 15, fontFamily: FONT.bold },
   moveDisabled: { opacity: 0.25 },
   popBg: { flex: 1, backgroundColor: 'rgba(11,27,46,.55)', alignItems: 'center', justifyContent: 'center', padding: 24 },
