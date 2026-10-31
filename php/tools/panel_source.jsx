@@ -9826,7 +9826,7 @@ function SubscriptionInvoicesAdmin(){
   const [filter,setFilter]=useState("");
   const [activeInvoice,setActiveInvoice]=useState(null);
   const [companyForm,setCompanyForm]=useState({company_name:"",national_id:"",economic_code:"",phone:"",address:""});
-  const [draft,setDraft]=useState({company_id:"",signer_id:"",include_signature_image:true,issued_date:(()=>{const t=todayJ();return String(t[0])+"-"+String(t[1]).padStart(2,"0")+"-"+String(t[2]).padStart(2,"0");})(),due_date:"",description:"اشتراک سامانه خطیار",discount_rial:"0",tax_percent:"0",items:[{title:"حق اشتراک سامانه خطیار (ماهانه)",quantity:1,unit_price_rial:"0"}]});
+  const [draft,setDraft]=useState({company_id:"",signer_id:"",include_signature_image:true,issued_date:(()=>{const t=todayJ();return String(t[0])+"-"+String(t[1]).padStart(2,"0")+"-"+String(t[2]).padStart(2,"0");})(),due_date:"",description:"",discount_rial:"0",tax_percent:"0",items:[{title:"حق اشتراک سامانه خطیار (ماهانه)",quantity:1,unit_price_rial:"0"}]});
   const money=v=>fa(Number(v||0).toLocaleString("en-US"))+" ریال";
   const refresh=async()=>{
     try{
