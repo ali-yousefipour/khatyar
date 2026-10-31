@@ -25,15 +25,25 @@ export default function OutageScreen() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = () => {
-    Promise.all([
-      request('/my/nobat-lines').catch(() => []),
-      request('/my/outages').catch(() => []),
-      getAppConfig().catch(() => ({})),
-    ]).then(([l, h, cfg]) => { setLines(l); setHistory(h); setReasons((cfg && cfg.outage_reasons) || []); setLoading(false); });
+  const load = async () => {
+    setRefreshing(true);
+    try {
+      const [l, h, cfg] = await Promise.all([
+        request('/my/nobat-lines', { noStore: true }),
+        request('/my/outages', { noStore: true }),
+        getAppConfig(),
+      ]);
+      setLines(Array.isArray(l) ? l : []);
+      setHistory(Array.isArray(h) ? h : []);
+      setReasons((cfg && cfg.outage_reasons) || []);
+      setError('');
+    } catch (e) { setError(e?.message || 'دریافت اطلاعات قطعی‌ها ناموفق بود.'); }
+    finally { setLoading(false); setRefreshing(false); }
   };
-  useEffect(load, []);
+  useEffect(() => { load(); }, []);
 
   const pickedLine = lines.find((l) => l.id === lineId);
   const filteredLines = lines.filter((l) =>
@@ -68,6 +78,7 @@ export default function OutageScreen() {
 
   return (
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+      {!!error && <View style={s.errorBox}><Text style={s.errorText}>{error}</Text><TouchableOpacity accessibilityRole="button" onPress={load} style={s.retry}><Text style={s.retryTxt}>{refreshing ? 'در حال دریافت…' : 'تلاش مجدد'}</Text></TouchableOpacity></View>}
       <Text style={s.label}>تاریخ قطعی (امروز — غیرقابل تغییر)</Text>
       <View style={[s.input, s.fixedDate]}><Text style={s.fixedDateTxt}>{faNum(date)}</Text></View>
 
@@ -116,7 +127,7 @@ export default function OutageScreen() {
       <Text style={s.label}>توضیحات (اختیاری)</Text>
       <TextInput style={[s.input, { height: 70, textAlignVertical: 'top' }]} multiline value={note} onChangeText={setNote} placeholder="توضیحات بیشتر…" placeholderTextColor={C.muted} />
 
-      <TouchableOpacity style={[s.btn, busy && { opacity: 0.6 }]} disabled={busy} onPress={submit}><Text style={s.btnTxt}>{busy ? 'در حال ثبت…' : 'ثبت قطعی سامانه'}</Text></TouchableOpacity>
+      <TouchableOpacity style={[s.btn, (busy || refreshing || !!error) && { opacity: 0.6 }]} disabled={busy || refreshing || !!error} onPress={submit}><Text style={s.btnTxt}>{busy ? 'در حال ثبت…' : 'ثبت قطعی سامانه'}</Text></TouchableOpacity>
 
       <Text style={[s.label, { marginTop: 22 }]}>قطعی‌های ثبت‌شدهٔ شما</Text>
       {history.length === 0 && <Text style={s.empty}>هنوز قطعی‌ای ثبت نکرده‌اید.</Text>}
@@ -141,6 +152,10 @@ export default function OutageScreen() {
 }
 
 const s = StyleSheet.create({
+  errorBox: { padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#f3b8c0', backgroundColor: '#fff1f1', marginBottom: 12 },
+  errorText: { fontFamily: FONT.regular, color: '#982b3d', textAlign: 'right', lineHeight: 22 },
+  retry: { alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center', paddingHorizontal: 14 },
+  retryTxt: { fontFamily: FONT.bold, color: C.brand },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   label: { fontFamily: FONT.bold, color: C.ink, fontSize: 13.5, marginBottom: 8, marginTop: 12, textAlign: 'right' },
   input: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 13, padding: 12, textAlign: 'right', fontFamily: FONT.regular, color: C.ink },

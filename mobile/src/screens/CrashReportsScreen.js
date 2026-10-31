@@ -7,16 +7,19 @@ export default function CrashReportsScreen() {
   const [items, setItems] = React.useState([]);
   const [selected, setSelected] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
-  const load = React.useCallback(async () => { const rows = await getCrashReports(); setItems(rows); setSelected(s => rows.find(x => x.id === s?.id) || rows[0] || null); }, []);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
+  const load = React.useCallback(async () => { setLoading(true); try { const rows = await getCrashReports(); setItems(rows); setSelected(s => rows.find(x => x.id === s?.id) || rows[0] || null); setError(''); } catch (e) { setError(e?.message || 'خواندن گزارش‌های خطا ناموفق بود.'); } finally { setLoading(false); } }, []);
   React.useEffect(() => { load(); }, [load]);
-  const act = async (fn, ok) => { try { setBusy(true); await fn(); if (ok) Alert.alert('انجام شد', ok); await load(); } catch (e) { Alert.alert('خطا', e?.message || 'عملیات انجام نشد'); } finally { setBusy(false); } };
+  const act = async (fn, ok) => { try { setBusy(true); const result = await fn(); if (result === false) { Alert.alert('اشتراک‌گذاری در دسترس نیست', 'این دستگاه امکان اشتراک‌گذاری فایل گزارش را ندارد. از «کپی متن» استفاده کنید.'); return; } if (ok) Alert.alert('انجام شد', ok); await load(); } catch (e) { Alert.alert('خطا', e?.message || 'عملیات انجام نشد'); } finally { setBusy(false); } };
   return <View style={s.root}>
     <ScrollView persistentScrollbar={true} contentContainerStyle={s.pad}>
       <Text style={s.note}>گزارش‌های خطای JavaScript و خطاهای رابط کاربری روی دستگاه ذخیره می‌شوند. برای کرش‌های کاملاً Native ممکن است Logcat همچنان لازم باشد.</Text>
-      {!items.length && <Text style={s.empty}>گزارش خطایی ثبت نشده است.</Text>}
+      {!!error && <View style={s.errorBox}><Text style={s.errorText}>{error}</Text><TouchableOpacity style={s.retry} onPress={load} accessibilityRole="button"><Text style={s.retryTxt}>تلاش مجدد</Text></TouchableOpacity></View>}
+      {!loading&&!error&&!items.length && <Text style={s.empty}>گزارش خطایی ثبت نشده است.</Text>}
       {items.map(x => <TouchableOpacity key={x.id} style={[s.card, selected?.id===x.id&&s.active]} onPress={()=>setSelected(x)}>
         <Text style={s.id}>{x.id}</Text><Text style={s.small}>{x.created_at}</Text><Text style={s.msg} numberOfLines={2}>{x.message}</Text>
-        <Text style={s.state}>{x.sent_at ? 'ارسال‌شده' : 'ارسال‌نشده'}</Text>
+        <Text style={s.state}>{x.sent_at ? 'ارسال‌شده' : x.send_error ? `ارسال ناموفق: ${x.send_error}` : 'ارسال‌نشده'}</Text>
       </TouchableOpacity>)}
       {selected && <>
         <Text style={s.title}>جزئیات گزارش</Text>
@@ -31,4 +34,4 @@ export default function CrashReportsScreen() {
     </ScrollView>
   </View>;
 }
-const s=StyleSheet.create({root:{flex:1,backgroundColor:C.paper},pad:{padding:16,paddingBottom:40},note:{fontFamily:FONT.regular,textAlign:'right',lineHeight:22,color:C.ink,marginBottom:12},empty:{fontFamily:FONT.regular,textAlign:'center',marginTop:30,color:C.muted},card:{borderWidth:1,borderColor:'#ddd',borderRadius:18,padding:16,marginBottom:10,backgroundColor:'#fff'},active:{borderColor:C.brand,borderWidth:2},id:{fontFamily:FONT.bold,textAlign:'right',color:C.ink},small:{fontFamily:FONT.regular,textAlign:'right',fontSize:11,color:C.muted,marginTop:4},msg:{fontFamily:FONT.regular,textAlign:'right',marginTop:6,color:C.ink},state:{fontFamily:FONT.bold,textAlign:'right',fontSize:12,color:C.brand,marginTop:6},title:{fontFamily:FONT.bold,textAlign:'right',fontSize:17,marginVertical:12,color:C.ink},detail:{backgroundColor:'#111',borderRadius:10,padding:12},detailText:{fontFamily:FONT.regular,color:'#fff',fontSize:12,textAlign:'left'},row:{flexDirection:'row-reverse',gap:8,marginTop:12},btn:{flex:1,backgroundColor:C.brand,borderRadius:10,padding:12,alignItems:'center'},full:{marginTop:10,flex:0},danger:{backgroundColor:'#9b1c1c'},disabled:{opacity:.5},btnTxt:{fontFamily:FONT.bold,color:'#fff'}});
+const s=StyleSheet.create({root:{flex:1,backgroundColor:C.paper},pad:{padding:16,paddingBottom:40},note:{fontFamily:FONT.regular,textAlign:'right',lineHeight:22,color:C.ink,marginBottom:12},empty:{fontFamily:FONT.regular,textAlign:'center',marginTop:30,color:C.muted},errorBox:{padding:14,backgroundColor:'#fff1f1',borderColor:'#f3b8c0',borderWidth:1,borderRadius:14,marginBottom:12},errorText:{fontFamily:FONT.regular,color:'#982b3d',textAlign:'right'},retry:{minHeight:44,alignSelf:'flex-end',justifyContent:'center',paddingHorizontal:16,marginTop:6},retryTxt:{fontFamily:FONT.bold,color:C.brand},card:{borderWidth:1,borderColor:'#ddd',borderRadius:18,padding:16,marginBottom:10,backgroundColor:'#fff'},active:{borderColor:C.brand,borderWidth:2},id:{fontFamily:FONT.bold,textAlign:'right',color:C.ink},small:{fontFamily:FONT.regular,textAlign:'right',fontSize:11,color:C.muted,marginTop:4},msg:{fontFamily:FONT.regular,textAlign:'right',marginTop:6,color:C.ink},state:{fontFamily:FONT.bold,textAlign:'right',fontSize:12,color:C.brand,marginTop:6},title:{fontFamily:FONT.bold,textAlign:'right',fontSize:17,marginVertical:12,color:C.ink},detail:{backgroundColor:'#111',borderRadius:10,padding:12},detailText:{fontFamily:FONT.regular,color:'#fff',fontSize:12,textAlign:'left'},row:{flexDirection:'row-reverse',gap:8,marginTop:12},btn:{flex:1,minHeight:44,backgroundColor:C.brand,borderRadius:10,padding:12,alignItems:'center'},full:{marginTop:10,flex:0},danger:{backgroundColor:'#9b1c1c'},disabled:{opacity:.5},btnTxt:{fontFamily:FONT.bold,color:'#fff'}});

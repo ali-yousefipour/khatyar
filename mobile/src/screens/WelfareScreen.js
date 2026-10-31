@@ -31,20 +31,28 @@ export default function WelfareScreen({ route }) {
   const [list, setList] = useState(null);
   const [driverList, setDriverList] = useState(null); // تاریخچهٔ همین راننده (در حالت ورود از پروفایل راننده)
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [loadingOptions, setLoadingOptions] = useState(false);
 
-  const loadList = () => request('/my/welfare-grants').then(setList).catch(() => setList([]));
+  const loadList = async () => {
+    try { const rows = await request('/my/welfare-grants', { noStore: true }); setList(rows); setLoadError(''); }
+    catch (e) { setLoadError(e?.message || 'دریافت سوابق رفاهیات ناموفق بود.'); }
+  };
   const loadDriverList = (natId) => {
     if (!natId) return;
-    request('/my/driver-welfare?national_id=' + natId).then(setDriverList).catch(() => setDriverList([]));
+    return request('/my/driver-welfare?national_id=' + encodeURIComponent(natId), { noStore: true }).then(setDriverList).catch((e) => { setLoadError(e?.message || 'دریافت سوابق راننده ناموفق بود.'); });
   };
   useEffect(() => {
-    request('/my/welfare-items').then((t) => setItems(t || [])).catch(() => {});
-    request('/my/welfare-places').then((pl) => setPlaces(pl || [])).catch(() => {});
+    setLoadingOptions(true);
+    Promise.all([request('/my/welfare-items', { noStore: true }), request('/my/welfare-places', { noStore: true })])
+      .then(([t, pl]) => { setItems(t || []); setPlaces(pl || []); })
+      .catch((e) => setLoadError(e?.message || 'دریافت گزینه‌های رفاهیات ناموفق بود.'))
+      .finally(() => setLoadingOptions(false));
     loadList();
     if (presetDriver?.national_id) loadDriverList(presetDriver.national_id);
   }, []);
 
-  const onRefresh = async () => { setRefreshing(true); await loadList(); if (driver?.national_id) loadDriverList(driver.national_id); setRefreshing(false); };
+  const onRefresh = async () => { setRefreshing(true); try { await Promise.all([loadList(), driver?.national_id ? loadDriverList(driver.national_id) : Promise.resolve()]); } finally { setRefreshing(false); } };
 
   const lookup = async () => {
     const n = (driver?.national_id || nid).replace(/\D/g, '');
@@ -53,20 +61,22 @@ export default function WelfareScreen({ route }) {
       const r = await request('/search?national_id=' + n);
       if (r.type === 'driver') { setDriver(r.driver); loadDriverList(n); }
       else Alert.alert('یافت نشد', 'راننده‌ای با این کد ملی پیدا نشد.');
-    } catch (e) { setDriver(null); Alert.alert('یافت نشد', 'راننده‌ای با این کد ملی پیدا نشد.'); }
+    } catch (e) { setDriver(null); Alert.alert('خطای جستجو', e?.message || 'جستجوی راننده انجام نشد.'); }
   };
 
   const submit = async () => {
     const n = (driver?.national_id || nid).replace(/\D/g, '');
     if (n.length < 8) return Alert.alert('توجه', 'کد ملی معتبر وارد کنید.');
     if (!itemId) return Alert.alert('توجه', 'نوع رفاهیت را انتخاب کنید.');
+    const quantity = Number(count);
+    if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 10000) return Alert.alert('تعداد نامعتبر', 'تعداد را به‌صورت عدد صحیح بین ۱ تا ۱۰۰۰۰ وارد کنید.');
     setBusy(true);
     try {
       const body = {
         item_id: itemId.id, driver_national_id: n,
         place_id: placeId?.id || null,
         granted_jdate: jdateToString(gdate),
-        count: parseInt(count) || 1, note,
+        count: quantity, note,
       };
       const r = await postOrQueue('/my/welfare-grants', body);
       Alert.alert(r.queued ? 'آفلاین' : 'ثبت شد', r.queued ? 'رفاهیت ذخیره شد و بعد از اتصال با تاریخ همین لحظه ارسال می‌شود.' : `رفاهیت برای ${r.driver_name || 'راننده'} ثبت شد.`);
@@ -81,12 +91,13 @@ export default function WelfareScreen({ route }) {
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: width < 360 ? 11 : 16, paddingBottom: 56 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.brand]} />}>
       <View style={s.header}><View style={s.headerIcon}><MaterialCommunityIcons name="gift-outline" size={27} color={C.brand}/></View><View style={s.headerCopy}><Text style={s.h}>ثبت تحویل رفاهیت به راننده</Text><Text style={s.headerSub}>ثبت خدمات رفاهی و مشاهده سوابق تحویل</Text></View></View>
+      {!!loadError && <View style={s.errorBox}><Text style={s.errorText}>{loadError}</Text><TouchableOpacity accessibilityRole="button" style={s.retryBtn} onPress={onRefresh}><Text style={s.retryTxt}>تلاش مجدد</Text></TouchableOpacity></View>}
 
       <View style={s.formCard}>
       {!lockedToDriver && (<>
         <Text style={s.label}>کد ملی راننده</Text>
         <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
-          <TextInput style={[s.input, { flex: 1 }]} dir="ltr" keyboardType="number-pad" maxLength={10} value={nid} onChangeText={setNid} placeholder="کد ملی" placeholderTextColor={C.muted} />
+          <TextInput style={[s.input, { flex: 1 }]} dir="ltr" keyboardType="number-pad" maxLength={10} value={nid} onChangeText={(v) => { setNid(v); setDriver(null); setDriverList(null); }} placeholder="کد ملی" placeholderTextColor={C.muted} />
           <TouchableOpacity style={s.lookupBtn} onPress={lookup}><Text style={s.lookupTxt}>🔍 فراخوان</Text></TouchableOpacity>
         </View>
       </>)}
@@ -98,8 +109,8 @@ export default function WelfareScreen({ route }) {
       )}
 
       <View style={s.sectionHeading}><MaterialCommunityIcons name="gift-open-outline" size={20} color={C.brand}/><Text style={s.sectionTitle}>مشخصات رفاهیت</Text></View><Text style={[s.label, { marginTop: 12 }]}>نوع رفاهیت</Text>
-      <TouchableOpacity style={s.select} onPress={() => setItemOpen(true)}>
-        <Text style={[s.selectTxt, !itemId && { color: C.muted }]}>{itemId ? itemId.title : 'انتخاب نوع رفاهیت'}</Text><MaterialCommunityIcons name="chevron-down" size={22} color={C.brand}/>
+      <TouchableOpacity style={s.select} onPress={() => setItemOpen(true)} disabled={loadingOptions}>
+        <Text style={[s.selectTxt, !itemId && { color: C.muted }]}>{itemId ? itemId.title : loadingOptions ? 'در حال دریافت گزینه‌ها…' : 'انتخاب نوع رفاهیت'}</Text><MaterialCommunityIcons name="chevron-down" size={22} color={C.brand}/>
       </TouchableOpacity>
 
       {places.length > 0 && (
@@ -207,6 +218,10 @@ export default function WelfareScreen({ route }) {
 }
 
 const s = StyleSheet.create({
+ errorBox:{padding:13,borderRadius:14,backgroundColor:'#fff1f1',borderColor:'#f3b8c0',borderWidth:1,marginBottom:12},
+ errorText:{fontFamily:FONT.regular,color:'#982b3d',textAlign:'right',lineHeight:22},
+ retryBtn:{alignSelf:'flex-end',minHeight:44,justifyContent:'center',paddingHorizontal:16,marginTop:6},
+ retryTxt:{fontFamily:FONT.bold,color:C.brand},
  header:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:14},
  headerIcon:{width:50,height:50,borderRadius:15,backgroundColor:'#e5f4ec',alignItems:'center',justifyContent:'center'},
  headerCopy:{flex:1,alignItems:'flex-end'},

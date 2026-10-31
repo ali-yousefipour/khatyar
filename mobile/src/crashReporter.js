@@ -100,7 +100,8 @@ export async function shareCrashReport(r) {
 export async function sendCrashReport(r) {
   try {
     const { request } = require('./api');
-    const out = await request('/crash-reports', { method: 'POST', body: r });
+    // A queued write is not a confirmed upload. Keep this report pending until the server replies.
+    const out = await request('/crash-reports', { method: 'POST', body: r, queueIfOffline: false, noStore: true });
     const items = await readAll();
     await writeAll(items.map(x => x.id === r.id ? { ...x, sent_at: new Date().toISOString(), send_error: null } : x));
     return out;
