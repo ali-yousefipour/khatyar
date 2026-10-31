@@ -3139,11 +3139,11 @@ function Reporting(){
   const shownRows=jrows.filter(r=>!person||r.join("").includes(person));
   const exportExcel=()=>{ const ws=XLSX.utils.aoa_to_sheet([cur.cols,...shownRows]); const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,TYPES[type]); XLSX.writeFile(wb,`گزارش_${TYPES[type]}.xlsx`); };
-  const printPdf=()=>{ const a=document.getElementById("print-area");
+  const printPdf=()=>{ const a=document.getElementById("print-area");const escape=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
     a.innerHTML=`<div style="padding:24px;font-family:Vazirmatn"><h2 style="text-align:center">گزارش ${TYPES[type]}</h2>
       <p style="text-align:center;color:#666">سامانه مدیریت و نظارت بر خطوط و نیروهای اجرایی تاکسیرانی — ${new Date().toLocaleDateString("fa-IR")}</p>
-      <table style="width:100%;border-collapse:collapse;margin-top:16px;font-size:13px"><thead><tr>${cur.cols.map(c=>`<th style="border:1px solid #ccc;padding:8px;background:#eef1f7">${c}</th>`).join("")}</tr></thead>
-      <tbody>${shownRows.map(r=>`<tr>${r.map(c=>`<td style="border:1px solid #ccc;padding:8px;text-align:center">${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      <table style="width:100%;border-collapse:collapse;margin-top:16px;font-size:13px"><thead><tr>${cur.cols.map(c=>`<th style="border:1px solid #ccc;padding:8px;background:#eef1f7">${escape(c)}</th>`).join("")}</tr></thead>
+      <tbody>${shownRows.map(r=>`<tr>${r.map(c=>`<td style="border:1px solid #ccc;padding:8px;text-align:center">${escape(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
     window.print(); };
   return(<div className="panel admin-workspace-page"><h3>گزارش‌گیری پیشرفته</h3>
     <div className="filters no-print">
@@ -3167,6 +3167,7 @@ function Reporting(){
 // تنظیم آیتم‌های قابل نمایش اپ برای هر سمت (نقش)
 // نمای مستقل آیتم‌های اپ هر سمت (در سایدبار)
 function ReportsCenter({canNavigate=()=>true}={}){
+  const [query,setQuery]=useState("");
   const CATS=[
     {t:"عملیات میدانی",items:[
       ["missiondashboard","🧭","داشبورد عملیات میدانی","تحقق مأموریت روزانهٔ همهٔ نیروهای میدانی"],
@@ -3193,9 +3194,13 @@ function ReportsCenter({canNavigate=()=>true}={}){
       ["smslog","📜","تاریخچهٔ پیامک","سوابق کامل پیامک‌های ارسالی سامانه"],
     ]},
   ];
-  return(<div className="panel reports-center-page admin-workspace-page"><h3>🗂 مرکز گزارش‌ها</h3>
-    <p style={{fontSize:13,color:"var(--muted)",marginBottom:18}}>همهٔ گزارش‌های سامانه در یک نگاه، دسته‌بندی‌شده. روی هرکدام بزنید تا مستقیم باز شود.</p>
-    {CATS.map(cat=>{const items=cat.items.filter(([key])=>canNavigate(key));if(!items.length)return null;return(<section key={cat.t} className="report-category">
+  const normalizedQuery=query.trim().toLocaleLowerCase("fa");
+  const visibleCategories=CATS.map(cat=>({...cat,items:cat.items.filter(([key,,title,desc])=>canNavigate(key)&&(!normalizedQuery||(title+" "+desc+" "+cat.t).toLocaleLowerCase("fa").includes(normalizedQuery)))})).filter(cat=>cat.items.length);
+  const reportCount=visibleCategories.reduce((sum,cat)=>sum+cat.items.length,0);
+  return(<div className="panel reports-center-page admin-workspace-page"><div className="workspace-section-heading"><div><span>مرکز اطلاعات مدیریتی</span><h3>مرکز گزارش‌ها</h3><p>دسترسی به گزارش‌های سامانه بر اساس دسته‌بندی و سطح دسترسی</p></div><span className="workspace-heading-count">{fa(reportCount)} گزارش</span></div>
+    <div className="reports-center-search"><label htmlFor="reports-center-query">جست‌وجوی گزارش</label><input id="reports-center-query" className="input" placeholder="نام گزارش یا موضوع موردنظر…" value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button type="button" className="btn g" onClick={()=>setQuery("")}>پاک کردن</button>}</div>
+    {!visibleCategories.length&&<div className="workspace-empty-state">گزارشی مطابق جست‌وجوی شما یافت نشد.</div>}
+    {visibleCategories.map(cat=>{const items=cat.items;return(<section key={cat.t} className="report-category">
       <h4 style={{fontSize:14,marginBottom:10,color:"var(--brand)"}}>{cat.t}</h4>
       <div className="report-card-grid">
         {items.map(([key,ic,title,desc])=>(
@@ -7889,8 +7894,8 @@ function AdminRequests(){
 
 // گزارش ثبت حضور نیروها (چک‌این/چک‌اوت)
 function StaffAttendance(){
-  const today=new Date().toISOString().slice(0,10);
-  const [from,setFrom]=useState(today); const [to,setTo]=useState(today); const [rows,setRows]=useState([]); const [loading,setLoading]=useState(false);
+  const now=new Date();const today=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
+  const [from,setFrom]=useState(today); const [to,setTo]=useState(today); const [rows,setRows]=useState([]); const [loading,setLoading]=useState(false); const [error,setError]=useState('');const [exporting,setExporting]=useState(false);
   const [fUser,setFUser]=useState(""); const [fLine,setFLine]=useState(""); const [fRole,setFRole]=useState(""); const [fMethod,setFMethod]=useState("");
   const [users,setUsers]=useState([]); const [lines,setLines]=useState([]); const [roles,setRoles]=useState([]);
   const M={gps:"موقعیت",wifi:"WiFi",manual:"دستی"};
@@ -7898,16 +7903,16 @@ function StaffAttendance(){
     p.push("from="+(f||from)); p.push("to="+(t2||to));
     if(fUser)p.push("user_id="+fUser); if(fLine)p.push("line_id="+fLine); if(fRole)p.push("role_id="+fRole); if(fMethod)p.push("method="+fMethod);
     return p.join("&"); };
-  const load=()=>{ setLoading(true); GET("/admin/staff-attendance?"+qs()).then(r=>setRows(r||[])).catch(()=>{}).finally(()=>setLoading(false)); };
+  const load=()=>{ setLoading(true);setError(''); GET("/admin/staff-attendance?"+qs()).then(r=>setRows(r||[])).catch(e=>setError(e.message||'دریافت گزارش حضور ناموفق بود.')).finally(()=>setLoading(false)); };
   useEffect(()=>{load();
     db.usersLite().then(u=>setUsers(u||[])).catch(()=>{});
     db.lines&&db.lines().then(l=>setLines(l||[])).catch(()=>{});
     db.roles().then(r=>setRoles(r||[])).catch(()=>{});
   },[]);
   const fmtDur=(m)=>{ m=+m||0; const h=Math.floor(m/60), mm=m%60; return (h?fa(h)+" ساعت ":"")+fa(mm)+" دقیقه"; };
-  const exportExcel=()=>{ window.open(API_BASE+"/admin/staff-attendance/export?"+qs()+"&token="+encodeURIComponent(localStorage.token||""),"_blank"); };
-  return(<div className="panel admin-workspace-page"><h3>🕒 گزارش حضور نیروها</h3>
-    <div className="filters" style={{flexWrap:"wrap",gap:8}}>
+  const exportExcel=async()=>{setExporting(true);setError('');try{const res=await _fetchWithAuth(API_BASE+"/admin/staff-attendance/export?"+qs());if(!res.ok)throw new Error('دریافت خروجی اکسل ناموفق بود.');const blob=await res.blob();const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='گزارش_حضور_نیروها.xlsx';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}catch(e){setError(e.message||'خطا در خروجی اکسل');}finally{setExporting(false);}};
+  return(<div className="panel admin-workspace-page staff-attendance-page"><div className="workspace-section-heading"><div><span>گزارش‌های حضور</span><h3>گزارش حضور نیروها</h3><p>مرور ورود، خروج و مدت حضور ثبت‌شده نیروها</p></div><span className="workspace-heading-count">{fa(rows.length)} رکورد</span></div>
+    <div className="filters workspace-filterbar">
       <span className="label">از</span><JDate value={from} onChange={setFrom}/>
       <span className="label">تا</span><JDate value={to} onChange={setTo}/>
       <select className="input" style={{maxWidth:170}} value={fUser} onChange={e=>setFUser(e.target.value)}>
@@ -7918,44 +7923,46 @@ function StaffAttendance(){
         <option value="">همهٔ خطوط</option>{lines.map(l=><option key={l.id} value={l.id}>خط {l.code}</option>)}</select>
       <select className="input" style={{maxWidth:120}} value={fMethod} onChange={e=>setFMethod(e.target.value)}>
         <option value="">همهٔ روش‌ها</option><option value="gps">موقعیت</option><option value="wifi">WiFi</option></select>
-      <button className="btn p" onClick={load}>اعمال فیلتر</button>
-      <button className="btn g" onClick={exportExcel}>⤓ خروجی اکسل</button>
+      <button className="btn p" disabled={loading} onClick={load}>اعمال فیلتر</button>
+      <button className="btn g" disabled={loading||exporting} onClick={exportExcel}>{exporting?'در حال دریافت…':'⤓ خروجی اکسل'}</button>
     </div>
-    {loading?<p className="muted">در حال بارگذاری…</p>:rows.length?(
-    <table><thead><tr><th>نام</th><th>سمت</th><th>خط</th><th>روش</th><th>ورود</th><th>خروج</th><th>مدت</th></tr></thead>
+    {error&&<p className="workspace-inline-error" role="alert">{error}</p>}
+    {loading?<p className="workspace-empty-state" role="status">در حال بارگذاری گزارش…</p>:rows.length?(
+    <ResponsiveTable><thead><tr><th>نام</th><th>سمت</th><th>خط</th><th>روش</th><th>ورود</th><th>خروج</th><th>مدت</th></tr></thead>
     <tbody>{rows.map(r=><tr key={r.id}>
       <td>{r.name}</td><td>{r.role||"—"}</td><td>{r.line||"—"}</td>
       <td><span className="badge b-ok">{M[r.method]||r.method||"—"}</span></td>
       <td style={{whiteSpace:"nowrap"}}>{fj(r.check_in)}</td>
       <td style={{whiteSpace:"nowrap"}}>{r.check_out?fj(r.check_out):<span className="badge b-pending">در حال حضور</span>}</td>
       <td>{fmtDur(r.minutes)}</td>
-    </tr>)}</tbody></table>
-    ):<p className="muted">ثبت حضوری در این بازه یافت نشد.</p>}
+    </tr>)}</tbody></ResponsiveTable>
+    ):<p className="workspace-empty-state">{error?'نمایش آخرین داده‌های دریافت‌شده ممکن نیست.':'ثبت حضوری در این بازه یافت نشد.'}</p>}
   </div>);
 }
 
 // تاریخچهٔ پیامک‌ها: فهرست، وضعیت تحویل، خروجی اکسل
 function SmsLog(){
-  const today=new Date().toISOString().slice(0,10);
-  const weekAgo=new Date(Date.now()-7*86400000).toISOString().slice(0,10);
+  const localDate=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+  const today=localDate(new Date());
+  const weekAgo=localDate(new Date(Date.now()-7*86400000));
   const [from,setFrom]=useState(weekAgo); const [to,setTo]=useState(today); const [kind,setKind]=useState(""); const [sentBy,setSentBy]=useState("");
   const [users,setUsers]=useState([]);
-  const [rows,setRows]=useState([]); const [loading,setLoading]=useState(false); const [busy,setBusy]=useState(false);
+  const [rows,setRows]=useState([]); const [loading,setLoading]=useState(false); const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [exporting,setExporting]=useState(false);
   const KIND={register:"ثبت‌نام",reset:"بازیابی رمز",driver:"به راننده",test:"آزمایشی"};
   const DELV={"-1":"ارسال نشده","1":"تحویل به گیرنده","2":"ناموفق","8":"تحویل به مخابرات","16":"عدم تحویل مخابرات","0":"نامشخص"};
-  const load=()=>{ setLoading(true); db.smsLog(from,to,kind,sentBy).then(r=>setRows(r||[])).catch(()=>{}).finally(()=>setLoading(false)); };
+  const load=()=>{ setLoading(true);setError(''); db.smsLog(from,to,kind,sentBy).then(r=>setRows(r||[])).catch(e=>setError(e.message||'دریافت تاریخچه پیامک ناموفق بود.')).finally(()=>setLoading(false)); };
   useEffect(()=>{load(); db.usersLite().then(u=>setUsers(u||[])).catch(()=>{});},[]);
   const refresh=async()=>{ setBusy(true); try{ const r=await db.smsRefreshStatus(from,to); if(r.ok)alert(`وضعیت ${fa(r.updated||0)} پیامک به‌روزرسانی شد.`+(r.note?("\n"+r.note):"")); else alert("خطا: "+(r.error||"")); load(); }catch(e){ alert(e.message||"خطا"); } setBusy(false); };
-  const exportExcel=async()=>{ try{
+  const exportExcel=async()=>{ setExporting(true);setError('');try{
       const res=await fetch(`${API_BASE}/admin/sms-log/export?from=${from}&to=${to}${kind?`&kind=${kind}`:""}${sentBy?`&sent_by=${sentBy}`:""}`,{headers:tok()});
       if(!res.ok)throw new Error("خطا در دریافت فایل");
-      const blob=await res.blob(); const a=document.createElement("a");
-      a.href=URL.createObjectURL(blob); a.download=`گزارش_پیامک_${from}_${to}.csv`; a.click();
-    }catch(e){ alert(e.message||"خطا در خروجی"); } };
+      const blob=await res.blob(); const a=document.createElement("a");const url=URL.createObjectURL(blob);
+      a.href=url; a.download=`گزارش_پیامک_${from}_${to}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+    }catch(e){setError(e.message||"خطا در خروجی");}finally{setExporting(false);} };
   const delvBadge=(c)=>{ if(c===null||c===undefined)return <span className="muted">بررسی‌نشده</span>;
     const cls = (c==1)?"b-ok":((c==2||c==16)?"b-no":"b-pending"); return <span className={"badge "+cls}>{DELV[String(c)]||("کد "+c)}</span>; };
-  return(<div className="panel admin-workspace-page admin-list-page"><h3 style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}><span>📜 تاریخچهٔ پیامک‌های ارسالی</span></h3>
-    <div className="filters" style={{flexWrap:"wrap",gap:8}}>
+  return(<div className="panel admin-workspace-page admin-list-page sms-history-page"><div className="workspace-section-heading"><div><span>گزارش‌های ارتباطی</span><h3>تاریخچه پیامک‌های ارسالی</h3><p>سوابق ارسال و وضعیت تحویل پیامک‌ها</p></div><span className="workspace-heading-count">{fa(rows.length)} پیامک</span></div>
+    <div className="filters workspace-filterbar">
       <span className="label">از</span><JDate value={from} onChange={setFrom}/>
       <span className="label">تا</span><JDate value={to} onChange={setTo}/>
       <select className="input" style={{maxWidth:150}} value={kind} onChange={e=>setKind(e.target.value)}>
@@ -7965,11 +7972,12 @@ function SmsLog(){
         <option value="">همهٔ فرستندگان</option>
         {users.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
       </select>
-      <button className="btn p" onClick={load}>اعمال فیلتر</button>
+      <button className="btn p" disabled={loading} onClick={load}>اعمال فیلتر</button>
       <button className="btn g" disabled={busy} onClick={refresh}>{busy?"در حال بررسی…":"به‌روزرسانی وضعیت تحویل"}</button>
-      <button className="btn g" onClick={exportExcel}>⤓ خروجی اکسل</button>
+      <button className="btn g" disabled={loading||exporting} onClick={exportExcel}>{exporting?'در حال دریافت…':'⤓ خروجی CSV'}</button>
     </div>
-    {loading?<p className="muted">در حال بارگذاری…</p>:rows.length?(
+    {error&&<p className="workspace-inline-error" role="alert">{error}</p>}
+    {loading?<p className="workspace-empty-state" role="status">در حال بارگذاری…</p>:rows.length?(
     <ResponsiveTable><thead><tr><th>تاریخ</th><th>گیرنده</th><th>نوع</th><th>وضعیت ارسال</th><th>وضعیت تحویل</th><th>فرستنده</th><th>متن</th></tr></thead>
     <tbody>{rows.map(r=><tr key={r.id}>
       <td style={{whiteSpace:"nowrap"}}>{fj(r.created_at)}</td>
@@ -7980,7 +7988,7 @@ function SmsLog(){
       <td>{(r.sender||"").trim()||"—"}</td>
       <td style={{maxWidth:280,fontSize:12,color:"var(--muted)"}}>{(r.body||"").slice(0,80)}{(r.body||"").length>80?"…":""}</td>
     </tr>)}</tbody></ResponsiveTable>
-    ):<p className="muted">پیامکی در این بازه ثبت نشده است.</p>}
+    ):<p className="workspace-empty-state">پیامکی در این بازه ثبت نشده است.</p>}
     <p style={{fontSize:12,color:"var(--muted)",marginTop:10}}>توجه: بررسی وضعیت تحویل از سمت مخابرات فقط تا ۷ روز پس از ارسال امکان‌پذیر است.</p>
   </div>);
 }
