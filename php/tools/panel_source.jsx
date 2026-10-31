@@ -846,33 +846,11 @@ function PresenceLists(){
     <div style={{maxHeight:220,overflow:"auto"}}>{items.length?items.map(x=><div key={x.id} className="card-p" style={{display:"block",padding:"7px 9px"}}>
       <b style={{fontSize:13}}>{x.name}</b><div className="muted" style={{fontSize:11}}>{x.role}{x.captured_at?(" · "+fj(x.captured_at)):""}</div></div>):<p className="muted" style={{fontSize:12}}>—</p>}</div>
   </div>);
-  // بخش موارد انجام‌نشده (تخلفات عدم ارسال صحت‌سنجی)
-  const today=new Date().toISOString().slice(0,10);
-  const [vFrom,setVFrom]=useState(today); const [vTo,setVTo]=useState(today);
-  const [viol,setViol]=useState(null); const [vLoading,setVLoading]=useState(false);
-  const loadViol=()=>{ setVLoading(true); db.presenceViolations(vFrom, vTo)
-    .then(r=>setViol(r||[])).catch(()=>setViol([])).finally(()=>setVLoading(false)); };
   return(<div>
     <div className="grid3" style={{marginTop:14,gap:12,display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))"}}>
       <Col title="آنلاین" items={d.online} color="#16a06a"/>
       <Col title="غیرفعال (بدون موقعیت)" items={d.inactive} color="#f6c324"/>
       <Col title="آفلاین" items={d.offline} color="#8a93a6"/>
-    </div>
-    <div className="panel" style={{marginTop:14}}>
-      <h3>⚠ موارد انجام‌نشدهٔ صحت‌سنجی حضور</h3>
-      <p className="muted" style={{fontSize:13,marginBottom:10}}>نیروهای مشمول صحت‌سنجی که در بازهٔ ساعتی مقرر، سلفی و عکس خط را ارسال نکرده‌اند. (نیاز به فعال بودن صحت‌سنجی و تعریف بازه‌های ساعتی در تنظیمات دارد.)</p>
-      <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
-        <span className="label">از</span><JDate value={vFrom} onChange={setVFrom}/>
-        <span className="label">تا</span><JDate value={vTo} onChange={setVTo}/>
-        <button className="btn p" onClick={loadViol}>نمایش موارد انجام‌نشده</button>
-        {viol&&<button className="btn g" onClick={()=>{const ws=XLSX.utils.json_to_sheet(viol.map(x=>({تاریخ:fj(x.slot_date),نیرو:x.name,سمت:x.role||"—","بازهٔ ساعتی":x.slot,نوع:x.type})));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"موارد انجام‌نشده");XLSX.writeFile(wb,"موارد_انجام_نشده_صحت_سنجی.xlsx");}}>⤓ خروجی اکسل</button>}
-      </div>
-      {vLoading?<p className="muted" style={{textAlign:"center",padding:12}}>در حال بارگذاری…</p>
-       :viol===null?<p className="muted" style={{textAlign:"center",padding:12}}>برای نمایش، بازهٔ تاریخ را انتخاب و دکمه را بزنید.</p>
-       :viol.length===0?<p className="muted" style={{textAlign:"center",padding:12,color:"var(--ok)"}}>✓ موردی انجام‌نشده در این بازه یافت نشد.</p>
-       :<table><thead><tr><th>تاریخ</th><th>نیرو</th><th>سمت</th><th>بازهٔ ساعتی</th><th>وضعیت</th></tr></thead>
-        <tbody>{viol.map((x,i)=><tr key={i}><td>{fj(x.slot_date)}</td><td>{x.name}</td><td>{x.role||"—"}</td><td>{x.slot}</td>
-          <td><span className="badge" style={{background:"#fde7ea",color:"#c0293f"}}>انجام نشده</span></td></tr>)}</tbody></table>}
     </div>
   </div>);
 }
