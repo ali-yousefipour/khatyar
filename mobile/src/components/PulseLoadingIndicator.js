@@ -1,32 +1,44 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Image, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { C, FONT } from '../theme';
 
-export default function PulseLoadingIndicator({ size='small', color=C.brand, style, message, fullScreen=false }) {
-  const pulse = useRef(new Animated.Value(0)).current;
+export default function PulseLoadingIndicator({ size = 'small', color = C.brand, style, message, fullScreen = false }) {
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const motion = useRef(new Animated.Value(0)).current;
   useEffect(() => {
+    let active = true;
+    AccessibilityInfo.isReduceMotionEnabled().then(value => { if (active) setReduceMotion(!!value); }).catch(() => {});
+    const listener = AccessibilityInfo.addEventListener?.('reduceMotionChanged', value => setReduceMotion(!!value));
+    return () => { active = false; listener?.remove?.(); };
+  }, []);
+  useEffect(() => {
+    if (reduceMotion) { motion.stopAnimation(); motion.setValue(0); return undefined; }
     const anim = Animated.loop(Animated.sequence([
-      Animated.timing(pulse,{toValue:1,duration:1350,useNativeDriver:true}),
-      Animated.timing(pulse,{toValue:0,duration:650,useNativeDriver:true}),
+      Animated.timing(motion, { toValue: 1, duration: 1050, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(motion, { toValue: 0, duration: 1050, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ]));
     anim.start(); return () => anim.stop();
-  }, [pulse]);
-  const px = typeof size === 'number' ? size : (size === 'large' ? 92 : 30);
-  const scale = pulse.interpolate({inputRange:[0,1],outputRange:[0.95,1]});
-  const opacity = pulse.interpolate({inputRange:[0,1],outputRange:[0.5,0]});
-  const ringScale = pulse.interpolate({inputRange:[0,1],outputRange:[0.78,1.45]});
-  const content = <View style={[styles.box,style]} accessibilityRole="progressbar" accessibilityLabel={message||'در حال بارگذاری'}>
-    <View style={{width:px,height:px,alignItems:'center',justifyContent:'center'}}>
+  }, [motion, reduceMotion]);
+  const px = typeof size === 'number' ? Math.max(22, size) : (size === 'large' ? 92 : 32);
+  const ringScale = motion.interpolate({inputRange:[0,1],outputRange:[0.94,1.12]});
+  const opacity = motion.interpolate({inputRange:[0,1],outputRange:[0.48,0.16]});
+  const scale = motion.interpolate({inputRange:[0,1],outputRange:[1,1.045]});
+  const content = <View style={[styles.box,style]} accessibilityRole="progressbar" accessibilityLabel={message||'در حال بارگذاری'} accessibilityLiveRegion="polite">
+    <View style={[styles.logoHolder,{width:px,height:px,borderRadius:px/2}]}>
       <Animated.View style={[styles.ring,{borderColor:color,width:px,height:px,borderRadius:px/2,opacity,transform:[{scale:ringScale}]}]}/>
-      <Animated.Image source={require('../../assets/loading-avatar.png')} style={{width:px*0.78,height:px*0.78,borderRadius:px,transform:[{scale}]}} resizeMode="cover"/>
+      <Animated.Image source={require('../../assets/loading-avatar.png')} style={{width:px*0.66,height:px*0.66,transform:[{scale}]}} resizeMode="contain"/>
     </View>
-    {message ? <Text style={styles.text}>{message}</Text> : null}
+    {message ? <Text style={[styles.text,fullScreen&&styles.fullText]}>{message}</Text> : null}
+    {fullScreen ? <Text style={styles.hint}>لطفاً چند لحظه صبر کنید</Text> : null}
   </View>;
   return fullScreen ? <View style={styles.full}>{content}</View> : content;
 }
 const styles=StyleSheet.create({
   full:{flex:1,alignItems:'center',justifyContent:'center',backgroundColor:C.paper,padding:24},
-  box:{alignItems:'center',justifyContent:'center'},
-  ring:{position:'absolute',borderWidth:3},
-  text:{fontFamily:FONT.regular,color:C.muted,fontSize:13,marginTop:12,textAlign:'center'}
+  box:{alignItems:'center',justifyContent:'center',paddingVertical:4},
+  logoHolder:{alignItems:'center',justifyContent:'center',backgroundColor:C.soft},
+  ring:{position:'absolute',borderWidth:2},
+  text:{fontFamily:FONT.regular,color:C.slate,fontSize:13,lineHeight:23,marginTop:14,textAlign:'center',writingDirection:'rtl'},
+  fullText:{fontFamily:FONT.bold,fontSize:15,marginTop:20},
+  hint:{fontFamily:FONT.regular,color:C.muted,fontSize:12,marginTop:5,textAlign:'center'}
 });

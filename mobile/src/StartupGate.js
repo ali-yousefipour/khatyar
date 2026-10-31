@@ -8,6 +8,7 @@ import { refreshSearchCache } from './linecache';
 import { FONT } from './theme';
 import { faNum } from './num';
 import * as Application from 'expo-application';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const MAINTENANCE_CACHE_KEY = 'startup_maintenance_status_v1';
 const startupVersion = Application.nativeApplicationVersion || '1.3.74';
@@ -116,12 +117,12 @@ export default function StartupGate({ children }) {
         <Image source={require('../assets/khatyar-startup.png')} style={s.maintenanceBg} resizeMode="cover" />
         <View style={s.shade} />
         <View style={s.maintenanceCard}>
-          <Text style={s.maintenanceIcon}>🛠️</Text>
+          <View style={s.maintenanceIcon}><MaterialCommunityIcons name="tools" size={30} color="#9b1c1c" /></View>
           <Text style={s.maintenanceTitle}>سامانه در حالت تعمیر است</Text>
           <Text style={s.maintenanceText}>
             {maintenance.message || 'نرم‌افزار موقتاً در دسترس نیست. لطفاً بعداً دوباره تلاش کنید.'}
           </Text>
-          <TouchableOpacity style={s.retryButton} onPress={retry} disabled={retrying}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="بررسی مجدد وضعیت سامانه" accessibilityState={{disabled:retrying}} style={s.retryButton} onPress={retry} disabled={retrying}>
             <Text style={s.retryText}>{retrying ? 'در حال بررسی…' : 'بررسی مجدد'}</Text>
           </TouchableOpacity>
         </View>
@@ -133,10 +134,15 @@ export default function StartupGate({ children }) {
     return (
       <View style={s.wrap}>
         <Image source={require('../assets/khatyar-startup.png')} style={s.image} resizeMode="cover" />
-        <View style={s.loadingPanel}>
+        <View style={s.loadingPanel} accessibilityRole="progressbar" accessibilityLabel={phase} accessibilityValue={{min:0,max:100,now:Math.round(progress)}}>
+          <View style={s.panelHead}>
+            <View style={s.brandIcon}><MaterialCommunityIcons name="taxi" size={23} color="#073d33" /></View>
+            <View style={s.panelTitles}><Text style={s.brandTitle}>خطیار</Text><Text style={s.brandSubtitle}>در حال آماده‌سازی محیط کاری شما</Text></View>
+            <Text style={s.progressLabel}>{faNum(Math.round(progress))}٪</Text>
+          </View>
           <ProgressBar percent={progress} />
-          <Text style={s.progressLabel}>{faNum(Math.round(progress))}٪</Text><Text style={s.version}>نسخه برنامه: {faNum(startupVersion)}</Text>
           <Text style={s.phase}>{phase}</Text>
+          <View style={s.panelFooter}><MaterialCommunityIcons name="shield-check-outline" size={14} color="#c8e9dc" /><Text style={s.version}>نسخه {faNum(startupVersion)} · اتصال امن</Text></View>
         </View>
       </View>
     );
@@ -169,15 +175,22 @@ const s = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: '#08664f' },
   image: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
   loadingPanel: {
-    position: 'absolute', left: 22, right: 22, bottom: 38,
-    minHeight: 88, borderRadius: 18, paddingVertical: 16, paddingHorizontal: 18,
-    backgroundColor: 'rgba(0, 45, 35, 0.78)', alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', left: 20, right: 20, bottom: 36,
+    minHeight: 158, borderRadius: 24, paddingVertical: 19, paddingHorizontal: 20,
+    backgroundColor: 'rgba(0, 45, 35, 0.91)', borderWidth:1, borderColor:'rgba(255,255,255,0.23)',
+    justifyContent: 'center',
   },
-  phase: { marginTop: 10, color: '#fff', fontFamily: FONT.bold, fontSize: 14, textAlign: 'center' },
-  progressTrack: { width: '100%', height: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 999, backgroundColor: '#ffffff' },
-  version: { marginTop: 5, color: 'rgba(255,255,255,.88)', fontFamily: FONT.regular, fontSize: 11 },
-  progressLabel: { marginTop: 8, color: '#fff', fontFamily: FONT.bold, fontSize: 13 },
+  panelHead:{flexDirection:'row-reverse',alignItems:'center',gap:11,marginBottom:18},
+  brandIcon:{width:44,height:44,borderRadius:15,backgroundColor:'#f9d978',alignItems:'center',justifyContent:'center'},
+  panelTitles:{flex:1,alignItems:'flex-end'},
+  brandTitle:{color:'#fff',fontFamily:FONT.bold,fontSize:18,textAlign:'right'},
+  brandSubtitle:{color:'#d1e9e0',fontFamily:FONT.regular,fontSize:11,textAlign:'right',marginTop:2},
+  phase: { marginTop: 13, color: '#fff', fontFamily: FONT.bold, fontSize: 13, textAlign: 'right', writingDirection:'rtl' },
+  progressTrack: { width: '100%', height: 7, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 999, backgroundColor: '#f9d978' },
+  panelFooter:{flexDirection:'row-reverse',alignItems:'center',gap:6,marginTop:12},
+  version: { color: '#d1e9e0', fontFamily: FONT.regular, fontSize: 11 },
+  progressLabel: { color: '#f9d978', fontFamily: FONT.bold, fontSize: 18 },
   maintenanceWrap: { flex: 1, backgroundColor: '#063f33', alignItems: 'center', justifyContent: 'center' },
   maintenanceBg: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   shade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 30, 24, 0.74)' },
@@ -185,7 +198,7 @@ const s = StyleSheet.create({
     marginHorizontal: 24, width: '88%', borderRadius: 22, padding: 24,
     backgroundColor: 'rgba(255,255,255,0.96)', alignItems: 'center',
   },
-  maintenanceIcon: { fontSize: 48, marginBottom: 10 },
+  maintenanceIcon: { width:56,height:56,borderRadius:18,backgroundColor:'#fee9e7',alignItems:'center',justifyContent:'center',marginBottom:10 },
   maintenanceTitle: { fontFamily: FONT.bold, color: '#9b1c1c', fontSize: 20, textAlign: 'center' },
   maintenanceText: { fontFamily: FONT.regular, color: '#344054', fontSize: 14, lineHeight: 25, textAlign: 'center', marginTop: 12 },
   retryButton: { marginTop: 20, width: '100%', borderRadius: 12, paddingVertical: 14, backgroundColor: '#08745a', alignItems: 'center' },
