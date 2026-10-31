@@ -1104,19 +1104,29 @@ function Dashboard() {
             React.createElement("button", { className: "btn p", onClick: loadStats }, "\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F"));
     if (!s)
         return React.createElement("div", { className: "panel", style: { margin: "14px 0" } }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0646\u06CC\u0633\u062A.");
-    const K = [["راننده فعال", s.drivers], ["خط فعال", s.lines], ["حضور امروز", s.today_attendance], ["فیش پرداخت‌نشده", s.unpaid_bills], ["تذکر این ماه", s.notices_month]];
+    const K = [["راننده فعال", s.drivers, "کاربران فعال ناوگان"], ["خط فعال", s.lines, "خطوط در حال بهره‌برداری"], ["حضور امروز", s.today_attendance, "تردد ثبت‌شده امروز"], ["فیش پرداخت‌نشده", s.unpaid_bills, "نیازمند پیگیری"], ["تذکر این ماه", s.notices_month, "موارد ثبت‌شده ماه جاری"]];
     return (React.createElement("div", { className: "dashboard-page" },
         React.createElement(BirthdayCelebration, { bdays: bdays }),
-        React.createElement("div", { className: "kpis" }, K.map(([l, n], i) => React.createElement("div", { className: "kpi", key: i },
-            React.createElement("div", { className: "n" }, fa(n)),
-            React.createElement("div", { className: "l" }, l)))),
+        React.createElement("section", { className: "dashboard-overview", "aria-label": "\u0622\u0645\u0627\u0631 \u06A9\u0644\u06CC \u0633\u0627\u0645\u0627\u0646\u0647" },
+            React.createElement("div", { className: "dashboard-section-head" },
+                React.createElement("div", null,
+                    React.createElement("span", { className: "dashboard-section-kicker" }, "\u0646\u0645\u0627\u06CC \u06A9\u0644\u06CC \u0633\u0627\u0645\u0627\u0646\u0647"),
+                    React.createElement("h2", null, "\u0622\u0645\u0627\u0631 \u0648 \u0634\u0627\u062E\u0635\u200C\u0647\u0627\u06CC \u0627\u0635\u0644\u06CC")),
+                React.createElement("span", { className: "dashboard-section-caption" }, "\u062E\u0644\u0627\u0635\u0647 \u0648\u0636\u0639\u06CC\u062A \u062C\u0627\u0631\u06CC \u062E\u0637\u06CC\u0627\u0631")),
+            React.createElement("div", { className: "kpis dashboard-overview-grid" }, K.map(([l, n, desc], i) => React.createElement("div", { className: "kpi", key: l },
+                React.createElement("span", { className: "dashboard-kpi-index", "aria-hidden": "true" }, fa(i + 1).padStart(2, "۰")),
+                React.createElement("div", { className: "n" }, n == null ? "—" : fa(n)),
+                React.createElement("div", { className: "l" }, l),
+                React.createElement("div", { className: "dashboard-kpi-desc" }, desc))))),
         React.createElement(PersonnelDistributionDashboard, null),
         React.createElement(LiveStaffDashboard, null),
-        tw && tw.groups && tw.groups.length > 0 ? React.createElement("section", { "aria-label": "\u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627" },
-            React.createElement("h3", { style: { margin: "18px 0 12px", fontSize: 16 } },
-                "\uD83D\uDC65 \u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u2014 \u067E\u0631\u06A9\u0627\u0631\u062A\u0631\u06CC\u0646 \u0648 \u06A9\u0645\u200C\u06A9\u0627\u0631\u062A\u0631\u06CC\u0646 \u0628\u0647 \u062A\u0641\u06A9\u06CC\u06A9 \u0646\u0642\u0634",
-                tw.zone_scope === "own" ? " (منطقهٔ شما)" : ""),
-            React.createElement("div", { className: "grid2" },
+        tw && tw.groups && tw.groups.length > 0 ? React.createElement("section", { className: "dashboard-workers", "aria-label": "\u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627" },
+            React.createElement("div", { className: "dashboard-section-head" },
+                React.createElement("div", null,
+                    React.createElement("span", { className: "dashboard-section-kicker" }, "\u0627\u0631\u0632\u06CC\u0627\u0628\u06CC \u0639\u0645\u0644\u06A9\u0631\u062F"),
+                    React.createElement("h2", null, "\u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u0628\u0647 \u062A\u0641\u06A9\u06CC\u06A9 \u0633\u0645\u062A")),
+                React.createElement("span", { className: "dashboard-section-caption" }, tw.zone_scope === "own" ? "محدوده منطقه شما" : "پرکارترین و کم‌کارترین همکاران")),
+            React.createElement("div", { className: "grid2 dashboard-worker-grid" },
                 tw.groups.map((g, i) => React.createElement(WorkerGroup, { key: g.key, title: g.title, data: g, color: GROUP_COLORS[g.key] || "#0d7a5f" })),
                 tw.groups.length % 2 === 1 ? React.createElement("div", null) : null)) : React.createElement("p", { className: "muted", style: { padding: 16 } }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u0646\u06CC\u0633\u062A.")));
 }
@@ -1125,23 +1135,26 @@ const GROUP_COLORS = { supervisor: "#0d7a5f", operator: "#0891b2", admin_staff: 
 function WorkerGroup({ title, data, color }) {
     const [pop, setPop] = useState(null);
     const d = data || { top: [], bottom: [] };
-    const Row = (x, i, rank) => (React.createElement("tr", { key: (rank ? 't' : 'b') + x.id, style: { cursor: "pointer" }, onClick: e => setPop({ x, at: { x: e.clientX, y: e.clientY } }) },
-        rank ? React.createElement("td", null, fa(i + 1)) : null,
-        React.createElement("td", { style: { color: "var(--brand)", fontWeight: 700 } }, x.name),
-        React.createElement("td", null,
-            React.createElement("b", null, fa(x.total)))));
-    return (React.createElement("div", { className: "panel" },
-        React.createElement("h3", { style: { color } },
-            title,
-            " \u2014 \u067E\u0631\u06A9\u0627\u0631/\u06A9\u0645\u200C\u06A9\u0627\u0631"),
-        (!d.top || d.top.length === 0) ? React.createElement("p", { className: "muted" }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u0645\u0648\u062C\u0648\u062F \u0646\u06CC\u0633\u062A.") : React.createElement(React.Fragment, null,
-            React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginBottom: 4 } }, "\u067E\u0631\u06A9\u0627\u0631\u062A\u0631\u06CC\u0646"),
-            React.createElement("table", null,
-                React.createElement("tbody", null, d.top.map((x, i) => Row(x, i, true)))),
-            React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", margin: "10px 0 4px" } }, "\u06A9\u0645\u200C\u06A9\u0627\u0631\u062A\u0631\u06CC\u0646"),
-            React.createElement("table", null,
-                React.createElement("tbody", null, d.bottom.map((x, i) => Row(x, i, false))))),
-        React.createElement("p", { style: { fontSize: 11, color: "var(--muted)", marginTop: 8 } }, "\u0628\u0631\u0627\u06CC \u062F\u06CC\u062F\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A\u060C \u0631\u0648\u06CC \u0646\u0627\u0645 \u0647\u0631 \u0646\u06CC\u0631\u0648 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F."),
+    const Row = (x, i, rank) => React.createElement("li", { key: (rank ? 't' : 'b') + (x.id || i) },
+        React.createElement("button", { type: "button", className: "dashboard-worker-person", onClick: () => setPop({ x }), "aria-label": "مشاهده جزئیات عملکرد " + x.name },
+            React.createElement("span", { className: "dashboard-worker-rank" }, fa(i + 1)),
+            React.createElement("span", { className: "dashboard-worker-name" }, x.name),
+            React.createElement("strong", null, fa(x.total || 0)),
+            React.createElement("span", { className: "dashboard-worker-arrow", "aria-hidden": "true" }, "\u2039")));
+    return (React.createElement("div", { className: "panel dashboard-worker-card", style: { "--worker-accent": color } },
+        React.createElement("div", { className: "dashboard-worker-card-head" },
+            React.createElement("span", { className: "dashboard-worker-indicator", "aria-hidden": "true" }),
+            React.createElement("h3", null, title)),
+        (!d.top || d.top.length === 0) && (!d.bottom || d.bottom.length === 0) ? React.createElement("p", { className: "muted" }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0633\u0645\u062A \u0645\u0648\u062C\u0648\u062F \u0646\u06CC\u0633\u062A.") : React.createElement(React.Fragment, null,
+            React.createElement("div", { className: "dashboard-worker-subhead" },
+                React.createElement("span", null, "\u067E\u0631\u06A9\u0627\u0631\u062A\u0631\u06CC\u0646"),
+                React.createElement("span", null, "\u0645\u062C\u0645\u0648\u0639 \u0641\u0639\u0627\u0644\u06CC\u062A")),
+            React.createElement("ol", { className: "dashboard-worker-list" }, (d.top || []).map((x, i) => Row(x, i, true))),
+            React.createElement("div", { className: "dashboard-worker-subhead dashboard-worker-subhead-bottom" },
+                React.createElement("span", null, "\u06A9\u0645\u200C\u06A9\u0627\u0631\u062A\u0631\u06CC\u0646"),
+                React.createElement("span", null, "\u0645\u062C\u0645\u0648\u0639 \u0641\u0639\u0627\u0644\u06CC\u062A")),
+            React.createElement("ol", { className: "dashboard-worker-list" }, (d.bottom || []).map((x, i) => Row(x, i, false)))),
+        React.createElement("p", { className: "dashboard-worker-hint" }, "\u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647 \u0631\u06CC\u0632 \u0641\u0639\u0627\u0644\u06CC\u062A\u200C\u0647\u0627\u060C \u0646\u0627\u0645 \u0647\u0631 \u0647\u0645\u06A9\u0627\u0631 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F."),
         pop && React.createElement(WorkerPop, { x: pop.x, onClose: () => setPop(null) })));
 }
 function WorkerPop({ x, onClose }) {
