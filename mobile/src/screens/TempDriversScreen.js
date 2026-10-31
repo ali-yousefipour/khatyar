@@ -19,14 +19,18 @@ export default function TempDriversScreen() {
   const [note, setNote] = useState('');
   const [list, setList] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    request('/temp-drivers/special-lines').then((r) => setSpecialLines(r || [])).catch(() => {});
+    request('/temp-drivers/special-lines', { noStore: true }).then((r) => { if (!Array.isArray(r)) throw new Error('فهرست خطوط ویژه معتبر نیست.'); setSpecialLines(r); }).catch((e) => setLoadError(e?.message || 'دریافت خطوط ویژه ناموفق بود.'));
   }, []);
 
-  const loadList = () => request('/temp-drivers').then(setList).catch(() => setList([]));
+  const loadList = async () => {
+    try { const rows = await request('/temp-drivers', { noStore: true }); if (!Array.isArray(rows)) throw new Error('فهرست رانندگان معتبر نیست.'); setList(rows); setLoadError(''); }
+    catch (e) { setLoadError(e?.message || 'دریافت رانندگان موقت ناموفق بود.'); }
+  };
   useEffect(() => { if (tab === 'list') loadList(); }, [tab]);
-  const onRefresh = async () => { setRefreshing(true); await loadList(); setRefreshing(false); };
+  const onRefresh = async () => { setRefreshing(true); try { await loadList(); } finally { setRefreshing(false); } };
 
   const lookup = async () => {
     const n = enNum(nid).replace(/\D/g, '');
@@ -63,14 +67,14 @@ export default function TempDriversScreen() {
     if (!lineId) return Alert.alert('توجه', 'خط ویژه را انتخاب کنید.');
     setBusy(true);
     try {
-      await request('/temp-drivers', { method: 'POST', body: {
+      const result = await request('/temp-drivers', { method: 'POST', queueIfOffline: false, body: {
         driver_ids: ids, national_id: found?.driver?.national_id || null, line_id: lineId,
         line_code_in_line: codeInLine || null, note: note || null,
       }});
-      Alert.alert('ثبت شد', 'تخصیص موقت ثبت شد.');
+      Alert.alert('ثبت شد', `${faNum(result.added_count || ids.length)} راننده به خط ویژه اضافه شد.${result.skipped?.length ? ` ${faNum(result.skipped.length)} مورد تکراری یا نامعتبر بود.` : ''}`);
       setLineId(null); setCodeInLine(''); setNote('');
-      if (found) lookup();
-      if (vehicleFound) lookupVehicle();
+      if (found) await lookup();
+      if (vehicleFound) await lookupVehicle();
     } catch (e) { Alert.alert('خطا', e.message || 'افزودن ناموفق بود.'); }
     finally { setBusy(false); }
   };
@@ -79,7 +83,7 @@ export default function TempDriversScreen() {
     Alert.alert('پایان تخصیص', 'این تخصیص موقت پایان یابد؟', [
       { text: 'انصراف', style: 'cancel' },
       { text: 'پایان', style: 'destructive', onPress: async () => {
-        try { await request('/temp-drivers/' + id, { method: 'DELETE' }); if (found) lookup(); loadList(); }
+        try { await request('/temp-drivers/' + id, { method: 'DELETE', queueIfOffline: false }); if (found) await lookup(); await loadList(); }
         catch (e) { Alert.alert('خطا', e.message || 'ناموفق'); }
       }},
     ]);
@@ -96,13 +100,14 @@ export default function TempDriversScreen() {
           </TouchableOpacity>
         ))}
       </View>
+      {!!loadError && <View style={s.errorBox}><Text style={s.errorText}>{loadError}</Text><TouchableOpacity style={s.retry} accessibilityRole="button" onPress={() => { if (tab === 'list') loadList(); else request('/temp-drivers/special-lines', { noStore: true }).then(setSpecialLines).then(() => setLoadError('')).catch(e => setLoadError(e?.message || 'دریافت خطوط ناموفق بود.')); }}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
 
       {tab === 'add' && (
         <ScrollView persistentScrollbar={true} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
           <Text style={s.note}>راننده را با کد ملی در «همهٔ خطوط» جستجو کنید و او را به‌صورت موقت به یکی از خطوط ویژه اضافه کنید. خط اصلی راننده حفظ می‌شود.</Text>
           <Text style={s.label}>کد ملی راننده</Text>
           <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
-            <TextInput style={[s.input, { flex: 1 }]} value={nid} onChangeText={(v) => setNid(enNum(v).replace(/\D/g, '').slice(0, 10))} keyboardType="number-pad" maxLength={10}
+            <TextInput style={[s.input, { flex: 1 }]} value={nid} onChangeText={(v) => { setNid(enNum(v).replace(/\D/g, '').slice(0, 10)); setFound(null); }} keyboardType="number-pad" maxLength={10}
               placeholder="کد ملی" placeholderTextColor="#9aa" textAlign="right" />
             <TouchableOpacity style={s.lookupBtn} onPress={lookup} disabled={busy}>
               <Text style={s.lookupTxt}>{busy ? '...' : '🔍 جستجو'}</Text>
@@ -111,7 +116,7 @@ export default function TempDriversScreen() {
 
           <Text style={s.label}>جستجوی خودرو / پلاک / کد بهره‌برداری</Text>
           <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
-            <TextInput style={[s.input, { flex: 1 }]} value={vehicleQ} onChangeText={setVehicleQ}
+            <TextInput style={[s.input, { flex: 1 }]} value={vehicleQ} onChangeText={(v) => { setVehicleQ(v); setVehicleFound(null); setSelectedDrivers({}); }}
               placeholder="پلاک یا کد خودرو" placeholderTextColor="#9aa" textAlign="right" />
             <TouchableOpacity style={s.lookupBtn} onPress={lookupVehicle} disabled={busy}>
               <Text style={s.lookupTxt}>{busy ? '...' : '🚕 جستجو'}</Text>
@@ -150,7 +155,12 @@ export default function TempDriversScreen() {
                 </View>
               )}
 
-              <Text style={[s.label, { marginTop: 14 }]}>افزودن به خط ویژه</Text>
+            </View>
+          )}
+
+          {(found?.driver || vehicleFound?.vehicle) && (
+            <View style={s.driverCard}>
+              <Text style={[s.label, { marginTop: 2 }]}>افزودن به خط ویژه</Text>
               <View style={s.chipWrap}>
                 {specialLines.map((l) => (
                   <TouchableOpacity key={l.id} style={[s.chip, lineId === l.id && s.chipOn]} onPress={() => setLineId(l.id)}>
@@ -158,12 +168,13 @@ export default function TempDriversScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+              {!specialLines.length && <Text style={s.empty}>خط ویژه‌ای برای تخصیص در دسترس نیست.</Text>}
               <Text style={s.label}>کد راننده در خط (اختیاری)</Text>
               <TextInput style={s.input} value={codeInLine} onChangeText={setCodeInLine} placeholder="مثلاً ۱۲۳" placeholderTextColor="#9aa" textAlign="right" />
               <Text style={s.label}>توضیح (اختیاری)</Text>
               <TextInput style={s.input} value={note} onChangeText={setNote} placeholder="علت/توضیح تخصیص موقت" placeholderTextColor="#9aa" textAlign="right" />
-              <TouchableOpacity style={s.addBtn} onPress={add} disabled={busy}>
-                <Text style={s.addTxt}>{busy ? 'در حال ثبت…' : '➕ افزودن به خط ویژه'}</Text>
+              <TouchableOpacity style={[s.addBtn, (busy || !specialLines.length) && { opacity: 0.5 }]} onPress={add} disabled={busy || !specialLines.length} accessibilityRole="button">
+                <Text style={s.addTxt}>{busy ? 'در حال ثبت…' : `افزودن ${faNum(chosenDriverIds().length)} راننده به خط ویژه`}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -173,7 +184,8 @@ export default function TempDriversScreen() {
       {tab === 'list' && (
         <ScrollView persistentScrollbar={true} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-          {list === null ? <ActivityIndicator color={C.brand} style={{ marginTop: 20 }} /> :
+          {list === null && !loadError ? <ActivityIndicator color={C.brand} style={{ marginTop: 20 }} /> :
+            list === null ? <Text style={s.empty}>دریافت فهرست انجام نشد. دوباره تلاش کنید.</Text> :
             list.length === 0 ? <Text style={s.empty}>راننده موقتی در خطوط شما ثبت نشده است.</Text> :
             list.map((t) => (
               <View key={t.id} style={s.listCard}>
@@ -196,6 +208,10 @@ export default function TempDriversScreen() {
 }
 
 const s = StyleSheet.create({
+  errorBox: { backgroundColor: '#fff1f1', borderColor: '#f3b8c0', borderWidth: 1, borderRadius: 14, padding: 12, margin: 12 },
+  errorText: { fontFamily: FONT.regular, color: '#982b3d', textAlign: 'right', lineHeight: 22 },
+  retry: { alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center', paddingHorizontal: 14 },
+  retryText: { fontFamily: FONT.bold, color: C.brand },
   tabs: { flexDirection: 'row-reverse', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
   tab: { flex: 1, paddingVertical: 17, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabOn: { borderBottomColor: C.brand },
