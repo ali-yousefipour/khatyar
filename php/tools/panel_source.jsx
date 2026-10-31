@@ -734,14 +734,14 @@ function ResponsiveTable({children,...props}){
 
 function BirthdayCelebration({bdays}){
   if(!bdays||!Array.isArray(bdays.people))return null;
-  const people=bdays.people;
-  if(!people.length)return <div className="birthday-empty" role="status">🎂 در ماه {bdays.month_name} سالگرد تولدی برای همکاران ثبت نشده است.</div>;
-  const ordered=[...people].sort((a,b)=>(a.is_today?0:a.days_left>0?1:2)-(b.is_today?0:b.days_left>0?1:2)||(a.days_left>0?a.days_left:999)-(b.days_left>0?b.days_left:999));
+  const people=bdays.people.filter(p=>p.is_today||Number(p.days_left)>0);
+  if(!people.length)return null;
+  const ordered=[...people].sort((a,b)=>(a.is_today?0:1)-(b.is_today?0:1)||Number(a.days_left)-Number(b.days_left));
   return <section className="birthday-celebration" aria-label="سالگرد تولد همکاران">
     <div className="birthday-celebration-head"><div className="birthday-celebration-icon" aria-hidden="true">🎂</div><div className="birthday-celebration-heading"><span className="birthday-celebration-eyebrow">مناسبت‌های این ماه</span><h2>سالگرد تولد همکاران <span>در ماه {bdays.month_name}</span></h2><p>به همکاران عزیزمان تبریک می‌گوییم و برایشان روزهایی پر از شادی آرزو داریم.</p></div><span className="birthday-celebration-count">{fa(people.length)} نفر</span></div>
     <div className="birthday-celebration-grid">{ordered.map((p,i)=>{
-      const status=p.is_today?"today":p.days_left>0?"upcoming":"passed";
-      const statusText=p.is_today?"امروز، تولدت مبارک!":p.days_left>0?fa(p.days_left)+" روز مانده":"سپری شده";
+      const status=p.is_today?"today":"upcoming";
+      const statusText=p.is_today?"امروز، تولدت مبارک!":fa(p.days_left)+" روز مانده";
       return <article className={"birthday-person birthday-person-"+status} key={p.id||p.birth_date+"-"+i}>
         <div className="birthday-person-avatar" aria-hidden="true">{p.is_today?"🎉":p.days_left>0?"🎁":"🎈"}</div>
         <div className="birthday-person-details"><h3>{p.name}</h3><div className="birthday-person-role">{p.role_title||"همکار خطیار"}</div><div className="birthday-person-date"><span>سالگرد تولد</span><b>{fa(p.day)} {bdays.month_name}</b><span className="birthday-person-year">{faPlain(p.birth_date||"")}</span></div></div>
