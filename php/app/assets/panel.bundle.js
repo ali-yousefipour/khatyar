@@ -18808,7 +18808,7 @@ const VIEWS = {
     activesessions: { t: "جلسات فعال کاربران", ic: "🔐", c: ActiveSessionsView },
     radiocenter: { t: "مرکز بی‌سیم", ic: "📻", c: RadioCenter },
     vehicleassets: { t: "ماشین‌آلات و وسایل مأموریتی", ic: "🚙", c: PersonnelVehicleAssets },
-    vehiclechecklist: { t: "چک‌لیست خودرویی و موتوری", ic: "☑", c: PersonnelVehicleChecklist },
+    vehiclechecklist: { t: "چک‌لیست خودرویی و موتوری", ic: "☑", c: PersonnelVehicleChecklistV2 },
     settings: { t: "تنظیمات سامانه", ic: "⚙", c: Settings },
     schoolservice: { t: "سرویس مدارس", ic: "route", c: SchoolServiceLauncher },
     complaints: { t: "شکایات تاکسیرانان", ic: "chat-message", c: ComplaintsLauncher },

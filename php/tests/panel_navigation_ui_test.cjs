@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const bundle = fs.readFileSync(path.join(__dirname, '../app/assets/panel.bundle.js'), 'utf8');
+assert.match(bundle,/function PersonnelVehicleChecklistV2\(/,'Personnel vehicle checklist component is defined');
+assert.match(bundle,/vehiclechecklist:\s*\{[^}]*c:\s*PersonnelVehicleChecklistV2\s*\}/,'Personnel vehicle checklist route uses the defined component');
 const menuSource=bundle.slice(bundle.indexOf('const PANEL_MENU_SECTIONS'),bundle.indexOf('\nfunction Login('));
 assert.ok(menuSource.includes('function panelMenuMatches'), 'Test the built search implementation');
 const extract = name => {
