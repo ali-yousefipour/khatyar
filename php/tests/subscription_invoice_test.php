@@ -13,6 +13,9 @@ require __DIR__.'/../lib/subscription_invoice_routes.php';
 $expected=[
  ['GET','/api/admin/subscription-customers'],
  ['POST','/api/admin/subscription-customers'],
+ ['GET','/api/admin/invoice-signers'],
+ ['POST','/api/admin/invoice-signers'],
+ ['POST','/api/admin/invoice-signers/{id}'],
  ['GET','/api/admin/subscription-invoices'],
  ['POST','/api/admin/subscription-invoices'],
  ['POST','/api/admin/subscription-invoices/{id}/status']
@@ -29,7 +32,7 @@ foreach([['rial','-1'],['rial','1.25'],['rial','invalid'],['date','2026-10-27'],
  catch(RuntimeException $e){if($e->getCode()===422)continue;throw $e;}
  throw new RuntimeException("Invoice validation wrongly accepted $type: $value");
 }
-if(count($routes)!==5)throw new RuntimeException('Unexpected invoice routes');
+if(count($routes)!==8)throw new RuntimeException('Unexpected invoice routes');
 $customerRoute=array_values(array_filter($routes,fn($r)=>$r['m']==='POST'&&$r['p']==='/api/admin/subscription-customers'))[0]['fn'];
 $sample=['company_name'=>'شرکت نمونه','phone'=>'09120000000'];
 $first=$customerRoute([],$sample,['id'=>1]);
