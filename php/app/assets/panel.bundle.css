@@ -1186,3 +1186,27 @@ table{font-size:13px}
 .pva-assign-page .table-wrap{max-width:100%}
 .pva-assign-page td{vertical-align:middle}
 @media(max-width:640px){.pva-assign-toolbar label{flex:1 1 100%;max-width:none}.pva-assign-toolbar button{flex:1 1 120px}.pva-assign-toolbar span{margin-bottom:9px}}
+
+/* Vehicle file browser: adaptive master/detail layout. */
+.pva-assets-hero{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;padding:21px;border:1px solid #cfe5db;border-radius:17px;background:linear-gradient(115deg,#eef9f4,#f5f9ff)}
+.pva-assets-hero h3{font-size:21px;margin:0 0 6px;color:#195740}
+.pva-assets-hero p{font-size:12px;color:var(--muted);margin:0}
+.pva-assets-hero .btn{min-height:42px}
+.pva-assets-tabs{display:flex;gap:9px;flex-wrap:wrap;margin:15px 0}
+.pva-assets-tabs .btn{min-height:43px}
+.pva-assets-toolbar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:10px 0 15px}
+.pva-assets-toolbar label{display:grid;gap:5px;flex:1 1 180px;max-width:340px;font-size:12px;font-weight:700}
+.pva-assets-toolbar span{font-size:12px;color:var(--muted);margin-bottom:11px}
+.pva-assets-toolbar .btn{min-height:42px}
+.pva-assets-workspace{display:grid;grid-template-columns:minmax(260px,32%) minmax(0,1fr);gap:13px;align-items:start}
+.pva-assets-list{display:grid;align-content:start;gap:8px;max-height:740px;overflow-y:auto;padding:3px}
+.pva-assets-item{display:grid;gap:7px;text-align:right;background:var(--card,#fff);border:1px solid #d9e7e1;border-radius:12px;padding:13px;font-family:inherit;cursor:pointer;transition:border-color .18s,box-shadow .18s}
+.pva-assets-item strong{color:#195740;font-size:14px}
+.pva-assets-item span,.pva-assets-item small{font-size:11px;color:var(--muted)}
+.pva-assets-item:hover,.pva-assets-item:focus-visible,.pva-assets-item.on{border-color:#168a68;box-shadow:0 4px 15px #1b6b4a14}
+.pva-assets-item.on{background:#f1faf5}
+.pva-assets-detail{min-width:0;border:1px solid #d9e7e1;border-radius:15px;background:#f8fbfa;padding:14px}
+.pva-assets-detail .panel{margin-top:10px}
+.pva-assets-empty{padding:35px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.9;border:1px dashed #c9dfd4;border-radius:12px}
+@media(max-width:850px){.pva-assets-workspace{grid-template-columns:minmax(0,1fr)}.pva-assets-list{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));max-height:330px}.pva-assets-detail{padding:11px}}
+@media(max-width:640px){.pva-assets-hero{padding:15px}.pva-assets-hero h3{font-size:18px}.pva-assets-hero>.btn{width:100%}.pva-assets-tabs .btn{flex:1 1 140px}.pva-assets-toolbar label{max-width:none;flex:1 1 100%}.pva-assets-toolbar .btn{flex:1 1 110px}.pva-assets-list{grid-template-columns:minmax(0,1fr);max-height:310px}}
