@@ -7,6 +7,7 @@ import { faNum } from '../num';
 import { jParts, inJRange } from '../jdate';
 import JDatePicker, { jLabel } from '../components/JDatePicker';
 import PlateSearch from '../components/PlateSearch';
+import TaxiPlate, { parseTaxiPlate } from '../components/TaxiPlate';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 
 function useFetch(path) {
@@ -174,6 +175,14 @@ function ExpiryHero({ title, description, total, filtered, icon }) {
 function ExpiryInfo({ label, value }) {
   return <View style={op.infoRow}><Text style={op.infoValue} numberOfLines={2}>{faNum(value ?? '—')}</Text><Text style={op.infoLabel}>{label}</Text></View>;
 }
+function ExpiryVehiclePlate({ plate }) {
+  return <View style={op.platePanel}>
+    <View style={op.platePanelHeading}><MaterialCommunityIcons name="car-outline" size={19} color={C.brand}/><Text style={op.platePanelTitle}>پلاک تاکسی</Text></View>
+    {parseTaxiPlate(plate)
+      ? <TaxiPlate plate={plate} compact />
+      : <View style={op.plateFallback}><MaterialCommunityIcons name="alert-circle-outline" size={20} color={C.slate}/><Text style={op.plateFallbackText}>پلاک ثبت‌شده: {faNum(plate || 'نامشخص')}</Text></View>}
+  </View>;
+}
 function ExpiryFilterDates({ from, to, setFrom, setTo, setPick }) {
   return <View><Text style={op.fieldLabel}>بازه تاریخ انقضا</Text>
     <View style={op.dateButtons}>
@@ -244,14 +253,15 @@ export function ExpInsuranceScreen({ navigation }) {
         ListFooterComponent={shown.length < list.length ? <Text style={s.more}>در حال بارگذاری بیشتر…</Text> : null}
         renderItem={({ item: r }) => (
           <View style={op.vehicleCard}>
-            <View style={op.cardTop}><Text style={op.plateTitle}>پلاک {faNum(r.plate)}</Text><View style={op.statusTag}><Text style={op.statusText}>{r._k}</Text></View></View>
+            <View style={op.cardTop}><View style={op.cardHeading}><MaterialCommunityIcons name="shield-alert-outline" size={20} color={C.brand}/><Text style={op.cardHeadingText}>بررسی اعتبار خودرو</Text></View><View style={op.statusTag}><Text style={op.statusText}>{r._k}</Text></View></View>
+            <ExpiryVehiclePlate plate={r.plate}/>
             <View style={op.cardDivider}/>
             <ExpiryInfo label="مدل خودرو" value={r.model_name||'نامشخص'}/>
             <ExpiryInfo label="خط فعالیت" value={r.line?'خط '+faNum(r.line):'نامشخص'}/>
             <View style={op.expiryRow}><Text style={op.expiryValue}>{faNum(r.expire||'نامشخص')}</Text><Text style={op.expiryLabel}>تاریخ انقضای {r._k}</Text></View>
             <View style={op.actionRow}>
-              <TouchableOpacity style={op.actionNotice} onPress={() => openNotice(r)}><Text style={op.actionNoticeText}>✎ ثبت تذکر</Text></TouchableOpacity>
-              <TouchableOpacity style={op.actionSms} disabled={smsing === r.plate + (r._k === 'بیمه' ? 'insurance' : 'inspection')} onPress={() => sendSms(r)}><Text style={op.actionSmsText}>{smsing === r.plate + (r._k === 'بیمه' ? 'insurance' : 'inspection') ? 'در حال ارسال…' : '✉ ارسال پیامک'}</Text></TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" style={op.actionNotice} onPress={() => openNotice(r)}><MaterialCommunityIcons name="pencil-outline" size={18} color="#2746a6"/><Text style={op.actionNoticeText}>ثبت تذکر</Text></TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" style={op.actionSms} disabled={smsing === r.plate + (r._k === 'بیمه' ? 'insurance' : 'inspection')} onPress={() => sendSms(r)}><MaterialCommunityIcons name="message-text-outline" size={18} color={C.brand}/><Text style={op.actionSmsText}>{smsing === r.plate + (r._k === 'بیمه' ? 'insurance' : 'inspection') ? 'در حال ارسال…' : 'ارسال پیامک'}</Text></TouchableOpacity>
             </View>
           </View>
         )} />
@@ -583,16 +593,17 @@ export function ExpOplicScreen({ navigation }) {
           <View style={op.vehicleCard}>
             <View style={op.cardTop}>
               <View style={op.statusTag}><Text style={op.statusText}>نیازمند بررسی اعتبار</Text></View>
-              <Text style={op.plateTitle}>پلاک {faNum(r.plate || '—')}</Text>
+              <View style={op.cardHeading}><MaterialCommunityIcons name="file-document-alert-outline" size={20} color={C.brand}/><Text style={op.cardHeadingText}>پروانه بهره‌برداری</Text></View>
             </View>
+            <ExpiryVehiclePlate plate={r.plate}/>
             <View style={op.cardDivider} />
             <View style={op.infoRow}><Text style={op.infoValue}>{r.beneficiary || 'نامشخص'}</Text><Text style={op.infoLabel}>بهره‌بردار</Text></View>
             <View style={op.infoRow}><Text style={op.infoValue}>خط {faNum(r.line || '—')}</Text><Text style={op.infoLabel}>خط فعالیت</Text></View>
             {!!(r.model_name || r.model) && <View style={op.infoRow}><Text style={op.infoValue}>{r.model_name || r.model}</Text><Text style={op.infoLabel}>مدل خودرو</Text></View>}
             <View style={op.expiryRow}><Text style={op.expiryValue}>{faNum(r.expire || 'نامشخص')}</Text><Text style={op.expiryLabel}>تاریخ انقضای پروانه</Text></View>
             <View style={op.actionRow}>
-              <TouchableOpacity style={op.actionNotice} onPress={() => openNotice(r)} accessibilityRole="button"><Text style={op.actionNoticeText}>✎ ثبت تذکر</Text></TouchableOpacity>
-              <TouchableOpacity style={op.actionSms} disabled={smsing === r.plate} onPress={() => Alert.alert('تأیید ارسال پیامک', 'پیامک یادآوری پروانه بهره‌برداری برای بهره‌بردار این خودرو ارسال شود؟', [{ text: 'انصراف', style: 'cancel' }, { text: 'ارسال', onPress: () => sendSms(r) }])} accessibilityRole="button"><Text style={op.actionSmsText}>{smsing === r.plate ? 'در حال ارسال…' : '✉ ارسال پیامک'}</Text></TouchableOpacity>
+              <TouchableOpacity style={op.actionNotice} onPress={() => openNotice(r)} accessibilityRole="button"><MaterialCommunityIcons name="pencil-outline" size={18} color="#2746a6"/><Text style={op.actionNoticeText}>ثبت تذکر</Text></TouchableOpacity>
+              <TouchableOpacity style={op.actionSms} disabled={smsing === r.plate} onPress={() => Alert.alert('تأیید ارسال پیامک', 'پیامک یادآوری پروانه بهره‌برداری برای بهره‌بردار این خودرو ارسال شود؟', [{ text: 'انصراف', style: 'cancel' }, { text: 'ارسال', onPress: () => sendSms(r) }])} accessibilityRole="button"><MaterialCommunityIcons name="message-text-outline" size={18} color={C.brand}/><Text style={op.actionSmsText}>{smsing === r.plate ? 'در حال ارسال…' : 'ارسال پیامک'}</Text></TouchableOpacity>
             </View>
           </View>
         )} />
@@ -659,9 +670,16 @@ const op = StyleSheet.create({
   resultRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   resultText: { color: C.ink, fontFamily: FONT.bold, fontSize: 15 },
   resultHint: { color: C.muted, fontFamily: FONT.regular, fontSize: 11 },
-  vehicleCard: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 18, padding: 15, marginBottom: 12 },
+  vehicleCard: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 20, padding: 15, marginBottom: 13, elevation: 1 },
   cardTop: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 },
+  cardHeading: {flexDirection:'row-reverse',alignItems:'center',gap:7,flexShrink:1},
+  cardHeadingText: {fontFamily:FONT.bold,color:C.ink,fontSize:13,textAlign:'right'},
   plateTitle: { color: C.ink, fontFamily: FONT.bold, fontSize: 16, textAlign: 'right' },
+  platePanel: {backgroundColor:'#f5f8fa',borderColor:'#e4eaf0',borderWidth:1,borderRadius:15,padding:12,marginTop:12},
+  platePanelHeading: {flexDirection:'row-reverse',alignItems:'center',gap:6,marginBottom:9},
+  platePanelTitle: {fontFamily:FONT.bold,color:C.brand,fontSize:12},
+  plateFallback: {minHeight:62,borderRadius:10,backgroundColor:'#fff',borderWidth:1,borderColor:C.line,alignItems:'center',justifyContent:'center',flexDirection:'row-reverse',gap:8,paddingHorizontal:10},
+  plateFallbackText: {fontFamily:FONT.bold,color:C.slate,fontSize:13,textAlign:'right',flexShrink:1},
   statusTag: { backgroundColor: '#fff3df', borderRadius: 9, paddingHorizontal: 9, paddingVertical: 5 },
   statusText: { color: '#9b5a12', fontFamily: FONT.bold, fontSize: 10 },
   cardDivider: { height: 1, backgroundColor: '#edf0f4', marginVertical: 12 },
@@ -672,9 +690,9 @@ const op = StyleSheet.create({
   expiryLabel: { color: C.slate, fontFamily: FONT.regular, fontSize: 12 },
   expiryValue: { color: C.danger, fontFamily: FONT.bold, fontSize: 13 },
   actionRow: { flexDirection: 'row-reverse', gap: 9, marginTop: 13 },
-  actionNotice: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 11, backgroundColor: '#eef2ff' },
+  actionNotice: { flex: 1, minHeight:48, alignItems: 'center',justifyContent:'center',flexDirection:'row-reverse',gap:7,paddingVertical: 12, borderRadius: 11, backgroundColor: '#eef2ff' },
   actionNoticeText: { color: '#2746a6', fontFamily: FONT.bold, fontSize: 12 },
-  actionSms: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 11, backgroundColor: '#e5f5ee' },
+  actionSms: { flex: 1, minHeight:48,alignItems:'center',justifyContent:'center',flexDirection:'row-reverse',gap:7,paddingVertical:12,borderRadius:11,backgroundColor:'#e5f5ee' },
   actionSmsText: { color: C.brand, fontFamily: FONT.bold, fontSize: 12 },
   emptyCard: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, padding: 24, alignItems: 'center' },
   emptyTitle: { color: C.ink, fontFamily: FONT.bold, fontSize: 15 },
