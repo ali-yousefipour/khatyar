@@ -18530,7 +18530,7 @@ function ComplaintsLauncher() {
         const loadModule = () => new Promise((resolve, reject) => {
             if (typeof window.openComplaints === "function")
                 return resolve();
-            const src = "/assets/complaints-panel.js?v=20261007.269";
+            const src = "/assets/complaints-panel.js?v=20261031.ui-refresh1";
             const existing = [...document.scripts].find(s => String(s.src || "").includes("/assets/complaints-panel.js"));
             if (existing) {
                 const started = Date.now();
