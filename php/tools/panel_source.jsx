@@ -2061,9 +2061,9 @@ function Config(){
   const [tab,setTab]=useState("define");
   const TABS=[["define","تعریف موضوعات و چک‌لیست"],["reportsubjects","موضوعات گزارش‌ها"],["notices","تذکرات داده‌شده"],["checklists","چک‌لیست‌های داده‌شده"]];
   return(<div className="admin-workspace-page">
-    <div className="tabbar" style={{display:"flex",gap:8,marginBottom:14,borderBottom:"2px solid var(--line)",flexWrap:"wrap"}}>
+    <div className="tabbar" role="tablist" aria-label="بخش‌های تذکر و چک‌لیست" style={{display:"flex",gap:8,marginBottom:14,borderBottom:"2px solid var(--line)",flexWrap:"wrap"}}>
       {TABS.map(([k,lbl])=>
-        <button key={k} onClick={()=>setTab(k)} style={{background:"none",border:"none",borderBottom:tab===k?"3px solid var(--brand)":"3px solid transparent",padding:"8px 14px",cursor:"pointer",fontWeight:tab===k?800:500,color:tab===k?"var(--brand)":"var(--muted)",fontFamily:"inherit",fontSize:14}}>{lbl}</button>)}
+        <button key={k} type="button" role="tab" aria-selected={tab===k} onClick={()=>setTab(k)} style={{background:"none",border:"none",borderBottom:tab===k?"3px solid var(--brand)":"3px solid transparent",padding:"8px 14px",cursor:"pointer",fontWeight:tab===k?800:500,color:tab===k?"var(--brand)":"var(--muted)",fontFamily:"inherit",fontSize:14}}>{lbl}</button>)}
     </div>
     {tab==="define"&&<ConfigDefine/>}
     {tab==="reportsubjects"&&<ReportSubjectsAdmin/>}
@@ -3605,9 +3605,9 @@ function InventoryAdmin(){
     <div className="workspace-section-heading"><div><span>مدیریت تجهیزات</span><h3>اقلام تحویلی و واگذاری‌ها</h3><p>ثبت واگذاری، مدیریت انواع اقلام و گزارش تحویل‌های تأییدشده</p></div></div>
     {error&&<p className="workspace-inline-error" role="alert">{error}</p>}
     {notice&&<p role="status" style={{background:"var(--brand-soft)",borderRadius:10,padding:12}}>{notice}</p>}
-    <div className="row page-switcher" style={{gap:8,marginBottom:14}}>
+    <div className="row page-switcher" role="tablist" aria-label="بخش‌های اقلام تحویلی" style={{gap:8,marginBottom:14}}>
       {[["assign","واگذاری اقلام"],["types","انواع اقلام"],["report","گزارش و خروجی اکسل"]].map(([k,l])=>
-        <button key={k} className={"btn "+(tab===k?"p":"g")} onClick={()=>setTab(k)}>{l}</button>)}
+        <button key={k} type="button" role="tab" aria-selected={tab===k} className={"btn "+(tab===k?"p":"g")} onClick={()=>setTab(k)}>{l}</button>)}
     </div>
 
     {tab==="assign" && <div className="panel">

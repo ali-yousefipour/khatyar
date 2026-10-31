@@ -45,6 +45,8 @@ const style=`
 #kh-contract-panel .wc-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
 #kh-contract-panel .wc-actions{display:flex;gap:8px;flex-wrap:wrap;margin:13px 0}
 #kh-contract-panel .wc-history{max-height:240px;overflow:auto}
+#kh-contract-panel .wc-history{max-width:100%;overscroll-behavior:contain;scrollbar-width:thin;border:1px solid #d5e5dd;border-radius:12px}
+#kh-contract-panel .wc-history table{min-width:660px}
 #kh-contract-panel table{border-collapse:collapse;width:100%;background:white}
 #kh-contract-panel td,#kh-contract-panel th{padding:8px;text-align:right;border:1px solid #e3ece8}
 #kh-contract-panel th{background:#edf6f1}
@@ -65,6 +67,22 @@ const style=`
 .wc-jalali-picker .wc-cal-grid button{padding:7px 0;border:0;background:white;cursor:pointer}
 .wc-jalali-picker .wc-cal-grid button:hover,.wc-jalali-picker .wc-cal-grid button.selected{background:#177c55;color:white}
 .wc-jalali-picker .wc-cal-week{color:#64748b;text-align:center;font-size:10px;padding:4px 0}
+#kh-contract-panel .wc-box{border:1px solid #dce8e2;box-shadow:0 5px 20px #153d3010}
+#kh-contract-panel .wc-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:16px}
+#kh-contract-panel :is(button,input,select):focus-visible,.wc-jalali-picker :is(button,select):focus-visible{outline:3px solid #158ba3;outline-offset:2px}
+#kh-contract-panel button{min-height:44px;transition:background-color .15s ease,border-color .15s ease}
+#kh-contract-panel button:disabled{opacity:.5;cursor:not-allowed}
+#kh-contract-panel :is(input,select){min-height:44px}
+#kh-contract-panel .wc-users label{display:flex;align-items:center;gap:8px;min-height:44px;padding:9px 11px;cursor:pointer}
+#kh-contract-panel .wc-users label:focus-within{border-color:#147b59;background:#f0faf4}
+#kh-contract-panel .wc-users input[type=checkbox]{width:18px;height:18px;margin:0;flex:none}
+#kh-contract-panel .wc-status{padding:10px 12px;border-radius:10px;background:#eaf6ef;line-height:1.8;overflow-wrap:anywhere}
+#kh-contract-panel .wc-status:empty{display:none}
+#kh-contract-panel .wc-template-row{min-height:54px;padding:10px 12px;overflow-wrap:anywhere}
+.wc-jalali-picker{font-family:Vazirmatn,Tahoma,sans-serif;box-sizing:border-box}
+.wc-jalali-picker .wc-cal-grid button{min-height:38px}
+@media(max-width:650px){#kh-contract-panel .wc-box{padding:14px;border-radius:12px}#kh-contract-panel .wc-toolbar{align-items:stretch;gap:12px}#kh-contract-panel .wc-toolbar h2{font-size:18px}#kh-contract-panel .wc-actions>button{flex:1 1 145px}#kh-contract-panel .wc-users{grid-template-columns:1fr;max-height:260px}#kh-contract-panel .wc-date-entry button{min-width:48px}#kh-contract-panel .wc-editor{padding:12px}}
+@media(prefers-reduced-motion:reduce){#kh-contract-panel button{transition:none}}
 `;
 function dom(){
  if(document.getElementById('kh-contract-panel'))return;
@@ -90,7 +108,7 @@ function dom(){
  <div id="wc-templates-list" class="wc-template-list" aria-label="قالب‌های ذخیره‌شده"></div>
  <small>در قالب Word از برچسب‌هایی مانند {{full_name}}، {{national_code}}، {{father_name}}، {{birth_date}}، {{role_title}}، {{start_date}} و {{end_date}} استفاده کنید. هر برچسب باید در یک قطعه متن Word قرار گیرد.</small>
  <hr><div class="wc-toolbar"><h3>قراردادهای صادرشده</h3><button class="wc-secondary" id="wc-history-refresh">بارگذاری سوابق</button></div>
- <div class="wc-history"><table><thead><tr><th>نیرو</th><th>قالب</th><th>شروع</th><th>پایان</th><th>اقدامات</th></tr></thead><tbody id="wc-history"></tbody></table></div>
+ <div class="wc-history" tabindex="0" role="region" aria-label="جدول قراردادهای صادرشده؛ قابل پیمایش افقی"><table><thead><tr><th>نیرو</th><th>قالب</th><th>شروع</th><th>پایان</th><th>اقدامات</th></tr></thead><tbody id="wc-history"></tbody></table></div>
  <section class="wc-editor" id="wc-editor" hidden>
 <h3>ویرایش قرارداد صادرشده <span id="wc-edit-number"></span></h3>
 <p>ویرایش فقط روی این قرارداد اعمال می‌شود و پرونده پرسنلی تغییر نمی‌کند.</p>
@@ -111,7 +129,7 @@ function dom(){
 </div>
 <div class="wc-actions"><button id="wc-edit-save">ذخیره تغییرات و بازسازی چاپ</button><button class="wc-secondary" id="wc-edit-cancel">انصراف</button></div>
 </section>
- <div id="wc-message" class="wc-status"></div></div>`;
+ <div id="wc-message" class="wc-status" role="status" aria-live="polite" aria-atomic="true"></div></div>`;
  const host=document.getElementById('khatyar-contract-page');if(!host)return;
  host.appendChild(div);
  const by=id=>div.querySelector('#'+id);
@@ -163,7 +181,8 @@ function jalaliMonthLength(y,m){
 }
 let activeCalendar=null;
 let calendarOutsideHandler=null;
-function closeCalendar(){activeCalendar?.remove();activeCalendar=null;if(calendarOutsideHandler){document.removeEventListener('pointerdown',calendarOutsideHandler,true);calendarOutsideHandler=null;}}
+let calendarKeyHandler=null;
+function closeCalendar(){activeCalendar?.remove();activeCalendar=null;if(calendarOutsideHandler){document.removeEventListener('pointerdown',calendarOutsideHandler,true);calendarOutsideHandler=null;}if(calendarKeyHandler){document.removeEventListener('keydown',calendarKeyHandler,true);calendarKeyHandler=null;}}
 function openCalendar(input){
  if(!input)return;
  closeCalendar();
@@ -183,6 +202,8 @@ function openCalendar(input){
  place();
  calendarOutsideHandler=event=>{if(!pop.contains(event.target) && event.target!==input && !event.target.closest?.('[data-calendar-for]'))closeCalendar();};
  document.addEventListener('pointerdown',calendarOutsideHandler,true);
+ calendarKeyHandler=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closeCalendar();input.focus();}};
+ document.addEventListener('keydown',calendarKeyHandler,true);
  function draw(){
    const g=toGregorian(y,m,1),first=g?(g.getUTCDay()+1)%7:0,len=jalaliMonthLength(y,m);
    let cells=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'].map(t=>'<span class="wc-cal-week">'+t+'</span>').join('');
@@ -289,8 +310,9 @@ async function upload(){
  const name=by('wc-tpl-name').value.trim(),file=by('wc-tpl-file').files?.[0];
  if(!name||!file)return status('نام و فایل Word را مشخص کنید.',true);
  const f=new FormData();f.append('name',name);f.append('file',file);
+ const button=by('wc-upload');button.disabled=true;button.textContent='در حال بارگذاری قالب…';
  try{await call('/templates',{method:'POST',body:f});by('wc-tpl-name').value='';by('wc-tpl-file').value='';await refresh();status('قالب Word ذخیره شد.');}
- catch(err){status(err.message,true);}
+ catch(err){status(err.message,true);}finally{button.disabled=false;button.textContent='ذخیره قالب';}
 }
 function unmount(){closeCalendar();document.getElementById('kh-contract-panel')?.remove();loaded=false;selected.clear();editingId=null;}
 function mount(){

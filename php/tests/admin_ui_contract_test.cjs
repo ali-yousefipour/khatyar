@@ -7,6 +7,7 @@ const source = fs.readFileSync(path.join(root, 'tools/panel_source.jsx'), 'utf8'
 const bundle = fs.readFileSync(path.join(root, 'app/assets/panel.bundle.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'app/assets/panel.bundle.css'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'app/panel.html'), 'utf8');
+const contracts = fs.readFileSync(path.join(root, 'app/assets/work-contracts-admin.js'), 'utf8');
 
 assert.match(source, /const PANEL_BUILD_VERSION = "1\.5\.17";/);
 assert.match(bundle, /const PANEL_BUILD_VERSION = "1\.5\.17";/);
@@ -18,5 +19,14 @@ assert.match(css, /:focus-visible/);
 assert.match(css, /prefers-reduced-motion:reduce/);
 assert.match(css, /\.page-content \.table-wrap\{max-width:100%;overflow-x:auto/);
 assert.match(html, /panel\.bundle\.css\?v=20261031\.remaining-ui-polish1/);
+assert.match(contracts, /wc-history" tabindex="0" role="region"/);
+assert.match(contracts, /wc-message" class="wc-status" role="status" aria-live="polite"/);
+assert.match(contracts, /if\(event\.key==='Escape'\)/);
+assert.match(contracts, /button\.disabled=true;button\.textContent='در حال بارگذاری قالب…'/);
+assert.match(source, /role="tablist" aria-label="بخش‌های اقلام تحویلی"/);
+assert.match(source, /role="tablist" aria-label="بخش‌های تذکر و چک‌لیست"/);
+assert.match(bundle, /"aria-label": "بخش‌های اقلام تحویلی"/);
+assert.match(bundle, /"aria-label": "بخش‌های تذکر و چک‌لیست"/);
+assert.match(html, /work-contracts-admin\.js\?v=20261031\.contract-ux2/);
 
 console.log('PASS admin UI: collapsed navigation inaccessible to keyboard, version synchronization, focus, responsive tables, reduced motion and cache refresh');
