@@ -2,7 +2,7 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0d7a5f">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icon-192.png">
@@ -86,6 +86,7 @@ input,select,textarea,button{font-family:inherit;max-width:100%}
 @media(max-width:380px){.kpis{grid-template-columns:1fr!important}}
 </style>
 <link rel="stylesheet" href="assets/android-app.css?v=20261026.attendance1">
+<link rel="stylesheet" href="assets/android-web-ux.css?v=20261031.android-parity1">
 <script src="assets/android-navigation.js?v=20261025.2"></script>
 </head>
 <body>
@@ -279,7 +280,7 @@ for(const x of [...KH_ANDROID_NAV.dashboard,...KH_ANDROID_NAV.drawer]){const old
 const token=()=>localStorage.getItem('token')||localStorage.getItem('access')||localStorage.getItem('access_token')||'';
 let APP_ALLOWED=null, APP_FEATURES={}, SCHOOL_ACCESS=false;
 async function loadAppAllowed(){try{const r=await GET('/my/app-items');APP_ALLOWED=Array.isArray(r?.items)?r.items:null;}catch(_){APP_ALLOWED=null}return APP_ALLOWED;}
-const appAllowed=k=>APP_ALLOWED===null||APP_ALLOWED.includes(k)||(['StationCapture','MyStations'].includes(k)&&['StationCapture','MyStations','LineLocation'].some(x=>APP_ALLOWED.includes(x)));
+const appAllowed=k=>k==='Dashboard'||(Array.isArray(APP_ALLOWED)&&(APP_ALLOWED.includes(k)||(['StationCapture','MyStations'].includes(k)&&['StationCapture','MyStations','LineLocation'].some(x=>APP_ALLOWED.includes(x)))));
 const routeAlias={
   PresentList:'present',ActivityReport:'activity',ExpInsurance:'expInsurance',ExpTaxi:'expTaxi',ExpOplic:'expOplic',TeamReport:'team',InboxReports:'inbox',OfficialPresence:'official',Messages:'messages',Notifications:'notifications',Forms:'forms',Reports:'reports',Search:'search',CheckIn:'checkin',Radio:'radio',Help:'help',Profile:'profile',PastNotices:'pastNotices',ReportDetail:'reportDetail'
 };
@@ -698,18 +699,18 @@ function nav(k){ const item=ANDROID_ITEMS.find(x=>x[0]===k)||ANDROID_ITEMS.find(
 let _renderGeneration=0;
 async function render(){
   const generation=++_renderGeneration; stopRadioWeb();document.querySelectorAll('dialog[data-private-photo]').forEach(d=>d.close());
-  const body=document.getElementById('body'); body.classList.toggle('android-subpage',!['dashboard','login','forgot','reset'].includes(current)); body.innerHTML='<div class="spin"></div>';
+  const body=document.getElementById('body'); body.classList.toggle('android-subpage',!['dashboard','login','forgot','reset'].includes(current)); body.innerHTML='<div class="web-loading" role="status" aria-live="polite"><div class="spin" aria-hidden="true"></div><span>در حال دریافت اطلاعات…</span></div>';
   try{const html=await screens[current]();if(generation!==_renderGeneration)return;body.innerHTML=html;}catch(e){if(generation!==_renderGeneration)return;body.innerHTML=`<p class="warn">${esc(e.message)}</p>`;}
   body.scrollTop=0;
   if(current==='radio') setTimeout(()=>{if(current==='radio'&&generation===_renderGeneration)renderRadioWebTab('recent');},0);
   if(tmp._after){ const fn=tmp._after; tmp._after=null; setTimeout(fn,0); }
   document.querySelector('.body')?.classList.toggle('android-login',current==='login');
-  if(USER){ const tabs=[['dashboard','🏠','خانه'],['search','🔍','جستجو'],['checkin','🕘','حضور'],['notifications','🔔','اعلان'],['profile','⚙','حساب']];
-    document.getElementById('footer').innerHTML=tabs.map(([k,i,l])=>`<button class="${current===k?'on':''}" onclick="nav('${k}')"><span class="fi">${i}</span>${l}</button>`).join(''); }
+  if(USER){ const tabs=[['Dashboard','view-dashboard-outline','خانه'],['Search','magnify','جستجو'],['CheckIn','map-marker-check-outline','حضور'],['Notifications','bell-outline','اعلان'],['Profile','account-circle-outline','حساب']].filter(([route])=>appAllowed(route));
+    document.getElementById('footer').innerHTML=tabs.map(([route,icon,label])=>{const key=routeAlias[route]||route.toLowerCase(),active=current===key;return `<button type="button" class="${active?'on':''}" aria-label="${label}" ${active?'aria-current="page"':''} onclick="nav('${route}')"><span class="fi">${androidIcon(icon)}</span>${label}</button>`;}).join(''); }
 }
 
 // ---- boot ----
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=20261026.attendance1',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?v=20261031.android-parity1',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
 USER = store.get('user')?JSON.parse(store.get('user')):null;
 current = USER?'dashboard':'login';
 refreshOffline(); if(navigator.onLine) flushQueue();

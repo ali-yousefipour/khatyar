@@ -32,6 +32,7 @@ async function run() {
       throw new Error('Unexpected endpoint ' + route);
     },
     chrome: () => {}, BRAND: {}, esc: String,
+    GET: async route => route === '/session/web-login-config' ? {method:'sms_otp'} : {},
   });
   vm.runInContext(source, context);
   vm.runInContext('const testScreens={' + loginSource + '};', context);

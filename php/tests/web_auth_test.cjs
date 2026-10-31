@@ -112,10 +112,12 @@ async function run() {
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(bridgeRequests, 1);
   let finishDashboard;
-  const body = { innerHTML: '', scrollTop: 0 };
+  const body = { innerHTML: '', scrollTop: 0, classList: { toggle() {} } };
   const rendering = vm.createContext({
-    document: { getElementById: () => body }, USER: null, current: 'dashboard', tmp: {},
-    radioWebState: { liveTimer: null },
+    USER: null, current: 'dashboard', tmp: {},
+    radioWebState: { liveTimer: null }, stopRadioWeb: () => {},
+    setTimeout: () => {},
+    document: { getElementById: () => body, querySelectorAll: () => [], querySelector: () => null },
     screens: { dashboard: () => new Promise(resolve => { finishDashboard = resolve; }), login: async () => 'LOGIN' },
     esc: String,
   });

@@ -1,0 +1,66 @@
+/* Shared Android-aligned visual layer for every web-app screen.
+   Keep feature content and API contracts in their existing modules. */
+:root {
+  --ink:#142033; --paper:#f6f8fc; --line:#e1e8f2; --muted:#62718a;
+  --brand:#086b56; --brand2:#074f42; --taxi:#ffc928; --taxiInk:#4b3a00;
+  --danger:#c92a42; --ok:#087f56; --card:#fff;
+  --ux-shadow:0 8px 24px rgba(20,32,51,.07);
+}
+html { direction:rtl; scroll-behavior:smooth; }
+body { color:var(--ink); background:var(--paper); font-family:Vazirmatn,system-ui,sans-serif; }
+.app { min-height:100dvh; }
+.body { padding:16px 16px max(88px,env(safe-area-inset-bottom) + 24px); overscroll-behavior-y:contain; }
+.hdr { min-height:64px; padding:10px 16px; padding-top:max(10px,env(safe-area-inset-top)); background:linear-gradient(125deg,var(--brand),var(--brand2)); box-shadow:0 3px 14px rgba(7,79,66,.14); }
+.hdr .ttl { font-size:16px; line-height:1.6; }
+.hdr .ic,.hdr .bell { display:grid;place-items:center;flex:0 0 44px;min-width:44px;min-height:44px;border-radius:14px; }
+.hdr .ic:active,.hdr .bell:active { background:rgba(255,255,255,.15); }
+.hero { background:linear-gradient(140deg,var(--brand),var(--brand2)); border-radius:0 0 24px 24px; padding:20px 18px 24px; }
+.hero .nm,.hero h2 { font-size:19px;line-height:1.65; }
+.hero .hi,.hero p { line-height:1.8; }
+.card,.item,.kpi,.android-queue-item { background:var(--card); border:1px solid var(--line); border-radius:17px; box-shadow:var(--ux-shadow); }
+.card { padding:16px; margin-bottom:12px; }
+.item { padding:12px 14px; min-height:66px; gap:12px; line-height:1.7; text-align:right; }
+.item .android-kpi-icon { flex-shrink:0; }
+.item:active,.native-actions .act:active { background:var(--soft,#edf8f4); border-color:var(--brand); }
+.kpis { gap:11px; }
+.kpi { min-height:95px; padding:15px; }
+.kpi .n { font-size:23px; font-weight:800; font-variant-numeric:tabular-nums; }
+.kpi .l { font-size:12px; line-height:1.8; }
+.btn,.start,.pay,.act,.opt,.chip,.native-tabs button { font-family:inherit; transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease; }
+.btn,.start { min-height:48px!important; border-radius:14px; line-height:1.6; }
+.btn:disabled,.start:disabled,.act:disabled { opacity:.55; cursor:not-allowed; }
+.inp,input:not([type=checkbox]):not([type=radio]),select,textarea { max-width:100%; min-height:48px!important; border-radius:13px; font-family:inherit; }
+textarea { min-height:108px; line-height:1.9; }
+.label,.wf-field label { font-size:13px; font-weight:700; line-height:1.75; }
+.chip { min-height:44px; display:inline-flex;align-items:center;justify-content:center;line-height:1.6; }
+.native-actions .act { min-height:112px; padding:14px; border-radius:18px; box-shadow:var(--ux-shadow); }
+.native-actions .native-action-icon { width:46px;height:46px;border-radius:15px; }
+.android-drawer-links .android-drawer-link { min-height:56px; text-align:right; }
+.drawer .panel { width:min(340px,88vw); padding-bottom:calc(22px + env(safe-area-inset-bottom)); }
+.footer { padding-bottom:max(8px,env(safe-area-inset-bottom)); box-shadow:0 -4px 18px rgba(20,32,51,.07); }
+.footer button { min-height:52px; min-width:48px; border-radius:12px; }
+.footer button[aria-current=page] { color:var(--brand); background:var(--soft,#edf8f4); }
+.footer .fi { font-size:22px; line-height:1.2; }
+.radio-talk-button { outline-offset:4px; }
+.spin { width:36px;height:36px;border-width:3px;border-top-color:var(--brand); margin:36px auto; }
+.web-loading { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:144px;color:var(--muted);font-size:13px;text-align:center; }
+.web-loading .spin { margin:16px auto 8px; }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible {
+  outline:3px solid #d49a00; outline-offset:3px;
+}
+@media(max-width:389px) {
+  .body { padding-inline:11px; }
+  .hdr { gap:6px; padding-inline:10px; }
+  .hdr .ttl { font-size:14px; }
+  .card { padding:13px; }
+  .item { padding:11px; }
+}
+@media(min-width:768px) {
+  body,.footer,.drawer { max-width:560px; }
+  .body { padding-inline:24px; }
+  .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(prefers-reduced-motion:reduce) {
+  html { scroll-behavior:auto; }
+  *,*::before,*::after { animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important; }
+}
