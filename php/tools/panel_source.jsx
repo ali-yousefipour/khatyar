@@ -764,15 +764,18 @@ function Dashboard(){
   if(loading&&!s)return <div className="panel" style={{margin:"14px 0"}}><div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10}}><span>در حال دریافت اطلاعات داشبورد…</span><span className="muted" style={{fontSize:12}}>لطفاً چند لحظه صبر کنید</span></div></div>;
   if(loadErr&&!s)return <div className="panel" style={{margin:"14px 0",border:"1px solid #f0caca"}}><h3 style={{marginTop:0}}>اطلاعات داشبورد دریافت نشد</h3><p style={{color:"var(--danger)",fontSize:13,lineHeight:1.9}}>{loadErr}</p><button className="btn p" onClick={loadStats}>تلاش مجدد</button></div>;
   if(!s)return <div className="panel" style={{margin:"14px 0"}}>اطلاعات داشبورد در دسترس نیست.</div>;
-  const K=[["راننده فعال",s.drivers],["خط فعال",s.lines],["حضور امروز",s.today_attendance],["فیش پرداخت‌نشده",s.unpaid_bills],["تذکر این ماه",s.notices_month]];
+  const K=[["راننده فعال",s.drivers,"کاربران فعال ناوگان"],["خط فعال",s.lines,"خطوط در حال بهره‌برداری"],["حضور امروز",s.today_attendance,"تردد ثبت‌شده امروز"],["فیش پرداخت‌نشده",s.unpaid_bills,"نیازمند پیگیری"],["تذکر این ماه",s.notices_month,"موارد ثبت‌شده ماه جاری"]];
   return(<div className="dashboard-page">
     <BirthdayCelebration bdays={bdays}/>
-    <div className="kpis">{K.map(([l,n],i)=><div className="kpi" key={i}><div className="n">{fa(n)}</div><div className="l">{l}</div></div>)}</div>
+    <section className="dashboard-overview" aria-label="آمار کلی سامانه">
+      <div className="dashboard-section-head"><div><span className="dashboard-section-kicker">نمای کلی سامانه</span><h2>آمار و شاخص‌های اصلی</h2></div><span className="dashboard-section-caption">خلاصه وضعیت جاری خطیار</span></div>
+      <div className="kpis dashboard-overview-grid">{K.map(([l,n,desc],i)=><div className="kpi" key={l}><span className="dashboard-kpi-index" aria-hidden="true">{fa(i+1).padStart(2,"۰")}</span><div className="n">{n==null?"—":fa(n)}</div><div className="l">{l}</div><div className="dashboard-kpi-desc">{desc}</div></div>)}</div>
+    </section>
     <PersonnelDistributionDashboard/>
     <LiveStaffDashboard/>
-    {tw && tw.groups && tw.groups.length>0 ? <section aria-label="کارایی نیروها">
-      <h3 style={{margin:"18px 0 12px",fontSize:16}}>👥 کارایی نیروها — پرکارترین و کم‌کارترین به تفکیک نقش{tw.zone_scope==="own"?" (منطقهٔ شما)":""}</h3>
-      <div className="grid2">
+    {tw && tw.groups && tw.groups.length>0 ? <section className="dashboard-workers" aria-label="کارایی نیروها">
+      <div className="dashboard-section-head"><div><span className="dashboard-section-kicker">ارزیابی عملکرد</span><h2>کارایی نیروها به تفکیک سمت</h2></div><span className="dashboard-section-caption">{tw.zone_scope==="own"?"محدوده منطقه شما":"پرکارترین و کم‌کارترین همکاران"}</span></div>
+      <div className="grid2 dashboard-worker-grid">
         {tw.groups.map((g,i)=><WorkerGroup key={g.key} title={g.title} data={g} color={GROUP_COLORS[g.key]||"#0d7a5f"}/>)}
         {tw.groups.length%2===1?<div></div>:null}
       </div>
@@ -785,15 +788,14 @@ const GROUP_COLORS={supervisor:"#0d7a5f",operator:"#0891b2",admin_staff:"#2563eb
 function WorkerGroup({title,data,color}){
   const [pop,setPop]=useState(null);
   const d=data||{top:[],bottom:[]};
-  const Row=(x,i,rank)=>(<tr key={(rank?'t':'b')+x.id} style={{cursor:"pointer"}} onClick={e=>setPop({x,at:{x:e.clientX,y:e.clientY}})}>
-    {rank?<td>{fa(i+1)}</td>:null}<td style={{color:"var(--brand)",fontWeight:700}}>{x.name}</td><td><b>{fa(x.total)}</b></td></tr>);
-  return(<div className="panel"><h3 style={{color}}>{title} — پرکار/کم‌کار</h3>
-    {(!d.top||d.top.length===0)?<p className="muted">داده‌ای موجود نیست.</p>:<>
-      <div style={{fontSize:12,color:"var(--muted)",marginBottom:4}}>پرکارترین</div>
-      <table><tbody>{d.top.map((x,i)=>Row(x,i,true))}</tbody></table>
-      <div style={{fontSize:12,color:"var(--muted)",margin:"10px 0 4px"}}>کم‌کارترین</div>
-      <table><tbody>{d.bottom.map((x,i)=>Row(x,i,false))}</tbody></table></>}
-    <p style={{fontSize:11,color:"var(--muted)",marginTop:8}}>برای دیدن جزئیات، روی نام هر نیرو کلیک کنید.</p>
+  const Row=(x,i,rank)=><li key={(rank?'t':'b')+(x.id||i)}><button type="button" className="dashboard-worker-person" onClick={()=>setPop({x})} aria-label={"مشاهده جزئیات عملکرد "+x.name}><span className="dashboard-worker-rank">{fa(i+1)}</span><span className="dashboard-worker-name">{x.name}</span><strong>{fa(x.total||0)}</strong><span className="dashboard-worker-arrow" aria-hidden="true">‹</span></button></li>;
+  return(<div className="panel dashboard-worker-card" style={{"--worker-accent":color}}><div className="dashboard-worker-card-head"><span className="dashboard-worker-indicator" aria-hidden="true"/><h3>{title}</h3></div>
+    {(!d.top||d.top.length===0)&&(!d.bottom||d.bottom.length===0)?<p className="muted">داده‌ای برای این سمت موجود نیست.</p>:<>
+      <div className="dashboard-worker-subhead"><span>پرکارترین</span><span>مجموع فعالیت</span></div>
+      <ol className="dashboard-worker-list">{(d.top||[]).map((x,i)=>Row(x,i,true))}</ol>
+      <div className="dashboard-worker-subhead dashboard-worker-subhead-bottom"><span>کم‌کارترین</span><span>مجموع فعالیت</span></div>
+      <ol className="dashboard-worker-list">{(d.bottom||[]).map((x,i)=>Row(x,i,false))}</ol></>}
+    <p className="dashboard-worker-hint">برای مشاهده ریز فعالیت‌ها، نام هر همکار را انتخاب کنید.</p>
     {pop&&<WorkerPop x={pop.x} onClose={()=>setPop(null)}/>}
   </div>);
 }
