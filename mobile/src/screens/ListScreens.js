@@ -8,6 +8,7 @@ import JDatePicker, { jLabel } from '../components/JDatePicker';
 import ImageViewer from '../components/ImageViewer';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import TaxiPlate from '../components/TaxiPlate';
 
 function DateFilterBar({ from, to, setFrom, setTo }) {
   const [pick, setPick] = useState(null);
@@ -393,12 +394,6 @@ export function VehicleScreen({ route, navigation }) {
   const { width } = useWindowDimensions();
   const vehicle = route?.params?.vehicle || {};
   const drivers = Array.isArray(route?.params?.drivers) ? route.params.drivers : [];
-  const plate = String(vehicle.plate || '').trim();
-  const latinDigits = value => String(value || '').replace(/[۰-۹٠-٩]/g, d => {
-    const p = '۰۱۲۳۴۵۶۷۸۹'.indexOf(d);
-    return String(p >= 0 ? p : '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
-  });
-  const plateParts = latinDigits(plate).match(/^(\\d{2})\\s*([آ-یA-Za-z])\\s*(\\d{3})\\s*[-\\s]*(\\d{2})$/);
   function openDriver(d) {
     if (d.access_blocked) {
       Alert.alert('دسترسی مسدود است',
@@ -416,12 +411,7 @@ export function VehicleScreen({ route, navigation }) {
     <ScrollView persistentScrollbar style={{ flex: 1, backgroundColor: C.paper }} contentContainerStyle={vs.page}>
       <View style={vs.hero}>
         <View style={vs.heading}><MaterialCommunityIcons name="taxi" size={22} color={C.brand}/><Text style={vs.headingText}>مشخصات تاکسی</Text></View>
-        <View style={[vs.plate, { maxWidth: Math.max(220, width - 68) }]}>
-          <View style={vs.plateBody}>
-            <Text style={vs.plateNumber} numberOfLines={1} adjustsFontSizeToFit>{plateParts ? `${faNum(plateParts[1])} ${plateParts[2]} ${faNum(plateParts[3])}` : faNum(plate || '—')}</Text>
-          </View>
-          <View style={vs.plateRegion}><Text style={vs.plateRegionLabel}>ایران</Text><Text style={vs.plateRegionNumber}>{plateParts ? faNum(plateParts[4]) : '—'}</Text></View>
-        </View>
+        <TaxiPlate plate={vehicle.plate} compact={width<355}/>
         <View style={vs.vehicleFacts}>
           {!!vehicle.model_name && <View style={vs.fact}><MaterialCommunityIcons name="car-outline" size={17} color={C.brand}/><Text style={vs.factText}>{faNum(vehicle.model_name)}</Text></View>}
           {!!vehicle.line_code && <View style={vs.fact}><MaterialCommunityIcons name="map-marker-path" size={17} color={C.brand}/><Text style={vs.factText}>خط {faNum(vehicle.line_code)}</Text></View>}
@@ -455,12 +445,6 @@ const vs = StyleSheet.create({
   hero: { backgroundColor: '#fff', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: C.line, alignItems: 'center', elevation: 2 },
   heading: { flexDirection: 'row-reverse', alignItems: 'center', alignSelf: 'stretch', gap: 8, marginBottom: 12 },
   headingText: { fontFamily: FONT.bold, fontSize: 16, color: C.ink },
-  plate: { flexDirection: 'row', direction: 'ltr', width: '100%', maxWidth: 330, height: 76, backgroundColor: '#f5c518', borderRadius: 11, borderWidth: 2, borderColor: '#242424', overflow: 'hidden' },
-  plateBody: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  plateNumber: { fontFamily: FONT.bold, color: '#1d1d1d', fontSize: 27, writingDirection: 'ltr', textAlign: 'center' },
-  plateRegion: { backgroundColor: '#fff', width: 56, borderLeftWidth: 1.5, borderLeftColor: '#242424', alignItems: 'center', justifyContent: 'center' },
-  plateRegionLabel: { fontFamily: FONT.bold, fontSize: 13, color: '#242424' },
-  plateRegionNumber: { fontFamily: FONT.bold, fontSize: 22, color: '#242424' },
   vehicleFacts: { flexDirection: 'row-reverse', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   fact: { flexDirection: 'row-reverse', alignItems: 'center', gap: 5, backgroundColor: '#eff7f4', borderRadius: 11, paddingHorizontal: 10, paddingVertical: 8 },
   factText: { fontFamily: FONT.bold, fontSize: 12, color: C.ink },

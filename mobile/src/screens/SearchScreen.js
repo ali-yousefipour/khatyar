@@ -5,6 +5,7 @@ import { refreshSearchCache, offlineSearch } from '../linecache';
 import { C, FONT } from '../theme';
 import { enNum, faNum } from '../num';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import TaxiPlate from '../components/TaxiPlate';
 const digitsOnly = (v='') => enNum(String(v)).replace(/[^0-9]/g,'');
 const buildTaxiPlate12 = (a,c) => { const x=digitsOnly(a).slice(0,2), y=digitsOnly(c).slice(0,3); return x.length===2&&y.length===3 ? `${x}ت${y}-12` : ''; };
 import ActivityIndicator from '../components/PulseLoadingIndicator';
@@ -96,14 +97,7 @@ export default function SearchScreen({ navigation, route }) {
       </View>:<View style={s.sectionCard}>
         <View style={s.sectionHeading}><MaterialCommunityIcons name="card-search-outline" size={23} color={C.brand}/><Text style={s.sectionTitle}>جستجو بر اساس پلاک</Text></View>
         <Text style={s.label}>دو بخش عددی پلاک تاکسی را وارد کنید</Text>
-        <View style={[s.plateWrap,{transform:[{scale:Math.min(1,(width-(width<360?54:66))/300)}]}]}>
-          <View style={s.plateBody}>
-            <TextInput style={s.plateInput} value={faNum(p1)} onChangeText={(v)=>{const d=faToEn(v).slice(0,2);setP1(d);if(d.length===2)p3ref.current?.focus()}} keyboardType="number-pad" maxLength={2} placeholder="۱۱" placeholderTextColor="#776d20" selectTextOnFocus/>
-            <Text style={s.plateLetter}>ت</Text>
-            <TextInput ref={p3ref} style={[s.plateInput,{width:76}]} value={faNum(p3)} onChangeText={(v)=>setP3(faToEn(v).slice(0,3))} keyboardType="number-pad" maxLength={3} placeholder="۱۱۱" placeholderTextColor="#776d20" returnKeyType="search" onSubmitEditing={()=>doSearch('plate')} selectTextOnFocus/>
-            <View style={s.plateRegion}><Text style={s.plateRegionNum}>۱۲</Text><View style={s.plateRegionLine}/></View>
-          </View><View style={s.plateFlag}><Text style={s.plateFlagIR}>I.R.</Text><Text style={s.plateFlagIran}>ایران</Text></View>
-        </View>
+        <TaxiPlate editable first={p1} middle={p3} middleRef={p3ref} region="۱۲" onFirstChange={d=>{setP1(d);if(d.length===2)p3ref.current?.focus()}} onMiddleChange={setP3} onMiddleSubmit={()=>doSearch('plate')}/>
         <View style={s.helpRow}><MaterialCommunityIcons name="information-outline" size={17} color={C.muted}/><Text style={s.helpText}>حرف «ت» و کد منطقه «۱۲» ثابت هستند.</Text></View>
         <TouchableOpacity style={[s.btn,busy&&s.btnDisabled]} onPress={()=>doSearch('plate')} disabled={busy}>{busy?<ActivityIndicator color="#fff"/>:<><MaterialCommunityIcons name="magnify" size={22} color="#fff"/><Text style={s.btnTxt}>جستجوی تاکسی</Text></>}</TouchableOpacity>
       </View>}
@@ -135,16 +129,6 @@ const s=StyleSheet.create({
  btn:{backgroundColor:C.brand,borderRadius:13,minHeight:54,flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:10,marginTop:16,padding:13},
  btnDisabled:{opacity:.65},
  btnTxt:{fontFamily:FONT.bold,fontSize:15,color:'#fff'},
- plateWrap:{flexDirection:'row',direction:'ltr',alignItems:'stretch',alignSelf:'center',height:76,borderRadius:11,overflow:'hidden',borderWidth:2,borderColor:'#202020',marginVertical:12},
- plateBody:{flexDirection:'row',direction:'ltr',alignItems:'center',backgroundColor:'#f5c518',paddingHorizontal:9,gap:4},
- plateInput:{width:58,height:62,textAlign:'center',fontFamily:FONT.bold,color:'#161616',fontSize:29,padding:0,writingDirection:'ltr'},
- plateLetter:{fontFamily:FONT.bold,color:'#161616',fontSize:26,marginHorizontal:2},
- plateRegion:{alignItems:'center',justifyContent:'center',marginRight:3,borderLeftWidth:1.5,borderLeftColor:'#161616',paddingLeft:8,height:50},
- plateRegionNum:{fontFamily:FONT.bold,color:'#161616',fontSize:22},
- plateRegionLine:{width:28,height:2,backgroundColor:'#161616',marginTop:2},
- plateFlag:{backgroundColor:'#0a3d91',width:42,alignItems:'center',justifyContent:'center',paddingVertical:6},
- plateFlagIR:{color:'#fff',fontFamily:FONT.bold,fontSize:11},
- plateFlagIran:{color:'#fff',fontFamily:FONT.bold,fontSize:12,marginTop:4},
  bottomHint:{flexDirection:'row-reverse',alignItems:'flex-start',gap:9,marginTop:18,paddingHorizontal:6},
  bottomText:{fontFamily:FONT.regular,fontSize:11.5,color:C.muted,textAlign:'right',flex:1,lineHeight:21}
 });

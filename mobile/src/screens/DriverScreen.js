@@ -7,18 +7,15 @@ import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { faNum } from '../num';
+import TaxiPlate from '../components/TaxiPlate';
 
 export default function DriverScreen({ route, navigation }) {
   const { width: viewportWidth } = useWindowDimensions();
   const compact = viewportWidth < 390;
-  const plateWidth = Math.min(208, Math.max(145, viewportWidth - 42));
   const params = route?.params || {};
   const rawDriver = params.driver;
   const driver = rawDriver && typeof rawDriver === 'object' ? rawDriver : {};
   const vehicle = params.vehicle && typeof params.vehicle === 'object' ? params.vehicle : {};
-  const plateRaw = String(vehicle.plate || '').trim();
-  const plateParts = plateRaw.replace(/[۰-۹٠-٩]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d) >= 0 ? '۰۱۲۳۴۵۶۷۸۹'.indexOf(d) : '٠١٢٣٤٥٦٧٨٩'.indexOf(d))).match(/^(\d{2})\s*([آ-یA-Za-z])\s*(\d{3})\s*[-\s]*([0-9]{2})$/);
-  const plateRegion = plateParts?.[4] || '';
   const warnings = Array.isArray(params.warnings) ? params.warnings : [];
   const temp_lines = Array.isArray(params.temp_lines) ? params.temp_lines : [];
   const [lastAttendance, setLastAttendance] = useState(null);
@@ -104,11 +101,8 @@ export default function DriverScreen({ route, navigation }) {
               <Text style={s.meta}>کد ملی: {safeText(driver.national_id || driver.national_code)}</Text>
             </View>
           </View>
-          {!!vehicle?.plate && <View style={[s.plateBox, { width: plateWidth }]}>
-            <View style={s.plateMain}><Text style={s.plateText} numberOfLines={1} adjustsFontSizeToFit>{plateParts ? `${faNum(plateParts[1])} ${plateParts[2]} ${faNum(plateParts[3])}` : faNum(plateRaw)}</Text></View>
-            <View style={s.plateIran}><Text style={s.plateIranText}>ایران</Text><Text style={s.plateIranText}>{faNum(plateRegion || '—')}</Text></View>
-          </View>}
         </View>
+        {!!vehicle?.plate && <View style={{marginTop:16}}><TaxiPlate plate={vehicle.plate} compact={compact}/></View>}
         <View style={s.sectionHeader}><MaterialCommunityIcons name="card-account-details-outline" size={19} color={C.brand}/><Text style={s.sectionTitle}>مشخصات تاکسیران و خودرو</Text></View>
         {warnings.filter(Boolean).map((w, i) => {
           const wt = safeText(w) || safeText(w?.title) || safeText(w?.message) || safeText(w?.description);
@@ -164,11 +158,6 @@ const s = StyleSheet.create({
   heroRowCompact: { alignItems: 'stretch' },
   identity: { flexDirection: 'row-reverse', alignItems: 'center', flexGrow: 1, flexShrink: 1, minWidth: 165, gap: 9 },
   identityText: { flexShrink: 1, alignItems: 'flex-end' },
-  plateBox: { flexShrink: 0, flexDirection: 'row', alignItems: 'stretch', backgroundColor: '#f5c518', borderWidth: 2, borderColor: '#202020', borderRadius: 8, overflow: 'hidden', minWidth: 142, maxWidth: '100%', height: 58 },
-  plateMain: { flex: 1, justifyContent: 'center', paddingHorizontal: 9 },
-  plateText: { fontFamily: FONT.bold, fontSize: 19, color: '#171717', textAlign: 'center', writingDirection: 'ltr' },
-  plateIran: { backgroundColor: '#fff', paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', borderLeftWidth: 1, borderColor: '#202020' },
-  plateIranText: { fontFamily: FONT.bold, fontSize: 10, color: '#171717' },
   sectionHeader: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 8 },
   sectionTitle: { fontFamily: FONT.bold, fontSize: 15, color: C.ink, textAlign: 'right' },
   actionIcon: { width: 45, height: 45, borderRadius: 14, backgroundColor: '#e8f6f0', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
