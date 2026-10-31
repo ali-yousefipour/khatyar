@@ -1380,7 +1380,32 @@ function LiveMap(){
 }
 
 function Modal({title,onClose,children,style}){
-  return(<div className="modal-bg" onClick={onClose}><div className="modal" style={style} onClick={e=>e.stopPropagation()}><h3>{title}</h3>{children}</div></div>);
+  const dialogRef=useRef(null);
+  const titleId=useRef("modal-title-"+Math.random().toString(36).slice(2));
+  const closeRef=useRef(onClose);
+  closeRef.current=onClose;
+  useEffect(()=>{
+    const previous=document.activeElement;
+    const dialog=dialogRef.current;
+    dialog?.focus();
+    const onKeyDown=e=>{
+      if(e.key==="Escape"){e.preventDefault();closeRef.current();return;}
+      if(e.key!=="Tab"||!dialog)return;
+      const focusable=[...dialog.querySelectorAll('button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.getClientRects().length);
+      if(!focusable.length){e.preventDefault();dialog.focus();return;}
+      const first=focusable[0],last=focusable[focusable.length-1];
+      if(e.shiftKey&&(document.activeElement===first||document.activeElement===dialog)){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    };
+    document.addEventListener("keydown",onKeyDown);
+    return()=>{document.removeEventListener("keydown",onKeyDown);if(previous?.isConnected)previous.focus();};
+  },[]);
+  return <div className="modal-bg" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}>
+    <div className="modal dashboard-dialog" style={style} ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId.current} tabIndex={-1}>
+      <div className="dashboard-dialog-head"><h3 id={titleId.current}>{title}</h3><button className="dashboard-dialog-close" type="button" aria-label="بستن پنجره" onClick={onClose}>×</button></div>
+      {children}
+    </div>
+  </div>;
 }
 
 function seniorityEn(value){return String(value??'').replace(/[۰-۹]/g,digit=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)).replace(/[٠-٩]/g,digit=>'٠١٢٣٤٥٦٧٨٩'.indexOf(digit));}
