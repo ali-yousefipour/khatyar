@@ -9728,10 +9728,13 @@ const REQ_TABS = [
 function HM({ h, m, oh, om, label }) {
     return React.createElement("div", { style: { marginBottom: 12 } },
         label && React.createElement("label", { className: "label" }, label),
-        React.createElement("div", { className: "row", style: { gap: 8 } },
-            React.createElement("input", { className: "input", type: "number", min: "0", placeholder: "\u0633\u0627\u0639\u062A", value: h, onChange: oh }),
-            React.createElement("span", { style: { alignSelf: "center" } }, ":"),
-            React.createElement("input", { className: "input", type: "number", min: "0", max: "59", placeholder: "\u062F\u0642\u06CC\u0642\u0647", value: m, onChange: om })));
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12, maxWidth: 360, alignItems: "end" } },
+            React.createElement("label", { style: { display: "block", minWidth: 0 } },
+                React.createElement("span", { className: "label", style: { display: "block" } }, "\u0633\u0627\u0639\u062A"),
+                React.createElement("input", { className: "input", type: "number", min: "0", placeholder: "\u0633\u0627\u0639\u062A", "aria-label": (label || "مدت") + " - ساعت", style: { width: "100%", minWidth: 0, boxSizing: "border-box" }, value: h, onChange: oh })),
+            React.createElement("label", { style: { display: "block", minWidth: 0 } },
+                React.createElement("span", { className: "label", style: { display: "block" } }, "\u062F\u0642\u06CC\u0642\u0647"),
+                React.createElement("input", { className: "input", type: "number", min: "0", max: "59", placeholder: "\u062F\u0642\u06CC\u0642\u0647", "aria-label": (label || "مدت") + " - دقیقه", style: { width: "100%", minWidth: 0, boxSizing: "border-box" }, value: m, onChange: om }))));
 }
 function NumF({ label, value, onChange, placeholder }) {
     return React.createElement("div", { style: { marginBottom: 12 } },

@@ -5825,10 +5825,15 @@ const REQ_TABS = [
 function HM({h,m,oh,om,label}){
   return <div style={{marginBottom:12}}>
     {label&&<label className="label">{label}</label>}
-    <div className="row" style={{gap:8}}>
-      <input className="input" type="number" min="0" placeholder="ساعت" value={h} onChange={oh}/>
-      <span style={{alignSelf:"center"}}>:</span>
-      <input className="input" type="number" min="0" max="59" placeholder="دقیقه" value={m} onChange={om}/>
+    <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:12,maxWidth:360,alignItems:"end"}}>
+      <label style={{display:"block",minWidth:0}}>
+        <span className="label" style={{display:"block"}}>ساعت</span>
+        <input className="input" type="number" min="0" placeholder="ساعت" aria-label={(label||"مدت")+" - ساعت"} style={{width:"100%",minWidth:0,boxSizing:"border-box"}} value={h} onChange={oh}/>
+      </label>
+      <label style={{display:"block",minWidth:0}}>
+        <span className="label" style={{display:"block"}}>دقیقه</span>
+        <input className="input" type="number" min="0" max="59" placeholder="دقیقه" aria-label={(label||"مدت")+" - دقیقه"} style={{width:"100%",minWidth:0,boxSizing:"border-box"}} value={m} onChange={om}/>
+      </label>
     </div>
   </div>;
 }
