@@ -665,6 +665,56 @@ table{font-size:13px}
 }
 @media print{.menu-search-trigger,.menu-result-count,.settings-mobile-picker{display:none!important}}
 
+/* Personnel directory: scoped glass surfaces; intentionally excludes dialogs. */
+@media screen{
+  .users-management-page{--users-ink:#163e35;--users-accent:#17694f}
+  .users-management-page .users-hero{position:relative;isolation:isolate;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;border:1px solid #c9e4d8;border-radius:20px;padding:24px 26px;margin-bottom:16px;background:linear-gradient(118deg,#edf9f4 0%,#f7fbff 53%,#eaf5f2 100%);box-shadow:0 12px 32px #1e644210}
+  .users-management-page .users-hero::after{content:"";position:absolute;z-index:-1;inset:auto -45px -115px auto;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,#77cfb44b,transparent 70%);pointer-events:none}
+  .users-management-page .users-eyebrow{display:inline-block;color:#397765;font-size:11px;font-weight:800;letter-spacing:.1px;margin-bottom:7px}
+  .users-management-page .users-hero h3{font-size:23px;color:var(--users-ink);margin:0 0 7px;font-weight:900}
+  .users-management-page .users-hero p{margin:0;color:#547468;font-size:12px;line-height:1.9}
+  .users-management-page .users-hero-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .users-management-page .users-hero-actions .btn{min-height:44px;border-radius:11px}
+  .users-management-page .users-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 16px}
+  .users-management-page .users-overview-card{display:flex;flex-direction:column;gap:5px;min-width:0;padding:17px 19px;border-radius:16px;border:1px solid #d8eae2;background:linear-gradient(155deg,#ffffffec,#f2f9f6da);box-shadow:0 5px 20px #245f3d0a;backdrop-filter:blur(10px)}
+  .users-management-page .users-overview-card:nth-child(2){border-color:#c9e5d8;background:linear-gradient(155deg,#f6fff9,#eaf8ef)}
+  .users-management-page .users-overview-card:nth-child(3){border-color:#e3e8e8;background:linear-gradient(155deg,#fff,#f6f8fa)}
+  .users-management-page .users-overview-card>span{color:#5f7970;font-size:11px;font-weight:750}
+  .users-management-page .users-overview-card>strong{color:var(--users-ink);font-size:26px;font-weight:900;line-height:1.3;font-variant-numeric:tabular-nums}
+  .users-management-page .users-overview-card>small{color:#748c81;font-size:10px}
+  .users-management-page .users-filter-panel{padding:18px;border:1px solid #d3e6dd;border-radius:17px;background:linear-gradient(130deg,#f9fdfbec,#eff8f5e8);box-shadow:0 8px 26px #245f3d0b;backdrop-filter:blur(10px);margin-bottom:20px}
+  .users-management-page .users-filter-heading,.users-management-page .users-table-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+  .users-management-page .users-filter-heading>div,.users-management-page .users-table-heading>div{display:flex;flex-direction:column;gap:4px}
+  .users-management-page .users-filter-heading strong,.users-management-page .users-table-heading h4{font-size:14px;font-weight:900;color:var(--users-ink);margin:0}
+  .users-management-page .users-filter-heading span,.users-management-page .users-table-heading span{font-size:11px;color:#668176}
+  .users-management-page .users-filter-count,.users-management-page .users-table-count{flex-shrink:0;border:1px solid #cde5d9;border-radius:99px;background:#fff;color:#246b50!important;padding:5px 11px;font-weight:750}
+  .users-management-page .users-filter-grid{display:grid;grid-template-columns:minmax(180px,1.5fr) repeat(3,minmax(130px,1fr)) auto;align-items:end;gap:10px}
+  .users-management-page .users-filter-field{min-width:0;display:flex;flex-direction:column;gap:7px;color:#3c6656;font-size:11px;font-weight:800}
+  .users-management-page .users-filter-field>.input{width:100%;max-width:none;min-height:44px;background:#fff;border-radius:10px;border-color:#d1e1d8;font-size:12px}
+  .users-management-page .users-filter-field>.input:focus{outline:2px solid #2c9b7044;outline-offset:1px;border-color:#409a74}
+  .users-management-page .users-filter-submit{min-height:44px;white-space:nowrap;border-radius:10px}
+  .users-management-page .users-table-heading{margin:20px 1px 2px}
+  .users-management-page>.table-wrap{border:1px solid #dce9e3;border-radius:15px;box-shadow:0 6px 22px #1c543a0b;overflow-x:auto}
+  .users-management-page>.table-wrap table{border-collapse:separate;border-spacing:0}
+  .users-management-page>.table-wrap th{padding:14px 11px!important;background:#eaf4ef;color:#245947;letter-spacing:0}
+  .users-management-page>.table-wrap td{padding:13px 11px;vertical-align:middle;border-bottom:1px solid #edf2ef}
+  .users-management-page>.table-wrap tbody tr{transition:background .16s ease}
+  .users-management-page>.table-wrap tbody tr:hover{background:#f3faf6}
+  .users-management-page .users-person-name{color:#214c3e;font-weight:850;white-space:nowrap}
+  .users-management-page .users-avatar,.users-management-page .users-avatar-fallback{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:12px;object-fit:cover;box-shadow:0 2px 7px #1d533320}
+  .users-management-page .users-device-tags{display:flex;flex-wrap:wrap;gap:5px;min-width:90px}
+  .users-management-page .users-device-tags>span:not(.users-device-empty){display:inline-flex;white-space:nowrap;padding:4px 7px;border-radius:7px;color:#315c4d;background:#edf7f1;border:1px solid #d3e9dc;font-size:10px;font-weight:750}
+  .users-management-page .users-row-actions{flex-wrap:nowrap!important}
+  .users-management-page .users-row-actions .btn{border-radius:9px;min-height:36px}
+  .users-management-page .users-row-actions .users-danger-action{color:#b63b43;background:#fff6f6;border-color:#f3d9db}
+  .users-management-page .users-empty-state{display:flex;flex-direction:column;align-items:center;gap:10px;padding:35px 16px;border:1px dashed #b9d5c6;border-radius:14px;background:#f7fcf9;text-align:center;margin-top:12px}
+  .users-management-page .users-empty-state strong{color:#275540;font-size:15px}
+  .users-management-page .users-empty-state span{font-size:12px;color:#658275}
+  .users-management-page .users-empty-state .btn{min-height:44px}
+  @media(max-width:1100px){.users-management-page .users-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.users-management-page .users-filter-submit{grid-column:1/-1}}
+  @media(max-width:640px){.users-management-page .users-hero{padding:19px 15px;gap:14px}.users-management-page .users-hero h3{font-size:20px}.users-management-page .users-hero-actions{width:100%}.users-management-page .users-hero-actions .btn{flex:1 1 130px}.users-management-page .users-overview{gap:7px}.users-management-page .users-overview-card{padding:12px 9px;border-radius:12px}.users-management-page .users-overview-card>strong{font-size:22px}.users-management-page .users-overview-card>small{font-size:9px}.users-management-page .users-filter-panel{padding:13px}.users-management-page .users-filter-grid{grid-template-columns:minmax(0,1fr)}.users-management-page .users-filter-submit{grid-column:auto}.users-management-page .users-filter-field>.input{font-size:16px}.users-management-page .users-filter-heading>div>span,.users-management-page .users-table-heading>div>span{display:none}}
+}
+
 /* Form/report cards must not inherit the draggable personnel-card layout. */
 .payroll-admin .card-p{display:block;cursor:auto;min-width:0;padding:18px;margin-bottom:14px}
 .payroll-admin [role=tabpanel]{min-width:0}
