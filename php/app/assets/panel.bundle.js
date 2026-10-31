@@ -2629,7 +2629,7 @@ function Users() {
                 React.createElement("button", { className: "btn " + (usersTab === "users" ? "p" : "g"), onClick: () => setUsersTab("users") }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646"),
                 React.createElement("button", { className: "btn " + (usersTab === "vehicles" ? "p" : "g"), onClick: () => setUsersTab("vehicles") }, "\u062E\u0648\u062F\u0631\u0648 \u0648 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A"),
                 React.createElement("button", { className: "btn " + (usersTab === "checklist" ? "p" : "g"), onClick: () => setUsersTab("checklist") }, "\u0686\u06A9\u200C\u0644\u06CC\u0633\u062A \u062E\u0648\u062F\u0631\u0648 \u0648 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A")),
-            usersTab === "vehicles" ? React.createElement(PersonnelVehicleAssets, null) : React.createElement(PersonnelVehicleChecklist, null)));
+            usersTab === "vehicles" ? React.createElement(PersonnelVehicleAssets, null) : React.createElement(PersonnelVehicleChecklistV2, null)));
     return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page users-management-page" },
         React.createElement("div", { className: "users-hero" },
             React.createElement("div", { className: "users-hero-copy" },
@@ -17445,91 +17445,150 @@ function PVAAssetDetail({ asset: a }) { return React.createElement("div", null,
     React.createElement("div", { className: "panel" },
         React.createElement("h4", null, "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A"),
         React.createElement(PVAHistory, { history: a.checklist_history || [] }))); }
-function PersonnelVehicleChecklist() { const [items, setItems] = useState([]), [selected, setSelected] = useState(null), [detail, setDetail] = useState(null), [checks, setChecks] = useState({}), [note, setNote] = useState(''), [loading, setLoading] = useState(true), [saving, setSaving] = useState(false); const load = async () => { setLoading(true); try {
-    const d = await GET('/personnel-vehicle-assets.php?op=checklist-list', { ttl: 0 });
-    setItems(d.items || []);
-}
-catch (e) {
-    alert(e.message);
-}
-finally {
-    setLoading(false);
-} }; useEffect(() => { load(); }, []); const open = async (a) => { setSelected(a); setLoading(true); try {
-    const d = await GET('/personnel-vehicle-assets.php?op=detail&id=' + encodeURIComponent(a.id), { ttl: 0 });
-    const x = d.asset || a;
-    setDetail(x);
-    const m = {};
-    (x.checks || []).forEach(c => m[c.check_key] = !!Number(c.check_value));
-    setChecks(m);
-    setNote(x.checklist_note || '');
-}
-catch (e) {
-    alert(e.message);
-}
-finally {
-    setLoading(false);
-} }; const motor = (detail === null || detail === void 0 ? void 0 : detail.asset_type) === 'motorcycle', list = motor ? PVA_MOTOR_CHECKS : PVA_CAR_CHECKS; const submit = async (approved) => { const missing = list.filter(([k]) => checks[k] === undefined); if (missing.length) {
-    alert('تمام موارد چک‌لیست را تعیین تکلیف کنید.');
-    return;
-} if (approved && list.some(([k]) => checks[k] !== true)) {
-    alert('برای تأیید نهایی همه موارد باید تأیید شده باشند.');
-    return;
-} setSaving(true); try {
-    await SEND('POST', '/personnel-vehicle-assets.php?op=checklist-verify', { asset_id: detail.id, approved, checks: Object.fromEntries(list.map(([k]) => [k, { value: !!checks[k], note: '' }])), note });
-    alert(approved ? 'وسیله تأیید شد.' : 'وسیله برای اصلاح برگشت داده شد.');
-    setSelected(null);
-    setDetail(null);
-    await load();
-}
-catch (e) {
-    alert(e.message);
-}
-finally {
-    setSaving(false);
-} }; if (loading && !detail)
-    return React.createElement("div", { className: "panel" },
-        React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A\u2026")); return React.createElement("div", { className: "panel admin-workspace-page" },
-    React.createElement("h3", null, "\u0686\u06A9\u200C\u0644\u06CC\u0633\u062A \u062E\u0648\u062F\u0631\u0648\u06CC\u06CC \u0648 \u0645\u0648\u062A\u0648\u0631\u06CC"),
-    !detail ? React.createElement(React.Fragment, null,
-        React.createElement("p", { className: "muted" }, "\u067E\u0644\u0627\u06A9 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F \u062A\u0627 \u0645\u0634\u062E\u0635\u0627\u062A \u06A9\u0627\u0645\u0644\u060C \u062A\u0635\u0627\u0648\u06CC\u0631 \u0645\u062F\u0627\u0631\u06A9 \u0648 \u0633\u0648\u0627\u0628\u0642 \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0634\u0648\u062F."),
-        React.createElement("div", { style: { display: 'grid', gap: 8 } },
-            items.map(a => React.createElement("button", { key: a.id, type: "button", onClick: () => open(a), style: { textAlign: 'right', background: '#fff', border: '1px solid var(--line)', borderRadius: 12, padding: 12, cursor: 'pointer' } },
-                React.createElement("b", null, pvaPlate(a)),
+function PersonnelVehicleChecklistV2() {
+    const [items, setItems] = useState([]), [detail, setDetail] = useState(null), [checks, setChecks] = useState({}), [note, setNote] = useState('');
+    const [q, setQ] = useState(''), [status, setStatus] = useState('all'), [loading, setLoading] = useState(true), [detailLoading, setDetailLoading] = useState(false), [saving, setSaving] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
+    const detailRequest = useRef(0);
+    const load = async () => { setLoading(true); setError(''); try {
+        const result = await GET('/personnel-vehicle-assets.php?op=checklist-list', { ttl: 0 });
+        setItems(result.items || []);
+    }
+    catch (e) {
+        setError(e.message || 'دریافت فهرست وسایل ناموفق بود.');
+    }
+    finally {
+        setLoading(false);
+    } };
+    useEffect(() => { load(); }, []);
+    const open = async (asset) => { const request = ++detailRequest.current; setDetail(null); setDetailLoading(true); setError(''); setNotice(''); try {
+        const result = await GET('/personnel-vehicle-assets.php?op=detail&id=' + encodeURIComponent(asset.id), { ttl: 0 });
+        if (request !== detailRequest.current)
+            return;
+        const record = result.asset || asset;
+        setDetail(record);
+        const values = {};
+        (record.checks || []).forEach(check => { values[check.check_key] = Number(check.check_value) === 1; });
+        setChecks(values);
+        setNote(record.checklist_note || '');
+    }
+    catch (e) {
+        if (request === detailRequest.current)
+            setError(e.message || 'دریافت جزئیات وسیله ناموفق بود.');
+    }
+    finally {
+        if (request === detailRequest.current)
+            setDetailLoading(false);
+    } };
+    const closeDetail = () => { detailRequest.current++; setDetail(null); setDetailLoading(false); setError(''); };
+    const list = (detail === null || detail === void 0 ? void 0 : detail.asset_type) === 'motorcycle' ? PVA_MOTOR_CHECKS : PVA_CAR_CHECKS;
+    const checkedCount = list.filter(([key]) => checks[key] !== undefined).length;
+    const rejectedCount = list.filter(([key]) => checks[key] === false).length;
+    const filtered = items.filter(a => { const name = [a.first_name, a.last_name, pvaPlate(a), a.national_code].filter(Boolean).join(' ').toLowerCase(); return name.includes(q.trim().toLowerCase()) && (status === 'all' || (status === 'car' ? a.asset_type === 'car' : a.asset_type === 'motorcycle')); });
+    const submit = async (approved) => { if (!detail || saving)
+        return; const missing = list.filter(([key]) => checks[key] === undefined); if (missing.length) {
+        setError('ابتدا وضعیت تمام موارد چک‌لیست را تعیین کنید.');
+        return;
+    } if (approved && rejectedCount) {
+        setError('برای تأیید نهایی، تمام موارد باید تأیید شده باشند.');
+        return;
+    } setSaving(true); setError(''); try {
+        await SEND('POST', '/personnel-vehicle-assets.php?op=checklist-verify', { asset_id: detail.id, approved, checks: Object.fromEntries(list.map(([key]) => [key, { value: checks[key], note: '' }])), note });
+        setNotice(approved ? 'وسیله با موفقیت تأیید شد.' : 'پرونده برای اصلاح برگشت داده شد.');
+        closeDetail();
+        await load();
+    }
+    catch (e) {
+        setError(e.message || 'ثبت نتیجهٔ چک‌لیست ناموفق بود.');
+    }
+    finally {
+        setSaving(false);
+    } };
+    return React.createElement("div", { className: "panel admin-workspace-page pva-checklist-page" },
+        React.createElement("div", { className: "pva-checklist-hero" },
+            React.createElement("div", null,
+                React.createElement("h3", null, "\u0628\u0631\u0631\u0633\u06CC \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A \u062E\u0648\u062F\u0631\u0648 \u0648 \u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A"),
+                React.createElement("p", null, "\u0645\u0634\u062E\u0635\u0627\u062A\u060C \u0645\u062F\u0627\u0631\u06A9 \u0648 \u0633\u0648\u0627\u0628\u0642 \u0648\u0633\u06CC\u0644\u0647 \u0631\u0627 \u0628\u0628\u06CC\u0646\u06CC\u062F \u0648 \u0646\u062A\u06CC\u062C\u0647\u0654 \u0647\u0631 \u0645\u0648\u0631\u062F \u0631\u0627 \u062B\u0628\u062A \u06A9\u0646\u06CC\u062F.")),
+            React.createElement("div", { className: "pva-checklist-count" },
+                fa(items.length),
+                " ",
+                React.createElement("small", null, "\u067E\u0631\u0648\u0646\u062F\u0647"))),
+        notice && React.createElement("p", { className: "pva-checklist-notice", role: "status" }, notice),
+        error && React.createElement("div", { className: "workspace-inline-error", role: "alert" },
+            React.createElement("span", null, error),
+            !detail && React.createElement("button", { type: "button", className: "btn g", onClick: load }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")),
+        !detail && !detailLoading ? React.createElement(React.Fragment, null,
+            React.createElement("div", { className: "pva-checklist-filters" },
+                React.createElement("label", null,
+                    "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u067E\u0631\u0648\u0646\u062F\u0647",
+                    React.createElement("input", { className: "input", type: "search", placeholder: "\u0646\u0627\u0645\u060C \u067E\u0644\u0627\u06A9 \u06CC\u0627 \u06A9\u062F \u0645\u0644\u06CC", value: q, onChange: e => setQ(e.target.value) })),
+                React.createElement("label", null,
+                    "\u0646\u0648\u0639 \u0648\u0633\u06CC\u0644\u0647",
+                    React.createElement("select", { className: "input", value: status, onChange: e => setStatus(e.target.value) },
+                        React.createElement("option", { value: "all" }, "\u0647\u0645\u0647\u0654 \u0648\u0633\u0627\u06CC\u0644"),
+                        React.createElement("option", { value: "car" }, "\u062E\u0648\u062F\u0631\u0648\u0647\u0627"),
+                        React.createElement("option", { value: "motorcycle" }, "\u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A\u200C\u0647\u0627"))),
+                React.createElement("button", { className: "btn g", type: "button", disabled: loading, onClick: load }, "\u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0641\u0647\u0631\u0633\u062A")),
+            loading ? React.createElement("p", { className: "pva-checklist-empty", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u067E\u0631\u0648\u0646\u062F\u0647\u200C\u0647\u0627\u2026") : React.createElement("div", { className: "pva-checklist-list" },
+                filtered.map(asset => React.createElement("button", { key: asset.id, type: "button", className: "pva-checklist-item", onClick: () => open(asset) },
+                    React.createElement("div", null,
+                        React.createElement("strong", null, pvaPlate(asset) || 'بدون پلاک'),
+                        React.createElement("span", null,
+                            asset.first_name,
+                            " ",
+                            asset.last_name)),
+                    React.createElement("div", null,
+                        React.createElement("span", { className: "pva-checklist-chip" }, asset.asset_type === 'car' ? 'خودرو' : 'موتورسیکلت'),
+                        React.createElement("small", null,
+                            pvaStatus(asset.status),
+                            " \u00B7 ",
+                            asset.checklist_count ? fa(asset.checklist_count) + ' بررسی' : 'بدون سابقه')))),
+                !filtered.length && React.createElement("div", { className: "pva-checklist-empty" }, items.length ? 'پرونده‌ای مطابق جست‌وجوی شما یافت نشد.' : 'هنوز وسیله‌ای برای بررسی ثبت نشده است.'))) : detailLoading ? React.createElement("div", { className: "pva-checklist-empty", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062C\u0632\u0626\u06CC\u0627\u062A \u0648 \u0645\u062F\u0627\u0631\u06A9 \u0648\u0633\u06CC\u0644\u0647\u2026") : React.createElement(React.Fragment, null,
+            React.createElement("div", { className: "pva-checklist-detail-head" },
+                React.createElement("button", { className: "btn g", onClick: closeDetail }, "\u0628\u0627\u0632\u06AF\u0634\u062A \u0628\u0647 \u0641\u0647\u0631\u0633\u062A"),
                 React.createElement("div", null,
-                    a.first_name,
-                    " ",
-                    a.last_name,
-                    " \u2014 ",
-                    a.asset_type === 'car' ? 'خودرو' : 'موتورسیکلت'),
-                React.createElement("small", { className: "muted" },
-                    pvaStatus(a.status),
-                    " \u00B7 ",
-                    a.checklist_count ? `${pvaFa(a.checklist_count)} بار بررسی شده` : 'بدون سابقه'))),
-            !items.length && React.createElement("div", { className: "muted" }, "\u0647\u0646\u0648\u0632 \u0648\u0633\u06CC\u0644\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0628\u0631\u0631\u0633\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))) : React.createElement(React.Fragment, null,
-        React.createElement("button", { className: "btn g", onClick: () => { setDetail(null); setSelected(null); } }, "\u0628\u0627\u0632\u06AF\u0634\u062A \u0628\u0647 \u0641\u0647\u0631\u0633\u062A"),
-        React.createElement("div", { className: "panel" },
-            React.createElement("h4", null, "\u0645\u0634\u062E\u0635\u0627\u062A \u0648 \u0645\u0627\u0644\u06A9"),
-            React.createElement(PVAFields, { a: detail })),
-        React.createElement("div", { className: "panel" },
-            React.createElement("h4", null, "\u062A\u0635\u0627\u0648\u06CC\u0631 \u0648 \u0645\u062F\u0627\u0631\u06A9"),
-            React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10 } }, (detail.photos || []).map(p => React.createElement("figure", { key: p.photo_key, style: { margin: 0 } },
-                React.createElement("img", { src: p.data_uri, style: { width: '100%', height: 130, objectFit: 'contain', border: '1px solid var(--line)', borderRadius: 10 } }),
-                React.createElement("figcaption", { style: { fontSize: 10, textAlign: 'center' } }, p.photo_key))))),
-        React.createElement("div", { className: "panel" },
-            React.createElement("h4", null, "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u0642\u0628\u0644\u06CC"),
-            React.createElement(PVAHistory, { history: detail.checklist_history || [] })),
-        React.createElement("div", { className: "panel" },
-            React.createElement("h4", null, "\u0628\u0631\u0631\u0633\u06CC \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A"),
-            list.map(([k, t]) => React.createElement("div", { key: k, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--line)' } },
-                React.createElement("b", { style: { fontSize: 13 } }, t),
-                React.createElement("div", { className: "row", style: { gap: 6 } },
-                    React.createElement("button", { className: 'btn ' + (checks[k] === true ? 'p' : ''), onClick: () => setChecks(x => ({ ...x, [k]: true })) }, "\u062A\u0623\u06CC\u06CC\u062F"),
-                    React.createElement("button", { className: 'btn ' + (checks[k] === false ? 'd' : ''), onClick: () => setChecks(x => ({ ...x, [k]: false })) }, "\u0631\u062F")))),
-            React.createElement("label", { className: "label", style: { display: 'block', marginTop: 12 } }, "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A"),
-            React.createElement("textarea", { className: "input", rows: "4", value: note, onChange: e => setNote(e.target.value) }),
-            React.createElement("div", { className: "row", style: { gap: 8, marginTop: 10 } },
-                React.createElement("button", { className: "btn d", disabled: saving, onClick: () => submit(false) }, "\u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0627\u0635\u0644\u0627\u062D"),
-                React.createElement("button", { className: "btn p", disabled: saving, onClick: () => submit(true) }, saving ? 'در حال ثبت…' : 'تأیید نهایی'))))); }
+                    React.createElement("h4", null,
+                        detail.asset_type === 'car' ? 'خودرو' : 'موتورسیکلت',
+                        " \u00B7 ",
+                        pvaPlate(detail)),
+                    React.createElement("p", null,
+                        detail.first_name,
+                        " ",
+                        detail.last_name,
+                        " \u00B7 ",
+                        pvaStatus(detail.status)))),
+            React.createElement("section", { className: "pva-checklist-section" },
+                React.createElement("h4", null, "\u0645\u0634\u062E\u0635\u0627\u062A \u0648 \u0645\u0627\u0644\u06A9 \u0648\u0633\u06CC\u0644\u0647"),
+                React.createElement(PVAFields, { a: detail })),
+            React.createElement("section", { className: "pva-checklist-section" },
+                React.createElement("h4", null, "\u062A\u0635\u0627\u0648\u06CC\u0631 \u0648 \u0645\u062F\u0627\u0631\u06A9"),
+                React.createElement("div", { className: "pva-checklist-photos" },
+                    (detail.photos || []).map(photo => React.createElement("figure", { key: photo.photo_key },
+                        React.createElement("img", { src: photo.data_uri, alt: 'مدرک ' + photo.photo_key, loading: "lazy" }),
+                        React.createElement("figcaption", null, photo.photo_key))),
+                    !(detail.photos || []).length && React.createElement("p", { className: "muted" }, "\u0645\u062F\u0631\u06A9\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))),
+            React.createElement("section", { className: "pva-checklist-section" },
+                React.createElement("h4", null, "\u0633\u0648\u0627\u0628\u0642 \u0628\u0631\u0631\u0633\u06CC"),
+                React.createElement(PVAHistory, { history: detail.checklist_history || [] })),
+            React.createElement("section", { className: "pva-checklist-section" },
+                React.createElement("div", { className: "pva-checklist-progress" },
+                    React.createElement("h4", null, "\u0627\u0631\u0632\u06CC\u0627\u0628\u06CC \u0686\u06A9\u200C\u0644\u06CC\u0633\u062A"),
+                    React.createElement("span", null,
+                        fa(checkedCount),
+                        " \u0627\u0632 ",
+                        fa(list.length),
+                        " \u0645\u0648\u0631\u062F \u062A\u0639\u06CC\u06CC\u0646 \u062A\u06A9\u0644\u06CC\u0641 \u0634\u062F\u0647")),
+                React.createElement("div", { className: "pva-checklist-rows" }, list.map(([key, title]) => React.createElement("div", { className: "pva-checklist-row", key: key },
+                    React.createElement("strong", null, title),
+                    React.createElement("div", { role: "group", "aria-label": title },
+                        React.createElement("button", { type: "button", "aria-pressed": checks[key] === true, className: 'btn ' + (checks[key] === true ? 'p' : 'g'), disabled: saving, onClick: () => setChecks(current => ({ ...current, [key]: true })) }, "\u062A\u0623\u06CC\u06CC\u062F"),
+                        React.createElement("button", { type: "button", "aria-pressed": checks[key] === false, className: 'btn ' + (checks[key] === false ? 'd' : 'g'), disabled: saving, onClick: () => setChecks(current => ({ ...current, [key]: false })) }, "\u0631\u062F"))))),
+                React.createElement("label", { className: "pva-checklist-note" },
+                    "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0628\u0631\u0631\u0633\u06CC",
+                    React.createElement("textarea", { className: "input", rows: "3", value: note, onChange: e => setNote(e.target.value), placeholder: "\u062F\u0631 \u0635\u0648\u0631\u062A \u0646\u06CC\u0627\u0632\u060C \u0639\u0644\u062A \u0631\u062F \u06CC\u0627 \u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u062A\u06A9\u0645\u06CC\u0644\u06CC \u0631\u0627 \u0628\u0646\u0648\u06CC\u0633\u06CC\u062F\u2026" })),
+                React.createElement("div", { className: "pva-checklist-actions" },
+                    React.createElement("button", { className: "btn d", disabled: saving || checkedCount !== list.length, onClick: () => submit(false) }, saving ? 'در حال ثبت…' : 'بازگشت برای اصلاح'),
+                    React.createElement("button", { className: "btn p", disabled: saving || checkedCount !== list.length || rejectedCount > 0, onClick: () => submit(true) }, saving ? 'در حال ثبت…' : 'تأیید نهایی وسیله')))));
+}
 /* SCHOOL SERVICE INLINE MODULE: bundled into the canonical panel; API endpoints unchanged. */
 console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
 (() => {
