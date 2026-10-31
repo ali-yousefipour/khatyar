@@ -9810,6 +9810,7 @@ function buildFintoInvoiceHtml(invoice,seller){
 }
 function SubscriptionInvoicesAdmin(){
   const [invoiceTab,setInvoiceTab]=useState("standard");
+  const [companyNotice,setCompanyNotice]=useState("");
   const [seller,setSeller]=useState(()=>{try{return JSON.parse(localStorage.getItem("khatyar.finto.invoice.seller.v1")||"{}")||{};}catch(_){return {};}});
   const updateSeller=(key,value)=>setSeller(prev=>{const next={...prev,[key]:value};try{localStorage.setItem("khatyar.finto.invoice.seller.v1",JSON.stringify(next));}catch(_){}return next;});
   const [companies,setCompanies]=useState([]);
@@ -9836,7 +9837,7 @@ function SubscriptionInvoicesAdmin(){
   const finalTotal=subtotal-discount+taxValue;
   const addCompany=async()=>{
     if(!companyForm.company_name.trim()){setError("نام شرکت الزامی است");return;}
-    setBusy(true);
+    setBusy(true);setCompanyNotice("");
     try{
       const result=await SEND("POST","/admin/subscription-customers",companyForm);
       const companiesNext=await GET("/admin/subscription-customers");
@@ -9844,6 +9845,7 @@ function SubscriptionInvoicesAdmin(){
       setDraft(prev=>({...prev,company_id:String(result.id)}));
       setCompanyForm({company_name:"",national_id:"",economic_code:"",phone:"",address:""});
       setError("");
+      setCompanyNotice(result.existing?"این شرکت قبلاً ثبت شده بود و از فهرست موجود انتخاب شد.":"شرکت جدید ثبت و برای صدور فاکتور انتخاب شد.");
     }catch(e){setError(e.message||"ثبت شرکت ناموفق بود");}
     finally{setBusy(false);}
   };
@@ -9895,6 +9897,7 @@ function SubscriptionInvoicesAdmin(){
     <div className="panel"><h3>صدور فاکتور فروش اشتراک خطیار</h3>
       <p className="muted">مبالغ بر حسب ریال است. مالیات و تخفیف تنها مطابق مقادیری محاسبه می‌شود که در فاکتور وارد کرده‌اید.</p>
       {error&&<p role="alert" style={{color:"var(--danger)"}}>{error}</p>}
+      {companyNotice&&<p role="status" style={{color:"var(--ok,#147d52)"}}>{companyNotice}</p>}
       <h4>ثبت شرکت طرف قرارداد</h4>
       <div className="row" style={{gap:9,flexWrap:"wrap"}}>
         {inp("نام شرکت",companyForm.company_name,v=>setCompanyForm({...companyForm,company_name:v}))}

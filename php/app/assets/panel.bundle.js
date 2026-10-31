@@ -18585,6 +18585,7 @@ function buildFintoInvoiceHtml(invoice, seller) {
 }
 function SubscriptionInvoicesAdmin() {
     const [invoiceTab, setInvoiceTab] = useState("standard");
+    const [companyNotice, setCompanyNotice] = useState("");
     const [seller, setSeller] = useState(() => { try {
         return JSON.parse(localStorage.getItem("khatyar.finto.invoice.seller.v1") || "{}") || {};
     }
@@ -18628,6 +18629,7 @@ function SubscriptionInvoicesAdmin() {
             return;
         }
         setBusy(true);
+        setCompanyNotice("");
         try {
             const result = await SEND("POST", "/admin/subscription-customers", companyForm);
             const companiesNext = await GET("/admin/subscription-customers");
@@ -18635,6 +18637,7 @@ function SubscriptionInvoicesAdmin() {
             setDraft(prev => ({ ...prev, company_id: String(result.id) }));
             setCompanyForm({ company_name: "", national_id: "", economic_code: "", phone: "", address: "" });
             setError("");
+            setCompanyNotice(result.existing ? "این شرکت قبلاً ثبت شده بود و از فهرست موجود انتخاب شد." : "شرکت جدید ثبت و برای صدور فاکتور انتخاب شد.");
         }
         catch (e) {
             setError(e.message || "ثبت شرکت ناموفق بود");
@@ -18743,6 +18746,7 @@ function SubscriptionInvoicesAdmin() {
             React.createElement("h3", null, "\u0635\u062F\u0648\u0631 \u0641\u0627\u06A9\u062A\u0648\u0631 \u0641\u0631\u0648\u0634 \u0627\u0634\u062A\u0631\u0627\u06A9 \u062E\u0637\u06CC\u0627\u0631"),
             React.createElement("p", { className: "muted" }, "\u0645\u0628\u0627\u0644\u063A \u0628\u0631 \u062D\u0633\u0628 \u0631\u06CC\u0627\u0644 \u0627\u0633\u062A. \u0645\u0627\u0644\u06CC\u0627\u062A \u0648 \u062A\u062E\u0641\u06CC\u0641 \u062A\u0646\u0647\u0627 \u0645\u0637\u0627\u0628\u0642 \u0645\u0642\u0627\u062F\u06CC\u0631\u06CC \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F \u06A9\u0647 \u062F\u0631 \u0641\u0627\u06A9\u062A\u0648\u0631 \u0648\u0627\u0631\u062F \u06A9\u0631\u062F\u0647\u200C\u0627\u06CC\u062F."),
             error && React.createElement("p", { role: "alert", style: { color: "var(--danger)" } }, error),
+            companyNotice && React.createElement("p", { role: "status", style: { color: "var(--ok,#147d52)" } }, companyNotice),
             React.createElement("h4", null, "\u062B\u0628\u062A \u0634\u0631\u06A9\u062A \u0637\u0631\u0641 \u0642\u0631\u0627\u0631\u062F\u0627\u062F"),
             React.createElement("div", { className: "row", style: { gap: 9, flexWrap: "wrap" } },
                 inp("نام شرکت", companyForm.company_name, v => setCompanyForm({ ...companyForm, company_name: v })),

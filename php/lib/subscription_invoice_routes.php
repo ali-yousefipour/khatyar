@@ -4,6 +4,7 @@
 function kh_invoice_schema() {
   static $ready=false;
   if($ready)return;
+  try {
   Db::run("CREATE TABLE IF NOT EXISTS kh_subscription_customers (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     company_name VARCHAR(190) NOT NULL,
@@ -37,6 +38,11 @@ function kh_invoice_schema() {
     updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_company(company_id), KEY idx_created(created_at), KEY idx_status(status)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  } catch (\PDOException $e) {
+    // Do not expose SQL, schema details or connection credentials to the browser.
+    error_log('subscription invoice schema unavailable; sqlstate='.($e->errorInfo[0]??$e->getCode()));
+    Http::error('ساختار ذخیره‌سازی فاکتور روی سرور آماده نیست. با مدیر سامانه تماس بگیرید.',503);
+  }
   $ready=true;
 }
 function kh_inv_str($v,$limit=190){return mb_substr(trim((string)($v??'')),0,$limit);}
@@ -58,9 +64,22 @@ route('POST','/api/admin/subscription-customers',static function($p,$b,$u){
   kh_invoice_schema();
   $name=kh_inv_str($b['company_name']??'');
   if(mb_strlen($name)<2)Http::error('نام شرکت الزامی است',422);
-  $id=Db::insert("INSERT INTO kh_subscription_customers(company_name,national_id,economic_code,phone,address) VALUES(?,?,?,?,?)",[
-    $name,kh_inv_str($b['national_id']??'',30),kh_inv_str($b['economic_code']??'',40),kh_inv_str($b['phone']??'',40),kh_inv_str($b['address']??'',2000)
-  ]);
+  $existing=Db::one('SELECT id FROM kh_subscription_customers WHERE company_name=? LIMIT 1',[$name]);
+  if($existing)return ['ok'=>true,'id'=>(int)$existing['id'],'existing'=>true];
+  try {
+    $id=Db::insert("INSERT INTO kh_subscription_customers(company_name,national_id,economic_code,phone,address) VALUES(?,?,?,?,?)",[
+      $name,kh_inv_str($b['national_id']??'',30),kh_inv_str($b['economic_code']??'',40),kh_inv_str($b['phone']??'',40),kh_inv_str($b['address']??'',2000)
+    ]);
+  } catch (\PDOException $e) {
+    // Another administrator may insert the same unique company name concurrently.
+    if(($e->errorInfo[0]??'')==='23000'){
+      $existing=Db::one('SELECT id FROM kh_subscription_customers WHERE company_name=? LIMIT 1',[$name]);
+      if($existing)return ['ok'=>true,'id'=>(int)$existing['id'],'existing'=>true];
+      Http::error('شرکتی با مشخصات تکراری ثبت شده است. فهرست شرکت‌ها را تازه‌سازی کنید.',409);
+    }
+    error_log('subscription customer insert failed; sqlstate='.($e->errorInfo[0]??$e->getCode()));
+    Http::error('ثبت شرکت به دلیل خطای پایگاه داده انجام نشد. با مدیر سامانه تماس بگیرید.',503);
+  }
   return ['ok'=>true,'id'=>$id];
 },false,3);
 route('GET','/api/admin/subscription-invoices',static function($p,$b,$u){
