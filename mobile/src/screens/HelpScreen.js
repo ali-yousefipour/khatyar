@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Linking, TextInput, Alert } from 'react-native';
 import { C, FONT } from '../theme';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { currentVersion, checkForUpdate } from '../updater';
 
 const SECTIONS = [
   {
     title: 'شروع کار با خطیار',
-    icon: '🚕',
+    icon: 'view-dashboard-outline',
     items: [
       ['ورود و راه‌اندازی اولیه', 'با نام کاربری و رمز عبور سازمانی وارد شوید. اگر سامانه تغییر رمز، تکمیل اطلاعات یا تمدید دوره‌ای را الزامی کند، تا پایان مراحل نمایش‌داده‌شده ادامه دهید.'],
       ['داشبورد', 'داشبورد بر اساس نقش و دسترسی شما ساخته می‌شود و آیتم‌های عملیاتی مجاز را نمایش می‌دهد. ممکن است امکانات یک کاربر با کاربر دیگر متفاوت باشد.'],
@@ -16,7 +17,7 @@ const SECTIONS = [
   },
   {
     title: 'ثبت حضور و مدیریت شیفت',
-    icon: '🕘',
+    icon: 'clock-check-outline',
     items: [
       ['الزام موقعیت مکانی', 'قابلیت‌های حضور و عملیات میدانی بر پایه موقعیت مکانی کاربر کار می‌کنند. GPS دستگاه را روشن نگه دارید و مجوز دسترسی به موقعیت مکانی را برای خطیار فعال کنید.'],
       ['ثبت حضور', 'در «ثبت حضور من» ابتدا موقعیت فعلی دستگاه بررسی می‌شود. فقط خطوط و محدوده‌های جغرافیایی مجاز برای حساب شما مبنای اعتبارسنجی حضور هستند.'],
@@ -27,7 +28,7 @@ const SECTIONS = [
   },
   {
     title: 'بی‌سیم خطیار',
-    icon: '📻',
+    icon: 'radio-handheld',
     items: [
       ['کانال‌های بی‌سیم', 'از «بی‌سیم خطیار» برای ارتباط صوتی در کانال‌هایی که برای حساب شما مجاز شده‌اند استفاده کنید.'],
       ['PTT یا فشردن برای صحبت', 'برای ارسال صدا دکمه صحبت را نگه دارید و پس از پایان مکالمه رها کنید. وضعیت ارسال و دریافت صدا را از رابط بی‌سیم دنبال کنید.'],
@@ -37,7 +38,7 @@ const SECTIONS = [
   },
   {
     title: 'سرویس مدارس و بازدید خودرو',
-    icon: '🏫',
+    icon: 'school-outline',
     items: [
       ['دسترسی به سرویس مدارس', 'در صورت فعال بودن مجوز، «سرویس مدارس» از منوی برنامه در دسترس است و اطلاعات و عملیات آن بر اساس سطح دسترسی حساب نمایش داده می‌شود.'],
       ['ویزارد مرحله‌ای بازدید', 'ثبت بازدید سرویس مدارس به‌صورت مرحله‌ای انجام می‌شود: ۱) اطلاعات مدرسه، ۲) مشخصات خودرو، ۳) راننده و تخلف، ۴) مکان و تصویر، ۵) بررسی و ثبت.'],
@@ -49,7 +50,7 @@ const SECTIONS = [
   },
   {
     title: 'خودرو، موتورسیکلت و چک‌لیست',
-    icon: '🚗',
+    icon: 'car-outline',
     items: [
       ['اطلاعات خودرو یا موتورسیکلت', 'کاربران دارای دسترسی می‌توانند اطلاعات وسیله سازمانی تخصیص‌یافته را مشاهده یا ویرایش کنند. عنوان و گزینه‌های این بخش بر اساس نوع وسیله تغییر می‌کند.'],
       ['چک‌لیست خودرویی و موتوری', 'در صورت فعال بودن مجوز، چک‌لیست مربوط به خودرو یا موتورسیکلت را تکمیل کنید و قبل از ثبت، همه موارد را کنترل کنید.'],
@@ -59,7 +60,7 @@ const SECTIONS = [
   },
   {
     title: 'مدیریت رانندگان و خطوط',
-    icon: '🧑‍✈️',
+    icon: 'account-group-outline',
     items: [
       ['جستجوی تاکسی و تاکسیران', 'از جستجو برای یافتن اطلاعات راننده یا تاکسی در محدوده دسترسی خود استفاده کنید.'],
       ['اطلاعات راننده', 'جزئیات و سوابق راننده بر اساس سطح دسترسی حساب نمایش داده می‌شود.'],
@@ -70,7 +71,7 @@ const SECTIONS = [
   },
   {
     title: 'گزارش‌ها، تذکرات و کارتابل',
-    icon: '📋',
+    icon: 'file-document-outline',
     items: [
       ['ارسال گزارش', 'برای ثبت گزارش یا تذکر، اطلاعات خواسته‌شده را کامل کنید و در صورت نیاز تصویر یا مستندات مرتبط را اضافه کنید.'],
       ['گزارشات دریافتی', 'در کارتابل گزارشات دریافتی، موارد ارجاع‌شده به شما را بررسی و در صورت وجود امکان پاسخ یا اقدام، از همان بخش پیگیری کنید.'],
@@ -80,7 +81,7 @@ const SECTIONS = [
   },
   {
     title: 'پیام‌ها، اعلان‌ها و پیامک',
-    icon: '💬',
+    icon: 'message-text-outline',
     items: [
       ['پیام‌ها', 'پیام‌های سامانه را از بخش «پیام‌ها» مشاهده کنید. تعداد پیام‌های خوانده‌نشده در منوی برنامه می‌تواند به‌صورت نشان عددی نمایش داده شود.'],
       ['اعلان‌ها', 'اعلان‌های جدید و هشدارهای سامانه را از بخش «اعلان‌ها» بررسی کنید. اعلان‌های خوانده‌نشده نیز با نشان عددی قابل تشخیص هستند.'],
@@ -91,7 +92,7 @@ const SECTIONS = [
   },
   {
     title: 'نقشه، GPS و عملیات میدانی',
-    icon: '📍',
+    icon: 'map-marker-outline',
     items: [
       ['GPS', 'برای عملیات وابسته به موقعیت، GPS را روشن کنید و دسترسی Location را در تنظیمات Android به خطیار بدهید.'],
       ['موقعیت روی نقشه', 'برخی صفحات با استفاده از آخرین موقعیت معتبر دستگاه، جایگاه کاربر را روی نقشه نمایش می‌دهند و برای اعتبارسنجی عملیات از موقعیت فعلی استفاده می‌کنند.'],
@@ -101,7 +102,7 @@ const SECTIONS = [
   },
   {
     title: 'کارکرد آفلاین و همگام‌سازی',
-    icon: '☁️',
+    icon: 'cloud-sync-outline',
     items: [
       ['قطع موقت اینترنت', 'در عملیات قابل صف، قطع موقت اینترنت می‌تواند باعث نگهداری درخواست در صف ارسال دستگاه شود.'],
       ['همگام‌سازی', 'پس از بازگشت اتصال، صف ارسال برای همگام‌سازی مجدد تلاش می‌کند. نتیجه موفق یا ناموفق عملیات را بررسی کنید.'],
@@ -111,7 +112,7 @@ const SECTIONS = [
   },
   {
     title: 'امنیت و قفل برنامه',
-    icon: '🔐',
+    icon: 'lock-outline',
     items: [
       ['قفل برنامه', 'از «قفل برنامه» روش امنیتی موردنظر را از گزینه‌های موجود انتخاب کنید.'],
       ['روش‌های قفل', 'خطیار از PIN، رمز عددی، رمز حروفی، الگوی ۳×۳ و در دستگاه‌های سازگار از احراز هویت زیستی پشتیبانی می‌کند.'],
@@ -122,7 +123,7 @@ const SECTIONS = [
   },
   {
     title: 'تنظیمات و به‌روزرسانی',
-    icon: '⚙️',
+    icon: 'cog-outline',
     items: [
       ['تنظیمات', 'از بخش «تنظیمات» به امکانات قابل تنظیم برنامه مانند نقشه، اعلان‌ها، هشدارهای میدانی و قفل برنامه دسترسی دارید.'],
       ['به‌روزرسانی برنامه', 'خطیار هنگام راه‌اندازی نسخه سامانه را بررسی می‌کند و در صورت ارائه نسخه جدید، فرآیند به‌روزرسانی را از مسیر مربوط اعلام می‌کند.'],
@@ -132,7 +133,7 @@ const SECTIONS = [
   },
   {
     title: 'حریم خصوصی، درباره برنامه و پشتیبانی',
-    icon: 'ℹ️',
+    icon: 'information-outline',
     items: [
       ['حریم خصوصی', 'جزئیات نوع اطلاعات مورد استفاده، هدف پردازش، ارسال و نگهداری داده‌ها و حقوق مرتبط را از بخش «سیاست حریم خصوصی» مطالعه کنید.'],
       ['درباره برنامه', 'اطلاعات نام برنامه، نسخه، سازنده و اطلاعات انتشار در بخش «درباره برنامه» قرار دارد.'],
@@ -145,9 +146,9 @@ function Section({ section, open, onPress }) {
   return (
     <View style={styles.card}>
       <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={section.title} style={styles.sectionHeader} onPress={onPress} activeOpacity={0.8}>
-        <View style={styles.sectionIcon}><Text style={styles.sectionIconText}>{section.icon}</Text></View>
+        <View style={styles.sectionIcon}><MaterialCommunityIcons name={section.icon} size={23} color={C.brand} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"/></View>
         <Text style={styles.sectionTitle}>{section.title}</Text>
-        <Text style={styles.chevron}>{open ? '⌃' : '⌄'}</Text>
+        <MaterialCommunityIcons name={open ? 'chevron-up' : 'chevron-down'} size={23} color={C.brand} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"/>
       </TouchableOpacity>
       {open ? (
         <View style={styles.sectionBody}>
@@ -211,7 +212,7 @@ export default function HelpScreen() {
       ))}
       {visibleSections.length === 0 ? <View style={styles.notice}><Text style={styles.noticeTitle}>موضوعی پیدا نشد</Text><Text style={styles.noticeText}>عبارت کوتاه‌تری جست‌وجو کنید یا جست‌وجو را پاک کنید.</Text><TouchableOpacity accessibilityRole="button" onPress={() => setQuery('')} style={styles.clearSearch}><Text style={styles.clearSearchText}>نمایش همهٔ موضوعات</Text></TouchableOpacity></View> : null}
 
-      <TouchableOpacity style={styles.updateButton} onPress={doCheckUpdate} disabled={checking} activeOpacity={0.82}>
+      <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled: checking }} accessibilityLabel="بررسی نسخه جدید برنامه" style={[styles.updateButton, checking && {opacity:0.5}]} onPress={doCheckUpdate} disabled={checking} activeOpacity={0.82}>
         <Text style={styles.updateButtonText}>{checking ? 'در حال بررسی نسخه جدید…' : 'بررسی نسخه جدید'}</Text>
       </TouchableOpacity>
 
@@ -241,15 +242,13 @@ const styles = StyleSheet.create({
   clearSearch: { minHeight: 44, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12 },
   clearSearchText: { color: C.brand, fontFamily: FONT.bold, fontSize: 12 },
   card: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 16, marginBottom: 9, overflow: 'hidden' },
-  sectionHeader: { minHeight: 62, paddingHorizontal: 13, flexDirection: 'row-reverse', alignItems: 'center' },
+  sectionHeader: { minHeight: 64, paddingHorizontal: 14, flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
   sectionIcon: { width: 39, height: 39, borderRadius: 12, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center', marginLeft: 10 },
-  sectionIconText: { fontSize: 19, textAlign: 'center' },
-  sectionTitle: { flex: 1, color: C.ink, fontFamily: FONT.bold, fontSize: 13, lineHeight: 20, textAlign: 'right', writingDirection: 'rtl' },
-  chevron: { width: 25, color: C.muted, fontSize: 18, textAlign: 'center' },
+  sectionTitle: { flex: 1, color: C.ink, fontFamily: FONT.bold, fontSize: 14, lineHeight: 22, textAlign: 'right', writingDirection: 'rtl' },
   sectionBody: { borderTopWidth: 1, borderTopColor: C.line, paddingHorizontal: 15, paddingBottom: 7 },
   item: { paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.line },
   itemTitle: { color: C.brand, fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
-  itemText: { color: C.muted, fontFamily: FONT.regular, fontSize: 12, lineHeight: 21, marginTop: 4, textAlign: 'right', writingDirection: 'rtl' },
+  itemText: { color: '#475569', fontFamily: FONT.regular, fontSize: 13, lineHeight: 23, marginTop: 4, textAlign: 'right', writingDirection: 'rtl' },
   updateButton: { backgroundColor: C.brand, borderRadius: 14, minHeight: 50, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
   updateButtonText: { color: '#fff', fontFamily: FONT.bold, fontSize: 13, textAlign: 'center', writingDirection: 'rtl' },
   supportButton: { backgroundColor: C.soft, borderWidth: 1, borderColor: C.line, borderRadius: 14, minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 9 },
