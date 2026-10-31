@@ -18,6 +18,14 @@ window.KH_ANDROID_NAV={
       "needs": null
     },
     {
+      "route": "MyAllowedLines",
+      "title": "خطوط مجاز شما",
+      "bg": "#e7f3ee",
+      "icon": "routes",
+      "category": "general",
+      "needs": null
+    },
+    {
       "route": "Radio",
       "title": "بی‌سیم",
       "bg": "#e8f6f0",

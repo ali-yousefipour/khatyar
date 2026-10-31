@@ -8,8 +8,8 @@ const cards = dashboard.match(/const MENU = \[([\s\S]*?)\];/)?.[1] || '';
 const mapping = dashboard.match(/const MENU_ICONS = \{([\s\S]*?)\};/)?.[1] || '';
 const cardRoutes = [...cards.matchAll(/\br:\s*'([^']+)'/g)].map(m => m[1]);
 const iconRoutes = [...mapping.matchAll(/"([^"]+)":\s*"[^"]+"/g)].map(m => m[1]);
-assert.equal(cardRoutes.length, 36, 'Do not inadvertently remove dashboard features');
-assert.equal(new Set(cardRoutes).size, 36, 'Each dashboard route should be unique');
+assert.equal(cardRoutes.length, 37, 'Do not inadvertently remove dashboard features');
+assert.equal(new Set(cardRoutes).size, 37, 'Each dashboard route should be unique');
 for (const route of cardRoutes) assert.ok(iconRoutes.includes(route), `Missing vector icon for ${route}`);
 assert.doesNotMatch(cards, /icon3d:|glyph:/, 'All menu tiles must use one scalable vector icon family');
 assert.match(dashboard, /CATEGORY_LABELS\[categoryOf\(m\.r\)\]/, 'Category should be legible on each card');
@@ -23,4 +23,4 @@ for (const route of [...itemRoutes, 'SendQueue']) assert.ok(sections.includes(`'
 assert.match(drawer, /roleAppAccess\.includes\(route\)/, 'Drawer must continue to filter unauthorized links');
 assert.match(drawer, /paddingTop:insets\.top\+14/, 'Drawer header should honor the status bar safe area');
 assert.match(drawer, /roleAccessError/, 'Drawer needs a recoverable network-error state');
-console.log('PASS dashboard/menu redesign: 36 icons, accessible cards, role-scoped grouped drawer');
+console.log('PASS dashboard/menu redesign: 37 icons, accessible cards, role-scoped grouped drawer');

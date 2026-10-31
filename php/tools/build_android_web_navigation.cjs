@@ -9,7 +9,7 @@ const dashboard=[...menu.matchAll(/\{[^{}]*?t: '([^']+)', r: '([^']+)', bg: '([^
 const items=drawer.match(/const ITEMS = \[([\s\S]*?)\n\];/)[1];
 const drawerItems=[...items.matchAll(/\['([^']+)', '([^']+)', '([^']+)'\]/g)].map(([,route,title,icon])=>({route,title,icon}));drawerItems.push({route:'SendQueue',title:'صف ارسال',icon:'cloud-upload-outline'});
 const categories=[['all','همه'],['general','عمومی'],['field','عملیات میدانی'],['work','اداری'],['messages','ارتباطات'],['personal','شخصی']];
-if(dashboard.length!==36||drawerItems.length!==7)throw Error('Android menu extraction changed; inspect source before generating');
+if(dashboard.length!==37||drawerItems.length!==7)throw Error('Android menu extraction changed; inspect source before generating');
 const settingsSource=read('mobile/src/screens/SettingsScreen.js').match(/const ITEMS = \[([\s\S]*?)\n\];/)[1];
 const settings=[...settingsSource.matchAll(/\['([^']+)', '([^']+)', '([^']+)', (?:'([^']+)'|(null)), '([^']+)'\]/g)].map(([,key,title,icon,route,none,description])=>({key,title,icon,route:route||null,description}));
 const privacySource=read('mobile/src/screens/PrivacyPolicyScreen.js').match(/const sections = \[([\s\S]*?)\n\];/)[1];
@@ -17,4 +17,4 @@ const privacy=[...privacySource.matchAll(/\['([^']+)', '([^']+)'\]/g)].map(([,ti
 if(settings.length!==9||privacy.length<3)throw Error('Android settings/privacy extraction failed');
 const output='/* Generated from Android DashboardScreen and DrawerMenuScreen. Run node php/tools/build_android_web_navigation.cjs. */\nwindow.KH_ANDROID_NAV='+JSON.stringify({dashboard,drawer:drawerItems,categories,settings,privacy,icons:JSON.parse(read('php/tools/android-icon-glyphs.json'))},null,2)+';\n';
 const target=path.join(root,'php/app/assets/android-navigation.js');
-if(process.argv.includes('--check')){if(fs.readFileSync(target,'utf8')!==output)throw Error('Web navigation differs from current Android source');console.log('PASS web navigation matches Android: 36 cards and 7 drawer links');}else fs.writeFileSync(target,output);
+if(process.argv.includes('--check')){if(fs.readFileSync(target,'utf8')!==output)throw Error('Web navigation differs from current Android source');console.log('PASS web navigation matches Android: 37 cards and 7 drawer links');}else fs.writeFileSync(target,output);
