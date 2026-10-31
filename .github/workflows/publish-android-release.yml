@@ -307,10 +307,18 @@ jobs:
           fi
           if [ "${#RELEASE_APKS[@]}" -ne 1 ]; then
             printf 'Found multiple release APKs:\\n%s\\n' "${RELEASE_APKS[@]}"
-            echo "::error::Expected one universal release APK; multiple ABI splits need explicit packaging"
+            echo "::error::Expected exactly one arm64-v8a release APK"
             exit 1
           fi
           APK="${RELEASE_APKS[0]}"
+          if unzip -Z1 "$APK" | grep '^lib/armeabi-v7a/' >/dev/null; then
+            echo "::error::32-bit native libraries unexpectedly included in arm64-only APK"
+            exit 1
+          fi
+          if ! unzip -Z1 "$APK" | grep '^lib/arm64-v8a/' >/dev/null; then
+            echo "::error::Missing arm64-v8a native libraries"
+            exit 1
+          fi
           mkdir -p ../release
           cp "$APK" ../release/khatyar.apk
           test -s ../release/khatyar.apk
