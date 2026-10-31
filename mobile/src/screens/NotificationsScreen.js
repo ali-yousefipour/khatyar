@@ -10,36 +10,62 @@ export default function NotificationsScreen({ navigation }) {
   const [data, setData] = useState(null);
   const [opening, setOpening] = useState(false);
   const [allRead, setAllRead] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [error, setError] = useState('');
 
-  const load = useCallback(() => {
-    request('/my/notifications').then(d => { setData(d); setAllRead(false); }).catch(() => setData({ items: [], unread: 0 }));
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const d = await request('/my/notifications', { queueIfOffline: false });
+      setData(d);
+      setAllRead(false);
+      setError('');
+    } catch (e) {
+      setError(e?.message || 'دریافت اعلان‌ها ناموفق بود. اتصال اینترنت را بررسی کنید.');
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   async function markRead() {
-    // ۱) mark در backend (شامل dismiss alerts)
-    await request('/my/notifications/read', { method: 'POST' }).catch(() => {});
-    // ۲) همهٔ آیتم‌ها را locally خوانده‌شده نشان بده
-    setAllRead(true);
-    setData(prev => prev ? {
-      ...prev,
-      unread: 0,
-      items: (prev.items || []).map(n => ({ ...n, is_read: true })),
-    } : prev);
-    // ۳) بعد از ۱ ثانیه reload کامل (badge هدر هم به‌روز می‌شود)
-    setTimeout(() => load(), 1000);
+    setActionBusy(true);
+    try {
+      await request('/my/notifications/read', { method: 'POST', queueIfOffline: false });
+      setAllRead(true);
+      setData(prev => prev ? {
+        ...prev,
+        unread: 0,
+        items: (prev.items || []).map(n => ({ ...n, is_read: true })),
+      } : prev);
+      setError('');
+    } catch (e) {
+      setError(e?.message || 'ثبت خوانده‌شدن اعلان‌ها ناموفق بود. دوباره تلاش کنید.');
+    } finally {
+      setActionBusy(false);
+    }
   }
 
   async function remove(n) {
-    try { await request(`/my/notifications/${n.id}`, { method: 'DELETE' }); setData(prev => prev ? { ...prev, items: (prev.items || []).filter(x => x.id !== n.id) } : prev); } catch {}
+    setActionBusy(true);
+    try {
+      await request(`/my/notifications/${n.id}`, { method: 'DELETE', queueIfOffline: false });
+      setData(prev => prev ? { ...prev, items: (prev.items || []).filter(x => x.id !== n.id), unread: Math.max(0, (prev.unread || 0) - (n.is_read ? 0 : 1)) } : prev);
+      setError('');
+    } catch (e) {
+      setError(e?.message || 'حذف اعلان ناموفق بود.');
+    } finally {
+      setActionBusy(false);
+    }
   }
 
   async function open(n) {
     setOpening(true);
     try {
       if (n.id && !n.is_read) {
-        await request(`/my/notifications/${String(n.id)}/read`, { method: 'POST' }).catch(() => {});
+        await request(`/my/notifications/${String(n.id)}/read`, { method: 'POST', queueIfOffline: false });
         setData(prev => prev ? {
           ...prev,
           unread: Math.max(0, (prev.unread || 1) - 1),
@@ -51,14 +77,15 @@ export default function NotificationsScreen({ navigation }) {
         const res = await request(`/search?national_id=${nid}`);
         navigation.navigate('Driver', { driver: res.driver, vehicle: res.vehicle, warnings: res.warnings });
       }
-    } catch {}
+      setError('');
+    } catch (e) { setError(e?.message || 'باز کردن اعلان ناموفق بود.'); }
     finally { setOpening(false); }
   }
 
-  if (!data) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
+  if (!data && refreshing) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
 
-  const items = data.items || [];
-  const unreadCount = allRead ? 0 : Math.min((data.unread != null ? data.unread : items.filter(n => !n.is_read).length), 99);
+  const items = data?.items || [];
+  const unreadCount = allRead ? 0 : Math.min((data?.unread != null ? data.unread : items.filter(n => !n.is_read).length), 99);
 
   return (
     <View style={{ flex: 1, backgroundColor: C.paper }}>
@@ -68,8 +95,9 @@ export default function NotificationsScreen({ navigation }) {
           <Text style={s.overlayTxt}>در حال باز کردن…</Text>
         </View>
       )}
+      {!!error && <View style={s.errorBox}><Text style={s.errorText}>{error}</Text><TouchableOpacity onPress={load} style={s.retry}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
       {items.length > 0 && (
-        <TouchableOpacity style={[s.readAll, unreadCount === 0 && { opacity: 0.5 }]} onPress={markRead} disabled={unreadCount === 0}>
+        <TouchableOpacity style={[s.readAll, (unreadCount === 0 || actionBusy) && { opacity: 0.5 }]} onPress={markRead} disabled={unreadCount === 0 || actionBusy} accessibilityRole="button">
           <Text style={s.readAllTxt}>
             {unreadCount > 0
               ? `علامت‌گذاری همه به‌عنوان خوانده‌شده (${unreadCount > 99 ? '+۹۹' : faNum(unreadCount)})`
@@ -79,13 +107,15 @@ export default function NotificationsScreen({ navigation }) {
       )}
       <FlatList
         data={items}
+        refreshing={refreshing}
+        onRefresh={load}
         keyExtractor={(i, idx) => String(i.id || 'a' + idx)}
         contentContainerStyle={{ padding: 16, paddingBottom: 56 }}
-        ListEmptyComponent={<Text style={s.empty}>اعلانی وجود ندارد</Text>}
+        ListEmptyComponent={<Text style={s.empty}>{error ? 'اعلان‌ها در دسترس نیستند؛ دوباره تلاش کنید.' : 'اعلانی وجود ندارد'}</Text>}
         renderItem={({ item }) => {
           const isRead = allRead || !!item.is_read;
           return (
-            <TouchableOpacity style={[s.card, !isRead && s.unread, item.type === 'alert' && s.alert]} onPress={() => open(item)}>
+            <TouchableOpacity style={[s.card, !isRead && s.unread, item.type === 'alert' && s.alert]} onPress={() => open(item)} disabled={opening || actionBusy} accessibilityRole="button">
               <View style={s.cardHead}>
                 <Text style={s.title}>{item.type === 'alert' ? '⚠ ' : ''}{item.title}</Text>
                 <View style={[s.badge, isRead ? s.badgeRead : s.badgeUnread]}>
@@ -97,7 +127,7 @@ export default function NotificationsScreen({ navigation }) {
               <Text style={s.body}>{item.body}</Text>
               {item.created_at ? <Text style={s.time}>{fj(item.created_at)}</Text> : null}
               {item.data?.national_id ? <Text style={s.hint}>برای مشاهدهٔ راننده ضربه بزنید ›</Text> : null}
-              {item.id && !String(item.id).startsWith('expiry:') ? <TouchableOpacity style={s.delBtn} onPress={(e) => { e.stopPropagation && e.stopPropagation(); remove(item); }}><Text style={s.delTxt}>حذف اعلان</Text></TouchableOpacity> : null}
+              {item.id && !String(item.id).startsWith('expiry:') ? <TouchableOpacity style={s.delBtn} disabled={opening || actionBusy} onPress={(e) => { e.stopPropagation && e.stopPropagation(); remove(item); }} accessibilityRole="button"><Text style={s.delTxt}>حذف اعلان</Text></TouchableOpacity> : null}
             </TouchableOpacity>
           );
         }}
@@ -107,6 +137,10 @@ export default function NotificationsScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
+  errorBox: { margin: 12, padding: 14, borderRadius: 14, backgroundColor: '#fff1f1', borderColor: '#f3b8c0', borderWidth: 1 },
+  errorText: { fontFamily: FONT.regular, color: '#982b3d', lineHeight: 22, textAlign: 'right' },
+  retry: { alignSelf: 'flex-end', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, marginTop: 8 },
+  retryText: { fontFamily: FONT.bold, color: C.brand, fontSize: 12 },
   cardHead: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   badge: { borderRadius: 8, paddingVertical: 3, paddingHorizontal: 9 },
   badgeUnread: { backgroundColor: '#e8f5ef' },
