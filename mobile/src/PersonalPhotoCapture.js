@@ -6,9 +6,10 @@ import ActivityIndicator from './components/PulseLoadingIndicator';
 import { compressToDataUri } from './img';
 import { getAppConfig } from './appconfig';
 import { useCameraSession } from './cameraSession';
+import { launchCamera, ImagePicker } from './cameraLock';
 
 // دوربین سلفی مشترک برای تغییر عکس پروفایل و صحت‌سنجی حضور.
-// انتخاب از گالری عمداً در این مسیر وجود ندارد؛ تصویر فقط از CameraView گرفته می‌شود.
+// انتخاب از گالری عمداً در این مسیر وجود ندارد؛ تصویر فقط از دوربین گرفته می‌شود.
 // Keep this component syntactically self-contained so release Babel/Metro cannot consume a partial JSX edit.
 export default function PersonalPhotoCapture({
   onCapture,
@@ -17,6 +18,7 @@ export default function PersonalPhotoCapture({
   title = 'تأیید تصویر سلفی',
   instruction = 'مستقیم به دوربین نگاه کنید و تصویر واضح بگیرید.',
   uniformNotice = true,
+  systemCameraFirst = false,
 }) {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
@@ -25,8 +27,12 @@ export default function PersonalPhotoCapture({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(instruction);
   const [preview, setPreview] = useState(null);
-  const { cameraActive, cameraKey, restartCamera } = useCameraSession(!!permission?.granted && !preview);
+  const [useInlineCamera, setUseInlineCamera] = useState(!systemCameraFirst);
+  const [systemCameraOpen, setSystemCameraOpen] = useState(false);
+  const captureGeneration = useRef(0);
+  const { cameraActive, cameraKey, restartCamera } = useCameraSession(!!permission?.granted && !preview && useInlineCamera && !systemCameraOpen);
   useEffect(() => { if (!cameraActive) setReady(false); }, [cameraActive]);
+  useEffect(() => () => { captureGeneration.current += 1; }, []);
 
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) requestPermission().catch(() => setMessage('دسترسی دوربین برقرار نشد.'));
@@ -55,6 +61,37 @@ export default function PersonalPhotoCapture({
       setMessage('ثبت تصویر انجام نشد. دوربین را ثابت نگه دارید و دوباره تلاش کنید.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function openSystemCamera() {
+    if (busy || systemCameraOpen || preview) return;
+    const generation = ++captureGeneration.current;
+    setSystemCameraOpen(true);
+    setReady(false);
+    setMessage('در حال بازکردن دوربین گوشی…');
+    try {
+      // Release any active CameraView before launching the phone camera app.
+      if (useInlineCamera) await new Promise(resolve => setTimeout(resolve, 1200));
+      const result = await launchCamera({
+        mediaTypes: ['images'],
+        cameraType: facing === 'back' ? (ImagePicker.CameraType?.back || 'back') : (ImagePicker.CameraType?.front || 'front'),
+        quality: 1, allowsEditing: false, base64: false, exif: false,
+      });
+      if (generation !== captureGeneration.current) return;
+      if (result?.canceled) { setMessage(instruction); return; }
+      const uri = result?.assets?.[0]?.uri;
+      if (!uri) throw new Error('system_camera_no_image');
+      setBusy(true);
+      const dataUrl = await compressToDataUri(uri);
+      if (generation !== captureGeneration.current) return;
+      if (!dataUrl) throw new Error('camera_base64_missing');
+      setPreview({ uri, dataUrl });
+      setMessage('تصویر را بررسی و سپس تأیید کنید.');
+    } catch (_) {
+      if (generation === captureGeneration.current) setMessage('ثبت عکس با دوربین گوشی انجام نشد. دوباره تلاش کنید یا از دوربین داخلی استفاده کنید.');
+    } finally {
+      if (generation === captureGeneration.current) { setBusy(false); setSystemCameraOpen(false); }
     }
   }
 
@@ -107,7 +144,7 @@ export default function PersonalPhotoCapture({
 
   return (
     <View style={styles.page}>
-      {cameraActive && <CameraView
+      {cameraActive && useInlineCamera && <CameraView
         key={`selfie-camera-${facing}-${cameraKey}`}
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
@@ -128,15 +165,22 @@ export default function PersonalPhotoCapture({
       <View style={styles.controls}>
         {uniformNotice ? <Text style={styles.uniformNotice}>⚠ تصویر باید با لباس فرم سازمانی گرفته شود</Text> : null}
         <Text style={styles.instruction}>{message}</Text>
-        {!ready && <TouchableOpacity onPress={() => { setReady(false); restartCamera(); }}><Text style={styles.cancelText}>راه‌اندازی دوباره دوربین</Text></TouchableOpacity>}
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button" style={[styles.nativeButton, (busy || systemCameraOpen) && styles.disabled]} onPress={openSystemCamera} disabled={busy || systemCameraOpen}>
+          <Text style={styles.primaryButtonText}>{systemCameraOpen ? 'در حال بازکردن دوربین گوشی…' : '📷 عکس‌برداری با دوربین گوشی'}</Text>
+        </TouchableOpacity>
+        {systemCameraFirst && !useInlineCamera ? <Text style={styles.cameraOnly}>برای عکس سلفی، دوربین جلو را انتخاب کنید. انتخاب تصویر از گالری مجاز نیست.</Text> : null}
+        {useInlineCamera && !ready && <TouchableOpacity onPress={() => { setReady(false); restartCamera(); }}><Text style={styles.cancelText}>راه‌اندازی دوباره دوربین داخلی</Text></TouchableOpacity>}
+        {useInlineCamera && <TouchableOpacity
           style={[styles.shutter, (!ready || busy) && styles.disabled]}
           onPress={takePhoto}
-          disabled={!ready || busy}
+          disabled={!ready || busy || systemCameraOpen}
           activeOpacity={0.75}
         >
           {busy ? <ActivityIndicator color="#fff" /> : <View style={styles.shutterInner} />}
-        </TouchableOpacity>
+        </TouchableOpacity>}
+        {systemCameraFirst && <TouchableOpacity accessibilityRole="button" onPress={() => { setUseInlineCamera(value => !value); setReady(false); }} disabled={busy || systemCameraOpen}>
+          <Text style={styles.cancelText}>{useInlineCamera ? 'بازگشت به دوربین گوشی' : 'استفاده از دوربین داخلی برنامه'}</Text>
+        </TouchableOpacity>}
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={styles.cancelText}>انصراف</Text></TouchableOpacity> : null}
         <Text style={styles.cameraOnly}>ثبت تصویر فقط با دوربین گوشی انجام می‌شود و انتخاب از گالری در این مرحله غیرفعال است.</Text>
       </View>
@@ -158,6 +202,7 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.55 },
   cancelText: { color: '#fff', fontFamily: FONT.regular, fontSize: 13, marginTop: 12 },
   cameraOnly: { color: 'rgba(255,255,255,0.72)', fontFamily: FONT.regular, fontSize: 11, textAlign: 'center', marginTop: 8 },
+  nativeButton: { backgroundColor: C.brand, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 24, width: '100%', alignItems: 'center', marginBottom: 10 },
   previewPage: { flex: 1, backgroundColor: C.paper },
   previewScroll: { flex: 1 },
   previewContent: { alignItems: 'center', paddingHorizontal: 14, paddingTop: 14, paddingBottom: 24 },

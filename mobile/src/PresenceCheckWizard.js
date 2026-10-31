@@ -121,8 +121,8 @@ export default function PresenceCheckWizard(){
  const mm=String(Math.floor(secs/60)).padStart(2,'0');
  const ss=String(secs%60).padStart(2,'0');
 
- if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/></View>;
- if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/></View>;
+ if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture systemCameraFirst onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/></View>;
+ if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture systemCameraFirst onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/></View>;
 
  return <View style={s.page}>
    <View style={s.header}>

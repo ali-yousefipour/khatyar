@@ -14,7 +14,7 @@ import { useCameraSession } from './cameraSession';
 import { launchCamera, ImagePicker } from './cameraLock';
 import { request } from './api';
 
-export default function VehiclesPhotoCapture({ onCapture, onCancel, station = null }) {
+export default function VehiclesPhotoCapture({ onCapture, onCancel, station = null, systemCameraFirst = false }) {
   const [perm, requestPerm] = useCameraPermissions();
   const camRef = useRef(null);
   const shotRef = useRef(null);
@@ -29,8 +29,9 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   const [error, setError] = useState('');
   const [imageReady, setImageReady] = useState(false);
   const [systemCameraOpen, setSystemCameraOpen] = useState(false);
+  const [useInlineCamera, setUseInlineCamera] = useState(!systemCameraFirst);
   const captureGeneration = useRef(0);
-  const { cameraActive, cameraKey, restartCamera } = useCameraSession(!!perm?.granted && !shot && !systemCameraOpen);
+  const { cameraActive, cameraKey, restartCamera } = useCameraSession(!!perm?.granted && !shot && !systemCameraOpen && useInlineCamera);
 
   useEffect(() => { if (!cameraActive) setCameraReady(false); }, [cameraActive]);
   // Some Android devices report a mounted camera without delivering preview frames.
@@ -142,7 +143,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
     const generation = ++captureGeneration.current;
     try {
       // Release CameraX surface before asking the OS camera application to open.
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      if (useInlineCamera) await new Promise(resolve => setTimeout(resolve, 1200));
       const result = await launchCamera({
         mediaTypes: ['images'],
         cameraType: ImagePicker.CameraType?.back || 'back',
@@ -314,7 +315,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
 
   return (
     <View style={s.camWrap}>
-      {cameraActive && !systemCameraOpen && <CameraView
+      {cameraActive && useInlineCamera && !systemCameraOpen && <CameraView
         key={cameraKey}
         ref={camRef}
         style={s.cam}
@@ -336,16 +337,19 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
       <View style={[s.bottom, { paddingBottom: Math.max(20, insets.bottom + 12) }]}>
         <Text style={s.hint}>با دوربین پشت، از خودروهای حاضر در خط عکس بگیرید. تاریخ، ساعت و موقعیت به‌صورت خودکار روی عکس درج می‌شود.</Text>
         {error ? <Text style={s.error}>{error}</Text> : null}
-        {!cameraReady && !error ? <Text style={s.cameraOnly}>در حال آماده‌سازی دوربین…</Text> : null}
-        <TouchableOpacity style={[s.shutter, (!cameraReady || busy) && s.disabled]} onPress={snap} disabled={!cameraReady || busy}>
+        {useInlineCamera && !cameraReady && !error ? <Text style={s.cameraOnly}>در حال آماده‌سازی دوربین…</Text> : null}
+        {useInlineCamera && <TouchableOpacity style={[s.shutter, (!cameraReady || busy) && s.disabled]} onPress={snap} disabled={!cameraReady || busy}>
           {busy ? <ActivityIndicator color="#fff" /> : <View style={s.shutterInner} />}
-        </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" disabled={busy || systemCameraOpen} onPress={recoverPreview} style={s.retryButton}>
+        </TouchableOpacity>}
+        {useInlineCamera && <TouchableOpacity accessibilityRole="button" disabled={busy || systemCameraOpen} onPress={recoverPreview} style={s.retryButton}>
           <Text style={s.retryText}>تصویر سیاه است؟ راه‌اندازی دوباره دوربین</Text>
-        </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" disabled={busy || systemCameraOpen} onPress={openSystemCamera} style={[s.retryButton, { borderColor: '#a7f3d0', backgroundColor: 'rgba(22,101,52,0.28)' }]}>
+        </TouchableOpacity>}
+        <TouchableOpacity accessibilityRole="button" disabled={busy || systemCameraOpen} onPress={openSystemCamera} style={[s.retryButton, s.nativeButton]}>
           <Text style={s.retryText}>{systemCameraOpen ? 'در حال بازکردن دوربین گوشی…' : 'عکس‌برداری با دوربین اصلی گوشی'}</Text>
         </TouchableOpacity>
+        {systemCameraFirst && <TouchableOpacity accessibilityRole="button" disabled={busy || systemCameraOpen} onPress={() => { setUseInlineCamera(value => !value); setCameraReady(false); setError(''); }}>
+          <Text style={s.cancel}>{useInlineCamera ? 'بازگشت به دوربین گوشی' : 'استفاده از دوربین داخلی برنامه'}</Text>
+        </TouchableOpacity>}
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={s.cancel}>انصراف</Text></TouchableOpacity> : null}
         <Text style={s.cameraOnly}>ثبت تصویر فقط با دوربین پشت گوشی انجام می‌شود و انتخاب از گالری در این مرحله وجود ندارد.</Text>
       </View>
@@ -365,6 +369,7 @@ const s = StyleSheet.create({
   cancel: { color: '#fff', marginTop: 10, fontFamily: FONT.regular, fontSize: 13 },
   retryButton: { paddingVertical: 10, paddingHorizontal: 14, marginTop: 8, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)' },
   retryText: { color: '#fff', fontFamily: FONT.regular, fontSize: 12, textAlign: 'center' },
+  nativeButton: { backgroundColor: '#166534', borderColor: '#a7f3d0', width: '100%', paddingVertical: 17, borderRadius: 12 },
   cameraOnly: { color: 'rgba(255,255,255,0.72)', fontFamily: FONT.regular, fontSize: 11, textAlign: 'center', marginTop: 8 },
   previewWrap: { flex: 1, minHeight: 0, width: '100%', backgroundColor: C.paper },
   previewScroll: { flex: 1, width: '100%' },
