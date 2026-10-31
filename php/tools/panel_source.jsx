@@ -8645,9 +8645,13 @@ function Commitments(){
 function UserActivity(){
   const [users,setUsers]=useState([]); const [uid,setUid]=useState(""); const [q,setQ]=useState("");
   const [from,setFrom]=useState(""); const [to,setTo]=useState(""); const [data,setData]=useState(null);
-  useEffect(()=>{db.users().then(setUsers).catch(()=>{})},[]);
-  const load=async()=>{ if(!uid)return alert("یک کاربر را انتخاب کنید"); const f=from||new Date().toISOString().slice(0,10); const tt=to||f;
-    setData(await GET(`/admin/user-activity-range?user_id=${uid}&from=${f}&to=${tt}`)); };
+  const [loading,setLoading]=useState(false); const [error,setError]=useState(''); const [usersError,setUsersError]=useState(''); const [detailBusy,setDetailBusy]=useState(false);
+  const requestId=useRef(0);
+  useEffect(()=>{db.users().then(setUsers).catch(e=>setUsersError(e.message||'دریافت فهرست کاربران ناموفق بود'));},[]);
+  const load=async()=>{if(!uid){setError('لطفاً یک کاربر انتخاب کنید.');return;}const f=from||new Date().toISOString().slice(0,10);const tt=to||f;
+    if(f>tt){setError('تاریخ شروع نباید بعد از تاریخ پایان باشد.');return;}
+    const req=++requestId.current;setLoading(true);setError('');setData(null);
+    try{const result=await GET(`/admin/user-activity-range?user_id=${encodeURIComponent(uid)}&from=${encodeURIComponent(f)}&to=${encodeURIComponent(tt)}`);if(req===requestId.current)setData(result);}catch(e){if(req===requestId.current)setError(e.message||'دریافت گزارش فعالیت ناموفق بود');}finally{if(req===requestId.current)setLoading(false);} };
   const fmt=(sec)=>{ sec=+sec||0; const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60); return (h?fa(h)+" ساعت ":"")+fa(m)+" دقیقه"; };
   const filtered=users.filter(u=>{ const s=(u.first_name+" "+u.last_name+" "+(u.role_title||"")); return !q||s.indexOf(q)>=0; });
   const selName=()=>{ const u=users.find(x=>x.id==uid); return u?(u.first_name+" "+u.last_name):""; };
@@ -8659,17 +8663,20 @@ function UserActivity(){
   // خروجی اکسل ریز عملکرد: ساعات استفاده، خاموشی GPS و قطعی اینترنت (از سرور با زمان شمسی)
   const exportDetail=async()=>{ if(!uid)return alert("یک کاربر را انتخاب کنید");
     const f=from||new Date().toISOString().slice(0,10); const tt=to||f;
+    if(f>tt)return setError('تاریخ شروع نباید بعد از تاریخ پایان باشد.');
+    setDetailBusy(true);
     try{
       const res=await fetch(`${API_BASE}/admin/user-activity/export?user_id=${uid}&from=${f}&to=${tt}`,{headers:tok()});
       if(!res.ok) throw new Error("خطا در دریافت فایل");
       const blob=await res.blob(); const a=document.createElement("a");
-      a.href=URL.createObjectURL(blob); a.download=`ریز_عملکرد_${selName()}_${f}_${tt}.csv`; a.click();
-    }catch(e){ alert(e.message||"خطا"); }
+      const url=URL.createObjectURL(blob);a.href=url; a.download=`ریز_عملکرد_${selName()}_${f}_${tt}.csv`; a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
+    }catch(e){ setError(e.message||"خطا در دریافت ریز عملکرد"); }finally{setDetailBusy(false);}
   };
   // خروجی اکسل فعالیت همهٔ کاربران (گزارش کلی)
   const [allBusy,setAllBusy]=useState(false);
   const exportAll=async()=>{
     const f=from||new Date().toISOString().slice(0,10); const tt=to||f;
+    if(f>tt)return setError('تاریخ شروع نباید بعد از تاریخ پایان باشد.');
     setAllBusy(true);
     try{
       const r=await GET(`/admin/user-activity-all?from=${f}&to=${tt}`);
@@ -8681,16 +8688,19 @@ function UserActivity(){
     }catch(e){ alert(e.message||"خطا"); }
     setAllBusy(false);
   };
-  return(<div className="panel admin-workspace-page"><h3>گزارش فعالیت کاربران</h3>
+  return(<div className="panel admin-workspace-page user-activity-page"><div className="user-activity-intro"><h3>گزارش فعالیت کاربران</h3><p>مدت استفاده از برنامه، اتصال اینترنت، GPS و رویدادهای شبکه را در بازهٔ دلخواه بررسی کنید.</p></div>
+   {usersError&&<p className="workspace-inline-error" role="alert">{usersError}</p>}
    <div className="row" style={{gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
      <div><label className="label">جستجوی کاربر</label><input className="input" placeholder="نام/سمت…" value={q} onChange={e=>setQ(e.target.value)} style={{maxWidth:170}}/></div>
-     <div><label className="label">کاربر</label><select className="input" style={{maxWidth:240}} value={uid} onChange={e=>setUid(e.target.value)}><option value="">انتخاب…</option>{filtered.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name} — {u.role_title}</option>)}</select></div>
+     <div><label className="label">کاربر</label><select className="input" style={{maxWidth:240}} value={uid} onChange={e=>{setUid(e.target.value);setData(null);setError('');requestId.current++;setLoading(false);}}><option value="">انتخاب…</option>{filtered.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name} — {u.role_title}</option>)}</select></div>
      <div><label className="label">از تاریخ</label><br/><JDate value={from} onChange={setFrom} placeholder="از تاریخ"/></div>
      <div><label className="label">تا تاریخ</label><br/><JDate value={to} onChange={setTo} placeholder="تا تاریخ"/></div>
-     <button className="btn p" onClick={load}>نمایش</button>
+     <button className="btn p" onClick={load} disabled={loading}>{loading?'در حال دریافت…':'نمایش گزارش'}</button>
      {data&&<button className="btn g" onClick={exportExcel}>⬇ خروجی Excel (خلاصه)</button>}
-     {uid&&<button className="btn t" onClick={exportDetail}>⬇ خروجی اکسل ریز عملکرد</button>}
+     {uid&&<button className="btn t" disabled={detailBusy} onClick={exportDetail}>{detailBusy?'در حال دریافت…':'⬇ خروجی اکسل ریز عملکرد'}</button>}
      <button className="btn g" onClick={exportAll} disabled={allBusy} style={{background:"#0f766e",color:"#fff"}}>{allBusy?"در حال آماده‌سازی…":"⬇ خروجی اکسل همهٔ کاربران"}</button></div>
+   {error&&<div className="workspace-inline-error" role="alert">{error}</div>}
+   {!data&&!loading&&!error&&<div className="user-activity-empty" role="status">یک کاربر و بازهٔ تاریخی را انتخاب کنید، سپس «نمایش گزارش» را بزنید.</div>}
    {data&&<div className="kpis" style={{marginTop:14}}>
      <div className="kpi"><div className="n">{fmt(data.usage_seconds)}</div><div className="l">مدت استفاده از برنامه</div></div>
      <div className="kpi"><div className="n">{fmt(data.online_seconds)}</div><div className="l">مدت روشن‌بودن اینترنت</div></div>
