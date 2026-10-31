@@ -970,7 +970,7 @@ function CheckInCore() {
   if (loading) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
   if (loadError && !cfg) return <View style={s.center}>
     <Text style={{ color: '#b04a42', fontFamily: FONT.bold, textAlign: 'center', marginBottom: 14, paddingHorizontal: 20 }}>{loadError}</Text>
-    <TouchableOpacity onPress={() => { setLoading(true); load(); }} style={{ backgroundColor: C.brand, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 28 }}>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel="تلاش دوباره برای دریافت اطلاعات حضور" onPress={() => { setLoading(true); load(); }} style={{ backgroundColor: C.brand, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 28 }}>
       <Text style={{ color: '#fff', fontFamily: FONT.bold }}>تلاش مجدد</Text>
     </TouchableOpacity>
   </View>;
@@ -986,7 +986,7 @@ function CheckInCore() {
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ paddingHorizontal: screenWidth < 360 ? 11 : 16, paddingTop: 14, paddingBottom: 40 }}>
       {loadError && cfg && <View style={{ backgroundColor: '#fff4d7', borderRadius: 10, padding: 10, marginBottom: 10, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={{ color: '#8a6100', fontFamily: FONT.regular, fontSize: 12, flex: 1 }}>آخرین تازه‌سازی وضعیت ناموفق بود؛ اطلاعات نمایش‌داده‌شده ممکن است قدیمی باشد.</Text>
-        <TouchableOpacity onPress={() => load()} style={{ marginRight: 8 }}><Text style={{ color: C.brand, fontFamily: FONT.bold, fontSize: 12 }}>تلاش مجدد</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="دریافت دوباره وضعیت حضور" onPress={() => load()} style={{ marginRight: 8, minHeight: 48, justifyContent: 'center' }}><Text style={{ color: C.brand, fontFamily: FONT.bold, fontSize: 12 }}>تلاش مجدد</Text></TouchableOpacity>
       </View>}
       {/* خط به‌صورت خودکار از روی موقعیت کاربر تشخیص داده می‌شود؛ انتخاب دستی حذف شده است. */}
       <View style={s.presenceHero}><View style={s.presenceHeroIcon}><MaterialCommunityIcons name={open ? 'account-check-outline' : 'map-marker-check-outline'} size={27} color={C.brand}/></View><View style={s.presenceHeroText}><Text style={s.presenceHeroTitle}>{open ? 'حضور شما فعال است' : 'ثبت حضور در خط'}</Text><Text style={s.presenceHeroSub}>{open ? 'برای ثبت خروج، موقعیت خود را بررسی کنید.' : 'خط و محدوده مجاز به‌صورت خودکار شناسایی می‌شود.'}</Text></View><View style={[s.presenceBadge,!open&&s.presenceBadgeIdle]}><Text style={[s.presenceBadgeText,!open&&{color:C.muted}]}>{open?'حاضر':'آماده ثبت'}</Text></View></View>
@@ -1005,7 +1005,7 @@ function CheckInCore() {
       </View>
 
       {/* نقشه */}
-      <TouchableOpacity style={s.refreshPosBtn} onPress={refreshMyLocation} disabled={refreshingPos}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="به‌روزرسانی موقعیت من" accessibilityState={{ disabled: refreshingPos }} style={s.refreshPosBtn} onPress={refreshMyLocation} disabled={refreshingPos}>
         <MaterialCommunityIcons name="crosshairs-gps" size={20} color={C.brand}/><Text style={s.refreshPosTxt}>{refreshingPos ? 'در حال یافتن موقعیت…' : 'به‌روزرسانی موقعیت من'}</Text>
       </TouchableOpacity>
       <View style={s.mapBox}>
@@ -1048,7 +1048,7 @@ function CheckInCore() {
       )}
 
       {/* یاداور ثبت خروج */}
-      <TouchableOpacity style={s.reminderCard} activeOpacity={0.82} onPress={() => setExitReminderEnabled(!exitReminder)}>
+      <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel="یادآور ثبت خروج پس از هشت ساعت" accessibilityState={{ checked: !!exitReminder }} style={s.reminderCard} activeOpacity={0.82} onPress={() => setExitReminderEnabled(!exitReminder)}>
         <View style={s.reminderTextWrap}>
           <Text style={s.reminderTitle}>یادآور ثبت خروج</Text>
           <Text style={s.reminderHint}>با فعال بودن این گزینه، پس از رسیدن کارکرد به ۸ ساعت هشدار و اعلان دریافت می‌کنید.</Text>
@@ -1073,7 +1073,7 @@ function CheckInCore() {
                 return !line || !allowed.length || allowed.includes(k);
               })
               .map(([k, t]) => (
-              <TouchableOpacity key={k} style={[s.mChip, method === k && s.mChipOn]} onPress={() => { setMethod(k); if (k === 'wifi') scanNearbyWifi().catch(() => {}); }}>
+              <TouchableOpacity key={k} accessibilityRole="radio" accessibilityLabel={t} accessibilityState={{ checked: method === k }} style={[s.mChip, method === k && s.mChipOn]} onPress={() => { setMethod(k); if (k === 'wifi') scanNearbyWifi().catch(() => {}); }}>
                 <Text style={[s.mChipTxt, method === k && s.mChipTxtOn]}>{t}</Text>
               </TouchableOpacity>
             ))}
@@ -1654,7 +1654,7 @@ const ss = StyleSheet.create({
 
 function CheckInScreen(){
   const [tab,setTab]=useState('checkin');
-  return <View style={{flex:1,backgroundColor:C.paper}}><View style={s.checkTabs}>{[['checkin','ثبت حضور'],['performance','کارکرد روزانه'],['shift','شیفت کاری']].map(([k,l])=><TouchableOpacity key={k} style={[s.checkTab,tab===k&&s.checkTabOn]} onPress={()=>setTab(k)}><Text style={[s.checkTabTxt,tab===k&&s.checkTabTxtOn]}>{l}</Text></TouchableOpacity>)}</View>{tab==='checkin'?<CheckInCore/>:tab==='performance'?<CheckInPerformanceTab/>:<CheckInShiftTab/>}</View>;
+  return <View style={{flex:1,backgroundColor:C.paper}}><View style={s.checkTabs}>{[['checkin','ثبت حضور'],['performance','کارکرد روزانه'],['shift','شیفت کاری']].map(([k,l])=><TouchableOpacity key={k} accessibilityRole="tab" accessibilityLabel={l} accessibilityState={{ selected: tab===k }} style={[s.checkTab,tab===k&&s.checkTabOn]} onPress={()=>setTab(k)}><Text style={[s.checkTabTxt,tab===k&&s.checkTabTxtOn]}>{l}</Text></TouchableOpacity>)}</View>{tab==='checkin'?<CheckInCore/>:tab==='performance'?<CheckInPerformanceTab/>:<CheckInShiftTab/>}</View>;
 }
 
 export default CheckInScreen;
