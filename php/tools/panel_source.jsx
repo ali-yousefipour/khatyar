@@ -9784,6 +9784,7 @@ function buildFintoInvoiceHtml(invoice,seller){
   const number=v=>Number(v||0).toLocaleString("fa-IR");
   const buyer=typeof invoice.company_snapshot==="string"?JSON.parse(invoice.company_snapshot||"{}"):invoice.company_snapshot||{};
   const signer=(typeof invoice.signer_snapshot==="string"?JSON.parse(invoice.signer_snapshot||"null"):invoice.signer_snapshot)||buyer._invoice_signer||null;
+  const signatureSrc=buyer._include_signature_image===false?"":(signer?.signature_data||"/assets/invoices/sample-signature.jpg");
   const items=typeof invoice.line_items==="string"?JSON.parse(invoice.line_items||"[]"):invoice.line_items||[];
   const label=(title,value)=>`<span><b>${title}:</b> ${esc(digits(value||" "))}</span>`;
   const party=(title,entity,isSeller)=>`<section class="party"><h2>${title}</h2><div class="party-grid">
@@ -9809,23 +9810,23 @@ function buildFintoInvoiceHtml(invoice,seller){
   ${party("مشخصات فروشنده",seller,true)}${party("مشخصات خریدار",buyer,false)}<h2 class="section-heading">مشخصات کالا یا خدمات مورد معامله</h2>
   <table><thead><tr><th>ردیف</th><th>کد کالا</th><th>شرح کالا یا خدمات</th><th>تعداد/مقدار</th><th>واحد اندازه‌گیری</th><th>مبلغ واحد (ریال)</th><th>مبلغ کل (ریال)</th><th>مبلغ تخفیف</th><th>مبلغ کل پس از تخفیف (ریال)</th><th>جمع عوارض و مالیات (ریال)</th><th>مبلغ کل بعلاوه مالیات و عوارض (ریال)</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="6" class="words">جمع کل به حروف: —</td><td>${number(subtotal)}</td><td>${number(discount)}</td><td>${number(subtotal-discount)}</td><td>${number(tax)}</td><td>${number(invoice.total_rial)}</td></tr></tfoot></table>
   <div class="conditions"><div>شرایط و نحوه فروش: نقدی ☐　غیرنقدی ☐</div><div>توضیحات: ${esc(invoice.description||"")}</div></div>
-  <div class="signatures"><span>مهر و امضای فروشنده:${signer?`<b class="signature-person">${esc(signer.full_name)}</b><small class="signature-role">${esc(signer.job_title||"")}</small>`:""}<img class="signature-sample" src="/assets/invoices/sample-signature.jpg" alt="نمونه امضا"><small class="signature-caption">تصویر نمونه امضا</small></span><span>مهر و امضای خریدار:</span></div><div class="disclaimer">این فاکتور داخلی است و جایگزین صورتحساب الکترونیکی سامانه مؤدیان نیست.</div><div class="actions"><button onclick="window.print()">چاپ / ذخیره PDF</button></div></body></html>`;
+  <div class="signatures"><span>مهر و امضای فروشنده:${signer?`<b class="signature-person">${esc(signer.full_name)}</b><small class="signature-role">${esc(signer.job_title||"")}</small>`:""}${signatureSrc?`<img class="signature-sample" src="${esc(signatureSrc)}" alt="تصویر امضا"><small class="signature-caption">${signer?.signature_data?"تصویر امضای انتخاب‌شده":"تصویر نمونه امضا"}</small>`:""}</span><span>مهر و امضای خریدار:</span></div><div class="disclaimer">این فاکتور داخلی است و جایگزین صورتحساب الکترونیکی سامانه مؤدیان نیست.</div><div class="actions"><button onclick="window.print()">چاپ / ذخیره PDF</button></div></body></html>`;
 }
 function SubscriptionInvoicesAdmin(){
-  const [invoiceTab,setInvoiceTab]=useState("standard");
+  const [invoiceTab,setInvoiceTab]=useState("finto");
   const [companyNotice,setCompanyNotice]=useState("");
   const [seller,setSeller]=useState(()=>{try{return JSON.parse(localStorage.getItem("khatyar.finto.invoice.seller.v1")||"{}")||{};}catch(_){return {};}});
   const updateSeller=(key,value)=>setSeller(prev=>{const next={...prev,[key]:value};try{localStorage.setItem("khatyar.finto.invoice.seller.v1",JSON.stringify(next));}catch(_){}return next;});
   const [companies,setCompanies]=useState([]);
   const [signers,setSigners]=useState([]);
-  const [signerForm,setSignerForm]=useState({id:"",full_name:"",job_title:""});
+  const [signerForm,setSignerForm]=useState({id:"",full_name:"",job_title:"",signature_data:""});
   const [invoices,setInvoices]=useState([]);
   const [error,setError]=useState("");
   const [busy,setBusy]=useState(false);
   const [filter,setFilter]=useState("");
   const [activeInvoice,setActiveInvoice]=useState(null);
   const [companyForm,setCompanyForm]=useState({company_name:"",national_id:"",economic_code:"",phone:"",address:""});
-  const [draft,setDraft]=useState({company_id:"",signer_id:"",issued_date:(()=>{const t=todayJ();return String(t[0])+"-"+String(t[1]).padStart(2,"0")+"-"+String(t[2]).padStart(2,"0");})(),due_date:"",description:"اشتراک سامانه خطیار",discount_rial:"0",tax_percent:"0",items:[{title:"حق اشتراک سامانه خطیار (ماهانه)",quantity:1,unit_price_rial:"0"}]});
+  const [draft,setDraft]=useState({company_id:"",signer_id:"",include_signature_image:true,issued_date:(()=>{const t=todayJ();return String(t[0])+"-"+String(t[1]).padStart(2,"0")+"-"+String(t[2]).padStart(2,"0");})(),due_date:"",description:"اشتراک سامانه خطیار",discount_rial:"0",tax_percent:"0",items:[{title:"حق اشتراک سامانه خطیار (ماهانه)",quantity:1,unit_price_rial:"0"}]});
   const money=v=>fa(Number(v||0).toLocaleString("en-US"))+" ریال";
   const refresh=async()=>{
     try{
@@ -9839,11 +9840,19 @@ function SubscriptionInvoicesAdmin(){
     setBusy(true);
     try{
       const path=signerForm.id?"/admin/invoice-signers/"+signerForm.id:"/admin/invoice-signers";
-      const result=await SEND("POST",path,{full_name:signerForm.full_name,job_title:signerForm.job_title});
+      const result=await SEND("POST",path,{full_name:signerForm.full_name,job_title:signerForm.job_title,signature_data:signerForm.signature_data});
       const id=signerForm.id||result.id;
       setSigners(await GET("/admin/invoice-signers"));setDraft(prev=>({...prev,signer_id:String(id)}));
-      setSignerForm({id:"",full_name:"",job_title:""});setError("");
+      setSignerForm({id:"",full_name:"",job_title:"",signature_data:""});setError("");
     }catch(e){setError(e.message||"ذخیره امضاکننده انجام نشد");}finally{setBusy(false);}
+  };
+  const uploadSignerSignature=file=>{
+    if(!file)return;
+    if(!["image/png","image/jpeg","image/webp"].includes(file.type)||file.size>150000){setError("تصویر امضا باید JPG، PNG یا WebP و حداکثر ۱۵۰ کیلوبایت باشد.");return;}
+    const reader=new FileReader();
+    reader.onload=()=>{if(typeof reader.result==="string")setSignerForm(prev=>({...prev,signature_data:reader.result}));setError("");};
+    reader.onerror=()=>setError("خواندن تصویر امضا انجام نشد.");
+    reader.readAsDataURL(file);
   };
   const updateItem=(i,key,value)=>setDraft(prev=>({...prev,items:prev.items.map((v,n)=>n===i?{...v,[key]:value}:v)}));
   const priceItems=draft.items.map(x=>Number(x.quantity||0)*Number(x.unit_price_rial||0));
@@ -9937,13 +9946,22 @@ function SubscriptionInvoicesAdmin(){
         <p className="muted">شخص انتخاب‌شده همراه با سمت او در فاکتور ذخیره می‌شود؛ ویرایش بعدی مشخصات، فاکتورهای قبلی را تغییر نمی‌دهد.</p>
         <div className="row" style={{gap:9,flexWrap:"wrap",alignItems:"end"}}>
           <label style={{flex:"1 1 220px"}}>انتخاب امضاکننده<select className="input" style={{width:"100%"}} value={draft.signer_id} onChange={e=>setDraft({...draft,signer_id:e.target.value})}><option value="">بدون نام امضاکننده</option>{signers.map(s=><option key={s.id} value={s.id}>{s.full_name}{s.job_title?" · "+s.job_title:""}</option>)}</select></label>
-          <button type="button" className="btn g" disabled={!draft.signer_id} onClick={()=>{const s=signers.find(s=>String(s.id)===String(draft.signer_id));if(s)setSignerForm({id:String(s.id),full_name:s.full_name,job_title:s.job_title||""});}}>ویرایش شخص انتخاب‌شده</button>
+          <button type="button" className="btn g" disabled={!draft.signer_id} onClick={()=>{const s=signers.find(s=>String(s.id)===String(draft.signer_id));if(s)setSignerForm({id:String(s.id),full_name:s.full_name,job_title:s.job_title||"",signature_data:s.signature_data||""});}}>ویرایش شخص انتخاب‌شده</button>
         </div>
         <div className="row" style={{gap:9,marginTop:10,flexWrap:"wrap",alignItems:"end"}}>
           {inp("نام و نام خانوادگی امضاکننده",signerForm.full_name,v=>setSignerForm({...signerForm,full_name:v}))}
           {inp("سمت / عنوان سازمانی",signerForm.job_title,v=>setSignerForm({...signerForm,job_title:v}))}
           <button type="button" className="btn p" disabled={busy} onClick={saveSigner}>{signerForm.id?"ذخیره ویرایش":"افزودن امضاکننده"}</button>
-          {signerForm.id&&<button type="button" className="btn g" onClick={()=>setSignerForm({id:"",full_name:"",job_title:""})}>انصراف</button>}
+          {signerForm.id&&<button type="button" className="btn g" onClick={()=>setSignerForm({id:"",full_name:"",job_title:"",signature_data:""})}>انصراف</button>}
+        </div>
+        <div className="row" style={{gap:14,marginTop:14,flexWrap:"wrap",alignItems:"center"}}>
+          <div style={{width:170,minHeight:125,background:"#fff",border:"1px solid var(--line)",borderRadius:10,padding:8,textAlign:"center"}}><img src={signerForm.signature_data||(signers.find(s=>String(s.id)===String(draft.signer_id))?.signature_data)||"/assets/invoices/sample-signature.jpg"} alt="پیش‌نمایش تصویر امضای فروشنده" style={{maxWidth:"100%",height:85,objectFit:"contain"}}/><div className="muted" style={{fontSize:11}}>پیش‌نمایش امضا</div></div>
+          <div style={{display:"grid",gap:8,flex:"1 1 260px"}}>
+            <label style={{display:"grid",gap:5}}><b>بارگذاری تصویر امضای شخص</b><input className="input" type="file" accept="image/png,image/jpeg,image/webp" aria-label="انتخاب تصویر امضا" onChange={e=>uploadSignerSignature(e.target.files?.[0])}/></label>
+            <span className="muted" style={{fontSize:12}}>تصویر اختصاصی پس از «افزودن امضاکننده» یا «ذخیره ویرایش» ثبت می‌شود. در صورت نداشتن تصویر اختصاصی، نمونه ارسالی استفاده می‌شود.</span>
+            {signerForm.signature_data&&<button type="button" className="btn g" style={{justifySelf:"start"}} onClick={()=>setSignerForm(prev=>({...prev,signature_data:""}))}>حذف تصویر اختصاصی</button>}
+            <label style={{display:"flex",gap:8,alignItems:"center"}}><input type="checkbox" checked={draft.include_signature_image} onChange={e=>setDraft(prev=>({...prev,include_signature_image:e.target.checked}))}/><span>درج تصویر امضا در قالب چاپی فینتو</span></label>
+          </div>
         </div>
       </div>
       <div style={{overflowX:"auto",marginTop:12}}><table style={{width:"100%"}}><thead><tr><th>شرح خدمات</th><th>تعداد</th><th>مبلغ واحد (ریال)</th><th>جمع ردیف</th><th>عملیات</th></tr></thead>

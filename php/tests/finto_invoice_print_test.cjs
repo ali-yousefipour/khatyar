@@ -11,6 +11,8 @@ const invoice={invoice_number:'KH-00000042',issued_date:'1405-08-09',company_sna
 const html=context.print(invoice,{name:'فروشنده آزمون'});
 const signed=context.print({...invoice,signer_snapshot:JSON.stringify({id:4,full_name:'علی امضاکننده',job_title:'مدیر مالی'})},{name:'فروشنده آزمون'});
 const signedFromBuyer=context.print({...invoice,company_snapshot:{...invoice.company_snapshot,_invoice_signer:{id:5,full_name:'مسئول فروش',job_title:'مدیر اجرایی'}}},{name:'فروشنده آزمون'});
+const withoutImage=context.print({...invoice,company_snapshot:{...invoice.company_snapshot,_include_signature_image:false}},{name:'فروشنده آزمون'});
+const customImage=context.print({...invoice,company_snapshot:{...invoice.company_snapshot,_invoice_signer:{id:6,full_name:'امضاکننده اختصاصی',job_title:'مدیر',signature_data:'data:image/png;base64,dGVzdA=='},_include_signature_image:true}},{name:'فروشنده آزمون'});
 assert.match(html,/@page\{size:A4 landscape/);
 assert.match(html,/صورتحساب فروش کالا و خدمات/);
 assert.match(html,/مشخصات فروشنده/);
@@ -19,6 +21,8 @@ assert.match(html,/مهر و امضای خریدار/);
 assert.match(signed,/علی امضاکننده/);
 assert.match(signed,/مدیر مالی/);
 assert.match(signedFromBuyer,/مسئول فروش/);
+assert.match(customImage,/data:image\/png;base64,dGVzdA==/);
+assert.ok(!withoutImage.includes('<img class="signature-sample"'),'Invoice can omit signature image');
 assert.match(signed,/KH-۰۰۰۰۰۰۴۲/);
 assert.match(signed,/۱۴۰۵\/۰۸\/۰۹/);
 assert.match(signed,/InvoiceVazir/);

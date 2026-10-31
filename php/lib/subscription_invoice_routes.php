@@ -66,12 +66,20 @@ function kh_inv_signers(){
   $items=$row?json_decode($row['value']??'[]',true):[];
   return is_array($items)?array_values(array_filter($items,'is_array')):[];
 }
+function kh_inv_signature_data($value){
+  $value=(string)($value??'');
+  if($value==='')return '';
+  if(strlen($value)>210000||!preg_match('~^data:image/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$~D',$value,$matches))Http::error('تصویر امضا باید PNG، JPG یا WebP و کمتر از ۱۵۰ کیلوبایت باشد',422);
+  $decoded=base64_decode($matches[1],true);
+  if($decoded===false||strlen($decoded)>150000||strlen($decoded)<20)Http::error('تصویر امضا معتبر نیست',422);
+  return $value;
+}
 function kh_inv_signer($id){
   if(!$id)return null;
   $signer=null;
   foreach(kh_inv_signers() as $item){if((int)($item['id']??0)===(int)$id){$signer=$item;break;}}
   if(!$signer)Http::error('امضاکننده انتخاب‌شده معتبر نیست',422);
-  return ['id'=>(int)$signer['id'],'full_name'=>$signer['full_name'],'job_title'=>$signer['job_title']];
+  return ['id'=>(int)$signer['id'],'full_name'=>$signer['full_name'],'job_title'=>$signer['job_title'],'signature_data'=>kh_inv_signature_data($signer['signature_data']??'')];
 }
 route('GET','/api/admin/invoice-signers',static function($p,$b,$u){
   kh_invoice_schema();
@@ -80,6 +88,7 @@ route('GET','/api/admin/invoice-signers',static function($p,$b,$u){
 route('POST','/api/admin/invoice-signers',static function($p,$b,$u){
   kh_invoice_schema();
   $name=kh_inv_str($b['full_name']??'');$title=kh_inv_str($b['job_title']??'');
+  $signature=kh_inv_signature_data($b['signature_data']??'');
   if(mb_strlen($name)<2)Http::error('نام امضاکننده الزامی است',422);
   $pdo=Db::pdo();$pdo->beginTransaction();
   try{
@@ -87,7 +96,7 @@ route('POST','/api/admin/invoice-signers',static function($p,$b,$u){
     $row=Db::one("SELECT value FROM app_settings WHERE `key`='invoice_signers_v1' FOR UPDATE");
     $items=json_decode($row['value']??'[]',true);if(!is_array($items))$items=[];
     $id=max(array_map(static fn($s)=>(int)($s['id']??0),$items)?:[0])+1;
-    $items[]=['id'=>$id,'full_name'=>$name,'job_title'=>$title];
+    $items[]=['id'=>$id,'full_name'=>$name,'job_title'=>$title,'signature_data'=>$signature];
     Db::run("UPDATE app_settings SET `value`=? WHERE `key`='invoice_signers_v1'",[json_encode($items,JSON_UNESCAPED_UNICODE)]);
     $pdo->commit();
   }catch(Throwable $e){$pdo->rollBack();throw $e;}
@@ -96,13 +105,14 @@ route('POST','/api/admin/invoice-signers',static function($p,$b,$u){
 route('POST','/api/admin/invoice-signers/{id}',static function($p,$b,$u){
   kh_invoice_schema();
   $id=(int)($p['id']??0);$name=kh_inv_str($b['full_name']??'');$title=kh_inv_str($b['job_title']??'');
+  $signature=kh_inv_signature_data($b['signature_data']??'');
   if(mb_strlen($name)<2)Http::error('نام امضاکننده الزامی است',422);
   $pdo=Db::pdo();$pdo->beginTransaction();
   try{
     $row=Db::one("SELECT value FROM app_settings WHERE `key`='invoice_signers_v1' FOR UPDATE");
     $items=$row?json_decode($row['value']??'[]',true):[];
     if(!is_array($items))$items=[];$found=false;
-    foreach($items as &$item){if((int)($item['id']??0)===$id){$item['full_name']=$name;$item['job_title']=$title;$found=true;break;}}unset($item);
+    foreach($items as &$item){if((int)($item['id']??0)===$id){$item['full_name']=$name;$item['job_title']=$title;$item['signature_data']=$signature;$found=true;break;}}unset($item);
     if(!$found)Http::error('امضاکننده یافت نشد',404);
     Db::run("UPDATE app_settings SET `value`=? WHERE `key`='invoice_signers_v1'",[json_encode($items,JSON_UNESCAPED_UNICODE)]);
     $pdo->commit();
@@ -175,6 +185,7 @@ route('POST','/api/admin/subscription-invoices',static function($p,$b,$u){
   $pdo->beginTransaction();
   try{
     if($signer)$company['_invoice_signer']=$signer;
+    $company['_include_signature_image']=!empty($b['include_signature_image']);
     $id=Db::insert("INSERT INTO kh_subscription_invoices(company_id,company_snapshot,issued_date,due_date,description,line_items,subtotal_rial,discount_rial,tax_percent,tax_rial,total_rial,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",[
       $companyId,json_encode($company,JSON_UNESCAPED_UNICODE),$date,$due,kh_inv_str($b['description']??'',1000),
       json_encode($clean,JSON_UNESCAPED_UNICODE),$subtotal,$discount,$tax,$taxAmount,$total,(int)$u['id']

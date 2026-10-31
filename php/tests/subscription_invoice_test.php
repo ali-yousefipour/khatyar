@@ -29,6 +29,8 @@ foreach($expected as [$method,$path]){
 }
 if(kh_inv_rial('1200000')!==1200000)throw new RuntimeException('Correct invoice rial rejected');
 if(kh_inv_date('1405-08-05')!=='1405-08-05')throw new RuntimeException('Valid Jalali date rejected');
+if(kh_inv_signature_data('data:image/png;base64,'.base64_encode(str_repeat('x',32)))==='')throw new RuntimeException('Valid invoice signature rejected');
+try{kh_inv_signature_data('data:image/svg+xml;base64,'.base64_encode('<svg onload="alert(1)"/>'));throw new RuntimeException('SVG signature should be rejected');}catch(RuntimeException $e){if($e->getCode()!==422)throw $e;}
 foreach([['rial','-1'],['rial','1.25'],['rial','invalid'],['date','2026-10-27'],['date','1405-13-01']] as [$type,$value]){
  try{if($type==='rial')kh_inv_rial($value);else kh_inv_date($value);}
  catch(RuntimeException $e){if($e->getCode()===422)continue;throw $e;}
