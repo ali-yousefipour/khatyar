@@ -12,11 +12,10 @@ RewriteRule ^app\.html$ app-shell.php [QSA,L,NC]
 # لینک عمومی و اختصاصی فرم‌ها: /f/{slug} → صفحهٔ تکمیل فرم بدون نیاز به ورود به سامانه
 RewriteRule ^f/([a-zA-Z0-9]+)/?$ public-form.html?slug=$1 [QSA,L,NC]
 
-RewriteRule ^api/admin/role-app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
-RewriteRule ^api/my/app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
-# Mobile currently calls /my/app-items. It must use the Android-only permission
-# source as well; never let the main router's Web permissions gate Android.
-RewriteRule ^my/app-items/?$ api/unified-role-app-items.php [QSA,L,NC]
+# The canonical PHP Router serves /api/my/app-items and /api/admin/role-app-items.
+# Do not rewrite these to the legacy standalone endpoint: some host deployments
+# still contain an older file requiring a missing android_app_items.php library.
+RewriteRule ^my/app-items/?$ api/my/app-items [QSA,L,NC]
 RewriteRule ^api/my/sms-quota-v2/?$ api/my/sms-quota-v2.php [QSA,L,NC]
 RewriteRule ^my/sms-quota-v2/?$ api/my/sms-quota-v2.php [QSA,L,NC]
 RewriteRule ^api/radio-api\.php$ radio-api-v2.php [QSA,L,NC]
