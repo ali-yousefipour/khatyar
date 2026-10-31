@@ -10275,8 +10275,8 @@ function App(){
           <button className="navsec-head" onClick={()=>setOpenSections(cur=>cur[title]?{}:{[title]:true})} aria-expanded={open}>
             <span>{title}</span><span className="navsec-meta"><span className="navsec-count">{fa(ks.length)}</span><span className="nav-chevron">‹</span></span>
           </button>
-          <div className="navsec-body" style={{maxHeight:open?`${ks.length*60}px`:'0px',opacity:open?1:0}}>
-            {ks.map(k=><button key={k} title={VIEWS[k].t} aria-current={vk===k?"page":undefined} className={"navitem "+(vk===k?"on":"")} onClick={()=>closeOnPick(k)}><span className="ic">{I8(MENU_ICONS[k])}</span><span className="navlabel">{VIEWS[k].t}</span></button>)}
+          <div className="navsec-body" aria-hidden={!open} style={{maxHeight:open?`${ks.length*60}px`:'0px',opacity:open?1:0}}>
+            {ks.map(k=><button key={k} tabIndex={open?0:-1} title={VIEWS[k].t} aria-current={vk===k?"page":undefined} className={"navitem "+(vk===k?"on":"")} onClick={()=>closeOnPick(k)}><span className="ic">{I8(MENU_ICONS[k])}</span><span className="navlabel">{VIEWS[k].t}</span></button>)}
           </div>
         </div>); })}
         {menuQuery&&matchingMenuCount===0&&<p className="menu-empty" role="status">صفحه‌ای پیدا نشد. عبارت دیگری جستجو کنید.</p>}
@@ -10293,7 +10293,7 @@ function App(){
       <div id="panel-content" className="page-content" data-page={vk} tabIndex={-1}><View canNavigate={can}/></div></main></div>);
 }
 
-const PANEL_BUILD_VERSION = "1.5.10";
+const PANEL_BUILD_VERSION = "1.5.17";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
@@ -10319,7 +10319,7 @@ async function khForceFreshReloadAfterLogin(){
   const root = document.getElementById("root");
   if(!ok){ const loader=document.getElementById("kh-initial-loader"); if(loader) loader.classList.add("kh-loader-hide"); root.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px;font-family:Vazirmatn"><div><h2 style="color:#e23b54">اتصال به سرور برقرار نشد</h2><p style="color:#6b7890;max-width:420px;line-height:2">این پنل باید از آدرس سرور باز شود (مثل https://app.yousefipour.ir/). لطفاً آدرس <b>/api/health</b> را بررسی کنید و مطمئن شوید نصب کامل شده است.</p></div></div>'; return; }
   await khEnsureFreshBuild();
-  console.log("PANEL BUILD: 1.5.10 (update-min-version-policy)");
+  console.log("PANEL BUILD: 1.5.17 (ui-remaining-pages-polish)");
   ReactDOM.createRoot(root).render(<App/>); requestAnimationFrame(()=>requestAnimationFrame(()=>{const loader=document.getElementById("kh-initial-loader");if(loader)loader.classList.add("kh-loader-hide");}));
 })();
 

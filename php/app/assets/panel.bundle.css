@@ -1266,3 +1266,52 @@ table{font-size:13px}
   .subscription-invoice-page .row>label{min-width:0!important;flex:1 1 100%!important}
   .subscription-invoice-page input[type="file"]{font-size:12px}
 }
+
+/* Shared UX finish for remaining administrative workspaces: forms, tabs and tables. */
+.page-content{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.page-content :is(.panel,.grid2,.card,.filters,.row){min-width:0}
+.page-content .panel{border-color:var(--line);box-shadow:0 3px 15px rgba(16,46,43,.045)}
+.page-content .panel>h3:first-child,.page-content .panel>h4:first-child{line-height:1.75;letter-spacing:-.15px}
+.page-content .muted{line-height:1.85}
+.page-content :is(.btn,.tabbtn,.chip,button:not(.leaflet-control-zoom-in):not(.leaflet-control-zoom-out)){touch-action:manipulation}
+.page-content :is(.btn,.tabbtn,.chip):focus-visible,.page-content :is(input,select,textarea):focus-visible,
+.side :is(button,input):focus-visible,.burger:focus-visible{outline:3px solid #1589a0;outline-offset:2px}
+.page-content :is(input,select,textarea):disabled{color:#576b75;background:#f1f5f6;cursor:not-allowed}
+.page-content :is(.btn,.tabbtn,.chip):disabled{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none}
+.page-content .tabbar{scrollbar-width:thin;scrollbar-color:#b4c9c3 transparent;scroll-padding-inline:12px}
+.page-content .tabbtn{min-height:44px;line-height:1.5}
+.page-content .table-wrap{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
+.page-content .table-wrap:focus-visible{outline:3px solid #1589a0;outline-offset:2px}
+.page-content :is(th,td){line-height:1.7;vertical-align:middle}
+.page-content th{color:#254a46}
+.page-content .filters{gap:10px;align-items:end}
+.page-content .filters :is(input,select){min-height:42px}
+.page-content .admin-workspace-page .btn{min-height:44px}
+.page-content .admin-workspace-page :is(input,select,textarea){max-width:100%}
+.page-content .admin-workspace-page input[type=file]{padding:9px;min-height:44px}
+.page-content .admin-workspace-page :is(.row,.filters)>label{min-width:0}
+.page-content .admin-workspace-page .card-p{min-width:0;overflow-wrap:anywhere}
+.page-content .admin-workspace-page .card-p:focus-within{border-color:var(--brand)}
+.page-content .admin-workspace-page :is(.chiprow,.tabbar){gap:8px}
+.page-content .admin-workspace-page .chip{min-height:36px}
+.page-content .settings-tabs{max-width:1120px;width:100%}
+.page-content .settings-tabs .panel{min-width:0}
+.page-content .settings-tabs .settings-field{min-width:0}
+.page-content .settings-tabs :is(input,select,textarea){max-width:100%}
+.page-content .settings-tabs .row{align-items:center;gap:12px}
+.page-content .settings-tabs .tabbar{max-width:100%}
+@media(max-width:760px){
+  .page-content .admin-workspace-page{padding:14px}
+  .page-content .admin-workspace-page>.row{align-items:stretch}
+  .page-content .admin-workspace-page>.row>.btn{flex:1 1 135px;justify-content:center}
+  .page-content .filters>.btn{flex:1 1 135px;justify-content:center}
+  .page-content .admin-workspace-page :is(.input,select,textarea){min-width:0}
+  .page-content .table-wrap table{min-width:580px}
+  .page-content .tabbar{flex-wrap:nowrap;overflow-x:auto;padding:4px 2px 9px}
+  .page-content .tabbar .tabbtn{flex:0 0 auto;white-space:nowrap}
+}
+@media(max-width:400px){.page-content .panel{padding:12px}.page-content .filters>.btn{flex-basis:100%}}
+@media(prefers-reduced-motion:reduce){
+  .page-content :is(.btn,.tabbtn,.chip,.kpi,.card-p),.navitem,.navsec-body,.nav-chevron{transition:none!important;animation:none!important}
+  .page-content .btn:hover,.navitem:hover,.page-content .kpi:hover{transform:none!important}
+}
