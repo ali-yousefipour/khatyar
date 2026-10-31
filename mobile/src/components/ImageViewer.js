@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Image, TouchableOpacity, Text, StyleSheet, Dimensions, FlatList } from 'react-native';
+import { Modal, View, Image, TouchableOpacity, Text, StyleSheet, FlatList, useWindowDimensions } from 'react-native';
 import { imageSource } from '../api';
 import HistoricalMediaImage from './HistoricalMediaImage';
 
@@ -7,6 +7,7 @@ import HistoricalMediaImage from './HistoricalMediaImage';
 // ۱) تک‌تصویری قدیمی: <ImageViewer uri={...} visible={...} onClose={...} />
 // ۲) گالری چندتصویری: <ImageViewer images={[{uri,label},...]} initialIndex={0} visible={...} onClose={...} />
 export default function ImageViewer({ uri, images, initialIndex = 0, visible, onClose }) {
+  const { width, height } = useWindowDimensions();
   const list = (Array.isArray(images) && images.length > 0)
     ? images
     : (uri ? [{ uri, label: null }] : []);
@@ -18,21 +19,21 @@ export default function ImageViewer({ uri, images, initialIndex = 0, visible, on
   return (
     <Modal visible={!!visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={s.bg}>
-        <TouchableOpacity style={s.close} onPress={onClose}><Text style={s.closeTxt}>✕</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="بستن نمایشگر تصویر" style={s.close} onPress={onClose}><Text style={s.closeTxt}>✕</Text></TouchableOpacity>
         {list.length > 1 && (
           <View style={s.counter}><Text style={s.counterTxt}>{safeIndex + 1} / {list.length}</Text></View>
         )}
-        {!!current?.uri && <HistoricalMediaImage uri={current.uri} style={s.img} resizeMode="contain" />}
+        {!!current?.uri && <HistoricalMediaImage uri={current.uri} style={[s.img,{width,height:height*.72}]} resizeMode="contain" />}
         {!!current?.label && <Text style={s.label}>{current.label}</Text>}
         {list.length > 1 && (
           <>
             {safeIndex > 0 && (
-              <TouchableOpacity style={[s.nav, s.navLeft]} onPress={() => setIndex(safeIndex - 1)}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="تصویر قبلی" style={[s.nav, s.navLeft]} onPress={() => setIndex(safeIndex - 1)}>
                 <Text style={s.navTxt}>‹</Text>
               </TouchableOpacity>
             )}
             {safeIndex < list.length - 1 && (
-              <TouchableOpacity style={[s.nav, s.navRight]} onPress={() => setIndex(safeIndex + 1)}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="تصویر بعدی" style={[s.nav, s.navRight]} onPress={() => setIndex(safeIndex + 1)}>
                 <Text style={s.navTxt}>›</Text>
               </TouchableOpacity>
             )}
@@ -44,7 +45,7 @@ export default function ImageViewer({ uri, images, initialIndex = 0, visible, on
               style={s.thumbRow}
               contentContainerStyle={{ paddingHorizontal: 10 }}
               renderItem={({ item, index: i }) => (
-                <TouchableOpacity onPress={() => setIndex(i)} style={[s.thumbWrap, i === safeIndex && s.thumbActive]}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`نمایش تصویر ${i+1}`} accessibilityState={{selected:i===safeIndex}} onPress={() => setIndex(i)} style={[s.thumbWrap, i === safeIndex && s.thumbActive]}>
                   <Image source={imageSource(item.thumbnailUri || item.uri)} style={s.thumb} resizeMode="cover" />
                 </TouchableOpacity>
               )}
@@ -55,12 +56,11 @@ export default function ImageViewer({ uri, images, initialIndex = 0, visible, on
     </Modal>
   );
 }
-const { width, height } = Dimensions.get('window');
 const s = StyleSheet.create({
   bg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center' },
-  img: { width: width, height: height * 0.72 },
+  img: { maxWidth:'100%' },
   label: { color: '#fff', fontSize: 13, marginTop: 8, textAlign: 'center', paddingHorizontal: 20 },
-  close: { position: 'absolute', top: 44, left: 20, zIndex: 5, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+  close: { position: 'absolute', top: 44, left: 20, zIndex: 5, width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
   closeTxt: { color: '#fff', fontSize: 22, fontWeight: '700' },
   counter: { position: 'absolute', top: 44, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 6, zIndex: 5 },
   counterTxt: { color: '#fff', fontSize: 13, fontWeight: '700' },

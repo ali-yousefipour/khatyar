@@ -8690,6 +8690,14 @@ route('POST', '/api/reports/{id}/reject', function($p,$b,$u){
   return ['ok'=>true];
 });
 
+// The mobile print view uses exactly the report layout configured in the web panel.
+route('GET', '/api/reports/print-config', function($p,$b,$u){
+  return [
+    'template'=>_req_setting('report_print_template', []),
+    'org_title'=>_req_setting('org_title', ''),
+    'org_logo'=>_req_setting('org_logo', ''),
+  ];
+});
 route('GET', '/api/reports/{id}', function($p,$b,$u){
   _ensure_reports_index();
   $r = Db::one("SELECT r.*, us.first_name, us.last_name, us.signature_data sender_signature, COALESCE(ro.title,'') sender_role_title FROM reports r JOIN users us ON us.id=r.sender_id LEFT JOIN roles ro ON ro.id=us.role_id WHERE r.id=? AND r.deleted_at IS NULL", [$p['id']]);

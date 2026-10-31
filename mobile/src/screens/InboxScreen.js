@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Image, Switch, Linking } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Switch, Linking, useWindowDimensions } from 'react-native';
 import { request, imageSource, cachedValue } from '../api';
 import { C, FONT } from '../theme';
 import { fj, inJRange } from '../jdate';
@@ -10,6 +10,9 @@ import { refreshUnreadCounts } from '../unread';
 import ReportPersonPickerModal from '../components/ReportPersonPickerModal';
 import ReportTextModal from '../components/ReportTextModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { saveReportPdf } from '../reportPdf';
+import { reportMedia } from '../reportMedia';
+import ReportImageThumbnail from '../components/ReportImageThumbnail';
 
 const ST = { sent: 'جدید', seen: 'دیده‌شده', answered: 'پاسخ‌داده‌شده', forwarded: 'ارجاع‌شده', rejected: 'رد شده' };
 const PR = { normal: 'عادی', important: 'مهم', urgent: 'فوری' };
@@ -141,10 +144,12 @@ export function InboxReportsScreen({ navigation }) {
 
 export function ReportDetailScreen({ route, navigation }) {
   const { id, mine } = route.params || {};
+  const { width: screenWidth } = useWindowDimensions();
   const [r, setR] = useState(null);
   const [flow, setFlow] = useState([]);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const [confidentialForward, setConfidentialForward] = useState(false);
   const [targets, setTargets] = useState([]);
   const [showFwd, setShowFwd] = useState(false);
@@ -179,9 +184,17 @@ export function ReportDetailScreen({ route, navigation }) {
   // نمی‌شد، ولی در رندرهای بعدی اجرا می‌شد — دقیقاً همان خطای «Rendered more hooks than
   // during the previous render» که در گزارش خطا دیده شد.
   const fwdRoles = useMemo(() => Array.from(new Set(targets.map((t) => t.role_title).filter(Boolean))), [targets]);
+  const media = useMemo(() => reportMedia(r), [r]);
   if (!r) return <View style={s.center}>{detailLoading ? <ActivityIndicator color={C.brand} /> : <View style={{ margin: 20, padding: 20, alignItems: 'center' }}><Text style={{ fontFamily: FONT.regular, color: C.danger, textAlign: 'center', lineHeight: 24 }}>{loadError || 'جزئیات گزارش در دسترس نیست.'}</Text><TouchableOpacity accessibilityRole="button" onPress={load} style={{ marginTop: 16, padding: 12, backgroundColor: C.soft, borderRadius: 12 }}><Text style={{ fontFamily: FONT.bold, color: C.brand }}>تلاش مجدد</Text></TouchableOpacity></View>}</View>;
 
   const startEdit = () => { setESubject(r.subject || ''); setEBody(r.body || ''); setEPriority(r.priority || 'normal'); setEditing(true); };
+  const exportReportPdf = async () => {
+    if (pdfBusy) return;
+    setPdfBusy(true);
+    try { await saveReportPdf(id); }
+    catch (e) { Alert.alert('خروجی PDF', e?.message || 'ساخت خروجی گزارش ناموفق بود.'); }
+    finally { setPdfBusy(false); }
+  };
   const saveEdit = async () => {
     if (!eSubject.trim() || !eBody.trim()) return Alert.alert('خطا', 'موضوع و متن الزامی است.');
     setBusy(true);
@@ -255,45 +268,16 @@ export function ReportDetailScreen({ route, navigation }) {
           <Text style={s.title}>{r.subject}</Text>
           <Text style={s.meta}>از {r.first_name} {r.last_name} · {fj(r.created_at)} · اولویت: {PR[r.priority] || 'عادی'}</Text>
           <Text style={s.body}>{r.body}</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="دریافت PDF این گزارش با امضاها و یادداشت‌های گردش" disabled={pdfBusy} style={[s.btn,s.pdfButton,pdfBusy&&{opacity:.6}]} onPress={exportReportPdf}>
+            <MaterialCommunityIcons name="file-pdf-box" color="#fff" size={21}/><Text style={s.btnTxt}>{pdfBusy?'در حال ساخت PDF…':'دریافت PDF گزارش با امضا و یادداشت‌ها'}</Text>
+          </TouchableOpacity>
           {Number(r.confidential_history) === 1 ? <Text style={[s.hasAtt, { color: '#9a5b00', backgroundColor: '#fff8e8', padding: 8, borderRadius: 9 }]}>ارجاع محرمانه: سابقه و یادداشت‌های بعدی برای ارسال‌کننده مخفی است.</Text> : null}
           {r.can_edit ? <TouchableOpacity style={s.archBtn} onPress={startEdit}><Text style={s.archTxt}>✎ ویرایش گزارش</Text></TouchableOpacity> : null}
           {(mine || !r.can_edit) ? <TouchableOpacity style={[s.archBtn, { backgroundColor: '#ffecec' }]} onPress={() => { setRejectReason(''); setTextModalMode('delete'); }}><Text style={[s.archTxt, { color: C.danger }]}>🗑 حذف گزارش</Text></TouchableOpacity> : null}
         </>)}
         {(() => {
-          const primaryUrl = r.attachment_url || r.attachment_data;
-          const primaryName = String(r.attachment_name || '');
-          const primaryIsPdf = /\.pdf$/i.test(primaryName);
-          const extra = Array.isArray(r.attachments) ? r.attachments.filter((a) => a && a.url) : [];
-
-          // پیوست‌های جدول report_attachments منبع اصلی هستند. برای تصویر از thumbnail
-          // استفاده می‌کنیم تا حتی یک پیوست نیز مانند چند پیوست پایدار و قابل‌نمایش باشد؛
-          // با لمس تصویر، فایل اصلی باز می‌شود.
-          const attachmentImages = extra
-            .filter((a) => String(a.mime_type || '').toLowerCase().startsWith('image/'))
-            .map((a) => ({
-              uri: a.thumbnail_url || a.url,
-              openUri: a.url,
-              label: a.file_name || null,
-            }));
-
-          const attachmentFiles = extra
-            .filter((a) => !String(a.mime_type || '').toLowerCase().startsWith('image/'))
-            .map((a) => ({
-              uri: a.url,
-              label: a.file_name || 'پیوست',
-              mimeType: a.mime_type || '',
-            }));
-
-          // سازگاری با گزارش‌های قدیمی که هنوز پیوست را در ستون اصلی نگه می‌دارند.
-          const legacyImage = primaryUrl && !primaryIsPdf && !attachmentImages.length
-            ? [{ uri: primaryUrl, openUri: primaryUrl, label: primaryName || null }]
-            : [];
-          const gallery = [...legacyImage, ...attachmentImages];
-
-          const legacyPdf = primaryUrl && primaryIsPdf
-            ? [{ uri: primaryUrl, label: primaryName || 'فایل PDF', mimeType: 'application/pdf' }]
-            : [];
-          const files = [...legacyPdf, ...attachmentFiles];
+          const gallery = media.images;
+          const files = media.files;
 
           const openFile = async (url) => {
             if (!url) return Alert.alert('پیوست', 'نشانی پیوست در دسترس نیست.');
@@ -314,17 +298,10 @@ export function ReportDetailScreen({ route, navigation }) {
                       ? `پیوست‌ها (${gallery.length} تصویر — برای نمایش کامل لمس کنید):`
                       : 'پیوست تصویر (برای نمایش کامل لمس کنید):'}
                   </Text>
-                  <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                  <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 6, width:'100%' }}>
                     {gallery.map((g, i) => (
-                      <TouchableOpacity key={i} onPress={() => openFile(g.openUri || g.uri)}>
-                        <Image
-                          source={imageSource(g.uri)}
-                          style={gallery.length > 1
-                            ? { width: 104, height: 104, borderRadius: 12 }
-                            : { width: '100%', height: 200, borderRadius: 12 }}
-                          resizeMode="cover"
-                        />
-                      </TouchableOpacity>
+                      <ReportImageThumbnail key={`${g.uri}-${i}`} item={g} onPress={()=>{setViewerIndex(i);setViewer(true);}}
+                        style={gallery.length > 1 ? {width:104,height:104} : {width:'100%',height:Math.min(220,Math.max(160,screenWidth*.48))}} />
                     ))}
                   </View>
                 </View>
@@ -416,10 +393,7 @@ export function ReportDetailScreen({ route, navigation }) {
       <ImageViewer
         visible={viewer}
         initialIndex={viewerIndex}
-        images={[
-          ...((r.attachment_url || r.attachment_data) ? [{ uri: r.attachment_url || r.attachment_data, label: null }] : []),
-          ...((Array.isArray(r.attachments) ? r.attachments : []).filter((a) => !a.mime_type || String(a.mime_type).startsWith('image')).map((a) => ({ uri: a.url, thumbnailUri: a.thumbnail_url || a.url, label: a.file_name || null }))),
-        ]}
+        images={media.images}
         onClose={() => setViewer(false)}
       />
     </ScrollView>
@@ -459,6 +433,7 @@ const s = StyleSheet.create({
   btnGhost: { backgroundColor: '#eef1f7', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
   btnGhostTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 13 },
   btn: { backgroundColor: C.brand, borderRadius: 12, paddingVertical: 13, alignItems: 'center', marginTop: 8 },
+  pdfButton: { flexDirection:'row-reverse',justifyContent:'center',gap:8,minHeight:48,paddingHorizontal:12 },
   btnTxt: { fontFamily: FONT.bold, color: '#fff', fontSize: 14 },
   archBtn: { marginTop: 10, alignSelf: 'flex-start', flexDirection:'row-reverse',alignItems:'center',gap:6,backgroundColor: '#eaf5ef', borderRadius: 11, minHeight: 48, paddingVertical: 9, paddingHorizontal: 14 },
   archTxt: { fontFamily: FONT.bold, color: C.slate, fontSize: 11.5 },

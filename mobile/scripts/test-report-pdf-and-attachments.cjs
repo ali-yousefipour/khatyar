@@ -1,0 +1,34 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const root = path.resolve(__dirname, '../src');
+const mediaSource = fs.readFileSync(path.join(root,'reportMedia.js'),'utf8');
+const sandbox = {};
+vm.runInNewContext(mediaSource.replace('export function reportMedia','function reportMedia')+'\nthis.reportMedia=reportMedia;',sandbox);
+
+const one = sandbox.reportMedia({attachment_url:'/api/media?path=old.jpg',attachment_name:'old.jpg'});
+assert.equal(one.images.length,1,'Legacy single image should be visible');
+assert.equal(one.images[0].uri,'/api/media?path=old.jpg');
+const modern = sandbox.reportMedia({attachments:[{file_name:'photo.jpg',mime_type:'image/jpeg',url:'/api/media?path=full',thumbnail_url:'/api/media?path=thumb'}]});
+assert.equal(modern.images.length,1,'Modern single image should be visible');
+assert.equal(modern.images[0].thumbnailUri,'/api/media?path=thumb');
+const duplicated = sandbox.reportMedia({attachment_url:'old',attachment_name:'same.jpg',attachments:[{file_name:'same.jpg',mime_type:'image/jpeg',url:'new'}]});
+assert.equal(duplicated.images.length,1,'Legacy image duplicated in attachment table should render once');
+const pdf = sandbox.reportMedia({attachment_data:'data:application/pdf;base64,abcd',attachment_name:'report.pdf'});
+assert.equal(pdf.files.length,1,'Legacy PDF remains downloadable');
+
+const screen = fs.readFileSync(path.join(root,'screens/InboxScreen.js'),'utf8');
+const print = fs.readFileSync(path.join(root,'reportPdf.js'),'utf8');
+const routes = fs.readFileSync(path.resolve(root,'../../php/lib/routes.php'),'utf8');
+assert.match(screen,/ReportImageThumbnail/);
+assert.match(screen,/setViewerIndex\(i\);setViewer\(true\)/);
+assert.match(screen,/images=\{media.images\}/);
+assert.match(screen,/saveReportPdf\(id\)/);
+assert.match(print,/request\('\/reports\/print-config'/);
+assert.match(print,/r\.history_hidden_for_sender/);
+assert.match(print,/x\.a_signature/);
+assert.match(print,/x\.note/);
+assert.match(print,/source.headers\|\|\{\}/);
+assert.match(routes,/route\('GET', '\/api\/reports\/print-config'/);
+console.log('PASS report PDF and attachments: one/multiple/duplicate, modal, template, signatures, and notes');
