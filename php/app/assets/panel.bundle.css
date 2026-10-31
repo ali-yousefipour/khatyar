@@ -1210,3 +1210,21 @@ table{font-size:13px}
 .pva-assets-empty{padding:35px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.9;border:1px dashed #c9dfd4;border-radius:12px}
 @media(max-width:850px){.pva-assets-workspace{grid-template-columns:minmax(0,1fr)}.pva-assets-list{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));max-height:330px}.pva-assets-detail{padding:11px}}
 @media(max-width:640px){.pva-assets-hero{padding:15px}.pva-assets-hero h3{font-size:18px}.pva-assets-hero>.btn{width:100%}.pva-assets-tabs .btn{flex:1 1 140px}.pva-assets-toolbar label{max-width:none;flex:1 1 100%}.pva-assets-toolbar .btn{flex:1 1 110px}.pva-assets-list{grid-template-columns:minmax(0,1fr);max-height:310px}}
+
+/* Invoice workspace: readable form controls and a stable compact layout. */
+.subscription-invoice-page{min-width:0}
+.subscription-invoice-page>.panel{min-width:0;margin-bottom:18px}
+.subscription-invoice-page>.panel>h3,.subscription-invoice-page>.panel>h4{margin-bottom:10px}
+.subscription-invoice-page label{line-height:1.8}
+.subscription-invoice-page .input{min-height:44px;font-size:13px}
+.subscription-invoice-page input[type="number"]{direction:ltr;text-align:center;font-variant-numeric:tabular-nums}
+.subscription-invoice-page input[type="file"]{height:auto;max-width:100%;padding:8px}
+.subscription-invoice-page .invoice-format-switch .btn{min-height:44px}
+.subscription-invoice-page table{min-width:640px}
+.subscription-invoice-page table .btn{min-height:40px}
+@media(max-width:640px){
+  .subscription-invoice-page>.panel{padding:14px}
+  .subscription-invoice-page .invoice-format-switch .btn{flex:1 1 160px}
+  .subscription-invoice-page .row>label{min-width:0!important;flex:1 1 100%!important}
+  .subscription-invoice-page input[type="file"]{font-size:12px}
+}

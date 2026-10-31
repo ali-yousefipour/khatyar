@@ -9925,8 +9925,8 @@ function SubscriptionInvoicesAdmin(){
   };
   const inp=(label,value,onChange,type="text")=><label style={{display:"grid",gap:4,minWidth:160,flex:"1 1 170px"}}><span className="muted" style={{fontSize:12}}>{label}</span><input className="input" type={type} value={value??""} onChange={e=>onChange(e.target.value)}/></label>;
   const statusFa={unpaid:"پرداخت‌نشده",paid:"پرداخت‌شده",cancelled:"باطل‌شده"};
-  return <div className="admin-workspace-page" style={{direction:"rtl"}}>
-    <div className="panel"><div role="tablist" aria-label="قالب صدور فاکتور" className="row" style={{gap:10,flexWrap:"wrap"}}><button type="button" role="tab" aria-selected={invoiceTab==="standard"} className={invoiceTab==="standard"?"btn p":"btn g"} onClick={()=>setInvoiceTab("standard")}>فاکتور معمولی</button><button type="button" role="tab" aria-selected={invoiceTab==="finto"} className={invoiceTab==="finto"?"btn p":"btn g"} onClick={()=>setInvoiceTab("finto")}>فاکتور با قالب فینتو</button></div>
+  return <div className="admin-workspace-page subscription-invoice-page" style={{direction:"rtl"}}>
+    <div className="panel"><div role="group" aria-label="قالب صدور فاکتور" className="row invoice-format-switch" style={{gap:10,flexWrap:"wrap"}}><button type="button" aria-pressed={invoiceTab==="standard"} className={invoiceTab==="standard"?"btn p":"btn g"} onClick={()=>setInvoiceTab("standard")}>فاکتور معمولی</button><button type="button" aria-pressed={invoiceTab==="finto"} className={invoiceTab==="finto"?"btn p":"btn g"} onClick={()=>setInvoiceTab("finto")}>فاکتور با قالب فینتو</button></div>
       {invoiceTab==="finto"&&<div style={{marginTop:14}}><h4>مشخصات فروشنده در قالب فینتو</h4><p className="muted">مشخصات فروشنده فقط در این مرورگر ذخیره می‌شوند. اطلاعات حقیقی یا حقوقی را مطابق مدارک خود وارد کنید؛ خانه‌های خالی در چاپ خالی می‌مانند.</p><div className="row" style={{gap:9,flexWrap:"wrap"}}>{[["name","نام شخص حقیقی/حقوقی"],["economic_code","شماره اقتصادی"],["registration_number","شماره ثبت"],["national_id","شناسه ملی"],["postal_code","کدپستی"],["province","استان"],["city","شهر"],["phone","شماره تلفن"],["address","نشانی کامل"]].map(([key,title])=><label key={key} style={{display:"grid",gap:4,flex:"1 1 190px"}}><span className="muted">{title}</span><input className="input" value={seller[key]||""} onChange={e=>updateSeller(key,e.target.value)}/></label>)}</div><p className="muted" style={{marginTop:10}}>برای چاپ، از دکمه «نمایش و چاپ» کنار هر فاکتور در پایین صفحه استفاده کنید؛ اندازهٔ کاغذ A4 و جهت افقی است.</p></div>}
     </div>
     <div className="panel"><h3>صدور فاکتور فروش اشتراک خطیار</h3>
@@ -9975,10 +9975,10 @@ function SubscriptionInvoicesAdmin(){
         </div>
       </div>
       <div style={{overflowX:"auto",marginTop:12}}><table style={{width:"100%"}}><thead><tr><th>شرح خدمات</th><th>تعداد</th><th>مبلغ واحد (ریال)</th><th>جمع ردیف</th><th>عملیات</th></tr></thead>
-        <tbody>{draft.items.map((x,i)=><tr key={i}><td><input className="input" style={{minWidth:210}} value={x.title} onChange={e=>updateItem(i,"title",e.target.value)}/></td>
-          <td><input className="input" style={{width:85}} type="number" min="1" max="10000" value={x.quantity} onChange={e=>updateItem(i,"quantity",e.target.value)}/></td>
-          <td><input className="input" style={{minWidth:140}} type="number" min="0" step="1" value={x.unit_price_rial} onChange={e=>updateItem(i,"unit_price_rial",e.target.value)}/></td>
-          <td>{money(priceItems[i])}</td><td><button type="button" className="btn g" disabled={draft.items.length===1} onClick={()=>setDraft({...draft,items:draft.items.filter((_,n)=>n!==i)})}>حذف</button></td></tr>)}</tbody></table></div>
+        <tbody>{draft.items.map((x,i)=><tr key={i}><td><input aria-label={`شرح خدمات ردیف ${i+1}`} className="input" style={{minWidth:210}} value={x.title} onChange={e=>updateItem(i,"title",e.target.value)}/></td>
+          <td><input aria-label={`تعداد ردیف ${i+1}`} className="input" style={{width:85}} type="number" min="1" max="10000" value={x.quantity} onChange={e=>updateItem(i,"quantity",e.target.value)}/></td>
+          <td><input aria-label={`مبلغ واحد ردیف ${i+1} به ریال`} className="input" style={{minWidth:140}} type="number" min="0" step="1" value={x.unit_price_rial} onChange={e=>updateItem(i,"unit_price_rial",e.target.value)}/></td>
+          <td>{money(priceItems[i])}</td><td><button type="button" aria-label={`حذف ردیف ${i+1}`} className="btn g" disabled={draft.items.length===1} onClick={()=>setDraft({...draft,items:draft.items.filter((_,n)=>n!==i)})}>حذف</button></td></tr>)}</tbody></table></div>
       <button type="button" className="btn g" disabled={draft.items.length>=30} onClick={()=>setDraft({...draft,items:[...draft.items,{title:"",quantity:1,unit_price_rial:"0"}]})}>افزودن ردیف</button>
       <div className="row" style={{marginTop:14,gap:9,flexWrap:"wrap"}}>
         {inp("تخفیف (ریال)",draft.discount_rial,v=>setDraft({...draft,discount_rial:v}),"number")}
