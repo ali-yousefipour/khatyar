@@ -1,6 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { request } from './api';
-import { digitsOnly, buildTaxiPlate12 } from './ocr';
+// Manual/offline plate search does not depend on the removed camera OCR scanner.
+const digitsOnly = value => String(value ?? '').replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[^0-9]/g, '');
+const buildTaxiPlate12 = (first, middle) => {
+  const a = digitsOnly(first).slice(0, 2), b = digitsOnly(middle).slice(0, 3);
+  return a.length === 2 && b.length === 3 ? `${a}ت${b}-12` : null;
+};
 const KEY = 'search_cache_v1';
 function todayKey() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; }
 export async function refreshSearchCache(force = false) {

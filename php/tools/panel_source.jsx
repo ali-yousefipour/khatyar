@@ -10065,7 +10065,6 @@ const VIEWS={
   zones:{t:"منطقه‌بندی نیروها",ic:"⬡",c:Zones},
   org:{t:"چارت سازمانی",ic:"⤢",c:OrgChart},
   drivers:{t:"رانندگان و خودروها",ic:"<img>",c:Drivers},
-  platetraining:{t:"پلاک‌خوان",ic:"🔎",c:PlateTrainingPanel},
   driverservicereport:{t:"عملکرد و تذکرات تاکسیران",ic:"📈",c:DriverServiceReport},
   lines:{t:"خطوط تاکسیرانی",ic:"⇄",c:Lines},
   bills:{t:"آبونمان و فیش‌ها",ic:"₪",c:Bills},
@@ -10112,7 +10111,7 @@ const VIEWS={
 
 const PANEL_MENU_SECTIONS=[
   ["داشبورد و نقشه",["dashboard","missiondashboard","citydashboard","map","present","presentchart"]],
-  ["بازرسی و خدمات",["officials","presence","covertselfies","outages","schoolservice","complaints","companyrequests","platetraining"]],
+  ["بازرسی و خدمات",["officials","presence","covertselfies","outages","schoolservice","complaints","companyrequests"]],
   ["تاکسی و خطوط",["drivers","tempdrivers","lines","bills"]],
   ["امور مالی و اشتراک",["subscriptioninvoices"]],
   ["گزارش‌ها و آمار",["reportscenter","monthlyworkreport","attreport","leavereport","perfreport","driverservicereport","reports","report","useract"]],

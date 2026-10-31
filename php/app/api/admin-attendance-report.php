@@ -318,7 +318,6 @@ try {
   require_once "$ROOT/lib/Sms.php";
   require_once "$ROOT/lib/Bale.php";
   require_once "$ROOT/lib/MessengerBots.php";
-  if (is_file("$ROOT/lib/CloudOcr.php")) require_once "$ROOT/lib/CloudOcr.php";
   require_once "$ROOT/lib/ShiftCalc.php";
   require_once "$ROOT/lib/Media.php";
   require_once "$ROOT/lib/XlsxWriter.php";

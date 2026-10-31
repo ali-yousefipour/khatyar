@@ -6,7 +6,6 @@ import { startOfflineQueueSync } from './offlineBootstrap';
 const extra = Constants.expoConfig?.extra || {};
 const BUILD_DEFAULT = extra.defaultApiBase || 'https://app.yousefipour.ir/api';
 export const FEATURES = {
-  ocr: extra.enableOcr !== false,
   bgTracking: extra.enableBgTracking !== false,
 };
 

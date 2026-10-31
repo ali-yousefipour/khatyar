@@ -15,7 +15,6 @@ register_shutdown_function(function () {
 if (!headers_sent() && extension_loaded('zlib') && !ini_get('zlib.output_compression')) { @ob_start('ob_gzhandler'); }
 $ROOT = __DIR__ . '/..';
 require "$ROOT/lib/Db.php"; require "$ROOT/lib/Jwt.php"; require "$ROOT/lib/Http.php"; require "$ROOT/lib/Push.php"; require "$ROOT/lib/Sms.php"; require "$ROOT/lib/Bale.php"; require "$ROOT/lib/MessengerBots.php";
-if (is_file("$ROOT/lib/CloudOcr.php")) require "$ROOT/lib/CloudOcr.php";
 require "$ROOT/lib/ShiftCalc.php"; require "$ROOT/lib/Media.php"; require "$ROOT/lib/XlsxWriter.php"; require "$ROOT/lib/Backup.php";
 if (is_file("$ROOT/lib/DeliveryQueue.php")) require "$ROOT/lib/DeliveryQueue.php";
 if (is_file("$ROOT/lib/SubstituteShift.php")) require "$ROOT/lib/SubstituteShift.php";

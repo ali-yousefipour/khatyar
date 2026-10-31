@@ -5764,38 +5764,6 @@ route('POST', '/api/admin/change-password', function($p, $b, $u) {
 });
 
 
-// ثبت نمونه آموزشی پلاک: تصویر برش‌خورده + مقدار صحیح، برای بهبود OCR پلاک‌های تاکسی ۱۲/ت
-route('POST', '/api/plate-scan-samples', function($p,$b,$u){
-  _ensure_plate_scan_samples();
-  $post = $_POST ?: [];
-  if (!is_array($b)) $b = [];
-  $data = array_merge($b, $post);
-  $corrected = _taxi12_plate_norm($data['corrected_plate'] ?? (($data['corrected_digits_2'] ?? '').'ت'.($data['corrected_digits_3'] ?? '').'-12'));
-  if (!$corrected) Http::error('پلاک اصلاح‌شده نامعتبر است', 400);
-  $detected = _taxi12_plate_norm($data['detected_plate'] ?? '') ?: null;
-  $d = _digits_only($corrected);
-  $detD = $detected ? _digits_only($detected) : '';
-  $cropPath = null; $origPath = null;
-  if (!empty($_FILES['crop']) && ($_FILES['crop']['error'] ?? 1) === 0) $cropPath = Media::saveUploadedFile($_FILES['crop'], 'plate_samples', 1100, 82);
-  if (!empty($_FILES['file']) && ($_FILES['file']['error'] ?? 1) === 0 && !$cropPath) $cropPath = Media::saveUploadedFile($_FILES['file'], 'plate_samples', 1100, 82);
-  if (!empty($_FILES['original']) && ($_FILES['original']['error'] ?? 1) === 0) $origPath = Media::saveUploadedFile($_FILES['original'], 'plate_samples_original', 1400, 75);
-  $veh = _vehicle_by_taxi12_plate($corrected);
-  $conf = isset($data['confidence']) && is_numeric($data['confidence']) ? (float)$data['confidence'] : null;
-  if ($conf !== null && $conf > 1) $conf = $conf / 100;
-  $eventAt = function_exists('_app_client_time') ? _app_client_time($data) : date('Y-m-d H:i:s');
-  $id = Db::insert("INSERT INTO plate_scan_samples(user_id,vehicle_id,original_image_path,crop_image_path,detected_plate,corrected_plate,detected_digits_2,detected_digits_3,corrected_digits_2,corrected_digits_3,fixed_letter,region_code,confidence,ocr_source,raw_text,status,client_time)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [
-      $u['id'], $veh['id'] ?? null, $origPath, $cropPath, $detected, $corrected,
-      $detD ? substr($detD,0,2) : substr(_digits_only($data['detected_digits_2'] ?? ''),0,2),
-      $detD ? substr($detD,2,3) : substr(_digits_only($data['detected_digits_3'] ?? ''),0,3),
-      substr($d,0,2), substr($d,2,3), 'ت', '12', $conf,
-      substr((string)($data['ocr_source'] ?? ''),0,80), substr((string)($data['raw_text'] ?? ''),0,10000),
-      'verified', $eventAt
-    ]);
-  return ['ok'=>true,'id'=>$id,'plate'=>$corrected,'vehicle_id'=>$veh['id'] ?? null,'crop_image'=> $cropPath ? '/api/media?path='.urlencode($cropPath) : null];
-}, false);
-
-
 route('GET', '/api/admin/plate-scan-samples', function($p,$b,$u){
   _ensure_plate_training();
   $plate = _taxi12_plate_norm($_GET['plate'] ?? '') ?: null;
@@ -12854,14 +12822,6 @@ route('GET', '/api/admin/phase7-part14/status', function($p,$b,$u){
   ],'remaining'=>['field_test_panel_on_final_domain','cdn_vendor_self_host_download_if_needed']];
 }, false, ADMIN);
 route('GET', '/api/project-version-v7p14', function($p,$b,$u){ return ['site_version'=>SITE_VERSION,'app_version'=>APP_VERSION,'phase'=>7,'part'=>14,'release_name'=>'Phase 7.15 - MySQL Import Upgrade and Plate OCR Settings']; }, true);
-route('POST', '/api/plate-ocr/cloud', function($p,$b,$u){
-  if (!class_exists('CloudOcr')) Http::error('ماژول OCR ابری نصب نشده است',500);
-  $image=(string)($b['image_base64']??''); if($image==='') Http::error('تصویر لازم است',400);
-  $kind=(string)($b['kind']??'plate'); if(!in_array($kind,['plate','national_id','text'],true)) $kind='text';
-  try { return CloudOcr::recognize($image,$kind); }
-  catch(Throwable $e){ Http::error($e->getMessage(),422); }
-}, false, 9);
-
 route('GET', '/api/project-version-v7p15', function($p,$b,$u){ return ['site_version'=>SITE_VERSION,'app_version'=>APP_VERSION,'phase'=>7,'part'=>15,'release_name'=>'Phase 7.15 - MySQL Import Upgrade and Plate OCR Settings','completed'=>['mysql_import_upgrade_sql'=>true,'safe_indexes'=>true,'plate_ocr_settings_visible'=>true]]; }, true);
 
 route('GET', '/api/project-version-v7p16', function($p,$b,$u){ return ['site_version'=>SITE_VERSION,'app_version'=>APP_VERSION,'phase'=>7,'part'=>16,'release_name'=>'Phase 7.16 - Plate Training Endpoint Stabilization']; }, true);
