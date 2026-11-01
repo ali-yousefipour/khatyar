@@ -744,6 +744,34 @@ route('GET', '/api/my/presence-random-schedule', function($p,$b,$u){
   return ['ok'=>true,'enabled'=>true,'attendance_id'=>(int)$open['id'],'items'=>_presence_random_schedule_payload($items)];
 });
 
+// Notify responsible levels 1-4 only when a saved verification is genuinely outside
+// every configured geofence of the submitting user's assigned lines.
+function _presence_outside_lines_bale_alert($checkId,$userId,$lat,$lng,$slot) {
+  try {
+    if (!is_numeric($lat) || !is_numeric($lng)) return;
+    $lat=(float)$lat; $lng=(float)$lng;
+    if (!is_finite($lat) || !is_finite($lng) || $lat < -90 || $lat > 90 || $lng < -180 || $lng > 180 || ($lat == 0.0 && $lng == 0.0)) return;
+    $lineIds=array_values(array_unique(array_map('intval',array_column(Db::all('SELECT line_id FROM user_lines WHERE user_id=?',[(int)$userId]),'line_id'))));
+    // No assigned lines or configured boundaries: do not make an ungrounded outside-area accusation.
+    if (!$lineIds) return;
+    $placeholders=implode(',',array_fill(0,count($lineIds),'?'));
+    $fenceCount=Db::one("SELECT COUNT(*) AS n FROM geofences WHERE line_id IN ($placeholders)",$lineIds);
+    if ((int)($fenceCount['n']??0)===0 || station_at_point($lat,$lng,$lineIds)!==null) return;
+    Db::run("CREATE TABLE IF NOT EXISTS presence_outside_bale_alerts (check_id BIGINT NOT NULL PRIMARY KEY, user_id INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // A unique check ID prevents a repeated submission from messaging management again.
+    $inserted=Db::run('INSERT IGNORE INTO presence_outside_bale_alerts(check_id,user_id) VALUES(?,?)',[(int)$checkId,(int)$userId]);
+    if (!$inserted) return;
+    $staff=Db::one('SELECT first_name,last_name FROM users WHERE id=?',[(int)$userId]);
+    $name=trim((string)($staff['first_name']??'').' '.(string)($staff['last_name']??''));
+    if ($name==='') $name='شناسه '.(int)$userId;
+    $time=date('H:i');
+    $body="⚠️ هشدار صحت‌سنجی خارج از محدوده خطوط مجاز\\nکاربر {$name} صحت‌سنجی حضور ساعت {$time} (بازه {$slot}) خود را خارج از خطوط تعریف‌شده و مجازش انجام داده است. برای بررسی صحت، تصاویر سلفی و خط را در پنل سایت بازبینی کنید.";
+    $managers=Db::all('SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 AND r.level BETWEEN 1 AND 4');
+    $recipients=array_values(array_unique(array_map('intval',array_column($managers,'id'))));
+    if ($recipients && class_exists('BaleBot')) BaleBot::sendToUserIds($recipients,'هشدار صحت‌سنجی خارج از خط',$body,'messages',['presence_check_id'=>(int)$checkId,'user_id'=>(int)$userId]);
+  } catch (Throwable $e) { error_log('presence outside-area Bale alert: '.$e->getMessage()); }
+}
+
 // ثبت صحت‌سنجی: سلفی + عکس خودروها + موقعیت
 route('POST', '/api/my/presence-check', function($p,$b,$u){
   $slot = $b['slot'] ?? '';
@@ -765,10 +793,12 @@ route('POST', '/api/my/presence-check', function($p,$b,$u){
   if ($ex) {
     Db::run("UPDATE presence_checks SET selfie_path=?, vehicles_photo_path=?, lat=?, lng=?, captured_at=NOW() WHERE id=?",
       [$_selfiePath, $_vehPath, $b['lat']??null, $b['lng']??null, $ex['id']]);
+    _presence_outside_lines_bale_alert((int)$ex['id'],(int)$u['id'],$b['lat']??null,$b['lng']??null,$slot);
     return ['ok'=>true, 'id'=>(int)$ex['id']];
   }
   $id = Db::insert("INSERT INTO presence_checks(user_id,slot,slot_date,selfie_path,vehicles_photo_path,lat,lng) VALUES(?,?,?,?,?,?,?)",
     [$u['id'],$slot,$date,$_selfiePath,$_vehPath,$b['lat']??null,$b['lng']??null]);
+  _presence_outside_lines_bale_alert((int)$id,(int)$u['id'],$b['lat']??null,$b['lng']??null,$slot);
   return ['ok'=>true, 'id'=>$id];
 });
 
