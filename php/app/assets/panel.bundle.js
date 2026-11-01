@@ -637,7 +637,9 @@ function JDate({ value, onChange, placeholder, jalali, yearFrom, yearTo, portal 
             const below = window.innerHeight - rect.bottom - 12;
             const above = rect.top - 12;
             const placeAbove = below < 380 && above > below;
-            setPopupStyle({ position: 'fixed', left, top: placeAbove ? 'auto' : rect.bottom + 7, bottom: placeAbove ? window.innerHeight - rect.top + 7 : 'auto', width, maxHeight: Math.max(180, (placeAbove ? above : below) - 9), overflowY: 'auto', zIndex: 2147483000 });
+            // The inline calendar defaults to right:0. Clear that anchor when portaled;
+            // otherwise RTL layout ignores `left` and pins the popup to the viewport edge.
+            setPopupStyle({ position: 'fixed', right: 'auto', left, top: placeAbove ? 'auto' : rect.bottom + 7, bottom: placeAbove ? window.innerHeight - rect.top + 7 : 'auto', width, maxHeight: Math.max(180, (placeAbove ? above : below) - 9), overflowY: 'auto', zIndex: 2147483000 });
         };
         position();
         window.addEventListener('resize', position);
