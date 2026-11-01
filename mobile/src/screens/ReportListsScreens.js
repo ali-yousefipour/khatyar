@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, TextInput, FlatList, Alert, Modal } from 'react-native';
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, TextInput, FlatList, Alert, Modal, Linking } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { request, cachedValue, imageSource } from '../api';
 import { C, FONT } from '../theme';
@@ -336,6 +336,23 @@ export function ExpTaxiScreen({ navigation }) {
   );
 }
 
+function teamDialNumber(value) {
+  const digits = String(value || '').replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+    .replace(/[\s()\-]/g, '');
+  return /^\+?[0-9]{10,15}$/.test(digits) ? digits : null;
+}
+
+async function callTeamMember(value) {
+  const number = teamDialNumber(value);
+  if (!number) return;
+  try {
+    await Linking.openURL('tel:' + number);
+  } catch (_error) {
+    Alert.alert('تماس امکان‌پذیر نیست', 'برنامه شماره‌گیر در این دستگاه در دسترس نیست.');
+  }
+}
+
 export function TeamReportScreen() {
   const [team, setTeam] = useState(null);
   const [teamBusy, setTeamBusy] = useState(false);
@@ -360,7 +377,7 @@ export function TeamReportScreen() {
   const statusOf = (m) => m.attendance_status || (m.is_present ? 'present' : 'absent');
   const groups = entries.map(([role, list]) => [role, list.filter((m) =>
     (filter === 'all' || statusOf(m) === filter) &&
-    (!query.trim() || [m.name, m.zone_name, m.role_title, ...(m.lines || [])].some((v) => String(v || '').includes(query.trim())))
+    (!query.trim() || [m.name, m.phone, m.zone_name, m.role_title, ...(m.lines || [])].some((v) => String(v || '').includes(query.trim())))
   )]).filter(([, list]) => list.length);
   const statusMeta = {
     present: { label: 'حاضر در شیفت', icon: 'check-circle', color: '#087c58', bg: '#e4f7ee' },
@@ -398,6 +415,12 @@ export function TeamReportScreen() {
           {list.map((m) => (
             <View key={m.id} style={tm.memberRow}>
               <View style={tm.personHead}><TeamMemberAvatar name={m.name} photo={m.photo}/><View style={{ flex: 1 }}><Text style={tm.memberName}>{m.name}</Text><Text style={tm.memberRole}>{[m.role_title, m.zone_name ? 'منطقه ' + m.zone_name : null].filter(Boolean).join(' · ')}</Text></View></View>
+              <View style={tm.contactRow}>
+                <View style={tm.contactInfo}><MaterialCommunityIcons name="cellphone" size={19} color={C.slate}/><Text style={tm.contactNumber}>{m.phone ? faNum(m.phone) : 'شماره همراه ثبت نشده'}</Text></View>
+                {teamDialNumber(m.phone) ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={`تماس با ${m.name}`} onPress={() => callTeamMember(m.phone)} style={tm.callButton} activeOpacity={0.75}>
+                  <MaterialCommunityIcons name="phone-outline" size={19} color="#fff"/><Text style={tm.callButtonText}>تماس</Text>
+                </TouchableOpacity> : null}
+              </View>
               <View style={[tm.statusTag, { backgroundColor: statusMeta[statusOf(m)]?.bg || statusMeta.absent.bg }]}><MaterialCommunityIcons name={statusMeta[statusOf(m)]?.icon || 'clock-outline'} size={16} color={statusMeta[statusOf(m)]?.color || C.slate}/><Text style={[tm.statusText, { color: statusMeta[statusOf(m)]?.color || C.slate }]}>{statusMeta[statusOf(m)]?.label || 'فاقد حضور فعال'}</Text></View>
               {(m.attendance_sessions || []).length ? <View style={tm.sessions}>
                 <Text style={tm.sessionsTitle}>ترددهای امروز · {faNum(m.attendance_sessions.length)} نوبت</Text>
@@ -479,6 +502,11 @@ const tm = StyleSheet.create({
   groupCount: { fontFamily: FONT.bold, fontSize: 11, color: C.brand },
   memberRow: { padding: 13, borderTopWidth: 1, borderTopColor: '#e8edf3' },
   personHead: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginBottom: 10 },
+  contactRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  contactInfo: { flexDirection: 'row-reverse', alignItems: 'center', gap: 7, flex: 1, minWidth: 140 },
+  contactNumber: { fontFamily: FONT.regular, color: C.ink, fontSize: 13, textAlign: 'right' },
+  callButton: { minHeight: 48, minWidth: 94, paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.brand, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  callButtonText: { fontFamily: FONT.bold, color: '#fff', fontSize: 13 },
   avatar: { width: 46, height: 46, borderRadius: 14, backgroundColor: '#e9f4f0', alignItems: 'center', justifyContent: 'center', overflow:'hidden',borderWidth:1,borderColor:'#d7e8e1' },
   avatarImage: {width:'100%',height:'100%'},
   avatarText: { fontFamily: FONT.bold, fontSize: 18, color: C.brand },
