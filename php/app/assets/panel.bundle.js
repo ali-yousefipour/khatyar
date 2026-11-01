@@ -8332,63 +8332,136 @@ function Settings() {
                 React.createElement(BackupSettings, null)))));
 }
 function Logs() {
-    const [l, setL] = useState([]);
-    const [users, setUsers] = useState([]);
-    const [events, setEvents] = useState([]);
-    const [f, setF] = useState({ event: "", user_id: "", from: "", to: "" });
-    const ev = { login: "ورود", login_blocked_security: "ورود مسدود (امنیتی)", login_failed: "ورود ناموفق", gps_off: "خاموش‌کردن GPS", device_revoked: "حذف دستگاه", device_mismatch: "دستگاه ناهمخوان", net_off: "قطع اینترنت", logout: "خروج" };
-    const load = () => {
-        const q = new URLSearchParams();
-        Object.entries(f).forEach(([k, v]) => { if (v)
+    const empty = { event: "", user_id: "", platform: "", from: "", to: "" };
+    const [l, setL] = useState([]), [users, setUsers] = useState([]), [events, setEvents] = useState([]);
+    const [f, setF] = useState(empty), [applied, setApplied] = useState(empty), [page, setPage] = useState(1);
+    const [total, setTotal] = useState(0), [busy, setBusy] = useState(false), [error, setError] = useState(""), [selected, setSelected] = useState(null);
+    const ev = { api_action: "عملیات کاربر", login: "ورود", login_otp: "ورود با رمز یک‌بارمصرف", login_blocked_security: "ورود مسدود", login_failed: "ورود ناموفق", gps_off: "خاموش‌کردن GPS", device_revoked: "حذف دستگاه", device_mismatch: "دستگاه ناهمخوان", net_off: "قطع اینترنت", logout: "خروج", forget_checkin: "یادآوری ثبت حضور", inventory_confirmed: "تأیید تحویل" };
+    const verbs = { POST: "ثبت", PUT: "ویرایش", PATCH: "ویرایش", DELETE: "حذف" };
+    const meta = x => { if (!(x === null || x === void 0 ? void 0 : x.meta))
+        return {}; if (typeof x.meta === 'object')
+        return x.meta; try {
+        return JSON.parse(x.meta) || {};
+    }
+    catch (_) {
+        return {};
+    } };
+    const label = x => { const m = meta(x); return x.event === 'api_action' ? `${verbs[m.method] || 'عملیات'} · ${m.route || '—'}` : (ev[x.event] || x.event); };
+    const platform = x => { const p = meta(x).platform; return p === 'android' ? 'اندروید' : p === 'web' ? 'وب' : 'نامشخص'; };
+    const load = (filter = applied, n = page) => {
+        setBusy(true);
+        setError("");
+        const q = new URLSearchParams({ page: String(n), limit: "50" });
+        Object.entries(filter).forEach(([k, v]) => { if (v)
             q.set(k, v); });
-        q.set("all", "1");
-        GET("/admin/logs?" + q.toString()).then(setL).catch(() => { });
+        GET('/admin/logs?' + q.toString()).then(r => { setL(r.rows || []); setTotal(r.total || 0); }).catch(e => setError(e.message || 'خطا در دریافت رویدادها')).finally(() => setBusy(false));
     };
-    useEffect(() => { load(); db.users().then(setUsers).catch(() => { }); GET("/admin/log-events").then(setEvents).catch(() => { }); }, []);
+    useEffect(() => { load(empty, 1); db.users().then(setUsers).catch(() => { }); GET('/admin/log-events').then(setEvents).catch(() => { }); }, []);
+    const apply = () => { setApplied({ ...f }); setPage(1); load(f, 1); };
+    const clear = () => { setF(empty); setApplied(empty); setPage(1); load(empty, 1); };
     const exportExcel = () => {
-        const rows = l.map(x => [fj(x.created_at), (x.first_name || "") + " " + (x.last_name || ""), ev[x.event] || x.event, (x.meta && x.meta.reason) || ""]);
-        const ws = XLSX.utils.aoa_to_sheet([["زمان", "کاربر", "رویداد", "توضیح"], ...rows]);
+        const rows = l.map(x => { const m = meta(x); return [fj(x.created_at), [x.first_name, x.last_name].filter(Boolean).join(' ') || x.username || '—', label(x), platform(x), m.status || '', m.target_id || '']; });
+        const ws = XLSX.utils.aoa_to_sheet([["زمان", "کاربر", "فعالیت", "بستر", "وضعیت HTTP", "شناسه مورد"], ...rows]);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "لاگ");
-        XLSX.writeFile(wb, "لاگ_فعالیت‌ها.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, 'فعالیت‌ها');
+        XLSX.writeFile(wb, 'گزارش_فعالیت‌ها.xlsx');
     };
-    return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page" },
-        React.createElement("h3", null, "\u0644\u0627\u06AF \u0641\u0639\u0627\u0644\u06CC\u062A\u200C\u0647\u0627 \u0648 \u0631\u0648\u06CC\u062F\u0627\u062F\u0647\u0627\u06CC \u0627\u0645\u0646\u06CC\u062A\u06CC"),
-        React.createElement("div", { className: "row no-print page-toolbar", style: { gap: 8, flexWrap: "wrap", marginBottom: 12 } },
-            React.createElement("select", { className: "input", style: { maxWidth: 180 }, value: f.event, onChange: e => setF({ ...f, event: e.target.value }) },
-                React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0631\u0648\u06CC\u062F\u0627\u062F\u0647\u0627"),
-                events.map(e => React.createElement("option", { key: e, value: e }, ev[e] || e))),
-            React.createElement("select", { className: "input", style: { maxWidth: 200 }, value: f.user_id, onChange: e => setF({ ...f, user_id: e.target.value }) },
-                React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u06A9\u0627\u0631\u0628\u0631\u0627\u0646"),
-                users.map(u => React.createElement("option", { key: u.id, value: u.id },
-                    u.first_name,
-                    " ",
-                    u.last_name,
-                    u.username ? ` — ${u.username}` : ""))),
-            React.createElement(JDate, { value: f.from, onChange: v => setF({ ...f, from: v }), placeholder: "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E" }),
-            React.createElement(JDate, { value: f.to, onChange: v => setF({ ...f, to: v }), placeholder: "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E" }),
-            React.createElement("button", { className: "btn g", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
-            React.createElement("button", { className: "btn p", onClick: exportExcel }, "\u2B07 \u062E\u0631\u0648\u062C\u06CC Excel")),
-        React.createElement(ResponsiveTable, null,
-            React.createElement("thead", null,
-                React.createElement("tr", null,
-                    React.createElement("th", null, "\u0632\u0645\u0627\u0646"),
-                    React.createElement("th", null, "\u06A9\u0627\u0631\u0628\u0631"),
-                    React.createElement("th", null, "\u0631\u0648\u06CC\u062F\u0627\u062F"),
-                    React.createElement("th", null, "\u062A\u0648\u0636\u06CC\u062D"))),
-            React.createElement("tbody", null, l.map(x => {
-                var _a;
-                return React.createElement("tr", { key: x.id },
-                    React.createElement("td", null, fj(x.created_at)),
-                    React.createElement("td", null,
-                        x.first_name,
+    const pages = Math.max(1, Math.ceil(total / 50));
+    return (React.createElement("div", { className: "panel admin-workspace-page admin-list-page activity-log-page" },
+        React.createElement("div", { className: "activity-log-heading" },
+            React.createElement("div", null,
+                React.createElement("h3", null, "\u0645\u0631\u06A9\u0632 \u067E\u0627\u06CC\u0634 \u0641\u0639\u0627\u0644\u06CC\u062A\u200C\u0647\u0627"),
+                React.createElement("p", null, "\u0631\u062F\u06CC\u0627\u0628\u06CC \u0639\u0645\u0644\u06CC\u0627\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646 \u062F\u0631 \u0633\u0627\u06CC\u062A \u0648 \u0646\u0631\u0645\u200C\u0627\u0641\u0632\u0627\u0631\u060C \u0647\u0645\u0631\u0627\u0647 \u0628\u0627 \u0632\u0645\u0627\u0646 \u0648 \u0646\u062A\u06CC\u062C\u0647\u0654 \u0627\u062C\u0631\u0627")),
+            React.createElement("div", { className: "activity-log-count" },
+                React.createElement("strong", null, total.toLocaleString('fa-IR')),
+                React.createElement("small", null, "\u0631\u0648\u06CC\u062F\u0627\u062F \u0645\u0637\u0627\u0628\u0642 \u0641\u06CC\u0644\u062A\u0631"))),
+        React.createElement("div", { className: "activity-log-filters no-print" },
+            React.createElement("label", null,
+                "\u0634\u062E\u0635",
+                React.createElement("select", { className: "input", value: f.user_id, onChange: e => setF({ ...f, user_id: e.target.value }) },
+                    React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u06A9\u0627\u0631\u0628\u0631\u0627\u0646"),
+                    users.map(u => React.createElement("option", { key: u.id, value: u.id },
+                        u.first_name,
                         " ",
-                        x.last_name),
+                        u.last_name,
+                        u.username ? ` — ${u.username}` : "")))),
+            React.createElement("label", null,
+                "\u0631\u0648\u06CC\u062F\u0627\u062F",
+                React.createElement("select", { className: "input", value: f.event, onChange: e => setF({ ...f, event: e.target.value }) },
+                    React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0641\u0639\u0627\u0644\u06CC\u062A\u200C\u0647\u0627"),
+                    events.map(e => React.createElement("option", { key: e, value: e }, ev[e] || e)))),
+            React.createElement("label", null,
+                "\u0628\u0633\u062A\u0631",
+                React.createElement("select", { className: "input", value: f.platform, onChange: e => setF({ ...f, platform: e.target.value }) },
+                    React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0628\u0633\u062A\u0631\u0647\u0627"),
+                    React.createElement("option", { value: "web" }, "\u0648\u0628"),
+                    React.createElement("option", { value: "android" }, "\u0627\u0646\u062F\u0631\u0648\u06CC\u062F"))),
+            React.createElement("label", null,
+                "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E",
+                React.createElement(JDate, { value: f.from, onChange: v => setF({ ...f, from: v }), placeholder: "\u0634\u0631\u0648\u0639 \u0628\u0627\u0632\u0647" })),
+            React.createElement("label", null,
+                "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E",
+                React.createElement(JDate, { value: f.to, onChange: v => setF({ ...f, to: v }), placeholder: "\u067E\u0627\u06CC\u0627\u0646 \u0628\u0627\u0632\u0647" })),
+            React.createElement("div", { className: "activity-log-actions" },
+                React.createElement("button", { className: "btn p", onClick: apply, disabled: busy }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
+                React.createElement("button", { className: "btn g", onClick: clear }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646"),
+                React.createElement("button", { className: "btn g", onClick: () => load() }, "\u21BB \u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC"),
+                React.createElement("button", { className: "btn g", onClick: exportExcel, disabled: !l.length }, "\u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644 (\u0635\u0641\u062D\u0647 \u0641\u0639\u0644\u06CC)"))),
+        error && React.createElement("p", { className: "activity-log-error", role: "alert" }, error),
+        React.createElement("div", { className: "activity-log-table" },
+            React.createElement(ResponsiveTable, null,
+                React.createElement("thead", null,
+                    React.createElement("tr", null,
+                        React.createElement("th", null, "\u0632\u0645\u0627\u0646"),
+                        React.createElement("th", null, "\u06A9\u0627\u0631\u0628\u0631"),
+                        React.createElement("th", null, "\u0628\u0633\u062A\u0631"),
+                        React.createElement("th", null, "\u0641\u0639\u0627\u0644\u06CC\u062A"),
+                        React.createElement("th", null, "\u0646\u062A\u06CC\u062C\u0647"),
+                        React.createElement("th", null, "\u062C\u0632\u0626\u06CC\u0627\u062A"))),
+                React.createElement("tbody", null, l.map(x => { const m = meta(x), bad = Number(m.status) >= 400 || x.event.includes('failed') || x.event.includes('blocked'); return React.createElement("tr", { key: x.id },
+                    React.createElement("td", { className: "activity-log-time" }, fj(x.created_at)),
                     React.createElement("td", null,
-                        React.createElement("span", { className: "badge " + ((x.event || "").includes("blocked") || (x.event || "").includes("off") || (x.event || "").includes("failed") ? "b-no" : "b-w") }, ev[x.event] || x.event)),
-                    React.createElement("td", { style: { fontSize: 12, color: "var(--muted)" } }, ((_a = x.meta) === null || _a === void 0 ? void 0 : _a.reason) || "—"));
-            }))),
-        l.length === 0 && React.createElement("p", { className: "muted", style: { textAlign: "center", padding: 12 } }, "\u0631\u06A9\u0648\u0631\u062F\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")));
+                        React.createElement("strong", null, [x.first_name, x.last_name].filter(Boolean).join(' ') || x.username || 'کاربر نامشخص'),
+                        React.createElement("small", null,
+                            "#",
+                            x.user_id || '—')),
+                    React.createElement("td", null,
+                        React.createElement("span", { className: "activity-log-platform" }, platform(x))),
+                    React.createElement("td", null, label(x)),
+                    React.createElement("td", null,
+                        React.createElement("span", { className: 'badge ' + (bad ? 'b-no' : 'b-w') }, bad ? 'ناموفق' : m.status ? 'موفق' : 'ثبت‌شده')),
+                    React.createElement("td", null,
+                        React.createElement("button", { className: "btn g activity-log-detail", onClick: () => setSelected(x) }, "\u0645\u0634\u0627\u0647\u062F\u0647"))); }))),
+            busy && React.createElement("p", { className: "muted activity-log-empty" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026"),
+            !busy && !l.length && React.createElement("p", { className: "muted activity-log-empty" }, "\u0631\u0648\u06CC\u062F\u0627\u062F\u06CC \u0628\u0627 \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")),
+        React.createElement("div", { className: "activity-log-pagination no-print" },
+            React.createElement("span", null,
+                "\u0635\u0641\u062D\u0647 ",
+                page.toLocaleString('fa-IR'),
+                " \u0627\u0632 ",
+                pages.toLocaleString('fa-IR')),
+            React.createElement("button", { className: "btn g", disabled: page <= 1 || busy, onClick: () => { setPage(page - 1); load(applied, page - 1); } }, "\u0642\u0628\u0644\u06CC"),
+            React.createElement("button", { className: "btn g", disabled: page >= pages || busy, onClick: () => { setPage(page + 1); load(applied, page + 1); } }, "\u0628\u0639\u062F\u06CC")),
+        selected && React.createElement("div", { className: "activity-log-overlay", onClick: () => setSelected(null) },
+            React.createElement("div", { className: "activity-log-modal", role: "dialog", "aria-modal": "true", "aria-label": "\u062C\u0632\u0626\u06CC\u0627\u062A \u0631\u0648\u06CC\u062F\u0627\u062F", onClick: e => e.stopPropagation() },
+                React.createElement("div", { className: "activity-log-modal-head" },
+                    React.createElement("h3", null, "\u062C\u0632\u0626\u06CC\u0627\u062A \u0641\u0639\u0627\u0644\u06CC\u062A"),
+                    React.createElement("button", { className: "btn g", onClick: () => setSelected(null) }, "\u0628\u0633\u062A\u0646 \u2715")),
+                React.createElement("dl", null,
+                    React.createElement("dt", null, "\u06A9\u0627\u0631\u0628\u0631"),
+                    React.createElement("dd", null, [selected.first_name, selected.last_name].filter(Boolean).join(' ') || selected.username || '—'),
+                    React.createElement("dt", null, "\u0632\u0645\u0627\u0646"),
+                    React.createElement("dd", null, fj(selected.created_at)),
+                    React.createElement("dt", null, "\u0641\u0639\u0627\u0644\u06CC\u062A"),
+                    React.createElement("dd", null, label(selected)),
+                    React.createElement("dt", null, "\u0628\u0633\u062A\u0631"),
+                    React.createElement("dd", null, platform(selected)),
+                    React.createElement("dt", null, "\u0646\u062A\u06CC\u062C\u0647"),
+                    React.createElement("dd", null, meta(selected).status || '—'),
+                    React.createElement("dt", null, "\u0634\u0646\u0627\u0633\u0647 \u0631\u06A9\u0648\u0631\u062F"),
+                    React.createElement("dd", null, meta(selected).target_id || '—'),
+                    React.createElement("dt", null, "\u062F\u0644\u06CC\u0644"),
+                    React.createElement("dd", null, String(meta(selected).reason || '—')))))));
 }
 function OplicImportFilterEditor() {
     const [statuses, setStatuses] = useState(["فعال", "منقضی"]);
