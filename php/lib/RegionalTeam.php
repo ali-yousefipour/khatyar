@@ -103,7 +103,7 @@ final class RegionalTeam {
         $allowed=self::allowedMembers($actor,$users,$zones,$leadership);
         $names=[];foreach($zones as $z)$names[(int)$z['id']]=(string)$z['name'];
         $ids=array_map(static fn($u)=>(int)$u['id'],$allowed);
-        $attendance=[];$userLines=[];
+        $attendance=[];$userLines=[];$photos=[];
         if($ids){
             // Fetch every check-in today (not just the latest) for each scoped person.
             foreach(array_chunk($ids,300) as $chunk){
@@ -115,6 +115,12 @@ final class RegionalTeam {
                 $lineRows=Db::all('SELECT ul.user_id,l.code FROM user_lines ul
                     JOIN `lines` l ON l.id=ul.line_id WHERE ul.user_id IN ('.$marks.') ORDER BY l.code', $chunk);
                 foreach($lineRows as $row)$userLines[(int)$row['user_id']][]=(string)$row['code'];
+                // Read photos only for authorized members. Prefer a protected
+                // file URL; read legacy base64 only when no file path exists.
+                $photoRows=Db::all('SELECT id,photo_path,
+                    CASE WHEN photo_path IS NOT NULL AND photo_path<>\'\' THEN NULL ELSE photo END AS photo
+                    FROM users WHERE id IN ('.$marks.')', $chunk);
+                foreach($photoRows as $row)$photos[(int)$row['id']]=_user_photo_url($row['photo_path']??null,$row['photo']??null);
             }
         }
         $groups=[];$present=0;$completed=0;
@@ -128,7 +134,7 @@ final class RegionalTeam {
             $groups[$title][]=array_merge([
                 'id'=>$id,'name'=>trim((string)($p['first_name']??'').' '.(string)($p['last_name']??'')),
                 'role_title'=>$title,'zone_id'=>$zoneId,'zone_name'=>$names[$zoneId]??'',
-                'line_count'=>count($lines),'lines'=>$lines,
+                'line_count'=>count($lines),'lines'=>$lines,'photo'=>$photos[$id]??null,
             ],$state);
         }
         ksort($groups,SORT_NATURAL);
