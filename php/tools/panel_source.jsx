@@ -6801,6 +6801,10 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
   const [busy,setBusy]=useState(false);
   const [reportError,setReportError]=useState("");
   const [openDay,setOpenDay]=useState(null);
+  const [dayAudit,setDayAudit]=useState([]);
+  const [dayAuditBusy,setDayAuditBusy]=useState(false);
+  const [dayAuditError,setDayAuditError]=useState("");
+  const [dayAuditReload,setDayAuditReload]=useState(0);
   const [mapPunch,setMapPunch]=useState(null);
   const mapContainerRef=useRef(null);
   const [edit,setEdit]=useState(null);
@@ -6929,6 +6933,15 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
       }));
     }).catch(()=>setDayRequests([]));
   },[openDay,uid]);
+  useEffect(()=>{
+    if(!openDay||!uid){setDayAudit([]);setDayAuditError("");return;}
+    let active=true;setDayAuditBusy(true);setDayAuditError("");setDayAudit([]);
+    GET('/admin/attendance-day-audit?user_id='+encodeURIComponent(uid)+'&jdate='+encodeURIComponent(openDay))
+      .then(r=>{if(active)setDayAudit(r.rows||[])})
+      .catch(e=>{if(active)setDayAuditError(e.message||'خطا در دریافت سوابق')})
+      .finally(()=>{if(active)setDayAuditBusy(false)});
+    return ()=>{active=false};
+  },[openDay,uid,data,dayAuditReload]);
   const refresh=async()=>{
     if(!uid)return;
     const fallback=attendanceDefaultRange();
@@ -7140,6 +7153,17 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
                 </div></td>
               </tr>})}</tbody>
             </table>
+          </div>
+          <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid var(--line)"}}>
+            <div className="attendance-audit-heading"><div><h4>تاریخچه اصلاحات و بی‌اثرکردن کسرکار</h4><p>نام ثبت‌کننده، زمان و مقدار قبل و بعد از هر تغییر</p></div><span className="badge b-w">{faPlain(String(dayAudit.length))} رویداد</span></div>
+            {dayAuditBusy?<p className="muted" role="status">در حال دریافت سوابق تغییرات…</p>:dayAuditError?<div role="alert" className="attendance-audit-error">{dayAuditError}<button className="btn g" onClick={()=>setDayAuditReload(v=>v+1)}>تلاش دوباره</button></div>:dayAudit.length?<div className="attendance-audit-list">{dayAudit.map((a,i)=>{
+              const names={punch_edit:'ویرایش تردد',punch_add:'افزودن تردد دستی',punch_delete:'حذف تردد',gps_waiver:'بی‌اثر کردن کسری GPS',internet_waiver:'بی‌اثر کردن خاموشی اینترنت',surplus_convert:'تبدیل مازاد به اضافه‌کار',surplus_reset:'بازنشانی اضافه‌کار'};
+              const b=a.before||{},n=a.after||{};
+              const vals=a.action==='gps_waiver'||a.action==='internet_waiver'?[['بازه',`${b.start_at||'—'} تا ${b.end_at||'—'}`,'بی‌اثر شد'],['مدت',b.minutes!=null?`${b.minutes} دقیقه`:'—','بدون کسر']]:
+                a.action.startsWith('surplus_')?[['دقیقهٔ تبدیل‌شده',b.minutes??'—',n.minutes??'—']]:
+                [['ورود',b.check_in||'—',n.check_in||'—'],['خروج',b.check_out||'—',n.check_out||'—'],['خط',b.line_id??'—',n.line_id??'—']];
+              return <article className="attendance-audit-item" key={a.action+'-'+a.id+'-'+i}><div className="attendance-audit-item-head"><div><strong>{names[a.action]||a.action}</strong><span className="attendance-audit-person">{a.actor_name?.trim()||'کاربر #'+(a.actor_id||'نامشخص')}</span></div><time>{fj(a.created_at)}</time></div><div className="attendance-audit-values"><div className="attendance-audit-values-head"><span>مورد</span><span>قبل از تغییر</span><span>بعد از تغییر</span></div>{vals.map(([field,prior,next])=><div className="attendance-audit-values-row" key={field}><span>{field}</span><span>{faPlain(String(prior))}</span><span>{faPlain(String(next))}</span></div>)}</div>{n.reason&&<p className="attendance-audit-reason">علت: {n.reason}</p>}{a.punch_id&&<small className="muted">شناسه تردد: {faPlain(String(a.punch_id))}</small>}</article>;
+            })}</div>:<p className="muted attendance-audit-empty">سابقه‌ای برای این روز ثبت نشده است. ویرایش‌های قدیمی فاقد سابقهٔ تغییرات ممکن است در این فهرست دیده نشوند.</p>}
           </div>
           <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid var(--line)"}}>
             <div style={{marginBottom:10}}><b>درخواست‌های این روز</b></div>

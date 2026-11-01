@@ -3766,11 +3766,69 @@ route('GET', '/api/admin/seniority/{id}/history', function($p,$b,$u){
 }, false, ADMIN);
 
 
+// Durable before/after history for administrative attendance changes.
+function _attendance_change_audit_schema(){
+  static $ready=false;if($ready)return;
+  Db::run("CREATE TABLE IF NOT EXISTS attendance_change_audit (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
+    jdate VARCHAR(10) NOT NULL, punch_id BIGINT NULL, action VARCHAR(40) NOT NULL,
+    actor_id INT NOT NULL, before_json JSON NULL, after_json JSON NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_attendance_audit_person_day(user_id,jdate,created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");$ready=true;
+}
+function _attendance_change_day($datetime){
+  $ts=strtotime((string)$datetime);if(!$ts)return '';
+  [$jy,$jm,$jd]=gregorian_to_jalali((int)date('Y',$ts),(int)date('n',$ts),(int)date('j',$ts));
+  return sprintf('%04d-%02d-%02d',$jy,$jm,$jd);
+}
+function _attendance_change_audit($userId,$jdate,$punchId,$action,$actorId,$before,$after){
+  try{
+    _attendance_change_audit_schema();
+    Db::run('INSERT INTO attendance_change_audit(user_id,jdate,punch_id,action,actor_id,before_json,after_json) VALUES(?,?,?,?,?,?,?)',[
+      (int)$userId,$jdate,$punchId,$action,(int)$actorId,
+      $before===null?null:json_encode($before,JSON_UNESCAPED_UNICODE),
+      $after===null?null:json_encode($after,JSON_UNESCAPED_UNICODE)
+    ]);
+  }catch(Throwable $e){error_log('attendance audit write failed: '.$e->getMessage());}
+}
+route('GET','/api/admin/attendance-day-audit',function($p,$b,$u){
+  $uid=(int)($_GET['user_id']??0);$jdate=str_replace('/','-',trim((string)($_GET['jdate']??'')));
+  if($uid<=0||!preg_match('/^1[34]\d{2}-\d{2}-\d{2}$/',$jdate))Http::error('کاربر یا تاریخ نامعتبر است',422);
+  $items=[];
+  try{
+    _attendance_change_audit_schema();
+    $rows=Db::all("SELECT a.id,a.action,a.punch_id,a.before_json,a.after_json,a.created_at,a.actor_id,
+      CONCAT_WS(' ',NULLIF(u.first_name,''),NULLIF(u.last_name,'')) actor_name
+      FROM attendance_change_audit a LEFT JOIN users u ON u.id=a.actor_id
+      WHERE a.user_id=? AND (a.jdate=? OR JSON_UNQUOTE(JSON_EXTRACT(a.after_json,'$.jdate'))=?) ORDER BY a.id DESC LIMIT 200",[$uid,$jdate,$jdate]);
+    foreach($rows as $r){$r['before']=json_decode((string)($r['before_json']??''),true);$r['after']=json_decode((string)($r['after_json']??''),true);unset($r['before_json'],$r['after_json']);$items[]=$r;}
+  }catch(Throwable $e){error_log('attendance audit read failed: '.$e->getMessage());}
+  [$jy,$jm,$jd]=array_map('intval',explode('-',$jdate));[$gy,$gm,$gd]=jalali_to_gregorian($jy,$jm,$jd);
+  $start=sprintf('%04d-%02d-%02d',$gy,$gm,$gd).' 00:00:00';$end=date('Y-m-d H:i:s',strtotime($start.' +1 day'));
+  foreach(['gps_work_waivers'=>'gps_waiver','internet_work_waivers'=>'internet_waiver'] as $table=>$action){
+    try{
+      foreach(Db::all("SELECT w.id,w.start_at,w.end_at,w.reason,w.created_at,w.actor_id,
+        CONCAT_WS(' ',NULLIF(u.first_name,''),NULLIF(u.last_name,'')) actor_name
+        FROM $table w LEFT JOIN users u ON u.id=w.actor_id
+        WHERE w.user_id=? AND w.start_at>=? AND w.start_at<? ORDER BY w.id DESC LIMIT 100",[$uid,$start,$end]) as $r){
+        $items[]=['id'=>$r['id'],'action'=>$action,'actor_id'=>$r['actor_id'],'actor_name'=>$r['actor_name'],
+          'created_at'=>$r['created_at'],'before'=>['start_at'=>$r['start_at'],'end_at'=>$r['end_at'],'minutes'=>(int)ceil((strtotime($r['end_at'])-strtotime($r['start_at']))/60)],
+          'after'=>['waived'=>true,'reason'=>$r['reason']]];
+      }
+    }catch(Throwable $e){error_log('attendance waiver history unavailable: '.$e->getMessage());}
+  }
+  usort($items,static fn($a,$b)=>strcmp((string)$b['created_at'],(string)$a['created_at']));
+  return ['rows'=>$items,'total'=>count($items)];
+},false,ADMIN);
+
 route('POST', '/api/admin/attendance-surplus/convert', function($p,$b,$u){
   _ensure_attendance_phase1_schema();
   $uid=(int)($b['user_id']??0); $jdate=str_replace('/','-',trim((string)($b['jdate']??''))); $min=max(0,(int)($b['minutes']??0));
   if(!$uid||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$jdate)) Http::error('کاربر و تاریخ نامعتبر است',422);
+  $before=Db::one('SELECT minutes,reason FROM attendance_ot_adjustments WHERE user_id=? AND jdate=?',[$uid,$jdate]);
   Db::run("INSERT INTO attendance_ot_adjustments(user_id,jdate,minutes,reason,approved_by) VALUES(?,?,?,?,?) ON DUPLICATE KEY UPDATE minutes=VALUES(minutes), reason=VALUES(reason), approved_by=VALUES(approved_by), created_at=NOW()", [$uid,$jdate,$min,$b['reason']??null,$u['id']]);
+  _attendance_change_audit($uid,$jdate,null,'surplus_convert',$u['id'],$before,['minutes'=>$min,'reason'=>$b['reason']??null]);
   return ['ok'=>true,'user_id'=>$uid,'jdate'=>$jdate,'minutes'=>$min];
 }, false, ADMIN);
 
@@ -3778,7 +3836,9 @@ route('POST', '/api/admin/attendance-surplus/reset', function($p,$b,$u){
   _ensure_attendance_phase1_schema();
   $uid=(int)($b['user_id']??0); $jdate=str_replace('/','-',trim((string)($b['jdate']??'')));
   if(!$uid||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$jdate)) Http::error('کاربر و تاریخ نامعتبر است',422);
+  $before=Db::one('SELECT minutes,reason FROM attendance_ot_adjustments WHERE user_id=? AND jdate=?',[$uid,$jdate]);
   Db::run("DELETE FROM attendance_ot_adjustments WHERE user_id=? AND jdate=?", [$uid,$jdate]);
+  if($before)_attendance_change_audit($uid,$jdate,null,'surplus_reset',$u['id'],$before,['minutes'=>0]);
   return ['ok'=>true,'user_id'=>$uid,'jdate'=>$jdate,'minutes'=>0];
 }, false, ADMIN);
 
@@ -3794,7 +3854,7 @@ route('GET', '/api/admin/attendance-surplus/list', function($p,$b,$u){
 // ویرایش ساعت ورود/خروج یک پانچ توسط ادمین
 route('PUT', '/api/admin/attendance-punch/{id}', function($p,$b,$u){
   $id=(int)$p['id'];
-  $row=Db::one("SELECT id, check_in, check_out FROM staff_attendance WHERE id=?", [$id]);
+  $row=Db::one("SELECT id,user_id,check_in,check_out,method,line_id FROM staff_attendance WHERE id=?", [$id]);
   if(!$row) Http::error('رکورد تردد یافت نشد',404);
   $inT=trim($b['check_in']??'');   // فرمت HH:MM یا خالی
   $outT=trim($b['check_out']??'');
@@ -3828,12 +3888,17 @@ route('PUT', '/api/admin/attendance-punch/{id}', function($p,$b,$u){
   if(!$set) return ['ok'=>true,'unchanged'=>true];
   $args[]=$id;
   Db::run("UPDATE staff_attendance SET ".implode(',',$set)." WHERE id=?", $args);
+  $after=Db::one('SELECT id,user_id,check_in,check_out,method,line_id FROM staff_attendance WHERE id=?',[$id]);
+  _attendance_change_audit($row['user_id'],_attendance_change_day($row['check_in']),$id,'punch_edit',$u['id'],$row,$after?array_merge($after,['jdate'=>_attendance_change_day($after['check_in'])]):null);
   return ['ok'=>true];
 }, false, ADMIN);
 
 // حذف یک پانچ
 route('DELETE', '/api/admin/attendance-punch/{id}', function($p,$b,$u){
+  $row=Db::one('SELECT id,user_id,check_in,check_out,method,line_id FROM staff_attendance WHERE id=?',[(int)$p['id']]);
+  if(!$row)Http::error('رکورد تردد یافت نشد',404);
   Db::run("DELETE FROM staff_attendance WHERE id=?", [(int)$p['id']]);
+  _attendance_change_audit($row['user_id'],_attendance_change_day($row['check_in']),(int)$p['id'],'punch_delete',$u['id'],$row,null);
   return ['ok'=>true];
 }, false, ADMIN);
 
@@ -3855,6 +3920,7 @@ route('POST', '/api/admin/attendance-punch', function($p,$b,$u){
     $co=date('Y-m-d H:i:s',$coTs);
   }
   $id=Db::insert("INSERT INTO staff_attendance(user_id,line_id,method,check_in,check_out) VALUES(?,?,'manual',?,?)",[$uid,$lineId,$ci,$co]);
+  _attendance_change_audit($uid,str_replace('/','-',$jdate),$id,'punch_add',$u['id'],null,['id'=>$id,'check_in'=>$ci,'check_out'=>$co,'line_id'=>$lineId,'method'=>'manual']);
   return ['id'=>$id,'ok'=>true];
 }, false, ADMIN);
 
