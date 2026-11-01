@@ -21,4 +21,9 @@ assert.ok(regional.includes("'phone'=>trim((string)($p['phone']??''))"), 'Author
 assert.ok(screen.includes('teamDialNumber(m.phone)'), 'Call button must be conditional on a valid number');
 assert.ok(screen.includes("Linking.openURL('tel:' + number)"), 'Call action must open the native dialer');
 assert.ok(screen.includes('faNum(m.phone)'), 'Team phone numbers must be displayed with Persian digits');
+assert.ok(screen.includes('onChangeText={setQuery}'), 'Name search must update results during typing');
+assert.ok(screen.includes('normalizeSearch(v).includes(search)'), 'Search must match partial normalized Persian names');
+assert.ok(screen.includes("String(m.zone_id ?? '') === regionFilter"), 'Region selection must narrow visible team members');
+assert.ok(screen.includes('region.members.map((m)'), 'Team cards must be grouped by region');
+assert.ok(screen.includes('accessibilityState={{ selected: regionFilter === region.id }}'), 'Region filter selection must be accessible');
 console.log('PASS scoped team photo and mobile dialer contracts');
