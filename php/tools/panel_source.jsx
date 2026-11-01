@@ -447,8 +447,27 @@ function isoFromJ(jy,jm,jd){ const [gy,gm,gd]=jalaliToGreg(jy,jm,jd); return `${
 function jLabel(iso){ if(!iso)return""; const [y,m,d]=iso.split("-").map(Number); const [jy,jm,jd]=gregToJalali(y,m,d); return `${jy}/${String(jm).padStart(2,"0")}/${String(jd).padStart(2,"0")}`; }
 function seniorityLabel(iso){ if(!iso)return""; const d=new Date(String(iso).replace(' ','T')); if(isNaN(d))return""; const now=new Date(); let mo=(now.getFullYear()-d.getFullYear())*12+(now.getMonth()-d.getMonth()); if(now.getDate()<d.getDate())mo--; if(mo<0)return"تاریخ نامعتبر"; const y=Math.floor(mo/12),m=mo%12; return `سنوات: ${fa(y)} سال و ${fa(m)} ماه`; }
 /* KHATYAR_REACT_JDATE_V2 */
-function JDate({value,onChange,placeholder,jalali,yearFrom,yearTo}){
+function JDate({value,onChange,placeholder,jalali,yearFrom,yearTo,portal=false}){
   const [open,setOpen]=useState(false);
+  const triggerRef=useRef(null);
+  const [popupStyle,setPopupStyle]=useState(null);
+  useEffect(()=>{
+    if(!open||!portal)return;
+    const position=()=>{
+      const rect=triggerRef.current?.getBoundingClientRect();
+      if(!rect)return;
+      const width=Math.min(330,window.innerWidth-24);
+      const left=Math.max(12,Math.min(rect.right-width,window.innerWidth-width-12));
+      const below=window.innerHeight-rect.bottom-12;
+      const above=rect.top-12;
+      const placeAbove=below<380&&above>below;
+      setPopupStyle({position:'fixed',left,top:placeAbove?'auto':rect.bottom+7,bottom:placeAbove?window.innerHeight-rect.top+7:'auto',width,maxHeight:Math.max(180,(placeAbove?above:below)-9),overflowY:'auto',zIndex:2147483000});
+    };
+    position();
+    window.addEventListener('resize',position);
+    window.addEventListener('scroll',position,true);
+    return ()=>{window.removeEventListener('resize',position);window.removeEventListener('scroll',position,true);};
+  },[open,portal]);
   const parse=()=>{
     const raw=String(value||'').trim();
     if(!raw)return null;
@@ -482,15 +501,16 @@ function JDate({value,onChange,placeholder,jalali,yearFrom,yearTo}){
   }
   const shift=(delta)=>{let y=view.y,m=view.m+delta;if(m<1){m=12;y--}if(m>12){m=1;y++}if(y>=yf&&y<=yt)setView({y,m});};
   const label=()=>selected?`${fa(selected[0])}/${fa(String(selected[1]).padStart(2,'0'))}/${fa(String(selected[2]).padStart(2,'0'))}`:'';
-  return <span style={{position:'relative',display:'inline-block',width:'100%',minWidth:0}}>
-    <input className="input" readOnly value={label()} placeholder={placeholder||'تاریخ'} onClick={()=>setOpen(v=>!v)} style={{cursor:'pointer',maxWidth:150,width:'100%'}}/>
-    {value&&<button type="button" onClick={()=>onChange('')} style={{position:'absolute',left:6,top:8,background:'none',border:0,cursor:'pointer',color:'var(--muted)',zIndex:2}}>✕</button>}
-    {open&&<div style={{position:'absolute',zIndex:2147483000,background:'#fff',border:'1px solid var(--line)',borderRadius:16,padding:12,boxShadow:'0 18px 50px rgba(0,0,0,.18)',top:'calc(100% + 7px)',right:0,width:330,direction:'rtl'}}>
+  const calendar=open&&<div style={{position:'absolute',zIndex:2147483000,background:'#fff',border:'1px solid var(--line)',borderRadius:16,padding:12,boxShadow:'0 18px 50px rgba(0,0,0,.18)',top:'calc(100% + 7px)',right:0,width:330,direction:'rtl',...(portal?popupStyle||{visibility:'hidden'}:{})}}>
       <div style={{display:'grid',gridTemplateColumns:'36px 1fr 36px',gap:6,alignItems:'center',marginBottom:8}}><button type="button" className="btn g" onClick={()=>shift(-1)}>‹</button><div style={{display:'flex',gap:6,justifyContent:'center'}}><select className="input" value={view.m} onChange={e=>setView(v=>({...v,m:+e.target.value}))} style={{padding:'6px 8px',fontSize:11,maxWidth:120}}>{J_MONTHS.map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}</select><select className="input" value={view.y} onChange={e=>setView(v=>({...v,y:+e.target.value}))} style={{padding:'6px 8px',fontSize:11,maxWidth:90}}>{years.map(y=><option key={y} value={y}>{fa(y)}</option>)}</select></div><button type="button" className="btn g" onClick={()=>shift(1)}>›</button></div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:5}}>{['ش','ی','د','س','چ','پ','ج'].map(x=><span key={x} style={{textAlign:'center',fontSize:10,fontWeight:800,color:'var(--muted)'}}>{x}</span>)}</div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3}}>{cells}</div>
       <div style={{display:'flex',justifyContent:'space-between',marginTop:9,paddingTop:9,borderTop:'1px solid var(--line)'}}><button type="button" className="btn g" onClick={()=>{emit(ty,tm,td);setView({y:ty,m:tm});setOpen(false);}}>امروز</button><button type="button" className="btn t" onClick={()=>setOpen(false)}>بستن</button></div>
-    </div>}
+    </div>;
+  return <span ref={triggerRef} style={{position:'relative',display:'inline-block',width:'100%',minWidth:0}}>
+    <input className="input" readOnly value={label()} placeholder={placeholder||'تاریخ'} onClick={()=>setOpen(v=>!v)} style={{cursor:'pointer',maxWidth:150,width:'100%'}}/>
+    {value&&<button type="button" onClick={()=>onChange('')} style={{position:'absolute',left:6,top:8,background:'none',border:0,cursor:'pointer',color:'var(--muted)',zIndex:2}}>✕</button>}
+    {portal&&typeof document!=='undefined'&&ReactDOM?.createPortal?ReactDOM.createPortal(calendar,document.body):calendar}
   </span>;
 }
 function _g2j(gy,gm,gd){
@@ -7224,18 +7244,18 @@ function AttendanceRequestModal({userId,jdate,onSaved,onClose}){
     }catch(e){setErr(e.message||"ثبت درخواست انجام نشد");}
     finally{setBusy(false);}
   };
-  return <PunchModalShell title="ثبت درخواست" subtitle={"برای تاریخ "+faPlain(String(jdate||""))} onClose={onClose}
+  return <PunchModalShell title="ثبت درخواست" subtitle={"برای تاریخ "+faPlain(String(jdate||""))} onClose={onClose} wide
     actions={<><button className="btn g punch-action-secondary" onClick={onClose} disabled={busy}>انصراف</button><button className="btn p punch-action-primary" onClick={submit} disabled={busy}>{busy?"در حال ثبت…":"ثبت درخواست"}</button></>}>
     <div className="punch-summary"><span>نوع درخواست</span><small>اطلاعات درخواست پس از ثبت در گزارش همان روز قابل مشاهده است.</small></div>
-    <div className="punch-fields" style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:12}}>
+    <div className="punch-fields attendance-request-fields">
       <div className="punch-field" style={{gridColumn:"1 / -1"}}>
         <label className="label">نوع درخواست</label>
         <select className="input" value={kind} onChange={e=>setKind(e.target.value)}>
           {TYPES.map(x=><option key={x.value} value={x.value}>{x.label}</option>)}
         </select>
       </div>
-      <div className="punch-field"><label className="label">از تاریخ</label><JDate value={fromDate} onChange={setFromDate} jalali/></div>
-      {!hourly&&<div className="punch-field"><label className="label">تا تاریخ</label><JDate value={toDate} onChange={setToDate} jalali/></div>}
+      <div className="punch-field"><label className="label">از تاریخ</label><JDate value={fromDate} onChange={setFromDate} jalali portal/></div>
+      {!hourly&&<div className="punch-field"><label className="label">تا تاریخ</label><JDate value={toDate} onChange={setToDate} jalali portal/></div>}
       {hourly&&<><div className="punch-field"><label className="label">از ساعت</label><input className="input" type="time" value={fromTime} onChange={e=>setFromTime(e.target.value)} /></div><div className="punch-field"><label className="label">تا ساعت</label><input className="input" type="time" value={toTime} onChange={e=>setToTime(e.target.value)} /></div></>}
       <div className="punch-field" style={{gridColumn:"1 / -1"}}><label className="label">توضیحات</label><textarea className="input" rows="3" value={reason} onChange={e=>setReason(e.target.value)} placeholder="توضیحات درخواست (اختیاری)"/></div>
     </div>
@@ -7347,9 +7367,9 @@ function HmField({label,value,onChange,optional=false,autoFocus=false}){
     </div>
   </div>;
 }
-function PunchModalShell({title,subtitle,children,onClose,actions}){
+function PunchModalShell({title,subtitle,children,onClose,actions,wide=false}){
   return <div className="modal-bg punch-modal-bg" style={{zIndex:99999}} onClick={onClose}>
-    <div className="modal punch-modal" role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()} style={{maxHeight:"92vh",overflowY:"auto",display:"flex",flexDirection:"column"}}>
+    <div className={"modal punch-modal"+(wide?" punch-modal-wide":"")} role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()} style={{maxHeight:"92dvh",overflowY:"auto",display:"flex",flexDirection:"column"}}>
       <div className="punch-modal-head">
         <div><h3>{title}</h3>{subtitle&&<div className="punch-modal-sub">{subtitle}</div>}</div>
         <button type="button" className="punch-modal-close" onClick={onClose} aria-label="بستن">×</button>
