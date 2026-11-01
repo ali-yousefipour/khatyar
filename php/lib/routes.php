@@ -5921,7 +5921,7 @@ function _driver_photo_ensure_table(){
 }
 function _driver_photo_record($driverId){
   _driver_photo_ensure_table();
-  return Db::one('SELECT photo_path,confirmed_at FROM driver_profile_photos WHERE driver_id=?',[(int)$driverId]);
+  return Db::one('SELECT photo_path,confirmed_at,captured_by,updated_by,updated_at FROM driver_profile_photos WHERE driver_id=?',[(int)$driverId]);
 }
 function _driver_photo_required(){
   return filter_var(_req_setting('driver_profile_photo_required',false),FILTER_VALIDATE_BOOLEAN);
@@ -9674,8 +9674,12 @@ route('GET', '/api/admin/drivers', function($p,$b,$u){
   $where=$c?('WHERE '.implode(' AND ',$c)):'';
   $total=(int) Db::one("SELECT COUNT(*) n FROM drivers d $where", $pr)['n'];
   $per=min(200,max(10,(int)($_GET['per'] ?? 25))); $page=max(1,(int)($_GET['page'] ?? 1)); $off=($page-1)*$per;
-  $rows=Db::all("SELECT d.id,d.national_id,d.first_name,d.last_name,d.mobile,d.gender,d.driver_type,d.taxi_lic_status,d.op_lic_status,d.op_lic_expire,dp.photo_path
-    FROM drivers d LEFT JOIN driver_profile_photos dp ON dp.driver_id=d.id $where ORDER BY d.id LIMIT $per OFFSET $off", $pr);
+  $rows=Db::all("SELECT d.id,d.national_id,d.first_name,d.last_name,d.mobile,d.gender,d.driver_type,d.taxi_lic_status,d.op_lic_status,d.op_lic_expire,dp.photo_path,
+      COALESCE(dp.updated_at,dp.confirmed_at) photo_uploaded_at,
+      TRIM(CONCAT(COALESCE(pu.first_name,''),' ',COALESCE(pu.last_name,''))) photo_uploaded_by,
+      COALESCE(dp.updated_by,dp.captured_by) photo_uploaded_by_id
+    FROM drivers d LEFT JOIN driver_profile_photos dp ON dp.driver_id=d.id
+    LEFT JOIN users pu ON pu.id=COALESCE(dp.updated_by,dp.captured_by) $where ORDER BY d.id LIMIT $per OFFSET $off", $pr);
   foreach($rows as &$row) $row['photo']=$row['photo_path']?'/api/media?path='.urlencode($row['photo_path']):null;
   return ['rows'=>$rows,'total'=>$total,'page'=>$page,'per'=>$per,'pages'=>(int)ceil($total/$per)];
 });
@@ -9721,6 +9725,21 @@ route('GET', '/api/admin/drivers/{id}/full', function($p,$b,$u){
   $d = Db::one("SELECT * FROM drivers WHERE id=?", [$p['id']]); if(!$d) Http::error('یافت نشد',404);
   $photo=_driver_photo_record($p['id']);
   $d['photo']=$photo?'/api/media?path='.urlencode($photo['photo_path']):null;
+  $d['photo_confirmed_at']=$photo['confirmed_at']??null;
+  $d['photo_updated_at']=$photo['updated_at']??null;
+  $d['photo_uploaded_at']=$photo?($photo['updated_at']?:$photo['confirmed_at']):null;
+  $d['photo_uploaded_by']=null;
+  $d['photo_captured_by']=null;
+  if($photo){
+    $ids=array_values(array_unique(array_filter([(int)($photo['captured_by']??0),(int)($photo['updated_by']??0)])));
+    if($ids){
+      $holders=implode(',',array_fill(0,count($ids),'?'));
+      $names=[];foreach(Db::all("SELECT id,TRIM(CONCAT(COALESCE(first_name,''),' ',COALESCE(last_name,''))) name FROM users WHERE id IN ($holders)",$ids) as $person)$names[(int)$person['id']]=$person['name'];
+      $original=(int)($photo['captured_by']??0);$latest=(int)($photo['updated_by']?:$original);
+      $d['photo_captured_by']=$names[$original]??($original?'کاربر #'.$original:null);
+      $d['photo_uploaded_by']=$names[$latest]??($latest?'کاربر #'.$latest:null);
+    }
+  }
   $d['vehicles']  = Db::all("SELECT v.plate, MAX(v.model_name) model_name, MAX(v.model_year) model_year, MAX(l.code) line_code,
        MAX(vd.role) role, MAX(vd.shift) shift FROM vehicle_drivers vd JOIN vehicles v ON v.id=vd.vehicle_id
        LEFT JOIN `lines` l ON l.id=v.line_id WHERE vd.driver_id=? GROUP BY v.plate", [$p['id']]);
