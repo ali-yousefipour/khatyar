@@ -4809,28 +4809,40 @@ function Settings(){
 }
 
 function Logs(){
-  const [l,setL]=useState([]); const [users,setUsers]=useState([]); const [events,setEvents]=useState([]);
-  const [f,setF]=useState({event:"",user_id:"",from:"",to:""});
-  const ev={login:"ورود",login_blocked_security:"ورود مسدود (امنیتی)",login_failed:"ورود ناموفق",gps_off:"خاموش‌کردن GPS",device_revoked:"حذف دستگاه",device_mismatch:"دستگاه ناهمخوان",net_off:"قطع اینترنت",logout:"خروج"};
-  const load=()=>{ const q=new URLSearchParams(); Object.entries(f).forEach(([k,v])=>{if(v)q.set(k,v)}); q.set("all","1");
-    GET("/admin/logs?"+q.toString()).then(setL).catch(()=>{}); };
-  useEffect(()=>{ load(); db.users().then(setUsers).catch(()=>{}); GET("/admin/log-events").then(setEvents).catch(()=>{}); },[]);
-  const exportExcel=()=>{ const rows=l.map(x=>[fj(x.created_at),(x.first_name||"")+" "+(x.last_name||""),ev[x.event]||x.event,(x.meta&&x.meta.reason)||""]);
-    const ws=XLSX.utils.aoa_to_sheet([["زمان","کاربر","رویداد","توضیح"],...rows]); const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,"لاگ"); XLSX.writeFile(wb,"لاگ_فعالیت‌ها.xlsx"); };
-  return(<div className="panel admin-workspace-page admin-list-page"><h3>لاگ فعالیت‌ها و رویدادهای امنیتی</h3>
-    <div className="row no-print page-toolbar" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
-      <select className="input" style={{maxWidth:180}} value={f.event} onChange={e=>setF({...f,event:e.target.value})}><option value="">همهٔ رویدادها</option>{events.map(e=><option key={e} value={e}>{ev[e]||e}</option>)}</select>
-      <select className="input" style={{maxWidth:200}} value={f.user_id} onChange={e=>setF({...f,user_id:e.target.value})}><option value="">همهٔ کاربران</option>{users.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}{u.username?` — ${u.username}`:""}</option>)}</select>
-      <JDate value={f.from} onChange={v=>setF({...f,from:v})} placeholder="از تاریخ"/>
-      <JDate value={f.to} onChange={v=>setF({...f,to:v})} placeholder="تا تاریخ"/>
-      <button className="btn g" onClick={load}>اعمال فیلتر</button>
-      <button className="btn p" onClick={exportExcel}>⬇ خروجی Excel</button></div>
-    <ResponsiveTable><thead><tr><th>زمان</th><th>کاربر</th><th>رویداد</th><th>توضیح</th></tr></thead>
-    <tbody>{l.map(x=><tr key={x.id}><td>{fj(x.created_at)}</td><td>{x.first_name} {x.last_name}</td>
-      <td><span className={"badge "+((x.event||"").includes("blocked")||(x.event||"").includes("off")||(x.event||"").includes("failed")?"b-no":"b-w")}>{ev[x.event]||x.event}</span></td>
-      <td style={{fontSize:12,color:"var(--muted)"}}>{x.meta?.reason||"—"}</td></tr>)}</tbody></ResponsiveTable>
-    {l.length===0&&<p className="muted" style={{textAlign:"center",padding:12}}>رکوردی یافت نشد.</p>}</div>);
+  const empty={event:"",user_id:"",platform:"",from:"",to:""};
+  const [l,setL]=useState([]),[users,setUsers]=useState([]),[events,setEvents]=useState([]);
+  const [f,setF]=useState(empty),[applied,setApplied]=useState(empty),[page,setPage]=useState(1);
+  const [total,setTotal]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(""),[selected,setSelected]=useState(null);
+  const ev={api_action:"عملیات کاربر",login:"ورود",login_otp:"ورود با رمز یک‌بارمصرف",login_blocked_security:"ورود مسدود",login_failed:"ورود ناموفق",gps_off:"خاموش‌کردن GPS",device_revoked:"حذف دستگاه",device_mismatch:"دستگاه ناهمخوان",net_off:"قطع اینترنت",logout:"خروج",forget_checkin:"یادآوری ثبت حضور",inventory_confirmed:"تأیید تحویل"};
+  const verbs={POST:"ثبت",PUT:"ویرایش",PATCH:"ویرایش",DELETE:"حذف"};
+  const meta=x=>{if(!x?.meta)return {};if(typeof x.meta==='object')return x.meta;try{return JSON.parse(x.meta)||{}}catch(_){return {}}};
+  const label=x=>{const m=meta(x);return x.event==='api_action'?`${verbs[m.method]||'عملیات'} · ${m.route||'—'}`:(ev[x.event]||x.event)};
+  const platform=x=>{const p=meta(x).platform;return p==='android'?'اندروید':p==='web'?'وب':'نامشخص'};
+  const load=(filter=applied,n=page)=>{setBusy(true);setError("");const q=new URLSearchParams({page:String(n),limit:"50"});Object.entries(filter).forEach(([k,v])=>{if(v)q.set(k,v)});
+    GET('/admin/logs?'+q.toString()).then(r=>{setL(r.rows||[]);setTotal(r.total||0)}).catch(e=>setError(e.message||'خطا در دریافت رویدادها')).finally(()=>setBusy(false));};
+  useEffect(()=>{load(empty,1);db.users().then(setUsers).catch(()=>{});GET('/admin/log-events').then(setEvents).catch(()=>{});},[]);
+  const apply=()=>{setApplied({...f});setPage(1);load(f,1)};
+  const clear=()=>{setF(empty);setApplied(empty);setPage(1);load(empty,1)};
+  const exportExcel=()=>{const rows=l.map(x=>{const m=meta(x);return [fj(x.created_at),[x.first_name,x.last_name].filter(Boolean).join(' ')||x.username||'—',label(x),platform(x),m.status||'',m.target_id||'']});
+    const ws=XLSX.utils.aoa_to_sheet([["زمان","کاربر","فعالیت","بستر","وضعیت HTTP","شناسه مورد"],...rows]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'فعالیت‌ها');XLSX.writeFile(wb,'گزارش_فعالیت‌ها.xlsx')};
+  const pages=Math.max(1,Math.ceil(total/50));
+  return(<div className="panel admin-workspace-page admin-list-page activity-log-page">
+    <div className="activity-log-heading"><div><h3>مرکز پایش فعالیت‌ها</h3><p>ردیابی عملیات کاربران در سایت و نرم‌افزار، همراه با زمان و نتیجهٔ اجرا</p></div><div className="activity-log-count"><strong>{total.toLocaleString('fa-IR')}</strong><small>رویداد مطابق فیلتر</small></div></div>
+    <div className="activity-log-filters no-print">
+      <label>شخص<select className="input" value={f.user_id} onChange={e=>setF({...f,user_id:e.target.value})}><option value="">همهٔ کاربران</option>{users.map(u=><option key={u.id} value={u.id}>{u.first_name} {u.last_name}{u.username?` — ${u.username}`:""}</option>)}</select></label>
+      <label>رویداد<select className="input" value={f.event} onChange={e=>setF({...f,event:e.target.value})}><option value="">همهٔ فعالیت‌ها</option>{events.map(e=><option key={e} value={e}>{ev[e]||e}</option>)}</select></label>
+      <label>بستر<select className="input" value={f.platform} onChange={e=>setF({...f,platform:e.target.value})}><option value="">همهٔ بسترها</option><option value="web">وب</option><option value="android">اندروید</option></select></label>
+      <label>از تاریخ<JDate value={f.from} onChange={v=>setF({...f,from:v})} placeholder="شروع بازه"/></label>
+      <label>تا تاریخ<JDate value={f.to} onChange={v=>setF({...f,to:v})} placeholder="پایان بازه"/></label>
+      <div className="activity-log-actions"><button className="btn p" onClick={apply} disabled={busy}>اعمال فیلتر</button><button className="btn g" onClick={clear}>پاک‌کردن</button><button className="btn g" onClick={()=>load()}>↻ تازه‌سازی</button><button className="btn g" onClick={exportExcel} disabled={!l.length}>خروجی اکسل (صفحه فعلی)</button></div>
+    </div>
+    {error&&<p className="activity-log-error" role="alert">{error}</p>}
+    <div className="activity-log-table"><ResponsiveTable><thead><tr><th>زمان</th><th>کاربر</th><th>بستر</th><th>فعالیت</th><th>نتیجه</th><th>جزئیات</th></tr></thead><tbody>
+    {l.map(x=>{const m=meta(x),bad=Number(m.status)>=400||x.event.includes('failed')||x.event.includes('blocked');return <tr key={x.id}><td className="activity-log-time">{fj(x.created_at)}</td><td><strong>{[x.first_name,x.last_name].filter(Boolean).join(' ')||x.username||'کاربر نامشخص'}</strong><small>#{x.user_id||'—'}</small></td><td><span className="activity-log-platform">{platform(x)}</span></td><td>{label(x)}</td><td><span className={'badge '+(bad?'b-no':'b-w')}>{bad?'ناموفق':m.status?'موفق':'ثبت‌شده'}</span></td><td><button className="btn g activity-log-detail" onClick={()=>setSelected(x)}>مشاهده</button></td></tr>})}
+    </tbody></ResponsiveTable>{busy&&<p className="muted activity-log-empty">در حال بارگذاری…</p>}{!busy&&!l.length&&<p className="muted activity-log-empty">رویدادی با این فیلترها یافت نشد.</p>}</div>
+    <div className="activity-log-pagination no-print"><span>صفحه {page.toLocaleString('fa-IR')} از {pages.toLocaleString('fa-IR')}</span><button className="btn g" disabled={page<=1||busy} onClick={()=>{setPage(page-1);load(applied,page-1)}}>قبلی</button><button className="btn g" disabled={page>=pages||busy} onClick={()=>{setPage(page+1);load(applied,page+1)}}>بعدی</button></div>
+    {selected&&<div className="activity-log-overlay" onClick={()=>setSelected(null)}><div className="activity-log-modal" role="dialog" aria-modal="true" aria-label="جزئیات رویداد" onClick={e=>e.stopPropagation()}><div className="activity-log-modal-head"><h3>جزئیات فعالیت</h3><button className="btn g" onClick={()=>setSelected(null)}>بستن ✕</button></div><dl><dt>کاربر</dt><dd>{[selected.first_name,selected.last_name].filter(Boolean).join(' ')||selected.username||'—'}</dd><dt>زمان</dt><dd>{fj(selected.created_at)}</dd><dt>فعالیت</dt><dd>{label(selected)}</dd><dt>بستر</dt><dd>{platform(selected)}</dd><dt>نتیجه</dt><dd>{meta(selected).status||'—'}</dd><dt>شناسه رکورد</dt><dd>{meta(selected).target_id||'—'}</dd><dt>دلیل</dt><dd>{String(meta(selected).reason||'—')}</dd></dl></div></div>}
+  </div>);
 }
 
 function OplicImportFilterEditor(){

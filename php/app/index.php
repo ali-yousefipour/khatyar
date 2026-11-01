@@ -313,6 +313,27 @@ foreach ($routes as $r) {
        && !in_array('workcontracts',is_array($permConfig[$rid])?$permConfig[$rid]:[],true))
       Http::error('دسترسی ایجاد و پرینت قرارداد برای سمت شما فعال نیست',403);
   }
+  // Audit authenticated mutations across both web and Android. Never store request
+  // bodies, query strings, tokens or user-agent strings in the audit trail.
+  if ($user && in_array($method, ['POST','PUT','PATCH','DELETE'], true)
+      && !preg_match('~^/api/(?:admin/logs|session/renew|location|gps|heartbeat|radio|push|notifications/(?:poll|heartbeat))~', $path)) {
+    $auditUserId=(int)$user['id'];
+    $auditRoute=(string)$r['p'];
+    $auditMethod=$method;
+    $auditPlatform=in_array((string)($user['device_type']??''),['android','app','mobile'],true)?'android':'web';
+    $auditTarget=isset($params['id']) && ctype_digit((string)$params['id']) ? (int)$params['id'] : null;
+    register_shutdown_function(static function() use($auditUserId,$auditRoute,$auditMethod,$auditPlatform,$auditTarget) {
+      $status=http_response_code();
+      try {
+        Db::run('INSERT INTO activity_logs(user_id,event,meta) VALUES(?,?,?)', [
+          $auditUserId,'api_action',json_encode([
+            'route'=>$auditRoute,'method'=>$auditMethod,'platform'=>$auditPlatform,
+            'status'=>$status,'target_id'=>$auditTarget
+          ], JSON_UNESCAPED_UNICODE)
+        ]);
+      } catch (Throwable $auditError) { error_log('activity audit unavailable: '.$auditError->getMessage()); }
+    });
+  }
   $result = $r['fn']($params, $body, $user); Http::json($result);
   } catch (Throwable $e) { error_log('API error [' . $method . ' ' . $path . '] ' . get_class($e) . ': ' . $e->getMessage() . ' at ' . basename($e->getFile()) . ':' . $e->getLine()); $debug = getenv('API_DEBUG') === '1' || (defined('API_DEBUG') && API_DEBUG); if ($debug) Http::json(['error' => 'خطای داخلی سرور', 'detail' => $e->getMessage(), 'line' => $e->getLine(), 'file' => basename($e->getFile())], 500); else Http::error('خطای داخلی سرور', 500); }
 }

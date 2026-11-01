@@ -11450,14 +11450,29 @@ function expiry_alerts($u) {
 // لاگ فعالیت‌ها با فیلتر تاریخ/نوع/کاربر (و خروجی برای اکسل سمت کلاینت)
 route('GET', '/api/admin/logs', function($p,$b,$u){
   $c=[]; $pr=[];
-  if (!empty($_GET['event'])) { $c[]="l.event=?"; $pr[]=$_GET['event']; }
+  if (!empty($_GET['event'])) { $c[]="l.event=?"; $pr[]=substr((string)$_GET['event'],0,60); }
   if (!empty($_GET['user_id'])) { $c[]="l.user_id=?"; $pr[]=(int)$_GET['user_id']; }
-  if (!empty($_GET['from'])) { $c[]="l.created_at>=?"; $pr[]=$_GET['from'].' 00:00:00'; }
-  if (!empty($_GET['to']))   { $c[]="l.created_at<=?"; $pr[]=$_GET['to'].' 23:59:59'; }
+  $normalizeDate=static function($raw){
+    $raw=str_replace('/','-',trim((string)$raw));
+    if(!preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/',$raw,$m))Http::error('تاریخ نامعتبر است',422);
+    [$year,$month,$day]=array_map('intval',array_slice($m,1));
+    if($year<1700)[$year,$month,$day]=jalali_to_gregorian($year,$month,$day);
+    if(!checkdate($month,$day,$year))Http::error('تاریخ نامعتبر است',422);
+    return sprintf('%04d-%02d-%02d',$year,$month,$day);
+  };
+  if (!empty($_GET['from'])) { $c[]="l.created_at>=?"; $pr[]=$normalizeDate($_GET['from']).' 00:00:00'; }
+  if (!empty($_GET['to']))   { $c[]="l.created_at<=?"; $pr[]=$normalizeDate($_GET['to']).' 23:59:59'; }
+  if (!empty($_GET['platform']) && in_array($_GET['platform'],['web','android'],true)) {
+    $c[]="l.event='api_action' AND JSON_UNQUOTE(JSON_EXTRACT(l.meta,'$.platform'))=?"; $pr[]=$_GET['platform'];
+  }
   $where = $c ? ('WHERE '.implode(' AND ',$c)) : '';
-  $lim = !empty($_GET['all']) ? 5000 : 200;
-  return Db::all("SELECT l.id,l.event,l.meta,l.created_at,u.first_name,u.last_name
-    FROM activity_logs l LEFT JOIN users u ON u.id=l.user_id $where ORDER BY l.created_at DESC LIMIT $lim", $pr);
+  $limit=!empty($_GET['all'])?5000:min(100,max(10,(int)($_GET['limit']??50)));
+  $page=!empty($_GET['all'])?1:min(100000,max(1,(int)($_GET['page']??1)));
+  $offset=($page-1)*$limit;
+  $count=(int)(Db::one("SELECT COUNT(*) AS n FROM activity_logs l $where",$pr)['n']??0);
+  $rows=Db::all("SELECT l.id,l.user_id,l.event,l.meta,l.created_at,u.first_name,u.last_name,u.username
+    FROM activity_logs l LEFT JOIN users u ON u.id=l.user_id $where ORDER BY l.id DESC LIMIT $limit OFFSET $offset", $pr);
+  return ['rows'=>$rows,'total'=>$count,'page'=>$page,'limit'=>$limit];
 }, false, ADMIN);
 // انواع رویداد موجود برای فیلتر
 route('GET', '/api/admin/log-events', fn($p,$b,$u) =>
