@@ -3793,6 +3793,8 @@ function _attendance_change_audit($userId,$jdate,$punchId,$action,$actorId,$befo
   }catch(Throwable $e){error_log('attendance audit write failed: '.$e->getMessage());}
 }
 route('GET','/api/admin/attendance-day-audit',function($p,$b,$u){
+  // Restricted audit history: only the system's top-level administrator.
+  if ((int)($u['level'] ?? 0) !== 1 || empty($u['is_admin'])) Http::error('دسترسی به تاریخچه تغییرات فقط برای مدیر کل مجاز است',403);
   $uid=(int)($_GET['user_id']??0);$jdate=str_replace('/','-',trim((string)($_GET['jdate']??'')));
   if($uid<=0||!preg_match('/^1[34]\d{2}-\d{2}-\d{2}$/',$jdate))Http::error('کاربر یا تاریخ نامعتبر است',422);
   $items=[];
