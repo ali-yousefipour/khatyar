@@ -1416,3 +1416,32 @@ table{font-size:13px}
 .activity-log-modal dl{display:grid;grid-template-columns:110px minmax(0,1fr);gap:0;margin:12px 0 0}.activity-log-modal dt,.activity-log-modal dd{margin:0;padding:12px 6px;border-bottom:1px solid #edf2f0;overflow-wrap:anywhere}.activity-log-modal dt{color:#647b74}.activity-log-modal dd{font-weight:600;color:#1b3630;direction:auto}
 @media(max-width:750px){.activity-log-filters{grid-template-columns:repeat(2,minmax(0,1fr));padding:12px}.activity-log-heading{padding:15px;align-items:flex-start}.activity-log-heading h3{font-size:17px}.activity-log-count{min-width:95px;padding:9px}.activity-log-actions .btn{flex:1 1 130px}}
 @media(max-width:440px){.activity-log-filters{grid-template-columns:1fr}.activity-log-heading{flex-direction:column}.activity-log-count{align-items:flex-start;width:100%}.activity-log-modal dl{grid-template-columns:88px minmax(0,1fr)}}
+
+/* Attendance daily details: mobile-first dialog and responsive punch history. */
+.attendance-detail-dialog{box-sizing:border-box;min-width:0!important;max-width:calc(100vw - 20px)!important;overflow:hidden!important;cursor:default}
+.attendance-detail-dialog>div{min-width:0;max-width:100%}
+.attendance-detail-dialog .attendance-punch-table{max-width:100%;overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+.attendance-detail-dialog .attendance-punch-table table{min-width:720px}
+.attendance-detail-dialog .attendance-audit-item{min-width:0;overflow:hidden}
+.attendance-detail-dialog .attendance-audit-item-head time{direction:rtl!important;text-align:right;white-space:normal}
+@media(max-width:640px){
+ .attendance-detail-overlay{padding:6px!important;align-items:center!important}
+ .attendance-detail-dialog{width:calc(100vw - 12px)!important;max-width:calc(100vw - 12px)!important;max-height:calc(100dvh - 12px)!important;border-radius:16px!important}
+ .attendance-detail-dialog>div:first-child{padding:10px 12px!important;gap:8px!important}
+ .attendance-detail-dialog>div:nth-child(2){padding:12px!important;overflow-x:hidden!important;overscroll-behavior:contain}
+ .attendance-detail-dialog .attendance-punch-table{overflow:visible!important;border:0!important}
+ .attendance-detail-dialog .attendance-punch-table table,.attendance-detail-dialog .attendance-punch-table tbody{display:block;min-width:0!important;width:100%!important}
+ .attendance-detail-dialog .attendance-punch-table thead{display:none}
+ .attendance-detail-dialog .attendance-punch-table tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px;margin:0 0 10px;background:#f8fbf9;border:1px solid #d8e8df;border-radius:13px}
+ .attendance-detail-dialog .attendance-punch-table tbody td{display:block;min-width:0!important;width:auto!important;padding:7px!important;text-align:right!important;white-space:normal!important;overflow-wrap:anywhere;border:0!important}
+ .attendance-detail-dialog .attendance-punch-table tbody td::before{display:block;font-size:10px;font-weight:700;color:#5b7d6c;margin-bottom:3px}
+ .attendance-detail-dialog .attendance-punch-table tbody td:nth-child(1)::before{content:"ورود"}
+ .attendance-detail-dialog .attendance-punch-table tbody td:nth-child(2)::before{content:"خروج"}
+ .attendance-detail-dialog .attendance-punch-table tbody td:nth-child(3)::before{content:"روش ثبت"}
+ .attendance-detail-dialog .attendance-punch-table tbody td:nth-child(4)::before{content:"دستگاه"}
+ .attendance-detail-dialog .attendance-punch-table tbody td:nth-child(5){grid-column:1/-1;border-top:1px solid #dfebe4!important;padding-top:9px!important}
+ .attendance-detail-dialog .attendance-punch-table tbody td:nth-child(5)::before{content:"اقدامات"}
+ .attendance-detail-dialog .attendance-punch-table tbody td:nth-child(5) .btn{white-space:normal;max-width:100%;margin:3px}
+ .attendance-detail-dialog .attendance-audit-values-head,.attendance-detail-dialog .attendance-audit-values-row{grid-template-columns:minmax(60px,.8fr) repeat(2,minmax(0,1fr));font-size:10px;gap:4px}
+ .attendance-detail-dialog .attendance-audit-values-row span{overflow-wrap:anywhere;word-break:break-word}
+}
