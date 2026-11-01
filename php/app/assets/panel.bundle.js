@@ -3524,7 +3524,7 @@ function DriverSmsHistory({ driverId }) {
 }
 function Drivers() {
     const [data, setData] = useState({ rows: [], total: 0, page: 1, pages: 1 });
-    const [f, setF] = useState({ q: "", line: "", model: "", gender: "", driver_type: "" });
+    const [f, setF] = useState({ q: "", line: "", model: "", gender: "", driver_type: "", with_photo: "" });
     const [page, setPage] = useState(1);
     const [per, setPer] = useState(10);
     const [full, setFull] = useState(null);
@@ -3581,7 +3581,7 @@ function Drivers() {
     };
     const clean = o => { const x = { ...o }; Object.keys(x).forEach(k => !x[k] && delete x[k]); return x; };
     const norm = d => Array.isArray(d) ? { rows: d, total: d.length, page: 1, pages: 1 } : (d && Array.isArray(d.rows) ? d : { rows: [], total: 0, page: 1, pages: 1 });
-    const load = (pg = 1) => { db.drivers({ ...clean(f), page: pg, per }).then(d => { const n = norm(d); setData(n); setPage(n.page); }).catch(() => setData({ rows: [], total: 0, page: 1, pages: 1 })); };
+    const load = (pg = 1, filters = f) => { db.drivers({ ...clean(filters), page: pg, per }).then(d => { const n = norm(d); setData(n); setPage(n.page); }).catch(() => setData({ rows: [], total: 0, page: 1, pages: 1 })); };
     useEffect(() => { load(1); }, []);
     const exportXlsx = async () => {
         const d = await db.drivers({ ...clean(f), per: 10000, page: 1 });
@@ -3616,6 +3616,9 @@ function Drivers() {
                 React.createElement("option", null, "\u0645\u0631\u062F"),
                 React.createElement("option", null, "\u0632\u0646")),
             React.createElement("input", { className: "input", style: { maxWidth: 130 }, placeholder: "\u0646\u0648\u0639 \u0631\u0627\u0646\u0646\u062F\u0647", value: f.driver_type, onChange: e => setF({ ...f, driver_type: e.target.value }) }),
+            React.createElement("label", { style: { display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 44, padding: '7px 12px', border: '1px solid var(--line)', borderRadius: 12, background: f.with_photo ? '#e7f4ee' : '#fff', color: 'var(--ink)', cursor: 'pointer', fontSize: 13, fontWeight: 600 } },
+                React.createElement("input", { type: "checkbox", checked: f.with_photo === '1', onChange: e => { const next = { ...f, with_photo: e.target.checked ? '1' : '' }; setF(next); load(1, next); }, style: { width: 18, height: 18, accentColor: 'var(--brand)', cursor: 'pointer' } }),
+                "\u0641\u0642\u0637 \u062F\u0627\u0631\u0627\u06CC \u0639\u06A9\u0633 \u067E\u0631\u0633\u0646\u0644\u06CC"),
             React.createElement("button", { className: "btn p", onClick: () => load(1) }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631")),
         React.createElement("p", { className: "muted", style: { marginBottom: 8 } },
             "\u0645\u062C\u0645\u0648\u0639: ",
@@ -13761,11 +13764,33 @@ function RequestDetails({ requestId, onClose }) {
     const safeImage = value => /^data:image\/(?:jpeg|jpg|png|webp);base64,/i.test(value) || /^\/api\/media\?/.test(value);
     const attachment = (data === null || data === void 0 ? void 0 : data.attachment_data) || '';
     const safeAttachment = /^data:(?:image\/(?:jpeg|jpg|png|webp)|application\/(?:pdf|octet-stream|msword|vnd\.openxmlformats-officedocument\.[a-z.]+));base64,/i.test(attachment);
-    return React.createElement(Modal, { title: 'جزئیات درخواست #' + fa(requestId), onClose: onClose, style: { width: 860 } },
-        error ? React.createElement("p", { role: "alert" }, error) : !data ? React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062C\u0632\u0626\u06CC\u0627\u062A\u2026") : React.createElement(React.Fragment, null,
-            React.createElement("dl", { className: "grid2", style: { gap: 12 } }, [['درخواست‌کننده', data.requester], ['نوع', TY[data.type] || data.type], ['وضعیت', ST[data.status] || data.status], ['واحد', data.type === 'manual' ? 'تردد دستی' : data.unit === 'daily' ? 'روزانه' : data.unit === 'hourly' ? 'ساعتی' : '—'], ['مدت درخواست', data.type === 'manual' ? 'مطابق ساعت ورود / خروج' : data.unit === 'daily' ? (Math.round(Number(data.minutes || 0) / 480 * 100) / 100) + ' روز' : (Math.floor(Number(data.minutes || 0) / 60) + ' ساعت و ' + (Number(data.minutes || 0) % 60) + ' دقیقه')], ['از تاریخ', data.from_jdate || data.the_date], ['تا تاریخ', data.to_jdate || data.the_date || data.from_jdate], ['ساعت شروع / ورود', data.from_time || data.in_time], ['ساعت پایان / خروج', data.to_time || data.out_time], ['زمان ثبت', fj(data.created_at)], ['زمان تصمیم', data.decided_at ? fj(data.decided_at) : '—'], ['تأییدکننده', data.approver], ['مسئول فعلی بررسی', data.status === 'pending' ? data.pending_on_name : '—']].map(([label, value]) => React.createElement("div", { key: label },
-                React.createElement("dt", { className: "muted" }, label),
-                React.createElement("dd", { style: { margin: 0, fontWeight: 700 } }, value ? faPlain(value) : '—')))),
+    const fieldGroup = (title, fields) => React.createElement("section", { className: "request-detail-section" },
+        React.createElement("h4", null, title),
+        React.createElement("dl", { className: "request-detail-grid" }, fields.map(([label, value]) => React.createElement("div", { className: "request-detail-field", key: label },
+            React.createElement("dt", null, label),
+            React.createElement("dd", null, value !== null && value !== undefined && value !== '' ? faPlain(value) : '—')))));
+    return React.createElement(Modal, { title: 'جزئیات درخواست #' + fa(requestId), onClose: onClose, style: { width: 'min(94vw,900px)', maxHeight: '92vh', overflowY: 'auto' } },
+        error ? React.createElement("p", { role: "alert" }, error) : !data ? React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062C\u0632\u0626\u06CC\u0627\u062A\u2026") : React.createElement("div", { className: "request-detail-modal", dir: "rtl" },
+            React.createElement("div", { className: "request-detail-summary" },
+                React.createElement("div", null,
+                    React.createElement("span", { className: "request-detail-eyebrow" }, "\u0646\u0648\u0639 \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
+                    React.createElement("strong", null, TY[data.type] || data.type || 'درخواست پرسنلی'),
+                    React.createElement("span", { className: "request-detail-requester" }, data.requester || 'درخواست‌کننده نامشخص')),
+                React.createElement("span", { className: 'request-detail-status status-' + (ST[data.status] ? data.status : 'unknown') }, ST[data.status] || data.status || 'نامشخص')),
+            fieldGroup('مشخصات درخواست', [['واحد درخواست', data.type === 'manual' ? 'تردد دستی' : data.unit === 'daily' ? 'روزانه' : data.unit === 'hourly' ? 'ساعتی' : '—'], ['مدت درخواست', data.type === 'manual' ? 'مطابق ساعت ورود / خروج' : data.unit === 'daily' ? (Math.round(Number(data.minutes || 0) / 480 * 100) / 100) + ' روز' : (Math.floor(Number(data.minutes || 0) / 60) + ' ساعت و ' + (Number(data.minutes || 0) % 60) + ' دقیقه')], ['از تاریخ', data.from_jdate || data.the_date], ['تا تاریخ', data.to_jdate || data.the_date || data.from_jdate], ['ساعت شروع / ورود', data.from_time || data.in_time], ['ساعت پایان / خروج', data.to_time || data.out_time]]),
+            fieldGroup('ثبت و گردش بررسی', [['زمان ثبت', fj(data.created_at)], ['زمان تصمیم', data.decided_at ? fj(data.decided_at) : '—'], ['تأییدکننده', data.approver], ['مسئول فعلی بررسی', data.status === 'pending' ? data.pending_on_name : '—']]),
+            React.createElement("section", { className: "request-detail-section" },
+                React.createElement("h4", null, "\u0633\u0648\u0627\u0628\u0642 \u062A\u0623\u06CC\u06CC\u062F \u0648 \u0628\u0631\u0631\u0633\u06CC"),
+                (data.approval_steps || []).length ? React.createElement("ol", { className: "request-approval-timeline" }, data.approval_steps.map((step, index) => React.createElement("li", { key: step.id || index },
+                    React.createElement("span", { className: "request-approval-step-number", "aria-hidden": "true" }, fa(index + 1)),
+                    React.createElement("div", { className: "request-approval-step-content" },
+                        React.createElement("div", { className: "request-approval-step-head" },
+                            React.createElement("strong", null, step.actor_name || 'مسئول بررسی'),
+                            React.createElement("span", { className: 'request-detail-status status-' + (step.decision === 'approved' ? 'approved' : step.decision === 'rejected' ? 'rejected' : 'pending') }, step.decision === 'approved' ? 'تأیید نهایی' : step.decision === 'rejected' ? 'رد درخواست' : step.decision === 'forwarded' ? 'تأیید و ارجاع' : 'بررسی')),
+                        React.createElement("time", { className: "request-approval-step-time", dateTime: step.created_at || undefined },
+                            "\u062A\u0627\u0631\u06CC\u062E \u0648 \u0633\u0627\u0639\u062A: ",
+                            step.created_at ? fj(step.created_at) : 'ثبت نشده'),
+                        step.note && React.createElement("p", { className: "request-approval-step-note" }, step.note))))) : React.createElement("p", { className: "muted" }, "\u0647\u0646\u0648\u0632 \u0633\u0627\u0628\u0642\u0647 \u062A\u0623\u06CC\u06CC\u062F\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.")),
             React.createElement("h4", null, "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
             React.createElement("p", { style: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } }, data.reason || 'توضیحی ثبت نشده است.'),
             data.approver_note && React.createElement(React.Fragment, null,
