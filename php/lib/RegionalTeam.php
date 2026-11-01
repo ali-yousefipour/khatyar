@@ -4,6 +4,10 @@
  * Never infer permissions from a client-supplied zone or role.
  */
 final class RegionalTeam {
+    public static function hasFullTeamAccess(string $title): bool {
+        $normalized=trim(preg_replace('/\s+/u',' ',str_replace(['ي','ك','‌'],['ی','ک',' '],$title)));
+        return in_array($normalized,['سربازرس ارشد','رییس اداره بازرسی','رئیس اداره بازرسی','نیروی اداری ارشد','کاربر اداری ارشد'],true);
+    }
     public static function roleKey(string $title): ?string {
         require_once __DIR__.'/OrgChart.php';
         return OrgChart::roleKey($title);
@@ -24,11 +28,15 @@ final class RegionalTeam {
         return array_keys($seen);
     }
     public static function allowedMembers(array $actor,array $users,array $zones,array $leadership): array {
+        $actorId=(int)($actor['id']??0);if(!$actorId)return [];
+        // Organization-wide oversight roles can inspect every active person,
+        // independently of their own assigned region or numeric role level.
+        if(self::hasFullTeamAccess((string)($actor['role_title']??'')))
+            return array_values(array_filter($users,static fn($person)=>(int)($person['id']??0)>0&&!empty($person['is_active'])));
         // Regional hierarchy is configured by numeric role level, not the
         // editable Persian title (which can vary between equivalent roles).
         $viewerLevel=(int)($actor['level']??0);
         if(!in_array($viewerLevel,[5,6],true))return [];
-        $actorId=(int)($actor['id']??0);if(!$actorId)return [];
         $roots=[];
         foreach($leadership as $entry){
             $z=(int)($entry['zone_id']??0);
@@ -79,9 +87,10 @@ final class RegionalTeam {
     }
     public static function response(array $actor): array {
         $actorId=(int)($actor['id']??0);
-        $actorRow=Db::one('SELECT u.zone_id,r.level FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?',[$actorId])?:[];
+        $actorRow=Db::one('SELECT u.zone_id,r.level,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?',[$actorId])?:[];
         $actor['zone_id']=$actorRow['zone_id']??null;
         $actor['level']=$actorRow['level']??null;
+        $actor['role_title']=$actorRow['role_title']??null;
         $zones=Db::all('SELECT id,name,parent_id FROM zones');
         $users=Db::all('SELECT u.id,u.first_name,u.last_name,u.zone_id,u.is_active,r.title role_title,r.level FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1');
         $leadership=[];
