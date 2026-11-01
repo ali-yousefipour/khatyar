@@ -759,8 +759,8 @@ function _presence_outside_lines_bale_alert($checkId,$userId,$lat,$lng,$slot) {
     if ((int)($fenceCount['n']??0)===0 || station_at_point($lat,$lng,$lineIds)!==null) return;
     Db::run("CREATE TABLE IF NOT EXISTS presence_outside_bale_alerts (check_id BIGINT NOT NULL PRIMARY KEY, user_id INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     // A unique check ID prevents a repeated submission from messaging management again.
-    $inserted=Db::run('INSERT IGNORE INTO presence_outside_bale_alerts(check_id,user_id) VALUES(?,?)',[(int)$checkId,(int)$userId]);
-    if (!$inserted) return;
+    $inserted=Db::exec('INSERT IGNORE INTO presence_outside_bale_alerts(check_id,user_id) VALUES(?,?)',[(int)$checkId,(int)$userId]);
+    if ($inserted === 0) return;
     $staff=Db::one('SELECT first_name,last_name FROM users WHERE id=?',[(int)$userId]);
     $name=trim((string)($staff['first_name']??'').' '.(string)($staff['last_name']??''));
     if ($name==='') $name='شناسه '.(int)$userId;
