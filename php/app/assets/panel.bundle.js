@@ -8346,7 +8346,15 @@ function Logs() {
     catch (_) {
         return {};
     } };
-    const label = x => { const m = meta(x); return x.event === 'api_action' ? `${verbs[m.method] || 'عملیات'} · ${m.route || '—'}` : (ev[x.event] || x.event); };
+    const routeName = path => {
+        var _a;
+        const p = String(path || "").toLowerCase().replace(/\\/g, "/").split("?")[0];
+        const sections = [
+            [/presence-check|verification|selfie/, "صحت‌سنجی حضور"], [/attendance|punch|shift|work-time|work-report/, "تردد و کارکرد"], [/driver|vehicle|taxi/, "رانندگان و خودروها"], [/request|leave|mission/, "درخواست‌ها و مرخصی"], [/complaint/, "شکایات"], [/school/, "سرویس مدارس"], [/user|staff|personnel|role|permission/, "کاربران و دسترسی‌ها"], [/invoice|subscription/, "فاکتور و اشتراک"], [/radio|channel/, "بیسیم"], [/line|station|zone/, "خطوط و ایستگاه‌ها"], [/contract/, "قراردادها"], [/setting|config/, "تنظیمات سامانه"], [/image|photo|upload/, "تصاویر و فایل‌ها"], [/session|login|auth/, "ورود و نشست‌ها"], [/log|audit/, "لاگ فعالیت‌ها"]
+        ];
+        return ((_a = sections.find(([re]) => re.test(p))) === null || _a === void 0 ? void 0 : _a[1]) || "بخش سامانه";
+    };
+    const label = x => { const m = meta(x); return x.event === 'api_action' ? ((verbs[String(m.method || "").toUpperCase()] || ((m.method || "").toUpperCase() === "GET" ? "مشاهده" : "عملیات")) + " در " + routeName(m.route)) : (ev[x.event] || "رویداد " + x.event); };
     const platform = x => { const p = meta(x).platform; return p === 'android' ? 'اندروید' : p === 'web' ? 'وب' : 'نامشخص'; };
     const load = (filter = applied, n = page) => {
         setBusy(true);
@@ -8454,6 +8462,8 @@ function Logs() {
                     React.createElement("dd", null, fj(selected.created_at)),
                     React.createElement("dt", null, "\u0641\u0639\u0627\u0644\u06CC\u062A"),
                     React.createElement("dd", null, label(selected)),
+                    React.createElement("dt", null, "\u0645\u0633\u06CC\u0631 \u0641\u0646\u06CC"),
+                    React.createElement("dd", { dir: "ltr" }, meta(selected).route || '—'),
                     React.createElement("dt", null, "\u0628\u0633\u062A\u0631"),
                     React.createElement("dd", null, platform(selected)),
                     React.createElement("dt", null, "\u0646\u062A\u06CC\u062C\u0647"),
@@ -12181,7 +12191,7 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
                         ? React.createElement("div", { className: "muted", style: { fontSize: 13, padding: 12 } }, "\u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u06A9\u0633\u0631\u06CC\u060C \u0628\u0627\u0632\u0647 \u0648 \u0639\u0644\u062A \u062C\u0632\u0626\u06CC \u062F\u0631 \u0633\u0648\u0627\u0628\u0642 \u0642\u0627\u0628\u0644 \u062F\u0633\u062A\u0631\u0633\u06CC \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F. \u0627\u06CC\u0646 \u0645\u0648\u0631\u062F \u0628\u0647\u200C\u062A\u0646\u0647\u0627\u06CC\u06CC \u0627\u062B\u0628\u0627\u062A \u0646\u0645\u06CC\u200C\u06A9\u0646\u062F \u06A9\u0647 \u0628\u0631\u0646\u0627\u0645\u0647 \u0628\u0633\u062A\u0647 \u06CC\u0627 GPS \u062E\u0627\u0645\u0648\u0634 \u0628\u0648\u062F\u0647 \u0627\u0633\u062A.")
                         : React.createElement("div", null,
                             React.createElement("p", { style: { fontSize: 12, margin: "0 0 10px", color: "var(--muted)" } }, "\u0628\u0631\u0627\u06CC \u062D\u0630\u0641 \u0627\u062B\u0631 \u0647\u0631 \u0628\u0627\u0632\u0647\u060C \u062F\u06A9\u0645\u0647 \u00AB\u062D\u0630\u0641 \u0648 \u0628\u06CC\u200C\u0627\u062B\u0631 \u06A9\u0631\u062F\u0646\u00BB \u0647\u0645\u0627\u0646 \u0631\u062F\u06CC\u0641 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F. \u062F\u0644\u06CC\u0644 \u062D\u0630\u0641 \u062B\u0628\u062A \u0634\u062F\u0647 \u0648 \u0634\u0648\u0627\u0647\u062F GPS \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0645\u06CC\u200C\u0634\u0648\u062F."),
-                            React.createElement("div", { style: { overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 } },
+                            React.createElement("div", { className: "attendance-punch-table", style: { overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 } },
                                 React.createElement("table", { style: { width: "100%", minWidth: 650 } },
                                     React.createElement("thead", null,
                                         React.createElement("tr", null,
@@ -12297,7 +12307,7 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
                                         React.createElement("div", null,
                                             React.createElement("strong", null, names[a.action] || a.action),
                                             React.createElement("span", { className: "attendance-audit-person" }, ((_f = a.actor_name) === null || _f === void 0 ? void 0 : _f.trim()) || 'کاربر #' + (a.actor_id || 'نامشخص'))),
-                                        React.createElement("time", null, fj(a.created_at))),
+                                        React.createElement("time", null, faDate(a.created_at))),
                                     React.createElement("div", { className: "attendance-audit-values" },
                                         React.createElement("div", { className: "attendance-audit-values-head" },
                                             React.createElement("span", null, "\u0645\u0648\u0631\u062F"),
@@ -12305,8 +12315,8 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
                                             React.createElement("span", null, "\u0628\u0639\u062F \u0627\u0632 \u062A\u063A\u06CC\u06CC\u0631")),
                                         vals.map(([field, prior, next]) => React.createElement("div", { className: "attendance-audit-values-row", key: field },
                                             React.createElement("span", null, field),
-                                            React.createElement("span", null, faPlain(String(prior))),
-                                            React.createElement("span", null, faPlain(String(next)))))),
+                                            React.createElement("span", null, /\\d{4}-\\d{2}-\\d{2}/.test(String(prior)) ? faDate(prior) : faPlain(String(prior))),
+                                            React.createElement("span", null, /\\d{4}-\\d{2}-\\d{2}/.test(String(next)) ? faDate(next) : faPlain(String(next)))))),
                                     n.reason && React.createElement("p", { className: "attendance-audit-reason" },
                                         "\u0639\u0644\u062A: ",
                                         n.reason),
