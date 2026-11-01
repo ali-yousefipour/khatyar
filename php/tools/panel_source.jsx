@@ -8479,11 +8479,48 @@ function PresenceChecks(){
   }catch(e){ alert(e.message||"خطا"); } };
   const dlImg=(url,name)=>{ const a=document.createElement("a"); a.href=url; a.download=name||"presence.jpg"; a.target="_blank"; a.click(); };
   const exportExcel=()=>{try{
-    const q=x=>'"'+String(x??"").replace(/"/g,'""')+'"';
-    const data=[["نیرو","سمت","بازه","موقعیت","زمان ثبت (تهران)","شناسه صحت‌سنجی"],...visibleRows.map(r=>[r.name,r.role||"",r.slot,r.lat&&r.lng?`https://maps.google.com/?q=${r.lat},${r.lng}`:"",r.captured_fa||fj(r.captured_at),r.id])];
-    const csv="\uFEFF"+data.map(row=>row.map(q).join(",")).join("\r\n");
-    const u=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));const a=document.createElement("a");a.href=u;a.download=`صحت‌سنجی_${from}_${to}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(u),5000);
-  }catch(e){alert(e.message||"خطا در دریافت خروجی");}};
+    if(typeof XLSX==="undefined")throw new Error("کتابخانه اکسل بارگذاری نشده است");
+    const entries=visibleRows.map((r,i)=>({
+      "ردیف":i+1,"نام و نام خانوادگی":r.name||"","سمت":r.role||"",
+      "بازه":r.slot||"","زمان ثبت (تهران)":r.captured_fa||fj(r.captured_at),
+      "موقعیت در نقشه":r.lat&&r.lng?"نمایش در Google Maps":"—",
+      "شناسه ثبت":r.id
+    }));
+    const heading=["ردیف","نام و نام خانوادگی","سمت","بازه","زمان ثبت (تهران)","موقعیت در نقشه","شناسه ثبت"];
+    const ws=XLSX.utils.aoa_to_sheet([
+      ["سامانه خطیار | گزارش صحت‌سنجی حضور"],
+      ["بازه گزارش: "+from+" تا "+to],
+      ["تعداد نتایج: "+visibleRows.length.toLocaleString("fa-IR")],
+      [],heading
+    ]);
+    XLSX.utils.sheet_add_json(ws,entries,{origin:"A6",skipHeader:true,header:heading});
+    ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:6}},{s:{r:1,c:0},e:{r:1,c:6}},{s:{r:2,c:0},e:{r:2,c:6}}];
+    ws["!cols"]=[{wch:9},{wch:34},{wch:24},{wch:20},{wch:32},{wch:29},{wch:18}];
+    ws["!rows"]=[{hpt:35},{hpt:27},{hpt:25},{hpt:12},{hpt:31}];
+    ws["!autofilter"]={ref:"A5:G"+Math.max(5,entries.length+5)};
+    ws["!views"]=[{rightToLeft:true}];
+    const styles={
+      title:{font:{name:"Vazirmatn",sz:18,bold:true,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"087B59"}},alignment:{horizontal:"center",vertical:"center"}},
+      sub:{font:{name:"Vazirmatn",sz:12,bold:true,color:{rgb:"07583E"}},fill:{fgColor:{rgb:"E7F4ED"}},alignment:{horizontal:"right",vertical:"center"}},
+      header:{font:{name:"Vazirmatn",sz:11,bold:true,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"087B59"}},alignment:{horizontal:"center",vertical:"center"}},
+      even:{font:{name:"Vazirmatn",sz:11},fill:{fgColor:{rgb:"FFFFFF"}},alignment:{horizontal:"right",vertical:"center"}},
+      odd:{font:{name:"Vazirmatn",sz:11},fill:{fgColor:{rgb:"F0F8F3"}},alignment:{horizontal:"right",vertical:"center"}}
+    };
+    for(let row=0;row<entries.length+5;row++){
+      for(let col=0;col<7;col++){
+        const address=XLSX.utils.encode_cell({r:row,c:col}),cell=ws[address];
+        if(!cell)continue;
+        cell.s=row===0?styles.title:row<=2?styles.sub:row===4?styles.header:(row%2?styles.odd:styles.even);
+      }
+    }
+    visibleRows.forEach((r,i)=>{
+      if(!r.lat||!r.lng)return;
+      const address="F"+(i+6);
+      if(ws[address])ws[address].l={Target:"https://www.google.com/maps?q="+encodeURIComponent(r.lat+","+r.lng),Tooltip:"نمایش موقعیت صحت‌سنجی در نقشه"};
+    });
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"صحت‌سنجی حضور");wb.Workbook={Views:[{RTL:true}]};
+    XLSX.writeFile(wb,"خطیار_صحت‌سنجی_"+from+"_"+to+".xlsx");
+  }catch(e){alert("خطا در ایجاد فایل اکسل: "+(e.message||e));}};
   return(<div className="panel admin-workspace-page"><div id="khatyar-presence-extension"/><div hidden={immediateOpen}><h3 style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
       <span>📸 صحت‌سنجی حضور نیروها</span></h3>
     <div className="filters">
@@ -8494,7 +8531,7 @@ function PresenceChecks(){
       <label className="label">تا ساعت <input className="input" type="time" value={timeTo} onChange={e=>setTimeTo(e.target.value)}/></label>
       <button className="btn p" onClick={load}>اعمال فیلتر تاریخ</button>
       <button className="btn g" onClick={()=>{setPerson("");setTimeFrom("");setTimeTo("");}}>پاک‌کردن فیلترها</button>
-      {tab==="sent"&&visibleRows.length>0&&<button className="btn g" onClick={exportExcel}>⤓ خروجی CSV نتایج فیلترشده</button>}
+      {tab==="sent"&&visibleRows.length>0&&<button className="btn g" onClick={exportExcel}>⤓ خروجی اکسل (.xlsx)</button>}
     </div>
     <div className="tabbar" style={{marginTop:6}}>
       <button className={"tabbtn"+(tab==="sent"?" on":"")} onClick={()=>setTab("sent")}>ارسال‌شده ({fa(visibleRows.length)})</button>
