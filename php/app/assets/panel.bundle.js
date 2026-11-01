@@ -11647,6 +11647,10 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
     const [reportError, setReportError] = useState("");
     const [openDay, setOpenDay] = useState(null);
     const [dayAudit, setDayAudit] = useState([]);
+    const [canViewDayAudit, setCanViewDayAudit] = useState(false);
+    useEffect(() => { let alive = true; GET("/auth/me").then(r => { const u = (r === null || r === void 0 ? void 0 : r.user) || r; if (alive)
+        setCanViewDayAudit(Number(u === null || u === void 0 ? void 0 : u.level) === 1 && Boolean(u === null || u === void 0 ? void 0 : u.is_admin)); }).catch(() => { if (alive)
+        setCanViewDayAudit(false); }); return () => { alive = false; }; }, []);
     const [dayAuditBusy, setDayAuditBusy] = useState(false);
     const [dayAuditError, setDayAuditError] = useState("");
     const [dayAuditReload, setDayAuditReload] = useState(0);
@@ -11854,7 +11858,7 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
         }).catch(() => setDayRequests([]));
     }, [openDay, uid]);
     useEffect(() => {
-        if (!openDay || !uid) {
+        if (!openDay || !uid || !canViewDayAudit) {
             setDayAudit([]);
             setDayAuditError("");
             return;
@@ -11871,7 +11875,7 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
             .finally(() => { if (active)
             setDayAuditBusy(false); });
         return () => { active = false; };
-    }, [openDay, uid, data, dayAuditReload]);
+    }, [openDay, uid, data, dayAuditReload, canViewDayAudit]);
     const refresh = async () => {
         if (!uid)
             return;
@@ -12285,7 +12289,7 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
                                                     } }, "\u0627\u0635\u0644\u0627\u062D"),
                                                 React.createElement("button", { className: "btn g", style: { padding: "5px 8px", fontSize: 11 }, onClick: () => delPunch(p) }, "\u062D\u0630\u0641"))));
                                 })))),
-                        React.createElement("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" } },
+                        canViewDayAudit && React.createElement("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" } },
                             React.createElement("div", { className: "attendance-audit-heading" },
                                 React.createElement("div", null,
                                     React.createElement("h4", null, "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u0627\u0635\u0644\u0627\u062D\u0627\u062A \u0648 \u0628\u06CC\u200C\u0627\u062B\u0631\u06A9\u0631\u062F\u0646 \u06A9\u0633\u0631\u06A9\u0627\u0631"),
