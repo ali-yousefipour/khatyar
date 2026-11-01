@@ -370,15 +370,31 @@ export function TeamReportScreen() {
   const d = team;
   const [linesModal, setLinesModal] = useState(null); // {name, lines}
   const [filter, setFilter] = useState('all');
+  const [regionFilter, setRegionFilter] = useState('all');
   const [query, setQuery] = useState('');
   if (d === null && teamBusy) return <Loading />;
   if (d === null) return <View style={s.center}><Text style={s.empty}>{teamError || 'اطلاعات زیرمجموعه در دسترس نیست.'}</Text><TouchableOpacity onPress={refreshTeam} style={tm.retry}><Text style={tm.retryText}>تلاش دوباره</Text></TouchableOpacity></View>;
-  const entries = Object.entries(d.groups || {});
+  // Scope is determined by the server; local filters only narrow the authorized list.
+  const normalizeSearch = (value) => String(value || '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/\s+/g, ' ').trim().toLocaleLowerCase();
+  const members = Object.values(d.groups || {}).flat();
+  const regions = [...new Map(members.map((m) => [String(m.zone_id ?? ''), {
+    id: String(m.zone_id ?? ''), name: m.zone_name || 'بدون منطقه',
+  }])).values()].sort((a, b) => a.name.localeCompare(b.name, 'fa'));
   const statusOf = (m) => m.attendance_status || (m.is_present ? 'present' : 'absent');
-  const groups = entries.map(([role, list]) => [role, list.filter((m) =>
+  const search = normalizeSearch(query);
+  const visibleMembers = members.filter((m) =>
     (filter === 'all' || statusOf(m) === filter) &&
-    (!query.trim() || [m.name, m.phone, m.zone_name, m.role_title, ...(m.lines || [])].some((v) => String(v || '').includes(query.trim())))
-  )]).filter(([, list]) => list.length);
+    (regionFilter === 'all' || String(m.zone_id ?? '') === regionFilter) &&
+    (!search || [m.name, m.first_name, m.last_name, m.phone, m.zone_name, m.role_title, ...(m.lines || [])].some((v) => normalizeSearch(v).includes(search)))
+  );
+  const grouped = new Map();
+  for (const member of visibleMembers) {
+    const key = String(member.zone_id ?? '');
+    if (!grouped.has(key)) grouped.set(key, { name: member.zone_name || 'بدون منطقه', members: [] });
+    grouped.get(key).members.push(member);
+  }
+  const groups = [...grouped.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name, 'fa'));
+  for (const [, region] of groups) region.members.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'fa'));
   const statusMeta = {
     present: { label: 'حاضر در شیفت', icon: 'check-circle', color: '#087c58', bg: '#e4f7ee' },
     completed: { label: 'شیفت انجام‌شده', icon: 'check-all', color: '#3662a1', bg: '#e9f1ff' },
@@ -407,12 +423,21 @@ export function TeamReportScreen() {
           </TouchableOpacity>)}
         </View>
       </View>
-      <View style={tm.searchBox}><MaterialCommunityIcons name="magnify" size={21} color={C.muted}/><TextInput style={tm.searchInput} value={query} onChangeText={setQuery} placeholder="جستجوی نام، منطقه، سمت یا خط..." placeholderTextColor={C.muted}/>{!!query && <TouchableOpacity onPress={() => setQuery('')}><MaterialCommunityIcons name="close-circle" size={20} color={C.muted}/></TouchableOpacity>}</View>
-      <Text style={tm.resultsTitle}>{faNum(groups.reduce((n, [, list]) => n + list.length, 0))} نیرو در این فهرست</Text>
-      {groups.length === 0 ? <Empty /> : groups.map(([role, list]) => (
-        <View key={role} style={tm.groupCard}>
-          <View style={tm.groupHead}><View style={tm.groupIcon}><MaterialCommunityIcons name="account-multiple" size={19} color={C.brand}/></View><Text style={tm.groupTitle}>{role}</Text><Text style={tm.groupCount}>{faNum(list.length)} نفر</Text></View>
-          {list.map((m) => (
+      <View style={tm.searchBox}><MaterialCommunityIcons name="magnify" size={21} color={C.muted}/><TextInput style={tm.searchInput} value={query} onChangeText={setQuery} placeholder="جستجوی لحظه‌ای نام و نام خانوادگی..." placeholderTextColor={C.muted}/>{!!query && <TouchableOpacity onPress={() => setQuery('')}><MaterialCommunityIcons name="close-circle" size={20} color={C.muted}/></TouchableOpacity>}</View>
+      <Text style={tm.regionFilterLabel}>فیلتر براساس منطقه</Text>
+      <ScrollView horizontal persistentScrollbar={false} showsHorizontalScrollIndicator={false} style={tm.regionScroller} contentContainerStyle={tm.regionChips}>
+        {[{ id: 'all', name: 'همه مناطق' }, ...regions].map((region) => (
+          <TouchableOpacity key={region.id} accessibilityRole="button" accessibilityState={{ selected: regionFilter === region.id }}
+            onPress={() => setRegionFilter(region.id)} style={[tm.regionChip, regionFilter === region.id && tm.regionChipSelected]}>
+            <Text style={[tm.regionChipText, regionFilter === region.id && tm.regionChipTextSelected]}>{region.name}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      <Text style={tm.resultsTitle}>{faNum(visibleMembers.length)} نیرو در {faNum(groups.length)} منطقه</Text>
+      {groups.length === 0 ? <Empty /> : groups.map(([regionId, region]) => (
+        <View key={regionId} style={tm.groupCard}>
+          <View style={tm.groupHead}><View style={tm.groupIcon}><MaterialCommunityIcons name="map-marker-multiple-outline" size={19} color={C.brand}/></View><Text style={tm.groupTitle}>{region.name}</Text><Text style={tm.groupCount}>{faNum(region.members.length)} نفر</Text></View>
+          {region.members.map((m) => (
             <View key={m.id} style={tm.memberRow}>
               <View style={tm.personHead}><TeamMemberAvatar name={m.name} photo={m.photo}/><View style={{ flex: 1 }}><Text style={tm.memberName}>{m.name}</Text><Text style={tm.memberRole}>{[m.role_title, m.zone_name ? 'منطقه ' + m.zone_name : null].filter(Boolean).join(' · ')}</Text></View></View>
               <View style={tm.contactRow}>
@@ -494,6 +519,13 @@ const tm = StyleSheet.create({
   statLabel: { fontFamily: FONT.bold, fontSize: 9.5, color: '#fff', textAlign: 'center' },
   searchBox: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: C.line, flexDirection: 'row-reverse', alignItems: 'center', gap: 9, paddingHorizontal: 12, marginBottom: 11 },
   searchInput: { flex: 1, fontFamily: FONT.regular, color: C.ink, fontSize: 13, textAlign: 'right', paddingVertical: 12 },
+  regionFilterLabel: { fontFamily: FONT.bold, fontSize: 13, color: C.ink, textAlign: 'right', marginBottom: 8 },
+  regionScroller: { marginBottom: 10, flexGrow: 0 },
+  regionChips: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, paddingVertical: 3 },
+  regionChip: { minHeight: 48, justifyContent: 'center', borderRadius: 13, paddingHorizontal: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line },
+  regionChipSelected: { backgroundColor: C.brand, borderColor: C.brand },
+  regionChipText: { fontFamily: FONT.bold, fontSize: 12, color: C.ink },
+  regionChipTextSelected: { color: '#fff' },
   resultsTitle: { fontFamily: FONT.bold, fontSize: 12, color: C.slate, marginBottom: 10, textAlign: 'right' },
   groupCard: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: C.line, marginBottom: 13, overflow: 'hidden' },
   groupHead: { flexDirection: 'row-reverse', alignItems: 'center', gap: 9, padding: 13, backgroundColor: '#f0f6f4' },
