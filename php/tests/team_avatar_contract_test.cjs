@@ -16,4 +16,9 @@ assert.ok(regional.includes("FROM users WHERE id IN ('.$marks.')"), 'Active endp
 assert.ok(regional.includes('ELSE photo END AS photo'), 'Legacy base64 photos remain supported when no file exists');
 assert.ok(regional.includes('_user_photo_url($row['), 'Active endpoint must normalize file URLs and legacy photos');
 assert.ok(regional.includes("'photo'=>$photos[$id]??null"), 'Active endpoint must return the photo field read by Android');
-console.log('PASS scoped team photo payload and authenticated thumbnail fallback');
+assert.ok(regional.includes('u.first_name,u.last_name,u.phone,u.zone_id'), 'Authorized team query must read phone without exposing other users');
+assert.ok(regional.includes("'phone'=>trim((string)($p['phone']??''))"), 'Authorized member payload must include phone');
+assert.ok(screen.includes('teamDialNumber(m.phone)'), 'Call button must be conditional on a valid number');
+assert.ok(screen.includes("Linking.openURL('tel:' + number)"), 'Call action must open the native dialer');
+assert.ok(screen.includes('faNum(m.phone)'), 'Team phone numbers must be displayed with Persian digits');
+console.log('PASS scoped team photo and mobile dialer contracts');
