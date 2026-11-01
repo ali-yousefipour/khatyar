@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Modal, useWindowDimensions } from 'react-native';
 import { postOrQueue, request } from '../api';
 import { imageSource } from '../api';
 import { ImagePicker, launchCamera } from '../cameraLock';
@@ -31,6 +31,7 @@ export default function DriverScreen({ route, navigation }) {
   const [portraitBusy, setPortraitBusy] = useState(false);
   const [portraitLoading, setPortraitLoading] = useState(true);
   const [portraitError, setPortraitError] = useState('');
+  const [portraitFullScreen, setPortraitFullScreen] = useState(false);
   const hasDriver = !!(driver && (driver.id || driver.national_id || driver.national_code));
   useEffect(() => {
     getAppConfig().then((c) => setAccess({ welfare: !!c.can_welfare, cultural: !!c.can_cultural })).catch(() => {});
@@ -47,7 +48,7 @@ export default function DriverScreen({ route, navigation }) {
     return () => { active = false; };
   }, [driver.id]);
   const capturePortrait = async () => {
-    if (portrait || portraitBusy) return;
+    if (portraitBusy) return;
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) return Alert.alert('دسترسی دوربین', 'برای ثبت تصویر پرسنلی راننده اجازه دوربین لازم است.');
@@ -72,9 +73,24 @@ export default function DriverScreen({ route, navigation }) {
     try {
       const saved = await request('/driver-photos/' + driver.id, { method: 'POST', body: { photo_data: portraitDraft, confirmed: true }, queueIfOffline: false, noStore: true, timeoutMs: 30000 });
       setPortrait(saved.photo); setPortraitDraft(null); setPortraitConsent(false);
-      Alert.alert('ثبت قطعی شد', 'تصویر تاکسیران ثبت شد و دیگر در برنامه قابل تغییر نیست.');
+      Alert.alert('ثبت تصویر', 'تصویر پرسنلی تاکسیران با موفقیت ذخیره شد.');
     } catch (error) { Alert.alert('ثبت تصویر ناموفق بود', error?.message || 'پس از اتصال به اینترنت دوباره تلاش کنید.'); }
     finally { setPortraitBusy(false); }
+  };
+  const deletePortrait = () => {
+    if (!portrait || portraitBusy || !driver.id) return;
+    Alert.alert('حذف تصویر پرسنلی', 'تصویر فعلی تاکسیران حذف می‌شود و تا ثبت تصویر جدید، خدمات راننده به‌جز ثبت تذکر غیرفعال خواهد بود. ادامه می‌دهید؟', [
+      { text: 'انصراف', style: 'cancel' },
+      { text: 'حذف تصویر', style: 'destructive', onPress: async () => {
+        setPortraitBusy(true);
+        try {
+          await request('/driver-photos/' + driver.id, { method: 'DELETE', queueIfOffline: false, noStore: true });
+          setPortrait(null); setPortraitDraft(null); setPortraitConsent(false); setPortraitFullScreen(false);
+          Alert.alert('حذف شد', 'تصویر حذف شد. لطفاً تصویر جدید تاکسیران را ثبت کنید.');
+        } catch (error) { Alert.alert('خطا در حذف تصویر', error?.message || 'دوباره تلاش کنید.'); }
+        finally { setPortraitBusy(false); }
+      } },
+    ]);
   };
   const photoGate = () => {
     Alert.alert('ابتدا تصویر پرسنلی تاکسیران را ثبت کنید', 'عکس باید واضح و متعلق به راننده اصلی باشد. مسئولیت مغایرت تصویر با راننده بر عهده ثبت‌کننده است.', [
@@ -154,7 +170,7 @@ export default function DriverScreen({ route, navigation }) {
   ];
 
   return (
-    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: compact ? 10 : 16, paddingBottom: 56 }}>
+    <><Modal visible={portraitFullScreen} transparent animationType="fade" onRequestClose={() => setPortraitFullScreen(false)}><View style={{flex:1,backgroundColor:'#000',justifyContent:'center',alignItems:'center'}}><TouchableOpacity onPress={() => setPortraitFullScreen(false)} style={{position:'absolute',top:50,right:24,zIndex:2,padding:12}} accessibilityLabel="بستن تصویر"><MaterialCommunityIcons name="close" color="#fff" size={30}/></TouchableOpacity>{(portraitDraft || portrait) && <Image source={portraitDraft?{uri:portraitDraft}:imageSource(portrait)} style={{width:'100%',height:'82%'}} resizeMode="contain" />}</View></Modal><ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: compact ? 10 : 16, paddingBottom: 56 }}>
       <View style={s.card}>
         <View style={[s.heroRow, compact && s.heroRowCompact]}>
           <View style={s.identity}>
@@ -167,11 +183,10 @@ export default function DriverScreen({ route, navigation }) {
         </View>
         <View style={s.portraitCard}>
           <Text style={s.portraitTitle}>تصویر پرسنلی تاکسیران</Text>
-          {portrait ? <><Image source={imageSource(portrait)} style={s.portraitPreview}/><Text style={s.portraitSuccess}>تصویر ثبت و تأیید شده است؛ تغییر آن فقط توسط مدیر سامانه امکان‌پذیر است.</Text></> : <>
-            <Text style={s.portraitHint}>{portraitLoading ? 'در حال بررسی وضعیت تصویر…' : 'عکس واضح، روبه‌دوربین و متعلق به همین تاکسیران باشد. پس از تأیید نهایی، تصویر در اپ قابل ویرایش نیست.'}</Text>
-            {!!portraitError && <Text style={s.portraitWarning}>{portraitError}</Text>}
-            {!portraitLoading && !portrait && <Text style={s.portraitWarning}>تا ثبت و تأیید تصویر، همهٔ خدمات تاکسیران به‌جز ثبت تذکر غیرفعال هستند.</Text>}
-            {portraitDraft ? <><Image source={{uri:portraitDraft}} style={s.portraitPreview}/><TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:portraitConsent}} onPress={() => setPortraitConsent(v=>!v)} style={s.consentRow}><MaterialCommunityIcons name={portraitConsent?'checkbox-marked':'checkbox-blank-outline'} size={23} color={C.brand}/><Text style={s.consentText}>تأیید می‌کنم تصویر واضح و متعلق به راننده اصلی است؛ مسئولیت مغایرت احتمالی با من است.</Text></TouchableOpacity><View style={s.portraitActions}><TouchableOpacity style={s.portraitSecondary} onPress={() => {setPortraitDraft(null);setPortraitConsent(false);}} disabled={portraitBusy}><Text style={s.portraitSecondaryText}>عکس دوباره</Text></TouchableOpacity><TouchableOpacity style={[s.portraitButton,(!portraitConsent||portraitBusy)&&{opacity:.45}]} onPress={confirmPortrait} disabled={!portraitConsent||portraitBusy}><Text style={s.portraitButtonText}>{portraitBusy?'در حال ثبت…':'تأیید و ثبت قطعی'}</Text></TouchableOpacity></View></> : <TouchableOpacity style={s.portraitButton} disabled={portraitBusy||portraitLoading} onPress={capturePortrait}><MaterialCommunityIcons name="camera-outline" size={21} color="#fff"/><Text style={s.portraitButtonText}>گرفتن عکس با دوربین</Text></TouchableOpacity>}
+          {portrait && !portraitDraft && <><TouchableOpacity onPress={() => setPortraitFullScreen(true)} accessibilityLabel="نمایش تمام‌صفحه تصویر تاکسیران"><Image source={imageSource(portrait)} style={s.portraitPreview}/><Text style={s.portraitHint}>برای نمایش تمام‌صفحه، تصویر را لمس کنید.</Text></TouchableOpacity><View style={s.portraitActions}><TouchableOpacity style={s.portraitButton} disabled={portraitBusy} onPress={capturePortrait}><MaterialCommunityIcons name="camera-retake-outline" size={20} color="#fff"/><Text style={s.portraitButtonText}>تغییر تصویر</Text></TouchableOpacity><TouchableOpacity style={s.portraitSecondary} disabled={portraitBusy} onPress={deletePortrait}><MaterialCommunityIcons name="delete-outline" size={19} color={C.danger}/><Text style={[s.portraitSecondaryText,{color:C.danger}]}>حذف تصویر</Text></TouchableOpacity></View></>}
+          {!portrait && !portraitDraft && <><Text style={s.portraitHint}>{portraitLoading ? 'در حال بررسی وضعیت تصویر…' : 'عکس واضح، روبه‌دوربین و متعلق به همین تاکسیران باشد.'}</Text>{!!portraitError && <Text style={s.portraitWarning}>{portraitError}</Text>}{!portraitLoading && <Text style={s.portraitWarning}>تا ثبت تصویر، همه خدمات تاکسیران به‌جز ثبت تذکر غیرفعال هستند.</Text>}<TouchableOpacity style={s.portraitButton} disabled={portraitBusy||portraitLoading} onPress={capturePortrait}><MaterialCommunityIcons name="camera-outline" size={21} color="#fff"/><Text style={s.portraitButtonText}>گرفتن عکس با دوربین</Text></TouchableOpacity></>}
+          {!!portraitDraft && <><TouchableOpacity onPress={() => setPortraitFullScreen(true)} accessibilityLabel="نمایش تمام‌صفحه تصویر جدید"><Image source={{uri:portraitDraft}} style={s.portraitPreview}/></TouchableOpacity><TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:portraitConsent}} onPress={() => setPortraitConsent(v=>!v)} style={s.consentRow}><MaterialCommunityIcons name={portraitConsent?'checkbox-marked':'checkbox-blank-outline'} size={23} color={C.brand}/><Text style={s.consentText}>تأیید می‌کنم تصویر واضح و متعلق به راننده اصلی است؛ مسئولیت مغایرت احتمالی با من است.</Text></TouchableOpacity><View style={s.portraitActions}><TouchableOpacity style={s.portraitSecondary} onPress={capturePortrait} disabled={portraitBusy}><Text style={s.portraitSecondaryText}>عکس دوباره</Text></TouchableOpacity><TouchableOpacity style={[s.portraitButton,(!portraitConsent||portraitBusy)&&{opacity:.45}]} onPress={confirmPortrait} disabled={!portraitConsent||portraitBusy}><Text style={s.portraitButtonText}>{portraitBusy?'در حال ثبت…':portrait?'تأیید و جایگزینی':'تأیید و ثبت تصویر'}</Text></TouchableOpacity></View></>}
+
           </>}
         </View>
         {!!vehicle?.plate && <View style={{marginTop:16}}><TaxiPlate plate={vehicle.plate} compact={compact}/></View>}
@@ -221,7 +236,7 @@ export default function DriverScreen({ route, navigation }) {
           </TouchableOpacity>
         ))}
       </View>
-    </ScrollView>
+    </ScrollView></>
   );
 }
 

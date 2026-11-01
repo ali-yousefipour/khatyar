@@ -5907,6 +5907,17 @@ function _driver_photo_access($driverId,$u){
   if (_driver_in_temp_lines($driverId,$lineIds,$lineCodes)) return;
   Http::error('دسترسی به این راننده مجاز نیست',403);
 }
+function _driver_photo_audit($driverId,$userId,$action){
+  Db::run("CREATE TABLE IF NOT EXISTS driver_profile_photo_audit (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    driver_id INT NOT NULL,
+    user_id INT NULL,
+    action VARCHAR(16) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_driver_photo_audit_driver (driver_id,created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  Db::run('INSERT INTO driver_profile_photo_audit(driver_id,user_id,action) VALUES(?,?,?)',[(int)$driverId,(int)$userId,$action]);
+}
 function _driver_photo_save($driverId,$u,$b,$admin=false){
   $driverId=(int)$driverId;
   if (!$admin) _driver_photo_access($driverId,$u);
@@ -5918,7 +5929,6 @@ function _driver_photo_save($driverId,$u,$b,$admin=false){
   $duplicate=Db::one('SELECT driver_id FROM driver_profile_photos WHERE photo_path=? AND driver_id<>?', ['uploads/driver-profiles/'.$nationalId.'.jpg',$driverId]);
   if ($duplicate) Http::error('این کد ملی قبلاً برای تصویر راننده دیگری استفاده شده است.',409);
   $existing=_driver_photo_record($driverId);
-  if ($existing && !$admin) Http::error('تصویر پرسنلی قبلاً ثبت شده است؛ فقط مدیر می‌تواند آن را تغییر دهد.',409);
   if (empty($b['confirmed'])) Http::error('تأیید تصویر توسط ثبت‌کننده الزامی است.',422);
   $image=(string)($b['photo_data']??'');
   if (!preg_match('#^data:image/jpeg;base64,([A-Za-z0-9+/=]+)$#',$image,$m)) Http::error('فرمت تصویر باید JPEG باشد.',422);
@@ -5956,17 +5966,29 @@ function _driver_photo_save($driverId,$u,$b,$admin=false){
   if ($backup) @unlink($backup);
   // After an administrator replaces a portrait, reclaim only the old owned file.
   $oldPath=(string)($existing['photo_path']??'');
-  if ($admin && str_starts_with($oldPath,'uploads/driver-profiles/') && $oldPath!==$path)
+  if (str_starts_with($oldPath,'uploads/driver-profiles/') && $oldPath!==$path)
     Media::delete($oldPath);
-  return ['ok'=>true,'photo'=>'/api/media?path='.urlencode($path),'locked'=>true];
+  _driver_photo_audit($driverId,$u['id'],$existing?'replace':'create');
+  return ['ok'=>true,'photo'=>'/api/media?path='.urlencode($path).'&v='.time(),'locked'=>false];
 }
 route('GET','/api/driver-photos/config',function($p,$b,$u){return ['required'=>_driver_photo_required()];});
 route('GET','/api/driver-photos/{id}',function($p,$b,$u){
   _driver_photo_access($p['id'],$u);
   $photo=_driver_photo_record($p['id']);
-  return ['required'=>_driver_photo_required(),'photo'=>$photo?'/api/media?path='.urlencode($photo['photo_path']):null,'locked'=>(bool)$photo];
+  return ['required'=>_driver_photo_required(),'photo'=>$photo?'/api/media?path='.urlencode($photo['photo_path']).'&v='.(int)@filemtime(Media::fullPath($photo['photo_path'])):null,'locked'=>false];
 });
 route('POST','/api/driver-photos/{id}',function($p,$b,$u){return _driver_photo_save($p['id'],$u,$b);});
+route('DELETE','/api/driver-photos/{id}',function($p,$b,$u){
+  $id=(int)$p['id']; _driver_photo_access($id,$u);
+  $existing=_driver_photo_record($id);
+  if (!$existing) return ['ok'=>true,'photo'=>null];
+  $path=(string)$existing['photo_path'];
+  if (!preg_match('#^uploads/driver-profiles/[0-9]{10}\\.jpg$#',$path)) Http::error('مسیر عکس مجاز نیست',422);
+  Db::run('DELETE FROM driver_profile_photos WHERE driver_id=?',[$id]);
+  _driver_photo_audit($id,$u['id'],'delete');
+  Media::delete($path);
+  return ['ok'=>true,'photo'=>null];
+});
 route('PUT','/api/admin/drivers/{id}/photo',function($p,$b,$u){return _driver_photo_save($p['id'],$u,$b,true);},false,ADMIN);
 route('GET', '/api/search', function($p, $b, $u) {
   // خطوط مجاز کاربر — مقاوم در برابر نصب‌های قدیمی یا جدول/ستون ناقص
