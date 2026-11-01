@@ -765,7 +765,11 @@ function _presence_outside_lines_bale_alert($checkId,$userId,$lat,$lng,$slot) {
     $name=trim((string)($staff['first_name']??'').' '.(string)($staff['last_name']??''));
     if ($name==='') $name='شناسه '.(int)$userId;
     $time=date('H:i');
-    $body="⚠️ هشدار صحت‌سنجی خارج از محدوده خطوط مجاز\\nکاربر {$name} صحت‌سنجی حضور ساعت {$time} (بازه {$slot}) خود را خارج از خطوط تعریف‌شده و مجازش انجام داده است. برای بررسی صحت، تصاویر سلفی و خط را در پنل سایت بازبینی کنید.";
+    $mapUrl='https://www.google.com/maps?q='.sprintf('%.6F',$lat).','.sprintf('%.6F',$lng);
+    $body="⚠️ هشدار صحت‌سنجی خارج از محدوده خطوط مجاز\n"
+      ."کاربر {$name} صحت‌سنجی حضور ساعت {$time} (بازه {$slot}) خود را خارج از خطوط تعریف‌شده و مجازش انجام داده است.\n"
+      ."برای بررسی صحت، تصاویر سلفی و خط را در پنل سایت بازبینی کنید.\n\n"
+      ."📍 نمایش محل ثبت صحت‌سنجی در Google Maps:\n{$mapUrl}";
     $managers=Db::all('SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 AND r.level BETWEEN 1 AND 4');
     $recipients=array_values(array_unique(array_map('intval',array_column($managers,'id'))));
     if ($recipients && class_exists('BaleBot')) BaleBot::sendToUserIds($recipients,'هشدار صحت‌سنجی خارج از خط',$body,'messages',['presence_check_id'=>(int)$checkId,'user_id'=>(int)$userId]);
@@ -5256,6 +5260,10 @@ route('GET', '/api/admin/requests/{id}/detail', function($p,$b,$u){
   if(!$row)Http::error('درخواست یافت نشد',404);
   if(!_req_admin_can_view_request($u,$row))Http::error('این درخواست در دسترس شما نیست',403);
   $row['edit_token']=_req_edit_token($row);
+  $row['approval_steps']=_db_table_exists_safe('request_approval_steps')?Db::all("SELECT s.id,s.decision,s.note,s.created_at,
+      TRIM(CONCAT(COALESCE(us.first_name,''),' ',COALESCE(us.last_name,''))) actor_name
+      FROM request_approval_steps s LEFT JOIN users us ON us.id=s.actor_id
+      WHERE s.request_id=? ORDER BY s.id ASC",[$id]):[];
   $row['edit_history']=_db_table_exists_safe('request_edit_history')?Db::all("SELECT h.id,h.edit_reason,h.created_at,CONCAT_WS(' ',us.first_name,us.last_name) actor FROM request_edit_history h LEFT JOIN users us ON us.id=h.actor_id WHERE h.request_id=? ORDER BY h.id DESC LIMIT 20",[$id]):[];
   $row['substitute_name']=null;$row['substitute_assignment']=null;
   if(!empty($row['substitute_user_id'])){
@@ -9662,6 +9670,7 @@ route('GET', '/api/admin/drivers', function($p,$b,$u){
   if (!empty($_GET['op_status'])) { $c[]="d.op_lic_status=?"; $pr[]=$_GET['op_status']; }
   if (!empty($_GET['line'])) { $c[]="EXISTS(SELECT 1 FROM vehicle_drivers vd JOIN vehicles v ON v.id=vd.vehicle_id JOIN `lines` l ON l.id=v.line_id WHERE vd.driver_id=d.id AND l.code=?)"; $pr[]=$_GET['line']; }
   if (!empty($_GET['model'])) { $c[]="EXISTS(SELECT 1 FROM vehicle_drivers vd JOIN vehicles v ON v.id=vd.vehicle_id WHERE vd.driver_id=d.id AND v.model_name LIKE ?)"; $pr[]='%'.$_GET['model'].'%'; }
+  if (($_GET['with_photo'] ?? '') === '1') { $c[]="EXISTS(SELECT 1 FROM driver_profile_photos dp WHERE dp.driver_id=d.id AND dp.photo_path IS NOT NULL AND dp.photo_path<>'')"; }
   $where=$c?('WHERE '.implode(' AND ',$c)):'';
   $total=(int) Db::one("SELECT COUNT(*) n FROM drivers d $where", $pr)['n'];
   $per=min(200,max(10,(int)($_GET['per'] ?? 25))); $page=max(1,(int)($_GET['page'] ?? 1)); $off=($page-1)*$per;

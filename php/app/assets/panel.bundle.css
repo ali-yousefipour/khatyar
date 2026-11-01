@@ -1323,3 +1323,36 @@ table{font-size:13px}
   .page-content :is(.btn,.tabbtn,.chip,.kpi,.card-p),.navitem,.navsec-body,.nav-chevron{transition:none!important;animation:none!important}
   .page-content .btn:hover,.navitem:hover,.page-content .kpi:hover{transform:none!important}
 }
+
+/* Read-only request details: compact hierarchy, accessible status and responsive fields. */
+.request-detail-modal{direction:rtl;text-align:right;display:grid;gap:14px;min-width:0;color:var(--ink)}
+.request-detail-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:18px 20px;background:linear-gradient(120deg,#e6f3ec,#f7fbf9);border:1px solid #cde4d9;border-radius:17px}
+.request-detail-summary>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.request-detail-eyebrow{font-size:11px;color:#547269;font-weight:600}
+.request-detail-summary strong{font-size:19px;line-height:1.6;color:#145847;overflow-wrap:anywhere}
+.request-detail-requester{font-size:13px;color:#47645b}
+.request-detail-status{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:6px 13px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;background:#e9eef3;color:#415468}
+.request-detail-status.status-pending{background:#fff0cd;color:#865c0a}
+.request-detail-status.status-approved{background:#d6f3e4;color:#126140}
+.request-detail-status.status-rejected{background:#fce4e4;color:#a32934}
+.request-detail-status.status-canceled{background:#e9edf3;color:#596272}
+.request-detail-section,.request-detail-modal>section{padding:15px 17px;border:1px solid var(--line);border-radius:15px;background:#fff;min-width:0}
+.request-detail-section h4,.request-detail-modal>section h4,.request-detail-modal>h4{font-size:14px;margin:0 0 13px;color:#17614e;font-weight:700}
+.request-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
+.request-detail-field{min-width:0;padding:10px 12px;border-radius:11px;background:#f7f9fa;border:1px solid #edf0f1}
+.request-detail-field dt{font-size:11px;color:#6b7784;margin-bottom:5px}
+.request-detail-field dd{margin:0;font-size:13px;font-weight:700;line-height:1.8;color:#263b40;overflow-wrap:anywhere}
+.request-detail-modal>h4{margin:3px 0 -8px}
+.request-detail-modal>p{margin:0;padding:12px 15px;line-height:1.9;background:#f7faf9;border:1px solid #e7eeeb;border-radius:12px;overflow-wrap:anywhere}
+.request-detail-modal img{max-width:100%;border:1px solid #e0e7e4;border-radius:12px}
+.request-detail-modal .btn{min-height:42px}
+.request-approval-timeline{list-style:none;margin:0;padding:0;display:grid;gap:11px}
+.request-approval-timeline>li{display:flex;flex-direction:row;align-items:flex-start;gap:10px;min-width:0}
+.request-approval-step-number{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:#dcefe7;color:#17614e;font-weight:700;font-size:12px}
+.request-approval-step-content{min-width:0;flex:1;padding:11px 13px;border:1px solid #e4ece8;background:#f8faf9;border-radius:12px}
+.request-approval-step-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:7px}
+.request-approval-step-head strong{font-size:13px;color:#263b40}
+.request-approval-step-time{display:block;font-size:12px;font-weight:600;color:#526b65;direction:rtl}
+.request-approval-step-note{margin:8px 0 0;padding-top:8px;border-top:1px solid #e4ece8;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.8}
+@media(max-width:760px){.request-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.request-detail-summary{padding:14px}}
+@media(max-width:480px){.request-detail-grid{grid-template-columns:minmax(0,1fr)}.request-detail-section,.request-detail-modal>section{padding:12px}.request-detail-summary strong{font-size:17px}}
