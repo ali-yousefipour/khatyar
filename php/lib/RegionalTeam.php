@@ -90,7 +90,7 @@ final class RegionalTeam {
         $actor['zone_id']=$actorRow['zone_id']??null;
         $actor['level']=$actorRow['level']??null;
         $zones=Db::all('SELECT id,name,parent_id FROM zones');
-        $users=Db::all('SELECT u.id,u.first_name,u.last_name,u.zone_id,u.is_active,r.title role_title,r.level FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1');
+        $users=Db::all('SELECT u.id,u.first_name,u.last_name,u.phone,u.zone_id,u.is_active,r.title role_title,r.level FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1');
         $leadership=[];
         try{
             foreach(Db::all('SELECT zone_id,senior_user_id,inspector_ids FROM zone_leadership') as $row){
@@ -133,7 +133,7 @@ final class RegionalTeam {
             $lines=$userLines[$id]??[];
             $groups[$title][]=array_merge([
                 'id'=>$id,'name'=>trim((string)($p['first_name']??'').' '.(string)($p['last_name']??'')),
-                'role_title'=>$title,'zone_id'=>$zoneId,'zone_name'=>$names[$zoneId]??'',
+                'role_title'=>$title,'phone'=>trim((string)($p['phone']??'')),'zone_id'=>$zoneId,'zone_name'=>$names[$zoneId]??'',
                 'line_count'=>count($lines),'lines'=>$lines,'photo'=>$photos[$id]??null,
             ],$state);
         }
