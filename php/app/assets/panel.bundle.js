@@ -11636,6 +11636,10 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
     const [busy, setBusy] = useState(false);
     const [reportError, setReportError] = useState("");
     const [openDay, setOpenDay] = useState(null);
+    const [dayAudit, setDayAudit] = useState([]);
+    const [dayAuditBusy, setDayAuditBusy] = useState(false);
+    const [dayAuditError, setDayAuditError] = useState("");
+    const [dayAuditReload, setDayAuditReload] = useState(0);
     const [mapPunch, setMapPunch] = useState(null);
     const mapContainerRef = useRef(null);
     const [edit, setEdit] = useState(null);
@@ -11839,6 +11843,25 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
             }));
         }).catch(() => setDayRequests([]));
     }, [openDay, uid]);
+    useEffect(() => {
+        if (!openDay || !uid) {
+            setDayAudit([]);
+            setDayAuditError("");
+            return;
+        }
+        let active = true;
+        setDayAuditBusy(true);
+        setDayAuditError("");
+        setDayAudit([]);
+        GET('/admin/attendance-day-audit?user_id=' + encodeURIComponent(uid) + '&jdate=' + encodeURIComponent(openDay))
+            .then(r => { if (active)
+            setDayAudit(r.rows || []); })
+            .catch(e => { if (active)
+            setDayAuditError(e.message || 'خطا در دریافت سوابق'); })
+            .finally(() => { if (active)
+            setDayAuditBusy(false); });
+        return () => { active = false; };
+    }, [openDay, uid, data, dayAuditReload]);
     const refresh = async () => {
         if (!uid)
             return;
@@ -12252,6 +12275,45 @@ function AttendanceReport({ initialUserId = null, initialName = '', initialFrom 
                                                     } }, "\u0627\u0635\u0644\u0627\u062D"),
                                                 React.createElement("button", { className: "btn g", style: { padding: "5px 8px", fontSize: 11 }, onClick: () => delPunch(p) }, "\u062D\u0630\u0641"))));
                                 })))),
+                        React.createElement("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" } },
+                            React.createElement("div", { className: "attendance-audit-heading" },
+                                React.createElement("div", null,
+                                    React.createElement("h4", null, "\u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u0627\u0635\u0644\u0627\u062D\u0627\u062A \u0648 \u0628\u06CC\u200C\u0627\u062B\u0631\u06A9\u0631\u062F\u0646 \u06A9\u0633\u0631\u06A9\u0627\u0631"),
+                                    React.createElement("p", null, "\u0646\u0627\u0645 \u062B\u0628\u062A\u200C\u06A9\u0646\u0646\u062F\u0647\u060C \u0632\u0645\u0627\u0646 \u0648 \u0645\u0642\u062F\u0627\u0631 \u0642\u0628\u0644 \u0648 \u0628\u0639\u062F \u0627\u0632 \u0647\u0631 \u062A\u063A\u06CC\u06CC\u0631")),
+                                React.createElement("span", { className: "badge b-w" },
+                                    faPlain(String(dayAudit.length)),
+                                    " \u0631\u0648\u06CC\u062F\u0627\u062F")),
+                            dayAuditBusy ? React.createElement("p", { className: "muted", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0633\u0648\u0627\u0628\u0642 \u062A\u063A\u06CC\u06CC\u0631\u0627\u062A\u2026") : dayAuditError ? React.createElement("div", { role: "alert", className: "attendance-audit-error" },
+                                dayAuditError,
+                                React.createElement("button", { className: "btn g", onClick: () => setDayAuditReload(v => v + 1) }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")) : dayAudit.length ? React.createElement("div", { className: "attendance-audit-list" }, dayAudit.map((a, i) => {
+                                var _a, _b, _c, _e, _f;
+                                const names = { punch_edit: 'ویرایش تردد', punch_add: 'افزودن تردد دستی', punch_delete: 'حذف تردد', gps_waiver: 'بی‌اثر کردن کسری GPS', internet_waiver: 'بی‌اثر کردن خاموشی اینترنت', surplus_convert: 'تبدیل مازاد به اضافه‌کار', surplus_reset: 'بازنشانی اضافه‌کار' };
+                                const b = a.before || {}, n = a.after || {};
+                                const vals = a.action === 'gps_waiver' || a.action === 'internet_waiver' ? [['بازه', `${b.start_at || '—'} تا ${b.end_at || '—'}`, 'بی‌اثر شد'], ['مدت', b.minutes != null ? `${b.minutes} دقیقه` : '—', 'بدون کسر']] :
+                                    a.action.startsWith('surplus_') ? [['دقیقهٔ تبدیل‌شده', (_a = b.minutes) !== null && _a !== void 0 ? _a : '—', (_b = n.minutes) !== null && _b !== void 0 ? _b : '—']] :
+                                        [['ورود', b.check_in || '—', n.check_in || '—'], ['خروج', b.check_out || '—', n.check_out || '—'], ['خط', (_c = b.line_id) !== null && _c !== void 0 ? _c : '—', (_e = n.line_id) !== null && _e !== void 0 ? _e : '—']];
+                                return React.createElement("article", { className: "attendance-audit-item", key: a.action + '-' + a.id + '-' + i },
+                                    React.createElement("div", { className: "attendance-audit-item-head" },
+                                        React.createElement("div", null,
+                                            React.createElement("strong", null, names[a.action] || a.action),
+                                            React.createElement("span", { className: "attendance-audit-person" }, ((_f = a.actor_name) === null || _f === void 0 ? void 0 : _f.trim()) || 'کاربر #' + (a.actor_id || 'نامشخص'))),
+                                        React.createElement("time", null, fj(a.created_at))),
+                                    React.createElement("div", { className: "attendance-audit-values" },
+                                        React.createElement("div", { className: "attendance-audit-values-head" },
+                                            React.createElement("span", null, "\u0645\u0648\u0631\u062F"),
+                                            React.createElement("span", null, "\u0642\u0628\u0644 \u0627\u0632 \u062A\u063A\u06CC\u06CC\u0631"),
+                                            React.createElement("span", null, "\u0628\u0639\u062F \u0627\u0632 \u062A\u063A\u06CC\u06CC\u0631")),
+                                        vals.map(([field, prior, next]) => React.createElement("div", { className: "attendance-audit-values-row", key: field },
+                                            React.createElement("span", null, field),
+                                            React.createElement("span", null, faPlain(String(prior))),
+                                            React.createElement("span", null, faPlain(String(next)))))),
+                                    n.reason && React.createElement("p", { className: "attendance-audit-reason" },
+                                        "\u0639\u0644\u062A: ",
+                                        n.reason),
+                                    a.punch_id && React.createElement("small", { className: "muted" },
+                                        "\u0634\u0646\u0627\u0633\u0647 \u062A\u0631\u062F\u062F: ",
+                                        faPlain(String(a.punch_id))));
+                            })) : React.createElement("p", { className: "muted attendance-audit-empty" }, "\u0633\u0627\u0628\u0642\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0648\u06CC\u0631\u0627\u06CC\u0634\u200C\u0647\u0627\u06CC \u0642\u062F\u06CC\u0645\u06CC \u0641\u0627\u0642\u062F \u0633\u0627\u0628\u0642\u0647\u0654 \u062A\u063A\u06CC\u06CC\u0631\u0627\u062A \u0645\u0645\u06A9\u0646 \u0627\u0633\u062A \u062F\u0631 \u0627\u06CC\u0646 \u0641\u0647\u0631\u0633\u062A \u062F\u06CC\u062F\u0647 \u0646\u0634\u0648\u0646\u062F.")),
                         React.createElement("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line)" } },
                             React.createElement("div", { style: { marginBottom: 10 } },
                                 React.createElement("b", null, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632")),
