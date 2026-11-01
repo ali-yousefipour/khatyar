@@ -1956,7 +1956,7 @@ function DriverSmsHistory({driverId}){
 
 function Drivers(){
   const [data,setData]=useState({rows:[],total:0,page:1,pages:1});
-  const [f,setF]=useState({q:"",line:"",model:"",gender:"",driver_type:""}); const [page,setPage]=useState(1); const [per,setPer]=useState(10);
+  const [f,setF]=useState({q:"",line:"",model:"",gender:"",driver_type:"",with_photo:""}); const [page,setPage]=useState(1); const [per,setPer]=useState(10);
   const [full,setFull]=useState(null); const [edit,setEdit]=useState(null);
   const [photoPreview,setPhotoPreview]=useState(null); const [photoBusy,setPhotoBusy]=useState(false);
   useEffect(()=>{
@@ -1982,7 +1982,7 @@ function Drivers(){
   };
   const clean=o=>{const x={...o};Object.keys(x).forEach(k=>!x[k]&&delete x[k]);return x;};
   const norm=d=>Array.isArray(d)?{rows:d,total:d.length,page:1,pages:1}:(d&&Array.isArray(d.rows)?d:{rows:[],total:0,page:1,pages:1});
-  const load=(pg=1)=>{ db.drivers({...clean(f),page:pg,per}).then(d=>{const n=norm(d);setData(n);setPage(n.page);}).catch(()=>setData({rows:[],total:0,page:1,pages:1})); };
+  const load=(pg=1,filters=f)=>{ db.drivers({...clean(filters),page:pg,per}).then(d=>{const n=norm(d);setData(n);setPage(n.page);}).catch(()=>setData({rows:[],total:0,page:1,pages:1})); };
   useEffect(()=>{load(1)},[]);
   const exportXlsx=async()=>{ const d=await db.drivers({...clean(f),per:10000,page:1}); const rows=norm(d).rows;
     const ws=XLSX.utils.json_to_sheet(rows.map(r=>({'کد ملی':r.national_id,'نام':r.first_name,'نام خانوادگی':r.last_name,'موبایل':r.mobile,'جنسیت':r.gender,'نوع راننده':r.driver_type,'پروانه تاکسیرانی':r.taxi_lic_status,'پروانه بهره‌برداری':r.op_lic_status})));
@@ -1997,6 +1997,10 @@ function Drivers(){
       <input className="input" style={{maxWidth:140}} placeholder="مدل خودرو" value={f.model} onChange={e=>setF({...f,model:e.target.value})}/>
       <select className="input" style={{maxWidth:110}} value={f.gender} onChange={e=>setF({...f,gender:e.target.value})}><option value="">جنسیت</option><option>مرد</option><option>زن</option></select>
       <input className="input" style={{maxWidth:130}} placeholder="نوع راننده" value={f.driver_type} onChange={e=>setF({...f,driver_type:e.target.value})}/>
+      <label style={{display:'inline-flex',alignItems:'center',gap:8,minHeight:44,padding:'7px 12px',border:'1px solid var(--line)',borderRadius:12,background:f.with_photo?'#e7f4ee':'#fff',color:'var(--ink)',cursor:'pointer',fontSize:13,fontWeight:600}}>
+        <input type="checkbox" checked={f.with_photo==='1'} onChange={e=>{const next={...f,with_photo:e.target.checked?'1':''};setF(next);load(1,next);}} style={{width:18,height:18,accentColor:'var(--brand)',cursor:'pointer'}}/>
+        فقط دارای عکس پرسنلی
+      </label>
       <button className="btn p" onClick={()=>load(1)}>اعمال فیلتر</button></div>
     <p className="muted" style={{marginBottom:8}}>مجموع: {fa(data.total)} راننده</p>
     <ResponsiveTable><thead><tr><th>تصویر</th><th>کد ملی</th><th>نام</th><th>موبایل</th><th>جنسیت</th><th>پروانه بهره‌برداری</th><th>اقدامات</th></tr></thead>
@@ -7838,15 +7842,19 @@ function RequestDetails({requestId,onClose}){
   const safeImage=value=>/^data:image\/(?:jpeg|jpg|png|webp);base64,/i.test(value)||/^\/api\/media\?/.test(value);
   const attachment=data?.attachment_data||'';
   const safeAttachment=/^data:(?:image\/(?:jpeg|jpg|png|webp)|application\/(?:pdf|octet-stream|msword|vnd\.openxmlformats-officedocument\.[a-z.]+));base64,/i.test(attachment);
-  return <Modal title={'جزئیات درخواست #'+fa(requestId)} onClose={onClose} style={{width:860}}>{error?<p role="alert">{error}</p>:!data?<p role="status">در حال دریافت جزئیات…</p>:<>
-    <dl className="grid2" style={{gap:12}}>{[['درخواست‌کننده',data.requester],['نوع',TY[data.type]||data.type],['وضعیت',ST[data.status]||data.status],['واحد',data.type==='manual'?'تردد دستی':data.unit==='daily'?'روزانه':data.unit==='hourly'?'ساعتی':'—'],['مدت درخواست',data.type==='manual'?'مطابق ساعت ورود / خروج':data.unit==='daily'?(Math.round(Number(data.minutes||0)/480*100)/100)+' روز':(Math.floor(Number(data.minutes||0)/60)+' ساعت و '+(Number(data.minutes||0)%60)+' دقیقه')],['از تاریخ',data.from_jdate||data.the_date],['تا تاریخ',data.to_jdate||data.the_date||data.from_jdate],['ساعت شروع / ورود',data.from_time||data.in_time],['ساعت پایان / خروج',data.to_time||data.out_time],['زمان ثبت',fj(data.created_at)],['زمان تصمیم',data.decided_at?fj(data.decided_at):'—'],['تأییدکننده',data.approver],['مسئول فعلی بررسی',data.status==='pending'?data.pending_on_name:'—']].map(([label,value])=><div key={label}><dt className="muted">{label}</dt><dd style={{margin:0,fontWeight:700}}>{value?faPlain(value):'—'}</dd></div>)}</dl>
+  const fieldGroup=(title,fields)=><section className="request-detail-section"><h4>{title}</h4><dl className="request-detail-grid">{fields.map(([label,value])=><div className="request-detail-field" key={label}><dt>{label}</dt><dd>{value!==null&&value!==undefined&&value!==''?faPlain(value):'—'}</dd></div>)}</dl></section>;
+  return <Modal title={'جزئیات درخواست #'+fa(requestId)} onClose={onClose} style={{width:'min(94vw,900px)',maxHeight:'92vh',overflowY:'auto'}}>{error?<p role="alert">{error}</p>:!data?<p role="status">در حال دریافت جزئیات…</p>:<div className="request-detail-modal" dir="rtl">
+    <div className="request-detail-summary"><div><span className="request-detail-eyebrow">نوع درخواست</span><strong>{TY[data.type]||data.type||'درخواست پرسنلی'}</strong><span className="request-detail-requester">{data.requester||'درخواست‌کننده نامشخص'}</span></div><span className={'request-detail-status status-'+(ST[data.status]?data.status:'unknown')}>{ST[data.status]||data.status||'نامشخص'}</span></div>
+    {fieldGroup('مشخصات درخواست',[['واحد درخواست',data.type==='manual'?'تردد دستی':data.unit==='daily'?'روزانه':data.unit==='hourly'?'ساعتی':'—'],['مدت درخواست',data.type==='manual'?'مطابق ساعت ورود / خروج':data.unit==='daily'?(Math.round(Number(data.minutes||0)/480*100)/100)+' روز':(Math.floor(Number(data.minutes||0)/60)+' ساعت و '+(Number(data.minutes||0)%60)+' دقیقه')],['از تاریخ',data.from_jdate||data.the_date],['تا تاریخ',data.to_jdate||data.the_date||data.from_jdate],['ساعت شروع / ورود',data.from_time||data.in_time],['ساعت پایان / خروج',data.to_time||data.out_time]])}
+    {fieldGroup('ثبت و گردش بررسی',[['زمان ثبت',fj(data.created_at)],['زمان تصمیم',data.decided_at?fj(data.decided_at):'—'],['تأییدکننده',data.approver],['مسئول فعلی بررسی',data.status==='pending'?data.pending_on_name:'—']])}
+    <section className="request-detail-section"><h4>سوابق تأیید و بررسی</h4>{(data.approval_steps||[]).length?<ol className="request-approval-timeline">{data.approval_steps.map((step,index)=><li key={step.id||index}><span className="request-approval-step-number" aria-hidden="true">{fa(index+1)}</span><div className="request-approval-step-content"><div className="request-approval-step-head"><strong>{step.actor_name||'مسئول بررسی'}</strong><span className={'request-detail-status status-'+(step.decision==='approved'?'approved':step.decision==='rejected'?'rejected':'pending')}>{step.decision==='approved'?'تأیید نهایی':step.decision==='rejected'?'رد درخواست':step.decision==='forwarded'?'تأیید و ارجاع':'بررسی'}</span></div><time className="request-approval-step-time" dateTime={step.created_at||undefined}>تاریخ و ساعت: {step.created_at?fj(step.created_at):'ثبت نشده'}</time>{step.note&&<p className="request-approval-step-note">{step.note}</p>}</div></li>)}</ol>:<p className="muted">هنوز سابقه تأییدی برای این درخواست ثبت نشده است.</p>}</section>
     <h4>توضیحات درخواست</h4><p style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{data.reason||'توضیحی ثبت نشده است.'}</p>{data.approver_note&&<><h4>پاسخ بررسی‌کننده</h4><p style={{whiteSpace:'pre-wrap'}}>{data.approver_note}</p></>}
     {data.type==='manual'&&<section><h4>تصویر سلفی هنگام ثبت تردد دستی</h4>{selfie&&safeImage(selfie)&&!imageError?<img src={selfie} alt="سلفی ثبت‌شده همراه درخواست تردد دستی" onError={()=>setImageError(true)} style={{display:'block',maxWidth:'100%',width:420,maxHeight:480,objectFit:'contain',borderRadius:12}}/>:<p className="muted">{imageError?'تصویر قابل بارگذاری نیست.':'تصویر سلفی قابل نمایش برای این درخواست ثبت نشده است.'}</p>}</section>}
     {data.attachment_name&&<section><h4>پیوست</h4>{safeAttachment?<a className="btn g" href={attachment} download={data.attachment_name}>{data.attachment_name} — دریافت پیوست</a>:<p>{data.attachment_name} — فایل قابل دریافت موجود نیست.</p>}{attachment&&safeImage(attachment)&&<img src={attachment} alt="پیوست درخواست" style={{display:'block',maxWidth:'100%',maxHeight:360,objectFit:'contain'}}/>}</section>}
     {data.type==='annual'&&(data.unit||'daily')==='daily'&&data.substitute_user_id&&<section><h4>نیروی جایگزین مرخصی</h4><p>{data.substitute_name||'کاربر #'+fa(data.substitute_user_id)}</p>{data.status==='approved'&&data.substitute_assignment?.status==='active'?<p>شیفت موقت مطابق شیفت مؤثر درخواست‌کننده از {faPlain(data.substitute_assignment.from_date)} تا {faPlain(data.substitute_assignment.to_date)} اعمال می‌شود. پس از این بازه شیفت اصلی جایگزین معتبر است.</p>:<p className="muted">{data.status==='pending'?'پس از تأیید، شیفت درخواست‌کننده در بازهٔ مرخصی برای جایگزین اعمال می‌شود.':'جایگزینی فعالی برای این درخواست وجود ندارد.'}</p>}</section>}
     {['annual','sick','unpaid'].includes(data.type)&&<RequestLeaveUsage key={data.id} requestId={data.id}/>}
     {!!data.edit_history?.length&&<section><h4>سابقهٔ اصلاح درخواست</h4>{data.edit_history.map(item=><p key={item.id}>{item.actor||'مدیر سامانه'} · {faPlain(fj(item.created_at))} · {item.edit_reason}</p>)}</section>}
-  </>}<button className="btn g" onClick={onClose} style={{marginTop:16}}>بستن جزئیات</button></Modal>;
+  </div>}<button className="btn g" onClick={onClose} style={{marginTop:16}}>بستن جزئیات</button></Modal>;
 }
 function ApprovedRequestEditor({requestId,users,onClose,onSaved}){
   const [data,setData]=useState(null),[draft,setDraft]=useState(null),[error,setError]=useState(''),[saving,setSaving]=useState(false);
