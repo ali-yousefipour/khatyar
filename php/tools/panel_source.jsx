@@ -8462,6 +8462,14 @@ function PresenceChecks(){
   const [from,setFrom]=useState(today); const [to,setTo]=useState(today);
   const [rows,setRows]=useState([]); const [viol,setViol]=useState([]); const [loading,setLoading]=useState(false);
   const [pick,setPick]=useState(null); const [tab,setTab]=useState("sent");
+  const [person,setPerson]=useState(""); const [timeFrom,setTimeFrom]=useState(""); const [timeTo,setTimeTo]=useState("");
+  const norm=s=>String(s||"").replace(/[۰-۹]/g,c=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(c))).replace(/[٠-٩]/g,c=>String("٠١٢٣٤٥٦٧٨٩".indexOf(c))).replace(/\s+/g," ").trim();
+  const matchesName=r=>!person||norm(r.name).toLowerCase().includes(norm(person).toLowerCase());
+  const hourOf=r=>{const v=norm(r.captured_fa||r.captured_at||"");const m=v.match(/(?:^|\s)(\d{1,2}):(\d{2})(?::\d{2})?/);return m?m[1].padStart(2,"0")+":"+m[2]:"";};
+  const inHours=h=>(!timeFrom||h>=timeFrom)&&(!timeTo||h<=timeTo);
+  const visibleRows=rows.filter(r=>matchesName(r)&&((!timeFrom&&!timeTo)||!!hourOf(r)&&inHours(hourOf(r))));
+  const visibleViol=viol.filter(v=>matchesName(v)&&((!timeFrom&&!timeTo)||inHours(norm(v.slot||"").match(/\d{1,2}:\d{2}/)?.[0]?.padStart(5,"0")||"")));
+
   const load=()=>{ setLoading(true); Promise.all([db.presenceChecks(from,to,""),db.presenceViolations(from,to)])
     .then(([r,v])=>{setRows(r||[]);setViol(v||[]);}).catch(()=>{}).finally(()=>setLoading(false)); };
   useEffect(()=>{load();},[]);
@@ -8470,30 +8478,39 @@ function PresenceChecks(){
     if(d.lat&&d.lng){ GET(`/geo/reverse?lat=${d.lat}&lng=${d.lng}`).then(g=>setGeo(g)).catch(()=>setGeo(null)); }
   }catch(e){ alert(e.message||"خطا"); } };
   const dlImg=(url,name)=>{ const a=document.createElement("a"); a.href=url; a.download=name||"presence.jpg"; a.target="_blank"; a.click(); };
-  const exportExcel=async()=>{ try{ const res=await fetch(db.presenceExportUrl(from,to,""),{headers:tok()}); if(!res.ok)throw new Error("خطا در دریافت"); const blob=await res.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`صحت‌سنجی_${from}_${to}.csv`; a.click(); }catch(e){ alert(e.message); } };
+  const exportExcel=()=>{try{
+    const q=x=>'"'+String(x??"").replace(/"/g,'""')+'"';
+    const data=[["نیرو","سمت","بازه","موقعیت","زمان ثبت (تهران)","شناسه صحت‌سنجی"],...visibleRows.map(r=>[r.name,r.role||"",r.slot,r.lat&&r.lng?`https://maps.google.com/?q=${r.lat},${r.lng}`:"",r.captured_fa||fj(r.captured_at),r.id])];
+    const csv="\uFEFF"+data.map(row=>row.map(q).join(",")).join("\r\n");
+    const u=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));const a=document.createElement("a");a.href=u;a.download=`صحت‌سنجی_${from}_${to}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(u),5000);
+  }catch(e){alert(e.message||"خطا در دریافت خروجی");}};
   return(<div className="panel admin-workspace-page"><div id="khatyar-presence-extension"/><div hidden={immediateOpen}><h3 style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
       <span>📸 صحت‌سنجی حضور نیروها</span></h3>
     <div className="filters">
       <span className="label">از</span><JDate value={from} onChange={setFrom}/>
       <span className="label">تا</span><JDate value={to} onChange={setTo}/>
-      <button className="btn p" onClick={load}>اعمال فیلتر</button>
-      {rows.length>0&&<button className="btn g" onClick={exportExcel}>⤓ خروجی اکسل (با لینک عکس‌ها)</button>}
+      <input className="input" aria-label="جستجوی نام نیرو" placeholder="نام و نام خانوادگی نیرو" value={person} onChange={e=>setPerson(e.target.value)} style={{maxWidth:230}}/>
+      <label className="label">از ساعت <input className="input" type="time" value={timeFrom} onChange={e=>setTimeFrom(e.target.value)}/></label>
+      <label className="label">تا ساعت <input className="input" type="time" value={timeTo} onChange={e=>setTimeTo(e.target.value)}/></label>
+      <button className="btn p" onClick={load}>اعمال فیلتر تاریخ</button>
+      <button className="btn g" onClick={()=>{setPerson("");setTimeFrom("");setTimeTo("");}}>پاک‌کردن فیلترها</button>
+      {tab==="sent"&&visibleRows.length>0&&<button className="btn g" onClick={exportExcel}>⤓ خروجی CSV نتایج فیلترشده</button>}
     </div>
     <div className="tabbar" style={{marginTop:6}}>
-      <button className={"tabbtn"+(tab==="sent"?" on":"")} onClick={()=>setTab("sent")}>ارسال‌شده ({fa(rows.length)})</button>
-      <button className={"tabbtn"+(tab==="miss"?" on":"")} onClick={()=>setTab("miss")}>تخلف عدم ارسال ({fa(viol.length)})</button>
+      <button className={"tabbtn"+(tab==="sent"?" on":"")} onClick={()=>setTab("sent")}>ارسال‌شده ({fa(visibleRows.length)})</button>
+      <button className={"tabbtn"+(tab==="miss"?" on":"")} onClick={()=>setTab("miss")}>تخلف عدم ارسال ({fa(visibleViol.length)})</button>
     </div>
     {loading?<p className="muted">در حال بارگذاری…</p>: tab==="sent"?(
-      rows.length?<table><thead><tr><th>نیرو</th><th>سمت</th><th>تاریخ</th><th>بازه</th><th>موقعیت</th><th>زمان ثبت (تهران)</th><th>تصاویر</th></tr></thead>
-      <tbody>{rows.map(r=><tr key={r.id}>
-        <td><b>{r.name}</b></td><td>{r.role||"—"}</td><td>{fj(r.slot_date)}</td><td>{r.slot}</td>
+      visibleRows.length?<table><thead><tr><th>نیرو</th><th>سمت</th><th>بازه</th><th>موقعیت</th><th>زمان ثبت (تهران)</th><th>تصاویر</th></tr></thead>
+      <tbody>{visibleRows.map(r=><tr key={r.id}>
+        <td><b>{r.name}</b></td><td>{r.role||"—"}</td><td>{r.slot}</td>
         <td>{r.lat?<a href={`https://maps.google.com/?q=${r.lat},${r.lng}`} target="_blank">نقشه</a>:"—"}</td>
         <td>{r.captured_fa||fj(r.captured_at)}</td>
         <td><button className="btn g" onClick={()=>openImg(r.id)}>مشاهده عکس‌ها</button></td>
       </tr>)}</tbody></table>:<p className="muted">ارسالی در این بازه نیست.</p>
     ):(
-      viol.length?<table><thead><tr><th>نیرو</th><th>سمت</th><th>تاریخ</th><th>بازه</th><th>نوع تخلف</th></tr></thead>
-      <tbody>{viol.map((v,i)=><tr key={i}><td><b>{v.name}</b></td><td>{v.role||"—"}</td><td>{fj(v.slot_date)}</td><td>{v.slot}</td><td><span className="badge b-no">{v.type}</span></td></tr>)}</tbody></table>
+      visibleViol.length?<table><thead><tr><th>نیرو</th><th>سمت</th><th>تاریخ</th><th>بازه</th><th>نوع تخلف</th></tr></thead>
+      <tbody>{visibleViol.map((v,i)=><tr key={i}><td><b>{v.name}</b></td><td>{v.role||"—"}</td><td>{fj(v.slot_date)}</td><td>{v.slot}</td><td><span className="badge b-no">{v.type}</span></td></tr>)}</tbody></table>
       :<p className="muted">تخلفی در این بازه نیست.</p>
     )}
     {pick&&<div className="modal-bg" onClick={()=>setPick(null)}><div className="modal" style={{maxWidth:680}} onClick={e=>e.stopPropagation()}>
