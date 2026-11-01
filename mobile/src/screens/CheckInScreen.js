@@ -81,7 +81,7 @@ function pointInPolygon(lat, lng, poly) {
 }
 
 function CheckInCore() {
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [cfg, setCfg] = useState(null);
   const [appCfg, setAppCfg] = useState({ map_provider: 'osm' });
   const [mapRuntime,setMapRuntime]=useState({mode:'smart',provider:'osm',offline:false,tiles:{}});
@@ -992,24 +992,13 @@ function CheckInCore() {
   });
 
   return (
-    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ paddingHorizontal: screenWidth < 360 ? 11 : 16, paddingTop: 14, paddingBottom: 40 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 20 }}>
       {loadError && cfg && <View style={{ backgroundColor: '#fff4d7', borderRadius: 10, padding: 10, marginBottom: 10, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={{ color: '#8a6100', fontFamily: FONT.regular, fontSize: 12, flex: 1 }}>آخرین تازه‌سازی وضعیت ناموفق بود؛ اطلاعات نمایش‌داده‌شده ممکن است قدیمی باشد.</Text>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="دریافت دوباره وضعیت حضور" onPress={() => load()} style={{ marginRight: 8, minHeight: 48, justifyContent: 'center' }}><Text style={{ color: C.brand, fontFamily: FONT.bold, fontSize: 12 }}>تلاش مجدد</Text></TouchableOpacity>
       </View>}
-      {/* خط به‌صورت خودکار از روی موقعیت کاربر تشخیص داده می‌شود؛ انتخاب دستی حذف شده است. */}
-      <View style={s.presenceHero}><View style={s.presenceHeroIcon}><MaterialCommunityIcons name={open ? 'account-check-outline' : 'map-marker-check-outline'} size={27} color={C.brand}/></View><View style={s.presenceHeroText}><Text style={s.presenceHeroTitle}>{open ? 'حضور شما فعال است' : 'ثبت حضور در خط'}</Text></View><View style={[s.presenceBadge,!open&&s.presenceBadgeIdle]}><Text style={[s.presenceBadgeText,!open&&{color:C.muted}]}>{open?'حاضر':'آماده ثبت'}</Text></View></View>
-      <View style={s.sectionHeading}><MaterialCommunityIcons name="map-marker-radius-outline" size={20} color={C.brand}/><Text style={s.sectionHeadingText}>{open ? 'خطوط مجاز برای ثبت خروج' : 'خط تشخیص‌داده‌شده'}</Text></View>
-      <View style={s.autoLineBox}>
-        <View style={s.lineTitleRow}><MaterialCommunityIcons name="bus-marker" size={22} color={C.brand}/><Text style={s.autoLineTitle}>
-          {open
-            ? `خط ورود: ${open?.line_id ? faNum(String(cfg?.lines?.find((l) => Number(l.id) === Number(open.line_id))?.code || open.line_id)) : 'نامشخص'}`
-            : (line ? `خط ${faNum(line.code || line.id)}` : 'در حال تشخیص خودکار خط')}
-        </Text></View>
-      </View>
-
       {/* نقشه */}
-      <View style={s.mapBox}>
+      <View style={[s.mapBox,s.mapFullScreen,{height:Math.max(500,screenHeight-185)}]}>
         <WebView originWhitelist={['*', 'file://']} source={{ html: mapHtml }}
           style={{ flex: 1 }} scrollEnabled={false}
           javaScriptEnabled domStorageEnabled mixedContentMode="always"
@@ -1017,58 +1006,47 @@ function CheckInCore() {
           allowFileAccess allowUniversalAccessFromFileURLs allowFileAccessFromFileURLs
           onError={() => {}} />
         <View pointerEvents="box-none" style={s.mapOverlayTop}>
+          <View style={s.mapLineGlass}><MaterialCommunityIcons name="bus-marker" size={18} color={C.brand}/><Text numberOfLines={1} style={s.mapLineGlassText}>{open ? `خط ورود: ${faNum(String(cfg?.lines?.find(l=>Number(l.id)===Number(open.line_id))?.code||open.line_id||'نامشخص'))}` : line ? `خط ${faNum(line.code||line.id)}` : 'در حال تشخیص خط...'}</Text>{open?<MaterialCommunityIcons name="check-circle" size={18} color={C.ok}/>:null}</View>
           <View style={s.mapGlassStatus}>
             <MaterialCommunityIcons name={method==='wifi'&&!open ? (wifiMatch?'wifi-check':'wifi-strength-alert-outline') : inArea?'check-circle-outline':'map-marker-radius-outline'} size={21} color={method==='wifi'&&!open ? (wifiMatch?C.ok:C.brand) : inArea?C.ok:C.danger}/>
             <Text style={s.mapStatusText}>
               {method==='wifi'&&!open ? (wifiMatch ? `وای‌فای مجاز · خط ${faNum(String(wifiMatch.line?.code || wifiMatch.line_id))}` : (wifiScanStatus || 'در انتظار شناسایی وای‌فای مجاز')) : distance == null ? 'موقعیت یا محدوده در دسترس نیست' : inArea ? 'شما داخل محدوده مجاز ایستگاه هستید' : `فاصله تا نزدیک‌ترین خط: ${faNum(Math.round(distance))} متر`}
             </Text>
           </View>
+          {open && <View style={s.mapTimerGlass}>
+            <View style={s.mapTimerHead}>
+              <MaterialCommunityIcons name="timer-outline" size={21} color={C.brand}/>
+              <View style={s.mapTimerTimeWrap}><Text style={s.mapTimerCaption}>مدت حضور</Text><Text style={s.mapTimerValue}>{faNum(fmtTime(elapsed))}</Text></View>
+            </View>
+            <View style={s.mapTimerDivider}/>
+            <View style={s.mapTimerDetails}>
+              <MaterialCommunityIcons name={liveTimer?.phase==='duty'?'clock-alert-outline':liveTimer?.phase==='overtime'?'clock-plus-outline':liveTimer?.phase==='surplus'?'alert-circle-outline':'calendar-clock'} size={19} color={liveTimer?.phase==='surplus'?C.danger:C.brand}/>
+              <Text style={[s.mapTimerDuty,liveTimer?.phase==='surplus'&&{color:C.danger}]}>
+                {!liveTimer?'در حال دریافت اطلاعات کارکرد…':liveTimer.phase==='unassigned'?'شیفت فعالی تخصیص داده نشده است':liveTimer.phase==='duty'?`باقی‌مانده موظفی: ${fmtHM(liveTimer.remaining)}`:liveTimer.phase==='overtime'?`اضافه‌کار مجاز: ${faNum(liveTimer.overtime)} از ${faNum(liveTimer.cap)} دقیقه`:`مازاد حضور: ${faNum(liveTimer.surplus)} دقیقه · سقف اضافه‌کار تکمیل`}
+              </Text>
+            </View>
+            <Text style={s.mapTimerSource}>محاسبه کارکرد براساس اطلاعات سرور</Text>
+          </View>}
         </View>
         <View pointerEvents="box-none" style={s.mapOverlayBottom}>
-          {!open && <View accessibilityRole="radiogroup" style={s.mapMethodGroup}>
+          <View style={s.mapToolsRow}>
+          <View accessibilityRole="radiogroup" style={s.mapMethodGroup}>
             {availableMethods.map(([key,label,icon]) => <TouchableOpacity key={key} accessibilityRole="radio" accessibilityLabel={`ثبت حضور با ${label}`} accessibilityState={{checked:method===key}} style={[s.mapMethodButton,method===key&&s.mapMethodActive]} onPress={() => {setMethod(key);if(key==='wifi')scanNearbyWifi().catch(()=>{});}}>
-              <MaterialCommunityIcons name={icon} size={22} color={method===key?'#fff':C.brand}/>
+              <MaterialCommunityIcons name={icon} size={19} color={method===key?'#fff':C.brand}/>
               <Text style={[s.mapMethodLabel,method===key&&{color:'#fff'}]}>{label}</Text>
             </TouchableOpacity>)}
-          </View>}
+          </View>
+          <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel="یادآور خروج پس از هشت ساعت" accessibilityState={{checked:!!exitReminder}} onPress={()=>setExitReminderEnabled(!exitReminder)} style={[s.mapToolButton,exitReminder&&s.mapToolSelected]}><MaterialCommunityIcons name={exitReminder?'clock-check-outline':'clock-outline'} size={20} color={C.brand}/><Text style={s.mapToolLabel}>یادآور</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={open?'تحویل شیفت با QR':'اسکن کد تحویل شیفت'} disabled={busy} onPress={open?startHandover:()=>{if(!perm?.granted)requestPerm().then(r=>{if(r.granted)setScanOpen(true);});else setScanOpen(true);}} style={s.mapToolButton}><MaterialCommunityIcons name="qrcode-scan" size={20} color={C.brand}/><Text style={s.mapToolLabel}>تحویل</Text></TouchableOpacity>
+          </View>
+          <View style={s.mapSliderGlass}><View style={s.mapSliderHeading}><MaterialCommunityIcons name={open?'logout':'login'} size={18} color={open?C.danger:C.brand}/><Text style={s.mapSliderTitle}>{open?'ثبت خروج':'ثبت ورود'}</Text></View><SlideButton mode={open?'out':'in'} disabled={busy} onComplete={onSlideComplete}/></View>
+          <View style={s.mapRefreshRow}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="رفرش موقعیت من روی نقشه" accessibilityHint="دریافت مجدد مختصات از GPS و به‌روزرسانی نشانگر نقشه" accessibilityState={{disabled:refreshingPos}} style={s.mapRefreshButton} onPress={refreshMyLocation} disabled={refreshingPos}>
             <MaterialCommunityIcons name={refreshingPos?'progress-clock':'refresh'} size={23} color={C.brand}/>
           </TouchableOpacity>
+          </View>
         </View>
       </View>
-
-      {/* تایمر حضور */}
-      {open && (
-        <View style={s.timerBox}>
-          <View style={s.timerHeading}><MaterialCommunityIcons name="clock-outline" size={19} color={C.brand}/><Text style={s.timerLabel}>مدت حضور شما</Text></View>
-          <Text style={s.timer}>{faNum(fmtTime(elapsed))}</Text>
-          {liveTimer ? (
-            <View style={{ marginTop: 8 }}>
-              <Text style={[s.timerSub, { color: liveTimer.phase === 'duty' ? C.danger : (liveTimer.phase === 'overtime' ? '#b7791f' : C.danger) }]}> 
-                {liveTimer.phase === 'unassigned'
-                  ? 'برای شما شیفت فعالی تخصیص داده نشده است؛ فقط مدت حضور نمایش داده می‌شود.'
-                  : liveTimer.phase === 'duty'
-                  ? `باقی‌مانده موظفی: ${fmtHM(liveTimer.remaining)}`
-                  : liveTimer.phase === 'overtime'
-                    ? `اضافه‌کار مجاز: ${faNum(liveTimer.overtime)} دقیقه از ${faNum(liveTimer.cap)} دقیقه`
-                    : `سقف اضافه‌کار پر شده؛ مازاد حضور: ${faNum(liveTimer.surplus)} دقیقه`}
-              </Text>
-              <Text style={s.timerHint}>مرجع محاسبه: سرور · همگام‌سازی دوره‌ای فعال است</Text>
-              {liveTimer.phase === 'surplus' ? <Text style={s.warnText}>سقف اضافه‌کار روزانه شما پر شده است؛ لطفاً ثبت خروج را انجام دهید.</Text> : null}
-            </View>
-          ) : null}
-        </View>
-      )}
-
-      {/* یاداور ثبت خروج */}
-      <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel="یادآور ثبت خروج پس از هشت ساعت" accessibilityState={{ checked: !!exitReminder }} style={s.reminderCard} activeOpacity={0.82} onPress={() => setExitReminderEnabled(!exitReminder)}>
-        <View style={s.reminderTextWrap}>
-          <Text style={s.reminderTitle}>یادآور ثبت خروج</Text>
-        </View>
-        <View style={[s.reminderCheckbox, exitReminder && s.reminderCheckboxOn]}>
-          {exitReminder ? <Text style={s.reminderCheck}>✓</Text> : null}
-        </View>
-      </TouchableOpacity>
 
       {/* ابزارهای تکمیلی وای‌فای؛ انتخاب روش روی نقشه انجام می‌شود. */}
       {!open && method === 'wifi' && (
@@ -1079,9 +1057,6 @@ function CheckInCore() {
             </>
       )}
 
-      {/* اسلایدر ورود/خروج */}
-      <View style={s.actionArea}><View style={s.actionHeading}><MaterialCommunityIcons name={open?'logout':'login'} size={21} color={open?C.danger:C.brand}/><Text style={s.actionTitle}>{open?'ثبت خروج از خط':'ثبت ورود به خط'}</Text></View><SlideButton mode={open ? 'out' : 'in'} disabled={busy} onComplete={onSlideComplete} /></View>
-      {open ? <TouchableOpacity style={s.handoverBtn} onPress={startHandover} disabled={busy}><Text style={s.handoverTxt}>🔁 تحویل شیفت با QR</Text></TouchableOpacity> : <TouchableOpacity style={s.readBtn} onPress={() => { if (!perm?.granted) requestPerm().then((r)=>{ if(r.granted) setScanOpen(true); }); else setScanOpen(true); }}><Text style={s.readBtnTxt}>📷 اسکن کد تحویل شیفت</Text></TouchableOpacity>}
       {handover ? <View style={s.qrBox}><Text style={s.qrTitle}>کد تحویل شیفت</Text>
         <WebView
           originWhitelist={['*']}
@@ -1600,14 +1575,35 @@ const s = StyleSheet.create({
   lineChipTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 13 },
   lineChipTxtOn: { color: '#fff', fontFamily: FONT.bold },
   mapBox: { height: 330, position:'relative', borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: C.line, marginBottom: 14, backgroundColor: '#eaf1ef', elevation: 2 },
-  mapOverlayTop: { position:'absolute',top:12,left:12,right:12,zIndex:2,alignItems:'center' },
+  mapFullScreen:{borderRadius:0,borderWidth:0,marginBottom:0,elevation:0},
+  mapOverlayTop: { position:'absolute',top:12,left:12,right:12,zIndex:2,alignItems:'center',gap:8 },
+  mapLineGlass:{maxWidth:'100%',minHeight:42,flexDirection:'row-reverse',alignItems:'center',gap:7,paddingHorizontal:14,backgroundColor:'rgba(255,255,255,.88)',borderWidth:1,borderColor:'rgba(255,255,255,.8)',borderRadius:15},
+  mapLineGlassText:{fontFamily:FONT.bold,fontSize:13,color:C.ink,flexShrink:1},
+  mapTimerGlass:{width:'100%',maxWidth:355,paddingHorizontal:15,paddingVertical:11,borderRadius:19,backgroundColor:'rgba(255,255,255,.84)',borderWidth:1,borderColor:'rgba(255,255,255,.94)',elevation:4,shadowColor:'#17352f',shadowOpacity:.13,shadowRadius:9},
+  mapTimerHead:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:8},
+  mapTimerTimeWrap:{flexDirection:'row-reverse',alignItems:'baseline',gap:10},
+  mapTimerCaption:{fontFamily:FONT.bold,fontSize:12,color:C.slate},
+  mapTimerValue:{fontFamily:FONT.bold,fontSize:23,color:C.brand,letterSpacing:.5},
+  mapTimerDivider:{height:1,backgroundColor:'rgba(7,93,77,.14)',marginVertical:7},
+  mapTimerDetails:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:7},
+  mapTimerDuty:{fontFamily:FONT.bold,fontSize:12,color:C.ink,textAlign:'center',flexShrink:1},
+  mapTimerSource:{fontFamily:FONT.regular,fontSize:9,color:C.muted,textAlign:'center',marginTop:5},
   mapGlassStatus: { maxWidth:'100%', minHeight:48, flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:8,paddingHorizontal:15,paddingVertical:9,backgroundColor:'rgba(255,255,255,0.94)',borderColor:'rgba(255,255,255,0.96)',borderWidth:1,borderRadius:17,elevation:4,shadowColor:'#17352f',shadowOpacity:0.16,shadowRadius:9 },
   mapStatusText: {flexShrink:1,fontFamily:FONT.bold,fontSize:12,color:C.ink,textAlign:'right',lineHeight:19},
-  mapOverlayBottom: {position:'absolute',left:12,right:12,bottom:12,zIndex:2,flexDirection:'row-reverse',alignItems:'flex-end',justifyContent:'space-between',gap:8},
-  mapMethodGroup: {flexDirection:'row-reverse',alignItems:'center',gap:6,backgroundColor:'rgba(255,255,255,0.93)',padding:5,borderRadius:16,elevation:3},
-  mapMethodButton: {minWidth:65,minHeight:48,paddingHorizontal:9,flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:5,borderRadius:12},
+  mapOverlayBottom: {position:'absolute',left:12,right:12,bottom:14,zIndex:2,gap:9},
+  mapToolsRow:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:6},
+  mapMethodGroup: {flexDirection:'row-reverse',alignItems:'center',gap:3,backgroundColor:'rgba(255,255,255,0.82)',padding:4,borderRadius:15,elevation:3},
+  mapMethodButton: {minWidth:57,minHeight:48,paddingHorizontal:6,flexDirection:'column',alignItems:'center',justifyContent:'center',gap:1,borderRadius:11},
   mapMethodActive: {backgroundColor:C.brand},
-  mapMethodLabel: {fontFamily:FONT.bold,fontSize:11,color:C.brand},
+  mapMethodLabel: {fontFamily:FONT.bold,fontSize:10,color:C.brand},
+  mapToolButton:{minWidth:65,minHeight:55,paddingHorizontal:7,borderRadius:14,alignItems:'center',justifyContent:'center',gap:3,backgroundColor:'rgba(255,255,255,.86)',borderWidth:1,borderColor:'rgba(255,255,255,.9)',elevation:2},
+  mapToolSelected:{backgroundColor:'rgba(221,246,234,.95)',borderColor:C.brand},
+  mapToolLabel:{fontFamily:FONT.bold,fontSize:10,color:C.brand},
+  mapSliderGlass:{backgroundColor:'rgba(255,255,255,.78)',borderWidth:1,borderColor:'rgba(255,255,255,.9)',borderRadius:23,paddingHorizontal:12,paddingTop:8,paddingBottom:2,elevation:3},
+  mapSliderHeading:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:7},
+  mapSliderTitle:{fontFamily:FONT.bold,fontSize:12,color:C.ink},
+  mapElapsed:{fontFamily:FONT.bold,fontSize:12,color:C.brand,marginLeft:6},
+  mapRefreshRow:{position:'absolute',bottom:174,left:0},
   mapRefreshButton: {width:50,height:50,alignItems:'center',justifyContent:'center',borderRadius:15,backgroundColor:'rgba(255,255,255,0.95)',elevation:3},
   refreshPosBtn: { backgroundColor: '#e7f3ee', borderWidth: 1, borderColor: '#b6dccc', borderRadius: 14, paddingVertical: 12, alignItems: 'center',justifyContent:'center',flexDirection:'row-reverse',gap:8, marginBottom: 10 },
   refreshPosTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 13 },
