@@ -20,6 +20,16 @@ checkTeam($ids(RegionalTeam::allowedMembers($users[1],$users,$zones,$leaders))==
 checkTeam($ids(RegionalTeam::allowedMembers($users[2],$users,$zones,$leaders))===[4,5],'Explicitly appointed inspector sees assigned region, not physical base zone');
 checkTeam($ids(RegionalTeam::allowedMembers($users[7],$users,$zones,$leaders))===[9,6] || $ids(RegionalTeam::allowedMembers($users[7],$users,$zones,$leaders))===[6,9],'Separate region senior does not see other regions');
 checkTeam(RegionalTeam::allowedMembers($users[3],$users,$zones,$leaders)===[],'Operators cannot enumerate personnel');
+// Organizational supervisors see every active employee, including themselves,
+// even when employees belong to unrelated regions or higher role levels.
+foreach(['سربازرس ارشد','رییس اداره بازرسی','رئیس اداره بازرسی','نیروی اداری ارشد','کاربر اداری ارشد'] as $title){
+    $actor=['id'=>100,'role_title'=>$title,'level'=>2,'zone_id'=>null,'is_active'=>1];
+    checkTeam($ids(RegionalTeam::allowedMembers($actor,$users,$zones,$leaders))===[1,2,3,4,5,6,8,9],$title.' sees all and only active personnel');
+}
+$fullActor=['id'=>1,'role_title'=>'سربازرس ارشد','level'=>4,'zone_id'=>1];
+checkTeam(in_array(1,$ids(RegionalTeam::allowedMembers($fullActor,$users,$zones,$leaders)),true),'Full personnel roster includes the viewer');
+checkTeam(!RegionalTeam::hasFullTeamAccess('سربازرس'),'Ordinary regional chief does not gain organization-wide access');
+checkTeam(RegionalTeam::allowedMembers(['id'=>0,'role_title'=>'سربازرس ارشد'],$users,$zones,$leaders)===[],'Missing actor identity cannot enumerate staff');
 // Role labels are editable and can be unrelated to the user's numeric level.
 $users[]=['id'=>10,'role_title'=>'نیروی مقیم سازمان','level'=>9,'zone_id'=>2,'is_active'=>1];
 $users[]=['id'=>11,'role_title'=>'گشت موتوری','level'=>7,'zone_id'=>3,'is_active'=>1];
