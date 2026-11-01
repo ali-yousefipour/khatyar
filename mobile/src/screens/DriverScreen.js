@@ -49,12 +49,19 @@ export default function DriverScreen({ route, navigation }) {
   }, [driver.id]);
   const capturePortrait = async () => {
     if (portraitBusy) return;
+    setPortraitBusy(true);
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) return Alert.alert('دسترسی دوربین', 'برای ثبت تصویر پرسنلی راننده اجازه دوربین لازم است.');
-      const result = await launchCamera({ mediaTypes: ['images'], cameraType: ImagePicker.CameraType.front, allowsEditing: false, quality: 0.7 });
-      if (result.canceled || !result.assets?.[0]?.uri) return;
-      setPortraitBusy(true);
+      if (!permission.granted) return Alert.alert('دسترسی دوربین', 'دسترسی به دوربین را در تنظیمات گوشی فعال کنید و دوباره تلاش کنید.');
+      let result;
+      try {
+        result = await launchCamera({ mediaTypes: ['images'], cameraType: ImagePicker.CameraType?.front || 'front', allowsEditing: false, quality: 0.7 });
+      } catch (frontError) {
+        // Some devices reject an explicit front camera; fall back to the native camera picker.
+        result = await launchCamera({ mediaTypes: ['images'], allowsEditing: false, quality: 0.7 });
+      }
+      if (result.canceled) return;
+      if (!result.assets?.[0]?.uri) throw new Error('دوربین تصویری برنگرداند؛ دوباره تلاش کنید.');
       const source = result.assets[0].uri;
       let compressed = null;
       for (const [width, quality] of [[480, 0.34], [400, 0.28], [320, 0.22]]) {

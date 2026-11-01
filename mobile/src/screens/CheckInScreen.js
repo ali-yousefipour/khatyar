@@ -462,13 +462,14 @@ function CheckInCore() {
   // بروزرسانی موقعیت من روی نقشه
   const [refreshingPos, setRefreshingPos] = useState(false);
   const refreshMyLocation = async () => {
+    if (refreshingPos) return;
     setRefreshingPos(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') { Alert.alert('دسترسی موقعیت', 'برای نمایش موقعیت، اجازهٔ دسترسی به موقعیت لازم است.'); return; }
       const gsm = await getGsmPosition({ timeoutMs: 4000 });
       if (gsm?.coords) setPos({ lat: gsm.coords.latitude, lng: gsm.coords.longitude, acc: gsm.coords.accuracy, ts: gsm.timestamp, viaGsm: true });
-      const p = await getAccuratePosition({ samples: 5, timeoutMs: 10000, desiredAccuracy: 12 });
+      const p = await getAccuratePosition({ samples: 3, timeoutMs: 12000, desiredAccuracy: 12 });
       if (p?.coords) setPos({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, ts: p.timestamp, viaGsm: false });
       else if (!gsm?.coords) Alert.alert('موقعیت', 'دریافت موقعیت ناموفق بود. GPS را روشن کنید و دوباره تلاش کنید.');
     } catch (e) { Alert.alert('خطا', 'دریافت موقعیت ناموفق بود.'); }
@@ -1030,8 +1031,8 @@ function CheckInCore() {
               <Text style={[s.mapMethodLabel,method===key&&{color:'#fff'}]}>{label}</Text>
             </TouchableOpacity>)}
           </View>}
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="به‌روزرسانی موقعیت من" accessibilityState={{disabled:refreshingPos}} style={s.mapRefreshButton} onPress={refreshMyLocation} disabled={refreshingPos}>
-            <MaterialCommunityIcons name={refreshingPos?'progress-clock':'crosshairs-gps'} size={23} color={C.brand}/>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="رفرش موقعیت من روی نقشه" accessibilityHint="دریافت مجدد مختصات از GPS و به‌روزرسانی نشانگر نقشه" accessibilityState={{disabled:refreshingPos}} style={s.mapRefreshButton} onPress={refreshMyLocation} disabled={refreshingPos}>
+            <MaterialCommunityIcons name={refreshingPos?'progress-clock':'refresh'} size={23} color={C.brand}/>
           </TouchableOpacity>
         </View>
       </View>
