@@ -369,6 +369,7 @@ export function TeamReportScreen() {
   useEffect(() => { cachedValue('/my/team').then(saved => { if(saved?.groups) setTeam(saved); }).finally(refreshTeam); }, []);
   const d = team;
   const [linesModal, setLinesModal] = useState(null); // {name, lines}
+  const [photoPreview, setPhotoPreview] = useState(null);
   const [filter, setFilter] = useState('all');
   const [regionFilter, setRegionFilter] = useState('all');
   const [query, setQuery] = useState('');
@@ -439,7 +440,7 @@ export function TeamReportScreen() {
           <View style={tm.groupHead}><View style={tm.groupIcon}><MaterialCommunityIcons name="map-marker-multiple-outline" size={19} color={C.brand}/></View><Text style={tm.groupTitle}>{region.name}</Text><Text style={tm.groupCount}>{faNum(region.members.length)} نفر</Text></View>
           {region.members.map((m) => (
             <View key={m.id} style={tm.memberRow}>
-              <View style={tm.personHead}><TeamMemberAvatar name={m.name} photo={m.photo}/><View style={{ flex: 1 }}><Text style={tm.memberName}>{m.name}</Text><Text style={tm.memberRole}>{[m.role_title, m.zone_name ? 'منطقه ' + m.zone_name : null].filter(Boolean).join(' · ')}</Text></View></View>
+              <View style={tm.personHead}><TeamMemberAvatar name={m.name} photo={m.photo} onPress={(source) => setPhotoPreview({ name: m.name, source })}/><View style={{ flex: 1 }}><Text style={tm.memberName}>{m.name}</Text><Text style={tm.memberRole}>{[m.role_title, m.zone_name ? 'منطقه ' + m.zone_name : null].filter(Boolean).join(' · ')}</Text></View></View>
               <View style={tm.contactRow}>
                 <View style={tm.contactInfo}><MaterialCommunityIcons name="cellphone" size={19} color={C.slate}/><Text style={tm.contactNumber}>{m.phone ? faNum(m.phone) : 'شماره همراه ثبت نشده'}</Text></View>
                 {teamDialNumber(m.phone) ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={`تماس با ${m.name}`} onPress={() => callTeamMember(m.phone)} style={tm.callButton} activeOpacity={0.75}>
@@ -481,11 +482,20 @@ export function TeamReportScreen() {
           </View>
         </View>
       </Modal>
+      <Modal visible={!!photoPreview} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setPhotoPreview(null)}>
+        <View style={tm.photoPreviewBg}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="بستن تصویر" style={tm.photoPreviewClose} onPress={() => setPhotoPreview(null)}>
+            <MaterialCommunityIcons name="close" size={27} color="#fff"/>
+          </TouchableOpacity>
+          {photoPreview?.source ? <Image source={photoPreview.source} style={tm.photoPreviewImage} resizeMode="contain"/> : null}
+          <Text style={tm.photoPreviewName}>{photoPreview?.name}</Text>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
 
-function TeamMemberAvatar({name,photo}) {
+function TeamMemberAvatar({name,photo,onPress}) {
   const [failed,setFailed]=useState(false);
   useEffect(()=>setFailed(false),[photo]);
   let source=null;
@@ -495,10 +505,10 @@ function TeamMemberAvatar({name,photo}) {
       ? trimmed : /^(\/9j\/|iVBOR)/.test(trimmed) ? `data:image/${trimmed.startsWith('iVBOR')?'png':'jpeg'};base64,${trimmed}` : null;
     if(usable)source=imageSource(usable);
   }
-  return <View style={tm.avatar} accessibilityLabel={`تصویر ${name||'کاربر'}`}>
+  return <TouchableOpacity style={tm.avatar} accessibilityRole="button" accessibilityLabel={`نمایش تصویر ${name||'کاربر'}`} accessibilityState={{disabled: !source || failed}} disabled={!source || failed} onPress={() => onPress?.(source)} activeOpacity={0.75}>
     {source&&!failed?<Image source={source} style={tm.avatarImage} resizeMode="cover" onError={()=>setFailed(true)}/>
       :<MaterialCommunityIcons name="account-outline" size={23} color={C.brand}/>}
-  </View>;
+  </TouchableOpacity>;
 }
 
 const tm = StyleSheet.create({
@@ -541,6 +551,10 @@ const tm = StyleSheet.create({
   callButtonText: { fontFamily: FONT.bold, color: '#fff', fontSize: 13 },
   avatar: { width: 46, height: 46, borderRadius: 14, backgroundColor: '#e9f4f0', alignItems: 'center', justifyContent: 'center', overflow:'hidden',borderWidth:1,borderColor:'#d7e8e1' },
   avatarImage: {width:'100%',height:'100%'},
+  photoPreviewBg: {flex:1,backgroundColor:'rgba(3,10,16,.97)',alignItems:'center',justifyContent:'center',paddingHorizontal:12,paddingVertical:64},
+  photoPreviewClose: {position:'absolute',top:44,right:20,width:48,height:48,borderRadius:24,backgroundColor:'rgba(255,255,255,.16)',alignItems:'center',justifyContent:'center',zIndex:2},
+  photoPreviewImage: {width:'100%',height:'85%'},
+  photoPreviewName: {fontFamily:FONT.bold,color:'#fff',fontSize:16,textAlign:'center',marginTop:12},
   avatarText: { fontFamily: FONT.bold, fontSize: 18, color: C.brand },
   memberName: { fontFamily: FONT.bold, color: C.ink, fontSize: 14, textAlign: 'right' },
   memberRole: { fontFamily: FONT.regular, color: C.muted, fontSize: 11.5, textAlign: 'right', marginTop: 3 },
