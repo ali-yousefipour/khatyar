@@ -620,8 +620,30 @@ function seniorityLabel(iso) { if (!iso)
     mo--; if (mo < 0)
     return "تاریخ نامعتبر"; const y = Math.floor(mo / 12), m = mo % 12; return `سنوات: ${fa(y)} سال و ${fa(m)} ماه`; }
 /* KHATYAR_REACT_JDATE_V2 */
-function JDate({ value, onChange, placeholder, jalali, yearFrom, yearTo }) {
+function JDate({ value, onChange, placeholder, jalali, yearFrom, yearTo, portal = false }) {
     const [open, setOpen] = useState(false);
+    const triggerRef = useRef(null);
+    const [popupStyle, setPopupStyle] = useState(null);
+    useEffect(() => {
+        if (!open || !portal)
+            return;
+        const position = () => {
+            var _a;
+            const rect = (_a = triggerRef.current) === null || _a === void 0 ? void 0 : _a.getBoundingClientRect();
+            if (!rect)
+                return;
+            const width = Math.min(330, window.innerWidth - 24);
+            const left = Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12));
+            const below = window.innerHeight - rect.bottom - 12;
+            const above = rect.top - 12;
+            const placeAbove = below < 380 && above > below;
+            setPopupStyle({ position: 'fixed', left, top: placeAbove ? 'auto' : rect.bottom + 7, bottom: placeAbove ? window.innerHeight - rect.top + 7 : 'auto', width, maxHeight: Math.max(180, (placeAbove ? above : below) - 9), overflowY: 'auto', zIndex: 2147483000 });
+        };
+        position();
+        window.addEventListener('resize', position);
+        window.addEventListener('scroll', position, true);
+        return () => { window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true); };
+    }, [open, portal]);
     const parse = () => {
         const raw = String(value || '').trim();
         if (!raw)
@@ -668,21 +690,22 @@ function JDate({ value, onChange, placeholder, jalali, yearFrom, yearTo }) {
     } if (y >= yf && y <= yt)
         setView({ y, m }); };
     const label = () => selected ? `${fa(selected[0])}/${fa(String(selected[1]).padStart(2, '0'))}/${fa(String(selected[2]).padStart(2, '0'))}` : '';
-    return React.createElement("span", { style: { position: 'relative', display: 'inline-block', width: '100%', minWidth: 0 } },
+    const calendar = open && React.createElement("div", { style: { position: 'absolute', zIndex: 2147483000, background: '#fff', border: '1px solid var(--line)', borderRadius: 16, padding: 12, boxShadow: '0 18px 50px rgba(0,0,0,.18)', top: 'calc(100% + 7px)', right: 0, width: 330, direction: 'rtl', ...(portal ? popupStyle || { visibility: 'hidden' } : {}) } },
+        React.createElement("div", { style: { display: 'grid', gridTemplateColumns: '36px 1fr 36px', gap: 6, alignItems: 'center', marginBottom: 8 } },
+            React.createElement("button", { type: "button", className: "btn g", onClick: () => shift(-1) }, "\u2039"),
+            React.createElement("div", { style: { display: 'flex', gap: 6, justifyContent: 'center' } },
+                React.createElement("select", { className: "input", value: view.m, onChange: e => setView(v => ({ ...v, m: +e.target.value })), style: { padding: '6px 8px', fontSize: 11, maxWidth: 120 } }, J_MONTHS.map((m, i) => React.createElement("option", { key: i + 1, value: i + 1 }, m))),
+                React.createElement("select", { className: "input", value: view.y, onChange: e => setView(v => ({ ...v, y: +e.target.value })), style: { padding: '6px 8px', fontSize: 11, maxWidth: 90 } }, years.map(y => React.createElement("option", { key: y, value: y }, fa(y))))),
+            React.createElement("button", { type: "button", className: "btn g", onClick: () => shift(1) }, "\u203A")),
+        React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3, marginBottom: 5 } }, ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'].map(x => React.createElement("span", { key: x, style: { textAlign: 'center', fontSize: 10, fontWeight: 800, color: 'var(--muted)' } }, x))),
+        React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 } }, cells),
+        React.createElement("div", { style: { display: 'flex', justifyContent: 'space-between', marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--line)' } },
+            React.createElement("button", { type: "button", className: "btn g", onClick: () => { emit(ty, tm, td); setView({ y: ty, m: tm }); setOpen(false); } }, "\u0627\u0645\u0631\u0648\u0632"),
+            React.createElement("button", { type: "button", className: "btn t", onClick: () => setOpen(false) }, "\u0628\u0633\u062A\u0646")));
+    return React.createElement("span", { ref: triggerRef, style: { position: 'relative', display: 'inline-block', width: '100%', minWidth: 0 } },
         React.createElement("input", { className: "input", readOnly: true, value: label(), placeholder: placeholder || 'تاریخ', onClick: () => setOpen(v => !v), style: { cursor: 'pointer', maxWidth: 150, width: '100%' } }),
         value && React.createElement("button", { type: "button", onClick: () => onChange(''), style: { position: 'absolute', left: 6, top: 8, background: 'none', border: 0, cursor: 'pointer', color: 'var(--muted)', zIndex: 2 } }, "\u2715"),
-        open && React.createElement("div", { style: { position: 'absolute', zIndex: 2147483000, background: '#fff', border: '1px solid var(--line)', borderRadius: 16, padding: 12, boxShadow: '0 18px 50px rgba(0,0,0,.18)', top: 'calc(100% + 7px)', right: 0, width: 330, direction: 'rtl' } },
-            React.createElement("div", { style: { display: 'grid', gridTemplateColumns: '36px 1fr 36px', gap: 6, alignItems: 'center', marginBottom: 8 } },
-                React.createElement("button", { type: "button", className: "btn g", onClick: () => shift(-1) }, "\u2039"),
-                React.createElement("div", { style: { display: 'flex', gap: 6, justifyContent: 'center' } },
-                    React.createElement("select", { className: "input", value: view.m, onChange: e => setView(v => ({ ...v, m: +e.target.value })), style: { padding: '6px 8px', fontSize: 11, maxWidth: 120 } }, J_MONTHS.map((m, i) => React.createElement("option", { key: i + 1, value: i + 1 }, m))),
-                    React.createElement("select", { className: "input", value: view.y, onChange: e => setView(v => ({ ...v, y: +e.target.value })), style: { padding: '6px 8px', fontSize: 11, maxWidth: 90 } }, years.map(y => React.createElement("option", { key: y, value: y }, fa(y))))),
-                React.createElement("button", { type: "button", className: "btn g", onClick: () => shift(1) }, "\u203A")),
-            React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3, marginBottom: 5 } }, ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'].map(x => React.createElement("span", { key: x, style: { textAlign: 'center', fontSize: 10, fontWeight: 800, color: 'var(--muted)' } }, x))),
-            React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 } }, cells),
-            React.createElement("div", { style: { display: 'flex', justifyContent: 'space-between', marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--line)' } },
-                React.createElement("button", { type: "button", className: "btn g", onClick: () => { emit(ty, tm, td); setView({ y: ty, m: tm }); setOpen(false); } }, "\u0627\u0645\u0631\u0648\u0632"),
-                React.createElement("button", { type: "button", className: "btn t", onClick: () => setOpen(false) }, "\u0628\u0633\u062A\u0646"))));
+        portal && typeof document !== 'undefined' && (ReactDOM === null || ReactDOM === void 0 ? void 0 : ReactDOM.createPortal) ? ReactDOM.createPortal(calendar, document.body) : calendar);
 }
 function _g2j(gy, gm, gd) {
     const gdm = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334], gy2 = gm > 2 ? gy + 1 : gy;
@@ -12345,22 +12368,22 @@ function AttendanceRequestModal({ userId, jdate, onSaved, onClose }) {
             setBusy(false);
         }
     };
-    return React.createElement(PunchModalShell, { title: "\u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A", subtitle: "برای تاریخ " + faPlain(String(jdate || "")), onClose: onClose, actions: React.createElement(React.Fragment, null,
+    return React.createElement(PunchModalShell, { title: "\u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A", subtitle: "برای تاریخ " + faPlain(String(jdate || "")), onClose: onClose, wide: true, actions: React.createElement(React.Fragment, null,
             React.createElement("button", { className: "btn g punch-action-secondary", onClick: onClose, disabled: busy }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
             React.createElement("button", { className: "btn p punch-action-primary", onClick: submit, disabled: busy }, busy ? "در حال ثبت…" : "ثبت درخواست")) },
         React.createElement("div", { className: "punch-summary" },
             React.createElement("span", null, "\u0646\u0648\u0639 \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
             React.createElement("small", null, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u067E\u0633 \u0627\u0632 \u062B\u0628\u062A \u062F\u0631 \u06AF\u0632\u0627\u0631\u0634 \u0647\u0645\u0627\u0646 \u0631\u0648\u0632 \u0642\u0627\u0628\u0644 \u0645\u0634\u0627\u0647\u062F\u0647 \u0627\u0633\u062A.")),
-        React.createElement("div", { className: "punch-fields", style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 12 } },
+        React.createElement("div", { className: "punch-fields attendance-request-fields" },
             React.createElement("div", { className: "punch-field", style: { gridColumn: "1 / -1" } },
                 React.createElement("label", { className: "label" }, "\u0646\u0648\u0639 \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
                 React.createElement("select", { className: "input", value: kind, onChange: e => setKind(e.target.value) }, TYPES.map(x => React.createElement("option", { key: x.value, value: x.value }, x.label)))),
             React.createElement("div", { className: "punch-field" },
                 React.createElement("label", { className: "label" }, "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E"),
-                React.createElement(JDate, { value: fromDate, onChange: setFromDate, jalali: true })),
+                React.createElement(JDate, { value: fromDate, onChange: setFromDate, jalali: true, portal: true })),
             !hourly && React.createElement("div", { className: "punch-field" },
                 React.createElement("label", { className: "label" }, "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E"),
-                React.createElement(JDate, { value: toDate, onChange: setToDate, jalali: true })),
+                React.createElement(JDate, { value: toDate, onChange: setToDate, jalali: true, portal: true })),
             hourly && React.createElement(React.Fragment, null,
                 React.createElement("div", { className: "punch-field" },
                     React.createElement("label", { className: "label" }, "\u0627\u0632 \u0633\u0627\u0639\u062A"),
@@ -12479,9 +12502,9 @@ function HmField({ label, value, onChange, optional = false, autoFocus = false }
                     Array.from({ length: 60 }, (_, m) => { const v = String(m).padStart(2, "0"); return React.createElement("option", { key: v, value: v }, toFaDigits(v)); }))),
             React.createElement("span", { id: label + "-hint", className: "punch-time-hint", style: { display: "block", marginTop: 6, textAlign: "center" } }, "\u0633\u0627\u0639\u062A \u0631\u0627 \u0628\u0647 \u0634\u06A9\u0644 \u06F2\u06F4 \u0633\u0627\u0639\u062A\u0647 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F\u061B \u06CC\u0627 \u0633\u0627\u0639\u062A \u0648 \u062F\u0642\u06CC\u0642\u0647 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F")));
 }
-function PunchModalShell({ title, subtitle, children, onClose, actions }) {
+function PunchModalShell({ title, subtitle, children, onClose, actions, wide = false }) {
     return React.createElement("div", { className: "modal-bg punch-modal-bg", style: { zIndex: 99999 }, onClick: onClose },
-        React.createElement("div", { className: "modal punch-modal", role: "dialog", "aria-modal": "true", onClick: e => e.stopPropagation(), style: { maxHeight: "92vh", overflowY: "auto", display: "flex", flexDirection: "column" } },
+        React.createElement("div", { className: "modal punch-modal" + (wide ? " punch-modal-wide" : ""), role: "dialog", "aria-modal": "true", onClick: e => e.stopPropagation(), style: { maxHeight: "92dvh", overflowY: "auto", display: "flex", flexDirection: "column" } },
             React.createElement("div", { className: "punch-modal-head" },
                 React.createElement("div", null,
                     React.createElement("h3", null, title),
