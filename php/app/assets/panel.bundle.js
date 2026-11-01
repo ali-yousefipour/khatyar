@@ -15195,6 +15195,15 @@ function PresenceChecks() {
     const [loading, setLoading] = useState(false);
     const [pick, setPick] = useState(null);
     const [tab, setTab] = useState("sent");
+    const [person, setPerson] = useState("");
+    const [timeFrom, setTimeFrom] = useState("");
+    const [timeTo, setTimeTo] = useState("");
+    const norm = s => String(s || "").replace(/[۰-۹]/g, c => String("۰۱۲۳۴۵۶۷۸۹".indexOf(c))).replace(/[٠-٩]/g, c => String("٠١٢٣٤٥٦٧٨٩".indexOf(c))).replace(/\s+/g, " ").trim();
+    const matchesName = r => !person || norm(r.name).toLowerCase().includes(norm(person).toLowerCase());
+    const hourOf = r => { const v = norm(r.captured_fa || r.captured_at || ""); const m = v.match(/(?:^|\s)(\d{1,2}):(\d{2})(?::\d{2})?/); return m ? m[1].padStart(2, "0") + ":" + m[2] : ""; };
+    const inHours = h => (!timeFrom || h >= timeFrom) && (!timeTo || h <= timeTo);
+    const visibleRows = rows.filter(r => matchesName(r) && ((!timeFrom && !timeTo) || !!hourOf(r) && inHours(hourOf(r))));
+    const visibleViol = viol.filter(v => { var _a, _b; return matchesName(v) && ((!timeFrom && !timeTo) || inHours(((_b = (_a = norm(v.slot || "").match(/\d{1,2}:\d{2}/)) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.padStart(5, "0")) || "")); });
     const load = () => {
         setLoading(true);
         Promise.all([db.presenceChecks(from, to, ""), db.presenceViolations(from, to)])
@@ -15217,19 +15226,22 @@ function PresenceChecks() {
         }
     };
     const dlImg = (url, name) => { const a = document.createElement("a"); a.href = url; a.download = name || "presence.jpg"; a.target = "_blank"; a.click(); };
-    const exportExcel = async () => { try {
-        const res = await fetch(db.presenceExportUrl(from, to, ""), { headers: tok() });
-        if (!res.ok)
-            throw new Error("خطا در دریافت");
-        const blob = await res.blob();
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `صحت‌سنجی_${from}_${to}.csv`;
-        a.click();
-    }
-    catch (e) {
-        alert(e.message);
-    } };
+    const exportExcel = () => {
+        try {
+            const q = x => '"' + String(x !== null && x !== void 0 ? x : "").replace(/"/g, '""') + '"';
+            const data = [["نیرو", "سمت", "بازه", "موقعیت", "زمان ثبت (تهران)", "شناسه صحت‌سنجی"], ...visibleRows.map(r => [r.name, r.role || "", r.slot, r.lat && r.lng ? `https://maps.google.com/?q=${r.lat},${r.lng}` : "", r.captured_fa || fj(r.captured_at), r.id])];
+            const csv = "\uFEFF" + data.map(row => row.map(q).join(",")).join("\r\n");
+            const u = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+            const a = document.createElement("a");
+            a.href = u;
+            a.download = `صحت‌سنجی_${from}_${to}.csv`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(u), 5000);
+        }
+        catch (e) {
+            alert(e.message || "خطا در دریافت خروجی");
+        }
+    };
     return (React.createElement("div", { className: "panel admin-workspace-page" },
         React.createElement("div", { id: "khatyar-presence-extension" }),
         React.createElement("div", { hidden: immediateOpen },
@@ -15240,37 +15252,43 @@ function PresenceChecks() {
                 React.createElement(JDate, { value: from, onChange: setFrom }),
                 React.createElement("span", { className: "label" }, "\u062A\u0627"),
                 React.createElement(JDate, { value: to, onChange: setTo }),
-                React.createElement("button", { className: "btn p", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
-                rows.length > 0 && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644 (\u0628\u0627 \u0644\u06CC\u0646\u06A9 \u0639\u06A9\u0633\u200C\u0647\u0627)")),
+                React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u0646\u06CC\u0631\u0648", placeholder: "\u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u0646\u06CC\u0631\u0648", value: person, onChange: e => setPerson(e.target.value), style: { maxWidth: 230 } }),
+                React.createElement("label", { className: "label" },
+                    "\u0627\u0632 \u0633\u0627\u0639\u062A ",
+                    React.createElement("input", { className: "input", type: "time", value: timeFrom, onChange: e => setTimeFrom(e.target.value) })),
+                React.createElement("label", { className: "label" },
+                    "\u062A\u0627 \u0633\u0627\u0639\u062A ",
+                    React.createElement("input", { className: "input", type: "time", value: timeTo, onChange: e => setTimeTo(e.target.value) })),
+                React.createElement("button", { className: "btn p", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631 \u062A\u0627\u0631\u06CC\u062E"),
+                React.createElement("button", { className: "btn g", onClick: () => { setPerson(""); setTimeFrom(""); setTimeTo(""); } }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627"),
+                tab === "sent" && visibleRows.length > 0 && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC CSV \u0646\u062A\u0627\u06CC\u062C \u0641\u06CC\u0644\u062A\u0631\u0634\u062F\u0647")),
             React.createElement("div", { className: "tabbar", style: { marginTop: 6 } },
                 React.createElement("button", { className: "tabbtn" + (tab === "sent" ? " on" : ""), onClick: () => setTab("sent") },
                     "\u0627\u0631\u0633\u0627\u0644\u200C\u0634\u062F\u0647 (",
-                    fa(rows.length),
+                    fa(visibleRows.length),
                     ")"),
                 React.createElement("button", { className: "tabbtn" + (tab === "miss" ? " on" : ""), onClick: () => setTab("miss") },
                     "\u062A\u062E\u0644\u0641 \u0639\u062F\u0645 \u0627\u0631\u0633\u0627\u0644 (",
-                    fa(viol.length),
+                    fa(visibleViol.length),
                     ")")),
-            loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : tab === "sent" ? (rows.length ? React.createElement("table", null,
+            loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : tab === "sent" ? (visibleRows.length ? React.createElement("table", null,
                 React.createElement("thead", null,
                     React.createElement("tr", null,
                         React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
                         React.createElement("th", null, "\u0633\u0645\u062A"),
-                        React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
                         React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
                         React.createElement("th", null, "\u0645\u0648\u0642\u0639\u06CC\u062A"),
                         React.createElement("th", null, "\u0632\u0645\u0627\u0646 \u062B\u0628\u062A (\u062A\u0647\u0631\u0627\u0646)"),
                         React.createElement("th", null, "\u062A\u0635\u0627\u0648\u06CC\u0631"))),
-                React.createElement("tbody", null, rows.map(r => React.createElement("tr", { key: r.id },
+                React.createElement("tbody", null, visibleRows.map(r => React.createElement("tr", { key: r.id },
                     React.createElement("td", null,
                         React.createElement("b", null, r.name)),
                     React.createElement("td", null, r.role || "—"),
-                    React.createElement("td", null, fj(r.slot_date)),
                     React.createElement("td", null, r.slot),
                     React.createElement("td", null, r.lat ? React.createElement("a", { href: `https://maps.google.com/?q=${r.lat},${r.lng}`, target: "_blank" }, "\u0646\u0642\u0634\u0647") : "—"),
                     React.createElement("td", null, r.captured_fa || fj(r.captured_at)),
                     React.createElement("td", null,
-                        React.createElement("button", { className: "btn g", onClick: () => openImg(r.id) }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u0639\u06A9\u0633\u200C\u0647\u0627")))))) : React.createElement("p", { className: "muted" }, "\u0627\u0631\u0633\u0627\u0644\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0646\u06CC\u0633\u062A.")) : (viol.length ? React.createElement("table", null,
+                        React.createElement("button", { className: "btn g", onClick: () => openImg(r.id) }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u0639\u06A9\u0633\u200C\u0647\u0627")))))) : React.createElement("p", { className: "muted" }, "\u0627\u0631\u0633\u0627\u0644\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0646\u06CC\u0633\u062A.")) : (visibleViol.length ? React.createElement("table", null,
                 React.createElement("thead", null,
                     React.createElement("tr", null,
                         React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
@@ -15278,7 +15296,7 @@ function PresenceChecks() {
                         React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
                         React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
                         React.createElement("th", null, "\u0646\u0648\u0639 \u062A\u062E\u0644\u0641"))),
-                React.createElement("tbody", null, viol.map((v, i) => React.createElement("tr", { key: i },
+                React.createElement("tbody", null, visibleViol.map((v, i) => React.createElement("tr", { key: i },
                     React.createElement("td", null,
                         React.createElement("b", null, v.name)),
                     React.createElement("td", null, v.role || "—"),
