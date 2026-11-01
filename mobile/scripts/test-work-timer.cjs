@@ -21,6 +21,9 @@ const disabledOvertime = calculate({ phase: 'surplus', expected_min: 480, ot_cap
 assert.equal(disabledOvertime.cap, 0, 'configured zero cap never defaults to 27');
 assert.equal(disabledOvertime.overtime, 0);
 assert.equal(disabledOvertime.surplus, 60);
-assert.ok(source.includes("liveTimer.phase === 'unassigned'"));
-assert.ok(source.includes('برای شما شیفت فعالی تخصیص داده نشده است'));
-console.log('PASS Android work timer: server assignment, zero duty/cap, actual elapsed time and unassigned message');
+assert.ok(source.includes("liveTimer.phase==='unassigned'"), 'map timer distinguishes users without an assigned shift');
+assert.ok(source.includes('شیفت فعالی تخصیص داده نشده است'), 'unassigned state is explained to the user');
+assert.ok(source.includes('s.mapTimerGlass'), 'work timer is displayed in the map glass overlay');
+assert.ok(source.includes('باقی‌مانده موظفی: ${fmtHM(liveTimer.remaining)}'), 'remaining duty comes from the server-backed timer');
+assert.ok(source.includes('مازاد حضور: ${faNum(liveTimer.surplus)}'), 'surplus time remains visible');
+console.log('PASS Android work timer: server assignment, zero duty/cap, actual elapsed time and map glass states');
