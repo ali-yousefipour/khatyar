@@ -10,8 +10,8 @@ const methods=source.slice(source.indexOf('  private static byte[] buildPcm('),s
 const test=`public class RadioSfxTest {private static final int SAMPLE_RATE=8000;
 ${methods}
 public static void main(String[] args){
-String[] kinds={"receive_leadin","receive_tail","ptt_press","talk_start","roger","eot","release_click"};
-int[] durations={70,85,65,65,180,150,48};
+String[] kinds={"receive_leadin","receive_tail","ptt_press","talk_start","roger","eot","release_click","channel_busy","channel_free"};
+int[] durations={70,85,65,65,180,150,48,220,145};
 for(int index=0;index<kinds.length;index++){
 byte[] bytes=buildPcm(kinds[index]);if(bytes.length!=durations[index]*16)throw new AssertionError("duration "+kinds[index]);
 int peak=0;long energy=0,sum=0;for(int offset=0;offset<bytes.length;offset+=2){short sample=(short)((bytes[offset]&255)|((bytes[offset+1]&255)<<8));peak=Math.max(peak,Math.abs((int)sample));energy+=(long)sample*sample;sum+=sample;}
@@ -20,7 +20,7 @@ if(Math.abs(sum/(bytes.length/2))>300)throw new AssertionError("DC offset "+kind
 if(bytes[0]!=0||bytes[1]!=0)throw new AssertionError("click-free attack "+kinds[index]);
 }
 if(buildPcm("unknown").length!=0)throw new AssertionError("unknown effect");
-System.out.println("Radio SFX: seven PCM profiles, duration, headroom, energy, DC and smooth attack passed");
+System.out.println("Radio SFX: nine PCM profiles, duration, headroom, energy, DC and smooth attack passed");
 }}
 `;
 const temporaryRoot=fs.realpathSync(os.tmpdir());

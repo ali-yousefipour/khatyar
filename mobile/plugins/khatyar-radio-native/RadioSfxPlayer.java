@@ -77,10 +77,10 @@ public final class RadioSfxPlayer {
       if("receive_leadin".equals(kind))sample=high*0.13*Math.exp(-milliseconds/75.0)+burst(530,index,milliseconds,10,68,0.04);
       else if("receive_tail".equals(kind))sample=high*0.16*Math.exp(-milliseconds/42.0)+burst(400,index,milliseconds,0,36,0.025);
       else if("release_click".equals(kind))sample=high*0.14*Math.exp(-milliseconds/11.0)-burst(520,index,milliseconds,5,27,0.035);
-      else if("eot".equals(kind))sample=burst(1040,index,milliseconds,4,58,0.12)+burst(720,index,milliseconds,70,136,0.10);
-      else if("roger".equals(kind))sample=burst(1120,index,milliseconds,4,82,0.13)+burst(880,index,milliseconds,98,163,0.105);
-      else if("channel_busy".equals(kind))sample=burst(440,index,milliseconds,4,85,0.23)+burst(440,index,milliseconds,123,205,0.23);
-      else if("channel_free".equals(kind))sample=high*0.09*Math.exp(-milliseconds/60.0)+burst(920,index,milliseconds,12,125,0.20);
+      else if("eot".equals(kind))sample=burst(1040,index,milliseconds,4,58,0.085)+burst(720,index,milliseconds,70,136,0.075);
+      else if("roger".equals(kind))sample=burst(1120,index,milliseconds,4,82,0.085)+burst(880,index,milliseconds,98,163,0.075);
+      else if("channel_busy".equals(kind))sample=burst(440,index,milliseconds,4,85,0.09)+burst(440,index,milliseconds,123,205,0.09);
+      else if("channel_free".equals(kind))sample=high*0.09*Math.exp(-milliseconds/60.0)+burst(920,index,milliseconds,12,125,0.085);
       else sample=high*0.095*Math.exp(-milliseconds/22.0)+burst(760,index,milliseconds,7,42,0.07);
       double edge=Math.max(0.0,Math.min(1.0,Math.min(milliseconds/5.0,(duration-milliseconds)/10.0)));
       short value=(short)Math.round(Math.max(-0.65,Math.min(0.65,sample*edge*2.4))*32767.0);
