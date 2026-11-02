@@ -7090,16 +7090,13 @@ function AttendanceReport({initialUserId=null,initialName='',initialFrom='',init
       <div style={{padding:"7px 10px",fontSize:11,color:"var(--muted)",borderTop:"1px solid var(--line)",background:"#fff"}}>نمایش صفحه: {fa(selectedColumns.length)} ستون · فایل Excel: همهٔ {fa(columns.length)} ستون</div>
     </div>}
     {shiftDeficitModal&&<div role="presentation" onClick={e=>{if(e.target===e.currentTarget)setShiftDeficitModal(null);}} style={{position:"fixed",inset:0,zIndex:100600,background:"rgba(0,0,0,.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div className="card-p" role="dialog" aria-modal="true" aria-label="جزئیات شیفت و کسری کار" style={{width:"min(560px,96vw)",padding:20}}>
-        <h3>جزئیات شیفت و کسری کار — {faPlain(String(shiftDeficitModal.jdate||""))}</h3>
-        <p>ساعت موظفی ورود: <b>{attendanceCell(shiftDeficitModal.shift_start||"ثبت نشده")}</b></p>
-        <p>ساعت موظفی خروج: <b>{attendanceCell(shiftDeficitModal.shift_end||"ثبت نشده")}</b></p>
-        <p>ورود ثبت‌شده: <b>{attendanceCell(shiftDeficitModal.actual_in||"—")}</b></p>
-        <p>خروج ثبت‌شده: <b>{attendanceCell(shiftDeficitModal.actual_out||"—")}</b></p>
-        <p>موظفی روز: <b>{hm(shiftDeficitModal.expected||0)}</b> · کسری: <b>{hm(shiftDeficitModal.shortage||0)}</b></p>
-        <p className="muted">ساعت‌های موظفی فقط در صورت ارائه توسط تعریف شیفت نمایش داده می‌شوند؛ برای شیفت شناور یا فاقد ساعت ثابت، زمان ساختگی نمایش داده نمی‌شود.</p>
-        {Number(shiftDeficitModal.shortage||0)>0&&<button className="btn p" style={{marginInlineEnd:8}} onClick={()=>{setConversionModal({mode:"shortage",jdate:shiftDeficitModal.jdate,minutes:shiftDeficitModal.shortage,day:shiftDeficitModal.day});setShiftDeficitModal(null);}}>تبدیل کسری کار به مرخصی استحقاقی ساعتی</button>}
-        <button className="btn g" onClick={()=>setShiftDeficitModal(null)}>بستن</button>
+      <div className="attendance-shift-dialog" role="dialog" aria-modal="true" aria-labelledby="attendance-shift-title">
+        <div className="attendance-shift-head"><div><h3 id="attendance-shift-title">جزئیات شیفت و کسری کار</h3><p>تاریخ {faPlain(String(shiftDeficitModal.jdate||""))}</p></div><button type="button" className="btn g" onClick={()=>setShiftDeficitModal(null)} aria-label="بستن جزئیات شیفت">بستن</button></div>
+        <div className="attendance-shift-grid">
+          {[["ساعت موظفی ورود",attendanceCell(shiftDeficitModal.shift_start||"ثبت نشده")],["ساعت موظفی خروج",attendanceCell(shiftDeficitModal.shift_end||"ثبت نشده")],["ورود ثبت‌شده",attendanceCell(shiftDeficitModal.actual_in||"—")],["خروج ثبت‌شده",attendanceCell(shiftDeficitModal.actual_out||"—")],["موظفی روز",hm(shiftDeficitModal.expected||0)],["کسری کار",hm(shiftDeficitModal.shortage||0)]].map(([label,value],i)=><div className={'attendance-shift-stat'+(i===5?' is-shortage':'')} key={label}><span>{label}</span><strong>{value}</strong></div>)}
+        </div>
+        <p className="attendance-shift-note">ساعت‌های موظفی فقط در صورت وجود در تعریف شیفت نمایش داده می‌شوند. برای شیفت شناور، زمان فرضی درج نمی‌شود.</p>
+        <div className="attendance-shift-actions">{Number(shiftDeficitModal.shortage||0)>0&&<button type="button" className="btn p" onClick={()=>{setConversionModal({mode:"shortage",jdate:shiftDeficitModal.jdate,minutes:shiftDeficitModal.shortage,day:shiftDeficitModal.day});setShiftDeficitModal(null);}}>تبدیل کسری کار به مرخصی استحقاقی ساعتی</button>}<button type="button" className="btn g" onClick={()=>setShiftDeficitModal(null)}>انصراف</button></div>
       </div>
     </div>}
     {gpsDeficitModal&&<div role="presentation" onClick={e=>{if(e.target===e.currentTarget)setGpsDeficitModal(null);}} style={{position:"fixed",inset:0,zIndex:100500,background:"rgba(0,0,0,.58)",display:"flex",alignItems:"center",justifyContent:"center",padding:"clamp(10px,2vw,24px)"}}>
@@ -7224,10 +7221,10 @@ function AttendanceConversionModal({userId,mode,jdate,minutes,onSaved,onClose}){
     }catch(e){setErr(e.message||"تبدیل انجام نشد");}
     finally{setBusy(false);}
   };
-  return <PunchModalShell title={mode==="surplus"?"تبدیل مازاد حضور به اضافه‌کار":"تبدیل کسر کار به مرخصی استحقاقی ساعتی"} subtitle={"تاریخ "+faPlain(String(jdate||""))} onClose={onClose}
+  return <PunchModalShell wide title={mode==="surplus"?"تبدیل مازاد حضور به اضافه‌کار":"تبدیل کسر کار به مرخصی استحقاقی ساعتی"} subtitle={"تاریخ "+faPlain(String(jdate||""))} onClose={onClose}
     actions={<><button className="btn g punch-action-secondary" onClick={onClose} disabled={busy}>انصراف</button><button className="btn p punch-action-primary" onClick={submit} disabled={busy}>{busy?"در حال ثبت…":"ثبت تبدیل"}</button></>}>
     <div className="punch-summary"><span>{mode==="surplus"?"مازاد حضور قابل تبدیل":"کسر کار قابل تبدیل"}</span><strong>{fmt(max)}</strong></div>
-    <div className="punch-fields" style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:12}}>
+    <div className="punch-fields attendance-conversion-fields">
       <div className="punch-field"><label className="label">مقدار تبدیل (دقیقه)</label><input className="input" type="number" min="1" max={max} value={amount} onChange={e=>setAmount(e.target.value)} /><small className="muted">حداکثر {fmt(max)}</small></div>
       {mode==="shortage"&&<><div className="punch-field"><label className="label">از ساعت</label><input className="input" type="time" value={fromTime} onChange={e=>setFromTime(e.target.value)} /></div><div className="punch-field"><label className="label">تا ساعت</label><input className="input" type="time" value={toTime} onChange={e=>setToTime(e.target.value)} /><small className="muted">مدت باید {fmt(Math.max(0,Number(amount)||0))} باشد.</small></div></>}
       <div className="punch-field" style={{gridColumn:"1 / -1"}}><label className="label">علت / توضیح</label><textarea className="input" rows="3" value={reason} onChange={e=>setReason(e.target.value)} /></div>
