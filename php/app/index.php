@@ -41,9 +41,9 @@ register_shutdown_function(static function() use (&$apiRequestStart) {
 
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
-  $siteV = '1.5.18'; $appV = '1.5.18';
+  $siteV = '1.5.19'; $appV = '1.5.19';
   $releaseNotes = [
-    'version' => '1.5.18',
+    'version' => '1.5.19',
     'title' => 'تغییرات نسخه ۱.۵.۱۷',
     'items' => [
       'بازطراحی داشبورد سرویس مدارس و تب‌های مدیریت، بهبود جستجوی مدارس و نمایش واکنش‌گرا',

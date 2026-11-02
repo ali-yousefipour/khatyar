@@ -2,9 +2,9 @@
 try { require('dotenv').config(); } catch (e) {}
 let hasLocalAuth = false;
 try { require.resolve('expo-local-authentication'); hasLocalAuth = true; } catch (e) { hasLocalAuth = false; }
-// Android 1.5.18: presence camera, operational UI and recovery fixes.
-const APP_VERSION = '1.5.18';
-const APP_VERSION_CODE = 10518;
+// Android 1.5.19: complaint routing and driver portrait camera improvements.
+const APP_VERSION = '1.5.19';
+const APP_VERSION_CODE = 10519;
 // R8 previously caused startup crashes in release builds. Only enable in a
 // separately tested candidate; standard Myket releases retain safe defaults.
 const EXPERIMENTAL_NATIVE_SHRINK = process.env.KHATYAR_EXPERIMENTAL_R8 === '1';
