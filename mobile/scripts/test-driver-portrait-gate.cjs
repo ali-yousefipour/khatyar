@@ -12,6 +12,11 @@ for (const pattern of [
   /queueIfOffline: false/, /action\.t === 'ثبت تذکر'/,
   /if \(!portrait \|\| portraitBusy \|\| portraitDraft\) return photoGate\(\)/,
   /onPress=\{\(\) => runDriverAction\(a\)\}/,
+  /useState\('back'\)/, /setPortraitCameraFacing\('back'\)/,
+  /portraitFrameWidth,aspectRatio:3\/4/,
+  /ImageManipulator\.manipulateAsync\(result\.uri, \[\{ crop:/,
+  /cropWidth = Math\.min\(originalWidth, Math\.round\(originalHeight \* 3 \/ 4\)\)/,
+  /cropHeight = Math\.min\(originalHeight, Math\.round\(originalWidth \* 4 \/ 3\)\)/,
 ]) assert.match(driver, pattern);
 assert.doesNotMatch(driver, /portraitRequired\s*&&/);
 assert.doesNotMatch(driver, /launchLibrary\(/);

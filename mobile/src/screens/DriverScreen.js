@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Mod
 import { postOrQueue, request } from '../api';
 import { imageSource } from '../api';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { compressToDataUri } from '../img';
 import { getAppConfig } from '../appconfig';
 import * as Location from 'expo-location';
@@ -13,8 +14,9 @@ import { faNum } from '../num';
 import TaxiPlate from '../components/TaxiPlate';
 
 export default function DriverScreen({ route, navigation }) {
-  const { width: viewportWidth } = useWindowDimensions();
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const compact = viewportWidth < 390;
+  const portraitFrameWidth = Math.max(160, Math.min(viewportWidth - 32, (viewportHeight - 260) * 3 / 4));
   const params = route?.params || {};
   const rawDriver = params.driver;
   const driver = rawDriver && typeof rawDriver === 'object' ? rawDriver : {};
@@ -34,7 +36,7 @@ export default function DriverScreen({ route, navigation }) {
   const [portraitFullScreen, setPortraitFullScreen] = useState(false);
   const [portraitCameraVisible, setPortraitCameraVisible] = useState(false);
   const [portraitCameraReady, setPortraitCameraReady] = useState(false);
-  const [portraitCameraFacing, setPortraitCameraFacing] = useState('front');
+  const [portraitCameraFacing, setPortraitCameraFacing] = useState('back');
   const portraitCamera = useRef(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const hasDriver = !!(driver && (driver.id || driver.national_id || driver.national_code));
@@ -58,7 +60,7 @@ export default function DriverScreen({ route, navigation }) {
       const permission = cameraPermission?.granted ? cameraPermission : await requestCameraPermission();
       if (!permission?.granted) return Alert.alert('دسترسی دوربین', 'دسترسی به دوربین را در تنظیمات گوشی فعال کنید و دوباره تلاش کنید.');
       setPortraitCameraReady(false);
-      setPortraitCameraFacing('front');
+      setPortraitCameraFacing('back');
       setPortraitCameraVisible(true);
     } catch (error) { Alert.alert('دوربین', error?.message || 'آماده‌سازی دوربین انجام نشد.'); }
   };
@@ -68,7 +70,19 @@ export default function DriverScreen({ route, navigation }) {
     try {
       const result = await portraitCamera.current.takePictureAsync({ quality: 0.75, base64: false, exif: false, skipProcessing: false });
       if (!result?.uri) throw new Error('دوربین تصویری برنگرداند؛ دوباره تلاش کنید.');
-      const source = result.uri;
+      // Match the on-screen 3:4 personnel frame in the uploaded image too.
+      const originalWidth = Number(result.width);
+      const originalHeight = Number(result.height);
+      if (!originalWidth || !originalHeight) throw new Error('ابعاد تصویر دوربین مشخص نیست؛ دوباره عکس بگیرید.');
+      const cropWidth = Math.min(originalWidth, Math.round(originalHeight * 3 / 4));
+      const cropHeight = Math.min(originalHeight, Math.round(originalWidth * 4 / 3));
+      const cropped = await ImageManipulator.manipulateAsync(result.uri, [{ crop: {
+        originX: Math.floor((originalWidth - cropWidth) / 2),
+        originY: Math.floor((originalHeight - cropHeight) / 2),
+        width: cropWidth,
+        height: cropHeight,
+      } }], { format: ImageManipulator.SaveFormat.JPEG, compress: 0.85 });
+      const source = cropped.uri;
       let compressed = null;
       for (const [width, quality] of [[480, 0.34], [400, 0.28], [320, 0.22]]) {
         compressed = await compressToDataUri(source, { maxW: width, maxH: 640, quality });
@@ -187,13 +201,17 @@ export default function DriverScreen({ route, navigation }) {
     <>
       <Modal visible={portraitCameraVisible} animationType="slide" onRequestClose={() => {if(!portraitBusy)setPortraitCameraVisible(false)}}>
         <View style={{flex:1,backgroundColor:'#081e1b'}}>
-          {cameraPermission?.granted && <CameraView ref={portraitCamera} style={StyleSheet.absoluteFill} facing={portraitCameraFacing} mode="picture" active={portraitCameraVisible} onCameraReady={()=>setPortraitCameraReady(true)} onMountError={error=>{setPortraitCameraReady(false);Alert.alert('دوربین',error?.message||'راه‌اندازی دوربین ناموفق بود.')}}/>}
+          <View style={{flex:1,alignItems:'center',justifyContent:'center',paddingTop:72,paddingBottom:158}}>
+            <View style={{width:portraitFrameWidth,aspectRatio:3/4,borderRadius:12,borderWidth:2,borderColor:'#fff',overflow:'hidden',backgroundColor:'#102f2b'}}>
+              {cameraPermission?.granted && <CameraView ref={portraitCamera} style={StyleSheet.absoluteFill} facing={portraitCameraFacing} mode="picture" active={portraitCameraVisible} onCameraReady={()=>setPortraitCameraReady(true)} onMountError={error=>{setPortraitCameraReady(false);Alert.alert('دوربین',error?.message||'راه‌اندازی دوربین ناموفق بود.')}}/>}
+            </View>
+          </View>
           <View style={{position:'absolute',top:48,left:16,right:16,flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between'}}>
             <TouchableOpacity accessibilityLabel="بستن دوربین" onPress={()=>{if(!portraitBusy)setPortraitCameraVisible(false)}} style={{padding:12,backgroundColor:'#102f2bc9',borderRadius:14}}><MaterialCommunityIcons name="close" size={26} color="#fff"/></TouchableOpacity>
             <Text style={{fontFamily:FONT.bold,color:'#fff',fontSize:16}}>تصویر پرسنلی تاکسیران</Text>
           </View>
           <View style={{position:'absolute',bottom:44,left:16,right:16,alignItems:'center',gap:16}}>
-            <Text style={{color:'#fff',fontFamily:FONT.regular,textAlign:'center'}}>صورت در مرکز کادر، با نور مناسب و بدون پوشش چهره باشد.</Text>
+            <Text style={{color:'#fff',fontFamily:FONT.regular,textAlign:'center'}}>عکس پرسنلی ۳×۴؛ صورت در مرکز کادر و نور مناسب باشد.</Text>
             <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-evenly',width:'100%'}}>
               <TouchableOpacity accessibilityLabel="تغییر دوربین جلو و عقب" disabled={portraitBusy} onPress={()=>{setPortraitCameraReady(false);setPortraitCameraFacing(v=>v==='front'?'back':'front')}} style={{padding:14,backgroundColor:'#102f2bc9',borderRadius:14}}><MaterialCommunityIcons name="camera-flip-outline" size={26} color="#fff"/></TouchableOpacity>
               <TouchableOpacity accessibilityLabel="گرفتن تصویر پرسنلی" disabled={!portraitCameraReady||portraitBusy} onPress={takePortrait} style={{height:76,width:76,borderRadius:38,borderWidth:6,borderColor:'#fff',backgroundColor:portraitCameraReady&&!portraitBusy?'#0d7a5f':'#829b96',alignItems:'center',justifyContent:'center'}}>{portraitBusy?<ActivityIndicator/>:<MaterialCommunityIcons name="camera" size={32} color="#fff"/>}</TouchableOpacity>
