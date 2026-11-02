@@ -15,7 +15,7 @@ int[] durations={70,85,65,65,180,150,48,220,145};
 for(int index=0;index<kinds.length;index++){
 byte[] bytes=buildPcm(kinds[index]);if(bytes.length!=durations[index]*16)throw new AssertionError("duration "+kinds[index]);
 int peak=0;long energy=0,sum=0;for(int offset=0;offset<bytes.length;offset+=2){short sample=(short)((bytes[offset]&255)|((bytes[offset+1]&255)<<8));peak=Math.max(peak,Math.abs((int)sample));energy+=(long)sample*sample;sum+=sample;}
-if(peak>8192||peak<100||energy==0)throw new AssertionError("peak/energy "+kinds[index]);
+if(peak>8192||peak<100||energy==0)throw new AssertionError("peak/energy "+kinds[index]+" peak="+peak+" energy="+energy);
 if(Math.abs(sum/(bytes.length/2))>300)throw new AssertionError("DC offset "+kinds[index]);
 if(bytes[0]!=0||bytes[1]!=0)throw new AssertionError("click-free attack "+kinds[index]);
 }
