@@ -28,8 +28,9 @@ class OrgChart {
   }
   static function withZoneLeaders($zones) {
     self::ensureZoneLeaders();$leaders=[];
+    $activeIds=array_fill_keys(array_map('intval',array_column(Db::all('SELECT id FROM users WHERE is_active=1'),'id')),true);
     foreach(Db::all('SELECT zone_id,senior_user_id,inspector_ids FROM zone_leadership') as $row)$leaders[(int)$row['zone_id']]=$row;
-    foreach($zones as &$zone){$row=$leaders[(int)$zone['id']]??null;$zone['senior_user_id']=empty($row['senior_user_id'])?null:(int)$row['senior_user_id'];$zone['inspector_ids']=array_values(array_unique(array_map('intval',json_decode($row['inspector_ids']??'[]',true)?:[])));}unset($zone);
+    foreach($zones as &$zone){$row=$leaders[(int)$zone['id']]??null;$senior=(int)($row['senior_user_id']??0);$zone['senior_user_id']=$senior&&isset($activeIds[$senior])?$senior:null;$zone['inspector_ids']=array_values(array_filter(array_unique(array_map('intval',json_decode($row['inspector_ids']??'[]',true)?:[])),fn($id)=>isset($activeIds[$id])));}unset($zone);
     return $zones;
   }
   static function saveZoneLeaders($zoneId,$senior,$inspectors,$actor) {

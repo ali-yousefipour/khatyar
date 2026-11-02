@@ -694,7 +694,7 @@ function PersonnelDistributionDashboard(){
   useEffect(()=>{
     let active=true;
     Promise.all([db.users(),db.roles(),db.zones()]).then(([users,roles,zones])=>{
-      if(active)setData({users:Array.isArray(users)?users:[],roles:Array.isArray(roles)?roles:[],zones:Array.isArray(zones)?zones:[]});
+      if(active)setData({users:Array.isArray(users)?users.filter(user=>Number(user.is_active)===1):[],roles:Array.isArray(roles)?roles:[],zones:Array.isArray(zones)?zones:[]});
     }).catch(e=>{if(active)setError(e?.message||"دریافت اطلاعات پرسنل ناموفق بود");});
     return()=>{active=false};
   },[]);

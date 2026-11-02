@@ -2668,7 +2668,7 @@ function _ensure_work_policies(){
 // فهرست سیاست‌های کاری
 route('GET', '/api/admin/work-policies', function($p,$b,$u){
   _ensure_work_policies();
-  return Db::all("SELECT wp.*, (SELECT COUNT(*) FROM users WHERE work_policy_id=wp.id) user_count FROM work_policies wp ORDER BY wp.is_active DESC, wp.id DESC");
+  return Db::all("SELECT wp.*, (SELECT COUNT(*) FROM users WHERE work_policy_id=wp.id AND is_active=1) user_count FROM work_policies wp ORDER BY wp.is_active DESC, wp.id DESC");
 }, false, ADMIN);
 
 // یک سیاست کاری
@@ -5494,7 +5494,7 @@ route('GET', '/api/admin/work-dashboard', function($p,$b,$u){
   }
   usort($top,fn($a,$b)=>$b['worked']-$a['worked']);
   // وضعیت درخواست‌های در انتظار
-  $pending=Db::one("SELECT COUNT(*) c FROM requests WHERE status='pending'");
+  $pending=Db::one("SELECT COUNT(*) c FROM requests rq JOIN users usr ON usr.id=rq.user_id AND usr.is_active=1 WHERE rq.status='pending'");
   return ['year'=>$jy,'month'=>$jm,'sum'=>$sum,'top'=>array_slice($top,0,8),'pending_requests'=>(int)($pending['c']??0),'live'=>_live_staff_dashboard()];
 }, false, ADMIN);
 
@@ -8172,7 +8172,7 @@ route('GET', '/api/admin/staff-attendance', function($p,$b,$u){
   $from = date('Y-m-d', strtotime($from)); $to = date('Y-m-d', strtotime($to));
   // گزارش باید بر اساس هم‌پوشانی جلسه با بازه باشد؛ تردد شبانه از روز قبل نیز دیده می‌شود.
   $toExclusive = date('Y-m-d H:i:s', strtotime($to) + 86400);
-  $cond = ["sa.check_in < ?", "COALESCE(sa.check_out, NOW()) > ?"]; $args = [$toExclusive, $from.' 00:00:00'];
+  $cond = ["us.is_active=1", "sa.check_in < ?", "COALESCE(sa.check_out, NOW()) > ?"]; $args = [$toExclusive, $from.' 00:00:00'];
   if (!empty($_GET['user_id'])) { $cond[] = "sa.user_id=?"; $args[] = (int)$_GET['user_id']; }
   if (!empty($_GET['line_id'])) { $cond[] = "sa.line_id=?"; $args[] = (int)$_GET['line_id']; }
   if (!empty($_GET['role_id'])) { $cond[] = "us.role_id=?"; $args[] = (int)$_GET['role_id']; }
@@ -8193,7 +8193,7 @@ route('GET', '/api/admin/staff-attendance/export', function($p,$b,$u){
   $from = $_GET['from'] ?? date('Y-m-d'); $to = $_GET['to'] ?? $from;
   $from = date('Y-m-d', strtotime($from)); $to = date('Y-m-d', strtotime($to));
   $toExclusive = date('Y-m-d H:i:s', strtotime($to) + 86400);
-  $cond = ["sa.check_in < ?", "COALESCE(sa.check_out, NOW()) > ?"]; $args = [$toExclusive, $from.' 00:00:00'];
+  $cond = ["us.is_active=1", "sa.check_in < ?", "COALESCE(sa.check_out, NOW()) > ?"]; $args = [$toExclusive, $from.' 00:00:00'];
   if (!empty($_GET['user_id'])) { $cond[] = "sa.user_id=?"; $args[] = (int)$_GET['user_id']; }
   if (!empty($_GET['line_id'])) { $cond[] = "sa.line_id=?"; $args[] = (int)$_GET['line_id']; }
   if (!empty($_GET['role_id'])) { $cond[] = "us.role_id=?"; $args[] = (int)$_GET['role_id']; }
@@ -10982,7 +10982,7 @@ route('GET', '/api/me/zone-options', function($p,$b,$u){
   // فهرست بازرس‌ها و سربازرس‌ها بر اساس نقش (نقش‌هایی که سطحشان بالاتر از راننده است)
   // اینجا همهٔ کاربرانِ دارای نقش غیر-راننده را به‌عنوان بازرس قابل‌انتخاب می‌آوریم
   $people = Db::all("SELECT u.id, TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) name, r.title role_title
-    FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id<>? ORDER BY name", [$u['id']]);
+    FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 AND u.id<>? ORDER BY name", [$u['id']]);
   // انتخاب فعلی کاربر
   $me = Db::one("SELECT zone_id FROM users WHERE id=?", [$u['id']]);
   $mgrs = array_map('intval', array_column(Db::all("SELECT manager_id FROM user_managers WHERE user_id=?", [$u['id']]), 'manager_id'));
