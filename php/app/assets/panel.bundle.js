@@ -17816,20 +17816,19 @@ function PVAPlate({ asset }) {
         return null;
     const motor = asset.asset_type === 'motorcycle';
     const digit = v => pvaFa(v || '—');
-    const part = { fontWeight: 900, fontSize: 19, lineHeight: 1.1, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' };
-    return React.createElement("span", { dir: "ltr", "aria-label": 'پلاک ' + (motor ? 'موتورسیکلت' : 'خودرو') + ' ' + pvaPlate(asset), style: { display: 'inline-flex', alignItems: 'stretch', verticalAlign: 'middle', direction: 'ltr', border: '2px solid #172b4d', borderRadius: 7, overflow: 'hidden', background: '#fff', color: '#14213d', boxShadow: '0 2px 5px #14213d18', maxWidth: '100%', minHeight: 49 } },
-        React.createElement("span", { style: { background: '#174a99', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: 31, minWidth: 31, fontSize: 9, fontWeight: 800, letterSpacing: .4 } },
+    return React.createElement("span", { dir: "ltr", className: 'pva-license-plate ' + (motor ? 'pva-license-plate-motor' : 'pva-license-plate-car'), "aria-label": 'پلاک ' + (motor ? 'موتورسیکلت' : 'خودرو') + ' ' + pvaPlate(asset) },
+        React.createElement("span", { className: "pva-license-plate-band" },
             "IR",
-            React.createElement("small", { style: { fontSize: 8 } }, "I.R.")),
-        motor ? React.createElement("span", { style: { display: 'grid', gridTemplateRows: '1fr 1fr', minWidth: 148, textAlign: 'center' } },
-            React.createElement("span", { style: { ...part, padding: '2px 14px', borderBottom: '1px solid #172b4d' } }, digit(asset.motorcycle_plate_top)),
-            React.createElement("span", { style: { ...part, padding: '2px 14px' } }, digit(asset.motorcycle_plate_bottom))) : React.createElement(React.Fragment, null,
-            React.createElement("span", { style: { ...part, padding: '12px 7px' } }, digit(asset.plate_part_right)),
-            React.createElement("span", { style: { ...part, padding: '12px 2px' } }, asset.plate_letter || '—'),
-            React.createElement("span", { style: { ...part, padding: '12px 7px' } }, digit(asset.plate_part_left)),
-            React.createElement("span", { style: { borderLeft: '2px solid #172b4d', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '2px 7px', minWidth: 43 } },
-                React.createElement("small", { style: { fontSize: 9, fontWeight: 700 } }, "\u0627\u06CC\u0631\u0627\u0646"),
-                React.createElement("b", { style: { fontSize: 17 } }, digit(asset.plate_iran)))));
+            React.createElement("small", null, "I.R.")),
+        motor ? React.createElement("span", { className: "pva-license-plate-motor-number" },
+            React.createElement("span", null, digit(asset.motorcycle_plate_top)),
+            React.createElement("span", null, digit(asset.motorcycle_plate_bottom))) : React.createElement(React.Fragment, null,
+            React.createElement("span", { className: "pva-license-plate-digit" }, digit(asset.plate_part_right)),
+            React.createElement("span", { className: "pva-license-plate-letter" }, asset.plate_letter || '—'),
+            React.createElement("span", { className: "pva-license-plate-digit" }, digit(asset.plate_part_left)),
+            React.createElement("span", { className: "pva-license-plate-iran" },
+                React.createElement("small", null, "\u0627\u06CC\u0631\u0627\u0646"),
+                React.createElement("b", null, digit(asset.plate_iran)))));
 }
 function pvaStatus(s) { return ({ pending: 'در انتظار بررسی', verified: 'تأیید شده', needs_correction: 'نیازمند اصلاح', draft: 'پیش‌نویس' }[s] || s || '—'); }
 function PVAFields({ a }) { const motor = a.asset_type === 'motorcycle'; const rows = motor ? [['نوع وسیله', 'موتورسیکلت'], ['پلاک', pvaPlate(a)], ['کاربری موتور', a.motorcycle_usage], ['سیستم موتور', a.motorcycle_system], ['تیپ موتور', a.motorcycle_type], ['سوخت', a.fuel_type], ['سال ساخت', pvaFa(a.model_year)], ['رنگ', a.color], ['سیلندر', pvaFa(a.cylinders)], ['شماره موتور', a.engine_number], ['شماره تنه/شاسی', a.chassis_number], ['گواهینامه', a.license_number], ['صدور گواهینامه', a.license_issue_date], ['انقضای گواهینامه', a.license_expiry_date], ['بیمه', a.insurance_number], ['شروع بیمه', a.insurance_issue_date], ['پایان بیمه', a.insurance_expiry_date]] : [['نوع وسیله', 'خودرو'], ['پلاک', pvaPlate(a)], ['نوع خودرو', a.vehicle_type], ['سوخت', a.fuel_type], ['سال ساخت', pvaFa(a.model_year)], ['رنگ', a.color], ['شماره شاسی', a.chassis_number], ['شماره موتور', a.engine_number], ['VIN', a.vin], ['گواهینامه', a.license_number], ['صدور گواهینامه', a.license_issue_date], ['انقضای گواهینامه', a.license_expiry_date], ['بیمه', a.insurance_number], ['شرکت بیمه', a.insurance_company], ['صدور بیمه', a.insurance_issue_date], ['انقضای بیمه', a.insurance_expiry_date], ['معاینه فنی', a.technical_inspection_number], ['صدور معاینه', a.technical_inspection_issue_date], ['انقضای معاینه', a.technical_inspection_expiry_date], ['چراغگردان ثابت', Number(a.fixed_beacon) ? 'بله' : 'خیر'], ['چراغگردان متحرک', Number(a.mobile_beacon) ? 'بله' : 'خیر'], ['گرمایش', Number(a.heating_ok) ? 'سالم' : 'ناسالم'], ['سرمایش', Number(a.cooling_ok) ? 'سالم' : 'ناسالم'], ['آمپلی‌فایر', Number(a.amplifier) ? 'دارد' : 'ندارد']]; return React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 } }, rows.map(([k, v]) => React.createElement("div", { key: k, style: { border: '1px solid var(--line)', borderRadius: 10, padding: 9, background: '#fff' } },

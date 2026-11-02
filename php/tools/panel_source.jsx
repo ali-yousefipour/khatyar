@@ -9564,10 +9564,9 @@ function PVAPlate({asset}){
   if(!asset)return null;
   const motor=asset.asset_type==='motorcycle';
   const digit=v=>pvaFa(v||'—');
-  const part={fontWeight:900,fontSize:19,lineHeight:1.1,whiteSpace:'nowrap',fontVariantNumeric:'tabular-nums'};
-  return <span dir="ltr" aria-label={'پلاک '+(motor?'موتورسیکلت':'خودرو')+' '+pvaPlate(asset)} style={{display:'inline-flex',alignItems:'stretch',verticalAlign:'middle',direction:'ltr',border:'2px solid #172b4d',borderRadius:7,overflow:'hidden',background:'#fff',color:'#14213d',boxShadow:'0 2px 5px #14213d18',maxWidth:'100%',minHeight:49}}>
-    <span style={{background:'#174a99',color:'#fff',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',width:31,minWidth:31,fontSize:9,fontWeight:800,letterSpacing:.4}}>IR<small style={{fontSize:8}}>I.R.</small></span>
-    {motor?<span style={{display:'grid',gridTemplateRows:'1fr 1fr',minWidth:148,textAlign:'center'}}><span style={{...part,padding:'2px 14px',borderBottom:'1px solid #172b4d'}}>{digit(asset.motorcycle_plate_top)}</span><span style={{...part,padding:'2px 14px'}}>{digit(asset.motorcycle_plate_bottom)}</span></span>:<><span style={{...part,padding:'12px 7px'}}>{digit(asset.plate_part_right)}</span><span style={{...part,padding:'12px 2px'}}>{asset.plate_letter||'—'}</span><span style={{...part,padding:'12px 7px'}}>{digit(asset.plate_part_left)}</span><span style={{borderLeft:'2px solid #172b4d',display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',padding:'2px 7px',minWidth:43}}><small style={{fontSize:9,fontWeight:700}}>ایران</small><b style={{fontSize:17}}>{digit(asset.plate_iran)}</b></span></>}
+  return <span dir="ltr" className={'pva-license-plate '+(motor?'pva-license-plate-motor':'pva-license-plate-car')} aria-label={'پلاک '+(motor?'موتورسیکلت':'خودرو')+' '+pvaPlate(asset)}>
+    <span className="pva-license-plate-band">IR<small>I.R.</small></span>
+    {motor?<span className="pva-license-plate-motor-number"><span>{digit(asset.motorcycle_plate_top)}</span><span>{digit(asset.motorcycle_plate_bottom)}</span></span>:<><span className="pva-license-plate-digit">{digit(asset.plate_part_right)}</span><span className="pva-license-plate-letter">{asset.plate_letter||'—'}</span><span className="pva-license-plate-digit">{digit(asset.plate_part_left)}</span><span className="pva-license-plate-iran"><small>ایران</small><b>{digit(asset.plate_iran)}</b></span></>}
   </span>;
 }
 function pvaStatus(s){return ({pending:'در انتظار بررسی',verified:'تأیید شده',needs_correction:'نیازمند اصلاح',draft:'پیش‌نویس'}[s]||s||'—');}
