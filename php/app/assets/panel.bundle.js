@@ -17820,6 +17820,26 @@ const PVA_MOTOR_PHOTOS = [['motor_front', 'جلوی موتورسیکلت'], ['mo
 const PVA_CAR_CHECKS = [['identity', 'تطبیق مشخصات خودرو با مدارک'], ['plate', 'صحت پلاک خودرو'], ['license', 'صحت گواهینامه و تاریخ اعتبار'], ['insurance', 'صحت بیمه شخص ثالث و تاریخ اعتبار'], ['technical', 'صحت معاینه فنی و تاریخ اعتبار'], ['photos', 'صحت چهار طرف خودرو و تصاویر مدارک'], ['equipment', 'چراغ‌گردان، گرمایش، سرمایش و آمپلی‌فایر'], ['numbers', 'صحت شماره شاسی، موتور و VIN']];
 const PVA_MOTOR_CHECKS = [['identity', 'تطبیق مشخصات موتورسیکلت با مدارک'], ['plate', 'صحت پلاک موتورسیکلت'], ['license', 'صحت گواهینامه و تاریخ اعتبار'], ['insurance', 'صحت بیمه شخص ثالث و تاریخ اعتبار'], ['photos', 'صحت چهار طرف موتورسیکلت و تصاویر مدارک'], ['numbers', 'صحت شماره موتور، تنه/شاسی و سیستم موتور']];
 function pvaPlate(r) { return (r === null || r === void 0 ? void 0 : r.asset_type) === 'motorcycle' ? `${r.motorcycle_plate_top || ''} / ${r.motorcycle_plate_bottom || ''}`.trim() : `${(r === null || r === void 0 ? void 0 : r.plate_part_right) || ''} ${(r === null || r === void 0 ? void 0 : r.plate_letter) || ''} ${(r === null || r === void 0 ? void 0 : r.plate_part_left) || ''} ایران ${(r === null || r === void 0 ? void 0 : r.plate_iran) || ''}`.replace(/\s+/g, ' ').trim(); }
+function PVAPlate({ asset }) {
+    if (!asset)
+        return null;
+    const motor = asset.asset_type === 'motorcycle';
+    const digit = v => pvaFa(v || '—');
+    const part = { fontWeight: 900, fontSize: 19, lineHeight: 1.1, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' };
+    return React.createElement("span", { dir: "ltr", "aria-label": 'پلاک ' + (motor ? 'موتورسیکلت' : 'خودرو') + ' ' + pvaPlate(asset), style: { display: 'inline-flex', alignItems: 'stretch', verticalAlign: 'middle', direction: 'ltr', border: '2px solid #172b4d', borderRadius: 7, overflow: 'hidden', background: '#fff', color: '#14213d', boxShadow: '0 2px 5px #14213d18', maxWidth: '100%', minHeight: 49 } },
+        React.createElement("span", { style: { background: '#174a99', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: 31, minWidth: 31, fontSize: 9, fontWeight: 800, letterSpacing: .4 } },
+            "IR",
+            React.createElement("small", { style: { fontSize: 8 } }, "I.R.")),
+        motor ? React.createElement("span", { style: { display: 'grid', gridTemplateRows: '1fr 1fr', minWidth: 148, textAlign: 'center' } },
+            React.createElement("span", { style: { ...part, padding: '2px 14px', borderBottom: '1px solid #172b4d' } }, digit(asset.motorcycle_plate_top)),
+            React.createElement("span", { style: { ...part, padding: '2px 14px' } }, digit(asset.motorcycle_plate_bottom))) : React.createElement(React.Fragment, null,
+            React.createElement("span", { style: { ...part, padding: '12px 7px' } }, digit(asset.plate_part_right)),
+            React.createElement("span", { style: { ...part, padding: '12px 2px' } }, asset.plate_letter || '—'),
+            React.createElement("span", { style: { ...part, padding: '12px 7px' } }, digit(asset.plate_part_left)),
+            React.createElement("span", { style: { borderLeft: '2px solid #172b4d', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '2px 7px', minWidth: 43 } },
+                React.createElement("small", { style: { fontSize: 9, fontWeight: 700 } }, "\u0627\u06CC\u0631\u0627\u0646"),
+                React.createElement("b", { style: { fontSize: 17 } }, digit(asset.plate_iran)))));
+}
 function pvaStatus(s) { return ({ pending: 'در انتظار بررسی', verified: 'تأیید شده', needs_correction: 'نیازمند اصلاح', draft: 'پیش‌نویس' }[s] || s || '—'); }
 function PVAFields({ a }) { const motor = a.asset_type === 'motorcycle'; const rows = motor ? [['نوع وسیله', 'موتورسیکلت'], ['پلاک', pvaPlate(a)], ['کاربری موتور', a.motorcycle_usage], ['سیستم موتور', a.motorcycle_system], ['تیپ موتور', a.motorcycle_type], ['سوخت', a.fuel_type], ['سال ساخت', pvaFa(a.model_year)], ['رنگ', a.color], ['سیلندر', pvaFa(a.cylinders)], ['شماره موتور', a.engine_number], ['شماره تنه/شاسی', a.chassis_number], ['گواهینامه', a.license_number], ['صدور گواهینامه', a.license_issue_date], ['انقضای گواهینامه', a.license_expiry_date], ['بیمه', a.insurance_number], ['شروع بیمه', a.insurance_issue_date], ['پایان بیمه', a.insurance_expiry_date]] : [['نوع وسیله', 'خودرو'], ['پلاک', pvaPlate(a)], ['نوع خودرو', a.vehicle_type], ['سوخت', a.fuel_type], ['سال ساخت', pvaFa(a.model_year)], ['رنگ', a.color], ['شماره شاسی', a.chassis_number], ['شماره موتور', a.engine_number], ['VIN', a.vin], ['گواهینامه', a.license_number], ['صدور گواهینامه', a.license_issue_date], ['انقضای گواهینامه', a.license_expiry_date], ['بیمه', a.insurance_number], ['شرکت بیمه', a.insurance_company], ['صدور بیمه', a.insurance_issue_date], ['انقضای بیمه', a.insurance_expiry_date], ['معاینه فنی', a.technical_inspection_number], ['صدور معاینه', a.technical_inspection_issue_date], ['انقضای معاینه', a.technical_inspection_expiry_date], ['چراغگردان ثابت', Number(a.fixed_beacon) ? 'بله' : 'خیر'], ['چراغگردان متحرک', Number(a.mobile_beacon) ? 'بله' : 'خیر'], ['گرمایش', Number(a.heating_ok) ? 'سالم' : 'ناسالم'], ['سرمایش', Number(a.cooling_ok) ? 'سالم' : 'ناسالم'], ['آمپلی‌فایر', Number(a.amplifier) ? 'دارد' : 'ندارد']]; return React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 } }, rows.map(([k, v]) => React.createElement("div", { key: k, style: { border: '1px solid var(--line)', borderRadius: 10, padding: 9, background: '#fff' } },
     React.createElement("small", { className: "muted" }, k),
@@ -18002,6 +18022,7 @@ function PVAAssetDetail({ asset: a }) { return React.createElement("div", null,
         React.createElement(PVAHistory, { history: a.checklist_history || [] }))); }
 function PersonnelVehicleChecklistV2() {
     const [items, setItems] = useState([]), [detail, setDetail] = useState(null), [checks, setChecks] = useState({}), [note, setNote] = useState('');
+    const [selectedIds, setSelectedIds] = useState([]);
     const [q, setQ] = useState(''), [status, setStatus] = useState('all'), [loading, setLoading] = useState(true), [detailLoading, setDetailLoading] = useState(false), [saving, setSaving] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
     const detailRequest = useRef(0);
     const load = async () => { setLoading(true); setError(''); try {
@@ -18039,6 +18060,40 @@ function PersonnelVehicleChecklistV2() {
     const checkedCount = list.filter(([key]) => checks[key] !== undefined).length;
     const rejectedCount = list.filter(([key]) => checks[key] === false).length;
     const filtered = items.filter(a => { const name = [a.first_name, a.last_name, pvaPlate(a), a.national_code].filter(Boolean).join(' ').toLowerCase(); return name.includes(q.trim().toLowerCase()) && (status === 'all' || (status === 'car' ? a.asset_type === 'car' : a.asset_type === 'motorcycle')); });
+    const exportVehicles = assets => {
+        try {
+            if (!assets.length)
+                throw new Error('ابتدا حداقل یک وسیله را انتخاب کنید.');
+            if (typeof XLSX === 'undefined')
+                throw new Error('کتابخانه خروجی اکسل بارگذاری نشده است.');
+            const columns = [['ردیف', (_, i) => i + 1], ['نوع وسیله', a => a.asset_type === 'car' ? 'خودرو' : 'موتورسیکلت'], ['پلاک', pvaPlate], ['نام پرسنل', a => `${a.first_name || ''} ${a.last_name || ''}`.trim()], ['کد ملی', a => String(a.national_code || '')], ['سمت', a => a.role_title || ''], ['وضعیت پرونده', a => pvaStatus(a.status)], ['سال ساخت', a => a.model_year || ''], ['رنگ', a => a.color || ''], ['نوع خودرو', a => a.vehicle_type || ''], ['سیستم موتورسیکلت', a => a.motorcycle_system || ''], ['کاربری موتورسیکلت', a => a.motorcycle_usage || ''], ['نوع سوخت', a => a.fuel_type || ''], ['شماره موتور', a => a.engine_number || ''], ['شماره شاسی', a => a.chassis_number || ''], ['VIN', a => a.vin || ''], ['شماره گواهینامه', a => a.license_number || ''], ['انقضای گواهینامه', a => a.license_expiry_date || ''], ['شماره بیمه', a => a.insurance_number || ''], ['شرکت بیمه', a => a.insurance_company || ''], ['انقضای بیمه', a => a.insurance_expiry_date || ''], ['شماره معاینه فنی', a => a.technical_inspection_number || ''], ['انقضای معاینه فنی', a => a.technical_inspection_expiry_date || ''], ['تعداد بررسی', a => Number(a.checklist_count || 0)], ['آخرین نتیجه', a => pvaStatus(a.last_result)], ['آخرین بررسی‌کننده', a => a.last_checker_name || ''], ['تاریخ آخرین بررسی', a => a.checklist_last_at || ''], ['توضیحات', a => a.checklist_note || '']];
+            const headers = columns.map(([name]) => name);
+            const ws = XLSX.utils.aoa_to_sheet([['سامانه خطیار | اطلاعات خودرو و موتورسیکلت'], [`تعداد پرونده: ${pvaFa(assets.length)} | تاریخ تهیه گزارش: ${new Date().toLocaleDateString('fa-IR')}`], [], headers, ...assets.map((a, i) => columns.map(([, get]) => get(a, i)))]);
+            const last = XLSX.utils.encode_col(columns.length - 1);
+            ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: columns.length - 1 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: columns.length - 1 } }];
+            ws['!cols'] = columns.map(([name]) => ({ wch: name === 'پلاک' ? 25 : name === 'نام پرسنل' || name === 'توضیحات' ? 30 : Math.max(15, name.length + 5) }));
+            ws['!rows'] = [{ hpt: 37 }, { hpt: 28 }, { hpt: 10 }, { hpt: 30 }];
+            ws['!autofilter'] = { ref: `A4:${last}${assets.length + 4}` };
+            ws['!views'] = [{ rightToLeft: true }];
+            for (let row = 0; row < assets.length + 4; row++)
+                for (let col = 0; col < columns.length; col++) {
+                    const cell = ws[XLSX.utils.encode_cell({ r: row, c: col })];
+                    if (!cell)
+                        continue;
+                    cell.s = { font: { name: 'Vazirmatn', sz: row === 0 ? 17 : 11, bold: row === 0 || row === 3, color: { rgb: row === 0 || row === 3 ? 'FFFFFF' : '203348' } }, fill: { fgColor: { rgb: row === 0 ? '075C4A' : row === 3 ? '087B59' : row % 2 ? 'F0F8F5' : 'FFFFFF' } }, alignment: { horizontal: row < 4 ? 'center' : 'right', vertical: 'center' } };
+                }
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'وسایل نقلیه');
+            wb.Workbook = { Views: [{ RTL: true }] };
+            XLSX.writeFile(wb, `خطیار_وسایل_نقلیه_${assets.length}.xlsx`);
+            setNotice(`خروجی اکسل ${pvaFa(assets.length)} پرونده آماده شد.`);
+        }
+        catch (e) {
+            setError(e.message || 'ساخت خروجی اکسل ناموفق بود.');
+        }
+    };
+    const toggleSelected = id => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    const filteredIds = filtered.map(a => a.id), allVisibleSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIds.includes(id));
     const submit = async (approved) => { if (!detail || saving)
         return; const missing = list.filter(([key]) => checks[key] === undefined); if (missing.length) {
         setError('ابتدا وضعیت تمام موارد چک‌لیست را تعیین کنید.');
@@ -18083,34 +18138,50 @@ function PersonnelVehicleChecklistV2() {
                         React.createElement("option", { value: "car" }, "\u062E\u0648\u062F\u0631\u0648\u0647\u0627"),
                         React.createElement("option", { value: "motorcycle" }, "\u0645\u0648\u062A\u0648\u0631\u0633\u06CC\u06A9\u0644\u062A\u200C\u0647\u0627"))),
                 React.createElement("button", { className: "btn g", type: "button", disabled: loading, onClick: load }, "\u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0641\u0647\u0631\u0633\u062A")),
+            React.createElement("div", { className: "pva-checklist-filters", style: { marginTop: 8, alignItems: 'center' } },
+                React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                    React.createElement("input", { type: "checkbox", checked: allVisibleSelected, disabled: !filteredIds.length, onChange: e => setSelectedIds(prev => e.target.checked ? Array.from(new Set([...prev, ...filteredIds])) : prev.filter(id => !filteredIds.includes(id))) }),
+                    "\u0627\u0646\u062A\u062E\u0627\u0628 \u0647\u0645\u0647 \u0646\u062A\u0627\u06CC\u062C \u0641\u06CC\u0644\u062A\u0631 (",
+                    fa(filtered.length),
+                    ")"),
+                React.createElement("button", { className: "btn p", type: "button", disabled: !filtered.length || loading, onClick: () => exportVehicles(filtered) },
+                    "\u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644 \u0646\u062A\u0627\u06CC\u062C (",
+                    fa(filtered.length),
+                    ")"),
+                React.createElement("button", { className: "btn g", type: "button", disabled: !selectedIds.length, onClick: () => exportVehicles(items.filter(a => selectedIds.includes(a.id))) },
+                    "\u062E\u0631\u0648\u062C\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647\u200C\u0647\u0627 (",
+                    fa(selectedIds.length),
+                    ")"),
+                selectedIds.length > 0 && React.createElement("button", { className: "btn g", type: "button", onClick: () => setSelectedIds([]) }, "\u0644\u063A\u0648 \u0627\u0646\u062A\u062E\u0627\u0628")),
             loading ? React.createElement("p", { className: "pva-checklist-empty", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u067E\u0631\u0648\u0646\u062F\u0647\u200C\u0647\u0627\u2026") : React.createElement("div", { className: "pva-checklist-list" },
-                filtered.map(asset => React.createElement("button", { key: asset.id, type: "button", className: "pva-checklist-item", onClick: () => open(asset) },
-                    React.createElement("div", null,
-                        React.createElement("strong", null, pvaPlate(asset) || 'بدون پلاک'),
-                        React.createElement("span", null,
-                            asset.first_name,
-                            " ",
-                            asset.last_name)),
-                    React.createElement("div", null,
-                        React.createElement("span", { className: "pva-checklist-chip" }, asset.asset_type === 'car' ? 'خودرو' : 'موتورسیکلت'),
-                        React.createElement("small", null,
-                            pvaStatus(asset.status),
-                            " \u00B7 ",
-                            asset.checklist_count ? fa(asset.checklist_count) + ' بررسی' : 'بدون سابقه')))),
+                filtered.map(asset => React.createElement("div", { key: asset.id, className: "pva-checklist-item", style: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
+                    React.createElement("input", { type: "checkbox", "aria-label": 'انتخاب ' + pvaPlate(asset), checked: selectedIds.includes(asset.id), onChange: () => toggleSelected(asset.id) }),
+                    React.createElement("button", { type: "button", onClick: () => open(asset), style: { flex: 1, minWidth: 190, display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between', flexWrap: 'wrap', border: 0, background: 'transparent', textAlign: 'right', cursor: 'pointer', color: 'inherit' } },
+                        React.createElement("div", { style: { display: 'grid', gap: 6 } },
+                            React.createElement(PVAPlate, { asset: asset }),
+                            React.createElement("span", null,
+                                asset.first_name,
+                                " ",
+                                asset.last_name)),
+                        React.createElement("div", { style: { display: 'grid', gap: 5 } },
+                            React.createElement("span", { className: "pva-checklist-chip" }, asset.asset_type === 'car' ? 'خودرو' : 'موتورسیکلت'),
+                            React.createElement("small", null,
+                                pvaStatus(asset.status),
+                                " \u00B7 ",
+                                asset.checklist_count ? fa(asset.checklist_count) + ' بررسی' : 'بدون سابقه'))),
+                    React.createElement("button", { type: "button", className: "btn g", onClick: () => exportVehicles([asset]), "aria-label": 'خروجی اکسل ' + pvaPlate(asset) }, "\u0627\u06A9\u0633\u0644"))),
                 !filtered.length && React.createElement("div", { className: "pva-checklist-empty" }, items.length ? 'پرونده‌ای مطابق جست‌وجوی شما یافت نشد.' : 'هنوز وسیله‌ای برای بررسی ثبت نشده است.'))) : detailLoading ? React.createElement("div", { className: "pva-checklist-empty", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062C\u0632\u0626\u06CC\u0627\u062A \u0648 \u0645\u062F\u0627\u0631\u06A9 \u0648\u0633\u06CC\u0644\u0647\u2026") : React.createElement(React.Fragment, null,
             React.createElement("div", { className: "pva-checklist-detail-head" },
                 React.createElement("button", { className: "btn g", onClick: closeDetail }, "\u0628\u0627\u0632\u06AF\u0634\u062A \u0628\u0647 \u0641\u0647\u0631\u0633\u062A"),
-                React.createElement("div", null,
-                    React.createElement("h4", null,
-                        detail.asset_type === 'car' ? 'خودرو' : 'موتورسیکلت',
-                        " \u00B7 ",
-                        pvaPlate(detail)),
+                React.createElement("div", { style: { display: 'grid', gap: 8 } },
+                    React.createElement(PVAPlate, { asset: detail }),
                     React.createElement("p", null,
                         detail.first_name,
                         " ",
                         detail.last_name,
                         " \u00B7 ",
-                        pvaStatus(detail.status)))),
+                        pvaStatus(detail.status))),
+                React.createElement("button", { className: "btn g", type: "button", onClick: () => exportVehicles([detail]) }, "\u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644 \u0627\u06CC\u0646 \u0648\u0633\u06CC\u0644\u0647")),
             React.createElement("section", { className: "pva-checklist-section" },
                 React.createElement("h4", null, "\u0645\u0634\u062E\u0635\u0627\u062A \u0648 \u0645\u0627\u0644\u06A9 \u0648\u0633\u06CC\u0644\u0647"),
                 React.createElement(PVAFields, { a: detail })),
