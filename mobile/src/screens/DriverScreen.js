@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Modal, useWindowDimensions } from 'react-native';
 import { postOrQueue, request } from '../api';
 import { imageSource } from '../api';
-import { ImagePicker, launchCamera } from '../cameraLock';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { compressToDataUri } from '../img';
 import { getAppConfig } from '../appconfig';
 import * as Location from 'expo-location';
@@ -32,6 +32,11 @@ export default function DriverScreen({ route, navigation }) {
   const [portraitLoading, setPortraitLoading] = useState(true);
   const [portraitError, setPortraitError] = useState('');
   const [portraitFullScreen, setPortraitFullScreen] = useState(false);
+  const [portraitCameraVisible, setPortraitCameraVisible] = useState(false);
+  const [portraitCameraReady, setPortraitCameraReady] = useState(false);
+  const [portraitCameraFacing, setPortraitCameraFacing] = useState('front');
+  const portraitCamera = useRef(null);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const hasDriver = !!(driver && (driver.id || driver.national_id || driver.national_code));
   useEffect(() => {
     getAppConfig().then((c) => setAccess({ welfare: !!c.can_welfare, cultural: !!c.can_cultural })).catch(() => {});
@@ -48,21 +53,22 @@ export default function DriverScreen({ route, navigation }) {
     return () => { active = false; };
   }, [driver.id]);
   const capturePortrait = async () => {
-    if (portraitBusy) return;
+    if (portraitBusy || portraitCameraVisible) return;
+    try {
+      const permission = cameraPermission?.granted ? cameraPermission : await requestCameraPermission();
+      if (!permission?.granted) return Alert.alert('دسترسی دوربین', 'دسترسی به دوربین را در تنظیمات گوشی فعال کنید و دوباره تلاش کنید.');
+      setPortraitCameraReady(false);
+      setPortraitCameraFacing('front');
+      setPortraitCameraVisible(true);
+    } catch (error) { Alert.alert('دوربین', error?.message || 'آماده‌سازی دوربین انجام نشد.'); }
+  };
+  const takePortrait = async () => {
+    if (!portraitCamera.current || !portraitCameraReady || portraitBusy) return;
     setPortraitBusy(true);
     try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) return Alert.alert('دسترسی دوربین', 'دسترسی به دوربین را در تنظیمات گوشی فعال کنید و دوباره تلاش کنید.');
-      let result;
-      try {
-        result = await launchCamera({ mediaTypes: ['images'], cameraType: ImagePicker.CameraType?.front || 'front', allowsEditing: false, quality: 0.7 });
-      } catch (frontError) {
-        // Some devices reject an explicit front camera; fall back to the native camera picker.
-        result = await launchCamera({ mediaTypes: ['images'], allowsEditing: false, quality: 0.7 });
-      }
-      if (result.canceled) return;
-      if (!result.assets?.[0]?.uri) throw new Error('دوربین تصویری برنگرداند؛ دوباره تلاش کنید.');
-      const source = result.assets[0].uri;
+      const result = await portraitCamera.current.takePictureAsync({ quality: 0.75, base64: false, exif: false, skipProcessing: false });
+      if (!result?.uri) throw new Error('دوربین تصویری برنگرداند؛ دوباره تلاش کنید.');
+      const source = result.uri;
       let compressed = null;
       for (const [width, quality] of [[480, 0.34], [400, 0.28], [320, 0.22]]) {
         compressed = await compressToDataUri(source, { maxW: width, maxH: 640, quality });
@@ -71,6 +77,7 @@ export default function DriverScreen({ route, navigation }) {
       if (!compressed || Math.floor((compressed.length - compressed.indexOf(',') - 1) * 3 / 4) > 120 * 1024) throw new Error('فشرده‌سازی تصویر به حجم مجاز انجام نشد. دوباره عکس بگیرید.');
       setPortraitDraft(compressed);
       setPortraitConsent(false);
+      setPortraitCameraVisible(false);
     } catch (error) { Alert.alert('تصویر پرسنلی', error?.message || 'ثبت تصویر ممکن نشد.'); }
     finally { setPortraitBusy(false); }
   };
@@ -177,7 +184,25 @@ export default function DriverScreen({ route, navigation }) {
   ];
 
   return (
-    <><Modal visible={portraitFullScreen} transparent animationType="fade" onRequestClose={() => setPortraitFullScreen(false)}><View style={{flex:1,backgroundColor:'#000',justifyContent:'center',alignItems:'center'}}><TouchableOpacity onPress={() => setPortraitFullScreen(false)} style={{position:'absolute',top:50,right:24,zIndex:2,padding:12}} accessibilityLabel="بستن تصویر"><MaterialCommunityIcons name="close" color="#fff" size={30}/></TouchableOpacity>{(portraitDraft || portrait) && <Image source={portraitDraft?{uri:portraitDraft}:imageSource(portrait)} style={{width:'100%',height:'82%'}} resizeMode="contain" />}</View></Modal><ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: compact ? 10 : 16, paddingBottom: 56 }}>
+    <>
+      <Modal visible={portraitCameraVisible} animationType="slide" onRequestClose={() => {if(!portraitBusy)setPortraitCameraVisible(false)}}>
+        <View style={{flex:1,backgroundColor:'#081e1b'}}>
+          {cameraPermission?.granted && <CameraView ref={portraitCamera} style={StyleSheet.absoluteFill} facing={portraitCameraFacing} mode="picture" active={portraitCameraVisible} onCameraReady={()=>setPortraitCameraReady(true)} onMountError={error=>{setPortraitCameraReady(false);Alert.alert('دوربین',error?.message||'راه‌اندازی دوربین ناموفق بود.')}}/>}
+          <View style={{position:'absolute',top:48,left:16,right:16,flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between'}}>
+            <TouchableOpacity accessibilityLabel="بستن دوربین" onPress={()=>{if(!portraitBusy)setPortraitCameraVisible(false)}} style={{padding:12,backgroundColor:'#102f2bc9',borderRadius:14}}><MaterialCommunityIcons name="close" size={26} color="#fff"/></TouchableOpacity>
+            <Text style={{fontFamily:FONT.bold,color:'#fff',fontSize:16}}>تصویر پرسنلی تاکسیران</Text>
+          </View>
+          <View style={{position:'absolute',bottom:44,left:16,right:16,alignItems:'center',gap:16}}>
+            <Text style={{color:'#fff',fontFamily:FONT.regular,textAlign:'center'}}>صورت در مرکز کادر، با نور مناسب و بدون پوشش چهره باشد.</Text>
+            <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-evenly',width:'100%'}}>
+              <TouchableOpacity accessibilityLabel="تغییر دوربین جلو و عقب" disabled={portraitBusy} onPress={()=>{setPortraitCameraReady(false);setPortraitCameraFacing(v=>v==='front'?'back':'front')}} style={{padding:14,backgroundColor:'#102f2bc9',borderRadius:14}}><MaterialCommunityIcons name="camera-flip-outline" size={26} color="#fff"/></TouchableOpacity>
+              <TouchableOpacity accessibilityLabel="گرفتن تصویر پرسنلی" disabled={!portraitCameraReady||portraitBusy} onPress={takePortrait} style={{height:76,width:76,borderRadius:38,borderWidth:6,borderColor:'#fff',backgroundColor:portraitCameraReady&&!portraitBusy?'#0d7a5f':'#829b96',alignItems:'center',justifyContent:'center'}}>{portraitBusy?<ActivityIndicator/>:<MaterialCommunityIcons name="camera" size={32} color="#fff"/>}</TouchableOpacity>
+              <View style={{width:54}}/>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal visible={portraitFullScreen} transparent animationType="fade" onRequestClose={() => setPortraitFullScreen(false)}><View style={{flex:1,backgroundColor:'#000',justifyContent:'center',alignItems:'center'}}><TouchableOpacity onPress={() => setPortraitFullScreen(false)} style={{position:'absolute',top:50,right:24,zIndex:2,padding:12}} accessibilityLabel="بستن تصویر"><MaterialCommunityIcons name="close" color="#fff" size={30}/></TouchableOpacity>{(portraitDraft || portrait) && <Image source={portraitDraft?{uri:portraitDraft}:imageSource(portrait)} style={{width:'100%',height:'82%'}} resizeMode="contain" />}</View></Modal><ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: compact ? 10 : 16, paddingBottom: 56 }}>
       <View style={s.card}>
         <View style={[s.heroRow, compact && s.heroRowCompact]}>
           <View style={s.identity}>

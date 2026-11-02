@@ -7,23 +7,24 @@ const routes = fs.readFileSync(path.resolve(__dirname, '../../php/lib/routes.php
 const panel = fs.readFileSync(path.resolve(__dirname, '../../php/tools/panel_source.jsx'), 'utf8');
 
 for (const pattern of [
-  /launchCamera\(/, /requestCameraPermissionsAsync/, /compressToDataUri\(/,
-  /maxW: width, maxH: 640, quality/, /portraitConsent/, /تأیید و ثبت قطعی/,
+  /CameraView/, /useCameraPermissions\(/, /takePictureAsync\(/, /onCameraReady=/, /compressToDataUri\(/,
+  /maxW: width, maxH: 640, quality/, /portraitConsent/, /تأیید و ثبت تصویر/,
   /queueIfOffline: false/, /action\.t === 'ثبت تذکر'/,
   /if \(!portrait \|\| portraitBusy \|\| portraitDraft\) return photoGate\(\)/,
   /onPress=\{\(\) => runDriverAction\(a\)\}/,
 ]) assert.match(driver, pattern);
 assert.doesNotMatch(driver, /portraitRequired\s*&&/);
 assert.doesNotMatch(driver, /launchLibrary\(/);
+assert.doesNotMatch(driver, /launchCameraAsync|launchCamera\(|expo-image-picker/);
 for (const pattern of [
   /CREATE TABLE IF NOT EXISTS driver_profile_photos/,
   /route\('POST','\/api\/driver-photos\/\{id\}'/,
   /route\('PUT','\/api\/admin\/drivers\/\{id\}\/photo'/,
-  /if \(\$existing && !\$admin\) Http::error/,
+  /if \(\$existing\) Db::run\('UPDATE driver_profile_photos/,
   /strlen\(\$raw\)>120\*1024/,
   /_driver_photo_guard\(\$did\)/,
 ]) assert.match(routes, pattern);
 assert.doesNotMatch(routes.match(/route\('POST', '\/api\/notices'[\s\S]*?route\('/)?.[0] || '', /_driver_photo_guard\(/);
 assert.match(panel, /driver_profile_photo_required/);
 assert.match(panel, /uploadPortrait\(full\.id/);
-console.log('PASS taxi driver photo: camera only, local compression, explicit consent, immutable mobile upload, server-side photo gates and admin replacement');
+console.log('PASS taxi driver photo: in-app camera, local compression, explicit consent, server photo gates and replacement');
