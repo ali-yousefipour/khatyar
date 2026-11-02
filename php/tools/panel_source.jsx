@@ -8467,9 +8467,20 @@ function PresenceChecks(){
   const [from,setFrom]=useState(today); const [to,setTo]=useState(today);
   const [rows,setRows]=useState([]); const [viol,setViol]=useState([]); const [loading,setLoading]=useState(false);
   const [pick,setPick]=useState(null); const [tab,setTab]=useState("sent");
-  const [person,setPerson]=useState(""); const [timeFrom,setTimeFrom]=useState(""); const [timeTo,setTimeTo]=useState("");
+  const [person,setPerson]=useState(""); const [personId,setPersonId]=useState("");
+  const [personOpen,setPersonOpen]=useState(false); const [personActive,setPersonActive]=useState(-1);
+  const [personnel,setPersonnel]=useState([]); const [personnelLoading,setPersonnelLoading]=useState(true);
+  const [timeFrom,setTimeFrom]=useState(""); const [timeTo,setTimeTo]=useState("");
   const norm=s=>String(s||"").replace(/[۰-۹]/g,c=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(c))).replace(/[٠-٩]/g,c=>String("٠١٢٣٤٥٦٧٨٩".indexOf(c))).replace(/\s+/g," ").trim();
-  const matchesName=r=>!person||norm(r.name).toLowerCase().includes(norm(person).toLowerCase());
+  const normalizePerson=s=>norm(s).normalize("NFKC").replace(/[يى]/g,"ی").replace(/ك/g,"ک").replace(/[\u200c\u200e\u200f]/g," ").toLowerCase();
+  useEffect(()=>{let active=true;db.usersLite(true).then(list=>{if(active)setPersonnel(Array.isArray(list)?list:[]);}).catch(()=>{if(active)setPersonnel([]);}).finally(()=>{if(active)setPersonnelLoading(false);});return()=>{active=false;};},[]);
+  const matchingPersonnel=useMemo(()=>{
+    const query=normalizePerson(person);
+    return personnel.filter(u=>!query||normalizePerson(`${u.first_name||""} ${u.last_name||""}`).includes(query)||normalizePerson(u.pcode||"").includes(query))
+      .sort((a,b)=>new Intl.Collator("fa",{sensitivity:"base"}).compare(`${a.last_name||""} ${a.first_name||""}`,`${b.last_name||""} ${b.first_name||""}`));
+  },[personnel,person]);
+  const choosePerson=u=>{setPersonId(String(u.id));setPerson(`${u.first_name||""} ${u.last_name||""}`.trim());setPersonOpen(false);setPersonActive(-1);};
+  const matchesName=r=>personId?String(r.user_id)===personId:!person.trim()||normalizePerson(r.name).includes(normalizePerson(person));
   const hourOf=r=>{const v=norm(r.captured_fa||r.captured_at||"");const m=v.match(/(?:^|\s)(\d{1,2}):(\d{2})(?::\d{2})?/);return m?m[1].padStart(2,"0")+":"+m[2]:"";};
   const inHours=h=>(!timeFrom||h>=timeFrom)&&(!timeTo||h<=timeTo);
   const visibleRows=rows.filter(r=>matchesName(r)&&((!timeFrom&&!timeTo)||!!hourOf(r)&&inHours(hourOf(r))));
@@ -8531,11 +8542,18 @@ function PresenceChecks(){
     <div className="filters">
       <span className="label">از</span><JDate value={from} onChange={setFrom}/>
       <span className="label">تا</span><JDate value={to} onChange={setTo}/>
-      <input className="input" aria-label="جستجوی نام نیرو" placeholder="نام و نام خانوادگی نیرو" value={person} onChange={e=>setPerson(e.target.value)} style={{maxWidth:230}}/>
+      <div style={{position:"relative",minWidth:230,maxWidth:340,flex:"1 1 230px"}}>
+        <label className="label" htmlFor="presence-person-search">انتخاب پرسنل</label>
+        <input id="presence-person-search" className="input" role="combobox" aria-autocomplete="list" aria-expanded={personOpen} aria-controls="presence-person-options" aria-activedescendant={personOpen&&matchingPersonnel[personActive]?`presence-person-${matchingPersonnel[personActive].id}`:undefined} autoComplete="off" placeholder="نام، نام خانوادگی یا کد پرسنلی" value={person} onFocus={()=>{setPersonOpen(true);setPersonActive(-1);}} onBlur={e=>{if(!e.currentTarget.parentElement.contains(e.relatedTarget))setPersonOpen(false);}} onChange={e=>{setPerson(e.target.value);setPersonId("");setPersonActive(-1);setPersonOpen(true);}} onKeyDown={e=>{if(e.key==="Escape"){setPersonOpen(false);return;}if(e.key==="ArrowDown"){e.preventDefault();setPersonOpen(true);setPersonActive(i=>Math.min(matchingPersonnel.length-1,i+1));}if(e.key==="ArrowUp"){e.preventDefault();setPersonActive(i=>Math.max(0,i-1));}if(e.key==="Enter"&&personOpen&&matchingPersonnel.length){e.preventDefault();choosePerson(matchingPersonnel[Math.max(0,personActive)]);}}}/>
+        {personOpen&&<div id="presence-person-options" role="listbox" aria-label="فهرست پرسنل" style={{position:"absolute",top:"100%",insetInline:0,zIndex:100510,maxHeight:290,overflowY:"auto",background:"var(--card,#fff)",border:"1px solid var(--line)",borderRadius:10,boxShadow:"0 10px 28px rgba(0,0,0,.16)",padding:4}}>
+          {personnelLoading?<div className="muted" style={{padding:10}}>در حال دریافت فهرست پرسنل…</div>:matchingPersonnel.length?matchingPersonnel.map((u,i)=><button key={u.id} id={`presence-person-${u.id}`} role="option" aria-selected={i===personActive} type="button" onPointerDown={e=>e.preventDefault()} onMouseEnter={()=>setPersonActive(i)} onClick={()=>choosePerson(u)} style={{display:"flex",justifyContent:"space-between",width:"100%",gap:10,textAlign:"right",padding:"9px 10px",border:0,borderRadius:7,background:i===personActive?"var(--soft,#eef6f3)":"transparent",color:"inherit",cursor:"pointer"}}><span>{u.first_name} {u.last_name}</span><small className="muted">{u.pcode?`کد ${u.pcode}`:`شناسه ${u.id}`}</small></button>):<div className="muted" style={{padding:10}}>پرسنلی یافت نشد.</div>}
+        </div>}
+        <small className="muted">{personnelLoading?"در حال بارگذاری…":`${matchingPersonnel.length.toLocaleString("fa-IR")} نفر از ${personnel.length.toLocaleString("fa-IR")} پرسنل`}</small>
+      </div>
       <label className="label">از ساعت <input className="input" type="time" value={timeFrom} onChange={e=>setTimeFrom(e.target.value)}/></label>
       <label className="label">تا ساعت <input className="input" type="time" value={timeTo} onChange={e=>setTimeTo(e.target.value)}/></label>
       <button className="btn p" onClick={load}>اعمال فیلتر تاریخ</button>
-      <button className="btn g" onClick={()=>{setPerson("");setTimeFrom("");setTimeTo("");}}>پاک‌کردن فیلترها</button>
+      <button className="btn g" onClick={()=>{setPerson("");setPersonId("");setPersonOpen(false);setTimeFrom("");setTimeTo("");}}>پاک‌کردن فیلترها</button>
       {tab==="sent"&&visibleRows.length>0&&<button className="btn g" onClick={exportExcel}>⤓ خروجی اکسل (.xlsx)</button>}
     </div>
     <div className="tabbar" style={{marginTop:6}}>

@@ -15210,10 +15210,26 @@ function PresenceChecks() {
     const [pick, setPick] = useState(null);
     const [tab, setTab] = useState("sent");
     const [person, setPerson] = useState("");
+    const [personId, setPersonId] = useState("");
+    const [personOpen, setPersonOpen] = useState(false);
+    const [personActive, setPersonActive] = useState(-1);
+    const [personnel, setPersonnel] = useState([]);
+    const [personnelLoading, setPersonnelLoading] = useState(true);
     const [timeFrom, setTimeFrom] = useState("");
     const [timeTo, setTimeTo] = useState("");
     const norm = s => String(s || "").replace(/[۰-۹]/g, c => String("۰۱۲۳۴۵۶۷۸۹".indexOf(c))).replace(/[٠-٩]/g, c => String("٠١٢٣٤٥٦٧٨٩".indexOf(c))).replace(/\s+/g, " ").trim();
-    const matchesName = r => !person || norm(r.name).toLowerCase().includes(norm(person).toLowerCase());
+    const normalizePerson = s => norm(s).normalize("NFKC").replace(/[يى]/g, "ی").replace(/ك/g, "ک").replace(/[\u200c\u200e\u200f]/g, " ").toLowerCase();
+    useEffect(() => { let active = true; db.usersLite(true).then(list => { if (active)
+        setPersonnel(Array.isArray(list) ? list : []); }).catch(() => { if (active)
+        setPersonnel([]); }).finally(() => { if (active)
+        setPersonnelLoading(false); }); return () => { active = false; }; }, []);
+    const matchingPersonnel = useMemo(() => {
+        const query = normalizePerson(person);
+        return personnel.filter(u => !query || normalizePerson(`${u.first_name || ""} ${u.last_name || ""}`).includes(query) || normalizePerson(u.pcode || "").includes(query))
+            .sort((a, b) => new Intl.Collator("fa", { sensitivity: "base" }).compare(`${a.last_name || ""} ${a.first_name || ""}`, `${b.last_name || ""} ${b.first_name || ""}`));
+    }, [personnel, person]);
+    const choosePerson = u => { setPersonId(String(u.id)); setPerson(`${u.first_name || ""} ${u.last_name || ""}`.trim()); setPersonOpen(false); setPersonActive(-1); };
+    const matchesName = r => personId ? String(r.user_id) === personId : !person.trim() || normalizePerson(r.name).includes(normalizePerson(person));
     const hourOf = r => { const v = norm(r.captured_fa || r.captured_at || ""); const m = v.match(/(?:^|\s)(\d{1,2}):(\d{2})(?::\d{2})?/); return m ? m[1].padStart(2, "0") + ":" + m[2] : ""; };
     const inHours = h => (!timeFrom || h >= timeFrom) && (!timeTo || h <= timeTo);
     const visibleRows = rows.filter(r => matchesName(r) && ((!timeFrom && !timeTo) || !!hourOf(r) && inHours(hourOf(r))));
@@ -15304,7 +15320,30 @@ function PresenceChecks() {
                 React.createElement(JDate, { value: from, onChange: setFrom }),
                 React.createElement("span", { className: "label" }, "\u062A\u0627"),
                 React.createElement(JDate, { value: to, onChange: setTo }),
-                React.createElement("input", { className: "input", "aria-label": "\u062C\u0633\u062A\u062C\u0648\u06CC \u0646\u0627\u0645 \u0646\u06CC\u0631\u0648", placeholder: "\u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u0646\u06CC\u0631\u0648", value: person, onChange: e => setPerson(e.target.value), style: { maxWidth: 230 } }),
+                React.createElement("div", { style: { position: "relative", minWidth: 230, maxWidth: 340, flex: "1 1 230px" } },
+                    React.createElement("label", { className: "label", htmlFor: "presence-person-search" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0633\u0646\u0644"),
+                    React.createElement("input", { id: "presence-person-search", className: "input", role: "combobox", "aria-autocomplete": "list", "aria-expanded": personOpen, "aria-controls": "presence-person-options", "aria-activedescendant": personOpen && matchingPersonnel[personActive] ? `presence-person-${matchingPersonnel[personActive].id}` : undefined, autoComplete: "off", placeholder: "\u0646\u0627\u0645\u060C \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u06CC\u0627 \u06A9\u062F \u067E\u0631\u0633\u0646\u0644\u06CC", value: person, onFocus: () => { setPersonOpen(true); setPersonActive(-1); }, onBlur: e => { if (!e.currentTarget.parentElement.contains(e.relatedTarget))
+                            setPersonOpen(false); }, onChange: e => { setPerson(e.target.value); setPersonId(""); setPersonActive(-1); setPersonOpen(true); }, onKeyDown: e => { if (e.key === "Escape") {
+                            setPersonOpen(false);
+                            return;
+                        } if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setPersonOpen(true);
+                            setPersonActive(i => Math.min(matchingPersonnel.length - 1, i + 1));
+                        } if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setPersonActive(i => Math.max(0, i - 1));
+                        } if (e.key === "Enter" && personOpen && matchingPersonnel.length) {
+                            e.preventDefault();
+                            choosePerson(matchingPersonnel[Math.max(0, personActive)]);
+                        } } }),
+                    personOpen && React.createElement("div", { id: "presence-person-options", role: "listbox", "aria-label": "\u0641\u0647\u0631\u0633\u062A \u067E\u0631\u0633\u0646\u0644", style: { position: "absolute", top: "100%", insetInline: 0, zIndex: 100510, maxHeight: 290, overflowY: "auto", background: "var(--card,#fff)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "0 10px 28px rgba(0,0,0,.16)", padding: 4 } }, personnelLoading ? React.createElement("div", { className: "muted", style: { padding: 10 } }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0641\u0647\u0631\u0633\u062A \u067E\u0631\u0633\u0646\u0644\u2026") : matchingPersonnel.length ? matchingPersonnel.map((u, i) => React.createElement("button", { key: u.id, id: `presence-person-${u.id}`, role: "option", "aria-selected": i === personActive, type: "button", onPointerDown: e => e.preventDefault(), onMouseEnter: () => setPersonActive(i), onClick: () => choosePerson(u), style: { display: "flex", justifyContent: "space-between", width: "100%", gap: 10, textAlign: "right", padding: "9px 10px", border: 0, borderRadius: 7, background: i === personActive ? "var(--soft,#eef6f3)" : "transparent", color: "inherit", cursor: "pointer" } },
+                        React.createElement("span", null,
+                            u.first_name,
+                            " ",
+                            u.last_name),
+                        React.createElement("small", { className: "muted" }, u.pcode ? `کد ${u.pcode}` : `شناسه ${u.id}`))) : React.createElement("div", { className: "muted", style: { padding: 10 } }, "\u067E\u0631\u0633\u0646\u0644\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")),
+                    React.createElement("small", { className: "muted" }, personnelLoading ? "در حال بارگذاری…" : `${matchingPersonnel.length.toLocaleString("fa-IR")} نفر از ${personnel.length.toLocaleString("fa-IR")} پرسنل`)),
                 React.createElement("label", { className: "label" },
                     "\u0627\u0632 \u0633\u0627\u0639\u062A ",
                     React.createElement("input", { className: "input", type: "time", value: timeFrom, onChange: e => setTimeFrom(e.target.value) })),
@@ -15312,7 +15351,7 @@ function PresenceChecks() {
                     "\u062A\u0627 \u0633\u0627\u0639\u062A ",
                     React.createElement("input", { className: "input", type: "time", value: timeTo, onChange: e => setTimeTo(e.target.value) })),
                 React.createElement("button", { className: "btn p", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631 \u062A\u0627\u0631\u06CC\u062E"),
-                React.createElement("button", { className: "btn g", onClick: () => { setPerson(""); setTimeFrom(""); setTimeTo(""); } }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627"),
+                React.createElement("button", { className: "btn g", onClick: () => { setPerson(""); setPersonId(""); setPersonOpen(false); setTimeFrom(""); setTimeTo(""); } }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627"),
                 tab === "sent" && visibleRows.length > 0 && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644 (.xlsx)")),
             React.createElement("div", { className: "tabbar", style: { marginTop: 6 } },
                 React.createElement("button", { className: "tabbtn" + (tab === "sent" ? " on" : ""), onClick: () => setTab("sent") },
