@@ -4170,13 +4170,15 @@ function _req_policy_options($uid,$required=true){
   return is_array($policy['config']['request_options']??null)?$policy['config']['request_options']:[];
 }
 
-// One region-specific rule shared by the Android config and server validation.
+// Role levels 1–6 are exempt; other levels follow their region's setting.
 function _req_leave_substitute_required($uid){
   $uid=(int)$uid;
   if($uid<=0)return true; // fail closed if the caller identity is unavailable
   _zone_leave_requirement_storage();
-  $row=Db::one("SELECT COALESCE(z.leave_requires_substitute,0) leave_requires_substitute FROM users u LEFT JOIN zones z ON z.id=u.zone_id WHERE u.id=? LIMIT 1",[$uid]);
+  $row=Db::one("SELECT r.level role_level, COALESCE(z.leave_requires_substitute,0) leave_requires_substitute FROM users u LEFT JOIN roles r ON r.id=u.role_id LEFT JOIN zones z ON z.id=u.zone_id WHERE u.id=? LIMIT 1",[$uid]);
   if(!$row)return true;
+  $level=isset($row['role_level'])?(int)$row['role_level']:0;
+  if($level>=1 && $level<=6)return false;
   return !empty($row['leave_requires_substitute']);
 }
 

@@ -3,7 +3,7 @@ class Http {static function error($message,$code=400){throw new RuntimeException
 class Db {
   static $insert=[];
   static function one($sql,$args=[]){
-    if(strpos($sql,'leave_requires_substitute')!==false)return ['leave_requires_substitute'=>$GLOBALS['regionRequired']??0];
+    if(strpos($sql,'leave_requires_substitute')!==false)return ['leave_requires_substitute'=>$GLOBALS['regionRequired']??0,'role_level'=>$GLOBALS['roleLevel']??7];
     return ['Field'=>'substitute_user_id'];
   }
   static function run($sql,$args=[]){}
@@ -23,6 +23,15 @@ $source=file_get_contents(__DIR__.'/../lib/routes.php');
 $a=strpos($source,'function _req_leave_substitute_required(');$b=strpos($source,'function _req_policy_date(',$a);eval(substr($source,$a,$b-$a));
 $a=strpos($source,'function _req_substitute_eligible(');$b=strpos($source,'function _req_apply_approval_effects(',$a);eval(substr($source,$a,$b-$a));
 $a=strpos($source,"route('POST', '/api/my/requests'");$b=strpos($source,"route('GET', '/api/my/requests'",$a);eval(substr($source,$a,$b-$a));
+foreach(range(1,6) as $level){
+  $GLOBALS['roleLevel']=$level;
+  $GLOBALS['regionRequired']=1;
+  check(!_req_leave_substitute_required(12),'level '.$level.' must be exempt even in a required region');
+  $GLOBALS['submit']([],['type'=>'annual','unit'=>'daily','from_jdate'=>'1405-07-30','to_jdate'=>'1405-07-30'],['id'=>12]);
+  check(Db::$insert[17]===null,'level '.$level.' must submit daily annual leave without a substitute');
+}
+$GLOBALS['roleLevel']=7;
+check(_req_leave_substitute_required(12),'level 7 must follow the required region');
 foreach(['annual','sick','mission','overtime','manual'] as $type)foreach(['daily','hourly'] as $unit){
   $GLOBALS['regionRequired']=1;
   $body=['type'=>$type,'unit'=>$unit,'from_jdate'=>'1405-07-30','to_jdate'=>'1405-07-30','the_date'=>'1405-07-30','from_time'=>'06:00','to_time'=>'08:00','in_time'=>'06:00','out_time'=>'08:00'];
