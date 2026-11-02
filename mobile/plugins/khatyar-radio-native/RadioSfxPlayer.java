@@ -62,6 +62,8 @@ public final class RadioSfxPlayer {
     else if ("roger".equals(kind)) duration=180;
     else if ("eot".equals(kind)) duration=150;
     else if ("release_click".equals(kind)) duration=48;
+    else if ("channel_busy".equals(kind)) duration=220;
+    else if ("channel_free".equals(kind)) duration=145;
     else return new byte[0];
     int count=SAMPLE_RATE*duration/1000;
     byte[] bytes=new byte[count*2];
@@ -77,9 +79,11 @@ public final class RadioSfxPlayer {
       else if("release_click".equals(kind))sample=high*0.14*Math.exp(-milliseconds/11.0)-burst(520,index,milliseconds,5,27,0.035);
       else if("eot".equals(kind))sample=burst(1040,index,milliseconds,4,58,0.12)+burst(720,index,milliseconds,70,136,0.10);
       else if("roger".equals(kind))sample=burst(1120,index,milliseconds,4,82,0.13)+burst(880,index,milliseconds,98,163,0.105);
+      else if("channel_busy".equals(kind))sample=burst(440,index,milliseconds,4,85,0.23)+burst(440,index,milliseconds,123,205,0.23);
+      else if("channel_free".equals(kind))sample=high*0.09*Math.exp(-milliseconds/60.0)+burst(920,index,milliseconds,12,125,0.20);
       else sample=high*0.095*Math.exp(-milliseconds/22.0)+burst(760,index,milliseconds,7,42,0.07);
       double edge=Math.max(0.0,Math.min(1.0,Math.min(milliseconds/5.0,(duration-milliseconds)/10.0)));
-      short value=(short)Math.round(Math.max(-0.25,Math.min(0.25,sample*edge))*32767.0);
+      short value=(short)Math.round(Math.max(-0.65,Math.min(0.65,sample*edge*2.4))*32767.0);
       bytes[index*2]=(byte)(value&0xff);bytes[index*2+1]=(byte)((value>>8)&0xff);
     }
     return bytes;
