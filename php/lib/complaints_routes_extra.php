@@ -27,7 +27,9 @@ function _complaints_can($u,$kind='submit'){
   }
 
   if($kind==='receive'){
-    return $isAdmin || $uid===(int)($s['receiver_user_id']??0) || $uid===(int)($s['manager_user_id']??0);
+    // Receiving and managing are separate workflow responsibilities. The
+    // manager must not be able to forward a complaint to themselves as receiver.
+    return $uid>0 && $uid===(int)($s['receiver_user_id']??0);
   }
   if($kind==='manage'){
     return $isAdmin || $uid===(int)($s['manager_user_id']??0);
