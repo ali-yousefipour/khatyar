@@ -35,10 +35,9 @@ require_once "$ROOT/lib/Db.php";
 
 $config = require "$ROOT/config.php";
 $key = $_GET['key'] ?? $_POST['key'] ?? '';
-$expected = $config['upgrade_key'] ?? getenv('UPGRADE_KEY') ?: 'change-this-upgrade-key';
-// اگر کلید سفارشی تنظیم شده باشد، همچنان باید دقیقاً مطابقت داشته باشد
-// (لایهٔ محافظتی دوم، مستقل از قفل ALLOW_MAINTENANCE بالا).
-if ($expected !== 'change-this-upgrade-key' && $expected !== '' && !hash_equals((string)$expected, (string)$key)) {
+$expected = (string)($config['upgrade_key'] ?? '');
+// Maintenance requires an explicitly configured, non-default secret even during initial installation.
+if ($expected === '' || $expected === 'change-this-upgrade-key' || !hash_equals($expected, (string)$key)) {
   http_response_code(403);
   echo json_encode(['ok'=>false,'error'=>'کلید ارتقا نامعتبر است'], JSON_UNESCAPED_UNICODE);
   exit;
