@@ -57,6 +57,25 @@ function issueTokens($uid, $dev, $dtype) {
   ];
 }
 
+// Browser refresh credentials never need to be readable from JavaScript.
+function _web_refresh_cookie($refresh = '') {
+  $value = is_string($refresh) ? $refresh : '';
+  setcookie('__Host-khatyar_refresh', $value, [
+    'expires' => $value !== '' ? time() + (int)$GLOBALS['CONFIG']['refresh_ttl'] : time() - 3600,
+    'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict',
+  ]);
+}
+function _web_cookie_same_origin() {
+  $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
+  $configured = (string)($GLOBALS['CONFIG']['public_url'] ?? '');
+  $url = $configured !== '' ? $configured : 'https://app.yousefipour.ir';
+  $parts = parse_url($url);
+  $expected = is_array($parts) && isset($parts['scheme'], $parts['host'])
+    ? $parts['scheme'].'://'.$parts['host'].(isset($parts['port'])?':'.$parts['port']:'') : '';
+  // Cookie-authenticated POSTs must originate from the canonical panel origin.
+  if ($origin === '' || $expected === '' || !in_array($origin, [$expected, 'https://admin.yousefipour.ir'], true)) Http::error('مبدأ درخواست نامعتبر است', 403);
+}
+
 // Only one verification image can be opened with this scoped, expiring URL token.
 function _presence_image_token($user, $id, $kind, $ttl = 900) {
   return Jwt::sign([
@@ -464,6 +483,10 @@ $loginHandler = function ($p, $b, $unused = null, $verifiedOtpUserId = null) {
   // اگر رمز هنوز پیش‌فرض (۱۲۳۴۶۶) باشد، کاربر باید رمز و ایمیل را تغییر دهد
   $mustChange = (bool)($u['must_change_pw'] ?? 0) || ($password === '123456');
   $t = issueTokens($u['id'], $dev, $dtype);
+  if ($dtype === 'web') _web_refresh_cookie($t['refresh']);
+  // New browser clients opt in to cookie-only refresh; legacy clients keep
+  // receiving the old field during a rolling deployment.
+  if ($dtype === 'web' && ($_SERVER['HTTP_X_KHATYAR_COOKIE_SESSION'] ?? '') === '1') unset($t['refresh']);
   try { Db::run("INSERT INTO activity_logs(user_id,event) VALUES(?, ?)", [$u['id'], $verifiedOtpUserId === null ? 'login' : 'login_otp']); } catch (Throwable $e) { error_log('login activity log suppressed: '.$e->getMessage()); }
   return array_merge($t, ['user'=>[
     'id'=>(int)$u['id'],'username'=>$u['username'],'name'=>trim((string)($u['first_name']??'').' '.(string)($u['last_name']??'')),
@@ -477,7 +500,13 @@ route('POST', '/api/auth/login', $loginHandler, true);
 route('POST', '/api/session/start', $loginHandler, true);
 
 $refreshHandler = function ($p, $b) {
-  $payload = Jwt::verify($b['refresh'] ?? '', $GLOBALS['CONFIG']['jwt_secret']);
+  $providedRefresh = $b['refresh'] ?? '';
+  $fromCookie = !is_string($providedRefresh) || $providedRefresh === '';
+  if ($fromCookie) {
+    _web_cookie_same_origin();
+    $providedRefresh = (string)($_COOKIE['__Host-khatyar_refresh'] ?? '');
+  }
+  $payload = Jwt::verify($providedRefresh, $GLOBALS['CONFIG']['jwt_secret']);
   if (!$payload || ($payload['t'] ?? '') !== 'r') Http::error('توکن تمدید نامعتبر است', 401);
   $dt = $payload['dt'] ?? 'web';
   $deviceId = (string)($payload['device_id'] ?? '');
@@ -487,11 +516,29 @@ $refreshHandler = function ($p, $b) {
   // A refresh token may renew only the exact, non-revoked device session.
   $s = Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? AND device_id=? LIMIT 1", [(int)$user['id'], $dt, $deviceId]);
   if (!$s || $s['revoked_at']) Http::error('نشست نامعتبر است', 401);
-  return issueTokens((int)$user['id'], $deviceId, $dt);
+  $issued = issueTokens((int)$user['id'], $deviceId, $dt);
+  if ($dt === 'web') _web_refresh_cookie($issued['refresh']);
+  if ($dt === 'web' && ($fromCookie || ($_SERVER['HTTP_X_KHATYAR_COOKIE_SESSION'] ?? '') === '1')) unset($issued['refresh']);
+  return $issued;
 };
 route('POST', '/api/auth/refresh', $refreshHandler, true);
 // همان مسیر بدون کلمهٔ حساس «auth» — برای دورزدن مسدودسازی احتمالی WAF (نگاه کنید به توضیح بالای لاگین)
 route('POST', '/api/session/renew', $refreshHandler, true);
+route('POST', '/api/session/web-signout', function () {
+  _web_cookie_same_origin();
+  $bearer = Http::bearer();
+  $payload = $bearer ? Jwt::verify($bearer, $GLOBALS['CONFIG']['jwt_secret']) : null;
+  if (is_array($payload) && ($payload['t'] ?? '') === 'a' && ($payload['dt'] ?? '') === 'web') {
+    $uid = (int)($payload['sub'] ?? 0);
+    $device = (string)($payload['device_id'] ?? '');
+    if ($uid > 0 && $device !== '') {
+      try { Db::run("UPDATE user_sessions SET revoked_at=NOW() WHERE user_id=? AND device_type='web' AND device_id=?", [$uid, $device]); }
+      catch (Throwable $e) { error_log('web session revoke failed: '.$e->getMessage()); }
+    }
+  }
+  _web_refresh_cookie('');
+  return ['ok'=>true];
+}, true);
 
 /* ================= ورود با کد یک‌بارمصرف پیامکی (OTP) ================= */
 // OTP schema is provisioned by the deployment migration.

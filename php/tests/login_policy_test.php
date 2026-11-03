@@ -1,7 +1,10 @@
 <?php
 const ADMIN = 3;
 // Execute the actual handlers with an in-memory DB; no live account or SMS is used.
-class Http { public static function error($message, $status=400) { throw new RuntimeException($message, $status); } }
+class Http {
+  public static function error($message, $status=400) { throw new RuntimeException($message, $status); }
+  public static function bearer() { return null; }
+}
 class TestStatement { public function __construct(private int $count=1) {} public function rowCount() { return $this->count; } }
 class Db {
   public static $user, $session, $otp;
@@ -61,7 +64,7 @@ eval(substr($source,$start,$end-$start));
 $start=strpos($source,'$refreshHandler =');
 $end=strpos($source,'/* ================= ورود با کد',$start);
 eval(substr($source,$start,$end-$start));
-$GLOBALS['CONFIG']=['jwt_secret'=>'test-only'];
+$GLOBALS['CONFIG']=['jwt_secret'=>'test-only','refresh_ttl'=>3600,'public_url'=>'https://app.yousefipour.ir'];
 $start=strpos($source,'function _login_otp_request(');
 $end=strpos($source,"route('POST', '/api/auth/logout'",$start);
 eval(substr($source,$start,$end-$start));
@@ -100,6 +103,23 @@ Jwt::$payload['device_id']='another-device';
 rejects(fn()=>callRoute('POST','/api/session/renew',['refresh'=>'test']),401);
 Jwt::$payload['device_id']='device-new';
 check(callRoute('POST','/api/session/renew',['refresh'=>'test'])['access']==='test-access','Only exact active device can refresh');
+// The modern browser receives refresh credentials only as an HttpOnly cookie.
+resetState('password','password');
+$_SERVER['HTTP_X_KHATYAR_COOKIE_SESSION']='1';
+$webBody=array_merge($body,['device_type'=>'web']);
+$webLogin=callRoute('POST','/api/session/start',$webBody);
+check(isset($webLogin['access']) && !isset($webLogin['refresh']),'Cookie-only web login does not expose refresh token');
+Jwt::$payload=['sub'=>7,'dt'=>'web','device_id'=>'device-new','t'=>'r'];
+$_SERVER['HTTP_ORIGIN']='https://app.yousefipour.ir';
+$_COOKIE['__Host-khatyar_refresh']='cookie-test';
+$renewed=callRoute('POST','/api/session/renew',[]);
+check(isset($renewed['access']) && !isset($renewed['refresh']),'Cookie-only renewal does not expose refresh token');
+$_SERVER['HTTP_ORIGIN']='https://untrusted.example';
+rejects(fn()=>callRoute('POST','/api/session/renew',[]),403);
+rejects(fn()=>callRoute('POST','/api/session/web-signout',[]),403);
+$_SERVER['HTTP_ORIGIN']='https://app.yousefipour.ir';
+check(callRoute('POST','/api/session/web-signout',[])['ok']===true,'Same-origin cookie sign-out');
+unset($_SERVER['HTTP_X_KHATYAR_COOKIE_SESSION'],$_SERVER['HTTP_ORIGIN'],$_COOKIE['__Host-khatyar_refresh']);
 resetState('sms_otp','password');
 rejects(fn()=>callRoute('POST','/api/session/start',$body),403);
 check(callRoute('POST','/api/session/start',array_merge($body,['device_type'=>'web']))['device_type']==='web','Web password enabled');

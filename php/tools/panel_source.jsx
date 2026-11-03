@@ -57,19 +57,35 @@ async function _readJsonResponse(r){
     throw new Error('پاسخ JSON معتبر از سرور دریافت نشد'+(clean?' — '+clean:''));
   }
 }
+async function _renewBrowserSession(){
+  const legacyRefresh=localStorage.getItem('refresh_token')||'';
+  const rawFetch=window.__KHATYAR_NATIVE_FETCH__||fetch;
+  const rr=await rawFetch(API_BASE+'/session/renew',{
+    method:'POST',credentials:'same-origin',cache:'no-store',
+    headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store','X-Khatyar-Cookie-Session':'1'},
+    body:JSON.stringify(legacyRefresh?{refresh:legacyRefresh}:{}),
+  });
+  const d=await _readJsonResponse(rr);
+  if(!rr.ok||!d.access) throw new Error(d.error||'تمدید نشست ناموفق بود');
+  localStorage.token=d.access;
+  localStorage.removeItem('refresh_token');
+  return d;
+}
+async function _clearWebSession(){
+  const result=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/web-signout',{
+    method:'POST',credentials:'same-origin',cache:'no-store',headers:{'content-type':'application/json',...tok()},body:'{}',
+  });
+  if(!result.ok) throw new Error('خروج امن انجام نشد؛ اتصال به سرور را بررسی کنید.');
+  localStorage.removeItem('token');localStorage.removeItem('refresh_token');
+  _invalidateCache();
+}
 async function _fetchWithAuth(url, options){
   const rawFetch=window.__KHATYAR_NATIVE_FETCH__||fetch;
   const init={...options,headers:{...(options&&options.headers||{}),...tok()}};
   let r=await rawFetch(url,init);
   if(r.status!==401||String(url).includes('/session/')) return r;
-  const refresh=localStorage.refresh_token||'';
-  if(!refresh) return r;
   try{
-    const rr=await rawFetch(API_BASE+'/session/renew',{method:'POST',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store'},body:JSON.stringify({refresh}),cache:'no-store'});
-    const d=await _readJsonResponse(rr);
-    if(!rr.ok||!d.access) return r;
-    localStorage.token=d.access;
-    if(d.refresh) localStorage.refresh_token=d.refresh;
+    await _renewBrowserSession();
     return await rawFetch(url,{...options,headers:{...(options&&options.headers||{}),...tok()}});
   }catch(_){return r}
 }
@@ -141,10 +157,10 @@ const db = {
     if(!p) throw new Error('کلمه عبور را وارد کنید');
     let deviceId=localStorage.getItem('kh_web_device_id');
     if(!deviceId){ deviceId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('web-'+Date.now()+'-'+Math.random().toString(36).slice(2)); localStorage.setItem('kh_web_device_id',deviceId); }
-    const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/start',{method:'POST',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store'},body:JSON.stringify({username:u,password:p,device_id:deviceId,device_type:'web'}),cache:'no-store'});
+    const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/start',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store','X-Khatyar-Cookie-Session':'1'},body:JSON.stringify({username:u,password:p,device_id:deviceId,device_type:'web'}),cache:'no-store'});
     const d=await _readJsonResponse(r); if(!r.ok) throw new Error(d.error||d.message||('ورود ناموفق بود (HTTP '+r.status+')'));
     if(!d.access) throw new Error('پاسخ ورود ناقص است: توکن دریافت نشد.');
-    localStorage.token=d.access; if(d.refresh) localStorage.refresh_token=d.refresh; else localStorage.removeItem('refresh_token'); _invalidateCache(); return d;
+    localStorage.token=d.access; localStorage.removeItem('refresh_token'); _invalidateCache(); return d;
   },
   webLoginOtpRequest: async(username)=>{
     const u=String(username||'').trim(); if(!u) throw new Error('نام کاربری را وارد کنید');
@@ -158,27 +174,21 @@ const db = {
     if(!/^\d{6}$/.test(latin)) throw new Error('کد شش‌رقمی را وارد کنید');
     let deviceId=localStorage.getItem('kh_web_device_id');
     if(!deviceId){ deviceId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('web-'+Date.now()+'-'+Math.random().toString(36).slice(2)); localStorage.setItem('kh_web_device_id',deviceId); }
-    const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/otp-verify',{method:'POST',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store'},body:JSON.stringify({username:u,code:latin,device_id:deviceId}),cache:'no-store'});
+    const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/otp-verify',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','accept':'application/json','cache-control':'no-store','X-Khatyar-Cookie-Session':'1'},body:JSON.stringify({username:u,code:latin,device_id:deviceId}),cache:'no-store'});
     const d=await _readJsonResponse(r); if(!r.ok) throw new Error(d.error||d.message||('تأیید کد ناموفق بود (HTTP '+r.status+')'));
     if(!d.access) throw new Error('پاسخ ورود ناقص است: توکن دریافت نشد.');
-    localStorage.token=d.access; if(d.refresh) localStorage.refresh_token=d.refresh; else localStorage.removeItem('refresh_token'); _invalidateCache(); return d;
+    localStorage.token=d.access; localStorage.removeItem('refresh_token'); _invalidateCache(); return d;
   },
   restoreSession: async()=>{
-    const access=localStorage.token||''; const refresh=localStorage.refresh_token||'';
-    if(!access&&!refresh) return null;
+    const access=localStorage.token||'';
     const me=async()=>{
       const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/auth/me',{headers:tok(),cache:'no-store'});
       const d=await _readJsonResponse(r); if(!r.ok) throw Object.assign(new Error(d.error||d.message||'نشست نامعتبر است'),{status:r.status}); return d.user||null;
     };
-    try { return await me(); } catch(e) {
-      if(e.status!==401||!refresh) { localStorage.removeItem('token'); return null; }
-      try{
-        const r=await (window.__KHATYAR_NATIVE_FETCH__||fetch)(API_BASE+'/session/renew',{method:'POST',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({refresh}),cache:'no-store'});
-        const d=await _readJsonResponse(r); if(!r.ok||!d.access) throw new Error(d.error||d.message||'تمدید نشست ناموفق بود');
-        localStorage.token=d.access; if(d.refresh) localStorage.refresh_token=d.refresh;
-        return await me();
-      }catch(_){ localStorage.removeItem('token'); localStorage.removeItem('refresh_token'); return null; }
-    }
+    try { if(access) return await me(); }
+    catch(e) { if(e.status!==401){localStorage.removeItem('token');return null;} }
+    try{await _renewBrowserSession();return await me();}
+    catch(_){localStorage.removeItem('token');localStorage.removeItem('refresh_token');return null;}
   },
   stats: ()=> GET('/admin/stats'),
   systemHealthDashboard: ()=> GET('/admin/system-health-dashboard'),
@@ -10454,11 +10464,11 @@ function App(){
   useEffect(()=>{ if(me&&me.is_admin&&!me.must_change_pw){ db.settings().then(s=>{ const all=s.role_perms||{}; const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id); const rp=all[me.role_id]; setAllowed(has&&Array.isArray(rp)?rp:null); const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>setAllowed(null)); } },[me]);
   if(!authReady)return <div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)",color:"var(--muted)"}}>در حال بررسی نشست…</div>;
   if(!me)return <Login onLogin={setMe} brand={brand}/>;
-  if(me.must_change_pw)return <FirstLoginPassword name={me.name} onDone={async()=>{const u=await db.restoreSession();if(!u)throw new Error('نشست شما منقضی شده است؛ دوباره وارد شوید.');setMe(u);}} onLogout={()=>{localStorage.removeItem('token');localStorage.removeItem('refresh_token');setMe(null);}}/>;
+  if(me.must_change_pw)return <FirstLoginPassword name={me.name} onDone={async()=>{const u=await db.restoreSession();if(!u)throw new Error('نشست شما منقضی شده است؛ دوباره وارد شوید.');setMe(u);}} onLogout={async()=>{try{await _clearWebSession();setMe(null);}catch(e){alert(e.message);}}}/>;
   if(!me.is_admin) return (<div style={{minHeight:"100vh",display:"grid",placeItems:"center",textAlign:"center",padding:24}}>
     <div><h2 style={{color:"var(--danger)"}}>دسترسی مدیریتی ندارید</h2>
     <p style={{color:"var(--muted)",maxWidth:430,lineHeight:2,marginTop:8}}>ورود به سامانه مدیریت و نظارت بر خطوط و نیروهای اجرایی تاکسیرانی تنها برای نیروی اداری، نیروی اداری ارشد، رییس اداره بازرسی و مدیر کل مجاز است. برای کارهای میدانی از اپ موبایل/وب‌اپ استفاده کنید.</p>
-    <button className="btn p" style={{marginTop:16}} onClick={()=>{localStorage.removeItem("token");setMe(null);}}>خروج</button></div></div>);
+    <button className="btn p" style={{marginTop:16}} onClick={async()=>{try{await _clearWebSession();setMe(null);}catch(e){alert(e.message);}}}>خروج</button></div></div>);
   // سرویس مدارس یک نمای هسته‌ای و مستقل پنل است؛ نمایش آن نباید به مجوزهای
   // پویا یا منوی fallback وابسته باشد. کنترل دسترسی خود صفحه جداگانه انجام می‌شود.
   const CORE_VIEWS=["dashboard","driverservicereport","schoolservice","complaints"];
@@ -10506,7 +10516,7 @@ function App(){
           </div>
         </div>); })}
         {menuQuery&&matchingMenuCount===0&&<p className="menu-empty" role="status">صفحه‌ای پیدا نشد. عبارت دیگری جستجو کنید.</p>}
-        <button className="navitem logout-item" onClick={()=>{localStorage.removeItem("token");setMe(null);}}><span className="ic">{I8('logout-door')}</span><span className="navlabel">خروج</span></button></nav>
+        <button className="navitem logout-item" onClick={async()=>{try{await _clearWebSession();setMe(null);}catch(e){alert(e.message);}}}><span className="ic">{I8('logout-door')}</span><span className="navlabel">خروج</span></button></nav>
       <div className="apibar">
         <div>برنامه‌نویسی و راه‌اندازی شده توسط شرکت مبین شات مشهد (خرداد ۱۴۰۵)</div>
         <div style={{marginTop:4,opacity:.85}}>نسخهٔ سایت {(window.__health&&window.__health.site_version)?fa(window.__health.site_version):"—"} · <span style={{color:(window.__health?"#16a06a":"#e3403e")}}>{window.__health?"متصل به سرور":"قطع"}</span></div>
