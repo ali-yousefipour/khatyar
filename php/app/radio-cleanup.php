@@ -7,6 +7,12 @@
  * همان مقدار اعمال می‌شود.
  * این فایل باید از طریق cron_all.php حداقل روزی یک‌بار اجرا شود.
  */
+// Only CLI or the authenticated cron_all.php entrypoint may run this job.
+// Direct HTTP requests must stop before loading the database or deleting files.
+if (PHP_SAPI !== 'cli' && !defined('KHATYAR_AUTHORIZED_CRON_ALL')) {
+    http_response_code(403);
+    exit('forbidden');
+}
 ini_set('display_errors', '0');
 $ROOT = __DIR__ . '/..';
 require "$ROOT/lib/Db.php";
@@ -156,6 +162,7 @@ try {
     echo json_encode([
         'ok' => false,
         'retention_hours' => radio_cleanup_retention_hours(),
-        'error' => $e->getMessage()
+        'error' => 'radio_cleanup_failed'
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
+    error_log('Radio archive cleanup failed: ' . $e->getMessage());
 }

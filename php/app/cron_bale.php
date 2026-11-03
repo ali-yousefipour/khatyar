@@ -14,7 +14,10 @@ $isCli = php_sapi_name() === 'cli';
 if (!$isCli) {
   $row = Db::one("SELECT value FROM app_settings WHERE `key`='cron_key'");
   $key = $row ? json_decode($row['value'], true) : '';
-  if (!$key || ($_GET['key'] ?? '') !== $key) { http_response_code(403); exit('forbidden'); }
+  $providedKey = $_GET['key'] ?? null;
+  if (!is_string($key) || $key === '' || !is_string($providedKey) || !hash_equals($key, $providedKey)) {
+    http_response_code(403); exit('forbidden');
+  }
   header('Content-Type: application/json; charset=UTF-8');
 }
 

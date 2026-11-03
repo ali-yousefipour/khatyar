@@ -8,4 +8,6 @@
 $GLOBALS['CRON_TASK'] = 'all';
 require __DIR__ . '/cron.php';
 // پاکسازی آرشیو صوتی بی‌سیم بر اساس مدت نگهداری تنظیم‌شده.
+// cron.php validates the cron key for HTTP before granting this capability.
+define('KHATYAR_AUTHORIZED_CRON_ALL', true);
 require __DIR__ . '/radio-cleanup.php';

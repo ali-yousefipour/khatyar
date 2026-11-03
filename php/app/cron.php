@@ -42,7 +42,10 @@ if (!$isCli) {
   // اجرای وب فقط با کلید معتبر مجاز است (برای سازگاری با هاست‌هایی که Cron را هم HTTP می‌زنند)
   $ck = Db::one("SELECT value FROM app_settings WHERE `key`='cron_key'");
   $cronKey = $ck ? json_decode($ck['value'], true) : '';
-  if (!$cronKey || ($_GET['key'] ?? '') !== $cronKey) { http_response_code(403); echo 'forbidden'; exit; }
+  $providedKey = $_GET['key'] ?? null;
+  if (!is_string($cronKey) || $cronKey === '' || !is_string($providedKey) || !hash_equals($cronKey, $providedKey)) {
+    http_response_code(403); echo 'forbidden'; exit;
+  }
   header('Content-Type: application/json; charset=UTF-8');
 }
 
