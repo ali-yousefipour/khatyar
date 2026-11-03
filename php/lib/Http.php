@@ -74,7 +74,25 @@ class Http {
   }
   private static function stampMediaUrls($data) {
     if (is_array($data)) { foreach ($data as $k => $v) $data[$k] = self::stampMediaUrls($v); return $data; }
-    if (is_string($data) && self::$currentToken && strpos($data, '/api/media?path=') === 0 && strpos($data, 'token=') === false) return $data . '&token=' . urlencode(self::$currentToken);
+    if (is_string($data) && self::$currentToken && strpos($data, '/api/media?path=') === 0) {
+      $query = parse_url($data, PHP_URL_QUERY);
+      parse_str(is_string($query) ? $query : '', $params);
+      $mediaPath = $params['path'] ?? null;
+      if (!is_string($mediaPath) || $mediaPath === '') return $data;
+      // Never put the bearer access token in an image URL: URLs leak via logs,
+      // history and screenshots. Grant access only to this image for 15 minutes.
+      $access = Jwt::verify(self::$currentToken, $GLOBALS['CONFIG']['jwt_secret']);
+      if (!is_array($access) || ($access['t'] ?? 'a') !== 'a') return $data;
+      unset($params['token']);
+      $scopedToken = Jwt::sign([
+        't' => 'media', 'sub' => (int)($access['sub'] ?? 0),
+        'dt' => (string)($access['dt'] ?? 'web'),
+        'device_id' => (string)($access['device_id'] ?? ''),
+        'path_hash' => hash('sha256', $mediaPath),
+      ], $GLOBALS['CONFIG']['jwt_secret'], 900);
+      $params['token'] = $scopedToken;
+      return '/api/media?' . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+    }
     return $data;
   }
   public static function json($data, $code = 200) {

@@ -293,7 +293,17 @@ foreach ($routes as $r) {
     $tok = Http::bearer(); $payload = $tok ? Jwt::verify($tok, $GLOBALS['CONFIG']['jwt_secret']) : null;
     // Keep bootstrap authentication independent of newly deployed helper methods.
     // Legacy access tokens have no type claim; refresh/image tokens have explicit types.
-    if (!is_array($payload) || ($payload['t'] ?? 'a') !== 'a') Http::error('توکن منقضی یا نامعتبر است', 401);
+    $isMediaToken = is_array($payload) && ($payload['t'] ?? '') === 'media';
+    if ($isMediaToken) {
+      $mediaPath = $_GET['path'] ?? null;
+      if ($method !== 'GET' || $path !== '/api/media' || !is_string($mediaPath) ||
+          !isset($payload['path_hash']) || !is_string($payload['path_hash']) ||
+          !hash_equals($payload['path_hash'], hash('sha256', $mediaPath))) {
+        Http::error('توکن تصویر نامعتبر است', 401);
+      }
+    } elseif (!is_array($payload) || ($payload['t'] ?? 'a') !== 'a') {
+      Http::error('توکن منقضی یا نامعتبر است', 401);
+    }
     Http::$currentToken = $tok;
     $user = Db::one("SELECT u.id,u.username,u.first_name,u.last_name,u.role_id,r.title AS role_title,r.level,r.is_admin,u.is_active,u.allow_web,u.allow_android,u.must_change_pw,u.email,u.photo,u.photo_path FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?", [$payload['sub']]);
     if (!$user || !$user['is_active']) Http::error('کاربر نامعتبر', 401); $dt = $payload['dt'] ?? 'web'; $tokenDeviceId = (string)($payload['device_id'] ?? '');
