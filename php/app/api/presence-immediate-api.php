@@ -19,7 +19,7 @@ if($op==='send'&&($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
  // مانند ارسال صحت‌سنجی معمولی، ارسال فوری نیز باید از مسیر مرکزی Push استفاده کند.
  // پیش‌بررسی جداگانهٔ push_tokens باعث می‌شد قبل از اجرای Push::notify درخواست رد شود،
  // در حالی‌که Push::notify علاوه بر Push، اعلان درون‌برنامه‌ای را نیز ثبت می‌کند.
- $key='imm_'.bin2hex(random_bytes(16));$slot=date('H:i');$window=1;$title='صحت‌سنجی فوری حضور';$body='درخواست صحت‌سنجی فوری حضور دریافت شد. لطفاً همین حالا سلفی و عکس خودروهای خط را ارسال کنید.';$data=['type'=>'presence_check','slot'=>$slot,'window_minutes'=>$window,'immediate'=>true,'immediate_at'=>date('Y-m-d H:i:s'),'request_id'=>$key];
+ $key='imm_'.bin2hex(random_bytes(16));$now=time();$slot=date('H:i',$now);$window=1;$title='صحت‌سنجی فوری حضور';$body='درخواست صحت‌سنجی فوری حضور دریافت شد. لطفاً همین حالا سلفی و عکس خودروهای خط را ارسال کنید.';$data=['type'=>'presence_check','slot'=>$slot,'window_minutes'=>$window,'immediate'=>true,'ts'=>$now,'immediate_at'=>date('Y-m-d H:i:s',$now),'request_id'=>$key];
  try{Push::notify($targetIds,$title,$body,$data);}catch(Throwable $e){pim_error('ارسال صحت‌سنجی فوری با خطا مواجه شد',502);}
  try{Db::run("INSERT INTO presence_immediate_requests(request_key,requested_by,scope_type,role_id,target_count,sent_count,target_ids) VALUES(?,?,?,?,?,?,?)",[$key,(int)$me['id'],$scope,$scope==='role'?$roleId:null,count($targetIds),count($targetIds),json_encode($targetIds)]);}catch(Throwable $e){}
  pim_json(['ok'=>true,'request_id'=>$key,'sent'=>count($targetIds),'target_count'=>count($targetIds),'skipped'=>0,'skipped_names'=>[],'scope'=>$scope,'slot'=>$slot,'window_minutes'=>$window,'immediate'=>true,'warning'=>null]);

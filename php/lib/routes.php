@@ -716,6 +716,17 @@ route('GET', '/api/my/presence-config', function($p,$b,$u){
   $presenceRequired = false;
   try { $r = Db::one("SELECT presence_required FROM users WHERE id=?", [$u['id']]); $presenceRequired = (bool)($r['presence_required'] ?? 0); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   $required = _presence_is_required_for_user($u['id'], $cfg, $presenceRequired);
+  $immediate = [];
+  $now = time();
+  $rows = Db::all("SELECT data,created_at FROM notifications
+    WHERE user_id=? AND created_at>=? AND data LIKE ? ORDER BY id DESC LIMIT 10",
+    [(int)$u['id'],date('Y-m-d H:i:s',$now-60),'%"immediate":true%']);
+  foreach ($rows as $row) {
+    $data = json_decode($row['data'],true);
+    if (($data['type']??null)!=='presence_check' || ($data['immediate']??false)!==true || empty($data['request_id'])) continue;
+    $data['ts'] = (int)($data['ts']??strtotime($data['immediate_at']??$row['created_at']));
+    if ($data['ts']>0 && $now<$data['ts']+60) $immediate[]=$data;
+  }
   return [
     'enabled' => !empty($cfg['enabled']),
     'required' => $required,
@@ -726,6 +737,7 @@ route('GET', '/api/my/presence-config', function($p,$b,$u){
     'audience' => $cfg['audience'] ?? 'all_required', // all_required | shift_only
     'server_push' => !isset($cfg['server_push']) ? true : !empty($cfg['server_push']),
     'random_enabled' => !empty($cfg['random_enabled']),
+    'immediate_requests' => $immediate,
   ];
 });
 

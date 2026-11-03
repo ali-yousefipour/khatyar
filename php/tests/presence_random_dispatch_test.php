@@ -3,7 +3,7 @@
 class Http {static function error($message,$code=400){throw new RuntimeException($message,$code);}}
 class Db {
   static $rows=[];static $notices=[];static $scheduleCalls=0;
-  static $fences=[];static $sentChecks=[];
+  static $fences=[];static $sentChecks=[];static $immediate=[];
   static function one($sql,$params=[]){
     if(str_contains($sql,'FROM geofences'))return ['n'=>count(self::$fences)];
     if(str_contains($sql,'SELECT first_name,last_name'))return ['first_name'=>'کاربر','last_name'=>'آزمون'];
@@ -16,6 +16,10 @@ class Db {
     return null;
   }
   static function all($sql,$params=[]){
+    if(str_contains($sql,'SELECT data,created_at FROM notifications')){
+      if($params[0]!==21)throw new RuntimeException('Immediate requests must be scoped to recipient');
+      return self::$immediate;
+    }
     if(str_contains($sql,'FROM staff_attendance sa'))return self::$rows;
     if(str_contains($sql,'FROM user_lines'))return [['line_id'=>1]];
     if(str_contains($sql,'FROM geofences'))return self::$fences;
@@ -99,3 +103,15 @@ $streetUnavailable=true;
 _presence_outside_lines_bale_alert(5,21,$lat-.00046,$lng+.001,'12:00');
 assertPresence(count(BaleBot::$messages)===2 && !str_contains(BaleBot::$messages[1],'خیابان') && str_contains(BaleBot::$messages[1],'google.com/maps'),'Outside polygon still notifies when street lookup fails');
 echo "PASS Bale geofence tolerance, street text, fallback and duplicate suppression\n";
+
+$a=strpos($source,"route('GET', '/api/my/presence-config', ");
+$b=strpos($source,"\n});",$a);
+eval(substr($source,$a,$b-$a+4));
+$now=time();
+foreach (['expired'=>$now-61,'active'=>$now-10] as $id=>$ts) {
+  Db::$immediate[]=['data'=>json_encode(['type'=>'presence_check','immediate'=>true,'request_id'=>$id,'ts'=>$ts]),'created_at'=>date('Y-m-d H:i:s',$ts)];
+}
+$config=$presenceCron([],[],['id'=>21]);
+assertPresence(!$config['required'] && array_column($config['immediate_requests'],'request_id')===['active'],
+  'An off-shift recipient must get the active immediate request only');
+echo "PASS off-shift immediate request recovery and expiry\n";

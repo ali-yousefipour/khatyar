@@ -22,6 +22,7 @@ export default function PresenceGate({navigationRef}){
  const wizardWasActiveRef=useRef(false);
  const RANDOM_CACHE_KEY='presence_random_schedule_v1';
  const checkingRef=useRef(false);
+ const openNotificationRef=useRef(null);
  const userId=Number(user?.id||0);
 
  const setDueStable=next=>{if(!mountedRef.current)return;dueRef.current=next;setDue(next);};
@@ -41,6 +42,10 @@ export default function PresenceGate({navigationRef}){
     if(!alive)return;
     cfgRef.current=cfg||{};
     if(dueRef.current)return;
+    for(const item of cfg?.immediate_requests||[]){
+     await openNotificationRef.current?.(item);
+     if(!alive||dueRef.current)return;
+    }
     if(!cfg?.enabled||!cfg?.required){setDueStable(null);return;}
     const now=tehranNow(),win=Math.max(1,Number(cfg.window_minutes||1));
 
@@ -114,7 +119,7 @@ export default function PresenceGate({navigationRef}){
    const immediate=data.immediate===true||data.immediate==='true'||data.immediate===1||data.immediate==='1';
    if(dueRef.current)return;
    let cfg=cfgRef.current||{};
-   if(!cfgRef.current){
+   if(!immediate&&!cfgRef.current){
     try{cfg=await request('/my/presence-config',{auth:true,noStore:true});cfgRef.current=cfg||{};}catch(e){cfg={};}
    }
    if(!alive||dueRef.current)return;
@@ -129,11 +134,14 @@ export default function PresenceGate({navigationRef}){
    const notificationWindow=Math.max(1,Number(data.window_minutes||cfg.window_minutes||1));
    const randomTimestamp= random ? /^rnd_\d+_(\d{10})$/.exec(requestId)?.[1] : null;
    const requestTs=Number(data.ts||data.at_ts||randomTimestamp||0);
-   const requestedAtMs=requestTs>0?requestTs*1000:Date.now();
+   const legacyImmediateMs=immediate&&data.immediate_at
+     ? Date.parse(String(data.immediate_at).replace(' ','T')+'+03:30') : NaN;
+   const requestedAtMs=requestTs>0?requestTs*1000:Number.isFinite(legacyImmediateMs)?legacyImmediateMs:Date.now();
    const deadlineMs=requestedAtMs+notificationWindow*60000;
-   if(!immediate&&Date.now()>=deadlineMs)return;
+   if(!alive||Date.now()>=deadlineMs)return;
    if(!dueRef.current)setDueStable({slot:sl,windowMinutes:notificationWindow,deadlineMs,day:now.day,key,expiredKey,immediate,random,requestId});
   };
+  openNotificationRef.current=openFromNotification;
   const handleResponse=r=>openFromNotification(r?.notification?.request?.content?.data||{}).catch(()=>{});
   const handleReceived=n=>openFromNotification(n?.request?.content?.data||{}).catch(()=>{});
   const r1=Notifications.addNotificationReceivedListener(handleReceived);
@@ -141,8 +149,8 @@ export default function PresenceGate({navigationRef}){
   let appSub=null;
   try{appSub=AppState.addEventListener('change',state=>{if(state==='active')Notifications.getLastNotificationResponseAsync().then(r=>{if(r)handleResponse(r)}).catch(()=>{})})}catch(e){}
   Notifications.getLastNotificationResponseAsync().then(r=>{if(r)handleResponse(r)}).catch(()=>{});
-  return()=>{alive=false;try{r1.remove()}catch(e){}try{r2.remove()}catch(e){}try{appSub?.remove()}catch(e){}};
- },[user]);
+  return()=>{alive=false;openNotificationRef.current=null;try{r1.remove()}catch(e){}try{r2.remove()}catch(e){}try{appSub?.remove()}catch(e){}};
+ },[userId]);
 
  // درخواست فعال به یک Route مستقل تبدیل می‌شود؛ دیگر Modal/Overlay مالک lifecycle دوربین نیست.
  useEffect(()=>{
