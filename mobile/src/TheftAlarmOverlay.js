@@ -6,7 +6,7 @@ import { C, FONT } from './theme';
 import { getLockConfig, verifyLockCredential } from './AppLock';
 
 const nativeAlarm = NativeModules.KhatyarTheftAlarm;
-const emptyStatus = { armed: false, triggered: false, reason: '' };
+const emptyStatus = { armed: false, arming: false, armingEndsAt: 0, triggered: false, reason: '' };
 const labels = { pin4: 'پین چهاررقمی', numeric: 'رمز عددی', password: 'رمز عبور', pattern: 'الگوی قفل' };
 
 export async function getTheftAlarmStatus() {
@@ -23,13 +23,14 @@ export default function TheftAlarmOverlay({ onClose, initialStatus }) {
   const [error, setError] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [cooldown, setCooldown] = React.useState(0);
+  const [now,setNow] = React.useState(Date.now());
 
   React.useEffect(() => {
     let mounted = true;
     getLockConfig().then(x => mounted && setConfig(x));
     const refresh = () => getTheftAlarmStatus().then(x => mounted && setStatus(x)).catch(() => {});
     refresh();
-    const timer = setInterval(refresh, 850);
+    const timer = setInterval(() => { setNow(Date.now()); refresh(); }, 250);
     return () => { mounted = false; clearInterval(timer); };
   }, []);
 
@@ -77,10 +78,11 @@ export default function TheftAlarmOverlay({ onClose, initialStatus }) {
   };
 
   const handleClose = () => {
-    if (!status.armed) onClose();
+    if (!status.armed && !status.arming) onClose();
     else Alert.alert('دزدگیر فعال است', 'برای غیرفعال‌سازی و قطع آژیر، رمز قفل برنامه را وارد کنید.');
   };
   const alarmed = status.triggered;
+  const remaining = status.arming ? Math.max(0,Math.ceil((status.armingEndsAt-now)/1000)) : 0;
   const type = config?.type || 'pin4';
 
   return (
@@ -93,20 +95,21 @@ export default function TheftAlarmOverlay({ onClose, initialStatus }) {
         <MaterialCommunityIcons name="shield-lock-outline" size={27} color={C.brand} />
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={[styles.hero, alarmed && styles.heroAlert, status.armed && !alarmed && styles.heroArmed]}>
+        <View style={[styles.hero, alarmed && styles.heroAlert, (status.armed || status.arming) && !alarmed && styles.heroArmed]}>
           <View style={[styles.heroIcon, alarmed && styles.heroIconAlert]}>
-            <MaterialCommunityIcons name={alarmed ? 'alarm-light' : status.armed ? 'shield-check' : 'shield-lock'} size={45} color={alarmed ? '#B91C1C' : C.brand} />
+            <MaterialCommunityIcons name={alarmed ? 'alarm-light' : status.arming ? 'timer-sand' : status.armed ? 'shield-check' : 'shield-lock'} size={45} color={alarmed ? '#B91C1C' : C.brand} />
           </View>
-          <Text style={styles.heroTitle}>{alarmed ? 'هشدار! آژیر فعال شد' : status.armed ? 'دزدگیر روشن است' : 'دزدگیر خاموش است'}</Text>
+          <Text style={styles.heroTitle}>{alarmed ? 'هشدار! آژیر فعال شد' : status.arming ? 'آماده‌سازی دزدگیر' : status.armed ? 'دزدگیر روشن است' : 'دزدگیر خاموش است'}</Text>
+          {status.arming && <Text accessibilityLiveRegion="polite" style={styles.countdown}>{remaining.toLocaleString('fa-IR')}</Text>}
           <Text style={styles.heroSub}>
-            {alarmed ? status.reason === 'charger' ? 'شارژر گوشی جدا شده است.' : 'حرکت گوشی تشخیص داده شده است.' : status.armed ? 'گوشی تحت مراقبت است. برای پایان مراقبت رمز را وارد کنید.' : 'برای حفاظت از گوشی، دزدگیر را فعال کنید.'}
+            {alarmed ? status.reason === 'charger' ? 'شارژر گوشی جدا شده است.' : 'حرکت گوشی تشخیص داده شده است.' : status.arming ? 'تا فعال‌شدن حسگر حرکت، گوشی را در جای مناسب قرار دهید.' : status.armed ? 'گوشی تحت مراقبت است. برای پایان مراقبت رمز را وارد کنید.' : 'برای حفاظت از گوشی، دزدگیر را فعال کنید.'}
           </Text>
         </View>
 
-        {!status.armed ? <>
+        {!status.armed && !status.arming ? <>
           <View style={styles.infoCard}>
             <Info icon="power-plug-off-outline" text="هنگام جداشدن شارژر (اگر گوشی هنگام فعال‌سازی به برق باشد) آژیر پخش می‌شود." />
-            <Info icon="motion-sensor" text="با حرکت محسوس گوشی نیز آژیر پخش می‌شود؛ ۵ ثانیه برای قرار دادن گوشی فرصت دارید." />
+            <Info icon="motion-sensor" text="پس از شمارش معکوس ۱۰ ثانیه‌ای، حرکت محسوس گوشی آژیر را فعال می‌کند." />
             <Info icon="lock-check-outline" text="برای توقف آژیر، رمز یا الگوی قفل خطیار لازم است." />
           </View>
           {!config?.enabled && <Text style={styles.notice}>قفل برنامه فعال نیست. ابتدا از تنظیمات خطیار یک روش قفل تعیین کنید.</Text>}
@@ -114,7 +117,7 @@ export default function TheftAlarmOverlay({ onClose, initialStatus }) {
             <MaterialCommunityIcons name="shield-check-outline" size={23} color="#fff" />
             <Text style={styles.primaryText}>فعال‌سازی دزدگیر</Text>
           </TouchableOpacity>
-        </> : <View style={styles.verifyCard}>
+        </> : status.arming ? <TouchableOpacity accessibilityRole="button" onPress={async()=>{try{await nativeAlarm.disarm();setStatus(emptyStatus);onClose();}catch(_){setError('لغو دزدگیر انجام نشد.');}}} style={styles.cancelArming}><Text style={styles.cancelText}>لغو فعال‌سازی</Text></TouchableOpacity> : <View style={styles.verifyCard}>
           <Text style={styles.verifyTitle}>خاموش کردن دزدگیر</Text>
           <Text style={styles.verifyHint}>برای خاموش‌کردن، {labels[type] || 'رمز'} فعلی برنامه را وارد کنید.</Text>
           {type === 'pattern' ? <>
@@ -148,6 +151,7 @@ const styles=StyleSheet.create({
   heroArmed:{backgroundColor:'#E5F4E9',borderColor:'#9CDAB2'},heroAlert:{backgroundColor:'#FFF1F0',borderColor:'#F7B9B4'},
   heroIcon:{width:82,height:82,borderRadius:26,backgroundColor:'#FFFFFF',alignItems:'center',justifyContent:'center',marginBottom:14},heroIconAlert:{backgroundColor:'#FEE2E2'},
   heroTitle:{fontFamily:FONT.bold,fontSize:20,color:'#173C33',textAlign:'center'},heroSub:{fontFamily:FONT.regular,fontSize:14,color:'#475569',textAlign:'center',marginTop:10,lineHeight:24},
+  countdown:{fontFamily:FONT.bold,fontSize:60,color:C.brand,marginTop:10,fontVariant:['tabular-nums']},cancelArming:{minHeight:54,borderRadius:15,borderWidth:1,borderColor:'#BFCFC7',backgroundColor:'#FFFFFF',alignItems:'center',justifyContent:'center'},cancelText:{fontFamily:FONT.bold,fontSize:15,color:C.ink},
   infoCard:{backgroundColor:'#FFFFFF',borderRadius:20,padding:17,gap:18,borderWidth:1,borderColor:'#DDE6E1'},
   infoRow:{flexDirection:'row-reverse',alignItems:'center',gap:12},infoText:{flex:1,textAlign:'right',writingDirection:'rtl',fontFamily:FONT.regular,color:'#334155',fontSize:14,lineHeight:24},
   notice:{fontFamily:FONT.regular,color:'#B45309',textAlign:'center',fontSize:13,lineHeight:22},

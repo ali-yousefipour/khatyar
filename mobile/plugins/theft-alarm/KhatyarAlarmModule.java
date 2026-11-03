@@ -28,7 +28,7 @@ public final class KhatyarAlarmModule extends ReactContextBaseJavaModule {
   }
   @ReactMethod public void disarm(Promise promise) {
     try {
-      context.getSharedPreferences(KhatyarAlarmService.PREFS,Context.MODE_PRIVATE).edit().putBoolean("armed",false).putBoolean("triggered",false).commit();
+      context.getSharedPreferences(KhatyarAlarmService.PREFS,Context.MODE_PRIVATE).edit().putBoolean("armed",false).putBoolean("arming",false).remove("armingEndsAt").putBoolean("triggered",false).commit();
       context.stopService(new Intent(context,KhatyarAlarmService.class));
       promise.resolve(true);
     } catch(Exception e) { promise.reject("ALARM_DISARM_FAILED",e); }
@@ -37,6 +37,8 @@ public final class KhatyarAlarmModule extends ReactContextBaseJavaModule {
     android.content.SharedPreferences p=context.getSharedPreferences(KhatyarAlarmService.PREFS,Context.MODE_PRIVATE);
     WritableMap map=Arguments.createMap();
     map.putBoolean("armed",p.getBoolean("armed",false));
+    map.putBoolean("arming",p.getBoolean("arming",false));
+    map.putDouble("armingEndsAt",p.getLong("armingEndsAt",0));
     map.putBoolean("triggered",p.getBoolean("triggered",false));
     map.putString("reason",p.getString("reason",""));
     promise.resolve(map);

@@ -162,7 +162,7 @@ function CustomDrawerOverlay(){
   React.useEffect(()=>{setDrawerControlRef({open:()=>setOpen(true),close:()=>setOpen(false)});return()=>setDrawerControlRef(null)},[]);
   React.useEffect(()=>{
     let mounted=true;
-    const check=()=>getTheftAlarmStatus().then(s=>{if(mounted&&s.armed){setAlarmStatus(s);setAlarmOpen(true)}}).catch(()=>{});
+    const check=()=>getTheftAlarmStatus().then(s=>{if(mounted&&(s.armed||s.arming)){setAlarmStatus(s);setAlarmOpen(true)}}).catch(()=>{});
     check();
     const interval=setInterval(check,2500);
     return()=>{mounted=false;clearInterval(interval)};
