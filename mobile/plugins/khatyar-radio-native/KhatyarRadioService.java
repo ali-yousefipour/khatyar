@@ -15,6 +15,7 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.MediaPlayer;
 import android.media.audiofx.Equalizer;
+import android.media.audiofx.LoudnessEnhancer;
 import android.media.session.MediaSession;
 import android.os.Build;
 import android.os.Handler;
@@ -477,6 +478,10 @@ public final class KhatyarRadioService extends Service {
   }
 
   private synchronized void releasePlayer() {
+    if (radioAmplifier != null) {
+      try { radioAmplifier.release(); } catch (RuntimeException ignored) {}
+      radioAmplifier = null;
+    }
     Equalizer eq = radioEqualizer;
     radioEqualizer = null;
     if (eq != null) { try { eq.setEnabled(false); } catch (Throwable ignored) {} try { eq.release(); } catch (Throwable ignored) {} }
@@ -522,6 +527,18 @@ public final class KhatyarRadioService extends Service {
     }
   }
 
+  private LoudnessEnhancer radioAmplifier;
+
+  private void attachAmplifier(MediaPlayer mp) {
+    try {
+      radioAmplifier = new LoudnessEnhancer(mp.getAudioSessionId());
+      radioAmplifier.setTargetGain(amplificationGainMb());
+      radioAmplifier.setEnabled(true);
+    } catch (RuntimeException error) {
+      android.util.Log.w("KhatyarRadio", "Speech amplification unavailable", error);
+    }
+  }
+
   /** Native radio SFX for background reception. Generated locally so no extra audio asset/dependency is required. */
   private void playRadioSfx(boolean opening, boolean closing) {
     if(!destroyed)RadioSfxPlayer.play(this,opening?"receive_leadin":"receive_tail");
@@ -534,6 +551,9 @@ public final class KhatyarRadioService extends Service {
   public synchronized void setAmplificationGain(int gainMb) {
     int safe = clampGainMb(gainMb);
     getPrefs().edit().putInt("amplificationGainMb", safe).apply();
+    if (radioAmplifier != null) {
+      try { radioAmplifier.setTargetGain(safe); } catch (RuntimeException ignored) {}
+    }
   }
 
   private synchronized void playRemote(String audioUrl, String token) {
@@ -552,8 +572,8 @@ public final class KhatyarRadioService extends Service {
       Map<String,String> headers = new HashMap<>(); if (token != null && !token.isEmpty()) headers.put("Authorization", "Bearer " + token);
       player.setDataSource(this, android.net.Uri.parse(audioUrl), headers);
       final long playbackSession=getPrefs().getLong("sessionVersion",0L);
-      player.setOnCompletionListener(mp -> { synchronized (KhatyarRadioService.this) { if(!radioAuthorized()||player!=mp||getPrefs().getLong("sessionVersion",0L)!=playbackSession)return;playRadioSfx(false,true); try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); playNextRemote(); } });
-      player.setOnErrorListener((mp, what, extra) -> { synchronized (KhatyarRadioService.this) { if(destroyed||player!=mp||getPrefs().getLong("sessionVersion",0L)!=playbackSession)return true; try { mp.release(); } catch (Throwable ignored) {} if (player == mp) player = null; setPlaybackActive(false); playNextRemote(); } return true; });
+      player.setOnCompletionListener(mp -> { synchronized (KhatyarRadioService.this) { if(!radioAuthorized()||player!=mp||getPrefs().getLong("sessionVersion",0L)!=playbackSession)return;playRadioSfx(false,true); releasePlayer(); playNextRemote(); } });
+      player.setOnErrorListener((mp, what, extra) -> { synchronized (KhatyarRadioService.this) { if(destroyed||player!=mp||getPrefs().getLong("sessionVersion",0L)!=playbackSession)return true; releasePlayer(); playNextRemote(); } return true; });
       player.setOnPreparedListener(mp -> {
         if(destroyed||player!=mp||getPrefs().getLong("sessionVersion",0L)!=playbackSession)return;
         try {
@@ -561,9 +581,14 @@ public final class KhatyarRadioService extends Service {
           int sessionId = mp.getAudioSessionId();
           getPrefs().edit().putInt("audioSessionId", Math.max(0, sessionId)).putBoolean("playbackActive", true).apply();
           attachRadioEqualizer(mp);
+          attachAmplifier(mp);
           final long preparedSession=getPrefs().getLong("sessionVersion",0L);
-          playRadioSfx(true,false);
-          handler.postDelayed(()->{synchronized(KhatyarRadioService.this){if(!radioAuthorized()||player!=mp||getPrefs().getLong("sessionVersion",0L)!=preparedSession)return;try{mp.start();}catch(Throwable error){releasePlayer();}}},100L);
+          RadioSfxPlayer.play(this,"receive_leadin",played->handler.post(()->{
+            synchronized(KhatyarRadioService.this){
+              if(!radioAuthorized()||player!=mp||getPrefs().getLong("sessionVersion",0L)!=preparedSession)return;
+              try{ensureMaxMediaVolume();mp.start();}catch(RuntimeException error){releasePlayer();playNextRemote();}
+            }
+          }));
         } catch (Throwable ignored) {
           setPlaybackActive(false);
         }

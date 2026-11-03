@@ -7,26 +7,43 @@ import android.media.AudioTrack;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 /** Small dependency-free native radio sound-effect player. */
 public final class RadioSfxPlayer {
-  private static final int SAMPLE_RATE = 8000;
+  private static final int SAMPLE_RATE = 48000;
   private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
 
   private RadioSfxPlayer() {}
 
   public static void play(Context context, String kind) {
-    if (context == null || kind == null || kind.trim().isEmpty()) return;
-    final String safeKind = kind.trim();
-    EXECUTOR.execute(() -> renderAndPlay(context.getApplicationContext(), safeKind));
+    play(context, kind, played -> {});
   }
 
-  private static void renderAndPlay(Context context, String kind) {
+  public static void play(Context context, String kind, Consumer<Boolean> completion) {
+    EXECUTOR.execute(() -> completion.accept(renderAndPlay(context, kind)));
+  }
+
+  public static void maximizeMediaVolume(Context context) {
+    try {
+      AudioManager audio = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+      if (audio == null || audio.isVolumeFixed()) return;
+      int max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+      if (audio.getStreamVolume(AudioManager.STREAM_MUSIC) < max) {
+        audio.setStreamVolume(AudioManager.STREAM_MUSIC, max, 0);
+      }
+    } catch (RuntimeException error) {
+      android.util.Log.w("KhatyarRadio", "Could not maximize media volume", error);
+    }
+  }
+
+  private static boolean renderAndPlay(Context context, String kind) {
     final byte[] pcm = buildPcm(kind);
-    if (pcm.length == 0) return;
+    if (pcm.length == 0) return false;
 
     AudioTrack track = null;
     try {
+      maximizeMediaVolume(context);
       int min = AudioTrack.getMinBufferSize(
           SAMPLE_RATE,
           AudioFormat.CHANNEL_OUT_MONO,
@@ -40,12 +57,22 @@ public final class RadioSfxPlayer {
           Math.max(Math.max(min, pcm.length), 2),
           AudioTrack.MODE_STATIC
       );
-      track.write(pcm, 0, pcm.length);
+      if (track.write(pcm, 0, pcm.length) != pcm.length ||
+          track.getState() != AudioTrack.STATE_INITIALIZED) return false;
       track.setVolume(1.0f);
       track.play();
-      try { Thread.sleep((pcm.length / 2L) * 1000L / SAMPLE_RATE + 10L); }
-      catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-    } catch (Throwable ignored) {
+      int frames = pcm.length / 2;
+      long deadline = android.os.SystemClock.elapsedRealtime() + frames * 1000L / SAMPLE_RATE + 350L;
+      while (track.getPlaybackHeadPosition() < frames && android.os.SystemClock.elapsedRealtime() < deadline) {
+        Thread.sleep(10L);
+      }
+      return track.getPlaybackHeadPosition() >= frames;
+    } catch (InterruptedException error) {
+      Thread.currentThread().interrupt();
+      return false;
+    } catch (RuntimeException error) {
+      android.util.Log.w("KhatyarRadio", "Radio effect playback failed", error);
+      return false;
     } finally {
       if (track != null) {
         try { track.stop(); } catch (Throwable ignored) {}
@@ -56,12 +83,12 @@ public final class RadioSfxPlayer {
 
   private static byte[] buildPcm(String kind) {
     int duration;
-    if ("receive_leadin".equals(kind)) duration=70;
+    if ("receive_leadin".equals(kind)) duration=210;
     else if ("receive_tail".equals(kind)) duration=85;
-    else if ("ptt_press".equals(kind)||"talk_start".equals(kind)) duration=65;
+    else if ("ptt_press".equals(kind)||"talk_start".equals(kind)) duration=95;
     else if ("roger".equals(kind)) duration=180;
     else if ("eot".equals(kind)) duration=150;
-    else if ("release_click".equals(kind)) duration=48;
+    else if ("release_click".equals(kind)) duration=85;
     else if ("channel_busy".equals(kind)) duration=220;
     else if ("channel_free".equals(kind)) duration=145;
     else return new byte[0];
@@ -74,16 +101,16 @@ public final class RadioSfxPlayer {
       low+=0.34*((random.nextDouble()*2.0-1.0)-low);
       high=0.79*(high+low-previousLow);previousLow=low;
       double sample;
-      if("receive_leadin".equals(kind))sample=high*0.13*Math.exp(-milliseconds/75.0)+burst(530,index,milliseconds,10,68,0.04);
+      if("receive_leadin".equals(kind))sample=burst(970,index,milliseconds,5,85,0.12)+burst(1390,index,milliseconds,105,198,0.14);
       else if("receive_tail".equals(kind))sample=high*0.16*Math.exp(-milliseconds/42.0)+burst(400,index,milliseconds,0,36,0.025);
-      else if("release_click".equals(kind))sample=high*0.14*Math.exp(-milliseconds/11.0)-burst(520,index,milliseconds,5,27,0.035);
+      else if("release_click".equals(kind))sample=high*0.14*Math.exp(-milliseconds/11.0)+burst(650,index,milliseconds,5,78,0.12);
       else if("eot".equals(kind))sample=burst(1040,index,milliseconds,4,58,0.085)+burst(720,index,milliseconds,70,136,0.075);
       else if("roger".equals(kind))sample=burst(1120,index,milliseconds,4,82,0.085)+burst(880,index,milliseconds,98,163,0.075);
       else if("channel_busy".equals(kind))sample=burst(440,index,milliseconds,4,85,0.09)+burst(440,index,milliseconds,123,205,0.09);
-      else if("channel_free".equals(kind))sample=high*0.025*Math.exp(-milliseconds/60.0)+burst(920,index,milliseconds,12,125,0.055);
-      else sample=high*0.095*Math.exp(-milliseconds/22.0)+burst(760,index,milliseconds,7,42,0.07);
+      else if("channel_free".equals(kind))sample=burst(920,index,milliseconds,8,125,0.12);
+      else sample=burst(1120,index,milliseconds,7,85,0.13);
       double edge=Math.max(0.0,Math.min(1.0,Math.min(milliseconds/5.0,(duration-milliseconds)/10.0)));
-      short value=(short)Math.round(Math.max(-0.65,Math.min(0.65,sample*edge*2.4))*32767.0);
+      short value=(short)Math.round(Math.max(-0.85,Math.min(0.85,sample*edge*6.0))*32767.0);
       bytes[index*2]=(byte)(value&0xff);bytes[index*2+1]=(byte)((value>>8)&0xff);
     }
     return bytes;

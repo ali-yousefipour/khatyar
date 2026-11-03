@@ -39,7 +39,7 @@ function withManifest(config) {
   return withAndroidManifest(config, cfg => {
     const manifest = cfg.modResults.manifest;
     manifest['uses-permission'] = manifest['uses-permission'] || [];
-    for (const name of ['android.permission.FOREGROUND_SERVICE','android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK','android.permission.FOREGROUND_SERVICE_MICROPHONE','android.permission.RECORD_AUDIO','android.permission.WAKE_LOCK','android.permission.POST_NOTIFICATIONS']) {
+    for (const name of ['android.permission.FOREGROUND_SERVICE','android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK','android.permission.FOREGROUND_SERVICE_MICROPHONE','android.permission.RECORD_AUDIO','android.permission.MODIFY_AUDIO_SETTINGS','android.permission.WAKE_LOCK','android.permission.POST_NOTIFICATIONS']) {
       if (!manifest['uses-permission'].some(x => x.$ && x.$['android:name'] === name)) manifest['uses-permission'].push({ $:{'android:name':name} });
     }
     const app = manifest.application && manifest.application[0];

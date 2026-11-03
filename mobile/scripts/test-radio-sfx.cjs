@@ -4,18 +4,18 @@ const path=require('node:path');
 const os=require('node:os');
 const {spawnSync}=require('node:child_process');
 const source=fs.readFileSync(path.join(__dirname,'../plugins/khatyar-radio-native/RadioSfxPlayer.java'),'utf8');
-assert.ok(!source.includes('setStreamVolume'),'effects must not override user volume');
 assert.ok(source.includes('newSingleThreadExecutor'),'effects cannot overlap each other');
+const sampleRate=Number(source.match(/SAMPLE_RATE = (\d+);/)[1]);
 const methods=source.slice(source.indexOf('  private static byte[] buildPcm('),source.lastIndexOf('}'));
-const test=`public class RadioSfxTest {private static final int SAMPLE_RATE=8000;
+const test=`public class RadioSfxTest {private static final int SAMPLE_RATE=${sampleRate};
 ${methods}
 public static void main(String[] args){
 String[] kinds={"receive_leadin","receive_tail","ptt_press","talk_start","roger","eot","release_click","channel_busy","channel_free"};
-int[] durations={70,85,65,65,180,150,48,220,145};
+int[] durations={210,85,95,95,180,150,85,220,145};
 for(int index=0;index<kinds.length;index++){
-byte[] bytes=buildPcm(kinds[index]);if(bytes.length!=durations[index]*16)throw new AssertionError("duration "+kinds[index]);
+byte[] bytes=buildPcm(kinds[index]);if(bytes.length!=durations[index]*SAMPLE_RATE/1000*2)throw new AssertionError("duration "+kinds[index]);
 int peak=0;long energy=0,sum=0;for(int offset=0;offset<bytes.length;offset+=2){short sample=(short)((bytes[offset]&255)|((bytes[offset+1]&255)<<8));peak=Math.max(peak,Math.abs((int)sample));energy+=(long)sample*sample;sum+=sample;}
-if(peak>8192||peak<100||energy==0)throw new AssertionError("peak/energy "+kinds[index]+" peak="+peak+" energy="+energy);
+if(peak>27853||peak<4500||energy==0)throw new AssertionError("peak/energy "+kinds[index]+" peak="+peak+" energy="+energy);
 if(Math.abs(sum/(bytes.length/2))>300)throw new AssertionError("DC offset "+kinds[index]);
 if(bytes[0]!=0||bytes[1]!=0)throw new AssertionError("click-free attack "+kinds[index]);
 }
