@@ -1661,7 +1661,7 @@ function Users(){
 }
 
 function AddUser({roles,zones,onClose,onSave}){
-  const [f,setF]=useState({first_name:"",last_name:"",username:"",email:"",role_id:roles[0]?.id||9,zone_id:null,password:"123456",allow_android:1,allow_web:1,birth_date:"",birth_iso:""});
+  const [f,setF]=useState(()=>({first_name:"",last_name:"",username:"",email:"",role_id:roles[0]?.id||9,zone_id:null,password:crypto.randomUUID().replace(/-/g,"").slice(0,16),allow_android:1,allow_web:1,birth_date:"",birth_iso:""}));
   return(<Modal title="افزودن کاربر جدید" onClose={onClose}>
     <div className="row"><div><label>نام</label><input className="input" onChange={e=>setF({...f,first_name:e.target.value})}/></div>
       <div><label>نام خانوادگی</label><input className="input" onChange={e=>setF({...f,last_name:e.target.value})}/></div></div>
@@ -1670,7 +1670,7 @@ function AddUser({roles,zones,onClose,onSave}){
     <div className="row" style={{gap:10,flexWrap:"wrap"}}><div style={{flex:1,minWidth:170}}><label>تاریخ تولد</label><JDate yearFrom={1320} yearTo={todayJ()[0]} value={f.birth_iso||""} onChange={v=>{ let bd=""; if(v){ const [y,m,d]=v.split("-").map(Number); const [jy,jm,jd]=gregToJalali(y,m,d); bd=`${jy}-${String(jm).padStart(2,"0")}-${String(jd).padStart(2,"0")}`; } setF({...f,birth_iso:v,birth_date:bd}); }}/>{f.birth_date&&<span className="muted" style={{fontSize:11}}>{String(f.birth_date).replace(/-/g,"/")}</span>}</div></div>
     <label>سمت</label><select className="input" value={f.role_id} onChange={e=>setF({...f,role_id:+e.target.value})}>{roles.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select>
     <label>منطقه</label><select className="input" onChange={e=>setF({...f,zone_id:e.target.value?+e.target.value:null})}><option value="">بدون منطقه</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select>
-    <label>رمز اولیه</label><input className="input" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/>
+    <label>رمز اولیهٔ تصادفی (حداقل ۱۲ کاراکتر)</label><div className="row" style={{gap:8}}><input className="input" dir="ltr" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/><button type="button" className="btn g" onClick={()=>setF({...f,password:crypto.randomUUID().replace(/-/g,"").slice(0,16)})}>رمز جدید</button></div>
     <div className="row" style={{gap:16,marginTop:10}}>
       <label className="row" style={{gap:6}}><input type="checkbox" checked={f.allow_android} onChange={e=>setF({...f,allow_android:e.target.checked?1:0})}/>اندروید</label>
       <label className="row" style={{gap:6}}><input type="checkbox" checked={f.allow_web} onChange={e=>setF({...f,allow_web:e.target.checked?1:0})}/>وب</label></div>
