@@ -229,36 +229,36 @@ export default function InventoryScreen() {
       </ScrollView>
 
       <Modal visible={itemOpen} animationType="slide" transparent onRequestClose={()=>setItemOpen(false)}>
-        <ModalKeyboardView style={s.modalWrap}><View style={s.modalCard}><Text style={s.modalTitle}>انتخاب نوع قلم</Text>
+        <ModalKeyboardView style={s.modalWrap}><View style={s.modalCard}><Text accessibilityRole="header" style={s.modalTitle}>انتخاب نوع قلم</Text>
           <TextInput style={s.input} value={itemQ} onChangeText={setItemQ} placeholder="جستجوی نام قلم" placeholderTextColor={C.muted} autoFocus/>
-          <FlatList data={itemTypes.filter(it=>String(it.name||'').includes(itemQ.trim()))} keyExtractor={it=>String(it.id)} style={{maxHeight:330,marginTop:8}} ListEmptyComponent={<Text style={s.empty}>قلمی یافت نشد.</Text>} renderItem={({item})=><TouchableOpacity style={s.optRow} onPress={()=>{setItemTypeId(item.id);setItemOpen(false);setItemQ('');}}><Text style={s.optName}>{item.name}</Text></TouchableOpacity>}/>
-          <TouchableOpacity style={s.modalClose} onPress={()=>setItemOpen(false)}><Text style={s.modalCloseTxt}>بستن</Text></TouchableOpacity>
+          <FlatList keyboardShouldPersistTaps="handled" data={itemTypes.filter(it=>String(it.name||'').includes(itemQ.trim()))} keyExtractor={it=>String(it.id)} style={{maxHeight:330,flexShrink:1,marginTop:8}} ListEmptyComponent={<Text style={s.empty}>قلمی یافت نشد.</Text>} renderItem={({item})=><TouchableOpacity accessibilityRole="button" style={s.optRow} onPress={()=>{setItemTypeId(item.id);setItemOpen(false);setItemQ('');}}><Text style={s.optName}>{item.name}</Text></TouchableOpacity>}/>
+          <TouchableOpacity accessibilityRole="button" style={s.modalClose} onPress={()=>setItemOpen(false)}><Text style={s.modalCloseTxt}>بستن</Text></TouchableOpacity>
         </View></ModalKeyboardView>
       </Modal>
       <Modal visible={roleOpen} animationType="slide" transparent onRequestClose={()=>setRoleOpen(false)}>
-        <ModalKeyboardView style={s.modalWrap}><View style={s.modalCard}><Text style={s.modalTitle}>انتخاب سمت تحویل‌گیرنده</Text>
+        <ModalKeyboardView style={s.modalWrap}><View style={s.modalCard}><Text accessibilityRole="header" style={s.modalTitle}>انتخاب سمت تحویل‌گیرنده</Text>
           <TextInput style={s.input} value={roleQ} onChangeText={setRoleQ} placeholder="جستجوی سمت" placeholderTextColor={C.muted} autoFocus/>
-          <FlatList data={roles.filter(r=>String(r).includes(roleQ.trim()))} keyExtractor={r=>String(r)} style={{maxHeight:330,marginTop:8}} ListEmptyComponent={<Text style={s.empty}>سمتی یافت نشد.</Text>} renderItem={({item})=><TouchableOpacity style={s.optRow} onPress={()=>{setRoleSel(item);setPicked(null);setNameQ('');setRoleOpen(false);setRoleQ('');}}><Text style={s.optName}>{item}</Text></TouchableOpacity>}/>
-          <TouchableOpacity style={s.modalClose} onPress={()=>setRoleOpen(false)}><Text style={s.modalCloseTxt}>بستن</Text></TouchableOpacity>
+          <FlatList keyboardShouldPersistTaps="handled" data={roles.filter(r=>String(r).includes(roleQ.trim()))} keyExtractor={r=>String(r)} style={{maxHeight:330,flexShrink:1,marginTop:8}} ListEmptyComponent={<Text style={s.empty}>سمتی یافت نشد.</Text>} renderItem={({item})=><TouchableOpacity accessibilityRole="button" style={s.optRow} onPress={()=>{setRoleSel(item);setPicked(null);setNameQ('');setRoleOpen(false);setRoleQ('');}}><Text style={s.optName}>{item}</Text></TouchableOpacity>}/>
+          <TouchableOpacity accessibilityRole="button" style={s.modalClose} onPress={()=>setRoleOpen(false)}><Text style={s.modalCloseTxt}>بستن</Text></TouchableOpacity>
         </View></ModalKeyboardView>
       </Modal>
       <Modal visible={dropOpen} animationType="slide" transparent onRequestClose={() => setDropOpen(false)}>
         <ModalKeyboardView style={s.modalWrap}>
           <View style={s.modalCard}>
-            <Text style={s.modalTitle}>انتخاب شخص ({roleSel})</Text>
+            <Text accessibilityRole="header" style={s.modalTitle}>انتخاب شخص ({roleSel})</Text>
             <TextInput style={s.input} value={nameQ} onChangeText={setNameQ} placeholder="جستجوی نام" placeholderTextColor={C.muted} autoFocus />
-            <FlatList
+            <FlatList keyboardShouldPersistTaps="handled"
               data={users.filter((u) => u.role_title === roleSel && (!nameQ || (u.name || '').indexOf(nameQ) >= 0))}
               keyExtractor={(it) => String(it.id)}
-              style={{ maxHeight: 320, marginTop: 8 }}
+              style={{ maxHeight: 320, flexShrink: 1, marginTop: 8 }}
               ListEmptyComponent={<Text style={s.empty}>موردی یافت نشد.</Text>}
               renderItem={({ item }) => (
-                <TouchableOpacity style={s.optRow} onPress={() => { setPicked(item); setDropOpen(false); }}>
+                <TouchableOpacity accessibilityRole="button" style={s.optRow} onPress={() => { setPicked(item); setDropOpen(false); }}>
                   <Text style={s.optName}>{item.name}</Text>
                 </TouchableOpacity>
               )}
             />
-            <TouchableOpacity style={s.modalClose} onPress={() => setDropOpen(false)}><Text style={s.modalCloseTxt}>بستن</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" style={s.modalClose} onPress={() => setDropOpen(false)}><Text style={s.modalCloseTxt}>بستن</Text></TouchableOpacity>
           </View>
         </ModalKeyboardView>
       </Modal>

@@ -114,9 +114,9 @@ export default function OutageScreen() {
       <Modal visible={lineOpen} animationType="slide" transparent onRequestClose={() => setLineOpen(false)}>
         <ModalKeyboardView style={s.modalWrap}>
           <View style={s.modalCard}>
-            <Text style={s.modalTitle}>انتخاب خط</Text>
+            <Text accessibilityRole="header" style={s.modalTitle}>انتخاب خط</Text>
             <TextInput style={s.input} value={lineQ} onChangeText={setLineQ} placeholder="جستجو بر اساس شماره یا نام خط" placeholderTextColor={C.muted} accessibilityLabel="جستجوی خط" autoFocus />
-            <FlatList data={filteredLines} keyExtractor={(it) => String(it.id)} style={{ maxHeight: 340, marginTop: 8 }}
+            <FlatList keyboardShouldPersistTaps="handled" data={filteredLines} keyExtractor={(it) => String(it.id)} style={{ maxHeight: 340, flexShrink: 1, marginTop: 8 }}
               ListEmptyComponent={<Text style={s.empty}>خطی یافت نشد.</Text>}
               renderItem={({ item }) => (
               <TouchableOpacity accessibilityRole="button" style={s.optRow} onPress={() => { setLineId(item.id); setLineOpen(false); setLineQ(''); }}>
@@ -124,7 +124,7 @@ export default function OutageScreen() {
                   {!!item.origin && <Text style={s.optSub}>{item.origin} - {item.destination || ''}</Text>}
                 </TouchableOpacity>
               )} />
-            <TouchableOpacity style={s.modalClose} onPress={() => setLineOpen(false)}><Text style={s.modalCloseTxt}>بستن</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" style={s.modalClose} onPress={() => setLineOpen(false)}><Text style={s.modalCloseTxt}>بستن</Text></TouchableOpacity>
           </View>
         </ModalKeyboardView>
       </Modal>
