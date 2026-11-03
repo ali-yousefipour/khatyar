@@ -1033,7 +1033,7 @@ route('GET', '/api/presence-image/{id}', function($p,$b,$u){
     if (($payload['t'] ?? '') !== 'presence-image'
       || (int)($payload['image_id'] ?? 0) !== (int)$p['id']
       || ($payload['kind'] ?? '') !== $requestedKind) Http::error('لینک تصویر نامعتبر یا منقضی است', 403);
-  } elseif (!Jwt::isAccessPayload($payload)) Http::error('دسترسی نامعتبر است', 403);
+  } elseif (!is_array($payload) || ($payload['t'] ?? 'a') !== 'a') Http::error('دسترسی نامعتبر است', 403);
   $actor = Db::one('SELECT u.id,u.is_active,r.is_admin,r.level FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?', [(int)($payload['sub'] ?? 0)]);
   if (!$actor || !(int)$actor['is_active'] || !(int)$actor['is_admin'] || (int)$actor['level'] > 3) Http::error('دسترسی مجاز نیست', 403);
   $deviceType = (string)($payload['dt'] ?? 'web');
