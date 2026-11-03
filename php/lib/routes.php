@@ -756,7 +756,7 @@ function _presence_outside_lines_bale_alert($checkId,$userId,$lat,$lng,$slot) {
     if (!$lineIds) return;
     $placeholders=implode(',',array_fill(0,count($lineIds),'?'));
     $fenceCount=Db::one("SELECT COUNT(*) AS n FROM geofences WHERE line_id IN ($placeholders)",$lineIds);
-    if ((int)($fenceCount['n']??0)===0 || station_at_point($lat,$lng,$lineIds)!==null) return;
+    if ((int)($fenceCount['n']??0)===0 || station_at_point($lat,$lng,$lineIds,50)!==null) return;
     Db::run("CREATE TABLE IF NOT EXISTS presence_outside_bale_alerts (check_id BIGINT NOT NULL PRIMARY KEY, user_id INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     // A unique check ID prevents a repeated submission from messaging management again.
     $inserted=Db::exec('INSERT IGNORE INTO presence_outside_bale_alerts(check_id,user_id) VALUES(?,?)',[(int)$checkId,(int)$userId]);
@@ -766,13 +766,19 @@ function _presence_outside_lines_bale_alert($checkId,$userId,$lat,$lng,$slot) {
     if ($name==='') $name='شناسه '.(int)$userId;
     $time=date('H:i');
     $mapUrl='https://www.google.com/maps?q='.sprintf('%.6F',$lat).','.sprintf('%.6F',$lng);
-    $body="⚠️ هشدار صحت‌سنجی خارج از محدوده خطوط مجاز\n"
-      ."کاربر {$name} صحت‌سنجی حضور ساعت {$time} (بازه {$slot}) خود را خارج از خطوط تعریف‌شده و مجازش انجام داده است.\n"
-      ."برای بررسی صحت، تصاویر سلفی و خط را در پنل سایت بازبینی کنید.\n\n"
-      ."📍 نمایش محل ثبت صحت‌سنجی در Google Maps:\n{$mapUrl}";
     $managers=Db::all('SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 AND r.level BETWEEN 1 AND 4');
     $recipients=array_values(array_unique(array_map('intval',array_column($managers,'id'))));
-    if ($recipients && class_exists('BaleBot')) BaleBot::sendToUserIds($recipients,'هشدار صحت‌سنجی خارج از خط',$body,'messages',['presence_check_id'=>(int)$checkId,'user_id'=>(int)$userId]);
+    if (!$recipients || !class_exists('BaleBot')) return;
+    $street='';
+    try {
+      if (function_exists('presence_reverse_geocode')) $street=presence_reverse_geocode($lat,$lng)['street']??'';
+    } catch (Throwable $e) {
+      error_log('presence alert street lookup failed: '.$e->getMessage());
+    }
+    $body="{$name} | ساعت {$time} (بازه {$slot})\n";
+    if ($street!=='') $body.="خیابان: {$street} (© OpenStreetMap)\n";
+    $body.=$mapUrl;
+    BaleBot::sendToUserIds($recipients,'⚠️ صحت‌سنجی خارج از محدوده ایستگاه',$body,'messages',['presence_check_id'=>(int)$checkId,'user_id'=>(int)$userId]);
   } catch (Throwable $e) { error_log('presence outside-area Bale alert: '.$e->getMessage()); }
 }
 

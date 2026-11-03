@@ -5,9 +5,12 @@
  * caching and attribution. Auth is enforced by the regular API router.
  */
 route('GET', '/api/my/reverse-geocode', static function ($params, $body, $user) {
-    if (!isset($_GET['lat'], $_GET['lng'])) return ['ok' => false, 'street' => '', 'source' => 'none'];
-    $lat = filter_var($_GET['lat'], FILTER_VALIDATE_FLOAT);
-    $lon = filter_var($_GET['lng'], FILTER_VALIDATE_FLOAT);
+    return presence_reverse_geocode($_GET['lat'] ?? null, $_GET['lng'] ?? null);
+});
+
+function presence_reverse_geocode($lat, $lon): array {
+    $lat = filter_var($lat, FILTER_VALIDATE_FLOAT);
+    $lon = filter_var($lon, FILTER_VALIDATE_FLOAT);
     if ($lat === false || $lon === false || $lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
         return ['ok' => false, 'street' => '', 'source' => 'none'];
     }
@@ -79,4 +82,4 @@ route('GET', '/api/my/reverse-geocode', static function ($params, $body, $user) 
         flock($fp, LOCK_UN);
         fclose($fp);
     }
-});
+}
