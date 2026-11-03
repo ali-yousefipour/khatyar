@@ -221,7 +221,7 @@ export default function DrawerMenuScreen({ navigation, onStartFlasher, onStartTh
         <View style={s.profileRow}><TouchableOpacity onPress={() => setPhotoOpen(true)} activeOpacity={0.8} accessibilityRole="imagebutton" accessibilityLabel="نمایش تمام‌صفحه و مدیریت عکس کاربر"><View style={s.profileAvatar}>{photo && !photoFailed ? <Image source={imageSource(photo)} style={s.profileImage} onError={() => setPhotoFailed(true)} /> : <Text style={s.profileInitial}>{String(user?.name || "؟").trim().charAt(0) || "؟"}</Text>}</View></TouchableOpacity><View style={s.profileTextWrap}><Text style={s.profileName} numberOfLines={1}>{user?.name || "کاربر خطیار"}</Text><Text style={s.profileRole} numberOfLines={1}>{user?.role_title || user?.role || "حساب کاربری"}</Text></View></View>
       </View>
       <ScrollView persistentScrollbar={true} contentContainerStyle={[s.content,{paddingBottom:Math.max(insets.bottom,16)+24}]} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="روشن کردن فلاشر سفید و زرد" style={s.item} onPress={onStartFlasher} activeOpacity={0.78}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="انتخاب رنگ و روشن کردن فلاشر" style={s.item} onPress={onStartFlasher} activeOpacity={0.78}>
           <View style={s.icon}><MaterialCommunityIcons name="alarm-light-outline" size={23} color={C.brand} /></View>
           <View style={s.itemTextWrap}><Text style={s.itemText}>فلاشر</Text></View>
           <MaterialCommunityIcons name="chevron-left" size={22} color={C.muted} />
