@@ -134,7 +134,7 @@ class Sms
             foreach ($mobiles as $i => $m) {
                 $mid = $ids[$i] ?? $firstId;
                 Db::run("INSERT INTO sms_log(to_mobile,body,kind,status,message_id,sent_by) VALUES(?,?,?,?,?,?)",
-                    [$m, $message, $kind, $ok ? 'ok' : 'error', $mid !== null ? (string)$mid : null, $sentBy]);
+                    [$m, $kind === 'login_otp' ? '[OTP REDACTED]' : $message, $kind, $ok ? 'ok' : 'error', $mid !== null ? (string)$mid : null, $sentBy]);
             }
         } catch (\Throwable $e) {}
 
@@ -144,9 +144,9 @@ class Sms
             $item = in_array((string)$kind, ['birthday'], true) ? 'birthday' :
                 (preg_match('/notice|warning/i', (string)$kind) ? 'warnings' :
                 (preg_match('/bill|debt/i', (string)$kind) ? 'bills' : 'messages'));
-            if ($ok && class_exists('MessengerHub')) MessengerHub::sendToMobiles($mobiles, $message, $item, 'sms', null);
-            elseif ($ok && class_exists('BaleBot')) BaleBot::sendToMobiles($mobiles, $message, $item, 'sms', null);
-            if (!$ok && class_exists('DeliveryQueue')) {
+            if ($ok && $kind !== 'login_otp' && class_exists('MessengerHub')) MessengerHub::sendToMobiles($mobiles, $message, $item, 'sms', null);
+            elseif ($ok && $kind !== 'login_otp' && class_exists('BaleBot')) BaleBot::sendToMobiles($mobiles, $message, $item, 'sms', null);
+            if (!$ok && $kind !== 'login_otp' && class_exists('DeliveryQueue')) {
                 foreach ($mobiles as $m) DeliveryQueue::enqueue('sms', $m, '', $message, ['kind'=>$kind,'sent_by'=>$sentBy], 'sms', null);
             }
         } catch (\Throwable $e) {}

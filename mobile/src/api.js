@@ -29,7 +29,7 @@ export async function getAppLoginConfig(){
   if(!['password','sms_otp','bale_otp'].includes(data?.method))throw new Error('روش ورود اعلام‌شده توسط سرور نامعتبر است.');
   return data;
 }
-export async function requestAppLoginOtp(username){return _sessionFormPost('/session/app-login-request',{username})}
+export async function requestAppLoginOtp(username,device_id){return _sessionFormPost('/session/app-login-request',{username,device_id})}
 export async function verifyAppLoginOtp(body){return _sessionFormPost('/session/app-login-verify',body)}
 export function imageSource(val){if(!val)return null;if(typeof val!=='string')return val;if(val.indexOf('data:')===0)return{uri:val};if(val.indexOf('/api/')===0){const base=apiBase().replace(/\/api$/,'');return{uri:base+val,headers:accessToken?{Authorization:'Bearer '+accessToken,'X-Access-Token':accessToken}:{}}}if(val.indexOf('http')===0)return{uri:val};return{uri:val}}
 async function queueMultipart(path,fields,fileField,fileUri,fileName,mimeType){let persistedUri=fileUri;const id=`q_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,10)}`;if(fileUri&&!/^https?:\/\//i.test(String(fileUri))){const dir=FileSystem.documentDirectory||'';if(dir){const safe=String(fileName||'upload.bin').replace(/[^a-zA-Z0-9._-]/g,'_');const target=`${dir}offline-${id}-${safe}`;try{await FileSystem.copyAsync({from:fileUri,to:target});persistedUri=target}catch(_){throw new Error('ذخیره فایل برای ارسال آفلاین ممکن نشد.')}}}await enqueue({path,kind:'multipart',fields:fields||{},fileField:fileField||'file',fileUri:persistedUri,fileName:fileName||'photo.jpg',mimeType:mimeType||'image/jpeg',client_uuid:id,client_time:Date.now(),type:path});return{queued:true,ok:true,id,client_uuid:id,client_time:Date.now()}}

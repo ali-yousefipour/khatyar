@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Switch, Alert, AppState, Image, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Switch, Alert, AppState, Image, ScrollView, KeyboardAvoidingView, Platform, NativeModules, DeviceEventEmitter } from 'react-native';
 import { useAuth } from '../auth';
 import { request } from '../api';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+const smsOtp = NativeModules.KhatyarSmsOtp;
 
 export default function LoginScreen() {
   const { login, appLoginConfig, appLoginOtpRequest, appLoginOtpVerify } = useAuth();
   const [loginMethod, setLoginMethod] = useState('password');
+  const [smsAutoMode,setSmsAutoMode] = useState('consent');
+  const [smsStatus,setSmsStatus] = useState('');
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState('');
   const [configRetry, setConfigRetry] = useState(0);
@@ -33,6 +36,7 @@ export default function LoginScreen() {
       if (!alive) return;
       if (!['password','sms_otp','bale_otp'].includes(x?.method)) { setConfigError('تنظیمات روش ورود از سرور معتبر نیست. لطفاً با مدیر سامانه تماس بگیرید.'); return; }
       setLoginMethod(x.method);
+      setSmsAutoMode(x.sms_auto_mode === 'retriever' ? 'retriever' : 'consent');
     }).catch((error) => {
       if (alive) setConfigError('دریافت روش ورود از سرور انجام نشد. ' + (error?.message || 'اتصال اینترنت و دسترسی سرور را بررسی کنید.') + ' — لطفاً دوباره تلاش کنید.');
     }).finally(() => alive && setConfigLoading(false));
@@ -46,6 +50,16 @@ export default function LoginScreen() {
     return () => subscription.remove();
   }, [mode]);
   useEffect(() => () => { if (cooldownTimer.current) clearInterval(cooldownTimer.current); }, []);
+  useEffect(() => {
+    const listeners = [
+      DeviceEventEmitter.addListener('KhatyarSmsOtpCode', event => {
+        if (/^[0-9]{6}$/.test(String(event?.code||''))) { setSmsStatus('received'); setCode(event.code); }
+      }),
+      DeviceEventEmitter.addListener('KhatyarSmsOtpTimeout', () => setSmsStatus('timeout')),
+      DeviceEventEmitter.addListener('KhatyarSmsOtpDeclined', () => setSmsStatus('declined')),
+    ];
+    return () => { listeners.forEach(listener=>listener.remove()); smsOtp?.stop?.().catch(()=>{}); };
+  }, []);
 
   async function onLogin() {
     if (busy || configLoading || configError) return Alert.alert('خطا', 'روش ورود از سرور دریافت نشده است یا درخواست دیگری در حال انجام است.');
@@ -63,16 +77,22 @@ export default function LoginScreen() {
     if (!username.trim()) return Alert.alert('توجه', 'نام کاربری (کد ملی) را وارد کنید.');
     setBusy(true);
     try {
+      if (loginMethod === 'sms_otp') {
+        if (!smsOtp?.start) throw new Error('دریافت خودکار پیامک در این نسخه اندروید نصب نیست؛ برنامه را به‌روزرسانی کنید.');
+        try { await smsOtp.start(smsAutoMode); }
+        catch (_) { throw new Error('دریافت خودکار پیامک روی این گوشی در دسترس نیست. سرویس‌های گوگل را بررسی کنید یا برای روش جایگزین با مدیر سامانه تماس بگیرید.'); }
+        setSmsStatus('waiting');
+      }
       await appLoginOtpRequest(username.trim());
       setCode('');
       setMode('otp-code');
       setOtpCooldown(60);
-      Alert.alert('ارسال شد', loginMethod === 'bale_otp' ? 'کد ورود از طریق ربات بله برای شما ارسال شد.' : 'کد ورود به شماره همراه ثبت‌شده شما پیامک شد.');
+      if (loginMethod === 'bale_otp') Alert.alert('ارسال شد', 'کد ورود از طریق ربات بله برای شما ارسال شد.');
       if (cooldownTimer.current) clearInterval(cooldownTimer.current);
       cooldownTimer.current = setInterval(() => {
         setOtpCooldown(v => { if (v <= 1) { clearInterval(cooldownTimer.current); cooldownTimer.current = null; return 0; } return v - 1; });
       }, 1000);
-    } catch (e) { Alert.alert('خطا', e.message); }
+    } catch (e) { if (loginMethod === 'sms_otp') { smsOtp?.stop?.().catch(()=>{}); setSmsStatus('error'); } Alert.alert('خطا', e.message); }
     finally { setBusy(false); }
   }
 
@@ -83,13 +103,13 @@ export default function LoginScreen() {
     otpSubmitting.current = true;
     setBusy(true);
     try { await appLoginOtpVerify(username.trim(), c); }
-    catch (e) { Alert.alert('ورود ناموفق', e.message); }
+    catch (e) { setCode(''); if (loginMethod === 'sms_otp') setSmsStatus('error'); Alert.alert('ورود ناموفق', e.message); }
     finally { otpSubmitting.current = false; setBusy(false); }
   }
 
   useEffect(() => {
     if (mode === 'otp-code' && /^\d{6}$/.test(code) && !busy && !otpSubmitting.current) onOtpVerify(code);
-  }, [code]);
+  }, [code,mode,busy]);
 
   async function onForgot() {
     if (!fid.trim()) return Alert.alert('توجه', 'نام کاربری (کد ملی) را وارد کنید.');
@@ -149,11 +169,17 @@ export default function LoginScreen() {
         </>
       ) : mode === 'otp-code' ? (
         <>
-          <Text style={s.label}>کد ۶ رقمی ورود</Text>
-          <TextInput style={[s.input,{textAlign:'center',fontSize:22,letterSpacing:6}]} value={code} onChangeText={t=>setCode(normalizeDigits(t).replace(/\D/g,'').slice(0,6))} keyboardType="number-pad" maxLength={6} autoComplete="sms-otp" textContentType="oneTimeCode" placeholder="------" placeholderTextColor={C.muted} autoFocus />
-          <TouchableOpacity style={s.btn} onPress={()=>onOtpVerify()} disabled={busy}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>ورود</Text>}</TouchableOpacity>
+          {loginMethod === 'sms_otp' ? <View style={s.smsWaitCard}>
+            <Text style={s.smsWaitTitle}>{smsStatus === 'received' ? 'کد دریافت شد؛ در حال ورود…' : smsStatus === 'timeout' ? 'زمان دریافت پیامک به پایان رسید' : smsStatus === 'declined' ? 'دسترسی به پیامک تأیید نشد' : smsStatus === 'error' ? 'تأیید خودکار انجام نشد' : 'در انتظار دریافت خودکار پیامک'}</Text>
+            <Text style={s.smsWaitHint}>{smsAutoMode === 'consent' ? 'هنگام نمایش درخواست اندروید، اجازه خواندن همان یک پیامک را تأیید کنید.' : 'کد دریافتی به‌صورت خودکار بررسی می‌شود و نیازی به تایپ آن نیست.'}</Text>
+            {smsStatus === 'waiting' && <ActivityIndicator color={C.brand}/>}
+          </View> : <>
+            <Text style={s.label}>کد ۶ رقمی ورود از ربات بله</Text>
+            <TextInput style={[s.input,{textAlign:'center',fontSize:22,letterSpacing:6}]} value={code} onChangeText={t=>setCode(normalizeDigits(t).replace(/\D/g,'').slice(0,6))} keyboardType="number-pad" maxLength={6} placeholder="------" placeholderTextColor={C.muted} autoFocus />
+            <TouchableOpacity style={s.btn} onPress={()=>onOtpVerify()} disabled={busy}>{busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>ورود</Text>}</TouchableOpacity>
+          </>}
           <TouchableOpacity onPress={onOtpRequest} disabled={busy || otpCooldown > 0} style={s.link}><Text style={[s.linkTxt,{color:otpCooldown>0?C.muted:C.brand}]}>{otpCooldown > 0 ? 'ارسال مجدد کد ('+otpCooldown+' ثانیه)' : 'ارسال مجدد کد'}</Text></TouchableOpacity>
-          <TouchableOpacity onPress={()=>{setCode('');setMode('login');setConfigRetry(v=>v+1)}} style={s.link}><Text style={{color:C.muted,fontFamily:FONT.regular}}>بازگشت</Text></TouchableOpacity>
+          <TouchableOpacity onPress={()=>{smsOtp?.stop?.().catch(()=>{});setCode('');setMode('login');setConfigRetry(v=>v+1)}} style={s.link}><Text style={{color:C.muted,fontFamily:FONT.regular}}>بازگشت</Text></TouchableOpacity>
         </>
       ) : mode === 'forgot' ? (
         <>
@@ -199,5 +225,8 @@ const s = StyleSheet.create({
   btnTxt:{color:'#fff',fontFamily:FONT.bold,fontSize:15},
   link:{marginTop:14,alignItems:'center'},
   linkTxt:{color:C.brand,fontFamily:FONT.regular},
+  smsWaitCard:{backgroundColor:'#EAF5F0',borderRadius:17,padding:24,alignItems:'center',gap:14,borderWidth:1,borderColor:'#BBD9CB'},
+  smsWaitTitle:{fontFamily:FONT.bold,color:C.brand,fontSize:17,textAlign:'center'},
+  smsWaitHint:{fontFamily:FONT.regular,color:C.ink,fontSize:13,lineHeight:23,textAlign:'center'},
   note:{color:C.muted,fontSize:11,textAlign:'center',marginTop:18,fontFamily:FONT.regular}
 });

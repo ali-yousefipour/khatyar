@@ -330,7 +330,11 @@ function _login_method($deviceType) {
   if (!in_array($method, ['password', 'sms_otp', 'bale_otp'], true)) Http::error('روش ورود تنظیم‌شده معتبر نیست؛ با مدیر سامانه تماس بگیرید.', 503);
   return $method;
 }
-route('GET', '/api/session/app-login-config', fn()=>['method'=>_login_method('android')], true);
+function _android_sms_hash() {
+  $hash = trim((string)_req_setting('android_sms_app_hash', ''));
+  return preg_match('~^[A-Za-z0-9+/]{11}$~D', $hash) ? $hash : '';
+}
+route('GET', '/api/session/app-login-config', fn()=>['method'=>_login_method('android'), 'sms_auto_mode'=>_android_sms_hash() !== '' ? 'retriever' : 'consent'], true);
 route('GET', '/api/session/web-login-config', fn()=>['method'=>_login_method('web')], true);
 
 // The fourth argument is internal only: the router never obtains it from a request.
@@ -496,17 +500,25 @@ function _login_otp_request($b, $dtype) {
   if ($hourly >= 5) Http::error('تعداد درخواست‌های کد در این ساعت بیش از حد مجاز است.', 429);
   $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
   // Bind challenges to both platform and configured channel without changing schema.
-  $hash = hash('sha256', $dtype.':'.$method.':'.$code);
+  // New Android clients bind each challenge to the device that requested it.
+  // Keep older Android and web clients compatible with the existing hash format.
+  $deviceBinding = _otp_device_binding($b, $dtype);
+  $hash = hash('sha256', $dtype.':'.$method.$deviceBinding.':'.$code);
   Db::run("INSERT INTO login_otp(user_id,mobile,code_hash,expires_at) VALUES(?,?,?,DATE_ADD(NOW(), INTERVAL 3 MINUTE))", [$u['id'], $mobile, $hash]);
   $text = "کد ورود خطیار: {$code}\nاین کد تا ۳ دقیقه معتبر است.";
+  $appHash = '';
   if ($channel === 'bale') $r = BaleBot::sendMessage($chat, $text);
   else {
-    $appHash = $dtype === 'android' ? _req_setting('android_sms_app_hash', '') : '';
+    $appHash = $dtype === 'android' ? _android_sms_hash() : '';
     if ($appHash) $text .= "\n\n".$appHash;
     $r = Sms::send([$mobile], $text, 'login_otp', null);
   }
   if (empty($r['ok'])) Http::error('ارسال کد ورود ناموفق بود؛ دوباره تلاش کنید.', 502);
-  return ['ok'=>true,'channel'=>$channel];
+  return ['ok'=>true,'channel'=>$channel, 'sms_auto_mode'=>$dtype === 'android' && $appHash !== '' ? 'retriever' : 'consent'];
+}
+function _otp_device_binding($body, $dtype) {
+  $id = trim((string)($body['device_id'] ?? ''));
+  return $dtype === 'android' && strlen($id) >= 6 && strlen($id) <= 128 ? ':device:'.$id : '';
 }
 function _login_otp_verify($b, $dtype, $loginHandler) {
   $method = _login_method($dtype);
@@ -521,7 +533,10 @@ function _login_otp_verify($b, $dtype, $loginHandler) {
   // Reserve each attempt atomically, including concurrent incorrect submissions.
   $attempt = Db::run("UPDATE login_otp SET attempts=attempts+1 WHERE id=? AND consumed_at IS NULL AND attempts<5 AND expires_at>NOW()", [$row['id']]);
   if ($attempt->rowCount() !== 1) Http::error('کد منقضی شده یا تعداد تلاش‌های مجاز تمام شده است.', 429);
-  if (!hash_equals($row['code_hash'], hash('sha256', $dtype.':'.$method.':'.$code))) Http::error('کد واردشده نادرست است', 401);
+  $deviceBinding = _otp_device_binding($b, $dtype);
+  $boundHash = hash('sha256', $dtype.':'.$method.$deviceBinding.':'.$code);
+  $legacyHash = hash('sha256', $dtype.':'.$method.':'.$code);
+  if (!hash_equals($row['code_hash'], $boundHash) && !hash_equals($row['code_hash'], $legacyHash)) Http::error('کد واردشده نادرست است', 401);
   $consume = Db::run("UPDATE login_otp SET consumed_at=NOW() WHERE id=? AND consumed_at IS NULL AND expires_at>NOW()", [$row['id']]);
   if ($consume->rowCount() !== 1) Http::error('این کد قبلاً استفاده شده یا منقضی شده است.', 401);
   $b['device_type'] = $dtype;

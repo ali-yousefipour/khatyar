@@ -342,6 +342,14 @@ jobs:
             exit 1
           fi
           echo "APK release signing certificate SHA-256: $(cat "$RUNNER_TEMP/apk-cert.sha256")"
+          # Public SMS Retriever app hash: derived from the verified Myket signing cert.
+          # This is a deployment value, never a secret or a dynamically trusted client input.
+          CERT_HEX="$(openssl x509 -in "$RUNNER_TEMP/myket-release-cert.pem" -outform DER | xxd -p | tr -d '\n')"
+          SMS_APP_HASH="$(printf 'ir.mashhad.taxicontrol %s' "$CERT_HEX" | openssl dgst -sha256 -binary | base64 | cut -c1-11)"
+          test "${#SMS_APP_HASH}" -eq 11
+          echo "Myket SMS Retriever app hash (configure android_sms_app_hash): $SMS_APP_HASH"
+          mkdir -p ../release
+          printf '%s\n' "$SMS_APP_HASH" > ../release/khatyar-sms-app-hash.txt
 
           if ! grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/myket-signature.txt"; then
             echo "::error::APK v2 signature missing"; exit 1
@@ -368,6 +376,7 @@ jobs:
           path: |
             release/khatyar-myket-${{ steps.version.outputs.version }}.apk
             release/khatyar-myket-${{ steps.version.outputs.version }}.apk.sha256
+            release/khatyar-sms-app-hash.txt
           if-no-files-found: error
           retention-days: 30
 

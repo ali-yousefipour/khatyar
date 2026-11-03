@@ -110,6 +110,16 @@ foreach (['sms_otp','bale_otp'] as $method) {
   check(callRoute('POST','/api/session/otp-verify',$otp)['device_type']==='web','Web OTP');
 }
 resetState('sms_otp');callRoute('POST','/api/session/app-login-request',$body);
+$boundCode=Sms::$code;
+check(callRoute('GET','/api/session/app-login-config')['sms_auto_mode']==='consent','Consent fallback without configured app hash');
+rejects(fn()=>callRoute('POST','/api/session/app-login-verify',array_merge($body,['device_id'=>'different-device','code'=>$boundCode])),401);
+check(callRoute('POST','/api/session/app-login-verify',array_merge($body,['code'=>$boundCode]))['device_type']==='android','OTP bound to requesting device');
+resetState('sms_otp');Db::$settings['android_sms_app_hash']='FA+9qCX9VSu';
+check(callRoute('GET','/api/session/app-login-config')['sms_auto_mode']==='retriever','Retriever mode with valid app hash');
+check(callRoute('POST','/api/session/app-login-request',$body)['sms_auto_mode']==='retriever','OTP sender uses retriever mode');
+resetState('sms_otp');Db::$settings['android_sms_app_hash']="invalid\nvalue";
+check(callRoute('GET','/api/session/app-login-config')['sms_auto_mode']==='consent','Reject malformed app hash');
+resetState('sms_otp');callRoute('POST','/api/session/app-login-request',$body);
 $otp=array_merge($body,['code'=>Sms::$code]);
 Db::$lostConsume=true;
 rejects(fn()=>callRoute('POST','/api/session/app-login-verify',$otp),401);
