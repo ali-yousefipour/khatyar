@@ -20,7 +20,7 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   }
 
   $cal=ShiftCalc::calendarDay($jdate);
-  $rows=_attendance_rows_for_jdate($u['id'],$jdate);
+  $rows=_attendance_rows_for_jdate($u['id'],$jdate,true);
 
   // بازه‌های فاقد تأیید GPS/برنامه باید از زمان معتبر حذف شوند؛
   // ShiftCalc از gps_invalid برای محاسبهٔ کارکرد و shortage استفاده می‌کند.

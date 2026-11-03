@@ -56,8 +56,21 @@ class Db {
   static $byUser=[];
   static $dayRow=null;
   static $auto=['from_jdate'=>'1404-01-01','to_jdate'=>'1404-01-31'];
-  static function all($query,$params=[]){if(isset(self::$byUser[$params[0]??0]))return self::$byUser[$params[0]];return self::$explicit?[self::$explicit]:[];}
+  static $attendance=[];
+  static function all($query,$params=[]){
+    if(str_contains($query,'FROM staff_attendance')){
+      [, $end, $start]=$params;
+      return array_values(array_filter(self::$attendance,static fn($row)=>
+        $row['check_in']<$end && (str_contains($query,'check_in >= ?')
+          ? $row['check_in']>=$start : $row['check_out']>$start)));
+    }
+    if(str_contains($query,'FROM requests')||str_contains($query,'FROM user_activity')||str_contains($query,'FROM internet_work_waivers'))return [];
+    if(isset(self::$byUser[$params[0]??0]))return self::$byUser[$params[0]];
+    return self::$explicit?[self::$explicit]:[];
+  }
+  static function run($query,$params=[]){}
   static function one($query,$params=[]){
+    if(str_contains($query,'FROM shift_days'))return self::$dayRow;
     if(str_contains($query,'substitute_assignments'))return self::$substitute?['absent_user_id'=>2,'request_id'=>3]:null;
     if(str_contains($query,'shift_id=0'))return self::$auto;
     return null;
@@ -107,3 +120,35 @@ foreach(['routes.php','../app/api/daily-performance-gps-separate.php','../app/ap
   $code=file_get_contents(__DIR__.'/../lib/'.$file);
   same('no implicit fallback in '.$file,0,preg_match('/_active_user_shift_assignment\([^;\n]+\)\s*\?:\s*_auto_shift_for_user/',$code));
 }
+
+$start=strpos($source,'function _attendance_day_bounds(');
+$end=strpos($source,'/**',$start);
+eval(substr($source,$start,$end-$start));
+function _gps_work_required(){return true;}
+function _jweekday_name($year,$month,$day){return '';}
+function _gps_work_invalid_intervals($userId,$from,$to,$grace=false){
+  $range=$GLOBALS['dailyGpsRange']??null;
+  return $range && $range[0]>=$from && $range[1]<=$to ? [$range] : [];
+}
+function route($method,$path,$handler){$GLOBALS['dailyPerformanceHandler']=$handler;}
+require __DIR__.'/../app/api/daily-performance-gps-separate.php';
+Db::$explicit=['id'=>4,'shift_id'=>4,'type'=>'advanced','from_jdate'=>null,'to_jdate'=>null];
+Db::$dayRow=['segments'=>[['s'=>'23:00','e'=>'07:00']]];
+$nextDate=ShiftCalc::jdateAddDays($date,1);
+$nextBase=date('Y-m-d ',strtotime($base.'+1 day'));
+Db::$attendance=[['id'=>11,'check_in'=>$base.'23:00:00','check_out'=>$nextBase.'07:00:00']];
+$_GET['date']=$date;
+$result=$dailyPerformanceHandler([],[],['id'=>1]);
+same('night session credits all 480 minutes to check-in date',480,$result['data']['in_shift']);
+same('complete night shift has no shortage',0,$result['data']['shortage']);
+$dailyGpsRange=[strtotime($nextBase.'02:00'),strtotime($nextBase.'02:15')];
+$result=$dailyPerformanceHandler([],[],['id'=>1]);
+same('after-midnight GPS evidence stays on the entry date',15,$result['data']['gps_invalid_min']);
+same('real GPS gap remains in shortage',15,$result['data']['shortage']);
+$dailyGpsRange=null;
+Db::$attendance[0]['check_out']=$nextBase.'06:30:00';
+$result=$dailyPerformanceHandler([],[],['id'=>1]);
+same('early night checkout retains real shortage',30,$result['data']['shortage']);
+$_GET['date']=$nextDate;
+$result=$dailyPerformanceHandler([],[],['id'=>1]);
+same('night session is not counted again on checkout date',[],$result['sessions']);

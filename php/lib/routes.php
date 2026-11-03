@@ -3058,21 +3058,32 @@ function _attendance_day_bounds($jdate){
   $end = date('Y-m-d H:i:s', strtotime($start) + 86400);
   return [$start, $end, date('Y-m-d', strtotime($start))];
 }
-function _attendance_rows_for_jdate($userId,$jdate){
+function _attendance_rows_for_jdate($userId,$jdate,$ownedByEntry=false){
   [$start,$end,$g] = _attendance_day_bounds($jdate);
   if (!$start || !$end) return [];
   // فاز ۷.۲: رکوردهایی که با روز هم‌پوشانی دارند انتخاب می‌شوند، نه فقط رکوردهایی که همان روز شروع شده‌اند.
   // این اصلاح باعث می‌شود شیفت شب ۲۳ تا ۷ در گزارش روز بعد و ماه بعد نیز درست دیده شود.
+  // Personal daily work owns the entire session on the check-in date.
+  $condition = $ownedByEntry
+    ? 'check_in < ? AND check_in >= ?'
+    : 'check_in < ? AND COALESCE(check_out, NOW()) > ?';
   $rows = Db::all("SELECT id, check_in, check_out, method, in_lat, in_lng, out_lat, out_lng, in_station, out_station
     FROM staff_attendance
-    WHERE user_id=? AND check_in < ? AND COALESCE(check_out, NOW()) > ?
+    WHERE user_id=? AND $condition
     ORDER BY check_in", [(int)$userId,$end,$start]);
   foreach ($rows as &$r) {
     $r['_clip_start'] = $start; $r['_clip_end'] = $end; $r['_gdate'] = $g;
     $rowIn=strtotime($r['check_in']??'');
     $rowOut=!empty($r['check_out'])?strtotime($r['check_out']):time();
-    $gpsFrom=max(strtotime($start),$rowIn?:strtotime($start));
-    $gpsTo=min(strtotime($end),$rowOut?:time());
+    if ($ownedByEntry) {
+      if (!empty($r['check_out'])) {
+        [$rowIn,$rowOut]=ShiftCalc::normalizeSessionPair($rowIn,$rowOut);
+      }
+      $r['_clip_start'] = $r['check_in'];
+      $r['_clip_end'] = date('Y-m-d H:i:s',$rowOut);
+    }
+    $gpsFrom=max(strtotime($r['_clip_start']),$rowIn?:strtotime($start));
+    $gpsTo=min(strtotime($r['_clip_end']),$rowOut?:time());
     $pendingGpsGrace=empty($r['check_out']) && $gpsTo>=time()-60; // مهلت فقط برای نیم‌ساعت جاری؛ روزهای بسته‌شده دیگر مهلت ندارند.
     $r['_gps_invalid']=$gpsTo>$gpsFrom?_gps_work_invalid_intervals((int)$userId,$gpsFrom,$gpsTo,$pendingGpsGrace):[];
   }
@@ -4776,7 +4787,7 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   $dayRow=null;
   if(($shift['type']??'')==='advanced') $dayRow=Db::one("SELECT jdate,segments,is_off,day_config FROM shift_days WHERE shift_id=? AND jdate=? LIMIT 1",[(int)$shift['id'],$jdate]);
   $cal=ShiftCalc::calendarDay($jdate);
-  $rows=_attendance_rows_for_jdate($u['id'],$jdate);
+  $rows=_attendance_rows_for_jdate($u['id'],$jdate,true);
   $sessions=array_map(fn($r)=>['in'=>strtotime($r['check_in']),'out'=>$r['check_out']?strtotime($r['check_out']):null,'clip_start'=>strtotime($r['_clip_start']??'1970-01-01 00:00:00'),'clip_end'=>strtotime($r['_clip_end']??'2999-01-01 00:00:00'),'gps_invalid'=>$r['_gps_invalid']??[]],$rows);
   $w=ShiftCalc::dayWork($shift,$jdate,$dayRow,$sessions,ShiftCalc::effectiveHoliday($jdate));
   // بازه‌های نامعتبر را به‌صورت اجتماع بازه‌ها حساب کن؛ هم‌پوشانی جلسات/رویدادها نباید دوبار کسر شود.
