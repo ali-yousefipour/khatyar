@@ -1,3 +1,4 @@
+import AccountFormHeader from './components/AccountFormHeader';
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { request } from './api';
@@ -30,10 +31,8 @@ export default function PeriodicRenewScreen({ onDone }) {
   if (step === 'submitting') return <View style={s.center}><ActivityIndicator size="large" color={C.brand} /><Text style={s.body}>در حال ثبت…</Text></View>;
 
   return (
-    <ScrollView persistentScrollbar={true} contentContainerStyle={s.wrap}>
-      <Text style={s.icon}>🔄</Text>
-      <Text style={s.title}>به‌روزرسانی دوره‌ای</Text>
-      <Text style={s.body}>طبق سیاست سازمان، لازم است به‌صورت دوره‌ای رمز عبور خود را تغییر دهید و عکس پرسنلی جدید (با لباس فرم) بگیرید.</Text>
+    <ScrollView style={{backgroundColor:C.paper}} contentContainerStyle={s.wrap} keyboardShouldPersistTaps="handled">
+      <AccountFormHeader section="مرحلهٔ ۱ از ۲ · اطلاعات حساب" title="به‌روزرسانی دوره‌ای" description="طبق سیاست سازمان، لازم است به‌صورت دوره‌ای رمز عبور خود را تغییر دهید و عکس پرسنلی جدید (با لباس فرم) بگیرید." />
       <Text style={s.label}>رمز عبور جدید *</Text>
       <TextInput style={s.input} secureTextEntry value={pw} onChangeText={setPw} />
       <Text style={s.label}>تکرار رمز جدید *</Text>
@@ -41,7 +40,7 @@ export default function PeriodicRenewScreen({ onDone }) {
       <View style={s.uniformBox}>
         <Text style={s.uniformTxt}>⚠ عکس پرسنلی باید با لباس فرم سازمانی و فقط با دوربین گرفته شود.</Text>
       </View>
-      <TouchableOpacity style={s.btn} onPress={() => { if (validate()) setStep('camera'); }}>
+      <TouchableOpacity style={s.btn} accessibilityRole="button" onPress={() => { if (validate()) setStep('camera'); }}>
         <Text style={s.btnTxt}>ادامه و گرفتن عکس پرسنلی</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -49,13 +48,11 @@ export default function PeriodicRenewScreen({ onDone }) {
 }
 
 const s = StyleSheet.create({
-  wrap: { padding: 22, paddingBottom: 50, backgroundColor: C.paper },
+  wrap: { width:'100%', maxWidth:560, alignSelf:'center', padding:16, paddingBottom:48 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: C.paper },
-  icon: { fontSize: 42, textAlign: 'center', marginTop: 18 },
-  title: { fontFamily: FONT.bold, fontSize: 19, color: C.ink, textAlign: 'center', marginVertical: 8 },
   body: { fontFamily: FONT.regular, fontSize: 13, color: C.muted, textAlign: 'center', marginBottom: 16, lineHeight: 22 },
   label: { fontFamily: FONT.bold, fontSize: 13, color: C.ink, textAlign: 'right', marginTop: 12, marginBottom: 4 },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 11, padding: 12, fontFamily: FONT.regular, fontSize: 14, textAlign: 'right', color: C.ink },
+  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 14, minHeight: 50, padding: 12, fontFamily: FONT.regular, fontSize: 14, textAlign: 'right', color: C.ink },
   uniformBox: { backgroundColor: '#fff4d6', borderRadius: 11, padding: 12, marginTop: 18, borderWidth: 1, borderColor: '#f0e2b8' },
   uniformTxt: { fontFamily: FONT.bold, fontSize: 12.5, color: '#7a5b00', textAlign: 'right', lineHeight: 21 },
   btn: { backgroundColor: C.brand, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginTop: 20 },

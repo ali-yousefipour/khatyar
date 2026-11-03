@@ -1,3 +1,4 @@
+import AccountFormHeader from './components/AccountFormHeader';
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { request } from './api';
@@ -51,10 +52,8 @@ export default function FirstSetupScreen({ onDone }) {
   }
 
   return (
-    <ScrollView persistentScrollbar={true} contentContainerStyle={s.wrap}>
-      <Text style={s.icon}>🪪</Text>
-      <Text style={s.title}>تکمیل اطلاعات و عکس پرسنلی</Text>
-      <Text style={s.body}>در نخستین ورود، اطلاعات فردی خود را تکمیل، رمز عبور را تغییر دهید و یک عکس پرسنلی با دوربین بگیرید.</Text>
+    <ScrollView style={{backgroundColor:C.paper}} contentContainerStyle={s.wrap} keyboardShouldPersistTaps="handled">
+      <AccountFormHeader section="مرحلهٔ ۱ از ۲ · اطلاعات حساب" title="تکمیل اطلاعات و عکس پرسنلی" description="در نخستین ورود، اطلاعات فردی خود را تکمیل، رمز عبور را تغییر دهید و یک عکس پرسنلی با دوربین بگیرید." />
 
       <Text style={s.label}>تلفن همراه *</Text>
       <TextInput style={s.input} keyboardType="phone-pad" value={phone} onChangeText={setPhone} placeholder="09xxxxxxxxx" />
@@ -87,7 +86,7 @@ export default function FirstSetupScreen({ onDone }) {
         <Text style={s.uniformTxt}>⚠ عکس پرسنلی باید با لباس فرم سازمانی و فقط با دوربین گرفته شود (بدون امکان انتخاب از گالری).</Text>
       </View>
 
-      <TouchableOpacity style={s.btn} disabled={busy} onPress={() => { if (validateForm()) setStep('camera'); }}>
+      <TouchableOpacity style={s.btn} accessibilityRole="button" disabled={busy} onPress={() => { if (validateForm()) setStep('camera'); }}>
         <Text style={s.btnTxt}>ادامه و گرفتن عکس پرسنلی</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -95,13 +94,11 @@ export default function FirstSetupScreen({ onDone }) {
 }
 
 const s = StyleSheet.create({
-  wrap: { padding: 22, paddingBottom: 50, backgroundColor: C.paper },
+  wrap: { width:'100%', maxWidth:560, alignSelf:'center', padding:16, paddingBottom:48 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: C.paper },
-  icon: { fontSize: 42, textAlign: 'center', marginTop: 12 },
-  title: { fontFamily: FONT.bold, fontSize: 19, color: C.ink, textAlign: 'center', marginVertical: 8 },
   body: { fontFamily: FONT.regular, fontSize: 13, color: C.muted, textAlign: 'center', marginBottom: 16, lineHeight: 22 },
   label: { fontFamily: FONT.bold, fontSize: 13, color: C.ink, textAlign: 'right', marginTop: 12, marginBottom: 4 },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 11, padding: 12, fontFamily: FONT.regular, fontSize: 14, textAlign: 'right', color: C.ink },
+  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 14, minHeight: 50, padding: 12, fontFamily: FONT.regular, fontSize: 14, textAlign: 'right', color: C.ink },
   rowSel: { flexDirection: 'row-reverse', gap: 10 },
   sel: { flex: 1, borderWidth: 1, borderColor: C.line, borderRadius: 11, padding: 12, alignItems: 'center', backgroundColor: '#fff' },
   selOn: { backgroundColor: C.brand, borderColor: C.brand },

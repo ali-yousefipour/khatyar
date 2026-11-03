@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, useWindowDimensions, Linking } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -23,6 +24,7 @@ export default function PersonalPhotoCapture({
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(instruction);
@@ -121,7 +123,7 @@ export default function PersonalPhotoCapture({
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          <Text style={styles.previewTitle}>{title}</Text>
+          <Text accessibilityRole="header" style={styles.previewTitle}>{title}</Text>
           <View style={[styles.previewFrame, { width: previewWidth, maxHeight: previewMaxHeight }]}>
             <Image source={{ uri: preview.uri }} style={styles.previewImage} resizeMode="contain" />
           </View>
@@ -158,20 +160,21 @@ export default function PersonalPhotoCapture({
         }}
       />}
 
-      <View style={styles.topShade} pointerEvents="none">
+      <View style={[styles.topShade,{paddingTop:insets.top+12}]} pointerEvents="none">
         <Text style={styles.cameraTitle}>{title}</Text>
       </View>
 
-      <View style={styles.controls}>
+      <ScrollView style={styles.controls} contentContainerStyle={[styles.controlContent,{paddingBottom:insets.bottom+12}]}>
         {uniformNotice ? <Text style={styles.uniformNotice}>⚠ تصویر باید با لباس فرم سازمانی گرفته شود</Text> : null}
         <Text style={styles.instruction}>{message}</Text>
         <TouchableOpacity accessibilityRole="button" style={[styles.nativeButton, (busy || systemCameraOpen) && styles.disabled]} onPress={openSystemCamera} disabled={busy || systemCameraOpen}>
-          <Text style={styles.primaryButtonText}>{systemCameraOpen ? 'در حال بازکردن دوربین گوشی…' : '📷 عکس‌برداری با دوربین گوشی'}</Text>
+          <Text style={styles.primaryButtonText}>{systemCameraOpen ? 'در حال بازکردن دوربین گوشی…' : 'عکس‌برداری با دوربین گوشی'}</Text>
         </TouchableOpacity>
         {systemCameraFirst && !useInlineCamera ? <Text style={styles.cameraOnly}>برای عکس سلفی، دوربین جلو را انتخاب کنید. انتخاب تصویر از گالری مجاز نیست.</Text> : null}
         {useInlineCamera && !ready && <TouchableOpacity onPress={() => { setReady(false); restartCamera(); }}><Text style={styles.cancelText}>راه‌اندازی دوباره دوربین داخلی</Text></TouchableOpacity>}
         {useInlineCamera && <TouchableOpacity
           style={[styles.shutter, (!ready || busy) && styles.disabled]}
+          accessibilityRole="button" accessibilityLabel="گرفتن عکس"
           onPress={takePhoto}
           disabled={!ready || busy || systemCameraOpen}
           activeOpacity={0.75}
@@ -183,7 +186,7 @@ export default function PersonalPhotoCapture({
         </TouchableOpacity>}
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={styles.cancelText}>انصراف</Text></TouchableOpacity> : null}
         <Text style={styles.cameraOnly}>ثبت تصویر فقط با دوربین گوشی انجام می‌شود و انتخاب از گالری در این مرحله غیرفعال است.</Text>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -194,7 +197,8 @@ const styles = StyleSheet.create({
   permissionText: { color: '#fff', fontFamily: FONT.regular, textAlign: 'center', lineHeight: 24, marginBottom: 18 },
   topShade: { position: 'absolute', top: 0, right: 0, left: 0, paddingTop: 16, paddingBottom: 28, paddingHorizontal: 18, backgroundColor: 'rgba(0,0,0,0.38)' },
   cameraTitle: { color: '#fff', fontFamily: FONT.bold, fontSize: 17, textAlign: 'center' },
-  controls: { position: 'absolute', right: 0, left: 0, bottom: 0, alignItems: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 20, backgroundColor: 'rgba(0,0,0,0.58)' },
+  controls: { position: 'absolute', right: 0, left: 0, bottom: 0, maxHeight:'68%', backgroundColor: 'rgba(10,21,26,0.94)' },
+  controlContent: { alignItems:'center', paddingHorizontal:18, paddingTop:16 },
   uniformNotice: { color: C.taxi, fontFamily: FONT.bold, fontSize: 13, textAlign: 'center', marginBottom: 5 },
   instruction: { color: '#fff', fontFamily: FONT.regular, fontSize: 13, textAlign: 'center', lineHeight: 21, marginBottom: 12 },
   shutter: { width: 76, height: 76, borderRadius: 38, borderWidth: 4, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },

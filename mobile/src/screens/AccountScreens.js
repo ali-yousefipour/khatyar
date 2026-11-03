@@ -1,3 +1,4 @@
+import AccountFormHeader from '../components/AccountFormHeader';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, PanResponder, Modal } from 'react-native';
 import * as Application from 'expo-application';
@@ -33,11 +34,14 @@ export function ChangePasswordScreen({ navigation }) {
     catch (e) { Alert.alert('خطا', e.message); } finally { setBusy(false); }
   }
   return (
-    <View style={s.wrap}>
-      <Text style={s.label}>رمز فعلی</Text><TextInput style={s.input} value={current} onChangeText={setCurrent} secureTextEntry />
-      <Text style={s.label}>رمز جدید</Text><TextInput style={s.input} value={next} onChangeText={setNext} secureTextEntry />
-      <TouchableOpacity style={s.btn} onPress={submit} disabled={busy}><Text style={s.btnTxt}>تغییر رمز</Text></TouchableOpacity>
-    </View>
+    <ScrollView style={{backgroundColor:CC.paper}} contentContainerStyle={s.formContent} keyboardShouldPersistTaps="handled">
+      <AccountFormHeader section="امنیت حساب" title="تغییر رمز عبور" description="رمز فعلی و رمز جدید خود را وارد کنید. رمز جدید باید حداقل ۶ نویسه داشته باشد." />
+      <View style={s.card}>
+        <Text style={s.label}>رمز فعلی</Text><TextInput accessibilityLabel="رمز فعلی" autoComplete="current-password" style={s.input} value={current} onChangeText={setCurrent} secureTextEntry />
+        <Text style={s.label}>رمز جدید</Text><TextInput accessibilityLabel="رمز جدید" autoComplete="new-password" style={s.input} value={next} onChangeText={setNext} secureTextEntry />
+        <TouchableOpacity accessibilityRole="button" accessibilityState={{disabled:busy,busy}} style={s.btn} onPress={submit} disabled={busy}><Text style={s.btnTxt}>{busy?'در حال ذخیره…':'ذخیرهٔ رمز جدید'}</Text></TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
@@ -191,7 +195,7 @@ function SignaturePad({ value, onChange }) {
   );
 }
 
-export function EditProfileScreen({ navigation }) {
+export function EditProfileScreen({ navigation, vehicleAction }) {
   const [p, setP] = useState(null);
   const [busy, setBusy] = useState(false);
   const [zoneOpts, setZoneOpts] = useState(null);
@@ -236,7 +240,9 @@ export function EditProfileScreen({ navigation }) {
     } catch (e) { Alert.alert('خطا', e.message); } finally { setBusy(false); }
   }
   return (
-    <ScrollView persistentScrollbar={true} style={{ backgroundColor: CC.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView style={{ backgroundColor: CC.paper }} contentContainerStyle={s.formContent} keyboardShouldPersistTaps="handled">
+      <AccountFormHeader section="حساب کاربری" title="ویرایش اطلاعات من" description="اطلاعات تماس، مشخصات فردی و اطلاعات سازمانی خود را مرور و به‌روز کنید." />
+      {vehicleAction}
       <Text style={s.label}>نام</Text>
       <TextInput style={[s.input, s.ro]} value={`${p.first_name || ''} ${p.last_name || ''}`} editable={false} />
       <Text style={s.label}>ایمیل</Text>
@@ -328,12 +334,13 @@ export function ProfileScreen({ navigation }) {
 
   return (
     <ScrollView persistentScrollbar={true} style={s.profileScroll} contentContainerStyle={s.profileContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <AccountFormHeader section="حساب من" title="حساب کاربری" description="مشخصات فردی، امنیت حساب و خدمات شخصی را مدیریت کنید." />
       <View style={s.card}>
         <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity onPress={() => photo && setViewPhoto(true)}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="نمایش عکس پرسنلی" disabled={!photo} onPress={() => photo && setViewPhoto(true)}>
             {photo ? <Image source={imageSource(photo)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}
           </TouchableOpacity>
-          <View><Text style={s.name}>{user?.name}</Text><Text style={s.role}>{user?.role}</Text></View>
+          <View style={{flex:1,minWidth:0}}><Text accessibilityRole="header" style={s.name}>{user?.name}</Text><Text style={s.role}>{user?.role}</Text></View>
         </View>
         <TouchableOpacity style={s.photoBtn} onPress={() => setPhotoCaptureOpen(true)} disabled={busy}>
           <Text style={s.photoBtnTxt}>گرفتن عکس پرسنلی (سلفی)</Text>
@@ -390,6 +397,7 @@ function AccountAction({ icon, title, description, onPress }) {
 }
 
 const s = StyleSheet.create({
+  formContent: { width:'100%', maxWidth:600, alignSelf:'center', padding:16, paddingBottom:56 },
   wrap: { flex: 1, backgroundColor: CC.paper, padding: 18 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: CC.paper },
   muted: { color: CC.muted, fontFamily: FONT.regular },
@@ -469,5 +477,5 @@ const s = StyleSheet.create({
   signatureActions: { flexDirection: 'row-reverse', gap: 8 },
   signatureAction: { flex: 1, marginTop: 10 },
   profileScroll: { flex: 1, backgroundColor: CC.paper },
-  profileContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20 },
+  profileContent: { width:'100%', maxWidth:600, alignSelf:'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20 },
 });

@@ -277,7 +277,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          <Text style={s.title}>تأیید عکس خودروهای خط</Text>
+          <Text accessibilityRole="header" style={s.title}>تأیید عکس خودروهای خط</Text>
           <View
             ref={shotRef}
             collapsable={false}
@@ -334,11 +334,12 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
           }
         }}
       />}
-      <View style={[s.bottom, { paddingBottom: Math.max(20, insets.bottom + 12) }]}>
+      <ScrollView style={s.bottom} contentContainerStyle={[s.cameraControls,{paddingBottom:Math.max(20,insets.bottom+12)}]}>
+        <Text accessibilityRole="header" style={s.captureTitle}>عکس خودروهای خط</Text>
         <Text style={s.hint}>با دوربین پشت، از خودروهای حاضر در خط عکس بگیرید. تاریخ، ساعت و موقعیت به‌صورت خودکار روی عکس درج می‌شود.</Text>
         {error ? <Text style={s.error}>{error}</Text> : null}
         {useInlineCamera && !cameraReady && !error ? <Text style={s.cameraOnly}>در حال آماده‌سازی دوربین…</Text> : null}
-        {useInlineCamera && <TouchableOpacity style={[s.shutter, (!cameraReady || busy) && s.disabled]} onPress={snap} disabled={!cameraReady || busy}>
+        {useInlineCamera && <TouchableOpacity style={[s.shutter, (!cameraReady || busy) && s.disabled]} accessibilityRole="button" accessibilityLabel="گرفتن عکس خودروهای خط" onPress={snap} disabled={!cameraReady || busy}>
           {busy ? <ActivityIndicator color="#fff" /> : <View style={s.shutterInner} />}
         </TouchableOpacity>}
         {useInlineCamera && <TouchableOpacity accessibilityRole="button" disabled={busy || systemCameraOpen} onPress={recoverPreview} style={s.retryButton}>
@@ -352,7 +353,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         </TouchableOpacity>}
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={s.cancel}>انصراف</Text></TouchableOpacity> : null}
         <Text style={s.cameraOnly}>ثبت تصویر فقط با دوربین پشت گوشی انجام می‌شود و انتخاب از گالری در این مرحله وجود ندارد.</Text>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -361,7 +362,9 @@ const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: '#000' },
   camWrap: { flex: 1, minHeight: 0, backgroundColor: '#000', overflow: 'hidden' },
   cam: { ...StyleSheet.absoluteFillObject },
-  bottom: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 18, paddingTop: 18, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.60)' },
+  bottom: { position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight:'68%', backgroundColor: 'rgba(10,21,26,0.94)' },
+  cameraControls: { alignItems:'center', paddingHorizontal:18, paddingTop:16 },
+  captureTitle: { color:'#fff', fontFamily:FONT.bold, fontSize:18, marginBottom:8 },
   hint: { color: '#fff', fontFamily: FONT.regular, fontSize: 13, marginBottom: 10, textAlign: 'center', lineHeight: 21 },
   shutter: { width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   shutterInner: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#fff' },
