@@ -10,6 +10,7 @@ export default function LoginScreen() {
   const { login, appLoginConfig, appLoginOtpRequest, appLoginOtpVerify } = useAuth();
   const [loginMethod, setLoginMethod] = useState('password');
   const [smsAutoMode,setSmsAutoMode] = useState('consent');
+  const [smsActiveMode,setSmsActiveMode] = useState('consent');
   const [smsStatus,setSmsStatus] = useState('');
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState('');
@@ -79,8 +80,10 @@ export default function LoginScreen() {
     try {
       if (loginMethod === 'sms_otp') {
         if (!smsOtp?.start) throw new Error('دریافت خودکار پیامک در این نسخه اندروید نصب نیست؛ برنامه را به‌روزرسانی کنید.');
-        try { await smsOtp.start(smsAutoMode); }
+        const preferredMode = smsAutoMode === 'retriever' && smsStatus === 'timeout' ? 'consent' : smsAutoMode;
+        try { await smsOtp.start(preferredMode); }
         catch (_) { throw new Error('دریافت خودکار پیامک روی این گوشی در دسترس نیست. سرویس‌های گوگل را بررسی کنید یا برای روش جایگزین با مدیر سامانه تماس بگیرید.'); }
+        setSmsActiveMode(preferredMode);
         setSmsStatus('waiting');
       }
       await appLoginOtpRequest(username.trim());
@@ -171,8 +174,8 @@ export default function LoginScreen() {
         <>
           {loginMethod === 'sms_otp' ? <View style={s.smsWaitCard}>
             <Text style={s.smsWaitTitle}>{smsStatus === 'received' ? 'کد دریافت شد؛ در حال ورود…' : smsStatus === 'timeout' ? 'زمان دریافت پیامک به پایان رسید' : smsStatus === 'declined' ? 'دسترسی به پیامک تأیید نشد' : smsStatus === 'error' ? 'تأیید خودکار انجام نشد' : 'در انتظار دریافت خودکار پیامک'}</Text>
-            <Text style={s.smsWaitHint}>{smsAutoMode === 'consent' ? 'هنگام نمایش درخواست اندروید، اجازه خواندن همان یک پیامک را تأیید کنید.' : 'کد دریافتی به‌صورت خودکار بررسی می‌شود و نیازی به تایپ آن نیست.'}</Text>
-            {smsStatus === 'waiting' && <ActivityIndicator color={C.brand}/>}
+            <Text style={s.smsWaitHint}>{smsActiveMode === 'consent' ? 'هنگام نمایش درخواست اندروید، اجازه خواندن همان یک پیامک را تأیید کنید.' : 'کد دریافتی به‌صورت خودکار بررسی می‌شود و نیازی به تایپ آن نیست.'}</Text>
+            {smsStatus === 'waiting' && <Text style={s.smsWaitHint}>می‌توانید تا دریافت پیامک منتظر بمانید یا درخواست را لغو کنید.</Text>}
           </View> : <>
             <Text style={s.label}>کد ۶ رقمی ورود از ربات بله</Text>
             <TextInput style={[s.input,{textAlign:'center',fontSize:22,letterSpacing:6}]} value={code} onChangeText={t=>setCode(normalizeDigits(t).replace(/\D/g,'').slice(0,6))} keyboardType="number-pad" maxLength={6} placeholder="------" placeholderTextColor={C.muted} autoFocus />

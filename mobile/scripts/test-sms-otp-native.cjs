@@ -18,6 +18,7 @@ assert.doesNotMatch(plugin + native, /android\.permission\.(READ_SMS|RECEIVE_SMS
 assert.match(plugin, /play-services-auth-api-phone:18\.3\.1/);
 assert.match(screen, /loginMethod === 'sms_otp' \? <View style=\{s\.smsWaitCard\}>/);
 assert.match(screen, /DeviceEventEmitter\.addListener\('KhatyarSmsOtpCode'/);
+assert.match(screen, /smsStatus === 'timeout' \? 'consent'/);
 assert.match(server, /_otp_device_binding/);
 assert.match(server, /_android_sms_hash/);
 assert.match(sms, /\[OTP REDACTED\]/);
