@@ -1,5 +1,5 @@
 import React,{useState,useEffect,useRef,useCallback}from'react';
-import{View,Text,TouchableOpacity,TextInput,StyleSheet,AppState,Vibration,PanResponder,DeviceEventEmitter,Image}from'react-native';
+import{View,Text,TouchableOpacity,TextInput,StyleSheet,AppState,Vibration,PanResponder,DeviceEventEmitter,Image,Modal}from'react-native';
 import AsyncStorage from'@react-native-async-storage/async-storage';
 import*as SecureStore from'expo-secure-store';
 import{C as CC,FONT}from'./theme';
@@ -48,7 +48,17 @@ export default function AppLock({children}){
  // subscriptions must continue when the security overlay is visible.
  return<View style={{flex:1}} onTouchStart={()=>{if(!locked)lastInteraction.current=Date.now()}}>
   <View style={{flex:1}} pointerEvents={locked?'none':'auto'} importantForAccessibility={locked?'no-hide-descendants':'auto'}>{children}</View>
-  {locked&&<View style={[StyleSheet.absoluteFillObject,{zIndex:99999,elevation:99999}]} accessibilityViewIsModal><LockScreen cfg={cfg} manualLock={manualLock} unlock={unlock}/></View>}
+  <Modal
+    visible={locked}
+    transparent={false}
+    animationType="fade"
+    presentationStyle="fullScreen"
+    statusBarTranslucent
+    navigationBarTranslucent
+    onRequestClose={()=>{}}
+    accessibilityViewIsModal>
+    <LockScreen cfg={cfg} manualLock={manualLock} unlock={unlock}/>
+  </Modal>
  </View>
 }
 export function LockScreen({cfg,manualLock=false,unlock}){const[value,setValue]=useState(''),[pattern,setPattern]=useState([]),[err,setErr]=useState(''),[busy,setBusy]=useState(false),[cool,setCool]=useState(0),[ready,setReady]=useState(false);useEffect(()=>{failures().then(f=>{setCool(f.until>Date.now()?Math.ceil((f.until-Date.now())/1000):0);setReady(true)}).catch(()=>setReady(true))},[]);useEffect(()=>{if(cfg.useBiometric&&!manualLock)bio()},[]);useEffect(()=>{if(!cool)return;const t=setInterval(()=>setCool(x=>Math.max(0,x-1)),1000);return()=>clearInterval(t)},[cool]);const fail=async()=>{const f=await failed();setValue('');setPattern([]);setCool(f.until>Date.now()?Math.ceil((f.until-Date.now())/1000):0);setErr(f.count>=3?`تلاش ناموفق ${faNum(f.count)} بار.`:'رمز واردشده صحیح نیست.');Vibration.vibrate([0,80,70,80])};async function bio(){if(busy||cool)return;try{setBusy(true);global.__APPLOCK_SUPPRESS__=true;const A=require('expo-local-authentication'),has=await A.hasHardwareAsync(),en=await A.isEnrolledAsync();if(!has||!en){setErr('اثر انگشت یا احراز هویت بیومتریک روی دستگاه فعال نیست.');return}const r=await A.authenticateAsync({promptMessage:'برای باز کردن خطیار احراز هویت کنید',cancelLabel:'استفاده از رمز',disableDeviceFallback:false});if(r.success)await unlock()}catch{setErr('احراز هویت انجام نشد. دوباره تلاش کنید.')}finally{setBusy(false);setTimeout(()=>{global.__APPLOCK_SUPPRESS__=false},700)}}async function check(v){if(!ready||busy||cool||!v)return;setBusy(true);setErr('');try{const secret=await getLockSecret();const ok=secret&&(String(v)===String(secret)||(cfg.type==='pattern'&&String(v).replace(/-/g,'')===String(secret)));if(ok)await unlock();else await fail()}catch{setErr('عملیات انجام نشد. دوباره تلاش کنید.')}finally{setBusy(false)}}const add=async d=>{if(!ready||busy||cool)return;setErr('');if(d==='del'){setValue(v=>v.slice(0,-1));return}const max=cfg.type==='pin4'?4:16,n=(value+d).slice(0,max);setValue(n);if(cfg.type==='pin4'&&n.length===4)await check(n)};if(cfg.type==='pattern')return<Pattern selected={pattern}setSelected={setPattern}onComplete={p=>{setPattern(p);check(p.join('-'))}}disabled={!ready||!!cool}bio={cfg.useBiometric&&!manualLock?bio:null}err={err}cool={cool}/>;if(cfg.type==='password')return<Password value={value}setValue={setValue}check={check}ready={ready}bio={cfg.useBiometric&&!manualLock?bio:null}err={err}cool={cool}/>;const keys=manualLock?['1','2','3','4','5','6','7','8','9','0','del']:['1','2','3','4','5','6','7','8','9','bio','0','del'];return<View style={s.wrap}><Icon/><Text style={s.title}>خطیار قفل است</Text><Text style={s.sub}>{cfg.type==='numeric'?'رمز عددی خود را وارد کنید':'پین ۴ رقمی خود را وارد کنید'}</Text><View style={s.dots}>{Array.from({length:cfg.type==='pin4'?4:Math.max(4,value.length)}).map((_,i)=><View key={i}style={[s.dot,i<value.length&&s.on]}/>)}</View>{err&&<Text style={s.err}>{err}</Text>}{cool>0&&<Text style={s.cool}>لطفاً {faNum(cool)} ثانیه صبر کنید</Text>}<View style={s.pad}>{keys.map(k=><TouchableOpacity key={k}disabled={!ready||busy||!!cool}style={s.key}onPress={()=>k==='bio'?bio():add(k)}>{k==='bio'?<MaterialCommunityIcons name="fingerprint" size={27} color="#FFFFFF" />:<Text style={s.keyText}>{k==='del'?'⌫':faNum(k)}</Text>}</TouchableOpacity>)}</View></View>}
