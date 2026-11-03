@@ -3,7 +3,7 @@ import { Alert, NativeModules, ScrollView, StyleSheet, Text, TextInput, Touchabl
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, FONT } from './theme';
-import { getLockConfig, verifyLockCredential } from './AppLock';
+import { getLockConfig, verifyLockCredential, LockScreen } from './AppLock';
 
 const nativeAlarm = NativeModules.KhatyarTheftAlarm;
 const emptyStatus = { armed: false, arming: false, armingEndsAt: 0, triggered: false, reason: '' };
@@ -84,6 +84,14 @@ export default function TheftAlarmOverlay({ onClose, initialStatus }) {
   const alarmed = status.triggered;
   const remaining = status.arming ? Math.max(0,Math.ceil((status.armingEndsAt-now)/1000)) : 0;
   const type = config?.type || 'pin4';
+
+  // The alarm is protected by the same full-screen credential and biometric
+  // challenge that guards the rest of the app, not a second password form.
+  if (status.armed && config?.enabled) return <LockScreen cfg={config} unlock={async () => {
+    await nativeAlarm.disarm();
+    setStatus(emptyStatus);
+    onClose();
+  }} />;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>

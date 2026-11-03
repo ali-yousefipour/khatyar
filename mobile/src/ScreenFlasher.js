@@ -4,13 +4,18 @@ import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+// Emergency-style paired pulses across the whole display; short dark gaps
+// make both white and amber flashes perceptible even on bright screens.
+export const FLASH_SEQUENCE = ['#FFFFFF','#FFFFFF','#121212','#FFCA22','#FFCA22','#121212','#FFFFFF','#121212','#FFCA22','#121212'];
+export const FLASH_FRAME_MS = 110;
+
 // Screen-only warning light: no camera/torch access and no background flashing.
 export default function ScreenFlasher({ onClose }) {
   const insets = useSafeAreaInsets();
   const [phase, setPhase] = React.useState(0);
 
   React.useEffect(() => {
-    const interval = setInterval(() => setPhase(value => (value + 1) % 2), 420);
+    const interval = setInterval(() => setPhase(value => (value + 1) % FLASH_SEQUENCE.length), FLASH_FRAME_MS);
     const appState = AppState.addEventListener('change', state => {
       if (state !== 'active') onClose();
     });
@@ -28,7 +33,7 @@ export default function ScreenFlasher({ onClose }) {
   return (
     <View style={styles.root} accessibilityLabel="فلاشر سفید و زرد فعال است">
       <StatusBar hidden />
-      <View style={[styles.panel, { backgroundColor: phase === 0 ? '#FFFFFF' : '#FFCF24' }]} />
+      <View style={[styles.panel, { backgroundColor: FLASH_SEQUENCE[phase] }]} />
       <TouchableOpacity
         style={[styles.close, { top: Math.max(insets.top, 12) + 8 }]}
         onPress={onClose}
