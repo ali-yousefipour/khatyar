@@ -11,7 +11,10 @@ class Db {
     if (str_contains($sql,'SELECT r.title FROM users')) return ['title'=>self::$user['role_title']];
     if (str_contains($sql,'FROM app_settings')) return ['value'=>json_encode(self::$settings[$params[0]]??false)];
     if (str_contains($sql,'FROM users')) return ($params[0]===self::$user['username'] || $params[0]===self::$user['id']) ? self::$user : null;
-    if (str_contains($sql,'FROM user_sessions')) return self::$session;
+    if (str_contains($sql,'FROM user_sessions')) {
+      if (str_contains($sql,'AND device_id=?') && (self::$session['device_id'] ?? null) !== ($params[2] ?? null)) return null;
+      return self::$session;
+    }
     if (str_contains($sql,'COUNT(*) n FROM login_otp')) return ['n'=>self::$hourly];
     if (str_contains($sql,'FROM login_otp')) {
       if (str_contains($sql,'INTERVAL 60 SECOND')) return self::$recent ? ['id'=>1] : null;
@@ -88,6 +91,15 @@ check(callRoute('POST','/api/session/start',$body)['access']==='test-access','Re
 rejects(fn()=>callRoute('POST','/api/session/renew',['refresh'=>'test']),401);
 Jwt::$payload['device_id']='device-new';
 check(callRoute('POST','/api/session/renew',['refresh'=>'test'])['access']==='test-access','New device refresh');
+Db::$user['is_active']=0;
+rejects(fn()=>callRoute('POST','/api/session/renew',['refresh'=>'test']),401);
+Db::$user['is_active']=1;Db::$user['allow_android']=0;
+rejects(fn()=>callRoute('POST','/api/session/renew',['refresh'=>'test']),401);
+Db::$user['allow_android']=1;
+Jwt::$payload['device_id']='another-device';
+rejects(fn()=>callRoute('POST','/api/session/renew',['refresh'=>'test']),401);
+Jwt::$payload['device_id']='device-new';
+check(callRoute('POST','/api/session/renew',['refresh'=>'test'])['access']==='test-access','Only exact active device can refresh');
 resetState('sms_otp','password');
 rejects(fn()=>callRoute('POST','/api/session/start',$body),403);
 check(callRoute('POST','/api/session/start',array_merge($body,['device_type'=>'web']))['device_type']==='web','Web password enabled');

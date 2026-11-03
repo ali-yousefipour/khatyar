@@ -295,8 +295,9 @@ foreach ($routes as $r) {
     // Legacy access tokens have no type claim; refresh/image tokens have explicit types.
     if (!is_array($payload) || ($payload['t'] ?? 'a') !== 'a') Http::error('توکن منقضی یا نامعتبر است', 401);
     Http::$currentToken = $tok;
-    $user = Db::one("SELECT u.id,u.username,u.first_name,u.last_name,u.role_id,r.title AS role_title,r.level,r.is_admin,u.is_active,u.must_change_pw,u.email,u.photo,u.photo_path FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?", [$payload['sub']]);
+    $user = Db::one("SELECT u.id,u.username,u.first_name,u.last_name,u.role_id,r.title AS role_title,r.level,r.is_admin,u.is_active,u.allow_web,u.allow_android,u.must_change_pw,u.email,u.photo,u.photo_path FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?", [$payload['sub']]);
     if (!$user || !$user['is_active']) Http::error('کاربر نامعتبر', 401); $dt = $payload['dt'] ?? 'web'; $tokenDeviceId = (string)($payload['device_id'] ?? '');
+    if (!in_array($dt, ['web','android'], true) || !(int)$user['allow_'.$dt]) Http::error('دسترسی این دستگاه غیرفعال شده است', 403);
     // Match the exact device session. Looking up only by user/device_type can select another
     // browser's session and incorrectly reject a valid token when the user has multiple sessions.
     if ($tokenDeviceId !== '') {

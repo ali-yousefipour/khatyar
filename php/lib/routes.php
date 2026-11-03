@@ -480,11 +480,14 @@ $refreshHandler = function ($p, $b) {
   $payload = Jwt::verify($b['refresh'] ?? '', $GLOBALS['CONFIG']['jwt_secret']);
   if (!$payload || ($payload['t'] ?? '') !== 'r') Http::error('توکن تمدید نامعتبر است', 401);
   $dt = $payload['dt'] ?? 'web';
-  $s = Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=?", [$payload['sub'], $dt]);
-  $ur = Db::one("SELECT r.title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?", [$payload['sub']]);
-  $unlim = $ur && in_array($ur['title'], ['مدیر کل','رییس اداره بازرسی','نیروی اداری ارشد'], true);
-  if (!$s || $s['revoked_at'] || (!$unlim && $s['device_id'] !== $payload['device_id'])) Http::error('نشست نامعتبر است', 401);
-  return issueTokens($payload['sub'], $payload['device_id'], $dt);
+  $deviceId = (string)($payload['device_id'] ?? '');
+  if (!in_array($dt, ['web','android'], true) || $deviceId === '') Http::error('نشست نامعتبر است', 401);
+  $user = Db::one("SELECT id,is_active,allow_web,allow_android FROM users WHERE id=? LIMIT 1", [(int)$payload['sub']]);
+  if (!$user || !(int)$user['is_active'] || !(int)$user['allow_'.$dt]) Http::error('نشست نامعتبر است', 401);
+  // A refresh token may renew only the exact, non-revoked device session.
+  $s = Db::one("SELECT device_id,revoked_at FROM user_sessions WHERE user_id=? AND device_type=? AND device_id=? LIMIT 1", [(int)$user['id'], $dt, $deviceId]);
+  if (!$s || $s['revoked_at']) Http::error('نشست نامعتبر است', 401);
+  return issueTokens((int)$user['id'], $deviceId, $dt);
 };
 route('POST', '/api/auth/refresh', $refreshHandler, true);
 // همان مسیر بدون کلمهٔ حساس «auth» — برای دورزدن مسدودسازی احتمالی WAF (نگاه کنید به توضیح بالای لاگین)
