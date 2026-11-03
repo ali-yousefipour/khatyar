@@ -21,4 +21,8 @@ class Jwt {
     if (!$payload || ($payload['exp'] ?? 0) < time()) return null;
     return $payload;
   }
+  // Legacy access tokens have no type claim. Refresh tokens must never authorize API reads.
+  public static function isAccessPayload($payload) {
+    return is_array($payload) && in_array($payload['t'] ?? 'a', ['a'], true);
+  }
 }
