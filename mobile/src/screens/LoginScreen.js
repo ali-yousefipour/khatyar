@@ -12,6 +12,7 @@ export default function LoginScreen() {
   const [smsAutoMode,setSmsAutoMode] = useState('consent');
   const [smsActiveMode,setSmsActiveMode] = useState('consent');
   const [smsStatus,setSmsStatus] = useState('');
+  const [manualSmsEntry,setManualSmsEntry] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState('');
   const [configRetry, setConfigRetry] = useState(0);
@@ -88,6 +89,7 @@ export default function LoginScreen() {
       }
       await appLoginOtpRequest(username.trim());
       setCode('');
+      setManualSmsEntry(false);
       setMode('otp-code');
       setOtpCooldown(60);
       if (loginMethod === 'bale_otp') Alert.alert('ارسال شد', 'کد ورود از طریق ربات بله برای شما ارسال شد.');
@@ -176,6 +178,11 @@ export default function LoginScreen() {
             <Text style={s.smsWaitTitle}>{smsStatus === 'received' ? 'کد دریافت شد؛ در حال ورود…' : smsStatus === 'timeout' ? 'زمان دریافت پیامک به پایان رسید' : smsStatus === 'declined' ? 'دسترسی به پیامک تأیید نشد' : smsStatus === 'error' ? 'تأیید خودکار انجام نشد' : 'در انتظار دریافت خودکار پیامک'}</Text>
             <Text style={s.smsWaitHint}>{smsActiveMode === 'consent' ? 'هنگام نمایش درخواست اندروید، اجازه خواندن همان یک پیامک را تأیید کنید.' : 'کد دریافتی به‌صورت خودکار بررسی می‌شود و نیازی به تایپ آن نیست.'}</Text>
             {smsStatus === 'waiting' && <Text style={s.smsWaitHint}>می‌توانید تا دریافت پیامک منتظر بمانید یا درخواست را لغو کنید.</Text>}
+            {!manualSmsEntry ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="ورود دستی کد پیامکی" onPress={()=>setManualSmsEntry(true)} style={[s.btn,{marginTop:14}]}><Text style={s.btnTxt}>کد را دستی وارد می‌کنم</Text></TouchableOpacity> : <>
+              <Text style={[s.label,{marginTop:14}]}>کد شش‌رقمی پیامک</Text>
+              <TextInput style={[s.input,{textAlign:'center',fontSize:22,letterSpacing:6}]} value={code} onChangeText={t=>setCode(normalizeDigits(t).replace(/\D/g,'').slice(0,6))} keyboardType="number-pad" maxLength={6} placeholder="------" placeholderTextColor={C.muted} autoComplete="sms-otp" accessibilityLabel="کد شش‌رقمی پیامکی" autoFocus/>
+              <TouchableOpacity style={s.btn} onPress={()=>onOtpVerify()} disabled={busy||code.length!==6} accessibilityRole="button" accessibilityLabel="تأیید کد پیامکی"><Text style={s.btnTxt}>تأیید و ورود</Text></TouchableOpacity>
+            </>}
           </View> : <>
             <Text style={s.label}>کد ۶ رقمی ورود از ربات بله</Text>
             <TextInput style={[s.input,{textAlign:'center',fontSize:22,letterSpacing:6}]} value={code} onChangeText={t=>setCode(normalizeDigits(t).replace(/\D/g,'').slice(0,6))} keyboardType="number-pad" maxLength={6} placeholder="------" placeholderTextColor={C.muted} autoFocus />

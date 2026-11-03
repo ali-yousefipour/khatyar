@@ -340,8 +340,12 @@ function _login_method($deviceType) {
   if (!in_array($method, ['password', 'sms_otp', 'bale_otp'], true)) Http::error('روش ورود تنظیم‌شده معتبر نیست؛ با مدیر سامانه تماس بگیرید.', 503);
   return $method;
 }
+// Verified from the signed Myket APK build (run 41664455563, job 126015940947).
+// This public SMS Retriever identifier depends on the signing certificate and package name.
+// Administrators may override it after changing the release signing certificate.
+const KHATYAR_MYKET_SMS_APP_HASH = 'ccku0ertOIb';
 function _android_sms_hash() {
-  $hash = trim((string)_req_setting('android_sms_app_hash', ''));
+  $hash = trim((string)_req_setting('android_sms_app_hash', KHATYAR_MYKET_SMS_APP_HASH));
   return preg_match('~^[A-Za-z0-9+/]{11}$~D', $hash) ? $hash : '';
 }
 route('GET', '/api/session/app-login-config', fn()=>['method'=>_login_method('android'), 'sms_auto_mode'=>_android_sms_hash() !== '' ? 'retriever' : 'consent'], true);
@@ -10119,6 +10123,8 @@ route('DELETE', '/api/admin/report-subjects/{id}', function($p,$b,$u){ _ensure_r
 
 route('GET', '/api/admin/settings', function($p,$b,$u){
   $out=[]; foreach (Db::all("SELECT `key`,value FROM app_settings") as $r) $out[$r['key']] = json_decode($r['value'], true);
+  if (!isset($out['android_sms_app_hash']) || trim((string)$out['android_sms_app_hash']) === '')
+    $out['android_sms_app_hash'] = KHATYAR_MYKET_SMS_APP_HASH;
   return $out;
 },false,ADMIN);
 route('PUT', '/api/admin/settings', function($p,$b,$u){

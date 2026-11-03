@@ -35,7 +35,7 @@ class Db {
   }
   public static function all($sql,$params=[]) { throw new RuntimeException('Unexpected list: '.$sql); }
 }
-class Sms { public static $code; public static function send($mobiles,$text,...$rest) { preg_match('/\b[0-9]{6}\b/',$text,$m); self::$code=$m[0];return ['ok'=>true]; } }
+class Sms { public static $code; public static $message; public static function send($mobiles,$text,...$rest) { preg_match('/\b[0-9]{6}\b/',$text,$m); self::$code=$m[0];self::$message=$text;return ['ok'=>true]; } }
 class BaleBot {
   public static $code;
   public static function isEnabled() { return true; }
@@ -111,7 +111,8 @@ foreach (['sms_otp','bale_otp'] as $method) {
 }
 resetState('sms_otp');callRoute('POST','/api/session/app-login-request',$body);
 $boundCode=Sms::$code;
-check(callRoute('GET','/api/session/app-login-config')['sms_auto_mode']==='consent','Consent fallback without configured app hash');
+check(callRoute('GET','/api/session/app-login-config')['sms_auto_mode']==='retriever','Signed Myket APK hash available without manual settings');
+check(str_ends_with(Sms::$message, KHATYAR_MYKET_SMS_APP_HASH),'Android OTP SMS includes verified signing hash');
 rejects(fn()=>callRoute('POST','/api/session/app-login-verify',array_merge($body,['device_id'=>'different-device','code'=>$boundCode])),401);
 check(callRoute('POST','/api/session/app-login-verify',array_merge($body,['code'=>$boundCode]))['device_type']==='android','OTP bound to requesting device');
 resetState('sms_otp');Db::$settings['android_sms_app_hash']='FA+9qCX9VSu';
