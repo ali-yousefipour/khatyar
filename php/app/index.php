@@ -290,7 +290,11 @@ foreach ($routes as $r) {
   if ($r['m'] !== $method) continue; $regex = '#^' . preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $r['p']) . '$#'; if (!preg_match($regex, $path, $mm)) continue; $params = array_filter($mm, 'is_string', ARRAY_FILTER_USE_KEY); $user = null;
   try {
   if (!$r['public']) {
-    $tok = Http::bearer(); $payload = $tok ? Jwt::verify($tok, $GLOBALS['CONFIG']['jwt_secret']) : null; if (!Jwt::isAccessPayload($payload)) Http::error('توکن منقضی یا نامعتبر است', 401); Http::$currentToken = $tok;
+    $tok = Http::bearer(); $payload = $tok ? Jwt::verify($tok, $GLOBALS['CONFIG']['jwt_secret']) : null;
+    // Keep bootstrap authentication independent of newly deployed helper methods.
+    // Legacy access tokens have no type claim; refresh/image tokens have explicit types.
+    if (!is_array($payload) || ($payload['t'] ?? 'a') !== 'a') Http::error('توکن منقضی یا نامعتبر است', 401);
+    Http::$currentToken = $tok;
     $user = Db::one("SELECT u.id,u.username,u.first_name,u.last_name,u.role_id,r.title AS role_title,r.level,r.is_admin,u.is_active,u.must_change_pw,u.email,u.photo,u.photo_path FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?", [$payload['sub']]);
     if (!$user || !$user['is_active']) Http::error('کاربر نامعتبر', 401); $dt = $payload['dt'] ?? 'web'; $tokenDeviceId = (string)($payload['device_id'] ?? '');
     // Match the exact device session. Looking up only by user/device_type can select another
