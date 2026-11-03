@@ -41,8 +41,8 @@ export function VehiclePlateInput({motor,data,set}){
   </View>
   <Modal visible={lettersOpen} transparent animationType="fade" onRequestClose={()=>setLettersOpen(false)}>
    <View style={st.backdrop}><View style={st.sheet}>
-    <Text style={st.modalHeading}>انتخاب حرف پلاک</Text><Text style={st.help}>حروف مجاز پلاک‌های ایران</Text>
-    <ScrollView style={{maxHeight:340}} contentContainerStyle={st.letterGrid} keyboardShouldPersistTaps="always">
+    <Text accessibilityRole="header" style={st.modalHeading}>انتخاب حرف پلاک</Text><Text style={st.help}>حروف مجاز پلاک‌های ایران</Text>
+    <ScrollView style={{maxHeight:340,flexShrink:1}} contentContainerStyle={st.letterGrid} keyboardShouldPersistTaps="always">
      {VEHICLE_PLATE_LETTERS.map(letter=><TouchableOpacity key={letter} style={[st.letterOption,data.plate_letter===letter&&st.optionSelected]} onPress={()=>{set('plate_letter',letter);setLettersOpen(false);setTimeout(()=>threeRef.current?.focus(),100)}}><Text style={[st.letterOptionText,data.plate_letter===letter&&st.selectedText]}>{letter}</Text></TouchableOpacity>)}
     </ScrollView>
     <TouchableOpacity style={st.closeButton} onPress={()=>setLettersOpen(false)}><Text style={st.closeText}>بستن</Text></TouchableOpacity>
@@ -63,10 +63,10 @@ export function VehicleYearPicker({years,value,onChange,motor}){
   </TouchableOpacity>
   <Modal visible={open} transparent animationType="slide" onRequestClose={()=>setOpen(false)}>
    <View style={st.backdrop}><View style={st.sheet}>
-    <Text style={st.modalHeading}>انتخاب سال ساخت {motor?'موتورسیکلت':'خودرو'}</Text>
+    <Text accessibilityRole="header" style={st.modalHeading}>انتخاب سال ساخت {motor?'موتورسیکلت':'خودرو'}</Text>
     <Text style={st.help}>سال موردنظر را جستجو کنید یا از فهرست انتخاب کنید.</Text>
     <TextInput style={st.search} keyboardType="number-pad" value={fa(query)} onChangeText={v=>setQuery(digits(v,4))} maxLength={4} placeholder="جستجوی سال، مثلاً ۱۴۰۲" placeholderTextColor="#94a3b8" textAlign="right"/>
-    <ScrollView style={{maxHeight:330}} keyboardShouldPersistTaps="always" contentContainerStyle={st.yearOptions}>
+    <ScrollView style={{maxHeight:330,flexShrink:1}} keyboardShouldPersistTaps="always" contentContainerStyle={st.yearOptions}>
      {filtered.map(y=><TouchableOpacity key={y} style={[st.yearOption,Number(value)===y&&st.optionSelected]} onPress={()=>{onChange(y);setOpen(false)}}><Text style={[st.yearOptionText,Number(value)===y&&st.selectedText]}>{fa(y)}</Text></TouchableOpacity>)}
      {!filtered.length&&<Text style={st.empty}>سال موردنظر در فهرست مجاز نیست.</Text>}
     </ScrollView>
@@ -90,9 +90,9 @@ const st=StyleSheet.create({
  motorFlag:{width:'100%',height:18,marginBottom:4},motorFlagGreen:{flex:1,backgroundColor:'#239946'},motorFlagWhite:{flex:1,backgroundColor:'#fff',alignItems:'center',justifyContent:'center'},motorFlagMark:{fontSize:8,color:'#d12832',lineHeight:9},motorFlagRed:{flex:1,backgroundColor:'#da2432'},
  motorFlagLabel:{fontFamily:FONT.bold,fontSize:10,color:'#fff',lineHeight:13,textAlign:'center'},
  motorNumberTop:{flex:1,justifyContent:'center',paddingHorizontal:11},motorNumber:{fontFamily:FONT.bold,fontSize:27,color:'#080808',minHeight:44,paddingVertical:0,letterSpacing:2},
- backdrop:{flex:1,backgroundColor:'rgba(15,23,42,.55)',justifyContent:'flex-end'},sheet:{backgroundColor:'#fff',borderTopLeftRadius:25,borderTopRightRadius:25,padding:20,paddingBottom:30},modalHeading:{fontFamily:FONT.bold,fontSize:19,color:'#0f172a',textAlign:'right',marginBottom:8},
+ backdrop:{flex:1,backgroundColor:'rgba(15,23,42,.55)',justifyContent:'flex-end'},sheet:{maxHeight:'90%',backgroundColor:'#fff',borderTopLeftRadius:25,borderTopRightRadius:25,padding:20,paddingBottom:30},modalHeading:{fontFamily:FONT.bold,fontSize:19,color:'#0f172a',textAlign:'right',marginBottom:8},
  letterGrid:{flexDirection:'row-reverse',flexWrap:'wrap',gap:8,paddingVertical:6},letterOption:{width:'22%',minHeight:54,alignItems:'center',justifyContent:'center',backgroundColor:'#f1f5f9',borderRadius:12,borderWidth:1,borderColor:'#e2e8f0'},letterOptionText:{fontFamily:FONT.bold,fontSize:23,color:'#1e293b'},optionSelected:{backgroundColor:C.brand,borderColor:C.brand},selectedText:{color:'#fff'},
- closeButton:{marginTop:12,padding:13,alignItems:'center',borderRadius:12,backgroundColor:'#f1f5f9'},closeText:{fontFamily:FONT.bold,color:'#334155'},
+ closeButton:{minHeight:48,marginTop:12,padding:13,alignItems:'center',borderRadius:12,backgroundColor:'#f1f5f9'},closeText:{fontFamily:FONT.bold,color:'#334155'},
  fieldLabel:{fontFamily:FONT.bold,fontSize:14,color:'#334155',textAlign:'right',marginTop:13,marginBottom:7},yearTrigger:{borderWidth:1,borderColor:'#cbd5e1',backgroundColor:'#f8fafc',borderRadius:14,padding:15,flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',marginBottom:10},yearValue:{fontFamily:FONT.bold,fontSize:19,color:'#0f172a',textAlign:'right'},yearSub:{fontSize:11,color:'#64748b',textAlign:'right',marginTop:5},yearIcon:{width:44,height:44,borderRadius:13,backgroundColor:'#dbeafe',alignItems:'center',justifyContent:'center'},yearIconText:{color:'#1d4ed8',fontSize:24},
  search:{borderWidth:1,borderColor:'#cbd5e1',borderRadius:12,padding:13,fontFamily:FONT.regular,fontSize:16,color:'#0f172a',marginVertical:12},yearOptions:{flexDirection:'row-reverse',flexWrap:'wrap',gap:9,paddingBottom:10},yearOption:{width:'30%',paddingVertical:15,alignItems:'center',backgroundColor:'#f1f5f9',borderRadius:12,borderWidth:1,borderColor:'#e2e8f0'},yearOptionText:{fontFamily:FONT.bold,fontSize:17,color:'#334155'},empty:{fontFamily:FONT.regular,textAlign:'center',padding:20,color:'#64748b'}
 });
