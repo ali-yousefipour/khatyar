@@ -57,6 +57,16 @@ function issueTokens($uid, $dev, $dtype) {
   ];
 }
 
+// Only one verification image can be opened with this scoped, expiring URL token.
+function _presence_image_token($user, $id, $kind, $ttl = 900) {
+  return Jwt::sign([
+    't' => 'presence-image', 'sub' => (int)$user['id'],
+    'dt' => (string)($user['device_type'] ?? 'web'),
+    'device_id' => (string)($user['device_id'] ?? ''),
+    'image_id' => (int)$id, 'kind' => $kind,
+  ], $GLOBALS['CONFIG']['jwt_secret'], $ttl);
+}
+
 // اعتبارسنجی مختصات جغرافیایی
 function _ssv_require_inspection_core($b){
   if(!is_array($b)) Http::error('اطلاعات بازدید نامعتبر است.',422);
@@ -1014,9 +1024,16 @@ route('GET', '/api/admin/presence-checks', function($p,$b,$u){
 
 // سرو تصویر صحت‌سنجی (برای هایپرلینک اکسل) — اعتبارسنجی توکن از کوئری یا هدر
 route('GET', '/api/presence-image/{id}', function($p,$b,$u){
-  $tok = $_GET['token'] ?? Http::bearer();
+  // A URL must never contain a general-purpose access/refresh token.
+  $queryToken = trim((string)($_GET['token'] ?? ''));
+  $tok = $queryToken !== '' ? $queryToken : Http::bearer();
   $payload = $tok ? Jwt::verify($tok, $GLOBALS['CONFIG']['jwt_secret']) : null;
-  if (!Jwt::isAccessPayload($payload)) Http::error('دسترسی نامعتبر است', 403);
+  $requestedKind = ($_GET['type'] ?? 'selfie') === 'vehicles' ? 'vehicles' : 'selfie';
+  if ($queryToken !== '') {
+    if (($payload['t'] ?? '') !== 'presence-image'
+      || (int)($payload['image_id'] ?? 0) !== (int)$p['id']
+      || ($payload['kind'] ?? '') !== $requestedKind) Http::error('لینک تصویر نامعتبر یا منقضی است', 403);
+  } elseif (!Jwt::isAccessPayload($payload)) Http::error('دسترسی نامعتبر است', 403);
   $actor = Db::one('SELECT u.id,u.is_active,r.is_admin,r.level FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?', [(int)($payload['sub'] ?? 0)]);
   if (!$actor || !(int)$actor['is_active'] || !(int)$actor['is_admin'] || (int)$actor['level'] > 3) Http::error('دسترسی مجاز نیست', 403);
   $deviceType = (string)($payload['dt'] ?? 'web');
@@ -1024,7 +1041,7 @@ route('GET', '/api/presence-image/{id}', function($p,$b,$u){
   if ($deviceId === '') Http::error('نشست نامعتبر است', 403);
   $session = Db::one('SELECT revoked_at FROM user_sessions WHERE user_id=? AND device_type=? AND device_id=? LIMIT 1', [(int)$actor['id'], $deviceType, $deviceId]);
   if (!$session || $session['revoked_at']) Http::error('نشست منقضی یا باطل شده است', 403);
-  $type = ($_GET['type'] ?? 'selfie') === 'vehicles' ? 'vehicles_photo' : 'selfie';
+  $type = $requestedKind === 'vehicles' ? 'vehicles_photo' : 'selfie';
   $pathCol = $type . '_path';
   $r = Db::one("SELECT $type img, $pathCol pth FROM presence_checks WHERE id=?", [$p['id']]);
   if (!$r) { http_response_code(404); exit('not found'); }
@@ -1050,8 +1067,7 @@ route('GET', '/api/admin/presence-checks/export', function($p,$b,$u){
       pc.lat, pc.lng, pc.captured_at, (pc.selfie IS NOT NULL) has_selfie, (pc.vehicles_photo IS NOT NULL) has_vehicles
     FROM presence_checks pc JOIN users us ON us.id=pc.user_id LEFT JOIN roles r ON r.id=us.role_id
     WHERE $cond ORDER BY pc.slot_date DESC, pc.slot DESC, name", $args);
-  // توکن کوتاه برای لینک‌ها (از هدر فعلی ادمین)
-  $tok = Http::bearer();
+  // Exported URLs expire after one day and are restricted to their own image.
   $base = (isset($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off'?'https':'http').'://'.($_SERVER['HTTP_HOST'] ?? '').'/api/presence-image/';
   $SLOT = ['morning'=>'صبح','noon'=>'ظهر','evening'=>'عصر','1'=>'بازهٔ ۱','2'=>'بازهٔ ۲','3'=>'بازهٔ ۳'];
   header('Content-Type: text/csv; charset=UTF-8');
@@ -1059,8 +1075,8 @@ route('GET', '/api/admin/presence-checks/export', function($p,$b,$u){
   echo "\xEF\xBB\xBF"; $out=fopen('php://output','w');
   fputcsv($out, ['نام','سمت','تاریخ','بازه','زمان دریافت (تهران)','عرض جغرافیایی','طول جغرافیایی','عکس سلفی','عکس خودروها']);
   foreach ($rows as $r) {
-    $selfie = $r['has_selfie'] ? '=HYPERLINK("'.$base.$r['id'].'?type=selfie&token='.$tok.'","مشاهدهٔ سلفی")' : '—';
-    $veh = $r['has_vehicles'] ? '=HYPERLINK("'.$base.$r['id'].'?type=vehicles&token='.$tok.'","مشاهدهٔ خودروها")' : '—';
+    $selfie = $r['has_selfie'] ? '=HYPERLINK("'.$base.$r['id'].'?type=selfie&token='._presence_image_token($u,$r['id'],'selfie',86400).'","مشاهدهٔ سلفی")' : '—';
+    $veh = $r['has_vehicles'] ? '=HYPERLINK("'.$base.$r['id'].'?type=vehicles&token='._presence_image_token($u,$r['id'],'vehicles',86400).'","مشاهدهٔ خودروها")' : '—';
     fputcsv($out, [$r['name'], $r['role'], $r['slot_date'], $SLOT[$r['slot']]??$r['slot'], fa_datetime($r['captured_at']), $r['lat'], $r['lng'], $selfie, $veh]);
   }
   fclose($out); exit;
@@ -1070,12 +1086,11 @@ route('GET', '/api/admin/presence-checks/export', function($p,$b,$u){
 route('GET', '/api/admin/presence-checks/{id}', function($p,$b,$u){
   $r = Db::one("SELECT pc.*, CONCAT(us.first_name,' ',us.last_name) name FROM presence_checks pc JOIN users us ON us.id=pc.user_id WHERE pc.id=?", [$p['id']]);
   if (!$r) Http::error('یافت نشد', 404);
-  // تصاویر را به URL با توکن تبدیل کن (endpoint presence-image از فایل یا base64 پشتیبانی می‌کند)
-  $tok = $_GET['token'] ?? Http::bearer();
+  // Short-lived, image-specific URL tokens; never embed the logged-in user's access token.
   $hasSelfie = !empty($r['selfie_path']) || !empty($r['selfie']);
   $hasVeh = !empty($r['vehicles_photo_path']) || !empty($r['vehicles_photo']);
-  $r['selfie'] = $hasSelfie ? ('/api/presence-image/'.$r['id'].'?type=selfie&token='.urlencode($tok)) : null;
-  $r['vehicles_photo'] = $hasVeh ? ('/api/presence-image/'.$r['id'].'?type=vehicles&token='.urlencode($tok)) : null;
+  $r['selfie'] = $hasSelfie ? ('/api/presence-image/'.$r['id'].'?type=selfie&token='.urlencode(_presence_image_token($u,$r['id'],'selfie'))) : null;
+  $r['vehicles_photo'] = $hasVeh ? ('/api/presence-image/'.$r['id'].'?type=vehicles&token='.urlencode(_presence_image_token($u,$r['id'],'vehicles'))) : null;
   unset($r['selfie_path'], $r['vehicles_photo_path']);
   return $r;
 }, false, ADMIN);
@@ -9587,12 +9602,15 @@ route('GET', '/api/admin/users', function($p,$b,$u){
     FROM users u JOIN roles r ON r.id=u.role_id $where ORDER BY CASE WHEN u.rank_stars IS NOT NULL THEN u.rank_stars WHEN r.title LIKE '%سربازرس%' THEN 4 WHEN r.title LIKE '%بازرس%' THEN 2 WHEN r.title LIKE '%ناظر خط%' OR r.title LIKE '%اپراتور%' THEN 1 ELSE 0 END DESC, r.level DESC, r.title ASC, u.first_name ASC, u.last_name ASC, u.id ASC", $pr);
 });
 route('POST', '/api/admin/users', function($p,$b,$u){
+  $initialPassword = (string)($b['password'] ?? '');
+  if (strlen($initialPassword) < 12 || in_array($initialPassword, ['123456', '12345678', '123456789', 'password123'], true))
+    Http::error('رمز اولیه باید حداقل ۱۲ کاراکتر و غیرقابل حدس باشد', 422);
   // اطمینان از وجود ستون تاریخ تولد در نسخه‌های ارتقایی
   try { if (!Db::one("SHOW COLUMNS FROM users WHERE Field='birth_date'")) Db::run("ALTER TABLE users ADD COLUMN birth_date VARCHAR(20) NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   if (Db::one("SELECT 1 a FROM users WHERE username=?", [$b['username']])) Http::error('این کد ملی قبلاً ثبت شده است', 409);
   $id = Db::insert("INSERT INTO users(username,first_name,last_name,password_hash,role_id,zone_id,manager_id,phone,email,allow_android,allow_web,national_code,marital_status,address,children_count,birth_date,must_change_pw)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)", [$b['username'],$b['first_name'],$b['last_name'],
-    password_hash($b['password'] ?? '123456', PASSWORD_BCRYPT), $b['role_id'], $b['zone_id'] ?? null, $b['manager_id'] ?? null, $b['phone'] ?? null,
+    password_hash($initialPassword, PASSWORD_BCRYPT), $b['role_id'], $b['zone_id'] ?? null, $b['manager_id'] ?? null, $b['phone'] ?? null,
     $b['email'] ?? null, isset($b['allow_android'])?(int)!!$b['allow_android']:1, isset($b['allow_web'])?(int)!!$b['allow_web']:1,
     $b['national_code'] ?? null, $b['marital_status'] ?? null, $b['address'] ?? null, isset($b['children_count'])?(int)$b['children_count']:null, $b['birth_date'] ?? null]);
   // ذخیرهٔ مقام‌های بالاسری (چند مدیر)
@@ -9604,7 +9622,7 @@ route('POST', '/api/admin/users', function($p,$b,$u){
   if ($phone !== '' && Sms::isEnabled()) {
     $tplRow = Db::one("SELECT value FROM app_settings WHERE `key`='sms_welcome_template'");
     $tpl = $tplRow ? json_decode($tplRow['value'], true) : null;
-    $pw = $b['password'] ?? '123456';
+    $pw = $initialPassword;
     if (!$tpl || trim($tpl) === '') {
       $tpl = "به سامانهٔ مدیریت خطوط تاکسیرانی خوش آمدید.\nنام کاربری: {username}\nرمز عبور: {password}\nلطفاً در نخستین ورود رمز را تغییر دهید.";
     }
@@ -9652,7 +9670,10 @@ route('PUT', '/api/admin/users/{id}', function($p,$b,$u){
 }, false, ADMIN);
 // مقام‌های بالاسری یک کاربر
 route('POST', '/api/admin/users/{id}/reset-password', function($p,$b,$u){
-  Db::run("UPDATE users SET password_hash=?, must_change_pw=1 WHERE id=?", [password_hash($b['password'] ?? '123456', PASSWORD_BCRYPT), $p['id']]); return ['ok'=>true];
+  $next = (string)($b['password'] ?? '');
+  if (strlen($next) < 12 || in_array($next, ['123456', '12345678', '123456789', 'password123'], true))
+    Http::error('رمز جایگزین باید حداقل ۱۲ کاراکتر و غیرقابل حدس باشد', 422);
+  Db::run("UPDATE users SET password_hash=?, must_change_pw=1 WHERE id=?", [password_hash($next, PASSWORD_BCRYPT), $p['id']]); return ['ok'=>true];
 }, false, ADMIN);
 route('POST', '/api/admin/users/{id}/revoke-device', function($p,$b,$u){
   $type = $b['device_type'] ?? null; // 'android' | 'web' | null(=هر دو)
