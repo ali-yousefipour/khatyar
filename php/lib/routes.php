@@ -742,6 +742,34 @@ route('GET', '/api/my/presence-config', function($p,$b,$u){
 });
 
 // برنامهٔ زمان‌بندی تصادفی فعال برای جلسهٔ حضور فعلی؛ برای بازیابی کش اپ نیز استفاده می‌شود.
+route('GET', '/api/my/presence-checks/today', function($p,$b,$u){
+  $today=date('Y-m-d');
+  $start=$today.' 00:00:00';
+  $end=date('Y-m-d 00:00:00',strtotime('tomorrow'));
+  $rows=Db::all("SELECT id,data,created_at FROM notifications
+    WHERE user_id=? AND created_at>=? AND created_at<? AND data LIKE ?
+    ORDER BY created_at DESC,id DESC",[(int)$u['id'],$start,$end,'%"presence_check"%']);
+  $checks=Db::all("SELECT slot,captured_at FROM presence_checks WHERE user_id=? AND slot_date=?",[(int)$u['id'],$today]);
+  $completed=array_column($checks,'captured_at','slot');
+  $items=[];
+  foreach($rows as $row){
+    $data=json_decode($row['data'],true);
+    $slot=(string)($data['slot']??'');
+    if(($data['type']??null)!=='presence_check'||!preg_match('/^\d{2}:\d{2}$/',$slot))continue;
+    $id=$data['request_id']??('slot_'.$slot);
+    if(isset($items[$id]))continue;
+    $sent=strtotime($row['created_at']);
+    $doneAt=$completed[$slot]??null;
+    $done=$doneAt && strtotime($doneAt)>=$sent;
+    if($done)unset($completed[$slot]);
+    $deadline=(int)($data['ts']??$sent)+max(1,(int)($data['window_minutes']??1))*60;
+    $items[$id]=['id'=>(string)$id,'slot'=>$slot,'sent_time'=>date('H:i',$sent),
+      'immediate'=>!empty($data['immediate']),
+      'status'=>$done?'done':(time()<$deadline?'pending':'missed')];
+  }
+  return ['date'=>$today,'items'=>array_values($items)];
+});
+
 route('GET', '/api/my/presence-random-schedule', function($p,$b,$u){
   $cfgRow=Db::one("SELECT value FROM app_settings WHERE `key`='presence_check'");
   $cfg=$cfgRow?json_decode($cfgRow['value'],true):[];
@@ -7282,14 +7310,18 @@ route('GET', '/api/media', function($p,$b,$u){
 
 function _live_location_sql($shiftOnly){
   // Older deployments have captured_at/synced_at but no received_at column.
-  $hasReceived=(bool)Db::one("SHOW COLUMNS FROM location_pings LIKE 'received_at'");
   // A ping row receives its monotonically increasing id when the server saves it.
   // Use that ingestion order for the current location instead of sorting a user's
   // entire history by a computed COALESCE expression on every map refresh.
-  $receiptTime=$hasReceived?'COALESCE(lp.received_at,lp.captured_at)':'lp.captured_at';
   // Build against the actual deployed schema; a missing optional telemetry column
   // must not turn the entire online map into HTTP 500.
   $pingColumns=array_column(Db::all("SHOW COLUMNS FROM location_pings"),'Field');
+  $receiptColumns=[];
+  foreach(['received_at','synced_at'] as $column)if(in_array($column,$pingColumns,true))$receiptColumns[]='lp.'.$column;
+  $receiptColumns[]='lp.captured_at';
+  $receiptTime=count($receiptColumns)>1?'COALESCE('.implode(',',$receiptColumns).')':$receiptColumns[0];
+  $interval=max(5,min(3600,(int)_req_setting('location_interval_sec',60)));
+  $onlineSeconds=max(240,$interval*3+60);
   $viaGsm=in_array('via_gsm',$pingColumns,true)?'COALESCE(lp.via_gsm,0)':'0';
   // Some older deployments do not have the optional network-state table.
   $hasNetState=(bool)Db::one("SHOW TABLES LIKE 'user_net_state'");
@@ -7311,7 +7343,7 @@ function _live_location_sql($shiftOnly){
           u.role_id, r.title role_title, r.level, lp.lat, lp.lng, lp.captured_at,
           $viaGsm AS via_gsm,
           $receiptTime AS received_at,
-          ($receiptTime >= DATE_SUB(NOW(), INTERVAL 3 MINUTE)) AS online,
+          ($receiptTime >= DATE_SUB(NOW(), INTERVAL $onlineSeconds SECOND)) AS online,
           TIMESTAMPDIFF(SECOND, $receiptTime, NOW()) AS secs_ago,
           $vpnOn AS vpn_on, $batteryLevel AS battery_level, $batteryCharging AS battery_charging, $ipCountry AS ip_country, $lastIp AS last_ip
    FROM users u

@@ -16,6 +16,14 @@ class Db {
     return null;
   }
   static function all($sql,$params=[]){
+    if(str_contains($sql,'SELECT id,data,created_at FROM notifications')){
+      if($params[0]!==21)throw new RuntimeException('History must be scoped to recipient');
+      return $GLOBALS['historyNotifications'];
+    }
+    if(str_contains($sql,'SELECT slot,captured_at FROM presence_checks')){
+      if($params[0]!==21)throw new RuntimeException('Completions must be scoped to recipient');
+      return $GLOBALS['historyChecks'];
+    }
     if(str_contains($sql,'SELECT data,created_at FROM notifications')){
       if($params[0]!==21)throw new RuntimeException('Immediate requests must be scoped to recipient');
       return self::$immediate;
@@ -115,3 +123,15 @@ $config=$presenceCron([],[],['id'=>21]);
 assertPresence(!$config['required'] && array_column($config['immediate_requests'],'request_id')===['active'],
   'An off-shift recipient must get the active immediate request only');
 echo "PASS off-shift immediate request recovery and expiry\n";
+
+$a=strpos($source,"route('GET', '/api/my/presence-checks/today', ");
+$b=strpos($source,"\n});",$a);
+eval(substr($source,$a,$b-$a+4));
+$historyNotifications=[];
+foreach([['done','12:00',$now-120],['missed','11:00',$now-120],['pending','12:01',$now]] as [$id,$slot,$ts]){
+  $historyNotifications[]=['id'=>$id,'data'=>json_encode(['type'=>'presence_check','slot'=>$slot,'request_id'=>$id,'ts'=>$ts]),'created_at'=>date('Y-m-d H:i:s',$ts)];
+}
+$historyChecks=[['slot'=>'12:00','captured_at'=>date('Y-m-d H:i:s',$now-110)]];
+$history=$presenceCron([],[],['id'=>21]);
+assertPresence(array_column($history['items'],'status')===['done','missed','pending'],'Today history must distinguish completed, missed and active requests');
+echo "PASS today presence history statuses\n";

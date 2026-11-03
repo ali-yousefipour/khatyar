@@ -1647,9 +1647,49 @@ const ss = StyleSheet.create({
 });
 
 
+const presenceStatus = {
+  done: ['انجام‌شده', '#17634b', '#e6f5ed'],
+  pending: ['در انتظار انجام', '#704500', '#fff1d5'],
+  missed: ['انجام‌نشده', '#9b2929', '#fceaea'],
+};
+
+function CheckInPresenceTab(){
+  const [items,setItems]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState(false);
+  const [refresh,setRefresh]=useState(0);
+  useEffect(()=>{
+    let active=true;
+    setLoading(true);
+    setError(false);
+    request('/my/presence-checks/today',{noStore:true})
+      .then(data=>{if(active)setItems(Array.isArray(data?.items)?data.items:[]);})
+      .catch(()=>{if(active)setError(true);})
+      .finally(()=>{if(active)setLoading(false);});
+    return()=>{active=false;};
+  },[refresh]);
+  return <ScrollView contentContainerStyle={{padding:16,gap:12}}>
+    <Text accessibilityRole="header" style={{fontFamily:FONT.bold,fontSize:20,color:C.ink,textAlign:'right'}}>صحت‌سنجی‌های امروز</Text>
+    <TouchableOpacity accessibilityRole="button" accessibilityState={{disabled:loading}} disabled={loading}
+      style={[s.checkTab,{flex:0,alignSelf:'flex-end',paddingHorizontal:16}]} onPress={()=>setRefresh(value=>value+1)}>
+      <Text style={s.checkTabTxt}>به‌روزرسانی</Text>
+    </TouchableOpacity>
+    {loading||error||items.length===0 ? <Text accessibilityLiveRegion="polite" style={{fontFamily:FONT.regular,fontSize:14,color:C.ink,textAlign:'right'}}>
+      {loading?'در حال دریافت درخواست‌ها…':error?'دریافت فهرست ناموفق بود. دوباره تلاش کنید.':'امروز درخواستی برای شما ارسال نشده است.'}
+    </Text> : items.map(item=>{
+      const [label,color,backgroundColor]=presenceStatus[item.status]??presenceStatus.pending;
+      return <View key={item.id} style={{padding:14,borderRadius:16,borderWidth:1,borderColor:C.line,backgroundColor:'#fff',gap:8}}>
+        <Text style={{fontFamily:FONT.bold,fontSize:18,color:C.ink,textAlign:'right'}}>{faNum(item.sent_time)}</Text>
+        <Text style={{fontFamily:FONT.regular,fontSize:14,color:C.ink,textAlign:'right'}}>{item.immediate?'درخواست فوری':'درخواست عادی'}</Text>
+        <Text style={{fontFamily:FONT.bold,fontSize:13,color,backgroundColor,borderRadius:10,alignSelf:'flex-end',paddingHorizontal:10,paddingVertical:5}}>{label}</Text>
+      </View>;
+    })}
+  </ScrollView>;
+}
+
 function CheckInScreen(){
   const [tab,setTab]=useState('checkin');
-  return <View style={{flex:1,backgroundColor:C.paper}}><View style={s.checkTabs}>{[['checkin','ثبت حضور'],['performance','کارکرد روزانه'],['shift','شیفت کاری']].map(([k,l])=><TouchableOpacity key={k} accessibilityRole="tab" accessibilityLabel={l} accessibilityState={{ selected: tab===k }} style={[s.checkTab,tab===k&&s.checkTabOn]} onPress={()=>setTab(k)}><Text style={[s.checkTabTxt,tab===k&&s.checkTabTxtOn]}>{l}</Text></TouchableOpacity>)}</View>{tab==='checkin'?<CheckInCore/>:tab==='performance'?<CheckInPerformanceTab/>:<CheckInShiftTab/>}</View>;
+  return <View style={{flex:1,backgroundColor:C.paper}}><View style={s.checkTabs}>{[['checkin','ثبت حضور'],['performance','کارکرد روزانه'],['shift','شیفت کاری'],['presence','صحت‌سنجی']].map(([k,l])=><TouchableOpacity key={k} accessibilityRole="tab" accessibilityLabel={l} accessibilityState={{ selected: tab===k }} style={[s.checkTab,tab===k&&s.checkTabOn]} onPress={()=>setTab(k)}><Text style={[s.checkTabTxt,{textAlign:'center'},tab===k&&s.checkTabTxtOn]}>{l}</Text></TouchableOpacity>)}</View>{tab==='checkin'?<CheckInCore/>:tab==='performance'?<CheckInPerformanceTab/>:tab==='shift'?<CheckInShiftTab/>:<CheckInPresenceTab/>}</View>;
 }
 
 export default CheckInScreen;

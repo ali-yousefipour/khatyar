@@ -2,9 +2,16 @@
 class Db {
   static $received=false,$telemetry=false,$netTable=true,$sql='';
   static function one($sql,$params=[]){if(str_starts_with($sql,'SHOW TABLES'))return self::$netTable?['Tables_in_db'=>'user_net_state']:null;return self::$received?['Field'=>'received_at']:null;}
-  static function all($sql,$params=[]){if(str_starts_with($sql,'SHOW COLUMNS'))return self::$telemetry ? array_map(static fn($name)=>['Field'=>$name],['ip_country','vpn_on','battery_level','battery_charging','last_ip','via_gsm']) : []; self::$sql=$sql;return [];}
+  static function all($sql,$params=[]){
+    if(str_starts_with($sql,'SHOW COLUMNS FROM location_pings')){
+      return array_map(static fn($name)=>['Field'=>$name],array_merge(['synced_at'],self::$received?['received_at']:[],self::$telemetry?['via_gsm']:[]));
+    }
+    if(str_starts_with($sql,'SHOW COLUMNS'))return self::$telemetry ? array_map(static fn($name)=>['Field'=>$name],['ip_country','vpn_on','battery_level','battery_charging','last_ip']) : [];
+    self::$sql=$sql;return [];
+  }
   static function run($sql,$params=[]){throw new LogicException('Read path must not change schema');}
 }
+function _req_setting($key,$default){return 120;}
 $source=file_get_contents(__DIR__.'/../lib/routes.php');
 $helperStart=strpos($source,'function _live_location_sql(');$helperEnd=strpos($source,"route('GET', '/api/locations/live'",$helperStart);
 eval(substr($source,$helperStart,$helperEnd-$helperStart));
@@ -20,6 +27,8 @@ foreach([false,true] as $received){foreach([false,true] as $shift){foreach([fals
   check(str_contains(Db::$sql,'MAX(last_ping.id)'),'Current ping should use server insertion sequence without a per-user filesort');
   check(!str_contains(Db::$sql,'ORDER BY'),'Live query should not sort all of a user\'s pings');
   check(str_contains(Db::$sql,'lp.received_at')===$received,'Legacy databases must not reference absent received_at');
+  check(str_contains(Db::$sql,'lp.synced_at,lp.captured_at'),'Server sync time must precede capture time');
+  check(str_contains(Db::$sql,'INTERVAL 420 SECOND'),'Online window must follow the configured tracking cadence');
   check(str_contains(Db::$sql,'WHERE EXISTS')===$shift,'Shift filter must not duplicate users');
   foreach([' AS received_at',' AS online',' AS secs_ago',' AS via_gsm',' AS vpn_on',' AS battery_level',' AS battery_charging',' AS last_ip'] as $field)check(str_contains(Db::$sql,$field),'Preserve response field '.$field);
   check(str_contains(Db::$sql,'lp.via_gsm')===$telemetry,'Optional GSM telemetry column should only be referenced when present');
