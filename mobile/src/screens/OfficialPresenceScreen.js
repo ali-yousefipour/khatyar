@@ -119,7 +119,7 @@ export default function OfficialPresenceScreen() {
           <View style={s.modalCard}>
             <Text style={s.modalTitle}>انتخاب مسئول ({roleSel || 'همه'})</Text>
             <TextInput style={s.input} value={nameQ} onChangeText={setNameQ} placeholder="جستجوی نام/نام خانوادگی" placeholderTextColor={C.muted} autoFocus />
-            <FlatList data={filtered} keyExtractor={(it) => String(it.id)} style={{ maxHeight: 320, marginTop: 8 }}
+            <FlatList keyboardShouldPersistTaps="handled" data={filtered} keyExtractor={(it) => String(it.id)} style={{ maxHeight: 320, flexShrink: 1, marginTop: 8 }}
               ListEmptyComponent={<Text style={s.empty}>موردی یافت نشد.</Text>}
               renderItem={({ item }) => (
                 <TouchableOpacity style={s.optRow} onPress={() => { setPicked(item); setDropOpen(false); }}>
@@ -145,7 +145,7 @@ export default function OfficialPresenceScreen() {
           <View style={s.modalCard}>
             <Text style={s.modalTitle}>انتخاب خط</Text>
             <TextInput style={s.input} value={lineQ} onChangeText={setLineQ} placeholder="جستجو بر اساس شماره یا نام خط" placeholderTextColor={C.muted} autoFocus />
-            <FlatList data={lines.filter((l) => !lineQ || String(l.code).indexOf(lineQ) >= 0 || ((l.origin || '') + (l.destination || '')).indexOf(lineQ) >= 0)} keyExtractor={(it) => String(it.id)} style={{ maxHeight: 320, marginTop: 8 }}
+            <FlatList keyboardShouldPersistTaps="handled" data={lines.filter((l) => !lineQ || String(l.code).indexOf(lineQ) >= 0 || ((l.origin || '') + (l.destination || '')).indexOf(lineQ) >= 0)} keyExtractor={(it) => String(it.id)} style={{ maxHeight: 320, flexShrink: 1, marginTop: 8 }}
               ListEmptyComponent={<Text style={s.empty}>خطی یافت نشد.</Text>}
               renderItem={({ item }) => (
                 <TouchableOpacity style={s.optRow} onPress={() => { setLineId(item.id); setLineOpen(false); }}>
@@ -186,11 +186,11 @@ export default function OfficialPresenceScreen() {
       })}
 
     </ScrollView>
-    <Modal visible={busy} transparent animationType="fade">
+    <Modal visible={busy} transparent animationType="fade" onRequestClose={() => {}}>
       <View style={s.overlay}>
-        <View style={s.overlayBox}>
+        <View style={s.overlayBox} accessibilityViewIsModal accessibilityState={{busy:true}}>
           <ActivityIndicator size="large" color={C.brand} />
-          <Text style={s.overlayTxt}>در حال ثبت حضور…</Text>
+          <Text accessibilityLiveRegion="polite" style={s.overlayTxt}>در حال ثبت حضور…</Text>
           <Text style={s.overlaySub}>دریافت موقعیت و ارسال اطلاعات. لطفاً صبر کنید.</Text>
         </View>
       </View>
@@ -240,7 +240,7 @@ const s = StyleSheet.create({
   btn: { backgroundColor: C.brand, borderRadius: 14, padding: 14, alignItems: 'center', justifyContent:'center',flexDirection:'row-reverse',gap:9,marginTop:18,minHeight:54 },
   btnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 15 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
-  overlayBox: { backgroundColor: '#fff', borderRadius: 16, padding: 26, alignItems: 'center', width: 260 },
+  overlayBox: { backgroundColor: '#fff', borderRadius: 16, padding: 26, alignItems: 'center', width: '85%', maxWidth: 320 },
   overlayTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 15, marginTop: 14 },
   overlaySub: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, marginTop: 6, textAlign: 'center' },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', paddingVertical: 12 },
