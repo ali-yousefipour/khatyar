@@ -2945,8 +2945,7 @@ function Users() {
         lineModal && React.createElement(LineAssign, { user: lineModal, onClose: () => setLineModal(null) })));
 }
 function AddUser({ roles, zones, onClose, onSave }) {
-    var _a;
-    const [f, setF] = useState({ first_name: "", last_name: "", username: "", email: "", role_id: ((_a = roles[0]) === null || _a === void 0 ? void 0 : _a.id) || 9, zone_id: null, password: "123456", allow_android: 1, allow_web: 1, birth_date: "", birth_iso: "" });
+    const [f, setF] = useState(() => { var _a; return ({ first_name: "", last_name: "", username: "", email: "", role_id: ((_a = roles[0]) === null || _a === void 0 ? void 0 : _a.id) || 9, zone_id: null, password: crypto.randomUUID().replace(/-/g, "").slice(0, 16), allow_android: 1, allow_web: 1, birth_date: "", birth_iso: "" }); });
     return (React.createElement(Modal, { title: "\u0627\u0641\u0632\u0648\u062F\u0646 \u06A9\u0627\u0631\u0628\u0631 \u062C\u062F\u06CC\u062F", onClose: onClose },
         React.createElement("div", { className: "row" },
             React.createElement("div", null,
@@ -2974,8 +2973,10 @@ function AddUser({ roles, zones, onClose, onSave }) {
         React.createElement("select", { className: "input", onChange: e => setF({ ...f, zone_id: e.target.value ? +e.target.value : null }) },
             React.createElement("option", { value: "" }, "\u0628\u062F\u0648\u0646 \u0645\u0646\u0637\u0642\u0647"),
             zones.map(z => React.createElement("option", { key: z.id, value: z.id }, z.name))),
-        React.createElement("label", null, "\u0631\u0645\u0632 \u0627\u0648\u0644\u06CC\u0647"),
-        React.createElement("input", { className: "input", value: f.password, onChange: e => setF({ ...f, password: e.target.value }) }),
+        React.createElement("label", null, "\u0631\u0645\u0632 \u0627\u0648\u0644\u06CC\u0647\u0654 \u062A\u0635\u0627\u062F\u0641\u06CC (\u062D\u062F\u0627\u0642\u0644 \u06F1\u06F2 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631)"),
+        React.createElement("div", { className: "row", style: { gap: 8 } },
+            React.createElement("input", { className: "input", dir: "ltr", value: f.password, onChange: e => setF({ ...f, password: e.target.value }) }),
+            React.createElement("button", { type: "button", className: "btn g", onClick: () => setF({ ...f, password: crypto.randomUUID().replace(/-/g, "").slice(0, 16) }) }, "\u0631\u0645\u0632 \u062C\u062F\u06CC\u062F")),
         React.createElement("div", { className: "row", style: { gap: 16, marginTop: 10 } },
             React.createElement("label", { className: "row", style: { gap: 6 } },
                 React.createElement("input", { type: "checkbox", checked: f.allow_android, onChange: e => setF({ ...f, allow_android: e.target.checked ? 1 : 0 }) }),
