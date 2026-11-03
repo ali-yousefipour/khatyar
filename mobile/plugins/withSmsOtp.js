@@ -13,7 +13,8 @@ module.exports = config => {
     return cfg;
   }]);
   config = withAppBuildGradle(config, cfg => {
-    const dep = 'com.google.android.gms:play-services-auth-api-phone:18.3.1';
+    // 18.3.1 carries Kotlin 2.3 metadata; Android release uses Kotlin 2.1.
+    const dep = 'com.google.android.gms:play-services-auth-api-phone:18.2.0';
     if (!cfg.modResults.contents.includes(dep))
       cfg.modResults.contents = cfg.modResults.contents.replace(/dependencies\s*\{/, `dependencies {\n    implementation '${dep}'`);
     return cfg;

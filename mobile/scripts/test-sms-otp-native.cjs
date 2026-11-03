@@ -15,7 +15,7 @@ assert.match(native, /startSmsUserConsent\(null\)/);
 assert.match(native, /SmsRetriever\.SEND_PERMISSION/);
 assert.match(native, /LOGIN_CODE\.matcher\(message\)/);
 assert.doesNotMatch(plugin + native, /android\.permission\.(READ_SMS|RECEIVE_SMS)/);
-assert.match(plugin, /play-services-auth-api-phone:18\.3\.1/);
+assert.match(plugin, /play-services-auth-api-phone:18\.2\.0/);
 assert.match(screen, /loginMethod === 'sms_otp' \? <View style=\{s\.smsWaitCard\}>/);
 assert.match(screen, /DeviceEventEmitter\.addListener\('KhatyarSmsOtpCode'/);
 assert.match(screen, /smsStatus === 'timeout' \? 'consent'/);
