@@ -19,7 +19,8 @@ function withSources(config) {
     }
     const valuesDir = path.join(root, 'app', 'src', 'main', 'res', 'xml');
     fs.mkdirSync(valuesDir, { recursive: true });
-    fs.writeFileSync(path.join(valuesDir, 'khatyar_file_paths.xml'), `<?xml version="1.0" encoding="utf-8"?>\n<paths xmlns:android="http://schemas.android.com/apk/res/android">\n    <external-path name="external_storage" path="." />\n</paths>\n`, 'utf8');
+    // Android 7-9 installs an APK from the public Downloads folder. Never share all external storage.
+    fs.writeFileSync(path.join(valuesDir, 'khatyar_file_paths.xml'), `<?xml version="1.0" encoding="utf-8"?>\n<paths xmlns:android="http://schemas.android.com/apk/res/android">\n    <external-path name="downloads" path="Download/" />\n</paths>\n`, 'utf8');
     return cfg;
   }]);
 }
@@ -36,6 +37,9 @@ function withManifest(config) {
     for (const name of permissions) {
       if (!manifest['uses-permission'].some(x => x.$ && x.$['android:name'] === name)) manifest['uses-permission'].push({ $: { 'android:name': name } });
     }
+    // Legacy public Downloads writes are only needed on Android 9 and below.
+    const legacyStorage = manifest['uses-permission'].find(x => x.$?.['android:name'] === 'android.permission.WRITE_EXTERNAL_STORAGE');
+    if (legacyStorage) legacyStorage.$['android:maxSdkVersion'] = '28';
     const app = manifest.application && manifest.application[0];
     if (app) {
       app.provider = app.provider || [];
