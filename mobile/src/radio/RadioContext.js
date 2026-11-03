@@ -7,7 +7,8 @@ export function RadioProvider({children}){const{user}=useAuth();const[enabled,se
 const eotPlayer=useAudioPlayer(require('../../assets/sounds/radio_eot.wav')),pttPressPlayer=useAudioPlayer(require('../../assets/sounds/radio_ptt_press.wav')),rogerPlayer=useAudioPlayer(require('../../assets/sounds/radio_roger_beep.wav')),squelchOpenPlayer=useAudioPlayer(require('../../assets/sounds/radio_squelch_open.wav')),squelchClosePlayer=useAudioPlayer(require('../../assets/sounds/radio_squelch_close.wav'));
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,Math.max(0,Number(ms)||0)));
 const callAlertPlayer=useAudioPlayer(require('../../assets/sounds/radio_call_alert.wav'));
-const releasePlayer=useAudioPlayer(require('../../assets/sounds/radio_release_click.wav'));
+// The native radio module synthesizes release_click; use a bundled sound if native playback is unavailable.
+const releasePlayer=useAudioPlayer(require('../../assets/sounds/radio_squelch_close.wav'));
 const playEffect=async(kind,fallback,fallbackMs=0)=>{
   if(NATIVE?.playRadioEffect){
     try{if(await NATIVE.playRadioEffect(kind))return;}catch(error){}
