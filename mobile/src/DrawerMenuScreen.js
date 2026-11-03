@@ -49,7 +49,7 @@ function isUserQueueItem(item) {
   return /school-service|school.*inspection|inspection.*school|checkin|checkout|attendance|presence|checklist|report|notice|warning|tazkor|تذکر/.test(p);
 }
 
-export default function DrawerMenuScreen({ navigation, onStartFlasher }) {
+export default function DrawerMenuScreen({ navigation, onStartFlasher, onStartTheftAlarm }) {
   const { user, logout, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
   const [photo, setPhoto] = React.useState(user?.photo || null);
@@ -224,6 +224,11 @@ export default function DrawerMenuScreen({ navigation, onStartFlasher }) {
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="روشن کردن فلاشر سفید و زرد" style={s.item} onPress={onStartFlasher} activeOpacity={0.78}>
           <View style={s.icon}><MaterialCommunityIcons name="alarm-light-outline" size={23} color={C.brand} /></View>
           <View style={s.itemTextWrap}><Text style={s.itemText}>فلاشر</Text></View>
+          <MaterialCommunityIcons name="chevron-left" size={22} color={C.muted} />
+        </TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن دزدگیر گوشی" style={s.item} onPress={onStartTheftAlarm} activeOpacity={0.78}>
+          <View style={s.icon}><MaterialCommunityIcons name="shield-lock-outline" size={23} color={C.brand} /></View>
+          <View style={s.itemTextWrap}><Text style={s.itemText}>دزدگیر</Text></View>
           <MaterialCommunityIcons name="chevron-left" size={22} color={C.muted} />
         </TouchableOpacity>
         {roleAccessLoading ? <View style={s.accessState}><MaterialCommunityIcons name="shield-account-outline" size={30} color={C.brand}/><Text style={s.accessText}>در حال بررسی دسترسی‌های سمت شما…</Text></View> : roleAccessError ? <View style={s.accessState}><Text style={s.accessText}>دریافت دسترسی‌های منو ممکن نشد.</Text><TouchableOpacity accessibilityRole="button" style={s.retryAccess} onPress={()=>setAccessAttempt(x=>x+1)}><Text style={s.retryAccessText}>تلاش دوباره</Text></TouchableOpacity></View> : sections.length === 0 ? <View style={s.accessState}><MaterialCommunityIcons name="lock-outline" size={30} color={C.muted}/><Text style={s.accessText}>برای سمت شما گزینه‌ای در منو فعال نشده است.</Text></View> : null}

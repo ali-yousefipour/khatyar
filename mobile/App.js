@@ -93,6 +93,7 @@ import StationCaptureScreen from './src/screens/StationCaptureScreen';
 import MyStationsScreen from './src/screens/MyStationsScreen';
 import DrawerMenuScreen from './src/DrawerMenuScreen';
 import ScreenFlasher from './src/ScreenFlasher';
+import TheftAlarmOverlay, { getTheftAlarmStatus } from './src/TheftAlarmOverlay';
 import SendQueueScreen from './src/screens/SendQueueScreen';
 import { setDrawerControlRef, openDrawer as khOpenDrawer } from './src/drawerControl';
 import { navigationRef } from './src/navigationRef';
@@ -155,13 +156,23 @@ function SchoolServicePreloader(){const{user}=useAuth();React.useEffect(()=>{if(
 function CustomDrawerOverlay(){
   const [open,setOpen]=React.useState(false);
   const [flashing,setFlashing]=React.useState(false);
+  const [alarmOpen,setAlarmOpen]=React.useState(false);
+  const [alarmStatus,setAlarmStatus]=React.useState(null);
   const stopFlasher=React.useCallback(()=>setFlashing(false),[]);
   React.useEffect(()=>{setDrawerControlRef({open:()=>setOpen(true),close:()=>setOpen(false)});return()=>setDrawerControlRef(null)},[]);
-  if(!open&&!flashing)return null;
+  React.useEffect(()=>{
+    let mounted=true;
+    const check=()=>getTheftAlarmStatus().then(s=>{if(mounted&&s.armed){setAlarmStatus(s);setAlarmOpen(true)}}).catch(()=>{});
+    check();
+    const interval=setInterval(check,2500);
+    return()=>{mounted=false;clearInterval(interval)};
+  },[]);
+  if(!open&&!flashing&&!alarmOpen)return null;
   const shimNav={navigate:(routeName,params)=>{try{if(routeName==='Main'&&params&&params.screen)navigationRef.navigate(params.screen);else navigationRef.navigate(routeName,params)}catch(e){}},dispatch:(action)=>{if(action&&action.type==='CLOSE_DRAWER')setOpen(false)},addListener:()=>()=>{}};
   return <View style={{position:'absolute',left:0,top:0,right:0,bottom:0,zIndex:9999,elevation:9999}} pointerEvents="box-none">
-    {open&&<><TouchableOpacity activeOpacity={1} onPress={()=>setOpen(false)} style={{position:'absolute',left:0,top:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.45)'}}/><View style={{position:'absolute',top:0,bottom:0,right:0,width:DRAWER_WIDTH,backgroundColor:C.paper,elevation:9999}}><DrawerMenuScreen navigation={shimNav} onStartFlasher={()=>{setOpen(false);setFlashing(true)}}/></View></>}
+    {open&&<><TouchableOpacity activeOpacity={1} onPress={()=>setOpen(false)} style={{position:'absolute',left:0,top:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.45)'}}/><View style={{position:'absolute',top:0,bottom:0,right:0,width:DRAWER_WIDTH,backgroundColor:C.paper,elevation:9999}}><DrawerMenuScreen navigation={shimNav} onStartFlasher={()=>{setOpen(false);setFlashing(true)}} onStartTheftAlarm={()=>{setOpen(false);setAlarmOpen(true)}}/></View></>}
     {flashing&&<ScreenFlasher onClose={stopFlasher}/>}
+    {alarmOpen&&<TheftAlarmOverlay initialStatus={alarmStatus} onClose={()=>{setAlarmOpen(false);setAlarmStatus(null)}}/>}
   </View>;
 }
 export default function App(){const[ready,setReady]=React.useState(false),[updateInfo,setUpdateInfo]=React.useState(null);
