@@ -12,6 +12,17 @@ export async function lockAppNow(){const config=await getLockConfig();if(!config
 export async function setLockSecret(v){await SecureStore.setItemAsync(SECRET_KEY,String(v),{keychainAccessible:SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY})}
 export async function getLockSecret(){try{return await SecureStore.getItemAsync(SECRET_KEY)}catch{return null}}
 export async function clearLockSecret(){try{await SecureStore.deleteItemAsync(SECRET_KEY)}catch{}}
+// Protected tools share the app lock secret and its attempt cooldown.
+export async function verifyLockCredential(value,type){
+  const previous=await failures();
+  if(previous.until>Date.now())return {ok:false,waitMs:previous.until-Date.now()};
+  const secret=await getLockSecret();
+  const input=String(value||'');
+  const ok=!!secret&&(input===String(secret)||(type==='pattern'&&input.replace(/-/g,'')===String(secret)));
+  if(ok){await clearFailures();return {ok:true,waitMs:0};}
+  const next=await failed();
+  return {ok:false,waitMs:Math.max(0,next.until-Date.now())};
+}
 async function failures(){try{return JSON.parse(await SecureStore.getItemAsync(FAIL_KEY)||'{}')}catch{return{}}}
 async function failed(){const f=await failures(),count=Number(f.count||0)+1,ms=count>=8?300000:count>=5?30000:count>=3?5000:0,s={count,until:ms?Date.now()+ms:0};try{await SecureStore.setItemAsync(FAIL_KEY,JSON.stringify(s))}catch{}return s}
 async function clearFailures(){try{await SecureStore.deleteItemAsync(FAIL_KEY)}catch{}}
