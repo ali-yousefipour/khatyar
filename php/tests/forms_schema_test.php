@@ -24,7 +24,11 @@ class Db {
   public static function run($sql,$args=[]) {
     if(self::$fail)throw new RuntimeException('Mock SQL permission denied');
     self::$queries[]=$sql;
-    if(strpos($sql,'INSERT INTO app_settings')!==false)self::$settings[$args[0]]=$args[1];
+    if(strpos($sql,'INSERT INTO app_settings')!==false){
+      if(!is_string($args[1])||json_decode($args[1])!=='verified'||json_last_error()!==JSON_ERROR_NONE)
+        throw new RuntimeException('Invalid JSON marker supplied to app_settings.value');
+      self::$settings[$args[0]]=$args[1];
+    }
     if(preg_match('/ALTER TABLE (custom_forms|form_submissions) ADD COLUMN `(\w+)`/',$sql,$m))self::$columns[$m[1]][$m[2]]=true;
     if(strpos($sql,'MODIFY COLUMN user_id')!==false)self::$columns['form_submissions']['user_id']=true;
     if(strpos($sql,'ADD UNIQUE KEY public_slug_uq')!==false)self::$indexes['custom_forms']['public_slug_uq']=true;
@@ -41,7 +45,7 @@ $count=count(Db::$queries);
 KhatyarFormsSchema::ensure();
 if(count(Db::$queries)!==$count)throw new RuntimeException('Schema check is not idempotent');
 if($count<5)throw new RuntimeException('Expected actual migration of old database');
-if((Db::$settings['forms_schema_ready_v2']??'')!=='verified')throw new RuntimeException('Migration marker must be persisted after successful verification');
+if(json_decode(Db::$settings['forms_schema_ready_v2']??'null',true)!=='verified')throw new RuntimeException('Migration marker must be valid JSON');
 $indexSource=file_get_contents(__DIR__.'/../app/index.php');
 if(strpos($indexSource,'KhatyarFormsSchema::ensure()')===false)throw new RuntimeException('API handler missing forms schema enforcement');
 echo "PASS forms: old schema migration, required columns, idempotence, authenticated/public route guard\n";

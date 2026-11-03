@@ -27,7 +27,11 @@ final class KhatyarFormsSchema {
         // It is only written after the migration is fully verified.
         try {
             $ready=Db::one("SELECT value FROM app_settings WHERE `key`=? LIMIT 1",['forms_schema_ready_v2']);
-            if((string)($ready['value']??'')==='verified'){
+            // app_settings.value is a JSON column: a bare SQL string such as
+            // 'verified' is invalid JSON on MySQL/MariaDB strict installations.
+            $stored=$ready['value']??null;
+            $decoded=is_string($stored)?json_decode($stored,true):null;
+            if($decoded==='verified'){
                 self::$verified=true;
                 return;
             }
@@ -90,7 +94,7 @@ final class KhatyarFormsSchema {
             // Commit readiness only when every required column exists.
             // The settings key is already used by the existing settings API.
             Db::run("INSERT INTO app_settings (`key`,value) VALUES (?,?)
-                ON DUPLICATE KEY UPDATE value=VALUES(value)",['forms_schema_ready_v2','verified']);
+                ON DUPLICATE KEY UPDATE value=VALUES(value)",['forms_schema_ready_v2',json_encode('verified')]);
             self::$verified=true;
         } catch(Throwable $error) {
             error_log('forms schema migration failed: '.get_class($error).': '.$error->getMessage());
