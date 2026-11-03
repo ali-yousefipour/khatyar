@@ -193,7 +193,7 @@ jobs:
 
           # Always reconcile critical production files, even when they fall outside
           # the rolling 10-commit window or were regenerated in this job.
-          for rel in app/index.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/RadioShiftGate.php lib/routes.php lib/OrgChart.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html; do
+          for rel in app/index.php app/api/presence-immediate-api.php app/presence-immediate-api.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/RadioShiftGate.php lib/routes.php lib/OrgChart.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html; do
             if [ -f "php/${rel}" ]; then
               mkdir -p "deploy-payload/$(dirname "${rel}")"
               cp "php/${rel}" "deploy-payload/${rel}"
