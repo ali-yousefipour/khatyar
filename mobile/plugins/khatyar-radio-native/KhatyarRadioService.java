@@ -166,6 +166,9 @@ public final class KhatyarRadioService extends Service {
     createNotificationChannel();
     startForegroundCompat();
     setupMediaSession();
+    // Build the richer PTT notification only after Android has acknowledged
+    // the foreground service; RemoteViews can be slow on some devices.
+    handler.post(() -> { try { updateNotification(); } catch (Throwable ignored) {} });
     lastId = getPrefs().getLong("lastId", 0L);
     getPrefs().edit().putLong("sessionStartedAt", serviceStartedAt).putBoolean("initialized", false).putBoolean("playbackActive", false).putBoolean("notificationPttActive", false).remove("audioSessionId").apply();
     handler.post(poller);
@@ -303,13 +306,9 @@ public final class KhatyarRadioService extends Service {
   }
 
   private void startForegroundCompat() {
-    Notification n;
-    try {
-      n = buildRadioNotification();
-    } catch (Throwable notificationError) {
-      // Keep the foreground-service contract alive even if a custom RemoteViews
-      // resource fails on a particular Android build.
-      n = new NotificationCompat.Builder(this, CHANNEL)
+    // The first notification must be cheap and independent of preferences,
+    // RemoteViews, and MediaSession to meet Android's foreground deadline.
+    Notification n = new NotificationCompat.Builder(this, CHANNEL)
         .setSmallIcon(getApplicationInfo().icon)
         .setContentTitle("خطیار • بی‌سیم")
         .setContentText("بی‌سیم خطیار فعال است")
@@ -318,7 +317,6 @@ public final class KhatyarRadioService extends Service {
         .setCategory(NotificationCompat.CATEGORY_SERVICE)
         .setPriority(NotificationCompat.PRIORITY_LOW)
         .build();
-    }
     if (Build.VERSION.SDK_INT >= 29) {
       startForeground(NOTIFICATION_ID, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
     } else {

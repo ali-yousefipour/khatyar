@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { faNum } from '../num';
 import { tehranTimeToEpochMs } from '../jdate';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, PanResponder, Animated, TextInput, Modal, Platform, PermissionsAndroid, Linking, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, PanResponder, Animated, TextInput, Modal, Platform, PermissionsAndroid, Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import * as IntentLauncher from 'expo-intent-launcher';
@@ -80,8 +80,7 @@ function pointInPolygon(lat, lng, poly) {
   return inside;
 }
 
-function CheckInCore() {
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+function CheckInCore({ viewportHeight }) {
   const [cfg, setCfg] = useState(null);
   const [appCfg, setAppCfg] = useState({ map_provider: 'osm' });
   const [mapRuntime,setMapRuntime]=useState({mode:'smart',provider:'osm',offline:false,tiles:{}});
@@ -998,7 +997,7 @@ function CheckInCore() {
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="دریافت دوباره وضعیت حضور" onPress={() => load()} style={{ marginRight: 8, minHeight: 48, justifyContent: 'center' }}><Text style={{ color: C.brand, fontFamily: FONT.bold, fontSize: 12 }}>تلاش مجدد</Text></TouchableOpacity>
       </View>}
       {/* نقشه */}
-      <View style={[s.mapBox,s.mapFullScreen,{height:Math.max(500,screenHeight-185)}]}>
+      <View style={[s.mapBox,s.mapFullScreen,{height:viewportHeight > 0 ? viewportHeight : 420}]}>
         <WebView originWhitelist={['*', 'file://']} source={{ html: mapHtml }}
           style={{ flex: 1 }} scrollEnabled={false}
           javaScriptEnabled domStorageEnabled mixedContentMode="always"
@@ -1689,7 +1688,8 @@ function CheckInPresenceTab(){
 
 function CheckInScreen(){
   const [tab,setTab]=useState('checkin');
-  return <View style={{flex:1,backgroundColor:C.paper}}><View style={s.checkTabs}>{[['checkin','ثبت حضور'],['performance','کارکرد روزانه'],['shift','شیفت کاری'],['presence','صحت‌سنجی']].map(([k,l])=><TouchableOpacity key={k} accessibilityRole="tab" accessibilityLabel={l} accessibilityState={{ selected: tab===k }} style={[s.checkTab,tab===k&&s.checkTabOn]} onPress={()=>setTab(k)}><Text style={[s.checkTabTxt,{textAlign:'center'},tab===k&&s.checkTabTxtOn]}>{l}</Text></TouchableOpacity>)}</View>{tab==='checkin'?<CheckInCore/>:tab==='performance'?<CheckInPerformanceTab/>:tab==='shift'?<CheckInShiftTab/>:<CheckInPresenceTab/>}</View>;
+  const [viewportHeight,setViewportHeight]=useState(0);
+  return <View style={{flex:1,backgroundColor:C.paper}}><View style={s.checkTabs}>{[['checkin','ثبت حضور'],['performance','کارکرد روزانه'],['shift','شیفت کاری'],['presence','صحت‌سنجی']].map(([k,l])=><TouchableOpacity key={k} accessibilityRole="tab" accessibilityLabel={l} accessibilityState={{ selected: tab===k }} style={[s.checkTab,tab===k&&s.checkTabOn]} onPress={()=>setTab(k)}><Text style={[s.checkTabTxt,{textAlign:'center'},tab===k&&s.checkTabTxtOn]}>{l}</Text></TouchableOpacity>)}</View><View style={{flex:1,minHeight:0}} onLayout={e=>{const height=Math.round(e.nativeEvent.layout.height);setViewportHeight(current=>current===height?current:height);}}>{tab==='checkin'?<CheckInCore viewportHeight={viewportHeight}/>:tab==='performance'?<CheckInPerformanceTab/>:tab==='shift'?<CheckInShiftTab/>:<CheckInPresenceTab/>}</View></View>;
 }
 
 export default CheckInScreen;
