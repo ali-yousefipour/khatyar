@@ -1,0 +1,55 @@
+import React from 'react';
+import { AppState, BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// Screen-only warning light: no camera/torch access and no background flashing.
+export default function ScreenFlasher({ onClose }) {
+  const insets = useSafeAreaInsets();
+  const [phase, setPhase] = React.useState(0);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => setPhase(value => (value + 1) % 4), 420);
+    const appState = AppState.addEventListener('change', state => {
+      if (state !== 'active') onClose();
+    });
+    const back = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+    return () => {
+      clearInterval(interval);
+      appState.remove();
+      back.remove();
+    };
+  }, [onClose]);
+
+  return (
+    <View style={styles.root} accessibilityLabel="فلاشر سفید و زرد فعال است">
+      <StatusBar hidden />
+      <View style={[styles.panel, { backgroundColor: phase === 0 ? '#FFFFFF' : '#171717' }]} />
+      <View style={[styles.panel, { backgroundColor: phase === 2 ? '#FDCB21' : '#171717' }]} />
+      <TouchableOpacity
+        style={[styles.close, { top: Math.max(insets.top, 12) + 8 }]}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="خاموش کردن فلاشر"
+        activeOpacity={0.8}
+      >
+        <MaterialCommunityIcons name="close" size={22} color="#FFFFFF" />
+      </TouchableOpacity>
+      <View pointerEvents="none" style={[styles.caption, { bottom: Math.max(insets.bottom, 14) + 12 }]}>
+        <Text style={styles.captionText}>فلاشر روشن است</Text>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, flexDirection: 'row', backgroundColor: '#FFFFFF', zIndex: 10000, elevation: 10000 },
+  panel: { flex: 1 },
+  close: { position: 'absolute', right: 16, width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(19,27,35,0.92)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.75)' },
+  caption: { position: 'absolute', alignSelf: 'center', left: '25%', right: '25%', alignItems: 'center' },
+  captionText: { color: '#FFFFFF', backgroundColor: 'rgba(19,27,35,0.75)', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 14, fontSize: 12, overflow: 'hidden' },
+});

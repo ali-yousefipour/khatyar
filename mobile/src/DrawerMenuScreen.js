@@ -49,7 +49,7 @@ function isUserQueueItem(item) {
   return /school-service|school.*inspection|inspection.*school|checkin|checkout|attendance|presence|checklist|report|notice|warning|tazkor|تذکر/.test(p);
 }
 
-export default function DrawerMenuScreen({ navigation }) {
+export default function DrawerMenuScreen({ navigation, onStartFlasher }) {
   const { user, logout, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
   const [photo, setPhoto] = React.useState(user?.photo || null);
@@ -221,6 +221,11 @@ export default function DrawerMenuScreen({ navigation }) {
         <View style={s.profileRow}><TouchableOpacity onPress={() => setPhotoOpen(true)} activeOpacity={0.8} accessibilityRole="imagebutton" accessibilityLabel="نمایش تمام‌صفحه و مدیریت عکس کاربر"><View style={s.profileAvatar}>{photo && !photoFailed ? <Image source={imageSource(photo)} style={s.profileImage} onError={() => setPhotoFailed(true)} /> : <Text style={s.profileInitial}>{String(user?.name || "؟").trim().charAt(0) || "؟"}</Text>}</View></TouchableOpacity><View style={s.profileTextWrap}><Text style={s.profileName} numberOfLines={1}>{user?.name || "کاربر خطیار"}</Text><Text style={s.profileRole} numberOfLines={1}>{user?.role_title || user?.role || "حساب کاربری"}</Text></View></View>
       </View>
       <ScrollView persistentScrollbar={true} contentContainerStyle={[s.content,{paddingBottom:Math.max(insets.bottom,16)+24}]} showsVerticalScrollIndicator={false}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="روشن کردن فلاشر سفید و زرد" style={s.item} onPress={onStartFlasher} activeOpacity={0.78}>
+          <View style={s.icon}><MaterialCommunityIcons name="alarm-light-outline" size={23} color={C.brand} /></View>
+          <View style={s.itemTextWrap}><Text style={s.itemText}>فلاشر</Text></View>
+          <MaterialCommunityIcons name="chevron-left" size={22} color={C.muted} />
+        </TouchableOpacity>
         {roleAccessLoading ? <View style={s.accessState}><MaterialCommunityIcons name="shield-account-outline" size={30} color={C.brand}/><Text style={s.accessText}>در حال بررسی دسترسی‌های سمت شما…</Text></View> : roleAccessError ? <View style={s.accessState}><Text style={s.accessText}>دریافت دسترسی‌های منو ممکن نشد.</Text><TouchableOpacity accessibilityRole="button" style={s.retryAccess} onPress={()=>setAccessAttempt(x=>x+1)}><Text style={s.retryAccessText}>تلاش دوباره</Text></TouchableOpacity></View> : sections.length === 0 ? <View style={s.accessState}><MaterialCommunityIcons name="lock-outline" size={30} color={C.muted}/><Text style={s.accessText}>برای سمت شما گزینه‌ای در منو فعال نشده است.</Text></View> : null}
         {sections.map(section => <View key={section.title} style={s.menuSection}>
           <View style={s.sectionHead}><MaterialCommunityIcons name={section.icon} size={18} color={C.brand}/><Text style={s.sectionTitle}>{section.title}</Text></View>
