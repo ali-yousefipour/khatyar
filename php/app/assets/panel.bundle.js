@@ -79,8 +79,7 @@ async function _renewBrowserSession() {
 }
 async function _clearWebSession() {
     const result = await (window.__KHATYAR_NATIVE_FETCH__ || fetch)(API_BASE + '/session/web-signout', {
-        method: 'POST', credentials: 'same-origin', cache: 'no-store',
-        headers: { 'content-type': 'application/json', ...tok() }, body: '{}',
+        method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'content-type': 'application/json', ...tok() }, body: '{}',
     });
     if (!result.ok)
         throw new Error('خروج امن انجام نشد؛ اتصال به سرور را بررسی کنید.');
@@ -19818,13 +19817,25 @@ function App() {
         return React.createElement(Login, { onLogin: setMe, brand: brand });
     if (me.must_change_pw)
         return React.createElement(FirstLoginPassword, { name: me.name, onDone: async () => { const u = await db.restoreSession(); if (!u)
-                throw new Error('نشست شما منقضی شده است؛ دوباره وارد شوید.'); setMe(u); }, onLogout: async () => { try { await _clearWebSession(); setMe(null); } catch (e) { alert(e.message); } } });
+                throw new Error('نشست شما منقضی شده است؛ دوباره وارد شوید.'); setMe(u); }, onLogout: async () => { try {
+                await _clearWebSession();
+                setMe(null);
+            }
+            catch (e) {
+                alert(e.message);
+            } } });
     if (!me.is_admin)
         return (React.createElement("div", { style: { minHeight: "100vh", display: "grid", placeItems: "center", textAlign: "center", padding: 24 } },
             React.createElement("div", null,
                 React.createElement("h2", { style: { color: "var(--danger)" } }, "\u062F\u0633\u062A\u0631\u0633\u06CC \u0645\u062F\u06CC\u0631\u06CC\u062A\u06CC \u0646\u062F\u0627\u0631\u06CC\u062F"),
                 React.createElement("p", { style: { color: "var(--muted)", maxWidth: 430, lineHeight: 2, marginTop: 8 } }, "\u0648\u0631\u0648\u062F \u0628\u0647 \u0633\u0627\u0645\u0627\u0646\u0647 \u0645\u062F\u06CC\u0631\u06CC\u062A \u0648 \u0646\u0638\u0627\u0631\u062A \u0628\u0631 \u062E\u0637\u0648\u0637 \u0648 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0627\u062C\u0631\u0627\u06CC\u06CC \u062A\u0627\u06A9\u0633\u06CC\u0631\u0627\u0646\u06CC \u062A\u0646\u0647\u0627 \u0628\u0631\u0627\u06CC \u0646\u06CC\u0631\u0648\u06CC \u0627\u062F\u0627\u0631\u06CC\u060C \u0646\u06CC\u0631\u0648\u06CC \u0627\u062F\u0627\u0631\u06CC \u0627\u0631\u0634\u062F\u060C \u0631\u06CC\u06CC\u0633 \u0627\u062F\u0627\u0631\u0647 \u0628\u0627\u0632\u0631\u0633\u06CC \u0648 \u0645\u062F\u06CC\u0631 \u06A9\u0644 \u0645\u062C\u0627\u0632 \u0627\u0633\u062A. \u0628\u0631\u0627\u06CC \u06A9\u0627\u0631\u0647\u0627\u06CC \u0645\u06CC\u062F\u0627\u0646\u06CC \u0627\u0632 \u0627\u067E \u0645\u0648\u0628\u0627\u06CC\u0644/\u0648\u0628\u200C\u0627\u067E \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F."),
-                React.createElement("button", { className: "btn p", style: { marginTop: 16 }, onClick: async () => { try { await _clearWebSession(); setMe(null); } catch (e) { alert(e.message); } } }, "\u062E\u0631\u0648\u062C"))));
+                React.createElement("button", { className: "btn p", style: { marginTop: 16 }, onClick: async () => { try {
+                        await _clearWebSession();
+                        setMe(null);
+                    }
+                    catch (e) {
+                        alert(e.message);
+                    } } }, "\u062E\u0631\u0648\u062C"))));
     // سرویس مدارس یک نمای هسته‌ای و مستقل پنل است؛ نمایش آن نباید به مجوزهای
     // پویا یا منوی fallback وابسته باشد. کنترل دسترسی خود صفحه جداگانه انجام می‌شود.
     const CORE_VIEWS = ["dashboard", "driverservicereport", "schoolservice", "complaints"];
@@ -19899,7 +19910,13 @@ function App() {
                             React.createElement("span", { className: "navlabel" }, VIEWS[k].t))))));
                 }),
                 menuQuery && matchingMenuCount === 0 && React.createElement("p", { className: "menu-empty", role: "status" }, "\u0635\u0641\u062D\u0647\u200C\u0627\u06CC \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F. \u0639\u0628\u0627\u0631\u062A \u062F\u06CC\u06AF\u0631\u06CC \u062C\u0633\u062A\u062C\u0648 \u06A9\u0646\u06CC\u062F."),
-                React.createElement("button", { className: "navitem logout-item", onClick: async () => { try { await _clearWebSession(); setMe(null); } catch (e) { alert(e.message); } } },
+                React.createElement("button", { className: "navitem logout-item", onClick: async () => { try {
+                        await _clearWebSession();
+                        setMe(null);
+                    }
+                    catch (e) {
+                        alert(e.message);
+                    } } },
                     React.createElement("span", { className: "ic" }, I8('logout-door')),
                     React.createElement("span", { className: "navlabel" }, "\u062E\u0631\u0648\u062C"))),
             React.createElement("div", { className: "apibar" },
