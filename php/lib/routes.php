@@ -52,7 +52,7 @@ function _repair_jdate_rows(&$rows,$field){ foreach($rows as &$r){ $r[$field]=_r
 function issueTokens($uid, $dev, $dtype) {
   $c = $GLOBALS['CONFIG'];
   return [
-    'access'  => Jwt::sign(['sub'=>$uid,'device_id'=>$dev,'dt'=>$dtype], $c['jwt_secret'], $c['access_ttl']),
+    'access'  => Jwt::sign(['sub'=>$uid,'device_id'=>$dev,'dt'=>$dtype,'t'=>'a'], $c['jwt_secret'], $c['access_ttl']),
     'refresh' => Jwt::sign(['sub'=>$uid,'device_id'=>$dev,'dt'=>$dtype,'t'=>'r'], $c['jwt_secret'], $c['refresh_ttl']),
   ];
 }
@@ -1016,7 +1016,14 @@ route('GET', '/api/admin/presence-checks', function($p,$b,$u){
 route('GET', '/api/presence-image/{id}', function($p,$b,$u){
   $tok = $_GET['token'] ?? Http::bearer();
   $payload = $tok ? Jwt::verify($tok, $GLOBALS['CONFIG']['jwt_secret']) : null;
-  if (!$payload) { http_response_code(403); exit('forbidden'); }
+  if (!Jwt::isAccessPayload($payload)) Http::error('دسترسی نامعتبر است', 403);
+  $actor = Db::one('SELECT u.id,u.is_active,r.is_admin,r.level FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?', [(int)($payload['sub'] ?? 0)]);
+  if (!$actor || !(int)$actor['is_active'] || !(int)$actor['is_admin'] || (int)$actor['level'] > 3) Http::error('دسترسی مجاز نیست', 403);
+  $deviceType = (string)($payload['dt'] ?? 'web');
+  $deviceId = (string)($payload['device_id'] ?? '');
+  if ($deviceId === '') Http::error('نشست نامعتبر است', 403);
+  $session = Db::one('SELECT revoked_at FROM user_sessions WHERE user_id=? AND device_type=? AND device_id=? LIMIT 1', [(int)$actor['id'], $deviceType, $deviceId]);
+  if (!$session || $session['revoked_at']) Http::error('نشست منقضی یا باطل شده است', 403);
   $type = ($_GET['type'] ?? 'selfie') === 'vehicles' ? 'vehicles_photo' : 'selfie';
   $pathCol = $type . '_path';
   $r = Db::one("SELECT $type img, $pathCol pth FROM presence_checks WHERE id=?", [$p['id']]);
