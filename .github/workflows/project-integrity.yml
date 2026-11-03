@@ -42,6 +42,7 @@ jobs:
           php php/tests/forms_schema_test.php
           php php/tests/login_policy_test.php
           php php/tests/token_access_policy_test.php
+          php php/tests/presence_image_security_test.php
           php php/tests/active_sessions_bulk_test.php
           php php/tests/zone_context_test.php
           php -l php/lib/WorkContracts.php
