@@ -5930,6 +5930,21 @@ route('GET', '/api/auth/me', function($p,$b,$u){
   ]];
 });
 
+// پنل وب: تغییر اجباری رمز اولیه بدون نیاز به ارسال عکس یا اطلاعات شخصی.
+// رمز فعلی باید تأیید شود؛ صرفاً داشتن نشست (از جمله ورود OTP) کافی نیست.
+route('POST', '/api/my/first-login-password', function($p, $b, $u) {
+  if (empty($u['is_admin']) || ($u['device_type'] ?? '') !== 'web') Http::error('این عملیات مخصوص پنل مدیریت وب است', 403);
+  $current = (string)($b['current'] ?? '');
+  $next = (string)($b['next'] ?? '');
+  if (strlen($next) < 12 || strlen($next) > 128) Http::error('رمز جدید باید بین ۱۲ تا ۱۲۸ کاراکتر باشد', 400);
+  if ($next === '123456' || hash_equals($current, $next)) Http::error('رمز جدید نباید با رمز فعلی یا رمز پیش‌فرض یکسان باشد', 400);
+  $row = Db::one('SELECT password_hash, must_change_pw FROM users WHERE id=?', [$u['id']]);
+  if (!$row || !password_verify($current, (string)$row['password_hash'])) Http::error('رمز فعلی اشتباه است', 401);
+  if (empty($row['must_change_pw'])) Http::error('تغییر اجباری رمز قبلاً تکمیل شده است', 409);
+  Db::run('UPDATE users SET password_hash=?, must_change_pw=0, pw_changed_at=NOW() WHERE id=?', [password_hash($next, PASSWORD_BCRYPT), $u['id']]);
+  return ['ok'=>true];
+});
+
 // تنظیمات اولین ورود: ثبت ایمیل و تغییر رمز پیش‌فرض
 route('POST', '/api/my/initial-setup', function($p, $b, $u) {
   $next  = $b['next'] ?? '';

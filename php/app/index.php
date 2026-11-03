@@ -309,7 +309,7 @@ foreach ($routes as $r) {
     $user['device_id'] = $payload['device_id'] ?? null; $user['device_type'] = $dt;
     // A compulsory password reset is an API policy, not merely a client-side screen.
     if (!empty($user['must_change_pw']) && !in_array($path, [
-      '/api/auth/me', '/api/my/initial-setup', '/api/admin/change-password', '/api/auth/logout',
+      '/api/auth/me', '/api/my/initial-setup', '/api/my/first-login-password', '/api/admin/change-password', '/api/auth/logout',
     ], true)) Http::error('برای ادامه ابتدا رمز عبور پیش‌فرض را تغییر دهید', 403);
     if (empty($user['is_admin'])) { $mrow = Db::one("SELECT value FROM app_settings WHERE `key`='maintenance_mode'"); $mcfg = $mrow ? json_decode($mrow['value'], true) : null; if (!empty($mcfg['enabled'])) Http::error((string)($mcfg['message'] ?? '') ?: 'نرم‌افزار و پنل موقتاً برای تعمیرات غیرفعال است. لطفاً بعداً تلاش کنید.', 503); }
     if ($r['minLevel'] <= 3) { if (empty($user['is_admin'])) Http::error('دسترسی مدیریتی لازم است', 403); } elseif ((int)$user['level'] > $r['minLevel']) Http::error('سطح دسترسی کافی نیست', 403);

@@ -5149,12 +5149,26 @@ function authImg(url){
   const t = localStorage.token||''; if(!t) return url;
   return url + (url.indexOf('?')>=0?'&':'?') + 'access_token=' + encodeURIComponent(t);
 }
-// تگ <img> نمی‌تواند هدر Authorization بفرستد؛ endpoint رسانه فقط پارامتر token را می‌پذیرد.
-function userPhotoImg(url){
-  if(!url) return '';
-  if(!/^\/?api\/media(?:\?|$)/.test(String(url).replace(/^\//,''))) return url;
-  const token=localStorage.token||''; if(!token) return url;
-  return url+(url.indexOf('?')>=0?'&':'?')+'token='+encodeURIComponent(token);
+// عکس حساب: توکن دسترسی نباید در URL تصویر، تاریخچه یا گزارش‌های HTTP قرار گیرد.
+function AuthenticatedAvatar({url,name}){
+  const [src,setSrc]=useState('');
+  useEffect(()=>{
+    let live=true,objectUrl='';
+    setSrc('');
+    if(!url)return()=>{live=false};
+    const raw=String(url);
+    if(!/^\/?api\/media(?:\?|$)/.test(raw.replace(/^\//,''))){setSrc(raw);return()=>{live=false};}
+    const mediaUrl=new URL(raw,window.location.origin);
+    // پاک‌سازی URLهای قدیمی که token را یک یا دو بار در Query داشته‌اند.
+    mediaUrl.searchParams.delete('token');
+    mediaUrl.searchParams.delete('access_token');
+    fetch(mediaUrl.toString(),{headers:tok(),cache:'no-store'})
+      .then(r=>{if(!r.ok)throw new Error('عکس در دسترس نیست');return r.blob();})
+      .then(blob=>{if(!live)return;objectUrl=URL.createObjectURL(blob);setSrc(objectUrl);})
+      .catch(()=>{if(live)setSrc('');});
+    return()=>{live=false;if(objectUrl)URL.revokeObjectURL(objectUrl);};
+  },[url]);
+  return src?<img src={src} alt={'تصویر '+(name||'کاربر')} onError={()=>setSrc('')}/>:<span className="av-fallback">{(name||'؟')[0]}</span>;
 }
 function validCoord(lat,lon){ lat=Number(lat); lon=Number(lon); return Number.isFinite(lat)&&Number.isFinite(lon)&&lat>=-90&&lat<=90&&lon>=-180&&lon<=180; }
 
@@ -10386,6 +10400,38 @@ function Login({onLogin,brand}){
       {err&&<p role="alert" className="login-feedback login-feedback-error">{err}</p>}
     </div></div>);
 }
+function FirstLoginPassword({name,onDone,onLogout}){
+  const [current,setCurrent]=useState(''),[next,setNext]=useState(''),[confirm,setConfirm]=useState('');
+  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[visible,setVisible]=useState(false);
+  const submit=async(e)=>{
+    e.preventDefault();setError('');
+    if(next.length<12||next.length>128){setError('رمز جدید باید بین ۱۲ تا ۱۲۸ کاراکتر باشد.');return;}
+    if(next!==confirm){setError('تکرار رمز جدید مطابقت ندارد.');return;}
+    if(current===next){setError('رمز جدید باید با رمز فعلی متفاوت باشد.');return;}
+    setBusy(true);
+    try{await SEND('POST','/my/first-login-password',{current,next});await onDone();}
+    catch(e){setError(e.message||'تغییر رمز انجام نشد.');}
+    finally{setBusy(false);}
+  };
+  return <main dir="rtl" style={{minHeight:'100vh',display:'grid',placeItems:'center',padding:'24px 16px',background:'linear-gradient(145deg,#eaf3ff,#f8fafc 60%,#eef8f4)'}}>
+    <section aria-labelledby="first-login-title" style={{width:'100%',maxWidth:460,background:'#fff',border:'1px solid #dbe5ef',borderRadius:22,padding:'clamp(22px,5vw,36px)',boxShadow:'0 18px 60px #183b601a',fontFamily:'Vazirmatn,Tahoma,sans-serif'}}>
+      <div aria-hidden="true" style={{width:54,height:54,display:'grid',placeItems:'center',borderRadius:16,background:'#e9f2ff',color:'#174d90',fontSize:27,marginBottom:18}}>🔐</div>
+      <h1 id="first-login-title" style={{fontSize:22,color:'#153455',margin:'0 0 10px'}}>تغییر رمز در اولین ورود</h1>
+      <p style={{color:'#536579',lineHeight:2,margin:'0 0 24px'}}>سلام {name||'همکار گرامی'}، برای حفاظت از حساب شما لازم است رمز اولیه را تغییر دهید. پس از ثبت رمز جدید، پنل مدیریت باز می‌شود.</p>
+      <form onSubmit={submit} style={{display:'grid',gap:16}}>
+        <label style={{display:'grid',gap:7,color:'#263e57',fontWeight:600}}>رمز فعلی<input autoComplete="current-password" type={visible?'text':'password'} required value={current} onChange={e=>setCurrent(e.target.value)} style={{padding:13,border:'1px solid #bdcbda',borderRadius:10,font:'inherit',width:'100%',boxSizing:'border-box'}}/></label>
+        <label style={{display:'grid',gap:7,color:'#263e57',fontWeight:600}}>رمز جدید (حداقل ۱۲ کاراکتر)<input autoComplete="new-password" minLength={12} maxLength={128} type={visible?'text':'password'} required value={next} onChange={e=>setNext(e.target.value)} style={{padding:13,border:'1px solid #bdcbda',borderRadius:10,font:'inherit',width:'100%',boxSizing:'border-box'}}/></label>
+        <label style={{display:'grid',gap:7,color:'#263e57',fontWeight:600}}>تکرار رمز جدید<input autoComplete="new-password" type={visible?'text':'password'} required value={confirm} onChange={e=>setConfirm(e.target.value)} style={{padding:13,border:'1px solid #bdcbda',borderRadius:10,font:'inherit',width:'100%',boxSizing:'border-box'}}/></label>
+        <label style={{display:'flex',alignItems:'center',gap:9,color:'#536579',cursor:'pointer'}}><input type="checkbox" checked={visible} onChange={e=>setVisible(e.target.checked)}/> نمایش رمزها</label>
+        {error&&<p role="alert" style={{color:'#b42318',background:'#fff0ee',padding:12,borderRadius:10,margin:0,lineHeight:1.8}}>{error}</p>}
+        <button disabled={busy} type="submit" style={{padding:14,background:'#1765b4',color:'#fff',border:0,borderRadius:11,font:'700 15px Vazirmatn,Tahoma',cursor:busy?'wait':'pointer',opacity:busy?.65:1}}>{busy?'در حال ذخیره…':'تغییر رمز و ورود به پنل'}</button>
+        <button type="button" onClick={onLogout} style={{padding:10,background:'transparent',border:'1px solid #d3deea',borderRadius:10,color:'#536579',font:'inherit',cursor:'pointer'}}>خروج از حساب</button>
+      </form>
+      <p style={{fontSize:12,color:'#66798b',lineHeight:1.9,margin:'18px 0 0'}}>اگر با کد یک‌بارمصرف وارد شده‌اید و رمز فعلی را نمی‌دانید، با مدیر سامانه برای بازیابی رمز هماهنگ کنید.</p>
+    </section>
+  </main>;
+}
+
 function App(){
   const [me,setMe]=useState(null); const [authReady,setAuthReady]=useState(false); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState(null); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
   const [menuSearch,setMenuSearch]=useState("");
@@ -10405,9 +10451,10 @@ function App(){
   const [openSections,setOpenSections]=useState({});
   useEffect(()=>{ db.publicSettings().then(s=>{ const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>{}); },[]);
   useEffect(()=>{ let active=true; db.restoreSession().then(u=>{if(active)setMe(u);}).catch(()=>{}).finally(()=>{if(active)setAuthReady(true);}); return()=>{active=false}; },[]);
-  useEffect(()=>{ if(me&&me.is_admin){ db.settings().then(s=>{ const all=s.role_perms||{}; const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id); const rp=all[me.role_id]; setAllowed(has&&Array.isArray(rp)?rp:null); const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>setAllowed(null)); } },[me]);
+  useEffect(()=>{ if(me&&me.is_admin&&!me.must_change_pw){ db.settings().then(s=>{ const all=s.role_perms||{}; const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id); const rp=all[me.role_id]; setAllowed(has&&Array.isArray(rp)?rp:null); const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>setAllowed(null)); } },[me]);
   if(!authReady)return <div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--paper)",color:"var(--muted)"}}>در حال بررسی نشست…</div>;
   if(!me)return <Login onLogin={setMe} brand={brand}/>;
+  if(me.must_change_pw)return <FirstLoginPassword name={me.name} onDone={async()=>{const u=await db.restoreSession();if(!u)throw new Error('نشست شما منقضی شده است؛ دوباره وارد شوید.');setMe(u);}} onLogout={()=>{localStorage.removeItem('token');localStorage.removeItem('refresh_token');setMe(null);}}/>;
   if(!me.is_admin) return (<div style={{minHeight:"100vh",display:"grid",placeItems:"center",textAlign:"center",padding:24}}>
     <div><h2 style={{color:"var(--danger)"}}>دسترسی مدیریتی ندارید</h2>
     <p style={{color:"var(--muted)",maxWidth:430,lineHeight:2,marginTop:8}}>ورود به سامانه مدیریت و نظارت بر خطوط و نیروهای اجرایی تاکسیرانی تنها برای نیروی اداری، نیروی اداری ارشد، رییس اداره بازرسی و مدیر کل مجاز است. برای کارهای میدانی از اپ موبایل/وب‌اپ استفاده کنید.</p>
@@ -10468,11 +10515,11 @@ function App(){
     <main className="main"><div className="top">
       <button ref={menuButtonRef} className="burger" aria-label={drawer?"بستن منوی صفحات":"باز کردن منوی صفحات"} aria-expanded={drawer} onClick={()=>{setSidebarCollapsed(false);setDrawer(d=>!d);}}>☰</button>
       <div className="page-heading"><div className="page-breadcrumb">پنل مدیریت <span aria-hidden="true">/</span> {currentSection?.[0]||"خطیار"}</div><h2>{VIEWS[vk].t}</h2></div>
-      <div className="who"><span>{me.name} — {me.role}{me.rank_stars?" · "+"★".repeat(Math.max(0,Math.min(5,+me.rank_stars))):""}</span><div className="av">{me.photo?<><img src={userPhotoImg(me.photo)} alt={"تصویر "+(me.name||"کاربر")} onError={e=>{e.currentTarget.style.display="none";if(e.currentTarget.nextSibling)e.currentTarget.nextSibling.style.display="grid";}}/><span className="av-fallback" style={{display:"none"}}>{(me.name||"؟")[0]}</span></>:<span>{(me.name||"؟")[0]}</span>}</div></div></div>
+      <div className="who"><span>{me.name} — {me.role}{me.rank_stars?" · "+"★".repeat(Math.max(0,Math.min(5,+me.rank_stars))):""}</span><div className="av"><AuthenticatedAvatar url={me.photo} name={me.name}/></div></div></div>
       <div id="panel-content" className="page-content" data-page={vk} tabIndex={-1}><View canNavigate={can}/></div></main></div>);
 }
 
-const PANEL_BUILD_VERSION = "1.5.17";
+const PANEL_BUILD_VERSION = "1.5.20";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */

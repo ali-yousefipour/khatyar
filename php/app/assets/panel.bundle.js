@@ -9003,16 +9003,34 @@ function authImg(url) {
         return url;
     return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'access_token=' + encodeURIComponent(t);
 }
-// تگ <img> نمی‌تواند هدر Authorization بفرستد؛ endpoint رسانه فقط پارامتر token را می‌پذیرد.
-function userPhotoImg(url) {
-    if (!url)
-        return '';
-    if (!/^\/?api\/media(?:\?|$)/.test(String(url).replace(/^\//, '')))
-        return url;
-    const token = localStorage.token || '';
-    if (!token)
-        return url;
-    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'token=' + encodeURIComponent(token);
+// عکس حساب: توکن دسترسی نباید در URL تصویر، تاریخچه یا گزارش‌های HTTP قرار گیرد.
+function AuthenticatedAvatar({ url, name }) {
+    const [src, setSrc] = useState('');
+    useEffect(() => {
+        let live = true, objectUrl = '';
+        setSrc('');
+        if (!url)
+            return () => { live = false; };
+        const raw = String(url);
+        if (!/^\/?api\/media(?:\?|$)/.test(raw.replace(/^\//, ''))) {
+            setSrc(raw);
+            return () => { live = false; };
+        }
+        const mediaUrl = new URL(raw, window.location.origin);
+        // پاک‌سازی URLهای قدیمی که token را یک یا دو بار در Query داشته‌اند.
+        mediaUrl.searchParams.delete('token');
+        mediaUrl.searchParams.delete('access_token');
+        fetch(mediaUrl.toString(), { headers: tok(), cache: 'no-store' })
+            .then(r => { if (!r.ok)
+            throw new Error('عکس در دسترس نیست'); return r.blob(); })
+            .then(blob => { if (!live)
+            return; objectUrl = URL.createObjectURL(blob); setSrc(objectUrl); })
+            .catch(() => { if (live)
+            setSrc(''); });
+        return () => { live = false; if (objectUrl)
+            URL.revokeObjectURL(objectUrl); };
+    }, [url]);
+    return src ? React.createElement("img", { src: src, alt: 'تصویر ' + (name || 'کاربر'), onError: () => setSrc('') }) : React.createElement("span", { className: "av-fallback" }, (name || '؟')[0]);
 }
 function validCoord(lat, lon) { lat = Number(lat); lon = Number(lon); return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180; }
 function LineStationDetailModal({ line, onClose }) {
@@ -19694,6 +19712,62 @@ function Login({ onLogin, brand }) {
             info && React.createElement("p", { role: "status", className: "login-feedback login-feedback-ok" }, info),
             err && React.createElement("p", { role: "alert", className: "login-feedback login-feedback-error" }, err))));
 }
+function FirstLoginPassword({ name, onDone, onLogout }) {
+    const [current, setCurrent] = useState(''), [next, setNext] = useState(''), [confirm, setConfirm] = useState('');
+    const [busy, setBusy] = useState(false), [error, setError] = useState(''), [visible, setVisible] = useState(false);
+    const submit = async (e) => {
+        e.preventDefault();
+        setError('');
+        if (next.length < 12 || next.length > 128) {
+            setError('رمز جدید باید بین ۱۲ تا ۱۲۸ کاراکتر باشد.');
+            return;
+        }
+        if (next !== confirm) {
+            setError('تکرار رمز جدید مطابقت ندارد.');
+            return;
+        }
+        if (current === next) {
+            setError('رمز جدید باید با رمز فعلی متفاوت باشد.');
+            return;
+        }
+        setBusy(true);
+        try {
+            await SEND('POST', '/my/first-login-password', { current, next });
+            await onDone();
+        }
+        catch (e) {
+            setError(e.message || 'تغییر رمز انجام نشد.');
+        }
+        finally {
+            setBusy(false);
+        }
+    };
+    return React.createElement("main", { dir: "rtl", style: { minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '24px 16px', background: 'linear-gradient(145deg,#eaf3ff,#f8fafc 60%,#eef8f4)' } },
+        React.createElement("section", { "aria-labelledby": "first-login-title", style: { width: '100%', maxWidth: 460, background: '#fff', border: '1px solid #dbe5ef', borderRadius: 22, padding: 'clamp(22px,5vw,36px)', boxShadow: '0 18px 60px #183b601a', fontFamily: 'Vazirmatn,Tahoma,sans-serif' } },
+            React.createElement("div", { "aria-hidden": "true", style: { width: 54, height: 54, display: 'grid', placeItems: 'center', borderRadius: 16, background: '#e9f2ff', color: '#174d90', fontSize: 27, marginBottom: 18 } }, "\uD83D\uDD10"),
+            React.createElement("h1", { id: "first-login-title", style: { fontSize: 22, color: '#153455', margin: '0 0 10px' } }, "\u062A\u063A\u06CC\u06CC\u0631 \u0631\u0645\u0632 \u062F\u0631 \u0627\u0648\u0644\u06CC\u0646 \u0648\u0631\u0648\u062F"),
+            React.createElement("p", { style: { color: '#536579', lineHeight: 2, margin: '0 0 24px' } },
+                "\u0633\u0644\u0627\u0645 ",
+                name || 'همکار گرامی',
+                "\u060C \u0628\u0631\u0627\u06CC \u062D\u0641\u0627\u0638\u062A \u0627\u0632 \u062D\u0633\u0627\u0628 \u0634\u0645\u0627 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A \u0631\u0645\u0632 \u0627\u0648\u0644\u06CC\u0647 \u0631\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0647\u06CC\u062F. \u067E\u0633 \u0627\u0632 \u062B\u0628\u062A \u0631\u0645\u0632 \u062C\u062F\u06CC\u062F\u060C \u067E\u0646\u0644 \u0645\u062F\u06CC\u0631\u06CC\u062A \u0628\u0627\u0632 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+            React.createElement("form", { onSubmit: submit, style: { display: 'grid', gap: 16 } },
+                React.createElement("label", { style: { display: 'grid', gap: 7, color: '#263e57', fontWeight: 600 } },
+                    "\u0631\u0645\u0632 \u0641\u0639\u0644\u06CC",
+                    React.createElement("input", { autoComplete: "current-password", type: visible ? 'text' : 'password', required: true, value: current, onChange: e => setCurrent(e.target.value), style: { padding: 13, border: '1px solid #bdcbda', borderRadius: 10, font: 'inherit', width: '100%', boxSizing: 'border-box' } })),
+                React.createElement("label", { style: { display: 'grid', gap: 7, color: '#263e57', fontWeight: 600 } },
+                    "\u0631\u0645\u0632 \u062C\u062F\u06CC\u062F (\u062D\u062F\u0627\u0642\u0644 \u06F1\u06F2 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631)",
+                    React.createElement("input", { autoComplete: "new-password", minLength: 12, maxLength: 128, type: visible ? 'text' : 'password', required: true, value: next, onChange: e => setNext(e.target.value), style: { padding: 13, border: '1px solid #bdcbda', borderRadius: 10, font: 'inherit', width: '100%', boxSizing: 'border-box' } })),
+                React.createElement("label", { style: { display: 'grid', gap: 7, color: '#263e57', fontWeight: 600 } },
+                    "\u062A\u06A9\u0631\u0627\u0631 \u0631\u0645\u0632 \u062C\u062F\u06CC\u062F",
+                    React.createElement("input", { autoComplete: "new-password", type: visible ? 'text' : 'password', required: true, value: confirm, onChange: e => setConfirm(e.target.value), style: { padding: 13, border: '1px solid #bdcbda', borderRadius: 10, font: 'inherit', width: '100%', boxSizing: 'border-box' } })),
+                React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 9, color: '#536579', cursor: 'pointer' } },
+                    React.createElement("input", { type: "checkbox", checked: visible, onChange: e => setVisible(e.target.checked) }),
+                    " \u0646\u0645\u0627\u06CC\u0634 \u0631\u0645\u0632\u0647\u0627"),
+                error && React.createElement("p", { role: "alert", style: { color: '#b42318', background: '#fff0ee', padding: 12, borderRadius: 10, margin: 0, lineHeight: 1.8 } }, error),
+                React.createElement("button", { disabled: busy, type: "submit", style: { padding: 14, background: '#1765b4', color: '#fff', border: 0, borderRadius: 11, font: '700 15px Vazirmatn,Tahoma', cursor: busy ? 'wait' : 'pointer', opacity: busy ? .65 : 1 } }, busy ? 'در حال ذخیره…' : 'تغییر رمز و ورود به پنل'),
+                React.createElement("button", { type: "button", onClick: onLogout, style: { padding: 10, background: 'transparent', border: '1px solid #d3deea', borderRadius: 10, color: '#536579', font: 'inherit', cursor: 'pointer' } }, "\u062E\u0631\u0648\u062C \u0627\u0632 \u062D\u0633\u0627\u0628")),
+            React.createElement("p", { style: { fontSize: 12, color: '#66798b', lineHeight: 1.9, margin: '18px 0 0' } }, "\u0627\u06AF\u0631 \u0628\u0627 \u06A9\u062F \u06CC\u06A9\u200C\u0628\u0627\u0631\u0645\u0635\u0631\u0641 \u0648\u0627\u0631\u062F \u0634\u062F\u0647\u200C\u0627\u06CC\u062F \u0648 \u0631\u0645\u0632 \u0641\u0639\u0644\u06CC \u0631\u0627 \u0646\u0645\u06CC\u200C\u062F\u0627\u0646\u06CC\u062F\u060C \u0628\u0627 \u0645\u062F\u06CC\u0631 \u0633\u0627\u0645\u0627\u0646\u0647 \u0628\u0631\u0627\u06CC \u0628\u0627\u0632\u06CC\u0627\u0628\u06CC \u0631\u0645\u0632 \u0647\u0645\u0627\u0647\u0646\u06AF \u06A9\u0646\u06CC\u062F.")));
+}
 function App() {
     const [me, setMe] = useState(null);
     const [authReady, setAuthReady] = useState(false);
@@ -19732,13 +19806,16 @@ function App() {
     useEffect(() => { let active = true; db.restoreSession().then(u => { if (active)
         setMe(u); }).catch(() => { }).finally(() => { if (active)
         setAuthReady(true); }); return () => { active = false; }; }, []);
-    useEffect(() => { if (me && me.is_admin) {
+    useEffect(() => { if (me && me.is_admin && !me.must_change_pw) {
         db.settings().then(s => { const all = s.role_perms || {}; const has = Object.prototype.hasOwnProperty.call(all, String(me.role_id)) || Object.prototype.hasOwnProperty.call(all, me.role_id); const rp = all[me.role_id]; setAllowed(has && Array.isArray(rp) ? rp : null); const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => setAllowed(null));
     } }, [me]);
     if (!authReady)
         return React.createElement("div", { style: { minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--paper)", color: "var(--muted)" } }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0631\u0631\u0633\u06CC \u0646\u0634\u0633\u062A\u2026");
     if (!me)
         return React.createElement(Login, { onLogin: setMe, brand: brand });
+    if (me.must_change_pw)
+        return React.createElement(FirstLoginPassword, { name: me.name, onDone: async () => { const u = await db.restoreSession(); if (!u)
+                throw new Error('نشست شما منقضی شده است؛ دوباره وارد شوید.'); setMe(u); }, onLogout: () => { localStorage.removeItem('token'); localStorage.removeItem('refresh_token'); setMe(null); } });
     if (!me.is_admin)
         return (React.createElement("div", { style: { minHeight: "100vh", display: "grid", placeItems: "center", textAlign: "center", padding: 24 } },
             React.createElement("div", null,
@@ -19845,14 +19922,12 @@ function App() {
                         " \u2014 ",
                         me.role,
                         me.rank_stars ? " · " + "★".repeat(Math.max(0, Math.min(5, +me.rank_stars))) : ""),
-                    React.createElement("div", { className: "av" }, me.photo ? React.createElement(React.Fragment, null,
-                        React.createElement("img", { src: userPhotoImg(me.photo), alt: "تصویر " + (me.name || "کاربر"), onError: e => { e.currentTarget.style.display = "none"; if (e.currentTarget.nextSibling)
-                                e.currentTarget.nextSibling.style.display = "grid"; } }),
-                        React.createElement("span", { className: "av-fallback", style: { display: "none" } }, (me.name || "؟")[0])) : React.createElement("span", null, (me.name || "؟")[0])))),
+                    React.createElement("div", { className: "av" },
+                        React.createElement(AuthenticatedAvatar, { url: me.photo, name: me.name })))),
             React.createElement("div", { id: "panel-content", className: "page-content", "data-page": vk, tabIndex: -1 },
                 React.createElement(View, { canNavigate: can })))));
 }
-const PANEL_BUILD_VERSION = "1.5.17";
+const PANEL_BUILD_VERSION = "1.5.20";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
