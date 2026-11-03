@@ -3,6 +3,9 @@ import React,{createContext,useContext,useEffect,useMemo,useRef,useState}from're
 const RadioContext=createContext(null),KEY_ENABLED='khatyar.radio.enabled',KEY_CHANNEL='khatyar.radio.channel',KEY_VOLUME_PTT='khatyar.radio.volume_ptt',DEFAULT_TALK_MS=25000,MIN_TALK_MS=1500,PTT_RELEASE_GRACE_MS=500,NATIVE=NativeModules?.KhatyarRadio;
 const RECORDING_OPTIONS={extension:'.m4a',sampleRate:8000,numberOfChannels:1,bitRate:12000,android:{extension:'.m4a',outputFormat:'mpeg4',audioEncoder:'aac',sampleRate:8000,numberOfChannels:1,bitRate:12000},ios:{extension:'.m4a',outputFormat:'mpeg4aac',audioQuality:0,linearPCMBitDepth:16,linearPCMIsBigEndian:false,linearPCMIsFloat:false,sampleRate:8000,bitRate:12000},web:{mimeType:'audio/webm',bitsPerSecond:12000}};
 const extractChannels=r=>{const a=Array.isArray(r)?r:(Array.isArray(r?.channels)?r.channels:Array.isArray(r?.data?.channels)?r.data.channels:Array.isArray(r?.items)?r.items:Array.isArray(r?.data?.items)?r.data.items:[]);return a.filter(x=>x&&x.id!=null).map(x=>({...x,id:Number(x.id)}));};
+// The server sends the active attendance punch in Tehran local time.
+// A blank value intentionally means there is no verified active shift.
+const shiftStartFromResponse=r=>typeof r?.shift_started_at==='string'?r.shift_started_at:'';
 export function RadioProvider({children}){const{user}=useAuth();const[enabled,setEnabledState]=useState(true),[channels,setChannels]=useState([]),[channelId,setChannelIdState]=useState(0),[volumePttEnabled,setVolumePttEnabledState]=useState(false),[minTalkMs,setMinTalkMs]=useState(MIN_TALK_MS),[busy,setBusy]=useState(false),[speaker,setSpeaker]=useState(null),[recording,setRecording]=useState(false),[status,setStatus]=useState(''),[lastMessage,setLastMessage]=useState(null),[recentMessages,setRecentMessages]=useState([]),[playingMessageId,setPlayingMessageId]=useState(0),[maxTalkMs,setMaxTalkMs]=useState(DEFAULT_TALK_MS),[loading,setLoading]=useState(false),[loadError,setLoadError]=useState(''),[listenAll,setListenAllState]=useState(false),[listenAllAllowed,setListenAllAllowed]=useState(false);const enabledRef=useRef(true),channelRef=useRef(0),lastIdRef=useRef(0),pollingRef=useRef(false),recentLoadingRef=useRef(false),recentRefreshPendingRef=useRef(false),recentRequestIdRef=useRef(0),mountedRef=useRef(true),recordingRef=useRef(false),limitRef=useRef(DEFAULT_TALK_MS),talkStartRef=useRef(0),autoStoppedRef=useRef(false),pttReleaseTimerRef=useRef(null),pttDownRef=useRef(false),talkGenerationRef=useRef(0),pttInputGenerationRef=useRef(0),listenAllRef=useRef(false),listenAllLastIdRef=useRef(0),pollAllRef=useRef(false),resyncingRef=useRef(true),sessionRef=useRef(0),playbackRef=useRef(null),channelsRef=useRef([]),loadSequenceRef=useRef(0);const recorder=useAudioRecorder(RECORDING_OPTIONS);const nativeRecordingRef=useRef(false);
 const eotPlayer=useAudioPlayer(require('../../assets/sounds/radio_eot.wav')),pttPressPlayer=useAudioPlayer(require('../../assets/sounds/radio_ptt_press.wav')),rogerPlayer=useAudioPlayer(require('../../assets/sounds/radio_roger_beep.wav')),squelchOpenPlayer=useAudioPlayer(require('../../assets/sounds/radio_squelch_open.wav')),squelchClosePlayer=useAudioPlayer(require('../../assets/sounds/radio_squelch_close.wav'));
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,Math.max(0,Number(ms)||0)));
@@ -23,7 +26,7 @@ const playEffect=async(kind,fallback,fallbackMs=0)=>{
 };
 const playReceiveLeadIn=()=>playEffect('receive_leadin',callAlertPlayer,360);
 const playReceiveTail=()=>playEffect('receive_tail',squelchClosePlayer,110);
-const lastBusyRef=useRef(null);
+const lastBusyRef=useRef(null),shiftStartedAtRef=useRef('');
 useEffect(()=>{enabledRef.current=enabled},[enabled]);useEffect(()=>{channelRef.current=channelId},[channelId]);useEffect(()=>()=>{mountedRef.current=false;sessionRef.current++;cancelPlayback();if(pttReleaseTimerRef.current)clearTimeout(pttReleaseTimerRef.current)},[]);
 const syncVolumePttNative=async(value)=>{try{if(NATIVE?.setVolumePttEnabled)await NATIVE.setVolumePttEnabled(!!value);else if(NATIVE?.setVolumePtt)await NATIVE.setVolumePtt(!!value)}catch(e){}};
 const syncNative=async(overrides={})=>{
@@ -36,7 +39,7 @@ const syncNative=async(overrides={})=>{
     await NATIVE.configure(token||'',apiBase(),Number(user.id),cid,nextEnabled,cursor,overrides.listenAll??listenAllRef.current);
     if(generation!==sessionRef.current)return;
     if(NATIVE.setChannelInfo)await NATIVE.setChannelInfo(cid,String(ch?.name||ch?.title||`کانال ${cid}`));
-    if(NATIVE.setUserInfo)await NATIVE.setUserInfo(String(user?.role_title||user?.role_name||user?.position_name||user?.position||user?.role||'').trim());
+    if(NATIVE.setUserInfo)await NATIVE.setUserInfo(String(user?.name||user?.full_name||[user?.first_name,user?.last_name].filter(Boolean).join(' ')).trim(),String(user?.role_title||user?.role_name||user?.position_name||user?.position||user?.role||'').trim(),shiftStartedAtRef.current);
     await syncVolumePttNative(nextVolumePtt);
   }catch(error){if(overrides.initialized)throw error;}
 };
@@ -69,6 +72,7 @@ const initializeLive=async(generation,cid,all=listenAllRef.current)=>{
   resyncingRef.current=false;setLoadError('');return true;
 };
 const apply=async(r,savedC,savedE)=>{
+  shiftStartedAtRef.current=shiftStartFromResponse(r);
   const generation=beginSession(),list=extractChannels(r);channelsRef.current=list;setChannels(list);
   const cid=Number(savedC||r?.channel_id||r?.data?.channel_id||list?.[0]?.id||0),chosen=list.find(x=>Number(x.id)===cid)||list[0],actual=Number(chosen?.id||0);
   setChannelIdState(actual);channelRef.current=actual;
@@ -93,7 +97,7 @@ const load=async()=>{
   }catch(error){if(mountedRef.current&&sequence===loadSequenceRef.current)setLoadError(error.message||'دریافت کانال‌های بی‌سیم ناموفق بود.');}
   finally{if(mountedRef.current&&sequence===loadSequenceRef.current)setLoading(false);}
 };
-useEffect(()=>{if(!user?.id){loadSequenceRef.current++;beginSession();channelsRef.current=[];setChannels([]);setChannelIdState(0);setRecording(false);setRecentMessages([]);setLoadError('');if(NATIVE)NATIVE.stop().catch(()=>{});return}load();return()=>{try{if(nativeRecordingRef.current&&NATIVE?.stopOutgoingRecording)NATIVE.stopOutgoingRecording().catch(()=>{});nativeRecordingRef.current=false}catch(e){}try{recorder.stop()}catch(e){}}},[user?.id]);
+useEffect(()=>{if(!user?.id){loadSequenceRef.current++;shiftStartedAtRef.current='';beginSession();channelsRef.current=[];setChannels([]);setChannelIdState(0);setRecording(false);setRecentMessages([]);setLoadError('');if(NATIVE)NATIVE.stop().catch(()=>{});return}load();return()=>{try{if(nativeRecordingRef.current&&NATIVE?.stopOutgoingRecording)NATIVE.stopOutgoingRecording().catch(()=>{});nativeRecordingRef.current=false}catch(e){}try{recorder.stop()}catch(e){}}},[user?.id]);
 useEffect(()=>{if(!user?.id||!NATIVE)return;syncNative();},[user?.id,enabled,channelId,volumePttEnabled]);
 const setVolumePttEnabled=async value=>{const next=!!value;setVolumePttEnabledState(next);await AsyncStorage.setItem(KEY_VOLUME_PTT,next?'1':'0');await syncNative({volumePttEnabled:next});};
 const setEnabled=async value=>{

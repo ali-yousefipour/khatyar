@@ -212,7 +212,7 @@ public final class KhatyarRadioService extends Service {
   }
 
   private String jalaliToday() {
-    java.util.Calendar cal = java.util.Calendar.getInstance();
+    java.util.Calendar cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Tehran"));
     // تاریخ شمسی مستقیماً هنگام هر refresh محاسبه می‌شود؛ به کش یا مقدار قدیمی وابسته نیست.
     int gy = cal.get(java.util.Calendar.YEAR);
     int gm = cal.get(java.util.Calendar.MONTH) + 1;
@@ -244,6 +244,20 @@ public final class KhatyarRadioService extends Service {
     return new int[]{jy, jm, jd};
   }
 
+  private String elapsedShift(String startedAt) {
+    if (startedAt == null || startedAt.trim().isEmpty()) return "شیفت فعال ثبت نشده";
+    try {
+      SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
+      parser.setLenient(false);
+      parser.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Tehran"));
+      Date start = parser.parse(startedAt.trim());
+      if (start == null) return "زمان شروع شیفت نامشخص";
+      long elapsedMinutes = (System.currentTimeMillis() - start.getTime()) / 60000L;
+      if (elapsedMinutes < 0 || elapsedMinutes > 24L * 60L) return "شیفت فعال ثبت نشده";
+      return "مدت شیفت: " + toPersianDigits(String.format(Locale.US, "%d:%02d", elapsedMinutes / 60, elapsedMinutes % 60));
+    } catch (Exception ignored) { return "زمان شروع شیفت نامشخص"; }
+  }
+
   private Notification buildRadioNotification() {
     boolean pttActive = getPrefs().getBoolean("notificationPttActive", false);
 
@@ -254,17 +268,23 @@ public final class KhatyarRadioService extends Service {
     String status = accessDenied ? "در انتظار تأیید حضور" : (pttActive ? "در حال صحبت" : "بی‌سیم متصل");
     String channelName = getPrefs().getString("channelName", "").trim();
     String role = getPrefs().getString("userRole", "").trim();
-    String info = (channelName.isEmpty() ? "کانال بی‌سیم" : "کانال: " + channelName)
-      + (role.isEmpty() ? "" : "  •  " + role);
-    String pttLabel = pttActive ? "پایان صحبت" : "شروع صحبت";
+    String fullName = getPrefs().getString("userName", "").trim();
+    String shift = elapsedShift(getPrefs().getString("shiftStartedAt", ""));
+    String channel = channelName.isEmpty() ? "کانال انتخاب نشده" : "کانال: " + channelName;
+    String info = channel + "  •  " + status;
+    String compactInfo = (fullName.isEmpty() ? "خطیار" : fullName) + " • " + (channelName.isEmpty() ? "بی‌سیم" : channelName);
+    String pttLabel = pttActive ? "پایان" : "PTT";
 
-    compact.setTextViewText(R.id.khatyar_notification_status, status);
-    compact.setTextViewText(R.id.khatyar_notification_info, info);
+    compact.setTextViewText(R.id.khatyar_notification_status, status + " • " + shift);
+    compact.setTextViewText(R.id.khatyar_notification_info, compactInfo);
     compact.setTextViewText(R.id.khatyar_notification_ptt_label, pttLabel);
     compact.setOnClickPendingIntent(R.id.khatyar_notification_ptt, ptt);
 
     expanded.setTextViewText(R.id.khatyar_notification_status, status);
     expanded.setTextViewText(R.id.khatyar_notification_info, info);
+    expanded.setTextViewText(R.id.khatyar_notification_date, "تاریخ امروز: " + jalaliToday());
+    expanded.setTextViewText(R.id.khatyar_notification_identity, (fullName.isEmpty() ? "کاربر خطیار" : fullName) + (role.isEmpty() ? "" : "  •  " + role));
+    expanded.setTextViewText(R.id.khatyar_notification_shift, shift);
     expanded.setTextViewText(R.id.khatyar_notification_ptt_label, pttLabel);
     expanded.setOnClickPendingIntent(R.id.khatyar_notification_ptt, ptt);
 
@@ -278,6 +298,9 @@ public final class KhatyarRadioService extends Service {
     compact.setTextColor(R.id.khatyar_notification_info, secondaryText);
     expanded.setTextColor(R.id.khatyar_notification_status, primaryText);
     expanded.setTextColor(R.id.khatyar_notification_info, secondaryText);
+    expanded.setTextColor(R.id.khatyar_notification_date, secondaryText);
+    expanded.setTextColor(R.id.khatyar_notification_identity, primaryText);
+    expanded.setTextColor(R.id.khatyar_notification_shift, secondaryText);
     expanded.setTextColor(R.id.khatyar_notification_brand, secondaryText);
     expanded.setTextColor(R.id.khatyar_notification_hint, secondaryText);
 
@@ -291,11 +314,13 @@ public final class KhatyarRadioService extends Service {
     NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL)
       .setSmallIcon(getApplicationInfo().icon)
       .setContentTitle("خطیار • " + status)
-      .setContentText(info)
-      .setSubText("خطیار فعال و آماده‌به‌کار")
+      .setContentText(compactInfo + " • " + shift)
+      .setSubText(jalaliToday())
       .setCustomContentView(compact)
       .setCustomBigContentView(expanded)
       .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
+      // Full name and shift details are sensitive on an unattended lock screen.
+      .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
       .setCategory(NotificationCompat.CATEGORY_SERVICE)

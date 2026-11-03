@@ -14,6 +14,16 @@ function kh_radio_shift_responsible(array $user): bool {
     // Web/admin permissions must not override attendance for levels 5–9.
     return $level>=1 && $level<=4;
 }
+function kh_radio_shift_started_at(array $user): ?string {
+    $uid=(int)($user['id']??0);
+    if($uid<=0)return null;
+    $row=Db::one("SELECT id,check_in,check_out FROM staff_attendance
+        WHERE user_id=? AND check_in<=NOW()
+        AND check_in>=DATE_SUB(NOW(),INTERVAL 24 HOUR)
+        ORDER BY check_in DESC,id DESC LIMIT 1",[$uid]);
+    return $row !== null && !empty($row['id']) && empty($row['check_out'])
+        ? (string)$row['check_in'] : null;
+}
 function kh_radio_shift_allowed(array $user): bool {
     if (kh_radio_shift_responsible($user)) return true;
     $uid=(int)($user['id']??0);
