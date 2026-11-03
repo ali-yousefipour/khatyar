@@ -19,6 +19,8 @@ module.exports = config => {
       source = source.replace('PackageList(this).packages','PackageList(this).packages.apply { add(KhatyarScreenPolicyPackage()) }');
     else if (cfg.modResults.language !== 'kt' && !source.includes('new KhatyarScreenPolicyPackage()'))
       source = source.replace('new PackageList(this).getPackages()','new PackageList(this).getPackages() {{ add(new KhatyarScreenPolicyPackage()); }}');
+    if (!source.includes('add(KhatyarScreenPolicyPackage())') && !source.includes('new KhatyarScreenPolicyPackage()'))
+      throw new Error('Screen policy: native module registration in MainApplication failed');
     cfg.modResults.contents = source;
     return cfg;
   });
