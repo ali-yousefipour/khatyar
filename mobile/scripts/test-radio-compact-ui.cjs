@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const source = fs.readFileSync(path.join(__dirname,'../src/screens/RadioScreen.js'),'utf8');
+assert.match(source,/icon="volume-plus" checked=\{volumePttEnabled\}/);
+assert.match(source,/icon="headphones" checked=\{listenAll\}/);
+assert.match(source,/accessibilityRole="checkbox"/);
+assert.match(source,/accessibilityState=\{\{ checked: !!checked \}\}/);
+assert.match(source,/onPressIn=\{startTalk\}/);
+assert.match(source,/onPressOut=\{stopTalk\}/);
+assert.match(source,/setChannel\(id\)/);
+assert.match(source,/playRecentMessage\(message\)/);
+assert.doesNotMatch(source,/تنظیم دریافت پیام هنگام خاموش بودن صفحه/);
+assert.doesNotMatch(source,/openBatteryOptimizationSettings/);
+console.log('PASS compact radio UI keeps PTT/channel/history behavior and removes battery setup row');

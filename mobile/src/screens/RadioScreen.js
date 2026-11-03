@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAudioPlayer } from 'expo-audio';
-import { View, Text, TouchableOpacity, Pressable, StyleSheet, ScrollView, Modal, NativeModules, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, ScrollView, Modal, useWindowDimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRadio } from '../radio/RadioContext';
 import { C, FONT } from '../theme';
@@ -44,7 +44,7 @@ const recentOnly = rows => {
   return [...map.values()].sort((a, b) => Number(b.id || 0) - Number(a.id || 0)).slice(0, 3);
 };
 
-function SettingToggle({ label, checked, onPress, icon }) {
+function SettingToggle({ label, checked, onPress, icon, shortLabel }) {
   return (
     <TouchableOpacity
       activeOpacity={0.8}
@@ -54,9 +54,9 @@ function SettingToggle({ label, checked, onPress, icon }) {
       onPress={onPress}
       style={[s.setting, checked && s.settingOn]}
     >
-      <MaterialCommunityIcons name={icon} size={21} color={checked ? C.brand : '#64748b'} />
-      <Text style={s.settingText} numberOfLines={2}>{label}</Text>
-      <MaterialCommunityIcons name={checked ? 'checkbox-marked' : 'checkbox-blank-outline'} size={24} color={checked ? C.brand : '#94a3b8'} />
+      <MaterialCommunityIcons name={icon} size={24} color={checked ? '#fff' : C.brand} />
+      <Text style={[s.settingText,checked && s.settingTextOn]} numberOfLines={1}>{shortLabel}</Text>
+      <View style={[s.settingDot,checked && s.settingDotOn]}/>
     </TouchableOpacity>
   );
 }
@@ -80,13 +80,12 @@ export default function RadioScreen() {
   const [stableRecent, setStableRecent] = useState([]);
   const [playbackLockUntil, setPlaybackLockUntil] = useState(0);
   const announcementSerial = useRef(0);
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const selected = channels.find(c => Number(c.id) === Number(channelId));
   const busy = recording ? false : !!ctxBusy;
   const playbackBusy = !!playingMessageId || playbackLockUntil > Date.now();
   const pttDisabled = !enabled || !channelId || playbackBusy;
   const changingDisabled = recording || loading || busy || playbackBusy;
-  const nativeRadio = NativeModules?.KhatyarRadio;
   const maxSeconds = Math.max(1, Math.round((maxTalkMs || 25000) / 1000));
   const minSeconds = Math.max(1, Math.ceil((minTalkMs || 1500) / 1000));
   const currentSpeaker = lastMessage?.sender_name || lastMessage?.first_name || lastMessage?.family || '';
@@ -132,7 +131,7 @@ export default function RadioScreen() {
   };
 
   return (
-    <ScrollView style={s.wrap} contentContainerStyle={[s.content, { paddingHorizontal: width >= 700 ? 32 : 16 }]} showsVerticalScrollIndicator={false}>
+    <ScrollView style={s.wrap} contentContainerStyle={[s.content, { paddingHorizontal: width >= 700 ? 32 : 12 },height >= 900 && {flexGrow:1}]} showsVerticalScrollIndicator={false}>
       <View style={s.header}>
         <View style={s.headerText}>
           <Text style={s.heading}>بی‌سیم خطیار</Text>
@@ -175,18 +174,12 @@ export default function RadioScreen() {
           <MaterialCommunityIcons name="chevron-down" size={25} color={C.brand} />
         </TouchableOpacity>
         {!!loadError && <Text style={s.error} accessibilityRole="alert">{loadError}</Text>}
-        {!!nativeRadio?.openBatteryOptimizationSettings && (
-          <TouchableOpacity accessibilityRole="button" onPress={() => nativeRadio.openBatteryOptimizationSettings().catch(() => {})} style={s.battery}>
-            <MaterialCommunityIcons name="battery-check-outline" size={20} color={C.brand} />
-            <Text style={s.batteryText}>تنظیم دریافت پیام هنگام خاموش بودن صفحه</Text>
-            <MaterialCommunityIcons name="chevron-left" size={20} color="#64748b" />
-          </TouchableOpacity>
-        )}
       </View>
 
-      <View style={[s.settingRow, width < 360 && s.settingColumn]}>
-        <SettingToggle label="دکمه فیزیکی PTT" icon="cellphone-sound" checked={volumePttEnabled} onPress={() => setVolumePttEnabled(!volumePttEnabled)} />
-        {listenAllAllowed && <SettingToggle label="شنود همه کانال‌ها" icon="headphones" checked={listenAll} onPress={() => setListenAll(!listenAll)} />}
+      <View style={s.settingRow}>
+        <Text style={s.quickActionsLabel}>کنترل‌های سریع</Text>
+        <SettingToggle label="استفاده از ولوم بالا به‌عنوان PTT" shortLabel="ولوم + / PTT" icon="volume-plus" checked={volumePttEnabled} onPress={() => setVolumePttEnabled(!volumePttEnabled)} />
+        {listenAllAllowed && <SettingToggle label="شنود همه کانال‌ها" shortLabel="شنود همه" icon="headphones" checked={listenAll} onPress={() => setListenAll(!listenAll)} />}
       </View>
 
       {playbackBusy && !!lastMessage?.id && (
@@ -195,9 +188,7 @@ export default function RadioScreen() {
             <Text style={s.playingTitle}>در حال پخش پیام دریافتی</Text>
             <MaterialCommunityIcons name="volume-high" size={23} color={C.brand} />
           </View>
-          <Text style={s.playingInfo}>کانال: {currentChannel}</Text>
-          {!!currentSpeaker && <Text style={s.playingInfo}>گوینده: {currentSpeaker}</Text>}
-          {!!currentRole && <Text style={s.playingInfo}>سمت: {currentRole}</Text>}
+          <Text style={s.playingInfo} numberOfLines={1}>{currentChannel}{currentSpeaker ? ` · ${currentSpeaker}` : ''}{currentRole ? ` · ${currentRole}` : ''}</Text>
         </View>
       )}
 
@@ -235,7 +226,7 @@ export default function RadioScreen() {
           <Text style={s.sectionTitle}>پیام‌های اخیر</Text>
           <MaterialCommunityIcons name="history" size={23} color={C.brand} />
         </View>
-        <Text style={s.helper}>سه پیام آخر این کانال در ۲۴ ساعت گذشته</Text>
+        <Text style={s.helper}>۳ پیام آخر · ۲۴ ساعت گذشته</Text>
         {stableRecent.length ? stableRecent.map(message => (
           <View key={message.id} style={s.messageRow}>
             <View style={s.messageDetails}>
@@ -300,57 +291,61 @@ export default function RadioScreen() {
 
 const s = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: C.paper },
-  content: { paddingTop: 16, paddingBottom: 48, alignSelf: 'center', width: '100%', maxWidth: 760 },
-  header: { backgroundColor: C.brand, borderRadius: 24, padding: 20, flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
+  content: { paddingTop: 8, paddingBottom: 12, alignSelf: 'center', width: '100%', maxWidth: 760 },
+  header: { backgroundColor: C.brand, borderRadius: 20, paddingVertical: 11, paddingHorizontal: 16, flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
   headerText: { flex: 1, minWidth: 0, alignItems: 'flex-end' },
-  heading: { fontFamily: FONT.bold, color: '#fff', fontSize: 21, textAlign: 'right', writingDirection: 'rtl' },
-  headerSub: { fontFamily: FONT.regular, color: '#e0f2e9', fontSize: 12, lineHeight: 20, marginTop: 5, textAlign: 'right', writingDirection: 'rtl' },
-  power: { minWidth: 72, minHeight: 68, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center', gap: 3, padding: 8 },
+  heading: { fontFamily: FONT.bold, color: '#fff', fontSize: 19, textAlign: 'right', writingDirection: 'rtl' },
+  headerSub: { fontFamily: FONT.regular, color: '#e0f2e9', fontSize: 11, lineHeight: 17, marginTop: 3, textAlign: 'right', writingDirection: 'rtl' },
+  power: { minWidth: 60, minHeight: 52, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center', gap: 1, padding: 5 },
   powerOn: { backgroundColor: '#fff' },
   powerText: { color: '#fff', fontFamily: FONT.bold, fontSize: 12 },
   powerTextOn: { color: C.brand },
-  card: { backgroundColor: '#fff', borderRadius: 20, padding: 16, marginTop: 12, borderWidth: 1, borderColor: C.line },
+  card: { backgroundColor: '#fff', borderRadius: 18, padding: 12, marginTop: 8, borderWidth: 1, borderColor: C.line },
   row: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  sectionTitle: { fontFamily: FONT.bold, fontSize: 16, color: C.ink, textAlign: 'right', writingDirection: 'rtl', flexShrink: 1 },
-  refreshButton: { minHeight: 48, flexDirection: 'row-reverse', alignItems: 'center', gap: 4, paddingHorizontal: 6 },
+  sectionTitle: { fontFamily: FONT.bold, fontSize: 14, color: C.ink, textAlign: 'right', writingDirection: 'rtl', flexShrink: 1 },
+  refreshButton: { minHeight: 44, flexDirection: 'row-reverse', alignItems: 'center', gap: 4, paddingHorizontal: 6 },
   refreshText: { color: C.brand, fontFamily: FONT.bold, fontSize: 12 },
-  selector: { minHeight: 76, borderWidth: 1.5, borderColor: '#bfdbd0', backgroundColor: '#f3faf7', borderRadius: 16, padding: 14, flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
+  selector: { minHeight: 58, borderWidth: 1.5, borderColor: '#bfdbd0', backgroundColor: '#f3faf7', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
   selectorText: { flex: 1, minWidth: 0 },
   caption: { fontFamily: FONT.regular, fontSize: 12, color: '#64748b', textAlign: 'right', writingDirection: 'rtl' },
-  selected: { fontFamily: FONT.bold, fontSize: 16, color: C.ink, textAlign: 'right', writingDirection: 'rtl', marginTop: 4 },
+  selected: { fontFamily: FONT.bold, fontSize: 14, color: C.ink, textAlign: 'right', writingDirection: 'rtl', marginTop: 2 },
   error: { fontFamily: FONT.regular, color: '#b42318', textAlign: 'right', writingDirection: 'rtl', marginTop: 10, lineHeight: 21 },
   battery: { marginTop: 12, minHeight: 48, borderTopWidth: 1, borderTopColor: C.line, paddingTop: 12, flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
   batteryText: { color: C.brand, fontFamily: FONT.regular, fontSize: 12, flex: 1, textAlign: 'right', writingDirection: 'rtl' },
-  settingRow: { flexDirection: 'row-reverse', gap: 8, marginTop: 10 },
+  settingRow: { flexDirection: 'row-reverse', gap: 8, marginTop: 8, alignItems:'center' },
+  quickActionsLabel: { fontFamily:FONT.bold,color:C.muted,fontSize:11,writingDirection:'rtl',flexShrink:1 },
   settingColumn: { flexDirection: 'column' },
-  setting: { flex: 1, minHeight: 64, flexDirection: 'row-reverse', alignItems: 'center', gap: 8, padding: 10, backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: C.line },
-  settingOn: { borderColor: '#b4dccc', backgroundColor: '#f3faf7' },
-  settingText: { flex: 1, minWidth: 0, fontFamily: FONT.bold, color: C.ink, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
-  playingCard: { marginTop: 12, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#b4dccc', backgroundColor: '#e8f6f0' },
+  setting: { flex:1, minHeight: 52, flexDirection: 'row-reverse', justifyContent:'center', alignItems: 'center', gap: 5, paddingHorizontal: 7, backgroundColor: '#fff', borderRadius: 13, borderWidth: 1, borderColor: C.line },
+  settingOn: { borderColor: C.brand, backgroundColor: C.brand },
+  settingText: { fontFamily: FONT.bold, color: C.brand, fontSize: 11, textAlign: 'center', writingDirection: 'rtl' },
+  settingTextOn: {color:'#fff'},
+  settingDot: { width:7,height:7,borderRadius:4,backgroundColor:'#cbd5e1' },
+  settingDotOn: {backgroundColor:'#a7f3d0'},
+  playingCard: { marginTop: 8, borderRadius: 14, padding: 10, borderWidth: 1, borderColor: '#b4dccc', backgroundColor: '#e8f6f0' },
   playingTitle: { color: C.brand, fontFamily: FONT.bold, fontSize: 15, textAlign: 'right', writingDirection: 'rtl', flex: 1 },
-  playingInfo: { color: C.ink, fontFamily: FONT.regular, fontSize: 13, textAlign: 'right', writingDirection: 'rtl', marginTop: 6 },
-  statusCard: { marginTop: 12, backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: C.line, padding: 16, flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
+  playingInfo: { color: C.ink, fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', writingDirection: 'rtl', marginTop: 3 },
+  statusCard: { marginTop: 8, backgroundColor: '#fff', borderRadius: 15, borderWidth: 1, borderColor: C.line, paddingVertical: 8, paddingHorizontal: 13, flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
   statusDot: { width: 12, height: 12, borderRadius: 6 },
   statusDetails: { flex: 1, minWidth: 0 },
-  statusText: { fontFamily: FONT.bold, color: C.ink, fontSize: 16, textAlign: 'right', writingDirection: 'rtl', marginTop: 3 },
-  talkCard: { marginTop: 12, backgroundColor: '#142637', borderRadius: 24, paddingVertical: 24, paddingHorizontal: 16, alignItems: 'center' },
-  talkTitle: { color: '#fff', fontFamily: FONT.bold, fontSize: 15, lineHeight: 25, textAlign: 'center', writingDirection: 'rtl', marginBottom: 18 },
-  talkButton: { width: 168, height: 168, borderRadius: 84, backgroundColor: C.brand, borderWidth: 6, borderColor: '#7ab7a5', alignItems: 'center', justifyContent: 'center', padding: 12, elevation: 6 },
+  statusText: { fontFamily: FONT.bold, color: C.ink, fontSize: 14, textAlign: 'right', writingDirection: 'rtl', marginTop: 1 },
+  talkCard: { marginTop: 8, backgroundColor: '#142637', borderRadius: 19, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center' },
+  talkTitle: { color: '#fff', fontFamily: FONT.bold, fontSize: 13, lineHeight: 19, textAlign: 'center', writingDirection: 'rtl', marginBottom: 9 },
+  talkButton: { width: 114, height: 114, borderRadius: 57, backgroundColor: C.brand, borderWidth: 5, borderColor: '#7ab7a5', alignItems: 'center', justifyContent: 'center', padding: 8, elevation: 5 },
   talkActive: { backgroundColor: '#b42318', borderColor: '#f9a8a8' },
   talkPressed: { opacity: 0.85 },
-  talkText: { color: '#fff', fontFamily: FONT.bold, fontSize: 12, lineHeight: 20, textAlign: 'center', writingDirection: 'rtl', marginTop: 8 },
+  talkText: { color: '#fff', fontFamily: FONT.bold, fontSize: 10.5, lineHeight: 16, textAlign: 'center', writingDirection: 'rtl', marginTop: 3 },
   faded: { opacity: 0.45 },
-  limit: { fontFamily: FONT.regular, color: '#e2e8f0', fontSize: 12, lineHeight: 20, marginTop: 16, textAlign: 'center', writingDirection: 'rtl' },
-  statusMessage: { fontFamily: FONT.bold, color: '#fff', fontSize: 12, lineHeight: 21, marginTop: 10, textAlign: 'center', writingDirection: 'rtl' },
-  helper: { fontFamily: FONT.regular, fontSize: 12, color: '#64748b', textAlign: 'right', writingDirection: 'rtl', lineHeight: 21, marginTop: 4, marginBottom: 8 },
-  messageRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12, minHeight: 76, paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line },
+  limit: { fontFamily: FONT.regular, color: '#e2e8f0', fontSize: 11, lineHeight: 17, marginTop: 7, textAlign: 'center', writingDirection: 'rtl' },
+  statusMessage: { fontFamily: FONT.bold, color: '#fff', fontSize: 11, lineHeight: 17, marginTop: 4, textAlign: 'center', writingDirection: 'rtl' },
+  helper: { fontFamily: FONT.regular, fontSize: 11, color: '#64748b', textAlign: 'right', writingDirection: 'rtl', lineHeight: 17, marginTop: 2, marginBottom: 3 },
+  messageRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, minHeight: 51, paddingVertical: 5, borderTopWidth: 1, borderTopColor: C.line },
   messageDetails: { flex: 1, minWidth: 0, alignItems: 'flex-end' },
-  sender: { color: C.ink, fontFamily: FONT.bold, fontSize: 14, textAlign: 'right', writingDirection: 'rtl' },
-  messageRole: { color: '#64748b', fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', writingDirection: 'rtl', marginTop: 3 },
-  time: { color: C.brand, fontFamily: FONT.regular, fontSize: 11, textAlign: 'right', writingDirection: 'rtl', marginTop: 4 },
-  playButton: { minHeight: 48, minWidth: 78, borderRadius: 12, backgroundColor: '#e8f6f0', flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 2, paddingHorizontal: 8 },
+  sender: { color: C.ink, fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
+  messageRole: { color: '#64748b', fontFamily: FONT.regular, fontSize: 10.5, textAlign: 'right', writingDirection: 'rtl', marginTop: 1 },
+  time: { color: C.brand, fontFamily: FONT.regular, fontSize: 10, textAlign: 'right', writingDirection: 'rtl', marginTop: 1 },
+  playButton: { minHeight: 44, minWidth: 69, borderRadius: 11, backgroundColor: '#e8f6f0', flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 2, paddingHorizontal: 6 },
   playText: { fontFamily: FONT.bold, fontSize: 12, color: C.brand },
-  empty: { fontFamily: FONT.regular, fontSize: 13, textAlign: 'center', writingDirection: 'rtl', color: '#64748b', paddingVertical: 22 },
+  empty: { fontFamily: FONT.regular, fontSize: 12, textAlign: 'center', writingDirection: 'rtl', color: '#64748b', paddingVertical: 10 },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.55)' },
   sheet: { backgroundColor: '#fff', borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingTop: 10, paddingHorizontal: 20, paddingBottom: 28, maxHeight: '78%' },
   sheetHandle: { width: 44, height: 5, borderRadius: 3, backgroundColor: '#cbd5e1', alignSelf: 'center', marginBottom: 12 },
