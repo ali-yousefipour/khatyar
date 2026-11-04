@@ -1,3 +1,4 @@
+import { DashboardTool, DashboardMetric } from '../components/DashboardTiles';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAudioPlayer } from 'expo-audio';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,21 +20,21 @@ import { readAppItems, refreshAppItems } from '../appItemPermissions';
 
 function RadioHeaderToggle({ navigation }) {
   const { enabled, busy } = useRadio();
-  return <TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن بی‌سیم" onPress={() => navigation.navigate('Radio')} style={s.headerIcon} hitSlop={6}><MaterialCommunityIcons name={enabled ? (busy ? 'radio-handheld' : 'access-point') : 'radio-handheld'} size={23} color={enabled ? '#ffffff' : '#cbd5e1'} /></TouchableOpacity>;
+  return <TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن بی‌سیم" onPress={() => navigation.navigate('Radio')} style={s.headerIcon} hitSlop={2}><MaterialCommunityIcons name={enabled ? (busy ? 'radio-handheld' : 'access-point') : 'radio-handheld'} size={23} color={enabled ? '#ffffff' : '#cbd5e1'} /></TouchableOpacity>;
 }
 
 function weatherPresentation(code, isDay = true) {
   const c = Number(code);
-  if (c === 0) return { icon: isDay ? '☀️' : '🌙', label: 'صاف' };
-  if (c === 1) return { icon: isDay ? '🌤️' : '🌙', label: 'عمدتاً صاف' };
-  if (c === 2) return { icon: '⛅', label: 'کمی ابری' };
-  if (c === 3) return { icon: '☁️', label: 'ابری' };
-  if (c === 45 || c === 48) return { icon: '🌫️', label: 'مه‌آلود' };
-  if ([51, 53, 55, 56, 57].includes(c)) return { icon: '🌦️', label: 'نم‌نم باران' };
-  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(c)) return { icon: '🌧️', label: 'بارانی' };
-  if ([71, 73, 75, 77, 85, 86].includes(c)) return { icon: '❄️', label: 'برفی' };
-  if ([95, 96, 99].includes(c)) return { icon: '⛈️', label: 'رعدوبرق' };
-  return { icon: '🌡️', label: 'وضعیت هوا' };
+  if (c === 0) return { icon: isDay ? 'weather-sunny' : 'weather-night', label: 'صاف' };
+  if (c === 1) return { icon: isDay ? 'weather-partly-cloudy' : 'weather-night', label: 'عمدتاً صاف' };
+  if (c === 2) return { icon: 'weather-partly-cloudy', label: 'کمی ابری' };
+  if (c === 3) return { icon: 'weather-cloudy', label: 'ابری' };
+  if (c === 45 || c === 48) return { icon: 'weather-fog', label: 'مه‌آلود' };
+  if ([51, 53, 55, 56, 57].includes(c)) return { icon: 'weather-partly-rainy', label: 'نم‌نم باران' };
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(c)) return { icon: 'weather-rainy', label: 'بارانی' };
+  if ([71, 73, 75, 77, 85, 86].includes(c)) return { icon: 'weather-snowy', label: 'برفی' };
+  if ([95, 96, 99].includes(c)) return { icon: 'weather-lightning-rainy', label: 'رعدوبرق' };
+  return { icon: 'thermometer', label: 'وضعیت هوا' };
 }
 
 function RankInsignia({ count = 0 }) {
@@ -96,11 +97,12 @@ const CATEGORY_LABELS = {general:'عمومی',field:'میدانی',work:'ادا�
 export default function DashboardScreen({ navigation }) {
   const { user } = useAuth();
   const welcomePlayer = useAudioPlayer(require('../../assets/sounds/welcome.mp3'));
-  const { width } = useWindowDimensions();
-  const cols = width >= 1000 ? 4 : width >= 390 ? 3 : 2;
+  const { width, fontScale } = useWindowDimensions();
+  const contentWidth = Math.min(width, 960);
+  const cols = width < 380 || fontScale > 1.3 ? 1 : width >= 900 ? 3 : 2;
   const gridGap = 12;
-  const gridCardWidth = (width - 24 - gridGap * (cols - 1)) / cols;
-  const kpiCardWidth = '48.5%';
+  const gridCardWidth = (contentWidth - 32 - gridGap * (cols - 1)) / cols;
+  const kpiCardWidth = fontScale > 1.5 ? '100%' : '50%';
   const [stats, setStats] = useState({ today: 0, checklists: 0, notices: 0, reports: 0, unread: 0 });
   const [unreadCounts, setUnreadCounts] = useState({ messages: 0, reports: 0, total: 0 });
   const [myStats, setMyStats] = useState({ drivers: 0, vehicles: 0 });
@@ -341,7 +343,7 @@ export default function DashboardScreen({ navigation }) {
   };
 
   useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: true, headerBackVisible: false, headerLeft: () => <View style={s.headerBar}><View style={s.headerActions}><TouchableOpacity onPress={manualSync} disabled={syncing} style={s.headerIcon} hitSlop={8} accessibilityRole="button" accessibilityLabel="بروزرسانی اطلاعات و پاک‌سازی کش"><MaterialCommunityIcons name="database-refresh-outline" size={25} color="#fff" style={syncing ? { opacity: 0.5 } : undefined} /></TouchableOpacity>{appLockEnabled ? <TouchableOpacity onPress={lockAppNow} style={s.headerIcon} hitSlop={8} accessibilityRole="button" accessibilityLabel="قفل کردن برنامه"><MaterialCommunityIcons name="lock-outline" size={23} color="#fff" /></TouchableOpacity> : null}{allowed.includes('Radio') && <RadioHeaderToggle navigation={navigation} />}{allowed.includes('Notifications') && <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={s.headerIcon} hitSlop={8}><View style={s.bellWrap}><MaterialCommunityIcons name="bell-outline" size={23} color="#ffffff" />{stats.unread > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{stats.unread > 99 ? '+۹۹' : faNum(Number(stats.unread))}</Text></View> : null}</View></TouchableOpacity>}{allowed.includes('InboxReports') && <TouchableOpacity onPress={() => { navigation.navigate('InboxReports'); refreshUnreadCounts(); }} style={s.headerIcon} hitSlop={8}><View style={s.bellWrap}><MaterialCommunityIcons name="tray-arrow-down" size={23} color="#ffffff" />{unreadCounts.reports > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{unreadLabel(unreadCounts.reports)}</Text></View> : null}</View></TouchableOpacity>}{allowed.includes('Messages') && <TouchableOpacity onPress={() => { navigation.navigate('Messages'); refreshUnreadCounts(); }} style={s.headerIcon} hitSlop={8}><View style={s.bellWrap}><MaterialCommunityIcons name="message-text-outline" size={23} color="#ffffff" />{unreadCounts.messages > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{unreadLabel(unreadCounts.messages)}</Text></View> : null}</View></TouchableOpacity>}</View><TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن منوی برنامه" onPress={() => khOpenDrawer()} style={s.headerMenuButton} hitSlop={8}><MaterialCommunityIcons name="menu" size={26} color="#fff" /></TouchableOpacity></View>, headerRight: undefined });
+    navigation.setOptions({ headerShown: true, headerBackVisible: false, headerLeft: () => <View style={s.headerBar}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.headerActions} style={{flex:1}}><TouchableOpacity onPress={manualSync} disabled={syncing} style={s.headerIcon} hitSlop={2} accessibilityRole="button" accessibilityLabel="بروزرسانی اطلاعات و پاک‌سازی کش"><MaterialCommunityIcons name="database-refresh-outline" size={25} color="#fff" style={syncing ? { opacity: 0.5 } : undefined} /></TouchableOpacity>{appLockEnabled ? <TouchableOpacity onPress={lockAppNow} style={s.headerIcon} hitSlop={2} accessibilityRole="button" accessibilityLabel="قفل کردن برنامه"><MaterialCommunityIcons name="lock-outline" size={23} color="#fff" /></TouchableOpacity> : null}{allowed.includes('Radio') && <RadioHeaderToggle navigation={navigation} />}{allowed.includes('Notifications') && <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={s.headerIcon} hitSlop={4} accessibilityRole="button" accessibilityLabel="اعلان‌ها"><View style={s.bellWrap}><MaterialCommunityIcons name="bell-outline" size={23} color="#ffffff" />{stats.unread > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{stats.unread > 99 ? '+۹۹' : faNum(Number(stats.unread))}</Text></View> : null}</View></TouchableOpacity>}{allowed.includes('InboxReports') && <TouchableOpacity onPress={() => { navigation.navigate('InboxReports'); refreshUnreadCounts(); }} style={s.headerIcon} hitSlop={4} accessibilityRole="button" accessibilityLabel="گزارش‌های دریافتی"><View style={s.bellWrap}><MaterialCommunityIcons name="tray-arrow-down" size={23} color="#ffffff" />{unreadCounts.reports > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{unreadLabel(unreadCounts.reports)}</Text></View> : null}</View></TouchableOpacity>}{allowed.includes('Messages') && <TouchableOpacity onPress={() => { navigation.navigate('Messages'); refreshUnreadCounts(); }} style={s.headerIcon} hitSlop={4} accessibilityRole="button" accessibilityLabel="پیام‌ها"><View style={s.bellWrap}><MaterialCommunityIcons name="message-text-outline" size={23} color="#ffffff" />{unreadCounts.messages > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{unreadLabel(unreadCounts.messages)}</Text></View> : null}</View></TouchableOpacity>}</ScrollView><TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن منوی برنامه" onPress={() => khOpenDrawer()} style={s.headerMenuButton} hitSlop={2}><MaterialCommunityIcons name="menu" size={26} color="#fff" /></TouchableOpacity></View>, headerRight: undefined });
   }, [navigation, stats.unread, syncing, appLockEnabled, allowed, user?.can_send_sms]);
 
   const canShow = (m) => {
@@ -355,63 +357,62 @@ export default function DashboardScreen({ navigation }) {
   const destinationFor = (route) => route === 'StationCapture' && !allowed.includes('StationCapture') && allowed.includes('LineLocation') ? 'LineLocation' : route;
   const KPIS = [['رانندگان خطوط شما', myStats.drivers, 'account-group-outline'], ['خودروهای خطوط شما', myStats.vehicles, 'car-multiple'], ['حضور امروز', stats.today, 'account-check-outline'], ['چک‌لیست این ماه', stats.checklists, 'clipboard-check-outline']];
 
-  return <ScrollView persistentScrollbar={true} style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text style={s.syncText}>{syncDetail}</Text></View> : null}<View style={s.top}><View style={s.topInfo}><View style={s.topSummaryRow}><View style={s.topIdentity}><Text style={s.hi}>روز بخیر،</Text><View style={s.nameRow}>{rankCount > 0 ? <RankInsignia count={rankCount} /> : null}<Text style={s.nm}>{user?.name || '—'}</Text></View>{user?.role ? <View style={s.roleChip}><Text style={s.roleTxt}>{user.role}</Text></View> : null}{orgContext.zoneName ? <Text style={s.orgTxt}>منطقه: {orgContext.zoneName}</Text> : null}{orgContext.chiefName ? <Text style={s.orgTxt}>سربازرس منطقه شما جناب آقای: {orgContext.chiefName}</Text> : null}</View><View style={s.weatherBox}><Text style={s.todayTxt} numberOfLines={2}>{todayFaLong()}</Text>{weather ? <><View style={s.weatherNow}><Text style={s.weatherIcon}>{weatherPresentation(weather.weather_code, Number(weather.is_day) !== 0).icon}</Text><Text style={s.weatherTemp}>{faNum(Math.round(Number(weather.temperature)))}°</Text></View><Text style={s.weatherLabel} numberOfLines={1}>{weatherPresentation(weather.weather_code, Number(weather.is_day) !== 0).label}</Text><Text style={s.weatherCity}>مشهد</Text><Text style={s.weatherSource} onPress={() => Linking.openURL('https://open-meteo.com/').catch(() => {})}>Open-Meteo</Text></> : <Text style={s.weatherUnavailable}>آب‌وهوا ناموجود</Text>}</View></View></View>{myPhoto ? <Image source={imageSource(myPhoto)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}</View><View style={s.kpis}>{KPIS.map(([label, value, icon], i) => <View style={[s.kpi, { width: kpiCardWidth }]} key={i}><View style={s.kpiTop}><Text style={s.kpiN}>{faNum(Number(value))}</Text><View style={s.kpiIcon}><MaterialCommunityIcons name={icon} size={23} color={C.brand} /></View></View><Text style={s.kpiL}>{label}</Text></View>)}</View><View style={s.sectionHeader}><View><Text style={s.sectionEyebrow}>ابزارهای پرکاربرد</Text><Text style={s.sectionTitle}>دسترسی سریع</Text></View><View style={s.resultCount}><Text style={s.resultCountText}>{faNum(visibleMenu.length)} آیتم</Text></View></View><View style={s.searchBox}><MaterialCommunityIcons name="magnify" size={25} color={C.brand} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" /><TextInput value={menuSearch} onChangeText={setMenuSearch} placeholder="جست‌وجوی امکانات و ابزارها" placeholderTextColor={C.muted} style={s.menuSearchInput} returnKeyType="search" accessibilityLabel="جست‌وجوی آیتم‌های داشبورد"/><TouchableOpacity style={s.clearSearch} onPress={() => setMenuSearch("")} disabled={!menuSearch} accessibilityRole="button" accessibilityLabel="پاک کردن جست‌وجو"><Text style={[s.clearSearchText, !menuSearch && s.clearSearchDisabled]}>×</Text></TouchableOpacity></View><View style={s.orderBar}><Text style={s.orderHint}>ترتیب آیتم‌ها برای حساب کاربری شما ذخیره می‌شود.</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="تنظیم ترتیب نمایش آیتم‌ها" style={s.orderBtn} onPress={() => setOrderModal(true)}><Text style={s.orderBtnTxt}>☷ تنظیم ترتیب</Text></TouchableOpacity></View><ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.menuTabs}>{MENU_TABS.map(([k, l]) => <TouchableOpacity key={k} accessibilityRole="tab" accessibilityState={{selected:menuTab===k}} style={[s.menuTab, menuTab === k && s.menuTabOn]} onPress={() => setMenuTab(k)}><Text style={[s.menuTabTxt, menuTab === k && s.menuTabTxtOn]}>{l}</Text></TouchableOpacity>)}</ScrollView>{visibleMenu.length ? <View style={s.grid}>{visibleMenu.map((m) => <TouchableOpacity key={m.r} style={[s.card, { width: gridCardWidth }]} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={m.t} accessibilityHint="ورود به بخش انتخاب‌شده" onPress={() => navigation.navigate(destinationFor(m.r))}><View style={s.cardTopStripe} /><View style={[s.iconWrap, { backgroundColor: m.bg }]}><MaterialCommunityIcons name={MENU_ICONS[m.r] || 'view-grid-outline'} size={29} color={C.brand} /></View><View style={s.cardTxtWrap}><Text style={s.cardTxt} numberOfLines={3}>{m.t}</Text><Text style={s.cardCategory}>{CATEGORY_LABELS[categoryOf(m.r)]}</Text></View></TouchableOpacity>)}</View> : <View style={s.emptyMenu}><MaterialCommunityIcons name="view-grid-outline" size={36} color={C.brand} style={{marginBottom:10}} /><Text style={s.emptyMenuTitle}>{permissionState === "loading" ? "در حال دریافت دسترسی‌ها…" : permissionState === "error" ? "دسترسی‌ها دریافت نشد" : allowed.length === 0 ? "هیچ آیتمی برای سمت شما فعال نیست" : "موردی پیدا نشد"}</Text><Text style={s.emptyMenuText}>{permissionState === "error" ? "اتصال اینترنت را بررسی کنید و دوباره تلاش کنید." : permissionState === "loading" ? "آیتم‌ها پس از بررسی مجوز سمت شما نمایش داده می‌شوند." : allowed.length === 0 ? "مدیر سامانه می‌تواند آیتم‌های موردنیاز شما را در بخش «آیتم‌های اپ هر سمت» فعال کند." : "عبارت دیگری جست‌وجو کنید یا فیلتر را روی «همه» بگذارید."}</Text>{permissionState === "error" ? <TouchableOpacity style={s.emptyMenuAction} accessibilityRole="button" onPress={load}><Text style={s.emptyMenuActionText}>تلاش دوباره</Text></TouchableOpacity> : permissionState === "ready" && allowed.length > 0 ? <TouchableOpacity style={s.emptyMenuAction} accessibilityRole="button" onPress={() => { setMenuSearch(""); setMenuTab("all"); }}><Text style={s.emptyMenuActionText}>پاک‌کردن جست‌وجو و فیلتر</Text></TouchableOpacity> : null}</View>}<Modal visible={orderModal} transparent animationType="slide" onRequestClose={() => setOrderModal(false)}><View style={s.orderBg}><View style={s.orderCard}><View style={s.orderHead}><Text style={s.orderTitle}>مرتب‌سازی داشبورد</Text><TouchableOpacity accessibilityLabel="بستن پنجره مرتب‌سازی" onPress={() => setOrderModal(false)}><Text style={s.orderClose}>✕</Text></TouchableOpacity></View><View style={s.orderActions}><TouchableOpacity style={s.orderAction} onPress={sortMenuOrder}><Text style={s.orderActionTxt}>مرتب‌سازی الفبایی</Text></TouchableOpacity><TouchableOpacity style={s.orderAction} onPress={resetMenuOrder}><Text style={s.orderActionTxt}>بازگردانی ترتیب پیش‌فرض</Text></TouchableOpacity></View><ScrollView style={s.orderList} contentContainerStyle={s.orderListContent} showsVerticalScrollIndicator={false} scrollEnabled={!dragRoute}>{(menuOrder.length ? menuOrder : MENU.map((m) => m.r)).filter((route) => allowed.includes(route)).map((route, i, arr) => { const m = MENU.find((x) => x.r === route); if (!m) return null; const dragging = dragRoute === route; const responder = dragResponder(route); return <Animated.View key={route} style={[s.orderRow, dragging && s.orderRowDragging, dragging && { borderColor: C.brand }]}><View style={s.orderIndex}><Text style={s.orderIndexTxt}>{faNum(i + 1)}</Text></View><View style={s.orderName}><Text style={s.orderNameTxt} numberOfLines={1}>{m.t}</Text></View><View style={s.dragHandle} {...responder.panHandlers} accessibilityRole="button" accessibilityLabel="جابجایی آیتم"><Text style={s.dragHandleDots}>☷</Text></View><TouchableOpacity style={s.moveBtn} disabled={i === 0} onPress={() => moveMenuItem(route, -1)} accessibilityLabel="انتقال به بالا"><Text style={[s.moveTxt, i === 0 && s.moveDisabled]}>▲</Text></TouchableOpacity><TouchableOpacity style={s.moveBtn} disabled={i === arr.length - 1} onPress={() => moveMenuItem(route, 1)} accessibilityLabel="انتقال به پایین"><Text style={[s.moveTxt, i === arr.length - 1 && s.moveDisabled]}>▼</Text></TouchableOpacity></Animated.View>; })}</ScrollView><View style={s.orderFooter}><Text style={s.orderFooterHint}>برای جابه‌جایی، دستگیره را بکشید یا از فلش‌ها استفاده کنید.</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="ذخیره ترتیب و بستن پنجره" style={s.orderDone} onPress={async () => { await persistMenuOrder(menuOrderRef.current); setOrderModal(false); }}><MaterialCommunityIcons name="check-circle-outline" color="#fff" size={21}/><Text style={s.orderDoneTxt}>تأیید و ذخیره ترتیب</Text></TouchableOpacity></View></View></View></Modal><Modal visible={!!pop} transparent animationType="fade" onRequestClose={() => setPop(null)}><TouchableOpacity style={s.popBg} activeOpacity={1} onPress={() => setPop(null)}><View style={s.popCard}><TouchableOpacity style={s.popBtn} onPress={() => setPop(null)}><Text style={s.popBtnTxt}>بستن</Text></TouchableOpacity></View></TouchableOpacity></Modal></View></ScrollView>;
+  return <ScrollView keyboardShouldPersistTaps="handled" persistentScrollbar={true} style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text accessibilityLiveRegion="polite" style={s.syncText}>{syncDetail}</Text></View> : null}<View style={s.top}>
+  {myPhoto ? <Image accessible={false} source={imageSource(myPhoto)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}
+  <View style={s.topIdentity}>
+    <Text style={s.hi}>روز بخیر</Text>
+    <View style={s.nameRow}>{rankCount > 0 ? <RankInsignia count={rankCount} /> : null}<Text accessibilityRole="header" style={s.nm}>{user?.name || '—'}</Text></View>
+    {!!user?.role && <Text style={s.roleTxt}>{user.role}</Text>}
+    {!!orgContext.zoneName && <Text style={s.orgTxt}>منطقه: {orgContext.zoneName}</Text>}
+    {!!orgContext.chiefName && <Text style={s.orgTxt}>سربازرس: {orgContext.chiefName}</Text>}
+  </View>
+</View>
+<View style={s.weatherStrip}>
+  <View style={s.dateRow}><MaterialCommunityIcons name="calendar-outline" size={19} color={C.brand}/><Text style={s.todayTxt}>{todayFaLong()}</Text></View>
+  <View style={s.weatherSummary}>{weather ? <><MaterialCommunityIcons name={weatherPresentation(weather.weather_code, Number(weather.is_day) !== 0).icon} size={22} color={C.brand} /><Text style={s.weatherLabel}>مشهد · {faNum(Math.round(Number(weather.temperature)))}° · {weatherPresentation(weather.weather_code, Number(weather.is_day) !== 0).label}</Text></> : <Text style={s.weatherLabel}>آب‌وهوا در دسترس نیست</Text>}</View>
+  {!!weather && <TouchableOpacity accessibilityRole="link" accessibilityLabel="منبع آب‌وهوا، Open-Meteo" style={s.weatherLink} onPress={() => Linking.openURL('https://open-meteo.com/').catch(() => {})}><Text style={s.weatherSource}>Open-Meteo</Text></TouchableOpacity>}
+</View><View style={s.kpis}>{KPIS.map(([label, value, icon]) => <DashboardMetric key={label} label={label} value={value} icon={icon} width={kpiCardWidth} />)}</View><View style={s.sectionHeader}><View><Text accessibilityRole="header" style={s.sectionTitle}>ابزارهای من</Text></View><View style={s.resultCount} accessibilityLiveRegion="polite"><Text style={s.resultCountText}>{faNum(visibleMenu.length)} آیتم</Text></View></View><View style={s.searchBox}><MaterialCommunityIcons name="magnify" size={25} color={C.brand} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" /><TextInput value={menuSearch} onChangeText={setMenuSearch} placeholder="جست‌وجوی امکانات و ابزارها" placeholderTextColor={C.slate} style={s.menuSearchInput} returnKeyType="search" accessibilityLabel="جست‌وجوی آیتم‌های داشبورد"/><TouchableOpacity style={s.clearSearch} onPress={() => setMenuSearch("")} disabled={!menuSearch} accessibilityRole="button" accessibilityLabel="پاک کردن جست‌وجو"><Text style={[s.clearSearchText, !menuSearch && s.clearSearchDisabled]}>×</Text></TouchableOpacity></View><View style={s.orderBar}><Text style={s.orderHint}>ترتیب آیتم‌ها برای حساب کاربری شما ذخیره می‌شود.</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="تنظیم ترتیب نمایش آیتم‌ها" style={s.orderBtn} onPress={() => setOrderModal(true)}><Text style={s.orderBtnTxt}>تنظیم ترتیب</Text></TouchableOpacity></View><ScrollView persistentScrollbar={true} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.menuTabs}>{MENU_TABS.map(([k, l]) => <TouchableOpacity key={k} accessibilityRole="tab" accessibilityState={{selected:menuTab===k}} style={[s.menuTab, menuTab === k && s.menuTabOn]} onPress={() => setMenuTab(k)}><Text style={[s.menuTabTxt, menuTab === k && s.menuTabTxtOn]}>{l}</Text></TouchableOpacity>)}</ScrollView>{visibleMenu.length ? <View style={s.grid}>{visibleMenu.map((m) => <DashboardTool key={m.r} label={m.t} icon={MENU_ICONS[m.r] || 'view-grid-outline'} category={CATEGORY_LABELS[categoryOf(m.r)]} width={gridCardWidth} onPress={() => navigation.navigate(destinationFor(m.r))} />)}</View> : <View style={s.emptyMenu}><MaterialCommunityIcons name="view-grid-outline" size={36} color={C.brand} style={{marginBottom:10}} /><Text style={s.emptyMenuTitle}>{permissionState === "loading" ? "در حال دریافت دسترسی‌ها…" : permissionState === "error" ? "دسترسی‌ها دریافت نشد" : allowed.length === 0 ? "هیچ آیتمی برای سمت شما فعال نیست" : "موردی پیدا نشد"}</Text><Text style={s.emptyMenuText}>{permissionState === "error" ? "اتصال اینترنت را بررسی کنید و دوباره تلاش کنید." : permissionState === "loading" ? "آیتم‌ها پس از بررسی مجوز سمت شما نمایش داده می‌شوند." : allowed.length === 0 ? "مدیر سامانه می‌تواند آیتم‌های موردنیاز شما را در بخش «آیتم‌های اپ هر سمت» فعال کند." : "عبارت دیگری جست‌وجو کنید یا فیلتر را روی «همه» بگذارید."}</Text>{permissionState === "error" ? <TouchableOpacity style={s.emptyMenuAction} accessibilityRole="button" onPress={load}><Text style={s.emptyMenuActionText}>تلاش دوباره</Text></TouchableOpacity> : permissionState === "ready" && allowed.length > 0 ? <TouchableOpacity style={s.emptyMenuAction} accessibilityRole="button" onPress={() => { setMenuSearch(""); setMenuTab("all"); }}><Text style={s.emptyMenuActionText}>پاک‌کردن جست‌وجو و فیلتر</Text></TouchableOpacity> : null}</View>}<Modal visible={orderModal} transparent animationType="slide" onRequestClose={() => setOrderModal(false)}><View style={s.orderBg}><View style={s.orderCard}><View style={s.orderHead}><Text style={s.orderTitle}>مرتب‌سازی داشبورد</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="بستن پنجره مرتب‌سازی" onPress={() => setOrderModal(false)}><Text style={s.orderClose}>✕</Text></TouchableOpacity></View><View style={s.orderActions}><TouchableOpacity accessibilityRole="button" style={s.orderAction} onPress={sortMenuOrder}><Text style={s.orderActionTxt}>مرتب‌سازی الفبایی</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" style={s.orderAction} onPress={resetMenuOrder}><Text style={s.orderActionTxt}>بازگردانی ترتیب پیش‌فرض</Text></TouchableOpacity></View><ScrollView style={s.orderList} contentContainerStyle={s.orderListContent} showsVerticalScrollIndicator={false} scrollEnabled={!dragRoute}>{(menuOrder.length ? menuOrder : MENU.map((m) => m.r)).filter((route) => allowed.includes(route)).map((route, i, arr) => { const m = MENU.find((x) => x.r === route); if (!m) return null; const dragging = dragRoute === route; const responder = dragResponder(route); return <Animated.View key={route} style={[s.orderRow, dragging && s.orderRowDragging, dragging && { borderColor: C.brand }]}><View style={s.orderIndex}><Text style={s.orderIndexTxt}>{faNum(i + 1)}</Text></View><View style={s.orderName}><Text style={s.orderNameTxt} numberOfLines={1}>{m.t}</Text></View><View style={s.dragHandle} {...responder.panHandlers} accessibilityRole="button" accessibilityLabel="جابجایی آیتم"><Text style={s.dragHandleDots}>☷</Text></View><TouchableOpacity style={s.moveBtn} disabled={i === 0} onPress={() => moveMenuItem(route, -1)} accessibilityLabel="انتقال به بالا"><Text style={[s.moveTxt, i === 0 && s.moveDisabled]}>▲</Text></TouchableOpacity><TouchableOpacity style={s.moveBtn} disabled={i === arr.length - 1} onPress={() => moveMenuItem(route, 1)} accessibilityLabel="انتقال به پایین"><Text style={[s.moveTxt, i === arr.length - 1 && s.moveDisabled]}>▼</Text></TouchableOpacity></Animated.View>; })}</ScrollView><View style={s.orderFooter}><Text style={s.orderFooterHint}>برای جابه‌جایی، دستگیره را بکشید یا از فلش‌ها استفاده کنید.</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="ذخیره ترتیب و بستن پنجره" style={s.orderDone} onPress={async () => { await persistMenuOrder(menuOrderRef.current); setOrderModal(false); }}><MaterialCommunityIcons name="check-circle-outline" color="#fff" size={21}/><Text style={s.orderDoneTxt}>تأیید و ذخیره ترتیب</Text></TouchableOpacity></View></View></View></Modal><Modal visible={!!pop} transparent animationType="fade" onRequestClose={() => setPop(null)}><TouchableOpacity style={s.popBg} activeOpacity={1} onPress={() => setPop(null)}><View style={s.popCard}><TouchableOpacity style={s.popBtn} onPress={() => setPop(null)}><Text style={s.popBtnTxt}>بستن</Text></TouchableOpacity></View></TouchableOpacity></Modal></View></ScrollView>;
 }
 
 const s = StyleSheet.create({
+  weatherStrip: { marginHorizontal: 16, paddingHorizontal: 14, paddingTop: 6, paddingBottom: 2, borderRadius: 14, backgroundColor: C.soft, flexDirection: 'row-reverse', alignItems: 'center', flexWrap: 'wrap', columnGap: 16 },
+  dateRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, paddingVertical: 8 },
+  weatherSummary: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, flexShrink: 1, paddingVertical: 6 },
+  weatherLink: { minHeight: 44, justifyContent: 'center' },
   page: { flex: 1, backgroundColor: C.paper},
   pageContent: { paddingBottom: 24},
-  rtlRoot: { width: '100%', alignSelf: 'stretch'},
+  rtlRoot: { width: '100%', maxWidth: 960, alignSelf: 'center' },
   syncBanner: { backgroundColor: '#1b3a6b', padding: 10, alignItems: 'stretch' },
   syncText: { color: '#fff', fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
   headerBar: { height: 44, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', width: 250 },
   headerActions: { height: 44, flexDirection: 'row-reverse', alignItems: 'center' },
-  headerIcon: { width: 36, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerIconText: { color: '#fff', fontSize: 18, textAlign: 'center', writingDirection: 'ltr' },
-  headerActionImage: { width: 25, height: 25 },
+  headerIcon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerMenuButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: 'rgba(255,255,255,.12)' },
-  headerMenuText: { color: '#fff', fontSize: 24, textAlign: 'center', writingDirection: 'ltr' },
   bellWrap: { width: 34, height: 40, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   unreadBadge: { position: 'absolute', top: -2, right: -3, minWidth: 19, height: 19, paddingHorizontal: 4, borderRadius: 10, backgroundColor: '#e53935', borderWidth: 2, borderColor: C.brand, alignItems: 'center', justifyContent: 'center' },
   unreadBadgeText: { color: '#fff', fontFamily: FONT.bold, fontSize: 8, lineHeight: 10, textAlign: 'center', writingDirection: 'rtl' },
-  top: { backgroundColor: C.brand, padding: 20, paddingTop: 28, paddingBottom: 22, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, flexDirection: 'row-reverse', alignItems: 'center' },
-  topInfo: { flex: 1, minWidth: 0, alignSelf: 'stretch' },
-  topSummaryRow: { width: '100%', flexDirection: 'row-reverse', alignItems: 'flex-start' },
-  topIdentity: { flex: 1, minWidth: 0, alignItems: 'flex-end' },
-  hi: { width: '100%', color: '#fff', opacity: 0.85, fontFamily: FONT.regular, textAlign: 'right', writingDirection: 'rtl', fontSize: 13 },
+  top: { padding: 20, paddingTop: 24, paddingBottom: 18, flexDirection: 'row-reverse', alignItems: 'center', gap: 14 },
+  topIdentity: { flex: 1, minWidth: 0 },
+  hi: { color: C.slate, fontFamily: FONT.regular, textAlign: 'right', fontSize: 14 },
   nameRow: { width: '100%', flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'flex-start' },
-  nm: { flex: 1, color: '#fff', fontFamily: FONT.bold, fontSize: 19, textAlign: 'right', writingDirection: 'rtl' },
+  nm: { flex: 1, color: C.ink, fontFamily: FONT.bold, fontSize: 23, lineHeight: 34, textAlign: 'right' },
   rankInsignia: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 4, marginLeft: 8, height: 20 },
   rankBar: { width: 3, height: 17, borderRadius: 1.5, backgroundColor: '#ffd24a' },
-  todayTxt: { width: '100%', color: '#fff', opacity: 0.92, fontFamily: FONT.regular, fontSize: 10, lineHeight: 16, textAlign: 'center', writingDirection: 'rtl', marginBottom: 3 },
-  weatherBox: { width: 104, flexShrink: 0, alignItems: 'center', justifyContent: 'flex-start', paddingRight: 7, marginRight: 7, borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,.25)', minHeight: 90 },
-  weatherNow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 2 },
-  weatherIcon: { fontSize: 21 },
-  weatherTemp: { color: '#fff', fontFamily: FONT.bold, fontSize: 21, writingDirection: 'rtl' },
-  weatherLabel: { width: '100%', color: '#fff', fontFamily: FONT.regular, fontSize: 10, textAlign: 'center', writingDirection: 'rtl', marginTop: 1 },
-  weatherCity: { color: '#fff', opacity: 0.9, fontFamily: FONT.regular, fontSize: 10, marginTop: 1 },
-  weatherSource: { color: '#fff', opacity: 0.72, textDecorationLine: 'underline', fontFamily: FONT.regular, fontSize: 8, marginTop: 2 },
-  weatherUnavailable: { color: '#fff', opacity: 0.75, fontFamily: FONT.regular, fontSize: 9, textAlign: 'center', writingDirection: 'rtl', marginTop: 6 },
-  avatar: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: 'rgba(255,255,255,.6)', marginLeft: 12 },
-  avatarPh: { width: 74, height: 74, borderRadius: 37, backgroundColor: 'rgba(255,255,255,.25)', alignItems: 'center', justifyContent: 'center', marginLeft: 12 },
-  avatarTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 28, textAlign: 'center', writingDirection: 'rtl' },
-  roleChip: { alignSelf: 'flex-end', backgroundColor: 'rgba(255,255,255,.18)', borderRadius: 8, paddingVertical: 3, paddingHorizontal: 10, marginTop: 8 },
-  roleTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', writingDirection: 'rtl' },
-  orgTxt: { width: '100%', color: '#fff', fontFamily: FONT.regular, fontSize: 12, lineHeight: 20, textAlign: 'right', writingDirection: 'rtl', marginTop: 4 },
-  kpis: { flexDirection: 'row-reverse', flexWrap: 'wrap', paddingHorizontal: 14, paddingTop: 14, justifyContent: 'space-between' },
-  kpi: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 20, padding: 16, marginBottom: 10, minHeight: 100, justifyContent: 'center', shadowColor: '#17352f', shadowOpacity: 0.04, shadowRadius: 9, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
-  kpiTop: { width: '100%', flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
-  kpiIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center' },
-  kpiIconText: { color: C.brand, fontSize: 17, fontFamily: FONT.bold, textAlign: 'center' },
-  kpiN: { fontFamily: FONT.bold, fontSize: 22, color: C.brand, textAlign: 'right', writingDirection: 'rtl' },
-  kpiL: { fontFamily: FONT.regular, fontSize: 12, color: C.slate, textAlign: 'right', writingDirection: 'rtl', marginTop: 7 },
-  sectionHeader: { marginHorizontal: 16, marginTop: 18, marginBottom: 10, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
-  sectionEyebrow: { color: C.muted, fontFamily: FONT.regular, fontSize: 10, textAlign: 'right', writingDirection: 'rtl', marginBottom: 2 },
-  sectionTitle: { color: C.ink, fontFamily: FONT.bold, fontSize: 17, textAlign: 'right', writingDirection: 'rtl' },
+  todayTxt: { color: C.ink, fontFamily: FONT.regular, fontSize: 13, textAlign: 'right', flexShrink: 1 },
+  weatherIcon: { fontSize: 19 },
+  weatherLabel: { color: C.slate, fontFamily: FONT.regular, fontSize: 13, textAlign: 'right', flexShrink: 1 },
+  weatherSource: { color: C.brand, textDecorationLine: 'underline', fontFamily: FONT.regular, fontSize: 12 },
+  avatar: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: C.line },
+  avatarPh: { width: 64, height: 64, borderRadius: 32, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center' },
+  avatarTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 27 },
+  roleTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 14, textAlign: 'right', marginTop: 2 },
+  orgTxt: { color: C.slate, fontFamily: FONT.regular, fontSize: 13, lineHeight: 22, textAlign: 'right', marginTop: 3 },
+  kpis: { flexDirection: 'row-reverse', flexWrap: 'wrap', marginHorizontal: 16, marginTop: 12 },
+  sectionHeader: { marginHorizontal: 16, marginTop: 24, marginBottom: 12, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle: { color: C.ink, fontFamily: FONT.bold, fontSize: 21, textAlign: 'right' },
   resultCount: { backgroundColor: C.soft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
-  resultCountText: { color: C.brand, fontFamily: FONT.bold, fontSize: 11, textAlign: 'center', writingDirection: 'rtl' },
-  searchBox: { marginHorizontal: 14, marginBottom: 10, minHeight: 52, borderWidth: 1, borderColor: C.line, borderRadius: 16, backgroundColor: '#fff', paddingHorizontal: 10, flexDirection: 'row-reverse', alignItems: 'center', shadowColor: '#17352f', shadowOpacity: 0.035, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
-  searchIcon: { width: 32, color: C.brand, fontSize: 25, textAlign: 'center', lineHeight: 30 },
+  resultCountText: { color: C.brand, fontFamily: FONT.bold, fontSize: 12, textAlign: 'center' },
+  searchBox: { marginHorizontal: 16, marginBottom: 10, minHeight: 52, borderWidth: 1, borderColor: C.line, borderRadius: 14, backgroundColor: C.card, paddingHorizontal: 10, flexDirection: 'row-reverse', alignItems: 'center' },
   menuSearchInput: { flex: 1, minWidth: 0, minHeight: 48, paddingHorizontal: 7, fontFamily: FONT.regular, fontSize: 13, color: C.ink, textAlign: 'right', writingDirection: 'rtl' },
   clearSearch: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   clearSearchText: { color: C.muted, fontSize: 23, lineHeight: 27 },
@@ -419,19 +420,10 @@ const s = StyleSheet.create({
   menuTabs: { paddingHorizontal: 12, paddingBottom: 10, flexDirection: 'row-reverse' },
   menuTab: { minHeight: 48, justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 15, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginLeft: 4, marginRight: 4 },
   menuTabOn: { backgroundColor: C.brand, borderColor: C.brand },
-  menuTabTxt: { fontFamily: FONT.bold, color: C.muted, fontSize: 12, textAlign: 'center', writingDirection: 'rtl' },
+  menuTabTxt: { fontFamily: FONT.bold, color: C.slate, fontSize: 13, textAlign: 'center' },
   menuTabTxtOn: { color: '#fff' },
-  grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', paddingHorizontal: 12, justifyContent: 'flex-start', columnGap: 12, rowGap: 12 },
-  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 20, paddingTop: 18, paddingBottom: 13, paddingHorizontal: 8, minHeight: 146, alignItems: 'center', justifyContent: 'flex-start', overflow: 'hidden', shadowColor: '#17352f', shadowOpacity: 0.045, shadowRadius: 9, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
-  cardTopStripe: { position: 'absolute', top: 0, left: 20, right: 20, height: 3, borderBottomLeftRadius: 4, borderBottomRightRadius: 4, backgroundColor: C.brand },
-  iconWrap: { width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  icon3d: { width: 26, height: 26 },
-  glyph: { fontSize: 22, textAlign: 'center', writingDirection: 'ltr' },
-  cardTxtWrap: { width: '100%', alignItems: 'center', justifyContent: 'center', minHeight: 52, gap: 4 },
-  cardTxt: { width: '100%', fontFamily: FONT.bold, color: C.ink, textAlign: 'center', writingDirection: 'rtl', fontSize: 12, lineHeight: 18 },
-  cardCategory: { color: C.muted, fontFamily: FONT.regular, fontSize: 10, textAlign: 'center', writingDirection: 'rtl' },
+  grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', paddingHorizontal: 16, justifyContent: 'flex-start', columnGap: 12, rowGap: 12 },
   emptyMenu: { marginHorizontal: 14, marginTop: 6, padding: 22, minHeight: 210, borderRadius: 20, borderWidth: 1, borderColor: C.line, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  emptyMenuIcon: { color: C.brand, fontSize: 36, lineHeight: 42, marginBottom: 8 },
   emptyMenuTitle: { color: C.ink, fontFamily: FONT.bold, fontSize: 15, textAlign: 'center', writingDirection: 'rtl' },
   emptyMenuText: { color: C.muted, fontFamily: FONT.regular, fontSize: 12, lineHeight: 19, textAlign: 'center', writingDirection: 'rtl', marginTop: 7 },
   emptyMenuAction: { marginTop: 14, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12, backgroundColor: C.soft },
@@ -441,11 +433,11 @@ const s = StyleSheet.create({
   dragHandle: { width: 44, height: 48, borderRadius: 10, backgroundColor: '#eef2f7', alignItems: 'center', justifyContent: 'center', marginHorizontal: 2 },
   dragHandleDots: { color: C.brand, fontSize: 22, lineHeight: 24, textAlign: 'center' },
   orderBar: { marginHorizontal: 14, marginBottom: 8, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  orderHint: { flex: 1, color: C.muted, fontFamily: FONT.regular, fontSize: 11, textAlign: 'right', writingDirection: 'rtl' },
+  orderHint: { flex: 1, color: C.slate, fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', lineHeight: 20 },
   orderBtn: { backgroundColor: C.brand, borderRadius: 12, minHeight:48,justifyContent:'center',paddingHorizontal: 14, paddingVertical: 9 },
-  orderBtnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 11, textAlign: 'center', writingDirection: 'rtl' },
+  orderBtnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 12, textAlign: 'center' },
   orderBg: { flex: 1, backgroundColor: 'rgba(11,27,46,.58)', alignItems: 'center', justifyContent: 'center', padding: 14 },
-  orderCard: { width: '100%', maxWidth: 620, maxHeight: '88%', backgroundColor: C.paper, borderRadius: 22, padding: 14, overflow: 'hidden' },
+  orderCard: { width: '100%', maxWidth: 620, maxHeight: '88%', backgroundColor: C.paper, borderRadius: 16, padding: 14, overflow: 'hidden' },
   orderHead: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   orderTitle: { flex: 1, color: C.ink, fontFamily: FONT.bold, fontSize: 17, textAlign: 'right', writingDirection: 'rtl' },
   orderClose: { color: C.muted, fontSize: 20, paddingHorizontal: 6 },
