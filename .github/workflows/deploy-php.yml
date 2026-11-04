@@ -695,7 +695,7 @@ jobs:
           set -uo pipefail
           base="https://app.yousefipour.ir"
           echo "Checking production API health..."
-          health_code="$(curl --silent --show-error --location --max-time 25 -H 'Cache-Control: no-cache, no-store' -o /tmp/khatyar-health.json -w '%{http_code}' "${base}/api/health?smoke=${GITHUB_SHA}" || true)"
+          health_code="$(curl --silent --show-error --location --max-time 25 --retry 3 --retry-delay 2 --retry-all-errors -H 'Cache-Control: no-cache, no-store' -o /tmp/khatyar-health.json -w '%{http_code}' "${base}/api/health?smoke=${GITHUB_SHA}" || true)"
           echo "GET /api/health HTTP ${health_code}"
           cat /tmp/khatyar-health.json 2>/dev/null || true
           echo
@@ -704,7 +704,7 @@ jobs:
             exit 1
           fi
           for route in /api/session/start /api/auth/login; do
-            code="$(curl --silent --show-error --location --max-time 25 -X POST -H 'Content-Type: application/json' -H 'Cache-Control: no-cache, no-store' --data '{}' -o /tmp/khatyar-login-response.json -w '%{http_code}' "${base}${route}" || true)"
+            code="$(curl --silent --show-error --location --max-time 25 --retry 3 --retry-delay 2 --retry-all-errors -X POST -H 'Content-Type: application/json' -H 'Cache-Control: no-cache, no-store' --data '{}' -o /tmp/khatyar-login-response.json -w '%{http_code}' "${base}${route}" || true)"
             echo "POST ${route} with empty JSON -> HTTP ${code}"
             cat /tmp/khatyar-login-response.json 2>/dev/null || true
             echo
@@ -713,7 +713,7 @@ jobs:
               exit 1
             fi
           done
-          xlsx_code="$(curl --silent --show-error --location --max-time 25 -X POST -H 'Content-Type: application/json' -H 'Cache-Control: no-cache, no-store' --data '{"rows":[["Date"],["2026-10-14"]]}' -o /tmp/khatyar-attendance-xlsx-auth.json -w '%{http_code}' "${base}/api/admin-attendance-xlsx.php" || true)"
+          xlsx_code="$(curl --silent --show-error --location --max-time 25 --retry 3 --retry-delay 2 --retry-all-errors -X POST -H 'Content-Type: application/json' -H 'Cache-Control: no-cache, no-store' --data '{"rows":[["Date"],["2026-10-14"]]}' -o /tmp/khatyar-attendance-xlsx-auth.json -w '%{http_code}' "${base}/api/admin-attendance-xlsx.php" || true)"
           echo "POST /api/admin-attendance-xlsx.php without a token -> HTTP ${xlsx_code}"
           if [ "${xlsx_code}" != "401" ]; then
             echo "ERROR: attendance Excel route did not enforce authentication as expected." >&2
@@ -723,7 +723,7 @@ jobs:
           # All protected endpoints must reject anonymous access with 401,
           # rather than crashing in route bootstrap/authentication with 500.
           for route in /api/admin/stats /api/admin/roles /api/admin/zones /api/admin/users /api/admin/attendance-report /api/admin/company-work /api/admin/company-work/sources/0/download; do
-            code="$(curl --silent --show-error --location --max-time 25 -o /tmp/khatyar-protected-route.json -w '%{http_code}' "${base}${route}" || true)"
+            code="$(curl --silent --show-error --location --max-time 25 --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/khatyar-protected-route.json -w '%{http_code}' "${base}${route}" || true)"
             echo "Anonymous GET ${route} -> HTTP ${code}"
             if [ "${code}" != "401" ]; then
               echo "ERROR: authenticated API returned unexpected HTTP status before authentication: ${route}" >&2
@@ -733,18 +733,18 @@ jobs:
           done
           # OTP validation must never send SMS for an empty username.
           for policy in app-login-config web-login-config; do
-            curl --fail --silent --show-error --max-time 25 "${base}/api/session/${policy}" -o /tmp/khatyar-login-policy.json
+            curl --fail --silent --show-error --max-time 25 --retry 3 --retry-delay 2 --retry-all-errors "${base}/api/session/${policy}" -o /tmp/khatyar-login-policy.json
             php -r '$v=json_decode(file_get_contents("/tmp/khatyar-login-policy.json"),true); if (!in_array($v["method"]??null,["password","sms_otp","bale_otp"],true)) exit(1);'
             echo "GET /api/session/${policy}: valid configured login method"
           done
-          otp_code="$(curl --silent --show-error --location --max-time 25 -X POST -H 'Content-Type: application/json' --data '{}' -o /tmp/khatyar-otp-empty.json -w '%{http_code}' "${base}/api/session/otp-request" || true)"
+          otp_code="$(curl --silent --show-error --location --max-time 25 --retry 3 --retry-delay 2 --retry-all-errors -X POST -H 'Content-Type: application/json' --data '{}' -o /tmp/khatyar-otp-empty.json -w '%{http_code}' "${base}/api/session/otp-request" || true)"
           echo "POST /api/session/otp-request (empty user) -> HTTP ${otp_code}"
           if [ "${otp_code}" != "400" ]; then
             echo "ERROR: OTP route failed before input validation" >&2
             cat /tmp/khatyar-otp-empty.json 2>/dev/null || true
             exit 1
           fi
-          me_code="$(curl --silent --show-error --location --max-time 25 -o /tmp/khatyar-me-anonymous.json -w '%{http_code}' "${base}/api/auth/me" || true)"
+          me_code="$(curl --silent --show-error --location --max-time 25 --retry 3 --retry-delay 2 --retry-all-errors -o /tmp/khatyar-me-anonymous.json -w '%{http_code}' "${base}/api/auth/me" || true)"
           echo "GET /api/auth/me (anonymous) -> HTTP ${me_code}"
           if [ "${me_code}" != "401" ]; then
             echo "ERROR: auth/me did not reject anonymous request cleanly" >&2
