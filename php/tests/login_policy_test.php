@@ -57,6 +57,11 @@ function _app_en_digits($code) { return strtr($code,['۱'=>'1','۲'=>'2','۳'=>'
 $registered=[];
 function route($method,$path,$handler,...$rest) { $GLOBALS['registered'][$method.' '.$path]=$handler; }
 $source=file_get_contents($argv[1]??__DIR__.'/../lib/routes.php');
+$cookieHelpersStart=strpos($source,'function _web_refresh_cookie(');
+$cookieHelpersEnd=strpos($source,'// Only one verification image', $cookieHelpersStart);
+if ($cookieHelpersStart===false || $cookieHelpersEnd===false) throw new RuntimeException('Missing browser cookie security helpers');
+// Test the real cookie and origin guards alongside the login handlers.
+eval(substr($source,$cookieHelpersStart,$cookieHelpersEnd-$cookieHelpersStart));
 $start=strpos($source,'function _login_method(');
 if ($start===false) throw new RuntimeException('Missing configurable login API');
 $end=strpos($source,'$refreshHandler =',$start);
