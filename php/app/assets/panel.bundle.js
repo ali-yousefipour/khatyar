@@ -3525,6 +3525,48 @@ function DriverSmsHistory({ driverId }) {
             React.createElement("div", { style: { fontSize: 12.5, marginTop: 4 } }, s.body)));
     }));
 }
+function DriverPortraitThumbnail({ url, name }) {
+    const holder = useRef(null);
+    const [visible, setVisible] = useState(false);
+    const [src, setSrc] = useState('');
+    const [failed, setFailed] = useState(false);
+    useEffect(() => {
+        const node = holder.current;
+        if (!node)
+            return;
+        if (!('IntersectionObserver' in window)) {
+            setVisible(true);
+            return;
+        }
+        const observer = new IntersectionObserver(entries => {
+            if (entries.some(entry => entry.isIntersecting)) {
+                setVisible(true);
+                observer.disconnect();
+            }
+        }, { rootMargin: '160px' });
+        observer.observe(node);
+        return () => observer.disconnect();
+    }, []);
+    useEffect(() => {
+        if (!visible || !url)
+            return;
+        let active = true, objectUrl = '';
+        setSrc('');
+        setFailed(false);
+        fetch(url, { headers: tok(), cache: 'no-store' })
+            .then(response => { if (!response.ok)
+            throw Error('photo'); return response.blob(); })
+            .then(blob => { objectUrl = URL.createObjectURL(blob); if (active)
+            setSrc(objectUrl);
+        else
+            URL.revokeObjectURL(objectUrl); })
+            .catch(() => { if (active)
+            setFailed(true); });
+        return () => { active = false; if (objectUrl)
+            URL.revokeObjectURL(objectUrl); };
+    }, [url, visible]);
+    return React.createElement("div", { ref: holder, style: { width: 64, height: 82, border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface,#f3f6f5)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 'auto' } }, src ? React.createElement("img", { src: src, alt: 'تصویر پرسنلی ' + name, style: { width: '100%', height: '100%', objectFit: 'cover' } }) : React.createElement("span", { className: "muted", style: { fontSize: 10, textAlign: 'center', padding: 4 } }, failed ? 'تصویر در دسترس نیست' : 'در حال بارگذاری…'));
+}
 function Drivers() {
     const [data, setData] = useState({ rows: [], total: 0, page: 1, pages: 1 });
     const [f, setF] = useState({ q: "", line: "", model: "", gender: "", driver_type: "", with_photo: "" });
@@ -3639,7 +3681,7 @@ function Drivers() {
                     React.createElement("th", null, "\u067E\u0631\u0648\u0627\u0646\u0647 \u0628\u0647\u0631\u0647\u200C\u0628\u0631\u062F\u0627\u0631\u06CC"),
                     React.createElement("th", null, "\u0627\u0642\u062F\u0627\u0645\u0627\u062A"))),
             React.createElement("tbody", null, data.rows.map(x => React.createElement("tr", { key: x.id },
-                React.createElement("td", null, x.photo ? React.createElement("button", { className: "btn g", onClick: () => showFull(x.id), "aria-label": "\u0645\u0634\u0627\u0647\u062F\u0647 \u062A\u0635\u0648\u06CC\u0631 \u067E\u0631\u0633\u0646\u0644\u06CC" }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u0639\u06A9\u0633") : React.createElement("span", { className: "badge b-pending" }, "\u0628\u062F\u0648\u0646 \u0639\u06A9\u0633")),
+                React.createElement("td", null, x.photo ? React.createElement(DriverPortraitThumbnail, { url: x.photo, name: x.first_name + ' ' + x.last_name }) : React.createElement("span", { className: "badge b-pending" }, "\u0628\u062F\u0648\u0646 \u0639\u06A9\u0633")),
                 React.createElement("td", null, x.photo ? React.createElement("div", { style: { display: 'grid', gap: 4, minWidth: 130 } },
                     React.createElement("strong", { style: { fontSize: 12 } }, x.photo_uploaded_by || (x.photo_uploaded_by_id ? 'کاربر #' + fa(x.photo_uploaded_by_id) : 'نامشخص')),
                     React.createElement("time", { style: { fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' } }, x.photo_uploaded_at ? fj(x.photo_uploaded_at) : 'زمان ثبت نامشخص')) : React.createElement("span", { className: "muted" }, "\u2014")),

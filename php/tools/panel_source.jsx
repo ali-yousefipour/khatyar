@@ -1964,6 +1964,36 @@ function DriverSmsHistory({driverId}){
     </div>); })}</div>;
 }
 
+function DriverPortraitThumbnail({url,name}){
+  const holder=useRef(null);
+  const [visible,setVisible]=useState(false);
+  const [src,setSrc]=useState('');
+  const [failed,setFailed]=useState(false);
+  useEffect(()=>{
+    const node=holder.current;
+    if(!node)return;
+    if(!('IntersectionObserver' in window)){setVisible(true);return;}
+    const observer=new IntersectionObserver(entries=>{
+      if(entries.some(entry=>entry.isIntersecting)){setVisible(true);observer.disconnect();}
+    },{rootMargin:'160px'});
+    observer.observe(node);
+    return()=>observer.disconnect();
+  },[]);
+  useEffect(()=>{
+    if(!visible||!url)return;
+    let active=true,objectUrl='';
+    setSrc('');setFailed(false);
+    fetch(url,{headers:tok(),cache:'no-store'})
+      .then(response=>{if(!response.ok)throw Error('photo');return response.blob();})
+      .then(blob=>{objectUrl=URL.createObjectURL(blob);if(active)setSrc(objectUrl);else URL.revokeObjectURL(objectUrl);})
+      .catch(()=>{if(active)setFailed(true);});
+    return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl);};
+  },[url,visible]);
+  return <div ref={holder} style={{width:64,height:82,border:'1px solid var(--line)',borderRadius:10,overflow:'hidden',background:'var(--surface,#f3f6f5)',display:'flex',alignItems:'center',justifyContent:'center',margin:'auto'}}>
+    {src?<img src={src} alt={'تصویر پرسنلی '+name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<span className="muted" style={{fontSize:10,textAlign:'center',padding:4}}>{failed?'تصویر در دسترس نیست':'در حال بارگذاری…'}</span>}
+  </div>;
+}
+
 function Drivers(){
   const [data,setData]=useState({rows:[],total:0,page:1,pages:1});
   const [f,setF]=useState({q:"",line:"",model:"",gender:"",driver_type:"",with_photo:""}); const [page,setPage]=useState(1); const [per,setPer]=useState(10);
@@ -2015,7 +2045,7 @@ function Drivers(){
     <p className="muted" style={{marginBottom:8}}>مجموع: {fa(data.total)} راننده</p>
     <ResponsiveTable><thead><tr><th>تصویر</th><th>ثبت‌کننده و زمان تصویر</th><th>کد ملی</th><th>نام</th><th>موبایل</th><th>جنسیت</th><th>پروانه بهره‌برداری</th><th>اقدامات</th></tr></thead>
     <tbody>{data.rows.map(x=><tr key={x.id}>
-      <td>{x.photo?<button className="btn g" onClick={()=>showFull(x.id)} aria-label="مشاهده تصویر پرسنلی">مشاهده عکس</button>:<span className="badge b-pending">بدون عکس</span>}</td>
+      <td>{x.photo?<DriverPortraitThumbnail url={x.photo} name={x.first_name+' '+x.last_name}/>:<span className="badge b-pending">بدون عکس</span>}</td>
       <td>{x.photo?<div style={{display:'grid',gap:4,minWidth:130}}><strong style={{fontSize:12}}>{x.photo_uploaded_by|| (x.photo_uploaded_by_id?'کاربر #'+fa(x.photo_uploaded_by_id):'نامشخص')}</strong><time style={{fontSize:11,color:'var(--muted)',whiteSpace:'nowrap'}}>{x.photo_uploaded_at?fj(x.photo_uploaded_at):'زمان ثبت نامشخص'}</time></div>:<span className="muted">—</span>}</td>
       <td style={{direction:"ltr",textAlign:"right"}}>{x.national_id}</td><td>{x.first_name} {x.last_name}</td>
       <td style={{direction:"ltr",textAlign:"right"}}>{x.mobile}</td><td>{x.gender}</td>
