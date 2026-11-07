@@ -4,6 +4,7 @@ import { request } from '../api';
 import { C, FONT } from '../theme';
 import { faNum, enNum } from '../num';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import DriverPhotoAvatar from '../components/DriverPhotoAvatar';
 
 export default function TempDriversScreen() {
   const [tab, setTab] = useState('add'); // add | list
@@ -131,6 +132,7 @@ export default function TempDriversScreen() {
               {(vehicleFound.drivers || []).length === 0 ? <Text style={s.empty}>برای این خودرو بهره‌بردار یا کمکی ثبت نشده است.</Text> :
                 (vehicleFound.drivers || []).map((d) => (
                   <TouchableOpacity key={d.id} style={s.tempRow} onPress={() => setSelectedDrivers({ ...selectedDrivers, [d.id]: !selectedDrivers[d.id] })}>
+                    <DriverPhotoAvatar driver={d} size={42}/>
                     <Text style={s.tempTxt}>{selectedDrivers[d.id] ? '☑' : '☐'} {d.first_name || ''} {d.last_name || ''} · {d.role === 'beneficiary' ? 'بهره‌بردار' : d.role === 'helper' ? 'کمکی' : 'راننده'} · {faNum(d.national_id || '')}</Text>
                   </TouchableOpacity>
                 ))}
@@ -139,6 +141,7 @@ export default function TempDriversScreen() {
 
           {found?.driver && (
             <View style={s.driverCard}>
+              <DriverPhotoAvatar driver={found.driver} size={58}/>
               <Text style={s.driverName}>{found.driver.first_name || ''} {found.driver.last_name || ''}</Text>
               <Text style={s.driverMeta}>کد ملی: {faNum(found.driver.national_id)}</Text>
               {found.main_line?.line_code ? <Text style={s.driverMeta}>خط اصلی: {faNum(found.main_line.line_code)}{found.main_line.line_code_in_line ? ` — کد در خط: ${faNum(found.main_line.line_code_in_line)}` : ''}</Text> : <Text style={s.driverMeta}>خط اصلی: نامشخص</Text>}
@@ -189,6 +192,7 @@ export default function TempDriversScreen() {
             list.length === 0 ? <Text style={s.empty}>راننده موقتی در خطوط شما ثبت نشده است.</Text> :
             list.map((t) => (
               <View key={t.id} style={s.listCard}>
+                <DriverPhotoAvatar driver={{...t,id:t.driver_id||t.driverId}} size={46}/>
                 <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <View style={{ flex: 1 }}>
                     <Text style={s.driverName}>{t.first_name} {t.last_name}</Text>

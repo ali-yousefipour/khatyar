@@ -11,6 +11,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import TaxiPlate from '../components/TaxiPlate';
 import HistoricalMediaImage from '../components/HistoricalMediaImage';
 import DetailPageHeader from '../components/DetailPageHeader';
+import DriverPhotoAvatar from '../components/DriverPhotoAvatar';
 
 function DateFilterBar({ from, to, setFrom, setTo }) {
   const [pick, setPick] = useState(null);
@@ -434,7 +435,7 @@ export function VehicleScreen({ route, navigation }) {
         const fullName = [d.first_name, d.last_name].filter(Boolean).join(' ') || 'نام نامشخص';
         return <TouchableOpacity key={d.id || index} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`مشاهده مشخصات ${fullName}`} onPress={() => openDriver(d)} style={[vs.driverCard, blocked && vs.blockedCard]}>
           <View style={vs.driverTop}>
-            <View style={vs.driverIdentity}><View style={[vs.avatar, isBen && vs.avatarMain]}><MaterialCommunityIcons name={isBen ? 'account-tie' : 'account-outline'} size={24} color={isBen ? '#fff' : C.brand}/></View><View style={vs.driverNames}><Text style={vs.driverName} numberOfLines={2}>{faNum(fullName)}</Text><Text style={vs.driverHint}>{isBen ? 'راننده اصلی' : 'راننده کمکی'}</Text></View></View>
+            <View style={vs.driverIdentity}><DriverPhotoAvatar driver={d} size={50} beneficiary={isBen}/><View style={vs.driverNames}><Text style={vs.driverName} numberOfLines={2}>{faNum(fullName)}</Text><Text style={vs.driverHint}>{isBen ? 'راننده اصلی' : 'راننده کمکی'}</Text></View></View>
             <View style={[vs.rolePill, isBen ? vs.beneficiaryPill : vs.helperPill]}><Text style={[vs.roleText, { color: isBen ? '#08765c' : '#916400' }]}>{faNum(d.role_fa || (isBen ? 'بهره‌بردار' : 'کمکی'))}</Text></View>
           </View>
           <View style={vs.driverDetails}>

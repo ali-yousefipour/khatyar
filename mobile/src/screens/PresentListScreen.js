@@ -7,6 +7,7 @@ import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DetailPageHeader from '../components/DetailPageHeader';
+import DriverPhotoAvatar from '../components/DriverPhotoAvatar';
 
 const normalizePresent = (r) => {
   if (Array.isArray(r)) return r;
@@ -85,7 +86,7 @@ export default function PresentListScreen({navigation}) {
         renderItem={({ item }) => (
           <View style={s.card}>
             <View style={s.cardTop}>
-              <View style={s.avatar}><MaterialCommunityIcons name="account-outline" size={23} color={C.brand}/></View>
+              <DriverPhotoAvatar driver={item} size={48}/>
               <View style={s.driverInfo}><Text style={s.name}>{item.first_name} {item.last_name}</Text><Text style={s.lineText}>{item.line_code ? `خط ${faNum(item.line_code)}` : 'بدون خط'}{item.line_origin ? ` · ${item.line_origin}` : ''}</Text></View>
               <View style={s.presentPill}><Text style={s.presentText}>حاضر</Text></View>
             </View>

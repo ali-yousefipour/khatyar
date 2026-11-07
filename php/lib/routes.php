@@ -6174,6 +6174,11 @@ function _driver_photo_record($driverId){
   _driver_photo_ensure_table();
   return Db::one('SELECT photo_path,confirmed_at,captured_by,updated_by,updated_at FROM driver_profile_photos WHERE driver_id=?',[(int)$driverId]);
 }
+function _driver_photo_url_from_row($row){
+  $path=(string)($row['driver_photo_path']??'');
+  if (!preg_match('#^uploads/driver-profiles/[0-9]{10}\.jpg$#',$path)) return null;
+  return '/api/media?path='.rawurlencode($path).'&v='.rawurlencode((string)($row['driver_photo_updated_at']??'1'));
+}
 function _driver_photo_required(){
   return filter_var(_req_setting('driver_profile_photo_required',false),FILTER_VALIDATE_BOOLEAN);
 }
@@ -6280,6 +6285,7 @@ route('DELETE','/api/driver-photos/{id}',function($p,$b,$u){
 });
 route('PUT','/api/admin/drivers/{id}/photo',function($p,$b,$u){return _driver_photo_save($p['id'],$u,$b,true);},false,ADMIN);
 route('GET', '/api/search', function($p, $b, $u) {
+  _driver_photo_ensure_table();
   // خطوط مجاز کاربر — مقاوم در برابر نصب‌های قدیمی یا جدول/ستون ناقص
   $myLines = [];
   try {
@@ -6349,6 +6355,8 @@ route('GET', '/api/search', function($p, $b, $u) {
     $tempLines = Db::all("SELECT t.id, t.line_id, t.line_code_in_line, t.note, t.created_at, l.code line_code, l.origin, l.destination
       FROM temp_line_drivers t JOIN `lines` l ON l.id=t.line_id
       WHERE t.driver_id=? AND t.is_active=1 ORDER BY t.id DESC", [$d['id']]);
+    $driverPhoto=Db::one('SELECT photo_path AS driver_photo_path, COALESCE(updated_at,confirmed_at) AS driver_photo_updated_at FROM driver_profile_photos WHERE driver_id=?',[$d['id']]);
+    $d['photo_url']=_driver_photo_url_from_row($driverPhoto??[]);
     return ['type'=>'driver','driver'=>$d,'vehicle'=>$veh,'warnings'=>$w,'temp_lines'=>$tempLines];
   }
   if (!empty($_GET['plate'])) {
@@ -6357,10 +6365,12 @@ route('GET', '/api/search', function($p, $b, $u) {
     $v = _vehicle_by_taxi12_plate($plateNorm);
     if (!$v) Http::error('خودرو یافت نشد', 404);
     if (!$vehicleInLines($v)) Http::error('این خودرو در خطوط شما نمی‌باشد', 403);
-    $drv = Db::all("SELECT d.*, vd.role, vd.shift, vd.line_code_in_line FROM vehicle_drivers vd JOIN drivers d ON d.id=vd.driver_id WHERE vd.vehicle_id=? ORDER BY (vd.role='beneficiary') DESC", [$v['id']]);
+    $drv = Db::all("SELECT d.*, vd.role, vd.shift, vd.line_code_in_line, dp.photo_path AS driver_photo_path, COALESCE(dp.updated_at,dp.confirmed_at) AS driver_photo_updated_at FROM vehicle_drivers vd JOIN drivers d ON d.id=vd.driver_id LEFT JOIN driver_profile_photos dp ON dp.driver_id=d.id WHERE vd.vehicle_id=? ORDER BY (vd.role='beneficiary') DESC", [$v['id']]);
     $rmap = ['beneficiary'=>'بهره‌بردار','helper'=>'کمکی','driver'=>'راننده'];
     $shiftMap = ['morning'=>'صبح','evening'=>'عصر','night'=>'شب','صبح'=>'صبح','عصر'=>'عصر','شب'=>'شب'];
     foreach ($drv as &$dd) {
+      $dd['photo_url']=_driver_photo_url_from_row($dd);
+      unset($dd['driver_photo_path'],$dd['driver_photo_updated_at']);
       $dd['role_fa'] = $rmap[$dd['role']] ?? 'راننده';
       $dd['shift_fa'] = !empty($dd['shift']) ? ($shiftMap[$dd['shift']] ?? $dd['shift']) : null;
       // بررسی انقضای پروانهٔ بهره‌برداری برای رانندگان کمکی
@@ -6614,6 +6624,7 @@ route('POST', '/api/attendance/exit', function($p,$b,$u){
 // لیست تاکسیرانان حاضر در خط (حضور باز) — محدود به خطوط مجاز کاربر
 route('GET', '/api/attendance/present', function($p,$b,$u){
   _ensure_attendances_schema();
+  _driver_photo_ensure_table();
   $lineIds = user_line_ids($u);
   $where = ''; $params = [];
   if (is_array($lineIds)) {
@@ -6621,11 +6632,19 @@ route('GET', '/api/attendance/present', function($p,$b,$u){
     $in = implode(',', array_fill(0, count($lineIds), '?'));
     $where = "AND a.line_id IN ($in)"; $params = $lineIds;
   }
-  return Db::all("SELECT a.id, a.driver_id, a.line_id, a.created_at, l.code line_code, l.origin line_origin,
+  $rows=Db::all("SELECT a.id, a.driver_id, a.line_id, a.created_at, l.code line_code, l.origin line_origin,
       d.first_name, d.last_name, d.national_id,
+      dp.photo_path AS driver_photo_path, COALESCE(dp.updated_at,dp.confirmed_at) AS driver_photo_updated_at,
       TIMESTAMPDIFF(MINUTE, a.created_at, NOW()) mins_in
     FROM attendances a JOIN drivers d ON d.id=a.driver_id LEFT JOIN `lines` l ON l.id=a.line_id
+    LEFT JOIN driver_profile_photos dp ON dp.driver_id=d.id
     WHERE a.exit_at IS NULL $where ORDER BY a.created_at DESC", $params);
+  foreach ($rows as &$row) {
+    $row['photo_url']=_driver_photo_url_from_row($row);
+    unset($row['driver_photo_path'],$row['driver_photo_updated_at']);
+  }
+  unset($row);
+  return $rows;
 });
 route('GET', '/api/attendance/{driverId}', function($p,$b,$u){
   _ensure_attendances_schema();

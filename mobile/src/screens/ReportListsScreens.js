@@ -9,6 +9,7 @@ import JDatePicker, { jLabel } from '../components/JDatePicker';
 import PlateSearch from '../components/PlateSearch';
 import TaxiPlate, { parseTaxiPlate } from '../components/TaxiPlate';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import DriverPhotoAvatar from '../components/DriverPhotoAvatar';
 
 function useFetch(path) {
   const [data, setData] = useState(null);
@@ -320,7 +321,7 @@ export function ExpTaxiScreen({ navigation }) {
         ListFooterComponent={shown.length < list.length ? <Text style={s.more}>در حال بارگذاری بیشتر…</Text> : null}
         renderItem={({ item: r }) => (
           <View style={op.vehicleCard}>
-            <View style={op.cardTop}><Text style={op.plateTitle}>{r.first_name} {r.last_name}</Text><View style={op.statusTag}><Text style={op.statusText}>نیازمند بررسی اعتبار</Text></View></View>
+            <View style={op.cardTop}><DriverPhotoAvatar driver={r} size={46}/><Text style={op.plateTitle}>{r.first_name} {r.last_name}</Text><View style={op.statusTag}><Text style={op.statusText}>نیازمند بررسی اعتبار</Text></View></View>
             <View style={op.cardDivider}/>
             <ExpiryInfo label="کد ملی" value={r.national_id}/>
             <ExpiryInfo label="خط فعالیت" value={r.line?'خط '+faNum(r.line):'نامشخص'}/>
