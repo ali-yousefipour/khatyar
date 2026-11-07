@@ -8543,7 +8543,24 @@ function PresenceChecks(){
     .then(([r,v])=>{setRows(r||[]);setViol(v||[]);}).catch(()=>{}).finally(()=>setLoading(false)); };
   useEffect(()=>{load();},[]);
   const [geo,setGeo]=useState(null); const [full,setFull]=useState(null);
-  const openImg=async(id)=>{ try{ const d=await db.presenceCheck(id); setPick(d); setGeo(null);
+  const [imageError,setImageError]=useState({});
+  const [renewingImages,setRenewingImages]=useState(false);
+  const imageRenewalRef=useRef(false);
+  useEffect(()=>{
+    if(!pick&&!full)return;
+    const onKey=e=>{if(e.key==='Escape'){if(full)setFull(null);else setPick(null);}};
+    document.addEventListener('keydown',onKey);
+    return()=>document.removeEventListener('keydown',onKey);
+  },[pick,full]);
+  const recordedAt=r=>r?.captured_fa|| (r?.captured_at?fj(r.captured_at):"—");
+  const refreshImages=async()=>{
+    if(!pick?.id||imageRenewalRef.current)return;
+    imageRenewalRef.current=true;setRenewingImages(true);
+    try{const updated=await db.presenceCheck(pick.id);setPick(updated);setFull(null);setImageError({});}
+    catch(e){setImageError({selfie:"دریافت تصویر ممکن نشد؛ نشست یا دسترسی خود را بررسی کنید.",vehicles_photo:"دریافت تصویر ممکن نشد؛ نشست یا دسترسی خود را بررسی کنید."});}
+    finally{setRenewingImages(false);imageRenewalRef.current=false;}
+  };
+  const openImg=async(id)=>{ try{ const d=await db.presenceCheck(id); setPick(d); setGeo(null);setFull(null);setImageError({});
     if(d.lat&&d.lng){ GET(`/geo/reverse?lat=${d.lat}&lng=${d.lng}`).then(g=>setGeo(g)).catch(()=>setGeo(null)); }
   }catch(e){ alert(e.message||"خطا"); } };
   const dlImg=(url,name)=>{ const a=document.createElement("a"); a.href=url; a.download=name||"presence.jpg"; a.target="_blank"; a.click(); };
@@ -8618,7 +8635,7 @@ function PresenceChecks(){
       <tbody>{visibleRows.map(r=><tr key={r.id}>
         <td><b>{r.name}</b></td><td>{r.role||"—"}</td><td>{r.slot}</td>
         <td>{r.lat?<a href={`https://maps.google.com/?q=${r.lat},${r.lng}`} target="_blank">نقشه</a>:"—"}</td>
-        <td>{r.captured_fa||fj(r.captured_at)}</td>
+        <td>{recordedAt(r)}</td>
         <td><button className="btn g" onClick={()=>openImg(r.id)}>مشاهده عکس‌ها</button></td>
       </tr>)}</tbody></table>:<p className="muted">ارسالی در این بازه نیست.</p>
     ):(
@@ -8626,8 +8643,9 @@ function PresenceChecks(){
       <tbody>{visibleViol.map((v,i)=><tr key={i}><td><b>{v.name}</b></td><td>{v.role||"—"}</td><td>{fj(v.slot_date)}</td><td>{v.slot}</td><td><span className="badge b-no">{v.type}</span></td></tr>)}</tbody></table>
       :<p className="muted">تخلفی در این بازه نیست.</p>
     )}
-    {pick&&<div className="modal-bg" onClick={()=>setPick(null)}><div className="modal" style={{maxWidth:680}} onClick={e=>e.stopPropagation()}>
-      <h3>{pick.name} — {fj(pick.slot_date)} ساعت {pick.slot}</h3>
+    {pick&&ReactDOM.createPortal(<div className="modal-bg" role="presentation" style={{zIndex:11000}} onClick={()=>{setPick(null);setFull(null);}}><div className="modal" role="dialog" aria-modal="true" aria-label="جزئیات صحت‌سنجی حضور" style={{width:"min(680px,96vw)",maxWidth:680,maxHeight:"min(90dvh,900px)"}} onClick={e=>e.stopPropagation()}>
+      <h3>{pick.name} — {fj(pick.slot_date)}</h3>
+      <div className="muted" style={{marginBottom:10}}>بازه: {pick.slot||"—"} · زمان ثبت: {recordedAt(pick)}</div>
       {geo&&<div style={{background:"var(--brand-soft,#eef7f3)",borderRadius:10,padding:"10px 12px",margin:"10px 0",fontSize:13,lineHeight:2}}>
         {geo.address&&<div>📍 <b>آدرس:</b> {geo.address}</div>}
         {geo.street&&<div>🛣 <b>خیابان:</b> {geo.street}</div>}
@@ -8637,7 +8655,8 @@ function PresenceChecks(){
         {["selfie","vehicles_photo"].map(key=>{ const src=pick[key]?(pick[key].indexOf("/api/")===0?API_BASE.replace(/\/api$/,"")+pick[key]:pick[key]):null;
           return(<div key={key}><div className="label" style={{marginBottom:6}}>{key==="selfie"?"سلفی":"خودروهای خط"}</div>
             {src?<div style={{position:"relative"}}>
-              <img src={src} style={{width:"100%",borderRadius:10,cursor:"pointer"}} onClick={()=>setFull(src)}/>
+              <img src={src} alt={key==="selfie"?"تصویر سلفی صحت‌سنجی":"تصویر خودروهای خط"} style={{width:"100%",borderRadius:10,cursor:"pointer"}} onClick={()=>setFull(src)} onError={()=>setImageError(prev=>({...prev,[key]:"بارگذاری تصویر ناموفق بود؛ لینک را تازه‌سازی کنید."}))}/>
+              {imageError[key]&&<div role="alert" style={{color:"var(--danger)",fontSize:12,marginTop:6}}>{imageError[key]} <button type="button" className="btn g" disabled={renewingImages} onClick={refreshImages}>{renewingImages?"در حال دریافت…":"تلاش دوباره"}</button></div>}
               {/* درج اطلاعات روی عکس */}
               {geo&&(geo.street||geo.nearest_line)&&<div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,.6)",color:"#fff",fontSize:11,padding:"5px 8px",borderRadius:"0 0 10px 10px",lineHeight:1.7}}>
                 {geo.street?`🛣 ${geo.street}`:""}{geo.nearest_line?` · 🚖 ${geo.nearest_line}${geo.distance_m!=null?` (${fa(geo.distance_m)}م)`:""}`:""}
@@ -8651,14 +8670,14 @@ function PresenceChecks(){
       </div>
       {pick.lat?<p style={{marginTop:10,fontSize:13}}>موقعیت: <a href={`https://maps.google.com/?q=${pick.lat},${pick.lng}`} target="_blank">{pick.lat}, {pick.lng}</a></p>:null}
       <button className="btn g" style={{marginTop:12,width:"100%"}} onClick={()=>setPick(null)}>بستن</button>
-    </div></div>}
-    {full&&<div onClick={()=>setFull(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.9)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:20,flexDirection:"column",gap:12}}>
-      <img src={full} style={{maxWidth:"95%",maxHeight:"82%",borderRadius:8}} onClick={e=>e.stopPropagation()}/>
+    </div></div>,document.body)}
+    {full&&ReactDOM.createPortal(<div role="dialog" aria-modal="true" aria-label="نمایش تمام‌صفحه تصویر صحت‌سنجی" onClick={()=>setFull(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.94)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:11010,padding:16,flexDirection:"column",gap:12}}>
+      <img src={full} alt="تصویر صحت‌سنجی در اندازه بزرگ" style={{maxWidth:"min(96vw,1400px)",maxHeight:"min(82dvh,1100px)",objectFit:"contain",borderRadius:8}} onClick={e=>e.stopPropagation()}/>
       <div style={{display:"flex",gap:10}}>
         <button className="btn p" onClick={(e)=>{e.stopPropagation();dlImg(full,"presence_full.jpg");}}>⤓ ذخیرهٔ تصویر</button>
         <button className="btn g" onClick={()=>setFull(null)}>بستن</button>
       </div>
-    </div>}
+    </div>,document.body)}
   </div></div>);
 }
 
