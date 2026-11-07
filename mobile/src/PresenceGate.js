@@ -15,6 +15,7 @@ function notificationData(raw){if(!raw)return{};if(typeof raw==='string'){try{re
 export default function PresenceGate({navigationRef}){
  const{user}=useAuth();
  const[due,setDue]=useState(null);
+ const[appActive,setAppActive]=useState(AppState.currentState==='active');
  const dueRef=useRef(null);
  const cfgRef=useRef(null);
  const mountedRef=useRef(false);
@@ -28,6 +29,7 @@ export default function PresenceGate({navigationRef}){
  const setDueStable=next=>{if(!mountedRef.current)return;dueRef.current=next;setDue(next);};
 
  useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;dueRef.current=null}},[]);
+ useEffect(()=>{const sub=AppState.addEventListener('change',state=>setAppActive(state==='active'));return()=>sub?.remove?.()},[]);
 
  // زمان‌بندی عادی فقط وقتی ویزارد باز نیست polling می‌شود.
  // وجود یک ویزارد باز نباید با پاسخ موقت/ناقص تنظیمات باعث unmount شدن آن شود.
@@ -175,10 +177,10 @@ export default function PresenceGate({navigationRef}){
  },[navigationRef]);
 
  useEffect(()=>{
-  if(!due||!navigationRef?.isReady?.()||openedRef.current)return;
+  if(!due||!navigationRef?.isReady?.()||openedRef.current||!appActive)return;
+  if(Date.now()>=due.deadlineMs){setDueStable(null);stopPresenceAlarm().catch(()=>{});return;}
   openedRef.current=true;
   wizardWasActiveRef.current=false;
-  stopPresenceAlarm().catch(()=>{});
   try{
    navigationRef.navigate('PresenceCheckWizard',{
     slot:due.slot,
@@ -192,13 +194,13 @@ export default function PresenceGate({navigationRef}){
    });
   }catch(e){
    openedRef.current=false;
-   startPresenceAlarm().catch(()=>{});
+   startPresenceAlarm(due.deadlineMs).catch(()=>{});
   }
- },[due,navigationRef]);
+ },[due,navigationRef,appActive]);
 
  useEffect(()=>{
   const alarmOn=cfgRef.current?cfgRef.current.alarm!==false:true;
-  if(due&&alarmOn)startPresenceAlarm().catch(()=>{});else stopPresenceAlarm().catch(()=>{});
+  if(due&&alarmOn)startPresenceAlarm(due.deadlineMs).catch(()=>{});else stopPresenceAlarm().catch(()=>{});
   return()=>{stopPresenceAlarm().catch(()=>{})};
  },[due]);
 
