@@ -31,6 +31,10 @@ export default function DriverScreen({ route, navigation }) {
   const [complaintAllowed, setComplaintAllowed] = useState(false);
   const [portrait, setPortrait] = useState(null);
   const [portraitDraft, setPortraitDraft] = useState(null);
+  const [cropSource,setCropSource] = useState(null);
+  const [cropZoom,setCropZoom] = useState(1);
+  const [cropX,setCropX] = useState(0);
+  const [cropY,setCropY] = useState(0);
   const [portraitConsent, setPortraitConsent] = useState(false);
   const [portraitBusy, setPortraitBusy] = useState(false);
   const [portraitLoading, setPortraitLoading] = useState(true);
@@ -41,6 +45,11 @@ export default function DriverScreen({ route, navigation }) {
   const [portraitCameraFacing, setPortraitCameraFacing] = useState('back');
   const portraitCamera = useRef(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const cropWidth = cropSource ? Math.max(3,Math.floor(Math.min(cropSource.width,cropSource.height*3/4)/cropZoom/3)*3) : 0;
+  const cropHeight = cropWidth*4/3;
+  const cropScale = cropWidth ? 240/cropWidth : 1;
+  const cropOriginX = cropSource ? Math.round((cropSource.width-cropWidth)*(cropX+1)/2) : 0;
+  const cropOriginY = cropSource ? Math.round((cropSource.height-cropHeight)*(cropY+1)/2) : 0;
   const hasDriver = !!(driver && (driver.id || driver.national_id || driver.national_code));
   useEffect(() => {
     getAppConfig().then((c) => setAccess({ welfare: !!c.can_welfare, cultural: !!c.can_cultural })).catch(() => {});
@@ -72,18 +81,27 @@ export default function DriverScreen({ route, navigation }) {
     try {
       const result = await portraitCamera.current.takePictureAsync({ quality: 0.75, base64: false, exif: false, skipProcessing: false });
       if (!result?.uri) throw new Error('دوربین تصویری برنگرداند؛ دوباره تلاش کنید.');
-      // Match the on-screen 3:4 personnel frame in the uploaded image too.
       const originalWidth = Number(result.width);
       const originalHeight = Number(result.height);
       if (!originalWidth || !originalHeight) throw new Error('ابعاد تصویر دوربین مشخص نیست؛ دوباره عکس بگیرید.');
-      const cropWidth = Math.min(originalWidth, Math.round(originalHeight * 3 / 4));
-      const cropHeight = Math.min(originalHeight, Math.round(originalWidth * 4 / 3));
-      const cropped = await ImageManipulator.manipulateAsync(result.uri, [{ crop: {
-        originX: Math.floor((originalWidth - cropWidth) / 2),
-        originY: Math.floor((originalHeight - cropHeight) / 2),
-        width: cropWidth,
-        height: cropHeight,
-      } }], { format: ImageManipulator.SaveFormat.JPEG, compress: 0.85 });
+      setCropSource({uri:result.uri,width:originalWidth,height:originalHeight});
+      setCropX(0);setCropY(0);setCropZoom(1);
+      setPortraitCameraVisible(false);
+    } catch (error) { Alert.alert('تصویر پرسنلی', error?.message || 'ثبت تصویر ممکن نشد.'); }
+    finally { setPortraitBusy(false); }
+  };
+  const applyPortraitCrop = async () => {
+    if (!cropSource || portraitBusy) return;
+    setPortraitBusy(true);
+    try {
+      const {width,height,uri}=cropSource;
+      const baseWidth=Math.min(width,Math.floor(height*3/4));
+      const baseHeight=Math.min(height,Math.floor(width*4/3));
+      const cropWidth=Math.max(3,Math.floor(baseWidth/cropZoom/3)*3);
+      const cropHeight=cropWidth*4/3;
+      const originX=Math.round((width-cropWidth)*(cropX+1)/2);
+      const originY=Math.round((height-cropHeight)*(cropY+1)/2);
+      const cropped=await ImageManipulator.manipulateAsync(uri,[{crop:{originX,originY,width:cropWidth,height:cropHeight}}],{format:ImageManipulator.SaveFormat.JPEG,compress:.85});
       const source = cropped.uri;
       let compressed = null;
       for (const [width, quality] of [[480, 0.34], [400, 0.28], [320, 0.22]]) {
@@ -93,7 +111,7 @@ export default function DriverScreen({ route, navigation }) {
       if (!compressed || Math.floor((compressed.length - compressed.indexOf(',') - 1) * 3 / 4) > 120 * 1024) throw new Error('فشرده‌سازی تصویر به حجم مجاز انجام نشد. دوباره عکس بگیرید.');
       setPortraitDraft(compressed);
       setPortraitConsent(false);
-      setPortraitCameraVisible(false);
+      setCropSource(null);
     } catch (error) { Alert.alert('تصویر پرسنلی', error?.message || 'ثبت تصویر ممکن نشد.'); }
     finally { setPortraitBusy(false); }
   };
@@ -201,6 +219,16 @@ export default function DriverScreen({ route, navigation }) {
 
   return (
     <>
+      <Modal visible={!!cropSource} transparent animationType="fade" onRequestClose={()=>setCropSource(null)}>
+        <View style={s.cropOverlay}><View style={s.cropDialog}>
+          <Text style={s.cropTitle}>تنظیم کادر تصویر پرسنلی</Text>
+          <Text style={s.cropHint}>صورت تاکسیران را داخل قاب عمودی ۳×۴ قرار دهید. با کلیدهای جهت و بزرگ‌نمایی کادر را تنظیم کنید.</Text>
+          {cropSource&&<View style={s.cropFrame}><Image source={{uri:cropSource.uri}} resizeMode="stretch" style={{position:'absolute',width:cropSource.width*cropScale,height:cropSource.height*cropScale,left:-cropOriginX*cropScale,top:-cropOriginY*cropScale}}/><View pointerEvents="none" style={s.cropGuide}><View style={s.cropGuideCircle}/></View></View>}
+          <View style={s.cropButtons}><TouchableOpacity accessibilityRole="button" accessibilityLabel="کادر به چپ" onPress={()=>setCropX(v=>Math.max(-1,v-.18))} style={s.cropControl}><MaterialCommunityIcons name="arrow-left" size={23} color={C.brand}/></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="کادر به بالا" onPress={()=>setCropY(v=>Math.max(-1,v-.18))} style={s.cropControl}><MaterialCommunityIcons name="arrow-up" size={23} color={C.brand}/></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="کادر به پایین" onPress={()=>setCropY(v=>Math.min(1,v+.18))} style={s.cropControl}><MaterialCommunityIcons name="arrow-down" size={23} color={C.brand}/></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="کادر به راست" onPress={()=>setCropX(v=>Math.min(1,v+.18))} style={s.cropControl}><MaterialCommunityIcons name="arrow-right" size={23} color={C.brand}/></TouchableOpacity></View>
+          <View style={s.cropButtons}><TouchableOpacity accessibilityRole="button" accessibilityLabel="کوچک‌نمایی" onPress={()=>setCropZoom(v=>Math.max(1,Math.round((v-.15)*100)/100))} style={s.cropControl}><MaterialCommunityIcons name="minus" size={22} color={C.brand}/></TouchableOpacity><Text style={s.cropZoomText}>بزرگ‌نمایی {faNum(Math.round(cropZoom*100))}٪</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="بزرگ‌نمایی" onPress={()=>setCropZoom(v=>Math.min(2,Math.round((v+.15)*100)/100))} style={s.cropControl}><MaterialCommunityIcons name="plus" size={22} color={C.brand}/></TouchableOpacity></View>
+          <View style={s.portraitActions}><TouchableOpacity style={s.portraitSecondary} disabled={portraitBusy} onPress={()=>setCropSource(null)}><Text style={s.portraitSecondaryText}>انصراف</Text></TouchableOpacity><TouchableOpacity style={s.portraitButton} disabled={portraitBusy} onPress={applyPortraitCrop}><Text style={s.portraitButtonText}>{portraitBusy?'در حال آماده‌سازی…':'تأیید برش ۳×۴'}</Text></TouchableOpacity></View>
+        </View></View>
+      </Modal>
       <Modal visible={portraitCameraVisible} animationType="slide" onRequestClose={() => {if(!portraitBusy)setPortraitCameraVisible(false)}}>
         <View style={{flex:1,backgroundColor:'#081e1b'}}>
           <View style={{flex:1,alignItems:'center',justifyContent:'center',paddingTop:72,paddingBottom:158}}>
@@ -237,7 +265,7 @@ export default function DriverScreen({ route, navigation }) {
         </View>
         <View style={s.portraitCard}>
           <Text style={s.portraitTitle}>تصویر پرسنلی تاکسیران</Text>
-          {portrait && !portraitDraft && <><TouchableOpacity onPress={() => setPortraitFullScreen(true)} accessibilityLabel="نمایش تمام‌صفحه تصویر تاکسیران"><Image source={imageSource(portrait)} style={s.portraitPreview}/><Text style={s.portraitHint}>برای نمایش تمام‌صفحه، تصویر را لمس کنید.</Text></TouchableOpacity><View style={s.portraitActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="تغییر تصویر پرسنلی" activeOpacity={0.8} style={[s.portraitButton,portraitBusy&&s.portraitDisabled]} disabled={portraitBusy} onPress={capturePortrait}><MaterialCommunityIcons name="camera-retake-outline" size={19} color="#fff"/><Text numberOfLines={1} style={s.portraitButtonText}>تغییر تصویر</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="حذف تصویر پرسنلی" activeOpacity={0.8} style={[s.portraitSecondary,s.portraitDelete,portraitBusy&&s.portraitDisabled]} disabled={portraitBusy} onPress={deletePortrait}><MaterialCommunityIcons name="delete-outline" size={19} color={C.danger}/><Text numberOfLines={1} style={[s.portraitSecondaryText,{color:C.danger}]}>حذف تصویر</Text></TouchableOpacity></View></>}
+          {portrait && !portraitDraft && <><View style={s.portraitPhotoFrame}><TouchableOpacity onPress={() => setPortraitFullScreen(true)} accessibilityRole="button" accessibilityLabel="نمایش تمام‌صفحه تصویر تاکسیران"><Image source={imageSource(portrait)} style={s.portraitPreview}/></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="حذف تصویر پرسنلی" accessibilityHint="پیش از حذف، کادر تأیید نمایش داده می‌شود" disabled={portraitBusy} onPress={deletePortrait} style={[s.portraitOverlayIcon,s.portraitRemoveIcon]}><MaterialCommunityIcons name="close" size={19} color="#b4232b"/></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="ویرایش تصویر پرسنلی" disabled={portraitBusy} onPress={capturePortrait} style={[s.portraitOverlayIcon,s.portraitEditIcon]}><MaterialCommunityIcons name="pencil-outline" size={19} color="#fff"/></TouchableOpacity></View><Text style={s.portraitHint}>برای نمایش تمام‌صفحه، تصویر را لمس کنید. برای تغییر تصویر، مداد پایین عکس را بزنید.</Text></>}
           {!portrait && !portraitDraft && <><Text style={s.portraitHint}>{portraitLoading ? 'در حال بررسی وضعیت تصویر…' : 'عکس واضح، روبه‌دوربین و متعلق به همین تاکسیران باشد.'}</Text>{!!portraitError && <Text style={s.portraitWarning}>{portraitError}</Text>}{!portraitLoading && <Text style={s.portraitWarning}>تا ثبت تصویر، همه خدمات تاکسیران به‌جز ثبت تذکر غیرفعال هستند.</Text>}<TouchableOpacity style={s.portraitButton} disabled={portraitBusy||portraitLoading} onPress={capturePortrait}><MaterialCommunityIcons name="camera-outline" size={21} color="#fff"/><Text style={s.portraitButtonText}>گرفتن عکس با دوربین</Text></TouchableOpacity></>}
           {!!portraitDraft && <><TouchableOpacity onPress={() => setPortraitFullScreen(true)} accessibilityLabel="نمایش تمام‌صفحه تصویر جدید"><Image source={{uri:portraitDraft}} style={s.portraitPreview}/></TouchableOpacity><TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:portraitConsent}} onPress={() => setPortraitConsent(v=>!v)} style={s.consentRow}><MaterialCommunityIcons name={portraitConsent?'checkbox-marked':'checkbox-blank-outline'} size={23} color={C.brand}/><Text style={s.consentText}>تأیید می‌کنم تصویر واضح و متعلق به راننده اصلی است؛ مسئولیت مغایرت احتمالی با من است.</Text></TouchableOpacity><View style={s.portraitActions}><TouchableOpacity style={s.portraitSecondary} onPress={capturePortrait} disabled={portraitBusy}><Text style={s.portraitSecondaryText}>عکس دوباره</Text></TouchableOpacity><TouchableOpacity style={[s.portraitButton,(!portraitConsent||portraitBusy)&&{opacity:.45}]} onPress={confirmPortrait} disabled={!portraitConsent||portraitBusy}><Text style={s.portraitButtonText}>{portraitBusy?'در حال ثبت…':portrait?'تأیید و جایگزینی':'تأیید و ثبت تصویر'}</Text></TouchableOpacity></View></>}
         </View>
@@ -306,12 +334,26 @@ const s = StyleSheet.create({
   card: { backgroundColor:'#fff', borderColor:'#bfe3d6', borderWidth:1, borderRadius:22, padding:15, marginTop:12, elevation:3, shadowColor:'#0c6b51', shadowOpacity:.09, shadowRadius:12 },
   row: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
   pf: { width:65, height:78, borderRadius:13, backgroundColor:'#08775c', alignItems:'center', justifyContent:'center', overflow:'hidden', borderWidth:2, borderColor:'#e8fff5' },
-  portraitAvatar: { width:65, height:78, borderRadius:12 },
+  portraitAvatar: { width:65, height:86, borderRadius:12 },
   portraitCard: { marginTop:16, backgroundColor:'#f1faf6', borderWidth:1, borderColor:'#bfe4d4', borderRadius:17, padding:14, gap:10 },
   portraitTitle: { fontFamily: FONT.bold, color: C.brand, fontSize: 15, textAlign: 'right' },
   portraitHint: { fontFamily: FONT.regular, color: C.slate, fontSize: 12, lineHeight: 22, textAlign: 'right' },
   portraitWarning: { fontFamily: FONT.bold, color: C.danger, textAlign: 'right', fontSize: 12 },
-  portraitPreview: { width: 120, height: 156, borderRadius: 12, alignSelf: 'center', backgroundColor: '#E1E8E4' },
+  portraitPreview: { width: 156, height: 208, borderRadius: 14, alignSelf: 'center', backgroundColor: '#E1E8E4' },
+  portraitPhotoFrame: {position:'relative',width:156,height:208,alignSelf:'center',borderRadius:14,overflow:'hidden',borderWidth:2,borderColor:'#d4eadf',backgroundColor:'#e1e8e4'},
+  portraitOverlayIcon: {position:'absolute',width:38,height:38,borderRadius:12,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'rgba(255,255,255,.85)',elevation:3},
+  portraitRemoveIcon: {top:7,left:7,backgroundColor:'#fff3f3'},
+  portraitEditIcon: {bottom:7,left:7,backgroundColor:C.brand},
+  cropOverlay: {flex:1,backgroundColor:'rgba(4,25,20,.82)',alignItems:'center',justifyContent:'center',padding:12},
+  cropDialog: {width:'100%',maxWidth:420,backgroundColor:'#fff',padding:14,borderRadius:22,alignItems:'center',gap:11},
+  cropTitle: {fontFamily:FONT.bold,fontSize:17,color:C.brand,textAlign:'center'},
+  cropHint: {fontFamily:FONT.regular,fontSize:11.5,color:C.slate,textAlign:'center',lineHeight:20},
+  cropFrame: {width:240,height:320,position:'relative',overflow:'hidden',backgroundColor:'#dbe6e0',borderRadius:12,borderWidth:2,borderColor:C.brand},
+  cropGuide: {position:'absolute',top:0,left:0,right:0,bottom:0,borderWidth:1,borderColor:'rgba(255,255,255,.8)',alignItems:'center',justifyContent:'center'},
+  cropGuideCircle: {width:155,height:196,borderWidth:1,borderColor:'rgba(255,255,255,.7)',borderRadius:90},
+  cropButtons: {flexDirection:'row',alignItems:'center',justifyContent:'center',gap:10},
+  cropControl: {width:44,height:44,borderRadius:12,backgroundColor:'#e7f5ee',borderWidth:1,borderColor:'#c7e6d9',alignItems:'center',justifyContent:'center'},
+  cropZoomText: {fontFamily:FONT.bold,color:C.brand,fontSize:12,minWidth:126,textAlign:'center'},
   portraitSuccess: { fontFamily: FONT.regular, color: C.brand, fontSize: 12, textAlign: 'right', lineHeight: 21 },
   portraitButton: { minHeight: 48, minWidth: 0, borderRadius: 12, paddingHorizontal: 10, backgroundColor: C.brand, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 7, flex: 1 },
   portraitButtonText: { fontFamily: FONT.bold, color: '#fff', fontSize: 12.5 },

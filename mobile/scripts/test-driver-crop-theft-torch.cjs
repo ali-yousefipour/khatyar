@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const driver=fs.readFileSync(path.join(root,'src/screens/DriverScreen.js'),'utf8');
+const service=fs.readFileSync(path.join(root,'plugins/theft-alarm/KhatyarAlarmService.java'),'utf8');
+const flash=fs.readFileSync(path.join(root,'src/ScreenFlasher.js'),'utf8');
+
+assert.match(driver,/setCropSource\(\{uri:result.uri,width:originalWidth,height:originalHeight\}\)/);
+assert.match(driver,/const applyPortraitCrop = async/);
+assert.match(driver,/ImageManipulator.manipulateAsync\(uri,\[\{crop:/);
+assert.match(driver,/cropWidth\*4\/3/);
+assert.match(driver,/تأیید برش ۳×۴/);
+assert.match(driver,/accessibilityLabel="حذف تصویر پرسنلی" accessibilityHint="پیش از حذف، کادر تأیید نمایش داده می‌شود"/);
+assert.match(driver,/accessibilityLabel="ویرایش تصویر پرسنلی"/);
+assert.match(driver,/Alert.alert\('حذف تصویر پرسنلی'/);
+assert.match(flash,/redBlue/);
+assert.match(flash,/halfModes/);
+assert.match(flash,/FLASH_PATTERNS/);
+assert.match(service,/startTorchWarning\(\)/);
+assert.match(service,/cameraManager.setTorchMode\(torchCameraId,torchOn\)/);
+assert.match(service,/stopTorchWarning\(\)/);
+assert.match(service,/onDestroy\(\) \{/);
+console.log('PASS 3:4 crop controls, photo overlay actions, flasher variants and native alarm torch cleanup');

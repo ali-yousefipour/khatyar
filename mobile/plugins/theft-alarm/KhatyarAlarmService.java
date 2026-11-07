@@ -4,6 +4,9 @@ import android.app.*;
 import android.content.*;
 import android.content.pm.ServiceInfo;
 import android.hardware.*;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraManager;
 import android.media.*;
 import android.os.*;
 import androidx.core.app.NotificationCompat;
@@ -20,6 +23,15 @@ public final class KhatyarAlarmService extends Service implements SensorEventLis
   private BroadcastReceiver powerReceiver;
   private PowerManager.WakeLock wakeLock;
   private MediaPlayer siren;
+  private CameraManager cameraManager;
+  private String torchCameraId;
+  private boolean torchOn=false;
+  private final Runnable torchPulse=new Runnable(){@Override public void run(){
+    if(!triggered||torchCameraId==null||cameraManager==null)return;
+    try {torchOn=!torchOn;cameraManager.setTorchMode(torchCameraId,torchOn);}
+    catch(CameraAccessException|SecurityException|IllegalArgumentException ex){torchOn=false;return;}
+    handler.postDelayed(this,torchOn?280:360);
+  }};
   private AudioManager audioManager;
   private AudioFocusRequest audioFocusRequest;
   private int previousMusicVolume=-1;
@@ -105,7 +117,29 @@ public final class KhatyarAlarmService extends Service implements SensorEventLis
       }
       siren.setLooping(true);siren.setVolume(1.0f,1.0f);siren.prepare();siren.start();
     } catch(Exception ignored) {}
+    startTorchWarning();
     ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(NOTIFICATION_ID,notification(true));
+  }
+
+  private void startTorchWarning(){
+    try{
+      cameraManager=(CameraManager)getSystemService(CAMERA_SERVICE);
+      if(cameraManager==null)return;
+      for(String id:cameraManager.getCameraIdList()){
+        CameraCharacteristics info=cameraManager.getCameraCharacteristics(id);
+        if(Boolean.TRUE.equals(info.get(CameraCharacteristics.FLASH_INFO_AVAILABLE))&&
+          Integer.valueOf(CameraCharacteristics.LENS_FACING_BACK).equals(info.get(CameraCharacteristics.LENS_FACING))){
+          torchCameraId=id;break;
+        }
+      }
+      if(torchCameraId!=null)handler.post(torchPulse);
+    }catch(CameraAccessException|SecurityException|IllegalArgumentException ignored){}
+  }
+
+  private void stopTorchWarning(){
+    handler.removeCallbacks(torchPulse);
+    if(cameraManager!=null&&torchCameraId!=null){try{cameraManager.setTorchMode(torchCameraId,false);}catch(Exception ignored){}}
+    torchOn=false;torchCameraId=null;cameraManager=null;
   }
 
   private Notification notification(boolean alert) {
@@ -121,6 +155,8 @@ public final class KhatyarAlarmService extends Service implements SensorEventLis
 
   @Override public void onDestroy() {
     armed=false;arming=false;
+    triggered=false;
+    stopTorchWarning();
     handler.removeCallbacks(finishArming);
     if(sensors!=null)sensors.unregisterListener(this);
     if(powerReceiver!=null)try{unregisterReceiver(powerReceiver);}catch(Exception ignored){}
