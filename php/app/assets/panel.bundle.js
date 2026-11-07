@@ -15314,6 +15314,10 @@ function PresenceChecks() {
         return () => document.removeEventListener('keydown', onKey);
     }, [pick, full]);
     const recordedAt = r => (r === null || r === void 0 ? void 0 : r.captured_fa) || ((r === null || r === void 0 ? void 0 : r.captured_at) ? fj(r.captured_at) : "—");
+    const presenceSlot = r => {
+        const value = norm((r === null || r === void 0 ? void 0 : r.slot) || "");
+        return !value || /^0{1,2}:00(?::00)?$/.test(value) ? "بازه ثبت نشده" : value;
+    };
     const refreshImages = async () => {
         if (!(pick === null || pick === void 0 ? void 0 : pick.id) || imageRenewalRef.current)
             return;
@@ -15403,49 +15407,78 @@ function PresenceChecks() {
             alert("خطا در ایجاد فایل اکسل: " + (e.message || e));
         }
     };
-    return (React.createElement("div", { className: "panel admin-workspace-page" },
+    return (React.createElement("div", { className: "panel admin-workspace-page presence-workspace" },
+        React.createElement("style", null, `
+    .presence-workspace .presence-filters{background:var(--card,#fff);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 8px 28px rgba(10,43,35,.06);margin:14px 0}
+    .presence-workspace .presence-filter-grid{display:grid;grid-template-columns:repeat(2,minmax(155px,1fr)) minmax(250px,1.6fr) repeat(2,minmax(135px,.85fr));gap:12px;align-items:start}
+    .presence-workspace .presence-field{display:flex;flex-direction:column;gap:7px;min-width:0;position:relative}
+    .presence-workspace .presence-field .label{font-weight:750;font-size:12px;color:var(--muted)}
+    .presence-workspace .presence-field .input{width:100%;min-height:43px}
+    .presence-workspace .presence-field>div:not([role]){max-width:100%}
+    .presence-workspace .presence-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px;align-items:center}
+    .presence-workspace .presence-actions .btn{min-height:42px;border-radius:11px}
+    .presence-workspace .presence-results{overflow-x:auto;border:1px solid var(--line);border-radius:15px;margin-top:14px}
+    .presence-workspace .presence-results table{width:100%;min-width:680px;margin:0}
+    .presence-workspace .presence-results th{background:var(--brand-soft,#e8f5ef);white-space:nowrap}
+    .presence-workspace .presence-results td{vertical-align:middle}
+    .presence-workspace .presence-results tbody tr:hover{background:var(--brand-soft,#f1f8f4)}
+    @media(max-width:1050px){.presence-workspace .presence-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.presence-workspace .presence-person-field{grid-column:span 2}}
+    @media(max-width:540px){.presence-workspace .presence-filters{padding:12px}.presence-workspace .presence-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.presence-workspace .presence-person-field{grid-column:span 2}.presence-workspace .presence-actions .btn{flex:1 1 auto}}
+  `),
         React.createElement("div", { id: "khatyar-presence-extension" }),
         React.createElement("div", { hidden: immediateOpen },
-            React.createElement("h3", { style: { display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 } },
-                React.createElement("span", null, "\uD83D\uDCF8 \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062D\u0636\u0648\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627")),
-            React.createElement("div", { className: "filters" },
-                React.createElement("span", { className: "label" }, "\u0627\u0632"),
-                React.createElement(JDate, { value: from, onChange: setFrom }),
-                React.createElement("span", { className: "label" }, "\u062A\u0627"),
-                React.createElement(JDate, { value: to, onChange: setTo }),
-                React.createElement("div", { style: { position: "relative", minWidth: 230, maxWidth: 340, flex: "1 1 230px" } },
-                    React.createElement("label", { className: "label", htmlFor: "presence-person-search" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0633\u0646\u0644"),
-                    React.createElement("input", { id: "presence-person-search", className: "input", role: "combobox", "aria-autocomplete": "list", "aria-expanded": personOpen, "aria-controls": "presence-person-options", "aria-activedescendant": personOpen && matchingPersonnel[personActive] ? `presence-person-${matchingPersonnel[personActive].id}` : undefined, autoComplete: "off", placeholder: "\u0646\u0627\u0645\u060C \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u06CC\u0627 \u06A9\u062F \u067E\u0631\u0633\u0646\u0644\u06CC", value: person, onFocus: () => { setPersonOpen(true); setPersonActive(-1); }, onBlur: e => { if (!e.currentTarget.parentElement.contains(e.relatedTarget))
-                            setPersonOpen(false); }, onChange: e => { setPerson(e.target.value); setPersonId(""); setPersonActive(-1); setPersonOpen(true); }, onKeyDown: e => { if (e.key === "Escape") {
-                            setPersonOpen(false);
-                            return;
-                        } if (e.key === "ArrowDown") {
-                            e.preventDefault();
-                            setPersonOpen(true);
-                            setPersonActive(i => Math.min(matchingPersonnel.length - 1, i + 1));
-                        } if (e.key === "ArrowUp") {
-                            e.preventDefault();
-                            setPersonActive(i => Math.max(0, i - 1));
-                        } if (e.key === "Enter" && personOpen && matchingPersonnel.length) {
-                            e.preventDefault();
-                            choosePerson(matchingPersonnel[Math.max(0, personActive)]);
-                        } } }),
-                    personOpen && React.createElement("div", { id: "presence-person-options", role: "listbox", "aria-label": "\u0641\u0647\u0631\u0633\u062A \u067E\u0631\u0633\u0646\u0644", style: { position: "absolute", top: "100%", insetInline: 0, zIndex: 100510, maxHeight: 290, overflowY: "auto", background: "var(--card,#fff)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "0 10px 28px rgba(0,0,0,.16)", padding: 4 } }, personnelLoading ? React.createElement("div", { className: "muted", style: { padding: 10 } }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0641\u0647\u0631\u0633\u062A \u067E\u0631\u0633\u0646\u0644\u2026") : matchingPersonnel.length ? matchingPersonnel.map((u, i) => React.createElement("button", { key: u.id, id: `presence-person-${u.id}`, role: "option", "aria-selected": i === personActive, type: "button", onPointerDown: e => e.preventDefault(), onMouseEnter: () => setPersonActive(i), onClick: () => choosePerson(u), style: { display: "flex", justifyContent: "space-between", width: "100%", gap: 10, textAlign: "right", padding: "9px 10px", border: 0, borderRadius: 7, background: i === personActive ? "var(--soft,#eef6f3)" : "transparent", color: "inherit", cursor: "pointer" } },
-                        React.createElement("span", null,
-                            u.first_name,
-                            " ",
-                            u.last_name),
-                        React.createElement("small", { className: "muted" }, u.pcode ? `کد ${u.pcode}` : `شناسه ${u.id}`))) : React.createElement("div", { className: "muted", style: { padding: 10 } }, "\u067E\u0631\u0633\u0646\u0644\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")),
-                    React.createElement("small", { className: "muted" }, personnelLoading ? "در حال بارگذاری…" : `${matchingPersonnel.length.toLocaleString("fa-IR")} نفر از ${personnel.length.toLocaleString("fa-IR")} پرسنل`)),
-                React.createElement("label", { className: "label" },
-                    "\u0627\u0632 \u0633\u0627\u0639\u062A ",
-                    React.createElement("input", { className: "input", type: "time", value: timeFrom, onChange: e => setTimeFrom(e.target.value) })),
-                React.createElement("label", { className: "label" },
-                    "\u062A\u0627 \u0633\u0627\u0639\u062A ",
-                    React.createElement("input", { className: "input", type: "time", value: timeTo, onChange: e => setTimeTo(e.target.value) })),
-                React.createElement("button", { className: "btn p", onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631 \u062A\u0627\u0631\u06CC\u062E"),
-                React.createElement("button", { className: "btn g", onClick: () => { setPerson(""); setPersonId(""); setPersonOpen(false); setTimeFrom(""); setTimeTo(""); } }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627"),
-                tab === "sent" && visibleRows.length > 0 && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644 (.xlsx)")),
+            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 6 } },
+                React.createElement("div", null,
+                    React.createElement("h3", { style: { margin: 0 } }, "\u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062D\u0636\u0648\u0631 \u0646\u06CC\u0631\u0648\u0647\u0627"),
+                    React.createElement("p", { className: "muted", style: { margin: "6px 0 0", fontSize: 12 } }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u062A\u0635\u0627\u0648\u06CC\u0631\u060C \u0632\u0645\u0627\u0646 \u062B\u0628\u062A \u0648 \u0633\u0648\u0627\u0628\u0642 \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u067E\u0631\u0633\u0646\u0644")),
+                React.createElement("span", { className: "badge", style: { background: "var(--brand-soft,#e8f5ef)", color: "var(--brand,#087b59)" } },
+                    "\u0646\u062A\u0627\u06CC\u062C: ",
+                    fa(visibleRows.length))),
+            React.createElement("div", { className: "presence-filters" },
+                React.createElement("div", { className: "row", style: { justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 } },
+                    React.createElement("b", null, "\u0641\u06CC\u0644\u062A\u0631 \u0648 \u062C\u0633\u062A\u062C\u0648\u06CC \u067E\u06CC\u0634\u0631\u0641\u062A\u0647"),
+                    React.createElement("small", { className: "muted" }, "\u0628\u0631\u0627\u06CC \u0645\u062D\u062F\u0648\u062F\u06A9\u0631\u062F\u0646 \u0646\u062A\u0627\u06CC\u062C\u060C \u0646\u0627\u0645\u060C \u062A\u0627\u0631\u06CC\u062E \u06CC\u0627 \u0633\u0627\u0639\u062A \u0631\u0627 \u0645\u0634\u062E\u0635 \u06A9\u0646\u06CC\u062F.")),
+                React.createElement("div", { className: "presence-filter-grid" },
+                    React.createElement("div", { className: "presence-field" },
+                        React.createElement("label", { className: "label" }, "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E"),
+                        React.createElement(JDate, { portal: true, value: from, onChange: setFrom })),
+                    React.createElement("div", { className: "presence-field" },
+                        React.createElement("label", { className: "label" }, "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E"),
+                        React.createElement(JDate, { portal: true, value: to, onChange: setTo })),
+                    React.createElement("div", { className: "presence-field presence-person-field" },
+                        React.createElement("label", { className: "label", htmlFor: "presence-person-search" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0633\u0646\u0644"),
+                        React.createElement("input", { id: "presence-person-search", className: "input", role: "combobox", "aria-autocomplete": "list", "aria-expanded": personOpen, "aria-controls": "presence-person-options", "aria-activedescendant": personOpen && matchingPersonnel[personActive] ? `presence-person-${matchingPersonnel[personActive].id}` : undefined, autoComplete: "off", placeholder: "\u0646\u0627\u0645\u060C \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC \u06CC\u0627 \u06A9\u062F \u067E\u0631\u0633\u0646\u0644\u06CC", value: person, onFocus: () => { setPersonOpen(true); setPersonActive(-1); }, onBlur: e => { if (!e.currentTarget.parentElement.contains(e.relatedTarget))
+                                setPersonOpen(false); }, onChange: e => { setPerson(e.target.value); setPersonId(""); setPersonActive(-1); setPersonOpen(true); }, onKeyDown: e => { if (e.key === "Escape") {
+                                setPersonOpen(false);
+                                return;
+                            } if (e.key === "ArrowDown") {
+                                e.preventDefault();
+                                setPersonOpen(true);
+                                setPersonActive(i => Math.min(matchingPersonnel.length - 1, i + 1));
+                            } if (e.key === "ArrowUp") {
+                                e.preventDefault();
+                                setPersonActive(i => Math.max(0, i - 1));
+                            } if (e.key === "Enter" && personOpen && matchingPersonnel.length) {
+                                e.preventDefault();
+                                choosePerson(matchingPersonnel[Math.max(0, personActive)]);
+                            } } }),
+                        personOpen && React.createElement("div", { id: "presence-person-options", role: "listbox", "aria-label": "\u0641\u0647\u0631\u0633\u062A \u067E\u0631\u0633\u0646\u0644", style: { position: "absolute", top: "100%", insetInline: 0, zIndex: 100510, maxHeight: 290, overflowY: "auto", background: "var(--card,#fff)", border: "1px solid var(--line)", borderRadius: 10, boxShadow: "0 10px 28px rgba(0,0,0,.16)", padding: 4 } }, personnelLoading ? React.createElement("div", { className: "muted", style: { padding: 10 } }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0641\u0647\u0631\u0633\u062A \u067E\u0631\u0633\u0646\u0644\u2026") : matchingPersonnel.length ? matchingPersonnel.map((u, i) => React.createElement("button", { key: u.id, id: `presence-person-${u.id}`, role: "option", "aria-selected": i === personActive, type: "button", onPointerDown: e => e.preventDefault(), onMouseEnter: () => setPersonActive(i), onClick: () => choosePerson(u), style: { display: "flex", justifyContent: "space-between", width: "100%", gap: 10, textAlign: "right", padding: "9px 10px", border: 0, borderRadius: 7, background: i === personActive ? "var(--soft,#eef6f3)" : "transparent", color: "inherit", cursor: "pointer" } },
+                            React.createElement("span", null,
+                                u.first_name,
+                                " ",
+                                u.last_name),
+                            React.createElement("small", { className: "muted" }, u.pcode ? `کد ${u.pcode}` : `شناسه ${u.id}`))) : React.createElement("div", { className: "muted", style: { padding: 10 } }, "\u067E\u0631\u0633\u0646\u0644\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")),
+                        React.createElement("small", { className: "muted" }, personnelLoading ? "در حال بارگذاری…" : `${matchingPersonnel.length.toLocaleString("fa-IR")} نفر از ${personnel.length.toLocaleString("fa-IR")} پرسنل`)),
+                    React.createElement("label", { className: "presence-field" },
+                        React.createElement("span", { className: "label" }, "\u0627\u0632 \u0633\u0627\u0639\u062A"),
+                        React.createElement("input", { className: "input", type: "time", value: timeFrom, onChange: e => setTimeFrom(e.target.value) })),
+                    React.createElement("label", { className: "presence-field" },
+                        React.createElement("span", { className: "label" }, "\u062A\u0627 \u0633\u0627\u0639\u062A"),
+                        React.createElement("input", { className: "input", type: "time", value: timeTo, onChange: e => setTimeTo(e.target.value) }))),
+                React.createElement("div", { className: "presence-actions" },
+                    React.createElement("button", { className: "btn p", disabled: loading, onClick: load }, loading ? "در حال دریافت…" : "اعمال بازه تاریخی"),
+                    React.createElement("button", { className: "btn g", onClick: () => { setPerson(""); setPersonId(""); setPersonOpen(false); setTimeFrom(""); setTimeTo(""); } }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u062C\u0633\u062A\u062C\u0648 \u0648 \u0633\u0627\u0639\u062A"),
+                    tab === "sent" && visibleRows.length > 0 && React.createElement("button", { className: "btn g", onClick: exportExcel }, "\u062F\u0631\u06CC\u0627\u0641\u062A \u06AF\u0632\u0627\u0631\u0634 \u0627\u06A9\u0633\u0644"))),
             React.createElement("div", { className: "tabbar", style: { marginTop: 6 } },
                 React.createElement("button", { className: "tabbtn" + (tab === "sent" ? " on" : ""), onClick: () => setTab("sent") },
                     "\u0627\u0631\u0633\u0627\u0644\u200C\u0634\u062F\u0647 (",
@@ -15455,39 +15488,41 @@ function PresenceChecks() {
                     "\u062A\u062E\u0644\u0641 \u0639\u062F\u0645 \u0627\u0631\u0633\u0627\u0644 (",
                     fa(visibleViol.length),
                     ")")),
-            loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : tab === "sent" ? (visibleRows.length ? React.createElement("table", null,
-                React.createElement("thead", null,
-                    React.createElement("tr", null,
-                        React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
-                        React.createElement("th", null, "\u0633\u0645\u062A"),
-                        React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
-                        React.createElement("th", null, "\u0645\u0648\u0642\u0639\u06CC\u062A"),
-                        React.createElement("th", null, "\u0632\u0645\u0627\u0646 \u062B\u0628\u062A (\u062A\u0647\u0631\u0627\u0646)"),
-                        React.createElement("th", null, "\u062A\u0635\u0627\u0648\u06CC\u0631"))),
-                React.createElement("tbody", null, visibleRows.map(r => React.createElement("tr", { key: r.id },
-                    React.createElement("td", null,
-                        React.createElement("b", null, r.name)),
-                    React.createElement("td", null, r.role || "—"),
-                    React.createElement("td", null, r.slot),
-                    React.createElement("td", null, r.lat ? React.createElement("a", { href: `https://maps.google.com/?q=${r.lat},${r.lng}`, target: "_blank" }, "\u0646\u0642\u0634\u0647") : "—"),
-                    React.createElement("td", null, recordedAt(r)),
-                    React.createElement("td", null,
-                        React.createElement("button", { className: "btn g", onClick: () => openImg(r.id) }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u0639\u06A9\u0633\u200C\u0647\u0627")))))) : React.createElement("p", { className: "muted" }, "\u0627\u0631\u0633\u0627\u0644\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0646\u06CC\u0633\u062A.")) : (visibleViol.length ? React.createElement("table", null,
-                React.createElement("thead", null,
-                    React.createElement("tr", null,
-                        React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
-                        React.createElement("th", null, "\u0633\u0645\u062A"),
-                        React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
-                        React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
-                        React.createElement("th", null, "\u0646\u0648\u0639 \u062A\u062E\u0644\u0641"))),
-                React.createElement("tbody", null, visibleViol.map((v, i) => React.createElement("tr", { key: i },
-                    React.createElement("td", null,
-                        React.createElement("b", null, v.name)),
-                    React.createElement("td", null, v.role || "—"),
-                    React.createElement("td", null, fj(v.slot_date)),
-                    React.createElement("td", null, v.slot),
-                    React.createElement("td", null,
-                        React.createElement("span", { className: "badge b-no" }, v.type))))))
+            loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : tab === "sent" ? (visibleRows.length ? React.createElement("div", { className: "presence-results" },
+                React.createElement("table", null,
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
+                            React.createElement("th", null, "\u0633\u0645\u062A"),
+                            React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
+                            React.createElement("th", null, "\u0645\u0648\u0642\u0639\u06CC\u062A"),
+                            React.createElement("th", null, "\u0632\u0645\u0627\u0646 \u062B\u0628\u062A (\u062A\u0647\u0631\u0627\u0646)"),
+                            React.createElement("th", null, "\u062A\u0635\u0627\u0648\u06CC\u0631"))),
+                    React.createElement("tbody", null, visibleRows.map(r => React.createElement("tr", { key: r.id },
+                        React.createElement("td", null,
+                            React.createElement("b", null, r.name)),
+                        React.createElement("td", null, r.role || "—"),
+                        React.createElement("td", null, r.slot),
+                        React.createElement("td", null, r.lat ? React.createElement("a", { href: `https://maps.google.com/?q=${r.lat},${r.lng}`, target: "_blank", rel: "noopener noreferrer" }, "\u0646\u0642\u0634\u0647") : "—"),
+                        React.createElement("td", null, recordedAt(r)),
+                        React.createElement("td", null,
+                            React.createElement("button", { className: "btn g", onClick: () => openImg(r.id) }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u0639\u06A9\u0633\u200C\u0647\u0627"))))))) : React.createElement("p", { className: "muted", style: { padding: 22, textAlign: "center" } }, "\u0627\u0631\u0633\u0627\u0644\u06CC \u0645\u0637\u0627\u0628\u0642 \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")) : (visibleViol.length ? React.createElement("div", { className: "presence-results" },
+                React.createElement("table", null,
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", null, "\u0646\u06CC\u0631\u0648"),
+                            React.createElement("th", null, "\u0633\u0645\u062A"),
+                            React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
+                            React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
+                            React.createElement("th", null, "\u0646\u0648\u0639 \u062A\u062E\u0644\u0641"))),
+                    React.createElement("tbody", null, visibleViol.map((v, i) => React.createElement("tr", { key: i },
+                        React.createElement("td", null,
+                            React.createElement("b", null, v.name)),
+                        React.createElement("td", null, v.role || "—"),
+                        React.createElement("td", null, fj(v.slot_date)),
+                        React.createElement("td", null, presenceSlot(v)),
+                        React.createElement("td", null,
+                            React.createElement("span", { className: "badge b-no" }, v.type)))))))
                 : React.createElement("p", { className: "muted" }, "\u062A\u062E\u0644\u0641\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0646\u06CC\u0633\u062A.")),
             pick && ReactDOM.createPortal(React.createElement("div", { className: "modal-bg", role: "presentation", style: { zIndex: 11000 }, onClick: () => { setPick(null); setFull(null); } },
                 React.createElement("div", { className: "modal", role: "dialog", "aria-modal": "true", "aria-label": "\u062C\u0632\u0626\u06CC\u0627\u062A \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062D\u0636\u0648\u0631", style: { width: "min(680px,96vw)", maxWidth: 680, maxHeight: "min(90dvh,900px)" }, onClick: e => e.stopPropagation() },
@@ -15497,7 +15532,7 @@ function PresenceChecks() {
                         fj(pick.slot_date)),
                     React.createElement("div", { className: "muted", style: { marginBottom: 10 } },
                         "\u0628\u0627\u0632\u0647: ",
-                        pick.slot || "—",
+                        presenceSlot(pick),
                         " \u00B7 \u0632\u0645\u0627\u0646 \u062B\u0628\u062A: ",
                         recordedAt(pick)),
                     geo && React.createElement("div", { style: { background: "var(--brand-soft,#eef7f3)", borderRadius: 10, padding: "10px 12px", margin: "10px 0", fontSize: 13, lineHeight: 2 } },
