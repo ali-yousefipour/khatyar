@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Modal, useWindowDimensions } from 'react-native';
 import { postOrQueue, request } from '../api';
 import { imageSource } from '../api';
@@ -12,8 +12,10 @@ import ActivityIndicator from '../components/PulseLoadingIndicator';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { faNum } from '../num';
 import TaxiPlate from '../components/TaxiPlate';
+import DetailPageHeader from '../components/DetailPageHeader';
 
 export default function DriverScreen({ route, navigation }) {
+  useLayoutEffect(() => { navigation.setOptions({ headerShown:false }); }, [navigation]);
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const compact = viewportWidth < 390;
   const portraitFrameWidth = Math.max(160, Math.min(viewportWidth - 32, (viewportHeight - 260) * 3 / 4));
@@ -220,7 +222,8 @@ export default function DriverScreen({ route, navigation }) {
           </View>
         </View>
       </Modal>
-      <Modal visible={portraitFullScreen} transparent animationType="fade" onRequestClose={() => setPortraitFullScreen(false)}><View style={{flex:1,backgroundColor:'#000',justifyContent:'center',alignItems:'center'}}><TouchableOpacity onPress={() => setPortraitFullScreen(false)} style={{position:'absolute',top:50,right:24,zIndex:2,padding:12}} accessibilityLabel="بستن تصویر"><MaterialCommunityIcons name="close" color="#fff" size={30}/></TouchableOpacity>{(portraitDraft || portrait) && <Image source={portraitDraft?{uri:portraitDraft}:imageSource(portrait)} style={{width:'100%',height:'82%'}} resizeMode="contain" />}</View></Modal><ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: compact ? 10 : 16, paddingBottom: 56 }}>
+      <Modal visible={portraitFullScreen} transparent animationType="fade" onRequestClose={() => setPortraitFullScreen(false)}><View style={{flex:1,backgroundColor:'#000',justifyContent:'center',alignItems:'center'}}><TouchableOpacity onPress={() => setPortraitFullScreen(false)} style={{position:'absolute',top:50,right:24,zIndex:2,padding:12}} accessibilityLabel="بستن تصویر"><MaterialCommunityIcons name="close" color="#fff" size={30}/></TouchableOpacity>{(portraitDraft || portrait) && <Image source={portraitDraft?{uri:portraitDraft}:imageSource(portrait)} style={{width:'100%',height:'82%'}} resizeMode="contain" />}</View></Modal><ScrollView persistentScrollbar={true} style={{ backgroundColor: '#edf8f5' }} contentContainerStyle={{ padding: compact ? 10 : 16, paddingBottom: 56 }}>
+      <DetailPageHeader title="اطلاعات تاکسیران" navigation={navigation}/>
       <View style={s.card}>
         <View style={[s.heroRow, compact && s.heroRowCompact]}>
           <View style={s.identity}>
@@ -228,6 +231,7 @@ export default function DriverScreen({ route, navigation }) {
             <View style={s.identityText}>
               <Text style={s.name} numberOfLines={2}>{safeText(driver.first_name)} {safeText(driver.last_name)}</Text>
               <Text style={s.meta}>کد ملی: {safeText(driver.national_id || driver.national_code)}</Text>
+              {portrait && !portraitDraft && <Text style={s.photoReady}>✓ تصویر ثبت‌شده</Text>}
             </View>
           </View>
         </View>
@@ -289,21 +293,21 @@ export default function DriverScreen({ route, navigation }) {
 }
 
 const s = StyleSheet.create({
-  heroRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 },
+  heroRow: { flexDirection:'row-reverse', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12, backgroundColor:'#075f4e', borderRadius:19, padding:16, borderWidth:1, borderColor:'#25b58c' },
   heroRowCompact: { alignItems: 'stretch' },
   identity: { flexDirection: 'row-reverse', alignItems: 'center', flexGrow: 1, flexShrink: 1, minWidth: 165, gap: 9 },
   identityText: { flexShrink: 1, alignItems: 'flex-end' },
-  sectionHeader: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 8 },
-  sectionTitle: { fontFamily: FONT.bold, fontSize: 15, color: C.ink, textAlign: 'right' },
+  sectionHeader: { flexDirection:'row-reverse', alignItems:'center', gap:8, marginTop:20, marginBottom:10, paddingBottom:10, borderBottomWidth:1, borderBottomColor:'#d2ece1' },
+  sectionTitle: { fontFamily: FONT.bold, fontSize: 16, color:'#133d35', textAlign: 'right' },
   actionIcon: { width: 45, height: 45, borderRadius: 14, backgroundColor: '#e8f6f0', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   actionIconPrimary: { backgroundColor: 'rgba(255,255,255,.18)' },
   tempBadge: { backgroundColor: '#eef7ff', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, marginVertical: 4, borderWidth: 1, borderColor: '#bcd9f5' },
   tempBadgeTxt: { fontFamily: FONT.regular, color: '#1f6fd6', fontSize: 12.5, fontWeight: 'bold', textAlign: 'right' },
-  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 19, padding: 18 },
+  card: { backgroundColor:'#fff', borderColor:'#bfe3d6', borderWidth:1, borderRadius:22, padding:15, marginTop:12, elevation:3, shadowColor:'#0c6b51', shadowOpacity:.09, shadowRadius:12 },
   row: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
-  pf: { width: 46, height: 46, borderRadius: 13, backgroundColor: C.brand, alignItems: 'center', justifyContent: 'center' },
-  portraitAvatar: { width: 46, height: 46, borderRadius: 13 },
-  portraitCard: { marginTop: 16, backgroundColor: '#F4FAF7', borderWidth: 1, borderColor: '#C8E5D7', borderRadius: 16, padding: 14, gap: 10 },
+  pf: { width:65, height:78, borderRadius:13, backgroundColor:'#08775c', alignItems:'center', justifyContent:'center', overflow:'hidden', borderWidth:2, borderColor:'#e8fff5' },
+  portraitAvatar: { width:65, height:78, borderRadius:12 },
+  portraitCard: { marginTop:16, backgroundColor:'#f1faf6', borderWidth:1, borderColor:'#bfe4d4', borderRadius:17, padding:14, gap:10 },
   portraitTitle: { fontFamily: FONT.bold, color: C.brand, fontSize: 15, textAlign: 'right' },
   portraitHint: { fontFamily: FONT.regular, color: C.slate, fontSize: 12, lineHeight: 22, textAlign: 'right' },
   portraitWarning: { fontFamily: FONT.bold, color: C.danger, textAlign: 'right', fontSize: 12 },
@@ -319,16 +323,17 @@ const s = StyleSheet.create({
   consentRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, minHeight: 48 },
   consentText: { flex: 1, fontFamily: FONT.regular, color: C.ink, fontSize: 11.5, textAlign: 'right', lineHeight: 20 },
   pfTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 18 },
-  name: { fontFamily: FONT.bold, fontSize: 16, color: C.ink, textAlign: 'right' },
-  meta: { fontFamily: FONT.regular, fontSize: 12, color: C.muted, textAlign: 'right' },
+  name: { fontFamily:FONT.bold, fontSize:18, color:'#fff', textAlign:'right' },
+  meta: { fontFamily:FONT.regular, fontSize:12, color:'#d5f3e9', textAlign:'right' },
+  photoReady: { alignSelf:'flex-end', marginTop:7, overflow:'hidden', borderRadius:12, backgroundColor:'rgba(48,205,127,.27)', paddingHorizontal:10, paddingVertical:4, color:'#d4ffe8', fontFamily:FONT.bold, fontSize:11 },
   warn: { backgroundColor: '#fde6ea', borderRadius: 11, padding: 9, marginTop: 12 },
   warnTxt: { color: C.danger, fontFamily: FONT.bold, fontSize: 12, textAlign: 'right' },
-  detRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: C.line },
+  detRow: { flexDirection:'row-reverse', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap', paddingVertical:11, paddingHorizontal:7, borderBottomWidth:1, borderBottomColor:'#e0eee8' },
   detL: { fontFamily: FONT.regular, color: C.muted, fontSize: 12.5 },
   detV: { fontFamily: FONT.bold, color: C.ink, fontSize: 12.5, textAlign: 'left', flexShrink: 1, marginLeft: 8 },
   acts: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10, marginTop: 14 },
-  act: { width: '47%', minHeight: 110, backgroundColor: '#fff', borderColor: C.line, borderWidth: 1,
-    borderRadius: 16, padding: 12, alignItems: 'center', justifyContent: 'center', shadowColor: '#17352f', shadowOpacity: .06, shadowRadius: 7, elevation: 2 },
+  act: { width:'47%', minHeight:110, backgroundColor:'#fff', borderColor:'#bce3d4', borderWidth:1,
+    borderRadius:18, padding:12, alignItems:'center', justifyContent:'center', shadowColor:'#0b644c', shadowOpacity:.09, shadowRadius:9, elevation:3 },
   actPrimary: { backgroundColor: C.brand, borderColor: C.brand },
   actTaxi: { backgroundColor: C.taxi, borderColor: C.taxi },
   actEm: { fontSize: 22, marginBottom: 4 },

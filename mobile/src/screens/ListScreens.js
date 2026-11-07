@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView, Alert, useWindowDimensions } from 'react-native';
 import { request } from '../api';
 import { C, FONT } from '../theme';
@@ -10,6 +10,7 @@ import ActivityIndicator from '../components/PulseLoadingIndicator';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import TaxiPlate from '../components/TaxiPlate';
 import HistoricalMediaImage from '../components/HistoricalMediaImage';
+import DetailPageHeader from '../components/DetailPageHeader';
 
 function DateFilterBar({ from, to, setFrom, setTo }) {
   const [pick, setPick] = useState(null);
@@ -392,6 +393,7 @@ const pc = StyleSheet.create({
 });
 
 export function VehicleScreen({ route, navigation }) {
+  useLayoutEffect(() => { navigation.setOptions({ headerShown:false }); }, [navigation]);
   const { width } = useWindowDimensions();
   const vehicle = route?.params?.vehicle || {};
   const drivers = Array.isArray(route?.params?.drivers) ? route.params.drivers : [];
@@ -409,9 +411,10 @@ export function VehicleScreen({ route, navigation }) {
     });
   }
   return (
-    <ScrollView persistentScrollbar style={{ flex: 1, backgroundColor: C.paper }} contentContainerStyle={vs.page}>
+    <ScrollView persistentScrollbar style={{ flex:1, backgroundColor:'#edf8f5' }} contentContainerStyle={vs.page}>
+      <DetailPageHeader title="مشخصات تاکسی" navigation={navigation}/>
       <View style={vs.hero}>
-        <View style={vs.heading}><MaterialCommunityIcons name="taxi" size={22} color={C.brand}/><Text style={vs.headingText}>مشخصات تاکسی</Text></View>
+        <View style={vs.heading}><MaterialCommunityIcons name="taxi" size={24} color="#e1fff3"/><Text style={vs.headingText}>مشخصات تاکسی</Text></View>
         <TaxiPlate plate={vehicle.plate} compact={width<355}/>
         <View style={vs.vehicleFacts}>
           {!!vehicle.model_name && <View style={vs.fact}><MaterialCommunityIcons name="car-outline" size={17} color={C.brand}/><Text style={vs.factText}>{faNum(vehicle.model_name)}</Text></View>}
@@ -442,23 +445,23 @@ export function VehicleScreen({ route, navigation }) {
 }
 
 const vs = StyleSheet.create({
-  page: { paddingHorizontal: 14, paddingTop: 16, paddingBottom: 60 },
-  hero: { backgroundColor: '#fff', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: C.line, alignItems: 'center', elevation: 2 },
+  page: { paddingHorizontal:14, paddingTop:12, paddingBottom:60 },
+  hero: { backgroundColor:'#075f4e', borderRadius:21, padding:17, borderWidth:1, borderColor:'#28c094', alignItems:'center', elevation:4, shadowColor:'#075d4b', shadowOpacity:.16, shadowRadius:12, marginTop:13 },
   heading: { flexDirection: 'row-reverse', alignItems: 'center', alignSelf: 'stretch', gap: 8, marginBottom: 12 },
-  headingText: { fontFamily: FONT.bold, fontSize: 16, color: C.ink },
+  headingText: { fontFamily:FONT.bold, fontSize:18, color:'#fff' },
   vehicleFacts: { flexDirection: 'row-reverse', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginTop: 14 },
-  fact: { flexDirection: 'row-reverse', alignItems: 'center', gap: 5, backgroundColor: '#eff7f4', borderRadius: 11, paddingHorizontal: 10, paddingVertical: 8 },
+  fact: { flexDirection:'row-reverse', alignItems:'center', gap:5, backgroundColor:'#e3f8ee', borderRadius:12, paddingHorizontal:11, paddingVertical:9 },
   factText: { fontFamily: FONT.bold, fontSize: 12, color: C.ink },
-  listHeading: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginTop: 22, marginBottom: 12 },
+  listHeading: { flexDirection:'row-reverse', alignItems:'center', justifyContent:'space-between', marginTop:22, marginBottom:13, paddingBottom:9, borderBottomWidth:1, borderBottomColor:'#c9e7da' },
   listTitleRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
   listTitle: { fontFamily: FONT.bold, fontSize: 16, color: C.ink },
   countBadge: { backgroundColor: '#e4f3ed', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
   countText: { fontFamily: FONT.bold, fontSize: 12, color: C.brand },
-  driverCard: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: C.line, padding: 14, marginBottom: 11, elevation: 2 },
+  driverCard: { backgroundColor:'#fff', borderRadius:20, borderWidth:1, borderColor:'#bddfd2', padding:15, marginBottom:12, elevation:3, shadowColor:'#0c624b', shadowOpacity:.08, shadowRadius:9 },
   blockedCard: { backgroundColor: '#fff6f6', borderColor: '#eab9b9' },
   driverTop: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   driverIdentity: { flexDirection: 'row-reverse', alignItems: 'center', flex: 1, minWidth: 0, gap: 9 },
-  avatar: { width: 43, height: 43, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e8f5ef' },
+  avatar: { width:50, height:50, borderRadius:16, alignItems:'center', justifyContent:'center', backgroundColor:'#e0f5e9' },
   avatarMain: { backgroundColor: C.brand },
   driverNames: { flex: 1, minWidth: 0, alignItems: 'flex-end' },
   driverName: { fontFamily: FONT.bold, fontSize: 15, color: C.ink, textAlign: 'right' },
@@ -472,7 +475,7 @@ const vs = StyleSheet.create({
   detailText: { fontFamily: FONT.regular, color: C.ink, fontSize: 12 },
   warning: { flexDirection: 'row-reverse', alignItems: 'center', gap: 7, backgroundColor: '#fff0e0', borderRadius: 10, padding: 9, marginTop: 10 },
   warningText: { fontFamily: FONT.bold, fontSize: 11, color: '#a66c00', flexShrink: 1, textAlign: 'right' },
-  driverFooter: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#edf0f2', paddingTop: 11, marginTop: 12 },
+  driverFooter: { flexDirection:'row-reverse', justifyContent:'space-between', alignItems:'center', borderTopWidth:1, borderTopColor:'#dbeee6', paddingTop:12, marginTop:12 },
   footerText: { fontFamily: FONT.regular, fontSize: 11, color: C.muted },
   empty: { padding: 25, alignItems: 'center' },
   emptyText: { fontFamily: FONT.regular, color: C.muted, textAlign: 'center' },
