@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Modal, FlatList } from 'react-native';
 import * as Location from 'expo-location';
 import { getFastPosition } from '../location';
-import { ImagePicker, launchCamera, launchLibrary } from '../cameraLock';
+import { launchCamera, launchLibrary, requestCameraAccess } from '../cameraLock';
 import { compressToDataUri } from '../img';
 import { request, postOrQueue } from '../api';
 import { useAuth } from '../auth';
@@ -35,6 +35,7 @@ export default function OfficialPresenceScreen() {
   const [roleQ, setRoleQ] = useState('');
   const [expandedHistory, setExpandedHistory] = useState(null);
   const [loadError, setLoadError] = useState('');
+  const cameraBusyRef = useRef(false);
 
   const load = () => {
     Promise.allSettled([
@@ -56,8 +57,10 @@ export default function OfficialPresenceScreen() {
   const roles = useMemo(() => [...new Set(officials.map(o => o.role_title).filter(Boolean))], [officials]);
 
   const takePhoto = async () => {
+    if(cameraBusyRef.current)return;
+    cameraBusyRef.current=true;
     try {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      const perm = await requestCameraAccess();
       if (!perm.granted) { Alert.alert('دسترسی دوربین', 'برای ثبت تصویر حضور مسئول، دسترسی دوربین را فعال کنید.'); return; }
       const r = await launchCamera({ quality: 1 });
       if (r.canceled || !r.assets?.[0]?.uri) return;
@@ -65,6 +68,7 @@ export default function OfficialPresenceScreen() {
       if (!c) throw new Error('تصویر دوربین قابل پردازش نبود.');
       setPhoto(c);
     } catch (e) { Alert.alert('ثبت تصویر ناموفق بود', e?.message || 'دوربین را ببندید و دوباره تلاش کنید.'); }
+    finally {cameraBusyRef.current=false;}
   };
 
   async function submit() {
