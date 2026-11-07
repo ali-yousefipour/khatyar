@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking, Alert, Modal } from 'react-native';
 import { request } from '../api';
 import { getAppConfig } from '../appconfig';
@@ -7,6 +7,7 @@ import { C, FONT } from '../theme';
 import { sendTelemetry } from '../telemetry';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import DetailPageHeader from '../components/DetailPageHeader';
 
 // Dates can be Jalali/Gregorian, slash/dash separated, or include a time.
 const dateOrder = value => {
@@ -17,6 +18,7 @@ const dateOrder = value => {
 };
 
 export default function DebtScreen({ route, navigation }) {
+  useLayoutEffect(() => { navigation.setOptions({ headerShown:false }); }, [navigation]);
   const { driver } = route.params;
   const [data, setData] = useState(null);
   const [cfg, setCfg] = useState({ bill_sms_enabled: false, can_send_sms: false });
@@ -83,7 +85,8 @@ export default function DebtScreen({ route, navigation }) {
   );
 
   return (
-    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor:'#edf8f5' }} contentContainerStyle={{ padding:16, paddingBottom:56 }}>
+      <DetailPageHeader title="بدهی آبونمان" navigation={navigation}/>
       <View style={s.header}><View style={s.headerIcon}><MaterialCommunityIcons name="receipt-text-outline" size={23} color={C.brand}/></View><View style={{ flex: 1 }}><Text style={s.headerTitle}>فیش‌های آبونمان تاکسیران</Text><Text style={s.headerSubtitle}>{faNum(sortedBills.length)} فیش · مرتب‌شده از جدیدترین به قدیمی‌ترین</Text></View></View>
       {data.unpaid_count > 0 && (
         <View style={s.red}>
@@ -159,16 +162,16 @@ function DetailRow({ label, value, big, mono }) {
 
 const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
-  red: { backgroundColor: C.danger, borderRadius: 16, padding: 15, marginBottom: 12 },
-  redTxt: { color: '#fff', fontFamily: FONT.bold, textAlign: 'center', fontSize: 13 },
+  red: { backgroundColor:'#fff1f0', borderColor:'#edaca9', borderWidth:1, borderRadius:17, padding:17, marginBottom:12, elevation:2 },
+  redTxt: { color:'#a92927', fontFamily:FONT.bold, textAlign:'center', fontSize:14, lineHeight:24 },
   errorText: { color: C.danger, fontFamily: FONT.regular, textAlign: 'center', lineHeight: 22, marginBottom: 12 },
   retryBtn: { minHeight: 48, borderRadius: 10, paddingHorizontal: 18, paddingVertical: 12, justifyContent: 'center', alignItems: 'center', marginTop: 10, backgroundColor: C.brand },
   retryTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 13 },
-  header: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginBottom: 16 },
+  header: { flexDirection:'row-reverse', alignItems:'center', gap:10, marginTop:15, marginBottom:16, padding:14, borderRadius:18, backgroundColor:'#dff6ed', borderWidth:1, borderColor:'#bde5d6' },
   headerIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#e6f4ef', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 17, textAlign: 'right' },
   headerSubtitle: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', marginTop: 3 },
-  fish: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 18, padding: 15, marginBottom: 12, elevation: 2, shadowColor: '#17352f', shadowOpacity: .05, shadowRadius: 8 },
+  fish: { backgroundColor:'#fff', borderColor:'#bfe3d6', borderWidth:1, borderRadius:20, padding:16, marginBottom:12, elevation:3, shadowColor:'#0b624b', shadowOpacity:.09, shadowRadius:11 },
   billHead: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   billIcon: { width: 46, height: 46, borderRadius: 14, backgroundColor: '#e6f4ef', alignItems: 'center', justifyContent: 'center' },
   billIconUnpaid: { backgroundColor: '#fff3dd' },
@@ -176,10 +179,10 @@ const s = StyleSheet.create({
   statusPill: { flexDirection: 'row-reverse', alignItems: 'center', gap: 5, alignSelf: 'flex-end', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 5, marginTop: 7 },
   paidPill: { backgroundColor: '#e9f7ef' },
   unpaidPill: { backgroundColor: '#fff4e4' },
-  billInfo: { backgroundColor: '#f7f9fb', borderRadius: 12, padding: 11, marginTop: 12, gap: 7 },
+  billInfo: { backgroundColor:'#f0faf6', borderRadius:13, padding:12, marginTop:12, gap:8 },
   infoRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   billActions: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  actionButton: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 42 },
+  actionButton: { flexDirection:'row-reverse', alignItems:'center', justifyContent:'center', gap:6, minHeight:46 },
   amt: { fontFamily: FONT.bold, fontSize: 20, color: C.ink, textAlign: 'right' },
   status: { fontFamily: FONT.regular, fontSize: 12, textAlign: 'right' },
   meta: { fontFamily: FONT.regular, fontSize: 12, color: C.muted, textAlign: 'right', flexShrink: 1 },
@@ -187,7 +190,7 @@ const s = StyleSheet.create({
   detailBtn: { backgroundColor: '#eef2ff', borderRadius: 11, paddingVertical: 9, paddingHorizontal: 12 },
   detailTxt: { fontFamily: FONT.bold, color: '#2746a6', fontSize: 11.5 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 22 },
-  modalCard: { backgroundColor: '#fff', borderRadius: 18, padding: 22, width: '100%', alignItems: 'center' },
+  modalCard: { backgroundColor:'#fff', borderRadius:22, padding:22, width:'100%', alignItems:'center', borderWidth:1, borderColor:'#bfe3d6' },
   modalTitle: { fontFamily: FONT.bold, fontSize: 17, color: C.ink, marginBottom: 16 },
   dRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   dLabel: { fontFamily: FONT.regular, fontSize: 14, color: C.muted },

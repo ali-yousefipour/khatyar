@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useCallback } from 'react';
 import { faNum } from '../num';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { request } from '../api';
@@ -6,8 +6,10 @@ import { C, FONT } from '../theme';
 import { fj } from '../jdate';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import {MaterialCommunityIcons} from '@expo/vector-icons';
+import DetailPageHeader from '../components/DetailPageHeader';
 
 export default function NotificationsScreen({ navigation }) {
+  useLayoutEffect(()=>{navigation.setOptions({headerShown:false});},[navigation]);
   const [data, setData] = useState(null);
   const [opening, setOpening] = useState(false);
   const [allRead, setAllRead] = useState(false);
@@ -89,7 +91,8 @@ export default function NotificationsScreen({ navigation }) {
   const unreadCount = allRead ? 0 : Math.min((data?.unread != null ? data.unread : items.filter(n => !n.is_read).length), 99);
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.paper }}>
+    <View style={{ flex:1, backgroundColor:'#edf8f5' }}>
+      <DetailPageHeader title="اعلان‌های شما" navigation={navigation}/>
       {opening && (
         <View style={s.overlay}>
           <ActivityIndicator color={C.brand} size="large" />
@@ -139,9 +142,9 @@ export default function NotificationsScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  pageHeading:{backgroundColor:'#e9f6f0',borderRadius:18,marginHorizontal:16,marginTop:16,padding:15,flexDirection:'row-reverse',alignItems:'center',gap:12},
+  pageHeading:{backgroundColor:'#dbf5e9',borderRadius:19,marginHorizontal:16,marginTop:16,padding:16,flexDirection:'row-reverse',alignItems:'center',gap:12,borderWidth:1,borderColor:'#b9e4d0',elevation:2},
   headerIcon:{width:48,height:48,borderRadius:15,backgroundColor:'#fff',alignItems:'center',justifyContent:'center'},
-  headingTitle:{fontFamily:FONT.bold,fontSize:17,color:C.brand,textAlign:'right'},headingCaption:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:3},
+  headingTitle:{fontFamily:FONT.bold,fontSize:18,color:'#075d4b',textAlign:'right'},headingCaption:{fontFamily:FONT.regular,fontSize:12,color:'#366458',textAlign:'right',marginTop:3},
   titleRow:{flex:1,flexDirection:'row-reverse',alignItems:'center',gap:8},
   errorBox: { margin: 12, padding: 14, borderRadius: 14, backgroundColor: '#fff1f1', borderColor: '#f3b8c0', borderWidth: 1 },
   errorText: { fontFamily: FONT.regular, color: '#982b3d', lineHeight: 22, textAlign: 'right' },
@@ -159,12 +162,12 @@ const s = StyleSheet.create({
   overlayTxt: { fontFamily: FONT.regular, color: C.ink, marginTop: 10 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 40 },
-  readAll: { backgroundColor: '#fff',borderWidth:1,borderColor:C.line,borderRadius:12,minHeight:48,marginHorizontal:16,marginTop:12, padding: 10, alignItems: 'center',justifyContent:'center' },
-  readAllTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 12 },
-  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 17, padding: 16, marginBottom: 10 },
+  readAll: { backgroundColor:'#08775c',borderWidth:1,borderColor:'#08775c',borderRadius:14,minHeight:49,marginHorizontal:16,marginTop:12,padding:10,alignItems:'center',justifyContent:'center',elevation:2 },
+  readAllTxt: { color:'#fff', fontFamily:FONT.bold, fontSize:12 },
+  card: { backgroundColor:'#fff', borderColor:'#bfe3d6', borderWidth:1, borderRadius:19, padding:16, marginBottom:12, elevation:2, shadowColor:'#0b624b', shadowOpacity:.07, shadowRadius:9 },
   delBtn: { alignSelf: 'flex-start', minHeight:44,justifyContent:'center',marginTop: 8, backgroundColor: '#fff0f1', borderRadius: 10, paddingVertical: 6, paddingHorizontal: 13 },
   delTxt: { fontFamily: FONT.bold, color: C.danger, fontSize: 11 },
-  unread: { borderRightWidth: 4, borderRightColor: C.danger },
+  unread: { borderRightWidth:4, borderRightColor:'#0ebc9b', backgroundColor:'#fcfffe' },
   alert: { borderRightWidth: 4, borderRightColor: C.taxi },
   title: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right',flexShrink:1,fontSize:14 },
   body: { fontFamily: FONT.regular, color: C.ink, textAlign: 'right', marginTop: 4, fontSize: 13 },
