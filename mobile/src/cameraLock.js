@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 // دستگاه‌های قدیمی‌تر (به‌ویژه Android 9/10) ضروری است.
 let suppressDepth = 0;
 let releaseTimer = null;
+let cameraLaunchInProgress = false;
 
 function beginSuppress() {
   suppressDepth += 1;
@@ -25,6 +26,8 @@ function endSuppress(delay = 1200) {
 }
 
 async function safeLaunch(method, options = {}) {
+  if(cameraLaunchInProgress)throw new Error('دوربین در حال استفاده است. لطفاً چند لحظه صبر کنید.');
+  cameraLaunchInProgress = true;
   beginSuppress();
   try {
     const fn = ImagePicker?.[method];
@@ -38,8 +41,15 @@ async function safeLaunch(method, options = {}) {
     console.warn(`[cameraLock] ${method} failed`, error?.message || error);
     throw error;
   } finally {
+    cameraLaunchInProgress = false;
     endSuppress();
   }
+}
+
+export async function requestCameraAccess() {
+  beginSuppress();
+  try { return await ImagePicker.requestCameraPermissionsAsync(); }
+  finally { endSuppress(); }
 }
 
 export function launchCamera(options = {}) {
