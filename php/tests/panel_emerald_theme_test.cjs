@@ -10,6 +10,12 @@ const bundle = fs.readFileSync(path.join(app, 'assets/panel.bundle.js'), 'utf8')
 assert.match(panel, /khatyar-emerald-system\.css\?v=/);
 assert.match(panel, /brand-khatyar\.png/);
 assert.match(css, /--brand:\s*#075b4d/);
+assert.match(panel, /khatyar-emerald-system\.css\?v=20261107\.2/, 'Fresh theme cache key is published');
+assert.match(css, /\.layout \.main > \.top\s*\{/, 'Every panel page receives the visible branded header');
+assert.match(css, /\.layout \.page-content \.kpi\s*\{/, 'Dashboard KPI cards have an intentional visual treatment');
+assert.match(css, /\.layout\.sidebar-collapsed/, 'Collapsed sidebar keeps an adapted brand layout');
+assert.match(css, /@media\(max-width:980px\)/, 'Theme provides a distinct mobile layout');
+assert.ok((css.match(/\{/g)||[]).length === (css.match(/\}/g)||[]).length, 'Theme CSS braces are balanced');
 for (const selector of [
   '.side', '.navsec', '.navitem', '.page-content .panel',
   '.page-content .filters', '.page-content .tabbtn',
