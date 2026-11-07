@@ -7,6 +7,7 @@ import { jToday } from '../jdate';
 import JDatePicker, { jLabel } from '../components/JDatePicker';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import KhatyarBrandMark from '../components/KhatyarBrandMark';
 
 const todayObj = () => { const [jy, jm, jd] = jToday(); return { jy, jm, jd }; };
 const jdateToString = (d) => `${d?.jy}/${String(d?.jm).padStart(2, '0')}/${String(d?.jd).padStart(2, '0')}`;
@@ -90,7 +91,7 @@ export default function WelfareScreen({ route }) {
   return (
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: width < 360 ? 11 : 16, paddingBottom: 56 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.brand]} />}>
-      <View style={s.header}><View style={s.headerIcon}><MaterialCommunityIcons name="gift-outline" size={27} color={C.brand}/></View><View style={s.headerCopy}><Text style={s.h}>ثبت تحویل رفاهیت به راننده</Text><Text style={s.headerSub}>ثبت خدمات رفاهی و مشاهده سوابق تحویل</Text></View></View>
+      <View style={s.header}><KhatyarBrandMark size={50}/><View style={s.headerCopy}><Text style={s.h}>ثبت تحویل رفاهیت به راننده</Text><Text style={s.headerSub}>ثبت خدمات رفاهی و مشاهده سوابق تحویل</Text></View></View>
       {!!loadError && <View style={s.errorBox}><Text style={s.errorText}>{loadError}</Text><TouchableOpacity accessibilityRole="button" style={s.retryBtn} onPress={onRefresh}><Text style={s.retryTxt}>تلاش مجدد</Text></TouchableOpacity></View>}
 
       <View style={s.formCard}>
@@ -222,12 +223,12 @@ const s = StyleSheet.create({
  errorText:{fontFamily:FONT.regular,color:'#982b3d',textAlign:'right',lineHeight:22},
  retryBtn:{alignSelf:'flex-end',minHeight:44,justifyContent:'center',paddingHorizontal:16,marginTop:6},
  retryTxt:{fontFamily:FONT.bold,color:C.brand},
- header:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:14},
- headerIcon:{width:50,height:50,borderRadius:15,backgroundColor:'#e5f4ec',alignItems:'center',justifyContent:'center'},
+ header:{flexDirection:'row-reverse',alignItems:'center',gap:12,marginBottom:17,backgroundColor:'#075b4d',borderRadius:23,padding:17,elevation:3},
+ headerIcon:{width:50,height:50,borderRadius:15,backgroundColor:'rgba(255,255,255,0.15)',alignItems:'center',justifyContent:'center'},
  headerCopy:{flex:1,alignItems:'flex-end'},
- h:{fontFamily:FONT.bold,fontSize:17,color:C.ink,textAlign:'right'},
- headerSub:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:4},
- formCard:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:18,padding:14,marginBottom:15,elevation:1},
+ h:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right'},
+ headerSub:{fontFamily:FONT.regular,fontSize:12,color:'#dceee7',textAlign:'right',marginTop:4},
+ formCard:{backgroundColor:'#fff',borderWidth:1,borderColor:'#dce9e5',borderRadius:22,padding:17,marginBottom:16,elevation:2},
  sectionHeading:{flexDirection:'row-reverse',alignItems:'center',gap:8,marginTop:14,marginBottom:5},
  sectionTitle:{fontFamily:FONT.bold,fontSize:14,color:C.ink,textAlign:'right'},
  label:{fontFamily:FONT.bold,color:C.slate,fontSize:12.5,textAlign:'right',marginBottom:7},
@@ -247,7 +248,7 @@ const s = StyleSheet.create({
  listHeading:{flexDirection:'row-reverse',alignItems:'center',gap:8,marginTop:13,marginBottom:12},
  listTitle:{fontFamily:FONT.bold,fontSize:15,color:C.ink,textAlign:'right',flex:1},
  listCount:{fontFamily:FONT.bold,fontSize:11,color:C.brand,backgroundColor:'#e8f5ee',paddingHorizontal:9,paddingVertical:6,borderRadius:10},
- card:{backgroundColor:'#fff',borderRadius:16,borderWidth:1,borderColor:C.line,padding:13,marginBottom:10,elevation:1},
+ card:{backgroundColor:'#fff',borderRadius:21,borderWidth:1,borderColor:'#dce9e5',padding:16,marginBottom:13,elevation:2},
  cardTop:{flexDirection:'row-reverse',alignItems:'center',gap:8,flexWrap:'wrap'},
  cardIcon:{width:39,height:39,borderRadius:12,backgroundColor:'#e8f5ee',alignItems:'center',justifyContent:'center'},
  cardMain:{flex:1,minWidth:110,alignItems:'flex-end'},

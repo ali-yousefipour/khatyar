@@ -9,6 +9,7 @@ import TimePicker from '../components/TimePicker';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import ModalKeyboardView from '../components/ModalKeyboardView';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import KhatyarBrandMark from '../components/KhatyarBrandMark';
 
 const normalizedDigits = value => String(value ?? '').replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
 
@@ -83,7 +84,7 @@ export default function OutageScreen() {
   return (
     <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       {!!error && <View style={s.errorBox}><Text style={s.errorText}>{error}</Text><TouchableOpacity accessibilityRole="button" onPress={load} style={s.retry}><Text style={s.retryTxt}>{refreshing ? 'در حال دریافت…' : 'تلاش مجدد'}</Text></TouchableOpacity></View>}
-      <View style={s.pageIntro}><MaterialCommunityIcons name="alert-circle-outline" size={27} color={C.brand}/><View style={{flex:1}}><Text style={s.pageTitle}>اعلام قطع سیستم نوبت‌دهی</Text><Text style={s.pageSubtitle}>زمان شروع و خط را مشخص کنید. پس از برقراری سامانه، قطعی را از فهرست زیر ببندید.</Text></View></View>
+      <View style={s.pageIntro}><KhatyarBrandMark size={43}/><View style={{flex:1}}><Text style={s.pageTitle}>اعلام قطع سیستم نوبت‌دهی</Text><Text style={s.pageSubtitle}>زمان شروع و خط را مشخص کنید. پس از برقراری سامانه، قطعی را از فهرست زیر ببندید.</Text></View></View>
       <Text style={s.label}>تاریخ قطعی (امروز — غیرقابل تغییر)</Text>
       <View style={[s.input, s.fixedDate]}><Text style={s.fixedDateTxt}>{faNum(date)}</Text></View>
 
@@ -157,9 +158,9 @@ export default function OutageScreen() {
 }
 
 const s = StyleSheet.create({
-  pageIntro:{flexDirection:'row-reverse',gap:12,alignItems:'center',backgroundColor:'#eaf5f1',borderWidth:1,borderColor:'#c9e5da',borderRadius:18,padding:16,marginBottom:10},
-  pageTitle:{fontFamily:FONT.bold,fontSize:17,color:C.brand,textAlign:'right'},
-  pageSubtitle:{fontFamily:FONT.regular,fontSize:12,color:C.ink,textAlign:'right',lineHeight:21,marginTop:5},
+  pageIntro:{flexDirection:'row-reverse',gap:12,alignItems:'center',backgroundColor:'#075b4d',borderWidth:1,borderColor:'#075b4d',borderRadius:24,padding:20,marginBottom:16,elevation:3},
+  pageTitle:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right'},
+  pageSubtitle:{fontFamily:FONT.regular,fontSize:12,color:'#e1f4ec',textAlign:'right',lineHeight:22,marginTop:6},
   errorBox: { padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#f3b8c0', backgroundColor: '#fff1f1', marginBottom: 12 },
   errorText: { fontFamily: FONT.regular, color: '#982b3d', textAlign: 'right', lineHeight: 22 },
   retry: { alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center', paddingHorizontal: 14 },
@@ -186,7 +187,7 @@ const s = StyleSheet.create({
   btn: { backgroundColor: C.brand, borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 16 },
   btnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 15 },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', paddingVertical: 12 },
-  histCard: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, padding: 15, marginBottom: 9 },
+  histCard: { backgroundColor: '#fff', borderColor: '#dce9e5', borderWidth: 1, borderRadius: 20, padding: 17, marginBottom: 12,elevation:2 },
   histTitle: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right' },
   histNote: { fontFamily: FONT.regular, color: C.ink, fontSize: 12.5, textAlign: 'right', marginTop: 2 },
   histTime: { fontFamily: FONT.regular, color: C.muted, fontSize: 11, textAlign: 'right', marginTop: 4 },

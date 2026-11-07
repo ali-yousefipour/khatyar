@@ -104,12 +104,12 @@ export function RequestInboxScreen() {
   </ScrollView>;
 }
 const inboxStyle=StyleSheet.create({
- heading:{flexDirection:'row-reverse',alignItems:'center',gap:12,marginBottom:14},
- title:{fontFamily:FONT.bold,fontSize:18,color:C.ink,textAlign:'right'},
- subtitle:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:5,lineHeight:20},
- count:{backgroundColor:'#e3f3ed',width:48,height:48,borderRadius:15,alignItems:'center',justifyContent:'center'},
- countText:{fontFamily:FONT.bold,fontSize:19,color:C.brand},
- filterCard:{backgroundColor:'#fff',borderRadius:18,padding:13,borderWidth:1,borderColor:C.line,marginBottom:15},
+ heading:{flexDirection:'row-reverse',alignItems:'center',gap:12,marginBottom:17,backgroundColor:'#075b4d',padding:18,borderRadius:23,elevation:2},
+ title:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right'},
+ subtitle:{fontFamily:FONT.regular,fontSize:12,color:'#e0f1ea',textAlign:'right',marginTop:5,lineHeight:20},
+ count:{backgroundColor:'rgba(255,255,255,0.16)',width:50,height:50,borderRadius:16,alignItems:'center',justifyContent:'center'},
+ countText:{fontFamily:FONT.bold,fontSize:19,color:'#e8bc70'},
+ filterCard:{backgroundColor:'#fff',borderRadius:21,padding:16,borderWidth:1,borderColor:'#dce9e5',marginBottom:16},
  searchBox:{flexDirection:'row-reverse',alignItems:'center',borderWidth:1,borderColor:C.line,borderRadius:13,paddingHorizontal:12,minHeight:50,backgroundColor:C.paper},
  searchInput:{flex:1,fontFamily:FONT.regular,color:C.ink,textAlign:'right',paddingHorizontal:9,fontSize:13},
  label:{fontFamily:FONT.bold,color:C.ink,textAlign:'right',fontSize:12,marginTop:13,marginBottom:7},
@@ -120,7 +120,7 @@ const inboxStyle=StyleSheet.create({
  dateText:{fontFamily:FONT.regular,fontSize:12,color:C.ink,flex:1,textAlign:'right'},
  resultText:{fontFamily:FONT.bold,color:C.slate,fontSize:12},
  clearText:{fontFamily:FONT.bold,color:C.brand,fontSize:12},
- card:{backgroundColor:'#fff',borderRadius:18,padding:15,borderWidth:1,borderColor:C.line,marginBottom:11},
+ card:{backgroundColor:'#fff',borderRadius:21,padding:17,borderWidth:1,borderColor:'#dce9e5',marginBottom:14,elevation:2},
  avatar:{width:42,height:42,borderRadius:14,backgroundColor:'#e9f5f0',justifyContent:'center',alignItems:'center'},
  name:{fontFamily:FONT.bold,color:C.ink,fontSize:14,textAlign:'right'},
  meta:{fontFamily:FONT.regular,color:C.muted,fontSize:12,textAlign:'right',marginTop:10,lineHeight:20},
@@ -302,7 +302,7 @@ const s = StyleSheet.create({
 // فیش‌های حقوقی PDF پیوست‌شده توسط مدیر
 export function SalarySlipsScreen() {
   const [tab, setTab] = useState('attachments');
-  return <View style={{flex:1,backgroundColor:C.paper}}><View accessibilityRole="tablist" style={{flexDirection:'row-reverse',padding:12,gap:8}}>{[['attachments','فیش‌های پیوستی'],['company','وضعیت حقوق ماهانه']].map(([key,label])=><TouchableOpacity key={key} accessibilityRole="tab" accessibilityState={{selected:tab===key}} onPress={()=>setTab(key)} style={{flex:1,minHeight:48,padding:12,borderRadius:10,backgroundColor:tab===key?C.brand:'#e8edf2',justifyContent:'center'}}><Text style={{fontFamily:FONT.bold,textAlign:'center',color:tab===key?'#fff':C.ink}}>{label}</Text></TouchableOpacity>)}</View>{tab==='company'?<CompanyPayrollHistory/>:<SalarySlipAttachmentsScreen/>}</View>;
+  return <View style={{flex:1,backgroundColor:C.paper}}><View accessibilityRole="tablist" style={{flexDirection:'row-reverse',padding:8,gap:8,margin:12,backgroundColor:'#e8f3ef',borderRadius:18}}>{[['attachments','فیش‌های پیوستی'],['company','وضعیت حقوق ماهانه']].map(([key,label])=><TouchableOpacity key={key} accessibilityRole="tab" accessibilityState={{selected:tab===key}} onPress={()=>setTab(key)} style={{flex:1,minHeight:48,padding:12,borderRadius:15,backgroundColor:tab===key?'#075b4d':'#fff',justifyContent:'center'}}><Text style={{fontFamily:FONT.bold,textAlign:'center',color:tab===key?'#fff':C.ink}}>{label}</Text></TouchableOpacity>)}</View>{tab==='company'?<CompanyPayrollHistory/>:<SalarySlipAttachmentsScreen/>}</View>;
 }
 function SalarySlipAttachmentsScreen() {
   const [rows, setRows] = useState(null);

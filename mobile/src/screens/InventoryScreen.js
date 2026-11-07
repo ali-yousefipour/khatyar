@@ -6,6 +6,7 @@ import { faNum, enNum } from '../num';
 import ModalKeyboardView from '../components/ModalKeyboardView';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import KhatyarBrandMark from '../components/KhatyarBrandMark';
 
 const TABS = [
   ['balance', 'موجودی من'],
@@ -129,7 +130,7 @@ export default function InventoryScreen() {
       {!!loadError && <View style={s.errorBox}><Text style={s.errorText}>{loadError}</Text><TouchableOpacity accessibilityRole="button" onPress={onRefresh} style={s.retry}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
 
       <ScrollView persistentScrollbar={true} style={s.body} contentContainerStyle={s.bodyContent} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        <View style={s.hero}><View style={s.heroHeading}><MaterialCommunityIcons name="package-variant-closed" color="#fff" size={25}/><Text style={s.heroTitle}>{TABS.find(([k])=>k===tab)?.[1]}</Text></View><Text style={s.heroCaption}>{tab==='balance'?'موجودی اقلام و میزان قابل انتقال شما':tab==='deliver'?'ثبت تحویل جدید با تأیید نهایی گیرنده':tab==='pending'?'تحویل‌های منتظر بررسی و تصمیم شما':'سوابق تحویل، دریافت و وضعیت تأیید اقلام'}</Text></View>
+        <View style={s.hero}><View style={s.heroHeading}><KhatyarBrandMark size={40}/><Text style={s.heroTitle}>{TABS.find(([k])=>k===tab)?.[1]}</Text></View><Text style={s.heroCaption}>{tab==='balance'?'موجودی اقلام و میزان قابل انتقال شما':tab==='deliver'?'ثبت تحویل جدید با تأیید نهایی گیرنده':tab==='pending'?'تحویل‌های منتظر بررسی و تصمیم شما':'سوابق تحویل، دریافت و وضعیت تأیید اقلام'}</Text></View>
         {tab === 'balance' && (
           <View>
             {balance.length === 0 ? <Text style={s.empty}>هنوز قلمی به شما تعلق نگرفته است.</Text> :
@@ -275,11 +276,11 @@ const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   body: { flex: 1 },
   bodyContent:{padding:14,paddingBottom:50},
-  hero:{backgroundColor:C.brand,borderRadius:18,padding:18,marginBottom:14},
+  hero:{backgroundColor:'#075b4d',borderRadius:24,padding:21,marginBottom:17,elevation:3},
   heroHeading:{flexDirection:'row-reverse',alignItems:'center',gap:9},
   heroTitle:{fontFamily:FONT.bold,color:'#fff',fontSize:17,textAlign:'right'},
   heroCaption:{fontFamily:FONT.regular,color:'#e5f4ef',fontSize:12,marginTop:8,textAlign:'right'},
-  formCard:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:18,padding:15},
+  formCard:{backgroundColor:'#fff',borderWidth:1,borderColor:'#dce9e5',borderRadius:22,padding:17,elevation:1},
   noteInput:{minHeight:86},
   notice:{flexDirection:'row-reverse',alignItems:'flex-start',gap:8,backgroundColor:'#e8f4ef',padding:12,borderRadius:12,marginTop:14},
   balHeading:{flexDirection:'row-reverse',alignItems:'center',gap:9,flex:1},
@@ -293,7 +294,7 @@ const s = StyleSheet.create({
   filterActive:{backgroundColor:C.brand,borderColor:C.brand},
   filterText:{fontFamily:FONT.bold,fontSize:12,color:C.slate},
   filterTextActive:{color:'#fff'},
-  histCard:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:15,marginBottom:9,overflow:'hidden'},
+  histCard:{backgroundColor:'#fff',borderWidth:1,borderColor:'#dce9e5',borderRadius:20,marginBottom:13,overflow:'hidden',elevation:1},
   histDetails:{borderTopWidth:1,borderColor:C.line,padding:12},
   tabbar: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 6, padding: 10, backgroundColor: C.card, borderBottomWidth: 1, borderColor: C.line },
   tabbtn: { flexGrow:1,alignItems:'center',paddingHorizontal:11,paddingVertical:11,borderRadius:12,backgroundColor:C.paper,borderWidth:1,borderColor:C.line },
