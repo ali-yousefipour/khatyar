@@ -10653,15 +10653,6 @@ function App(){
     try{sessionStorage.setItem('khatyar_admin_view_'+me.id,v);}catch(_){}
   },[navigationRestored,me?.id,me?.is_admin,v]);
   const [menuSearch,setMenuSearch]=useState("");
-  const [accountOpen,setAccountOpen]=useState(false);
-  const [passwordDialog,setPasswordDialog]=useState(false);
-  const accountRef=useRef(null);
-  useEffect(()=>{
-    if(!accountOpen)return;
-    const close=e=>{if(e.type==='keydown'&&e.key==='Escape')setAccountOpen(false);else if(e.type==='pointerdown'&&!accountRef.current?.contains(e.target))setAccountOpen(false);};
-    document.addEventListener('pointerdown',close);document.addEventListener('keydown',close);
-    return()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',close);};
-  },[accountOpen]);
   const menuQuery=normalizePanelMenuText(menuSearch);
   const menuButtonRef=useRef(null);
   const menuSearchRef=useRef(null);
@@ -10676,6 +10667,15 @@ function App(){
   const toggleSidebarCollapsed=()=>setSidebarCollapsed(prev=>{const next=!prev;try{localStorage.setItem("admin_sidebar_collapsed",next?"1":"0");}catch(e){}return next;});
   // منوهای اصلی در لود اولیه بسته باشند؛ کاربر فقط بخش موردنیاز را باز می‌کند.
   const [openSections,setOpenSections]=useState({});
+  const [accountOpen,setAccountOpen]=useState(false);
+  const [passwordDialog,setPasswordDialog]=useState(false);
+  const accountRef=useRef(null);
+  useEffect(()=>{
+    if(!accountOpen)return;
+    const close=e=>{if(e.type==='keydown'&&e.key==='Escape')setAccountOpen(false);else if(e.type==='pointerdown'&&!accountRef.current?.contains(e.target))setAccountOpen(false);};
+    document.addEventListener('pointerdown',close);document.addEventListener('keydown',close);
+    return()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',close);};
+  },[accountOpen]);
   useEffect(()=>{ db.publicSettings().then(s=>{ const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>{}); },[]);
   useEffect(()=>{ let active=true; db.restoreSession().then(u=>{if(active)setMe(u);}).catch(()=>{}).finally(()=>{if(active)setAuthReady(true);}); return()=>{active=false}; },[]);
   useEffect(()=>{ if(me&&me.is_admin&&!me.must_change_pw){setAllowed([]);db.settings().then(s=>{ const all=s.role_perms||{}; const has=Object.prototype.hasOwnProperty.call(all,String(me.role_id))||Object.prototype.hasOwnProperty.call(all,me.role_id); const rp=all[me.role_id]; setAllowed(has&&Array.isArray(rp)?rp:null); const b={title:s.site_title||s.org_title||"خطیار", logo:s.site_logo||s.org_logo||""}; setBrand(b); document.title=b.title; window.__brandLogo=b.logo; }).catch(()=>setAllowed([])); } },[me]);
