@@ -107,3 +107,35 @@ route('GET','/api/school-service/sepand-drivers',function($p,$b,$u){
   $items=Db::all("SELECT * FROM school_service_sepand_drivers WHERE $sql ORDER BY id DESC LIMIT $limit OFFSET ".(($page-1)*$limit),$args);
   return ['items'=>$items,'total'=>$total,'page'=>$page,'pages'=>max(1,(int)ceil($total/$limit))];
 });
+/** Application history is distinct from the unique driver profile and field inspections. */
+route('GET','/api/school-service/sepand-drivers/{national_code}/history',function($p,$b,$u){
+  _ssv_need($u,'view');_ssv_tables();_ssv_sepand_schema();
+  $nid=_ssv_en((string)$p['national_code']);
+  if(!preg_match('/^\d{10}$/',$nid))Http::error('کد ملی معتبر نیست.',422);
+  $driver=Db::one('SELECT id,national_code,first_name,last_name,sepand_status FROM school_service_sepand_drivers WHERE national_code=?',[$nid]);
+  if(!$driver)Http::error('پرونده راننده پیدا نشد.',404);
+  $records=Db::all("SELECT payload_json,imported_at FROM school_service_sepand_source_rows WHERE source_type='drivers' AND record_key=? ORDER BY id DESC LIMIT 200",[$nid]);
+  $history=[];foreach($records as $record){$raw=json_decode($record['payload_json'],true);if(!is_array($raw))continue;
+    $history[]=['request_id'=>(string)($raw[1]??''),'status'=>(string)($raw[14]??''),
+      'vin'=>(string)($raw[7]??''),'plate_two'=>(string)($raw[8]??''),'plate_letter'=>(string)($raw[9]??''),
+      'plate_three'=>(string)($raw[10]??''),'plate_region_code'=>(string)($raw[11]??''),
+      'company_name'=>(string)($raw[12]??''),'imported_at'=>$record['imported_at']];
+  }
+  usort($history,fn($a,$b)=>(int)$b['request_id']<=>(int)$a['request_id']);
+  return ['driver'=>$driver,'requests'=>$history,'count'=>count($history)];
+});
+/** Inspection records are event logs; vehicle metadata is never duplicated per inspection. */
+route('GET','/api/school-service/sepand-vehicles/{id}/inspections',function($p,$b,$u){
+  _ssv_need($u,'view');_ssv_tables();_ssv_sepand_schema();
+  $vehicle=Db::one('SELECT id,plate_two,plate_letter,plate_three,plate_region_code FROM school_service_vehicles WHERE id=?',[(int)$p['id']]);
+  if(!$vehicle)Http::error('پرونده خودرو یافت نشد.',404);
+  $history=Db::all("SELECT i.id,i.violation_date,i.violation_time,i.created_at,i.description,
+    s.name school_name,c.name company_name,
+    (SELECT COUNT(*) FROM school_service_inspection_violations iv WHERE iv.inspection_id=i.id) violation_count
+    FROM school_service_inspections i
+    LEFT JOIN school_service_schools s ON s.id=i.school_id
+    LEFT JOIN school_service_companies c ON c.id=i.company_id
+    WHERE i.plate_two=? AND i.plate_letter=? AND i.plate_three=? AND i.plate_region_code=?
+    ORDER BY i.id DESC LIMIT 200",[$vehicle['plate_two'],$vehicle['plate_letter'],$vehicle['plate_three'],$vehicle['plate_region_code']]);
+  return ['vehicle'=>$vehicle,'inspections'=>$history,'count'=>count($history)];
+});
