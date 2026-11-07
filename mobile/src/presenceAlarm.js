@@ -6,28 +6,36 @@ import { playSound, stopSound } from './soundFx';
 // ۲) اگر کاربر برنامه/فرآیند صحت‌سنجی را باز نکرد، صدای هشدار اختصاصی به‌صورت تکرارشونده پخش می‌شود.
 // ۳) با شروع صحت‌سنجی، stopPresenceAlarm صدا و لرزش را فوراً قطع می‌کند.
 let soundObj = null;
-let delayTimer = null;
+let deadlineTimer = null;
 let alarmActive = false;
+let generation = 0;
 
 const VIBRATE_PATTERN = [0, 700, 300, 700, 300, 1000];
-const START_DELAY_MS = 5000;
-
-async function beginLoopingAlarm() {
+async function beginLoopingAlarm(currentGeneration) {
   if (!alarmActive || soundObj) return;
   try { Vibration.vibrate(VIBRATE_PATTERN, true); } catch (e) {}
-  soundObj = await playSound('presenceAlert', { loop: true, volume: 1.0 });
+  const player = await playSound('presenceAlert', { loop: true, volume: 1.0 });
+  if (!alarmActive || generation !== currentGeneration) {
+    await stopSound(player);
+    return;
+  }
+  soundObj = player;
 }
 
-export async function startPresenceAlarm() {
+export async function startPresenceAlarm(deadlineMs) {
+  if (Number.isFinite(deadlineMs) && deadlineMs <= Date.now()) { await stopPresenceAlarm(); return; }
   if (alarmActive) return;
   alarmActive = true;
-  if (delayTimer) { clearTimeout(delayTimer); delayTimer = null; }
-  delayTimer = setTimeout(() => { beginLoopingAlarm().catch(() => {}); }, START_DELAY_MS);
+  const currentGeneration = ++generation;
+  if (deadlineTimer) clearTimeout(deadlineTimer);
+  if (Number.isFinite(deadlineMs)) deadlineTimer = setTimeout(() => { stopPresenceAlarm().catch(() => {}); }, Math.max(0,deadlineMs-Date.now()));
+  beginLoopingAlarm(currentGeneration).catch(() => {});
 }
 
 export async function stopPresenceAlarm() {
   alarmActive = false;
-  if (delayTimer) { clearTimeout(delayTimer); delayTimer = null; }
+  ++generation;
+  if (deadlineTimer) { clearTimeout(deadlineTimer); deadlineTimer = null; }
   try { Vibration.cancel(); } catch (e) {}
   if (soundObj) {
     const s = soundObj;
