@@ -235,6 +235,26 @@ body { background: radial-gradient(circle at 90% 0%, #e6f3ec 0, var(--paper) 38%
 .layout .navitem.on { background: #f6fbf7; color: #07594a; box-shadow: 0 8px 20px rgba(0,0,0,.13); }
 .layout .navitem.on .ic { background: #e6f2ea; color: #07594a; }
 .layout .navitem.on::before { background: #e8b965; }
+/* SVG navigation family: same 24px outlined visual language as Android dashboard. */
+.layout .navitem .ic { --icon-surface: #145f51; display: inline-flex; align-items: center; justify-content: center; }
+.layout .navitem .kh-nav-svg { width: 23px; height: 23px; display: block; flex: 0 0 auto; overflow: visible; transition: color .18s ease; }
+.layout .navitem.on .ic { --icon-surface: #e6f2ea; }
+.layout .navitem:hover:not(.on) .ic { color: #fff; background: rgba(255,255,255,.19); }
+.layout .navitem:hover:not(.on) { background: rgba(255,255,255,.12); }
+.layout .navitem:active { background: rgba(255,255,255,.2); }
+.layout .navsec-head:focus-visible,.layout .navitem:focus-visible { outline: 3px solid #f1c46b; outline-offset: 2px; }
+.layout .navsec-body { overflow: hidden; }
+.layout .navsec-head .navsec-count { font-variant-numeric: tabular-nums; }
+.layout .menu-search input { font-family: inherit; font-size: 13px; }
+.layout .menu-search:focus-within { border-color: #e8bc70; box-shadow: 0 0 0 3px rgba(232,188,112,.19); }
+.layout .page-content :is(.btn,button) { transition: background-color .16s ease, box-shadow .16s ease, border-color .16s ease; }
+.layout .page-content .btn:focus-visible { outline: 3px solid #e4b65c; outline-offset: 2px; }
+.layout .page-content .panel:focus-within { border-color: #97c5af; }
+.layout .page-content :is(input,select,textarea):disabled { background: #eff3f1; color: #64786d; cursor: not-allowed; }
+.layout .page-content :is(.btn,button):disabled { opacity: .58; cursor: not-allowed; }
+.layout .page-content table tbody td { vertical-align: middle; line-height: 1.75; }
+.layout .page-content table tbody tr { transition: background-color .12s ease; }
+.layout .page-content .table-wrap { scrollbar-color: #a3c8b3 transparent; }
 .layout .main { max-width: none; margin: 0; padding: 25px clamp(18px,2.8vw,44px) 80px; }
 .layout .main > .top {
   min-height: 116px;
@@ -324,4 +344,5 @@ body { background: radial-gradient(circle at 90% 0%, #e6f3ec 0, var(--paper) 38%
 }
 @media(prefers-reduced-motion:reduce){
   .layout .page-content .kpi { transition: none; }
+  .layout .navitem .kh-nav-svg,.layout .navitem,.layout .page-content :is(.btn,button),.layout .page-content table tbody tr { transition: none; }
 }
