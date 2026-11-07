@@ -1,6 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useState}from'react';
 import{Alert,ActivityIndicator,Image,Linking,ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View,Modal}from'react-native';
-import*as Location from'expo-location';import*as ImagePicker from'expo-image-picker';import*as ImageManipulator from'expo-image-manipulator';import{WebView}from'react-native-webview';
+import*as Location from'expo-location';import{launchCamera,requestCameraAccess}from'../cameraLock';import*as ImageManipulator from'expo-image-manipulator';import{WebView}from'react-native-webview';
 import{request,imageSource}from'../api';import{C,FONT}from'../theme';
 const fa=n=>String(n??'').replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
 const MAX_ACCURACY=20;
@@ -19,7 +19,7 @@ export default function StationCaptureV5Screen({route,navigation}){
  const onMapMessage=e=>{try{const x=JSON.parse(e.nativeEvent.data);if(x.type==='pending'){setPending({latitude:Number(x.latitude),longitude:Number(x.longitude)});}}catch(_) {}};
  const confirmManual=async()=>{if(!pending)return;const g={...pending,accuracy:null,method:'manual'};setGps(g);setPending(null);setManualMap(false);await loadNearest(g.latitude,g.longitude)};
  const cancelManual=()=>{setPending(null);setManualMap(false)};
- const pickPhoto=async cb=>{const p=await ImagePicker.requestCameraPermissionsAsync();if(p.status!=='granted'){Alert.alert('دوربین','اجازه دسترسی به دوربین لازم است.');return}const r=await ImagePicker.launchCameraAsync({mediaTypes:['images'],quality:.78,base64:false,exif:false,allowsEditing:false});if(r.canceled||!r.assets?.[0]?.uri)return;try{const resized=await ImageManipulator.manipulateAsync(r.assets[0].uri,[{resize:{width:1280}}],{compress:.7,format:ImageManipulator.SaveFormat.JPEG,base64:true});if(resized.base64)cb(`data:image/jpeg;base64,${resized.base64}`)}catch(e){Alert.alert('خطا','پردازش تصویر ناموفق بود.')}};
+ const pickPhoto=async cb=>{const p=await requestCameraAccess();if(p.status!=='granted'){Alert.alert('دوربین','اجازه دسترسی به دوربین لازم است.');return}const r=await launchCamera({mediaTypes:['images'],quality:.78,base64:false,exif:false,allowsEditing:false});if(r.canceled||!r.assets?.[0]?.uri)return;try{const resized=await ImageManipulator.manipulateAsync(r.assets[0].uri,[{resize:{width:1280}}],{compress:.7,format:ImageManipulator.SaveFormat.JPEG,base64:true});if(resized.base64)cb(`data:image/jpeg;base64,${resized.base64}`)}catch(e){Alert.alert('خطا','پردازش تصویر ناموفق بود.')}};
  const addSign=()=>{if(!types.length){Alert.alert('تابلو','هیچ نوع تابلوی فعالی تعریف نشده است.');return}setTypeModal(true)};
  const chooseType=t=>{setTypeModal(false);setTimeout(()=>pickPhoto(v=>setSigns(s=>[...s,{type_id:t.id,title:t.title,newPhoto:v,photo_path:''}])),150)};
  const filtered=useMemo(()=>{const q=search.trim().toLowerCase();return lines.filter(x=>!q||`${x.code||''} ${x.origin||''} ${x.destination||''}`.toLowerCase().includes(q)).slice(0,30)},[lines,search]);
