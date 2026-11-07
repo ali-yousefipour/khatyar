@@ -16,7 +16,7 @@ async function submit(){if(busy)return;if(!driver?.id)return Alert.alert('توج
 const showSmsBox=enabled(cfg.notice_sms_enabled)&&enabled(cfg.can_send_sms);
 const chosenReason=reasons.find(r=>r.id===reasonId);
 return <ScrollView persistentScrollbar={true} keyboardShouldPersistTaps="handled" style={{backgroundColor:C.paper}} contentContainerStyle={{padding:screenWidth<360?11:16,paddingBottom:56}}>
-  <View style={s.header}><View style={s.headerIcon}><MaterialCommunityIcons name="note-edit-outline" size={25} color={C.brand}/></View><View style={s.headerText}><Text style={s.heading}>ثبت تذکر تاکسیران</Text><Text style={s.subtitle}>دلیل، اولویت و توضیحات تذکر را ثبت کنید</Text></View></View>
+  <View style={s.header}><View style={s.headerIcon}><MaterialCommunityIcons name="note-edit-outline" size={25} color="#f4d99d"/></View><View style={s.headerText}><Text style={s.heading}>ثبت تذکر تاکسیران</Text><Text style={s.subtitle}>دلیل، اولویت و توضیحات تذکر را ثبت کنید</Text></View></View>
   {!!loadError&&<View style={s.errorBox}><Text style={s.errorText}>{loadError}</Text><TouchableOpacity accessibilityRole="button" style={s.retry} onPress={()=>{setLoadError('');loadConfig();request('/notice-reasons',{noStore:true}).then(rs=>{if(!Array.isArray(rs))throw new Error('فهرست دلایل معتبر نیست.');setReasons(rs);if(preset){const m=rs.find(r=>r.title===preset);if(m)setReasonId(m.id);}}).catch(e=>setLoadError(e?.message||'دریافت دلایل ناموفق بود.'));}}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
   <View style={s.card}>
     <View style={s.sectionHeading}><MaterialCommunityIcons name="format-list-bulleted" size={19} color={C.brand}/><Text style={s.sectionTitle}>دلیل تذکر</Text></View>
@@ -52,16 +52,16 @@ errorBox:{backgroundColor:'#fff1f1',borderColor:'#f3b8c0',borderWidth:1,borderRa
 errorText:{fontFamily:FONT.regular,color:'#982b3d',textAlign:'right',lineHeight:22},
 retry:{alignSelf:'flex-end',minHeight:44,justifyContent:'center',paddingHorizontal:14},
 retryText:{fontFamily:FONT.bold,color:C.brand},
-header:{flexDirection:'row-reverse',alignItems:'center',gap:11,marginBottom:13},
-headerIcon:{width:48,height:48,borderRadius:15,backgroundColor:'#e6f4ed',alignItems:'center',justifyContent:'center'},
+header:{flexDirection:'row-reverse',alignItems:'center',gap:11,marginBottom:14,backgroundColor:'#075f51',borderRadius:23,padding:18,elevation:2},
+headerIcon:{width:48,height:48,borderRadius:15,backgroundColor:'rgba(255,255,255,.13)',alignItems:'center',justifyContent:'center'},
 headerText:{flex:1,alignItems:'flex-end'},
-heading:{fontFamily:FONT.bold,fontSize:17,color:C.ink,textAlign:'right'},
-subtitle:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:4},
-card:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:18,padding:14,marginBottom:12,elevation:1},
+heading:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right'},
+subtitle:{fontFamily:FONT.regular,fontSize:12,color:'#e2f3e9',textAlign:'right',marginTop:4},
+card:{backgroundColor:'#fff',borderWidth:1,borderColor:'#d8e9e0',borderRadius:20,padding:16,marginBottom:13,elevation:1},
 sectionHeading:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:10,marginTop:5},
 sectionTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14,textAlign:'right'},
 hint:{fontFamily:FONT.regular,color:C.brand,fontSize:11.5,marginTop:8,marginBottom:6,textAlign:'right',lineHeight:20},
-dropdown:{borderColor:C.line,borderWidth:1,borderRadius:12,backgroundColor:'#f8fafb',paddingVertical:13,paddingHorizontal:12,minHeight:52,flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',gap:10},
+dropdown:{borderColor:'#d2e5d9',borderWidth:1,borderRadius:15,backgroundColor:'#f8fbf9',paddingVertical:13,paddingHorizontal:12,minHeight:52,flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',gap:10},
 dropdownLocked:{backgroundColor:'#f0f3f4'},
 dropdownText:{flex:1,fontFamily:FONT.bold,fontSize:13,color:C.ink,textAlign:'right'},
 input:{backgroundColor:'#f8fafb',borderColor:C.line,borderWidth:1,borderRadius:12,padding:13,minHeight:116,textAlign:'right',textAlignVertical:'top',fontFamily:FONT.regular,color:C.ink,marginBottom:12},
@@ -75,7 +75,7 @@ preview:{width:'100%',height:170,borderRadius:12,marginTop:10},
 smsRow:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:7,backgroundColor:'#f2f7f5',borderRadius:12,padding:10,minHeight:55},
 smsInfo:{flex:1,flexDirection:'row-reverse',alignItems:'center',gap:8},
 smsTxt:{fontFamily:FONT.bold,color:C.ink,fontSize:12,flex:1,textAlign:'right'},
-btn:{backgroundColor:C.brand,borderRadius:14,padding:15,alignItems:'center',justifyContent:'center',flexDirection:'row-reverse',gap:9,marginTop:5,minHeight:55},
+btn:{backgroundColor:'#075f51',borderRadius:16,padding:15,alignItems:'center',justifyContent:'center',flexDirection:'row-reverse',gap:9,marginTop:5,minHeight:55,elevation:2},
 btnTxt:{color:'#fff',fontFamily:FONT.bold,fontSize:15},
 modalOverlay:{flex:1,backgroundColor:'rgba(0,0,0,.46)',justifyContent:'center',padding:20},
 modalSheet:{backgroundColor:'#fff',borderRadius:20,padding:15,maxHeight:'80%'},

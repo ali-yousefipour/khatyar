@@ -133,7 +133,7 @@ export function PastNoticesScreen({ route }) {
   return <View style={{ flex: 1, backgroundColor: C.paper }}>
     <List rows={finalRows} error={error} onRetry={retry} empty="تذکری در بازه انتخاب‌شده یافت نشد"
       header={<>
-        <View style={pn.header}><View style={pn.headerIcon}><MaterialCommunityIcons name="clipboard-text-clock-outline" size={25} color={C.brand}/></View><View style={pn.headerText}><Text style={pn.heading}>سوابق تذکرات راننده</Text><Text style={pn.subheading}>مرور تذکرات ثبت‌شده و پیوست‌ها</Text></View></View>
+        <View style={pn.header}><View style={pn.headerIcon}><MaterialCommunityIcons name="clipboard-text-clock-outline" size={25} color="#f4d99d"/></View><View style={pn.headerText}><Text style={pn.heading}>سوابق تذکرات راننده</Text><Text style={pn.subheading}>مرور تذکرات ثبت‌شده و پیوست‌ها</Text></View></View>
         <View style={pn.stats}>
           <View style={pn.stat}><MaterialCommunityIcons name="calendar-month-outline" size={22} color={C.brand}/><Text style={pn.statNumber}>{faNum(cm)}</Text><Text style={pn.statLabel}>تذکر این ماه</Text></View>
           <View style={pn.stat}><MaterialCommunityIcons name="calendar-range-outline" size={22} color={C.brand}/><Text style={pn.statNumber}>{faNum(cy)}</Text><Text style={pn.statLabel}>تذکر امسال</Text></View>
@@ -163,16 +163,16 @@ export function PastNoticesScreen({ route }) {
   </View>;
 }
 const pn = StyleSheet.create({
- header:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:13},
- headerIcon:{width:48,height:48,borderRadius:15,backgroundColor:'#e7f4ed',alignItems:'center',justifyContent:'center'},
+ header:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:14,backgroundColor:'#075f51',borderRadius:22,padding:17,elevation:2},
+ headerIcon:{width:48,height:48,borderRadius:15,backgroundColor:'rgba(255,255,255,.14)',alignItems:'center',justifyContent:'center'},
  headerText:{flex:1,alignItems:'flex-end'},
- heading:{fontFamily:FONT.bold,fontSize:17,color:C.ink,textAlign:'right'},
- subheading:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:4},
+ heading:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right'},
+ subheading:{fontFamily:FONT.regular,fontSize:12,color:'#e2f3e9',textAlign:'right',marginTop:4},
  stats:{flexDirection:'row-reverse',gap:10,marginBottom:12},
  stat:{flex:1,minWidth:0,backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:17,padding:13,alignItems:'center',gap:5},
  statNumber:{fontFamily:FONT.bold,fontSize:25,color:C.brand},
  statLabel:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'center'},
- filters:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:16,padding:12,marginBottom:13},
+ filters:{backgroundColor:'#fff',borderWidth:1,borderColor:'#d8e9e0',borderRadius:19,padding:15,marginBottom:14},
  sectionHead:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:10},
  sectionTitle:{fontFamily:FONT.bold,fontSize:14,color:C.ink,textAlign:'right'},
  chips:{flexDirection:'row-reverse',flexWrap:'wrap',gap:7,marginBottom:4},
@@ -182,7 +182,7 @@ const pn = StyleSheet.create({
  chipTextOn:{color:'#fff'},
  listTitle:{flexDirection:'row-reverse',alignItems:'center',gap:8,marginBottom:10},
  total:{fontFamily:FONT.bold,fontSize:12,color:C.brand,marginRight:'auto',backgroundColor:'#e7f4ed',borderRadius:9,paddingHorizontal:9,paddingVertical:5},
- card:{backgroundColor:'#fff',borderColor:C.line,borderWidth:1,borderRadius:18,padding:14,marginBottom:11,elevation:1},
+ card:{backgroundColor:'#fff',borderColor:'#d8e9e0',borderWidth:1,borderRadius:19,padding:15,marginBottom:11,elevation:1},
  cardHead:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:9},
  reasonWrap:{flexDirection:'row-reverse',alignItems:'center',gap:8,flex:1,minWidth:145},
  reasonIcon:{width:35,height:35,borderRadius:11,backgroundColor:'#e8f4ee',alignItems:'center',justifyContent:'center'},
@@ -333,7 +333,7 @@ export function PastChecklistsScreen({ route }) {
   return <View style={{ flex: 1, backgroundColor: C.paper }}>
     <List rows={ordered} error={error} onRetry={retry} empty="چک‌لیستی در بازه انتخاب‌شده ثبت نشده است"
       header={<>
-        <View style={pc.heading}><View style={pc.headingIcon}><MaterialCommunityIcons name="clipboard-check-multiple-outline" size={25} color={C.brand}/></View><View style={pc.headingCopy}><Text style={pc.headingTitle}>سوابق چک‌لیست خودرو</Text><Text style={pc.headingSub}>برای مشاهده جزئیات، چک‌لیست را انتخاب کنید</Text></View></View>
+        <View style={pc.heading}><View style={pc.headingIcon}><MaterialCommunityIcons name="clipboard-check-multiple-outline" size={25} color="#f4d99d"/></View><View style={pc.headingCopy}><Text style={pc.headingTitle}>سوابق چک‌لیست خودرو</Text><Text style={pc.headingSub}>برای مشاهده جزئیات، چک‌لیست را انتخاب کنید</Text></View></View>
         <Counts month={cm} year={cy} labelMonth="چک‌لیست این ماه" labelYear="چک‌لیست امسال"/>
         <View style={pc.filterBox}><View style={pc.filterTitle}><MaterialCommunityIcons name="calendar-filter-outline" size={18} color={C.brand}/><Text style={pc.filterText}>فیلتر بازه زمانی</Text></View><DateFilterBar from={from} to={to} setFrom={setFrom} setTo={setTo}/></View>
         <View style={pc.listHead}><MaterialCommunityIcons name="history" size={20} color={C.brand}/><Text style={pc.filterText}>چک‌لیست‌های ثبت‌شده</Text><Text style={pc.count}>{faNum(ordered?.length || 0)} مورد</Text></View>
@@ -364,17 +364,17 @@ export function PastChecklistsScreen({ route }) {
   </View>;
 }
 const pc = StyleSheet.create({
- heading:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:14},
- headingIcon:{width:47,height:47,borderRadius:14,backgroundColor:'#e8f5ef',alignItems:'center',justifyContent:'center'},
+ heading:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:14,backgroundColor:'#075f51',borderRadius:22,padding:17,elevation:2},
+ headingIcon:{width:47,height:47,borderRadius:14,backgroundColor:'rgba(255,255,255,.14)',alignItems:'center',justifyContent:'center'},
  headingCopy:{flex:1,alignItems:'flex-end'},
- headingTitle:{fontFamily:FONT.bold,fontSize:17,color:C.ink,textAlign:'right'},
- headingSub:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:4},
+ headingTitle:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right'},
+ headingSub:{fontFamily:FONT.regular,fontSize:12,color:'#e2f3e9',textAlign:'right',marginTop:4},
  filterBox:{backgroundColor:'#fff',borderRadius:15,borderWidth:1,borderColor:C.line,padding:12,marginTop:4,marginBottom:14},
  filterTitle:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:9},
  filterText:{fontFamily:FONT.bold,fontSize:13,color:C.ink,textAlign:'right'},
  listHead:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:10},
  count:{marginRight:'auto',backgroundColor:'#e8f5ef',color:C.brand,fontFamily:FONT.bold,fontSize:12,borderRadius:10,paddingHorizontal:9,paddingVertical:5},
- card:{backgroundColor:'#fff',borderRadius:17,borderWidth:1,borderColor:C.line,marginBottom:10,overflow:'hidden',elevation:1},
+ card:{backgroundColor:'#fff',borderRadius:19,borderWidth:1,borderColor:'#d8e9e0',marginBottom:11,overflow:'hidden',elevation:1},
  summary:{flexDirection:'row-reverse',alignItems:'center',padding:13,gap:10,minHeight:88},
  summaryIcon:{width:45,height:45,borderRadius:13,backgroundColor:'#e8f5ef',alignItems:'center',justifyContent:'center'},
  summaryCopy:{flex:1,alignItems:'flex-end',minWidth:0},

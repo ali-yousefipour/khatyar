@@ -104,9 +104,9 @@ export default function FieldAlertsScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  pageHeading:{backgroundColor:'#e9f6f0',borderRadius:18,marginHorizontal:16,marginTop:16,padding:15,flexDirection:'row-reverse',alignItems:'center',gap:12},
-  headerIcon:{width:48,height:48,borderRadius:15,backgroundColor:'#fff',alignItems:'center',justifyContent:'center'},
-  headingTitle:{fontFamily:FONT.bold,fontSize:17,color:C.brand,textAlign:'right'},headingCaption:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:3},
+  pageHeading:{backgroundColor:'#075b4d',borderRadius:24,marginHorizontal:16,marginTop:16,padding:19,flexDirection:'row-reverse',alignItems:'center',gap:12,elevation:3},
+  headerIcon:{width:52,height:52,borderRadius:16,backgroundColor:'rgba(255,255,255,0.14)',alignItems:'center',justifyContent:'center'},
+  headingTitle:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right'},headingCaption:{fontFamily:FONT.regular,fontSize:12,color:'#def5ed',textAlign:'right',marginTop:5},
   titleRow:{flex:1,flexDirection:'row-reverse',alignItems:'center',gap:8},
   errorBox: { padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#f3b8c0', backgroundColor: '#fff1f1', margin: 12 },
   errorText: { fontFamily: FONT.regular, color: '#982b3d', textAlign: 'right', lineHeight: 22 },
@@ -122,9 +122,9 @@ const s = StyleSheet.create({
   typeLabel: { fontFamily: FONT.bold, color: C.taxiInk, backgroundColor: C.taxi, alignSelf: 'flex-start', borderRadius: 6, paddingVertical: 2, paddingHorizontal: 8, fontSize: 11, marginBottom: 6 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 40 },
-  readAll: { backgroundColor: '#fff',borderWidth:1,borderColor:C.line,borderRadius:12,minHeight:48,marginHorizontal:16,marginTop:12,padding: 10,alignItems:'center',justifyContent:'center' },
+  readAll: { backgroundColor: '#fff',borderWidth:1,borderColor:'#c9ded5',borderRadius:15,minHeight:48,marginHorizontal:16,marginTop:12,padding: 10,alignItems:'center',justifyContent:'center' },
   readAllTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 12 },
-  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 18, padding: 16, marginBottom: 10 },
+  card: { backgroundColor: '#fff', borderColor: '#dce9e5', borderWidth: 1, borderRadius: 21, padding: 17, marginBottom: 13,elevation:2 },
   unread: { borderRightWidth: 4, borderRightColor: C.danger },
   title: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right',flexShrink:1,fontSize:14 },
   body: { fontFamily: FONT.regular, color: C.ink, textAlign: 'right', marginTop: 4, fontSize: 13 },
