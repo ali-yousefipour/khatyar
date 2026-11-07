@@ -3,6 +3,7 @@ import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, Touchable
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import { launchCamera, requestCameraAccess } from '../cameraLock';
 import { getAppConfig } from '../appconfig';
 import { compressToFile } from '../img';
 import { C, FONT } from '../theme';
@@ -101,20 +102,8 @@ const lookupVehicle=React.useCallback(async()=>{
   setVehicleLookup(null);setVehicleLookupBusy(true);
   try{
     const query='plate_two='+encodeURIComponent(plateTwo)+'&plate_letter='+encodeURIComponent(letter)+'&plate_three='+encodeURIComponent(plateThree)+'&plate_region_code='+encodeURIComponent(region);
-    let r;
-    try{
-      r=await request('/school-service/vehicle-lookup?'+query,{noStore:true,timeoutMs:15000});
-    }catch(primaryError){
-      // برای سرورهایی که هنوز endpoint جدید را deploy نکرده‌اند، از endpoint قدیمی
-      // سوابق بازرسی استفاده می‌کنیم تا دکمه «استعلام» هرگز با 404 متوقف نشود.
-      if(!/مسیر یافت نشد|404|not found/i.test(String(primaryError?.message||''))) throw primaryError;
-      const historyResponse=await request('/school-service/inspections?limit=1000&mine=0&plate_two='+encodeURIComponent(plateTwo)+'&plate_letter='+encodeURIComponent(letter)+'&plate_three='+encodeURIComponent(plateThree)+'&plate_region_code='+encodeURIComponent(region),{noStore:true,timeoutMs:20000});
-      const rows=Array.isArray(historyResponse?.items)?historyResponse.items:[];
-      const normalized=rows.filter(x=>en(x?.plate_two).replace(/\D/g,'')===plateTwo&&en(x?.plate_three).replace(/\D/g,'')===plateThree&&en(x?.plate_region_code).replace(/\D/g,'')===region&&String(x?.plate_letter||'').trim()===letter);
-      const history=normalized.slice(0,20);
-      const last=history[0]||null;
-      r=last?{found:true,vehicle:{plate_two:plateTwo,plate_letter:letter,plate_three:plateThree,plate_region_code:region,vehicle_type:last.vehicle_type,vehicle_color:last.vehicle_color,passenger_front_count:last.passenger_front_count,passenger_rear_count:last.passenger_rear_count,driver_gender:last.driver_gender,certificate_status:last.certificate_status},last,history}:{found:false,vehicle:null,history:[]};
-    }
+    const r=await request('/school-service/vehicle-lookup?'+query,{noStore:true,timeoutMs:15000});
+    if(!r||!Object.prototype.hasOwnProperty.call(r,'unauthorized'))throw new Error('پاسخ کامل استعلام و وضعیت غیرمجاز بودن خودرو از سرور دریافت نشد. لطفاً نسخه سرور را به‌روز کنید.');
     setVehicleLookup(r);
     if(r?.unauthorized){
       const company=String(r.unauthorized.reporting_company_name||'شرکت اعلام‌کننده نامشخص');
@@ -143,7 +132,7 @@ const onSchoolMapMessage=React.useCallback(e=>{try{const d=JSON.parse(e.nativeEv
 const getSchoolLocationFromDevice=async()=>{setLocating(true);try{const p=await Location.requestForegroundPermissionsAsync();if(p.status!=='granted'){Alert.alert('مجوز موقعیت','دسترسی موقعیت مکانی فعال نیست.');return}const pos=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.High});const lat=Number(pos.coords.latitude),lng=Number(pos.coords.longitude);setSchoolLocation({latitude:lat,longitude:lng});setSchoolLocationDirty(true);setUseSchoolLocation(false);}catch(e){Alert.alert('خطای موقعیت',e.message||'دریافت موقعیت ممکن نشد.')}finally{setLocating(false)}};
 const saveSchoolLocation=async()=>{if(!selectedSchool)return;const lat=Number(schoolLocation.latitude),lng=Number(schoolLocation.longitude);if(!Number.isFinite(lat)||!Number.isFinite(lng)){Alert.alert('موقعیت مدرسه','ابتدا نقطه مدرسه را روی نقشه مشخص کنید.');return}try{await request('/school-service/schools/'+selectedSchool.id+'/location',{method:'POST',body:{latitude:lat,longitude:lng}});setSchools(prev=>prev.map(x=>Number(x.id)===Number(selectedSchool.id)?{...x,latitude:lat,longitude:lng}:x));setF(v=>({...v,latitude:lat,longitude:lng,location:selectedSchool.address||'مکان مدرسه'}));setSchoolLocationDirty(false);setUseSchoolLocation(false);Alert.alert('ثبت شد','موقعیت مدرسه ذخیره شد و برای بازدیدهای بعدی قابل استفاده است.');}catch(e){Alert.alert('خطا','ذخیره موقعیت مدرسه ناموفق بود: '+(e.message||'خطای سرور'))}};
 
-const takeVehiclePhoto=async()=>{if(photo||photoBusy)return;setPhotoBusy(true);try{const p=await ImagePicker.requestCameraPermissionsAsync();if(!p.granted){Alert.alert('مجوز دوربین','برای ثبت تصویر خودروی بازدیدشده، دسترسی دوربین را فعال کنید.');return}const r=await ImagePicker.launchCameraAsync({mediaTypes:['images'],cameraType:ImagePicker.CameraType.back,allowsEditing:false,quality:Math.max(.1,Math.min(1,(Number(photoSettings.image_quality)||45)/100))});if(r.canceled||!r.assets?.[0])return;const a=r.assets[0];const uri=await compressToFile(a.uri);setPhoto({uri:uri||a.uri,name:'vehicle_'+Date.now()+'.jpg',type:'image/jpeg',width:a.width,height:a.height})}catch(e){Alert.alert('خطای دوربین',e.message||'ثبت تصویر ممکن نشد.')}finally{setPhotoBusy(false)}};
+const takeVehiclePhoto=async()=>{if(photo||photoBusy)return;setPhotoBusy(true);try{const p=await requestCameraAccess();if(!p.granted){Alert.alert('مجوز دوربین','برای ثبت تصویر خودروی بازدیدشده، دسترسی دوربین را فعال کنید.');return}const r=await launchCamera({mediaTypes:['images'],cameraType:ImagePicker.CameraType.back,allowsEditing:false,quality:Math.max(.1,Math.min(1,(Number(photoSettings.image_quality)||45)/100))});if(r.canceled||!r.assets?.[0])return;const a=r.assets[0];const uri=await compressToFile(a.uri);setPhoto({uri:uri||a.uri,name:'vehicle_'+Date.now()+'.jpg',type:'image/jpeg',width:a.width,height:a.height})}catch(e){Alert.alert('خطای دوربین',e.message||'ثبت تصویر ممکن نشد.')}finally{setPhotoBusy(false)}};
 const pickVehiclePhoto=async()=>{if(photo||photoBusy)return;setPhotoBusy(true);try{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:false,quality:Math.max(.1,Math.min(1,(Number(photoSettings.image_quality)||45)/100))});if(r.canceled||!r.assets?.[0])return;const a=r.assets[0];const uri=await compressToFile(a.uri);setPhoto({uri:uri||a.uri,name:'vehicle_'+Date.now()+'.jpg',type:a.mimeType||'image/jpeg',width:a.width,height:a.height})}catch(e){Alert.alert('خطای گالری',e.message||'انتخاب تصویر ممکن نشد.')}finally{setPhotoBusy(false)}};
 const removeVehiclePhoto=()=>setPhoto(null);
 const getLocation=async()=>{setLocating(true);try{const p=await Location.requestForegroundPermissionsAsync();if(p.status!=='granted'){Alert.alert('مجوز موقعیت','برای ثبت مختصات، دسترسی موقعیت مکانی را فعال کنید.');return}const pos=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.High});const lat=Number(pos.coords.latitude),lng=Number(pos.coords.longitude);setF(x=>({...x,latitude:lat,longitude:lng,location:x.location||'موقعیت ثبت‌شده با GPS'}));}catch(e){Alert.alert('خطای موقعیت',e.message||'دریافت موقعیت ممکن نشد.')}finally{setLocating(false)}};
@@ -260,6 +249,8 @@ return <ScrollView style={s.page} contentContainerStyle={s.content} keyboardShou
 <Text style={s.section}>پلاک خودرو <Text style={{color:'#d92d20'}}> *</Text></Text>
 <IranianPlateInput value={f} onChange={set} onEdit={()=>setVehicleLookup(null)}/>
 <TouchableOpacity onPress={lookupVehicle} disabled={vehicleLookupBusy} style={s.vehicleInquiryBtn}><Text style={s.vehicleInquiryText}>{vehicleLookupBusy?'در حال استعلام…':'استعلام خودرو'}</Text></TouchableOpacity>
+{vehicleLookup?.unauthorized&&<View accessibilityRole="alert" style={[s.vehicleHistoryCard,{backgroundColor:'#fff1f0',borderColor:'#e77b74'}]}><Text style={[s.vehicleHistoryTitle,{color:'#a32620'}]}>خودرو توسط اداره غیرمجاز ثبت شده است</Text><InquiryDetail label="شرکت اعلام‌کننده" value={vehicleLookup.unauthorized.reporting_company_name}/></View>}
+{vehicleLookup?.found&&<View style={s.vehicleHistoryCard}><Text style={s.vehicleHistoryTitle}>اطلاعات سپند و راننده</Text><InquiryDetail label="وضعیت درخواست سپند" value={vehicleLookup.driver?.sepand_status}/><InquiryDetail label="نام راننده" value={[vehicleLookup.driver?.first_name,vehicleLookup.driver?.last_name].filter(Boolean).join(' ')}/><InquiryDetail label="کد ملی راننده" value={vehicleLookup.driver?.national_code||vehicleLookup.vehicle?.sepand_driver_national_code}/><InquiryDetail label="نوع خودرو" value={vehicleLookup.vehicle?.vehicle_type}/></View>}
 {vehicleLookup?.found&&<View style={s.vehicleHistoryCard}><Text style={s.vehicleHistoryTitle}>سوابق این خودرو</Text><Text style={s.vehicleHistoryHint}>اطلاعات خودرو از آخرین ثبت فراخوانی شد و قابل ویرایش است.</Text>{(vehicleLookup.history||[]).slice(0,5).map(h=><View key={h.id} style={s.vehicleHistoryItem}><Text style={s.vehicleHistoryDate}>{h.violation_date||'بدون تاریخ'} {h.violation_time||''}</Text><Text style={s.vehicleHistoryText}>{h.school_name||'مدرسه نامشخص'} • {h.company_name||'شرکت نامشخص'}</Text><Text style={s.vehicleHistoryText}>تخلف: {(h.violations||[]).join('، ')||''}</Text></View>)}</View>}
 <Select required label="نوع خودرو" value={f.vehicle_type} items={Array.from(new Set(['سایر',...(meta?.vehicle_types||[])].filter(Boolean)))} onChange={v=>{set('vehicle_type',v);if(v!=='سایر')setCustomVehicleType('')}}/>{f.vehicle_type==='سایر'&&<TextInput value={customVehicleType} onChangeText={setCustomVehicleType} placeholder="نام نوع خودرو را وارد کنید *" placeholderTextColor={C.muted} style={s.input}/>}<Select required label="رنگ خودرو" value={f.vehicle_color} items={Array.from(new Set(['سایر',...(meta?.vehicle_colors||[])].filter(Boolean)))} onChange={v=>{set('vehicle_color',v);if(v!=='سایر')setCustomVehicleColor('')}}/>{f.vehicle_color==='سایر'&&<TextInput value={customVehicleColor} onChangeText={setCustomVehicleColor} placeholder="نام رنگ خودرو را وارد کنید *" placeholderTextColor={C.muted} style={s.input}/>}
 </View>}
