@@ -15634,6 +15634,13 @@ route('POST','/api/inventory/reject/{id}',function($p,$b,$u){
 /* ================= سرویس مدارس ================= */
 function _ssv_tables(){
   static $done=false; if($done) return; $done=true;
+  // Schema setup belongs to deployment, not every school-service page request.
+  // On shared hosting we cannot assume APCu is enabled: a short-lived marker
+  // scoped to this exact routes.php build prevents dozens of CREATE/ALTER/DELETE
+  // statements from running on each HTTP request. The marker is only created
+  // after the required schema has been checked below.
+  $schemaMarker=rtrim(sys_get_temp_dir(),'/').'/khatyar-ssv-schema-'.substr(hash('sha256',__FILE__.'|'.@filemtime(__FILE__).'|'.@filesize(__FILE__)),0,20).'.ready';
+  if(is_file($schemaMarker) && (time()-(int)@filemtime($schemaMarker))<600) return;
   $sql=[
     "CREATE TABLE IF NOT EXISTS school_service_companies (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -15869,6 +15876,23 @@ function _ssv_tables(){
         [(int)$r['id'],$default,$default,$default,$default,((int)$r['level']<=3)?1:0,$default]);
     }
   }catch(Throwable $e){}
+  // Never cache an incomplete migration: an absent table/column should cause
+  // the compatibility installer to retry on the next request.
+  try{
+    $required=[
+      ['school_service_companies','profile_complete'],
+      ['school_service_schools','location_registered_at'],
+      ['school_service_inspections','client_uuid'],
+      ['school_service_school_companies','is_primary'],
+      ['school_service_permissions','can_view'],
+    ];
+    $ready=true;
+    foreach($required as $pair){
+      $row=Db::one('SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=?',$pair);
+      if((int)($row['n']??0)!==1){$ready=false;break;}
+    }
+    if($ready) @touch($schemaMarker);
+  }catch(Throwable $e){/* Retry schema setup next request. */}
 }
 function _ssv_autoseed_schools(){
   static $attempted=false; if($attempted) return; $attempted=true;

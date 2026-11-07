@@ -20,6 +20,8 @@ jobs:
           set -euo pipefail
           DIAG_TOKEN="$(openssl rand -hex 32)"
           DIAG_FILE=".api-diagnose-$(openssl rand -hex 14).php"
+          echo "::add-mask::${DIAG_TOKEN}"
+          echo "::add-mask::${DIAG_FILE}"
           echo "DIAG_TOKEN=${DIAG_TOKEN}" >> "$GITHUB_ENV"
           echo "DIAG_FILE=${DIAG_FILE}" >> "$GITHUB_ENV"
           cat > "$RUNNER_TEMP/diagnose.php" <<'PHP'
@@ -46,7 +48,7 @@ jobs:
               $start = microtime(true);
               $db = Db::pdo();
               $out['checks']['connect_ms'] = round((microtime(true)-$start)*1000);
-              foreach (['SELECT 1' => 'ping', 'SELECT 1 FROM users LIMIT 1' => 'users', 'SELECT 1 FROM roles LIMIT 1'=>'roles', 'SELECT 1 FROM school_service_permissions LIMIT 1'=>'school_permissions', 'SELECT 1 FROM school_service_vehicles LIMIT 1'=>'school_vehicles', 'SELECT 1 FROM school_service_schools LIMIT 1'=>'school_schools', 'SHOW COLUMNS FROM users LIKE \'photo_path\''=>'photo_column'] as $query => $name) {
+              foreach (['SELECT 1' => 'ping', 'SELECT 1 FROM users LIMIT 1' => 'users', 'SELECT 1 FROM roles LIMIT 1'=>'roles', 'SELECT 1 FROM user_sessions LIMIT 1'=>'sessions', 'SELECT device_id,revoked_at FROM user_sessions LIMIT 1'=>'session_auth_columns', 'SELECT u.*,r.title AS role_title,r.level,r.is_admin FROM users u JOIN roles r ON r.id=u.role_id LIMIT 1'=>'authenticated_user_join', 'SELECT value FROM app_settings WHERE `key`=\'maintenance_mode\' LIMIT 1'=>'maintenance_setting', 'SELECT 1 FROM school_service_permissions LIMIT 1'=>'school_permissions', 'SELECT 1 FROM school_service_vehicles LIMIT 1'=>'school_vehicles', 'SELECT 1 FROM school_service_schools LIMIT 1'=>'school_schools', 'SHOW COLUMNS FROM users LIKE \'photo_path\''=>'photo_column'] as $query => $name) {
                   $start = microtime(true);
                   try {
                       $db->query($query)->fetch();
