@@ -8553,6 +8553,10 @@ function PresenceChecks(){
     return()=>document.removeEventListener('keydown',onKey);
   },[pick,full]);
   const recordedAt=r=>r?.captured_fa|| (r?.captured_at?fj(r.captured_at):"—");
+  const presenceSlot=r=>{
+    const value=norm(r?.slot||"");
+    return !value||/^0{1,2}:00(?::00)?$/.test(value)?"بازه ثبت نشده":value;
+  };
   const refreshImages=async()=>{
     if(!pick?.id||imageRenewalRef.current)return;
     imageRenewalRef.current=true;setRenewingImages(true);
@@ -8607,12 +8611,28 @@ function PresenceChecks(){
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"صحت‌سنجی حضور");wb.Workbook={Views:[{RTL:true}]};
     XLSX.writeFile(wb,"خطیار_صحت‌سنجی_"+from+"_"+to+".xlsx");
   }catch(e){alert("خطا در ایجاد فایل اکسل: "+(e.message||e));}};
-  return(<div className="panel admin-workspace-page"><div id="khatyar-presence-extension"/><div hidden={immediateOpen}><h3 style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-      <span>📸 صحت‌سنجی حضور نیروها</span></h3>
-    <div className="filters">
-      <span className="label">از</span><JDate value={from} onChange={setFrom}/>
-      <span className="label">تا</span><JDate value={to} onChange={setTo}/>
-      <div style={{position:"relative",minWidth:230,maxWidth:340,flex:"1 1 230px"}}>
+  return(<div className="panel admin-workspace-page presence-workspace"><style>{`
+    .presence-workspace .presence-filters{background:var(--card,#fff);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 8px 28px rgba(10,43,35,.06);margin:14px 0}
+    .presence-workspace .presence-filter-grid{display:grid;grid-template-columns:repeat(2,minmax(155px,1fr)) minmax(250px,1.6fr) repeat(2,minmax(135px,.85fr));gap:12px;align-items:start}
+    .presence-workspace .presence-field{display:flex;flex-direction:column;gap:7px;min-width:0;position:relative}
+    .presence-workspace .presence-field .label{font-weight:750;font-size:12px;color:var(--muted)}
+    .presence-workspace .presence-field .input{width:100%;min-height:43px}
+    .presence-workspace .presence-field>div:not([role]){max-width:100%}
+    .presence-workspace .presence-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px;align-items:center}
+    .presence-workspace .presence-actions .btn{min-height:42px;border-radius:11px}
+    .presence-workspace .presence-results{overflow-x:auto;border:1px solid var(--line);border-radius:15px;margin-top:14px}
+    .presence-workspace .presence-results table{width:100%;min-width:680px;margin:0}
+    .presence-workspace .presence-results th{background:var(--brand-soft,#e8f5ef);white-space:nowrap}
+    .presence-workspace .presence-results td{vertical-align:middle}
+    .presence-workspace .presence-results tbody tr:hover{background:var(--brand-soft,#f1f8f4)}
+    @media(max-width:1050px){.presence-workspace .presence-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.presence-workspace .presence-person-field{grid-column:span 2}}
+    @media(max-width:540px){.presence-workspace .presence-filters{padding:12px}.presence-workspace .presence-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.presence-workspace .presence-person-field{grid-column:span 2}.presence-workspace .presence-actions .btn{flex:1 1 auto}}
+  `}</style><div id="khatyar-presence-extension"/><div hidden={immediateOpen}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12,marginBottom:6}}><div><h3 style={{margin:0}}>صحت‌سنجی حضور نیروها</h3><p className="muted" style={{margin:"6px 0 0",fontSize:12}}>مشاهده تصاویر، زمان ثبت و سوابق صحت‌سنجی پرسنل</p></div><span className="badge" style={{background:"var(--brand-soft,#e8f5ef)",color:"var(--brand,#087b59)"}}>نتایج: {fa(visibleRows.length)}</span></div>
+    <div className="presence-filters"><div className="row" style={{justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}><b>فیلتر و جستجوی پیشرفته</b><small className="muted">برای محدودکردن نتایج، نام، تاریخ یا ساعت را مشخص کنید.</small></div><div className="presence-filter-grid">
+      <div className="presence-field"><label className="label">از تاریخ</label><JDate portal value={from} onChange={setFrom}/></div>
+      <div className="presence-field"><label className="label">تا تاریخ</label><JDate portal value={to} onChange={setTo}/></div>
+      <div className="presence-field presence-person-field">
         <label className="label" htmlFor="presence-person-search">انتخاب پرسنل</label>
         <input id="presence-person-search" className="input" role="combobox" aria-autocomplete="list" aria-expanded={personOpen} aria-controls="presence-person-options" aria-activedescendant={personOpen&&matchingPersonnel[personActive]?`presence-person-${matchingPersonnel[personActive].id}`:undefined} autoComplete="off" placeholder="نام، نام خانوادگی یا کد پرسنلی" value={person} onFocus={()=>{setPersonOpen(true);setPersonActive(-1);}} onBlur={e=>{if(!e.currentTarget.parentElement.contains(e.relatedTarget))setPersonOpen(false);}} onChange={e=>{setPerson(e.target.value);setPersonId("");setPersonActive(-1);setPersonOpen(true);}} onKeyDown={e=>{if(e.key==="Escape"){setPersonOpen(false);return;}if(e.key==="ArrowDown"){e.preventDefault();setPersonOpen(true);setPersonActive(i=>Math.min(matchingPersonnel.length-1,i+1));}if(e.key==="ArrowUp"){e.preventDefault();setPersonActive(i=>Math.max(0,i-1));}if(e.key==="Enter"&&personOpen&&matchingPersonnel.length){e.preventDefault();choosePerson(matchingPersonnel[Math.max(0,personActive)]);}}}/>
         {personOpen&&<div id="presence-person-options" role="listbox" aria-label="فهرست پرسنل" style={{position:"absolute",top:"100%",insetInline:0,zIndex:100510,maxHeight:290,overflowY:"auto",background:"var(--card,#fff)",border:"1px solid var(--line)",borderRadius:10,boxShadow:"0 10px 28px rgba(0,0,0,.16)",padding:4}}>
@@ -8620,32 +8640,33 @@ function PresenceChecks(){
         </div>}
         <small className="muted">{personnelLoading?"در حال بارگذاری…":`${matchingPersonnel.length.toLocaleString("fa-IR")} نفر از ${personnel.length.toLocaleString("fa-IR")} پرسنل`}</small>
       </div>
-      <label className="label">از ساعت <input className="input" type="time" value={timeFrom} onChange={e=>setTimeFrom(e.target.value)}/></label>
-      <label className="label">تا ساعت <input className="input" type="time" value={timeTo} onChange={e=>setTimeTo(e.target.value)}/></label>
-      <button className="btn p" onClick={load}>اعمال فیلتر تاریخ</button>
-      <button className="btn g" onClick={()=>{setPerson("");setPersonId("");setPersonOpen(false);setTimeFrom("");setTimeTo("");}}>پاک‌کردن فیلترها</button>
-      {tab==="sent"&&visibleRows.length>0&&<button className="btn g" onClick={exportExcel}>⤓ خروجی اکسل (.xlsx)</button>}
-    </div>
+      <label className="presence-field"><span className="label">از ساعت</span><input className="input" type="time" value={timeFrom} onChange={e=>setTimeFrom(e.target.value)}/></label>
+      <label className="presence-field"><span className="label">تا ساعت</span><input className="input" type="time" value={timeTo} onChange={e=>setTimeTo(e.target.value)}/></label>
+    </div><div className="presence-actions">
+      <button className="btn p" disabled={loading} onClick={load}>{loading?"در حال دریافت…":"اعمال بازه تاریخی"}</button>
+      <button className="btn g" onClick={()=>{setPerson("");setPersonId("");setPersonOpen(false);setTimeFrom("");setTimeTo("");}}>پاک‌کردن جستجو و ساعت</button>
+      {tab==="sent"&&visibleRows.length>0&&<button className="btn g" onClick={exportExcel}>دریافت گزارش اکسل</button>}
+    </div></div>
     <div className="tabbar" style={{marginTop:6}}>
       <button className={"tabbtn"+(tab==="sent"?" on":"")} onClick={()=>setTab("sent")}>ارسال‌شده ({fa(visibleRows.length)})</button>
       <button className={"tabbtn"+(tab==="miss"?" on":"")} onClick={()=>setTab("miss")}>تخلف عدم ارسال ({fa(visibleViol.length)})</button>
     </div>
     {loading?<p className="muted">در حال بارگذاری…</p>: tab==="sent"?(
-      visibleRows.length?<table><thead><tr><th>نیرو</th><th>سمت</th><th>بازه</th><th>موقعیت</th><th>زمان ثبت (تهران)</th><th>تصاویر</th></tr></thead>
+      visibleRows.length?<div className="presence-results"><table><thead><tr><th>نیرو</th><th>سمت</th><th>بازه</th><th>موقعیت</th><th>زمان ثبت (تهران)</th><th>تصاویر</th></tr></thead>
       <tbody>{visibleRows.map(r=><tr key={r.id}>
         <td><b>{r.name}</b></td><td>{r.role||"—"}</td><td>{r.slot}</td>
-        <td>{r.lat?<a href={`https://maps.google.com/?q=${r.lat},${r.lng}`} target="_blank">نقشه</a>:"—"}</td>
+        <td>{r.lat?<a href={`https://maps.google.com/?q=${r.lat},${r.lng}`} target="_blank" rel="noopener noreferrer">نقشه</a>:"—"}</td>
         <td>{recordedAt(r)}</td>
         <td><button className="btn g" onClick={()=>openImg(r.id)}>مشاهده عکس‌ها</button></td>
-      </tr>)}</tbody></table>:<p className="muted">ارسالی در این بازه نیست.</p>
+      </tr>)}</tbody></table></div>:<p className="muted" style={{padding:22,textAlign:"center"}}>ارسالی مطابق این فیلترها یافت نشد.</p>
     ):(
-      visibleViol.length?<table><thead><tr><th>نیرو</th><th>سمت</th><th>تاریخ</th><th>بازه</th><th>نوع تخلف</th></tr></thead>
-      <tbody>{visibleViol.map((v,i)=><tr key={i}><td><b>{v.name}</b></td><td>{v.role||"—"}</td><td>{fj(v.slot_date)}</td><td>{v.slot}</td><td><span className="badge b-no">{v.type}</span></td></tr>)}</tbody></table>
+      visibleViol.length?<div className="presence-results"><table><thead><tr><th>نیرو</th><th>سمت</th><th>تاریخ</th><th>بازه</th><th>نوع تخلف</th></tr></thead>
+      <tbody>{visibleViol.map((v,i)=><tr key={i}><td><b>{v.name}</b></td><td>{v.role||"—"}</td><td>{fj(v.slot_date)}</td><td>{presenceSlot(v)}</td><td><span className="badge b-no">{v.type}</span></td></tr>)}</tbody></table></div>
       :<p className="muted">تخلفی در این بازه نیست.</p>
     )}
     {pick&&ReactDOM.createPortal(<div className="modal-bg" role="presentation" style={{zIndex:11000}} onClick={()=>{setPick(null);setFull(null);}}><div className="modal" role="dialog" aria-modal="true" aria-label="جزئیات صحت‌سنجی حضور" style={{width:"min(680px,96vw)",maxWidth:680,maxHeight:"min(90dvh,900px)"}} onClick={e=>e.stopPropagation()}>
       <h3>{pick.name} — {fj(pick.slot_date)}</h3>
-      <div className="muted" style={{marginBottom:10}}>بازه: {pick.slot||"—"} · زمان ثبت: {recordedAt(pick)}</div>
+      <div className="muted" style={{marginBottom:10}}>بازه: {presenceSlot(pick)} · زمان ثبت: {recordedAt(pick)}</div>
       {geo&&<div style={{background:"var(--brand-soft,#eef7f3)",borderRadius:10,padding:"10px 12px",margin:"10px 0",fontSize:13,lineHeight:2}}>
         {geo.address&&<div>📍 <b>آدرس:</b> {geo.address}</div>}
         {geo.street&&<div>🛣 <b>خیابان:</b> {geo.street}</div>}
