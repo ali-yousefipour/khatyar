@@ -14,6 +14,13 @@ const CHANNEL_AUDIO = [
   require('../../assets/sounds/ch5.mp3'),
 ];
 
+const RADIO_CODES = [
+  { code: '۸-۲۰', meaning: 'بگوشم' },
+  { code: '۸-۲۱', meaning: 'شنیدم' },
+  { code: '۸-۲۸', meaning: 'همه چی خوبه' },
+  { code: '۸-۲۹', meaning: 'متشکرم' },
+];
+
 const messageTime = value => {
   if (!value) return '—';
   const raw = String(value).trim();
@@ -77,6 +84,7 @@ export default function RadioScreen() {
   const p5 = useAudioPlayer(CHANNEL_AUDIO[4]);
   const players = [p1, p2, p3, p4, p5];
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [codesOpen, setCodesOpen] = useState(false);
   const [stableRecent, setStableRecent] = useState([]);
   const [playbackLockUntil, setPlaybackLockUntil] = useState(0);
   const announcementSerial = useRef(0);
@@ -148,6 +156,19 @@ export default function RadioScreen() {
           <Text style={[s.powerText, enabled && s.powerTextOn]}>{enabled ? 'روشن' : 'خاموش'}</Text>
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="راهنمای کدهای بی‌سیم"
+        accessibilityHint="نمایش کدهای پرکاربرد مکالمات بی‌سیم"
+        onPress={() => setCodesOpen(true)}
+        activeOpacity={0.8}
+        style={s.codesTrigger}
+      >
+        <MaterialCommunityIcons name="help-circle-outline" size={22} color={C.brand} />
+        <Text style={s.codesTriggerText}>راهنمای کدهای بی‌سیم</Text>
+        <MaterialCommunityIcons name="chevron-left" size={20} color={C.brand} />
+      </TouchableOpacity>
 
       <View style={s.card}>
         <View style={s.row}>
@@ -249,6 +270,28 @@ export default function RadioScreen() {
         )) : <Text style={s.empty}>در ۲۴ ساعت گذشته پیامی ثبت نشده است.</Text>}
       </View>
 
+      <Modal visible={codesOpen} transparent animationType="fade" onRequestClose={() => setCodesOpen(false)} statusBarTranslucent>
+        <View style={s.modalOverlay}>
+          <Pressable accessibilityRole="button" accessibilityLabel="بستن راهنمای کدهای بی‌سیم" style={StyleSheet.absoluteFill} onPress={() => setCodesOpen(false)} />
+          <View style={s.sheet}>
+            <View style={s.sheetHandle} />
+            <View style={s.row}>
+              <Text style={s.sheetTitle}>راهنمای کدهای بی‌سیم</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="بستن راهنما" onPress={() => setCodesOpen(false)} style={s.closeButton}>
+                <MaterialCommunityIcons name="close" size={24} color="#334155" />
+              </TouchableOpacity>
+            </View>
+            <Text style={s.helper}>کدهای رایج برای ارتباط سریع و هماهنگ در کانال</Text>
+            {RADIO_CODES.map(item => (
+              <View key={item.code} style={s.codeRow}>
+                <View style={s.codePill}><Text style={s.codeNumber}>{item.code}</Text></View>
+                <Text style={s.codeMeaning}>{item.meaning}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(false)} statusBarTranslucent>
         <View style={s.modalOverlay}>
           <Pressable accessibilityRole="button" accessibilityLabel="بستن فهرست کانال‌ها" style={StyleSheet.absoluteFill} onPress={() => setPickerOpen(false)} />
@@ -300,6 +343,8 @@ const s = StyleSheet.create({
   powerOn: { backgroundColor: '#fff' },
   powerText: { color: '#fff', fontFamily: FONT.bold, fontSize: 12 },
   powerTextOn: { color: C.brand },
+  codesTrigger: { minHeight: 48, marginTop: 10, backgroundColor: '#e8f6f0', borderColor: '#b8dccc', borderWidth: 1, borderRadius: 14, flexDirection: 'row-reverse', alignItems: 'center', paddingHorizontal: 14, gap: 8 },
+  codesTriggerText: { flex: 1, fontFamily: FONT.bold, fontSize: 13, color: C.brand, textAlign: 'right', writingDirection: 'rtl' },
   card: { backgroundColor: '#fff', borderRadius: 19, padding: 14, marginTop: 10, borderWidth: 1, borderColor: '#dce9e2',elevation:1 },
   row: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   sectionTitle: { fontFamily: FONT.bold, fontSize: 14, color: C.ink, textAlign: 'right', writingDirection: 'rtl', flexShrink: 1 },
@@ -359,4 +404,8 @@ const s = StyleSheet.create({
   channelNameActive: { color: C.brand },
   channelBusy: { fontFamily: FONT.regular, color: '#b42318', fontSize: 11 },
   activeBadge: { fontFamily: FONT.bold, color: C.brand, fontSize: 11 },
+  codeRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12, backgroundColor: '#f3faf7', borderWidth: 1, borderColor: '#dce9e2', borderRadius: 14, minHeight: 60, padding: 10, marginTop: 9 },
+  codePill: { backgroundColor: '#075f51', borderRadius: 10, minWidth: 72, paddingHorizontal: 10, paddingVertical: 9, alignItems: 'center' },
+  codeNumber: { color: '#fff', fontFamily: FONT.bold, fontSize: 17, writingDirection: 'ltr' },
+  codeMeaning: { flex: 1, color: C.ink, fontFamily: FONT.bold, fontSize: 15, textAlign: 'right', writingDirection: 'rtl' },
 });
