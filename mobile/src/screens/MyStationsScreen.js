@@ -55,6 +55,7 @@ export default function MyStationsScreen({ navigation }) {
     <ScrollView persistentScrollbar style={s.page} contentContainerStyle={[s.content, { paddingHorizontal: width >= 700 ? 32 : 16 }]}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} colors={[C.brand]} />}>
       <View style={s.head}>
+        <View style={s.headIcon}><MaterialCommunityIcons name="map-marker-check-outline" size={27} color="#f1d395" /></View>
         <Text style={s.title}>ایستگاه‌های ثبت‌شده من</Text>
         <Text style={s.headSub}>{loading ? 'در حال دریافت اطلاعات…' : `تعداد ایستگاه‌ها: ${fa(data.length)}`}</Text>
       </View>
@@ -66,7 +67,7 @@ export default function MyStationsScreen({ navigation }) {
       {!loading && !error && !denied && data.length === 0 && <View style={s.empty}><MaterialCommunityIcons name="map-marker-off-outline" size={32} color={C.brand}/><Text style={s.emptyText}>هنوز ایستگاهی توسط شما ثبت نشده است.</Text><Text style={s.muted}>پس از ثبت موفق، اطلاعات ایستگاه در این قسمت نمایش داده می‌شود.</Text></View>}
       {!loading && !error && !denied && data.map(x => <TouchableOpacity key={String(x.id)} accessibilityRole="button" accessibilityLabel={`مشاهده و ویرایش ایستگاه خط ${x.line_code || ''}`}
         style={s.card} onPress={() => navigation.navigate('StationCapture', { stationId: x.id })}>
-        <View style={s.row}><View style={s.editChip}><MaterialCommunityIcons name="pencil-outline" size={18} color={C.brand}/><Text style={s.edit}>مشاهده و ویرایش</Text></View><Text style={s.line}>{x.line_code || 'خط بدون کد'}</Text></View>
+        <View style={s.row}><View style={s.editChip}><MaterialCommunityIcons name="pencil-outline" size={18} color={C.brand}/><Text style={s.edit}>مشاهده و ویرایش</Text></View><View style={s.lineHead}><MaterialCommunityIcons name="map-marker-radius-outline" size={19} color={C.brand}/><Text style={s.line}>{x.line_code || 'خط بدون کد'}</Text></View></View>
         <Text style={s.muted}>{x.origin || ''}{x.destination ? ' تا ' + x.destination : ''}</Text>
         <Text style={s.text}>تابلوها: {fa(x.sign_count || 0)} عدد</Text>
         <Text style={s.text}>آدرس: {x.physical_address || '—'}</Text>
@@ -78,15 +79,15 @@ export default function MyStationsScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: C.paper }, content: { paddingTop: 16, paddingBottom: 44, alignSelf: 'center', width: '100%', maxWidth: 760 },
-  head: { backgroundColor: C.brand, borderRadius: 22, padding: 20, marginBottom: 12 },
+  page: { flex: 1, backgroundColor: '#f3f8f6' }, content: { paddingTop: 16, paddingBottom: 44, alignSelf: 'center', width: '100%', maxWidth: 760 },
+  head: { backgroundColor: '#075f51', borderRadius: 25, padding: 20, marginBottom: 15, elevation: 3 },headIcon:{alignSelf:'flex-end',marginBottom:8},
   title: { fontFamily: FONT.bold, color: '#fff', fontSize: 19, textAlign: 'right' },
   headSub: { fontFamily: FONT.regular, color: '#e0f2e9', fontSize: 13, textAlign: 'right', marginTop: 6 },
   muted: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', lineHeight: 20 },
-  card: { backgroundColor: '#fff', borderRadius: 19, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: C.line, minHeight: 96 },
-  row: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  card: { backgroundColor: '#fff', borderRadius: 20, padding: 17, marginBottom: 11, borderWidth: 1, borderColor: '#dce9e3', minHeight: 96, elevation: 1 },
+  row: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 12 },lineHead:{flexDirection:'row-reverse',alignItems:'center',gap:5,flexShrink:1},
   line: { fontFamily: FONT.bold, color: C.ink, fontSize: 16, flexShrink: 1, textAlign: 'right' },
-  editChip: { minHeight: 48, borderRadius: 12, backgroundColor: C.soft, paddingHorizontal: 10, flexDirection: 'row-reverse', alignItems: 'center', gap: 5 },
+  editChip: { minHeight: 48, borderRadius: 14, backgroundColor: '#e6f5ed', paddingHorizontal: 10, flexDirection: 'row-reverse', alignItems: 'center', gap: 5 },
   edit: { fontFamily: FONT.bold, color: C.brand, fontSize: 12 },
   text: { fontFamily: FONT.regular, color: C.ink, fontSize: 13, lineHeight: 22, textAlign: 'right', marginTop: 6 },
   photo: { width: '100%', height: 165, borderRadius: 12, marginTop: 12 },

@@ -214,7 +214,7 @@ table{width:100%;border-collapse:collapse;font-size:12px}td{padding:6px 4px;bord
   return (
     <ScrollView persistentScrollbar style={{backgroundColor:C.paper}} contentContainerStyle={{padding:14,paddingBottom:56}}>
       <View style={s.workHero}>
-        <View style={s.workHeroHeading}><MaterialCommunityIcons name="chart-timeline-variant" size={27} color="#fff"/><Text style={s.workHeroTitle}>گزارش کارکرد من</Text></View>
+        <View style={s.workHeroHeading}><MaterialCommunityIcons name="chart-timeline-variant" size={27} color="#f4d89d"/><Text style={s.workHeroTitle}>گزارش کارکرد من</Text></View>
         <Text style={s.workHeroMonth}>{ym ? `${J[ym[1]-1]} ${faNum(ym[0])}` : 'ماه جاری'}</Text>
         {data?.through_jdate ? <Text style={s.workHeroThrough}>محاسبه تا {faNum(String(data.through_jdate).replace(/-/g,'/'))}</Text> : null}
       </View>
@@ -249,19 +249,19 @@ function Row({ l, v, hl, color }) {
 }
 
 const s = StyleSheet.create({
-  workHero:{backgroundColor:C.brand,borderRadius:19,padding:19,marginBottom:13},
+  workHero:{backgroundColor:'#075f51',borderRadius:24,padding:20,marginBottom:14,elevation:3},
   workHeroHeading:{flexDirection:'row-reverse',alignItems:'center',gap:9},
-  workHeroTitle:{fontFamily:FONT.bold,color:'#fff',fontSize:16},
+  workHeroTitle:{fontFamily:FONT.bold,color:'#fff',fontSize:19},
   workHeroMonth:{fontFamily:FONT.bold,color:'#fff',fontSize:23,textAlign:'right',marginTop:12},
   workHeroThrough:{fontFamily:FONT.regular,color:'#e3f5ef',fontSize:12,textAlign:'right',marginTop:7},
   workPrimaryGrid:{flexDirection:'row-reverse',flexWrap:'wrap',justifyContent:'space-between',gap:10,marginBottom:12},
-  workPrimaryCard:{width:'48%',minWidth:0,backgroundColor:'#fff',borderRadius:16,padding:14,borderWidth:1,borderColor:C.line,minHeight:112,justifyContent:'space-between'},
+  workPrimaryCard:{width:'48%',minWidth:0,backgroundColor:'#fff',borderRadius:19,padding:15,borderWidth:1,borderColor:'#dceae2',minHeight:112,justifyContent:'space-between',elevation:1},
   workPrimaryCardHead:{flexDirection:'row-reverse',alignItems:'center',gap:7},
   workPrimaryLabel:{fontFamily:FONT.regular,color:C.slate,fontSize:12,textAlign:'right',flexShrink:1},
   workPrimaryValue:{fontFamily:FONT.bold,color:C.brand,fontSize:23,textAlign:'right',marginTop:10},
   workNotice:{flexDirection:'row-reverse',gap:8,alignItems:'flex-start',backgroundColor:'#e8f5f0',borderRadius:13,padding:12,marginBottom:13},
   workNoticeText:{flex:1,fontFamily:FONT.regular,color:C.slate,fontSize:11,lineHeight:19,textAlign:'right'},
-  workGroup:{backgroundColor:'#fff',borderRadius:17,padding:14,borderWidth:1,borderColor:C.line,marginBottom:12},
+  workGroup:{backgroundColor:'#fff',borderRadius:19,padding:15,borderWidth:1,borderColor:'#dceae2',marginBottom:12,elevation:1},
   workGroupHeading:{flexDirection:'row-reverse',alignItems:'center',gap:8,paddingBottom:12,borderBottomWidth:1,borderBottomColor:'#e9edf0'},
   workGroupTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14,textAlign:'right'},
   workMetricRow:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',gap:10,paddingVertical:12,borderBottomWidth:1,borderBottomColor:'#f0f2f4'},

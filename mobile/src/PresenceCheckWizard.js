@@ -9,6 +9,7 @@ import PersonalPhotoCapture from'./PersonalPhotoCapture';
 import VehiclesPhotoCapture from'./VehiclesPhotoCapture';
 import{playSound}from'./soundFx';
 import{stopPresenceAlarm}from'./presenceAlarm';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function PresenceCheckWizard(){
  const navigation=useNavigation();
@@ -126,12 +127,13 @@ export default function PresenceCheckWizard(){
 
  return <View style={s.page}>
    <View style={s.header}>
+     <MaterialCommunityIcons name="shield-check-outline" size={29} color="#f5d89d" />
      <Text style={s.headerTitle}>صحت‌سنجی حضور</Text>
      <Text style={s.headerSub}>مرحله‌ای و تمام‌صفحه</Text>
    </View>
    <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
      {step==='intro'&&<>
-       <Text style={s.icon}>📸</Text>
+       <MaterialCommunityIcons name="camera-account" size={54} color="#075f51" style={s.icon} />
        <Text style={s.title}>آماده انجام صحت‌سنجی هستید؟</Text>
        <Text style={s.timer}>{mm}:{ss}</Text>
        <Text style={s.body}>برای تأیید حضور در محل کار، باید ظرف این مدت یک «عکس سلفی» و سپس یک «عکس از خودروهای حاضر در خط» ارسال کنید.</Text>
@@ -146,16 +148,16 @@ export default function PresenceCheckWizard(){
        </TouchableOpacity>
      </>}
      {step==='submitting'&&<>
-       <Text style={s.icon}>⏳</Text><Text style={s.title}>در حال ارسال…</Text>
+       <MaterialCommunityIcons name="cloud-upload-outline" size={54} color="#075f51" style={s.icon} /><Text style={s.title}>در حال ارسال…</Text>
        <Text style={s.body}>لطفاً تا دریافت پاسخ سرور صبر کنید.</Text>
      </>}
      {step==='done'&&<>
-       <Text style={s.icon}>✅</Text><Text style={s.title}>صحت‌سنجی با موفقیت ثبت شد</Text>
+       <MaterialCommunityIcons name="check-decagram-outline" size={54} color="#087c58" style={s.icon} /><Text style={s.title}>صحت‌سنجی با موفقیت ثبت شد</Text>
        <Text style={s.body}>حضور شما با موفقیت ثبت شد.</Text>
        <TouchableOpacity style={s.btn} activeOpacity={0.85} onPress={closeWizard}><Text style={s.btnTxt}>بستن</Text></TouchableOpacity>
      </>}
      {step==='expired'&&<>
-       <Text style={s.icon}>⛔</Text><Text style={[s.title,{color:C.danger}]}>مهلت به پایان رسید</Text>
+       <MaterialCommunityIcons name="timer-alert-outline" size={54} color={C.danger} style={s.icon} /><Text style={[s.title,{color:C.danger}]}>مهلت به پایان رسید</Text>
        <Text style={s.body}>صحت‌سنجی در مهلت مقرر ثبت نشد.</Text>
        <TouchableOpacity style={[s.btn,{backgroundColor:C.muted}]} activeOpacity={0.85} onPress={expire}><Text style={s.btnTxt}>بستن</Text></TouchableOpacity>
      </>}
@@ -164,8 +166,8 @@ export default function PresenceCheckWizard(){
 }
 
 const s=StyleSheet.create({
- page:{flex:1,backgroundColor:C.paper},
- header:{backgroundColor:C.brand,paddingTop:22,paddingBottom:16,paddingHorizontal:20,alignItems:'flex-end'},
+ page:{flex:1,backgroundColor:'#f3f8f6'},
+ header:{backgroundColor:'#075f51',paddingTop:22,paddingBottom:18,paddingHorizontal:20,alignItems:'flex-end',borderBottomLeftRadius:24,borderBottomRightRadius:24},
  headerTitle:{width:'100%',color:'#fff',fontFamily:FONT.bold,fontSize:20,textAlign:'right',writingDirection:'rtl'},
  headerSub:{width:'100%',color:'#dcefe9',fontFamily:FONT.regular,fontSize:12,textAlign:'right',writingDirection:'rtl',marginTop:4},
  stage:{flex:1,width:'100%',height:'100%',backgroundColor:'#000'},
@@ -175,7 +177,7 @@ const s=StyleSheet.create({
  title:{fontFamily:FONT.bold,fontSize:21,color:C.ink,marginBottom:10,textAlign:'center',writingDirection:'rtl',lineHeight:30},
  timer:{fontFamily:FONT.bold,fontSize:40,color:C.brand,marginVertical:8,textAlign:'center'},
  body:{fontFamily:FONT.regular,fontSize:14,color:C.muted,textAlign:'center',writingDirection:'rtl',lineHeight:24,marginBottom:14,width:'100%'},
- stepsBox:{alignSelf:'stretch',backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:14,padding:14,marginBottom:18},
+ stepsBox:{alignSelf:'stretch',backgroundColor:'#fff',borderWidth:1,borderColor:'#dceae2',borderRadius:19,padding:17,marginBottom:18,elevation:1},
  stepLine:{fontFamily:FONT.regular,fontSize:13,color:C.ink,textAlign:'right',writingDirection:'rtl',lineHeight:27},
  error:{fontFamily:FONT.regular,fontSize:12,color:C.danger,textAlign:'center',writingDirection:'rtl',marginBottom:12,width:'100%'},
  btn:{backgroundColor:C.brand,borderRadius:13,paddingVertical:14,paddingHorizontal:30,alignItems:'center',justifyContent:'center',minWidth:220,minHeight:50,alignSelf:'center'},

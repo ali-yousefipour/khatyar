@@ -77,7 +77,7 @@ export function AttendanceScreen({ route }) {
   return <View style={{ flex: 1, backgroundColor: C.paper }}>
     <List rows={sortedRows} error={error} onRetry={retry} empty="حضوری در بازه انتخاب‌شده ثبت نشده است"
       header={<>
-        <View style={at.header}><View style={at.headerIcon}><MaterialCommunityIcons name="calendar-check-outline" size={25} color={C.brand}/></View><View style={at.headerText}><Text style={at.title}>گزارش حضور راننده</Text><Text style={at.subtitle}>سوابق ثبت حضور و آمار فعالیت</Text></View></View>
+        <View style={at.header}><View style={at.headerIcon}><MaterialCommunityIcons name="calendar-check-outline" size={25} color="#f3d89d"/></View><View style={at.headerText}><Text style={at.title}>گزارش حضور راننده</Text><Text style={at.subtitle}>سوابق ثبت حضور و آمار فعالیت</Text></View></View>
         <View style={at.stats}>
           <View style={at.stat}><MaterialCommunityIcons name="calendar-month-outline" size={22} color={C.brand}/><Text style={at.statNumber}>{faNum(cm)}</Text><Text style={at.statLabel}>حضور این ماه</Text></View>
           <View style={at.stat}><MaterialCommunityIcons name="calendar-range-outline" size={22} color={C.brand}/><Text style={at.statNumber}>{faNum(cy)}</Text><Text style={at.statLabel}>حضور امسال</Text></View>
@@ -96,20 +96,20 @@ export function AttendanceScreen({ route }) {
   </View>;
 }
 const at = StyleSheet.create({
-  header:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:14},
-  headerIcon:{width:49,height:49,borderRadius:15,backgroundColor:'#e6f4ed',alignItems:'center',justifyContent:'center'},
+  header:{flexDirection:'row-reverse',alignItems:'center',gap:12,marginBottom:15,backgroundColor:'#075f51',borderRadius:23,padding:17,elevation:2},
+  headerIcon:{width:49,height:49,borderRadius:15,backgroundColor:'rgba(255,255,255,.13)',alignItems:'center',justifyContent:'center'},
   headerText:{flex:1,alignItems:'flex-end'},
-  title:{fontFamily:FONT.bold,color:C.ink,fontSize:17,textAlign:'right'},
-  subtitle:{fontFamily:FONT.regular,color:C.muted,fontSize:12,marginTop:3,textAlign:'right'},
+  title:{fontFamily:FONT.bold,color:'#fff',fontSize:19,textAlign:'right'},
+  subtitle:{fontFamily:FONT.regular,color:'#e3f4ec',fontSize:12,marginTop:3,textAlign:'right'},
   stats:{flexDirection:'row-reverse',gap:10,marginBottom:12},
-  stat:{flex:1,minWidth:0,backgroundColor:'#fff',borderColor:C.line,borderWidth:1,borderRadius:17,paddingVertical:14,paddingHorizontal:8,alignItems:'center',gap:5,elevation:1},
+  stat:{flex:1,minWidth:0,backgroundColor:'#fff',borderColor:'#dcebe3',borderWidth:1,borderRadius:18,paddingVertical:15,paddingHorizontal:8,alignItems:'center',gap:5,elevation:1},
   statNumber:{fontFamily:FONT.bold,fontSize:25,color:C.brand},
   statLabel:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'center'},
   filterCard:{backgroundColor:'#fff',borderRadius:16,borderColor:C.line,borderWidth:1,paddingHorizontal:12,paddingVertical:9,marginBottom:14},
   sectionRow:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:10,flexWrap:'wrap'},
   sectionTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14,textAlign:'right'},
   count:{fontFamily:FONT.bold,color:C.brand,fontSize:12,marginRight:'auto',backgroundColor:'#e9f5ee',paddingHorizontal:9,paddingVertical:5,borderRadius:9},
-  entry:{backgroundColor:'#fff',borderColor:C.line,borderWidth:1,borderRadius:16,padding:13,marginBottom:9,flexDirection:'row-reverse',alignItems:'center',gap:10,elevation:1},
+  entry:{backgroundColor:'#fff',borderColor:'#dcebe3',borderWidth:1,borderRadius:18,padding:14,marginBottom:9,flexDirection:'row-reverse',alignItems:'center',gap:10,elevation:1},
   entryIcon:{width:43,height:43,borderRadius:13,backgroundColor:'#eaf5ef',alignItems:'center',justifyContent:'center'},
   entryContent:{flex:1,minWidth:0,alignItems:'flex-end'},
   entryDate:{fontFamily:FONT.bold,fontSize:14,color:C.ink,textAlign:'right'},

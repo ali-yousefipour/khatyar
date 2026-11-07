@@ -98,9 +98,9 @@ export default function OfficialPresenceScreen() {
 
   return (
     <>
-    <ScrollView persistentScrollbar={true} style={{ backgroundColor: C.paper }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
+    <ScrollView persistentScrollbar={true} style={{ backgroundColor: '#f3f8f6' }} contentContainerStyle={{ padding: 16, paddingBottom: 56 }}>
       {!!loadError && <View style={s.loadErrorCard}><MaterialCommunityIcons name="alert-circle-outline" size={24} color="#9f2820"/><Text style={s.loadErrorText}>{loadError}</Text><TouchableOpacity accessibilityRole="button" onPress={load} style={s.retryLoad}><Text style={s.retryLoadText}>تلاش دوباره</Text></TouchableOpacity></View>}
-      <View style={s.hero}><View style={s.heroRow}><MaterialCommunityIcons name="account-check-outline" size={25} color="#fff"/><Text style={s.heroTitle}>ثبت حضور مسئولین در خط</Text></View><Text style={s.heroSubtitle}>اطلاعات بازدید میدانی را ثبت و سوابق خود را مشاهده کنید.</Text></View>
+      <View style={s.hero}><View style={s.heroRow}><MaterialCommunityIcons name="account-check-outline" size={27} color="#f3d89d"/><Text style={s.heroTitle}>ثبت حضور مسئولین در خط</Text></View><Text style={s.heroSubtitle}>اطلاعات بازدید میدانی را ثبت و سوابق خود را مشاهده کنید.</Text></View>
       <View style={s.formCard}>
       <View style={s.sectionRow}><MaterialCommunityIcons name="account-tie-outline" size={20} color={C.brand}/><Text style={s.label}>۱. سمت مسئول</Text></View>
       <TouchableOpacity accessibilityRole="button" style={s.select} onPress={() => setRoleOpen(true)}><Text style={[s.selectTxt, !roleSel && {color:C.muted}]}>{roleSel || 'انتخاب یا جستجوی سمت مسئول'}</Text><MaterialCommunityIcons name="chevron-down" size={22} color={C.muted}/></TouchableOpacity>
@@ -210,11 +210,11 @@ const s = StyleSheet.create({
   retryLoad: { minHeight: 48, minWidth: 150, backgroundColor: C.brand, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   retryLoadText: { fontFamily: FONT.bold, color: '#fff', fontSize: 13 },
   label: { fontFamily: FONT.bold, color: C.ink, fontSize: 13.5, textAlign: 'right', flexShrink:1 },
-  hero:{backgroundColor:C.brand,borderRadius:19,padding:19,marginBottom:14},
+  hero:{backgroundColor:'#075f51',borderRadius:24,padding:20,marginBottom:15,elevation:3},
   heroRow:{flexDirection:'row-reverse',alignItems:'center',gap:10},
-  heroTitle:{fontFamily:FONT.bold,fontSize:17,color:'#fff',textAlign:'right'},
+  heroTitle:{fontFamily:FONT.bold,fontSize:20,color:'#fff',textAlign:'right'},
   heroSubtitle:{fontFamily:FONT.regular,fontSize:12,color:'#e3f4ed',textAlign:'right',marginTop:9,lineHeight:21},
-  formCard:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:19,padding:14},
+  formCard:{backgroundColor:'#fff',borderWidth:1,borderColor:'#dceae2',borderRadius:21,padding:16,elevation:1},
   sectionRow:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginTop:13,marginBottom:9},
   noteInput:{minHeight:100},
   historyHeader:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',marginTop:19,marginBottom:6},
@@ -232,7 +232,7 @@ const s = StyleSheet.create({
   select: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 13, padding: 13, flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
   selectTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 13.5, textAlign: 'right', flex: 1 },
   modalWrap: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalCard: { backgroundColor: C.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, maxHeight: '80%' },
+  modalCard: { backgroundColor: '#f3f8f6', borderTopLeftRadius: 27, borderTopRightRadius: 27, padding: 19, maxHeight: '85%' },
   modalTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 15, textAlign: 'right', marginBottom: 10 },
   optRow: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, padding: 15, marginBottom: 10 },
   optName: { fontFamily: FONT.bold, color: C.ink, fontSize: 14, textAlign: 'right' },
@@ -248,7 +248,7 @@ const s = StyleSheet.create({
   overlayTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 15, marginTop: 14 },
   overlaySub: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, marginTop: 6, textAlign: 'center' },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', paddingVertical: 12 },
-  histCard: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, padding: 15, marginBottom: 9 },
+  histCard: { backgroundColor: '#fff', borderColor: '#dceae2', borderWidth: 1, borderRadius: 18, padding: 16, marginBottom: 9, elevation: 1 },
   histTitle: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right' },
   histNote: { fontFamily: FONT.regular, color: C.ink, fontSize: 12.5, textAlign: 'right', marginTop: 2 },
   histTime: { fontFamily: FONT.regular, color: C.muted, fontSize: 11, textAlign: 'right', marginTop: 4 },

@@ -4,6 +4,7 @@ import { request } from '../api';
 import { C, FONT } from '../theme';
 import { faNum } from '../num';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const roleTitle = { line_supervisor: 'ناظر خط', motor_patrol: 'گشت موتوری', vehicle_patrol: 'بازرس گشت خودرویی', resident_inspector: 'بازرس مقیم', chief_inspector: 'سربازرس', administrative_visit: 'نیروی اداری' };
 const percent = value => Math.max(0, Math.min(100, Number(value) || 0));
@@ -41,6 +42,7 @@ export default function MyDailyMissionScreen() {
   return <ScrollView persistentScrollbar style={s.page} contentContainerStyle={s.content}
     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[C.brand]} />}>
     <View style={s.head}>
+      <View style={s.headIcon}><MaterialCommunityIcons name="target" size={25} color="#f6dba2" /></View>
       <Text style={s.headTitle}>مأموریت روزانه من</Text>
       <Text style={s.headSub}>{roleTitle[data.role_key] || 'نیروی اجرایی'} · {data.source === 'user_override' ? 'مأموریت اختصاصی' : 'الگوی سمت'}</Text>
       <Text style={s.big}>{faNum(Math.round(percent(sum.weighted_achievement)))}٪</Text>
@@ -75,15 +77,15 @@ const s = StyleSheet.create({
   errorCard: { backgroundColor: '#fff1f1', borderColor: '#f3b8c0', borderWidth: 1, borderRadius: 14, padding: 14, margin: 16 },
   errorText: { fontFamily: FONT.regular, color: '#982b3d', textAlign: 'right', lineHeight: 22 },
   retry: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', alignSelf: 'flex-end' }, retryText: { fontFamily: FONT.bold, color: C.brand },
-  head: { backgroundColor: '#173d69', borderRadius: 16, padding: 16 }, headTitle: { fontFamily: FONT.bold, color: '#fff', fontSize: 19, textAlign: 'right' },
+  head: { backgroundColor: '#075f51', borderRadius: 24, padding: 19, elevation: 3 }, headIcon: { alignSelf: 'flex-end', marginBottom: 5 }, headTitle: { fontFamily: FONT.bold, color: '#fff', fontSize: 20, textAlign: 'right' },
   headSub: { fontFamily: FONT.regular, color: '#dce8f4', textAlign: 'right', marginTop: 5 }, big: { fontFamily: FONT.bold, color: '#fff', fontSize: 34, textAlign: 'center', marginTop: 10 },
-  summary: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 10 }, mini: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 16, padding: 13, minWidth: '47%', alignItems: 'center' },
+  summary: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 9, marginTop: 12 }, mini: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#dcebe3', borderRadius: 18, padding: 14, minWidth: '47%', alignItems: 'center', elevation: 1 },
   miniN: { fontFamily: FONT.bold, color: C.ink, fontSize: 18 }, miniT: { fontFamily: FONT.regular, color: C.muted, fontSize: 11 },
-  mission: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 18, padding: 17, marginTop: 12 }, mTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 16, textAlign: 'right' }, mSub: { fontFamily: FONT.regular, color: C.muted, textAlign: 'right', marginTop: 5 },
-  card: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 18, padding: 16, marginTop: 10 }, row: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  mission: { backgroundColor: '#e7f5ee', borderWidth: 1, borderColor: '#d1e9da', borderRadius: 18, padding: 17, marginTop: 14 }, mTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 16, textAlign: 'right' }, mSub: { fontFamily: FONT.regular, color: C.muted, textAlign: 'right', marginTop: 5 },
+  card: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#dcebe3', borderRadius: 19, padding: 17, marginTop: 10, elevation: 1 }, row: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   title: { fontFamily: FONT.bold, color: C.ink, flex: 1, textAlign: 'right' }, target: { fontFamily: FONT.bold, color: '#9a5c00', backgroundColor: '#fff4d7', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10 },
   ok: { fontFamily: FONT.bold, color: '#0f7c55', backgroundColor: '#e8f7f0', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10 }, desc: { fontFamily: FONT.regular, color: C.muted, textAlign: 'right', marginTop: 7, lineHeight: 20 },
-  track: { height: 9, backgroundColor: '#e8edf2', borderRadius: 8, overflow: 'hidden', marginTop: 10 }, fill: { height: '100%', backgroundColor: C.brand, borderRadius: 8 },
+  track: { height: 9, backgroundColor: '#e1e9e4', borderRadius: 8, overflow: 'hidden', marginTop: 12 }, fill: { height: '100%', backgroundColor: '#079064', borderRadius: 8 },
   row2: { flexDirection: 'row-reverse', justifyContent: 'space-between', marginTop: 10 }, actual: { fontFamily: FONT.bold, color: '#315f8c' }, weight: { fontFamily: FONT.regular, color: C.muted },
   minimum: { fontFamily: FONT.regular, color: '#b04a42', textAlign: 'right', marginTop: 7 }, empty: { backgroundColor: '#fff', padding: 20, borderRadius: 14, marginTop: 12 }, emptyT: { fontFamily: FONT.regular, color: C.muted, textAlign: 'center' },
 });
