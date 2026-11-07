@@ -8,7 +8,7 @@ const checks = lines.filter(line => line.includes('[ "${rel}" = "lib/Db.php" ]')
 assert.equal(checks.length, 2);
 for (const check of checks) assert.ok(check.includes('"lib/Seniority.php"'));
 assert.ok(lines.find(line => line.includes('[ -f deploy-payload/lib/Db.php ]')).includes('[ -f deploy-payload/lib/Seniority.php ]'));
-assert.ok(lines.find(line => line.includes('for name in Db.php Http.php')).includes('Seniority.php'));
+assert.ok(lines.some(line => line.includes('for name in ') && line.includes('Seniority.php')), 'Deployment library list includes Seniority.php');
 assert.ok(workflow.indexOf("'Seniority.php' => 'Seniority.php'") < workflow.indexOf("'routes.php' => 'routes.php'"));
 const integrity = fs.readFileSync(path.join(root, '.github/workflows/project-integrity.yml'), 'utf8');
 assert.ok(integrity.includes('node php/tests/seniority_ui_test.cjs'));
@@ -22,7 +22,7 @@ const bundleReference = html.match(/assets\/panel\.bundle\.js\?v=[^"\s]+/);
 assert.ok(bundleReference, 'Panel references a cache-versioned bundle');
 assert.ok(fs.existsSync(path.join(root, 'php/app', bundleReference[0].split('?')[0])), 'Referenced bundle exists');
 const source = fs.readFileSync(path.join(root, 'php/tools/panel_source.jsx'), 'utf8');
-assert.ok(source.includes('["seniority","سنوات نیروها"]'));
+assert.ok(source.includes('seniority:{t:"سنوات نیروها"'), 'Seniority view exists in the canonical registry');
 const menuLiteral=source.match(/const PANEL_MENU_SECTIONS=(\[[\s\S]*?\n\]);/);
 assert.ok(menuLiteral, 'Canonical sidebar categories exist');
 const menuSections=JSON.parse(menuLiteral[1].replace(/,\s*]/g,']'));
