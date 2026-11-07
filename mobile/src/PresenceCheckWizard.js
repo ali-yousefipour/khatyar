@@ -32,7 +32,7 @@ export default function PresenceCheckWizard(){
  const finishedRef=useRef(false);
  const allowExitRef=useRef(false);
 
- useEffect(()=>{getAppConfig(true).catch(()=>{});stopPresenceAlarm().catch(()=>{});},[]);
+ useEffect(()=>{getAppConfig(true).catch(()=>{});},[]);
  useEffect(()=>{
    if(step==='selfie')playSound('presenceSelfie').catch(()=>{});
    if(step==='vehicles')playSound('presenceStationPhoto').catch(()=>{});
