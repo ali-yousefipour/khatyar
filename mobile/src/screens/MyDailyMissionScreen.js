@@ -45,8 +45,7 @@ export default function MyDailyMissionScreen() {
       <View style={s.headIcon}><MaterialCommunityIcons name="target" size={25} color="#f6dba2" /></View>
       <Text style={s.headTitle}>مأموریت روزانه من</Text>
       <Text style={s.headSub}>{roleTitle[data.role_key] || 'نیروی اجرایی'} · {data.source === 'user_override' ? 'مأموریت اختصاصی' : 'الگوی سمت'}</Text>
-      <Text style={s.big}>{faNum(Math.round(percent(sum.weighted_achievement)))}٪</Text>
-      <Text style={s.headSub}>تحقق وزنی مأموریت امروز</Text>
+      <View style={s.achievementRing}><Text style={s.big}>{faNum(Math.round(percent(sum.weighted_achievement)))}٪</Text><Text style={s.ringLabel}>تحقق وزنی مأموریت امروز</Text></View>
     </View>
     {!!loadError && <View style={s.errorCard}><Text style={s.errorText}>{loadError}</Text><TouchableOpacity style={s.retry} accessibilityRole="button" onPress={load}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
     {!data.mission ? <View style={s.empty}><Text style={s.emptyT}>{data.warning || 'برای سمت شما هنوز الگوی مأموریت فعالی تعریف نشده است.'}</Text></View> : <>
@@ -79,6 +78,8 @@ const s = StyleSheet.create({
   retry: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center', alignSelf: 'flex-end' }, retryText: { fontFamily: FONT.bold, color: C.brand },
   head: { backgroundColor: '#075f51', borderRadius: 24, padding: 19, elevation: 3 }, headIcon: { alignSelf: 'flex-end', marginBottom: 5 }, headTitle: { fontFamily: FONT.bold, color: '#fff', fontSize: 20, textAlign: 'right' },
   headSub: { fontFamily: FONT.regular, color: '#dce8f4', textAlign: 'right', marginTop: 5 }, big: { fontFamily: FONT.bold, color: '#fff', fontSize: 34, textAlign: 'center', marginTop: 10 },
+  achievementRing:{alignSelf:'center',width:162,height:162,borderRadius:81,borderWidth:12,borderColor:'#a1e5cd',borderTopColor:'#f2cf89',borderRightColor:'#f2cf89',marginTop:18,alignItems:'center',justifyContent:'center'},
+  ringLabel:{fontFamily:FONT.regular,color:'#e1f5eb',fontSize:11,textAlign:'center',marginTop:5},
   summary: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 9, marginTop: 12 }, mini: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#dcebe3', borderRadius: 18, padding: 14, minWidth: '47%', alignItems: 'center', elevation: 1 },
   miniN: { fontFamily: FONT.bold, color: C.ink, fontSize: 18 }, miniT: { fontFamily: FONT.regular, color: C.muted, fontSize: 11 },
   mission: { backgroundColor: '#e7f5ee', borderWidth: 1, borderColor: '#d1e9da', borderRadius: 18, padding: 17, marginTop: 14 }, mTitle: { fontFamily: FONT.bold, color: C.ink, fontSize: 16, textAlign: 'right' }, mSub: { fontFamily: FONT.regular, color: C.muted, textAlign: 'right', marginTop: 5 },

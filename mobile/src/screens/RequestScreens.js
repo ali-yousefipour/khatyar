@@ -211,11 +211,13 @@ table{width:100%;border-collapse:collapse;font-size:12px}td{padding:6px 4px;bord
     {title:'کارکرد ویژه',icon:'calendar-clock-outline',items:[['شب‌کاری',data?.night],['جمعه‌کاری',data?.friday],['تعطیل‌کاری',data?.holiday],['تردد دستی',data?.manual_min]]},
     {title:'مرخصی و مأموریت',icon:'calendar-account-outline',items:[['مرخصی استحقاقی',data?.annual_min],['مرخصی استعلاجی',data?.sick_min],['مأموریت',data?.mission_min]]}
   ];
+  const workPercent = data && Number(data.expected) > 0 ? Math.round((Number(data.worked || 0) / Number(data.expected)) * 100) : null;
   return (
     <ScrollView persistentScrollbar style={{backgroundColor:C.paper}} contentContainerStyle={{padding:14,paddingBottom:56}}>
       <View style={s.workHero}>
         <View style={s.workHeroHeading}><MaterialCommunityIcons name="chart-timeline-variant" size={27} color="#f4d89d"/><Text style={s.workHeroTitle}>گزارش کارکرد من</Text></View>
         <Text style={s.workHeroMonth}>{ym ? `${J[ym[1]-1]} ${faNum(ym[0])}` : 'ماه جاری'}</Text>
+        {workPercent !== null && <View style={s.workPercentRing}><Text style={s.workPercentValue}>{faNum(workPercent)}٪</Text><Text style={s.workPercentLabel}>نسبت کارکرد به موظفی</Text></View>}
         {data?.through_jdate ? <Text style={s.workHeroThrough}>محاسبه تا {faNum(String(data.through_jdate).replace(/-/g,'/'))}</Text> : null}
       </View>
       {data ? <>
@@ -254,6 +256,8 @@ const s = StyleSheet.create({
   workHeroTitle:{fontFamily:FONT.bold,color:'#fff',fontSize:19},
   workHeroMonth:{fontFamily:FONT.bold,color:'#fff',fontSize:23,textAlign:'right',marginTop:12},
   workHeroThrough:{fontFamily:FONT.regular,color:'#e3f5ef',fontSize:12,textAlign:'right',marginTop:7},
+  workPercentRing:{alignSelf:'center',width:135,height:135,borderRadius:68,borderWidth:10,borderColor:'#b0e7cf',borderTopColor:'#f2cf8a',borderRightColor:'#f2cf8a',alignItems:'center',justifyContent:'center',marginVertical:12},
+  workPercentValue:{fontFamily:FONT.bold,color:'#fff',fontSize:26},workPercentLabel:{fontFamily:FONT.regular,color:'#e5f6ee',fontSize:10,textAlign:'center'},
   workPrimaryGrid:{flexDirection:'row-reverse',flexWrap:'wrap',justifyContent:'space-between',gap:10,marginBottom:12},
   workPrimaryCard:{width:'48%',minWidth:0,backgroundColor:'#fff',borderRadius:19,padding:15,borderWidth:1,borderColor:'#dceae2',minHeight:112,justifyContent:'space-between',elevation:1},
   workPrimaryCardHead:{flexDirection:'row-reverse',alignItems:'center',gap:7},

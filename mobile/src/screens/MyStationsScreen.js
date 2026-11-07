@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { request } from '../api';
@@ -13,8 +13,11 @@ export default function MyStationsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [denied, setDenied] = useState(false);
+  const [query, setQuery] = useState('');
   const generation = useRef(0);
   const { width } = useWindowDimensions();
+  const normalizedQuery = query.trim().replace(/ي/g, 'ی').replace(/ك/g, 'ک').toLowerCase();
+  const filtered = data.filter(x => !normalizedQuery || [x.line_code, x.station_name, x.origin, x.destination, x.physical_address, x.street, x.station_code].some(v => String(v || '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').toLowerCase().includes(normalizedQuery)));
 
   const load = useCallback(async () => {
     const current = ++generation.current;
@@ -59,13 +62,19 @@ export default function MyStationsScreen({ navigation }) {
         <Text style={s.title}>ایستگاه‌های ثبت‌شده من</Text>
         <Text style={s.headSub}>{loading ? 'در حال دریافت اطلاعات…' : `تعداد ایستگاه‌ها: ${fa(data.length)}`}</Text>
       </View>
+      {!loading && !denied && !error && <View style={s.searchBox}>
+        <MaterialCommunityIcons name="magnify" size={22} color={C.brand}/>
+        <TextInput accessibilityLabel="جستجوی ایستگاه‌های ثبت‌شده" style={s.searchInput} value={query} onChangeText={setQuery} placeholder="جستجوی خط، ایستگاه یا آدرس…" placeholderTextColor={C.muted}/>
+        {query ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="پاک‌کردن جستجو" onPress={()=>setQuery('')} style={s.clearSearch}><MaterialCommunityIcons name="close-circle-outline" size={21} color={C.muted}/></TouchableOpacity> : null}
+      </View>}
       {!!error && <View style={s.errorBox}>
         <Text style={s.errorText}>{error}</Text>
         <TouchableOpacity accessibilityRole="button" style={s.retry} onPress={load}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity>
       </View>}
       {!loading && denied && <View style={s.empty}><MaterialCommunityIcons name="lock-outline" size={30} color={C.muted}/><Text style={s.emptyText}>دسترسی مشاهده ایستگاه‌های ثبت‌شده برای حساب شما فعال نیست.</Text></View>}
       {!loading && !error && !denied && data.length === 0 && <View style={s.empty}><MaterialCommunityIcons name="map-marker-off-outline" size={32} color={C.brand}/><Text style={s.emptyText}>هنوز ایستگاهی توسط شما ثبت نشده است.</Text><Text style={s.muted}>پس از ثبت موفق، اطلاعات ایستگاه در این قسمت نمایش داده می‌شود.</Text></View>}
-      {!loading && !error && !denied && data.map(x => <TouchableOpacity key={String(x.id)} accessibilityRole="button" accessibilityLabel={`مشاهده و ویرایش ایستگاه خط ${x.line_code || ''}`}
+      {!loading && !error && !denied && data.length > 0 && filtered.length === 0 && <View style={s.empty}><MaterialCommunityIcons name="magnify-close" size={30} color={C.brand}/><Text style={s.emptyText}>ایستگاهی با این عبارت یافت نشد.</Text></View>}
+      {!loading && !error && !denied && filtered.map(x => <TouchableOpacity key={String(x.id)} accessibilityRole="button" accessibilityLabel={`مشاهده و ویرایش ایستگاه خط ${x.line_code || ''}`}
         style={s.card} onPress={() => navigation.navigate('StationCapture', { stationId: x.id })}>
         <View style={s.row}><View style={s.editChip}><MaterialCommunityIcons name="pencil-outline" size={18} color={C.brand}/><Text style={s.edit}>مشاهده و ویرایش</Text></View><View style={s.lineHead}><MaterialCommunityIcons name="map-marker-radius-outline" size={19} color={C.brand}/><Text style={s.line}>{x.line_code || 'خط بدون کد'}</Text></View></View>
         <Text style={s.muted}>{x.origin || ''}{x.destination ? ' تا ' + x.destination : ''}</Text>
@@ -83,6 +92,8 @@ const s = StyleSheet.create({
   head: { backgroundColor: '#075f51', borderRadius: 25, padding: 20, marginBottom: 15, elevation: 3 },headIcon:{alignSelf:'flex-end',marginBottom:8},
   title: { fontFamily: FONT.bold, color: '#fff', fontSize: 19, textAlign: 'right' },
   headSub: { fontFamily: FONT.regular, color: '#e0f2e9', fontSize: 13, textAlign: 'right', marginTop: 6 },
+  searchBox:{flexDirection:'row-reverse',alignItems:'center',gap:9,backgroundColor:'#fff',borderRadius:16,borderWidth:1,borderColor:'#dce9e3',paddingHorizontal:13,marginBottom:14,minHeight:52,elevation:1},
+  searchInput:{flex:1,fontFamily:FONT.regular,color:C.ink,textAlign:'right',fontSize:13,paddingVertical:12},clearSearch:{minWidth:44,minHeight:48,alignItems:'center',justifyContent:'center'},
   muted: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'right', lineHeight: 20 },
   card: { backgroundColor: '#fff', borderRadius: 20, padding: 17, marginBottom: 11, borderWidth: 1, borderColor: '#dce9e3', minHeight: 96, elevation: 1 },
   row: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 12 },lineHead:{flexDirection:'row-reverse',alignItems:'center',gap:5,flexShrink:1},
