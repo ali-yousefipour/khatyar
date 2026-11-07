@@ -16409,6 +16409,7 @@ try {
   // authentication, public settings, health, or the rest of the API.
   error_log('school-service routes bootstrap failed: '.$e->getMessage().' @ '.basename($e->getFile()).':'.$e->getLine());
 }
+require_once __DIR__.'/school_service_sepand.php';
 
 // BEGIN CLIENT CRASH REPORTS
 /** Authenticated Android/PWA diagnostic reports. Never retain the raw request body. */
