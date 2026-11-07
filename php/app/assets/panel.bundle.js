@@ -1208,6 +1208,7 @@ function BirthdayCelebration({ bdays }) {
 function Dashboard() {
     const [s, setS] = useState(null);
     const [tw, setTw] = useState({ top: [], bottom: [] });
+    const [activeTab, setActiveTab] = useState('overview');
     const [bdays, setBdays] = useState(null);
     const [loadErr, setLoadErr] = useState("");
     const [loading, setLoading] = useState(true);
@@ -1232,7 +1233,9 @@ function Dashboard() {
     const K = [["راننده فعال", s.drivers, "کاربران فعال ناوگان"], ["خط فعال", s.lines, "خطوط در حال بهره‌برداری"], ["حضور امروز", s.today_attendance, "تردد ثبت‌شده امروز"], ["فیش پرداخت‌نشده", s.unpaid_bills, "نیازمند پیگیری"], ["تذکر این ماه", s.notices_month, "موارد ثبت‌شده ماه جاری"]];
     return (React.createElement("div", { className: "dashboard-page" },
         React.createElement(BirthdayCelebration, { bdays: bdays }),
-        React.createElement("section", { className: "dashboard-overview", "aria-label": "\u0622\u0645\u0627\u0631 \u06A9\u0644\u06CC \u0633\u0627\u0645\u0627\u0646\u0647" },
+        React.createElement("div", { className: "dashboard-primary-tabs", role: "tablist", "aria-label": "\u062F\u0633\u062A\u0647\u200C\u0628\u0646\u062F\u06CC \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u0645\u062F\u06CC\u0631\u06CC\u062A" }, [["overview", "نمای کلی"], ["personnel", "ترکیب نیروها"], ["attendance", "حضور پرسنل"], ["performance", "کارایی نیروها"], ["insights", "تحلیل مدیریتی"]].map(([key, label]) => React.createElement("button", { type: "button", role: "tab", key: key, id: 'dashboard-tab-' + key, "aria-controls": 'dashboard-content-' + key, "aria-selected": activeTab === key, tabIndex: activeTab === key ? 0 : -1, className: activeTab === key ? 'active' : '', onClick: () => setActiveTab(key), onKeyDown: e => { var _a; if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key))
+                return; e.preventDefault(); const tabs = [...e.currentTarget.parentElement.querySelectorAll('[role="tab"]')]; const i = tabs.indexOf(e.currentTarget); const j = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : (i + (e.key === 'ArrowLeft' ? 1 : -1) + tabs.length) % tabs.length; (_a = tabs[j]) === null || _a === void 0 ? void 0 : _a.focus(); setActiveTab(['overview', 'personnel', 'attendance', 'performance', 'insights'][j]); } }, label))),
+        activeTab === 'overview' && React.createElement("section", { className: "dashboard-overview", id: "dashboard-content-overview", role: "tabpanel", "aria-labelledby": "dashboard-tab-overview", "aria-label": "\u0622\u0645\u0627\u0631 \u06A9\u0644\u06CC \u0633\u0627\u0645\u0627\u0646\u0647" },
             React.createElement("div", { className: "dashboard-section-head" },
                 React.createElement("div", null,
                     React.createElement("span", { className: "dashboard-section-kicker" }, "\u0646\u0645\u0627\u06CC \u06A9\u0644\u06CC \u0633\u0627\u0645\u0627\u0646\u0647"),
@@ -1243,9 +1246,11 @@ function Dashboard() {
                 React.createElement("div", { className: "n" }, n == null ? "—" : fa(n)),
                 React.createElement("div", { className: "l" }, l),
                 React.createElement("div", { className: "dashboard-kpi-desc" }, desc))))),
-        React.createElement(PersonnelDistributionDashboard, null),
-        React.createElement(LiveStaffDashboard, null),
-        tw && tw.groups && tw.groups.length > 0 ? React.createElement("section", { className: "dashboard-workers", "aria-label": "\u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627" },
+        activeTab === 'personnel' && React.createElement("div", { id: "dashboard-content-personnel", role: "tabpanel", "aria-labelledby": "dashboard-tab-personnel" },
+            React.createElement(PersonnelDistributionDashboard, null)),
+        activeTab === 'attendance' && React.createElement("div", { id: "dashboard-content-attendance", role: "tabpanel", "aria-labelledby": "dashboard-tab-attendance" },
+            React.createElement(LiveStaffDashboard, null)),
+        activeTab === 'performance' && (tw && tw.groups && tw.groups.length > 0 ? React.createElement("section", { className: "dashboard-workers", id: "dashboard-content-performance", role: "tabpanel", "aria-labelledby": "dashboard-tab-performance", "aria-label": "\u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627" },
             React.createElement("div", { className: "dashboard-section-head" },
                 React.createElement("div", null,
                     React.createElement("span", { className: "dashboard-section-kicker" }, "\u0627\u0631\u0632\u06CC\u0627\u0628\u06CC \u0639\u0645\u0644\u06A9\u0631\u062F"),
@@ -1253,7 +1258,49 @@ function Dashboard() {
                 React.createElement("span", { className: "dashboard-section-caption" }, tw.zone_scope === "own" ? "محدوده منطقه شما" : "پرکارترین و کم‌کارترین همکاران")),
             React.createElement("div", { className: "grid2 dashboard-worker-grid" },
                 tw.groups.map((g, i) => React.createElement(WorkerGroup, { key: g.key, title: g.title, data: g, color: GROUP_COLORS[g.key] || "#0d7a5f" })),
-                tw.groups.length % 2 === 1 ? React.createElement("div", null) : null)) : React.createElement("p", { className: "muted", style: { padding: 16 } }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u0646\u06CC\u0633\u062A.")));
+                tw.groups.length % 2 === 1 ? React.createElement("div", null) : null)) : React.createElement("p", { className: "panel muted", id: "dashboard-content-performance", role: "tabpanel" }, "\u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627 \u0646\u06CC\u0633\u062A.")),
+        activeTab === 'insights' && React.createElement("div", { id: "dashboard-content-insights", role: "tabpanel", "aria-labelledby": "dashboard-tab-insights" },
+            React.createElement(DashboardManagementInsights, { stats: s, workers: tw }))));
+}
+function DashboardManagementInsights({ stats, workers }) {
+    const people = ((workers === null || workers === void 0 ? void 0 : workers.groups) || []).flatMap(g => g.top || []);
+    const fields = [['ثبت حضور', 'attendances'], ['چک‌لیست', 'checklists'], ['تذکر', 'notices'], ['فرم', 'forms'], ['حضور مسئولین', 'visits'], ['گزارش', 'reports']];
+    const activities = fields.map(([label, key]) => ({ label, value: people.reduce((sum, p) => sum + Math.max(0, Number(p[key]) || 0), 0) }));
+    const roleValues = ((workers === null || workers === void 0 ? void 0 : workers.groups) || []).map(g => ({ label: g.title || 'بدون عنوان', value: (g.top || []).reduce((sum, p) => sum + Math.max(0, Number(p.total) || 0), 0) }));
+    const topActivity = activities.reduce((best, item) => item.value > best.value ? item : best, { label: '—', value: 0 });
+    const Chart = ({ title, description, rows }) => {
+        const max = Math.max(1, ...rows.map(x => x.value));
+        return React.createElement("section", { className: "panel dashboard-analysis-chart", "aria-label": title },
+            React.createElement("h3", null, title),
+            React.createElement("p", null, description),
+            rows.length ? rows.map((row, i) => React.createElement("div", { className: "dashboard-analysis-row", key: row.label },
+                React.createElement("div", { className: "dashboard-analysis-row-head" },
+                    React.createElement("span", null, row.label),
+                    React.createElement("b", null, fa(row.value))),
+                React.createElement("div", { className: "dashboard-analysis-track", role: "meter", "aria-label": row.label, "aria-valuemin": 0, "aria-valuemax": max, "aria-valuenow": row.value },
+                    React.createElement("span", { style: { width: (row.value / max * 100) + '%', background: i % 2 ? '#0c8a70' : '#d8a94c' } })))) : React.createElement("div", { className: "muted" }, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u06A9\u0627\u0641\u06CC \u0628\u0631\u0627\u06CC \u0631\u0633\u0645 \u0646\u0645\u0648\u062F\u0627\u0631 \u0645\u0648\u062C\u0648\u062F \u0646\u06CC\u0633\u062A."));
+    };
+    return React.createElement("section", { className: "dashboard-management-insights", "aria-label": "\u062A\u062D\u0644\u06CC\u0644 \u0645\u062F\u06CC\u0631\u06CC\u062A\u06CC" },
+        React.createElement("div", { className: "dashboard-section-head" },
+            React.createElement("div", null,
+                React.createElement("span", { className: "dashboard-section-kicker" }, "\u0645\u0631\u06A9\u0632 \u062A\u062D\u0644\u06CC\u0644"),
+                React.createElement("h2", null, "\u062A\u062D\u0644\u06CC\u0644 \u0645\u062F\u06CC\u0631\u06CC\u062A\u06CC \u0639\u0645\u0644\u06CC\u0627\u062A")),
+            React.createElement("span", { className: "dashboard-section-caption" }, "\u062A\u062D\u0644\u06CC\u0644 \u062F\u0627\u062F\u0647\u200C\u0647\u0627\u06CC \u0645\u0648\u062C\u0648\u062F \u0628\u062F\u0648\u0646 \u0628\u0631\u0622\u0648\u0631\u062F \u06CC\u0627 \u0622\u0645\u0627\u0631 \u0633\u0627\u062E\u062A\u06AF\u06CC")),
+        React.createElement("div", { className: "dashboard-analysis-summary" },
+            React.createElement("div", null,
+                React.createElement("span", null, "\u067E\u0631\u06A9\u0627\u0631\u0628\u0631\u062F\u062A\u0631\u06CC\u0646 \u0646\u0648\u0639 \u0641\u0639\u0627\u0644\u06CC\u062A \u062F\u0631 \u0646\u0645\u0648\u0646\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0628\u0631\u062A\u0631"),
+                React.createElement("strong", null, topActivity.value ? topActivity.label : 'داده موجود نیست')),
+            React.createElement("div", null,
+                React.createElement("span", null, "\u062A\u0639\u062F\u0627\u062F \u06AF\u0631\u0648\u0647\u200C\u0647\u0627\u06CC \u062F\u0627\u0631\u0627\u06CC \u062F\u0627\u062F\u0647 \u0639\u0645\u0644\u06A9\u0631\u062F"),
+                React.createElement("strong", null, fa(roleValues.filter(x => x.value > 0).length))),
+            React.createElement("div", null,
+                React.createElement("span", null, "\u0641\u06CC\u0634\u200C\u0647\u0627\u06CC \u067E\u0631\u062F\u0627\u062E\u062A\u200C\u0646\u0634\u062F\u0647"),
+                React.createElement("strong", null, fa((stats === null || stats === void 0 ? void 0 : stats.unpaid_bills) || 0)),
+                React.createElement("small", null, "\u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0628\u0631\u0631\u0633\u06CC \u0648\u0627\u062D\u062F \u0645\u0627\u0644\u06CC"))),
+        React.createElement("div", { className: "dashboard-analysis-grid" },
+            React.createElement(Chart, { title: "\u062A\u0631\u06A9\u06CC\u0628 \u0641\u0639\u0627\u0644\u06CC\u062A\u200C\u0647\u0627\u06CC \u062B\u0628\u062A\u200C\u0634\u062F\u0647", description: "\u0645\u062C\u0645\u0648\u0639 \u0641\u0639\u0627\u0644\u06CC\u062A\u200C\u0647\u0627\u06CC \u0646\u0645\u0648\u0646\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0628\u0631\u062A\u0631 \u0647\u0631 \u0633\u0645\u062A\u061B \u0646\u0647 \u06A9\u0644 \u0633\u0627\u0632\u0645\u0627\u0646", rows: activities }),
+            React.createElement(Chart, { title: "\u0645\u0642\u0627\u06CC\u0633\u0647 \u0639\u0645\u0644\u06A9\u0631\u062F \u06AF\u0631\u0648\u0647\u200C\u0647\u0627\u06CC \u0634\u063A\u0644\u06CC", description: "\u0645\u062C\u0645\u0648\u0639 \u0627\u0645\u062A\u06CC\u0627\u0632 \u0646\u0645\u0648\u0646\u0647 \u0646\u06CC\u0631\u0648\u0647\u0627\u06CC \u0628\u0631\u062A\u0631 \u0647\u0631 \u06AF\u0631\u0648\u0647\u061B \u0628\u0631\u0627\u06CC \u0645\u0642\u0627\u06CC\u0633\u0647 \u0627\u0648\u0644\u06CC\u0647", rows: roleValues })),
+        React.createElement("p", { className: "dashboard-analysis-note" }, "\u0627\u06CC\u0646 \u0646\u0645\u0648\u062F\u0627\u0631\u0647\u0627 \u0628\u0631 \u0627\u0633\u0627\u0633 \u062E\u0631\u0648\u062C\u06CC \u0645\u0648\u062C\u0648\u062F \u00AB\u06A9\u0627\u0631\u0627\u06CC\u06CC \u0646\u06CC\u0631\u0648\u0647\u0627\u00BB \u0645\u062D\u0627\u0633\u0628\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u0686\u0648\u0646 \u062F\u0627\u062F\u0647\u200C\u0647\u0627\u06CC \u0646\u0645\u0648\u0646\u0647 \u0628\u0631\u062A\u0631\u06CC\u0646\u200C\u0647\u0627 \u06A9\u0627\u0645\u0644\u0650 \u06A9\u0644 \u067E\u0631\u0633\u0646\u0644 \u0646\u06CC\u0633\u062A\u060C \u0627\u0632 \u0622\u0646\u200C\u0647\u0627 \u0628\u0631\u0627\u06CC \u0631\u062A\u0628\u0647\u200C\u0628\u0646\u062F\u06CC \u0642\u0637\u0639\u06CC \u0645\u0646\u0627\u0637\u0642 \u06CC\u0627 \u0627\u0631\u0632\u06CC\u0627\u0628\u06CC \u0647\u0645\u0647 \u06A9\u0627\u0631\u06A9\u0646\u0627\u0646 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0646\u06A9\u0646\u06CC\u062F."));
 }
 const GROUP_COLORS = { supervisor: "#0d7a5f", operator: "#0891b2", admin_staff: "#2563eb", chief_inspector: "#7c3aed", inspector: "#d97706" };
 // نمایش پرکارترین/کم‌کارترین یک گروه نقش + پنجرهٔ بالنی جزئیات با کلیک روی نام
@@ -20025,6 +20072,56 @@ function FirstLoginPassword({ name, onDone, onLogout }) {
                 React.createElement("button", { type: "button", onClick: onLogout, style: { padding: 10, background: 'transparent', border: '1px solid #d3deea', borderRadius: 10, color: '#536579', font: 'inherit', cursor: 'pointer' } }, "\u062E\u0631\u0648\u062C \u0627\u0632 \u062D\u0633\u0627\u0628")),
             React.createElement("p", { style: { fontSize: 12, color: '#66798b', lineHeight: 1.9, margin: '18px 0 0' } }, "\u0627\u06AF\u0631 \u0628\u0627 \u06A9\u062F \u06CC\u06A9\u200C\u0628\u0627\u0631\u0645\u0635\u0631\u0641 \u0648\u0627\u0631\u062F \u0634\u062F\u0647\u200C\u0627\u06CC\u062F \u0648 \u0631\u0645\u0632 \u0641\u0639\u0644\u06CC \u0631\u0627 \u0646\u0645\u06CC\u200C\u062F\u0627\u0646\u06CC\u062F\u060C \u0628\u0627 \u0645\u062F\u06CC\u0631 \u0633\u0627\u0645\u0627\u0646\u0647 \u0628\u0631\u0627\u06CC \u0628\u0627\u0632\u06CC\u0627\u0628\u06CC \u0631\u0645\u0632 \u0647\u0645\u0627\u0647\u0646\u06AF \u06A9\u0646\u06CC\u062F.")));
 }
+function AccountPasswordDialog({ onClose }) {
+    const [current, setCurrent] = useState(''), [next, setNext] = useState(''), [confirm, setConfirm] = useState('');
+    const [saving, setSaving] = useState(false), [error, setError] = useState(''), [done, setDone] = useState(false);
+    const submit = async (e) => {
+        e.preventDefault();
+        setError('');
+        if (next.length < 12 || next.length > 128) {
+            setError('رمز جدید باید بین ۱۲ تا ۱۲۸ کاراکتر باشد.');
+            return;
+        }
+        if (next !== confirm) {
+            setError('رمز جدید و تکرار آن یکسان نیستند.');
+            return;
+        }
+        if (next === current) {
+            setError('رمز جدید باید متفاوت از رمز فعلی باشد.');
+            return;
+        }
+        setSaving(true);
+        try {
+            await SEND('POST', '/admin/change-password', { current, next });
+            setDone(true);
+            setCurrent('');
+            setNext('');
+            setConfirm('');
+        }
+        catch (err) {
+            setError(err.message || 'تغییر رمز انجام نشد.');
+        }
+        finally {
+            setSaving(false);
+        }
+    };
+    return React.createElement(Modal, { title: "\u062A\u063A\u06CC\u06CC\u0631 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u062D\u0633\u0627\u0628", onClose: onClose, style: { width: 'min(460px,94vw)', direction: 'rtl' } }, done ? React.createElement("div", { role: "status", className: "account-password-success" },
+        React.createElement("p", null, "\u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0634\u0645\u0627 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u062A\u063A\u06CC\u06CC\u0631 \u06A9\u0631\u062F."),
+        React.createElement("button", { className: "btn p", type: "button", onClick: onClose }, "\u0628\u0633\u062A\u0646")) : React.createElement("form", { className: "account-password-form", onSubmit: submit },
+        React.createElement("label", null,
+            "\u0631\u0645\u0632 \u0641\u0639\u0644\u06CC",
+            React.createElement("input", { className: "input", type: "password", autoComplete: "current-password", required: true, value: current, onChange: e => setCurrent(e.target.value) })),
+        React.createElement("label", null,
+            "\u0631\u0645\u0632 \u062C\u062F\u06CC\u062F (\u062D\u062F\u0627\u0642\u0644 \u06F1\u06F2 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631)",
+            React.createElement("input", { className: "input", type: "password", autoComplete: "new-password", required: true, minLength: 12, maxLength: 128, value: next, onChange: e => setNext(e.target.value) })),
+        React.createElement("label", null,
+            "\u062A\u06A9\u0631\u0627\u0631 \u0631\u0645\u0632 \u062C\u062F\u06CC\u062F",
+            React.createElement("input", { className: "input", type: "password", autoComplete: "new-password", required: true, value: confirm, onChange: e => setConfirm(e.target.value) })),
+        error && React.createElement("p", { className: "account-password-error", role: "alert" }, error),
+        React.createElement("div", { className: "row", style: { justifyContent: 'flex-end', gap: 8 } },
+            React.createElement("button", { className: "btn g", type: "button", onClick: onClose }, "\u0627\u0646\u0635\u0631\u0627\u0641"),
+            React.createElement("button", { className: "btn p", type: "submit", disabled: saving }, saving ? 'در حال ذخیره…' : 'ذخیره رمز جدید'))));
+}
 function App() {
     const [me, setMe] = useState(null);
     const [authReady, setAuthReady] = useState(false);
@@ -20057,6 +20154,20 @@ function App() {
         catch (_) { }
     }, [navigationRestored, me === null || me === void 0 ? void 0 : me.id, me === null || me === void 0 ? void 0 : me.is_admin, v]);
     const [menuSearch, setMenuSearch] = useState("");
+    const [accountOpen, setAccountOpen] = useState(false);
+    const [passwordDialog, setPasswordDialog] = useState(false);
+    const accountRef = useRef(null);
+    useEffect(() => {
+        if (!accountOpen)
+            return;
+        const close = e => { var _a; if (e.type === 'keydown' && e.key === 'Escape')
+            setAccountOpen(false);
+        else if (e.type === 'pointerdown' && !((_a = accountRef.current) === null || _a === void 0 ? void 0 : _a.contains(e.target)))
+            setAccountOpen(false); };
+        document.addEventListener('pointerdown', close);
+        document.addEventListener('keydown', close);
+        return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', close); };
+    }, [accountOpen]);
     const menuQuery = normalizePanelMenuText(menuSearch);
     const menuButtonRef = useRef(null);
     const menuSearchRef = useRef(null);
@@ -20205,7 +20316,9 @@ function App() {
                     React.createElement("span", { style: { color: (window.__health ? "#16a06a" : "#e3403e") } }, window.__health ? "متصل به سرور" : "قطع")))),
         React.createElement("main", { className: "main" },
             React.createElement("div", { className: "top" },
-                React.createElement("button", { ref: menuButtonRef, className: "burger", "aria-label": drawer ? "بستن منوی صفحات" : "باز کردن منوی صفحات", "aria-expanded": drawer, onClick: () => { setSidebarCollapsed(false); setDrawer(d => !d); } }, "\u2630"),
+                React.createElement("button", { ref: menuButtonRef, className: "burger", "aria-label": drawer ? "بستن منوی صفحات" : "باز کردن منوی صفحات", "aria-expanded": drawer, onClick: () => { setSidebarCollapsed(false); setDrawer(d => !d); } },
+                    React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24", "aria-hidden": "true", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" },
+                        React.createElement("path", { d: "M4 6h16M4 12h16M4 18h16" }))),
                 React.createElement("div", { className: "page-heading" },
                     React.createElement("div", { className: "page-breadcrumb" },
                         "\u067E\u0646\u0644 \u0645\u062F\u06CC\u0631\u06CC\u062A ",
@@ -20213,14 +20326,30 @@ function App() {
                         " ",
                         (currentSection === null || currentSection === void 0 ? void 0 : currentSection[0]) || "خطیار"),
                     React.createElement("h2", null, VIEWS[vk].t)),
-                React.createElement("div", { className: "who" },
-                    React.createElement("span", null,
-                        me.name,
-                        " \u2014 ",
-                        me.role,
-                        me.rank_stars ? " · " + "★".repeat(Math.max(0, Math.min(5, +me.rank_stars))) : ""),
-                    React.createElement("div", { className: "av" },
-                        React.createElement(AuthenticatedAvatar, { url: me.photo, name: me.name })))),
+                React.createElement("div", { className: "account-menu-wrap", ref: accountRef },
+                    React.createElement("button", { type: "button", className: "who account-trigger", "aria-label": 'منوی حساب کاربری ' + me.name, "aria-haspopup": "menu", "aria-expanded": accountOpen, onClick: () => setAccountOpen(x => !x) },
+                        React.createElement("span", null,
+                            me.name,
+                            " \u2014 ",
+                            me.role,
+                            me.rank_stars ? " · " + "★".repeat(Math.max(0, Math.min(5, +me.rank_stars))) : ""),
+                        React.createElement("div", { className: "av" },
+                            React.createElement(AuthenticatedAvatar, { url: me.photo, name: me.name })),
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "16", height: "16", "aria-hidden": "true", fill: "none", stroke: "currentColor", strokeWidth: "2" },
+                            React.createElement("path", { d: "m6 9 6 6 6-6" }))),
+                    accountOpen && React.createElement("div", { className: "account-dropdown", role: "menu" },
+                        React.createElement("div", { className: "account-dropdown-head" },
+                            me.name,
+                            React.createElement("small", null, me.role)),
+                        React.createElement("button", { role: "menuitem", type: "button", onClick: () => { setAccountOpen(false); setPasswordDialog(true); } }, "\u062A\u063A\u06CC\u06CC\u0631 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631"),
+                        React.createElement("button", { role: "menuitem", type: "button", className: "account-logout", onClick: async () => { setAccountOpen(false); try {
+                                await _clearWebSession();
+                                setMe(null);
+                            }
+                            catch (e) {
+                                alert(e.message);
+                            } } }, "\u062E\u0631\u0648\u062C \u0627\u0632 \u0648\u0628\u200C\u0633\u0627\u06CC\u062A")))),
+            passwordDialog && React.createElement(AccountPasswordDialog, { onClose: () => setPasswordDialog(false) }),
             React.createElement("div", { id: "panel-content", className: "page-content", "data-page": vk, tabIndex: -1 },
                 React.createElement(View, { canNavigate: can })))));
 }
