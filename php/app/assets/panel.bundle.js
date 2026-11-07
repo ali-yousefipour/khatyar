@@ -2,7 +2,63 @@ const KH_COMPLAINTS_BUILD = "2026-10-06-v257";
 // PANEL BUILD TARGET: 2026-10-14-v1
 // Build sync: keep generated panel bundle aligned with panel_source changes.
 const { useState, useEffect, useRef, useMemo } = React;
-const I8 = (name) => name && name !== "undefined" ? React.createElement("img", { src: `/assets/icons3d/${name}.png`, alt: "", width: "30", height: "30", loading: "eager", decoding: "async", style: { objectFit: 'contain' }, onError: e => { e.currentTarget.style.display = 'none'; } }) : React.createElement("span", { "aria-hidden": "true", style: { display: "inline-flex", fontSize: 20, alignItems: "center", justifyContent: "center", width: 30, height: 30 } }, "\u25A6");
+// Navigation icons share the Android dashboard's clean outlined-vector language.
+// Unlike the former 3D PNGs, these are themeable, crisp at every zoom and never fail to load.
+const I8 = (name) => {
+    const n = String(name || '');
+    const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
+    const icon = (/dashboard|layout|grid|app-menu/.test(n)) ? React.createElement(React.Fragment, null,
+        React.createElement("rect", { x: "3", y: "3", width: "7", height: "7", rx: "1.5" }),
+        React.createElement("rect", { x: "14", y: "3", width: "7", height: "7", rx: "1.5" }),
+        React.createElement("rect", { x: "3", y: "14", width: "7", height: "7", rx: "1.5" }),
+        React.createElement("rect", { x: "14", y: "14", width: "7", height: "7", rx: "1.5" })) :
+        (/map|route|zone|line/.test(n)) ? React.createElement(React.Fragment, null,
+            React.createElement("path", { d: "m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z" }),
+            React.createElement("path", { d: "M9 3v15m6-12v15" })) :
+            (/user|people|present|official|driver|staff|organization|group/.test(n)) ? React.createElement(React.Fragment, null,
+                React.createElement("circle", { cx: "9", cy: "8", r: "3" }),
+                React.createElement("path", { d: "M3.5 20v-2a5.5 5.5 0 0 1 11 0v2M17 5a3 3 0 0 1 0 6m1 4a5 5 0 0 1 3 5" })) :
+                (/attendance|shift|calendar|clock|seniority|temporary/.test(n)) ? React.createElement(React.Fragment, null,
+                    React.createElement("rect", { x: "3", y: "5", width: "18", height: "16", rx: "2" }),
+                    React.createElement("path", { d: "M7 3v4m10-4v4M3 10h18m-12 5 2 2 4-4" })) :
+                    (/chart|gauge|performance|activity|score|health|wave/.test(n)) ? React.createElement(React.Fragment, null,
+                        React.createElement("path", { d: "M3 19V5m0 14h18M7 15l4-5 3 3 6-7" }),
+                        React.createElement("path", { d: "M17 6h3v3" })) :
+                        (/report|document|folder|form|contract|commitment|audit|logs/.test(n)) ? React.createElement(React.Fragment, null,
+                            React.createElement("path", { d: "M6 3h9l4 4v14H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" }),
+                            React.createElement("path", { d: "M15 3v5h4M8 12h8M8 16h6" })) :
+                            (/checklist|request|approval|checked/.test(n)) ? React.createElement(React.Fragment, null,
+                                React.createElement("rect", { x: "5", y: "4", width: "14", height: "17", rx: "2" }),
+                                React.createElement("path", { d: "M9 4V2h6v2M8 11l2 2 5-5M8 17h8" })) :
+                                (/message|sms|bot|radio|envelope/.test(n)) ? React.createElement(React.Fragment, null,
+                                    React.createElement("path", { d: "M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 3v-5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" }),
+                                    React.createElement("path", { d: "M7 10h10M7 14h7" })) :
+                                    (/security|lock|session/.test(n)) ? React.createElement(React.Fragment, null,
+                                        React.createElement("rect", { x: "5", y: "10", width: "14", height: "11", rx: "2" }),
+                                        React.createElement("path", { d: "M8 10V7a4 4 0 0 1 8 0v3m-4 5v2" })) :
+                                        (/config|settings|gears|policy|custom/.test(n)) ? React.createElement(React.Fragment, null,
+                                            React.createElement("path", { d: "M4 7h16M4 17h16" }),
+                                            React.createElement("circle", { cx: "9", cy: "7", r: "3", fill: "var(--icon-surface, #075b4d)" }),
+                                            React.createElement("circle", { cx: "16", cy: "17", r: "3", fill: "var(--icon-surface, #075b4d)" })) :
+                                            (/car|vehicle|tools|taxi|school/.test(n)) ? React.createElement(React.Fragment, null,
+                                                React.createElement("path", { d: "M5 16 3 14l2-7a2 2 0 0 1 2-1h10a2 2 0 0 1 2 1l2 7-2 2H5z" }),
+                                                React.createElement("path", { d: "M3 13h18M7 16v3m10-3v3M7 10h.01M17 10h.01" })) :
+                                                (/bill|receipt|salary|excel|upload/.test(n)) ? React.createElement(React.Fragment, null,
+                                                    React.createElement("path", { d: "M5 3h14v18l-3-2-4 2-4-2-3 2z" }),
+                                                    React.createElement("path", { d: "M9 8h6M9 12h6M9 16h3" })) :
+                                                    (/camera|covert/.test(n)) ? React.createElement(React.Fragment, null,
+                                                        React.createElement("path", { d: "M3 7h5l2-3h4l2 3h5v13H3z" }),
+                                                        React.createElement("circle", { cx: "12", cy: "13", r: "4" })) :
+                                                        (/welfare|gift|inventory|box|cultural/.test(n)) ? React.createElement(React.Fragment, null,
+                                                            React.createElement("path", { d: "M3 9h18v12H3zM2 6h20v4H2zM12 6v15" }),
+                                                            React.createElement("path", { d: "M12 6C5-1 3 7 12 6Zm0 0c7-7 9 1 0 0Z" })) :
+                                                            (/logout/.test(n)) ? React.createElement(React.Fragment, null,
+                                                                React.createElement("path", { d: "M11 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6M15 7l5 5-5 5m5-5H9" })) :
+                                                                React.createElement(React.Fragment, null,
+                                                                    React.createElement("circle", { cx: "12", cy: "12", r: "9" }),
+                                                                    React.createElement("path", { d: "M12 7v5l3 2" }));
+    return React.createElement("svg", { className: "kh-nav-svg", viewBox: "0 0 24 24", width: "22", height: "22", "aria-hidden": "true", focusable: "false", ...common }, icon);
+};
 // چاپ حرفه‌ای با سربرگ (لوگو + عنوان سازمان + تاریخ تولید) — برای استفادهٔ مشترک در همهٔ گزارش‌ها
 function printLetterhead(reportTitle, bodyHtml, opts) {
     const a = document.getElementById("print-area");
