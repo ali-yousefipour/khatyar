@@ -41,10 +41,10 @@ register_shutdown_function(static function() use (&$apiRequestStart) {
 
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
-  $siteV = '1.5.20'; $appV = '1.5.20';
+  $siteV = '1.5.21'; $appV = '1.5.21';
   $releaseNotes = [
-    'version' => '1.5.20',
-    'title' => 'تغییرات نسخه ۱.۵.۲۰',
+    'version' => '1.5.21',
+    'title' => 'تغییرات نسخه ۱.۵.۲۱',
     'items' => [
       'افزودن فلاشر تمام‌صفحه با چراغ‌های سفید و زرد و دکمه توقف سریع در اندروید',
       'افزودن دزدگیر اندروید با تشخیص حرکت و جداشدن شارژر و توقف آژیر با رمز قفل خطیار',
