@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useState}from'react';import{Alert,ActivityIndicator,Image,Linking,ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View,Modal}from'react-native';import*as Location from'expo-location';import*as ImagePicker from'expo-image-picker';import{WebView}from'react-native-webview';import{request,imageSource}from'../api';import{C,FONT}from'../theme';
+import React,{useEffect,useMemo,useState}from'react';import{Alert,ActivityIndicator,Image,Linking,ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View,Modal}from'react-native';import*as Location from'expo-location';import{launchCamera,requestCameraAccess}from'../cameraLock';import{WebView}from'react-native-webview';import{request,imageSource}from'../api';import{C,FONT}from'../theme';
 const fa=n=>String(n??'').replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
 const fmt=dt=>{try{return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'short',timeStyle:'medium',timeZone:'Asia/Tehran'}).format(new Date(String(dt).replace(' ','T')+'+03:30'))}catch(_){return dt||'—'}};
 const mapHtml=(lat,lng)=>`<!doctype html><html dir="rtl"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{height:100%;margin:0}#hint{position:fixed;z-index:9999;top:8px;left:8px;right:8px;background:#fff;padding:8px;border-radius:8px;text-align:center;font:13px sans-serif;box-shadow:0 1px 5px #777}</style></head><body><div id="hint">نشانگر را بکشید یا روی نقشه ضربه بزنید</div><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>const m=L.map('map').setView([${lat},${lng}],17);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(m);const p=L.marker([${lat},${lng}],{draggable:true}).addTo(m);function send(){const x=p.getLatLng();window.ReactNativeWebView.postMessage(JSON.stringify({latitude:x.lat,longitude:x.lng,manual:true}))}p.on('dragend',send);m.on('click',e=>{p.setLatLng(e.latlng);send()});</script></body></html>`;
@@ -76,9 +76,9 @@ export default function StationCaptureV4Screen({route,navigation}){
   // عکس همیشه با base64 گرفته می‌شود تا مستقیماً به‌صورت data URI به سرور
   // ارسال شود؛ ارسال مسیر خام فایل دستگاه (file://...) توسط سرور قابل ذخیره نیست.
   const pickPhoto=async cb=>{
-    const p=await ImagePicker.requestCameraPermissionsAsync();
+    const p=await requestCameraAccess();
     if(p.status!=='granted'){Alert.alert('دوربین','اجازه دسترسی به دوربین لازم است.');return}
-    const r=await ImagePicker.launchCameraAsync({mediaTypes:['images'],quality:.78,base64:true,exif:false,allowsEditing:false});
+    const r=await launchCamera({mediaTypes:['images'],quality:.78,base64:true,exif:false,allowsEditing:false});
     if(!r.canceled&&r.assets?.[0]?.base64)cb(`data:image/jpeg;base64,${r.assets[0].base64}`);
   };
   const addSign=()=>{if(!types.length){Alert.alert('تابلو','نوع تابلو فعالی تعریف نشده است.');return}setTypeModal(true)};
