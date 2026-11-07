@@ -249,6 +249,41 @@ const load=async()=>{
  if(t==='schools'){try{const total=Math.min(10000,Number(x.total||rows.length));const pages=Math.max(1,Math.ceil(total/100));mapRows=[];for(let pg=1;pg<=pages;pg++){const mm=await api('/api/school-service/schools-page?search='+encodeURIComponent(input.value)+'&page='+pg+'&page_size=100');const part=mm.items||[];mapRows=mapRows.concat(part);if(part.length<100)break;}}catch(_){mapRows=rows;}if(rows.length===0&&Number(x.total||0)===0&&mapRows.length){rows=mapRows.slice(0,25);x={items:rows,page:1,page_size:25,total:mapRows.length,pages:Math.max(1,Math.ceil(mapRows.length/25))};}}if(t==='vehicles'){
   let page=1;
   b.innerHTML='<div class="ssv-card"><div class="ssv-filter-panel"><h3>جست‌وجو و فیلتر خودروهای سرویس مدارس</h3><div class="ssv-filter-grid"><label>جست‌وجوی پلاک، نوع و رنگ<input id="vehicle-search" class="ssv-input" type="search" placeholder="مثلاً ۱۲ ب ۳۴۵ یا ون"></label><label>نوع خودرو<select id="vehicle-type" class="ssv-input"><option value="">همه انواع</option></select></label><label>رنگ خودرو<select id="vehicle-color" class="ssv-input"><option value="">همه رنگ‌ها</option></select></label><label>نوع راننده<select id="vehicle-gender" class="ssv-input"><option value="">همه</option><option>خانم</option><option>آقا</option><option>نامشخص</option></select></label><label>وضعیت گواهی<select id="vehicle-cert" class="ssv-input"><option value="">همه وضعیت‌ها</option><option>معتبر</option><option>نامعتبر</option><option>ارائه نشد</option></select></label><button id="vehicle-clear" class="ssv-row-btn" type="button">پاک‌کردن فیلترها</button></div></div><div class="ssv-actions" style="justify-content:space-between"><strong>فهرست خودروها</strong><button id="vehicle-new">خودروی جدید</button></div><div id="vehicle-list" style="margin-top:12px"></div></div>';
+  b.querySelector('.ssv-filter-panel').insertAdjacentHTML('beforebegin','<div class="ssv-actions" style="justify-content:space-between;align-items:center;flex-wrap:wrap"><div><strong>سرویس‌های مدارس غیرمجاز</strong><p class="ssv-filter-note">هشدار این فهرست هنگام استعلام پلاک در اپ اندروید نمایش داده می‌شود.</p></div><button type="button" id="ssv-register-unauthorized" class="ssv-row-btn danger">ثبت خودرو غیرمجاز</button></div><div id="ssv-unauthorized-list" class="ssv-table-wrap" aria-live="polite">در حال دریافت فهرست…</div>');
+  const loadUnauthorized=async()=>{
+    const host=b.querySelector('#ssv-unauthorized-list');if(!host)return;
+    try{const data=await api('/api/school-service/unauthorized-vehicles');const rows=data.items||[];
+      host.innerHTML=rows.length?'<table class="ssv-table"><thead><tr><th>پلاک</th><th>نوع</th><th>رنگ</th><th>شرکت اعلام‌کننده</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+ssvIranPlate(r)+'</td><td>'+esc(r.vehicle_type)+'</td><td>'+esc(r.vehicle_color)+'</td><td>'+esc(r.reporting_company_name)+'</td><td><span class="ssv-chip">غیرمجاز</span></td><td><button type="button" class="ssv-row-btn" data-clear-unauthorized="'+Number(r.id)+'">لغو اعلام</button></td></tr>').join('')+'</tbody></table>':'<p class="ssv-filter-note">هنوز خودروی غیرمجازی ثبت نشده است.</p>';
+      if(!S.access?.can_edit)host.querySelectorAll('[data-clear-unauthorized]').forEach(el=>el.style.display='none');
+      host.querySelectorAll('[data-clear-unauthorized]').forEach(el=>el.onclick=()=>ssvConfirm('لغو وضعیت غیرمجاز','با تأیید، هشدار این پلاک از استعلام‌های جدید حذف می‌شود. سابقه رکورد در پایگاه داده باقی می‌ماند.',async()=>{await api('/api/school-service/unauthorized-vehicles/'+el.dataset.clearUnauthorized,{method:'DELETE'});await loadUnauthorized()}));
+    }catch(e){host.innerHTML='<div class="ssv-msg">'+esc(e.message||'خطا در دریافت خودروهای غیرمجاز')+'</div>'}
+  };
+  const registerUnauthorized=b.querySelector('#ssv-register-unauthorized');
+  if(!S.access?.can_edit)registerUnauthorized.style.display='none';
+  registerUnauthorized.onclick=async()=>{
+    try{
+      const [companiesResult,configResult]=await Promise.all([api('/api/school-service/companies?limit=500'),api('/api/school-service/meta')]);
+      const companyOptions=(companiesResult.items||[]).map(x=>'<option value="'+Number(x.id)+'">'+esc(x.name)+'</option>').join('');
+      const letters=['ب','ج','د','س','ص','ط','ق','ل','م','ن','و','هـ','ی','ع','ک','الف','پ','ث','ش','ز','ف','گ','ژ'];
+      const options=items=>(items||[]).map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
+      const html='<p class="ssv-filter-note">شماره پلاک باید کامل باشد. ثبت مجدد همان پلاک، اطلاعات و شرکت اعلام‌کننده را به‌روزرسانی می‌کند.</p><div class="ssv-form-grid">'+
+        '<label>دو رقم اول پلاک<input id="uv-two" class="ssv-input" inputmode="numeric" maxlength="2" required placeholder="۱۲"></label>'+
+        '<label>حرف پلاک<select id="uv-letter" class="ssv-input" required><option value="">انتخاب کنید</option>'+options(letters)+'</select></label>'+
+        '<label>سه رقم پلاک<input id="uv-three" class="ssv-input" inputmode="numeric" maxlength="3" required placeholder="۳۴۵"></label>'+
+        '<label>کد ایران<input id="uv-region" class="ssv-input" inputmode="numeric" maxlength="2" required placeholder="۱۲"></label>'+
+        '<label>نوع خودرو<select id="uv-type" class="ssv-input" required><option value="">انتخاب کنید</option>'+options(configResult.vehicle_types)+'</select></label>'+
+        '<label>رنگ خودرو<select id="uv-color" class="ssv-input" required><option value="">انتخاب کنید</option>'+options(configResult.vehicle_colors)+'</select></label>'+
+        '<label>شرکت اعلام‌کننده<select id="uv-company" class="ssv-input" required><option value="">انتخاب شرکت</option>'+companyOptions+'</select></label></div>';
+      ssvModal('ثبت خودرو غیرمجاز',html,async modal=>{
+        const val=id=>modal.querySelector('#'+id).value.trim();
+        const digits=v=>v.replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/\D/g,'');
+        const body={plate_two:digits(val('uv-two')),plate_letter:val('uv-letter'),plate_three:digits(val('uv-three')),plate_region_code:digits(val('uv-region')),vehicle_type:val('uv-type'),vehicle_color:val('uv-color'),reporting_company_id:Number(val('uv-company'))};
+        if(body.plate_two.length!==2||body.plate_three.length!==3||body.plate_region_code.length!==2||!body.plate_letter||!body.vehicle_type||!body.vehicle_color||!body.reporting_company_id){alert('لطفاً شماره پلاک و تمام مشخصات خودرو و شرکت را کامل کنید.');return false}
+        try{await api('/api/school-service/unauthorized-vehicles',{method:'POST',body});await loadUnauthorized();return true}catch(e){alert(e.message||'ثبت خودرو انجام نشد');return false}
+      });
+    }catch(e){alert(e.message||'دریافت اطلاعات اولیه انجام نشد')}
+  };
+  loadUnauthorized();
   const input=b.querySelector('#vehicle-search'),list=b.querySelector('#vehicle-list');
   const load=async()=>{
     try{

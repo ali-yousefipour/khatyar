@@ -98,6 +98,13 @@ const lookupVehicle=React.useCallback(async()=>{
       r=last?{found:true,vehicle:{plate_two:plateTwo,plate_letter:letter,plate_three:plateThree,plate_region_code:region,vehicle_type:last.vehicle_type,vehicle_color:last.vehicle_color,passenger_front_count:last.passenger_front_count,passenger_rear_count:last.passenger_rear_count,driver_gender:last.driver_gender,certificate_status:last.certificate_status},last,history}:{found:false,vehicle:null,history:[]};
     }
     setVehicleLookup(r);
+    if(r?.unauthorized){
+      const company=String(r.unauthorized.reporting_company_name||'شرکت اعلام‌کننده نامشخص');
+      Alert.alert('⛔ هشدار سرویس مدارس غیرمجاز',
+        'این خودرو توسط «'+company+'» به‌عنوان سرویس مدارس غیرمجاز اعلام شده است. لطفاً پیش از هر اقدام، وضعیت خودرو را بررسی کنید.',
+        [{text:'متوجه شدم',style:'cancel'}]);
+      return;
+    }
     if(r?.found&&r.vehicle){
       const v=r.vehicle;const knownTypes=meta?.vehicle_types||[],knownColors=meta?.vehicle_colors||[];
       const vt=knownTypes.includes(String(v.vehicle_type||''))?String(v.vehicle_type):'سایر';

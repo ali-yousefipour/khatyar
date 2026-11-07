@@ -41,7 +41,7 @@ function _ssv_sepand_import($type,$file,$dryRun){
   if(!in_array($type,['drivers','vehicles'],true))Http::error('نوع فایل سپند نامعتبر است.',422);
   if(($file['size']??0)>12*1024*1024)Http::error('حجم فایل از ۱۲ مگابایت بیشتر است.',413);
   $sheets=_ssv_xlsx_rows($file);$rows=[];
-  $required=$type==='drivers'?['شناسه درخواست','نام','نام خانوادگی','کد ملی','شماره موبایل','وضعیت']:['p1','p2_letter','p3','p4_iran','driver_national_code','vin'];
+  $required=$type==='drivers'?['شناسه درخواست','نام','نام خانوادگی','کد ملی','شماره موبایل','وضعیت']:['p1','p2_letter','p3','p4_iran','driver_national_code','vin','tip'];
   foreach($sheets as $sheet){if(!$sheet)continue;
     $header=array_map('strval',array_values($sheet[0]));
     foreach($required as $col){if(!in_array($col,$header,true))Http::error('ستون الزامی «'.$col.'» در فایل سپند وجود ندارد.',422);}
@@ -64,7 +64,9 @@ function _ssv_sepand_import($type,$file,$dryRun){
       }else{
         $p1=$get(1);$letter=$get(2);$p3=$get(3);$p4=$get(4);
         if(!preg_match('/^\d{2}$/',$p1)||$letter===''||!preg_match('/^\d{3}$/',$p3)||!preg_match('/^\d{2}$/',$p4)){$errors[]='ردیف '.($i+2).': پلاک نامعتبر';continue;}
-        $data=['vehicle_type'=>$get(7),'vehicle_color'=>$get(13),'sepand_driver_national_code'=>$get(5),
+        // The public vehicle type is the Sepand `tip` column (index 9), not
+        // `type` (index 7). Keep the original tip in its dedicated audit field.
+        $data=['vehicle_type'=>$get(9),'vehicle_color'=>$get(13),'sepand_driver_national_code'=>$get(5),
           'sepand_vin'=>$get(6),'sepand_system'=>$get(8),'sepand_tip'=>$get(9),'sepand_make_year'=>$get(10),
           'sepand_capacity'=>ctype_digit($get(11))?(int)$get(11):null,'sepand_fuel_type'=>$get(12),
           'sepand_engine_number'=>$get(14),'sepand_chassis_number'=>$get(15),
