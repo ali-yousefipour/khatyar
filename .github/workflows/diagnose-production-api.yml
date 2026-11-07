@@ -1,0 +1,134 @@
+name: Diagnose production API safely
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/diagnose-production-api.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Prepare one-use authenticated diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIAG_TOKEN="$(openssl rand -hex 32)"
+          DIAG_FILE=".api-diagnose-$(openssl rand -hex 14).php"
+          echo "DIAG_TOKEN=${DIAG_TOKEN}" >> "$GITHUB_ENV"
+          echo "DIAG_FILE=${DIAG_FILE}" >> "$GITHUB_ENV"
+          cat > "$RUNNER_TEMP/diagnose.php" <<'PHP'
+          <?php
+          declare(strict_types=1);
+          ini_set('display_errors', '0');
+          header('Content-Type: application/json; charset=utf-8');
+          if (!hash_equals('__DIAG_TOKEN__', (string)($_POST['token'] ?? ''))) {
+              http_response_code(403);
+              exit('{"error":"forbidden"}');
+          }
+          @unlink(__FILE__);
+          $out = ['ok' => true, 'php' => PHP_VERSION, 'checks' => [], 'errors' => []];
+          function check_error(Throwable $e): array {
+              $message = $e->getMessage();
+              $category = 'other';
+              foreach (['Unknown column'=>'unknown_column', "doesn't exist"=>'missing_table', 'Access denied'=>'access_denied', 'Duplicate column'=>'duplicate_column', 'Syntax error'=>'syntax', 'Too many connections'=>'connections', 'Lock wait timeout'=>'lock_timeout', 'server has gone away'=>'connection_lost', 'SQLSTATE'=>'sql_error'] as $needle=>$label) {
+                  if (stripos($message, $needle)!==false) { $category=$label; break; }
+              }
+              return ['category'=>$category, 'exception'=>get_class($e), 'file'=>basename($e->getFile()), 'line'=>$e->getLine()];
+          }
+          try {
+              require_once dirname(__DIR__, 2) . '/lib/Db.php';
+              $start = microtime(true);
+              $db = Db::pdo();
+              $out['checks']['connect_ms'] = round((microtime(true)-$start)*1000);
+              foreach (['SELECT 1' => 'ping', 'SELECT 1 FROM users LIMIT 1' => 'users', 'SELECT 1 FROM roles LIMIT 1'=>'roles', 'SELECT 1 FROM school_service_permissions LIMIT 1'=>'school_permissions', 'SELECT 1 FROM school_service_vehicles LIMIT 1'=>'school_vehicles', 'SELECT 1 FROM school_service_schools LIMIT 1'=>'school_schools', 'SHOW COLUMNS FROM users LIKE \'photo_path\''=>'photo_column'] as $query => $name) {
+                  $start = microtime(true);
+                  try {
+                      $db->query($query)->fetch();
+                      $out['checks'][$name] = ['ok'=>true, 'ms'=>round((microtime(true)-$start)*1000)];
+                  } catch (Throwable $e) {
+                      $out['checks'][$name] = ['ok'=>false, 'ms'=>round((microtime(true)-$start)*1000), 'error'=>check_error($e)];
+                  }
+              }
+          } catch (Throwable $e) { $out['checks']['database']=['ok'=>false,'error'=>check_error($e)]; }
+          $candidates = array_unique(array_filter([
+              ini_get('error_log'), __DIR__.'/error_log', dirname(__DIR__).'/error_log',
+              dirname(__DIR__,2).'/error_log', dirname(__DIR__,3).'/error_log',
+          ]));
+          foreach ($candidates as $candidate) {
+              if (!is_file($candidate) || !is_readable($candidate)) continue;
+              $size = @filesize($candidate);
+              if ($size===false) continue;
+              $fp = @fopen($candidate, 'rb');
+              if (!$fp) continue;
+              if ($size > 262144) fseek($fp, -262144, SEEK_END);
+              $tail = stream_get_contents($fp, 262144);
+              fclose($fp);
+              if (!is_string($tail)) continue;
+              $found = [];
+              foreach (preg_split('/\r?\n/', $tail) as $line) {
+                  if (!preg_match('~API error \[([^]]+)\] ([A-Za-z_\\\\]+):~', $line, $m)) continue;
+                  $route = preg_replace('~/[0-9]{2,}~', '/:id', $m[1]);
+                  $type = $m[2];
+                  $category='other';
+                  foreach (['Unknown column'=>'unknown_column', "doesn't exist"=>'missing_table', 'Access denied'=>'access_denied', 'Table'=>'table_error', 'SQLSTATE'=>'sql_error', 'Call to undefined function'=>'undefined_function', 'Failed opening required'=>'missing_module', 'Too many connections'=>'connections'] as $needle=>$label) {
+                      if (stripos($line,$needle)!==false) { $category=$label; break; }
+                  }
+                  $where = preg_match('~ at ([a-zA-Z0-9_.-]+\.php):(\d+)~', $line, $loc) ? $loc[1].':'.$loc[2] : 'unknown';
+                  $key = $route.'|'.$type.'|'.$category.'|'.$where;
+                  $found[$key] = ['route'=>$route,'exception'=>$type,'category'=>$category,'at'=>$where,'occurrences'=>($found[$key]['occurrences']??0)+1];
+              }
+              $out['errors'] = array_slice(array_values($found), -30);
+              $out['checks']['php_log_readable'] = true;
+              break;
+          }
+          if (!isset($out['checks']['php_log_readable'])) $out['checks']['php_log_readable'] = false;
+          echo json_encode($out, JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+          PHP
+          sed -i "s/__DIAG_TOKEN__/${DIAG_TOKEN}/" "$RUNNER_TEMP/diagnose.php"
+          php -l "$RUNNER_TEMP/diagnose.php"
+
+      - name: Upload and execute one-use host diagnosis
+        shell: bash
+        env:
+          FTP_HOST: 2870352177.cloudylink.com
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if ! command -v lftp >/dev/null 2>&1; then
+            timeout 90s sudo apt-get install -y -qq lftp
+          fi
+          lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://${FTP_HOST}:21" -e "
+            set ftp:ssl-force false;
+            set ftp:ssl-protect-data false;
+            set ftp:passive-mode true;
+            set ftp:prefer-epsv false;
+            set net:timeout 45;
+            set net:max-retries 2;
+            set ssl:verify-certificate no;
+            put ${RUNNER_TEMP}/diagnose.php -o /app/assets/${DIAG_FILE};
+            bye
+          "
+          echo 'Sanitized production diagnostics:'
+          curl --fail --silent --show-error --max-time 30 --retry 1 \
+            -X POST --data-urlencode "token=${DIAG_TOKEN}" \
+            "https://app.yousefipour.ir/assets/${DIAG_FILE}" \
+            | python3 -m json.tool
+          # Best-effort removal if PHP was unable to unlink itself.
+          lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://${FTP_HOST}:21" -e "
+            set ftp:ssl-force false;
+            set ftp:ssl-protect-data false;
+            set ftp:passive-mode true;
+            set ftp:prefer-epsv false;
+            set net:timeout 20;
+            set net:max-retries 1;
+            set ssl:verify-certificate no;
+            rm -f /app/assets/${DIAG_FILE};
+            bye
+          " || true
