@@ -5,7 +5,7 @@ class Db {
   static $rows=[];static $notices=[];static $scheduleCalls=0;
   static $fences=[];static $sentChecks=[];static $immediate=[];
   static function one($sql,$params=[]){
-    if(str_contains($sql,'FROM geofences'))return ['n'=>count(self::$fences)];
+    if(str_contains($sql,'FROM geofences'))return ['n'=>count(array_filter(self::$fences,fn($g)=>in_array($g['line_id']??0,$params,true)))];
     if(str_contains($sql,'SELECT first_name,last_name'))return ['first_name'=>'کاربر','last_name'=>'آزمون'];
     if(str_contains($sql,"'cron_key'"))return ['value'=>'"test-secret"'];
     if(str_contains($sql,"'presence_check'"))return ['value'=>'{"enabled":true,"server_push":true,"random_enabled":true,"window_minutes":2}'];
@@ -30,7 +30,7 @@ class Db {
     }
     if(str_contains($sql,'FROM staff_attendance sa'))return self::$rows;
     if(str_contains($sql,'FROM user_lines'))return [['line_id'=>1]];
-    if(str_contains($sql,'FROM geofences'))return self::$fences;
+    if(str_contains($sql,'FROM geofences'))return str_contains($sql,'WHERE line_id IN')?array_values(array_filter(self::$fences,fn($g)=>in_array($g['line_id']??0,$params,true))):self::$fences;
     if(str_contains($sql,'JOIN roles'))return [['id'=>9]];
     return [];
   }
@@ -96,20 +96,26 @@ $a=strpos($source,'function _haversine_m(');
 $b=strpos($source,'function _nearest_station(',$a);
 eval(substr($source,$a,$b-$a));
 $lat=36.0; $lng=59.0;
-Db::$fences=[['type'=>'circle','center_lat'=>$lat,'center_lng'=>$lng,'radius_m'=>100,'polygon'=>null]];
+Db::$fences=[['id'=>1,'line_id'=>1,'type'=>'circle','center_lat'=>$lat,'center_lng'=>$lng,'radius_m'=>100,'polygon'=>null]];
 _presence_outside_lines_bale_alert(1,21,$lat,$lng,'12:00');
 _presence_outside_lines_bale_alert(2,21,$lat+149/111195,$lng,'12:00');
 assertPresence(BaleBot::$messages===[],'Circle inside or 49 m outside must not notify');
 _presence_outside_lines_bale_alert(3,21,$lat+151/111195,$lng,'12:00');
-_presence_outside_lines_bale_alert(3,21,$lat+151/111195,$lng,'12:00');
-assertPresence(count(BaleBot::$messages)===1 && str_contains(BaleBot::$messages[0],'خیابان آزمون') && str_contains(BaleBot::$messages[0],'google.com/maps'),'Outside circle must notify once with street and map');
-Db::$fences=[['type'=>'polygon','center_lat'=>null,'center_lng'=>null,'radius_m'=>null,
+assertPresence(BaleBot::$messages===[],'Leaving one station radius alone must not falsely notify management');
+Db::$fences[]=['id'=>2,'line_id'=>2,'type'=>'circle','center_lat'=>$lat+400/111195,'center_lng'=>$lng,'radius_m'=>100,'polygon'=>null];
+_presence_outside_lines_bale_alert(3,21,$lat+400/111195,$lng,'12:00');
+_presence_outside_lines_bale_alert(3,21,$lat+400/111195,$lng,'12:00');
+assertPresence(count(BaleBot::$messages)===1 && str_contains(BaleBot::$messages[0],'خیابان آزمون') && str_contains(BaleBot::$messages[0],'google.com/maps'),'A confirmed different line must notify once with street and map');
+Db::$fences=[['id'=>3,'line_id'=>1,'type'=>'polygon','center_lat'=>null,'center_lng'=>null,'radius_m'=>null,
   'polygon'=>json_encode([[$lat,$lng],[$lat,$lng+.002],[$lat+.002,$lng+.002],[$lat+.002,$lng]])]];
 _presence_outside_lines_bale_alert(4,21,$lat-.00044,$lng+.001,'12:00');
 assertPresence(count(BaleBot::$messages)===1,'Polygon within 50 m of its edge must not notify');
 $streetUnavailable=true;
 _presence_outside_lines_bale_alert(5,21,$lat-.00046,$lng+.001,'12:00');
-assertPresence(count(BaleBot::$messages)===2 && !str_contains(BaleBot::$messages[1],'خیابان') && str_contains(BaleBot::$messages[1],'google.com/maps'),'Outside polygon still notifies when street lookup fails');
+assertPresence(count(BaleBot::$messages)===1,'Outside a polygon without proof of a different line must not notify');
+Db::$fences[]=['id'=>4,'line_id'=>2,'type'=>'circle','center_lat'=>$lat-.004,'center_lng'=>$lng+.001,'radius_m'=>100,'polygon'=>null];
+_presence_outside_lines_bale_alert(6,21,$lat-.004,$lng+.001,'12:00');
+assertPresence(count(BaleBot::$messages)===2 && !str_contains(BaleBot::$messages[1],'خیابان') && str_contains(BaleBot::$messages[1],'google.com/maps'),'Confirmed other-line alert still works without street lookup');
 echo "PASS Bale geofence tolerance, street text, fallback and duplicate suppression\n";
 
 $a=strpos($source,"route('GET', '/api/my/presence-config', ");
