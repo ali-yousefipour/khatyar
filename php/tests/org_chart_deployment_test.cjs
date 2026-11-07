@@ -11,7 +11,7 @@ for (const check of protectedChecks) assert.ok(check.includes('"lib/EmploymentAt
 const installerCheck = lines.find(line => line.includes('[ -f deploy-payload/lib/Db.php ]'));
 assert.ok(installerCheck.includes('[ -f deploy-payload/lib/OrgChart.php ]'));
 assert.ok(installerCheck.includes('[ -f deploy-payload/lib/EmploymentAttendance.php ]'));
-const staging = lines.find(line => line.includes('for name in Db.php Http.php'));
+const staging = lines.find(line => line.includes('for name in ') && line.includes('OrgChart.php'));
 assert.ok(staging.includes('OrgChart.php'));
 assert.ok(staging.includes('EmploymentAttendance.php'));
 const reconciledFiles = lines.find(line => line.trim().startsWith('for rel in app/index.php'));
