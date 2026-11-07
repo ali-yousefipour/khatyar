@@ -3,7 +3,7 @@ import {View,Text,ScrollView,TouchableOpacity,StyleSheet,Alert,TextInput,Image,R
 import {MaterialCommunityIcons} from '@expo/vector-icons';
 import {request} from '../api';
 import {getFastPosition} from '../location';
-import {ImagePicker,launchCamera} from '../cameraLock';
+import { ImagePicker, launchCamera, requestCameraAccess } from '../cameraLock';
 import {compressToDataUri} from '../img';
 import {C,FONT} from '../theme';
 import {faNum} from '../num';
@@ -16,7 +16,7 @@ export default function LineVisitProgramScreen(){
  useEffect(()=>{load()},[]);
  const refresh=async()=>{setRefreshing(true);await load();setRefreshing(false)};
  const choose=l=>{setSelected(l);setActual(String(l.present_count||0));setPhoto(null);setNote('');scrollRef.current?.scrollTo({y:0,animated:true});};
- const camera=async()=>{try{const p=await ImagePicker.requestCameraPermissionsAsync();if(!p.granted)return Alert.alert('توجه','دسترسی دوربین لازم است');const r=await launchCamera({quality:1});if(!r.canceled&&r.assets?.[0]?.uri)setPhoto(await compressToDataUri(r.assets[0].uri));}catch(e){Alert.alert('خطای دوربین',e?.message||'ثبت تصویر انجام نشد.');}};
+ const camera=async()=>{try{const p=await requestCameraAccess();if(!p.granted)return Alert.alert('توجه','دسترسی دوربین لازم است');const r=await launchCamera({quality:1});if(!r.canceled&&r.assets?.[0]?.uri)setPhoto(await compressToDataUri(r.assets[0].uri));}catch(e){Alert.alert('خطای دوربین',e?.message||'ثبت تصویر انجام نشد.');}};
  const pos=async()=>{const p=await getFastPosition({maxAgeMs:5000,timeoutMs:18000,highAccuracy:true});if(!p?.coords)throw new Error('موقعیت مکانی دریافت نشد');if(Number(p.coords.accuracy||0)>150)throw new Error('دقت موقعیت کافی نیست؛ چند لحظه در فضای باز منتظر بمانید.');return p.coords;};
  const start=async()=>{if(!selected)return;setBusy(true);try{const c=await pos();const r=await request('/mission-visits/start',{method:'POST',queueIfOffline:false,body:{line_id:selected.line.id,lat:c.latitude,lng:c.longitude,accuracy:c.accuracy,provider:'gps',photo_data:photo}});Alert.alert('شروع شد',r.already_started?'بازدید قبلاً شروع شده بود.':'زمان و موقعیت شروع بازدید ثبت شد.');setSelected(null);await load();}catch(e){Alert.alert('خطا',e.message||'شروع بازدید ناموفق بود')}finally{setBusy(false)}};
  const finish=async()=>{if(!selected?.today_visit?.id)return;if(!photo)return Alert.alert('عکس الزامی است','تصویر پایان بازدید باید مستقیم از دوربین ثبت شود.');if(!note.trim())return Alert.alert('گزارش الزامی است','شرح بازدید را ثبت کنید.');const count=Number(actual);if(!Number.isSafeInteger(count)||count<0)return Alert.alert('تعداد نامعتبر','تعداد واقعی خودروها باید عدد صحیح صفر یا بیشتر باشد.');setBusy(true);try{const c=await pos();const r=await request('/mission-visits/finish',{method:'POST',queueIfOffline:false,body:{session_id:selected.today_visit.id,actual_present_count:count,report_text:note.trim(),photo_data:photo,lat:c.latitude,lng:c.longitude,accuracy:c.accuracy,provider:'gps'}});Alert.alert(r.validated?'پوشش معتبر ثبت شد':'بازدید ثبت شد',`اعتبار پوشش: ${faNum(Math.round(r.validation_percent||0))}٪\nچک‌لیست این بازدید: ${faNum(r.snapshot?.checked_count||0)}\nاختلاف شمارش: ${faNum(r.difference||0)}`);setSelected(null);await load();}catch(e){Alert.alert('خطا',e.message||'پایان بازدید ناموفق بود')}finally{setBusy(false)}};
