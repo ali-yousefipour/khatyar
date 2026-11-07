@@ -10,6 +10,7 @@ import { faNum } from './num';
 import * as Application from 'expo-application';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Network from 'expo-network';
+import KhatyarBrandMark from './components/KhatyarBrandMark';
 
 const MAINTENANCE_CACHE_KEY = 'startup_maintenance_status_v1';
 const startupVersion = Application.nativeApplicationVersion || '1.3.74';
@@ -131,7 +132,7 @@ export default function StartupGate({ children }) {
         <Image source={require('../assets/khatyar-startup.png')} style={s.image} resizeMode="cover" />
         <View style={s.loadingPanel} accessibilityRole="progressbar" accessibilityLabel={phase} accessibilityValue={{min:0,max:100,now:Math.round(progress)}}>
           <View style={s.panelHead}>
-            <View style={s.brandIcon}><MaterialCommunityIcons name="taxi" size={23} color="#073d33" /></View>
+            <KhatyarBrandMark size={44}/>
             <View style={s.panelTitles}><Text style={s.brandTitle}>خطیار</Text><Text style={s.brandSubtitle}>در حال آماده‌سازی محیط کاری شما</Text></View>
             <Text style={s.progressLabel}>{faNum(Math.round(progress))}٪</Text>
           </View>

@@ -17,6 +17,7 @@ import { todayFaLong } from '../jdate';
 import { useRadio } from '../radio/RadioContext';
 import { getLockConfig, lockAppNow } from '../AppLock';
 import { readAppItems, refreshAppItems } from '../appItemPermissions';
+import KhatyarBrandMark from '../components/KhatyarBrandMark';
 
 function RadioHeaderToggle({ navigation }) {
   const { enabled, busy } = useRadio();
@@ -366,7 +367,7 @@ export default function DashboardScreen({ navigation }) {
 
   return <ScrollView keyboardShouldPersistTaps="handled" persistentScrollbar={true} style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text accessibilityLiveRegion="polite" style={s.syncText}>{syncDetail}</Text></View> : null}
   <View style={s.dashboardHero}>
-    <View style={s.dashboardBrandRow}><TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن منوی برنامه" onPress={khOpenDrawer} style={s.brandMenu}><MaterialCommunityIcons name="menu" size={27} color="#fff" /></TouchableOpacity><View style={s.brandCopy}><Text style={s.brandName}>خطیار</Text><Text style={s.brandSubtitle}>داشبورد مدیریتی</Text></View><View style={s.brandAccent} /></View>
+    <View style={s.dashboardBrandRow}><TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن منوی برنامه" onPress={khOpenDrawer} style={s.brandMenu}><MaterialCommunityIcons name="menu" size={27} color="#fff" /></TouchableOpacity><View style={s.brandCopy}><Text style={s.brandName}>خطیار</Text><Text style={s.brandSubtitle}>داشبورد مدیریتی</Text></View><KhatyarBrandMark size={42}/></View>
     <View style={s.quickActions}>
       {allowed.includes('InboxReports') && <DashboardQuickAction label="گزارشات" icon="message-text-outline" badge={unreadCounts.reports>0?unreadLabel(unreadCounts.reports):null} onPress={() => { navigation.navigate('InboxReports'); refreshUnreadCounts(); }} />}
       <DashboardQuickAction label="بروزرسانی کش" icon={syncing?'sync':'download-outline'} disabled={syncing} onPress={manualSync} />

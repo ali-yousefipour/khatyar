@@ -7,6 +7,7 @@ import { enNum, faNum } from '../num';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import TaxiPlate from '../components/TaxiPlate';
 import { openDrawer } from '../drawerControl';
+import KhatyarBrandMark from '../components/KhatyarBrandMark';
 const digitsOnly = (v='') => enNum(String(v)).replace(/[^0-9]/g,'');
 const buildTaxiPlate12 = (a,c) => { const x=digitsOnly(a).slice(0,2), y=digitsOnly(c).slice(0,3); return x.length===2&&y.length===3 ? `${x}ت${y}-12` : ''; };
 import ActivityIndicator from '../components/PulseLoadingIndicator';
@@ -89,7 +90,7 @@ export default function SearchScreen({ navigation, route }) {
         <View style={s.heroHighlight} />
         <View style={s.heroNav}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن منو" style={s.heroNavButton} onPress={openDrawer}><MaterialCommunityIcons name="menu" size={25} color="#fff" /></TouchableOpacity>
-          <View style={s.heroBrand}><Text style={s.heroBrandTitle}>خطیار</Text><Text style={s.heroBrandSub}>جستجوی اطلاعات</Text></View>
+          <View style={s.heroBrand}><KhatyarBrandMark size={34}/><View><Text style={s.heroBrandTitle}>خطیار</Text><Text style={s.heroBrandSub}>جستجوی اطلاعات</Text></View></View>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="بازگشت" style={s.heroNavButton} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Dashboard')}><MaterialCommunityIcons name="arrow-right" size={24} color="#fff" /></TouchableOpacity>
         </View>
         <View style={s.heroIcon}><MaterialCommunityIcons name="car-search" size={36} color="#e2fff3" /></View>
@@ -125,7 +126,7 @@ const s=StyleSheet.create({
  heroHighlight:{position:'absolute',top:-75,left:-40,width:240,height:155,borderRadius:100,transform:[{rotate:'-18deg'}],backgroundColor:'rgba(37,210,149,.14)'},
  heroNav:{width:'100%',flexDirection:'row-reverse',alignItems:'center',justifyContent:'space-between',marginBottom:4},
  heroNavButton:{width:46,height:46,borderRadius:14,backgroundColor:'rgba(255,255,255,.12)',borderWidth:1,borderColor:'rgba(255,255,255,.18)',alignItems:'center',justifyContent:'center'},
- heroBrand:{alignItems:'center'},
+ heroBrand:{flexDirection:'row-reverse',alignItems:'center',gap:8},
  heroBrandTitle:{fontFamily:FONT.bold,fontSize:24,color:'#fff',lineHeight:32},
  heroBrandSub:{fontFamily:FONT.regular,fontSize:11,color:'#cceee4'},
  heroIcon:{width:69,height:58,alignItems:'center',justifyContent:'center',marginTop:4},

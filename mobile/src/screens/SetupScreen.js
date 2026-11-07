@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import { setApiBase, apiBase } from '../config';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import KhatyarBrandMark from '../components/KhatyarBrandMark';
 
 export default function SetupScreen({ onDone }) {
   const [url, setUrl] = useState(apiBase());
@@ -33,7 +34,7 @@ export default function SetupScreen({ onDone }) {
 
   return (
     <View style={s.wrap}>
-      <View style={s.logo}><Text style={s.logoTxt}>ت</Text></View>
+      <View style={s.logo}><KhatyarBrandMark size={72}/></View>
       <Text style={s.title}>اتصال به سرور</Text>
       <Text style={s.sub}>آدرس وب‌سرویس سامانه را وارد کنید</Text>
 
