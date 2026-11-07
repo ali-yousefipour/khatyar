@@ -20154,20 +20154,6 @@ function App() {
         catch (_) { }
     }, [navigationRestored, me === null || me === void 0 ? void 0 : me.id, me === null || me === void 0 ? void 0 : me.is_admin, v]);
     const [menuSearch, setMenuSearch] = useState("");
-    const [accountOpen, setAccountOpen] = useState(false);
-    const [passwordDialog, setPasswordDialog] = useState(false);
-    const accountRef = useRef(null);
-    useEffect(() => {
-        if (!accountOpen)
-            return;
-        const close = e => { var _a; if (e.type === 'keydown' && e.key === 'Escape')
-            setAccountOpen(false);
-        else if (e.type === 'pointerdown' && !((_a = accountRef.current) === null || _a === void 0 ? void 0 : _a.contains(e.target)))
-            setAccountOpen(false); };
-        document.addEventListener('pointerdown', close);
-        document.addEventListener('keydown', close);
-        return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', close); };
-    }, [accountOpen]);
     const menuQuery = normalizePanelMenuText(menuSearch);
     const menuButtonRef = useRef(null);
     const menuSearchRef = useRef(null);
@@ -20194,6 +20180,20 @@ function App() {
     catch (e) { } return next; });
     // منوهای اصلی در لود اولیه بسته باشند؛ کاربر فقط بخش موردنیاز را باز می‌کند.
     const [openSections, setOpenSections] = useState({});
+    const [accountOpen, setAccountOpen] = useState(false);
+    const [passwordDialog, setPasswordDialog] = useState(false);
+    const accountRef = useRef(null);
+    useEffect(() => {
+        if (!accountOpen)
+            return;
+        const close = e => { var _a; if (e.type === 'keydown' && e.key === 'Escape')
+            setAccountOpen(false);
+        else if (e.type === 'pointerdown' && !((_a = accountRef.current) === null || _a === void 0 ? void 0 : _a.contains(e.target)))
+            setAccountOpen(false); };
+        document.addEventListener('pointerdown', close);
+        document.addEventListener('keydown', close);
+        return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', close); };
+    }, [accountOpen]);
     useEffect(() => { db.publicSettings().then(s => { const b = { title: s.site_title || s.org_title || "خطیار", logo: s.site_logo || s.org_logo || "" }; setBrand(b); document.title = b.title; window.__brandLogo = b.logo; }).catch(() => { }); }, []);
     useEffect(() => { let active = true; db.restoreSession().then(u => { if (active)
         setMe(u); }).catch(() => { }).finally(() => { if (active)
