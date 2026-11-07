@@ -20,7 +20,14 @@ import { readAppItems, refreshAppItems } from '../appItemPermissions';
 
 function RadioHeaderToggle({ navigation }) {
   const { enabled, busy } = useRadio();
-  return <TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن بی‌سیم" onPress={() => navigation.navigate('Radio')} style={s.headerIcon} hitSlop={2}><MaterialCommunityIcons name={enabled ? (busy ? 'radio-handheld' : 'access-point') : 'radio-handheld'} size={23} color={enabled ? '#ffffff' : '#cbd5e1'} /></TouchableOpacity>;
+  return <DashboardQuickAction label="بی‌سیم" icon={enabled ? (busy ? 'radio-handheld' : 'access-point') : 'radio-handheld'} onPress={() => navigation.navigate('Radio')} />;
+}
+
+function DashboardQuickAction({ label, icon, onPress, badge, disabled }) {
+  return <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled:!!disabled}} onPress={onPress} disabled={disabled} activeOpacity={0.78} style={s.quickAction}>
+    <View style={s.quickActionIcon}><MaterialCommunityIcons name={icon} size={23} color="#fff" />{badge ? <View style={s.quickBadge}><Text style={s.quickBadgeText}>{badge}</Text></View> : null}</View>
+    <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={s.quickActionLabel}>{label}</Text>
+  </TouchableOpacity>;
 }
 
 function weatherPresentation(code, isDay = true) {
@@ -343,7 +350,7 @@ export default function DashboardScreen({ navigation }) {
   };
 
   useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: true, headerBackVisible: false, headerLeft: () => <View style={s.headerBar}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.headerActions} style={{flex:1}}><TouchableOpacity onPress={manualSync} disabled={syncing} style={s.headerIcon} hitSlop={2} accessibilityRole="button" accessibilityLabel="بروزرسانی اطلاعات و پاک‌سازی کش"><MaterialCommunityIcons name="database-refresh-outline" size={25} color="#fff" style={syncing ? { opacity: 0.5 } : undefined} /></TouchableOpacity>{appLockEnabled ? <TouchableOpacity onPress={lockAppNow} style={s.headerIcon} hitSlop={2} accessibilityRole="button" accessibilityLabel="قفل کردن برنامه"><MaterialCommunityIcons name="lock-outline" size={23} color="#fff" /></TouchableOpacity> : null}{allowed.includes('Radio') && <RadioHeaderToggle navigation={navigation} />}{allowed.includes('Notifications') && <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={s.headerIcon} hitSlop={4} accessibilityRole="button" accessibilityLabel="اعلان‌ها"><View style={s.bellWrap}><MaterialCommunityIcons name="bell-outline" size={23} color="#ffffff" />{stats.unread > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{stats.unread > 99 ? '+۹۹' : faNum(Number(stats.unread))}</Text></View> : null}</View></TouchableOpacity>}{allowed.includes('InboxReports') && <TouchableOpacity onPress={() => { navigation.navigate('InboxReports'); refreshUnreadCounts(); }} style={s.headerIcon} hitSlop={4} accessibilityRole="button" accessibilityLabel="گزارش‌های دریافتی"><View style={s.bellWrap}><MaterialCommunityIcons name="tray-arrow-down" size={23} color="#ffffff" />{unreadCounts.reports > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{unreadLabel(unreadCounts.reports)}</Text></View> : null}</View></TouchableOpacity>}{allowed.includes('Messages') && <TouchableOpacity onPress={() => { navigation.navigate('Messages'); refreshUnreadCounts(); }} style={s.headerIcon} hitSlop={4} accessibilityRole="button" accessibilityLabel="پیام‌ها"><View style={s.bellWrap}><MaterialCommunityIcons name="message-text-outline" size={23} color="#ffffff" />{unreadCounts.messages > 0 ? <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{unreadLabel(unreadCounts.messages)}</Text></View> : null}</View></TouchableOpacity>}</ScrollView><TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن منوی برنامه" onPress={() => khOpenDrawer()} style={s.headerMenuButton} hitSlop={2}><MaterialCommunityIcons name="menu" size={26} color="#fff" /></TouchableOpacity></View>, headerRight: undefined });
+    navigation.setOptions({ headerShown: false });
   }, [navigation, stats.unread, syncing, appLockEnabled, allowed, user?.can_send_sms]);
 
   const canShow = (m) => {
@@ -357,9 +364,21 @@ export default function DashboardScreen({ navigation }) {
   const destinationFor = (route) => route === 'StationCapture' && !allowed.includes('StationCapture') && allowed.includes('LineLocation') ? 'LineLocation' : route;
   const KPIS = [['رانندگان خطوط شما', myStats.drivers, 'account-group-outline'], ['خودروهای خطوط شما', myStats.vehicles, 'car-multiple'], ['حضور امروز', stats.today, 'account-check-outline'], ['چک‌لیست این ماه', stats.checklists, 'clipboard-check-outline']];
 
-  return <ScrollView keyboardShouldPersistTaps="handled" persistentScrollbar={true} style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text accessibilityLiveRegion="polite" style={s.syncText}>{syncDetail}</Text></View> : null}<View style={s.top}>
+  return <ScrollView keyboardShouldPersistTaps="handled" persistentScrollbar={true} style={s.page} contentContainerStyle={s.pageContent}><View style={s.rtlRoot}>{syncing && syncDetail ? <View style={s.syncBanner}><Text accessibilityLiveRegion="polite" style={s.syncText}>{syncDetail}</Text></View> : null}
+  <View style={s.dashboardHero}>
+    <View style={s.dashboardBrandRow}><TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن منوی برنامه" onPress={khOpenDrawer} style={s.brandMenu}><MaterialCommunityIcons name="menu" size={27} color="#fff" /></TouchableOpacity><View style={s.brandCopy}><Text style={s.brandName}>خطیار</Text><Text style={s.brandSubtitle}>داشبورد مدیریتی</Text></View><View style={s.brandAccent} /></View>
+    <View style={s.quickActions}>
+      {allowed.includes('InboxReports') && <DashboardQuickAction label="گزارشات" icon="message-text-outline" badge={unreadCounts.reports>0?unreadLabel(unreadCounts.reports):null} onPress={() => { navigation.navigate('InboxReports'); refreshUnreadCounts(); }} />}
+      <DashboardQuickAction label="بروزرسانی کش" icon={syncing?'sync':'download-outline'} disabled={syncing} onPress={manualSync} />
+      {allowed.includes('Notifications') && <DashboardQuickAction label="اعلان‌ها" icon="bell-outline" badge={stats.unread>0?(stats.unread>99?'۹۹+':faNum(stats.unread)):null} onPress={() => navigation.navigate('Notifications')} />}
+      {allowed.includes('Radio') && <RadioHeaderToggle navigation={navigation} />}
+      {appLockEnabled && <DashboardQuickAction label="قفل" icon="lock-outline" onPress={lockAppNow} />}
+      {allowed.includes('Messages') && <DashboardQuickAction label="پیام‌ها" icon="message-text-outline" badge={unreadCounts.messages>0?unreadLabel(unreadCounts.messages):null} onPress={() => { navigation.navigate('Messages'); refreshUnreadCounts(); }} />}
+    </View>
+  </View><View style={s.top}>
   {myPhoto ? <Image accessible={false} source={imageSource(myPhoto)} style={s.avatar} /> : <View style={s.avatarPh}><Text style={s.avatarTxt}>{(user?.name || '؟')[0]}</Text></View>}
   <View style={s.topIdentity}>
+    <View style={s.activePill}><View style={s.activeDot}/><Text style={s.activeTxt}>فعال</Text></View>
     <Text style={s.hi}>روز بخیر</Text>
     <View style={s.nameRow}>{rankCount > 0 ? <RankInsignia count={rankCount} /> : null}<Text accessibilityRole="header" style={s.nm}>{user?.name || '—'}</Text></View>
     {!!user?.role && <Text style={s.roleTxt}>{user.role}</Text>}
@@ -375,11 +394,27 @@ export default function DashboardScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
+  dashboardHero: { backgroundColor:'#075d4b', paddingTop:18, paddingHorizontal:14, paddingBottom:18, borderBottomLeftRadius:26, borderBottomRightRadius:26, borderBottomWidth:3, borderBottomColor:'#14a981', overflow:'hidden' },
+  dashboardBrandRow: { flexDirection:'row-reverse', alignItems:'center', gap:13, paddingHorizontal:3, paddingBottom:17 },
+  brandMenu: { width:48, height:48, borderRadius:15, backgroundColor:'rgba(255,255,255,0.13)', borderWidth:1, borderColor:'rgba(255,255,255,0.17)', alignItems:'center', justifyContent:'center' },
+  brandCopy: { flex:1, alignItems:'flex-end' },
+  brandName: { color:'#fff', fontFamily:FONT.bold, fontSize:26, textAlign:'right', lineHeight:36 },
+  brandSubtitle: { color:'#c8eee2', fontFamily:FONT.regular, fontSize:12, textAlign:'right' },
+  brandAccent: { width:34, height:3, borderRadius:5, backgroundColor:'#e3c56e', alignSelf:'flex-start', marginTop:8 },
+  quickActions: { flexDirection:'row-reverse', justifyContent:'space-evenly', alignItems:'flex-start', gap:5 },
+  quickAction: { flex:1, minWidth:0, minHeight:77, alignItems:'center', justifyContent:'flex-start', gap:5 },
+  quickActionIcon: { height:49, width:'94%', maxWidth:64, borderRadius:15, alignItems:'center', justifyContent:'center', position:'relative', backgroundColor:'rgba(255,255,255,0.11)', borderColor:'rgba(127,231,200,0.34)', borderWidth:1 },
+  quickActionLabel: { color:'#fff', fontFamily:FONT.bold, fontSize:10, lineHeight:17, textAlign:'center', writingDirection:'rtl', width:'100%' },
+  quickBadge: { position:'absolute', top:-7, right:-5, minWidth:25, height:22, borderRadius:12, paddingHorizontal:4, backgroundColor:'#f05b38', borderWidth:2, borderColor:'#075d4b', alignItems:'center', justifyContent:'center' },
+  quickBadgeText: { color:'#fff', fontSize:10, fontFamily:FONT.bold, lineHeight:15 },
+  activePill: { flexDirection:'row-reverse', alignItems:'center', alignSelf:'flex-end', backgroundColor:'rgba(27,193,121,.21)', borderRadius:16, paddingHorizontal:10, paddingVertical:3, gap:5, marginBottom:5 },
+  activeDot: { width:7, height:7, borderRadius:4, backgroundColor:'#45eb96' },
+  activeTxt: { fontFamily:FONT.bold, fontSize:11, color:'#d8ffeb' },
   weatherStrip: { marginHorizontal: 16, paddingHorizontal: 14, paddingTop: 6, paddingBottom: 2, borderRadius: 14, backgroundColor: C.soft, flexDirection: 'row-reverse', alignItems: 'center', flexWrap: 'wrap', columnGap: 16 },
   dateRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, paddingVertical: 8 },
   weatherSummary: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, flexShrink: 1, paddingVertical: 6 },
   weatherLink: { minHeight: 44, justifyContent: 'center' },
-  page: { flex: 1, backgroundColor: C.paper},
+  page: { flex: 1, backgroundColor: '#edf8f5'},
   pageContent: { paddingBottom: 36},
   rtlRoot: { width: '100%', maxWidth: 960, alignSelf: 'center' },
   syncBanner: { backgroundColor: '#1b3a6b', padding: 10, alignItems: 'stretch' },
@@ -391,22 +426,22 @@ const s = StyleSheet.create({
   bellWrap: { width: 34, height: 40, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   unreadBadge: { position: 'absolute', top: -2, right: -3, minWidth: 19, height: 19, paddingHorizontal: 4, borderRadius: 10, backgroundColor: '#e53935', borderWidth: 2, borderColor: C.brand, alignItems: 'center', justifyContent: 'center' },
   unreadBadgeText: { color: '#fff', fontFamily: FONT.bold, fontSize: 8, lineHeight: 10, textAlign: 'center', writingDirection: 'rtl' },
-  top: { marginHorizontal:16,marginTop:14,padding: 18, paddingTop: 21, paddingBottom: 21, flexDirection: 'row-reverse', alignItems: 'center', gap: 14,backgroundColor:C.card,borderRadius:22,borderWidth:1,borderColor:C.line,elevation:2,shadowColor:'#173C31',shadowOpacity:0.07,shadowRadius:9 },
+  top: { marginHorizontal:16,marginTop:14,padding:18,paddingTop:19,paddingBottom:19,flexDirection:'row-reverse',alignItems:'center',gap:14,backgroundColor:'#08624e',borderRadius:22,borderWidth:1,borderColor:'#23ba94',elevation:5,shadowColor:'#075d4b',shadowOpacity:0.18,shadowRadius:14 },
   topIdentity: { flex: 1, minWidth: 0 },
-  hi: { color: C.slate, fontFamily: FONT.regular, textAlign: 'right', fontSize: 14 },
+  hi: { color:'#d9f4e9', fontFamily: FONT.regular, textAlign: 'right', fontSize: 14 },
   nameRow: { width: '100%', flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'flex-start' },
-  nm: { flex: 1, color: C.ink, fontFamily: FONT.bold, fontSize: 23, lineHeight: 34, textAlign: 'right' },
+  nm: { flex: 1, color:'#fff', fontFamily: FONT.bold, fontSize: 23, lineHeight: 34, textAlign: 'right' },
   rankInsignia: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 4, marginLeft: 8, height: 20 },
   rankBar: { width: 3, height: 17, borderRadius: 1.5, backgroundColor: '#ffd24a' },
   todayTxt: { color: C.ink, fontFamily: FONT.regular, fontSize: 13, textAlign: 'right', flexShrink: 1 },
   weatherIcon: { fontSize: 19 },
   weatherLabel: { color: C.slate, fontFamily: FONT.regular, fontSize: 13, textAlign: 'right', flexShrink: 1 },
   weatherSource: { color: C.brand, textDecorationLine: 'underline', fontFamily: FONT.regular, fontSize: 12 },
-  avatar: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: C.line },
-  avatarPh: { width: 64, height: 64, borderRadius: 32, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: '#e6fff5' },
+  avatarPh: { width:72, height:72, borderRadius:36, backgroundColor:'#c9f4e5', alignItems:'center', justifyContent:'center' },
   avatarTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 27 },
-  roleTxt: { color: C.brand, fontFamily: FONT.bold, fontSize: 14, textAlign: 'right', marginTop: 2 },
-  orgTxt: { color: C.slate, fontFamily: FONT.regular, fontSize: 13, lineHeight: 22, textAlign: 'right', marginTop: 3 },
+  roleTxt: { color:'#99f1ce', fontFamily: FONT.bold, fontSize: 14, textAlign: 'right', marginTop: 2 },
+  orgTxt: { color:'#e1f8f0', fontFamily: FONT.regular, fontSize: 13, lineHeight: 22, textAlign: 'right', marginTop: 3 },
   kpis: { flexDirection: 'row-reverse', flexWrap: 'wrap', marginHorizontal: 16, marginTop: 14 },
   sectionHeader: { marginHorizontal: 16, marginTop: 24, marginBottom: 12, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { color: C.ink, fontFamily: FONT.bold, fontSize: 21, textAlign: 'right' },
