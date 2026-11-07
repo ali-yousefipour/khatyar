@@ -10,22 +10,27 @@ export const FLASH_MODES = {
   whiteAmber: { label:'سفید و زرد', colors:['#FFFFFF','#FFCA22'] },
   blackAmber: { label:'مشکی و زرد', colors:['#070B11','#FFCA22'] },
 };
-// Use a moderate pulse rate to reduce photosensitivity risk.
-export const FLASH_FRAME_MS = 350;
+// Grouped double-pulses and a deliberate recovery gap, rather than a simple toggle.
+// Keep each pulse long enough to avoid extreme high-frequency strobing.
+export const FLASH_PATTERN_MS = [220, 180, 220, 370, 220, 180, 220, 680];
+export const FLASH_SPEED_LEVELS = [1.6, 1.3, 1, 0.9, 0.8];
+export const flashDuration = (frame, speedIndex) =>
+  Math.max(160, Math.round(FLASH_PATTERN_MS[frame % FLASH_PATTERN_MS.length] * FLASH_SPEED_LEVELS[speedIndex]));
 export const flashColor = (mode, frame) =>
-  FLASH_MODES[mode]?.colors[Math.abs(frame)%2] || FLASH_MODES.whiteAmber.colors[0];
+  FLASH_MODES[mode]?.colors[frame % 2 === 0 ? 1 : 0] || FLASH_MODES.whiteAmber.colors[0];
 
 export default function ScreenFlasher({ onClose }) {
   const insets = useSafeAreaInsets();
   const [mode,setMode] = React.useState('whiteAmber');
   const [playing,setPlaying] = React.useState(false);
   const [frame,setFrame] = React.useState(0);
+  const [speedIndex,setSpeedIndex] = React.useState(2);
 
   React.useEffect(() => {
     if (!playing) return undefined;
-    const timer = setInterval(() => setFrame(index => index+1), FLASH_FRAME_MS);
-    return () => clearInterval(timer);
-  }, [playing]);
+    const timer = setTimeout(() => setFrame(index => (index+1)%FLASH_PATTERN_MS.length), flashDuration(frame,speedIndex));
+    return () => clearTimeout(timer);
+  }, [playing,frame,speedIndex]);
 
   React.useEffect(() => {
     const appState = AppState.addEventListener('change', state => {
@@ -52,12 +57,23 @@ export default function ScreenFlasher({ onClose }) {
             <Text style={styles.modeLabel}>{option.label}</Text>
             <MaterialCommunityIcons name={mode===key?'radiobox-marked':'radiobox-blank'} color={mode===key?'#FFCA22':'#B6C4D4'} size={24}/>
           </TouchableOpacity>)}
+        <Text style={styles.speedTitle}>سرعت پالس‌ها</Text>
+        <View style={styles.speedControl}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="کاهش سرعت فلاشر" disabled={speedIndex===0} onPress={()=>setSpeedIndex(i=>Math.max(0,i-1))} style={[styles.speedButton,speedIndex===0&&styles.speedDisabled]}><MaterialCommunityIcons name="minus" size={22} color="#FFFFFF"/></TouchableOpacity>
+          <Text style={styles.speedValue}>{['خیلی آرام','آرام','معمولی','تند','خیلی تند'][speedIndex]}</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="افزایش سرعت فلاشر" disabled={speedIndex===4} onPress={()=>setSpeedIndex(i=>Math.min(4,i+1))} style={[styles.speedButton,speedIndex===4&&styles.speedDisabled]}><MaterialCommunityIcons name="plus" size={22} color="#FFFFFF"/></TouchableOpacity>
+        </View>
         <Text style={styles.warning}>هشدار: نور چشمک‌زن ممکن است برای افراد حساس به نور مناسب نباشد.</Text>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={'شروع فلاشر '+FLASH_MODES[mode].label} onPress={start} style={styles.start} activeOpacity={0.8}>
           <MaterialCommunityIcons name="play" size={24} color="#101827"/>
           <Text style={styles.startLabel}>شروع فلاشر</Text>
         </TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.cancel}><Text style={styles.cancelLabel}>انصراف</Text></TouchableOpacity>
+      </View>}
+      {playing&&<View style={[styles.playbackSpeed,{top:Math.max(insets.top,12)+13}]}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="کاهش سرعت فلاشر" disabled={speedIndex===0} onPress={()=>setSpeedIndex(i=>Math.max(0,i-1))} style={styles.playbackButton}><MaterialCommunityIcons name="minus" size={20} color="#FFFFFF"/></TouchableOpacity>
+        <Text style={styles.playbackLabel}>{speedIndex+1}/۵</Text>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="افزایش سرعت فلاشر" disabled={speedIndex===4} onPress={()=>setSpeedIndex(i=>Math.min(4,i+1))} style={styles.playbackButton}><MaterialCommunityIcons name="plus" size={20} color="#FFFFFF"/></TouchableOpacity>
       </View>}
       <TouchableOpacity style={[styles.close,{top:Math.max(insets.top,12)+8}]} onPress={onClose} accessibilityRole="button" accessibilityLabel="خاموش کردن فلاشر" activeOpacity={0.8}>
         <MaterialCommunityIcons name="close" size={22} color="#FFFFFF"/>
@@ -76,6 +92,14 @@ const styles = StyleSheet.create({
   swatches: {flexDirection:'row',marginRight:14,gap:5},
   swatch: {width:26,height:26,borderRadius:8,borderWidth:1,borderColor:'#77869B'},
   modeLabel: {color:'#FFFFFF',fontSize:16,fontWeight:'700',flex:1,textAlign:'right'},
+  speedTitle: {color:'#FFFFFF',fontSize:15,fontWeight:'700',alignSelf:'flex-end',marginTop:8,marginBottom:10},
+  speedControl: {width:'100%',flexDirection:'row',alignItems:'center',justifyContent:'space-between',padding:8,borderRadius:14,backgroundColor:'#263346'},
+  speedButton: {width:48,height:44,alignItems:'center',justifyContent:'center',backgroundColor:'#3C4E62',borderRadius:11},
+  speedDisabled: {opacity:0.35},
+  speedValue: {color:'#FFFFFF',fontSize:15,fontWeight:'700'},
+  playbackSpeed: {position:'absolute',left:14,flexDirection:'row',alignItems:'center',backgroundColor:'rgba(12,20,32,.85)',borderRadius:22,paddingHorizontal:5},
+  playbackButton: {minWidth:42,minHeight:42,alignItems:'center',justifyContent:'center'},
+  playbackLabel: {color:'#FFFFFF',fontSize:12,fontWeight:'700',paddingHorizontal:4},
   warning: {color:'#FFDC82',fontSize:12,textAlign:'center',lineHeight:21,marginTop:5,marginBottom:18},
   start: {minHeight:54,backgroundColor:'#FFCA22',borderRadius:15,width:'100%',justifyContent:'center',alignItems:'center',flexDirection:'row',gap:8},
   startLabel: {fontSize:17,fontWeight:'800',color:'#101827'},
