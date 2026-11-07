@@ -16307,7 +16307,15 @@ route('GET','/api/school-service/vehicles',function($p,$b,$u){
   _ssv_need($u,'view'); _ssv_backfill_vehicles();
   $q=_ssv_norm($_GET['search']??''); $page=max(1,(int)($_GET['page']??1)); $limit=max(1,min(200,(int)($_GET['limit']??50)));
   $where=['v.is_active=1'];$args=[];
-  if($q!==''){ $where[]="CONCAT(v.plate_two,v.plate_letter,v.plate_three,v.plate_region_code) LIKE ? OR v.vehicle_type LIKE ? OR v.vehicle_color LIKE ?"; $args[]='%'.$q.'%';$args[]='%'.$q.'%';$args[]='%'.$q.'%'; }
+  if($q!==''){
+    $plateQuery=preg_replace('/[\s\-]+/u','',_ssv_en($q));
+    $where[]="(CONCAT(v.plate_two,v.plate_letter,v.plate_three,v.plate_region_code) LIKE ? OR v.vehicle_type LIKE ? OR v.vehicle_color LIKE ?)";
+    $args[]='%'.$plateQuery.'%';$args[]='%'.$q.'%';$args[]='%'.$q.'%';
+  }
+  foreach(['vehicle_type','vehicle_color','driver_gender','certificate_status'] as $field){
+    $value=_ssv_norm($_GET[$field]??'');
+    if($value!==''){$where[]="v.$field=?";$args[]=$value;}
+  }
   $w=implode(' AND ',$where);$total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_vehicles v WHERE $w",$args)['n']??0);$off=($page-1)*$limit;
   $items=Db::all("SELECT v.*, (SELECT COUNT(*) FROM school_service_inspections i WHERE i.plate_two=v.plate_two AND i.plate_letter=v.plate_letter AND i.plate_three=v.plate_three AND i.plate_region_code=v.plate_region_code) inspection_count
     FROM school_service_vehicles v WHERE $w ORDER BY COALESCE(v.last_inspection_at,v.created_at) DESC LIMIT $limit OFFSET $off",$args);

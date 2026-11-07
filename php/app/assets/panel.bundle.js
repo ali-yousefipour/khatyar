@@ -18352,11 +18352,11 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             const photos = (r.photos || []).filter(p => p && p.file_path);
             const html = '<div class="ssv-detail-grid">' +
                 '<div class="ssv-detail-item"><small>بازرس ثبت‌کننده</small><b>' + esc(r.inspector_name || 'نامشخص') + '</b><div style="font-size:10px;color:#667085;margin-top:3px">' + esc(r.inspector_role || '') + '</div></div>' +
-                '<div class="ssv-detail-item"><small>تاریخ و ساعت بازدید</small><b>' + esc((r.violation_date || '—') + ' ' + (r.violation_time || '')) + '</b></div>' +
+                '<div class="ssv-detail-item"><small>تاریخ و ساعت بازدید</small><b>' + ssvJalaliDate(r.violation_date) + ' ' + esc(r.violation_time || '') + '</b></div>' +
                 '<div class="ssv-detail-item"><small>ناحیه آموزشی</small><b>' + esc(r.educational_district || 'نامشخص') + '</b></div>' +
                 '<div class="ssv-detail-item"><small>مدرسه</small><b>' + esc(r.school_name || 'نامشخص') + '</b></div>' +
                 '<div class="ssv-detail-item"><small>شرکت مجری</small><b>' + esc(r.company_name || 'نامشخص') + '</b></div>' +
-                '<div class="ssv-detail-item"><small>پلاک</small><b>' + esc(r.plate || 'نامشخص') + '</b></div>' +
+                '<div class="ssv-detail-item"><small>پلاک</small><b>' + ssvIranPlate(r) + '</b></div>' +
                 '<div class="ssv-detail-item"><small>نوع و رنگ خودرو</small><b>' + esc((r.vehicle_type || '—') + ' / ' + (r.vehicle_color || '—')) + '</b></div>' +
                 '<div class="ssv-detail-item"><small>راننده / گواهی</small><b>' + esc((r.driver_gender || '—') + ' / ' + (r.certificate_status || '—')) + '</b></div>' +
                 '<div class="ssv-detail-item"><small>سرنشین جلو / عقب / مجموع</small><b>' + ssvFa(r.passenger_front_count) + ' / ' + ssvFa(r.passenger_rear_count) + ' / ' + ssvFa(r.passenger_count) + '</b></div>' +
@@ -18560,6 +18560,26 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
         setTimeout(() => map.invalidateSize(), 250);
     }
     function ssvFa(n) { return new Intl.NumberFormat('fa-IR').format(Number(n) || 0); }
+    function ssvJalaliDate(value) {
+        if (!value)
+            return '—';
+        const raw = String(value).trim();
+        if (/^1[34]\d\d[/-]\d{1,2}[/-]\d{1,2}/.test(raw))
+            return raw.slice(0, 10).replace(/-/g, '/').replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+        const timestamp = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(raw) ? raw.replace(' ', 'T') + '+03:30' : raw;
+        const date = new Date(timestamp);
+        return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('fa-IR-u-ca-persian', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+    }
+    function ssvIranPlate(row) {
+        const digits = v => esc(String(v !== null && v !== void 0 ? v : '').replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]));
+        const two = digits(row.plate_two), three = digits(row.plate_three), region = digits(row.plate_region_code), letter = esc(row.plate_letter || '');
+        if (!two || !three || !region)
+            return '<span class="ssv-muted">پلاک نامشخص</span>';
+        return '<span class="ssv-iran-plate" role="img" aria-label="پلاک ' + two + ' ' + letter + ' ' + three + ' ایران ' + region + '"><span class="ssv-iran-band"><span class="ssv-flag-colors"></span><small>I.R.</small></span><span class="ssv-iran-two">' + two + '</span><span class="ssv-iran-letter">' + letter + '</span><span class="ssv-iran-three">' + three + '</span><span class="ssv-iran-code"><small>ایران</small><b>' + region + '</b></span></span>';
+    }
+    css.textContent += '.ssv-iran-plate{display:inline-flex;direction:ltr;align-items:stretch;min-width:190px;height:45px;background:#fff;color:#171d24;border:2px solid #232b33;border-radius:5px;overflow:hidden;white-space:nowrap;font-family:Vazirmatn,Tahoma,sans-serif;box-shadow:0 2px 5px #142a3717;vertical-align:middle}.ssv-iran-band{display:flex;flex-direction:column;align-items:center;justify-content:space-around;width:23px;background:#154b91;color:#fff;font-size:13px}.ssv-iran-band small{font-size:7px}.ssv-iran-two,.ssv-iran-three,.ssv-iran-letter{display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;padding:0 5px}.ssv-iran-letter{min-width:27px}.ssv-iran-code{border-left:2px solid #232b33;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1px 7px;line-height:1.2}.ssv-iran-code small{font-size:9px}.ssv-iran-code b{font-size:17px}.ssv-filter-panel{background:linear-gradient(120deg,#f0faf6,#fff);border:1px solid #d9ebe2;border-radius:16px;padding:15px;margin-bottom:14px}.ssv-filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end}.ssv-filter-grid label{display:grid;gap:5px;font-size:12px;font-weight:700;color:#30564a}.ssv-filter-grid .ssv-input{width:100%;min-height:42px}.ssv-filter-panel h3{margin:0 0 10px;color:#124c3a}.ssv-table-wrap{overflow-x:auto;max-width:100%}.ssv-table tbody tr:hover{background:#f1f8f5}.ssv-table th{white-space:nowrap}.ssv-table td{vertical-align:middle}.ssv-empty-state{text-align:center;padding:28px;color:#63756e}.ssv-tabs button{min-height:42px}.ssv-row-btn{min-height:38px}@media(max-width:680px){.ssv-page-host{padding:8px}.ssv-filter-grid{grid-template-columns:1fr 1fr}.ssv-iran-plate{min-width:175px}.ssv-filter-panel{padding:10px}}';
+    css.textContent += '.ssv-flag-colors{width:15px;height:11px;border:1px solid #ddd;background:linear-gradient(to bottom,#239f40 0 33%,#fff 33% 66%,#da0000 66% 100%)}';
+    css.textContent += '.ssv-inline-page .ssv-head{background:linear-gradient(110deg,#0b5948,#138267);padding:18px 22px}.ssv-inline-page .ssv-tabs{gap:8px;padding:12px 16px;background:#edf4f1;border-bottom:1px solid #dbe7e2}.ssv-inline-page .ssv-tabs button{border-radius:11px;font-weight:700;transition:background .15s,border-color .15s,box-shadow .15s}.ssv-inline-page .ssv-tabs button.on{box-shadow:0 3px 11px #08725624}.ssv-inline-page .ssv-card{border-radius:16px;border:1px solid #e0ebe6;box-shadow:0 3px 14px #1c433b0b}.ssv-inline-page .ssv-actions{gap:10px;flex-wrap:wrap}.ssv-inline-page .ssv-input:focus{outline:2px solid #81c6ac;outline-offset:1px}.ssv-inline-page button:focus-visible{outline:3px solid #69b69d;outline-offset:2px}.ssv-inline-page .ssv-pager{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:12px;padding:16px;border-top:1px solid #e4eee9}.ssv-inline-page .ssv-table{width:100%;border-collapse:separate;border-spacing:0}.ssv-inline-page .ssv-table th{background:#ecf5f0;color:#1d5947}.ssv-inline-page .ssv-table td{border-bottom:1px solid #eaf0ed}@media(prefers-reduced-motion:reduce){.ssv-inline-page .ssv-tabs button{transition:none}}';
     function ssvBars(items, limit = 8) { const a = (items || []).slice(0, limit); if (!a.length)
         return '<div class="ssv-empty-chart">داده‌ای برای نمایش وجود ندارد.</div>'; const mx = Math.max(1, ...a.map(x => Number(x.n) || 0)); return '<div class="ssv-bars">' + a.map(x => '<div class="ssv-bar-row"><div class="ssv-bar-label" title="' + esc(x.label || 'نامشخص') + '">' + esc(x.label || 'نامشخص') + '</div><div class="ssv-bar-track"><div class="ssv-bar-fill" style="width:' + Math.max(2, Math.round((Number(x.n) || 0) / mx * 100)) + '%"></div></div><div class="ssv-bar-value">' + ssvFa(x.n) + '</div></div>').join('') + '</div>'; }
     function ssvTrend(items) { const a = items || []; if (!a.length)
@@ -18817,7 +18837,7 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             let page = 1;
             const load = async () => {
                 const ep = t === 'companies' ? 'companies-page' : t === 'schools' ? 'schools-page' : 'inspections-page';
-                let x = await api('/api/school-service/' + ep + '?search=' + encodeURIComponent(input.value) + '&page=' + page + '&page_size=25');
+                let x = t === 'vehicles' ? { items: [], total: 0, page: 1, pages: 1 } : await api('/api/school-service/' + ep + '?search=' + encodeURIComponent(input.value) + '&page=' + page + '&page_size=25');
                 let rows = x.items || [], mapRows = rows;
                 if (t === 'schools') {
                     try {
@@ -18842,14 +18862,16 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
                 }
                 if (t === 'vehicles') {
                     let page = 1;
-                    b.innerHTML = '<div class="ssv-card"><div class="ssv-actions"><input id="vehicle-search" class="ssv-input" placeholder="جستجوی پلاک، نوع یا رنگ خودرو"><button id="vehicle-new">خودروی جدید</button></div><div id="vehicle-list" style="margin-top:12px"></div></div>';
+                    b.innerHTML = '<div class="ssv-card"><div class="ssv-filter-panel"><h3>جست‌وجو و فیلتر خودروهای سرویس مدارس</h3><div class="ssv-filter-grid"><label>جست‌وجوی پلاک، نوع و رنگ<input id="vehicle-search" class="ssv-input" type="search" placeholder="مثلاً ۱۲ ب ۳۴۵ یا ون"></label><label>نوع خودرو<select id="vehicle-type" class="ssv-input"><option value="">همه انواع</option></select></label><label>رنگ خودرو<select id="vehicle-color" class="ssv-input"><option value="">همه رنگ‌ها</option></select></label><label>نوع راننده<select id="vehicle-gender" class="ssv-input"><option value="">همه</option><option>خانم</option><option>آقا</option><option>نامشخص</option></select></label><label>وضعیت گواهی<select id="vehicle-cert" class="ssv-input"><option value="">همه وضعیت‌ها</option><option>معتبر</option><option>نامعتبر</option><option>ارائه نشد</option></select></label><button id="vehicle-clear" class="ssv-row-btn" type="button">پاک‌کردن فیلترها</button></div></div><div class="ssv-actions" style="justify-content:space-between"><strong>فهرست خودروها</strong><button id="vehicle-new">خودروی جدید</button></div><div id="vehicle-list" style="margin-top:12px"></div></div>';
                     const input = b.querySelector('#vehicle-search'), list = b.querySelector('#vehicle-list');
                     const load = async () => {
                         try {
-                            const x = await api('/api/school-service/vehicles?search=' + encodeURIComponent(input.value || '') + '&page=' + page + '&limit=25');
-                            list.innerHTML = '<table class="ssv-table"><thead><tr><th>ردیف</th><th>پلاک</th><th>نوع خودرو</th><th>رنگ</th><th>سرنشین</th><th>راننده</th><th>گواهی</th><th>تعداد بازدید</th><th>آخرین بازدید</th><th>عملیات</th></tr></thead><tbody>' +
-                                (x.items || []).map((r, n) => '<tr><td>' + ((page - 1) * 25 + n + 1) + '</td><td><b>' + esc(r.plate || '') + '</b></td><td>' + esc(r.vehicle_type || '') + '</td><td>' + esc(r.vehicle_color || '') + '</td><td>' + Number(r.passenger_front_count || 0) + ' جلو / ' + Number(r.passenger_rear_count || 0) + ' عقب</td><td>' + esc(r.driver_gender || '') + '</td><td>' + esc(r.certificate_status || '') + '</td><td>' + Number(r.inspection_count || 0) + '</td><td>' + esc(r.last_inspection_at || '') + '</td><td><div class="ssv-row-actions"><button class="ssv-row-btn primary" data-edit-v="' + r.id + '">ویرایش</button><button class="ssv-row-btn danger" data-del-v="' + r.id + '">غیرفعال</button></div></td></tr>').join('') +
-                                '</tbody></table><div class="ssv-pager"><button id="vehicle-prev" ' + (page <= 1 ? 'disabled' : '') + '>قبلی</button><span>صفحه ' + x.page + ' از ' + x.pages + ' — ' + x.total + ' خودرو</span><button id="vehicle-next" ' + (page >= x.pages ? 'disabled' : '') + '>بعدی</button></div>';
+                            const params = new URLSearchParams({ search: input.value.trim(), page: String(page), limit: '25', vehicle_type: b.querySelector('#vehicle-type').value, vehicle_color: b.querySelector('#vehicle-color').value, driver_gender: b.querySelector('#vehicle-gender').value, certificate_status: b.querySelector('#vehicle-cert').value });
+                            const x = await api('/api/school-service/vehicles?' + params.toString());
+                            list.innerHTML = '<div class="ssv-table-wrap"><table class="ssv-table"><thead><tr><th>ردیف</th><th>پلاک</th><th>نوع خودرو</th><th>رنگ</th><th>سرنشین</th><th>راننده</th><th>گواهی</th><th>تعداد بازدید</th><th>آخرین بازدید</th><th>عملیات</th></tr></thead><tbody>' +
+                                (x.items || []).map((r, n) => '<tr><td>' + ssvFa((page - 1) * 25 + n + 1) + '</td><td>' + ssvIranPlate(r) + '</td><td>' + esc(r.vehicle_type || '—') + '</td><td>' + esc(r.vehicle_color || '—') + '</td><td>' + ssvFa(r.passenger_front_count || 0) + ' جلو / ' + ssvFa(r.passenger_rear_count || 0) + ' عقب</td><td>' + esc(r.driver_gender || '—') + '</td><td><span class="ssv-chip">' + esc(r.certificate_status || 'نامشخص') + '</span></td><td>' + ssvFa(r.inspection_count || 0) + '</td><td><time>' + ssvJalaliDate(r.last_inspection_at) + '</time></td><td><div class="ssv-row-actions"><button class="ssv-row-btn primary" data-edit-v="' + r.id + '">ویرایش</button><button class="ssv-row-btn danger" data-del-v="' + r.id + '">غیرفعال</button></div></td></tr>').join('') +
+                                ((x.items || []).length ? '' : '<tr><td colspan="10"><div class="ssv-empty-state">خودرویی مطابق فیلترهای انتخابی پیدا نشد.</div></td></tr>') +
+                                '</tbody></table></div><div class="ssv-pager"><button id="vehicle-prev" ' + (page <= 1 ? 'disabled' : '') + '>قبلی</button><span>صفحه ' + ssvFa(x.page) + ' از ' + ssvFa(x.pages) + ' — ' + ssvFa(x.total) + ' خودرو</span><button id="vehicle-next" ' + (page >= x.pages ? 'disabled' : '') + '>بعدی</button></div>';
                             if (S.access && !S.access.can_edit)
                                 list.querySelectorAll('[data-edit-v]').forEach(x => x.style.display = 'none');
                             if (S.access && !S.access.can_delete)
@@ -18891,6 +18913,16 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
                     if (S.access && !S.access.can_edit)
                         b.querySelector('#vehicle-new').style.display = 'none';
                     input.oninput = () => { clearTimeout(input._t); input._t = setTimeout(() => { page = 1; load(); }, 250); };
+                    ['vehicle-type', 'vehicle-color', 'vehicle-gender', 'vehicle-cert'].forEach(id => b.querySelector('#' + id).onchange = () => { page = 1; load(); });
+                    b.querySelector('#vehicle-clear').onclick = () => { input.value = ''; ['vehicle-type', 'vehicle-color', 'vehicle-gender', 'vehicle-cert'].forEach(id => b.querySelector('#' + id).value = ''); page = 1; load(); };
+                    try {
+                        const meta = (await api('/api/school-service/bootstrap')).meta || {};
+                        [['vehicle-type', meta.vehicle_types], ['vehicle-color', meta.vehicle_colors]].forEach(([id, values]) => {
+                            const select = b.querySelector('#' + id);
+                            (values || []).forEach(value => { const option = document.createElement('option'); option.value = value; option.textContent = value; select.appendChild(option); });
+                        });
+                    }
+                    catch (_) { /* The vehicle list remains usable if optional filter metadata is unavailable. */ }
                     await load();
                     return;
                 }
