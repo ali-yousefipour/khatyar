@@ -817,6 +817,7 @@ function BirthdayCelebration({bdays}){
 
 function Dashboard(){
   const [s,setS]=useState(null); const [tw,setTw]=useState({top:[],bottom:[]});
+  const [activeTab,setActiveTab]=useState('overview');
   const [bdays,setBdays]=useState(null);
   const [loadErr,setLoadErr]=useState("");
   const [loading,setLoading]=useState(true);
@@ -831,20 +832,46 @@ function Dashboard(){
   const K=[["راننده فعال",s.drivers,"کاربران فعال ناوگان"],["خط فعال",s.lines,"خطوط در حال بهره‌برداری"],["حضور امروز",s.today_attendance,"تردد ثبت‌شده امروز"],["فیش پرداخت‌نشده",s.unpaid_bills,"نیازمند پیگیری"],["تذکر این ماه",s.notices_month,"موارد ثبت‌شده ماه جاری"]];
   return(<div className="dashboard-page">
     <BirthdayCelebration bdays={bdays}/>
-    <section className="dashboard-overview" aria-label="آمار کلی سامانه">
+    <div className="dashboard-primary-tabs" role="tablist" aria-label="دسته‌بندی داشبورد مدیریت">
+      {[["overview","نمای کلی"],["personnel","ترکیب نیروها"],["attendance","حضور پرسنل"],["performance","کارایی نیروها"],["insights","تحلیل مدیریتی"]].map(([key,label])=><button type="button" role="tab" key={key} id={'dashboard-tab-'+key} aria-controls={'dashboard-content-'+key} aria-selected={activeTab===key} tabIndex={activeTab===key?0:-1} className={activeTab===key?'active':''} onClick={()=>setActiveTab(key)} onKeyDown={e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const tabs=[...e.currentTarget.parentElement.querySelectorAll('[role="tab"]')];const i=tabs.indexOf(e.currentTarget);const j=e.key==='Home'?0:e.key==='End'?tabs.length-1:(i+(e.key==='ArrowLeft'?1:-1)+tabs.length)%tabs.length;tabs[j]?.focus();setActiveTab(['overview','personnel','attendance','performance','insights'][j]);}}>{label}</button>)}
+    </div>
+    {activeTab==='overview'&&<section className="dashboard-overview" id="dashboard-content-overview" role="tabpanel" aria-labelledby="dashboard-tab-overview" aria-label="آمار کلی سامانه">
       <div className="dashboard-section-head"><div><span className="dashboard-section-kicker">نمای کلی سامانه</span><h2>آمار و شاخص‌های اصلی</h2></div><span className="dashboard-section-caption">خلاصه وضعیت جاری خطیار</span></div>
       <div className="kpis dashboard-overview-grid">{K.map(([l,n,desc],i)=><div className="kpi" key={l}><span className="dashboard-kpi-index" aria-hidden="true">{fa(i+1).padStart(2,"۰")}</span><div className="n">{n==null?"—":fa(n)}</div><div className="l">{l}</div><div className="dashboard-kpi-desc">{desc}</div></div>)}</div>
-    </section>
-    <PersonnelDistributionDashboard/>
-    <LiveStaffDashboard/>
-    {tw && tw.groups && tw.groups.length>0 ? <section className="dashboard-workers" aria-label="کارایی نیروها">
+    </section>}
+    {activeTab==='personnel'&&<div id="dashboard-content-personnel" role="tabpanel" aria-labelledby="dashboard-tab-personnel"><PersonnelDistributionDashboard/></div>}
+    {activeTab==='attendance'&&<div id="dashboard-content-attendance" role="tabpanel" aria-labelledby="dashboard-tab-attendance"><LiveStaffDashboard/></div>}
+    {activeTab==='performance'&&(tw && tw.groups && tw.groups.length>0 ? <section className="dashboard-workers" id="dashboard-content-performance" role="tabpanel" aria-labelledby="dashboard-tab-performance" aria-label="کارایی نیروها">
       <div className="dashboard-section-head"><div><span className="dashboard-section-kicker">ارزیابی عملکرد</span><h2>کارایی نیروها به تفکیک سمت</h2></div><span className="dashboard-section-caption">{tw.zone_scope==="own"?"محدوده منطقه شما":"پرکارترین و کم‌کارترین همکاران"}</span></div>
       <div className="grid2 dashboard-worker-grid">
         {tw.groups.map((g,i)=><WorkerGroup key={g.key} title={g.title} data={g} color={GROUP_COLORS[g.key]||"#0d7a5f"}/>)}
         {tw.groups.length%2===1?<div></div>:null}
       </div>
-    </section> : <p className="muted" style={{padding:16}}>داده‌ای برای نمایش کارایی نیروها نیست.</p>}
+    </section> : <p className="panel muted" id="dashboard-content-performance" role="tabpanel">داده‌ای برای نمایش کارایی نیروها نیست.</p>)}
+    {activeTab==='insights'&&<div id="dashboard-content-insights" role="tabpanel" aria-labelledby="dashboard-tab-insights"><DashboardManagementInsights stats={s} workers={tw}/></div>}
   </div>);
+}
+
+function DashboardManagementInsights({stats,workers}){
+  const people=(workers?.groups||[]).flatMap(g=>g.top||[]);
+  const fields=[['ثبت حضور', 'attendances'],['چک‌لیست', 'checklists'],['تذکر', 'notices'],['فرم', 'forms'],['حضور مسئولین', 'visits'],['گزارش', 'reports']];
+  const activities=fields.map(([label,key])=>({label,value:people.reduce((sum,p)=>sum+Math.max(0,Number(p[key])||0),0)}));
+  const roleValues=(workers?.groups||[]).map(g=>({label:g.title||'بدون عنوان',value:(g.top||[]).reduce((sum,p)=>sum+Math.max(0,Number(p.total)||0),0)}));
+  const topActivity=activities.reduce((best,item)=>item.value>best.value?item:best,{label:'—',value:0});
+  const Chart=({title,description,rows})=>{
+    const max=Math.max(1,...rows.map(x=>x.value));
+    return <section className="panel dashboard-analysis-chart" aria-label={title}><h3>{title}</h3><p>{description}</p>
+      {rows.length?rows.map((row,i)=><div className="dashboard-analysis-row" key={row.label}>
+        <div className="dashboard-analysis-row-head"><span>{row.label}</span><b>{fa(row.value)}</b></div>
+        <div className="dashboard-analysis-track" role="meter" aria-label={row.label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={row.value}><span style={{width:(row.value/max*100)+'%',background:i%2?'#0c8a70':'#d8a94c'}}/></div>
+      </div>):<div className="muted">اطلاعات کافی برای رسم نمودار موجود نیست.</div>}
+    </section>;
+  };
+  return <section className="dashboard-management-insights" aria-label="تحلیل مدیریتی"><div className="dashboard-section-head"><div><span className="dashboard-section-kicker">مرکز تحلیل</span><h2>تحلیل مدیریتی عملیات</h2></div><span className="dashboard-section-caption">تحلیل داده‌های موجود بدون برآورد یا آمار ساختگی</span></div>
+    <div className="dashboard-analysis-summary"><div><span>پرکاربردترین نوع فعالیت در نمونه نیروهای برتر</span><strong>{topActivity.value?topActivity.label:'داده موجود نیست'}</strong></div><div><span>تعداد گروه‌های دارای داده عملکرد</span><strong>{fa(roleValues.filter(x=>x.value>0).length)}</strong></div><div><span>فیش‌های پرداخت‌نشده</span><strong>{fa(stats?.unpaid_bills||0)}</strong><small>نیازمند بررسی واحد مالی</small></div></div>
+    <div className="dashboard-analysis-grid"><Chart title="ترکیب فعالیت‌های ثبت‌شده" description="مجموع فعالیت‌های نمونه نیروهای برتر هر سمت؛ نه کل سازمان" rows={activities}/><Chart title="مقایسه عملکرد گروه‌های شغلی" description="مجموع امتیاز نمونه نیروهای برتر هر گروه؛ برای مقایسه اولیه" rows={roleValues}/></div>
+    <p className="dashboard-analysis-note">این نمودارها بر اساس خروجی موجود «کارایی نیروها» محاسبه می‌شوند. چون داده‌های نمونه برترین‌ها کاملِ کل پرسنل نیست، از آن‌ها برای رتبه‌بندی قطعی مناطق یا ارزیابی همه کارکنان استفاده نکنید.</p>
+  </section>;
 }
 
 const GROUP_COLORS={supervisor:"#0d7a5f",operator:"#0891b2",admin_staff:"#2563eb",chief_inspector:"#7c3aed",inspector:"#d97706"};
@@ -10586,6 +10613,30 @@ function FirstLoginPassword({name,onDone,onLogout}){
   </main>;
 }
 
+function AccountPasswordDialog({onClose}){
+  const [current,setCurrent]=useState(''),[next,setNext]=useState(''),[confirm,setConfirm]=useState('');
+  const [saving,setSaving]=useState(false),[error,setError]=useState(''),[done,setDone]=useState(false);
+  const submit=async(e)=>{
+    e.preventDefault();setError('');
+    if(next.length<12||next.length>128){setError('رمز جدید باید بین ۱۲ تا ۱۲۸ کاراکتر باشد.');return;}
+    if(next!==confirm){setError('رمز جدید و تکرار آن یکسان نیستند.');return;}
+    if(next===current){setError('رمز جدید باید متفاوت از رمز فعلی باشد.');return;}
+    setSaving(true);
+    try{await SEND('POST','/admin/change-password',{current,next});setDone(true);setCurrent('');setNext('');setConfirm('');}
+    catch(err){setError(err.message||'تغییر رمز انجام نشد.');}
+    finally{setSaving(false);}
+  };
+  return <Modal title="تغییر رمز عبور حساب" onClose={onClose} style={{width:'min(460px,94vw)',direction:'rtl'}}>
+    {done?<div role="status" className="account-password-success"><p>رمز عبور شما با موفقیت تغییر کرد.</p><button className="btn p" type="button" onClick={onClose}>بستن</button></div>:<form className="account-password-form" onSubmit={submit}>
+      <label>رمز فعلی<input className="input" type="password" autoComplete="current-password" required value={current} onChange={e=>setCurrent(e.target.value)}/></label>
+      <label>رمز جدید (حداقل ۱۲ کاراکتر)<input className="input" type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={next} onChange={e=>setNext(e.target.value)}/></label>
+      <label>تکرار رمز جدید<input className="input" type="password" autoComplete="new-password" required value={confirm} onChange={e=>setConfirm(e.target.value)}/></label>
+      {error&&<p className="account-password-error" role="alert">{error}</p>}
+      <div className="row" style={{justifyContent:'flex-end',gap:8}}><button className="btn g" type="button" onClick={onClose}>انصراف</button><button className="btn p" type="submit" disabled={saving}>{saving?'در حال ذخیره…':'ذخیره رمز جدید'}</button></div>
+    </form>}
+  </Modal>;
+}
+
 function App(){
   const [me,setMe]=useState(null); const [authReady,setAuthReady]=useState(false); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState([]); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
   const [navigationRestored,setNavigationRestored]=useState(false);
@@ -10602,6 +10653,15 @@ function App(){
     try{sessionStorage.setItem('khatyar_admin_view_'+me.id,v);}catch(_){}
   },[navigationRestored,me?.id,me?.is_admin,v]);
   const [menuSearch,setMenuSearch]=useState("");
+  const [accountOpen,setAccountOpen]=useState(false);
+  const [passwordDialog,setPasswordDialog]=useState(false);
+  const accountRef=useRef(null);
+  useEffect(()=>{
+    if(!accountOpen)return;
+    const close=e=>{if(e.type==='keydown'&&e.key==='Escape')setAccountOpen(false);else if(e.type==='pointerdown'&&!accountRef.current?.contains(e.target))setAccountOpen(false);};
+    document.addEventListener('pointerdown',close);document.addEventListener('keydown',close);
+    return()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',close);};
+  },[accountOpen]);
   const menuQuery=normalizePanelMenuText(menuSearch);
   const menuButtonRef=useRef(null);
   const menuSearchRef=useRef(null);
@@ -10678,9 +10738,12 @@ function App(){
       </div>
     </aside>
     <main className="main"><div className="top">
-      <button ref={menuButtonRef} className="burger" aria-label={drawer?"بستن منوی صفحات":"باز کردن منوی صفحات"} aria-expanded={drawer} onClick={()=>{setSidebarCollapsed(false);setDrawer(d=>!d);}}>☰</button>
+      <button ref={menuButtonRef} className="burger" aria-label={drawer?"بستن منوی صفحات":"باز کردن منوی صفحات"} aria-expanded={drawer} onClick={()=>{setSidebarCollapsed(false);setDrawer(d=>!d);}}><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
       <div className="page-heading"><div className="page-breadcrumb">پنل مدیریت <span aria-hidden="true">/</span> {currentSection?.[0]||"خطیار"}</div><h2>{VIEWS[vk].t}</h2></div>
-      <div className="who"><span>{me.name} — {me.role}{me.rank_stars?" · "+"★".repeat(Math.max(0,Math.min(5,+me.rank_stars))):""}</span><div className="av"><AuthenticatedAvatar url={me.photo} name={me.name}/></div></div></div>
+      <div className="account-menu-wrap" ref={accountRef}><button type="button" className="who account-trigger" aria-label={'منوی حساب کاربری '+me.name} aria-haspopup="menu" aria-expanded={accountOpen} onClick={()=>setAccountOpen(x=>!x)}><span>{me.name} — {me.role}{me.rank_stars?" · "+"★".repeat(Math.max(0,Math.min(5,+me.rank_stars))):""}</span><div className="av"><AuthenticatedAvatar url={me.photo} name={me.name}/></div><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg></button>
+        {accountOpen&&<div className="account-dropdown" role="menu"><div className="account-dropdown-head">{me.name}<small>{me.role}</small></div><button role="menuitem" type="button" onClick={()=>{setAccountOpen(false);setPasswordDialog(true);}}>تغییر رمز عبور</button><button role="menuitem" type="button" className="account-logout" onClick={async()=>{setAccountOpen(false);try{await _clearWebSession();setMe(null);}catch(e){alert(e.message);}}}>خروج از وب‌سایت</button></div>}
+      </div></div>
+      {passwordDialog&&<AccountPasswordDialog onClose={()=>setPasswordDialog(false)}/>}
       <div id="panel-content" className="page-content" data-page={vk} tabIndex={-1}><View canNavigate={can}/></div></main></div>);
 }
 

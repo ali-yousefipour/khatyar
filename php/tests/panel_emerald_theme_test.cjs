@@ -10,7 +10,7 @@ const bundle = fs.readFileSync(path.join(app, 'assets/panel.bundle.js'), 'utf8')
 assert.match(panel, /khatyar-emerald-system\.css\?v=/);
 assert.match(panel, /brand-khatyar\.png/);
 assert.match(css, /--brand:\s*#075b4d/);
-assert.match(panel, /khatyar-emerald-system\.css\?v=20261107\.3/, 'Fresh theme cache key is published');
+assert.match(panel, /khatyar-emerald-system\.css\?v=20261107\.4/, 'Fresh theme cache key is published');
 assert.match(css, /\.kh-nav-svg/, 'Navigation icons have a consistent vector styling');
 assert.match(css, /\.layout \.main > \.top\s*\{/, 'Every panel page receives the visible branded header');
 assert.match(css, /\.layout \.page-content \.kpi\s*\{/, 'Dashboard KPI cards have an intentional visual treatment');

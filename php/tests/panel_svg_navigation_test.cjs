@@ -16,5 +16,5 @@ assert.ok(iconMap, 'All panel menu views must retain an icon mapping');
 assert.equal((iconMap[1].match(/:\s*'[^']+'/g) || []).length, 60, 'All sixty panel views have semantic icons');
 assert.match(css, /\.layout \.navitem \.kh-nav-svg/);
 assert.match(css, /prefers-reduced-motion:reduce/);
-assert.match(html, /panel\.bundle\.js\?v=20261107\.2001/);
+assert.match(html, /panel\.bundle\.js\?v=20261107\.2002/);
 console.log('Panel navigation uses coherent SVG icons across all sixty views.');
