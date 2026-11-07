@@ -1,0 +1,24 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const root = path.resolve(__dirname, '..');
+const source = fs.readFileSync(path.join(root, 'tools/panel_source.jsx'), 'utf8');
+const bundle = fs.readFileSync(path.join(root, 'app/assets/panel.bundle.js'), 'utf8');
+const sectionsLiteral = source.match(/const PANEL_MENU_SECTIONS=(\[[\s\S]*?\]);/);
+assert.ok(sectionsLiteral, 'Canonical sidebar sections must exist');
+const sections = vm.runInNewContext(sectionsLiteral[1]);
+const keys = sections.flatMap(([, items]) => [...items]);
+assert.equal(new Set(keys).size, keys.length, 'Sidebar contains no duplicate keys');
+const viewsBlock = source.match(/const VIEWS=\{([\s\S]*?)\n\};/);
+assert.ok(viewsBlock, 'Canonical view registry must exist');
+const viewKeys = [...viewsBlock[1].matchAll(/^\s*([a-z]+):\{/gm)].map(x => x[1]);
+assert.deepEqual([...keys].sort(), [...viewKeys].sort(), 'Every view appears exactly once in sidebar');
+assert.match(source, /const MENU=PANEL_MENU_SECTIONS\.flatMap/, 'Permissions must use the canonical sidebar');
+assert.match(source, /const can=\(k\)=>!allowed\|\|allowed\.includes\(k\)/, 'No role bypass in menu visibility');
+assert.doesNotMatch(source, /CORE_VIEWS|CORE\.includes\(k\)/, 'Core view bypass removed');
+assert.ok(keys.includes('schoolservice') && keys.includes('complaints'));
+assert.ok(!keys.includes('platetraining'), 'Removed sidebar keys cannot be configured');
+assert.match(bundle, /const MENU = PANEL_MENU_SECTIONS\.flatMap/, 'Built bundle contains canonical permission mapping');
+console.log(`PASS: ${keys.length} sidebar pages match permissions and compiled bundle`);
