@@ -870,12 +870,21 @@ function _presence_outside_lines_bale_alert($checkId,$userId,$lat,$lng,$slot) {
     if (!is_numeric($lat) || !is_numeric($lng)) return;
     $lat=(float)$lat; $lng=(float)$lng;
     if (!is_finite($lat) || !is_finite($lng) || $lat < -90 || $lat > 90 || $lng < -180 || $lng > 180 || ($lat == 0.0 && $lng == 0.0)) return;
-    $lineIds=array_values(array_unique(array_map('intval',array_column(Db::all('SELECT line_id FROM user_lines WHERE user_id=?',[(int)$userId]),'line_id'))));
-    // No assigned lines or configured boundaries: do not make an ungrounded outside-area accusation.
+    // The verification scope is ALL lines assigned for viewing, not the narrower
+    // user_line_checkin_permissions subset used for check-in/check-out.
+    $lineIds=array_values(array_unique(array_filter(array_map('intval',array_column(Db::all('SELECT line_id FROM user_lines WHERE user_id=?',[(int)$userId]),'line_id')),fn($id)=>$id>0)));
+    // Administrators without an assigned-lines restriction can verify on any line.
+    $actor=Db::one('SELECT r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?',[(int)$userId]);
+    if (!$lineIds && !empty($actor['is_admin'])) return;
     if (!$lineIds) return;
     $placeholders=implode(',',array_fill(0,count($lineIds),'?'));
     $fenceCount=Db::one("SELECT COUNT(*) AS n FROM geofences WHERE line_id IN ($placeholders)",$lineIds);
-    if ((int)($fenceCount['n']??0)===0 || station_at_point($lat,$lng,$lineIds,50)!==null) return;
+    if ((int)($fenceCount['n']??0)===0 || station_at_point($lat,$lng,$lineIds,150)!==null) return;
+    // A station geofence is not the entire taxi line. Absence from all station
+    // polygons does NOT prove that a person is outside their permitted line.
+    // Only report when the position positively matches a different line's fence.
+    $matchedElsewhere=station_at_point($lat,$lng,null,150);
+    if (!$matchedElsewhere || (int)($matchedElsewhere['line_id']??0)<=0 || in_array((int)$matchedElsewhere['line_id'],$lineIds,true)) return;
     Db::run("CREATE TABLE IF NOT EXISTS presence_outside_bale_alerts (check_id BIGINT NOT NULL PRIMARY KEY, user_id INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     // A unique check ID prevents a repeated submission from messaging management again.
     $inserted=Db::exec('INSERT IGNORE INTO presence_outside_bale_alerts(check_id,user_id) VALUES(?,?)',[(int)$checkId,(int)$userId]);
