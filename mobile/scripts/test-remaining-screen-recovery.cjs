@@ -12,7 +12,8 @@ assert.match(request, /driver_id:Number\(selectedDriver\.id\)/, 'Company request
 const checklist = read('ChecklistScreen.js');
 assert.match(checklist, /const loadTemplate=/, 'Checklist must support retry');
 assert.match(checklist, /loadError\?/, 'Checklist must distinguish a failed template fetch from loading');
-assert.match(checklist, /catch\(e\)\{Alert\.alert\('خطای تصویر'/, 'Checklist photo compression must report errors');
+assert.match(checklist, /if\(!compressed\)throw new Error\('پردازش تصویر ناموفق بود/, 'Checklist photo compression failure must be reported');
+assert.match(checklist, /catch\(e\)\{Alert\.alert\('خطای دوربین'/, 'Checklist camera and compression errors must show an alert');
 
 const station = read('StationCaptureV5Screen.js');
 assert.doesNotMatch(station, /permItems==null\?true/, 'Missing station permissions cannot be treated as all-access');

@@ -14,9 +14,10 @@ for (const pattern of [
   /onPress=\{\(\) => runDriverAction\(a\)\}/,
   /useState\('back'\)/, /setPortraitCameraFacing\('back'\)/,
   /portraitFrameWidth,aspectRatio:3\/4/,
-  /ImageManipulator\.manipulateAsync\(result\.uri, \[\{ crop:/,
-  /cropWidth = Math\.min\(originalWidth, Math\.round\(originalHeight \* 3 \/ 4\)\)/,
-  /cropHeight = Math\.min\(originalHeight, Math\.round\(originalWidth \* 4 \/ 3\)\)/,
+  /setCropSource\(\{uri:result\.uri,width:originalWidth,height:originalHeight\}\)/,
+  /const applyPortraitCrop = async \(\) =>/,
+  /ImageManipulator\.manipulateAsync\(uri,\[\{crop:\{originX,originY,width:cropWidth,height:cropHeight\}\}\]/,
+  /const cropHeight=cropWidth\*4\/3/,
 ]) assert.match(driver, pattern);
 assert.doesNotMatch(driver, /portraitRequired\s*&&/);
 assert.doesNotMatch(driver, /launchLibrary\(/);
