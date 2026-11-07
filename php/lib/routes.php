@@ -16409,7 +16409,14 @@ try {
   // authentication, public settings, health, or the rest of the API.
   error_log('school-service routes bootstrap failed: '.$e->getMessage().' @ '.basename($e->getFile()).':'.$e->getLine());
 }
-require_once __DIR__.'/school_service_sepand.php';
+// The protected /lib directory is installed separately from public assets on
+// shared hosting. Never take authentication and public APIs offline if the
+// optional Sepand module has not finished deploying yet.
+if (is_file(__DIR__.'/school_service_sepand.php')) {
+  require_once __DIR__.'/school_service_sepand.php';
+} else {
+  error_log('school-service Sepand module is not installed yet');
+}
 
 // BEGIN CLIENT CRASH REPORTS
 /** Authenticated Android/PWA diagnostic reports. Never retain the raw request body. */
