@@ -27,6 +27,7 @@ jobs:
           php php/tests/cron_background_test.php
           php php/tests/delivery_queue_retry_test.php
           php -l php/lib/routes.php
+          php -l php/lib/school_service_sepand.php
           php -l php/lib/CompanyWork.php
           php -l php/lib/company_work_routes.php
           php php/tests/subscription_invoice_test.php
