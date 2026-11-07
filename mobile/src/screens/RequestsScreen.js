@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Modal, useWindowDimensions } from 'react-native';
-import { ImagePicker, launchCamera, launchLibrary } from '../cameraLock';
+import { ImagePicker, launchCamera, launchLibrary, requestCameraAccess } from '../cameraLock';
 import { compressToDataUri } from '../img';
 import * as DocumentPicker from 'expo-document-picker';
 import { request, cachedValue } from '../api';
@@ -236,7 +236,7 @@ function NewRequest({ onDone, initialType, initialDate }) {
     setAttach({ name: f.name, data: b64 });
   };
   const takeSelfie = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    const perm = await requestCameraAccess();
     if (!perm.granted) { Alert.alert('توجه', 'دسترسی دوربین لازم است'); return; }
     const r = await launchCamera({ cameraType: ImagePicker.CameraType.front, quality: 0.5 });
     if (r.canceled) return;
