@@ -32,6 +32,7 @@ export default function PersonalPhotoCapture({
   const [useInlineCamera, setUseInlineCamera] = useState(!systemCameraFirst);
   const [systemCameraOpen, setSystemCameraOpen] = useState(false);
   const captureGeneration = useRef(0);
+  const autoCameraStarted = useRef(false);
   const { cameraActive, cameraKey, restartCamera } = useCameraSession(!!permission?.granted && !preview && useInlineCamera && !systemCameraOpen);
   useEffect(() => { if (!cameraActive) setReady(false); }, [cameraActive]);
   useEffect(() => () => { captureGeneration.current += 1; }, []);
@@ -97,6 +98,12 @@ export default function PersonalPhotoCapture({
     }
   }
 
+  useEffect(() => {
+    if (!systemCameraFirst || !permission?.granted || autoCameraStarted.current) return;
+    autoCameraStarted.current = true;
+    openSystemCamera();
+  }, [systemCameraFirst, permission?.granted]);
+
   if (!permission) {
     return <View style={styles.center}><ActivityIndicator color={C.brand} /></View>;
   }
@@ -146,6 +153,13 @@ export default function PersonalPhotoCapture({
 
   return (
     <View style={styles.page}>
+      {systemCameraFirst ? <View style={styles.center}>
+        {busy || systemCameraOpen ? <ActivityIndicator color={C.brand} /> : null}
+        <Text style={styles.permissionText}>{message}</Text>
+        <TouchableOpacity accessibilityRole="button" style={styles.primaryButton} disabled={busy || systemCameraOpen} onPress={openSystemCamera}>
+          <Text style={styles.primaryButtonText}>باز کردن دوربین گوشی</Text>
+        </TouchableOpacity>
+      </View> : <>
       {cameraActive && useInlineCamera && <CameraView
         key={`selfie-camera-${facing}-${cameraKey}`}
         ref={cameraRef}
@@ -187,6 +201,7 @@ export default function PersonalPhotoCapture({
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={styles.cancelText}>انصراف</Text></TouchableOpacity> : null}
         <Text style={styles.cameraOnly}>ثبت تصویر فقط با دوربین گوشی انجام می‌شود و انتخاب از گالری در این مرحله غیرفعال است.</Text>
       </ScrollView>
+      </>}
     </View>
   );
 }

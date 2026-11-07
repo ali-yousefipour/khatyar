@@ -31,6 +31,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   const [systemCameraOpen, setSystemCameraOpen] = useState(false);
   const [useInlineCamera, setUseInlineCamera] = useState(!systemCameraFirst);
   const captureGeneration = useRef(0);
+  const autoCameraStarted = useRef(false);
   const { cameraActive, cameraKey, restartCamera } = useCameraSession(!!perm?.granted && !shot && !systemCameraOpen && useInlineCamera);
 
   useEffect(() => { if (!cameraActive) setCameraReady(false); }, [cameraActive]);
@@ -168,6 +169,12 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
     }
   }
 
+  useEffect(() => {
+    if (!systemCameraFirst || !perm?.granted || autoCameraStarted.current) return;
+    autoCameraStarted.current = true;
+    openSystemCamera();
+  }, [systemCameraFirst, perm?.granted]);
+
   async function processPhoto(uri, generation) {
     if (generation !== captureGeneration.current || !uri) return;
     setImageReady(false);
@@ -238,16 +245,8 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
       if (!data) throw new Error('image_compression_failed');
       await onCapture(data, coords);
     } catch (_) {
-      try {
-        const data = await compressToDataUri(shot, {
-          maxW: getImageConfig().maxWidth,
-          quality: getImageConfig().quality,
-        });
-        if (!data) throw new Error('image_compression_failed');
-        await onCapture(data, coords);
-      } catch (_) {
-        setError('آماده‌سازی تصویر انجام نشد. دوباره تلاش کنید.');
-      }
+      // Never submit the raw image when the required date/location watermark fails.
+      setError('ثبت اطلاعات روی تصویر انجام نشد. دوباره تأیید کنید.');
     } finally {
       setBusy(false);
     }
@@ -287,12 +286,13 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
               onLoad={() => setImageReady(true)}
               onError={() => { setImageReady(false); setError('نمایش عکس انجام نشد. دوباره عکس بگیرید.'); }} />
             <View style={s.stampBox}>
-              <Text style={s.stampTxt}>{stamp.date}</Text>
-              <Text style={s.stampTxt}>📍 {stamp.coords}</Text>
-              {stamp.street ? <Text style={s.stampTxt}>خیابان: {stamp.street}</Text> : null}
-              {stamp.source === 'openstreetmap' ? <Text style={s.attribution}>© OpenStreetMap contributors</Text> : null}
+              <View style={s.stampHeader}><Text style={s.stampBrand}>خطیار | صحت‌سنجی حضور</Text><Text style={s.stampTag}>ثبت میدانی</Text></View>
+              <Text style={s.stampDate}>{stamp.date}</Text>
+              <View style={s.stampDivider}/>
+              <Text style={s.stampTxt}>موقعیت جغرافیایی: {stamp.coords}</Text>
+              {stamp.street ? <Text style={s.stampTxt}>نشانی: {stamp.street}</Text> : null}
               {stamp.dist ? <Text style={s.stampTxt}>{stamp.dist}</Text> : null}
-              <Text style={s.stampBrand}>سامانه خطیار</Text>
+              {stamp.source === 'openstreetmap' ? <Text style={s.attribution}>© OpenStreetMap contributors</Text> : null}
             </View>
           </View>
 
@@ -315,6 +315,12 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
 
   return (
     <View style={s.camWrap}>
+      {systemCameraFirst ? <View style={s.center}>
+        {busy || systemCameraOpen ? <ActivityIndicator color={C.brand} /> : null}
+        <Text style={s.hint}>برای ثبت تصویر خودروهای خط، دوربین پشت گوشی باز می‌شود.</Text>
+        {error ? <Text style={s.error}>{error}</Text> : null}
+        <TouchableOpacity accessibilityRole="button" style={[s.btn,{flex:0}]} disabled={busy || systemCameraOpen} onPress={openSystemCamera}><Text style={s.btnTxt}>باز کردن دوربین گوشی</Text></TouchableOpacity>
+      </View> : <>
       {cameraActive && useInlineCamera && !systemCameraOpen && <CameraView
         key={cameraKey}
         ref={camRef}
@@ -354,6 +360,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         {onCancel ? <TouchableOpacity onPress={onCancel}><Text style={s.cancel}>انصراف</Text></TouchableOpacity> : null}
         <Text style={s.cameraOnly}>ثبت تصویر فقط با دوربین پشت گوشی انجام می‌شود و انتخاب از گالری در این مرحله وجود ندارد.</Text>
       </ScrollView>
+      </>}
     </View>
   );
 }
@@ -380,9 +387,13 @@ const s = StyleSheet.create({
   title: { fontFamily: FONT.bold, fontSize: 18, color: C.ink, marginVertical: 8, textAlign: 'center' },
   shotBox: { width: '100%', borderRadius: 14, overflow: 'hidden', backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
   shotImg: { width: '100%', height: '100%' },
-  stampBox: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.58)', padding: 8 },
-  stampTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right' },
-  stampBrand: { color: C.taxi, fontFamily: FONT.bold, fontSize: 10, textAlign: 'right', marginTop: 2 },
+  stampBox: { position: 'absolute', bottom: 8, left: 8, right: 8, backgroundColor: 'rgba(5,29,26,0.88)', borderRadius: 13, borderWidth: 1, borderColor: 'rgba(167,243,208,0.48)', paddingHorizontal: 12, paddingVertical: 10 },
+  stampHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  stampTag: { color: '#e6fff5', fontFamily: FONT.regular, fontSize: 9, backgroundColor: '#13775f', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  stampDate: { color: '#d0fce9', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right', marginTop: 5 },
+  stampDivider: { backgroundColor: 'rgba(167,243,208,0.28)', height: 1, marginVertical: 6 },
+  stampTxt: { color: '#fff', fontFamily: FONT.regular, fontSize: 11, textAlign: 'right', lineHeight: 18 },
+  stampBrand: { color: '#f5d58a', fontFamily: FONT.bold, fontSize: 12, textAlign: 'right' },
   attribution: { color: '#fff', fontSize: 9, textAlign: 'right' },
   metaLoading: { fontFamily: FONT.regular, color: C.brand, fontSize: 12, textAlign: 'center', marginTop: 8 },
   previewNote: { fontFamily: FONT.regular, color: C.muted, fontSize: 12, textAlign: 'center', lineHeight: 20, marginTop: 8 },
