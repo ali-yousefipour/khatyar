@@ -43,9 +43,11 @@ function _ssv_sepand_import($type,$file,$dryRun){
   $sheets=_ssv_xlsx_rows($file);$rows=[];
   $required=$type==='drivers'?['شناسه درخواست','نام','نام خانوادگی','کد ملی','شماره موبایل','وضعیت']:['p1','p2_letter','p3','p4_iran','driver_national_code','vin','tip'];
   foreach($sheets as $sheet){if(!$sheet)continue;
-    $header=array_map('strval',array_values($sheet[0]));
+    // XLSX parser keys are one-based Excel column positions; preserve those keys.
+    $header=array_map(fn($value)=>trim((string)$value),$sheet[0]);
     foreach($required as $col){if(!in_array($col,$header,true))Http::error('ستون الزامی «'.$col.'» در فایل سپند وجود ندارد.',422);}
-    foreach(array_slice($sheet,1) as $row){if(count(array_filter($row,fn($v)=>trim((string)$v)!==''))>0)$rows[]=$row;}
+    $columns=array_flip($header);
+    foreach(array_slice($sheet,1) as $row){if(count(array_filter($row,fn($v)=>trim((string)$v)!==''))>0)$rows[]=['cells'=>$row,'columns'=>$columns];}
   }
   if(!$rows)Http::error('فایل سپند ردیف اطلاعاتی ندارد.',422);
   if(count($rows)>25000)Http::error('حداکثر ۲۵ هزار ردیف در هر فایل مجاز است.',422);
@@ -53,25 +55,25 @@ function _ssv_sepand_import($type,$file,$dryRun){
   $pdo=Db::pdo();$created=0;$updated=0;$skipped=0;$errors=[];$seen=[];
   if(!$dryRun)$pdo->beginTransaction();
   try{
-    foreach($rows as $i=>$row){
-      $get=fn($n)=>_ssv_sepand_cell($row,$n);
+    foreach($rows as $i=>$source){
+      $row=$source['cells'];$columns=$source['columns'];
+      $get=fn($name)=>array_key_exists($name,$columns)?_ssv_sepand_cell($row,$columns[$name]):'';
       if($type==='drivers'){
-        $nid=$get(4);if(!preg_match('/^\d{10}$/',$nid)){$errors[]='ردیف '.($i+2).': کد ملی نامعتبر';continue;}
-        $data=['request_id'=>$get(1),'first_name'=>$get(2),'last_name'=>$get(3),'gender'=>$get(5),'mobile'=>$get(6),
-          'vin'=>$get(7),'plate_two'=>$get(8),'plate_letter'=>$get(9),'plate_three'=>$get(10),'plate_region_code'=>$get(11),
-          'company_name'=>$get(12),'company_national_id'=>$get(13),'sepand_status'=>$get(14)];
+        $nid=$get('کد ملی');if(!preg_match('/^\d{10}$/',$nid)){$errors[]='ردیف '.($i+2).': کد ملی نامعتبر';continue;}
+        $data=['request_id'=>$get('شناسه درخواست'),'first_name'=>$get('نام'),'last_name'=>$get('نام خانوادگی'),'gender'=>$get('جنسیت'),'mobile'=>$get('شماره موبایل'),
+          'vin'=>$get('شماره VIN'),'plate_two'=>$get('پلاک (دو رقم)'),'plate_letter'=>$get('پلاک (حرف)'),'plate_three'=>$get('پلاک (سه رقم)'),'plate_region_code'=>$get('پلاک (ایران)'),
+          'company_name'=>$get('نام شرکت'),'company_national_id'=>$get('شناسه ملی شرکت'),'sepand_status'=>$get('وضعیت')];
         $table='school_service_sepand_drivers';$key='national_code';$value=$nid;
       }else{
-        $p1=$get(1);$letter=$get(2);$p3=$get(3);$p4=$get(4);
+        $p1=$get('p1');$letter=$get('p2_letter');$p3=$get('p3');$p4=$get('p4_iran');
         if(!preg_match('/^\d{2}$/',$p1)||$letter===''||!preg_match('/^\d{3}$/',$p3)||!preg_match('/^\d{2}$/',$p4)){$errors[]='ردیف '.($i+2).': پلاک نامعتبر';continue;}
-        // The public vehicle type is the Sepand `tip` column (index 9), not
-        // `type` (index 7). Keep the original tip in its dedicated audit field.
-        $data=['vehicle_type'=>$get(9),'vehicle_color'=>$get(13),'sepand_driver_national_code'=>$get(5),
-          'sepand_vin'=>$get(6),'sepand_system'=>$get(8),'sepand_tip'=>$get(9),'sepand_make_year'=>$get(10),
-          'sepand_capacity'=>ctype_digit($get(11))?(int)$get(11):null,'sepand_fuel_type'=>$get(12),
-          'sepand_engine_number'=>$get(14),'sepand_chassis_number'=>$get(15),
-          'sepand_insurance_number'=>$get(16),'sepand_student_national_code'=>$get(17),
-          'sepand_company_national_id'=>$get(18)];
+        // Map by actual spreadsheet headers; `tip` is the displayed vehicle type.
+        $data=['vehicle_type'=>$get('tip'),'vehicle_color'=>$get('color'),'sepand_driver_national_code'=>$get('driver_national_code'),
+          'sepand_vin'=>$get('vin'),'sepand_system'=>$get('system'),'sepand_tip'=>$get('tip'),'sepand_make_year'=>$get('make_year'),
+          'sepand_capacity'=>ctype_digit($get('capacity'))?(int)$get('capacity'):null,'sepand_fuel_type'=>$get('fuel_type'),
+          'sepand_engine_number'=>$get('engine_number'),'sepand_chassis_number'=>$get('chassis_number'),
+          'sepand_insurance_number'=>$get('insurance_number'),'sepand_student_national_code'=>$get('student_national_code'),
+          'sepand_company_national_id'=>$get('co_national_id')];
         $table='school_service_vehicles';$key='plate_two';$value=$p1;
       }
       $fingerprint=$type==='drivers'?$value:implode('|',[$p1,$letter,$p3,$p4]);
