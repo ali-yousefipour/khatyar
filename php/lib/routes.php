@@ -16328,21 +16328,22 @@ function _ssv_backfill_vehicles(){
 }
 
 route('GET','/api/school-service/vehicles',function($p,$b,$u){
-  _ssv_need($u,'view'); _ssv_backfill_vehicles();
+  _ssv_need($u,'view'); _ssv_backfill_vehicles(); _ssv_sepand_schema();
   $q=_ssv_norm($_GET['search']??''); $page=max(1,(int)($_GET['page']??1)); $limit=max(1,min(200,(int)($_GET['limit']??50)));
   $where=['v.is_active=1'];$args=[];
   if($q!==''){
     $plateQuery=preg_replace('/[\s\-]+/u','',_ssv_en($q));
-    $where[]="(CONCAT(v.plate_two,v.plate_letter,v.plate_three,v.plate_region_code) LIKE ? OR v.vehicle_type LIKE ? OR v.vehicle_color LIKE ?)";
-    $args[]='%'.$plateQuery.'%';$args[]='%'.$q.'%';$args[]='%'.$q.'%';
+    $where[]="(CONCAT(v.plate_two,v.plate_letter,v.plate_three,v.plate_region_code) LIKE ? OR v.vehicle_type LIKE ? OR v.vehicle_color LIKE ? OR d.first_name LIKE ? OR d.last_name LIKE ? OR v.sepand_driver_national_code LIKE ?)";
+    $args[]='%'.$plateQuery.'%';$args[]='%'.$q.'%';$args[]='%'.$q.'%';$args[]='%'.$q.'%';$args[]='%'.$q.'%';$args[]='%'.$q.'%';
   }
   foreach(['vehicle_type','vehicle_color','driver_gender','certificate_status'] as $field){
     $value=_ssv_norm($_GET[$field]??'');
     if($value!==''){$where[]="v.$field=?";$args[]=$value;}
   }
-  $w=implode(' AND ',$where);$total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_vehicles v WHERE $w",$args)['n']??0);$off=($page-1)*$limit;
-  $items=Db::all("SELECT v.*, (SELECT COUNT(*) FROM school_service_inspections i WHERE i.plate_two=v.plate_two AND i.plate_letter=v.plate_letter AND i.plate_three=v.plate_three AND i.plate_region_code=v.plate_region_code) inspection_count
-    FROM school_service_vehicles v WHERE $w ORDER BY COALESCE(v.last_inspection_at,v.created_at) DESC LIMIT $limit OFFSET $off",$args);
+  $w=implode(' AND ',$where);$join=' LEFT JOIN school_service_sepand_drivers d ON d.national_code=v.sepand_driver_national_code ';
+  $total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_vehicles v $join WHERE $w",$args)['n']??0);$off=($page-1)*$limit;
+  $items=Db::all("SELECT v.*, TRIM(CONCAT(COALESCE(d.first_name,''),' ',COALESCE(d.last_name,''))) sepand_driver_name,d.mobile sepand_driver_mobile,d.sepand_status sepand_driver_status, (SELECT COUNT(*) FROM school_service_inspections i WHERE i.plate_two=v.plate_two AND i.plate_letter=v.plate_letter AND i.plate_three=v.plate_three AND i.plate_region_code=v.plate_region_code) inspection_count
+    FROM school_service_vehicles v $join WHERE $w ORDER BY COALESCE(v.last_inspection_at,v.created_at) DESC LIMIT $limit OFFSET $off",$args);
   foreach($items as &$r){$r['plate']=$r['plate_two'].' '.$r['plate_letter'].' '.$r['plate_three'].' - ایران '.$r['plate_region_code'];}unset($r);
   return ['items'=>$items,'page'=>$page,'limit'=>$limit,'total'=>$total,'pages'=>max(1,(int)ceil($total/$limit))];
 });
