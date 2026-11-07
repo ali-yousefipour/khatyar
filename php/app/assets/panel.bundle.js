@@ -15298,11 +15298,48 @@ function PresenceChecks() {
     useEffect(() => { load(); }, []);
     const [geo, setGeo] = useState(null);
     const [full, setFull] = useState(null);
+    const [imageError, setImageError] = useState({});
+    const [renewingImages, setRenewingImages] = useState(false);
+    const imageRenewalRef = useRef(false);
+    useEffect(() => {
+        if (!pick && !full)
+            return;
+        const onKey = e => { if (e.key === 'Escape') {
+            if (full)
+                setFull(null);
+            else
+                setPick(null);
+        } };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [pick, full]);
+    const recordedAt = r => (r === null || r === void 0 ? void 0 : r.captured_fa) || ((r === null || r === void 0 ? void 0 : r.captured_at) ? fj(r.captured_at) : "—");
+    const refreshImages = async () => {
+        if (!(pick === null || pick === void 0 ? void 0 : pick.id) || imageRenewalRef.current)
+            return;
+        imageRenewalRef.current = true;
+        setRenewingImages(true);
+        try {
+            const updated = await db.presenceCheck(pick.id);
+            setPick(updated);
+            setFull(null);
+            setImageError({});
+        }
+        catch (e) {
+            setImageError({ selfie: "دریافت تصویر ممکن نشد؛ نشست یا دسترسی خود را بررسی کنید.", vehicles_photo: "دریافت تصویر ممکن نشد؛ نشست یا دسترسی خود را بررسی کنید." });
+        }
+        finally {
+            setRenewingImages(false);
+            imageRenewalRef.current = false;
+        }
+    };
     const openImg = async (id) => {
         try {
             const d = await db.presenceCheck(id);
             setPick(d);
             setGeo(null);
+            setFull(null);
+            setImageError({});
             if (d.lat && d.lng) {
                 GET(`/geo/reverse?lat=${d.lat}&lng=${d.lng}`).then(g => setGeo(g)).catch(() => setGeo(null));
             }
@@ -15433,7 +15470,7 @@ function PresenceChecks() {
                     React.createElement("td", null, r.role || "—"),
                     React.createElement("td", null, r.slot),
                     React.createElement("td", null, r.lat ? React.createElement("a", { href: `https://maps.google.com/?q=${r.lat},${r.lng}`, target: "_blank" }, "\u0646\u0642\u0634\u0647") : "—"),
-                    React.createElement("td", null, r.captured_fa || fj(r.captured_at)),
+                    React.createElement("td", null, recordedAt(r)),
                     React.createElement("td", null,
                         React.createElement("button", { className: "btn g", onClick: () => openImg(r.id) }, "\u0645\u0634\u0627\u0647\u062F\u0647 \u0639\u06A9\u0633\u200C\u0647\u0627")))))) : React.createElement("p", { className: "muted" }, "\u0627\u0631\u0633\u0627\u0644\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0646\u06CC\u0633\u062A.")) : (visibleViol.length ? React.createElement("table", null,
                 React.createElement("thead", null,
@@ -15452,14 +15489,17 @@ function PresenceChecks() {
                     React.createElement("td", null,
                         React.createElement("span", { className: "badge b-no" }, v.type))))))
                 : React.createElement("p", { className: "muted" }, "\u062A\u062E\u0644\u0641\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u0646\u06CC\u0633\u062A.")),
-            pick && React.createElement("div", { className: "modal-bg", onClick: () => setPick(null) },
-                React.createElement("div", { className: "modal", style: { maxWidth: 680 }, onClick: e => e.stopPropagation() },
+            pick && ReactDOM.createPortal(React.createElement("div", { className: "modal-bg", role: "presentation", style: { zIndex: 11000 }, onClick: () => { setPick(null); setFull(null); } },
+                React.createElement("div", { className: "modal", role: "dialog", "aria-modal": "true", "aria-label": "\u062C\u0632\u0626\u06CC\u0627\u062A \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062D\u0636\u0648\u0631", style: { width: "min(680px,96vw)", maxWidth: 680, maxHeight: "min(90dvh,900px)" }, onClick: e => e.stopPropagation() },
                     React.createElement("h3", null,
                         pick.name,
                         " \u2014 ",
-                        fj(pick.slot_date),
-                        " \u0633\u0627\u0639\u062A ",
-                        pick.slot),
+                        fj(pick.slot_date)),
+                    React.createElement("div", { className: "muted", style: { marginBottom: 10 } },
+                        "\u0628\u0627\u0632\u0647: ",
+                        pick.slot || "—",
+                        " \u00B7 \u0632\u0645\u0627\u0646 \u062B\u0628\u062A: ",
+                        recordedAt(pick)),
                     geo && React.createElement("div", { style: { background: "var(--brand-soft,#eef7f3)", borderRadius: 10, padding: "10px 12px", margin: "10px 0", fontSize: 13, lineHeight: 2 } },
                         geo.address && React.createElement("div", null,
                             "\uD83D\uDCCD ",
@@ -15483,7 +15523,11 @@ function PresenceChecks() {
                         return (React.createElement("div", { key: key },
                             React.createElement("div", { className: "label", style: { marginBottom: 6 } }, key === "selfie" ? "سلفی" : "خودروهای خط"),
                             src ? React.createElement("div", { style: { position: "relative" } },
-                                React.createElement("img", { src: src, style: { width: "100%", borderRadius: 10, cursor: "pointer" }, onClick: () => setFull(src) }),
+                                React.createElement("img", { src: src, alt: key === "selfie" ? "تصویر سلفی صحت‌سنجی" : "تصویر خودروهای خط", style: { width: "100%", borderRadius: 10, cursor: "pointer" }, onClick: () => setFull(src), onError: () => setImageError(prev => ({ ...prev, [key]: "بارگذاری تصویر ناموفق بود؛ لینک را تازه‌سازی کنید." })) }),
+                                imageError[key] && React.createElement("div", { role: "alert", style: { color: "var(--danger)", fontSize: 12, marginTop: 6 } },
+                                    imageError[key],
+                                    " ",
+                                    React.createElement("button", { type: "button", className: "btn g", disabled: renewingImages, onClick: refreshImages }, renewingImages ? "در حال دریافت…" : "تلاش دوباره")),
                                 geo && (geo.street || geo.nearest_line) && React.createElement("div", { style: { position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,.6)", color: "#fff", fontSize: 11, padding: "5px 8px", borderRadius: "0 0 10px 10px", lineHeight: 1.7 } },
                                     geo.street ? `🛣 ${geo.street}` : "",
                                     geo.nearest_line ? ` · 🚖 ${geo.nearest_line}${geo.distance_m != null ? ` (${fa(geo.distance_m)}م)` : ""}` : ""),
@@ -15497,12 +15541,12 @@ function PresenceChecks() {
                             pick.lat,
                             ", ",
                             pick.lng)) : null,
-                    React.createElement("button", { className: "btn g", style: { marginTop: 12, width: "100%" }, onClick: () => setPick(null) }, "\u0628\u0633\u062A\u0646"))),
-            full && React.createElement("div", { onClick: () => setFull(null), style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: 20, flexDirection: "column", gap: 12 } },
-                React.createElement("img", { src: full, style: { maxWidth: "95%", maxHeight: "82%", borderRadius: 8 }, onClick: e => e.stopPropagation() }),
+                    React.createElement("button", { className: "btn g", style: { marginTop: 12, width: "100%" }, onClick: () => setPick(null) }, "\u0628\u0633\u062A\u0646"))), document.body),
+            full && ReactDOM.createPortal(React.createElement("div", { role: "dialog", "aria-modal": "true", "aria-label": "\u0646\u0645\u0627\u06CC\u0634 \u062A\u0645\u0627\u0645\u200C\u0635\u0641\u062D\u0647 \u062A\u0635\u0648\u06CC\u0631 \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC", onClick: () => setFull(null), style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.94)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 11010, padding: 16, flexDirection: "column", gap: 12 } },
+                React.createElement("img", { src: full, alt: "\u062A\u0635\u0648\u06CC\u0631 \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062F\u0631 \u0627\u0646\u062F\u0627\u0632\u0647 \u0628\u0632\u0631\u06AF", style: { maxWidth: "min(96vw,1400px)", maxHeight: "min(82dvh,1100px)", objectFit: "contain", borderRadius: 8 }, onClick: e => e.stopPropagation() }),
                 React.createElement("div", { style: { display: "flex", gap: 10 } },
                     React.createElement("button", { className: "btn p", onClick: (e) => { e.stopPropagation(); dlImg(full, "presence_full.jpg"); } }, "\u2913 \u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0635\u0648\u06CC\u0631"),
-                    React.createElement("button", { className: "btn g", onClick: () => setFull(null) }, "\u0628\u0633\u062A\u0646"))))));
+                    React.createElement("button", { className: "btn g", onClick: () => setFull(null) }, "\u0628\u0633\u062A\u0646"))), document.body))));
 }
 // صحت‌سنجی حضور: مشاهدهٔ ارسال‌ها (سلفی + عکس خودروها) و تخلفات عدم ارسال
 function TempDriversPanel() {
