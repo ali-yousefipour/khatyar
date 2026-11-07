@@ -8524,6 +8524,7 @@ function PresenceChecks(){
   const [personOpen,setPersonOpen]=useState(false); const [personActive,setPersonActive]=useState(-1);
   const [personnel,setPersonnel]=useState([]); const [personnelLoading,setPersonnelLoading]=useState(true);
   const [timeFrom,setTimeFrom]=useState(""); const [timeTo,setTimeTo]=useState("");
+  const [pageSize,setPageSize]=useState(25); const [page,setPage]=useState(1);
   const norm=s=>String(s||"").replace(/[۰-۹]/g,c=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(c))).replace(/[٠-٩]/g,c=>String("٠١٢٣٤٥٦٧٨٩".indexOf(c))).replace(/\s+/g," ").trim();
   const normalizePerson=s=>norm(s).normalize("NFKC").replace(/[يى]/g,"ی").replace(/ك/g,"ک").replace(/[\u200c\u200e\u200f]/g," ").toLowerCase();
   useEffect(()=>{let active=true;db.usersLite(true).then(list=>{if(active)setPersonnel(Array.isArray(list)?list:[]);}).catch(()=>{if(active)setPersonnel([]);}).finally(()=>{if(active)setPersonnelLoading(false);});return()=>{active=false;};},[]);
@@ -8538,6 +8539,11 @@ function PresenceChecks(){
   const inHours=h=>(!timeFrom||h>=timeFrom)&&(!timeTo||h<=timeTo);
   const visibleRows=rows.filter(r=>matchesName(r)&&((!timeFrom&&!timeTo)||!!hourOf(r)&&inHours(hourOf(r))));
   const visibleViol=viol.filter(v=>matchesName(v)&&((!timeFrom&&!timeTo)||inHours(norm(v.slot||"").match(/\d{1,2}:\d{2}/)?.[0]?.padStart(5,"0")||"")));
+  const currentResults=tab==="sent"?visibleRows:visibleViol;
+  const totalPages=Math.max(1,Math.ceil(currentResults.length/pageSize));
+  const currentPage=Math.min(page,totalPages);
+  const shownResults=currentResults.slice((currentPage-1)*pageSize,currentPage*pageSize);
+  useEffect(()=>setPage(1),[from,to,person,personId,timeFrom,timeTo,tab,pageSize]);
 
   const load=()=>{ setLoading(true); Promise.all([db.presenceChecks(from,to,""),db.presenceViolations(from,to)])
     .then(([r,v])=>{setRows(r||[]);setViol(v||[]);}).catch(()=>{}).finally(()=>setLoading(false)); };
@@ -8624,6 +8630,11 @@ function PresenceChecks(){
     .presence-workspace .presence-results table{width:100%;min-width:680px;margin:0}
     .presence-workspace .presence-results th{background:var(--brand-soft,#e8f5ef);white-space:nowrap}
     .presence-workspace .presence-results td{vertical-align:middle}
+    .presence-photo-frame{width:100%;aspect-ratio:4/3;background:#142126;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+    .presence-photo-frame img{width:100%;height:100%;object-fit:contain;cursor:zoom-in}
+    .presence-workspace .presence-pagination{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 4px}
+    .presence-workspace .presence-pagination select{width:auto;min-width:85px;min-height:40px}
+    .presence-workspace .presence-pagination .btn{min-height:40px}
     .presence-workspace .presence-results tbody tr:hover{background:var(--brand-soft,#f1f8f4)}
     @media(max-width:1050px){.presence-workspace .presence-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.presence-workspace .presence-person-field{grid-column:span 2}}
     @media(max-width:540px){.presence-workspace .presence-filters{padding:12px}.presence-workspace .presence-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.presence-workspace .presence-person-field{grid-column:span 2}.presence-workspace .presence-actions .btn{flex:1 1 auto}}
@@ -8651,9 +8662,14 @@ function PresenceChecks(){
       <button className={"tabbtn"+(tab==="sent"?" on":"")} onClick={()=>setTab("sent")}>ارسال‌شده ({fa(visibleRows.length)})</button>
       <button className={"tabbtn"+(tab==="miss"?" on":"")} onClick={()=>setTab("miss")}>تخلف عدم ارسال ({fa(visibleViol.length)})</button>
     </div>
+    <div className="presence-pagination">
+      <label className="row" style={{gap:8,alignItems:"center"}}><span className="muted">تعداد در هر صفحه</span><select className="input" value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}>{[10,25,50,100].map(n=><option key={n} value={n}>{fa(n)}</option>)}</select></label>
+      <span className="muted">نمایش {currentResults.length?fa((currentPage-1)*pageSize+1):"۰"} تا {fa(Math.min(currentPage*pageSize,currentResults.length))} از {fa(currentResults.length)} مورد</span>
+      <div className="row" style={{gap:8,alignItems:"center"}}><button type="button" className="btn g" disabled={currentPage<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>قبلی</button><span>{fa(currentPage)} / {fa(totalPages)}</span><button type="button" className="btn g" disabled={currentPage>=totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))}>بعدی</button></div>
+    </div>
     {loading?<p className="muted">در حال بارگذاری…</p>: tab==="sent"?(
       visibleRows.length?<div className="presence-results"><table><thead><tr><th>نیرو</th><th>سمت</th><th>بازه</th><th>موقعیت</th><th>زمان ثبت (تهران)</th><th>تصاویر</th></tr></thead>
-      <tbody>{visibleRows.map(r=><tr key={r.id}>
+      <tbody>{shownResults.map(r=><tr key={r.id}>
         <td><b>{r.name}</b></td><td>{r.role||"—"}</td><td>{r.slot}</td>
         <td>{r.lat?<a href={`https://maps.google.com/?q=${r.lat},${r.lng}`} target="_blank" rel="noopener noreferrer">نقشه</a>:"—"}</td>
         <td>{recordedAt(r)}</td>
@@ -8661,7 +8677,7 @@ function PresenceChecks(){
       </tr>)}</tbody></table></div>:<p className="muted" style={{padding:22,textAlign:"center"}}>ارسالی مطابق این فیلترها یافت نشد.</p>
     ):(
       visibleViol.length?<div className="presence-results"><table><thead><tr><th>نیرو</th><th>سمت</th><th>تاریخ</th><th>بازه</th><th>نوع تخلف</th></tr></thead>
-      <tbody>{visibleViol.map((v,i)=><tr key={i}><td><b>{v.name}</b></td><td>{v.role||"—"}</td><td>{fj(v.slot_date)}</td><td>{presenceSlot(v)}</td><td><span className="badge b-no">{v.type}</span></td></tr>)}</tbody></table></div>
+      <tbody>{shownResults.map((v,i)=><tr key={v.id||i}><td><b>{v.name}</b></td><td>{v.role||"—"}</td><td>{fj(v.slot_date)}</td><td>{presenceSlot(v)}</td><td><span className="badge b-no">{v.type}</span></td></tr>)}</tbody></table></div>
       :<p className="muted">تخلفی در این بازه نیست.</p>
     )}
     {pick&&ReactDOM.createPortal(<div className="modal-bg" role="presentation" style={{zIndex:11000}} onClick={()=>{setPick(null);setFull(null);}}><div className="modal" role="dialog" aria-modal="true" aria-label="جزئیات صحت‌سنجی حضور" style={{width:"min(680px,96vw)",maxWidth:680,maxHeight:"min(90dvh,900px)"}} onClick={e=>e.stopPropagation()}>
@@ -8676,7 +8692,7 @@ function PresenceChecks(){
         {["selfie","vehicles_photo"].map(key=>{ const src=pick[key]?(pick[key].indexOf("/api/")===0?API_BASE.replace(/\/api$/,"")+pick[key]:pick[key]):null;
           return(<div key={key}><div className="label" style={{marginBottom:6}}>{key==="selfie"?"سلفی":"خودروهای خط"}</div>
             {src?<div style={{position:"relative"}}>
-              <img src={src} alt={key==="selfie"?"تصویر سلفی صحت‌سنجی":"تصویر خودروهای خط"} style={{width:"100%",borderRadius:10,cursor:"pointer"}} onClick={()=>setFull(src)} onError={()=>setImageError(prev=>({...prev,[key]:"بارگذاری تصویر ناموفق بود؛ لینک را تازه‌سازی کنید."}))}/>
+              <div className="presence-photo-frame"><img src={src} alt={key==="selfie"?"تصویر سلفی صحت‌سنجی":"تصویر خودروهای خط"} onClick={()=>setFull(src)} onError={()=>setImageError(prev=>({...prev,[key]:"بارگذاری تصویر ناموفق بود؛ لینک را تازه‌سازی کنید."}))}/></div>
               {imageError[key]&&<div role="alert" style={{color:"var(--danger)",fontSize:12,marginTop:6}}>{imageError[key]} <button type="button" className="btn g" disabled={renewingImages} onClick={refreshImages}>{renewingImages?"در حال دریافت…":"تلاش دوباره"}</button></div>}
               {/* درج اطلاعات روی عکس */}
               {geo&&(geo.street||geo.nearest_line)&&<div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,.6)",color:"#fff",fontSize:11,padding:"5px 8px",borderRadius:"0 0 10px 10px",lineHeight:1.7}}>
