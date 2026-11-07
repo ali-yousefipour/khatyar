@@ -10656,7 +10656,7 @@ function App(){
       <div id="panel-content" className="page-content" data-page={vk} tabIndex={-1}><View canNavigate={can}/></div></main></div>);
 }
 
-const PANEL_BUILD_VERSION = "1.5.20";
+const PANEL_BUILD_VERSION = "1.5.21";
 /* خطیار: تضمین می‌کند بعد از هر بار انتشار نسخهٔ جدید، کاربر با اولین بار باز کردن/ورود به پنل،
    نسخهٔ تازهٔ فایل‌ها (نه نسخهٔ کش‌شدهٔ قدیمی مرورگر) را ببیند — بدون این‌که مجبور شود دوباره وارد شود،
    چون این بررسی همیشه پیش از نمایش صفحهٔ ورود انجام می‌شود. */
