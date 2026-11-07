@@ -19851,6 +19851,30 @@ function App() {
     const [allowed, setAllowed] = useState(null);
     const [drawer, setDrawer] = useState(false);
     const [brand, setBrand] = useState({});
+    const [navigationRestored, setNavigationRestored] = useState(false);
+    useEffect(() => {
+        if (!(me === null || me === void 0 ? void 0 : me.is_admin)) {
+            setNavigationRestored(false);
+            setV('dashboard');
+            return;
+        }
+        try {
+            const saved = sessionStorage.getItem('khatyar_admin_view_' + me.id);
+            setV(saved && Object.prototype.hasOwnProperty.call(VIEWS, saved) ? saved : 'dashboard');
+        }
+        catch (_) {
+            setV('dashboard');
+        }
+        setNavigationRestored(true);
+    }, [me === null || me === void 0 ? void 0 : me.id, me === null || me === void 0 ? void 0 : me.is_admin]);
+    useEffect(() => {
+        if (!navigationRestored || !(me === null || me === void 0 ? void 0 : me.is_admin))
+            return;
+        try {
+            sessionStorage.setItem('khatyar_admin_view_' + me.id, v);
+        }
+        catch (_) { }
+    }, [navigationRestored, me === null || me === void 0 ? void 0 : me.id, me === null || me === void 0 ? void 0 : me.is_admin, v]);
     const [menuSearch, setMenuSearch] = useState("");
     const menuQuery = normalizePanelMenuText(menuSearch);
     const menuButtonRef = useRef(null);

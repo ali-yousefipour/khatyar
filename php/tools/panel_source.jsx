@@ -10502,6 +10502,19 @@ function FirstLoginPassword({name,onDone,onLogout}){
 
 function App(){
   const [me,setMe]=useState(null); const [authReady,setAuthReady]=useState(false); const [v,setV]=useState("dashboard"); const [allowed,setAllowed]=useState(null); const [drawer,setDrawer]=useState(false); const [brand,setBrand]=useState({});
+  const [navigationRestored,setNavigationRestored]=useState(false);
+  useEffect(()=>{
+    if(!me?.is_admin){setNavigationRestored(false);setV('dashboard');return;}
+    try{
+      const saved=sessionStorage.getItem('khatyar_admin_view_'+me.id);
+      setV(saved&&Object.prototype.hasOwnProperty.call(VIEWS,saved)?saved:'dashboard');
+    }catch(_){setV('dashboard');}
+    setNavigationRestored(true);
+  },[me?.id,me?.is_admin]);
+  useEffect(()=>{
+    if(!navigationRestored||!me?.is_admin)return;
+    try{sessionStorage.setItem('khatyar_admin_view_'+me.id,v);}catch(_){}
+  },[navigationRestored,me?.id,me?.is_admin,v]);
   const [menuSearch,setMenuSearch]=useState("");
   const menuQuery=normalizePanelMenuText(menuSearch);
   const menuButtonRef=useRef(null);
