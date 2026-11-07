@@ -15273,6 +15273,8 @@ function PresenceChecks() {
     const [personnelLoading, setPersonnelLoading] = useState(true);
     const [timeFrom, setTimeFrom] = useState("");
     const [timeTo, setTimeTo] = useState("");
+    const [pageSize, setPageSize] = useState(25);
+    const [page, setPage] = useState(1);
     const norm = s => String(s || "").replace(/[۰-۹]/g, c => String("۰۱۲۳۴۵۶۷۸۹".indexOf(c))).replace(/[٠-٩]/g, c => String("٠١٢٣٤٥٦٧٨٩".indexOf(c))).replace(/\s+/g, " ").trim();
     const normalizePerson = s => norm(s).normalize("NFKC").replace(/[يى]/g, "ی").replace(/ك/g, "ک").replace(/[\u200c\u200e\u200f]/g, " ").toLowerCase();
     useEffect(() => { let active = true; db.usersLite(true).then(list => { if (active)
@@ -15290,6 +15292,11 @@ function PresenceChecks() {
     const inHours = h => (!timeFrom || h >= timeFrom) && (!timeTo || h <= timeTo);
     const visibleRows = rows.filter(r => matchesName(r) && ((!timeFrom && !timeTo) || !!hourOf(r) && inHours(hourOf(r))));
     const visibleViol = viol.filter(v => { var _a, _b; return matchesName(v) && ((!timeFrom && !timeTo) || inHours(((_b = (_a = norm(v.slot || "").match(/\d{1,2}:\d{2}/)) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.padStart(5, "0")) || "")); });
+    const currentResults = tab === "sent" ? visibleRows : visibleViol;
+    const totalPages = Math.max(1, Math.ceil(currentResults.length / pageSize));
+    const currentPage = Math.min(page, totalPages);
+    const shownResults = currentResults.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    useEffect(() => setPage(1), [from, to, person, personId, timeFrom, timeTo, tab, pageSize]);
     const load = () => {
         setLoading(true);
         Promise.all([db.presenceChecks(from, to, ""), db.presenceViolations(from, to)])
@@ -15421,6 +15428,11 @@ function PresenceChecks() {
     .presence-workspace .presence-results table{width:100%;min-width:680px;margin:0}
     .presence-workspace .presence-results th{background:var(--brand-soft,#e8f5ef);white-space:nowrap}
     .presence-workspace .presence-results td{vertical-align:middle}
+    .presence-photo-frame{width:100%;aspect-ratio:4/3;background:#142126;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+    .presence-photo-frame img{width:100%;height:100%;object-fit:contain;cursor:zoom-in}
+    .presence-workspace .presence-pagination{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 4px}
+    .presence-workspace .presence-pagination select{width:auto;min-width:85px;min-height:40px}
+    .presence-workspace .presence-pagination .btn{min-height:40px}
     .presence-workspace .presence-results tbody tr:hover{background:var(--brand-soft,#f1f8f4)}
     @media(max-width:1050px){.presence-workspace .presence-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.presence-workspace .presence-person-field{grid-column:span 2}}
     @media(max-width:540px){.presence-workspace .presence-filters{padding:12px}.presence-workspace .presence-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.presence-workspace .presence-person-field{grid-column:span 2}.presence-workspace .presence-actions .btn{flex:1 1 auto}}
@@ -15488,6 +15500,25 @@ function PresenceChecks() {
                     "\u062A\u062E\u0644\u0641 \u0639\u062F\u0645 \u0627\u0631\u0633\u0627\u0644 (",
                     fa(visibleViol.length),
                     ")")),
+            React.createElement("div", { className: "presence-pagination" },
+                React.createElement("label", { className: "row", style: { gap: 8, alignItems: "center" } },
+                    React.createElement("span", { className: "muted" }, "\u062A\u0639\u062F\u0627\u062F \u062F\u0631 \u0647\u0631 \u0635\u0641\u062D\u0647"),
+                    React.createElement("select", { className: "input", value: pageSize, onChange: e => setPageSize(Number(e.target.value)) }, [10, 25, 50, 100].map(n => React.createElement("option", { key: n, value: n }, fa(n))))),
+                React.createElement("span", { className: "muted" },
+                    "\u0646\u0645\u0627\u06CC\u0634 ",
+                    currentResults.length ? fa((currentPage - 1) * pageSize + 1) : "۰",
+                    " \u062A\u0627 ",
+                    fa(Math.min(currentPage * pageSize, currentResults.length)),
+                    " \u0627\u0632 ",
+                    fa(currentResults.length),
+                    " \u0645\u0648\u0631\u062F"),
+                React.createElement("div", { className: "row", style: { gap: 8, alignItems: "center" } },
+                    React.createElement("button", { type: "button", className: "btn g", disabled: currentPage <= 1, onClick: () => setPage(p => Math.max(1, p - 1)) }, "\u0642\u0628\u0644\u06CC"),
+                    React.createElement("span", null,
+                        fa(currentPage),
+                        " / ",
+                        fa(totalPages)),
+                    React.createElement("button", { type: "button", className: "btn g", disabled: currentPage >= totalPages, onClick: () => setPage(p => Math.min(totalPages, p + 1)) }, "\u0628\u0639\u062F\u06CC"))),
             loading ? React.createElement("p", { className: "muted" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC\u2026") : tab === "sent" ? (visibleRows.length ? React.createElement("div", { className: "presence-results" },
                 React.createElement("table", null,
                     React.createElement("thead", null,
@@ -15498,7 +15529,7 @@ function PresenceChecks() {
                             React.createElement("th", null, "\u0645\u0648\u0642\u0639\u06CC\u062A"),
                             React.createElement("th", null, "\u0632\u0645\u0627\u0646 \u062B\u0628\u062A (\u062A\u0647\u0631\u0627\u0646)"),
                             React.createElement("th", null, "\u062A\u0635\u0627\u0648\u06CC\u0631"))),
-                    React.createElement("tbody", null, visibleRows.map(r => React.createElement("tr", { key: r.id },
+                    React.createElement("tbody", null, shownResults.map(r => React.createElement("tr", { key: r.id },
                         React.createElement("td", null,
                             React.createElement("b", null, r.name)),
                         React.createElement("td", null, r.role || "—"),
@@ -15515,7 +15546,7 @@ function PresenceChecks() {
                             React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
                             React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
                             React.createElement("th", null, "\u0646\u0648\u0639 \u062A\u062E\u0644\u0641"))),
-                    React.createElement("tbody", null, visibleViol.map((v, i) => React.createElement("tr", { key: i },
+                    React.createElement("tbody", null, shownResults.map((v, i) => React.createElement("tr", { key: v.id || i },
                         React.createElement("td", null,
                             React.createElement("b", null, v.name)),
                         React.createElement("td", null, v.role || "—"),
@@ -15558,7 +15589,8 @@ function PresenceChecks() {
                         return (React.createElement("div", { key: key },
                             React.createElement("div", { className: "label", style: { marginBottom: 6 } }, key === "selfie" ? "سلفی" : "خودروهای خط"),
                             src ? React.createElement("div", { style: { position: "relative" } },
-                                React.createElement("img", { src: src, alt: key === "selfie" ? "تصویر سلفی صحت‌سنجی" : "تصویر خودروهای خط", style: { width: "100%", borderRadius: 10, cursor: "pointer" }, onClick: () => setFull(src), onError: () => setImageError(prev => ({ ...prev, [key]: "بارگذاری تصویر ناموفق بود؛ لینک را تازه‌سازی کنید." })) }),
+                                React.createElement("div", { className: "presence-photo-frame" },
+                                    React.createElement("img", { src: src, alt: key === "selfie" ? "تصویر سلفی صحت‌سنجی" : "تصویر خودروهای خط", onClick: () => setFull(src), onError: () => setImageError(prev => ({ ...prev, [key]: "بارگذاری تصویر ناموفق بود؛ لینک را تازه‌سازی کنید." })) })),
                                 imageError[key] && React.createElement("div", { role: "alert", style: { color: "var(--danger)", fontSize: 12, marginTop: 6 } },
                                     imageError[key],
                                     " ",
