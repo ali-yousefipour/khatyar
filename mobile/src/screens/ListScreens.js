@@ -212,7 +212,8 @@ export function DriverSmsScreen({ route }) {
   return <View style={{flex:1,backgroundColor:C.paper}}>
     <List rows={ordered} error={error} onRetry={retry} empty="پیامکی برای این راننده در بازه انتخاب‌شده ثبت نشده است"
       header={<>
-        <View style={ds.header}><View style={ds.headerIcon}><MaterialCommunityIcons name="message-text-outline" size={25} color={C.brand}/></View><View style={ds.headerCopy}><Text style={ds.title}>پیامک‌های راننده</Text><Text style={ds.subtitle}>سوابق پیامک‌های ارسالی و وضعیت تحویل</Text></View></View>
+        <View style={ds.header}><View style={ds.headerIcon}><MaterialCommunityIcons name="message-text-outline" size={25} color="#f3d99c"/></View><View style={ds.headerCopy}><Text style={ds.title}>پیامک‌های راننده</Text><Text style={ds.subtitle}>سوابق پیامک‌های ارسالی و وضعیت تحویل</Text></View></View>
+        <View style={ds.driverCard}><View style={ds.driverAvatar}><MaterialCommunityIcons name="account-outline" size={26} color={C.brand}/></View><View style={{flex:1}}><Text style={ds.driverName}>{[driver.first_name,driver.last_name].filter(Boolean).join(' ') || driver.name || 'تاکسیران'}</Text><Text style={ds.driverPhone}>{faNum(driver.mobile || driver.phone || 'شماره ثبت نشده')}</Text></View></View>
         <View style={ds.stats}>
           <View style={ds.stat}><MaterialCommunityIcons name="calendar-month-outline" size={21} color={C.brand}/><Text style={ds.statValue}>{faNum(cm)}</Text><Text style={ds.statLabel}>پیامک این ماه</Text></View>
           <View style={ds.stat}><MaterialCommunityIcons name="calendar-range-outline" size={21} color={C.brand}/><Text style={ds.statValue}>{faNum(cy)}</Text><Text style={ds.statLabel}>پیامک امسال</Text></View>
@@ -228,11 +229,12 @@ export function DriverSmsScreen({ route }) {
   </View>;
 }
 const ds=StyleSheet.create({
-  header:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:14},
-  headerIcon:{width:49,height:49,borderRadius:15,backgroundColor:'#e6f4ee',alignItems:'center',justifyContent:'center'},
+  header:{flexDirection:'row-reverse',alignItems:'center',gap:10,marginBottom:12,backgroundColor:'#075f51',padding:18,borderRadius:23,elevation:2},
+  headerIcon:{width:49,height:49,borderRadius:15,backgroundColor:'rgba(255,255,255,.15)',alignItems:'center',justifyContent:'center'},
   headerCopy:{flex:1,alignItems:'flex-end'},
-  title:{fontFamily:FONT.bold,fontSize:17,color:C.ink,textAlign:'right'},
-  subtitle:{fontFamily:FONT.regular,fontSize:12,color:C.muted,textAlign:'right',marginTop:4},
+  title:{fontFamily:FONT.bold,fontSize:19,color:'#fff',textAlign:'right'},
+  subtitle:{fontFamily:FONT.regular,fontSize:12,color:'#e2f2e9',textAlign:'right',marginTop:4},
+  driverCard:{backgroundColor:'#fff',borderRadius:17,padding:13,borderWidth:1,borderColor:'#d7e8df',flexDirection:'row-reverse',alignItems:'center',gap:12,marginBottom:14},driverAvatar:{height:48,width:48,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:'#e8f6ee'},driverName:{fontFamily:FONT.bold,color:C.ink,textAlign:'right',fontSize:14},driverPhone:{fontFamily:FONT.regular,color:C.muted,textAlign:'right',fontSize:12,marginTop:4},
   stats:{flexDirection:'row-reverse',gap:10,marginBottom:12},
   stat:{flex:1,minWidth:0,backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:17,padding:13,alignItems:'center',gap:5},
   statValue:{fontFamily:FONT.bold,fontSize:25,color:C.brand},
@@ -241,13 +243,13 @@ const ds=StyleSheet.create({
   sectionTitle:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:10},
   sectionText:{fontFamily:FONT.bold,fontSize:14,color:C.ink,textAlign:'right'},
   count:{fontFamily:FONT.bold,fontSize:12,color:C.brand,marginRight:'auto',backgroundColor:'#e8f5ef',borderRadius:9,paddingHorizontal:9,paddingVertical:5},
-  card:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:17,padding:14,marginBottom:10,elevation:1},
+  card:{backgroundColor:'#fff',borderWidth:1,borderColor:'#dceae2',borderRadius:19,padding:15,marginBottom:10,elevation:1},
   cardHead:{flexDirection:'row-reverse',alignItems:'center',gap:9},
   messageIcon:{width:40,height:40,borderRadius:12,backgroundColor:'#e8f5ef',alignItems:'center',justifyContent:'center'},
   headContent:{flex:1,alignItems:'flex-end'},
   date:{fontFamily:FONT.bold,fontSize:12,color:C.ink,textAlign:'right'},
   sender:{fontFamily:FONT.regular,fontSize:11,color:C.muted,textAlign:'right',marginTop:4},
-  body:{fontFamily:FONT.regular,fontSize:14,lineHeight:25,color:C.ink,textAlign:'right',writingDirection:'rtl',backgroundColor:'#f7f9fb',padding:12,borderRadius:12,marginTop:12},
+  body:{fontFamily:FONT.regular,fontSize:14,lineHeight:25,color:C.ink,textAlign:'right',writingDirection:'rtl',backgroundColor:'#e9f7ed',padding:13,borderRadius:16,marginTop:12},
   footer:{flexDirection:'row-reverse',marginTop:11},
   delivery:{flexDirection:'row-reverse',alignItems:'center',gap:6,paddingVertical:7,paddingHorizontal:10,borderRadius:10},
   deliveryText:{fontFamily:FONT.bold,fontSize:11}
@@ -256,15 +258,17 @@ const ds=StyleSheet.create({
 export function MySmsScreen() {
   const { all, error, retry } = useRemoteRows('/my/sms-log');
   const [expanded, setExpanded] = useState({});
+  const [deliveryFilter,setDeliveryFilter] = useState('all');
   const { rows, from, to, setFrom, setTo } = useDateFilter(all);
   const cm = all ? all.filter(r => inCurrentJMonth(r.created_at)).length : 0;
   const cy = all ? all.filter(r => inCurrentJYear(r.created_at)).length : 0;
-  const ordered = useMemo(() => rows ? [...rows].sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))) : null, [rows]);
+  const ordered = useMemo(() => rows ? [...rows].filter(r=>deliveryFilter==='all'||(deliveryFilter==='delivered' ? r.delivery_code == 1 : deliveryFilter==='failed' ? r.delivery_code == 2 : r.delivery_code != 1 && r.delivery_code != 2)).sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))) : null, [rows,deliveryFilter]);
   const dlv = c => c == 1 ? ['تحویل‌شده', C.ok, 'check-circle-outline'] : c == 2 ? ['تحویل‌نشده', C.danger, 'alert-circle-outline'] : ['در انتظار وضعیت', C.muted, 'clock-outline'];
   return <View style={{ flex: 1, backgroundColor: C.paper }}>
     <List rows={ordered} error={error} onRetry={retry} empty="پیامکی در بازه انتخاب‌شده یافت نشد"
       header={<>
-        <View style={ms.heading}><View style={ms.headingIcon}><MaterialCommunityIcons name="message-text-outline" size={25} color={C.brand}/></View><View style={ms.headingCopy}><Text style={ms.headingTitle}>پیامک‌های ارسالی من</Text><Text style={ms.headingSub}>سوابق ارسال و وضعیت تحویل پیامک‌ها</Text></View></View>
+        <View style={ms.heading}><View style={ms.headingIcon}><MaterialCommunityIcons name="send-outline" size={25} color="#f3d99c"/></View><View style={ms.headingCopy}><Text style={ms.headingTitle}>پیامک‌های ارسالی من</Text><Text style={ms.headingSub}>سوابق ارسال و وضعیت تحویل پیامک‌ها</Text></View></View>
+        <View style={ms.deliverySummary}>{[['all','همه',all?.length||0],['delivered','تحویل‌شده',(all||[]).filter(r=>r.delivery_code==1).length],['failed','ناموفق',(all||[]).filter(r=>r.delivery_code==2).length],['pending','در انتظار',(all||[]).filter(r=>r.delivery_code!=1&&r.delivery_code!=2).length]].map(([key,title,count])=><TouchableOpacity key={key} accessibilityRole="tab" accessibilityState={{selected:deliveryFilter===key}} style={[ms.deliveryTile,deliveryFilter===key&&ms.deliveryTileOn]} onPress={()=>setDeliveryFilter(key)}><Text style={[ms.deliveryCount,deliveryFilter===key&&ms.deliveryCountOn]}>{faNum(count)}</Text><Text style={[ms.deliveryTitle,deliveryFilter===key&&ms.deliveryTitleOn]}>{title}</Text></TouchableOpacity>)}</View>
         <Counts month={cm} year={cy} labelMonth="پیامک این ماه" labelYear="پیامک امسال"/>
         <View style={ms.filterBox}><View style={ms.filterHead}><MaterialCommunityIcons name="calendar-range" size={19} color={C.brand}/><Text style={ms.filterTitle}>فیلتر بازه زمانی</Text></View><DateFilterBar from={from} to={to} setFrom={setFrom} setTo={setTo}/></View>
         <View style={ms.listHeading}><Text style={ms.listTitle}>تاریخچه ارسال</Text><Text style={ms.count}>{faNum(ordered?.length || 0)} پیامک</Text></View>
@@ -291,11 +295,12 @@ export function MySmsScreen() {
   </View>;
 }
 const ms = StyleSheet.create({
-  heading:{flexDirection:'row-reverse',alignItems:'center',gap:11,marginBottom:13},
-  headingIcon:{width:48,height:48,borderRadius:15,backgroundColor:'#e7f5ef',alignItems:'center',justifyContent:'center'},
+  heading:{flexDirection:'row-reverse',alignItems:'center',gap:11,marginBottom:13,backgroundColor:'#075f51',padding:18,borderRadius:23,elevation:2},
+  headingIcon:{width:48,height:48,borderRadius:15,backgroundColor:'rgba(255,255,255,.13)',alignItems:'center',justifyContent:'center'},
   headingCopy:{flex:1,alignItems:'flex-end'},
-  headingTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:17,textAlign:'right'},
-  headingSub:{fontFamily:FONT.regular,color:C.muted,fontSize:11.5,textAlign:'right',marginTop:4},
+  headingTitle:{fontFamily:FONT.bold,color:'#fff',fontSize:19,textAlign:'right'},
+  headingSub:{fontFamily:FONT.regular,color:'#e2f2e9',fontSize:11.5,textAlign:'right',marginTop:4},
+  deliverySummary:{flexDirection:'row-reverse',gap:6,marginBottom:13},deliveryTile:{flex:1,backgroundColor:'#fff',borderColor:'#d8e8de',borderWidth:1,borderRadius:14,paddingVertical:10,alignItems:'center'},deliveryTileOn:{backgroundColor:'#075f51',borderColor:'#075f51'},deliveryCount:{fontFamily:FONT.bold,color:C.brand,fontSize:18},deliveryCountOn:{color:'#fff'},deliveryTitle:{fontFamily:FONT.regular,color:C.muted,fontSize:10,textAlign:'center',marginTop:4},deliveryTitleOn:{color:'#d9f1e7'},
   filterBox:{backgroundColor:'#fff',borderRadius:16,borderWidth:1,borderColor:C.line,padding:12,marginTop:12,marginBottom:14},
   filterHead:{flexDirection:'row-reverse',alignItems:'center',gap:7,marginBottom:9},
   filterTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:13},

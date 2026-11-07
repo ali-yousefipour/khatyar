@@ -4,6 +4,7 @@ import { request } from '../api';
 import { C, FONT } from '../theme';
 import { faNum } from '../num';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // ارسال گروهی پیام در ربات‌های بله، تلگرام و ایتا
 export default function BotMessageScreen() {
@@ -110,7 +111,7 @@ export default function BotMessageScreen() {
           {quota && quota.sent_month > 0 && <Text style={s.monthTxt}>ارسال این ماه: {faNum(quota.sent_month)} پیامک</Text>}
         </View>
       )}
-      <View style={s.hero}><Text style={s.heroTitle}>ارسال پیام در ربات‌ها</Text><Text style={s.heroText}>ارسال گروهی به مشترکان متصل در بله، تلگرام و ایتا</Text><View style={s.heroStats}><Text style={s.heroStatsText}>گیرندگان انتخاب‌شده: {faNum(totalCount)}</Text><Text style={s.heroStatsText}>خط: {selectedLine ? faNum(selectedLine.code) : 'انتخاب نشده'}</Text></View></View>
+      <View style={s.hero}><View style={s.heroHeading}><MaterialCommunityIcons name="robot-outline" size={28} color="#f4d99d"/><Text style={s.heroTitle}>ارسال پیام در ربات‌ها</Text></View><Text style={s.heroText}>ارسال گروهی به مشترکان متصل در بله، تلگرام و ایتا</Text><View style={s.heroStats}><Text style={s.heroStatsText}>گیرندگان انتخاب‌شده: {faNum(totalCount)}</Text><Text style={s.heroStatsText}>خط: {selectedLine ? faNum(selectedLine.code) : 'انتخاب نشده'}</Text></View></View>
       <View style={s.section}><Text style={s.sectionTitle}>۱. قالب و متن پیام</Text><Text style={s.label}>قالب پیام</Text>
       {tpls.length ? (
         Object.entries(tpls.reduce((acc, t) => { const c = t.category || 'عمومی'; (acc[c] = acc[c] || []).push(t); return acc; }, {})).map(([cat, items]) => (
@@ -224,12 +225,12 @@ const s = StyleSheet.create({
   errorText:{fontFamily:FONT.regular,color:'#982b3d',textAlign:'right',lineHeight:22},
   retry:{alignSelf:'flex-end',minHeight:44,justifyContent:'center',paddingHorizontal:14},
   retryText:{fontFamily:FONT.bold,color:C.brand},
-  hero:{backgroundColor:C.brand,borderRadius:18,padding:18,marginBottom:12},
+  hero:{backgroundColor:'#075f51',borderRadius:23,padding:19,marginBottom:13,elevation:2},heroHeading:{flexDirection:'row-reverse',alignItems:'center',gap:10},
   heroTitle:{fontFamily:FONT.bold,color:'#fff',fontSize:19,textAlign:'right'},
   heroText:{fontFamily:FONT.regular,color:'#e0f4ec',fontSize:12,textAlign:'right',lineHeight:20,marginTop:7},
   heroStats:{flexDirection:'row-reverse',flexWrap:'wrap',justifyContent:'space-between',gap:8,marginTop:14},
   heroStatsText:{fontFamily:FONT.bold,color:'#fff',fontSize:12},
-  section:{backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:17,padding:14,marginBottom:12},
+  section:{backgroundColor:'#fff',borderWidth:1,borderColor:'#d9e9e0',borderRadius:20,padding:16,marginBottom:13,elevation:1},
   sectionTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:15,textAlign:'right',marginBottom:6},
   tplActive:{backgroundColor:C.brand,borderColor:C.brand},
   tplTxtActive:{color:'#fff'},
@@ -240,7 +241,7 @@ const s = StyleSheet.create({
   creditTxt: { fontFamily: FONT.bold, color: '#1b4bb5', fontSize: 12.5, textAlign: 'right', marginBottom: 2 },
   limitTxt: { fontFamily: FONT.regular, color: '#c26b00', fontSize: 12, textAlign: 'right', marginTop: 2 },
   monthTxt: { fontFamily: FONT.regular, color: '#888', fontSize: 11, textAlign: 'right', marginTop: 2 },
-  wrap: { flex: 1, backgroundColor: C.paper },
+  wrap: { flex: 1, backgroundColor: '#f3f8f6' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   label: { fontFamily: FONT.bold, fontSize: 14, color: C.ink, textAlign: 'right', marginTop: 14, marginBottom: 6 },
   input: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, borderRadius: 11, padding: 12, fontFamily: FONT.regular, fontSize: 14, textAlign: 'right', color: C.ink },
@@ -264,7 +265,7 @@ const s = StyleSheet.create({
   cbTick: { color: '#fff', fontSize: 13, fontWeight: '700' },
   dname: { flex: 1, fontFamily: FONT.bold, color: C.ink, fontSize: 13, textAlign: 'right' },
   dmobile: { fontFamily: FONT.regular, color: C.muted, fontSize: 12 },
-  btn: { backgroundColor: C.brand, borderRadius: 13, minHeight:52, paddingVertical: 14, alignItems: 'center',justifyContent:'center', marginTop: 14 },
+  btn: { backgroundColor: '#075f51', borderRadius: 16, minHeight:54, paddingVertical: 15, alignItems: 'center',justifyContent:'center', marginTop: 14,elevation:2 },
   btnTxt: { color: '#fff', fontFamily: FONT.bold, fontSize: 15 },
   lineChip: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, marginLeft: 8 },
   lineChipOn: { backgroundColor: C.brand, borderColor: C.brand },

@@ -91,7 +91,7 @@ export function InboxReportsScreen({ navigation }) {
 
   return (
     <View style={s.wrap}>
-      <View style={s.pageHeader}><Text style={s.pageTitle}>{tab==='inbox'?'گزارش‌های دریافتی':tab==='forwarded'?'گزارش‌های ارجاع‌شده توسط من':tab==='cc'?'رونوشت‌های من':'بایگانی گزارش‌ها'}</Text><Text style={s.pageSubtitle}>{tab==='inbox'?'گزارش‌ها و موارد ارجاع‌شده به شما':tab==='forwarded'?'مواردی که به سایر کاربران ارجاع داده‌اید':tab==='cc'?'رونوشت گزارش‌های ارسال‌شده برای شما':'گزارش‌های بایگانی‌شده'}</Text></View>
+      <View style={[s.pageHeader,s.premiumHeader]}><View style={s.headerTitleRow}><MaterialCommunityIcons name="email-newsletter" color="#f4d99e" size={27}/><Text style={[s.pageTitle,s.premiumTitle]}>{tab==='inbox'?'گزارش‌های دریافتی':tab==='forwarded'?'گزارش‌های ارجاع‌شده توسط من':tab==='cc'?'رونوشت‌های من':'بایگانی گزارش‌ها'}</Text>{tab==='inbox'&&<View style={s.unreadCount}><Text style={s.unreadCountText}>{(data||[]).filter(x=>x.status==='sent').length.toLocaleString('fa-IR')} جدید</Text></View>}</View><Text style={[s.pageSubtitle,s.premiumSub]}>{tab==='inbox'?'گزارش‌ها و موارد ارجاع‌شده به شما':tab==='forwarded'?'مواردی که به سایر کاربران ارجاع داده‌اید':tab==='cc'?'رونوشت گزارش‌های ارسال‌شده برای شما':'گزارش‌های بایگانی‌شده'}</Text></View>
       {!!error && <View style={{ margin: 12, padding: 14, backgroundColor: '#fff1f1', borderColor: '#f3b8c0', borderWidth: 1, borderRadius: 14 }}><Text style={{ fontFamily: FONT.regular, color: '#982b3d', textAlign: 'right', lineHeight: 22 }}>{error}</Text><TouchableOpacity accessibilityRole="button" onPress={load} style={{ alignSelf: 'flex-end', padding: 10, marginTop: 8 }}><Text style={{ fontFamily: FONT.bold, color: C.brand }}>تلاش مجدد</Text></TouchableOpacity></View>}
       <View style={s.tabs}>
         {[
@@ -255,6 +255,7 @@ export function ReportDetailScreen({ route, navigation }) {
 
   return (
     <ScrollView persistentScrollbar={true} style={s.wrap} contentContainerStyle={{ padding: 14 }}>
+      <View style={s.detailHero}><View style={s.headerTitleRow}><MaterialCommunityIcons name="file-document-outline" size={27} color="#f4d99e"/><Text style={[s.premiumTitle,{flex:1}]}>جزئیات گزارش</Text></View><Text style={s.detailHeroSub}>متن، پیوست‌ها و گردش رسیدگی گزارش</Text></View>
       <View style={s.card}>
         {editing ? (<>
           <Text style={s.label}>موضوع</Text>
@@ -401,10 +402,12 @@ export function ReportDetailScreen({ route, navigation }) {
 }
 
 const s = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: C.paper },
+  wrap: { flex: 1, backgroundColor: '#f3f8f6' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
   empty: { color: C.muted, fontFamily: FONT.regular, textAlign: 'center', marginTop: 30 },
   pageHeader:{paddingHorizontal:18,paddingTop:18,paddingBottom:13},pageTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:20,textAlign:'right'},pageSubtitle:{fontFamily:FONT.regular,color:C.muted,fontSize:12,textAlign:'right',marginTop:6,lineHeight:21},searchBox:{marginHorizontal:16,marginBottom:12,backgroundColor:'#fff',borderWidth:1,borderColor:C.line,borderRadius:15,minHeight:49,flexDirection:'row-reverse',alignItems:'center',paddingHorizontal:13,gap:9},searchInput:{fontFamily:FONT.regular,color:C.ink,fontSize:13,flex:1,textAlign:'right',paddingVertical:9},listSummary:{paddingHorizontal:17,paddingVertical:11,flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center'},listSummaryTitle:{fontFamily:FONT.bold,color:C.ink,fontSize:14},listSummaryHint:{fontFamily:FONT.regular,color:C.muted,fontSize:11},emptyCard:{alignItems:'center',justifyContent:'center',backgroundColor:'#fff',borderRadius:20,borderWidth:1,borderColor:C.line,padding:28,marginTop:18},reportId:{fontFamily:FONT.regular,color:C.muted,fontSize:10,textAlign:'right',marginTop:5},metaRow:{flexDirection:'row-reverse',alignItems:'center',gap:5,marginTop:10},openHint:{flexDirection:'row-reverse',alignItems:'center',gap:3,marginTop:12},openHintText:{fontFamily:FONT.bold,color:C.brand,fontSize:11},
+  premiumHeader:{backgroundColor:'#075f51',borderBottomLeftRadius:23,borderBottomRightRadius:23,marginBottom:14,paddingVertical:19,elevation:2},headerTitleRow:{flexDirection:'row-reverse',alignItems:'center',gap:9},premiumTitle:{color:'#fff',fontSize:19,flex:1},premiumSub:{color:'#dfefe6'},unreadCount:{backgroundColor:'#f6dfae',paddingHorizontal:10,paddingVertical:6,borderRadius:12},unreadCountText:{fontFamily:FONT.bold,color:'#744e16',fontSize:11},
+  detailHero:{backgroundColor:'#075f51',padding:19,borderRadius:22,marginBottom:13,elevation:2},detailHeroSub:{fontFamily:FONT.regular,color:'#e5f3ec',fontSize:12,marginTop:6,textAlign:'right'},
   tabs: { flexDirection: 'row-reverse', gap: 7, paddingHorizontal: 16, paddingBottom: 13 },
   tab: { flex: 1, minWidth:0, minHeight:78, backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 16, paddingVertical: 10, paddingHorizontal:3, alignItems: 'center', justifyContent:'center',gap:6 },
   tabOn: { backgroundColor: C.brand, borderColor: C.brand },
@@ -419,7 +422,7 @@ const s = StyleSheet.create({
   chip: { flexShrink: 0, backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 99, paddingVertical: 6, paddingHorizontal: 12, alignSelf: 'flex-start' },
   chipOn: { backgroundColor: C.brand, borderColor: C.brand },
   chipTxt: { fontFamily: FONT.regular, color: C.ink, fontSize: 11.5 },
-  card: { backgroundColor: '#fff', borderColor: C.line, borderWidth: 1, borderRadius: 19, padding: 16, marginBottom: 12 },
+  card: { backgroundColor: '#fff', borderColor: '#dbe9e1', borderWidth: 1, borderRadius: 20, padding: 17, marginBottom: 12, elevation: 1 },
   rowB: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'flex-start',gap:10 },
   title: { fontFamily: FONT.bold, color: C.ink, textAlign: 'right', flex: 1 },
   badge: { fontFamily: FONT.bold, fontSize: 10, borderWidth: 1, borderRadius: 11, paddingHorizontal: 9, paddingVertical: 6,overflow:'hidden',flexShrink:0 },

@@ -4,6 +4,7 @@ import { request } from '../api';
 import { C, FONT } from '../theme';
 import { faNum, enNum } from '../num';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const normalizeMobile = (value) => {
   const n = enNum(String(value || '')).replace(/\s|-/g, '');
@@ -133,6 +134,7 @@ export default function SmsScreen() {
 
   return (
     <ScrollView style={s.wrap} contentContainerStyle={s.content} persistentScrollbar>
+      <View style={s.hero}><View style={s.heroRow}><MaterialCommunityIcons name="message-text-fast-outline" size={27} color="#f3d99f"/><Text style={s.heroTitle}>ارسال پیامک به رانندگان</Text></View><Text style={s.heroSub}>انتخاب خطوط، قالب پیام و گیرندگان</Text></View>
       {!!error && <View style={s.errorBox}><Text style={s.errorText}>{error}</Text><TouchableOpacity accessibilityRole="button" style={s.retry} onPress={() => { setError(''); setLoading(true); Promise.all([request('/sms/config', { noStore: true }), request('/my/lines', { noStore: true })]).then(([cfg,l]) => { setTpls(Array.isArray(cfg?.templates) ? cfg.templates : []); setTplOnly(!!cfg?.templates_only); setLines(Array.isArray(l) ? l : []); }).catch(e => setError(e?.message || 'دریافت تنظیمات ناموفق بود.')).finally(() => setLoading(false)); }}><Text style={s.retryText}>تلاش مجدد</Text></TouchableOpacity></View>}
       {quota && (
         <View style={s.creditBox}>
@@ -181,7 +183,7 @@ export default function SmsScreen() {
         placeholder={tplOnly ? 'یک قالب را انتخاب کنید' : 'متن دلخواه پیامک…'}
         placeholderTextColor={C.muted}
       />
-      <Text style={s.muted}>هر پیامک فارسی حدود ۷۰ کاراکتر است.</Text>
+      <Text style={s.muted}>تعداد نویسه: {faNum(msg.length)} · برآورد پیامک فارسی: {faNum(Math.max(1, Math.ceil(msg.length / (msg.length <= 70 ? 70 : 67))))} بخش</Text>
 
       <View style={s.sectionHeader}>
         <Text style={s.label}>گیرندگان: {faNum(totalCount)} شماره</Text>
@@ -237,10 +239,11 @@ const s = StyleSheet.create({
   errorText: { color: '#982b3d', fontFamily: FONT.regular, textAlign: 'right', lineHeight: 22 },
   retry: { minHeight: 44, alignSelf: 'flex-end', paddingHorizontal: 14, justifyContent: 'center' },
   retryText: { color: C.brand, fontFamily: FONT.bold },
-  wrap: { flex: 1, backgroundColor: C.paper },
+  wrap: { flex: 1, backgroundColor: '#f3f8f6' },
+  hero:{backgroundColor:'#075f51',borderRadius:23,padding:19,marginBottom:14,elevation:2},heroRow:{flexDirection:'row-reverse',alignItems:'center',gap:10},heroTitle:{fontFamily:FONT.bold,color:'#fff',fontSize:19,textAlign:'right',flex:1},heroSub:{fontFamily:FONT.regular,color:'#e2f2e9',fontSize:12,textAlign:'right',marginTop:7},
   content: { padding: 14, paddingBottom: 40 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.paper },
-  creditBox: { backgroundColor: '#eef4ff', borderRadius: 16, padding: 15, marginBottom: 8 },
+  creditBox: { backgroundColor: '#e5f3ec', borderRadius: 17, padding: 16, marginBottom: 10, borderWidth:1,borderColor:'#cfe6d8' },
   creditTitle: { fontFamily: FONT.bold, fontSize: 13, color: C.ink, textAlign: 'right' },
   creditText: { fontFamily: FONT.bold, fontSize: 18, color: C.brand, textAlign: 'right', marginTop: 2 },
   capacityText: { fontFamily: FONT.regular, fontSize: 12, color: C.ink, textAlign: 'right', marginTop: 4 },
@@ -249,9 +252,9 @@ const s = StyleSheet.create({
   templateGroup: { marginBottom: 6 },
   category: { fontFamily: FONT.bold, color: C.muted, fontSize: 11, textAlign: 'right', marginBottom: 4 },
   templateRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 7 },
-  template: { borderWidth: 1, borderColor: C.border, backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  template: { borderWidth: 1, borderColor: '#d7e8df', backgroundColor: '#fff', borderRadius: 13, paddingHorizontal: 12, paddingVertical: 10 },
   templateText: { fontFamily: FONT.regular, color: C.ink, fontSize: 12 },
-  input: { borderWidth: 1, borderColor: C.border, borderRadius: 9, backgroundColor: '#fff', color: C.ink, fontFamily: FONT.regular, textAlign: 'right', paddingHorizontal: 10, paddingVertical: 9 },
+  input: { borderWidth: 1, borderColor: '#cddfd4', borderRadius: 14, backgroundColor: '#fff', color: C.ink, fontFamily: FONT.regular, textAlign: 'right', paddingHorizontal: 12, paddingVertical: 11 },
   messageInput: { minHeight: 92, textAlignVertical: 'top' },
   disabledInput: { backgroundColor: '#f0f0f2', color: C.muted },
   muted: { fontFamily: FONT.regular, color: C.muted, fontSize: 11, textAlign: 'right', marginTop: 5 },
@@ -273,7 +276,7 @@ const s = StyleSheet.create({
   manualWrap: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   manualChip: { backgroundColor: '#fff', borderWidth: 1, borderColor: C.border, borderRadius: 15, paddingHorizontal: 9, paddingVertical: 6 },
   manualText: { fontFamily: FONT.regular, color: C.ink, fontSize: 11 },
-  sendButton: { backgroundColor: C.brand, borderRadius: 10, paddingVertical: 13, alignItems: 'center', marginTop: 18 },
+  sendButton: { backgroundColor: '#075f51', borderRadius: 16, paddingVertical: 16, minHeight:52,alignItems: 'center', marginTop: 18, elevation:2 },
   disabledButton: { opacity: 0.6 },
   sendText: { fontFamily: FONT.bold, color: '#fff', fontSize: 14 },
 });
