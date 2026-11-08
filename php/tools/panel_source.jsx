@@ -6932,6 +6932,9 @@ function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom=''
   const [requestModal,setRequestModal]=useState(null);
   const [addModal,setAddModal]=useState(null);
   const [dayRequests,setDayRequests]=useState([]);
+  const [dayRequestsBusy,setDayRequestsBusy]=useState(false);
+  const [dayRequestsError,setDayRequestsError]=useState('');
+  const [dayRequestsReload,setDayRequestsReload]=useState(0);
   const [conversionModal,setConversionModal]=useState(null);
   const [gpsDeficitModal,setGpsDeficitModal]=useState(null);
   const [shiftDeficitModal,setShiftDeficitModal]=useState(null);
@@ -7044,16 +7047,14 @@ function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom=''
     run(String(initialUserId),start,end);
   },[initialUserId,initialFrom,initialTo]);
   useEffect(()=>{
-    if(!openDay||!uid){setDayRequests([]);return;}
-    db.adminRequests('?user_id='+encodeURIComponent(uid)).then(rows=>{
-      const ds=String(openDay).replace(/\\//g,'-');
-      setDayRequests((rows||[]).filter(r=>{
-        const a=String(r.from_jdate||r.the_date||'').replace(/\\//g,'-');
-        const b=String(r.to_jdate||r.the_date||a).replace(/\\//g,'-');
-        return a<=ds&&ds<=b;
-      }));
-    }).catch(()=>setDayRequests([]));
-  },[openDay,uid]);
+    if(!openDay||!uid){setDayRequests([]);setDayRequestsBusy(false);setDayRequestsError('');return;}
+    let active=true;setDayRequestsBusy(true);setDayRequestsError('');setDayRequests([]);
+    GET('/admin/attendance-day-requests?user_id='+encodeURIComponent(uid)+'&jdate='+encodeURIComponent(openDay))
+      .then(rows=>{if(active)setDayRequests(Array.isArray(rows)?rows:[]);})
+      .catch(e=>{if(active)setDayRequestsError(e.message||'خطا در دریافت درخواست‌های روز');})
+      .finally(()=>{if(active)setDayRequestsBusy(false);});
+    return ()=>{active=false};
+  },[openDay,uid,dayRequestsReload]);
   useEffect(()=>{
     if(!openDay||!uid||!canViewDayAudit){setDayAudit([]);setDayAuditError("");return;}
     let active=true;setDayAuditBusy(true);setDayAuditError("");setDayAudit([]);
@@ -7277,9 +7278,10 @@ function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom=''
           {canViewDayAudit&&<div style={{marginTop:16,paddingTop:14,borderTop:"1px solid var(--line)"}}>
             <div className="attendance-audit-heading"><div><h4>تاریخچه اصلاحات و بی‌اثرکردن کسرکار</h4><p>نام ثبت‌کننده، زمان و مقدار قبل و بعد از هر تغییر</p></div><span className="badge b-w">{faPlain(String(dayAudit.length))} رویداد</span></div>
             {dayAuditBusy?<p className="muted" role="status">در حال دریافت سوابق تغییرات…</p>:dayAuditError?<div role="alert" className="attendance-audit-error">{dayAuditError}<button className="btn g" onClick={()=>setDayAuditReload(v=>v+1)}>تلاش دوباره</button></div>:dayAudit.length?<div className="attendance-audit-list">{dayAudit.map((a,i)=>{
-              const names={punch_edit:'ویرایش تردد',punch_add:'افزودن تردد دستی',punch_delete:'حذف تردد',gps_waiver:'بی‌اثر کردن کسری GPS',internet_waiver:'بی‌اثر کردن خاموشی اینترنت',surplus_convert:'تبدیل مازاد به اضافه‌کار',surplus_reset:'بازنشانی اضافه‌کار'};
+              const names={punch_edit:'ویرایش تردد',punch_add:'افزودن تردد دستی',punch_delete:'حذف تردد',gps_waiver:'بی‌اثر کردن کسری GPS',internet_waiver:'بی‌اثر کردن خاموشی اینترنت',surplus_convert:'تبدیل مازاد به اضافه‌کار',surplus_reset:'بازنشانی اضافه‌کار',request_edit:'اصلاح درخواست ثبت‌شده'};
               const b=a.before||{},n=a.after||{};
               const vals=a.action==='gps_waiver'||a.action==='internet_waiver'?[['بازه',`${b.start_at||'—'} تا ${b.end_at||'—'}`,'بی‌اثر شد'],['مدت',b.minutes!=null?`${b.minutes} دقیقه`:'—','بدون کسر']]:
+                a.action==='request_edit'?[['ورود در درخواست',b.in_time||b.from_time||'—',n.in_time||n.from_time||'—'],['خروج در درخواست',b.out_time||b.to_time||'—',n.out_time||n.to_time||'—'],['مدت (دقیقه)',b.minutes??'—',n.minutes??'—'],['وضعیت',b.status||'—',n.status||'—']]:
                 a.action.startsWith('surplus_')?[['دقیقهٔ تبدیل‌شده',b.minutes??'—',n.minutes??'—']]:
                 [['ورود',b.check_in||'—',n.check_in||'—'],['خروج',b.check_out||'—',n.check_out||'—'],['خط',b.line_id??'—',n.line_id??'—']];
               return <article className="attendance-audit-item" key={a.action+'-'+a.id+'-'+i}><div className="attendance-audit-item-head"><div><strong>{names[a.action]||a.action}</strong><span className="attendance-audit-person">{a.actor_name?.trim()||'کاربر #'+(a.actor_id||'نامشخص')}</span></div><time>{faDate(a.created_at)}</time></div><div className="attendance-audit-values"><div className="attendance-audit-values-head"><span>مورد</span><span>قبل از تغییر</span><span>بعد از تغییر</span></div>{vals.map(([field,prior,next])=><div className="attendance-audit-values-row" key={field}><span>{field}</span><span>{/\\d{4}-\\d{2}-\\d{2}/.test(String(prior))?faDate(prior):faPlain(String(prior))}</span><span>{/\\d{4}-\\d{2}-\\d{2}/.test(String(next))?faDate(next):faPlain(String(next))}</span></div>)}</div>{n.reason&&<p className="attendance-audit-reason">علت: {n.reason}</p>}{a.punch_id&&<small className="muted">شناسه تردد: {faPlain(String(a.punch_id))}</small>}</article>;
@@ -7292,12 +7294,12 @@ function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom=''
               <button className="btn g" style={{width:"100%"}} onClick={()=>setAddModal({jdate:d.jdate})}>ثبت تردد دستی</button>
             </div>
             <div style={{marginTop:12}}>
-              {dayRequests.length===0?<div className="muted" style={{fontSize:12}}>درخواستی برای این روز ثبت نشده است.</div>:
-              <div style={{overflowX:"auto"}}><table style={{minWidth:620,width:"100%"}}><thead><tr><th>نوع درخواست</th><th>بازه</th><th>ساعت</th><th>مدت</th><th>وضعیت</th></tr></thead><tbody>{dayRequests.map(r=><tr key={r.id}><td>{(()=>{
-  const labels={annual:"مرخصی استحقاقی",sick:"مرخصی استعلاجی",unpaid:"مرخصی بدون حقوق",mission:"ماموریت",overtime:"اضافه‌کار"};
+              {dayRequestsBusy?<p className="muted" role="status">در حال دریافت درخواست‌های این روز…</p>:dayRequestsError?<div className="attendance-audit-error" role="alert">{dayRequestsError}<button type="button" className="btn g" onClick={()=>setDayRequestsReload(v=>v+1)}>تلاش دوباره</button></div>:dayRequests.length===0?<div className="muted" style={{fontSize:12}}>درخواستی برای این روز ثبت نشده است.</div>:
+              <div style={{overflowX:"auto"}}><table style={{minWidth:750,width:"100%"}}><thead><tr><th>نوع درخواست</th><th>بازه</th><th>ساعت</th><th>مدت</th><th>وضعیت</th><th>تأییدکننده و توضیحات</th></tr></thead><tbody>{dayRequests.map(r=><tr key={r.id}><td>{(()=>{
+  const labels={annual:"مرخصی استحقاقی",sick:"مرخصی استعلاجی",unpaid:"مرخصی بدون حقوق",mission:"ماموریت",overtime:"اضافه‌کار",manual:"تردد دستی"};
   const base=labels[r.type]||r.type||"—";
   return r.unit==="hourly" ? base+" ساعتی" : base;
-})()}</td><td>{faPlain(String(r.from_jdate||r.the_date||"—"))}{r.to_jdate&&r.to_jdate!==r.from_jdate?" تا "+faPlain(String(r.to_jdate)):""}</td><td>{r.from_time&&r.to_time?faPlain(r.from_time)+" تا "+faPlain(r.to_time):"—"}</td><td>{r.minutes?hm(r.minutes):"—"}</td><td>{({pending:"در انتظار تأیید",approved:"تأییدشده",rejected:"ردشده",canceled:"لغوشده"}[r.status]||r.status||"—")}</td></tr>)}</tbody></table></div>}
+})()}</td><td>{faPlain(String(r.from_jdate||r.the_date||"—"))}{r.to_jdate&&r.to_jdate!==r.from_jdate?" تا "+faPlain(String(r.to_jdate)):""}</td><td>{(r.from_time||r.in_time)&&(r.to_time||r.out_time)?faPlain(String(r.from_time||r.in_time))+" تا "+faPlain(String(r.to_time||r.out_time)):"—"}</td><td>{r.minutes?hm(r.minutes):"—"}</td><td>{({pending:"در انتظار تأیید",approved:"تأییدشده",rejected:"ردشده",canceled:"لغوشده"}[r.status]||r.status||"—")}</td><td><strong>{r.approver||"—"}</strong>{(r.reason||r.approver_note)&&<small style={{display:"block",whiteSpace:"normal",minWidth:160}}>{[r.reason,r.approver_note].filter(Boolean).join(" · ")}</small>}</td></tr>)}</tbody></table></div>}
             </div>
           </div>
         </div>
@@ -7306,7 +7308,7 @@ function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom=''
     {mapPunch&&(()=>{const valid=(a,b)=>a!==null&&a!==undefined&&a!==""&&b!==null&&b!==undefined&&b!==""&&Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Math.abs(Number(a))<=90&&Math.abs(Number(b))<=180;const hasIn=valid(mapPunch.in_lat,mapPunch.in_lng),hasOut=valid(mapPunch.out_lat,mapPunch.out_lng);const routeUrl=hasIn&&hasOut?"https://www.google.com/maps/dir/?api=1&origin="+encodeURIComponent(mapPunch.in_lat+","+mapPunch.in_lng)+"&destination="+encodeURIComponent(mapPunch.out_lat+","+mapPunch.out_lng):"https://www.google.com/maps?q="+encodeURIComponent((hasIn?mapPunch.in_lat+","+mapPunch.in_lng:mapPunch.out_lat+","+mapPunch.out_lng));return <div style={{position:"fixed",inset:0,zIndex:100000,background:"rgba(0,0,0,.62)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setMapPunch(null)}><div className="card-p" style={{width:"min(900px,96vw)",height:"min(720px,92vh)",display:"flex",flexDirection:"column",gap:10,overflow:"hidden"}} onClick={e=>e.stopPropagation()}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}><div><h3 style={{margin:0}}>موقعیت ورود و خروج با GPS</h3><div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>{hasIn?"نقطه ورود ثبت شده":"مختصات ورود ثبت نشده"} · {hasOut?"نقطه خروج ثبت شده":"مختصات خروج ثبت نشده"}</div></div><button className="btn g" onClick={()=>setMapPunch(null)}>بستن</button></div><div ref={mapContainerRef} style={{display:"block",position:"relative",width:"100%",height:"clamp(320px, 52vh, 460px)",minHeight:320,maxHeight:460,flex:"0 0 auto",background:"#e8edf0",borderRadius:10,overflow:"hidden",border:"1px solid var(--line)"}} aria-label="نقشه نقاط ورود و خروج"/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}><div style={{fontSize:12,color:"var(--muted)"}}>{hasIn?"ورود: "+mapPunch.in_lat+", "+mapPunch.in_lng:"ورود: ثبت نشده"} · {hasOut?"خروج: "+mapPunch.out_lat+", "+mapPunch.out_lng:"خروج: ثبت نشده"}</div><a className="btn g" href={routeUrl} target="_blank" rel="noreferrer">{hasIn&&hasOut?"نمایش مسیر ورود تا خروج در Google Maps":"باز کردن نقطه ثبت‌شده در Google Maps"}</a></div></div></div>})()}
     {edit&&<PunchEditModal punch={edit} onSave={savePunch} onClose={()=>setEdit(null)}/>}
     {addModal&&<PunchAddModal jdate={addModal.jdate} onSave={addPunch} onClose={()=>setAddModal(null)}/>}
-    {requestModal&&<AttendanceRequestModal userId={uid} jdate={requestModal.jdate} onSaved={async()=>{setRequestModal(null);await refresh();if(openDay){const rows=await db.adminRequests('?user_id='+encodeURIComponent(uid));const ds=String(openDay).replace(/\\//g,'-');setDayRequests((rows||[]).filter(r=>{const a=String(r.from_jdate||r.the_date||'').replace(/\\//g,'-');const b=String(r.to_jdate||r.the_date||a).replace(/\\//g,'-');return a<=ds&&ds<=b;}));}}} onClose={()=>setRequestModal(null)}/>}
+    {requestModal&&<AttendanceRequestModal userId={uid} jdate={requestModal.jdate} onSaved={async()=>{setRequestModal(null);await refresh();setDayRequestsReload(v=>v+1);}} onClose={()=>setRequestModal(null)}/>}
   </div>);
 }
 

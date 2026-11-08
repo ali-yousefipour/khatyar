@@ -4043,6 +4043,26 @@ route('GET','/api/admin/attendance-day-audit',function($p,$b,$u){
       }
     }catch(Throwable $e){error_log('attendance waiver history unavailable: '.$e->getMessage());}
   }
+  // Approved requests can subsequently change a staff member's attendance hours.
+  // Show those before/after edits alongside direct punch edits in the root-admin audit.
+  try{
+    if(_db_table_exists_safe('request_edit_history')){
+      $edits=Db::all("SELECT h.id,h.request_id,h.edit_reason,h.before_json,h.after_json,h.created_at,h.actor_id,
+          CONCAT_WS(' ',NULLIF(us.first_name,''),NULLIF(us.last_name,'')) actor_name
+        FROM request_edit_history h JOIN requests r ON r.id=h.request_id
+        LEFT JOIN users us ON us.id=h.actor_id
+        WHERE r.user_id=? AND (
+          REPLACE(COALESCE(NULLIF(r.from_jdate,''),NULLIF(r.the_date,'')), '/', '-')<=?
+          AND REPLACE(COALESCE(NULLIF(r.to_jdate,''),NULLIF(r.from_jdate,''),NULLIF(r.the_date,'')), '/', '-')>=?
+        ) ORDER BY h.id DESC LIMIT 200",[$uid,$jdate,$jdate]);
+      foreach($edits as $edit){
+        $items[]=['id'=>$edit['id'],'request_id'=>$edit['request_id'],'action'=>'request_edit',
+          'actor_id'=>$edit['actor_id'],'actor_name'=>$edit['actor_name'],'created_at'=>$edit['created_at'],
+          'before'=>json_decode((string)$edit['before_json'],true)?:[],
+          'after'=>array_merge(json_decode((string)$edit['after_json'],true)?:[],['reason'=>$edit['edit_reason']])];
+      }
+    }
+  }catch(Throwable $e){error_log('attendance request edit history unavailable: '.$e->getMessage());}
   usort($items,static fn($a,$b)=>strcmp((string)$b['created_at'],(string)$a['created_at']));
   return ['rows'=>$items,'total'=>count($items)];
 },false,ADMIN);
@@ -5537,6 +5557,21 @@ function _req_edit_approved($id,array $body,array $actor){
 }
 
 // گزارش درخواست‌ها برای ادمین (با فیلتر کاربر/نوع/وضعیت/بازه)
+route('GET', '/api/admin/attendance-day-requests', function($p,$b,$u){
+  $uid=(int)($_GET['user_id']??0);
+  $jdate=str_replace('/','-',trim((string)($_GET['jdate']??'')));
+  if($uid<=0||!preg_match('/^1[34]\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/',$jdate))Http::error('پرسنل یا تاریخ نامعتبر است',422);
+  // Filter by the day the request affects, not the day it was submitted.
+  $rows=Db::all("SELECT r.id,r.user_id,r.pending_on,r.approver_id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,
+      r.from_time,r.to_time,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.created_at,
+      r.approver_note,CONCAT_WS(' ',ap.first_name,ap.last_name) approver
+    FROM requests r LEFT JOIN users ap ON ap.id=r.approver_id
+    WHERE r.user_id=?
+      AND REPLACE(COALESCE(NULLIF(r.from_jdate,''),NULLIF(r.the_date,'')), '/', '-')<=?
+      AND REPLACE(COALESCE(NULLIF(r.to_jdate,''),NULLIF(r.from_jdate,''),NULLIF(r.the_date,'')), '/', '-')>=?
+    ORDER BY r.id DESC LIMIT 2000",[$uid,$jdate,$jdate]);
+  return array_values(array_map(static function($row){unset($row['pending_on'],$row['approver_id']);return $row;},array_filter($rows,static fn($row)=>_req_admin_can_view_request($u,$row))));
+},false,ADMIN);
 route('GET', '/api/admin/requests', function($p,$b,$u){
   [$where,$args]=_req_report_filter($_GET,$u);
   return Db::all("SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name,
