@@ -85,6 +85,10 @@ function _presence_image_token($user, $id, $kind, $ttl = 900) {
     'image_id' => (int)$id, 'kind' => $kind,
   ], $GLOBALS['CONFIG']['jwt_secret'], $ttl);
 }
+function _presence_image_review_allowed($actor) {
+  return is_array($actor) && (int)($actor['is_active']??0)===1
+    && (int)($actor['level']??0)>=1 && (int)$actor['level']<=4;
+}
 
 // اعتبارسنجی مختصات جغرافیایی
 function _ssv_require_inspection_core($b){
@@ -1083,7 +1087,7 @@ route('GET', '/api/admin/presence-checks', function($p,$b,$u){
     WHERE $cond ORDER BY pc.slot_date DESC, pc.slot DESC, name", $args);
   foreach ($rows as &$r) $r['captured_fa'] = fa_datetime($r['captured_at']); // وقت تهران (سرور)
   return $rows;
-}, false, ADMIN);
+}, false, 4);
 
 // سرو تصویر صحت‌سنجی (برای هایپرلینک اکسل) — اعتبارسنجی توکن از کوئری یا هدر
 route('GET', '/api/presence-image/{id}', function($p,$b,$u){
@@ -1098,7 +1102,8 @@ route('GET', '/api/presence-image/{id}', function($p,$b,$u){
       || ($payload['kind'] ?? '') !== $requestedKind) Http::error('لینک تصویر نامعتبر یا منقضی است', 403);
   } elseif (!is_array($payload) || ($payload['t'] ?? 'a') !== 'a') Http::error('دسترسی نامعتبر است', 403);
   $actor = Db::one('SELECT u.id,u.is_active,r.is_admin,r.level FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?', [(int)($payload['sub'] ?? 0)]);
-  if (!$actor || !(int)$actor['is_active'] || !(int)$actor['is_admin'] || (int)$actor['level'] > 3) Http::error('دسترسی مجاز نیست', 403);
+  // مسئولان سطوح ۱ تا ۴ حق بازبینی صحت‌سنجی دارند، حتی اگر پرچم is_admin نداشته باشند.
+  if (!_presence_image_review_allowed($actor)) Http::error('دسترسی مجاز نیست', 403);
   $deviceType = (string)($payload['dt'] ?? 'web');
   $deviceId = (string)($payload['device_id'] ?? '');
   if ($deviceId === '') Http::error('نشست نامعتبر است', 403);
@@ -1143,7 +1148,7 @@ route('GET', '/api/admin/presence-checks/export', function($p,$b,$u){
     fputcsv($out, [$r['name'], $r['role'], $r['slot_date'], $SLOT[$r['slot']]??$r['slot'], fa_datetime($r['captured_at']), $r['lat'], $r['lng'], $selfie, $veh]);
   }
   fclose($out); exit;
-}, false, ADMIN);
+}, false, 4);
 
 // تصاویر یک ثبت خاص
 route('GET', '/api/admin/presence-checks/{id}', function($p,$b,$u){
@@ -1156,7 +1161,7 @@ route('GET', '/api/admin/presence-checks/{id}', function($p,$b,$u){
   $r['vehicles_photo'] = $hasVeh ? ('/api/presence-image/'.$r['id'].'?type=vehicles&token='.urlencode(_presence_image_token($u,$r['id'],'vehicles'))) : null;
   unset($r['selfie_path'], $r['vehicles_photo_path']);
   return $r;
-}, false, ADMIN);
+}, false, 4);
 
 // تخلفات عدم ارسال صحت‌سنجی (پویا): برای هر کاربر مشمول × هر بازهٔ گذشته که ثبت نکرده
 route('GET', '/api/admin/presence-violations', function($p,$b,$u){
@@ -1216,7 +1221,7 @@ route('GET', '/api/admin/presence-violations', function($p,$b,$u){
     }
   }
   return $out;
-}, false, ADMIN);
+}, false, 4);
 
 // ---------------- پیامک (نگین ارتباط) ----------------
 // اعتبار باقیمانده (ادمین)
