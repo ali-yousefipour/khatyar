@@ -5648,6 +5648,11 @@ function _live_staff_dashboard(){
 }
 
 // خلاصهٔ تجمیعی کارکرد برای داشبورد (مجموع همهٔ نیروها در یک ماه)
+// وضعیت زنده مستقل از محاسبات سنگین گزارش کارکرد ماهانه است.
+route('GET', '/api/admin/live-staff-dashboard', function($p,$b,$u){
+  return ['live'=>_live_staff_dashboard()];
+}, false, ADMIN);
+
 route('GET', '/api/admin/work-dashboard', function($p,$b,$u){
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if(!$jy){ [$jy,$jm]=array_slice(gregorian_to_jalali(date('Y'),date('m'),date('d')),0,2); }
