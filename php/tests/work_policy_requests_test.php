@@ -73,6 +73,13 @@ denied(fn()=>validate(hourly(),['annual'=>['year_h'=>8]]),'annual minute cap');
 validate(hourly(),['annual'=>['year_h'=>8,'allow_over_year'=>true]]);
 Db::$rows=[['type'=>'manual','the_date'=>'1405-07-01']];
 denied(fn()=>validate(['type'=>'manual','the_date'=>'1405-07-02'],['manual'=>['month_cap'=>1]]),'manual count');
+Db::$rows=[];
+foreach(['month_cap','year_cap'] as $limit){
+  denied(fn()=>validate(['type'=>'manual','the_date'=>'1405-07-02'],['manual'=>[$limit=>0]]),'manual zero '.$limit);
+  denied(fn()=>validate(['type'=>'manual','the_date'=>'1405-07-02'],['manual'=>[$limit=>0]],true),'manual zero '.$limit.' on approval');
+}
+validate(['type'=>'manual','the_date'=>'1405-07-02'],['manual'=>['month_cap'=>1,'year_cap'=>1]]);
+validate(['type'=>'manual','the_date'=>'1405-07-02'],['manual'=>[]]);
 Db::$rows=[hourly('1405-07-01','08:00','09:00','overtime')];
 denied(fn()=>validate(hourly('1405-07-02','08:00','09:00','overtime'),['overtime'=>['year_cap'=>1]]),'overtime count');
 

@@ -4427,6 +4427,10 @@ function _req_validate_work_policy($uid,array $request,array $policy,$approval=f
     $period=strlen((string)$key)===4?'year':'month';
     $label=$period==='year'?'سالانه':'ماهانه';
     $cap=(int)($limits[$period.'_cap']??0);
+    // For manual attendance, an explicitly configured zero disables requests.
+    // Other request types retain their historical zero-as-unlimited behavior.
+    if($type==='manual' && array_key_exists($period.'_cap',$limits) && $cap===0)
+      Http::error('ثبت درخواست تردد دستی طبق سیاست کاری غیرفعال است.',422);
     if($cap>0&&($usage[$key]['count']??0)+1>$cap) Http::error('سقف تعداد '.$title.' '.$label.' در سیاست کاری تکمیل است.',422);
     $minuteCap=$hm($config,$period);
     $allowOver=$type==='annual'&&!empty($config['allow_over_'.$period]);
