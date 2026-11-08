@@ -6700,6 +6700,10 @@ route('GET', '/api/attendance/present', function($p,$b,$u){
   }
   $rows=Db::all("SELECT a.id, a.driver_id, a.line_id, a.created_at, l.code line_code, l.origin line_origin,
       d.first_name, d.last_name, d.national_id,
+      (SELECT GROUP_CONCAT(DISTINCT v.plate ORDER BY v.plate SEPARATOR '|')
+       FROM vehicle_drivers vd JOIN vehicles v ON v.id=vd.vehicle_id
+       WHERE vd.driver_id=a.driver_id AND (a.line_id IS NULL OR v.line_id=a.line_id)
+         AND v.plate IS NOT NULL AND TRIM(v.plate)<>'') vehicle_plates,
       dp.photo_path AS driver_photo_path, COALESCE(dp.updated_at,dp.confirmed_at) AS driver_photo_updated_at,
       TIMESTAMPDIFF(MINUTE, a.created_at, NOW()) mins_in
     FROM attendances a JOIN drivers d ON d.id=a.driver_id LEFT JOIN `lines` l ON l.id=a.line_id
