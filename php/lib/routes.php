@@ -803,12 +803,12 @@ route('GET', '/api/my/presence-config', function($p,$b,$u){
   $now = time();
   $rows = Db::all("SELECT data,created_at FROM notifications
     WHERE user_id=? AND created_at>=? AND data LIKE ? ORDER BY id DESC LIMIT 10",
-    [(int)$u['id'],date('Y-m-d H:i:s',$now-60),'%"immediate":true%']);
+    [(int)$u['id'],date('Y-m-d H:i:s',$now-180),'%"immediate":true%']);
   foreach ($rows as $row) {
     $data = json_decode($row['data'],true);
     if (($data['type']??null)!=='presence_check' || ($data['immediate']??false)!==true || empty($data['request_id'])) continue;
     $data['ts'] = (int)($data['ts']??strtotime($data['immediate_at']??$row['created_at']));
-    if ($data['ts']>0 && $now<$data['ts']+60) $immediate[]=$data;
+    if ($data['ts']>0 && $now<$data['ts']+max(1,(int)($data['window_minutes']??1))*60) $immediate[]=$data;
   }
   return [
     'enabled' => !empty($cfg['enabled']),
