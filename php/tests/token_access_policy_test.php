@@ -19,5 +19,6 @@ $router = file_get_contents(__DIR__ . '/../app/index.php');
 $routes = file_get_contents(__DIR__ . '/../lib/routes.php');
 checkAccessPolicy(str_contains($router, "(\$payload['t'] ?? 'a') !== 'a'"), 'API middleware must enforce access token type without deployment-sensitive helper calls');
 checkAccessPolicy(str_contains($routes, "SELECT revoked_at FROM user_sessions WHERE user_id=? AND device_type=? AND device_id=? LIMIT 1"), 'Image download must check the exact active session');
-checkAccessPolicy(str_contains($routes, "!(int)\$actor['is_admin']"), 'Image download must restrict privileged access');
+checkAccessPolicy(str_contains($routes, 'if (!_presence_image_review_allowed($actor))'), 'Image download must enforce supervisory authorization');
+checkAccessPolicy(str_contains($routes, "(int)\$actor['level']<=4"), 'Image download must reject roles below supervision level');
 echo "PASS token access policy: access/refresh separation, legacy compatibility, image authorization guards\n";
