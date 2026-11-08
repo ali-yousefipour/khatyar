@@ -57,7 +57,7 @@ async function testZones() {
   const createdParents=[];
   let nextZoneId=3;
   const app = harness('Zones', {
-    users: async () => [{ id: '1', first_name: 'نیروی یک', zone_id: '1', is_active: 1 }, { id: '2', first_name: 'نیروی دو', zone_id: '2', is_active: '1' }, { id: '99', first_name: 'نیروی غیرفعال', zone_id: '1', is_active: 0 }],
+    users: async () => [{ id: '1', first_name: 'نیروی یک', zone_id: '1', is_active: 1, role_is_admin: 1, role_level: 1 }, { id: '2', first_name: 'نیروی دو', zone_id: '2', is_active: '1' }, { id: '98', username: 'admin', first_name: 'مدیر سامانه', zone_id: '1', is_active: 1 }, { id: '99', first_name: 'نیروی غیرفعال', zone_id: '1', is_active: 0 }],
     zones: async () => [{ id: '1', name: 'شمال' }, { id: '2', name: 'جنوب' }],
     createZone: async (name,parent_id) => { created.push(name);createdParents.push(parent_id);return { id: nextZoneId++, name,parent_id }; },
     updateZone: async (...args) => { if (failUpdate) throw new Error('rename failed');if(args.length===4)requirementUpdates.push(args); },

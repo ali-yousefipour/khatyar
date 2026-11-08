@@ -1801,7 +1801,9 @@ function Zones(){
   const pathFor=zone=>{const parts=[],seen=new Set();let current=zone;while(current&&!seen.has(+current.id)){seen.add(+current.id);parts.unshift(current.name);current=zones.find(item=>+item.id===+current.parent_id);}return parts.join(' / ');};
   const isDescendant=(candidate,ancestor)=>{const seen=new Set();let current=candidate;while(current&&!seen.has(+current.id)){if(+current.id===+ancestor)return true;seen.add(+current.id);current=zones.find(item=>+item.id===+current.parent_id);}return false;};
   const ordered=zones.slice().sort((left,right)=>pathFor(left).localeCompare(pathFor(right),'fa'));
-  const reload=async()=>{const [nextUsers,nextZones]=await Promise.all([db.users(),db.zones()]);setUsers(nextUsers.filter(u=>Number(u.is_active)===1&&Number(u.role_is_admin)!==1&&Number(u.role_level)!==1));setZones(nextZones);};
+  // «ادمین» حساب سیستمی است؛ پرچم مدیریت سمت یا سطح ۱ به‌تنهایی دلیل حذف پرسنل نیست.
+  const isRegionMember=u=>Number(u.is_active)===1&&!['admin','superadmin'].includes(String(u.username||'').trim().toLowerCase());
+  const reload=async()=>{const [nextUsers,nextZones]=await Promise.all([db.users(),db.zones()]);setUsers(nextUsers.filter(isRegionMember));setZones(nextZones);};
   useEffect(()=>{reload().catch(failure=>setError(failure.message||'بارگذاری مناطق انجام نشد.'))},[]);
   const mutate=async action=>{if(mutation.current)return;mutation.current=true;setBusy(true);setError("");try{await action();}catch(failure){setError(failure.message||'ذخیره تغییرات انجام نشد.');}finally{mutation.current=false;setBusy(false);}};
   const setLeaveRequirement=(zone,required)=>mutate(async()=>{await db.updateZone(zone.id,zone.name,undefined,required);setZones(current=>current.map(item=>+item.id===+zone.id?{...item,leave_requires_substitute:required?1:0}:item));});
