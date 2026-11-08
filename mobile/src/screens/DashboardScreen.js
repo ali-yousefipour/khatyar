@@ -370,7 +370,7 @@ export default function DashboardScreen({ navigation }) {
     <View style={s.dashboardBrandRow}><TouchableOpacity accessibilityRole="button" accessibilityLabel="باز کردن منوی برنامه" onPress={khOpenDrawer} style={s.brandMenu}><MaterialCommunityIcons name="menu" size={27} color="#fff" /></TouchableOpacity><View style={s.brandCopy}><Text style={s.brandName}>خطیار</Text><Text style={s.brandSubtitle}>داشبورد مدیریتی</Text></View><KhatyarBrandMark size={42}/></View>
     <View style={s.quickActions}>
       {allowed.includes('InboxReports') && <DashboardQuickAction label="گزارشات" icon="message-text-outline" badge={unreadCounts.reports>0?unreadLabel(unreadCounts.reports):null} onPress={() => { navigation.navigate('InboxReports'); refreshUnreadCounts(); }} />}
-      <DashboardQuickAction label="بروزرسانی کش" icon={syncing?'sync':'download-outline'} disabled={syncing} onPress={manualSync} />
+      <DashboardQuickAction label="بروزرسانی کش" icon={syncing?'sync':'database-refresh'} disabled={syncing} onPress={manualSync} />
       {allowed.includes('Notifications') && <DashboardQuickAction label="اعلان‌ها" icon="bell-outline" badge={stats.unread>0?(stats.unread>99?'۹۹+':faNum(stats.unread)):null} onPress={() => navigation.navigate('Notifications')} />}
       {allowed.includes('Radio') && <RadioHeaderToggle navigation={navigation} />}
       {appLockEnabled && <DashboardQuickAction label="قفل" icon="lock-outline" onPress={lockAppNow} />}
