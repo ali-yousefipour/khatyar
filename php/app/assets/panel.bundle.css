@@ -70,6 +70,16 @@
   .cal-d.sel{outline:2px solid var(--brand)}
   .cal-d.has{background:#e7f3ee}
   .cal-d.off{background:#fdeef0}
+  .shift-calendar-editor .cal-d{border-color:#cbded7;transition:border-color .15s,box-shadow .15s}
+  .shift-calendar-editor .cal-d:focus-within{outline:2px solid var(--brand);outline-offset:1px}
+  .shift-calendar-editor .cal-d.has{background:#def5e8}
+  .shift-calendar-editor .cal-d.off{background:#fff0ef}
+  .shift-day-action{min-height:28px;padding:3px 7px;border-radius:7px;border:1px solid #afd0c0;background:#fff;color:#136b51;font:inherit;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .shift-day-action:hover{background:#e9f8ef;border-color:#238e66}
+  .shift-day-action:focus-visible{outline:2px solid #0d7655;outline-offset:2px}
+  .shift-day-delete{color:#b42318;border-color:#e8ada8;background:#fff7f6}
+  .shift-day-delete:hover{background:#ffe9e6;border-color:#bd3428}
+  .shift-day-paste{color:#1250a0;border-color:#a8c7f5}
   .cal-n{font-size:12px;font-weight:700}
   .cal-tag{position:absolute;bottom:3px;inset-inline-start:4px;font-size:9.5px;color:var(--muted)}
   .tabbtn{background:var(--card);border:1px solid var(--line);color:var(--muted);padding:9px 16px;border-radius:11px;

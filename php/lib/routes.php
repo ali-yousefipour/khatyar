@@ -2959,7 +2959,13 @@ route('DELETE', '/api/admin/shifts/{id}', function($p,$b,$u){
 route('POST', '/api/admin/shifts/{id}/days', function($p,$b,$u){
   try { if (!Db::one("SHOW COLUMNS FROM shift_days WHERE Field='day_config'")) Db::run("ALTER TABLE shift_days ADD COLUMN day_config JSON NULL"); } catch (\Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
   $days = $b['days'] ?? [];
-  if (!is_array($days)) Http::error('داده نامعتبر', 400);
+  $deleted = $b['deleted_dates'] ?? [];
+  if (!is_array($days)||!is_array($deleted)) Http::error('داده نامعتبر', 400);
+  foreach (array_merge(array_column($days,'jdate'),$deleted) as $date) {
+    if(!is_string($date)||!preg_match('/^1[34]\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/',$date))Http::error('تاریخ شیفت نامعتبر است',422);
+  }
+  $pdo=Db::pdo();$pdo->beginTransaction();
+  try {
   foreach ($days as $d) {
     if (empty($d['jdate'])) continue;
     $seg = isset($d['segments']) ? json_encode($d['segments'], JSON_UNESCAPED_UNICODE) : null;
@@ -2969,7 +2975,10 @@ route('POST', '/api/admin/shifts/{id}/days', function($p,$b,$u){
              ON DUPLICATE KEY UPDATE segments=VALUES(segments), is_off=VALUES(is_off), day_config=VALUES(day_config)",
       [$p['id'], $d['jdate'], $seg, $off, $dc]);
   }
-  return ['ok'=>true, 'count'=>count($days)];
+  foreach (array_unique($deleted) as $jdate) Db::run('DELETE FROM shift_days WHERE shift_id=? AND jdate=?',[(int)$p['id'],$jdate]);
+  $pdo->commit();
+  }catch(\Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+  return ['ok'=>true, 'count'=>count($days), 'deleted'=>count(array_unique($deleted))];
 }, false, ADMIN);
 
 // حذف یک روز شیفت
