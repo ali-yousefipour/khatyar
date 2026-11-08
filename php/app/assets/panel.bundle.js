@@ -3197,7 +3197,7 @@ function Zones() {
         current = zones.find(item => +item.id === +current.parent_id);
     } return false; };
     const ordered = zones.slice().sort((left, right) => pathFor(left).localeCompare(pathFor(right), 'fa'));
-    const reload = async () => { const [nextUsers, nextZones] = await Promise.all([db.users(), db.zones()]); setUsers(nextUsers.filter(u => Number(u.is_active) === 1)); setZones(nextZones); };
+    const reload = async () => { const [nextUsers, nextZones] = await Promise.all([db.users(), db.zones()]); setUsers(nextUsers.filter(u => Number(u.is_active) === 1 && Number(u.role_is_admin) !== 1 && Number(u.role_level) !== 1)); setZones(nextZones); };
     useEffect(() => { reload().catch(failure => setError(failure.message || 'بارگذاری مناطق انجام نشد.')); }, []);
     const mutate = async (action) => { if (mutation.current)
         return; mutation.current = true; setBusy(true); setError(""); try {
