@@ -11859,6 +11859,9 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
     const [requestModal, setRequestModal] = useState(null);
     const [addModal, setAddModal] = useState(null);
     const [dayRequests, setDayRequests] = useState([]);
+    const [dayRequestsBusy, setDayRequestsBusy] = useState(false);
+    const [dayRequestsError, setDayRequestsError] = useState('');
+    const [dayRequestsReload, setDayRequestsReload] = useState(0);
     const [conversionModal, setConversionModal] = useState(null);
     const [gpsDeficitModal, setGpsDeficitModal] = useState(null);
     const [shiftDeficitModal, setShiftDeficitModal] = useState(null);
@@ -12045,17 +12048,23 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
     useEffect(() => {
         if (!openDay || !uid) {
             setDayRequests([]);
+            setDayRequestsBusy(false);
+            setDayRequestsError('');
             return;
         }
-        db.adminRequests('?user_id=' + encodeURIComponent(uid)).then(rows => {
-            const ds = String(openDay).replace(/\\/ / g, '-');
-            setDayRequests((rows || []).filter(r => {
-                const a = String(r.from_jdate || r.the_date || '').replace(/\\/ / g, '-');
-                const b = String(r.to_jdate || r.the_date || a).replace(/\\/ / g, '-');
-                return a <= ds && ds <= b;
-            }));
-        }).catch(() => setDayRequests([]));
-    }, [openDay, uid]);
+        let active = true;
+        setDayRequestsBusy(true);
+        setDayRequestsError('');
+        setDayRequests([]);
+        GET('/admin/attendance-day-requests?user_id=' + encodeURIComponent(uid) + '&jdate=' + encodeURIComponent(openDay))
+            .then(rows => { if (active)
+            setDayRequests(Array.isArray(rows) ? rows : []); })
+            .catch(e => { if (active)
+            setDayRequestsError(e.message || 'خطا در دریافت درخواست‌های روز'); })
+            .finally(() => { if (active)
+            setDayRequestsBusy(false); });
+        return () => { active = false; };
+    }, [openDay, uid, dayRequestsReload]);
     useEffect(() => {
         if (!openDay || !uid || !canViewDayAudit) {
             setDayAudit([]);
@@ -12492,17 +12501,18 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
                             dayAuditBusy ? React.createElement("p", { className: "muted", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0633\u0648\u0627\u0628\u0642 \u062A\u063A\u06CC\u06CC\u0631\u0627\u062A\u2026") : dayAuditError ? React.createElement("div", { role: "alert", className: "attendance-audit-error" },
                                 dayAuditError,
                                 React.createElement("button", { className: "btn g", onClick: () => setDayAuditReload(v => v + 1) }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")) : dayAudit.length ? React.createElement("div", { className: "attendance-audit-list" }, dayAudit.map((a, i) => {
-                                var _a, _b, _c, _e, _f;
-                                const names = { punch_edit: 'ویرایش تردد', punch_add: 'افزودن تردد دستی', punch_delete: 'حذف تردد', gps_waiver: 'بی‌اثر کردن کسری GPS', internet_waiver: 'بی‌اثر کردن خاموشی اینترنت', surplus_convert: 'تبدیل مازاد به اضافه‌کار', surplus_reset: 'بازنشانی اضافه‌کار' };
+                                var _a, _b, _c, _e, _f, _g, _h;
+                                const names = { punch_edit: 'ویرایش تردد', punch_add: 'افزودن تردد دستی', punch_delete: 'حذف تردد', gps_waiver: 'بی‌اثر کردن کسری GPS', internet_waiver: 'بی‌اثر کردن خاموشی اینترنت', surplus_convert: 'تبدیل مازاد به اضافه‌کار', surplus_reset: 'بازنشانی اضافه‌کار', request_edit: 'اصلاح درخواست ثبت‌شده' };
                                 const b = a.before || {}, n = a.after || {};
                                 const vals = a.action === 'gps_waiver' || a.action === 'internet_waiver' ? [['بازه', `${b.start_at || '—'} تا ${b.end_at || '—'}`, 'بی‌اثر شد'], ['مدت', b.minutes != null ? `${b.minutes} دقیقه` : '—', 'بدون کسر']] :
-                                    a.action.startsWith('surplus_') ? [['دقیقهٔ تبدیل‌شده', (_a = b.minutes) !== null && _a !== void 0 ? _a : '—', (_b = n.minutes) !== null && _b !== void 0 ? _b : '—']] :
-                                        [['ورود', b.check_in || '—', n.check_in || '—'], ['خروج', b.check_out || '—', n.check_out || '—'], ['خط', (_c = b.line_id) !== null && _c !== void 0 ? _c : '—', (_e = n.line_id) !== null && _e !== void 0 ? _e : '—']];
+                                    a.action === 'request_edit' ? [['ورود در درخواست', b.in_time || b.from_time || '—', n.in_time || n.from_time || '—'], ['خروج در درخواست', b.out_time || b.to_time || '—', n.out_time || n.to_time || '—'], ['مدت (دقیقه)', (_a = b.minutes) !== null && _a !== void 0 ? _a : '—', (_b = n.minutes) !== null && _b !== void 0 ? _b : '—'], ['وضعیت', b.status || '—', n.status || '—']] :
+                                        a.action.startsWith('surplus_') ? [['دقیقهٔ تبدیل‌شده', (_c = b.minutes) !== null && _c !== void 0 ? _c : '—', (_e = n.minutes) !== null && _e !== void 0 ? _e : '—']] :
+                                            [['ورود', b.check_in || '—', n.check_in || '—'], ['خروج', b.check_out || '—', n.check_out || '—'], ['خط', (_f = b.line_id) !== null && _f !== void 0 ? _f : '—', (_g = n.line_id) !== null && _g !== void 0 ? _g : '—']];
                                 return React.createElement("article", { className: "attendance-audit-item", key: a.action + '-' + a.id + '-' + i },
                                     React.createElement("div", { className: "attendance-audit-item-head" },
                                         React.createElement("div", null,
                                             React.createElement("strong", null, names[a.action] || a.action),
-                                            React.createElement("span", { className: "attendance-audit-person" }, ((_f = a.actor_name) === null || _f === void 0 ? void 0 : _f.trim()) || 'کاربر #' + (a.actor_id || 'نامشخص'))),
+                                            React.createElement("span", { className: "attendance-audit-person" }, ((_h = a.actor_name) === null || _h === void 0 ? void 0 : _h.trim()) || 'کاربر #' + (a.actor_id || 'نامشخص'))),
                                         React.createElement("time", null, faDate(a.created_at))),
                                     React.createElement("div", { className: "attendance-audit-values" },
                                         React.createElement("div", { className: "attendance-audit-values-head" },
@@ -12526,28 +12536,34 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
                             React.createElement("div", { className: "attendance-day-actions" },
                                 React.createElement("button", { className: "btn p", style: { width: "100%" }, onClick: () => setRequestModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
                                 React.createElement("button", { className: "btn g", style: { width: "100%" }, onClick: () => setAddModal({ jdate: d.jdate }) }, "\u062B\u0628\u062A \u062A\u0631\u062F\u062F \u062F\u0633\u062A\u06CC")),
-                            React.createElement("div", { style: { marginTop: 12 } }, dayRequests.length === 0 ? React.createElement("div", { className: "muted", style: { fontSize: 12 } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") :
+                            React.createElement("div", { style: { marginTop: 12 } }, dayRequestsBusy ? React.createElement("p", { className: "muted", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632\u2026") : dayRequestsError ? React.createElement("div", { className: "attendance-audit-error", role: "alert" },
+                                dayRequestsError,
+                                React.createElement("button", { type: "button", className: "btn g", onClick: () => setDayRequestsReload(v => v + 1) }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")) : dayRequests.length === 0 ? React.createElement("div", { className: "muted", style: { fontSize: 12 } }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.") :
                                 React.createElement("div", { style: { overflowX: "auto" } },
-                                    React.createElement("table", { style: { minWidth: 620, width: "100%" } },
+                                    React.createElement("table", { style: { minWidth: 750, width: "100%" } },
                                         React.createElement("thead", null,
                                             React.createElement("tr", null,
                                                 React.createElement("th", null, "\u0646\u0648\u0639 \u062F\u0631\u062E\u0648\u0627\u0633\u062A"),
                                                 React.createElement("th", null, "\u0628\u0627\u0632\u0647"),
                                                 React.createElement("th", null, "\u0633\u0627\u0639\u062A"),
                                                 React.createElement("th", null, "\u0645\u062F\u062A"),
-                                                React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"))),
+                                                React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
+                                                React.createElement("th", null, "\u062A\u0623\u06CC\u06CC\u062F\u06A9\u0646\u0646\u062F\u0647 \u0648 \u062A\u0648\u0636\u06CC\u062D\u0627\u062A"))),
                                         React.createElement("tbody", null, dayRequests.map(r => React.createElement("tr", { key: r.id },
                                             React.createElement("td", null, (() => {
-                                                const labels = { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", unpaid: "مرخصی بدون حقوق", mission: "ماموریت", overtime: "اضافه‌کار" };
+                                                const labels = { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", unpaid: "مرخصی بدون حقوق", mission: "ماموریت", overtime: "اضافه‌کار", manual: "تردد دستی" };
                                                 const base = labels[r.type] || r.type || "—";
                                                 return r.unit === "hourly" ? base + " ساعتی" : base;
                                             })()),
                                             React.createElement("td", null,
                                                 faPlain(String(r.from_jdate || r.the_date || "—")),
                                                 r.to_jdate && r.to_jdate !== r.from_jdate ? " تا " + faPlain(String(r.to_jdate)) : ""),
-                                            React.createElement("td", null, r.from_time && r.to_time ? faPlain(r.from_time) + " تا " + faPlain(r.to_time) : "—"),
+                                            React.createElement("td", null, (r.from_time || r.in_time) && (r.to_time || r.out_time) ? faPlain(String(r.from_time || r.in_time)) + " تا " + faPlain(String(r.to_time || r.out_time)) : "—"),
                                             React.createElement("td", null, r.minutes ? hm(r.minutes) : "—"),
-                                            React.createElement("td", null, ({ pending: "در انتظار تأیید", approved: "تأییدشده", rejected: "ردشده", canceled: "لغوشده" }[r.status] || r.status || "—")))))))))))) : null;
+                                            React.createElement("td", null, ({ pending: "در انتظار تأیید", approved: "تأییدشده", rejected: "ردشده", canceled: "لغوشده" }[r.status] || r.status || "—")),
+                                            React.createElement("td", null,
+                                                React.createElement("strong", null, r.approver || "—"),
+                                                (r.reason || r.approver_note) && React.createElement("small", { style: { display: "block", whiteSpace: "normal", minWidth: 160 } }, [r.reason, r.approver_note].filter(Boolean).join(" · "))))))))))))) : null;
         })(),
         mapPunch && (() => { const valid = (a, b) => a !== null && a !== undefined && a !== "" && b !== null && b !== undefined && b !== "" && Number.isFinite(Number(a)) && Number.isFinite(Number(b)) && Math.abs(Number(a)) <= 90 && Math.abs(Number(b)) <= 180; const hasIn = valid(mapPunch.in_lat, mapPunch.in_lng), hasOut = valid(mapPunch.out_lat, mapPunch.out_lng); const routeUrl = hasIn && hasOut ? "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(mapPunch.in_lat + "," + mapPunch.in_lng) + "&destination=" + encodeURIComponent(mapPunch.out_lat + "," + mapPunch.out_lng) : "https://www.google.com/maps?q=" + encodeURIComponent((hasIn ? mapPunch.in_lat + "," + mapPunch.in_lng : mapPunch.out_lat + "," + mapPunch.out_lng)); return React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 100000, background: "rgba(0,0,0,.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }, onClick: () => setMapPunch(null) },
             React.createElement("div", { className: "card-p", style: { width: "min(900px,96vw)", height: "min(720px,92vh)", display: "flex", flexDirection: "column", gap: 10, overflow: "hidden" }, onClick: e => e.stopPropagation() },
@@ -12568,11 +12584,7 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
                     React.createElement("a", { className: "btn g", href: routeUrl, target: "_blank", rel: "noreferrer" }, hasIn && hasOut ? "نمایش مسیر ورود تا خروج در Google Maps" : "باز کردن نقطه ثبت‌شده در Google Maps")))); })(),
         edit && React.createElement(PunchEditModal, { punch: edit, onSave: savePunch, onClose: () => setEdit(null) }),
         addModal && React.createElement(PunchAddModal, { jdate: addModal.jdate, onSave: addPunch, onClose: () => setAddModal(null) }),
-        requestModal && React.createElement(AttendanceRequestModal, { userId: uid, jdate: requestModal.jdate, onSaved: async () => { setRequestModal(null); await refresh(); if (openDay) {
-                const rows = await db.adminRequests('?user_id=' + encodeURIComponent(uid));
-                const ds = String(openDay).replace(/\\/ / g, '-');
-                setDayRequests((rows || []).filter(r => { const a = String(r.from_jdate || r.the_date || '').replace(/\\/ / g, '-'); const b = String(r.to_jdate || r.the_date || a).replace(/\\/ / g, '-'); return a <= ds && ds <= b; }));
-            } }, onClose: () => setRequestModal(null) })));
+        requestModal && React.createElement(AttendanceRequestModal, { userId: uid, jdate: requestModal.jdate, onSaved: async () => { setRequestModal(null); await refresh(); setDayRequestsReload(v => v + 1); }, onClose: () => setRequestModal(null) })));
 }
 function AttendanceConversionModal({ userId, mode, jdate, minutes, onSaved, onClose }) {
     const [fromTime, setFromTime] = useState("");
