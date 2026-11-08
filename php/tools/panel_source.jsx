@@ -6901,7 +6901,7 @@ function Holidays(){
 
 // گزارش کارکرد ماهانه
 // گزارش تردد پرسنل (مدل فینتو) — سطر روزانه + پاپ‌آپ لیست ورود/خروج + ویرایش ساعت توسط ادمین
-function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom='',initialTo='',onChanged=null}={}){
+function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom='',initialTo='',initialFocusColumn='',onChanged=null}={}){
   const [users,setUsers]=useState([]);
   const [usersLoading,setUsersLoading]=useState(true);
   const [uid,setUid]=useState("");
@@ -7126,7 +7126,9 @@ function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom=''
     ["اضافه کاری تعطیل و جمعه",d=>dayVal(d,"holiday_friday_overtime")],["جمعه کاری",d=>dayVal(d,"friday_work")],["روزکارکرد جمعه",d=>dayVal(d,"friday_workday")],
     ["تهاتر مازاد حضور",d=>dayVal(d,"adjusted_surplus")],["تهاتر کسری کار",d=>dayVal(d,"adjusted_shortage")],["اولین ورود",d=>dayVal(d,"first_in")],["آخرین خروج",d=>dayVal(d,"last_out")]
   ];
-  const selectedColumns=columns.filter((_,i)=>visibleColumnIndexes.includes(i));
+  const focusTitles={shortage:'کسری کار',absent_min:'غیبت',absence_shortage:'جمع غیبت و کسری کار',gps_inactive_minutes:'کسر کار غیر فعال کردن برنامه',internet_inactive_minutes:'کسر کار خاموشی اینترنت'};
+  const focusTitle=focusTitles[initialFocusColumn]||'';
+  const selectedColumns=focusTitle?[...columns.slice(0,2),...columns.filter(c=>c[0]===focusTitle),...columns.filter((c,i)=>i>=2&&c[0]!==focusTitle&&visibleColumnIndexes.includes(i))]:columns.filter((_,i)=>visibleColumnIndexes.includes(i));
   const saveColumnSettings=()=>{const next=Array.from(new Set(draftColumnIndexes)).filter(i=>Number.isInteger(i)&&i>=0&&i<columns.length);if(!next.includes(0))next.unshift(0);setVisibleColumnIndexes(next);try{localStorage.setItem(attendanceColumnStorageKey,JSON.stringify(next));}catch(_){}setColumnSettingsOpen(false);};
   const exportExcel=async()=>{if(!data)return;try{const rows=[columns.map(x=>x[0])];(data.days||[]).forEach(d=>rows.push(columns.map(x=>x[1](d))));const response=await _fetchWithAuth("/api/admin-attendance-xlsx.php",{method:"POST",headers:{"content-type":"application/json","accept":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},body:JSON.stringify({rows}),cache:"no-store"});if(!response.ok){let message="خطا در ساخت فایل Excel";try{const result=await response.json();message=result.error||result.message||message}catch(_){}throw new Error(message)}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`گزارش_تردد_${String(uid)}_${String(from).replace(/\//g,"-")}_${String(to).replace(/\//g,"-")}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}catch(e){alert(e.message||"خطا در دریافت خروجی گزارش")}};
 
@@ -7173,7 +7175,7 @@ function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom=''
     </div>}
     {data&&(data.days||[]).length>0&&<div className="attendance-report-table-scroll" tabIndex={0} role="region" aria-label="جدول تردد روزانه؛ برای مشاهدهٔ ستون‌های بیشتر به صورت افقی پیمایش کنید" style={{height:"calc(100vh - 360px)",maxHeight:"calc(100dvh - 260px)",minHeight:220,overflow:"auto",border:"1px solid var(--line)",borderRadius:10,position:"relative",overscrollBehavior:"contain"}}>
       <table className="khar-attendance-native" style={{fontSize:12,width:"max-content",tableLayout:"auto",borderCollapse:"separate",borderSpacing:0}}>
-        <thead><tr>{selectedColumns.map(([title],i)=><th key={title} style={{whiteSpace:"normal",overflowWrap:"anywhere",maxWidth:180,minWidth:64,position:"sticky",top:0,zIndex:3,background:"#eaf5f0",borderBottom:"2px solid #0d7a5f",borderInlineStart:"1px solid #d7e5dd",padding:"10px 8px",verticalAlign:"middle"}}>{title}</th>)}</tr></thead>
+        <thead><tr>{selectedColumns.map(([title],i)=><th key={title} style={{whiteSpace:"normal",overflowWrap:"anywhere",maxWidth:180,minWidth:64,position:"sticky",top:0,zIndex:3,background:title===focusTitle?'#d7ebff':'#eaf5f0',borderBottom:"2px solid #0d7a5f",borderInlineStart:"1px solid #d7e5dd",padding:"10px 8px",verticalAlign:"middle"}}>{title}</th>)}</tr></thead>
         <tbody>{(data.days||[]).map((d,rowIndex)=>{
           const friday=!!d.is_friday||d.weekday==="جمعه";
           const holiday=!!d.is_holiday;
@@ -7759,19 +7761,23 @@ function WorkReviewReport(){
   const today=todayJ(),start=`${today[0]}/${String(today[1]).padStart(2,'0')}/01`,end=`${today[0]}/${String(today[1]).padStart(2,'0')}/${String(today[2]).padStart(2,'0')}`;
   const [from,setFrom]=useState(start),[to,setTo]=useState(end),[zone,setZone]=useState(''),[role,setRole]=useState('');
   const [zones,setZones]=useState([]),[roles,setRoles]=useState([]),[rows,setRows]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const [detail,setDetail]=useState(null),request=useRef(0);
+  const [detail,setDetail]=useState(null),request=useRef(0),detailEdited=useRef(false);
   useEffect(()=>{let active=true;Promise.all([db.zones(),db.roles()]).then(([z,r])=>{if(active){setZones(Array.isArray(z)?z:[]);setRoles(Array.isArray(r)?r:[]);}}).catch(()=>{if(active)setError('دریافت فهرست مناطق و سمت‌ها ناموفق بود.');});return()=>{active=false;request.current++;};},[]);
   const load=async()=>{
     const valid=v=>/^\d{4}\/\d{2}\/\d{2}$/.test(v)&&Boolean(jalaliToGreg(...v.split('/').map(Number)));
     if(!valid(from)||!valid(to)||from>to){setError('بازه شروع و پایان را با تقویم شمسی به‌درستی انتخاب کنید.');setRows(null);return;}
-    const generation=++request.current;setBusy(true);setError('');setRows(null);
+    const generation=++request.current;setBusy(true);setError('');
     const q=new URLSearchParams({from,to,...(zone?{zone_id:zone}:{}),...(role?{role_id:role}:{})});
     try{const data=await GET('/admin/shift-report/range?'+q.toString());if(generation===request.current)setRows(Array.isArray(data.rows)?data.rows:[]);}
     catch(e){if(generation===request.current)setError(e.message||'دریافت کارکرد ناموفق بود.');}
     finally{if(generation===request.current)setBusy(false);}
   };
   const hm=v=>{const n=Math.max(0,Number(v)||0);return fa(Math.floor(n/60))+':'+String(n%60).padStart(2,'0').replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[+d]);};
-  const fields=[['expected','موظفی'],['worked','حضور کل'],['in_shift','حضور در شیفت'],['late_in','تأخیر ورود'],['early_out','تعجیل خروج'],['shortage','کسری کار'],['absent_min','غیبت'],['absence_shortage','جمع غیبت و کسری'],['night','شب‌کاری'],['regular_overtime','اضافه‌کاری'],['surplus','مازاد حضور'],['friday','جمعه‌کاری'],['holiday','تعطیل‌کاری'],['mission_min','مأموریت'],['annual_min','مرخصی استحقاقی'],['sick_min','مرخصی استعلاجی']];
+  const fields=[['expected','موظفی'],['worked','حضور کل'],['in_shift','حضور در شیفت'],['late_in','تأخیر ورود'],['early_out','تعجیل خروج'],['shortage','کسری کار'],['gps_inactive_minutes','کسر کار غیرفعال بودن برنامه / GPS'],['internet_inactive_minutes','کسر کار خاموشی اینترنت'],['absent_min','غیبت'],['absence_shortage','جمع غیبت و کسری'],['night','شب‌کاری'],['regular_overtime','اضافه‌کاری'],['surplus','مازاد حضور'],['friday','جمعه‌کاری'],['holiday','تعطیل‌کاری'],['mission_min','مأموریت'],['annual_min','مرخصی استحقاقی'],['sick_min','مرخصی استعلاجی']];
+  const deficitKeys=new Set(['shortage','absent_min','absence_shortage']);
+  const gpsKeys=new Set(['gps_inactive_minutes','internet_inactive_minutes']);
+  const openDetail=(r,key='')=>{detailEdited.current=false;setDetail({id:r.user_id,name:r.name,focus:key});};
+  const closeDetail=()=>{setDetail(null);if(detailEdited.current){detailEdited.current=false;load();}};
   return <div className="monthly-work-report-page admin-workspace-page">
     <div className="card-p" style={{marginBottom:14}}><h3 style={{marginTop:0}}>بررسی کارکرد پرسنل</h3><p className="muted">محاسبات بر پایهٔ همان گزارش کارکرد ماهانه است. برای گزارش روزانه روی نام فرد بزنید.</p>
       <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'flex-end'}}>
@@ -7784,8 +7790,8 @@ function WorkReviewReport(){
     {busy&&<div role="status" className="card-p">در حال محاسبه کارکرد پرسنل…</div>}
     {!busy&&error&&<div className="card-p" role="alert" style={{color:'var(--danger)'}}>{error} <button className="btn g" type="button" onClick={load}>تلاش دوباره</button></div>}
     {!busy&&!error&&rows===null&&<div className="card-p muted">منطقه، سمت و بازهٔ تاریخ را انتخاب کنید و «بررسی کارکرد» را بزنید.</div>}
-    {!busy&&rows&&(rows.length===0?<div className="card-p muted" role="status">برای فیلترهای انتخاب‌شده کارکردی یافت نشد.</div>:<div className="card-p" style={{overflowX:'auto'}} role="region" tabIndex={0} aria-label="جدول بررسی کارکرد؛ برای دیدن ستون‌های بیشتر پیمایش کنید"><div className="muted" style={{marginBottom:10}}>{fa(rows.length)} نفر · {faPlain(from)} تا {faPlain(to)}</div><table style={{minWidth:1550,width:'100%'}}><thead><tr><th>نام و نام خانوادگی</th>{fields.map(([key,label])=><th key={key}>{label}</th>)}</tr></thead><tbody>{rows.map(r=><tr key={r.user_id}><td><button type="button" className="btn g" onClick={()=>setDetail({id:r.user_id,name:r.name})}>{r.name}</button></td>{fields.map(([key])=><td key={key}>{hm(key==='absence_shortage'?(Number(r.absent_min||0)+Number(r.shortage||0)):key==='regular_overtime'?(r.regular_overtime??r.overtime):r[key])}</td>)}</tr>)}</tbody></table></div>)}
-    {detail&&<div role="dialog" aria-modal="true" aria-label={'گزارش تردد '+detail.name} style={{position:'fixed',inset:0,zIndex:9900,background:'rgba(0,0,0,.65)',display:'flex',alignItems:'center',justifyContent:'center',padding:12}}><div className="card-p" style={{width:'min(98vw,1600px)',maxHeight:'94vh',overflow:'auto'}}><div className="row" style={{justifyContent:'space-between',gap:12}}><strong>{detail.name}</strong><button className="btn g" type="button" onClick={()=>{setDetail(null);setRows(null);}}>بستن ×</button></div><AttendanceDailyReport initialUserId={detail.id} initialName={detail.name} initialFrom={from} initialTo={to} onChanged={()=>{setRows(null);}}/></div></div>}
+    {!busy&&!error&&rows&&(rows.length===0?<div className="card-p muted" role="status">برای فیلترهای انتخاب‌شده کارکردی یافت نشد.</div>:<div className="card-p" style={{overflowX:'auto'}} role="region" tabIndex={0} aria-label="جدول بررسی کارکرد؛ برای دیدن ستون‌های بیشتر پیمایش کنید"><div className="muted" style={{marginBottom:10}}>{fa(rows.length)} نفر · {faPlain(from)} تا {faPlain(to)}</div><table style={{minWidth:1680,width:'100%'}}><thead><tr><th>نام و نام خانوادگی</th>{fields.map(([key,label])=><th key={key}>{label}</th>)}</tr></thead><tbody>{rows.map(r=><tr key={r.user_id}><td><button type="button" className="btn g" onClick={()=>openDetail(r)}>{r.name}</button></td>{fields.map(([key])=>{const value=key==='absence_shortage'?(Number(r.absent_min||0)+Number(r.shortage||0)):key==='regular_overtime'?(r.regular_overtime??r.overtime):r[key];const active=Number(value)>0;const color=active?(gpsKeys.has(key)?'#1764cf':deficitKeys.has(key)?'#c62828':undefined):undefined;return <td key={key} style={{color,fontWeight:color?700:400}}>{active&&(gpsKeys.has(key)||deficitKeys.has(key))?<button type="button" className="btn g" style={{padding:'3px 7px',fontWeight:800,color}} title="مشاهده ریز روزانه و دلایل کسری" onClick={()=>openDetail(r,key)}>{hm(value)}</button>:gpsKeys.has(key)&&value==null?'—':hm(value)}</td>;})}</tr>)}</tbody></table></div>)}
+    {detail&&<div role="dialog" aria-modal="true" aria-label={'گزارش تردد '+detail.name} style={{position:'fixed',inset:0,zIndex:9900,background:'rgba(0,0,0,.65)',display:'flex',alignItems:'center',justifyContent:'center',padding:12}}><div className="card-p" style={{width:'min(98vw,1600px)',maxHeight:'94vh',overflow:'auto'}}><div className="row" style={{justifyContent:'space-between',gap:12}}><strong>{detail.name}</strong><button className="btn g" type="button" onClick={closeDetail}>بستن ×</button></div>{detail.focus&&<p className="muted" style={{fontSize:12}}>ستون مرتبط در ابتدای جدول روزانه نمایش داده شده؛ برای مشاهده مودال جزئیات و دلایل، روی مقدار رنگی همان روز کلیک کنید.</p>}<AttendanceDailyReport initialUserId={detail.id} initialName={detail.name} initialFrom={from} initialTo={to} initialFocusColumn={detail.focus} onChanged={()=>{detailEdited.current=true;}}/></div></div>}
   </div>;
 }
 

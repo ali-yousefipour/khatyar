@@ -11825,7 +11825,7 @@ function Holidays() {
 }
 // گزارش کارکرد ماهانه
 // گزارش تردد پرسنل (مدل فینتو) — سطر روزانه + پاپ‌آپ لیست ورود/خروج + ویرایش ساعت توسط ادمین
-function AttendanceDailyReport({ initialUserId = null, initialName = '', initialFrom = '', initialTo = '', onChanged = null } = {}) {
+function AttendanceDailyReport({ initialUserId = null, initialName = '', initialFrom = '', initialTo = '', initialFocusColumn = '', onChanged = null } = {}) {
     var _a, _b;
     const [users, setUsers] = useState([]);
     const [usersLoading, setUsersLoading] = useState(true);
@@ -12202,7 +12202,9 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
         ["اضافه کاری تعطیل و جمعه", d => dayVal(d, "holiday_friday_overtime")], ["جمعه کاری", d => dayVal(d, "friday_work")], ["روزکارکرد جمعه", d => dayVal(d, "friday_workday")],
         ["تهاتر مازاد حضور", d => dayVal(d, "adjusted_surplus")], ["تهاتر کسری کار", d => dayVal(d, "adjusted_shortage")], ["اولین ورود", d => dayVal(d, "first_in")], ["آخرین خروج", d => dayVal(d, "last_out")]
     ];
-    const selectedColumns = columns.filter((_, i) => visibleColumnIndexes.includes(i));
+    const focusTitles = { shortage: 'کسری کار', absent_min: 'غیبت', absence_shortage: 'جمع غیبت و کسری کار', gps_inactive_minutes: 'کسر کار غیر فعال کردن برنامه', internet_inactive_minutes: 'کسر کار خاموشی اینترنت' };
+    const focusTitle = focusTitles[initialFocusColumn] || '';
+    const selectedColumns = focusTitle ? [...columns.slice(0, 2), ...columns.filter(c => c[0] === focusTitle), ...columns.filter((c, i) => i >= 2 && c[0] !== focusTitle && visibleColumnIndexes.includes(i))] : columns.filter((_, i) => visibleColumnIndexes.includes(i));
     const saveColumnSettings = () => { const next = Array.from(new Set(draftColumnIndexes)).filter(i => Number.isInteger(i) && i >= 0 && i < columns.length); if (!next.includes(0))
         next.unshift(0); setVisibleColumnIndexes(next); try {
         localStorage.setItem(attendanceColumnStorageKey, JSON.stringify(next));
@@ -12315,7 +12317,7 @@ function AttendanceDailyReport({ initialUserId = null, initialName = '', initial
         data && (data.days || []).length > 0 && React.createElement("div", { className: "attendance-report-table-scroll", tabIndex: 0, role: "region", "aria-label": "\u062C\u062F\u0648\u0644 \u062A\u0631\u062F\u062F \u0631\u0648\u0632\u0627\u0646\u0647\u061B \u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647\u0654 \u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0628\u06CC\u0634\u062A\u0631 \u0628\u0647 \u0635\u0648\u0631\u062A \u0627\u0641\u0642\u06CC \u067E\u06CC\u0645\u0627\u06CC\u0634 \u06A9\u0646\u06CC\u062F", style: { height: "calc(100vh - 360px)", maxHeight: "calc(100dvh - 260px)", minHeight: 220, overflow: "auto", border: "1px solid var(--line)", borderRadius: 10, position: "relative", overscrollBehavior: "contain" } },
             React.createElement("table", { className: "khar-attendance-native", style: { fontSize: 12, width: "max-content", tableLayout: "auto", borderCollapse: "separate", borderSpacing: 0 } },
                 React.createElement("thead", null,
-                    React.createElement("tr", null, selectedColumns.map(([title], i) => React.createElement("th", { key: title, style: { whiteSpace: "normal", overflowWrap: "anywhere", maxWidth: 180, minWidth: 64, position: "sticky", top: 0, zIndex: 3, background: "#eaf5f0", borderBottom: "2px solid #0d7a5f", borderInlineStart: "1px solid #d7e5dd", padding: "10px 8px", verticalAlign: "middle" } }, title)))),
+                    React.createElement("tr", null, selectedColumns.map(([title], i) => React.createElement("th", { key: title, style: { whiteSpace: "normal", overflowWrap: "anywhere", maxWidth: 180, minWidth: 64, position: "sticky", top: 0, zIndex: 3, background: title === focusTitle ? '#d7ebff' : '#eaf5f0', borderBottom: "2px solid #0d7a5f", borderInlineStart: "1px solid #d7e5dd", padding: "10px 8px", verticalAlign: "middle" } }, title)))),
                 React.createElement("tbody", null, (data.days || []).map((d, rowIndex) => {
                     const friday = !!d.is_friday || d.weekday === "جمعه";
                     const holiday = !!d.is_holiday;
@@ -13503,7 +13505,7 @@ function WorkReviewReport() {
     const today = todayJ(), start = `${today[0]}/${String(today[1]).padStart(2, '0')}/01`, end = `${today[0]}/${String(today[1]).padStart(2, '0')}/${String(today[2]).padStart(2, '0')}`;
     const [from, setFrom] = useState(start), [to, setTo] = useState(end), [zone, setZone] = useState(''), [role, setRole] = useState('');
     const [zones, setZones] = useState([]), [roles, setRoles] = useState([]), [rows, setRows] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
-    const [detail, setDetail] = useState(null), request = useRef(0);
+    const [detail, setDetail] = useState(null), request = useRef(0), detailEdited = useRef(false);
     useEffect(() => { let active = true; Promise.all([db.zones(), db.roles()]).then(([z, r]) => { if (active) {
         setZones(Array.isArray(z) ? z : []);
         setRoles(Array.isArray(r) ? r : []);
@@ -13519,7 +13521,6 @@ function WorkReviewReport() {
         const generation = ++request.current;
         setBusy(true);
         setError('');
-        setRows(null);
         const q = new URLSearchParams({ from, to, ...(zone ? { zone_id: zone } : {}), ...(role ? { role_id: role } : {}) });
         try {
             const data = await GET('/admin/shift-report/range?' + q.toString());
@@ -13536,7 +13537,14 @@ function WorkReviewReport() {
         }
     };
     const hm = v => { const n = Math.max(0, Number(v) || 0); return fa(Math.floor(n / 60)) + ':' + String(n % 60).padStart(2, '0').replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]); };
-    const fields = [['expected', 'موظفی'], ['worked', 'حضور کل'], ['in_shift', 'حضور در شیفت'], ['late_in', 'تأخیر ورود'], ['early_out', 'تعجیل خروج'], ['shortage', 'کسری کار'], ['absent_min', 'غیبت'], ['absence_shortage', 'جمع غیبت و کسری'], ['night', 'شب‌کاری'], ['regular_overtime', 'اضافه‌کاری'], ['surplus', 'مازاد حضور'], ['friday', 'جمعه‌کاری'], ['holiday', 'تعطیل‌کاری'], ['mission_min', 'مأموریت'], ['annual_min', 'مرخصی استحقاقی'], ['sick_min', 'مرخصی استعلاجی']];
+    const fields = [['expected', 'موظفی'], ['worked', 'حضور کل'], ['in_shift', 'حضور در شیفت'], ['late_in', 'تأخیر ورود'], ['early_out', 'تعجیل خروج'], ['shortage', 'کسری کار'], ['gps_inactive_minutes', 'کسر کار غیرفعال بودن برنامه / GPS'], ['internet_inactive_minutes', 'کسر کار خاموشی اینترنت'], ['absent_min', 'غیبت'], ['absence_shortage', 'جمع غیبت و کسری'], ['night', 'شب‌کاری'], ['regular_overtime', 'اضافه‌کاری'], ['surplus', 'مازاد حضور'], ['friday', 'جمعه‌کاری'], ['holiday', 'تعطیل‌کاری'], ['mission_min', 'مأموریت'], ['annual_min', 'مرخصی استحقاقی'], ['sick_min', 'مرخصی استعلاجی']];
+    const deficitKeys = new Set(['shortage', 'absent_min', 'absence_shortage']);
+    const gpsKeys = new Set(['gps_inactive_minutes', 'internet_inactive_minutes']);
+    const openDetail = (r, key = '') => { detailEdited.current = false; setDetail({ id: r.user_id, name: r.name, focus: key }); };
+    const closeDetail = () => { setDetail(null); if (detailEdited.current) {
+        detailEdited.current = false;
+        load();
+    } };
     return React.createElement("div", { className: "monthly-work-report-page admin-workspace-page" },
         React.createElement("div", { className: "card-p", style: { marginBottom: 14 } },
             React.createElement("h3", { style: { marginTop: 0 } }, "\u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F \u067E\u0631\u0633\u0646\u0644"),
@@ -13565,28 +13573,29 @@ function WorkReviewReport() {
             " ",
             React.createElement("button", { className: "btn g", type: "button", onClick: load }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")),
         !busy && !error && rows === null && React.createElement("div", { className: "card-p muted" }, "\u0645\u0646\u0637\u0642\u0647\u060C \u0633\u0645\u062A \u0648 \u0628\u0627\u0632\u0647\u0654 \u062A\u0627\u0631\u06CC\u062E \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F \u0648 \u00AB\u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F\u00BB \u0631\u0627 \u0628\u0632\u0646\u06CC\u062F."),
-        !busy && rows && (rows.length === 0 ? React.createElement("div", { className: "card-p muted", role: "status" }, "\u0628\u0631\u0627\u06CC \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u06A9\u0627\u0631\u06A9\u0631\u062F\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.") : React.createElement("div", { className: "card-p", style: { overflowX: 'auto' }, role: "region", tabIndex: 0, "aria-label": "\u062C\u062F\u0648\u0644 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F\u061B \u0628\u0631\u0627\u06CC \u062F\u06CC\u062F\u0646 \u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0628\u06CC\u0634\u062A\u0631 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u06A9\u0646\u06CC\u062F" },
+        !busy && !error && rows && (rows.length === 0 ? React.createElement("div", { className: "card-p muted", role: "status" }, "\u0628\u0631\u0627\u06CC \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u06A9\u0627\u0631\u06A9\u0631\u062F\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.") : React.createElement("div", { className: "card-p", style: { overflowX: 'auto' }, role: "region", tabIndex: 0, "aria-label": "\u062C\u062F\u0648\u0644 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F\u061B \u0628\u0631\u0627\u06CC \u062F\u06CC\u062F\u0646 \u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0628\u06CC\u0634\u062A\u0631 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u06A9\u0646\u06CC\u062F" },
             React.createElement("div", { className: "muted", style: { marginBottom: 10 } },
                 fa(rows.length),
                 " \u0646\u0641\u0631 \u00B7 ",
                 faPlain(from),
                 " \u062A\u0627 ",
                 faPlain(to)),
-            React.createElement("table", { style: { minWidth: 1550, width: '100%' } },
+            React.createElement("table", { style: { minWidth: 1680, width: '100%' } },
                 React.createElement("thead", null,
                     React.createElement("tr", null,
                         React.createElement("th", null, "\u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC"),
                         fields.map(([key, label]) => React.createElement("th", { key: key }, label)))),
                 React.createElement("tbody", null, rows.map(r => React.createElement("tr", { key: r.user_id },
                     React.createElement("td", null,
-                        React.createElement("button", { type: "button", className: "btn g", onClick: () => setDetail({ id: r.user_id, name: r.name }) }, r.name)),
-                    fields.map(([key]) => { var _a; return React.createElement("td", { key: key }, hm(key === 'absence_shortage' ? (Number(r.absent_min || 0) + Number(r.shortage || 0)) : key === 'regular_overtime' ? ((_a = r.regular_overtime) !== null && _a !== void 0 ? _a : r.overtime) : r[key])); }))))))),
+                        React.createElement("button", { type: "button", className: "btn g", onClick: () => openDetail(r) }, r.name)),
+                    fields.map(([key]) => { var _a; const value = key === 'absence_shortage' ? (Number(r.absent_min || 0) + Number(r.shortage || 0)) : key === 'regular_overtime' ? ((_a = r.regular_overtime) !== null && _a !== void 0 ? _a : r.overtime) : r[key]; const active = Number(value) > 0; const color = active ? (gpsKeys.has(key) ? '#1764cf' : deficitKeys.has(key) ? '#c62828' : undefined) : undefined; return React.createElement("td", { key: key, style: { color, fontWeight: color ? 700 : 400 } }, active && (gpsKeys.has(key) || deficitKeys.has(key)) ? React.createElement("button", { type: "button", className: "btn g", style: { padding: '3px 7px', fontWeight: 800, color }, title: "\u0645\u0634\u0627\u0647\u062F\u0647 \u0631\u06CC\u0632 \u0631\u0648\u0632\u0627\u0646\u0647 \u0648 \u062F\u0644\u0627\u06CC\u0644 \u06A9\u0633\u0631\u06CC", onClick: () => openDetail(r, key) }, hm(value)) : gpsKeys.has(key) && value == null ? '—' : hm(value)); }))))))),
         detail && React.createElement("div", { role: "dialog", "aria-modal": "true", "aria-label": 'گزارش تردد ' + detail.name, style: { position: 'fixed', inset: 0, zIndex: 9900, background: 'rgba(0,0,0,.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 } },
             React.createElement("div", { className: "card-p", style: { width: 'min(98vw,1600px)', maxHeight: '94vh', overflow: 'auto' } },
                 React.createElement("div", { className: "row", style: { justifyContent: 'space-between', gap: 12 } },
                     React.createElement("strong", null, detail.name),
-                    React.createElement("button", { className: "btn g", type: "button", onClick: () => { setDetail(null); setRows(null); } }, "\u0628\u0633\u062A\u0646 \u00D7")),
-                React.createElement(AttendanceDailyReport, { initialUserId: detail.id, initialName: detail.name, initialFrom: from, initialTo: to, onChanged: () => { setRows(null); } }))));
+                    React.createElement("button", { className: "btn g", type: "button", onClick: closeDetail }, "\u0628\u0633\u062A\u0646 \u00D7")),
+                detail.focus && React.createElement("p", { className: "muted", style: { fontSize: 12 } }, "\u0633\u062A\u0648\u0646 \u0645\u0631\u062A\u0628\u0637 \u062F\u0631 \u0627\u0628\u062A\u062F\u0627\u06CC \u062C\u062F\u0648\u0644 \u0631\u0648\u0632\u0627\u0646\u0647 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0634\u062F\u0647\u061B \u0628\u0631\u0627\u06CC \u0645\u0634\u0627\u0647\u062F\u0647 \u0645\u0648\u062F\u0627\u0644 \u062C\u0632\u0626\u06CC\u0627\u062A \u0648 \u062F\u0644\u0627\u06CC\u0644\u060C \u0631\u0648\u06CC \u0645\u0642\u062F\u0627\u0631 \u0631\u0646\u06AF\u06CC \u0647\u0645\u0627\u0646 \u0631\u0648\u0632 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F."),
+                React.createElement(AttendanceDailyReport, { initialUserId: detail.id, initialName: detail.name, initialFrom: from, initialTo: to, initialFocusColumn: detail.focus, onChanged: () => { detailEdited.current = true; } }))));
 }
 function AttendanceReport(props) {
     const [tab, setTab] = useState('daily');

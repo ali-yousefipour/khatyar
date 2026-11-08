@@ -3283,7 +3283,8 @@ function _work_month_daily_attendance_totals(array $report, int $lastDay): ?arra
     if (preg_match('/^([0-9]+):([0-5][0-9])$/',$value,$m)) return (int)$m[1]*60+(int)$m[2];
     return ctype_digit($value) ? (int)$value : 0;
   };
-  $tot=['expected'=>0,'in_shift'=>0,'shortage'=>0,'absent_min'=>0,'credited_exemption'=>0];
+  $tot=['expected'=>0,'in_shift'=>0,'shortage'=>0,'absent_min'=>0,'credited_exemption'=>0,
+    'gps_inactive_minutes'=>0,'internet_inactive_minutes'=>0];
   $seen=[];
   foreach ($report['days'] as $day) {
     if (!is_array($day)) return null;
@@ -3291,6 +3292,8 @@ function _work_month_daily_attendance_totals(array $report, int $lastDay): ?arra
     if (!$jdate || isset($seen[$jdate])) return null;
     $seen[$jdate]=true;
     if (!empty($day['is_future']) || !empty($day['outside_employment_period'])) continue;
+    $tot['gps_inactive_minutes'] += $parse($day['gps_inactive_minutes']??0);
+    $tot['internet_inactive_minutes'] += $parse($day['internet_inactive_minutes']??0);
     $expected=$parse($day['expected']??0);
     $inShift=$parse($day['in_shift']??0);
     $shortage=$parse($day['shortage']??0);
@@ -3315,7 +3318,9 @@ function _work_month_daily_attendance_totals(array $report, int $lastDay): ?arra
 
 // گزارش تجمیعی کارکرد ماهانه (شبیه فینتو) — بر اساس staff_attendance و شیفت کاربر
 // پارامترها: ?year=1404&month=6  (یا from/to جلالی)
-function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fromJdate=null) {
+function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fromJdate=null, $allowedUserIds=null) {
+  // Restricted work review must not calculate every employee before applying filters.
+  if ($allowedUserIds !== null && !$allowedUserIds) return [];
   // رکوردهای بازِ قدیمی باید قبل از گزارش مطابق سیاست Auto-Close بسته شوند؛
   // وگرنه گزارش ماه‌های گذشته ممکن است یک جلسهٔ باز را صفر محاسبه کند.
   try {
@@ -3323,6 +3328,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
       ? Db::all("SELECT DISTINCT user_id FROM staff_attendance WHERE user_id=? AND check_out IS NULL", [(int)$onlyUserId])
       : Db::all("SELECT DISTINCT user_id FROM staff_attendance WHERE check_out IS NULL");
     foreach ($pending as $or) {
+      if ($allowedUserIds !== null && !isset($allowedUserIds[(int)$or['user_id']])) continue;
       _attendance_auto_close_stale((int)$or['user_id']);
     }
   } catch (Throwable $e) { error_log('suppressed exception: '.$e->getMessage()); }
@@ -3372,6 +3378,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fr
   foreach ($assigns as $a) {
     // Several shift assignments can overlap one month; calculate each user only once.
     $reportUid=(int)$a['user_id'];
+    if ($allowedUserIds !== null && !isset($allowedUserIds[$reportUid])) continue;
     if(isset($reportedUsers[$reportUid]))continue;
     $reportedUsers[$reportUid]=true;
     // Select an effective shift within the reporting window, not the first historical assignment.
@@ -3656,14 +3663,17 @@ route('GET', '/api/admin/shift-report/range', function($p,$b,$u){
     if($roleId&&((int)$person['role_id']!==$roleId))continue;
     $allowed[(int)$person['id']]=true;
   }
+  if (!$allowed) return ['from'=>$from,'to'=>$to,'rows'=>[]];
   $rows=[];
   for($year=$fy,$month=$fm;$year<$ty||($year===$ty&&$month<=$tm);){
     $monthStart=sprintf('%04d-%02d-01',$year,$month);
     $monthEnd=sprintf('%04d-%02d-%02d',$year,$month,ShiftCalc::jMonthDays($year,$month));
     $partFrom=max($from,$monthStart);$partTo=min($to,$monthEnd);
     $complete=$partFrom===$monthStart&&$partTo===$monthEnd;
-    if(!$complete&&_final_work_month($year,$month))Http::error('برای بازهٔ جزئی از ماه نهایی‌شده، کارکرد ماه کامل را انتخاب کنید؛ باز‌محاسبهٔ تاریخچه مجاز نیست',422);
-    $monthly=$complete?_work_month_rows($year,$month):_shift_month_report($year,$month,$partTo,null,$partFrom);
+    $final=_final_work_month($year,$month);
+    if(!$complete&&$final)Http::error('برای بازهٔ جزئی از ماه نهایی‌شده، کارکرد ماه کامل را انتخاب کنید؛ باز‌محاسبهٔ تاریخچه مجاز نیست',422);
+    $monthly=$final?_work_only_active_users(_work_snapshot_decode($final['monthly_json']))
+      :_shift_month_report($year,$month,$complete?null:$partTo,null,$complete?null:$partFrom,$allowed);
     foreach($monthly as $person){
       $id=(int)($person['user_id']??0);
       if(!isset($allowed[$id]))continue;

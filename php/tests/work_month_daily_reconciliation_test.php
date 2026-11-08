@@ -17,6 +17,14 @@ $tot=_work_month_daily_attendance_totals($report,3);
 eq('no phantom monthly shortage',0,$tot['shortage']);
 eq('monthly duty',600,$tot['expected']);
 eq('monthly within-shift',600,$tot['in_shift']);
+$report['days'][0]['gps_inactive_minutes']='00:30';
+$report['days'][1]['gps_inactive_minutes']='۰۱:۱۵';
+$report['days'][1]['internet_inactive_minutes']='00:20';
+$deductions=_work_month_daily_attendance_totals($report,3);
+eq('GPS and inactive application minutes sum across selected days',105,$deductions['gps_inactive_minutes']);
+eq('Internet deduction minutes remain a separate column',20,$deductions['internet_inactive_minutes']);
+if (!str_contains($source, 'if ($allowedUserIds !== null && !isset($allowedUserIds[$reportUid])) continue;'))
+  throw new RuntimeException('Work review must apply user filters before expensive daily calculations');
 // Regression matching the reported 110:00 / 107:58 / 02:02 discrepancy:
 // a duty-versus-in-shift gap does NOT become shortage when the daily detail says zero.
 $gapReport=['days'=>[
