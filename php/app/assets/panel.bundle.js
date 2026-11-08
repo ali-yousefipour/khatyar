@@ -14295,6 +14295,7 @@ function ApprovedRequestEditor({ requestId, users, onClose, onSaved }) {
         React.createElement("button", { type: "button", className: "btn g", disabled: saving, onClick: onClose, style: { marginTop: 12 } }, "\u0627\u0646\u0635\u0631\u0627\u0641 \u0627\u0632 \u0648\u06CC\u0631\u0627\u06CC\u0634"));
 }
 function AdminRequests() {
+    var _a;
     const [users, setUsers] = useState([]);
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -14311,6 +14312,7 @@ function AdminRequests() {
     const [review, setReview] = useState(null);
     const [reviewLoading, setReviewLoading] = useState(false);
     const [actionMessage, setActionMessage] = useState('');
+    const [reviewError, setReviewError] = useState('');
     const actionLock = useRef(false);
     const loadVersion = useRef(0);
     const execute = async (ids, status) => {
@@ -14334,10 +14336,13 @@ function AdminRequests() {
                     failed.push({ id, message: error.message || 'عملیات ناموفق بود' });
                 }
             }
+            const message = 'موفق: ' + fa(succeeded) + (failed.length ? '؛ ناموفق: ' + failed.map(item => '#' + item.id + ' ' + item.message).join(' | ') : '');
             setSelected(failed.map(item => item.id));
-            setReview(null);
-            setActionMessage('موفق: ' + fa(succeeded) + (failed.length ? '؛ ناموفق: ' + failed.map(item => '#' + item.id + ' ' + item.message).join(' | ') : ''));
-            await load();
+            setActionMessage(message);
+            setReviewError(failed.length ? message : '');
+            if (failed.length)
+                setReview(previous => previous ? { ...previous, ids: failed.map(item => item.id) } : null);
+            await load({ keepReview: failed.length > 0 });
         }
         finally {
             actionLock.current = false;
@@ -14363,15 +14368,22 @@ function AdminRequests() {
         }
         setReviewLoading(true);
         setActionMessage('');
+        setReviewError('');
         try {
             const leaves = [];
+            const warnings = [];
             if (status === 'approved') {
                 for (const row of targets.filter(row => ['annual', 'sick', 'unpaid'].includes(row.type))) {
-                    const context = await GET('/admin/requests/' + row.id + '/leave-context');
-                    leaves.push({ row, context });
+                    try {
+                        const context = await GET('/admin/requests/' + row.id + '/leave-context');
+                        leaves.push({ row, context });
+                    }
+                    catch (error) {
+                        warnings.push('درخواست #' + row.id + ': ' + (error.message || 'خلاصه مرخصی در دسترس نیست'));
+                    }
                 }
             }
-            setReview({ ids: targets.map(row => row.id), status, note, leaves });
+            setReview({ ids: targets.map(row => row.id), status, note, leaves, warnings });
         }
         catch (error) {
             setActionMessage(error.message || 'اطلاعات مرخصی دریافت نشد؛ تأیید انجام نشد.');
@@ -14393,10 +14405,11 @@ function AdminRequests() {
         p.push("from=" + encodeURIComponent(fFrom)); if (fTo)
         p.push("to=" + encodeURIComponent(fTo)); if (search.trim())
         p.push("q=" + encodeURIComponent(search.trim())); return p.length ? "?" + p.join("&") : ""; };
-    const load = async () => { if (fFrom && fTo && fFrom > fTo) {
+    const load = async (options = {}) => { if (fFrom && fTo && fFrom > fTo) {
         setActionMessage('ابتدای بازه باید قبل از پایان آن باشد');
         return;
-    } const version = ++loadVersion.current; setLoading(true); setReview(null); try {
+    } const version = ++loadVersion.current; setLoading(true); if (!options.keepReview)
+        setReview(null); try {
         const data = await db.adminRequests(qs());
         if (version === loadVersion.current) {
             setRows(data || []);
@@ -14459,6 +14472,11 @@ function AdminRequests() {
                 fa(review.ids.length),
                 " \u062F\u0631\u062E\u0648\u0627\u0633\u062A ",
                 review.status === 'delete' ? 'حذف خواهند شد؛ این عملیات قابل بازگشت نیست.' : 'بررسی خواهند شد. درخواست‌های در انتظار و درخواست‌های ردشدهٔ انتخاب‌شده، طبق سیاست کاری بررسی می‌شوند.'),
+            ((_a = review.warnings) === null || _a === void 0 ? void 0 : _a.length) > 0 && React.createElement("p", { role: "alert", className: "workspace-inline-error" },
+                "\u062E\u0644\u0627\u0635\u0647\u0654 \u0645\u0631\u062E\u0635\u06CC \u0628\u0631\u0627\u06CC \u0628\u0631\u062E\u06CC \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627 \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0646\u06CC\u0633\u062A (",
+                review.warnings.join(' | '),
+                "). \u062A\u0623\u06CC\u06CC\u062F \u0647\u0645\u0686\u0646\u0627\u0646 \u062F\u0631 \u0633\u0631\u0648\u0631 \u0628\u0631 \u0627\u0633\u0627\u0633 \u0633\u06CC\u0627\u0633\u062A \u06A9\u0627\u0631\u06CC \u06A9\u0646\u062A\u0631\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+            reviewError && React.createElement("p", { role: "alert", className: "workspace-inline-error" }, reviewError),
             review.leaves.map(({ row, context }) => React.createElement("section", { className: "leave-review", key: row.id },
                 React.createElement("h4", null,
                     row.requester,
@@ -14481,7 +14499,7 @@ function AdminRequests() {
                     " \u00B7 \u0645\u0635\u0631\u0641 \u0633\u0627\u0644 ",
                     fa(value.used_year),
                     " \u00B7 \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u0633\u0627\u0644 ",
-                    fa(value.pending_year || 0),
+                    fa(value.pending_year),
                     " \u00B7 \u0628\u0627\u0642\u06CC\u200C\u0645\u0627\u0646\u062F\u0647 \u0633\u0627\u0644 ",
                     value.left_year == null ? 'سقف تعیین نشده' : fa(value.left_year))),
                 React.createElement("p", { className: "muted" }, "\u0645\u0627\u0646\u062F\u0647 \u0637\u0628\u0642 \u0633\u06CC\u0627\u0633\u062A \u062C\u0627\u0631\u06CC \u0645\u062D\u0627\u0633\u0628\u0647 \u0634\u062F\u0647 \u0648 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u062F\u0631 \u0627\u0646\u062A\u0638\u0627\u0631 \u0631\u0627 \u0646\u06CC\u0632 \u062F\u0631 \u0646\u0638\u0631 \u0645\u06CC\u200C\u06AF\u06CC\u0631\u062F."),
