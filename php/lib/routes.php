@@ -3540,6 +3540,17 @@ function _monthly_work_report_need($u){
   if(!in_array('monthlyworkreport',$items,true))Http::error('دسترسی گزارش کارکرد ماهانه برای سمت شما فعال نیست',403);
 }
 
+// تب بررسی کارکرد، زیرمجموعه گزارش تردد است؛ مجوز گزارش ماهانه مستقل را نمی‌خواهد.
+function _attendance_work_review_need($u){
+  $row=Db::one("SELECT value FROM app_settings WHERE `key`='role_perms' LIMIT 1");
+  if(!$row)return;
+  $cfg=json_decode((string)$row['value'],true);
+  $rid=(string)($u['role_id']??'');
+  if(!is_array($cfg)||!array_key_exists($rid,$cfg))return;
+  $items=is_array($cfg[$rid])?$cfg[$rid]:[];
+  if(!in_array('attreport',$items,true))Http::error('دسترسی گزارش تردد برای سمت شما فعال نیست',403);
+}
+
 function _final_work_month($y,$m){
   static $ready=false;
   if(!$ready){
@@ -3655,7 +3666,7 @@ route('GET', '/api/admin/shift-report', function($p,$b,$u){
 
 // بررسی کارکرد در گزارش تردد: از همان موتور ماهانه و snapshot ماه نهایی‌شده استفاده می‌کند.
 route('GET', '/api/admin/shift-report/range', function($p,$b,$u){
-  _monthly_work_report_need($u);
+  _attendance_work_review_need($u);
   $from=ShiftCalc::normJdate($_GET['from']??'');
   $to=ShiftCalc::normJdate($_GET['to']??'');
   if(!$from||!$to||$from>$to)Http::error('بازه تاریخ شمسی معتبر نیست',422);
