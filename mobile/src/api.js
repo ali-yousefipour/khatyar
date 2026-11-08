@@ -6,7 +6,9 @@ import { apiBase } from './config';
 import { enqueue, flush as flushOfflineQueue, hasPendingPath, retryOne as retryOfflineItem } from './offline';
 import { setLastApi } from './crashReporter';
 let accessToken=null;const memCache={};const CACHE_MAX_AGE_MS=10*60*1000;
-export async function setTokens(access,refresh){accessToken=access;await SecureStore.setItemAsync('access',access);if(refresh)await SecureStore.setItemAsync('refresh',refresh)}
+const tokenListeners=new Set();
+export function onAccessTokenChanged(listener){if(typeof listener!=='function')return()=>{};tokenListeners.add(listener);return()=>tokenListeners.delete(listener)}
+export async function setTokens(access,refresh){accessToken=access;await SecureStore.setItemAsync('access',access);if(refresh)await SecureStore.setItemAsync('refresh',refresh);for(const listener of tokenListeners){try{listener(access)}catch(_){}}}
 export async function loadTokens(){accessToken=await SecureStore.getItemAsync('access');return accessToken}
 export async function clearTokens(){accessToken=null;await SecureStore.deleteItemAsync('access');await SecureStore.deleteItemAsync('refresh')}
 async function fetchTimeout(url,opts={},ms=25000){const ctrl=new AbortController(),id=setTimeout(()=>ctrl.abort(),ms);try{return await fetch(url,{...opts,signal:ctrl.signal})}catch(e){if(e.name==='AbortError')throw new Error('ارتباط با سرور برقرار نشد (زمان انتظار به پایان رسید).');throw new Error('اتصال به سرور ممکن نشد.')}finally{clearTimeout(id)}}

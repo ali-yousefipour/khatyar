@@ -1,0 +1,21 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '../..');
+const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const api = read('mobile/src/api.js');
+const radio = read('mobile/src/radio/RadioContext.js');
+const server = read('php/app/radio-api-v2.php');
+
+assert.match(api, /export function onAccessTokenChanged\(listener\)/);
+assert.match(api, /for\(const listener of tokenListeners\)/);
+assert.match(radio, /onAccessTokenChanged\(token=>/);
+assert.match(radio, /syncNative\(\{initialized:true\}\)/);
+assert.match(radio, /lastRecentRefreshAtRef\.current>=15000/);
+assert.match(radio, /lastPresenceAtRef\.current>=20000/);
+assert.match(server, /if\(in_array\(\$op,\['channels','settings'\],true\)\)/);
+const hotPath=server.slice(server.indexOf('$u=au();$op='),server.indexOf("if($op==='channels'"));
+assert.doesNotMatch(hotPath, /\$u=au\(\);radio_schema\(\)/);
+assert.match(server, /radio channel rules unavailable/);
+assert.match(server, /تنظیمات دسترسی کانال بی‌سیم در دسترس نیست/);
+console.log('Radio connection recovery: token updates and lightweight live polling verified.');
