@@ -456,7 +456,7 @@ const db = {
     saveShift: (b) => SEND('POST', '/admin/shifts', b),
     updateShift: (id, b) => SEND('PUT', '/admin/shifts/' + id, b),
     delShift: (id) => SEND('DELETE', '/admin/shifts/' + id, {}),
-    saveShiftDays: (id, days) => SEND('POST', '/admin/shifts/' + id + '/days', { days }),
+    saveShiftDays: (id, days, deleted_dates = []) => SEND('POST', '/admin/shifts/' + id + '/days', { days, deleted_dates }),
     userShifts: () => GET('/admin/user-shifts'),
     setUserShift: (b) => SEND('POST', '/admin/user-shifts', b),
     delUserShift: (uid) => SEND('DELETE', '/admin/user-shifts/' + uid, {}),
@@ -11545,11 +11545,29 @@ function AdvancedCalendar({ shift }) {
     const [advDay, setAdvDay] = useState(null);
     const [patternMode, setPatternMode] = useState(false);
     const [patternKeys, setPatternKeys] = useState([]);
-    useEffect(() => { db.shift(shift.id).then(full => { const map = {}; (full.days || []).forEach(d => { map[d.jdate] = { segments: typeof d.segments === "string" ? JSON.parse(d.segments || "[]") : (d.segments || []), is_off: !!d.is_off, day_config: typeof d.day_config === "string" ? JSON.parse(d.day_config || "null") : (d.day_config || null) }; }); setDays(map); }).catch(() => { }); }, [shift.id]);
+    const [deletedDays, setDeletedDays] = useState([]);
+    const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState('');
+    useEffect(() => { db.shift(shift.id).then(full => { const map = {}; (full.days || []).forEach(d => { map[d.jdate] = { segments: typeof d.segments === "string" ? JSON.parse(d.segments || "[]") : (d.segments || []), is_off: !!d.is_off, day_config: typeof d.day_config === "string" ? JSON.parse(d.day_config || "null") : (d.day_config || null) }; }); setDays(map); setDeletedDays([]); setPatternKeys([]); setClip(null); }).catch(e => setSaveError(e.message || 'تقویم شیفت دریافت نشد.')); }, [shift.id]);
     const dim = (jm <= 6) ? 31 : (jm <= 11 ? 30 : (((jy % 33) % 4 === 1) ? 30 : 29));
     const jd2 = (d) => `${jy}-${String(jm).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    const setDay = (key, val) => setDays(p => ({ ...p, [key]: val }));
-    const saveAll = async () => { const arr = Object.entries(days).map(([jdate, v]) => ({ jdate, segments: v.segments || [], is_off: v.is_off ? 1 : 0, day_config: v.day_config || null })); await db.saveShiftDays(shift.id, arr); alert("تقویم شیفت ذخیره شد."); };
+    const setDay = (key, val) => { setDays(p => ({ ...p, [key]: val })); setDeletedDays(p => p.filter(d => d !== key)); setSaveError(''); };
+    const removeDays = keys => { const existing = keys.filter(key => days[key]); if (!existing.length)
+        return; if (!confirm('شیفت ' + fa(existing.length) + ' روز انتخاب‌شده حذف شود؟ حذف نهایی پس از «ذخیرهٔ تقویم» انجام خواهد شد.'))
+        return; setDays(prev => { const next = { ...prev }; existing.forEach(key => delete next[key]); return next; }); setDeletedDays(prev => Array.from(new Set([...prev, ...existing]))); setPatternKeys(prev => prev.filter(k => !existing.includes(k))); setSel(null); };
+    const saveAll = async () => { if (saving)
+        return; setSaving(true); setSaveError(''); try {
+        const arr = Object.entries(days).map(([jdate, v]) => ({ jdate, segments: v.segments || [], is_off: v.is_off ? 1 : 0, day_config: v.day_config || null }));
+        await db.saveShiftDays(shift.id, arr, deletedDays);
+        setDeletedDays([]);
+        alert('تقویم شیفت ذخیره شد.');
+    }
+    catch (e) {
+        setSaveError(e.message || 'ذخیرهٔ تقویم ناموفق بود.');
+    }
+    finally {
+        setSaving(false);
+    } };
     // الگوی چندروزه: نمونه‌ها به ترتیب تاریخ مرتب می‌شوند و چرخه از روز بعد از آخرین نمونه تا پایان سال تکرار می‌شود.
     const repeatPattern = () => {
         const samples = patternKeys.filter(k => k.startsWith(String(jy) + "-")).sort();
@@ -11570,6 +11588,7 @@ function AdvancedCalendar({ shift }) {
         for (let i = start; i < yearDays.length; i++)
             next[yearDays[i]] = JSON.parse(JSON.stringify(pattern[(i - start) % pattern.length]));
         setDays(next);
+        setDeletedDays(prev => prev.filter(k => !Object.prototype.hasOwnProperty.call(next, k)));
         setPatternMode(false);
         setPatternKeys([]);
         alert("الگوی چندروزه تا پایان سال اعمال شد. برای ثبت نهایی، «ذخیرهٔ تقویم» را بزنید.");
@@ -11588,12 +11607,13 @@ function AdvancedCalendar({ shift }) {
             next[`${jy + 1}-${m}-${d}`] = JSON.parse(JSON.stringify(v));
         } });
         setDays(next);
+        setDeletedDays(prev => prev.filter(k => !Object.prototype.hasOwnProperty.call(next, k)));
         alert("تقویم به سال بعد کپی شد. برای ذخیره، «ذخیرهٔ تقویم» را بزنید.");
     };
     const firstWd = gregToJalaliWeekday(jy, jm, 1);
     const copyShiftDay = (key) => {
         const value = days[key];
-        if (!value || value.is_off || !(value.segments || []).length)
+        if (!value || value.is_off || (!(value.segments || []).length && !value.day_config))
             return;
         setClip({ source: key, value: JSON.parse(JSON.stringify(value)) });
     };
@@ -11625,9 +11645,14 @@ function AdvancedCalendar({ shift }) {
                 "\u2637 \u0627\u0646\u062A\u062E\u0627\u0628 \u0631\u0648\u0632\u0647\u0627\u06CC \u0627\u0644\u06AF\u0648",
                 patternKeys.length ? " (" + fa(patternKeys.length) + ")" : ""),
             React.createElement("button", { className: "btn g", onClick: repeatPattern, disabled: !patternKeys.length }, "\u27F3 \u062A\u06A9\u0631\u0627\u0631 \u0627\u0644\u06AF\u0648 \u0631\u0648\u06CC \u06A9\u0644 \u0633\u0627\u0644"),
+            React.createElement("button", { type: "button", className: "btn g", disabled: !patternKeys.length, onClick: () => { if (!clip)
+                    return alert('ابتدا از یک روز دارای شیفت، الگو را کپی کنید.'); patternKeys.forEach(k => { if (k !== clip.source)
+                    pasteShiftDay(k); }); setPatternKeys([]); setPatternMode(false); } }, "\u0686\u0633\u0628\u0627\u0646\u062F\u0646 \u062F\u0631 \u0631\u0648\u0632\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u06CC"),
+            React.createElement("button", { type: "button", className: "btn g", style: { color: '#b42318', borderColor: '#e3aaa5' }, disabled: !patternKeys.some(k => days[k]), onClick: () => removeDays(patternKeys) }, "\u062D\u0630\u0641 \u0631\u0648\u0632\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u06CC"),
             React.createElement("button", { className: "btn g", onClick: copyNextYear }, "\u2295 \u06A9\u067E\u06CC \u0628\u0647 \u0633\u0627\u0644 \u0628\u0639\u062F"),
-            React.createElement("button", { className: "btn p", style: { marginInlineStart: "auto" }, onClick: saveAll }, "\u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0642\u0648\u06CC\u0645")),
-        React.createElement("div", { style: { fontSize: 12, marginBottom: 8, color: "var(--muted)" } }, "\u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u0686\u0646\u062F \u0631\u0648\u0632 \u0627\u0644\u06AF\u0648\u060C \u06A9\u0644\u06CC\u062F Ctrl \u0631\u0627 \u0646\u06AF\u0647 \u062F\u0627\u0631\u06CC\u062F \u0648 \u0631\u0648\u06CC \u0631\u0648\u0632\u0647\u0627 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F\u061B \u0633\u067E\u0633 \u00AB\u062A\u06A9\u0631\u0627\u0631 \u0627\u0644\u06AF\u0648 \u0631\u0648\u06CC \u06A9\u0644 \u0633\u0627\u0644\u00BB \u0631\u0627 \u0628\u0632\u0646\u06CC\u062F. \u270E \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0631\u0648\u0632\u060C \uD83C\uDF19 \u0634\u06CC\u0641\u062A \u0634\u0628\u060C \u0642\u0631\u0645\u0632 \u062A\u0639\u0637\u06CC\u0644/\u062C\u0645\u0639\u0647."),
+            React.createElement("button", { className: "btn p", style: { marginInlineStart: "auto" }, disabled: saving, onClick: saveAll }, saving ? 'در حال ذخیره…' : 'ذخیرهٔ تقویم')),
+        saveError && React.createElement("div", { role: "alert", style: { padding: 10, marginBottom: 10, borderRadius: 10, background: '#fff3f1', color: '#9e302a' } }, saveError),
+        React.createElement("div", { style: { fontSize: 12, marginBottom: 8, color: "var(--muted)" } }, "\u0631\u0648\u06CC \u00AB\u0648\u06CC\u0631\u0627\u06CC\u0634\u00BB \u0647\u0631 \u0631\u0648\u0632 \u0628\u0631\u0627\u06CC \u062A\u0639\u06CC\u06CC\u0646 \u0633\u0627\u0639\u062A\u200C\u0647\u0627 \u0628\u0632\u0646\u06CC\u062F\u061B \u00AB\u062D\u0630\u0641\u00BB \u0641\u0642\u0637 \u0634\u06CC\u0641\u062A \u0647\u0645\u0627\u0646 \u0631\u0648\u0632 \u0631\u0627 \u067E\u0627\u06A9 \u0645\u06CC\u200C\u06A9\u0646\u062F. \u0628\u0627 \u00AB\u06A9\u067E\u06CC\u00BB \u06CC\u06A9 \u0631\u0648\u0632 \u0648 \u0633\u067E\u0633 \u0627\u0646\u062A\u062E\u0627\u0628 \u0645\u0642\u0635\u062F\u060C \u0628\u0631\u0646\u0627\u0645\u0647\u0654 \u0622\u0646 \u0631\u0648\u0632 \u0631\u0627 \u0645\u0646\u062A\u0642\u0644 \u06A9\u0646\u06CC\u062F. \u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u0686\u0646\u062F \u0631\u0648\u0632\u060C \u062D\u0627\u0644\u062A \u0627\u0646\u062A\u062E\u0627\u0628 \u0627\u0644\u06AF\u0648 \u0631\u0627 \u0641\u0639\u0627\u0644 \u06A9\u0646\u06CC\u062F. \u062A\u063A\u06CC\u06CC\u0631\u0627\u062A \u0628\u0627 \u00AB\u0630\u062E\u06CC\u0631\u0647\u0654 \u062A\u0642\u0648\u06CC\u0645\u00BB \u0646\u0647\u0627\u06CC\u06CC \u0645\u06CC\u200C\u0634\u0648\u0646\u062F."),
         patternMode && React.createElement("div", { role: "status", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10, padding: "9px 12px", border: "1px solid var(--line)", borderRadius: 10, fontSize: 12 } },
             React.createElement("span", null, "\u062D\u0627\u0644\u062A \u0627\u0646\u062A\u062E\u0627\u0628 \u0627\u0644\u06AF\u0648 \u0641\u0639\u0627\u0644 \u0627\u0633\u062A\u061B \u0686\u0646\u062F \u0631\u0648\u0632 \u0646\u0645\u0648\u0646\u0647 \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F. \u062A\u0631\u062A\u06CC\u0628 \u0627\u0644\u06AF\u0648 \u0628\u0631 \u0627\u0633\u0627\u0633 \u062A\u0627\u0631\u06CC\u062E \u0627\u0633\u062A \u0648 \u062A\u06A9\u0631\u0627\u0631 \u0627\u0632 \u0631\u0648\u0632 \u0628\u0639\u062F \u0627\u0632 \u0622\u062E\u0631\u06CC\u0646 \u0646\u0645\u0648\u0646\u0647 \u062A\u0627 \u067E\u0627\u06CC\u0627\u0646 \u0633\u0627\u0644 \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F."),
             React.createElement("button", { type: "button", className: "btn g", onClick: () => { setPatternMode(false); setPatternKeys([]); } }, "\u067E\u0627\u06CC\u0627\u0646 \u0627\u0646\u062A\u062E\u0627\u0628")),
@@ -11637,35 +11662,39 @@ function AdvancedCalendar({ shift }) {
         clip && React.createElement("div", { className: "shift-paste-mode", role: "status", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10, padding: "9px 12px", border: "1px solid #b7dfc8", borderRadius: 10, background: "#effaf3", color: "#17663b", fontSize: 12 } },
             React.createElement("span", null, "\u062D\u0627\u0644\u062A \u067E\u06CC\u0633\u062A \u0641\u0639\u0627\u0644 \u0627\u0633\u062A\u061B \u0628\u0631\u0627\u06CC \u067E\u06CC\u0633\u062A \u0631\u0648\u06CC \u0647\u0631 \u0631\u0648\u0632 \u0645\u0642\u0635\u062F \u0631\u0627\u0633\u062A\u200C\u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F. \u067E\u0633 \u0627\u0632 \u067E\u0627\u06CC\u0627\u0646\u060C \u062F\u06A9\u0645\u0647\u0654 \u00AB\u0627\u062A\u0645\u0627\u0645 \u067E\u06CC\u0633\u062A\u00BB \u0631\u0627 \u0628\u0632\u0646\u06CC\u062F."),
             React.createElement("button", { type: "button", className: "btn g", onClick: () => setClip(null), style: { fontSize: 11, padding: "4px 10px", whiteSpace: "nowrap" } }, "\u0627\u062A\u0645\u0627\u0645 \u067E\u06CC\u0633\u062A")),
-        React.createElement("div", { className: "cal-grid" },
-            WD.map(w => React.createElement("div", { key: w, className: "cal-h" }, w)),
-            Array.from({ length: firstWd }).map((_, i) => React.createElement("div", { key: "e" + i })),
-            Array.from({ length: dim }).map((_, i) => {
-                const d = i + 1;
-                const key = jd2(d);
-                const v = days[key];
-                const has = v && !v.is_off && (v.segments || []).length;
-                const off = v && v.is_off;
-                const shiftTimes = has ? (v.segments || []).map(seg => seg.s && seg.e ? `${seg.s}–${seg.e}` : null).filter(Boolean) : [];
-                const showPaste = !!clip && clip.source !== key;
-                const inPattern = patternKeys.includes(key);
-                const isFriday = gregToJalaliWeekday(jy, jm, d) === 6;
-                const isHoliday = !!off || isFriday;
-                const isNight = !!(v && v.day_config && (v.day_config.is_night || v.day_config.night_work || v.day_config.night)) || (v && Array.isArray(v.segments) && v.segments.some(seg => seg.s && seg.e && seg.e < seg.s));
-                return (React.createElement("div", { key: key, className: "cal-d" + (sel === key ? " sel" : "") + (has ? " has" : "") + (isHoliday ? " off" : "") + (inPattern ? " shift-pattern-selected" : ""), title: patternMode ? "برای افزودن/حذف از الگوی چرخشی کلیک کنید" : (clip && clip.source !== key ? "برای پیست شیفت روی این روز راست‌کلیک کنید" : "برای انتخاب چند روز Ctrl را نگه دارید"), onClick: e => { if (patternMode || e.ctrlKey || e.metaKey) {
-                        togglePatternDay(key);
-                        return;
-                    } setSel(key); }, onContextMenu: e => { if (!clip || patternMode)
-                        return; e.preventDefault(); if (clip.source !== key)
-                        pasteShiftDay(key); } },
-                    React.createElement("span", { className: "cal-n" }, fa(d)),
-                    inPattern && React.createElement("span", { title: "\u0631\u0648\u0632 \u0646\u0645\u0648\u0646\u0647 \u0627\u0644\u06AF\u0648\u06CC \u0686\u0631\u062E\u0634\u06CC", style: { position: "absolute", top: 2, insetInlineStart: 3, fontSize: 11, fontWeight: 800, color: "var(--brand)" } }, "\u2713"),
-                    isNight && React.createElement("span", { title: "\u0634\u06CC\u0641\u062A \u0634\u0628", "aria-label": "\u0634\u06CC\u0641\u062A \u0634\u0628", style: { position: "absolute", bottom: 17, insetInlineStart: 3, fontSize: 13 } }, "\uD83C\uDF19"),
-                    React.createElement("button", { type: "button", title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u067E\u06CC\u0634\u0631\u0641\u062A\u0647 \u0627\u06CC\u0646 \u0631\u0648\u0632", "aria-label": `ویرایش پیشرفته ${key}`, onClick: e => { e.stopPropagation(); setSel(key); setAdvDay(key); }, style: { position: "absolute", top: 2, insetInlineStart: 17, border: 0, background: "transparent", cursor: "pointer", fontSize: 14, padding: 2 } }, "\u270E"),
-                    has && !clip && React.createElement("button", { type: "button", title: "\u06A9\u067E\u06CC \u0634\u06CC\u0641\u062A \u0627\u06CC\u0646 \u0631\u0648\u0632", "aria-label": `کپی شیفت ${key}`, onClick: e => { e.stopPropagation(); copyShiftDay(key); }, style: { position: "absolute", top: 2, insetInlineEnd: 3, border: 0, background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 2 } }, "\u29C9"),
-                    showPaste && React.createElement("button", { type: "button", className: "attendance-shift-day-paste", title: "\u067E\u06CC\u0633\u062A \u0634\u06CC\u0641\u062A \u062F\u0631 \u0627\u06CC\u0646 \u0631\u0648\u0632", "aria-label": `پیست شیفت در ${key}`, onClick: e => { e.stopPropagation(); pasteShiftDay(key); }, style: { position: "absolute", top: 2, insetInlineStart: 3, border: 0, background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: 2 } }, "\u25A3"),
-                    shiftTimes.length > 0 ? React.createElement("span", { className: "cal-shift-times", style: { position: "absolute", bottom: 3, insetInline: 3, textAlign: "center", fontSize: 9, lineHeight: 1.25, color: "var(--ink)", direction: "ltr", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", boxSizing: "border-box" } }, shiftTimes.join(" · ")) : off ? React.createElement("span", { className: "cal-tag" }, "\u062A\u0639\u0637\u06CC\u0644") : null));
-            })),
+        React.createElement("div", { style: { overflowX: 'auto', paddingBottom: 6 }, role: "region", "aria-label": "\u062A\u0642\u0648\u06CC\u0645 \u0645\u0627\u0647\u0627\u0646\u0647\u0654 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u06CC\u0641\u062A\u061B \u062F\u0631 \u0635\u0641\u062D\u0647\u0654 \u06A9\u0648\u0686\u06A9 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646 \u0627\u0641\u0642\u06CC \u067E\u06CC\u0645\u0627\u06CC\u0634 \u06A9\u0631\u062F" },
+            React.createElement("div", { className: "cal-grid shift-calendar-editor", style: { minWidth: 850 } },
+                WD.map(w => React.createElement("div", { key: w, className: "cal-h" }, w)),
+                Array.from({ length: firstWd }).map((_, i) => React.createElement("div", { key: "e" + i })),
+                Array.from({ length: dim }).map((_, i) => {
+                    const d = i + 1;
+                    const key = jd2(d);
+                    const v = days[key];
+                    const has = !!(v && !v.is_off && ((v.segments || []).length || v.day_config));
+                    const off = v && v.is_off;
+                    const shiftTimes = has ? (v.segments || []).map(seg => seg.s && seg.e ? `${seg.s}–${seg.e}` : null).filter(Boolean) : [];
+                    const showPaste = !!clip && clip.source !== key;
+                    const inPattern = patternKeys.includes(key);
+                    const isFriday = gregToJalaliWeekday(jy, jm, d) === 6;
+                    const isHoliday = !!off || isFriday;
+                    const isNight = !!(v && v.day_config && (v.day_config.is_night || v.day_config.night_work || v.day_config.night)) || (v && Array.isArray(v.segments) && v.segments.some(seg => seg.s && seg.e && seg.e < seg.s));
+                    return (React.createElement("div", { key: key, className: "cal-d" + (sel === key ? " sel" : "") + (has ? " has" : "") + (isHoliday ? " off" : "") + (inPattern ? " shift-pattern-selected" : ""), style: { minHeight: 114, padding: 7, display: 'flex', flexDirection: 'column', gap: 5 }, title: patternMode ? "برای افزودن/حذف از انتخاب کلیک کنید" : "ویرایش، کپی یا حذف شیفت این روز", onClick: e => { if (patternMode || e.ctrlKey || e.metaKey) {
+                            togglePatternDay(key);
+                            return;
+                        } setSel(key); }, onContextMenu: e => { if (!clip || patternMode)
+                            return; e.preventDefault(); if (clip.source !== key)
+                            pasteShiftDay(key); } },
+                        React.createElement("span", { className: "cal-n" }, fa(d)),
+                        React.createElement("label", { style: { position: 'absolute', top: 5, insetInlineStart: 5, display: 'flex', gap: 3, alignItems: 'center', fontSize: 10 }, title: "\u0627\u0646\u062A\u062E\u0627\u0628 \u0631\u0648\u0632 \u0628\u0631\u0627\u06CC \u0639\u0645\u0644\u06CC\u0627\u062A \u06AF\u0631\u0648\u0647\u06CC", onClick: e => e.stopPropagation() },
+                            React.createElement("input", { type: "checkbox", checked: inPattern, onChange: () => togglePatternDay(key), "aria-label": `انتخاب ${key}` }),
+                            isNight ? '🌙' : ''),
+                        React.createElement("div", { style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontSize: 11, lineHeight: 1.6, direction: 'ltr', flexDirection: 'column' } }, shiftTimes.length ? shiftTimes.map((t, i) => React.createElement("span", { key: i }, t)) : React.createElement("span", { className: "muted", style: { fontSize: 10 } }, off ? 'تعطیل' : 'بدون شیفت')),
+                        React.createElement("div", { style: { display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', marginTop: 'auto' } },
+                            React.createElement("button", { type: "button", className: "shift-day-action shift-day-edit", "aria-label": `ویرایش شیفت ${key}`, title: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0633\u0627\u0639\u062A \u0648 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0631\u0648\u0632", onClick: e => { e.stopPropagation(); setSel(key); setAdvDay(key); } }, "\u270E \u0648\u06CC\u0631\u0627\u06CC\u0634"),
+                            has && React.createElement("button", { type: "button", className: "shift-day-action shift-day-copy", "aria-label": `کپی شیفت ${key}`, title: "\u06A9\u067E\u06CC \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0634\u06CC\u0641\u062A \u0627\u06CC\u0646 \u0631\u0648\u0632", onClick: e => { e.stopPropagation(); copyShiftDay(key); } }, "\u29C9 \u06A9\u067E\u06CC"),
+                            showPaste && React.createElement("button", { type: "button", className: "shift-day-action shift-day-paste", "aria-label": `چسباندن شیفت در ${key}`, onClick: e => { e.stopPropagation(); pasteShiftDay(key); } }, "\u0686\u0633\u0628\u0627\u0646\u062F\u0646"),
+                            v && React.createElement("button", { type: "button", className: "shift-day-action shift-day-delete", "aria-label": `حذف شیفت ${key}`, title: "\u062D\u0630\u0641 \u0634\u06CC\u0641\u062A \u0647\u0645\u06CC\u0646 \u0631\u0648\u0632", onClick: e => { e.stopPropagation(); removeDays([key]); } }, "\u062D\u0630\u0641"))));
+                }))),
         advDay && React.createElement(ShiftDayModal, { jdate: advDay, day: days[advDay], onClose: () => setAdvDay(null), onSave: (v) => { setDay(advDay, { segments: v.segments || [], is_off: !!v.is_off, day_config: v.day_config }); setAdvDay(null); } })));
 }
 function DayEditor({ jdate, val, onChange, onAdvanced }) {
