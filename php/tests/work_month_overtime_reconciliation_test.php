@@ -54,7 +54,8 @@ if (!str_contains($source, '$dayShift = _active_user_shift_assignment($a[\'user_
     throw new RuntimeException('Per-day assignment lookup removed');
 if (!str_contains($source, 'JOIN users uu ON uu.id=us.user_id AND uu.is_active=1'))
     throw new RuntimeException('Inactive users filter removed');
-if (!str_contains($source, '_work_month_daily_attendance_totals($dailyReport,$lastDay)'))
+if (!str_contains($source, '_work_month_daily_attendance_totals($dailyReport,max(0,$lastDay-$firstIncludedDay+1))')
+    || !str_contains($source, 'attendance_report_owned_by_entry_date($reportUid,$fromJdate,$monthlyTo,true)'))
     throw new RuntimeException('Leave / mission / shortage daily reconciliation removed');
 $panel = file_get_contents(__DIR__.'/../tools/panel_source.jsx');
 foreach (['<th>جمعه کاری</th>','<th>تعطیل کاری</th>'] as $heading) {
