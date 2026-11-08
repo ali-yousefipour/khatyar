@@ -3675,6 +3675,8 @@ function Drivers() {
     const [f, setF] = useState({ q: "", line: "", model: "", gender: "", driver_type: "", with_photo: "" });
     const [page, setPage] = useState(1);
     const [per, setPer] = useState(10);
+    const [driverLines, setDriverLines] = useState([]);
+    const [driverLinesError, setDriverLinesError] = useState(false);
     const [full, setFull] = useState(null);
     const [edit, setEdit] = useState(null);
     const [photoPreview, setPhotoPreview] = useState(null);
@@ -3731,6 +3733,11 @@ function Drivers() {
     const norm = d => Array.isArray(d) ? { rows: d, total: d.length, page: 1, pages: 1 } : (d && Array.isArray(d.rows) ? d : { rows: [], total: 0, page: 1, pages: 1 });
     const load = (pg = 1, filters = f) => { db.drivers({ ...clean(filters), page: pg, per }).then(d => { const n = norm(d); setData(n); setPage(n.page); }).catch(() => setData({ rows: [], total: 0, page: 1, pages: 1 })); };
     useEffect(() => { load(1); }, []);
+    useEffect(() => { let active = true; db.lines().then(lines => { if (active) {
+        setDriverLines(Array.isArray(lines) ? lines : []);
+        setDriverLinesError(false);
+    } }).catch(() => { if (active)
+        setDriverLinesError(true); }); return () => { active = false; }; }, []);
     const exportXlsx = async () => {
         const d = await db.drivers({ ...clean(f), per: 10000, page: 1 });
         const rows = norm(d).rows;
@@ -3757,7 +3764,17 @@ function Drivers() {
             React.createElement("button", { className: "btn p", onClick: exportXlsx }, "\u2B07 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
         React.createElement("div", { className: "row page-toolbar", style: { gap: 8, flexWrap: "wrap", marginBottom: 12 } },
             React.createElement("input", { className: "input", style: { maxWidth: 170 }, placeholder: "\u06A9\u062F \u0645\u0644\u06CC \u06CC\u0627 \u0646\u0627\u0645", value: f.q, onChange: e => setF({ ...f, q: e.target.value }) }),
-            React.createElement("input", { className: "input", style: { maxWidth: 110 }, placeholder: "\u06A9\u062F \u062E\u0637", value: f.line, onChange: e => setF({ ...f, line: e.target.value }) }),
+            React.createElement("label", { style: { display: 'grid', gap: 4, minWidth: 190, flex: '1 1 210px' } },
+                React.createElement("span", { className: "label" }, "\u0641\u06CC\u0644\u062A\u0631 \u0628\u0631 \u0627\u0633\u0627\u0633 \u062E\u0637"),
+                React.createElement("select", { className: "input", "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0631\u0627\u0646\u0646\u062F\u06AF\u0627\u0646 \u0628\u0631 \u0627\u0633\u0627\u0633 \u062E\u0637", value: f.line, onChange: e => setF({ ...f, line: e.target.value }) },
+                    React.createElement("option", { value: "" }, "\u062A\u0645\u0627\u0645 \u062E\u0637\u0648\u0637"),
+                    driverLines.map(line => React.createElement("option", { key: line.id, value: line.code },
+                        line.code,
+                        " \u2014 ",
+                        line.origin || 'مبدأ نامشخص',
+                        line.destination ? ' ← ' + line.destination : '')),
+                    f.line && !driverLines.some(line => String(line.code) === String(f.line)) && React.createElement("option", { value: f.line }, f.line))),
+            driverLinesError && React.createElement("span", { role: "alert", className: "muted", style: { fontSize: 12 } }, "\u0641\u0647\u0631\u0633\u062A \u062E\u0637\u0648\u0637 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u0646\u0634\u062F\u061B \u0635\u0641\u062D\u0647 \u0631\u0627 \u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC \u06A9\u0646\u06CC\u062F."),
             React.createElement("input", { className: "input", style: { maxWidth: 140 }, placeholder: "\u0645\u062F\u0644 \u062E\u0648\u062F\u0631\u0648", value: f.model, onChange: e => setF({ ...f, model: e.target.value }) }),
             React.createElement("select", { className: "input", style: { maxWidth: 110 }, value: f.gender, onChange: e => setF({ ...f, gender: e.target.value }) },
                 React.createElement("option", { value: "" }, "\u062C\u0646\u0633\u06CC\u062A"),
@@ -11808,7 +11825,7 @@ function Holidays() {
 }
 // گزارش کارکرد ماهانه
 // گزارش تردد پرسنل (مدل فینتو) — سطر روزانه + پاپ‌آپ لیست ورود/خروج + ویرایش ساعت توسط ادمین
-function AttendanceReport({ initialUserId = null, initialName = '', initialFrom = '', initialTo = '', onChanged = null } = {}) {
+function AttendanceDailyReport({ initialUserId = null, initialName = '', initialFrom = '', initialTo = '', onChanged = null } = {}) {
     var _a, _b;
     const [users, setUsers] = useState([]);
     const [usersLoading, setUsersLoading] = useState(true);
@@ -13481,6 +13498,103 @@ function CompanyWorkReport({ year, month, onPeriodChange }) {
                                 "\u0634\u0645\u0627\u0631\u0647\u0654 \u062B\u0628\u062A\u200C\u0634\u062F\u0647 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0646\u0627\u0645: ",
                                 faPlain(r.suggested_code),
                                 " \u2014 \u0641\u0627\u06CC\u0644 \u0633\u0627\u0632\u0645\u0627\u0646 \u0628\u0627\u06CC\u062F \u0627\u0635\u0644\u0627\u062D \u0634\u0648\u062F."))); }))))));
+}
+function WorkReviewReport() {
+    const today = todayJ(), start = `${today[0]}/${String(today[1]).padStart(2, '0')}/01`, end = `${today[0]}/${String(today[1]).padStart(2, '0')}/${String(today[2]).padStart(2, '0')}`;
+    const [from, setFrom] = useState(start), [to, setTo] = useState(end), [zone, setZone] = useState(''), [role, setRole] = useState('');
+    const [zones, setZones] = useState([]), [roles, setRoles] = useState([]), [rows, setRows] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
+    const [detail, setDetail] = useState(null), request = useRef(0);
+    useEffect(() => { let active = true; Promise.all([db.zones(), db.roles()]).then(([z, r]) => { if (active) {
+        setZones(Array.isArray(z) ? z : []);
+        setRoles(Array.isArray(r) ? r : []);
+    } }).catch(() => { if (active)
+        setError('دریافت فهرست مناطق و سمت‌ها ناموفق بود.'); }); return () => { active = false; request.current++; }; }, []);
+    const load = async () => {
+        const valid = v => /^\d{4}\/\d{2}\/\d{2}$/.test(v) && Boolean(jalaliToGreg(...v.split('/').map(Number)));
+        if (!valid(from) || !valid(to) || from > to) {
+            setError('بازه شروع و پایان را با تقویم شمسی به‌درستی انتخاب کنید.');
+            setRows(null);
+            return;
+        }
+        const generation = ++request.current;
+        setBusy(true);
+        setError('');
+        setRows(null);
+        const q = new URLSearchParams({ from, to, ...(zone ? { zone_id: zone } : {}), ...(role ? { role_id: role } : {}) });
+        try {
+            const data = await GET('/admin/shift-report/range?' + q.toString());
+            if (generation === request.current)
+                setRows(Array.isArray(data.rows) ? data.rows : []);
+        }
+        catch (e) {
+            if (generation === request.current)
+                setError(e.message || 'دریافت کارکرد ناموفق بود.');
+        }
+        finally {
+            if (generation === request.current)
+                setBusy(false);
+        }
+    };
+    const hm = v => { const n = Math.max(0, Number(v) || 0); return fa(Math.floor(n / 60)) + ':' + String(n % 60).padStart(2, '0').replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]); };
+    const fields = [['expected', 'موظفی'], ['worked', 'حضور کل'], ['in_shift', 'حضور در شیفت'], ['late_in', 'تأخیر ورود'], ['early_out', 'تعجیل خروج'], ['shortage', 'کسری کار'], ['absent_min', 'غیبت'], ['absence_shortage', 'جمع غیبت و کسری'], ['night', 'شب‌کاری'], ['regular_overtime', 'اضافه‌کاری'], ['surplus', 'مازاد حضور'], ['friday', 'جمعه‌کاری'], ['holiday', 'تعطیل‌کاری'], ['mission_min', 'مأموریت'], ['annual_min', 'مرخصی استحقاقی'], ['sick_min', 'مرخصی استعلاجی']];
+    return React.createElement("div", { className: "monthly-work-report-page admin-workspace-page" },
+        React.createElement("div", { className: "card-p", style: { marginBottom: 14 } },
+            React.createElement("h3", { style: { marginTop: 0 } }, "\u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F \u067E\u0631\u0633\u0646\u0644"),
+            React.createElement("p", { className: "muted" }, "\u0645\u062D\u0627\u0633\u0628\u0627\u062A \u0628\u0631 \u067E\u0627\u06CC\u0647\u0654 \u0647\u0645\u0627\u0646 \u06AF\u0632\u0627\u0631\u0634 \u06A9\u0627\u0631\u06A9\u0631\u062F \u0645\u0627\u0647\u0627\u0646\u0647 \u0627\u0633\u062A. \u0628\u0631\u0627\u06CC \u06AF\u0632\u0627\u0631\u0634 \u0631\u0648\u0632\u0627\u0646\u0647 \u0631\u0648\u06CC \u0646\u0627\u0645 \u0641\u0631\u062F \u0628\u0632\u0646\u06CC\u062F."),
+            React.createElement("div", { className: "row", style: { gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' } },
+                React.createElement("div", null,
+                    React.createElement("label", { className: "label" }, "\u0645\u0646\u0637\u0642\u0647"),
+                    React.createElement("select", { className: "input", value: zone, onChange: e => setZone(e.target.value) },
+                        React.createElement("option", { value: "" }, "\u062A\u0645\u0627\u0645 \u0645\u0646\u0627\u0637\u0642"),
+                        zones.map(z => React.createElement("option", { key: z.id, value: z.id }, z.name)))),
+                React.createElement("div", null,
+                    React.createElement("label", { className: "label" }, "\u0633\u0645\u062A"),
+                    React.createElement("select", { className: "input", value: role, onChange: e => setRole(e.target.value) },
+                        React.createElement("option", { value: "" }, "\u062A\u0645\u0627\u0645 \u0633\u0645\u062A\u200C\u0647\u0627"),
+                        roles.map(r => React.createElement("option", { key: r.id, value: r.id }, r.title || r.name)))),
+                React.createElement("div", null,
+                    React.createElement("label", { className: "label" }, "\u0627\u0632 \u062A\u0627\u0631\u06CC\u062E"),
+                    React.createElement(JDate, { value: from, onChange: setFrom, jalali: true })),
+                React.createElement("div", null,
+                    React.createElement("label", { className: "label" }, "\u062A\u0627 \u062A\u0627\u0631\u06CC\u062E"),
+                    React.createElement(JDate, { value: to, onChange: setTo, jalali: true })),
+                React.createElement("button", { className: "btn p", type: "button", disabled: busy, onClick: load }, busy ? 'در حال محاسبه…' : 'بررسی کارکرد'))),
+        busy && React.createElement("div", { role: "status", className: "card-p" }, "\u062F\u0631 \u062D\u0627\u0644 \u0645\u062D\u0627\u0633\u0628\u0647 \u06A9\u0627\u0631\u06A9\u0631\u062F \u067E\u0631\u0633\u0646\u0644\u2026"),
+        !busy && error && React.createElement("div", { className: "card-p", role: "alert", style: { color: 'var(--danger)' } },
+            error,
+            " ",
+            React.createElement("button", { className: "btn g", type: "button", onClick: load }, "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647")),
+        !busy && !error && rows === null && React.createElement("div", { className: "card-p muted" }, "\u0645\u0646\u0637\u0642\u0647\u060C \u0633\u0645\u062A \u0648 \u0628\u0627\u0632\u0647\u0654 \u062A\u0627\u0631\u06CC\u062E \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646\u06CC\u062F \u0648 \u00AB\u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F\u00BB \u0631\u0627 \u0628\u0632\u0646\u06CC\u062F."),
+        !busy && rows && (rows.length === 0 ? React.createElement("div", { className: "card-p muted", role: "status" }, "\u0628\u0631\u0627\u06CC \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u06A9\u0627\u0631\u06A9\u0631\u062F\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.") : React.createElement("div", { className: "card-p", style: { overflowX: 'auto' }, role: "region", tabIndex: 0, "aria-label": "\u062C\u062F\u0648\u0644 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F\u061B \u0628\u0631\u0627\u06CC \u062F\u06CC\u062F\u0646 \u0633\u062A\u0648\u0646\u200C\u0647\u0627\u06CC \u0628\u06CC\u0634\u062A\u0631 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u06A9\u0646\u06CC\u062F" },
+            React.createElement("div", { className: "muted", style: { marginBottom: 10 } },
+                fa(rows.length),
+                " \u0646\u0641\u0631 \u00B7 ",
+                faPlain(from),
+                " \u062A\u0627 ",
+                faPlain(to)),
+            React.createElement("table", { style: { minWidth: 1550, width: '100%' } },
+                React.createElement("thead", null,
+                    React.createElement("tr", null,
+                        React.createElement("th", null, "\u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC"),
+                        fields.map(([key, label]) => React.createElement("th", { key: key }, label)))),
+                React.createElement("tbody", null, rows.map(r => React.createElement("tr", { key: r.user_id },
+                    React.createElement("td", null,
+                        React.createElement("button", { type: "button", className: "btn g", onClick: () => setDetail({ id: r.user_id, name: r.name }) }, r.name)),
+                    fields.map(([key]) => { var _a; return React.createElement("td", { key: key }, hm(key === 'absence_shortage' ? (Number(r.absent_min || 0) + Number(r.shortage || 0)) : key === 'regular_overtime' ? ((_a = r.regular_overtime) !== null && _a !== void 0 ? _a : r.overtime) : r[key])); }))))))),
+        detail && React.createElement("div", { role: "dialog", "aria-modal": "true", "aria-label": 'گزارش تردد ' + detail.name, style: { position: 'fixed', inset: 0, zIndex: 9900, background: 'rgba(0,0,0,.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 } },
+            React.createElement("div", { className: "card-p", style: { width: 'min(98vw,1600px)', maxHeight: '94vh', overflow: 'auto' } },
+                React.createElement("div", { className: "row", style: { justifyContent: 'space-between', gap: 12 } },
+                    React.createElement("strong", null, detail.name),
+                    React.createElement("button", { className: "btn g", type: "button", onClick: () => { setDetail(null); setRows(null); } }, "\u0628\u0633\u062A\u0646 \u00D7")),
+                React.createElement(AttendanceDailyReport, { initialUserId: detail.id, initialName: detail.name, initialFrom: from, initialTo: to, onChanged: () => { setRows(null); } }))));
+}
+function AttendanceReport(props) {
+    const [tab, setTab] = useState('daily');
+    return React.createElement("div", null,
+        React.createElement("div", { className: "tabbar", role: "tablist", "aria-label": "\u0628\u062E\u0634\u200C\u0647\u0627\u06CC \u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F", style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 } },
+            React.createElement("button", { type: "button", role: "tab", "aria-selected": tab === 'daily', className: 'tabbtn' + (tab === 'daily' ? ' on' : ''), onClick: () => setTab('daily') }, "\u06AF\u0632\u0627\u0631\u0634 \u062A\u0631\u062F\u062F"),
+            React.createElement("button", { type: "button", role: "tab", "aria-selected": tab === 'work', className: 'tabbtn' + (tab === 'work' ? ' on' : ''), onClick: () => setTab('work') }, "\u0628\u0631\u0631\u0633\u06CC \u06A9\u0627\u0631\u06A9\u0631\u062F")),
+        tab === 'daily' ? React.createElement(AttendanceDailyReport, { ...props }) : React.createElement(WorkReviewReport, null));
 }
 function ShiftReport() {
     const [attendanceModal, setAttendanceModal] = useState(null);

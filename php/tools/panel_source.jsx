@@ -2046,6 +2046,7 @@ function DriverPortraitThumbnail({url,name}){
 function Drivers(){
   const [data,setData]=useState({rows:[],total:0,page:1,pages:1});
   const [f,setF]=useState({q:"",line:"",model:"",gender:"",driver_type:"",with_photo:""}); const [page,setPage]=useState(1); const [per,setPer]=useState(10);
+  const [driverLines,setDriverLines]=useState([]); const [driverLinesError,setDriverLinesError]=useState(false);
   const [full,setFull]=useState(null); const [edit,setEdit]=useState(null);
   const [photoPreview,setPhotoPreview]=useState(null); const [photoBusy,setPhotoBusy]=useState(false);
   useEffect(()=>{
@@ -2073,6 +2074,7 @@ function Drivers(){
   const norm=d=>Array.isArray(d)?{rows:d,total:d.length,page:1,pages:1}:(d&&Array.isArray(d.rows)?d:{rows:[],total:0,page:1,pages:1});
   const load=(pg=1,filters=f)=>{ db.drivers({...clean(filters),page:pg,per}).then(d=>{const n=norm(d);setData(n);setPage(n.page);}).catch(()=>setData({rows:[],total:0,page:1,pages:1})); };
   useEffect(()=>{load(1)},[]);
+  useEffect(()=>{let active=true;db.lines().then(lines=>{if(active){setDriverLines(Array.isArray(lines)?lines:[]);setDriverLinesError(false);}}).catch(()=>{if(active)setDriverLinesError(true);});return()=>{active=false;};},[]);
   const exportXlsx=async()=>{ const d=await db.drivers({...clean(f),per:10000,page:1}); const rows=norm(d).rows;
     const ws=XLSX.utils.json_to_sheet(rows.map(r=>({'کد ملی':r.national_id,'نام':r.first_name,'نام خانوادگی':r.last_name,'موبایل':r.mobile,'جنسیت':r.gender,'نوع راننده':r.driver_type,'پروانه تاکسیرانی':r.taxi_lic_status,'پروانه بهره‌برداری':r.op_lic_status})));
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'رانندگان'); XLSX.writeFile(wb,'drivers.xlsx'); };
@@ -2082,7 +2084,8 @@ function Drivers(){
   return(<div className="panel admin-workspace-page admin-list-page"><h3>رانندگان و خودروها <button className="btn p" onClick={exportXlsx}>⬇ خروجی اکسل</button></h3>
     <div className="row page-toolbar" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
       <input className="input" style={{maxWidth:170}} placeholder="کد ملی یا نام" value={f.q} onChange={e=>setF({...f,q:e.target.value})}/>
-      <input className="input" style={{maxWidth:110}} placeholder="کد خط" value={f.line} onChange={e=>setF({...f,line:e.target.value})}/>
+      <label style={{display:'grid',gap:4,minWidth:190,flex:'1 1 210px'}}><span className="label">فیلتر بر اساس خط</span><select className="input" aria-label="فیلتر رانندگان بر اساس خط" value={f.line} onChange={e=>setF({...f,line:e.target.value})}><option value="">تمام خطوط</option>{driverLines.map(line=><option key={line.id} value={line.code}>{line.code} — {line.origin||'مبدأ نامشخص'}{line.destination?' ← '+line.destination:''}</option>)}{f.line&&!driverLines.some(line=>String(line.code)===String(f.line))&&<option value={f.line}>{f.line}</option>}</select></label>
+      {driverLinesError&&<span role="alert" className="muted" style={{fontSize:12}}>فهرست خطوط بارگذاری نشد؛ صفحه را تازه‌سازی کنید.</span>}
       <input className="input" style={{maxWidth:140}} placeholder="مدل خودرو" value={f.model} onChange={e=>setF({...f,model:e.target.value})}/>
       <select className="input" style={{maxWidth:110}} value={f.gender} onChange={e=>setF({...f,gender:e.target.value})}><option value="">جنسیت</option><option>مرد</option><option>زن</option></select>
       <input className="input" style={{maxWidth:130}} placeholder="نوع راننده" value={f.driver_type} onChange={e=>setF({...f,driver_type:e.target.value})}/>
@@ -6898,7 +6901,7 @@ function Holidays(){
 
 // گزارش کارکرد ماهانه
 // گزارش تردد پرسنل (مدل فینتو) — سطر روزانه + پاپ‌آپ لیست ورود/خروج + ویرایش ساعت توسط ادمین
-function AttendanceReport({initialUserId=null,initialName='',initialFrom='',initialTo='',onChanged=null}={}){
+function AttendanceDailyReport({initialUserId=null,initialName='',initialFrom='',initialTo='',onChanged=null}={}){
   const [users,setUsers]=useState([]);
   const [usersLoading,setUsersLoading]=useState(true);
   const [uid,setUid]=useState("");
@@ -7751,6 +7754,45 @@ function CompanyWorkReport({year,month,onPeriodChange}){
   </section>;
 }
 
+
+function WorkReviewReport(){
+  const today=todayJ(),start=`${today[0]}/${String(today[1]).padStart(2,'0')}/01`,end=`${today[0]}/${String(today[1]).padStart(2,'0')}/${String(today[2]).padStart(2,'0')}`;
+  const [from,setFrom]=useState(start),[to,setTo]=useState(end),[zone,setZone]=useState(''),[role,setRole]=useState('');
+  const [zones,setZones]=useState([]),[roles,setRoles]=useState([]),[rows,setRows]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [detail,setDetail]=useState(null),request=useRef(0);
+  useEffect(()=>{let active=true;Promise.all([db.zones(),db.roles()]).then(([z,r])=>{if(active){setZones(Array.isArray(z)?z:[]);setRoles(Array.isArray(r)?r:[]);}}).catch(()=>{if(active)setError('دریافت فهرست مناطق و سمت‌ها ناموفق بود.');});return()=>{active=false;request.current++;};},[]);
+  const load=async()=>{
+    const valid=v=>/^\d{4}\/\d{2}\/\d{2}$/.test(v)&&Boolean(jalaliToGreg(...v.split('/').map(Number)));
+    if(!valid(from)||!valid(to)||from>to){setError('بازه شروع و پایان را با تقویم شمسی به‌درستی انتخاب کنید.');setRows(null);return;}
+    const generation=++request.current;setBusy(true);setError('');setRows(null);
+    const q=new URLSearchParams({from,to,...(zone?{zone_id:zone}:{}),...(role?{role_id:role}:{})});
+    try{const data=await GET('/admin/shift-report/range?'+q.toString());if(generation===request.current)setRows(Array.isArray(data.rows)?data.rows:[]);}
+    catch(e){if(generation===request.current)setError(e.message||'دریافت کارکرد ناموفق بود.');}
+    finally{if(generation===request.current)setBusy(false);}
+  };
+  const hm=v=>{const n=Math.max(0,Number(v)||0);return fa(Math.floor(n/60))+':'+String(n%60).padStart(2,'0').replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[+d]);};
+  const fields=[['expected','موظفی'],['worked','حضور کل'],['in_shift','حضور در شیفت'],['late_in','تأخیر ورود'],['early_out','تعجیل خروج'],['shortage','کسری کار'],['absent_min','غیبت'],['absence_shortage','جمع غیبت و کسری'],['night','شب‌کاری'],['regular_overtime','اضافه‌کاری'],['surplus','مازاد حضور'],['friday','جمعه‌کاری'],['holiday','تعطیل‌کاری'],['mission_min','مأموریت'],['annual_min','مرخصی استحقاقی'],['sick_min','مرخصی استعلاجی']];
+  return <div className="monthly-work-report-page admin-workspace-page">
+    <div className="card-p" style={{marginBottom:14}}><h3 style={{marginTop:0}}>بررسی کارکرد پرسنل</h3><p className="muted">محاسبات بر پایهٔ همان گزارش کارکرد ماهانه است. برای گزارش روزانه روی نام فرد بزنید.</p>
+      <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'flex-end'}}>
+        <div><label className="label">منطقه</label><select className="input" value={zone} onChange={e=>setZone(e.target.value)}><option value="">تمام مناطق</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select></div>
+        <div><label className="label">سمت</label><select className="input" value={role} onChange={e=>setRole(e.target.value)}><option value="">تمام سمت‌ها</option>{roles.map(r=><option key={r.id} value={r.id}>{r.title||r.name}</option>)}</select></div>
+        <div><label className="label">از تاریخ</label><JDate value={from} onChange={setFrom} jalali/></div><div><label className="label">تا تاریخ</label><JDate value={to} onChange={setTo} jalali/></div>
+        <button className="btn p" type="button" disabled={busy} onClick={load}>{busy?'در حال محاسبه…':'بررسی کارکرد'}</button>
+      </div>
+    </div>
+    {busy&&<div role="status" className="card-p">در حال محاسبه کارکرد پرسنل…</div>}
+    {!busy&&error&&<div className="card-p" role="alert" style={{color:'var(--danger)'}}>{error} <button className="btn g" type="button" onClick={load}>تلاش دوباره</button></div>}
+    {!busy&&!error&&rows===null&&<div className="card-p muted">منطقه، سمت و بازهٔ تاریخ را انتخاب کنید و «بررسی کارکرد» را بزنید.</div>}
+    {!busy&&rows&&(rows.length===0?<div className="card-p muted" role="status">برای فیلترهای انتخاب‌شده کارکردی یافت نشد.</div>:<div className="card-p" style={{overflowX:'auto'}} role="region" tabIndex={0} aria-label="جدول بررسی کارکرد؛ برای دیدن ستون‌های بیشتر پیمایش کنید"><div className="muted" style={{marginBottom:10}}>{fa(rows.length)} نفر · {faPlain(from)} تا {faPlain(to)}</div><table style={{minWidth:1550,width:'100%'}}><thead><tr><th>نام و نام خانوادگی</th>{fields.map(([key,label])=><th key={key}>{label}</th>)}</tr></thead><tbody>{rows.map(r=><tr key={r.user_id}><td><button type="button" className="btn g" onClick={()=>setDetail({id:r.user_id,name:r.name})}>{r.name}</button></td>{fields.map(([key])=><td key={key}>{hm(key==='absence_shortage'?(Number(r.absent_min||0)+Number(r.shortage||0)):key==='regular_overtime'?(r.regular_overtime??r.overtime):r[key])}</td>)}</tr>)}</tbody></table></div>)}
+    {detail&&<div role="dialog" aria-modal="true" aria-label={'گزارش تردد '+detail.name} style={{position:'fixed',inset:0,zIndex:9900,background:'rgba(0,0,0,.65)',display:'flex',alignItems:'center',justifyContent:'center',padding:12}}><div className="card-p" style={{width:'min(98vw,1600px)',maxHeight:'94vh',overflow:'auto'}}><div className="row" style={{justifyContent:'space-between',gap:12}}><strong>{detail.name}</strong><button className="btn g" type="button" onClick={()=>{setDetail(null);setRows(null);}}>بستن ×</button></div><AttendanceDailyReport initialUserId={detail.id} initialName={detail.name} initialFrom={from} initialTo={to} onChanged={()=>{setRows(null);}}/></div></div>}
+  </div>;
+}
+
+function AttendanceReport(props){
+  const [tab,setTab]=useState('daily');
+  return <div><div className="tabbar" role="tablist" aria-label="بخش‌های گزارش تردد" style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}><button type="button" role="tab" aria-selected={tab==='daily'} className={'tabbtn'+(tab==='daily'?' on':'')} onClick={()=>setTab('daily')}>گزارش تردد</button><button type="button" role="tab" aria-selected={tab==='work'} className={'tabbtn'+(tab==='work'?' on':'')} onClick={()=>setTab('work')}>بررسی کارکرد</button></div>{tab==='daily'?<AttendanceDailyReport {...props}/>:<WorkReviewReport/>}</div>;
+}
 
 function ShiftReport(){
   const [attendanceModal,setAttendanceModal]=useState(null);

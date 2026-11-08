@@ -3310,7 +3310,7 @@ function _work_month_daily_attendance_totals(array $report, int $lastDay): ?arra
 
 // گزارش تجمیعی کارکرد ماهانه (شبیه فینتو) — بر اساس staff_attendance و شیفت کاربر
 // پارامترها: ?year=1404&month=6  (یا from/to جلالی)
-function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null) {
+function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null, $fromJdate=null) {
   // رکوردهای بازِ قدیمی باید قبل از گزارش مطابق سیاست Auto-Close بسته شوند؛
   // وگرنه گزارش ماه‌های گذشته ممکن است یک جلسهٔ باز را صفر محاسبه کند.
   try {
@@ -3330,6 +3330,8 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null) {
   [$cy,$cm,$cd]=gregorian_to_jalali((int)date('Y'),(int)date('n'),(int)date('j'));
   $todayJ=sprintf('%04d-%02d-%02d',$cy,$cm,$cd);
   $firstJ=sprintf('%04d-%02d-01',$jy,$jm);
+  $fromJdate=$fromJdate?ShiftCalc::normJdate($fromJdate):$firstJ;
+  $firstIncludedDay=max(1,(int)substr($fromJdate,8,2));
   $endJ=sprintf('%04d-%02d-%02d',$jy,$jm,ShiftCalc::jMonthDays($jy,$jm));
   // Monthly actuals stop at the end of yesterday, never at an incomplete current day.
   $yesterdayJ=_app_jdate_from_time(date('Y-m-d H:i:s',strtotime('yesterday noon')));
@@ -3369,7 +3371,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null) {
     $reportedUsers[$reportUid]=true;
     // Select an effective shift within the reporting window, not the first historical assignment.
     $shift=null;
-    for($probe=1;$probe<=$lastDay;$probe++){
+    for($probe=$firstIncludedDay;$probe<=$lastDay;$probe++){
       $probeJ=$prefix.str_pad($probe,2,'0',STR_PAD_LEFT);
       $shift=_active_user_shift_assignment($reportUid,$probeJ);
       if($shift)break;
@@ -3403,7 +3405,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null) {
         for($dts=$fromTs,$i=0;$dts<=$toTs;$dts+=86400,$i++){[$ry,$rm,$rd]=gregorian_to_jalali((int)date('Y',$dts),(int)date('n',$dts),(int)date('j',$dts));$reqDays[sprintf('%04d-%02d-%02d',$ry,$rm,$rd)]=$base+($i<$rem?1:0);}
       }
       foreach($reqDays as $reqDate=>$mins){
-        if(strpos($reqDate,$prefix)!==0)continue;
+        if(strpos($reqDate,$prefix)!==0||strcmp($reqDate,$fromJdate)<0)continue;
         if($throughJdate!==null&&strcmp($reqDate,$throughJdate)>0)continue;
         if($rq['type']==='annual')$reqAgg['annual_min']+=$mins;
         elseif($rq['type']==='sick')$reqAgg['sick_min']+=$mins;
@@ -3415,7 +3417,7 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null) {
     }
     // جلسات ثبت‌حضور کاربر در این ماه (بر اساس تاریخ میلادیِ متناظر با هر روز شمسی)
     $tot = ['friday_overtime'=>0,'worked'=>0,'in_shift'=>0,'expected'=>0,'overtime'=>0,'shortage'=>0,'night'=>0,'friday'=>0,'holiday'=>0,'late_in'=>0,'early_out'=>0,'surplus'=>0,'adjusted_ot'=>0,'present_days'=>0,'absent_min'=>0];
-    for ($d=1; $d<=$lastDay; $d++) {
+    for ($d=$firstIncludedDay; $d<=$lastDay; $d++) {
       $jdate = $prefix.str_pad($d,2,'0',STR_PAD_LEFT);
       // Resolve the effective assignment on each date, including substitute shifts.
       // A single month may span several shift assignments.
@@ -3468,8 +3470,8 @@ function _shift_month_report($jy, $jm, $throughJdate=null, $onlyUserId=null) {
       try {
         require_once __DIR__.'/../app/api/admin-attendance-report-owned.php';
         $monthlyTo=$prefix.str_pad($lastDay,2,'0',STR_PAD_LEFT);
-        $dailyReport=attendance_report_owned_by_entry_date($reportUid,$firstJ,$monthlyTo,true);
-        $dailyTotals=_work_month_daily_attendance_totals($dailyReport,$lastDay);
+        $dailyReport=attendance_report_owned_by_entry_date($reportUid,$fromJdate,$monthlyTo,true);
+        $dailyTotals=_work_month_daily_attendance_totals($dailyReport,max(0,$lastDay-$firstIncludedDay+1));
         if ($dailyTotals !== null) {
           foreach ($dailyTotals as $field=>$minutes) $tot[$field]=$minutes;
         } else {
@@ -3628,6 +3630,46 @@ route('GET', '/api/admin/shift-report', function($p,$b,$u){
   $jy=(int)($_GET['year']??0); $jm=(int)($_GET['month']??0);
   if (!$jy||!$jm) Http::error('سال و ماه شمسی را مشخص کنید',400);
   return ['year'=>$jy,'month'=>$jm,'rows'=>_work_month_rows($jy,$jm)];
+}, false, ADMIN);
+
+// بررسی کارکرد در گزارش تردد: از همان موتور ماهانه و snapshot ماه نهایی‌شده استفاده می‌کند.
+route('GET', '/api/admin/shift-report/range', function($p,$b,$u){
+  _monthly_work_report_need($u);
+  $from=ShiftCalc::normJdate($_GET['from']??'');
+  $to=ShiftCalc::normJdate($_GET['to']??'');
+  if(!$from||!$to||$from>$to)Http::error('بازه تاریخ شمسی معتبر نیست',422);
+  [$fy,$fm]=array_map('intval',explode('-',substr($from,0,7)));
+  [$ty,$tm]=array_map('intval',explode('-',substr($to,0,7)));
+  if($fy<1300||$ty>1500||($ty-$fy)*12+$tm-$fm>11)Http::error('حداکثر بازه گزارش ۱۲ ماه است',422);
+  $zoneId=filter_var($_GET['zone_id']??0,FILTER_VALIDATE_INT);
+  $roleId=filter_var($_GET['role_id']??0,FILTER_VALIDATE_INT);
+  if($zoneId===false||$roleId===false||$zoneId<0||$roleId<0)Http::error('فیلتر منطقه یا سمت نامعتبر است',422);
+  $people=Db::all('SELECT id,zone_id,role_id FROM users WHERE is_active=1');
+  $allowed=[];
+  foreach($people as $person){
+    if($zoneId&&((int)$person['zone_id']!==$zoneId))continue;
+    if($roleId&&((int)$person['role_id']!==$roleId))continue;
+    $allowed[(int)$person['id']]=true;
+  }
+  $rows=[];
+  for($year=$fy,$month=$fm;$year<$ty||($year===$ty&&$month<=$tm);){
+    $monthStart=sprintf('%04d-%02d-01',$year,$month);
+    $monthEnd=sprintf('%04d-%02d-%02d',$year,$month,ShiftCalc::jMonthDays($year,$month));
+    $partFrom=max($from,$monthStart);$partTo=min($to,$monthEnd);
+    $complete=$partFrom===$monthStart&&$partTo===$monthEnd;
+    if(!$complete&&_final_work_month($year,$month))Http::error('برای بازهٔ جزئی از ماه نهایی‌شده، کارکرد ماه کامل را انتخاب کنید؛ باز‌محاسبهٔ تاریخچه مجاز نیست',422);
+    $monthly=$complete?_work_month_rows($year,$month):_shift_month_report($year,$month,$partTo,null,$partFrom);
+    foreach($monthly as $person){
+      $id=(int)($person['user_id']??0);
+      if(!isset($allowed[$id]))continue;
+      if(!isset($rows[$id])){$rows[$id]=$person;continue;}
+      foreach($person as $key=>$value){
+        if(is_numeric($value)&&!in_array($key,['user_id','monthly_ot_cap'],true))$rows[$id][$key]=(int)($rows[$id][$key]??0)+(int)$value;
+      }
+    }
+    if(++$month>12){$month=1;$year++;}
+  }
+  return ['from'=>$from,'to'=>$to,'rows'=>array_values($rows)];
 }, false, ADMIN);
 
 // Shift rotation is an entry-time classification, independent of assigned/payable shifts.
