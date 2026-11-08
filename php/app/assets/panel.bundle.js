@@ -500,6 +500,7 @@ const db = {
     leaveBalanceInitList: () => GET('/admin/leave-balance-init'),
     leaveBalanceInitSave: (items) => SEND('POST', '/admin/leave-balance-init', { items }),
     workDashboard: (year, month) => GET('/admin/work-dashboard' + (year ? ('?year=' + year + '&month=' + month) : "")),
+    liveStaffDashboard: () => GET('/admin/live-staff-dashboard', { timeoutMs: 20000 }),
     userPayroll: (id) => GET('/admin/users/' + id + '/payroll'),
     saveUserPayroll: (id, b) => SEND('POST', '/admin/users/' + id + '/payroll', b),
     userPayslip: (id, year, month) => GET('/admin/users/' + id + '/payslip?year=' + year + '&month=' + month),
@@ -882,7 +883,6 @@ function usePager(items, initial) {
     return { slice, Pager, setPage };
 }
 function LiveStaffDashboard() {
-    const tj = todayJ();
     const [live, setLive] = useState(null);
     const [tab, setTab] = useState("present");
     const [loadError, setLoadError] = useState("");
@@ -893,7 +893,7 @@ function LiveStaffDashboard() {
     const countdownRef = useRef(60);
     const load = () => {
         setRefreshing(true);
-        return db.workDashboard(tj[0], tj[1]).then(x => {
+        return db.liveStaffDashboard().then(x => {
             if (!x || !x.live)
                 throw new Error("اطلاعات حضور در پاسخ سرور موجود نیست.");
             setLive(x.live);
