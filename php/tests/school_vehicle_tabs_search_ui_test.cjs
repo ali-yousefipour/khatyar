@@ -4,7 +4,8 @@ const ui=fs.readFileSync(require('node:path').join(__dirname,'../app/assets/scho
 const routes=fs.readFileSync(require('node:path').join(__dirname,'../lib/routes.php'),'utf8');
 
 assert.match(ui,/ssvVehicleSearchPlateHtml\('unauthorized'\)/,'Unauthorized tab must have a segmented plate search');
-assert.match(ui,/search:unauthorizedQuery\(\)/,'Unauthorized search must be sent to the server');
+assert.match(ui,/\.\.\.ssvPlateSearchParams\(unauthorizedParts\)/,'Unauthorized plate segments must be sent independently');
+assert.match(ui,/\.\.\.ssvPlateSearchParams\(searchParts\)/,'Regular plate segments must be sent independently');
 assert.match(ui,/ssv-unauthorized-clear/,'Unauthorized search must be clearable');
 assert.match(ui,/ssv-unauthorized-table/,'Unauthorized list must use the scrollable vehicle table');
 assert.match(ui,/ssv-vehicle-search-plate \.ssv-plate-editor\{width:min\(100%,330px\);height:50px/,'Plate search must be compact');
@@ -13,5 +14,6 @@ const endpoint=routes.split("route('GET','/api/school-service/unauthorized-vehic
 assert.ok(endpoint,'Unauthorized vehicles endpoint must exist');
 assert.match(endpoint,/\$_GET\['search'\]/,'Endpoint must accept search');
 assert.match(endpoint,/CONCAT\(v\.plate_two,v\.plate_letter,v\.plate_three,v\.plate_region_code\) LIKE \?/,'Endpoint must filter complete plate');
+assert.match(endpoint,/v\.\$segment LIKE \?/,'Endpoint must filter each plate segment in its own column');
 assert.match(endpoint,/WHERE \$where ORDER BY/,'Filtered rows and count must share the same predicate');
 console.log('PASS school vehicle tabs: compact plate search, unauthorized filtering, scrollable sticky tables');

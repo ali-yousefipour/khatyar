@@ -16654,6 +16654,11 @@ route('GET','/api/school-service/vehicles',function($p,$b,$u){
     $where[]="(CONCAT(v.plate_two,v.plate_letter,v.plate_three,v.plate_region_code) LIKE ? OR v.vehicle_type LIKE ? OR v.vehicle_color LIKE ? OR d.first_name LIKE ? OR d.last_name LIKE ? OR v.sepand_driver_national_code LIKE ?)";
     $args[]='%'.$plateQuery.'%';$args[]='%'.$q.'%';$args[]='%'.$q.'%';$args[]='%'.$q.'%';$args[]='%'.$q.'%';$args[]='%'.$q.'%';
   }
+  foreach(['plate_two','plate_letter','plate_three','plate_region_code'] as $segment){
+    $value=_ssv_norm(_ssv_en($_GET[$segment]??''));
+    if($segment!=='plate_letter')$value=preg_replace('/\D/','',$value);
+    if($value!==''){$where[]="v.$segment LIKE ?";$args[]='%'.$value.'%';}
+  }
   foreach(['vehicle_type','vehicle_color','driver_gender','certificate_status'] as $field){
     $value=_ssv_norm($_GET[$field]??'');
     if($value!==''){$where[]="v.$field=?";$args[]=$value;}
@@ -16726,6 +16731,11 @@ route('GET','/api/school-service/unauthorized-vehicles',function($p,$b,$u){
   $search=preg_replace('/[\s\-]+/u','',_ssv_en(_ssv_norm($_GET['search']??'')));
   $where='v.is_active=1';$args=[];
   if($search!==''){$where.=' AND CONCAT(v.plate_two,v.plate_letter,v.plate_three,v.plate_region_code) LIKE ?';$args[]='%'.$search.'%';}
+  foreach(['plate_two','plate_letter','plate_three','plate_region_code'] as $segment){
+    $value=_ssv_norm(_ssv_en($_GET[$segment]??''));
+    if($segment!=='plate_letter')$value=preg_replace('/\D/','',$value);
+    if($value!==''){$where.=" AND v.$segment LIKE ?";$args[]='%'.$value.'%';}
+  }
   $sortColumns=['updated'=>'v.updated_at','plate'=>'CONCAT(v.plate_two,v.plate_letter,v.plate_three,v.plate_region_code)','type'=>'v.vehicle_type','color'=>'v.vehicle_color','company'=>'c.name'];
   $sortBy=(string)($_GET['sort_by']??'updated');
   $sortExpr=$sortColumns[$sortBy]??$sortColumns['updated'];
@@ -16802,6 +16812,11 @@ route('GET','/api/school-service/inspections-page',function($p,$b,$u){
       $where[]=$lookups[$field][0];array_push($args,...$lookups[$field][1]);
     }
   }
+  foreach(['plate_two','plate_letter','plate_three','plate_region_code'] as $segment){
+    $value=_ssv_norm(_ssv_en($_GET[$segment]??''));
+    if($segment!=='plate_letter')$value=preg_replace('/\D/','',$value);
+    if($value!==''){$where[]="i.$segment LIKE ?";$args[]='%'.$value.'%';}
+  }
   $district=_ssv_norm($_GET['district']??'');
   if($district!==''){$where[]=_ssv_district_sql('i.educational_district').'=?';$args[]=_ssv_district_normalized($district);}
   foreach(['date_from'=>'>=','date_to'=>'<='] as $key=>$operator){
@@ -16812,11 +16827,14 @@ route('GET','/api/school-service/inspections-page',function($p,$b,$u){
   if($photo==='yes')$where[]='EXISTS(SELECT 1 FROM school_service_inspection_photos p WHERE p.inspection_id=i.id)';
   if($photo==='no')$where[]='NOT EXISTS(SELECT 1 FROM school_service_inspection_photos p WHERE p.inspection_id=i.id)';
   $joins='LEFT JOIN school_service_schools s ON s.id=i.school_id LEFT JOIN school_service_companies c ON c.id=i.company_id LEFT JOIN users u ON u.id=i.inspector_user_id';
+  $sortColumns=['school'=>'s.name','company'=>'c.name','plate'=>'CONCAT(i.plate_two,i.plate_letter,i.plate_three,i.plate_region_code)','inspector'=>"TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')))",'violations'=>'(SELECT COUNT(*) FROM school_service_inspection_violations iv WHERE iv.inspection_id=i.id)','date'=>'i.violation_date','photos'=>'(SELECT COUNT(*) FROM school_service_inspection_photos ip WHERE ip.inspection_id=i.id)','id'=>'i.id'];
+  $sortBy=(string)($_GET['sort_by']??'date');$sortExpr=$sortColumns[$sortBy]??$sortColumns['date'];
+  $sortDir=strtolower((string)($_GET['sort_dir']??'desc'))==='asc'?'ASC':'DESC';
   $w=implode(' AND ',$where);
   $total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections i $joins WHERE $w",$args)['n']??0);
   $rows=Db::all("SELECT i.*,s.name school_name,c.name company_name,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) inspector_name,
     (SELECT COUNT(*) FROM school_service_inspection_photos p WHERE p.inspection_id=i.id) photo_count
-    FROM school_service_inspections i $joins WHERE $w ORDER BY i.id DESC LIMIT $size OFFSET ".(($page-1)*$size),$args);
+    FROM school_service_inspections i $joins WHERE $w ORDER BY $sortExpr $sortDir,i.id DESC LIMIT $size OFFSET ".(($page-1)*$size),$args);
   foreach($rows as &$rr){
     $rr['plate']=trim(($rr['plate_three']??'').' '.($rr['plate_letter']??'').' '.($rr['plate_two']??'').' ایران '.($rr['plate_region_code']??''));
     $rr['violations']=array_column(Db::all("SELECT v.title FROM school_service_inspection_violations x JOIN school_service_violation_types v ON v.id=x.violation_type_id WHERE x.inspection_id=?",[(int)$rr['id']]),'title');
