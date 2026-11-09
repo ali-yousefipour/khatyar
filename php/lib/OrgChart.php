@@ -44,10 +44,13 @@ class OrgChart {
     $connection=Db::pdo();$connection->beginTransaction();
     try{
       if(!Db::one('SELECT id FROM zones WHERE id=? FOR UPDATE',[(int)$zoneId]))Http::error('منطقه یافت نشد',404);
+      $previous=Db::one('SELECT senior_user_id,inspector_ids FROM zone_leadership WHERE zone_id=? FOR UPDATE',[(int)$zoneId]);
       $users=Db::all('SELECT u.id,u.is_active,r.title role_title FROM users u LEFT JOIN roles r ON r.id=u.role_id FOR UPDATE');$byId=[];foreach($users as $user)$byId[(int)$user['id']]=$user;
       if($senior!==null && (empty($byId[$senior]['is_active']) || self::roleKey($byId[$senior]['role_title']??'')!=='senior'))Http::error('سربازرس باید کاربر فعال با سمت سربازرس منطقه باشد',422);
       foreach($inspectors as $id){$user=$byId[$id]??null;$role=self::roleKey($user['role_title']??'');if(!$user || empty($user['is_active']) || !in_array($role,['inspector','motor'],true) || !str_contains(strtr($user['role_title'],['ي'=>'ی','ك'=>'ک']),'بازرس'))Http::error('بازرس انتخاب‌شده باید فعال و دارای سمت بازرس باشد',422);}
-      Db::run('INSERT INTO zone_leadership(zone_id,senior_user_id,inspector_ids,updated_by) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE senior_user_id=VALUES(senior_user_id),inspector_ids=VALUES(inspector_ids),updated_by=VALUES(updated_by)',[(int)$zoneId,$senior,json_encode($inspectors),$actor]);$connection->commit();
+      Db::run('INSERT INTO zone_leadership(zone_id,senior_user_id,inspector_ids,updated_by) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE senior_user_id=VALUES(senior_user_id),inspector_ids=VALUES(inspector_ids),updated_by=VALUES(updated_by)',[(int)$zoneId,$senior,json_encode($inspectors),$actor]);
+      if(function_exists('_req_reassign_pending_zone_approvals'))_req_reassign_pending_zone_approvals((int)$zoneId,$previous,$senior,$inspectors);
+      $connection->commit();
     }catch(Throwable $error){if($connection->inTransaction())$connection->rollBack();throw $error;}
     return ['ok'=>true,'senior_user_id'=>$senior,'inspector_ids'=>$inspectors];
   }

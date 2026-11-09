@@ -13,7 +13,7 @@ assert.ok(routes.includes('CREATE TABLE IF NOT EXISTS request_approval_steps'), 
 assert.ok(routes.includes('INSERT INTO request_approval_steps('), 'Each decision must be recorded');
 assert.ok(routes.includes('WHERE s.request_id IN ($marks)'), 'History must be fetched only for the requester rows');
 assert.ok(routes.includes("$r['upcoming_approvers']=[]"), 'Upcoming approval chain must be attached to each request');
-assert.ok(routes.includes("$next=_user_managers($cursor)"), 'Upcoming reviewers must follow the real management chain');
+assert.ok(routes.includes("$next=_req_hierarchy_managers($cursor)"), 'Upcoming reviewers must follow current region leadership');
 assert.ok(routes.includes('!isset($seen[$cursor])'), 'Cyclic management assignments must not loop forever');
 assert.ok(routes.includes("$approvalMode==='hierarchical' && $r['status']==='pending'"), 'Upcoming reviewers only apply to pending hierarchical requests');
 assert.ok(routes.includes('r.user_id=? ORDER BY r.id DESC LIMIT 100'), 'Request list remains scoped to signed-in requester');

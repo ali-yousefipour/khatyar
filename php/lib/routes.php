@@ -4623,6 +4623,28 @@ function _req_work_policy_handler($path,callable $handler){
 }
 
 // تعیین مقام تأییدکننده (سلسله‌مراتبی یا مسئول خاص)
+function _req_hierarchy_managers(int $uid): array {
+  require_once __DIR__.'/OrgChart.php';
+  $person=Db::one('SELECT u.zone_id,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.is_active=1',[$uid]);
+  if($person){
+    $role=OrgChart::roleKey($person['role_title']??'');
+    if(in_array($role,['field','inspector','motor'],true)&&(int)($person['zone_id']??0)>0){
+      $zoneId=(int)$person['zone_id'];
+      if(in_array($role,['inspector','motor'],true)){
+        OrgChart::ensureZoneLeaders();
+        foreach(Db::all('SELECT zone_id,inspector_ids FROM zone_leadership') as $assignment){
+          if(in_array($uid,array_map('intval',json_decode((string)($assignment['inspector_ids']??'[]'),true)?:[]),true)){$zoneId=(int)$assignment['zone_id'];break;}
+        }
+      }
+      $responsibility=OrgChart::currentZoneResponsibility($zoneId);
+      if($role==='field'){
+        $ids=array_values(array_filter(array_map('intval',array_column($responsibility['inspectors']??[],'id'))));
+        if($ids)return $ids;
+      }elseif(!empty($responsibility['chief']['id']))return [(int)$responsibility['chief']['id']];
+    }
+  }
+  return _user_managers($uid);
+}
 function _req_approver($uid){
   $options=_req_policy_options($uid);
   $mode=$options['approval_mode']??'hierarchical';
@@ -4631,7 +4653,7 @@ function _req_approver($uid){
     if(!$sp||!Db::one('SELECT id FROM users WHERE id=? AND is_active=1',[$sp]))Http::error('مسئول تأیید سیاست کاری معتبر نیست.',422);
     return $sp ?: null;
   }
-  $mgrs = _user_managers($uid);
+  $mgrs = _req_hierarchy_managers((int)$uid);
   return $mgrs[0] ?? null; // نخستین مقام بالادست
 }
 
@@ -4837,7 +4859,7 @@ function _req_decorate_my_requests(array $rows): array {
         $ids=[];$seen=[];$cursor=$start;
         while($cursor>0 && !isset($seen[$cursor]) && count($ids)<20){
           $seen[$cursor]=true;$ids[]=$cursor;
-          $next=_user_managers($cursor);$cursor=(int)($next[0]??0);
+          $next=_req_hierarchy_managers($cursor);$cursor=(int)($next[0]??0);
         }
         $chainCache[$start]=$ids;
       }
@@ -5000,7 +5022,7 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
   $mode=$options['approval_mode']??'hierarchical';
   $next = null;
   if ($mode === 'hierarchical') {
-    $mgrs = _user_managers($u['id']);
+    $mgrs = _req_hierarchy_managers((int)$u['id']);
     $next = $mgrs[0] ?? null;
   }
   if ($next) {
@@ -9984,6 +10006,40 @@ function _zone_leave_requirement_value($value){
   Http::error('مقدار گزینهٔ نیاز به نیروی جایگزین نامعتبر است.',422);
 }
 route('GET', '/api/admin/zones', function(){_zone_leave_requirement_storage();require_once __DIR__.'/OrgChart.php';return OrgChart::withZoneLeaders(Db::all("SELECT * FROM zones ORDER BY id"));});
+// Runs inside the same transaction as a zone leadership change. Only pending
+// hierarchical requests currently assigned to a replaced regional reviewer move.
+function _req_reassign_pending_zone_approvals(int $zoneId,?array $previous,?int $senior,array $inspectors): int {
+  if(!$previous || !Db::one("SHOW TABLES LIKE 'requests'"))return 0;
+  $oldSenior=(int)($previous['senior_user_id']??0);
+  $oldInspectors=array_values(array_unique(array_filter(array_map('intval',json_decode((string)($previous['inspector_ids']??'[]'),true)?:[]))));
+  $removedInspectors=array_values(array_diff($oldInspectors,$inspectors));
+  $removedSenior=$oldSenior>0&&$oldSenior!==(int)$senior?$oldSenior:0;
+  $removed=array_values(array_unique(array_merge($removedInspectors,$removedSenior?[$removedSenior]:[])));
+  if(!$removed)return 0;
+  $zones=Db::all('SELECT id,parent_id FROM zones');$parents=[];
+  foreach($zones as $zone)$parents[(int)$zone['id']]=(int)($zone['parent_id']??0);
+  $inside=static function(int $child)use($zoneId,$parents): bool {
+    $seen=[];
+    while($child>0&&!isset($seen[$child])){
+      if($child===$zoneId)return true;
+      $seen[$child]=true;$child=$parents[$child]??0;
+    }
+    return false;
+  };
+  $marks=implode(',',array_fill(0,count($removed),'?'));
+  $pending=Db::all("SELECT r.id,r.user_id,r.pending_on,u.zone_id FROM requests r JOIN users u ON u.id=r.user_id WHERE r.status='pending' AND r.pending_on IN ($marks) FOR UPDATE",$removed);
+  $moved=0;
+  foreach($pending as $request){
+    $current=(int)$request['pending_on'];
+    if(!$inside((int)$request['zone_id'])&&!in_array((int)$request['user_id'],$oldInspectors,true))continue;
+    if((_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
+    $target=$current===$removedSenior?(int)$senior:(int)($inspectors[0]??0);
+    if($target<=0||$target===$current)continue; // No replacement: keep the existing queue visible.
+    $updated=Db::run("UPDATE requests SET pending_on=? WHERE id=? AND status='pending' AND pending_on=?",[$target,(int)$request['id'],$current]);
+    $moved+=(int)($updated->rowCount()??0);
+  }
+  return $moved;
+}
 route('PUT', '/api/admin/zones/{id}/leaders', function($p,$b,$u){require_once __DIR__.'/OrgChart.php';return OrgChart::saveZoneLeaders($p['id'],$b['senior_user_id']??null,$b['inspector_ids']??[],$u['id']);},false,ADMIN);
 function _validated_zone_parent($value,$zoneId=0) {
   if ($value===null || $value==='') return null;
