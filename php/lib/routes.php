@@ -16547,13 +16547,16 @@ route('GET','/api/school-service/unauthorized-vehicles',function($p,$b,$u){
   _ssv_need($u,'view');_ssv_unauthorized_schema();
   $page=max(1,(int)($_GET['page']??1));
   $pageSize=max(5,min(100,(int)($_GET['page_size']??25)));
-  $total=(int)(Db::one('SELECT COUNT(*) total FROM school_service_unauthorized_vehicles WHERE is_active=1')['total']??0);
+  $search=preg_replace('/[\s\-]+/u','',_ssv_en(_ssv_norm($_GET['search']??'')));
+  $where='v.is_active=1';$args=[];
+  if($search!==''){$where.=' AND CONCAT(v.plate_two,v.plate_letter,v.plate_three,v.plate_region_code) LIKE ?';$args[]='%'.$search.'%';}
+  $total=(int)(Db::one("SELECT COUNT(*) total FROM school_service_unauthorized_vehicles v WHERE $where",$args)['total']??0);
   $pages=max(1,(int)ceil($total/$pageSize));
   $page=min($page,$pages);
   $offset=($page-1)*$pageSize;
   return ['items'=>Db::all("SELECT v.id,v.plate_two,v.plate_letter,v.plate_three,v.plate_region_code,v.vehicle_type,v.vehicle_color,v.created_at,v.updated_at,
     c.name reporting_company_name FROM school_service_unauthorized_vehicles v
-    JOIN school_service_companies c ON c.id=v.reporting_company_id WHERE v.is_active=1 ORDER BY v.updated_at DESC,v.id DESC LIMIT $pageSize OFFSET $offset"),
+    JOIN school_service_companies c ON c.id=v.reporting_company_id WHERE $where ORDER BY v.updated_at DESC,v.id DESC LIMIT $pageSize OFFSET $offset",$args),
     'page'=>$page,'page_size'=>$pageSize,'pages'=>$pages,'total'=>$total];
 });
 route('POST','/api/school-service/unauthorized-vehicles',function($p,$b,$u){
