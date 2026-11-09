@@ -4626,24 +4626,37 @@ function _req_work_policy_handler($path,callable $handler){
 function _req_hierarchy_managers(int $uid): array {
   require_once __DIR__.'/OrgChart.php';
   $person=Db::one('SELECT u.zone_id,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.is_active=1',[$uid]);
-  if($person){
-    $role=OrgChart::roleKey($person['role_title']??'');
-    if(in_array($role,['field','inspector','motor'],true)&&(int)($person['zone_id']??0)>0){
-      $zoneId=(int)$person['zone_id'];
-      if(in_array($role,['inspector','motor'],true)){
-        OrgChart::ensureZoneLeaders();
-        foreach(Db::all('SELECT zone_id,inspector_ids FROM zone_leadership') as $assignment){
-          if(in_array($uid,array_map('intval',json_decode((string)($assignment['inspector_ids']??'[]'),true)?:[]),true)){$zoneId=(int)$assignment['zone_id'];break;}
-        }
+  if(!$person)return [];
+  $role=OrgChart::roleKey($person['role_title']??'');
+  if($role==='head')return []; // Final regional approval: never forward to admin/deputy/office roles.
+  if(in_array($role,['field','inspector','motor'],true)){
+    $zoneId=(int)($person['zone_id']??0);
+    if(in_array($role,['inspector','motor'],true)){
+      OrgChart::ensureZoneLeaders();
+      foreach(Db::all('SELECT zone_id,inspector_ids FROM zone_leadership ORDER BY zone_id') as $assignment){
+        if(in_array($uid,array_map('intval',json_decode((string)($assignment['inspector_ids']??'[]'),true)?:[]),true)){$zoneId=(int)$assignment['zone_id'];break;}
       }
+    }
+    if($zoneId>0){
       $responsibility=OrgChart::currentZoneResponsibility($zoneId);
-      if($role==='field'){
-        $ids=array_values(array_filter(array_map('intval',array_column($responsibility['inspectors']??[],'id'))));
-        if($ids)return $ids;
-      }elseif(!empty($responsibility['chief']['id']))return [(int)$responsibility['chief']['id']];
+      if($role==='field')return array_values(array_filter(array_map('intval',array_column($responsibility['inspectors']??[],'id'))));
+      if(!empty($responsibility['chief']['id']))return [(int)$responsibility['chief']['id']];
+    }
+    return [];
+  }
+  $nextRole=$role==='senior'?'chief':($role==='chief'?'head':null);
+  if(!$nextRole)return [];
+  // Respect the configured chart only when the manager has the required next role.
+  $managers=_user_managers($uid);
+  if($managers){
+    $marks=implode(',',array_fill(0,count($managers),'?'));
+    foreach(Db::all("SELECT u.id,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 AND u.id IN ($marks)",$managers) as $manager){
+      if(OrgChart::roleKey($manager['role_title'])===$nextRole)return [(int)$manager['id']];
     }
   }
-  return _user_managers($uid);
+  $users=Db::all('SELECT u.id,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 ORDER BY u.id');
+  foreach($users as $manager)if(OrgChart::roleKey($manager['role_title'])===$nextRole)return [(int)$manager['id']];
+  return [];
 }
 function _req_approver($uid){
   $options=_req_policy_options($uid);
@@ -4655,6 +4668,74 @@ function _req_approver($uid){
   }
   $mgrs = _req_hierarchy_managers((int)$uid);
   return $mgrs[0] ?? null; // نخستین مقام بالادست
+}
+
+// Recalculate the unfinished stage from the requester's CURRENT regional chain.
+// A previous approver may no longer be a manager, but their role still marks
+// the completed stage; do not restart approval or erase recorded decisions.
+function _req_current_pending_target(array $request): ?int {
+  require_once __DIR__.'/OrgChart.php';
+  $owner=(int)($request['user_id']??0);
+  if($owner<=0)return null;
+  if((_req_policy_options($owner,false)['approval_mode']??'hierarchical')!=='hierarchical')return (int)($request['pending_on']??0) ?: null;
+  $chain=[];$seen=[];$cursor=$owner;
+  while($cursor>0&&!isset($seen[$cursor])&&count($chain)<8){
+    $seen[$cursor]=true;
+    $next=(int)(_req_hierarchy_managers($cursor)[0]??0);
+    if($next<=0||isset($seen[$next]))break;
+    $chain[]=$next;$cursor=$next;
+  }
+  if(!$chain)return null;
+  $last=(int)($request['approver_id']??0);
+  if($last<=0)return $chain[0];
+  $actor=Db::one('SELECT r.title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?',[$last]);
+  $lastRole=OrgChart::roleKey($actor['title']??'');
+  $stage=['inspector'=>0,'motor'=>0,'senior'=>1,'chief'=>2,'head'=>3];
+  if(!isset($stage[$lastRole]))return $chain[0];
+  foreach($chain as $candidate){
+    $person=Db::one('SELECT r.title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?',[$candidate]);
+    $role=OrgChart::roleKey($person['title']??'');
+    if(isset($stage[$role])&&$stage[$role]>$stage[$lastRole])return $candidate;
+  }
+  return null;
+}
+
+// Repairs requests left in an old reviewer's inbox by earlier chart/user edits.
+// Compare-and-swap prevents overwriting another approval that was just submitted.
+function _req_reconcile_pending_approvals(?int $ownerId=null,?int $reviewerId=null): int {
+  if(!Db::one("SHOW TABLES LIKE 'requests'"))return 0;
+  $where='';$params=[];
+  if($ownerId){$where=' AND r.user_id=?';$params=[$ownerId];}
+  elseif($reviewerId){
+    require_once __DIR__.'/OrgChart.php';
+    $reviewer=Db::one('SELECT u.zone_id,r.title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.is_active=1',[$reviewerId]);
+    $role=OrgChart::roleKey($reviewer['title']??'');
+    if(!in_array($role,['inspector','motor','senior','chief','head'],true))return 0;
+    if(in_array($role,['inspector','motor','senior'],true)){
+      OrgChart::ensureZoneLeaders();$roots=[];
+      foreach(Db::all('SELECT zone_id,senior_user_id,inspector_ids FROM zone_leadership') as $leader){
+        $ids=array_map('intval',json_decode((string)($leader['inspector_ids']??'[]'),true)?:[]);
+        if(($role==='senior'&&(int)$leader['senior_user_id']===$reviewerId)||(in_array($role,['inspector','motor'],true)&&in_array($reviewerId,$ids,true)))$roots[]=(int)$leader['zone_id'];
+      }
+      if(!$roots && (int)($reviewer['zone_id']??0)>0)$roots[]=(int)$reviewer['zone_id'];
+      $zones=Db::all('SELECT id,parent_id FROM zones');$parents=[];
+      foreach($zones as $zone)$parents[(int)$zone['id']]=(int)($zone['parent_id']??0);
+      $scope=[];
+      foreach($parents as $zoneId=>$_){$cursor=$zoneId;$seen=[];while($cursor>0&&!isset($seen[$cursor])){if(in_array($cursor,$roots,true)){$scope[]=$zoneId;break;}$seen[$cursor]=true;$cursor=$parents[$cursor]??0;}}
+      if($scope){$marks=implode(',',array_fill(0,count($scope),'?'));$where=" AND (r.pending_on=? OR u.zone_id IN ($marks))";$params=array_merge([$reviewerId],$scope);}
+      else {$where=' AND r.pending_on=?';$params=[$reviewerId];}
+    }
+  }
+  $rows=Db::all("SELECT r.id,r.user_id,r.pending_on,r.approver_id FROM requests r JOIN users u ON u.id=r.user_id WHERE r.status='pending' $where ORDER BY r.id DESC LIMIT 1000",$params);
+  $changed=0;
+  foreach($rows as $request){
+    if((_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
+    $target=_req_current_pending_target($request);$current=(int)($request['pending_on']??0);
+    if(!$target||$target===$current)continue;
+    $update=Db::run("UPDATE requests SET pending_on=? WHERE id=? AND status='pending' AND pending_on <=> ?",[$target,(int)$request['id'],$request['pending_on']]);
+    $changed+=(int)$update->rowCount();
+  }
+  return $changed;
 }
 
 // ==================== نیروی جایگزین مرخصی ====================
@@ -4951,6 +5032,7 @@ route('POST', '/api/my/requests', function($p,$b,$u){
 // درخواست‌های من
 route('GET', '/api/my/requests', function($p,$b,$u){
   _ensure_requests_table();
+  _req_reconcile_pending_approvals((int)$u['id']);
   // اطمینان از وجود ستون جایگزین
   $sel = "r.id,r.user_id,r.pending_on,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name";
   $hasSub = false;
@@ -4983,11 +5065,13 @@ route('POST', '/api/my/requests/{id}/cancel', function($p,$b,$u){
 });
 
 // کارتابل تأیید: درخواست‌هایی که در انتظار تأیید این کاربر است
-route('GET', '/api/my/request-inbox', fn($p,$b,$u) => Db::all(
-  "SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.created_at,r.attachment_name,r.selfie_data,
+route('GET', '/api/my/request-inbox', function($p,$b,$u){
+  _req_reconcile_pending_approvals(null,(int)$u['id']);
+  return Db::all("SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.created_at,r.attachment_name,r.selfie_data,
      CONCAT(us.first_name,' ',us.last_name) requester
    FROM requests r JOIN users us ON us.id=r.user_id
-   WHERE r.pending_on=? AND r.status='pending' ORDER BY r.id DESC", [$u['id']]));
+   WHERE r.pending_on=? AND r.status='pending' ORDER BY r.id DESC", [$u['id']]);
+});
 
 // جزئیات یک درخواست (شامل پیوست/سلفی)
 route('GET', '/api/requests/{id}', function($p,$b,$u){
@@ -10017,13 +10101,8 @@ route('GET', '/api/admin/zones', function(){_zone_leave_requirement_storage();re
 // Runs inside the same transaction as a zone leadership change. Only pending
 // hierarchical requests currently assigned to a replaced regional reviewer move.
 function _req_reassign_pending_zone_approvals(int $zoneId,?array $previous,?int $senior,array $inspectors): int {
-  if(!$previous || !Db::one("SHOW TABLES LIKE 'requests'"))return 0;
-  $oldSenior=(int)($previous['senior_user_id']??0);
+  if(!Db::one("SHOW TABLES LIKE 'requests'"))return 0;
   $oldInspectors=array_values(array_unique(array_filter(array_map('intval',json_decode((string)($previous['inspector_ids']??'[]'),true)?:[]))));
-  $removedInspectors=array_values(array_diff($oldInspectors,$inspectors));
-  $removedSenior=$oldSenior>0&&$oldSenior!==(int)$senior?$oldSenior:0;
-  $removed=array_values(array_unique(array_merge($removedInspectors,$removedSenior?[$removedSenior]:[])));
-  if(!$removed)return 0;
   $zones=Db::all('SELECT id,parent_id FROM zones');$parents=[];
   foreach($zones as $zone)$parents[(int)$zone['id']]=(int)($zone['parent_id']??0);
   $inside=static function(int $child)use($zoneId,$parents): bool {
@@ -10034,16 +10113,20 @@ function _req_reassign_pending_zone_approvals(int $zoneId,?array $previous,?int 
     }
     return false;
   };
-  $marks=implode(',',array_fill(0,count($removed),'?'));
-  $pending=Db::all("SELECT r.id,r.user_id,r.pending_on,u.zone_id FROM requests r JOIN users u ON u.id=r.user_id WHERE r.status='pending' AND r.pending_on IN ($marks) FOR UPDATE",$removed);
+  $regionIds=array_keys(array_filter($parents,static fn($_,$id)=>$inside((int)$id),ARRAY_FILTER_USE_BOTH));
+  $criteria=[];$params=[];
+  if($regionIds){$criteria[]='u.zone_id IN ('.implode(',',array_fill(0,count($regionIds),'?')).')';$params=array_merge($params,$regionIds);}
+  if($oldInspectors){$criteria[]='r.user_id IN ('.implode(',',array_fill(0,count($oldInspectors),'?')).')';$params=array_merge($params,$oldInspectors);}
+  if(!$criteria)return 0;
+  $pending=Db::all("SELECT r.id,r.user_id,r.pending_on,r.approver_id,u.zone_id FROM requests r JOIN users u ON u.id=r.user_id WHERE r.status='pending' AND (".implode(' OR ',$criteria).") FOR UPDATE",$params);
   $moved=0;
   foreach($pending as $request){
     $current=(int)$request['pending_on'];
     if(!$inside((int)$request['zone_id'])&&!in_array((int)$request['user_id'],$oldInspectors,true))continue;
     if((_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
-    $target=$current===$removedSenior?(int)$senior:(int)($inspectors[0]??0);
+    $target=(int)(_req_current_pending_target($request)??0);
     if($target<=0||$target===$current)continue; // No replacement: keep the existing queue visible.
-    $updated=Db::run("UPDATE requests SET pending_on=? WHERE id=? AND status='pending' AND pending_on=?",[$target,(int)$request['id'],$current]);
+    $updated=Db::run("UPDATE requests SET pending_on=? WHERE id=? AND status='pending' AND pending_on <=> ?",[$target,(int)$request['id'],$request['pending_on']]);
     $moved+=(int)($updated->rowCount()??0);
   }
   return $moved;

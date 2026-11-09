@@ -24,7 +24,10 @@ class OrgChart {
       Db::all('SELECT u.id,u.first_name,u.last_name,u.username,u.zone_id,u.is_active,r.title role_title,r.level,r.is_admin FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1'));
   }
   static function ensureZoneLeaders() {
+    static $ready=false;
+    if($ready)return;
     Db::run("CREATE TABLE IF NOT EXISTS zone_leadership (zone_id INT NOT NULL PRIMARY KEY, senior_user_id INT NULL, inspector_ids TEXT NOT NULL, updated_by INT NULL, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $ready=true;
   }
   static function withZoneLeaders($zones) {
     self::ensureZoneLeaders();$leaders=[];

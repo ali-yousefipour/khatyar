@@ -9,10 +9,14 @@ assert.match(org,/SELECT senior_user_id,inspector_ids FROM zone_leadership WHERE
 assert.match(org,/_req_reassign_pending_zone_approvals\(\(int\)\$zoneId,\$previous,\$senior,\$inspectors\)/,'Transfer happens in leadership transaction');
 assert.match(org,/\$connection->commit\(\)/,'Leadership transaction must commit after transfer');
 assert.match(transfer,/r\.status='pending'/,'Only outstanding requests are selected');
-assert.match(transfer,/r\.pending_on IN \(\$marks\)/,'Old reviewer queue is the source');
+assert.match(transfer,/_req_current_pending_target\(\$request\)/,'Transfers use the live approval chain, not only previous reviewer IDs');
 assert.match(transfer,/\$inside\(\(int\)\$request\['zone_id'\]\)/,'Region membership is checked');
 assert.match(transfer,/approval_mode'\]\?\?'hierarchical'/,'Specific-approver requests are excluded');
 assert.match(transfer,/UPDATE requests SET pending_on=\?/,'Only queue owner changes');
+assert.match(routes,/function _req_reconcile_pending_approvals\(/,'Stale requests can be repaired without repeating the leadership edit');
+assert.match(routes,/_req_reconcile_pending_approvals\(null,\(int\)\$u\['id'\]\)/,'Opening the new reviewer inbox repairs old pending requests');
+assert.match(routes,/if\(\$role==='head'\)return \[\]/,'Approval ends at inspection department head');
+assert.doesNotMatch(routes.split('function _req_hierarchy_managers(')[1].split('function _req_approver(')[0],/return _user_managers\(\$uid\)/,'Generic administrators must not be appended to the chain');
 assert.doesNotMatch(transfer,/SET status=|approver_id=|DELETE FROM request_approval_steps/,'History and decisions must be preserved');
 assert.match(routes,/function _req_hierarchy_managers\(/,'New requests resolve current region leadership');
 assert.match(routes,/\$mgrs = _req_hierarchy_managers\(\(int\)\$uid\)/,'Initial approval uses current hierarchy');

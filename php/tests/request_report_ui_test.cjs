@@ -19,6 +19,7 @@ const tick=()=>new Promise(setImmediate);
  assert.equal(nodes(tree).filter(n=>n.type===context.JDate).length,2,'registration dates use Persian calendar component');
  const rows=[{id:1,type:'annual',unit:'daily',minutes:480,status:'pending',requester:'الف'},{id:2,type:'manual',unit:'hourly',minutes:0,status:'approved',requester:'ب'}];
  loads.shift().resolve(rows);await tick();tree=render();
+ assert.ok(input(tree,'انتخاب تمام ردیف‌ها از سرستون'),'select-all control appears in the selection column header');
  assert.equal(nodes(tree).filter(n=>n.type==='button'&&text(n)==='ویرایش').length,1,'only approved rows offer edit');button(tree,'ویرایش').props.onClick();tree=render();const editor=nodes(tree).find(n=>n.type===context.ApprovedRequestEditor);assert.equal(editor.props.requestId,2);editor.props.onClose();tree=render();
  assert.ok(text(tree).includes('1 روز'),'daily duration uses days');
  button(tree,'جزئیات').props.onClick();tree=render();assert.equal(nodes(tree).find(n=>n.type===context.RequestDetails).props.requestId,1,'row details uses its own request id');
