@@ -104,11 +104,14 @@ route('POST','/api/school-service/sepand-import/{type}',function($p,$b,$u){
 });
 route('GET','/api/school-service/sepand-drivers',function($p,$b,$u){
   _ssv_need($u,'view');_ssv_tables();_ssv_sepand_schema();
-  $page=max(1,(int)($_GET['page']??1));$limit=25;$search=_ssv_norm($_GET['search']??'');$status=_ssv_norm($_GET['status']??'');$where=['1=1'];$args=[];
+  $page=max(1,(int)($_GET['page']??1));$limit=max(10,min(100,(int)($_GET['page_size']??25)));$search=_ssv_norm($_GET['search']??'');$status=_ssv_norm($_GET['status']??'');$where=['1=1'];$args=[];
   if($search!==''){$where[]='(national_code LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR mobile LIKE ? OR vin LIKE ?)';for($j=0;$j<5;$j++)$args[]='%'.$search.'%';}
   if($status!==''){$where[]='sepand_status=?';$args[]=$status;}
   $sql=implode(' AND ',$where);$total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_sepand_drivers WHERE $sql",$args)['n']??0);
-  $items=Db::all("SELECT * FROM school_service_sepand_drivers WHERE $sql ORDER BY id DESC LIMIT $limit OFFSET ".(($page-1)*$limit),$args);
+  $sortColumns=['name'=>'first_name','national_code'=>'national_code','mobile'=>'mobile','vin'=>'vin','status'=>'sepand_status','id'=>'id'];
+  $sortExpr=$sortColumns[(string)($_GET['sort_by']??'id')]??'id';
+  $sortDir=strtolower((string)($_GET['sort_dir']??'desc'))==='asc'?'ASC':'DESC';
+  $items=Db::all("SELECT * FROM school_service_sepand_drivers WHERE $sql ORDER BY $sortExpr $sortDir,id DESC LIMIT $limit OFFSET ".(($page-1)*$limit),$args);
   return ['items'=>$items,'total'=>$total,'page'=>$page,'pages'=>max(1,(int)ceil($total/$limit))];
 });
 /** Application history is distinct from the unique driver profile and field inspections. */
