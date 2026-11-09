@@ -16494,9 +16494,20 @@ route('GET','/api/school-service/vehicles',function($p,$b,$u){
     if($value!==''){$where[]="v.$field=?";$args[]=$value;}
   }
   $w=implode(' AND ',$where);$join=' LEFT JOIN school_service_sepand_drivers d ON d.national_code=v.sepand_driver_national_code ';
+  $sortColumns=[
+    'plate'=>'CONCAT(v.plate_two,v.plate_letter,v.plate_three,v.plate_region_code)',
+    'type'=>'v.vehicle_type','color'=>'v.vehicle_color',
+    'passengers'=>'(COALESCE(v.passenger_front_count,0)+COALESCE(v.passenger_rear_count,0))',
+    'driver'=>"TRIM(CONCAT(COALESCE(d.first_name,''),' ',COALESCE(d.last_name,'')))",
+    'certificate'=>'v.certificate_status','inspection_count'=>'inspection_count',
+    'last_inspection'=>'COALESCE(v.last_inspection_at,v.created_at)'
+  ];
+  $sortBy=(string)($_GET['sort_by']??'last_inspection');
+  $sortExpr=$sortColumns[$sortBy]??$sortColumns['last_inspection'];
+  $sortDir=strtolower((string)($_GET['sort_dir']??'desc'))==='asc'?'ASC':'DESC';
   $total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_vehicles v $join WHERE $w",$args)['n']??0);$off=($page-1)*$limit;
   $items=Db::all("SELECT v.*, TRIM(CONCAT(COALESCE(d.first_name,''),' ',COALESCE(d.last_name,''))) sepand_driver_name,d.mobile sepand_driver_mobile,d.sepand_status sepand_driver_status, (SELECT COUNT(*) FROM school_service_inspections i WHERE i.plate_two=v.plate_two AND i.plate_letter=v.plate_letter AND i.plate_three=v.plate_three AND i.plate_region_code=v.plate_region_code) inspection_count
-    FROM school_service_vehicles v $join WHERE $w ORDER BY COALESCE(v.last_inspection_at,v.created_at) DESC LIMIT $limit OFFSET $off",$args);
+    FROM school_service_vehicles v $join WHERE $w ORDER BY $sortExpr $sortDir,v.id DESC LIMIT $limit OFFSET $off",$args);
   foreach($items as &$r){$r['plate']=$r['plate_two'].' '.$r['plate_letter'].' '.$r['plate_three'].' - ایران '.$r['plate_region_code'];}unset($r);
   return ['items'=>$items,'page'=>$page,'limit'=>$limit,'total'=>$total,'pages'=>max(1,(int)ceil($total/$limit))];
 });
@@ -16550,13 +16561,17 @@ route('GET','/api/school-service/unauthorized-vehicles',function($p,$b,$u){
   $search=preg_replace('/[\s\-]+/u','',_ssv_en(_ssv_norm($_GET['search']??'')));
   $where='v.is_active=1';$args=[];
   if($search!==''){$where.=' AND CONCAT(v.plate_two,v.plate_letter,v.plate_three,v.plate_region_code) LIKE ?';$args[]='%'.$search.'%';}
+  $sortColumns=['updated'=>'v.updated_at','plate'=>'CONCAT(v.plate_two,v.plate_letter,v.plate_three,v.plate_region_code)','type'=>'v.vehicle_type','color'=>'v.vehicle_color','company'=>'c.name'];
+  $sortBy=(string)($_GET['sort_by']??'updated');
+  $sortExpr=$sortColumns[$sortBy]??$sortColumns['updated'];
+  $sortDir=strtolower((string)($_GET['sort_dir']??'desc'))==='asc'?'ASC':'DESC';
   $total=(int)(Db::one("SELECT COUNT(*) total FROM school_service_unauthorized_vehicles v WHERE $where",$args)['total']??0);
   $pages=max(1,(int)ceil($total/$pageSize));
   $page=min($page,$pages);
   $offset=($page-1)*$pageSize;
   return ['items'=>Db::all("SELECT v.id,v.plate_two,v.plate_letter,v.plate_three,v.plate_region_code,v.vehicle_type,v.vehicle_color,v.created_at,v.updated_at,
     c.name reporting_company_name FROM school_service_unauthorized_vehicles v
-    JOIN school_service_companies c ON c.id=v.reporting_company_id WHERE $where ORDER BY v.updated_at DESC,v.id DESC LIMIT $pageSize OFFSET $offset",$args),
+    JOIN school_service_companies c ON c.id=v.reporting_company_id WHERE $where ORDER BY $sortExpr $sortDir,v.id DESC LIMIT $pageSize OFFSET $offset",$args),
     'page'=>$page,'page_size'=>$pageSize,'pages'=>$pages,'total'=>$total];
 });
 route('POST','/api/school-service/unauthorized-vehicles',function($p,$b,$u){
