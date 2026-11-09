@@ -4,7 +4,7 @@ const start=bundle.indexOf('function AdminRequests()'),end=bundle.indexOf('\nfun
 let cursor=0,refCursor=0,states=[],refs=[],loads=[],decisions=[];
 const context={React:{createElement:(type,props,...children)=>({type,props:props||{},children})},useEffect(){},
  useState(initial){const i=cursor++;if(states[i]===undefined)states[i]=initial;return[states[i],v=>states[i]=typeof v==='function'?v(states[i]):v];},
- useRef(initial){const i=refCursor++;return refs[i]??=( {current:initial});},Modal(){},JDate(){},RequestLeaveUsage(){},RequestDetails(){},ApprovedRequestEditor(){},fa:String,GET:async()=>({year:1405,month:7,balance:{},requests:[]}),prompt:()=>'',
+ useRef(initial){const i=refCursor++;return refs[i]??=( {current:initial});},Modal(){},JDate(){},RequestLeaveUsage(){},RequestDetails(){},ApprovedRequestEditor(){},fa:String,faPlain:String,GET:async()=>({year:1405,month:7,balance:{},requests:[]}),prompt:()=>'',
  db:{adminRequests:()=>new Promise((resolve,reject)=>loads.push({resolve,reject})),adminRequestDecision:async(id,body)=>decisions.push({id,...body})},setTimeout,URL,console};
 vm.createContext(context);vm.runInContext(bundle.slice(start,end),context);
 const render=()=>{cursor=0;refCursor=0;return vm.runInContext('AdminRequests()',context);};

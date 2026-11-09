@@ -14488,13 +14488,13 @@ function AdminRequests() {
     const TY = { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", unpaid: "مرخصی بدون حقوق", mission: "ماموریت", overtime: "اضافه‌کار", manual: "تردد دستی" };
     const ST = { pending: ["در انتظار", "b-pending"], approved: ["تأییدشده", "b-ok"], rejected: ["ردشده", "b-no"], canceled: ["لغوشده", "b-no"] };
     const [failures, setFailures] = useState([]);
-    const [sort, setSort] = useState({ key: 'id', direction: 'desc' });
+    const [sort, setSort] = useState({ key: null, direction: 'desc' });
     const sortBy = key => setSort(previous => ({ key, direction: previous.key === key && previous.direction === 'asc' ? 'desc' : 'asc' }));
-    const sortedRows = useMemo(() => [...rows].sort((a, b) => {
+    const sortedRows = !sort.key ? rows : [...rows].sort((a, b) => {
         const value = row => { var _a; return ({ id: Number(row.id), requester: row.requester, type: TY[row.type] || row.type, unit: row.unit, date: row.the_date || row.from_jdate || '', time: row.from_time || row.in_time || '', minutes: Number(row.minutes || 0), status: ((_a = ST[row.status]) === null || _a === void 0 ? void 0 : _a[0]) || row.status, approver: row.approver || '', pending_on_name: row.pending_on_name || '', reason: row.reason || '' })[sort.key]; };
         const first = value(a), second = value(b), result = typeof first === 'number' && typeof second === 'number' ? first - second : String(first !== null && first !== void 0 ? first : '').localeCompare(String(second !== null && second !== void 0 ? second : ''), 'fa', { numeric: true });
         return (sort.direction === 'asc' ? 1 : -1) * result;
-    }), [rows, sort]);
+    });
     const column = (key, title) => React.createElement("button", { type: "button", className: "request-sort-button", onClick: () => sortBy(key), "aria-label": 'مرتب‌سازی بر اساس ' + title, "aria-sort": sort.key === key ? (sort.direction === 'asc' ? 'ascending' : 'descending') : undefined },
         title,
         React.createElement("span", { "aria-hidden": "true" }, sort.key === key ? (sort.direction === 'asc' ? ' ↑' : ' ↓') : ' ↕'));

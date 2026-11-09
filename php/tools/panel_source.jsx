@@ -8125,13 +8125,13 @@ function AdminRequests(){
   const [selected,setSelected]=useState([]); const [review,setReview]=useState(null); const [reviewLoading,setReviewLoading]=useState(false); const [actionMessage,setActionMessage]=useState(''); const [reviewError,setReviewError]=useState(''); const actionLock=useRef(false); const loadVersion=useRef(0);
   const TY={annual:"مرخصی استحقاقی",sick:"مرخصی استعلاجی",unpaid:"مرخصی بدون حقوق",mission:"ماموریت",overtime:"اضافه‌کار",manual:"تردد دستی"};
   const ST={pending:["در انتظار","b-pending"],approved:["تأییدشده","b-ok"],rejected:["ردشده","b-no"],canceled:["لغوشده","b-no"]};
-  const [failures,setFailures]=useState([]); const [sort,setSort]=useState({key:'id',direction:'desc'});
+  const [failures,setFailures]=useState([]); const [sort,setSort]=useState({key:null,direction:'desc'});
   const sortBy=key=>setSort(previous=>({key,direction:previous.key===key&&previous.direction==='asc'?'desc':'asc'}));
-  const sortedRows=useMemo(()=>[...rows].sort((a,b)=>{
+  const sortedRows=!sort.key?rows:[...rows].sort((a,b)=>{
     const value=row=>({id:Number(row.id),requester:row.requester,type:TY[row.type]||row.type,unit:row.unit,date:row.the_date||row.from_jdate||'',time:row.from_time||row.in_time||'',minutes:Number(row.minutes||0),status:ST[row.status]?.[0]||row.status,approver:row.approver||'',pending_on_name:row.pending_on_name||'',reason:row.reason||''})[sort.key];
     const first=value(a),second=value(b),result=typeof first==='number'&&typeof second==='number'?first-second:String(first??'').localeCompare(String(second??''),'fa',{numeric:true});
     return (sort.direction==='asc'?1:-1)*result;
-  }),[rows,sort]);
+  });
   const column=(key,title)=><button type="button" className="request-sort-button" onClick={()=>sortBy(key)} aria-label={'مرتب‌سازی بر اساس '+title} aria-sort={sort.key===key?(sort.direction==='asc'?'ascending':'descending'):undefined}>{title}<span aria-hidden="true">{sort.key===key?(sort.direction==='asc'?' ↑':' ↓'):' ↕'}</span></button>;
   const execute=async(ids,status)=>{
     if(actionLock.current)return; actionLock.current=true; setBusyId('batch'); setActionMessage('');setFailures([]);
