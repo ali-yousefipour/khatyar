@@ -5,6 +5,9 @@ const ui=fs.readFileSync(path.join(__dirname,'../app/assets/school-service-admin
 const routes=fs.readFileSync(path.join(__dirname,'../lib/routes.php'),'utf8');
 
 assert.match(ui,/ssvVehicleSearchPlateHtml\('inspection'\)/,'Inspections need a realistic plate-search control');
+assert.match(ui,/ssv-inspection-filters \.ssv-filter-grid\{display:grid;grid-template-columns:repeat\(12,minmax\(0,1fr\)\)/,'Desktop filters must use a compact structured grid');
+assert.match(ui,/@media\(max-width:680px\)\{\.ssv-inspection-filters\{padding:14px\}/,'Filter grid needs a dedicated narrow-screen layout');
+assert.match(ui,/\.ssv-inspection-filters \.ssv-filter-grid>\.ssv-vehicle-search-plate\{grid-column:span 5/,'Plate filter must align in the same row as other filters');
 assert.match(ui,/\.\.\.ssvPlateSearchParams\(inspectionParts\)/,'Each plate segment must be sent independently');
 assert.match(ui,/ssv-inspections-scroll\{max-height:/,'Inspections must have a bounded scroll area');
 assert.match(ui,/ssv-inspections-scroll \.ssv-inspections-table thead th\{position:sticky;top:0/,'Headers must remain sticky');
