@@ -14485,12 +14485,26 @@ function AdminRequests() {
     const [reviewError, setReviewError] = useState('');
     const actionLock = useRef(false);
     const loadVersion = useRef(0);
+    const TY = { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", unpaid: "مرخصی بدون حقوق", mission: "ماموریت", overtime: "اضافه‌کار", manual: "تردد دستی" };
+    const ST = { pending: ["در انتظار", "b-pending"], approved: ["تأییدشده", "b-ok"], rejected: ["ردشده", "b-no"], canceled: ["لغوشده", "b-no"] };
+    const [failures, setFailures] = useState([]);
+    const [sort, setSort] = useState({ key: 'id', direction: 'desc' });
+    const sortBy = key => setSort(previous => ({ key, direction: previous.key === key && previous.direction === 'asc' ? 'desc' : 'asc' }));
+    const sortedRows = useMemo(() => [...rows].sort((a, b) => {
+        const value = row => { var _a; return ({ id: Number(row.id), requester: row.requester, type: TY[row.type] || row.type, unit: row.unit, date: row.the_date || row.from_jdate || '', time: row.from_time || row.in_time || '', minutes: Number(row.minutes || 0), status: ((_a = ST[row.status]) === null || _a === void 0 ? void 0 : _a[0]) || row.status, approver: row.approver || '', pending_on_name: row.pending_on_name || '', reason: row.reason || '' })[sort.key]; };
+        const first = value(a), second = value(b), result = typeof first === 'number' && typeof second === 'number' ? first - second : String(first !== null && first !== void 0 ? first : '').localeCompare(String(second !== null && second !== void 0 ? second : ''), 'fa', { numeric: true });
+        return (sort.direction === 'asc' ? 1 : -1) * result;
+    }), [rows, sort]);
+    const column = (key, title) => React.createElement("button", { type: "button", className: "request-sort-button", onClick: () => sortBy(key), "aria-label": 'مرتب‌سازی بر اساس ' + title, "aria-sort": sort.key === key ? (sort.direction === 'asc' ? 'ascending' : 'descending') : undefined },
+        title,
+        React.createElement("span", { "aria-hidden": "true" }, sort.key === key ? (sort.direction === 'asc' ? ' ↑' : ' ↓') : ' ↕'));
     const execute = async (ids, status) => {
         if (actionLock.current)
             return;
         actionLock.current = true;
         setBusyId('batch');
         setActionMessage('');
+        setFailures([]);
         const failed = [];
         let succeeded = 0;
         try {
@@ -14509,7 +14523,8 @@ function AdminRequests() {
             const message = 'موفق: ' + fa(succeeded) + (failed.length ? '؛ ناموفق: ' + failed.map(item => '#' + item.id + ' ' + item.message).join(' | ') : '');
             setSelected(failed.map(item => item.id));
             setActionMessage(message);
-            setReviewError(failed.length ? message : '');
+            setFailures(failed);
+            setReviewError(failed.length ? 'برخی درخواست‌ها انجام نشدند. علت هر مورد در فهرست زیر آمده است.' : '');
             if (failed.length)
                 setReview(previous => previous ? { ...previous, ids: failed.map(item => item.id) } : null);
             await load({ keepReview: failed.length > 0 });
@@ -14539,6 +14554,7 @@ function AdminRequests() {
         setReviewLoading(true);
         setActionMessage('');
         setReviewError('');
+        setFailures([]);
         try {
             const leaves = [];
             const warnings = [];
@@ -14564,8 +14580,6 @@ function AdminRequests() {
     };
     const act = (id, status) => prepare([id], status);
     const del = id => prepare([id], 'delete');
-    const TY = { annual: "مرخصی استحقاقی", sick: "مرخصی استعلاجی", unpaid: "مرخصی بدون حقوق", mission: "ماموریت", overtime: "اضافه‌کار", manual: "تردد دستی" };
-    const ST = { pending: ["در انتظار", "b-pending"], approved: ["تأییدشده", "b-ok"], rejected: ["ردشده", "b-no"], canceled: ["لغوشده", "b-no"] };
     useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(() => { }); }, []);
     useEffect(() => { setSelected([]); load(); }, [fStatus]);
     const qs = () => { const p = []; if (fUser)
@@ -14635,7 +14649,7 @@ function AdminRequests() {
                 " \u0627\u0646\u062A\u062E\u0627\u0628"),
             [['approved', 'تأیید گروهی'], ['rejected', 'رد گروهی'], ['delete', 'حذف گروهی']].map(([status, title]) => React.createElement("button", { className: "btn g", key: status, disabled: !!busyId || reviewLoading || loading || !selected.length, onClick: () => prepare(selected, status) }, title))),
         reviewLoading && React.createElement("p", { role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0645\u0631\u062E\u0635\u06CC\u2026"),
-        actionMessage && React.createElement("p", { role: "status" }, actionMessage),
+        actionMessage && React.createElement("p", { role: failures.length ? 'alert' : 'status', className: failures.length ? 'workspace-inline-error' : 'request-action-feedback' }, faPlain(actionMessage)),
         review && React.createElement(Modal, { title: review.status === 'delete' ? 'حذف درخواست‌ها' : review.status === 'approved' ? 'بررسی و تأیید درخواست‌ها' : 'رد درخواست‌ها', onClose: () => { if (!busyId)
                 setReview(null); } },
             React.createElement("p", null,
@@ -14644,9 +14658,17 @@ function AdminRequests() {
                 review.status === 'delete' ? 'حذف خواهند شد؛ این عملیات قابل بازگشت نیست.' : 'بررسی خواهند شد. درخواست‌های در انتظار و درخواست‌های ردشدهٔ انتخاب‌شده، طبق سیاست کاری بررسی می‌شوند.'),
             ((_a = review.warnings) === null || _a === void 0 ? void 0 : _a.length) > 0 && React.createElement("p", { role: "alert", className: "workspace-inline-error" },
                 "\u062E\u0644\u0627\u0635\u0647\u0654 \u0645\u0631\u062E\u0635\u06CC \u0628\u0631\u0627\u06CC \u0628\u0631\u062E\u06CC \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627 \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0646\u06CC\u0633\u062A (",
-                review.warnings.join(' | '),
+                faPlain(review.warnings.join(' | ')),
                 "). \u062A\u0623\u06CC\u06CC\u062F \u0647\u0645\u0686\u0646\u0627\u0646 \u062F\u0631 \u0633\u0631\u0648\u0631 \u0628\u0631 \u0627\u0633\u0627\u0633 \u0633\u06CC\u0627\u0633\u062A \u06A9\u0627\u0631\u06CC \u06A9\u0646\u062A\u0631\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F."),
-            reviewError && React.createElement("p", { role: "alert", className: "workspace-inline-error" }, reviewError),
+            reviewError && React.createElement("div", { role: "alert", className: "request-review-errors" },
+                React.createElement("strong", null, reviewError),
+                React.createElement("ul", null, failures.map(item => React.createElement("li", { key: item.id },
+                    React.createElement("b", null,
+                        "\u062F\u0631\u062E\u0648\u0627\u0633\u062A ",
+                        fa(item.id),
+                        ":"),
+                    " ",
+                    faPlain(item.message))))),
             review.leaves.map(({ row, context }) => React.createElement("section", { className: "leave-review", key: row.id },
                 React.createElement("h4", null,
                     row.requester,
@@ -14654,10 +14676,8 @@ function AdminRequests() {
                     TY[row.type]),
                 React.createElement(RequestLeaveUsage, { key: row.id, requestId: row.id, initialContext: context }),
                 React.createElement("p", null,
-                    "\u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0645\u0627\u0647 \u062C\u0627\u0631\u06CC \u0634\u0645\u0633\u06CC: ",
-                    context.year,
-                    "/",
-                    context.month),
+                    "\u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0645\u0627\u0647 \u062C\u0627\u0631\u06CC: ",
+                    faPlain(context.year + '/' + context.month)),
                 Object.entries(context.balance).filter(([key]) => key.startsWith(row.type + '_')).map(([key, value]) => React.createElement("p", { key: key },
                     key.endsWith('daily') ? 'روزانه (روز)' : 'ساعتی (ساعت)',
                     ": \u0645\u0635\u0631\u0641 \u0645\u0627\u0647 ",
@@ -14683,8 +14703,8 @@ function AdminRequests() {
                                 React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"))),
                         React.createElement("tbody", null, context.requests.map(item => { var _a; return React.createElement("tr", { key: item.id },
                             React.createElement("td", null, TY[item.type] || item.type),
-                            React.createElement("td", null, item.from_jdate || item.the_date),
-                            React.createElement("td", null, item.to_jdate || item.the_date),
+                            React.createElement("td", null, faPlain(item.from_jdate || item.the_date)),
+                            React.createElement("td", null, faPlain(item.to_jdate || item.the_date)),
                             React.createElement("td", null, ((_a = ST[item.status]) === null || _a === void 0 ? void 0 : _a[0]) || item.status)); })))),
                 !context.requests.length && React.createElement("p", null, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0645\u0627\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))),
             React.createElement("button", { className: "btn p", disabled: !!busyId, onClick: () => execute(review.ids, review.status) }, busyId ? 'در حال پردازش…' : 'تأیید نهایی عملیات')),
@@ -14704,10 +14724,10 @@ function AdminRequests() {
                     Object.entries(TY).map(([k, t]) => React.createElement("option", { key: k, value: k }, t)))),
             React.createElement("label", null,
                 "\u062B\u0628\u062A \u0627\u0632 ",
-                React.createElement(JDate, { value: fFrom, onChange: value => { setFFrom(value); setSelected([]); }, placeholder: "\u062B\u0628\u062A \u0627\u0632 (\u0634\u0645\u0633\u06CC)" })),
+                React.createElement(JDate, { value: fFrom, onChange: value => { setFFrom(value); setSelected([]); }, placeholder: "\u062A\u0627\u0631\u06CC\u062E \u0634\u0631\u0648\u0639" })),
             React.createElement("label", null,
                 "\u062B\u0628\u062A \u062A\u0627 ",
-                React.createElement(JDate, { value: fTo, onChange: value => { setFTo(value); setSelected([]); }, placeholder: "\u062B\u0628\u062A \u062A\u0627 (\u0634\u0645\u0633\u06CC)" })),
+                React.createElement(JDate, { value: fTo, onChange: value => { setFTo(value); setSelected([]); }, placeholder: "\u062A\u0627\u0631\u06CC\u062E \u067E\u0627\u06CC\u0627\u0646" })),
             React.createElement("label", null,
                 "\u062C\u0633\u062A\u200C\u0648\u062C\u0648",
                 React.createElement("input", { className: "input", placeholder: "\u0646\u0627\u0645 \u0646\u06CC\u0631\u0648\u060C \u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u06CC\u0627 \u0634\u0645\u0627\u0631\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A", value: search, onChange: e => { setSearch(e.target.value); setSelected([]); }, onKeyDown: e => { if (e.key === 'Enter')
@@ -14718,54 +14738,59 @@ function AdminRequests() {
             fa(rows.length),
             " \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F5\u06F0\u06F0 \u0646\u062A\u06CC\u062C\u0647\u0654 \u0622\u062E\u0631 (\u062E\u0631\u0648\u062C\u06CC XLSX \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F5\u06F0\u06F0\u06F0 \u0645\u0648\u0631\u062F). \u0628\u0631\u0627\u06CC \u0646\u062A\u0627\u06CC\u062C \u0642\u062F\u06CC\u0645\u06CC\u200C\u062A\u0631 \u0628\u0627\u0632\u0647\u0654 \u062B\u0628\u062A \u0631\u0627 \u0645\u062D\u062F\u0648\u062F \u06A9\u0646\u06CC\u062F."),
         loading ? React.createElement("p", { className: "request-state", role: "status" }, "\u062F\u0631 \u062D\u0627\u0644 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u2026") : rows.length === 0 ? React.createElement("p", { className: "request-state" }, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0628\u0627 \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.") :
-            React.createElement("div", { className: "table-wrap request-results-table", role: "region", "aria-label": "\u0641\u0647\u0631\u0633\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u067E\u0631\u0633\u0646\u0644\u061B \u0642\u0627\u0628\u0644 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u0627\u0641\u0642\u06CC", tabIndex: 0 },
-                React.createElement("table", { style: { fontSize: 12, minWidth: 860 } },
-                    React.createElement("thead", null,
-                        React.createElement("tr", null,
-                            React.createElement("th", null, "\u0627\u0646\u062A\u062E\u0627\u0628"),
-                            React.createElement("th", null, "\u0634\u0645\u0627\u0631\u0647 / \u0646\u06CC\u0631\u0648"),
-                            React.createElement("th", null, "\u0646\u0648\u0639"),
-                            React.createElement("th", null, "\u0648\u0627\u062D\u062F"),
-                            React.createElement("th", null, "\u062A\u0627\u0631\u06CC\u062E"),
-                            React.createElement("th", null, "\u0633\u0627\u0639\u062A"),
-                            React.createElement("th", null, "\u0645\u062F\u062A"),
-                            React.createElement("th", null, "\u0648\u0636\u0639\u06CC\u062A"),
-                            React.createElement("th", null, "\u062A\u0623\u06CC\u06CC\u062F\u06A9\u0646\u0646\u062F\u0647"),
-                            React.createElement("th", null, "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A"),
-                            React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
-                    React.createElement("tbody", null, rows.map(r => {
-                        const st = ST[r.status] || ["—", "b-pending"];
-                        return (React.createElement("tr", { key: r.id },
-                            React.createElement("td", null,
-                                React.createElement("input", { type: "checkbox", "aria-label": "انتخاب درخواست " + r.id, checked: selected.includes(r.id), disabled: !!busyId || reviewLoading, onChange: event => setSelected(previous => event.target.checked ? [...previous, r.id] : previous.filter(id => id !== r.id)) })),
-                            React.createElement("td", null,
-                                React.createElement("small", null,
-                                    "#",
-                                    fa(r.id)),
-                                React.createElement("br", null),
-                                r.requester),
-                            React.createElement("td", null, TY[r.type] || r.type),
-                            React.createElement("td", null, r.unit === "hourly" ? "ساعتی" : r.unit === "daily" ? "روزانه" : "—"),
-                            React.createElement("td", { style: { whiteSpace: "nowrap" } },
-                                r.the_date || r.from_jdate,
-                                r.to_jdate && r.to_jdate !== r.from_jdate ? ` تا ${r.to_jdate}` : ""),
-                            React.createElement("td", { style: { whiteSpace: "nowrap" } }, r.from_time ? `${r.from_time}–${r.to_time}` : (r.in_time || r.out_time) ? `${r.in_time || "—"}/${r.out_time || "—"}` : "—"),
-                            React.createElement("td", null, r.type !== "manual" && r.unit === "daily" ? fa(Math.round(Number(r.minutes || 0) / 480 * 100) / 100) + " روز" : hm(r.minutes)),
-                            React.createElement("td", null,
-                                React.createElement("span", { className: "badge " + st[1] }, st[0])),
-                            React.createElement("td", null, (r.approver || "").trim() || "—"),
-                            React.createElement("td", { style: { maxWidth: 200, fontSize: 11, color: "var(--muted)" } },
-                                r.reason || "",
-                                r.approver_note ? ` | پاسخ: ${r.approver_note}` : "",
-                                r.attachment_name ? " 📎" : ""),
-                            React.createElement("td", { style: { whiteSpace: "nowrap" } },
-                                React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, onClick: () => setDetailId(r.id) }, "\u062C\u0632\u0626\u06CC\u0627\u062A"),
-                                r.status === "approved" && React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading || loading, onClick: () => { setDetailId(null); setBusyId("edit"); setEditId(r.id); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
-                                ["pending", "rejected"].includes(r.status) && React.createElement(React.Fragment, null,
-                                    React.createElement("button", { className: "btn p", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "approved") }, r.status === "rejected" ? "تأیید مجدد" : "تأیید"),
-                                    r.status === "pending" && React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px", marginInlineEnd: 4 }, disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "rejected") }, "\u0631\u062F")),
-                                React.createElement("button", { className: "btn g", style: { fontSize: 11, padding: "3px 8px" }, disabled: !!busyId || reviewLoading, onClick: () => del(r.id) }, "\u062D\u0630\u0641"))));
-                    }))))));
+            React.createElement(React.Fragment, null,
+                React.createElement("div", { className: "request-table-hint" }, "\u0628\u0631\u0627\u06CC \u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC \u0631\u0648\u06CC \u0639\u0646\u0648\u0627\u0646 \u0633\u062A\u0648\u0646 \u0628\u0632\u0646\u06CC\u062F. \u0639\u0646\u0648\u0627\u0646\u200C\u0647\u0627 \u0647\u0646\u06AF\u0627\u0645 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u062B\u0627\u0628\u062A \u0645\u06CC\u200C\u0645\u0627\u0646\u0646\u062F."),
+                React.createElement("div", { className: "table-wrap request-results-table", role: "region", "aria-label": "\u0641\u0647\u0631\u0633\u062A \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u067E\u0631\u0633\u0646\u0644\u061B \u0642\u0627\u0628\u0644 \u067E\u06CC\u0645\u0627\u06CC\u0634 \u0627\u0641\u0642\u06CC \u0648 \u0639\u0645\u0648\u062F\u06CC", tabIndex: 0 },
+                    React.createElement("table", null,
+                        React.createElement("thead", null,
+                            React.createElement("tr", null,
+                                React.createElement("th", null, "\u0627\u0646\u062A\u062E\u0627\u0628"),
+                                React.createElement("th", null, column('requester', 'شماره / نیرو')),
+                                React.createElement("th", null, column('type', 'نوع')),
+                                React.createElement("th", null, column('unit', 'واحد')),
+                                React.createElement("th", null, column('date', 'تاریخ')),
+                                React.createElement("th", null, column('time', 'ساعت')),
+                                React.createElement("th", null, column('minutes', 'مدت')),
+                                React.createElement("th", null, column('status', 'وضعیت')),
+                                React.createElement("th", null, column('approver', 'تأییدکننده قبلی')),
+                                React.createElement("th", null, column('pending_on_name', 'مسئول جاری')),
+                                React.createElement("th", null, column('reason', 'توضیحات')),
+                                React.createElement("th", null, "\u0639\u0645\u0644\u06CC\u0627\u062A"))),
+                        React.createElement("tbody", null, sortedRows.map(r => {
+                            const st = ST[r.status] || ["—", "b-pending"];
+                            return (React.createElement("tr", { key: r.id },
+                                React.createElement("td", null,
+                                    React.createElement("input", { type: "checkbox", "aria-label": "انتخاب درخواست " + r.id, checked: selected.includes(r.id), disabled: !!busyId || reviewLoading, onChange: event => setSelected(previous => event.target.checked ? [...previous, r.id] : previous.filter(id => id !== r.id)) })),
+                                React.createElement("td", null,
+                                    React.createElement("small", null,
+                                        "#",
+                                        fa(r.id)),
+                                    React.createElement("br", null),
+                                    r.requester),
+                                React.createElement("td", null, TY[r.type] || r.type),
+                                React.createElement("td", null, r.unit === "hourly" ? "ساعتی" : r.unit === "daily" ? "روزانه" : "—"),
+                                React.createElement("td", { style: { whiteSpace: "nowrap" } },
+                                    faPlain(r.the_date || r.from_jdate),
+                                    r.to_jdate && r.to_jdate !== r.from_jdate ? ` تا ${faPlain(r.to_jdate)}` : ""),
+                                React.createElement("td", { style: { whiteSpace: "nowrap" } }, faPlain(r.from_time ? `${r.from_time}–${r.to_time}` : (r.in_time || r.out_time) ? `${r.in_time || "—"}/${r.out_time || "—"}` : "—")),
+                                React.createElement("td", null, r.type !== "manual" && r.unit === "daily" ? fa(Math.round(Number(r.minutes || 0) / 480 * 100) / 100) + " روز" : faPlain(hm(r.minutes))),
+                                React.createElement("td", null,
+                                    React.createElement("span", { className: "badge " + st[1] }, st[0])),
+                                React.createElement("td", null, (r.approver || "").trim() || "—"),
+                                React.createElement("td", null,
+                                    React.createElement("span", { className: r.status === 'pending' ? 'request-current-reviewer' : '' }, r.status === 'pending' ? (r.pending_on_name || 'تعیین نشده') : '—')),
+                                React.createElement("td", { className: "request-note-cell", title: faPlain(r.reason || '') },
+                                    faPlain(r.reason || ""),
+                                    r.approver_note ? ` | پاسخ: ${faPlain(r.approver_note)}` : "",
+                                    r.attachment_name ? " · پیوست" : ""),
+                                React.createElement("td", { className: "request-row-actions" },
+                                    React.createElement("button", { className: "btn g", onClick: () => setDetailId(r.id) }, "\u062C\u0632\u0626\u06CC\u0627\u062A"),
+                                    r.status === "approved" && React.createElement("button", { className: "btn g", disabled: !!busyId || reviewLoading || loading, onClick: () => { setDetailId(null); setBusyId("edit"); setEditId(r.id); } }, "\u0648\u06CC\u0631\u0627\u06CC\u0634"),
+                                    ["pending", "rejected"].includes(r.status) && React.createElement(React.Fragment, null,
+                                        React.createElement("button", { className: "btn p", disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "approved") }, r.status === "rejected" ? "تأیید مجدد" : "تأیید"),
+                                        r.status === "pending" && React.createElement("button", { className: "btn g", disabled: !!busyId || reviewLoading, onClick: () => act(r.id, "rejected") }, "\u0631\u062F")),
+                                    React.createElement("button", { className: "btn g", disabled: !!busyId || reviewLoading, onClick: () => del(r.id) }, "\u062D\u0630\u0641"))));
+                        })))))));
 }
 // گزارش ثبت حضور نیروها (چک‌این/چک‌اوت)
 function StaffAttendance() {

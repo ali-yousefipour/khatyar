@@ -17,4 +17,13 @@ assert.doesNotMatch(transfer,/SET status=|approver_id=|DELETE FROM request_appro
 assert.match(routes,/function _req_hierarchy_managers\(/,'New requests resolve current region leadership');
 assert.match(routes,/\$mgrs = _req_hierarchy_managers\(\(int\)\$uid\)/,'Initial approval uses current hierarchy');
 assert.match(routes,/\$mgrs = _req_hierarchy_managers\(\(int\)\$u\['id'\]\)/,'Approval forwarding uses current hierarchy');
+const decision=routes.split("route('POST', '/api/requests/{id}/decide'")[1]?.split("route(")[0];
+assert.ok(decision,'Approval decision route exists');
+assert.match(decision,/\$queueGuard=_req_is_root_admin\(\$u\)\?'':' AND pending_on=\?'/,'Stale reviewer is guarded by current queue ownership');
+assert.equal((decision.match(/\.\$queueGuard/g)||[]).length,3,'Reject, forward and final approval all guard the current reviewer');
+const adminList=routes.split("route('GET', '/api/admin/requests',")[1]?.split("route('GET', '/api/admin/requests/{id}/detail'")[0];
+assert.match(adminList,/pn\.id=r\.pending_on/,'Admin list resolves the current reviewer');
+assert.match(adminList,/pending_on_name/,'Current reviewer is returned to the panel');
+const adminDecision=routes.split("route('POST', '/api/admin/requests/{id}/decision'")[1]?.split("route('PUT','/api/admin/requests/{id}'")[0];
+assert.match(adminDecision,/AND pending_on=\?/,'Admin decisions also reject a stale queue owner');
 console.log('PASS request zone reassignment: pending-only, transactional, regional, hierarchy-aware');

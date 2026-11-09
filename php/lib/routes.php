@@ -5005,11 +5005,15 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
   if($r['status']!=='pending')Http::error('این درخواست دیگر در انتظار بررسی نیست',409);
   $decision = $b['decision'] ?? ''; // approve / reject
   if (!in_array($decision,['approve','reject'])) Http::error('تصمیم نامعتبر',400);
+  // A zone leader can change between loading the request and submitting a decision.
+  // Keep the queue owner in the conditional write, so a stale reviewer cannot act.
+  $queueGuard=_req_is_root_admin($u)?'':' AND pending_on=?';
+  $queueArgs=_req_is_root_admin($u)?[]:[(int)$u['id']];
   if ($decision === 'reject') {
     _req_approval_steps_ensure();
     $pdo=Db::pdo();$pdo->beginTransaction();
     try{
-      $updated=Db::run("UPDATE requests SET status='rejected', approver_id=?, approver_note=?, decided_at=NOW(), pending_on=NULL WHERE id=? AND status='pending'", [$u['id'],$b['note']??null,$p['id']]);
+      $updated=Db::run("UPDATE requests SET status='rejected', approver_id=?, approver_note=?, decided_at=NOW(), pending_on=NULL WHERE id=? AND status='pending'".$queueGuard, array_merge([$u['id'],$b['note']??null,$p['id']],$queueArgs));
       if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است',409);
       _req_record_approval_step((int)$p['id'],(int)$u['id'],'rejected',$b['note']??null);
       $pdo->commit();
@@ -5029,7 +5033,7 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
     _req_approval_steps_ensure();
     $pdo=Db::pdo();$pdo->beginTransaction();
     try{
-      $updated=Db::run("UPDATE requests SET pending_on=?, approver_id=? WHERE id=? AND status='pending'", [$next,$u['id'],$p['id']]);
+      $updated=Db::run("UPDATE requests SET pending_on=?, approver_id=? WHERE id=? AND status='pending'".$queueGuard, array_merge([$next,$u['id'],$p['id']],$queueArgs));
       if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است',409);
       _req_record_approval_step((int)$p['id'],(int)$u['id'],'forwarded',$b['note']??null);
       $pdo->commit();
@@ -5042,7 +5046,7 @@ route('POST', '/api/requests/{id}/decide', function($p,$b,$u){
   _req_approval_steps_ensure();
   $pdo=Db::pdo();$pdo->beginTransaction();
   try{
-    $updated=Db::run("UPDATE requests SET status='approved', approver_id=?, approver_note=?, decided_at=NOW(), pending_on=NULL WHERE id=? AND status='pending'",[$u['id'],$b['note']??null,$p['id']]);
+    $updated=Db::run("UPDATE requests SET status='approved', approver_id=?, approver_note=?, decided_at=NOW(), pending_on=NULL WHERE id=? AND status='pending'".$queueGuard,array_merge([$u['id'],$b['note']??null,$p['id']],$queueArgs));
     if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است',409);
     _req_apply_approval_effects($r,(int)$p['id']);
     _req_record_approval_step((int)$p['id'],(int)$u['id'],'approved',$b['note']??null);
@@ -5618,8 +5622,10 @@ route('GET', '/api/admin/requests', function($p,$b,$u){
   [$where,$args]=_req_report_filter($_GET,$u);
   return Db::all("SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name,
       CONCAT(us.first_name,' ',us.last_name) requester,
-      CONCAT(COALESCE(ap.first_name,''),' ',COALESCE(ap.last_name,'')) approver
+      CONCAT(COALESCE(ap.first_name,''),' ',COALESCE(ap.last_name,'')) approver,
+      TRIM(CONCAT(COALESCE(pn.first_name,''),' ',COALESCE(pn.last_name,''))) pending_on_name
     FROM requests r JOIN users us ON us.id=r.user_id LEFT JOIN users ap ON ap.id=r.approver_id
+    LEFT JOIN users pn ON pn.id=r.pending_on
     $where ORDER BY r.id DESC LIMIT 500", $args);
 }, false, ADMIN);
 
@@ -5675,7 +5681,9 @@ route('POST', '/api/admin/requests/{id}/decision', function($p,$b,$u){
   _req_approval_steps_ensure();
   $pdo=Db::pdo();$pdo->beginTransaction();
   try{
-  $updated=Db::run("UPDATE requests SET status=?,approver_id=?,approver_note=?,decided_at=NOW(),pending_on=NULL WHERE id=? AND status=?",[$status,(int)$u['id'],$note,$id,$req['status']]);
+  $queueGuard=_req_is_root_admin($u)?'':' AND pending_on=?';
+  $queueParams=_req_is_root_admin($u)?[]:[(int)$u['id']];
+  $updated=Db::run("UPDATE requests SET status=?,approver_id=?,approver_note=?,decided_at=NOW(),pending_on=NULL WHERE id=? AND status=?".$queueGuard,array_merge([$status,(int)$u['id'],$note,$id,$req['status']],$queueParams));
   if($updated->rowCount()!==1)Http::error('وضعیت درخواست هم‌زمان تغییر کرده است؛ فهرست را تازه‌سازی کنید.',409);
     if($status==='approved')_req_apply_approval_effects($req,$id);
     _req_record_approval_step($id,(int)$u['id'],$status,$note);
