@@ -14,6 +14,10 @@ assert.match(transfer,/\$inside\(\(int\)\$request\['zone_id'\]\)/,'Region member
 assert.match(transfer,/approval_mode'\]\?\?'hierarchical'/,'Specific-approver requests are excluded');
 assert.match(transfer,/UPDATE requests SET pending_on=\?/,'Only queue owner changes');
 assert.match(routes,/function _req_reconcile_pending_approvals\(/,'Stale requests can be repaired without repeating the leadership edit');
+const resolve=routes.split('function _req_current_pending_target(')[1]?.split('function _req_reconcile_pending_approvals(')[0];
+assert.match(resolve,/\$currentRole=OrgChart::roleKey/,'Legacy current reviewer role is read even without approval history');
+assert.match(resolve,/\$stage\[\$role\]===\$stage\[\$currentRole\]/,'Legacy requests stay at the same approval stage when reviewers change');
+assert.match(resolve,/return null; \/\/ That stage has no valid replacement/,'Missing replacement does not silently skip a review stage');
 assert.match(routes,/_req_reconcile_pending_approvals\(null,\(int\)\$u\['id'\]\)/,'Opening the new reviewer inbox repairs old pending requests');
 assert.match(routes,/if\(\$role==='head'\)return \[\]/,'Approval ends at inspection department head');
 assert.doesNotMatch(routes.split('function _req_hierarchy_managers(')[1].split('function _req_approver(')[0],/return _user_managers\(\$uid\)/,'Generic administrators must not be appended to the chain');

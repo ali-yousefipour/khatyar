@@ -4686,11 +4686,29 @@ function _req_current_pending_target(array $request): ?int {
     $chain[]=$next;$cursor=$next;
   }
   if(!$chain)return null;
+  $stage=['inspector'=>0,'motor'=>0,'senior'=>1,'chief'=>2,'head'=>3];
   $last=(int)($request['approver_id']??0);
-  if($last<=0)return $chain[0];
+  if($last<=0){
+    // Legacy requests often have no recorded previous approval. The old
+    // pending reviewer still identifies their stage (e.g. old regional senior).
+    // Replace the reviewer at that SAME stage, never restart at the inspector.
+    $pending=(int)($request['pending_on']??0);
+    if($pending>0){
+      $current=Db::one('SELECT r.title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?',[$pending]);
+      $currentRole=OrgChart::roleKey($current['title']??'');
+      if(isset($stage[$currentRole])){
+        foreach($chain as $candidate){
+          $person=Db::one('SELECT r.title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?',[$candidate]);
+          $role=OrgChart::roleKey($person['title']??'');
+          if(isset($stage[$role])&&$stage[$role]===$stage[$currentRole])return $candidate;
+        }
+        return null; // That stage has no valid replacement; preserve the queue.
+      }
+    }
+    return $chain[0];
+  }
   $actor=Db::one('SELECT r.title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?',[$last]);
   $lastRole=OrgChart::roleKey($actor['title']??'');
-  $stage=['inspector'=>0,'motor'=>0,'senior'=>1,'chief'=>2,'head'=>3];
   if(!isset($stage[$lastRole]))return $chain[0];
   foreach($chain as $candidate){
     $person=Db::one('SELECT r.title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?',[$candidate]);
