@@ -706,7 +706,9 @@ function _presence_is_required_for_user($userId, $cfg, $presenceRequired=true, $
   return true;
 }
 
-// زمان‌بندی تصادفی صحت‌سنجی: در هر بلوک ۴ ساعته، ۳ زمان مستقل برای هر حضور ساخته می‌شود.
+// حداکثر ۳ نوبت در هر بلوک ۴ ساعته و ۶ نوبت در ۲۴ ساعت پس از ورود.
+const PRESENCE_RANDOM_DAILY_LIMIT=6;
+const PRESENCE_RANDOM_BLOCK_LIMIT=3;
 function _ensure_presence_random_schedule_schema(){
   try{
     Db::run("CREATE TABLE IF NOT EXISTS presence_random_schedules(
@@ -727,17 +729,17 @@ function _ensure_presence_random_schedule_schema(){
 function _presence_random_schedule_enabled($cfg){
   return !empty($cfg['enabled']) && !empty($cfg['random_enabled']);
 }
-function _presence_random_generate_schedule($checkinAt,$windowMinutes=1,$blocks=6){
+function _presence_random_generate_schedule($checkinAt,$windowMinutes=1,$blocks=2){
   $ts=strtotime((string)$checkinAt);
   if(!$ts)return [];
   $window=max(1,min(10,(int)$windowMinutes));
   $out=[];
   // حداکثر ۲۴ ساعت بعد از ورود؛ وضعیت باز بودن حضور در کرون تعیین می‌کند که بعد از خروج چیزی ارسال نشود.
-  for($b=0;$b<max(1,(int)$blocks);$b++){
+  for($b=0;$b<min(2,max(1,(int)$blocks));$b++){
     $base=$ts+($b*4*3600);
     $candidates=[];
     $attempts=0;
-    while(count($candidates)<3 && $attempts<80){
+    while(count($candidates)<PRESENCE_RANDOM_BLOCK_LIMIT && $attempts<80){
       $attempts++;
       $offset=random_int(10*60,230*60);
       $candidate=$base+$offset;
@@ -758,7 +760,27 @@ function _presence_random_generate_schedule($checkinAt,$windowMinutes=1,$blocks=
     }
   }
   usort($out,fn($a,$b)=>($a['ts']??0)<=>($b['ts']??0));
-  return $out;
+  return array_slice($out,0,PRESENCE_RANDOM_DAILY_LIMIT);
+}
+// Also cap schedules persisted before the fix (which contained 18 entries).
+function _presence_random_limited_schedule($items){
+  if(!is_array($items))return [];
+  usort($items,static fn($a,$b)=>(int)($a['ts']??0)<=>(int)($b['ts']??0));
+  $perBlock=[];$limited=[];
+  foreach($items as $item){
+    $block=(int)($item['block']??(int)floor(((int)($item['ts']??0)-(int)($items[0]['ts']??0))/(4*3600))+1);
+    if($block<1||$block>2||($perBlock[$block]??0)>=PRESENCE_RANDOM_BLOCK_LIMIT)continue;
+    $limited[]=$item;$perBlock[$block]=($perBlock[$block]??0)+1;
+    if(count($limited)>=PRESENCE_RANDOM_DAILY_LIMIT)break;
+  }
+  return $limited;
+}
+function _presence_random_available_schedule(int $userId,string $checkinAt,array $items): array {
+  $prior=Db::one("SELECT COUNT(*) n FROM notifications WHERE user_id=? AND created_at>=DATE_SUB(?,INTERVAL 24 HOUR) AND created_at<? AND data LIKE ?",[
+    $userId,$checkinAt,$checkinAt,'%"random":true%'
+  ]);
+  $remaining=max(0,PRESENCE_RANDOM_DAILY_LIMIT-(int)($prior['n']??0));
+  return array_slice(_presence_random_limited_schedule($items),0,$remaining);
 }
 function _presence_random_schedule_for_attendance($userId,$attendanceId,$checkinAt,$cfg){
   _ensure_presence_random_schedule_schema();
@@ -766,10 +788,10 @@ function _presence_random_schedule_for_attendance($userId,$attendanceId,$checkin
   $existing=Db::one("SELECT schedule_json FROM presence_random_schedules WHERE attendance_id=? LIMIT 1",[$attendanceId]);
   if($existing){
     $j=json_decode($existing['schedule_json']??'',true);
-    return is_array($j)?$j:[];
+    return _presence_random_available_schedule((int)$userId,(string)$checkinAt,is_array($j)?$j:[]);
   }
   $win=max(1,min(10,(int)($cfg['window_minutes']??1)));
-  $items=_presence_random_generate_schedule($checkinAt,$win,6);
+  $items=_presence_random_generate_schedule($checkinAt,$win,2);
   Db::run("INSERT IGNORE INTO presence_random_schedules(user_id,attendance_id,checkin_at,schedule_json) VALUES(?,?,?,?)",[
     $userId,$attendanceId,$checkinAt,json_encode($items,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)
   ]);
@@ -777,7 +799,7 @@ function _presence_random_schedule_for_attendance($userId,$attendanceId,$checkin
   // the winning persisted schedule so both use identical random timestamps.
   $stored=Db::one("SELECT schedule_json FROM presence_random_schedules WHERE attendance_id=? LIMIT 1",[$attendanceId]);
   $persisted=$stored?json_decode($stored['schedule_json']??'',true):null;
-  return is_array($persisted)?$persisted:$items;
+  return _presence_random_available_schedule((int)$userId,(string)$checkinAt,is_array($persisted)?$persisted:$items);
 }
 function _presence_random_schedule_payload($items){
   return array_values(array_map(function($x){
@@ -789,7 +811,13 @@ function _presence_random_schedule_payload($items){
       'window_minutes'=>max(1,(int)($x['window_minutes']??1)),
       'block'=>(int)($x['block']??0)
     ];
-  },is_array($items)?$items:[]));
+  },_presence_random_limited_schedule($items)));
+}
+function _presence_random_daily_sent_count(int $userId): int {
+  $row=Db::one('SELECT COUNT(*) n FROM notifications WHERE user_id=? AND created_at>=DATE_SUB(NOW(),INTERVAL 24 HOUR) AND data LIKE ?',[
+    $userId,'%"random":true%'
+  ]);
+  return (int)($row['n']??0);
 }
 
 // پیکربندی برای اپ موبایل: آیا فعال است، آیا این کاربر مشمول است، بازه‌های ساعتی، مهلت
@@ -992,13 +1020,16 @@ route('GET', '/api/cron/presence-alert', function($p,$b,$u){
         if(!_presence_is_required_for_user($uid,$cfg,true,$jdate,$now))continue;
         $eligible++;
         try{
+          $dailySent=_presence_random_daily_sent_count($uid);
+          if($dailySent>=PRESENCE_RANDOM_DAILY_LIMIT)continue;
           $items=!empty($row['schedule_json'])?json_decode($row['schedule_json'],true):null;
           if(!is_array($items)||!count($items)){
             // An insert collision means the app initialized the same session simultaneously.
             $items=_presence_random_schedule_for_attendance($uid,$attendanceId,$row['check_in'],$cfg);
             $generated++;
           }
-          foreach($items as $it){
+          foreach(_presence_random_limited_schedule($items) as $it){
+            if($dailySent>=PRESENCE_RANDOM_DAILY_LIMIT)break;
             $at=(int)($it['ts']??0);if($at<=0)continue;
             $itemWin=max(1,min(10,(int)($it['window_minutes']??$win)));
             // Deliver during the ACTUAL request validity window, not a hard 70-second
@@ -1016,6 +1047,7 @@ route('GET', '/api/cron/presence-alert', function($p,$b,$u){
               'random'=>true,'ts'=>$at,'presence_random_attendance'=>$attendanceId,'request_id'=>$requestId
             ]);
             $sent++;
+            $dailySent++;
           }
         }catch(Throwable $e){
           $randomErrors++;
@@ -1190,7 +1222,7 @@ route('GET', '/api/admin/presence-violations', function($p,$b,$u){
     foreach($rows as $row){
       $items=json_decode($row['schedule_json']??'',true);
       if(!is_array($items))continue;
-      foreach($items as $it){
+      foreach(_presence_random_limited_schedule($items) as $it){
         $ts=(int)($it['ts']??0); if(!$ts)continue;
         $ds=date('Y-m-d',$ts);
         if($ds<$from||$ds>$to)continue;
@@ -5072,6 +5104,7 @@ route('POST', '/api/my/requests', function($p,$b,$u){
 route('GET', '/api/my/requests', function($p,$b,$u){
   _ensure_requests_table();
   _req_reconcile_pending_approvals((int)$u['id']);
+  $visibleFilter=Db::one("SHOW COLUMNS FROM requests WHERE Field='user_deleted_at'")?' AND r.user_deleted_at IS NULL':'';
   // اطمینان از وجود ستون جایگزین
   $sel = "r.id,r.user_id,r.pending_on,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name";
   $hasSub = false;
@@ -5084,12 +5117,23 @@ route('GET', '/api/my/requests', function($p,$b,$u){
         COALESCE(NULLIF(TRIM(CONCAT(COALESCE(pn.first_name,''),' ',COALESCE(pn.last_name,''))),''),pn.username,'') pending_approver_name
       FROM requests r LEFT JOIN users su ON su.id=r.substitute_user_id
       LEFT JOIN users ap ON ap.id=r.approver_id LEFT JOIN users pn ON pn.id=r.pending_on
-      WHERE r.user_id=? ORDER BY r.id DESC LIMIT 100", [$u['id']]));
+      WHERE r.user_id=? $visibleFilter ORDER BY r.id DESC LIMIT 100", [$u['id']]));
   }
   return _req_decorate_my_requests(Db::all("SELECT $sel,TRIM(CONCAT(COALESCE(ap.first_name,''),' ',COALESCE(ap.last_name,''))) approver_name,
       COALESCE(NULLIF(TRIM(CONCAT(COALESCE(pn.first_name,''),' ',COALESCE(pn.last_name,''))),''),pn.username,'') pending_approver_name
       FROM requests r LEFT JOIN users ap ON ap.id=r.approver_id LEFT JOIN users pn ON pn.id=r.pending_on
-      WHERE r.user_id=? ORDER BY r.id DESC LIMIT 100",[$u['id']]));
+      WHERE r.user_id=? $visibleFilter ORDER BY r.id DESC LIMIT 100",[$u['id']]));
+});
+
+// User deletion hides an unfinished request without losing its review history.
+route('DELETE', '/api/my/requests/{id}', function($p,$b,$u){
+  if(!Db::one("SHOW COLUMNS FROM requests WHERE Field='user_deleted_at'")){
+    Db::run('ALTER TABLE requests ADD COLUMN user_deleted_at DATETIME NULL');
+  }
+  $updated=Db::run("UPDATE requests SET status='canceled',pending_on=NULL,user_deleted_at=NOW() WHERE id=? AND user_id=? AND status='pending' AND user_deleted_at IS NULL",[(int)$p['id'],(int)$u['id']]);
+  if($updated->rowCount()!==1)Http::error('این درخواست دیگر در انتظار تأیید نیست یا قبلاً حذف شده است.',409);
+  try{Db::run("UPDATE substitute_assignments SET status='canceled' WHERE request_id=? AND status='active'",[(int)$p['id']]);}catch(Throwable $e){error_log('request substitute cancellation failed: '.$e->getMessage());}
+  return ['ok'=>true,'status'=>'canceled','deleted'=>true];
 });
 
 // لغو درخواست توسط خود کاربر (در حالت pending یا approved)

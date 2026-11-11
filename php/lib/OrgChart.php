@@ -1,5 +1,11 @@
 <?php
 class OrgChart {
+  static function eligibleZoneLeader($roleTitle,$kind) {
+    $role=self::roleKey($roleTitle);
+    $additional=in_array($role,['office','chief','head'],true);
+    return $kind==='senior' ? ($role==='senior'||$additional)
+      : ((in_array($role,['inspector','motor'],true)&&($role!=='motor'||str_contains(strtr((string)$roleTitle,['ي'=>'ی','ك'=>'ک']),'بازرس')))||$additional);
+  }
   // Same responsibility precedence as defaultEdges, independent of physical staff membership.
   static function zoneResponsibility($zoneId, $zones, $users) {
     $byZone=[];$byUser=[];$chain=[];$seen=[];
@@ -7,10 +13,10 @@ class OrgChart {
     foreach($users as $user)if(!empty($user['is_active']))$byUser[(int)$user['id']]=$user;
     ksort($byUser,SORT_NUMERIC);
     for($id=(int)$zoneId;$id>0&&isset($byZone[$id])&&!isset($seen[$id]);$id=(int)($byZone[$id]['parent_id']??0)){$seen[$id]=true;$chain[]=$id;}
-    $eligible=function($user,$kind){$key=self::roleKey($user['role_title']??'');return $kind==='senior'?$key==='senior':($key==='inspector'||($key==='motor'&&str_contains(strtr($user['role_title']??'',['ي'=>'ی','ك'=>'ک']),'بازرس')));};
+    $eligible=function($user,$kind){return self::eligibleZoneLeader($user['role_title']??'',$kind);};
     $resolve=function($kind)use($chain,$byZone,$byUser,$eligible){
       foreach($chain as $id){$z=$byZone[$id];$ids=$kind==='senior'?array_filter([$z['senior_user_id']??null]):($z['inspector_ids']??[]);$found=[];foreach($ids as $uid){$uid=(int)$uid;if(isset($byUser[$uid])&&$eligible($byUser[$uid],$kind))$found[$uid]=$byUser[$uid];}if($found)return ['users'=>array_values($found),'zone_id'=>$id,'source'=>'explicit'];}
-      foreach($chain as $id){$found=[];foreach($byUser as $user)if((int)($user['zone_id']??0)===$id&&$eligible($user,$kind))$found[]=$user;if($found)return ['users'=>$kind==='senior'?[$found[0]]:$found,'zone_id'=>$id,'source'=>'role'];}
+      foreach($chain as $id){$found=[];foreach($byUser as $user){$role=self::roleKey($user['role_title']??'');$native=$kind==='senior'?$role==='senior':in_array($role,['inspector','motor'],true);if((int)($user['zone_id']??0)===$id&&$native&&$eligible($user,$kind))$found[]=$user;}if($found)return ['users'=>$kind==='senior'?[$found[0]]:$found,'zone_id'=>$id,'source'=>'role'];}
       return ['users'=>[],'zone_id'=>null,'source'=>null];
     };
     $dto=function($u){return ['id'=>(int)$u['id'],'name'=>trim(($u['first_name']??'').' '.($u['last_name']??''))?:($u['name']??$u['username']??''),'role_title'=>$u['role_title']??'','level'=>(int)($u['level']??0),'is_admin'=>(int)($u['is_admin']??0)];};
@@ -49,8 +55,8 @@ class OrgChart {
       if(!Db::one('SELECT id FROM zones WHERE id=? FOR UPDATE',[(int)$zoneId]))Http::error('منطقه یافت نشد',404);
       $previous=Db::one('SELECT senior_user_id,inspector_ids FROM zone_leadership WHERE zone_id=? FOR UPDATE',[(int)$zoneId]);
       $users=Db::all('SELECT u.id,u.is_active,r.title role_title FROM users u LEFT JOIN roles r ON r.id=u.role_id FOR UPDATE');$byId=[];foreach($users as $user)$byId[(int)$user['id']]=$user;
-      if($senior!==null && (empty($byId[$senior]['is_active']) || self::roleKey($byId[$senior]['role_title']??'')!=='senior'))Http::error('سربازرس باید کاربر فعال با سمت سربازرس منطقه باشد',422);
-      foreach($inspectors as $id){$user=$byId[$id]??null;$role=self::roleKey($user['role_title']??'');if(!$user || empty($user['is_active']) || !in_array($role,['inspector','motor'],true) || !str_contains(strtr($user['role_title'],['ي'=>'ی','ك'=>'ک']),'بازرس'))Http::error('بازرس انتخاب‌شده باید فعال و دارای سمت بازرس باشد',422);}
+      if($senior!==null && (empty($byId[$senior]['is_active']) || !self::eligibleZoneLeader($byId[$senior]['role_title']??'','senior')))Http::error('مسئول منتخب سربازرس منطقه باید فعال و دارای سمت مجاز باشد',422);
+      foreach($inspectors as $id){$user=$byId[$id]??null;if(!$user || empty($user['is_active']) || !self::eligibleZoneLeader($user['role_title']??'','inspector'))Http::error('مسئول منتخب بازرس منطقه باید فعال و دارای سمت مجاز باشد',422);}
       Db::run('INSERT INTO zone_leadership(zone_id,senior_user_id,inspector_ids,updated_by) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE senior_user_id=VALUES(senior_user_id),inspector_ids=VALUES(inspector_ids),updated_by=VALUES(updated_by)',[(int)$zoneId,$senior,json_encode($inspectors),$actor]);
       if(function_exists('_req_reassign_pending_zone_approvals'))_req_reassign_pending_zone_approvals((int)$zoneId,$previous,$senior,$inspectors);
       $connection->commit();
@@ -108,7 +114,8 @@ class OrgChart {
         while($managerZone>0&&!isset($seenZones[$managerZone])) {
           $seenZones[$managerZone]=true;
           $explicit=$role==='field'?($zoneLeaders[$managerZone]['inspector_ids']??[]):array_filter([$zoneLeaders[$managerZone]['senior_user_id']??null]);
-          $designated=array_intersect_key($candidates,array_flip(array_map('intval',$explicit)));
+          $designated=array_filter(array_intersect_key($active,array_flip(array_map('intval',$explicit))),
+            fn($candidate)=>self::eligibleZoneLeader($candidate['role_title']??'',$role==='field'?'inspector':'senior'));
           if($designated){$chosenManagers+=$designated;break;}
           $managerZone=$zoneParents[$managerZone]??0;
         }

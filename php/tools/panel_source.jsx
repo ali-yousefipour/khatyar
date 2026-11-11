@@ -1792,9 +1792,9 @@ function Zones(){
   const [newParent,setNewParent]=useState(''),[editParent,setEditParent]=useState(''),[child,setChild]=useState(null),[childName,setChildName]=useState('');
   const [leadership,setLeadership]=useState(null),[senior,setSenior]=useState(''),[inspectors,setInspectors]=useState([]);
   const roleOf=user=>String(user.role_title||'').replace(/[يكئ]/g,character=>character==='ك'?'ک':'ی').replace(/[\s\u200c\u200dـ]/g,'');
-  const leaderKind=user=>{const role=roleOf(user);if(role.includes('صدورپروانه')||role.includes('مدیراجرایی')||(role.includes('معاون')&&role.includes('بازرسی'))||(role.includes('رییساداره')&&role.includes('بازرسی'))||role.includes('سربازرسارشد'))return '';if(role.includes('سربازرس'))return 'senior';if(role.includes('گشت')&&role.includes('موتور'))return role.includes('بازرس')?'inspector':'';if(role.includes('اداری'))return '';return role.includes('بازرس')?'inspector':'';};
-  const seniorUsers=users.filter(user=>Number(user.is_active)!==0&&leaderKind(user)==='senior');
-  const inspectorUsers=users.filter(user=>Number(user.is_active)!==0&&leaderKind(user)==='inspector');
+  const leaderKind=(user,kind)=>{const role=roleOf(user);const extra=role.includes('اداری')||role.includes('سربازرسارشد')||(role.includes('رییساداره')&&role.includes('بازرسی'));if(role.includes('صدورپروانه')||role.includes('مدیراجرایی')||(role.includes('معاون')&&role.includes('بازرسی')))return false;if(extra)return true;if(kind==='senior')return role.includes('سربازرس');return (role.includes('بازرس')&&!role.includes('سربازرس'))||((role.includes('گشت')&&role.includes('موتور'))&&role.includes('بازرس'));};
+  const seniorUsers=users.filter(user=>Number(user.is_active)!==0&&leaderKind(user,'senior'));
+  const inspectorUsers=users.filter(user=>Number(user.is_active)!==0&&leaderKind(user,'inspector'));
   const userName=id=>{const user=users.find(item=>+item.id===+id);return user?`${user.first_name||''} ${user.last_name||''}`.trim()||user.username:'#'+id;};
   const openLeaders=zone=>{setLeadership(zone);setSenior(zone.senior_user_id?String(zone.senior_user_id):'');setInspectors((zone.inspector_ids||[]).map(Number));setError('');};
   const saveLeaders=()=>mutate(async()=>{const result=await db.zoneLeaders(leadership.id,{senior_user_id:senior?+senior:null,inspector_ids:inspectors});setZones(current=>current.map(zone=>+zone.id===+leadership.id?{...zone,senior_user_id:result.senior_user_id,inspector_ids:result.inspector_ids}:zone));setLeadership(null);});
@@ -5802,12 +5802,12 @@ function PresenceSettings(){
   const save=async()=>{ await db.saveSettings({presence_check:cfg}); setSaved(true); };
   return(<div>
     <label className="row" style={{gap:8,marginBottom:12}}><input type="checkbox" checked={cfg.enabled} onChange={e=>{setCfg({...cfg,enabled:e.target.checked});setSaved(false);}}/><b>فعال‌سازی صحت‌سنجی حضور</b></label>
-    <p style={{fontSize:13,color:"var(--muted)",marginBottom:10}}>{cfg.random_enabled?'زمان‌های تصادفی بعد از ثبت ورود هر پرسنل ساخته می‌شوند و در هر ۴ ساعت ۳ نوبت صحت‌سنجی برای همان فرد ایجاد می‌شود.':'در هر بازهٔ ساعتی تعریف‌شده، برای کاربرانِ «مشمول صحت‌سنجی» پنجره‌ای در اپ باز می‌شود تا سلفی و عکس خودروهای خط ارسال کنند.'}</p>
+    <p style={{fontSize:13,color:"var(--muted)",marginBottom:10}}>{cfg.random_enabled?'در دو بازهٔ ۴ ساعته پس از ورود، هر بار ۳ نوبت تصادفی و در مجموع حداکثر ۶ صحت‌سنجی طی ۲۴ ساعت ارسال می‌شود.':'در هر بازهٔ ساعتی تعریف‌شده، برای کاربرانِ «مشمول صحت‌سنجی» پنجره‌ای در اپ باز می‌شود تا سلفی و عکس خودروهای خط ارسال کنند.'}</p>
     <label className="row" style={{gap:8,marginBottom:12}}>
       <input type="checkbox" checked={!!cfg.random_enabled} onChange={e=>{setCfg({...cfg,random_enabled:e.target.checked});setSaved(false);}}/>
       <b>🎲 زمان‌بندی تصادفی صحت‌سنجی</b>
     </label>
-    <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:12}}>در صورت فعال بودن، ساعت‌های دستی استفاده نمی‌شوند. پس از هر ثبت ورود، برای همان پرسنل به‌صورت مستقل و تصادفی، در هر بازهٔ ۴ ساعته ۳ نوبت صحت‌سنجی تعیین و در نرم‌افزار ذخیره می‌شود.</p>
+    <p style={{fontSize:12.5,color:"var(--muted)",marginBottom:12}}>در این حالت ساعت‌های دستی استفاده نمی‌شوند. حداکثر ۳ نوبت در هر یک از دو بازهٔ ۴ ساعته پس از ورود ایجاد می‌شود؛ سقف ارسال در هر ۲۴ ساعت برای هر نفر ۶ نوبت است.</p>
     {!cfg.random_enabled&&<>
       <div className="label">بازه‌های ساعتی روزانه:</div>
       <div className="chiprow" style={{margin:"8px 0"}}>{cfg.slots.length?cfg.slots.map(s=><span key={s} className="chip">{s} <b onClick={()=>delSlot(s)}>×</b></span>):<span className="muted" style={{fontSize:12}}>هنوز بازه‌ای تعریف نشده.</span>}</div>

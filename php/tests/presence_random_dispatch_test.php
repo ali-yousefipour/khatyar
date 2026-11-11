@@ -47,6 +47,9 @@ class Push {
   }
 }
 function _presence_random_schedule_enabled($c){return !empty($c['enabled'])&&!empty($c['random_enabled']);}
+const PRESENCE_RANDOM_DAILY_LIMIT=6;
+function _presence_random_limited_schedule($items){return array_slice($items,0,PRESENCE_RANDOM_DAILY_LIMIT);}
+function _presence_random_daily_sent_count($uid){return count(array_filter(Db::$notices,static fn($n)=>$n['uid']===$uid));}
 function _ensure_presence_random_schedule_schema(){}
 function _presence_today_jdate(){return '1405-08-06';}
 function _presence_is_required_for_user($uid,$cfg,$required,$jdate=null,$ts=null){return $required;}

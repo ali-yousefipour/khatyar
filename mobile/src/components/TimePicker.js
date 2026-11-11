@@ -10,10 +10,12 @@ export default function TimePicker({ visible, onClose, onSelect, initial }) {
   const [hour, setHour] = useState(8);
   const [minute, setMinute] = useState('00');
   const [error, setError] = useState(false);
+  const [period, setPeriod] = useState('am');
   useEffect(() => {
     if (!visible) return;
     const match = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(latin(initial || '08:00'));
     setHour(match ? Number(match[1]) : 8);
+    setPeriod(match && Number(match[1]) >= 12 ? 'pm' : 'am');
     setMinute(match ? match[2] : '00');
     setError(false);
   }, [visible, initial]);
@@ -26,11 +28,12 @@ export default function TimePicker({ visible, onClose, onSelect, initial }) {
   return <Modal visible={!!visible} transparent animationType="fade" onRequestClose={onClose}>
     <View style={s.backdrop}><View style={s.card}>
       <Text style={s.title}>انتخاب ساعت</Text>
-      <Text style={s.subtitle}>ساعت به صورت ۲۴ساعته است؛ بعدازظهر از ۱۳ تا ۲۳ انتخاب می‌شود.</Text>
+      <Text style={s.subtitle}>ابتدا بازه زمانی، سپس ساعت و دقیقه را انتخاب کنید.</Text>
       <View style={s.preview}><Text style={s.previewTime}>{fa(two(hour) + ':' + two(valid ? Number(minute) : 0))}</Text><Text style={s.previewLabel}>{hour < 12 ? 'قبل‌ازظهر' : 'بعدازظهر'}</Text></View>
       <Text style={s.label}>ساعت (۰۰ تا ۲۳)</Text>
+      <View style={s.periodRow}>{[['am','قبل‌ازظهر (۰۰–۱۱)'],['pm','بعدازظهر (۱۲–۲۳)']].map(([key,label]) => <TouchableOpacity key={key} accessibilityRole="button" style={[s.periodButton, period===key && s.periodOn]} onPress={() => {setPeriod(key);setHour(h => key==='am' ? h%12 : h%12+12);}}><Text style={[s.periodText,period===key&&s.periodTextOn]}>{label}</Text></TouchableOpacity>)}</View>
       <ScrollView nestedScrollEnabled style={s.hoursScroll} contentContainerStyle={s.hoursGrid}>
-        {Array.from({ length: 24 }, (_, h) => <TouchableOpacity accessibilityRole="button" accessibilityLabel={'ساعت ' + fa(two(h))} key={h} style={[s.hourChip, hour === h && s.selected]} onPress={() => setHour(h)}><Text style={[s.chipText, hour === h && s.selectedText]}>{fa(two(h))}</Text></TouchableOpacity>)}
+        {Array.from({ length: 24 }, (_, h) => (period === 'am' ? h<12 : h>=12) && <TouchableOpacity accessibilityRole="button" accessibilityLabel={'ساعت ' + fa(two(h))} key={h} style={[s.hourChip, hour === h && s.selected]} onPress={() => setHour(h)}><Text style={[s.chipText, hour === h && s.selectedText]}>{fa(two(h))}</Text></TouchableOpacity>)}
       </ScrollView>
       <Text style={s.label}>دقیقه (۰۰ تا ۵۹)</Text>
       <View style={s.minuteRow}><TextInput style={[s.minuteInput, error && !valid && s.invalid]} value={fa(minute)} onChangeText={v => { setMinute(latin(v).replace(/[^0-9]/g, '').slice(0, 2)); setError(false); }} keyboardType="number-pad" maxLength={2} selectTextOnFocus textAlign="center"/><Text style={s.minuteHelp}>دقیقه دقیق را وارد کنید</Text></View>
@@ -51,9 +54,14 @@ const s = StyleSheet.create({
   previewTime: { fontFamily:FONT.bold, fontSize:29, color:C.brand },
   previewLabel: { fontFamily:FONT.regular, fontSize:11, color:C.brand },
   label: { fontFamily:FONT.bold, fontSize:12.5, color:C.ink, textAlign:'right', marginBottom:7 },
-  hoursScroll: { flexGrow:0, maxHeight:208, marginBottom:13 },
+  periodRow: { flexDirection:'row-reverse', gap:8, marginBottom:12 },
+  periodButton: { flex:1, minHeight:44, backgroundColor:'#edf1f5', borderRadius:12, alignItems:'center', justifyContent:'center' },
+  periodOn: { backgroundColor:C.brand },
+  periodText: { fontFamily:FONT.bold, fontSize:12, color:C.ink },
+  periodTextOn: { color:'#fff' },
+  hoursScroll: { flexGrow:0, maxHeight:164, marginBottom:13 },
   hoursGrid: { flexDirection:'row-reverse', flexWrap:'wrap', gap:7, justifyContent:'center' },
-  hourChip: { width:'14.1%', borderRadius:9, paddingVertical:9, backgroundColor:'#f4f6fa', alignItems:'center', borderWidth:1, borderColor:'#e4eaf1' },
+  hourChip: { width:'22%', minHeight:44, borderRadius:9, justifyContent:'center', backgroundColor:'#f4f6fa', alignItems:'center', borderWidth:1, borderColor:'#e4eaf1' },
   selected: { backgroundColor:C.brand, borderColor:C.brand },
   chipText: { fontFamily:FONT.bold, color:C.slate, fontSize:13 },
   selectedText: { color:'#fff' },
@@ -62,13 +70,13 @@ const s = StyleSheet.create({
   invalid: { borderColor:C.danger },
   minuteHelp: { fontFamily:FONT.regular, fontSize:11.5, color:C.muted },
   minutePresets: { flexDirection:'row-reverse', gap:7, paddingVertical:10 },
-  minuteChip: { backgroundColor:'#f2f6f8', paddingHorizontal:12, paddingVertical:8, borderRadius:10 },
+  minuteChip: { backgroundColor:'#f2f6f8', minHeight:44, justifyContent:'center', paddingHorizontal:13, borderRadius:10 },
   minuteSelected: { backgroundColor:'#d5efe3' },
   minuteChipText: { fontFamily:FONT.bold, fontSize:12, color:C.brand },
   error: { fontFamily:FONT.regular, fontSize:11, color:C.danger, textAlign:'right' },
   actions: { flexDirection:'row-reverse', gap:9, marginTop:10 },
-  confirm: { flex:1.4, backgroundColor:C.brand, borderRadius:12, paddingVertical:12, alignItems:'center' },
-  cancel: { flex:1, backgroundColor:'#edf1f5', borderRadius:12, paddingVertical:12, alignItems:'center' },
+  confirm: { flex:1.4, backgroundColor:C.brand, borderRadius:12, minHeight:46, justifyContent:'center', alignItems:'center' },
+  cancel: { flex:1, backgroundColor:'#edf1f5', borderRadius:12, minHeight:46, justifyContent:'center', alignItems:'center' },
   confirmText: { fontFamily:FONT.bold, color:'#fff' },
   cancelText: { fontFamily:FONT.bold, color:C.ink },
 });

@@ -3175,13 +3175,12 @@ function Zones() {
     const [newParent, setNewParent] = useState(''), [editParent, setEditParent] = useState(''), [child, setChild] = useState(null), [childName, setChildName] = useState('');
     const [leadership, setLeadership] = useState(null), [senior, setSenior] = useState(''), [inspectors, setInspectors] = useState([]);
     const roleOf = user => String(user.role_title || '').replace(/[يكئ]/g, character => character === 'ك' ? 'ک' : 'ی').replace(/[\s\u200c\u200dـ]/g, '');
-    const leaderKind = user => { const role = roleOf(user); if (role.includes('صدورپروانه') || role.includes('مدیراجرایی') || (role.includes('معاون') && role.includes('بازرسی')) || (role.includes('رییساداره') && role.includes('بازرسی')) || role.includes('سربازرسارشد'))
-        return ''; if (role.includes('سربازرس'))
-        return 'senior'; if (role.includes('گشت') && role.includes('موتور'))
-        return role.includes('بازرس') ? 'inspector' : ''; if (role.includes('اداری'))
-        return ''; return role.includes('بازرس') ? 'inspector' : ''; };
-    const seniorUsers = users.filter(user => Number(user.is_active) !== 0 && leaderKind(user) === 'senior');
-    const inspectorUsers = users.filter(user => Number(user.is_active) !== 0 && leaderKind(user) === 'inspector');
+    const leaderKind = (user, kind) => { const role = roleOf(user); const extra = role.includes('اداری') || role.includes('سربازرسارشد') || (role.includes('رییساداره') && role.includes('بازرسی')); if (role.includes('صدورپروانه') || role.includes('مدیراجرایی') || (role.includes('معاون') && role.includes('بازرسی')))
+        return false; if (extra)
+        return true; if (kind === 'senior')
+        return role.includes('سربازرس'); return (role.includes('بازرس') && !role.includes('سربازرس')) || ((role.includes('گشت') && role.includes('موتور')) && role.includes('بازرس')); };
+    const seniorUsers = users.filter(user => Number(user.is_active) !== 0 && leaderKind(user, 'senior'));
+    const inspectorUsers = users.filter(user => Number(user.is_active) !== 0 && leaderKind(user, 'inspector'));
     const userName = id => { const user = users.find(item => +item.id === +id); return user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : '#' + id; };
     const openLeaders = zone => { setLeadership(zone); setSenior(zone.senior_user_id ? String(zone.senior_user_id) : ''); setInspectors((zone.inspector_ids || []).map(Number)); setError(''); };
     const saveLeaders = () => mutate(async () => { const result = await db.zoneLeaders(leadership.id, { senior_user_id: senior ? +senior : null, inspector_ids: inspectors }); setZones(current => current.map(zone => +zone.id === +leadership.id ? { ...zone, senior_user_id: result.senior_user_id, inspector_ids: result.inspector_ids } : zone)); setLeadership(null); });
@@ -10067,11 +10066,11 @@ function PresenceSettings() {
         React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 12 } },
             React.createElement("input", { type: "checkbox", checked: cfg.enabled, onChange: e => { setCfg({ ...cfg, enabled: e.target.checked }); setSaved(false); } }),
             React.createElement("b", null, "\u0641\u0639\u0627\u0644\u200C\u0633\u0627\u0632\u06CC \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062D\u0636\u0648\u0631")),
-        React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 10 } }, cfg.random_enabled ? 'زمان‌های تصادفی بعد از ثبت ورود هر پرسنل ساخته می‌شوند و در هر ۴ ساعت ۳ نوبت صحت‌سنجی برای همان فرد ایجاد می‌شود.' : 'در هر بازهٔ ساعتی تعریف‌شده، برای کاربرانِ «مشمول صحت‌سنجی» پنجره‌ای در اپ باز می‌شود تا سلفی و عکس خودروهای خط ارسال کنند.'),
+        React.createElement("p", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 10 } }, cfg.random_enabled ? 'در دو بازهٔ ۴ ساعته پس از ورود، هر بار ۳ نوبت تصادفی و در مجموع حداکثر ۶ صحت‌سنجی طی ۲۴ ساعت ارسال می‌شود.' : 'در هر بازهٔ ساعتی تعریف‌شده، برای کاربرانِ «مشمول صحت‌سنجی» پنجره‌ای در اپ باز می‌شود تا سلفی و عکس خودروهای خط ارسال کنند.'),
         React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 12 } },
             React.createElement("input", { type: "checkbox", checked: !!cfg.random_enabled, onChange: e => { setCfg({ ...cfg, random_enabled: e.target.checked }); setSaved(false); } }),
             React.createElement("b", null, "\uD83C\uDFB2 \u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u062A\u0635\u0627\u062F\u0641\u06CC \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC")),
-        React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 12 } }, "\u062F\u0631 \u0635\u0648\u0631\u062A \u0641\u0639\u0627\u0644 \u0628\u0648\u062F\u0646\u060C \u0633\u0627\u0639\u062A\u200C\u0647\u0627\u06CC \u062F\u0633\u062A\u06CC \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u067E\u0633 \u0627\u0632 \u0647\u0631 \u062B\u0628\u062A \u0648\u0631\u0648\u062F\u060C \u0628\u0631\u0627\u06CC \u0647\u0645\u0627\u0646 \u067E\u0631\u0633\u0646\u0644 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u0645\u0633\u062A\u0642\u0644 \u0648 \u062A\u0635\u0627\u062F\u0641\u06CC\u060C \u062F\u0631 \u0647\u0631 \u0628\u0627\u0632\u0647\u0654 \u06F4 \u0633\u0627\u0639\u062A\u0647 \u06F3 \u0646\u0648\u0628\u062A \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC \u062A\u0639\u06CC\u06CC\u0646 \u0648 \u062F\u0631 \u0646\u0631\u0645\u200C\u0627\u0641\u0632\u0627\u0631 \u0630\u062E\u06CC\u0631\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F."),
+        React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 12 } }, "در این حالت ساعت‌های دستی استفاده نمی‌شوند. حداکثر ۳ نوبت در هر یک از دو بازهٔ ۴ ساعته پس از ورود ایجاد می‌شود؛ سقف ارسال در هر ۲۴ ساعت برای هر نفر ۶ نوبت است."),
         !cfg.random_enabled && React.createElement(React.Fragment, null,
             React.createElement("div", { className: "label" }, "\u0628\u0627\u0632\u0647\u200C\u0647\u0627\u06CC \u0633\u0627\u0639\u062A\u06CC \u0631\u0648\u0632\u0627\u0646\u0647:"),
             React.createElement("div", { className: "chiprow", style: { margin: "8px 0" } }, cfg.slots.length ? cfg.slots.map(s => React.createElement("span", { key: s, className: "chip" },

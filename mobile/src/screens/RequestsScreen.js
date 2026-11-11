@@ -8,7 +8,7 @@ import { C, FONT } from '../theme';
 import JDatePicker, { jLabel } from '../components/JDatePicker';
 import TimePicker from '../components/TimePicker';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
-import { g2j } from '../jdate';
+import { g2j, jToday } from '../jdate';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // فیلد تاریخ شمسی (فقط از تقویم) — مقدار شمسی YYYY-MM-DD برمی‌گرداند
@@ -22,7 +22,7 @@ function JDateField({ label, value, onPick }) {
       <TouchableOpacity style={pf.btn} onPress={() => setOpen(true)}>
         <Text style={[pf.btnTxt, !value && { color: C.muted }]}>{show}</Text><MaterialCommunityIcons name="calendar-month-outline" size={20} color={C.brand}/>
       </TouchableOpacity>
-      <JDatePicker visible={open} onClose={() => setOpen(false)} initial={null}
+      <JDatePicker visible={open} onClose={() => setOpen(false)} initial={value || null}
         onSelect={(d) => onPick(`${d.jy}-${String(d.jm).padStart(2, '0')}-${String(d.jd).padStart(2, '0')}`)} />
     </View>
   );
@@ -145,6 +145,7 @@ function toJ(date) {
   const [jy, jm, jd] = g2j(date.getFullYear(), date.getMonth() + 1, date.getDate());
   return `${jy}-${String(jm).padStart(2, '0')}-${String(jd).padStart(2, '0')}`;
 }
+const todayJ = () => { const [y, m, d] = jToday(); return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`; };
 
 export default function RequestsScreen({ route }) {
   const initialType = route?.params?.initialType;
@@ -164,9 +165,9 @@ export default function RequestsScreen({ route }) {
 function NewRequest({ onDone, initialType, initialDate }) {
   const [type, setType] = useState(['annual','sick','mission','overtime','manual'].includes(initialType) ? initialType : 'annual');
   const [unit, setUnit] = useState('daily');
-  const [fromJ, setFromJ] = useState('');
-  const [toJd, setToJd] = useState('');
-  const [theDate, setTheDate] = useState(initialDate || '');
+  const [fromJ, setFromJ] = useState(() => initialDate || todayJ());
+  const [toJd, setToJd] = useState(() => initialDate || todayJ());
+  const [theDate, setTheDate] = useState(() => initialDate || todayJ());
   const [fromTime, setFromTime] = useState('08:00');
   const [toTime, setToTime] = useState('12:00');
   const [inTime, setInTime] = useState('08:00');
@@ -401,6 +402,7 @@ function NewRequest({ onDone, initialType, initialDate }) {
 
 function MyRequests() {
   const [rows, setRows] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [bal, setBal] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -410,7 +412,7 @@ function MyRequests() {
   const load = async () => {
     setLoadError('');
     try {
-      const response = await request('/my/requests', { queueIfOffline: false });
+      const response = await request('/my/requests', { noStore:true,forceNetwork:true,queueIfOffline:false });
       const items = Array.isArray(response) ? response :
         (Array.isArray(response?.requests) ? response.requests :
         (Array.isArray(response?.rows) ? response.rows :
@@ -421,6 +423,21 @@ function MyRequests() {
       setLoadError(error?.message || 'دریافت درخواست‌ها ناموفق بود.');
       setRows((previous) => previous || []);
     }
+  };
+  const removeRequest = (item) => {
+    if(item.status!=='pending'||deletingId!==null)return;
+    Alert.alert('حذف درخواست','این درخواست هنوز تأیید نهایی نشده است. آیا از حذف آن مطمئن هستید؟',[
+      {text:'انصراف',style:'cancel'},
+      {text:'حذف درخواست',style:'destructive',onPress:async()=>{
+        setDeletingId(item.id);
+        try{
+          await request(`/my/requests/${item.id}`,{method:'DELETE',queueIfOffline:false});
+          setRows(previous=>(previous||[]).filter(row=>Number(row.id)!==Number(item.id)));
+          await load();
+        }catch(error){Alert.alert('حذف انجام نشد',error?.message||'درخواست قابل حذف نیست.');await load();}
+        finally{setDeletingId(null);}
+      }}
+    ]);
   };
   useEffect(() => {
     cachedValue('/my/requests').then((saved) => { if (Array.isArray(saved)) setRows(saved); }).finally(load);
@@ -475,6 +492,10 @@ function MyRequests() {
             {r.reason ? <Text style={s.cardReason}>{r.reason}</Text> : null}
             {r.status==='rejected' ? <View style={s.rejectedBox}><MaterialCommunityIcons name="alert-circle-outline" size={18} color={C.danger}/><Text style={s.rejectedText}>دلیل رد: {rejectedReason || 'دلیل رد توسط تأییدکننده ثبت نشده است.'}</Text></View> : null}
             <ApprovalTimeline item={r}/>
+            {r.status==='pending' && <TouchableOpacity accessibilityRole="button" accessibilityLabel="حذف درخواست در انتظار تأیید" disabled={deletingId!==null} onPress={()=>removeRequest(r)} style={s.deleteRequestBtn}>
+              <MaterialCommunityIcons name="trash-can-outline" size={18} color={C.danger}/>
+              <Text style={s.deleteRequestText}>{deletingId===r.id?'در حال حذف…':'حذف درخواست'}</Text>
+            </TouchableOpacity>}
           </View>
         );
       })}
@@ -507,6 +528,8 @@ const s = StyleSheet.create({
   requestResetText:{fontFamily:FONT.bold,fontSize:12,color:C.brand},
   rejectedBox:{flexDirection:'row-reverse',alignItems:'flex-start',gap:7,backgroundColor:'#fff0f1',borderRadius:11,padding:11,marginTop:11},
   rejectedText:{flex:1,fontFamily:FONT.regular,color:C.danger,fontSize:12,textAlign:'right',lineHeight:21},
+  deleteRequestBtn:{flexDirection:'row-reverse',alignItems:'center',justifyContent:'center',gap:8,alignSelf:'flex-start',minHeight:44,paddingHorizontal:15,marginTop:12,borderRadius:12,backgroundColor:'#fff1f2',borderWidth:1,borderColor:'#fecdd3'},
+  deleteRequestText:{fontFamily:FONT.bold,fontSize:12.5,color:C.danger},
   approverBox:{flexDirection:'row-reverse',alignItems:'center',gap:7,backgroundColor:'#eaf5ef',borderRadius:11,padding:11,marginTop:11},
   approverText:{flex:1,fontFamily:FONT.regular,color:C.brand,fontSize:12,textAlign:'right',lineHeight:20},
   approvalTimeline:{backgroundColor:'#f6f9fc',borderRadius:13,borderWidth:1,borderColor:'#e5edf2',padding:12,marginTop:12},

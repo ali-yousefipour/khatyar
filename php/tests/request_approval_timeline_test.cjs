@@ -16,7 +16,7 @@ assert.ok(routes.includes("$r['upcoming_approvers']=[]"), 'Upcoming approval cha
 assert.ok(routes.includes("$next=_req_hierarchy_managers($cursor)"), 'Upcoming reviewers must follow current region leadership');
 assert.ok(routes.includes('!isset($seen[$cursor])'), 'Cyclic management assignments must not loop forever');
 assert.ok(routes.includes("$approvalMode==='hierarchical' && $r['status']==='pending'"), 'Upcoming reviewers only apply to pending hierarchical requests');
-assert.ok(routes.includes('r.user_id=? ORDER BY r.id DESC LIMIT 100'), 'Request list remains scoped to signed-in requester');
+assert.ok(routes.includes('r.user_id=? $visibleFilter ORDER BY r.id DESC LIMIT 100'), 'Request list remains scoped to signed-in requester and hides user-deleted rows');
 assert.ok(screen.includes('function ApprovalTimeline('), 'Timeline component missing');
 assert.ok(screen.includes('در انتظار بررسی:'), 'Current responsible manager must be shown');
 assert.ok(screen.includes('در مرحله بعد؛ هنوز بررسی نکرده است'), 'Future managers must be clearly distinguished from approved managers');

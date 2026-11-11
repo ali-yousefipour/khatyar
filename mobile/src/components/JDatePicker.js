@@ -84,8 +84,8 @@ export default function JDatePicker({ visible, onClose, onSelect, initial, minYe
           </View>
           {mode === 'day' && <ScrollView contentContainerStyle={s.grid}>
             {days.map((d) => (
-              <TouchableOpacity key={d} style={s.day} onPress={() => { onSelect({ jy: safeJy, jm: safeJm, jd: d, gStr: jToStr(safeJy, safeJm, d), label: jLabel(safeJy, safeJm, d) }); onClose && onClose(); }}>
-                <Text style={s.dayTxt}>{fa(d)}</Text>
+              <TouchableOpacity key={d} accessibilityRole="button" accessibilityLabel={`${fa(d)} ${J_MONTHS[safeJm - 1]}${safeJy === today.jy && safeJm === today.jm && d === today.jd ? '، امروز' : ''}`} style={[s.day, safeJy === today.jy && safeJm === today.jm && d === today.jd && s.todayDay]} onPress={() => { onSelect({ jy: safeJy, jm: safeJm, jd: d, gStr: jToStr(safeJy, safeJm, d), label: jLabel(safeJy, safeJm, d) }); onClose && onClose(); }}>
+                <Text style={[s.dayTxt, safeJy === today.jy && safeJm === today.jm && d === today.jd && s.todayDayTxt]}>{fa(d)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>}
@@ -103,7 +103,7 @@ export default function JDatePicker({ visible, onClose, onSelect, initial, minYe
               </TouchableOpacity>
             ))}
           </ScrollView>}
-          <TouchableOpacity style={s.close} onPress={onClose}><Text style={s.closeTxt}>بستن</Text></TouchableOpacity>
+          <View style={s.footer}><TouchableOpacity style={s.todayAction} onPress={() => { onSelect({ ...today, gStr: jToStr(today.jy,today.jm,today.jd), label: jLabel(today.jy,today.jm,today.jd) }); onClose && onClose(); }}><Text style={s.todayActionTxt}>انتخاب امروز</Text></TouchableOpacity><TouchableOpacity style={s.close} onPress={onClose}><Text style={s.closeTxt}>بستن</Text></TouchableOpacity></View>
         </View>
       </View>
     </Modal>
@@ -123,11 +123,16 @@ const s = StyleSheet.create({
   tabTxtOn: { color: '#fff' },
   grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-start', paddingBottom: 8 },
   day: { width: '13%', aspectRatio: 1, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
+  todayDay: { backgroundColor: '#e1f5e9', borderColor: C.brand, borderWidth: 2 },
+  todayDayTxt: { color: C.brand },
   month: { width: '31%', height: 48, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
   year: { width: '22%', height: 46, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
   selected: { backgroundColor: C.brand, borderColor: C.brand },
   selectedTxt: { color: '#fff' },
   dayTxt: { fontFamily: FONT.bold, color: C.ink, fontSize: 14 },
-  close: { marginTop: 12, backgroundColor: '#eef1f7', borderRadius: 12, padding: 12, alignItems: 'center' },
+  footer: { flexDirection: 'row-reverse', gap: 10, marginTop: 12 },
+  todayAction: { flex: 1, minHeight: 46, backgroundColor: C.brand, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  todayActionTxt: { fontFamily: FONT.bold, color: '#fff' },
+  close: { flex: 1, minHeight: 46, backgroundColor: '#eef1f7', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   closeTxt: { fontFamily: FONT.bold, color: C.ink },
 });

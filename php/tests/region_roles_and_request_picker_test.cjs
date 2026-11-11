@@ -1,0 +1,30 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const root = path.join(__dirname, '..', '..');
+const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const org = read('php/lib/OrgChart.php');
+const source = read('php/tools/panel_source.jsx');
+const bundle = read('php/app/assets/panel.bundle.js');
+const requests = read('mobile/src/screens/RequestsScreen.js');
+const date = read('mobile/src/components/JDatePicker.js');
+const time = read('mobile/src/components/TimePicker.js');
+assert.match(org, /in_array\(\$role,\['office','chief','head'\],true\)/);
+assert.match(org, /self::eligibleZoneLeader\(\$byId\[\$senior\]/);
+assert.match(org, /self::eligibleZoneLeader\(\$user\['role_title'\]/);
+assert.match(org, /\$native&&\$eligible\(\$user,\$kind\)/);
+for (const code of [source, bundle]) {
+  assert.match(code, /role\.includes\('اداری'\)/);
+  assert.match(code, /role\.includes\('سربازرسارشد'\)/);
+  assert.match(code, /role\.includes\('رییساداره'\)/);
+  assert.match(code, /leaderKind\(user,'senior'\)|leaderKind\(user, 'senior'\)/);
+  assert.match(code, /leaderKind\(user,'inspector'\)|leaderKind\(user, 'inspector'\)/);
+}
+assert.match(requests, /const \[fromJ, setFromJ\] = useState\(\(\) => initialDate \|\| todayJ\(\)\)/);
+assert.match(requests, /const \[theDate, setTheDate\] = useState\(\(\) => initialDate \|\| todayJ\(\)\)/);
+assert.match(requests, /initial=\{value \|\| null\}/);
+assert.match(date, /todayDay: \{/);
+assert.match(date, /انتخاب امروز/);
+assert.match(time, /setPeriod\(key\)/);
+assert.match(time, /minHeight:44/);
+console.log('PASS extended region leader roles and request date/time UX contract');
