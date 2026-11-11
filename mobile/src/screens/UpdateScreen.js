@@ -33,7 +33,7 @@ export default function UpdateScreen({ info, onRecheck }) {
   const pct=Math.round(progress*100);
   return <ScrollView style={s.page} contentContainerStyle={s.wrap} showsVerticalScrollIndicator={false}>
     <MaterialCommunityIcons name="cellphone-arrow-down" size={52} color={C.brand} accessible={false} />
-    <Text style={s.title}>به‌روزرسانی لازم است</Text>
+    <Text style={s.title}>{info?.required?'به‌روزرسانی لازم است':'نسخه جدید خطیار'}</Text>
     <Text style={s.msg}>نسخه جدید داخل برنامه دانلود می‌شود. در صورت قطع موقت اینترنت، فایل ناقص حذف نمی‌شود و پس از برقراری اتصال، دانلود از همان نقطه ادامه پیدا می‌کند. پس از دانلود کامل، APK در Downloads ذخیره و نصب‌کننده اندروید اجرا می‌شود.</Text>
     <Text style={s.ver}>نسخه فعلی: {info?.current}  |  نسخه جدید: {info?.latest}</Text>
     {!!info?.notes && <Text style={s.notes}>{info.notes}</Text>}

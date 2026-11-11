@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { C, FONT } from '../theme';
+import UpdateScreen from './UpdateScreen';
+import { checkVersion } from '../update';
 
 const ITEMS = [
   ['map-settings', 'تنظیمات نقشه و دانلود آفلاین', 'map-outline', 'MapSettings', 'مدیریت تنظیمات نقشه و داده‌های آفلاین'],
@@ -17,16 +19,22 @@ const ITEMS = [
 
 export default function SettingsScreen({ navigation }) {
   const [checking, setChecking] = useState(false);
+  const [availableUpdate, setAvailableUpdate] = useState(null);
   const openItem = async (route) => {
     if (route) { navigation.navigate(route); return; }
     if (checking) return;
     setChecking(true);
-    try { const updater = await import('../updater'); await updater.checkForUpdate(true); }
+    try {
+      const info = await checkVersion();
+      if (info.failed) throw new Error('اطلاعات نسخه از سرور دریافت نشد.');
+      if (info.required || info.hasUpdate) setAvailableUpdate(info);
+      else Alert.alert('بررسی به‌روزرسانی', `نسخه ${info.current} آخرین نسخه نصب‌شده است.`);
+    }
     catch (_) { Alert.alert('خطا', 'بررسی به‌روزرسانی انجام نشد. اتصال اینترنت را بررسی کنید.'); }
     finally { setChecking(false); }
   };
   return (
-    <ScrollView style={s.wrap} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+    <><ScrollView style={s.wrap} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <View style={s.hero}>
         <Text style={s.brand}>خطیار</Text>
         <Text style={s.title}>تنظیمات</Text>
@@ -51,6 +59,12 @@ export default function SettingsScreen({ navigation }) {
         ))}
       </View>
     </ScrollView>
+    <Modal visible={!!availableUpdate} animationType="slide" onRequestClose={() => { if (!availableUpdate?.required) setAvailableUpdate(null); }}>
+      <View style={{flex:1}}>
+        {!availableUpdate?.required && <TouchableOpacity accessibilityRole="button" accessibilityLabel="بستن به‌روزرسانی" onPress={() => setAvailableUpdate(null)} style={{alignSelf:'flex-end',padding:16,minWidth:48,minHeight:48}}><MaterialCommunityIcons name="close" size={25} color={C.ink}/></TouchableOpacity>}
+        {!!availableUpdate && <UpdateScreen info={availableUpdate} onRecheck={async()=>{const info=await checkVersion();if(!info.failed && !info.required && !info.hasUpdate)setAvailableUpdate(null);else if(!info.failed)setAvailableUpdate(info);}}/>}
+      </View>
+    </Modal></>
   );
 }
 function Item({ title, icon, description, onPress, disabled = false }) {

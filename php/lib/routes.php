@@ -5085,7 +5085,10 @@ route('POST', '/api/my/requests/{id}/cancel', function($p,$b,$u){
 
 // کارتابل تأیید: درخواست‌هایی که در انتظار تأیید این کاربر است
 route('GET', '/api/my/request-inbox', function($p,$b,$u){
-  _req_reconcile_pending_approvals(null,(int)$u['id']);
+  // Reassignment is best-effort. A chart/schema error must not hide already
+  // assigned requests or prevent the reviewer from opening their inbox.
+  try { _req_reconcile_pending_approvals(null,(int)$u['id']); }
+  catch (Throwable $e) { error_log('request inbox reconciliation failed: '.$e->getMessage()); }
   return Db::all("SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.created_at,r.attachment_name,r.selfie_data,
      CONCAT(us.first_name,' ',us.last_name) requester
    FROM requests r JOIN users us ON us.id=r.user_id

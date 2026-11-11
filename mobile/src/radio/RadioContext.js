@@ -6,6 +6,12 @@ const extractChannels=r=>{const a=Array.isArray(r)?r:(Array.isArray(r?.channels)
 // The server sends the active attendance punch in Tehran local time.
 // A blank value intentionally means there is no verified active shift.
 const shiftStartFromResponse=r=>typeof r?.shift_started_at==='string'?r.shift_started_at:'';
+const activeListenAllSpeaker=response=>{
+  const rows=Array.isArray(response?.active_speakers)?response.active_speakers:[];
+  const item=rows[0];
+  if(!item)return null;
+  return {id:Number(item.speaker_id),name:[item.first_name,item.last_name].filter(Boolean).join(' ').trim()||item.username||'کاربر در حال صحبت',role:item.speaker_role||'',channelId:Number(item.channel_id),channelName:item.channel_name||''};
+};
 export function RadioProvider({children}){const{user}=useAuth();const[enabled,setEnabledState]=useState(true),[channels,setChannels]=useState([]),[channelId,setChannelIdState]=useState(0),[volumePttEnabled,setVolumePttEnabledState]=useState(false),[minTalkMs,setMinTalkMs]=useState(MIN_TALK_MS),[busy,setBusy]=useState(false),[speaker,setSpeaker]=useState(null),[recording,setRecording]=useState(false),[status,setStatus]=useState(''),[lastMessage,setLastMessage]=useState(null),[recentMessages,setRecentMessages]=useState([]),[playingMessageId,setPlayingMessageId]=useState(0),[maxTalkMs,setMaxTalkMs]=useState(DEFAULT_TALK_MS),[loading,setLoading]=useState(false),[loadError,setLoadError]=useState(''),[listenAll,setListenAllState]=useState(false),[listenAllAllowed,setListenAllAllowed]=useState(false);const enabledRef=useRef(true),channelRef=useRef(0),lastIdRef=useRef(0),pollingRef=useRef(false),recentLoadingRef=useRef(false),recentRefreshPendingRef=useRef(false),recentRequestIdRef=useRef(0),mountedRef=useRef(true),recordingRef=useRef(false),limitRef=useRef(DEFAULT_TALK_MS),talkStartRef=useRef(0),autoStoppedRef=useRef(false),pttReleaseTimerRef=useRef(null),pttDownRef=useRef(false),talkGenerationRef=useRef(0),pttInputGenerationRef=useRef(0),listenAllRef=useRef(false),listenAllLastIdRef=useRef(0),pollAllRef=useRef(false),resyncingRef=useRef(true),sessionRef=useRef(0),playbackRef=useRef(null),channelsRef=useRef([]),loadSequenceRef=useRef(0);const recorder=useAudioRecorder(RECORDING_OPTIONS);const nativeRecordingRef=useRef(false);
 const eotPlayer=useAudioPlayer(require('../../assets/sounds/radio_eot.wav')),pttPressPlayer=useAudioPlayer(require('../../assets/sounds/radio_ptt_press.wav')),rogerPlayer=useAudioPlayer(require('../../assets/sounds/radio_roger_beep.wav')),squelchOpenPlayer=useAudioPlayer(require('../../assets/sounds/radio_squelch_open.wav')),squelchClosePlayer=useAudioPlayer(require('../../assets/sounds/radio_squelch_close.wav'));
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,Math.max(0,Number(ms)||0)));
@@ -174,6 +180,8 @@ const pollAll=async()=>{
   pollAllRef.current=true;const generation=sessionRef.current;
   try{const response=await request(`/radio-api-v2.php?op=poll-all&after=${listenAllLastIdRef.current}`,{noStore:true});
     if(!mountedRef.current||generation!==sessionRef.current||resyncingRef.current)return;
+    const activeSpeaker=activeListenAllSpeaker(response);
+    setBusy(!!activeSpeaker);setSpeaker(activeSpeaker);
     for(const message of Array.isArray(response.messages)?response.messages:[]){
       if(generation!==sessionRef.current||resyncingRef.current)break;
       if(Number(message.id)<=listenAllLastIdRef.current)continue;listenAllLastIdRef.current=Number(message.id);

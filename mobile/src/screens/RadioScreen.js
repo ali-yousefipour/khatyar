@@ -219,6 +219,7 @@ export default function RadioScreen() {
           <Text style={s.caption}>وضعیت کانال</Text>
           <Text style={s.statusText}>{busy ? (ctxSpeaker?.name || 'کاربر در حال صحبت است') : 'کانال آزاد است'}</Text>
           {!!busy && !!ctxSpeaker?.role && <Text style={s.caption}>سمت: {ctxSpeaker.role}</Text>}
+          {!!busy && listenAll && !!ctxSpeaker?.channelName && <Text style={s.caption}>کانال در حال مکالمه: {ctxSpeaker.channelName}</Text>}
         </View>
         <MaterialCommunityIcons name={busy ? 'account-voice' : 'signal'} size={25} color={busy ? '#dc2626' : C.brand} />
       </View>
