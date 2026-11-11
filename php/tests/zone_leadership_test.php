@@ -15,14 +15,22 @@ class Db {
   static function one($sql,$parameters){return $parameters[0]===1?['id'=>1]:null;}
 }
 require __DIR__.'/../lib/OrgChart.php';
+$failRepair=false;
+function _req_reassign_pending_zone_approvals($zoneId,$previous,$senior,$inspectors){global $failRepair;if($failRepair)throw new RuntimeException('request list unavailable');return 0;}
 $count=0;
 function verify($condition,$message){global $count;$count++;if(!$condition)throw new RuntimeException($message);}
 function rejected($callback,$code){try{$callback();}catch(RuntimeException $error){verify($error->getCode()===$code,'unexpected status');return;}throw new RuntimeException('expected rejection');}
-Db::$users=[['id'=>10,'is_active'=>1,'role_title'=>'سربازرس'],['id'=>11,'is_active'=>1,'role_title'=>'بازرس مقیم'],['id'=>12,'is_active'=>1,'role_title'=>'بازرس گشت موتوری'],['id'=>13,'is_active'=>1,'role_title'=>'گشت موتوری'],['id'=>14,'is_active'=>0,'role_title'=>'بازرس'],['id'=>15,'is_active'=>1,'role_title'=>'سربازرس ارشد']];
+Db::$users=[['id'=>10,'is_active'=>1,'role_title'=>'سربازرس'],['id'=>11,'is_active'=>1,'role_title'=>'بازرس مقیم'],['id'=>12,'is_active'=>1,'role_title'=>'بازرس گشت موتوری'],['id'=>13,'is_active'=>1,'role_title'=>'گشت موتوری'],['id'=>14,'is_active'=>0,'role_title'=>'بازرس'],['id'=>15,'is_active'=>1,'role_title'=>'سربازرس ارشد'],['id'=>16,'is_active'=>1,'role_title'=>'نیروی اداری'],['id'=>17,'is_active'=>1,'role_title'=>'نیروی اداری ارشد'],['id'=>18,'is_active'=>1,'role_title'=>'رییس اداره بازرسی']];
 $before=Db::$users;$result=OrgChart::saveZoneLeaders(1,'10',['11',12,11],99);
 verify($result['inspector_ids']===[11,12],'deduplicated inspectors');verify(Db::$leaders[1]['updated_by']===99,'actor recorded');verify(Db::$users===$before,'no personnel mutation');
 $zones=OrgChart::withZoneLeaders([['id'=>1],['id'=>2]]);verify($zones[0]['senior_user_id']===10 && $zones[0]['inspector_ids']===[11,12],'metadata enrichment');verify($zones[1]['senior_user_id']===null && $zones[1]['inspector_ids']===[],'legacy zones default');
-foreach([[15,[]],[11,[]],[999,[]],[10,[13]],[10,[14]],[10,[999]],[10,['bad']],[10,'bad']] as [$senior,$inspectors]){rejected(fn()=>OrgChart::saveZoneLeaders(1,$senior,$inspectors,99),422);verify(Db::$leaders[1]['senior_user_id']===10,'failed save retains assignment');}
+foreach([15,16,17,18] as $id){$result=OrgChart::saveZoneLeaders(1,$id,[11,16,17,18],99);verify($result['senior_user_id']===$id,'extended senior role accepted');verify($result['inspector_ids']===[11,16,17,18],'extended inspector roles accepted');}
+OrgChart::saveZoneLeaders(1,10,[11,12],99);
+$failRepair=true;$saved=OrgChart::saveZoneLeaders(1,16,[11],99);
+verify($saved['ok']===true&&$saved['request_repair_deferred']===true,'request repair failure must not fail leadership save');
+verify(Db::$leaders[1]['senior_user_id']===16,'leaders persist despite unrelated request repair failure');
+$failRepair=false;OrgChart::saveZoneLeaders(1,10,[11,12],99);
+foreach([[11,[]],[999,[]],[10,[13]],[10,[14]],[10,[999]],[10,['bad']],[10,'bad']] as [$senior,$inspectors]){rejected(fn()=>OrgChart::saveZoneLeaders(1,$senior,$inspectors,99),422);verify(Db::$leaders[1]['senior_user_id']===10,'failed save retains assignment');}
 rejected(fn()=>OrgChart::saveZoneLeaders(2,10,[],99),404);
 Db::$fail=true;try{OrgChart::saveZoneLeaders(1,null,[],99);}catch(RuntimeException $error){verify($error->getMessage()==='write failure','write failure propagated');}verify(Db::$leaders[1]['inspector_ids']==='[11,12]','rollback retains responsibility');Db::$fail=false;
 OrgChart::saveZoneLeaders(1,null,[],99);verify(Db::$leaders[1]['senior_user_id']===null && Db::$leaders[1]['inspector_ids']==='[]','clear returns to default');

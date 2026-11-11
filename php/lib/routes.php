@@ -5790,10 +5790,9 @@ route('GET', '/api/admin/attendance-day-requests', function($p,$b,$u){
   return array_values(array_map(static function($row){unset($row['pending_on'],$row['approver_id']);return $row;},array_filter($rows,static fn($row)=>_req_admin_can_view_request($u,$row))));
 },false,ADMIN);
 route('GET', '/api/admin/requests', function($p,$b,$u){
-  // Repair a bounded batch of legacy orphaned requests before rendering the
-  // admin list; existing decisions and assigned reviewers remain untouched.
-  try { _req_reconcile_pending_approvals(null,null,true); }
-  catch (Throwable $e) { error_log('unassigned request reconciliation failed: '.$e->getMessage()); }
+  // Rendering the administrative report must be read-only and bounded. A
+  // synchronous reconciliation here could traverse many organizational paths
+  // and exhaust the PHP request timeout before the SELECT returned.
   [$where,$args]=_req_report_filter($_GET,$u);
   return Db::all("SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name,
       CONCAT(us.first_name,' ',us.last_name) requester,

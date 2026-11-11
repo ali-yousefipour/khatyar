@@ -6,8 +6,10 @@ const org=fs.readFileSync(path.join(__dirname,'../lib/OrgChart.php'),'utf8');
 const transfer=routes.split('function _req_reassign_pending_zone_approvals(')[1]?.split("route('PUT', '/api/admin/zones/{id}/leaders'")[0];
 assert.ok(transfer,'Reassignment function must exist');
 assert.match(org,/SELECT senior_user_id,inspector_ids FROM zone_leadership WHERE zone_id=\? FOR UPDATE/,'Old leaders are locked');
-assert.match(org,/_req_reassign_pending_zone_approvals\(\(int\)\$zoneId,\$previous,\$senior,\$inspectors\)/,'Transfer happens in leadership transaction');
-assert.match(org,/\$connection->commit\(\)/,'Leadership transaction must commit after transfer');
+assert.match(org,/_req_reassign_pending_zone_approvals\(\(int\)\$zoneId,\$previous,\$senior,\$inspectors\)/,'Transfer is attempted after leadership update');
+assert.match(org,/\$connection->commit\(\);[\s\S]*?_req_reassign_pending_zone_approvals\(/,'Leadership commits independently before repairing pending requests');
+assert.match(org,/catch\(Throwable \$error\)\{\$repairQueued=true;/,'A failed request repair cannot roll back zone leaders');
+assert.match(org,/WHERE u\.id IN \(\$marks\) FOR UPDATE/,'Only selected staff are locked');
 assert.match(transfer,/r\.status='pending'/,'Only outstanding requests are selected');
 assert.match(transfer,/_req_current_pending_target\(\$request\)/,'Transfers use the live approval chain, not only previous reviewer IDs');
 assert.match(transfer,/\$inside\(\(int\)\$request\['zone_id'\]\)/,'Region membership is checked');
@@ -34,4 +36,4 @@ assert.match(adminList,/pn\.id=r\.pending_on/,'Admin list resolves the current r
 assert.match(adminList,/pending_on_name/,'Current reviewer is returned to the panel');
 const adminDecision=routes.split("route('POST', '/api/admin/requests/{id}/decision'")[1]?.split("route('PUT','/api/admin/requests/{id}'")[0];
 assert.match(adminDecision,/AND pending_on=\?/,'Admin decisions also reject a stale queue owner');
-console.log('PASS request zone reassignment: pending-only, transactional, regional, hierarchy-aware');
+console.log('PASS request zone reassignment: pending-only, resilient, regional, hierarchy-aware');
