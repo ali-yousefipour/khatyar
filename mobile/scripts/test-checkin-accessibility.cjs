@@ -10,8 +10,8 @@ assert.match(screen, /accessibilityRole="checkbox" accessibilityLabel="یادآ�
   'The eight-hour reminder must expose its checked state');
 assert.match(screen, /accessibilityRole="radio" accessibilityLabel=\{`ثبت حضور با \$\{label\}`\} accessibilityState=\{\{checked:method===key\}\}/,
   'Map-overlay presence methods must expose the selected option');
-assert.match(screen, /accessibilityLabel="به‌روزرسانی موقعیت من" accessibilityState=\{\{disabled:refreshingPos\}\}/,
-  'Location refresh must describe its busy state');
+assert.match(screen, /accessibilityLabel="به‌روزرسانی بی‌صدای نقشه و اطلاعات برنامه"[^>]*accessibilityState=\{\{disabled:refreshingPos\}\}/,
+  'Silent map and cache refresh must describe its busy state');
 assert.match(screen, /marginRight: 8, minHeight: 48, justifyContent: 'center'/,
   'Stale attendance refresh must meet the minimum Android touch target');
 

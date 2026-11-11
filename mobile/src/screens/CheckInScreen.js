@@ -10,6 +10,11 @@ import { getAccuratePosition, getGsmPosition } from '../location';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { request, postOrQueue, cachedValue, flushQueuedRequests, hasPendingAttendanceCheckout, invalidateCachedValue } from '../api';
 import { getAppConfig } from '../appconfig';
+import { useAuth } from '../auth';
+import { refreshAccessCache } from '../accessCache';
+import { refreshAppItems } from '../appItemPermissions';
+import { refreshAllowedLines } from '../allowedLinesCache';
+import { loadSchoolServiceCache } from '../schoolServiceCache';
 import { C, FONT } from '../theme';
 import ActivityIndicator from '../components/PulseLoadingIndicator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -81,6 +86,7 @@ function pointInPolygon(lat, lng, poly) {
 }
 
 function CheckInCore({ viewportHeight }) {
+  const { user } = useAuth();
   const [cfg, setCfg] = useState(null);
   const [appCfg, setAppCfg] = useState({ map_provider: 'osm' });
   const [mapRuntime,setMapRuntime]=useState({mode:'smart',provider:'osm',offline:false,tiles:{}});
@@ -312,7 +318,7 @@ function CheckInCore({ viewportHeight }) {
     }
   };
 
-  const load = async () => {
+  const load = async ({ refreshLocation = true, refreshCache = false } = {}) => {
     const loadEpoch = attendanceStateEpochRef.current;
     setLoadError(null);
     // اول کش محلی را بخوان؛ ثبت حضور باید حتی بدون اینترنت بتواند از آخرین
@@ -327,8 +333,8 @@ function CheckInCore({ viewportHeight }) {
       }
     } catch {}
     const [cfgResult, timerResult] = await Promise.allSettled([
-      request('/my/checkin-config', { noStore: true, timeoutMs: 8000 }),
-      request('/my/work-timer', { noStore: true, timeoutMs: 8000 }),
+      request('/my/checkin-config', { noStore: !refreshCache, forceNetwork: refreshCache, timeoutMs: 8000 }),
+      request('/my/work-timer', { noStore: !refreshCache, forceNetwork: refreshCache, timeoutMs: 8000 }),
     ]);
     if (loadEpoch !== attendanceStateEpochRef.current) return;
     if (timerResult && timerResult.status === 'fulfilled') {
@@ -404,7 +410,7 @@ function CheckInCore({ viewportHeight }) {
 
     setLoading(false); // صفحه را فوری نشان بده
     // تعیین خودکار محدوده: ابتدا موقعیت تقریبی شبکه/GSM و سپس جایگزینی با GPS دقیق.
-    try {
+    if (refreshLocation) try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const gsm = await getGsmPosition({ timeoutMs: 4500 });
@@ -464,14 +470,23 @@ function CheckInCore({ viewportHeight }) {
     if (refreshingPos) return;
     setRefreshingPos(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') { Alert.alert('دسترسی موقعیت', 'برای نمایش موقعیت، اجازهٔ دسترسی به موقعیت لازم است.'); return; }
-      const gsm = await getGsmPosition({ timeoutMs: 4000 });
-      if (gsm?.coords) setPos({ lat: gsm.coords.latitude, lng: gsm.coords.longitude, acc: gsm.coords.accuracy, ts: gsm.timestamp, viaGsm: true });
-      const p = await getAccuratePosition({ samples: 3, timeoutMs: 12000, desiredAccuracy: 12 });
-      if (p?.coords) setPos({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, ts: p.timestamp, viaGsm: false });
-      else if (!gsm?.coords) Alert.alert('موقعیت', 'دریافت موقعیت ناموفق بود. GPS را روشن کنید و دوباره تلاش کنید.');
-    } catch (e) { Alert.alert('خطا', 'دریافت موقعیت ناموفق بود.'); }
+      await Promise.allSettled([
+        (async () => {
+          const { status } = await Location.getForegroundPermissionsAsync();
+          if (status !== 'granted') return;
+          const gsm = await getGsmPosition({ timeoutMs: 4000 }).catch(() => null);
+          if (gsm?.coords) setPos({ lat: gsm.coords.latitude, lng: gsm.coords.longitude, acc: gsm.coords.accuracy, ts: gsm.timestamp, viaGsm: true });
+          const p = await getAccuratePosition({ samples: 3, timeoutMs: 12000, desiredAccuracy: 12 }).catch(() => null);
+          if (p?.coords) setPos({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, ts: p.timestamp, viaGsm: false });
+        })(),
+        load({ refreshLocation: false, refreshCache: true }),
+        getAppConfig(true).then(c => { if (c) setAppCfg(c); }),
+        request('/my/shift-schedule?scope=current-month', { forceNetwork: true, timeoutMs: 10000 }),
+        refreshAccessCache(),
+        loadSchoolServiceCache({ refresh: true }),
+        ...(user?.id ? [refreshAllowedLines(user.id), refreshAppItems(user.id)] : []),
+      ]);
+    } catch (_) { /* Silent refresh must never interrupt attendance. */ }
     finally { setRefreshingPos(false); }
   };
 
@@ -1040,7 +1055,7 @@ function CheckInCore({ viewportHeight }) {
           </View>
           <View style={s.mapSliderGlass}><View style={s.mapSliderHeading}><MaterialCommunityIcons name={open?'logout':'login'} size={18} color={open?C.danger:C.brand}/><Text style={s.mapSliderTitle}>{open?'ثبت خروج':'ثبت ورود'}</Text></View><SlideButton mode={open?'out':'in'} disabled={busy} onComplete={onSlideComplete}/></View>
           <View style={s.mapRefreshRow}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="رفرش موقعیت من روی نقشه" accessibilityHint="دریافت مجدد مختصات از GPS و به‌روزرسانی نشانگر نقشه" accessibilityState={{disabled:refreshingPos}} style={s.mapRefreshButton} onPress={refreshMyLocation} disabled={refreshingPos}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="به‌روزرسانی بی‌صدای نقشه و اطلاعات برنامه" accessibilityHint="دریافت دوباره موقعیت، شیفت، خطوط و اطلاعات کش‌شده برنامه بدون نمایش پیام" accessibilityState={{disabled:refreshingPos}} style={s.mapRefreshButton} onPress={refreshMyLocation} disabled={refreshingPos}>
             <MaterialCommunityIcons name={refreshingPos?'progress-clock':'refresh'} size={23} color={C.brand}/>
           </TouchableOpacity>
           </View>
