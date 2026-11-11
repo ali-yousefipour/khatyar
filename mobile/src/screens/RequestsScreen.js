@@ -19,7 +19,7 @@ function JDateField({ label, value, onPick }) {
   return (
     <View style={{ marginTop: 10 }}>
       <Text style={pf.label}>{label}</Text>
-      <TouchableOpacity style={pf.btn} onPress={() => setOpen(true)}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${label}، ${value ? fa(value) : 'انتخاب نشده'}`} style={pf.btn} onPress={() => setOpen(true)}>
         <Text style={[pf.btnTxt, !value && { color: C.muted }]}>{show}</Text><MaterialCommunityIcons name="calendar-month-outline" size={20} color={C.brand}/>
       </TouchableOpacity>
       <JDatePicker visible={open} onClose={() => setOpen(false)} initial={value || null}
@@ -36,7 +36,7 @@ function TimeField({ label, value, onPick }) {
       <TouchableOpacity style={pf.btn} onPress={() => setOpen(true)}>
         <Text style={[pf.btnTxt, !value && { color: C.muted }]}>{value ? fa(value) : 'انتخاب ساعت'}</Text><MaterialCommunityIcons name="clock-time-four-outline" size={20} color={C.brand}/>
       </TouchableOpacity>
-      <TimePicker visible={open} onClose={() => setOpen(false)} initial={value} onSelect={onPick} />
+      <TimePicker visible={open} onClose={() => setOpen(false)} initial={value} label={label} onSelect={onPick} />
     </View>
   );
 }

@@ -6,16 +6,14 @@ const fa = v => String(v).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);
 const latin = v => String(v).replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
 const two = n => String(n).padStart(2, '0');
 
-export default function TimePicker({ visible, onClose, onSelect, initial }) {
+export default function TimePicker({ visible, onClose, onSelect, initial, label = 'انتخاب ساعت' }) {
   const [hour, setHour] = useState(8);
   const [minute, setMinute] = useState('00');
   const [error, setError] = useState(false);
-  const [period, setPeriod] = useState('am');
   useEffect(() => {
     if (!visible) return;
     const match = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(latin(initial || '08:00'));
     setHour(match ? Number(match[1]) : 8);
-    setPeriod(match && Number(match[1]) >= 12 ? 'pm' : 'am');
     setMinute(match ? match[2] : '00');
     setError(false);
   }, [visible, initial]);
@@ -27,19 +25,18 @@ export default function TimePicker({ visible, onClose, onSelect, initial }) {
   };
   return <Modal visible={!!visible} transparent animationType="fade" onRequestClose={onClose}>
     <View style={s.backdrop}><View style={s.card}>
-      <Text style={s.title}>انتخاب ساعت</Text>
-      <Text style={s.subtitle}>ابتدا بازه زمانی، سپس ساعت و دقیقه را انتخاب کنید.</Text>
+      <Text style={s.title}>{label}</Text>
+      <Text style={s.subtitle}>ساعت را به صورت ۲۴ ساعته انتخاب کنید؛ سپس دقیقه را لمس کنید یا دقیق وارد کنید.</Text>
       <View style={s.preview}><Text style={s.previewTime}>{fa(two(hour) + ':' + two(valid ? Number(minute) : 0))}</Text><Text style={s.previewLabel}>{hour < 12 ? 'قبل‌ازظهر' : 'بعدازظهر'}</Text></View>
       <Text style={s.label}>ساعت (۰۰ تا ۲۳)</Text>
-      <View style={s.periodRow}>{[['am','قبل‌ازظهر (۰۰–۱۱)'],['pm','بعدازظهر (۱۲–۲۳)']].map(([key,label]) => <TouchableOpacity key={key} accessibilityRole="button" style={[s.periodButton, period===key && s.periodOn]} onPress={() => {setPeriod(key);setHour(h => key==='am' ? h%12 : h%12+12);}}><Text style={[s.periodText,period===key&&s.periodTextOn]}>{label}</Text></TouchableOpacity>)}</View>
       <ScrollView nestedScrollEnabled style={s.hoursScroll} contentContainerStyle={s.hoursGrid}>
-        {Array.from({ length: 24 }, (_, h) => (period === 'am' ? h<12 : h>=12) && <TouchableOpacity accessibilityRole="button" accessibilityLabel={'ساعت ' + fa(two(h))} key={h} style={[s.hourChip, hour === h && s.selected]} onPress={() => setHour(h)}><Text style={[s.chipText, hour === h && s.selectedText]}>{fa(two(h))}</Text></TouchableOpacity>)}
+        {Array.from({ length: 24 }, (_, h) => <TouchableOpacity accessibilityRole="button" accessibilityState={{selected:hour===h}} accessibilityLabel={'ساعت ' + fa(two(h))} key={h} style={[s.hourChip, hour === h && s.selected]} onPress={() => setHour(h)}><Text style={[s.chipText, hour === h && s.selectedText]}>{fa(two(h))}</Text></TouchableOpacity>)}
       </ScrollView>
       <Text style={s.label}>دقیقه (۰۰ تا ۵۹)</Text>
-      <View style={s.minuteRow}><TextInput style={[s.minuteInput, error && !valid && s.invalid]} value={fa(minute)} onChangeText={v => { setMinute(latin(v).replace(/[^0-9]/g, '').slice(0, 2)); setError(false); }} keyboardType="number-pad" maxLength={2} selectTextOnFocus textAlign="center"/><Text style={s.minuteHelp}>دقیقه دقیق را وارد کنید</Text></View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.minutePresets}>
-        {[0, 5, 10, 15, 20, 30, 40, 45, 50, 55].map(m => <TouchableOpacity key={m} style={[s.minuteChip, valid && Number(minute) === m && s.minuteSelected]} onPress={() => { setMinute(two(m)); setError(false); }}><Text style={s.minuteChipText}>{fa(two(m))}</Text></TouchableOpacity>)}
-      </ScrollView>
+      <View style={s.minutePresets}>
+        {Array.from({length:12},(_,i)=>i*5).map(m => <TouchableOpacity accessibilityRole="button" accessibilityState={{selected:valid&&Number(minute)===m}} accessibilityLabel={'دقیقه ' + fa(two(m))} key={m} style={[s.minuteChip, valid && Number(minute) === m && s.minuteSelected]} onPress={() => { setMinute(two(m)); setError(false); }}><Text style={s.minuteChipText}>{fa(two(m))}</Text></TouchableOpacity>)}
+      </View>
+      <View style={s.minuteRow}><Text style={s.minuteHelp}>دقیقهٔ دلخواه:</Text><TextInput accessibilityLabel="ورود دقیقه دلخواه" style={[s.minuteInput, error && !valid && s.invalid]} value={fa(minute)} onChangeText={v => { setMinute(latin(v).replace(/[^0-9]/g, '').slice(0, 2)); setError(false); }} keyboardType="number-pad" maxLength={2} selectTextOnFocus textAlign="center"/></View>
       {error && !valid && <Text style={s.error}>دقیقه باید عددی بین ۰۰ تا ۵۹ باشد.</Text>}
       <View style={s.actions}><TouchableOpacity style={s.confirm} onPress={confirm}><Text style={s.confirmText}>تأیید ساعت</Text></TouchableOpacity><TouchableOpacity style={s.cancel} onPress={onClose}><Text style={s.cancelText}>انصراف</Text></TouchableOpacity></View>
     </View></View>
@@ -54,23 +51,18 @@ const s = StyleSheet.create({
   previewTime: { fontFamily:FONT.bold, fontSize:29, color:C.brand },
   previewLabel: { fontFamily:FONT.regular, fontSize:11, color:C.brand },
   label: { fontFamily:FONT.bold, fontSize:12.5, color:C.ink, textAlign:'right', marginBottom:7 },
-  periodRow: { flexDirection:'row-reverse', gap:8, marginBottom:12 },
-  periodButton: { flex:1, minHeight:44, backgroundColor:'#edf1f5', borderRadius:12, alignItems:'center', justifyContent:'center' },
-  periodOn: { backgroundColor:C.brand },
-  periodText: { fontFamily:FONT.bold, fontSize:12, color:C.ink },
-  periodTextOn: { color:'#fff' },
-  hoursScroll: { flexGrow:0, maxHeight:164, marginBottom:13 },
+  hoursScroll: { flexGrow:0, maxHeight:154, marginBottom:13 },
   hoursGrid: { flexDirection:'row-reverse', flexWrap:'wrap', gap:7, justifyContent:'center' },
   hourChip: { width:'22%', minHeight:44, borderRadius:9, justifyContent:'center', backgroundColor:'#f4f6fa', alignItems:'center', borderWidth:1, borderColor:'#e4eaf1' },
   selected: { backgroundColor:C.brand, borderColor:C.brand },
   chipText: { fontFamily:FONT.bold, color:C.slate, fontSize:13 },
   selectedText: { color:'#fff' },
-  minuteRow: { flexDirection:'row-reverse', alignItems:'center', gap:12 },
+  minuteRow: { flexDirection:'row-reverse', alignItems:'center', justifyContent:'flex-start', gap:12, marginTop:9 },
   minuteInput: { width:74, borderRadius:12, borderWidth:1, borderColor:C.brand, color:C.ink, fontFamily:FONT.bold, fontSize:21, paddingVertical:8 },
   invalid: { borderColor:C.danger },
   minuteHelp: { fontFamily:FONT.regular, fontSize:11.5, color:C.muted },
-  minutePresets: { flexDirection:'row-reverse', gap:7, paddingVertical:10 },
-  minuteChip: { backgroundColor:'#f2f6f8', minHeight:44, justifyContent:'center', paddingHorizontal:13, borderRadius:10 },
+  minutePresets: { flexDirection:'row-reverse', flexWrap:'wrap', gap:7 },
+  minuteChip: { width:'15%', flexGrow:1, backgroundColor:'#f2f6f8', minHeight:44, alignItems:'center', justifyContent:'center', borderRadius:10 },
   minuteSelected: { backgroundColor:'#d5efe3' },
   minuteChipText: { fontFamily:FONT.bold, fontSize:12, color:C.brand },
   error: { fontFamily:FONT.regular, fontSize:11, color:C.danger, textAlign:'right' },
