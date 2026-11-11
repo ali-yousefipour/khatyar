@@ -5585,6 +5585,15 @@ function _req_report_filter(array $query,?array $viewer=null){
     $cond[]=$scope.')';
   }
   if(!empty($query['user_id'])){$cond[]='r.user_id=?';$args[]=(int)$query['user_id'];}
+  $reviewer=trim((string)($query['pending_on']??''));
+  if($reviewer!==''){
+    if($reviewer==='unassigned'){$cond[]='r.pending_on IS NULL';}
+    else{
+      $reviewerId=filter_var($reviewer,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+      if($reviewerId===false)Http::error('مسئول جاری نامعتبر است',422);
+      $cond[]='r.pending_on=?';$args[]=$reviewerId;
+    }
+  }
   foreach(['type'=>['annual','sick','unpaid','mission','overtime','manual'],'status'=>['pending','approved','rejected','canceled']] as $key=>$allowed){
     $value=trim((string)($query[$key]??''));
     if($value==='')continue;

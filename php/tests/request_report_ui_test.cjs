@@ -6,7 +6,7 @@ const context={React:{createElement:(type,props,...children)=>({type,props:props
  useMemo:fn=>fn(),
  useState(initial){const i=cursor++;if(states[i]===undefined)states[i]=initial;return[states[i],v=>states[i]=typeof v==='function'?v(states[i]):v];},
  useRef(initial){const i=refCursor++;return refs[i]??=( {current:initial});},Modal(){},JDate(){},RequestLeaveUsage(){},RequestDetails(){},ApprovedRequestEditor(){},fa:String,faPlain:String,GET:async()=>({year:1405,month:7,balance:{},requests:[]}),prompt:()=>'',
- db:{adminRequests:()=>new Promise((resolve,reject)=>loads.push({resolve,reject})),adminRequestDecision:async(id,body)=>decisions.push({id,...body})},setTimeout,URL,console};
+ db:{adminRequests:query=>new Promise((resolve,reject)=>loads.push({resolve,reject,query})),adminRequestDecision:async(id,body)=>decisions.push({id,...body})},setTimeout,URL,console};
 vm.createContext(context);vm.runInContext(bundle.slice(start,end),context);
 const render=()=>{cursor=0;refCursor=0;return vm.runInContext('AdminRequests()',context);};
 const nodes=t=>!t||typeof t!=='object'?[]:[t,...(t.children||[]).flat(Infinity).flatMap(nodes)];
@@ -24,10 +24,22 @@ const tick=()=>new Promise(setImmediate);
  const person=nodes(tree).find(n=>n.type==='button'&&n.props.onClick&&text(n).includes('ali12'));
  assert.ok(person,'filtered person is selectable');person.props.onClick();tree=render();
  assert.ok(text(tree).includes('نیروی انتخاب‌شده در فیلتر اعمال می‌شود.'),'chosen person has persistent filter feedback');
+ const reviewerSearch=nodes(tree).find(n=>n.type==='input'&&n.props.id==='request-reviewer-search');
+ assert.ok(reviewerSearch,'searchable current reviewer filter exists');
+ reviewerSearch.props.onChange({target:{value:'محمدی'}});tree=render();
+ const reviewer=nodes(tree).find(n=>n.type==='button'&&n.props.onClick&&text(n).includes('reza18'));
+ assert.ok(reviewer,'reviewer search matches names immediately');reviewer.props.onClick();tree=render();
  button(tree,'اعمال فیلتر').props.onClick();
+ assert.ok(loads[0].query.includes('pending_on=18'),'reviewer is passed to the backend filter');
  assert.equal(nodes(tree).filter(n=>n.props.role==='tab').length,3,'three requested status tabs');
  assert.equal(nodes(tree).filter(n=>n.type===context.JDate).length,2,'registration dates use Persian calendar component');
  const rows=[{id:1,type:'annual',unit:'daily',minutes:480,status:'pending',requester:'الف'},{id:2,type:'manual',unit:'hourly',minutes:0,status:'approved',requester:'ب'}];
+ loads.shift().resolve(rows);await tick();tree=render();
+ button(tree,'فقط درخواست‌های بدون مسئول').props.onClick();tree=render();button(tree,'اعمال فیلتر').props.onClick();
+ assert.ok(loads[0].query.includes('pending_on=unassigned'),'unassigned filter is passed to the backend');
+ loads.shift().resolve(rows);await tick();tree=render();
+ button(tree,'پاک‌کردن فیلترها').props.onClick();tree=render();button(tree,'اعمال فیلتر').props.onClick();
+ assert.ok(!loads[0].query.includes('pending_on='),'clearing filters removes reviewer selection');
  loads.shift().resolve(rows);await tick();tree=render();
  assert.ok(input(tree,'انتخاب تمام ردیف‌ها از سرستون'),'select-all control appears in the selection column header');
  assert.equal(nodes(tree).filter(n=>n.type==='button'&&text(n)==='ویرایش').length,1,'only approved rows offer edit');button(tree,'ویرایش').props.onClick();tree=render();const editor=nodes(tree).find(n=>n.type===context.ApprovedRequestEditor);assert.equal(editor.props.requestId,2);editor.props.onClose();tree=render();

@@ -1047,6 +1047,8 @@ table{font-size:13px}
 .request-selected-user{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#e5f5ec;border:1px solid #b9ddc8;color:#17593f;padding:5px 8px 5px 12px;border-radius:11px;font-size:12px;font-weight:700}
 .request-selected-user small{font-size:11px;color:#527764}
 .request-selected-user button{min-height:36px;min-width:36px;border:0;border-radius:9px;background:#fff;color:#9d293b;font-size:20px;cursor:pointer}
+.request-unassigned-button{align-self:flex-start;border:1px solid #d1dce2;background:#f7fafb;color:#345568;border-radius:9px;min-height:36px;padding:6px 11px;font:inherit;font-size:12px;cursor:pointer}
+.request-unassigned-button:hover,.request-unassigned-button:focus-visible{background:#e7f2f7;border-color:#8ab8cf;outline-offset:2px}
 .request-user-results{position:absolute;z-index:30;top:100%;inset-inline:0;max-height:260px;overflow:auto;background:#fff;border:1px solid #bcdac8;border-radius:12px;box-shadow:0 14px 30px #1943312b;padding:5px;scrollbar-width:thin}
 .request-user-results button{display:flex;justify-content:space-between;align-items:center;gap:9px;width:100%;min-height:44px;border:0;border-radius:8px;padding:8px 10px;background:transparent;color:#1e4434;text-align:start;cursor:pointer;font:600 12px Vazirmatn,sans-serif}
 .request-user-results button:hover,.request-user-results button:focus-visible{background:#e5f4ea;outline:2px solid #7dbb9b;outline-offset:-2px}
