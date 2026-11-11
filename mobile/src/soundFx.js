@@ -68,11 +68,13 @@ export async function playSound(name, opts = {}) {
       ? Math.max(0, Math.min(1, opts.volume))
       : 1;
 
-    if (!looping && currentOneShot) {
-      releasePlayer(currentOneShot);
-      currentOneShot = null;
+    if (!looping) {
+      if (currentOneShot) {
+        releasePlayer(currentOneShot);
+        currentOneShot = null;
+      }
+      clearCleanupTimer();
     }
-    clearCleanupTimer();
 
     const player = AudioApi.createAudioPlayer(source, {
       updateInterval: 250,
@@ -112,7 +114,7 @@ export async function playSound(name, opts = {}) {
 
 export async function stopSound(player) {
   if (!player) return;
-  clearCleanupTimer();
+  if (currentOneShot === player) clearCleanupTimer();
   releasePlayer(player);
   if (currentOneShot === player) currentOneShot = null;
 }

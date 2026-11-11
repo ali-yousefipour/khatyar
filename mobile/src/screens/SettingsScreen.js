@@ -16,6 +16,12 @@ const ITEMS = [
   ['privacy-policy', 'سیاست حریم خصوصی', 'shield-lock-outline', 'PrivacyPolicy', 'اطلاعات مربوط به جمع‌آوری، استفاده و حفاظت از داده‌ها'],
   ['about-app', 'درباره برنامه', 'information-outline', 'AboutApp', 'اطلاعات رسمی خطیار، نسخه، تولیدکننده و راه‌های ارتباطی'],
 ];
+const SETTINGS_GROUPS = [
+  { title: 'نمایش و موقعیت‌یابی', subtitle: 'نقشه و اطلاعات موردنیاز برای کار در مسیر', keys: ['map-settings', 'import-times'] },
+  { title: 'اعلان‌ها و هشدارها', subtitle: 'مدیریت هشدارهای عملیاتی و یادآوری‌ها', keys: ['field-alerts', 'expiry-settings'] },
+  { title: 'امنیت و نگهداری', subtitle: 'حفاظت از برنامه، بررسی نسخه و گزارش مشکلات', keys: ['app-lock', 'check-update', 'crash-reports'] },
+  { title: 'درباره خطیار', subtitle: 'حریم خصوصی و اطلاعات سازنده', keys: ['privacy-policy', 'about-app'] },
+];
 
 export default function SettingsScreen({ navigation }) {
   const [checking, setChecking] = useState(false);
@@ -38,26 +44,20 @@ export default function SettingsScreen({ navigation }) {
       <View style={s.hero}>
         <Text style={s.brand}>خطیار</Text>
         <Text style={s.title}>تنظیمات</Text>
-        <Text style={s.sub}>مدیریت حساب، تنظیمات برنامه و اطلاعات رسمی</Text>
+        <Text style={s.sub}>تنظیمات کاربردی، هشدارها و نگهداری برنامه در یک نگاه</Text>
       </View>
-      <View style={s.section}>
-        <Text style={s.sectionTitle}>حساب کاربری</Text>
-        {ITEMS.slice(0, 5).map(([key, title, icon, route, description]) => (
-          <Item key={key} title={title} icon={icon} description={description} onPress={() => openItem(route)} />
-        ))}
-      </View>
-      <View style={s.section}>
-        <Text style={s.sectionTitle}>تنظیمات برنامه</Text>
-        {ITEMS.slice(5, 7).map(([key, title, icon, route, description]) => (
-          <Item key={key} title={title} icon={icon} description={route ? description : checking ? 'در حال بررسی نسخهٔ جدید…' : description} disabled={!route && checking} onPress={() => openItem(route)} />
-        ))}
-      </View>
-      <View style={s.section}>
-        <Text style={s.sectionTitle}>اطلاعات و حریم خصوصی</Text>
-        {ITEMS.slice(7).map(([key, title, icon, route, description]) => (
-          <Item key={key} title={title} icon={icon} description={description} onPress={() => openItem(route)} />
-        ))}
-      </View>
+      {SETTINGS_GROUPS.map(group => (
+        <View key={group.title} style={s.section}>
+          <Text style={s.sectionTitle}>{group.title}</Text>
+          <Text style={s.sectionSubtitle}>{group.subtitle}</Text>
+          {group.keys.map(key => {
+            const item = ITEMS.find(entry => entry[0] === key);
+            if (!item) return null;
+            const [, title, icon, route, description] = item;
+            return <Item key={key} title={title} icon={icon} description={key === 'check-update' && checking ? 'در حال بررسی نسخهٔ جدید…' : description} disabled={key === 'check-update' && checking} onPress={() => openItem(route)} />;
+          })}
+        </View>
+      ))}
     </ScrollView>
     <Modal visible={!!availableUpdate} animationType="slide" onRequestClose={() => { if (!availableUpdate?.required) setAvailableUpdate(null); }}>
       <View style={{flex:1}}>
@@ -86,9 +86,10 @@ const s = StyleSheet.create({
   brand: { color: '#fff', fontFamily: FONT.bold, fontSize: 24, textAlign: 'right' },
   title: { color: '#fff', fontFamily: FONT.bold, fontSize: 18, textAlign: 'right', marginTop: 8 },
   sub: { color: '#d7eee8', fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', marginTop: 6 },
-  section: { marginBottom: 14 },
-  sectionTitle: { color: C.brand, fontFamily: FONT.bold, fontSize: 14, textAlign: 'right', marginBottom: 8, paddingHorizontal: 4 },
-  card: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: C.line, padding: 16, marginBottom: 9, flexDirection: 'row-reverse', alignItems: 'center' },
+  section: { marginBottom: 20 },
+  sectionTitle: { color: C.brand, fontFamily: FONT.bold, fontSize: 16, textAlign: 'right', paddingHorizontal: 4 },
+  sectionSubtitle: { color: C.muted || '#536575', fontFamily: FONT.regular, fontSize: 12, textAlign: 'right', marginTop: 3, marginBottom: 10, paddingHorizontal: 4 },
+  card: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: C.line, padding: 14, minHeight: 76, marginBottom: 8, flexDirection: 'row-reverse', alignItems: 'center' },
   icon: { width: 42, height: 42, borderRadius: 12, backgroundColor: C.soft, alignItems: 'center', justifyContent: 'center', marginLeft: 11 },
   iconText: { fontSize: 19 },
   textWrap: { flex: 1, minWidth: 0 },
