@@ -174,7 +174,7 @@ function ssvJalaliDate(value){
  const date=new Date(timestamp);
  return Number.isNaN(date.getTime())?'—':new Intl.DateTimeFormat('fa-IR-u-ca-persian',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
 }
-+function ssvShowPlateVisits(row,trigger){
+function ssvShowPlateVisits(row,trigger){
   if(trigger)trigger.disabled=true;
   const modal=ssvModal('سوابق بازدید پلاک','<div class="ssv-msg" role="status">در حال دریافت سوابق بازدید…</div>',async()=>true);
   modal.querySelector('.ssv-submit').textContent='بستن';

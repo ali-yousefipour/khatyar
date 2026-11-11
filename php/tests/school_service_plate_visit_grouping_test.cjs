@@ -21,6 +21,16 @@ assert.match(ui, /visit\.inspector_name/, 'history shows inspector');
 assert.match(ui, /visit\.location_text/, 'history shows visit location');
 assert.match(source, /ssvShowPlateVisits/, 'panel source matches standalone admin behavior');
 
+// Parse-only checks missed a stray unary + before `function`, which silently
+// turned this declaration into an expression and left the click handler undefined.
+const historyStart = ui.indexOf('function ssvFa(');
+const historyEnd = ui.indexOf('function ssvIranPlate(', historyStart);
+assert.ok(historyStart > -1 && historyEnd > historyStart);
+const runtime = {css:{textContent:''}};
+vm.createContext(runtime);
+vm.runInContext(ui.slice(historyStart,historyEnd),runtime);
+assert.equal(typeof runtime.ssvShowPlateVisits,'function', 'clickable history handler must exist at runtime');
+
 const start = ui.indexOf('function ssvGroupedInspectionTable(');
 const end = ui.indexOf('\ncss.textContent +=', start);
 assert.ok(start > -1 && end > start, 'grouped table renderer exists');
