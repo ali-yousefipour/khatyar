@@ -10070,7 +10070,7 @@ function PresenceSettings() {
         React.createElement("label", { className: "row", style: { gap: 8, marginBottom: 12 } },
             React.createElement("input", { type: "checkbox", checked: !!cfg.random_enabled, onChange: e => { setCfg({ ...cfg, random_enabled: e.target.checked }); setSaved(false); } }),
             React.createElement("b", null, "\uD83C\uDFB2 \u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u062A\u0635\u0627\u062F\u0641\u06CC \u0635\u062D\u062A\u200C\u0633\u0646\u062C\u06CC")),
-        React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 12 } }, "\u062F\u0631 \u0627\u06CC\u0646 \u062D\u0627\u0644\u062A \u0633\u0627\u0639\u062A\u200C\u0647\u0627\u06CC \u062F\u0633\u062A\u06CC \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F3 \u0646\u0648\u0628\u062A \u062F\u0631 \u0647\u0631 \u06CC\u06A9 \u0627\u0632 \u062F\u0648 \u0628\u0627\u0632\u0647\u0654 \u06F4 \u0633\u0627\u0639\u062A\u0647 \u067E\u0633 \u0627\u0632 \u0648\u0631\u0648\u062F \u0627\u06CC\u062C\u0627\u062F \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u0633\u0642\u0641 \u0627\u0631\u0633\u0627\u0644 \u062F\u0631 \u0647\u0631 \u06F2\u06F4 \u0633\u0627\u0639\u062A \u0628\u0631\u0627\u06CC \u0647\u0631 \u0646\u0641\u0631 \u06F6 \u0646\u0648\u0628\u062A \u0627\u0633\u062A."),
+        React.createElement("p", { style: { fontSize: 12.5, color: "var(--muted)", marginBottom: 12 } }, "در این حالت ساعت‌های دستی استفاده نمی‌شوند. حداکثر ۳ نوبت در هر یک از دو بازهٔ ۴ ساعته پس از ورود ایجاد می‌شود؛ سقف ارسال در هر ۲۴ ساعت برای هر نفر ۶ نوبت است."),
         !cfg.random_enabled && React.createElement(React.Fragment, null,
             React.createElement("div", { className: "label" }, "\u0628\u0627\u0632\u0647\u200C\u0647\u0627\u06CC \u0633\u0627\u0639\u062A\u06CC \u0631\u0648\u0632\u0627\u0646\u0647:"),
             React.createElement("div", { className: "chiprow", style: { margin: "8px 0" } }, cfg.slots.length ? cfg.slots.map(s => React.createElement("span", { key: s, className: "chip" },
@@ -14472,6 +14472,7 @@ function AdminRequests() {
     const [fType, setFType] = useState("");
     const [fStatus, setFStatus] = useState("pending");
     const [busyId, setBusyId] = useState(null);
+    const [userQuery, setUserQuery] = useState("");
     const [fFrom, setFFrom] = useState("");
     const [fTo, setFTo] = useState("");
     const [search, setSearch] = useState("");
@@ -14488,6 +14489,10 @@ function AdminRequests() {
     const ST = { pending: ["در انتظار", "b-pending"], approved: ["تأییدشده", "b-ok"], rejected: ["ردشده", "b-no"], canceled: ["لغوشده", "b-no"] };
     const [failures, setFailures] = useState([]);
     const [sort, setSort] = useState({ key: null, direction: 'desc' });
+    const normalizePerson = value => String(value !== null && value !== void 0 ? value : '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).toLocaleLowerCase('fa').trim();
+    const selectedUser = users.find(u => String(u.id) === String(fUser));
+    const matchingUsers = useMemo(() => { const query = normalizePerson(userQuery); if (!query) return []; return users.filter(u => normalizePerson([u.first_name, u.last_name, u.username, u.personnel_code, u.id].join(' ')).includes(query)).slice(0, 30); }, [users, userQuery]);
+    const selectUser = id => { setFUser(String(id)); setUserQuery(''); setSelected([]); };
     const sortBy = key => setSort(previous => ({ key, direction: previous.key === key && previous.direction === 'asc' ? 'desc' : 'asc' }));
     const sortedRows = !sort.key ? rows : [...rows].sort((a, b) => {
         const value = row => { var _a; return ({ id: Number(row.id), requester: row.requester, type: TY[row.type] || row.type, unit: row.unit, date: row.the_date || row.from_jdate || '', time: row.from_time || row.in_time || '', minutes: Number(row.minutes || 0), status: ((_a = ST[row.status]) === null || _a === void 0 ? void 0 : _a[0]) || row.status, approver: row.approver || '', pending_on_name: row.pending_on_name || '', reason: row.reason || '' })[sort.key]; };
@@ -14707,15 +14712,20 @@ function AdminRequests() {
                             React.createElement("td", null, ((_a = ST[item.status]) === null || _a === void 0 ? void 0 : _a[0]) || item.status)); })))),
                 !context.requests.length && React.createElement("p", null, "\u062F\u0631\u062E\u0648\u0627\u0633\u062A\u06CC \u0627\u0632 \u0627\u0628\u062A\u062F\u0627\u06CC \u0645\u0627\u0647 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A."))),
             React.createElement("button", { className: "btn p", disabled: !!busyId, onClick: () => execute(review.ids, review.status) }, busyId ? 'در حال پردازش…' : 'تأیید نهایی عملیات')),
+        React.createElement("div", { className: "request-filter-shell" },
+            React.createElement("div", { className: "request-filter-heading" }, React.createElement("div", null,
+                React.createElement("strong", null, "جست‌وجو و فیلتر درخواست‌ها"),
+                React.createElement("small", null, "نام نیرو را تایپ کنید؛ نتیجه‌های مشابه بلافاصله نمایش داده می‌شوند.")),
+                React.createElement("button", { type: "button", className: "btn g", disabled: loading || !!busyId || reviewLoading, onClick: () => { setFUser(''); setUserQuery(''); setFType(''); setFFrom(''); setFTo(''); setSearch(''); setSelected([]); } }, "پاک‌کردن فیلترها")),
         React.createElement("div", { className: "filters request-filters" },
-            React.createElement("label", null,
-                "\u0646\u06CC\u0631\u0648",
-                React.createElement("select", { className: "input", value: fUser, onChange: e => { setFUser(e.target.value); setSelected([]); } },
-                    React.createElement("option", { value: "" }, "\u0647\u0645\u0647\u0654 \u0646\u06CC\u0631\u0648\u0647\u0627"),
-                    users.map(u => React.createElement("option", { key: u.id, value: u.id },
-                        u.first_name,
-                        " ",
-                        u.last_name)))),
+            React.createElement("div", { className: "request-user-field" },
+                React.createElement("label", { htmlFor: "request-user-search" }, "انتخاب نیرو"),
+                React.createElement("div", { className: "request-user-search" },
+                    React.createElement("input", { id: "request-user-search", className: "input", type: "search", autoComplete: "off", value: userQuery, onChange: e => setUserQuery(e.target.value), placeholder: "نام، نام کاربری یا شناسه نیرو", "aria-describedby": "request-user-help" }),
+                    React.createElement("span", { "aria-hidden": "true" }, "⌕")),
+                React.createElement("small", { id: "request-user-help" }, userQuery ? `${fa(matchingUsers.length)} نتیجهٔ نزدیک${matchingUsers.length === 30 ? ' (۳۰ مورد نخست)' : ''}` : selectedUser ? 'نیروی انتخاب‌شده در فیلتر اعمال می‌شود.' : 'برای نمایش تمام نیروها کادر را خالی بگذارید.'),
+                selectedUser && React.createElement("div", { className: "request-selected-user" }, React.createElement("span", null, selectedUser.first_name, " ", selectedUser.last_name, " ", React.createElement("small", null, "#", fa(selectedUser.id))), React.createElement("button", { type: "button", "aria-label": "حذف فیلتر نیروی انتخاب‌شده", onClick: () => selectUser('') }, "×")),
+                userQuery.trim() && React.createElement("div", { className: "request-user-results", role: "group", "aria-label": "نتایج جستجوی نیرو" }, matchingUsers.length ? matchingUsers.map(u => React.createElement("button", { type: "button", key: u.id, onClick: () => selectUser(u.id) }, React.createElement("strong", null, u.first_name, " ", u.last_name), React.createElement("span", null, u.username || '—', " · #", fa(u.id)))) : React.createElement("p", null, "نیرویی با این مشخصات یافت نشد."))),
             React.createElement("label", null,
                 "\u0646\u0648\u0639 \u062F\u0631\u062E\u0648\u0627\u0633\u062A",
                 React.createElement("select", { className: "input", value: fType, onChange: e => { setFType(e.target.value); setSelected([]); } },
@@ -14732,7 +14742,7 @@ function AdminRequests() {
                 React.createElement("input", { className: "input", placeholder: "\u0646\u0627\u0645 \u0646\u06CC\u0631\u0648\u060C \u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u06CC\u0627 \u0634\u0645\u0627\u0631\u0647 \u062F\u0631\u062E\u0648\u0627\u0633\u062A", value: search, onChange: e => { setSearch(e.target.value); setSelected([]); }, onKeyDown: e => { if (e.key === 'Enter')
                         load(); } })),
             React.createElement("button", { className: "btn p", disabled: loading || !!busyId || reviewLoading, onClick: load }, "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631"),
-            React.createElement("button", { className: "btn g", disabled: loading || !!busyId || reviewLoading, onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644")),
+            React.createElement("button", { className: "btn g", disabled: loading || !!busyId || reviewLoading, onClick: exportExcel }, "\u2913 \u062E\u0631\u0648\u062C\u06CC \u0627\u06A9\u0633\u0644"))),
         React.createElement("p", { className: "muted" },
             fa(rows.length),
             " \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F\u061B \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F5\u06F0\u06F0 \u0646\u062A\u06CC\u062C\u0647\u0654 \u0622\u062E\u0631 (\u062E\u0631\u0648\u062C\u06CC XLSX \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F5\u06F0\u06F0\u06F0 \u0645\u0648\u0631\u062F). \u0628\u0631\u0627\u06CC \u0646\u062A\u0627\u06CC\u062C \u0642\u062F\u06CC\u0645\u06CC\u200C\u062A\u0631 \u0628\u0627\u0632\u0647\u0654 \u062B\u0628\u062A \u0631\u0627 \u0645\u062D\u062F\u0648\u062F \u06A9\u0646\u06CC\u062F."),

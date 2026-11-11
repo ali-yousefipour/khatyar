@@ -3,6 +3,7 @@ const bundle=fs.readFileSync(__dirname+'/../app/assets/panel.bundle.js','utf8');
 const start=bundle.indexOf('function AdminRequests()'),end=bundle.indexOf('\nfunction ',start+1);
 let cursor=0,refCursor=0,states=[],refs=[],loads=[],decisions=[];
 const context={React:{createElement:(type,props,...children)=>({type,props:props||{},children})},useEffect(){},
+ useMemo:fn=>fn(),
  useState(initial){const i=cursor++;if(states[i]===undefined)states[i]=initial;return[states[i],v=>states[i]=typeof v==='function'?v(states[i]):v];},
  useRef(initial){const i=refCursor++;return refs[i]??=( {current:initial});},Modal(){},JDate(){},RequestLeaveUsage(){},RequestDetails(){},ApprovedRequestEditor(){},fa:String,faPlain:String,GET:async()=>({year:1405,month:7,balance:{},requests:[]}),prompt:()=>'',
  db:{adminRequests:()=>new Promise((resolve,reject)=>loads.push({resolve,reject})),adminRequestDecision:async(id,body)=>decisions.push({id,...body})},setTimeout,URL,console};
@@ -14,7 +15,16 @@ const button=(tree,label)=>nodes(tree).find(n=>n.type==='button'&&text(n)===labe
 const input=(tree,label)=>nodes(tree).find(n=>n.type==='input'&&n.props['aria-label']===label);
 const tick=()=>new Promise(setImmediate);
 (async()=>{
- let tree=render();button(tree,'اعمال فیلتر').props.onClick();
+ let tree=render();states[0]=[{id:12,first_name:'علی',last_name:'یوسفی',username:'ali12'},{id:18,first_name:'رضا',last_name:'محمدی',username:'reza18'}];tree=render();
+ const userSearch=()=>nodes(tree).find(n=>n.type==='input'&&n.props.id==='request-user-search');
+ assert.ok(userSearch(),'searchable user input exists');
+ userSearch().props.onChange({target:{value:'یوسف'}});tree=render();
+ assert.ok(text(tree).includes('علی یوسفی'),'name results appear immediately as the user types');
+ assert.ok(!text(tree).includes('رضا محمدی'),'nonmatching users are excluded');
+ const person=nodes(tree).find(n=>n.type==='button'&&n.props.onClick&&text(n).includes('ali12'));
+ assert.ok(person,'filtered person is selectable');person.props.onClick();tree=render();
+ assert.ok(text(tree).includes('نیروی انتخاب‌شده در فیلتر اعمال می‌شود.'),'chosen person has persistent filter feedback');
+ button(tree,'اعمال فیلتر').props.onClick();
  assert.equal(nodes(tree).filter(n=>n.props.role==='tab').length,3,'three requested status tabs');
  assert.equal(nodes(tree).filter(n=>n.type===context.JDate).length,2,'registration dates use Persian calendar component');
  const rows=[{id:1,type:'annual',unit:'daily',minutes:480,status:'pending',requester:'الف'},{id:2,type:'manual',unit:'hourly',minutes:0,status:'approved',requester:'ب'}];
