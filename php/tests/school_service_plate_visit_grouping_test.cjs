@@ -20,6 +20,12 @@ assert.match(ui, /ssvJalaliDate\(visit\.violation_date\)/, 'history shows Jalali
 assert.match(ui, /visit\.inspector_name/, 'history shows inspector');
 assert.match(ui, /visit\.location_text/, 'history shows visit location');
 assert.match(source, /ssvShowPlateVisits/, 'panel source matches standalone admin behavior');
+for (const script of [ui,source]) {
+  assert.match(script, /ssv-visit-summary>\.ssv-visit-meta\{display:grid/, 'only summary metadata gets grid layout');
+  assert.match(script, /ssv-visit-summary>\.ssv-iran-plate\{flex:0 0 auto/, 'plate retains its dimensions');
+  assert.doesNotMatch(script, /\.ssv-visit-summary span\{display:grid/, 'summary styles must not override plate internals');
+  assert.doesNotMatch(script, /\.ssv-visit-summary small\{color:/, 'plate flag and Iran labels must retain their color');
+}
 
 // Parse-only checks missed a stray unary + before `function`, which silently
 // turned this declaration into an expression and left the click handler undefined.
