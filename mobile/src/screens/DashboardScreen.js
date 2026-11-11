@@ -101,6 +101,9 @@ const MENU_ICONS = {
 };
 const categoryOf = (r) => ['CheckIn', 'OfficialPresence', 'LineVisitProgram', 'StationCapture', 'MyStations', 'RoleDashboard', 'Leaderboard', 'PresentList', 'ActivityReport', 'ExpInsurance', 'ExpTaxi', 'ExpOplic'].includes(r) ? 'field' : ['Reports', 'Requests', 'RequestInbox', 'Forms', 'CompanyRequests', 'Outage'].includes(r) ? 'work' : ['Sms', 'BotMessages', 'MySms', 'Messages', 'Notifications'].includes(r) ? 'messages' : ['WorkSummary', 'SalarySlips', 'Subscription', 'Welfare', 'Cultural'].includes(r) ? 'personal' : 'general';
 const CATEGORY_LABELS = {general:'عمومی',field:'میدانی',work:'اداری',messages:'ارتباطات',personal:'شخصی'};
+// Keep the greeting once per authenticated user during this JS app session,
+// even if a navigation gate temporarily unmounts the dashboard.
+let welcomedUserId = null;
 
 export default function DashboardScreen({ navigation }) {
   const { user } = useAuth();
@@ -141,11 +144,12 @@ export default function DashboardScreen({ navigation }) {
   const orderSaveQueue = useRef(Promise.resolve());
   const orderKey = `dashboard-menu-order:${user?.id || 'me'}`;
 
-  // صدای خوش‌آمد فقط یک‌بار در هر mount داشبورد پخش می‌شود؛ بنابراین با
-  // برگشت‌های معمولی داخل همان صفحه دوباره تکرار نخواهد شد.
+  // A transient remount is not a new login. Do not replay the greeting.
   useEffect(() => {
+    if (!user?.id || welcomedUserId === String(user.id)) return;
+    welcomedUserId = String(user.id);
     try { welcomePlayer.play(); } catch (_) {}
-  }, [welcomePlayer]);
+  }, [user?.id, welcomePlayer]);
 
   const rankCountFor = (role) => { if (!role) return 0; const r = String(role); if (r.includes('سربازرس')) return 4; if (r.includes('بازرس')) return 2; if (r.includes('ناظر خط') || r.includes('اپراتور') || r.includes('مسئول خط') || r.includes('سرپرست خط')) return 1; return 0; };
   const rankCount = user?.rank_stars !== null && user?.rank_stars !== undefined ? Math.max(0, Math.min(5, Number(user.rank_stars) || 0)) : rankCountFor(user?.role);
