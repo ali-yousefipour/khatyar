@@ -14473,6 +14473,8 @@ function AdminRequests() {
     const [fStatus, setFStatus] = useState("pending");
     const [busyId, setBusyId] = useState(null);
     const [userQuery, setUserQuery] = useState("");
+    const [fReviewer, setFReviewer] = useState("");
+    const [reviewerQuery, setReviewerQuery] = useState("");
     const [fFrom, setFFrom] = useState("");
     const [fTo, setFTo] = useState("");
     const [search, setSearch] = useState("");
@@ -14491,9 +14493,13 @@ function AdminRequests() {
     const [sort, setSort] = useState({ key: null, direction: 'desc' });
     const normalizePerson = value => String(value !== null && value !== void 0 ? value : '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).toLocaleLowerCase('fa').trim();
     const selectedUser = users.find(u => String(u.id) === String(fUser));
+    const selectedReviewer = users.find(u => String(u.id) === String(fReviewer));
     const matchingUsers = useMemo(() => { const query = normalizePerson(userQuery); if (!query)
         return []; return users.filter(u => normalizePerson([u.first_name, u.last_name, u.username, u.personnel_code, u.id].join(' ')).includes(query)).slice(0, 30); }, [users, userQuery]);
+    const matchingReviewers = useMemo(() => { const query = normalizePerson(reviewerQuery); if (!query)
+        return []; return users.filter(u => normalizePerson([u.first_name, u.last_name, u.username, u.personnel_code, u.id].join(' ')).includes(query)).slice(0, 30); }, [users, reviewerQuery]);
     const selectUser = id => { setFUser(String(id)); setUserQuery(''); setSelected([]); };
+    const selectReviewer = id => { setFReviewer(String(id)); setReviewerQuery(''); setSelected([]); };
     const sortBy = key => setSort(previous => ({ key, direction: previous.key === key && previous.direction === 'asc' ? 'desc' : 'asc' }));
     const sortedRows = !sort.key ? rows : [...rows].sort((a, b) => {
         const value = row => { var _a; return ({ id: Number(row.id), requester: row.requester, type: TY[row.type] || row.type, unit: row.unit, date: row.the_date || row.from_jdate || '', time: row.from_time || row.in_time || '', minutes: Number(row.minutes || 0), status: ((_a = ST[row.status]) === null || _a === void 0 ? void 0 : _a[0]) || row.status, approver: row.approver || '', pending_on_name: row.pending_on_name || '', reason: row.reason || '' })[sort.key]; };
@@ -14588,7 +14594,8 @@ function AdminRequests() {
     useEffect(() => { db.usersLite().then(u => setUsers(u || [])).catch(() => { }); }, []);
     useEffect(() => { setSelected([]); load(); }, [fStatus]);
     const qs = () => { const p = []; if (fUser)
-        p.push("user_id=" + fUser); if (fType)
+        p.push("user_id=" + fUser); if (fReviewer)
+        p.push("pending_on=" + encodeURIComponent(fReviewer)); if (fType)
         p.push("type=" + fType); if (fStatus)
         p.push("status=" + fStatus); if (fFrom)
         p.push("from=" + encodeURIComponent(fFrom)); if (fTo)
@@ -14717,8 +14724,8 @@ function AdminRequests() {
             React.createElement("div", { className: "request-filter-heading" },
                 React.createElement("div", null,
                     React.createElement("strong", null, "\u062C\u0633\u062A\u200C\u0648\u062C\u0648 \u0648 \u0641\u06CC\u0644\u062A\u0631 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627"),
-                    React.createElement("small", null, "\u0646\u0627\u0645 \u0646\u06CC\u0631\u0648 \u0631\u0627 \u062A\u0627\u06CC\u067E \u06A9\u0646\u06CC\u062F\u061B \u0646\u062A\u06CC\u062C\u0647\u200C\u0647\u0627\u06CC \u0645\u0634\u0627\u0628\u0647 \u0628\u0644\u0627\u0641\u0627\u0635\u0644\u0647 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F.")),
-                React.createElement("button", { type: "button", className: "btn g", disabled: loading || !!busyId || reviewLoading, onClick: () => { setFUser(''); setUserQuery(''); setFType(''); setFFrom(''); setFTo(''); setSearch(''); setSelected([]); } }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627")),
+                    React.createElement("small", null, "\u0646\u0627\u0645 \u0646\u06CC\u0631\u0648 \u06CC\u0627 \u0645\u0633\u0626\u0648\u0644 \u062C\u0627\u0631\u06CC \u0631\u0627 \u062A\u0627\u06CC\u067E \u06A9\u0646\u06CC\u062F\u061B \u0646\u062A\u06CC\u062C\u0647\u200C\u0647\u0627\u06CC \u0645\u0634\u0627\u0628\u0647 \u0628\u0644\u0627\u0641\u0627\u0635\u0644\u0647 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F.")),
+                React.createElement("button", { type: "button", className: "btn g", disabled: loading || !!busyId || reviewLoading, onClick: () => { setFUser(''); setUserQuery(''); setFReviewer(''); setReviewerQuery(''); setFType(''); setFFrom(''); setFTo(''); setSearch(''); setSelected([]); } }, "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627")),
             React.createElement("div", { className: "filters request-filters" },
                 React.createElement("div", { className: "request-user-field" },
                     React.createElement("label", { htmlFor: "request-user-search" }, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0646\u06CC\u0631\u0648"),
@@ -14745,6 +14752,32 @@ function AdminRequests() {
                             u.username || '—',
                             " \u00B7 #",
                             fa(u.id)))) : React.createElement("p", null, "\u0646\u06CC\u0631\u0648\u06CC\u06CC \u0628\u0627 \u0627\u06CC\u0646 \u0645\u0634\u062E\u0635\u0627\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F."))),
+                React.createElement("div", { className: "request-user-field" },
+                    React.createElement("label", { htmlFor: "request-reviewer-search" }, "\u0645\u0633\u0626\u0648\u0644 \u062C\u0627\u0631\u06CC"),
+                    React.createElement("div", { className: "request-user-search" },
+                        React.createElement("input", { id: "request-reviewer-search", className: "input", type: "search", autoComplete: "off", value: reviewerQuery, onChange: e => setReviewerQuery(e.target.value), placeholder: "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u0646\u0627\u0645 \u0645\u0633\u0626\u0648\u0644 \u062C\u0627\u0631\u06CC", "aria-describedby": "request-reviewer-help" }),
+                        React.createElement("span", { "aria-hidden": "true" }, "\u2315")),
+                    React.createElement("small", { id: "request-reviewer-help" }, reviewerQuery ? `${fa(matchingReviewers.length)} نتیجهٔ نزدیک` : fReviewer === 'unassigned' ? 'درخواست‌های فاقد مسئول جاری نمایش داده می‌شوند.' : selectedReviewer ? 'درخواست‌های ارجاع‌شده به این مسئول نمایش داده می‌شوند.' : 'همهٔ مسئولان؛ برای انتخاب نام را تایپ کنید.'),
+                    fReviewer && React.createElement("div", { className: "request-selected-user" },
+                        React.createElement("span", null,
+                            fReviewer === 'unassigned' ? 'مسئول تعیین نشده' : `${(selectedReviewer === null || selectedReviewer === void 0 ? void 0 : selectedReviewer.first_name) || ''} ${(selectedReviewer === null || selectedReviewer === void 0 ? void 0 : selectedReviewer.last_name) || ''}`,
+                            " ",
+                            selectedReviewer && React.createElement("small", null,
+                                "#",
+                                fa(selectedReviewer.id))),
+                        React.createElement("button", { type: "button", "aria-label": "\u062D\u0630\u0641 \u0641\u06CC\u0644\u062A\u0631 \u0645\u0633\u0626\u0648\u0644 \u062C\u0627\u0631\u06CC", onClick: () => selectReviewer('') }, "\u00D7")),
+                    reviewerQuery.trim() && React.createElement("div", { className: "request-user-results", role: "group", "aria-label": "\u0646\u062A\u0627\u06CC\u062C \u062C\u0633\u062A\u062C\u0648\u06CC \u0645\u0633\u0626\u0648\u0644 \u062C\u0627\u0631\u06CC" },
+                        matchingReviewers.map(u => React.createElement("button", { type: "button", key: u.id, onClick: () => selectReviewer(u.id) },
+                            React.createElement("strong", null,
+                                u.first_name,
+                                " ",
+                                u.last_name),
+                            React.createElement("span", null,
+                                u.username || '—',
+                                " \u00B7 #",
+                                fa(u.id)))),
+                        !matchingReviewers.length && React.createElement("p", null, "\u0645\u0633\u0626\u0648\u0644\u06CC \u0628\u0627 \u0627\u06CC\u0646 \u0645\u0634\u062E\u0635\u0627\u062A \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.")),
+                    React.createElement("button", { type: "button", className: "request-unassigned-button", onClick: () => selectReviewer('unassigned') }, "\u0641\u0642\u0637 \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0645\u0633\u0626\u0648\u0644")),
                 React.createElement("label", null,
                     "\u0646\u0648\u0639 \u062F\u0631\u062E\u0648\u0627\u0633\u062A",
                     React.createElement("select", { className: "input", value: fType, onChange: e => { setFType(e.target.value); setSelected([]); } },
