@@ -16934,6 +16934,16 @@ route('GET','/api/school-service/inspections-page',function($p,$b,$u){
   $sortBy=(string)($_GET['sort_by']??'date');$sortExpr=$sortColumns[$sortBy]??$sortColumns['date'];
   $sortDir=strtolower((string)($_GET['sort_dir']??'desc'))==='asc'?'ASC':'DESC';
   $w=implode(' AND ',$where);
+  if(($_GET['group_by_plate']??'')==='1'){
+    // Unknown/incomplete plates stay separate; never merge unrelated visits.
+    $plateKey="CASE WHEN TRIM(COALESCE(i.plate_two,''))='' OR TRIM(COALESCE(i.plate_three,''))='' OR TRIM(COALESCE(i.plate_region_code,''))='' THEN CONCAT('unknown:',i.id) ELSE CONCAT_WS('|',TRIM(i.plate_two),TRIM(COALESCE(i.plate_letter,'')),TRIM(i.plate_three),TRIM(i.plate_region_code)) END";
+    $groupSql="SELECT MAX(i.id) last_id,COUNT(*) inspection_count FROM school_service_inspections i $joins WHERE $w GROUP BY $plateKey";
+    $total=(int)(Db::one("SELECT COUNT(*) n FROM ($groupSql) grouped",$args)['n']??0);
+    $groupSort=$sortBy==='visits'?'g.inspection_count':$sortExpr;
+    $rows=Db::all("SELECT i.*,s.name school_name,c.name company_name,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) inspector_name,g.inspection_count FROM ($groupSql) g JOIN school_service_inspections i ON i.id=g.last_id $joins ORDER BY $groupSort $sortDir,i.id DESC LIMIT $size OFFSET ".(($page-1)*$size),$args);
+    foreach($rows as &$rr)$rr['plate']=trim(($rr['plate_three']??'').' '.($rr['plate_letter']??'').' '.($rr['plate_two']??'').' ایران '.($rr['plate_region_code']??''));unset($rr);
+    return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'total'=>$total,'pages'=>max(1,(int)ceil($total/$size)),'grouped_by_plate'=>true];
+  }
   $total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections i $joins WHERE $w",$args)['n']??0);
   $rows=Db::all("SELECT i.*,s.name school_name,c.name company_name,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) inspector_name,
     (SELECT COUNT(*) FROM school_service_inspection_photos p WHERE p.inspection_id=i.id) photo_count
@@ -16943,6 +16953,28 @@ route('GET','/api/school-service/inspections-page',function($p,$b,$u){
     $rr['violations']=array_column(Db::all("SELECT v.title FROM school_service_inspection_violations x JOIN school_service_violation_types v ON v.id=x.violation_type_id WHERE x.inspection_id=?",[(int)$rr['id']]),'title');
   }unset($rr);
   return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'total'=>$total,'pages'=>max(1,(int)ceil($total/$size))];
+});
+route('GET','/api/school-service/inspections-plate-history',function($p,$b,$u){
+  _ssv_need($u,'view');_ssv_tables();
+  $page=max(1,(int)($_GET['page']??1));$size=max(5,min(100,(int)($_GET['page_size']??20)));
+  $segments=[];
+  foreach(['plate_two','plate_letter','plate_three','plate_region_code'] as $key){
+    $value=_ssv_norm(_ssv_en($_GET[$key]??''));
+    if($key!=='plate_letter')$value=preg_replace('/\D/','',$value);
+    $segments[]=$value;
+  }
+  $where=[];$args=[];
+  if($segments[0]!==''&&$segments[2]!==''&&$segments[3]!==''){
+    foreach(['plate_two','plate_letter','plate_three','plate_region_code'] as $index=>$key){$where[]="TRIM(COALESCE(i.$key,''))=?";$args[]=$segments[$index];}
+  }else{
+    $id=(int)($_GET['inspection_id']??0);
+    if($id<1)Http::error('پلاک یا شناسه بازدید نامعتبر است',422);
+    $where[]='i.id=?';$args[]=$id;
+  }
+  $w=implode(' AND ',$where);
+  $total=(int)(Db::one("SELECT COUNT(*) n FROM school_service_inspections i WHERE $w",$args)['n']??0);
+  $rows=Db::all("SELECT i.id,i.violation_date,i.violation_time,i.location_text,i.latitude,i.longitude,i.description,i.educational_district,s.name school_name,c.name company_name,TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) inspector_name FROM school_service_inspections i LEFT JOIN school_service_schools s ON s.id=i.school_id LEFT JOIN school_service_companies c ON c.id=i.company_id LEFT JOIN users u ON u.id=i.inspector_user_id WHERE $w ORDER BY i.violation_date DESC,i.violation_time DESC,i.id DESC LIMIT $size OFFSET ".(($page-1)*$size),$args);
+  return ['items'=>$rows,'total'=>$total,'page'=>$page,'pages'=>max(1,(int)ceil($total/$size))];
 });
 route('GET','/api/school-service/config',function($p,$b,$u){_ssv_need($u,'view');_ssv_tables();if(!_ssv_perm($u,'edit'))Http::error('دسترسی مدیریت تنظیمات ندارید',403);return ['districts'=>Db::all("SELECT * FROM school_service_districts ORDER BY sort_order,id"),'vehicle_types'=>Db::all("SELECT * FROM school_service_vehicle_types ORDER BY sort_order,id"),'vehicle_colors'=>Db::all("SELECT * FROM school_service_vehicle_colors ORDER BY sort_order,id")];});
 route('POST','/api/school-service/config',function($p,$b,$u){_ssv_need($u,'edit');_ssv_tables();$type=(string)($b['type']??'');$title=_ssv_norm($b['title']??'');if(!in_array($type,['district','vehicle_type','vehicle_color'],true)||$title==='')Http::error('نوع یا عنوان تنظیم نامعتبر است',422);if($type==='district'){$title=_ssv_district_key($title);if(!_ssv_valid_district($title))Http::error('ناحیه فقط می‌تواند یکی از مقادیر رسمی ۱ تا ۷ یا تبادکان باشد.',422);} $table=['district'=>'school_service_districts','vehicle_type'=>'school_service_vehicle_types','vehicle_color'=>'school_service_vehicle_colors'][$type];Db::run("INSERT INTO $table(title,sort_order) VALUES(?,?) ON DUPLICATE KEY UPDATE is_active=1",[$title,(int)($b['sort_order']??99)]);return ['ok'=>true];});
