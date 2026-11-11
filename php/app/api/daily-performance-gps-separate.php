@@ -50,11 +50,12 @@ route('GET', '/api/my/daily-performance', function($p,$b,$u){
   }
   if($rangeStart!==null) $gpsInvalidSeconds+=max(0,$rangeEnd-$rangeStart);
 
-  $w['gps_work_required']=_gps_work_required();
-  $w['gps_invalid_min']=(int)ceil(max(0,$gpsInvalidSeconds)/60);
+  $securityExempt=work_deduction_security_exempt((int)$u['id']);
+  $w['gps_work_required']=!$securityExempt&&_gps_work_required();
+  $w['gps_invalid_min']=$securityExempt?0:(int)ceil(max(0,$gpsInvalidSeconds)/60);
   require_once dirname(__DIR__,2).'/lib/InternetWorkIntervals.php';
   $internetDetails=internet_work_daily_details((int)$u['id'],$rows);
-  $w['internet_work_required']=internet_work_enabled();
+  $w['internet_work_required']=!$securityExempt&&internet_work_enabled();
   $w['internet_invalid_min']=array_sum(array_column($internetDetails,'minutes'));
   $w['internet_invalid_details']=$internetDetails;
   // مأموریت ساعتی مستقل از ساعات حضور و کسر کار واقعی نمایش داده می‌شود.

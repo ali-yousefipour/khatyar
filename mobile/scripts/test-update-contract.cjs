@@ -12,6 +12,7 @@ const nativeSource = fs.readFileSync(path.join(root, 'plugins/khatyar-updater-na
 const screenSource = fs.readFileSync(path.join(root, 'src/screens/UpdateScreen.js'), 'utf8');
 const manualSource = fs.readFileSync(path.join(root, 'src/updater.js'), 'utf8');
 const phpSource = fs.readFileSync(path.join(root, '../php/app/api/version.php'), 'utf8');
+const appSource = fs.readFileSync(path.join(root, 'App.js'), 'utf8');
 
 let payload = {};
 let requestError = null;
@@ -69,6 +70,11 @@ assert.equal(validateUpdateUrl('https://evil.org@bad.example.org/update.apk'), f
   assert.match(nativeSource, /pkg\.versionName/, 'embedded APK version must match panel release');
   assert.match(nativeSource, /pkg\.packageName/, 'embedded APK package identity must match installed app');
   assert.match(screenSource, /downloadAndInstallUpdate\(info\)/);
+  assert.match(screenSource, /khatyarUpdaterProgress/, 'Native progress events feed the update dialog');
+  assert.match(screenSource, /<ActivityIndicator size="small" color=\{C\.brand\}/, 'Download spinner appears even before content length is known');
+  assert.match(appSource, /setInterval\(poll,15000\)/, 'Forced policy is polled while the app is open');
+  assert.match(appSource, /AppState\.addEventListener\('change',state=>\{if\(state==='active'\)poll\(\)\}\)/, 'Forced policy rechecks on foreground');
+  assert.match(appSource, /if\(updateInfo\?\.required\)return/, 'Mandatory update replaces the application UI');
   assert.match(screenSource, /info\?\.notes/);
   assert.match(manualSource, /checkVersion\(\)/);
   assert.match(manualSource, /downloadAndInstallUpdate\(info\)/);

@@ -2336,6 +2336,7 @@ function _gps_work_record_event($userId, $kind, $at, $meta=[]) {
 function _gps_work_invalid_intervals($userId, $fromTs, $toTs, $gracePending=false) {
   $fromTs=(int)$fromTs; $toTs=(int)$toTs; $interval=1800;
   if (!$fromTs || !$toTs || $toTs <= $fromTs || !_gps_work_required()) return [];
+  if (work_deduction_security_exempt((int)$userId)) return [];
   $enabledTs=0;
   try {
     $enabledRow=Db::one("SELECT value FROM app_settings WHERE `key`='gps_work_required_enabled_at'");

@@ -21,6 +21,7 @@ function internet_work_waiver_schema(): void {
 function internet_work_intervals(int $userId,int $fromTs,int $toTs): array {
   if(!internet_work_enabled()||$fromTs<=0||$toTs<=$fromTs)return [];
   require_once __DIR__.'/GpsWorkIntervals.php';
+  if(work_deduction_security_exempt($userId))return [];
   try {
     $events=Db::all("SELECT kind,at FROM user_activity WHERE user_id=? AND kind='internet_off' AND at>=? AND at<=? ORDER BY at,id",[$userId,date('Y-m-d H:i:s',$fromTs-1800),date('Y-m-d H:i:s',$toTs)]);
     $ranges=gps_work_explicit_off_intervals(array_map(static fn($r)=>['kind'=>'gps_off','at'=>$r['at']],$events),$fromTs,$toTs,1800);

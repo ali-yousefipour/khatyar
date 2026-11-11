@@ -1,5 +1,19 @@
 <?php
 
+/** Security-exempt personnel keep device evidence but incur no GPS/internet-off work deductions. */
+function work_deduction_security_exempt(int $userId): bool {
+  if ($userId <= 0) return false;
+  static $cache = [];
+  if (array_key_exists($userId, $cache)) return $cache[$userId];
+  try {
+    $row = Db::one('SELECT security_exempt FROM users WHERE id=?', [$userId]);
+    return $cache[$userId] = ((int)($row['security_exempt'] ?? 0) === 1);
+  } catch (Throwable $e) {
+    error_log('security exemption lookup failed: '.$e->getMessage());
+    return false;
+  }
+}
+
 /**
  * Build work-deduction ranges only from explicit GPS-off records.
  * Each record covers at most one configured GPS polling interval ending at its timestamp;
