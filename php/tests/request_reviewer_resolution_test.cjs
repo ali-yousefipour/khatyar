@@ -1,0 +1,18 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const source = fs.readFileSync(path.join(__dirname, '../lib/routes.php'), 'utf8');
+const manager = source.split('function _req_explicit_active_manager(')[1]?.split('function _req_hierarchy_managers(')[0];
+const hierarchy = source.split('function _req_hierarchy_managers(')[1]?.split('function _req_approver(')[0];
+const reconcile = source.split('function _req_reconcile_pending_approvals(')[1]?.split('// ====================')[0];
+assert.ok(manager && hierarchy && reconcile);
+assert.match(manager, /u\.is_active=1/, 'Only active saved managers can approve');
+assert.match(manager, /in_array\(OrgChart::roleKey/, 'Saved managers must have the correct role');
+assert.match(hierarchy, /_req_explicit_active_manager\(\$uid,\$role==='field'/, 'Field personnel use an explicit qualified inspector fallback');
+assert.match(hierarchy, /\$role==='office'/, 'Administrative personnel resolve their actual superior');
+assert.match(reconcile, /r\.pending_on IS NULL/, 'Orphaned pending requests can be repaired');
+assert.match(reconcile, /pending_on <=> \?/, 'Reassignment must guard against concurrent decisions');
+assert.match(source, /if\(!\$approver\)Http::error\('برای سمت یا منطقه شما مسئول تأیید فعال تعیین نشده است/, 'Missing reviewer is rejected on personal request creation');
+assert.match(source, /if\(!\$approver\)Http::error\('برای این پرسنل مسئول تأیید فعال تعیین نشده است/, 'Missing reviewer is rejected on admin request creation');
+assert.match(source, /pn\.username,''\) pending_on_name/, 'Admin list falls back to username when a name is absent');
+console.log('PASS request reviewer resolution: qualified active hierarchy, orphan reconciliation and explicit errors');

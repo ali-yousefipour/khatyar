@@ -4624,6 +4624,21 @@ function _req_work_policy_handler($path,callable $handler){
 }
 
 // تعیین مقام تأییدکننده (سلسله‌مراتبی یا مسئول خاص)
+function _req_explicit_active_manager(int $userId,array $allowedRoles): array {
+  // Saved organizational relationships are a fallback only when regional
+  // responsibility has no valid active holder; never choose a random admin.
+  try { $ids=_user_managers($userId); }
+  catch (Throwable $e) { error_log('request manager lookup failed: '.$e->getMessage());return []; }
+  if(!$ids)return [];
+  require_once __DIR__.'/OrgChart.php';
+  $marks=implode(',',array_fill(0,count($ids),'?'));
+  $byId=[];
+  foreach(Db::all("SELECT u.id,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 AND u.id IN ($marks)",$ids) as $manager){
+    if(in_array(OrgChart::roleKey($manager['role_title']),$allowedRoles,true))$byId[(int)$manager['id']]=true;
+  }
+  foreach($ids as $id)if(isset($byId[(int)$id])&&(int)$id!==$userId)return [(int)$id];
+  return [];
+}
 function _req_hierarchy_managers(int $uid): array {
   require_once __DIR__.'/OrgChart.php';
   $person=Db::one('SELECT u.zone_id,r.title role_title FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.is_active=1',[$uid]);
@@ -4643,8 +4658,10 @@ function _req_hierarchy_managers(int $uid): array {
       if($role==='field')return array_values(array_filter(array_map('intval',array_column($responsibility['inspectors']??[],'id'))));
       if(!empty($responsibility['chief']['id']))return [(int)$responsibility['chief']['id']];
     }
-    return [];
+    return _req_explicit_active_manager($uid,$role==='field'?['inspector','motor']:['senior']);
   }
+  if($role==='office')return _req_explicit_active_manager($uid,['head']);
+  if($role==='licensing')return _req_explicit_active_manager($uid,['executive']);
   $nextRole=$role==='senior'?'chief':($role==='chief'?'head':null);
   if(!$nextRole)return [];
   // Respect the configured chart only when the manager has the required next role.
@@ -4721,7 +4738,7 @@ function _req_current_pending_target(array $request): ?int {
 
 // Repairs requests left in an old reviewer's inbox by earlier chart/user edits.
 // Compare-and-swap prevents overwriting another approval that was just submitted.
-function _req_reconcile_pending_approvals(?int $ownerId=null,?int $reviewerId=null): int {
+function _req_reconcile_pending_approvals(?int $ownerId=null,?int $reviewerId=null,bool $unassignedOnly=false): int {
   if(!Db::one("SHOW TABLES LIKE 'requests'"))return 0;
   $where='';$params=[];
   if($ownerId){$where=' AND r.user_id=?';$params=[$ownerId];}
@@ -4745,7 +4762,9 @@ function _req_reconcile_pending_approvals(?int $ownerId=null,?int $reviewerId=nu
       else {$where=' AND r.pending_on=?';$params=[$reviewerId];}
     }
   }
-  $rows=Db::all("SELECT r.id,r.user_id,r.pending_on,r.approver_id FROM requests r JOIN users u ON u.id=r.user_id WHERE r.status='pending' $where ORDER BY r.id DESC LIMIT 1000",$params);
+  if($unassignedOnly)$where.=' AND r.pending_on IS NULL';
+  $limit=$unassignedOnly?25:1000;
+  $rows=Db::all("SELECT r.id,r.user_id,r.pending_on,r.approver_id FROM requests r JOIN users u ON u.id=r.user_id WHERE r.status='pending' $where ORDER BY r.id DESC LIMIT $limit",$params);
   $changed=0;
   foreach($rows as $request){
     if((_req_policy_options((int)$request['user_id'],false)['approval_mode']??'hierarchical')!=='hierarchical')continue;
@@ -5010,6 +5029,7 @@ route('POST', '/api/my/requests', function($p,$b,$u){
     Http::error('برای ثبت تردد دستی، الصاق عکس سلفی الزامی است.',422);
   }
   $approver = _req_approver($u['id']);
+  if(!$approver)Http::error('برای سمت یا منطقه شما مسئول تأیید فعال تعیین نشده است. لطفاً با مدیر سامانه برای اصلاح منطقه‌بندی یا سلسله‌مراتب تماس بگیرید.',422);
   // جایگزین فقط برای مرخصی استحقاقی روزانه قابل انتخاب و الزام است.
   $sub = _req_substitute_eligible(['type'=>$type,'unit'=>$unit]) && !empty($b['substitute_user_id']) ? (int)$b['substitute_user_id'] : null;
   if (_req_substitute_eligible(['type'=>$type,'unit'=>$unit]) && _req_leave_substitute_required($u['id']) && !$sub) {
@@ -5061,13 +5081,13 @@ route('GET', '/api/my/requests', function($p,$b,$u){
         r.manual_kind,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name,r.substitute_user_id,
         TRIM(CONCAT(COALESCE(su.first_name,''),' ',COALESCE(su.last_name,''))) substitute_name,
         TRIM(CONCAT(COALESCE(ap.first_name,''),' ',COALESCE(ap.last_name,''))) approver_name,
-        TRIM(CONCAT(COALESCE(pn.first_name,''),' ',COALESCE(pn.last_name,''))) pending_approver_name
+        COALESCE(NULLIF(TRIM(CONCAT(COALESCE(pn.first_name,''),' ',COALESCE(pn.last_name,''))),''),pn.username,'') pending_approver_name
       FROM requests r LEFT JOIN users su ON su.id=r.substitute_user_id
       LEFT JOIN users ap ON ap.id=r.approver_id LEFT JOIN users pn ON pn.id=r.pending_on
       WHERE r.user_id=? ORDER BY r.id DESC LIMIT 100", [$u['id']]));
   }
   return _req_decorate_my_requests(Db::all("SELECT $sel,TRIM(CONCAT(COALESCE(ap.first_name,''),' ',COALESCE(ap.last_name,''))) approver_name,
-      TRIM(CONCAT(COALESCE(pn.first_name,''),' ',COALESCE(pn.last_name,''))) pending_approver_name
+      COALESCE(NULLIF(TRIM(CONCAT(COALESCE(pn.first_name,''),' ',COALESCE(pn.last_name,''))),''),pn.username,'') pending_approver_name
       FROM requests r LEFT JOIN users ap ON ap.id=r.approver_id LEFT JOIN users pn ON pn.id=r.pending_on
       WHERE r.user_id=? ORDER BY r.id DESC LIMIT 100",[$u['id']]));
 });
@@ -5443,6 +5463,7 @@ route('POST', '/api/admin/requests', function($p,$b,$u){
     return ['id'=>$id,'status'=>'approved','minutes'=>$minutes,'requester_id'=>$uid,'approver_id'=>(int)$u['id']];
   }
   $approver=_req_approver($uid);
+  if(!$approver)Http::error('برای این پرسنل مسئول تأیید فعال تعیین نشده است. ابتدا مسئول منطقه یا سلسله‌مراتب سازمانی را اصلاح کنید.',422);
   $id=Db::insert("INSERT INTO requests(user_id,type,unit,from_jdate,to_jdate,the_date,from_time,to_time,minutes,reason,pending_on)
     VALUES(?,?,?,?,?,?,?,?,?,?,?)",[$uid,$type,$unit,$from,$to,$the,$ft,$tt,$minutes,$reason,$approver]);
   if($approver) Push::send([$approver],'درخواست جدید برای تأیید',['annual'=>'مرخصی استحقاقی','sick'=>'مرخصی استعلاجی','mission'=>'ماموریت','overtime'=>'اضافه‌کار'][$type]??'درخواست',['type'=>'request','request_id'=>$id]);
@@ -5725,11 +5746,15 @@ route('GET', '/api/admin/attendance-day-requests', function($p,$b,$u){
   return array_values(array_map(static function($row){unset($row['pending_on'],$row['approver_id']);return $row;},array_filter($rows,static fn($row)=>_req_admin_can_view_request($u,$row))));
 },false,ADMIN);
 route('GET', '/api/admin/requests', function($p,$b,$u){
+  // Repair a bounded batch of legacy orphaned requests before rendering the
+  // admin list; existing decisions and assigned reviewers remain untouched.
+  try { _req_reconcile_pending_approvals(null,null,true); }
+  catch (Throwable $e) { error_log('unassigned request reconciliation failed: '.$e->getMessage()); }
   [$where,$args]=_req_report_filter($_GET,$u);
   return Db::all("SELECT r.id,r.type,r.unit,r.from_jdate,r.to_jdate,r.the_date,r.from_time,r.to_time,r.in_time,r.out_time,r.minutes,r.reason,r.status,r.approver_note,r.created_at,r.attachment_name,
       CONCAT(us.first_name,' ',us.last_name) requester,
       CONCAT(COALESCE(ap.first_name,''),' ',COALESCE(ap.last_name,'')) approver,
-      TRIM(CONCAT(COALESCE(pn.first_name,''),' ',COALESCE(pn.last_name,''))) pending_on_name
+      COALESCE(NULLIF(TRIM(CONCAT(COALESCE(pn.first_name,''),' ',COALESCE(pn.last_name,''))),''),pn.username,'') pending_on_name
     FROM requests r JOIN users us ON us.id=r.user_id LEFT JOIN users ap ON ap.id=r.approver_id
     LEFT JOIN users pn ON pn.id=r.pending_on
     $where ORDER BY r.id DESC LIMIT 500", $args);
