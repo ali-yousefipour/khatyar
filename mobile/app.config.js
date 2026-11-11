@@ -2,9 +2,9 @@
 try { require('dotenv').config(); } catch (e) {}
 let hasLocalAuth = false;
 try { require.resolve('expo-local-authentication'); hasLocalAuth = true; } catch (e) { hasLocalAuth = false; }
-// Android 2.0.0 release: preserve the established Myket signing configuration.
-const APP_VERSION = '2.0.0';
-const APP_VERSION_CODE = 20000;
+// Android 2.0.1 release: preserve the established Myket signing configuration.
+const APP_VERSION = '2.0.1';
+const APP_VERSION_CODE = 20001;
 // R8 previously caused startup crashes in release builds. Only enable in a
 // separately tested candidate; standard Myket releases retain safe defaults.
 const EXPERIMENTAL_NATIVE_SHRINK = process.env.KHATYAR_EXPERIMENTAL_R8 === '1';

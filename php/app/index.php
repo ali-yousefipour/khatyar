@@ -41,11 +41,12 @@ register_shutdown_function(static function() use (&$apiRequestStart) {
 
 if ($path === '/health' || $path === '/api/health') {
   $db_ok = false; try { Db::pdo()->query('SELECT 1'); $db_ok = true; } catch (Throwable $e) { error_log('health db: ' . $e->getMessage()); }
-  $siteV = '2.0.0'; $appV = '2.0.0';
+  $siteV = '2.0.1'; $appV = '2.0.1';
   $releaseNotes = [
-    'version' => '2.0.0',
-    'title' => 'تغییرات نسخه ۲.۰.۰',
+    'version' => '2.0.1',
+    'title' => 'تغییرات نسخه ۲.۰.۱',
     'items' => [
+      'رفع بسته‌شدن ویزارد بازدید سرویس مدارس هنگام انتقال از مرحله پلاک به مشخصات راننده و تخلفات',
       'افزودن فلاشر تمام‌صفحه با چراغ‌های سفید و زرد و دکمه توقف سریع در اندروید',
       'افزودن دزدگیر اندروید با تشخیص حرکت و جداشدن شارژر و توقف آژیر با رمز قفل خطیار',
       'بازطراحی داشبورد سرویس مدارس و تب‌های مدیریت، بهبود جستجوی مدارس و نمایش واکنش‌گرا',
