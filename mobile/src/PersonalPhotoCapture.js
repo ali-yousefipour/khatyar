@@ -20,6 +20,7 @@ export default function PersonalPhotoCapture({
   instruction = 'مستقیم به دوربین نگاه کنید و تصویر واضح بگیرید.',
   uniformNotice = true,
   systemCameraFirst = false,
+  autoConfirm = false,
 }) {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
@@ -58,6 +59,7 @@ export default function PersonalPhotoCapture({
       const dataUrl = await compressToDataUri(photo.uri);
       if (!dataUrl) throw new Error('camera_base64_missing');
       setReady(false);
+      if (autoConfirm) { await onCapture(dataUrl); return; }
       setPreview({ uri: photo.uri, dataUrl });
       setMessage('تصویر را بررسی و سپس تأیید کنید.');
     } catch (_error) {
@@ -89,6 +91,7 @@ export default function PersonalPhotoCapture({
       const dataUrl = await compressToDataUri(uri);
       if (generation !== captureGeneration.current) return;
       if (!dataUrl) throw new Error('camera_base64_missing');
+      if (autoConfirm) { await onCapture(dataUrl); return; }
       setPreview({ uri, dataUrl });
       setMessage('تصویر را بررسی و سپس تأیید کنید.');
     } catch (_) {

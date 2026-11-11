@@ -110,6 +110,7 @@ export default function PresenceCheckWizard(){
      setError(e?.message||'ارسال صحت‌سنجی ناموفق بود.');
      setStep('vehicles');
      Alert.alert('ارسال صحت‌سنجی ناموفق بود',e?.message||'ارتباط با سرور برقرار نشد. عکس‌ها حذف نشده‌اند؛ دوباره «تأیید و ارسال» را بزنید.');
+     return false;
    }
  }
 
@@ -122,8 +123,8 @@ export default function PresenceCheckWizard(){
  const mm=String(Math.floor(secs/60)).padStart(2,'0');
  const ss=String(secs%60).padStart(2,'0');
 
- if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture systemCameraFirst onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/></View>;
- if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture systemCameraFirst onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/></View>;
+ if(step==='selfie')return <View style={s.stage}><PersonalPhotoCapture systemCameraFirst autoConfirm onCapture={d=>{setSelfie(d);setError('');setStep('vehicles')}}/></View>;
+ if(step==='vehicles')return <View style={s.stage}><VehiclesPhotoCapture systemCameraFirst autoConfirm onCapture={(url,coords)=>{coordsRef.current=coords;return submit(url,coords)}}/></View>;
 
  return <View style={s.page}>
    <View style={s.header}>

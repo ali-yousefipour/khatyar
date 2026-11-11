@@ -14,7 +14,7 @@ import { useCameraSession } from './cameraSession';
 import { launchCamera, ImagePicker } from './cameraLock';
 import { request } from './api';
 
-export default function VehiclesPhotoCapture({ onCapture, onCancel, station = null, systemCameraFirst = false }) {
+export default function VehiclesPhotoCapture({ onCapture, onCancel, station = null, systemCameraFirst = false, autoConfirm = false }) {
   const [perm, requestPerm] = useCameraPermissions();
   const camRef = useRef(null);
   const shotRef = useRef(null);
@@ -32,6 +32,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
   const [useInlineCamera, setUseInlineCamera] = useState(!systemCameraFirst);
   const captureGeneration = useRef(0);
   const autoCameraStarted = useRef(false);
+  const autoSubmissionStarted = useRef(false);
   const { cameraActive, cameraKey, restartCamera } = useCameraSession(!!perm?.granted && !shot && !systemCameraOpen && useInlineCamera);
 
   useEffect(() => { if (!cameraActive) setCameraReady(false); }, [cameraActive]);
@@ -181,6 +182,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
     setCameraReady(false);
     setCoords(null);
     setShot(uri);
+    autoSubmissionStarted.current = false;
     setStamp({
       date: fjDateTime(new Date()),
       coords: 'در حال دریافت موقعیت…',
@@ -243,7 +245,11 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
         quality: getImageConfig().quality,
       });
       if (!data) throw new Error('image_compression_failed');
-      await onCapture(data, coords);
+      const submitted = await onCapture(data, coords);
+      if (submitted === false) {
+        setError('ارسال به سرور انجام نشد. برای ارسال دوباره همین تصویر تلاش کنید.');
+        return;
+      }
     } catch (_) {
       // Never submit the raw image when the required date/location watermark fails.
       setError('ثبت اطلاعات روی تصویر انجام نشد. دوباره تأیید کنید.');
@@ -251,6 +257,12 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (!autoConfirm || !shot || !imageReady || metaBusy || busy || autoSubmissionStarted.current) return;
+    autoSubmissionStarted.current = true;
+    confirm();
+  }, [autoConfirm, shot, imageReady, metaBusy, busy]);
 
   if (!perm) return <View style={s.center}><ActivityIndicator color={C.brand} /></View>;
 
@@ -276,7 +288,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          <Text accessibilityRole="header" style={s.title}>تأیید عکس خودروهای خط</Text>
+          {!autoConfirm ? <Text accessibilityRole="header" style={s.title}>تأیید عکس خودروهای خط</Text> : null}
           <View
             ref={shotRef}
             collapsable={false}
@@ -296,10 +308,14 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
             </View>
           </View>
 
+          {autoConfirm ? <View style={s.processingOverlay}>
+            <ActivityIndicator color={C.brand} />
+            <Text style={s.processingText}>{metaBusy ? 'در حال تکمیل اطلاعات موقعیت…' : 'در حال آماده‌سازی و ارسال تصویر…'}</Text>
+            {error ? <><Text style={s.error}>{error}</Text><TouchableOpacity style={s.btn} onPress={confirm}><Text style={s.btnTxt}>تلاش دوباره برای ارسال</Text></TouchableOpacity></> : null}
+          </View> : <>
           {metaBusy ? <Text style={s.metaLoading}>در حال تکمیل اطلاعات موقعیت…</Text> : null}
           <Text style={s.previewNote}>تصویر و اطلاعات موقعیت را بررسی کنید و سپس تأیید و ارسال را بزنید.</Text>
           {error ? <Text style={s.error}>{error}</Text> : null}
-
           <View style={s.rowBtns}>
             <TouchableOpacity style={[s.btn, s.outline]} disabled={busy} onPress={() => { captureGeneration.current += 1; setCameraReady(false); setImageReady(false); setCoords(null); setShot(null); setError(''); setMetaBusy(false); }}>
               <Text style={[s.btnTxt, { color: C.brand }]}>دوباره</Text>
@@ -308,6 +324,7 @@ export default function VehiclesPhotoCapture({ onCapture, onCancel, station = nu
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>تأیید و ارسال</Text>}
             </TouchableOpacity>
           </View>
+          </>}
         </ScrollView>
       </View>
     );
@@ -382,6 +399,8 @@ const s = StyleSheet.create({
   nativeButton: { backgroundColor: '#166534', borderColor: '#a7f3d0', width: '100%', paddingVertical: 17, borderRadius: 12 },
   cameraOnly: { color: 'rgba(255,255,255,0.72)', fontFamily: FONT.regular, fontSize: 11, textAlign: 'center', marginTop: 8 },
   previewWrap: { flex: 1, minHeight: 0, width: '100%', backgroundColor: C.paper },
+  processingOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 2, backgroundColor: C.paper, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  processingText: { fontFamily: FONT.regular, color: C.ink, fontSize: 14, textAlign: 'center', marginTop: 16 },
   previewScroll: { flex: 1, width: '100%' },
   previewContent: { width: '100%', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12 },
   title: { fontFamily: FONT.bold, fontSize: 18, color: C.ink, marginVertical: 8, textAlign: 'center' },
