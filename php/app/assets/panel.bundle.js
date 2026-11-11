@@ -19080,6 +19080,51 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             return '<span class="ssv-muted">پلاک نامشخص</span>';
         return '<span class="ssv-iran-plate" role="img" aria-label="پلاک ' + two + ' ' + letter + ' ' + three + ' ایران ' + region + '"><span class="ssv-iran-band"><span class="ssv-flag-colors"></span><small>I.R.</small></span><span class="ssv-iran-two">' + two + '</span><span class="ssv-iran-letter">' + letter + '</span><span class="ssv-iran-three">' + three + '</span><span class="ssv-iran-code"><small>ایران</small><b>' + region + '</b></span></span>';
     }
+    function ssvShowPlateVisits(row, trigger) {
+        if (trigger)
+            trigger.disabled = true;
+        const modal = ssvModal('سوابق بازدید پلاک', '<div class="ssv-msg" role="status">در حال دریافت سوابق بازدید…</div>', async () => true);
+        modal.querySelector('.ssv-submit').textContent = 'بستن';
+        modal.querySelector('.ssv-cancel').style.display = 'none';
+        const body = modal.querySelector('.ssv-form-body');
+        const params = new URLSearchParams({ plate_two: row.plate_two || '', plate_letter: row.plate_letter || '', plate_three: row.plate_three || '', plate_region_code: row.plate_region_code || '', inspection_id: String(row.id), page_size: '20' });
+        const loadPage = async (page) => {
+            var _a;
+            params.set('page', String(page));
+            body.innerHTML = '<div class="ssv-msg" role="status">در حال دریافت سوابق…</div>';
+            try {
+                const data = await api('/api/school-service/inspections-plate-history?' + params.toString());
+                if (!modal.isConnected)
+                    return;
+                const items = data.items || [];
+                body.innerHTML = '<div class="ssv-visit-summary">' + ssvIranPlate(row) + '<span><b>' + ssvFa(data.total) + ' بازدید ثبت‌شده</b><small>سوابق به ترتیب جدیدترین بازدید</small></span></div>' +
+                    (items.length ? '<div class="ssv-visit-timeline">' + items.map((visit, index) => {
+                        const lat = Number(visit.latitude), lng = Number(visit.longitude);
+                        const hasMap = visit.latitude != null && visit.longitude != null && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+                        const mapLink = hasMap ? '<a class="ssv-row-btn" target="_blank" rel="noopener noreferrer" href="https://www.openstreetmap.org/?mlat=' + lat + '&mlon=' + lng + '#map=16/' + lat + '/' + lng + '">مشاهده روی نقشه</a>' : '';
+                        return '<article class="ssv-visit-entry"><span class="ssv-visit-index">' + ssvFa((data.page - 1) * 20 + index + 1) + '</span><div class="ssv-visit-info"><strong>' + ssvJalaliDate(visit.violation_date) + ' <span>' + esc(visit.violation_time || '') + '</span></strong><div><b>بازدیدکننده:</b> ' + esc(visit.inspector_name || 'نامشخص') + '</div><div><b>مکان بازدید:</b> ' + esc(visit.location_text || 'ثبت نشده') + '</div><div class="ssv-muted">' + esc(visit.school_name || 'مدرسه نامشخص') + ' · ' + esc(visit.company_name || 'شرکت نامشخص') + '</div><div class="ssv-visit-actions"><button type="button" class="ssv-row-btn primary" data-visit-detail="' + Number(visit.id) + '">جزئیات بازدید</button>' + mapLink + '</div></div></article>';
+                    }).join('') + '</div>' : '<div class="ssv-empty-state">برای این پلاک سابقه‌ای یافت نشد.</div>') +
+                    '<nav class="ssv-pager" aria-label="صفحه‌بندی سوابق بازدید"><button type="button" data-visit-prev ' + (data.page <= 1 ? 'disabled' : '') + '>قبلی</button><span>صفحه ' + ssvFa(data.page) + ' از ' + ssvFa(data.pages) + '</span><button type="button" data-visit-next ' + (data.page >= data.pages ? 'disabled' : '') + '>بعدی</button></nav>';
+                body.querySelector('[data-visit-prev]').onclick = () => loadPage(data.page - 1);
+                body.querySelector('[data-visit-next]').onclick = () => loadPage(data.page + 1);
+                body.querySelectorAll('[data-visit-detail]').forEach(button => button.onclick = () => ssvShowInspection(button.dataset.visitDetail));
+            }
+            catch (error) {
+                if (modal.isConnected)
+                    body.innerHTML = '<div class="ssv-msg" role="alert">' + esc(error.message || 'دریافت سوابق بازدید ناموفق بود.') + '</div><button type="button" class="ssv-row-btn" id="ssv-visit-retry">تلاش دوباره</button>';
+                (_a = modal.querySelector('#ssv-visit-retry')) === null || _a === void 0 ? void 0 : _a.addEventListener('click', () => loadPage(page));
+            }
+        };
+        loadPage(1).finally(() => { if (trigger && trigger.isConnected)
+            trigger.disabled = false; });
+    }
+    function ssvGroupedInspectionTable(rows, x, page, sort = null) {
+        const heading = (label, key) => sort ? ssvVehicleSortHeading(label, key, sort.key, sort.dir) : '<th scope="col">' + label + '</th>';
+        return '<div class="ssv-visit-intro"><strong>فهرست خودروهای بازدیدشده</strong><span>' + ssvFa(x.total) + ' پلاک یکتا؛ برای مشاهده تاریخچه روی تعداد بازدید کلیک کنید.</span></div><div class="ssv-table-wrap ssv-visit-table"><table class="ssv-table"><thead><tr><th>ردیف</th>' + heading('پلاک خودرو', 'plate') + '<th>ناحیه</th>' + heading('شرکت / مدرسه', 'company') + heading('آخرین بازدیدکننده', 'inspector') + heading('آخرین بازدید', 'date') + heading('تعداد بازدید', 'visits') + '<th>عملیات</th></tr></thead><tbody>' +
+            rows.map((r, i) => '<tr><td>' + ssvFa((page - 1) * 25 + i + 1) + '</td><td>' + ssvIranPlate(r) + '</td><td>' + esc(r.educational_district || '—') + '</td><td><strong>' + esc(r.company_name || 'نامشخص') + '</strong><div class="ssv-muted">' + esc(r.school_name || 'نامشخص') + '</div></td><td>' + esc(r.inspector_name || 'نامشخص') + '</td><td>' + ssvJalaliDate(r.violation_date) + '</td><td><button type="button" class="ssv-visit-count" data-plate-visits="' + i + '" aria-label="مشاهده ' + ssvFa(r.inspection_count) + ' بازدید این پلاک">' + ssvFa(r.inspection_count) + ' <span>مشاهده سوابق</span></button></td><td><button type="button" class="ssv-row-btn" data-view="' + r.id + '">آخرین بازدید</button><button type="button" class="ssv-row-btn primary" data-edit="' + r.id + '">ویرایش آخرین بازدید</button><button type="button" class="ssv-row-btn danger" data-del="' + r.id + '">حذف آخرین بازدید</button></td></tr>').join('') +
+            (rows.length ? '' : '<tr><td colspan="8"><div class="ssv-empty-state">پلاکی مطابق فیلترهای شما یافت نشد.</div></td></tr>') + '</tbody></table></div>';
+    }
+    css.textContent += '.ssv-visit-intro{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;color:#174b3a}.ssv-visit-intro span{color:#64776e;font-size:12px}.ssv-visit-table{max-height:540px;overflow:auto}.ssv-visit-table thead th{position:sticky;top:0;z-index:2}.ssv-visit-count{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:7px 12px;background:#e3f4ec;color:#096345;border:1px solid #a5d7bf;border-radius:12px;font-weight:800;cursor:pointer}.ssv-visit-count span{font-size:11px;font-weight:600}.ssv-visit-count:hover{background:#c9eadb}.ssv-visit-count:focus-visible{outline:3px solid #4caa84;outline-offset:2px}.ssv-visit-summary{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px;background:#eef8f3;border-radius:14px;margin-bottom:14px}.ssv-visit-summary span{display:grid;gap:3px}.ssv-visit-summary small{color:#567667}.ssv-visit-timeline{display:grid;gap:10px;max-height:55vh;overflow:auto;padding:3px}.ssv-visit-entry{display:flex;gap:12px;border:1px solid #e1ebe6;border-radius:14px;padding:14px;background:#fff}.ssv-visit-index{display:grid;place-items:center;min-width:34px;height:34px;border-radius:50%;background:#d9eee4;color:#0b664c;font-weight:800}.ssv-visit-info{display:grid;gap:7px;min-width:0;line-height:1.7}.ssv-visit-info strong{color:#12543f}.ssv-visit-info strong span{font-size:12px}.ssv-visit-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}@media(max-width:700px){.ssv-visit-count{flex-direction:column;gap:0}.ssv-visit-entry{padding:10px}.ssv-visit-summary{justify-content:center}}';
     css.textContent += '.ssv-iran-plate{display:inline-flex;direction:ltr;align-items:stretch;min-width:190px;height:45px;background:#fff;color:#171d24;border:2px solid #232b33;border-radius:5px;overflow:hidden;white-space:nowrap;font-family:Vazirmatn,Tahoma,sans-serif;box-shadow:0 2px 5px #142a3717;vertical-align:middle}.ssv-iran-band{display:flex;flex-direction:column;align-items:center;justify-content:space-around;width:23px;background:#154b91;color:#fff;font-size:13px}.ssv-iran-band small{font-size:7px}.ssv-iran-two,.ssv-iran-three,.ssv-iran-letter{display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;padding:0 5px}.ssv-iran-letter{min-width:27px}.ssv-iran-code{border-left:2px solid #232b33;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1px 7px;line-height:1.2}.ssv-iran-code small{font-size:9px}.ssv-iran-code b{font-size:17px}.ssv-filter-panel{background:linear-gradient(120deg,#f0faf6,#fff);border:1px solid #d9ebe2;border-radius:16px;padding:15px;margin-bottom:14px}.ssv-filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end}.ssv-filter-grid label{display:grid;gap:5px;font-size:12px;font-weight:700;color:#30564a}.ssv-filter-grid .ssv-input{width:100%;min-height:42px}.ssv-filter-panel h3{margin:0 0 10px;color:#124c3a}.ssv-table-wrap{overflow-x:auto;max-width:100%}.ssv-table tbody tr:hover{background:#f1f8f5}.ssv-table th{white-space:nowrap}.ssv-table td{vertical-align:middle}.ssv-empty-state{text-align:center;padding:28px;color:#63756e}.ssv-tabs button{min-height:42px}.ssv-row-btn{min-height:38px}@media(max-width:680px){.ssv-page-host{padding:8px}.ssv-filter-grid{grid-template-columns:1fr 1fr}.ssv-iran-plate{min-width:175px}.ssv-filter-panel{padding:10px}}';
     css.textContent += '.ssv-flag-colors{width:15px;height:11px;border:1px solid #ddd;background:linear-gradient(to bottom,#239f40 0 33%,#fff 33% 66%,#da0000 66% 100%)}';
     css.textContent += '.ssv-inline-page .ssv-head{background:linear-gradient(110deg,#0b5948,#138267);padding:18px 22px}.ssv-inline-page .ssv-tabs{gap:8px;padding:12px 16px;background:#edf4f1;border-bottom:1px solid #dbe7e2}.ssv-inline-page .ssv-tabs button{border-radius:11px;font-weight:700;transition:background .15s,border-color .15s,box-shadow .15s}.ssv-inline-page .ssv-tabs button.on{box-shadow:0 3px 11px #08725624}.ssv-inline-page .ssv-card{border-radius:16px;border:1px solid #e0ebe6;box-shadow:0 3px 14px #1c433b0b}.ssv-inline-page .ssv-actions{gap:10px;flex-wrap:wrap}.ssv-inline-page .ssv-input:focus{outline:2px solid #81c6ac;outline-offset:1px}.ssv-inline-page button:focus-visible{outline:3px solid #69b69d;outline-offset:2px}.ssv-inline-page .ssv-pager{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:12px;padding:16px;border-top:1px solid #e4eee9}.ssv-inline-page .ssv-table{width:100%;border-collapse:separate;border-spacing:0}.ssv-inline-page .ssv-table th{background:#ecf5f0;color:#1d5947}.ssv-inline-page .ssv-table td{border-bottom:1px solid #eaf0ed}@media(prefers-reduced-motion:reduce){.ssv-inline-page .ssv-tabs button{transition:none}}';
@@ -19340,7 +19385,7 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
             let page = 1;
             const load = async () => {
                 const ep = t === 'companies' ? 'companies-page' : t === 'schools' ? 'schools-page' : 'inspections-page';
-                let x = t === 'vehicles' ? { items: [], total: 0, page: 1, pages: 1 } : await api('/api/school-service/' + ep + '?search=' + encodeURIComponent(input.value) + '&page=' + page + '&page_size=25');
+                let x = t === 'vehicles' ? { items: [], total: 0, page: 1, pages: 1 } : await api('/api/school-service/' + ep + '?search=' + encodeURIComponent(input.value) + '&page=' + page + '&page_size=25' + (isIns ? '&group_by_plate=1' : ''));
                 let rows = x.items || [], mapRows = rows;
                 if (t === 'schools') {
                     try {
@@ -19435,6 +19480,10 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
                     b.querySelector('#ssv-list').innerHTML = '<div id="ssv-schools-map-block"></div><table class="ssv-table"><thead><tr><th>ردیف</th><th>مدرسه</th><th>کد</th><th>ناحیه</th><th>نوع</th><th>شرکت</th><th>موقعیت</th><th>عملیات</th></tr></thead><tbody>' + rows.map((r, i) => '<tr><td>' + ((page - 1) * 25 + i + 1) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.code || '') + '</td><td>' + esc(r.educational_district) + '</td><td>' + esc(r.gender) + '</td><td>' + esc(r.company_names || 'نامشخص') + '</td><td>' + ((Number.isFinite(Number(r.latitude)) && Number.isFinite(Number(r.longitude))) ? 'ثبت شده' : 'ثبت نشده') + '</td><td><div class="ssv-row-actions"><button class="ssv-row-btn primary" data-edit-s="' + r.id + '">ویرایش</button><button class="ssv-row-btn danger" data-del-s="' + r.id + '">حذف</button></div></td></tr>').join('') + '</tbody></table>';
                 else
                     b.querySelector('#ssv-list').innerHTML = '<table class="ssv-table"><thead><tr><th>ردیف</th><th>ناحیه</th><th>شرکت</th><th>مدرسه</th><th>پلاک</th><th>بازرس ثبت‌کننده</th><th>تخلفات</th><th>تاریخ</th><th>عملیات</th></tr></thead><tbody>' + rows.map((r, i) => '<tr><td>' + ((page - 1) * 25 + i + 1) + '</td><td>' + esc(r.educational_district) + '</td><td>' + esc(r.company_name || 'نامشخص') + '</td><td>' + esc(r.school_name || 'نامشخص') + '</td><td>' + [r.plate_three, r.plate_letter, r.plate_two, 'ایران', r.plate_region_code].filter(Boolean).join(' ') + '</td><td>' + esc(r.inspector_name || 'نامشخص') + '</td><td>' + esc((r.violations || []).filter(v => !isCertificateViolation(v)).join('، ')) + '</td><td>' + esc(r.violation_date) + ' ' + esc(r.violation_time) + '</td><td><div class="ssv-row-actions"><button class="ssv-row-btn" data-view="' + r.id + '">جزئیات</button><button class="ssv-row-btn primary" data-edit="' + r.id + '">ویرایش</button><button class="ssv-row-btn danger" data-del="' + r.id + '">حذف</button></div></td></tr>').join('') + '</tbody></table>';
+                if (isIns) {
+                    b.querySelector('#ssv-list').innerHTML = ssvGroupedInspectionTable(rows, x, page);
+                    b.querySelectorAll('[data-plate-visits]').forEach(button => button.onclick = () => ssvShowPlateVisits(rows[Number(button.dataset.plateVisits)], button));
+                }
                 if (t === 'schools') {
                     const mapBlock = b.querySelector('#ssv-schools-map-block');
                     if (mapBlock)
@@ -19449,7 +19498,7 @@ console.log('SCHOOL SERVICE ADMIN BUILD: 2026-10-05-v245');
                     if (!S.access.can_delete)
                         b.querySelectorAll('[data-del],[data-del-c],[data-del-s]').forEach(x => x.style.display = 'none');
                 }
-                b.querySelector('#ssv-list').insertAdjacentHTML('beforeend', '<div class="ssv-pager"><button id="ssv-prev" ' + (page <= 1 ? 'disabled' : '') + '>قبلی</button><span>صفحه ' + x.page + ' از ' + x.pages + ' — ' + x.total + ' مورد</span><button id="ssv-next" ' + (page >= x.pages ? 'disabled' : '') + '>بعدی</button></div>');
+                b.querySelector('#ssv-list').insertAdjacentHTML('beforeend', '<div class="ssv-pager"><button id="ssv-prev" ' + (page <= 1 ? 'disabled' : '') + '>قبلی</button><span>صفحه ' + ssvFa(x.page) + ' از ' + ssvFa(x.pages) + ' — ' + ssvFa(x.total) + ' ' + (isIns ? 'پلاک' : 'مورد') + '</span><button id="ssv-next" ' + (page >= x.pages ? 'disabled' : '') + '>بعدی</button></div>');
                 b.querySelector('#ssv-prev').onclick = () => { if (page > 1) {
                     page--;
                     load();
