@@ -1,0 +1,150 @@
+name: Deploy Khatyar Public Design
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deploy-public-design.yml'
+      - 'php/app/landing.html'
+      - 'php/app/panel.html'
+      - 'php/app/assets/organizational-public.css'
+      - 'php/app/assets/organizational-login.css'
+      - 'php/app/assets/public-accurate.css'
+      - 'php/app/assets/login-accurate.css'
+      - 'php/app/assets/login-premium.js'
+      - 'php/app/assets/khatyar-hero-emerald-v3.webp'
+      - 'php/app/assets/khatyar-footer-emerald-v3.webp'
+      - 'php/app/assets/khatyar-login-emerald-v3.webp'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Independent of the heavyweight PHP deploy; do not cancel FTP uploads mid-transfer.
+concurrency:
+  group: khatyar-public-design
+  cancel-in-progress: false
+
+jobs:
+  public-design:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout current production branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Validate design assets before deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd php
+          files=(
+            app/landing.html app/panel.html
+            app/assets/public-accurate.css app/assets/login-accurate.css
+            app/assets/organizational-public.css app/assets/organizational-login.css
+            app/assets/login-premium.js
+            app/assets/khatyar-hero-emerald-v3.webp
+            app/assets/khatyar-footer-emerald-v3.webp
+            app/assets/khatyar-login-emerald-v3.webp
+          )
+          for file in "${files[@]}"; do
+            test -s "$file" || { echo "ERROR: missing/empty $file"; exit 1; }
+          done
+          node --check app/assets/login-premium.js
+          grep -q 'khatyar-hero-emerald-v3.webp' app/landing.html
+          grep -q 'organizational-public.css' app/landing.html
+          grep -q 'organizational-login.css' app/panel.html
+          grep -q 'khatyar-login-emerald-v3.webp' app/assets/organizational-login.css
+          for name in hero footer login; do
+            file="app/assets/khatyar-${name}-emerald-v3.webp"
+            test "$(head -c 4 "$file")" = 'RIFF'
+            test "$(dd if="$file" bs=1 skip=8 count=4 status=none)" = 'WEBP'
+          done
+          printf 'Validated %s files, all with expected source references.\n' "${#files[@]}"
+
+      - name: Install lftp
+        shell: bash
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      - name: Upload only public design assets to host
+        shell: bash
+        env:
+          FTP_HOST: 2870352177.cloudylink.com
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$FTP_USER" && test -n "$FTP_PASS" || {
+            echo 'ERROR: FTP credentials not configured'; exit 1;
+          }
+          command_file="$(mktemp)"
+          {
+            echo 'set cmd:fail-exit yes'
+            echo 'set net:timeout 25'
+            echo 'set net:max-retries 2'
+            echo 'set net:reconnect-interval-base 2'
+            echo 'set ftp:ssl-force false'
+            echo 'set ftp:ssl-protect-data false'
+            echo 'set ftp:passive-mode true'
+            echo 'set ftp:prefer-epsv false'
+            echo 'set ssl:verify-certificate no'
+            echo 'mkdir -p /app/assets'
+            for path in \
+              app/assets/khatyar-hero-emerald-v3.webp \
+              app/assets/khatyar-footer-emerald-v3.webp \
+              app/assets/khatyar-login-emerald-v3.webp \
+              app/assets/public-accurate.css \
+              app/assets/login-accurate.css \
+              app/assets/organizational-public.css \
+              app/assets/organizational-login.css \
+              app/assets/login-premium.js; do
+              printf 'put %s -o /%s\n' "$GITHUB_WORKSPACE/php/$path" "$path"
+            done
+            # HTML is uploaded LAST, after its assets, to avoid broken visual references.
+            echo "put $GITHUB_WORKSPACE/php/app/landing.html -o /app/landing.html"
+            echo "put $GITHUB_WORKSPACE/php/app/panel.html -o /app/panel.html"
+            echo 'bye'
+          } > "$command_file"
+          lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://${FTP_HOST}:21" -f "$command_file"
+          rm -f "$command_file"
+
+      - name: Verify public assets and active HTML at production URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://app.yousefipour.ir'
+          for path in \
+            assets/khatyar-hero-emerald-v3.webp \
+            assets/khatyar-footer-emerald-v3.webp \
+            assets/khatyar-login-emerald-v3.webp \
+            assets/organizational-public.css \
+            assets/organizational-login.css; do
+            local="php/app/$path"
+            remote="$(mktemp)"
+            url="$base/$path?design_verify=$GITHUB_SHA"
+            curl --fail --silent --show-error --location --retry 3 --max-time 35 \
+              -H 'Cache-Control: no-cache' "$url" -o "$remote"
+            if ! cmp -s "$local" "$remote"; then
+              echo "ERROR: production file does not match GitHub: $url"
+              sha256sum "$local" "$remote"
+              rm -f "$remote"
+              exit 1
+            fi
+            echo "Verified: $url"
+            rm -f "$remote"
+          done
+          index="$(mktemp)"
+          login="$(mktemp)"
+          curl --fail --silent --show-error --location --max-time 35 \
+            -H 'Cache-Control: no-cache' "$base/?design_verify=$GITHUB_SHA" -o "$index"
+          curl --fail --silent --show-error --location --max-time 35 \
+            -H 'Cache-Control: no-cache' "$base/login?design_verify=$GITHUB_SHA" -o "$login"
+          grep -q 'khatyar-hero-emerald-v3.webp' "$index" || {
+            echo 'ERROR: homepage still serves stale HTML'; exit 1;
+          }
+          grep -q 'organizational-login.css?v=20261114.emerald2' "$login" || {
+            echo 'ERROR: login still serves stale HTML'; exit 1;
+          }
+          echo 'Production homepage, login, and branded images verified.'
