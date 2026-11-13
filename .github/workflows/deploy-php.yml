@@ -194,7 +194,7 @@ jobs:
 
           # Always reconcile critical production files, even when they fall outside
           # the rolling 10-commit window or were regenerated in this job.
-          for rel in app/index.php app/api/presence-immediate-api.php app/presence-immediate-api.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/school_service_sepand.php lib/RadioShiftGate.php lib/routes.php lib/OrgChart.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html; do
+          for rel in app/index.php app/api/presence-immediate-api.php app/presence-immediate-api.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/school_service_sepand.php lib/RadioShiftGate.php lib/routes.php lib/OrgChart.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html app/landing.html app/khatyar-transparent.png app/assets/public-premium.css app/assets/public-reference.css app/assets/login-premium.css app/assets/login-reference.css app/assets/login-premium.js app/assets/khatyar-login-scene.svg app/contact-submit.php app/public-stats.php; do
             if [ -f "php/${rel}" ]; then
               mkdir -p "deploy-payload/$(dirname "${rel}")"
               cp "php/${rel}" "deploy-payload/${rel}"
@@ -658,36 +658,56 @@ jobs:
           echo "${response}" | grep -q '"employment_columns":2'
           echo "Employment schema verified on production database."
 
-      - name: Verify deployed panel and bundle against committed payload
+      - name: Verify public homepage, login and deployed assets against committed payload
         if: ${{ env.SKIP_HOST_UPLOAD != 'true' }}
         shell: bash
         run: |
           set -euo pipefail
           base="https://app.yousefipour.ir"
-          for rel in app/panel.html app/assets/panel.bundle.js app/assets/school-service-admin.js; do
+          # The public homepage lives at /; the existing React admin/login shell lives at /login.
+          # In particular, never demand panel.bundle.js on the public index page.
+          for rel in app/landing.html app/panel.html app/assets/panel.bundle.js app/assets/school-service-admin.js app/assets/public-premium.css app/assets/public-reference.css app/assets/login-premium.css app/assets/login-reference.css app/assets/login-premium.js app/assets/khatyar-login-scene.svg app/khatyar-transparent.png; do
             local_path="deploy-payload/${rel}"
             [ -f "${local_path}" ] || continue
             case "${rel}" in
-              app/panel.html) url="${base}/?deploy_verify=${GITHUB_SHA}" ;;
-              app/assets/panel.bundle.js) url="${base}/assets/panel.bundle.js?deploy_verify=${GITHUB_SHA}" ;;
-              app/assets/school-service-admin.js) url="${base}/assets/school-service-admin.js?deploy_verify=${GITHUB_SHA}" ;;
+              app/landing.html) url="${base}/?deploy_verify=${GITHUB_SHA}" ;;
+              app/panel.html) url="${base}/login?deploy_verify=${GITHUB_SHA}" ;;
+              app/*) url="${base}/${rel#app/}?deploy_verify=${GITHUB_SHA}" ;;
             esac
-            remote_path="/tmp/khatyar-verify-$(basename "${rel}")"
-            curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
-              -H 'Cache-Control: no-cache, no-store' -A 'Khatyar-Deploy-Verify/2.0' \
+            remote_path="$(mktemp)"
+            trap 'rm -f "${remote_path}"' EXIT
+            curl --fail --silent --show-error --location --max-time 45 --retry 3 --retry-delay 2 \
+              -H 'Cache-Control: no-cache, no-store' -A 'Khatyar-Deploy-Verify/3.0' \
               "${url}" > "${remote_path}"
-            test -s "${remote_path}"
-            if [ "${rel}" = "app/assets/panel.bundle.js" ] || [ "${rel}" = "app/assets/school-service-admin.js" ]; then
-              node --check "${remote_path}"
-              cmp -s "${local_path}" "${remote_path}" || {
-                echo "ERROR: live panel bundle differs from the deployment payload" >&2
-                sha256sum "${local_path}" "${remote_path}"
-                exit 1
-              }
-            else
-              grep -q 'panel.bundle.js' "${remote_path}" || { echo "ERROR: panel HTML missing bundle reference" >&2; exit 1; }
-            fi
-            echo "Verified public ${rel}"
+            test -s "${remote_path}" || { echo "ERROR: empty response from ${url}" >&2; exit 1; }
+            case "${rel}" in
+              app/landing.html)
+                grep -q 'hero premium-hero' "${remote_path}" || { echo "ERROR: live homepage does not contain the public Khatyar hero" >&2; exit 1; }
+                grep -q 'public-reference.css' "${remote_path}" || { echo "ERROR: public reference stylesheet is missing from live HTML" >&2; exit 1; }
+                ;;
+              app/panel.html)
+                grep -q 'panel.bundle.js' "${remote_path}" || { echo "ERROR: /login does not serve the existing authentication shell" >&2; exit 1; }
+                grep -q 'login-reference.css' "${remote_path}" || { echo "ERROR: /login does not contain the new login design" >&2; exit 1; }
+                ;;
+              *)
+                case "${rel}" in app/assets/*.js) node --check "${remote_path}" ;; esac
+                cmp -s "${local_path}" "${remote_path}" || {
+                  echo "ERROR: live asset differs from committed deployment payload: ${rel}" >&2
+                  sha256sum "${local_path}" "${remote_path}"
+                  exit 1
+                }
+                ;;
+            esac
+            echo "Verified production ${rel} via ${url}"
+            rm -f "${remote_path}"
+          done
+          # Verify public subroutes are resolved by the router, not 404s or the admin shell.
+          for route in /features /about /faq /contact; do
+            public_file="$(mktemp)"
+            curl --fail --silent --show-error --location --max-time 30 \
+              -H 'Cache-Control: no-cache, no-store' "${base}${route}?deploy_verify=${GITHUB_SHA}" > "${public_file}"
+            grep -q 'data-page="' "${public_file}" || { echo "ERROR: ${route} is not the public site" >&2; exit 1; }
+            rm -f "${public_file}"
           done
 
       - name: Smoke-test production API and login routes
