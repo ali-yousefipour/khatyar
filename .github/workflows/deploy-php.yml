@@ -690,7 +690,7 @@ jobs:
                 grep -q 'login-reference.css' "${remote_path}" || { echo "ERROR: /login does not contain the new login design" >&2; exit 1; }
                 ;;
               *)
-                case "${rel}" in app/assets/*.js) node --check "${remote_path}" ;; esac
+                case "${rel}" in app/assets/*.js) node --check --input-type=commonjs < "${remote_path}" ;; esac
                 cmp -s "${local_path}" "${remote_path}" || {
                   echo "ERROR: live asset differs from committed deployment payload: ${rel}" >&2
                   sha256sum "${local_path}" "${remote_path}"
