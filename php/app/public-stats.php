@@ -11,14 +11,14 @@ header('Access-Control-Allow-Origin: https://app.yousefipour.ir');
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
   header('Allow: GET'); http_response_code(405); echo '{"error":"Method Not Allowed"}'; exit;
 }
-$cacheKey='khatyar.public_counts.v1';
+$cacheKey='khatyar.public_counts.v2';
 if (function_exists('apcu_fetch')) {
   $cached=apcu_fetch($cacheKey,$hit);
   if ($hit && is_array($cached)) {
     echo json_encode($cached,JSON_UNESCAPED_UNICODE); exit;
   }
 }
-$stats=['drivers'=>null,'lines'=>null,'vehicles'=>null];
+$stats=['drivers'=>null,'lines'=>null,'vehicles'=>null,'users'=>null,'reports'=>null];
 try {
   require_once __DIR__.'/../lib/Db.php';
   $pdo=Db::pdo();
@@ -27,7 +27,9 @@ try {
   $candidates=[
     'drivers'=>['drivers','taxi_drivers','taxi_drivers_registry'],
     'lines'=>['lines','taxi_lines'],
-    'vehicles'=>['vehicles','taxi_vehicles']
+    'vehicles'=>['vehicles','taxi_vehicles'],
+    'users'=>['users'],
+    'reports'=>['reports','inspection_reports']
   ];
   $dbName=(string)$pdo->query('SELECT DATABASE()')->fetchColumn();
   $stmt=$pdo->prepare('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND TABLE_TYPE = ? LIMIT 1');
