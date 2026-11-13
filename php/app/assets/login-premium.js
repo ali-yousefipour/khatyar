@@ -13,6 +13,39 @@
       img.src='/khatyar-transparent.png';
       img.alt='لوگوی رسمی خطیار';
     }
+    // Visual method tabs mirror the method enforced by the server.
+    // Inactive choices are informational, not fake working login controls.
+    const method=card.querySelector('.login-method');
+    if(method && !card.querySelector('.khatyar-method-tabs')){
+      const activeLabel=(method.querySelector('strong')?.textContent||'').trim();
+      const isPassword=activeLabel.includes('کلمه عبور')||activeLabel.includes('رمز عبور');
+      const tabs=document.createElement('div');
+      tabs.className='khatyar-method-tabs';
+      tabs.setAttribute('role','group');
+      tabs.setAttribute('aria-label','روش ورود تنظیم‌شده توسط سامانه');
+      const options=[
+        {label:'ورود با رمز عبور',active:isPassword,icon:'lock'},
+        {label:'ورود با رمز یک‌بارمصرف',active:!isPassword,icon:'phone'}
+      ];
+      for(const option of options){
+        const item=document.createElement('span');
+        item.className='khatyar-auth-tab'+(option.active?' selected':' unavailable');
+        item.setAttribute('aria-current',option.active?'true':'false');
+        if(!option.active)item.title='این روش ورود در تنظیمات سامانه فعال نیست';
+        item.textContent=option.label;
+        tabs.append(item);
+      }
+      method.before(tabs);
+    }
+    if(!page.querySelector('.khatyar-scene-detail')){
+      const scene=document.createElement('div');
+      scene.className='khatyar-scene-detail';
+      scene.setAttribute('aria-hidden','true');
+      for(const t of ['مدیریت یکپارچه ناوگان','پایش و نظارت لحظه‌ای','گزارش‌های مدیریتی پیشرفته']){
+        const pill=document.createElement('span');pill.textContent=t;scene.append(pill);
+      }
+      page.append(scene);
+    }
     if(!card.querySelector('.login-support')){
       const links=document.createElement('nav');
       links.className='login-support';
