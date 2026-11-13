@@ -141,3 +141,20 @@ body:has(.login-page){background:#d7eafa!important}
 .login-page:after{display:none!important}
 @media(max-width:1050px){.khatyar-scene-detail{width:34vw;top:25%;left:20px}.khatyar-scene-detail span{font-size:10px;padding:9px 13px;min-height:48px}}
 @media(max-width:740px){.khatyar-scene-detail{display:none!important}.khatyar-auth-tab{font-size:10px;min-height:42px}}
+
+
+/* City photo and transparent vector overlays, closer to scenic reference. */
+@media(min-width:741px){
+.login-page:before{
+ background-image:linear-gradient(115deg,#072d5aa8 0%,#114a8b28 46%,#072d60c4 100%),url('/assets/khatyar-login-scene.svg'),url('https://images.unsplash.com/photo-1648822295715-e8d8c44fc6e5?auto=format&fit=crop&w=1600&q=82')!important;
+ background-repeat:no-repeat,no-repeat,no-repeat!important;
+ background-position:center,center 44%,center!important;
+ background-size:cover,cover,cover!important;
+}
+}
+@media(max-width:740px){
+.login-page:before{
+ background-image:linear-gradient(90deg,#073b71aa,#0d71934d),url('https://images.unsplash.com/photo-1648822295715-e8d8c44fc6e5?auto=format&fit=crop&w=1600&q=82')!important;
+ background-repeat:no-repeat!important;background-position:center!important;background-size:cover!important
+}
+}
