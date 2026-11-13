@@ -107,7 +107,7 @@ jobs:
             echo "put $GITHUB_WORKSPACE/php/app/panel.html -o /app/panel.html"
             echo 'bye'
           } > "$command_file"
-          lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://${FTP_HOST}:21" -f "$command_file"
+          lftp --user "$FTP_USER" --password "$FTP_PASS" "ftp://${FTP_HOST}:21" -e "$(cat "$command_file")"
           rm -f "$command_file"
 
       - name: Verify public assets and active HTML at production URLs
