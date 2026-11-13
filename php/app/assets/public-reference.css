@@ -65,3 +65,15 @@ footer{background:linear-gradient(100deg,#052857,#063b56,#064938)!important}
 @media(max-width:750px){header{top:0!important;width:100%!important;border-radius:0!important}.premium-hero{margin-top:-66px!important;padding:105px 0 83px!important;min-height:0!important}.premium-hero .herogrid{grid-template-columns:1fr!important;gap:5px!important}.hero-brand{height:105px;justify-content:center;margin-bottom:4px}.hero-brand img{width:120px;height:115px}.hero-copy{text-align:center;padding:0}.hero-copy h1{font-size:clamp(30px,8vw,45px)!important}.hero-copy p{font-size:12px!important}.hero-copy .actions{justify-content:center}.hero-showcase{height:350px!important;min-height:350px!important;transform:scale(.9)!important;margin-top:10px}.laptop{width:77%!important;left:13%!important;top:22px!important}.laptop-screen{height:250px!important}.phone{left:0!important;bottom:10px!important;height:230px!important;width:112px!important}.taxi-illustration{width:120px!important}.stats{grid-template-columns:repeat(3,1fr)!important}.stat{padding:16px 8px!important}.stat strong{font-size:23px!important}.stat span{font-size:9px!important}#highlights{grid-template-columns:repeat(2,1fr)!important}.below-panel-grid{grid-template-columns:1fr!important}.below-panel:first-child{grid-column:auto!important}.explore-categories{grid-template-columns:repeat(2,1fr)!important}}
 @media(max-width:480px){header{width:100%!important}.hero-showcase{height:260px!important;min-height:260px!important;transform:scale(.86)!important}.laptop-screen{height:195px!important}.phone{scale:.62!important}.taxi-illustration{width:105px!important}.float-chart,.float-people{display:none!important}#highlights{grid-template-columns:1fr!important}.explore-categories{grid-template-columns:repeat(2,1fr)!important}.premium-hero{padding-top:96px!important}.stats{margin-top:-35px!important}}
 @media(prefers-reduced-motion:reduce){.hero-showcase *{animation:none!important;transition:none!important}}
+
+
+/* Layered photographic city instead of the flat mockup-only background. */
+.premium-hero{
+ background-image:linear-gradient(110deg,#033a80a9 0%,#072f73d8 45%,#06245bf2 100%),url('https://images.unsplash.com/photo-1648822295715-e8d8c44fc6e5?auto=format&fit=crop&w=1600&q=82')!important;
+ background-size:cover,auto 122%!important;
+ background-position:center,left center!important;
+ background-repeat:no-repeat!important;
+}
+.premium-hero:before{background-image:linear-gradient(100deg,#00244a50,#071f4a19)!important;mask-image:none!important}
+.premium-hero .hero-copy{background:radial-gradient(ellipse at 48% 44%,#082a5070,transparent 71%);border-radius:35px}
+@media(max-width:750px){.premium-hero{background-size:cover,auto 80%!important;background-position:center,left center!important}}
