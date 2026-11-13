@@ -666,7 +666,7 @@ jobs:
           base="https://app.yousefipour.ir"
           # The public homepage lives at /; the existing React admin/login shell lives at /login.
           # In particular, never demand panel.bundle.js on the public index page.
-          for rel in app/landing.html app/panel.html app/assets/panel.bundle.js app/assets/school-service-admin.js app/assets/public-premium.css app/assets/public-reference.css app/assets/login-premium.css app/assets/login-reference.css app/assets/khatyar-home-reference.webp app/assets/khatyar-login-reference.webp app/assets/login-premium.js app/assets/khatyar-login-scene.svg app/assets/khatyar-home-reference.webp app/assets/khatyar-login-reference.webp app/khatyar-transparent.png; do
+          for rel in app/landing.html app/panel.html app/assets/panel.bundle.js app/assets/school-service-admin.js app/assets/public-premium.css app/assets/public-reference.css app/assets/login-premium.css app/assets/login-reference.css app/assets/khatyar-home-reference.webp app/assets/khatyar-login-reference.webp app/assets/login-premium.js app/assets/khatyar-login-scene.svg app/khatyar-transparent.png; do
             local_path="deploy-payload/${rel}"
             [ -f "${local_path}" ] || continue
             case "${rel}" in
