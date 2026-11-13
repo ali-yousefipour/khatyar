@@ -125,3 +125,42 @@ header{
 .kicker,.group-label{color:#0b7662!important}
 :focus-visible{outline-color:#e8bc70!important}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important}}
+
+
+/* Final unified emerald photo artwork (v3), consistent with the organizational theme. */
+.page[data-page="/"] .kh-hero-reference img{
+  width:100%!important;
+  max-width:none!important;
+  height:clamp(265px,28vw,355px)!important;
+  aspect-ratio:auto!important;
+  object-fit:cover!important;
+  object-position:45% center!important;
+  border-radius:25px!important;
+  -webkit-mask-image:radial-gradient(ellipse 85% 83% at 50% 50%,#000 65%,rgba(0,0,0,.91) 79%,transparent 99%)!important;
+  mask-image:radial-gradient(ellipse 85% 83% at 50% 50%,#000 65%,rgba(0,0,0,.91) 79%,transparent 99%)!important;
+  filter:drop-shadow(0 13px 20px #032c2935)!important;
+}
+.page[data-page="/"] .kh-about-art img{
+  width:100%!important;
+  max-width:285px!important;
+  height:auto!important;
+  object-fit:contain!important;
+  border-radius:17px!important;
+  -webkit-mask-image:radial-gradient(ellipse 84% 83% at center,#000 65%,rgba(0,0,0,.9) 81%,transparent 100%)!important;
+  mask-image:radial-gradient(ellipse 84% 83% at center,#000 65%,rgba(0,0,0,.9) 81%,transparent 100%)!important;
+}
+.kh-site-footer{position:relative;isolation:isolate;overflow:hidden}
+.kh-site-footer::before{
+  content:"";position:absolute;inset:0 0 0 auto;width:34%;z-index:-1;pointer-events:none;
+  background:url('/assets/khatyar-footer-emerald-v3.webp') center/cover no-repeat;
+  opacity:.12;
+  -webkit-mask-image:linear-gradient(to left,#000,transparent);
+  mask-image:linear-gradient(to left,#000,transparent);
+}
+@media(max-width:760px){
+ .page[data-page="/"] .kh-hero-reference img{
+   height:clamp(215px,48vw,350px)!important;
+   object-position:42% center!important;
+ }
+ .kh-site-footer::before{width:65%;opacity:.08}
+}
