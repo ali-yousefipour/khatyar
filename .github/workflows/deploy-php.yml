@@ -194,7 +194,7 @@ jobs:
 
           # Always reconcile critical production files, even when they fall outside
           # the rolling 10-commit window or were regenerated in this job.
-          for rel in app/index.php app/api/presence-immediate-api.php app/presence-immediate-api.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/school_service_sepand.php lib/RadioShiftGate.php lib/routes.php lib/OrgChart.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html app/landing.html app/khatyar-transparent.png app/assets/public-accurate.css app/assets/login-accurate.css app/assets/login-premium.js app/assets/khatyar-reference-home-art.webp app/assets/khatyar-reference-login-art.webp app/assets/khatyar-reference-about-art.webp app/assets/khatyar-reference-contact-art.webp app/contact-submit.php app/public-stats.php; do
+          for rel in app/index.php app/api/presence-immediate-api.php app/presence-immediate-api.php app/api/admin-attendance-report.php app/api/admin-attendance-report-owned.php app/api/admin-holiday-seed.php lib/IranCalendar.php lib/GpsWorkIntervals.php lib/InternetWorkIntervals.php lib/presence_reverse_geocode.php lib/subscription_invoice_routes.php lib/complaints_routes_extra.php lib/school_service_sepand.php lib/RadioShiftGate.php lib/routes.php lib/OrgChart.php lib/RegionalTeam.php lib/EmploymentAttendance.php lib/KhatyarFormsSchema.php lib/WorkContracts.php app/assets/work-contracts-admin.js app/assets/panel.bundle.js app/assets/school-service-admin.js app/panel.html app/landing.html app/khatyar-transparent.png app/assets/public-accurate.css app/assets/organizational-public.css app/assets/login-accurate.css app/assets/organizational-login.css app/assets/login-premium.js app/assets/khatyar-reference-home-art.webp app/assets/khatyar-reference-login-art.webp app/assets/khatyar-reference-about-art.webp app/assets/khatyar-reference-contact-art.webp app/contact-submit.php app/public-stats.php; do
             if [ -f "php/${rel}" ]; then
               mkdir -p "deploy-payload/$(dirname "${rel}")"
               cp "php/${rel}" "deploy-payload/${rel}"
@@ -666,7 +666,7 @@ jobs:
           base="https://app.yousefipour.ir"
           # The public homepage lives at /; the existing React admin/login shell lives at /login.
           # In particular, never demand panel.bundle.js on the public index page.
-          for rel in app/landing.html app/panel.html app/assets/panel.bundle.js app/assets/school-service-admin.js app/assets/public-accurate.css app/assets/login-accurate.css app/assets/login-premium.js app/assets/khatyar-reference-home-art.webp app/assets/khatyar-reference-login-art.webp app/assets/khatyar-reference-about-art.webp app/assets/khatyar-reference-contact-art.webp app/khatyar-transparent.png; do
+          for rel in app/landing.html app/panel.html app/assets/panel.bundle.js app/assets/school-service-admin.js app/assets/public-accurate.css app/assets/organizational-public.css app/assets/login-accurate.css app/assets/organizational-login.css app/assets/login-premium.js app/assets/khatyar-reference-home-art.webp app/assets/khatyar-reference-login-art.webp app/assets/khatyar-reference-about-art.webp app/assets/khatyar-reference-contact-art.webp app/khatyar-transparent.png; do
             local_path="deploy-payload/${rel}"
             [ -f "${local_path}" ] || continue
             case "${rel}" in
@@ -683,11 +683,11 @@ jobs:
             case "${rel}" in
               app/landing.html)
                 grep -q 'hero premium-hero' "${remote_path}" || { echo "ERROR: live homepage does not contain the public Khatyar hero" >&2; exit 1; }
-                grep -q 'public-accurate.css' "${remote_path}" || { echo "ERROR: public reference stylesheet is missing from live HTML" >&2; exit 1; }
+                grep -q 'organizational-public.css' "${remote_path}" || { echo "ERROR: public reference stylesheet is missing from live HTML" >&2; exit 1; }
                 ;;
               app/panel.html)
                 grep -q 'panel.bundle.js' "${remote_path}" || { echo "ERROR: /login does not serve the existing authentication shell" >&2; exit 1; }
-                grep -q 'login-accurate.css' "${remote_path}" || { echo "ERROR: /login does not contain the new login design" >&2; exit 1; }
+                grep -q 'organizational-login.css' "${remote_path}" || { echo "ERROR: /login does not contain the new login design" >&2; exit 1; }
                 ;;
               *)
                 case "${rel}" in app/assets/*.js) node --check --input-type=commonjs < "${remote_path}" ;; esac
