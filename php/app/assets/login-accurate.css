@@ -1,0 +1,224 @@
+
+/* KHATYAR SIGN-IN 2026 | exact approved Canva artwork + existing working React auth form.
+   No fabricated taxi illustration, no external photo dependency, no auth API changes. */
+@import url('https://fonts.googleapis.com/css2?family=Estedad:wght@400;500;600;700;800;900&display=swap');
+body:has(.login-page){margin:0!important;background:#d8eafa!important;font-family:Estedad,Vazirmatn,Tahoma,sans-serif!important}
+.login-page{
+ --kh-blue:#0c4689;--kh-deep:#082f66;--kh-green:#079b5a;
+ position:relative!important;isolation:isolate;
+ display:grid!important;
+ grid-template-columns:minmax(0,50%) minmax(0,50%)!important;
+ grid-template-rows:100dvh!important;
+ min-height:100dvh!important;width:100%!important;
+ margin:0!important;padding:0!important;gap:0!important;
+ direction:rtl!important;
+ align-items:stretch!important;justify-items:stretch!important;
+ background:radial-gradient(ellipse at 42% 60%,#fff,#e8f5ff 60%,#c7e4f7)!important;
+ overflow:hidden!important;
+}
+.login-page:before{
+ content:"";display:block!important;
+ grid-column:2!important;grid-row:1!important;
+ height:100%!important;width:100%!important;min-height:0!important;
+ border:0!important;border-radius:0!important;
+ box-shadow:none!important;
+ background-image:url('/assets/khatyar-reference-login-art.webp')!important;
+ background-color:#084880!important;
+ background-repeat:no-repeat!important;
+ background-size:cover!important;
+ background-position:center center!important;
+ opacity:1!important;
+ filter:none!important;
+ transform:none!important;animation:none!important;
+ z-index:0!important;
+}
+.login-page:after{
+ content:"";position:absolute!important;
+ left:calc(50% - 22px);top:0;width:65px;height:100%;
+ display:block!important;pointer-events:none!important;
+ background:linear-gradient(90deg,transparent,#dceffd45,#e5f4fd) !important;
+ filter:none!important;box-shadow:none!important;
+ border:0!important;padding:0!important;margin:0!important;
+ z-index:1!important;
+}
+.kh-login-intro{
+ grid-column:1!important;grid-row:1!important;
+ align-self:start!important;justify-self:center!important;
+ position:relative!important;z-index:4!important;
+ width:min(88%,560px)!important;
+ margin:28px 0 0!important;padding:0!important;
+ display:flex!important;flex-direction:column!important;
+ align-items:center!important;text-align:center!important;gap:0!important;
+ color:#0b305e!important;pointer-events:auto!important;
+}
+.kh-login-intro-logo{display:block;margin:0 0 5px;transition:transform .2s}
+.kh-login-intro-logo:hover{transform:translateY(-2px)}
+.kh-login-intro-logo img{
+ display:block;width:clamp(110px,11.4vw,170px)!important;
+ height:clamp(145px,15.8vw,240px)!important;
+ object-fit:contain!important;
+ margin:0 auto!important;padding:0!important;border:0!important;
+ background:transparent!important;filter:drop-shadow(0 8px 12px #0b549625);
+}
+.kh-login-intro h1{
+ margin:-3px 0 5px!important;padding:0!important;
+ font-family:Estedad,Vazirmatn,Tahoma,sans-serif!important;
+ font-size:clamp(21px,2.25vw,31px)!important;
+ font-weight:950!important;line-height:1.5!important;color:#0b3269!important;
+ white-space:normal!important
+}
+.kh-login-intro>p{
+ color:#49627b!important;line-height:1.9!important;font-size:clamp(10px,.9vw,13px)!important;
+ max-width:465px!important;margin:0!important;font-weight:550!important
+}
+.login-card{
+ grid-column:1!important;grid-row:1!important;
+ align-self:end!important;justify-self:center!important;
+ position:relative!important;z-index:5!important;
+ width:min(84%,605px)!important;min-width:0!important;
+ max-width:none!important;max-height:calc(100dvh - 400px)!important;
+ overflow-y:auto!important;overflow-x:hidden!important;
+ margin:0 0 clamp(20px,4.4vh,65px)!important;
+ padding:clamp(21px,2.6vw,39px)!important;
+ border:1.5px solid #fff!important;
+ border-radius:29px!important;
+ background:linear-gradient(135deg,#f8fcfff2,#e1f1fcf4)!important;
+ backdrop-filter:blur(19px)!important;-webkit-backdrop-filter:blur(19px)!important;
+ box-shadow:0 20px 44px #125d983a,inset 0 2px 1px #ffffffee!important;
+ color:#0d3159!important;
+}
+.login-card:before{display:none!important}
+.login-brand{display:none!important}
+.login-method{
+ position:absolute!important;clip:rect(0 0 0 0)!important;clip-path:inset(50%)!important;
+ width:1px!important;height:1px!important;overflow:hidden!important;
+ padding:0!important;margin:0!important;border:0!important
+}
+.khatyar-method-tabs{
+ display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ gap:4px!important;align-items:stretch!important;
+ min-height:57px!important;
+ margin:0 0 23px!important;padding:5px!important;
+ border:1px solid #d3e4f0!important;border-radius:16px!important;
+ background:linear-gradient(90deg,#f4f8ff,#eaf6ff)!important;
+ box-shadow:inset 0 1px 2px #a8bfd61c!important
+}
+.khatyar-auth-tab{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ min-width:0!important;min-height:47px!important;
+ padding:8px 10px!important;border-radius:12px!important;
+ font:850 clamp(10px,1vw,13px)/1.6 Estedad,Vazirmatn,Tahoma,sans-serif!important;
+ color:#234a6b!important;text-align:center!important
+}
+.khatyar-auth-tab.selected{
+ color:#fff!important;background:linear-gradient(120deg,#1368bd,#063874)!important;
+ border-bottom:3px solid #f8ca2f!important;
+ box-shadow:0 7px 13px #16599935!important
+}
+.khatyar-auth-tab.unavailable{opacity:.73!important;cursor:not-allowed!important}
+.login-field{
+ display:flex!important;flex-direction:column!important;gap:8px!important;
+ margin:14px 0!important;
+ font:800 12px/1.75 Estedad,Vazirmatn,Tahoma,sans-serif!important;
+ color:#163659!important;
+}
+.login-field>.input,.login-password-wrap>.input{
+ display:block!important;width:100%!important;min-height:51px!important;
+ border:1px solid #bdcfdf!important;border-radius:12px!important;
+ padding:10px 15px!important;
+ background:#fcfdffb8!important;color:#153858!important;
+ box-shadow:inset 0 1px 3px #1d557a11!important;
+ outline:none!important;
+ font-family:Estedad,Vazirmatn,Tahoma,sans-serif!important;
+ font-size:13px!important;transition:border-color .2s,box-shadow .2s
+}
+.login-field>.input:focus,.login-password-wrap>.input:focus{
+ border-color:#1685b8!important;
+ box-shadow:0 0 0 3px #1282bd28!important
+}
+.login-card .btn.p{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ width:100%!important;min-height:56px!important;
+ margin:17px 0 2px!important;
+ border:1px solid #7be984!important;border-radius:13px!important;
+ background:linear-gradient(110deg,#53e622,#11b354,#008b67)!important;
+ box-shadow:0 12px 22px #0c976249,inset 0 2px 2px #fff6!important;
+ color:white!important;
+ font:900 18px/1.3 Estedad,Vazirmatn,Tahoma,sans-serif!important;
+ transition:filter .2s,transform .2s!important;
+}
+.login-card .btn.p:hover:not(:disabled){filter:brightness(1.045)!important;transform:translateY(-1px)!important}
+.login-card .btn.p:disabled{opacity:.65!important;cursor:wait!important}
+.login-text-button{color:#0b6ab2!important;font-weight:800!important}
+.login-feedback{border-radius:12px!important}
+.login-support{
+ display:flex!important;flex-wrap:wrap!important;align-items:center!important;justify-content:space-between!important;
+ gap:8px!important;
+ margin-top:23px!important;padding:15px 0 0!important;
+ border-top:1px solid #c6dce8!important;
+}
+.login-support a{color:#105d98!important;font-size:11px!important;font-weight:800!important;text-decoration:none!important}
+.login-support a:hover{text-decoration:underline!important}
+.login-support-label{margin:8px 0 0!important;text-align:center!important;font-size:9px!important;color:#6f8396!important}
+.login-page .khatyar-scene-detail{display:none!important}
+.login-page .login-card .input::placeholder{color:#8196a9!important}
+#kh-version-badge-host{z-index:9!important}
+@media(max-height:900px) and (min-width:741px){
+ .kh-login-intro{margin-top:8px!important}
+ .kh-login-intro-logo img{width:clamp(105px,9vw,135px)!important;height:clamp(130px,12vw,175px)!important}
+ .kh-login-intro h1{font-size:clamp(19px,2vw,25px)!important}
+ .login-card{max-height:calc(100dvh - 265px)!important;margin-bottom:18px!important;padding:21px 28px!important;border-radius:24px!important}
+ .khatyar-method-tabs{margin-bottom:13px!important;min-height:48px!important}
+ .khatyar-auth-tab{min-height:39px!important}
+ .login-field{margin:9px 0!important}
+ .login-field>.input,.login-password-wrap>.input{min-height:44px!important}
+ .login-card .btn.p{min-height:48px!important;margin-top:12px!important}
+ .login-support{margin-top:14px!important}
+}
+@media(max-width:980px) and (min-width:741px){
+ .login-page{grid-template-columns:49% 51%!important}
+ .login-card{width:93%!important;padding:21px!important}
+ .kh-login-intro{width:94%!important}
+ .kh-login-intro h1{font-size:21px!important}
+ .khatyar-auth-tab{font-size:10px!important;padding:7px 6px!important}
+}
+@media(max-width:740px){
+ .login-page{
+  display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;
+  min-height:100dvh!important;padding:0 15px 25px!important;
+  overflow-y:auto!important;overflow-x:hidden!important;
+  background:linear-gradient(150deg,#e9f5ff,#cbe8f7)!important
+ }
+ .login-page:before{
+  position:absolute!important;inset:0 0 auto!important;
+  width:100%!important;height:180px!important;min-height:0!important;
+  background-size:cover!important;background-position:center 34%!important;
+  border-radius:0 0 25px 25px!important;opacity:.91!important
+ }
+ .login-page:after{display:none!important}
+ .kh-login-intro{
+  position:relative!important;z-index:4!important;
+  flex:none!important;width:100%!important;
+  margin:16px auto 12px!important;padding:0 9px!important;
+  text-align:center!important
+ }
+ .kh-login-intro-logo img{
+  height:120px!important;width:107px!important;
+  padding:6px!important;border-radius:13px!important;background:#f5fbffea!important;
+  filter:drop-shadow(0 5px 12px #03396577)!important
+ }
+ .kh-login-intro h1{margin:7px 0 3px!important;font-size:22px!important}
+ .kh-login-intro>p{font-size:10px!important}
+ .login-card{
+  flex:none!important;max-height:none!important;overflow:visible!important;
+  margin:0 auto 20px!important;width:min(100%,570px)!important;
+  padding:24px 19px!important;border-radius:25px!important
+ }
+ .login-support{gap:14px!important}
+}
+@media(max-width:370px){
+ .login-card{padding:19px 13px!important}
+ .kh-login-intro h1{font-size:19px!important}
+ .khatyar-auth-tab{font-size:10px!important;padding:7px 4px!important}
+}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
