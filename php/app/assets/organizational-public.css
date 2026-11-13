@@ -1,0 +1,127 @@
+/* Khatyar public website — unified with the emerald administration design system.
+   Scoped to the public site; no panel/auth or operational styles are touched. */
+:root {
+  --org-primary:#075b4d;
+  --org-primary-dark:#064a3d;
+  --org-primary-strong:#043c34;
+  --org-primary-hover:#0b7662;
+  --org-accent:#e8bc70;
+  --org-text:#182d2a;
+  --org-muted:#61776e;
+  --org-border:#dbe8e1;
+  --org-surface:#ffffff;
+  --org-canvas:#f4f8f6;
+}
+body{color:var(--org-text)!important;background:var(--org-canvas)!important}
+header{
+  background:linear-gradient(100deg,#ffffff,#f4faf6)!important;
+  border-color:var(--org-border)!important;
+  box-shadow:0 9px 27px #053d3020!important
+}
+.navlinks{color:#24473e!important}
+.navlinks a:hover,.navlinks a[aria-current="page"]{color:var(--org-primary)!important}
+.navlinks a[aria-current="page"]:after{background:var(--org-primary-hover)!important}
+.nav .actions .btn.primary,
+.btn.primary{background:linear-gradient(115deg,#0b7662,#075b4d)!important;color:white!important;box-shadow:0 7px 20px #075b4d38!important}
+.btn.primary:hover{background:linear-gradient(115deg,#128b72,#064a3d)!important}
+.btn.outline{border-color:#b6d5c5!important;color:var(--org-primary)!important}
+.btn.outline:hover{background:#e9f6ed!important}
+.page[data-page="/"]{
+  background:radial-gradient(ellipse at 90% 70%,#e7f4ed,transparent 60%),#f4f8f6!important
+}
+.page[data-page="/"] .premium-hero{
+  background:radial-gradient(ellipse at 9% 42%,#20786a,transparent 57%),
+    radial-gradient(ellipse at 90% 5%,#0e735b,transparent 50%),
+    linear-gradient(115deg,#043c34,#075b4d 52%,#064a3d)!important
+}
+.page[data-page="/"] .premium-hero:before{
+  background:linear-gradient(160deg,#5dbb7c22 0%,transparent 30%,transparent 80%,#e8bc701c 100%)!important
+}
+.page[data-page="/"] .premium-hero:after{
+  background:linear-gradient(90deg,transparent,#4bc7946b,#e8bc7048,transparent)!important
+}
+.page[data-page="/"] .hero-copy h1{color:white!important}
+.page[data-page="/"] .hero-copy h1 em{color:#e9ca81!important}
+.page[data-page="/"] .hero-copy p{color:#e0f1e8!important}
+.page[data-page="/"] .hero-copy .btn.primary{
+  background:linear-gradient(112deg,#eac982,#e8bc70)!important;
+  color:#294326!important;
+  border:1px solid #f4dfb3!important;
+  box-shadow:0 7px 16px #061d162e!important
+}
+.page[data-page="/"] .hero-copy .btn.outline{
+  color:#fff!important;border-color:#b8dac8!important;
+  background:#ffffff12!important
+}
+.page[data-page="/"] .hero-benefits{color:#e9f4ef!important}
+.page[data-page="/"] .hero-benefits svg{color:#cde9b2!important}
+.page[data-page="/"] .stats.kh-stats{
+  background:linear-gradient(110deg,#ffffff,#f0f8f2)!important;
+  border-color:#e9f4ec!important;
+  box-shadow:0 13px 29px #0a604222!important
+}
+.page[data-page="/"] .kh-stats .stat{border-left-color:#dbe8e1!important}
+.page[data-page="/"] .kh-stats .stat strong{color:#075b4d!important}
+.page[data-page="/"] .kh-stats .stat span{color:#3f6557!important}
+.page[data-page="/"] #solutions{
+  background:linear-gradient(180deg,#f4f8f6,#ebf5ef)!important
+}
+.page[data-page="/"] #solutions .section-head .kicker{color:#0b7662!important}
+.page[data-page="/"] #solutions h2{color:#153d32!important}
+.page[data-page="/"] #solutions .lead{color:#60786e!important}
+.page[data-page="/"] .explore-category{
+  background:linear-gradient(145deg,#ffffff,#f1f8f3)!important;
+  border-color:#d8e8dc!important;
+  box-shadow:0 8px 22px #0c513217!important
+}
+.page[data-page="/"] .explore-category:hover{border-color:#aad5bc!important;box-shadow:0 12px 27px #0c513227!important}
+.page[data-page="/"] .explore-category .svg-icon{
+  background:#e5f4ea!important;color:#08745c!important
+}
+.page[data-page="/"] .explore-category strong{color:#1a3b31!important}
+.page[data-page="/"] .explore-category small{color:#61786d!important}
+.page[data-page="/"] #learn-more.kh-info-section{
+  background:linear-gradient(150deg,#f2f8f4,#e7f4ed)!important
+}
+.page[data-page="/"] .kh-about-panel,
+.page[data-page="/"] .kh-faq-panel,
+.page[data-page="/"] .kh-contact-panel{
+  border-color:#d7e8de!important;
+  background:linear-gradient(130deg,#ffffff,#f4faf6)!important;
+  box-shadow:0 12px 27px #105c3614!important
+}
+.page[data-page="/"] .kh-about-panel{
+  background:radial-gradient(ellipse at 85% 75%,#d6f2e3,transparent 58%),
+    linear-gradient(130deg,#ffffff,#f5fbf7)!important
+}
+.page[data-page="/"] .kh-about-copy h2,.page[data-page="/"] .kh-panel-heading h2,.page[data-page="/"] .kh-contact-panel h2{color:#153e32!important}
+.page[data-page="/"] .kh-about-copy>p{color:#4a695b!important}
+.page[data-page="/"] .kh-about-values span{color:#12614c!important}
+.page[data-page="/"] .kh-learn-btn,.page[data-page="/"] .kh-contact-action{
+  border-color:#a7d8bb!important;color:#075b4d!important
+}
+.page[data-page="/"] .kh-faq-panel details{border-color:#e0eee4!important;background:#fbfefc!important}
+.page[data-page="/"] .kh-faq-panel summary{color:#284b3c!important}
+.page[data-page="/"] .kh-contact-panel{
+  background:radial-gradient(ellipse at 8% 10%,#d7f4e3,transparent 55%),
+    linear-gradient(130deg,#ffffff,#f1f8f4)!important
+}
+.kh-site-footer{
+  background:linear-gradient(115deg,#043c34,#075b4d 62%,#0b7662)!important;
+  border-color:#c7dfd1!important
+}
+.kh-footer-brand strong,.kh-footer-nav a{color:#eef9f1!important}
+.kh-footer-brand p,.kh-footer-bottom{color:#c6dfd1!important}
+.kh-footer-nav a:hover{color:#e8bc70!important}
+.inner-hero{background:linear-gradient(120deg,#064a3d,#0b7662)!important}
+.inner-hero p{color:#e0f1e8!important}
+.feature-index .index-chip,.feature-group,.feature-tile,.fact,.contact-form-panel,.panel{
+ border-color:var(--org-border)!important
+}
+.feature-heading-icon,.tile-icon,.contact-mark{background:#e7f4ed!important;color:#075b4d!important}
+.feature-tile h3,.feature-heading h2,.contact-form-panel h2{color:#1e4438!important}
+.contact-panel{background:linear-gradient(130deg,#043c34,#0b7662)!important}
+.about-visual{background:linear-gradient(130deg,#064a3d,#0b7662)!important}
+.kicker,.group-label{color:#0b7662!important}
+:focus-visible{outline-color:#e8bc70!important}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important}}
